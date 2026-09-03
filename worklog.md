@@ -363,3 +363,26 @@ Work Log:
 Stage Summary:
 - User's Windows dashboard after pull + Re-detect: green chip "RELION 5.0.1 · WSL", Version/Source/Path populated from distro, binaries verified in-distro, amber "bridge required" hint
 - Pipeline unchanged: refine3d 73%, expecting completion → maskcreate→postprocess in coming rounds
+
+---
+Task ID: 355789-wsl-aggregate
+Agent: main (Super Z)
+Task: 用户追问：WSL 探针已显示 "RELION 5.0.1 in WSL (Debian)"，为何顶层仍报 "RELION not detected"？修复状态聚合。
+
+Work Log:
+- 根因：顶层 found/path/version/source 只反映宿主原生检测（RELION_HOME → PATH → known-path）；在 Windows 原生跑 Next.js + WSL 装 RELION 的部署（用户实际场景，其截图与沙盒 API 状态交叉验证确认）宿主检测必然失败，WSL 探测结果只落在 wsl 子对象，UI 顶层永远 "not detected"。
+- ⚠️ 并发协作记录：本轮与另一并行 cron agent 在同一文件上交错写入（system.ts/header.tsx 12:47-12:48 出现对方的 locateWslExe/probeWslBinaries/聚合实现，同时我一次 MultiEdit 部分落地了 4 个 helper）。以 mtime 稳定 + git status 为准收束：删除我方未接线的死 helper（shQuote/probeWslContents/resolveAdoption/probeWslDetailed，~90 行），保留对方聚合实现并补齐缺口。
+- types.ts：SystemStatusClient 增加 execution: "native" | "wsl" | null —— native=本进程可直接 spawn path（宿主安装或服务器与 WSL 同 fs）；wsl=RELION 在 WSL、Windows 宿主不能直接 spawn（需桥接）；null=未找到。
+- system.ts detectRelion 聚合：宿主检测失败且 WSL 找到 RELION → 提升进顶层（found=true、path/version/source 填充，source="WSL (distro) · 来源"）；binaries/externals 在 distro 内单次 bash 调用探测；采纳时 isValidBinDir(wsl.relionPath)（服务器与 distro 同 fs）→ execution="native"（job 可直接跑），否则 "wsl"。
+- system.ts 关键 bug 修复：probeWslBinaries 脚本 `test -x '${q}/$b'` 把 $b 关在单引号里 → bash 永不展开 → 用户机器上所有 RELION 二进制永远显示缺失（沙盒上无从发现，shim 模拟才暴露）。改为 `'${q}'/"$b"`。
+- engine.ts：RELION 检测后增加 execution 守卫 —— 非 native 时 job 启动返回明确错误（"…cannot spawn distro-internal binaries directly. Run CryoFlow inside the WSL distro…"），而不是拿 Linux 路径在 Windows 上 ENOENT。
+- header.tsx（对方实现保留）：chip "RELION 5.0.1 · WSL"（source 以 "WSL" 开头判定）、popover "RELION detected (in WSL)"、Version/Source/Path 填充、execution==="wsl" 琥珀桥接提示。
+- job-panel.tsx Run 按钮三态：未检测（禁用+琥珀）/ WSL-only（禁用 + "RELION 5.0.1 detected in WSL (Debian) — job execution from this host needs the WSL bridge"）/ native（可跑）。project-panel.tsx 新建项目对话框同理（WSL-only 显示青色 "detection is live, but running jobs needs the WSL bridge"）。
+- probeWsl note 措辞修正：删除 "Jobs can run through the WSL bridge"（桥接未实现，不实承诺）。
+- 验证（未重启 dev server / 未 build，热重载）：lint 0 输出、tsc 项目 src 0 错误；真实 API execution="native"（沙盒管线不受影响，Refine3D 仍在跑）；shim 端到端模拟两场景（同 fs→native / Windows 宿主→wsl）全部字段正确，引号 bug 修复前后对比实锤；agent-browser 合成注入（复刻用户截图状态）验证 chip/popover/Run 禁用+hint/新建项目青色提示，回滚注入后恢复 native 且 Run 可用、Re-detect 时间戳刷新（1:01:04→1:01:22）；浏览器已 close。
+
+Stage Summary:
+- 用户问题闭环：WSL 探测成功直接提升为顶层状态，"not detected" 误报不再出现；诚实区分"检测到（WSL）"与"可执行（需桥接）"。
+- 修复一个只有真实 WSL 环境才会踩的 probeWslBinaries 变量展开 bug（binaries 列表在用户机器上会全空）。
+- 未做（留待后续）：WSL 执行桥接（wsl -e + /mnt 路径翻译）；本轮只做检测聚合 + 诚实执行守卫。
+- 协作警示：多 agent 并行编辑同一文件时，先看 mtime 稳定性与 git status 再动手，避免覆盖半成品；auto-commit sweep 会周期性收走工作区改动。
