@@ -386,3 +386,27 @@ Stage Summary:
 - 修复一个只有真实 WSL 环境才会踩的 probeWslBinaries 变量展开 bug（binaries 列表在用户机器上会全空）。
 - 未做（留待后续）：WSL 执行桥接（wsl -e + /mnt 路径翻译）；本轮只做检测聚合 + 诚实执行守卫。
 - 协作警示：多 agent 并行编辑同一文件时，先看 mtime 稳定性与 git status 再动手，避免覆盖半成品；auto-commit sweep 会周期性收走工作区改动。
+
+---
+Task ID: restore-2026-09-04-a
+Agent: Super Z (主循环)
+Task: 取消旧 cron；GitHub 恢复代码；重建 RELION 栈；EMPIAR-10017 管线重跑准备
+
+Work Log:
+- 取消 3 个旧 cron（355789/355605/355455）
+- 环境诊断：容器 15:20 冷启动（昨日 23:15 沙箱回收）→ /home/z 全失（代码/RELION/EMPIAR 数据/dev server）；/tmp/my-project（PolarFS）存活：EMPIAR 原始数据 + 旧工作树快照
+- 代码恢复：GitHub Jing0715-fer/cryoflow main 5a72d14（=最终工作树全量；快照中 executor/scheduler 等为 16-b 废弃重构，不可混入）→ /home/z/my-project；bun install + db:push + db:generate
+- 进程模型实证：工具调用结束即回收全部派生进程（setsid/nohup/disown 均无效）；dev server 只能由 boot 时 /start.sh→.zscripts/dev.sh 以 root 树启动（昨日 5 小时长跑的机制）
+- RELION 栈重建（分块续跑）：MPICH 4.2.3（configure+make 分 4 块 590s）；ctffind 4.1.14 官方 linux64 二进制（grigoriefflab.umassmed.edu）；RELION 5.0.1 tag d476e6（cmake -DGUI=OFF -DCUDA=OFF + MPICH，590s 一块编完）→ /home/z/relion-install/bin 123 二进制
+- mpirun 修复认知：能跑但退出清理 ~8s（正常）；无 --oversubscribe
+- EMPIAR 数据落位：10 微图 + 10 .coord（641MB）→ /home/z/empiar-10017/micrographs
+- 管线装配：POST /api/projects/empiar-seed（项目 cmtluozop0000p95tbelt702r，10 作业+11 边）+ 6 参数 PATCH（autoRefine/3500/K8/downsample0/lowpass10/rand0）
+- 预推进完成：import✓ manualpick✓(5539 picks) ctffind✓（DefocusU=34890.6/FOM 0.063/maxres 6.04 —— 与上次成功运行逐值一致）extract✓(5540) select✓(3500/5539)
+- MPI 冒烟：class2d 启动成功（mpirun -n 2 + 2×relion_refine_mpi，it1/12 开始，5.8min/it）后按计划重置 idle
+- 持久化保障：/tmp/my-project/persist/{RESTORE.md, relion-stack(366M), advance.sh, seed-and-tune.sh}
+- advance.sh 重写为动态版（拓扑驱动、按类型找 job、断点续跑、COMPLETE 解析 run.out FSC）
+
+Stage Summary:
+- 应用代码 + RELION 全栈 + EMPIAR 数据 + 管线前半段全部就绪且经真实二进制验证
+- 唯一未决：dev server 需容器 boot 启动（用户软重启沙箱）→ 然后推进 class2d→initialmodel→refine3d→maskcreate→postprocess（约 7-8h，cron 5min 监控）
+- 若软重启变全量重置：按 persist/RESTORE.md 3 分钟恢复（但 dev server 仍需再软重启一次）
