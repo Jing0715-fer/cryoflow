@@ -1,31 +1,140 @@
-'use client'
+"use client";
+
+import * as React from "react";
+import { Plus } from "lucide-react";
+import { useWorkflowStore } from "@/lib/store";
+import { Header } from "@/components/workflow/header";
+import { Footer } from "@/components/workflow/footer";
+import { JobPalette } from "@/components/workflow/palette";
+import { WorkflowCanvas } from "@/components/workflow/canvas";
+import { JobPanel } from "@/components/workflow/job-panel";
+import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+
+function useMediaQuery(query: string) {
+  const [matches, setMatches] = React.useState(false);
+  React.useEffect(() => {
+    const mql = window.matchMedia(query);
+    setMatches(mql.matches);
+    const onChange = (e: MediaQueryListEvent) => setMatches(e.matches);
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, [query]);
+  return matches;
+}
 
 export default function Home() {
+  const jobs = useWorkflowStore((s) => s.jobs);
+  const selectedId = useWorkflowStore((s) => s.selectedId);
+  const select = useWorkflowStore((s) => s.select);
+
+  const [mounted, setMounted] = React.useState(false);
+  const [paletteOpen, setPaletteOpen] = React.useState(false);
+  const isXl = useMediaQuery("(min-width: 1280px)");
+
+  // Initial data load
+  React.useEffect(() => {
+    void useWorkflowStore.getState().load();
+  }, []);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Poll while any job is running
+  const anyRunning = React.useMemo(
+    () => jobs.some((j) => j.status === "running"),
+    [jobs]
+  );
+  React.useEffect(() => {
+    if (!anyRunning) return;
+    const timer = setInterval(() => {
+      void useWorkflowStore.getState().pollTick();
+    }, 1200);
+    return () => clearInterval(timer);
+  }, [anyRunning]);
+
+  // ESC cancels connect mode, then deselects
+  React.useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      const s = useWorkflowStore.getState();
+      if (s.pendingFrom) s.cancelConnect();
+      else if (s.selectedId) s.select(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  const panelSheetOpen = mounted && !isXl && selectedId != null;
+
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: '100vh',
-      gap: '2rem',
-      padding: '1rem'
-    }}>
-      <div style={{
-        position: 'relative',
-        width: '6rem',
-        height: '6rem'
-      }}>
-        <img
-          src="/logo.svg"
-          alt="Z.ai Logo"
-          style={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'contain'
-          }}
-        />
-      </div>
+    <div className="flex h-dvh flex-col bg-background text-foreground">
+      <Header />
+
+      <main className="flex min-h-0 flex-1">
+        {/* Desktop palette */}
+        <aside className="hidden w-64 shrink-0 border-r bg-sidebar lg:flex lg:flex-col">
+          <JobPalette />
+        </aside>
+
+        <WorkflowCanvas />
+
+        {/* Desktop details panel */}
+        <aside className="hidden w-80 shrink-0 border-l bg-card xl:flex xl:flex-col">
+          <JobPanel />
+        </aside>
+      </main>
+
+      <Footer />
+
+      {/* Mobile: floating palette trigger */}
+      <Button
+        size="icon"
+        aria-label="Add a job"
+        className="card-lift-lg fixed right-5 bottom-20 z-40 size-12 rounded-full shadow-lg lg:hidden"
+        onClick={() => setPaletteOpen(true)}
+      >
+        <Plus className="size-6" />
+      </Button>
+
+      {/* Mobile / tablet palette sheet */}
+      <Sheet open={paletteOpen} onOpenChange={setPaletteOpen}>
+        <SheetContent
+          side="left"
+          className="w-72 gap-0 p-0 sm:max-w-xs"
+        >
+          <SheetHeader className="sr-only">
+            <SheetTitle>Job types</SheetTitle>
+            <SheetDescription>Add cryo-EM jobs to the canvas</SheetDescription>
+          </SheetHeader>
+          <JobPalette onAdded={() => setPaletteOpen(false)} />
+        </SheetContent>
+      </Sheet>
+
+      {/* Mobile / tablet details sheet */}
+      <Sheet
+        open={panelSheetOpen}
+        onOpenChange={(open) => {
+          if (!open) select(null);
+        }}
+      >
+        <SheetContent side="right" className="w-full gap-0 p-0 sm:max-w-md">
+          <SheetHeader className="sr-only">
+            <SheetTitle>Job details</SheetTitle>
+            <SheetDescription>
+              Inspect parameters, run the job and manage connections
+            </SheetDescription>
+          </SheetHeader>
+          <JobPanel />
+        </SheetContent>
+      </Sheet>
     </div>
-  )
+  );
 }
