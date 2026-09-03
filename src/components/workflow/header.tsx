@@ -9,6 +9,7 @@ import {
   CircleCheck,
   Github,
   Loader2,
+  RefreshCw,
   Snowflake,
   X,
 } from "lucide-react";
@@ -124,12 +125,23 @@ function BinaryRow({ name, present }: { name: string; present: boolean }) {
 
 function RelionStatusChip() {
   const system = useWorkflowStore((s) => s.system);
+  const refreshSystem = useWorkflowStore((s) => s.refreshSystem);
+  const systemRefreshing = useWorkflowStore((s) => s.systemRefreshing);
 
   const found = system?.found ?? false;
   const label = found ? `RELION ${system?.version ?? ""}`.trim() : "RELION not found";
   const title = found
     ? `RELION ${system?.version ?? "?"} · ${system?.path ?? ""}`
     : "RELION 5 not detected on this host";
+
+  // WSL three-state: RELION found inside WSL / WSL ok but RELION not on PATH /
+  // WSL itself unavailable — never collapse the last two into one message.
+  const wsl = system?.wsl;
+  const wslState = !wsl || !wsl.available
+    ? "unavailable"
+    : wsl.relionPath
+      ? "relion"
+      : "no-relion";
 
   return (
     <Popover>
@@ -189,16 +201,51 @@ function RelionStatusChip() {
                 {system?.path ?? "—"}
               </span>
             </p>
-            <p className="flex justify-between gap-2">
+            <p className="flex items-center justify-between gap-2">
               <span className="shrink-0">WSL</span>
-              <span className="font-medium text-foreground">
-                {system?.wsl.available ? (system.wsl.relionPath ? "RELION inside WSL" : "available") : "not available"}
+              <span className="flex items-center gap-1.5 font-medium text-foreground">
+                <span
+                  className={cn(
+                    "size-1.5 rounded-full",
+                    wslState === "relion"
+                      ? "bg-emerald-500"
+                      : wslState === "no-relion"
+                        ? "bg-amber-500"
+                        : "bg-muted-foreground/40"
+                  )}
+                  aria-hidden="true"
+                />
+                {wslState === "relion"
+                  ? `RELION ${wsl?.version ?? ""} in WSL${wsl?.distro ? ` (${wsl.distro})` : ""}`
+                  : wslState === "no-relion"
+                    ? "WSL ok · RELION not on PATH"
+                    : wsl?.unavailableReason === "no-distro"
+                      ? "WSL present · no distro"
+                      : "WSL not installed"}
               </span>
             </p>
-            {system?.wsl.note && (
-              <p className="rounded-md bg-muted/60 px-2 py-1.5 text-[10px] leading-relaxed">
-                {system.wsl.note}
+            {system?.wsl.source && system.wsl.relionPath && (
+              <p className="flex justify-between gap-2">
+                <span className="shrink-0">WSL source</span>
+                <span className="max-w-48 truncate font-mono text-[10px] text-foreground" title={`${system.wsl.source} · ${system.wsl.relionPath}`}>
+                  {system.wsl.source} · {system.wsl.relionPath}
+                </span>
               </p>
+            )}
+            {system?.wsl.note && (
+              <div className="space-y-0.5 rounded-md bg-muted/60 px-2 py-1.5">
+                {system.wsl.note.split("\n").map((line, i) => (
+                  <p
+                    key={i}
+                    className={cn(
+                      "text-[10px] leading-relaxed",
+                      /^[A-C]\)/.test(line.trim()) && "font-mono text-foreground/80"
+                    )}
+                  >
+                    {line}
+                  </p>
+                ))}
+              </div>
             )}
           </div>
           <div>
@@ -221,9 +268,24 @@ function RelionStatusChip() {
               ))}
             </div>
           </div>
-          <p className="text-right text-[10px] text-muted-foreground/70">
-            checked {system ? new Date(system.checkedAt).toLocaleTimeString() : "—"}
-          </p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[10px] text-muted-foreground/70">
+              checked {system ? new Date(system.checkedAt).toLocaleTimeString() : "—"}
+            </p>
+            <button
+              type="button"
+              onClick={() => void refreshSystem()}
+              disabled={systemRefreshing}
+              className="flex items-center gap-1.5 rounded-md border bg-card px-2 py-1 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground disabled:opacity-60"
+              title="Re-run the RELION/WSL environment probe (bypasses the 60s cache)"
+            >
+              <RefreshCw
+                className={cn("size-3", systemRefreshing && "animate-spin")}
+                aria-hidden="true"
+              />
+              {systemRefreshing ? "detecting…" : "Re-detect"}
+            </button>
+          </div>
         </div>
       </PopoverContent>
     </Popover>

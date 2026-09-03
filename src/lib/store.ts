@@ -43,6 +43,8 @@ interface WorkflowState {
   projects: ProjectSummaryDTO[];
   /** RELION environment status (refreshed on load). */
   system: SystemStatusClient | null;
+  /** True while a forced re-detect is in flight (Re-detect button spinner). */
+  systemRefreshing: boolean;
   selectedId: string | null;
   pendingFrom: PendingFrom | null;
   /** Pan + zoom of the free canvas viewport. */
@@ -57,6 +59,8 @@ interface WorkflowState {
   dragLive: { id: string; dx: number; dy: number } | null;
 
   load: () => Promise<void>;
+  /** Force a fresh RELION/WSL environment probe (bypasses the 60s cache). */
+  refreshSystem: () => Promise<void>;
   switchProject: (id: string) => Promise<void>;
   createProject: (input: { name: string; mode: string; engine: string }) => Promise<boolean>;
   renameProject: (id: string, name: string) => Promise<boolean>;
@@ -128,6 +132,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   project: null,
   projects: [],
   system: null,
+  systemRefreshing: false,
   selectedId: null,
   pendingFrom: null,
   viewport: { x: 0, y: 0, zoom: 1 },
@@ -159,6 +164,19 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       const msg = err instanceof Error ? err.message : "Failed to load project";
       set({ loading: false, error: msg });
       errToast(msg);
+    }
+  },
+
+  refreshSystem: async () => {
+    if (get().systemRefreshing) return;
+    set({ systemRefreshing: true });
+    try {
+      const sys = await api<SystemStatusClient>("/api/system?force=1");
+      set({ system: sys });
+    } catch (err) {
+      errToast(err instanceof Error ? err.message : "Failed to re-detect RELION environment");
+    } finally {
+      set({ systemRefreshing: false });
     }
   },
 

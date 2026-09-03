@@ -326,3 +326,22 @@ Stage Summary:
 - 连线质量四件套全部落地并离线验证：直线化（turn-penalty A* + stub 感知 string-pull）、不重叠（顺序路由 + 软占用代价 + 占用感知拉直）、离卡片 24px 走廊（INFLATE=24）、圆角 16。
 - 输入侧四种连线方式可用：正向拖拽（输出→输入）、反向拖拽（输入→输出，LiveWire 反向锚点）、点击-点击两步式（两方向）、面板 "Link source…" 下拉选择；ESC/背景/× 取消全覆盖。
 - 未验证项：①未用 agent-browser 做视觉 QA（规则禁用）——stub 高亮脉冲、Popover 交互、拖拽手感建议主代理集成 QA 时过一遍；②routeMemo 在极端拖拽下每帧新签名（上限 64 条防涨）；③移动端触屏反向拖拽依赖 setPointerCapture，与正向拖拽同样受浏览器手势抢占风险（pointercancel 已兜底取消）。
+
+---
+Task ID: 355789-wsl-detect
+Agent: main (Super Z)
+Task: 修复 dashboard WSL 探针误报（用户报告：RELION 5 已装在 WSL 但不在 PATH，dashboard 误报"WSL 不可用"）；加"重新检测"按钮。
+
+Work Log:
+- 根因：probeWsl 用 `wsl -e which relion_refine`（非登录 shell，不加载 ~/.bashrc 的 PATH 修改）且把"RELION 未找到"与"WSL 不可用"混为一谈；无 Re-detect 按钮（store 仅 load 时 fetch 一次 + 60s 服务端缓存）。
+- types.ts：新增 WslStatusClient —— unavailableReason ("no-wsl"|"no-distro")、relionPath/relionHome、version、source ("login-shell PATH"|"RELION_HOME env"|"filesystem search")、distro、note（多行可执行指引）。
+- system.ts：probeWsl 三段式发现（默认 distro 内）：① bash -lc 登录 shell `command -v relion_refine`（吃 .bashrc PATH，即用户方案 A）② $RELION_HOME env（方案 C）③ 文件系统兜底搜索常见布局（~/relion*/bin、~/myproject/relion*/bin、~/my-project/relion*/bin、~/src|build|code/relion*/bin、/usr/local/relion*/bin、/opt/relion*/bin 等，一次 bash 调用有界超时）。win32 宿主直接用 wsl.exe（不依赖 which）；distro 名用 `echo $WSL_DISTRO_NAME`（避开 wsl --list 的 UTF-16LE）。未找到时输出诚实的三选一修复指引（A/B/C）。probeVersion 加 relion_refine_mpi 回退。candidateDirs 加 searchHomeCandidates()（原生 Linux 也扫 ~ 一层 dev 目录里的 relion 安装）。
+- /api/system：支持 ?force=1 绕过 60s 缓存。
+- store.ts：systemRefreshing 状态 + refreshSystem() action（force 探测、错误 toast）。
+- header.tsx：WSL 行三态渲染（绿点 "RELION 5.0.1 in WSL (distro)" / 琥珀点 "WSL ok · RELION not on PATH" / 灰点 "WSL not installed|no distro"）+ WSL source 行 + note 多行渲染（A/B/C 命令行 font-mono 高亮）+ 底部 Re-detect 按钮（RefreshCw 旋转、disabled 防抖）。
+- 验证：tsc src/ 0 错误（examples/skills 的历史错误与本次无关）；eslint 5 个改动文件 0 输出；/api/system?force=1 实测 found=true version=5.0.1 path=/home/z/relion-install/bin（_mpi 回退生效），WSL 正确报 "no-wsl"；agent-browser 实测 popover 渲染三态行 + Re-detect 点击后 checked 时间戳刷新（12:05:19→12:06:10），用后即 close。
+- 未做：WSL 桥接执行引擎（wsl -e 跑 job）——本次只做检测与指引，执行桥接需路径翻译（/mnt/c/...），留待后续。
+
+Stage Summary:
+- dashboard 不再误报"WSL 不可用"：WSL 本体、RELION 是否在 PATH、如何被找到三者独立报告；用户修完 PATH 点 Re-detect 即可看到版本号与路径。
+- 三种用户方案（A bashrc / B symlink / C RELION_HOME）全部被探针覆盖；常见安装布局（含用户的 relion5-build-cuda-fixed、relion5-pkg）自动发现，多数情况下无需改 PATH。
