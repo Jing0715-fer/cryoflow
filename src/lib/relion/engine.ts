@@ -1706,6 +1706,14 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
   if (!status.found || !status.path) {
     return { ok: false, error: "RELION 5 not detected — build/install RELION or set RELION_HOME" };
   }
+  if (status.execution !== "native") {
+    // RELION found, but only inside WSL on a host that cannot spawn distro
+    // paths directly — fail honestly instead of ENOENT-ing on a Linux path.
+    return {
+      ok: false,
+      error: `RELION ${status.version ?? ""} detected inside WSL (${status.wsl.distro ?? "default"}) at ${status.path}, but this app cannot spawn distro-internal binaries directly. Run CryoFlow inside the WSL distro (or install RELION on this host) to execute jobs.`,
+    };
+  }
   const binDir = status.path;
 
   // ---- resolve inputs --------------------------------------------------

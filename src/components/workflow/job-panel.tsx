@@ -794,8 +794,19 @@ function PanelBody({ job }: { job: JobDTO }) {
 
   const spec = jobType(job.type);
   const engine = job.engine ?? "sim";
-  const relionBlocked = engine === "relion" && system !== null && !system.found;
-  const relionHint = "RELION not detected — build/install RELION or set RELION_HOME";
+  // Tri-state RELION gating: not detected (hard block) vs detected-in-WSL-only
+  // (bridge required — block with a precise reason instead of a guaranteed
+  // ENOENT failure at spawn time).
+  const relionMissing = engine === "relion" && system !== null && !system.found;
+  const relionWslOnly =
+    engine === "relion" &&
+    system !== null &&
+    system.found &&
+    system.execution === "wsl";
+  const relionBlocked = relionMissing || relionWslOnly;
+  const relionHint = relionWslOnly
+    ? `RELION ${system?.version ?? ""} detected in WSL${system?.wsl.distro ? ` (${system.wsl.distro})` : ""} — job execution from this host needs the WSL bridge`
+    : "RELION not detected — build/install RELION or set RELION_HOME";
 
   const [name, setName] = React.useState(job.name);
   const [runPending, setRunPending] = React.useState(false);
