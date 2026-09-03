@@ -296,3 +296,33 @@ Work Log:
 
 Stage Summary:
 - 用户本轮 14 项需求全部交付并 QA 验证：项目管理面板 ✓ 目录折叠 ✓ 右面板按需 ✓ RELION 真实参数(标签页+专家选项) ✓ 结果输出 UI(图/表/FSC) ✓ Mol* 整合 ✓ 端口随卡实时移动 ✓ 多端口按类型/输入数连线 ✓ 避障路由 ✓ 滚轮缩放 ✓ 左键平移 ✓ 拖拽建作业 ✓ 一键整理 ✓ push(待执行)
+
+---
+Task ID: 9-a
+Agent: Subagent A (canvas UX)
+Task: 卡片连线优化（避免折线/线不重叠/离卡片更远）+ 新建 job 输入的多方式连线（拖拽、画布连线、反向连线、面板选择）
+
+Work Log:
+- 本轮为断点续跑：上一进程已写完全部 5 个文件但未验证/未记账。本轮完成了完整性审查、修复了一个真实路由缺陷并全量验证。
+- **edges-layer.tsx（829 行，核心重写）**：
+  - A* 转向惩罚：state = cell×8 方向（N_STATES=COLS×ROWS×8，模块级 Float64/Int32 世代复用缓冲，避免每次搜索 ~1MB 分配），方向改变付 TURN_COST=2.2 → 长直段优先、阶梯彻底消失。
+  - 8 向无切角（对角需两正交邻格均空）+ 曼哈顿启发 + MinHeap + MAX_ITER=15000；失败回退 S 形贝塞尔（控制偏移 dx=max(60, 0.45·|ex-sx|)，回退贝塞尔也采样 9 点折线进占用栅格）。
+  - INFLATE 12→24（卡片四周 24px 让线走廊）；端点 stub=18px：源端口向右出、目标端口从左入，A* 在 stub 之外（nearestFree 于 sx+STUB+2 / ex-STUB-2，等价 spec 的 INFLATE±6 因 perEdgeGrid 已豁免端点卡光环）；源/目标卡以裸体重新盖章 → 端口通道可用。
+  - **String-pull（≤3 趟）改为含 stub 端点的 [stubA, …cellCenters, stubB] 拉直 + LOS 感知占用栅格**（本轮修复）：原实现只拉直格心折线，端口 y 与格心 y 差 ≤10px 会在两端留下折点（S1 场景实测 pts=6/折 4 次）。现在清走廊时整条线塌缩为端口到端口直线（S1 实测 pts=2/折 0）；LOS 同时被障碍格与占用格阻挡 → 后续边不会被拉直回前一条线的走廊；占用仅在两 stub ±30px 口袋内局部豁免（扇出/扇入共享端口通道不可避免）。
+  - 边分离：按 fromJobId|fromPort|toJobId|toPort 确定性排序 → 顺序路由 → 每条路由完成即 Bresenham 采样 + 1 格膨胀写入共享 Uint8Array occ；后续 A* 对占用格付 OCC_COST=1.8 软代价 → 平行线取邻走廊。RoutedEdge 增加 pts: Pt[]。
+  - 全量重算（jobs 数组新身份）：忽略缓存顺序路由全部边、写回缓存、逐条栅格化；dragLive 两趟：无关边复用缓存 pts（栅格化进占用），被拖卡相关边重路由 —— 端点零延迟跟随不变。routeMemo 内容签名（>64 清空）防 no-op 轮询抖动。
+  - 圆角 10→16；箭头/悬停删除（中点 ×）/edge-flow/16px 命中描边全保留；pathClearOfBodies 终检（端 stub 段豁免）。
+- **store.ts（463 行）**：PendingFrom 增 dir?: "out"|"in"（缺省 out，全兼容旧调用）；connect 端口兼容/去重/环检测逻辑不变。
+- **job-card.tsx（611 行）**：输入端口反向拖拽 —— pointerdown → setPendingFrom({dir:"in"}) + 指针捕获 + 5px 阈值；pointerup elementFromPoint → closest('[data-port]') 命中他卡 out:NAME → onConnect(他卡, 本卡, NAME, 本端口)；拖空取消、纯点击保留 pending（点击兼容输出端口续接）、再点同一端口取消。输出端口对称支持"完成 in 悬线"（complete 模式）。pending 存在时对侧兼容端口 ring-2 ring-primary/60 + animate-pulse 高亮（dir=out 高亮他卡输入、dir=in 高亮他卡输出，portsCompatible 判定），data-port-compatible="true"。键盘 Enter/Space 双向全支持。
+- **canvas.tsx（462 行）**：LiveWire 支持 dir="in"（锚点 = job.x, job.y+portY(idx,n) 左缘输入口）；连线提示 pill 文案双向适配（"drop on a matching output port ◉" vs "click a matching input port"）；背景单击/ESC 取消对两方向均生效（page.tsx ESC 处理器按 pendingFrom 泛化判断，无需改动）。
+- **job-panel.tsx（1051 行）**：I/O 页每个未连接输入端口行下新增虚线 "Link source…" 幽灵按钮（Plus 图标）→ shadcn Popover 列出所有他卡兼容输出端口（"<作业名> · <RELION 端口 label>"，按作业名+端口序排序，max-h-64 滚动）→ 选中即 store.connect；无可兼容源时禁用态 "No compatible source yet"；已连接端口保留原 chips（footer 仅未连接时渲染）；sr-only label + title 全覆盖。
+- **验证（遵守 4GB 约束：未重启/未 build/未 tsc/未 agent-browser）**：
+  - `bun run lint` 全项目 exit 0（0 错误 0 警告）。
+  - SSR 冒烟：GET / → 200 且含 data-canvas="viewport"（dev.log 尾部无编译错误；中途一条 "Can't resolve 'lib/workflow'" 是上次写文件半程的瞬态记录，之后 3 次 ✓ Compiled + GET / 200）。
+  - /tmp/edge-sanity.ts 算法离线演练（提取纯算法段，9 场景 25 断言全过）：对齐直线 pts=2/折 0；40px 偏移折 2；挡路卡 clearance 54.9px/折 4；平行线间距 220px；扇出中段间距 200/200/400px；**共线扇出陷阱（同源端口+共线目标，直连线本应叠线）实测间距 231px**；反向边正常；密集墙 2ms；10 边链 1ms 全直线（跨列折 2）。
+- 修改面：5 个文件（全部属本代理所有权），818+/169-；未触碰 workflow.ts / relion / api / prisma / types.ts / page.tsx。
+
+Stage Summary:
+- 连线质量四件套全部落地并离线验证：直线化（turn-penalty A* + stub 感知 string-pull）、不重叠（顺序路由 + 软占用代价 + 占用感知拉直）、离卡片 24px 走廊（INFLATE=24）、圆角 16。
+- 输入侧四种连线方式可用：正向拖拽（输出→输入）、反向拖拽（输入→输出，LiveWire 反向锚点）、点击-点击两步式（两方向）、面板 "Link source…" 下拉选择；ESC/背景/× 取消全覆盖。
+- 未验证项：①未用 agent-browser 做视觉 QA（规则禁用）——stub 高亮脉冲、Popover 交互、拖拽手感建议主代理集成 QA 时过一遍；②routeMemo 在极端拖拽下每帧新签名（上限 64 条防涨）；③移动端触屏反向拖拽依赖 setPointerCapture，与正向拖拽同样受浏览器手势抢占风险（pointercancel 已兜底取消）。

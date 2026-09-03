@@ -13,7 +13,7 @@ import {
   jobType,
   portY,
 } from "@/lib/workflow";
-import { useWorkflowStore } from "@/lib/store";
+import { useWorkflowStore, type PendingFrom } from "@/lib/store";
 import type { JobDTO } from "@/lib/types";
 import { EdgesLayer } from "./edges-layer";
 import { JobCard } from "./job-card";
@@ -52,8 +52,10 @@ interface PanState {
 /**
  * Temporary "live wire" following the cursor while a connection is pending
  * (click-click mode or drag-to-connect). Rendered inside the workspace so
- * it scales with the zoom. The job-card pulse rings already signal the
- * compatible input ports.
+ * it scales with the zoom. Supports both wiring directions: "out" wires
+ * start at an output port (right edge), "in" wires start at an input port
+ * (left edge). The job-card pulse rings already signal the compatible
+ * ports on the other side.
  */
 const LiveWire = React.memo(function LiveWire({
   rootRef,
@@ -85,10 +87,22 @@ const LiveWire = React.memo(function LiveWire({
   const job = jobs.find((j) => j.id === pendingFrom.jobId);
   if (!job) return null;
   const spec = jobType(job.type);
-  const outIdx = Math.max(0, spec?.outputs.findIndex((p) => p.name === pendingFrom.port) ?? 0);
-  const nOut = Math.max(1, spec?.outputs.length ?? 0);
-  const sx = job.x + CARD_W;
-  const sy = job.y + portY(outIdx, nOut);
+
+  // "out" wires anchor at an output port (right edge); "in" wires anchor
+  // at an input port (left edge) and are dragged backwards to an output
+  let sx: number;
+  let sy: number;
+  if (pendingFrom.dir === "in") {
+    const inIdx = Math.max(0, spec?.inputs.findIndex((p) => p.name === pendingFrom.port) ?? 0);
+    const nIn = Math.max(1, spec?.inputs.length ?? 0);
+    sx = job.x;
+    sy = job.y + portY(inIdx, nIn);
+  } else {
+    const outIdx = Math.max(0, spec?.outputs.findIndex((p) => p.name === pendingFrom.port) ?? 0);
+    const nOut = Math.max(1, spec?.outputs.length ?? 0);
+    sx = job.x + CARD_W;
+    sy = job.y + portY(outIdx, nOut);
+  }
 
   return (
     <svg
@@ -176,8 +190,11 @@ export function WorkflowCanvas() {
     [pendingFrom, jobs]
   );
   const pendingJob = pendingFrom ? jobs.find((j) => j.id === pendingFrom.jobId) : undefined;
+  const pendingDirIn = pendingFrom?.dir === "in";
   const pendingPortLabel = pendingFrom
-    ? (jobType(pendingJob?.type ?? "")?.outputs.find((p) => p.name === pendingFrom.port)?.label ??
+    ? (jobType(pendingJob?.type ?? "")?.[
+        pendingDirIn ? "inputs" : "outputs"
+      ].find((p) => p.name === pendingFrom.port)?.label ??
       pendingFrom.port)
     : "";
 
@@ -344,7 +361,11 @@ export function WorkflowCanvas() {
             Linking <span className="text-primary">{pendingJob.name}</span>
             <span className="hidden text-muted-foreground sm:inline">
               {" "}
-              · {pendingPortLabel} · click a matching input port · ESC to cancel
+              · {pendingPortLabel} ·{" "}
+              {pendingDirIn
+                ? "drop on a matching output port ◉"
+                : "click a matching input port"}{" "}
+              · ESC to cancel
             </span>
           </span>
           <button
@@ -433,7 +454,7 @@ export function WorkflowCanvas() {
 const moveJobCommitProxy = (id: string, x: number, y: number) => {
   void useWorkflowStore.getState().moveJobCommit(id, x, y);
 };
-const setPendingFromProxy = (pending: { jobId: string; port: string }) => {
+const setPendingFromProxy = (pending: PendingFrom) => {
   useWorkflowStore.getState().setPendingFrom(pending);
 };
 const connectProxy = (from: string, to: string, fromPort: string, toPort: string) => {

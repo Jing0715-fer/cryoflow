@@ -16,10 +16,17 @@ import type {
   SystemStatusClient,
 } from "./types";
 
-/** Pending connection: source job + the output port being wired. */
+/**
+ * Pending connection: the port being wired.
+ * - dir "out" (default): wire started from an output port — click/drop on an
+ *   input port of another job to finish.
+ * - dir "in": wire started from an input port (reverse wiring) — click/drop
+ *   on an output port of another job to finish.
+ */
 export interface PendingFrom {
   jobId: string;
   port: string;
+  dir?: "out" | "in";
 }
 
 export interface Viewport {

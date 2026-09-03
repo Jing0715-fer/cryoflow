@@ -373,11 +373,11 @@ export const COMMAND_TEMPLATES: Record<string, string> = {
   manualpick: "engine-native: import Henderson .coord picks → manualpick.star (_rlnCoordinateX/Y + _rlnMicrographName)",
   autopick: "relion_autopick --i <micrographs.star> --odir <outdir>/ --pickname autopick --particle_diameter <dia> --threshold <thr> --lowpass <lp> --ref <refs.mrc>",
   extract: "relion_preprocess --i <micrographs_ctf.star> --coord_list <coords.star> --part_star <outdir>/particles.star --part_dir <outdir>/ --extract --extract_size <box> [--scale <down>] --norm --bg_radius <bgr> --white_dust 3 --black_dust -3",
-  select: "engine-native: subset first <maxParticles> rows of upstream particles.star → particles_select.star",
+  select: "engine-native: particle selection — class-aware occupancy pruning when input has _rlnClassNumber, else first-N",
   class2d: "mpirun -n 2 relion_refine --i <particles.star> --o <outdir>/run --K <K> --tau2_fudge 1 --particle_diameter <dia> --ctf --pad 2 --iter <it> --flatten_solvent --zero_mask",
   initialmodel: "relion_refine --grad --denovo_3dref --i <particles.star> --o <outdir>/run --K <K> --particle_diameter <dia> --sym <sym> --ctf --iter <it> --flatten_solvent --zero_mask",
   class3d: "mpirun -n 2 relion_refine --i <particles.star> --ref <ref.mrc> --o <outdir>/run --K <K> --tau2_fudge 4 --particle_diameter <dia> --sym <sym> --ctf --pad 2 --iter <it> --flatten_solvent",
-  refine3d: "mpirun -n 2 relion_refine --i <particles.star> --ref <ref.mrc> --o <outdir>/run --sym <sym> --particle_diameter <dia> --ctf --pad 2 --firstiter_cc --ini_high 30 --split_random_halves [--auto_refine | --iter <it> --tau2_fudge 1]",
+  refine3d: "mpirun -n 3 relion_refine --i <particles.star> --ref <ref.mrc> --o <outdir>/run --sym <sym> --particle_diameter <dia> --ctf --pad <pad> --firstiter_cc --ini_high <iniHigh> --trust_ref_size --split_random_halves [--auto_refine | --iter <it> --tau2_fudge 1]",
   multibody: "mpirun -n 2 relion_refine --continue <optimiser.star> --o <outdir>/run --solvent_correct_fsc --multibody_masks <bodies.star> --oversampling 1",
   maskcreate: "relion_mask_create --i <half1.mrc> --o <outdir>/mask.mrc --lowpass <lp> --angpix <pix> --ini_threshold <thr> --extend_inimask <ext> --width_soft_edge <soft> --j 4",
   joinstar: "relion_star_handler --combine --i <parts1.star parts2.star ...> --check_duplicates rlnImageName --o <outdir>/join_particles.star",
@@ -650,7 +650,14 @@ async function runManualPickNative(job: EngineJobRef, upstream: UpstreamRef[]): 
   return { ok: true, result };
 }
 
-/** Select: first-N subset of upstream particles.star (engine-native). */
+/** Select: class-aware or first-N subset of upstream particles.star (engine-native).
+ *
+ * When the input STAR carries `_rlnClassNumber` (e.g. the run_data.star of a
+ * Class2D/Class3D job) and classCutoff > 0, classes whose occupancy is below
+ * cutoff × (largest class occupancy) are pruned — the programmatic equivalent
+ * of RELION's "select good 2D classes by occupancy" workflow.
+ * Otherwise: first-N subset.
+ */
 async function runSelectNative(job: EngineJobRef, upstream: UpstreamRef[]): Promise<NativeResult> {
   const resolved = resolveInputs("select", upstream);
   if (resolved.missing) return { ok: false, error: resolved.missing };
@@ -666,6 +673,9 @@ async function runSelectNative(job: EngineJobRef, upstream: UpstreamRef[]): Prom
   let total = 0;
   let kept = 0;
   const maxN = Math.max(1, Math.round(num(job, "maxParticles", 1000)));
+  const cutoff = Math.max(0, Math.min(1, num(job, "classCutoff", 0.5)));
+  const classStats: { cls: string; count: number; kept: boolean }[] = [];
+  let keptClasses = 0;
 
   for (const block of blocks) {
     outLines.push(block.header, "");
@@ -689,12 +699,45 @@ async function runSelectNative(job: EngineJobRef, upstream: UpstreamRef[]): Prom
       if (lines[i].trim() !== "") outLines.push(lines[i]);
       i++;
     }
-    for (; i < lines.length; i++) {
-      const t = lines[i].trim();
+
+    // class-aware mode: find the _rlnClassNumber column index
+    const classCol = labelColumn(lines, i, "_rlnClassNumber");
+
+    let keepClasses: Set<number> | null = null;
+    if (classCol >= 0 && cutoff > 0) {
+      // first pass: occupancy per class
+      const counts = new Map<number, number>();
+      for (let r = i; r < lines.length; r++) {
+        const t = lines[r].trim();
+        if (!t) continue;
+        const cells = t.split(/\s+/);
+        const cls = parseInt(cells[classCol] ?? "", 10);
+        if (Number.isFinite(cls)) counts.set(cls, (counts.get(cls) ?? 0) + 1);
+      }
+      const maxCount = Math.max(0, ...counts.values());
+      keepClasses = new Set<number>();
+      for (const [cls, count] of [...counts.entries()].sort((a, b) => b[1] - a[1])) {
+        const ok = count >= cutoff * maxCount;
+        classStats.push({ cls: String(cls), count, kept: ok });
+        if (ok) {
+          keepClasses.add(cls);
+          keptClasses++;
+        }
+      }
+    }
+
+    for (let r = i; r < lines.length; r++) {
+      const t = lines[r].trim();
       if (!t) continue;
       total++;
-      if (kept < maxN) {
-        outLines.push(lines[i].trim());
+      let keep = kept < maxN;
+      if (keep && keepClasses) {
+        const cells = t.split(/\s+/);
+        const cls = parseInt(cells[classCol] ?? "", 10);
+        keep = Number.isFinite(cls) && keepClasses.has(cls);
+      }
+      if (keep) {
+        outLines.push(t);
         kept++;
       }
     }
@@ -702,15 +745,26 @@ async function runSelectNative(job: EngineJobRef, upstream: UpstreamRef[]): Prom
   }
 
   writeFileSync(outStar, outLines.join("\n") + "\n");
-  const result = `${kept} of ${total} particles selected`;
+  const result =
+    classStats.length > 0
+      ? `${kept} of ${total} particles selected · kept ${keptClasses}/${classStats.length} classes (occupancy ≥ ${cutoff}× best)`
+      : `${kept} of ${total} particles selected`;
   const logText = [
     `CryoFlow engine-native select ${new Date().toISOString()}`,
     `input:  ${inStar} (${total} particles)`,
-    `output: ${outStar} (${kept} particles, first-N subset)`,
+    ...(classStats.length > 0
+      ? [
+          "class occupancy (count · kept):",
+          ...classStats
+            .sort((a, b) => b.count - a.count)
+            .map((c) => `  class ${c.cls}: ${c.count} · ${c.kept ? "kept" : "PRUNED"}`),
+        ]
+      : [`mode: first-N (no _rlnClassNumber column or classCutoff=0)`]),
+    `output: ${outStar} (${kept} particles)`,
     result,
     "",
   ].join("\n");
-  recordNativeRun(job, workdir, "engine-native: particle subset selection", { particles_star: outStar }, result, logText);
+  recordNativeRun(job, workdir, "engine-native: particle selection (class-aware)", { particles_star: outStar }, result, logText);
   return { ok: true, result };
 }
 
@@ -867,9 +921,12 @@ async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: string }> {
         "--sym", str(job, "symmetry", "D2"),
         "--particle_diameter", String(num(job, "particleDiameter", 180)),
         "--ctf",
-        "--pad", "2",
+        "--pad", String(Math.round(num(job, "padding", 2))),
         "--firstiter_cc",
-        "--ini_high", "30",
+        "--ini_high", String(num(job, "iniHigh", 30)),
+        // the reference may come from a different-box job (e.g. a low-res
+        // InitialModel) — RELION resizes it to the particles' optics group
+        "--trust_ref_size",
         "--split_random_halves",
       ];
       if (flagAutoRefine(job)) argv.push("--auto_refine");
@@ -902,6 +959,8 @@ async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: string }> {
       if (flag(job, "autoBfac")) {
         argv.push("--auto_bfac", "--autob_lowres", String(num(job, "autobLowres", 10)));
       }
+      const randomizeFrom = num(job, "randomizeFrom", 0);
+      if (randomizeFrom > 0) argv.push("--randomize_at", String(randomizeFrom));
       return argv;
     }
 
@@ -1211,6 +1270,78 @@ function globOne(dir: string, pattern: RegExp): string | null {
   }
 }
 
+/** Iteration number encoded in a RELION per-iteration file name (it000 → 0). */
+function iterOf(name: string): number {
+  const m = /it(\d+)/.exec(name);
+  return m ? parseInt(m[1], 10) : -1;
+}
+
+/** Like globOne but deterministic: prefers the HIGHEST iteration, then name order. */
+function globLatest(dir: string, pattern: RegExp): string | null {
+  try {
+    const hits = readdirSync(dir)
+      .filter((f) => pattern.test(f))
+      .sort((a, b) => iterOf(b) - iterOf(a) || a.localeCompare(b));
+    return hits.length > 0 ? path.join(dir, hits[0]) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Resolve the 0-based data-row column of a label inside the loop header [0, headerEnd).
+ * Handles both "_rlnX 3" (explicit index) and "_rlnX #3" (RELION 5 position
+ * comment — 1-based running position of _rln labels inside the loop). */
+function labelColumn(lines: string[], headerEnd: number, label: string): number {
+  let pos = 0; // 1-based running position of labels in the current loop
+  let inLoop = false;
+  for (let h = 0; h < headerEnd; h++) {
+    const t = lines[h].trim();
+    if (t === "loop_") {
+      inLoop = true;
+      pos = 0;
+      continue;
+    }
+    if (!inLoop || !t.startsWith("_")) continue;
+    const name = t.split(/\s+/)[0];
+    pos++;
+    if (name === label) {
+      const m = /#\s*(\d+)\s*$/.exec(t) ?? /^_\S+\s+(\d+)\s*$/.exec(t);
+      return m ? parseInt(m[1], 10) - 1 : pos - 1;
+    }
+  }
+  return -1;
+}
+
+/** Most populated _rlnClassNumber in a data star (or null). */
+function bestClassFromData(starPath: string): number | null {
+  try {
+    const text = readFileSync(starPath, "utf8");
+    const lines = text.split("\n");
+    const classCol = labelColumn(lines, lines.length, "_rlnClassNumber");
+    if (classCol < 0) return null;
+    const counts = new Map<number, number>();
+    for (const raw of lines) {
+      const t = raw.trim();
+      if (!t || t.startsWith("#") || t.startsWith("_") || t === "loop_" || t.startsWith("data_")) continue;
+      const cells = t.split(/\s+/);
+      if (cells.length <= classCol) continue;
+      const cls = parseInt(cells[classCol], 10);
+      if (Number.isFinite(cls)) counts.set(cls, (counts.get(cls) ?? 0) + 1);
+    }
+    let best: number | null = null;
+    let bestCount = -1;
+    for (const [cls, count] of counts) {
+      if (count > bestCount) {
+        bestCount = count;
+        best = cls;
+      }
+    }
+    return best;
+  } catch {
+    return null;
+  }
+}
+
 function countStarRows(starPath: string): number {
   try {
     const blocks = parseStarBlocks(readFileSync(starPath, "utf8"));
@@ -1279,25 +1410,42 @@ function collectOutputs(type: string, workdir: string): { outputs: Record<string
       // RELION 5 writes class stacks with the .mrcs extension
       const classes =
         firstExisting(workdir, ["run_unmasked_classes.mrcs", "run_classes.mrcs", "run_classes.mrc"]) ??
-        globOne(workdir, /^run_it\d+_classes\.mrcs?$/);
+        globLatest(workdir, /^run_it\d+_classes\.mrcs?$/);
       if (classes) {
         outputs.classes_mrc = classes;
         // the per-iteration data star carries assignments/offsets — chainable
-        const data = globOne(workdir, /^run_it\d+_data\.star$/) ?? firstExisting(workdir, ["run_data.star"]);
+        const data = globLatest(workdir, /^run_it\d+_data\.star$/) ?? firstExisting(workdir, ["run_data.star"]);
         if (data) outputs.particles_star = data;
         result = "REAL: 2D classification finished — class averages written";
       }
       break;
     }
     case "initialmodel": {
-      const model =
-        globOne(workdir, /class\d+\.mrcs?$/i) ??
+      // VDAM writes per-iteration class volumes; the reference for downstream
+      // jobs is the most populated class of the FINAL iteration
+      const finalIter = globLatest(workdir, /^run_it\d+_class\d+\.mrc$/);
+      let model =
+        finalIter ??
+        globLatest(workdir, /class\d+\.mrcs?$/i) ??
         firstExisting(workdir, ["run_model.mrc", "run_model.mrcs", "run_classes.mrcs"]);
+      if (finalIter) {
+        const m = /^run_it(\d+)_class(\d+)\.mrc$/.exec(path.basename(finalIter));
+        if (m) {
+          const iterStr = String(parseInt(m[1], 10)).padStart(3, "0");
+          const best = bestClassFromData(path.join(workdir, `run_it${iterStr}_data.star`));
+          if (best != null) {
+            const candidate = path.join(workdir, `run_it${iterStr}_class${String(best).padStart(3, "0")}.mrc`);
+            if (existsSync(candidate)) model = candidate;
+          }
+        }
+      }
       if (model) {
         outputs.model_mrc = model;
-        // VDAM writes run_it<XXX>_data.star — chainable particles output
-        const data = globOne(workdir, /^run_it\d+_data\.star$/);
-        if (data) outputs.particles_star = data;
+        // VDAM writes run_it<XXX>_data.star — NOT chained as particles output:
+        // a de-novo 3D initial model is a low-res SEED; downstream refinements
+        // should consume the curated particles.star instead.
+        const data = globLatest(workdir, /^run_it\d+_data\.star$/);
+        if (data) outputs.refine_data_star = data;
         result = "REAL: de-novo 3D initial model generated";
       }
       break;
@@ -1307,12 +1455,12 @@ function collectOutputs(type: string, workdir: string): { outputs: Record<string
       // RELION 5 writes per-iteration half maps: run_it<N>_half1/2_class<K>.mrc
       // (RELION <=4 named the final maps run_half1_class001_unfil.mrc)
       const half1 =
-        globOne(workdir, /^run_it\d+_half1_class\d+\.mrc$/) ??
+        globLatest(workdir, /^run_it\d+_half1_class\d+\.mrc$/) ??
         firstExisting(workdir, ["run_half1_class001_unfil.mrc"]);
       const half2 =
-        globOne(workdir, /^run_it\d+_half2_class\d+\.mrc$/) ??
+        globLatest(workdir, /^run_it\d+_half2_class\d+\.mrc$/) ??
         firstExisting(workdir, ["run_half2_class001_unfil.mrc"]);
-      const model = half1 ?? firstExisting(workdir, ["run_class001.mrc"]) ?? globOne(workdir, /^run_it\d+_class\d+\.mrc$/);
+      const model = half1 ?? firstExisting(workdir, ["run_class001.mrc"]) ?? globLatest(workdir, /^run_it\d+_class\d+\.mrc$/);
       if (model) {
         outputs.model_mrc = model;
         if (half1 && half2) {

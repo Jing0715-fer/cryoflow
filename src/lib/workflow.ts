@@ -427,6 +427,10 @@ export const JOB_TYPES: JobTypeSpec[] = [
     1500,
     [
       num("maxParticles", "Max particles", 1000, { step: 100, min: 1, tab: "Subsets" }),
+      num("classCutoff", "Class occupancy cutoff", 0.5, {
+        step: 0.05, min: 0, max: 1, tab: "Subsets",
+        hint: "when input has _rlnClassNumber: keep classes with ≥ this fraction of the largest class occupancy (0 = keep all classes)",
+      }),
       num("discardSigma", "Discard sigma", 4, { step: 0.5, min: 1, max: 10, tab: "Subsets", advanced: true }),
       num("duplicateThreshold", "Min inter-particle distance", 30, { unit: "Å", step: 5, tab: "Duplicates", advanced: true }),
     ],
@@ -555,11 +559,19 @@ export const JOB_TYPES: JobTypeSpec[] = [
     16000,
     [
       sel("symmetry", "Symmetry", "D2", symmetryOptions, { tab: "Reference" }),
+      num("iniHigh", "Initial low-pass on reference", 30, {
+        unit: "Å", step: 1, min: 5, max: 60, tab: "Reference",
+        hint: "reference is filtered to this resolution before the first iteration",
+      }),
       num("particleDiameter", "Circular mask diameter", 180, { unit: "Å", step: 5, tab: "Sampling" }),
       bool("autoRefine", "Perform auto-refinement", false, { tab: "Auto-sampling" }),
       num("iterations", "Number of iterations", 15, { step: 1, min: 1, max: 50, tab: "Optimisation", hint: "used when auto-refine is off" }),
       num("samplingStep", "Angular sampling step", 7.5, { step: 0.5, unit: "°", min: 0.5, max: 30, tab: "Auto-sampling", advanced: true }),
       num("tau2Fudge", "Regularisation factor T", 1, { step: 0.5, min: 0.5, tab: "Optimisation", advanced: true }),
+      num("padding", "Padding factor", 2, {
+        step: 1, min: 1, max: 2, tab: "Compute", advanced: true,
+        hint: "FFT padding 2 = accurate interpolation, 1 = 4× faster (large boxes)",
+      }),
     ],
     "Refined to {n} Å",
     "core",

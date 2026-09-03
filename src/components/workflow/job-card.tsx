@@ -109,7 +109,7 @@ interface DragState {
   moved: boolean;
 }
 
-/** Drag-to-connect state on an output port. */
+/** Drag-to-connect state on a port (output ports drag out→in, input ports drag in→out). */
 interface PortDragState {
   pointerId: number;
   startX: number;
@@ -118,6 +118,10 @@ interface PortDragState {
   /** Pending connection already active on this exact port when pressed. */
   wasPending: boolean;
   port: string;
+  /** "out": pressed an output port · "in": pressed an input port ·
+   *  "complete": pressed a port while a pending wire from ANOTHER job
+   *  targets this port kind — plain click finishes that connection. */
+  mode: "out" | "in" | "complete";
 }
 
 /**
@@ -236,24 +240,35 @@ export const JobCard = React.memo(function JobCard({
 
   /* ---------------- ports: connect flows --------------------------- */
 
-  /** Click-click: click a compatible input port to finish the connection. */
-  const handleInPortClick = (e: React.MouseEvent, portName: string) => {
-    e.stopPropagation();
-    if (!pendingFrom || pendingFrom.jobId === job.id) return;
-    onConnect(pendingFrom.jobId, job.id, pendingFrom.port, portName);
+  /**
+   * Pointer resolution helper: which [data-port] did the pointer land on?
+   * Returns null unless it is a port of ANOTHER job.
+   */
+  const resolveReleasePort = (
+    e: React.PointerEvent
+  ): { jobId: string; kind: "in" | "out"; port: string } | null => {
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const portEl = el?.closest("[data-port]") as HTMLElement | null;
+    const portId = portEl?.dataset.port;
+    const targetJobId = (portEl?.closest("[data-job]") as HTMLElement | null)?.dataset.job;
+    if (!portId || !targetJobId || targetJobId === job.id) return null;
+    if (portId.startsWith("in:")) return { jobId: targetJobId, kind: "in", port: portId.slice(3) };
+    if (portId.startsWith("out:")) return { jobId: targetJobId, kind: "out", port: portId.slice(4) };
+    return null;
   };
 
-  /**
-   * Drag-to-connect (preferred): press an output port, drag onto an input
-   * port anywhere on the canvas, release. A plain click keeps the pending
-   * connection alive for the click-click flow; clicking the source port
-   * again cancels it.
-   */
+  /* -------- output ports: drag out→in, click-click, complete in→out --- */
+
   const handleOutPortPointerDown = (e: React.PointerEvent<HTMLButtonElement>, portName: string) => {
     if (e.button !== 0) return;
     e.stopPropagation();
     e.preventDefault();
-    const wasPending = pendingFrom?.jobId === job.id && pendingFrom.port === portName;
+    // pending wire started from an INPUT port of another job → pressing this
+    // output port may finish it (plain click) instead of starting a new wire
+    const completesIn =
+      pendingFrom?.dir === "in" && pendingFrom.jobId !== job.id;
+    const wasPending =
+      !completesIn && pendingFrom?.jobId === job.id && pendingFrom.port === portName;
     portDragRef.current = {
       pointerId: e.pointerId,
       startX: e.clientX,
@@ -261,15 +276,18 @@ export const JobCard = React.memo(function JobCard({
       moved: false,
       wasPending,
       port: portName,
+      mode: completesIn ? "complete" : "out",
     };
     e.currentTarget.setPointerCapture(e.pointerId);
-    if (!wasPending) onStartConnect({ jobId: job.id, port: portName });
+    if (!wasPending && !completesIn) {
+      onStartConnect({ jobId: job.id, port: portName, dir: "out" });
+    }
   };
 
-  const handleOutPortPointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+  const handlePortPointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
     const d = portDragRef.current;
     if (!d || e.pointerId !== d.pointerId) return;
-    if (!d.moved && Math.hypot(e.clientX - d.startX, e.clientY - d.startY) > 4) {
+    if (!d.moved && Math.hypot(e.clientX - d.startX, e.clientY - d.startY) > 5) {
       d.moved = true;
     }
   };
@@ -278,14 +296,28 @@ export const JobCard = React.memo(function JobCard({
     const d = portDragRef.current;
     if (!d || e.pointerId !== d.pointerId) return;
     portDragRef.current = null;
+    if (d.mode === "complete") {
+      // finish a pending input→output wire from another job
+      if (!d.moved && pendingFrom) {
+        onConnect(pendingFrom.jobId, job.id, d.port, pendingFrom.port);
+        return;
+      }
+      if (d.moved) {
+        // dragging away from this output port = classic out→in wiring
+        const rel = resolveReleasePort(e);
+        if (rel?.kind === "in") {
+          onConnect(job.id, rel.jobId, d.port, rel.port);
+          return;
+        }
+      }
+      onCancelConnect();
+      return;
+    }
     if (d.moved) {
-      const el = document.elementFromPoint(e.clientX, e.clientY);
-      const portEl = el?.closest("[data-port]") as HTMLElement | null;
-      const portId = portEl?.dataset.port;
-      const targetJobId = (portEl?.closest("[data-job]") as HTMLElement | null)?.dataset.job;
-      if (portId?.startsWith("in:") && targetJobId && targetJobId !== job.id) {
+      const rel = resolveReleasePort(e);
+      if (rel?.kind === "in") {
         // store validates port compatibility + cycles and clears pending on success
-        onConnect(job.id, targetJobId, d.port, portId.slice(3));
+        onConnect(job.id, rel.jobId, d.port, rel.port);
         return;
       }
       // drag missed a valid target → cancel the pending connection
@@ -297,21 +329,101 @@ export const JobCard = React.memo(function JobCard({
     // else: first click on an output port → keep pending (click-click mode)
   };
 
-  const handleOutPortPointerCancel = (e: React.PointerEvent<HTMLButtonElement>) => {
-    const d = portDragRef.current;
-    if (!d || e.pointerId !== d.pointerId) return;
-    portDragRef.current = null;
-  };
-
   /** Keyboard fallback for the output ports (Enter / Space). */
   const handleOutPortKeyDown = (e: React.KeyboardEvent, portName: string) => {
     if (e.key !== "Enter" && e.key !== " ") return;
     e.preventDefault();
-    if (pendingFrom?.jobId === job.id && pendingFrom.port === portName) {
+    if (pendingFrom?.dir === "in" && pendingFrom.jobId !== job.id) {
+      // finish a pending input→output wire from another job
+      onConnect(pendingFrom.jobId, job.id, portName, pendingFrom.port);
+    } else if (pendingFrom?.jobId === job.id && pendingFrom.port === portName) {
       onCancelConnect();
     } else {
-      onStartConnect({ jobId: job.id, port: portName });
+      onStartConnect({ jobId: job.id, port: portName, dir: "out" });
     }
+  };
+
+  /* -------- input ports: drag in→out, click-click, complete out→in --- */
+
+  const handleInPortPointerDown = (e: React.PointerEvent<HTMLButtonElement>, portName: string) => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    e.preventDefault();
+    // pending wire started from an OUTPUT port of another job → pressing this
+    // input port may finish it (plain click / drag-to-it) instead of starting
+    // a reverse wire
+    const completesOut =
+      pendingFrom != null && pendingFrom.dir !== "in" && pendingFrom.jobId !== job.id;
+    const wasPending =
+      !completesOut &&
+      pendingFrom?.jobId === job.id &&
+      pendingFrom.port === portName &&
+      pendingFrom.dir === "in";
+    portDragRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      moved: false,
+      wasPending,
+      port: portName,
+      mode: completesOut ? "complete" : "in",
+    };
+    e.currentTarget.setPointerCapture(e.pointerId);
+    if (!wasPending && !completesOut) {
+      onStartConnect({ jobId: job.id, port: portName, dir: "in" });
+    }
+  };
+
+  const handleInPortPointerUp = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const d = portDragRef.current;
+    if (!d || e.pointerId !== d.pointerId) return;
+    portDragRef.current = null;
+    if (d.mode === "complete") {
+      // finish a pending output→input wire from another job
+      if (!d.moved && pendingFrom) {
+        onConnect(pendingFrom.jobId, job.id, pendingFrom.port, d.port);
+        return;
+      }
+    }
+    if (d.moved) {
+      // reverse wiring: released over an output port of another job
+      const rel = resolveReleasePort(e);
+      if (rel?.kind === "out") {
+        onConnect(rel.jobId, job.id, rel.port, d.port);
+        return;
+      }
+      // released on empty canvas / an invalid port → cancel
+      onCancelConnect();
+    } else if (d.wasPending) {
+      // clicked the pending input port again → cancel
+      onCancelConnect();
+    }
+    // else: plain click keeps the pending wire alive (click-click mode —
+    // click a compatible output port next)
+  };
+
+  /** Keyboard fallback for the input ports (Enter / Space). */
+  const handleInPortKeyDown = (e: React.KeyboardEvent, portName: string) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    e.preventDefault();
+    if (pendingFrom && pendingFrom.dir !== "in" && pendingFrom.jobId !== job.id) {
+      // finish a pending output→input wire from another job
+      onConnect(pendingFrom.jobId, job.id, pendingFrom.port, portName);
+    } else if (
+      pendingFrom?.jobId === job.id &&
+      pendingFrom.port === portName &&
+      pendingFrom.dir === "in"
+    ) {
+      onCancelConnect();
+    } else {
+      onStartConnect({ jobId: job.id, port: portName, dir: "in" });
+    }
+  };
+
+  const handlePortPointerCancel = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const d = portDragRef.current;
+    if (!d || e.pointerId !== d.pointerId) return;
+    portDragRef.current = null;
   };
 
   /* ---------------- render ------------------------------------------ */
@@ -414,29 +526,40 @@ export const JobCard = React.memo(function JobCard({
           </div>
         </div>
 
-        {/* Input ports (left edge, hollow) */}
+        {/* Input ports (left edge, hollow) — press & drag backwards to an
+            output port, plain-click for click-click, or complete a pending
+            out→in wire from another job */}
         {inputs.map((p, i) => {
           const compatible =
             pendingFrom != null &&
+            pendingFrom.dir !== "in" &&
             !isSource &&
             pendingFromType != null &&
             portsCompatible(pendingFromType, pendingFrom.port, job.type, p.name);
+          const isPendingIn =
+            isSource && pendingFrom?.port === p.name && pendingFrom.dir === "in";
           return (
             <button
               key={p.name}
               data-port={`in:${p.name}`}
+              data-port-compatible={compatible ? "true" : undefined}
               type="button"
               aria-label={`${p.label} — input port of ${job.name}`}
               className="group/port absolute z-10 flex size-4 cursor-crosshair items-center justify-center outline-none focus-visible:rounded-full focus-visible:ring-2 focus-visible:ring-ring"
               style={{ left: -8, top: portY(i, inputs.length) - 8 }}
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => handleInPortClick(e, p.name)}
+              onPointerDown={(e) => handleInPortPointerDown(e, p.name)}
+              onPointerMove={handlePortPointerMove}
+              onPointerUp={handleInPortPointerUp}
+              onPointerCancel={handlePortPointerCancel}
+              onKeyDown={(e) => handleInPortKeyDown(e, p.name)}
             >
               <span
                 className={cn(
                   "block size-3 rounded-full border-2 bg-background transition-[scale,box-shadow] duration-100 group-hover/port:scale-125",
                   spec?.color.border,
-                  compatible && "animate-pulse ring-2 ring-primary ring-offset-1 ring-offset-background"
+                  compatible &&
+                    "animate-pulse scale-110 ring-2 ring-primary/60 ring-offset-1 ring-offset-background",
+                  isPendingIn && "scale-125 border-primary ring-2 ring-primary/60"
                 )}
               />
               {portLabelChip(p.label)}
@@ -444,27 +567,37 @@ export const JobCard = React.memo(function JobCard({
           );
         })}
 
-        {/* Output ports (right edge, filled with the port-kind color) */}
+        {/* Output ports (right edge, filled with the port-kind color) — drag
+            onto an input port, plain-click for click-click, or complete a
+            pending in→out wire from another job */}
         {outputs.map((p, i) => {
           const isPendingSource = isSource && pendingFrom?.port === p.name;
+          const compatible =
+            pendingFrom?.dir === "in" &&
+            !isSource &&
+            pendingFromType != null &&
+            portsCompatible(job.type, p.name, pendingFromType, pendingFrom.port);
           return (
             <button
               key={p.name}
               data-port={`out:${p.name}`}
+              data-port-compatible={compatible ? "true" : undefined}
               type="button"
               aria-label={`${p.label} — output port of ${job.name}`}
               className="group/port absolute z-10 flex size-4 cursor-crosshair items-center justify-center outline-none focus-visible:rounded-full focus-visible:ring-2 focus-visible:ring-ring"
               style={{ right: -8, top: portY(i, outputs.length) - 8 }}
               onPointerDown={(e) => handleOutPortPointerDown(e, p.name)}
-              onPointerMove={handleOutPortPointerMove}
+              onPointerMove={handlePortPointerMove}
               onPointerUp={handleOutPortPointerUp}
-              onPointerCancel={handleOutPortPointerCancel}
+              onPointerCancel={handlePortPointerCancel}
               onKeyDown={(e) => handleOutPortKeyDown(e, p.name)}
             >
               <span
                 className={cn(
                   "block size-3 rounded-full border-2 border-transparent transition-[scale,box-shadow,background-color,border-color] duration-100 group-hover/port:scale-125",
                   p.kind ? PORT_COLORS[p.kind].dot : "bg-slate-500",
+                  compatible &&
+                    "animate-pulse scale-110 ring-2 ring-primary/60 ring-offset-1 ring-offset-background",
                   isPendingSource && "scale-125 border-primary bg-primary"
                 )}
               />

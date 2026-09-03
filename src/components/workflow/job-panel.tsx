@@ -24,6 +24,7 @@ import {
   Loader2,
   MousePointerClick,
   Play,
+  Plus,
   RotateCcw,
   RefreshCw,
   SlidersHorizontal,
@@ -31,7 +32,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { PORT_COLORS, coerceParam, jobType, tabsFor } from "@/lib/workflow";
+import { PORT_COLORS, coerceParam, jobType, portsCompatible, tabsFor } from "@/lib/workflow";
 import { useWorkflowStore } from "@/lib/store";
 import type {
   EdgeDTO,
@@ -61,6 +62,11 @@ import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -162,18 +168,137 @@ function portDotClass(port: PortSpec): string {
   return PORT_COLORS[kind ?? "star"]?.dot ?? "bg-slate-400";
 }
 
+/* ------------------------------------------------------------------ */
+/* "Link source…" picker (unconnected input ports)                     */
+/* ------------------------------------------------------------------ */
+
+interface SourceOption {
+  jobId: string;
+  jobName: string;
+  fromPort: string;
+  portLabel: string;
+  icon: string;
+  /** Port order inside the source spec (secondary sort key). */
+  order: number;
+}
+
+/** Every output port of every OTHER job that can feed this input. */
+function compatibleSources(job: JobDTO, port: PortSpec, jobs: JobDTO[]): SourceOption[] {
+  const out: SourceOption[] = [];
+  for (const j of jobs) {
+    if (j.id === job.id) continue;
+    const jSpec = jobType(j.type);
+    if (!jSpec) continue;
+    jSpec.outputs.forEach((p, order) => {
+      if (portsCompatible(j.type, p.name, job.type, port.name)) {
+        out.push({
+          jobId: j.id,
+          jobName: j.name,
+          fromPort: p.name,
+          portLabel: p.label,
+          icon: jSpec.icon ?? "Boxes",
+          order,
+        });
+      }
+    });
+  }
+  // stable order: by job name, then by the source port order
+  out.sort(
+    (a, b) => a.jobName.localeCompare(b.jobName) || a.order - b.order
+  );
+  return out;
+}
+
+function LinkSourceControl({
+  job,
+  port,
+  jobs,
+}: {
+  job: JobDTO;
+  port: PortSpec;
+  jobs: JobDTO[];
+}) {
+  const connect = useWorkflowStore((s) => s.connect);
+  const [open, setOpen] = React.useState(false);
+  const options = React.useMemo(
+    () => compatibleSources(job, port, jobs),
+    [job, port, jobs]
+  );
+
+  if (options.length === 0) {
+    return (
+      <button
+        type="button"
+        disabled
+        title="No compatible output ports on other jobs yet"
+        className="flex w-full cursor-not-allowed items-center gap-1.5 rounded-md border border-dashed px-2 py-1.5 text-left text-[11px] italic text-muted-foreground/60"
+      >
+        <Plus className="size-3 shrink-0" aria-hidden="true" />
+        <span className="sr-only">Link a source to {port.label}</span>
+        No compatible source yet
+      </button>
+    );
+  }
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          title="Pick an upstream job to feed this input"
+          aria-label={`Link a source to ${port.label} input`}
+          className="flex w-full items-center gap-1.5 rounded-md border border-dashed px-2 py-1.5 text-left text-[11px] text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
+        >
+          <Plus className="size-3 shrink-0 text-primary" aria-hidden="true" />
+          <span className="sr-only">Link a source to {port.label}</span>
+          Link source…
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        className="w-64 p-1"
+        aria-label={`Compatible sources for ${port.label}`}
+      >
+        <div className="max-h-64 overflow-y-auto">
+          {options.map((o) => (
+            <button
+              key={`${o.jobId}:${o.fromPort}`}
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                void connect(o.jobId, job.id, o.fromPort, port.name);
+              }}
+              className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs outline-none transition-colors hover:bg-accent focus-visible:bg-accent"
+            >
+              <TypeIcon name={o.icon} className="size-3.5 shrink-0 text-muted-foreground" />
+              <span className="min-w-0 flex-1 truncate" title={`${o.jobName} · ${o.portLabel}`}>
+                {o.jobName}
+                <span className="text-muted-foreground"> · {o.portLabel}</span>
+              </span>
+              <ArrowRight className="size-3 shrink-0 text-muted-foreground/60" aria-hidden="true" />
+            </button>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function PortRow({
   port,
   direction,
   edges,
   jobNameById,
   onRemove,
+  footer,
 }: {
   port: PortSpec;
   direction: "in" | "out";
   edges: EdgeDTO[];
   jobNameById: Map<string, string>;
   onRemove: (id: string) => void;
+  /** Extra control under the chips row (e.g. "Link source…" picker). */
+  footer?: React.ReactNode;
 }) {
   return (
     <div className="rounded-lg border bg-secondary/30 p-2.5">
@@ -209,6 +334,7 @@ function PortRow({
           ))
         )}
       </div>
+      {footer ? <div className="mt-1.5 pl-4">{footer}</div> : null}
     </div>
   );
 }
@@ -255,16 +381,24 @@ function IOTab({ job, spec }: { job: JobDTO; spec: JobTypeSpec | undefined }) {
           </div>
         ) : (
           <div className="space-y-2">
-            {inputs.map((port, i) => (
-              <PortRow
-                key={port.name}
-                port={port}
-                direction="in"
-                edges={edgesFor(port, i, "in")}
-                jobNameById={jobNameById}
-                onRemove={(id) => void removeEdge(id)}
-              />
-            ))}
+            {inputs.map((port, i) => {
+              const portEdges = edgesFor(port, i, "in");
+              return (
+                <PortRow
+                  key={port.name}
+                  port={port}
+                  direction="in"
+                  edges={portEdges}
+                  jobNameById={jobNameById}
+                  onRemove={(id) => void removeEdge(id)}
+                  footer={
+                    portEdges.length === 0 ? (
+                      <LinkSourceControl job={job} port={port} jobs={jobs} />
+                    ) : undefined
+                  }
+                />
+              );
+            })}
           </div>
         )}
       </section>
