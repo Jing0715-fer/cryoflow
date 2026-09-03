@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { CANVAS_W, CANVAS_H, CARD_W, CARD_H, jobType } from "@/lib/workflow";
+import { useWorkflowStore } from "@/lib/store";
 import type { JobDTO } from "@/lib/types";
 import { TypeIcon } from "./icons";
 import { Badge } from "@/components/ui/badge";
@@ -148,6 +149,10 @@ export const JobCard = React.memo(function JobCard({
       if (cardRef.current) {
         cardRef.current.style.transform = `translate(${dx / zoom}px, ${dy / zoom}px)`;
       }
+      // Edges follow the card in real time (transient store slice — no re-render of cards)
+      useWorkflowStore
+        .getState()
+        .setDragLive({ id: job.id, dx: dx / zoom, dy: dy / zoom });
     });
   };
 
@@ -157,6 +162,9 @@ export const JobCard = React.memo(function JobCard({
     dragRef.current = null;
     cancelAnimationFrame(rafRef.current);
     if (cardRef.current) cardRef.current.style.transform = "";
+    // clear live offset first; the optimistic commit below updates x/y in the
+    // same React batch, so connected edges land on the final position with no snap-back
+    useWorkflowStore.getState().setDragLive(null);
     if (d.moved) {
       const dx = e.clientX - d.startX;
       const dy = e.clientY - d.startY;

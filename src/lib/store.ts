@@ -18,6 +18,8 @@ interface WorkflowState {
   zoom: number;
   loading: boolean;
   error: string | null;
+  /** Transient live-drag offset (canvas coords) so edges follow the card in real time. */
+  dragLive: { id: string; dx: number; dy: number } | null;
 
   load: () => Promise<void>;
   addJob: (type: string) => Promise<void>;
@@ -34,6 +36,7 @@ interface WorkflowState {
   setPendingFrom: (id: string | null) => void;
   cancelConnect: () => void;
   setZoom: (zoom: number) => void;
+  setDragLive: (live: { id: string; dx: number; dy: number } | null) => void;
 }
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
@@ -80,6 +83,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   zoom: 1,
   loading: true,
   error: null,
+  dragLive: null,
 
   load: async () => {
     set({ loading: true, error: null });
@@ -265,4 +269,5 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   setPendingFrom: (id) => set({ pendingFrom: id }),
   cancelConnect: () => set({ pendingFrom: null }),
   setZoom: (zoom) => set({ zoom }),
+  setDragLive: (live) => set({ dragLive: live }),
 }));

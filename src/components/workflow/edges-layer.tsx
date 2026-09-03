@@ -8,6 +8,7 @@
 
 import * as React from "react";
 import { CARD_W, CARD_H, CANVAS_W, CANVAS_H } from "@/lib/workflow";
+import { useWorkflowStore } from "@/lib/store";
 import type { EdgeDTO, JobDTO } from "@/lib/types";
 
 const STROKE_BASE = "color-mix(in oklch, var(--foreground) 22%, transparent)";
@@ -59,6 +60,8 @@ export function EdgesLayer({
   jobs: JobDTO[];
 }) {
   const [hoveredId, setHoveredId] = React.useState<string | null>(null);
+  // live drag offset — while a card is being dragged its connected edges follow it
+  const dragLive = useWorkflowStore((s) => s.dragLive);
 
   const jobMap = React.useMemo(
     () => new Map(jobs.map((j) => [j.id, j])),
@@ -85,7 +88,16 @@ export function EdgesLayer({
       aria-hidden="true"
     >
       {visible.map(({ edge, from, to }) => {
-        const g = geometry(from, to);
+        // apply live drag offset to whichever endpoint is being dragged
+        const fromAdj =
+          dragLive && dragLive.id === from.id
+            ? { ...from, x: from.x + dragLive.dx, y: from.y + dragLive.dy }
+            : from;
+        const toAdj =
+          dragLive && dragLive.id === to.id
+            ? { ...to, x: to.x + dragLive.dx, y: to.y + dragLive.dy }
+            : to;
+        const g = geometry(fromAdj, toAdj);
         const d = pathD(g);
         const running = from.status === "running";
         const hovered = hoveredId === edge.id;
