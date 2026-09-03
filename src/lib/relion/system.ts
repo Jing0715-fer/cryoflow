@@ -219,8 +219,10 @@ async function probeWslBinaries(
 
   const q = binDir.replace(/'/g, `'\\''`);
   const script = [
-    `for b in ${bins.join(" ")}; do test -x '${q}/$b' && echo "B:$b"; done`,
-    `for e in ${exts.join(" ")}; do { command -v "$e" >/dev/null 2>&1 || test -x '${q}/$e'; } && echo "E:$e"; done`,
+    // NOTE: $b/$e must stay OUTSIDE the single-quoted path — inside single
+    // quotes bash never expands them and every check would fail silently.
+    `for b in ${bins.join(" ")}; do test -x '${q}'/"$b" && echo "B:$b"; done`,
+    `for e in ${exts.join(" ")}; do { command -v "$e" >/dev/null 2>&1 || test -x '${q}'/"$e"; } && echo "E:$e"; done`,
   ].join("; ");
   const { stdout } = await execFileAsync(
     wslPath,
