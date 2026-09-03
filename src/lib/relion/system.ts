@@ -197,6 +197,130 @@ async function wslBash(
   return stdout.trim() || stderr.trim();
 }
 
+/** Locate wsl.exe — on Windows hosts it is always resolvable through PATH. */
+async function locateWslExe(): Promise<string | null> {
+  if (process.platform === "win32") return "wsl.exe";
+  return (await which("wsl.exe", 2000)) ?? (await which("wsl", 2000));
+}
+
+/**
+ * Verify RELION binaries + external programs INSIDE the WSL distro (one bash
+ * call). Needed because the host filesystem cannot see WSL-side paths, so
+ * existsSync-based checks would report everything as missing.
+ */
+async function probeWslBinaries(
+  binDir: string,
+  bins: string[],
+  exts: string[]
+): Promise<{ bins: Set<string>; exts: Set<string> }> {
+  const present = { bins: new Set<string>(), exts: new Set<string>() };
+  const wslPath = await locateWslExe();
+  if (!wslPath) return present;
+
+  const q = binDir.replace(/'/g, `'\\''`);
+  const script = [
+    `for b in ${bins.join(" ")}; do test -x '${q}/$b' && echo "B:$b"; done`,
+    `for e in ${exts.join(" ")}; do { command -v "$e" >/dev/null 2>&1 || test -x '${q}/$e'; } && echo "E:$e"; done`,
+  ].join("; ");
+  const { stdout } = await execFileAsync(
+    wslPath,
+    ["-e", "bash", "-lc", script],
+    15000
+  );
+  for (const line of stdout.split("\n")) {
+    const t = line.trim();
+    if (t.startsWith("B:")) present.bins.add(t.slice(2));
+    else if (t.startsWith("E:")) present.exts.add(t.slice(2));
+  }
+  return present;
+}
+
+/** Single-quote a string for safe interpolation into a bash snippet. */
+function shQuote(s: string): string {
+  return `'${s.replace(/'/g, `'\\''`)}'`;
+}
+
+/** Probe binaries + external programs INSIDE the WSL distro (one bash call). */
+export async function probeWslContents(
+  wslPath: string,
+  binDir: string
+): Promise<{
+  binaries: { name: string; present: boolean }[];
+  externals: { name: string; present: boolean }[];
+}> {
+  const script = [
+    `ls -1 ${shQuote(binDir)} 2>/dev/null || true`,
+    "echo __EXT__",
+    `for b in ${EXTERNAL_PROGRAMS.map(shQuote).join(" ")}; do`,
+    `  if command -v "$b" >/dev/null 2>&1 || test -x ${shQuote(binDir)}/"$b"; then echo "$b:yes"; else echo "$b:no"; fi;`,
+    "done",
+  ].join("\n");
+  const out = await wslBash(wslPath, script, false, 15000);
+  const [lsPart, extPart = ""] = out.split("__EXT__");
+  const entries = new Set(
+    lsPart
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0)
+  );
+  const externals = EXTERNAL_PROGRAMS.map((name) => {
+    const line = extPart
+      .split("\n")
+      .map((l) => l.trim())
+      .find((l) => l.startsWith(`${name}:`));
+    return { name, present: line?.endsWith(":yes") ?? false };
+  });
+  return {
+    binaries: CORE_BINARIES.map((n) => ({ name: n, present: entries.has(n) })),
+    externals,
+  };
+}
+
+/**
+ * Pure decision core for WSL adoption (exported for direct verification):
+ * when host-native detection failed but the WSL probe found RELION, decide
+ * the aggregated status fields and the execution mode.
+ */
+export function resolveAdoption(
+  hostFound: boolean,
+  wsl: WslStatusClient,
+  /** Whether this process can stat the WSL path locally (server inside the same fs). */
+  wslPathLocal: boolean
+): {
+  found: boolean;
+  path: string | null;
+  source: string | null;
+  execution: "native" | "wsl" | null;
+} {
+  if (hostFound) {
+    return { found: true, path: null, source: null, execution: "native" };
+  }
+  if (wsl.available && wsl.relionPath) {
+    return {
+      found: true,
+      path: wsl.relionPath,
+      source: `wsl · ${wsl.source ?? "detected"}`,
+      // Same filesystem (server runs inside the WSL distro) → directly spawnable;
+      // otherwise (Windows host) the distro-internal path needs the WSL bridge.
+      execution: wslPathLocal ? "native" : "wsl",
+    };
+  }
+  return { found: false, path: null, source: null, execution: null };
+}
+
+/** probeWsl + keep the wsl.exe handle for follow-up probes (binaries list). */
+async function probeWslDetailed(): Promise<{
+  wsl: WslStatusClient;
+  wslExe: string | null;
+}> {
+  const wsl = await probeWsl();
+  const wslExe =
+    process.platform === "win32"
+      ? "wsl.exe"
+      : (await which("wsl.exe", 2000)) ?? (await which("wsl", 2000));
+  return { wsl, wslExe };
+}
+
 async function probeWsl(): Promise<WslStatusClient> {
   const unavailable = (
     reason: "no-wsl" | "no-distro",
@@ -213,12 +337,7 @@ async function probeWsl(): Promise<WslStatusClient> {
   });
 
   // 0. locate wsl.exe — on Windows hosts it is always resolvable through PATH
-  let wslPath: string | null;
-  if (process.platform === "win32") {
-    wslPath = "wsl.exe";
-  } else {
-    wslPath = (await which("wsl.exe", 2000)) ?? (await which("wsl", 2000));
-  }
+  const wslPath = await locateWslExe();
   if (!wslPath) {
     return unavailable(
       "no-wsl",
@@ -337,7 +456,7 @@ async function probeWsl(): Promise<WslStatusClient> {
   const note =
     source === "login-shell PATH"
       ? `RELION ${version ?? "?"} detected inside WSL (${distro ?? "default"}) at ${binDir} — via login-shell PATH. Jobs can run through the WSL bridge.`
-      : `RELION ${version ?? "?"} found inside WSL (${distro ?? "default"}) at ${binDir} via ${source} — not on the default PATH. Jobs can still use it; for shell convenience add it to ~/.bashrc (option A in guidance below).`;
+      : `RELION ${version ?? "?"} found inside WSL (${distro ?? "default"}) at ${binDir} via ${source} — not on the default PATH. For shell convenience add it to ~/.bashrc (option A in guidance below). The dashboard surfaces this install directly.`;
 
   return {
     available: true,
@@ -402,26 +521,51 @@ export async function detectRelion(force = false): Promise<RelionStatus> {
     version = await probeVersion(pathFound);
   }
 
-  // ---- binaries + externals ----------------------------------------------
-  const binaries = CORE_BINARIES.map((name) => ({
-    name,
-    present: pathFound ? existsSync(path.join(pathFound, name)) : false,
-  }));
-
-  const externals: RelionStatus["externals"] = [];
-  for (const name of EXTERNAL_PROGRAMS) {
-    let present = (await which(name, 2000)) !== null;
-    if (!present && pathFound) {
-      present = existsSync(path.join(pathFound, name));
-    }
-    externals.push({ name, present });
-  }
-
   // ---- WSL ---------------------------------------------------------------
   const wsl = await probeWsl();
 
+  // ---- binaries + externals ----------------------------------------------
+  // When the HOST has no RELION but the WSL distro does, promote the WSL
+  // discovery to the top-level status: the chip must read "RELION detected"
+  // (with a WSL source), never a bare "not detected" while the distro has a
+  // working install. Binaries are then verified INSIDE the distro because
+  // existsSync on the host cannot see WSL-side paths.
+  let found = pathFound !== null;
+  let execution: RelionStatus["execution"] = null;
+  let binaries: RelionStatus["binaries"];
+  let externals: RelionStatus["externals"];
+
+  if (!pathFound && wsl.available && wsl.relionPath) {
+    found = true;
+    execution = "wsl";
+    version = wsl.version;
+    pathFound = wsl.relionPath;
+    source = wsl.distro
+      ? `WSL (${wsl.distro}) · ${wsl.source ?? "search"}`
+      : `WSL · ${wsl.source ?? "search"}`;
+
+    const inWsl = await probeWslBinaries(wsl.relionPath, CORE_BINARIES, EXTERNAL_PROGRAMS);
+    binaries = CORE_BINARIES.map((name) => ({ name, present: inWsl.bins.has(name) }));
+    externals = EXTERNAL_PROGRAMS.map((name) => ({ name, present: inWsl.exts.has(name) }));
+  } else {
+    if (pathFound) execution = "native";
+    binaries = CORE_BINARIES.map((name) => ({
+      name,
+      present: pathFound ? existsSync(path.join(pathFound, name)) : false,
+    }));
+    externals = [];
+    for (const name of EXTERNAL_PROGRAMS) {
+      let present = (await which(name, 2000)) !== null;
+      if (!present && pathFound) {
+        present = existsSync(path.join(pathFound, name));
+      }
+      externals.push({ name, present });
+    }
+  }
+
   const status: RelionStatus = {
-    found: pathFound !== null,
+    found,
+    execution,
     version,
     path: pathFound,
     source,

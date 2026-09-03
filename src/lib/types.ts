@@ -188,6 +188,15 @@ export interface WslStatusClient {
 /** Light-weight mirror of RelionStatus (server module) for the client store. */
 export interface SystemStatusClient {
   found: boolean;
+  /**
+   * How jobs can execute the detected RELION:
+   *  - "native": the app process can spawn the binaries at `path` directly
+   *              (host install, or the server itself runs inside the same Linux/WSL fs).
+   *  - "wsl":    RELION lives inside WSL; `path` is a distro-internal path that this
+   *              process cannot spawn directly (Windows host) — bridge required.
+   *  - null:     not found anywhere.
+   */
+  execution: "native" | "wsl" | null;
   version: string | null;
   path: string | null;
   source: string | null;

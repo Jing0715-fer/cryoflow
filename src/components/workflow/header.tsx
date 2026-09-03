@@ -129,9 +129,12 @@ function RelionStatusChip() {
   const systemRefreshing = useWorkflowStore((s) => s.systemRefreshing);
 
   const found = system?.found ?? false;
-  const label = found ? `RELION ${system?.version ?? ""}`.trim() : "RELION not found";
+  const viaWsl = (system?.source ?? "").startsWith("WSL");
+  const label = found
+    ? `RELION ${system?.version ?? ""}${viaWsl ? " · WSL" : ""}`.trim()
+    : "RELION not found";
   const title = found
-    ? `RELION ${system?.version ?? "?"} · ${system?.path ?? ""}`
+    ? `RELION ${system?.version ?? "?"} · ${system?.path ?? ""}${viaWsl ? " (inside WSL)" : ""}`
     : "RELION 5 not detected on this host";
 
   // WSL three-state: RELION found inside WSL / WSL ok but RELION not on PATH /
@@ -183,7 +186,11 @@ function RelionStatusChip() {
               <CircleAlert className="size-4 text-amber-600 dark:text-amber-400" aria-hidden="true" />
             )}
             <p className="text-sm font-semibold">
-              {found ? "RELION detected" : "RELION not detected"}
+              {found
+                ? viaWsl
+                  ? "RELION detected (in WSL)"
+                  : "RELION detected"
+                : "RELION not detected"}
             </p>
           </div>
           <div className="space-y-1.5 text-xs text-muted-foreground">
@@ -246,6 +253,11 @@ function RelionStatusChip() {
                   </p>
                 ))}
               </div>
+            )}
+            {system?.execution === "wsl" && (
+              <p className="rounded-md bg-amber-500/10 px-2 py-1.5 text-[10px] leading-relaxed text-amber-700 dark:text-amber-400">
+                RELION runs inside WSL — detection is live; job execution needs the WSL bridge (native host cannot spawn distro paths directly).
+              </p>
             )}
           </div>
           <div>
