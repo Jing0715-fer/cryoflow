@@ -463,7 +463,12 @@ export const JobCard = React.memo(function JobCard({
           aria-label={`${job.name} — ${spec?.label ?? job.type}, ${job.status}`}
           className={cn(
             "card-lift no-drag-select absolute inset-0 cursor-grab overflow-hidden rounded-xl border bg-card outline-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing",
-            selected ? "border-primary ring-2 ring-primary/60" : "hover:border-primary/50"
+            selected
+              ? "border-primary ring-2 ring-primary/60"
+              : "hover:border-primary/50 hover:shadow-md",
+            job.status === "running" &&
+              !selected &&
+              "border-teal-400/60 dark:border-teal-500/50"
           )}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
@@ -478,14 +483,46 @@ export const JobCard = React.memo(function JobCard({
             aria-hidden="true"
           />
 
-          <div className="flex h-full flex-col justify-center gap-1.5 pl-4 pr-3">
-            {/* Row 1: icon + name */}
-            <div className="flex items-center gap-1.5">
-              <TypeIcon
-                name={spec?.icon ?? "Boxes"}
-                className={cn("size-4 shrink-0", spec?.color.text)}
-              />
-              <p className="truncate text-sm font-medium leading-none" title={job.name}>
+          {/* n8n-style completion check badge (top-right corner) */}
+          {job.status === "completed" && (
+            <span
+              aria-hidden="true"
+              title="Completed"
+              className="absolute right-2 top-2 flex size-4.5 items-center justify-center rounded-full bg-emerald-500 text-[10px] font-bold leading-none text-white shadow-sm"
+            >
+              <svg viewBox="0 0 10 10" className="size-3" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M1.5 5.2 L3.8 7.5 L8.5 2.5" />
+              </svg>
+            </span>
+          )}
+          {/* n8n-style failure badge (top-right corner) */}
+          {job.status === "failed" && (
+            <span
+              aria-hidden="true"
+              title="Failed"
+              className="absolute right-2 top-2 flex size-4.5 items-center justify-center rounded-full bg-rose-500 text-[11px] font-bold leading-none text-white shadow-sm"
+            >
+              !
+            </span>
+          )}
+
+          <div className="flex h-full flex-col justify-center gap-1.5 py-3 pl-4 pr-8">
+            {/* Row 1: icon chip + name */}
+            <div className="flex items-center gap-2">
+              <span
+                className={cn(
+                  "flex size-6 shrink-0 items-center justify-center rounded-md ring-1 ring-inset",
+                  spec?.color.soft,
+                  spec?.color.border
+                )}
+                aria-hidden="true"
+              >
+                <TypeIcon
+                  name={spec?.icon ?? "Boxes"}
+                  className={cn("size-3.5", spec?.color.text)}
+                />
+              </span>
+              <p className="truncate text-sm font-semibold tracking-tight leading-none" title={job.name}>
                 {job.name}
               </p>
             </div>

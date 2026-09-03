@@ -863,7 +863,7 @@ async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: string }> {
     }
 
     case "class2d": {
-      return [
+      const argv = [
         path.join(binDir, "relion_refine"),
         "--i", inputs.particles_star,
         "--o", outPath(ctx, "run"),
@@ -872,10 +872,16 @@ async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: string }> {
         "--particle_diameter", String(num(job, "particleDiameter", 180)),
         "--ctf",
         "--pad", "2",
-        "--iter", String(Math.round(num(job, "iterations", 12))),
+        "--iter", String(Math.round(num(job, "iterations", 25))),
+        // finer in-plane angular sampling → sharper class averages
+        "--psi_step", String(num(job, "psiSampling", 6)),
         "--flatten_solvent",
         "--zero_mask",
       ];
+      // optional cap on alignment resolution (0 = unlimited)
+      const hl = num(job, "highresLimit", 0);
+      if (hl > 0) argv.push("--highres_limit", String(hl));
+      return argv;
     }
 
     case "initialmodel": {
@@ -1314,29 +1320,45 @@ function labelColumn(lines: string[], headerEnd: number, label: string): number 
 
 /** Most populated _rlnClassNumber in a data star (or null). */
 function bestClassFromData(starPath: string): number | null {
+  const dist = classDistributionFromData(starPath);
+  if (!dist) return null;
+  let best: number | null = null;
+  let bestCount = -1;
+  for (const [cls, count] of dist.counts) {
+    if (count > bestCount) {
+      bestCount = count;
+      best = cls;
+    }
+  }
+  return best;
+}
+
+/**
+ * Class occupancy from a RELION data.star (counts of _rlnClassNumber).
+ * Used to summarize 2D classification quality in the job result line.
+ */
+function classDistributionFromData(
+  starPath: string
+): { counts: Map<number, number>; total: number } | null {
   try {
     const text = readFileSync(starPath, "utf8");
     const lines = text.split("\n");
     const classCol = labelColumn(lines, lines.length, "_rlnClassNumber");
     if (classCol < 0) return null;
     const counts = new Map<number, number>();
+    let total = 0;
     for (const raw of lines) {
       const t = raw.trim();
       if (!t || t.startsWith("#") || t.startsWith("_") || t === "loop_" || t.startsWith("data_")) continue;
       const cells = t.split(/\s+/);
       if (cells.length <= classCol) continue;
       const cls = parseInt(cells[classCol], 10);
-      if (Number.isFinite(cls)) counts.set(cls, (counts.get(cls) ?? 0) + 1);
-    }
-    let best: number | null = null;
-    let bestCount = -1;
-    for (const [cls, count] of counts) {
-      if (count > bestCount) {
-        bestCount = count;
-        best = cls;
+      if (Number.isFinite(cls)) {
+        counts.set(cls, (counts.get(cls) ?? 0) + 1);
+        total++;
       }
     }
-    return best;
+    return total > 0 ? { counts, total } : null;
   } catch {
     return null;
   }
@@ -1417,6 +1439,16 @@ function collectOutputs(type: string, workdir: string): { outputs: Record<string
         const data = globLatest(workdir, /^run_it\d+_data\.star$/) ?? firstExisting(workdir, ["run_data.star"]);
         if (data) outputs.particles_star = data;
         result = "REAL: 2D classification finished — class averages written";
+        // class occupancy summary — the quality signal for 2D results
+        const dist = data ? classDistributionFromData(data) : null;
+        if (dist) {
+          const ranked = [...dist.counts.entries()].sort((a, b) => b[1] - a[1]);
+          const top = ranked
+            .slice(0, 3)
+            .map(([cls, n]) => `class ${cls} ${Math.round((100 * n) / dist.total)}%`)
+            .join(", ");
+          result = `REAL: 2D classification finished — ${dist.counts.size} classes · ${dist.total.toLocaleString()} particles · top: ${top}`;
+        }
       }
       break;
     }

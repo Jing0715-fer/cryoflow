@@ -104,6 +104,10 @@ const LiveWire = React.memo(function LiveWire({
     sy = job.y + portY(outIdx, nOut);
   }
 
+  // control-point reach — mirrors the bezier geometry used by EdgesLayer
+  const r2 = (v: number) => Math.round(v * 100) / 100;
+  const reach = Math.max(56, Math.abs(cursor.x - sx) * 0.42);
+
   return (
     <svg
       width={CANVAS_W}
@@ -111,19 +115,22 @@ const LiveWire = React.memo(function LiveWire({
       className="pointer-events-none absolute left-0 top-0"
       aria-hidden="true"
     >
-      <circle cx={sx} cy={sy} r={3.5} fill="var(--primary)" opacity={0.9} />
-      <line
-        x1={sx}
-        y1={sy}
-        x2={cursor.x}
-        y2={cursor.y}
+      <circle cx={sx} cy={sy} r={4} fill="var(--primary)" opacity={0.9} />
+      <path
+        d={
+          pendingDirIn
+            ? `M ${r2(sx)} ${r2(sy)} C ${r2(sx - reach)} ${r2(sy)}, ${r2(cursor.x + reach)} ${r2(cursor.y)}, ${r2(cursor.x)} ${r2(cursor.y)}`
+            : `M ${r2(sx)} ${r2(sy)} C ${r2(sx + reach)} ${r2(sy)}, ${r2(cursor.x - reach)} ${r2(cursor.y)}, ${r2(cursor.x)} ${r2(cursor.y)}`
+        }
         stroke="var(--primary)"
-        strokeWidth={2}
+        strokeWidth={2.5}
         strokeLinecap="round"
         strokeDasharray="7 5"
-        opacity={0.7}
+        opacity={0.8}
+        fill="none"
         className="edge-flow"
       />
+      <circle cx={cursor.x} cy={cursor.y} r={3} fill="var(--primary)" opacity={0.55} />
     </svg>
   );
 });

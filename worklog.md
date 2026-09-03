@@ -410,3 +410,27 @@ Stage Summary:
 - 应用代码 + RELION 全栈 + EMPIAR 数据 + 管线前半段全部就绪且经真实二进制验证
 - 唯一未决：dev server 需容器 boot 启动（用户软重启沙箱）→ 然后推进 class2d→initialmodel→refine3d→maskcreate→postprocess（约 7-8h，cron 5min 监控）
 - 若软重启变全量重置：按 persist/RESTORE.md 3 分钟恢复（但 dev server 仍需再软重启一次）
+
+---
+Task ID: n8n-ui-2d-2026-09-04
+Agent: Super Z (main loop)
+Task: n8n 风格连线重写 + workflow UI 美化 + class2d 清晰 2D 重跑启动
+
+Work Log:
+- 【关键清理】发现上轮冒烟测试遗留的旧 class2d 进程（--iter 12，18:23 启动，DB 已重置但进程未死）与新启动进程同时写同一输出目录 → pkill 全部 → 重置 job idle → 清空 class2d_lfo5en10 目录 → 干净重启
+- class2d 引擎修复（engine.ts）：wire --psi_step（存而未用）+ --highres_limit（>0 时才传）+ 默认迭代 12→25
+- class2d 调参启动：iterations=25、psiSampling=5、K=8、tau2=1、CTF 校正、zero_mask、flatten_solvent、pad 2（mpirun -n 2）——比旧跑法（12 iter、无 psi 控制）显著更利收敛出清晰 2D 平均图
+- edges-layer.tsx 全量重写为 n8n 风格（829 行 A* 正交路由 → ~230 行贝塞尔）：水平切线三次贝塞尔 S 曲线、共享端口扇出/扇入控制点偏移防叠线、端点圆点（源 r3/目标 r4.2 带 background 描边环）、运行边 primary+edge-flow 虚线流、primed 边（完成→未完成）primary 55%、hover 3.2px 加粗+中点删除钮、dragLive 实时跟随（O(1) 重算无缓存）——顺带修复了 634 行遗留语法损坏
+- LiveWire（canvas.tsx）：直线→贝塞尔，与新边风格一致，双向（out/in）控制点镜像
+- job-card.tsx n8n 化：类型图标加色块底（color.soft+border ring）、完成卡右上角绿色对勾徽章、失败卡红色 ! 徽章、标题 font-semibold tracking-tight、运行卡 teal 边框
+- mrc.ts：montage 白底→黑底（cryo-EM 惯例，亮粒子黑背景，与 MrcImage 深色容器一致）
+- results-view.tsx：mrcFiles 按迭代号降序（最终迭代排最前）+ "final" 青色角标 + 画廊 montage=16 显示全部类
+- engine.ts：class2d 完成结果行加入类占比摘要（classDistributionFromData 解析 run_itXXX_data.star 的 _rlnClassNumber 计数，取 top3 类百分比）——用户判断 2D 质量的直接信号
+- VLM QA（两轮截图）：确认贝塞尔曲线+彩色端点圆点+图标色块+完成勾角标全部落地；按建议精修：连线基础透明度 24%→32%、宽度 2→2.25px、hover 3.2px、卡片标题加粗
+- lint 全部通过；GET / 200；advance.sh 状态机 WAIT 正常
+
+Stage Summary:
+- n8n 风格连线+卡片美化完成并经 VLM 验证
+- class2d 干净重跑中（预计 it0 ~10.5min + 后续 it 较快，总计 ~2h，21:00 左右完成）
+- 后续管线：initialmodel(K4 D2 VDAM) → refine3d(auto D2 iniHigh30) → maskcreate → postprocess（目标 ≤4Å；上次同参数链 3.54Å）
+- 【给后续 cron 轮】每轮先跑 `bash /home/z/empiar-10017/advance.sh`（timeout 120s）推进管线再开发；class2d 完成后用 VLM 看画廊 classes.mrcs montage 判断 2D 清晰度；完成后 push GitHub（token 已配置在本地 .git/config 的 remote URL 中，勿写入任何受版本控制的文件）

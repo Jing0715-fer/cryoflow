@@ -208,7 +208,7 @@ export async function renderMrcMontagePng(file: string, count = 8): Promise<Buff
   const gap = MONTAGE_GAP;
   const gw = MONTAGE_COLS * cellW + (MONTAGE_COLS + 1) * gap;
   const gh = rows * cellH + (rows + 1) * gap;
-  const grid = Buffer.alloc(gw * gh, 255); // white background
+  const grid = Buffer.alloc(gw * gh, 0); // black background — cryo-EM convention (bright particle on dark)
 
   for (let i = 0; i < n; i++) {
     const data = readMrcSlice(file, i, h);

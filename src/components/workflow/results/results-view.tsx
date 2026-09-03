@@ -164,7 +164,21 @@ export function JobResults({ job }: { job: JobDTO }) {
     };
   }, [fscCandidate, job.id, data]);
 
-  const mrcFiles = useMemo(() => data?.files.filter((f) => f.kind === "mrc") ?? [], [data]);
+  // latest-iteration first: for finished jobs the FINAL classes/maps are what
+  // users come to see (run_it025_classes beats run_it000_classes)
+  const mrcFiles = useMemo(() => {
+    const files = data?.files.filter((f) => f.kind === "mrc") ?? [];
+    const iterOf = (name: string): number => {
+      const m = name.match(/^run_it(\d+)_/i);
+      return m ? Number(m[1]) : -1;
+    };
+    return [...files].sort((a, b) => {
+      const ia = iterOf(a.name);
+      const ib = iterOf(b.name);
+      if (ia !== ib) return ib - ia; // higher iteration first
+      return a.name.localeCompare(b.name, undefined, { numeric: true });
+    });
+  }, [data]);
   const starFiles = useMemo(() => data?.files.filter((f) => f.kind === "star") ?? [], [data]);
   const logFiles = useMemo(
     () => data?.files.filter((f) => f.kind === "text" || f.kind === "image") ?? [],
@@ -507,35 +521,49 @@ function MrcGallery({
   files: OutputFile[];
   onOpen: (file: OutputFile) => void;
 }) {
+  // max RELION iteration present — those files get the "final" chip
+  const maxIter = files.reduce((m, f) => {
+    const it = f.name.match(/^run_it(\d+)_/i);
+    return it ? Math.max(m, Number(it[1])) : m;
+  }, -1);
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-      {files.map((f) => (
-        <button
-          key={f.path}
-          type="button"
-          onClick={() => onOpen(f)}
-          className="group rounded-lg border p-2 text-left transition-all hover:border-teal-600/40 hover:shadow-sm"
-          aria-label={`Open ${f.label ?? f.name}`}
-        >
-          <MrcImage
-            src={
-              f.name.toLowerCase().endsWith(".mrcs")
-                ? fileUrl(job.id, f, "&format=png&montage=8")
-                : fileUrl(job.id, f, "&format=png")
-            }
-            alt={f.label ?? f.name}
-            className="aspect-square"
-          />
-          <p className="mt-1.5 truncate text-[11px] font-medium text-foreground/85" title={f.label ?? f.name}>
-            {f.label ?? f.name}
-          </p>
-          <p className="text-[10px] text-muted-foreground">
-            {f.name.toLowerCase().endsWith(".mrcs")
-              ? `${f.slices ?? "?"} images · ${formatBytes(f.size)}`
-              : `${f.slices ?? 1}×${f.slices ?? 1}×${f.slices ?? 1} · ${formatBytes(f.size)}`}
-          </p>
-        </button>
-      ))}
+      {files.map((f) => {
+        const it = f.name.match(/^run_it(\d+)_/i);
+        const isFinal = it != null && Number(it[1]) === maxIter;
+        return (
+          <button
+            key={f.path}
+            type="button"
+            onClick={() => onOpen(f)}
+            className="group relative rounded-lg border p-2 text-left transition-all hover:border-teal-600/40 hover:shadow-sm"
+            aria-label={`Open ${f.label ?? f.name}`}
+          >
+            {isFinal && (
+              <span className="absolute right-2.5 top-2.5 z-10 rounded-full bg-teal-600 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white shadow-sm">
+                final
+              </span>
+            )}
+            <MrcImage
+              src={
+                f.name.toLowerCase().endsWith(".mrcs")
+                  ? fileUrl(job.id, f, "&format=png&montage=16")
+                  : fileUrl(job.id, f, "&format=png")
+              }
+              alt={f.label ?? f.name}
+              className="aspect-square"
+            />
+            <p className="mt-1.5 truncate text-[11px] font-medium text-foreground/85" title={f.label ?? f.name}>
+              {f.label ?? f.name}
+            </p>
+            <p className="text-[10px] text-muted-foreground">
+              {f.name.toLowerCase().endsWith(".mrcs")
+                ? `${f.slices ?? "?"} images · ${formatBytes(f.size)}`
+                : `${f.slices ?? 1}×${f.slices ?? 1}×${f.slices ?? 1} · ${formatBytes(f.size)}`}
+            </p>
+          </button>
+        );
+      })}
     </div>
   );
 }
