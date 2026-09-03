@@ -7,12 +7,22 @@
 import { create } from "zustand";
 import { toast } from "@/hooks/use-toast";
 import { CARD_W, CARD_H, jobType } from "./workflow";
-import type { EdgeDTO, JobDTO, ProjectDTO } from "./types";
+import type {
+  EdgeDTO,
+  JobDTO,
+  ProjectDTO,
+  ProjectSummaryDTO,
+  SystemStatusClient,
+} from "./types";
 
 interface WorkflowState {
   jobs: JobDTO[];
   edges: EdgeDTO[];
   project: ProjectDTO | null;
+  /** All projects (for the header switcher). */
+  projects: ProjectSummaryDTO[];
+  /** RELION environment status (refreshed on load). */
+  system: SystemStatusClient | null;
   selectedId: string | null;
   pendingFrom: string | null;
   zoom: number;
@@ -22,6 +32,8 @@ interface WorkflowState {
   dragLive: { id: string; dx: number; dy: number } | null;
 
   load: () => Promise<void>;
+  switchProject: (id: string) => Promise<void>;
+  fetchLog: (jobId: string) => Promise<string | null>;
   addJob: (type: string) => Promise<void>;
   moveJobCommit: (id: string, x: number, y: number) => Promise<void>;
   saveJob: (id: string, patch: { name?: string; params?: Record<string, number | string> }) => Promise<void>;
@@ -78,6 +90,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   jobs: [],
   edges: [],
   project: null,
+  projects: [],
+  system: null,
   selectedId: null,
   pendingFrom: null,
   zoom: 1,
@@ -88,21 +102,48 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   load: async () => {
     set({ loading: true, error: null });
     try {
-      const [p, j, e] = await Promise.all([
-        api<{ project: ProjectDTO }>("/api/project"),
+      const [p, j, e, sys, projs] = await Promise.all([
+        api<{ project: ProjectDTO | null }>("/api/project"),
         api<{ jobs: JobDTO[] }>("/api/jobs"),
         api<{ edges: EdgeDTO[] }>("/api/edges"),
+        api<SystemStatusClient>("/api/system").catch(() => null),
+        api<{ projects: ProjectSummaryDTO[] }>("/api/projects").catch(() => ({ projects: [] })),
       ]);
       set({
-        project: p.project,
+        project: p.project ?? null,
         jobs: j.jobs,
         edges: e.edges,
+        system: sys,
+        projects: projs.projects,
         loading: false,
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to load project";
       set({ loading: false, error: msg });
       errToast(msg);
+    }
+  },
+
+  switchProject: async (id) => {
+    try {
+      await api<{ ok: boolean }>("/api/projects/switch", {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ id }),
+      });
+      // full reload (jobs/edges/project/meta)
+      await get().load();
+    } catch (err) {
+      errToast(err instanceof Error ? err.message : "Failed to switch project");
+    }
+  },
+
+  fetchLog: async (jobId) => {
+    try {
+      const data = await api<{ tail: string }>(`/api/jobs/${jobId}/log`);
+      return data.tail;
+    } catch {
+      return null;
     }
   },
 
@@ -163,11 +204,20 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   runJob: async (id) => {
     try {
-      const { job } = await api<{ job: JobDTO }>(`/api/jobs/${id}/run`, {
+      const data = await api<{ job: JobDTO; error?: string }>(`/api/jobs/${id}/run`, {
         method: "POST",
       });
-      set({ jobs: get().jobs.map((j) => (j.id === id ? job : j)) });
-      toast({ title: "Job started", description: `${job.name} is now running` });
+      set({ jobs: get().jobs.map((j) => (j.id === id ? data.job : j)) });
+      if (data.error) {
+        // honest real-engine failure — surfaced via the job result too
+        toast({
+          title: "Real engine refused to start",
+          description: data.error,
+          variant: "destructive",
+        });
+        return false;
+      }
+      toast({ title: "Job started", description: `${data.job.name} is now running` });
       return true;
     } catch (err) {
       errToast(err instanceof Error ? err.message : "Failed to run job");
@@ -250,13 +300,20 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     try {
       const { jobs } = await api<{ jobs: JobDTO[] }>("/api/jobs");
       set({ jobs });
-      // announce transitions running → completed
+      // announce transitions running → completed / failed
       for (const job of jobs) {
         const before = prev.find((p) => p.id === job.id);
-        if (before?.status === "running" && job.status === "completed") {
+        if (before?.status !== "running") continue;
+        if (job.status === "completed") {
           toast({
             title: `${job.name} completed`,
             description: job.result ?? undefined,
+          });
+        } else if (job.status === "failed") {
+          toast({
+            title: `${job.name} failed`,
+            description: job.result ?? undefined,
+            variant: "destructive",
           });
         }
       }

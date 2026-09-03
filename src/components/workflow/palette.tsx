@@ -11,8 +11,8 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 /**
- * Job type palette — used in the desktop sidebar and inside the mobile Sheet.
- * The parent controls layout height; this component fills it and scrolls.
+ * Job type palette (RELION 5 catalog: SPA + Tomography) — used in the
+ * desktop sidebar and inside the mobile Sheet.
  */
 export function JobPalette({ onAdded }: { onAdded?: () => void }) {
   const addJob = useWorkflowStore((s) => s.addJob);
@@ -24,14 +24,13 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
     ? JOB_TYPES.filter(
         (t) =>
           t.label.toLowerCase().includes(q) ||
+          t.key.toLowerCase().includes(q) ||
           t.group.toLowerCase().includes(q) ||
           t.description.toLowerCase().includes(q)
       )
     : JOB_TYPES;
 
-  const groups = JOB_GROUPS.filter((g) =>
-    filtered.some((t) => t.group === g)
-  );
+  const groups = JOB_GROUPS.filter((g) => filtered.some((t) => t.group === g));
 
   const handleAdd = async (type: string) => {
     if (busy) return;
@@ -52,6 +51,9 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Job Types
           </p>
+          <span className="ml-auto text-[10px] tabular-nums text-muted-foreground/70">
+            {JOB_TYPES.length}
+          </span>
         </div>
         <div className="relative">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -66,7 +68,7 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
       </div>
 
       <nav
-        aria-label="Job type catalog"
+        aria-label="RELION 5 job type catalog"
         className="min-h-0 flex-1 space-y-4 overflow-y-auto px-2 pb-4 pt-1"
       >
         {groups.length === 0 && (
@@ -76,8 +78,11 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
         )}
         {groups.map((group) => (
           <div key={group}>
-            <p className="px-2 pb-1 text-[10px] font-medium uppercase tracking-widest text-muted-foreground/80">
-              {group}
+            <p className="flex items-baseline gap-2 px-2 pb-1 text-[10px] font-medium uppercase tracking-widest text-muted-foreground/80">
+              <span>{group === "SPA" ? "SPA · single-particle" : "Tomography"}</span>
+              <span className="tabular-nums text-muted-foreground/50">
+                {filtered.filter((t) => t.group === group).length}
+              </span>
             </p>
             <div className="space-y-0.5">
               {filtered
@@ -90,6 +95,7 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
                       className="h-auto w-full justify-start gap-2.5 px-2.5 py-2 text-left"
                       onClick={() => void handleAdd(t.key)}
                       aria-label={`Add ${t.label} job to canvas`}
+                      title={`${t.tier === "core" ? "Core (real engine)" : t.tier === "cmd" ? "Runs real RELION CLI" : "Needs external binary"} — ${t.key}`}
                     >
                       <span
                         className={cn(
@@ -107,6 +113,17 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
                         <span className="block truncate text-[11px] leading-tight text-muted-foreground">
                           {t.description}
                         </span>
+                      </span>
+                      <span
+                        className={cn(
+                          "shrink-0 rounded px-1 py-px font-mono text-[8px] uppercase tracking-wide",
+                          t.tier === "core" && "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+                          t.tier === "cmd" && "bg-muted text-muted-foreground",
+                          t.tier === "external" && "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                        )}
+                        aria-hidden="true"
+                      >
+                        {t.tier === "core" ? "core" : t.tier === "cmd" ? "cli" : "ext"}
                       </span>
                     </Button>
                   );

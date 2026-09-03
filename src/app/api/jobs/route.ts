@@ -1,27 +1,43 @@
 import { NextRequest, NextResponse } from "next/server";
+import { existsSync } from "fs";
 import { db } from "@/lib/db";
-import { ensureProject, toJobDTO, reconcileRunning, jitteredDuration } from "@/lib/seed";
+import { ensureActiveProject, toJobDTO, reconcileRunning, jitteredDuration } from "@/lib/seed";
 import { defaultParams, jobType } from "@/lib/workflow";
+import { readRuns, reconcileRealJobs } from "@/lib/relion/engine";
 
 export const dynamic = "force-dynamic";
 
-/** GET /api/jobs — all jobs of the demo project, running jobs reconciled. */
+/** GET /api/jobs — jobs of the ACTIVE project; real engine reconciled first, then sim. */
 export async function GET() {
   try {
-    const project = await ensureProject();
+    const active = await ensureActiveProject();
+    if (!active) {
+      return NextResponse.json({ jobs: [] });
+    }
     const jobs = await db.job.findMany({
-      where: { projectId: project.id },
+      where: { projectId: active.project.id },
       orderBy: { createdAt: "asc" },
     });
-    const reconciled = await reconcileRunning(jobs);
-    return NextResponse.json({ jobs: reconciled.map(toJobDTO) });
+    const reconciled = await reconcileRealJobs(jobs); // REAL engine first
+    const final = await reconcileRunning(reconciled); // then time-based sim
+
+    const runs = readRuns();
+    const projectIsRelion = active.meta.engine === "relion";
+    const jobsOut = final.map((j) => {
+      const dto = toJobDTO(j);
+      const state = runs[j.id];
+      dto.engine = state || projectIsRelion ? "relion" : "sim";
+      dto.hasLog = state ? existsSync(state.logFile) : false;
+      return dto;
+    });
+    return NextResponse.json({ jobs: jobsOut });
   } catch (error) {
     console.error("GET /api/jobs failed:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
-/** POST /api/jobs — body: { type, x?, y? } */
+/** POST /api/jobs — body: { type, x?, y? } → created in the ACTIVE project. */
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json().catch(() => ({}))) as {
@@ -36,9 +52,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: `Unknown job type: ${type}` }, { status: 400 });
     }
 
-    const project = await ensureProject();
+    const active = await ensureActiveProject();
+    if (!active) {
+      return NextResponse.json({ error: "No project available" }, { status: 500 });
+    }
     const count = await db.job.count({
-      where: { projectId: project.id, type },
+      where: { projectId: active.project.id, type },
     });
 
     const x =
@@ -52,7 +71,7 @@ export async function POST(request: NextRequest) {
 
     const job = await db.job.create({
       data: {
-        projectId: project.id,
+        projectId: active.project.id,
         type,
         name: `${spec.label} ${count + 1}`,
         x,
@@ -62,7 +81,9 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({ job: toJobDTO(job) }, { status: 201 });
+    const dto = toJobDTO(job);
+    dto.engine = active.meta.engine === "relion" ? "relion" : "sim";
+    return NextResponse.json({ job: dto }, { status: 201 });
   } catch (error) {
     console.error("POST /api/jobs failed:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

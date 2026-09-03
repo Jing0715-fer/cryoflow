@@ -1,14 +1,25 @@
-import { NextResponse } from "next/server";
-import { ensureProject, toProjectDTO } from "@/lib/seed";
+import { NextRequest, NextResponse } from "next/server";
+import { ensureActiveProject, toProjectDTO } from "@/lib/seed";
 
 export const dynamic = "force-dynamic";
 
+/** GET /api/project — active project (seeds the sim demo when DB is empty). */
 export async function GET() {
   try {
-    const project = await ensureProject();
-    return NextResponse.json({ project: toProjectDTO(project) });
+    const active = await ensureActiveProject();
+    if (!active) {
+      return NextResponse.json({ project: null });
+    }
+    return NextResponse.json({
+      project: toProjectDTO(active.project, active.meta.mode, active.meta.engine),
+    });
   } catch (error) {
     console.error("GET /api/project failed:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
+}
+
+/** POST kept for symmetry with older clients — same as GET. */
+export async function POST(_request: NextRequest) {
+  return GET();
 }

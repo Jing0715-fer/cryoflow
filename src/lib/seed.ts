@@ -7,6 +7,8 @@ import { db } from "@/lib/db";
 import type { Edge, Job, Project } from "@prisma/client";
 import { defaultParams, jobType, resultFor } from "@/lib/workflow";
 import type { EdgeDTO, JobDTO, ProjectDTO } from "@/lib/types";
+import { registerProject, getActiveProject } from "@/lib/projects";
+import { readRuns } from "@/lib/relion/engine";
 
 /* ------------------------------------------------------------------ */
 /* DTO mappers                                                          */
@@ -47,11 +49,13 @@ export function toEdgeDTO(edge: Edge): EdgeDTO {
   return { id: edge.id, fromJobId: edge.fromJobId, toJobId: edge.toJobId };
 }
 
-export function toProjectDTO(project: Project): ProjectDTO {
+export function toProjectDTO(project: Project, mode = "spa", engine = "sim"): ProjectDTO {
   return {
     id: project.id,
     name: project.name,
     createdAt: project.createdAt.toISOString(),
+    mode,
+    engine,
   };
 }
 
@@ -63,13 +67,20 @@ export function toProjectDTO(project: Project): ProjectDTO {
  * For every running job derive progress from startedAt + duration.
  * Jobs that reached 100% are persisted as completed (with their result)
  * and the updated row is returned in place of the stale one.
+ * REAL-engine jobs (engine-state.json record) are skipped — they are
+ * reconciled by reconcileRealJobs() first.
  */
 export async function reconcileRunning(jobs: Job[]): Promise<Job[]> {
+  const runs = readRuns();
   const now = Date.now();
   const out: Job[] = [];
   for (const job of jobs) {
     if (job.status !== "running" || !job.startedAt) {
       out.push(job);
+      continue;
+    }
+    if (runs[job.id]) {
+      out.push(job); // real engine owns this run
       continue;
     }
     const elapsed = now - job.startedAt.getTime();
@@ -101,18 +112,18 @@ export function jitteredDuration(base: number): number {
 }
 
 /**
- * Idempotent: returns the first project, creating the demo project
- * (β-Galactosidase Tutorial) with a small starter workflow on first call.
+ * Idempotent demo seeding: ONLY when the DB has no projects at all.
+ * Creates the sim β-Galactosidase demo (import → motioncorr → ctffind)
+ * and registers it as the active sim project in data/projects.json.
  */
-export async function ensureProject(): Promise<Project> {
-  const existing = await db.project.findFirst({
-    orderBy: { createdAt: "asc" },
-  });
-  if (existing) return existing;
+export async function ensureProject(): Promise<Project | null> {
+  const count = await db.project.count();
+  if (count > 0) return null;
 
   const project = await db.project.create({
-    data: { name: "β-Galactosidase Tutorial" },
+    data: { name: "β-Galactosidase Tutorial (demo)" },
   });
+  registerProject(project.id, { mode: "spa", engine: "sim" }, true);
 
   const importJob = await db.job.create({
     data: {
@@ -124,7 +135,7 @@ export async function ensureProject(): Promise<Project> {
       status: "completed",
       progress: 100,
       params: JSON.stringify(defaultParams("import")),
-      duration: jitteredDuration(jobType("import")?.duration ?? 2500),
+      duration: jitteredDuration(jobType("import")?.duration ?? 2000),
     },
   });
   // result depends on the generated id → set after create
@@ -136,26 +147,26 @@ export async function ensureProject(): Promise<Project> {
   const motionJob = await db.job.create({
     data: {
       projectId: project.id,
-      type: "motion",
+      type: "motioncorr",
       name: "Motion Correction 1",
       x: 280,
       y: 220,
       status: "idle",
-      params: JSON.stringify(defaultParams("motion")),
-      duration: jitteredDuration(jobType("motion")?.duration ?? 9000),
+      params: JSON.stringify(defaultParams("motioncorr")),
+      duration: jitteredDuration(jobType("motioncorr")?.duration ?? 9000),
     },
   });
 
   const ctfJob = await db.job.create({
     data: {
       projectId: project.id,
-      type: "ctf",
+      type: "ctffind",
       name: "CTF Estimation 1",
       x: 544,
       y: 220,
       status: "idle",
-      params: JSON.stringify(defaultParams("ctf")),
-      duration: jitteredDuration(jobType("ctf")?.duration ?? 5000),
+      params: JSON.stringify(defaultParams("ctffind")),
+      duration: jitteredDuration(jobType("ctffind")?.duration ?? 5000),
     },
   });
 
@@ -167,4 +178,15 @@ export async function ensureProject(): Promise<Project> {
   });
 
   return project;
+}
+
+/**
+ * Seeds the demo project when the DB is empty, then resolves the ACTIVE
+ * project (+ mode/engine meta). Single entry point for list endpoints.
+ */
+export async function ensureActiveProject(): Promise<
+  { project: Project; meta: { mode: "spa" | "tomo"; engine: "sim" | "relion" } } | null
+> {
+  await ensureProject();
+  return getActiveProject();
 }

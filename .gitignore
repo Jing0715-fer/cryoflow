@@ -56,3 +56,6 @@ server.log
 /db/*.db
 /db/*.db-journal
 /agent-ctx
+# RELION engine outputs + runtime state (large real data files)
+/data/
+/tool-results/

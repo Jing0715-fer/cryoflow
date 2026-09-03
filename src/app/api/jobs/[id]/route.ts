@@ -52,6 +52,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       const incoming = body.params as Record<string, unknown>;
       const merged: Record<string, unknown> = { ...current };
       const allowed = new Set((spec?.params ?? []).map((p) => p.key));
+      if (existing.type === "import") allowed.add("empiarData"); // engine flag, set by the EMPIAR seed
       for (const [key, value] of Object.entries(incoming)) {
         if (allowed.has(key) && (typeof value === "number" || typeof value === "string")) {
           merged[key] = value;

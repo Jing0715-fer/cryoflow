@@ -88,3 +88,92 @@ Stage Summary:
 1. 潜在增强项：真实 RELION CLI 执行引擎接入（run 端点已预留替换位）、作业运行日志面板、画布框选/多选、edge hover 高亮删除、撤销(undo)栈、键盘 Delete 删作业、URL 状态同步
 2. 样式细节可继续打磨：画布 minimap、卡片右键上下文菜单、FSC/分辨率结果可视化图表（recharts 风格）
 3. 运行时长 2.5–12s 为演示值，接入真实数据前勿改 PRAGMA；4GB 内存下避免 tsc+浏览器并发
+
+---
+Task ID: 6 (本轮用户需求)
+Agent: main (Z.ai Code)
+Task: EMPIAR-10017 真实数据全流程测试 + 真实 RELION 5 后端（全部 SPA+TOMO 算法）+ RELION5 环境检测（含 WSL）+ 拖拽连线跟随修复 + push GitHub
+
+Work Log:
+- 已修复拖拽连线不跟随：store 增加 dragLive 瞬态切片 {id,dx,dy}；job-card rAF 拖动时 setDragLive；edges-layer 订阅 dragLive 实时平移被拖卡片的端点；松手先清 dragLive 再乐观提交 x/y（同一 React 批次，无回跳）。验收待 agent-browser。
+- EMPIAR-10017 数据已下载：/home/z/empiar-10017/micrographs/（6×MRC 4096×4096 float32 + 6×.coord 手选坐标，β-gal 教程数据，已预运动校正）
+- 发现沙箱会回收工具调用拉起的后台进程（sleep 600 测试 25s 内被杀）→ RELION 构建改用「分块前台续跑」：/home/z/relion-build/chunk.sh（幂等、make 自动续、每块 ≤540s）
+- **重大决策：不改 Prisma schema**（dev server 由系统 /start.sh 管理、不可自行重启）→ 引擎状态（pid/workdir/cmd/log）存 data/engine-state.json 文件；Project mode(spa/tomo)/engine(sim/relion) 也走文件。Job 表复用现有 status/progress/result/startedAt 字段
+- RELION 5 权威作业清单已从 pipeline_jobs.h 提取：SPA 21 类（import, motioncorr, ctffind, manualpick, autopick, extract, select, class2d, initialmodel, class3d, refine3d, multibody, maskcreate, joinstar, subtract, postprocess, localres, polish, ctfrefine, dynamight, modelangelo）+ TOMO 11 类（tomo_import, tomo_aligntiltseries, tomo_tomograms, tomo_ctfrefine, tomo_exclude, tomo_polish, tomo_reconstruct, tomo_denoise, tomo_picks, tomo_extract）+ external = 32 类
+- 源码参考文件已就位于 /home/z/relion-build/：pipeline_jobs.cpp(7559行, getCommands 权威命令构造)、pipeline_jobs.h、gui_jobwindow.cpp(参数 GUI 定义)、gui_mainwindow.cpp
+- Task 7（full-stack 子代理）并行启动：作业目录扩至 32 类、RELION 检测模块、真实执行引擎、EMPIAR 项目种子、系统状态 UI
+- RELION 构建分块推进（MPICH→FFTW→ctffind→RELION 5.0.1, CPU-only 2核）
+
+构建进度追踪（chunk.sh status.txt）：
+- [进行中] MPICH → FFTW → ctffind → RELION
+
+Stage Summary:
+- 本段为规划与基础设施阶段；真实管线测试在 RELION 构建完成后进行
+
+---
+Task ID: 7 (cont.)
+Agent: main (Z.ai Code)
+Task: RELION 5.0.1 从源码构建 + EMPIAR-10017 真实管线逐作业打通
+
+Work Log:
+- RELION 5.0.1 构建完成（约 15 分钟 make）：123 个二进制 → /home/z/relion-install/bin；`relion_refine --version` → "RELION version: 5.0.1-commit-d476e6" ✓；含全部 tomo 算法（relion_tomo_align/reconstruct/subtomo/refine_ctf 等）与 relion_mask_create/relion_particle_select（RELION 5 新命名）
+- MPICH 4.2.3 ✓（hydra mpirun 可用；**--oversubscribe 是 OpenMPI 旗标，MPICH 不认 → 已从引擎移除**）；FFTW 3.3.10 ✓；ctffind 4.1.14（官方预编译 linux64 二进制，grigoriefflab.umassmed.edu）
+- /api/system 检测全绿：found=true, source=known-path, binaries 全 present（含 WSL 探测分支，本机 wsl 不可用 → 正确报告）
+- 关键架构修复（引擎路径学，三次迭代）：
+  1. **项目根 CWD 模式**：所有真实 CLI 作业 spawn cwd = data/relion/<projectId>/（镜像 RELION pipeliner 从项目根启动）；ctffind_runner 的 symlink 机制 = (cwd + 星表相对路径) → (--o 目录 + 路径)，仅在此模式下自洽
+  2. **import 星表**：光学组表第一列必须整数（rlnOpticsGroup=1，名字放 rlnOpticsGroupName 列）；微图表补 _rlnOpticsGroup 列（否则 ctffind 写 0 → 下游 obs_model 报 "optics groups not defined"）；路径用 "micrographs/X.mrc" 项目相对 + 项目根 symlink → EMPIAR 目录
+  3. **坐标传递**：--coord_list 需要"微图→坐标文件"映射而非坐标本身 → manualpick native 额外写 <workdir>/micrographs/*.coord 纯文本（RELION readCoordinates 原生格式），extract 用 --coord_dir/--coord_suffix
+  4. **RELION 5 输出扩展名**：class averages 是 .mrcs（非 .mrc）→ collectOutputs 模式已修；class2d 额外产出 particles_star（迭代 data.star）供下游链式使用
+- ctffind wrapper 不搜 PATH → 引擎 env 注入 RELION_CTFFIND_EXECUTABLE=/home/z/relion-build/deps/ctffind/bin/ctffind
+- 真实管线进展（经 App 自身 API 端到端）：
+  - Import ✓（引擎原生，6 显微照片，1.77 Å/300kV/Cs2.7/Q0 0.1）
+  - CtfFind ✓（真实 ctffind：DefocusU≈34890Å、FOM 0.063、maxres 6.04Å，EPS 图 + PDF 日志 + .ctf:mrc 诊断文件）
+  - ManualPick ✓（Henderson 3476 坐标原生导入）
+  - Extract ✓（relion_preprocess：box128→downsample64，3.54Å，真实 .mrcs 粒子栈 + 完整 CTF 列）
+  - Select ✓（引擎原生子集：1000/3476）
+  - Class2D ✓（mpirun -n 2 relion_refine，12 迭代 ×~15s，10 类 .mrcs）
+  - InitialModel：运行中（VDAM 梯度优化 50 迭代）
+- 引擎状态文件 data/engine-state.json 跨热重载存活 ✓
+
+Stage Summary:
+- RELION 5.0.1 全套二进制 + MPI + FFTW + ctffind 就绪；引擎路径学已按 RELION 源码逐行对齐（ctffind_runner.cpp/preprocessing.cpp/obs_model.cpp/filename.cpp 佐证）
+- 真实管线 6/10 作业完成，剩 InitialModel(运行中)/Refine3D/MaskCreate/PostProcess
+
+未解决问题或风险：
+- InitialModel VDAM 输出文件名模式待实测（glob class*.mrcs?）；Refine3D 15 迭代非 auto（时长可控）
+- countStarRows 计数含光学组行（显示 7/3477 微小偏差，纯展示）
+
+---
+Task ID: 6/7 (final)
+Agent: main (Z.ai Code)
+Task: EMPIAR-10017 真实全流程测试完成 + GitHub 推送
+
+Work Log:
+- **EMPIAR-10017 全流程 10/10 作业真实完成**（全部经 App 自身 API 端到端驱动）：
+  1. Import ✓（引擎原生，6 真实显微照片，1.77 Å/300kV/Cs2.7/Q0 0.1，光学组整数修复）
+  2. CtfFind ✓（真实 ctffind 4.1.14：DefocusU≈34890Å，FOM 0.063，maxres 6.04Å，EPS/PDF/ctf:mrc 诊断）
+  3. ManualPick ✓（Henderson 3476 真实坐标，.coord 原生格式直读）
+  4. Extract ✓（relion_preprocess box128→64，3.54Å，真实 .mrcs 栈+CTF 列）
+  5. Select ✓（1000 子集）
+  6. Class2D ✓（mpirun 12 迭代 10 类 .mrcs）
+  7. InitialModel ✓（VDAM 50 梯度迭代，4 类初始模型）
+  8. Refine3D ✓（3 MPI 进程金标准 FSC，D2 对称，15 迭代，run_it015_half1/2）
+  9. MaskCreate ✓（relion_mask_create 软边掩膜）
+  10. PostProcess ✓（**真实 FSC(0.143)=7.08 Å** + postprocess.mrc 锐化图 + FSC 曲线 + PDF 报告）
+- 管线期间修复 4 个真实引擎缺陷：MPI 二进制切换（relion_refine_mpi）、refine3d 需 3 进程（leader+2 half-mapper）、RELION 5 half-map 命名（it<N>_halfX）、initialmodel/class2d 链式 particles_star 输出
+- 版本探测正则修复（现显示 "RELION 5.0.1"）
+- 拖拽连线实时跟随修复已验证：拖动中 4 条边路径同步更新（dragLive 瞬态切片）、松手持久化 (0,396)、无 console 错误
+- 浏览器 QA：项目切换器（demo SIM / EMPIAR RELION 双项目）、RELION 状态弹层（版本/来源/路径/WSL/二进制矩阵）、参数面板、日志查看对话框（18.8KB 真实引擎日志）、运行中 Run 按钮禁用、VLM 确认 10 卡全 completed + 真实结果串
+- lint + tsc 零错误
+- /data/（1.7GB 真实输出）与 /tool-results/ 已 gitignore；token 扫描干净
+
+Stage Summary:
+- 用户四项需求全部交付：①EMPIAR-10017 真实数据全流程测试（FSC 7.08Å）②真实 RELION 5 后端（32 类 SPA+TOMO 目录，10 核心 CLI 全真跑，其余真命令模板+诚实失败）③RELION 5 环境检测含 WSL 分支（/api/system + 头部状态徽章）④拖拽连线实时跟随已修复验证
+- 待办：git commit + push
+
+未解决问题或风险（下阶段建议）：
+- countStarRows 计数含表头行（7/3477 展示微偏）
+- class2d 曾以 2 个串行副本跑完（mpirun+串行二进制）——输出有效但浪费；后续运行已用 _mpi
+- refine3d 可加 auto_refine 参数路径（现 false 走固定 15 迭代）
+- TOMO 作业有完整命令模板但无倾斜序列数据（运行会诚实失败——正确行为）
+- 建议下阶段：结果可视化（FSC 曲线图/2D 类平均值画廊/3D 地图 MolStar）、多项目画布布局持久化

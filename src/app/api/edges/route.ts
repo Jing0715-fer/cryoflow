@@ -1,15 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { ensureProject, toEdgeDTO } from "@/lib/seed";
+import { toEdgeDTO } from "@/lib/seed";
+import { getActiveProject } from "@/lib/projects";
 
 export const dynamic = "force-dynamic";
 
-/** GET /api/edges — all edges of the demo project. */
+/** GET /api/edges — all edges of the active project. */
 export async function GET() {
   try {
-    const project = await ensureProject();
+    const active = await getActiveProject();
+    if (!active) {
+      return NextResponse.json({ edges: [] });
+    }
     const edges = await db.edge.findMany({
-      where: { projectId: project.id },
+      where: { projectId: active.project.id },
       orderBy: { createdAt: "asc" },
     });
     return NextResponse.json({ edges: edges.map(toEdgeDTO) });

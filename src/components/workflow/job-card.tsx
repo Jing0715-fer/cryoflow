@@ -256,8 +256,11 @@ export const JobCard = React.memo(function JobCard({
                 {job.result}
               </p>
             ) : job.status === "failed" ? (
-              <p className="truncate text-[11px] leading-4 text-rose-600 dark:text-rose-400">
-                Run failed — check logs
+              <p
+                className="truncate text-[11px] leading-4 text-rose-600 dark:text-rose-400"
+                title={job.result ?? "Run failed — check logs"}
+              >
+                {job.result ?? "Run failed — check logs"}
               </p>
             ) : isReady ? (
               <p className="flex items-center gap-1 text-[11px] leading-4 text-emerald-700 dark:text-emerald-300">

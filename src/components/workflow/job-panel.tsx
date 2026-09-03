@@ -7,6 +7,8 @@ import {
   MousePointerClick,
   Play,
   RotateCcw,
+  RefreshCw,
+  Terminal,
   Trash2,
   X,
 } from "lucide-react";
@@ -26,7 +28,16 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -75,6 +86,81 @@ function PanelEmpty() {
 }
 
 /* ------------------------------------------------------------------ */
+/* Engine badge                                                        */
+/* ------------------------------------------------------------------ */
+
+function EngineBadge({ engine }: { engine: "sim" | "relion" }) {
+  return (
+    <Badge
+      variant="outline"
+      className={cn(
+        "h-5 px-1.5 text-[9px] font-semibold uppercase tracking-wider",
+        engine === "relion"
+          ? "border-teal-500/40 bg-teal-500/10 text-teal-600 dark:text-teal-400"
+          : "border-slate-400/40 bg-slate-500/10 text-slate-600 dark:text-slate-400"
+      )}
+      title={engine === "relion" ? "Runs on the REAL RELION engine" : "Runs on the simulation engine"}
+    >
+      {engine === "relion" ? "RELION" : "SIM"}
+    </Badge>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Log dialog                                                          */
+/* ------------------------------------------------------------------ */
+
+function LogDialog({ job, open, onOpenChange }: { job: JobDTO; open: boolean; onOpenChange: (open: boolean) => void }) {
+  const fetchLog = useWorkflowStore((s) => s.fetchLog);
+  const [log, setLog] = React.useState<string | null>(null);
+  const [loading, setLoading] = React.useState(false);
+
+  const refresh = React.useCallback(async () => {
+    setLoading(true);
+    try {
+      const tail = await fetchLog(job.id);
+      setLog(tail ?? "No log available (sim job or log removed).");
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchLog, job.id]);
+
+  React.useEffect(() => {
+    if (open) void refresh();
+  }, [open, refresh]);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl gap-0 p-0">
+        <DialogHeader className="space-y-1 border-b px-4 py-3 pr-10">
+          <DialogTitle className="flex items-center gap-2 text-sm">
+            <Terminal className="size-4 text-muted-foreground" aria-hidden="true" />
+            {job.name} — engine log
+          </DialogTitle>
+          <DialogDescription className="text-xs">
+            Tail of run.out / run.err from the real execution engine (last 80 lines).
+          </DialogDescription>
+        </DialogHeader>
+        <div className="px-4 py-3">
+          <pre
+            className="max-h-[60vh] overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted/60 p-3 font-mono text-xs leading-relaxed text-foreground/90"
+            aria-label="Engine log tail"
+          >
+            {loading && log === null ? "Loading log…" : (log ?? "…")}
+          </pre>
+        </div>
+        <DialogFooter className="border-t px-4 py-3">
+          <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={loading}>
+            <RefreshCw className={cn("size-3.5", loading && "animate-spin")} aria-hidden="true" />
+            Refresh
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Connection chips                                                    */
 /* ------------------------------------------------------------------ */
 
@@ -117,6 +203,7 @@ function EdgeChip({
 function PanelBody({ job }: { job: JobDTO }) {
   const jobs = useWorkflowStore((s) => s.jobs);
   const edges = useWorkflowStore((s) => s.edges);
+  const system = useWorkflowStore((s) => s.system);
   const saveJob = useWorkflowStore((s) => s.saveJob);
   const runJob = useWorkflowStore((s) => s.runJob);
   const resetJob = useWorkflowStore((s) => s.resetJob);
@@ -124,9 +211,13 @@ function PanelBody({ job }: { job: JobDTO }) {
   const removeEdge = useWorkflowStore((s) => s.removeEdge);
 
   const spec = jobType(job.type);
+  const engine = job.engine ?? "sim";
+  const relionBlocked = engine === "relion" && system !== null && !system.found;
+  const relionHint = "RELION not detected — build/install RELION or set RELION_HOME";
 
   const [name, setName] = React.useState(job.name);
   const [runPending, setRunPending] = React.useState(false);
+  const [logOpen, setLogOpen] = React.useState(false);
   const [form, setForm] = React.useState<Record<string, ParamValue>>(() => {
     const init: Record<string, ParamValue> = {};
     for (const p of spec?.params ?? []) {
@@ -215,9 +306,12 @@ function PanelBody({ job }: { job: JobDTO }) {
           />
         </div>
         <div className="flex items-center justify-between gap-2">
-          <StatusBadge status={job.status} />
+          <div className="flex items-center gap-1.5">
+            <StatusBadge status={job.status} />
+            <EngineBadge engine={engine} />
+          </div>
           <span className="text-[11px] text-muted-foreground">
-            {spec?.group ?? "Workflow"}
+            {spec?.group ?? "Workflow"} · {spec?.tier ?? "—"}
           </span>
         </div>
         <p className="text-xs leading-relaxed text-muted-foreground">
@@ -302,39 +396,85 @@ function PanelBody({ job }: { job: JobDTO }) {
         <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Execution
         </p>
-        <Button
-          className="w-full"
-          disabled={job.status === "running" || runPending}
-          onClick={() => void handleRun()}
+        <div
+          title={relionBlocked ? relionHint : undefined}
+          className={cn(relionBlocked && "cursor-not-allowed opacity-70")}
         >
-          {runPending ? (
-            <Loader2 className="animate-spin" aria-hidden="true" />
-          ) : (
-            <Play aria-hidden="true" />
-          )}
-          {job.status === "completed" || job.status === "failed"
-            ? "Re-run"
-            : "Run Job"}
-        </Button>
+          <Button
+            className="w-full"
+            disabled={job.status === "running" || runPending || relionBlocked}
+            onClick={() => void handleRun()}
+            aria-describedby={relionBlocked ? "relion-blocked-hint" : undefined}
+          >
+            {runPending ? (
+              <Loader2 className="animate-spin" aria-hidden="true" />
+            ) : (
+              <Play aria-hidden="true" />
+            )}
+            {job.status === "completed" || job.status === "failed"
+              ? "Re-run"
+              : "Run Job"}
+          </Button>
+        </div>
+        {relionBlocked && (
+          <p id="relion-blocked-hint" className="text-[11px] leading-relaxed text-amber-600 dark:text-amber-400">
+            {relionHint}
+          </p>
+        )}
         {job.status === "running" && (
           <div className="space-y-1">
             <MiniProgress value={job.progress} running label={`${job.name} progress`} />
             <p className="text-right text-xs tabular-nums text-muted-foreground">
-              {Math.round(job.progress)}% ·{" "}
-              {(Math.max(0, (job.duration * (100 - job.progress)) / 100) / 1000).toFixed(1)}s
-              left
+              {engine === "relion" ? (
+                <span>REAL · RELION process running</span>
+              ) : (
+                <>
+                  {Math.round(job.progress)}% ·{" "}
+                  {(Math.max(0, (job.duration * (100 - job.progress)) / 100) / 1000).toFixed(1)}s
+                  left
+                </>
+              )}
             </p>
           </div>
         )}
-        <Button
-          variant="ghost"
-          className="w-full text-muted-foreground"
-          onClick={() => void resetJob(job.id)}
-          disabled={job.status === "running"}
-        >
-          <RotateCcw aria-hidden="true" />
-          Reset
-        </Button>
+        {(job.status === "completed" || job.status === "failed") && job.result && (
+          <p
+            className={cn(
+              "rounded-md border px-2.5 py-2 text-[11px] leading-relaxed",
+              job.status === "failed"
+                ? "border-destructive/30 bg-destructive/10 text-destructive"
+                : "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+            )}
+            title={job.result}
+          >
+            {job.result}
+          </p>
+        )}
+        <div className="flex gap-2">
+          <Button
+            variant="ghost"
+            className="flex-1 text-muted-foreground"
+            onClick={() => void resetJob(job.id)}
+            disabled={job.status === "running"}
+          >
+            <RotateCcw aria-hidden="true" />
+            Reset
+          </Button>
+          {job.hasLog && (
+            <Button
+              variant="ghost"
+              className="flex-1 text-muted-foreground"
+              onClick={() => setLogOpen(true)}
+              aria-label={`View engine log for ${job.name}`}
+            >
+              <Terminal aria-hidden="true" />
+              View log
+            </Button>
+          )}
+        </div>
+        {job.hasLog && (
+          <LogDialog job={job} open={logOpen} onOpenChange={setLogOpen} />
+        )}
       </div>
 
       <Separator />
