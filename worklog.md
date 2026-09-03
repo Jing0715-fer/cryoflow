@@ -345,3 +345,21 @@ Work Log:
 Stage Summary:
 - dashboard 不再误报"WSL 不可用"：WSL 本体、RELION 是否在 PATH、如何被找到三者独立报告；用户修完 PATH 点 Re-detect 即可看到版本号与路径。
 - 三种用户方案（A bashrc / B symlink / C RELION_HOME）全部被探针覆盖；常见安装布局（含用户的 relion5-build-cuda-fixed、relion5-pkg）自动发现，多数情况下无需改 PATH。
+
+---
+Task ID: 355789-wsl-promote
+Agent: main (cron loop + user request)
+Task: 20:40 cron round (advance.sh) + fix "WSL found but header says RELION not detected"
+
+Work Log:
+- advance.sh: WAIT, refine3d 73% (healthy, past it11 boundary artifact)
+- Root cause: top-level found/version/path/source in detectRelion() came only from host-local discovery (RELION_HOME/PATH/known-path via existsSync); probeWsl() results were rendered only in the WSL row, never promoted → on Windows hosts with RELION inside the distro the chip read found=false
+- system.ts: promotion branch (!pathFound && wsl.available && wsl.relionPath) → found=true, version/path/source from WSL (source="WSL (distro) · method"); new probeWslBinaries() verifies binaries+externals inside the distro via single bash call (host existsSync blind to WSL paths); extracted locateWslExe() helper
+- types.ts (concurrent edit, +9 execution field) honored: detectRelion populates execution="native"|"wsl"|null
+- header.tsx: chip label "RELION 5.0.1 · WSL", popover title "RELION detected (in WSL)", amber hint when execution==="wsl" (job execution needs WSL bridge)
+- Verified: generated bash probe script syntax against local bin dir; bunx tsc --noEmit → src/ clean (only pre-existing examples/skills errors); GET /api/system?force=1 → found=true execution=native (sandbox regression OK)
+- Committed 50abb79, pushed (types.ts included — commit would not typecheck without the concurrent execution field)
+
+Stage Summary:
+- User's Windows dashboard after pull + Re-detect: green chip "RELION 5.0.1 · WSL", Version/Source/Path populated from distro, binaries verified in-distro, amber "bridge required" hint
+- Pipeline unchanged: refine3d 73%, expecting completion → maskcreate→postprocess in coming rounds
