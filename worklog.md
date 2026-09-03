@@ -62,3 +62,29 @@ Deviations (minor, intentional):
 - Extra niceties beyond spec: completion toasts on poll transitions, connections "seconds left" estimate, canvas empty state, palette search no-match state.
 
 Stage Summary: CryoFlow is fully functional end-to-end on `/`: seeded 3-job demo pipeline renders in the light-first Cryo Ice theme, jobs can be added (palette/FAB), dragged (persisted), connected (with cycle prevention client+server), parameterized, run (server-simulated progress via 1.2s polling) and deleted; responsive down to mobile (Sheet palette + Sheet details), dark mode fully tokenized; lint/tsc clean and no runtime errors. Ready for Task 3 (agent-browser QA pass) and Task 4 (GitHub repo + push).
+
+---
+Task ID: 3/4/5
+Agent: main (Z.ai Code)
+Task: 独立 QA（agent-browser + VLM 视觉审查）→ 修复缺陷 → GitHub 建仓推送 → cron 巡检设置
+
+Work Log:
+- agent-browser 全链路测试：浅色默认渲染 ✓、深/浅切换（html.dark 断言）✓、调色板添加作业 ✓、端口连线（Motion→2D Classification，API 确认 edge 创建）✓、运行模拟（2.5s→completed + result）✓、拖拽（(280,220)→(130,380) 精确持久化）✓、参数保存（boxSize 600 落库）✓、删除（级联删边 2→1）✓、移动端 FAB/双 Sheet ✓、无 console/page errors ✓
+- VLM 视觉审查 3 轮，发现并修复两个真实缺陷：
+  1. 种子布局裁切：卡片 x=140/480/820 在 1440px 视口下第三张被右面板遮住 → 改为 16/280/544（兼容 lg 768px 画布）；store 级联落点同步改为 3 列折行（16+(n%3)*284, 220+floor(n/3)*156）
+  2. 粘性页脚失效：页面根容器 min-h-screen 但画布无高度约束 → docH 1692px 超视口 → 根容器改 h-dvh（应用外壳模式，画布内部滚动）；页脚加 iOS 安全区 pb-[max(0.5rem,env(safe-area-inset-bottom))] + min-h-9。修复后移动端/桌面端 footerBottom == innerHeight 精确贴底
+- 数据库经 python sqlite3 清空重播种，验证新种子布局
+- `bun run lint` 零错误；演示状态重置为纯净种子（Import completed + Motion/CTF idle + 2 edges）
+- GitHub：git rm --cached .env 与 db/custom.db（初始提交曾误追踪）→ 新增 .env.example / README.md（完整功能说明+架构图+快速开始）/ LICENSE(MIT, 2026 Jing0715-fer) → git 身份设为 229732103+Jing0715-fer@users.noreply.github.com → API 建仓（token 验证账号 Jing0715-fer）→ 远程含 license_template 自动 LICENSE 提交故 force push 覆盖 → 推送前 grep 确认源码/worklog 无 token 字面量
+- cron：创建 webDevReview 巡检 job 355015（fixed_rate 900s，含 push 指引与内存约束提示）
+- agent-browser 用毕 close（4GB 内存约束）
+
+Stage Summary:
+- 仓库已上线：**https://github.com/Jing0715-fer/cryoflow**（public, MIT, main 分支, 110 文件，.env/db 均已排除）；remote origin 已含 token（仅存于本地 .git/config，可继续 push）
+- CryoFlow 浅色优先 UI 全部 QA 通过：13 项交互 + 3 轮 VLM 视觉审查 + lint/tsc 零错误
+- 用户两项需求（浅色主题 UI + GitHub 建仓推送）均已交付
+
+未解决问题或风险，建议下一阶段优先事项（供 cron 巡检代理参考）：
+1. 潜在增强项：真实 RELION CLI 执行引擎接入（run 端点已预留替换位）、作业运行日志面板、画布框选/多选、edge hover 高亮删除、撤销(undo)栈、键盘 Delete 删作业、URL 状态同步
+2. 样式细节可继续打磨：画布 minimap、卡片右键上下文菜单、FSC/分辨率结果可视化图表（recharts 风格）
+3. 运行时长 2.5–12s 为演示值，接入真实数据前勿改 PRAGMA；4GB 内存下避免 tsc+浏览器并发
