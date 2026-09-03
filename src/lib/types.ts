@@ -165,13 +165,33 @@ export interface JobTypeSpec {
   tier: JobTier;
 }
 
+/** WSL probe result — distinguishes "no WSL" from "WSL ok, RELION not on PATH". */
+export interface WslStatusClient {
+  /** WSL itself is installed AND a distro responds. */
+  available: boolean;
+  /** Why WSL is unavailable: "no-wsl" (wsl.exe absent) | "no-distro" (no running distro). */
+  unavailableReason: "no-wsl" | "no-distro" | null;
+  /** RELION bin dir inside WSL (null when not found). */
+  relionPath: string | null;
+  /** RELION install root inside WSL (parent of bin/). */
+  relionHome: string | null;
+  /** RELION version inside WSL (when found). */
+  version: string | null;
+  /** How RELION was found: "login-shell PATH" | "RELION_HOME env" | "filesystem search" | null. */
+  source: string | null;
+  /** Default WSL distro name (when available). */
+  distro: string | null;
+  /** Human-readable result with actionable guidance (may be multi-line). */
+  note: string;
+}
+
 /** Light-weight mirror of RelionStatus (server module) for the client store. */
 export interface SystemStatusClient {
   found: boolean;
   version: string | null;
   path: string | null;
   source: string | null;
-  wsl: { available: boolean; relionPath: string | null; note: string };
+  wsl: WslStatusClient;
   binaries: { name: string; present: boolean }[];
   externals: { name: string; present: boolean }[];
   checkedAt: string;
