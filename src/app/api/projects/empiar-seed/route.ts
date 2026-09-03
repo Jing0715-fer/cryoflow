@@ -26,7 +26,7 @@ export async function POST() {
       name: string;
       x: number;
       y: number;
-      params: Record<string, number | string>;
+      params: Record<string, number | string | boolean>;
     }
     const specs: JobSpec[] = [
       {
@@ -83,7 +83,7 @@ export async function POST() {
         name: "Refine3D · gold-standard",
         x: 880,
         y: 420,
-        params: { ...defaultParams("refine3d"), autoRefine: "false" },
+        params: { ...defaultParams("refine3d"), autoRefine: false },
       },
       {
         type: "maskcreate",

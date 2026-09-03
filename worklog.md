@@ -177,3 +177,122 @@ Stage Summary:
 - refine3d 可加 auto_refine 参数路径（现 false 走固定 15 迭代）
 - TOMO 作业有完整命令模板但无倾斜序列数据（运行会诚实失败——正确行为）
 - 建议下阶段：结果可视化（FSC 曲线图/2D 类平均值画廊/3D 地图 MolStar）、多项目画布布局持久化
+
+---
+Task ID: 8 (main, foundation)
+Agent: main (Z.ai Code)
+Task: UI/UX 大改造 — 项目管理面板、目录折叠、按需右侧面板、RELION 精准参数、结果展示(MRC/STAR/FSC/Mol*)、多端口连线、避障路由、滚轮缩放+左键平移、拖拽建作业、一键整理
+
+Work Log:
+- 基础层全部重写完成（三个子代理 B/C/D 将并行构建其上）：
+  - types.ts：ParamValue+boolean；ParamSchema.tab/advanced（RELION GUI 标签页+专家选项）；PortKind/PortSpec 多端口体系；JobTypeSpec.category/tabs/inputs/outputs；EdgeDTO.fromPort/toPort；ProjectDTO.stats
+  - workflow.ts：32 作业全量端口定义（inputs/outputs 按 RELION pipeliner 节点类型 movies/micrographs/coords/particles/references2d/volume/halfmap/mask/star/tiltseries/tomograms）+ 13 个折叠分类（RELION job-browser 风格）+ RELION 真实标签页（I/O/Optimisation/Sampling/CTFFIND-4.1/autopicking/extract/Polish/Reconstruct…gui_jobwindow.cpp 原名）+ 真实参数补全（postprocess.adhocBfac 引擎实读、class2d tau2Fudge 等已在）；bool 参数类型转换（autoRefine/autoBfac/fitDefocus 等）；coerceParam/mergedParams/tabsFor/portsCompatible/defaultPorts/portY 辅助
+  - store.ts：viewport{x,y,zoom} 平移缩放；pendingFrom{jobId,port} 端口级连线；paletteDrag 拖拽建作业状态；addJobAt(x,y)；applyLayout()（调 lib/layout.ts 拓扑分层 + POST /api/jobs/layout）；connect 携带端口；createProject/renameProject/deleteProject
+  - lib/layout.ts：Kahn 分层 + 层内按上游序 + 4/列换行 + 垂直居中
+  - lib/edge-ports.ts：data/edge-ports.json 端口 sidecar（Prisma schema 冻结决策延续）；DB 镜像策略保持引擎上游解析可用；GET 合并去重（file 边取代同 pair 旧 DB 边；旧边推断默认端口）
+  - api/edges：POST 校验端口兼容（portsValid）+ 去重(含端口) + 环检测(union)；[id] DELETE 双层删除；jobs/layout 批量位置端点
+  - 引擎/seed/参数 PATCH 类型放宽至 boolean（flag() 经 String() 天然兼容）
+  - molstar 5.11.0 已安装；API 调研完成：createPluginUI + RawData→ParseCcp4→VolumeFromCcp4→VolumeRepresentation3D
+- 子代理分工（文件所有权严格隔离，勿越界）：
+  - 8-b canvas/job-card/edges-layer/palette/icons：变换视口(滚轮缩放+左键平移)、端口随卡拖动（重构进 transform 节点）、A* 避障连线、多端口圆圈、目录折叠+拖拽建作业、一键整理按钮
+  - 8-c api/jobs/[id]/outputs/*、lib/mrc.ts、lib/starfile.ts、results/*：输出文件 API、MRC→PNG(sharp)、STAR 表、FSC 曲线(recharts)、Mol* 查看器（覆盖 results-view.tsx stub）
+  - 8-d project-panel、api/projects/[id]、page.tsx、job-panel.tsx：项目管理面板、右侧面板按需显示、RELION 标签式参数 UI（I/O/Params/Results/Log）
+- 主代理随后集成 QA（agent-browser）+ lint + push GitHub
+
+Stage Summary:
+- 基础层就绪；站点在 B/D 落地前短暂不可用（canvas 引用旧 store API）属预期
+
+---
+Task ID: 8-d
+Agent: Subagent D (panels)
+
+Task: 项目管理面板 + 按需右侧作业面板 + RELION 精准标签式参数 UI
+
+Work Log:
+- **lib/projects.ts（扩展，原导出全部保留）**：新增 `ProjectStats` / `ProjectSummaryWithStats`（extends ProjectSummaryDTO + createdAt + stats）、`removeProjectMeta(id)`（删除 meta；active 被删时修复为 createdAt 最早的剩余项目或 null）、`listProjectsWithMeta()` 升级为返回 stats（一次 `db.job.groupBy(projectId+status)` 聚合）+ createdAt ISO。
+- **GET /api/projects**：响应中每个 project 现含 `createdAt` 与 `stats {total,running,completed,failed}`（types.ts 冻结 → 前端用本地 `ProjectCard extends ProjectSummaryDTO` 接口收窄 cast）。
+- **api/projects/[id]/route.ts（新）**：PATCH {name} 1–80 校验（400）/404/更新+返回 {ok, project}；DELETE → 404 缺失、400 最后一个项目、先清 edge-ports.json sidecar（readFileEdges+removeFileEdge 按 projectId 过滤）、显式 deleteMany edges→jobs→project（schema 虽有级联但防御性双保险）、removeProjectMeta 修复 active。engine-state.json 有意不动（主代理负责）。
+- **project-panel.tsx（新）**：卡片列表（滚动、全局细滚动条）——名称 truncate、mode 徽章（SPA teal / TOMO cyan outline）、engine 徽章（RELION emerald / SIM slate outline）、统计 chips（Boxes/Loader2 spin/CheckCircle2）、date-fns formatDistanceToNow 创建时间、ACTIVE（border-primary+ring+顶部 mini badge）；点卡片 switchProject（pending 双击守卫）；hover 显露 Pencil（行内改名 Input，Enter/blur 提交、Escape 取消且 stopPropagation 不误关面板）/Trash2（AlertDialog 确认；仅剩一个项目时禁用+title 说明）；头部 "Projects"+计数+New（Plus）→ Dialog（name 1–80 校验、mode/engine Select、engine=relion 且 system.found=false 时琥珀警告 "RELION not detected — jobs will fail to start honestly"）；空状态。
+- **page.tsx（重写）**：桌面左栏 w-72 改为 shadcn Tabs「Catalog(Boxes) | Projects(FolderGit2+计数 badge)」切换 JobPalette/ProjectPanel（palette.tsx 未动）；右侧作业面板**按需挂载**（selectedId != null 才渲染 w-[380px] aside，animate-in slide-in-from-right-4 duration-200，hidden xl:flex；null 时画布全宽）；<xl 沿用右侧 Sheet；保留初始化 load、1.2s 运行轮询、ESC（先取消连线→取消选中）、mounted 门、FAB+调色板 Sheet、Footer/ThemeProvider。
+- **job-panel.tsx（重写）**：根 flex h-full；头部（图标+名称 Input+关闭 X(select(null))、StatusBadge+EngineBadge、group·category·tier 行、描述、动作行 Run(Play/Re-run，relion 阻断时 Tooltip+琥珀警告)/Reset/RotateCcw/Log(Terminal→跳 Log 页签)/Delete(Trash2 AlertDialog)、运行中 MiniProgress+剩余秒数）；主体 Tabs「I/O|Params|Results|Log」各自 overflow-y-auto：
+  - **I/O**：按 spec.inputs/outputs 端口逐行（端口点 PORT_COLORS[first accepts/kind]、RELION 标签、multiple 提示）；连接 chips 匹配 toPort/fromPort（无端口的旧边归首个端口），chip 可 removeEdge；未连接显示虚线 "not connected"；无输入显示 "Source job — data enters the pipeline here."
+  - **Params**：内层 Tabs = tabsFor(spec)（+未标 tab 参数入 "Additional" 尾签），2 列网格（select/bool 占整行）；number 带 unit 后缀 chip/min/max/step、hint 走 title；bool 为 Switch 行（bg-secondary/40 圆角行）；advanced 参数收进每 tab 的 "Expert options" Collapsible（ChevronsDownUp 旋转动画）；底部固定 Save 条（Reset 还原未保存编辑/Save 主色，dirty 经 coerceParam 比较；保存提交强类型值）；"{n} parameters · RELION 5 defaults" 说明。
+  - **Results**：结果摘要框（completed emerald/failed destructive）+ 未运行提示 + `<JobResults job>`（8-c 的 stub，命名导入，agent C 覆盖即可）。
+  - **Log**：挂载即 fetchLog + Refresh 按钮 + 4s 运行中自刷新；pre max-h-96 mono；空/无日志回退文案。
+  - PanelBody 仍 key={job.id} 重挂载；relionBlocked 逻辑保留（engine=relion && system && !found）。
+- **验证**：tsc 我的 6 个文件 0 错误；eslint（我的文件）0 错误 0 警告；curl 全通：GET projects 带 stats、POST→PATCH 改名→PATCH 空名 400→DELETE ok（projects.json meta 清除+active 修复）→switch 恢复、404 路径；agent-browser 桌面+移动全链路：侧栏双 tab、项目卡片（创建/行内改名/删除/点击切换+自动 active）、右面板按需出现（aside 数量 2→ESC→1）、四页签（I/O 端口 chips、Params 内层 RELION tabs+单位 chip+专家折叠+1.77→1.8 保存落库回读、Log 拉到真实 CTFFIND 引擎日志、Refresh）、390px 移动 Sheet、VLM 两轮截图审查通过（触控尺寸/无溢出/页签可读）。
+- **事故与处置**：测试中 dev server 被 OOM-killer 杀死（dmesg：next-server anon-rss 2.5GB；tsc+多代理并发编译+browsers 叠加所致，4GB 约束）。已用 `bun run dev`（用户 z，端口 3000）重启并确认 / 与 /api/projects 200。注意：dev.log 被 dev 脚本的 tee 重置过一次。
+- **未动文件**：store.ts / workflow.ts / types.ts / canvas.tsx / job-card.tsx / edges-layer.tsx / palette.ts / outputs API（8-b、8-c 所有物）。
+
+Stage Summary:
+- 8-d 三大件全部落地并端到端验证：项目管理（创建/改名/删除/切换/统计徽章）+ 右侧面板按需渲染（桌面滑入、移动 Sheet、ESC/X 关闭）+ RELION 精准参数 UI（I/O 端口视图、GUI 标签页+专家选项、结果与日志页签）。
+- 已知风险：① `src/app/api/projects/empiar-seed/route.ts` 存在 TS 错误（ParamValue boolean 与 `Record<string,string|number>` 不兼容）——非我所有权，留给主代理/所有者修；② canvas.tsx 仍引用旧 store API（zoom/setZoom）属 8-b 进行中状态；③ store API 缺口：store.projects 类型为 ProjectSummaryDTO[]（types.ts 冻结），stats/createdAt 只能靠前端 cast —— 建议主代理后续在 types.ts 解冻时给 ProjectSummaryDTO 加可选 stats/createdAt；④ 多代理共享 4GB 沙箱时 dev server 有 OOM 风险（并发编译/浏览器需节制）；⑤ dev server 曾死亡并已由本代理重启（详见上）。
+
+---
+Task ID: 8-b
+Agent: Subagent B (canvas)
+Task: 重建画布交互层 —— 变换视口（滚轮缩放到光标+左键平移）、端口随卡零延迟拖动、多端口连线（拖拽连线+点击连线）、A* 避障连线、调色板目录折叠+拖拽建作业、一键整理按钮
+
+Work Log:
+- **canvas.tsx（重写）**：根 `<section data-canvas="viewport">`（调色板投放检测锚点，touch-none/cursor-grab/no-drag-select）；工作区 2400×1600 div 以 `translate(x,y) scale(zoom)` + origin 0 0 变换（无滚动条），`.canvas-grid` 内联 `backgroundSize:22/zoom` 保持点阵屏幕恒距；滚轮缩放走 useEffect 里的非被动 `addEventListener("wheel",…,{passive:false})`（React onWheel 被动无法 preventDefault），缩放锚定"光标下工作区点不动"；左键按下背景（跳过 [data-job]/[data-canvas-ui] 目标）→ root 指针捕获平移（4px 阈值，panBy 增量），无移动单击 → pendingFrom?cancelConnect:select(null)；缩放控件组（出/百分比/入居中锚定/复位 {0,0,1}/**新增 Wand2 一键整理 → store.applyLayout()**）；连线提示 pill 显示源作业名+RELION 端口 label（pendingFrom 现为 {jobId,port} 对象）；新增 LiveWire 悬浮连线（工作区内 SVG、跟随光标、起点为精确输出端口、虚线 primary+edge-flow）；paletteDrag 期间显示虚线 "Drop to place <label>" 覆盖层（pointer-events-none）；空态/加载骨架保留；模块级 store action 代理保证 memo 卡片 props 稳定。
+- **job-card.tsx（重写）**：结构重构修"端口滞后"——外层定位 div(data-job) → wrapper(inset-0, touchAction none, **承接拖拽 transform**) → 卡身 + 端口按钮同为 wrapper 子节点，拖动时 dx/zoom 直接写 wrapper.style.transform，端口与卡身零延迟同步 + setDragLive({id,dx,dy}) 供连线跟随，pointerup 先清 dragLive 再乐观 moveJobCommit（画布边界钳制），pointercancel 回弹不提交；多端口：spec.inputs/outputs 全量渲染（16px 命中按钮内 12px 圆点，data-port=in:NAME/out:NAME，y=portY(i,n)，输入空心 bg-background+2px类型色环、输出实心 PORT_COLORS[kind]），hover 缩放+RELION 端口 label 小 chip；连线两模式：拖拽连线（输出端口 pointerdown 即 setPendingFrom+捕获，pointerup 经 elementFromPoint→closest('[data-port]') 解析 in:NAME + closest('[data-job]') → connect(from,to,fromPort,toPort)，拖空取消、纯点击保留待接）与点击连线（兼容输入端口 portsCompatible 判定后 pulse，点击 connect；再点源端口取消）；键盘：输出端口 Enter/Space 切换 pending、输入端口走原生激活→onClick connect、卡身 Enter/Space 选中；选中 z30/拖拽 z20；StatusBadge/MiniProgress 导出保持（job-panel 依赖）。
+- **edges-layer.tsx（重写）**：A* 避障路由——20px 网格 120×80，障碍=作业矩形外扩 12px（保 64px 间隙走廊可用），四周恒留 1 格自由环；起点取源卡右缘外 3px、终点目标卡左缘外 3px 的最近自由格（螺旋搜索）；8 方向、对角 1.414、禁切角（两正交邻格均需空闲）、曼哈顿启发、二叉小根堆、2 万次迭代上限，失败回退 S 形贝塞尔；路径经共线合并→精确端口端点拼接→Q 圆角(r≈10) SVG path+按末段方向的箭头；16px 不可见命中描边 hover 高亮+悬停中点显 × 删除按钮（data-canvas-ui，title "Remove connection"→removeEdge）；dragLive 时端点与障碍网格同步平移；路径缓存=模块级 WeakMap<jobs数组, Map<端点key,路径>>（拖拽中仅被拖卡相关边重算，提交后全量重算；用模块级 WeakMap 而非 ref——新 react-hooks/refs 规则禁止渲染期访问 ref）；running 边 var(--primary)+edge-flow、hover 加粗。
+- **palette.tsx（重写）**：签名不变 `JobPalette({onAdded})`；13 个 JOB_CATEGORIES 折叠区（chevron 旋转+计数徽章+hint title），默认仅首个展开，搜索时自动展开含匹配项的类目并隐藏空类目；条目无 onClick 添加，改为 pointerdown 记录+window pointermove/up/cancel 监听（+尽力指针捕获），5px 阈值激活 → setPaletteDrag(type)+**portal 到 body 的 fixed 幽灵卡**（图标+label，translate(-50%,-50%)，z-50，位置用直接 DOM transform 更新零重渲染），释放时 elementFromPoint→closest('[data-canvas="viewport"]') → (client-rect-viewport)/zoom 换算工作区坐标 → store.addJobAt(type,wx,wy) → onAdded?.()；键盘回退 Enter/Space → addJob（传统视口中心落点）+onAdded；aria-label "Drag to canvas to add X (or press Enter)"；表头新增 "Drag a job onto the canvas" 提示。
+- **icons.tsx**：补 Brush（tomo denoise）、DynaMight→Brain、ModelAngelo→Network（避免 Boxes 兜底）。
+- 验证：`bun run lint` 全项目 0 错误 0 警告（修了两处新 react-hooks/refs 渲染期 ref 访问：onAdded ref 移入 effect、路径缓存改模块级 WeakMap）；`npx tsc --noEmit` 我的 5 文件 0 错误；A* 逻辑在 /tmp 草稿脚本验证（挡路卡场景 0 压格/0 穿越障碍、64px 走廊可通行）；SSR GET / 200 且输出含新标记（data-canvas="viewport"、"Drag to canvas to add…"）。
+- **报告的他人文件缺陷（未越界修复）**：① src/lib/workflow.ts 的 sel()/bool() 简写只收 4 参而目录传 5 参（{tab,advanced}），14 处 TS2554——需给两简写加 `extra?: Partial<ParamSchema>`（同 num()）；② empiar-seed 路由 ParamValue→Record<string,string|number> 9 处 TS2322（8-d 也已报告）。修复前 tsc 全局红（Turbopack 编译不受影响）。
+
+Stage Summary:
+- 画布交互层五件套全部落地：变换视口（缩放到光标/左键平移/一键整理）、端口零延迟拖动、多端口拖拽+点击双模式连线（store 端口兼容校验兜底）、A* 避障连线（含 hover 删除、拖拽实时重路由、失败贝塞尔兜底）、调色板折叠目录+拖拽建作业（幽灵卡+投放检测）；lint/tsc（我的文件）双清，SSR 冒烟通过。8-d 报告的 "canvas 引用旧 store API" 随本任务完成而消除。
+- 已知风险：移动端触屏添加作业暂无点击路径（规范禁止 onClick 添加；触摸拖拽常被浏览器滚动接管 pointercancel，Sheet 又遮画布）——建议 8-d/主代理补触屏专用落点；未实现双指捏合缩放（触摸用缩放按钮）；拖拽中被拖卡静止后无关边沿用缓存路径、松手提交即全量重算；运行轮询每 1.2s 换 jobs 数组身份 → 全边重路由（30 边亚毫秒级，可接受）。
+
+---
+Task ID: 8-c
+Agent: Subagent C (results/molstar) — context-deadline'd before writing this record; main agent verified and appended on its behalf
+Task: 输出结果系统 — outputs API + MRC→PNG + STAR 表 + FSC 曲线 + Mol* 3D 查看器
+
+Work Log:
+- GET /api/jobs/[id]/outputs：workdir 递归扫描（深度3，跳隐藏，kind=mrc/star/text/image + slices + 友好标签如 "Half-map 1"/"Sharpened map"）
+- GET /api/jobs/[id]/outputs/file?format=png|raw|text：路径安全校验（resolve+前缀校验）；PNG 用 lib/mrc.ts（mode 0/1/2/6 头解析 + 2–98 百分位对比度拉伸 + sharp raw 1ch→PNG，≤384px 降采样，&scale=large 大图；montage 栈拼贴）
+- GET /api/jobs/[id]/outputs/star?rows=100：lib/starfile.ts 解析 loop_ 表 + FSC 检测（rlnAngstromResolution + rlnFourierShellCorrelation* 列）
+- results-view.tsx (597行)：FSC 图置顶 + Maps 画廊（点击大图/3D）+ STAR 表 + 日志报告 + workdir 展示；空态诚实提示 sim 无盘输出
+- fsc-chart.tsx：recharts LineChart + 0.143 参考线 + 阈值穿越插值徽章
+- mol-viewer.tsx + molstar-embed.tsx：next/dynamic ssr:false 懒加载 molstar 5.11（~2MB 不进主 chunk）；createPluginUI+renderReact18+DefaultPluginUISpec；RawData→ParseCcp4→VolumeFromCcp4→VolumeRepresentation3D(isosurface)；相机 boundingSphere 聚焦；错误回退为中央切片 PNG
+- 已实测（dev.log）：outputs 列表 200、postprocess.mrc PNG 200（273ms 首次编译）、raw 200、FSC 列解析含 33 行真实数据
+- tsc src 零错误 + eslint 零错误
+
+Stage Summary:
+- C 的交付完整落地（除 worklog 本节由主代理补记）；Mol* 打包在 Turbopack 下编译通过
+
+---
+Task ID: 8 (final)
+Agent: main (Z.ai Code)
+Task: 三子代理交付集成 + agent-browser 全量 QA + 修复 + push
+
+Work Log:
+- 基础层修复：sel()/bool() 简写第 5 参 extra（14 处 TS2554）；empiar-seed ParamValue boolean；refine3d.autoRefine 布尔化
+- layout.ts 修复：同层多卡垂直堆叠 + 溢出子列；自适应层距（8 层管线 262px 步距恰好 2400px 画布放满）；**fit-to-view**：store.layoutEpoch + canvas useEffect 计算包围盒 → 视口居中缩放（一键整理后自动取景）
+- molstar-embed 日志前缀清理（[molstar]）
+- agent-browser 全量 QA 通过（会话 qa8）：
+  - 首屏：目录 13 分类仅 IMPORT 展开、卡片全部端口就位（Refine3D 4 输出/PostProcess 3 输入）、无右侧面板（按需显示）✓ VLM 确认
+  - 点 PostProcess 卡 → 面板滑入，I/O tab 端口级连线（half1 连 Refine3D、half2 未连、mask 连 MaskCreate）✓
+  - Params tab：Sharpening 子标签 + Switch(autoBfac) + 单位 Å + Expert options 折叠 + "4 parameters · RELION 5 defaults" ✓
+  - Results tab：真实 FSC 曲线（≈6.70 Å @0.143 阈值插值 + RELION 7.08 Å 对照）+ Maps 画廊(64³ 缩略图) + STAR 33 行 ✓
+  - Mol* 3D：点 Sharpened map → View in 3D → createPluginUI + isosurface 橙色密度面渲染成功（VLM 确认 3D 表面+坐标轴）✓
+  - 调色板拖出：pointerdown→拖拽 ghost→canvas 释放 → 新卡精确落点(坐标换算验证 left=222=top 数学吻合) ✓
+  - 滚轮缩放：defaultPrevented=true、1.0→1.1、光标焦点数学精确(-30,-20 平移) ✓
+  - 左键平移：+60,+40 拖拽 → translate 同步 ✓
+  - 多端口连线：Refine3D out:half2 → PostProcess in:half2 → 新边 fromPort/toPort=half2 入库（DB+file 双层），与 half1 形成真实 RELION 双半图拓扑 ✓
+  - 一键整理：全卡拓扑分层 + 无重叠 + fit-view 取景（VLM 确认"clean pipeline, edges route around cards"）✓
+  - 卡片拖动：端口随 transform 节点实时同移（1:1 位移验证）→ 圆圈延迟 bug 修复确认 ✓
+  - 项目面板：Projects tab 卡片(统计/模式/引擎徽章/ACTIVE)、新建对话框→自动切换、删除→active 自动回退 ✓
+  - 真实引擎回归：新 UI 跑 Import 作业引擎原生执行成功；删除测试作业 ✓
+  - 边悬停 → 中点 × 删除钮渲染 ✓
+  - 移动端 390px：FAB+Sheet 调色板可用、无横向溢出、footer 底部贴合 ✓
+  - 深色模式：VLM 确认无对比度问题 ✓
+  - console 零错误、dev.log 零错误、lint 0/0、tsc src 零错误
+- 清理：测试 Import 作业已删（EMPIAR 回到 10 作业 + 11 边含 half2 新边）、QA 项目已删、画布已重新整理
+- 已知小瑕疵：agent-browser 无法模拟真实滚轮/触摸（合成事件 setPointerCapture 限制）→ 交互用真实 CDP 事件验证通过；Next.js dev 徽章仅开发环境
+
+Stage Summary:
+- 用户本轮 14 项需求全部交付并 QA 验证：项目管理面板 ✓ 目录折叠 ✓ 右面板按需 ✓ RELION 真实参数(标签页+专家选项) ✓ 结果输出 UI(图/表/FSC) ✓ Mol* 整合 ✓ 端口随卡实时移动 ✓ 多端口按类型/输入数连线 ✓ 避障路由 ✓ 滚轮缩放 ✓ 左键平移 ✓ 拖拽建作业 ✓ 一键整理 ✓ push(待执行)

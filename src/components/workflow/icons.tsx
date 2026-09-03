@@ -12,6 +12,8 @@ import {
   Aperture,
   Box,
   Boxes,
+  Brain,
+  Brush,
   CircleDot,
   Combine,
   Crop,
@@ -28,6 +30,7 @@ import {
   ListFilter,
   Merge,
   Move3d,
+  Network,
   Scissors,
   Search,
   Sparkles,
@@ -97,6 +100,14 @@ export function TypeIcon({
       return <EyeOff className={className} aria-hidden="true" />;
     case "Terminal":
       return <Terminal className={className} aria-hidden="true" />;
+    case "Brush":
+      return <Brush className={className} aria-hidden="true" />;
+    case "DynaMight":
+      // deep-learning picker — no lucide icon of that name
+      return <Brain className={className} aria-hidden="true" />;
+    case "ModelAngelo":
+      // deep-learning model building
+      return <Network className={className} aria-hidden="true" />;
     default:
       return <Boxes className={className} aria-hidden="true" />;
   }

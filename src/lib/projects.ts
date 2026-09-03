@@ -9,6 +9,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "fs";
 import path from "path";
 import type { Project } from "@prisma/client";
 import { db } from "@/lib/db";
+import type { ProjectSummaryDTO } from "./types";
 
 const DATA_DIR = "/home/z/my-project/data";
 const FILE = path.join(DATA_DIR, "projects.json");
@@ -106,14 +107,75 @@ export async function getActiveProject(): Promise<{ project: Project; meta: Proj
   return { project, meta };
 }
 
-/** All projects with meta merged (for the header switcher). */
-export async function listProjectsWithMeta(): Promise<
-  { id: string; name: string; mode: string; engine: string }[]
-> {
+/** Job statistics for a project (computed via one groupBy aggregate). */
+export interface ProjectStats {
+  total: number;
+  running: number;
+  completed: number;
+  failed: number;
+}
+
+/**
+ * ProjectSummaryDTO extended with the extra fields the projects API serves
+ * (createdAt + stats). ProjectSummaryDTO itself is frozen, so callers cast.
+ */
+export interface ProjectSummaryWithStats extends ProjectSummaryDTO {
+  createdAt: string;
+  stats: ProjectStats;
+}
+
+const emptyStats = (): ProjectStats => ({ total: 0, running: 0, completed: 0, failed: 0 });
+
+/**
+ * Remove a project's meta from data/projects.json. When the deleted project
+ * was the active one, `active` is fixed to the first remaining project (by
+ * createdAt) or null when nothing remains.
+ */
+export async function removeProjectMeta(id: string): Promise<void> {
+  const file = readProjectsFile();
+  if (file.projects[id]) {
+    const next = { ...file.projects };
+    delete next[id];
+    file.projects = next;
+  }
+  if (file.active === id) {
+    const first = await db.project.findFirst({
+      where: { id: { not: id } },
+      orderBy: { createdAt: "asc" },
+      select: { id: true },
+    });
+    file.active = first?.id ?? null;
+  }
+  writeProjectsFile(file);
+}
+
+/** All projects with meta + createdAt + job stats merged (for the project panel). */
+export async function listProjectsWithMeta(): Promise<ProjectSummaryWithStats[]> {
   const rows = await db.project.findMany({ orderBy: { createdAt: "asc" } });
   const file = readProjectsFile();
+  // One aggregate set: job counts grouped by projectId + status.
+  const grouped = await db.job.groupBy({
+    by: ["projectId", "status"],
+    _count: { _all: true },
+  });
+  const statsBy = new Map<string, ProjectStats>();
+  for (const g of grouped) {
+    const s = statsBy.get(g.projectId) ?? emptyStats();
+    s.total += g._count._all;
+    if (g.status === "running") s.running = g._count._all;
+    else if (g.status === "completed") s.completed = g._count._all;
+    else if (g.status === "failed") s.failed = g._count._all;
+    statsBy.set(g.projectId, s);
+  }
   return rows.map((p) => {
     const meta = file.projects[p.id] ?? { mode: "spa", engine: "sim" };
-    return { id: p.id, name: p.name, mode: meta.mode, engine: meta.engine };
+    return {
+      id: p.id,
+      name: p.name,
+      mode: meta.mode,
+      engine: meta.engine,
+      createdAt: p.createdAt.toISOString(),
+      stats: statsBy.get(p.id) ?? emptyStats(),
+    };
   });
 }

@@ -14,11 +14,11 @@ import { readRuns } from "@/lib/relion/engine";
 /* DTO mappers                                                          */
 /* ------------------------------------------------------------------ */
 
-function parseParams(raw: string): Record<string, number | string> {
+function parseParams(raw: string): Record<string, number | string | boolean> {
   try {
     const parsed = JSON.parse(raw);
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      return parsed as Record<string, number | string>;
+      return parsed as Record<string, number | string | boolean>;
     }
   } catch {
     // fall through to {}

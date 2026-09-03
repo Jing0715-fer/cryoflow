@@ -1,21 +1,18 @@
 "use client";
 
 import * as React from "react";
-import { Plus } from "lucide-react";
+import { Boxes, FolderGit2, Plus } from "lucide-react";
 import { useWorkflowStore } from "@/lib/store";
 import { Header } from "@/components/workflow/header";
 import { Footer } from "@/components/workflow/footer";
 import { JobPalette } from "@/components/workflow/palette";
+import { ProjectPanel } from "@/components/workflow/project-panel";
 import { WorkflowCanvas } from "@/components/workflow/canvas";
 import { JobPanel } from "@/components/workflow/job-panel";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 function useMediaQuery(query: string) {
   const [matches, setMatches] = React.useState(false);
@@ -31,6 +28,7 @@ function useMediaQuery(query: string) {
 
 export default function Home() {
   const jobs = useWorkflowStore((s) => s.jobs);
+  const projects = useWorkflowStore((s) => s.projects);
   const selectedId = useWorkflowStore((s) => s.selectedId);
   const select = useWorkflowStore((s) => s.select);
 
@@ -60,7 +58,7 @@ export default function Home() {
     return () => clearInterval(timer);
   }, [anyRunning]);
 
-  // ESC cancels connect mode, then deselects
+  // ESC cancels connect mode, then deselects (dismisses the job panel)
   React.useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
@@ -79,17 +77,44 @@ export default function Home() {
       <Header />
 
       <main className="flex min-h-0 flex-1">
-        {/* Desktop palette */}
-        <aside className="hidden w-64 shrink-0 border-r bg-sidebar lg:flex lg:flex-col">
-          <JobPalette />
+        {/* Desktop sidebar: job catalog + project management */}
+        <aside className="hidden w-72 shrink-0 border-r bg-sidebar lg:flex lg:flex-col">
+          <Tabs defaultValue="catalog" className="flex h-full min-h-0 flex-col gap-0">
+            <div className="shrink-0 border-b p-2">
+              <TabsList className="grid h-9 w-full grid-cols-2">
+                <TabsTrigger value="catalog" className="gap-1.5 text-xs">
+                  <Boxes className="size-3.5" aria-hidden="true" />
+                  Catalog
+                </TabsTrigger>
+                <TabsTrigger value="projects" className="gap-1.5 text-xs">
+                  <FolderGit2 className="size-3.5" aria-hidden="true" />
+                  Projects
+                  <Badge
+                    variant="secondary"
+                    className="ml-0.5 h-4 min-w-4 px-1 text-[9px] font-semibold tabular-nums"
+                  >
+                    {projects.length}
+                  </Badge>
+                </TabsTrigger>
+              </TabsList>
+            </div>
+            <TabsContent value="catalog" className="mt-0 min-h-0 flex-1">
+              <JobPalette />
+            </TabsContent>
+            <TabsContent value="projects" className="mt-0 min-h-0 flex-1">
+              <ProjectPanel />
+            </TabsContent>
+          </Tabs>
         </aside>
 
         <WorkflowCanvas />
 
-        {/* Desktop details panel */}
-        <aside className="hidden w-80 shrink-0 border-l bg-card xl:flex xl:flex-col">
-          <JobPanel />
-        </aside>
+        {/* Desktop job panel — only mounted while a job is selected */}
+        {selectedId != null && (
+          <aside className="hidden w-[380px] shrink-0 animate-in border-l bg-card duration-200 slide-in-from-right-4 xl:flex xl:flex-col">
+            <JobPanel />
+          </aside>
+        )}
       </main>
 
       <Footer />

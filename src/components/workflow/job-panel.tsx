@@ -1,22 +1,50 @@
 "use client";
 
+/**
+ * CryoFlow — job details panel (RELION job-window faithful).
+ *
+ * Structure:
+ *  - Header: identity (icon / name / close), status + engine badges,
+ *    description, action row (Run / Reset / Log / Delete), live progress.
+ *  - Body tabs: I/O (port-by-port connections) · Params (RELION GUI tabs
+ *    with expert collapsibles) · Results (JobResults viewer) · Log (inline
+ *    engine log tail).
+ *
+ * The panel body remounts per job (key={job.id}) so every form resets when
+ * switching selection.
+ */
+
 import * as React from "react";
 import {
+  ArrowLeftRight,
   ArrowRight,
+  BarChart3,
+  ChevronsDownUp,
+  Database,
   Loader2,
   MousePointerClick,
   Play,
   RotateCcw,
   RefreshCw,
+  SlidersHorizontal,
   Terminal,
   Trash2,
   X,
 } from "lucide-react";
-import { jobType } from "@/lib/workflow";
+import { PORT_COLORS, coerceParam, jobType, tabsFor } from "@/lib/workflow";
 import { useWorkflowStore } from "@/lib/store";
-import type { JobDTO, ParamValue } from "@/lib/types";
+import type {
+  EdgeDTO,
+  JobDTO,
+  JobTypeSpec,
+  ParamSchema,
+  ParamValue,
+  PortKind,
+  PortSpec,
+} from "@/lib/types";
 import { TypeIcon } from "./icons";
 import { MiniProgress, StatusBadge } from "./job-card";
+import { JobResults } from "./results/results-view";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,14 +58,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -48,10 +69,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 /* ------------------------------------------------------------------ */
-/* Empty state                                                         */
+/* Empty state (transient — the panel is only mounted when a job is     */
+/* selected; this covers the deleted-job window)                        */
 /* ------------------------------------------------------------------ */
 
 function PanelEmpty() {
@@ -66,27 +91,12 @@ function PanelEmpty() {
           Its parameters, run controls and connections appear here.
         </p>
       </div>
-      <ul className="mt-2 max-w-[240px] space-y-2 text-left">
-        {[
-          "Drag cards to lay out the pipeline",
-          "Click ports to wire jobs together",
-          "Run jobs and watch progress live",
-        ].map((tip) => (
-          <li
-            key={tip}
-            className="flex items-start gap-2 text-[11px] leading-relaxed text-muted-foreground"
-          >
-            <span className="mt-1 size-1 shrink-0 rounded-full bg-primary/70" />
-            {tip}
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }
 
 /* ------------------------------------------------------------------ */
-/* Engine badge                                                        */
+/* Engine badge                                                         */
 /* ------------------------------------------------------------------ */
 
 function EngineBadge({ engine }: { engine: "sim" | "relion" }) {
@@ -107,61 +117,7 @@ function EngineBadge({ engine }: { engine: "sim" | "relion" }) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Log dialog                                                          */
-/* ------------------------------------------------------------------ */
-
-function LogDialog({ job, open, onOpenChange }: { job: JobDTO; open: boolean; onOpenChange: (open: boolean) => void }) {
-  const fetchLog = useWorkflowStore((s) => s.fetchLog);
-  const [log, setLog] = React.useState<string | null>(null);
-  const [loading, setLoading] = React.useState(false);
-
-  const refresh = React.useCallback(async () => {
-    setLoading(true);
-    try {
-      const tail = await fetchLog(job.id);
-      setLog(tail ?? "No log available (sim job or log removed).");
-    } finally {
-      setLoading(false);
-    }
-  }, [fetchLog, job.id]);
-
-  React.useEffect(() => {
-    if (open) void refresh();
-  }, [open, refresh]);
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl gap-0 p-0">
-        <DialogHeader className="space-y-1 border-b px-4 py-3 pr-10">
-          <DialogTitle className="flex items-center gap-2 text-sm">
-            <Terminal className="size-4 text-muted-foreground" aria-hidden="true" />
-            {job.name} — engine log
-          </DialogTitle>
-          <DialogDescription className="text-xs">
-            Tail of run.out / run.err from the real execution engine (last 80 lines).
-          </DialogDescription>
-        </DialogHeader>
-        <div className="px-4 py-3">
-          <pre
-            className="max-h-[60vh] overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted/60 p-3 font-mono text-xs leading-relaxed text-foreground/90"
-            aria-label="Engine log tail"
-          >
-            {loading && log === null ? "Loading log…" : (log ?? "…")}
-          </pre>
-        </div>
-        <DialogFooter className="border-t px-4 py-3">
-          <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={loading}>
-            <RefreshCw className={cn("size-3.5", loading && "animate-spin")} aria-hidden="true" />
-            Refresh
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Connection chips                                                    */
+/* Connection chips                                                     */
 /* ------------------------------------------------------------------ */
 
 function EdgeChip({
@@ -197,18 +153,510 @@ function EdgeChip({
 }
 
 /* ------------------------------------------------------------------ */
-/* Panel body (remounted per job via key)                              */
+/* I/O tab                                                              */
+/* ------------------------------------------------------------------ */
+
+function portDotClass(port: PortSpec): string {
+  const kind: PortKind | undefined =
+    port.kind ?? (port.accepts?.find((a): a is PortKind => a !== "*") as PortKind | undefined);
+  return PORT_COLORS[kind ?? "star"]?.dot ?? "bg-slate-400";
+}
+
+function PortRow({
+  port,
+  direction,
+  edges,
+  jobNameById,
+  onRemove,
+}: {
+  port: PortSpec;
+  direction: "in" | "out";
+  edges: EdgeDTO[];
+  jobNameById: Map<string, string>;
+  onRemove: (id: string) => void;
+}) {
+  return (
+    <div className="rounded-lg border bg-secondary/30 p-2.5">
+      <div className="flex items-center gap-2">
+        <span
+          className={cn("size-2 shrink-0 rounded-full", portDotClass(port))}
+          aria-hidden="true"
+        />
+        <p className="min-w-0 flex-1 truncate text-xs font-medium" title={port.label}>
+          {port.label}
+        </p>
+        {port.multiple && (
+          <span className="shrink-0 text-[10px] text-muted-foreground">
+            accepts multiple inputs
+          </span>
+        )}
+      </div>
+      <div className="mt-1.5 flex flex-wrap gap-1.5 pl-4">
+        {edges.length === 0 ? (
+          <span className="inline-flex items-center rounded-md border border-dashed px-2 py-1 text-[11px] italic text-muted-foreground/70">
+            {direction === "in" ? "not connected" : "no downstream jobs"}
+          </span>
+        ) : (
+          edges.map((e) => (
+            <EdgeChip
+              key={e.id}
+              label={
+                jobNameById.get(direction === "in" ? e.fromJobId : e.toJobId) ?? "Unknown job"
+              }
+              direction={direction}
+              onRemove={() => onRemove(e.id)}
+            />
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function IOTab({ job, spec }: { job: JobDTO; spec: JobTypeSpec | undefined }) {
+  const edges = useWorkflowStore((s) => s.edges);
+  const jobs = useWorkflowStore((s) => s.jobs);
+  const removeEdge = useWorkflowStore((s) => s.removeEdge);
+
+  const jobNameById = React.useMemo(
+    () => new Map(jobs.map((j) => [j.id, j.name])),
+    [jobs]
+  );
+
+  const incoming = edges.filter((e) => e.toJobId === job.id);
+  const outgoing = edges.filter((e) => e.fromJobId === job.id);
+  const inputs = spec?.inputs ?? [];
+  const outputs = spec?.outputs ?? [];
+
+  /** Match edges to a named port; legacy port-less edges land on the first port. */
+  const edgesFor = (port: PortSpec, index: number, direction: "in" | "out"): EdgeDTO[] =>
+    (direction === "in" ? incoming : outgoing).filter(
+      (e) =>
+        (direction === "in" ? e.toPort : e.fromPort) === port.name ||
+        ((direction === "in" ? e.toPort : e.fromPort) == null && index === 0)
+    );
+
+  return (
+    <div className="space-y-4 p-3">
+      {/* Inputs */}
+      <section aria-label="Inputs">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Inputs
+        </p>
+        {inputs.length === 0 ? (
+          <div className="flex items-start gap-2.5 rounded-lg border border-dashed bg-secondary/20 p-3">
+            <Database className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
+            <div>
+              <p className="text-xs font-medium">Source job</p>
+              <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
+                Data enters the pipeline here — no inputs to wire.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {inputs.map((port, i) => (
+              <PortRow
+                key={port.name}
+                port={port}
+                direction="in"
+                edges={edgesFor(port, i, "in")}
+                jobNameById={jobNameById}
+                onRemove={(id) => void removeEdge(id)}
+              />
+            ))}
+          </div>
+        )}
+      </section>
+
+      <Separator />
+
+      {/* Outputs */}
+      <section aria-label="Outputs">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Outputs
+        </p>
+        {outputs.length === 0 ? (
+          <p className="text-[11px] italic text-muted-foreground/70">
+            No named outputs — this job terminates the branch.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {outputs.map((port, i) => (
+              <PortRow
+                key={port.name}
+                port={port}
+                direction="out"
+                edges={edgesFor(port, i, "out")}
+                jobNameById={jobNameById}
+                onRemove={(id) => void removeEdge(id)}
+              />
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Params tab (RELION GUI simulation)                                   */
+/* ------------------------------------------------------------------ */
+
+function ParamField({
+  p,
+  value,
+  onChange,
+  idPrefix,
+}: {
+  p: ParamSchema;
+  value: ParamValue;
+  onChange: (v: ParamValue) => void;
+  idPrefix: string;
+}) {
+  const inputId = `${idPrefix}-${p.key}`;
+  const wide = p.type === "select" || p.type === "bool";
+
+  return (
+    <div className={cn("space-y-1.5", wide && "col-span-2")}>
+      {p.type === "bool" ? (
+        <div
+          className="flex items-center justify-between gap-3 rounded-lg border bg-secondary/40 px-3 py-2"
+          title={p.hint}
+        >
+          <Label htmlFor={inputId} className="text-xs font-normal leading-snug">
+            {p.label}
+          </Label>
+          <Switch
+            id={inputId}
+            checked={value === true}
+            onCheckedChange={(c) => onChange(c)}
+            aria-label={p.label}
+          />
+        </div>
+      ) : p.type === "number" ? (
+        <>
+          <Label htmlFor={inputId} className="text-xs" title={p.hint}>
+            {p.label}
+          </Label>
+          <div className="relative">
+            <Input
+              id={inputId}
+              type="number"
+              value={value === undefined || value === null ? "" : String(value)}
+              min={p.min}
+              max={p.max}
+              step={p.step}
+              title={p.hint}
+              onChange={(e) => onChange(e.target.value)}
+              className={cn("h-8 text-xs", p.unit && "pr-10")}
+            />
+            {p.unit && (
+              <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
+                {p.unit}
+              </span>
+            )}
+          </div>
+        </>
+      ) : (
+        <>
+          <Label htmlFor={inputId} className="text-xs" title={p.hint}>
+            {p.label}
+          </Label>
+          <Select value={String(value)} onValueChange={(v) => onChange(v)}>
+            <SelectTrigger id={inputId} className="h-8 text-xs" title={p.hint}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {(p.options ?? []).map((opt) => (
+                <SelectItem key={opt} value={opt} className="text-xs">
+                  {opt}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </>
+      )}
+    </div>
+  );
+}
+
+function ParamsTab({ job, spec }: { job: JobDTO; spec: JobTypeSpec | undefined }) {
+  const saveJob = useWorkflowStore((s) => s.saveJob);
+  const [saving, setSaving] = React.useState(false);
+
+  const params = spec?.params ?? [];
+
+  const [form, setForm] = React.useState<Record<string, ParamValue>>(() => {
+    const init: Record<string, ParamValue> = {};
+    for (const p of params) init[p.key] = coerceParam(p, job.params[p.key]);
+    return init;
+  });
+
+  // RELION GUI tabs + a trailing "Additional" bucket for untabbed params
+  const declaredTabs = tabsFor(spec);
+  const untabbed = params.filter((p) => !p.tab);
+  const allTabs =
+    untabbed.length > 0 && !declaredTabs.includes("Additional")
+      ? [...declaredTabs, "Additional"]
+      : declaredTabs;
+
+  const baseline = React.useCallback(
+    (p: ParamSchema) => coerceParam(p, job.params[p.key]),
+    [job.params]
+  );
+
+  const dirty = params.some((p) => coerceParam(p, form[p.key]) !== baseline(p));
+
+  const resetForm = () => {
+    const init: Record<string, ParamValue> = {};
+    for (const p of params) init[p.key] = coerceParam(p, job.params[p.key]);
+    setForm(init);
+  };
+
+  const commit = async () => {
+    const out: Record<string, ParamValue> = {};
+    for (const p of params) out[p.key] = coerceParam(p, form[p.key]);
+    setSaving(true);
+    try {
+      await saveJob(job.id, { params: out });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (params.length === 0) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
+        <SlidersHorizontal className="size-5 text-muted-foreground" aria-hidden="true" />
+        <p className="text-xs font-medium">No parameters</p>
+        <p className="text-[11px] leading-relaxed text-muted-foreground">
+          This job type is fully driven by its inputs.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <Tabs defaultValue={allTabs[0] ?? "params"} className="flex min-h-0 flex-1 flex-col gap-0">
+      {/* Inner RELION-style tab bar */}
+      <div className="shrink-0 overflow-x-auto border-b px-3 py-2">
+        <TabsList className="h-7 w-max">
+          {allTabs.map((t) => (
+            <TabsTrigger key={t} value={t} className="h-6 px-2.5 text-[11px] whitespace-nowrap">
+              {t}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </div>
+
+      {allTabs.map((t) => {
+        const inTab = params.filter((p) => (p.tab ?? "Additional") === t);
+        const basic = inTab.filter((p) => !p.advanced);
+        const advanced = inTab.filter((p) => p.advanced);
+        return (
+          <TabsContent key={t} value={t} className="mt-0 min-h-0 flex-1 overflow-y-auto">
+            <div className="p-3">
+              <div className="grid grid-cols-2 gap-3">
+                {basic.map((p) => (
+                  <ParamField
+                    key={p.key}
+                    p={p}
+                    value={form[p.key] ?? p.default}
+                    onChange={(v) => setForm((f) => ({ ...f, [p.key]: v }))}
+                    idPrefix={`param-${job.id}`}
+                  />
+                ))}
+              </div>
+              {basic.length === 0 && advanced.length > 0 && (
+                <p className="text-[11px] italic text-muted-foreground/70">
+                  All parameters in this tab are expert options.
+                </p>
+              )}
+              {advanced.length > 0 && (
+                <Collapsible className="mt-3">
+                  <CollapsibleTrigger className="group/collapsible flex w-full items-center gap-1.5 rounded-md px-1 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground">
+                    <ChevronsDownUp
+                      className="size-3.5 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-180"
+                      aria-hidden="true"
+                    />
+                    Expert options
+                    <span className="ml-auto tabular-nums text-muted-foreground/70">
+                      {advanced.length}
+                    </span>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="pt-2">
+                    <div className="grid grid-cols-2 gap-3">
+                      {advanced.map((p) => (
+                        <ParamField
+                          key={p.key}
+                          p={p}
+                          value={form[p.key] ?? p.default}
+                          onChange={(v) => setForm((f) => ({ ...f, [p.key]: v }))}
+                          idPrefix={`param-${job.id}`}
+                        />
+                      ))}
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              )}
+            </div>
+          </TabsContent>
+        );
+      })}
+
+      {/* Save bar */}
+      <div className="shrink-0 border-t bg-card">
+        <div className="flex items-center justify-between px-3 pt-2">
+          <p className="text-[10px] text-muted-foreground">
+            {params.length} parameters · RELION 5 defaults
+          </p>
+          {dirty && (
+            <p className="text-[10px] font-medium text-primary">unsaved changes</p>
+          )}
+        </div>
+        <div className="flex items-center gap-2 p-3 pt-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-1"
+            onClick={resetForm}
+            disabled={!dirty || saving}
+            title="Revert unsaved edits"
+          >
+            <RotateCcw aria-hidden="true" />
+            Reset
+          </Button>
+          <Button
+            size="sm"
+            className="flex-1"
+            onClick={() => void commit()}
+            disabled={!dirty || saving}
+          >
+            {saving ? (
+              <Loader2 className="animate-spin" aria-hidden="true" />
+            ) : null}
+            Save Parameters
+          </Button>
+        </div>
+      </div>
+    </Tabs>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Results tab                                                          */
+/* ------------------------------------------------------------------ */
+
+function ResultsTab({ job }: { job: JobDTO }) {
+  const done = job.status === "completed" || job.status === "failed";
+  return (
+    <div className="space-y-3 p-3">
+      {done ? (
+        job.result && (
+          <p
+            className={cn(
+              "rounded-md border px-2.5 py-2 text-[11px] leading-relaxed",
+              job.status === "failed"
+                ? "border-destructive/30 bg-destructive/10 text-destructive"
+                : "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+            )}
+            title={job.result}
+          >
+            {job.result}
+          </p>
+        )
+      ) : (
+        <div className="flex items-start gap-2.5 rounded-lg border border-dashed bg-secondary/20 p-3">
+          <BarChart3 className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            {job.status === "running"
+              ? "Running — outputs appear here when the job completes."
+              : "No results yet — run the job to generate outputs."}
+          </p>
+        </div>
+      )}
+      <JobResults job={job} />
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Log tab (inline engine log tail)                                     */
+/* ------------------------------------------------------------------ */
+
+function LogTab({ job }: { job: JobDTO }) {
+  const fetchLog = useWorkflowStore((s) => s.fetchLog);
+  const [log, setLog] = React.useState<string | null>(null);
+  const [loading, setLoading] = React.useState(false);
+
+  const refresh = React.useCallback(async () => {
+    setLoading(true);
+    try {
+      const tail = await fetchLog(job.id);
+      setLog(tail);
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchLog, job.id]);
+
+  // Fetch the tail whenever the tab mounts
+  React.useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  // Gentle auto-refresh while the job is running
+  React.useEffect(() => {
+    if (job.status !== "running") return;
+    const timer = setInterval(() => void refresh(), 4000);
+    return () => clearInterval(timer);
+  }, [job.status, refresh]);
+
+  const empty = log === null || log.trim().length === 0;
+
+  return (
+    <div className="space-y-2 p-3">
+      <div className="flex items-center gap-2">
+        <p className="flex-1 text-[11px] leading-tight text-muted-foreground">
+          Tail of <span className="font-mono">run.out / run.err</span> from the real
+          execution engine (last 80 lines).
+        </p>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 gap-1 px-2 text-[11px]"
+          onClick={() => void refresh()}
+          disabled={loading}
+        >
+          <RefreshCw className={cn("size-3", loading && "animate-spin")} aria-hidden="true" />
+          Refresh
+        </Button>
+      </div>
+      <pre
+        className="max-h-96 overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted/60 p-3 font-mono text-xs leading-relaxed text-foreground/90"
+        aria-label="Engine log tail"
+      >
+        {loading && log === null
+          ? "Loading log…"
+          : empty
+            ? "No log available (sim job or log removed)."
+            : log}
+      </pre>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Panel body (remounted per job via key)                               */
 /* ------------------------------------------------------------------ */
 
 function PanelBody({ job }: { job: JobDTO }) {
-  const jobs = useWorkflowStore((s) => s.jobs);
-  const edges = useWorkflowStore((s) => s.edges);
   const system = useWorkflowStore((s) => s.system);
+  const select = useWorkflowStore((s) => s.select);
   const saveJob = useWorkflowStore((s) => s.saveJob);
   const runJob = useWorkflowStore((s) => s.runJob);
   const resetJob = useWorkflowStore((s) => s.resetJob);
   const deleteJob = useWorkflowStore((s) => s.deleteJob);
-  const removeEdge = useWorkflowStore((s) => s.removeEdge);
 
   const spec = jobType(job.type);
   const engine = job.engine ?? "sim";
@@ -217,19 +665,7 @@ function PanelBody({ job }: { job: JobDTO }) {
 
   const [name, setName] = React.useState(job.name);
   const [runPending, setRunPending] = React.useState(false);
-  const [logOpen, setLogOpen] = React.useState(false);
-  const [form, setForm] = React.useState<Record<string, ParamValue>>(() => {
-    const init: Record<string, ParamValue> = {};
-    for (const p of spec?.params ?? []) {
-      init[p.key] = job.params[p.key] ?? p.default;
-    }
-    return init;
-  });
-
-  const jobNameById = React.useMemo(
-    () => new Map(jobs.map((j) => [j.id, j.name])),
-    [jobs]
-  );
+  const [tab, setTab] = React.useState("io");
 
   const commitName = () => {
     const trimmed = name.trim();
@@ -238,24 +674,6 @@ function PanelBody({ job }: { job: JobDTO }) {
       return;
     }
     void saveJob(job.id, { name: trimmed.slice(0, 60) });
-  };
-
-  /** Coerce a raw form value into its schema-typed value. */
-  const normalize = (type: "number" | "select", raw: ParamValue | undefined): ParamValue => {
-    if (type === "number") {
-      const n = typeof raw === "number" ? raw : parseFloat(String(raw ?? ""));
-      return Number.isFinite(n) ? n : NaN;
-    }
-    return raw ?? "";
-  };
-
-  const commitParams = () => {
-    const params: Record<string, ParamValue> = {};
-    for (const p of spec?.params ?? []) {
-      const v = normalize(p.type, form[p.key]);
-      params[p.key] = Number.isNaN(v) ? p.default : v;
-    }
-    void saveJob(job.id, { params });
   };
 
   const handleRun = async () => {
@@ -267,20 +685,27 @@ function PanelBody({ job }: { job: JobDTO }) {
     }
   };
 
-  const incoming = edges.filter((e) => e.toJobId === job.id);
-  const outgoing = edges.filter((e) => e.fromJobId === job.id);
-
-  const dirty =
-    spec?.params.some((p) => {
-      const current = job.params[p.key] ?? p.default;
-      const edited = normalize(p.type, form[p.key]);
-      return Number.isNaN(edited) || current !== edited;
-    }) ?? false;
+  const runButton = (
+    <Button
+      className="w-full"
+      size="sm"
+      disabled={job.status === "running" || runPending || relionBlocked}
+      onClick={() => void handleRun()}
+      aria-describedby={relionBlocked ? "job-relion-blocked-hint" : undefined}
+    >
+      {runPending ? (
+        <Loader2 className="animate-spin" aria-hidden="true" />
+      ) : (
+        <Play aria-hidden="true" />
+      )}
+      {job.status === "completed" || job.status === "failed" ? "Re-run" : "Run Job"}
+    </Button>
+  );
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col overflow-y-auto">
+    <div className="flex h-full min-h-0 flex-1 flex-col">
       {/* Header */}
-      <div className="shrink-0 space-y-3 border-b bg-gradient-to-b from-card to-card p-4 pb-4">
+      <div className="shrink-0 space-y-3 border-b bg-gradient-to-b from-card to-card p-4">
         <div className="flex items-center gap-2.5">
           <span
             className={cn(
@@ -298,129 +723,124 @@ function PanelBody({ job }: { job: JobDTO }) {
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.currentTarget.blur();
+              } else if (e.key === "Escape") {
+                e.preventDefault();
+                e.stopPropagation();
+                setName(job.name);
+                e.currentTarget.blur();
               }
             }}
             maxLength={60}
             aria-label="Job name"
             className="h-9 flex-1 text-sm font-medium"
           />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-8 shrink-0 text-muted-foreground hover:text-foreground"
+            onClick={() => select(null)}
+            aria-label="Close job panel"
+            title="Close panel (Esc)"
+          >
+            <X className="size-4" />
+          </Button>
         </div>
+
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5">
             <StatusBadge status={job.status} />
             <EngineBadge engine={engine} />
           </div>
           <span className="text-[11px] text-muted-foreground">
-            {spec?.group ?? "Workflow"} · {spec?.tier ?? "—"}
+            {spec?.group ?? "Workflow"} · {spec?.category ?? "—"} · {spec?.tier ?? "—"}
           </span>
         </div>
+
         <p className="text-xs leading-relaxed text-muted-foreground">
-          {spec?.description}
+          {spec?.description ?? "Workflow job."}
         </p>
-      </div>
 
-      {/* Parameters */}
-      <div className="shrink-0 space-y-4 p-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Parameters
-          </p>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          {(spec?.params ?? []).map((p) => {
-            const inputId = `param-${job.id}-${p.key}`;
-            const wide = p.type === "select";
-            return (
-              <div key={p.key} className={cn("space-y-1.5", wide && "col-span-2")}>
-                <Label htmlFor={inputId} className="text-xs font-medium">
-                  {p.label}
-                </Label>
-                {p.type === "number" ? (
-                  <div className="relative">
-                    <Input
-                      id={inputId}
-                      type="number"
-                      value={form[p.key] ?? ""}
-                      min={p.min}
-                      max={p.max}
-                      step={p.step}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, [p.key]: e.target.value }))
-                      }
-                      className={cn("h-8 text-xs", p.unit && "pr-10")}
-                    />
-                    {p.unit && (
-                      <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-                        {p.unit}
-                      </span>
-                    )}
-                  </div>
-                ) : (
-                  <Select
-                    value={String(form[p.key] ?? p.default)}
-                    onValueChange={(v) => setForm((f) => ({ ...f, [p.key]: v }))}
-                  >
-                    <SelectTrigger id={inputId} className="h-8 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(p.options ?? []).map((opt) => (
-                        <SelectItem key={opt} value={opt} className="text-xs">
-                          {opt}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-                {p.hint && (
-                  <p className="text-[10px] text-muted-foreground">{p.hint}</p>
-                )}
-              </div>
-            );
-          })}
-        </div>
-        <Button
-          variant="outline"
-          className="w-full"
-          onClick={commitParams}
-          disabled={!dirty}
-        >
-          Save Parameters
-        </Button>
-      </div>
-
-      <Separator />
-
-      {/* Run */}
-      <div className="shrink-0 space-y-2.5 p-4">
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Execution
-        </p>
-        <div
-          title={relionBlocked ? relionHint : undefined}
-          className={cn(relionBlocked && "cursor-not-allowed opacity-70")}
-        >
+        {/* Action row */}
+        <div className="flex items-center gap-1.5">
+          {relionBlocked ? (
+            <TooltipProvider delayDuration={150}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="flex-1 inline-flex" title={relionHint}>
+                    {runButton}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-64 text-[11px]">
+                  {relionHint} — jobs will fail to start honestly.
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : (
+            <span className="flex-1 inline-flex">{runButton}</span>
+          )}
           <Button
-            className="w-full"
-            disabled={job.status === "running" || runPending || relionBlocked}
-            onClick={() => void handleRun()}
-            aria-describedby={relionBlocked ? "relion-blocked-hint" : undefined}
+            variant="ghost"
+            size="icon"
+            className="size-8 shrink-0 text-muted-foreground hover:text-foreground"
+            onClick={() => void resetJob(job.id)}
+            disabled={job.status === "running"}
+            aria-label={`Reset ${job.name} to idle`}
+            title="Reset job to idle"
           >
-            {runPending ? (
-              <Loader2 className="animate-spin" aria-hidden="true" />
-            ) : (
-              <Play aria-hidden="true" />
-            )}
-            {job.status === "completed" || job.status === "failed"
-              ? "Re-run"
-              : "Run Job"}
+            <RotateCcw className="size-4" />
           </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-8 shrink-0 text-muted-foreground hover:text-foreground"
+            onClick={() => setTab("log")}
+            aria-label={`View engine log for ${job.name}`}
+            title="View engine log"
+          >
+            <Terminal className="size-4" />
+          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-8 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                aria-label={`Delete ${job.name}`}
+                title="Delete job"
+              >
+                <Trash2 className="size-4" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete “{job.name}”?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This removes the job and every connection attached to it. This
+                  action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  onClick={() => void deleteJob(job.id)}
+                >
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
+
         {relionBlocked && (
-          <p id="relion-blocked-hint" className="text-[11px] leading-relaxed text-amber-600 dark:text-amber-400">
-            {relionHint}
+          <p
+            id="job-relion-blocked-hint"
+            className="text-[11px] leading-relaxed text-amber-600 dark:text-amber-400"
+          >
+            {relionHint} — jobs will fail to start honestly.
           </p>
         )}
+
         {job.status === "running" && (
           <div className="space-y-1">
             <MiniProgress value={job.progress} running label={`${job.name} progress`} />
@@ -437,138 +857,54 @@ function PanelBody({ job }: { job: JobDTO }) {
             </p>
           </div>
         )}
-        {(job.status === "completed" || job.status === "failed") && job.result && (
-          <p
-            className={cn(
-              "rounded-md border px-2.5 py-2 text-[11px] leading-relaxed",
-              job.status === "failed"
-                ? "border-destructive/30 bg-destructive/10 text-destructive"
-                : "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-            )}
-            title={job.result}
-          >
-            {job.result}
-          </p>
-        )}
-        <div className="flex gap-2">
-          <Button
-            variant="ghost"
-            className="flex-1 text-muted-foreground"
-            onClick={() => void resetJob(job.id)}
-            disabled={job.status === "running"}
-          >
-            <RotateCcw aria-hidden="true" />
-            Reset
-          </Button>
-          {job.hasLog && (
-            <Button
-              variant="ghost"
-              className="flex-1 text-muted-foreground"
-              onClick={() => setLogOpen(true)}
-              aria-label={`View engine log for ${job.name}`}
-            >
-              <Terminal aria-hidden="true" />
-              View log
-            </Button>
-          )}
+      </div>
+
+      {/* Body tabs: I/O | Params | Results | Log */}
+      <Tabs
+        value={tab}
+        onValueChange={setTab}
+        className="flex min-h-0 flex-1 flex-col gap-0"
+      >
+        <div className="shrink-0 border-b px-2 py-1.5">
+          <TabsList className="h-8 w-full">
+            <TabsTrigger value="io" className="h-6 gap-1 px-2 text-[11px]">
+              <ArrowLeftRight className="size-3.5" aria-hidden="true" />
+              I/O
+            </TabsTrigger>
+            <TabsTrigger value="params" className="h-6 gap-1 px-2 text-[11px]">
+              <SlidersHorizontal className="size-3.5" aria-hidden="true" />
+              Params
+            </TabsTrigger>
+            <TabsTrigger value="results" className="h-6 gap-1 px-2 text-[11px]">
+              <BarChart3 className="size-3.5" aria-hidden="true" />
+              Results
+            </TabsTrigger>
+            <TabsTrigger value="log" className="h-6 gap-1 px-2 text-[11px]">
+              <Terminal className="size-3.5" aria-hidden="true" />
+              Log
+            </TabsTrigger>
+          </TabsList>
         </div>
-        {job.hasLog && (
-          <LogDialog job={job} open={logOpen} onOpenChange={setLogOpen} />
-        )}
-      </div>
 
-      <Separator />
-
-      {/* Connections */}
-      <div className="shrink-0 space-y-3 p-4">
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Connections
-        </p>
-        <div className="space-y-2.5">
-          <div>
-            <p className="mb-1.5 text-[11px] text-muted-foreground">
-              Incoming ({incoming.length})
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {incoming.length === 0 ? (
-                <p className="text-[11px] italic text-muted-foreground/70">None</p>
-              ) : (
-                incoming.map((e) => (
-                  <EdgeChip
-                    key={e.id}
-                    label={jobNameById.get(e.fromJobId) ?? "Unknown job"}
-                    direction="in"
-                    onRemove={() => void removeEdge(e.id)}
-                  />
-                ))
-              )}
-            </div>
-          </div>
-          <div>
-            <p className="mb-1.5 text-[11px] text-muted-foreground">
-              Outgoing ({outgoing.length})
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {outgoing.length === 0 ? (
-                <p className="text-[11px] italic text-muted-foreground/70">None</p>
-              ) : (
-                outgoing.map((e) => (
-                  <EdgeChip
-                    key={e.id}
-                    label={jobNameById.get(e.toJobId) ?? "Unknown job"}
-                    direction="out"
-                    onRemove={() => void removeEdge(e.id)}
-                  />
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <Separator />
-
-      {/* Danger zone */}
-      <div className="mt-auto shrink-0 space-y-2.5 p-4">
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Danger Zone
-        </p>
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button
-              variant="outline"
-              className="w-full border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
-            >
-              <Trash2 aria-hidden="true" />
-              Delete Job
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Delete “{job.name}”?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This removes the job and every connection attached to it. This
-                action cannot be undone.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                onClick={() => void deleteJob(job.id)}
-              >
-                Delete
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </div>
+        <TabsContent value="io" className="mt-0 min-h-0 flex-1 overflow-y-auto">
+          <IOTab job={job} spec={spec} />
+        </TabsContent>
+        <TabsContent value="params" className="mt-0 flex min-h-0 flex-1 flex-col">
+          <ParamsTab job={job} spec={spec} />
+        </TabsContent>
+        <TabsContent value="results" className="mt-0 min-h-0 flex-1 overflow-y-auto">
+          <ResultsTab job={job} />
+        </TabsContent>
+        <TabsContent value="log" className="mt-0 min-h-0 flex-1 overflow-y-auto">
+          <LogTab job={job} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
 
 /* ------------------------------------------------------------------ */
-/* Panel root                                                          */
+/* Panel root                                                           */
 /* ------------------------------------------------------------------ */
 
 export function JobPanel() {

@@ -6,7 +6,7 @@ import type { ProjectEngine, ProjectMode } from "@/lib/projects";
 
 export const dynamic = "force-dynamic";
 
-/** GET /api/projects — all projects with mode/engine meta merged. */
+/** GET /api/projects — all projects with mode/engine meta + createdAt + job stats merged. */
 export async function GET() {
   try {
     const projects = await listProjectsWithMeta();

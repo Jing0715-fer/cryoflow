@@ -73,13 +73,13 @@ export interface EngineJobRef {
   id: string;
   projectId: string;
   type: string;
-  params: Record<string, number | string>;
+  params: Record<string, number | string | boolean>;
 }
 
 export interface UpstreamRef {
   id: string;
   type: string;
-  params?: Record<string, number | string>;
+  params?: Record<string, number | string | boolean>;
 }
 
 export interface RunOutcome {
@@ -1500,7 +1500,7 @@ export function getLogTail(jobId: string): string | null {
 export function parseProgress(
   type: string,
   logFile: string,
-  params: Record<string, number | string>
+  params: Record<string, number | string | boolean>
 ): number | null {
   try {
     if (!existsSync(logFile)) return null;
@@ -1734,11 +1734,11 @@ function tailText(file: string, maxChars: number): string {
 /* Reconciliation (GET /api/jobs)                                       */
 /* ------------------------------------------------------------------ */
 
-export function parseJobParams(raw: string): Record<string, number | string> {
+export function parseJobParams(raw: string): Record<string, number | string | boolean> {
   try {
     const parsed = JSON.parse(raw);
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      return parsed as Record<string, number | string>;
+      return parsed as Record<string, number | string | boolean>;
     }
   } catch {
     /* fall through */
