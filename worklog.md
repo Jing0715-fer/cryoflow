@@ -388,6 +388,25 @@ Stage Summary:
 - 协作警示：多 agent 并行编辑同一文件时，先看 mtime 稳定性与 git status 再动手，避免覆盖半成品；auto-commit sweep 会周期性收走工作区改动。
 
 ---
+Task ID: 355789 (cron 2026-09-03 21:40) 【恢复条目 — 原本地 commit 261d10f，沙箱回滚后于 2026-09-05 从 reflog 找回并入】
+Agent: Super Z (cron loop)
+Task: Advance EMPIAR-10017 pipeline; report final result
+
+Work Log:
+- 21:30 round: refine3d completed (final unmasked 10.79 Å, plateau ~15 Å, "no gain for 4 iter")
+- 21:30 round: maskcreate started & completed (threshold 0.02, softEdge 6, lowpass 10)
+- 21:35 round: postprocess started
+- 21:40 round: advance.sh → EMPIAR-10017 pipeline COMPLETE, final FSC(0.143) = 3.54 Å
+- Verified postprocess_tnt2hz2h/run.out: inputs = refine3d run_it015_half1/half2_class001.mrc + maskcreate mask.mrc; Guinier fit B=-225.9 Å², FINAL RESOLUTION 3.54 Å
+- Clarified earlier misread: select run.out "1000 particles first-N" line was stale from earlier attempt; refine3d actually used all ~3,476 particles (run_it016_data.star row count consistent)
+
+Stage Summary:
+- PIPELINE COMPLETE: EMPIAR-10017 full chain Import→MotionCorr→CtfFind→Extract(3,476)→Class2D→Select→InitialModel→Refine3D(D2, iniHigh=30, pad=2)→MaskCreate→PostProcess
+- Final masked FSC(0.143) resolution: 3.54 Å (target ≤4.5 Å MET, no optimization round needed)
+- Postprocess log shows two passes (7.08 Å first, 3.54 Å final w/ fit-until-0) — wrapper ran fit range adjustment
+- 【注】该轮发生在回滚前的旧沙箱实例；后续 wipe 后 restore-2026-09-04-a 轮重跑了管线，本条仅作历史记录归档
+
+---
 Task ID: restore-2026-09-04-a
 Agent: Super Z (主循环)
 Task: 取消旧 cron；GitHub 恢复代码；重建 RELION 栈；EMPIAR-10017 管线重跑准备
@@ -852,3 +871,20 @@ Stage Summary:
 - 架构要点：无限画布 = 0×0 transform 锚点 + 视口层网格 + 内容 bbox viewBox 映射（user 坐标恒为 workspace 绝对值，拖拽 DOM patch 零改动）；回折修复 = backwardRoute 换向阈值 MIN_CTRL
 - 管线：refine3d --continue 4 进程健康（it11+ 推进中，内存 2577/4041MB 安全）
 - 【给后续 cron 轮】① refine3d 收敛后 bash advance.sh（maskcreate→postprocess）②无限画布后续候选：画布坐标显示 HUD、⌘K 直达坐标、拖拽时网格吸附 ③菜单 SubTrigger 的 gap-2 修复是全局组件级——其他用到子菜单的右键菜单同步受益
+
+---
+Task ID: lineage-bugfix-2026-09-05-c
+Agent: main (Z.ai Code, user report: 提交任务显示 Job failed "Waiting for upstream output: particles.star")
+Task: 排查并修复用户运行 InitialModel·D2(copy) 直连 Extract 时报上游缺失的失败
+
+Work Log:
+- 【定位】DB: 失败任务 = rhleut "InitialModel · D2 (copy)"（initialmodel，用户把对称性改成 C1、K=4、50 迭代），上游直连边 ew8s2l(extract, completed) → rhleut（边在运行前 10 分钟已建）；extract 运行记录 done/exit0/particles.star 存在 —— 数据层一切正常
+- 【根因】dispatch.ts lineageFor 的 workspace 重构回归：`seen.add(row.id)` 先于 `if (seen.has(root.id)) continue` —— 非 link 行 root===row，自己刚加进 seen 就命中去重检查被 continue，**BFS 每层全部跳过 → lineage 永远为空** → resolveInputs 对任何直连上游都报 "Waiting for upstream output"。重构时 E2E 未暴露：链接作业（root≠row）恰好走通、refine 系列 --continue 断点续跑路径**跳过** resolveInputs、其余管线任务都在重构前已运行
+- 【修复】去重检查移到 seen.add 之前：先 `if (seen.has(root.id)) continue`，再标记 row（link 行额外标记 root 以去重同 original 的多条链接）；非 link 行不再自短路
+- 【验证】①scripts/diag-lineage.ts（新增只读诊断脚本，复刻 dispatch 完整路径）：rhleut lineage = [extract(done, particles_star ✓), manualpick, ctffind, import]，resolveInputs verdict = particles.star 路径 ✓ ②链接路径回归测试：Select 2 ← Class2D ⧉ 折叠到根 o5en10，particles_star = run_it025_data.star（class-aware）✓ ③替用户重新提交 rhleut：POST /run → status running，relion_refine --grad --denovo_3dref 串行进程 pid 30628（488MB RSS），VDAM 迭代 1/50 推进中（~4min/迭代，detached 免疫重启），run.err 空 ④agent-browser：卡片显示 "running 2%"、console 零错误 ✓ ⑤lint ✓ tsc ✓
+- 【内存现状】refine3d 3 ranks + initialmodel 串行 = 3.09GB/4.04GB（可用 955MB）—— cron 轮需盯紧 initialmodel VDAM 内存增长（K=4 参考体+梯度体）
+
+Stage Summary:
+- 根因 = lineageFor BFS 的 seen 集时序 bug（workspace 重构引入、直连上游全灭、链接/续跑路径掩盖）；一行序位修复，直连+链接+续跑三路径全部验证通过
+- 用户失败的任务已重新提交并真实运行（C1 对称性、K=4、50 迭代 VDAM，约 2-4 小时）
+- 【给后续 cron 轮】①盯 initialmodel_o7rhleut 收敛（完成后 collectOutputs 应产出 model_mrc — 下游 class3d/refine3d 可用）②refine3d it14+ 推进中，收敛后 advance.sh ③内存红线 3.5GB：initialmodel+refine3d 并行期间避免再启动 MPI 任务

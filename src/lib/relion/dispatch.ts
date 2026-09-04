@@ -57,9 +57,15 @@ export async function lineageFor(jobId: string): Promise<UpstreamRef[]> {
     for (const row of rows) {
       // resolve link chain → root original (links mirror another job)
       const root = await resolveLinkRoot(row);
+      // REGRESSION FIX: check the dedupe BEFORE marking the row visited.
+      // The old order (seen.add(row.id) → seen.has(root.id)) short-circuited
+      // every NON-LINK row (root === row → just-marked → skipped), leaving
+      // the lineage empty for directly-wired jobs — resolveInputs then failed
+      // every fresh run with "Waiting for upstream output". Link runs and
+      // --continue resumes masked it during the workspace-arch E2E.
+      if (seen.has(root.id)) continue; // root already contributed (another link or an earlier layer)
       seen.add(row.id);
-      if (seen.has(root.id)) continue; // already contributed via another link
-      seen.add(root.id);
+      if (root.id !== row.id) seen.add(root.id); // link row: dedupe future links to the same original
       lineage.push({ id: root.id, type: root.type, params: parseJobParams(root.params) });
       nextFrontier.push(root.id);
     }
