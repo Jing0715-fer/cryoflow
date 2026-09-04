@@ -710,3 +710,38 @@ Stage Summary:
 - 关键经验沉淀：①React portal 事件沿 React 树冒泡 → 画布级 pointerdown 必须做 DOM 包含守卫 ②dev server 存活法 = 父脚本退出过继 init（scripts/dev-server.sh，单工具调用内完成启动+验证）
 - 管线：refine3d --continue 运行中 73%（it10+，~40min/iter）→ 收敛后 advance.sh 推进 maskcreate → postprocess → ≤4.2 Å 判定
 - 【给后续 cron 轮】① bash advance.sh ② dev server 若死：`bash scripts/dev-server.sh; sleep 16; curl -sf localhost:3000/api/jobs`（单调用内）③ refine3d 失败时 POST /run 恢复 ④ 候选：postprocess localres 图、FSC PNG 导出、dashboard 项目排序/收藏、卡片运行计时器
+
+---
+Task ID: drag-perf-sidebar-2026-09-05-m
+Agent: Super Z (main loop, user feedback: drag latency + sidebar UI)
+Task: 拖拽延迟根因修复(性能架构重构)+ 左侧栏 UI 全面升级 + 整体打磨
+
+Work Log:
+- 【根因1:轮询重渲染风暴】page.tsx 轮询 1200ms 一次,每次 set({jobs}) 经 JSON parse 产生全新对象引用 → 全部 11 张 JobCard 的 React.memo 失效 → 全应用树重渲染级联;拖拽撞上 poll tick = 主线程卡顿几十 ms → 用户感知"有时延迟"。修复三连:
+  1. pollTick 引用稳定合并:jobEquals 逐字段比较(params 用 JSON.stringify),无变化的 job 复用旧对象引用;全部无变化则 set 都不调用(零渲染);有变化也只重渲染变更的那张卡
+  2. store 新增 dragActive:卡片拖拽期间 pollTick 直接早退(绝不与拖拽循环抢主线程;也杜绝 mid-drag re-render 导致连线回跳)
+  3. Home 组件 anyRunning 改原始值 selector(zustand 自动 bail)——轮询不再触发整个页面壳重渲染
+- 【根因2:逐帧 React 渲染 + SMIL 重启】旧实现每帧 setDragLive → EdgesLayer 整层重渲染(80+ SVG 节点 diff + animateMotion 重启)。修复:新建 src/lib/edge-geom.ts 共享几何纯函数库(computeEdgeGeoms/routeWire/直更辅助),拖拽 rAF 内直接 setAttribute 补丁连线 DOM(d/cx/cy/path),React 全程零参与:
+  - edges-layer 添加直更锚点:g[data-edge-id] + [data-e=d]/motion/src/tgt
+  - 拖拽开始 collectEdgeGroups 一次性缓存 touching 边的 DOM 组;每帧 computeEdgeGeoms(同渲染同一套数学,零漂移)+ patchEdgeGroups 直更
+  - 模块级 liveDrag ref(edge-geom 内 getLiveDrag/setLiveDrag):mid-drag 若有 in-flight poll 强制重渲染,geoms memo 重算时读取 live 偏移 → 线仍贴卡;deps 未变则缓存 geoms 胜出、React 不写 DOM、直更补丁原样保留(两种路径都正确)
+  - endDrag 顺序:清 liveDrag → setDragActive(false) → patch 最终几何 → optimistic commit(单 React batch);pointer cancel 路径 patch(0,0) 复位防连线悬空;组件卸载兜底清理
+  - 移除 store.dragLive/setDragLive(死代码)
+- 【根因3:画布平移高频渲染】pan 每 pointermove 直接 panBy(125-250Hz 鼠标 = 每秒 125-250 次渲染)。修复:PanState 加 pendX/pendY 累积 + rAF 合帧(flushPan 每帧最多一次 viewport 更新);pointerup 前结算残余增量防丢帧
+- 【左栏 UI 升级 palette.tsx 全面重写】
+  - 头部:渐变 icon chip + 计数徽章(显示过滤后/总数);搜索框聚焦主色 + "/" kbd 快捷键提示(聚焦时隐藏)+ X 清空按钮 + ESC 清空/失焦
+  - 新功能「最近使用」:localStorage cryoflow-recent-types(最多 6 条),chips 一键快速添加到视口中心(拖拽/Enter/Chip 添加都会记录),带 clear 清空;client-only 挂载后加载避免 hydration 错配
+  - 分类组:sticky 半透明模糊头(backdrop-blur bg-sidebar/80)+ 分类主题色圆点 + grid-rows-[1fr↔0fr] 平滑折叠动画(实测 0↔54px)+ count 徽章 hover 微缩放
+  - 条目:左侧 accent bar hover 显现 + GripVertical 拖拽把手 hover 显现 + hover translate-x-0.5 + 渐变背景 + icon chip scale;tier 徽章加状态圆点
+  - 底部 tier 图例栏(core/cli/ext 颜色圆点 + hover title 说明 + "/ search · ⏎ add" 快捷键提示)
+  - 空搜索态优化(icon + 一键清空链接)
+  - 全局 "/" 键聚焦搜索(输入场景守卫)
+- 【page.tsx 侧栏容器】aside 渐变背景(from-sidebar via-sidebar to-sidebar/70);Tabs 头部 bg-sidebar/40 backdrop-blur;TabsTrigger active shadow 微立体
+- 【QA 全链路验证(agent-browser 可信事件)】拖拽:mid-drag 卡片 transform translate(284.7,277.4) 直更 ✓ + 连线 d 起点同步 M 584.67 1077.37 ✓ → mouse up 后 left/top 365/1029 + transform 清空 + 连线终点几何正确 + API 持久化 (365,1029) ✓(已恢复原位 80,764);画布平移 +100/+80 精确 ✓;侧栏:13 分类/32 条目/sticky 头/折叠 0↔54px/搜索 refine→8 项+清空按钮/最近 chips 渲染+点击添加 11→12(已清理)✓;移动端 375px 无横向滚动 + FAB ✓;Shift+D dashboard 切换 ✓;console 全程 0 错误;lint ✓ tsc ✓ dev.log ✓
+
+Stage Summary:
+- 拖拽链路从"每帧全树 React 渲染 + 1.2s 轮询风暴"重构为"拖拽期间 React 完全空闲(纯 DOM 直更)+ 轮询零成本(引用稳定)+ pan rAF 合帧"——三处延迟根因全部消除
+- 沉淀可复用模式:①共享几何纯函数库(edge-geom.ts)让渲染与拖拽直更零漂移 ②模块级 live ref 处理 mid-drag 强制渲染竞态 ③zustand 引用稳定合并让高频轮询零渲染
+- 左栏升级 6 个新交互:最近使用快速添加(localStorage)、"/" 搜索快捷键、清空按钮、sticky 分类头、平滑折叠动画、tier 图例
+- 管线:refine3d it11 E-step 推进中(~38min/iter,进程健康);拖拽期间暂停轮询不影响 ETA(toast 在拖后下一 tick 补发)
+- 【给后续 cron 轮】① refine3d 收敛后推进 maskcreate → postprocess(见前轮 advance 流程)② 候选新功能:卡片拖拽时的对齐吸附线(同类 x/y 对齐)、多选拖拽、侧栏 catalog 虚拟滚动(类型更多时)

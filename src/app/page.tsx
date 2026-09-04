@@ -30,12 +30,13 @@ function useMediaQuery(query: string) {
 }
 
 export default function Home() {
-  const jobs = useWorkflowStore((s) => s.jobs);
   const projects = useWorkflowStore((s) => s.projects);
   const selectedId = useWorkflowStore((s) => s.selectedId);
   const inspectId = useWorkflowStore((s) => s.inspectId);
   const select = useWorkflowStore((s) => s.select);
   const view = useWorkflowStore((s) => s.view);
+  // primitive selector: polls that change nothing never re-render the shell
+  const anyRunning = useWorkflowStore((s) => s.jobs.some((j) => j.status === "running"));
 
   const [mounted, setMounted] = React.useState(false);
   const [paletteOpen, setPaletteOpen] = React.useState(false);
@@ -51,10 +52,6 @@ export default function Home() {
   }, []);
 
   // Poll while any job is running
-  const anyRunning = React.useMemo(
-    () => jobs.some((j) => j.status === "running"),
-    [jobs]
-  );
   React.useEffect(() => {
     if (!anyRunning) return;
     const timer = setInterval(() => {
@@ -178,15 +175,21 @@ export default function Home() {
       ) : (
         <main className="flex min-h-0 flex-1">
           {/* Desktop sidebar: job catalog + project management */}
-          <aside className="hidden w-72 shrink-0 border-r bg-sidebar lg:flex lg:flex-col">
+          <aside className="hidden w-72 shrink-0 flex-col border-r bg-gradient-to-b from-sidebar via-sidebar to-sidebar/70 lg:flex">
             <Tabs defaultValue="catalog" className="flex h-full min-h-0 flex-col gap-0">
-              <div className="shrink-0 border-b p-2">
-                <TabsList className="grid h-9 w-full grid-cols-2">
-                  <TabsTrigger value="catalog" className="gap-1.5 text-xs">
+              <div className="shrink-0 border-b bg-sidebar/40 p-2 backdrop-blur-sm">
+                <TabsList className="grid h-9 w-full grid-cols-2 shadow-none">
+                  <TabsTrigger
+                    value="catalog"
+                    className="gap-1.5 text-xs transition-all data-[state=active]:shadow-sm"
+                  >
                     <Boxes className="size-3.5" aria-hidden="true" />
                     Catalog
                   </TabsTrigger>
-                  <TabsTrigger value="projects" className="gap-1.5 text-xs">
+                  <TabsTrigger
+                    value="projects"
+                    className="gap-1.5 text-xs transition-all data-[state=active]:shadow-sm"
+                  >
                     <FolderGit2 className="size-3.5" aria-hidden="true" />
                     Projects
                     <Badge

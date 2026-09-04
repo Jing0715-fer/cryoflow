@@ -58,6 +58,10 @@ interface PanState {
   startX: number;
   startY: number;
   moved: boolean;
+  /** pending delta since the last rAF flush (pointer events arrive at
+   *  device rate — 125–250Hz — but we only render once per frame) */
+  pendX: number;
+  pendY: number;
 }
 
 /**
@@ -168,6 +172,25 @@ export function WorkflowCanvas() {
 
   const rootRef = React.useRef<HTMLDivElement>(null);
   const panRef = React.useRef<PanState | null>(null);
+  const panRafRef = React.useRef(0);
+
+  React.useEffect(
+    () => () => {
+      if (panRafRef.current) cancelAnimationFrame(panRafRef.current);
+    },
+    []
+  );
+
+  /** rAF flush — one viewport update per frame regardless of mouse Hz */
+  const flushPan = useCallback(() => {
+    panRafRef.current = 0;
+    const p = panRef.current;
+    if (!p || (p.pendX === 0 && p.pendY === 0)) return;
+    const { pendX, pendY } = p;
+    p.pendX = 0;
+    p.pendY = 0;
+    panBy(pendX, pendY);
+  }, [panBy]);
 
   /** Frame a workflow bounding box in the viewport (shared by auto-arrange,
    *  the initial-load fit and the focus button). */
@@ -341,6 +364,8 @@ export function WorkflowCanvas() {
       startX: e.clientX,
       startY: e.clientY,
       moved: false,
+      pendX: 0,
+      pendY: 0,
     };
     e.currentTarget.setPointerCapture(e.pointerId);
   };
@@ -355,13 +380,31 @@ export function WorkflowCanvas() {
     if (!p.moved && Math.hypot(e.clientX - p.startX, e.clientY - p.startY) >= 4) {
       p.moved = true;
     }
-    if (p.moved) panBy(dx, dy);
+    if (!p.moved) return;
+    // accumulate and flush once per frame — a 125Hz mouse would otherwise
+    // trigger 125 viewport re-renders per second
+    p.pendX += dx;
+    p.pendY += dy;
+    if (panRafRef.current === 0) {
+      panRafRef.current = requestAnimationFrame(flushPan);
+    }
   };
 
   const handlePointerUp = (e: React.PointerEvent<HTMLElement>) => {
     const p = panRef.current;
     if (!p || e.pointerId !== p.pointerId) return;
+    if (panRafRef.current) {
+      cancelAnimationFrame(panRafRef.current);
+      panRafRef.current = 0;
+    }
     panRef.current = null;
+    // settle any pending sub-frame delta before the state goes away
+    if (p.pendX !== 0 || p.pendY !== 0) {
+      const { pendX, pendY } = p;
+      p.pendX = 0;
+      p.pendY = 0;
+      panBy(pendX, pendY);
+    }
     if (p.moved) return;
     // click without movement on the background
     const s = useWorkflowStore.getState();
@@ -373,6 +416,10 @@ export function WorkflowCanvas() {
     const p = panRef.current;
     if (!p || e.pointerId !== p.pointerId) return;
     panRef.current = null;
+    if (panRafRef.current) {
+      cancelAnimationFrame(panRafRef.current);
+      panRafRef.current = 0;
+    }
   };
 
   const zoom = viewport.zoom;

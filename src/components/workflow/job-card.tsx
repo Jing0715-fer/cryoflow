@@ -24,6 +24,7 @@ import {
   portsCompatible,
 } from "@/lib/workflow";
 import { useWorkflowStore, type PendingFrom } from "@/lib/store";
+import { computeEdgeGeoms, setLiveDrag } from "@/lib/edge-geom";
 import type { JobDTO, JobTypeSpec, ParamValue } from "@/lib/types";
 import { TypeIcon } from "./icons";
 import { Badge } from "@/components/ui/badge";
@@ -359,6 +360,68 @@ interface PortDragState {
   mode: "out" | "in" | "complete";
 }
 
+/* ------------------------------------------------------------------ */
+/* Drag-time direct DOM edge patching (zero React per frame)          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Collect the edge-layer DOM groups of every wire that touches jobId —
+ * cached once per drag so the per-frame patch is a handful of
+ * setAttribute calls (no querySelector, no React, no re-render).
+ */
+function collectEdgeGroups(jobId: string): Map<string, SVGGElement> | null {
+  const svg = document.querySelector("svg[data-edges-layer]");
+  if (!svg) return null;
+  const s = useWorkflowStore.getState();
+  let any = false;
+  const map = new Map<string, SVGGElement>();
+  for (const e of s.edges) {
+    if (e.fromJobId !== jobId && e.toJobId !== jobId) continue;
+    const g = svg.querySelector(`g[data-edge-id="${e.id}"]`);
+    if (g) {
+      map.set(e.id, g as SVGGElement);
+      any = true;
+    }
+  }
+  return any ? map : null;
+}
+
+/**
+ * Patch the SVG DOM of the given edge groups to the geometry implied by
+ * dragging `jobId` by (dx, dy) canvas px — the exact same math the edge
+ * layer renders with (shared `computeEdgeGeoms`). Runs inside the drag
+ * rAF: React stays completely idle while the wires follow the card.
+ */
+function patchEdgeGroups(
+  groups: Map<string, SVGGElement>,
+  jobId: string,
+  dx: number,
+  dy: number
+): void {
+  const s = useWorkflowStore.getState();
+  const geoms = computeEdgeGeoms(s.edges, s.jobs, { id: jobId, dx, dy });
+  for (const g of geoms) {
+    if (g.fromId !== jobId && g.toId !== jobId) continue;
+    const el = groups.get(g.edge.id);
+    if (!el) continue;
+    for (const p of el.querySelectorAll('[data-e="d"]')) {
+      (p as SVGPathElement).setAttribute("d", g.d);
+    }
+    for (const m of el.querySelectorAll('[data-e="motion"]')) {
+      (m as SVGElement).setAttribute("path", g.d);
+    }
+    const src = el.querySelector('[data-e="src"]');
+    if (src) {
+      src.setAttribute("cx", String(g.srcDot.x));
+      src.setAttribute("cy", String(g.srcDot.y));
+    }
+    for (const t of el.querySelectorAll('[data-e="tgt"]')) {
+      t.setAttribute("cx", String(g.tgtDot.x));
+      t.setAttribute("cy", String(g.tgtDot.y));
+    }
+  }
+}
+
 /**
  * Structure (fixes the "port circles lag behind" bug):
  *
@@ -496,6 +559,8 @@ export const JobCard = React.memo(function JobCard({
   const dragRef = React.useRef<DragState | null>(null);
   const portDragRef = React.useRef<PortDragState | null>(null);
   const rafRef = React.useRef(0);
+  /** edge-layer DOM groups to patch during this drag (null = no wires) */
+  const edgeDomRef = React.useRef<Map<string, SVGGElement> | null>(null);
   const [dragging, setDragging] = React.useState(false);
 
   const isSource = pendingFrom?.jobId === job.id;
@@ -509,7 +574,14 @@ export const JobCard = React.memo(function JobCard({
   }, [mounted, job.status, job.id, job.startedAt, job.progress]);
 
   React.useEffect(() => {
-    return () => cancelAnimationFrame(rafRef.current);
+    return () => {
+      cancelAnimationFrame(rafRef.current);
+      if (edgeDomRef.current) {
+        setLiveDrag(null);
+        useWorkflowStore.getState().setDragActive(false);
+        edgeDomRef.current = null;
+      }
+    };
   }, []);
 
   /* ---------------- card drag (whole node incl. ports) ------------- */
@@ -542,34 +614,54 @@ export const JobCard = React.memo(function JobCard({
     if (!d.moved && Math.abs(dx) + Math.abs(dy) > 3) {
       d.moved = true;
       setDragging(true);
+      // pause job polling so no re-render ever interrupts the drag loop;
+      // cache the wire DOM nodes we will patch directly each frame
+      useWorkflowStore.getState().setDragActive(true);
+      edgeDomRef.current = collectEdgeGroups(job.id);
     }
     if (!d.moved) return;
+    const cdx = dx / zoom;
+    const cdy = dy / zoom;
     cancelAnimationFrame(rafRef.current);
     rafRef.current = requestAnimationFrame(() => {
       if (cardRef.current) {
-        cardRef.current.style.transform = `translate(${dx / zoom}px, ${dy / zoom}px)`;
+        cardRef.current.style.transform = `translate(${cdx}px, ${cdy}px)`;
       }
-      // Edges follow the card in real time (transient store slice —
-      // no re-render of the cards themselves).
-      useWorkflowStore
-        .getState()
-        .setDragLive({ id: job.id, dx: dx / zoom, dy: dy / zoom });
+      // connected wires follow in real time: same shared geometry math as
+      // the edge layer, applied straight to the SVG DOM — React never
+      // re-renders during the drag (previously setDragLive triggered a
+      // full EdgesLayer re-render + SMIL restarts on EVERY frame).
+      const groups = edgeDomRef.current;
+      if (groups) {
+        setLiveDrag({ id: job.id, dx: cdx, dy: cdy });
+        patchEdgeGroups(groups, job.id, cdx, cdy);
+      }
     });
   };
 
   const endDrag = (e: React.PointerEvent<HTMLDivElement>, d: DragState) => {
     cancelAnimationFrame(rafRef.current);
     if (cardRef.current) cardRef.current.style.transform = "";
-    // clear live offset first; the optimistic commit below updates x/y in
-    // the same React batch, so connected edges land with no snap-back.
-    useWorkflowStore.getState().setDragLive(null);
+    setLiveDrag(null);
+    const groups = edgeDomRef.current;
+    edgeDomRef.current = null;
+    // resume polling BEFORE the commit: the two store updates below land
+    // in one React batch, so edges jump straight to the final geometry
+    useWorkflowStore.getState().setDragActive(false);
     setDragging(false); // no-op re-render when it was already false
     if (d.moved) {
       const dx = e.clientX - d.startX;
       const dy = e.clientY - d.startY;
       const nx = Math.min(Math.max(d.origX + dx / zoom, 0), CANVAS_W - CARD_W);
       const ny = Math.min(Math.max(d.origY + dy / zoom, 0), CANVAS_H - CARD_H);
+      // patch wires to the final position first — covers the (theoretical)
+      // case of the committed position rounding back onto the original
+      if (groups) patchEdgeGroups(groups, job.id, nx - d.origX, ny - d.origY);
       onDragCommit(job.id, Math.round(nx), Math.round(ny));
+    } else if (groups) {
+      // drag aborted (pointer cancel) — restore the stored geometry so
+      // the wires don't stay visually detached from the card
+      patchEdgeGroups(groups, job.id, 0, 0);
     }
   };
 

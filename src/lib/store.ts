@@ -63,8 +63,9 @@ interface WorkflowState {
   focusEpoch: number;
   loading: boolean;
   error: string | null;
-  /** Transient live-drag offset (canvas coords) so edges follow the card in real time. */
-  dragLive: { id: string; dx: number; dy: number } | null;
+  /** True while a card is being dragged — polling pauses so no re-render
+   *  ever interrupts the drag loop (the card + wires are patched via DOM). */
+  dragActive: boolean;
 
   load: () => Promise<void>;
   /** Force a fresh RELION/WSL environment probe (bypasses the 60s cache). */
@@ -97,7 +98,7 @@ interface WorkflowState {
   cancelConnect: () => void;
   setViewport: (patch: Partial<Viewport>) => void;
   panBy: (dx: number, dy: number) => void;
-  setDragLive: (live: { id: string; dx: number; dy: number } | null) => void;
+  setDragActive: (active: boolean) => void;
   setPaletteDrag: (type: string | null) => void;
   /** Center the canvas on a job ("Focus" from the inspector). */
   focusJob: (id: string) => void;
@@ -134,6 +135,28 @@ function wouldCreateCycle(edges: EdgeDTO[], from: string, to: string): boolean {
   return false;
 }
 
+/** Reference-stable job comparison for pollTick: when nothing changed we
+ *  keep the OLD object references so every React.memo'd card (and the
+ *  memo'd edge layer) skips re-rendering — polls become zero-cost. */
+function jobEquals(a: JobDTO, b: JobDTO): boolean {
+  return (
+    a.id === b.id &&
+    a.type === b.type &&
+    a.name === b.name &&
+    a.x === b.x &&
+    a.y === b.y &&
+    a.status === b.status &&
+    a.progress === b.progress &&
+    a.result === b.result &&
+    a.duration === b.duration &&
+    a.startedAt === b.startedAt &&
+    a.updatedAt === b.updatedAt &&
+    a.engine === b.engine &&
+    a.hasLog === b.hasLog &&
+    JSON.stringify(a.params) === JSON.stringify(b.params)
+  );
+}
+
 function errToast(msg: string) {
   toast({ title: "Something went wrong", description: msg, variant: "destructive" });
 }
@@ -160,7 +183,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   focusEpoch: 0,
   loading: true,
   error: null,
-  dragLive: null,
+  dragActive: false,
 
   load: async () => {
     set({ loading: true, error: null });
@@ -491,12 +514,27 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
 
   pollTick: async () => {
+    // never fight an active card drag with a re-render — the drag loop owns
+    // the screen until the pointer goes up
+    if (get().dragActive) return;
     const prev = get().jobs;
     try {
       const { jobs } = await api<{ jobs: JobDTO[] }>("/api/jobs");
-      set({ jobs });
+      // reference stability: reuse the previous object for every job whose
+      // fields did not change (JSON.parse gives brand-new refs each time)
+      let changed = prev.length !== jobs.length;
+      const merged = prev.length === jobs.length
+        ? jobs.map((j, i) => {
+            const old = prev[i];
+            if (old && old.id === j.id && jobEquals(old, j)) return old;
+            changed = true;
+            return j;
+          })
+        : jobs;
+      if (!changed) return; // identical tick — zero re-renders
+      set({ jobs: merged });
       // announce transitions running → completed / failed
-      for (const job of jobs) {
+      for (const job of merged) {
         const before = prev.find((p) => p.id === job.id);
         if (before?.status !== "running") continue;
         if (job.status === "completed") {
@@ -536,7 +574,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     })),
   panBy: (dx, dy) =>
     set((s) => ({ viewport: { ...s.viewport, x: s.viewport.x + dx, y: s.viewport.y + dy } })),
-  setDragLive: (live) => set({ dragLive: live }),
+  setDragActive: (active) => set({ dragActive: active }),
   setPaletteDrag: (type) => set({ paletteDrag: type }),
 
   focusJob: (id) =>
