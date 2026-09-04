@@ -804,3 +804,4 @@ Stage Summary:
 - 审查产出 4 Critical 全修 + 5 Medium 修 + 1 个 E2E 中新发现的孤儿边 bug 修复；进程生命周期治理补全（防重复 spawn/杀树/断点续跑/重启免疫）是本轮最大架构级收益
 - 拖拽期间 RELION refine3d 因 engine 热重载死亡一次 → --continue 从 it10 恢复（it11 E-step 7.2/47.6min 推进中，mpirun 已独立会话免疫后续重启）
 - 【给后续 cron 轮】① refine3d 收敛后推进 maskcreate → postprocess（advance 逻辑：maskcreate 参数 ref 参考 refine3d 输出 half1、postprocess 吃 mask+half1+half2；POST /run 后 poll /api/jobs/{id}）② Stop 按钮/refine3d Stop→Re-run 断点续跑链路已可用 ③ 候选：postprocess localres 图、FSC PNG 导出、dashboard 排序收藏
+- 【cron 服务异常】15 分钟 webDevReview 定时任务创建失败：cron 工具服务端报 "Invalid parameter: TimeType value is invalid. value:0."（fixed_rate/cron 5-field/6-field ±tz 六种格式均试）— 服务端解析 bug，非参数问题；恢复后需重建（描述模板见本文件末尾 cron 语义段落）
