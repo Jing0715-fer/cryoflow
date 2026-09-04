@@ -89,6 +89,9 @@ export interface RunOutcome {
   pid?: number;
   error?: string;
   result?: string;
+  /** Set when an interrupted refine-family run was resumed via --continue
+   * (the iteration number it picked up from). */
+  resumedFrom?: number;
 }
 
 /** Live child processes (lost on server restart — reconcile handles that). */
@@ -118,6 +121,18 @@ export function writeRuns(map: Record<string, RunRecord>): void {
 
 export function getRun(jobId: string): RunRecord | null {
   return readRuns()[jobId] ?? null;
+}
+
+/**
+ * Forget a job's run record (used by the explicit user reset). The next
+ * run then starts FRESH instead of resuming from a leftover checkpoint —
+ * "Reset & edit" semantically means "discard this run".
+ */
+export function clearRunRecord(jobId: string): void {
+  const runs = readRuns();
+  if (!(jobId in runs)) return;
+  delete runs[jobId];
+  writeRuns(runs);
 }
 
 /* ------------------------------------------------------------------ */
@@ -1771,6 +1786,101 @@ const NATIVE_TYPES = new Set(["import", "manualpick", "select"]);
  * - everything else: detect RELION (fresh, no cache), resolve inputs,
  *   spawn the CLI with the faithful argv.
  */
+/* ------------------------------------------------------------------ */
+/* Shared spawn + state tracking (fresh runs AND --continue resumes)   */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Record the run, spawn argv, pipe run.out/run.err (append) and attach the
+ * exit handler that finalizes state + DB. Shared by the fresh-run path and
+ * the resume path so both get identical bookkeeping.
+ */
+function spawnTrackedRun(
+  job: EngineJobRef,
+  argv: string[],
+  workdir: string,
+  binDir: string,
+  resumedFrom?: number
+): RunOutcome {
+  const logFile = path.join(workdir, "run.out");
+  const errFile = path.join(workdir, "run.err");
+  const cmd = argv.join(" ");
+  const record: RunRecord = {
+    jobId: job.id,
+    projectId: job.projectId,
+    type: job.type,
+    pid: null,
+    cmd,
+    workdir,
+    logFile,
+    errFile,
+    startedAt: new Date().toISOString(),
+    outputs: {},
+    done: false,
+    exitCode: null,
+  };
+  const runs = readRuns();
+  runs[job.id] = record;
+  writeRuns(runs);
+
+  // CWD = RELION "project root": STAR paths are relative to it and ctffind_runner
+  // symlinks micrographs as (cwd + star-path). The per-job workdir still holds
+  // run.out / run.err and the output artifacts (via absolute --o/--part_dir).
+  const projectDir = projectDirFor(job);
+  mkdirSync(projectDir, { recursive: true });
+  const child = spawn(argv[0], argv.slice(1), {
+    cwd: projectDir,
+    env: relionEnv(binDir),
+    detached: false,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  live.set(job.id, child);
+
+  if (child.stdout) {
+    const out = createWriteStream(logFile, { flags: "a" });
+    child.stdout.pipe(out);
+  }
+  if (child.stderr) {
+    const err = createWriteStream(errFile, { flags: "a" });
+    child.stderr.pipe(err);
+  }
+
+  record.pid = child.pid ?? null;
+  const runsNow = readRuns();
+  runsNow[job.id] = { ...record };
+  writeRuns(runsNow);
+
+  attachExitHandler(job, child, record.startedAt);
+
+  return {
+    ok: true,
+    pid: child.pid ?? undefined,
+    ...(resumedFrom != null ? { resumedFrom } : {}),
+  };
+}
+
+/**
+ * Newest run_itXXX_optimiser.star checkpoint in a workdir (RELION's
+ * --continue entry point), or null when none exists.
+ */
+function resumableOptimiser(workdir: string): { file: string; iteration: number } | null {
+  try {
+    const matches = readdirSync(workdir)
+      .map((n) => {
+        const m = n.match(/^run_it(\d+)_optimiser\.star$/i);
+        return m ? { file: path.join(workdir, n), iteration: Number(m[1]) } : null;
+      })
+      .filter((x): x is { file: string; iteration: number } => x != null);
+    matches.sort((a, b) => b.iteration - a.iteration);
+    return matches[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Refine-family job types that support RELION's --continue. */
+const RESUMABLE_TYPES = new Set(["class2d", "class3d", "refine3d", "initialmodel", "multibody"]);
+
 export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Promise<RunOutcome> {
   // ---- engine-native jobs -------------------------------------------
   if (job.type === "import") {
@@ -1801,6 +1911,43 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
   }
   const binDir = status.path;
 
+  // ---- resume an interrupted refine-family run ---------------------------
+  // If a previous run of THIS job crashed/was interrupted (record exists,
+  // never finished) and the workdir holds RELION iteration checkpoints,
+  // --continue picks up from the newest one instead of starting over —
+  // hours saved on long auto-refinements. Upstream re-validation is skipped:
+  // the checkpoint STAR files already reference the validated inputs.
+  const workdir = workdirFor(job);
+  const prevRun = readRuns()[job.id];
+  if (
+    RESUMABLE_TYPES.has(job.type) &&
+    prevRun &&
+    prevRun.done === false &&
+    prevRun.jobId === job.id
+  ) {
+    const checkpoint = resumableOptimiser(workdir);
+    const mpiBin = path.join(binDir, "relion_refine_mpi");
+    if (checkpoint && existsSync(mpiBin) && existsSync(path.join(MPICH_BIN, "mpirun"))) {
+      // gold-standard halves need leader + 2 half-mappers
+      const nranks = job.type === "refine3d" ? 3 : 2;
+      // --o MUST point at the SAME output root the checkpoint was written
+      // to (RELION in continue mode still checks the output dir from --o;
+      // omitting it defaults to ./run relative to cwd → "output directory
+      // does not exist" abort on the follower ranks).
+      const resumeArgv = [
+        "mpirun",
+        "-n",
+        String(nranks),
+        mpiBin,
+        "--continue",
+        checkpoint.file,
+        "--o",
+        path.join(workdir, "run"),
+      ];
+      return spawnTrackedRun(job, resumeArgv, workdir, binDir, checkpoint.iteration);
+    }
+  }
+
   // ---- resolve inputs --------------------------------------------------
   const resolved = resolveInputs(job.type, upstream);
   if (resolved.missing) {
@@ -1809,7 +1956,6 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
   const inputs = resolved.inputs;
 
   // ---- workdir ----------------------------------------------------------
-  const workdir = workdirFor(job);
   mkdirSync(workdir, { recursive: true });
 
   // ---- build argv ---------------------------------------------------------
@@ -1841,59 +1987,7 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
     };
   }
 
-  // ---- record state BEFORE spawning ---------------------------------------
-  const logFile = path.join(workdir, "run.out");
-  const errFile = path.join(workdir, "run.err");
-  const cmd = argv.join(" ");
-  const record: RunRecord = {
-    jobId: job.id,
-    projectId: job.projectId,
-    type: job.type,
-    pid: null,
-    cmd,
-    workdir,
-    logFile,
-    errFile,
-    startedAt: new Date().toISOString(),
-    outputs: {},
-    done: false,
-    exitCode: null,
-  };
-  const runs = readRuns();
-  runs[job.id] = record;
-  writeRuns(runs);
-
-  // ---- spawn ------------------------------------------------------------
-  // CWD = RELION "project root": STAR paths are relative to it and ctffind_runner
-  // symlinks micrographs as (cwd + star-path). The per-job workdir still holds
-  // run.out / run.err and the output artifacts (via absolute --o/--part_dir).
-  const projectDir = projectDirFor(job);
-  mkdirSync(projectDir, { recursive: true });
-  const child = spawn(argv[0], argv.slice(1), {
-    cwd: projectDir,
-    env: relionEnv(binDir),
-    detached: false,
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  live.set(job.id, child);
-
-  if (child.stdout) {
-    const out = createWriteStream(logFile, { flags: "a" });
-    child.stdout.pipe(out);
-  }
-  if (child.stderr) {
-    const err = createWriteStream(errFile, { flags: "a" });
-    child.stderr.pipe(err);
-  }
-
-  record.pid = child.pid ?? null;
-  const runsNow = readRuns();
-  runsNow[job.id] = { ...record };
-  writeRuns(runsNow);
-
-  attachExitHandler(job, child, record.startedAt);
-
-  return { ok: true, pid: child.pid ?? undefined };
+  return spawnTrackedRun(job, argv, workdir, binDir);
 }
 
 /* ------------------------------------------------------------------ */

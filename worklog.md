@@ -516,3 +516,25 @@ Stage Summary:
 - 教训记录：① agent-browser 合成事件不激活 radix Tabs（要用可信 click）② 本轮工具调用收割再次生效，setsid+nohup+.zscripts/dev.sh 是当前可靠的跨调用存活启动方式 ③ Turbopack 热重载累积膨胀 2.4GB+ —— 长会话开发轮要控制编辑次数或中途重启 dev server（重启即回收内存，engine-state.json 落盘使 RELION 状态无损）
 - 管线：refine3d it9（13.3 Å，每 iter ~20-40min，auto-refine 还需数小时）→ 后续 maskcreate → postprocess → FSC ≤4.2 Å → 最终 push
 - 本轮代码未 push（留给管线完成时一并 push 或下轮 push）
+
+---
+Task ID: resume-continue-2026-09-04-b
+Agent: Super Z (main loop, cron webDevReview)
+Task: refine3d 中断恢复（--continue 断点续跑）+ resume 引擎特性
+
+Work Log:
+- 【事故链复盘】QA 尾声 next-server OOM（Turbopack 2.45GB + chrome 1GB + RELION）→ setsid 重启 dev server 恢复页面 → 但发现 refine3d 全部进程死亡（it9 中断，dmesg 无新 OOM 事件）→ 推断第一次非 setsid dev.sh 重启被工具调用收割时连带回收了 RELION（cgroup 级清理）；reconcileRealJobs 正确标记 failed "interrupted"
+- 【引擎新特性：--continue 断点续跑】refine 家族（class2d/class3d/refine3d/initialmodel/multibody）中断后重跑自动从最新 run_itXXX_optimiser.star 续跑，省数小时：
+  - 重构：spawn+记账块提取为 spawnTrackedRun(job, argv, workdir, binDir, resumedFrom?)（fresh 与 resume 两路共享 record/pipe/exit-handler 全套记账）
+  - resume 触发条件：RESUMABLE_TYPES + 前次记录 done===false（中断未退出）+ workdir 有 optimiser 检查点
+  - resume argv：mpirun -n 3 relion_refine_mpi --continue <optimiser> --o <workdir>/run——【关键坑】--o 必须显式传原输出根，省略时 RELION 默认 ./run 相对 cwd → follower ranks 报 "output directory does not exist" MPI_Abort（第一次尝试的真实失败原因）
+  - Reset & edit 语义：PATCH status=idle 现在同时 clearRunRecord（丢弃记录）→ 用户显式重置后重跑必然全新开始，不会误续旧检查点；已完成(done)的 job 重跑也走全新
+- 【一次性状态修复】手工把被我第一次失败尝试标成 done:true 的记录修回 done:false（argv 错误非真实失败）
+- 【验证】重启 dev server 加载新 engine → POST /run → "Reading in optimiser.star" + Auto-refine Iteration=9 重跑 + 3 ranks 存活（41/186/93MB）→ API running 60%、内存 1.8GB 可用
+- lint/tsc 全过；refine3d 从 it9 恢复推进（此前 1-8 迭代成果全部保留）
+
+Stage Summary:
+- refine3d 恢复运行（--continue 从 it9），管线主线重回正轨：→ maskcreate → postprocess → FSC ≤4.2 Å
+- 引擎新增可复用能力：断点续跑（任何 refine 家族 job 中断后 Re-run 自动续），Reset 清记录保证语义干净
+- 【重要坑记录】① RELION --continue 必须带 --o 原输出根 ② 非 setsid 的进程会被工具调用收割并可能连带 RELION（以后 dev server 重启一律 setsid + 先 ps 确认 RELION 存活）③ engine.ts 改动后必须重启 dev server（Turbopack 服务端缓存，本轮再次实证）
+- 代码已与上轮 res-chart 一并在 51816c0 push？否——resume 特性本轮新增未 push，待下轮或管线完成后 push

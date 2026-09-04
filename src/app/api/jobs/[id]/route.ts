@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { toJobDTO } from "@/lib/seed";
 import { jobType } from "@/lib/workflow";
+import { clearRunRecord } from "@/lib/relion/engine";
 
 export const dynamic = "force-dynamic";
 
@@ -69,6 +70,13 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       data.progress = 0;
       data.result = null;
       data.startedAt = null;
+      // discard the engine run record so a later Run starts fresh
+      // (rather than resuming a leftover --continue checkpoint)
+      try {
+        clearRunRecord(id);
+      } catch {
+        /* state file is advisory */
+      }
     }
 
     const job = await db.job.update({ where: { id }, data });
