@@ -150,13 +150,37 @@ function downsample(
   return { values: out, width: w, height: h };
 }
 
-/** 2–98 percentile contrast stretch → 8-bit grayscale buffer. */
+/**
+ * 2–98 percentile contrast stretch → 8-bit grayscale buffer.
+ * RELION class averages store the PARTICLE as negative density over an
+ * exactly-zero flattened solvent — detect that case and flip + renormalize
+ * so the particle renders bright on black with its full dynamic range.
+ */
 function stretchToGray(data: Float32Array): Buffer {
   const n = data.length;
   const sorted = Float32Array.from(data).sort();
   const lo = sorted[Math.floor(0.02 * (n - 1))];
   const hi = sorted[Math.ceil(0.98 * (n - 1))];
+  const med = sorted[Math.floor(0.5 * (n - 1))];
   const gray = Buffer.alloc(n);
+
+  // inverted reference: majority solvent is EXACTLY zero and the negative
+  // side carries far more signal than the positive side
+  const inverted = med === 0 && lo < 0 && -lo > 2 * hi;
+  if (inverted) {
+    const loSig = sorted[Math.floor(0.005 * (n - 1))]; // robust signal floor
+    const span = -loSig;
+    if (!(span > 0)) {
+      gray.fill(128);
+      return gray;
+    }
+    for (let i = 0; i < n; i++) {
+      const v = -data[i] / span;
+      gray[i] = Math.max(0, Math.min(255, Math.round(v * 255)));
+    }
+    return gray;
+  }
+
   const span = hi - lo;
   if (!(span > 0)) {
     gray.fill(128);
