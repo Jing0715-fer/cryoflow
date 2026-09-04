@@ -805,3 +805,25 @@ Stage Summary:
 - 拖拽期间 RELION refine3d 因 engine 热重载死亡一次 → --continue 从 it10 恢复（it11 E-step 7.2/47.6min 推进中，mpirun 已独立会话免疫后续重启）
 - 【给后续 cron 轮】① refine3d 收敛后推进 maskcreate → postprocess（advance 逻辑：maskcreate 参数 ref 参考 refine3d 输出 half1、postprocess 吃 mask+half1+half2；POST /run 后 poll /api/jobs/{id}）② Stop 按钮/refine3d Stop→Re-run 断点续跑链路已可用 ③ 候选：postprocess localres 图、FSC PNG 导出、dashboard 排序收藏
 - 【cron 服务异常】15 分钟 webDevReview 定时任务创建失败：cron 工具服务端报 "Invalid parameter: TimeType value is invalid. value:0."（fixed_rate/cron 5-field/6-field ±tz 六种格式均试）— 服务端解析 bug，非参数问题；恢复后需重建（描述模板见本文件末尾 cron 语义段落）
+
+---
+Task ID: workspace-arch-2026-09-05-a
+Agent: Super Z (main loop, user request: workspace 架构重构)
+Task: Dashboard 前置 + Project→多 Workspace + 跨 space 移动/复制(软链接) + 从链接继续下游
+
+Work Log:
+- 【数据层】Prisma：Workspace 模型（projectId/order/name）+ Job.workspaceId（SetNull）+ Job.linkedJobId（自关联 "JobLinks"，onDelete: Cascade——删原作业级联删其链接）；db:push + scripts/migrate-workspaces.ts 一次性回填（3 项目各建 "Main"，17 job 全部分配）
+- 【API】①/api/workspaces GET(带每 workspace stats)/POST；/api/workspaces/[id] PATCH 重命名 / DELETE（仅非默认；其 job 移回默认 workspace，绝不清数据）。②POST /api/jobs 支持 workspaceId（校验属于活动项目，默认第一个）+ linkedJobId（软链接：链式折叠到根 original，镜像其 status/params/result；响应带 linkedName/linkedWorkspaceName/linkCount 供乐观更新）。③PATCH /api/jobs/[id] 支持 workspaceId 移动（校验同项目）；链接作业 params/reset 400 拒绝。④POST /run 对链接 400（诚实文案：跑 original，下游经链接消费）。⑤DELETE original 有链接引用时 409（先删/移链接）。⑥GET /api/jobs projectLinks 投影：链接镜像 original 的 status/progress/result/engine/hasLog + linkedName/linkedWorkspaceName；original 得 linkCount
+- 【引擎血缘】dispatch.lineageFor：BFS 遇到链接行 → resolveLinkRoot 折叠到根 original，lineage 推 original 的 id/type/params 且下一层 BFS 走 original 的上游——下游 resolveInputs 直接命中 original 的 run outputs。**端到端实证**：Classification workspace 的 Select 2 ← Class2D 链接 → 真实 RELION 引擎运行完成 "1000 of 3500 particles selected · kept 6/8 classes（occupancy ≥ 0.5× best）"——class-aware 选择证明吃到了 original 的真实输出 star
+- 【结果路由】13 个子路由 + log 统一经 src/lib/link.ts findEffectiveJob（循环安全）解析到根 original 的 run/log；particles 的 stack 归属解析跟随链接指向 original workdir
+- 【前端】①header ViewSwitcher：Dashboard 在前（用户要求）；新增 WorkspaceSelect 芯片（带 live job 计数）。②侧栏 Projects tab 删除 → Workspaces tab（新组件 workspace-panel.tsx：active/default 徽标、实时 stats（客户端派生，poll 免请求）、内联重命名、新建 Dialog、删除 AlertDialog 说明 job 回退）。③store：workspaces/activeWorkspaceId + load/refresh/switch/create/rename/deleteWorkspace + moveJob（乐观+回滚）/linkJobTo（POST 后乐观附加 + linkCount 徽标同步 + 自动跳转目标 workspace + focus + 同批把 POST 响应的投影字段直接可用）；jobEquals 加 workspaceId/linkedJobId/linkedName/linkCount；addJobAt 带 activeWorkspaceId；useActiveWorkspaceJobs/useActiveWorkspaceEdges 共享派生 hook（引用稳定，pollTick 零渲染架构不变）。④canvas/minimap/edges 按 workspace 过滤（边=两端均可见才画）；ready hint 用全项目 edges（跨 workspace 上游完成也算 ready）；fit 键= project:workspace；空态区分"项目空"vs"该 workspace 空"（提示 Copy as link）。⑤job-card：链接卡虚线+primary 淡染边 + ⧉ 徽标显示 original 名；original 显示 ×N 被引用徽标；右键菜单新增 "Move to workspace…" 与 "Copy as link to…" 子菜单；链接禁 Run/Duplicate。⑥inspector：链接 banner（镜像说明+workspace 名）+ "Go to original"（关弹窗+切 workspace+聚焦）；链接隐藏 Re-run/Reset/Stop。⑦job-panel：链接只读 banner + Run 禁用；⑧⌘K 增加 Workspaces 分组切换命令
+- 【E2E 验证（agent-browser 可信事件）】导航顺序 Dashboard→Workflow ✓；workspace 切换（header select + 侧栏 + ⌘K）✓；链接创建自动跳转 + ⧉ 卡渲染 + 名称/状态/结果镜像（minimap 含 original 的 result 文案）✓；链接 inspector 打开 27 张 class averages + 99+ 文件（路由解析到 original workdir）✓；Go to original 关弹窗切回 Main 聚焦 ✓；Move 生效（卡片消失+DB 持久化）✓；链式折叠（link of link → 根 original）✓；run/reset 400 文案 ✓；被引用 original 删除 409 ✓；palette Enter 添加落 active workspace ✓；端口点击连线 link→Select ✓；**Select 真引擎运行完成（1000/3500, class-aware）** ✓；375px 无横向滚动 + FAB ✓；console/errors 全程零错误（仅 React DevTools info）
+- 【修的 bug】POST 链接分支引用 GET 的 workspaceNames → ReferenceError 500（行已建但响应炸，UI 不跳转）→ 用 projectWorkspaces 重建 map；store.linkJobTo 乐观批次同步 original 的 linkCount 徽标
+- 【测试痕迹清理】demo 项目：删除测试 Import ⧉ 链接、Motion Correction 移回 Main（保留用户自建的 workspace "2" + CTF ⧉）；EMPIAR 保留 Classification workspace + Class2D 链接 + Select 2 完成作业（功能演示，与主管线无耦合）
+- lint ✓ tsc ✓ push acdd4ed
+
+Stage Summary:
+- 用户四点需求全部落地并可信事件验证：Dashboard 前置 ✓、Project→多 Workspace（侧栏 Workspaces tab）✓、跨 space 移动 + 复制为软链接 ✓、从复制的 job 继续下游任务（真引擎血缘实证）✓
+- 架构要点：软链接 = 只读镜像 + 血缘折叠（lineage 遇链接解析到根 original 的 run outputs）；删 original 级联删链接；删 workspace 把 job 移回默认；边只在两端均可见的 workspace 渲染（跨 space 数据流走链接）
+- 管线：refine3d --continue 运行中 80%（4 进程健康，内存 2936/4041MB）；收敛后 advance 推进 maskcreate → postprocess
+- 【给后续 cron 轮】① refine3d 收敛后 bash advance.sh（maskcreate ref=refine3d half1、postprocess 吃 mask+half1+half2）② workspace 后续候选：拖拽排序 workspace、卡片对齐吸附线、多选拖拽 ③ dashboard 可加 workspace 数量徽章（需 /api/projects 返回 count）
