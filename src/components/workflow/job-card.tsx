@@ -24,9 +24,10 @@ import {
   portsCompatible,
 } from "@/lib/workflow";
 import { useWorkflowStore, type PendingFrom } from "@/lib/store";
-import type { JobDTO } from "@/lib/types";
+import type { JobDTO, JobTypeSpec, ParamValue } from "@/lib/types";
 import { TypeIcon } from "./icons";
 import { Badge } from "@/components/ui/badge";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -367,6 +368,111 @@ interface PortDragState {
  *       card body (rounded, clipped, keyboard focusable)
  *       input/output port buttons (positioned on the wrapper edges)
  */
+/* ------------------------------------------------------------------ */
+/* Hover preview — n8n-style peek without leaving the canvas           */
+/* ------------------------------------------------------------------ */
+
+function paramPreviewValue(v: ParamValue | undefined): string | null {
+  if (v === undefined || v === null) return null;
+  if (typeof v === "boolean") return v ? "on" : "off";
+  if (typeof v === "number")
+    return Number.isInteger(v) ? String(v) : v.toFixed(2);
+  return String(v);
+}
+
+/** Key parameters for the hover card — numeric levers first (they drive
+ *  the run), capped at 3 rows, label from the GUI schema. */
+function previewParams(job: JobDTO, spec: JobTypeSpec | undefined) {
+  const seen = new Set<string>();
+  const rows: { label: string; value: string }[] = [];
+  const ordered = [...(spec?.params ?? [])].sort((a, b) => {
+    const an = typeof job.params[a.key] === "number" ? 0 : 1;
+    const bn = typeof job.params[b.key] === "number" ? 0 : 1;
+    return an - bn;
+  });
+  for (const p of ordered) {
+    if (seen.has(p.key)) continue;
+    const v = paramPreviewValue(job.params[p.key]);
+    if (v == null) continue;
+    seen.add(p.key);
+    rows.push({ label: p.label.replace(/\s*\(.*?\)\s*/g, "").trim(), value: v });
+    if (rows.length >= 3) break;
+  }
+  return rows;
+}
+
+function JobCardPreview({
+  job,
+  spec,
+  etaText,
+}: {
+  job: JobDTO;
+  spec: JobTypeSpec | undefined;
+  etaText: string | null;
+}) {
+  const params = previewParams(job, spec);
+  return (
+    <HoverCardContent
+      side="top"
+      align="start"
+      sideOffset={10}
+      className="w-60 p-0 overflow-hidden"
+    >
+      <div className="border-b bg-muted/40 px-3 py-2">
+        <p className="truncate text-xs font-semibold">{job.name}</p>
+        <p className="truncate text-[10px] text-muted-foreground">
+          {spec?.label ?? job.type}
+        </p>
+      </div>
+      <div className="space-y-2 px-3 py-2.5">
+        <div className="flex items-center gap-2">
+          <StatusBadge status={job.status} />
+          {job.status === "running" ? (
+            <span className="text-[10px] font-semibold tabular-nums text-teal-600 dark:text-teal-400">
+              {Math.round(job.progress)}%
+              {etaText ? ` · ${etaText} left` : ""}
+            </span>
+          ) : null}
+        </div>
+        {job.status === "running" ? (
+          <MiniProgress value={job.progress} running label={`${job.name} progress`} />
+        ) : null}
+        {(job.status === "completed" || job.status === "failed") && job.result ? (
+          <p
+            className={cn(
+              "line-clamp-2 rounded border px-2 py-1.5 text-[10.5px] leading-snug",
+              job.status === "failed"
+                ? "border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300"
+                : "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+            )}
+            title={job.result}
+          >
+            {job.result}
+          </p>
+        ) : null}
+        {params.length > 0 ? (
+          <div className="space-y-1">
+            {params.map((p) => (
+              <div
+                key={p.label}
+                className="flex items-baseline justify-between gap-2 text-[10.5px]"
+              >
+                <span className="truncate text-muted-foreground">{p.label}</span>
+                <span className="shrink-0 font-mono font-medium tabular-nums">{p.value}</span>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </div>
+      <p className="border-t bg-muted/30 px-3 py-1.5 text-[9.5px] text-muted-foreground">
+        {job.status === "idle"
+          ? "Click to edit parameters · right-click for actions"
+          : "Click to open the inspector · right-click for actions"}
+      </p>
+    </HoverCardContent>
+  );
+}
+
 export const JobCard = React.memo(function JobCard({
   job,
   selected,
@@ -765,7 +871,7 @@ export const JobCard = React.memo(function JobCard({
           )}
 
           <div className="flex h-full flex-col justify-center gap-1.5 py-3 pl-4 pr-8">
-            {/* Row 1: icon chip + name */}
+            {/* Row 1: icon chip + name (hover → n8n-style preview card) */}
             <div className="flex items-center gap-2">
               <span
                 className={cn(
@@ -780,9 +886,17 @@ export const JobCard = React.memo(function JobCard({
                   className={cn("size-3.5", spec?.color.text)}
                 />
               </span>
-              <p className="truncate text-sm font-semibold tracking-tight leading-none" title={job.name}>
-                {job.name}
-              </p>
+              <HoverCard openDelay={500} closeDelay={150}>
+                <HoverCardTrigger asChild>
+                  <p
+                    className="truncate text-sm font-semibold tracking-tight leading-none"
+                    title={job.name}
+                  >
+                    {job.name}
+                  </p>
+                </HoverCardTrigger>
+                <JobCardPreview job={job} spec={spec} etaText={etaText} />
+              </HoverCard>
             </div>
 
             {/* Row 2: status + type */}

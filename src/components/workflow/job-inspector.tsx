@@ -24,11 +24,13 @@ import {
   ArrowRight,
   BarChart3,
   Check,
+  ChevronRight,
   Copy,
   Database,
   Download,
   FileText,
   FolderOpen,
+  GitCommitHorizontal,
   Layers,
   LayoutDashboard,
   Locate,
@@ -60,7 +62,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { jobType } from "@/lib/workflow";
 import { useWorkflowStore } from "@/lib/store";
-import type { JobDTO } from "@/lib/types";
+import type { EdgeDTO, JobDTO } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { TypeIcon } from "./icons";
 import { StatusBadge, estimateEta, formatEta } from "./job-card";
@@ -72,6 +74,8 @@ import { ClassDistributionChart } from "./results/class-distribution-chart";
 import { AngularDistributionChart } from "./results/angular-distribution-chart";
 import { ImportGallery } from "./results/import-gallery";
 import { PicksMap } from "./results/picks-map";
+import { ParticleBrowser } from "./results/particle-browser";
+import { GuinierChart } from "./results/guinier-chart";
 
 /* ------------------------------------------------------------------ */
 /* Types (mirrors /api/jobs/[id]/outputs)                              */
@@ -199,6 +203,27 @@ function Highlighted({ line, q }: { line: string; q: string }) {
   );
 }
 
+/**
+ * RELION log line semantics — classify one line for console colouring.
+ *   milestone  teal     — "Auto-refine: Iteration= N", "Expectation iteration N"
+ *   resolution teal+sem — "CurrentResolution= 13.3 Å" / "Auto-refine: Resolution="
+ *   separator  dim      — pure "=====" framing blocks
+ *   warning    amber    — WARNING blocks (relion prefixes "Auto-refine: WARNING:")
+ *   error      rose     — errors / aborts / exceptions
+ */
+type LogTone = "error" | "warn" | "milestone" | "resolution" | "separator" | null;
+
+function classifyLogLine(line: string): LogTone {
+  if (/error|fail|abort|aborting|exception/i.test(line)) return "error";
+  if (/warn|caution|retry/i.test(line)) return "warn";
+  // pure "=====..." framing lines (RELION draws them around E/M steps)
+  if (/^\s*={3,}\s*$/.test(line) || /^\s*\+{3,}\s*$/.test(line)) return "separator";
+  if (/Auto-refine:\s*Resolution=|CurrentResolution=/i.test(line)) return "resolution";
+  if (/Auto-refine:\s*Iteration=|Expectation iteration|Maximization iteration|^\s*it\s*\[?\d/i.test(line))
+    return "milestone";
+  return null;
+}
+
 function LogLine({
   line,
   index,
@@ -209,21 +234,42 @@ function LogLine({
   /** raw search query — when set, matches get highlighted */
   highlight?: string | null;
 }) {
-  const isErr = /error|fail|abort|aborting|exception/i.test(line);
-  const isWarn = /warn|caution|retry/i.test(line);
-  const isIter = /^\s*=+.*===|it\s*\[?\d|iteration/i.test(line);
+  const tone = classifyLogLine(line);
   return (
     <span
       className={cn(
         "block px-1",
         index % 2 === 1 && "bg-white/[0.025]",
-        isErr && "text-rose-400",
-        isWarn && "text-amber-300",
-        isIter && "text-teal-300"
+        tone === "error" && "bg-rose-500/10 text-rose-400",
+        tone === "warn" && "bg-amber-500/10 text-amber-300",
+        tone === "milestone" && "text-teal-300 font-semibold",
+        tone === "resolution" && "text-teal-200 font-semibold",
+        tone === "separator" && "text-zinc-600"
       )}
     >
       {highlight ? <Highlighted line={line} q={highlight} /> : line || "\u00A0"}
     </span>
+  );
+}
+
+/** console footer legend — decodes the line colours for new users */
+function LogLegend() {
+  const items: [string, string][] = [
+    ["bg-teal-400", "iteration"],
+    ["bg-teal-200", "resolution"],
+    ["bg-amber-400", "warning"],
+    ["bg-rose-400", "error"],
+  ];
+  return (
+    <div className="flex shrink-0 items-center gap-2.5 border-t border-zinc-800 bg-zinc-900/60 px-3 py-1">
+      <span className="text-[9px] font-medium uppercase tracking-wider text-zinc-600">legend</span>
+      {items.map(([dot, label]) => (
+        <span key={label} className="inline-flex items-center gap-1">
+          <span className={cn("size-1.5 rounded-full", dot)} aria-hidden="true" />
+          <span className="text-[9.5px] text-zinc-500">{label}</span>
+        </span>
+      ))}
+    </div>
   );
 }
 
@@ -529,6 +575,7 @@ function LogConsole({ job }: { job: JobDTO }) {
           </pre>
         )}
       </div>
+      <LogLegend />
     </div>
   );
 }
@@ -804,12 +851,20 @@ function OverviewTab({
       {/manualpick/i.test(job.type) && job.status !== "idle" ? (
         <PicksMap jobId={job.id} />
       ) : null}
+      {/* extract/select jobs show the particle stack browser. */}
+      {/^(extract|select)/i.test(job.type) && job.status !== "idle" ? (
+        <ParticleBrowser jobId={job.id} />
+      ) : null}
       {isRefineType && hasIterated ? (
         <ResolutionChart jobId={job.id} running={job.status === "running"} />
       ) : null}
       {/* 3D reconstructions get the FSC curve (gold-standard report card). */}
       {is3dType ? (
         <FscChart jobId={job.id} running={job.status === "running"} />
+      ) : null}
+      {/* postprocess jobs add the Guinier plot (B-factor validation). */}
+      {/postprocess/i.test(job.type) ? (
+        <GuinierChart jobId={job.id} running={job.status === "running"} />
       ) : null}
       {/* 3D jobs also get the orientation distribution polar heatmap
           (self-hides while the API has no data star to bin). */}
@@ -1041,6 +1096,94 @@ function FilesTab({ job, data, reload }: { job: JobDTO; data: OutputsResponse | 
 /* Header                                                              */
 /* ------------------------------------------------------------------ */
 
+/* ------------------------------------------------------------------ */
+/* Lineage breadcrumb — upstream chain of the inspected job            */
+/* ------------------------------------------------------------------ */
+
+/** Walk the upstream edge graph (post-order) and cap the chain. */
+function upstreamChain(job: JobDTO, jobs: JobDTO[], edges: EdgeDTO[]): JobDTO[] {
+  const byId = new Map(jobs.map((j) => [j.id, j]));
+  const chain: JobDTO[] = [];
+  const visited = new Set<string>([job.id]);
+  const walk = (id: string) => {
+    // inputs first (deterministic: edge insertion order)
+    for (const e of edges) {
+      if (e.toJobId === id && !visited.has(e.fromJobId)) {
+        visited.add(e.fromJobId);
+        walk(e.fromJobId);
+      }
+    }
+    const j = byId.get(id);
+    if (j) chain.push(j);
+  };
+  walk(job.id);
+  return chain;
+}
+
+function LineageBreadcrumb({ job }: { job: JobDTO }) {
+  const jobs = useWorkflowStore((s) => s.jobs);
+  const edges = useWorkflowStore((s) => s.edges);
+  const inspect = useWorkflowStore((s) => s.inspect);
+
+  const chain = React.useMemo(() => upstreamChain(job, jobs, edges), [job, jobs, edges]);
+  if (chain.length < 2) return null; // no inputs — nothing to show
+
+  const MAX = 5; // visible chips (current job included)
+  const collapsed = chain.length > MAX;
+  const shown = collapsed ? [...chain.slice(0, MAX - 2), chain[chain.length - 1]] : chain;
+  const hiddenCount = chain.length - shown.length;
+
+  return (
+    <nav aria-label="Job lineage" className="flex flex-wrap items-center gap-0.5">
+      <GitCommitHorizontal className="mr-1 size-3.5 shrink-0 text-muted-foreground/70" aria-hidden="true" />
+      {shown.map((j, i) => {
+        const isCurrent = j.id === job.id;
+        return (
+          <React.Fragment key={j.id}>
+            {i > 0 ? (
+              <ChevronRight className="mx-0.5 size-3 shrink-0 text-muted-foreground/50" aria-hidden="true" />
+            ) : null}
+            {isCurrent ? (
+              <span
+                className="max-w-28 truncate rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary"
+                title={`${j.name} — this job`}
+              >
+                {j.name}
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => inspect(j.id)}
+                className={cn(
+                  "max-w-28 truncate rounded px-1.5 py-0.5 text-[10px] font-medium outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring",
+                  j.status === "completed" ? "text-muted-foreground" : "text-amber-600 dark:text-amber-400"
+                )}
+                title={`${j.name} — ${j.status} · click to inspect`}
+              >
+                {j.name}
+              </button>
+            )}
+          </React.Fragment>
+        );
+      })}
+      {collapsed ? (
+        <>
+          <ChevronRight className="mx-0.5 size-3 shrink-0 text-muted-foreground/50" aria-hidden="true" />
+          <button
+            type="button"
+            onClick={() => inspect(chain[chain.length - 2].id)}
+            className="rounded px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-muted-foreground outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
+            title={`${hiddenCount} intermediate jobs — click to step one level up`}
+          >
+            +{hiddenCount}
+          </button>
+          <ChevronRight className="mx-0.5 size-3 shrink-0 text-muted-foreground/50" aria-hidden="true" />
+        </>
+      ) : null}
+    </nav>
+  );
+}
+
 function InspectorHeader({ job }: { job: JobDTO }) {
   const spec = jobType(job.type);
   const running = job.status === "running";
@@ -1098,6 +1241,8 @@ function InspectorHeader({ job }: { job: JobDTO }) {
               </>
             ) : null}
           </div>
+          {/* upstream chain — click any ancestor to hop to its inspector */}
+          <LineageBreadcrumb job={job} />
         </div>
 
         {/* actions */}
