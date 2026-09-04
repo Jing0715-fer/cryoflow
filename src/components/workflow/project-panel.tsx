@@ -14,7 +14,9 @@ import { formatDistanceToNow } from "date-fns";
 import {
   Boxes,
   CheckCircle2,
+  ChevronRight,
   FolderGit2,
+  LayoutDashboard,
   Loader2,
   Pencil,
   Plus,
@@ -136,7 +138,7 @@ function StatChip({
 /* New project dialog                                                   */
 /* ------------------------------------------------------------------ */
 
-function NewProjectDialog({
+export function NewProjectDialog({
   open,
   onOpenChange,
 }: {
@@ -459,6 +461,7 @@ export function ProjectPanel() {
   const switchProject = useWorkflowStore((s) => s.switchProject);
   const renameProject = useWorkflowStore((s) => s.renameProject);
   const deleteProject = useWorkflowStore((s) => s.deleteProject);
+  const setView = useWorkflowStore((s) => s.setView);
 
   const [pendingSwitch, setPendingSwitch] = React.useState<string | null>(null);
   const [createOpen, setCreateOpen] = React.useState(false);
@@ -573,6 +576,21 @@ export function ProjectPanel() {
           ))}
         </div>
       )}
+
+      {/* shortcut to the full dashboard page */}
+      <button
+        type="button"
+        onClick={() => setView("dashboard")}
+        title="Open the full project dashboard page (Shift+D)"
+        className="group flex shrink-0 items-center gap-2 border-t px-3 py-2.5 text-left text-[11px] font-medium text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground"
+      >
+        <LayoutDashboard className="size-3.5 shrink-0" aria-hidden="true" />
+        <span className="flex-1">Open project dashboard</span>
+        <ChevronRight
+          className="size-3.5 shrink-0 transition-transform group-hover:translate-x-0.5"
+          aria-hidden="true"
+        />
+      </button>
 
       {/* Delete confirmation */}
       <AlertDialog

@@ -47,6 +47,7 @@ import {
 } from "lucide-react";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogHeader,
@@ -1261,7 +1262,9 @@ function InspectorHeader({ job }: { job: JobDTO }) {
           <LineageBreadcrumb job={job} />
         </div>
 
-        {/* actions */}
+        {/* actions — the close button lives INSIDE this row (the dialog's
+            floating top-right X used to collide with "Re-run" on narrower
+            screens; keeping everything in one flex row removes the overlap) */}
         <div className="flex shrink-0 items-center gap-1.5">
           <Tooltip>
             <TooltipTrigger asChild>
@@ -1297,6 +1300,17 @@ function InspectorHeader({ job }: { job: JobDTO }) {
               </Button>
             </>
           ) : null}
+          {/* close — in-row X (Esc still works) */}
+          <DialogClose asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label="Close inspector"
+              className="h-8 w-8 gap-0 rounded-md p-0 text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              <X className="size-4" aria-hidden="true" />
+            </Button>
+          </DialogClose>
         </div>
       </div>
 
@@ -1395,6 +1409,7 @@ export function JobInspector() {
   return (
     <Dialog open={open} onOpenChange={(o) => !o && inspect(null)}>
       <DialogContent
+        showCloseButton={false}
         className="flex max-w-[min(1480px,96vw)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[min(1480px,96vw)] h-[min(940px,92dvh)] data-[state=open]:duration-300"
         aria-describedby={undefined}
       >

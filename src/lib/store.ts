@@ -41,6 +41,8 @@ interface WorkflowState {
   project: ProjectDTO | null;
   /** All projects (for the project management panel). */
   projects: ProjectSummaryDTO[];
+  /** Which top-level view is active: the node canvas or the project dashboard. */
+  view: "canvas" | "dashboard";
   /** RELION environment status (refreshed on load). */
   system: SystemStatusClient | null;
   /** True while a forced re-detect is in flight (Re-detect button spinner). */
@@ -89,6 +91,8 @@ interface WorkflowState {
   select: (id: string | null) => void;
   /** Open the big job inspector (submitted jobs); null closes it. */
   inspect: (id: string | null) => void;
+  /** Switch the top-level view (canvas ⇄ project dashboard). */
+  setView: (view: "canvas" | "dashboard") => void;
   setPendingFrom: (pending: PendingFrom | null) => void;
   cancelConnect: () => void;
   setViewport: (patch: Partial<Viewport>) => void;
@@ -143,6 +147,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   edges: [],
   project: null,
   projects: [],
+  view: "canvas",
   system: null,
   systemRefreshing: false,
   selectedId: null,
@@ -522,6 +527,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       set({ inspectId: null });
     }
   },
+  setView: (view) => set({ view }),
   setPendingFrom: (pending) => set({ pendingFrom: pending }),
   cancelConnect: () => set({ pendingFrom: null }),
   setViewport: (patch) =>

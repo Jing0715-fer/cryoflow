@@ -17,6 +17,7 @@ import * as React from "react";
 import { useTheme } from "next-themes";
 import {
   Command as CommandIcon,
+  LayoutDashboard,
   Maximize2,
   Moon,
   Play,
@@ -45,6 +46,8 @@ export function CommandPalette() {
   const { resolvedTheme, setTheme } = useTheme();
 
   const jobs = useWorkflowStore((s) => s.jobs);
+  const view = useWorkflowStore((s) => s.view);
+  const setView = useWorkflowStore((s) => s.setView);
 
   // Ctrl+K / ⌘K from anywhere + the header chip's custom event.
   React.useEffect(() => {
@@ -239,6 +242,20 @@ export function CommandPalette() {
             <span className="flex-1 text-sm">
               Switch to {resolvedTheme === "dark" ? "light" : "dark"} theme
             </span>
+          </CommandItem>
+          <CommandItem
+            value="project dashboard management page view"
+            onSelect={() => {
+              setView(view === "canvas" ? "dashboard" : "canvas");
+              setOpen(false);
+            }}
+            className="gap-2.5"
+          >
+            <LayoutDashboard className="size-4 shrink-0" />
+            <span className="flex-1 text-sm">
+              {view === "canvas" ? "Open project dashboard" : "Back to workflow canvas"}
+            </span>
+            <CommandShortcut>⇧D</CommandShortcut>
           </CommandItem>
         </CommandGroup>
       </CommandList>

@@ -8,9 +8,11 @@ import {
   CircleAlert,
   CircleCheck,
   Github,
+  LayoutDashboard,
   Loader2,
   RefreshCw,
   Snowflake,
+  Workflow,
   X,
 } from "lucide-react";
 import { useWorkflowStore } from "@/lib/store";
@@ -306,6 +308,56 @@ function RelionStatusChip() {
 }
 
 /* ------------------------------------------------------------------ */
+/* View switcher — canvas ⇄ project dashboard                           */
+/* ------------------------------------------------------------------ */
+
+function ViewSwitcher() {
+  const view = useWorkflowStore((s) => s.view);
+  const setView = useWorkflowStore((s) => s.setView);
+
+  return (
+    <div
+      role="tablist"
+      aria-label="View"
+      className="flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.5"
+    >
+      <button
+        type="button"
+        role="tab"
+        aria-selected={view === "canvas"}
+        title="Workflow canvas (Shift+D toggles)"
+        onClick={() => setView("canvas")}
+        className={cn(
+          "flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium transition-colors",
+          view === "canvas"
+            ? "bg-primary/10 text-primary shadow-sm"
+            : "text-muted-foreground hover:text-foreground"
+        )}
+      >
+        <Workflow className="size-3.5" aria-hidden="true" />
+        <span className="hidden sm:inline">Workflow</span>
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={view === "dashboard"}
+        title="Project dashboard (Shift+D toggles)"
+        onClick={() => setView("dashboard")}
+        className={cn(
+          "flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium transition-colors",
+          view === "dashboard"
+            ? "bg-primary/10 text-primary shadow-sm"
+            : "text-muted-foreground hover:text-foreground"
+        )}
+      >
+        <LayoutDashboard className="size-3.5" aria-hidden="true" />
+        <span className="hidden sm:inline">Dashboard</span>
+      </button>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Header                                                               */
 /* ------------------------------------------------------------------ */
 
@@ -329,6 +381,9 @@ export function Header() {
             Cryo-EM Workflow Builder
           </p>
         </div>
+
+        {/* Canvas ⇄ Dashboard view switcher */}
+        <ViewSwitcher />
 
         {/* Project switcher + stats chips */}
         <div className="hidden items-center gap-2 md:flex">

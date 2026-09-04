@@ -387,6 +387,38 @@ export const EdgesLayer = React.memo(function EdgesLayer({
       className="pointer-events-none absolute left-0 top-0"
       aria-hidden="true"
     >
+      <defs>
+        {/* gradient defs for live / primed wires — created lazily below */}
+        {geoms.map((g) => {
+          const running = g.from.status === "running";
+          const primed =
+            g.from.status === "completed" && g.to.status !== "completed";
+          if (!running && !primed) return null;
+          return (
+            <linearGradient
+              key={g.edge.id}
+              id={`edge-grad-${g.edge.id}`}
+              x1="0%"
+              y1="0%"
+              x2="100%"
+              y2="0%"
+            >
+              {running ? (
+                <>
+                  <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.55" />
+                  <stop offset="45%" stopColor="var(--primary)" stopOpacity="1" />
+                  <stop offset="100%" stopColor="var(--primary)" stopOpacity="0.85" />
+                </>
+              ) : (
+                <>
+                  <stop offset="0%" stopColor={STROKE_BASE} />
+                  <stop offset="100%" stopColor={STROKE_READY} />
+                </>
+              )}
+            </linearGradient>
+          );
+        })}
+      </defs>
       {geoms.map((g) => {
         const { edge, from, to } = g;
 
@@ -396,13 +428,17 @@ export const EdgesLayer = React.memo(function EdgesLayer({
         const touchesSelected =
           selectedId != null && (from.id === selectedId || to.id === selectedId);
         const hovered = hoveredId === edge.id;
+        // when a card is selected, unrelated wires recede — the eye follows
+        // the selected job's data flow
+        const dimmed = selectedId != null && !touchesSelected;
 
+        const gradId = running || primed ? `url(#edge-grad-${edge.id})` : null;
         const stroke = running
-          ? "var(--primary)"
+          ? gradId ?? "var(--primary)"
           : hovered || touchesSelected
             ? STROKE_ACTIVE
             : primed
-              ? STROKE_READY
+              ? gradId ?? STROKE_READY
               : STROKE_BASE;
         const dotFill = running
           ? "var(--primary)"
@@ -414,7 +450,13 @@ export const EdgesLayer = React.memo(function EdgesLayer({
         const width = hovered || touchesSelected ? 3.2 : running ? 2.75 : 2.25;
 
         return (
-          <g key={edge.id}>
+          <g
+            key={edge.id}
+            style={{
+              opacity: dimmed ? 0.32 : 1,
+              transition: "opacity 220ms ease",
+            }}
+          >
             {/* invisible hit area for hover */}
             <path
               d={g.d}
@@ -425,6 +467,18 @@ export const EdgesLayer = React.memo(function EdgesLayer({
               onPointerEnter={() => setHoveredId(edge.id)}
               onPointerLeave={() => setHoveredId((cur) => (cur === edge.id ? null : cur))}
             />
+            {/* soft glow under live wires (wide translucent stroke) */}
+            {(running || hovered) && (
+              <path
+                d={g.d}
+                fill="none"
+                stroke={running ? "var(--primary)" : STROKE_ACTIVE}
+                strokeWidth={running ? 8 : 9}
+                strokeLinecap="round"
+                opacity={running ? 0.14 : 0.1}
+                style={{ pointerEvents: "none" }}
+              />
+            )}
             <path
               d={g.d}
               fill="none"
@@ -433,17 +487,44 @@ export const EdgesLayer = React.memo(function EdgesLayer({
               strokeLinecap="round"
               strokeLinejoin="round"
               className={running ? "edge-flow" : undefined}
-              style={{ transition: "stroke 160ms ease, stroke-width 160ms ease" }}
+              style={{
+                transition: "stroke 160ms ease, stroke-width 160ms ease",
+                pointerEvents: "none",
+              }}
             />
+            {/* travelling particles on live wires — data flowing downstream */}
+            {running && (
+              <>
+                <circle r={2.6} fill="var(--primary)" opacity={0.95} style={{ pointerEvents: "none" }}>
+                  <animateMotion dur="2.6s" repeatCount="indefinite" path={g.d} />
+                </circle>
+                <circle r={1.9} fill="var(--primary)" opacity={0.6} style={{ pointerEvents: "none" }}>
+                  <animateMotion dur="2.6s" begin="-1.3s" repeatCount="indefinite" path={g.d} />
+                </circle>
+              </>
+            )}
             {/* source endpoint dot */}
             <circle
               cx={r2(g.srcDot.x)}
               cy={r2(g.srcDot.y)}
               r={3}
               fill={dotFill}
-              style={{ transition: "fill 160ms ease" }}
+              style={{ transition: "fill 160ms ease", pointerEvents: "none" }}
             />
-            {/* target endpoint dot (n8n signature) — punched out of the port */}
+            {/* target endpoint dot (n8n signature) — punched out of the port,
+                halo ring when emphasized */}
+            {(hovered || touchesSelected || running) && (
+              <circle
+                cx={r2(g.tgtDot.x)}
+                cy={r2(g.tgtDot.y)}
+                r={7}
+                fill="none"
+                stroke={running ? "var(--primary)" : STROKE_ACTIVE}
+                strokeWidth={1}
+                opacity={0.4}
+                style={{ pointerEvents: "none" }}
+              />
+            )}
             <circle
               cx={r2(g.tgtDot.x)}
               cy={r2(g.tgtDot.y)}
@@ -451,7 +532,7 @@ export const EdgesLayer = React.memo(function EdgesLayer({
               fill={dotFill}
               stroke="var(--background)"
               strokeWidth={1.5}
-              style={{ transition: "fill 160ms ease" }}
+              style={{ transition: "fill 160ms ease", pointerEvents: "none" }}
             />
             {/* hover delete affordance at the path midpoint */}
             {hovered && (
@@ -471,9 +552,20 @@ export const EdgesLayer = React.memo(function EdgesLayer({
                         y={-22}
                         width={w}
                         height={34}
-                        rx={7}
+                        rx={8}
                         className="fill-popover stroke-border"
                         strokeWidth={1}
+                      />
+                      {/* caret anchoring the card to the wire */}
+                      <path
+                        d="M -4.5 12 L 4.5 12 L 0 18.5 Z"
+                        className="fill-popover"
+                      />
+                      <path
+                        d="M -4.5 12 L -4.5 12.4 M 4.5 12 L 4.5 12.4"
+                        className="stroke-border"
+                        strokeWidth={1}
+                        fill="none"
                       />
                       <text
                         y={-10.5}

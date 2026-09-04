@@ -324,6 +324,14 @@ export function WorkflowCanvas() {
   const handlePointerDown = (e: React.PointerEvent<HTMLElement>) => {
     if (e.button !== 0) return;
     const target = e.target as HTMLElement;
+    // Guard: only react to pointer events that physically started inside this
+    // canvas DOM subtree. Portaled overlays (context menus, dialogs, hover
+    // cards) are DOM children of <body> but React-tree descendants of this
+    // <section>, so their pointerdown bubbles here through React and the
+    // setPointerCapture below would hijack the subsequent click (menu items
+    // would never receive pointerup/click — the classic "menu doesn't
+    // respond" bug).
+    if (target !== e.currentTarget && !e.currentTarget.contains(target)) return;
     if (target.closest("[data-job]")) return; // cards handle their own drag
     if (target.closest("[data-canvas-ui]")) return; // overlays keep their events
     panRef.current = {

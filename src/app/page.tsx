@@ -7,6 +7,7 @@ import { Header } from "@/components/workflow/header";
 import { Footer } from "@/components/workflow/footer";
 import { JobPalette } from "@/components/workflow/palette";
 import { ProjectPanel } from "@/components/workflow/project-panel";
+import { ProjectDashboard } from "@/components/workflow/project-dashboard";
 import { WorkflowCanvas } from "@/components/workflow/canvas";
 import { JobPanel } from "@/components/workflow/job-panel";
 import { JobInspector } from "@/components/workflow/job-inspector";
@@ -34,6 +35,7 @@ export default function Home() {
   const selectedId = useWorkflowStore((s) => s.selectedId);
   const inspectId = useWorkflowStore((s) => s.inspectId);
   const select = useWorkflowStore((s) => s.select);
+  const view = useWorkflowStore((s) => s.view);
 
   const [mounted, setMounted] = React.useState(false);
   const [paletteOpen, setPaletteOpen] = React.useState(false);
@@ -71,6 +73,29 @@ export default function Home() {
       if (s.pendingFrom) s.cancelConnect();
       else if (s.inspectId) s.inspect(null);
       else if (s.selectedId) s.select(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  // Shift+D — toggle between the workflow canvas and the project dashboard
+  React.useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "D" || !e.shiftKey) return;
+      const target = e.target;
+      if (
+        target instanceof HTMLElement &&
+        (target.closest("input, textarea, select, [contenteditable='true']") != null ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      if (document.querySelector('[role="dialog"][data-state="open"], [role="menu"][data-state="open"]')) {
+        return;
+      }
+      e.preventDefault();
+      const s = useWorkflowStore.getState();
+      s.setView(s.view === "canvas" ? "dashboard" : "canvas");
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -139,51 +164,59 @@ export default function Home() {
   }, []);
 
   const panelSheetOpen = mounted && !isXl && selectedId != null;
+  const isDashboard = view === "dashboard";
 
   return (
     <div className="flex h-dvh flex-col bg-background text-foreground">
       <Header />
 
-      <main className="flex min-h-0 flex-1">
-        {/* Desktop sidebar: job catalog + project management */}
-        <aside className="hidden w-72 shrink-0 border-r bg-sidebar lg:flex lg:flex-col">
-          <Tabs defaultValue="catalog" className="flex h-full min-h-0 flex-col gap-0">
-            <div className="shrink-0 border-b p-2">
-              <TabsList className="grid h-9 w-full grid-cols-2">
-                <TabsTrigger value="catalog" className="gap-1.5 text-xs">
-                  <Boxes className="size-3.5" aria-hidden="true" />
-                  Catalog
-                </TabsTrigger>
-                <TabsTrigger value="projects" className="gap-1.5 text-xs">
-                  <FolderGit2 className="size-3.5" aria-hidden="true" />
-                  Projects
-                  <Badge
-                    variant="secondary"
-                    className="ml-0.5 h-4 min-w-4 px-1 text-[9px] font-semibold tabular-nums"
-                  >
-                    {projects.length}
-                  </Badge>
-                </TabsTrigger>
-              </TabsList>
-            </div>
-            <TabsContent value="catalog" className="mt-0 min-h-0 flex-1">
-              <JobPalette />
-            </TabsContent>
-            <TabsContent value="projects" className="mt-0 min-h-0 flex-1">
-              <ProjectPanel />
-            </TabsContent>
-          </Tabs>
-        </aside>
-
-        <WorkflowCanvas />
-
-        {/* Desktop job panel — only mounted while a job is selected */}
-        {selectedId != null && (
-          <aside className="hidden w-[380px] shrink-0 animate-in border-l bg-card duration-200 slide-in-from-right-4 xl:flex xl:flex-col">
-            <JobPanel />
+      {isDashboard ? (
+        /* ---- Project dashboard view (standalone management page) ---- */
+        <main className="flex min-h-0 flex-1 flex-col">
+          <ProjectDashboard />
+        </main>
+      ) : (
+        <main className="flex min-h-0 flex-1">
+          {/* Desktop sidebar: job catalog + project management */}
+          <aside className="hidden w-72 shrink-0 border-r bg-sidebar lg:flex lg:flex-col">
+            <Tabs defaultValue="catalog" className="flex h-full min-h-0 flex-col gap-0">
+              <div className="shrink-0 border-b p-2">
+                <TabsList className="grid h-9 w-full grid-cols-2">
+                  <TabsTrigger value="catalog" className="gap-1.5 text-xs">
+                    <Boxes className="size-3.5" aria-hidden="true" />
+                    Catalog
+                  </TabsTrigger>
+                  <TabsTrigger value="projects" className="gap-1.5 text-xs">
+                    <FolderGit2 className="size-3.5" aria-hidden="true" />
+                    Projects
+                    <Badge
+                      variant="secondary"
+                      className="ml-0.5 h-4 min-w-4 px-1 text-[9px] font-semibold tabular-nums"
+                    >
+                      {projects.length}
+                    </Badge>
+                  </TabsTrigger>
+                </TabsList>
+              </div>
+              <TabsContent value="catalog" className="mt-0 min-h-0 flex-1">
+                <JobPalette />
+              </TabsContent>
+              <TabsContent value="projects" className="mt-0 min-h-0 flex-1">
+                <ProjectPanel />
+              </TabsContent>
+            </Tabs>
           </aside>
-        )}
-      </main>
+
+          <WorkflowCanvas />
+
+          {/* Desktop job panel — only mounted while a job is selected */}
+          {selectedId != null && (
+            <aside className="hidden w-[380px] shrink-0 animate-in border-l bg-card duration-200 slide-in-from-right-4 xl:flex xl:flex-col">
+              <JobPanel />
+            </aside>
+          )}
+        </main>
+      )}
 
       <Footer />
 
@@ -191,15 +224,17 @@ export default function Home() {
       <JobInspector />
       <CommandPalette />
 
-      {/* Mobile: floating palette trigger */}
-      <Button
-        size="icon"
-        aria-label="Add a job"
-        className="card-lift-lg fixed right-5 bottom-20 z-40 size-12 rounded-full shadow-lg lg:hidden"
-        onClick={() => setPaletteOpen(true)}
-      >
-        <Plus className="size-6" />
-      </Button>
+      {/* Mobile: floating palette trigger (canvas view only) */}
+      {!isDashboard && (
+        <Button
+          size="icon"
+          aria-label="Add a job"
+          className="card-lift-lg fixed right-5 bottom-20 z-40 size-12 rounded-full shadow-lg lg:hidden"
+          onClick={() => setPaletteOpen(true)}
+        >
+          <Plus className="size-6" />
+        </Button>
+      )}
 
       {/* Mobile / tablet palette sheet */}
       <Sheet open={paletteOpen} onOpenChange={setPaletteOpen}>

@@ -517,6 +517,10 @@ export const JobCard = React.memo(function JobCard({
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
     const target = e.target as HTMLElement;
+    // Ignore events from portaled overlays (hover-card previews etc.) that
+    // are React-tree descendants of this div but live in <body> DOM-wise —
+    // otherwise the capture below hijacks their clicks (see canvas.tsx).
+    if (target !== e.currentTarget && !e.currentTarget.contains(target)) return;
     if (target.closest("[data-port]")) return; // ports handle their own events
     dragRef.current = {
       pointerId: e.pointerId,

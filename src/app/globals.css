@@ -241,6 +241,19 @@
   background: color-mix(in oklch, var(--foreground) 40%, transparent);
   background-clip: content-box;
 }
+/* slimmer variant for dense lists (dashboard rows, stage rails) */
+.nice-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklch, var(--foreground) 22%, transparent) transparent;
+}
+.nice-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.nice-scroll::-webkit-scrollbar-thumb {
+  background: color-mix(in oklch, var(--foreground) 20%, transparent);
+  background-clip: content-box;
+}
 
 /* ============================================================
    Misc niceties
