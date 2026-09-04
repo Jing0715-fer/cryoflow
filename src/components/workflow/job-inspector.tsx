@@ -41,6 +41,7 @@ import {
   Table2,
   Terminal,
   WrapText,
+  X,
 } from "lucide-react";
 import {
   Dialog,
@@ -167,7 +168,42 @@ function CopyButton({ text, label }: { text: string; label?: string }) {
 /* Log console                                                         */
 /* ------------------------------------------------------------------ */
 
-function LogLine({ line, index }: { line: string; index: number }) {
+function escapeRegExp(s: string) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** splits a line around case-insensitive matches of `q` and marks them. */
+function Highlighted({ line, q }: { line: string; q: string }) {
+  const parts = line.split(new RegExp(`(${escapeRegExp(q)})`, "ig"));
+  const qLower = q.toLowerCase();
+  return (
+    <>
+      {parts.map((p, i) =>
+        p && p.toLowerCase() === qLower ? (
+          <mark
+            key={i}
+            className="rounded-sm bg-amber-400/30 px-0.5 text-amber-200"
+          >
+            {p}
+          </mark>
+        ) : (
+          <span key={i}>{p}</span>
+        )
+      )}
+    </>
+  );
+}
+
+function LogLine({
+  line,
+  index,
+  highlight,
+}: {
+  line: string;
+  index: number;
+  /** raw search query — when set, matches get highlighted */
+  highlight?: string | null;
+}) {
   const isErr = /error|fail|abort|aborting|exception/i.test(line);
   const isWarn = /warn|caution|retry/i.test(line);
   const isIter = /^\s*=+.*===|it\s*\[?\d|iteration/i.test(line);
@@ -181,7 +217,7 @@ function LogLine({ line, index }: { line: string; index: number }) {
         isIter && "text-teal-300"
       )}
     >
-      {line || "\u00A0"}
+      {highlight ? <Highlighted line={line} q={highlight} /> : line || "\u00A0"}
     </span>
   );
 }
@@ -195,6 +231,7 @@ function LogConsole({ job }: { job: JobDTO }) {
   const [follow, setFollow] = React.useState(true);
   const [wrap, setWrap] = React.useState(false);
   const [refreshing, setRefreshing] = React.useState(false);
+  const [query, setQuery] = React.useState("");
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const atBottomRef = React.useRef(true);
 
@@ -268,6 +305,16 @@ function LogConsole({ job }: { job: JobDTO }) {
 
   const lineCount = lines.length;
 
+  // search filter — original indices keep the zebra striping stable
+  const q = query.trim().toLowerCase();
+  const visible = React.useMemo(() => {
+    if (!q) return lines.map((line, i) => ({ line, i }));
+    return lines
+      .map((line, i) => ({ line, i }))
+      .filter((x) => x.line.toLowerCase().includes(q));
+  }, [lines, q]);
+  const matchCount = q ? visible.length : null;
+
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950 shadow-inner">
       {/* toolbar */}
@@ -290,6 +337,19 @@ function LogConsole({ job }: { job: JobDTO }) {
         <span className="text-[10px] text-zinc-600">
           {mode === "full" ? `${totalLines.toLocaleString()} lines (full)` : `${lineCount} lines`}
         </span>
+        {matchCount != null ? (
+          <span
+            className={cn(
+              "rounded-full px-2 py-0.5 text-[10px] font-semibold tabular-nums",
+              matchCount === 0
+                ? "bg-rose-500/15 text-rose-400"
+                : "bg-amber-500/15 text-amber-400"
+            )}
+            title={`${matchCount} of ${lineCount} lines match “${query.trim()}”`}
+          >
+            {matchCount.toLocaleString()} / {lineCount.toLocaleString()} match
+          </span>
+        ) : null}
         {mode === "tail" && truncated ? (
           <button
             type="button"
@@ -306,6 +366,28 @@ function LogConsole({ job }: { job: JobDTO }) {
           </span>
         ) : null}
         <div className="ml-auto flex items-center gap-0.5">
+          {/* log search / filter */}
+          <div className="relative mr-1">
+            <Search className="pointer-events-none absolute left-2 top-1/2 size-3 -translate-y-1/2 text-zinc-600" aria-hidden="true" />
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="filter…"
+              aria-label="Filter log lines"
+              className="h-7 w-28 rounded border border-zinc-700/80 bg-zinc-800/60 pl-6 pr-2 font-mono text-[11px] text-zinc-300 transition-all placeholder:text-zinc-600 focus:w-40 focus:border-teal-500/50 focus:outline-none [&::-webkit-search-cancel-button]:hidden"
+            />
+            {query ? (
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                aria-label="Clear log filter"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-zinc-500 hover:bg-zinc-700/60 hover:text-zinc-300"
+              >
+                <X className="size-3" aria-hidden="true" />
+              </button>
+            ) : null}
+          </div>
           {/* tail / full segmented toggle */}
           <Tooltip>
             <TooltipTrigger asChild>
@@ -430,9 +512,15 @@ function LogConsole({ job }: { job: JobDTO }) {
           <p className="text-center text-zinc-600">(log empty — waiting for the engine to speak)</p>
         ) : (
           <pre className={cn("m-0", wrap ? "whitespace-pre-wrap break-words" : "whitespace-pre")}>
-            {lines.map((line, i) => (
-              <LogLine key={i} line={line} index={i} />
-            ))}
+            {visible.length === 0 ? (
+              <p className="px-1 text-zinc-600">
+                no lines match “{query.trim()}”
+              </p>
+            ) : (
+              visible.map(({ line, i }) => (
+                <LogLine key={i} line={line} index={i} highlight={q || null} />
+              ))
+            )}
           </pre>
         )}
       </div>
@@ -766,15 +854,25 @@ const KIND_META: Record<OutputKind, { icon: React.ElementType; color: string; la
 
 function FilesTab({ job, data, reload }: { job: JobDTO; data: OutputsResponse | null; reload: () => void }) {
   const [query, setQuery] = React.useState("");
+  const [kindFilter, setKindFilter] = React.useState<OutputKind | "all">("all");
   const files = React.useMemo(() => {
     const q = query.trim().toLowerCase();
-    const list = data?.files ?? [];
+    let list = data?.files ?? [];
+    if (kindFilter !== "all") list = list.filter((f) => f.kind === kindFilter);
     return q ? list.filter((f) => f.path.toLowerCase().includes(q)) : list;
-  }, [data, query]);
+  }, [data, query, kindFilter]);
+
+  const kindCounts = React.useMemo(() => {
+    const counts = new Map<OutputKind, number>();
+    for (const f of data?.files ?? []) {
+      counts.set(f.kind, (counts.get(f.kind) ?? 0) + 1);
+    }
+    return counts;
+  }, [data]);
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3">
-      <div className="flex shrink-0 items-center gap-2">
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
         <div className="relative w-64 max-w-full">
           <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
           <Input
@@ -784,6 +882,34 @@ function FilesTab({ job, data, reload }: { job: JobDTO; data: OutputsResponse | 
             className="h-8 pl-8 text-xs"
             aria-label="Filter output files"
           />
+        </div>
+        {/* kind quick-filters */}
+        <div className="flex items-center gap-1" role="group" aria-label="Filter by file kind">
+          {(["all", ...(Object.keys(KIND_META) as OutputKind[])] as const).map((k) => {
+            const active = kindFilter === k;
+            const count = k === "all" ? (data?.files.length ?? 0) : (kindCounts.get(k as OutputKind) ?? 0);
+            if (k !== "all" && count === 0) return null;
+            const meta = k === "all" ? null : KIND_META[k as OutputKind];
+            const Icon = meta?.icon ?? Layers;
+            return (
+              <button
+                key={k}
+                type="button"
+                aria-pressed={active}
+                onClick={() => setKindFilter(k)}
+                className={cn(
+                  "inline-flex h-7 items-center gap-1 rounded-full border px-2.5 text-[10px] font-semibold uppercase tracking-wide transition-colors",
+                  active
+                    ? "border-teal-600/40 bg-teal-600/15 text-teal-700 dark:text-teal-300"
+                    : "border-border bg-card text-muted-foreground hover:bg-secondary/60"
+                )}
+              >
+                <Icon className={cn("size-3", meta?.color)} aria-hidden="true" />
+                {k === "all" ? "All" : meta?.label ?? k}
+                <span className="tabular-nums opacity-70">{count}</span>
+              </button>
+            );
+          })}
         </div>
         <p className="text-[11px] text-muted-foreground">
           {files.length} file{files.length === 1 ? "" : "s"}

@@ -538,3 +538,33 @@ Stage Summary:
 - 引擎新增可复用能力：断点续跑（任何 refine 家族 job 中断后 Re-run 自动续），Reset 清记录保证语义干净
 - 【重要坑记录】① RELION --continue 必须带 --o 原输出根 ② 非 setsid 的进程会被工具调用收割并可能连带 RELION（以后 dev server 重启一律 setsid + 先 ps 确认 RELION 存活）③ engine.ts 改动后必须重启 dev server（Turbopack 服务端缓存，本轮再次实证）
 - 代码已与上轮 res-chart 一并在 51816c0 push？否——resume 特性本轮新增未 push，待下轮或管线完成后 push
+
+---
+Task ID: fsc-kpi-2026-09-04-d
+Agent: Super Z (main loop, cron webDevReview)
+Task: QA 回归 + FSC 曲线可视化 + 管线 KPI 总览条 + 目标达标徽章；refine3d 续跑期间开发
+
+Work Log:
+- 【QA 回归】页面 GET / 200、console 零错误、inspector 弹窗/round chips/Files 计数全部正常，无回归（上轮四项功能全部在位）
+- 【确认】Molstar contour level 滑块已完整实现（σ 滑块 0.5-10 + presets 1/2/3/5σ + 绝对值读数 + transform-state 更新 + 相机复位）——无需补
+- 【新功能1：FSC 曲线】cryo-EM 最终成绩单：
+  - 新 API GET /api/jobs/[id]/fsc：优先 postprocess_fsc.fsc（masked+corrected+phase-randomized 三曲线）→ run_half1_model.star → run_it{max}_half1_model.star（运行中 live half-map FSC）；通用 STAR loop 解析器（列名→索引）；0.143/0.5 交点线性插值；999 哨兵过滤
+  - fsc-chart.tsx 全量重写（旧组件只支持 postprocess.star 静态数据且被我误覆盖 → 从新设计恢复）：jobId 驱动 + running 30s 轮询 + recharts LineChart（X 轴 Å 反转 log、0.143 amber 虚线 + 交点 ReferenceDot、0.5 细线、teal/amber/zinc 三曲线图例）+ VDAM initialmodel FSC 全零列自动隐藏（fsc>0.05 shell<4 则 null）
+  - results-view.tsx 迁移：删除旧 fscState 管线（~40 行），Results tab 复用新组件（refine 运行中显示 half-map FSC，postprocess 完成显示三曲线）
+  - 实测：refine3d it8 → 64 shells、0.143→9.86 Å、0.5→13.17 Å（与 _rlnCurrentResolution 13.33 量级一致）；浏览器 Overview tab 确认渲染（FSC curve · half-maps · 0.143 徽章）；VLM 无视觉故障
+- 【新功能2：管线 KPI 条】canvas 左上角 floating 条（card-lift + backdrop-blur）：
+  - 完成度 SVG 迷你环（emerald，stroke-dashoffset 过渡）+ 7/10
+  - 粒子数（select job result 正则提取）"3,500 particles"（teal snowflake）
+  - live 分辨率 amber 徽章（refine current / postprocess 0.143 自动切换数据源 + live ping 点）
+  - 运行 job teal 胶囊（名字+进度%）
+  - 分辨率源切换 stale-guard（res.jobId === resSource.id 才显示）
+  - DOM 实测：'7/10 3,500particles 13.33 Å Refine3D·gold-standard 60%'
+- 【新功能3：目标达标徽章】postprocess 完成后（wantFsc）与 EMPIAR-10017/EMD-2824 发表分辨率 4.2 Å 比较：≤4.2 → emerald Trophy 'target ≤4.2 Å met'；>4.2 → rose Medal 'above target'（管线终点体验闭环）
+- 【事故处理】Write 覆盖了已存在的 fsc-chart.tsx（旧组件被 HEAD 恢复核对后确认新设计覆盖面更广，保留重写版 + 迁移调用方）；MultiEdit 一次失败导致 PipelineKpi 双挂载 → 移除重复
+- lint 通过；tsc 0 错误（examples/ socket.io 类型缺失为模板存量）；agent-browser QA 后已 close（内存纪律）；push a17b574
+
+Stage Summary:
+- 两个新功能 + 一个闭环徽章全部落地并经 DOM/浏览器/VLM 三重验证
+- refine3d it9 expectation 进行中（~42min/iter，3 ranks 205MB，available 1.2GB 健康）
+- 【下一轮】refine3d 完成后 advance.sh 自动推进 maskcreate → postprocess → FSC 0.143 判定 ≤4.2 Å → KPI 条 Trophy 徽章亮起 → 最终 push
+- 【给后续 cron 轮】每轮先 bash /home/z/empiar-10017/advance.sh（timeout 120s）推进管线再开发；refine3d 收敛可能还需数小时（it10-14 或提前收敛）
