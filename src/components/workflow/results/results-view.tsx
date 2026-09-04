@@ -10,7 +10,7 @@
  * reports → workdir footer.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   Box,
@@ -95,7 +95,7 @@ function isFscStar(file: OutputFile): boolean {
 /* Main component                                                      */
 /* ------------------------------------------------------------------ */
 
-export function JobResults({ job }: { job: JobDTO }) {
+export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: number }) {
   const [data, setData] = useState<OutputsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -129,6 +129,12 @@ export function JobResults({ job }: { job: JobDTO }) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // external refresh signal (inspector's live polling while the job runs)
+  const firstKey = useRef(refreshKey);
+  useEffect(() => {
+    if (refreshKey !== firstKey.current) void load();
+  }, [refreshKey, load]);
 
   // Fetch the FSC curve when a postprocess-style STAR file exists.
   const fscCandidate = useMemo(

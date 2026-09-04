@@ -336,8 +336,10 @@ function resolveInputs(
 
   for (const req of reqs) {
     let resolved: string | null = null;
-    // most recent first (creation order of upstream jobs is asc — iterate reversed)
-    for (const up of [...upstream].reverse()) {
+    // upstream arrives in INPUT-PRIORITY order from lineageFor(): BFS by
+    // graph distance (direct parents first) with newest-first within a
+    // layer — scan forward and take the first provider that has the output.
+    for (const up of upstream) {
       if (!req.from.includes(up.type)) continue;
       const state = runs[up.id];
       if (!state || !state.done || state.exitCode !== 0) continue;
@@ -1656,13 +1658,15 @@ function readTail(file: string, bytes: number): string {
   }
 }
 
-/** Combined run.out + run.err tail (max 80 lines / 32KB) for the log panel. */
+/** Combined run.out + run.err tail for log views (max 600 lines / 96KB).
+ * RELION rewrites progress bars with \r — collapse each line to its final
+ * frame (what a terminal would show) so \r spam doesn't eat the line budget. */
 export function getLogTail(jobId: string): string | null {
   const state = readRuns()[jobId];
   if (!state) return null;
   const parts: string[] = [];
   try {
-    if (existsSync(state.logFile)) parts.push(readTail(state.logFile, 16 * 1024));
+    if (existsSync(state.logFile)) parts.push(readTail(state.logFile, 48 * 1024));
   } catch {
     /* ignore */
   }
@@ -1676,8 +1680,13 @@ export function getLogTail(jobId: string): string | null {
   }
   const text = parts.join("\n");
   if (text.trim().length === 0) return "(log empty)";
-  const lines = text.split("\n");
-  return lines.slice(-80).join("\n").slice(-32 * 1024);
+  const lines = text
+    .split("\n")
+    .map((line) => {
+      const idx = line.lastIndexOf("\r");
+      return (idx >= 0 ? line.slice(idx + 1) : line).replace(/\s+$/, "");
+    });
+  return lines.slice(-600).join("\n").slice(-96 * 1024);
 }
 
 /* ------------------------------------------------------------------ */

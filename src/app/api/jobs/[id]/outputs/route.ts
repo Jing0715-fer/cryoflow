@@ -148,6 +148,21 @@ function walkWorkdir(workdir: string): { files: OutputFile[]; truncated: boolean
   return { files, truncated };
 }
 
+/** Input file paths consumed by the run (parsed from the recorded argv). */
+const INPUT_FLAGS = ["--i", "--ref", "--mask", "--f", "--coord_list", "--part_star"];
+
+function inputFilesFromCmd(cmd: string): { flag: string; path: string }[] {
+  const tokens = cmd.split(/\s+/);
+  const out: { flag: string; path: string }[] = [];
+  for (let i = 0; i < tokens.length - 1; i++) {
+    if (INPUT_FLAGS.includes(tokens[i])) {
+      const p = tokens[i + 1];
+      if (p && !p.startsWith("-")) out.push({ flag: tokens[i], path: p });
+    }
+  }
+  return out;
+}
+
 /* ------------------------------------------------------------------ */
 /* GET /api/jobs/[id]/outputs                                          */
 /* ------------------------------------------------------------------ */
@@ -169,6 +184,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
         workdir: null,
         engine,
         files: [],
+        inputs: [],
         note: "No on-disk outputs (simulation job or not run yet)",
       });
     }
@@ -185,6 +201,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
         workdir,
         engine,
         files: [],
+        inputs: inputFilesFromCmd(run.cmd),
         note: "Run directory no longer exists on disk",
       });
     }
@@ -194,6 +211,8 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       workdir,
       engine,
       files,
+      inputs: inputFilesFromCmd(run.cmd),
+      cmd: run.cmd,
       note: truncated ? `Listing truncated at ${files.length} files` : undefined,
     });
   } catch (error) {

@@ -93,7 +93,11 @@ interface JobCardProps {
   /** Type key of the pending source job (for port compatibility pulses). */
   pendingFromType: string | null;
   isReady: boolean;
+  /** True while this job is open in the large inspector modal. */
+  inspected: boolean;
   onSelect: (id: string) => void;
+  /** Opens the large inspector modal (submitted jobs only). */
+  onInspect: (id: string) => void;
   onDragCommit: (id: string, x: number, y: number) => void;
   onStartConnect: (pending: PendingFrom) => void;
   onCancelConnect: () => void;
@@ -140,7 +144,9 @@ export const JobCard = React.memo(function JobCard({
   pendingFrom,
   pendingFromType,
   isReady,
+  inspected,
   onSelect,
+  onInspect,
   onDragCommit,
   onStartConnect,
   onCancelConnect,
@@ -226,8 +232,10 @@ export const JobCard = React.memo(function JobCard({
     if (d.moved) {
       endDrag(e, d);
     } else {
-      // plain click on the card body → select
-      onSelect(job.id);
+      // plain click on the card body — idle jobs open the editing panel,
+      // submitted jobs (running/completed/failed) open the big inspector
+      if (job.status === "idle") onSelect(job.id);
+      else onInspect(job.id);
     }
   };
 
@@ -465,15 +473,26 @@ export const JobCard = React.memo(function JobCard({
             "card-lift no-drag-select absolute inset-0 cursor-grab overflow-hidden rounded-xl border bg-card outline-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing",
             selected
               ? "border-primary ring-2 ring-primary/60"
-              : "hover:border-primary/50 hover:shadow-md",
+              : inspected
+                ? "border-teal-500 ring-2 ring-teal-500/70"
+                : "hover:border-primary/50 hover:shadow-md",
             job.status === "running" &&
               !selected &&
+              !inspected &&
               "border-teal-400/60 dark:border-teal-500/50"
           )}
+          title={
+            job.status === "idle"
+              ? "Click to edit parameters"
+              : job.status === "running"
+                ? "Click to open the live inspector (log · results)"
+                : "Click to open the results inspector"
+          }
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
-              onSelect(job.id);
+              if (job.status === "idle") onSelect(job.id);
+              else onInspect(job.id);
             }
           }}
         >

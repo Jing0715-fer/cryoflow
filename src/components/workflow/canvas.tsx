@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useCallback } from "react";
 import { Link2, RotateCcw, Wand2, X, ZoomIn, ZoomOut } from "lucide-react";
 import {
   CANVAS_H,
@@ -139,6 +140,8 @@ export function WorkflowCanvas() {
   const jobs = useWorkflowStore((s) => s.jobs);
   const edges = useWorkflowStore((s) => s.edges);
   const selectedId = useWorkflowStore((s) => s.selectedId);
+  const inspectId = useWorkflowStore((s) => s.inspectId);
+  const inspect = useWorkflowStore((s) => s.inspect);
   const pendingFrom = useWorkflowStore((s) => s.pendingFrom);
   const viewport = useWorkflowStore((s) => s.viewport);
   const paletteDrag = useWorkflowStore((s) => s.paletteDrag);
@@ -153,6 +156,60 @@ export function WorkflowCanvas() {
   const rootRef = React.useRef<HTMLDivElement>(null);
   const panRef = React.useRef<PanState | null>(null);
 
+  /** Frame a workflow bounding box in the viewport (shared by auto-arrange,
+   *  the initial-load fit and the focus button). */
+  const frameBounds = useCallback(
+    (viewW: number, viewH: number, minX: number, minY: number, maxX: number, maxY: number) => {
+      const bw = maxX - minX;
+      const bh = maxY - minY;
+      const zoom = clamp(
+        Math.min(viewW / (bw + 96), viewH / (bh + 96), 1),
+        ZOOM_MIN,
+        1
+      );
+      setViewport({
+        x: (viewW - bw * zoom) / 2 - minX * zoom,
+        y: (viewH - bh * zoom) / 2 - minY * zoom,
+        zoom: +zoom.toFixed(3),
+      });
+    },
+    [setViewport]
+  );
+
+  // inspector "Focus" button: center the requested job in the viewport
+  const focusEpoch = useWorkflowStore((s) => s.focusEpoch);
+  React.useEffect(() => {
+    if (!focusEpoch) return;
+    const { focusJobId, jobs } = useWorkflowStore.getState();
+    const job = jobs.find((j) => j.id === focusJobId);
+    const rect = rootRef.current?.getBoundingClientRect();
+    if (!job || !rect) return;
+    // a readable zoom: bump very low zooms up so the card is legible
+    const zoom = clamp(Math.max(useWorkflowStore.getState().viewport.zoom, 0.7), ZOOM_MIN, 1);
+    setViewport({
+      x: rect.width / 2 - (job.x + CARD_W / 2) * zoom,
+      y: rect.height / 2 - (job.y + CARD_H / 2) * zoom,
+      zoom,
+    });
+  }, [focusEpoch]);
+
+  // The viewport is a pure CSS transform on the workspace — the section must
+  // NEVER itself be scrolled. Browsers DO programmatically scroll
+  // overflow-hidden ancestors when restoring focus to off-screen elements
+  // (e.g. Radix dialogs returning focus to a job card), which would
+  // double-offset the view. Pin the section's scroll to 0 whenever that
+  // happens.
+  React.useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    const pin = () => {
+      if (el.scrollLeft !== 0 || el.scrollTop !== 0) el.scrollTo(0, 0);
+    };
+    el.addEventListener("scroll", pin, { passive: true });
+    pin();
+    return () => el.removeEventListener("scroll", pin);
+  }, []);
+
   // after one-click auto-arrange: frame the whole workflow in the viewport
   React.useEffect(() => {
     if (!layoutEpoch) return;
@@ -163,19 +220,23 @@ export function WorkflowCanvas() {
     const maxX = Math.max(...cur.map((j) => j.x + CARD_W));
     const minY = Math.min(...cur.map((j) => j.y));
     const maxY = Math.max(...cur.map((j) => j.y + CARD_H));
-    const bw = maxX - minX;
-    const bh = maxY - minY;
-    const zoom = clamp(
-      Math.min(rect.width / (bw + 96), rect.height / (bh + 96), 1),
-      ZOOM_MIN,
-      1
-    );
-    setViewport({
-      x: (rect.width - bw * zoom) / 2 - minX * zoom,
-      y: (rect.height - bh * zoom) / 2 - minY * zoom,
-      zoom: +zoom.toFixed(3),
-    });
-  }, [layoutEpoch]);
+    frameBounds(rect.width, rect.height, minX, minY, maxX, maxY);
+  }, [layoutEpoch, frameBounds]);
+
+  // frame the workflow ONCE after the initial load (the store viewport resets
+  // on reload; without this the canvas would boot showing empty space)
+  const didInitialFit = React.useRef(false);
+  React.useEffect(() => {
+    if (didInitialFit.current || loading || jobs.length === 0) return;
+    const rect = rootRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    didInitialFit.current = true;
+    const minX = Math.min(...jobs.map((j) => j.x));
+    const maxX = Math.max(...jobs.map((j) => j.x + CARD_W));
+    const minY = Math.min(...jobs.map((j) => j.y));
+    const maxY = Math.max(...jobs.map((j) => j.y + CARD_H));
+    frameBounds(rect.width, rect.height, minX, minY, maxX, maxY);
+  }, [loading, jobs, frameBounds]);
 
   // "Ready" hint: idle job whose upstream (any incoming edge) is completed.
   const completedIds = React.useMemo(
@@ -247,7 +308,6 @@ export function WorkflowCanvas() {
   };
 
   /* ---------------- left-drag pan ----------------------------------- */
-
   const handlePointerDown = (e: React.PointerEvent<HTMLElement>) => {
     if (e.button !== 0) return;
     const target = e.target as HTMLElement;
@@ -335,7 +395,9 @@ export function WorkflowCanvas() {
               isReady={
                 job.status === "idle" && readyIds.has(job.id) && !completedIds.has(job.id)
               }
+              inspected={inspectId === job.id}
               onSelect={select}
+              onInspect={inspect}
               onDragCommit={moveJobCommitProxy}
               onStartConnect={setPendingFromProxy}
               onCancelConnect={cancelConnect}

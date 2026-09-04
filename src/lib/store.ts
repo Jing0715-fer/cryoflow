@@ -46,6 +46,8 @@ interface WorkflowState {
   /** True while a forced re-detect is in flight (Re-detect button spinner). */
   systemRefreshing: boolean;
   selectedId: string | null;
+  /** Job opened in the large inspector modal (submitted jobs only). */
+  inspectId: string | null;
   pendingFrom: PendingFrom | null;
   /** Pan + zoom of the free canvas viewport. */
   viewport: Viewport;
@@ -53,6 +55,10 @@ interface WorkflowState {
   paletteDrag: string | null;
   /** Increments on every one-click auto-arrange (canvas fit-views on change). */
   layoutEpoch: number;
+  /** Job to center the canvas on (inspector "Focus" button). */
+  focusJobId: string | null;
+  /** Increments per focus request so the canvas effect re-fires. */
+  focusEpoch: number;
   loading: boolean;
   error: string | null;
   /** Transient live-drag offset (canvas coords) so edges follow the card in real time. */
@@ -79,12 +85,16 @@ interface WorkflowState {
   pollTick: () => Promise<void>;
 
   select: (id: string | null) => void;
+  /** Open the big job inspector (submitted jobs); null closes it. */
+  inspect: (id: string | null) => void;
   setPendingFrom: (pending: PendingFrom | null) => void;
   cancelConnect: () => void;
   setViewport: (patch: Partial<Viewport>) => void;
   panBy: (dx: number, dy: number) => void;
   setDragLive: (live: { id: string; dx: number; dy: number } | null) => void;
   setPaletteDrag: (type: string | null) => void;
+  /** Center the canvas on a job ("Focus" from the inspector). */
+  focusJob: (id: string) => void;
 }
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
@@ -134,10 +144,13 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   system: null,
   systemRefreshing: false,
   selectedId: null,
+  inspectId: null,
   pendingFrom: null,
   viewport: { x: 0, y: 0, zoom: 1 },
   paletteDrag: null,
   layoutEpoch: 0,
+  focusJobId: null,
+  focusEpoch: 0,
   loading: true,
   error: null,
   dragLive: null,
@@ -187,7 +200,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         headers: JSON_HEADERS,
         body: JSON.stringify({ id }),
       });
-      set({ selectedId: null, pendingFrom: null, viewport: { x: 0, y: 0, zoom: 1 } });
+      set({ selectedId: null, inspectId: null, pendingFrom: null, viewport: { x: 0, y: 0, zoom: 1 } });
       await get().load();
     } catch (err) {
       errToast(err instanceof Error ? err.message : "Failed to switch project");
@@ -228,7 +241,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   deleteProject: async (id) => {
     try {
       await api<{ ok: boolean }>(`/api/projects/${id}`, { method: "DELETE" });
-      set({ selectedId: null, pendingFrom: null });
+      set({ selectedId: null, inspectId: null, pendingFrom: null });
       await get().load();
       toast({ title: "Project deleted" });
       return true;
@@ -347,6 +360,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         return false;
       }
       toast({ title: "Job started", description: `${data.job.name} is now running` });
+      // CryoSPARC-style: submitting a job opens its inspector page
+      set({ inspectId: id, selectedId: null });
       return true;
     } catch (err) {
       errToast(err instanceof Error ? err.message : "Failed to run job");
@@ -375,6 +390,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         jobs: get().jobs.filter((j) => j.id !== id),
         edges: get().edges.filter((e) => e.fromJobId !== id && e.toJobId !== id),
         selectedId: get().selectedId === id ? null : get().selectedId,
+        inspectId: get().inspectId === id ? null : get().inspectId,
         pendingFrom: get().pendingFrom?.jobId === id ? null : get().pendingFrom,
       });
       toast({ title: "Job deleted", description: "Removed from the workflow" });
@@ -468,6 +484,15 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
 
   select: (id) => set({ selectedId: id }),
+
+  inspect: (id) => {
+    if (id !== null) {
+      // inspector replaces the right-side editing panel
+      set({ inspectId: id, selectedId: null });
+    } else {
+      set({ inspectId: null });
+    }
+  },
   setPendingFrom: (pending) => set({ pendingFrom: pending }),
   cancelConnect: () => set({ pendingFrom: null }),
   setViewport: (patch) =>
@@ -478,4 +503,12 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     set((s) => ({ viewport: { ...s.viewport, x: s.viewport.x + dx, y: s.viewport.y + dy } })),
   setDragLive: (live) => set({ dragLive: live }),
   setPaletteDrag: (type) => set({ paletteDrag: type }),
+
+  focusJob: (id) =>
+    set((s) => ({
+      focusJobId: id,
+      focusEpoch: s.focusEpoch + 1,
+      // the modal would cover the canvas — close it so the user sees the focus
+      inspectId: null,
+    })),
 }));

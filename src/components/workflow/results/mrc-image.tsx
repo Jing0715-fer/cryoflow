@@ -29,7 +29,13 @@ export function MrcImage({
       )}
     >
       {status === "loading" && (
-        <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-900" aria-hidden="true" />
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5" aria-hidden="true">
+          <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-900" />
+          <ImageIcon className="relative h-5 w-5 text-zinc-700" />
+          <span className="relative text-[9px] font-medium uppercase tracking-widest text-zinc-600">
+            rendering
+          </span>
+        </div>
       )}
       {status === "error" ? (
         <div className="flex h-full min-h-20 w-full flex-col items-center justify-center gap-1.5 bg-zinc-900 text-zinc-500">

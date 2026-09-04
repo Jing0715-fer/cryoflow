@@ -8,7 +8,7 @@ import type { Job } from "@prisma/client";
 import { db } from "@/lib/db";
 import { jobType } from "@/lib/workflow";
 import { jitteredDuration } from "@/lib/seed";
-import { parseJobParams, runRealJob } from "./engine";
+import { parseJobParams, runRealJob, type UpstreamRef } from "./engine";
 
 /** Placeholder duration for real runs (the exit handler overwrites it). */
 const REAL_DURATION_HINT = 60_000;
@@ -17,6 +17,38 @@ export interface StartOutcome {
   job: Job;
   /** Present when the real engine failed honestly at start-up. */
   error?: string;
+}
+
+/**
+ * Full upstream lineage of a job, in INPUT-PRIORITY order: BFS layer by
+ * layer (direct parents first, then grandparents, ...), newest-first within
+ * a layer. resolveInputs scans this array in order and takes the first job
+ * that (a) is an allowed provider for the requirement and (b) has the
+ * output — so a closer curated chain (e.g. class2d) beats a raw extract
+ * further up the graph. Cycles and duplicate visits are guarded.
+ */
+export async function lineageFor(jobId: string): Promise<UpstreamRef[]> {
+  const lineage: UpstreamRef[] = [];
+  const seen = new Set<string>([jobId]);
+  let frontier: string[] = [jobId];
+
+  while (frontier.length > 0) {
+    const edges = await db.edge.findMany({ where: { toJobId: { in: frontier } } });
+    const nextIds = edges
+      .map((e) => e.fromJobId)
+      .filter((id) => !seen.has(id));
+    if (nextIds.length === 0) break;
+    const rows = await db.job.findMany({
+      where: { id: { in: nextIds } },
+      orderBy: { createdAt: "desc" },
+    });
+    for (const row of rows) {
+      seen.add(row.id);
+      lineage.push({ id: row.id, type: row.type, params: parseJobParams(row.params) });
+    }
+    frontier = rows.map((r) => r.id);
+  }
+  return lineage;
 }
 
 /**
@@ -42,20 +74,10 @@ export async function startJob(job: Job, engineKind: "sim" | "relion"): Promise<
   }
 
   // ---- REAL engine -----------------------------------------------------
-  const inEdges = await db.edge.findMany({ where: { toJobId: job.id } });
-  const upstreamIds = inEdges.map((e) => e.fromJobId);
-  const upstreamRows =
-    upstreamIds.length > 0
-      ? await db.job.findMany({
-          where: { id: { in: upstreamIds } },
-          orderBy: { createdAt: "asc" },
-        })
-      : [];
-  const upstream = upstreamRows.map((u) => ({
-    id: u.id,
-    type: u.type,
-    params: parseJobParams(u.params),
-  }));
+  // Build the FULL upstream lineage (BFS through edges, direct first) —
+  // RELION GUI semantics: a job wired e.g. InitialModel → Refine3D inherits
+  // its particles.star from anywhere up the chain, not just direct parents.
+  const upstream = await lineageFor(job.id);
 
   const startedAtMs = Date.now();
   let updated = await db.job.update({

@@ -9,6 +9,7 @@ import { JobPalette } from "@/components/workflow/palette";
 import { ProjectPanel } from "@/components/workflow/project-panel";
 import { WorkflowCanvas } from "@/components/workflow/canvas";
 import { JobPanel } from "@/components/workflow/job-panel";
+import { JobInspector } from "@/components/workflow/job-inspector";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -30,6 +31,7 @@ export default function Home() {
   const jobs = useWorkflowStore((s) => s.jobs);
   const projects = useWorkflowStore((s) => s.projects);
   const selectedId = useWorkflowStore((s) => s.selectedId);
+  const inspectId = useWorkflowStore((s) => s.inspectId);
   const select = useWorkflowStore((s) => s.select);
 
   const [mounted, setMounted] = React.useState(false);
@@ -58,12 +60,15 @@ export default function Home() {
     return () => clearInterval(timer);
   }, [anyRunning]);
 
-  // ESC cancels connect mode, then deselects (dismisses the job panel)
+  // ESC cancels connect mode, closes the inspector, then deselects
+  // (the right-side panel). The Radix dialog handles its own ESC first —
+  // this fires only when no modal captured the key.
   React.useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       const s = useWorkflowStore.getState();
       if (s.pendingFrom) s.cancelConnect();
+      else if (s.inspectId) s.inspect(null);
       else if (s.selectedId) s.select(null);
     };
     window.addEventListener("keydown", onKeyDown);
@@ -118,6 +123,9 @@ export default function Home() {
       </main>
 
       <Footer />
+
+      {/* Large inspector modal for submitted jobs (running/completed/failed) */}
+      <JobInspector />
 
       {/* Mobile: floating palette trigger */}
       <Button
