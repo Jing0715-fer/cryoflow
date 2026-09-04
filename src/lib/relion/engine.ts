@@ -18,7 +18,6 @@ import { execFile, spawn } from "child_process";
 import {
   appendFileSync,
   closeSync,
-  createWriteStream,
   existsSync,
   mkdirSync,
   openSync,
@@ -133,6 +132,133 @@ export function clearRunRecord(jobId: string): void {
   if (!(jobId in runs)) return;
   delete runs[jobId];
   writeRuns(runs);
+}
+
+/**
+ * Non-null when a live child process is still tracked for this job —
+ * either through this server instance's `live` map, or via /proc on a
+ * record written before a hot reload / server restart. The run route
+ * uses this to refuse duplicate spawns (two mpirun trees writing to the
+ * same workdir = corrupt checkpoints + an OOM on this 4GB box).
+ * Returns a human-readable reason, or null when nothing is running.
+ */
+export function isRunAlive(jobId: string): string | null {
+  const child = live.get(jobId);
+  if (
+    child &&
+    child.exitCode === null &&
+    child.pid != null &&
+    existsSync(`/proc/${child.pid}`)
+  ) {
+    return `job is already running (pid ${child.pid})`;
+  }
+  const state = readRuns()[jobId];
+  if (
+    state &&
+    state.done === false &&
+    state.pid != null &&
+    existsSync(`/proc/${state.pid}`)
+  ) {
+    return `job is already running (pid ${state.pid})`;
+  }
+  return null;
+}
+
+/** All descendant pids of `pid` (mpirun → hydra → ranks), via /proc stat. */
+function descendantsOf(pid: number): number[] {
+  const ppidOf = new Map<number, number>();
+  try {
+    for (const entry of readdirSync("/proc")) {
+      if (!/^\d+$/.test(entry)) continue;
+      const p = Number(entry);
+      if (p === pid) continue;
+      try {
+        const stat = readFileSync(`/proc/${p}/stat`, "utf8");
+        const close = stat.lastIndexOf(")");
+        // fields after "comm": state, ppid, ... → ppid is rest[1]
+        const rest = stat.slice(close + 2).split(" ");
+        const ppid = Number(rest[1]);
+        if (Number.isFinite(ppid)) ppidOf.set(p, ppid);
+      } catch {
+        /* process vanished */
+      }
+    }
+  } catch {
+    return [];
+  }
+  const out: number[] = [];
+  const queue = [pid];
+  while (queue.length > 0) {
+    const parent = queue.shift() as number;
+    for (const [p, pp] of ppidOf) {
+      if (pp === parent && !out.includes(p)) {
+        out.push(p);
+        queue.push(p);
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Stop a job's live process tree (SIGTERM → grace → SIGKILL).
+ *  - kills mpirun AND its ranks (a bare mpirun kill orphans the ranks)
+ *  - if the child is in `live`, its exit handler fires and records
+    exit −1 → the next POST /run can --continue from the checkpoint
+ *  - for restart-orphaned trees (no live child, only a state record)
+    the record is marked interrupted directly
+ * Returns what happened, for the API response.
+ */
+export async function stopRun(jobId: string): Promise<{ stopped: boolean; message: string }> {
+  const child = live.get(jobId);
+  const state = readRuns()[jobId];
+  const pid = child?.pid ?? state?.pid ?? null;
+  const tree = pid != null && existsSync(`/proc/${pid}`) ? [pid, ...descendantsOf(pid)] : [];
+
+  if (tree.length === 0) {
+    return { stopped: false, message: "no live process for this job" };
+  }
+
+  for (const p of tree) {
+    try {
+      process.kill(p, "SIGTERM");
+    } catch {
+      /* already gone */
+    }
+  }
+  // graceful window: RELION ranks exit on SIGTERM, mpirun reaps them
+  const deadline = Date.now() + 5000;
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 250));
+    if (!tree.some((p) => existsSync(`/proc/${p}`))) break;
+  }
+  let killed = 0;
+  for (const p of tree) {
+    if (existsSync(`/proc/${p}`)) {
+      try {
+        process.kill(p, "SIGKILL");
+        killed += 1;
+      } catch {
+        /* raced away */
+      }
+    }
+  }
+
+  // If the exit handler won't fire (child not in `live` — e.g. the tree
+  // survived a server restart), mark the record interrupted ourselves so
+  // reconcile + the resume branch see a consistent state.
+  if (!child) {
+    const runs = readRuns();
+    const rec = runs[jobId];
+    if (rec && rec.done === false) {
+      runs[jobId] = { ...rec, done: true, exitCode: -1, result: "stopped by user" };
+      writeRuns(runs);
+    }
+  }
+  return {
+    stopped: true,
+    message: `stopped pid ${pid} (${tree.length} processes${killed > 0 ? `, ${killed} SIGKILLed` : ""})`,
+  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -1837,27 +1963,35 @@ function spawnTrackedRun(
   runs[job.id] = record;
   writeRuns(runs);
 
-  // CWD = RELION "project root": STAR paths are relative to it and ctffind_runner
-  // symlinks micrographs as (cwd + star-path). The per-job workdir still holds
-  // run.out / run.err and the output artifacts (via absolute --o/--part_dir).
+  // Pre-open the log files and pass the raw fds as stdio: the child keeps
+  // its own dup'd descriptors, so a Next.js dev-server restart no longer
+  // EPIPEs the tree to death mid-refinement (the pipes used to be held by
+  // the parent — two documented incidents of hours-long refines dying).
+  // detached: true puts the tree in its own session, so group signals aimed
+  // at the dev server (Ctrl-C, reaper) can't take the refine down either.
+  const outFd = openSync(logFile, "a");
+  const errFd = openSync(errFile, "a");
   const projectDir = projectDirFor(job);
   mkdirSync(projectDir, { recursive: true });
   const child = spawn(argv[0], argv.slice(1), {
     cwd: projectDir,
     env: relionEnv(binDir),
-    detached: false,
-    stdio: ["ignore", "pipe", "pipe"],
+    detached: true,
+    stdio: ["ignore", outFd, errFd],
   });
+  // the parent's copies are redundant now (the child dups survive on their
+  // own) — close them to avoid leaking 2 fds per run
+  try {
+    closeSync(outFd);
+  } catch {
+    /* already closed */
+  }
+  try {
+    closeSync(errFd);
+  } catch {
+    /* already closed */
+  }
   live.set(job.id, child);
-
-  if (child.stdout) {
-    const out = createWriteStream(logFile, { flags: "a" });
-    child.stdout.pipe(out);
-  }
-  if (child.stderr) {
-    const err = createWriteStream(errFile, { flags: "a" });
-    child.stderr.pipe(err);
-  }
 
   record.pid = child.pid ?? null;
   const runsNow = readRuns();
@@ -1926,17 +2060,20 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
   const binDir = status.path;
 
   // ---- resume an interrupted refine-family run ---------------------------
-  // If a previous run of THIS job crashed/was interrupted (record exists,
-  // never finished) and the workdir holds RELION iteration checkpoints,
-  // --continue picks up from the newest one instead of starting over —
-  // hours saved on long auto-refinements. Upstream re-validation is skipped:
+  // If a previous run of THIS job crashed / was stopped / was interrupted
+  // (record never finished OR exited non-zero) and the workdir holds RELION
+  // iteration checkpoints, --continue picks up from the newest one instead
+  // of starting over — hours saved on long auto-refinements. A COMPLETED run
+  // (exit 0) intentionally restarts fresh. Upstream re-validation is skipped:
   // the checkpoint STAR files already reference the validated inputs.
   const workdir = workdirFor(job);
   const prevRun = readRuns()[job.id];
+  const interrupted =
+    prevRun != null && (prevRun.done === false || prevRun.exitCode !== 0);
   if (
     RESUMABLE_TYPES.has(job.type) &&
     prevRun &&
-    prevRun.done === false &&
+    interrupted &&
     prevRun.jobId === job.id
   ) {
     const checkpoint = resumableOptimiser(workdir);
@@ -2117,11 +2254,26 @@ export async function reconcileRealJobs(jobs: Job[]): Promise<Job[]> {
       out.push(job); // sim job — handled by the sim reconciler
       continue;
     }
+    // Guard against the re-run race: the DB flips to "running" (new
+    // startedAt) before spawnTrackedRun overwrites the state record, so a
+    // poll in that window would otherwise reconcile the PREVIOUS run's
+    // outcome into the fresh run (false completed/failed + bogus toast).
+    // Records that predate the current DB run are ignored.
+    const recordIsCurrent =
+      job.startedAt == null ||
+      new Date(state.startedAt).getTime() >= new Date(job.startedAt).getTime() - 2000;
     const alive = state.pid != null && existsSync(`/proc/${state.pid}`);
 
     if (alive) {
       const progress = parseProgress(job.type, state.logFile, parseJobParams(job.params));
       out.push(progress != null ? { ...job, progress } : job);
+      continue;
+    }
+
+    if (!recordIsCurrent) {
+      // stale record from an earlier run — the fresh run's record is being
+      // written; keep reporting "running" until it lands
+      out.push(job);
       continue;
     }
 

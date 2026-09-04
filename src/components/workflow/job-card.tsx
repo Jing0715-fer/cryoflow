@@ -745,9 +745,13 @@ export const JobCard = React.memo(function JobCard({
     if (!d || e.pointerId !== d.pointerId) return;
     portDragRef.current = null;
     if (d.mode === "complete") {
-      // finish a pending input→output wire from another job
+      // finish a pending input→output wire from another job.
+      // pendingFrom = the INPUT port that started the wire (on job A);
+      // this job's OUTPUT port (d.port) is the data source → edge runs
+      // B(out) → A(in): from=this job, to=pendingFrom's job, ports must stay
+      // attached to their own jobs.
       if (!d.moved && pendingFrom) {
-        onConnect(pendingFrom.jobId, job.id, d.port, pendingFrom.port);
+        onConnect(job.id, pendingFrom.jobId, d.port, pendingFrom.port);
         return;
       }
       if (d.moved) {
@@ -783,7 +787,9 @@ export const JobCard = React.memo(function JobCard({
     e.preventDefault();
     if (pendingFrom?.dir === "in" && pendingFrom.jobId !== job.id) {
       // finish a pending input→output wire from another job
-      onConnect(pendingFrom.jobId, job.id, portName, pendingFrom.port);
+      // (same argument order as the pointer path: this job's output port is
+      // the source, pendingFrom's input port is the target)
+      onConnect(job.id, pendingFrom.jobId, portName, pendingFrom.port);
     } else if (pendingFrom?.jobId === job.id && pendingFrom.port === portName) {
       onCancelConnect();
     } else {

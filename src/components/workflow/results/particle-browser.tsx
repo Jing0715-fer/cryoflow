@@ -106,7 +106,6 @@ function GroupSection({
   group: ParticleGroup;
 }) {
   const [open, setOpen] = useState(false);
-  const [offset, setOffset] = useState(0);
   const [page, setPage] = useState<ParticlePageResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [zoomed, setZoomed] = useState<ParticleRow | null>(null);
@@ -215,7 +214,6 @@ function GroupSection({
                     disabled={page.offset === 0 || loading}
                     onClick={() => {
                       const off = Math.max(0, page.offset - PAGE_SIZE);
-                      setOffset(off);
                       void loadPage(off);
                     }}
                     aria-label="Previous particle page"
@@ -228,7 +226,6 @@ function GroupSection({
                     disabled={page.offset + PAGE_SIZE >= page.total || loading}
                     onClick={() => {
                       const off = page.offset + PAGE_SIZE;
-                      setOffset(off);
                       void loadPage(off);
                     }}
                     aria-label="Next particle page"

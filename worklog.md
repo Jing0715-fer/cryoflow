@@ -745,3 +745,62 @@ Stage Summary:
 - 左栏升级 6 个新交互:最近使用快速添加(localStorage)、"/" 搜索快捷键、清空按钮、sticky 分类头、平滑折叠动画、tier 图例
 - 管线:refine3d it11 E-step 推进中(~38min/iter,进程健康);拖拽期间暂停轮询不影响 ETA(toast 在拖后下一 tick 补发)
 - 【给后续 cron 轮】① refine3d 收敛后推进 maskcreate → postprocess(见前轮 advance 流程)② 候选新功能:卡片拖拽时的对齐吸附线(同类 x/y 对齐)、多选拖拽、侧栏 catalog 虚拟滚动(类型更多时)
+
+---
+Task ID: review-be-1
+Agent: backend-code-reviewer
+Task: 后端代码全面审查（只读，不改代码）
+
+Work Log:
+- 全量精读 src/app/api 下全部 22 个 route.ts（jobs / jobs/[id] 及 12 个子路由 / edges / project(s) / empiar-seed / switch / system / layout）+ src/lib/relion/{engine.ts 2166行, dispatch.ts, system.ts} + src/lib/{db, starfile, mrc, projects, seed, edge-ports}.ts + prisma/schema.prisma + scripts/{dev-server.sh, refine-watchdog.sh}
+- 运行态验证（只读）：GET /api/jobs、/api/edges、/api/system 200；engine-state.json 当前 refine3d 记录 {pid:12301, done:false}（mpirun 存活 4h46m）；outputs/file 路径穿越三连测（`..` / 绝对路径 / 嵌套 `micrographs/../../..`）全部 400 拒绝；data/relion 已 1.4GB
+- 深挖五类问题：并发 POST /run 双进程、进程生命周期（grep 证实全后端无任何 kill 调用）、reconcile 与 DB 的时序竞态、内存/事件循环阻塞点、注入面（external interpreter）
+
+Stage Summary:
+- Critical ×2：①POST /run 无服务端存活守卫——对正在运行的 resumable job（done:false+pid 活着）再 POST 会走 --continue 分支确定性生成第二个 mpirun -n 3 写同一 workdir（双写 checkpoint 损坏 + ~600MB 额外 RSS，4GB 无 swap 必 OOM）；非 resumable 类型同样双开。UI 仅靠 1.2s 轮询的陈旧 status disable 按钮，双击/双标签页/⌘K 可绕过。修法：startJob/runRealJob 检查 prevRun.done===false 且 /proc/<pid> 存活 → 拒绝。②PATCH status=idle 的 clearRunRecord 与 DELETE job 都不杀进程——exit handler 因记录被删而无操作，孤儿 mpirun 无人跟踪继续烧 CPU/内存数小时，下次 Run 再叠一个进程；且 DELETE 留下 195MB/次的孤儿 workdir（累计 1.4GB）
+- Medium ×6：reconcile 竞态窗口（startJob 置 running 后、spawnTrackedRun 覆写记录前有 await detectRelion(force) 数百 ms-秒级窗口，1.2s 轮询撞上会把新 run 误标 completed/failed 旧结果；修法：reconcile 跳过 state.startedAt < job.startedAt 的陈旧记录）；outputs/file format=raw 无界 readFileSync+Uint8Array 双倍内存（大图 OOM 面）；POST /api/jobs params 无白名单校验（对比 PATCH 有）→ external interpreter 可指任意二进制；POST /api/edges 不校验 from/to 同项目 + 全局环检测跨项目误伤；PNG 渲染同步阻塞事件循环（4096² slice ≈130MB 瞬时分配 + 16.7M 元素全排序）；stdio 管道绑定父进程生命周期（dev 重启杀 RELION 全树的已实证根因——改用 spawn 前预 open fd 作 stdio 可让子进程持自己的 dup 描述符存活）
+- 结论：路径穿越防护、JSON.parse 容错、DB 级联、诚实失败传播整体扎实；核心短板集中在「进程生命周期治理」（无停止 API、无存活守卫、无孤儿回收）与 reconcile 时序
+
+---
+Task ID: review-fe-1
+Agent: frontend-code-reviewer
+Task: 前端代码全面审查（只读，不改代码）
+
+Work Log:
+- 全量阅读：src/app/page.tsx、layout.tsx；src/components/workflow/*.tsx 全部 15 个（canvas、job-card、job-inspector、edges-layer、palette、project-dashboard、project-panel、header、footer、command-palette、help-popover、canvas-minimap、job-panel、pipeline-kpi、theme-toggle、icons）；results/*.tsx 全部 12 个（results-view、fsc/resolution/ctf/class-distribution/angular/guinier charts、import-gallery、picks-map、particle-browser、star-table、mol-viewer、molstar-embed、mrc-image）；src/lib/store.ts、edge-geom.ts、edge-ports.ts、types.ts、workflow.ts（1055-1198 关键函数段）、layout.ts；辅助验证 /api/jobs/route.ts 与 engine.ts reconcileRealJobs（判定 pipeline-kpi 重取频率）；tsc 0 错误（examples/ 除外）、eslint 0 告警
+- 重点核查：portal 事件守卫（canvas/job-card 双双有 DOM 包含守卫 ✓，但 minimap 漏标 data-canvas-ui → 守卫失效）、反向连线完成路径 from/to 参数、pollTick 引用稳定合并、拖拽直更 + liveDrag、各轮询 interval 清理、hydration（estimateEta/localStorage/Date.now 均 client-only 门控 ✓）
+
+Stage Summary:
+- Critical ×2：①job-card.tsx:750/:786 反向连线（input 起手→点击对端 output port 完成）from/to 与 fromPort/toPort 双双颠倒——常规场景 portsCompatible 查错 job 直接误报 "Port mismatch"，同端口名场景则静默创建反向数据流边（或误触环守卫报 "cycle"）；拖拽路径(:840)正确，仅 click/keyboard 完成路径坏 ②canvas-minimap.tsx 容器缺 data-canvas-ui 标记 → 画布背景 pan handler 抢占 pointer capture：minimap 拖拽变画布平移（先跳后拖反向），且 svg 的 onPointerUp 在 capture 下永不触发 → draggingRef 永久卡 true，此后悬停 minimap 即跳转视口
+- Medium ×5：pipeline-kpi effect deps 含 resSource 对象引用（每次 jobs 变更即拆 30s 节流立即重取 /resolution|/fsc）；project 切换后 didInitialFit 守卫不复位 → 视口停 (0,0) 不重取景；store.error 全应用无人渲染（加载失败只剩一次性 toast + 误导性空画布）；fomTone 阈值两处分歧（0.08 vs 0.1，注释却声称一致）；Del/Backspace 直删选中 job 无确认（其余三处删除路径均有 AlertDialog）
+- Minor/cleanup ×~10：.filter(x.length>0 || true) 恒真死逻辑、pipeline-kpi 恒等三元、particle-browser 死 state offset、formatBytes×3 / fmtAgo×2 重复且行为分歧、EngineBadge teal vs emerald 分歧、GitHub 占位链接、addJob 硬编码 480×360 视口中心、卡片 pointerdown preventDefault 吞 focus、render 期 localStorage 副作用（estimateEta）
+- 总评：架构健康——拖拽零 React 渲染（共享几何直更）、引用稳定轮询、全 interval/listener 清理齐全、hydration 防护到位；两处 Critical 均为新交互叠加在既有守卫体系上漏掉一条边（反向连线参数序、minimap 未挂 data-canvas-ui）
+
+---
+Task ID: review-e2e-push-2026-09-05-n
+Agent: Super Z (main loop, user request: 全面代码审查 + E2E + push)
+Task: 双子代理全面代码审查 → 修复 4C+5M+4 处新发现 bug → agent-browser 全链路 E2E → push GitHub
+
+Work Log:
+- 【代码审查】lint/tsc 基线全过（examples/ 演示目录除外，非应用代码）；两个 general-purpose 子代理并行深审（review-fe-1 前端 27 文件 / review-be-1 后端 22 route + engine 2166 行），产出 FE 2 Critical + 6 Medium、BE 2 Critical + 6 Medium + 10 minor
+- 【FE-C1 反向连线参数颠倒】input 起手 → 点 output 完成时 `onConnect(A,B,B_out,A_in)` 把 B 的输出端口挂到 fromJob=A 名下且边方向反转（同名端口时静默产生反向数据流边）。修复 job-card.tsx 750/786 两处为 `onConnect(job.id, pendingFrom.jobId, d.port, pendingFrom.port)`
+- 【FE-C2 minimap 劫持】容器未挂 `data-canvas-ui` → canvas pan handler 抢占 pointer capture → minimap 拖拽触发画布平移 + pointerup 永不触发 → draggingRef 卡死 → 悬停乱跳。修复：容器挂标记 + onPointerLeave/onLostPointerCapture 兜底复位
+- 【BE-C1 /run 存活守卫】dispatch.startJob 顶部 isRunAlive()（live Map + /proc 双路检查）→ 存活时 route 返回 409 且不把 job 标 failed。实测：对运行中 refine3d POST /run → HTTP 409 "job is already running (pid 15707)"，零重复进程 ✓
+- 【BE-C2 进程泄漏 + Stop 功能】新增 stopRun()：/proc stat 扫描子孙树（mpirun→hydra→ranks）→ SIGTERM → 5s 宽限 → SIGKILL；PATCH status=idle 与 DELETE 先杀树再清记录（旧版直接泄漏 mpirun 数小时）；新端点 POST /api/jobs/[id]/stop + Inspector 头部 Stop 按钮（运行态显示，rose 配色）+ store.stopJob
+- 【BE-resume 放宽】resume 条件从 done===false 扩展为 exitCode!==0（崩溃/用户停止也可 --continue；完成 exit 0 仍全新跑）
+- 【BE-reconcile 竞态】reconcileRealJobs 加 recordIsCurrent 守卫（state.startedAt >= job.startedAt - 2s），旧记录不再把新 run 误标 completed/failed
+- 【BE-stdio 重构】spawnTrackedRun 改 openSync fd + stdio:[ignore,fd,fd] + detached:true → 子树自带 dup 描述符 + 独立会话，dev server 重启不再 EPIPE 杀死 refine（本轮实证：engine.ts 热重载把旧管道 refine 杀死一次 → 新 spawn 已验证 SESS=pgid 独立 + 日志正常追加）
+- 【BE-安全】POST /api/jogs 参数白名单（旧版任意键入库，interpreter 参数可成任意二进制执行向量）；POST /api/edges 同项目校验
+- 【FE-M1】pipeline-kpi interval deps 去对象引用（resSource?.id 原始值）→ 30s 节流恢复（旧版每个 poll tick 重建 interval 全频拉取）
+- 【FE-M2】canvas 初次取景 didInitialFit → fittedProject(按 projectId 复位)：项目切换后重新框视口（旧版停 {0,0,1} 左上角）
+- 【FE-M5】Del/Backspace 走 AlertDialog 确认（与右键菜单/编辑面板一致，含运行中停止提示）
+- 【FE-M3】store.error 现渲染为顶部 amber banner + Retry + Dismiss（旧版死字段，加载失败只见误导性空画布）
+- 【新发现-孤儿边】删除 job 后 file-layer 边残留（实测 2cfcb0 双端已删仍在 GET 返回）→ removeFileEdgesTouching(jobId) 接入 DELETE + edgesWithPorts 自愈过滤（GET 时静默清除死端点边）
+- 【杂项】死代码清理（.filter(…||true)、particle-browser 死 offset state）、pipeline-kpi failed>0 颜色分支、header GitHub 链接指向真实仓库
+- 【E2E（agent-browser 可信事件全链路）】页面渲染(11 jobs/11 edges/minimap/KPI) ✓、反向连线回归（点击 polish in → 点击 extract out → 边 extract→polish 端口归属正确）✓、minimap 拖拽导航+悬停不动 ✓、Del 确认框+Cancel 保留 ✓、孤儿边自愈 ✓、inspector（Stop 按钮在位+谱系+进度）✓、dashboard 渲染+深链回画布 ✓、右键菜单项动作执行 ✓、移动 375px 无横向滚动+FAB+palette sheet ✓、卡片拖拽持久化 ✓、console 全程零错误；测毕即关浏览器（内存纪律）
+- lint ✓ tsc ✓（examples/ 除外）；push to GitHub
+
+Stage Summary:
+- 审查产出 4 Critical 全修 + 5 Medium 修 + 1 个 E2E 中新发现的孤儿边 bug 修复；进程生命周期治理补全（防重复 spawn/杀树/断点续跑/重启免疫）是本轮最大架构级收益
+- 拖拽期间 RELION refine3d 因 engine 热重载死亡一次 → --continue 从 it10 恢复（it11 E-step 7.2/47.6min 推进中，mpirun 已独立会话免疫后续重启）
+- 【给后续 cron 轮】① refine3d 收敛后推进 maskcreate → postprocess（advance 逻辑：maskcreate 参数 ref 参考 refine3d 输出 half1、postprocess 吃 mask+half1+half2；POST /run 后 poll /api/jobs/{id}）② Stop 按钮/refine3d Stop→Re-run 断点续跑链路已可用 ③ 候选：postprocess localres 图、FSC PNG 导出、dashboard 排序收藏

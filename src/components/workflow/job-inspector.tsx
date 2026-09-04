@@ -40,6 +40,7 @@ import {
   RotateCcw,
   ScrollText,
   Search,
+  Square,
   Table2,
   Terminal,
   WrapText,
@@ -346,7 +347,7 @@ function LogConsole({ job }: { job: JobDTO }) {
         const idx = line.lastIndexOf("\r");
         return (idx >= 0 ? line.slice(idx + 1) : line).replace(/\s+$/, "");
       })
-      .filter((l) => l.length > 0 || true); // keep blank lines for grouping
+      // (blank lines kept as-is: they group RELION log sections visually)
   }, [log]);
 
   const onScroll = () => {
@@ -1206,6 +1207,7 @@ function InspectorHeader({ job }: { job: JobDTO }) {
   const running = job.status === "running";
   const focusJob = useWorkflowStore((s) => s.focusJob);
   const runJob = useWorkflowStore((s) => s.runJob);
+  const stopJob = useWorkflowStore((s) => s.stopJob);
   const resetJob = useWorkflowStore((s) => s.resetJob);
   const inspect = useWorkflowStore((s) => s.inspect);
   const select = useWorkflowStore((s) => s.select);
@@ -1299,7 +1301,29 @@ function InspectorHeader({ job }: { job: JobDTO }) {
                 Re-run
               </Button>
             </>
-          ) : null}
+          ) : (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => {
+                    setBusy(true);
+                    void stopJob(job.id).finally(() => setBusy(false));
+                  }}
+                  className="h-8 gap-1.5 border-rose-300 px-2.5 text-xs text-rose-700 hover:bg-rose-50 hover:text-rose-800 dark:border-rose-500/40 dark:text-rose-300 dark:hover:bg-rose-950/40"
+                >
+                  {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Square className="size-3.5" aria-hidden="true" />}
+                  <span className="hidden sm:inline">Stop</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                SIGTERM the process tree — refine-family jobs re-run from their
+                last checkpoint via RELION --continue
+              </TooltipContent>
+            </Tooltip>
+          )}
           {/* close — in-row X (Esc still works) */}
           <DialogClose asChild>
             <Button

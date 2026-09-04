@@ -71,6 +71,21 @@ export function removeFileEdge(id: string): void {
   writePortFile(file);
 }
 
+/**
+ * Drop every file-layer edge that references `jobId` on either end.
+ * Called when a job is deleted — the DB cascade handles the DB rows, but
+ * the sidecar file has no FK constraint and would otherwise keep orphaned
+ * edges forever (they resurface in GET /api/edges with dead endpoints).
+ */
+export function removeFileEdgesTouching(jobId: string): number {
+  const file = readPortFile();
+  const before = file.edges.length;
+  file.edges = file.edges.filter((e) => e.fromJobId !== jobId && e.toJobId !== jobId);
+  const removed = before - file.edges.length;
+  if (removed > 0) writePortFile(file);
+  return removed;
+}
+
 /** Infer ports for a legacy DB edge from the job types. */
 function inferPorts(fromType: string, toType: string): { fromPort?: string; toPort?: string } {
   return defaultPorts(fromType, toType);
@@ -91,8 +106,22 @@ export async function edgesWithPorts(projectId: string): Promise<EdgeDTO[]> {
   });
   const typeOf = new Map(jobs.map((j) => [j.id, j.type] as const));
 
-  const fileByPair = new Set(fileEdges.map((e) => `${e.fromJobId}→${e.toJobId}`));
-  const byId = new Map<string, FileEdge>(fileEdges.map((e) => [e.id, e]));
+  // self-heal: drop file edges whose endpoint jobs no longer exist
+  // (deleting a job used to leave these as orphans in the sidecar)
+  const liveEdges = fileEdges.filter(
+    (e) => typeOf.has(e.fromJobId) && typeOf.has(e.toJobId)
+  );
+  if (liveEdges.length !== fileEdges.length) {
+    const keepIds = new Set(liveEdges.map((e) => e.id));
+    const file = readPortFile();
+    file.edges = file.edges.filter(
+      (e) => keepIds.has(e.id) || e.projectId !== projectId
+    );
+    writePortFile(file);
+  }
+
+  const fileByPair = new Set(liveEdges.map((e) => `${e.fromJobId}→${e.toJobId}`));
+  const byId = new Map<string, FileEdge>(liveEdges.map((e) => [e.id, e]));
 
   const out: EdgeDTO[] = [];
   for (const e of dbEdges as Edge[]) {

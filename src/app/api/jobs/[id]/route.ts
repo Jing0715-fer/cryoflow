@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { toJobDTO } from "@/lib/seed";
 import { jobType } from "@/lib/workflow";
-import { clearRunRecord } from "@/lib/relion/engine";
+import { clearRunRecord, stopRun, isRunAlive } from "@/lib/relion/engine";
+import { removeFileEdgesTouching } from "@/lib/edge-ports";
 
 export const dynamic = "force-dynamic";
 
@@ -70,6 +71,17 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       data.progress = 0;
       data.result = null;
       data.startedAt = null;
+      // If a live process is still attached to this job (running refine,
+      // restart orphan…), kill its tree FIRST — previously the record was
+      // simply cleared, leaving an untracked mpirun writing to the workdir
+      // forever (and stacking with any later re-run → OOM).
+      try {
+        if (isRunAlive(id)) {
+          await stopRun(id);
+        }
+      } catch {
+        /* best effort — the state file is advisory */
+      }
       // discard the engine run record so a later Run starts fresh
       // (rather than resuming a leftover --continue checkpoint)
       try {
@@ -87,7 +99,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   }
 }
 
-/** DELETE /api/jobs/[id] — edges cascade via Prisma. */
+/**
+ * DELETE /api/jobs/[id] — edges cascade via Prisma. A live process tree is
+ * stopped first (the old behavior deleted the row and let the mpirun ranks
+ * keep running untracked for hours).
+ */
 export async function DELETE(_request: NextRequest, context: RouteContext) {
   try {
     const { id } = await context.params;
@@ -95,7 +111,22 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
     if (!existing) {
       return NextResponse.json({ error: "Job not found" }, { status: 404 });
     }
+    try {
+      if (isRunAlive(id)) {
+        await stopRun(id);
+      }
+      clearRunRecord(id);
+    } catch {
+      /* best effort cleanup */
+    }
     await db.job.delete({ where: { id } });
+    // the Prisma cascade removed the DB edge rows, but the sidecar file has
+    // no FK — sweep its edges too or they'd linger as orphans
+    try {
+      removeFileEdgesTouching(id);
+    } catch {
+      /* advisory layer */
+    }
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("DELETE /api/jobs/[id] failed:", error);

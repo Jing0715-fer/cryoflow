@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Boxes, FolderGit2, Plus } from "lucide-react";
+import { AlertTriangle, Boxes, FolderGit2, Plus, RefreshCw, X } from "lucide-react";
 import { useWorkflowStore } from "@/lib/store";
 import { Header } from "@/components/workflow/header";
 import { Footer } from "@/components/workflow/footer";
@@ -14,6 +14,16 @@ import { JobInspector } from "@/components/workflow/job-inspector";
 import { CommandPalette } from "@/components/workflow/command-palette";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -35,11 +45,13 @@ export default function Home() {
   const inspectId = useWorkflowStore((s) => s.inspectId);
   const select = useWorkflowStore((s) => s.select);
   const view = useWorkflowStore((s) => s.view);
+  const loadError = useWorkflowStore((s) => s.error);
   // primitive selector: polls that change nothing never re-render the shell
   const anyRunning = useWorkflowStore((s) => s.jobs.some((j) => j.status === "running"));
 
   const [mounted, setMounted] = React.useState(false);
   const [paletteOpen, setPaletteOpen] = React.useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = React.useState<string | null>(null);
   const isXl = useMediaQuery("(min-width: 1280px)");
 
   // Initial data load
@@ -152,8 +164,11 @@ export default function Home() {
         e.preventDefault();
         zoomAtCenter(1 / 1.15);
       } else if ((k === "Delete" || k === "Backspace") && s.selectedId) {
+        // destructive: route through the same confirmation the context menu
+        // and the job panel use — a stray Backspace must not cascade-delete
+        // a wired job (and its edges) with zero friction
         e.preventDefault();
-        void s.deleteJob(s.selectedId);
+        setConfirmDeleteId(s.selectedId);
       }
     };
     window.addEventListener("keydown", onKeyDown);
@@ -162,10 +177,43 @@ export default function Home() {
 
   const panelSheetOpen = mounted && !isXl && selectedId != null;
   const isDashboard = view === "dashboard";
+  const deleteTarget = useWorkflowStore((s) =>
+    confirmDeleteId ? s.jobs.find((j) => j.id === confirmDeleteId) : undefined
+  );
 
   return (
     <div className="flex h-dvh flex-col bg-background text-foreground">
       <Header />
+
+      {/* Initial-load failure banner: the canvas would otherwise show a
+          misleading "empty" state with no way back except a full reload */}
+      {loadError && (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center gap-2 border-b border-amber-300/60 bg-amber-100/80 px-4 py-2 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-950/60 dark:text-amber-200"
+        >
+          <AlertTriangle className="size-4 shrink-0" aria-hidden="true" />
+          <span className="min-w-0 flex-1 truncate font-medium">{loadError}</span>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 gap-1.5 border-amber-400/60 text-amber-900 hover:bg-amber-200/60 dark:text-amber-200 dark:hover:bg-amber-900/60"
+            onClick={() => void useWorkflowStore.getState().load()}
+          >
+            <RefreshCw className="size-3.5" aria-hidden="true" />
+            Retry
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            aria-label="Dismiss error"
+            className="size-7 text-amber-900 hover:bg-amber-200/60 dark:text-amber-200 dark:hover:bg-amber-900/60"
+            onClick={() => useWorkflowStore.setState({ error: null })}
+          >
+            <X className="size-3.5" aria-hidden="true" />
+          </Button>
+        </div>
+      )}
 
       {isDashboard ? (
         /* ---- Project dashboard view (standalone management page) ---- */
@@ -270,6 +318,39 @@ export default function Home() {
           <JobPanel />
         </SheetContent>
       </Sheet>
+
+      {/* Keyboard-delete confirmation (the context menu + job panel use the
+          same destructive-action guard) */}
+      <AlertDialog
+        open={confirmDeleteId != null}
+        onOpenChange={(open) => {
+          if (!open) setConfirmDeleteId(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {deleteTarget?.name ?? "this job"}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes the job and its connections from the workflow.
+              {deleteTarget?.status === "running" && " A running process will be stopped."}{" "}
+              This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-rose-600 text-white hover:bg-rose-700 focus-visible:ring-rose-400"
+              onClick={() => {
+                const id = confirmDeleteId;
+                setConfirmDeleteId(null);
+                if (id) void useWorkflowStore.getState().deleteJob(id);
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

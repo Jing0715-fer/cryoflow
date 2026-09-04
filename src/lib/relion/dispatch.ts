@@ -8,7 +8,7 @@ import type { Job } from "@prisma/client";
 import { db } from "@/lib/db";
 import { jobType } from "@/lib/workflow";
 import { jitteredDuration } from "@/lib/seed";
-import { parseJobParams, runRealJob, type UpstreamRef } from "./engine";
+import { parseJobParams, runRealJob, isRunAlive, type UpstreamRef } from "./engine";
 
 /** Placeholder duration for real runs (the exit handler overwrites it). */
 const REAL_DURATION_HINT = 60_000;
@@ -17,6 +17,9 @@ export interface StartOutcome {
   job: Job;
   /** Present when the real engine failed honestly at start-up. */
   error?: string;
+  /** Present when the job's process is already alive — nothing was started.
+   * The route maps this to HTTP 409 instead of failing the job. */
+  busy?: string;
 }
 
 /**
@@ -74,6 +77,15 @@ export async function startJob(job: Job, engineKind: "sim" | "relion"): Promise<
   }
 
   // ---- REAL engine -----------------------------------------------------
+  // Liveness guard: refuse to spawn a second tree for a job whose previous
+  // process is still alive (double-click Run, two tabs, or the command
+  // palette all bypass the UI's disabled button). Two mpirun trees in one
+  // workdir corrupt checkpoints and OOM this 4GB box.
+  const busy = isRunAlive(job.id);
+  if (busy) {
+    return { job, busy };
+  }
+
   // Build the FULL upstream lineage (BFS through edges, direct first) —
   // RELION GUI semantics: a job wired e.g. InitialModel → Refine3D inherits
   // its particles.star from anywhere up the chain, not just direct parents.

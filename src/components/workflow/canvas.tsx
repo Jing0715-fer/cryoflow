@@ -260,19 +260,24 @@ export function WorkflowCanvas() {
   }, [layoutEpoch, frameBounds]);
 
   // frame the workflow ONCE after the initial load (the store viewport resets
-  // on reload; without this the canvas would boot showing empty space)
-  const didInitialFit = React.useRef(false);
+  // on reload; without this the canvas would boot showing empty space) —
+  // and AGAIN whenever the active project changes: the store resets the
+  // viewport to {0,0,1} on switch, so a wide pipeline would otherwise sit
+  // top-left and out of view until the user hits zoom-to-fit
+  const fittedProject = React.useRef<string | null>(null);
+  const projectKey = jobs.length > 0 ? jobs[0].projectId : null;
   React.useEffect(() => {
-    if (didInitialFit.current || loading || jobs.length === 0) return;
+    if (loading || jobs.length === 0) return;
+    if (fittedProject.current === projectKey) return;
     const rect = rootRef.current?.getBoundingClientRect();
     if (!rect) return;
-    didInitialFit.current = true;
+    fittedProject.current = projectKey;
     const minX = Math.min(...jobs.map((j) => j.x));
     const maxX = Math.max(...jobs.map((j) => j.x + CARD_W));
     const minY = Math.min(...jobs.map((j) => j.y));
     const maxY = Math.max(...jobs.map((j) => j.y + CARD_H));
     frameBounds(rect.width, rect.height, minX, minY, maxX, maxY);
-  }, [loading, jobs, frameBounds]);
+  }, [loading, jobs, frameBounds, projectKey]);
 
   // "Ready" hint: idle job whose upstream (any incoming edge) is completed.
   const completedIds = React.useMemo(

@@ -91,6 +91,7 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
 
   return (
     <div
+      data-canvas-ui="minimap"
       className="card-lift absolute bottom-3 right-3 z-30 rounded-lg border bg-card/95 p-1.5 backdrop-blur"
       aria-label="Canvas minimap"
     >
@@ -126,6 +127,17 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
           }
         }}
         onPointerCancel={() => {
+          draggingRef.current = false;
+        }}
+        onPointerLeave={() => {
+          // capture was stolen (e.g. by an overlay) → pointerup will never
+          // fire here; without this reset a stray `true` would make every
+          // later hover drag the viewport around
+          draggingRef.current = false;
+        }}
+        onLostPointerCapture={() => {
+          // last-writer-wins: if another element took capture mid-drag,
+          // stop tracking so hover moves don't pan the canvas
           draggingRef.current = false;
         }}
       >

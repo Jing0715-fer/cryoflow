@@ -428,7 +428,7 @@ export function Header() {
           className="text-muted-foreground hover:text-foreground"
         >
           <a
-            href="https://github.com"
+            href="https://github.com/Jing0715-fer/cryoflow"
             target="_blank"
             rel="noopener noreferrer"
             aria-label="CryoFlow on GitHub (opens in a new tab)"

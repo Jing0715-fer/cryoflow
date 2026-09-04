@@ -13,6 +13,7 @@ type RouteContext = { params: Promise<{ id: string }> };
  * Real-engine projects dispatch to the RELION engine (honest failures are
  * surfaced through the job result + an {error} field with HTTP 200);
  * sim projects keep the legacy time-based simulation.
+ * A live process for this job → HTTP 409, nothing is spawned.
  */
 export async function POST(_request: NextRequest, context: RouteContext) {
   try {
@@ -24,7 +25,12 @@ export async function POST(_request: NextRequest, context: RouteContext) {
 
     const meta = getProjectMeta(existing.projectId);
     const engineKind = meta?.engine === "relion" ? "relion" : "sim";
-    const { job, error } = await startJob(existing, engineKind);
+    const { job, error, busy } = await startJob(existing, engineKind);
+
+    if (busy) {
+      // the job is already running — do NOT fail it, just refuse the spawn
+      return NextResponse.json({ job: toJobDTO(job), error: busy }, { status: 409 });
+    }
 
     return NextResponse.json({
       job: toJobDTO(job),

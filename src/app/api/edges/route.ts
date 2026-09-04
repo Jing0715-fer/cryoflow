@@ -81,6 +81,15 @@ export async function POST(request: NextRequest) {
     if (!fromJob || !toJob) {
       return NextResponse.json({ error: "Both jobs must exist" }, { status: 400 });
     }
+    // edges live inside one project — cross-project pairs would persist
+    // under fromJob.projectId while the cycle guard + uniqueness checks run
+    // across ALL projects (cross-project false positives and hidden edges)
+    if (fromJob.projectId !== toJob.projectId) {
+      return NextResponse.json(
+        { error: "Cannot connect jobs from different projects" },
+        { status: 400 }
+      );
+    }
 
     const ports =
       fromPort && toPort

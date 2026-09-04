@@ -100,28 +100,32 @@ export function PipelineKpi() {
 
   // resolution source: postprocess FSC (0.143) > refine current resolution
   const resSource = stats.post ?? stats.activeRefine;
+  const resSourceId = resSource?.id ?? null;
   const wantFsc = Boolean(stats.post);
   const [res, setRes] = useState<{ jobId: string; value: number } | null>(null);
   const isLive = Boolean(stats.runningJob) && !stats.post;
 
   useEffect(() => {
-    if (!resSource) return;
+    if (!resSourceId) return;
     let cancelled = false;
     const load = async () => {
+      // read the job through getState so the effect deps stay primitive —
+      // an object dep (stats memo) would rebuild the interval on every poll
+      // tick and re-fetch the resolution endpoint at full polling frequency
       try {
         if (wantFsc) {
-          const r = await fetch(`/api/jobs/${resSource.id}/fsc`, { cache: "no-store" });
+          const r = await fetch(`/api/jobs/${resSourceId}/fsc`, { cache: "no-store" });
           if (!r.ok) return;
           const d = (await r.json()) as FscResponse;
           if (!cancelled && d.resolutionAt143 != null) {
-            setRes({ jobId: resSource.id, value: d.resolutionAt143 });
+            setRes({ jobId: resSourceId, value: d.resolutionAt143 });
           }
         } else {
-          const r = await fetch(`/api/jobs/${resSource.id}/resolution`, { cache: "no-store" });
+          const r = await fetch(`/api/jobs/${resSourceId}/resolution`, { cache: "no-store" });
           if (!r.ok) return;
           const d = (await r.json()) as ResResponse;
           if (!cancelled && d.current != null) {
-            setRes({ jobId: resSource.id, value: d.current });
+            setRes({ jobId: resSourceId, value: d.current });
           }
         }
       } catch {
@@ -135,7 +139,7 @@ export function PipelineKpi() {
       cancelled = true;
       clearInterval(t);
     };
-  }, [resSource?.id, wantFsc, isLive, resSource]);
+  }, [resSourceId, wantFsc, isLive]);
 
   if (stats.total === 0) return null;
   // stale guard: only show the resolution of the CURRENT source job
@@ -153,7 +157,7 @@ export function PipelineKpi() {
       {/* pipeline completion */}
       <KpiItem title="Pipeline completion" className="text-xs font-semibold tabular-nums">
         <ProgressRing done={stats.completed} total={stats.total} />
-        <span className={stats.failed > 0 ? "text-foreground" : "text-foreground"}>
+        <span className={stats.failed > 0 ? "text-rose-600 dark:text-rose-400" : "text-foreground"}>
           {stats.completed}
           <span className="text-muted-foreground">/{stats.total}</span>
         </span>

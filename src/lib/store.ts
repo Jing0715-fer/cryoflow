@@ -81,6 +81,9 @@ interface WorkflowState {
   applyLayout: () => Promise<void>;
   saveJob: (id: string, patch: { name?: string; params?: Record<string, number | string | boolean> }) => Promise<void>;
   runJob: (id: string) => Promise<boolean>;
+  /** POST /stop — SIGTERM→SIGKILL the job's process tree; re-run resumes
+   *  refine-family jobs from their checkpoint via RELION --continue. */
+  stopJob: (id: string) => Promise<void>;
   resetJob: (id: string) => Promise<void>;
   deleteJob: (id: string) => Promise<void>;
   /** Clone a job (params + position offset) as a fresh idle draft. */
@@ -396,6 +399,22 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     } catch (err) {
       errToast(err instanceof Error ? err.message : "Failed to run job");
       return false;
+    }
+  },
+
+  stopJob: async (id) => {
+    try {
+      const data = await api<{ job: JobDTO; stopped: boolean; message: string }>(
+        `/api/jobs/${id}/stop`,
+        { method: "POST" }
+      );
+      set({ jobs: get().jobs.map((j) => (j.id === id ? data.job : j)) });
+      toast({
+        title: data.stopped ? "Job stopped" : "Job already idle",
+        description: data.message,
+      });
+    } catch (err) {
+      errToast(err instanceof Error ? err.message : "Failed to stop job");
     }
   },
 

@@ -56,11 +56,26 @@ export async function POST(request: NextRequest) {
     }
 
     // optional explicit params (duplication) — must be a plain object of
-    // scalars; otherwise fall back to the type defaults
-    const customParams =
-      body.params && typeof body.params === "object" && !Array.isArray(body.params)
-        ? (body.params as Record<string, number | string | boolean>)
-        : null;
+    // SCALARS restricted to the type's schema keys (the PATCH route applies
+    // the same filter; accepting arbitrary keys here used to let the
+    // `interpreter` engine param leak through — an arbitrary-binary
+    // execution vector for external job types)
+    let customParams: Record<string, number | string | boolean> | null = null;
+    if (body.params && typeof body.params === "object" && !Array.isArray(body.params)) {
+      const allowed = new Set((spec.params ?? []).map((p) => p.key));
+      if (type === "import") allowed.add("empiarData"); // engine flag, set by the EMPIAR seed
+      const incoming = body.params as Record<string, unknown>;
+      const filtered: Record<string, number | string | boolean> = {};
+      for (const [key, value] of Object.entries(incoming)) {
+        if (
+          allowed.has(key) &&
+          (typeof value === "number" || typeof value === "string" || typeof value === "boolean")
+        ) {
+          filtered[key] = value;
+        }
+      }
+      customParams = Object.keys(filtered).length > 0 ? filtered : null;
+    }
     const customName =
       typeof body.name === "string" && body.name.trim().length > 0
         ? body.name.trim().slice(0, 120)
