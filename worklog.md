@@ -587,3 +587,24 @@ Stage Summary:
 - 累计本轮 push：a17b574（FSC+KPI+目标徽章）+ 2f57715（log 搜索+files 过滤）
 - 【下一阶段】refine3d 预计还需数小时（it10-14 或提前收敛）→ advance.sh 自动启动 maskcreate（~几分钟，lowpass mask）→ postprocess（~1min，出 postprocess_fsc.fsc）→ FSC 0.143 ≤4.2 Å 判定 → KPI Trophy 徽章 → 最终 push
 - 【监控】每轮 cron：bash /home/z/empiar-10017/advance.sh（timeout 120s）→ 若 COMPLETE 解析 run.out FSC → 汇报分辨率
+
+---
+Task ID: ctf-classes-eta-2026-09-04-f
+Agent: Super Z (main loop, cron webDevReview)
+Task: QA 回归（零 bug）+ 第三批功能开发 — CTF 质量面板 / 类分布图 / 运行 ETA / 微电镜画廊；两次 OOM 灾难恢复
+
+Work Log:
+- 【QA 回归】页面 GET / 200、console 零错误、refine3d 弹窗（Log live 411 行完整 + TAIL/FULL + Overview 分辨率图 14.16→13.33 Å + FSC 0.143→9.86 Å + Timeline）全部正常
+- 【新功能1：CTF 质量面板】/api/jobs/[id]/ctf：块感知 STAR 解析器（只认拥有 DefocusU/V 列的 loop 块，optics 头行免疫——首列是数字"1"不是 optGroup*，前缀过滤失效的坑）；Å→µm 归一化（单一量级检查同时缩放 U/V/astig——astig 945Å 早期漏转的 bug）；ctf-quality-chart.tsx：KPI chips（defocus 均值/astig 上限/fit 上限）+ defocus U vs V 散点（ZAxis 点径编码 astigmatism + amber 虚线零像散对角线）+ 逐微电镜明细表（FOM 三色健康分级 emerald/amber/rose）+ 可折叠微电镜缩略图画廊（grid-cols-3/4/5 + hover 文件名渐变 + 点击 lightbox 显示 scale=large 大图 + CTF 拟合数值）。实测：10 微电镜、mean 3.03 µm、worst fit 9.2 Å、FOM 0.045-0.117
+- 【新功能2：类分布图】/api/jobs/[id]/classes：最高迭代 run_it{max}_data.star 的 _rlnClassNumber 计数；class-distribution-chart.tsx：逐类水平条（teal 渐变、best class emerald 高亮、count+pct 标注、aria progressbar）。实测：3500 粒子 8 类、class1 22.3%（与历史 VLM QA 一致）
+- 【新功能3：运行 ETA】estimateEta 重构为 localStorage 步速基线法：首见 (jobId+startedAt) 记 {p0, at}，进度增量 Δt/Δp 外推剩余——naive elapsed÷progress 对 --continue 续跑严重低估（startedAt 重置而 progress 不重置，曾显示误导性 ~29m）；无增量时诚实显示 null（显示 %）。挂载：卡片 Row3（进度条+~Xh Ym 替代纯 %）+ InspectorHeader（teal 胶囊 "~Xh Ym left" + title 说明）；useMounted hydration 安全门
+- 【修复：符号链接拒绝】outputs/file 的 realpath 逃逸校验拒绝 engine 合法符号链接（micrographs → 项目级目录省磁盘设计）→ 400 "Path escapes"。改为词法包含校验（path.resolve 后 prefix 检查；`..`/绝对路径已在前面拒绝）——穿越攻击面不变，engine 布局可用
+- 【labelColumn 三连坑】`#20` 前缀井号（Number("#20")=NaN）→ 正则 /#\s*(\d+)/ ；TS 闭包赋值窄化 never → freeze() 改返回对象；冻结时机太早（DefocusU 出现即冻结，FOM/MaxRes 列未读）→ 推迟到首个数据行
+- 【OOM 灾难×2】两次 next-server 被 OOM-kill：①热重载膨胀 2.28GB+chrome ②relion_refine_m 自身 invoke oom-killer（分配失败上下文）连带全链死亡。恢复流程：agent-browser close+pkill → setsid dev.sh 等待脚本完整跑完（工具调用内等待至 disown 完成否则收割器连带 bun dev）→ reconcile 标记 failed → POST /run --continue 断点续跑（it1-9 保留，it10 重跑）。教训强化：refine3d 运行期间浏览器用完必须立即关 + 本轮后段全程 curl-only 验证
+- lint 通过；tsc 0 错误；push 2f57715..1d66690（含中间上轮 worklog 自动提交 0b97788）
+
+Stage Summary:
+- 四个功能全部落地：CTF 质量面板（含画廊+lightbox）、类分布图、诚实 ETA、符号链接文件访问修复；前两者经浏览器 DOM 验证，画廊经 API 级验证（PNG 200/683²）
+- 管线：refine3d it10 E-step 第三次启动（~31min/iter，3 ranks ~220MB，1.65GB 可用）→ 收敛后 advance.sh 推进 maskcreate → postprocess → FSC ≤4.2 Å 判定
+- 【给后续 cron 轮】① bash advance.sh（timeout 120s）② refine3d 期间零浏览器策略（curl-only；除非绝对必要且先 free -m 确认 >1.5GB）③ 长开发轮中途重启 dev server 回收 Turbopack 膨胀（setsid dev.sh 完整等待法 + RELION 存活检查）④ engine.ts 改动后必须重启 dev server
+- 未做候选：import job 微电镜画廊（workdir 无 micrographs 副本，需要 API 改造）、画布 minimap、Ctrl+K 命令面板
