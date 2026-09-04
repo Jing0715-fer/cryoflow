@@ -65,6 +65,8 @@ import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { CheckSquare, ListFilter, Folder } from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -453,7 +455,6 @@ function ParamField({
 }) {
   const inputId = `${idPrefix}-${p.key}`;
   const wide = p.type === "select" || p.type === "bool" || p.type === "path";
-  const [browsing, setBrowsing] = React.useState(false);
 
   return (
     <div className={cn("space-y-1.5", wide && "col-span-2")}>
@@ -473,40 +474,7 @@ function ParamField({
           />
         </div>
       ) : p.type === "path" ? (
-        <>
-          <Label htmlFor={inputId} className="text-xs" title={p.hint}>
-            {p.label}
-          </Label>
-          <div className="flex gap-1.5">
-            <Input
-              id={inputId}
-              value={value === undefined || value === null ? "" : String(value)}
-              placeholder="Browse… or paste a folder path"
-              title={p.hint}
-              onChange={(e) => onChange(e.target.value)}
-              className="h-8 font-mono text-xs"
-            />
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 shrink-0 gap-1 px-2"
-              onClick={() => setBrowsing(true)}
-              aria-label={`Browse for ${p.label}`}
-              title="Browse folders on this machine (and WSL distros)"
-            >
-              <FolderOpen className="h-3.5 w-3.5" aria-hidden="true" />
-              Browse
-            </Button>
-          </div>
-          {browsing && (
-            <PathBrowserDialog
-              open={browsing}
-              onOpenChange={setBrowsing}
-              onPick={(picked) => onChange(picked)}
-              initialPath={String(value ?? "")}
-            />
-          )}
-        </>
+        <PathParamField p={p} value={value} onChange={onChange} idPrefix={idPrefix} />
       ) : p.type === "number" ? (
         <>
           <Label htmlFor={inputId} className="text-xs" title={p.hint}>
@@ -549,6 +517,118 @@ function ParamField({
             </SelectContent>
           </Select>
         </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Path-type param — one field, three RELION-import forms (like RELION's
+ * "Select files by: File name pattern / Browse"):
+ *   - a folder           → imports every image file inside it
+ *   - a wildcard pattern → /data/movies/*.tiff — expanded by the engine at
+ *                          run time (matches previewed in the browse dialog)
+ *   - a multi-file list  → newline-separated absolute paths, picked with the
+ *                          Files tab's checkboxes (accumulates across folders)
+ */
+function PathParamField({
+  p,
+  value,
+  onChange,
+  idPrefix,
+}: {
+  p: ParamSchema;
+  value: ParamValue;
+  onChange: (v: ParamValue) => void;
+  idPrefix: string;
+}) {
+  const inputId = `${idPrefix}-${p.key}`;
+  const [browsing, setBrowsing] = React.useState(false);
+  const raw = value === undefined || value === null ? "" : String(value);
+  const trimmed = raw.trim();
+  const lines = trimmed ? trimmed.split(/\r?\n/).map((s) => s.trim()).filter(Boolean) : [];
+  const isPattern = lines.length === 1 && /[*?]/.test(lines[0]);
+  const isFileList = lines.length > 1;
+
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={inputId} className="text-xs" title={p.hint}>
+        {p.label}
+      </Label>
+      <div className="flex items-start gap-1.5">
+        {isFileList ? (
+          <Textarea
+            id={inputId}
+            value={raw}
+            title={p.hint}
+            onChange={(e) => onChange(e.target.value)}
+            rows={Math.min(4, Math.max(2, lines.length))}
+            placeholder={"One file path per line…"}
+            className="min-h-8 resize-y font-mono text-xs"
+            aria-label={`${p.label} — ${lines.length} files`}
+          />
+        ) : (
+          <Input
+            id={inputId}
+            value={raw}
+            placeholder="Folder, wildcard (…/*.tiff), or paste file paths"
+            title={p.hint}
+            onChange={(e) => onChange(e.target.value)}
+            className="h-8 font-mono text-xs"
+          />
+        )}
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 shrink-0 gap-1 px-2"
+          onClick={() => setBrowsing(true)}
+          aria-label={`Browse for ${p.label}`}
+          title="Browse folders, multi-select files, or preview a wildcard pattern"
+        >
+          <FolderOpen className="h-3.5 w-3.5" aria-hidden="true" />
+          Browse
+        </Button>
+      </div>
+      {browsing && (
+        <PathBrowserDialog
+          open={browsing}
+          onOpenChange={setBrowsing}
+          onPick={(picked) => onChange(picked)}
+          initialPath={raw}
+          initialMode={p.filePick ? "files" : "folder"}
+        />
+      )}
+      {trimmed && (
+        <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+          {isPattern ? (
+            <>
+              <ListFilter className="h-3 w-3 text-primary" aria-hidden="true" />
+              <span className="font-medium text-primary">Wildcard pattern</span>
+              <span aria-hidden="true">·</span>
+              <span>expanded at import — every matched .mrc/.mrcs/.tif/.eer</span>
+            </>
+          ) : isFileList ? (
+            <>
+              <CheckSquare className="h-3 w-3 text-primary" aria-hidden="true" />
+              <span className="font-medium text-primary">{lines.length} files selected</span>
+              <span aria-hidden="true">·</span>
+              <span>imported exactly as listed</span>
+            </>
+          ) : (
+            <>
+              <Folder className="h-3 w-3 text-amber-500/80" aria-hidden="true" />
+              <span>Folder — imports every image inside</span>
+            </>
+          )}
+          <button
+            type="button"
+            className="ml-auto rounded px-1 text-[10px] text-muted-foreground transition-colors hover:text-destructive"
+            onClick={() => onChange("")}
+            aria-label={`Clear ${p.label}`}
+          >
+            clear
+          </button>
+        </div>
       )}
     </div>
   );

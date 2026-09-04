@@ -19,6 +19,7 @@ import {
   appendFileSync,
   closeSync,
   existsSync,
+  linkSync,
   mkdirSync,
   openSync,
   readdirSync,
@@ -35,6 +36,7 @@ import type { Job } from "@prisma/client";
 import { db } from "@/lib/db";
 import { DATA_DIR } from "@/lib/paths";
 import { detectRelion } from "./system";
+import { MIC_RE, expandPattern, hasWildcard, userPathToHost } from "./glob";
 import {
   bridgeFromStatus,
   hostToWsl,
@@ -51,7 +53,7 @@ import {
 const STATE_FILE = path.join(DATA_DIR, "engine-state.json");
 const RELION_ROOT = path.join(DATA_DIR, "relion");
 /** Sandbox-only demo source (EMPIAR seed); user machines use the import
- * job's micrographsPath param (folder browser) instead. */
+ * job's micrographsPath param (folder / wildcard pattern / file list) instead. */
 const EMPIAR_DIR = "/home/z/empiar-10017/micrographs";
 const MPICH_BIN = "/home/z/relion-build/deps/mpich/bin";
 const MPICH_LIB = "/home/z/relion-build/deps/mpich/lib";
@@ -408,21 +410,99 @@ function linkDirInto(target: string, linkPath: string): boolean {
 }
 
 /**
- * Normalize a user-provided import folder to a path THIS Node process can
- * readdir: /mnt/c/… → C:\… (Windows host); other POSIX paths on a Windows
- * host become \\wsl.localhost\<distro>\… UNC when a distro is known.
+ * De-duplicate a STAR entry name for file-set imports. Collisions get the
+ * parent folder as a prefix (MovieDir__frame.mrc), then -2, -3… suffixes.
  */
-function importDirToHost(raw: string, bridge: WslBridge | null): string {
-  let p = raw.trim();
-  if (process.platform === "win32" || bridge) {
-    const mnt = p.match(/^\/mnt\/([A-Za-z])\/(.*)$/);
-    if (mnt) {
-      p = `${mnt[1].toUpperCase()}:\\${mnt[2].replace(/\//g, "\\")}`;
-    } else if (p.startsWith("/") && bridge?.distro && !existsSync(p)) {
-      p = `\\\\wsl.localhost\\${bridge.distro}\\${p.slice(1).replace(/\//g, "\\")}`;
+function uniqueStarName(file: string, used: Set<string>): string {
+  let name = path.basename(file);
+  if (used.has(name)) {
+    const ext = path.extname(name);
+    const stem = name.slice(0, name.length - ext.length);
+    const parent = path.basename(path.dirname(file)) || "src";
+    name = `${parent}__${stem}${ext}`;
+    let i = 2;
+    while (used.has(name)) {
+      name = `${parent}__${stem}-${i}${ext}`;
+      i += 1;
     }
   }
-  return p;
+  used.add(name);
+  return name;
+}
+
+/**
+ * Import a SET of files (multi-select / wildcard pattern / single file):
+ * create a real "micrographs" directory in the project tree and link every
+ * file into it — hardlink first (no data duplication, works on POSIX and
+ * NTFS), then a file symlink, then absolute STAR paths as honest fallback
+ * (translated to WSL-side paths when the bridge is active).
+ * Returns the STAR entries + how many files could NOT be linked.
+ */
+function importFileSet(
+  hostFiles: string[],
+  projectDir: string,
+  workdir: string,
+  bridge: WslBridge | null
+): { entries: string[]; unlinked: number } {
+  const projectMic = path.join(projectDir, "micrographs");
+  const workdirMic = path.join(workdir, "micrographs");
+  // fresh real dir — removes a previous import's symlink/junction (the link
+  // only, never the target data) or an older file-set's hardlinks
+  for (const stale of [workdirMic, projectMic]) {
+    try {
+      rmSync(stale, { force: true, recursive: true });
+    } catch {
+      /* non-fatal: linkDirInto below re-points what it can */
+    }
+  }
+  mkdirSync(projectMic, { recursive: true });
+
+  const used = new Set<string>();
+  const entries: string[] = [];
+  let unlinked = 0;
+  for (const f of hostFiles) {
+    const name = uniqueStarName(f, used);
+    const target = path.join(projectMic, name);
+    let linked = false;
+    try {
+      linkSync(f, target); // hardlink — same filesystem only
+      linked = true;
+    } catch {
+      try {
+        symlinkSync(f, target, "file");
+        linked = true;
+      } catch {
+        linked = false; // cross-volume + no symlink rights → absolute path
+      }
+    }
+    if (linked) {
+      entries.push(`micrographs/${name}`);
+    } else {
+      unlinked += 1;
+      entries.push(bridge ? hostToWsl(f) : f);
+    }
+  }
+  // expose the set inside the import job's workdir (Files tab + gallery)
+  if (!linkDirInto(projectMic, workdirMic)) {
+    // junction failed — link each file directly into the workdir instead
+    for (const e of entries) {
+      if (!e.startsWith("micrographs/")) continue;
+      const src = path.join(projectMic, e.slice("micrographs/".length));
+      const dst = path.join(workdirMic, e.slice("micrographs/".length));
+      try {
+        mkdirSync(path.dirname(dst), { recursive: true });
+        linkSync(src, dst);
+      } catch {
+        try {
+          mkdirSync(path.dirname(dst), { recursive: true });
+          symlinkSync(src, dst, "file");
+        } catch {
+          /* gallery preview lost for this file — import still works */
+        }
+      }
+    }
+  }
+  return { entries, unlinked };
 }
 
 /* ------------------------------------------------------------------ */
@@ -792,7 +872,7 @@ async function runImportNative(job: EngineJobRef): Promise<NativeResult> {
   ];
 
   let result: string;
-  let sourceLabel = "source: (none configured)";
+  let sourceLabel = "";
   if (empiar) {
     const mrcs = existsSync(EMPIAR_DIR)
       ? readdirSync(EMPIAR_DIR)
@@ -815,54 +895,145 @@ async function runImportNative(job: EngineJobRef): Promise<NativeResult> {
     result = `${mrcs.length} micrographs imported · EMPIAR-10017 (pixel ${pixel} Å)`;
     sourceLabel = `source: EMPIAR-10017 ${EMPIAR_DIR}`;
   } else {
-    // ---- user-selected folder (params tab → "Browse…") --------------------
+    // ---- user-selected source — RELION "Select files by" forms ----------
+    // micrographsPath accepts THREE shapes (exactly one param):
+    //   1. a folder            → import every image inside it
+    //   2. a wildcard pattern  → /data/movies/*.tiff — expanded here
+    //   3. file paths          → newline-separated multi-select list
     const customRaw = String(job.params.micrographsPath ?? "").trim();
     if (customRaw) {
       const status = await detectRelion();
       const bridge = bridgeFromStatus(status);
-      const hostDir = importDirToHost(customRaw, bridge);
-      let stat: { isDirectory: boolean } | null = null;
-      try {
-        stat = { isDirectory: statSync(hostDir).isDirectory() };
-      } catch {
-        stat = null;
-      }
-      if (!stat || !stat.isDirectory) {
-        return {
-          ok: false,
-          error: `Micrographs folder not accessible: ${customRaw} — re-pick it in the params tab (Browse…)`,
-        };
-      }
-      const mrcs = readdirSync(hostDir)
-        .filter((f) => /\.(mrc|mrcs|tif|tiff)$/i.test(f))
-        .sort();
-      if (mrcs.length === 0) {
-        return {
-          ok: false,
-          error: `No .mrc/.mrcs/.tif micrographs found in ${customRaw}`,
-        };
-      }
-      // Junction/symlink so STAR paths stay project-relative ("micrographs/…")
-      // — identical to the EMPIAR flow, and the link is transparent both to
-      // Node (gallery previews) and to WSL (drvfs follows junctions).
-      const linked =
-        linkDirInto(hostDir, path.join(projectDir, "micrographs")) &&
-        linkDirInto(hostDir, path.join(workdir, "micrographs"));
-      if (linked) {
-        for (const m of mrcs) lines.push(`micrographs/${m} 1`);
+      const toHost = (p: string) => userPathToHost(p, bridge?.distro ?? null);
+
+      const listed = customRaw.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+      const multiFile = listed.length > 1;
+      const single = listed[0] ?? "";
+      const isPattern = !multiFile && hasWildcard(single);
+
+      let hostFiles: string[] = [];
+      let skipped = 0; // non-image files filtered out of an explicit set
+
+      if (multiFile) {
+        // ---- 3. explicit multi-select file list ---------------------------
+        for (const line of listed) {
+          const host = toHost(line);
+          try {
+            if (!statSync(host).isFile()) {
+              return {
+                ok: false,
+                error: `Not a file: ${line} — re-pick the micrographs in the params tab (Browse → Files)`,
+              };
+            }
+          } catch {
+            return {
+              ok: false,
+              error: `File not accessible: ${line} — re-pick the micrographs in the params tab (Browse → Files)`,
+            };
+          }
+          if (MIC_RE.test(path.basename(host))) hostFiles.push(host);
+          else skipped += 1;
+        }
+      } else if (isPattern) {
+        // ---- 2. wildcard pattern (RELION "File name pattern") -------------
+        const expanded = expandPattern(single, toHost);
+        if ("error" in expanded) {
+          return { ok: false, error: `${expanded.error} — check the pattern in the params tab` };
+        }
+        for (const f of expanded.files) {
+          if (MIC_RE.test(path.basename(f))) hostFiles.push(f);
+          else skipped += 1;
+        }
+        if (expanded.total > expanded.files.length) {
+          sourceLabel = `source: pattern ${single} (${expanded.total} matches, first ${expanded.files.length} imported)`;
+        }
       } else {
-        // no link possible (e.g. junction to a UNC \\wsl.localhost target) —
-        // absolute paths: RELION opens them as-is; on a Windows host with the
-        // bridge they are translated to WSL-side /… paths.
-        for (const m of mrcs) {
-          const abs = path.join(hostDir, m);
-          lines.push(`${bridge ? hostToWsl(abs) : abs} 1`);
+        // ---- 1. folder (or a single pasted file) --------------------------
+        const hostDir = toHost(single);
+        let st: { isDirectory: boolean; isFile: boolean } | null = null;
+        try {
+          const s = statSync(hostDir);
+          st = { isDirectory: s.isDirectory(), isFile: s.isFile() };
+        } catch {
+          st = null;
+        }
+        if (!st) {
+          return {
+            ok: false,
+            error: `Micrographs folder not accessible: ${customRaw} — re-pick it in the params tab (Browse…)`,
+          };
+        }
+        if (st.isDirectory) {
+          const mrcs = readdirSync(hostDir)
+            .filter((f) => MIC_RE.test(f))
+            .sort();
+          if (mrcs.length === 0) {
+            return {
+              ok: false,
+              error: `No .mrc/.mrcs/.tif/.eer micrographs found in ${customRaw}`,
+            };
+          }
+          hostFiles = mrcs.map((m) => path.join(hostDir, m));
+        } else {
+          if (!MIC_RE.test(path.basename(hostDir))) {
+            return {
+              ok: false,
+              error: `Not a micrograph file (.mrc/.mrcs/.tif/.tiff/.eer): ${customRaw}`,
+            };
+          }
+          hostFiles = [hostDir];
         }
       }
-      result = `${mrcs.length} micrographs imported (pixel ${pixel} Å)`;
-      sourceLabel = `source: ${customRaw}${linked ? "" : " (absolute paths)"}`;
+
+      if (hostFiles.length === 0) {
+        return {
+          ok: false,
+          error: multiFile
+            ? `No image files (.mrc/.mrcs/.tif/.tiff/.eer) among the ${listed.length} selected paths`
+            : `No image files (.mrc/.mrcs/.tif/.tiff/.eer) match the pattern ${single}`,
+        };
+      }
+
+      let unlinked = 0;
+      if (!multiFile && !isPattern) {
+        // folder import — link the WHOLE directory (one junction/symlink,
+        // star stays project-relative; transparent to WSL drvfs too)
+        const hostDir = toHost(single);
+        const linked =
+          linkDirInto(hostDir, path.join(projectDir, "micrographs")) &&
+          linkDirInto(hostDir, path.join(workdir, "micrographs"));
+        if (linked) {
+          for (const f of hostFiles) lines.push(`micrographs/${path.basename(f)} 1`);
+        } else {
+          // no link possible (e.g. junction to a UNC \\wsl.localhost target) —
+          // absolute paths: RELION opens them as-is; on a Windows host with the
+          // bridge they are translated to WSL-side /… paths.
+          for (const f of hostFiles) {
+            lines.push(`${bridge ? hostToWsl(f) : f} 1`);
+            unlinked += 1;
+          }
+        }
+      } else {
+        // pattern / file-list — link the FILES into a real project dir
+        const r = importFileSet(hostFiles, projectDir, workdir, bridge);
+        for (const e of r.entries) lines.push(`${e} 1`);
+        unlinked = r.unlinked;
+      }
+
+      const skipNote = skipped > 0 ? ` · ${skipped} non-image file${skipped === 1 ? "" : "s"} skipped` : "";
+      const linkNote = unlinked > 0 ? " (absolute paths)" : "";
+      const kindNote = isPattern ? " · pattern" : multiFile ? " · file list" : "";
+      result = `${hostFiles.length} micrographs imported${kindNote}${skipNote} (pixel ${pixel} Å)`;
+      if (!sourceLabel) {
+        sourceLabel =
+          "source: " +
+          (isPattern ? "pattern " : multiFile ? `${listed.length} selected files — ` : "") +
+          customRaw.slice(0, 200) +
+          linkNote;
+      }
     } else {
-      result = "Import job completed (no source data configured — pick a micrographs folder in the params tab)";
+      result = "Import job completed (no source data configured — pick a micrographs folder, pattern or files in the params tab)";
+      sourceLabel = "source: (none configured)";
     }
   }
 

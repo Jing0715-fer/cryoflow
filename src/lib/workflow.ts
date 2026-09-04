@@ -263,9 +263,10 @@ export const JOB_TYPES: JobTypeSpec[] = [
     "Ingest movies or micrograph metadata into the project as a RELION 5 optics-group STAR file.",
     2000,
     [
-      pth("micrographsPath", "Micrographs folder", {
-        hint: "Browse… to the folder with your micrographs (.mrc/.mrcs/.tif) — works for local drives and WSL folders; also paste a path (/mnt/c/… or C:\\…)",
+      pth("micrographsPath", "Micrographs — folder, pattern or files", {
+        hint: "RELION-style: pick a folder (imports every image), a wildcard pattern (/data/movies/*.tiff — * and ? allowed), or Browse → Files to multi-select individual files. Local drives and WSL paths both work (/mnt/c/… or C:\\…).",
         tab: "Movies/mics",
+        filePick: true,
       }),
       num("pixelSize", "Pixel size", 1.77, { unit: "Å", min: 0.1, step: 0.01, tab: "Movies/mics" }),
       num("voltage", "Voltage", 300, { unit: "kV", tab: "Movies/mics" }),

@@ -931,3 +931,23 @@ Stage Summary:
 - 【未验证项】wsl.exe 真实调用只能在用户 Windows 机器上发生（沙盒无 wsl）——翻译/包装逻辑 31 断言离线验证过，真实环境若出问题 run.err 会记录 bash 侧报错（诚实诊断）
 - 【给用户】本机使用：git pull → bun install → bun run dev → 顶栏 Re-detect 确认绿 chip → Import 作业 Params→Browse 选微图文件夹（WSL 里的文件夹走 \\\\wsl.localhost\\Debian 根）→ Run；CTF 作业需 distro 内有 ctffind（探针会显示）
 - 【给后续 cron 轮】管线推进同前（empiar-seed 流程未动）；scripts/diag-wsl-bridge.ts 可复跑；沙盒 empiarData 流程回归点已覆盖
+
+---
+Task ID: import-files-wildcard-2026-09-05
+Agent: main (Z.ai Code, user request: import 目前只能选文件夹，需要选文件、支持 * 导入多个文件，和 RELION/cryoSPARC 实际使用一样)
+Task: Import 作业支持三种 RELION 式源形态：文件夹 / 通配符模式（* 与 ?）/ 多选文件列表 — 含浏览对话框文件多选、模式预览、引擎展开与硬链接落盘
+
+Work Log:
+- 【新模块 src/lib/relion/glob.ts】RELION "File name pattern" 式通配符展开（共享于引擎与 browse API）：`*`/`?` 逐段匹配（不跨分隔符）、静态前缀定位 baseDir、中间段只匹配目录/末段只匹配文件、win32+UNC+盘符路径大小写不敏感、POSIX 绝对路径修复（前导 / 曾丢）、MATCH_CAP=4000、MIC_RE（mrc/mrcs/tif/tiff/eer）与 countImages 导出；userPathToHost（/mnt/c→C:\、distro 路径→\\wsl.localhost UNC，替代 engine 私有 importDirToHost）
+- 【/api/fs/browse】path 含 * / ? 时走 pattern 预览分支：expandPattern → 400 条预览 entries（rel 名 + abs + img + size）+ totalMatched + micrographs 计数 + parent=baseDir（Up 一层退回目录视图）；普通目录列表的文件条目也补 abs（多选统一键）
+- 【PathBrowserDialog 重构】①Folders | Files & pattern 双 tab（RELION "Select files by" 对应物，pattern 列表强制 files 态）②Files tab：文件行 checkbox 多选（Set<abs> 跨文件夹累积）、文件夹行仍可导航、"Select all images (N)"、N files selected 计数 + Clear、底部 "Import N files" ③pattern 预览态：蓝色路径条 + "N images match the pattern" + "Use this pattern"（把模式本身写回字段，引擎运行时展开）+ 400 截断提示语（导入取全部匹配）④重开对话框时从多行 initialPath 恢复上次勾选并跳到首文件目录 ⑤手输含通配符自动切 Files tab
+- 【job-panel PathParamField（新组件）】多行值→Textarea（行数自适应 ≤4）单行→Input；下方形态 chip：Wildcard pattern（"expanded at import"）/ N files selected（"imported exactly as listed"）/ Folder + clear 按钮；Browse 以 p.filePick ? files : folder 为初始 tab
+- 【schema】types.ts ParamSchema.filePick；workflow.ts import 参数改 "Micrographs — folder, pattern or files" + RELION 式 hint（pattern 例子、/mnt/c 与 C:\ 双形态）
+- 【engine runImportNative】micrographsPath 三形态判定（>1 行=文件列表 / 含通配符=模式 / 目录=文件夹 / 单文件=列表特例）：①列表逐行 stat 校验（非文件/不可达诚实报错）+ MIC_RE 过滤（非图像计入 skipped 并写进 result）②模式 expandPattern（4096 上限，超限在 sourceLabel 说明）③文件夹回归保持整目录 junction/symlink ④新 importFileSet：projectDir/micrographs 建**真实目录**，逐文件 linkSync 硬链接（同盘零拷贝）→ 文件 symlink → 绝对路径（bridge 时 hostToWsl 翻译）三级回退；同名冲突 parent__stem（-2 -3 …）去重；workdir/micrographs 镜像 linkDirInto，失败则逐文件链接兜底；rmSync 陈旧链接只删链不删数据 ⑤folder 过滤补 .eer ⑥修掉 sourceLabel 死代码 bug
+- 【验证】引擎 API 级：pattern `Falcon_*.mrc`→"10 micrographs imported · pattern"（star 全项目相对 micrographs/<name>、硬链接 inode 300854 与源相同、workdir symlink 镜像 ✓）；2 图+1 coord 列表→"2 · file list · 1 non-image skipped"；坏模式/非图像单文件→诚实 failed；文件夹回归 10 张 ✓。agent-browser E2E：Params 新 label/hint/chip 渲染 ✓、Browse 默认 Files tab ✓、勾选 3 文件→"3 files selected"→Import 3 files→字段 3 行 + chip ✓、重开恢复勾选 ✓、手输 pattern→预览 10 matches→"Use this pattern"→字段 + Wildcard chip ✓、Save→Run→"3 micrographs imported · file list" 与 "10 … · pattern" 两轮 ✓、gallery 缩略图从硬链接渲染 ✓、console 零错误 ✓、VLM 两屏审查无布局缺陷 ✓
+- 【清理】QA 项目（Import QA — pattern/files）+ data/relion 目录删除、活动项目还原 demo（3 jobs）、agent-browser close；lint 0 错误、tsc src/ 0 错误
+
+Stage Summary:
+- 用户需求闭环：Import 不再只能选文件夹——①对话框文件多选（跨文件夹累积、Select all images）②`*`/`?` 通配符模式（字段直填 / 对话框预览匹配数 + Use this pattern）③文件夹模式保留 — 与 RELION Import（select_by: File name pattern / Browse）和 cryoSPARC 多选导入对齐
+- 架构要点：三种形态收敛进单个 micrographsPath 字符串参数（文件夹 | 模式 | 换行分隔文件列表）；文件集用硬链接进真实 projectDir/micrographs（零拷贝、inode 级验证）、star 恒项目相对、WSL 桥接路径翻译复用 userPathToHost
+- 【给后续 cron 轮】①EMPIAR 主线管线重跑（DB 重置后仍未跑）②pattern 跨多目录（Movies/*/Images/*.mrc）真实数据集验证可在用户机器上做 ③候选增强：import 预览 API（运行前展开计数显示在面板）、eer 电影帧处理

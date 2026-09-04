@@ -4,18 +4,21 @@ import path from "path";
 import os from "os";
 import { detectRelion } from "@/lib/relion/system";
 import { PROJECT_ROOT } from "@/lib/paths";
+import { countImages, expandPattern, hasWildcard, userPathToHost } from "@/lib/relion/glob";
 
 export const dynamic = "force-dynamic";
 
 /**
  * GET /api/fs/browse?path=<encoded>
  *
- * Read-only directory listing for the import-folder browser (the RELION GUI
+ * Read-only directory listing for the import browser (the RELION GUI
  * equivalent of "Browse…"). Runs on the machine hosting this app, so it can
  * see local drives, POSIX mounts AND WSL distros (\\wsl.localhost\<distro>).
  *
- *  - path empty   → root picker (drives on Windows, / + WSL distros) + quick jumps
- *  - path <dir>   → { entries, parent, micrographCount } (capped at 400 entries)
+ *  - path empty          → root picker (drives on Windows, / + WSL distros) + quick jumps
+ *  - path with * / ?     → WILDCARD PATTERN preview (RELION import style): matched
+ *                          files listed with img flags + total match count
+ *  - path <dir>          → { entries, parent, micrographs } (capped at 400 entries)
  *
  * Safety: listing only — never writes, never follows into file contents.
  */
@@ -29,6 +32,8 @@ interface Entry {
   size?: number;
   /** micrograph/movie image file (mrc/mrcs/tif/tiff/eer) */
   img?: boolean;
+  /** absolute host path (files only) — used by the multi-select picker */
+  abs?: string;
 }
 
 function statEntry(parent: string, name: string): Entry | null {
@@ -101,6 +106,43 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ ok: true, path: "", parent: null, entries: [], roots, quick: quickJumps() });
     }
 
+    // ---- wildcard pattern preview (RELION "File name pattern" mode) --------
+    if (hasWildcard(raw)) {
+      const status = await detectRelion();
+      const distro = status.wsl.distro ?? null;
+      const r = expandPattern(raw, (p) => userPathToHost(p, distro), MAX_ENTRIES);
+      if ("error" in r) {
+        return NextResponse.json({ ok: false, error: r.error }, { status: 400 });
+      }
+      const entries: Entry[] = r.files.map((f) => {
+        let size: number | undefined;
+        try {
+          size = statSync(f).size;
+        } catch {
+          /* raced away */
+        }
+        return {
+          name: path.relative(r.baseDir, f).split(path.sep).join("/") || path.basename(f),
+          dir: false,
+          size,
+          img: MIC_RE.test(path.basename(f)),
+          abs: f,
+        };
+      });
+      return NextResponse.json({
+        ok: true,
+        path: raw,
+        pattern: true,
+        baseDir: r.baseDir,
+        parent: r.baseDir,
+        entries,
+        truncated: r.total > r.files.length,
+        micrographs: countImages(r.files),
+        totalMatched: r.total,
+        quick: quickJumps(),
+      });
+    }
+
     // ---- directory listing -----------------------------------------------
     let dir: string;
     try {
@@ -136,6 +178,7 @@ export async function GET(request: NextRequest) {
       const e = statEntry(dir, name);
       if (!e) continue;
       if (e.img) micrographs += 1;
+      if (!e.dir) e.abs = path.join(dir, name);
       entries.push(e);
     }
     // directories first, then files — both alphabetical

@@ -110,6 +110,12 @@ export interface ParamSchema {
    * exactly like RELION's "expert" flag in the GUI job windows.
    */
   advanced?: boolean;
+  /**
+   * Path params with filePick open the browser dialog on the "Files &
+   * pattern" tab by default (multi-select + wildcard preview) instead of the
+   * folder tab — RELION Import style.
+   */
+  filePick?: boolean;
 }
 
 /* ------------------------------------------------------------------ */
