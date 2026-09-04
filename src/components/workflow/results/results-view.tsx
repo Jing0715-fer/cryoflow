@@ -25,6 +25,7 @@ import {
   RefreshCw,
   ScrollText,
   Table2,
+  ZoomIn,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -518,6 +519,14 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
 /* Gallery                                                             */
 /* ------------------------------------------------------------------ */
 
+/** run_it025_… → 25; final artifacts (no it-prefix) → null. */
+function iterOfName(name: string): number | null {
+  const m = name.match(/^run_it(\d+)_/i);
+  return m ? Number(m[1]) : null;
+}
+
+type IterFilter = "final" | "all" | number;
+
 function MrcGallery({
   job,
   files,
@@ -527,49 +536,134 @@ function MrcGallery({
   files: OutputFile[];
   onOpen: (file: OutputFile) => void;
 }) {
-  // max RELION iteration present — those files get the "final" chip
-  const maxIter = files.reduce((m, f) => {
-    const it = f.name.match(/^run_it(\d+)_/i);
-    return it ? Math.max(m, Number(it[1])) : m;
-  }, -1);
+  // iterations present on disk, newest first
+  const iters = useMemo(() => {
+    const set = new Set<number>();
+    for (const f of files) {
+      const it = iterOfName(f.name);
+      if (it != null) set.add(it);
+    }
+    return [...set].sort((a, b) => b - a);
+  }, [files]);
+  const maxIter = iters.length > 0 ? iters[0] : -1;
+
+  // default: final round only (+ non-iteration final artifacts)
+  const [filter, setFilter] = useState<IterFilter>("final");
+
+  const shown = useMemo(() => {
+    if (filter === "all") return files;
+    if (filter === "final") {
+      // newest iteration + final artifacts without an iteration prefix
+      return files.filter((f) => {
+        const it = iterOfName(f.name);
+        return it == null || it === maxIter;
+      });
+    }
+    return files.filter((f) => iterOfName(f.name) === filter);
+  }, [files, filter, maxIter]);
+
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-      {files.map((f) => {
-        const it = f.name.match(/^run_it(\d+)_/i);
-        const isFinal = it != null && Number(it[1]) === maxIter;
-        return (
+    <div>
+      {/* iteration filter chips */}
+      {iters.length > 1 || (iters.length === 1 && files.length > iters.length) ? (
+        <div className="mb-2.5 flex flex-wrap items-center gap-1.5">
+          <span className="mr-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Round
+          </span>
           <button
-            key={f.path}
             type="button"
-            onClick={() => onOpen(f)}
-            className="group relative rounded-lg border p-2 text-left transition-all hover:border-teal-600/40 hover:shadow-sm"
-            aria-label={`Open ${f.label ?? f.name}`}
-          >
-            {isFinal && (
-              <span className="absolute right-2.5 top-2.5 z-10 rounded-full bg-teal-600 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white shadow-sm">
-                final
-              </span>
+            aria-pressed={filter === "final"}
+            onClick={() => setFilter("final")}
+            className={cn(
+              "rounded-full border px-2.5 py-1 text-[11px] font-semibold tabular-nums transition-colors",
+              filter === "final"
+                ? "border-teal-600 bg-teal-600 text-white shadow-sm"
+                : "border-border bg-background text-muted-foreground hover:border-teal-600/40 hover:text-foreground"
             )}
-            <MrcImage
-              src={
-                f.name.toLowerCase().endsWith(".mrcs")
-                  ? fileUrl(job.id, f, "&format=png&montage=16")
-                  : fileUrl(job.id, f, "&format=png")
-              }
-              alt={f.label ?? f.name}
-              className="aspect-square"
-            />
-            <p className="mt-1.5 truncate text-[11px] font-medium text-foreground/85" title={f.label ?? f.name}>
-              {f.label ?? f.name}
-            </p>
-            <p className="text-[10px] text-muted-foreground">
-              {f.name.toLowerCase().endsWith(".mrcs")
-                ? `${f.slices ?? "?"} images · ${formatBytes(f.size)}`
-                : `${f.slices ?? 1}×${f.slices ?? 1}×${f.slices ?? 1} · ${formatBytes(f.size)}`}
-            </p>
+          >
+            final{maxIter >= 0 ? ` · it${String(maxIter).padStart(3, "0")}` : ""}
           </button>
-        );
-      })}
+          {iters.map((it) => (
+            <button
+              key={it}
+              type="button"
+              aria-pressed={filter === it}
+              onClick={() => setFilter(it)}
+              className={cn(
+                "rounded-full border px-2.5 py-1 font-mono text-[11px] font-semibold tabular-nums transition-colors",
+                filter === it
+                  ? "border-teal-600 bg-teal-600 text-white shadow-sm"
+                  : "border-border bg-background text-muted-foreground hover:border-teal-600/40 hover:text-foreground"
+              )}
+            >
+              it{String(it).padStart(3, "0")}
+            </button>
+          ))}
+          <button
+            type="button"
+            aria-pressed={filter === "all"}
+            onClick={() => setFilter("all")}
+            className={cn(
+              "rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-colors",
+              filter === "all"
+                ? "border-teal-600 bg-teal-600 text-white shadow-sm"
+                : "border-border bg-background text-muted-foreground hover:border-teal-600/40 hover:text-foreground"
+            )}
+          >
+            all {files.length}
+          </button>
+          <span className="ml-auto text-[10px] text-muted-foreground">
+            {shown.length} of {files.length} shown
+          </span>
+        </div>
+      ) : null}
+
+      {/* compact thumbnail grid — click any tile to enlarge */}
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
+        {shown.map((f) => {
+          const it = iterOfName(f.name);
+          const isFinal = it != null && it === maxIter;
+          return (
+            <button
+              key={f.path}
+              type="button"
+              onClick={() => onOpen(f)}
+              className="group relative rounded-lg border p-1.5 text-left transition-all hover:border-teal-600/50 hover:shadow-sm"
+              aria-label={`Enlarge ${f.label ?? f.name}`}
+              title={`Click to enlarge — ${f.label ?? f.name}`}
+            >
+              {isFinal && (
+                <span className="absolute right-2 top-2 z-10 rounded-full bg-teal-600 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white shadow-sm">
+                  final
+                </span>
+              )}
+              <div className="relative">
+                {/* hover zoom affordance over the image itself */}
+                <span className="pointer-events-none absolute bottom-1.5 right-1.5 z-10 flex size-6 items-center justify-center rounded-full bg-zinc-950/80 text-white opacity-0 shadow-sm backdrop-blur-sm transition-opacity duration-150 group-hover:opacity-100">
+                  <ZoomIn className="size-3.5" aria-hidden="true" />
+                </span>
+                <MrcImage
+                  src={
+                    f.name.toLowerCase().endsWith(".mrcs")
+                      ? fileUrl(job.id, f, "&format=png&montage=16")
+                      : fileUrl(job.id, f, "&format=png")
+                  }
+                  alt={f.label ?? f.name}
+                  className="aspect-square"
+                />
+              </div>
+              <p className="mt-1 truncate text-[10px] font-medium text-foreground/85" title={f.label ?? f.name}>
+                {f.label ?? f.name}
+              </p>
+              <p className="truncate text-[9px] text-muted-foreground">
+                {f.name.toLowerCase().endsWith(".mrcs")
+                  ? `${f.slices ?? "?"} imgs · ${formatBytes(f.size)}`
+                  : `${f.slices ?? 1}³ · ${formatBytes(f.size)}`}
+              </p>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

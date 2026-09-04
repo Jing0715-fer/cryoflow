@@ -2,6 +2,18 @@
 
 import * as React from "react";
 import {
+  Check,
+  ClipboardCopy,
+  Copy,
+  Loader2,
+  Locate,
+  Maximize2,
+  Play,
+  RotateCcw,
+  SquarePen,
+  Trash2,
+} from "lucide-react";
+import {
   CANVAS_H,
   CANVAS_W,
   CARD_H,
@@ -15,6 +27,25 @@ import { useWorkflowStore, type PendingFrom } from "@/lib/store";
 import type { JobDTO } from "@/lib/types";
 import { TypeIcon } from "./icons";
 import { Badge } from "@/components/ui/badge";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuLabel,
+  ContextMenuSeparator,
+  ContextMenuShortcut,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 
 /* ------------------------------------------------------------------ */
@@ -77,6 +108,130 @@ export function MiniProgress({
         style={{ width: `${pct}%` }}
       />
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Right-click context menu (wraps the whole card)                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Right-click / Shift+F10 menu on a job card. Mirrors the interactions the
+ * card + inspector already expose (open · focus · run · reset · duplicate ·
+ * delete) so power users never need to hunt for buttons. Store actions are
+ * pulled straight from the zustand store — no prop drilling.
+ */
+function JobCardMenu({
+  job,
+  onSelect,
+  onInspect,
+  children,
+}: {
+  job: JobDTO;
+  onSelect: (id: string) => void;
+  onInspect: (id: string) => void;
+  children: React.ReactNode;
+}) {
+  const runJob = useWorkflowStore((s) => s.runJob);
+  const resetJob = useWorkflowStore((s) => s.resetJob);
+  const deleteJob = useWorkflowStore((s) => s.deleteJob);
+  const duplicateJob = useWorkflowStore((s) => s.duplicateJob);
+  const focusJob = useWorkflowStore((s) => s.focusJob);
+  const [confirmDelete, setConfirmDelete] = React.useState(false);
+  const [busy, setBusy] = React.useState(false);
+  const [copiedId, setCopiedId] = React.useState(false);
+
+  const idle = job.status === "idle";
+  const running = job.status === "running";
+
+  const copyId = () => {
+    void navigator.clipboard.writeText(job.id).then(() => {
+      setCopiedId(true);
+      setTimeout(() => setCopiedId(false), 1400);
+    });
+  };
+
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
+      <ContextMenuContent className="w-60">
+        <ContextMenuLabel className="flex items-center gap-2 pr-3">
+          <span className="truncate font-semibold">{job.name}</span>
+          <span className="ml-auto shrink-0 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            {job.status}
+          </span>
+        </ContextMenuLabel>
+        <ContextMenuSeparator />
+
+        <ContextMenuItem
+          onClick={() => (idle ? onSelect(job.id) : onInspect(job.id))}
+        >
+          {idle ? <SquarePen /> : <Maximize2 />}
+          {idle ? "Edit parameters" : "Open inspector"}
+          <ContextMenuShortcut>Enter</ContextMenuShortcut>
+        </ContextMenuItem>
+        <ContextMenuItem onClick={() => focusJob(job.id)}>
+          <Locate />
+          Focus on canvas
+        </ContextMenuItem>
+
+        <ContextMenuSeparator />
+        <ContextMenuItem
+          disabled={running || busy}
+          onClick={() => {
+            setBusy(true);
+            void runJob(job.id).finally(() => setBusy(false));
+          }}
+        >
+          {busy ? <Loader2 className="animate-spin" /> : <Play />}
+          {idle ? "Run job" : running ? "Running…" : "Re-run"}
+        </ContextMenuItem>
+        {!idle && !running ? (
+          <ContextMenuItem
+            onClick={() => void resetJob(job.id).then(() => onSelect(job.id))}
+          >
+            <RotateCcw />
+            Reset &amp; edit
+          </ContextMenuItem>
+        ) : null}
+        <ContextMenuItem onClick={() => void duplicateJob(job.id)}>
+          <Copy />
+          Duplicate
+        </ContextMenuItem>
+        <ContextMenuItem onClick={copyId}>
+          {copiedId ? <Check /> : <ClipboardCopy />}
+          {copiedId ? "Copied!" : "Copy job ID"}
+        </ContextMenuItem>
+
+        <ContextMenuSeparator />
+        <ContextMenuItem variant="destructive" onClick={() => setConfirmDelete(true)}>
+          <Trash2 />
+          Delete…
+        </ContextMenuItem>
+      </ContextMenuContent>
+
+      {/* delete confirm — cascades edges, so require an explicit OK */}
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {job.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes the job and every connection attached to it. Files
+              already written to the workdir stay on disk.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep job</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90"
+              onClick={() => void deleteJob(job.id)}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </ContextMenu>
   );
 }
 
@@ -443,17 +598,18 @@ export const JobCard = React.memo(function JobCard({
   );
 
   return (
-    <div
-      data-job={job.id}
-      className="absolute"
-      style={{
-        left: job.x,
-        top: job.y,
-        width: CARD_W,
-        height: CARD_H,
-        zIndex: selected ? 30 : dragging ? 20 : 10,
-      }}
-    >
+    <JobCardMenu job={job} onSelect={onSelect} onInspect={onInspect}>
+      <div
+        data-job={job.id}
+        className="absolute"
+        style={{
+          left: job.x,
+          top: job.y,
+          width: CARD_W,
+          height: CARD_H,
+          zIndex: selected ? 30 : dragging ? 20 : 10,
+        }}
+      >
       {/* transform host: card body + ports move together (zero lag) */}
       <div
         ref={cardRef}
@@ -662,6 +818,7 @@ export const JobCard = React.memo(function JobCard({
           );
         })}
       </div>
-    </div>
+      </div>
+    </JobCardMenu>
   );
 });

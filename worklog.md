@@ -474,3 +474,24 @@ Work Log:
 Stage Summary:
 - 页面恢复 ✓（dev server 重启）；OOM 根治 ✓（--pad 1 省 1.4GB）；initialmodel 真实运行中
 - 待办：initialmodel → refine3d（内存看护）→ maskcreate → postprocess → FSC ≤4.2 Å → push GitHub
+
+---
+Task ID: ctx-menu-log-full-2026-09-04
+Agent: Super Z (main loop)
+Task: 用户四项需求 — hydration 修复 + 右键菜单 + 完整 log + 轮次筛选画廊；完成后 push
+
+Work Log:
+- 【hydration 修复】job-inspector.tsx InspectorHeader 元信息行 <p> 内嵌 Separator(div) → div-in-p 非法 → 改为 <div>；浏览器开合 modal 多次 console/errors 全干净
+- 【顺手修两个存量 TS 错误】canvas.tsx LiveWire 缺 pendingDirIn 声明（拖连线会 ReferenceError）→ 补声明；job-inspector Timeline steps as const 联合类型无 tone → 显式 TimelineStep 接口；tsc --noEmit 项目内 0 错误
+- 【完整 log】根因确认：getLogTail 旧版 tail 模式只读文件末尾 48KB（class2d 315KB 日志 → 头部 198+ 行静默丢失，且 truncated 标志基于窗口统计永远 false）。重写：整文件读取（8MB 上限）→ \r 折叠 → tail=最后 600 行（响应小）、full=全部；totalLines/truncated 全程诚实。API /api/jobs/[id]/log 支持 ?full=1 与 ?format=raw（text/plain 下载）。LogConsole：Tail/Full 分段开关（teal 高亮）、截断提示 chip "+N hidden — show full log"、下载按钮、full 模式轮询降频 1.5s→5s。curl 实测 class2d：412 行全量、首行 RELION version 5.0.1
+- 【轮次筛选画廊】results-view MrcGallery 重写：Round chip 行（final·itXXX / itXXX 降序 / all N），默认 final（maxIter 文件 + 无 it 前缀终产物）；网格 2×3 大图 → grid-cols-3/4/6 紧凑缩略图（p-1.5、text-[10px]）；hover 缩放镜角标；点击仍走放大 dialog（montage16/scale=large + View in 3D）。DOM 实测：默认 2/27、it012=1/27、all=27/27
+- 【右键菜单】job-card JobCardMenu（radix ContextMenu）：Open/Enter、Focus、Run/Re-run、Reset & edit、Duplicate、Copy job ID、Delete…（AlertDialog 确认，说明级联删边+磁盘文件保留）；canvas 背景 ContextMenu：Zoom to fit、Reset view 100%、Tidy layout、Cancel pending connection（嵌套 trigger 靠 defaultPrevented 天然分流，卡菜单优先）。浏览器实测：卡菜单 7 项全出、Duplicate 建卡（POST 201）、Delete 确认流（DELETE 200）、背景菜单 zoom-to-fit 生效（scale 0.411）
+- 【Duplicate 后端】POST /api/jobs 接受可选 params/name（标量对象校验）；store 新增 duplicateJob（+48/+40 偏移、"(copy)" 命名、选中并关 inspector）
+- lint 通过；GET / 200；期间 /api/jobs 500 为编辑中途 Turbopack 半成品编译（自愈）；agent-browser QA 后已 close（内存纪律）
+- refine3d 全程存活（pid 16631，progress 53%，内存稳定）
+
+Stage Summary:
+- 用户四项全部完成并经浏览器/VLM 验证：hydration ✓、右键菜单（卡+画布）✓、完整 log（Tail/Full/下载/诚实截断）✓、轮次筛选+紧凑缩略图+点击放大 ✓
+- VLM 评分：log console 无瑕疵；画廊 chips+紧凑+黑底类平均图正常
+- 待办：refine3d（~53%，预计数小时）→ maskcreate → postprocess → FSC ≤4.2 Å → 最终 push
+- 【push 注意】用户本轮提供了新 token（仅写入 .git/config remote URL，绝不进受版本控制文件）

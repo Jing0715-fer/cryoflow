@@ -80,6 +80,8 @@ interface WorkflowState {
   runJob: (id: string) => Promise<boolean>;
   resetJob: (id: string) => Promise<void>;
   deleteJob: (id: string) => Promise<void>;
+  /** Clone a job (params + position offset) as a fresh idle draft. */
+  duplicateJob: (id: string) => Promise<void>;
   connect: (from: string, to: string, fromPort?: string, toPort?: string) => Promise<void>;
   removeEdge: (id: string) => Promise<void>;
   pollTick: () => Promise<void>;
@@ -396,6 +398,33 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       toast({ title: "Job deleted", description: "Removed from the workflow" });
     } catch (err) {
       errToast(err instanceof Error ? err.message : "Failed to delete job");
+    }
+  },
+
+  duplicateJob: async (id) => {
+    const src = get().jobs.find((j) => j.id === id);
+    if (!src) return;
+    const x = clamp(src.x + 48, 0, CANVAS_W - CARD_W);
+    const y = clamp(src.y + 40, 0, CANVAS_H - CARD_H);
+    try {
+      const { job } = await api<{ job: JobDTO }>("/api/jobs", {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({
+          type: src.type,
+          x,
+          y,
+          name: `${src.name} (copy)`,
+          params: src.params,
+        }),
+      });
+      set({ jobs: [...get().jobs, job], selectedId: job.id, inspectId: null });
+      toast({
+        title: "Job duplicated",
+        description: `${job.name} placed beside the original — edit & connect it, then run`,
+      });
+    } catch (err) {
+      errToast(err instanceof Error ? err.message : "Failed to duplicate job");
     }
   },
 

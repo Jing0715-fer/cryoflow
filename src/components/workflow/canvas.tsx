@@ -20,6 +20,14 @@ import { EdgesLayer } from "./edges-layer";
 import { JobCard } from "./job-card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuLabel,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 
 function clamp(v: number, min: number, max: number) {
   return Math.min(Math.max(v, min), max);
@@ -108,6 +116,9 @@ const LiveWire = React.memo(function LiveWire({
   // control-point reach — mirrors the bezier geometry used by EdgesLayer
   const r2 = (v: number) => Math.round(v * 100) / 100;
   const reach = Math.max(56, Math.abs(cursor.x - sx) * 0.42);
+  // wire direction: "in" wires drag BACKWARD from an input port, so their
+  // bezier control points mirror the "out" case
+  const pendingDirIn = pendingFrom.dir === "in";
 
   return (
     <svg
@@ -356,17 +367,33 @@ export function WorkflowCanvas() {
 
   const zoom = viewport.zoom;
 
+  /* ---------------- background context menu ------------------------- */
+
+  const zoomToFit = () => {
+    const rect = rootRef.current?.getBoundingClientRect();
+    if (!rect || jobs.length === 0) return;
+    const minX = Math.min(...jobs.map((j) => j.x));
+    const maxX = Math.max(...jobs.map((j) => j.x + CARD_W));
+    const minY = Math.min(...jobs.map((j) => j.y));
+    const maxY = Math.max(...jobs.map((j) => j.y + CARD_H));
+    frameBounds(rect.width, rect.height, minX, minY, maxX, maxY);
+  };
+
+  const resetView = () => setViewport({ x: 0, y: 0, zoom: 1 });
+
   return (
-    <section
-      ref={rootRef}
-      data-canvas="viewport"
-      aria-label="Workflow canvas"
-      className="no-drag-select relative min-w-0 flex-1 touch-none overflow-hidden bg-background active:cursor-grabbing cursor-grab"
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      onPointerCancel={handlePointerCancel}
-    >
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <section
+          ref={rootRef}
+          data-canvas="viewport"
+          aria-label="Workflow canvas"
+          className="no-drag-select relative min-w-0 flex-1 touch-none overflow-hidden bg-background active:cursor-grabbing cursor-grab"
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerCancel}
+        >
       {loading && jobs.length === 0 ? (
         <CanvasSkeleton />
       ) : (
@@ -512,7 +539,39 @@ export function WorkflowCanvas() {
           <Wand2 className="size-4" />
         </Button>
       </div>
-    </section>
+        </section>
+      </ContextMenuTrigger>
+
+      {/* background menu — right-click empty canvas (cards open their own) */}
+      <ContextMenuContent className="w-56">
+        <ContextMenuLabel>
+          Canvas · {jobs.length} job{jobs.length === 1 ? "" : "s"}
+        </ContextMenuLabel>
+        <ContextMenuSeparator />
+        <ContextMenuItem onClick={zoomToFit} disabled={jobs.length === 0}>
+          <ZoomIn />
+          Zoom to fit workflow
+        </ContextMenuItem>
+        <ContextMenuItem onClick={resetView}>
+          <RotateCcw />
+          Reset view (100%)
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem
+          onClick={() => void applyLayout()}
+          disabled={jobs.length === 0}
+        >
+          <Wand2 />
+          Tidy layout
+        </ContextMenuItem>
+        {pendingFrom ? (
+          <ContextMenuItem onClick={cancelConnect}>
+            <X />
+            Cancel pending connection
+          </ContextMenuItem>
+        ) : null}
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }
 

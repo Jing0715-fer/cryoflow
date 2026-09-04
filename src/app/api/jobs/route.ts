@@ -37,13 +37,16 @@ export async function GET() {
   }
 }
 
-/** POST /api/jobs — body: { type, x?, y? } → created in the ACTIVE project. */
+/** POST /api/jobs — body: { type, x?, y?, params?, name? } → created in the ACTIVE project.
+ * `params` (plain object) + `name` enable job duplication. */
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json().catch(() => ({}))) as {
       type?: unknown;
       x?: unknown;
       y?: unknown;
+      params?: unknown;
+      name?: unknown;
     };
 
     const type = typeof body.type === "string" ? body.type : "";
@@ -51,6 +54,17 @@ export async function POST(request: NextRequest) {
     if (!spec) {
       return NextResponse.json({ error: `Unknown job type: ${type}` }, { status: 400 });
     }
+
+    // optional explicit params (duplication) — must be a plain object of
+    // scalars; otherwise fall back to the type defaults
+    const customParams =
+      body.params && typeof body.params === "object" && !Array.isArray(body.params)
+        ? (body.params as Record<string, number | string | boolean>)
+        : null;
+    const customName =
+      typeof body.name === "string" && body.name.trim().length > 0
+        ? body.name.trim().slice(0, 120)
+        : null;
 
     const active = await ensureActiveProject();
     if (!active) {
@@ -73,10 +87,10 @@ export async function POST(request: NextRequest) {
       data: {
         projectId: active.project.id,
         type,
-        name: `${spec.label} ${count + 1}`,
+        name: customName ?? `${spec.label} ${count + 1}`,
         x,
         y,
-        params: JSON.stringify(defaultParams(type)),
+        params: customParams ? JSON.stringify(customParams) : JSON.stringify(defaultParams(type)),
         duration: jitteredDuration(spec.duration),
       },
     });

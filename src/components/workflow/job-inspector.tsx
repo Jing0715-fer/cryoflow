@@ -187,6 +187,9 @@ function LogLine({ line, index }: { line: string; index: number }) {
 function LogConsole({ job }: { job: JobDTO }) {
   const [log, setLog] = React.useState<string | null>(null);
   const [noLog, setNoLog] = React.useState(false);
+  const [mode, setMode] = React.useState<"tail" | "full">("tail");
+  const [totalLines, setTotalLines] = React.useState(0);
+  const [truncated, setTruncated] = React.useState(false);
   const [follow, setFollow] = React.useState(true);
   const [wrap, setWrap] = React.useState(false);
   const [refreshing, setRefreshing] = React.useState(false);
@@ -197,19 +200,28 @@ function LogConsole({ job }: { job: JobDTO }) {
 
   const fetchLog = React.useCallback(async () => {
     try {
-      const res = await fetch(`/api/jobs/${job.id}/log`, { cache: "no-store" });
+      const res = await fetch(
+        `/api/jobs/${job.id}/log${mode === "full" ? "?full=1" : ""}`,
+        { cache: "no-store" }
+      );
       if (res.status === 404) {
         setNoLog(true);
         setLog(null);
         return;
       }
-      const body = (await res.json()) as { tail?: string };
+      const body = (await res.json()) as {
+        tail?: string;
+        totalLines?: number;
+        truncated?: boolean;
+      };
       setNoLog(false);
       setLog(body.tail ?? "");
+      setTotalLines(body.totalLines ?? 0);
+      setTruncated(body.truncated ?? false);
     } catch {
       /* transient — next poll retries */
     }
-  }, [job.id]);
+  }, [job.id, mode]);
 
   React.useEffect(() => {
     setLog(null);
@@ -219,9 +231,10 @@ function LogConsole({ job }: { job: JobDTO }) {
 
   React.useEffect(() => {
     if (!running) return;
-    const t = setInterval(() => void fetchLog(), 1500);
+    // tail is cheap (≤96KB) — 1.5s; the full log is bigger — 5s
+    const t = setInterval(() => void fetchLog(), mode === "full" ? 5000 : 1500);
     return () => clearInterval(t);
-  }, [running, fetchLog]);
+  }, [running, fetchLog, mode]);
 
   // auto-scroll when following (and the user hasn't scrolled up)
   React.useEffect(() => {
@@ -272,8 +285,51 @@ function LogConsole({ job }: { job: JobDTO }) {
             {job.status}
           </span>
         )}
-        <span className="text-[10px] text-zinc-600">{lineCount} lines</span>
+        <span className="text-[10px] text-zinc-600">
+          {mode === "full" ? `${totalLines.toLocaleString()} lines (full)` : `${lineCount} lines`}
+        </span>
+        {mode === "tail" && truncated ? (
+          <button
+            type="button"
+            onClick={() => setMode("full")}
+            className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-400 transition-colors hover:bg-amber-500/25"
+            title={`Showing the last 600 of ${totalLines.toLocaleString()} lines — click to load the full log`}
+          >
+            +{(totalLines - lineCount).toLocaleString()} hidden — show full log
+          </button>
+        ) : null}
+        {mode === "full" && truncated ? (
+          <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-[10px] text-zinc-500" title="Log exceeds the 8MB safety cap">
+            log &gt; 8MB — clipped
+          </span>
+        ) : null}
         <div className="ml-auto flex items-center gap-0.5">
+          {/* tail / full segmented toggle */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center rounded-md border border-zinc-700/80 bg-zinc-800/60 p-0.5" role="group" aria-label="Log window mode">
+                {(["tail", "full"] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    aria-pressed={mode === m}
+                    onClick={() => setMode(m)}
+                    className={cn(
+                      "rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide transition-colors",
+                      mode === m
+                        ? "bg-teal-500/20 text-teal-300"
+                        : "text-zinc-500 hover:text-zinc-300"
+                    )}
+                  >
+                    {m === "tail" ? "Tail" : "Full"}
+                  </button>
+                ))}
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              Tail streams the last 600 lines (fast polling); Full loads the whole log
+            </TooltipContent>
+          </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -313,6 +369,24 @@ function LogConsole({ job }: { job: JobDTO }) {
             <TooltipContent side="bottom">Toggle line wrapping</TooltipContent>
           </Tooltip>
           {log ? <CopyButton text={log} /> : null}
+          {!noLog ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 rounded px-2 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+                  aria-label="Download full log"
+                  onClick={() => {
+                    window.open(`/api/jobs/${job.id}/log?format=raw`, "_blank", "noopener");
+                  }}
+                >
+                  <Download className="size-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Download the complete run.out</TooltipContent>
+            </Tooltip>
+          ) : null}
           <Button
             variant="ghost"
             size="sm"
@@ -375,7 +449,17 @@ function Timeline({ job }: { job: JobDTO }) {
   const elapsed = useElapsed(started, running);
   const duration = finished ? job.duration : running ? elapsed : 0;
 
-  const steps = [
+  interface TimelineStep {
+    icon: React.ElementType;
+    label: string;
+    value: string;
+    sub: string;
+    done: boolean;
+    live?: boolean;
+    tone?: "bad" | "good" | "run";
+  }
+
+  const steps: TimelineStep[] = [
     {
       icon: Database,
       label: "Created",
@@ -400,7 +484,7 @@ function Timeline({ job }: { job: JobDTO }) {
       live: running,
       tone: job.status === "failed" ? "bad" : job.status === "completed" ? "good" : "run",
     },
-  ] as const;
+  ] satisfies TimelineStep[];
 
   return (
     <ol className="relative grid grid-cols-3 items-start gap-2">
@@ -431,7 +515,7 @@ function Timeline({ job }: { job: JobDTO }) {
                       ? "border-emerald-500 text-emerald-600"
                       : "border-teal-500 text-teal-600"
                   : "border-muted text-muted-foreground",
-                "live" in s && s.live && "animate-pulse"
+                s.live && "animate-pulse"
               )}
             >
               <Icon className="size-4" aria-hidden="true" />
@@ -825,7 +909,9 @@ function InspectorHeader({ job }: { job: JobDTO }) {
               {spec?.label ?? job.type}
             </Badge>
           </div>
-          <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+          {/* NOTE: div, not <p> — the vertical Separators render <div>s and
+           * HTML forbids div-in-p (hydration error) */}
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
             <span>created {job.createdAt ? fmtAgo(job.createdAt) : "—"}</span>
             {running && job.startedAt ? (
               <>
@@ -841,7 +927,7 @@ function InspectorHeader({ job }: { job: JobDTO }) {
                 <span className="font-mono tabular-nums">{fmtDuration(job.duration)}</span>
               </>
             ) : null}
-          </p>
+          </div>
         </div>
 
         {/* actions */}

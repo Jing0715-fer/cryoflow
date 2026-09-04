@@ -1658,35 +1658,72 @@ function readTail(file: string, bytes: number): string {
   }
 }
 
-/** Combined run.out + run.err tail for log views (max 600 lines / 96KB).
+export interface LogPayload {
+  /** Collapsed (\r-safe) text of the requested window. */
+  text: string;
+  /** Total collapsed line count of the FULL combined log. */
+  totalLines: number;
+  /** True when `text` covers fewer lines than totalLines (tail window). */
+  truncated: boolean;
+}
+
+/** Combined run.out + run.err for log views.
  * RELION rewrites progress bars with \r — collapse each line to its final
- * frame (what a terminal would show) so \r spam doesn't eat the line budget. */
-export function getLogTail(jobId: string): string | null {
+ * frame (what a terminal would show) so \r spam doesn't eat the line budget.
+ *
+ * The whole (small, ≤8MB) file is always read so `totalLines`/`truncated`
+ * stay honest — the "tail" window only shrinks the RESPONSE payload, never
+ * the line accounting (RELION run.out files are hundreds of KB at most and
+ * page-cached, so the 1.5s live poll stays cheap).
+ *
+ * Tail mode (default): last 600 lines — cheap for live polling.
+ * Full mode: the entire log. */
+export function getLogTail(jobId: string, opts?: { full?: boolean }): LogPayload | null {
   const state = readRuns()[jobId];
   if (!state) return null;
+  const full = opts?.full === true;
   const parts: string[] = [];
+  let overCap = false;
   try {
-    if (existsSync(state.logFile)) parts.push(readTail(state.logFile, 48 * 1024));
+    if (existsSync(state.logFile)) {
+      const st = statSync(state.logFile);
+      parts.push(readTail(state.logFile, 8 * 1024 * 1024));
+      if (st.size > 8 * 1024 * 1024) overCap = true;
+    }
   } catch {
     /* ignore */
   }
   try {
     if (existsSync(state.errFile)) {
-      const err = readTail(state.errFile, 16 * 1024);
+      const err = readTail(state.errFile, 1 * 1024 * 1024);
       if (err.trim().length > 0) parts.push("\n----- stderr -----\n" + err);
     }
   } catch {
     /* ignore */
   }
   const text = parts.join("\n");
-  if (text.trim().length === 0) return "(log empty)";
-  const lines = text
-    .split("\n")
-    .map((line) => {
-      const idx = line.lastIndexOf("\r");
-      return (idx >= 0 ? line.slice(idx + 1) : line).replace(/\s+$/, "");
-    });
-  return lines.slice(-600).join("\n").slice(-96 * 1024);
+  const collapse = (s: string) =>
+    s
+      .split("\n")
+      .map((line) => {
+        const idx = line.lastIndexOf("\r");
+        return (idx >= 0 ? line.slice(idx + 1) : line).replace(/\s+$/, "");
+      });
+  const allLines = collapse(text);
+  const totalLines = allLines.length;
+  if (full) {
+    return {
+      text: allLines.join("\n").slice(-8 * 1024 * 1024),
+      totalLines,
+      truncated: overCap,
+    };
+  }
+  const tailLines = allLines.slice(-600);
+  return {
+    text: tailLines.join("\n"),
+    totalLines,
+    truncated: totalLines > tailLines.length,
+  };
 }
 
 /* ------------------------------------------------------------------ */
