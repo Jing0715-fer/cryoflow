@@ -71,6 +71,7 @@ import { CtfQualityChart } from "./results/ctf-quality-chart";
 import { ClassDistributionChart } from "./results/class-distribution-chart";
 import { AngularDistributionChart } from "./results/angular-distribution-chart";
 import { ImportGallery } from "./results/import-gallery";
+import { PicksMap } from "./results/picks-map";
 
 /* ------------------------------------------------------------------ */
 /* Types (mirrors /api/jobs/[id]/outputs)                              */
@@ -798,6 +799,10 @@ function OverviewTab({
       {/* import jobs show the raw detector frames gallery. */}
       {/^import$/i.test(job.type) && job.status !== "idle" ? (
         <ImportGallery jobId={job.id} />
+      ) : null}
+      {/* manualpick jobs show the picked-particle overlay map. */}
+      {/manualpick/i.test(job.type) && job.status !== "idle" ? (
+        <PicksMap jobId={job.id} />
       ) : null}
       {isRefineType && hasIterated ? (
         <ResolutionChart jobId={job.id} running={job.status === "running"} />

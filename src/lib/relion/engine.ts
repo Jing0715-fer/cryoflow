@@ -641,6 +641,16 @@ async function runManualPickNative(job: EngineJobRef, upstream: UpstreamRef[]): 
       writeFileSync(path.join(coordsDir, base + ".coord"), outRows.join("\n") + "\n");
       coordText.push(`  ${base}.coord (${outRows.length} picks)`);
     }
+    // expose the picked micrograph frames next to their coord files so the
+    // picks preview panel can render overlay thumbnails via outputs/file
+    const micLink = path.join(coordsDir, path.basename(mic));
+    if (!existsSync(micLink)) {
+      try {
+        symlinkSync(micAbs, micLink);
+      } catch {
+        /* best-effort — preview only */
+      }
+    }
   }
   if (total === 0) {
     return {
