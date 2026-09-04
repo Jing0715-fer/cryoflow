@@ -690,3 +690,23 @@ Stage Summary:
 - 本轮累计 8 个新功能（两批 push：edc7538 + 8a33448）：粒子堆栈浏览器、Log 语义着色+图例、卡片 hover 预览、Guinier 图（预置）、谱系面包屑、类占用度条带、minimap tooltip、过滤行复制
 - 管线：refine3d it10 E-step 67%（40min/iter 稳定推进）；内存 850-920MB available（浏览器 QA 持续搁置，API/curl 级验证全通过）
 - 【给后续 cron 轮】① bash advance.sh（timeout 120s）② refine3d 完成后 advance.sh 自动推进 maskcreate → postprocess（Guinier 图会自动亮起）③ 内存 >1.5GB 时补一轮浏览器 DOM 验证本轮 8 个功能 ④ 候选新功能：postprocess localres 图、FSC 曲线 PNG 导出、job 卡运行计时器、palette 最近跳转历史
+
+---
+Task ID: ctxmenu-dashboard-edges-2026-09-05-k
+Agent: Super Z (main loop, user-reported bugs + features)
+Task: 修复右键菜单点击无反应 / inspector 关闭与 focus 重叠 / 连线与整页美化 / Project Dashboard 独立页面
+
+Work Log:
+- 【bug1：右键菜单点击无反应（用户报告）】根因：React 17+ 合成事件沿 **React 树**冒泡（非 DOM 树）——context menu content 虽 portal 到 body，但 React 祖先是画布 section → 菜单项 pointerdown 触发 canvas handlePointerDown → `setPointerCapture(section)` → pointerup/click 全部重定向到 section → 菜单项永远收不到 click（菜单不关、动作不执行）。修复：canvas + job-card 的 handlePointerDown 加 DOM 包含守卫 `target !== currentTarget && !currentTarget.contains(target) → return`。浏览器可信事件三重验证：卡片菜单 "Open inspector" 弹出 Class2D inspector ✓、画布背景菜单 "Zoom to fit" transform 变化 ✓、修复前 pointerup 时 secHasCapture=true 的证据链完整
+- 【bug2：inspector 右上角关闭与 focus 重叠（用户报告）】DialogContent 浮动 X（absolute top-4 right-4）与 Focus/Re-run 动作行在窄屏碰撞（实测 Re-run 右缘 1230 > X 左缘 1221）。修复：`showCloseButton={false}` + 动作行末尾 in-row DialogClose X 按钮对齐高度。实测关闭功能 ✓
+- 【feature1：Project Dashboard 独立页面】store 加 `view: "canvas"|"dashboard"` + setView；Header 加 ViewSwitcher 分段控件；page.tsx 按视图切换渲染。dashboard 内容：5 张 KPI 卡（projects/total jobs/running/completed/active engine）、可搜索项目网格（engine 渐变条、完成度进度、内联重命名、删除确认、切换+打开）、活动项目 spotlight（渐变 banner + 完成度、pipeline 阶段轨道 10 chip 状态色+ETA、最新优先 job 表带实时进度、Open workflow CTA）。深链：job 行/stage chip 点击 → setView canvas + inspect/select。入口全覆盖：Header 切换、Shift+D、⌘K 命令、侧栏 Projects tab 底部链接、帮助面板快捷键表
+- 【feature2：连线美化】live/primed 线 linearGradient（objectBoundingBox）、running 线双 travelling particles（animateMotion 2.6s ±1.3s 相位）、hover/running 宽幅柔光（8-9px 低透明度底层描边）、target 端点 halo 环、选中卡时无关边 opacity 0.32 退后（跟随数据流视线）、hover tooltip 加 caret 三角锚点 + rx=8。实测：4 animateMotion、3 gradient、11 edge group
+- 【事故与恢复】修 menu 期间 dev server + RELION 全树死亡（合成事件探测风暴 + 页面重载）；另发现 setsid+disown 启动的 server 仍在工具调用结束时被收割器杀（descendant-of-shell 扫描）。解法：`scripts/dev-server.sh`——脚本启动 setsid server 后立即退出 → server 过继给 init(PPID=1) 存活。refine3d reconcile 标记 failed → POST /run 自动 --continue 从 it9 断点恢复（4 进程存活，advance.sh: WAIT 73%）
+- 【细节】help-popover 快捷键表加 ⇧D；globals.css 加 .nice-scroll 细滚动条；移动端 FAB 仅 canvas 视图显示；Shift+D handler 用 instanceof HTMLElement 守卫（window dispatch 的 e.target 无 .closest）
+- lint ✓ tsc ✓ console 零错误；push 548446a
+
+Stage Summary:
+- 用户报的 2 个 bug 全部根因修复并可信事件验证；新增 Dashboard 独立页面（4 入口）+ 连线三层视觉升级
+- 关键经验沉淀：①React portal 事件沿 React 树冒泡 → 画布级 pointerdown 必须做 DOM 包含守卫 ②dev server 存活法 = 父脚本退出过继 init（scripts/dev-server.sh，单工具调用内完成启动+验证）
+- 管线：refine3d --continue 运行中 73%（it10+，~40min/iter）→ 收敛后 advance.sh 推进 maskcreate → postprocess → ≤4.2 Å 判定
+- 【给后续 cron 轮】① bash advance.sh ② dev server 若死：`bash scripts/dev-server.sh; sleep 16; curl -sf localhost:3000/api/jobs`（单调用内）③ refine3d 失败时 POST /run 恢复 ④ 候选：postprocess localres 图、FSC PNG 导出、dashboard 项目排序/收藏、卡片运行计时器
