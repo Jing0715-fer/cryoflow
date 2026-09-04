@@ -10,6 +10,7 @@ import { ProjectPanel } from "@/components/workflow/project-panel";
 import { WorkflowCanvas } from "@/components/workflow/canvas";
 import { JobPanel } from "@/components/workflow/job-panel";
 import { JobInspector } from "@/components/workflow/job-inspector";
+import { CommandPalette } from "@/components/workflow/command-palette";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -188,6 +189,7 @@ export default function Home() {
 
       {/* Large inspector modal for submitted jobs (running/completed/failed) */}
       <JobInspector />
+      <CommandPalette />
 
       {/* Mobile: floating palette trigger */}
       <Button

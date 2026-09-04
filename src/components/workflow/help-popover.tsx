@@ -33,6 +33,7 @@ const TIPS: { icon: React.ReactNode; text: string }[] = [
 ];
 
 const SHORTCUTS: { keys: string; text: string }[] = [
+  { keys: "⌘/Ctrl K", text: "Command palette — jump, add, run" },
   { keys: "F", text: "Focus the selected job" },
   { keys: "0", text: "Reset the view (100 %)" },
   { keys: "+ / -", text: "Zoom in / out" },

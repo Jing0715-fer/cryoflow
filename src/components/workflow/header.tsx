@@ -16,6 +16,7 @@ import {
 import { useWorkflowStore } from "@/lib/store";
 import { ThemeToggle } from "./theme-toggle";
 import { HelpPopover } from "./help-popover";
+import { CommandPaletteTrigger } from "./command-palette";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -359,6 +360,9 @@ export function Header() {
       <div className="flex items-center gap-1.5">
         <div className="hidden sm:block">
           <RelionStatusChip />
+        </div>
+        <div className="hidden md:block">
+          <CommandPaletteTrigger />
         </div>
         <HelpPopover />
         <ThemeToggle />
