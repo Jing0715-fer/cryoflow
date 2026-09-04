@@ -888,3 +888,21 @@ Stage Summary:
 - 根因 = lineageFor BFS 的 seen 集时序 bug（workspace 重构引入、直连上游全灭、链接/续跑路径掩盖）；一行序位修复，直连+链接+续跑三路径全部验证通过
 - 用户失败的任务已重新提交并真实运行（C1 对称性、K=4、50 迭代 VDAM，约 2-4 小时）
 - 【给后续 cron 轮】①盯 initialmodel_o7rhleut 收敛（完成后 collectOutputs 应产出 model_mrc — 下游 class3d/refine3d 可用）②refine3d it14+ 推进中，收敛后 advance.sh ③内存红线 3.5GB：initialmodel+refine3d 并行期间避免再启动 MPI 任务
+
+---
+Task ID: rollback-recovery-2026-09-04
+Agent: main (Z.ai Code, user request: 本地回滚检查 + 上一轮修改合并进最新 commit)
+Task: 用户报告本地回滚；检查远程仓库、把丢失的上一轮修改合并到最新 commit；恢复本地完整可运行环境
+
+Work Log:
+- 【诊断】git fetch 后 origin/main (f2108ce) 领先本地基点 32 commit（含 9/4-9/5 全部功能轮：无限画布、workspace 架构、lineage BFS 修复、FSC/Guinier/CTF 图表、minimap、命令面板等）；本地 HEAD=261d10f（9/3 21:40 cron 轮，仅 worklog +18 行，从未推送）；工作区 123 文件"modified"实为纯 mode 644→755（回滚副作用，core.fileMode=false 消噪）
+- 【合并】261d10f 的 18 行管线完成记录（FSC 3.54 Å）按时间序插入 remote worklog 的 wsl-aggregate 与 restore-2026-09-04-a 之间，加【恢复条目】标注 → git commit --amend 并入最新 commit → push --force-with-lease → 远程 main = dbcc8c0（32 新 commit + 上一轮修改，单最新 commit 完整闭环）
+- 【本地代码】git reset --hard origin/main（bun install 免：package.json/bun.lock 零差异）；prisma db:push 同步新 schema（Workspace 模型 + Job.workspaceId/linkedJobId）+ client 重生成
+- 【DB 重建】旧 DB 是更早 demo 残留（2 重复项目/6 作业/无 workspace）→ 清空全部行 + 删 data/projects.json → 重启 dev server 后 ensureProject 重播种（3 作业 + 2 边）→ bun scripts/migrate-workspaces.ts 建 "Main" workspace 并指派全部作业（幂等脚本，正是为本迁移场景准备）
+- 【dev server】pkill 旧 next-server（内存中旧 Prisma client 导致 /api/workspaces 500 db.workspace undefined）→ nohup bun run dev 重启（Ready 768ms），新 client 生效
+- 【RELION 栈恢复】按 PolarFS persist/RESTORE.md 设计路径：/tmp/my-project/persist/relion-stack → /home/z/relion-install（123 二进制，RELION 5.0.1 d476e6）+ deps/{mpich,ctffind,fftw symlink}；EMPIAR-10017 数据 20 文件 641MB → /home/z/empiar-10017/micrographs。注意：后台 `(cp &)` 会被沙箱进程回收机制杀掉（RESTORE.md 已记录），必须前台整块拷贝
+- 【验证】/api/system?force=1 → found=true, execution=native, version=5.0.1, 16/16 binaries ✓；agent-browser：Dashboard/Workflow 标签、workspace/project 选择器、目录折叠、画布 3 卡片 + 渐变 SVG 连线、RELION 5.0.1 绿 chip、console 零错误 ✓；VLM 截图审查 4 项全过（无重叠/裁切/空白）✓；lint 0 错误 ✓
+
+Stage Summary:
+- 用户需求闭环：远程检查 ✓（本地确认回滚 32 commit）；上一轮修改（261d10f 管线完成记录）已 amend 进最新 commit 并 force-push（dbcc8c0）；本地代码/DB/RELION 栈/EMPIAR 数据全部恢复到与远程一致的最新状态，应用完整可运行
+- 【给后续 cron 轮】①管线需重跑（DB 已重置）：POST /api/projects/empiar-seed + persist/seed-and-tune.sh 参数调优（D2/3500/K8/lowpass10 等，RESTORE.md 有成功参数）→ advance.sh 拓扑推进至 ≤4.2 Å ②内存红线 3.5GB（next-server 1.9GB 稳态）③persist/RESTORE.md 是回滚场景的标准恢复入口（约 3 分钟）④历史管线运行产物在 /tmp/my-project/relion-projects/（PolarFS 存活，可复用 MRC 数据）
