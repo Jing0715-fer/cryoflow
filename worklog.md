@@ -626,3 +626,23 @@ Stage Summary:
 - 两个高价值交互功能落地并经可信事件浏览器验证：minimap（视口跳转实测 transform 变化）+ 命令面板（跳转/添加/画布动作/主题四组全通）
 - 管线：refine3d it10 E-step 推进中（~35min/iter，3 ranks 282MB，1.16GB 可用）→ 收敛后 advance.sh 推进 maskcreate → postprocess
 - 【给后续 cron 轮】① bash advance.sh（timeout 120s）② refine3d 期间浏览器纪律保持（即开即关 <90s）③ 候选新功能：import job 微电镜画廊（需 API 改造）、log 时间戳高亮、job 卡 hover 预览 popover、边 hover 显示端口 label tooltip
+
+---
+Task ID: angdist-picks-2026-09-04-h
+Agent: Super Z (main loop, cron webDevReview)
+Task: QA 回归（零 bug）+ 第五批功能 — 取向分布极坐标热图 / import 微电镜画廊 / manualpick 选点叠加图 / 连线 hover tooltip；一次 dev 重启事故与 --continue 恢复
+
+Work Log:
+- 【QA 回归】页面 200、console 零错误、refine3d inspector（Log live / Overview 分辨率图+FSC+Timeline）全部正常
+- 【新功能1：取向分布极坐标热图】经典 cryo-EM QC 面板：新 API /api/jobs/[id]/angdist（最新 run_itXXX_data.star 的 _rlnAngleRot/_rlnAngleTilt 服务端分箱 24×12 极坐标网格 + anisotropy=max/occupied均值 + symmetry 透传，支持 run_data.star 终态回退）；angular-distribution-chart.tsx 纯 SVG 实现（无 recharts）：环形扇区 path 数学（半径=tilt 0–180°、扫角=rot 0–360°、sqrt 色阶 teal fill-opacity）、tilt 30/60/90/120/150 虚线环+标签、rot 0/90/180/270 spokes、hover cell tooltip（bin 范围+计数+pct）、渐变图例、isotropic/anisotropic 判定 chip（>6 触发 amber 警告）、D2 点群提示、运行中 30s 轮询。挂 Overview tab（is3dType && !idle，组件数据为空自隐藏——绕开 resume 后 progress=0 的 hasIterated 守卫）。实测 refine3d it9：3500 粒子、56/288 occupied、×9.1 anisotropic（β-gal D2 优先取向，科学正确）
+- 【新功能2：import 微电镜画廊】新 API /api/jobs/[id]/micrographs（micrographs.star 光学组解析：pixel/kV/Cs/Q0 + 逐 MRC header 尺寸）；engine runImportNative 现在同时把 EMPIAR 微电镜 symlink 进 job workdir（未来 run 生效）；手工补建现有 import job 的符号链接；import-gallery.tsx：缩略图网格（MrcImage lazy + hover 文件名渐变）+ optics chips + lightbox（scale=large + 尺寸/体积/像素元数据）。实测 10 张 4096²、1.77 Å、PNG 303KB
+- 【新功能3：manualpick 选点叠加图】新 API /api/jobs/[id]/picks（manualpick.star 逐微电镜分组坐标 + 首个 MRC 尺寸）；engine runManualPickNative 现在把被选微电镜帧 symlink 到 .coord 旁边（未来 run 生效；现有 job 手工补链）；picks-map.tsx：缩略图 + teal 点阵 overlay（viewBox 直接映射探测器坐标系 + Y 翻转——RELION .coord 原点在左下而 MRC 渲染自上而下）、per-mic 计数徽章、lightbox 全尺寸 + 十字准星标记。实测 5,539 picks 全部渲染（DOM 断言 5539 dots）
+- 【新功能4：连线 hover tooltip】edges-layer：hover 时在中点显示连接信息卡（from job 名 → to job 名 + 友好端口 label），scale(1/zoom) 反缩放保证任意缩放下屏幕尺寸恒定；宽度按字符估算自适应。实测 "Import → CtfFind · Micrographs STAR → Input micrographs STAR" 381×34px
+- 【事故与恢复】engine.ts 改动（import 符号链接）需重启 dev server → setsid dev.sh 重启过程中 refine3d 全树死亡（it10 E-step 26min 处中断，推断启动期 bun install+next-server 内存峰值触发 OOM 连带）→ engine-state done:false + it9 optimiser 检查点完好 → POST /run --continue 自动断点续跑（3 ranks 存活，it10 重跑）。教训：RELION 运行期间避免 dev server 重启；本轮第二次 engine 改动（manualpick 链接）未重启——现有 job 手工补链即可用，引擎代码待下次自然重启生效
+- 【QA 验证】四个新功能全部浏览器 DOM 断言通过（angdist 56 扇区/D2/×9.1、import 10 缩略图+lightbox 683px、picks 5539 dots、edge tooltip 381px）；console 零错误；agent-browser 用完即 close（内存纪律）
+- lint 通过；tsc 0 错误；push 1deda4f + 600e9dc
+
+Stage Summary:
+- 四个新功能落地：取向分布热图（3D job Overview）、import 源数据画廊、manualpick 选点叠加图、连线 tooltip——管线前段（import/pick）与后段（refine QC）的检查能力补齐
+- 管线：refine3d --continue 从 it9 恢复（it10 E-step 重跑中，~40min/iter，auto-refine 预计还需数小时收敛）
+- 【给后续 cron 轮】① bash advance.sh（timeout 120s）② RELION 运行期间禁止 dev server 重启（本轮实证一次死亡）；engine.ts 待生效改动（manualpick MRC symlink）无紧急性 ③ 候选新功能：log 时间戳高亮、job 卡 hover 预览 popover、postprocess Guinier 图解析、extract 粒子堆栈浏览
