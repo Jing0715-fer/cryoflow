@@ -66,12 +66,6 @@ interface OutputsResponse {
   note?: string;
 }
 
-interface FscState {
-  fsc: { resolution: number[]; correlation: number[] };
-  finalResolution?: number;
-  source: string;
-}
-
 /* ------------------------------------------------------------------ */
 /* Helpers                                                             */
 /* ------------------------------------------------------------------ */
@@ -86,12 +80,6 @@ function fileUrl(jobId: string, file: OutputFile, extra: string): string {
   return `/api/jobs/${jobId}/outputs/file?path=${encodeURIComponent(file.path)}${extra}`;
 }
 
-/** postprocess.star / *_fsc.star carry the resolution curve. */
-function isFscStar(file: OutputFile): boolean {
-  const lower = file.name.toLowerCase();
-  return file.kind === "star" && (lower === "postprocess.star" || lower.endsWith("_fsc.star"));
-}
-
 /* ------------------------------------------------------------------ */
 /* Main component                                                      */
 /* ------------------------------------------------------------------ */
@@ -100,7 +88,6 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
   const [data, setData] = useState<OutputsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [fscState, setFscState] = useState<FscState | null>(null);
 
   const [imageFile, setImageFile] = useState<OutputFile | null>(null);
   const [starFile, setStarFile] = useState<OutputFile | null>(null);
@@ -111,7 +98,6 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    setFscState(null);
     try {
       const res = await fetch(`/api/jobs/${job.id}/outputs`, { cache: "no-store" });
       if (!res.ok) {
@@ -136,40 +122,6 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
   useEffect(() => {
     if (refreshKey !== firstKey.current) void load();
   }, [refreshKey, load]);
-
-  // Fetch the FSC curve when a postprocess-style STAR file exists.
-  const fscCandidate = useMemo(
-    () => data?.files.find(isFscStar) ?? null,
-    [data]
-  );
-
-  useEffect(() => {
-    if (!fscCandidate || !data) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch(
-          `/api/jobs/${job.id}/outputs/star?path=${encodeURIComponent(fscCandidate.path)}&rows=5`
-        );
-        if (!res.ok) return;
-        const body = (await res.json()) as {
-          fsc?: { resolution: number[]; correlation: number[]; finalResolution?: number };
-        };
-        if (!cancelled && body.fsc && body.fsc.resolution.length > 1) {
-          setFscState({
-            fsc: { resolution: body.fsc.resolution, correlation: body.fsc.correlation },
-            finalResolution: body.fsc.finalResolution,
-            source: fscCandidate.path,
-          });
-        }
-      } catch {
-        /* chart is optional */
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [fscCandidate, job.id, data]);
 
   // latest-iteration first: for finished jobs the FINAL classes/maps are what
   // users come to see (run_it025_classes beats run_it000_classes)
@@ -276,12 +228,8 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
         </Button>
       </div>
 
-      {/* FSC curve */}
-      {fscState && (
-        <section aria-label="FSC curve" className="rounded-lg border border-teal-600/25 bg-teal-600/5 p-3">
-          <FscChart fsc={fscState.fsc} finalResolution={fscState.finalResolution} />
-        </section>
-      )}
+      {/* FSC curve (live: half-map FSC while refining, masked FSC after postprocess) */}
+      <FscChart jobId={job.id} running={job.status === "running"} />
 
       {/* Maps & images gallery */}
       {mrcFiles.length > 0 && (

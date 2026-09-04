@@ -65,6 +65,7 @@ import { TypeIcon } from "./icons";
 import { StatusBadge } from "./job-card";
 import { JobResults } from "./results/results-view";
 import { ResolutionChart } from "./results/resolution-chart";
+import { FscChart } from "./results/fsc-chart";
 
 /* ------------------------------------------------------------------ */
 /* Types (mirrors /api/jobs/[id]/outputs)                              */
@@ -694,6 +695,7 @@ function OverviewTab({
 }) {
   // refining jobs get a live per-iteration resolution chart
   const isRefineType = /class2d|class3d|initialmodel|refine3d|multibody/i.test(job.type);
+  const is3dType = /initialmodel|refine3d|class3d|multibody|postprocess/i.test(job.type);
   const hasIterated = (job.status === "running" || job.status === "completed" || job.status === "failed") &&
     (job.progress > 4 || job.status !== "running");
   return (
@@ -701,6 +703,10 @@ function OverviewTab({
       <ResultSummary job={job} />
       {isRefineType && hasIterated ? (
         <ResolutionChart jobId={job.id} running={job.status === "running"} />
+      ) : null}
+      {/* 3D reconstructions get the FSC curve (gold-standard report card). */}
+      {is3dType ? (
+        <FscChart jobId={job.id} running={job.status === "running"} />
       ) : null}
       <Section icon={Activity} title="Timeline">
         <div className="rounded-xl border bg-card p-5 pt-4">

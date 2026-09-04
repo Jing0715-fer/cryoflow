@@ -17,6 +17,7 @@ import {
 import { useWorkflowStore, type PendingFrom } from "@/lib/store";
 import type { JobDTO } from "@/lib/types";
 import { EdgesLayer } from "./edges-layer";
+import { PipelineKpi } from "./pipeline-kpi";
 import { JobCard } from "./job-card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -433,6 +434,9 @@ export function WorkflowCanvas() {
           ))}
         </div>
       )}
+
+      {/* Pipeline overview KPI bar (top-left) */}
+      <PipelineKpi />
 
       {/* Drop hint while dragging a job type from the palette */}
       {paletteDrag && (
