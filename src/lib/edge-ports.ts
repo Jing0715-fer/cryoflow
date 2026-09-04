@@ -15,10 +15,10 @@ import { mkdirSync, readFileSync, writeFileSync, existsSync } from "fs";
 import path from "path";
 import type { Edge, Job } from "@prisma/client";
 import { db } from "@/lib/db";
+import { DATA_DIR } from "@/lib/paths";
 import { defaultPorts, jobType } from "@/lib/workflow";
 import type { EdgeDTO } from "@/lib/types";
 
-const DATA_DIR = "/home/z/my-project/data";
 const FILE = path.join(DATA_DIR, "edge-ports.json");
 
 export interface FileEdge {

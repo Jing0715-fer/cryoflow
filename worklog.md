@@ -906,3 +906,28 @@ Work Log:
 Stage Summary:
 - 用户需求闭环：远程检查 ✓（本地确认回滚 32 commit）；上一轮修改（261d10f 管线完成记录）已 amend 进最新 commit 并 force-push（dbcc8c0）；本地代码/DB/RELION 栈/EMPIAR 数据全部恢复到与远程一致的最新状态，应用完整可运行
 - 【给后续 cron 轮】①管线需重跑（DB 已重置）：POST /api/projects/empiar-seed + persist/seed-and-tune.sh 参数调优（D2/3500/K8/lowpass10 等，RESTORE.md 有成功参数）→ advance.sh 拓扑推进至 ≤4.2 Å ②内存红线 3.5GB（next-server 1.9GB 稳态）③persist/RESTORE.md 是回滚场景的标准恢复入口（约 3 分钟）④历史管线运行产物在 /tmp/my-project/relion-projects/（PolarFS 存活，可复用 MRC 数据）
+
+---
+Task ID: wsl-bridge-import-2026-09-04
+Agent: main (Z.ai Code, user request: 本机 Windows+WSL 跑作业 + import 无法选本机路径)
+Task: ① 实现 WSL 执行桥接（用户本机 RELION 5.0.1 in WSL Debian，Windows 宿主原生跑 Next.js，作业需真正能跑）② Import 作业支持浏览/选择本机（含 WSL 内）文件夹导入照片（微图）
+
+Work Log:
+- 【诊断】execution="wsl" 时机：宿主无 RELION、WSL distro 有 → 旧实现 Run 按钮 disabled + 引擎诚实拒绝。两个缺口：(a) 无 wsl.exe 桥接执行层 (b) 引擎 DATA_DIR/EMPIAR_DIR 硬编码 /home/z（用户机器不存在）
+- 【新模块 src/lib/relion/wsl-bridge.ts】hostToWsl（C:\x→/mnt/c/x、\\wsl.localhost\D\…→/…、posix 透传）/ wslToHost（反向 + distro 路径→UNC）/ shq bash 单引号安全转义 / wrapWslCommand（单次 wsl.exe -d D -e bash -c：cd 守卫(exit 111)+export RELION_HOME/PATH/RELION_CTFFIND_EXECUTABLE+exec 全 argv 逐参引号；windows 盘符参数翻译、posix 参数透传）/ wslStopArgs（pkill -f 翻译后的 workdir，RELION argv 恒含它）/ bridgeFromStatus（execution==="wsl" 才激活）
+- 【system.ts 探测增强】probeWsl 第 4b 步单次 login-shell 探测 M:/B:/C: 前缀行 → wsl.mpirunPath / wsl.mpiBinary(relion_refine_mpi 存在) / wsl.ctffindPath，进 WslStatusClient（types.ts 新可选字段，旧缓存兼容）
+- 【engine.ts 桥接化】① DATA_DIR 改 @/lib/paths（process.cwd()/data — 沙盒等价、用户机落 <repo>/data；projects.ts/edge-ports.ts 同步）② runRealJob 去 WSL 诚实拒绝 → bridgeFromStatus ③ resolveMpirun/hasMpiBinary/resolveCtffind（桥接用 distro 探测事实，原生用 sandbox MPICH/existsSync）④ MPI 前缀与 --continue 续跑分支全部走新解析 ⑤ spawnTrackedRun 桥接分支（spawn wsl.exe、record.cmd 存展示形命令、stdio fd/detached/退出码语义不变）⑥ stopRun Windows 分支：kill wsl.exe + distro 内 pkill 兜底 ⑦ isRunAlive pidAlive()（Linux /proc、Windows process.kill(pid,0)）⑧ target sanity 桥接时跳过（宿主看不见 distro 路径）
+- 【import 自定义路径】params 新 pth 类型 micrographsPath（workflow.ts pth() helper + coerceParam path 分支 + PATCH 白名单 string 直通）；runImportNative：自定义优先于 empiarData；importDirToHost（/mnt/c→C:\、/home/…→UNC \\wsl.localhost\D\…）；linkDirInto（win32 junction 免管理员、posix symlink、旧链 realpath 校验后重指）；star 条目项目相对 micrographs/<name>（junction 对 Node gallery 与 WSL drvfs 双透明）；junction 失败（UNC 目标）回退绝对路径（桥接时 hostToWsl）；manualpick toAbs 增 /mnt 反译 + UNC 反译（existsSync 守卫）
+- 【fs 浏览】GET /api/fs/browse（只读列目录）：空 path → roots 视图（win32 盘符 A-Z existsSync 探测 + \\wsl.localhost 聚合根 + 探测到的 distro 直达；posix / 与 Home）+ quick jumps（Home/Desktop/Downloads/Documents/Pictures/Project）；列目录 dirs 优先 400 条截断 + micrographs 计数（mrc/mrcs/tif/tiff/eer）；盘根/UNC 根 parent="" 回 roots
+- 【PathBrowserDialog 组件】shadcn Dialog：roots/面包屑/up/refresh、quick 胶囊、目录单击进入（dblclick 同效）、文件行 muted + img 徽标 + 人类可读尺寸、底部手输路径 + Go、Select this folder（roots 视图禁用）、微图计数 role=status、400 截断提示、空目录/错误态
+- 【ParamField path 类型】col-span-2 全行：mono 文本输入（可手贴 /mnt/c/…、C:\…、/home/…）+ Browse 按钮（内嵌 dialog 实例，选择即回填）
+- 【UI 解禁】job-panel Run：execution==="wsl" 不再 disabled（仅 not found 硬拦），桥接态青色 note "jobs run inside the distro through the built-in WSL bridge (paths translated automatically)"；header popover 同步青色详细说明；project-panel 新建对话框 teal 文案更新
+- 【验证】①scripts/diag-wsl-bridge.ts 31 断言全过（翻译矩阵/引号/桥接解析/包装脚本逐段：cd 守卫、RELION_HOME/PATH/ctffind export、exec 引号、盘符参数翻译、无 distro 时省 -d、stop args）②/api/fs/browse：roots 视图 ✓、EMPIAR 目录 10 微图计数 ✓ ③agent-browser E2E（relion 引擎 QA 项目）：Params→Browse→Home→empiar-10017→micrographs→Select（计数 "10 micrographs"）→字段回填 /home/z/empiar-10017/micrographs→Save→Run→"10 micrographs imported (pixel 1.77 Å)" ✓ ④star=项目相对 micrographs/<name> + symlink ✓ ⑤gallery outputs/file 经 symlink 渲染 373×373 PNG ✓ ⑥下游：manualpick 5539 picks（.coord 经 symlink 读取）→ ctffind 真实 relion_run_ctffind pid 4642 spawn（原生回归）✓ ⑦stop→进程清零 ✓ ⑧QA 项目删除+demo 恢复+console 零错误 ✓ ⑨lint 0 错误、tsc src/ 0 错误 ✓
+- 【清理】QA 项目/数据目录已删、demo 恢复激活、agent-browser 已 close（4GB 纪律）
+
+Stage Summary:
+- 用户两大需求闭环：① Windows+WSL 部署从「诚实拒绝」变为「真跑」——wsl.exe 桥接（路径翻译+环境注入+退出码/日志/进度/续跑全兼容）+ distro 侧 mpirun/ctffind/_mpi 自动解析 + 停止树 pkill 兜底 ② Import 浏览本机文件夹（含 WSL distro UNC 根）→ junction/symlink → 项目相对 star → 下游 RELION/gallery 全链路
+- 关键架构：DATA_DIR cwd 化（用户机可运行的前提）；junction=免管理员 symlink 等价物（WSL drvfs 透明）；star 路径恒项目相对（junction 失败才绝对+翻译）
+- 【未验证项】wsl.exe 真实调用只能在用户 Windows 机器上发生（沙盒无 wsl）——翻译/包装逻辑 31 断言离线验证过，真实环境若出问题 run.err 会记录 bash 侧报错（诚实诊断）
+- 【给用户】本机使用：git pull → bun install → bun run dev → 顶栏 Re-detect 确认绿 chip → Import 作业 Params→Browse 选微图文件夹（WSL 里的文件夹走 \\\\wsl.localhost\\Debian 根）→ Run；CTF 作业需 distro 内有 ctffind（探针会显示）
+- 【给后续 cron 轮】管线推进同前（empiar-seed 流程未动）；scripts/diag-wsl-bridge.ts 可复跑；沙盒 empiarData 流程回归点已覆盖

@@ -24,6 +24,8 @@ import {
   readdirSync,
   readFileSync,
   readSync,
+  realpathSync,
+  rmSync,
   statSync,
   symlinkSync,
   writeFileSync,
@@ -31,15 +33,25 @@ import {
 import path from "path";
 import type { Job } from "@prisma/client";
 import { db } from "@/lib/db";
+import { DATA_DIR } from "@/lib/paths";
 import { detectRelion } from "./system";
+import {
+  bridgeFromStatus,
+  hostToWsl,
+  isWindowsPath,
+  wslStopArgs,
+  wrapWslCommand,
+  type WslBridge,
+} from "./wsl-bridge";
 
 /* ------------------------------------------------------------------ */
 /* Paths & constants                                                    */
 /* ------------------------------------------------------------------ */
 
-const DATA_DIR = "/home/z/my-project/data";
 const STATE_FILE = path.join(DATA_DIR, "engine-state.json");
 const RELION_ROOT = path.join(DATA_DIR, "relion");
+/** Sandbox-only demo source (EMPIAR seed); user machines use the import
+ * job's micrographsPath param (folder browser) instead. */
 const EMPIAR_DIR = "/home/z/empiar-10017/micrographs";
 const MPICH_BIN = "/home/z/relion-build/deps/mpich/bin";
 const MPICH_LIB = "/home/z/relion-build/deps/mpich/lib";
@@ -144,21 +156,11 @@ export function clearRunRecord(jobId: string): void {
  */
 export function isRunAlive(jobId: string): string | null {
   const child = live.get(jobId);
-  if (
-    child &&
-    child.exitCode === null &&
-    child.pid != null &&
-    existsSync(`/proc/${child.pid}`)
-  ) {
+  if (child && child.exitCode === null && child.pid != null && pidAlive(child.pid)) {
     return `job is already running (pid ${child.pid})`;
   }
   const state = readRuns()[jobId];
-  if (
-    state &&
-    state.done === false &&
-    state.pid != null &&
-    existsSync(`/proc/${state.pid}`)
-  ) {
+  if (state && state.done === false && state.pid != null && pidAlive(state.pid)) {
     return `job is already running (pid ${state.pid})`;
   }
   return null;
@@ -200,6 +202,21 @@ function descendantsOf(pid: number): number[] {
   return out;
 }
 
+/** Cross-platform pid liveness: /proc on Linux, signal-0 probe on Windows. */
+function pidAlive(pid: number): boolean {
+  try {
+    if (existsSync("/proc")) return existsSync(`/proc/${pid}`);
+  } catch {
+    /* fall through to the signal probe */
+  }
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Stop a job's live process tree (SIGTERM → grace → SIGKILL).
  *  - kills mpirun AND its ranks (a bare mpirun kill orphans the ranks)
@@ -213,6 +230,38 @@ export async function stopRun(jobId: string): Promise<{ stopped: boolean; messag
   const child = live.get(jobId);
   const state = readRuns()[jobId];
   const pid = child?.pid ?? state?.pid ?? null;
+
+  // ---- WSL bridge runs --------------------------------------------------
+  // The host-side pid is the wsl.exe session host; the distro-internal
+  // mpirun/rank tree has no /proc entries on Windows. Kill the host session
+  // AND pkill the distro side by the translated workdir (always embedded in
+  // the RELION argv via --o / --i), so no orphan keeps writing checkpoints.
+  if (pid != null && state?.workdir && !existsSync(`/proc/${pid}`) && pidAlive(pid)) {
+    const bridge = bridgeFromStatus(await detectRelion());
+    if (bridge) {
+      try {
+        process.kill(pid);
+      } catch {
+        /* already gone */
+      }
+      execFile("wsl.exe", wslStopArgs(state.workdir, bridge), { timeout: 5000 }, () => {
+        /* best effort — pkill exits non-zero when nothing matched */
+      });
+      if (!child) {
+        const runs = readRuns();
+        const rec = runs[jobId];
+        if (rec && rec.done === false) {
+          runs[jobId] = { ...rec, done: true, exitCode: -1, result: "stopped by user (WSL bridge)" };
+          writeRuns(runs);
+        }
+      }
+      return {
+        stopped: true,
+        message: `stopped WSL session pid ${pid} (pkill sent inside ${bridge.distro ?? "default distro"})`,
+      };
+    }
+  }
+
   const tree = pid != null && existsSync(`/proc/${pid}`) ? [pid, ...descendantsOf(pid)] : [];
 
   if (tree.length === 0) {
@@ -297,6 +346,83 @@ function workdirFor(job: EngineJobRef): string {
  */
 function projectDirFor(job: EngineJobRef): string {
   return path.join(RELION_ROOT, job.projectId);
+}
+
+/* ------------------------------------------------------------------ */
+/* Toolchain resolution (native sandbox MPICH vs WSL distro tools)      */
+/* ------------------------------------------------------------------ */
+
+/** mpirun for MPI-parallel types: distro-side (bridge) or sandbox MPICH. */
+function resolveMpirun(binDir: string, bridge: WslBridge | null): string | null {
+  if (bridge) return bridge.mpirun;
+  return existsSync(path.join(MPICH_BIN, "mpirun"))
+    ? path.join(MPICH_BIN, "mpirun")
+    : null;
+}
+
+/** relion_refine_mpi presence (WSL-side facts come from the probe). */
+function hasMpiBinary(binDir: string, bridge: WslBridge | null): boolean {
+  if (bridge) return bridge.hasMpiBinary;
+  return existsSync(path.join(binDir, "relion_refine_mpi"));
+}
+
+/** ctffind executable: distro-side (bridge) or the sandbox bundle. */
+function resolveCtffind(bridge: WslBridge | null): string | null {
+  if (bridge) return bridge.ctffind;
+  return existsSync(CTFFIND_EXE) ? CTFFIND_EXE : null;
+}
+
+/**
+ * Link a data directory into the RELION project/job tree so STAR files can
+ * use project-relative "micrographs/<name>" paths (RELION pipeliner style).
+ * POSIX hosts get a symlink; Windows gets a directory JUNCTION (no admin
+ * rights needed — plain symlinks require Developer Mode there). Returns
+ * false when no link could be created (e.g. junction to a UNC target).
+ */
+function linkDirInto(target: string, linkPath: string): boolean {
+  try {
+    if (existsSync(linkPath)) {
+      // a previous import may point elsewhere — re-point the link
+      try {
+        if (realpathSync(linkPath) === realpathSync(target)) return true;
+        rmSync(linkPath, { force: true, recursive: true });
+      } catch {
+        /* stale/broken link — remove and recreate below */
+        try {
+          rmSync(linkPath, { force: true, recursive: true });
+        } catch {
+          /* cannot clean up — keep the old link and fail honestly */
+          return false;
+        }
+      }
+    }
+    if (process.platform === "win32") {
+      symlinkSync(target, linkPath, "junction");
+    } else {
+      symlinkSync(target, linkPath, "dir");
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Normalize a user-provided import folder to a path THIS Node process can
+ * readdir: /mnt/c/… → C:\… (Windows host); other POSIX paths on a Windows
+ * host become \\wsl.localhost\<distro>\… UNC when a distro is known.
+ */
+function importDirToHost(raw: string, bridge: WslBridge | null): string {
+  let p = raw.trim();
+  if (process.platform === "win32" || bridge) {
+    const mnt = p.match(/^\/mnt\/([A-Za-z])\/(.*)$/);
+    if (mnt) {
+      p = `${mnt[1].toUpperCase()}:\\${mnt[2].replace(/\//g, "\\")}`;
+    } else if (p.startsWith("/") && bridge?.distro && !existsSync(p)) {
+      p = `\\\\wsl.localhost\\${bridge.distro}\\${p.slice(1).replace(/\//g, "\\")}`;
+    }
+  }
+  return p;
 }
 
 /* ------------------------------------------------------------------ */
@@ -641,7 +767,9 @@ async function runImportNative(job: EngineJobRef): Promise<NativeResult> {
   const kV = num(job, "voltage", 300);
   const cs = num(job, "cs", 2.7);
   const q0 = num(job, "ampContrast", 0.1);
-  const empiar = String(job.params.empiarData ?? "") === "true";
+  const empiar =
+    String(job.params.empiarData ?? "") === "true" &&
+    !String(job.params.micrographsPath ?? "").trim();
 
   const starPath = path.join(workdir, "micrographs.star");
   const lines: string[] = [
@@ -664,6 +792,7 @@ async function runImportNative(job: EngineJobRef): Promise<NativeResult> {
   ];
 
   let result: string;
+  let sourceLabel = "source: (none configured)";
   if (empiar) {
     const mrcs = existsSync(EMPIAR_DIR)
       ? readdirSync(EMPIAR_DIR)
@@ -684,15 +813,64 @@ async function runImportNative(job: EngineJobRef): Promise<NativeResult> {
     if (!existsSync(micLinkInWorkdir)) symlinkSync(EMPIAR_DIR, micLinkInWorkdir);
     for (const m of mrcs) lines.push(`micrographs/${m} 1`);
     result = `${mrcs.length} micrographs imported · EMPIAR-10017 (pixel ${pixel} Å)`;
+    sourceLabel = `source: EMPIAR-10017 ${EMPIAR_DIR}`;
   } else {
-    result = "Import job completed (no source data configured)";
+    // ---- user-selected folder (params tab → "Browse…") --------------------
+    const customRaw = String(job.params.micrographsPath ?? "").trim();
+    if (customRaw) {
+      const status = await detectRelion();
+      const bridge = bridgeFromStatus(status);
+      const hostDir = importDirToHost(customRaw, bridge);
+      let stat: { isDirectory: boolean } | null = null;
+      try {
+        stat = { isDirectory: statSync(hostDir).isDirectory() };
+      } catch {
+        stat = null;
+      }
+      if (!stat || !stat.isDirectory) {
+        return {
+          ok: false,
+          error: `Micrographs folder not accessible: ${customRaw} — re-pick it in the params tab (Browse…)`,
+        };
+      }
+      const mrcs = readdirSync(hostDir)
+        .filter((f) => /\.(mrc|mrcs|tif|tiff)$/i.test(f))
+        .sort();
+      if (mrcs.length === 0) {
+        return {
+          ok: false,
+          error: `No .mrc/.mrcs/.tif micrographs found in ${customRaw}`,
+        };
+      }
+      // Junction/symlink so STAR paths stay project-relative ("micrographs/…")
+      // — identical to the EMPIAR flow, and the link is transparent both to
+      // Node (gallery previews) and to WSL (drvfs follows junctions).
+      const linked =
+        linkDirInto(hostDir, path.join(projectDir, "micrographs")) &&
+        linkDirInto(hostDir, path.join(workdir, "micrographs"));
+      if (linked) {
+        for (const m of mrcs) lines.push(`micrographs/${m} 1`);
+      } else {
+        // no link possible (e.g. junction to a UNC \\wsl.localhost target) —
+        // absolute paths: RELION opens them as-is; on a Windows host with the
+        // bridge they are translated to WSL-side /… paths.
+        for (const m of mrcs) {
+          const abs = path.join(hostDir, m);
+          lines.push(`${bridge ? hostToWsl(abs) : abs} 1`);
+        }
+      }
+      result = `${mrcs.length} micrographs imported (pixel ${pixel} Å)`;
+      sourceLabel = `source: ${customRaw}${linked ? "" : " (absolute paths)"}`;
+    } else {
+      result = "Import job completed (no source data configured — pick a micrographs folder in the params tab)";
+    }
   }
 
   writeFileSync(starPath, lines.join("\n") + "\n");
   const logText = [
     `CryoFlow engine-native import ${new Date().toISOString()}`,
     `pixel=${pixel} Å  voltage=${kV} kV  Cs=${cs} mm  Q0=${q0}`,
-    empiar ? `source: EMPIAR-10017 ${EMPIAR_DIR}` : "source: (none configured)",
+    sourceLabel,
     `output: ${starPath}`,
     result,
     "",
@@ -724,7 +902,21 @@ async function runManualPickNative(job: EngineJobRef, upstream: UpstreamRef[]): 
   }
   const projectDir = projectDirFor(job);
   // Star paths are project-root-relative — resolve to absolute for FS access.
-  const toAbs = (mic: string) => (mic.startsWith("/") ? mic : path.join(projectDir, mic));
+  // Absolute entries (import's no-link fallback) may be WSL-side paths on a
+  // Windows host → translate /mnt/<drive> and distro paths back to host form.
+  const bridge = bridgeFromStatus(await detectRelion());
+  const toAbs = (mic: string) => {
+    const abs = mic.startsWith("/") ? mic : path.join(projectDir, mic);
+    if (!isWindowsPath(abs) && abs.startsWith("/") && !existsSync(abs)) {
+      // WSL-side path this host cannot open as-is
+      const mnt = abs.match(/^\/mnt\/([A-Za-z])\/(.*)$/);
+      if (mnt) return `${mnt[1].toUpperCase()}:\\${mnt[2].replace(/\//g, "\\")}`;
+      if (bridge?.distro) {
+        return `\\\\wsl.localhost\\${bridge.distro}\\${abs.slice(1).replace(/\//g, "\\")}`;
+      }
+    }
+    return abs;
+  };
 
   const lines: string[] = [
     "data_particles",
@@ -935,6 +1127,8 @@ interface BuildCtx {
   inputs: Record<string, string>;
   job: EngineJobRef;
   upstream: UpstreamRef[];
+  /** Active WSL bridge (null on native execution). */
+  bridge: WslBridge | null;
 }
 
 function outPath(ctx: BuildCtx, name: string): string {
@@ -979,7 +1173,8 @@ async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: string }> {
         "--is_ctffind4",
         "--fast_search",
       ];
-      if (existsSync(CTFFIND_EXE)) argv.push("--ctffind_exe", CTFFIND_EXE);
+      const ctffindExe = resolveCtffind(ctx.bridge);
+      if (ctffindExe) argv.push("--ctffind_exe", ctffindExe);
       return argv;
     }
 
@@ -1934,23 +2129,45 @@ const NATIVE_TYPES = new Set(["import", "manualpick", "select"]);
  * Record the run, spawn argv, pipe run.out/run.err (append) and attach the
  * exit handler that finalizes state + DB. Shared by the fresh-run path and
  * the resume path so both get identical bookkeeping.
+ *
+ * When `bridge` is active (RELION inside WSL, app on the Windows host) the
+ * Linux argv is relayed through a single wsl.exe invocation: paths are
+ * translated, RELION env is set inside the distro, and wsl.exe's exit code
+ * + stdio are exactly the Linux command's — so logs, progress parsing and
+ * resume checkpoints behave identically to native runs.
  */
 function spawnTrackedRun(
   job: EngineJobRef,
   argv: string[],
   workdir: string,
   binDir: string,
-  resumedFrom?: number
+  resumedFrom?: number,
+  bridge: WslBridge | null = null
 ): RunOutcome {
   const logFile = path.join(workdir, "run.out");
   const errFile = path.join(workdir, "run.err");
-  const cmd = argv.join(" ");
+  const projectDir = projectDirFor(job);
+  mkdirSync(projectDir, { recursive: true });
+
+  // ---- decide the actual spawn target --------------------------------
+  let file = argv[0];
+  let args = argv.slice(1);
+  let env = relionEnv(binDir);
+  let displayCmd = argv.join(" ");
+  if (bridge) {
+    const wrapped = wrapWslCommand(argv, projectDir, bridge);
+    file = wrapped.file;
+    args = wrapped.args;
+    env = { ...process.env };
+    displayCmd = wrapped.display;
+  }
+
   const record: RunRecord = {
     jobId: job.id,
     projectId: job.projectId,
     type: job.type,
     pid: null,
-    cmd,
+    cmd: displayCmd,
     workdir,
     logFile,
     errFile,
@@ -1971,11 +2188,9 @@ function spawnTrackedRun(
   // at the dev server (Ctrl-C, reaper) can't take the refine down either.
   const outFd = openSync(logFile, "a");
   const errFd = openSync(errFile, "a");
-  const projectDir = projectDirFor(job);
-  mkdirSync(projectDir, { recursive: true });
-  const child = spawn(argv[0], argv.slice(1), {
+  const child = spawn(file, args, {
     cwd: projectDir,
-    env: relionEnv(binDir),
+    env,
     detached: true,
     stdio: ["ignore", outFd, errFd],
   });
@@ -2049,14 +2264,10 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
   if (!status.found || !status.path) {
     return { ok: false, error: "RELION 5 not detected — build/install RELION or set RELION_HOME" };
   }
-  if (status.execution !== "native") {
-    // RELION found, but only inside WSL on a host that cannot spawn distro
-    // paths directly — fail honestly instead of ENOENT-ing on a Linux path.
-    return {
-      ok: false,
-      error: `RELION ${status.version ?? ""} detected inside WSL (${status.wsl.distro ?? "default"}) at ${status.path}, but this app cannot spawn distro-internal binaries directly. Run CryoFlow inside the WSL distro (or install RELION on this host) to execute jobs.`,
-    };
-  }
+  // Native: spawn the binaries directly. WSL: relay every job through the
+  // built-in bridge (wsl.exe + path translation) — jobs run INSIDE the
+  // distro with the same logs/progress/resume machinery.
+  const bridge = bridgeFromStatus(status);
   const binDir = status.path;
 
   // ---- resume an interrupted refine-family run ---------------------------
@@ -2077,8 +2288,11 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
     prevRun.jobId === job.id
   ) {
     const checkpoint = resumableOptimiser(workdir);
-    const mpiBin = path.join(binDir, "relion_refine_mpi");
-    if (checkpoint && existsSync(mpiBin) && existsSync(path.join(MPICH_BIN, "mpirun"))) {
+    const mpirun = resolveMpirun(binDir, bridge);
+    const mpiBin = bridge
+      ? `${binDir.replace(/\/$/, "")}/relion_refine_mpi`
+      : path.join(binDir, "relion_refine_mpi");
+    if (checkpoint && mpirun && (bridge ? bridge.hasMpiBinary : existsSync(mpiBin))) {
       // gold-standard halves need leader + 2 half-mappers
       const nranks = job.type === "refine3d" ? 3 : 2;
       // --o MUST point at the SAME output root the checkpoint was written
@@ -2086,7 +2300,7 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
       // omitting it defaults to ./run relative to cwd → "output directory
       // does not exist" abort on the follower ranks).
       const resumeArgv = [
-        "mpirun",
+        mpirun,
         "-n",
         String(nranks),
         mpiBin,
@@ -2095,7 +2309,7 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
         "--o",
         path.join(workdir, "run"),
       ];
-      return spawnTrackedRun(job, resumeArgv, workdir, binDir, checkpoint.iteration);
+      return spawnTrackedRun(job, resumeArgv, workdir, binDir, checkpoint.iteration, bridge);
     }
   }
 
@@ -2110,7 +2324,7 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
   mkdirSync(workdir, { recursive: true });
 
   // ---- build argv ---------------------------------------------------------
-  const ctx: BuildCtx = { binDir, workdir, inputs, job, upstream };
+  const ctx: BuildCtx = { binDir, workdir, inputs, job, upstream, bridge };
   const built = await buildArgv(ctx);
   if ("error" in built) {
     return { ok: false, error: built.error };
@@ -2118,27 +2332,38 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
   let argv = built;
 
   // ---- MPI prefix for parallel types --------------------------------------
-  if (MPI_PARALLEL_TYPES.has(job.type) && existsSync(path.join(MPICH_BIN, "mpirun"))) {
+  const mpirun = resolveMpirun(binDir, bridge);
+  if (MPI_PARALLEL_TYPES.has(job.type) && mpirun) {
     // RELION ships serial AND _mpi builds — mpirun must launch the MPI build
     // (a serial binary under mpirun runs N independent copies: no parallelism,
     // and --split_random_halves hard-errors without MPI).
     const target = argv[0] as string;
-    if (target.startsWith("/") && existsSync(target + "_mpi")) argv[0] = target + "_mpi";
+    const canMpi = bridge
+      ? bridge.hasMpiBinary
+      : target.startsWith("/") && existsSync(target + "_mpi");
+    if (target.startsWith("/") && canMpi) argv[0] = target + "_mpi";
     // --split_random_halves (gold-standard FSC) needs leader + 2 half-mappers
     const nranks = job.type === "refine3d" ? 3 : 2;
-    argv = ["mpirun", "-n", String(nranks), ...argv];
+    argv = [mpirun, "-n", String(nranks), ...argv];
   }
 
   // ---- target binary sanity (partial installs fail honestly) --------------
-  const target = argv[0] === "mpirun" ? argv[4] : argv[0];
-  if (target && target.startsWith("/") && !existsSync(target)) {
+  // WSL-side paths cannot be existsSync'd from the host — the system probe
+  // already verified them inside the distro, so the check is native-only.
+  const target = argv[0] !== "mpirun" && argv[0] !== mpirun ? argv[0] : argv[4];
+  if (
+    !bridge &&
+    target &&
+    target.startsWith("/") &&
+    !existsSync(target)
+  ) {
     return {
       ok: false,
       error: `RELION binary ${path.basename(target)} not present in ${binDir} (incomplete RELION install)`,
     };
   }
 
-  return spawnTrackedRun(job, argv, workdir, binDir);
+  return spawnTrackedRun(job, argv, workdir, binDir, undefined, bridge);
 }
 
 /* ------------------------------------------------------------------ */

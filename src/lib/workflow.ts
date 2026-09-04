@@ -59,6 +59,13 @@ const bool = (
   extra?: Partial<ParamSchema>
 ): ParamSchema => ({ key, label, type: "bool", default: def, ...extra });
 
+/** Filesystem folder parameter — rendered with a native Browse… dialog. */
+const pth = (
+  key: string,
+  label: string,
+  extra?: Partial<ParamSchema>
+): ParamSchema => ({ key, label, type: "path", default: "", ...extra });
+
 const symmetryOptions = ["C1", "C2", "C4", "D2", "T", "I"];
 const psiOptions = ["30", "15", "7.5", "3.75", "1.875"];
 
@@ -256,6 +263,10 @@ export const JOB_TYPES: JobTypeSpec[] = [
     "Ingest movies or micrograph metadata into the project as a RELION 5 optics-group STAR file.",
     2000,
     [
+      pth("micrographsPath", "Micrographs folder", {
+        hint: "Browse… to the folder with your micrographs (.mrc/.mrcs/.tif) — works for local drives and WSL folders; also paste a path (/mnt/c/… or C:\\…)",
+        tab: "Movies/mics",
+      }),
       num("pixelSize", "Pixel size", 1.77, { unit: "Å", min: 0.1, step: 0.01, tab: "Movies/mics" }),
       num("voltage", "Voltage", 300, { unit: "kV", tab: "Movies/mics" }),
       num("cs", "Spherical aberration", 2.7, { unit: "mm", step: 0.1, tab: "Movies/mics" }),
@@ -1151,6 +1162,10 @@ export function coerceParam(p: ParamSchema, raw: unknown): ParamValue {
   if (p.type === "bool") {
     if (typeof raw === "boolean") return raw;
     if (raw === "true") return true;
+    return p.default;
+  }
+  if (p.type === "path") {
+    if (typeof raw === "string") return raw;
     return p.default;
   }
   if (p.type === "number") {

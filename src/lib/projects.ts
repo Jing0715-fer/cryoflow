@@ -9,9 +9,9 @@ import { mkdirSync, readFileSync, writeFileSync } from "fs";
 import path from "path";
 import type { Project } from "@prisma/client";
 import { db } from "@/lib/db";
+import { DATA_DIR } from "@/lib/paths";
 import type { ProjectSummaryDTO } from "./types";
 
-const DATA_DIR = "/home/z/my-project/data";
 const FILE = path.join(DATA_DIR, "projects.json");
 
 export type ProjectMode = "spa" | "tomo";

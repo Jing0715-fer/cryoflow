@@ -21,6 +21,7 @@ import {
   BarChart3,
   ChevronsDownUp,
   Database,
+  FolderOpen,
   Link2,
   Loader2,
   MousePointerClick,
@@ -46,6 +47,7 @@ import type {
 } from "@/lib/types";
 import { TypeIcon } from "./icons";
 import { MiniProgress, StatusBadge } from "./job-card";
+import { PathBrowserDialog } from "./path-browser-dialog";
 import { JobResults } from "./results/results-view";
 import {
   AlertDialog,
@@ -450,7 +452,8 @@ function ParamField({
   idPrefix: string;
 }) {
   const inputId = `${idPrefix}-${p.key}`;
-  const wide = p.type === "select" || p.type === "bool";
+  const wide = p.type === "select" || p.type === "bool" || p.type === "path";
+  const [browsing, setBrowsing] = React.useState(false);
 
   return (
     <div className={cn("space-y-1.5", wide && "col-span-2")}>
@@ -469,6 +472,41 @@ function ParamField({
             aria-label={p.label}
           />
         </div>
+      ) : p.type === "path" ? (
+        <>
+          <Label htmlFor={inputId} className="text-xs" title={p.hint}>
+            {p.label}
+          </Label>
+          <div className="flex gap-1.5">
+            <Input
+              id={inputId}
+              value={value === undefined || value === null ? "" : String(value)}
+              placeholder="Browse… or paste a folder path"
+              title={p.hint}
+              onChange={(e) => onChange(e.target.value)}
+              className="h-8 font-mono text-xs"
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 shrink-0 gap-1 px-2"
+              onClick={() => setBrowsing(true)}
+              aria-label={`Browse for ${p.label}`}
+              title="Browse folders on this machine (and WSL distros)"
+            >
+              <FolderOpen className="h-3.5 w-3.5" aria-hidden="true" />
+              Browse
+            </Button>
+          </div>
+          {browsing && (
+            <PathBrowserDialog
+              open={browsing}
+              onOpenChange={setBrowsing}
+              onPick={(picked) => onChange(picked)}
+              initialPath={String(value ?? "")}
+            />
+          )}
+        </>
       ) : p.type === "number" ? (
         <>
           <Label htmlFor={inputId} className="text-xs" title={p.hint}>
@@ -795,19 +833,21 @@ function PanelBody({ job }: { job: JobDTO }) {
 
   const spec = jobType(job.type);
   const engine = job.engine ?? "sim";
-  // Tri-state RELION gating: not detected (hard block) vs detected-in-WSL-only
-  // (bridge required — block with a precise reason instead of a guaranteed
-  // ENOENT failure at spawn time).
+  // RELION gating: not detected (hard block). A WSL-side install is NOT
+  // blocked anymore — the built-in WSL bridge relays jobs into the distro
+  // (path translation + wsl.exe wrapping), it just gets an informational note.
   const relionMissing = engine === "relion" && system !== null && !system.found;
-  const relionWslOnly =
+  const relionBridged =
     engine === "relion" &&
     system !== null &&
     system.found &&
     system.execution === "wsl";
-  const relionBlocked = relionMissing || relionWslOnly;
-  const relionHint = relionWslOnly
-    ? `RELION ${system?.version ?? ""} detected in WSL${system?.wsl.distro ? ` (${system.wsl.distro})` : ""} — job execution from this host needs the WSL bridge`
-    : "RELION not detected — build/install RELION or set RELION_HOME";
+  const relionBlocked = relionMissing;
+  const relionHint = relionMissing
+    ? "RELION not detected — build/install RELION or set RELION_HOME"
+    : relionBridged
+      ? `RELION ${system?.version ?? ""} in WSL${system?.wsl.distro ? ` (${system.wsl.distro})` : ""} — jobs run inside the distro through the built-in WSL bridge (paths are translated automatically)`
+      : "";
 
   const [name, setName] = React.useState(job.name);
   const [runPending, setRunPending] = React.useState(false);
@@ -837,7 +877,7 @@ function PanelBody({ job }: { job: JobDTO }) {
       size="sm"
       disabled={job.status === "running" || runPending || relionBlocked || job.linkedJobId != null}
       onClick={() => void handleRun()}
-      aria-describedby={relionBlocked ? "job-relion-blocked-hint" : undefined}
+      aria-describedby={relionBlocked ? "job-relion-blocked-hint" : relionBridged ? "job-relion-bridge-hint" : undefined}
       title={
         job.linkedJobId != null
           ? "Linked copies mirror their original — run the original job instead"
@@ -1010,6 +1050,16 @@ function PanelBody({ job }: { job: JobDTO }) {
             className="text-[11px] leading-relaxed text-amber-600 dark:text-amber-400"
           >
             {relionHint} — jobs will fail to start honestly.
+          </p>
+        )}
+
+        {relionBridged && !relionBlocked && (
+          <p
+            id="job-relion-bridge-hint"
+            role="note"
+            className="rounded-md bg-cyan-500/10 px-2 py-1.5 text-[11px] leading-relaxed text-cyan-700 dark:text-cyan-300"
+          >
+            {relionHint}
           </p>
         )}
 

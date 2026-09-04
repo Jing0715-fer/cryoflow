@@ -369,6 +369,33 @@ async function probeWsl(): Promise<WslStatusClient> {
   const version = vMatch ? vMatch[1] : null;
   const relionHome = binDir.replace(/\/bin\/?$/, "");
 
+  // 4b. toolchain probe (single login-shell call) — the WSL bridge needs the
+  //     distro-side mpirun / relion_refine_mpi / ctffind facts to launch MPI
+  //     jobs and CTF estimation exactly like the sandbox's bundled stack.
+  //     Login shell so PATH exports from ~/.bashrc (custom MPI builds) count.
+  const q = binDir.replace(/'/g, `'\\''`);
+  const toolsScript = [
+    `echo M:$(command -v mpirun 2>/dev/null || command -v mpiexec 2>/dev/null || true)`,
+    `echo B:$(test -x '${q}'/relion_refine_mpi && echo yes || echo no)`,
+    `echo C:$(command -v ctffind 2>/dev/null || test -x '${q}'/ctffind 2>/dev/null || true)`,
+  ].join("; ");
+  const toolsOut = await wslBash(wslPath, toolsScript, true, 8000);
+  let mpirunPath: string | null = null;
+  let mpiBinary = false;
+  let ctffindPath: string | null = null;
+  for (const line of toolsOut.split("\n")) {
+    const t = line.trim();
+    if (t.startsWith("M:")) {
+      const v = t.slice(2).trim();
+      mpirunPath = v.startsWith("/") ? v.split("\n")[0] : null;
+    } else if (t.startsWith("B:")) {
+      mpiBinary = t.slice(2).trim() === "yes";
+    } else if (t.startsWith("C:")) {
+      const v = t.slice(2).trim();
+      ctffindPath = v.startsWith("/") ? v.split("\n")[0] : null;
+    }
+  }
+
   // Note: whether jobs can EXECUTE this install (native vs WSL bridge) is
   // decided by detectRelion — this note covers location + PATH convenience.
   const note =
@@ -385,6 +412,9 @@ async function probeWsl(): Promise<WslStatusClient> {
     source,
     distro,
     note,
+    mpirunPath,
+    mpiBinary,
+    ctffindPath,
   };
 }
 

@@ -252,8 +252,9 @@ export function NewProjectDialog({
             <p className="flex items-start gap-2 rounded-md border border-teal-500/30 bg-teal-500/10 px-2.5 py-2 text-[11px] leading-relaxed text-teal-700 dark:text-teal-400">
               <CheckCircle2 className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
               RELION {system?.version ?? "?"} detected in WSL
-              {system?.wsl.distro ? ` (${system.wsl.distro})` : ""} — detection is
-              live, but running jobs needs the WSL bridge (not enabled yet).
+              {system?.wsl.distro ? ` (${system.wsl.distro})` : ""} — jobs run
+              through the built-in WSL bridge (executed inside the distro, paths
+              translated automatically).
             </p>
           )}
         </div>

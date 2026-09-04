@@ -259,8 +259,8 @@ function RelionStatusChip() {
               </div>
             )}
             {system?.execution === "wsl" && (
-              <p className="rounded-md bg-amber-500/10 px-2 py-1.5 text-[10px] leading-relaxed text-amber-700 dark:text-amber-400">
-                RELION runs inside WSL — detection is live; job execution needs the WSL bridge (native host cannot spawn distro paths directly).
+              <p className="rounded-md bg-cyan-500/10 px-2 py-1.5 text-[10px] leading-relaxed text-cyan-700 dark:text-cyan-300">
+                RELION runs inside WSL — jobs execute in the distro through the built-in WSL bridge: argv is relayed via wsl.exe, paths (drives ↔ /mnt/…) are translated automatically, and mpirun/ctffind are resolved distro-side.
               </p>
             )}
           </div>

@@ -84,10 +84,10 @@ export interface ProjectSummaryDTO {
   engine: string;
 }
 
-/** Parameters are numbers, enum strings or booleans. */
+/** Parameters are numbers, enum strings, booleans or filesystem paths. */
 export type ParamValue = number | string | boolean;
 
-export type ParamType = "number" | "select" | "bool";
+export type ParamType = "number" | "select" | "bool" | "path";
 
 export interface ParamSchema {
   key: string;
@@ -212,6 +212,12 @@ export interface WslStatusClient {
   distro: string | null;
   /** Human-readable result with actionable guidance (may be multi-line). */
   note: string;
+  /** mpirun path inside the distro (null → serial binaries only). Optional: older cached payloads may omit it. */
+  mpirunPath?: string | null;
+  /** relion_refine_mpi present in the distro bin dir (MPI-capable install). */
+  mpiBinary?: boolean;
+  /** ctffind path inside the distro (null → CTF jobs cannot run there). */
+  ctffindPath?: string | null;
 }
 
 /** Light-weight mirror of RelionStatus (server module) for the client store. */
