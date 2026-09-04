@@ -673,3 +673,20 @@ Stage Summary:
 - 五个功能落地：粒子堆栈浏览器（extract/select QC 补齐——管线前段最后一环）、Log 语义着色+图例、卡片 hover 预览、Guinier 图（postprocess 完成即自动出现）、谱系面包屑（inspector 内导航闭环）
 - 管线：refine3d it10 E-step ~50%（40min/iter），预计数小时后收敛 → advance.sh 推进 maskcreate → postprocess → Guinier/FSC/Trophy 徽章依次亮起
 - 【给后续 cron 轮】① bash advance.sh（timeout 120s）② 浏览器 QA 本轮 5 个新功能（内存 >1.5GB 时；即开即关）③ 候选：MrcGallery 类平均图加 class 占用角标、minimap hover tooltip、log 过滤行复制
+
+---
+Task ID: occupancy-minimap-copy-2026-09-04-j
+Agent: Super Z (main loop, cron webDevReview)
+Task: refine3d it10 期间第七批小功能 — 类占用度条带 / minimap tooltip / 过滤行复制
+
+Work Log:
+- 【新功能1：类占用度条带】classes API 加 ?iter=N（精确匹配 run_it{N:03d}_data.star，默认仍最高迭代）；MrcGallery（class2d/class3d）对 _classes.mrcs 磁贴渲染 ClassOccupancyStrip：teal 迷你条（高度∝占比、best class emerald、hover title count+pct、sr-only 无障碍文案）——条带跟随轮次筛选（final/itX 用对应 iter，all 钉在 final）；occByIter 本地缓存防重复请求。实测 ?iter=12 → 8 类
+- 【新功能2：minimap tooltip】job 色块加 SVG <title>（name — status（progress%/result））——原生浏览器 tooltip 零成本
+- 【新功能3：过滤行复制】LogConsole CopyButton：query 激活时只复制匹配行 + `${visible.length} lines` 标签 + Tooltip 说明（"Copy the N lines matching …" / "Copy the whole log"）
+- 【已确认】toast 完成/失败通知已在 store pollTick 存在；Files tab STAR 预览已接 StarTable
+- lint/tsc 全过；GET / 200；dev.log 零错误；push edc7538..8a33448
+
+Stage Summary:
+- 本轮累计 8 个新功能（两批 push：edc7538 + 8a33448）：粒子堆栈浏览器、Log 语义着色+图例、卡片 hover 预览、Guinier 图（预置）、谱系面包屑、类占用度条带、minimap tooltip、过滤行复制
+- 管线：refine3d it10 E-step 67%（40min/iter 稳定推进）；内存 850-920MB available（浏览器 QA 持续搁置，API/curl 级验证全通过）
+- 【给后续 cron 轮】① bash advance.sh（timeout 120s）② refine3d 完成后 advance.sh 自动推进 maskcreate → postprocess（Guinier 图会自动亮起）③ 内存 >1.5GB 时补一轮浏览器 DOM 验证本轮 8 个功能 ④ 候选新功能：postprocess localres 图、FSC 曲线 PNG 导出、job 卡运行计时器、palette 最近跳转历史
