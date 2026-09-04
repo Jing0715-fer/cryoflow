@@ -16,11 +16,11 @@ import {
   Trash2,
 } from "lucide-react";
 import {
-  CANVAS_H,
-  CANVAS_W,
   CARD_H,
   CARD_W,
   PORT_COLORS,
+  WORLD_MAX,
+  WORLD_MIN,
   jobType,
   portY,
   portsCompatible,
@@ -724,8 +724,15 @@ export const JobCard = React.memo(function JobCard({
     if (d.moved) {
       const dx = e.clientX - d.startX;
       const dy = e.clientY - d.startY;
-      const nx = Math.min(Math.max(d.origX + dx / zoom, 0), CANVAS_W - CARD_W);
-      const ny = Math.min(Math.max(d.origY + dy / zoom, 0), CANVAS_H - CARD_H);
+      // infinite canvas — clamp only to the defensive world bounds
+      const nx = Math.min(
+        Math.max(d.origX + dx / zoom, WORLD_MIN),
+        WORLD_MAX - CARD_W
+      );
+      const ny = Math.min(
+        Math.max(d.origY + dy / zoom, WORLD_MIN),
+        WORLD_MAX - CARD_H
+      );
       // patch wires to the final position first — covers the (theoretical)
       // case of the committed position rounding back onto the original
       if (groups) patchEdgeGroups(groups, job.id, nx - d.origX, ny - d.origY);

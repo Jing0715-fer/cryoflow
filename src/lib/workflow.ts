@@ -17,9 +17,16 @@ import type { JobTier, JobTypeSpec, ParamSchema, ParamValue, PortKind, PortSpec 
 export const CARD_W = 220;
 export const CARD_H = 96;
 
-/** Canvas workspace size (px, in workspace coordinates). */
-export const CANVAS_W = 2400;
-export const CANVAS_H = 1600;
+/**
+ * INFINITE CANVAS — the workspace is unbounded: job coordinates may be
+ * negative or arbitrarily large, the dot grid follows the viewport, and
+ * the edge/minimap layers size themselves to the content. These bounds
+ * are pure defensive guards against pathological values (NaN traps,
+ * database overflow), not a usable canvas limit — ±20,000 px is ~90
+ * screens of panning in every direction.
+ */
+export const WORLD_MIN = -20_000;
+export const WORLD_MAX = 20_000;
 
 /** Zoom limits for the canvas viewport (free zoom-to-cursor canvas). */
 export const ZOOM_MIN = 0.25;

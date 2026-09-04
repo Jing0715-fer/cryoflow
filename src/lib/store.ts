@@ -7,7 +7,7 @@
 import * as React from "react";
 import { create } from "zustand";
 import { toast } from "@/hooks/use-toast";
-import { CARD_W, CARD_H, CANVAS_W, CANVAS_H, ZOOM_MAX, ZOOM_MIN, jobType, portsCompatible } from "./workflow";
+import { CARD_W, CARD_H, WORLD_MIN, WORLD_MAX, ZOOM_MAX, ZOOM_MIN, jobType, portsCompatible } from "./workflow";
 import { autoLayout } from "./layout";
 import type {
   EdgeDTO,
@@ -364,13 +364,13 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     // place the link at the current viewport center of the TARGET canvas
     const x = clamp(
       Math.round(-viewport.x + 480 / viewport.zoom - CARD_W / 2),
-      0,
-      CANVAS_W - CARD_W
+      WORLD_MIN,
+      WORLD_MAX - CARD_W
     );
     const y = clamp(
       Math.round(-viewport.y + 360 / viewport.zoom - CARD_H / 2),
-      0,
-      CANVAS_H - CARD_H
+      WORLD_MIN,
+      WORLD_MAX - CARD_H
     );
     try {
       const { job } = await api<{ job: JobDTO }>("/api/jobs", {
@@ -493,8 +493,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   addJob: async (type) => {
     // legacy keyboard path: place in the middle of the current viewport
     const { viewport } = get();
-    const x = clamp(-viewport.x + 480 / viewport.zoom - CARD_W / 2, 0, CANVAS_W - CARD_W);
-    const y = clamp(-viewport.y + 360 / viewport.zoom - CARD_H / 2, 0, CANVAS_H - CARD_H);
+    const x = clamp(-viewport.x + 480 / viewport.zoom - CARD_W / 2, WORLD_MIN, WORLD_MAX - CARD_W);
+    const y = clamp(-viewport.y + 360 / viewport.zoom - CARD_H / 2, WORLD_MIN, WORLD_MAX - CARD_H);
     await get().addJobAt(type, x, y);
   },
 
@@ -504,8 +504,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       errToast(`Unknown job type: ${type}`);
       return;
     }
-    const cx = clamp(Math.round(x - CARD_W / 2), 0, CANVAS_W - CARD_W);
-    const cy = clamp(Math.round(y - CARD_H / 2), 0, CANVAS_H - CARD_H);
+    const cx = clamp(Math.round(x - CARD_W / 2), WORLD_MIN, WORLD_MAX - CARD_W);
+    const cy = clamp(Math.round(y - CARD_H / 2), WORLD_MIN, WORLD_MAX - CARD_H);
     try {
       const { job } = await api<{ job: JobDTO }>("/api/jobs", {
         method: "POST",
@@ -653,8 +653,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   duplicateJob: async (id) => {
     const src = get().jobs.find((j) => j.id === id);
     if (!src) return;
-    const x = clamp(src.x + 48, 0, CANVAS_W - CARD_W);
-    const y = clamp(src.y + 40, 0, CANVAS_H - CARD_H);
+    const x = clamp(src.x + 48, WORLD_MIN, WORLD_MAX - CARD_W);
+    const y = clamp(src.y + 40, WORLD_MIN, WORLD_MAX - CARD_H);
     try {
       const { job } = await api<{ job: JobDTO }>("/api/jobs", {
         method: "POST",

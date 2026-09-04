@@ -12,10 +12,14 @@
 
 import * as React from "react";
 import { useWorkflowStore, useActiveWorkspaceJobs, useActiveWorkspaceEdges } from "@/lib/store";
-import { CARD_W, CARD_H, CANVAS_W, CANVAS_H } from "@/lib/workflow";
+import { CARD_W, CARD_H } from "@/lib/workflow";
 
 const MM_W = 192;
-const MM_H = Math.round((MM_W * CANVAS_H) / CANVAS_W);
+const MM_MIN_H = 88;
+const MM_MAX_H = 264;
+
+/** padding (world px) around the minimap's world box */
+const MM_PAD = 160;
 
 /** status → minimap fill (hex: SVG attrs don't take Tailwind classes) */
 const STATUS_FILL: Record<string, string> = {
@@ -65,19 +69,20 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
     });
   };
 
-  /** client coords → workspace coords (via the svg bounding box) */
-  const toWorkspace = (e: React.PointerEvent): { x: number; y: number } | null => {
+  /** client coords → world coords (via the svg bounding box + viewBox) */
+  const toWorld = (e: React.PointerEvent): { x: number; y: number } | null => {
     const rect = svgRef.current?.getBoundingClientRect();
-    if (!rect) return null;
+    const vb = worldBox;
+    if (!rect || !vb) return null;
     return {
-      x: ((e.clientX - rect.left) / rect.width) * CANVAS_W,
-      y: ((e.clientY - rect.top) / rect.height) * CANVAS_H,
+      x: vb.x + ((e.clientX - rect.left) / rect.width) * vb.w,
+      y: vb.y + ((e.clientY - rect.top) / rect.height) * vb.h,
     };
   };
 
   if (jobs.length === 0) return null;
 
-  // viewport window in WORKSPACE coordinates:
+  // viewport window in WORLD coordinates:
   // screen = vx + wx·zoom  →  wx = (screen − vx) / zoom
   const zoom = viewport.zoom;
   const view = {
@@ -86,6 +91,26 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
     w: size.w / zoom,
     h: size.h / zoom,
   };
+
+  // infinite canvas: the minimap frames the union of the content bbox
+  // and the current viewport window (so you always see where you are,
+  // even when panned far into empty space)
+  const vx0 = Math.min(view.x, ...jobs.map((j) => j.x)) - MM_PAD;
+  const vy0 = Math.min(view.y, ...jobs.map((j) => j.y)) - MM_PAD;
+  const vx1 = Math.max(
+    view.x + view.w,
+    ...jobs.map((j) => j.x + CARD_W)
+  ) + MM_PAD;
+  const vy1 = Math.max(
+    view.y + view.h,
+    ...jobs.map((j) => j.y + CARD_H)
+  ) + MM_PAD;
+  const world = { x: vx0, y: vy0, w: vx1 - vx0, h: vy1 - vy0 };
+  const worldBox = world;
+
+  const mmH = Math.round(
+    Math.min(MM_MAX_H, Math.max(MM_MIN_H, (MM_W * world.h) / world.w))
+  );
 
   const jobById = new Map(jobs.map((j) => [j.id, j]));
 
@@ -98,8 +123,8 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
       <svg
         ref={svgRef}
         width={MM_W}
-        height={MM_H}
-        viewBox={`0 0 ${CANVAS_W} ${CANVAS_H}`}
+        height={mmH}
+        viewBox={`${world.x} ${world.y} ${world.w} ${world.h}`}
         className="block cursor-pointer touch-none select-none rounded-sm bg-muted/50"
         role="application"
         aria-label={`Workflow overview — ${jobs.length} jobs. Click to navigate.`}
@@ -110,12 +135,12 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
           } catch {
             /* synthesized / lost pointer — navigation still works */
           }
-          const p = toWorkspace(e);
+          const p = toWorld(e);
           if (p) navigate(p.x, p.y);
         }}
         onPointerMove={(e) => {
           if (!draggingRef.current) return;
-          const p = toWorkspace(e);
+          const p = toWorld(e);
           if (p) navigate(p.x, p.y);
         }}
         onPointerUp={(e) => {
@@ -155,44 +180,52 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
                 x2={b.x}
                 y2={b.y + CARD_H / 2}
                 stroke="currentColor"
-                strokeWidth={10}
+                strokeWidth={Math.max(6, Math.min(18, world.w / 120))}
                 opacity={0.25}
                 className="text-muted-foreground"
               />
             );
           })}
 
-        {/* job chips colored by status (hover → name tooltip via <title>) */}
-        {jobs.map((j) => {
-          const selected = j.id === selectedId;
-          return (
-            <rect
-              key={j.id}
-              x={j.x}
-              y={j.y}
-              width={CARD_W}
-              height={CARD_H}
-              rx={26}
-              fill={STATUS_FILL[j.status] ?? STATUS_FILL.idle}
-              opacity={j.status === "idle" ? 0.55 : 0.9}
-            >
-              <title>{`${j.name} — ${j.status}${j.status === "running" ? ` (${Math.round(j.progress)}%)` : j.result ? ` · ${j.result}` : ""}`}</title>
-              {j.status === "running" && (
-                <animate
-                  attributeName="opacity"
-                  values="0.55;0.95;0.55"
-                  dur="1.8s"
-                  repeatCount="indefinite"
-                />
-              )}
-            </rect>
-          );
-        })}
+        {/* job chips colored by status (hover → name tooltip via <title>)
+            — stroke widths scale with the world box so chips stay visible
+            when the minimap zooms out on the infinite canvas */}
+        {(() => {
+          const s = Math.max(4, Math.min(26, world.w / 80));
+          return jobs.map((j) => {
+            const selected = j.id === selectedId;
+            return (
+              <rect
+                key={j.id}
+                x={j.x}
+                y={j.y}
+                width={CARD_W}
+                height={CARD_H}
+                rx={26}
+                fill={STATUS_FILL[j.status] ?? STATUS_FILL.idle}
+                opacity={j.status === "idle" ? 0.55 : 0.9}
+                stroke={selected ? "var(--primary)" : "none"}
+                strokeWidth={s}
+              >
+                <title>{`${j.name} — ${j.status}${j.status === "running" ? ` (${Math.round(j.progress)}%)` : j.result ? ` · ${j.result}` : ""}`}</title>
+                {j.status === "running" && (
+                  <animate
+                    attributeName="opacity"
+                    values="0.55;0.95;0.55"
+                    dur="1.8s"
+                    repeatCount="indefinite"
+                  />
+                )}
+              </rect>
+            );
+          });
+        })()}
 
         {/* selected job ring */}
         {(() => {
           const j = jobById.get(selectedId ?? "");
           if (!j) return null;
+          const s = Math.max(4, Math.min(26, world.w / 80));
           return (
             <rect
               x={j.x - 14}
@@ -202,7 +235,7 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
               rx={38}
               fill="none"
               stroke="var(--primary)"
-              strokeWidth={14}
+              strokeWidth={s * 1.4}
               opacity={0.85}
               pointerEvents="none"
             />
@@ -216,11 +249,11 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
             y={view.y}
             width={view.w}
             height={view.h}
-            rx={24}
+            rx={Math.min(60, world.w / 40)}
             fill="var(--primary)"
             fillOpacity={0.08}
             stroke="var(--primary)"
-            strokeWidth={12}
+            strokeWidth={Math.max(4, Math.min(20, world.w / 100))}
             strokeOpacity={0.6}
             pointerEvents="none"
           />

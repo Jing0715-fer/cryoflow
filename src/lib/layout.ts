@@ -7,7 +7,7 @@
  * nodes and vertically centered.
  */
 
-import { CARD_W, CARD_H, CANVAS_W, CANVAS_H } from "./workflow";
+import { CARD_W, CARD_H } from "./workflow";
 
 const MARGIN_X = 80;
 const MARGIN_Y = 120;
@@ -56,12 +56,17 @@ export function autoLayout(
 
   const positions = new Map<string, { x: number; y: number }>();
 
-  // adaptive layer stride so the whole pipeline fits the canvas width
-  // (8-layer EMPIAR pipeline: stride clamps from 320 to ~300)
-  const maxStride = Math.floor(
-    (CANVAS_W - MARGIN_X - CARD_W) / Math.max(1, layers.length - 1)
+  // infinite canvas: columns spread at the natural stride — no width
+  // squeeze. Vertical centering: every layer centers on the TALLEST
+  // layer's midline so the pipeline reads as one balanced block wherever
+  // it ends up on the (unbounded) workspace.
+  const strideX = CARD_W + GAP_X;
+  const maxRows = Math.max(
+    1,
+    ...layers.map((layer) => Math.min(layer.length, ROW_WRAP))
   );
-  const strideX = Math.max(CARD_W + 40, Math.min(CARD_W + GAP_X, maxStride));
+  const totalH = maxRows * CARD_H + (maxRows - 1) * GAP_Y;
+  const centerY = MARGIN_Y + totalH / 2;
 
   layers.forEach((layer, li) => {
     // order within the layer: follow upstream order from the previous layer
@@ -85,7 +90,7 @@ export function autoLayout(
     const colX = MARGIN_X + li * strideX;
     const rows = Math.min(layer.length, ROW_WRAP);
     const colHeight = rows * CARD_H + (rows - 1) * GAP_Y;
-    const startY = Math.max(MARGIN_Y, (CANVAS_H - colHeight) / 2);
+    const startY = centerY - colHeight / 2;
 
     layer.forEach((id, i) => {
       // items of one layer stack vertically; overflow wraps into a
@@ -93,8 +98,8 @@ export function autoLayout(
       const sub = Math.floor(i / ROW_WRAP);
       const row = i % ROW_WRAP;
       positions.set(id, {
-        x: Math.min(colX + sub * (CARD_W + GAP_Y), CANVAS_W - CARD_W),
-        y: Math.min(startY + row * (CARD_H + GAP_Y), CANVAS_H - CARD_H),
+        x: colX + sub * (CARD_W + GAP_Y),
+        y: startY + row * (CARD_H + GAP_Y),
       });
     });
   });

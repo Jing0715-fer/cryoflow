@@ -28,7 +28,7 @@
  */
 
 import * as React from "react";
-import { CANVAS_H, CANVAS_W } from "@/lib/workflow";
+import { CARD_H, CARD_W } from "@/lib/workflow";
 import { computeEdgeGeoms, getLiveDrag, type EdgeGeom } from "@/lib/edge-geom";
 import { useWorkflowStore } from "@/lib/store";
 import type { EdgeDTO, JobDTO } from "@/lib/types";
@@ -37,6 +37,35 @@ const STROKE_BASE = "color-mix(in oklch, var(--foreground) 32%, transparent)";
 const STROKE_ACTIVE = "color-mix(in oklch, var(--foreground) 52%, transparent)";
 const STROKE_READY = "color-mix(in oklch, var(--primary) 55%, transparent)";
 const DOT_BASE = "color-mix(in oklch, var(--foreground) 42%, transparent)";
+
+/** padding around the content bbox — wires stay hit-testable and
+ *  drawable well beyond the cards during drags (React re-sizes the SVG
+ *  when the drag commits) */
+const LAYER_PAD = 1200;
+
+/** content bbox → an SVG box whose user coordinate system IS workspace
+ *  coordinates (viewBox offset). Paths/dots keep using workspace-absolute
+ *  coords, so the drag-time direct-DOM patching loop stays unchanged. */
+function contentBox(jobs: JobDTO[]) {
+  if (jobs.length === 0) {
+    return { x: -LAYER_PAD, y: -LAYER_PAD, w: 2 * LAYER_PAD, h: 2 * LAYER_PAD };
+  }
+  let x0 = Infinity;
+  let y0 = Infinity;
+  let x1 = -Infinity;
+  let y1 = -Infinity;
+  for (const j of jobs) {
+    x0 = Math.min(x0, j.x);
+    y0 = Math.min(y0, j.y);
+    x1 = Math.max(x1, j.x + CARD_W);
+    y1 = Math.max(y1, j.y + CARD_H);
+  }
+  x0 -= LAYER_PAD;
+  y0 -= LAYER_PAD;
+  x1 += LAYER_PAD;
+  y1 += LAYER_PAD;
+  return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+}
 
 export const EdgesLayer = React.memo(function EdgesLayer({
   edges,
@@ -53,6 +82,8 @@ export const EdgesLayer = React.memo(function EdgesLayer({
 
   const jobMap = React.useMemo(() => new Map(jobs.map((j) => [j.id, j])), [jobs]);
 
+  const box = React.useMemo(() => contentBox(jobs), [jobs]);
+
   const geoms = React.useMemo<EdgeGeom[]>(
     // getLiveDrag() is read (not subscribed): if a store update forces a
     // recompute mid-drag (rare — polling is paused), the wires stay glued
@@ -65,9 +96,11 @@ export const EdgesLayer = React.memo(function EdgesLayer({
   return (
     <svg
       data-edges-layer
-      width={CANVAS_W}
-      height={CANVAS_H}
+      width={box.w}
+      height={box.h}
+      viewBox={`${box.x} ${box.y} ${box.w} ${box.h}`}
       className="pointer-events-none absolute left-0 top-0"
+      style={{ left: box.x, top: box.y, overflow: "visible" }}
       aria-hidden="true"
     >
       <defs>

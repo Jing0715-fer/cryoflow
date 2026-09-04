@@ -827,3 +827,28 @@ Stage Summary:
 - 架构要点：软链接 = 只读镜像 + 血缘折叠（lineage 遇链接解析到根 original 的 run outputs）；删 original 级联删链接；删 workspace 把 job 移回默认；边只在两端均可见的 workspace 渲染（跨 space 数据流走链接）
 - 管线：refine3d --continue 运行中 80%（4 进程健康，内存 2936/4041MB）；收敛后 advance 推进 maskcreate → postprocess
 - 【给后续 cron 轮】① refine3d 收敛后 bash advance.sh（maskcreate ref=refine3d half1、postprocess 吃 mask+half1+half2）② workspace 后续候选：拖拽排序 workspace、卡片对齐吸附线、多选拖拽 ③ dashboard 可加 workspace 数量徽章（需 /api/projects 返回 count）
+
+---
+Task ID: infinite-canvas-2026-09-05-b
+Agent: main (Z.ai Code, user request: 无限画布 + 3 个 UI 修复)
+Task: 画布改无限（去 2400×1600 边界）；workspace 第一行 Active 徽章顶部裁切；右键菜单 Move/Copy-as-link 子菜单项图标贴字且与上方不对齐；连线避免回折
+
+Work Log:
+- 【无限画布·数据层】workflow.ts：CANVAS_W/H(2400×1600) → WORLD_MIN/MAX(±20000 防御性边界，非可用限制)；store.ts 5 处钳制（addJob/addJobAt/linkJobTo/duplicateJob/focus）与 job-card.tsx 拖拽钳制全部改世界边界（允许负坐标）；API 本就只 Number.isFinite，负坐标零改动直通
+- 【无限画布·网格】dot grid 从固定尺寸 workspace div 移到视口 section：canvas-grid class + 内联 backgroundSize=22/zoom、backgroundPosition=viewport.x/y（网格钉在 workspace 点上、任意平移全覆盖）；workspace div 退化为 0×0 transform 锚点
+- 【无限画布·边层】EdgesLayer/LiveWire SVG：按内容 bbox+1200(900) padding 计算 box，viewBox=`x y w h` + style left/top 同步 — user 坐标仍是 workspace 绝对坐标，拖拽期直接 DOM patch 循环零改动；overflow:visible 兜底
+- 【无限画布·minimap】viewBox = 内容 bbox ∪ 当前视口窗口（pan 到空旷区也能看到自己在哪）+ MM_PAD；MM_H 随纵横比 clamp [88,264]；线宽/选中环随 world.w 自适应缩放；toWorld 用 viewBox 逆映射
+- 【无限画布·布局】layout.ts：去 CANVAS 宽度挤压（strideX=CARD_W+GAP_X 固定）、去 Y 钳制，各层绕最高层中线居中（centerY）；Reset view 改为内容 bbox 居中（zoom 100%）
+- 【Active 徽章】workspace-panel：浮动 -top-2 徽章（被 overflow-y-auto 顶边裁切）→ 移入名称行内 ml-auto 胶囊（含圆点），列表 pt-1→pt-2；永不裁切
+- 【菜单对齐】ui/context-menu.tsx SubTrigger：补 gap-2（此前图标贴字）+ muted 图标色（与 ContextMenuItem 视觉一致）——所有含子菜单处全局生效
+- 【连线回折】edge-geom.ts 新增 backwardRoute：ex−sx < MIN_CTRL(56) 时（目标在源左侧，直接 S 贝塞尔 x 非单调必回折）改走绕行折线 = 输出 stub 右出 → 垂直跃迁到两卡上方/下方(ARC_CLEAR=56，取离中点近且无碰撞侧) → 横行 → 落入输入端口，roundCorners 圆角；两側全堵时强制下方绕行。新增导出 pendingWirePath(sx,sy,cx,cy,dir) 供 LiveWire 共用（前向=原三次贝塞尔，反向=同款绕行弧，"in"方向镜像）——canvas.tsx LiveWire 改用之并去内联贝塞尔
+- 【E2E·agent-browser 可信事件】①负坐标拖拽持久化：Import 卡拖至 world x=-543 → API 确认 + reload 渲染 style left:-543px + edge SVG viewBox 起点自适应 -1743 ✓ ②minimap 负内容 viewBox=-1128,-1033 ✓ ③反向边几何：CtfFind 拖至 Import 左侧 → edge path `M -323 168 L→Q→L -309 162→-226(上弧-240)→-982 横行→落点` 完整绕行无回折（数学证明）✓ ④LiveWire 反向拖拽：stub 右出→上弧 y112→左行→下落到光标 ✓ ⑤菜单几何测量：Re-run/Duplicate/Move-to-workspace/Copy-as-link 四项 iconLeft 全 366、gap 全 8px 完全对齐 ✓ ⑥Active 徽章 inside row ✓ ⑦Zoom-to-fit/Reset-view(内容居中)/Tidy-layout(拓扑分层 80/400/720/1040…) ✓ ⑧console 全程零错误、dev.log 零错误 ✓
+- 【修的坑】①minimap 两处 JSX 注释缺闭合 `}`（MultiEdit 笔误）→ 解析器把后续子节点当对象字面量，esbuild 二分定位修复 ②pendingWirePath return 后换行触发 ASI（return undefined）→ lint no-unused-expressions 捕获，改单行
+- 测试痕迹清理：Import/CtfFind 坐标已 API PATCH 还原；Tidy layout 留存（功能本身所为）；agent-browser 用毕 close
+- lint ✓ tsc ✓（src/ 零错误）
+
+Stage Summary:
+- 用户四点全部落地并可信验证：无限画布（负坐标端到端）✓、Active 徽章不再裁切 ✓、右键子菜单项与上方项完全对齐 ✓、反向连线绕行弧线（含橡皮筋）✓
+- 架构要点：无限画布 = 0×0 transform 锚点 + 视口层网格 + 内容 bbox viewBox 映射（user 坐标恒为 workspace 绝对值，拖拽 DOM patch 零改动）；回折修复 = backwardRoute 换向阈值 MIN_CTRL
+- 管线：refine3d --continue 4 进程健康（it11+ 推进中，内存 2577/4041MB 安全）
+- 【给后续 cron 轮】① refine3d 收敛后 bash advance.sh（maskcreate→postprocess）②无限画布后续候选：画布坐标显示 HUD、⌘K 直达坐标、拖拽时网格吸附 ③菜单 SubTrigger 的 gap-2 修复是全局组件级——其他用到子菜单的右键菜单同步受益

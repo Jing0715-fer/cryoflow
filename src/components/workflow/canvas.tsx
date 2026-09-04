@@ -4,8 +4,6 @@ import * as React from "react";
 import { useCallback } from "react";
 import { Link2, RotateCcw, Wand2, X, ZoomIn, ZoomOut } from "lucide-react";
 import {
-  CANVAS_H,
-  CANVAS_W,
   CARD_H,
   CARD_W,
   ZOOM_MAX,
@@ -14,6 +12,7 @@ import {
   jobType,
   portY,
 } from "@/lib/workflow";
+import { pendingWirePath } from "@/lib/edge-geom";
 import { useWorkflowStore, useActiveWorkspaceJobs, useActiveWorkspaceEdges, type PendingFrom } from "@/lib/store";
 import type { JobDTO } from "@/lib/types";
 import { EdgesLayer } from "./edges-layer";
@@ -64,13 +63,18 @@ interface PanState {
   pendY: number;
 }
 
+/** padding around the live-wire's anchor+cursor box — generous so the
+ *  rubber band keeps drawing while the cursor roams the infinite canvas */
+const WIRE_PAD = 900;
+
 /**
  * Temporary "live wire" following the cursor while a connection is pending
  * (click-click mode or drag-to-connect). Rendered inside the workspace so
  * it scales with the zoom. Supports both wiring directions: "out" wires
  * start at an output port (right edge), "in" wires start at an input port
  * (left edge). The job-card pulse rings already signal the compatible
- * ports on the other side.
+ * ports on the other side. The SVG box hugs the anchor+cursor bbox with a
+ * viewBox that keeps workspace coordinates (infinite canvas).
  */
 const LiveWire = React.memo(function LiveWire({
   rootRef,
@@ -119,30 +123,27 @@ const LiveWire = React.memo(function LiveWire({
     sy = job.y + portY(outIdx, nOut);
   }
 
-  // control-point reach — mirrors the bezier geometry used by EdgesLayer
-  const r2 = (v: number) => Math.round(v * 100) / 100;
-  const reach = Math.max(56, Math.abs(cursor.x - sx) * 0.42);
-  // wire direction: "in" wires drag BACKWARD from an input port, so their
-  // bezier control points mirror the "out" case
-  const pendingDirIn = pendingFrom.dir === "in";
+  const bx = Math.min(sx, cursor.x) - WIRE_PAD;
+  const by = Math.min(sy, cursor.y) - WIRE_PAD;
+  const bw = Math.abs(cursor.x - sx) + 2 * WIRE_PAD;
+  const bh = Math.abs(cursor.y - sy) + 2 * WIRE_PAD;
 
   return (
     <svg
-      width={CANVAS_W}
-      height={CANVAS_H}
+      width={bw}
+      height={bh}
+      viewBox={`${bx} ${by} ${bw} ${bh}`}
       className="pointer-events-none absolute left-0 top-0"
+      style={{ left: bx, top: by, overflow: "visible" }}
       aria-hidden="true"
     >
       <circle cx={sx} cy={sy} r={4} fill="var(--primary)" opacity={0.9} />
       <path
-        d={
-          pendingDirIn
-            ? `M ${r2(sx)} ${r2(sy)} C ${r2(sx - reach)} ${r2(sy)}, ${r2(cursor.x + reach)} ${r2(cursor.y)}, ${r2(cursor.x)} ${r2(cursor.y)}`
-            : `M ${r2(sx)} ${r2(sy)} C ${r2(sx + reach)} ${r2(sy)}, ${r2(cursor.x - reach)} ${r2(cursor.y)}, ${r2(cursor.x)} ${r2(cursor.y)}`
-        }
+        d={pendingWirePath(sx, sy, cursor.x, cursor.y, pendingFrom.dir === "in" ? "in" : "out")}
         stroke="var(--primary)"
         strokeWidth={2.5}
         strokeLinecap="round"
+        strokeLinejoin="round"
         strokeDasharray="7 5"
         opacity={0.8}
         fill="none"
@@ -454,7 +455,19 @@ export function WorkflowCanvas() {
     frameBounds(rect.width, rect.height, minX, minY, maxX, maxY);
   };
 
-  const resetView = () => setViewport({ x: 0, y: 0, zoom: 1 });
+  const resetView = () => {
+    // infinite canvas: "100%" also recenters on the content bbox (the
+    // origin (0,0) is just an arbitrary point once coordinates can go
+    // negative — centering avoids resetting into empty space)
+    const rect = rootRef.current?.getBoundingClientRect();
+    if (!rect || jobs.length === 0) {
+      setViewport({ x: 0, y: 0, zoom: 1 });
+      return;
+    }
+    const cx = (Math.min(...jobs.map((j) => j.x)) + Math.max(...jobs.map((j) => j.x + CARD_W))) / 2;
+    const cy = (Math.min(...jobs.map((j) => j.y)) + Math.max(...jobs.map((j) => j.y + CARD_H))) / 2;
+    setViewport({ x: rect.width / 2 - cx, y: rect.height / 2 - cy, zoom: 1 });
+  };
 
   return (
     <ContextMenu>
@@ -463,25 +476,31 @@ export function WorkflowCanvas() {
           ref={rootRef}
           data-canvas="viewport"
           aria-label="Workflow canvas"
-          className="no-drag-select relative min-w-0 flex-1 touch-none overflow-hidden bg-background active:cursor-grabbing cursor-grab"
+          className="no-drag-select canvas-grid relative min-w-0 flex-1 touch-none overflow-hidden bg-background active:cursor-grabbing cursor-grab"
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerCancel}
+          style={{
+            // infinite dot grid — painted on the viewport itself so it
+            // covers the whole screen wherever the (unbounded) workspace
+            // is panned; position tracks the pan so dots stay glued to
+            // workspace points, size keeps ~22px on screen at any zoom
+            backgroundSize: `${(22 / zoom).toFixed(2)}px ${(22 / zoom).toFixed(2)}px`,
+            backgroundPosition: `${viewport.x}px ${viewport.y}px`,
+          }}
         >
       {loading && jobs.length === 0 ? (
         <CanvasSkeleton />
       ) : (
         <div
           data-canvas="workspace"
-          className="canvas-grid absolute left-0 top-0"
+          className="absolute left-0 top-0"
           style={{
-            width: CANVAS_W,
-            height: CANVAS_H,
+            width: 0,
+            height: 0,
             transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${zoom})`,
             transformOrigin: "0 0",
-            // keep the dot grid at a constant ~22px on screen
-            backgroundSize: `${(22 / zoom).toFixed(2)}px ${(22 / zoom).toFixed(2)}px`,
           }}
         >
           <EdgesLayer edges={edges} jobs={jobs} />
@@ -607,9 +626,9 @@ export function WorkflowCanvas() {
           variant="ghost"
           size="icon"
           className="size-7"
-          onClick={() => setViewport({ x: 0, y: 0, zoom: 1 })}
+          onClick={resetView}
           aria-label="Reset view"
-          title="Reset zoom and pan"
+          title="Reset zoom and recenter on the workflow"
         >
           <RotateCcw className="size-4" />
         </Button>

@@ -11,7 +11,7 @@
  * That keeps React completely idle while a card is being dragged.
  */
 
-import { CANVAS_H, CARD_H, CARD_W, jobType, portY } from "./workflow";
+import { CARD_H, CARD_W, jobType, portY } from "./workflow";
 import type { EdgeDTO, JobDTO } from "./types";
 
 /** vertical fan separation between wires sharing a port (px) */
@@ -24,6 +24,8 @@ export const STUB = 14;
 export const INFLATE = 7;
 /** corner rounding of detour polylines (px) */
 export const CORNER_R = 14;
+/** vertical clearance of wrap-around arcs for backward wires (px) */
+export const ARC_CLEAR = 56;
 
 export interface Pt {
   x: number;
@@ -79,6 +81,52 @@ export function getLiveDrag(): DragOffset | null {
 
 function r2(v: number): number {
   return Math.round(v * 100) / 100;
+}
+
+/* ------------------------------------------------------------------ */
+/* Pending (live) wire path — shared by the canvas LiveWire overlay     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Geometry of the rubber-band wire drawn while a connection is pending.
+ * `sx, sy` is the anchored port; `cx, cy` is the cursor. Forward drags
+ * use the same cubic the final edge will use; backward drags (cursor
+ * behind the port) sweep a rounded arc around the port's own card so the
+ * wire never folds back on itself.
+ */
+export function pendingWirePath(
+  sx: number,
+  sy: number,
+  cx: number,
+  cy: number,
+  dir: "out" | "in"
+): string {
+  // "out": anchor is an output port (right edge) — forward means the
+  // cursor is to the right. "in": anchor is an input port (left edge) —
+  // forward means the cursor is to the LEFT (over some output port).
+  const forward = dir === "out" ? cx - sx >= MIN_CTRL : sx - cx >= MIN_CTRL;
+  if (forward) {
+    const reach = Math.max(MIN_CTRL, Math.abs(cx - sx) * 0.42);
+    const c1 = dir === "out" ? sx + reach : sx - reach;
+    const c2 = dir === "out" ? cx - reach : cx + reach;
+    return `M ${r2(sx)} ${r2(sy)} C ${r2(c1)} ${r2(sy)}, ${r2(c2)} ${r2(cy)}, ${r2(cx)} ${r2(cy)}`;
+  }
+  // backward: stub out of the port, arc over/under the anchor card
+  // (opposite side from the cursor), run across, then dock onto the cursor
+  const sgn = dir === "out" ? 1 : -1; // stub direction out of the port
+  const xs0 = sx + sgn * STUB;
+  const xe0 = cx - sgn * STUB;
+  const dy = cy > sy ? Math.min(sy, cy) - ARC_CLEAR : Math.max(sy, cy) + ARC_CLEAR;
+  const poly: Pt[] = [
+    { x: sx, y: sy },
+    { x: xs0, y: sy },
+    { x: xs0, y: dy },
+    { x: xe0, y: dy },
+    { x: xe0, y: cy },
+    { x: cx, y: cy },
+  ];
+  const { d } = roundCorners(cleanPoly(poly));
+  return d;
 }
 
 function dist(a: Pt, b: Pt): number {
@@ -175,6 +223,53 @@ function roundCorners(poly: Pt[]): { d: string; mid: Pt } {
 }
 
 /**
+ * Wrap-around route for BACKWARD wires — when the target port sits at
+ * (or left of) the source port, a direct S-bezier would leave the output
+ * stub rightward and immediately fold back on itself (the classic
+ * hairpin loop). Instead the wire exits right, sweeps a rounded arc
+ * ABOVE or BELOW both cards (whichever side is clearer), runs left, and
+ * docks into the input port from the left — n8n-style, never folding.
+ */
+function backwardRoute(
+  sx: number,
+  sy: number,
+  ex: number,
+  ey: number,
+  others: Rect[],
+  selfRaw: Rect[]
+): { d: string; mid: Pt } {
+  const xs0 = sx + STUB; // vertical hop just right of the source card
+  const xe0 = ex - STUB; // vertical hop just left of the target card
+  const topY = Math.min(selfRaw[0].y0, selfRaw[1].y0) - ARC_CLEAR;
+  const botY = Math.max(selfRaw[0].y1, selfRaw[1].y1) + ARC_CLEAR;
+  const midY = (sy + ey) / 2;
+
+  const poly = (dy: number): Pt[] => [
+    { x: sx, y: sy },
+    { x: xs0, y: sy },
+    { x: xs0, y: dy },
+    { x: xe0, y: dy },
+    { x: xe0, y: ey },
+    { x: ex, y: ey },
+  ];
+
+  // prefer the side nearer the ports' midpoint, then require it to be
+  // collision-free against unrelated cards
+  const ordered = [topY, botY].sort(
+    (a, b) => Math.abs(a - midY) - Math.abs(b - midY)
+  );
+  for (const dy of ordered) {
+    if (segHitsRects({ x: xs0, y: sy }, { x: xs0, y: dy }, others)) continue;
+    if (segHitsRects({ x: xs0, y: dy }, { x: xe0, y: dy }, others)) continue;
+    if (segHitsRects({ x: xe0, y: dy }, { x: xe0, y: ey }, others)) continue;
+    return roundCorners(cleanPoly(poly(dy)));
+  }
+  // dense overlap — sweep below regardless (crossing a card beats a
+  // fold-back loop)
+  return roundCorners(cleanPoly(poly(botY)));
+}
+
+/**
  * Route one wire. `others` = inflated rects of unconnected cards;
  * `selfRaw` = raw rects of the source and target cards (ports sit on
  * their border). Returns the path string + midpoint for the delete chip.
@@ -189,6 +284,11 @@ function routeWire(
   srcOff: number,
   tgtOff: number
 ): { d: string; mid: Pt } {
+  // backward target (left of the source port): wrap-around arc — a
+  // direct bezier here would fold back on itself (x non-monotonic)
+  if (ex - sx < MIN_CTRL) {
+    return backwardRoute(sx, sy, ex, ey, others, selfRaw);
+  }
   const bez = directBez(sx, sy, ex, ey, srcOff, tgtOff);
   let hit = false;
   for (const p of bez.pts) {
@@ -225,7 +325,7 @@ function routeWire(
   const ordered = [...cands].sort((a, b) => Math.abs(a - midY) - Math.abs(b - midY));
 
   for (const dyRaw of ordered) {
-    const dy = Math.max(24, Math.min(CANVAS_H - 24, dyRaw));
+    const dy = dyRaw; // infinite canvas — no vertical clamp
     if (segHitsRects({ x: xs0, y: sy }, { x: xs0, y: dy }, others)) continue;
     if (segHitsRects({ x: xs0, y: dy }, { x: xe0, y: dy }, others)) continue;
     if (segHitsRects({ x: xe0, y: dy }, { x: xe0, y: ey }, others)) continue;

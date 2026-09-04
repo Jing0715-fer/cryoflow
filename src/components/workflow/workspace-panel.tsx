@@ -109,12 +109,6 @@ function WorkspaceRow({
           : "border-border hover:border-foreground/20"
       )}
     >
-      {isActive && (
-        <Badge className="absolute -top-2 left-3 h-4 px-1.5 text-[9px] font-semibold uppercase tracking-wider">
-          Active
-        </Badge>
-      )}
-
       {/* name row / inline rename */}
       {editing ? (
         <Input
@@ -156,6 +150,18 @@ function WorkspaceRow({
               title="The project's default workspace — new jobs land here and deleted workspaces fall back to it"
             >
               default
+            </Badge>
+          )}
+          {/* Active badge lives INSIDE the card — the old floating -top-2
+              badge was clipped by the scroll container's top edge on the
+              first row (overflow-y-auto crops overflowing children) */}
+          {isActive && (
+            <Badge className="ml-auto h-4 shrink-0 gap-1 px-1.5 text-[9px] font-semibold uppercase tracking-wider">
+              <span
+                className="inline-block size-1.5 rounded-full bg-primary-foreground"
+                aria-hidden="true"
+              />
+              Active
             </Badge>
           )}
         </div>
@@ -367,7 +373,7 @@ export function WorkspacePanel() {
           </Button>
         </div>
       ) : (
-        <div className="nice-scroll min-h-0 flex-1 space-y-2 overflow-y-auto px-3 pb-3 pt-1">
+        <div className="nice-scroll min-h-0 flex-1 space-y-2 overflow-y-auto px-3 pb-3 pt-2">
           {workspaces.map((w) => (
             <WorkspaceRow
               key={w.id}
