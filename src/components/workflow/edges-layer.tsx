@@ -72,6 +72,9 @@ interface EdgeGeom {
   mid: Pt;
   srcDot: Pt;
   tgtDot: Pt;
+  /** friendly port labels for the hover tooltip */
+  fromPortLabel: string;
+  toPortLabel: string;
 }
 
 function r2(v: number): number {
@@ -254,6 +257,8 @@ export const EdgesLayer = React.memo(function EdgesLayer({
   const dragLive = useWorkflowStore((s) => s.dragLive);
   const removeEdge = useWorkflowStore((s) => s.removeEdge);
   const selectedId = useWorkflowStore((s) => s.selectedId);
+  // tooltip + delete chip keep a constant SCREEN size at any zoom
+  const zoom = useWorkflowStore((s) => s.viewport.zoom);
 
   const jobMap = React.useMemo(() => new Map(jobs.map((j) => [j.id, j])), [jobs]);
 
@@ -272,6 +277,8 @@ export const EdgesLayer = React.memo(function EdgesLayer({
       ey: number;
       srcKey: string;
       tgtKey: string;
+      fromPortLabel: string;
+      toPortLabel: string;
     }
     const raw: RawEdge[] = [];
 
@@ -295,9 +302,25 @@ export const EdgesLayer = React.memo(function EdgesLayer({
       const ey = to.y + portY(inIdx, nIn) + tdy;
       const srcKey = `${e.fromJobId}|${e.fromPort ?? ""}`;
       const tgtKey = `${e.toJobId}|${e.toPort ?? ""}`;
+      const fromPortLabel =
+        fromSpec?.outputs.find((p) => p.name === e.fromPort)?.label ?? e.fromPort ?? "output";
+      const toPortLabel =
+        toSpec?.inputs.find((p) => p.name === e.toPort)?.label ?? e.toPort ?? "input";
       srcGroups.set(srcKey, (srcGroups.get(srcKey) ?? 0) + 1);
       tgtGroups.set(tgtKey, (tgtGroups.get(tgtKey) ?? 0) + 1);
-      raw.push({ edge: e, from, to, sx, sy, ex, ey, srcKey, tgtKey });
+      raw.push({
+        edge: e,
+        from,
+        to,
+        sx,
+        sy,
+        ex,
+        ey,
+        srcKey,
+        tgtKey,
+        fromPortLabel,
+        toPortLabel,
+      });
     }
 
     // deterministic fan-slot assignment (stable across renders)
@@ -351,6 +374,8 @@ export const EdgesLayer = React.memo(function EdgesLayer({
         mid,
         srcDot: { x: r.sx, y: r.sy },
         tgtDot: { x: r.ex, y: r.ey },
+        fromPortLabel: r.fromPortLabel,
+        toPortLabel: r.toPortLabel,
       };
     });
   }, [edges, jobMap, dragLive, jobs]);
@@ -429,6 +454,48 @@ export const EdgesLayer = React.memo(function EdgesLayer({
               style={{ transition: "fill 160ms ease" }}
             />
             {/* hover delete affordance at the path midpoint */}
+            {hovered && (
+              <g
+                data-canvas-ui="edge-label"
+                transform={`translate(${r2(g.mid.x)}, ${r2(g.mid.y)}) scale(${(1 / Math.max(0.05, zoom)).toFixed(3)})`}
+                style={{ pointerEvents: "none" }}
+              >
+                {(() => {
+                  const title = `${from.name} → ${to.name}`;
+                  const sub = `${g.fromPortLabel} → ${g.toPortLabel}`;
+                  const w = Math.max(title.length * 6.6, sub.length * 5.3) + 26;
+                  return (
+                    <g transform="translate(0, -36)">
+                      <rect
+                        x={-w / 2}
+                        y={-22}
+                        width={w}
+                        height={34}
+                        rx={7}
+                        className="fill-popover stroke-border"
+                        strokeWidth={1}
+                      />
+                      <text
+                        y={-10.5}
+                        textAnchor="middle"
+                        className="fill-foreground"
+                        style={{ fontSize: 11, fontWeight: 600 }}
+                      >
+                        {title}
+                      </text>
+                      <text
+                        y={3.5}
+                        textAnchor="middle"
+                        className="fill-muted-foreground"
+                        style={{ fontSize: 9.5 }}
+                      >
+                        {sub}
+                      </text>
+                    </g>
+                  );
+                })()}
+              </g>
+            )}
             {hovered && (
               <g
                 data-canvas-ui="edge-delete"

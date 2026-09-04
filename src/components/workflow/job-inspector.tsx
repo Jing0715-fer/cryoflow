@@ -69,6 +69,8 @@ import { ResolutionChart } from "./results/resolution-chart";
 import { FscChart } from "./results/fsc-chart";
 import { CtfQualityChart } from "./results/ctf-quality-chart";
 import { ClassDistributionChart } from "./results/class-distribution-chart";
+import { AngularDistributionChart } from "./results/angular-distribution-chart";
+import { ImportGallery } from "./results/import-gallery";
 
 /* ------------------------------------------------------------------ */
 /* Types (mirrors /api/jobs/[id]/outputs)                              */
@@ -793,12 +795,21 @@ function OverviewTab({
   return (
     <div className="space-y-6">
       <ResultSummary job={job} />
+      {/* import jobs show the raw detector frames gallery. */}
+      {/^import$/i.test(job.type) && job.status !== "idle" ? (
+        <ImportGallery jobId={job.id} />
+      ) : null}
       {isRefineType && hasIterated ? (
         <ResolutionChart jobId={job.id} running={job.status === "running"} />
       ) : null}
       {/* 3D reconstructions get the FSC curve (gold-standard report card). */}
       {is3dType ? (
         <FscChart jobId={job.id} running={job.status === "running"} />
+      ) : null}
+      {/* 3D jobs also get the orientation distribution polar heatmap
+          (self-hides while the API has no data star to bin). */}
+      {is3dType && job.status !== "idle" ? (
+        <AngularDistributionChart jobId={job.id} running={job.status === "running"} />
       ) : null}
       {/* 2D/3D classification gets class occupancy bars. */}
       {isClassifyType && job.status !== "idle" ? (

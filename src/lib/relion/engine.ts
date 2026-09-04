@@ -552,6 +552,10 @@ async function runImportNative(job: EngineJobRef): Promise<NativeResult> {
     // the RELION pipeliner: STAR paths are project-root-relative.
     const micLink = path.join(projectDir, "micrographs");
     if (!existsSync(micLink)) symlinkSync(EMPIAR_DIR, micLink);
+    // Also expose the micrographs inside the import job's own workdir so the
+    // Files tab + gallery can serve PNG previews through outputs/file.
+    const micLinkInWorkdir = path.join(workdir, "micrographs");
+    if (!existsSync(micLinkInWorkdir)) symlinkSync(EMPIAR_DIR, micLinkInWorkdir);
     for (const m of mrcs) lines.push(`micrographs/${m} 1`);
     result = `${mrcs.length} micrographs imported · EMPIAR-10017 (pixel ${pixel} Å)`;
   } else {
