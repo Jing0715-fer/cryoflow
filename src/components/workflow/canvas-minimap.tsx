@@ -150,7 +150,7 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
             );
           })}
 
-        {/* job chips colored by status */}
+        {/* job chips colored by status (hover → name tooltip via <title>) */}
         {jobs.map((j) => {
           const selected = j.id === selectedId;
           return (
@@ -164,6 +164,7 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
               fill={STATUS_FILL[j.status] ?? STATUS_FILL.idle}
               opacity={j.status === "idle" ? 0.55 : 0.9}
             >
+              <title>{`${j.name} — ${j.status}${j.status === "running" ? ` (${Math.round(j.progress)}%)` : j.result ? ` · ${j.result}` : ""}`}</title>
               {j.status === "running" && (
                 <animate
                   attributeName="opacity"

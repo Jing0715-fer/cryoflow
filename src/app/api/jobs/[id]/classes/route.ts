@@ -42,11 +42,12 @@ function labelColumn(lines: string[], label: string): number {
 }
 
 /**
- * GET /api/jobs/[id]/classes — final class occupancy of a 2D/3D
- * classification job, from the highest-iteration run_itXXX_data.star
- * (particle→class assignment). Percentages sum to 1.
+ * GET /api/jobs/[id]/classes — class occupancy of a 2D/3D classification
+ * job from the run_itXXX_data.star (particle→class assignment).
+ * Default: highest iteration; ?iter=N selects a specific round.
+ * Percentages sum to 1.
  */
-export async function GET(_request: NextRequest, context: RouteContext) {
+export async function GET(request: NextRequest, context: RouteContext) {
   try {
     const { id } = await context.params;
     const job = await db.job.findUnique({ where: { id } });
@@ -67,6 +68,14 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       if (!best || iteration > best.iteration) {
         best = { iteration, file: name };
       }
+    }
+    // explicit ?iter= overrides (round-filtered galleries)
+    const wantIter = parseInt(new URL(request.url).searchParams.get("iter") ?? "", 10);
+    if (Number.isFinite(wantIter)) {
+      const exact = readdirSync(run.workdir).find(
+        (name) => name.toLowerCase() === `run_it${String(wantIter).padStart(3, "0")}_data.star`
+      );
+      if (exact) best = { iteration: wantIter, file: exact };
     }
     if (!best) {
       return NextResponse.json({ classes: [], total: 0, iteration: null });

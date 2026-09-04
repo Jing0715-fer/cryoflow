@@ -503,7 +503,23 @@ function LogConsole({ job }: { job: JobDTO }) {
             </TooltipTrigger>
             <TooltipContent side="bottom">Toggle line wrapping</TooltipContent>
           </Tooltip>
-          {log ? <CopyButton text={log} /> : null}
+          {log ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div>
+                  <CopyButton
+                    text={q ? visible.map((v) => v.line).join("\n") : log}
+                    label={q ? `${visible.length} lines` : undefined}
+                  />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                {q
+                  ? `Copy the ${visible.length} lines matching “${query.trim()}”`
+                  : "Copy the whole log"}
+              </TooltipContent>
+            </Tooltip>
+          ) : null}
           {!noLog ? (
             <Tooltip>
               <TooltipTrigger asChild>

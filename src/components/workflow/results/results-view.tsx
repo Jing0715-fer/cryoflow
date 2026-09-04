@@ -475,6 +475,45 @@ function iterOfName(name: string): number | null {
 
 type IterFilter = "final" | "all" | number;
 
+/** occupancy of one round of a classification run (from /classes API) */
+interface ClassOcc {
+  cls: number;
+  count: number;
+  fraction: number;
+}
+
+/**
+ * Per-class occupancy strip under a classes.mrcs gallery tile.
+ * The montage renders slices in class order (class001 → N), so each bar
+ * pairs with the tile above it; hover shows count + share.
+ */
+function ClassOccupancyStrip({ occ }: { occ: ClassOcc[] }) {
+  const max = Math.max(...occ.map((c) => c.fraction), 0.01);
+  return (
+    <div className="mt-1 flex items-end gap-[3px]" aria-label="Per-class particle occupancy">
+      {occ.map((c) => (
+        <span
+          key={c.cls}
+          className="group/bar relative flex-1"
+          title={`Class ${c.cls}: ${c.count.toLocaleString()} particles (${(c.fraction * 100).toFixed(1)}%)`}
+        >
+          <span
+            className={cn(
+              "block w-full rounded-[2px] bg-teal-500/60 transition-colors group-hover/bar:bg-teal-500",
+              c.fraction === max && "bg-emerald-500/70 group-hover/bar:bg-emerald-500"
+            )}
+            style={{ height: `${4 + Math.round((c.fraction / max) * 14)}px` }}
+            aria-hidden="true"
+          />
+          <span className="sr-only">
+            Class {c.cls}: {c.count} particles
+          </span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function MrcGallery({
   job,
   files,
@@ -509,6 +548,32 @@ function MrcGallery({
     }
     return files.filter((f) => iterOfName(f.name) === filter);
   }, [files, filter, maxIter]);
+
+  // class occupancy for classification jobs — the strip follows the
+  // displayed round (?iter= selects it; "all" pins to the final round)
+  const isClassify = /class2d|class3d/i.test(job.type);
+  const occIter = filter === "all" || filter === "final" ? maxIter : filter;
+  const [occByIter, setOccByIter] = useState<Record<number, ClassOcc[]>>({});
+  useEffect(() => {
+    if (!isClassify || occIter == null || occIter < 0) return;
+    if (occByIter[occIter]) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/jobs/${job.id}/classes?iter=${occIter}`, { cache: "no-store" });
+        if (!res.ok) return;
+        const body = (await res.json()) as { classes: ClassOcc[] };
+        if (!cancelled && body.classes?.length) {
+          setOccByIter((prev) => ({ ...prev, [occIter]: body.classes }));
+        }
+      } catch {
+        /* silent */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isClassify, occIter, job.id, occByIter]);
 
   return (
     <div>
@@ -608,6 +673,11 @@ function MrcGallery({
                   ? `${f.slices ?? "?"} imgs · ${formatBytes(f.size)}`
                   : `${f.slices ?? 1}³ · ${formatBytes(f.size)}`}
               </p>
+              {/* class-average stacks get the per-class occupancy strip
+                  (bars pair with the montage tiles above, class order) */}
+              {isClassify && it != null && it === occIter && occByIter[it] ? (
+                <ClassOccupancyStrip occ={occByIter[it]} />
+              ) : null}
             </button>
           );
         })}

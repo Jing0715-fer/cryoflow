@@ -646,3 +646,30 @@ Stage Summary:
 - 四个新功能落地：取向分布热图（3D job Overview）、import 源数据画廊、manualpick 选点叠加图、连线 tooltip——管线前段（import/pick）与后段（refine QC）的检查能力补齐
 - 管线：refine3d --continue 从 it9 恢复（it10 E-step 重跑中，~40min/iter，auto-refine 预计还需数小时收敛）
 - 【给后续 cron 轮】① bash advance.sh（timeout 120s）② RELION 运行期间禁止 dev server 重启（本轮实证一次死亡）；engine.ts 待生效改动（manualpick MRC symlink）无紧急性 ③ 候选新功能：log 时间戳高亮、job 卡 hover 预览 popover、postprocess Guinier 图解析、extract 粒子堆栈浏览
+
+---
+Task ID: particles-guinier-lineage-2026-09-04-i
+Agent: Super Z (main loop, cron webDevReview)
+Task: refine3d 续跑期间第六批开发 — 粒子堆栈浏览器 / Log 语义着色 / 卡片 hover 预览 / Guinier 图 / 谱系面包屑
+
+Work Log:
+- 【QA 回归】curl-only（refine3d 运行期 available 877MB < 1.5GB 浏览器阈值 → 零浏览器策略）：GET / 200、dev.log 无错误、resolution/fsc/classes API 正常；advance.sh WAIT（refine3d 67%，it10 E-step）
+- 【新功能1：粒子堆栈浏览器】/api/jobs/[id]/particles（新 route）+ particle-browser.tsx：
+  - 块感知 STAR 解析（data_optics 标量 + data_particles loop，label→#N 列映射）
+  - _rlnImageName 两种格式兼容（RELION 5 "00000001@/abs/path.mrcs" 索引在前 / 传统 "stack@idx"）；绝对路径 relativize（修掉了先剥 / 再 isAbsolute 的 bug）
+  - 堆栈所有权解析：Select 的 particles_select.star 用绝对路径指向上游 Extract 的 .mrcs → db.edge 回溯 toJobId 的 fromJob 列表找 workdir 前缀匹配 → ownerJobId（前端经该 job 的 outputs/file 路由渲染 PNG）
+  - 分组模式（默认）：per-micrograph count/meanFom/worstRes（_rlnCtfMaxResolution 越大越好，worst=min）+ optics（1.77Å/128px/300kV/Cs2.7）
+  - 分页模式 ?group=&offset=&limit=（≤96）：单粒子行（slice=idx-1）渲染经 montage=0&slice=N
+  - 前端：每组可折叠行（12 连拍蒙太奇缩略图 + stats chips + "stack via upstream job" 标注）→ 展开 24/页粒子网格（6/8 列 aspect-square、#idx hover 角标）→ 点击 lightbox（scale=large + 坐标/FOM/CTF fits-to 元数据）；FOM 三色分级与 CTF 面板一致；max-h-96 滚动 + 自定义滚动条
+  - 挂载：OverviewTab /^(extract|select)/ 且非 idle；实测 extract 5539 粒子/10 组、select 3500（owner 正确解析到 extract）、PNG 单粒子 40KB/蒙太奇 593KB 均 200
+- 【新功能2：Log 语义着色】LogLine 重构 classifyLogLine()：milestone（Auto-refine: Iteration=/Expectation iteration）teal semibold、resolution（Resolution=/CurrentResolution）teal-200、separator（纯 ====）zinc-600 淡化、warn amber+bg/10、error rose+bg/10；新增 LogLegend 底栏（4 色点图例）
+- 【新功能3：卡片 hover 预览】job-card.tsx：HoverCard（openDelay 500ms）挂 Row1 标题上 → JobCardPreview（portaled 不受画布 transform 影响）：header 名字+类型 / StatusBadge+running %·ETA / MiniProgress / completed|failed result 摘要（emerald/rose 框） / previewParams（数值参数优先、schema label 去 (xxx) 后缀、≤3 行） / 底部 click 提示
+- 【新功能4：Guinier 图（预置）】/api/jobs/[id]/guinier：postprocess.guinier 容错数值解析（# 注释跳过、2-3 列）+ run.out grep "Applied B-factor of"；guinier-chart.tsx（recharts LineChart、X=1/d²、masked teal/sharpened amber 虚线、B-factor 徽章、res 换算 tooltip）；挂载 postprocess 类型 OverviewTab —— 数据未到时自隐藏（当前返回空 points[]，实测 200 空响应）
+- 【新功能5：谱系面包屑】InspectorHeader 标题下方 LineageBreadcrumb：upstreamChain 后序 DFS 沿边回溯（visited 防环、边插入序确定）→ chain >5 折叠中间 "+N"（点击上跳一级）→ 每 chip 点击 inspect(j.id) 跳转该祖先 inspector；当前 job primary 高亮不可点
+- 【已存在确认】job 完成/失败 toast 通知已在 store pollTick 实现（无需重做）；Files tab STAR 预览 StarTable 已接
+- lint 全过；tsc 0 错误；push 844913f..edc7538
+
+Stage Summary:
+- 五个功能落地：粒子堆栈浏览器（extract/select QC 补齐——管线前段最后一环）、Log 语义着色+图例、卡片 hover 预览、Guinier 图（postprocess 完成即自动出现）、谱系面包屑（inspector 内导航闭环）
+- 管线：refine3d it10 E-step ~50%（40min/iter），预计数小时后收敛 → advance.sh 推进 maskcreate → postprocess → Guinier/FSC/Trophy 徽章依次亮起
+- 【给后续 cron 轮】① bash advance.sh（timeout 120s）② 浏览器 QA 本轮 5 个新功能（内存 >1.5GB 时；即开即关）③ 候选：MrcGallery 类平均图加 class 占用角标、minimap hover tooltip、log 过滤行复制
