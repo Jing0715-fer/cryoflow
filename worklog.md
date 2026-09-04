@@ -608,3 +608,21 @@ Stage Summary:
 - 管线：refine3d it10 E-step 第三次启动（~31min/iter，3 ranks ~220MB，1.65GB 可用）→ 收敛后 advance.sh 推进 maskcreate → postprocess → FSC ≤4.2 Å 判定
 - 【给后续 cron 轮】① bash advance.sh（timeout 120s）② refine3d 期间零浏览器策略（curl-only；除非绝对必要且先 free -m 确认 >1.5GB）③ 长开发轮中途重启 dev server 回收 Turbopack 膨胀（setsid dev.sh 完整等待法 + RELION 存活检查）④ engine.ts 改动后必须重启 dev server
 - 未做候选：import job 微电镜画廊（workdir 无 micrographs 副本，需要 API 改造）、画布 minimap、Ctrl+K 命令面板
+
+---
+Task ID: minimap-cmdk-2026-09-04-g
+Agent: Super Z (main loop, cron webDevReview)
+Task: QA 回归（零 bug）+ 第四批功能 — 画布 minimap 导航图 + Ctrl/⌘K 命令面板
+
+Work Log:
+- 【QA 回归】console 零错误、59 交互元素、浏览器即开即关（90 秒纪律，refine3d it10 运行期）
+- 【新功能1：画布 minimap】canvas-minimap.tsx（n8n 式鸟瞰导航）：SVG viewBox=workspace 坐标系（192×128 渲染 2400×1600 画布，零换算代码）——状态色 job 块（idle zinc/running teal+SVG animate 脉动/completed emerald/failed rose）、边直线（muted 25%）、选中卡 primary 环、当前视口窗口（primary 8% 填充+60% 描边）；点击/拖拽跳转视口（zoom 保持、pointer capture）；ResizeObserver 量 canvas 尺寸；setPointerCapture try/catch 防合成事件抛错
+- 【新功能2：⌘K 命令面板】command-palette.tsx（cmdk CommandDialog）：Ctrl/⌘+K 全局监听 + header ⌘K chip（CustomEvent "cryoflow:open-palette" 解耦开闭所有权）；四组命令全 fuzzy 可搜——① Jobs 跳转（idle→select+focus 编辑面板 / submitted→inspector 结果弹窗）② Run 一键启动 idle job ③ 全 32 类型 add 命令（目录 label+category 右槽）④ Canvas&app（zoom to fit 数学与 canvas frameBounds 一致 / reset view / tidy layout / 主题切换）；help 快捷键表加 ⌘K 行
+- 【bug 修复（本轮自产）】palette jumpToJob 初版先 inspect 后 focusJob → focusJob 设计上清 inspectId（"modal 挡画布"语义）→ 弹窗永远不开。重排：idle 走 select+focus、submitted 走纯 inspect（不调 focusJob），两分支各得其所
+- 【测试发现】合成 PointerEvent 不触发 React onPointerDown（与 radix Tabs 同根因）→ agent-browser 原生 click（CDP 可信事件）验证 minimap 跳转 transform 变化 ✓；palette 搜索 "refine3" 过滤+Enter 打开 Refine3D inspector ✓；idle 跳转 MaskCreate 聚焦 zoom=1 无弹窗 ✓；"add motioncorr" 命令建卡 10→11 ✓（测试后 DELETE 清理回 10）
+- lint/tsc 全过；push 1b123a3..b8171b3
+
+Stage Summary:
+- 两个高价值交互功能落地并经可信事件浏览器验证：minimap（视口跳转实测 transform 变化）+ 命令面板（跳转/添加/画布动作/主题四组全通）
+- 管线：refine3d it10 E-step 推进中（~35min/iter，3 ranks 282MB，1.16GB 可用）→ 收敛后 advance.sh 推进 maskcreate → postprocess
+- 【给后续 cron 轮】① bash advance.sh（timeout 120s）② refine3d 期间浏览器纪律保持（即开即关 <90s）③ 候选新功能：import job 微电镜画廊（需 API 改造）、log 时间戳高亮、job 卡 hover 预览 popover、边 hover 显示端口 label tooltip
