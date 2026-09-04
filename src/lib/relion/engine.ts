@@ -898,6 +898,13 @@ async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: string }> {
         "--iter", String(Math.round(num(job, "iterations", 50))),
         "--flatten_solvent",
         "--zero_mask",
+        // memory: VDAM allocates K reference + gradient volumes at padded box
+        // size; pad 1 (128³ instead of 256³ grids) cuts RSS from ~1.7GB to
+        // under 1GB — de-novo models only need ~30 Å detail, where the
+        // un-padded FFT grid is more than sufficient (RELION default pad is 2).
+        "--pad", "1",
+        // fewer particles pooled per task → smaller E-step working set
+        "--pool", "3",
       ];
     }
 

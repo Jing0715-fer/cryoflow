@@ -454,3 +454,23 @@ Stage Summary:
 - 管线状态：import→…→select→class2d 全部 completed；initialmodel idle 待启动；refine3d/maskcreate/postprocess 待跑
 - 【重启后 cron 优先事项】① 确认 dev server 活着 ② advance.sh STARTED initialmodel（~1-1.5h VDAM）→ refine3d（auto D2 ~5h）→ maskcreate → postprocess ③ FSC 达 ≤4.2 Å（预期 3.54 Å）④ push GitHub ⑤ 继续轻量 UI 开发
 - 已 push: 4ad6eb8..2caa638（edge 避卡 + 渲染反相修复）
+
+---
+Task ID: resume-2026-09-04-c
+Agent: Super Z (main loop)
+Task: 用户报告"页面没有加载出来了" — 诊断修复 + initialmodel OOM 根治 + 管线推进
+
+Work Log:
+- 【页面宕机根因】用户报页面打不开：dev server 进程已死（前夜 initialmodel 启动 → relion_refine 1.67GB + next-server(Turbopack) 1.6GB 叠加 → 内核 OOM-kill，next-server 一度幸存但随后也消失）。nohup bun run dev 重启 → GET / 200，agent-browser 截图标题正常、控制台无错误，随后立即 agent-browser close（内存纪律）
+- 【OOM 复发确认】重启后再次 POST /run initialmodel → relion_refine 再度膨胀 1.8GB → 又被 OOM-kill（dmesg 实锤 pid 15766 anon-rss 1798MB）。且发现 dev server 未热重载 engine.ts 补丁（engine-state cmd 无 --pad 1）——dev 期间服务端模块可能与磁盘代码不同步，改引擎代码后必须重启 dev server
+- 【内存根治】engine.ts initialmodel argv 加 --pad 1 + --pool 3：VDAM 的 K=4 参考体+梯度累加器在 pad 2 时为 256³ double（~1.07GB），pad 1 → 128³（268MB）；denovo 模型只需 ~30 Å 细节，无 pad 网格绰绰有余。重启 dev server 强制生效后：relion RSS 419MB（省 1.4GB！），可用内存 1.4GB，VDAM 稳定推进（iter 5/50，~25s/iter，预计 ~20min 完成）
+- 【内存纪律强化】无 sudo 不能加 swap（4GB 无 swap 硬约束）；next-server 重启后仍稳定膨胀至 1.9GB（Turbopack 原生内存，NODE_OPTIONS V8 上限无效）→ RELION 预算 = 4GB - 1.9(next) - 0.3(sys) ≈ 1.7GB；所有新 job 类型上线前先估 RSS
+- 【class2d 质量复核】VLM 对 it025 蒙太奇评分 3/10 模糊 → 但 worklog 前轮已查明根因是渲染反相（负密度）已修复（commit 2caa638），单类修复后 7.5/10、蒙太奇 9/10。本轮确认类分布健康（3500 粒子 8 类，class1 22.3% ~ class4 6.4%，无塌缩）
+- 【管线状态】import→ctffind→manualpick(5539)→extract(5540)→select(3500)→class2d 全部 completed；initialmodel running（K=4 D2 50 iter VDAM pad1）
+- 【分辨率目标确认（沿用前轮核查）】EMPIAR-10017 → EMD-2824 标注 4.2 Å；1.77 Å/px Nyquist 上限 3.54 Å → 达标线 ≤4.2 Å，满分 3.54 Å
+- 【下一步】initialmodel 完成 → refine3d（auto D2，mpirun -n 3，pad 2）——⚠️ 内存风险：3 ranks × 256³ 双半图缓冲可能 2-2.4GB > 1.7GB 预算。策略：先启动并逐分钟监控 RSS；若逼近 OOM 立即 pkill mpirun 回退方案（粒子数减半 class-aware select / 拆两阶段）
+- 15 分钟 webDevReview cron 已建立（管线监控 + 轻量开发轮换）
+
+Stage Summary:
+- 页面恢复 ✓（dev server 重启）；OOM 根治 ✓（--pad 1 省 1.4GB）；initialmodel 真实运行中
+- 待办：initialmodel → refine3d（内存看护）→ maskcreate → postprocess → FSC ≤4.2 Å → push GitHub
