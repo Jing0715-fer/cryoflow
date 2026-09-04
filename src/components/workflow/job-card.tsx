@@ -85,10 +85,12 @@ export function MiniProgress({
   value,
   running,
   label,
+  className,
 }: {
   value: number;
   running?: boolean;
   label: string;
+  className?: string;
 }) {
   const pct = Math.min(100, Math.max(0, value));
   return (
@@ -98,7 +100,7 @@ export function MiniProgress({
       aria-valuemax={100}
       aria-valuenow={Math.round(pct)}
       aria-label={label}
-      className="h-1.5 w-full overflow-hidden rounded-full bg-muted"
+      className={cn("h-1.5 w-full overflow-hidden rounded-full bg-muted", className)}
     >
       <div
         className={cn(
@@ -109,6 +111,79 @@ export function MiniProgress({
       />
     </div>
   );
+}
+
+/* ------------------------------------------------------------------ */
+/* Running-job ETA (localStorage progress baseline → incremental rate)  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * ETA from the observed pace of THIS session: the first time we see a run
+ * (jobId+startedAt) we store a progress baseline; once progress advances we
+ * extrapolate remaining = Δtime/Δprogress × (100−progress). This stays
+ * honest across --continue resumes (startedAt resets, progress doesn't) —
+ * a naive elapsed÷progress badly underestimates those.
+ */
+const ETA_KEY = "cryoflow-eta-baselines";
+
+interface EtaBaseline {
+  startedAt: string;
+  p0: number;
+  at: number;
+}
+
+function readBaselines(): Record<string, EtaBaseline> {
+  try {
+    const raw = localStorage.getItem(ETA_KEY);
+    const parsed = raw ? (JSON.parse(raw) as Record<string, EtaBaseline>) : {};
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+/** Milliseconds left, or null when not yet estimable (no observed pace). */
+export function estimateEta(jobId: string, startedAt: string | null, progress: number): number | null {
+  if (!startedAt || !Number.isFinite(progress) || progress < 5 || progress >= 100) return null;
+  if (typeof window === "undefined") return null;
+  const now = Date.now();
+  const baselines = readBaselines();
+  let b = baselines[jobId];
+  // fresh run, resumed run, or progress regressed (reset) → new baseline
+  if (!b || b.startedAt !== startedAt || b.p0 > progress + 0.01) {
+    b = { startedAt, p0: progress, at: now };
+    try {
+      baselines[jobId] = b;
+      localStorage.setItem(ETA_KEY, JSON.stringify(baselines));
+    } catch {
+      /* private mode etc. — pace tracking simply won't persist */
+    }
+    return null; // no pace observed yet
+  }
+  const dP = progress - b.p0;
+  const dT = now - b.at;
+  if (dP >= 0.5 && dT > 20_000) {
+    const remaining = (dT / dP) * (100 - progress);
+    return remaining > 30_000 ? remaining : null;
+  }
+  return null; // progress hasn't moved since the baseline — keep waiting
+}
+
+/** "~3h 5m" / "~12m" / "~45s" style compact ETA text. */
+export function formatEta(ms: number): string {
+  const s = Math.round(ms / 1000);
+  if (s < 90) return `~${s}s`;
+  const m = Math.round(s / 60);
+  if (m < 90) return `~${m}m`;
+  const h = Math.floor(m / 60);
+  return `~${h}h ${m % 60}m`;
+}
+
+/** Hydration-safe "now" gate — ETA only renders after mount. */
+export function useMounted(): boolean {
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => setMounted(true), []);
+  return mounted;
 }
 
 /* ------------------------------------------------------------------ */
@@ -318,6 +393,14 @@ export const JobCard = React.memo(function JobCard({
   const [dragging, setDragging] = React.useState(false);
 
   const isSource = pendingFrom?.jobId === job.id;
+
+  // Running-job ETA (client-only gate keeps SSR output hydration-safe)
+  const mounted = useMounted();
+  const etaText = React.useMemo(() => {
+    if (!mounted || job.status !== "running") return null;
+    const eta = estimateEta(job.id, job.startedAt, job.progress);
+    return eta != null ? formatEta(eta) : null;
+  }, [mounted, job.status, job.id, job.startedAt, job.progress]);
 
   React.useEffect(() => {
     return () => cancelAnimationFrame(rafRef.current);
@@ -710,10 +793,29 @@ export const JobCard = React.memo(function JobCard({
               </span>
             </div>
 
-            {/* Row 3: progress / result / ready hint */}
+            {/* Row 3: progress + ETA / result / ready hint */}
             <div className="h-4">
               {job.status === "running" ? (
-                <MiniProgress value={job.progress} running label={`${job.name} progress`} />
+                <div className="flex items-center gap-1.5">
+                  <MiniProgress
+                    value={job.progress}
+                    running
+                    label={`${job.name} progress`}
+                    className="flex-1"
+                  />
+                  {etaText ? (
+                    <span
+                      className="shrink-0 text-[9.5px] font-medium tabular-nums text-teal-600 dark:text-teal-400"
+                      title={`Progress ${Math.round(job.progress)}% — ${etaText} remaining (estimate from current pace)`}
+                    >
+                      {etaText}
+                    </span>
+                  ) : (
+                    <span className="w-7 shrink-0 text-right text-[9.5px] font-semibold tabular-nums text-muted-foreground">
+                      {Math.round(job.progress)}%
+                    </span>
+                  )}
+                </div>
               ) : job.status === "completed" ? (
                 <p
                   className="truncate text-[11px] leading-4 text-muted-foreground"

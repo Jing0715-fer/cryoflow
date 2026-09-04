@@ -16,26 +16,26 @@ const TEXT_TAIL = 64 * 1024; // last 64 KB for format=text
 /* ------------------------------------------------------------------ */
 
 /**
- * Resolve `rel` inside the job workdir and verify the REAL path stays
- * inside the REAL workdir (rejects `..`, absolute paths and symlink
- * escapes). Returns null with a reason via the thrown-free contract:
- * { error, status } on failure, { abs, real, name } on success.
+ * Resolve `rel` inside the job workdir and verify the path stays inside the
+ * workdir (rejects `..`, absolute paths). LEXICAL containment is the security
+ * boundary — RELION's engine legitimately symlinks shared inputs (e.g.
+ * micrographs) into job workdirs, so realpath may point to project-level
+ * files; traversal via `..` is already impossible after path.resolve.
+ * Returns { error, status } on failure, { abs, real, name } on success.
  */
 function resolveInside(workdir: string, rel: string): { abs: string; real: string; name: string } | { error: string; status: number } {
   if (!rel || rel.startsWith("/") || rel.startsWith("\\") || rel.split("/").includes("..")) {
     return { error: "Invalid path", status: 400 };
   }
-  let workdirReal: string;
-  let resolvedReal: string;
   const abs = path.resolve(workdir, rel);
+  if (abs !== workdir && !abs.startsWith(workdir + path.sep)) {
+    return { error: "Path escapes the job directory", status: 400 };
+  }
+  let resolvedReal: string;
   try {
-    workdirReal = realpathSync(workdir);
     resolvedReal = realpathSync(abs);
   } catch {
     return { error: "File not found", status: 404 };
-  }
-  if (resolvedReal !== workdirReal && !resolvedReal.startsWith(workdirReal + path.sep)) {
-    return { error: "Path escapes the job directory", status: 400 };
   }
   return { abs, real: resolvedReal, name: path.basename(resolvedReal) };
 }

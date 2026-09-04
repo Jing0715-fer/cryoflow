@@ -63,10 +63,12 @@ import { useWorkflowStore } from "@/lib/store";
 import type { JobDTO } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { TypeIcon } from "./icons";
-import { StatusBadge } from "./job-card";
+import { StatusBadge, estimateEta, formatEta } from "./job-card";
 import { JobResults } from "./results/results-view";
 import { ResolutionChart } from "./results/resolution-chart";
 import { FscChart } from "./results/fsc-chart";
+import { CtfQualityChart } from "./results/ctf-quality-chart";
+import { ClassDistributionChart } from "./results/class-distribution-chart";
 
 /* ------------------------------------------------------------------ */
 /* Types (mirrors /api/jobs/[id]/outputs)                              */
@@ -784,6 +786,8 @@ function OverviewTab({
   // refining jobs get a live per-iteration resolution chart
   const isRefineType = /class2d|class3d|initialmodel|refine3d|multibody/i.test(job.type);
   const is3dType = /initialmodel|refine3d|class3d|multibody|postprocess/i.test(job.type);
+  const isClassifyType = /class2d|class3d/i.test(job.type);
+  const isCtfType = /ctffind|ctf/i.test(job.type);
   const hasIterated = (job.status === "running" || job.status === "completed" || job.status === "failed") &&
     (job.progress > 4 || job.status !== "running");
   return (
@@ -795,6 +799,14 @@ function OverviewTab({
       {/* 3D reconstructions get the FSC curve (gold-standard report card). */}
       {is3dType ? (
         <FscChart jobId={job.id} running={job.status === "running"} />
+      ) : null}
+      {/* 2D/3D classification gets class occupancy bars. */}
+      {isClassifyType && job.status !== "idle" ? (
+        <ClassDistributionChart jobId={job.id} />
+      ) : null}
+      {/* CTF estimation gets a per-micrograph fit quality panel. */}
+      {isCtfType && job.status !== "idle" ? (
+        <CtfQualityChart jobId={job.id} />
       ) : null}
       <Section icon={Activity} title="Timeline">
         <div className="rounded-xl border bg-card p-5 pt-4">
@@ -1024,6 +1036,8 @@ function InspectorHeader({ job }: { job: JobDTO }) {
   const [confirmRerun, setConfirmRerun] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const elapsed = useElapsed(job.startedAt, running);
+  // ETA for running jobs (dialog opens client-side, no SSR concern)
+  const eta = running ? estimateEta(job.id, job.startedAt, job.progress) : null;
 
   return (
     <div className="space-y-3">
@@ -1116,6 +1130,14 @@ function InspectorHeader({ job }: { job: JobDTO }) {
           <span className="w-10 shrink-0 text-right font-mono text-[11px] font-semibold tabular-nums text-teal-600 dark:text-teal-400">
             {Math.round(job.progress)}%
           </span>
+          {eta != null && (
+            <span
+              className="shrink-0 rounded-full border border-teal-600/30 bg-teal-600/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-teal-700 dark:text-teal-300"
+              title={`${formatEta(eta)} remaining — projected from the current pace (RELION iterations can speed up or slow down)`}
+            >
+              {formatEta(eta)} left
+            </span>
+          )}
         </div>
       ) : null}
 
