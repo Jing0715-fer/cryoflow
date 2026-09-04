@@ -568,3 +568,22 @@ Stage Summary:
 - refine3d it9 expectation 进行中（~42min/iter，3 ranks 205MB，available 1.2GB 健康）
 - 【下一轮】refine3d 完成后 advance.sh 自动推进 maskcreate → postprocess → FSC 0.143 判定 ≤4.2 Å → KPI 条 Trophy 徽章亮起 → 最终 push
 - 【给后续 cron 轮】每轮先 bash /home/z/empiar-10017/advance.sh（timeout 120s）推进管线再开发；refine3d 收敛可能还需数小时（it10-14 或提前收敛）
+
+---
+Task ID: logsearch-filesfilter-2026-09-04-e
+Agent: Super Z (main loop, cron webDevReview)
+Task: refine3d 续跑期间第二批开发 — Log 搜索高亮 + Files kind 快捷过滤
+
+Work Log:
+- 【Log 搜索】LogConsole 新增过滤输入框（Search icon + focus 展开 w-28→w-40 + X 清除 + webkit cancel 隐藏）：大小写不敏感行过滤 + amber mark 高亮（escapeRegExp 安全分片渲染）；匹配计数 chip（0 匹配 rose / 有匹配 amber，"30 / 389 match" 格式）；原始行号保持斑马纹稳定；无匹配空态文案；Highlighted/LogLine 组件化
+  - 浏览器实测：输入 "iteration" → 389 行过滤为 30 行、30 个 mark 高亮（DOM 断言）
+- 【Files kind 过滤】FilesTab 新增 kind chips（All 83 / MRC 18 / STAR 45 / TEXT 20，零计数 kind 自动隐藏）：teal active 态、icon+计数、与路径搜索叠加过滤
+  - 浏览器实测：点击 MRC chip → 表格精确 18 行（与 chip 计数一致）
+- lint 通过；tsc 0 错误；console 零错误；agent-browser 用完即 close（内存纪律）；push 2f57715
+- refine3d 健康推进：it9 E 步 19/43.5min，4 ranks 270MB，available ~1GB
+
+Stage Summary:
+- inspector 弹窗的 Log 与 Files 两个 tab 均获得实用的过滤/搜索能力（对 300+ 行日志与 83 文件列表是刚需）
+- 累计本轮 push：a17b574（FSC+KPI+目标徽章）+ 2f57715（log 搜索+files 过滤）
+- 【下一阶段】refine3d 预计还需数小时（it10-14 或提前收敛）→ advance.sh 自动启动 maskcreate（~几分钟，lowpass mask）→ postprocess（~1min，出 postprocess_fsc.fsc）→ FSC 0.143 ≤4.2 Å 判定 → KPI Trophy 徽章 → 最终 push
+- 【监控】每轮 cron：bash /home/z/empiar-10017/advance.sh（timeout 120s）→ 若 COMPLETE 解析 run.out FSC → 汇报分辨率
