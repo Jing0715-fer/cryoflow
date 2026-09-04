@@ -434,3 +434,23 @@ Stage Summary:
 - class2d 干净重跑中（预计 it0 ~10.5min + 后续 it 较快，总计 ~2h，21:00 左右完成）
 - 后续管线：initialmodel(K4 D2 VDAM) → refine3d(auto D2 iniHigh30) → maskcreate → postprocess（目标 ≤4Å；上次同参数链 3.54Å）
 - 【给后续 cron 轮】每轮先跑 `bash /home/z/empiar-10017/advance.sh`（timeout 120s）推进管线再开发；class2d 完成后用 VLM 看画廊 classes.mrcs montage 判断 2D 清晰度；完成后 push GitHub（token 已配置在本地 .git/config 的 remote URL 中，勿写入任何受版本控制的文件）
+
+---
+Task ID: edge-avoid-2d-2026-09-04-b
+Agent: Super Z (main loop)
+Task: 连线不穿卡 + 2D 分辨率标注核查 + class2d 完成质检 + initialmodel 启动（遭遇 OOM）
+
+Work Log:
+- 【标注核查】SDK web_search + page_reader 确认 EMPIAR-10017 关联结构 EMD-2824 = 4.2 Å 标注；数据 4096² Falcon II、1.77 Å/px（ctffind 逐值复核）→ Nyquist 物理上限 3.54 Å；目标"达到标注或更好" = ≤4.2 Å 达标 / 3.54 Å 满分（上一轮已证 3.54 可达）
+- 【连线避卡】edges-layer.tsx 混合路由：直接贝塞尔（27 内部采样点 vs 卡矩形，源/目标卡用 RAW 矩形含端口语义）→ 命中则绕行走廊（源/目标列间隙竖跳 + 避开中间卡的候选 dy 扫描 + 14px 圆角折线）；agent-browser 端到端验证 11 边 0 穿卡（排除端口 20px stub）；VLM 视觉复核 9/10
+- 【渲染反相根因】class2d 2D 平均图"太模糊"真相：RELION 类平均把粒子存为负密度（背景精确 0，粒子 -2.7~-4），stretchToGray 的 2-98 百分位把粒子压进 30 级灰阶 + 背景变亮 = 反相黑团。修复：med===0 && -lo>2*hi 检测反相 → 翻转并按 0.5% 信号底归一化。修复后 VLM 评分 3/10→单类 7.5/蒙太奇 9/10（L 形轮廓、结构域分隔、无坏类）
+- 【class2d 质检】3500 粒子 8 类健康分布：class1 22.3%/class7 14.3%/class8 13.1%（无塌缩无碎片化）；25 迭代 + psi 5° 全部收敛
+- 【initialmodel 启动→OOM 灾难】advance.sh STARTED initialmodel 后 next-server 被内核 OOM-kill（anon-rss 1.9GB Turbopack 膨胀 + agent-browser chrome ~1GB 未关 + relion_refine ~300MB 三者叠加）。dev server 宕机且 agent 会话无法复活（受控实验：detached sleep 探针跨调用必被回收，cgroup 级收割）
+- 【善后】initialmodel DB 重置 idle（prisma db execute 直写）+ 半成品 workdir 清空；等待用户软重启沙箱让 boot 重拉 dev server
+- 【内存纪律（必须遵守）】4GB 无 swap：agent-browser 用完必须 `agent-browser close`（chrome ~1GB）；refine3d 运行期间（~5h）UI 开发保持轻量（少热重载），监控轮次不做浏览器截图
+
+Stage Summary:
+- 用户本轮三项：连线避卡 ✓（0 穿卡）、2D 清晰 ✓（9/10，反相修复）、分辨率标注核查 ✓（4.2 Å 标注 vs 3.54 Nyquist 上限）
+- 管线状态：import→…→select→class2d 全部 completed；initialmodel idle 待启动；refine3d/maskcreate/postprocess 待跑
+- 【重启后 cron 优先事项】① 确认 dev server 活着 ② advance.sh STARTED initialmodel（~1-1.5h VDAM）→ refine3d（auto D2 ~5h）→ maskcreate → postprocess ③ FSC 达 ≤4.2 Å（预期 3.54 Å）④ push GitHub ⑤ 继续轻量 UI 开发
+- 已 push: 4ad6eb8..2caa638（edge 避卡 + 渲染反相修复）
