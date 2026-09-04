@@ -29,6 +29,12 @@ export interface StartOutcome {
  * that (a) is an allowed provider for the requirement and (b) has the
  * output — so a closer curated chain (e.g. class2d) beats a raw extract
  * further up the graph. Cycles and duplicate visits are guarded.
+ *
+ * SOFT LINKS: a linked job row (linkedJobId set) resolves to its ROOT
+ * original — the lineage contains the original's id/type/params (so
+ * resolveInputs finds the original's run outputs) and the BFS continues
+ * through the ORIGINAL's parents, exactly as RELION's pipeliner does when
+ * a downstream job references another job's output node.
  */
 export async function lineageFor(jobId: string): Promise<UpstreamRef[]> {
   const lineage: UpstreamRef[] = [];
@@ -45,13 +51,35 @@ export async function lineageFor(jobId: string): Promise<UpstreamRef[]> {
       where: { id: { in: nextIds } },
       orderBy: { createdAt: "desc" },
     });
+    // next frontier starts empty; rows resolved through links push the
+    // ORIGINAL's id so the following BFS layer walks the original's parents
+    const nextFrontier: string[] = [];
     for (const row of rows) {
+      // resolve link chain → root original (links mirror another job)
+      const root = await resolveLinkRoot(row);
       seen.add(row.id);
-      lineage.push({ id: row.id, type: row.type, params: parseJobParams(row.params) });
+      if (seen.has(root.id)) continue; // already contributed via another link
+      seen.add(root.id);
+      lineage.push({ id: root.id, type: root.type, params: parseJobParams(root.params) });
+      nextFrontier.push(root.id);
     }
-    frontier = rows.map((r) => r.id);
+    frontier = nextFrontier;
   }
   return lineage;
+}
+
+/** Follow a job's soft-link chain to its ROOT original row (cycle-safe). */
+async function resolveLinkRoot(job: Job): Promise<Job> {
+  if (!job.linkedJobId) return job;
+  const seen = new Set<string>([job.id]);
+  let current = job;
+  for (let hop = 0; hop < 16 && current.linkedJobId; hop++) {
+    const target = await db.job.findUnique({ where: { id: current.linkedJobId } });
+    if (!target || seen.has(target.id)) break;
+    seen.add(target.id);
+    current = target;
+  }
+  return current;
 }
 
 /**

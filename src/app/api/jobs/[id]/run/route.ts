@@ -23,6 +23,22 @@ export async function POST(_request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: "Job not found" }, { status: 404 });
     }
 
+    // linked copies are read-only mirrors: running them would double-write
+    // the original's workdir. Downstream jobs consume the original's outputs
+    // through the link — that is the supported way to continue from a copy.
+    if (existing.linkedJobId) {
+      const original = await db.job.findUnique({
+        where: { id: existing.linkedJobId },
+        select: { name: true },
+      });
+      return NextResponse.json(
+        {
+          error: `This is a linked copy${original ? ` of "${original.name}"` : ""} — it mirrors the original's outputs. Run the ORIGINAL job instead; downstream jobs wired to this link already consume its results.`,
+        },
+        { status: 400 }
+      );
+    }
+
     const meta = getProjectMeta(existing.projectId);
     const engineKind = meta?.engine === "relion" ? "relion" : "sim";
     const { job, error, busy } = await startJob(existing, engineKind);

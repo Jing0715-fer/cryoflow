@@ -4,6 +4,7 @@
  * CryoFlow — global workflow state (zustand).
  */
 
+import * as React from "react";
 import { create } from "zustand";
 import { toast } from "@/hooks/use-toast";
 import { CARD_W, CARD_H, CANVAS_W, CANVAS_H, ZOOM_MAX, ZOOM_MIN, jobType, portsCompatible } from "./workflow";
@@ -14,6 +15,7 @@ import type {
   ProjectDTO,
   ProjectSummaryDTO,
   SystemStatusClient,
+  WorkspaceDTO,
 } from "./types";
 
 /**
@@ -41,6 +43,10 @@ interface WorkflowState {
   project: ProjectDTO | null;
   /** All projects (for the project management panel). */
   projects: ProjectSummaryDTO[];
+  /** Workspaces of the ACTIVE project (sidebar tab + header switcher). */
+  workspaces: WorkspaceDTO[];
+  /** Canvas filter: only jobs of this workspace render. Null while loading. */
+  activeWorkspaceId: string | null;
   /** Which top-level view is active: the node canvas or the project dashboard. */
   view: "canvas" | "dashboard";
   /** RELION environment status (refreshed on load). */
@@ -74,6 +80,19 @@ interface WorkflowState {
   createProject: (input: { name: string; mode: string; engine: string }) => Promise<boolean>;
   renameProject: (id: string, name: string) => Promise<boolean>;
   deleteProject: (id: string) => Promise<boolean>;
+  /** Re-fetch the workspace list of the ACTIVE project (keeps the current
+   *  selection when it still exists; otherwise falls back to the first). */
+  refreshWorkspaces: () => Promise<void>;
+  switchWorkspace: (id: string) => void;
+  createWorkspace: (name: string) => Promise<boolean>;
+  renameWorkspace: (id: string, name: string) => Promise<boolean>;
+  deleteWorkspace: (id: string) => Promise<boolean>;
+  /** Cross-workspace MOVE (PATCH workspaceId) — the job keeps its edges;
+   *  wires render wherever BOTH endpoints are visible. */
+  moveJob: (id: string, workspaceId: string) => Promise<boolean>;
+  /** Cross-workspace COPY-as-link (POST /api/jobs {linkedJobId}) — the new
+   *  node mirrors the original and downstream jobs consume its outputs. */
+  linkJobTo: (id: string, workspaceId: string) => Promise<void>;
   fetchLog: (jobId: string) => Promise<string | null>;
   addJob: (type: string) => Promise<void>;
   addJobAt: (type: string, x: number, y: number) => Promise<void>;
@@ -156,6 +175,10 @@ function jobEquals(a: JobDTO, b: JobDTO): boolean {
     a.updatedAt === b.updatedAt &&
     a.engine === b.engine &&
     a.hasLog === b.hasLog &&
+    (a.workspaceId ?? null) === (b.workspaceId ?? null) &&
+    (a.linkedJobId ?? null) === (b.linkedJobId ?? null) &&
+    (a.linkedName ?? null) === (b.linkedName ?? null) &&
+    (a.linkCount ?? 0) === (b.linkCount ?? 0) &&
     JSON.stringify(a.params) === JSON.stringify(b.params)
   );
 }
@@ -173,6 +196,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   edges: [],
   project: null,
   projects: [],
+  workspaces: [],
+  activeWorkspaceId: null,
   view: "canvas",
   system: null,
   systemRefreshing: false,
@@ -191,25 +216,191 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   load: async () => {
     set({ loading: true, error: null });
     try {
-      const [p, j, e, sys, projs] = await Promise.all([
+      const [p, j, e, sys, projs, ws] = await Promise.all([
         api<{ project: ProjectDTO | null }>("/api/project"),
         api<{ jobs: JobDTO[] }>("/api/jobs"),
         api<{ edges: EdgeDTO[] }>("/api/edges"),
         api<SystemStatusClient>("/api/system").catch(() => null),
         api<{ projects: ProjectSummaryDTO[] }>("/api/projects").catch(() => ({ projects: [] })),
+        api<{ workspaces: WorkspaceDTO[] }>("/api/workspaces").catch(() => ({ workspaces: [] })),
       ]);
+      // keep the current workspace when it still exists (e.g. project-level
+      // reloads), otherwise land on the project's first workspace
+      const currentWs = get().activeWorkspaceId;
+      const wsList = ws.workspaces;
+      const activeWs =
+        currentWs && wsList.some((w) => w.id === currentWs)
+          ? currentWs
+          : (wsList[0]?.id ?? null);
       set({
         project: p.project ?? null,
         jobs: j.jobs,
         edges: e.edges,
         system: sys,
         projects: projs.projects,
+        workspaces: wsList,
+        activeWorkspaceId: activeWs,
         loading: false,
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to load project";
       set({ loading: false, error: msg });
       errToast(msg);
+    }
+  },
+
+  refreshWorkspaces: async () => {
+    try {
+      const { workspaces } = await api<{ workspaces: WorkspaceDTO[] }>("/api/workspaces");
+      const current = get().activeWorkspaceId;
+      set({
+        workspaces,
+        activeWorkspaceId:
+          current && workspaces.some((w) => w.id === current)
+            ? current
+            : (workspaces[0]?.id ?? null),
+      });
+    } catch {
+      /* transient — the panel keeps showing the previous list */
+    }
+  },
+
+  switchWorkspace: (id) => {
+    if (get().activeWorkspaceId === id) return;
+    // leaving the old canvas: clear selection/pending wire so the new
+    // workspace doesn't start with stale state from the previous one
+    set({ activeWorkspaceId: id, selectedId: null, pendingFrom: null });
+  },
+
+  createWorkspace: async (name) => {
+    try {
+      const { workspace } = await api<{ workspace: WorkspaceDTO }>("/api/workspaces", {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ name }),
+      });
+      set({ workspaces: [...get().workspaces, workspace] });
+      toast({ title: "Workspace created", description: workspace.name });
+      return true;
+    } catch (err) {
+      errToast(err instanceof Error ? err.message : "Failed to create workspace");
+      return false;
+    }
+  },
+
+  renameWorkspace: async (id, name) => {
+    try {
+      await api<{ workspace: WorkspaceDTO }>(`/api/workspaces/${id}`, {
+        method: "PATCH",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ name }),
+      });
+      set({
+        workspaces: get().workspaces.map((w) => (w.id === id ? { ...w, name } : w)),
+      });
+      return true;
+    } catch (err) {
+      errToast(err instanceof Error ? err.message : "Failed to rename workspace");
+      return false;
+    }
+  },
+
+  deleteWorkspace: async (id) => {
+    try {
+      const { movedCount, fallback } = await api<{
+        ok: boolean;
+        movedCount: number;
+        fallback: string;
+      }>(`/api/workspaces/${id}`, { method: "DELETE" });
+      toast({
+        title: "Workspace deleted",
+        description:
+          movedCount > 0
+            ? `${movedCount} job${movedCount === 1 ? "" : "s"} moved to "${fallback}"`
+            : undefined,
+      });
+      await get().refreshWorkspaces();
+      return true;
+    } catch (err) {
+      errToast(err instanceof Error ? err.message : "Failed to delete workspace");
+      return false;
+    }
+  },
+
+  moveJob: async (id, workspaceId) => {
+    const { jobs, workspaces } = get();
+    const job = jobs.find((j) => j.id === id);
+    const target = workspaces.find((w) => w.id === workspaceId);
+    if (!job || !target || job.workspaceId === workspaceId) return false;
+    // optimistic: the job leaves this canvas immediately
+    set({
+      jobs: jobs.map((j) => (j.id === id ? { ...j, workspaceId } : j)),
+      selectedId: get().selectedId === id ? null : get().selectedId,
+    });
+    try {
+      await api(`/api/jobs/${id}`, {
+        method: "PATCH",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ workspaceId }),
+      });
+      toast({
+        title: "Job moved",
+        description: `${job.name} → workspace "${target.name}" — its wires now render where both endpoints live`,
+      });
+      return true;
+    } catch (err) {
+      // revert the optimistic move
+      set({ jobs: get().jobs.map((j) => (j.id === id ? { ...j, workspaceId: job.workspaceId } : j)) });
+      errToast(err instanceof Error ? err.message : "Failed to move job");
+      return false;
+    }
+  },
+
+  linkJobTo: async (id, workspaceId) => {
+    const { workspaces, viewport, jobs } = get();
+    const source = jobs.find((j) => j.id === id);
+    const target = workspaces.find((w) => w.id === workspaceId);
+    if (!source || !target) return;
+    // place the link at the current viewport center of the TARGET canvas
+    const x = clamp(
+      Math.round(-viewport.x + 480 / viewport.zoom - CARD_W / 2),
+      0,
+      CANVAS_W - CARD_W
+    );
+    const y = clamp(
+      Math.round(-viewport.y + 360 / viewport.zoom - CARD_H / 2),
+      0,
+      CANVAS_H - CARD_H
+    );
+    try {
+      const { job } = await api<{ job: JobDTO }>("/api/jobs", {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({
+          type: source.type,
+          linkedJobId: source.id,
+          workspaceId,
+          x,
+          y,
+        }),
+      });
+      // append the link AND bump the original's referenced-count badge in
+      // the same optimistic batch (a poll may never fire when nothing runs)
+      set({
+        jobs: [...get().jobs, job].map((j) =>
+          j.id === id ? { ...j, linkCount: (j.linkCount ?? 0) + 1 } : j
+        ),
+        activeWorkspaceId: workspaceId,
+        selectedId: job.id,
+        pendingFrom: null,
+      });
+      get().focusJob(job.id);
+      toast({
+        title: "Linked copy created",
+        description: `“${job.name}” in "${target.name}" — wire downstream jobs to it; they consume the original's outputs`,
+      });
+    } catch (err) {
+      errToast(err instanceof Error ? err.message : "Failed to copy as link");
     }
   },
 
@@ -233,7 +424,13 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         headers: JSON_HEADERS,
         body: JSON.stringify({ id }),
       });
-      set({ selectedId: null, inspectId: null, pendingFrom: null, viewport: { x: 0, y: 0, zoom: 1 } });
+      set({
+        selectedId: null,
+        inspectId: null,
+        pendingFrom: null,
+        viewport: { x: 0, y: 0, zoom: 1 },
+        activeWorkspaceId: null, // load() lands on the project's first workspace
+      });
       await get().load();
     } catch (err) {
       errToast(err instanceof Error ? err.message : "Failed to switch project");
@@ -313,7 +510,12 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       const { job } = await api<{ job: JobDTO }>("/api/jobs", {
         method: "POST",
         headers: JSON_HEADERS,
-        body: JSON.stringify({ type, x: cx, y: cy }),
+        body: JSON.stringify({
+          type,
+          x: cx,
+          y: cy,
+          workspaceId: get().activeWorkspaceId ?? undefined,
+        }),
       });
       set({ jobs: [...get().jobs, job], selectedId: job.id });
       toast({
@@ -604,3 +806,40 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       inspectId: null,
     })),
 }));
+
+/* ------------------------------------------------------------------ */
+/* Workspace-scoped derivations (shared by canvas, minimap, KPI bar)    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Jobs of the ACTIVE workspace (reference-stable across polls — the store's
+ * jobs array keeps unchanged object refs, so this memo survives poll ticks
+ * and memoized cards keep skipping re-renders).
+ */
+export function useActiveWorkspaceJobs(): JobDTO[] {
+  const jobs = useWorkflowStore((s) => s.jobs);
+  const activeWorkspaceId = useWorkflowStore((s) => s.activeWorkspaceId);
+  return React.useMemo(
+    () =>
+      activeWorkspaceId == null
+        ? jobs
+        : jobs.filter((j) => (j.workspaceId ?? "") === activeWorkspaceId),
+    [jobs, activeWorkspaceId]
+  );
+}
+
+/** Edges whose BOTH endpoints live in the active workspace (the render rule:
+ *  a wire only draws where both of its jobs are visible — cross-workspace
+ *  data flow goes through linked copies instead). */
+export function useActiveWorkspaceEdges(): EdgeDTO[] {
+  const edges = useWorkflowStore((s) => s.edges);
+  const jobs = useWorkflowStore((s) => s.jobs);
+  const activeWorkspaceId = useWorkflowStore((s) => s.activeWorkspaceId);
+  return React.useMemo(() => {
+    if (activeWorkspaceId == null) return edges;
+    const visible = new Set(
+      jobs.filter((j) => (j.workspaceId ?? "") === activeWorkspaceId).map((j) => j.id)
+    );
+    return edges.filter((e) => visible.has(e.fromJobId) && visible.has(e.toJobId));
+  }, [edges, jobs, activeWorkspaceId]);
+}

@@ -5,9 +5,11 @@ import {
   Check,
   ClipboardCopy,
   Copy,
+  Link2,
   Loader2,
   Locate,
   Maximize2,
+  FolderInput,
   Play,
   RotateCcw,
   SquarePen,
@@ -36,6 +38,9 @@ import {
   ContextMenuLabel,
   ContextMenuSeparator,
   ContextMenuShortcut,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import {
@@ -214,12 +219,17 @@ function JobCardMenu({
   const deleteJob = useWorkflowStore((s) => s.deleteJob);
   const duplicateJob = useWorkflowStore((s) => s.duplicateJob);
   const focusJob = useWorkflowStore((s) => s.focusJob);
+  const workspaces = useWorkflowStore((s) => s.workspaces);
+  const moveJob = useWorkflowStore((s) => s.moveJob);
+  const linkJobTo = useWorkflowStore((s) => s.linkJobTo);
   const [confirmDelete, setConfirmDelete] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const [copiedId, setCopiedId] = React.useState(false);
 
   const idle = job.status === "idle";
   const running = job.status === "running";
+  const isLink = job.linkedJobId != null;
+  const otherWorkspaces = workspaces.filter((w) => w.id !== job.workspaceId);
 
   const copyId = () => {
     void navigator.clipboard.writeText(job.id).then(() => {
@@ -234,6 +244,16 @@ function JobCardMenu({
       <ContextMenuContent className="w-60">
         <ContextMenuLabel className="flex items-center gap-2 pr-3">
           <span className="truncate font-semibold">{job.name}</span>
+          {isLink && (
+            <Badge
+              variant="outline"
+              className="h-4 shrink-0 gap-0.5 border-primary/40 bg-primary/10 px-1 text-[9px] font-semibold uppercase tracking-wide text-primary"
+              title={`Linked copy — mirrors ${job.linkedName ?? "its original"}`}
+            >
+              <Link2 className="size-2.5" aria-hidden="true" />
+              link
+            </Badge>
+          )}
           <span className="ml-auto shrink-0 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
             {job.status}
           </span>
@@ -254,7 +274,12 @@ function JobCardMenu({
 
         <ContextMenuSeparator />
         <ContextMenuItem
-          disabled={running || busy}
+          disabled={running || busy || isLink}
+          title={
+            isLink
+              ? "Linked copies mirror their original — run the original job instead"
+              : undefined
+          }
           onClick={() => {
             setBusy(true);
             void runJob(job.id).finally(() => setBusy(false));
@@ -263,7 +288,7 @@ function JobCardMenu({
           {busy ? <Loader2 className="animate-spin" /> : <Play />}
           {idle ? "Run job" : running ? "Running…" : "Re-run"}
         </ContextMenuItem>
-        {!idle && !running ? (
+        {!idle && !running && !isLink ? (
           <ContextMenuItem
             onClick={() => void resetJob(job.id).then(() => onSelect(job.id))}
           >
@@ -271,14 +296,58 @@ function JobCardMenu({
             Reset &amp; edit
           </ContextMenuItem>
         ) : null}
-        <ContextMenuItem onClick={() => void duplicateJob(job.id)}>
-          <Copy />
-          Duplicate
-        </ContextMenuItem>
+        {!isLink && (
+          <ContextMenuItem onClick={() => void duplicateJob(job.id)}>
+            <Copy />
+            Duplicate
+          </ContextMenuItem>
+        )}
         <ContextMenuItem onClick={copyId}>
           {copiedId ? <Check /> : <ClipboardCopy />}
           {copiedId ? "Copied!" : "Copy job ID"}
         </ContextMenuItem>
+
+        {/* cross-workspace actions */}
+        {otherWorkspaces.length > 0 && (
+          <>
+            <ContextMenuSeparator />
+            <ContextMenuSub>
+              <ContextMenuSubTrigger>
+                <FolderInput />
+                Move to workspace…
+              </ContextMenuSubTrigger>
+              <ContextMenuSubContent className="w-52">
+                {otherWorkspaces.map((w) => (
+                  <ContextMenuItem
+                    key={w.id}
+                    onClick={() => void moveJob(job.id, w.id)}
+                    title={`Relocate this job to “${w.name}” — its wires render where both endpoints live`}
+                  >
+                    <span className="truncate">{w.name}</span>
+                  </ContextMenuItem>
+                ))}
+              </ContextMenuSubContent>
+            </ContextMenuSub>
+            <ContextMenuSub>
+              <ContextMenuSubTrigger>
+                <Link2 />
+                Copy as link to…
+              </ContextMenuSubTrigger>
+              <ContextMenuSubContent className="w-52">
+                {otherWorkspaces.map((w) => (
+                  <ContextMenuItem
+                    key={w.id}
+                    onClick={() => void linkJobTo(job.id, w.id)}
+                    title={`Create a mirrored copy in “${w.name}” — downstream jobs there consume this job's outputs`}
+                  >
+                    <Link2 />
+                    <span className="truncate">{w.name}</span>
+                  </ContextMenuItem>
+                ))}
+              </ContextMenuSubContent>
+            </ContextMenuSub>
+          </>
+        )}
 
         <ContextMenuSeparator />
         <ContextMenuItem variant="destructive" onClick={() => setConfirmDelete(true)}>
@@ -295,6 +364,9 @@ function JobCardMenu({
             <AlertDialogDescription>
               This removes the job and every connection attached to it. Files
               already written to the workdir stay on disk.
+              {job.linkCount
+                ? ` ${job.linkCount} linked cop${job.linkCount === 1 ? "y" : "ies"} in other workspaces reference this job and will be removed too.`
+                : ""}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -926,7 +998,12 @@ export const JobCard = React.memo(function JobCard({
             job.status === "running" &&
               !selected &&
               !inspected &&
-              "border-teal-400/60 dark:border-teal-500/50"
+              "border-teal-400/60 dark:border-teal-500/50",
+            // soft links: dashed outline + tinted body (read-only mirror)
+            job.linkedJobId != null &&
+              !selected &&
+              !inspected &&
+              "border-dashed border-primary/45 bg-primary/[0.03]"
           )}
           title={
             job.status === "idle"
@@ -1001,12 +1078,29 @@ export const JobCard = React.memo(function JobCard({
               </HoverCard>
             </div>
 
-            {/* Row 2: status + type */}
+            {/* Row 2: status + type + link lineage */}
             <div className="flex items-center gap-1.5">
               <StatusBadge status={job.status} />
               <span className="truncate text-[11px] text-muted-foreground">
                 {spec?.key ?? job.type}
               </span>
+              {job.linkedJobId != null ? (
+                <span
+                  className="ml-auto flex max-w-[46%] shrink-0 items-center gap-0.5 rounded border border-primary/30 bg-primary/10 px-1 text-[9px] font-semibold text-primary"
+                  title={`Linked copy — mirrors “${job.linkedName ?? "its original"}"${job.linkedWorkspaceName ? ` (${job.linkedWorkspaceName})` : ""}. Downstream jobs consume the original's outputs.`}
+                >
+                  <Link2 className="size-2.5 shrink-0" aria-hidden="true" />
+                  <span className="truncate">{job.linkedName ?? "linked"}</span>
+                </span>
+              ) : job.linkCount ? (
+                <span
+                  className="ml-auto flex shrink-0 items-center gap-0.5 rounded border border-primary/30 bg-primary/5 px-1 text-[9px] font-semibold tabular-nums text-primary/90"
+                  title={`${job.linkCount} linked cop${job.linkCount === 1 ? "y" : "ies"} in other workspaces consume this job's outputs`}
+                >
+                  <Link2 className="size-2.5 shrink-0" aria-hidden="true" />
+                  ×{job.linkCount}
+                </span>
+              ) : null}
             </div>
 
             {/* Row 3: progress + ETA / result / ready hint */}

@@ -14,7 +14,7 @@ import {
   jobType,
   portY,
 } from "@/lib/workflow";
-import { useWorkflowStore, type PendingFrom } from "@/lib/store";
+import { useWorkflowStore, useActiveWorkspaceJobs, useActiveWorkspaceEdges, type PendingFrom } from "@/lib/store";
 import type { JobDTO } from "@/lib/types";
 import { EdgesLayer } from "./edges-layer";
 import { PipelineKpi } from "./pipeline-kpi";
@@ -154,8 +154,11 @@ const LiveWire = React.memo(function LiveWire({
 });
 
 export function WorkflowCanvas() {
-  const jobs = useWorkflowStore((s) => s.jobs);
-  const edges = useWorkflowStore((s) => s.edges);
+  // workspace-scoped view: only the active workspace's jobs render, wires
+  // draw where BOTH endpoints are visible (cross-workspace data flows
+  // through linked copies — see store.linkJobTo)
+  const jobs = useActiveWorkspaceJobs();
+  const edges = useActiveWorkspaceEdges();
   const selectedId = useWorkflowStore((s) => s.selectedId);
   const inspectId = useWorkflowStore((s) => s.inspectId);
   const inspect = useWorkflowStore((s) => s.inspect);
@@ -261,42 +264,52 @@ export function WorkflowCanvas() {
 
   // frame the workflow ONCE after the initial load (the store viewport resets
   // on reload; without this the canvas would boot showing empty space) —
-  // and AGAIN whenever the active project changes: the store resets the
-  // viewport to {0,0,1} on switch, so a wide pipeline would otherwise sit
+  // and AGAIN whenever the active project OR workspace changes: the store
+  // resets the viewport on switch, so a wide pipeline would otherwise sit
   // top-left and out of view until the user hits zoom-to-fit
   const fittedProject = React.useRef<string | null>(null);
   const projectKey = jobs.length > 0 ? jobs[0].projectId : null;
+  const activeWorkspaceId = useWorkflowStore((s) => s.activeWorkspaceId);
+  const fitKey = projectKey ? `${projectKey}:${activeWorkspaceId ?? "-"}` : null;
   React.useEffect(() => {
     if (loading || jobs.length === 0) return;
-    if (fittedProject.current === projectKey) return;
+    if (fittedProject.current === fitKey) return;
     const rect = rootRef.current?.getBoundingClientRect();
     if (!rect) return;
-    fittedProject.current = projectKey;
+    fittedProject.current = fitKey;
     const minX = Math.min(...jobs.map((j) => j.x));
     const maxX = Math.max(...jobs.map((j) => j.x + CARD_W));
     const minY = Math.min(...jobs.map((j) => j.y));
     const maxY = Math.max(...jobs.map((j) => j.y + CARD_H));
     frameBounds(rect.width, rect.height, minX, minY, maxX, maxY);
-  }, [loading, jobs, frameBounds, projectKey]);
+  }, [loading, jobs, frameBounds, fitKey]);
 
-  // "Ready" hint: idle job whose upstream (any incoming edge) is completed.
+  // "Ready" hint: idle job whose upstream (any incoming edge, possibly in
+  // ANOTHER workspace — links included) is completed.
+  const allJobs = useWorkflowStore((s) => s.jobs);
+  const allEdges = useWorkflowStore((s) => s.edges);
   const completedIds = React.useMemo(
-    () => new Set(jobs.filter((j) => j.status === "completed").map((j) => j.id)),
-    [jobs]
+    () => new Set(allJobs.filter((j) => j.status === "completed").map((j) => j.id)),
+    [allJobs]
   );
   const readyIds = React.useMemo(() => {
     const ready = new Set<string>();
-    for (const e of edges) {
+    for (const e of allEdges) {
       if (completedIds.has(e.toJobId) === false && completedIds.has(e.fromJobId)) {
         ready.add(e.toJobId);
       }
     }
     return ready;
-  }, [edges, completedIds]);
+  }, [allEdges, completedIds]);
 
   const pendingFromType = React.useMemo(
     () => (pendingFrom ? (jobs.find((j) => j.id === pendingFrom.jobId)?.type ?? null) : null),
     [pendingFrom, jobs]
+  );
+  const workspaces = useWorkflowStore((s) => s.workspaces);
+  const activeWorkspaceName = React.useMemo(
+    () => workspaces.find((w) => w.id === activeWorkspaceId)?.name ?? null,
+    [workspaces, activeWorkspaceId]
   );
   const pendingJob = pendingFrom ? jobs.find((j) => j.id === pendingFrom.jobId) : undefined;
   const pendingDirIn = pendingFrom?.dir === "in";
@@ -547,10 +560,15 @@ export function WorkflowCanvas() {
       {!loading && jobs.length === 0 && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <div className="rounded-xl border border-dashed bg-card/60 px-6 py-5 text-center backdrop-blur-sm">
-            <p className="text-sm font-medium">The canvas is empty</p>
+            <p className="text-sm font-medium">
+              {allJobs.length > 0
+                ? `“${activeWorkspaceName ?? "This workspace"}” is empty`
+                : "The canvas is empty"}
+            </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Drag a job type from the palette onto the canvas to start building
-              your workflow.
+              {allJobs.length > 0
+                ? "Drag job types in, or right-click a job in another workspace → “Copy as link to…” to continue that pipeline here."
+                : "Drag a job type from the palette onto the canvas to start building your workflow."}
             </p>
           </div>
         </div>

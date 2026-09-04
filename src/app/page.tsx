@@ -1,12 +1,12 @@
 "use client";
 
 import * as React from "react";
-import { AlertTriangle, Boxes, FolderGit2, Plus, RefreshCw, X } from "lucide-react";
+import { AlertTriangle, Boxes, Layers, Plus, RefreshCw, X } from "lucide-react";
 import { useWorkflowStore } from "@/lib/store";
 import { Header } from "@/components/workflow/header";
 import { Footer } from "@/components/workflow/footer";
 import { JobPalette } from "@/components/workflow/palette";
-import { ProjectPanel } from "@/components/workflow/project-panel";
+import { WorkspacePanel } from "@/components/workflow/workspace-panel";
 import { ProjectDashboard } from "@/components/workflow/project-dashboard";
 import { WorkflowCanvas } from "@/components/workflow/canvas";
 import { JobPanel } from "@/components/workflow/job-panel";
@@ -40,7 +40,7 @@ function useMediaQuery(query: string) {
 }
 
 export default function Home() {
-  const projects = useWorkflowStore((s) => s.projects);
+  const workspaces = useWorkflowStore((s) => s.workspaces);
   const selectedId = useWorkflowStore((s) => s.selectedId);
   const inspectId = useWorkflowStore((s) => s.inspectId);
   const select = useWorkflowStore((s) => s.select);
@@ -222,7 +222,7 @@ export default function Home() {
         </main>
       ) : (
         <main className="flex min-h-0 flex-1">
-          {/* Desktop sidebar: job catalog + project management */}
+          {/* Desktop sidebar: job catalog + workspace navigator */}
           <aside className="hidden w-72 shrink-0 flex-col border-r bg-gradient-to-b from-sidebar via-sidebar to-sidebar/70 lg:flex">
             <Tabs defaultValue="catalog" className="flex h-full min-h-0 flex-col gap-0">
               <div className="shrink-0 border-b bg-sidebar/40 p-2 backdrop-blur-sm">
@@ -235,16 +235,16 @@ export default function Home() {
                     Catalog
                   </TabsTrigger>
                   <TabsTrigger
-                    value="projects"
+                    value="workspaces"
                     className="gap-1.5 text-xs transition-all data-[state=active]:shadow-sm"
                   >
-                    <FolderGit2 className="size-3.5" aria-hidden="true" />
-                    Projects
+                    <Layers className="size-3.5" aria-hidden="true" />
+                    Workspaces
                     <Badge
                       variant="secondary"
                       className="ml-0.5 h-4 min-w-4 px-1 text-[9px] font-semibold tabular-nums"
                     >
-                      {projects.length}
+                      {workspaces.length}
                     </Badge>
                   </TabsTrigger>
                 </TabsList>
@@ -252,8 +252,8 @@ export default function Home() {
               <TabsContent value="catalog" className="mt-0 min-h-0 flex-1">
                 <JobPalette />
               </TabsContent>
-              <TabsContent value="projects" className="mt-0 min-h-0 flex-1">
-                <ProjectPanel />
+              <TabsContent value="workspaces" className="mt-0 min-h-0 flex-1">
+                <WorkspacePanel />
               </TabsContent>
             </Tabs>
           </aside>

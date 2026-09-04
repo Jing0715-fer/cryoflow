@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { openSync, readFileSync, readSync, closeSync, realpathSync, statSync } from "fs";
 import path from "path";
-import { db } from "@/lib/db";
+import { findEffectiveJob } from "@/lib/link";
 import { getRun } from "@/lib/relion/engine";
 import { biggestLoop, extractFsc, findPair, parseStar } from "@/lib/starfile";
 
@@ -60,7 +60,7 @@ function readStarText(file: string): { text: string; previewed: boolean } {
 export async function GET(request: NextRequest, context: RouteContext) {
   try {
     const { id } = await context.params;
-    const job = await db.job.findUnique({ where: { id } });
+    const job = await findEffectiveJob(id); // resolves soft links to the original
     if (!job) {
       return NextResponse.json({ error: "Job not found" }, { status: 404 });
     }

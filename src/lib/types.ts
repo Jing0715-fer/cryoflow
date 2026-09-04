@@ -24,6 +24,35 @@ export interface JobDTO {
   engine?: "sim" | "relion";
   /** True when a real-run log file exists on disk (computed, not stored). */
   hasLog?: boolean;
+  /** Owning workspace id (server always assigns one; null = pre-migration). */
+  workspaceId?: string | null;
+  /** Soft link: non-null when this job MIRRORS another job's outputs.
+   *  Linked jobs are read-only — downstream jobs consume the original. */
+  linkedJobId?: string | null;
+  /** Convenience: the ORIGINAL's name (links only, computed per response). */
+  linkedName?: string | null;
+  /** Convenience: the ORIGINAL's workspace name (links only, computed). */
+  linkedWorkspaceName?: string | null;
+  /** How many links in the whole project reference THIS job (originals only).
+   *  Powers "referenced elsewhere" badges + delete warnings. */
+  linkCount?: number;
+}
+
+/** Sidebar workspace row (GET /api/workspaces). */
+export interface WorkspaceDTO {
+  id: string;
+  projectId: string;
+  name: string;
+  order: number;
+  createdAt: string;
+  stats?: {
+    total: number;
+    running: number;
+    completed: number;
+    failed: number;
+    /** Jobs in this workspace that are soft links to originals elsewhere. */
+    links: number;
+  };
 }
 
 export interface EdgeDTO {

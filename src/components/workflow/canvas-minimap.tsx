@@ -11,7 +11,7 @@
  */
 
 import * as React from "react";
-import { useWorkflowStore } from "@/lib/store";
+import { useWorkflowStore, useActiveWorkspaceJobs, useActiveWorkspaceEdges } from "@/lib/store";
 import { CARD_W, CARD_H, CANVAS_W, CANVAS_H } from "@/lib/workflow";
 
 const MM_W = 192;
@@ -31,8 +31,8 @@ interface CanvasMinimapProps {
 }
 
 export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
-  const jobs = useWorkflowStore((s) => s.jobs);
-  const edges = useWorkflowStore((s) => s.edges);
+  const jobs = useActiveWorkspaceJobs();
+  const edges = useActiveWorkspaceEdges();
   const selectedId = useWorkflowStore((s) => s.selectedId);
   const viewport = useWorkflowStore((s) => s.viewport);
   const setViewport = useWorkflowStore((s) => s.setViewport);

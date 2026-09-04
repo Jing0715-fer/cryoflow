@@ -17,6 +17,7 @@ import * as React from "react";
 import { useTheme } from "next-themes";
 import {
   Command as CommandIcon,
+  Layers,
   LayoutDashboard,
   Maximize2,
   Moon,
@@ -48,6 +49,9 @@ export function CommandPalette() {
   const jobs = useWorkflowStore((s) => s.jobs);
   const view = useWorkflowStore((s) => s.view);
   const setView = useWorkflowStore((s) => s.setView);
+  const workspaces = useWorkflowStore((s) => s.workspaces);
+  const activeWorkspaceId = useWorkflowStore((s) => s.activeWorkspaceId);
+  const switchWorkspace = useWorkflowStore((s) => s.switchWorkspace);
 
   // Ctrl+K / ⌘K from anywhere + the header chip's custom event.
   React.useEffect(() => {
@@ -215,6 +219,37 @@ export function CommandPalette() {
             </CommandItem>
           ))}
         </CommandGroup>
+
+        <CommandSeparator />
+
+        {/* ---------------- workspaces ---------------- */}
+        {workspaces.length > 0 && (
+          <CommandGroup heading="Workspaces">
+            {workspaces.map((w) => (
+              <CommandItem
+                key={`ws-${w.id}`}
+                value={`workspace ${w.name}`}
+                onSelect={() => {
+                  switchWorkspace(w.id);
+                  setView("canvas");
+                  close();
+                }}
+                className="gap-2.5"
+              >
+                <Layers className="size-4 shrink-0 text-primary" />
+                <span className="min-w-0 flex-1 truncate text-sm">
+                  {w.name}
+                  {w.id === activeWorkspaceId && (
+                    <span className="ml-1.5 text-[10px] font-medium text-primary">(active)</span>
+                  )}
+                </span>
+                <span className="shrink-0 text-[10px] uppercase tracking-wide text-muted-foreground">
+                  switch canvas
+                </span>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        )}
 
         <CommandSeparator />
 

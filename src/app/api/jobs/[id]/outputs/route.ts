@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readFileSync, readdirSync, statSync } from "fs";
 import path from "path";
-import { db } from "@/lib/db";
+import { findEffectiveJob } from "@/lib/link";
 import { getRun } from "@/lib/relion/engine";
 import { getProjectMeta } from "@/lib/projects";
 import { readMrcHeader } from "@/lib/mrc";
@@ -170,7 +170,7 @@ function inputFilesFromCmd(cmd: string): { flag: string; path: string }[] {
 export async function GET(_request: NextRequest, context: RouteContext) {
   try {
     const { id } = await context.params;
-    const job = await db.job.findUnique({ where: { id } });
+    const job = await findEffectiveJob(id); // resolves soft links to the original
     if (!job) {
       return NextResponse.json({ error: "Job not found" }, { status: 404 });
     }

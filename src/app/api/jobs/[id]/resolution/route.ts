@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { existsSync, readdirSync, readFileSync } from "fs";
 import path from "path";
-import { db } from "@/lib/db";
+import { findEffectiveJob } from "@/lib/link";
 import { getRun } from "@/lib/relion/engine";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +25,7 @@ export interface ResolutionPoint {
 export async function GET(_request: NextRequest, context: RouteContext) {
   try {
     const { id } = await context.params;
-    const job = await db.job.findUnique({ where: { id } });
+    const job = await findEffectiveJob(id); // resolves soft links to the original
     if (!job) {
       return NextResponse.json({ error: "Job not found" }, { status: 404 });
     }

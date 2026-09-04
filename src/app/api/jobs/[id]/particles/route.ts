@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { existsSync, readFileSync, readdirSync } from "fs";
 import path from "path";
 import { db } from "@/lib/db";
+import { findEffectiveJob } from "@/lib/link";
 import { getRun } from "@/lib/relion/engine";
 
 export const dynamic = "force-dynamic";
@@ -220,7 +221,7 @@ const num = (c: string | undefined): number | null => {
 export async function GET(request: NextRequest, context: RouteContext) {
   try {
     const { id } = await context.params;
-    const job = await db.job.findUnique({ where: { id } });
+    const job = await findEffectiveJob(id); // resolves soft links to the original
     if (!job) {
       return NextResponse.json({ error: "Job not found" }, { status: 404 });
     }
@@ -264,7 +265,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
     });
     const upstreamWorkdirs = new Map<string, string>(); // jobId -> workdir
     for (const e of upstream) {
-      const r = getRun(e.fromJobId);
+      // upstream may be a soft LINK — its stacks live in the ORIGINAL workdir
+      const up = await findEffectiveJob(e.fromJobId);
+      const r = getRun(up ? up.id : e.fromJobId);
       if (r?.workdir && existsSync(r.workdir)) upstreamWorkdirs.set(e.fromJobId, r.workdir);
     }
     const resolveOwner = (stackAbs: string): { ownerJobId: string; stackRel: string } => {

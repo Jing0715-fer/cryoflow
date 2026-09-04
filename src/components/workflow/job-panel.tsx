@@ -21,6 +21,7 @@ import {
   BarChart3,
   ChevronsDownUp,
   Database,
+  Link2,
   Loader2,
   MousePointerClick,
   Play,
@@ -834,21 +835,47 @@ function PanelBody({ job }: { job: JobDTO }) {
     <Button
       className="w-full"
       size="sm"
-      disabled={job.status === "running" || runPending || relionBlocked}
+      disabled={job.status === "running" || runPending || relionBlocked || job.linkedJobId != null}
       onClick={() => void handleRun()}
       aria-describedby={relionBlocked ? "job-relion-blocked-hint" : undefined}
+      title={
+        job.linkedJobId != null
+          ? "Linked copies mirror their original — run the original job instead"
+          : undefined
+      }
     >
       {runPending ? (
         <Loader2 className="animate-spin" aria-hidden="true" />
       ) : (
         <Play aria-hidden="true" />
       )}
-      {job.status === "completed" || job.status === "failed" ? "Re-run" : "Run Job"}
+      {job.linkedJobId != null
+        ? "Linked copy — run the original"
+        : job.status === "completed" || job.status === "failed"
+          ? "Re-run"
+          : "Run Job"}
     </Button>
   );
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col">
+      {job.linkedJobId != null && (
+        <div
+          role="note"
+          className="flex items-start gap-2 border-b border-primary/25 bg-primary/[0.06] px-4 py-2.5 text-[11px] leading-relaxed"
+        >
+          <Link2 className="mt-0.5 size-3.5 shrink-0 text-primary" aria-hidden="true" />
+          <p className="min-w-0 flex-1 text-foreground/90">
+            <span className="font-semibold">Linked copy</span> — this node mirrors
+            {" "}<span className="font-semibold text-primary">{job.linkedName ?? "its original"}</span>
+            {job.linkedWorkspaceName ? (
+              <span className="text-muted-foreground"> (workspace “{job.linkedWorkspaceName}”)</span>
+            ) : null}
+            . Parameters and runs belong to the original; wire downstream jobs
+            to this card and they consume its outputs.
+          </p>
+        </div>
+      )}
       {/* Header */}
       <div className="shrink-0 space-y-3 border-b bg-gradient-to-b from-card to-card p-4">
         <div className="flex items-center gap-2.5">

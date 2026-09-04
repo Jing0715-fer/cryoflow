@@ -4,8 +4,43 @@ import { db } from "@/lib/db";
 import { ensureActiveProject, toJobDTO, reconcileRunning, jitteredDuration } from "@/lib/seed";
 import { defaultParams, jobType } from "@/lib/workflow";
 import { readRuns, reconcileRealJobs } from "@/lib/relion/engine";
+import type { JobDTO } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * Project a LINKED job onto its ORIGINAL: status/progress/result/startedAt
+ * mirror the original (links are read-only aliases, never run themselves).
+ * Multi-hop chains are collapsed (links always point at originals, but stay
+ * defensive). Called after reconcile so the original is already up to date.
+ */
+function projectLinks(jobs: JobDTO[], workspaces: Map<string, string>): void {
+  // index originals by id for O(1) mirror lookups
+  const byId = new Map(jobs.map((j) => [j.id, j]));
+  const linkCount = new Map<string, number>();
+  for (const job of jobs) {
+    if (!job.linkedJobId) continue;
+    const root = byId.get(job.linkedJobId) ?? null;
+    // mirror the root's run state (root may be null: cross-project / deleted
+    // — cascading delete makes that rare; keep the link inert)
+    if (root) {
+      job.status = root.status;
+      job.progress = root.progress;
+      job.result = root.result;
+      job.startedAt = root.startedAt;
+      job.engine = root.engine;
+      job.hasLog = root.hasLog;
+      job.linkedName = root.name;
+      job.linkedWorkspaceName =
+        (root.workspaceId ? workspaces.get(root.workspaceId) : undefined) ?? "Main";
+      linkCount.set(root.id, (linkCount.get(root.id) ?? 0) + 1);
+    }
+  }
+  for (const [id, count] of linkCount) {
+    const orig = byId.get(id);
+    if (orig) orig.linkCount = count;
+  }
+}
 
 /** GET /api/jobs — jobs of the ACTIVE project; real engine reconciled first, then sim. */
 export async function GET() {
@@ -18,6 +53,12 @@ export async function GET() {
       where: { projectId: active.project.id },
       orderBy: { createdAt: "asc" },
     });
+    const workspaces = await db.workspace.findMany({
+      where: { projectId: active.project.id },
+      select: { id: true, name: true },
+    });
+    const workspaceNames = new Map(workspaces.map((w) => [w.id, w.name]));
+
     const reconciled = await reconcileRealJobs(jobs); // REAL engine first
     const final = await reconcileRunning(reconciled); // then time-based sim
 
@@ -30,6 +71,7 @@ export async function GET() {
       dto.hasLog = state ? existsSync(state.logFile) : false;
       return dto;
     });
+    projectLinks(jobsOut, workspaceNames);
     return NextResponse.json({ jobs: jobsOut });
   } catch (error) {
     console.error("GET /api/jobs failed:", error);
@@ -37,8 +79,15 @@ export async function GET() {
   }
 }
 
-/** POST /api/jobs — body: { type, x?, y?, params?, name? } → created in the ACTIVE project.
- * `params` (plain object) + `name` enable job duplication. */
+/**
+ * POST /api/jobs — body: { type, x?, y?, params?, name?, workspaceId?, linkedJobId? }
+ * → created in the ACTIVE project.
+ * - `params` (plain object) + `name` enable job duplication.
+ * - `workspaceId` places the job in a specific workspace (validated against
+ *   the project; defaults to its first workspace).
+ * - `linkedJobId` creates a SOFT LINK (copy-to-workspace): the new job
+ *   mirrors the original and downstream jobs consume the original's outputs.
+ */
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json().catch(() => ({}))) as {
@@ -47,6 +96,8 @@ export async function POST(request: NextRequest) {
       y?: unknown;
       params?: unknown;
       name?: unknown;
+      workspaceId?: unknown;
+      linkedJobId?: unknown;
     };
 
     const type = typeof body.type === "string" ? body.type : "";
@@ -85,6 +136,80 @@ export async function POST(request: NextRequest) {
     if (!active) {
       return NextResponse.json({ error: "No project available" }, { status: 500 });
     }
+
+    // ---- workspace resolution (validated against the ACTIVE project) ----
+    const projectWorkspaces = await db.workspace.findMany({
+      where: { projectId: active.project.id },
+      orderBy: [{ order: "asc" }, { createdAt: "asc" }],
+    });
+    if (projectWorkspaces.length === 0) {
+      return NextResponse.json({ error: "No workspace available" }, { status: 500 });
+    }
+    let workspaceId = projectWorkspaces[0].id;
+    if (typeof body.workspaceId === "string" && body.workspaceId) {
+      const target = projectWorkspaces.find((w) => w.id === body.workspaceId);
+      if (!target) {
+        return NextResponse.json({ error: "Workspace not found in this project" }, { status: 400 });
+      }
+      workspaceId = target.id;
+    }
+
+    // ---- soft link mode: copy-as-link into this workspace ---------------
+    if (typeof body.linkedJobId === "string" && body.linkedJobId) {
+      const original = await db.job.findUnique({ where: { id: body.linkedJobId } });
+      if (!original || original.projectId !== active.project.id) {
+        return NextResponse.json(
+          { error: "Linked job not found in this project" },
+          { status: 400 }
+        );
+      }
+      // collapse chains: a link of a link points at the ROOT original
+      const rootLinkedId = original.linkedJobId ?? original.id;
+      const root =
+        original.linkedJobId != null
+          ? ((await db.job.findUnique({ where: { id: rootLinkedId } })) ?? original)
+          : original;
+      const x =
+        typeof body.x === "number" && Number.isFinite(body.x)
+          ? body.x
+          : 140 + Math.random() * 60;
+      const y =
+        typeof body.y === "number" && Number.isFinite(body.y)
+          ? body.y
+          : 200 + Math.random() * 60;
+      const link = await db.job.create({
+        data: {
+          projectId: active.project.id,
+          workspaceId,
+          linkedJobId: root.id,
+          type: root.type,
+          name: customName ?? `${root.name} ⧉`,
+          x,
+          y,
+          // links mirror the original's CURRENT state (GET re-projects every
+          // poll anyway; storing it keeps non-GET readers honest)
+          status: root.status,
+          progress: root.progress,
+          params: root.params,
+          result: root.result,
+          startedAt: root.startedAt,
+          duration: root.duration,
+        },
+      });
+      const dto = toJobDTO(link);
+      dto.engine = active.meta.engine === "relion" ? "relion" : "sim";
+      // the POST response feeds an optimistic store update — include the
+      // projection fields GET computes so the UI banner shows the original's
+      // name immediately (a poll may never fire when nothing is running)
+      const wsNames = new Map(projectWorkspaces.map((w) => [w.id, w.name]));
+      dto.linkedName = root.name;
+      dto.linkedWorkspaceName =
+        (root.workspaceId ? wsNames.get(root.workspaceId) : undefined) ?? null;
+      dto.linkCount =
+        (await db.job.count({ where: { linkedJobId: root.id } })) + 1;
+      return NextResponse.json({ job: dto }, { status: 201 });
+    }
+
     const count = await db.job.count({
       where: { projectId: active.project.id, type },
     });
@@ -101,6 +226,7 @@ export async function POST(request: NextRequest) {
     const job = await db.job.create({
       data: {
         projectId: active.project.id,
+        workspaceId,
         type,
         name: customName ?? `${spec.label} ${count + 1}`,
         x,

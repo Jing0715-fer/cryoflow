@@ -42,6 +42,8 @@ export function toJobDTO(job: Job): JobDTO {
     startedAt: job.startedAt ? job.startedAt.toISOString() : null,
     createdAt: job.createdAt.toISOString(),
     updatedAt: job.updatedAt.toISOString(),
+    workspaceId: job.workspaceId,
+    linkedJobId: job.linkedJobId,
   };
 }
 

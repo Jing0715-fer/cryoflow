@@ -15,6 +15,9 @@ type RouteContext = { params: Promise<{ id: string }> };
  *  - name (trimmed, 1–60 chars)
  *  - params (object, merged with existing; keys sanitized against the schema)
  *  - status: "idle" (reset → progress 0, result null)
+ *  - workspaceId (string) — MOVE the job to another workspace of the SAME
+ *    project (edges are untouched: they simply render where both endpoints
+ *    are visible; downstream consumers keep working through links)
  */
 export async function PATCH(request: NextRequest, context: RouteContext) {
   try {
@@ -25,6 +28,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       name?: unknown;
       params?: unknown;
       status?: unknown;
+      workspaceId?: unknown;
     };
 
     const existing = await db.job.findUnique({ where: { id } });
@@ -32,10 +36,39 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: "Job not found" }, { status: 404 });
     }
 
+    const isLink = existing.linkedJobId != null;
+
+    // linked jobs are read-only mirrors — positions and (cosmetic) name stay
+    // editable, but params/reset belong to the ORIGINAL
+    if (isLink && (body.params != null || body.status != null)) {
+      return NextResponse.json(
+        {
+          error:
+            "Linked copies mirror their original job — edit or reset the original instead (follow the ⧉ badge)",
+        },
+        { status: 400 }
+      );
+    }
+
     const data: Record<string, unknown> = {};
 
     if (typeof body.x === "number" && Number.isFinite(body.x)) data.x = body.x;
     if (typeof body.y === "number" && Number.isFinite(body.y)) data.y = body.y;
+
+    if (typeof body.workspaceId === "string" && body.workspaceId) {
+      if (body.workspaceId !== existing.workspaceId) {
+        const target = await db.workspace.findUnique({
+          where: { id: body.workspaceId },
+        });
+        if (!target || target.projectId !== existing.projectId) {
+          return NextResponse.json(
+            { error: "Target workspace is not in this job's project" },
+            { status: 400 }
+          );
+        }
+        data.workspaceId = target.id;
+      }
+    }
 
     if (typeof body.name === "string") {
       const name = body.name.trim();
@@ -102,14 +135,26 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 /**
  * DELETE /api/jobs/[id] — edges cascade via Prisma. A live process tree is
  * stopped first (the old behavior deleted the row and let the mpirun ranks
- * keep running untracked for hours).
+ * keep running untracked for hours). Deleting an ORIGINAL also cascades its
+ * soft links in other workspaces (Prisma onDelete: Cascade).
  */
 export async function DELETE(_request: NextRequest, context: RouteContext) {
   try {
     const { id } = await context.params;
-    const existing = await db.job.findUnique({ where: { id } });
+    const existing = await db.job.findUnique({
+      where: { id },
+      include: { _count: { select: { links: true } } },
+    });
     if (!existing) {
       return NextResponse.json({ error: "Job not found" }, { status: 404 });
+    }
+    if (existing._count.links > 0) {
+      return NextResponse.json(
+        {
+          error: `${existing._count.links} linked cop${existing._count.links === 1 ? "y" : "ies"} in other workspaces reference this job — delete or move them away first`,
+        },
+        { status: 409 }
+      );
     }
     try {
       if (isRunAlive(id)) {

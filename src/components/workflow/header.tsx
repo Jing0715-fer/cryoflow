@@ -9,6 +9,7 @@ import {
   CircleCheck,
   Github,
   LayoutDashboard,
+  Layers,
   Loader2,
   RefreshCw,
   Snowflake,
@@ -308,7 +309,69 @@ function RelionStatusChip() {
 }
 
 /* ------------------------------------------------------------------ */
-/* View switcher — canvas ⇄ project dashboard                           */
+/* Workspace switcher (canvas scope)                                    */
+/* ------------------------------------------------------------------ */
+
+function WorkspaceSelect() {
+  const workspaces = useWorkflowStore((s) => s.workspaces);
+  const activeWorkspaceId = useWorkflowStore((s) => s.activeWorkspaceId);
+  const switchWorkspace = useWorkflowStore((s) => s.switchWorkspace);
+  const jobs = useWorkflowStore((s) => s.jobs);
+
+  const active = workspaces.find((w) => w.id === activeWorkspaceId) ?? null;
+
+  // live per-workspace job counts (derived client-side so poll ticks keep
+  // the badges fresh without extra requests)
+  const counts = React.useMemo(() => {
+    const map = new Map<string, number>();
+    for (const j of jobs) {
+      const key = j.workspaceId ?? "";
+      map.set(key, (map.get(key) ?? 0) + 1);
+    }
+    return map;
+  }, [jobs]);
+
+  return (
+    <Select
+      value={activeWorkspaceId ?? ""}
+      onValueChange={(id) => id && switchWorkspace(id)}
+    >
+      <SelectTrigger
+        aria-label="Active workspace"
+        title={active ? `Workspace: ${active.name}` : "Workspaces load with the project"}
+        className="h-8 w-[128px] rounded-lg border bg-card text-xs font-medium sm:w-[160px]"
+      >
+        <span className="flex min-w-0 items-center gap-1.5">
+          <Layers className="size-3.5 shrink-0 text-primary" aria-hidden="true" />
+          <SelectValue placeholder="Workspace…">
+            <span className="truncate">{active?.name ?? "Workspace…"}</span>
+          </SelectValue>
+        </span>
+      </SelectTrigger>
+      <SelectContent>
+        {workspaces.map((w) => (
+          <SelectItem key={w.id} value={w.id} className="text-xs">
+            <span className="flex min-w-0 items-center gap-2">
+              <span className="max-w-[140px] truncate">{w.name}</span>
+              <Badge
+                variant="secondary"
+                className="h-4 shrink-0 px-1 text-[9px] font-semibold tabular-nums"
+              >
+                {counts.get(w.id) ?? 0}
+              </Badge>
+              {w.id === activeWorkspaceId && (
+                <span className="size-1.5 shrink-0 rounded-full bg-primary" aria-hidden="true" />
+              )}
+            </span>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* View switcher — dashboard ⇄ workflow canvas                           */
 /* ------------------------------------------------------------------ */
 
 function ViewSwitcher() {
@@ -324,22 +387,6 @@ function ViewSwitcher() {
       <button
         type="button"
         role="tab"
-        aria-selected={view === "canvas"}
-        title="Workflow canvas (Shift+D toggles)"
-        onClick={() => setView("canvas")}
-        className={cn(
-          "flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium transition-colors",
-          view === "canvas"
-            ? "bg-primary/10 text-primary shadow-sm"
-            : "text-muted-foreground hover:text-foreground"
-        )}
-      >
-        <Workflow className="size-3.5" aria-hidden="true" />
-        <span className="hidden sm:inline">Workflow</span>
-      </button>
-      <button
-        type="button"
-        role="tab"
         aria-selected={view === "dashboard"}
         title="Project dashboard (Shift+D toggles)"
         onClick={() => setView("dashboard")}
@@ -352,6 +399,22 @@ function ViewSwitcher() {
       >
         <LayoutDashboard className="size-3.5" aria-hidden="true" />
         <span className="hidden sm:inline">Dashboard</span>
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={view === "canvas"}
+        title="Workflow canvas (Shift+D toggles)"
+        onClick={() => setView("canvas")}
+        className={cn(
+          "flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium transition-colors",
+          view === "canvas"
+            ? "bg-primary/10 text-primary shadow-sm"
+            : "text-muted-foreground hover:text-foreground"
+        )}
+      >
+        <Workflow className="size-3.5" aria-hidden="true" />
+        <span className="hidden sm:inline">Workflow</span>
       </button>
     </div>
   );
@@ -385,8 +448,9 @@ export function Header() {
         {/* Canvas ⇄ Dashboard view switcher */}
         <ViewSwitcher />
 
-        {/* Project switcher + stats chips */}
+        {/* Workspace + project switcher, stats chips */}
         <div className="hidden items-center gap-2 md:flex">
+          <WorkspaceSelect />
           <ProjectSwitcher />
           <div className="hidden items-center gap-2 lg:flex" aria-label="Workflow statistics">
             <StatChip

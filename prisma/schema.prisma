@@ -8,35 +8,67 @@ datasource db {
 }
 
 model Project {
+  id         String     @id @default(cuid())
+  name       String
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  jobs       Job[]
+  edges      Edge[]
+  workspaces Workspace[]
+}
+
+/**
+ * A sub-canvas inside a project: one project may hold several workspaces
+ * (e.g. "Import & CTF" / "Classification" / "Refinement"), each with its own
+ * set of nodes. Jobs can be MOVED between workspaces or COPIED as a soft
+ * link (Job.linkedJobId) so downstream jobs in another workspace can consume
+ * the original's outputs.
+ */
+model Workspace {
   id        String   @id @default(cuid())
+  projectId String
   name      String
+  /** Sort position inside the sidebar (ascending). */
+  order     Float    @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  jobs      Job[]
-  edges     Edge[]
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  jobs    Job[]
+
+  @@index([projectId])
 }
 
 model Job {
-  id        String    @id @default(cuid())
-  projectId String
-  type      String
-  name      String
-  x         Float
-  y         Float
-  status    String    @default("idle") // idle | queued | running | completed | failed
-  progress  Float     @default(0)
-  params    String    @default("{}") // JSON-encoded parameter map
-  result    String? // JSON-encoded result summary
-  startedAt DateTime? // used to derive progress while running
-  duration  Int       @default(8000) // simulated run duration in ms
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id         String    @id @default(cuid())
+  projectId  String
+  /** Owning workspace (null only for pre-migration rows — always set via the API). */
+  workspaceId String?
+  /** Soft link target: this job MIRRORS the original and its outputs feed
+   *  downstream jobs from this workspace. Deleting the original cascades. */
+  linkedJobId String?
+  type       String
+  name       String
+  x          Float
+  y          Float
+  status     String    @default("idle") // idle | queued | running | completed | failed
+  progress   Float     @default(0)
+  params     String    @default("{}") // JSON-encoded parameter map
+  result     String? // JSON-encoded result summary
+  startedAt  DateTime? // used to derive progress while running
+  duration   Int       @default(8000) // simulated run duration in ms
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  outEdges Edge[] @relation("fromJob")
-  inEdges  Edge[] @relation("toJob")
+  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  linkedJob Job?       @relation("JobLinks", fields: [linkedJobId], references: [id], onDelete: Cascade)
+  links     Job[]      @relation("JobLinks")
+  outEdges  Edge[]     @relation("fromJob")
+  inEdges   Edge[]     @relation("toJob")
 
   @@index([projectId])
+  @@index([workspaceId])
 }
 
 model Edge {

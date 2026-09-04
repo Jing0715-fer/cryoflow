@@ -33,6 +33,7 @@ import {
   GitCommitHorizontal,
   Layers,
   LayoutDashboard,
+  Link2,
   Locate,
   Loader2,
   Pause,
@@ -1205,20 +1206,66 @@ function LineageBreadcrumb({ job }: { job: JobDTO }) {
 function InspectorHeader({ job }: { job: JobDTO }) {
   const spec = jobType(job.type);
   const running = job.status === "running";
+  const isLink = job.linkedJobId != null;
   const focusJob = useWorkflowStore((s) => s.focusJob);
   const runJob = useWorkflowStore((s) => s.runJob);
   const stopJob = useWorkflowStore((s) => s.stopJob);
   const resetJob = useWorkflowStore((s) => s.resetJob);
   const inspect = useWorkflowStore((s) => s.inspect);
   const select = useWorkflowStore((s) => s.select);
+  const jobs = useWorkflowStore((s) => s.jobs);
+  const workspaces = useWorkflowStore((s) => s.workspaces);
+  const switchWorkspace = useWorkflowStore((s) => s.switchWorkspace);
   const [confirmRerun, setConfirmRerun] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const elapsed = useElapsed(job.startedAt, running);
   // ETA for running jobs (dialog opens client-side, no SSR concern)
   const eta = running ? estimateEta(job.id, job.startedAt, job.progress) : null;
 
+  // linked copies: offer a jump to the ORIGINAL (switch workspace + focus)
+  const original = isLink ? jobs.find((j) => j.id === job.linkedJobId) ?? null : null;
+  const gotoOriginal = () => {
+    if (!original) return;
+    inspect(null);
+    if (original.workspaceId && original.workspaceId !== useWorkflowStore.getState().activeWorkspaceId) {
+      switchWorkspace(original.workspaceId);
+    }
+    focusJob(original.id);
+  };
+
   return (
     <div className="space-y-3">
+      {isLink && (
+        <div
+          role="note"
+          className="flex flex-wrap items-center gap-2 rounded-lg border border-primary/30 bg-primary/[0.06] px-3 py-2 text-xs text-foreground"
+        >
+          <Link2 className="size-3.5 shrink-0 text-primary" aria-hidden="true" />
+          <span className="min-w-0 flex-1">
+            Linked copy — mirrors{" "}
+            <span className="font-semibold text-primary">
+              {job.linkedName ?? original?.name ?? "its original"}
+            </span>
+            {job.linkedWorkspaceName ? (
+              <span className="text-muted-foreground"> (workspace “{job.linkedWorkspaceName}”)</span>
+            ) : null}
+            . This node never runs itself; downstream jobs consume the
+            original&apos;s outputs.
+          </span>
+          {original && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 gap-1 border-primary/40 px-2 text-[11px] text-primary hover:bg-primary/10"
+              onClick={gotoOriginal}
+              title={`Switch to “${workspaces.find((w) => w.id === original.workspaceId)?.name ?? "its workspace"}” and focus the original job`}
+            >
+              <Locate className="size-3" aria-hidden="true" />
+              Go to original
+            </Button>
+          )}
+        </div>
+      )}
       <div className="flex items-start gap-3">
         <span
           className={cn(
@@ -1277,7 +1324,7 @@ function InspectorHeader({ job }: { job: JobDTO }) {
             </TooltipTrigger>
             <TooltipContent side="bottom">Center this job on the canvas</TooltipContent>
           </Tooltip>
-          {job.status !== "running" ? (
+          {job.status !== "running" && !isLink ? (
             <>
               <Button
                 variant="outline"
@@ -1301,7 +1348,7 @@ function InspectorHeader({ job }: { job: JobDTO }) {
                 Re-run
               </Button>
             </>
-          ) : (
+          ) : running && !isLink ? (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -1323,7 +1370,7 @@ function InspectorHeader({ job }: { job: JobDTO }) {
                 last checkpoint via RELION --continue
               </TooltipContent>
             </Tooltip>
-          )}
+          ) : null}
           {/* close — in-row X (Esc still works) */}
           <DialogClose asChild>
             <Button
