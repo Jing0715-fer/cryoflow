@@ -75,6 +75,68 @@ export default function Home() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
+  /* Canvas keyboard shortcuts (n8n-style power moves):
+   *   F    — center the selected job
+   *   0    — reset pan/zoom
+   *   +/−  — zoom in/out around the viewport center
+   *   Del  — delete the selected job
+   * Guarded: no shortcuts while typing in a form field, a sheet/dialog is
+   * open (their own key handling wins), or a popover menu is active. */
+  React.useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.closest("input, textarea, select, [contenteditable='true']") != null ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      // any open dialog / sheet / menu owns the keyboard
+      if (document.querySelector('[role="dialog"][data-state="open"], [role="menu"][data-state="open"]')) {
+        return;
+      }
+      const s = useWorkflowStore.getState();
+      const k = e.key;
+      // zoom keeps the workspace point under the viewport CENTER fixed
+      const zoomAtCenter = (factor: number) => {
+        const el = document.querySelector('[data-canvas="viewport"]');
+        const rect = el?.getBoundingClientRect();
+        const vp = s.viewport;
+        const next = Math.min(Math.max(vp.zoom * factor, 0.1), 2.5);
+        if (!rect) {
+          s.setViewport({ zoom: next });
+          return;
+        }
+        const cx = rect.width / 2;
+        const cy = rect.height / 2;
+        const px = (cx - vp.x) / vp.zoom;
+        const py = (cy - vp.y) / vp.zoom;
+        s.setViewport({ x: cx - px * next, y: cy - py * next, zoom: next });
+      };
+      if (k === "f" || k === "F") {
+        if (s.selectedId) {
+          e.preventDefault();
+          s.focusJob(s.selectedId);
+        }
+      } else if (k === "0") {
+        e.preventDefault();
+        s.setViewport({ x: 0, y: 0, zoom: 1 });
+      } else if (k === "+" || k === "=") {
+        e.preventDefault();
+        zoomAtCenter(1.15);
+      } else if (k === "-" || k === "_") {
+        e.preventDefault();
+        zoomAtCenter(1 / 1.15);
+      } else if ((k === "Delete" || k === "Backspace") && s.selectedId) {
+        e.preventDefault();
+        void s.deleteJob(s.selectedId);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   const panelSheetOpen = mounted && !isXl && selectedId != null;
 
   return (

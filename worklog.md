@@ -495,3 +495,24 @@ Stage Summary:
 - VLM 评分：log console 无瑕疵；画廊 chips+紧凑+黑底类平均图正常
 - 待办：refine3d（~53%，预计数小时）→ maskcreate → postprocess → FSC ≤4.2 Å → 最终 push
 - 【push 注意】用户本轮提供了新 token（仅写入 .git/config remote URL，绝不进受版本控制文件）
+
+---
+Task ID: res-chart-shortcuts-2026-09-04
+Agent: Super Z (main loop, cron webDevReview)
+Task: QA 回归 + 两个新功能（分辨率演进图 + 画布键盘快捷键）+ dev server OOM 恢复
+
+Work Log:
+- 【QA 回归】页面/console/inspector（运行中 refine3d → Log live tab 默认打开）全部干净，无回归
+- 【新功能1：分辨率演进图】CryoSPARC 式 iteration plot：新 API GET /api/jobs/[id]/resolution（扫描 workdir run_it(\d+)_(half1_)?model.star → _rlnCurrentResolution 正则提取，跳过 half2 防重复）；新组件 resolution-chart.tsx（recharts AreaChart、Y 轴反转=越上越好、now/best 徽章、运行中 30s 自动轮询+live 圆点、best 参考虚线）；挂在 inspector Overview tab（isRefineType 正则匹配 class2d/class3d/initialmodel/refine3d/multibody 且已开始迭代时显示，位于 ResultSummary 与 Timeline 之间）
+- 【API 实测】refine3d 8 点 28.3→13.3 Å、class2d 25 点 28.3→12.6 Å、initialmodel 5 点（VDAM 每 10 iter 一存）32.4→8.1 Å
+- 【浏览器验证】Overview tab 显示图表（DOM 断言 curve+area+dots+徽章齐全）+ VLM 复核：teal 面积图、轴标签可读、无重叠。注意：radix Tabs 必须用可信点击（agent-browser click @ref）激活，合成 pointer 事件不触发 tab 切换（前期测试失败全是这个原因，非代码 bug）
+- 【新功能2：键盘快捷键】page.tsx 全局 keydown：F 聚焦选中卡、0 复位视图、+/− 缩放（viewport 中心锚定数学）、Delete/Backspace 删除选中卡；守卫：input/textarea/contentEditable 聚焦时跳过、任何 dialog/menu 打开时让位；help-popover.tsx 增加快捷键表（kbd 样式）+ 右键菜单提示
+- 【快捷键验证】Delete 删除复制卡（DELETE 200）✓、0 复位 transform（translate(0,0) scale(1)）✓、modal 打开时 F 正确让位 ✓
+- 【事故】QA 尾声 next-server 被 OOM-kill（Turbopack 多轮热重载膨胀至 2.45GB + chrome ~1GB + RELION ~210MB 叠加超 4GB）；RELION refine3d 完好存活（it9，~211MB）；setsid nohup 重启 dev.sh 恢复（跨工具调用存活，GET / 200；RSS 2.06GB 稳态）
+- lint 通过；tsc 0 错误；refine3d it9 auto-refine 13.3 Å 推进中
+
+Stage Summary:
+- 两个新功能落地并经浏览器/VLM 验证：分辨率演进图（refine 型 job 的 Overview tab）+ 键盘快捷键（F/0/+/-/Del）+ help 快捷键表
+- 教训记录：① agent-browser 合成事件不激活 radix Tabs（要用可信 click）② 本轮工具调用收割再次生效，setsid+nohup+.zscripts/dev.sh 是当前可靠的跨调用存活启动方式 ③ Turbopack 热重载累积膨胀 2.4GB+ —— 长会话开发轮要控制编辑次数或中途重启 dev server（重启即回收内存，engine-state.json 落盘使 RELION 状态无损）
+- 管线：refine3d it9（13.3 Å，每 iter ~20-40min，auto-refine 还需数小时）→ 后续 maskcreate → postprocess → FSC ≤4.2 Å → 最终 push
+- 本轮代码未 push（留给管线完成时一并 push 或下轮 push）

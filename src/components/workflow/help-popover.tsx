@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { HelpCircle, MousePointer2, Link2, Play, ZoomIn, Trash2 } from "lucide-react";
+import { HelpCircle, MousePointer2, Link2, Play, ZoomIn, Trash2, Keyboard } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 
@@ -28,8 +28,16 @@ const TIPS: { icon: React.ReactNode; text: string }[] = [
   },
   {
     icon: <Trash2 className="size-3.5 text-primary" />,
-    text: "Delete jobs from the danger zone — incoming edges are removed too.",
+    text: "Right-click cards for the quick-action menu (run · duplicate · delete …).",
   },
+];
+
+const SHORTCUTS: { keys: string; text: string }[] = [
+  { keys: "F", text: "Focus the selected job" },
+  { keys: "0", text: "Reset the view (100 %)" },
+  { keys: "+ / -", text: "Zoom in / out" },
+  { keys: "Del", text: "Delete the selected job" },
+  { keys: "Esc", text: "Cancel wire · close panels" },
 ];
 
 export function HelpPopover() {
@@ -61,6 +69,20 @@ export function HelpPopover() {
             </li>
           ))}
         </ul>
+        <p className="mt-4 flex items-center gap-1.5 border-t pt-3 text-xs font-medium">
+          <Keyboard className="size-3.5 text-primary" aria-hidden="true" />
+          Keyboard shortcuts
+        </p>
+        <dl className="mt-2 space-y-1.5">
+          {SHORTCUTS.map((sc) => (
+            <div key={sc.keys} className="flex items-center justify-between gap-3">
+              <dd className="text-xs text-muted-foreground">{sc.text}</dd>
+              <dt className="shrink-0 rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px] font-semibold text-foreground/80">
+                {sc.keys}
+              </dt>
+            </div>
+          ))}
+        </dl>
       </PopoverContent>
     </Popover>
   );
