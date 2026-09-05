@@ -240,8 +240,12 @@ function pidAlive(pid: number): boolean {
   try {
     process.kill(pid, 0);
     return true;
-  } catch {
-    return false;
+  } catch (e) {
+    // EPERM = the process EXISTS but belongs to another session/user
+    // (e.g. a detached wsl.exe after a dev-server restart) — still alive.
+    // ESRCH (or anything else) = gone.
+    const err = e as NodeJS.ErrnoException;
+    return err.code === "EPERM";
   }
 }
 
@@ -2859,12 +2863,31 @@ export function parseJobParams(raw: string): Record<string, number | string | bo
  * Reconcile 'running' jobs against the REAL engine's records (the only
  * engine — the time-based simulation was retired):
  *  - pid alive → derive progress from the log tail
- *  - pid dead + not done → interrupted (server restart etc.) → failed
+ *  - pid dead + not done → outputs landed? (orphaned-but-finished run —
+ *    the exit handler died with a server restart/HMR reload while the
+ *    detached child kept running) → completed + downstream auto-start;
+ *    otherwise interrupted (server restart etc.) → failed
  *  - done + exit 0 (DB stale) → completed with the recorded result
  *  - no run record at all → spawn race window (< 2 min, keep running) or
  *    stale legacy state → honest failure
  * Read-mostly; DB writes only in the interrupted/stale cases (idempotent).
  */
+/**
+ * Job types whose RELION output is written ONCE at the very end of the run
+ * (no partial mid-run artifacts): output presence alone proves the run
+ * finished, so an orphaned record can be finalized as completed. Refine-
+ * family jobs are excluded on purpose — they emit per-iteration artifacts
+ * mid-run, and the safe recovery for them is "interrupted" + --continue.
+ */
+const ORPHAN_COMPLETABLE = new Set(["ctffind", "motioncorr", "extract", "autopick"]);
+/** Primary output key per completable type (collectOutputs gate). */
+const ORPHAN_PRIMARY_KEY: Record<string, string> = {
+  ctffind: "micrographs_ctf_star",
+  motioncorr: "micrographs_star",
+  extract: "particles_star",
+  autopick: "coords_star",
+};
+
 export async function reconcileRealJobs(jobs: Job[]): Promise<Job[]> {
   const runs = readRuns();
   const out: Job[] = [];
@@ -2906,7 +2929,10 @@ export async function reconcileRealJobs(jobs: Job[]): Promise<Job[]> {
     const recordIsCurrent =
       job.startedAt == null ||
       new Date(state.startedAt).getTime() >= new Date(job.startedAt).getTime() - 2000;
-    const alive = state.pid != null && existsSync(`/proc/${state.pid}`);
+    // pidAlive is cross-platform (signal-0 probe on Windows) — the previous
+    // raw existsSync("/proc/<pid>") is Linux-only and insta-failed EVERY
+    // running WSL-bridged job on Windows hosts on the first poll
+    const alive = state.pid != null && pidAlive(state.pid);
 
     if (alive) {
       const progress = parseProgress(job.type, state.logFile, parseJobParams(job.params));
@@ -2922,6 +2948,43 @@ export async function reconcileRealJobs(jobs: Job[]): Promise<Job[]> {
     }
 
     if (!state.done) {
+      // Orphaned-but-finished: the exit handler died with a server restart /
+      // HMR reload while the DETACHED child kept running and finished later.
+      // For atomic-output types the landed outputs prove completion — finalize
+      // the record, flip the DB to completed and auto-start downstream, exactly
+      // like the exit handler would have (this also heals the Windows
+      // false-"interrupted" state written by the old /proc-blind reconcile).
+      if (ORPHAN_COMPLETABLE.has(job.type)) {
+        const collected = collectOutputs(job.type, state.workdir);
+        const key = ORPHAN_PRIMARY_KEY[job.type];
+        if (collected.outputs[key]) {
+          const runsNow = readRuns();
+          const rec = runsNow[job.id];
+          if (rec && rec.startedAt === state.startedAt) {
+            runsNow[job.id] = {
+              ...rec,
+              done: true,
+              exitCode: 0,
+              outputs: collected.outputs,
+              result: collected.result,
+            };
+            writeRuns(runsNow);
+          }
+          const patch = {
+            status: "completed" as const,
+            progress: 100,
+            result: collected.result,
+          };
+          const updated = await db.job
+            .update({ where: { id: job.id }, data: patch })
+            .catch(() => null);
+          out.push(updated ?? { ...job, ...patch });
+          void import("./dispatch")
+            .then((m) => m.autoStartPendingDownstream(job.id))
+            .catch((e) => console.error("engine: orphan-run downstream auto-start failed:", e));
+          continue;
+        }
+      }
       const updated = await db.job
         .update({
           where: { id: job.id },

@@ -1063,3 +1063,22 @@ Stage Summary:
 - exit 127 现在三层诊断:stderr 尾巴(优先)→ 空 stderr 时点名 exec target + Re-detect/ldd 双指引 → 命令 + 日志路径
 - 用户本机下一步:git pull 后点 Re-detect——修复后的 filesystem search 会重新发现 ~/myproject/relion5-build-*/bin(旧版探测曾发现的路径);若 build 目录确实已不存在,过期 cached 安装会被诚心剔除
 - 未动:EMPIAR 主线重跑、3D 预览加宽、历史遗留 UI 项(见上节"给后续 cron 轮")
+
+---
+Task ID: 2
+Agent: main (Z.ai Code)
+Task: 修复用户「装好 ctffind 后跑 CTF 报 interrupted (exit unknown) — re-run」
+
+Work Log:
+- 定位消息源:engine.ts reconcileRealJobs —— DB=running 且 record done:false 且 pid 判死 → 写入 interrupted
+- 根因(用户机器必现):alive 判定用裸 `existsSync("/proc/${pid}")` —— /proc 是 Linux 独有,Windows 上恒 false → WSL 桥接任务启动后第一次 /api/jobs 轮询(约 1s 后)就被误判"进程已死"立即标 failed interrupted,而 wsl.exe 里的 ctffind 实际还在正常跑。讽刺:同文件 234 行早有跨平台 pidAlive()(Windows 走 process.kill(pid,0)),reconcile 忘了用。沙箱是 Linux 所以 QA 从未暴露
+- 修复 1:reconcile 改用 pidAlive();顺带修 pidAlive 的 EPERM 语义 —— Windows 上进程存在但属其他会话/用户时 kill(pid,0) 抛 EPERM,旧代码 catch 一律返回 false(把活进程判死),现在 EPERM=alive、ESRCH=dead
+- 修复 2(孤儿完结,双平台受益):exit handler 随 dev-server 重启/HMR 重载丢失后,detached 子进程继续跑完 → pid 死 + done:false + outputs 已落盘 → 旧代码也报 interrupted。新增:ctffind/motioncorr/extract/autopick 四类原子输出型(最终产物一次性写出,无中途伪成品)在 pid 死后先 collectOutputs,主产物存在 → 重写 record(done:true/exitCode:0/outputs)+ DB completed + autoStartPendingDownstream,与 exit handler 路径完全一致;产物缺失 → 维持 interrupted(诚实)。refine 族故意排除:迭代产物中途就有,误判 completed 会把半成品喂给下游,安全恢复路径是 interrupted + --continue
+- 沙箱 E2E(真实 API):①正向——用已完成 ctffind job 伪造 done:false/pid=4000000(不存在)/DB running → GET /api/jobs 一次即翻 completed("REAL: CTF estimated for 11 micrographs",progress 100),record 重写 done:true+outputs captured,下游自动启动触发 ②负向——workdir 指向空目录 → 诚实 failed "interrupted (exit unknown) — re-run" ③测试残留全部还原(backup 恢复 engine-state.json、DB result/status/duration 复原,浏览器确认 completed、console 0 error、lint 0 错误)
+- 用户机器时间线复原:pull 87e4675(文件变更触发 Turbopack 重载丢 handler)→ 重跑 ctffind → 旧 reconcile /proc 盲判 → 秒标 interrupted。两层修复叠加后:重载期间 pidAlive 看见 detached wsl.exe 存活保持 running;进程结束后孤儿路径凭落盘 outputs 自动完结
+
+Stage Summary:
+- Windows 兼容性是本会话主题:probe 脚本分号(上轮)+ /proc 盲区(本轮)都是 Linux 沙箱测不出的平台盲点
+- reconcile 现语义:pid 活→进度推导;pid 死+原子产物在→自动完结+下游自启;pid 死+无产物→interrupted;done+exit0→completed
+- 用户本机预期:git pull 后重跑 CTF,任务应保持 running(进度随日志推进)→ 完成后正常 completed;若中途 dev-server 重载,任务仍自动完结不丢
+- 未动:EMPIAR 重跑、3D 预览加宽、历史遗留 UI 项
