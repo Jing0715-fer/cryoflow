@@ -180,6 +180,15 @@ function InstallRow({
               MPI
             </Badge>
           )}
+          {install.cached && (
+            <Badge
+              variant="outline"
+              className="h-4 shrink-0 border-amber-500/40 bg-amber-500/10 px-1 text-[9px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400"
+              title="Restored from the saved last detection — it could not be re-verified this round (e.g. WSL was cold). Re-detect re-verifies it."
+            >
+              saved
+            </Badge>
+          )}
         </span>
         <span className="mt-0.5 block truncate font-mono text-[10px] text-muted-foreground">
           {install.path}
@@ -267,12 +276,13 @@ function RelionStatusChip() {
 
   const found = system?.found ?? false;
   const viaWsl = (system?.source ?? "").startsWith("WSL");
+  const fromCache = system?.fromCache === true;
   const extraInstalls = Math.max(0, (system?.installs.length ?? 0) - 1);
   const label = found
     ? `RELION ${system?.version ?? ""}${viaWsl ? " · WSL" : ""}${extraInstalls > 0 ? ` · +${extraInstalls}` : ""}`.trim()
     : "RELION not found";
   const title = found
-    ? `RELION ${system?.version ?? "?"} · ${system?.path ?? ""}${viaWsl ? " (inside WSL)" : ""}${extraInstalls > 0 ? ` — ${extraInstalls} more install(s) detected, click to switch` : ""}`
+    ? `RELION ${system?.version ?? "?"} · ${system?.path ?? ""}${viaWsl ? " (inside WSL)" : ""}${extraInstalls > 0 ? ` — ${extraInstalls} more install(s) detected, click to switch` : ""}${fromCache ? " · status from the saved last detection, re-verifying in the background" : ""}`
     : "RELION not detected on this host — click for guidance";
 
   // WSL three-state: RELION found inside WSL / WSL ok but RELION not on PATH /
@@ -313,6 +323,15 @@ function RelionStatusChip() {
             <CircleAlert className="size-3.5 text-amber-600 dark:text-amber-400" aria-hidden="true" />
           )}
           <span className="text-xs font-medium">{label}</span>
+          {fromCache && (
+            <Badge
+              variant="outline"
+              className="h-4 shrink-0 border-amber-500/40 bg-amber-500/10 px-1 text-[9px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400"
+              title="This status was restored from the saved last detection — the server is re-verifying in the background and updates automatically"
+            >
+              saved
+            </Badge>
+          )}
         </button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-96">
@@ -330,7 +349,16 @@ function RelionStatusChip() {
                   : "RELION detected"
                 : "RELION not detected"}
             </p>
-            {found && (system?.installs.length ?? 0) > 1 && (
+            {fromCache && (
+              <span
+                className="ml-auto flex shrink-0 items-center gap-1 rounded-md border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400"
+                title="data/relion-snapshot.json answered instantly; a fresh probe is running in the background"
+              >
+                <RefreshCw className="size-2.5 animate-spin" aria-hidden="true" />
+                from saved detection
+              </span>
+            )}
+            {found && !fromCache && (system?.installs.length ?? 0) > 1 && (
               <Badge
                 variant="secondary"
                 className="ml-auto h-5 shrink-0 px-1.5 text-[9px] font-semibold tabular-nums"
@@ -431,8 +459,16 @@ function RelionStatusChip() {
             </div>
           </div>
           <div className="flex items-center justify-between gap-2">
-            <p className="text-[10px] text-muted-foreground/70">
+            <p
+              className="text-[10px] text-muted-foreground/70"
+              title={
+                fromCache
+                  ? "The saved detection answered instantly — a background probe is re-verifying right now"
+                  : undefined
+              }
+            >
               checked {system ? new Date(system.checkedAt).toLocaleTimeString() : "—"}
+              {fromCache ? " · saved, re-checking…" : ""}
             </p>
             <button
               type="button"

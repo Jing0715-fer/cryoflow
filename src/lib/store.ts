@@ -100,7 +100,11 @@ interface WorkflowState {
   addJobAt: (type: string, x: number, y: number) => Promise<void>;
   moveJobCommit: (id: string, x: number, y: number) => Promise<void>;
   applyLayout: () => Promise<void>;
-  saveJob: (id: string, patch: { name?: string; params?: Record<string, number | string | boolean> }) => Promise<void>;
+  saveJob: (
+    id: string,
+    patch: { name?: string; params?: Record<string, number | string | boolean> },
+    opts?: { silent?: boolean }
+  ) => Promise<{ ok: boolean; error?: string }>;
   runJob: (id: string) => Promise<boolean>;
   /** POST /stop — SIGTERM→SIGKILL the job's process tree; re-run resumes
    *  refine-family jobs from their checkpoint via RELION --continue. */
@@ -189,6 +193,54 @@ function errToast(msg: string) {
   toast({ title: "Something went wrong", description: msg, variant: "destructive" });
 }
 
+/* ------------------------------------------------------------------ */
+/* Debounced param auto-save — flush registry                           */
+/* ------------------------------------------------------------------ */
+
+/** One pending param flush per job (registered by the params panel while
+ *  its debounced auto-save timer runs). runJob() awaits it first so a Run
+ *  never races the 700 ms debounce window and starts with stale DB params. */
+const paramFlushers = new Map<string, () => Promise<void>>();
+
+export function registerParamFlusher(
+  jobId: string,
+  flush: () => Promise<void>
+): () => void {
+  paramFlushers.set(jobId, flush);
+  return () => {
+    // deregister only when THIS registration is still the live one (a newer
+    // mount for the same job may have replaced it)
+    if (paramFlushers.get(jobId) === flush) paramFlushers.delete(jobId);
+  };
+}
+
+async function flushJobParams(jobId: string): Promise<void> {
+  const flush = paramFlushers.get(jobId);
+  if (flush) await flush();
+}
+
+/** Poll /api/system until the server's background re-detect lands — the
+ *  header RELION chip quietly upgrades from "saved" (fromCache) to fresh
+ *  without any user action. Stops early if someone re-detected/switched. */
+async function pollSystemUntilFresh(): Promise<void> {
+  const delays = [3000, 8000, 20000, 45000];
+  for (const delay of delays) {
+    await new Promise((resolve) => setTimeout(resolve, delay));
+    const current = useWorkflowStore.getState().system;
+    if (!current?.fromCache) return;
+    try {
+      const sys = await api<SystemStatusClient>("/api/system");
+      // don't fight an in-flight manual re-detect / install switch
+      if (!useWorkflowStore.getState().systemRefreshing) {
+        useWorkflowStore.setState({ system: sys });
+      }
+      if (!sys.fromCache) return;
+    } catch {
+      return; // transient — the Re-detect button remains the escape hatch
+    }
+  }
+}
+
 function clamp(v: number, min: number, max: number) {
   return Math.min(Math.max(v, min), max);
 }
@@ -244,6 +296,10 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         activeWorkspaceId: activeWs,
         loading: false,
       });
+      // RELION status came from the SAVED detection — the server is
+      // re-verifying in the background; poll until the fresh probe lands so
+      // the chip upgrades automatically (no re-detect click needed).
+      if (sys?.fromCache) void pollSystemUntilFresh();
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to load project";
       set({ loading: false, error: msg });
@@ -593,7 +649,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     }
   },
 
-  saveJob: async (id, patch) => {
+  saveJob: async (id, patch, opts) => {
+    const silent = opts?.silent === true;
     try {
       const { job } = await api<{ job: JobDTO }>(`/api/jobs/${id}`, {
         method: "PATCH",
@@ -601,13 +658,23 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         body: JSON.stringify(patch),
       });
       set({ jobs: get().jobs.map((j) => (j.id === id ? job : j)) });
-      toast({ title: "Saved", description: `${job.name} updated` });
+      if (!silent) toast({ title: "Saved", description: `${job.name} updated` });
+      return { ok: true };
     } catch (err) {
-      errToast(err instanceof Error ? err.message : "Failed to save job");
+      const msg = err instanceof Error ? err.message : "Failed to save job";
+      if (!silent) errToast(msg);
+      return { ok: false, error: msg };
     }
   },
 
   runJob: async (id) => {
+    // flush any pending (debounced) parameter edits FIRST so the run starts
+    // with exactly what the user sees in the form
+    try {
+      await flushJobParams(id);
+    } catch {
+      /* flush failure is non-fatal — the run uses the last saved params */
+    }
     try {
       const data = await api<{ job: JobDTO; error?: string; waiting?: string }>(`/api/jobs/${id}/run`, {
         method: "POST",

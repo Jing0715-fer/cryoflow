@@ -248,6 +248,9 @@ export interface RelionInstallClient {
   mpiBinary: boolean;
   /** ctffind path for this install (null → CTF jobs cannot run on it). */
   ctffindPath: string | null;
+  /** Restored from the saved last detection (fresh probe could not re-verify
+   *  it this round — e.g. WSL was cold). Re-detect re-verifies it. */
+  cached?: boolean;
 }
 
 /** Light-weight mirror of RelionStatus (server module) for the client store. */
@@ -275,4 +278,8 @@ export interface SystemStatusClient {
   selectedId: string | null;
   /** true when no persisted selection existed and the default was auto-picked. */
   autoPicked: boolean;
+  /** true when this status was served from the SAVED last detection
+   *  (data/relion-snapshot.json) without a fresh probe — the server is
+   *  re-verifying in the background and the next poll flips it off. */
+  fromCache?: boolean;
 }

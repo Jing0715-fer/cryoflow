@@ -2546,7 +2546,10 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
   }
 
   // ---- RELION required ------------------------------------------------
-  const status = await detectRelion(true);
+  // Non-force: served instantly from the warm cache / SAVED detection
+  // snapshot (stale-while-revalidate re-probes in the background). Run never
+  // waits a full host+WSL sweep — the Re-detect button is the manual gate.
+  const status = await detectRelion();
   if (!status.found || !status.path) {
     return {
       ok: false,

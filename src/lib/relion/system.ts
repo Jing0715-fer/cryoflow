@@ -3,6 +3,9 @@
  *
  * Scans the host (and WSL distros when present) for EVERY RELION install,
  * probes each version, and composes the status around the SELECTED install:
+ *   - full detection SNAPSHOT persists in data/relion-snapshot.json so a
+ *     restart / cold WSL never blanks the environment: the saved status is
+ *     served instantly (fromCache) and re-verified in the background
  *   - selection persists in data/relion-select.json ({ installId })
  *   - missing/stale selection → auto-pick by priority (RELION_HOME > PATH >
  *     known path > home scan > WSL bridge)
@@ -14,7 +17,9 @@
  *   c) known install paths (incl. the sandbox build target /home/z/relion-install/bin)
  *   d) home-directory scan (one level into well-known dev roots)
  * WSL installs: login-shell PATH, $RELION_HOME, filesystem search — ALL hits.
- * Results are cached in-module for 60 seconds.
+ * Fresh results are cached in-module for 60 s; beyond that (and on cold
+ * start) the caller is served the last known status while a background
+ * probe re-verifies (stale-while-revalidate). `force` bypasses everything.
  */
 
 import { execFile } from "child_process";
@@ -61,6 +66,9 @@ export interface RelionInstall {
   mpiBinary: boolean;
   /** ctffind path (null → CTF estimation jobs cannot run on this install). */
   ctffindPath: string | null;
+  /** Restored from the saved last detection — the fresh probe could not
+   *  re-verify it this round (e.g. WSL was cold). Re-detect re-verifies. */
+  cached?: boolean;
 }
 
 /* ------------------------------------------------------------------ */
@@ -88,6 +96,120 @@ function writeSelectedId(id: string | null): void {
     writeFileSync(SELECT_FILE, JSON.stringify({ installId: id }, null, 2));
   } catch {
     /* best effort — auto-pick still works without persistence */
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Detection snapshot persistence (data/relion-snapshot.json)           */
+/* ------------------------------------------------------------------ */
+
+const SNAPSHOT_FILE = path.join(DATA_DIR, "relion-snapshot.json");
+
+/** Saved record of one full detection — installs, selection, verified
+ *  binaries, WSL probe. Survives dev-server restarts and cold WSL VMs so
+ *  the app NEVER re-detects from scratch just because it was reopened. */
+interface Snapshot {
+  savedAt: string;
+  status: RelionStatus;
+}
+
+/** Validate + revive one persisted install record (corrupt entries drop). */
+function snapshotInstallFrom(raw: unknown): RelionInstall | null {
+  if (typeof raw !== "object" || raw === null) return null;
+  const r = raw as Record<string, unknown>;
+  const id = typeof r.id === "string" ? r.id : "";
+  const dir = typeof r.path === "string" ? r.path : "";
+  const execution = r.execution === "native" || r.execution === "wsl" ? r.execution : null;
+  if (!id || !dir || !execution) return null;
+  return {
+    id,
+    version: typeof r.version === "string" ? r.version : null,
+    path: dir,
+    relionHome: typeof r.relionHome === "string" ? r.relionHome : dir.replace(/\/bin\/?$/, ""),
+    source: typeof r.source === "string" && r.source ? r.source : "saved detection",
+    execution,
+    distro: typeof r.distro === "string" ? r.distro : null,
+    mpirunPath: typeof r.mpirunPath === "string" ? r.mpirunPath : null,
+    mpiBinary: r.mpiBinary === true,
+    ctffindPath: typeof r.ctffindPath === "string" ? r.ctffindPath : null,
+  };
+}
+
+/** Read the saved detection, defensively (a corrupt file degrades to null). */
+function readSnapshot(): Snapshot | null {
+  try {
+    const parsed = JSON.parse(readFileSync(SNAPSHOT_FILE, "utf8")) as {
+      savedAt?: unknown;
+      status?: unknown;
+    };
+    if (typeof parsed.status !== "object" || parsed.status === null) return null;
+    const s = parsed.status as Record<string, unknown>;
+    if (typeof s.found !== "boolean" || !Array.isArray(s.installs)) return null;
+    const installs = (s.installs as unknown[])
+      .map(snapshotInstallFrom)
+      .filter((i): i is RelionInstall => i !== null)
+      .slice(0, 16);
+    if (installs.length === 0) return null;
+    const w = typeof s.wsl === "object" && s.wsl !== null ? (s.wsl as Record<string, unknown>) : {};
+    const wsl: WslStatusClient = {
+      available: w.available === true,
+      unavailableReason:
+        w.unavailableReason === "no-wsl" || w.unavailableReason === "no-distro"
+          ? w.unavailableReason
+          : null,
+      relionPath: typeof w.relionPath === "string" ? w.relionPath : null,
+      relionHome: typeof w.relionHome === "string" ? w.relionHome : null,
+      version: typeof w.version === "string" ? w.version : null,
+      source: typeof w.source === "string" ? w.source : null,
+      distro: typeof w.distro === "string" ? w.distro : null,
+      note: typeof w.note === "string" ? w.note : "",
+      mpirunPath: typeof w.mpirunPath === "string" ? w.mpirunPath : null,
+      mpiBinary: w.mpiBinary === true,
+      ctffindPath: typeof w.ctffindPath === "string" ? w.ctffindPath : null,
+    };
+    const list = (v: unknown): { name: string; present: boolean }[] =>
+      Array.isArray(v)
+        ? (v as unknown[]).flatMap((e) => {
+            if (typeof e !== "object" || e === null) return [];
+            const r = e as Record<string, unknown>;
+            return typeof r.name === "string" ? [{ name: r.name, present: r.present === true }] : [];
+          })
+        : [];
+    const status: RelionStatus = {
+      found: s.found,
+      execution: s.execution === "native" || s.execution === "wsl" ? s.execution : null,
+      version: typeof s.version === "string" ? s.version : null,
+      path: typeof s.path === "string" ? s.path : null,
+      source: typeof s.source === "string" ? s.source : null,
+      wsl,
+      binaries: list(s.binaries),
+      externals: list(s.externals),
+      checkedAt: typeof s.checkedAt === "string" ? s.checkedAt : new Date(0).toISOString(),
+      installs,
+      selectedId: typeof s.selectedId === "string" ? s.selectedId : null,
+      autoPicked: s.autoPicked === true,
+    };
+    return {
+      savedAt: typeof parsed.savedAt === "string" ? parsed.savedAt : status.checkedAt,
+      status,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Persist the latest detection (never the fromCache marker itself). */
+function writeSnapshot(status: RelionStatus): void {
+  try {
+    mkdirSync(DATA_DIR, { recursive: true });
+    const persist = { ...status };
+    delete persist.fromCache;
+    writeFileSync(
+      SNAPSHOT_FILE,
+      JSON.stringify({ savedAt: new Date().toISOString(), status: persist }, null, 2)
+    );
+  } catch {
+    /* best effort — detection still works without persistence */
   }
 }
 
@@ -350,12 +472,23 @@ async function probeWsl(): Promise<WslProbe> {
   }
 
   // 1. WSL sanity + distro name (ASCII-safe: echo from inside the distro).
-  const sanity = await wslBash(
+  //    Retry once with a long timeout — the first wsl.exe call may be
+  //    cold-booting the VM (10–30 s after a reboot / idle auto-shutdown),
+  //    which regularly made single-shot probes report "no distro".
+  let sanity = await wslBash(
     wslPath,
     'echo "ok-${WSL_DISTRO_NAME:-unknown}"',
     false,
     8000
   );
+  if (!sanity.startsWith("ok-")) {
+    sanity = await wslBash(
+      wslPath,
+      'echo "ok-${WSL_DISTRO_NAME:-unknown}"',
+      false,
+      25000
+    );
+  }
   if (!sanity.startsWith("ok-")) {
     return empty(
       "no-distro",
@@ -498,11 +631,15 @@ async function probeWsl(): Promise<WslProbe> {
 }
 
 /* ------------------------------------------------------------------ */
-/* Main entry point (60s in-module cache)                               */
+/* Main entry point — snapshot persistence + stale-while-revalidate     */
 /* ------------------------------------------------------------------ */
 
 let cache: { at: number; status: RelionStatus } | null = null;
 const CACHE_MS = 60_000;
+/** One shared in-flight full probe (force calls + background refresh). */
+let probeLock: Promise<RelionStatus> | null = null;
+/** Background re-verification kicked by the stale-while-revalidate path. */
+let bgRefresh: Promise<void> | null = null;
 
 /** Compose the WslStatusClient the UI/bridge expect from a WSL probe. */
 function wslStatusFrom(
@@ -555,11 +692,55 @@ function wslStatusFrom(
   };
 }
 
-export async function detectRelion(force = false): Promise<RelionStatus> {
-  if (!force && cache && Date.now() - cache.at < CACHE_MS) {
-    return cache.status;
-  }
+/** WSL block for a CACHED install: the distro did not respond this round, so
+ *  the save-time verification is shown with an explicit restoration note. */
+function wslStatusFromCached(
+  install: RelionInstall,
+  probe: WslProbe
+): WslStatusClient {
+  const reason = !probe.available
+    ? probe.unavailableReason === "no-wsl"
+      ? "wsl.exe is no longer resolvable on this host."
+      : "WSL did not respond during this check (the distro may be cold — the first call boots it, which can take 10–30 s)."
+    : "WSL responded, but this install was not re-discovered this round.";
+  return {
+    available: true,
+    unavailableReason: null,
+    relionPath: install.path,
+    relionHome: install.relionHome,
+    version: install.version,
+    source: install.source,
+    distro: install.distro,
+    note: [
+      `Restored from the saved last detection (data/relion-snapshot.json). ${reason}`,
+      "It stays selectable and jobs still dispatch to it — the WSL bridge boots the distro on demand. Press Re-detect once WSL is running to re-verify.",
+    ].join("\n"),
+    mpirunPath: install.mpirunPath,
+    mpiBinary: install.mpiBinary,
+    ctffindPath: install.ctffindPath,
+  };
+}
 
+/** Partial binary/external truth for a CACHED install whose save-time
+ *  verification block belongs to a DIFFERENT install: entries derivable from
+ *  the install record itself (discovery required relion_refine[_mpi]; the
+ *  MPI/ctffind columns were recorded) are shown, the rest stay unchecked. */
+function cachedInstallBinaries(install: RelionInstall): {
+  binaries: RelionStatus["binaries"];
+  externals: RelionStatus["externals"];
+} {
+  const b = new Map(CORE_BINARIES.map((name) => [name, false]));
+  b.set("relion_refine", true); // discovery itself required it (or _mpi)
+  const e = new Map(EXTERNAL_PROGRAMS.map((name) => [name, false]));
+  if (install.ctffindPath) e.set("ctffind", true);
+  return {
+    binaries: CORE_BINARIES.map((name) => ({ name, present: b.get(name) ?? false })),
+    externals: EXTERNAL_PROGRAMS.map((name) => ({ name, present: e.get(name) ?? false })),
+  };
+}
+
+/** Run the FULL host + WSL probe, merge with the saved snapshot, persist. */
+async function runProbe(): Promise<RelionStatus> {
   // ---- native installs (every valid candidate, deduped) ------------------
   const nativeCandidates = candidateDirs();
   const nativeMap = new Map<string, NativeCandidate>(); // canonical → candidate
@@ -599,8 +780,36 @@ export async function detectRelion(force = false): Promise<RelionStatus> {
   const wslProbe = await probeWsl();
   const wslInstalls = wslProbe.installs;
 
+  // ---- merge with the SAVED last detection --------------------------------
+  // A failed WSL probe (cold VM) must never blank the environment: installs
+  // saved earlier are restored (flagged `cached`) when they cannot be
+  // disproved this round. Native ones re-verify on disk; WSL ones survive
+  // exactly as long as the distro is unreachable — once it responds again,
+  // anything it does not re-report is dropped for good.
+  const snap = readSnapshot();
+  const installs: RelionInstall[] = [...nativeInstalls, ...wslInstalls];
+  const freshIds = new Set(installs.map((i) => i.id));
+  let restored = 0;
+  if (snap) {
+    for (const old of snap.status.installs) {
+      if (freshIds.has(old.id)) continue;
+      const keep =
+        old.execution === "native"
+          ? isValidBinDir(old.path) // host fs visible → verify on disk
+          : !wslProbe.available; // distro unreachable → cannot disprove
+      if (keep) {
+        installs.push({ ...old, cached: true });
+        restored++;
+      }
+    }
+  }
+  if (restored > 0) {
+    console.info(
+      `[relion] fresh probe missed ${restored} install(s) — restored from the saved snapshot (marked cached)`
+    );
+  }
+
   // ---- order + selection ---------------------------------------------------
-  const installs = [...nativeInstalls, ...wslInstalls];
   const persisted = readSelectedId();
   let selected =
     installs.find((i) => i.id === persisted) ?? null;
@@ -611,39 +820,57 @@ export async function detectRelion(force = false): Promise<RelionStatus> {
       autoPicked = true;
       writeSelectedId(selected.id);
     }
-  } else if (selected.execution === "wsl" && !wslProbe.available) {
-    // stale WSL selection (distro gone) → fall back to auto-pick
-    selected = pickDefaultInstall(installs);
-    autoPicked = true;
-    writeSelectedId(selected?.id ?? null);
   }
 
   // ---- top-level status mirrors the SELECTED install ------------------------
   const found = selected !== null;
   const execution: RelionStatus["execution"] = selected?.execution ?? null;
-  const wsl = wslStatusFrom(
-    wslProbe,
-    selected && selected.execution === "wsl" ? selected : null
-  );
+  const wsl =
+    selected && selected.cached && selected.execution === "wsl"
+      ? wslStatusFromCached(selected, wslProbe)
+      : wslStatusFrom(
+          wslProbe,
+          selected && selected.execution === "wsl" ? selected : null
+        );
 
   let binaries: RelionStatus["binaries"];
   let externals: RelionStatus["externals"];
 
+  // per-install blocks for a RESTORED selection come from the snapshot (they
+  // were verified inside the distro at save time) — but only when the
+  // snapshot's selection is the same install, else stay honestly unverified
+  const snapBlocks =
+    snap && selected && selected.cached && snap.status.selectedId === selected.id
+      ? snap.status
+      : null;
+
   if (selected && selected.execution === "wsl") {
-    // binaries verified INSIDE the distro (host existsSync can't see them)
-    const wslPath = await locateWslExe();
-    if (wslPath) {
-      const inWsl = await probeWslBinaries(
-        wslPath,
-        selected.path,
-        CORE_BINARIES,
-        EXTERNAL_PROGRAMS
-      );
-      binaries = CORE_BINARIES.map((name) => ({ name, present: inWsl.bins.has(name) }));
-      externals = EXTERNAL_PROGRAMS.map((name) => ({ name, present: inWsl.exts.has(name) }));
+    if (selected.cached && snapBlocks) {
+      // WSL did not respond — restore the save-time verification blocks
+      binaries = snapBlocks.binaries;
+      externals = snapBlocks.externals;
+    } else if (selected.cached) {
+      // different install than the snapshot's save-time selection — derive
+      // what the install record itself proves
+      const partial = cachedInstallBinaries(selected);
+      binaries = partial.binaries;
+      externals = partial.externals;
     } else {
-      binaries = CORE_BINARIES.map((name) => ({ name, present: false }));
-      externals = EXTERNAL_PROGRAMS.map((name) => ({ name, present: false }));
+      // binaries verified INSIDE the distro (host existsSync can't see them)
+      const wslPath = await locateWslExe();
+      if (wslPath) {
+        const inWsl = await probeWslBinaries(
+          wslPath,
+          selected.path,
+          CORE_BINARIES,
+          EXTERNAL_PROGRAMS
+        );
+        binaries = CORE_BINARIES.map((name) => ({ name, present: inWsl.bins.has(name) }));
+        externals = EXTERNAL_PROGRAMS.map((name) => ({ name, present: inWsl.exts.has(name) }));
+      } else {
+        binaries = CORE_BINARIES.map((name) => ({ name, present: false }));
+        externals = EXTERNAL_PROGRAMS.map((name) => ({ name, present: false }));
+      }
     }
   } else {
     const dir = selected?.path ?? null;
@@ -661,18 +888,20 @@ export async function detectRelion(force = false): Promise<RelionStatus> {
     }
   }
 
+  const source = selected
+    ? (selected.execution === "wsl"
+        ? selected.distro
+          ? `WSL (${selected.distro}) · ${selected.source}`
+          : `WSL · ${selected.source}`
+        : selected.source) + (selected.cached ? " · saved" : "")
+    : null;
+
   const status: RelionStatus = {
     found,
     execution,
     version: selected?.version ?? null,
     path: selected?.path ?? null,
-    source: selected
-      ? selected.execution === "wsl"
-        ? selected.distro
-          ? `WSL (${selected.distro}) · ${selected.source}`
-          : `WSL · ${selected.source}`
-        : selected.source
-      : null,
+    source,
     wsl,
     binaries,
     externals,
@@ -683,8 +912,70 @@ export async function detectRelion(force = false): Promise<RelionStatus> {
     autoPicked,
   };
 
+  writeSnapshot(status);
   cache = { at: Date.now(), status };
   return status;
+}
+
+/** One shared full probe (dedups concurrent force calls + background refresh). */
+function fullProbe(): Promise<RelionStatus> {
+  if (!probeLock) {
+    probeLock = runProbe()
+      .catch((err) => {
+        // probe crashed — never take the app down with it: fall back to the
+        // last in-memory status, else the saved snapshot, else rethrow
+        if (cache) return cache.status;
+        const snap = readSnapshot();
+        if (snap) {
+          const status: RelionStatus = { ...snap.status, fromCache: true };
+          cache = { at: Date.now(), status };
+          return status;
+        }
+        throw err;
+      })
+      .finally(() => {
+        probeLock = null;
+      });
+  }
+  return probeLock;
+}
+
+/** Fire-and-forget background re-verification (stale-while-revalidate). */
+function kickBackgroundRefresh(): void {
+  if (bgRefresh) return;
+  bgRefresh = (async () => {
+    try {
+      await fullProbe();
+    } catch (err) {
+      console.error("[relion] background re-detect failed:", err);
+    } finally {
+      bgRefresh = null;
+    }
+  })();
+}
+
+export async function detectRelion(force = false): Promise<RelionStatus> {
+  if (!force) {
+    // Serve instantly from the in-module cache …
+    if (cache) {
+      if (Date.now() - cache.at < CACHE_MS) return cache.status;
+      // … or STALE, while a background probe re-verifies — callers never wait.
+      kickBackgroundRefresh();
+      return cache.status;
+    }
+    // Cold start (server restart / first import): the SAVED detection
+    // answers immediately — no re-detect needed just because the app was
+    // reopened; the background probe refreshes it in place.
+    const snap = readSnapshot();
+    if (snap) {
+      const status: RelionStatus = { ...snap.status, fromCache: true };
+      cache = { at: Date.now(), status };
+      kickBackgroundRefresh();
+      return status;
+    }
+  }
+  // force (Re-detect button / install switch) or nothing ever detected yet
+  return fullProbe();
 }
 
 /**
@@ -707,3 +998,4 @@ export async function selectRelionInstall(
   const refreshed = await detectRelion(true);
   return { ok: true, status: refreshed };
 }
+

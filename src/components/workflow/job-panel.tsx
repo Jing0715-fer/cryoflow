@@ -19,7 +19,10 @@ import {
   ArrowLeftRight,
   ArrowRight,
   BarChart3,
+  Check,
   ChevronsDownUp,
+  CircleAlert,
+  CloudUpload,
   Database,
   FolderOpen,
   Link2,
@@ -35,7 +38,7 @@ import {
   X,
 } from "lucide-react";
 import { PORT_COLORS, coerceParam, jobType, portsCompatible, tabsFor } from "@/lib/workflow";
-import { useWorkflowStore } from "@/lib/store";
+import { registerParamFlusher, useWorkflowStore } from "@/lib/store";
 import type {
   EdgeDTO,
   JobDTO,
@@ -631,7 +634,6 @@ function PathParamField({
 
 function ParamsTab({ job, spec }: { job: JobDTO; spec: JobTypeSpec | undefined }) {
   const saveJob = useWorkflowStore((s) => s.saveJob);
-  const [saving, setSaving] = React.useState(false);
 
   const params = spec?.params ?? [];
 
@@ -640,6 +642,13 @@ function ParamsTab({ job, spec }: { job: JobDTO; spec: JobTypeSpec | undefined }
     for (const p of params) init[p.key] = coerceParam(p, job.params[p.key]);
     return init;
   });
+
+  // auto-save lifecycle — what the footer status line shows
+  const [autoSave, setAutoSave] = React.useState<{
+    phase: "idle" | "saving" | "saved" | "error";
+    at: number | null;
+    error?: string;
+  }>({ phase: "idle", at: null });
 
   // RELION GUI tabs + a trailing "Additional" bucket for untabbed params
   const declaredTabs = tabsFor(spec);
@@ -656,21 +665,62 @@ function ParamsTab({ job, spec }: { job: JobDTO; spec: JobTypeSpec | undefined }
 
   const dirty = params.some((p) => coerceParam(p, form[p.key]) !== baseline(p));
 
+  // latest form/dirty/commit for the async saves + unmount flush (closures
+  // go stale) — synced in effects, never during render
+  const formRef = React.useRef(form);
+  const dirtyRef = React.useRef(dirty);
+  const commitRef = React.useRef<() => Promise<void>>(async () => {});
+
+  React.useEffect(() => {
+    formRef.current = form;
+    dirtyRef.current = dirty;
+  }, [form, dirty]);
+
+  const commit = React.useCallback(async () => {
+    const out: Record<string, ParamValue> = {};
+    for (const p of params) out[p.key] = coerceParam(p, formRef.current[p.key]);
+    if (params.every((p) => coerceParam(p, job.params[p.key]) === out[p.key])) {
+      // nothing actually changed vs the last saved state (e.g. an unmount
+      // flush after the debounced save already landed) — skip the request
+      return;
+    }
+    setAutoSave({ phase: "saving", at: null });
+    const res = await saveJob(job.id, { params: out }, { silent: true });
+    if (res.ok) {
+      setAutoSave({ phase: "saved", at: Date.now() });
+    } else {
+      setAutoSave({ phase: "error", at: null, error: res.error });
+    }
+  }, [params, job.id, job.params, saveJob]);
+
+  React.useEffect(() => {
+    commitRef.current = commit;
+  }, [commit]);
+
+  // DEBOUNCED AUTO-SAVE — parameters persist on their own ~700 ms after the
+  // last edit; there is no manual Save step to forget.
+  React.useEffect(() => {
+    if (!dirty) return;
+    const t = setTimeout(() => void commitRef.current(), 700);
+    return () => clearTimeout(t);
+  }, [form, dirty]);
+
+  // Register a flusher for Run (store.runJob awaits it, so a run never races
+  // the debounce window) and flush pending edits on unmount — a switch away
+  // from the tab/panel mid-debounce must never silently drop an edit.
+  React.useEffect(() => {
+    const unregister = registerParamFlusher(job.id, () => commitRef.current());
+    return () => {
+      unregister();
+      if (dirtyRef.current) void commitRef.current();
+    };
+    // run once per job — commitRef/dirtyRef always hold the latest values
+  }, [job.id]);
+
   const resetForm = () => {
     const init: Record<string, ParamValue> = {};
     for (const p of params) init[p.key] = coerceParam(p, job.params[p.key]);
     setForm(init);
-  };
-
-  const commit = async () => {
-    const out: Record<string, ParamValue> = {};
-    for (const p of params) out[p.key] = coerceParam(p, form[p.key]);
-    setSaving(true);
-    try {
-      await saveJob(job.id, { params: out });
-    } finally {
-      setSaving(false);
-    }
   };
 
   if (params.length === 0) {
@@ -753,15 +803,53 @@ function ParamsTab({ job, spec }: { job: JobDTO; spec: JobTypeSpec | undefined }
         );
       })}
 
-      {/* Save bar */}
+      {/* Auto-save status bar (parameters persist themselves — no manual
+          Save button to forget; Reset reverts to the last saved values) */}
       <div className="shrink-0 border-t bg-card">
-        <div className="flex items-center justify-between px-3 pt-2">
+        <div className="flex items-center justify-between gap-2 px-3 pt-2">
           <p className="text-[10px] text-muted-foreground">
             {params.length} parameters · RELION 5 defaults
           </p>
-          {dirty && (
-            <p className="text-[10px] font-medium text-primary">unsaved changes</p>
-          )}
+          <p
+            aria-live="polite"
+            className={cn(
+              "flex min-w-0 items-center gap-1 text-[10px] font-medium",
+              autoSave.phase === "error"
+                ? "text-destructive"
+                : autoSave.phase === "saved" && !dirty
+                  ? "text-emerald-600 dark:text-emerald-400"
+                  : dirty
+                    ? "text-primary"
+                    : "text-muted-foreground"
+            )}
+            title={autoSave.error ?? undefined}
+          >
+            {autoSave.phase === "saving" ? (
+              <Loader2 className="size-3 shrink-0 animate-spin" aria-hidden="true" />
+            ) : autoSave.phase === "error" ? (
+              <CircleAlert className="size-3 shrink-0" aria-hidden="true" />
+            ) : autoSave.phase === "saved" && !dirty ? (
+              <Check className="size-3 shrink-0" aria-hidden="true" />
+            ) : (
+              <CloudUpload
+                className={cn("size-3 shrink-0", dirty && "animate-pulse")}
+                aria-hidden="true"
+              />
+            )}
+            <span className="truncate">
+              {autoSave.phase === "error"
+                ? "auto-save failed — retrying on next edit"
+                : autoSave.phase === "saving"
+                  ? "saving…"
+                  : dirty
+                    ? "auto-saving soon…"
+                    : autoSave.phase === "saved"
+                      ? `auto-saved ${
+                          autoSave.at ? new Date(autoSave.at).toLocaleTimeString() : ""
+                        }`
+                      : "auto-save on"}
+            </span>
+          </p>
         </div>
         <div className="flex items-center gap-2 p-3 pt-2">
           <Button
@@ -769,22 +857,26 @@ function ParamsTab({ job, spec }: { job: JobDTO; spec: JobTypeSpec | undefined }
             size="sm"
             className="flex-1"
             onClick={resetForm}
-            disabled={!dirty || saving}
-            title="Revert unsaved edits"
+            disabled={!dirty}
+            title="Revert the form to the last auto-saved values"
           >
             <RotateCcw aria-hidden="true" />
             Reset
           </Button>
           <Button
+            variant={autoSave.phase === "error" ? "destructive" : "outline"}
             size="sm"
             className="flex-1"
             onClick={() => void commit()}
-            disabled={!dirty || saving}
+            disabled={!dirty && autoSave.phase !== "error"}
+            title="Save immediately — normally unnecessary (edits persist on their own), but handy after a failed auto-save"
           >
-            {saving ? (
+            {autoSave.phase === "saving" ? (
               <Loader2 className="animate-spin" aria-hidden="true" />
-            ) : null}
-            Save Parameters
+            ) : (
+              <CloudUpload aria-hidden="true" />
+            )}
+            {autoSave.phase === "error" ? "Retry save" : "Save now"}
           </Button>
         </div>
       </div>

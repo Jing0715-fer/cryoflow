@@ -1021,3 +1021,24 @@ Stage Summary:
 - 用户四点全部落地并 E2E 实证：① pending 下游在上游完成（原生/异步/GET sweep 三触发）后零点击自动执行，防双跑+防踩踏+防级联三层守卫 ② DW.mrc 一键 chip（含计数）+ 通用过滤输入 ③ 长文件名溢出三层根因修复（dialog grid 轨道 / Radix table 包裹层 / 列表 grid 轨道），对话框还从 max-w-xl 加宽到 max-w-2xl ④ Mol* 预览 94vw/92vh/1500px 上限 + 标题路径截断
 - 架构要点：自动启动 = 事件驱动（exit handler 动态 import 破环）+ 兜底 sweep（GET 过渡 diff），startJob 的 in-flight Set 是所有并发触发的幂等锚点；grid-cols-[minmax(0,1fr)] 是 shadcn dialog 内容溢出的通用解
 - 【给后续 cron 轮】①EMPIAR 主线管线仍未重跑（empiar-seed→RESTORE.md 参数→advance.sh）②ctffind 结果计数 "4/3" 装饰性偏差可修③内存红线 3.5GB 不变④其他 Radix ScrollArea（inspector 日志/文件列表）若遇同类 table 溢出可用同一 [&>…div]:!block 覆盖⑤自动启动无 UI 开关——若用户想手动控制可加 per-job "auto-run when ready" 开关
+
+---
+Task ID: persist-relion-autosave-2026-09-05
+Agent: main (Z.ai Code, user request: RELION 检测信息持久化不需要每次重新检测 / job 参数实时自动保存不需要手动 Save)
+Task: ① RELION 检测结果持久化保存——重开应用秒回上次检测，检测失败(WSL 冷启动)不丢安装 ② Job 参数实时自动保存——去掉手动 Save 按钮
+
+Work Log:
+- 【快照持久化】system.ts 新增 data/relion-snapshot.json（保存完整 RelionStatus：installs+选中+binaries/externals+wsl 块），readSnapshot 带全字段防御性校验（损坏降级 null），writeSnapshot 永不持久化 fromCache 标记
+- 【SWR 冷启动秒回】detectRelion 重构为 stale-while-revalidate：非 force 且无内存缓存但有快照 → 立即返回快照(fromCache=true) + kickBackgroundRefresh 后台复核；内存缓存过期也只返回旧值+后台刷新（调用方永不阻塞）；probeLock 去重并发全量探测；probe 崩溃 → 回退内存/快照/重抛，永不拖垮应用
+- 【失败保留安装】runProbe 与快照 merge：fresh 未发现的 install——native 以 isValidBinDir 磁盘验证保留、WSL 仅在 distro 无响应(无法证伪)时保留，均标 cached:true；WSL 恢复响应后未复现的条目永久剔除。selected 为 cached WSL 时 wsl 块用 wslStatusFromCached 合成（available:true+restoration note）；binaries 恢复分三层：快照选中一致→save-time 块 / 不一致→cachedInstallBinaries 从 install 记录推导（relion_refine 必真、ctffindPath→ctffind）/ 其余 false
+- 【WSL 冷启动重试】probeWsl sanity 8s 失败后 25s 二次尝试（首次 wsl.exe 调用可能在冷启动 VM，10–30s）——直接治用户「突然检测不到」
+- 【engine 改非 force】runRealJob 的 detectRelion(true)→detectRelion()：Run 不再同步等全量 host+WSL 扫描，走缓存/快照秒回（Re-detect 按钮仍是手动全量入口）
+- 【前端自动翻新】store.load 后若 system.fromCache → pollSystemUntilFresh（3/8/20/45s 轮询 /api/system 直至翻新，避让 systemRefreshing）；header chip / popover / 安装行三处新增琥珀 "saved" 徽标（fromCache 徽标 + RefreshCw 旋转「from saved detection」chip + install.cached 徽标 + footer "saved, re-checking…"）
+- 【参数自动保存】ParamsTab 重写：700ms 防抖自动 saveJob(silent) + aria-live 状态条（auto-saving soon…/saving…/auto-saved HH:MM:SS/failed-retry 四态+图标）+ Reset(回到已存值)+Save now(逃生舱，错误态变 Retry save)；saveJob 增 opts.silent 返回 {ok,error}；formRef/dirtyRef/commitRef 在 effect 中同步（react-hooks/refs 新规则禁止渲染期写 ref）
+- 【Run 前强制 flush】store 模块级 paramFlushers 注册表（registerParamFlusher）；runJob 先 await flushJobParams 再发 POST——Run 永不与防抖窗口竞态；ParamsTab 卸载时也 flush（切换 job/关面板不丢编辑）
+- 【QA 实证】①touch+真实改动触发 HMR 重载：COLD GET 121ms fromCache=true → 4s 后 fromCache=None checkedAt 翻新 ②注入假 WSL install 模拟用户机器 WSL 无响应：force 探测保留 cached install（cached=True, found=True）③WSL 挂掉时 select 切换到 cached 安装成功（source "WSL (Ubuntu-22.04) · login-shell PATH · saved"，binaries 推导 relion_refine=True/ctffind=True）④浏览器 E2E：改 patchX 5→7 → 状态条 "auto-saved 4:29:07 AM" → 整页 reload 重选 job 后 Patch X=7 持久化 ⑤改 9 立即点 Run（防抖窗口内）→ DB patchX 7→9（flush 先于 run 落库）run 诚实 failed（sandbox 无 MotionCor2，预期）⑥重开应用 chip "RELION 5.0.1saved" 秒显 → ~9s 后 pollSystemUntilFresh 自动摘掉徽标 ⑦lint 0 错误、tsc src 0 错误、console/页面零错误、390px 移动端无横滚；测试残留已还原（patchX=5、status=idle、快照干净重写、假 install 清除）
+
+Stage Summary:
+- 用户两点全闭环：①检测信息持久化=完整快照文件+冷启动秒回+后台静默复核+失败时保留已存安装（WSL 冷启动 25s 重试+无法证伪保留语义）——「打开不再重新检测」「突然检测不到不再丢」②参数实时保存=700ms 防抖+四态状态条+卸载/Run 前 flush 双保险——「没有手动 Save 步骤可忘记」
+- 架构要点：SWR（调用方永不阻塞）+ probeLock（探测去重）+ merge 语义（native 磁盘证伪/WSL 无响应不可证伪）三层；paramFlushers 注册表是 Run 与防抖的幂等锚点
+- 【给后续 cron 轮】①EMPIAR 主线管线仍未重跑（empiar-seed→RESTORE.md 参数→advance.sh）②内存红线 3.5GB 不变③用户本机拉取后：重开应用应见 saved 徽标→自动消失；WSL 挂掉时安装列表应出现 saved 标记的 cached 安装④候选增强：per-install binaries 快照（切换 cached 安装时更完整）、快照文件年龄展示
