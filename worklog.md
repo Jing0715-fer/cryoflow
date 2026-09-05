@@ -1190,3 +1190,20 @@ Stage Summary:
 - 第六个真实 bug 闭环：输入类型语义混用（2D averages ≠ 3D map）——这类错只有全链真跑才能暴露，沙箱 EMPIAR 测试正在履行它的职责
 - refine3d（D2 auto-refine, 3439 粒子, 3 MPI ranks）运行中；完成后 postprocess 自动接力；需人工重跑 maskcreate（换 refined half1 做掩膜）后 postprocess 重跑
 - 本会话若结束时 refine 仍在跑：detached 进程 + exit handler + engine-state 落盘保证完结被正确记账；15 分钟 cron 继续监控并推进后续步骤
+
+---
+Task ID: 8 (本轮收尾)
+Agent: main (Z.ai Code)
+Task: 会话收尾交接——refine3d 后台接力方案 + 当前状态固化
+
+Work Log:
+- refine3d（正确配方 D2 auto-refine, 3439 粒子, 3 ranks）运行中，实测 ~9.6 min/迭代，auto-refine 全程预估 2.5-4h——超出本会话预算，转后台接力
+- 接力保障链：①detached mpirun 树 + exit handler（本会话已实测 Turbopack 重载后 handler 幸存）②engine-state.json 落盘 + exit 时 collectOutputs/half1/half2 记账 ③postprocess 已 pending，refine3d 完成即自动接力 ④15 分钟 cron v4 持续巡检
+- **下一轮 cron 优先动作**：①查 refine3d 完成状态与 FSC（`python3 -c "import json;print(json.load(open('data/engine-state.json'))['cmto3ubye000iqf51ev5f4o2u'])"` + GET /api/jobs）②完成后重跑 maskcreate（map_mrc 将优先解析 refine3d 的 half1——直接父）③重跑 postprocess（用新掩膜）④记录最终 FSC(0.143) 对照历史 3.54 Å ⑤EMPIAR 项目 id=cmto3ts7j0000qf51ruzxudg8（/tmp/empiar-proj.env 存全部 job id）
+- 本会话（Task 6+7+8）已推送 3 commits：98d46e9（Windows log 块级重定向 + 自适应轮询 + 头部两行式）、0154665（INPUTS 2D/3D 参考语义修复）
+- 内存 3.06GB（红线 3.5GB 内，next-server 稳态 + refine 3 ranks）；浏览器 console 0 error、10 卡片状态正确
+
+Stage Summary:
+- 用户三诉求闭环：①Windows log 根因（wsl.exe stdio 转发不可靠）→ bash 块内重定向修复，bash 诊断/命令输出/进度解析三链路全不再依赖句柄转发 ②EMPIAR 全链真跑暴露并修复第六个真实 bug（2D averages 误当 3D 参考）③画布三档自适应轮询 + 详情头部两行式重构
+- 全链战绩：import→CTF→LoG(3438)→extract(3439)→select→class2d(10类)→initialmodel(D2 VDAM)→refine3d(跑)→postprocess(待)；前 7 段全绿
+- 遗留：refine3d 后台完成 + maskcreate/postprocess 重跑换 refined 掩膜 + FSC 记录（cron 接力）
