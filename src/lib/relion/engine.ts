@@ -670,11 +670,17 @@ const INPUTS: Record<string, InputReq[]> = {
   ],
   class3d: [
     { key: "particles_star", accepts: ["particles_star"], from: ["extract", "select", "class2d", "initialmodel"], label: "particles.star (run Extract first)" },
-    { key: "model_mrc", accepts: ["model_mrc", "classes_mrc"], from: ["initialmodel", "class3d", "class2d"], label: "reference map (run InitialModel first)" },
+    // the reference MUST be a 3D map: initialmodel's VDAM model or class3d's
+    // own 3D class volumes. class2d is deliberately absent — its classes are
+    // 2D averages, and seeding a 3D refinement with them silently produced
+    // garbage (observed live: refine3d exec'd with class2d's
+    // run_unmasked_classes.mrcs as --ref while initialmodel was still running).
+    { key: "model_mrc", accepts: ["model_mrc", "classes_mrc"], from: ["initialmodel", "class3d"], label: "reference map (run InitialModel first)" },
   ],
   refine3d: [
     { key: "particles_star", accepts: ["particles_star"], from: ["extract", "select", "class2d", "joinstar", "initialmodel"], label: "particles.star (run Extract first)" },
-    { key: "model_mrc", accepts: ["model_mrc", "classes_mrc"], from: ["initialmodel", "class3d", "class2d"], label: "reference map (run InitialModel first)" },
+    // 3D reference only — never class2d's 2D averages (see class3d note)
+    { key: "model_mrc", accepts: ["model_mrc", "classes_mrc"], from: ["initialmodel", "class3d"], label: "reference map (run InitialModel first)" },
   ],
   multibody: [
     { key: "particles_star", accepts: ["particles_star"], from: ["extract", "select", "class2d"], label: "particles.star (run Extract first)" },

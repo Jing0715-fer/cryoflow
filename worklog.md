@@ -1172,3 +1172,21 @@ Stage Summary:
 - EMPIAR 主线重启：前 5 段全绿且 LoG autopick 首次在真实数据上产出合理挑取（3438/10mics）；class2d/initialmodel/refine3d 链在跑，本会话结束后续由 15 分钟 cron 监控推进，refine3d 完成后 worklog 记录最终 FSC
 - 画布实时性：三档自适应轮询 + pending 加速 + 可见性感知
 - 用户本机操作：git pull → 重跑任务 → Log 页签应实时滚动；同时验证 Re-detect 与 CTF（binJoin 修复后 exec 为正斜杠）
+
+---
+Task ID: 7
+Agent: main (Z.ai Code)
+Task: EMPIAR 全链推进中发现并修复 refine3d/class3d 输入解析把 class2d 的 2D averages 当 3D 参考图的 bug
+
+Work Log:
+- 【发现·活体复现】class2d 完成的瞬间 refine3d 被 auto-start（initialmodel 还在跑）——引擎记录显示 `--ref class2d_7zuz5ngy/run_unmasked_classes.mrcs`：一个 2D class-average 栈被当 3D 参考图喂给了 relion_refine，会静默产出垃圾结构
+- 【根因】INPUTS 表 refine3d/class3d 的 model_mrc 要求 `from: ["initialmodel","class3d","class2d"]`——class2d 完成后其 classes_mrc 命中 accepts 列表，lineage 越过未完成的 initialmodel 抢先解析成功
+- 【修复】两处 from 列表删除 "class2d"（class3d 自身的 3D class 仍在列表——那是真 3D 体积）；注释记录活体复现细节防回归
+- 【清理】停掉垃圾 run（SIGTERM→MPICH exit 15）→ 清空 refine3d workdir + engine-state 记录 → PATCH reset idle → 重跑：新命令 `mpirun -n 3 relion_refine_mpi --i class2d/run_it012_data.star --ref initialmodel_yssgq77m/run_it050_class001.mrc --sym D2 --particle_diameter 180 --ctf --pad 2 --firstiter_cc --ini_high 30 --trust_ref_size --split_random_halves --auto_refine`——正是历史 3.54Å 配方
+- 【附带观察】①initialmodel 96% 时 engine.ts 保存触发 Turbopack 重载，旧模块 exit handler 幸存（initialmodel 正常 completed "de-novo 3D initial model generated"）②maskcreate 在 refine3d 失败期间 fallback 拿 initialmodel 低清模型做了掩膜（链合法），refine3d 完成后需重跑 maskcreate+postprocess 换用 refined half-map
+- class2d 结果：10 classes · 3,439 粒子（top 类可见 occupancy 排名）；链现状：7/10 完成（import/ctf/autopick/extract/select/class2d/initialmodel+maskcreate）+ refine3d running（正确配方）+ postprocess pending
+
+Stage Summary:
+- 第六个真实 bug 闭环：输入类型语义混用（2D averages ≠ 3D map）——这类错只有全链真跑才能暴露，沙箱 EMPIAR 测试正在履行它的职责
+- refine3d（D2 auto-refine, 3439 粒子, 3 MPI ranks）运行中；完成后 postprocess 自动接力；需人工重跑 maskcreate（换 refined half1 做掩膜）后 postprocess 重跑
+- 本会话若结束时 refine 仍在跑：detached 进程 + exit handler + engine-state 落盘保证完结被正确记账；15 分钟 cron 继续监控并推进后续步骤
