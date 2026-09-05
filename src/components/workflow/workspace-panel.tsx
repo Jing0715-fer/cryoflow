@@ -13,6 +13,7 @@
 import * as React from "react";
 import {
   CheckCircle2,
+  Clock,
   Layers,
   Link2,
   Loader2,
@@ -53,6 +54,7 @@ import { cn } from "@/lib/utils";
 interface LiveStats {
   total: number;
   running: number;
+  pending: number;
   completed: number;
   links: number;
 }
@@ -193,6 +195,15 @@ function WorkspaceRow({
             {stats.running}
           </span>
         )}
+        {stats.pending > 0 && (
+          <span
+            className="inline-flex h-5 items-center gap-1 rounded-md bg-amber-500/10 px-1.5 text-[10px] font-medium tabular-nums text-amber-600 dark:text-amber-400"
+            title={`${stats.pending} pending — waiting for an upstream job`}
+          >
+            <Clock className="size-3" aria-hidden="true" />
+            {stats.pending}
+          </span>
+        )}
         {stats.completed > 0 && (
           <span
             className="inline-flex h-5 items-center gap-1 rounded-md bg-emerald-500/10 px-1.5 text-[10px] font-medium tabular-nums text-emerald-600 dark:text-emerald-400"
@@ -271,14 +282,15 @@ export function WorkspacePanel() {
   const liveStats = React.useMemo(() => {
     const map = new Map<string, LiveStats>();
     for (const w of workspaces) {
-      map.set(w.id, { total: 0, running: 0, completed: 0, links: 0 });
+      map.set(w.id, { total: 0, running: 0, pending: 0, completed: 0, links: 0 });
     }
     for (const j of jobs) {
       const key = j.workspaceId ?? "";
-      const s = map.get(key) ?? { total: 0, running: 0, completed: 0, links: 0 };
+      const s = map.get(key) ?? { total: 0, running: 0, pending: 0, completed: 0, links: 0 };
       s.total++;
       if (j.linkedJobId) s.links++;
       if (j.status === "running") s.running++;
+      else if (j.status === "pending") s.pending++;
       else if (j.status === "completed") s.completed++;
       map.set(key, s);
     }
@@ -380,7 +392,7 @@ export function WorkspacePanel() {
               workspace={w}
               isActive={w.id === activeWorkspaceId}
               isDefault={w.id === defaultId}
-              stats={liveStats.get(w.id) ?? { total: 0, running: 0, completed: 0, links: 0 }}
+              stats={liveStats.get(w.id) ?? { total: 0, running: 0, pending: 0, completed: 0, links: 0 }}
               editing={editingId === w.id}
               editName={editName}
               onStartEdit={() => startEdit(w)}

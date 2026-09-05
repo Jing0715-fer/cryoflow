@@ -123,6 +123,8 @@ export async function getActiveProject(): Promise<{ project: Project; meta: Proj
 export interface ProjectStats {
   total: number;
   running: number;
+  /** Waiting for an upstream job (failed or still running) — amber, not failed. */
+  pending: number;
   completed: number;
   failed: number;
 }
@@ -136,7 +138,7 @@ export interface ProjectSummaryWithStats extends ProjectSummaryDTO {
   stats: ProjectStats;
 }
 
-const emptyStats = (): ProjectStats => ({ total: 0, running: 0, completed: 0, failed: 0 });
+const emptyStats = (): ProjectStats => ({ total: 0, running: 0, pending: 0, completed: 0, failed: 0 });
 
 /**
  * Remove a project's meta from data/projects.json. When the deleted project
@@ -175,6 +177,7 @@ export async function listProjectsWithMeta(): Promise<ProjectSummaryWithStats[]>
     const s = statsBy.get(g.projectId) ?? emptyStats();
     s.total += g._count._all;
     if (g.status === "running") s.running = g._count._all;
+    else if (g.status === "pending") s.pending = g._count._all;
     else if (g.status === "completed") s.completed = g._count._all;
     else if (g.status === "failed") s.failed = g._count._all;
     statsBy.set(g.projectId, s);

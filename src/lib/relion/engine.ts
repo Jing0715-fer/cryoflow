@@ -14,7 +14,7 @@
  */
 
 import type { ChildProcess } from "child_process";
-import { execFile, spawn } from "child_process";
+import { execFile, execFileSync, spawn } from "child_process";
 import {
   appendFileSync,
   closeSync,
@@ -37,6 +37,7 @@ import { db } from "@/lib/db";
 import { DATA_DIR } from "@/lib/paths";
 import { detectRelion } from "./system";
 import { MIC_RE, expandPattern, hasWildcard, userPathToHost } from "./glob";
+import { writePathrefMarker } from "./pathref";
 import {
   bridgeFromStatus,
   hostToWsl,
@@ -93,7 +94,15 @@ export interface UpstreamRef {
   id: string;
   type: string;
   params?: Record<string, number | string | boolean>;
+  /** DB status of the upstream job (idle | pending | running | completed | failed)
+   * — powers the differentiated waiting messages. */
+  status?: string;
+  /** Display name (e.g. "Import · EMPIAR-10017") for waiting messages. */
+  name?: string;
 }
+
+/** Why a job could not start yet — maps to the PENDING status, not failed. */
+export type WaitKind = "upstream-failed" | "upstream-running" | "not-ready";
 
 export interface RunOutcome {
   ok: boolean;
@@ -102,6 +111,10 @@ export interface RunOutcome {
   pid?: number;
   error?: string;
   result?: string;
+  /** Set when the job cannot start because an UPSTREAM job failed or is
+   * still running — the dispatcher marks the job pending instead of
+   * failed (no cascade of red jobs down the whole pipeline). */
+  waiting?: WaitKind;
   /** Set when an interrupted refine-family run was resumed via --continue
    * (the iteration number it picked up from). */
   resumedFrom?: number;
@@ -436,6 +449,10 @@ function uniqueStarName(file: string, used: Set<string>): string {
  * file into it — hardlink first (no data duplication, works on POSIX and
  * NTFS), then a file symlink, then absolute STAR paths as honest fallback
  * (translated to WSL-side paths when the bridge is active).
+ * Unlinkable files additionally get a .pathref marker so the gallery/preview
+ * routes can still serve them from their source location — without the
+ * marker an absolute-path import LOOKS like "nothing was imported" even
+ * though the STAR file references every file correctly.
  * Returns the STAR entries + how many files could NOT be linked.
  */
 function importFileSet(
@@ -459,7 +476,8 @@ function importFileSet(
 
   const used = new Set<string>();
   const entries: string[] = [];
-  let unlinked = 0;
+  /** unlinkable files: name → source, for pathref markers */
+  const unlinkedFiles: { name: string; abs: string }[] = [];
   for (const f of hostFiles) {
     const name = uniqueStarName(f, used);
     const target = path.join(projectMic, name);
@@ -478,7 +496,7 @@ function importFileSet(
     if (linked) {
       entries.push(`micrographs/${name}`);
     } else {
-      unlinked += 1;
+      unlinkedFiles.push({ name, abs: f });
       entries.push(bridge ? hostToWsl(f) : f);
     }
   }
@@ -502,7 +520,18 @@ function importFileSet(
       }
     }
   }
-  return { entries, unlinked };
+  // markers for the unlinkable files (both trees — the junction case only
+  // carries projectMic's markers into the workdir automatically)
+  for (const u of unlinkedFiles) {
+    writePathrefMarker(projectMic, u.name, u.abs);
+    try {
+      mkdirSync(workdirMic, { recursive: true });
+      writePathrefMarker(workdirMic, u.name, u.abs);
+    } catch {
+      /* workdir marker is best-effort */
+    }
+  }
+  return { entries, unlinked: unlinkedFiles.length };
 }
 
 /* ------------------------------------------------------------------ */
@@ -671,12 +700,16 @@ const GENERIC_REQUIREMENTS: Record<string, string> = {
 
 /**
  * Resolve required inputs from upstream completed runs.
- * `missing` is a human-readable failure message (null on success).
+ * `missing` is a human-readable message (null on success); `wait` classifies
+ * WHY an input is missing so the dispatcher can mark the job PENDING
+ * (upstream failed / still running / never ran) instead of failed — a failed
+ * upstream used to cascade red "Waiting for upstream output" failures down
+ * the entire pipeline.
  */
 function resolveInputs(
   type: string,
   upstream: UpstreamRef[]
-): { inputs: Record<string, string>; missing: string | null } {
+): { inputs: Record<string, string>; missing: string | null; wait?: WaitKind } {
   const reqs = INPUTS[type] ?? [];
   const runs = readRuns();
   const inputs: Record<string, string> = {};
@@ -686,21 +719,42 @@ function resolveInputs(
     // upstream arrives in INPUT-PRIORITY order from lineageFor(): BFS by
     // graph distance (direct parents first) with newest-first within a
     // layer — scan forward and take the first provider that has the output.
+    const providers: { name: string; status: string }[] = [];
     for (const up of upstream) {
       if (!req.from.includes(up.type)) continue;
       const state = runs[up.id];
-      if (!state || !state.done || state.exitCode !== 0) continue;
-      for (const key of req.accepts) {
-        const p = state.outputs[key];
-        if (p && existsSync(p)) {
-          resolved = p;
-          break;
+      if (state && state.done && state.exitCode === 0) {
+        for (const key of req.accepts) {
+          const p = state.outputs[key];
+          if (p && existsSync(p)) {
+            resolved = p;
+            break;
+          }
         }
+        if (resolved) break;
       }
-      if (resolved) break;
+      providers.push({ name: up.name ?? up.type, status: up.status ?? "idle" });
     }
     if (!resolved) {
-      return { inputs: {}, missing: `Waiting for upstream output: ${req.label}` };
+      // pick the most actionable blocker: a FAILED provider (re-run it)
+      // beats a RUNNING one (transient wait) beats anything else
+      const failed = providers.find((p) => p.status === "failed");
+      const running = providers.find((p) => p.status === "running");
+      if (failed) {
+        return {
+          inputs: {},
+          missing: `Upstream "${failed.name}" failed — fix and re-run it first, then start this job again (it will wait as pending until then)`,
+          wait: "upstream-failed",
+        };
+      }
+      if (running) {
+        return {
+          inputs: {},
+          missing: `Waiting for upstream "${running.name}" to finish…`,
+          wait: "upstream-running",
+        };
+      }
+      return { inputs: {}, missing: `Waiting for upstream output: ${req.label}`, wait: "not-ready" };
     }
     inputs[req.key] = resolved;
   }
@@ -803,6 +857,8 @@ interface NativeResult {
   ok: boolean;
   result?: string;
   error?: string;
+  /** Set when the failure is an upstream-waiting condition → job goes PENDING. */
+  wait?: WaitKind;
 }
 
 function recordNativeRun(
@@ -1021,15 +1077,19 @@ async function runImportNative(job: EngineJobRef): Promise<NativeResult> {
       }
 
       const skipNote = skipped > 0 ? ` · ${skipped} non-image file${skipped === 1 ? "" : "s"} skipped` : "";
-      const linkNote = unlinked > 0 ? " (absolute paths)" : "";
+      const linkedCount = hostFiles.length - unlinked;
+      const linkNote =
+        unlinked > 0
+          ? ` · ${linkedCount} linked, ${unlinked} referenced by path (source not linkable)`
+          : "";
       const kindNote = isPattern ? " · pattern" : multiFile ? " · file list" : "";
-      result = `${hostFiles.length} micrographs imported${kindNote}${skipNote} (pixel ${pixel} Å)`;
+      result = `${hostFiles.length} micrographs imported${kindNote}${skipNote}${linkNote} (pixel ${pixel} Å)`;
       if (!sourceLabel) {
         sourceLabel =
           "source: " +
           (isPattern ? "pattern " : multiFile ? `${listed.length} selected files — ` : "") +
           customRaw.slice(0, 200) +
-          linkNote;
+          (unlinked > 0 ? " (absolute paths)" : "");
       }
     } else {
       result = "Import job completed (no source data configured — pick a micrographs folder, pattern or files in the params tab)";
@@ -1060,7 +1120,7 @@ async function runImportNative(job: EngineJobRef): Promise<NativeResult> {
 /** ManualPick: import Henderson .coord files as a RELION pick STAR. */
 async function runManualPickNative(job: EngineJobRef, upstream: UpstreamRef[]): Promise<NativeResult> {
   const resolved = resolveInputs("manualpick", upstream);
-  if (resolved.missing) return { ok: false, error: resolved.missing };
+  if (resolved.missing) return { ok: false, error: resolved.missing, wait: resolved.wait };
   const micStar = resolved.inputs.micrographs_star;
 
   const workdir = workdirFor(job);
@@ -1180,7 +1240,7 @@ async function runManualPickNative(job: EngineJobRef, upstream: UpstreamRef[]): 
  */
 async function runSelectNative(job: EngineJobRef, upstream: UpstreamRef[]): Promise<NativeResult> {
   const resolved = resolveInputs("select", upstream);
-  if (resolved.missing) return { ok: false, error: resolved.missing };
+  if (resolved.missing) return { ok: false, error: resolved.missing, wait: resolved.wait };
   const inStar = resolved.inputs.particles_star;
 
   const workdir = workdirFor(job);
@@ -2297,6 +2357,40 @@ const NATIVE_TYPES = new Set(["import", "manualpick", "select"]);
 /* ------------------------------------------------------------------ */
 
 /**
+ * Best-effort pre-flight for WSL-bridged runs: make sure every executable
+ * argv element actually exists (test -x) INSIDE the distro BEFORE spawning
+ * wsl.exe. A missing binary otherwise surfaces as a bare "exit 127" from
+ * bash's exec — with this check the user gets an actionable message up front
+ * (Re-detect / switch installs). Uses one wsl.exe call per candidate; probe
+ * failures other than a definite "not executable" (wsl.exe absent, distro
+ * starting, timeout) are ignored — the run itself stays the source of truth.
+ */
+function verifyBridgeTarget(argv: string[], bridge: WslBridge): string | null {
+  // executable-looking POSIX paths only (binaries / mpirun / ctffind);
+  // Windows drive args are translated by the wrapper and star paths never
+  // look like these
+  const BIN_RE = /^\/.*\/(relion_[a-z0-9_]+(?:_mpi)?|mpirun|mpiexec|ctffind[0-9]*)$/i;
+  const candidates = [...new Set(argv.filter((a) => BIN_RE.test(a)))];
+  for (const c of candidates) {
+    try {
+      const args: string[] = [];
+      if (bridge.distro) args.push("-d", bridge.distro);
+      args.push("-e", "test", "-x", c);
+      execFileSync("wsl.exe", args, { timeout: 2500, stdio: "ignore", windowsHide: true });
+    } catch (e) {
+      const err = e as NodeJS.ErrnoException & { status?: number; killed?: boolean };
+      // status 1 = test answered "no" — anything else (ENOENT wsl.exe /
+      // timeout / signal) means we could not ask, not that the binary is
+      // missing; let the real run speak then
+      if (err.status === 1) {
+        return `RELION executable ${path.basename(c)} is missing or not executable inside the WSL distro${bridge.distro ? ` (${bridge.distro})` : ""} — checked ${c}. Press Re-detect in the top bar, or switch to another RELION install.`;
+      }
+    }
+  }
+  return null;
+}
+
+/**
  * Record the run, spawn argv, pipe run.out/run.err (append) and attach the
  * exit handler that finalizes state + DB. Shared by the fresh-run path and
  * the resume path so both get identical bookkeeping.
@@ -2423,11 +2517,15 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
   }
   if (job.type === "manualpick") {
     const r = await runManualPickNative(job, upstream);
-    return r.ok ? { ok: true, native: true, result: r.result } : { ok: false, error: r.error };
+    return r.ok
+      ? { ok: true, native: true, result: r.result }
+      : { ok: false, error: r.error, ...(r.wait ? { waiting: r.wait } : {}) };
   }
   if (job.type === "select") {
     const r = await runSelectNative(job, upstream);
-    return r.ok ? { ok: true, native: true, result: r.result } : { ok: false, error: r.error };
+    return r.ok
+      ? { ok: true, native: true, result: r.result }
+      : { ok: false, error: r.error, ...(r.wait ? { waiting: r.wait } : {}) };
   }
 
   // ---- RELION required ------------------------------------------------
@@ -2484,6 +2582,8 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
         "--o",
         path.join(workdir, "run"),
       ];
+      const preFlight = bridge ? verifyBridgeTarget(resumeArgv, bridge) : null;
+      if (preFlight) return { ok: false, error: preFlight };
       return spawnTrackedRun(job, resumeArgv, workdir, binDir, checkpoint.iteration, bridge);
     }
   }
@@ -2491,7 +2591,13 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
   // ---- resolve inputs --------------------------------------------------
   const resolved = resolveInputs(job.type, upstream);
   if (resolved.missing) {
-    return { ok: false, error: resolved.missing };
+    // upstream failed / still running / never ran → the dispatcher marks the
+    // job PENDING (amber) instead of failed — no cascade of red jobs
+    return {
+      ok: false,
+      error: resolved.missing,
+      ...(resolved.wait ? { waiting: resolved.wait } : {}),
+    };
   }
   const inputs = resolved.inputs;
 
@@ -2523,9 +2629,11 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
   }
 
   // ---- target binary sanity (partial installs fail honestly) --------------
-  // WSL-side paths cannot be existsSync'd from the host — the system probe
-  // already verified them inside the distro, so the check is native-only.
-  const target = argv[0] !== "mpirun" && argv[0] !== mpirun ? argv[0] : argv[4];
+  // WSL-side paths cannot be existsSync'd from the host — for those the
+  // wsl.exe pre-flight (verifyBridgeTarget) below is the equivalent; when
+  // even that cannot ask the distro, the run itself reports honestly.
+  // MPI-prefixed argv: [mpirun, -n, N, relionBinary, ...] → index 3.
+  const target = argv[0] !== "mpirun" && argv[0] !== mpirun ? argv[0] : argv[3];
   if (
     !bridge &&
     target &&
@@ -2538,12 +2646,57 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
     };
   }
 
+  if (bridge) {
+    const preFlight = verifyBridgeTarget(argv, bridge);
+    if (preFlight) return { ok: false, error: preFlight };
+  }
+
   return spawnTrackedRun(job, argv, workdir, binDir, undefined, bridge);
 }
 
 /* ------------------------------------------------------------------ */
 /* Exit handling (state file + Prisma update)                           */
 /* ------------------------------------------------------------------ */
+
+/**
+ * Human meaning of a process exit code. A bare "exit 127" says nothing
+ * actionable; these mappings make the common RELION / WSL-bridge failures
+ * self-explanatory (127 in particular = the executable was missing from the
+ * selected install — the classic incomplete-RELION / stale-distro-path case).
+ */
+export function describeExitCode(code: number): string {
+  if (code === 127) return "command not found — the executable is missing from the selected RELION install (Re-detect or switch installs in the top bar)";
+  if (code === 126) return "command found but not executable (check permissions)";
+  if (code === 111) return "WSL bridge could not enter the job directory inside the distro";
+  if (code === 139) return "segmentation fault (SIGSEGV)";
+  if (code === 135) return "bus error (SIGBUS)";
+  if (code === 137) return "killed by SIGKILL (out of memory or stop)";
+  if (code === 130) return "interrupted (Ctrl-C)";
+  if (code === 143) return "terminated (SIGTERM)";
+  if (code === 255) return "uncaught error / abort";
+  if (code > 128) return `killed by signal ${code - 128}`;
+  if (code === 1) return "RELION reported an error";
+  return "";
+}
+
+/**
+ * Build the failure result line: exit code meaning + the actual stderr tail
+ * (run.out as fallback — some tools log their errors to stdout) + the command
+ * + where the full logs live. Everything the user needs to diagnose without
+ * opening the log tab.
+ */
+function failureResult(state: RunRecord, exitCode: number): string {
+  const meaning = describeExitCode(exitCode);
+  const errTail = tailText(state.errFile, 280);
+  const outTail = errTail ? "" : tailText(state.logFile, 280);
+  const parts: string[] = [`exit ${exitCode}${meaning ? ` (${meaning})` : ""}`];
+  const detail = errTail || outTail;
+  if (detail) parts.push(detail);
+  const cmd = state.cmd.length > 160 ? state.cmd.slice(0, 160) + "…" : state.cmd;
+  parts.push(`command: ${cmd}`);
+  parts.push(`logs: ${state.errFile} + ${state.logFile}`);
+  return parts.join(" — ").slice(0, 900);
+}
 
 function attachExitHandler(
   job: EngineJobRef,
@@ -2552,36 +2705,63 @@ function attachExitHandler(
 ): void {
   child.on("exit", (code) => {
     live.delete(job.id);
-    const runs = readRuns();
-    const state = runs[job.id];
-    // A newer run may have replaced this record — only handle our own.
-    if (!state || state.startedAt !== startedAt) return;
-
     const exitCode = code ?? -1;
-    let outputs: Record<string, string> = {};
-    let result: string | null = null;
 
-    if (exitCode === 0) {
-      const collected = collectOutputs(job.type, state.workdir);
-      outputs = collected.outputs;
-      result = collected.result;
-    } else {
-      result = `exit ${exitCode} — ${tailText(state.errFile, 300)}`;
-    }
+    // wsl.exe relays the distro's stderr through its own pipe — the exit
+    // event can fire BEFORE the final bytes land in run.err (observed as
+    // "exit 127 — " with an empty tail on Windows). Re-read with a short
+    // backoff before finalizing; a non-empty stderr short-circuits.
+    const delays = exitCode === 0 ? [0] : [0, 250, 650, 1100];
+    let settled = false;
 
-    runs[job.id] = { ...state, done: true, exitCode, outputs, result };
-    writeRuns(runs);
+    const finalize = (): void => {
+      if (settled) return;
+      settled = true;
+      const runs = readRuns();
+      const state = runs[job.id];
+      // A newer run may have replaced this record — only handle our own.
+      if (!state || state.startedAt !== startedAt) return;
 
-    const elapsed = Date.now() - new Date(state.startedAt).getTime();
-    void db.job
-      .update({
-        where: { id: job.id },
-        data:
-          exitCode === 0
-            ? { status: "completed", progress: 100, result, duration: Math.max(1000, elapsed) }
-            : { status: "failed", progress: 0, result },
-      })
-      .catch((err) => console.error("engine: DB update on exit failed:", err));
+      let outputs: Record<string, string> = {};
+      let result: string | null = null;
+
+      if (exitCode === 0) {
+        const collected = collectOutputs(job.type, state.workdir);
+        outputs = collected.outputs;
+        result = collected.result;
+      } else {
+        result = failureResult(state, exitCode);
+      }
+
+      runs[job.id] = { ...state, done: true, exitCode, outputs, result };
+      writeRuns(runs);
+
+      const elapsed = Date.now() - new Date(state.startedAt).getTime();
+      void db.job
+        .update({
+          where: { id: job.id },
+          data:
+            exitCode === 0
+              ? { status: "completed", progress: 100, result, duration: Math.max(1000, elapsed) }
+              : { status: "failed", progress: 0, result },
+        })
+        .catch((err) => console.error("engine: DB update on exit failed:", err));
+    };
+
+    delays.forEach((delay, i) => {
+      setTimeout(() => {
+        if (settled) return;
+        if (i < delays.length - 1) {
+          // intermediate attempt — finalize early once stderr has content
+          const state = readRuns()[job.id];
+          if (state && state.startedAt === startedAt && tailText(state.errFile, 80)) {
+            finalize();
+          }
+          return;
+        }
+        finalize();
+      }, delay);
+    });
   });
 
   child.on("error", (err) => {

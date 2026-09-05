@@ -798,16 +798,19 @@ function ParamsTab({ job, spec }: { job: JobDTO; spec: JobTypeSpec | undefined }
 
 function ResultsTab({ job }: { job: JobDTO }) {
   const done = job.status === "completed" || job.status === "failed";
+  const pending = job.status === "pending";
   return (
     <div className="space-y-3 p-3">
-      {done ? (
+      {done || pending ? (
         job.result && (
           <p
             className={cn(
               "rounded-md border px-2.5 py-2 text-[11px] leading-relaxed",
               job.status === "failed"
                 ? "border-destructive/30 bg-destructive/10 text-destructive"
-                : "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                : pending
+                  ? "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                  : "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
             )}
             title={job.result}
           >
@@ -823,6 +826,12 @@ function ResultsTab({ job }: { job: JobDTO }) {
               : "No results yet — run the job to generate outputs."}
           </p>
         </div>
+      )}
+      {pending && (
+        <p className="rounded-md border border-dashed border-amber-500/40 bg-amber-500/5 px-2.5 py-2 text-[11px] leading-relaxed text-amber-700 dark:text-amber-300">
+          The job did not fail — it is waiting for an upstream job. Fix and re-run
+          the upstream job, then press Run here to re-check.
+        </p>
       )}
       <JobResults job={job} />
     </div>
@@ -964,7 +973,9 @@ function PanelBody({ job }: { job: JobDTO }) {
         ? "Linked copy — run the original"
         : job.status === "completed" || job.status === "failed"
           ? "Re-run"
-          : "Run Job"}
+          : job.status === "pending"
+            ? "Run (waiting for upstream)"
+            : "Run Job"}
     </Button>
   );
 
@@ -1141,6 +1152,18 @@ function PanelBody({ job }: { job: JobDTO }) {
               <span>REAL · RELION process running</span>
             </p>
           </div>
+        )}
+
+        {job.status === "pending" && (
+          <p
+            role="note"
+            className="rounded-md bg-amber-500/10 px-2 py-1.5 text-[11px] leading-relaxed text-amber-700 dark:text-amber-300"
+          >
+            {job.result ?? "Waiting for an upstream job to produce its outputs."}{" "}
+            <span className="text-muted-foreground">
+              Re-run the upstream job, then Run here to re-check.
+            </span>
+          </p>
         )}
       </div>
 

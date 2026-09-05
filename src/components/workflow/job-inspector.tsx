@@ -25,6 +25,7 @@ import {
   BarChart3,
   Check,
   ChevronRight,
+  Clock,
   Copy,
   Database,
   Download,
@@ -702,6 +703,24 @@ function ResultSummary({ job }: { job: JobDTO }) {
           <p className="text-sm font-semibold text-foreground">Refinement in progress</p>
           <p className="mt-0.5 truncate text-xs text-muted-foreground" title={job.result ?? undefined}>
             {job.result ?? "The RELION engine is crunching — live output lands in the Log tab."}
+          </p>
+        </div>
+      </div>
+    );
+  }
+  if (job.status === "pending") {
+    return (
+      <div className="flex items-start gap-3 rounded-lg border border-amber-600/30 bg-amber-600/5 p-3.5">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-amber-600/15 text-amber-600">
+          <Clock className="size-4.5" aria-hidden="true" />
+        </span>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-foreground">Waiting as pending</p>
+          <p className="mt-0.5 break-words text-xs leading-relaxed text-amber-700 dark:text-amber-300">
+            {job.result ?? "Waiting for an upstream job to produce its outputs."}
+          </p>
+          <p className="mt-1 text-[10px] text-muted-foreground">
+            The job did not fail — it will start as soon as its upstream inputs exist. Press Run to re-check.
           </p>
         </div>
       </div>

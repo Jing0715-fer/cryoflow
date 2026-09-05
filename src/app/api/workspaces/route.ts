@@ -26,15 +26,16 @@ export async function GET() {
     });
     const byWorkspace = new Map<
       string,
-      { total: number; running: number; completed: number; failed: number; links: number }
+      { total: number; running: number; pending: number; completed: number; failed: number; links: number }
     >();
     for (const j of jobs) {
       const key = j.workspaceId ?? "";
       const s =
-        byWorkspace.get(key) ?? { total: 0, running: 0, completed: 0, failed: 0, links: 0 };
+        byWorkspace.get(key) ?? { total: 0, running: 0, pending: 0, completed: 0, failed: 0, links: 0 };
       s.total++;
       if (j.linkedJobId) s.links++;
       if (j.status === "running") s.running++;
+      else if (j.status === "pending") s.pending++;
       else if (j.status === "completed") s.completed++;
       else if (j.status === "failed") s.failed++;
       byWorkspace.set(key, s);
@@ -42,7 +43,7 @@ export async function GET() {
     return NextResponse.json({
       workspaces: workspaces.map((w) => {
         const s =
-          byWorkspace.get(w.id) ?? { total: 0, running: 0, completed: 0, failed: 0, links: 0 };
+          byWorkspace.get(w.id) ?? { total: 0, running: 0, pending: 0, completed: 0, failed: 0, links: 0 };
         return {
           id: w.id,
           projectId: w.projectId,
@@ -90,7 +91,7 @@ export async function POST(request: NextRequest) {
           name: workspace.name,
           order: workspace.order,
           createdAt: workspace.createdAt.toISOString(),
-          stats: { total: 0, running: 0, completed: 0, failed: 0, links: 0 },
+          stats: { total: 0, running: 0, pending: 0, completed: 0, failed: 0, links: 0 },
         },
       },
       { status: 201 }

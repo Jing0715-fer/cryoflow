@@ -609,10 +609,21 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   runJob: async (id) => {
     try {
-      const data = await api<{ job: JobDTO; error?: string }>(`/api/jobs/${id}/run`, {
+      const data = await api<{ job: JobDTO; error?: string; waiting?: string }>(`/api/jobs/${id}/run`, {
         method: "POST",
       });
       set({ jobs: get().jobs.map((j) => (j.id === id ? data.job : j)) });
+      if (data.waiting) {
+        // job went PENDING — an upstream job failed or is still running;
+        // not an error, the result line explains what to fix/re-run
+        toast({
+          title: "Job waiting as pending",
+          description: data.job.result ?? "Waiting for its upstream job to produce outputs.",
+        });
+        // show the waiting reason where the user is looking
+        set({ inspectId: id, selectedId: null });
+        return false;
+      }
       if (data.error) {
         // honest real-engine failure — surfaced via the job result too
         toast({

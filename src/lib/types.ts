@@ -2,7 +2,7 @@
  * CryoFlow — shared DTO types (client + server safe, no runtime deps).
  */
 
-export type JobStatus = "idle" | "running" | "completed" | "failed";
+export type JobStatus = "idle" | "pending" | "running" | "completed" | "failed";
 
 export interface JobDTO {
   id: string;
@@ -74,7 +74,7 @@ export interface ProjectDTO {
   /** Always "relion" — the real RELION engine is the only engine (legacy meta healed on read). */
   engine?: string;
   /** Job statistics (computed on the server for the project panel). */
-  stats?: { total: number; running: number; completed: number; failed: number };
+  stats?: { total: number; running: number; pending?: number; completed: number; failed: number };
 }
 
 export interface ProjectSummaryDTO {

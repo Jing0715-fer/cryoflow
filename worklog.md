@@ -976,3 +976,26 @@ Stage Summary:
 - 关键架构：顶层 status = 选中安装的镜像 → engine.ts 零改动获得"按选择调度"能力（实证：ctffind cmd 路径随选择变化）；runRealJob 的 detectRelion(true) 每次强刷确保切换即时生效
 - 用户本机使用：git pull → bun install → bun run dev → 顶栏点开 RELION chip 可见全部安装（native + WSL 内多版本）→ 点击切换；WSL 桥接路径翻译不变
 - 【给后续 cron 轮】①EMPIAR 主线管线仍需重跑（DB 重置后未跑 empiar-seed）②沙箱现只有 1 安装（alt 已删）— 多安装回归可重建 wrapper③内存红线 3.5GB④demo 项目 import/ctffind 已有真实产物可作下游起点
+
+---
+Task ID: error-specificity-pending-2026-09-05
+Agent: main (Z.ai Code, user request: 84 张照片 import 后"好像没有实际导入"、后续 CTF "Job failed exit 127 — " 报错太笼统、上游失败时下游应 pending 而不是一连串报错)
+Task: ① 失败报错具体化（exit code 语义 + stderr 尾巴 + 命令 + 日志路径，修复 wsl.exe stderr 排空竞态）② 上游失败/运行中 → 下游 PENDING（琥珀色新状态，替代级联红色 failed）③ import 无法链接的文件集用 .pathref 标记保住 gallery（"没有实际导入"的观感根因）④ WSL 桥接 spawn 前二进制预检（127 提前变可操作信息）
+
+Work Log:
+- 【根因分析】用户 Windows+WSL 场景："exit 127 — " 空尾巴 = ① bash exec 找不到二进制（stale distro 路径/不完整安装）+ ② wsl.exe 的 stderr 中继未排空时 exit 事件就触发（tailText 读到空）；"好像没有实际导入" = 84 文件全落在 absolute-path 回退（UNC/跨盘卷 → 硬链接+symlink 双失败），star 有效但 workdir/micrographs 为空 → gallery 隐藏 → 观感"零导入"
+- 【engine.ts 报错具体化】describeExitCode()（127=command not found→Re-detect/切换安装、126/111/137/139…全语义化）；failureResult = exit 码含义 + stderr 尾巴（空则 run.out 尾巴）+ 命令 + 日志路径，≤900 字符；attachExitHandler 失败路径延迟重读 run.err（0/250/650/1100ms，非空短路；exit 0 仍即时）——修复 wsl.exe 排空竞态
+- 【WSL 预检】verifyBridgeTarget：spawn 前经 wsl.exe -d D -e test -x 逐一校验 argv 中 relion_*/mpirun/ctffind 形态的 POSIX 路径（2.5s 超时；仅 test 明确答"否"才拦截，wsl.exe 不存在/超时/信号均放行由真实运行兜底）→ 127 在用户机上变成"RELION executable X missing inside distro — Re-detect or switch installs"的即时可操作错误；顺带修 MPI argv 健全性检查 argv[4]→argv[3] 的错位
+- 【PENDING 状态】UpstreamRef 增加 status/name（lineageFor 从 Job 行携带）；resolveInputs 输出 wait 分类：upstream-failed（"Upstream \"Import…\" failed — fix and re-run it first…"）> upstream-running（"Waiting for X to finish…"）> not-ready（原"Waiting for upstream output: …"）；RunOutcome/StartOutcome 增加 waiting；dispatch.startJob 对 waiting 写 status="pending"（不再级联 failed）；run 路由返回 waiting 字段；store.runJob 琥珀 toast "Job waiting as pending" + 打开 inspector
+- 【PENDING UI 全链】types JobStatus+pending；STATUS_STYLES/StatusBadge（琥珀+pulse 点）、minimap #f59e0b、dashboard STATUS_DOT、卡片 Row3 琥珀等待行 + Run 按钮文案 "Run (waiting for upstream)"、inspector ResultSummary "Waiting as pending"（Clock 图标 + "did not fail"说明）、job-panel 头部琥珀 note + Results tab 琥珀结果块、workspace 行/项目卡/项目面板 stats 琥珀 pending 计数 chip、KPI Running 卡副文案 "N pending upstream"；projects/workspaces API stats + pending（ProjectStats 扩展）
+- 【pathref 标记（新模块 src/lib/relion/pathref.ts）】importFileSet 无法链接的文件写 micrographs/.<name>.pathref（内容=宿主绝对路径，dotfile 避开 Files 走查）；micrographs 路由经 resolveMicrographEntry 链接优先/标记回退（stat+MRC 头直接读源）；outputs/file 跟随标记渲染 PNG（readPathrefTarget 校验：绝对路径形态+现存常规文件，坏标记 404 "Broken path reference"）；import 结果文案带 "N linked, M referenced by path (source not linkable)"
+- 【E2E·失败报错】构造 /home/z/relion-bad（relion_refine 伪 9.9.9 + relion_run_ctffind exec /nonexistent → 真 127）：探测出 2 安装 → select bad → CTF 运行 → 失败结果 = "exit 127 (command not found — …Re-detect or switch installs…) — bash: /nonexistent/cryo_binary: No such file or directory — command: … — logs: run.err + run.out"（完整复现用户场景并给出具体原因）；切回主安装 → CTF 恢复 completed
+- 【E2E·pending 门控】QA 项目 import(坏路径)→failed → CTF run → pending + "Upstream \"Import · QA source\" failed…"；修好 import → completed → CTF run → 真 relion_run_ctffind → completed "REAL: CTF estimated for 11/3 micrographs"；agent-browser：卡片琥珀 badge+等待行、inspector "Waiting as pending"+Clock+amber 块、dashboard "1 pending" 琥珀 chip + KPI "1 pending upstream"、workspace/项目卡 stats chip 全渲染、console 零错误
+- 【E2E·pathref gallery】文件列表导入 3 张 → 手工把 1 张硬链换 .pathref 标记 + star 条目改绝对路径（精确模拟 Windows 无法链接态）→ CTF 真跑 completed（绝对路径 star 对 RELION 有效）+ gallery 3 缩略图全部渲染（含 1 张经标记：src 含 .pathref）+ PNG 直出 373×373；坏标记 → 404
+- 【验证矩阵】diag-exit-reason.ts 22 断言 ALL PASS（exit 码语义 9 + pathref 往返/优先级/损坏拒绝 13）；diag-wsl-bridge 31 断言 ALL PASS；lint 0 错误；tsc src/ 0 错误；VLM 四屏审查仅设计内 ellipsis 截断（title 有全文）；QA 项目+数据已删、demo 恢复激活、relion-select 恢复主安装
+- 【数据事故+恢复】E2E 中误把 folder-import 的 workdir/micrographs（symlink→EMPIAR）当硬链 rm，删掉 1 张真源微图 → 从 /tmp/my-project/relion-projects/empiar-10017-真实全流程/Import/job001/data/ 前台 cp -a 恢复（10/10 完整）
+
+Stage Summary:
+- 用户三点闭环：① "exit 127 — " → 完整诊断行（语义+stderr+命令+日志，延迟重读治好 wsl.exe 竞态，预检把 127 消灭在 spawn 前）② 上游失败 → 下游 PENDING（琥珀新状态贯穿卡片/inspector/panel/统计，消息直接点名要修哪个上游）③ "没有实际导入" → pathref 标记让绝对路径导入的 gallery 照常出缩略图（RELION 消费不受影响），结果文案如实报 linked/referenced 数
+- 用户本机下一步：git pull 后重跑 import+CTF —— 若 127 根因是 distro 内二进制缺失，预检/具体报错会直接给出缺失路径与安装切换指引；若 import 文件在 UNC/跨盘，gallery 现在照常显示
+- 【给后续 cron 轮】①EMPIAR 主线管线仍未重跑（empiar-seed → RESTORE.md 参数 → advance.sh）②diag-lineage.ts 的 fixture（rhleut）已随 DB 重置失效，复跑需换活 job id ③内存红线 3.5GB 不变 ④候选增强：上游完成时 pending 自动就绪提示（不自动 spawn）、import 预览 API（运行前面板展开计数）

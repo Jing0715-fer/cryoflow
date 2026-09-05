@@ -18,6 +18,7 @@ import {
   CheckCircle2,
   ChevronRight,
   CircleAlert,
+  Clock,
   FolderGit2,
   LayoutDashboard,
   Loader2,
@@ -57,6 +58,8 @@ import { cn } from "@/lib/utils";
 interface ProjectStats {
   total: number;
   running: number;
+  /** waiting for an upstream job (amber, not failed) */
+  pending?: number;
   completed: number;
   failed: number;
 }
@@ -77,6 +80,7 @@ function fmtAgo(iso: string): string {
 
 const STATUS_DOT: Record<string, string> = {
   idle: "bg-muted-foreground/40",
+  pending: "bg-amber-500",
   running: "bg-teal-500 animate-pulse",
   completed: "bg-emerald-500",
   failed: "bg-rose-500",
@@ -253,6 +257,15 @@ function DashboardProjectCard({
             <span className="flex items-center gap-0.5 text-teal-600 dark:text-teal-400">
               <Loader2 className="size-3 animate-spin" aria-hidden="true" />
               {stats?.running}
+            </span>
+          )}
+          {(stats?.pending ?? 0) > 0 && (
+            <span
+              className="flex items-center gap-0.5 text-amber-600 dark:text-amber-400"
+              title={`${stats?.pending} pending — waiting for an upstream job`}
+            >
+              <Clock className="size-3" aria-hidden="true" />
+              {stats?.pending}
             </span>
           )}
           {(stats?.failed ?? 0) > 0 && (
@@ -438,6 +451,7 @@ function ActiveProjectSpotlight() {
   const running = sorted.filter((j) => j.status === "running");
   const completed = sorted.filter((j) => j.status === "completed");
   const failed = sorted.filter((j) => j.status === "failed");
+  const pending = sorted.filter((j) => j.status === "pending");
   const pct = sorted.length > 0 ? Math.round((completed.length / sorted.length) * 100) : 0;
 
   const openJob = (job: JobDTO) => {
@@ -489,12 +503,24 @@ function ActiveProjectSpotlight() {
               {running.length} running
             </Badge>
           )}
+          {pending.length > 0 && (
+            <Badge
+              variant="outline"
+              className={cn(
+                "h-4.5 gap-1 border-amber-500/40 bg-amber-500/10 px-1.5 text-[9px] font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400",
+                running.length === 0 && "ml-auto"
+              )}
+            >
+              <Clock className="size-2.5" aria-hidden="true" />
+              {pending.length} pending
+            </Badge>
+          )}
           {failed.length > 0 && (
             <Badge
               variant="outline"
               className={cn(
                 "h-4.5 gap-1 border-rose-500/40 bg-rose-500/10 px-1.5 text-[9px] font-semibold uppercase tracking-wider text-rose-600 dark:text-rose-400",
-                running.length === 0 && "ml-auto"
+                running.length === 0 && pending.length === 0 && "ml-auto"
               )}
             >
               <CircleAlert className="size-2.5" aria-hidden="true" />
@@ -582,15 +608,17 @@ export function ProjectDashboard() {
   const totals = React.useMemo(() => {
     let total = 0,
       running = 0,
+      pending = 0,
       completed = 0,
       failed = 0;
     for (const p of projects) {
       total += p.stats?.total ?? 0;
       running += p.stats?.running ?? 0;
+      pending += p.stats?.pending ?? 0;
       completed += p.stats?.completed ?? 0;
       failed += p.stats?.failed ?? 0;
     }
-    return { total, running, completed, failed };
+    return { total, running, pending, completed, failed };
   }, [projects]);
 
   const filtered = React.useMemo(() => {
@@ -678,7 +706,13 @@ export function ProjectDashboard() {
             icon={<Loader2 className={cn("size-5", totals.running > 0 && "animate-spin")} />}
             value={totals.running}
             label="Running"
-            sub={totals.running > 0 ? "live engines active" : "nothing in flight"}
+            sub={
+              totals.pending > 0
+                ? `${totals.pending} pending upstream`
+                : totals.running > 0
+                  ? "live engines active"
+                  : "nothing in flight"
+            }
             tone="bg-teal-500/10 text-teal-600 ring-teal-500/30 dark:text-teal-400"
           />
           <KpiCard

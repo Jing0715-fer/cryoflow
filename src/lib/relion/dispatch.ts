@@ -6,7 +6,7 @@
 
 import type { Job } from "@prisma/client";
 import { db } from "@/lib/db";
-import { parseJobParams, runRealJob, isRunAlive, type UpstreamRef } from "./engine";
+import { parseJobParams, runRealJob, isRunAlive, type UpstreamRef, type WaitKind } from "./engine";
 
 /** Placeholder duration for real runs (the exit handler overwrites it). */
 const REAL_DURATION_HINT = 60_000;
@@ -15,6 +15,10 @@ export interface StartOutcome {
   job: Job;
   /** Present when the real engine failed honestly at start-up. */
   error?: string;
+  /** Present when the job went PENDING instead of running — an upstream
+   * job failed or is still running. Not an error: the job will start as
+   * soon as its inputs exist (the user re-runs it, or the upstream finishes). */
+  waiting?: WaitKind;
   /** Present when the job's process is already alive — nothing was started.
    * The route maps this to HTTP 409 instead of failing the job. */
   busy?: string;
@@ -64,7 +68,13 @@ export async function lineageFor(jobId: string): Promise<UpstreamRef[]> {
       if (seen.has(root.id)) continue; // root already contributed (another link or an earlier layer)
       seen.add(row.id);
       if (root.id !== row.id) seen.add(root.id); // link row: dedupe future links to the same original
-      lineage.push({ id: root.id, type: root.type, params: parseJobParams(root.params) });
+      lineage.push({
+        id: root.id,
+        type: root.type,
+        params: parseJobParams(root.params),
+        status: root.status,
+        name: root.name,
+      });
       nextFrontier.push(root.id);
     }
     frontier = nextFrontier;
@@ -130,7 +140,17 @@ export async function startJob(job: Job): Promise<StartOutcome> {
   );
 
   if (!outcome.ok) {
-    // honest failure (RELION missing / upstream missing / external missing)
+    if (outcome.waiting) {
+      // upstream failed / still running / never ran → PENDING (amber), not
+      // failed: a failed import no longer cascades red CTF/extract/… errors
+      // down the pipeline. The result line says exactly what to fix.
+      updated = await db.job.update({
+        where: { id: job.id },
+        data: { status: "pending", progress: 0, result: outcome.error },
+      });
+      return { job: updated, waiting: outcome.waiting };
+    }
+    // honest failure (RELION missing / bad params / external missing)
     updated = await db.job.update({
       where: { id: job.id },
       data: { status: "failed", progress: 0, result: outcome.error ?? "failed" },

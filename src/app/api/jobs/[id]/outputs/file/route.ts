@@ -3,6 +3,7 @@ import { openSync, readSync, closeSync, readFileSync, realpathSync, statSync } f
 import path from "path";
 import { findEffectiveJob } from "@/lib/link";
 import { getRun } from "@/lib/relion/engine";
+import { readPathrefTarget } from "@/lib/relion/pathref";
 import { isMrcPath, renderMrcLargePng, renderMrcMontagePng, renderMrcSlicePng } from "@/lib/mrc";
 
 export const dynamic = "force-dynamic";
@@ -78,7 +79,22 @@ export async function GET(request: NextRequest, context: RouteContext) {
     if ("error" in resolved) {
       return NextResponse.json({ error: resolved.error }, { status: resolved.status });
     }
-    const { abs, name } = resolved;
+    let { abs, name } = resolved;
+
+    // pathref marker: the engine records UNLINKABLE import sources (Windows
+    // cross-drive / \\wsl.localhost UNC — no hardlink, no symlink rights) as
+    // micrographs/.<name>.pathref files whose content is the source path.
+    // Follow the marker to serve the real file; markers are engine-written
+    // only (no API writes into workdirs) and readPathrefTarget validates the
+    // target is an existing regular file.
+    if (name.endsWith(".pathref")) {
+      const target = readPathrefTarget(abs);
+      if (!target) {
+        return NextResponse.json({ error: "Broken path reference (source moved or deleted)" }, { status: 404 });
+      }
+      abs = target;
+      name = path.basename(target);
+    }
 
     const lower = name.toLowerCase();
     const isMrc = isMrcPath(name);

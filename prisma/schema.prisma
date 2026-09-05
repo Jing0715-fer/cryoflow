@@ -51,7 +51,7 @@ model Job {
   name       String
   x          Float
   y          Float
-  status     String    @default("idle") // idle | queued | running | completed | failed
+  status     String    @default("idle") // idle | pending | running | completed | failed
   progress   Float     @default(0)
   params     String    @default("{}") // JSON-encoded parameter map
   result     String? // JSON-encoded result summary

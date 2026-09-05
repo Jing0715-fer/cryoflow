@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { existsSync, readFileSync, readdirSync, statSync } from "fs";
+import { existsSync, readFileSync, statSync } from "fs";
 import path from "path";
 import { findEffectiveJob } from "@/lib/link";
 import { getRun } from "@/lib/relion/engine";
+import { resolveMicrographEntry } from "@/lib/relion/pathref";
 import { readMrcHeader } from "@/lib/mrc";
 
 export const dynamic = "force-dynamic";
@@ -142,46 +143,43 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     }
 
     const micDir = path.join(run.workdir, "micrographs");
-    if (!existsSync(micDir)) {
+    const micrographs: MicrographEntry[] = [];
+    if (existsSync(micDir)) {
+      // linked files (hardlink/symlink/junction) resolve directly; files the
+      // engine could NOT link (Windows cross-drive / UNC sources) have a
+      // .pathref marker recording their source location — stat + header come
+      // from there so the gallery shows the SAME 84 thumbnails either way
+      for (const n of names) {
+        const base = path.basename(n);
+        const resolved = resolveMicrographEntry(micDir, base);
+        if (!resolved) continue;
+        let size = 0;
+        let nx = 0;
+        let ny = 0;
+        try {
+          size = statSync(resolved.abs).size;
+          const hdr = readMrcHeader(resolved.abs);
+          if (hdr) {
+            nx = hdr.nx;
+            ny = hdr.ny;
+          }
+        } catch {
+          /* stat/header best-effort */
+        }
+        micrographs.push({ path: resolved.rel, name: base, size, nx, ny });
+      }
+    } else {
       // engine only symlinked micrographs into workdir from 2026-09-04 on —
       // older completed import jobs expose the list without previews
-      return NextResponse.json({
-        ...empty,
-        pixelSize,
-        voltage,
-        sphericalAberration,
-        amplitudeContrast,
-        total: names.length,
-        micrographs: names.map((n) => ({
+      for (const n of names) {
+        micrographs.push({
           path: n,
           name: path.basename(n),
           size: 0,
           nx: 0,
           ny: 0,
-        })),
-      });
-    }
-
-    const available = new Set(readdirSync(micDir));
-    const micrographs: MicrographEntry[] = [];
-    for (const n of names) {
-      const base = path.basename(n);
-      if (!available.has(base)) continue;
-      const abs = path.join(micDir, base);
-      let size = 0;
-      let nx = 0;
-      let ny = 0;
-      try {
-        size = statSync(abs).size;
-        const hdr = readMrcHeader(abs);
-        if (hdr) {
-          nx = hdr.nx;
-          ny = hdr.ny;
-        }
-      } catch {
-        /* stat/header best-effort */
+        });
       }
-      micrographs.push({ path: `micrographs/${base}`, name: base, size, nx, ny });
     }
 
     return NextResponse.json({

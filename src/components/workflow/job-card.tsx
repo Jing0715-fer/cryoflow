@@ -61,6 +61,8 @@ import { cn } from "@/lib/utils";
 
 export const STATUS_STYLES: Record<string, string> = {
   idle: "border-slate-300 text-slate-600 dark:border-slate-600 dark:text-slate-400",
+  pending:
+    "border-amber-400/60 text-amber-700 dark:border-amber-500/50 dark:text-amber-300",
   running:
     "border-teal-400/60 text-teal-700 dark:border-teal-500/50 dark:text-teal-300",
   completed:
@@ -79,6 +81,9 @@ export function StatusBadge({ status }: { status: string }) {
     >
       {status === "running" && (
         <span className="animate-soft-pulse inline-block size-1.5 rounded-full bg-teal-500" />
+      )}
+      {status === "pending" && (
+        <span className="animate-soft-pulse inline-block size-1.5 rounded-full bg-amber-500" />
       )}
       {status === "completed" && (
         <span className="inline-block size-1.5 rounded-full bg-emerald-500" />
@@ -286,7 +291,13 @@ function JobCardMenu({
           }}
         >
           {busy ? <Loader2 className="animate-spin" /> : <Play />}
-          {idle ? "Run job" : running ? "Running…" : "Re-run"}
+          {idle
+            ? "Run job"
+            : running
+              ? "Running…"
+              : job.status === "pending"
+                ? "Run (waiting for upstream)"
+                : "Re-run"}
         </ContextMenuItem>
         {!idle && !running && !isLink ? (
           <ContextMenuItem
@@ -1146,6 +1157,14 @@ export const JobCard = React.memo(function JobCard({
                   title={job.result ?? "Run failed — check logs"}
                 >
                   {job.result ?? "Run failed — check logs"}
+                </p>
+              ) : job.status === "pending" ? (
+                <p
+                  className="flex items-center gap-1 truncate text-[11px] leading-4 text-amber-700 dark:text-amber-300"
+                  title={job.result ?? "Waiting for an upstream job"}
+                >
+                  <span className="inline-block size-1.5 shrink-0 rounded-full bg-amber-500" aria-hidden="true" />
+                  <span className="truncate">{job.result ?? "Waiting for an upstream job"}</span>
                 </p>
               ) : isReady ? (
                 <p className="flex items-center gap-1 text-[11px] leading-4 text-emerald-700 dark:text-emerald-300">

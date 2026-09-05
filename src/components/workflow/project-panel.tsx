@@ -15,6 +15,7 @@ import {
   Boxes,
   CheckCircle2,
   ChevronRight,
+  Clock,
   FolderGit2,
   LayoutDashboard,
   Loader2,
@@ -64,6 +65,8 @@ import { cn } from "@/lib/utils";
 interface ProjectStats {
   total: number;
   running: number;
+  /** waiting for an upstream job (amber, not failed) */
+  pending?: number;
   completed: number;
   failed: number;
 }
@@ -376,6 +379,14 @@ function ProjectCardRow({
               value={stats?.running ?? 0}
               label="running"
               tone="text-teal-600 dark:text-teal-400"
+            />
+          )}
+          {(stats?.pending ?? 0) > 0 && (
+            <StatChip
+              icon={<Clock className="size-3" aria-hidden="true" />}
+              value={stats?.pending ?? 0}
+              label="pending"
+              tone="text-amber-600 dark:text-amber-400"
             />
           )}
           {(stats?.completed ?? 0) > 0 && (

@@ -37,7 +37,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
       );
     }
 
-    const { job, error, busy } = await startJob(existing);
+    const { job, error, busy, waiting } = await startJob(existing);
 
     if (busy) {
       // the job is already running — do NOT fail it, just refuse the spawn
@@ -47,6 +47,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
     return NextResponse.json({
       job: toJobDTO(job),
       ...(error ? { error } : {}),
+      ...(waiting ? { waiting } : {}),
     });
   } catch (error) {
     console.error("POST /api/jobs/[id]/run failed:", error);

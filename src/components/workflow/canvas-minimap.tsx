@@ -24,6 +24,7 @@ const MM_PAD = 160;
 /** status → minimap fill (hex: SVG attrs don't take Tailwind classes) */
 const STATUS_FILL: Record<string, string> = {
   idle: "#a1a1aa",
+  pending: "#f59e0b",
   running: "#14b8a6",
   completed: "#10b981",
   failed: "#f43f5e",
