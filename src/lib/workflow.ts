@@ -59,6 +59,14 @@ const bool = (
   extra?: Partial<ParamSchema>
 ): ParamSchema => ({ key, label, type: "bool", default: def, ...extra });
 
+/** Free-form text parameter (comma lists, names, engine directives). */
+const txt = (
+  key: string,
+  label: string,
+  def: string,
+  extra?: Partial<ParamSchema>
+): ParamSchema => ({ key, label, type: "text", default: def, ...extra });
+
 /** Filesystem folder parameter — rendered with a native Browse… dialog. */
 const pth = (
   key: string,
@@ -520,6 +528,35 @@ export const JOB_TYPES: JobTypeSpec[] = [
         outp("classAverages", L.classAveragesOut, "references2d"),
         outp("particles", L.optParticlesOut, "particles"),
       ],
+    }
+  ),
+  spec(
+    "select2d",
+    "2D Class Selection",
+    "Grid2x2Check",
+    "orange",
+    "Subset-selection on a 2D classification run: pick good classes from the gallery (or auto-select by occupancy) — only particles in the kept classes continue downstream.",
+    900,
+    [
+      txt("selectedClasses", "Selected classes", "auto", {
+        tab: "Classes",
+        hint: "'auto' keeps classes with occupancy ≥ cutoff × best · or an explicit comma list like 1,2,5 — driven by the gallery below",
+      }),
+      num("occupancyCutoff", "Auto-mode occupancy cutoff", 0.5, {
+        step: 0.05, min: 0, max: 1, tab: "Classes",
+        hint: "auto-selection: keep classes whose particle count is at least this fraction of the largest class",
+      }),
+    ],
+    "{n} particles kept",
+    "core",
+    {
+      category: "class2d",
+      tabs: ["Classes"],
+      inputs: [
+        inp("particles", "Classified particles STAR (run 2D Classification first)", ["particles"]),
+        inp("classes", "2D class averages (gallery)", ["references2d"]),
+      ],
+      outputs: [outp("particles", "Selected particles STAR file (.star)", "particles")],
     }
   ),
 
@@ -1174,7 +1211,7 @@ export function coerceParam(p: ParamSchema, raw: unknown): ParamValue {
     if (raw === "true") return true;
     return p.default;
   }
-  if (p.type === "path") {
+  if (p.type === "path" || p.type === "text") {
     if (typeof raw === "string") return raw;
     return p.default;
   }

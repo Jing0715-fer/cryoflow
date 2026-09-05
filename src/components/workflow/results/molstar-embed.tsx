@@ -19,6 +19,7 @@ import { useEffect, useRef, useState } from "react";
 import { Loader2, Mountain, RotateCw, ZoomIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
+import { cn } from "@/lib/utils";
 import { MrcImage } from "./mrc-image";
 import "molstar/build/viewer/molstar.css";
 
@@ -26,6 +27,23 @@ interface MolStarEmbedProps {
   jobId: string;
   path: string;
   name: string;
+}
+
+interface GridStats {
+  min: number;
+  max: number;
+  mean: number;
+  sigma: number;
+}
+
+/** Mirrors mrc.ts stretchToGray's inversion heuristic: the negative side
+ * carries >2× the positive swing → the signal lives below the mean. */
+function isInvertedStats(s: GridStats): boolean {
+  return (
+    Number.isFinite(s.min) &&
+    s.min < 0 &&
+    -s.min > 2 * Math.max(s.max, Number.EPSILON)
+  );
 }
 
 type Phase = "loading" | "ready" | "error";
@@ -43,9 +61,13 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
   const [phase, setPhase] = useState<Phase>("loading");
   const [error, setError] = useState<string | null>(null);
 
-  // contour state (σ units)
+  // contour state (σ units, always ≥ 0; `sign` picks the density side —
+  // inverted maps like RELION class-average-style volumes store the signal
+  // as NEGATIVE density, so the isosurface needs mean − σ·level)
   const [sigma, setSigma] = useState(2);
-  const [stats, setStats] = useState<{ mean: number; sigma: number } | null>(null);
+  const [sign, setSign] = useState<1 | -1>(1);
+  const [stats, setStats] = useState<GridStats | null>(null);
+  const [invertedNote, setInvertedNote] = useState(false);
 
   // mol* handles — refs so the control bar can act on a live plugin
   const pluginRef = useRef<MolPlugin>(null);
@@ -136,7 +158,20 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
             const v = obj?.type?.name === "Volume" ? obj.data : null;
             const s = v?.grid?.stats;
             if (s && Number.isFinite(s.sigma) && s.sigma > 0) {
-              setStats({ mean: s.mean, sigma: s.sigma });
+              const full: GridStats = {
+                min: Number(s.min),
+                max: Number(s.max),
+                mean: Number(s.mean),
+                sigma: Number(s.sigma),
+              };
+              setStats(full);
+              // inverted map: flip the contour to the negative side once,
+              // automatically — otherwise a positive σ surface shows only
+              // solvent noise and the map looks "empty"
+              if (isInvertedStats(full)) {
+                setSign(-1);
+                setInvertedNote(true);
+              }
               break;
             }
           }
@@ -195,13 +230,15 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
 
   // latest σ requested by the user (the slider can outrun the async commits)
   const sigmaRef = useRef(sigma);
+  const signRef = useRef(sign);
   const updatePending = useRef(false);
   useEffect(() => {
     sigmaRef.current = sigma;
+    signRef.current = sign;
     void pumpContour();
-  }, [sigma]);
+  }, [sigma, sign]);
 
-  const commitContour = async (value: number) => {
+  const commitContour = async (value: number, dir: 1 | -1) => {
     const plugin = pluginRef.current;
     const repr = reprRef.current;
     const VolumeRepresentation3D = VolumeReprRef.current;
@@ -216,7 +253,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
           ...old.type,
           params: {
             ...old.type?.params,
-            isoValue: IsoValue.relative(value),
+            isoValue: IsoValue.relative(dir * value),
           },
         },
       }))
@@ -224,14 +261,17 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
   };
 
   const pumpContour = async () => {
+    if (phase !== "ready") return; // nothing to update until the repr exists
     if (updatePending.current) return; // the in-flight commit re-checks below
     updatePending.current = true;
     try {
       let s = sigmaRef.current;
+      let d = signRef.current;
       for (;;) {
-        await commitContour(s);
-        if (s === sigmaRef.current) break; // nothing newer arrived meanwhile
+        await commitContour(s, d);
+        if (s === sigmaRef.current && d === signRef.current) break; // nothing newer arrived
         s = sigmaRef.current; // slider moved while committing — apply the newest
+        d = signRef.current;
       }
     } catch (err) {
       console.debug("[molstar] contour update skipped", err);
@@ -253,7 +293,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
     })();
   };
 
-  const absolute = stats ? stats.mean + stats.sigma * sigma : null;
+  const absolute = stats ? stats.mean + sign * stats.sigma * sigma : null;
 
   return (
     <div className="relative h-full w-full overflow-hidden rounded-md border bg-white dark:bg-zinc-950">
@@ -269,9 +309,19 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                 Contour
               </span>
               <span
-                className="rounded-md bg-teal-600/10 px-1.5 py-0.5 font-mono text-xs font-bold tabular-nums text-teal-700 dark:text-teal-300"
-                title={absolute != null ? `threshold = mean + σ·${sigma.toFixed(2)}` : undefined}
+                className={cn(
+                  "rounded-md px-1.5 py-0.5 font-mono text-xs font-bold tabular-nums",
+                  sign > 0
+                    ? "bg-teal-600/10 text-teal-700 dark:text-teal-300"
+                    : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                )}
+                title={
+                  absolute != null
+                    ? `threshold = mean ${sign > 0 ? "+" : "−"} σ·${sigma.toFixed(2)}`
+                    : undefined
+                }
               >
+                {sign > 0 ? "" : "−"}
                 {sigma.toFixed(2)} σ
               </span>
               {absolute != null ? (
@@ -297,6 +347,26 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                     {p}σ
                   </button>
                 ))}
+                {/* density sign flip — inverted maps need the negative side */}
+                <button
+                  type="button"
+                  onClick={() => setSign((s) => (s > 0 ? -1 : 1))}
+                  aria-pressed={sign < 0}
+                  aria-label="Flip contour to the negative density side"
+                  title={
+                    sign > 0
+                      ? "Contour on positive density — flip if the map is inverted (signal below the mean)"
+                      : "Contour on NEGATIVE density — flip back to positive"
+                  }
+                  className={
+                    "rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold transition-colors " +
+                    (sign < 0
+                      ? "bg-amber-500 text-white"
+                      : "bg-muted text-muted-foreground hover:bg-amber-500/20 hover:text-amber-700 dark:hover:text-amber-300")
+                  }
+                >
+                  −ρ / +ρ
+                </button>
               </div>
             </div>
             <Slider
@@ -308,9 +378,13 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
               aria-label="Isosurface contour level in sigma"
               className="mt-2.5"
             />
-            <div className="mt-1 flex items-center justify-between text-[10px] text-muted-foreground">
+            <div className="mt-1 flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
               <span className="font-mono">{SIGMA_MIN}σ</span>
-              <span className="hidden sm:inline">drag rotate · scroll zoom · right-drag pan</span>
+              <span className="hidden truncate sm:inline">
+                {invertedNote
+                  ? "inverted map detected — contouring the negative side"
+                  : "drag rotate · scroll zoom · right-drag pan"}
+              </span>
               <span className="font-mono">{SIGMA_MAX}σ</span>
             </div>
           </div>

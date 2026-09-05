@@ -160,7 +160,7 @@ export function ImportGallery({
 
       {/* lightbox */}
       <Dialog open={selected != null} onOpenChange={(open) => !open && setSelected(null)}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl sm:max-w-2xl">
           {selected && (
             <>
               <DialogHeader>

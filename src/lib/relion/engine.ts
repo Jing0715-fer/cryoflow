@@ -631,6 +631,10 @@ interface InputReq {
    *  autopick's 2D references are NOT needed in Laplacian-of-Gaussian
    *  (reference-free) mode, so the job can run straight after CTF. */
   skipIf?: (params: Record<string, unknown>) => boolean;
+  /** Best-effort requirement: a missing optional input never blocks the
+   *  run — it is simply absent from the resolved inputs (display-only
+   *  sources like select2d's class-averages gallery). */
+  optional?: boolean;
 }
 
 const INPUTS: Record<string, InputReq[]> = {
@@ -660,16 +664,22 @@ const INPUTS: Record<string, InputReq[]> = {
     { key: "coords_dir", accepts: ["coords_dir", "coords_star"], from: ["manualpick", "autopick"], label: "particle coordinates (run ManualPick/AutoPick first)" },
   ],
   select: [
-    { key: "particles_star", accepts: ["particles_star"], from: ["extract", "class2d", "select", "joinstar"], label: "particles.star (run Extract first)" },
+    { key: "particles_star", accepts: ["particles_star"], from: ["extract", "class2d", "select", "select2d", "joinstar"], label: "particles.star (run Extract first)" },
+  ],
+  select2d: [
+    { key: "particles_star", accepts: ["particles_star"], from: ["class2d", "select2d"], label: "classified particles STAR with _rlnClassNumber (run 2D Classification first)" },
+    // class averages only feed the selection GALLERY — missing stack must
+    // never block the run (older jobs may lack the output)
+    { key: "classes_mrc", accepts: ["classes_mrc"], from: ["class2d"], label: "2D class averages (gallery)", optional: true },
   ],
   class2d: [
-    { key: "particles_star", accepts: ["particles_star"], from: ["extract", "select", "class2d", "joinstar"], label: "particles.star (run Extract first)" },
+    { key: "particles_star", accepts: ["particles_star"], from: ["extract", "select", "select2d", "class2d", "joinstar"], label: "particles.star (run Extract first)" },
   ],
   initialmodel: [
-    { key: "particles_star", accepts: ["particles_star"], from: ["extract", "select", "class2d", "joinstar"], label: "particles.star (run Extract first)" },
+    { key: "particles_star", accepts: ["particles_star"], from: ["extract", "select", "select2d", "class2d", "joinstar"], label: "particles.star (run Extract first)" },
   ],
   class3d: [
-    { key: "particles_star", accepts: ["particles_star"], from: ["extract", "select", "class2d", "initialmodel"], label: "particles.star (run Extract first)" },
+    { key: "particles_star", accepts: ["particles_star"], from: ["extract", "select", "select2d", "class2d", "initialmodel"], label: "particles.star (run Extract first)" },
     // the reference MUST be a 3D map: initialmodel's VDAM model or class3d's
     // own 3D class volumes. class2d is deliberately absent — its classes are
     // 2D averages, and seeding a 3D refinement with them silently produced
@@ -678,12 +688,12 @@ const INPUTS: Record<string, InputReq[]> = {
     { key: "model_mrc", accepts: ["model_mrc", "classes_mrc"], from: ["initialmodel", "class3d"], label: "reference map (run InitialModel first)" },
   ],
   refine3d: [
-    { key: "particles_star", accepts: ["particles_star"], from: ["extract", "select", "class2d", "joinstar", "initialmodel"], label: "particles.star (run Extract first)" },
+    { key: "particles_star", accepts: ["particles_star"], from: ["extract", "select", "select2d", "class2d", "joinstar", "initialmodel"], label: "particles.star (run Extract first)" },
     // 3D reference only — never class2d's 2D averages (see class3d note)
     { key: "model_mrc", accepts: ["model_mrc", "classes_mrc"], from: ["initialmodel", "class3d"], label: "reference map (run InitialModel first)" },
   ],
   multibody: [
-    { key: "particles_star", accepts: ["particles_star"], from: ["extract", "select", "class2d"], label: "particles.star (run Extract first)" },
+    { key: "particles_star", accepts: ["particles_star"], from: ["extract", "select", "select2d", "class2d"], label: "particles.star (run Extract first)" },
     { key: "optimiser_star", accepts: ["optimiser_star"], from: ["refine3d", "class3d"], label: "optimiser.star (run Refine3D first)" },
   ],
   maskcreate: [
@@ -804,6 +814,8 @@ function resolveInputs(
       providers.push({ name: up.name ?? up.type, status: up.status ?? "idle" });
     }
     if (!resolved) {
+      // optional inputs degrade silently (gallery sources, previews)
+      if (req.optional) continue;
       // pick the most actionable blocker: a FAILED provider (re-run it)
       // beats a RUNNING one (transient wait) beats anything else
       const failed = providers.find((p) => p.status === "failed");
@@ -849,6 +861,7 @@ export const COMMAND_TEMPLATES: Record<string, string> = {
   autopick: "relion_autopick --i <micrographs.star> --odir <outdir>/ --pickname autopick [--LoG --LoG_diam_min <Å> --LoG_diam_max <Å> --LoG_adjust_threshold <t> | --ref <refs.mrc> --particle_diameter <dia> --threshold <thr> --lowpass <lp>]",
   extract: "relion_preprocess --i <micrographs_ctf.star> --coord_list <coords.star> --part_star <outdir>/particles.star --part_dir <outdir>/ --extract --extract_size <box> [--scale <down>] --norm --bg_radius <bgr> --white_dust 3 --black_dust -3",
   select: "engine-native: particle selection — class-aware occupancy pruning when input has _rlnClassNumber, else first-N",
+  select2d: "engine-native: 2D class selection — keep particles whose _rlnClassNumber is in the selected set (gallery picks or auto occupancy ≥ cutoff × best) → particles_select2d.star",
   class2d: "mpirun -n 2 relion_refine --i <particles.star> --o <outdir>/run --K <K> --tau2_fudge 1 --particle_diameter <dia> --ctf --pad 2 --iter <it> --flatten_solvent --zero_mask",
   initialmodel: "relion_refine --grad --denovo_3dref --i <particles.star> --o <outdir>/run --K <K> --particle_diameter <dia> --sym <sym> --ctf --iter <it> --flatten_solvent --zero_mask",
   class3d: "mpirun -n 2 relion_refine --i <particles.star> --ref <ref.mrc> --o <outdir>/run --K <K> --tau2_fudge 4 --particle_diameter <dia> --sym <sym> --ctf --pad 2 --iter <it> --flatten_solvent",
@@ -1417,6 +1430,148 @@ async function runSelectNative(job: EngineJobRef, upstream: UpstreamRef[]): Prom
     "",
   ].join("\n");
   recordNativeRun(job, workdir, "engine-native: particle selection (class-aware)", { particles_star: outStar }, result, logText);
+  return { ok: true, result };
+}
+
+/**
+ * Select2d: RELION "Subset selection" on 2D class averages, programmatic
+ * edition. The input is a Class2D run's per-iteration data STAR (every row
+ * carries _rlnClassNumber); the output keeps ONLY the rows whose class is
+ * selected — "auto" (occupancy ≥ cutoff × best class) or an explicit
+ * comma list driven by the class gallery in the job panel.
+ */
+async function runSelect2dNative(job: EngineJobRef, upstream: UpstreamRef[]): Promise<NativeResult> {
+  const resolved = resolveInputs("select2d", upstream);
+  if (resolved.missing) return { ok: false, error: resolved.missing, wait: resolved.wait };
+  const inStar = resolved.inputs.particles_star;
+
+  const workdir = workdirFor(job);
+  mkdirSync(workdir, { recursive: true });
+  const outStar = path.join(workdir, "particles_select2d.star");
+
+  // ---- selection expression -------------------------------------------
+  const rawSel = String((job.params as Record<string, unknown> | null)?.selectedClasses ?? "auto").trim();
+  const cutoff = Math.max(0, Math.min(1, num(job, "occupancyCutoff", 0.5)));
+  const explicit =
+    rawSel !== "auto" && rawSel !== ""
+      ? [...new Set(
+          rawSel
+            .split(/[,;\s]+/)
+            .map((s) => parseInt(s, 10))
+            .filter((n) => Number.isFinite(n) && n > 0)
+        )]
+      : [];
+
+  const text = readFileSync(inStar, "utf8");
+  const blocks = parseStarBlocks(text);
+  const outLines: string[] = [];
+  let total = 0;
+  let kept = 0;
+  const classStats: { cls: number; count: number; kept: boolean }[] = [];
+  let keep: Set<number> | null = null;
+  let mode = "";
+
+  for (const block of blocks) {
+    outLines.push(block.header, "");
+    const lines = block.lines;
+    const isParticles = lines.some((l) => l.trim().startsWith("_rlnImageName"));
+    if (!isParticles) {
+      for (const l of lines) outLines.push(l);
+      outLines.push("");
+      continue;
+    }
+    let i = 0;
+    while (
+      i < lines.length &&
+      (lines[i].trim() === "" ||
+        lines[i].trim() === "loop_" ||
+        lines[i].trim().startsWith("_rln") ||
+        lines[i].trim().startsWith("#"))
+    ) {
+      if (lines[i].trim() !== "") outLines.push(lines[i]);
+      i++;
+    }
+
+    const classCol = labelColumn(lines, i, "_rlnClassNumber");
+    if (classCol < 0) {
+      return {
+        ok: false,
+        error: `input STAR has no _rlnClassNumber column (${inStar}) — wire the 2D Classification job's particles output, not a raw Extract star`,
+      };
+    }
+
+    // occupancy per class
+    const counts = new Map<number, number>();
+    for (let r = i; r < lines.length; r++) {
+      const t = lines[r].trim();
+      if (!t) continue;
+      total++;
+      const cls = parseInt(t.split(/\s+/)[classCol] ?? "", 10);
+      if (Number.isFinite(cls) && cls > 0) counts.set(cls, (counts.get(cls) ?? 0) + 1);
+    }
+
+    // resolve the keep set once per run (single particles block in practice)
+    if (!keep) {
+      const available = [...counts.keys()].sort((a, b) => a - b);
+      if (explicit.length > 0) {
+        keep = new Set(explicit.filter((c) => counts.has(c)));
+        const missing = explicit.filter((c) => !counts.has(c));
+        if (keep.size === 0) {
+          return {
+            ok: false,
+            error: `selectedClasses lists ${explicit.join(", ")} but the classification only has classes ${available.join(", ")} — pick classes in the gallery first`,
+          };
+        }
+        mode = `manual ${keep.size} class${keep.size > 1 ? "es" : ""}${missing.length > 0 ? ` (ignored: ${missing.join(", ")})` : ""}`;
+      } else {
+        const maxCount = Math.max(0, ...counts.values());
+        keep = new Set([...counts.entries()].filter(([, n]) => n >= cutoff * maxCount).map(([c]) => c));
+        mode = `auto — occupancy ≥ ${cutoff}× best`;
+      }
+      for (const c of available) {
+        classStats.push({ cls: c, count: counts.get(c) ?? 0, kept: keep.has(c) });
+      }
+    }
+
+    for (let r = i; r < lines.length; r++) {
+      const t = lines[r].trim();
+      if (!t) continue;
+      const cls = parseInt(t.split(/\s+/)[classCol] ?? "", 10);
+      if (keep.has(cls)) {
+        outLines.push(t);
+        kept++;
+      }
+    }
+    outLines.push("");
+  }
+
+  if (total === 0) {
+    return { ok: false, error: `no particle rows found in ${inStar}` };
+  }
+
+  writeFileSync(outStar, outLines.join("\n") + "\n");
+  const keptClasses = classStats.filter((c) => c.kept).length;
+  const result = `${kept.toLocaleString()} of ${total.toLocaleString()} particles kept · ${keptClasses}/${classStats.length} classes (${mode})`;
+  const logText = [
+    `CryoFlow engine-native select2d ${new Date().toISOString()}`,
+    `input:  ${inStar} (${total} particles)`,
+    `mode:   ${mode}`,
+    "class occupancy (count · kept):",
+    ...classStats
+      .sort((a, b) => b.count - a.count)
+      .map((c) => `  class ${c.cls}: ${c.count} · ${c.kept ? "kept" : "PRUNED"}`),
+    `output: ${outStar} (${kept} particles)`,
+    result,
+    "",
+  ].join("\n");
+  recordNativeRun(
+    job,
+    workdir,
+    "engine-native: 2D class selection (gallery / occupancy)",
+    { particles_star: outStar },
+    result,
+    logText
+  );
   return { ok: true, result };
 }
 
@@ -2095,15 +2250,38 @@ function classDistributionFromData(
     const lines = text.split("\n");
     const classCol = labelColumn(lines, lines.length, "_rlnClassNumber");
     if (classCol < 0) return null;
+    // scope the row scan to the loop that OWNS _rlnClassNumber — the
+    // optics-group row above the particles loop ("1 optGroup1 300 …") would
+    // otherwise be counted as a particle of class parseInt("2.7") = 2
+    let headerEnd = -1;
+    let inLoop = false;
+    for (let i = 0; i < lines.length; i++) {
+      const t = lines[i].trim();
+      if (t === "loop_") {
+        inLoop = true;
+        continue;
+      }
+      if (t.startsWith("data_")) {
+        inLoop = false;
+        continue;
+      }
+      if (!inLoop || !t.startsWith("_")) continue;
+      if (t.startsWith("_rlnClassNumber")) {
+        headerEnd = i;
+        break;
+      }
+    }
+    if (headerEnd < 0) return null;
     const counts = new Map<number, number>();
     let total = 0;
-    for (const raw of lines) {
-      const t = raw.trim();
-      if (!t || t.startsWith("#") || t.startsWith("_") || t === "loop_" || t.startsWith("data_")) continue;
+    for (let r = headerEnd + 1; r < lines.length; r++) {
+      const t = lines[r].trim();
+      if (t === "loop_" || t.startsWith("data_")) break; // loop region over
+      if (!t || t.startsWith("#") || t.startsWith("_")) continue;
       const cells = t.split(/\s+/);
       if (cells.length <= classCol) continue;
       const cls = parseInt(cells[classCol], 10);
-      if (Number.isFinite(cls)) {
+      if (Number.isFinite(cls) && cls > 0) {
         counts.set(cls, (counts.get(cls) ?? 0) + 1);
         total++;
       }
@@ -2718,6 +2896,12 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
   }
   if (job.type === "select") {
     const r = await runSelectNative(job, upstream);
+    return r.ok
+      ? { ok: true, native: true, result: r.result }
+      : { ok: false, error: r.error, ...(r.wait ? { waiting: r.wait } : {}) };
+  }
+  if (job.type === "select2d") {
+    const r = await runSelect2dNative(job, upstream);
     return r.ok
       ? { ok: true, native: true, result: r.result }
       : { ok: false, error: r.error, ...(r.wait ? { waiting: r.wait } : {}) };

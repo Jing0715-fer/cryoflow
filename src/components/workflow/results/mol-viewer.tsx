@@ -41,9 +41,12 @@ interface MolViewerProps {
 export function MolViewer({ job, path, name, open, onOpenChange }: MolViewerProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      {/* near-page-width viewer: the map is the main event, not a thumbnail —
-          94vw up to 1500px, with the canvas flexing to the dialog height */}
-      <DialogContent className="flex h-[92vh] w-[94vw] max-w-[1500px] flex-col gap-0 p-0 sm:p-0">
+      {/* near-page-width viewer: the map is the main event, not a thumbnail.
+          NOTE the duplicated max-w with the sm: variant — shadcn's base
+          DialogContent carries sm:max-w-lg, and a media-query rule beats any
+          same-specificity base rule in the compiled CSS, so a plain
+          max-w-[…] would silently lose to 512 px on every desktop. */}
+      <DialogContent className="flex h-[92vh] w-[94vw] max-w-[min(1500px,94vw)] flex-col gap-0 p-0 sm:max-w-[min(1500px,94vw)] sm:p-0">
         <DialogHeader className="shrink-0 px-6 pt-5 pb-3">
           <DialogTitle className="flex items-center gap-2 text-sm">
             <Box className="h-4 w-4 shrink-0 text-teal-600" aria-hidden="true" />

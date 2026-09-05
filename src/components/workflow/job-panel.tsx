@@ -39,6 +39,7 @@ import {
 } from "lucide-react";
 import { PORT_COLORS, coerceParam, jobType, portsCompatible, tabsFor } from "@/lib/workflow";
 import { registerParamFlusher, useWorkflowStore } from "@/lib/store";
+import { ClassGallery } from "./class-gallery";
 import type {
   EdgeDTO,
   JobDTO,
@@ -452,7 +453,7 @@ function ParamField({
   idPrefix: string;
 }) {
   const inputId = `${idPrefix}-${p.key}`;
-  const wide = p.type === "select" || p.type === "bool" || p.type === "path";
+  const wide = p.type === "select" || p.type === "bool" || p.type === "path" || p.type === "text";
 
   return (
     <div className={cn("space-y-1.5", wide && "col-span-2")}>
@@ -473,6 +474,24 @@ function ParamField({
         </div>
       ) : p.type === "path" ? (
         <PathParamField p={p} value={value} onChange={onChange} idPrefix={idPrefix} />
+      ) : p.type === "text" ? (
+        <>
+          <Label htmlFor={inputId} className="text-xs" title={p.hint}>
+            {p.label}
+          </Label>
+          <Input
+            id={inputId}
+            type="text"
+            value={value === undefined || value === null ? "" : String(value)}
+            title={p.hint}
+            placeholder={String(p.default)}
+            onChange={(e) => onChange(e.target.value)}
+            className="h-8 font-mono text-xs"
+          />
+          {p.hint && (
+            <p className="text-[10px] leading-snug text-muted-foreground">{p.hint}</p>
+          )}
+        </>
       ) : p.type === "number" ? (
         <>
           <Label htmlFor={inputId} className="text-xs" title={p.hint}>
@@ -755,6 +774,16 @@ function ParamsTab({ job, spec }: { job: JobDTO; spec: JobTypeSpec | undefined }
         return (
           <TabsContent key={t} value={t} className="mt-0 min-h-0 flex-1 overflow-y-auto">
             <div className="p-3">
+              {/* 2D class selection: the gallery IS the parameter — clicks
+                  rewrite selectedClasses through the same debounced save */}
+              {spec?.key === "select2d" && t === allTabs[0] && (
+                <ClassGallery
+                  job={job}
+                  value={String(form.selectedClasses ?? "auto")}
+                  cutoff={typeof form.occupancyCutoff === "number" ? form.occupancyCutoff : 0.5}
+                  onChange={(next) => setForm((f) => ({ ...f, selectedClasses: next }))}
+                />
+              )}
               <div className="grid grid-cols-2 gap-3">
                 {basic.map((p) => (
                   <ParamField

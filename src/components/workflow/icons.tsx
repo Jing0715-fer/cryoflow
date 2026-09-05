@@ -25,6 +25,7 @@ import {
   FolderOpen,
   Gauge,
   Gem,
+  Grid2x2Check,
   LayoutGrid,
   Layers,
   ListFilter,
@@ -70,6 +71,8 @@ export function TypeIcon({
       return <Boxes className={className} aria-hidden="true" />;
     case "Gem":
       return <Gem className={className} aria-hidden="true" />;
+    case "Grid2x2Check":
+      return <Grid2x2Check className={className} aria-hidden="true" />;
     case "Combine":
       return <Combine className={className} aria-hidden="true" />;
     case "CircleDot":

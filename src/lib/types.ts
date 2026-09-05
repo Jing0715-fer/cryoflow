@@ -87,7 +87,7 @@ export interface ProjectSummaryDTO {
 /** Parameters are numbers, enum strings, booleans or filesystem paths. */
 export type ParamValue = number | string | boolean;
 
-export type ParamType = "number" | "select" | "bool" | "path";
+export type ParamType = "number" | "select" | "bool" | "path" | "text";
 
 export interface ParamSchema {
   key: string;

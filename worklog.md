@@ -1207,3 +1207,30 @@ Stage Summary:
 - 用户三诉求闭环：①Windows log 根因（wsl.exe stdio 转发不可靠）→ bash 块内重定向修复，bash 诊断/命令输出/进度解析三链路全不再依赖句柄转发 ②EMPIAR 全链真跑暴露并修复第六个真实 bug（2D averages 误当 3D 参考）③画布三档自适应轮询 + 详情头部两行式重构
 - 全链战绩：import→CTF→LoG(3438)→extract(3439)→select→class2d(10类)→initialmodel(D2 VDAM)→refine3d(跑)→postprocess(待)；前 7 段全绿
 - 遗留：refine3d 后台完成 + maskcreate/postprocess 重跑换 refined 掩膜 + FSC 记录（cron 接力）
+
+---
+Task ID: 9
+Agent: main (Z.ai Code)
+Task: 用户四诉求——①核对 Win 本机 autopick→extract 断链问题是否仍存在+查远程丢失 commit ②3D 预览窗口宽度 ③3D 负密度问题 ④2D 分类后缺"选 2D class"步骤（设计新 job）
+
+Work Log:
+- 【①远程核对】git fetch + status：本地与 origin/main 完全同步（最新 a10d957），无丢失/未推送 commit
+- 【①用户贴的本机问题核对】用户本机会话发生在旧代码（3a967be 之前）：旧 extract builder 无 --coord_dir → 1 particle；当前代码已有三分支解析（manualpick 目录 .coord / combined autopick.star / per-mic _autopick.star，--coord_dir <ap workdir> --coord_suffix _autopick.star，与 RELION 官方 wiring 一致）+ collectOutputs 输出 coords_star + INPUTS.extract accepts——commit 3a967be 已全部落地且沙箱真实全链验证过（3439 particles）。autopick.star 的 _rlnMicrographName 相对路径是设计使然：引擎所有 job 以 cwd=projectDir 运行 + projectDir/micrographs 链接解析相对路径；用户手动跑命令时 cd 错目录才踩坑。用户本机 CPU 250s/POST 卡死是本地 Turbopack 编译问题（POST 处理器无阻塞操作）
+- 【②根因·sm:max-w-lg 覆盖】shadcn DialogContent 基类带 sm:max-w-lg（媒体查询规则在编译 CSS 中后置）→ 覆盖任何同级 max-w-[...] → Mol* 3D 对话框在桌面端实际只有 512px。修复：mol-viewer.tsx 用 max-w-[min(1500px,94vw)] + sm:max-w-[min(1500px,94vw)] 双写（镜像 inspector 已验证模式）；results-view/picks-map/particle-browser/ctf-quality-chart/import-gallery 五处 max-w-* 全部补 sm: 变体。浏览器实测：3D 对话框 1500px、图片预览 672px（旧 512px）
+- 【③负密度】molstar-embed 升级：GridStats 捕获 min/max/mean/sigma；isInvertedStats（-min>2×max，镜像 mrc.ts stretchToGray 启发式）自动翻转 sign；−ρ/+ρ 手动翻转按钮；σ 读数带符号；"inverted map detected" 提示。浏览器实测 VDAM initialmodel map 确实反相——自动切到 −2σ 并渲染出正确等值面（VLM 确认：橙色实心 3D 形状、宽画布、无渲染问题）；手动翻转 −2σ↔+2σ 验证通过。2D 类平均图的反相早已修复（2caa638 stretchToGray）
+- 【④select2d 新 job——RELION Subset Selection 的程序化等价物】
+  - workflow.ts：spec select2d（category class2d、icon Grid2x2Check、tier core 引擎原生）+ txt 参数 helper；params：selectedClasses（text，"auto" 或 "1,2,5"）+ occupancyCutoff（0.5）
+  - types.ts：ParamType 增加 "text"；coerceParam/ParamField/wide 布局适配（等宽字体输入框 + hint）
+  - engine.ts：InputReq 新增 optional（缺失不阻塞运行——select2d 的 classes_mrc 只是 gallery 源）；INPUTS.select2d 双请求（particles_star 硬性 from class2d/select2d；classes_mrc optional）；runSelect2dNative（解析 selectedClasses/auto/occupancy cutoff → 逐类计数 → 显式列表越界诚实报错（带可用类列表）/部分重叠忽略提示 → 写 particles_select2d.star + 逐类 kept/PRUNED 日志）；runRealJob 分发 + COMMAND_TEMPLATES；下游 select/class2d/initialmodel/class3d/refine3d/multibody 的 from 列表全部加 "select2d"
+  - classes API：响应新增 classesFile（run_unmasked_classes.mrcs 优先，回退最新 run_itXXX_classes.mrcs）+ classesSlices——gallery 缩略图直接经 outputs/file?slice=N-1 渲染
+  - 【连带修复·第七个真实 bug】classes API 与 classDistributionFromData 把 optics 行（"1 optGroup1 300 2.7 …"）当粒子计入：classCol=3 时 cells[3]="2.700000"→parseInt=2，class 2 虚增 1、total 3439（真实 3438）。修复：行扫描限定在 _rlnClassNumber 所在 loop 的行区域（labelLineIndex 定位 label 行，从其后扫到下一个 loop_/data_）
+  - class-gallery.tsx（新组件）：10 类缩略图网格（点击切换 ✓）+ 逐类计数/占比/occupancy 条 + Auto/All/None + 页脚实时统计（选中粒子数/百分比）；点击写 form.selectedClasses 走既有 700ms 防抖自动保存；auto 模式下点击从 auto 集起步进手动（RELION subset display 手感）；空态/运行中/未接线三态引导
+- 【E2E·真实引擎】EMPIAR 项目接入 select2d（class2d 双输出端口连线）：auto 模式 → completed "1,454 of 3,438 · 2/10 classes (auto — occupancy ≥ 0.5× best)"；手动 "2,4,10" → 1,839（385+516+938）；"99" → 诚实 failed 带可用类列表；"1,99" → 141 kept + ignored 99；仅连 particles（optional 缺 gallery 源）→ 正常完成；最终留 auto 态
+- 【浏览器 QA】①调色板 "2D CLASSIFICATION 2"（class2d+select2d）②panel Params→Classes tab：gallery 10 缩略图全渲染（VLM 确认灰度分子形状、无破图）、✓ 标记 class 4/10、footer "1,454/3,438 (42%)" ③点 class 7 → "4,7,10" 1920 粒子 → DB 落库 ✓ → Auto 还原 ✓ → Run → completed ④3D：inspect initialmodel → Results → Enlarge → View in 3D → 1500px 宽 + 负密度自动检测 + 手动翻转 ✓ ⑤console 0 error、页脚贴底、移动端 390px 烟雾测试通过 ⑥lint 0 错误、tsc src 0 错误
+- 【运维】dev server 两次被沙箱回收（无错误日志，Turbopack HMR 后窗口期）——double-fork 重启恢复；refine3d detached mpirun 全程存活（重启零影响）；旧 4 个 cron 因限额禁用已清理，新建 v5（带 select2d/负密度/宽度修复上下文 + refine3d 完成后接力指引）
+
+Stage Summary:
+- 用户四诉求全部闭环：①Win 问题已全部修复于 3a967be（用户 git pull 即得，远程无丢失 commit）②3D 预览 512px→1500px（sm:max-w-lg 覆盖根因，六个 dialog 一并修复）③3D 负密度：自动检测 + 手动翻转落地，VDAM 反相 map 实测渲染正确 ④select2d 作业类型完整落地（schema/引擎/gallery UI/下游接线/真实数据 E2E）
+- 连带修复第七个真实 bug：optics 行误计入 class 分布（classes API + 引擎 classDistributionFromData），class2d 以后报 3,438 而非虚高的 3,439
+- EMPIAR 主线：11 作业，refine3d 47% 运行中（detached 存活），postprocess pending 自动接力；refine3d 完成后按 cron v5 指引重跑 maskcreate/postprocess 并记录 FSC
+- 遗留：Topaz wrapper、refine3d 后台完成后的 FSC 记录（cron 接力）、3D viewer 可再加体积截面工具（后续轮）
