@@ -59,8 +59,18 @@ if (!script.includes("'/mnt/c/Users/me/cryoflow/data/relion/proj/class2d_abc/par
 if (!script.includes("'8'")) { fails++; console.log("✗ numeric arg kept"); } else console.log("✓ numeric arg kept");
 console.log("--- script ---\n" + script + "\n--- display ---\n" + wrapped.display);
 
-// stop args
-eq("stop args", wslStopArgs("C:\\Users\\me\\cryoflow\\data\\relion\\proj\\class2d_abc", bridge), ["-d", "Debian", "-e", "pkill", "-f", "--", "/mnt/c/Users/me/cryoflow/data/relion/proj/class2d_abc"]);
+// stop args (distro-name form — stopRun parses the distro from the RECORD)
+eq("stop args", wslStopArgs("C:\\Users\\me\\cryoflow\\data\\relion\\proj\\class2d_abc", "Debian"), ["-d", "Debian", "-e", "pkill", "-f", "--", "/mnt/c/Users/me/cryoflow/data/relion/proj/class2d_abc"]);
+eq("stop args no distro", wslStopArgs("C:\\a\\b", null).includes("-d"), false);
+
+// record-based bridge detection (stopRun regex on the wrapped display cmd)
+const disp = "wsl -d Debian -- bash -c cd '/mnt/d/x' || exit 111; exec '/home/u/rel/bin/relion_refine'";
+const rm = disp.match(/^wsl(?: -d (\S+))? -- bash -c /);
+eq("record bridge distro", rm?.[1], "Debian");
+const rm2 = "wsl -- bash -c exec /x".match(/^wsl(?: -d (\S+))? -- bash -c /);
+eq("record bridge default distro", rm2?.[1] ?? null, null);
+const rm3 = "/home/z/relion-install/bin/relion_refine --i x".match(/^wsl(?: -d (\S+))? -- bash -c /);
+eq("record bridge native null", rm3, null);
 
 // no-distro variant: omit -d
 const bridge2 = { ...bridge, distro: null };

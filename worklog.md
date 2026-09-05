@@ -1082,3 +1082,24 @@ Stage Summary:
 - reconcile 现语义:pid 活→进度推导;pid 死+原子产物在→自动完结+下游自启;pid 死+无产物→interrupted;done+exit0→completed
 - 用户本机预期:git pull 后重跑 CTF,任务应保持 running(进度随日志推进)→ 完成后正常 completed;若中途 dev-server 重载,任务仍自动完结不丢
 - 未动:EMPIAR 重跑、3D 预览加宽、历史遗留 UI 项
+
+---
+Task ID: 3
+Agent: main (Z.ai Code)
+Task: 用户要求「全面审查代码,完全兼容 Windows 平台」——系统性排查同类 Unix-only 盲区
+
+Work Log:
+- 全库扫描:/proc、which、bash、信号、路径分隔符、/tmp、chmod、fs.watch、withFileTypes、process.kill、win32 分支;覆盖 engine/system/wsl-bridge/dispatch/glob/pathref/全部 API 路由
+- 审计结论(Windows 感知良好,无需改):pathref.ts(hardlink→symlink→绝对路径三级降级+marker)、importFileSet(hostToWsl 翻译)、linkDirInto(win32 junction)、glob.ts(UNC/盘符/大小写不敏感/userPathToHost)、fs/browse(win32 分支)、verifyBridgeTarget、locateWslExe(win32 短路)、dispatch(纯 DB)、starfile(纯文本)、system which()(ENOENT 优雅 null)、descendantsOf(catch 返回 [])
+- 修复 1【stopRun 桥接判定脱钩实时检测】:原逻辑 `!existsSync(/proc/pid) && pidAlive(pid)` + bridgeFromStatus(await detectRelion()) —— Windows 上检测失败/刷新中时 stop 返回 "no live process" 无法停止运行中任务。现改为从 record.cmd 正则解析(display 恒以 `wsl -d <distro> -- bash -c` 开头),纯凭事实来源停任务;wslStopArgs 签名改为 (workdir, distro)。原 /proc 组合条件在 Linux 恒 false(死代码),语义不变
+- 修复 2【Windows native 兜底停止】:tree=[](无 /proc)但 pidAlive 且 win32 → process.kill() 直接终止(Windows 上无条件终止语义);SIGTERM 宽限窗与 SIGKILL 循环的存活检查从裸 /proc 换 pidAlive(Linux 上等价、Windows 上可用)
+- 修复 3【externalOnPath WSL 分支】:原版 existsSync(distro 内 POSIX 路径)在 Windows 恒 false + execFile("which") Windows 无此命令 → motioncorr/dynamight/modelangelo/tomo_denoise/tomo_picks 五类外部程序在 WSL 桥接下永远 "not found"(即使 distro 里装了)。现 bridge 存在时用 `wsl.exe -e bash -lc 'command -v <n> || test -x <binDir>/<n> && printf'` 在 distro 内解析;五个调用处全部传 ctx.bridge
+- 修复 4【relionEnv PATH 分隔符】:join(":") 硬编码 → path.delimiter(Windows ";",Linux ":" 不变;LD_LIBRARY_PATH 保持 ":"——Linux 独有概念)
+- 修复 5:scripts/diag-wsl-bridge.ts 适配新签名 + 新增 4 个回归用例(stop args distro 形式、无 distro、record 桥接正则:有/无 distro/native null)
+- 验证:①diag-wsl-bridge 32/32 ALL PASS(路径翻译/引号/包装/停止参数/record 正则全覆盖)②lint 0 错误、tsc src 0 错误 ③重启后 GET / 200、console 0 error、dev.log 0 错误 ④stop API 对 completed job 正确拒绝 "Job is not running" ⑤ctffind 重跑全链路无回归(completed, 11 micrographs, 孤儿完结/collectOutputs/路径链完好)
+
+Stage Summary:
+- Windows 兼容矩阵收敛:执行(spawn 桥接✓)、检测(前两轮修)、停止(本轮修)、外部程序解析(本轮修)、reconcile(上轮修)、import/pathref(原已完善)
+- 用户本机影响最直接的两个:①stop 按钮现在纯凭 record 停任务,不再依赖检测状态 ②WSL 里装了 motioncor2 的用户终于能跑 motioncorr(原来恒报 not found)
+- 测试策略:平台差异无法在 Linux 沙箱直接覆盖 Windows 分支,用纯函数 diag(正则/签名/翻译)+ Linux 等价路径回归(ctffind E2E)双层验证
+- 未动:EMPIAR 重跑、3D 预览加宽、历史遗留 UI 项

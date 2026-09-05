@@ -153,11 +153,16 @@ export function wrapWslCommand(
  * Best-effort stop command for processes the bridge left inside the distro:
  * pkill -f matches the RELION argv (which always embeds the translated
  * workdir via --o / --i), so this reaches mpirun and every rank.
+ *
+ * Takes the distro NAME (not a full bridge) so the engine can stop a run
+ * from its RECORD alone — the wrapped command embeds "wsl -d <distro>" —
+ * without depending on the live detection state (which may be mid-refresh
+ * or failed exactly when a stop is needed).
  */
-export function wslStopArgs(workdir: string, bridge: WslBridge): string[] {
+export function wslStopArgs(workdir: string, distro: string | null): string[] {
   const pattern = hostToWsl(workdir);
   const args: string[] = [];
-  if (bridge.distro) args.push("-d", bridge.distro);
+  if (distro) args.push("-d", distro);
   args.push("-e", "pkill", "-f", "--", pattern);
   return args;
 }

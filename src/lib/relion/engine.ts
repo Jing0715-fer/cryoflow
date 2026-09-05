@@ -268,35 +268,51 @@ export async function stopRun(jobId: string): Promise<{ stopped: boolean; messag
   // mpirun/rank tree has no /proc entries on Windows. Kill the host session
   // AND pkill the distro side by the translated workdir (always embedded in
   // the RELION argv via --o / --i), so no orphan keeps writing checkpoints.
-  if (pid != null && state?.workdir && !existsSync(`/proc/${pid}`) && pidAlive(pid)) {
-    const bridge = bridgeFromStatus(await detectRelion());
-    if (bridge) {
-      try {
-        process.kill(pid);
-      } catch {
-        /* already gone */
-      }
-      execFile("wsl.exe", wslStopArgs(state.workdir, bridge), { timeout: 5000 }, () => {
-        /* best effort — pkill exits non-zero when nothing matched */
-      });
-      if (!child) {
-        const runs = readRuns();
-        const rec = runs[jobId];
-        if (rec && rec.done === false) {
-          runs[jobId] = { ...rec, done: true, exitCode: -1, result: "stopped by user (WSL bridge)" };
-          writeRuns(runs);
-        }
-      }
-      return {
-        stopped: true,
-        message: `stopped WSL session pid ${pid} (pkill sent inside ${bridge.distro ?? "default distro"})`,
-      };
+  //
+  // BRIDGE-NESS COMES FROM THE RECORD, not from the live detection state:
+  // the wrapped display command starts with "wsl" / "wsl -d <distro> --" —
+  // relying on detectRelion() here made stopping impossible exactly when
+  // detection was stale/failed while the job kept running.
+  const bridged =
+    state?.cmd?.match(/^wsl(?: -d (\S+))? -- bash -c /) ?? null;
+  if (pid != null && state?.workdir && pidAlive(pid) && bridged) {
+    const distro = bridged[1] ?? null;
+    try {
+      process.kill(pid);
+    } catch {
+      /* already gone */
     }
+    execFile("wsl.exe", wslStopArgs(state.workdir, distro), { timeout: 5000 }, () => {
+      /* best effort — pkill exits non-zero when nothing matched */
+    });
+    if (!child) {
+      const runs = readRuns();
+      const rec = runs[jobId];
+      if (rec && rec.done === false) {
+        runs[jobId] = { ...rec, done: true, exitCode: -1, result: "stopped by user (WSL bridge)" };
+        writeRuns(runs);
+      }
+    }
+    return {
+      stopped: true,
+      message: `stopped WSL session pid ${pid} (pkill sent inside ${distro ?? "default distro"})`,
+    };
   }
 
   const tree = pid != null && existsSync(`/proc/${pid}`) ? [pid, ...descendantsOf(pid)] : [];
 
   if (tree.length === 0) {
+    // Windows native fallback: no /proc tree exists, but the pid is alive
+    // (a non-bridged record on a win32 host). process.kill() terminates
+    // unconditionally there — no graceful SIGTERM, but the job stops.
+    if (pid != null && pidAlive(pid) && process.platform === "win32") {
+      try {
+        process.kill(pid);
+      } catch {
+        /* raced away */
+      }
+      return { stopped: true, message: `stopped pid ${pid} (Windows terminate)` };
+    }
     return { stopped: false, message: "no live process for this job" };
   }
 
@@ -308,14 +324,14 @@ export async function stopRun(jobId: string): Promise<{ stopped: boolean; messag
     }
   }
   // graceful window: RELION ranks exit on SIGTERM, mpirun reaps them
-  const deadline = Date.now() + 5000;
-  while (Date.now() < deadline) {
+  const graceDeadline = Date.now() + 5000;
+  while (Date.now() < graceDeadline) {
     await new Promise((r) => setTimeout(r, 250));
-    if (!tree.some((p) => existsSync(`/proc/${p}`))) break;
+    if (!tree.some((p) => pidAlive(p))) break;
   }
   let killed = 0;
   for (const p of tree) {
-    if (existsSync(`/proc/${p}`)) {
+    if (pidAlive(p)) {
       try {
         process.kill(p, "SIGKILL");
         killed += 1;
@@ -353,7 +369,9 @@ export function relionEnv(binDir: string): NodeJS.ProcessEnv {
   const libParts = [MPICH_LIB, FFTW_LIB].filter((p) => existsSync(p));
   const env: NodeJS.ProcessEnv = {
     ...process.env,
-    PATH: pathParts.join(":") + ":" + (process.env.PATH ?? ""),
+    // path.delimiter (";" on Windows, ":" on POSIX) — a hardcoded ":" would
+    // corrupt PATH on native Windows runs
+    PATH: pathParts.join(path.delimiter) + path.delimiter + (process.env.PATH ?? ""),
     RELION_HOME: binDir.replace(/\/bin\/?$/, ""),
   };
   // relion_run_ctffind does NOT search PATH — it needs an explicit executable
@@ -1387,16 +1405,50 @@ function outPath(ctx: BuildCtx, name: string): string {
   return path.join(ctx.workdir, name);
 }
 
-async function externalOnPath(binDir: string, names: string[]): Promise<string | null> {
+/**
+ * Resolve an external program executable.
+ *  - native installs: bin dir first, then the host PATH (`which`)
+ *  - WSL-bridged installs: the bin dir and PATH live INSIDE the distro —
+ *    host existsSync/`which` cannot see them (and `which` does not exist on
+ *    Windows at all) — so ask the distro itself with `command -v`.
+ */
+async function externalOnPath(
+  binDir: string,
+  names: string[],
+  bridge: WslBridge | null
+): Promise<string | null> {
   for (const n of names) {
-    if (existsSync(path.join(binDir, n))) return path.join(binDir, n);
-    const found = await new Promise<string | null>((resolve) => {
-      execFile("which", [n], { timeout: 2000 }, (err, stdout) => {
-        const out = String(stdout ?? "").trim();
-        resolve(!err && out.includes("/") ? out : null);
+    if (bridge) {
+      // distro-side lookup — one wsl.exe call per name
+      try {
+        const args: string[] = [];
+        if (bridge.distro) args.push("-d", bridge.distro);
+        const q = binDir.replace(/'/g, "'\\''");
+        const nm = n.replace(/'/g, "'\\''");
+        args.push(
+          "-e", "bash", "-lc",
+          `command -v '${nm}' 2>/dev/null || { test -x '${q}'/'${nm}' && printf '%s' '${q}/${n}'; } || true`
+        );
+        const found = await new Promise<string>((resolve) => {
+          execFile("wsl.exe", args, { timeout: 4000, windowsHide: true }, (err, stdout) => {
+            const out = String(stdout ?? "").trim();
+            resolve(!err && out.startsWith("/") ? out : "");
+          });
+        });
+        if (found) return found;
+      } catch {
+        /* distro unreachable — the honest not-found error below */
+      }
+    } else {
+      if (existsSync(path.join(binDir, n))) return path.join(binDir, n);
+      const found = await new Promise<string | null>((resolve) => {
+        execFile("which", [n], { timeout: 2000 }, (err, stdout) => {
+          const out = String(stdout ?? "").trim();
+          resolve(!err && out.includes("/") ? out : null);
+        });
       });
-    });
-    if (found) return found;
+      if (found) return found;
+    }
   }
   return null;
 }
@@ -1582,7 +1634,7 @@ async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: string }> {
     }
 
     case "motioncorr": {
-      const mc2 = await externalOnPath(binDir, ["motioncor2", "MotionCor2"]);
+      const mc2 = await externalOnPath(binDir, ["motioncor2", "MotionCor2"], ctx.bridge);
       if (!mc2) {
         return {
           error:
@@ -1658,7 +1710,7 @@ async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: string }> {
     }
 
     case "dynamight": {
-      const exe = await externalOnPath(binDir, ["relion_python_dynamight", "dynamight"]);
+      const exe = await externalOnPath(binDir, ["relion_python_dynamight", "dynamight"], ctx.bridge);
       if (!exe) {
         return { error: "DynaMight requires python + torch (relion_python_dynamight not found on PATH)" };
       }
@@ -1675,7 +1727,7 @@ async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: string }> {
     }
 
     case "modelangelo": {
-      const exe = await externalOnPath(binDir, ["model_angelo", "modelangelo"]);
+      const exe = await externalOnPath(binDir, ["model_angelo", "modelangelo"], ctx.bridge);
       if (!exe) {
         return { error: "ModelAngelo requires a python environment with model_angelo installed (not found on PATH)" };
       }
@@ -1808,7 +1860,7 @@ async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: string }> {
     }
 
     case "tomo_denoise": {
-      const exe = await externalOnPath(binDir, ["relion_python_tomo_denoise"]);
+      const exe = await externalOnPath(binDir, ["relion_python_tomo_denoise"], ctx.bridge);
       if (!exe) {
         return { error: "cryoCARE requires a python environment (relion_python_tomo_denoise not found on PATH)" };
       }
@@ -1823,7 +1875,7 @@ async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: string }> {
     }
 
     case "tomo_picks": {
-      const pick = await externalOnPath(binDir, ["relion_python_tomo_pick"]);
+      const pick = await externalOnPath(binDir, ["relion_python_tomo_pick"], ctx.bridge);
       if (!pick) {
         return { error: "Napari picking requires a python environment (relion_python_tomo_pick not found on PATH)" };
       }
