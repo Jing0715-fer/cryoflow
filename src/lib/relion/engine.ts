@@ -2685,7 +2685,8 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
  * selected install — the classic incomplete-RELION / stale-distro-path case).
  */
 export function describeExitCode(code: number): string {
-  if (code === 127) return "command not found — the executable is missing from the selected RELION install (Re-detect or switch installs in the top bar)";
+  if (code === 127)
+    return "command not found — the executable (or a shared library it needs) is missing from the selected RELION install (Re-detect or switch installs in the top bar)";
   if (code === 126) return "command found but not executable (check permissions)";
   if (code === 111) return "WSL bridge could not enter the job directory inside the distro";
   if (code === 139) return "segmentation fault (SIGSEGV)";
@@ -2712,6 +2713,18 @@ function failureResult(state: RunRecord, exitCode: number): string {
   const parts: string[] = [`exit ${exitCode}${meaning ? ` (${meaning})` : ""}`];
   const detail = errTail || outTail;
   if (detail) parts.push(detail);
+  // 127 with EMPTY logs: wsl.exe sometimes exits without relaying the
+  // distro's stderr — name the exact exec target (parsed from the wrapped
+  // command) so the user can still pin it down: missing → stale saved
+  // install, present → missing shared library (ldd shows which).
+  if (exitCode === 127 && !detail) {
+    const m = state.cmd.match(/exec '([^']+)'/);
+    if (m) {
+      parts.push(
+        `exec target was ${m[1]} — verify inside the distro (missing → the saved install is stale, press Re-detect in the top bar; present → run ldd ${m[1]} there to find the missing shared library)`
+      );
+    }
+  }
   const cmd = state.cmd.length > 160 ? state.cmd.slice(0, 160) + "…" : state.cmd;
   parts.push(`command: ${cmd}`);
   parts.push(`logs: ${state.errFile} + ${state.logFile}`);

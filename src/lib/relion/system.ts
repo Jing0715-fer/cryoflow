@@ -545,13 +545,24 @@ async function probeWsl(): Promise<WslProbe> {
     "/home/*/relion*/bin /home/*/myproject/relion*/bin /home/*/my-project/relion*/bin",
     "/home/*/src/relion*/bin /home/*/relion-build/*/bin",
     "; do",
-    'test -x "$d/relion_refine" -o -x "$d/relion_refine_mpi" && echo "$d"',
+    // each statement MUST end with ";" before "done" — without it the final
+    // "done" is eaten by echo as a plain word, bash reports "unexpected end
+    // of file", and the whole filesystem search silently returns nothing
+    'test -x "$d/relion_refine" -o -x "$d/relion_refine_mpi" && echo "$d";',
     "done; true",
   ].join(" ");
   const hits = await wslBash(wslPath, searchScript, false, 15000);
   for (const line of hits.split("\n")) {
     const t = line.trim();
     if (t.startsWith("/") && found.size < 12) addHit(t, "filesystem search");
+  }
+  // probe-script breakage must never be silent again: bash syntax errors
+  // land in stderr, wslBash returns it, and the "/"-filter above would drop
+  // it — log it so dev.log shows WHY the search found nothing
+  if (hits && !hits.split("\n").some((l) => l.trim().startsWith("/"))) {
+    if (/syntax error|not found|permission denied/i.test(hits)) {
+      console.error("relion/system: WSL filesystem-search probe failed:", hits.slice(0, 300));
+    }
   }
 
   // 3. none found → honest, actionable guidance (NOT "WSL unavailable")
@@ -586,7 +597,9 @@ async function probeWsl(): Promise<WslProbe> {
     const toolsScript = [
       `echo M:$(command -v mpirun 2>/dev/null || command -v mpiexec 2>/dev/null || true)`,
       `echo B:$(test -x '${q}'/relion_refine_mpi && echo yes || echo no)`,
-      `echo C:$(command -v ctffind 2>/dev/null || test -x '${q}'/ctffind 2>/dev/null || true)`,
+      // the bin-dir fallback must PRINT the path (test -x alone is silent →
+      // ctffind living only in RELION's bin dir was reported as missing)
+      `echo C:$(command -v ctffind 2>/dev/null || { test -x '${q}'/ctffind && printf '%s' '${q}/ctffind'; } || true)`,
     ].join("; ");
     const toolsOut = await wslBash(wslPath, toolsScript, true, 8000);
     let mpirunPath: string | null = null;
@@ -883,6 +896,12 @@ async function runProbe(): Promise<RelionStatus> {
       let present = (await which(name, 2000)) !== null;
       if (!present && dir) {
         present = existsSync(path.join(dir, name));
+      }
+      // ctffind: the selected install may resolve a bundled deps copy
+      // (resolveNativeCtffind: PATH → bin dir → deps) that the engine
+      // actually passes to CTF jobs — the panel must not contradict it
+      if (!present && name === "ctffind" && selected?.ctffindPath) {
+        present = true;
       }
       externals.push({ name, present });
     }

@@ -1042,3 +1042,24 @@ Stage Summary:
 - 用户两点全闭环：①检测信息持久化=完整快照文件+冷启动秒回+后台静默复核+失败时保留已存安装（WSL 冷启动 25s 重试+无法证伪保留语义）——「打开不再重新检测」「突然检测不到不再丢」②参数实时保存=700ms 防抖+四态状态条+卸载/Run 前 flush 双保险——「没有手动 Save 步骤可忘记」
 - 架构要点：SWR（调用方永不阻塞）+ probeLock（探测去重）+ merge 语义（native 磁盘证伪/WSL 无响应不可证伪）三层；paramFlushers 注册表是 Run 与防抖的幂等锚点
 - 【给后续 cron 轮】①EMPIAR 主线管线仍未重跑（empiar-seed→RESTORE.md 参数→advance.sh）②内存红线 3.5GB 不变③用户本机拉取后：重开应用应见 saved 徽标→自动消失；WSL 挂掉时安装列表应出现 saved 标记的 cached 安装④候选增强：per-install binaries 快照（切换 cached 安装时更完整）、快照文件年龄展示
+
+---
+Task ID: 1
+Agent: main (Z.ai Code)
+Task: 修复用户报告的 WSL 探测脚本 bash 语法错误(检测不到 RELION 的根因)+ CTF exit 127 诊断链
+
+Work Log:
+- 用户报告:CTF job exit 127(空 stderr 尾巴)+ 用户自行定位 system.ts:548 探测脚本 for 循环缺分号
+- git 考古确认:49c7180 初版为 `&& { echo "$d"; exit 0; }`(语法正确);3baa216 重构为收集全部命中时丢分号 → `done` 被 echo 吞 → bash "unexpected end of file" → wslBash 返回 stderr 文本但 "/" 过滤器静默丢弃 → found.size===0 → "no common install layout matched" → 持久化只剩过期缓存安装 → 引擎用其 exec → 127。这正是「突然检测不到」的回归根因
+- 修复 1(system.ts searchScript):`echo "$d"` 后补分号(与用户 diff 一致)+ 注释说明语句必须以 `;` 收尾
+- 修复 2(system.ts:602 ctffind 探测):旧 `test -x '${q}'/ctffind` 不打印路径 → ctffind 只装在 RELION bin 目录时 ctffindPath 误判 null → bridge.ctffind null → CTF job 不带 --ctffind_exe。改为 `{ test -x … && printf '%s' '<path>'; }` 打印实际路径
+- 修复 3(system.ts 搜索健壮性):hits 无 "/" 行且含 syntax error/not found 时 console.error 落 dev.log——探测脚本损坏不再静默
+- 修复 4(engine.ts failureResult):exit 127 且 stderr/stdout 尾巴全空时,从 state.cmd 正则提取 `exec '<target>'`,点名 exec 目标 + 双分支指引(缺文件→saved install 过期按 Re-detect;存在→distro 内 ldd 查缺库);describeExitCode(127) 文案补充 shared library 可能
+- 修复 5(system.ts 顶层 externals 原生分支):ctffind 补 `selected?.ctffindPath` 兜底——面板不再显示 ctffind ✗ 而引擎实际能跑(捆绑 deps)
+- 验证:沙箱真实 bash 对照测试——修复版 searchScript 输出 /home/z/relion-install/bin(✓),旧版复现 syntax error exit 2(✓);ctffind C: 行修复版打印路径(✓)旧版输出空(✓);bash exec 失败实测 exit 127 + stderr 有内容(✓);bun run lint 0 错误;pkill next-server 重启后 agent-browser:/ 渲染正常、console 零错误、系统弹层安装行显示 "ctffind ✓"、/api/system?force=1 found=true RELION 5.0.1、externals ctffind:True;dev.log 全 200 无错误
+
+Stage Summary:
+- 用户诊断的分号 bug 已修复并 git 考古定性为 3baa216 引入的回归;同一探测块还有 2 个连带 bug(ctffind 路径不打印、探测损坏静默)一并修复
+- exit 127 现在三层诊断:stderr 尾巴(优先)→ 空 stderr 时点名 exec target + Re-detect/ldd 双指引 → 命令 + 日志路径
+- 用户本机下一步:git pull 后点 Re-detect——修复后的 filesystem search 会重新发现 ~/myproject/relion5-build-*/bin(旧版探测曾发现的路径);若 build 目录确实已不存在,过期 cached 安装会被诚心剔除
+- 未动:EMPIAR 主线重跑、3D 预览加宽、历史遗留 UI 项(见上节"给后续 cron 轮")
