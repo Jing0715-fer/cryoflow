@@ -296,7 +296,7 @@ function JobCardMenu({
             : running
               ? "Running…"
               : job.status === "pending"
-                ? "Run (waiting for upstream)"
+                ? "Run (re-check inputs)"
                 : "Re-run"}
         </ContextMenuItem>
         {!idle && !running && !isLink ? (

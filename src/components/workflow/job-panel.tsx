@@ -830,7 +830,8 @@ function ResultsTab({ job }: { job: JobDTO }) {
       {pending && (
         <p className="rounded-md border border-dashed border-amber-500/40 bg-amber-500/5 px-2.5 py-2 text-[11px] leading-relaxed text-amber-700 dark:text-amber-300">
           The job did not fail — it is waiting for an upstream job. Fix and re-run
-          the upstream job, then press Run here to re-check.
+          the upstream job: this one then starts automatically once its inputs are
+          ready.
         </p>
       )}
       <JobResults job={job} />
@@ -974,7 +975,7 @@ function PanelBody({ job }: { job: JobDTO }) {
         : job.status === "completed" || job.status === "failed"
           ? "Re-run"
           : job.status === "pending"
-            ? "Run (waiting for upstream)"
+            ? "Run (re-check inputs)"
             : "Run Job"}
     </Button>
   );

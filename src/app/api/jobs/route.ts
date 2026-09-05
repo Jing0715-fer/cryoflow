@@ -4,9 +4,20 @@ import { db } from "@/lib/db";
 import { ensureActiveProject, toJobDTO } from "@/lib/seed";
 import { defaultParams, jobType } from "@/lib/workflow";
 import { readRuns, reconcileRealJobs } from "@/lib/relion/engine";
+import { autoStartPendingDownstream } from "@/lib/relion/dispatch";
 import type { JobDTO } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * Last-known statuses (module scope) for the GET transition sweep: a job
+ * flipping TO completed between polls fires the pending-downstream
+ * auto-start — the catch-all trigger for completions the engine's exit
+ * handler and startJob's native branch couldn't announce (server restart,
+ * WSL relay timing, a completed-before-poll race). Pruned each poll, so
+ * deleted jobs don't accumulate.
+ */
+const prevStatuses = new Map<string, string>();
 
 /**
  * Project a LINKED job onto its ORIGINAL: status/progress/result/startedAt
@@ -60,6 +71,32 @@ export async function GET() {
     const workspaceNames = new Map(workspaces.map((w) => [w.id, w.name]));
 
     const final = await reconcileRealJobs(jobs); // REAL engine (the only engine)
+
+    // ---- transition sweep: completed → auto-start pending downstream -----
+    // Fire-and-forget (never blocks the response); autoStartPendingDownstream
+    // is idempotent (in-flight + liveness guards) so double triggers with the
+    // engine's exit handler are free. On a fresh server the map is empty —
+    // every completed job counts as "newly completed", which conveniently
+    // recovers pending jobs orphaned by a restart.
+    {
+      let pendingCount = 0;
+      const completedNow: string[] = [];
+      const next = new Map<string, string>();
+      for (const j of final) {
+        if (j.status === "pending") pendingCount += 1;
+        if (j.status === "completed" && prevStatuses.get(j.id) !== "completed") {
+          completedNow.push(j.id);
+        }
+        next.set(j.id, j.status);
+      }
+      prevStatuses.clear();
+      for (const [k, v] of next) prevStatuses.set(k, v);
+      if (completedNow.length > 0 && pendingCount > 0) {
+        for (const id of completedNow) {
+          void autoStartPendingDownstream(id);
+        }
+      }
+    }
 
     const runs = readRuns();
     const jobsOut = final.map((j) => {

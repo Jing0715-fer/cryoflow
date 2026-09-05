@@ -999,3 +999,25 @@ Stage Summary:
 - 用户三点闭环：① "exit 127 — " → 完整诊断行（语义+stderr+命令+日志，延迟重读治好 wsl.exe 竞态，预检把 127 消灭在 spawn 前）② 上游失败 → 下游 PENDING（琥珀新状态贯穿卡片/inspector/panel/统计，消息直接点名要修哪个上游）③ "没有实际导入" → pathref 标记让绝对路径导入的 gallery 照常出缩略图（RELION 消费不受影响），结果文案如实报 linked/referenced 数
 - 用户本机下一步：git pull 后重跑 import+CTF —— 若 127 根因是 distro 内二进制缺失，预检/具体报错会直接给出缺失路径与安装切换指引；若 import 文件在 UNC/跨盘，gallery 现在照常显示
 - 【给后续 cron 轮】①EMPIAR 主线管线仍未重跑（empiar-seed → RESTORE.md 参数 → advance.sh）②diag-lineage.ts 的 fixture（rhleut）已随 DB 重置失效，复跑需换活 job id ③内存红线 3.5GB 不变 ④候选增强：上游完成时 pending 自动就绪提示（不自动 spawn）、import 预览 API（运行前面板展开计数）
+
+---
+Task ID: autostart-dwmrc-3dviewer-2026-09-05
+Agent: main (Z.ai Code, user request: 上游修好后自动启动下游/一键选 DW.mrc/路径窗口长文件名溢出/3D 预览窗口太小)
+Task: ① 上游输入 ready 后 pending 下游自动执行（不手点）② Import 文件浏览一键选中含 DW.mrc 的文件 ③ 路径选择窗口长文件名溢出截断 ④ 3D map 预览窗口宽度放大至接近页面宽度
+
+Work Log:
+- 【自动启动·引擎】dispatch.ts 新增 autoStartPendingDownstream(triggerJobId)：BFS 下游收集 → 只对 status="pending"（用户已按过 Run）且非 link 行 startJob；startJob 重跑 resolveInputs → 输入未齐自然回 pending（自门控）；liveRunCount()≥3 断路（防 4GB 踩踏，任一在跑完成会再触发故无死锁）；in-flight starting Set 同步占位（关掉 auto-start+poll sweep 并发双 spawn 与双击 Run 的竞态窗，isRunAlive 之前覆盖不到 await 间隙）
+- 【自动启动·三触发】① engine.ts attachExitHandler exit0 后 DB update.then → 动态 import("./dispatch")（保持加载期无环）② startJob 原生完成分支（import 同步完成即触发——用户修好上游重跑的场景）③ jobs GET 过渡 sweep：模块级 prevStatuses Map 对比「新 completed」+ 存在 pending 才 fire-and-forget（每轮剪枝；重启后空 map = 全部算新完成，顺带治愈重启孤儿 pending）
+- 【自动启动·前端】store.pollTick 检测 pending→running 转变 → toast "X auto-started / Upstream inputs became ready"；runJob waiting toast 增 "It starts automatically once ready"；卡片/右键/面板 Run 文案 "Run (waiting for upstream)"→"Run (re-check inputs)"；inspector/panel 琥珀 note 改「自动启动，无需再点」；engine resolveInputs 三类等待消息全部改自动启动语义
+- 【DW.mrc 一键】path-browser-dialog：filter state（目录切换重置）+ 过滤输入框（带 Filter 图标/X 清除）+ quickSelect("DW.mrc") chip（Zap 图标+实时计数 (N)，单击 = 设过滤 + 立即把当前列表所有含 DW.mrc 的文件并入选择）+ "Select N matches" 按钮（仅过滤态显示）；visibleEntries/visibleImages memo；"Select all images (N)" 过滤态下显示并选中可见匹配；chip 激活态青色高亮
+- 【溢出根因 ①】ui/dialog.tsx DialogContent 追加 grid-cols-[minmax(0,1fr)]：shadcn 对话框为 display:grid 且单隐式 auto 轨道按 max-content 尺寸化——长单词文件名把轨道撑到 823px > 容器 670px，所有子内容整体溢出对话框（全局修复，任何对话框的不可断行内容都不再撑爆）
+- 【溢出根因 ②】列表 ScrollArea 追加 [&>[data-radix-scroll-area-viewport]>div]:!block：Radix 内层 display:table/min-width:100% 包裹层按 max-content 计宽（821px），覆盖为 block 后行宽受视口约束
+- 【溢出根因 ③】两处列表容器 grid gap-0.5 → grid-cols-[minmax(0,1fr)] grid gap-0.5（同样 auto 轨道问题）；行 button 加 w-full + name span 加 min-w-0 + 行 title=全名（悬浮看全名）
+- 【3D 预览】mol-viewer.tsx：DialogContent max-w-5xl → flex h-[92vh] w-[94vw] max-w-[1500px] flex-col（高度也增到 92vh）；Header shrink-0 + 名称/路径 span min-w-0 truncate + title；viewer 区 min-h-0 flex-1（随对话框高度弹性）；loading 占位 h-full；描述文案补 contour 提示
+- 【E2E·QA 项目实跑】构造 Auto-start QA 项目：import(坏路径)→ctffind 连线 + initialmodel（历史 initial_model.mrc 前台拷贝 + engine-state 记录 + DB completed 修复态，供 3D 预览）。①import 诚实 failed → ctffind run → pending + 新文案 ✓ ②Params→Browse→qa-dw（3 DW+2 普通+1 个 113 字符长名）→ DW.mrc chip 一键 → 3 selected + 过滤自动填 + 非 DW 隐藏 → Import 3 files → 字段变 3 行 textarea ✓ ③Save→Run→import completed "3 micrographs imported · file list" → **ctffind 零点击自动 running**（dev.log: "dispatch: auto-started 1 pending downstream job(s) after Import … completed"）→ 15s 后 completed "REAL: CTF estimated"（star 双向各 3 条目验证）✓ ④长名行测量：dialog scrollWidth 670=clientWidth、viewport 620 零横滚、row 612、span 524<743 省略号截断 ✓ ⑤Mol* 对话框 1229/1280=96% 页宽，VLM 审查：宽度近全页/橙色等值面渲染/contour 滑条/无缺陷 ✓ ⑥console 零错误（仅 molstar contour not-ready 良性 debug）、demo 恢复、QA 数据全清、agent-browser close
+- 【测试插曲】agent-browser 坐标点击在 chip 点击引发布局位移后落在遮罩上关闭对话框（自动化假象）——用 DOM .click() 复测证实 React 链路本身完好；qa-dw 的 CTF 结果文案 "4 micrographs" 与 star 实际 3 条不符（ctffind_runner 结果计数装饰性偏差，历史已知，非本轮引入）
+
+Stage Summary:
+- 用户四点全部落地并 E2E 实证：① pending 下游在上游完成（原生/异步/GET sweep 三触发）后零点击自动执行，防双跑+防踩踏+防级联三层守卫 ② DW.mrc 一键 chip（含计数）+ 通用过滤输入 ③ 长文件名溢出三层根因修复（dialog grid 轨道 / Radix table 包裹层 / 列表 grid 轨道），对话框还从 max-w-xl 加宽到 max-w-2xl ④ Mol* 预览 94vw/92vh/1500px 上限 + 标题路径截断
+- 架构要点：自动启动 = 事件驱动（exit handler 动态 import 破环）+ 兜底 sweep（GET 过渡 diff），startJob 的 in-flight Set 是所有并发触发的幂等锚点；grid-cols-[minmax(0,1fr)] 是 shadcn dialog 内容溢出的通用解
+- 【给后续 cron 轮】①EMPIAR 主线管线仍未重跑（empiar-seed→RESTORE.md 参数→advance.sh）②ctffind 结果计数 "4/3" 装饰性偏差可修③内存红线 3.5GB 不变④其他 Radix ScrollArea（inspector 日志/文件列表）若遇同类 table 溢出可用同一 [&>…div]:!block 覆盖⑤自动启动无 UI 开关——若用户想手动控制可加 per-job "auto-run when ready" 开关

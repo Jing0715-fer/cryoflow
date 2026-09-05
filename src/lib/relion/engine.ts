@@ -162,6 +162,19 @@ export function clearRunRecord(jobId: string): void {
 }
 
 /**
+ * Number of live RELION child processes this server instance is still
+ * tracking (used by the dispatcher's auto-start stampede guard — see
+ * autoStartPendingDownstream).
+ */
+export function liveRunCount(): number {
+  let n = 0;
+  for (const child of live.values()) {
+    if (child.exitCode === null && child.pid != null && pidAlive(child.pid)) n += 1;
+  }
+  return n;
+}
+
+/**
  * Non-null when a live child process is still tracked for this job —
  * either through this server instance's `live` map, or via /proc on a
  * record written before a hot reload / server restart. The run route
@@ -743,18 +756,22 @@ function resolveInputs(
       if (failed) {
         return {
           inputs: {},
-          missing: `Upstream "${failed.name}" failed — fix and re-run it first, then start this job again (it will wait as pending until then)`,
+          missing: `Upstream "${failed.name}" failed — fix and re-run it; this job then starts automatically once its inputs are ready`,
           wait: "upstream-failed",
         };
       }
       if (running) {
         return {
           inputs: {},
-          missing: `Waiting for upstream "${running.name}" to finish…`,
+          missing: `Waiting for upstream "${running.name}" to finish… (this job starts automatically when it does)`,
           wait: "upstream-running",
         };
       }
-      return { inputs: {}, missing: `Waiting for upstream output: ${req.label}`, wait: "not-ready" };
+      return {
+        inputs: {},
+        missing: `Waiting for upstream output: ${req.label} — runs automatically once ready`,
+        wait: "not-ready",
+      };
     }
     inputs[req.key] = resolved;
   }
@@ -2744,6 +2761,16 @@ function attachExitHandler(
             exitCode === 0
               ? { status: "completed", progress: 100, result, duration: Math.max(1000, elapsed) }
               : { status: "failed", progress: 0, result },
+        })
+        .then(() => {
+          if (exitCode !== 0) return;
+          // RELION-pipeliner semantics: the moment this job's outputs land,
+          // PENDING downstream jobs become runnable — auto-start them (no
+          // manual re-click). Dynamic import keeps the module graph acyclic
+          // at load time (dispatch statically imports this module).
+          return import("./dispatch")
+            .then((m) => m.autoStartPendingDownstream(job.id))
+            .catch((e) => console.error("engine: downstream auto-start failed:", e));
         })
         .catch((err) => console.error("engine: DB update on exit failed:", err));
     };

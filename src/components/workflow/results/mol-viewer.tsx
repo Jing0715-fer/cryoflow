@@ -22,7 +22,7 @@ import type { JobDTO } from "@/lib/types";
 const MolStarEmbed = dynamic(() => import("./molstar-embed"), {
   ssr: false,
   loading: () => (
-    <div className="flex h-[70vh] items-center justify-center text-xs text-muted-foreground">
+    <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
       Preparing 3D viewer…
     </div>
   ),
@@ -41,18 +41,25 @@ interface MolViewerProps {
 export function MolViewer({ job, path, name, open, onOpenChange }: MolViewerProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl p-0 sm:p-0">
-        <DialogHeader className="px-6 pt-5 pb-3">
+      {/* near-page-width viewer: the map is the main event, not a thumbnail —
+          94vw up to 1500px, with the canvas flexing to the dialog height */}
+      <DialogContent className="flex h-[92vh] w-[94vw] max-w-[1500px] flex-col gap-0 p-0 sm:p-0">
+        <DialogHeader className="shrink-0 px-6 pt-5 pb-3">
           <DialogTitle className="flex items-center gap-2 text-sm">
-            <Box className="h-4 w-4 text-teal-600" aria-hidden="true" />
-            {name}
-            <span className="font-mono text-[11px] font-normal text-muted-foreground">{path}</span>
+            <Box className="h-4 w-4 shrink-0 text-teal-600" aria-hidden="true" />
+            <span className="min-w-0 shrink truncate">{name}</span>
+            <span
+              className="min-w-0 flex-1 truncate font-mono text-[11px] font-normal text-muted-foreground"
+              title={path}
+            >
+              {path}
+            </span>
           </DialogTitle>
           <DialogDescription className="text-xs">
-            Isosurface rendering of the MRC map — drag to rotate, scroll to zoom.
+            Isosurface rendering of the MRC map — drag to rotate, scroll to zoom, adjust the contour below.
           </DialogDescription>
         </DialogHeader>
-        <div className="h-[70vh] w-full px-6 pb-6">
+        <div className="min-h-0 w-full flex-1 px-6 pb-6">
           {open && <MolStarEmbed jobId={job.id} path={path} name={name} />}
         </div>
       </DialogContent>

@@ -24,6 +24,7 @@ import {
   Check,
   CheckSquare,
   ChevronRight,
+  Filter,
   Folder,
   FolderOpen,
   HardDrive,
@@ -36,6 +37,7 @@ import {
   Square,
   Terminal,
   X,
+  Zap,
 } from "lucide-react";
 import {
   Dialog,
@@ -135,6 +137,9 @@ export function PathBrowserDialog({
   const [error, setError] = React.useState<string | null>(null);
   const [manual, setManual] = React.useState("");
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
+  /** name substring filter (files mode) — narrows the visible listing so
+   * "Select all images" becomes "select everything that matched" */
+  const [filter, setFilter] = React.useState("");
 
   // reset when re-opened — restore a previous multi-file selection
   React.useEffect(() => {
@@ -144,9 +149,15 @@ export function PathBrowserDialog({
       setCwd(seed.cwd);
       setManual("");
       setError(null);
+      setFilter("");
       setSelected(new Set(seed.selected));
     }
   }, [open, initialPath, initialMode]);
+
+  // the filter is folder-scoped — navigating anywhere resets it
+  React.useEffect(() => {
+    setFilter("");
+  }, [cwd]);
 
   React.useEffect(() => {
     if (!open) return;
@@ -187,6 +198,26 @@ export function PathBrowserDialog({
   const inRootsView = !data?.ok || data.path === "";
   const microCount = data?.ok ? (data.micrographs ?? 0) : 0;
 
+  // ---- filter (files mode, directory listing) -------------------------
+  const needle = filter.trim().toLowerCase();
+  const visibleEntries = React.useMemo(
+    () =>
+      needle
+        ? (data?.entries ?? []).filter((e) => e.name.toLowerCase().includes(needle))
+        : (data?.entries ?? []),
+    [data, needle]
+  );
+  const visibleImages = React.useMemo(
+    () => visibleEntries.filter((e) => !e.dir && e.img && e.abs).map((e) => e.abs!),
+    [visibleEntries]
+  );
+  /** count of files in the UNFILTERED listing containing a needle — used
+   * by the one-click quick chips so they stay honest when a filter is set */
+  const countByNeedle = (sub: string): number =>
+    (data?.entries ?? []).filter(
+      (e) => !e.dir && e.abs && e.name.toLowerCase().includes(sub.toLowerCase())
+    ).length;
+
   const toggleFile = (abs: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -196,14 +227,28 @@ export function PathBrowserDialog({
     });
   };
 
-  const selectAllImages = () => {
-    const imgs = (data?.entries ?? []).filter((e) => !e.dir && e.img && e.abs).map((e) => e.abs!);
-    if (imgs.length === 0) return;
+  const addMany = (paths: string[]) => {
+    if (paths.length === 0) return;
     setSelected((prev) => {
       const next = new Set(prev);
-      for (const p of imgs) next.add(p);
+      for (const p of paths) next.add(p);
       return next;
     });
+  };
+
+  const selectAllImages = () => addMany(visibleImages);
+
+  /** ONE-CLICK quick select: set the filter AND select every file in the
+   * current listing whose name contains `sub` (e.g. "DW.mrc" —
+   * motioncor2 dose-weighted outputs) in a single click. */
+  const quickSelect = (sub: string) => {
+    setFilter(sub);
+    const hits = (data?.entries ?? [])
+      .filter(
+        (e) => !e.dir && e.abs && e.name.toLowerCase().includes(sub.toLowerCase())
+      )
+      .map((e) => e.abs!);
+    addMany(hits);
   };
 
   const pick = (value: string) => {
@@ -227,7 +272,7 @@ export function PathBrowserDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-sm">
             {displayedMode === "files" ? (
@@ -343,8 +388,10 @@ export function PathBrowserDialog({
           </div>
         )}
 
-        {/* listing */}
-        <ScrollArea className="h-72 rounded-lg border">
+        {/* listing — the [&>…div]:!block override undoes Radix's display:table
+            wrapper, which otherwise sizes rows to their max-content (a long
+            single-word filename then pushes rows ~180px past the viewport) */}
+        <ScrollArea className="h-72 rounded-lg border [&>[data-radix-scroll-area-viewport]>div]:!block">
           <div role="listbox" aria-label="Folders" className="p-1">
             {loading && (
               <div className="flex items-center justify-center gap-2 py-10 text-xs text-muted-foreground">
@@ -356,34 +403,35 @@ export function PathBrowserDialog({
               <div className="px-3 py-6 text-center text-xs text-destructive">{error}</div>
             )}
             {!loading && !error && inRootsView && (
-              <div className="grid gap-0.5">
+              <div className="grid-cols-[minmax(0,1fr)] grid gap-0.5">
                 {(data?.roots ?? []).map((r) => (
                   <button
                     key={r.path}
                     type="button"
                     role="option"
                     aria-selected={false}
-                    className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-secondary/60"
+                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-secondary/60"
                     onDoubleClick={() => setCwd(r.path)}
                     onClick={() => setCwd(r.path)}
                   >
                     <HardDrive className="h-3.5 w-3.5 shrink-0 text-primary/70" aria-hidden="true" />
-                    <span className="flex-1 truncate font-mono">{r.label}</span>
+                    <span className="min-w-0 flex-1 truncate font-mono">{r.label}</span>
                     <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" aria-hidden="true" />
                   </button>
                 ))}
               </div>
             )}
             {!loading && !error && !inRootsView && (
-              <div className="grid gap-0.5">
-                {(data?.entries ?? []).map((e, i) =>
+              <div className="grid-cols-[minmax(0,1fr)] grid gap-0.5">
+                {visibleEntries.map((e, i) =>
                   e.dir ? (
                     <button
                       key={`${e.name}-${i}`}
                       type="button"
                       role="option"
                       aria-selected={false}
-                      className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-secondary/60"
+                      title={e.name}
+                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-secondary/60"
                       onDoubleClick={() =>
                         setCwd(currentPath ? `${currentPath.replace(/[\\/]$/, "")}/${e.name}` : e.name)
                       }
@@ -393,7 +441,7 @@ export function PathBrowserDialog({
                       }}
                     >
                       <Folder className="h-3.5 w-3.5 shrink-0 text-amber-500/80" aria-hidden="true" />
-                      <span className="flex-1 truncate">{e.name}</span>
+                      <span className="min-w-0 flex-1 truncate">{e.name}</span>
                       <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" aria-hidden="true" />
                     </button>
                   ) : activeMode === "files" && e.abs ? (
@@ -403,8 +451,9 @@ export function PathBrowserDialog({
                       role="option"
                       aria-selected={selected.has(e.abs)}
                       aria-label={`Select file ${e.name}`}
+                      title={e.name}
                       className={cn(
-                        "flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-secondary/60",
+                        "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-secondary/60",
                         selected.has(e.abs) && "bg-primary/10 hover:bg-primary/15"
                       )}
                       onClick={() => toggleFile(e.abs!)}
@@ -414,7 +463,7 @@ export function PathBrowserDialog({
                       ) : (
                         <Square className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" aria-hidden="true" />
                       )}
-                      <span className={cn("flex-1 truncate", e.img && "font-medium")}>{e.name}</span>
+                      <span className={cn("min-w-0 flex-1 truncate", e.img && "font-medium")}>{e.name}</span>
                       <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70">
                         {humanSize(e.size)}
                       </span>
@@ -422,8 +471,9 @@ export function PathBrowserDialog({
                   ) : (
                     <div
                       key={`${e.name}-${i}`}
+                      title={e.name}
                       className={cn(
-                        "flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground",
+                        "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground",
                         e.img && "text-foreground/90"
                       )}
                     >
@@ -432,7 +482,7 @@ export function PathBrowserDialog({
                       ) : (
                         <span className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                       )}
-                      <span className="flex-1 truncate">{e.name}</span>
+                      <span className="min-w-0 flex-1 truncate">{e.name}</span>
                       <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70">
                         {humanSize(e.size)}
                       </span>
@@ -446,17 +496,76 @@ export function PathBrowserDialog({
                       : "Listing truncated at 400 entries — enter a subfolder for more."}
                   </p>
                 )}
-                {(data?.entries ?? []).length === 0 && (
+                {visibleEntries.length === 0 && (
                   <p className="px-3 py-6 text-center text-xs text-muted-foreground">
                     {patternView
                       ? "No files match this pattern — try a broader wildcard (e.g. *)"
-                      : "Empty folder"}
+                      : needle
+                        ? `No files match "${filter.trim()}" in this folder`
+                        : "Empty folder"}
                   </p>
                 )}
               </div>
             )}
           </div>
         </ScrollArea>
+
+        {/* quick filter + one-click pattern chips (files mode, directory listing) */}
+        {activeMode === "files" && !inRootsView && !patternView && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <div className="relative min-w-[150px] flex-1">
+              <Filter
+                className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/60"
+                aria-hidden="true"
+              />
+              <Input
+                value={filter}
+                onChange={(ev) => setFilter(ev.target.value)}
+                placeholder="Filter file names — e.g. DW.mrc"
+                className="h-7 pl-7 pr-7 text-xs"
+                aria-label="Filter the listing by file name substring"
+              />
+              {filter && (
+                <button
+                  type="button"
+                  onClick={() => setFilter("")}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-sm p-0.5 text-muted-foreground/70 transition-colors hover:text-foreground"
+                  aria-label="Clear filter"
+                >
+                  <X className="h-3.5 w-3.5" aria-hidden="true" />
+                </button>
+              )}
+            </div>
+            {filter.trim() && visibleImages.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 gap-1 px-2 text-[11px]"
+                onClick={selectAllImages}
+                title="Add every file matching the filter to the selection"
+              >
+                <CheckSquare className="h-3 w-3" aria-hidden="true" />
+                Select {visibleImages.length} match{visibleImages.length === 1 ? "" : "es"}
+              </Button>
+            )}
+            {/* one-click quick select: dose-weighted motioncor2 outputs */}
+            <button
+              type="button"
+              onClick={() => quickSelect("DW.mrc")}
+              className={cn(
+                "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
+                needle && needle === "dw.mrc"
+                  ? "border-primary/60 bg-primary/10 text-primary"
+                  : "border-primary/30 bg-primary/5 text-primary/90 hover:border-primary/50 hover:bg-primary/10"
+              )}
+              title="Select every file containing DW.mrc (dose-weighted) in this listing"
+            >
+              <Zap className="h-3 w-3" aria-hidden="true" />
+              DW.mrc
+              <span className="font-mono text-[10px] opacity-70">({countByNeedle("DW.mrc")})</span>
+            </button>
+          </div>
+        )}
 
         {/* counters / actions row */}
         {activeMode === "files" && !inRootsView && (
@@ -494,10 +603,14 @@ export function PathBrowserDialog({
                 size="sm"
                 className="ml-auto h-6 gap-1 px-2 text-[11px]"
                 onClick={selectAllImages}
-                title="Add every micrograph file in the current listing to the selection"
+                title={
+                  needle
+                    ? `Add the ${visibleImages.length} visible image(s) matching "${filter.trim()}" to the selection`
+                    : "Add every micrograph file in the current listing to the selection"
+                }
               >
                 <Images className="h-3 w-3" aria-hidden="true" />
-                Select all images ({microCount})
+                Select all images ({needle ? visibleImages.length : microCount})
               </Button>
             )}
             {patternView && microCount > 0 && (

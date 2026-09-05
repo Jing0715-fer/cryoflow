@@ -6,10 +6,32 @@
 
 import type { Job } from "@prisma/client";
 import { db } from "@/lib/db";
-import { parseJobParams, runRealJob, isRunAlive, type UpstreamRef, type WaitKind } from "./engine";
+import {
+  parseJobParams,
+  runRealJob,
+  isRunAlive,
+  liveRunCount,
+  type UpstreamRef,
+  type WaitKind,
+} from "./engine";
 
 /** Placeholder duration for real runs (the exit handler overwrites it). */
 const REAL_DURATION_HINT = 60_000;
+
+/**
+ * Jobs whose startJob is CURRENTLY executing (between the running flip and
+ * the spawn / waiting verdict). Sync check-and-add at function entry closes
+ * the double-spawn race window: two concurrent triggers (auto-start + poll
+ * sweep, double Run click) both passed isRunAlive before either spawned.
+ */
+const starting = new Set<string>();
+
+/**
+ * Auto-start never pushes live RELION processes past this count — a stampede
+ * guard for this 4GB box (fan-outs like Import → {CTF, ManualPick} still run
+ * concurrently; anything beyond waits for the next completion retrigger).
+ */
+const AUTO_START_MAX_LIVE = 3;
 
 export interface StartOutcome {
   job: Job;
@@ -102,75 +124,147 @@ async function resolveLinkRoot(job: Job): Promise<Job> {
  * synchronously; RELION spawns are tracked by the exit handler).
  */
 export async function startJob(job: Job): Promise<StartOutcome> {
-  // ---- REAL engine -----------------------------------------------------
-  // Liveness guard: refuse to spawn a second tree for a job whose previous
-  // process is still alive (double-click Run, two tabs, or the command
-  // palette all bypass the UI's disabled button). Two mpirun trees in one
-  // workdir corrupt checkpoints and OOM this 4GB box.
-  const busy = isRunAlive(job.id);
-  if (busy) {
-    return { job, busy };
+  // ---- in-flight guard (synchronous — closes the double-spawn race) ----
+  if (starting.has(job.id)) {
+    return { job, busy: "a start for this job is already in flight" };
   }
-
-  // Build the FULL upstream lineage (BFS through edges, direct first) —
-  // RELION GUI semantics: a job wired e.g. InitialModel → Refine3D inherits
-  // its particles.star from anywhere up the chain, not just direct parents.
-  const upstream = await lineageFor(job.id);
-
-  const startedAtMs = Date.now();
-  let updated = await db.job.update({
-    where: { id: job.id },
-    data: {
-      status: "running",
-      startedAt: new Date(startedAtMs),
-      progress: 0,
-      result: null,
-      duration: REAL_DURATION_HINT,
-    },
-  });
-
-  const outcome = await runRealJob(
-    {
-      id: job.id,
-      projectId: job.projectId,
-      type: job.type,
-      params: parseJobParams(job.params),
-    },
-    upstream
-  );
-
-  if (!outcome.ok) {
-    if (outcome.waiting) {
-      // upstream failed / still running / never ran → PENDING (amber), not
-      // failed: a failed import no longer cascades red CTF/extract/… errors
-      // down the pipeline. The result line says exactly what to fix.
-      updated = await db.job.update({
-        where: { id: job.id },
-        data: { status: "pending", progress: 0, result: outcome.error },
-      });
-      return { job: updated, waiting: outcome.waiting };
+  starting.add(job.id);
+  try {
+    // ---- REAL engine -----------------------------------------------------
+    // Liveness guard: refuse to spawn a second tree for a job whose previous
+    // process is still alive (double-click Run, two tabs, or the command
+    // palette all bypass the UI's disabled button). Two mpirun trees in one
+    // workdir corrupt checkpoints and OOM this 4GB box.
+    const busy = isRunAlive(job.id);
+    if (busy) {
+      return { job, busy };
     }
-    // honest failure (RELION missing / bad params / external missing)
-    updated = await db.job.update({
-      where: { id: job.id },
-      data: { status: "failed", progress: 0, result: outcome.error ?? "failed" },
-    });
-    return { job: updated, error: outcome.error };
-  }
 
-  if (outcome.native) {
-    // engine-native job completed synchronously
-    updated = await db.job.update({
+    // Build the FULL upstream lineage (BFS through edges, direct first) —
+    // RELION GUI semantics: a job wired e.g. InitialModel → Refine3D inherits
+    // its particles.star from anywhere up the chain, not just direct parents.
+    const upstream = await lineageFor(job.id);
+
+    const startedAtMs = Date.now();
+    let updated = await db.job.update({
       where: { id: job.id },
       data: {
-        status: "completed",
-        progress: 100,
-        result: outcome.result ?? "completed",
-        duration: Math.max(500, Date.now() - startedAtMs),
+        status: "running",
+        startedAt: new Date(startedAtMs),
+        progress: 0,
+        result: null,
+        duration: REAL_DURATION_HINT,
       },
     });
-    return { job: updated };
-  }
 
-  return { job: updated };
+    const outcome = await runRealJob(
+      {
+        id: job.id,
+        projectId: job.projectId,
+        type: job.type,
+        params: parseJobParams(job.params),
+      },
+      upstream
+    );
+
+    if (!outcome.ok) {
+      if (outcome.waiting) {
+        // upstream failed / still running / never ran → PENDING (amber), not
+        // failed: a failed import no longer cascades red CTF/extract/… errors
+        // down the pipeline. The result line says exactly what to fix. The
+        // job auto-starts the moment its inputs become ready (see below).
+        updated = await db.job.update({
+          where: { id: job.id },
+          data: { status: "pending", progress: 0, result: outcome.error },
+        });
+        return { job: updated, waiting: outcome.waiting };
+      }
+      // honest failure (RELION missing / bad params / external missing)
+      updated = await db.job.update({
+        where: { id: job.id },
+        data: { status: "failed", progress: 0, result: outcome.error ?? "failed" },
+      });
+      return { job: updated, error: outcome.error };
+    }
+
+    if (outcome.native) {
+      // engine-native job completed synchronously
+      updated = await db.job.update({
+        where: { id: job.id },
+        data: {
+          status: "completed",
+          progress: 100,
+          result: outcome.result ?? "completed",
+          duration: Math.max(500, Date.now() - startedAtMs),
+        },
+      });
+      // its outputs just landed → pending downstream jobs auto-start now
+      void autoStartPendingDownstream(job.id);
+      return { job: updated };
+    }
+
+    return { job: updated };
+  } finally {
+    starting.delete(job.id);
+  }
+}
+
+/**
+ * Auto-start the PENDING downstream consumers of a (just completed) trigger
+ * job — RELION pipeliner semantics: "run as soon as inputs are ready", no
+ * manual re-click. Fired from:
+ *  - the engine's exit handler (async RELION run reached exit 0),
+ *  - startJob's native-completion branch (synchronous jobs, e.g. Import),
+ *  - the jobs GET transition sweep (catch-all for restarts / missed hooks).
+ *
+ * Idempotent and self-gating: startJob re-runs resolveInputs, so a consumer
+ * whose inputs are STILL incomplete just flips back to pending (message
+ * refreshed); failed/idle/running/link jobs are skipped entirely; the
+ * in-flight + liveness guards make concurrent triggers safe.
+ */
+export async function autoStartPendingDownstream(triggerJobId: string): Promise<number> {
+  try {
+    const trigger = await db.job.findUnique({ where: { id: triggerJobId } });
+    if (!trigger || trigger.status !== "completed") return 0;
+
+    // BFS DOWNSTREAM from the trigger (direct children first) — order matters:
+    // nearest consumers attempt first, so an early start takes the live-run
+    // budget before far-away branches.
+    const order: string[] = [];
+    const seen = new Set<string>([triggerJobId]);
+    let frontier = [triggerJobId];
+    while (frontier.length > 0) {
+      const edges = await db.edge.findMany({ where: { fromJobId: { in: frontier } } });
+      const next: string[] = [];
+      for (const e of edges) {
+        if (seen.has(e.toJobId)) continue;
+        seen.add(e.toJobId);
+        order.push(e.toJobId);
+        next.push(e.toJobId);
+      }
+      frontier = next;
+    }
+    if (order.length === 0) return 0;
+
+    const rows = await db.job.findMany({ where: { id: { in: order } } });
+    const byId = new Map(rows.map((r) => [r.id, r]));
+
+    let started = 0;
+    for (const id of order) {
+      const row = byId.get(id);
+      if (!row) continue;
+      if (row.linkedJobId) continue; // links are read-only mirrors — never run
+      if (row.status !== "pending") continue; // only jobs the user opted into
+      if (liveRunCount() >= AUTO_START_MAX_LIVE) break; // stampede guard
+      const outcome = await startJob(row);
+      if (!outcome.error && !outcome.waiting && !outcome.busy) started += 1;
+    }
+    if (started > 0) {
+      console.log(`dispatch: auto-started ${started} pending downstream job(s) after "${trigger.name}" completed`);
+    }
+    return started;
+  } catch (err) {
+    console.error("dispatch: downstream auto-start failed:", err);
+    return 0;
+  }
 }

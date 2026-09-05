@@ -720,7 +720,8 @@ function ResultSummary({ job }: { job: JobDTO }) {
             {job.result ?? "Waiting for an upstream job to produce its outputs."}
           </p>
           <p className="mt-1 text-[10px] text-muted-foreground">
-            The job did not fail — it will start as soon as its upstream inputs exist. Press Run to re-check.
+            The job did not fail — it starts AUTOMATICALLY the moment its
+            upstream inputs are ready. No further clicks needed.
           </p>
         </div>
       </div>

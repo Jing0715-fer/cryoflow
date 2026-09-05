@@ -615,10 +615,13 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       set({ jobs: get().jobs.map((j) => (j.id === id ? data.job : j)) });
       if (data.waiting) {
         // job went PENDING — an upstream job failed or is still running;
-        // not an error, the result line explains what to fix/re-run
+        // not an error, the result line explains what to fix/re-run. It
+        // auto-starts the moment the upstream inputs land — no re-click.
         toast({
           title: "Job waiting as pending",
-          description: data.job.result ?? "Waiting for its upstream job to produce outputs.",
+          description:
+            (data.job.result ?? "Waiting for its upstream job to produce outputs.") +
+            " It starts automatically once ready.",
         });
         // show the waiting reason where the user is looking
         set({ inspectId: id, selectedId: null });
@@ -793,10 +796,20 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         : jobs;
       if (!changed) return; // identical tick — zero re-renders
       set({ jobs: merged });
-      // announce transitions running → completed / failed
+      // announce transitions running → completed / failed, and pending →
+      // running (the AUTO-START engine kicked a downstream job once its
+      // upstream inputs landed — nobody clicked Run for this)
       for (const job of merged) {
         const before = prev.find((p) => p.id === job.id);
-        if (before?.status !== "running") continue;
+        if (before?.status !== "running") {
+          if (before?.status === "pending" && job.status === "running") {
+            toast({
+              title: `${job.name} auto-started`,
+              description: "Upstream inputs became ready — running now",
+            });
+          }
+          continue;
+        }
         if (job.status === "completed") {
           toast({
             title: `${job.name} completed`,
