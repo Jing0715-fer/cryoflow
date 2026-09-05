@@ -3,12 +3,12 @@
  * No "use client": this module only runs inside API route handlers.
  */
 
+import { existsSync } from "fs";
 import { db } from "@/lib/db";
 import type { Edge, Job, Project } from "@prisma/client";
-import { defaultParams, jobType, resultFor } from "@/lib/workflow";
+import { defaultParams, jobType } from "@/lib/workflow";
 import type { EdgeDTO, JobDTO, ProjectDTO } from "@/lib/types";
 import { registerProject, getActiveProject } from "@/lib/projects";
-import { readRuns } from "@/lib/relion/engine";
 
 /* ------------------------------------------------------------------ */
 /* DTO mappers                                                          */
@@ -51,7 +51,7 @@ export function toEdgeDTO(edge: Edge): EdgeDTO {
   return { id: edge.id, fromJobId: edge.fromJobId, toJobId: edge.toJobId };
 }
 
-export function toProjectDTO(project: Project, mode = "spa", engine = "sim"): ProjectDTO {
+export function toProjectDTO(project: Project, mode = "spa", engine: "relion" = "relion"): ProjectDTO {
   return {
     id: project.id,
     name: project.name,
@@ -62,61 +62,18 @@ export function toProjectDTO(project: Project, mode = "spa", engine = "sim"): Pr
 }
 
 /* ------------------------------------------------------------------ */
-/* Simulated run progress (time-based)                                  */
+/* Seeding (real RELION engine — the simulation was retired)            */
 /* ------------------------------------------------------------------ */
 
-/**
- * For every running job derive progress from startedAt + duration.
- * Jobs that reached 100% are persisted as completed (with their result)
- * and the updated row is returned in place of the stale one.
- * REAL-engine jobs (engine-state.json record) are skipped — they are
- * reconciled by reconcileRealJobs() first.
- */
-export async function reconcileRunning(jobs: Job[]): Promise<Job[]> {
-  const runs = readRuns();
-  const now = Date.now();
-  const out: Job[] = [];
-  for (const job of jobs) {
-    if (job.status !== "running" || !job.startedAt) {
-      out.push(job);
-      continue;
-    }
-    if (runs[job.id]) {
-      out.push(job); // real engine owns this run
-      continue;
-    }
-    const elapsed = now - job.startedAt.getTime();
-    const progress = Math.min(100, (elapsed / job.duration) * 100);
-    if (progress >= 100) {
-      const updated = await db.job.update({
-        where: { id: job.id },
-        data: {
-          status: "completed",
-          progress: 100,
-          result: resultFor(job.type, job.id),
-        },
-      });
-      out.push(updated);
-    } else {
-      out.push({ ...job, progress });
-    }
-  }
-  return out;
-}
-
-/* ------------------------------------------------------------------ */
-/* Seeding                                                              */
-/* ------------------------------------------------------------------ */
-
-/** Duration jitter: ±15% around the catalog value. */
-export function jitteredDuration(base: number): number {
-  return Math.round(base * (0.85 + Math.random() * 0.3));
-}
+/** Sandbox demo dataset — pre-filled only when the bundle actually exists. */
+const EMPIAR_DEMO_DIR = "/home/z/empiar-10017/micrographs";
 
 /**
  * Idempotent demo seeding: ONLY when the DB has no projects at all.
- * Creates the sim β-Galactosidase demo (import → motioncorr → ctffind)
- * and registers it as the active sim project in data/projects.json.
+ * Creates the β-Galactosidase tutorial (import → motioncorr → ctffind) as
+ * IDLE jobs on the REAL RELION engine — Run executes actual RELION
+ * binaries; nothing is pre-completed or faked. The import's micrographs
+ * path is pre-filled with the sandbox EMPIAR-10017 bundle when present.
  */
 export async function ensureProject(): Promise<Project | null> {
   const count = await db.project.count();
@@ -125,7 +82,12 @@ export async function ensureProject(): Promise<Project | null> {
   const project = await db.project.create({
     data: { name: "β-Galactosidase Tutorial (demo)" },
   });
-  registerProject(project.id, { mode: "spa", engine: "sim" }, true);
+  registerProject(project.id, { mode: "spa", engine: "relion" }, true);
+
+  const importParams = { ...defaultParams("import") };
+  if (existsSync(EMPIAR_DEMO_DIR)) {
+    importParams.micrographsPath = EMPIAR_DEMO_DIR;
+  }
 
   const importJob = await db.job.create({
     data: {
@@ -134,16 +96,10 @@ export async function ensureProject(): Promise<Project | null> {
       name: "Import Movies 1",
       x: 16,
       y: 220,
-      status: "completed",
-      progress: 100,
-      params: JSON.stringify(defaultParams("import")),
-      duration: jitteredDuration(jobType("import")?.duration ?? 2000),
+      status: "idle",
+      params: JSON.stringify(importParams),
+      duration: jobType("import")?.duration ?? 2000,
     },
-  });
-  // result depends on the generated id → set after create
-  await db.job.update({
-    where: { id: importJob.id },
-    data: { result: resultFor("import", importJob.id) },
   });
 
   const motionJob = await db.job.create({
@@ -155,7 +111,7 @@ export async function ensureProject(): Promise<Project | null> {
       y: 220,
       status: "idle",
       params: JSON.stringify(defaultParams("motioncorr")),
-      duration: jitteredDuration(jobType("motioncorr")?.duration ?? 9000),
+      duration: jobType("motioncorr")?.duration ?? 9000,
     },
   });
 
@@ -168,7 +124,7 @@ export async function ensureProject(): Promise<Project | null> {
       y: 220,
       status: "idle",
       params: JSON.stringify(defaultParams("ctffind")),
-      duration: jitteredDuration(jobType("ctffind")?.duration ?? 5000),
+      duration: jobType("ctffind")?.duration ?? 5000,
     },
   });
 
@@ -187,7 +143,7 @@ export async function ensureProject(): Promise<Project | null> {
  * project (+ mode/engine meta). Single entry point for list endpoints.
  */
 export async function ensureActiveProject(): Promise<
-  { project: Project; meta: { mode: "spa" | "tomo"; engine: "sim" | "relion" } } | null
+  { project: Project; meta: { mode: "spa" | "tomo"; engine: "relion" } } | null
 > {
   await ensureProject();
   return getActiveProject();

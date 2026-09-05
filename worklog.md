@@ -951,3 +951,28 @@ Stage Summary:
 - 用户需求闭环：Import 不再只能选文件夹——①对话框文件多选（跨文件夹累积、Select all images）②`*`/`?` 通配符模式（字段直填 / 对话框预览匹配数 + Use this pattern）③文件夹模式保留 — 与 RELION Import（select_by: File name pattern / Browse）和 cryoSPARC 多选导入对齐
 - 架构要点：三种形态收敛进单个 micrographsPath 字符串参数（文件夹 | 模式 | 换行分隔文件列表）；文件集用硬链接进真实 projectDir/micrographs（零拷贝、inode 级验证）、star 恒项目相对、WSL 桥接路径翻译复用 userPathToHost
 - 【给后续 cron 轮】①EMPIAR 主线管线重跑（DB 重置后仍未跑）②pattern 跨多目录（Movies/*/Images/*.mrc）真实数据集验证可在用户机器上做 ③候选增强：import 预览 API（运行前展开计数显示在面板）、eer 电影帧处理
+
+---
+Task ID: remove-sim-multirelion-2026-09-05
+Agent: main (Z.ai Code, user request: 去除掉SIM，只用relion真实算法，自动检测relion（本地手动点检测），多版本relion可切换)
+Task: ① 彻底移除时间模拟引擎 — 所有作业走真实 RELION 算法 ② RELION 自动探测（页面加载即探测，本机仍可手动 Re-detect）③ 多版本 RELION 安装发现 + 运行时切换
+
+Work Log:
+- 【system.ts 全量重写】多安装探测：原生候选（RELION_HOME/PATH/known-path/home scan）不再首中即停而是收集全部（realpath 去重，PATH/RELION_HOME 优先级覆盖同物理目录）；WSL 探测收集全部命中（login PATH + RELION_HOME + 文件系统搜索≤8，逐安装版本探测 + mpirun/relion_refine_mpi/ctffind 工具链探测）；RelionInstall { id, version, path, source, execution, distro, mpiBinary, ctffindPath }；原生安装 ctffind 解析与引擎一致（PATH→binDir→沙箱 deps）防误报 "no ctffind"
+- 【选择持久化】data/relion-select.json { installId }；无/失效选择时按优先级 auto-pick（RELION_HOME > PATH > known-path > 任意 native > WSL）并写盘；选择失效（如 WSL distro 消失/安装被删）→ 强制探测后回退 auto-pick（E2E 验证：选中 alt→删除 alt 目录→force 探测→自动回退主安装 autoPicked=true）
+- 【顶层状态 = 选中安装镜像】found/execution/version/path/source 全部反映 selectedId（engine.ts 的 status.path 直接变成调度 binDir，零改动兼容）；WSL 选中时 status.wsl 的 bridge 字段取自选中安装（bridgeFromStatus 正确性）；新增 installs[]/selectedId/autoPicked 字段（types.ts RelionInstallClient）
+- 【POST /api/system/select】{ installId } → selectRelionInstall（校验→写盘→强刷缓存）；未知 id → 404 + "press Re-detect" 提示
+- 【SIM 移除·后端】dispatch.ts startJob(job) 去 engineKind 与 sim 分支；run 路由去 meta engineKind；stop 路由去 sim 冻结分支（恒真实停止）；jobs GET 去 reconcileRunning（只留 reconcileRealJobs，dto.engine 恒 "relion"）；outputs 路由 engine 恒 "relion"；seed.ts 删 reconcileRunning/jitteredDuration/resultFor 依赖（workflow.ts 删 resultFor + RESOLUTION_TYPES）；empiar-seed duration 去 jitter
+- 【reconcileRealJobs 语义升级】running 无 run record：<2min 视为 spawn 竞态窗（保持 running），更旧 = 陈旧 legacy sim 状态 → 诚实 failed "stale running state — re-run"（旧代码会交给 sim reconciler 假完成）
+- 【projects.ts engine 归一】ProjectEngine = "relion"（唯一引擎）；getProjectMeta/getActiveProject/listProjectsWithMeta 读时治愈 legacy "sim" → "relion"（写盘 heal）；POST /api/projects 忽略 engine 字段
+- 【seed 播种诚实化】demo 三作业全部 idle（不再伪造 completed import + resultFor 假结果）；import micrographsPath 在沙箱预填 EMPIAR 目录（存在才填）；ensureActiveProject meta 类型收窄
+- 【SIM 移除·前端】project-panel 新建对话框去 Engine 下拉（恒 teal "Engine · real RELION vX — N other install(s) switchable" 提示条）；job-panel/footer/dashboard/header 全部 EngineBadge 恒 RELION（teal）；Run 门控 relionMissing = !system.found（不看 engine）；running 显示恒 "REAL · RELION process running"；KpiCard Active engine = 选中版本 + WSL bridge/+N installs 副文案；dashboard 卡片 accent 恒 teal；JobDTO/OutputsResponse engine 类型收窄 "relion"
+- 【header 版本切换器】chip 标签 "RELION 5.0.1 · WSL · +N"（多安装提示）+ popover："2 installs" 徽章 + DETECT INSTALLS 分区（radiogroup：版本 + NATIVE/WSL·distro 徽章 + MPI 徽章 + mono 路径 + via source + ctffind ✓）+ 点击切换（pending spinner → toast "RELION install switched — new runs use it immediately"）+ auto-selected/1 found 副文案；store 新增 selectRelionInstall action（POST select → set system + toast）
+- 【E2E 验证】①沙箱构造第二安装 /home/z/relion-alt/bin（wrapper 伪 4.4.1 --version + 真二进制 symlink）→ 探测出 2 installs（5.0.1 known-path + 4.4.1 home scan）②API 切换 alt→主→未知 id 404 全通 ③**选择驱动调度实证**：选中 alt 时 ctffind 引擎记录 cmd = /home/z/relion-alt/bin/relion_run_ctffind（engine 用 status.path 派发）且真实跑完 "REAL: CTF estimated for 11 micrographs" ④浏览器点击切换：radiogroup checked 迁移 + chip 更新 + relion-select.json 落盘 ⑤重启 dev server 后选择持久（5.0.1）⑥alt 删除后 auto-fallback ⑦motioncorr 运行 → 诚实 failed（MotionCor2 not found，证明无假完成）⑧import 引擎原生两安装均真跑 "10 micrographs imported" ⑨console 0 错误、dev.log 无错误、VLM 审查 popover/dashboard 无真实缺陷（DOM 测量 overflowX/Y 全 false，VLM 误报为设计内 ellipsis/hidden label）⑩lint 0 错误、tsc src/ 0 错误、diag-wsl-bridge 31 断言 ALL PASS
+- 【清理】relion-alt 安装已删；demo 项目经 reset 脚本修整（import idle→真实完成 10 mics、ctffind 真实完成、motioncorr 回 idle）；agent-browser close（4GB 纪律）
+
+Stage Summary:
+- 用户三点全部闭环：SIM 彻底移除（后端调度/播种/对账 + 前端 UI 全链路，旧数据自动治愈）✓ 自动检测（页面 load 即探测 + Re-detect 手动兜底）✓ 多版本发现 + 切换（探测收集全部安装、选择持久化、运行时切换即时生效、失效自动回退）✓
+- 关键架构：顶层 status = 选中安装的镜像 → engine.ts 零改动获得"按选择调度"能力（实证：ctffind cmd 路径随选择变化）；runRealJob 的 detectRelion(true) 每次强刷确保切换即时生效
+- 用户本机使用：git pull → bun install → bun run dev → 顶栏点开 RELION chip 可见全部安装（native + WSL 内多版本）→ 点击切换；WSL 桥接路径翻译不变
+- 【给后续 cron 轮】①EMPIAR 主线管线仍需重跑（DB 重置后未跑 empiar-seed）②沙箱现只有 1 安装（alt 已删）— 多安装回归可重建 wrapper③内存红线 3.5GB④demo 项目 import/ctffind 已有真实产物可作下游起点

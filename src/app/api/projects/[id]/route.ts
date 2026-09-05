@@ -36,7 +36,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const meta = getProjectMeta(id);
     return NextResponse.json({
       ok: true,
-      project: toProjectDTO(project, meta?.mode ?? "spa", meta?.engine ?? "sim"),
+      project: toProjectDTO(project, meta?.mode ?? "spa", "relion"),
     });
   } catch (error) {
     console.error("PATCH /api/projects/[id] failed:", error);

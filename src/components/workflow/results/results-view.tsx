@@ -61,7 +61,7 @@ interface OutputFile {
 
 interface OutputsResponse {
   workdir: string | null;
-  engine: "relion" | "sim";
+  engine: "relion";
   files: OutputFile[];
   note?: string;
 }

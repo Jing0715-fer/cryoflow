@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { toJobDTO } from "@/lib/seed";
-import { getProjectMeta } from "@/lib/projects";
 import { startJob } from "@/lib/relion/dispatch";
 
 export const dynamic = "force-dynamic";
@@ -9,10 +8,9 @@ export const dynamic = "force-dynamic";
 type RouteContext = { params: Promise<{ id: string }> };
 
 /**
- * POST /api/jobs/[id]/run — start (or restart) a job.
- * Real-engine projects dispatch to the RELION engine (honest failures are
- * surfaced through the job result + an {error} field with HTTP 200);
- * sim projects keep the legacy time-based simulation.
+ * POST /api/jobs/[id]/run — start (or restart) a job on the REAL RELION
+ * engine (the only engine — the simulation was retired). Honest failures are
+ * surfaced through the job result + an {error} field with HTTP 200.
  * A live process for this job → HTTP 409, nothing is spawned.
  */
 export async function POST(_request: NextRequest, context: RouteContext) {
@@ -39,9 +37,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
       );
     }
 
-    const meta = getProjectMeta(existing.projectId);
-    const engineKind = meta?.engine === "relion" ? "relion" : "sim";
-    const { job, error, busy } = await startJob(existing, engineKind);
+    const { job, error, busy } = await startJob(existing);
 
     if (busy) {
       // the job is already running — do NOT fail it, just refuse the spawn

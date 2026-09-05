@@ -2433,7 +2433,11 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
   // ---- RELION required ------------------------------------------------
   const status = await detectRelion(true);
   if (!status.found || !status.path) {
-    return { ok: false, error: "RELION 5 not detected — build/install RELION or set RELION_HOME" };
+    return {
+      ok: false,
+      error:
+        "RELION not detected — install it (or expose it in WSL) and press Re-detect in the top bar; multiple installs are switchable there",
+    };
   }
   // Native: spawn the binaries directly. WSL: relay every job through the
   // built-in bridge (wsl.exe + path translation) — jobs run INSIDE the
@@ -2629,12 +2633,14 @@ export function parseJobParams(raw: string): Record<string, number | string | bo
 }
 
 /**
- * Reconcile 'running' jobs that belong to the REAL engine:
+ * Reconcile 'running' jobs against the REAL engine's records (the only
+ * engine — the time-based simulation was retired):
  *  - pid alive → derive progress from the log tail
  *  - pid dead + not done → interrupted (server restart etc.) → failed
  *  - done + exit 0 (DB stale) → completed with the recorded result
+ *  - no run record at all → spawn race window (< 2 min, keep running) or
+ *    stale legacy state → honest failure
  * Read-mostly; DB writes only in the interrupted/stale cases (idempotent).
- * Sim jobs (no run record) are left untouched for reconcileRunning().
  */
 export async function reconcileRealJobs(jobs: Job[]): Promise<Job[]> {
   const runs = readRuns();
@@ -2647,7 +2653,26 @@ export async function reconcileRealJobs(jobs: Job[]): Promise<Job[]> {
     }
     const state = runs[job.id];
     if (!state) {
-      out.push(job); // sim job — handled by the sim reconciler
+      // No engine record: either the spawn race window (startJob flips the
+      // DB to running seconds before the record lands) or a stale legacy
+      // running state (retired simulation engine / crashed before spawn).
+      // Recent → keep running; older → honest failure.
+      const ageMs = job.startedAt
+        ? Date.now() - new Date(job.startedAt).getTime()
+        : Infinity;
+      if (ageMs < 120_000) {
+        out.push(job);
+      } else {
+        const patch = {
+          status: "failed" as const,
+          progress: 0,
+          result: "stale running state (no engine record) — re-run",
+        };
+        const updated = await db.job
+          .update({ where: { id: job.id }, data: patch })
+          .catch(() => null);
+        out.push(updated ?? { ...job, ...patch });
+      }
       continue;
     }
     // Guard against the re-run race: the DB flips to "running" (new

@@ -1,8 +1,10 @@
 /**
  * CryoFlow — project meta store (server only).
  *
- * The Prisma schema is frozen, so per-project mode (spa/tomo) and engine
- * (sim/relion) + the active-project pointer live in data/projects.json.
+ * The Prisma schema is frozen, so per-project mode (spa/tomo) and the
+ * active-project pointer live in data/projects.json. The engine concept was
+ * RETIRED: every project runs the REAL RELION engine — legacy "sim" entries
+ * are healed to "relion" on read so old state files keep working.
  */
 
 import { mkdirSync, readFileSync, writeFileSync } from "fs";
@@ -15,11 +17,17 @@ import type { ProjectSummaryDTO } from "./types";
 const FILE = path.join(DATA_DIR, "projects.json");
 
 export type ProjectMode = "spa" | "tomo";
-export type ProjectEngine = "sim" | "relion";
+/** Legacy alias — the only engine is the real RELION one. */
+export type ProjectEngine = "relion";
 
 export interface ProjectMeta {
   mode: ProjectMode;
   engine: ProjectEngine;
+}
+
+/** Normalize legacy sim entries (and unknown values) → "relion". */
+function normalizeEngine(value: unknown): "relion" {
+  return value === "relion" || value === "sim" ? "relion" : "relion";
 }
 
 export interface ProjectsFile {
@@ -58,7 +66,10 @@ export function registerProject(
 }
 
 export function getProjectMeta(id: string): ProjectMeta | null {
-  return readProjectsFile().projects[id] ?? null;
+  const meta = readProjectsFile().projects[id];
+  if (!meta) return null;
+  // legacy "sim" entries heal on read (engine is always the real RELION one)
+  return { mode: meta.mode === "tomo" ? "tomo" : "spa", engine: "relion" };
 }
 
 export function setActiveProject(id: string): boolean {
@@ -72,7 +83,7 @@ export function setActiveProject(id: string): boolean {
 /**
  * Resolve the active project (Prisma row + meta). Defaults:
  *  - active missing/stale → first project by createdAt
- *  - projects without meta → { mode: 'spa', engine: 'sim' }
+ *  - projects without meta / legacy sim entries → { mode: 'spa', engine: 'relion' }
  * The file is healed in-place when defaults were applied.
  * Returns null when the DB has no projects at all.
  */
@@ -95,8 +106,9 @@ export async function getActiveProject(): Promise<{ project: Project; meta: Proj
   if (!project) return null;
 
   let meta = file.projects[project.id];
-  if (!meta) {
-    meta = { mode: "spa", engine: "sim" };
+  if (!meta || meta.engine !== "relion") {
+    // missing meta OR legacy "sim" entry → real engine (heal in place)
+    meta = { mode: meta?.mode === "tomo" ? "tomo" : "spa", engine: "relion" };
     file.projects[project.id] = meta;
     dirty = true;
   }
@@ -168,7 +180,11 @@ export async function listProjectsWithMeta(): Promise<ProjectSummaryWithStats[]>
     statsBy.set(g.projectId, s);
   }
   return rows.map((p) => {
-    const meta = file.projects[p.id] ?? { mode: "spa", engine: "sim" };
+    const legacy = file.projects[p.id];
+    const meta = {
+      mode: legacy?.mode === "tomo" ? "tomo" : "spa",
+      engine: normalizeEngine(legacy?.engine),
+    };
     return {
       id: p.id,
       name: p.name,

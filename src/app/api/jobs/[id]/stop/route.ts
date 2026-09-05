@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { toJobDTO } from "@/lib/seed";
-import { getProjectMeta } from "@/lib/projects";
 import { stopRun, isRunAlive } from "@/lib/relion/engine";
 
 export const dynamic = "force-dynamic";
@@ -14,8 +13,7 @@ type RouteContext = { params: Promise<{ id: string }> };
  * SIGTERM → 5s grace → SIGKILL for the whole process tree (mpirun, hydra
  * proxy and every MPI rank — killing only mpirun would orphan the ranks).
  * Stopped refine-family runs keep their checkpoints: the next POST /run
- * auto-resumes via RELION --continue. Sim-engine jobs just get marked
- * stopped (time-based simulation has nothing to kill).
+ * auto-resumes via RELION --continue.
  */
 export async function POST(_request: NextRequest, context: RouteContext) {
   try {
@@ -29,20 +27,6 @@ export async function POST(_request: NextRequest, context: RouteContext) {
         { error: `Job is not running (status: ${existing.status})` },
         { status: 409 }
       );
-    }
-
-    const meta = getProjectMeta(existing.projectId);
-    if (meta?.engine !== "relion") {
-      // sim engine: no process, just freeze the state
-      const job = await db.job.update({
-        where: { id },
-        data: {
-          status: "failed",
-          progress: 0,
-          result: "stopped by user",
-        },
-      });
-      return NextResponse.json({ job: toJobDTO(job), stopped: false, message: "sim job marked stopped" });
     }
 
     const wasAlive = isRunAlive(id);

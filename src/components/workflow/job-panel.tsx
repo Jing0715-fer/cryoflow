@@ -110,19 +110,14 @@ function PanelEmpty() {
 /* Engine badge                                                         */
 /* ------------------------------------------------------------------ */
 
-function EngineBadge({ engine }: { engine: "sim" | "relion" }) {
+function EngineBadge() {
   return (
     <Badge
       variant="outline"
-      className={cn(
-        "h-5 px-1.5 text-[9px] font-semibold uppercase tracking-wider",
-        engine === "relion"
-          ? "border-teal-500/40 bg-teal-500/10 text-teal-600 dark:text-teal-400"
-          : "border-slate-400/40 bg-slate-500/10 text-slate-600 dark:text-slate-400"
-      )}
-      title={engine === "relion" ? "Runs on the REAL RELION engine" : "Runs on the simulation engine"}
+      className="h-5 border-teal-500/40 bg-teal-500/10 px-1.5 text-[9px] font-semibold uppercase tracking-wider text-teal-600 dark:text-teal-400"
+      title="Runs on the REAL RELION engine (real binaries, real data)"
     >
-      {engine === "relion" ? "RELION" : "SIM"}
+      RELION
     </Badge>
   );
 }
@@ -892,7 +887,7 @@ function LogTab({ job }: { job: JobDTO }) {
         {loading && log === null
           ? "Loading log…"
           : empty
-            ? "No log available (sim job or log removed)."
+            ? "No log available (job has not run yet)."
             : log}
       </pre>
     </div>
@@ -912,19 +907,15 @@ function PanelBody({ job }: { job: JobDTO }) {
   const deleteJob = useWorkflowStore((s) => s.deleteJob);
 
   const spec = jobType(job.type);
-  const engine = job.engine ?? "sim";
+  // The engine is always the REAL RELION one (the simulation was retired).
   // RELION gating: not detected (hard block). A WSL-side install is NOT
   // blocked anymore — the built-in WSL bridge relays jobs into the distro
   // (path translation + wsl.exe wrapping), it just gets an informational note.
-  const relionMissing = engine === "relion" && system !== null && !system.found;
-  const relionBridged =
-    engine === "relion" &&
-    system !== null &&
-    system.found &&
-    system.execution === "wsl";
+  const relionMissing = system !== null && !system.found;
+  const relionBridged = system !== null && system.found && system.execution === "wsl";
   const relionBlocked = relionMissing;
   const relionHint = relionMissing
-    ? "RELION not detected — build/install RELION or set RELION_HOME"
+    ? "RELION not detected — install it (or expose it in WSL) and press Re-detect in the top bar"
     : relionBridged
       ? `RELION ${system?.version ?? ""} in WSL${system?.wsl.distro ? ` (${system.wsl.distro})` : ""} — jobs run inside the distro through the built-in WSL bridge (paths are translated automatically)`
       : "";
@@ -1041,7 +1032,7 @@ function PanelBody({ job }: { job: JobDTO }) {
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5">
             <StatusBadge status={job.status} />
-            <EngineBadge engine={engine} />
+            <EngineBadge />
           </div>
           <span className="text-[11px] text-muted-foreground">
             {spec?.group ?? "Workflow"} · {spec?.category ?? "—"} · {spec?.tier ?? "—"}
@@ -1147,15 +1138,7 @@ function PanelBody({ job }: { job: JobDTO }) {
           <div className="space-y-1">
             <MiniProgress value={job.progress} running label={`${job.name} progress`} />
             <p className="text-right text-xs tabular-nums text-muted-foreground">
-              {engine === "relion" ? (
-                <span>REAL · RELION process running</span>
-              ) : (
-                <>
-                  {Math.round(job.progress)}% ·{" "}
-                  {(Math.max(0, (job.duration * (100 - job.progress)) / 100) / 1000).toFixed(1)}s
-                  left
-                </>
-              )}
+              <span>REAL · RELION process running</span>
             </p>
           </div>
         )}

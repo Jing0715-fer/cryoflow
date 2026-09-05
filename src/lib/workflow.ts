@@ -1189,32 +1189,3 @@ export function mergedParams(
   }
   return out;
 }
-
-/** Types whose simulated result resolves to a resolution string. */
-const RESOLUTION_TYPES = new Set([
-  "refine3d",
-  "postprocess",
-  "localres",
-  "polish",
-]);
-
-/**
- * Deterministic result string for a completed job (sim engine).
- * Pseudo-count derived from a string hash of the job id:
- * counts in [800, 4200]; refine/post types resolve to a resolution in [3.1, 8.5] Å.
- */
-export function resultFor(typeKey: string, jobId: string): string {
-  const t = jobType(typeKey);
-  const template = t?.resultTemplate ?? "{n} items";
-  let h = 0;
-  for (let i = 0; i < jobId.length; i++) {
-    h = (h * 31 + jobId.charCodeAt(i)) | 0;
-  }
-  const abs = Math.abs(h);
-  if (RESOLUTION_TYPES.has(typeKey)) {
-    const res = (310 + (abs % 540)) / 100; // 3.10 – 8.49 Å
-    return template.replace("{n}", res.toFixed(2));
-  }
-  const n = 800 + (abs % 3401); // 800 – 4200
-  return template.replace("{n}", String(n));
-}

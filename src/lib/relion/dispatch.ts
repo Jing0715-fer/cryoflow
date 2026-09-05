@@ -1,13 +1,11 @@
 /**
  * CryoFlow — run dispatch (server only).
- * Routes POST /api/jobs/[id]/run and the EMPIAR seed through here:
- * decides between the sim engine (time-based) and the REAL RELION engine.
+ * Routes POST /api/jobs/[id]/run and the EMPIAR seed through here: the REAL
+ * RELION engine is the only engine (the time-based simulation was retired).
  */
 
 import type { Job } from "@prisma/client";
 import { db } from "@/lib/db";
-import { jobType } from "@/lib/workflow";
-import { jitteredDuration } from "@/lib/seed";
 import { parseJobParams, runRealJob, isRunAlive, type UpstreamRef } from "./engine";
 
 /** Placeholder duration for real runs (the exit handler overwrites it). */
@@ -89,27 +87,11 @@ async function resolveLinkRoot(job: Job): Promise<Job> {
 }
 
 /**
- * Start (or restart) a job.
- *  - engineKind "relion": fetch upstream jobs via edges, mark running,
- *    then hand over to runRealJob (natives complete synchronously).
- *  - engineKind "sim": legacy time-based simulation with duration jitter.
+ * Start (or restart) a job on the REAL RELION engine: fetch upstream jobs via
+ * edges, mark running, then hand over to runRealJob (natives complete
+ * synchronously; RELION spawns are tracked by the exit handler).
  */
-export async function startJob(job: Job, engineKind: "sim" | "relion"): Promise<StartOutcome> {
-  if (engineKind !== "relion") {
-    const base = jobType(job.type)?.duration ?? job.duration;
-    const updated = await db.job.update({
-      where: { id: job.id },
-      data: {
-        status: "running",
-        startedAt: new Date(),
-        progress: 0,
-        result: null,
-        duration: jitteredDuration(base),
-      },
-    });
-    return { job: updated };
-  }
-
+export async function startJob(job: Job): Promise<StartOutcome> {
   // ---- REAL engine -----------------------------------------------------
   // Liveness guard: refuse to spawn a second tree for a job whose previous
   // process is still alive (double-click Run, two tabs, or the command

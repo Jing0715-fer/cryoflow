@@ -7,8 +7,9 @@ export function Footer() {
   const edges = useWorkflowStore((s) => s.edges);
   const project = useWorkflowStore((s) => s.project);
 
-  const engineLabel =
-    project?.engine === "relion" ? "RELION 5 real engine" : "simulation engine";
+  const system = useWorkflowStore((s) => s.system);
+
+  const engineLabel = `REAL RELION${system?.version ? ` ${system.version}` : ""}${system?.execution === "wsl" ? " · WSL bridge" : ""}`;
   const modeLabel = project?.mode === "tomo" ? "tomography" : "single-particle";
 
   return (

@@ -20,6 +20,7 @@ import {
   Loader2,
   Pencil,
   Plus,
+  Snowflake,
   Trash2,
   TriangleAlert,
 } from "lucide-react";
@@ -94,20 +95,14 @@ function ModeBadge({ mode }: { mode: string }) {
   );
 }
 
-function EngineBadge({ engine }: { engine: string }) {
-  const relion = engine === "relion";
+function EngineBadge() {
   return (
     <Badge
       variant="outline"
-      className={cn(
-        "h-5 px-1.5 text-[9px] font-semibold uppercase tracking-wider",
-        relion
-          ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-          : "border-slate-400/40 bg-slate-500/10 text-slate-600 dark:text-slate-400"
-      )}
-      title={relion ? "Jobs run on the REAL RELION engine" : "Jobs run on the simulation engine"}
+      className="h-5 border-emerald-500/40 bg-emerald-500/10 px-1.5 text-[9px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400"
+      title="Jobs run on the REAL RELION engine (real binaries, real data)"
     >
-      {relion ? "RELION" : "SIM"}
+      RELION
     </Badge>
   );
 }
@@ -150,7 +145,6 @@ export function NewProjectDialog({
 
   const [name, setName] = React.useState("");
   const [mode, setMode] = React.useState("spa");
-  const [engine, setEngine] = React.useState("sim");
   const [creating, setCreating] = React.useState(false);
   const [touched, setTouched] = React.useState(false);
 
@@ -159,18 +153,13 @@ export function NewProjectDialog({
     touched && (trimmed.length < 1 || trimmed.length > 80)
       ? "Name must be 1–80 characters"
       : null;
-  const relionMissing = engine === "relion" && system !== null && !system.found;
-  const relionWslOnly =
-    engine === "relion" &&
-    system !== null &&
-    system.found &&
-    system.execution === "wsl";
+  const relionMissing = system !== null && !system.found;
+  const relionWslOnly = system !== null && system.found && system.execution === "wsl";
 
   React.useEffect(() => {
     if (open) {
       setName("");
       setMode("spa");
-      setEngine("sim");
       setCreating(false);
       setTouched(false);
     }
@@ -180,7 +169,7 @@ export function NewProjectDialog({
     setTouched(true);
     if (trimmed.length < 1 || trimmed.length > 80) return;
     setCreating(true);
-    const ok = await createProject({ name: trimmed, mode, engine });
+    const ok = await createProject({ name: trimmed, mode });
     setCreating(false);
     if (ok) onOpenChange(false);
   };
@@ -191,7 +180,7 @@ export function NewProjectDialog({
         <DialogHeader>
           <DialogTitle>New project</DialogTitle>
           <DialogDescription>
-            A fresh cryo-EM workspace. Projects remember their mode and engine.
+            A fresh cryo-EM workspace — every project runs the real RELION engine.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -216,31 +205,26 @@ export function NewProjectDialog({
               <p className="text-[11px] text-destructive">{nameError}</p>
             )}
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="new-project-mode">Mode</Label>
-              <Select value={mode} onValueChange={setMode}>
-                <SelectTrigger id="new-project-mode">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="spa">SPA · single particle</SelectItem>
-                  <SelectItem value="tomo">Tomography</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="new-project-engine">Engine</Label>
-              <Select value={engine} onValueChange={setEngine}>
-                <SelectTrigger id="new-project-engine">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="sim">Simulation</SelectItem>
-                  <SelectItem value="relion">Real RELION engine</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <div>
+            <Label htmlFor="new-project-mode">Mode</Label>
+            <Select value={mode} onValueChange={setMode}>
+              <SelectTrigger id="new-project-mode">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="spa">SPA · single particle</SelectItem>
+                <SelectItem value="tomo">Tomography</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2 rounded-md border border-teal-500/30 bg-teal-500/10 px-2.5 py-2 text-[11px] leading-relaxed text-teal-700 dark:text-teal-400">
+            <Snowflake className="size-3.5 shrink-0" aria-hidden="true" />
+            <span>
+              Engine · real RELION{system?.version ? ` ${system.version}` : ""}
+              {(system?.installs.length ?? 0) > 1
+                ? ` — ${(system?.installs.length ?? 0) - 1} other install(s) detected, switchable from the top-bar chip`
+                : ""}
+            </span>
           </div>
           {relionMissing && (
             <p className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-2 text-[11px] leading-relaxed text-amber-700 dark:text-amber-400">
@@ -378,7 +362,7 @@ function ProjectCardRow({
       {/* Badges + stats */}
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
         <ModeBadge mode={project.mode} />
-        <EngineBadge engine={project.engine} />
+        <EngineBadge />
         <span className="ml-auto flex items-center gap-1">
           <StatChip
             icon={<Boxes className="size-3" aria-hidden="true" />}

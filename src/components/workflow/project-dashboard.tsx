@@ -149,7 +149,6 @@ function DashboardProjectCard({
   const total = stats?.total ?? 0;
   const done = stats?.completed ?? 0;
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-  const relion = project.engine === "relion";
   const tomo = project.mode === "tomo";
 
   const commitRename = () => {
@@ -176,22 +175,12 @@ function DashboardProjectCard({
       {/* engine accent strip */}
       <div
         aria-hidden="true"
-        className={cn(
-          "absolute inset-x-0 top-0 h-1",
-          relion
-            ? "bg-gradient-to-r from-teal-600 via-teal-400 to-teal-600"
-            : "bg-gradient-to-r from-slate-400 via-slate-300 to-slate-400"
-        )}
+        className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-teal-600 via-teal-400 to-teal-600"
       />
 
       <div className="flex items-start gap-2">
         <span
-          className={cn(
-            "mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg ring-1 ring-inset",
-            relion
-              ? "bg-teal-500/10 text-teal-600 ring-teal-500/30 dark:text-teal-400"
-              : "bg-secondary text-muted-foreground ring-border"
-          )}
+          className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-teal-500/10 text-teal-600 ring-1 ring-inset ring-teal-500/30 dark:text-teal-400"
           aria-hidden="true"
         >
           {isPending ? (
@@ -242,14 +231,9 @@ function DashboardProjectCard({
       <div className="mt-3 flex flex-wrap items-center gap-1.5">
         <Badge
           variant="outline"
-          className={cn(
-            "h-5 px-1.5 text-[9px] font-semibold uppercase tracking-wider",
-            relion
-              ? "border-teal-500/40 bg-teal-500/10 text-teal-600 dark:text-teal-400"
-              : "border-slate-400/40 bg-slate-500/10 text-slate-600 dark:text-slate-400"
-          )}
+          className="h-5 border-teal-500/40 bg-teal-500/10 px-1.5 text-[9px] font-semibold uppercase tracking-wider text-teal-600 dark:text-teal-400"
         >
-          {relion ? "RELION" : "SIM"}
+          RELION
         </Badge>
         <Badge
           variant="outline"
@@ -580,6 +564,7 @@ function ActiveProjectSpotlight() {
 export function ProjectDashboard() {
   const projects = useWorkflowStore((s) => s.projects) as ProjectCard[];
   const project = useWorkflowStore((s) => s.project);
+  const system = useWorkflowStore((s) => s.system);
   const switchProject = useWorkflowStore((s) => s.switchProject);
   const setView = useWorkflowStore((s) => s.setView);
 
@@ -705,9 +690,15 @@ export function ProjectDashboard() {
           />
           <KpiCard
             icon={<Snowflake className="size-5" />}
-            value={project?.engine === "relion" ? "RELION" : "SIM"}
+            value={system?.found ? (system.version ?? "RELION") : "—"}
             label="Active engine"
-            sub={project?.engine === "relion" ? "real RELION runs" : "time simulation"}
+            sub={
+              system?.found
+                ? system.execution === "wsl"
+                  ? `WSL bridge${system.wsl.distro ? ` · ${system.wsl.distro}` : ""}${(system.installs.length ?? 0) > 1 ? ` · +${system.installs.length - 1} install(s)` : ""}`
+                  : `real RELION runs${(system.installs.length ?? 0) > 1 ? ` · +${system.installs.length - 1} install(s)` : ""}`
+                : "RELION not detected"
+            }
             tone="bg-primary/10 text-primary ring-primary/25"
           />
         </div>

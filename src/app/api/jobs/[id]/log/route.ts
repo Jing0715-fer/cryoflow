@@ -10,7 +10,7 @@ type RouteContext = { params: Promise<{ id: string }> };
  * GET /api/jobs/[id]/log — the real engine's run.out/run.err
  *   ?full=1          → entire log (8MB safety cap) instead of the 600-line tail
  *   ?format=raw      → text/plain download (run.out) instead of JSON
- * (sim jobs have no log → 404). Soft links resolve to the ORIGINAL's log.
+ * (jobs that never ran have no log → 404). Soft links resolve to the ORIGINAL's log.
  */
 export async function GET(request: NextRequest, context: RouteContext) {
   try {
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     if (url.searchParams.get("format") === "raw") {
       const raw = getLogTail(logId, { full: true });
       if (raw === null) {
-        return NextResponse.json({ error: "No log (sim job)" }, { status: 404 });
+        return NextResponse.json({ error: "No log (job has not run)" }, { status: 404 });
       }
       return new NextResponse(raw.text, {
         headers: {
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     const tail = getLogTail(logId, { full });
     if (tail === null) {
-      return NextResponse.json({ error: "No log (sim job)" }, { status: 404 });
+      return NextResponse.json({ error: "No log (job has not run)" }, { status: 404 });
     }
     return NextResponse.json({
       jobId: id,

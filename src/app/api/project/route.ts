@@ -3,7 +3,7 @@ import { ensureActiveProject, toProjectDTO } from "@/lib/seed";
 
 export const dynamic = "force-dynamic";
 
-/** GET /api/project — active project (seeds the sim demo when DB is empty). */
+/** GET /api/project — active project (seeds the demo when DB is empty). */
 export async function GET() {
   try {
     const active = await ensureActiveProject();

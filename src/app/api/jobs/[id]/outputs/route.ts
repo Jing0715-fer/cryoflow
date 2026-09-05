@@ -3,7 +3,6 @@ import { readFileSync, readdirSync, statSync } from "fs";
 import path from "path";
 import { findEffectiveJob } from "@/lib/link";
 import { getRun } from "@/lib/relion/engine";
-import { getProjectMeta } from "@/lib/projects";
 import { readMrcHeader } from "@/lib/mrc";
 import { biggestLoop, parseStar } from "@/lib/starfile";
 
@@ -176,8 +175,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     }
 
     const run = getRun(job.id);
-    const meta = getProjectMeta(job.projectId);
-    const engine: "relion" | "sim" = run || meta?.engine === "relion" ? "relion" : "sim";
+    const engine: "relion" = "relion";
 
     if (!run || !run.workdir) {
       return NextResponse.json({
@@ -185,7 +183,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
         engine,
         files: [],
         inputs: [],
-        note: "No on-disk outputs (simulation job or not run yet)",
+        note: "No on-disk outputs (job has not run yet)",
       });
     }
 

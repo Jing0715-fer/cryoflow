@@ -17,13 +17,12 @@ export async function GET() {
   }
 }
 
-/** POST /api/projects — body: { name, mode?, engine? } → create + set active. */
+/** POST /api/projects — body: { name, mode? } → create + set active. The engine is always the real RELION one (legacy `engine` body values are ignored). */
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json().catch(() => ({}))) as {
       name?: unknown;
       mode?: unknown;
-      engine?: unknown;
     };
 
     const name = typeof body.name === "string" ? body.name.trim() : "";
@@ -31,7 +30,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Project name must be 1–80 characters" }, { status: 400 });
     }
     const mode: ProjectMode = body.mode === "tomo" ? "tomo" : "spa";
-    const engine: ProjectEngine = body.engine === "relion" ? "relion" : "sim";
+    const engine: ProjectEngine = "relion";
 
     const project = await db.project.create({ data: { name } });
     registerProject(project.id, { mode, engine }, true);

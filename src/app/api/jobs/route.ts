@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { existsSync } from "fs";
 import { db } from "@/lib/db";
-import { ensureActiveProject, toJobDTO, reconcileRunning, jitteredDuration } from "@/lib/seed";
+import { ensureActiveProject, toJobDTO } from "@/lib/seed";
 import { defaultParams, jobType } from "@/lib/workflow";
 import { readRuns, reconcileRealJobs } from "@/lib/relion/engine";
 import type { JobDTO } from "@/lib/types";
@@ -42,7 +42,7 @@ function projectLinks(jobs: JobDTO[], workspaces: Map<string, string>): void {
   }
 }
 
-/** GET /api/jobs — jobs of the ACTIVE project; real engine reconciled first, then sim. */
+/** GET /api/jobs — jobs of the ACTIVE project, reconciled against the REAL RELION engine records. */
 export async function GET() {
   try {
     const active = await ensureActiveProject();
@@ -59,15 +59,13 @@ export async function GET() {
     });
     const workspaceNames = new Map(workspaces.map((w) => [w.id, w.name]));
 
-    const reconciled = await reconcileRealJobs(jobs); // REAL engine first
-    const final = await reconcileRunning(reconciled); // then time-based sim
+    const final = await reconcileRealJobs(jobs); // REAL engine (the only engine)
 
     const runs = readRuns();
-    const projectIsRelion = active.meta.engine === "relion";
     const jobsOut = final.map((j) => {
       const dto = toJobDTO(j);
       const state = runs[j.id];
-      dto.engine = state || projectIsRelion ? "relion" : "sim";
+      dto.engine = "relion";
       dto.hasLog = state ? existsSync(state.logFile) : false;
       return dto;
     });
@@ -197,7 +195,7 @@ export async function POST(request: NextRequest) {
         },
       });
       const dto = toJobDTO(link);
-      dto.engine = active.meta.engine === "relion" ? "relion" : "sim";
+      dto.engine = "relion";
       // the POST response feeds an optimistic store update — include the
       // projection fields GET computes so the UI banner shows the original's
       // name immediately (a poll may never fire when nothing is running)
@@ -232,12 +230,12 @@ export async function POST(request: NextRequest) {
         x,
         y,
         params: customParams ? JSON.stringify(customParams) : JSON.stringify(defaultParams(type)),
-        duration: jitteredDuration(spec.duration),
+        duration: spec.duration,
       },
     });
 
     const dto = toJobDTO(job);
-    dto.engine = active.meta.engine === "relion" ? "relion" : "sim";
+    dto.engine = "relion";
     return NextResponse.json({ job: dto }, { status: 201 });
   } catch (error) {
     console.error("POST /api/jobs failed:", error);

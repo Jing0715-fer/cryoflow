@@ -76,8 +76,10 @@ interface WorkflowState {
   load: () => Promise<void>;
   /** Force a fresh RELION/WSL environment probe (bypasses the 60s cache). */
   refreshSystem: () => Promise<void>;
+  /** Switch the active RELION install (multi-version switcher). */
+  selectRelionInstall: (installId: string) => Promise<boolean>;
   switchProject: (id: string) => Promise<void>;
-  createProject: (input: { name: string; mode: string; engine: string }) => Promise<boolean>;
+  createProject: (input: { name: string; mode: string }) => Promise<boolean>;
   renameProject: (id: string, name: string) => Promise<boolean>;
   deleteProject: (id: string) => Promise<boolean>;
   /** Re-fetch the workspace list of the ACTIVE project (keeps the current
@@ -417,6 +419,31 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     }
   },
 
+  selectRelionInstall: async (installId) => {
+    try {
+      const { status } = await api<{ status: SystemStatusClient }>(
+        "/api/system/select",
+        {
+          method: "POST",
+          headers: JSON_HEADERS,
+          body: JSON.stringify({ installId }),
+        }
+      );
+      set({ system: status });
+      const install = status.installs.find((i) => i.id === installId);
+      toast({
+        title: "RELION install switched",
+        description: install
+          ? `RELION ${install.version ?? "?"} · ${install.execution === "wsl" ? `WSL (${install.distro ?? "default"})` : "native"} — new runs use it immediately`
+          : installId,
+      });
+      return true;
+    } catch (err) {
+      errToast(err instanceof Error ? err.message : "Failed to switch RELION install");
+      return false;
+    }
+  },
+
   switchProject: async (id) => {
     try {
       await api<{ ok: boolean }>("/api/projects/switch", {
@@ -442,7 +469,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       await api<{ ok: boolean }>("/api/projects", {
         method: "POST",
         headers: JSON_HEADERS,
-        body: JSON.stringify(input),
+        // engine is always the real RELION one — no field needed anymore
+        body: JSON.stringify({ name: input.name, mode: input.mode }),
       });
       await get().load();
       toast({ title: "Project created", description: input.name });

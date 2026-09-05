@@ -98,7 +98,7 @@ interface OutputFile {
 
 interface OutputsResponse {
   workdir: string | null;
-  engine: "relion" | "sim";
+  engine: "relion";
   files: OutputFile[];
   inputs?: { flag: string; path: string }[];
   cmd?: string;

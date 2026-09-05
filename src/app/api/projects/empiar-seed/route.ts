@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { toProjectDTO, jitteredDuration } from "@/lib/seed";
+import { toProjectDTO } from "@/lib/seed";
 import { registerProject } from "@/lib/projects";
 import { defaultParams, jobType } from "@/lib/workflow";
 import { startJob } from "@/lib/relion/dispatch";
@@ -111,7 +111,7 @@ export async function POST() {
           x: s.x,
           y: s.y,
           params: JSON.stringify(s.params),
-          duration: jitteredDuration(jobType(s.type)?.duration ?? 5000),
+          duration: jobType(s.type)?.duration ?? 5000,
         },
       });
     }
@@ -134,8 +134,8 @@ export async function POST() {
 
     // Auto-run the two engine-native jobs (import, then manualpick which
     // consumes import's micrographs.star output).
-    await startJob(created.import, "relion");
-    await startJob(created.manualpick, "relion");
+    await startJob(created.import);
+    await startJob(created.manualpick);
 
     return NextResponse.json(
       { project: toProjectDTO(project, "spa", "relion") },

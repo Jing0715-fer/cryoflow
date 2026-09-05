@@ -20,8 +20,8 @@ export interface JobDTO {
   startedAt: string | null;
   createdAt: string;
   updatedAt: string;
-  /** Which execution engine owns this job (computed per response, not stored). */
-  engine?: "sim" | "relion";
+  /** Which execution engine owns this job — always "relion" (the simulation engine was retired). */
+  engine?: "relion";
   /** True when a real-run log file exists on disk (computed, not stored). */
   hasLog?: boolean;
   /** Owning workspace id (server always assigns one; null = pre-migration). */
@@ -71,7 +71,7 @@ export interface ProjectDTO {
   createdAt: string;
   /** 'spa' | 'tomo' (merged from data/projects.json, not stored in DB). */
   mode?: string;
-  /** 'sim' | 'relion' (merged from data/projects.json, not stored in DB). */
+  /** Always "relion" — the real RELION engine is the only engine (legacy meta healed on read). */
   engine?: string;
   /** Job statistics (computed on the server for the project panel). */
   stats?: { total: number; running: number; completed: number; failed: number };
@@ -226,11 +226,35 @@ export interface WslStatusClient {
   ctffindPath?: string | null;
 }
 
+/** One discovered RELION install — the version switcher's data source. */
+export interface RelionInstallClient {
+  /** Stable selection key: "n:<binDir>" | "w:<distro>:<binDir>". */
+  id: string;
+  /** Parsed RELION version (null when unparseable). */
+  version: string | null;
+  /** bin dir (host path for native, distro-internal path for WSL). */
+  path: string;
+  /** Install root (parent of bin/). */
+  relionHome: string;
+  /** How this install was discovered ("RELION_HOME" | "PATH" | "known-path" | "home scan" | …). */
+  source: string;
+  /** "native": spawned directly. "wsl": executed through the WSL bridge. */
+  execution: "native" | "wsl";
+  /** WSL distro name (WSL installs only, else null). */
+  distro: string | null;
+  /** mpirun path for this install (distro-internal for WSL; null → serial only). */
+  mpirunPath: string | null;
+  /** relion_refine_mpi present (MPI-capable install). */
+  mpiBinary: boolean;
+  /** ctffind path for this install (null → CTF jobs cannot run on it). */
+  ctffindPath: string | null;
+}
+
 /** Light-weight mirror of RelionStatus (server module) for the client store. */
 export interface SystemStatusClient {
   found: boolean;
   /**
-   * How jobs can execute the detected RELION:
+   * How jobs can execute the SELECTED RELION install:
    *  - "native": the app process can spawn the binaries at `path` directly
    *              (host install, or the server itself runs inside the same Linux/WSL fs).
    *  - "wsl":    RELION lives inside WSL; `path` is a distro-internal path that this
@@ -245,4 +269,10 @@ export interface SystemStatusClient {
   binaries: { name: string; present: boolean }[];
   externals: { name: string; present: boolean }[];
   checkedAt: string;
+  /** Every RELION install discovered on this host (+ WSL distros). */
+  installs: RelionInstallClient[];
+  /** id of the active install (top-level fields mirror it). */
+  selectedId: string | null;
+  /** true when no persisted selection existed and the default was auto-picked. */
+  autoPicked: boolean;
 }
