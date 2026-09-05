@@ -1127,3 +1127,26 @@ Stage Summary:
 - Windows 兼容矩阵终态:执行(spawn 桥接 + binJoin + windowsHide)、检测(分号/ctffind 路径打印/持久化)、对账(pidAlive/EPERM/孤儿完结/诊断增强)、停止(record 正则 + pkill)、外部程序(distro 内 command -v)、路径翻译(hostToWsl/wslToHost/translate 反混淆/STAR 内容翻译)全链路无 Unix-only 假设
 - 用户本机预期:git pull 后重跑 CTF —— exec 目标为正斜杠 distro 路径,任务应真实运行(ctffind 若装在 RELION bin 目录,探测会带出 --ctffind_exe);若仍有失败,result 现在自带 bash 报错原文 + 命令 + 日志路径三层诊断
 - 未动:EMPIAR 重跑、3D 预览加宽、历史遗留 UI 项(见上节)
+
+---
+Task ID: 5
+Agent: main (Z.ai Code)
+Task: 用户问「RELION 原生 autopick 可否不提供 reference/template」——确认 LoG reference-free 可行并落地实现，打通 Import→CTF→AutoPick→Extract 主链
+
+Work Log:
+- 事实核查（真实二进制）：`relion_autopick --help` 确认 Laplacian-of-Gaussian 模式完整存在（--LoG --LoG_diam_min --LoG_diam_max --LoG_adjust_threshold --LoG_upper_threshold --Log_invert --LoG_use_ctf），Topaz wrapper 也在但需 relion_python_topaz
+- 痛点定位：CryoFlow 的 autopick 之前只有模板模式（硬性 --ref + INPUTS 硬要求 refs_mrc 来自 class2d/initialmodel/class3d）——用户 CTF 完成后管线卡死在「等 2D references」
+- 修复 1【workflow.ts 参数 schema】：新增 sel("pickingMethod", 默认 "Laplacian of Gaussian", 选项 [LoG, References])；LoG 子参数 logDiamMin(120Å)/logDiamMax(180Å)/logAdjustThreshold/logUpperThreshold(advanced)/logInvert(advanced bool)；原 particleDiameter 语义纠正为 "Particle diameter (pick mask)"（模板模式 --particle_diameter），threshold 标注 "References mode"；输入端口标签 "2D references (References mode)"
+- 修复 2【engine.ts InputReq.skipIf】：接口新增 skipIf 谓词；resolveInputs 增第三参 params（仅 dispatch 传）；autopick 的 refs_mrc req 在 pickingMethod≠References 时整条丢弃——旧 job（无 pickingMethod 字段）默认落 LoG，pending 任务直接变可跑
+- 修复 3【engine.ts buildArgv autopick 双模式】：LoG 分支 --LoG --LoG_diam_min/max --LoG_adjust_threshold [+upper/invert]；References 分支 --ref --particle_diameter --threshold --lowpass + refs 缺失诚实报错（指引切 LoG）；--angpix 显式传（新 micAngpix helper 从 import job 取 pixelSize——LoG blob 直径是 Å，绝不让默认 1 缩放）；COMMAND_TEMPLATES 同步双模式文案
+- 修复 4【发现的连带 bug——Extract 链断裂】：relion_autopick 坐标落在 <ap workdir>/micrographs/<mic>_autopick.star，而 extract 旧逻辑只认 manualpick 的 .coord 布局或裸 extname(.star)——autopick→extract 链从未真正通过。修复：extract 坐标解析三分支（目录→.coord；combined autopick.star→workdir 根 + _autopick.star 后缀；per-mic _autopick.star→上两级目录 + 后缀），与 RELION 官方 wiring（--coord_dir <autopick jobdir> --coord_suffix _autopick.star）一致
+- 修复 5【collectOutputs autopick】：coords_star 从 combined star 改为首个 per-mic star（可链可展示）；result 升级为 "REAL: N particles picked across M micrographs"（逐 star 计数）
+- E2E·沙箱真实引擎全链：①demo 项目新建 autopick（默认 LoG）连 CTF → 真实 relion_autopick --LoG 跑通 exit 0，15441 picks/10 mics，workdir 产出 per-mic star + combined autopick.star + summary.star + FOM 直方图 eps + logfile.pdf ②重跑验证新 collectOutputs（result 带计数、coords_star 指向 per-mic star）③新建 extract 连 CTF+autopick → relion_preprocess --coord_dir <ap workdir>/ --coord_suffix _autopick.star → 15442 particles extracted exit 0——AutoPick→Extract 首次真正链通
+- E2E·浏览器：palette 描述更新 ✓；Params 面板 Laplacian 子页默认 + LoG 参数 spinbutton(Å) ✓；autopicking 子页 Picking method combobox 双选项 ✓；切 References → 700ms 防抖自动保存 DB 落 pickingMethod=References ✓；input 端口新标签 ✓；completed 卡片 "REAL: 15441 particles picked across 10 micrographs" ✓；测试 job 删除还原；console 0 error；lint 0 错误、tsc src 0 错误
+
+Stage Summary:
+- 答案：RELION 原生 autopick 支持免参考 picking（Laplacian-of-Gaussian 按 blob 尺寸检测，还可 --LoG_adjust_threshold 调松紧）——已在 CryoFlow 落地，默认即 LoG，CTF 之后直接可跑
+- 主链里程碑：Import → CTF → AutoPick(LoG) → Extract 沙箱真实引擎全链贯通（用户本机同构管线 pull 后即可复现）
+- 用户本机操作：git pull → 现有 autopick job（无 pickingMethod 字段）自动落 LoG 默认 → Run 即可；若 1544/mic 挑得过多（默认阈值在 beta-gal 数据上偏松），调大 "LoG adjust threshold"（正值挑更少）
+- References 模式完全保留：class2d 产出 classes_mrc 后可切回模板匹配
+- 未动：Topaz wrapper（需 relion_python_topaz，后续轮）、EMPIAR 重跑、3D 预览加宽

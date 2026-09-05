@@ -589,6 +589,14 @@ function flag(job: EngineJobRef, key: string): boolean {
   return String(job.params[key] ?? "false") === "true";
 }
 
+/** Micrograph pixel size from the pipeline's Import job (Å). */
+function micAngpix(upstream: UpstreamRef[]): number | null {
+  const importUp = upstream.find((u) => u.type === "import");
+  return importUp?.params && typeof importUp.params.pixelSize === "number"
+    ? importUp.params.pixelSize
+    : null;
+}
+
 /** Particle pixel size: import pixel × (extract box / downsample). */
 function particlePixel(job: EngineJobRef, upstream: UpstreamRef[]): number {
   const importUp = upstream.find((u) => u.type === "import" || u.type === "tomo_import");
@@ -619,6 +627,10 @@ interface InputReq {
   from: string[];
   /** Human label used in honest-failure messages. */
   label: string;
+  /** Drop this requirement entirely when the predicate fires — e.g.
+   *  autopick's 2D references are NOT needed in Laplacian-of-Gaussian
+   *  (reference-free) mode, so the job can run straight after CTF. */
+  skipIf?: (params: Record<string, unknown>) => boolean;
 }
 
 const INPUTS: Record<string, InputReq[]> = {
@@ -633,7 +645,15 @@ const INPUTS: Record<string, InputReq[]> = {
   ],
   autopick: [
     { key: "micrographs_star", accepts: ["micrographs_star", "micrographs_ctf_star"], from: ["import", "motioncorr", "ctffind"], label: "micrographs.star (run Import first)" },
-    { key: "refs_mrc", accepts: ["classes_mrc", "model_mrc"], from: ["class2d", "initialmodel", "class3d"], label: "2D reference templates (run Class2D first)" },
+    {
+      key: "refs_mrc",
+      accepts: ["classes_mrc", "model_mrc"],
+      from: ["class2d", "initialmodel", "class3d"],
+      label: "2D reference templates (run Class2D first) — or switch Picking method to Laplacian of Gaussian (reference-free)",
+      // LoG picking needs no templates — the refs input is only a hard
+      // requirement in "References" mode (param default = LoG).
+      skipIf: (p) => String(p.pickingMethod ?? "Laplacian of Gaussian") !== "References",
+    },
   ],
   extract: [
     { key: "micrographs_star", accepts: ["micrographs_star", "micrographs_ctf_star"], from: ["import", "motioncorr", "ctffind"], label: "micrographs.star (run Import first)" },
@@ -744,9 +764,15 @@ const GENERIC_REQUIREMENTS: Record<string, string> = {
  */
 function resolveInputs(
   type: string,
-  upstream: UpstreamRef[]
+  upstream: UpstreamRef[],
+  params?: Record<string, unknown>
 ): { inputs: Record<string, string>; missing: string | null; wait?: WaitKind } {
-  const reqs = INPUTS[type] ?? [];
+  // param-driven optionality: drop requirements whose skipIf fires
+  // (only the dispatch call passes params — the manualpick/select
+  // pre-flight lookups have no skipIf requirements).
+  const reqs = (INPUTS[type] ?? []).filter(
+    (r) => !r.skipIf || !params || !r.skipIf(params)
+  );
   const runs = readRuns();
   const inputs: Record<string, string> = {};
 
@@ -814,7 +840,7 @@ export const COMMAND_TEMPLATES: Record<string, string> = {
   motioncorr: "relion_run_motioncorr --i <micrographs.star> --o <outdir>/ --use_motioncor2 --motioncor2_exe <mc2> --bin_factor <bf> --bfactor <bfac> --dose_per_frame <dose> --patch_x <px> --patch_y <py> --j <n>",
   ctffind: "relion_run_ctffind --i <micrographs.star> --o <outdir>/ --Box <box> --ResMin <rmin> --ResMax <rmax> --dFMin <dmin> --dFMax <dmax> --FStep 500 --dAst 0 --is_ctffind4 --fast_search [--ctffind_exe <ctffind>]",
   manualpick: "engine-native: import Henderson .coord picks → manualpick.star (_rlnCoordinateX/Y + _rlnMicrographName)",
-  autopick: "relion_autopick --i <micrographs.star> --odir <outdir>/ --pickname autopick --particle_diameter <dia> --threshold <thr> --lowpass <lp> --ref <refs.mrc>",
+  autopick: "relion_autopick --i <micrographs.star> --odir <outdir>/ --pickname autopick [--LoG --LoG_diam_min <Å> --LoG_diam_max <Å> --LoG_adjust_threshold <t> | --ref <refs.mrc> --particle_diameter <dia> --threshold <thr> --lowpass <lp>]",
   extract: "relion_preprocess --i <micrographs_ctf.star> --coord_list <coords.star> --part_star <outdir>/particles.star --part_dir <outdir>/ --extract --extract_size <box> [--scale <down>] --norm --bg_radius <bgr> --white_dust 3 --black_dust -3",
   select: "engine-native: particle selection — class-aware occupancy pruning when input has _rlnClassNumber, else first-N",
   class2d: "mpirun -n 2 relion_refine --i <particles.star> --o <outdir>/run --K <K> --tau2_fudge 1 --particle_diameter <dia> --ctf --pad 2 --iter <it> --flatten_solvent --zero_mask",
@@ -1499,11 +1525,30 @@ async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: string }> {
       // relion_preprocess composes fn_coord = coord_dir + fn_post + suffix,
       // where fn_post is the mic path minus extension ("micrographs/X") —
       // so coord_dir points at the manualpick JOB dir (contains micrographs/).
+      // AutoPick writes <its workdir>/micrographs/<mic>_autopick.star — same
+      // composition, but suffix "_autopick.star" and the coord root two levels
+      // above one of those files (RELION's own extract wiring from an AutoPick
+      // job: --coord_dir <autopick jobdir> --coord_suffix _autopick.star).
       const coordsInput = inputs.coords_dir;
       const isCoordDir =
         existsSync(coordsInput) && statSync(coordsInput).isDirectory();
-      const coordDir = isCoordDir ? coordsInput + "/" : path.dirname(coordsInput) + "/";
-      const coordSuffix = isCoordDir ? ".coord" : path.extname(coordsInput) || ".star";
+      let coordDir: string;
+      let coordSuffix: string;
+      if (isCoordDir) {
+        coordDir = coordsInput + "/";
+        coordSuffix = ".coord";
+      } else if (/^_?autopick\.star$/i.test(path.basename(coordsInput))) {
+        // a combined autopick.star at the workdir root — per-mic stars live
+        // in its micrographs/ sibling dir with the _autopick.star suffix
+        coordDir = path.dirname(coordsInput) + "/";
+        coordSuffix = "_autopick.star";
+      } else if (coordsInput.endsWith("_autopick.star")) {
+        coordDir = path.dirname(path.dirname(coordsInput)) + "/";
+        coordSuffix = "_autopick.star";
+      } else {
+        coordDir = path.dirname(coordsInput) + "/";
+        coordSuffix = path.extname(coordsInput) || ".star";
+      }
       const argv = [
         binJoin(binDir, "relion_preprocess"),
         "--i", inputs.micrographs_star,
@@ -1662,16 +1707,47 @@ async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: string }> {
     }
 
     case "autopick": {
-      return [
+      // Two picking methods (RELION 5 autopick): Laplacian-of-Gaussian is
+      // reference-free (blob detection by size — works straight after CTF,
+      // no Class2D needed); "References" is classic template matching and
+      // requires 2D class averages. Default = LoG so a fresh pipeline
+      // (Import → CTF → AutoPick) runs end-to-end without references.
+      const method = str(job, "pickingMethod", "Laplacian of Gaussian");
+      const argv = [
         binJoin(binDir, "relion_autopick"),
         "--i", inputs.micrographs_star,
         "--odir", ctx.workdir + "/",
         "--pickname", "autopick",
-        "--particle_diameter", String(num(job, "particleDiameter", 180)),
-        "--threshold", String(num(job, "threshold", 0.4)),
-        "--lowpass", String(num(job, "lowpass", 20)),
-        "--ref", inputs.refs_mrc,
       ];
+      // explicit angpix: the import star carries rlnMicrographPixelSize, but
+      // LoG blob diameters are in Å — never let a default of 1 scale them.
+      const mpx = micAngpix(ctx.upstream);
+      if (mpx) argv.push("--angpix", String(mpx));
+      if (method === "References") {
+        if (!inputs.refs_mrc) {
+          return {
+            error:
+              "2D reference templates missing — connect a Class2D/InitialModel/Class3D output, or switch Picking method to Laplacian of Gaussian (reference-free)",
+          };
+        }
+        argv.push(
+          "--ref", inputs.refs_mrc,
+          "--particle_diameter", String(num(job, "particleDiameter", 180)),
+          "--threshold", String(num(job, "threshold", 0.4)),
+          "--lowpass", String(num(job, "lowpass", 20)),
+        );
+      } else {
+        argv.push(
+          "--LoG",
+          "--LoG_diam_min", String(num(job, "logDiamMin", 120)),
+          "--LoG_diam_max", String(num(job, "logDiamMax", 180)),
+          "--LoG_adjust_threshold", String(num(job, "logAdjustThreshold", 0)),
+        );
+        const upper = num(job, "logUpperThreshold", 99999);
+        if (upper > 0 && upper < 99999) argv.push("--LoG_upper_threshold", String(upper));
+        if (flag(job, "logInvert")) argv.push("--Log_invert");
+      }
+      return argv;
     }
 
     case "localres": {
@@ -2081,10 +2157,30 @@ function collectOutputs(type: string, workdir: string): { outputs: Record<string
       break;
     }
     case "autopick": {
-      const star = firstExisting(workdir, ["autopick.star"]);
+      // relion_autopick writes per-micrograph coordinate stars at
+      // <odir>/<star-relative mic path>_autopick.star — with this engine's
+      // project-relative layout that is <workdir>/micrographs/<mic>_autopick.star.
+      // The first one is the chainable coords output (Extract knows the
+      // _autopick.star suffix convention); the combined pickname star, when
+      // present, only mirrors them.
+      const perMic = globOne(path.join(workdir, "micrographs"), /_autopick\.star$/);
+      const star = firstExisting(workdir, ["autopick.star"]) ?? perMic;
       if (star) {
-        outputs.coords_star = star;
-        result = "REAL: autopick coordinates written";
+        outputs.coords_star = perMic ?? star;
+        // count picks across all per-mic stars for the result message
+        let picks = 0;
+        let mics = 0;
+        try {
+          for (const f of readdirSync(path.join(workdir, "micrographs"))) {
+            if (!/_autopick\.star$/.test(f)) continue;
+            mics++;
+            picks += countStarRows(path.join(workdir, "micrographs", f));
+          }
+        } catch {
+          /* non-fatal: star may be the combined file */
+          picks = countStarRows(star);
+        }
+        result = `REAL: ${picks} particles picked across ${mics} micrographs`;
       }
       break;
     }
@@ -2674,7 +2770,7 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
   }
 
   // ---- resolve inputs --------------------------------------------------
-  const resolved = resolveInputs(job.type, upstream);
+  const resolved = resolveInputs(job.type, upstream, job.params);
   if (resolved.missing) {
     // upstream failed / still running / never ran → the dispatcher marks the
     // job PENDING (amber) instead of failed — no cascade of red jobs

@@ -363,12 +363,21 @@ export const JOB_TYPES: JobTypeSpec[] = [
     "Automated Picking",
     "Search",
     "rose",
-    "Detect particles automatically with reference templates, Laplacian-of-Gaussian or Topaz.",
+    "Reference-free Laplacian-of-Gaussian picking (no templates needed), or template matching with 2D references.",
     7000,
     [
-      num("particleDiameter", "LoG blob diameter", 180, { unit: "Å", step: 5, tab: "Laplacian" }),
+      sel("pickingMethod", "Picking method", "Laplacian of Gaussian", ["Laplacian of Gaussian", "References"], {
+        tab: "autopicking",
+        hint: "Laplacian-of-Gaussian needs no references — pick straight after CTF. References mode needs Class2D averages.",
+      }),
+      num("logDiamMin", "LoG min particle diameter", 120, { unit: "Å", step: 5, tab: "Laplacian", hint: "smallest blob the DoG filter responds to" }),
+      num("logDiamMax", "LoG max particle diameter", 180, { unit: "Å", step: 5, tab: "Laplacian", hint: "largest blob the DoG filter responds to" }),
+      num("logAdjustThreshold", "LoG adjust threshold", 0, { step: 0.05, tab: "Laplacian", hint: "positive picks fewer, negative picks more" }),
+      num("logUpperThreshold", "LoG upper threshold limit", 99999, { step: 1, tab: "Laplacian", advanced: true }),
+      bool("logInvert", "Particles are white (not black)", false, { tab: "Laplacian", advanced: true }),
+      num("particleDiameter", "Particle diameter (pick mask)", 180, { unit: "Å", step: 5, tab: "References" }),
       num("lowpass", "Lowpass filter for references", 20, { unit: "Å", step: 5, tab: "References" }),
-      num("threshold", "Picking threshold", 0.4, { step: 0.05, min: 0, max: 1, tab: "autopicking" }),
+      num("threshold", "Picking threshold (References mode)", 0.4, { step: 0.05, min: 0, max: 1, tab: "autopicking" }),
       num("minDistance", "Minimum inter-particle distance", 100, { unit: "Å", step: 10, min: 0, tab: "autopicking", advanced: true }),
       num("maxStddevNoise", "Maximum stddev of noise", 0, { step: 0.05, min: 0, tab: "autopicking", advanced: true }),
     ],
@@ -379,7 +388,7 @@ export const JOB_TYPES: JobTypeSpec[] = [
       tabs: ["Laplacian", "References", "autopicking", "Topaz"],
       inputs: [
         inp("micrographs", L.micIn, ["micrographs"]),
-        inp("references", "2D references (.mrcs)", ["references2d"]),
+        inp("references", "2D references (References mode)", ["references2d"]),
       ],
       outputs: [outp("coords", L.coordsOut, "coords")],
     }
