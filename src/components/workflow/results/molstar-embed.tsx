@@ -48,6 +48,25 @@ function isInvertedStats(s: GridStats): boolean {
 
 type Phase = "loading" | "ready" | "error";
 
+/** Fine-grained progress for the loading veil — distinguishes "compiling
+ * the ~2 MB viewer" (slow on first open, expected) from "downloading the
+ * map" so users never stare at an unexplained spinner. */
+type LoadStage = "viewer" | "plugin" | "download" | "scene";
+const STAGE_LABEL: Record<LoadStage, string> = {
+  viewer: "Compiling Mol* viewer modules…",
+  plugin: "Starting Mol* viewer…",
+  download: "Downloading map…",
+  scene: "Building isosurface…",
+};
+/** after this many ms of loading, show the first-open explanation */
+const SLOW_HINT_MS = 8_000;
+
+const STAGE_ORDER: LoadStage[] = ["viewer", "plugin", "download", "scene"];
+/** true when stage `a` completed before the current stage `b` */
+function sorder(a: LoadStage, b: LoadStage): boolean {
+  return STAGE_ORDER.indexOf(a) < STAGE_ORDER.indexOf(b);
+}
+
 /* Mol* typings are awkward to thread through dynamic imports — keep the
  * plugin handle loosely typed and dispose defensively. */
 type MolPlugin = any;
@@ -60,6 +79,16 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [phase, setPhase] = useState<Phase>("loading");
   const [error, setError] = useState<string | null>(null);
+  const [stage, setStage] = useState<LoadStage>("viewer");
+  const [slow, setSlow] = useState(false);
+
+  // escalate the loading veil with an explanation when the first open
+  // drags on (molstar compile can legitimately take ~a minute on slow disks)
+  useEffect(() => {
+    if (phase !== "loading") return;
+    const t = setTimeout(() => setSlow(true), SLOW_HINT_MS);
+    return () => clearTimeout(t);
+  }, [phase]);
 
   // contour state (σ units, always ≥ 0; `sign` picks the density side —
   // inverted maps like RELION class-average-style volumes store the signal
@@ -98,6 +127,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
           import("molstar/lib/mol-plugin-ui/react18"),
           import("molstar/lib/mol-plugin-ui/spec"),
         ]);
+        setStage("plugin");
 
         const target = containerRef.current;
         if (!target || disposed) return;
@@ -117,12 +147,39 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
         }
         pluginRef.current = plugin;
 
-        // fetch the raw map bytes through the (path-checked) outputs API
-        const res = await fetch(
-          `/api/jobs/${jobId}/outputs/file?path=${encodeURIComponent(path)}&format=raw`
-        );
-        if (!res.ok) {
-          throw new Error(`map download failed (HTTP ${res.status})`);
+        // fetch the raw map bytes through the (path-checked) outputs API.
+        // Retry with backoff: in dev, Turbopack compiles the route on first
+        // hit and a request can transiently fail mid-compile — an instant
+        // error here would kick users to the slice fallback even though the
+        // viewer itself is fine.
+        setStage("download");
+        let res: Response | null = null;
+        let lastErr: unknown = null;
+        for (let attempt = 0; attempt < 4 && !res; attempt++) {
+          if (attempt > 0) {
+            await new Promise((r) => setTimeout(r, 1500 * attempt));
+          }
+          try {
+            const r = await fetch(
+              `/api/jobs/${jobId}/outputs/file?path=${encodeURIComponent(path)}&format=raw`
+            );
+            if (r.ok) res = r;
+            else if (r.status >= 500 || r.status === 429) lastErr = new Error(`HTTP ${r.status}`);
+            else {
+              // 4xx is definitive (bad path / not a map) — no retry
+              throw new Error(`map download failed (HTTP ${r.status})`);
+            }
+          } catch (err) {
+            // network-level failure (server compiling) — retry unless it was
+            // our own 4xx Error
+            if (err instanceof Error && err.message.startsWith("map download failed")) throw err;
+            lastErr = err;
+          }
+        }
+        if (!res) {
+          throw new Error(
+            `map download failed (${lastErr instanceof Error ? lastErr.message : "network"})`
+          );
         }
         const buf = await res.arrayBuffer();
         console.debug("[molstar] map fetched", buf.byteLength);
@@ -137,6 +194,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
         VolumeReprRef.current = VolumeRepresentation3D;
         IsoValueRef.current = Volume.IsoValue;
 
+        setStage("scene");
         const b = plugin.build();
         const data = b.toRoot().apply(RawData, { data: new Uint8Array(buf), label: name });
         const parsed = data.apply(ParseCcp4, {});
@@ -409,9 +467,30 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
 
       {phase === "loading" && (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/70 backdrop-blur-[2px]">
-          <div className="flex items-center gap-2 rounded-full border bg-background px-4 py-2 text-xs text-muted-foreground shadow-sm">
-            <Loader2 className="h-4 w-4 animate-spin text-teal-600" aria-hidden="true" />
-            Loading Mol*…
+          <div className="flex flex-col items-center gap-2.5 rounded-2xl border bg-background px-5 py-4 text-xs text-muted-foreground shadow-sm">
+            <div className="flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin text-teal-600" aria-hidden="true" />
+              <span aria-live="polite">{STAGE_LABEL[stage]}</span>
+            </div>
+            {/* thin stage progress: 4 dots, filled as stages complete */}
+            <div className="flex items-center gap-1.5" aria-hidden="true">
+              {(["viewer", "plugin", "download", "scene"] as LoadStage[]).map((s) => (
+                <span
+                  key={s}
+                  className={
+                    "h-1 w-6 rounded-full transition-colors duration-300 " +
+                    (s === stage ? "bg-teal-600 animate-pulse" : sorder(s, stage) ? "bg-teal-600/60" : "bg-border")
+                  }
+                />
+              ))}
+            </div>
+            {slow && (
+              <p className="max-w-xs text-center text-[10px] leading-relaxed">
+                First open compiles the ~2 MB Mol* viewer bundle — this can take
+                up to a minute on slower disks. It only happens once per page
+                load; later opens are instant.
+              </p>
+            )}
           </div>
         </div>
       )}

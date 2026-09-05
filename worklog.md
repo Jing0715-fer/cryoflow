@@ -1234,3 +1234,25 @@ Stage Summary:
 - 连带修复第七个真实 bug：optics 行误计入 class 分布（classes API + 引擎 classDistributionFromData），class2d 以后报 3,438 而非虚高的 3,439
 - EMPIAR 主线：11 作业，refine3d 47% 运行中（detached 存活），postprocess pending 自动接力；refine3d 完成后按 cron v5 指引重跑 maskcreate/postprocess 并记录 FSC
 - 遗留：Topaz wrapper、refine3d 后台完成后的 FSC 记录（cron 接力）、3D viewer 可再加体积截面工具（后续轮）
+
+---
+Task ID: 10
+Agent: main (Z.ai Code)
+Task: 用户两诉求——①Mol* 3D 查看器一直卡在 "Loading Mol*…" 加载不出 map ②Select 2D / 2D 分类的 class average 颗粒是黑色，应显示白色颗粒（黑底白信号，RELION display 惯例）
+
+Work Log:
+- 【②根因·数据实测】EMPIAR class averages 实测密度分布：min −5.3 / max +2.4（信号在负侧，RELION cryo-EM 粒子=负密度惯例）但溶剂中位数落 −0.10…−0.97，而 stretchToGray 旧反转条件要求 med === 0 精确等零 → 启发式静默失效 → 线性映射把负密度颗粒渲染成黑色。实测比例全景：class avg 2.7–3.0、extracted 粒子 1.24、微图全正（不触发）、CTF .ctf 0.56（不触发）
+- 【②修复·mrc.ts】反转条件放宽为 lo < 0 && −lo > 1.2·hi（去 med 条件）；一处修改覆盖全部渲染路径（renderMrcSlicePng/LargePng/MontagePng 全走 stretchToGray）——select2d gallery、class2d Results/放大、粒子 montage 一次性修复；注释记录实测比例防回归
+- 【②验证·VLM】curl 渲染 10 类 montage → "BRIGHT/WHITE shapes on DARK/BLACK background" ✓；浏览器 class2d Results 两缩略图白颗粒无占位符 ✓；放大对话框白颗粒+宽 ✓；select2d Params→Classes CLASS GALLERY 白颗粒（VLM 详述：Auto/All/None 控件、class 4 高亮、"2D Classification 1 · iter 12" 数据源）✓
+- 【①根因链】Mol* 卡 Loading = ~2MB molstar 动态模块首次打开才由 Turbopack 现场编译，慢磁盘（用户 Windows/WSL）上要几分钟且旧 UI 只有一个无解释的转圈；fetch raw 遇编译窗口期瞬断还会直接掉进 error 分支
+- 【①修复·mol-viewer.tsx】molstar chunk 预热：绑定 3D 意图（MolViewer mount = 用户 inspect 了带 3D map 的 job）时 requestIdleCallback 后台 import——首版为模块级（页面加载即预热）在 4GB 沙箱直接 OOM 死循环（页面自身编译与 molstar 编译叠加），改为组件级挂载后安全且意图精准
+- 【①修复·molstar-embed.tsx】①分阶段 Loading veil：viewer(编译)→plugin→download(下载 map)→scene(等值面) 四阶段文案 + 4 段进度点 + 8 秒慢速解释（"首次打开需编译 ~2MB 模块，慢磁盘最多约一分钟，每页一次"）②fetch raw 4 次退避重试（1.5s×n，4xx 不重试，dev 编译窗口期瞬断不再直接 error）
+- 【①验证】console 完整链两次成功：plugin created → map fetched 1049600 → state committed → ready；veil 阶段文案实测出现（"Starting Mol* viewer…"）；最终 VLM 确认：金色-橙色实心 3D 结构渲染 ✓、contour 控制条（slider −2.00σ、1/2/3/5σ 预设、−ρ/+ρ 按钮）✓、"inverted map detected — contouring the negative side" 自动负密度检测提示 ✓、对话框近全屏宽 ✓
+- 【环境·沙箱 6 次 OOM】4GB 内存容不下 refine3d(3 ranks ~1.1GB) + Turbopack 编译 molstar chunk(峰值 2.6GB)并发——每开一次 3D 都可能杀 server；期间 SIGSTOP 暂停 refine3d 全家腾内存做 QA，验证后 SIGCONT 恢复（4h08m 继续算，iteration 8+）；一次 Turbopack 持久缓存损坏（页面 8 分钟编译不出）清 .next 解决
+- 【质量】lint 0 错误、tsc src/ 0 错误；浏览器 console 0 error；Mol* chunk 编译产物缓存后二次打开秒级 ready
+
+Stage Summary:
+- ②颗粒极性修复：白底黑颗粒（错误）→ 黑底白信号（RELION 惯例），class2d/select2d/粒子 montage 全覆盖，微图/CTF/mask 全正值图像不受影响
+- ①Mol* 加载体验三重修复：3D 意图预热（编译移出打开路径）+ 四阶段进度 + fetch 重试；用户本机"永远 Loading"的静默期变成有解释的进度（且首次后缓存秒开）
+- Mol* 渲染链本会话验证完好（负密度自动检测+手动翻转在 EMPIAR VDAM map 上工作正常）
+- 遗留：refine3d 后台继续（iteration 8+，~9.6min/iter，auto-refine 预计还需 1-3h）；完成后 cron 接力重跑 maskcreate/postprocess 记录 FSC

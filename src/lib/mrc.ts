@@ -152,21 +152,31 @@ function downsample(
 
 /**
  * 2–98 percentile contrast stretch → 8-bit grayscale buffer.
- * RELION class averages store the PARTICLE as negative density over an
- * exactly-zero flattened solvent — detect that case and flip + renormalize
- * so the particle renders bright on black with its full dynamic range.
+ *
+ * RELION cryo-EM convention: the particle signal is NEGATIVE density —
+ * both in class averages (particle as negative density over flattened
+ * solvent) and in extracted particle stacks. When the negative side of
+ * the distribution carries clearly more swing than the positive side
+ * (≥1.2×), the signal lives below the mean: flip and renormalize so the
+ * particle renders BRIGHT ON BLACK (what RELION's own display does).
+ *
+ * All-positive images (raw micrographs, CTF power spectra, soft masks)
+ * never satisfy `lo < 0` and are never flipped. Measured on the EMPIAR
+ * beta-gal dataset: class averages flip at ratio 2.7–3.0, particle stacks
+ * at 1.24, micrographs are all-positive, CTF .ctf diagnostics sit at 0.56.
  */
 function stretchToGray(data: Float32Array): Buffer {
   const n = data.length;
   const sorted = Float32Array.from(data).sort();
   const lo = sorted[Math.floor(0.02 * (n - 1))];
   const hi = sorted[Math.ceil(0.98 * (n - 1))];
-  const med = sorted[Math.floor(0.5 * (n - 1))];
   const gray = Buffer.alloc(n);
 
-  // inverted reference: majority solvent is EXACTLY zero and the negative
-  // side carries far more signal than the positive side
-  const inverted = med === 0 && lo < 0 && -lo > 2 * hi;
+  // inverted reference: the negative side carries the particle signal
+  // (median-zero check from v1 was dropped — real class averages settle
+  // at med −0.1…−1.0 after solvent flattening, never exactly 0, which
+  // silently disabled the flip and rendered particles BLACK)
+  const inverted = lo < 0 && -lo > 1.2 * Math.max(hi, Number.EPSILON);
   if (inverted) {
     const loSig = sorted[Math.floor(0.005 * (n - 1))]; // robust signal floor
     const span = -loSig;

@@ -9,6 +9,7 @@
  */
 
 import dynamic from "next/dynamic";
+import { useEffect } from "react";
 import { Box } from "lucide-react";
 import {
   Dialog,
@@ -28,6 +29,40 @@ const MolStarEmbed = dynamic(() => import("./molstar-embed"), {
   ),
 });
 
+/* ------------------------------------------------------------------ */
+/* Mol* chunk pre-warm                                                 */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Mol* is ~2 MB of dynamic-imported modules that Turbopack compiles ON
+ * FIRST OPEN — on slow disks (notoriously Windows/WSL hosts) that compile
+ * alone can take minutes, which users perceive as "stuck on Loading
+ * Mol*…". This component only mounts when the inspector shows a job whose
+ * results include a 3D map, i.e. when the user has clear 3D intent — that
+ * is the right moment to start compiling the chunk in the background:
+ * by the time they click "View in 3D" it is usually cached.
+ *
+ * NOTE deliberately NOT module-level: pre-warming on plain page load
+ * compiles a giant chunk for users who never open 3D and, on
+ * memory-constrained hosts, can push the dev server into OOM territory
+ * while it is still compiling the page itself.
+ */
+let molstarWarmStarted = false;
+function warmMolstar(): void {
+  if (molstarWarmStarted) return;
+  molstarWarmStarted = true;
+  const kick = () => {
+    void import("./molstar-embed").catch(() => {
+      /* warm-up failure surfaces later at real open time */
+    });
+  };
+  if (typeof window.requestIdleCallback === "function") {
+    window.requestIdleCallback(kick, { timeout: 10_000 });
+  } else {
+    window.setTimeout(kick, 4_000);
+  }
+}
+
 interface MolViewerProps {
   job: JobDTO;
   /** map path relative to the job workdir */
@@ -39,6 +74,12 @@ interface MolViewerProps {
 }
 
 export function MolViewer({ job, path, name, open, onOpenChange }: MolViewerProps) {
+  // pre-warm the molstar chunk on 3D intent (this component mounting), NOT
+  // on page load — see warmMolstar's doc comment
+  useEffect(() => {
+    warmMolstar();
+  }, []);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {/* near-page-width viewer: the map is the main event, not a thumbnail.
