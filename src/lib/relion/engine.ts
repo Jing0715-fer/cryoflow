@@ -39,6 +39,7 @@ import { detectRelion } from "./system";
 import { MIC_RE, expandPattern, hasWildcard, userPathToHost } from "./glob";
 import { writePathrefMarker } from "./pathref";
 import {
+  binJoin,
   bridgeFromStatus,
   hostToWsl,
   isWindowsPath,
@@ -282,7 +283,7 @@ export async function stopRun(jobId: string): Promise<{ stopped: boolean; messag
     } catch {
       /* already gone */
     }
-    execFile("wsl.exe", wslStopArgs(state.workdir, distro), { timeout: 5000 }, () => {
+    execFile("wsl.exe", wslStopArgs(state.workdir, distro), { timeout: 5000, windowsHide: true }, () => {
       /* best effort — pkill exits non-zero when nothing matched */
     });
     if (!child) {
@@ -1405,6 +1406,10 @@ function outPath(ctx: BuildCtx, name: string): string {
   return path.join(ctx.workdir, name);
 }
 
+// binJoin (imported from ./wsl-bridge) joins binary names onto an install
+// bin dir WITHOUT path.join — distro-internal POSIX bin dirs get mangled by
+// path.win32.join on Windows hosts (see wsl-bridge.ts for the full story).
+
 /**
  * Resolve an external program executable.
  *  - native installs: bin dir first, then the host PATH (`which`)
@@ -1440,7 +1445,7 @@ async function externalOnPath(
         /* distro unreachable — the honest not-found error below */
       }
     } else {
-      if (existsSync(path.join(binDir, n))) return path.join(binDir, n);
+      if (existsSync(binJoin(binDir, n))) return binJoin(binDir, n);
       const found = await new Promise<string | null>((resolve) => {
         execFile("which", [n], { timeout: 2000 }, (err, stdout) => {
           const out = String(stdout ?? "").trim();
@@ -1464,7 +1469,7 @@ async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: string }> {
   switch (type) {
     case "ctffind": {
       const argv = [
-        path.join(binDir, "relion_run_ctffind"),
+        binJoin(binDir, "relion_run_ctffind"),
         "--i", inputs.micrographs_star,
         "--o", ctx.workdir + "/",
         "--Box", String(num(job, "box", 512)),
@@ -1500,7 +1505,7 @@ async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: string }> {
       const coordDir = isCoordDir ? coordsInput + "/" : path.dirname(coordsInput) + "/";
       const coordSuffix = isCoordDir ? ".coord" : path.extname(coordsInput) || ".star";
       const argv = [
-        path.join(binDir, "relion_preprocess"),
+        binJoin(binDir, "relion_preprocess"),
         "--i", inputs.micrographs_star,
         "--coord_dir", coordDir,
         "--coord_suffix", coordSuffix,
@@ -1520,7 +1525,7 @@ async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: string }> {
 
     case "class2d": {
       const argv = [
-        path.join(binDir, "relion_refine"),
+        binJoin(binDir, "relion_refine"),
         "--i", inputs.particles_star,
         "--o", outPath(ctx, "run"),
         "--K", String(Math.round(num(job, "numClasses", 10))),
@@ -1543,7 +1548,7 @@ async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: string }> {
     case "initialmodel": {
       // VDAM gradient refinement — no MPI (RELION forbids --grad with MPI)
       return [
-        path.join(binDir, "relion_refine"),
+        binJoin(binDir, "relion_refine"),
         "--grad", "--denovo_3dref",
         "--i", inputs.particles_star,
         "--o", outPath(ctx, "run"),
@@ -1566,7 +1571,7 @@ async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: string }> {
 
     case "class3d": {
       return [
-        path.join(binDir, "relion_refine"),
+        binJoin(binDir, "relion_refine"),
         "--i", inputs.particles_star,
         "--ref", inputs.model_mrc,
         "--o", outPath(ctx, "run"),
@@ -1583,7 +1588,7 @@ async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: string }> {
 
     case "refine3d": {
       const argv = [
-        path.join(binDir, "relion_refine"),
+        binJoin(binDir, "relion_refine"),
         "--i", inputs.particles_star,
         "--ref", inputs.model_mrc,
         "--o", outPath(ctx, "run"),
@@ -1605,7 +1610,7 @@ async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: string }> {
 
     case "maskcreate": {
       return [
-        path.join(binDir, "relion_mask_create"),
+        binJoin(binDir, "relion_mask_create"),
         "--i", inputs.map_mrc,
         "--o", outPath(ctx, "mask.mrc"),
         "--lowpass", String(num(job, "lowpass", 15)),
@@ -1619,7 +1624,7 @@ async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: string }> {
 
     case "postprocess": {
       const argv = [
-        path.join(binDir, "relion_postprocess"),
+        binJoin(binDir, "relion_postprocess"),
         "--i", inputs.half1_mrc,
         "--o", outPath(ctx, "postprocess"),
         "--mask", inputs.mask_mrc,
@@ -1642,7 +1647,7 @@ async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: string }> {
         };
       }
       return [
-        path.join(binDir, "relion_run_motioncorr"),
+        binJoin(binDir, "relion_run_motioncorr"),
         "--i", inputs.micrographs_star,
         "--o", ctx.workdir + "/",
         "--use_motioncor2",
@@ -1658,7 +1663,7 @@ async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: string }> {
 
     case "autopick": {
       return [
-        path.join(binDir, "relion_autopick"),
+        binJoin(binDir, "relion_autopick"),
         "--i", inputs.micrographs_star,
         "--odir", ctx.workdir + "/",
         "--pickname", "autopick",
@@ -1671,7 +1676,7 @@ async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: string }> {
 
     case "localres": {
       const argv = [
-        path.join(binDir, "relion_postprocess"),
+        binJoin(binDir, "relion_postprocess"),
         "--locres",
         "--i", inputs.half1_mrc,
         "--o", outPath(ctx, "relion"),
@@ -1684,7 +1689,7 @@ async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: string }> {
 
     case "polish": {
       return [
-        path.join(binDir, "relion_motion_refine"),
+        binJoin(binDir, "relion_motion_refine"),
         "--i", inputs.particles_star,
         "--f", inputs.postprocess_star,
         "--corr_mic", inputs.micrographs_star,
@@ -1697,7 +1702,7 @@ async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: string }> {
 
     case "ctfrefine": {
       const argv = [
-        path.join(binDir, "relion_ctf_refine"),
+        binJoin(binDir, "relion_ctf_refine"),
         "--i", inputs.particles_star,
         "--f", inputs.postprocess_star,
         "--o", ctx.workdir + "/",
@@ -1750,7 +1755,7 @@ async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: string }> {
       }
       const dupLabel = str(job, "selectKind", "particles") === "micrographs" ? "rlnMicrographName" : str(job, "selectKind", "particles") === "movies" ? "rlnMicrographMovieName" : "rlnImageName";
       return [
-        path.join(binDir, "relion_star_handler"),
+        binJoin(binDir, "relion_star_handler"),
         "--combine",
         "--i", stars.join(" "),
         "--check_duplicates", dupLabel,
@@ -1760,7 +1765,7 @@ async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: string }> {
 
     case "subtract": {
       const argv = [
-        path.join(binDir, "relion_particle_subtract"),
+        binJoin(binDir, "relion_particle_subtract"),
         "--i", inputs.optimiser_star,
         "--mask", inputs.mask_mrc,
         "--o", ctx.workdir + "/",
@@ -1783,7 +1788,7 @@ async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: string }> {
     case "tomo_aligntiltseries": {
       const method = str(job, "method", "AreTomo2");
       const argv = [
-        path.join(binDir, "relion_align_tiltseries"),
+        binJoin(binDir, "relion_align_tiltseries"),
         "--i", inputs.tilt_series_star,
         "--o", ctx.workdir + "/",
         "--tomogram_thickness", String(num(job, "thickness", 300)),
@@ -1797,7 +1802,7 @@ async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: string }> {
 
     case "tomo_tomograms": {
       return [
-        path.join(binDir, "relion_tomo_reconstruct_tomogram"),
+        binJoin(binDir, "relion_tomo_reconstruct_tomogram"),
         "--t", inputs.tilt_series_star,
         "--o", ctx.workdir + "/",
         "--w", String(Math.round(num(job, "xdim", 1024))),
@@ -1811,7 +1816,7 @@ async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: string }> {
     case "tomo_ctfrefine": {
       const half2 = inputs.half1_mrc.replace("half1", "half2");
       return [
-        path.join(binDir, "relion_tomo_refine_ctf"),
+        binJoin(binDir, "relion_tomo_refine_ctf"),
         "--i", inputs.particles_star,
         "--ref1", inputs.half1_mrc,
         "--ref2", existsSync(half2) ? half2 : inputs.half1_mrc,
@@ -1823,7 +1828,7 @@ async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: string }> {
 
     case "tomo_exclude": {
       return [
-        path.join(binDir, "relion_python_tomo_exclude_tilt_images"),
+        binJoin(binDir, "relion_python_tomo_exclude_tilt_images"),
         "--tilt-series-star-file", inputs.tilt_series_star,
         "--cache-size", String(Math.round(num(job, "cacheSize", 5))),
         "--output-directory", ctx.workdir + "/",
@@ -1833,7 +1838,7 @@ async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: string }> {
     case "tomo_polish": {
       const half2 = inputs.half1_mrc.replace("half1", "half2");
       const argv = [
-        path.join(binDir, "relion_tomo_align"),
+        binJoin(binDir, "relion_tomo_align"),
         "--i", inputs.particles_star,
         "--ref1", inputs.half1_mrc,
         "--ref2", existsSync(half2) ? half2 : inputs.half1_mrc,
@@ -1848,7 +1853,7 @@ async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: string }> {
 
     case "tomo_reconstruct": {
       return [
-        path.join(binDir, "relion_tomo_reconstruct_particle"),
+        binJoin(binDir, "relion_tomo_reconstruct_particle"),
         "--i", inputs.particles_star,
         "--theme", "classic",
         "--o", ctx.workdir + "/",
@@ -1889,7 +1894,7 @@ async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: string }> {
 
     case "tomo_extract": {
       return [
-        path.join(binDir, "relion_tomo_subtomo"),
+        binJoin(binDir, "relion_tomo_subtomo"),
         "--i", inputs.particles_star,
         "--theme", "classic",
         "--o", ctx.workdir + "/",
@@ -2531,6 +2536,10 @@ function spawnTrackedRun(
     env,
     detached: true,
     stdio: ["ignore", outFd, errFd],
+    // wsl.exe is a console-subsystem binary — without this a detached
+    // spawn allocates a visible console window on Windows hosts (one per
+    // running job). No-op on POSIX.
+    windowsHide: true,
   });
   // the parent's copies are redundant now (the child dups survive on their
   // own) — close them to avoid leaking 2 fds per run
@@ -2638,9 +2647,9 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
   ) {
     const checkpoint = resumableOptimiser(workdir);
     const mpirun = resolveMpirun(binDir, bridge);
-    const mpiBin = bridge
-      ? `${binDir.replace(/\/$/, "")}/relion_refine_mpi`
-      : path.join(binDir, "relion_refine_mpi");
+    // POSIX binDir (WSL distro-internal) must not pass through path.join —
+    // binJoin keeps it intact on every host platform (see its doc comment).
+    const mpiBin = binJoin(binDir, "relion_refine_mpi");
     if (checkpoint && mpirun && (bridge ? bridge.hasMpiBinary : existsSync(mpiBin))) {
       // gold-standard halves need leader + 2 half-mappers
       const nranks = job.type === "refine3d" ? 3 : 2;
@@ -2781,6 +2790,26 @@ function failureResult(state: RunRecord, exitCode: number): string {
       );
     }
   }
+  const cmd = state.cmd.length > 160 ? state.cmd.slice(0, 160) + "…" : state.cmd;
+  parts.push(`command: ${cmd}`);
+  parts.push(`logs: ${state.errFile} + ${state.logFile}`);
+  return parts.join(" — ").slice(0, 900);
+}
+
+/**
+ * Interrupted-run result: the exit handler was lost (server restart / HMR
+ * reload) AND no atomic outputs landed, so the true outcome is unknown.
+ * Unlike the old bare "interrupted (exit unknown) — re-run", this surfaces
+ * the stderr/stdout tails and the command — bash's own error (e.g.
+ * "exec: \home\u\…: No such file or directory") is exactly what lands in
+ * run.err for instantly-dead runs, and it is the fastest way for the user
+ * to see WHY the process vanished.
+ */
+function interruptedResult(state: RunRecord): string {
+  const errTail = tailText(state.errFile, 280);
+  const outTail = errTail ? "" : tailText(state.logFile, 280);
+  const parts: string[] = ["interrupted (exit unknown) — re-run"];
+  if (errTail || outTail) parts.push(errTail || outTail);
   const cmd = state.cmd.length > 160 ? state.cmd.slice(0, 160) + "…" : state.cmd;
   parts.push(`command: ${cmd}`);
   parts.push(`logs: ${state.errFile} + ${state.logFile}`);
@@ -3037,13 +3066,15 @@ export async function reconcileRealJobs(jobs: Job[]): Promise<Job[]> {
           continue;
         }
       }
+      const patch = {
+        status: "failed" as const,
+        progress: 0,
+        result: interruptedResult(state),
+      };
       const updated = await db.job
-        .update({
-          where: { id: job.id },
-          data: { status: "failed", progress: 0, result: "interrupted (exit unknown) — re-run" },
-        })
+        .update({ where: { id: job.id }, data: patch })
         .catch(() => null);
-      out.push(updated ?? { ...job, status: "failed", progress: 0, result: "interrupted (exit unknown) — re-run" });
+      out.push(updated ?? { ...job, ...patch });
       continue;
     }
 

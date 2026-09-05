@@ -1103,3 +1103,27 @@ Stage Summary:
 - 用户本机影响最直接的两个:①stop 按钮现在纯凭 record 停任务,不再依赖检测状态 ②WSL 里装了 motioncor2 的用户终于能跑 motioncorr(原来恒报 not found)
 - 测试策略:平台差异无法在 Linux 沙箱直接覆盖 Windows 分支,用纯函数 diag(正则/签名/翻译)+ Linux 等价路径回归(ctffind E2E)双层验证
 - 未动:EMPIAR 重跑、3D 预览加宽、历史遗留 UI 项
+
+---
+Task ID: 4
+Agent: main (Z.ai Code)
+Task: 用户报「装好 ctffind 后跑 CTF 依然 Job failed / interrupted (exit unknown)」并贴出引擎命令 —— 从命令本身定位第三处 Windows 平台盲区 + 完成「完全兼容 Windows」审计收尾
+
+Work Log:
+- 【根因·path.win32.join 篡改 POSIX 路径】用户贴的命令里 `exec '\home\z\myproject\relion5-build-cuda-fixed\bin\relion_run_ctffind'` 是全反斜杠、无盘符开头,而同命令的 RELION_HOME/PATH/cd/--i/--o 全是正斜杠。溯源:engine.ts 的 buildArgv 用 `path.join(binDir, "relion_run_*")` 构建 argv[0],binDir = 选中 WSL 安装的 distro 内部 POSIX 路径 `/home/z/.../bin` —— **Windows 上 path.win32.join 会把 `/home/z/...` 规范化成 `\home\z\...`**(前导 `/` 被当作当前盘符根,所有 `/` 变 `\`)。wrapWslCommand 的 translate() 只识别带盘符/UNC 前缀的路径,`\home\z\...` 原样透传 → bash exec 一个 distro 里不存在的路径 → 秒挂、无产物 → 孤儿路径(无主产物)诚实报 interrupted (exit unknown)。讽刺:同文件 mpirun 分支早用字符串拼接躲开了这个坑,22 处 buildArgv 调用点没躲开;沙箱是 Linux(path.join = posix join)所以 QA 从未暴露
+- 【修复 1·binJoin】wsl-bridge.ts 新增导出 `binJoin(binDir, name)` = `${binDir 去尾分隔符}/${name}`,纯 "/" 拼接:POSIX 目录天然正确,Windows 原生目录 fs/spawn 也接受正斜杠。engine.ts 全部 24 处 `path.join(binDir, ...)`(22 个 buildArgv 二进制 + externalOnPath native 分支 + resume 的 mpiBin)统一换 binJoin;resume 分支原来 bridge/native 两条不同写法也一并统一
+- 【修复 2·translate 反混淆防御】wrapWslCommand 的 translate():`isWindowsPath` 命中照旧走 hostToWsl;新增「前导单个 `\` 且非 UNC(`\\`)」→ toPosix 还原 —— 未来任何经 path.win32.join 泄漏的 mangled 路径进 argv 都会在 bash 前被治愈(UNC 双反斜杠仍走 hostToWsl,互不干扰)
+- 【修复 3·interrupted 诊断增强】reconcile 的孤儿-无产物兜底从一句干巴巴的 "interrupted (exit unknown) — re-run" 升级为 interruptedResult():stderr 尾巴(优先)/ stdout 尾巴 + 命令 + 日志路径,≤900 字符 —— 与 failureResult 同格式。用户机器上 exec 秒挂时 bash 的 "No such file or directory" 原文会直接出现在 result 里,根因一眼可见
+- 【修复 4·windowsHide】spawnTrackedRun 主 spawn 与 stopRun 的 wsl.exe execFile 补 `windowsHide: true` —— wsl.exe 是控制台子系统程序,Windows 上 detached spawn 不加此项会给每个运行中的任务开一个可见控制台黑窗(POSIX 上无操作);system.ts/externalOnPath/verifyBridgeTarget 原本就有
+- 【审计收尾】残余 path.join 全库复查:engine 其余调用全作用于 host 侧(workdir/DATA_DIR/MPICH_BIN),system.ts 三处全是 native host 路径,API 路由全部 path.join(run.workdir)(host)+ 已有 `\\` 穿越守卫,STAR 内容 `bridge ? hostToWsl(f) : f` 翻译链完好,resolveMpirun/hasMpiBinary/resolveCtffind 桥接分支全短路到探测事实 —— path.join(binDir) 类盲区收敛为零
+- 【diag-wsl-bridge 扩容】新增 9 个回归断言:binJoin posix/Windows 原生目录/尾斜杠/尾反斜杠、mangled 形态 isWindowsPath=false、toPosix 反混淆、wrapWslCommand 对用户机器原始 mangled 串(`\home\z\myproject\relion5-build-cuda-fixed\bin\relion_run_ctffind`)的完整治愈(exec 目标还原为 POSIX)、UNC 参数仍走 hostToWsl —— **44/44 ALL PASS**
+- 【E2E·原生回归】demo ctffind 重跑:running→completed "REAL: CTF estimated for 11 micrographs",engine-state record cmd 与改动前逐字节一致(`/home/z/relion-install/bin/relion_run_ctffind`,断言无反斜杠)—— binJoin 在 Linux 上与 path.join 完全等价
+- 【E2E·interrupted 诊断】伪造孤儿 motioncorr(死 pid + done:false + run.err 写入用户机器同款 bash 报错 + DB running)→ 一次 GET /api/jobs → failed,result = "interrupted (exit unknown) — re-run — bash: line 1: \home\z\myproject\...relion_run_ctffind: No such file or directory — command: wsl -d Debian … — logs: run.err + run.out" —— 完整复现用户场景且根因直出;测试残留全部还原(状态文件/DB/fake workdir)
+- 【E2E·浏览器】/ 渲染正常、console 零错误、CTF inspector 打开 67 输出文件完好、粘性页脚贴底(footerBottom==innerHeight);本轮零前端文件改动故移动端免复测
+- 【环境备注】发现 Bash 工具会回收命令结束时仍是 shell 后代的进程(nohup/setsid 单层都救不了 dev server)—— 现用 double-fork 模式 `bash -c 'cd … && setsid nohup bun run dev > dev.log 2>&1 < /dev/null & exit 0'`(中间父进程即刻退出 → dev server 被 init 收养,PPID=1 跨命令存活);lint 0 错误、tsc src/ 0 错误
+
+Stage Summary:
+- 第三处 Windows 盲区闭环:探测脚本分号(87e4675)→ /proc 误判(cc92284)→ **path.win32.join 篡改 exec 目标(本轮)**。用户的 CTF 任务在三连修后:命令 exec 目标恢复 `/home/z/myproject/relion5-build-cuda-fixed/bin/relion_run_ctffind` 正斜杠形态 → bash 可执行;即使再遇 handler 丢失,interrupted 文案也直带 bash 报错原文
+- Windows 兼容矩阵终态:执行(spawn 桥接 + binJoin + windowsHide)、检测(分号/ctffind 路径打印/持久化)、对账(pidAlive/EPERM/孤儿完结/诊断增强)、停止(record 正则 + pkill)、外部程序(distro 内 command -v)、路径翻译(hostToWsl/wslToHost/translate 反混淆/STAR 内容翻译)全链路无 Unix-only 假设
+- 用户本机预期:git pull 后重跑 CTF —— exec 目标为正斜杠 distro 路径,任务应真实运行(ctffind 若装在 RELION bin 目录,探测会带出 --ctffind_exe);若仍有失败,result 现在自带 bash 报错原文 + 命令 + 日志路径三层诊断
+- 未动:EMPIAR 重跑、3D 预览加宽、历史遗留 UI 项(见上节)

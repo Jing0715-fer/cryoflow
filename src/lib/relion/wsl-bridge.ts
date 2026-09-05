@@ -94,6 +94,21 @@ export function toPosix(p: string): string {
   return p.replace(/\\/g, "/");
 }
 
+/**
+ * Join a binary name onto an install bin dir WITHOUT path.join. binDir can
+ * be a distro-internal POSIX path (/home/u/relion/bin) when jobs run through
+ * the WSL bridge — on a Windows host path.win32.join normalizes that into
+ * \home\u\relion\bin\… (the leading "/" is read as the current drive's root
+ * and every "/" becomes "\"), the bridge cannot recognize the mangled form,
+ * bash execs a path that does not exist inside the distro and the job dies
+ * instantly with no outputs (surfacing as "interrupted (exit unknown)").
+ * Plain "/" concat is correct for POSIX dirs and equally valid for native
+ * Windows dirs (fs + spawn accept forward slashes on every platform).
+ */
+export function binJoin(binDir: string, name: string): string {
+  return `${binDir.replace(/[\\/]+$/, "")}/${name}`;
+}
+
 /** sh single-quote (safe inside a bash -c script). */
 export function shq(s: string): string {
   return "'" + s.replace(/'/g, "'\\''") + "'";
@@ -128,7 +143,15 @@ export function wrapWslCommand(
   bridge: WslBridge
 ): WrappedCommand {
   const wslCwd = hostToWsl(hostCwd);
-  const translate = (a: string) => (isWindowsPath(a) ? hostToWsl(a) : a);
+  const translate = (a: string) => {
+    if (isWindowsPath(a)) return hostToWsl(a);
+    // Defense in depth: path.win32.join mangles distro-internal POSIX
+    // paths into \home\u\… (single leading backslash, no drive letter) —
+    // restore the POSIX separators so an exec target leaked in through
+    // any future code path still resolves inside the distro.
+    if (a.startsWith("\\") && !a.startsWith("\\\\")) return toPosix(a);
+    return a;
+  };
   const exports: string[] = [
     `cd ${shq(wslCwd)} || exit 111`,
     `export RELION_HOME=${shq(bridge.relionHome)}`,

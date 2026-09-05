@@ -1,5 +1,5 @@
 import {
-  hostToWsl, wslToHost, isWindowsPath, shq, wrapWslCommand, bridgeFromStatus, wslStopArgs,
+  hostToWsl, wslToHost, isWindowsPath, shq, wrapWslCommand, bridgeFromStatus, wslStopArgs, binJoin, toPosix,
 } from "../src/lib/relion/wsl-bridge";
 
 let fails = 0;
@@ -25,6 +25,18 @@ eq("isWindows posix", isWindowsPath("/mnt/c/x"), false);
 // quoting
 eq("shq plain", shq("/home/a b"), "'/home/a b'");
 eq("shq quote", shq("it's"), "'it'\\''s'");
+
+// binJoin — POSIX bin dirs must NEVER pass through path.win32.join
+// (reproduces the user's \home\z\… mangling: path.win32.join("/home/z/x/bin", "prog")
+//  → "\\home\\z\\x\\bin\\prog" on Windows hosts, exec then fails inside the distro)
+eq("binJoin posix", binJoin("/home/z/myproject/relion5-build-cuda-fixed/bin", "relion_run_ctffind"), "/home/z/myproject/relion5-build-cuda-fixed/bin/relion_run_ctffind");
+eq("binJoin windows-native dir", binJoin("C:\\relion\\bin", "relion_refine"), "C:\\relion\\bin/relion_refine");
+eq("binJoin trailing slash", binJoin("/opt/relion/bin/", "relion_refine"), "/opt/relion/bin/relion_refine");
+eq("binJoin trailing backslash", binJoin("/opt/relion/bin\\\\", "relion_refine"), "/opt/relion/bin/relion_refine");
+// what path.win32.join WOULD have produced (documenting the mangling):
+const winJoined = "\\home\\z\\myproject\\relion5-build-cuda-fixed\\bin\\relion_run_ctffind";
+eq("mangled form is not windows-path", isWindowsPath(winJoined), false);
+eq("translate un-mangles (toPosix)", toPosix(winJoined), "/home/z/myproject/relion5-build-cuda-fixed/bin/relion_run_ctffind");
 
 // bridge from statuses
 const native = { execution: "native", found: true, path: "/home/z/relion-install/bin", wsl: { available: false, relionPath: null, relionHome: null, version: null, source: null, distro: null, note: "", available2: true } } as never;
@@ -76,6 +88,24 @@ eq("record bridge native null", rm3, null);
 const bridge2 = { ...bridge, distro: null };
 const w2 = wrapWslCommand(["/x/bin/relion_refine", "--o", "C:\\a\\b"], "C:\\a", bridge2);
 eq("no distro arg count", w2.args.length, 4); eq("no distro head", w2.args.slice(0, 3), ["-e", "bash", "-c"]);
+
+// mangled argv defense-in-depth: an exec target that leaked through
+// path.win32.join (\home\z\…) must be restored to POSIX inside the script —
+// this is the exact string that killed the user's CTF run on Windows
+const wm = wrapWslCommand(
+  [winJoined, "--i", "C:\\Users\\me\\proj\\ctf_1\\micrographs.star", "--o", "C:\\Users\\me\\proj\\ctf_1\\/"],
+  "C:\\Users\\me\\proj",
+  bridge
+);
+const wmScript = wm.args[5] as string;
+if (!wmScript.includes("exec '/home/z/myproject/relion5-build-cuda-fixed/bin/relion_run_ctffind'")) {
+  fails++; console.log("✗ mangled exec target restored:", wmScript.slice(0, 200));
+} else console.log("✓ mangled exec target restored");
+if (wmScript.includes("exec '\\home")) { fails++; console.log("✗ backslashes survive in exec"); }
+else console.log("✓ no backslash exec remains");
+// UNC args must still take the hostToWsl route (not the un-mangle route)
+const wu = wrapWslCommand(["/x/relion_refine", "--i", "\\\\wsl.localhost\\Debian\\data\\x.star"], "C:\\a", bridge);
+eq("unc still translated", (wu.args[5] as string).includes("'/data/x.star'"), true);
 
 console.log(fails === 0 ? "\nALL PASS" : `\n${fails} FAILURES`);
 process.exit(fails === 0 ? 0 : 1);
