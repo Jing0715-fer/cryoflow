@@ -2593,12 +2593,18 @@ function spawnTrackedRun(
   let args = argv.slice(1);
   let env = relionEnv(binDir);
   let displayCmd = argv.join(" ");
+  let bridged = false;
   if (bridge) {
-    const wrapped = wrapWslCommand(argv, projectDir, bridge);
+    // log files are redirected INSIDE the bash script (Linux-side `>>`
+    // through drvfs lands on the same Windows files the host reads) —
+    // the spawn's own stdio is bypassed entirely because wsl.exe's
+    // handle relay is unreliable in detached mode (Windows log fix).
+    const wrapped = wrapWslCommand(argv, projectDir, bridge, { out: logFile, err: errFile });
     file = wrapped.file;
     args = wrapped.args;
     env = { ...process.env };
     displayCmd = wrapped.display;
+    bridged = true;
   }
 
   const record: RunRecord = {
@@ -2625,13 +2631,18 @@ function spawnTrackedRun(
   // the parent — two documented incidents of hours-long refines dying).
   // detached: true puts the tree in its own session, so group signals aimed
   // at the dev server (Ctrl-C, reaper) can't take the refine down either.
+  //
+  // BRIDGED runs: the bash script owns the redirection (see above), so the
+  // child gets /dev/null stdio — the host-side fds would be the only thing
+  // wsl.exe could fail to relay. The files are still created here so
+  // getLogTail sees them (200 + empty) from the very first poll.
   const outFd = openSync(logFile, "a");
   const errFd = openSync(errFile, "a");
   const child = spawn(file, args, {
     cwd: projectDir,
     env,
     detached: true,
-    stdio: ["ignore", outFd, errFd],
+    stdio: bridged ? ["ignore", "ignore", "ignore"] : ["ignore", outFd, errFd],
     // wsl.exe is a console-subsystem binary — without this a detached
     // spawn allocates a visible console window on Windows hosts (one per
     // running job). No-op on POSIX.

@@ -1150,3 +1150,25 @@ Stage Summary:
 - 用户本机操作：git pull → 现有 autopick job（无 pickingMethod 字段）自动落 LoG 默认 → Run 即可；若 1544/mic 挑得过多（默认阈值在 beta-gal 数据上偏松），调大 "LoG adjust threshold"（正值挑更少）
 - References 模式完全保留：class2d 产出 classes_mrc 后可切回模板匹配
 - 未动：Topaz wrapper（需 relion_python_topaz，后续轮）、EMPIAR 重跑、3D 预览加宽
+
+---
+Task ID: 6
+Agent: main (Z.ai Code)
+Task: 用户三项诉求——①Windows 本机 log 读不出来 ②EMPIAR-10017 全链路真实测试 ③画布状态实时更新 + job 详情头部布局优化
+
+Work Log:
+- 【①根因】spawnTrackedRun 桥接任务 stdio 直传 Windows fd 给 wsl.exe——detached+windowsHide 模式下 wsl.exe 对 Linux 侧的句柄转发不可靠（用户实测：运行中 run.out/run.err 恒 0 字节而 RELION 产物正常落盘；exec 失败的 bash 报错也丢失）
+- 【①修复·wsl-bridge.ts】wrapWslCommand 新增可选 logFiles 参数：整个脚本包成 bash 块 `{ cd … || exit 111; export …; exec …; } >> '<hostToWsl(run.out)>' 2>> '<hostToWsl(run.err)>'`——Linux 侧经 drvfs append 写的就是宿主读的同一物理文件；bash 自身诊断（cd 失败/exec 127 报错）与命令输出全部落 log；wsl.exe stdio 转发彻底不再被依赖
+- 【①修复·engine.ts】桥接任务 stdio 改 "ignore"（重定向归脚本所有）；log 文件仍在宿主预创建（首帧 200+空而非 404）；stopRun 的 record 正则验证仍兼容（display 前缀不变）
+- 【①验证】diag-wsl-bridge 新增 7 断言（块前缀/重定向路径/exec 在块内/record 正则/无 logFiles 不重定向/UNC 项目 log 路径译为 distro 绝对）→ 51/51 ALL PASS；真实 bash 三场景实测：正常输出→run.out ✓、cd 失败→run.err+exit111 ✓、exec 失败→报错原文进 run.err+exit127 ✓（用户缺的正是这条诊断链）
+- 【③实时轮询·page.tsx】三档自适应：running/pending→1.2s（pending 可被服务端 auto-start 翻转）；全空闲→6s 心跳（孤儿自愈/对账变更可见）；页面隐藏→15s+回前台立即 tick；anyRunning 选择器升级为 anyActive
+- 【③头部重构·job-inspector.tsx】旧单行塞 name+状态+类型+三按钮严重拥挤 → 两区式：身份行（图标+标题+状态+X）+ 独立动作工具条（Focus/Reset&edit/Re-run 或 Stop，右对齐 muted 背景条）；类型徽章移到 meta 行与 created/duration 同排
+- 【②EMPIAR 全链】新建项目 "EMPIAR-10017 Full Chain"（10 作业 + 10 边装配）：import(/home/z/empiar-10017/micrographs, 1.77Å)→ctffind→autopick(LoG 150-200Å, adjust+2)→extract(128→64)→select(3500)→class2d(K10,it12)→initialmodel(VDAM K1,D2,it50)→refine3d(D2 auto-refine,iniHigh30,参考历史 3.54Å 配方)→maskcreate→postprocess；全部 Run 后 pending 引擎按边序自动接力
+- 【②已完成段】import 10 mics ✓ → CTF exit 0 ✓ → **LoG 调参后 3438 picks/10 mics（~344/mic，与历史 3476 粒子的 3.54Å 验证运行同量级）** ✓ → extract 3439 ✓ → select 3438 ✓；class2d+initialmodel 并行运行中（50%/66%），refine3d/mask/postprocess pending 排队
+- 【浏览器 QA】新头部两行式渲染 ✓（a11y 树：身份行+meta+lineage+独立 Focus/Reset/Re-run 工具条）；运行中 class2d Log 实时流 ✓（RELION MPI setup 头 57 行已入）；画布 10 卡片状态正确、进度随 1.2s 轮询跳动（17→25→50%）✓；console 0 error、页脚贴底 ✓；lint 0 错误、tsc src 0 错误；内存 2.9GB（next-server 1.9GB 稳态，红线内）
+
+Stage Summary:
+- Windows log 链路闭环：第五处平台盲区（wsl.exe stdio 转发）修复——日志写入改由 bash 块内重定向完成，Windows/Linux 行为一致；用户 pull 后重跑任意任务，Log 页签应实时出字（进度解析同步受益）
+- EMPIAR 主线重启：前 5 段全绿且 LoG autopick 首次在真实数据上产出合理挑取（3438/10mics）；class2d/initialmodel/refine3d 链在跑，本会话结束后续由 15 分钟 cron 监控推进，refine3d 完成后 worklog 记录最终 FSC
+- 画布实时性：三档自适应轮询 + pending 加速 + 可见性感知
+- 用户本机操作：git pull → 重跑任务 → Log 页签应实时滚动；同时验证 Re-detect 与 CTF（binJoin 修复后 exec 为正斜杠）

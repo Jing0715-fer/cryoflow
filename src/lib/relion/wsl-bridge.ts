@@ -133,14 +133,21 @@ export interface WrappedCommand {
  * translated to /mnt/<drive>/…; arguments that are already POSIX (binaries,
  * mpirun, ctffind) pass through untouched.
  *
- * The script `cd`s into the translated workdir (fails hard with exit 111 when
- * impossible), exports the RELION environment, then execs the command — so
- * wsl.exe's exit code + stdio are exactly the Linux command's.
+ * LOG REDIRECTION (the Windows log fix): when `logFiles` is given, the whole
+ * script runs inside a bash block whose stdout/stderr are redirected to the
+ * WSL-translated run.out/run.err — the SAME physical files the Windows host
+ * reads for the Log tab, progress parsing and failure diagnostics. This
+ * removes all dependence on wsl.exe's stdio handle relay, which does NOT
+ * reliably forward inherited file handles to the Linux process in detached
+ * + windowsHide mode (observed live: run.out/run.err stuck at 0 bytes while
+ * the job happily wrote its outputs). Linux-side `>>` opens the file through
+ * drvfs, so every write lands on the Windows filesystem immediately.
  */
 export function wrapWslCommand(
   argv: string[],
   hostCwd: string,
-  bridge: WslBridge
+  bridge: WslBridge,
+  logFiles?: { out: string; err: string }
 ): WrappedCommand {
   const wslCwd = hostToWsl(hostCwd);
   const translate = (a: string) => {
@@ -160,10 +167,15 @@ export function wrapWslCommand(
   if (bridge.ctffind) {
     exports.push(`export RELION_CTFFIND_EXECUTABLE=${shq(bridge.ctffind)}`);
   }
-  const script = [
-    ...exports,
-    `exec ${argv.map((a) => shq(translate(a))).join(" ")}`,
-  ].join("; ");
+  let script = [...exports, `exec ${argv.map((a) => shq(translate(a))).join(" ")}`].join("; ");
+  if (logFiles) {
+    // block-level redirect: bash's own diagnostics (cd failure, exec "No
+    // such file or directory") AND the command's output both land in the
+    // log files; `exec` inherits the block's descriptors.
+    const out = shq(hostToWsl(logFiles.out));
+    const err = shq(hostToWsl(logFiles.err));
+    script = `{ ${script}; } >> ${out} 2>> ${err}`;
+  }
 
   const args: string[] = [];
   if (bridge.distro) args.push("-d", bridge.distro);

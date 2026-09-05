@@ -1286,6 +1286,10 @@ function InspectorHeader({ job }: { job: JobDTO }) {
           )}
         </div>
       )}
+      {/* header — two stacked zones: identity (icon + name + status + close)
+       * on top, meta + actions on a separate toolbar row below. The old
+       * single flex row crammed name + status + type + three action buttons
+       * into one line and truncated the title on medium screens. */}
       <div className="flex items-start gap-3">
         <span
           className={cn(
@@ -1296,21 +1300,21 @@ function InspectorHeader({ job }: { job: JobDTO }) {
           <TypeIcon name={spec?.icon ?? "boxes"} className={cn("size-5", spec?.color.text)} aria-hidden="true" />
         </span>
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2">
             <h2 className="truncate text-base font-semibold leading-tight tracking-tight text-foreground">
               {job.name}
             </h2>
             <StatusBadge status={job.status} />
-            <Badge
-              variant="outline"
-              className="h-5 px-1.5 text-[9px] font-semibold uppercase tracking-wider"
-            >
-              {spec?.label ?? job.type}
-            </Badge>
           </div>
           {/* NOTE: div, not <p> — the vertical Separators render <div>s and
            * HTML forbids div-in-p (hydration error) */}
-          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
+            <Badge
+              variant="outline"
+              className="h-4.5 px-1.5 text-[9px] font-semibold uppercase tracking-wider"
+            >
+              {spec?.label ?? job.type}
+            </Badge>
             <span>created {job.createdAt ? fmtAgo(job.createdAt) : "—"}</span>
             {running && job.startedAt ? (
               <>
@@ -1331,58 +1335,72 @@ function InspectorHeader({ job }: { job: JobDTO }) {
           <LineageBreadcrumb job={job} />
         </div>
 
-        {/* actions — the close button lives INSIDE this row (the dialog's
-            floating top-right X used to collide with "Re-run" on narrower
-            screens; keeping everything in one flex row removes the overlap) */}
-        <div className="flex shrink-0 items-center gap-1.5">
+        {/* close — top-right of the identity row (Esc still works) */}
+        <DialogClose asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-label="Close inspector"
+            className="h-8 w-8 shrink-0 gap-0 rounded-md p-0 text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            <X className="size-4" aria-hidden="true" />
+          </Button>
+        </DialogClose>
+      </div>
+
+      {/* action toolbar — its own row: Focus / Reset & edit / Re-run (or
+       * Stop while running), right-aligned on a quiet background strip so
+       * the buttons never fight the job title for horizontal space */}
+      {!isLink ? (
+        <div className="flex flex-wrap items-center justify-end gap-1.5 rounded-lg border bg-muted/40 px-2 py-1.5">
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="outline" size="sm" onClick={() => focusJob(job.id)} className="h-8 gap-1.5 px-2.5 text-xs">
+              <Button variant="ghost" size="sm" onClick={() => focusJob(job.id)} className="h-7 gap-1.5 px-2.5 text-xs text-muted-foreground hover:bg-background hover:text-foreground">
                 <Locate className="size-3.5" aria-hidden="true" />
-                <span className="hidden sm:inline">Focus</span>
+                <span>Focus</span>
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom">Center this job on the canvas</TooltipContent>
           </Tooltip>
-          {job.status !== "running" && !isLink ? (
+          {job.status !== "running" ? (
             <>
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 onClick={() => void resetJob(job.id).then(() => {
                   inspect(null);
                   select(job.id);
                 })}
-                className="h-8 gap-1.5 px-2.5 text-xs"
+                className="h-7 gap-1.5 px-2.5 text-xs text-muted-foreground hover:bg-background hover:text-foreground"
               >
                 <RotateCcw className="size-3.5" aria-hidden="true" />
-                <span className="hidden sm:inline">Reset &amp; edit</span>
+                <span>Reset &amp; edit</span>
               </Button>
               <Button
                 size="sm"
                 disabled={busy}
                 onClick={() => setConfirmRerun(true)}
-                className="h-8 gap-1.5 bg-teal-600 px-3 text-xs text-white hover:bg-teal-700"
+                className="h-7 gap-1.5 bg-teal-600 px-3 text-xs text-white hover:bg-teal-700"
               >
                 {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Play className="size-3.5" />}
                 Re-run
               </Button>
             </>
-          ) : running && !isLink ? (
+          ) : (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
                   disabled={busy}
                   onClick={() => {
                     setBusy(true);
                     void stopJob(job.id).finally(() => setBusy(false));
                   }}
-                  className="h-8 gap-1.5 border-rose-300 px-2.5 text-xs text-rose-700 hover:bg-rose-50 hover:text-rose-800 dark:border-rose-500/40 dark:text-rose-300 dark:hover:bg-rose-950/40"
+                  className="h-7 gap-1.5 px-2.5 text-xs text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/40"
                 >
                   {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Square className="size-3.5" aria-hidden="true" />}
-                  <span className="hidden sm:inline">Stop</span>
+                  <span>Stop</span>
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="bottom">
@@ -1390,20 +1408,9 @@ function InspectorHeader({ job }: { job: JobDTO }) {
                 last checkpoint via RELION --continue
               </TooltipContent>
             </Tooltip>
-          ) : null}
-          {/* close — in-row X (Esc still works) */}
-          <DialogClose asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              aria-label="Close inspector"
-              className="h-8 w-8 gap-0 rounded-md p-0 text-muted-foreground hover:bg-muted hover:text-foreground"
-            >
-              <X className="size-4" aria-hidden="true" />
-            </Button>
-          </DialogClose>
+          )}
         </div>
-      </div>
+      ) : null}
 
       {/* live progress */}
       {running ? (

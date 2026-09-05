@@ -107,5 +107,40 @@ else console.log("✓ no backslash exec remains");
 const wu = wrapWslCommand(["/x/relion_refine", "--i", "\\\\wsl.localhost\\Debian\\data\\x.star"], "C:\\a", bridge);
 eq("unc still translated", (wu.args[5] as string).includes("'/data/x.star'"), true);
 
+// ---- Windows log fix: block-level log redirection inside the bash script ----
+// drive-letter project: the script must append to the WSL-translated log paths
+const wl = wrapWslCommand(
+  ["/x/bin/relion_run_ctffind", "--o", "C:\\proj\\ctf_1\\/"],
+  "C:\\proj",
+  bridge,
+  { out: "C:\\proj\\ctf_1\\run.out", err: "C:\\proj\\ctf_1\\run.err" }
+);
+const wlScript = wl.args[5] as string;
+eq("logfix starts with block", wlScript.startsWith("{ cd '/mnt/c/proj' "), true);
+eq(
+  "logfix block redirect",
+  wlScript.includes("} >> '/mnt/c/proj/ctf_1/run.out' 2>> '/mnt/c/proj/ctf_1/run.err'"),
+  true
+);
+eq("logfix exec inside block", wlScript.includes("; exec '/x/bin/relion_run_ctffind'"), true);
+// the record regex (stopRun) must still recognise the display with the block
+const rl = wl.display.match(/^wsl(?: -d (\S+))? -- bash -c /);
+eq("logfix record distro", rl?.[1], "Debian");
+// no-logFiles call keeps the legacy bare script (verifyBridgeTarget path)
+eq("no logfiles no redirect", (wrapWslCommand(["/x/bin/r"], "C:\\a", bridge).args[5] as string).includes(">>"), false);
+
+// UNC-hosted project (app data inside the distro fs): log paths translate to distro-absolute
+const wu2 = wrapWslCommand(
+  ["/x/bin/relion_run_ctffind"],
+  "\\\\wsl.localhost\\Debian\\home\\me\\proj",
+  bridge,
+  { out: "\\\\wsl.localhost\\Debian\\home\\me\\proj\\ctf_1\\run.out", err: "\\\\wsl.localhost\\Debian\\home\\me\\proj\\ctf_1\\run.err" }
+);
+eq(
+  "logfix unc log path",
+  (wu2.args[5] as string).includes("} >> '/home/me/proj/ctf_1/run.out' 2>> '/home/me/proj/ctf_1/run.err'"),
+  true
+);
+
 console.log(fails === 0 ? "\nALL PASS" : `\n${fails} FAILURES`);
 process.exit(fails === 0 ? 0 : 1);

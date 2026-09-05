@@ -46,8 +46,7 @@ export default function Home() {
   const select = useWorkflowStore((s) => s.select);
   const view = useWorkflowStore((s) => s.view);
   const loadError = useWorkflowStore((s) => s.error);
-  // primitive selector: polls that change nothing never re-render the shell
-  const anyRunning = useWorkflowStore((s) => s.jobs.some((j) => j.status === "running"));
+  // primitive selectors keep shell re-renders cheap (see anyActive below)
 
   const [mounted, setMounted] = React.useState(false);
   const [paletteOpen, setPaletteOpen] = React.useState(false);
@@ -63,14 +62,34 @@ export default function Home() {
     setMounted(true);
   }, []);
 
-  // Poll while any job is running
+  // Poll cadence — "canvas job status updates in real time":
+  //  - running OR pending jobs → 1.2s (pending jobs can flip to running
+  //    server-side at any moment via auto-start when their upstream lands)
+  //  - fully idle → 6s heartbeat (catches orphan self-completion, engine
+  //    reconciliation and other server-side state changes)
+  //  - hidden tab → 15s (cheap), and one immediate tick when it becomes
+  //    visible again so returning to the tab never shows stale cards
+  const anyActive = useWorkflowStore(
+    (s) => s.jobs.some((j) => j.status === "running" || j.status === "pending")
+  );
+  const [pageVisible, setPageVisible] = React.useState(true);
   React.useEffect(() => {
-    if (!anyRunning) return;
+    const onVis = () => {
+      const visible = document.visibilityState === "visible";
+      setPageVisible(visible);
+      if (visible) void useWorkflowStore.getState().pollTick();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, []);
+
+  React.useEffect(() => {
+    const delay = !pageVisible ? 15000 : anyActive ? 1200 : 6000;
     const timer = setInterval(() => {
       void useWorkflowStore.getState().pollTick();
-    }, 1200);
+    }, delay);
     return () => clearInterval(timer);
-  }, [anyRunning]);
+  }, [anyActive, pageVisible]);
 
   // ESC cancels connect mode, closes the inspector, then deselects
   // (the right-side panel). The Radix dialog handles its own ESC first —
