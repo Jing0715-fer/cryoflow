@@ -3,6 +3,7 @@ import { existsSync, readdirSync, readFileSync } from "fs";
 import path from "path";
 import { findEffectiveJob } from "@/lib/link";
 import { getRun } from "@/lib/relion/engine";
+import { summarizeOrientation } from "@/lib/relion/rebalance-core";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,15 @@ export interface AngDistResponse {
   /** point-group symmetry of the job, e.g. "D2" */
   symmetry: string | null;
   starFile: string | null;
+  /** cryoSPARC-style view: Fibonacci-sphere bins (equal-area) + marginal
+   *  histograms — feeds the Mollweide projection panel. */
+  fib?: {
+    bins: Array<{ x: number; y: number; z: number; count: number }>;
+    maxBin: number;
+    rotHist: number[];
+    tiltHist: number[];
+    anisotropy: number;
+  };
 }
 
 /** Column index of `label` inside the particle data loop of a STAR text. */
@@ -85,6 +95,13 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       anisotropy: 0,
       symmetry: null,
       starFile: null,
+      fib: {
+        bins: [],
+        maxBin: 0,
+        rotHist: new Array<number>(48).fill(0),
+        tiltHist: new Array<number>(36).fill(0),
+        anisotropy: 1,
+      },
     };
     if (!run?.workdir || !existsSync(run.workdir)) {
       return NextResponse.json(empty);
@@ -119,6 +136,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     const cells = new Array<number>(ROT_BINS * TILT_BINS).fill(0);
     let total = 0;
     let max = 0;
+    const angles: Array<{ rot: number; tilt: number }> = [];
     for (const raw of lines) {
       const t = raw.trim();
       if (!t || t.startsWith("#") || t.startsWith("_") || t === "loop_" || t.startsWith("data_")) continue;
@@ -134,7 +152,12 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       cells[idx]++;
       total++;
       if (cells[idx] > max) max = cells[idx];
+      angles.push({ rot, tilt });
     }
+
+    // cryoSPARC-style equal-area summary (fib sphere + marginals) for the
+    // Mollweide panel — computed from the same angle list, live-capable.
+    const fib = total > 0 ? summarizeOrientation(angles, 610, 48, 36) : null;
 
     const occupied = cells.reduce((n, c) => n + (c > 0 ? 1 : 0), 0);
     const anisotropy =
@@ -161,6 +184,17 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       anisotropy,
       symmetry,
       starFile: best.file,
+      ...(fib
+        ? {
+            fib: {
+              bins: fib.bins,
+              maxBin: fib.maxBin,
+              rotHist: fib.rotHist,
+              tiltHist: fib.tiltHist,
+              anisotropy: fib.anisotropy,
+            },
+          }
+        : {}),
     };
     return NextResponse.json(body);
   } catch (error) {
