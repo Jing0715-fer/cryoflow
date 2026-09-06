@@ -1368,3 +1368,23 @@ Stage Summary:
 - 「postprocess.star 作为规范数据源」主题落地：FSC 4 曲线 + Guinier 5 列 + B-factor + FinalResolution 全部改走精确 star 表，EPS 恢复降级为 fallback
 - 用户可见提升：postprocess 检查器从 1 张图变 2 张图（FSC 是 postprocess 的核心结果图）；refine3d 图表不再与作业卡片徽章互相矛盾；Guinier 锐化曲线物理效应首次正确可见
 - 遗留（下轮候选）：3D viewer 体积截面工具、Topaz wrapper、FSC 图可加 maskedFsc 第四曲线开关、用户机器 class3d/refine3d 顺序模式实测反馈
+
+---
+Task ID: 16
+Agent: main (Z.ai Code)
+Task: cron 自主巡检——agent-browser QA 回归 + 自主决策（本轮无 bug，推进三个新功能）+ worklog + push
+
+Work Log:
+- 【开局核对】git fetch：本地 == origin/main == ad75391，无落后。dev server 死亡（沙箱回收）→ playbook 重启
+- 【QA 回归·全绿】主页面 13 jobs/12 completed/35 types、console 0 error；postprocess inspector：FSC 图（"RELION reported 7.08 Å · Nyquist-limited" + 0.143 + 0.5→18.28 徽章 + 三曲线 + postprocess.star 源标注）✓、Overview 的 Guinier（B-factor -804.8 Å² 徽章）DOM 确认 ✓；refine3d 三徽章并列（0.143→16.88 / reported 9.44 / 0.5→17.60）✓；Dashboard 统计卡 ✓。结论：Task 15 修复全部回归通过，无新 bug → 按任务要求转入新功能开发
+- 【新功能 1·FSC raw-masked 曲线】fsc-chart.tsx：API 早已有 maskedFsc 字段但从未渲染——新增 "masked (raw)" 开关 chip（rose 高亮态）+ 第四条 rose 点线 + 图例/tooltip 标签。物理意义：raw masked FSC 与 corrected 曲线的高频间隙 = 掩膜诱导的伪相关增益（E2E 截图确认 rose 线高于 amber 线，物理正确）。默认隐藏保持主图可读
+- 【新功能 2·Mol* 体积截面工具】molstar-embed.tsx：控制条新增 "Slice" 开关（ScanLine 图标）+ 展开式截面行（X/Y/Z 轴按钮 + 0-100% 位置滑杆 + 百分比读数）；等值面在切片时降至 alpha 0.4、关闭时恢复 1.0；截面 σ 与主 contour 滑杆实时同步（pump 队列模式）。实现中实证并绕过 mol* 5.11 三个 quirk：①dimension 的 relativeX/Y/Z 选项被 state 参数归一化静默拒绝（回退 x/0 默认——初版"平面钉在盒缘"的根因）→ 改用绝对网格索引（fraction×(dim-1) 自行换算，创建与同名数值更新均实证可行）②PD.Mapped 名字切换（换轴）必须重建节点 → delete+re-create ③删除按 "Slice" label 全量清扫（不依赖 build 返回的 builder ref）杜绝孤儿平面。E2E 截图：中轴切面渲染于盒中央 + 分子密度剪影可见、换轴/25% 位置/开关+alpha 恢复全部生效
+- 【新功能 3·Topaz wrapper】workflow.ts autopick spec：pickingMethod 增加 "Topaz" 选项 + Topaz tab 六参数（nrParticles 200/threshold -6/diameter 180/downscale -1/workers 1/extra args）+ 描述更新；engine.ts buildArgv 增加 Topaz 分支：`relion_autopick --topaz_extract --fn_topaz_exe <externalOnPath: relion_python_topaz|topaz> --topaz_nr_particles --topaz_threshold --particle_diameter <topazDiameter→radius 推导> [--topaz_downscale/--topaz_workers/--topaz_args]`，pickname 保持 "autopick"（Extract 的 _autopick.star 后缀约定 + 输出发现零改动）；COMMAND_TEMPLATES 文档同步。**E2E 实跑验证**（命令面板添加作业→API 连线 ctffind→PATCH 参数→Run）：run.out 实证 "Will use topaz for picking particle coordinates" + "topaz downscale factor to 4" + "radius to 13 downscaled pixels (based on particle_diameter/2)"；沙箱无 topaz python 模块 → RELION 诚实失败且 rootCauseDetail 直出真因（"readTopazCoordinate ERROR: Cannot open proc/rank00000000.txt"）——用户装 topaz 后即可用。测试作业已删除（项目复原 13 jobs）
+- 【已知非阻塞】dev 模式 Fast Refresh 重挂载 Mol* 时 console 出现 createRoot 复用告警 + refs 竞态导致的 "not ready" debug 日志——仅开发热重载产物，生产路径不受影响；本回合 dev server 因 Mol* 编译+HMR 并发 4 次 OOM（4GB 沙箱限制）→ 全部 playbook 重启，稳态后无异常
+- 【推送】d354cea 已推送（ad75391..d354cea），本地 == origin/main
+
+Stage Summary:
+- 三功能落地并全部 E2E 实证：FSC 第 4 条曲线开关（掩膜增益可视化）、3D viewer 体积截面工具（轴+位置+σ 同步，绕过 mol* 5.11 三个参数归一化/重建 quirk）、Topaz 深度学习拾取 wrapper（真实 RELION 调用链验证）
+- QA 回归零回归：Task 13-15 全部修复项在位
+- 用户可见提升：postprocess 检查器 FSC 可对比 raw/corrected 揭示掩膜伪相关；3D viewer 可切ct截面看内部密度；autopick 支持 CNN 拾取（与 LoG/References 三选一）
+- 遗留（下轮候选）：Topaz train 模式（--topaz_train + 训练坐标输入端口）、mol* clip-plane 切割工具（与 slice 互补）、用户机器 class3d/refine3d 顺序模式与 topaz 实测反馈
