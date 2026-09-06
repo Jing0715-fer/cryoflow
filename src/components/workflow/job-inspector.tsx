@@ -19,6 +19,7 @@
 import * as React from "react";
 import {
   Activity,
+  AlertCircle,
   AlertTriangle,
   ArrowDown,
   ArrowRight,
@@ -291,18 +292,33 @@ function LogConsole({ job }: { job: JobDTO }) {
   const [query, setQuery] = React.useState("");
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const atBottomRef = React.useRef(true);
+  /** Monotonic fetch sequence — only the newest log fetch may commit. -1 marks in-flight start. */
+  const logFetchSeqRef = React.useRef(0);
+  const [logError, setLogError] = React.useState<string | null>(null);
 
   const running = job.status === "running";
 
   const fetchLog = React.useCallback(async () => {
+    // out-of-order guard: overlapping 1.5 s ticks can commit an OLDER response
+    // after a newer one — the log console then jumps backwards; the sequence
+    // counter makes only the newest fetch eligible to commit
+    const seq = ++logFetchSeqRef.current;
     try {
       const res = await fetch(
         `/api/jobs/${job.id}/log${mode === "full" ? "?full=1" : ""}`,
         { cache: "no-store" }
       );
+      if (seq !== logFetchSeqRef.current) return; // a newer fetch won
       if (res.status === 404) {
         setNoLog(true);
         setLog(null);
+        return;
+      }
+      if (!res.ok) {
+        // 500 etc: an {error} body has no .tail — silently rendering "" makes
+        // a dead route look like an empty log. Keep the previous content and
+        // flag it; the next tick retries.
+        setLogError(`log unavailable (HTTP ${res.status})`);
         return;
       }
       const body = (await res.json()) as {
@@ -310,6 +326,7 @@ function LogConsole({ job }: { job: JobDTO }) {
         totalLines?: number;
         truncated?: boolean;
       };
+      setLogError(null);
       setNoLog(false);
       setLog(body.tail ?? "");
       setTotalLines(body.totalLines ?? 0);
@@ -574,6 +591,14 @@ function LogConsole({ job }: { job: JobDTO }) {
             <p className="max-w-xs text-[11px] leading-relaxed">
               This job never wrote run.out to disk (engine-native or simulated jobs log
               nothing). Check the Overview tab for its result summary.
+            </p>
+          </div>
+        ) : logError ? (
+          <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
+            <AlertCircle className="size-8 text-amber-500/70" aria-hidden="true" />
+            <p className="text-xs font-medium text-amber-500">{logError}</p>
+            <p className="max-w-xs text-[11px] leading-relaxed text-zinc-500">
+              The last content is kept below when it arrives; polling retries automatically.
             </p>
           </div>
         ) : log === null ? (
@@ -1512,12 +1537,20 @@ export function JobInspector() {
   }, [running, loadOutputs]);
 
   // smart default tab per status: watch the log while running / after failure,
-  // jump straight to the results when the job finished
+  // jump straight to the results when the job finished. Track the STATUS so a
+  // running → completed transition while the dialog is OPEN also jumps to
+  // results (previously the effect only ran on jobId change, so the currently
+  // inspected job stayed on the Log tab forever).
   const [tab, setTab] = React.useState<string>("log");
+  const tabTouchedRef = React.useRef(false);
   React.useEffect(() => {
     if (!job) return;
-    setTab(job.status === "running" || job.status === "failed" ? "log" : "results");
-  }, [jobId]);
+    // never stomp a tab the user chose manually (only auto-switch on
+    // transitions we did not cause)
+    if (!tabTouchedRef.current) {
+      setTab(job.status === "running" || job.status === "failed" ? "log" : "results");
+    }
+  }, [jobId, job?.status]);
 
   const filesCount = data?.files.length ?? 0;
 
@@ -1554,7 +1587,7 @@ export function JobInspector() {
               </DialogDescription>
             </DialogHeader>
 
-            <Tabs value={tab} onValueChange={setTab} className="flex min-h-0 flex-1 flex-col gap-0">
+            <Tabs value={tab} onValueChange={(v) => { tabTouchedRef.current = true; setTab(v); }} className="flex min-h-0 flex-1 flex-col gap-0">
               <div className="shrink-0 border-b px-5 pt-2.5 sm:px-6">
                 <TabsList className="h-9 bg-muted/60 p-0.5">
                   <TabsTrigger value="overview" className="h-8 gap-1.5 px-3 text-xs">

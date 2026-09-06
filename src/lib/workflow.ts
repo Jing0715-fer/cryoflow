@@ -518,6 +518,10 @@ export const JOB_TYPES: JobTypeSpec[] = [
       bool("doZeroMask", "Zero the mask", true, { tab: "Optimisation", advanced: true }),
       sel("psiSampling", "In-plane sampling step", "7.5", psiOptions, { tab: "Sampling", advanced: true }),
       num("highresLimit", "High-res limit (Å)", 0, { step: 0.5, min: 0, tab: "Optimisation", advanced: true, hint: "0 = no limit" }),
+      num("threads", "Threads (--j)", 4, {
+        step: 1, min: 1, max: 32, tab: "Compute",
+        hint: "relion_refine runs single-rank (MPI stacks under WSL are fragile) — this is the parallelism knob",
+      }),
     ],
     "{n} class averages",
     "core",
@@ -598,6 +602,10 @@ export const JOB_TYPES: JobTypeSpec[] = [
       num("iterations", "Number of iterations", 25, { step: 5, min: 5, max: 100, tab: "Optimisation" }),
       num("particleDiameter", "Circular mask diameter", 180, { unit: "Å", step: 5, tab: "Sampling" }),
       num("tau2Fudge", "Regularisation factor T", 1, { step: 0.5, min: 0.5, tab: "Optimisation", advanced: true }),
+      num("threads", "Threads (--j)", 4, {
+        step: 1, min: 1, max: 32, tab: "Compute",
+        hint: "applies to sequential (WSL-bridged) runs — native runs use MPI ranks instead",
+      }),
     ],
     "{n} 3D classes",
     "cmd",

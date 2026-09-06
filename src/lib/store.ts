@@ -245,6 +245,9 @@ function clamp(v: number, min: number, max: number) {
   return Math.min(Math.max(v, min), max);
 }
 
+/** One pollTick at a time (see the guard inside pollTick). */
+let pollInFlight = false;
+
 export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   jobs: [],
   edges: [],
@@ -847,6 +850,12 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     // never fight an active card drag with a re-render — the drag loop owns
     // the screen until the pointer goes up
     if (get().dragActive) return;
+    // in-flight guard: the 1.2 s interval keeps firing while a slow GET
+    // (dev-compile windows, heavy reconcile) is still in the air — without
+    // this, overlapping responses can land OUT OF ORDER and a stale jobs
+    // array overwrites a fresher one (status flicker / regressions)
+    if (pollInFlight) return;
+    pollInFlight = true;
     const prev = get().jobs;
     try {
       const { jobs } = await api<{ jobs: JobDTO[] }>("/api/jobs");
@@ -892,6 +901,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       }
     } catch {
       // polling errors are transient — keep the interval alive
+    } finally {
+      pollInFlight = false;
     }
   },
 

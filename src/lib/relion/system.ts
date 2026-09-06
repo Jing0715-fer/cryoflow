@@ -16,10 +16,13 @@
  *   b) PATH lookup: `which relion_refine`
  *   c) known install paths (incl. the sandbox build target /home/z/relion-install/bin)
  *   d) home-directory scan (one level into well-known dev roots)
- * WSL installs: login-shell PATH, $RELION_HOME, filesystem search — ALL hits.
- * Fresh results are cached in-module for 60 s; beyond that (and on cold
- * start) the caller is served the last known status while a background
- * probe re-verifies (stale-while-revalidate). `force` bypasses everything.
+ * WSL installs: login-shell PATH, $RELION_HOME, filesystem search — ALL hits
+ * (the whole WSL probe is ONE combined wsl.exe invocation — see probeWsl).
+ * Fresh results are cached in-module for 10 min (background re-verification is
+ * stale-while-revalidate; every extra wsl.exe call is another potential
+ * console-window flash on Windows hosts); beyond the TTL (and on cold start)
+ * the caller is served the last known status while a background probe
+ * re-verifies. `force` (Re-detect button) bypasses everything.
  */
 
 import { execFile } from "child_process";
@@ -471,106 +474,118 @@ async function probeWsl(): Promise<WslProbe> {
     );
   }
 
-  // 1. WSL sanity + distro name (ASCII-safe: echo from inside the distro).
-  //    Retry once with a long timeout — the first wsl.exe call may be
-  //    cold-booting the VM (10–30 s after a reboot / idle auto-shutdown),
-  //    which regularly made single-shot probes report "no distro".
-  let sanity = await wslBash(
-    wslPath,
-    'echo "ok-${WSL_DISTRO_NAME:-unknown}"',
-    false,
-    8000
-  );
-  if (!sanity.startsWith("ok-")) {
-    sanity = await wslBash(
-      wslPath,
-      'echo "ok-${WSL_DISTRO_NAME:-unknown}"',
-      false,
-      25000
-    );
-  }
-  if (!sanity.startsWith("ok-")) {
+  // ONE combined login-shell script (this used to be 6–10 separate wsl.exe
+  // calls — sanity, login PATH, RELION_HOME, filesystem search, then version
+  // + toolchain per install). Every extra wsl.exe invocation is another
+  // potential console-window flash on Windows hosts and another cold-boot
+  // round-trip. The 90 s budget absorbs a cold distro boot (10–30 s) inside
+  // the SAME call; per-`--version` probes are bounded by `timeout 10` inside
+  // the distro so a single hung binary cannot eat the whole script. Marker
+  // lines are parsed by prefix — ~/.bashrc noise (login shell) is ignored.
+  const script = [
+    'echo "D:${WSL_DISTRO_NAME:-default}"',
+    "P=$(command -v relion_refine 2>/dev/null || command -v relion_refine_mpi 2>/dev/null || true)",
+    '[ -n "$P" ] && echo "P:${P%/*}" || true',
+    "H=${RELION_HOME:-}",
+    'H_OK=""',
+    'if [ -n "$H" ]; then H=${H%/}; case "$H" in */bin) ;; *) H="$H/bin";; esac; if { test -x "$H/relion_refine" || test -x "$H/relion_refine_mpi"; }; then echo "H:$H"; H_OK=1; fi; fi',
+    // per-install facts (version / mpirun / MPI binary / ctffind), keyed
+    // "TAG:<dir>|<value>" so paths with spaces or colons survive
+    "probe() {",
+    '  d="$1"',
+    '  V=$(timeout 10 "$d/relion_refine" --version 2>&1 || timeout 10 "$d/relion_refine_mpi" --version 2>&1 || true)',
+    '  echo "V:$d|$V"',
+    "  M=$(command -v mpirun 2>/dev/null || command -v mpiexec 2>/dev/null || true)",
+    '  echo "M:$d|${M:-}"',
+    '  if test -x "$d/relion_refine_mpi"; then echo "B:$d|yes"; else echo "B:$d|no"; fi',
+    "C=$(command -v ctffind 2>/dev/null || { test -x \"$d/ctffind\" && printf '%s' \"$d/ctffind\"; } || true)",
+    '  echo "C:$d|${C:-}"',
+    "}",
+    '[ -n "$P" ] && probe "${P%/*}" || true',
+    '[ -n "$H_OK" ] && probe "$H" || true',
+    // filesystem search across common install layouts — ALL hits (≤8)
+    "n=0",
+    'for d in "$HOME"/relion*/bin "$HOME"/myproject/relion*/bin "$HOME"/my-project/relion*/bin "$HOME"/src/relion*/bin "$HOME"/build/relion*/bin "$HOME"/builds/relion*/bin "$HOME"/code/relion*/bin "$HOME"/tools/relion*/bin /usr/local/relion*/bin /opt/relion*/bin /opt/relion*/*/bin /home/*/relion*/bin /home/*/myproject/relion*/bin /home/*/my-project/relion*/bin /home/*/src/relion*/bin /home/*/relion-build/*/bin; do',
+    '  { test -x "$d/relion_refine" || test -x "$d/relion_refine_mpi"; } || continue',
+    '  echo "S:$d"',
+    '  probe "$d" || true',
+    "  n=$((n + 1))",
+    '  [ "$n" -ge 8 ] && break',
+    "done",
+    "true",
+    'echo "END:ok"',
+  ].join("\n");
+  const out = await wslBash(wslPath, script, true, 90_000);
+  const lines = out.split("\n").map((l) => l.trim()).filter(Boolean);
+  const distroLine = lines.find((l) => l.startsWith("D:"));
+  // no D: marker → wsl.exe answered with its own error (no distro registered,
+  // or the distro stayed cold beyond the 90 s budget)
+  if (!distroLine) {
     return empty(
       "no-distro",
       "WSL is installed but no distro responded (run `wsl --list --verbose`; if none is registered, `wsl --install -d Ubuntu` and re-detect)."
     );
   }
-  const distro = sanity.slice(3) || null;
+  const distro = distroLine.slice(2).trim() || null;
+  // the probe script must never fail silently: D: without the trailing END:
+  // marker means it broke midway (bash error, killed probe) — log it so
+  // dev.log shows WHY the discovery found nothing
+  if (!lines.some((l) => l.startsWith("END:"))) {
+    console.error("relion/system: combined WSL probe ended early — output was:", out.slice(0, 400));
+  }
 
-  // Collect EVERY install: login-shell PATH, $RELION_HOME, filesystem search.
-  const found = new Map<string, { source: string }>(); // binDir → source
+  // discovery markers → binDir set (source priority: login PATH >
+  // RELION_HOME > filesystem search — emission order matches)
+  const found = new Map<string, { source: string }>();
   const addHit = (dir: string, source: string) => {
     const d = dir.replace(/\/+$/, "");
     if (d.endsWith("/bin") && !found.has(d)) found.set(d, { source });
   };
-
-  // 2a. login-shell PATH — picks up "export PATH=...:$PATH" from ~/.bashrc
-  const loginHit = await wslBash(
-    wslPath,
-    "command -v relion_refine || command -v relion_refine_mpi || true",
-    true,
-    8000
-  );
-  if (loginHit.startsWith("/")) {
-    addHit(path.posix.dirname(loginHit.split("\n")[0]), "login-shell PATH");
-  }
-
-  // 2b. $RELION_HOME env (loaded by the same login shell)
-  const relionHome = await wslBash(
-    wslPath,
-    'printf "%s" "$RELION_HOME"',
-    true,
-    4000
-  );
-  if (relionHome.startsWith("/")) {
-    const cand = relionHome.replace(/\/+$/, "").endsWith("/bin")
-      ? relionHome.replace(/\/+$/, "")
-      : `${relionHome.replace(/\/+$/, "")}/bin`;
-    const ok = await wslBash(
-      wslPath,
-      `test -x '${cand.replace(/'/g, `'\\''`)}/relion_refine' -o -x '${cand.replace(/'/g, `'\\''`)}/relion_refine_mpi' && echo yes || true`,
-      false,
-      4000
+  for (const l of lines) {
+    if (l.length < 3 || l[1] !== ":") continue;
+    if (l[0] !== "P" && l[0] !== "H" && l[0] !== "S") continue;
+    const dir = l.slice(2);
+    if (!dir.startsWith("/") || found.size >= 12) continue;
+    addHit(
+      dir,
+      l[0] === "P" ? "login-shell PATH" : l[0] === "H" ? "RELION_HOME env" : "filesystem search"
     );
-    if (ok.startsWith("yes")) addHit(cand, "RELION_HOME env");
   }
 
-  // 2c. filesystem search across common install layouts — ALL hits (≤8)
-  const searchScript = [
-    "for d in",
-    '"$HOME"/relion*/bin "$HOME"/myproject/relion*/bin "$HOME"/my-project/relion*/bin',
-    '"$HOME"/src/relion*/bin "$HOME"/build/relion*/bin "$HOME"/builds/relion*/bin',
-    '"$HOME"/code/relion*/bin "$HOME"/tools/relion*/bin',
-    "/usr/local/relion*/bin /opt/relion*/bin /opt/relion*/*/bin",
-    "/home/*/relion*/bin /home/*/myproject/relion*/bin /home/*/my-project/relion*/bin",
-    "/home/*/src/relion*/bin /home/*/relion-build/*/bin",
-    "; do",
-    // each statement MUST end with ";" before "done" — without it the final
-    // "done" is eaten by echo as a plain word, bash reports "unexpected end
-    // of file", and the whole filesystem search silently returns nothing
-    'test -x "$d/relion_refine" -o -x "$d/relion_refine_mpi" && echo "$d";',
-    "done; true",
-  ].join(" ");
-  const hits = await wslBash(wslPath, searchScript, false, 15000);
-  for (const line of hits.split("\n")) {
-    const t = line.trim();
-    if (t.startsWith("/") && found.size < 12) addHit(t, "filesystem search");
-  }
-  // probe-script breakage must never be silent again: bash syntax errors
-  // land in stderr, wslBash returns it, and the "/"-filter above would drop
-  // it — log it so dev.log shows WHY the search found nothing
-  if (hits && !hits.split("\n").some((l) => l.trim().startsWith("/"))) {
-    if (/syntax error|not found|permission denied/i.test(hits)) {
-      console.error("relion/system: WSL filesystem-search probe failed:", hits.slice(0, 300));
+  // per-install fact lines "TAG:<dir>|<value>" (first "|" splits key/value)
+  const facts = new Map<
+    string,
+    { version: string | null; mpirun: string | null; mpiBinary: boolean; ctffind: string | null }
+  >();
+  for (const l of lines) {
+    if (l.length < 3 || l[1] !== ":") continue;
+    const tag = l[0];
+    if (tag !== "V" && tag !== "M" && tag !== "B" && tag !== "C") continue;
+    const sep = l.indexOf("|");
+    if (sep < 0) continue;
+    const dir = l.slice(2, sep);
+    const val = l.slice(sep + 1).trim();
+    const f =
+      facts.get(dir) ?? { version: null, mpirun: null, mpiBinary: false, ctffind: null };
+    if (tag === "V") {
+      const m = val.match(/RELION\s*(?:version)?[:\s]*v?(\d+\.\d+(?:\.\d+)?)/i);
+      if (m) f.version = m[1];
+    } else if (tag === "M") {
+      if (val.startsWith("/")) f.mpirun = val.split("\n")[0];
+    } else if (tag === "B") {
+      f.mpiBinary = val === "yes";
+    } else if (tag === "C") {
+      if (val.startsWith("/")) f.ctffind = val.split("\n")[0];
     }
+    facts.set(dir, f);
   }
 
-  // 3. none found → honest, actionable guidance (NOT "WSL unavailable")
+  // none found → honest, actionable guidance (NOT "WSL unavailable")
   if (found.size === 0) {
     const note = [
       `WSL distro "${distro ?? "default"}" is up, but RELION is not on its PATH and no common install layout matched.`,
       "If RELION IS installed inside WSL, expose it one of these ways, then press Re-detect:",
-      'A) echo \'export PATH=/path/to/relion/bin:$PATH\' >> ~/.bashrc   (login-shell probe picks this up)',
+      "A) echo 'export PATH=/path/to/relion/bin:$PATH' >> ~/.bashrc   (login-shell probe picks this up)",
       "B) sudo ln -sf /path/to/relion/bin/relion* /usr/local/bin/",
       "C) echo 'export RELION_HOME=/path/to/relion' >> ~/.bashrc",
       "Searched automatically: ~/relion*/bin, ~/myproject/relion*/bin, ~/my-project/relion*/bin, ~/src|build|code/relion*/bin, /usr/local/relion*/bin, /opt/relion*/bin",
@@ -578,49 +593,13 @@ async function probeWsl(): Promise<WslProbe> {
     return { available: true, unavailableReason: null, distro, installs: [], note };
   }
 
-  // 4. build one install entry per binDir — version + tools, one call each
+  // build one install entry per binDir — facts come from the same probe
   const installs: RelionInstall[] = [];
   for (const [binDir, meta] of [...found.entries()].slice(0, 8)) {
-    // version probe inside the distro
-    const versionOut = await wslBash(
-      wslPath,
-      `"${binDir}/relion_refine" --version 2>&1 || "${binDir}/relion_refine_mpi" --version 2>&1 || true`,
-      false,
-      10000
-    );
-    const vMatch = versionOut.match(
-      /RELION\s*(?:version)?[:\s]*v?(\d+\.\d+(?:\.\d+)?)/i
-    );
-
-    // toolchain probe (login shell so ~/.bashrc MPI builds count)
-    const q = binDir.replace(/'/g, `'\\''`);
-    const toolsScript = [
-      `echo M:$(command -v mpirun 2>/dev/null || command -v mpiexec 2>/dev/null || true)`,
-      `echo B:$(test -x '${q}'/relion_refine_mpi && echo yes || echo no)`,
-      // the bin-dir fallback must PRINT the path (test -x alone is silent →
-      // ctffind living only in RELION's bin dir was reported as missing)
-      `echo C:$(command -v ctffind 2>/dev/null || { test -x '${q}'/ctffind && printf '%s' '${q}/ctffind'; } || true)`,
-    ].join("; ");
-    const toolsOut = await wslBash(wslPath, toolsScript, true, 8000);
-    let mpirunPath: string | null = null;
-    let mpiBinary = false;
-    let ctffindPath: string | null = null;
-    for (const line of toolsOut.split("\n")) {
-      const t = line.trim();
-      if (t.startsWith("M:")) {
-        const v = t.slice(2).trim();
-        mpirunPath = v.startsWith("/") ? v.split("\n")[0] : null;
-      } else if (t.startsWith("B:")) {
-        mpiBinary = t.slice(2).trim() === "yes";
-      } else if (t.startsWith("C:")) {
-        const v = t.slice(2).trim();
-        ctffindPath = v.startsWith("/") ? v.split("\n")[0] : null;
-      }
-    }
-
+    const f = facts.get(binDir);
     installs.push({
       id: `w:${distro ?? "default"}:${binDir}`,
-      version: vMatch ? vMatch[1] : null,
+      version: f?.version ?? null,
       path: binDir,
       relionHome: binDir.replace(/\/bin\/?$/, ""),
       source: meta.source,
@@ -628,9 +607,9 @@ async function probeWsl(): Promise<WslProbe> {
       // is directly spawnable → native; otherwise the WSL bridge executes it.
       execution: isValidBinDir(binDir) ? "native" : "wsl",
       distro,
-      mpirunPath,
-      mpiBinary,
-      ctffindPath,
+      mpirunPath: f?.mpirun ?? null,
+      mpiBinary: f?.mpiBinary ?? false,
+      ctffindPath: f?.ctffind ?? null,
     });
   }
 
@@ -648,7 +627,12 @@ async function probeWsl(): Promise<WslProbe> {
 /* ------------------------------------------------------------------ */
 
 let cache: { at: number; status: RelionStatus } | null = null;
-const CACHE_MS = 60_000;
+// 10 minutes: a background re-probe costs one wsl.exe distro round-trip —
+// frequent re-probes used to flash console windows on Windows hosts (one
+// per wsl.exe spawn on runtimes where windowsHide is not fully honored) and
+// fought the app for the distro while jobs were running. Re-detect (force)
+// is the explicit escape hatch and stays instant.
+const CACHE_MS = 600_000;
 /** One shared in-flight full probe (force calls + background refresh). */
 let probeLock: Promise<RelionStatus> | null = null;
 /** Background re-verification kicked by the stale-while-revalidate path. */

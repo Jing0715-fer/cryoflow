@@ -145,21 +145,37 @@ const live = new Map<string, ChildProcess>();
 /* ------------------------------------------------------------------ */
 
 export function readRuns(): Record<string, RunRecord> {
+  // mtime-keyed cache: EVERY polled route (jobs GET, log, outputs, particles,
+  // …) used to re-read + re-JSON.parse the whole state file on every call —
+  // the file grows with every job ever run and the parse ran on the hot 2–5 s
+  // poll path. writeRuns bumps the mtime so writers are always consistent.
   try {
-    const raw = readFileSync(STATE_FILE, "utf8");
-    const parsed = JSON.parse(raw);
+    const st = statSync(STATE_FILE);
+    if (runsCache && runsCache.mtime === st.mtimeMs && runsCache.size === st.size) {
+      return runsCache.value;
+    }
+    const parsed = JSON.parse(readFileSync(STATE_FILE, "utf8"));
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      return parsed as Record<string, RunRecord>;
+      const value = parsed as Record<string, RunRecord>;
+      runsCache = { mtime: st.mtimeMs, size: st.size, value };
+      return value;
     }
   } catch {
     // ENOENT / corrupt → fresh state
+    runsCache = null;
   }
   return {};
 }
 
+let runsCache: { mtime: number; size: number; value: Record<string, RunRecord> } | null = null;
+
 export function writeRuns(map: Record<string, RunRecord>): void {
   mkdirSync(DATA_DIR, { recursive: true });
   writeFileSync(STATE_FILE, JSON.stringify(map, null, 2));
+  // invalidate immediately — the writer knows the truth; the next read
+  // re-stats and re-populates (also covers EXTERNAL writers, which change
+  // the mtime/size and bust the cache naturally)
+  runsCache = null;
 }
 
 export function getRun(jobId: string): RunRecord | null {
@@ -1940,7 +1956,7 @@ async function externalOnPath(
     } else {
       if (existsSync(binJoin(binDir, n))) return binJoin(binDir, n);
       const found = await new Promise<string | null>((resolve) => {
-        execFile("which", [n], { timeout: 2000 }, (err, stdout) => {
+        execFile("which", [n], { timeout: 2000, windowsHide: true }, (err, stdout) => {
           const out = String(stdout ?? "").trim();
           resolve(!err && out.includes("/") ? out : null);
         });
@@ -2050,6 +2066,10 @@ async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: string }> {
         "--psi_step", String(num(job, "psiSampling", 6)),
         "--flatten_solvent",
         "--zero_mask",
+        // class2d runs the SERIAL binary (WSL2 MPI stacks are the known-fragile
+        // part — see the MPI prefix section in runRealJob), so thread-level
+        // parallelism comes from --j (RELION defaults to 1 without it)
+        "--j", String(Math.max(1, Math.round(num(job, "threads", 4)))),
       ];
       // optional cap on alignment resolution (0 = unlimited)
       const hl = num(job, "highresLimit", 0);
@@ -3131,11 +3151,24 @@ function spawnTrackedRun(
   const child = spawn(file, args, {
     cwd: projectDir,
     env,
-    detached: true,
+    // POSIX keeps detached: the tree gets its own session, so group signals
+    // aimed at the dev server (Ctrl-C, reaper) can't take an hours-long
+    // refine down — the documented survival design.
+    //
+    // Win32 BRIDGED runs deliberately DROP detached: libuv maps it to
+    // DETACHED_PROCESS, which strips the parent console from wsl.exe (a
+    // console-subsystem binary). windowsHide then cannot reliably suppress
+    // the window — nodejs/node#21825 documents detached+windowsHide STILL
+    // popping a visible console per running job, which is exactly what the
+    // user sees when CryoFlow calls RELION through WSL. Without detached,
+    // wsl.exe gets its own HIDDEN console (CREATE_NO_WINDOW) and survival is
+    // unaffected: the distro-side mpirun/refine tree never dies with the
+    // host-side wsl.exe client anyway, and orphaned children keep running
+    // when the parent exits on Windows.
+    detached: !(bridged && process.platform === "win32"),
     stdio: bridged ? ["ignore", "ignore", "ignore"] : ["ignore", outFd, errFd],
-    // wsl.exe is a console-subsystem binary — without this a detached
-    // spawn allocates a visible console window on Windows hosts (one per
-    // running job). No-op on POSIX.
+    // belt & suspenders for every spawn path (probe, preflight, jobs):
+    // no console window allocation on Windows hosts. No-op on POSIX.
     windowsHide: true,
   });
   // the parent's copies are redundant now (the child dups survive on their
@@ -3261,30 +3294,43 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
     prevRun.jobId === job.id
   ) {
     const checkpoint = resumableOptimiser(workdir);
-    const mpirun = resolveMpirun(binDir, bridge);
-    // POSIX binDir (WSL distro-internal) must not pass through path.join —
-    // binJoin keeps it intact on every host platform (see its doc comment).
-    const mpiBin = binJoin(binDir, "relion_refine_mpi");
-    if (checkpoint && mpirun && (bridge ? bridge.hasMpiBinary : existsSync(mpiBin))) {
-      // gold-standard halves need leader + 2 half-mappers
-      const nranks = job.type === "refine3d" ? 3 : 2;
+    if (checkpoint) {
       // --o MUST point at the SAME output root the checkpoint was written
       // to (RELION in continue mode still checks the output dir from --o;
       // omitting it defaults to ./run relative to cwd → "output directory
       // does not exist" abort on the follower ranks).
-      const resumeArgv = [
-        mpirun,
-        "-n",
-        String(nranks),
-        mpiBin,
-        "--continue",
-        checkpoint.file,
-        "--o",
-        path.join(workdir, "run"),
-      ];
-      const preFlight = bridge ? verifyBridgeTarget(resumeArgv, bridge) : null;
-      if (preFlight) return { ok: false, error: preFlight };
-      return spawnTrackedRun(job, resumeArgv, workdir, binDir, checkpoint.iteration, bridge);
+      const outRoot = path.join(workdir, "run");
+      const threads = String(Math.max(1, Math.round(num(job, "threads", 4))));
+      let resumeArgv: string[] | null = null;
+      if (bridge) {
+        // WSL bridge resumes SEQUENTIALLY — same rationale as fresh bridged
+        // runs (the distro MPI stack is the fragile part; --continue works
+        // on the serial binary, checkpoint STAR files are rank-agnostic).
+        resumeArgv = [
+          binJoin(binDir, "relion_refine"),
+          "--continue",
+          checkpoint.file,
+          "--o",
+          outRoot,
+          "--j",
+          threads,
+        ];
+      } else {
+        // POSIX binDir must not pass through path.join — binJoin keeps it
+        // intact on every host platform (see its doc comment).
+        const mpiBin = binJoin(binDir, "relion_refine_mpi");
+        const mpirun = resolveMpirun(binDir, null);
+        if (mpirun && existsSync(mpiBin)) {
+          // gold-standard halves need leader + 2 half-mappers
+          const nranks = job.type === "refine3d" ? 3 : 2;
+          resumeArgv = [mpirun, "-n", String(nranks), mpiBin, "--continue", checkpoint.file, "--o", outRoot];
+        }
+      }
+      if (resumeArgv) {
+        const preFlight = bridge ? verifyBridgeTarget(resumeArgv, bridge) : null;
+        if (preFlight) return { ok: false, error: preFlight };
+        return spawnTrackedRun(job, resumeArgv, workdir, binDir, checkpoint.iteration, bridge);
+      }
     }
   }
 
@@ -3314,20 +3360,34 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
 
   // ---- MPI prefix for parallel types --------------------------------------
   const mpirun = resolveMpirun(binDir, bridge);
-  if (MPI_PARALLEL_TYPES.has(job.type) && mpirun) {
+  // WSL2 bridge: the distro-side MPI stack is the known-fragile part (static
+  // OpenMPI builds / vader BTL under WSL2 — ranks die at launch with exit 1
+  // even with the root opt-in env pair). Every user-reported MPI failure so
+  // far was bridged mpirun, while the sandbox MPICH path is proven. So:
+  // NATIVE keeps multi-rank mpirun; BRIDGED runs the SERIAL relion_refine
+  // with --j threads — single-rank multithreaded is the RELION-supported
+  // fallback (gold-standard halves work on one rank too).
+  const mpiEligible = MPI_PARALLEL_TYPES.has(job.type);
+  if (mpiEligible && mpirun && !bridge) {
     // RELION ships serial AND _mpi builds — mpirun must launch the MPI build
     // (a serial binary under mpirun runs N independent copies: no parallelism,
     // and --split_random_halves hard-errors without MPI).
     const target = argv[0] as string;
-    const canMpi = bridge
-      ? bridge.hasMpiBinary
-      : target.startsWith("/") && existsSync(target + "_mpi");
-    if (target.startsWith("/") && canMpi) argv[0] = target + "_mpi";
+    // (bridge is null in this branch — the WSL path took the sequential
+    // fallback above — so a plain host-side existsSync is the right check)
+    const canMpi = target.startsWith("/") && existsSync(target + "_mpi");
+    if (canMpi) argv[0] = target + "_mpi";
     // --split_random_halves (gold-standard FSC) needs leader + 2 half-mappers
     const nranks = job.type === "refine3d" ? 3 : 2;
     // WSL2 / OpenMPI 4.x: TCP BTL needed for cross-process communication;
     // --allow-run-as-root bypasses the root-check in OMPI 4.x.
     argv = [mpirun, "--mca", "btl", "self,tcp", "--allow-run-as-root", "-n", String(nranks), ...argv];
+  } else if (mpiEligible && bridge) {
+    // sequential bridge fallback — RELION defaults to --j 1 without an
+    // explicit thread count; 4 matches the class2d sequential default
+    if (!argv.includes("--j")) {
+      argv.push("--j", String(Math.max(1, Math.round(num(job, "threads", 4)))));
+    }
   }
 
   // ---- target binary sanity (partial installs fail honestly) --------------

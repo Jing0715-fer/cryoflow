@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { toProjectDTO } from "@/lib/seed";
 import { getProjectMeta, removeProjectMeta } from "@/lib/projects";
 import { readFileEdges, removeFileEdge } from "@/lib/edge-ports";
+import { isRunAlive, stopRun } from "@/lib/relion/engine";
 
 export const dynamic = "force-dynamic";
 
@@ -69,6 +70,23 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
       );
     }
 
+    // 0. STOP any live process trees before purging — otherwise deleting a
+    //    project with a running refine leaves an untracked mpirun/wsl tree
+    //    writing into a deleted workdir, and a later re-run stacks a second
+    //    tree on the same outputs (the orphan bug fixed for single-job DELETE
+    //    in jobs/[id]/route.ts — the same protection belongs here).
+    const projectJobs = await db.job.findMany({
+      where: { projectId: id },
+      select: { id: true },
+    });
+    let stopped = 0;
+    for (const { id: jobId } of projectJobs) {
+      if (isRunAlive(jobId)) {
+        await stopRun(jobId);
+        stopped += 1;
+      }
+    }
+
     // 1. Purge port-aware sidecar edges for this project (DB rows cascade,
     //    the file sidecar does not).
     for (const fileEdge of readFileEdges().filter((e) => e.projectId === id)) {
@@ -84,7 +102,7 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
     // 3. Meta + active pointer.
     await removeProjectMeta(id);
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, stoppedLiveRuns: stopped });
   } catch (error) {
     console.error("DELETE /api/projects/[id] failed:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

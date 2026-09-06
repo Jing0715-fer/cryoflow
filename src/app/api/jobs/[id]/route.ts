@@ -83,7 +83,15 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     if (body.params && typeof body.params === "object" && !Array.isArray(body.params)) {
       const spec = jobType(existing.type);
-      const current = JSON.parse(existing.params || "{}") as Record<string, unknown>;
+      // a malformed stored params string must not 500 the whole PATCH —
+      // degrade to "no previous params" and let the merge rebuild it
+      let current: Record<string, unknown> = {};
+      try {
+        current = JSON.parse(existing.params || "{}") as Record<string, unknown>;
+        if (!current || typeof current !== "object" || Array.isArray(current)) current = {};
+      } catch {
+        current = {};
+      }
       const incoming = body.params as Record<string, unknown>;
       const merged: Record<string, unknown> = { ...current };
       const allowed = new Set((spec?.params ?? []).map((p) => p.key));

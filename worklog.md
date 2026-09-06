@@ -1304,3 +1304,22 @@ Stage Summary:
 - EMPIAR-10017 链现在 13 作业：…→refine3d(9.44Å)→symexpand(D2 ×4=13,752)→可回流 refine3d；rebalance 演示 anisotropy 1.88→1.53
 - 第十一个真实 bug 闭环：particles owner 解析只查直接父（select2d 也潜伏受害）→ BFS 全谱系
 - 33 个 SPA job 类型（21 RELION + symexpand + rebalance + 10 tomo），orientation 分类成为独立调色板区
+
+---
+Task ID: 13
+Agent: main (Z.ai Code)
+Task: 用户三诉求——①同步远程仓库最新代码后修复 class2d job exit 1（mpirun 检测 rank 死亡）②进行全面代码审查 ③修复「调用 WSL 的 RELION 时经常跳出终端窗口」④完成后 push
+
+Work Log:
+- 【①同步】git fetch：远程领先 1 commit——4ee62fe（用户本机提交：class2d 改顺序 relion_refine --j 4 绕开 WSL2 静态 MPI 不兼容；OMPI_MCA_btl=self,tcp；classes API SGD _itNNN + ?workdir= override）。已 pull，本地 == origin/main。审查该 commit 发现两个缺口：display 模板改了但 buildArgv 实际 argv 没加 --j；resume 路径仍硬编码 mpirun
+- 【③弹窗根因链·三层】(a) libuv 源码实证：detached:true → DETACHED_PROCESS 剥夺 wsl.exe 父控制台，nodejs/node#21825 记录 detached+windowsHide 组合仍弹可见控制台——正是用户「调用 relion 时跳出终端窗口」的形态；spawnTrackedRun 对 win32 桥接 spawn 改为 detached:false（Windows 上孤儿进程本就不随父死、CREATE_NO_WINDOW 自带隐藏控制台，distro 侧 mpirun 树从不随宿主 wsl.exe 客户端死——存活语义无损），POSIX 保留 detached（refine 生存设计）(b) probeWsl 原实现每次 6–18 个独立 wsl.exe 调用（sanity×2 + login PATH + RELION_HOME + 校验 + search + 每安装 version/tools×2）——重写为**单次**合并 login-shell 脚本（标记行 D/P/H/S/V/M/B/C/END 解析，bashrc 噪声免疫，timeout 10 内联限幅，90s 预算内容纳冷启动；实测沙箱真 RELION 安装跑通）(c) CACHE_MS 60s→10min（后台重探测从每分钟一次降为每 10 分钟一次；Re-detect force=1 即时）。三层叠加：稳定态 wsl.exe 调用 6-18/分钟 → ≤2/10分钟，且每个调用都带 windowsHide
+- 【②MPI 修复补全】(a) class2d buildArgv 补 --j（num(job,"threads",4)）(b) runRealJob MPI 段重构：`mpiEligible && mpirun && !bridge` 才走 mpirun 前缀（原生沙箱 MPICH 保留多 rank），桥接时走 else-if 分支补 --j 顺序执行——用户 WSL2 MPI 栈已实证脆弱（root 放行后 rank 仍 exit 1），单 rank 多线程是 RELION 支持的回退 (c) resume 路径桥接分支改为顺序 relion_refine --continue --j（原生分支保留 mpirun 3/2 rank）(d) workflow.ts class2d/class3d 增加 threads 参数（Compute tab，1-32，默认 4）
+- 【②全面代码审查·子代理】Explore 代理审查全部 34 条 API 路由 + workflow 组件 + lib：15 项真实发现。本轮落地 8 项：#2(high) 项目 DELETE 先 stopRun 再删（孤儿 mpirun/OOM 复发口）#3(med-high) pollTick in-flight 防护（1.2s 轮询乱序覆盖）#1(high) outputs/file format=raw 改 Readable.toWeb 流式（1.4GB map 内存 OOM 口）#4 classes ?workdir= 限定 data/relion 子树（任意目录存在性预言机）#9 readRuns mtime 缓存（每轮询全量 JSON.parse）#10 inspector 状态变化时 tab 跳转（原来只随 jobId 变）+ 用户手选防踩踏 #11 fetchLog res.ok 错误态 + 序号防乱序 #12 PATCH params 解析容错。未动（低爆炸半径，留待后续轮）：#5 fs/browse 无鉴权 #6/#14 pathref/realpath 包含策略统一 #7 各 chart 路由全量读 #8 particles BFS N+1 #13 useMemo 内 localStorage 写
+- 【E2E·金路径】新建一次性 class2d 作业（连 select 的 particles）→ Run → engine-state 记录命令实证 `relion_refine … --flatten_solvent --zero_mask --j 4`（无 mpirun 前缀）→ run.out 真实迭代推进（"Estimating accuracies… 17 degrees"）run.err 空（零 MPI 报错）→ stop 干净（"1 processes"——单进程，无 mpirun 树）→ DELETE 清理、13 作业复原。GET /api/system?force=1 全新探测 200（新 probeWsl 在 Linux 短路路径 + 原生安装探测正常）
+- 【浏览器 QA】/ 渲染 13 作业/12 completed ✓、console 0 error ✓、inspector 对话框打开 landed Results tab ✓、RELION 5.0.1 chip ✓；lint 0 错误 0 警告；tsc src 0 错误
+
+Stage Summary:
+- 三诉求闭环：①远程同步（4ee62fe）+ 其缺口补全 ②审查 15 发现落地 8 项（含 2 项 high：raw 流式化、项目删除停止活树）③弹窗三层修复（detached 根因 + 单次探测 + 10min TTL）
+- MPI 策略定案：**桥接=顺序 + --j，原生=多 rank mpirun**——用户机器 class2d/class3d/refine3d/resume 全部走顺序路径，mpirun exit 1 类失败源头消除
+- 用户本机操作：git pull → 重跑失败的 class2d（无 checkpoint 则全新顺序跑，有则 --continue 顺序续）→ 命令行应显示 `relion_refine … --j 4`（无 mpirun）；终端窗口应不再弹出（若仍有极偶发闪烁，说明其 Bun 版本过旧不支持 windowsHide——升级 bun 或用 npm run dev 跑 node）
+- 遗留（下轮优先）：审查发现 #5/#6/#7/#8/#13；用户机器上 class3d/refine3d 顺序模式实测反馈

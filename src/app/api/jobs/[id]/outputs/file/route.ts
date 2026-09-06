@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { openSync, readSync, closeSync, readFileSync, realpathSync, statSync } from "fs";
+import { openSync, readSync, closeSync, createReadStream, realpathSync, statSync } from "fs";
+import { Readable } from "stream";
 import path from "path";
 import { findEffectiveJob } from "@/lib/link";
 import { getRun } from "@/lib/relion/engine";
@@ -103,17 +104,24 @@ export async function GET(request: NextRequest, context: RouteContext) {
       !isMrc && !isImage && (lower.endsWith(".star") || /\.(log|txt|out|err|json|bild|dat|xml|com|lst|coord)$/i.test(lower));
 
     if (format === "raw") {
-      // binary download — maps for Mol*, EPS/PDF reports for the browser
+      // binary download — maps for Mol*, EPS/PDF reports for the browser.
+      // STREAMED, not readFileSync: a 700³ float32 map is ~1.4 GB — loading
+      // it into memory (twice, via the Uint8Array copy) OOM'd the dev server
+      // and blocked the event loop for the whole read. The stream path keeps
+      // memory flat and the loop free. Content-Length from the stat keeps the
+      // download progress meaningful for the browser.
       if (!isMrc && !isImage) {
         return NextResponse.json({ error: "Raw format is for maps and image files" }, { status: 400 });
       }
-      const data = readFileSync(abs);
+      const size = statSync(abs).size;
       const safeName = name.replace(/[^A-Za-z0-9._-]/g, "_");
-      return new NextResponse(new Uint8Array(data), {
+      const stream = Readable.toWeb(createReadStream(abs)) as ReadableStream<Uint8Array>;
+      return new NextResponse(stream, {
         status: 200,
         headers: {
           "Content-Type": "application/octet-stream",
           "Content-Disposition": `attachment; filename="${safeName}"`,
+          "Content-Length": String(size),
           "Cache-Control": "no-cache",
         },
       });

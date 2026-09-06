@@ -80,15 +80,34 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
     const run = getRun(job.id);
     // workdir resolution priority:
-    // 1. ?workdir= override (for manual / externally-produced results)
+    // 1. ?workdir= override (for manual / externally-produced results) —
+    //    CONSTRAINED to the app's data/relion subtree: an unrestricted
+    //    client-supplied absolute path made this route a filesystem-existence
+    //    oracle (200 + counts vs empty) that could read class data from
+    //    anywhere on the host
     // 2. run record in engine-state.json (jobs dispatched through the engine)
     // 3. computed from job.type + job.id (dispatched jobs whose record was
     //    persisted to disk; manual runs also land here as a fallback)
     const url = new URL(request.url);
-    const workdir =
-      url.searchParams.get("workdir") ??
-      run?.workdir ??
-      path.join(DATA_DIR, "relion", job.projectId, `${job.type}_${job.id.slice(-8)}`);
+    const relionRoot = path.join(DATA_DIR, "relion");
+    let workdir: string;
+    const override = url.searchParams.get("workdir");
+    if (override) {
+      const resolved = path.resolve(override);
+      const inside =
+        resolved === relionRoot || resolved.startsWith(relionRoot + path.sep);
+      if (!inside) {
+        return NextResponse.json(
+          { error: "workdir override must stay inside the data/relion project tree" },
+          { status: 400 }
+        );
+      }
+      workdir = resolved;
+    } else {
+      workdir =
+        run?.workdir ??
+        path.join(DATA_DIR, "relion", job.projectId, `${job.type}_${job.id.slice(-8)}`);
+    }
     if (!existsSync(workdir)) {
       return NextResponse.json({ classes: [], total: 0, iteration: null });
     }
