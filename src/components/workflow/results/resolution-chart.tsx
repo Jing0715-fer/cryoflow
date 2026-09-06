@@ -22,6 +22,7 @@ import {
   YAxis,
 } from "recharts";
 import { cn } from "@/lib/utils";
+import { fetchJsonRetry } from "@/lib/retry-fetch";
 
 const TEAL = "#14b8a6";
 
@@ -53,9 +54,7 @@ export function ResolutionChart({
     let cancelled = false;
     const load = async () => {
       try {
-        const res = await fetch(`/api/jobs/${jobId}/resolution`, { cache: "no-store" });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const body = (await res.json()) as ResolutionResponse;
+        const body = await fetchJsonRetry<ResolutionResponse>(`/api/jobs/${jobId}/resolution`);
         if (!cancelled) {
           setData(body);
           setError(null);
@@ -101,7 +100,7 @@ export function ResolutionChart({
     <section
       aria-label="Resolution evolution"
       className={cn(
-        "rounded-lg border border-teal-600/25 bg-gradient-to-b from-teal-600/5 to-transparent p-3",
+        "animate-rise rounded-lg border border-teal-600/25 bg-gradient-to-b from-teal-600/5 to-transparent p-3",
         className
       )}
     >

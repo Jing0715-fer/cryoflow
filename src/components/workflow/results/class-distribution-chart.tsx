@@ -78,7 +78,7 @@ export function ClassDistributionChart({
     <section
       aria-label="Class distribution"
       className={cn(
-        "rounded-lg border border-teal-600/25 bg-gradient-to-b from-teal-600/5 to-transparent p-3",
+        "animate-rise rounded-lg border border-teal-600/25 bg-gradient-to-b from-teal-600/5 to-transparent p-3",
         className
       )}
     >

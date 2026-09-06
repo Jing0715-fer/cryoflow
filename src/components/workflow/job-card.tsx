@@ -1016,7 +1016,7 @@ export const JobCard = React.memo(function JobCard({
             job.status === "running" &&
               !selected &&
               !inspected &&
-              "border-teal-400/60 dark:border-teal-500/50",
+              "job-running border-teal-400/60 dark:border-teal-500/50",
             // soft links: dashed outline + tinted body (read-only mirror)
             job.linkedJobId != null &&
               !selected &&

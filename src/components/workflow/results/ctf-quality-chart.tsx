@@ -24,6 +24,7 @@ import {
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { MrcImage } from "./mrc-image";
+import { fetchJsonRetry } from "@/lib/retry-fetch";
 
 const TEAL = "#14b8a6";
 const AMBER = "#d97706";
@@ -74,9 +75,7 @@ export function CtfQualityChart({ jobId, className }: { jobId: string; className
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`/api/jobs/${jobId}/ctf`, { cache: "no-store" });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const body = (await res.json()) as CtfResponse;
+        const body = await fetchJsonRetry<CtfResponse>(`/api/jobs/${jobId}/ctf`);
         if (!cancelled) {
           setData(body);
           setError(null);
@@ -107,7 +106,7 @@ export function CtfQualityChart({ jobId, className }: { jobId: string; className
     <section
       aria-label="CTF fit quality"
       className={cn(
-        "rounded-lg border border-teal-600/25 bg-gradient-to-b from-teal-600/5 to-transparent p-3",
+        "animate-rise rounded-lg border border-teal-600/25 bg-gradient-to-b from-teal-600/5 to-transparent p-3",
         className
       )}
     >

@@ -16,6 +16,7 @@
 import { useEffect, useState } from "react";
 import { Scale, TrendingDown, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { fetchJsonRetry } from "@/lib/retry-fetch";
 
 interface RebalanceReportResponse {
   jobId: string;
@@ -128,9 +129,7 @@ export function RebalanceReport({
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`/api/jobs/${jobId}/rebalance`, { cache: "no-store" });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const body = (await res.json()) as RebalanceReportResponse;
+        const body = await fetchJsonRetry<RebalanceReportResponse>(`/api/jobs/${jobId}/rebalance`);
         if (!cancelled) {
           setData(body);
           setError(null);

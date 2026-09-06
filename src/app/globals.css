@@ -217,6 +217,77 @@
 }
 
 /* ============================================================
+   Entrance + status animations
+   ============================================================ */
+
+/* Gentle rise-and-fade entrance for panels/charts as they mount
+   (replays on tab switches — Radix unmounts inactive panels — which
+   reads as intentional polish rather than noise at 350 ms). */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.995);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-rise {
+  animation: rise-in 0.35s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-rise {
+    animation: none;
+  }
+}
+
+/* Breathing teal halo for RUNNING job cards — the card is the
+   heartbeat of the canvas, it should be findable in a glance even at
+   33% zoom across 13 cards. Layered box-shadow pulse, no repaint-heavy
+   filter, so dozens of cards stay cheap. */
+@keyframes run-glow {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px color-mix(in oklch, var(--teal-glow) 42%, transparent),
+      0 0 14px -2px color-mix(in oklch, var(--teal-glow) 38%, transparent),
+      0 6px 16px -4px color-mix(in oklch, var(--foreground) 10%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px color-mix(in oklch, var(--teal-glow) 78%, transparent),
+      0 0 24px -2px color-mix(in oklch, var(--teal-glow) 62%, transparent),
+      0 6px 16px -4px color-mix(in oklch, var(--foreground) 10%, transparent);
+  }
+}
+
+.job-running {
+  animation: run-glow 2.1s ease-in-out infinite;
+}
+
+/* --teal-glow: theme-aware teal used by .job-running (both themes ship
+   oklch primaries around the same hue; keep a dedicated var so themes
+   can tune intensity independently of --primary). */
+:root {
+  --teal-glow: oklch(0.72 0.14 182);
+}
+.dark {
+  --teal-glow: oklch(0.78 0.13 182);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .job-running {
+    animation: none;
+    box-shadow:
+      0 0 0 1px color-mix(in oklch, var(--teal-glow) 60%, transparent),
+      0 0 18px -2px color-mix(in oklch, var(--teal-glow) 48%, transparent);
+  }
+}
+
+/* ============================================================
    Custom scrollbars
    ============================================================ */
 * {

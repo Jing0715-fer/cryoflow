@@ -25,6 +25,7 @@ import {
   YAxis,
 } from "recharts";
 import { cn } from "@/lib/utils";
+import { fetchJsonRetry } from "@/lib/retry-fetch";
 
 const TEAL = "#14b8a6";
 const AMBER = "#f59e0b";
@@ -57,9 +58,7 @@ export function GuinierChart({
     let cancelled = false;
     const load = async () => {
       try {
-        const res = await fetch(`/api/jobs/${jobId}/guinier`, { cache: "no-store" });
-        if (!res.ok) return;
-        const body = (await res.json()) as GuinierResponse;
+        const body = await fetchJsonRetry<GuinierResponse>(`/api/jobs/${jobId}/guinier`);
         if (!cancelled) setData(body);
       } catch {
         /* silent — enhancement only */
@@ -100,7 +99,7 @@ export function GuinierChart({
     <section
       aria-label="Guinier plot"
       className={cn(
-        "rounded-lg border border-amber-500/25 bg-gradient-to-b from-amber-500/5 to-transparent p-3",
+        "animate-rise rounded-lg border border-amber-500/25 bg-gradient-to-b from-amber-500/5 to-transparent p-3",
         className
       )}
     >

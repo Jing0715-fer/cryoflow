@@ -29,6 +29,7 @@ import {
   YAxis,
 } from "recharts";
 import { cn } from "@/lib/utils";
+import { fetchJsonRetry } from "@/lib/retry-fetch";
 
 const TEAL = "#14b8a6";
 const AMBER = "#f59e0b";
@@ -77,9 +78,7 @@ export function FscChart({
     let cancelled = false;
     const load = async () => {
       try {
-        const res = await fetch(`/api/jobs/${jobId}/fsc`, { cache: "no-store" });
-        if (!res.ok) return;
-        const body = (await res.json()) as FscResponse;
+        const body = await fetchJsonRetry<FscResponse>(`/api/jobs/${jobId}/fsc`);
         if (!cancelled) setData(body);
       } catch {
         /* silent — enhancement only */
@@ -130,7 +129,7 @@ export function FscChart({
     <section
       aria-label="Fourier-shell correlation"
       className={cn(
-        "rounded-lg border border-teal-600/25 bg-gradient-to-b from-teal-600/5 to-transparent p-3",
+        "animate-rise rounded-lg border border-teal-600/25 bg-gradient-to-b from-teal-600/5 to-transparent p-3",
         className
       )}
     >

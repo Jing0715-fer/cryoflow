@@ -1388,3 +1388,27 @@ Stage Summary:
 - QA 回归零回归：Task 13-15 全部修复项在位
 - 用户可见提升：postprocess 检查器 FSC 可对比 raw/corrected 揭示掩膜伪相关；3D viewer 可切ct截面看内部密度；autopick 支持 CNN 拾取（与 LoG/References 三选一）
 - 遗留（下轮候选）：Topaz train 模式（--topaz_train + 训练坐标输入端口）、mol* clip-plane 切割工具（与 slice 互补）、用户机器 class3d/refine3d 顺序模式与 topaz 实测反馈
+
+---
+Task ID: 17
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852）——agent-browser QA 回归 + 无 bug 则推进新功能 + 样式/功能增量 + worklog + push
+
+Work Log:
+- 【开局核对】git fetch：本地 == origin/main == d7c5dd5（Task 16 handoff 已推送）。dev server 死亡（沙箱 OOM 回收）→ scripts/dev-server.sh playbook 重启
+- 【QA 回归·全绿】主页面 13 jobs/12 completed/35 types、console 0 error；postprocess inspector：Results tab FSC（reported 7.08 Å · Nyquist-limited + 0.5→18.28 + masked(raw) 开关）✓、Overview tab FSC + Guinier（B-factor -804.8）✓；refine3d：Overview 四图（Resolution evolution + FSC + Orientation distribution + Mollweide）+ Results tab FSC 三徽章（0.143→16.88 / reported 9.44 / 0.5→17.60）✓。结论：Task 13-16 修复全部在位，无新 bug → 转入新功能开发
+- 【排查插曲·假警报】angdist 图文本检查 miss → 追查到 ① 终端显示层吞 "[h"/"[m" 序列（sed/cat -A 输出显示 `const overed`、`max-w-in(`，od -c 实证文件完好 `const [hovered`、`max-w-[min(`）——教训：疑损坏先 od 再动手 ② 结果 tab 与 overview tab 的图表归属澄清（Results=文件浏览+FSC；Overview=全部图表）；radix tab 合成 .click() 偶发不切换 → 强制 mousedown/mouseup/click 序列解决
+- 【新功能 1·Mol* 体积裁剪工具】molstar-embed.tsx：控制条新增 "Clip" 开关（BoxSelect 图标，violet 高亮态）+ 展开式裁剪面板（X/Y/Z 三滑杆 0.02–1 + per-axis 点击轴标复位 + flip side 全局反相 + reset all）。实现走 representation props 级 clip 参数（{variant:'pixel', objects:[plane…]}）——与 Slice 不同不建新节点，transform-state update 零重建；盒体坐标来自 Grid.getGridToCartesianTransform（spacegroup transform 权威 API；cell.size 226.56 Å 实测吻合，basis 列长×dims=extents）。E2E 实证：X=51% 裁掉 +X 半盒（保 [0,frac] 侧）、X=12% 仅剩薄片、flip side 后补集重现（双向验证）、reset all 恢复全表面、关闭后面板收起、与 Slice 并发无冲突、console 零报错
+- 【新功能 2·Dashboard 流水线分析】新建 pipeline-analytics.tsx 挂入 ActiveProjectSpotlight（stage rail 与 jobs 列表之间，双 divider）：①Particle flow——从引擎自产 result 字符串解析 7 级颗粒漏斗（Micrographs→Picked→Extracted→Selected→Classified→Expanded→Rebalanced），比例条 + 绿/amber delta 徽章（+3,428 / −10,591…），tooltip 解释语义（对称扩增故意翻倍/选择丢弃）；②Resolution ladder——completed 的 3D job 逐个 fetch /fsc，阶梯卡（violet=RELION reported、amber=0.143 crossing、>0.5Å 分歧并排显示）+ 图例行；数据不足自动整体隐藏。E2E 实证：13 作业项目渲染 7 行漏斗 + 9.44Å→7.08Å 双卡阶梯
+- 【样式细化】globals.css：新增 .animate-rise 入场（6 个图表卡片根元素挂载渐入上移，prefers-reduced-motion 降级）+ .job-running 运行光晕（job-card running 态挂载，teal 呼吸光环 --teal-glow 主题变量，reduced-motion 静态降级）；浏览器截图实证光晕可见性（33% 缩放 13 卡中一眼定位）
+- 【QA 发现 #18·图表 fetch 瞬时失败永久自隐藏】Guinier 图在 dev server 重启后首开消失：路由首击触发 Turbopack 编译，fetch 5xx → 组件 error && !data → 永久 return null（无重试）。新建 src/lib/retry-fetch.ts fetchJsonRetry（仅重试网络错/5xx/429，线性退避 1.5s×2；4xx 立即抛出保持"无数据自隐藏"契约），9 个消费文件接入（fsc/guinier/resolution/angdist×2/ctf/rebalance/class 相关 + 类型化返回值改造）
+- 【布局修复】mol* 控制条 presets 行加入 Slice/Clip 后溢出（Clip 芯片戳出圆角）→ max-w-md→max-w-lg + 主行/presets 行 flex-wrap + σ 徽章 whitespace-nowrap
+- 【运维】会话中 dev server 4 次 OOM 回收（molstar chunk 编译 + HMR 并发，4GB 沙箱）→ 全部 playbook 重启；发现 nohup+disown 在工具 shell 回收下不可靠 → 严格用 scripts/dev-server.sh（setsid 孤儿化）单工具调用内等待就绪
+- 【收尾】bun run lint 0 错误 0 警告（清理未用 eslint-disable）；tsc src/ 0 错误；console 0 error（仅 dev 模式 createRoot 已知告警）；E2E 回归：postprocess Overview 双图在位、Dashboard 分析区完整、clip/slice 复测通过
+
+Stage Summary:
+- 两大新功能 + 一轮样式增量全部 E2E 实证：Mol* 体积裁剪（ChimeraX 式逐轴 clip 平面，与 Slice 互补成完整 3D 检查工具集）、Dashboard 流水线分析（颗粒漏斗 + 分辨率阶梯，全项目一眼读）
+- 第 18 个真实 bug 闭环：结果图表 fetch 瞬时失败永久自隐藏 → fetchJsonRetry 统一重试层（9 文件）
+- 样式系统新增两个可复用原语（.animate-rise / .job-running + --teal-glow），均带 reduced-motion 降级
+- 工具链教训入库：显示层会吞 "[字母" 序列（假损坏），文件可疑先 od -c 验证；radix tab 需完整 pointer 事件序列
+- 遗留（下轮候选）：Topaz train 模式（--topaz_train + 训练坐标端口）、mol* clip 的 box 可视化线框、Dashboard 分析区的 per-workspace 过滤、用户机器 class3d/refine3d 顺序模式与 topaz 实测反馈

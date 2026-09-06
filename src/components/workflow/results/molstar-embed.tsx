@@ -16,7 +16,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { Loader2, Mountain, RotateCw, ScanLine, ZoomIn } from "lucide-react";
+import { BoxSelect, Loader2, Mountain, RotateCw, ScanLine, ZoomIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
@@ -105,6 +105,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
   const sliceRef = useRef<any>(null);
   const VolumeReprRef = useRef<any>(null);
   const IsoValueRef = useRef<any>(null);
+  const GridRef = useRef<any>(null);
 
   useEffect(() => {
     let disposed = false;
@@ -150,6 +151,9 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
           return;
         }
         pluginRef.current = plugin;
+        // QA affordance: let browser tooling poke the live plugin (read the
+        // volume grid transform when verifying clip/slice plane math).
+        (window as unknown as { __molstar?: unknown }).__molstar = plugin;
 
         // fetch the raw map bytes through the (path-checked) outputs API.
         // Retry with backoff: in dev, Turbopack compiles the route on first
@@ -188,15 +192,17 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
         const buf = await res.arrayBuffer();
         console.debug("[molstar] map fetched", buf.byteLength);
 
-        const [{ RawData, ParseCcp4 }, { VolumeFromCcp4 }, { VolumeRepresentation3D }, { Volume }] =
+        const [{ RawData, ParseCcp4 }, { VolumeFromCcp4 }, { VolumeRepresentation3D }, { Volume }, { Grid }] =
           await Promise.all([
             import("molstar/lib/mol-plugin-state/transforms/data"),
             import("molstar/lib/mol-plugin-state/transforms/volume"),
             import("molstar/lib/mol-plugin-state/transforms/representation"),
             import("molstar/lib/mol-model/volume"),
+            import("molstar/lib/mol-model/volume/grid"),
           ]);
         VolumeReprRef.current = VolumeRepresentation3D;
         IsoValueRef.current = Volume.IsoValue;
+        GridRef.current = Grid;
 
         setStage("scene");
         const b = plugin.build();
@@ -534,6 +540,144 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
     void pumpSlice();
   }, [sigma, sign]);
 
+  /* ---------------- box clipping (crop the isosurface) ---------------- */
+
+  // ChimeraX-style per-axis clip planes applied to the MAIN isosurface
+  // node (not a separate scene node): mol* isosurface visuals carry a
+  // `clip` prop ({variant, objects: Plane[]}) evaluated per-pixel in the
+  // shader, so updating it is a cheap transform-state update — no rebuild.
+  // Each axis has a fraction 0…1; 1 keeps the whole box (plane parked just
+  // past the far edge), dragging down crops away the +side. `invert` flips
+  // all planes to crop from the −side instead.
+  const [clipOn, setClipOn] = useState(false);
+  const [clipX, setClipX] = useState(1);
+  const [clipY, setClipY] = useState(1);
+  const [clipZ, setClipZ] = useState(1);
+  const [clipInvert, setClipInvert] = useState(false);
+  const clipStateRef = useRef({ on: false, x: 1, y: 1, z: 1, invert: false });
+  const clipPending = useRef(false);
+
+  /** cartesian box origin + extents of the loaded volume, derived from the
+   *  authoritative Grid.getGridToCartesianTransform (handles both the
+   *  'spacegroup' transform CCP4 maps carry and plain matrices). Mesh
+   *  positions are that matrix applied to voxel indices, so the box runs
+   *  origin → origin + extents with extents = basis-column length × dims. */
+  const clipBox = (): { origin: [number, number, number]; extents: [number, number, number] } | null => {
+    const plugin = pluginRef.current;
+    const Grid = GridRef.current;
+    if (!plugin || !Grid) return null;
+    for (const cell of plugin.state.data.cells.values()) {
+      const obj = cell?.obj;
+      if (obj?.type?.name !== "Volume") continue;
+      const grid = obj.data?.grid;
+      const dims: number[] | undefined = grid?.cells?.space?.dimensions;
+      if (!Array.isArray(dims) || dims.length !== 3) continue;
+      try {
+        // Mat4 IS a column-major number[16] in mol* — the matrix is the array
+        const m = Grid.getGridToCartesianTransform(grid) as number[];
+        if (!Array.isArray(m) || m.length < 16) continue;
+        const col = (i: number) => [m[i * 4], m[i * 4 + 1], m[i * 4 + 2]] as [number, number, number];
+        const origin: [number, number, number] = [m[12], m[13], m[14]];
+        const extents: [number, number, number] = [
+          Math.hypot(...col(0)) * dims[0],
+          Math.hypot(...col(1)) * dims[1],
+          Math.hypot(...col(2)) * dims[2],
+        ];
+        if (extents.every((e) => Number.isFinite(e) && e > 0)) return { origin, extents };
+      } catch {
+        /* fall through */
+      }
+      return null;
+    }
+    return null;
+  };
+
+  const commitClip = async () => {
+    const plugin = pluginRef.current;
+    const VolumeRepresentation3D = VolumeReprRef.current;
+    if (!plugin || !VolumeRepresentation3D || !reprRef.current) throw new Error("not ready");
+    const st = clipStateRef.current;
+
+    const box = st.on ? clipBox() : null;
+    // identity 4×4 rotation container (mol* wants rotation as axis+angle)
+    const plane = (axisIdx: 0 | 1 | 2, frac: number) => {
+      const axisVec: [number, number, number] =
+        axisIdx === 0 ? [1, 0, 0] : axisIdx === 1 ? [0, 1, 0] : [0, 0, 1];
+      const pos: [number, number, number] = [0, 0, 0];
+      if (box) {
+        const along = frac * box.extents[axisIdx];
+        pos[0] = box.origin[0] + axisVec[0] * along;
+        pos[1] = box.origin[1] + axisVec[1] * along;
+        pos[2] = box.origin[2] + axisVec[2] * along;
+      }
+      return {
+        type: "plane",
+        invert: st.invert,
+        position: pos,
+        rotation: { axis: axisVec, angle: 0 },
+        scale: [1, 1, 1] as [number, number, number],
+        transform: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1] as number[],
+      };
+    };
+
+    const objects = !st.on || !box
+      ? []
+      : ([
+          [0, st.x],
+          [1, st.y],
+          [2, st.z],
+        ] as const)
+          // frac 1 ≡ no clip on this axis — leave the plane out entirely
+          .filter(([, f]) => f < 0.999)
+          .map(([axisIdx, f]) => plane(axisIdx as 0 | 1 | 2, f));
+
+    await plugin
+      .build()
+      .to(reprRef.current)
+      .update(VolumeRepresentation3D, (old: any) => ({
+        ...old,
+        type: {
+          ...old.type,
+          params: {
+            ...old.type?.params,
+            clip: { variant: "pixel", objects },
+          },
+        },
+      }))
+      .commit();
+  };
+
+  const pumpClip = async () => {
+    if (phase !== "ready") return;
+    if (clipPending.current) return;
+    clipPending.current = true;
+    try {
+      for (;;) {
+        const seen = { ...clipStateRef.current };
+        await commitClip();
+        const now = clipStateRef.current;
+        if (
+          now.on === seen.on && now.invert === seen.invert &&
+          now.x === seen.x && now.y === seen.y && now.z === seen.z
+        ) break;
+      }
+    } catch (err) {
+      console.debug("[molstar] clip update skipped", err);
+    } finally {
+      clipPending.current = false;
+    }
+  };
+
+  const applyClipIntent = (patch: Partial<{ on: boolean; x: number; y: number; z: number; invert: boolean }>) => {
+    clipStateRef.current = { ...clipStateRef.current, ...patch };
+    if (patch.on !== undefined) setClipOn(patch.on);
+    if (patch.invert !== undefined) setClipInvert(patch.invert);
+    if (patch.x !== undefined) setClipX(patch.x);
+    if (patch.y !== undefined) setClipY(patch.y);
+    if (patch.z !== undefined) setClipZ(patch.z);
+    void pumpClip();
+  };
+
   const absolute = stats ? stats.mean + sign * stats.sigma * sigma : null;
 
   return (
@@ -543,15 +687,15 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
       {/* contour control bar */}
       {phase === "ready" && (
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex justify-center p-3">
-          <div className="pointer-events-auto w-full max-w-md rounded-2xl border bg-card/90 px-4 py-3 shadow-lg backdrop-blur-md">
-            <div className="flex items-center gap-2">
+          <div className="pointer-events-auto w-full max-w-lg rounded-2xl border bg-card/90 px-4 py-3 shadow-lg backdrop-blur-md">
+            <div className="flex flex-wrap items-center gap-2">
               <Mountain className="size-3.5 shrink-0 text-teal-600" aria-hidden="true" />
               <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                 Contour
               </span>
               <span
                 className={cn(
-                  "rounded-md px-1.5 py-0.5 font-mono text-xs font-bold tabular-nums",
+                  "whitespace-nowrap rounded-md px-1.5 py-0.5 font-mono text-xs font-bold tabular-nums",
                   sign > 0
                     ? "bg-teal-600/10 text-teal-700 dark:text-teal-300"
                     : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
@@ -570,8 +714,9 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                   ≈ {absolute.toFixed(4)}
                 </span>
               ) : null}
-              {/* presets */}
-              <div className="ml-auto flex items-center gap-1">
+              {/* presets — wrap allowed: slice/clip toggles joined the row and
+                  a no-wrap row overflowed the pill on narrow viewers */}
+              <div className="ml-auto flex flex-wrap items-center justify-end gap-1">
                 {PRESETS.map((p) => (
                   <button
                     key={p}
@@ -629,6 +774,27 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                   <ScanLine className="h-3 w-3" aria-hidden="true" />
                   Slice
                 </button>
+                {/* box-clip toggle — crop the isosurface per axis */}
+                <button
+                  type="button"
+                  onClick={() => applyClipIntent({ on: !clipStateRef.current.on })}
+                  aria-pressed={clipOn}
+                  aria-label="Toggle box clipping"
+                  title={
+                    clipOn
+                      ? "Disable box clipping — show the full isosurface again"
+                      : "Clip the isosurface — drag the X/Y/Z sliders to crop into the box (ChimeraX-style clip planes)"
+                  }
+                  className={
+                    "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors " +
+                    (clipOn
+                      ? "bg-violet-600 text-white"
+                      : "bg-muted text-muted-foreground hover:bg-violet-600/15 hover:text-violet-700 dark:hover:text-violet-300")
+                  }
+                >
+                  <BoxSelect className="h-3 w-3" aria-hidden="true" />
+                  Clip
+                </button>
               </div>
             </div>
             <Slider
@@ -677,6 +843,69 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                 </span>
               </div>
             )}
+            {/* clip rows — one slider per axis + side flip (only when on) */}
+            {clipOn && (
+              <div className="mt-2.5 space-y-1.5 rounded-lg border border-violet-600/25 bg-violet-600/5 px-2.5 py-2">
+                {(
+                  [
+                    ["X", clipX, (v: number) => applyClipIntent({ x: v })] as const,
+                    ["Y", clipY, (v: number) => applyClipIntent({ y: v })] as const,
+                    ["Z", clipZ, (v: number) => applyClipIntent({ z: v })] as const,
+                  ] as const
+                ).map(([ax, val, set]) => (
+                  <div key={ax} className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => applyClipIntent({ [ax.toLowerCase()]: 1 } as Partial<{ x: number; y: number; z: number }> )}
+                      title={`Reset the ${ax} clip plane (1 = unclipped)`}
+                      aria-label={`Reset ${ax} clip`}
+                      className="w-4 shrink-0 rounded bg-violet-600/90 px-1 py-0.5 font-mono text-[10px] font-bold text-white transition-opacity hover:opacity-80"
+                    >
+                      {ax}
+                    </button>
+                    <Slider
+                      value={[val]}
+                      min={0.02}
+                      max={1}
+                      step={0.01}
+                      onValueChange={(v) => set(v[0] ?? 1)}
+                      aria-label={`Clip position along the ${ax} axis`}
+                      className="flex-1"
+                    />
+                    <span className="w-9 shrink-0 text-right font-mono text-[10px] tabular-nums text-muted-foreground">
+                      {val >= 0.999 ? "—" : `${Math.round(val * 100)}%`}
+                    </span>
+                  </div>
+                ))}
+                <div className="flex items-center justify-between gap-2 pt-0.5">
+                  <button
+                    type="button"
+                    onClick={() => applyClipIntent({ invert: !clipStateRef.current.invert })}
+                    aria-pressed={clipInvert}
+                    title={
+                      clipInvert
+                        ? "Planes crop from the − side — flip back to crop the + side"
+                        : "Flip every plane to crop from the − side instead of the + side"
+                    }
+                    className={
+                      "rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors " +
+                      (clipInvert
+                        ? "bg-violet-600 text-white"
+                        : "bg-muted text-muted-foreground hover:bg-violet-600/15 hover:text-violet-700 dark:hover:text-violet-300")
+                    }
+                  >
+                    flip side
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyClipIntent({ x: 1, y: 1, z: 1 })}
+                    className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground transition-colors hover:bg-violet-600/15 hover:text-violet-700 dark:hover:text-violet-300"
+                  >
+                    reset all
+                  </button>
+                </div>
+              </div>
+            )}
             <div className="mt-1 flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
               <span className="font-mono">{SIGMA_MIN}σ</span>
               <span className="hidden truncate sm:inline">
@@ -684,7 +913,9 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                   ? "inverted map detected — contouring the negative side"
                   : sliceOn
                     ? "cross-section shares the contour level — drag the slider to sweep the box"
-                    : "drag rotate · scroll zoom · right-drag pan"}
+                    : clipOn
+                      ? "clip crops into the box — drag X/Y/Z, flip side to crop the other half"
+                      : "drag rotate · scroll zoom · right-drag pan"}
               </span>
               <span className="font-mono">{SIGMA_MAX}σ</span>
             </div>

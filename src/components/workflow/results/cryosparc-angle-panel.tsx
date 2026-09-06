@@ -8,6 +8,7 @@
 
 import { useEffect, useState } from "react";
 import { CryoSparcAnglePlot, type CryoAngleData } from "./cryosparc-angle-plot";
+import { fetchJsonRetry } from "@/lib/retry-fetch";
 
 interface AngDistResponse {
   iteration: number | null;
@@ -40,9 +41,7 @@ export function CryoSparcAnglePanel({
     let cancelled = false;
     const load = async () => {
       try {
-        const res = await fetch(`/api/jobs/${jobId}/angdist`, { cache: "no-store" });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const body = (await res.json()) as AngDistResponse;
+        const body = await fetchJsonRetry<AngDistResponse>(`/api/jobs/${jobId}/angdist`);
         if (!cancelled) {
           setData(body);
           setError(null);

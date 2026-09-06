@@ -33,6 +33,7 @@ import { useWorkflowStore } from "@/lib/store";
 import type { JobDTO, ProjectSummaryDTO } from "@/lib/types";
 import { jobType } from "@/lib/workflow";
 import { TypeIcon } from "./icons";
+import { PipelineAnalytics } from "./pipeline-analytics";
 import { StatusBadge, estimateEta, formatEta } from "./job-card";
 import { NewProjectDialog } from "./project-panel";
 import {
@@ -550,6 +551,12 @@ function ActiveProjectSpotlight() {
             ))}
           </div>
         )}
+
+        {/* divider */}
+        <div className="my-4 h-px bg-border" />
+
+        {/* live pipeline analytics (particle flow + resolution ladder) */}
+        <PipelineAnalytics jobs={sorted} />
 
         {/* divider */}
         <div className="my-4 h-px bg-border" />
