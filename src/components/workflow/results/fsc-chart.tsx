@@ -16,7 +16,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { Crosshair, Waves } from "lucide-react";
+import { Award, Crosshair, Waves } from "lucide-react";
 import {
   CartesianGrid,
   Line,
@@ -33,6 +33,7 @@ import { cn } from "@/lib/utils";
 const TEAL = "#14b8a6";
 const AMBER = "#f59e0b";
 const NOISE = "#71717a";
+const VIOLET = "#8b5cf6";
 
 interface FscShell {
   freq: number;
@@ -48,6 +49,9 @@ interface FscResponse {
   shells: FscShell[];
   resolutionAt143: number | null;
   resolutionAt05: number | null;
+  /** RELION's own estimate (_rlnFinalResolution / _rlnCurrentResolution) */
+  reportedResolution: number | null;
+  reportedLabel: string | null;
 }
 
 export function FscChart({
@@ -99,6 +103,20 @@ export function FscChart({
   const isPost = data.source === "postprocess";
   const res143 = data.resolutionAt143;
   const res05 = data.resolutionAt05;
+  const reported = data.reportedResolution;
+  // the reported value can land exactly on the last sampled shell when the
+  // box Nyquist limit (2 × pixel size) caps the reconstruction — detect so
+  // the badge explains WHY the corrected curve never crosses 0.143.
+  // shells are sorted ascending by Å, so the HIGH-frequency end — where a
+  // Nyquist cap would bite — is shells[0] (smallest Å), not the low-res tail.
+  const atNyquist =
+    reported != null &&
+    shells.length > 0 &&
+    Math.abs(shells[0].res - reported) / reported < 0.02;
+  // show both numbers when they materially disagree (raw crossing vs the
+  // smoothed estimate RELION prints in its log / star metadata)
+  const reportedDiffers =
+    reported != null && (res143 == null || Math.abs(reported - res143) > 0.5);
 
   return (
     <section
@@ -120,6 +138,16 @@ export function FscChart({
           <span className="inline-flex items-center gap-1 rounded-full border border-amber-600/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-amber-700 dark:text-amber-300">
             <Crosshair className="h-3 w-3" aria-hidden="true" />
             0.143 → {res143.toFixed(2)} Å
+          </span>
+        )}
+        {reportedDiffers && (
+          <span
+            className="inline-flex items-center gap-1 rounded-full border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-violet-700 dark:text-violet-300"
+            title={data.reportedLabel ?? undefined}
+          >
+            <Award className="h-3 w-3" aria-hidden="true" />
+            RELION reported {reported?.toFixed(2)} Å
+            {atNyquist && " · Nyquist-limited"}
           </span>
         )}
         {res05 != null && (
@@ -222,6 +250,23 @@ export function FscChart({
                 isFront
               />
             )}
+            {/* when the corrected curve never crosses 0.143 but RELION
+                still reports a resolution (Nyquist-limited or smoothed
+                estimate), mark WHERE the official number sits */}
+            {res143 == null && reported != null && (
+              <ReferenceLine
+                x={reported}
+                stroke={VIOLET}
+                strokeDasharray="6 3"
+                opacity={0.8}
+                label={{
+                  value: `reported ${reported.toFixed(2)} Å`,
+                  fill: VIOLET,
+                  fontSize: 10,
+                  position: "top",
+                }}
+              />
+            )}
             <Line
               type="monotone"
               dataKey="fsc"
@@ -280,6 +325,13 @@ export function FscChart({
           {data.sourceFile}
         </span>
       </div>
+      {res143 == null && reported != null && (
+        <p className="mt-1 text-[10px] leading-snug text-muted-foreground/80">
+          {atNyquist
+            ? "The corrected FSC stays above 0.143 through the last sampled shell — the reported value sits at the box Nyquist limit (2 × pixel size). Re-extract with a smaller pixel size or larger box to probe beyond it."
+            : (data.reportedLabel ?? "RELION's own smoothed estimate of the resolution.")}
+        </p>
+      )}
     </section>
   );
 }

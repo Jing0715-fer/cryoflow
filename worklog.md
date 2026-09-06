@@ -1345,3 +1345,26 @@ Stage Summary:
 - 失败诊断体验升级：MPI/RELION 失败 toast 直出真因行（rootCauseDetail），不再被 mpirun 结束语遮挡
 - 性能：轮询 chart 热路径 stat 化（~8-10x）；particles 路由 N+1 消除
 - 遗留（下轮候选）：3D viewer 体积截面工具、Topaz wrapper、用户机器上 class3d/refine3d 顺序模式实测反馈
+
+---
+Task ID: 15
+Agent: main (Z.ai Code)
+Task: cron 自主巡检——agent-browser QA 回归 + 修 bug/新功能决策 + 样式/功能增量 + worklog + push
+
+Work Log:
+- 【开局核对】git fetch：本地领先 1 个 cron 遗留 commit（UUID 裸串 message，仅 worklog +22 行）→ amend reword 为 e0e9f94 "docs(worklog): Task 14 handoff"；远程 == e941b14 无落后。dev server UP 但内存紧（471Mi 可用）
+- 【QA 回归】agent-browser：主页面 13 作业/12 completed/35 job types ✓、console 0 error ✓、postprocess inspector 逐 tab 检查——Overview 只有 Guinier 没有 FSC → **QA 发现 #13：postprocess FSC 图永不渲染**
+- 【根因 #13】fsc 路由 #1 源找 postprocess_fsc.fsc（RELION ≤4 形态），RELION 5.0.1 只写 postprocess_fsc.dat/.xml/.star；fallback model.star 也不在 postprocess workdir → API 永远返回空 shells → 图自隐藏。实锤：postprocess.star 的 data_fsc 表有 **4 条曲线**（Corrected/MaskFraction/Unmasked/Masked/PhaseRand）+ data_general._rlnFinalResolution=7.08
+- 【修复 #13 + #14 徽章矛盾】fsc 路由重写：源优先级 postprocess.star（4 曲线，直读列名）→ legacy .fsc → .dat（2 列纯文本）→ run_half1/itNNN model.star；响应新增 reportedResolution/reportedLabel（postprocess 从 _rlnFinalResolution，refine3d 从 run_model.star _rlnCurrentResolution=9.44——原始表 0.143 交叉 16.88Å 与 RELION 平滑估计的"矛盾"变为并排呈现）；0.143 crossing 语义修正为 corrected 曲线优先（RELION 官方判据）；全部读路径接入 statcache
+- 【升级·Guinier 精度】RELION 5 其实把完整 data_guinier 表（ResolutionSquared/LogAmpOriginal/Weighted/Sharpened/Intercept 5 列精确值）保留在 postprocess.star 里——guinier 路由改为 star 表优先（EPS 恢复降为 fallback #2、legacy 文本 #3）；B-factor 直读 _rlnBfactorUsedForSharpening（精确 -804.77605，此前 EPS/run.out 是 -804.8 近似）。图上 teal/amber 两线高频端首次真实分离（锐化物理效应，EPS 仿射校准误差曾使其重合）
+- 【UI·fsc-chart】reported 徽章（violet + Award 图标 + label tooltip）与 0.143 徽章并存；res143==null 时紫色 ReferenceLine 竖线标注 reported 位置；atNyquist 检测（reported≈最高频率端壳层）→ 徽章追加 "· Nyquist-limited" + 脚注解释"corrected FSC 未跌破 0.143，报告值即盒奈奎斯特极限（2×pixel），建议更小 pixel/更大 box 重提取"
+- 【真 bug #15·statcache 串染】postprocess.star 成为首个双消费者文件后引爆：cachedFileCompute 仅按路径+size:mtime 键控，FSC 与 Guinier 路由互取对方解析结果（实测 guinier 的 bfactor 字段返回 FSC 的 shells 对象）→ API 加 computeId 显式标识参数，键改为 (file, computeId)，12 个调用点（fsc×5/guinier×5/resolution/angdist）全部更新
+- 【真 bug #16·atNyquist 方向】首版用 shells[last]（升序 Å 排序的低频端 226.56Å）判奈奎斯特——浏览器 eval 实测抓出，修正为 shells[0]（高频端 7.08Å）
+- 【E2E·浏览器】postprocess：FSC 首次出图——"RELION reported 7.08 Å · Nyquist-limited" + "0.5 → 18.28 Å" 徽章、三曲线（teal unmasked/amber corrected/gray phase-rand）、紫竖线、Nyquist 脚注、postprocess.star 源标注；Overview 双图（FSC+Guinier）齐全；refine3d：三徽章并列（0.143→16.88 + reported 9.44 + 0.5→17.60）；angdist/resolution 回归 200（0.09-0.14s）；console 0 error；lint 0；tsc src/ 0
+- 【运维】dev server 中途被沙箱回收一次 → playbook 重启（pkill next+postcss 全家 + rm .next + dev-server.sh double-fork）
+
+Stage Summary:
+- 第 13/14/15/16 个真实 bug 闭环：postprocess FSC 永灭（RELION 5 数据源迁移）、refine3d 徽章与官方报告矛盾、statcache 跨消费者串染、atNyquist 排序方向
+- 「postprocess.star 作为规范数据源」主题落地：FSC 4 曲线 + Guinier 5 列 + B-factor + FinalResolution 全部改走精确 star 表，EPS 恢复降级为 fallback
+- 用户可见提升：postprocess 检查器从 1 张图变 2 张图（FSC 是 postprocess 的核心结果图）；refine3d 图表不再与作业卡片徽章互相矛盾；Guinier 锐化曲线物理效应首次正确可见
+- 遗留（下轮候选）：3D viewer 体积截面工具、Topaz wrapper、FSC 图可加 maskedFsc 第四曲线开关、用户机器 class3d/refine3d 顺序模式实测反馈

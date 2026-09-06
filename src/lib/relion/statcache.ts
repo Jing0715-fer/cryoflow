@@ -32,23 +32,34 @@ const store = new Map<string, CacheSlot>();
  * Compute (or fetch cached) `compute(readFileSync(file))` for `file`.
  * Returns null when the file does not exist. Compute exceptions propagate
  * to the caller (routes already guard their bodies with try/catch).
+ *
+ * `computeId` MUST uniquely identify the call site (e.g. "fsc:pp-star"):
+ * the cache key is (file, computeId) — one file can feed several consumers
+ * with different parsers (postprocess.star feeds both the FSC and Guinier
+ * routes), and keying on the path alone would serve consumer A's parsed
+ * shape to consumer B.
  */
-export function cachedFileCompute<T>(file: string, compute: (text: string) => T): T | null {
+export function cachedFileCompute<T>(
+  file: string,
+  computeId: string,
+  compute: (text: string) => T
+): T | null {
   if (!existsSync(file)) return null;
   const st = statSync(file);
   const key = `${st.size}:${st.mtimeMs}`;
-  const hit = store.get(file);
+  const slot = `${file}\u0000${computeId}`;
+  const hit = store.get(slot);
   if (hit && hit.key === key) {
     // refresh recency (Map preserves insertion order → LRU via re-insert)
-    store.delete(file);
-    store.set(file, hit);
+    store.delete(slot);
+    store.set(slot, hit);
     return hit.value as T;
   }
   const value = compute(readFileSync(file, "utf8"));
-  if (store.size >= MAX_ENTRIES && !store.has(file)) {
+  if (store.size >= MAX_ENTRIES && !store.has(slot)) {
     const oldest = store.keys().next().value;
     if (oldest !== undefined) store.delete(oldest);
   }
-  store.set(file, { key, value });
+  store.set(slot, { key, value });
   return value;
 }

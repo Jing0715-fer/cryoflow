@@ -143,7 +143,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     // (size, mtime) so 1–2 s polls cost one statSync instead of re-parsing
     // megabytes of STAR text (see statcache.ts).
     const starPath = path.join(run.workdir, best.file);
-    const aggregate = cachedFileCompute(starPath, (text) => {
+    const aggregate = cachedFileCompute(starPath, "angdist:bins", (text) => {
       const lines = text.split("\n");
       const rotCol = labelColumn(lines, "_rlnAngleRot");
       const tiltCol = labelColumn(lines, "_rlnAngleTilt");

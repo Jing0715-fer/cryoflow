@@ -45,7 +45,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       try {
         // Each iteration's model.star is written once — mtime cache makes
         // every poll re-stat instead of re-read+re-parse all iterations.
-        const res = cachedFileCompute(path.join(run.workdir, name), (text) =>
+        const res = cachedFileCompute(path.join(run.workdir, name), "resolution:curres", (text) =>
           text.match(/_rlnCurrentResolution\s+([\d.eE+-]+)/)?.[1] ?? null
         );
         if (res) {

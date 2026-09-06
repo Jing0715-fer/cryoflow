@@ -5,6 +5,7 @@ import { findEffectiveJob } from "@/lib/link";
 import { getRun } from "@/lib/relion/engine";
 import { cachedFileCompute } from "@/lib/relion/statcache";
 import { parseGuinierEps } from "@/lib/relion/guinier-eps";
+import { parseStar } from "@/lib/starfile";
 
 export const dynamic = "force-dynamic";
 
@@ -30,13 +31,17 @@ export interface GuinierResponse {
 /**
  * GET /api/jobs/[id]/guinier — Guinier plot of a PostProcess job.
  *
- * RELION 5 ships the plot ONLY as PostScript (postprocess_guinier.eps);
- * RELION ≤4 also wrote the plain `postprocess.guinier` numeric table
- * (`1/resol²  ln(Amp)  [ln(Amp·B)]`). Both encodings are parsed — the EPS
- * data recovery lives in guinier-eps.ts. The classic straight-line falloff
- * validates the applied B-factor; curvature at low resolution flags mask
- * artefacts. The B-factor itself is grepped from run.out ("Applied
- * B-factor of ...") when available.
+ * Sources, best first:
+ *  1. postprocess.star data_guinier  (RELION 5: exact 5-column numeric
+ *     table — resolution², ln-amp original/weighted/sharpened/intercept)
+ *  2. postprocess_guinier.eps        (RELION 5 plot-only fallback; lossy
+ *     affine recovery via guinier-eps.ts)
+ *  3. postprocess.guinier            (RELION ≤4 plain text table)
+ *
+ * The straight-line falloff validates the applied B-factor; curvature at
+ * low resolution flags mask artefacts. The B-factor itself comes from
+ * postprocess.star `data_general._rlnBfactorUsedForSharpening` when
+ * present, else grepped from run.out ("apply b-factor of ...").
  */
 export async function GET(_request: NextRequest, context: RouteContext) {
   try {
@@ -51,23 +56,54 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       return NextResponse.json(empty);
     }
     const workdir = run.workdir;
-
-    // RELION 5 writes the Guinier plot ONLY as PostScript
-    // (postprocess_guinier.eps) — the plain `postprocess.guinier` table
-    // stopped existing in 5.0. Parse the EPS (data is embedded as absolute
-    // lineto polylines over a calibratable grid); fall back to the old text
-    // table for older installs. Both paths ride the mtime cache — polled
-    // charts cost one statSync between writes (see statcache.ts).
-    const epsFile = path.join(workdir, "postprocess_guinier.eps");
-    const tableFile = path.join(workdir, "postprocess.guinier");
     let points: GuinierPoint[] = [];
     let sourceFile = "postprocess_guinier.eps";
-    if (existsSync(epsFile)) {
-      points = cachedFileCompute(epsFile, (text) => parseGuinierEps(text) ?? []) ?? [];
+
+    // ---- 1. postprocess.star data_guinier — the exact numeric table ----
+    // RELION 5 stopped writing the plain `postprocess.guinier` file but
+    // quietly kept the FULL table inside postprocess.star: 1/d², ln-amp of
+    // the original (masked) map, the B-weighted curve, the sharpened curve
+    // and the fitted intercept. Prefer it over the EPS pixel recovery.
+    const ppStar = path.join(workdir, "postprocess.star");
+    if (existsSync(ppStar)) {
+      const fromStar = cachedFileCompute(ppStar, "guinier:pp-star-table", (text) => {
+        const star = parseStar(text);
+        const block = star.blocks.find((b) => b.name === "guinier" && b.loop);
+        if (!block?.loop) return [] as GuinierPoint[];
+        const cols = block.loop.columns;
+        const iX = cols.indexOf("_rlnResolutionSquared");
+        const iOrig = cols.indexOf("_rlnLogAmplitudesOriginal");
+        const iSharp = cols.indexOf("_rlnLogAmplitudesSharpened");
+        if (iX < 0 || iOrig < 0) return [] as GuinierPoint[];
+        const pts: GuinierPoint[] = [];
+        for (const row of block.loop.rows) {
+          const x = parseFloat(row[iX]);
+          const y1 = parseFloat(row[iOrig]);
+          if (!Number.isFinite(x) || !Number.isFinite(y1)) continue;
+          const y2 = iSharp >= 0 ? parseFloat(row[iSharp]) : NaN;
+          pts.push({
+            x,
+            lnAmp: y1,
+            lnAmpSharpened: Number.isFinite(y2) ? y2 : null,
+          });
+        }
+        return pts;
+      });
+      if (fromStar && fromStar.length > 0) {
+        points = fromStar;
+        sourceFile = "postprocess.star";
+      }
+    }
+
+    // ---- 2. EPS data recovery (plot-only installs) / 3. legacy table ----
+    const epsFile = path.join(workdir, "postprocess_guinier.eps");
+    const tableFile = path.join(workdir, "postprocess.guinier");
+    if (points.length === 0 && existsSync(epsFile)) {
+      points = cachedFileCompute(epsFile, "guinier:eps", (text) => parseGuinierEps(text) ?? []) ?? [];
     }
     if (points.length === 0 && existsSync(tableFile)) {
       points =
-        cachedFileCompute(tableFile, (text) => {
+        cachedFileCompute(tableFile, "guinier:legacy-table", (text) => {
           const pts: GuinierPoint[] = [];
           for (const raw of text.split(/\r?\n/)) {
             const t = raw.trim();
@@ -90,19 +126,31 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       return NextResponse.json(empty);
     }
 
-    // B-factor from run.out — RELION ≤4 printed "Applied B-factor of
-    // -59.54 Å²", RELION 5 prints "+ apply b-factor of: -804.776". Both
-    // forms matched (mtime-cached: run.out grows per write, so the cache
-    // invalidates exactly when the line could have changed).
+    // B-factor: exact value from postprocess.star data_general first
+    // (_rlnBfactorUsedForSharpening), else the run.out log line — RELION ≤4
+    // printed "Applied B-factor of -59.54 Å²", RELION 5 prints
+    // "+ apply b-factor of: -804.776". Both forms matched (mtime-cached:
+    // run.out grows per write, so the cache invalidates exactly when the
+    // line could have changed).
     let bfactor: number | null = null;
-    const logFile = path.join(workdir, "run.out");
-    if (existsSync(logFile)) {
-      bfactor = cachedFileCompute(logFile, (text) => {
-        const m =
-          /Applied B-factor of\s+(-?\d+(?:\.\d+)?)/i.exec(text) ??
-          /apply b-factor of:\s*(-?\d+(?:\.\d+)?)/i.exec(text);
-        return m ? (parseFloat(m[1]) as number | null) : null;
-      }) ?? null;
+    if (existsSync(ppStar)) {
+      bfactor =
+        cachedFileCompute(ppStar, "guinier:pp-star-bfactor", (text) => {
+          const star = parseStar(text);
+          const v = parseFloat(star.blocks.map((b) => b.pairs["_rlnBfactorUsedForSharpening"]).find((s) => s !== undefined) ?? "");
+          return Number.isFinite(v) ? (v as number | null) : null;
+        }) ?? null;
+    }
+    if (bfactor == null) {
+      const logFile = path.join(workdir, "run.out");
+      if (existsSync(logFile)) {
+        bfactor = cachedFileCompute(logFile, "guinier:runout-bfactor", (text) => {
+          const m =
+            /Applied B-factor of\s+(-?\d+(?:\.\d+)?)/i.exec(text) ??
+            /apply b-factor of:\s*(-?\d+(?:\.\d+)?)/i.exec(text);
+          return m ? (parseFloat(m[1]) as number | null) : null;
+        }) ?? null;
+      }
     }
 
     const body: GuinierResponse = {
