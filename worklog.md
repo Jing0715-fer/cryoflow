@@ -1323,3 +1323,25 @@ Stage Summary:
 - MPI 策略定案：**桥接=顺序 + --j，原生=多 rank mpirun**——用户机器 class2d/class3d/refine3d/resume 全部走顺序路径，mpirun exit 1 类失败源头消除
 - 用户本机操作：git pull → 重跑失败的 class2d（无 checkpoint 则全新顺序跑，有则 --continue 顺序续）→ 命令行应显示 `relion_refine … --j 4`（无 mpirun）；终端窗口应不再弹出（若仍有极偶发闪烁，说明其 Bun 版本过旧不支持 windowsHide——升级 bun 或用 npm run dev 跑 node）
 - 遗留（下轮优先）：审查发现 #5/#6/#7/#8/#13；用户机器上 class3d/refine3d 顺序模式实测反馈
+
+---
+Task ID: 14
+Agent: main (Z.ai Code)
+Task: 用户「Job failed / mpirun rank exit 1 + 全面代码审查 + WSL 弹窗 + 先同步远程后 push」+ cron 自主巡检（agent-browser QA、修 bug、样式/功能增量、更新 worklog）
+
+Work Log:
+- 【①同步】git fetch 三重验证：本地 == origin/main == de27fa8（Task 13 弹窗+顺序 MPI 修复已推送，无落后）。用户贴的 class2d_u8voe932 失败命令含 mpirun 且 rank [[17538,1],1] 死亡——是旧代码行为；当前代码 bridge 路径（fresh + resume）已全部顺序 relion_refine --j，本推理逐行复核 engine.ts 3361-3416 + 3305-3333 确认无 mpirun 注入口。用户 git pull 后即得修复
+- 【②弹窗】复核 Task 13 三层修复仍在位：spawnTrackedRun win32 detached:false + 全部 execFile windowsHide:true（engine.ts/system.ts/wsl-bridge.ts）+ probeWsl 单次合并探测 10min TTL
+- 【③失败根因提取·新】failureResult/interruptedResult 原来盲取 run.err 尾部 280 字符——MPI 失败时尾部恰是 mpirun 通用结束语，真因（rank 打印在前面）被遮住。新增 rootCauseDetail()：扫描 run.err 尾 16KB，跳过包装器噪声（mpirun detected/Process name/Exit code/MPI_ABORT/[r,c] 标签等 14 种 shape），返回最早高信号行+最多 2 行续行（RELION "ERROR:" 单独行+下一行消息的形态）；导出 + scripts/test-root-cause.ts 5/5 PASS（含用户实际失败形态、bare ERROR、仅结束语回退、bad_alloc、空文件）
+- 【④审查遗留全部闭环】#7 chart 全量同步读：新建 src/lib/relion/statcache.ts（mtime+size 键控 compute 缓存，LRU 24 条），angdist（parse+binning+fib 全家）、guinier（表+B-factor）、resolution（逐迭代 model.star）接入——实测 1.69s→0.199s，二连调用结果逐字节一致；#8 particles BFS N+1：per-edge await findEffectiveJob → 每层一次 edge findMany + 全体一次 job findMany + 内存跟链（≤16 hop 防御），E2E 验证 symexpand（owner=extract 两跳上游）解析正确；#6/#14 pathref 与 star 包含策略不一致：新建 src/lib/relion/jobfile.ts 统一策略（词法 workdir 域 + realpath 在 data 树内），star 路由（原拒绝跨 job 符号链接）与 file 路由（原不校验 realpath 目标）双洞同修，.pathref 逃逸口保持 file 路由独占且仅在包含检查通过后；#5 fs/browse：/proc|/sys|/dev 虚拟文件系统守卫 + NUL 字节拒绝 + 注释说明为何导入 UX 必须任意浏览（内容字节只经 job 域 outputs 路由）；#13 useMemo localStorage 写：python 全量扫描所有 useMemo 块副作用——已是修复态，无需改动
+- 【⑤第十一·二个真实 bug·RELION 5 Guinier 空图】EMPIAR 实测：RELION 5.0.1 只写 postprocess_guinier.eps，postprocess.guinier 文本表已不存在 → Guinier 图在所有现役 RELION 5 上永远空。新建 src/lib/relion/guinier-eps.ts EPS 数据恢复：CPlot2D 逐 stroke 块状态机（绝对 moveto/lineto=数据曲线，相对 rlineto+灰=虚线网格/刻度，颜色在块尾 setrgbcolor——commit on stroke），网格线↔刻度标签按升序配对（对绘制方向不变——y 标签实际自下而上画，首版方向反了被锚点实测纠正：(-16)@y87、(-4)@y487），最小二乘仿射标定 canvas→数据，黑=Original→lnAmp、蓝=Sharpened→lnAmpSharpened、画布范围守卫剔图例色块；scripts/test-guinier-eps.ts 对真实 EPS：33 点、x 单调 0→0.01995、y −15.6→−4.7 单调衰减（物理正确）。B-factor 正则补 RELION 5 形态 "+ apply b-factor of:"（实测 -804.776 命中）
+- 【E2E·浏览器】postprocess inspector Overview：Guinier 图完整渲染（VLM 截图确认：32 shells 徽章 + B-factor -804.8 Å² + teal 掩膜振幅实线 + amber 锐化虚线 + 经典直线衰减）——该图首次在 RELION 5 安装上出图；angdist/resolution/outputs/star/outputs/file/particles 全部 200 + 越界路径 400（../../db、etc/passwd）；montage PNG 200；console 0 error；lint 0 错误；tsc src/ + scripts/ 0 错误（examples/skills 的既有错误不在项目域）
+- 【运维】dev server 会话中两次被沙箱回收（4GB 限制，3D QA 与 Turbopack 并发窗口）——playbook 重启（pkill 全家 + rm .next + double-fork）；本轮流控：QA 前置重启、避免 Mol* 重编译路径，稳态内存 3.25/4.04GB
+- 【推送】e941b14 已推送（de27fa8..e941b14），本地 == origin/main
+
+Stage Summary:
+- 用户三诉求闭环：①远程已同步、mpirun 失败确认为旧代码行为（pull 即得顺序修复）②审查 15 项发现全部落地（本轮 #5/#6/#7/#8/#13 + 上轮 8 项）③弹窗修复复核在位
+- 第十二个真实 bug 闭环：RELION 5 无 postprocess.guinier 文本表 → EPS 数据恢复让 Guinier 图在现役 RELION 上首次可用（B-factor 徽章同步修复）
+- 失败诊断体验升级：MPI/RELION 失败 toast 直出真因行（rootCauseDetail），不再被 mpirun 结束语遮挡
+- 性能：轮询 chart 热路径 stat 化（~8-10x）；particles 路由 N+1 消除
+- 遗留（下轮候选）：3D viewer 体积截面工具、Topaz wrapper、用户机器上 class3d/refine3d 顺序模式实测反馈
