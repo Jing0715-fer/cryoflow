@@ -37,9 +37,12 @@ export function generateDihedral(n: number): Mat3[] {
   for (let i = 0; i < k; i++) {
     out.push(rotationMatrix([0, 0, 1], (i * 2 * Math.PI) / k));
   }
-  // perpendicular C2 axes: axis angle φ_i = i·2π/n in the xy plane
+  // perpendicular C2 axes: axis angle φ_i = i·π/n in the xy plane.
+  // π/n spacing (NOT 2π/n): a 2-fold rotation about axis v equals the one
+  // about -v, so 2π/n spacing double-counts every axis when n is even
+  // (D2 → 3 elements instead of 4 — caught by the group-order test).
   for (let i = 0; i < k; i++) {
-    const phi = (i * 2 * Math.PI) / k;
+    const phi = (i * Math.PI) / k;
     const axis: Vec3 = [Math.cos(phi), Math.sin(phi), 0];
     out.push(rotationMatrix(axis, Math.PI));
   }

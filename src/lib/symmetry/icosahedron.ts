@@ -445,7 +445,9 @@ export type RotationType =
   | "face"
   | "vertex"
   | "non_edge"
-  | "hemisphere";
+  | "hemisphere"
+  /** Legacy alias for "edge" kept from the original expand3.py CLI. */
+  | "no_c2";
 
 export interface GeneratedRotationInfo {
   matrix: Mat3;
@@ -494,7 +496,7 @@ export function generateRotationsByType(type: RotationType): Mat3[] {
       result = generateIcosahedronRotations();
       break;
     case "edge":
-    case "no_c2": // backward-compat alias — identical to "edge"
+    case "no_c2": // legacy expand3.py CLI alias — identical to "edge"
       result = generateEdgeToPointRotations();
       break;
     case "face":
@@ -513,7 +515,7 @@ export function generateRotationsByType(type: RotationType): Mat3[] {
       throw new Error(`Invalid rotation type: ${type}`);
   }
 
-  const expected = EXPECTED_ICO_COUNTS[type];
+  const expected = EXPECTED_ICO_COUNTS[type === "no_c2" ? "edge" : type];
   if (expected !== undefined && result.length !== expected) {
     console.warn(
       `Warning: rotation type "${type}" produced ${result.length} rotations, ` +

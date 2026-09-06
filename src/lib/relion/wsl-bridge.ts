@@ -163,6 +163,14 @@ export function wrapWslCommand(
     `cd ${shq(wslCwd)} || exit 111`,
     `export RELION_HOME=${shq(bridge.relionHome)}`,
     `export PATH=${shq(bridge.binDir)}:"$PATH"`,
+    // OpenMPI 4+ REFUSES to run as root: a WSL distro whose default user is
+    // root makes every MPI job (class2d/class3d/refine3d/multibody/…) die at
+    // launch with "…set OMPI_ALLOW_RUN_AS_ROOT=1… and OMPI_ALLOW_RUN_AS_ROOT
+    // _CONFIRM=1…" and exit 1. These two opt-ins are the upstream-sanctioned
+    // override; MPICH (the sandbox toolchain) ignores them — harmless there.
+    // Non-root users never hit the check, so the variables are inert.
+    `export OMPI_ALLOW_RUN_AS_ROOT=1`,
+    `export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1`,
   ];
   if (bridge.ctffind) {
     exports.push(`export RELION_CTFFIND_EXECUTABLE=${shq(bridge.ctffind)}`);

@@ -107,19 +107,22 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       return NextResponse.json(empty);
     }
 
-    // prefer the highest-iteration run_itXXX_data.star; fall back to final
-    // run_data.star (completed refine3d) — both carry the angular assignment
+    // run_data.star is written ONCE at convergence — the authoritative FINAL
+    // angular assignment for a completed refine; while running, the freshest
+    // data lives in the highest run_itXXX_data.star. (The old loop let the
+    // itXXX files override run_data.star, showing iteration-13 angles for a
+    // run that had already converged.)
     let best: { iteration: number | null; file: string } | null = null;
-    for (const name of readdirSync(run.workdir)) {
-      if (/^run_data\.star$/i.test(name)) {
-        if (!best || best.iteration === null) best = { iteration: null, file: name };
-        continue;
-      }
-      const m = name.match(/^run_it(\d+)_data\.star$/i);
-      if (!m) continue;
-      const iteration = Number(m[1]);
-      if (!best || best.iteration === null || iteration > (best.iteration ?? 0)) {
-        best = { iteration, file: name };
+    const files = readdirSync(run.workdir);
+    const finalData = files.find((n) => /^run_data\.star$/i.test(n));
+    if (finalData) {
+      best = { iteration: null, file: finalData };
+    } else {
+      for (const name of files) {
+        const m = name.match(/^run_it(\d+)_data\.star$/i);
+        if (!m) continue;
+        const iteration = Number(m[1]);
+        if (!best || iteration > (best.iteration ?? 0)) best = { iteration, file: name };
       }
     }
     if (!best) {

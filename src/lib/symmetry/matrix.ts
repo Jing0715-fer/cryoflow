@@ -139,3 +139,18 @@ export function rotationMatrix(axisInput: Vec3, theta: number): Mat3 {
 export function trace(a: Mat3): number {
   return a[0][0] + a[1][1] + a[2][2];
 }
+
+/**
+ * Remove numerically-duplicate rotation matrices (the equivalent of numpy's
+ * unique() over stacked matrices in the original expand3.py). Order-preserving:
+ * the FIRST occurrence of each distinct rotation is kept. O(n²) comparisons —
+ * point groups here never exceed 60 elements, so this is trivially cheap.
+ */
+export function deduplicateRotations(mats: Mat3[], tol = 1e-6): Mat3[] {
+  const out: Mat3[] = [];
+  for (const m of mats) {
+    const isDup = out.some((o) => matEqual(o, m, tol));
+    if (!isDup) out.push(m);
+  }
+  return out;
+}

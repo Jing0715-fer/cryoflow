@@ -66,6 +66,12 @@ if (!script.includes("cd '/mnt/c/Users/me/cryoflow/data/relion/proj' || exit 111
 if (!script.includes("export RELION_HOME='/home/user/relion'")) { fails++; console.log("✗ RELION_HOME export"); } else console.log("✓ RELION_HOME export");
 if (!script.includes("export PATH='/home/user/relion/bin':\"$PATH\"")) { fails++; console.log("✗ PATH export"); } else console.log("✓ PATH export");
 if (!script.includes("export RELION_CTFFIND_EXECUTABLE='/usr/bin/ctffind'")) { fails++; console.log("✗ ctffind export"); } else console.log("✓ ctffind export");
+// OpenMPI root opt-in (user's WSL Debian runs as root — OpenMPI 4+ refuses
+// mpirun without these; the fix must be present in EVERY wrapped script)
+if (!script.includes("export OMPI_ALLOW_RUN_AS_ROOT=1")) { fails++; console.log("✗ OMPI_ALLOW_RUN_AS_ROOT missing"); } else console.log("✓ OMPI_ALLOW_RUN_AS_ROOT");
+if (!script.includes("export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1")) { fails++; console.log("✗ OMPI_ALLOW_RUN_AS_ROOT_CONFIRM missing"); } else console.log("✓ OMPI_ALLOW_RUN_AS_ROOT_CONFIRM");
+// opt-ins must precede the exec (env must be set before mpirun starts)
+if (script.indexOf("OMPI_ALLOW_RUN_AS_ROOT_CONFIRM") > script.indexOf("exec '")) { fails++; console.log("✗ OMPI exports after exec"); } else console.log("✓ OMPI exports before exec");
 if (!script.includes("exec '/home/user/relion/bin/relion_refine_mpi'")) { fails++; console.log("✗ exec binary quoted"); } else console.log("✓ exec binary quoted");
 if (!script.includes("'/mnt/c/Users/me/cryoflow/data/relion/proj/class2d_abc/particles.star'")) { fails++; console.log("✗ windows arg translated"); } else console.log("✓ windows arg translated");
 if (!script.includes("'8'")) { fails++; console.log("✗ numeric arg kept"); } else console.log("✓ numeric arg kept");

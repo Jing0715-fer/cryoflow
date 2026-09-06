@@ -377,6 +377,11 @@ export function relionEnv(binDir: string): NodeJS.ProcessEnv {
   };
   // relion_run_ctffind does NOT search PATH — it needs an explicit executable
   if (existsSync(CTFFIND_EXE)) env.RELION_CTFFIND_EXECUTABLE = CTFFIND_EXE;
+  // OpenMPI 4+ refuses mpirun as root (app itself running as root on a Linux
+  // host with an OpenMPI toolchain). Upstream-sanctioned opt-in pair; MPICH
+  // (sandbox) ignores them — harmless everywhere, inert for non-root users.
+  env.OMPI_ALLOW_RUN_AS_ROOT = "1";
+  env.OMPI_ALLOW_RUN_AS_ROOT_CONFIRM = "1";
   env.LD_LIBRARY_PATH =
     libParts.length > 0
       ? libParts.join(":") + ":" + (process.env.LD_LIBRARY_PATH ?? "")
@@ -3253,17 +3258,25 @@ export function parseJobParams(raw: string): Record<string, number | string | bo
 /**
  * Job types whose RELION output is written ONCE at the very end of the run
  * (no partial mid-run artifacts): output presence alone proves the run
- * finished, so an orphaned record can be finalized as completed. Refine-
- * family jobs are excluded on purpose — they emit per-iteration artifacts
- * mid-run, and the safe recovery for them is "interrupted" + --continue.
+ * finished, so an orphaned record can be finalized as completed.
+ *
+ * refine3d is in via the `refine_data_star` gate: auto-refine writes
+ * run_data.star exactly once at convergence (mid-run there are ONLY
+ * run_itXXX_data.star files), so its presence proves the run finished —
+ * verified live: a detached auto-refine converged (9.44 Å) after its exit
+ * handler died with a server restart, and reconcile falsely reported
+ * "interrupted". class3d/class2d stay excluded: their per-iteration
+ * artifacts are indistinguishable from their final ones (same naming), so
+ * the safe recovery for them remains "interrupted" + --continue.
  */
-const ORPHAN_COMPLETABLE = new Set(["ctffind", "motioncorr", "extract", "autopick"]);
+const ORPHAN_COMPLETABLE = new Set(["ctffind", "motioncorr", "extract", "autopick", "refine3d"]);
 /** Primary output key per completable type (collectOutputs gate). */
 const ORPHAN_PRIMARY_KEY: Record<string, string> = {
   ctffind: "micrographs_ctf_star",
   motioncorr: "micrographs_star",
   extract: "particles_star",
   autopick: "coords_star",
+  refine3d: "refine_data_star",
 };
 
 export async function reconcileRealJobs(jobs: Job[]): Promise<Job[]> {

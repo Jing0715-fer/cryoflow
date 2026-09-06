@@ -76,6 +76,7 @@ import { FscChart } from "./results/fsc-chart";
 import { CtfQualityChart } from "./results/ctf-quality-chart";
 import { ClassDistributionChart } from "./results/class-distribution-chart";
 import { AngularDistributionChart } from "./results/angular-distribution-chart";
+import { CryoSparcAnglePanel } from "./results/cryosparc-angle-panel";
 import { ImportGallery } from "./results/import-gallery";
 import { PicksMap } from "./results/picks-map";
 import { ParticleBrowser } from "./results/particle-browser";
@@ -909,6 +910,13 @@ function OverviewTab({
           (self-hides while the API has no data star to bin). */}
       {is3dType && job.status !== "idle" ? (
         <AngularDistributionChart jobId={job.id} running={job.status === "running"} />
+      ) : null}
+      {/* …plus the cryoSPARC-style Mollweide orientation view (equal-area
+          Fibonacci-sphere bins + rot/tilt marginals) — the same data, the
+          cryoSPARC "Orientation distribution" look. Self-hides until the
+          API has angles, mirrors the chart above. */}
+      {is3dType && job.status !== "idle" ? (
+        <CryoSparcAnglePanel jobId={job.id} running={job.status === "running"} />
       ) : null}
       {/* 2D/3D classification gets class occupancy bars. */}
       {isClassifyType && job.status !== "idle" ? (
