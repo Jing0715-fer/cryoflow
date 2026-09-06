@@ -695,6 +695,25 @@ const INPUTS: Record<string, InputReq[]> = {
       // requirement in "References" mode (param default = LoG).
       skipIf: (p) => String(p.pickingMethod ?? "Laplacian of Gaussian") !== "References",
     },
+    {
+      // trained Topaz CNN model (Topaz Training job). Optional: empty =
+      // topaz's general model, which works but underperforms a model
+      // trained on YOUR particles.
+      key: "topaz_model",
+      accepts: ["topaz_model"],
+      from: ["topaztrain"],
+      label: "trained Topaz model (optional — connect Topaz Training output, or pick with the general model)",
+      optional: true,
+    },
+  ],
+  topaztrain: [
+    { key: "micrographs_star", accepts: ["micrographs_star", "micrographs_ctf_star"], from: ["import", "motioncorr", "ctffind"], label: "micrographs.star (run Import first)" },
+    {
+      key: "train_picks",
+      accepts: ["coords_star"],
+      from: ["manualpick", "autopick"],
+      label: "training picks — hand-picked particle coordinates (run Manual Picking first; ~100+ picks give the CNN something to learn)",
+    },
   ],
   extract: [
     { key: "micrographs_star", accepts: ["micrographs_star", "micrographs_ctf_star"], from: ["import", "motioncorr", "ctffind"], label: "micrographs.star (run Import first)" },
@@ -901,7 +920,8 @@ export const COMMAND_TEMPLATES: Record<string, string> = {
   motioncorr: "relion_run_motioncorr --i <micrographs.star> --o <outdir>/ --use_motioncor2 --motioncor2_exe <mc2> --bin_factor <bf> --bfactor <bfac> --dose_per_frame <dose> --patch_x <px> --patch_y <py> --j <n>",
   ctffind: "relion_run_ctffind --i <micrographs.star> --o <outdir>/ --Box <box> --ResMin <rmin> --ResMax <rmax> --dFMin <dmin> --dFMax <dmax> --FStep 500 --dAst 0 --is_ctffind4 --fast_search [--ctffind_exe <ctffind>]",
   manualpick: "engine-native: import Henderson .coord picks → manualpick.star (_rlnCoordinateX/Y + _rlnMicrographName)",
-  autopick: "relion_autopick --i <micrographs.star> --odir <outdir>/ --pickname autopick [--LoG --LoG_diam_min <Å> --LoG_diam_max <Å> --LoG_adjust_threshold <t> | --ref <refs.mrc> --particle_diameter <dia> --threshold <thr> --lowpass <lp> | --topaz_extract --fn_topaz_exe <topaz> --topaz_nr_particles <n> --topaz_threshold <t> --particle_diameter <Å>]",
+  autopick: "relion_autopick --i <micrographs.star> --odir <outdir>/ --pickname autopick [--LoG --LoG_diam_min <Å> --LoG_diam_max <Å> --LoG_adjust_threshold <t> | --ref <refs.mrc> --particle_diameter <dia> --threshold <thr> --lowpass <lp> | --topaz_extract --fn_topaz_exe <topaz> --topaz_nr_particles <n> --topaz_threshold <t> --particle_diameter <Å> [--topaz_model <trained.sav>]]",
+  topaztrain: "relion_autopick --i <micrographs.star> --odir <outdir>/ --topaz_train --fn_topaz_exe <topaz> --topaz_train_picks <picked_coords.star> --topaz_nr_particles <n> --topaz_threshold <t> --particle_diameter <Å> --topaz_test_ratio <r> → topaz_model.sav",
   extract: "relion_preprocess --i <micrographs_ctf.star> --coord_list <coords.star> --part_star <outdir>/particles.star --part_dir <outdir>/ --extract --extract_size <box> [--scale <down>] --norm --bg_radius <bgr> --white_dust 3 --black_dust -3",
   select: "engine-native: particle selection — class-aware occupancy pruning when input has _rlnClassNumber, else first-N",
   select2d: "engine-native: 2D class selection — keep particles whose _rlnClassNumber is in the selected set (gallery picks or auto occupancy ≥ cutoff × best) → particles_select2d.star",
@@ -977,6 +997,134 @@ function micrographNames(starPath: string): string[] {
     if (first) names.push(first);
   }
   return names;
+}
+
+/**
+ * Build the `--topaz_train_picks` STAR for --topaz_train.
+ *
+ * The format is NOT a flat coordinate table: trainTopaz() treats every row
+ * as (micrograph, its coordinate FILE) — it reads _rlnMicrographName +
+ * _rlnMicrographCoordinates and then opens the referenced per-mic star to
+ * count/read picks (autopicker.cpp trainTopaz: MDtrain.getValue(
+ * EMDL_MICROGRAPH_COORDINATES) → MDpick.read(fn_pick)). The block name is
+ * load-bearing too: MDtrain.read(picks, "coordinate_files") only accepts
+ * the block named data_coordinate_files (metadata_table.cpp:1242).
+ *
+ * Auto-picking's PER-mic output stars (<stem>_autopick.star, columns
+ * _rlnCoordinateX/Y = EMDL_IMAGE_COORD_X/Y) are exactly the files the
+ * index points at — so the synthesis gathers the resolved file's siblings
+ * and emits the two-column index, micrograph names matched by basename
+ * stem against the input micrographs.star. A file that already carries
+ * _rlnMicrographCoordinates passes through untouched. Returns the original
+ * path on any parse hiccup (RELION then reports the real problem).
+ */
+function synthesizeTrainingPicks(pickFile: string, micrographsStar: string, outDir: string): string {
+  try {
+    const blocks = parseStarBlocks(readFileSync(pickFile, "utf8"));
+    const loop = blocks.find((b) => b.lines.some((l) => l.trim() === "loop_"));
+    if (!loop) return pickFile;
+    const labels = loop.lines
+      .filter((l) => l.trim().startsWith("_rln"))
+      .map((l) => l.trim().split(/\s+/)[0]);
+    if (labels.includes("_rlnMicrographCoordinates")) return pickFile; // already the index format
+    // flat coordinate table (X/Y columns, no per-row file reference)
+    if (!labels.includes("_rlnCoordinateX") || !labels.includes("_rlnCoordinateY")) return pickFile;
+
+    // basename stem → canonical micrograph name from the input star
+    const mics = micrographNames(micrographsStar);
+    const byStem = new Map<string, string>();
+    for (const m of mics) {
+      const stem = path.basename(m).replace(/\.(mrc|mrcs|tif|tiff)$/i, "");
+      if (!byStem.has(stem)) byStem.set(stem, m);
+    }
+
+    // per-mic coords are siblings of the resolved file — one index row each
+    const dir = path.dirname(pickFile);
+    const files = readdirSync(dir)
+      .filter((f) => /_autopick\.star$/i.test(f) || f === path.basename(pickFile))
+      .sort();
+
+    const indexRows: string[] = [];
+
+    if (files.length > 0) {
+      // AutoPick-style resolved file: point the index at the sibling stars
+      for (const f of files) {
+        const stem = f.replace(/_autopick\.star$/i, "").replace(/\.star$/i, "");
+        const mic = byStem.get(stem) ?? `micrographs/${stem}.mrc`;
+        indexRows.push(`${mic}    ${path.join(dir, f)}`);
+      }
+    } else if (labels.includes("_rlnMicrographName")) {
+      // ManualPick-style flat table (mic name + X/Y per row): split it into
+      // per-mic star files the index can reference — RELION's own manual
+      // pipeline writes per-mic coordinate stars + this exact index shape.
+      const im = labels.indexOf("_rlnMicrographName");
+      const ix = labels.indexOf("_rlnCoordinateX");
+      const iy = labels.indexOf("_rlnCoordinateY");
+      if (im < 0 || ix < 0 || iy < 0) return pickFile;
+      const perMic = new Map<string, string[]>(); // mic name → raw rows
+      for (const line of loop.lines) {
+        const t = line.trim();
+        if (!t || t === "loop_" || t.startsWith("_rln") || t.startsWith("data_") || t.startsWith("#")) continue;
+        const cols = t.split(/\s+/);
+        const micRaw = cols[im];
+        const x = Number(cols[ix]);
+        const y = Number(cols[iy]);
+        if (!micRaw || !Number.isFinite(x) || !Number.isFinite(y)) continue;
+        // normalize against the input star's naming when the stem matches
+        const stem = path.basename(micRaw).replace(/\.(mrc|mrcs|tif|tiff)$/i, "");
+        const mic = byStem.get(stem) ?? micRaw;
+        const arr = perMic.get(mic) ?? [];
+        arr.push(`${x.toFixed(3)}    ${y.toFixed(3)}`);
+        perMic.set(mic, arr);
+      }
+      if (perMic.size === 0) return pickFile;
+      const coordDir = path.join(outDir, "training_coords");
+      mkdirSync(coordDir, { recursive: true });
+      for (const [mic, rows] of perMic) {
+        const stem = path.basename(mic).replace(/\.(mrc|mrcs|tif|tiff)$/i, "");
+        const fn = path.join(coordDir, `${stem}_picks.star`);
+        writeFileSync(
+          fn,
+          [
+            "",
+            "# version 50001",
+            "",
+            "data_",
+            "",
+            "loop_",
+            "_rlnCoordinateX #1",
+            "_rlnCoordinateY #2",
+            ...rows,
+            "",
+          ].join("\n")
+        );
+        indexRows.push(`${mic}    ${fn}`);
+      }
+    } else {
+      return pickFile; // unrecognized shape — let RELION explain
+    }
+
+    const out = path.join(outDir, "training_picks.star");
+    writeFileSync(
+      out,
+      [
+        "",
+        "# version 50001",
+        "",
+        // block name is load-bearing (see docblock)
+        "data_coordinate_files",
+        "",
+        "loop_",
+        "_rlnMicrographName #1",
+        "_rlnMicrographCoordinates #2",
+        ...indexRows,
+        "",
+      ].join("\n")
+    );
+    return out;
+  } catch {
+    return pickFile;
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -1280,7 +1428,11 @@ async function runManualPickNative(job: EngineJobRef, upstream: UpstreamRef[]): 
   };
 
   const lines: string[] = [
-    "data_particles",
+    // named per RELION's combined-coordinates convention (data_coordinate_files):
+    // extract's --coord_list reader is name-agnostic (first data_ block), but
+    // topaz --topaz_train_picks reads ONLY data_coordinate_files — naming this
+    // block correctly makes manual picks directly trainable.
+    "data_coordinate_files",
     "",
     "loop_",
     "_rlnCoordinateX #1",
@@ -2256,6 +2408,9 @@ async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: string }> {
         if (workers > 1) argv.push("--topaz_workers", String(workers));
         const extra = str(job, "topazArgs", "").trim();
         if (extra) argv.push("--topaz_args", extra);
+        // trained model from an upstream Topaz Training job (empty = the
+        // general topaz model)
+        if (inputs.topaz_model) argv.push("--topaz_model", inputs.topaz_model);
       } else {
         argv.push(
           "--LoG",
@@ -2267,6 +2422,63 @@ async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: string }> {
         if (upper > 0 && upper < 99999) argv.push("--LoG_upper_threshold", String(upper));
         if (flag(job, "logInvert")) argv.push("--Log_invert");
       }
+      return argv;
+    }
+
+    case "topaztrain": {
+      // Train a Topaz CNN picking model on hand-picked coordinates:
+      // relion_autopick --topaz_train --topaz_train_picks <coords.star> ...
+      // The trained model lands in the job dir (topaz_model.sav) and feeds
+      // an Auto-picking job's Topaz mode through --topaz_model. Needs the
+      // topaz python module (same wrapper as extract) — a missing module
+      // fails honestly in run.err and rootCauseDetail surfaces it.
+      const topaz = await externalOnPath(binDir, ["relion_python_topaz", "topaz"], ctx.bridge);
+      if (!topaz) {
+        return {
+          error:
+            "Topaz executable not found — install topaz into RELION's python environment (pip install topaz-denoise)",
+        };
+      }
+      if (!inputs.train_picks) {
+        return {
+          error:
+            "Training picks missing — connect a Manual Picking job's coordinates (hand-picked particles are what the CNN learns from), or switch Auto-picking to Laplacian of Gaussian",
+        };
+      }
+      // RELION attributes picks to micrographs via _rlnMicrographName, but
+      // Auto-picking emits PER-micrograph stars with X/Y/FOM only (passing
+      // one made RELION bail with "there are no micrographs to train topaz
+      // on!") — synthesize a combined star when the column is missing.
+      const picksStar = synthesizeTrainingPicks(
+        inputs.train_picks,
+        inputs.micrographs_star,
+        ctx.workdir
+      );
+      const argv = [
+        binJoin(binDir, "relion_autopick"),
+        "--i", inputs.micrographs_star,
+        "--odir", ctx.workdir + "/",
+        "--pickname", "autopick",
+        "--topaz_train",
+        "--fn_topaz_exe", topaz,
+        "--topaz_train_picks", picksStar,
+        "--topaz_nr_particles", String(Math.round(num(job, "topazNrParticles", 200))),
+        "--topaz_threshold", String(num(job, "topazThreshold", -6)),
+        "--particle_diameter", String(num(job, "topazDiameter", 180)),
+      ];
+      const testRatio = num(job, "topazTestRatio", 0.2);
+      if (Number.isFinite(testRatio) && testRatio >= 0 && testRatio < 0.9) {
+        argv.push("--topaz_test_ratio", String(testRatio));
+      }
+      const downscale = num(job, "topazDownscale", -1);
+      if (downscale > 0) argv.push("--topaz_downscale", String(Math.round(downscale)));
+      const workers = Math.round(num(job, "topazWorkers", 1));
+      if (workers > 1) argv.push("--topaz_workers", String(workers));
+      const extra = str(job, "topazArgs", "").trim();
+      if (extra) argv.push("--topaz_args", extra);
+      // explicit angpix: radii/diameters are in Å against the micrograph pixel size
+      const mpx = micAngpix(ctx.upstream);
+      if (mpx) argv.push("--angpix", String(mpx));
       return argv;
     }
 
@@ -2724,6 +2936,22 @@ function collectOutputs(type: string, workdir: string): { outputs: Record<string
           picks = countStarRows(star);
         }
         result = `REAL: ${picks} particles picked across ${mics} micrographs`;
+      }
+      break;
+    }
+    case "topaztrain": {
+      // --topaz_train writes the trained CNN model into the job dir
+      // (topaz_model.sav) plus optional training diagnostics (loss curve
+      // image / topaz logs). The model is the chainable output — an
+      // Auto-picking job's Topaz mode consumes it via --topaz_model.
+      const model =
+        firstExisting(workdir, ["topaz_model.sav"]) ?? globOne(workdir, /\.sav$/i);
+      if (model) {
+        outputs.topaz_model = model;
+        // surface any training-curve diagnostics the run produced
+        const plot = globOne(workdir, /topaz.*\.(png|jpg|eps)$/i);
+        if (plot) outputs.training_plot = plot;
+        result = "REAL: Topaz model trained — connect into Auto-picking (Topaz mode)";
       }
       break;
     }
@@ -3555,6 +3783,15 @@ function attachExitHandler(
 
       let outputs: Record<string, string> = {};
       let result: string | null = null;
+      // RELION's topaz wrapper swallows topaz's own failure: the training/
+      // extract bash script is run via system() and a nonzero return is only
+      // a stderr WARNING — relion_autopick still exits 0. A topaztrain that
+      // produced NO model is therefore a failure (observed live: missing
+      // topaz python module → "ModuleNotFoundError" in run.out but job
+      // otherwise "completes"); rootCauseDetail digs the python traceback
+      // out of run.out for the toast.
+      const topazSilentFail =
+        job.type === "topaztrain" && exitCode === 0;
 
       if (exitCode === 0) {
         const collected = collectOutputs(job.type, state.workdir);
@@ -3562,6 +3799,27 @@ function attachExitHandler(
         result = collected.result;
       } else {
         result = failureResult(state, exitCode);
+      }
+
+      if (topazSilentFail && !outputs.topaz_model) {
+        // run.err accumulates across attempts (append-mode engine logs), so
+        // its FIRST high-signal line is usually a stale earlier attempt —
+        // the python traceback of THIS attempt lands in run.out (the topaz
+        // bash script appends there). Scan run.out first.
+        const cause =
+          rootCauseDetail(state.logFile) ||
+          rootCauseDetail(state.errFile) ||
+          tailText(state.logFile, 280);
+        result = `topaz training failed — ${cause || "no model produced (see run.out)"}`;
+        runs[job.id] = { ...state, done: true, exitCode, outputs, result };
+        writeRuns(runs);
+        void db.job
+          .update({
+            where: { id: job.id },
+            data: { status: "failed", progress: 0, result },
+          })
+          .catch((err) => console.error("engine: DB update on topaz train failure failed:", err));
+        return;
       }
 
       runs[job.id] = { ...state, done: true, exitCode, outputs, result };

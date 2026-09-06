@@ -1412,3 +1412,25 @@ Stage Summary:
 - 样式系统新增两个可复用原语（.animate-rise / .job-running + --teal-glow），均带 reduced-motion 降级
 - 工具链教训入库：显示层会吞 "[字母" 序列（假损坏），文件可疑先 od -c 验证；radix tab 需完整 pointer 事件序列
 - 遗留（下轮候选）：Topaz train 模式（--topaz_train + 训练坐标端口）、mol* clip 的 box 可视化线框、Dashboard 分析区的 per-workspace 过滤、用户机器 class3d/refine3d 顺序模式与 topaz 实测反馈
+
+---
+Task ID: 18
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852）——agent-browser QA 回归 + Topaz Training 新功能（RELION 源码考古级 E2E）+ worklog + push
+
+Work Log:
+- 【开局核对】git fetch：本地 == origin/main == f23dba2（Task 17 已推送）。dev server UP（内存紧）
+- 【QA 回归·全绿】主页面 13 jobs/12 completed ✓、postprocess Overview 双图（FSC reported 7.08 徽章 + Guinier B-factor）✓、Dashboard 分析区（h=262）✓、console 0 error → 无新 bug，转入新功能
+- 【新功能·Topaz Training 完整作业类型】workflow.ts 新增 topaztrain spec（PICKING 分类，GraduationCap 图标，Training/Advanced 双 tab 七参数含 --topaz_test_ratio 交叉验证比例）；types.ts PortKind 增 "model" + fuchsia 端口色；autopick 增可选输入端口 topazModel（engine INPUTS optional topaz_model → argv --topaz_model）；engine.ts buildArgv topaztrain 分支 + collectOutputs（topaz_model.sav/*.sav + training_plot）+ COMMAND_TEMPLATES；图标注册 GraduationCap
+- 【真 bug #19·--topaz_train_picks 格式三重坑】首跑 RELION 报 "no micrographs to train topaz on"（autopicker.cpp:386）。拉 3dem/relion master+5.0.1 源码考古：① MDtrain.read(picks, "coordinate_files") 按块名过滤——metadata_table.cpp:1242 readStar 只接受 data_<name> 精确匹配，裸 data_ 块读空；② trainTopaz() 期望的不是平面 X/Y 表而是【两列索引表】_rlnMicrographName + _rlnMicrographCoordinates（指向每 mic 的 coords 文件），逐行 MDpick.read(fn_pick)——平面表 getValue 失败 → fn_pick 空 → "File  does not exist"；③ RELION 自己的组合格式（autopicker.cpp:1085 setName("coordinate_files")）证实。新建 synthesizeTrainingPicks()：索引格式透传 / autopick per-mic 星族→索引 / manualpick 平面表→拆分 per-mic star + 索引（双分支）；manualpick.star 块名 data_particles→data_coordinate_files（extract --coord_list 读首块名无关不受影响）
+- 【真 bug #20·RELION 吞 topaz 失败】修格式后训练流程全通（"+ Training with 862 picks in test set; and 2576 picks in work set"、proc 预处理、topaz_train.bash 生成）——topaz 模块缺失在 run.out 打 ModuleNotFoundError，但 system() 非零仅 stderr WARNING，relion_autopick 仍 exit 0 → 作业被误标 completed。exit handler 加 topazSilentFail 守卫：topaztrain exit 0 且无 topaz_model 产物 → 改判 failed，rootCauseDetail 优先扫 run.out（run.err 是跨轮追加的，首条高信号行常为陈旧尝试），toast 直出 "ModuleNotFoundError: No module named 'topaz'"
+- 【E2E·全链路】命令面板/API 创建 topaztrain → 连线 ctffind(micrographs)+autopick(coords) → Run：engine 记录 argv 实证 `relion_autopick --topaz_train --topaz_train_picks <training_picks.star> --topaz_test_ratio 0.2 --angpix 1.77`；RELION 诚实失败且作业状态 failed + 根因精确到模块名。测试作业 + workdir 已清理（13 作业复原）
+- 【UI 回归】PICKING 分类现含 Manual/Automated/Topaz Training 三项 ✓；画布 13 jobs/16 cards 复原 ✓
+- 【运维】会话内 dev server 第 6/7 次 OOM 回收（tsc 与 molstar 编译并发）→ playbook 重启；确认 engine 日志文件为追加模式（run.err 跨轮累积）——rootCauseDetail 的"尾 16KB 扫描"设计因此是对的
+- 【收尾】bun run lint 0/0、tsc src/ 0；worklog 更新
+
+Stage Summary:
+- Topaz 深度学习闭环完成：Topaz Training（新作业类型）→ 训练模型（fuchsia model 端口）→ Auto-picking Topaz 模式 --topaz_model 消费——与 Task 16 的 topaz extract wrapper 组成完整 CNN 拾取管线；用户装 topaz 后即可自助训练专属拾取模型
+- 第 19/20 个真实 bug 闭环：--topaz_train_picks 三重格式坑（块名/索引表/平面表拆分）+ RELION 吞 topaz 失败的 exit 0 误报——全部经由源码级（autopicker.cpp/metadata_table.cpp）确认后修复，非猜测
+- synthesizeTrainingPicks 是本引擎首个"格式桥接器"：把 CryoFlow 两种内部 coords 形态（autopick per-mic 星族 / manualpick 平面表）无损翻译为 RELION 期望的 data_coordinate_files 索引格式
+- 遗留（下轮候选）：mol* clip 盒线框可视化、Dashboard 分析区 per-workspace 过滤、Topaz train 的训练曲线图展示（topaz 写 model_training.txt loss 曲线可画图）、用户机器上装 topaz 后的实测反馈

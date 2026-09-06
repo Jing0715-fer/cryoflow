@@ -25,6 +25,7 @@ import {
   FolderOpen,
   Gauge,
   Gem,
+  GraduationCap,
   Grid2x2Check,
   LayoutGrid,
   Layers,
@@ -116,6 +117,9 @@ export function TypeIcon({
     case "DynaMight":
       // deep-learning picker — no lucide icon of that name
       return <Brain className={className} aria-hidden="true" />;
+    case "GraduationCap":
+      // Topaz training — learn a picking model from hand-picked examples
+      return <GraduationCap className={className} aria-hidden="true" />;
     case "ModelAngelo":
       // deep-learning model building
       return <Network className={className} aria-hidden="true" />;

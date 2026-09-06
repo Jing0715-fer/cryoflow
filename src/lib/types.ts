@@ -136,6 +136,7 @@ export type PortKind =
   | "volume"
   | "halfmap"
   | "mask"
+  | "model"
   | "star"
   | "tiltseries"
   | "tomograms";

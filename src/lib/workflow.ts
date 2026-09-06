@@ -117,6 +117,7 @@ export const PORT_COLORS: Record<PortKind, { dot: string; label: string; text: s
   volume: { dot: "bg-orange-500", label: "text-orange-700 dark:text-orange-300", text: "Orange" },
   halfmap: { dot: "bg-pink-500", label: "text-pink-700 dark:text-pink-300", text: "Pink" },
   mask: { dot: "bg-emerald-500", label: "text-emerald-700 dark:text-emerald-300", text: "Emerald" },
+  model: { dot: "bg-fuchsia-500", label: "text-fuchsia-700 dark:text-fuchsia-300", text: "Fuchsia" },
   star: { dot: "bg-slate-500", label: "text-slate-700 dark:text-slate-300", text: "Slate" },
   tiltseries: { dot: "bg-cyan-500", label: "text-cyan-700 dark:text-cyan-300", text: "Cyan" },
   tomograms: { dot: "bg-teal-500", label: "text-teal-700 dark:text-teal-300", text: "Teal" },
@@ -372,7 +373,7 @@ export const JOB_TYPES: JobTypeSpec[] = [
     "Automated Picking",
     "Search",
     "rose",
-    "Reference-free Laplacian-of-Gaussian picking, template matching with 2D references, or deep-learning picking with the Topaz wrapper.",
+    "Reference-free Laplacian-of-Gaussian picking, template matching with 2D references, or deep-learning picking with the Topaz wrapper (general or self-trained model).",
     7000,
     [
       sel("pickingMethod", "Picking method", "Laplacian of Gaussian", ["Laplacian of Gaussian", "References", "Topaz"], {
@@ -404,8 +405,37 @@ export const JOB_TYPES: JobTypeSpec[] = [
       inputs: [
         inp("micrographs", L.micIn, ["micrographs"]),
         inp("references", "2D references (References mode)", ["references2d"]),
+        inp("topazModel", "Trained Topaz model (optional — Topaz mode)", ["model"]),
       ],
       outputs: [outp("coords", L.coordsOut, "coords")],
+    }
+  ),
+  spec(
+    "topaztrain",
+    "Topaz Training",
+    "GraduationCap",
+    "rose",
+    "Train a Topaz CNN picking model on manually picked coordinates (cross-validated train/test split), then connect the trained model into Auto-picking's Topaz mode to replace the general model.",
+    60000,
+    [
+      num("topazNrParticles", "Topaz: expected particles per micrograph", 200, { step: 10, min: 1, tab: "Training", hint: "recall target used while extracting training windows" }),
+      num("topazThreshold", "Topaz: picking threshold", -6, { step: 0.5, tab: "Training", hint: "candidate threshold for training-window extraction" }),
+      num("topazDiameter", "Topaz: particle diameter", 180, { unit: "Å", step: 5, min: 0, tab: "Training", hint: "sets the extraction radius together with the pixel size" }),
+      num("topazTestRatio", "Topaz: test-set ratio", 0.2, { step: 0.05, min: 0, max: 0.9, tab: "Training", hint: "fraction of picks held out for cross-validation — the loss curve on this set tells you when to stop" }),
+      num("topazDownscale", "Topaz: downscale factor", -1, { step: 1, min: -1, tab: "Advanced", advanced: true, hint: "-1 = automatic (from particle size)" }),
+      num("topazWorkers", "Topaz: workers", 1, { step: 1, min: 1, tab: "Advanced", advanced: true, hint: "parallel topaz train workers" }),
+      txt("topazArgs", "Topaz: extra arguments", "", { tab: "Advanced", advanced: true, hint: "raw extras passed to topaz train, e.g. --num-epochs 30 --device cpu" }),
+    ],
+    "Topaz model trained — connect it into Auto-picking (Topaz mode)",
+    "external",
+    {
+      category: "picking",
+      tabs: ["Training", "Advanced"],
+      inputs: [
+        inp("micrographs", L.micIn, ["micrographs"]),
+        inp("coords", "Training picks (hand-picked coordinates)", ["coords"]),
+      ],
+      outputs: [outp("model", "Trained Topaz model (.sav)", "model")],
     }
   ),
 
