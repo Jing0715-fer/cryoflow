@@ -171,6 +171,7 @@ export function wrapWslCommand(
     // Non-root users never hit the check, so the variables are inert.
     `export OMPI_ALLOW_RUN_AS_ROOT=1`,
     `export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1`,
+    `export OMPI_MCA_btl='self,tcp'`,
   ];
   if (bridge.ctffind) {
     exports.push(`export RELION_CTFFIND_EXECUTABLE=${shq(bridge.ctffind)}`);

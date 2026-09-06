@@ -78,7 +78,7 @@ const MPICH_LIB = "/home/z/relion-build/deps/mpich/lib";
 const FFTW_LIB = "/home/z/relion-build/deps/fftw/lib";
 const CTFFIND_EXE = "/home/z/relion-build/deps/ctffind/bin/ctffind";
 
-const MPI_PARALLEL_TYPES = new Set(["class2d", "class3d", "refine3d"]);
+const MPI_PARALLEL_TYPES = new Set(["class3d", "refine3d"]);
 
 /* ------------------------------------------------------------------ */
 /* Types                                                                */
@@ -889,7 +889,7 @@ export const COMMAND_TEMPLATES: Record<string, string> = {
   extract: "relion_preprocess --i <micrographs_ctf.star> --coord_list <coords.star> --part_star <outdir>/particles.star --part_dir <outdir>/ --extract --extract_size <box> [--scale <down>] --norm --bg_radius <bgr> --white_dust 3 --black_dust -3",
   select: "engine-native: particle selection — class-aware occupancy pruning when input has _rlnClassNumber, else first-N",
   select2d: "engine-native: 2D class selection — keep particles whose _rlnClassNumber is in the selected set (gallery picks or auto occupancy ≥ cutoff × best) → particles_select2d.star",
-  class2d: "mpirun -n 2 relion_refine --i <particles.star> --o <outdir>/run --K <K> --tau2_fudge 1 --particle_diameter <dia> --ctf --pad 2 --iter <it> --flatten_solvent --zero_mask",
+  class2d: "relion_refine --i <particles.star> --o <outdir>/run --K <K> --tau2_fudge 1 --particle_diameter <dia> --ctf --pad 2 --iter <it> --flatten_solvent --zero_mask --j 4",
   initialmodel: "relion_refine --grad --denovo_3dref --i <particles.star> --o <outdir>/run --K <K> --particle_diameter <dia> --sym <sym> --ctf --iter <it> --flatten_solvent --zero_mask",
   class3d: "mpirun -n 2 relion_refine --i <particles.star> --ref <ref.mrc> --o <outdir>/run --K <K> --tau2_fudge 4 --particle_diameter <dia> --sym <sym> --ctf --pad 2 --iter <it> --flatten_solvent",
   refine3d: "mpirun -n 3 relion_refine --i <particles.star> --ref <ref.mrc> --o <outdir>/run --sym <sym> --particle_diameter <dia> --ctf --pad <pad> --firstiter_cc --ini_high <iniHigh> --trust_ref_size --split_random_halves [--auto_refine | --iter <it> --tau2_fudge 1]",
@@ -3325,7 +3325,9 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
     if (target.startsWith("/") && canMpi) argv[0] = target + "_mpi";
     // --split_random_halves (gold-standard FSC) needs leader + 2 half-mappers
     const nranks = job.type === "refine3d" ? 3 : 2;
-    argv = [mpirun, "-n", String(nranks), ...argv];
+    // WSL2 / OpenMPI 4.x: TCP BTL needed for cross-process communication;
+    // --allow-run-as-root bypasses the root-check in OMPI 4.x.
+    argv = [mpirun, "--mca", "btl", "self,tcp", "--allow-run-as-root", "-n", String(nranks), ...argv];
   }
 
   // ---- target binary sanity (partial installs fail honestly) --------------

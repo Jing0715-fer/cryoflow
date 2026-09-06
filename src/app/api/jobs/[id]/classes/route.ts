@@ -4,6 +4,7 @@ import path from "path";
 import { findEffectiveJob } from "@/lib/link";
 import { getRun } from "@/lib/relion/engine";
 import { readMrcHeader } from "@/lib/mrc";
+import { DATA_DIR } from "@/lib/paths";
 
 export const dynamic = "force-dynamic";
 
@@ -78,14 +79,25 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: "Job not found" }, { status: 404 });
     }
     const run = getRun(job.id);
-    if (!run?.workdir || !existsSync(run.workdir)) {
+    // workdir resolution priority:
+    // 1. ?workdir= override (for manual / externally-produced results)
+    // 2. run record in engine-state.json (jobs dispatched through the engine)
+    // 3. computed from job.type + job.id (dispatched jobs whose record was
+    //    persisted to disk; manual runs also land here as a fallback)
+    const url = new URL(request.url);
+    const workdir =
+      url.searchParams.get("workdir") ??
+      run?.workdir ??
+      path.join(DATA_DIR, "relion", job.projectId, `${job.type}_${job.id.slice(-8)}`);
+    if (!existsSync(workdir)) {
       return NextResponse.json({ classes: [], total: 0, iteration: null });
     }
 
     // highest iteration data star = final particle→class assignment
     let best: { iteration: number; file: string } | null = null;
-    for (const name of readdirSync(run.workdir)) {
-      const m = name.match(/^run_it(\d+)_data\.star$/i);
+    for (const name of readdirSync(workdir)) {
+      // Match both RELION standard "run_itNNN_data.star" and SGD "_itNNN_data.star"
+      const m = name.match(/^(?:run_it|_it)(\d+)_data\.star$/i);
       if (!m) continue;
       const iteration = Number(m[1]);
       if (!best || iteration > best.iteration) {
@@ -95,8 +107,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
     // explicit ?iter= overrides (round-filtered galleries)
     const wantIter = parseInt(new URL(request.url).searchParams.get("iter") ?? "", 10);
     if (Number.isFinite(wantIter)) {
-      const exact = readdirSync(run.workdir).find(
-        (name) => name.toLowerCase() === `run_it${String(wantIter).padStart(3, "0")}_data.star`
+      const exact = readdirSync(workdir).find(
+        (name) => name.match(new RegExp(`^(?:run_it|_it)${String(wantIter).padStart(3, "0")}_data\\.star$`, "i"))
       );
       if (exact) best = { iteration: wantIter, file: exact };
     }
@@ -104,22 +116,22 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ classes: [], total: 0, iteration: null });
     }
 
-    const lines = readFileSync(path.join(run.workdir, best.file), "utf8").split("\n");
+    const lines = readFileSync(path.join(workdir, best.file), "utf8").split("\n");
     const classCol = labelColumn(lines, "_rlnClassNumber");
 
     // class-averages stack for the selection gallery: RELION 5 writes the
     // final unmasked stack, falling back to the newest per-iteration stack
     let classesFile: string | null = null;
     let classesSlices: number | null = null;
-    const stackNames = readdirSync(run.workdir).filter(
-      (n) => /^run_it\d+_classes\.mrcs?$/i.test(n) || /^run_unmasked_classes\.mrcs?$/i.test(n)
+    const stackNames = readdirSync(workdir).filter(
+      (n) => /^(?:run_it|_it)\d+_classes\.mrcs?$/i.test(n) || /^(?:run_it|_it)_unmasked_classes\.mrcs?$/i.test(n)
     );
-    const unmasked = stackNames.find((n) => /^run_unmasked_classes\.mrcs?$/i.test(n));
+    const unmasked = stackNames.find((n) => /^(?:run_it|_it)\d+_unmasked_classes\.mrcs?$|^run_unmasked_classes\.mrcs?$/i.test(n));
     let stackName = unmasked ?? null;
     if (!stackName) {
       let bestIter = -1;
       for (const n of stackNames) {
-        const m = n.match(/run_it(\d+)_classes/i);
+        const m = n.match(/(?:run_it|_it)(\d+)_classes/i);
         if (m && Number(m[1]) > bestIter) {
           bestIter = Number(m[1]);
           stackName = n;
@@ -127,7 +139,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       }
     }
     if (stackName) {
-      const stackAbs = path.join(run.workdir, stackName);
+      const stackAbs = path.join(workdir, stackName);
       const hdr = readMrcHeader(stackAbs);
       if (hdr) {
         classesFile = stackName;
