@@ -21,6 +21,12 @@ export const dynamic = "force-dynamic";
  *  - path <dir>          → { entries, parent, micrographs } (capped at 400 entries)
  *
  * Safety: listing only — never writes, never follows into file contents.
+ * Arbitrary browsing is REQUIRED by the import UX (movies live anywhere on
+ * the user's drives), so this endpoint cannot be scoped to a sandbox root;
+ * the compensating controls are: names/sizes only (content bytes are served
+ * exclusively through the job-scoped outputs routes), entry caps, and the
+ * virtual-filesystem guard below that keeps the listing out of procfs/
+ * sysfs pseudo-trees that are meaningless as import sources.
  */
 
 const MIC_RE = /\.(mrc|mrcs|tif|tiff|eer)$/i;
@@ -144,8 +150,17 @@ export async function GET(request: NextRequest) {
     }
 
     // ---- directory listing -----------------------------------------------
+    // POSIX pseudo-filesystems are never import sources and readdir on them
+    // can be huge / side-effecting (procfs syscalls per entry).
+    if (process.platform !== "win32" && /^\/(?:proc|sys|dev)(?:\/|$)/.test(raw)) {
+      return NextResponse.json(
+        { ok: false, error: `Browsing ${raw} is not supported (virtual filesystem)` },
+        { status: 400 }
+      );
+    }
     let dir: string;
     try {
+      if (raw.includes("\0")) throw new Error("bad path");
       dir = path.resolve(raw);
       const st = statSync(dir);
       if (!st.isDirectory()) {

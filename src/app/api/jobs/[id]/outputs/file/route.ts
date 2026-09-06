@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { openSync, readSync, closeSync, createReadStream, realpathSync, statSync } from "fs";
+import { openSync, readSync, closeSync, createReadStream, statSync } from "fs";
 import { Readable } from "stream";
 import path from "path";
 import { findEffectiveJob } from "@/lib/link";
 import { getRun } from "@/lib/relion/engine";
 import { readPathrefTarget } from "@/lib/relion/pathref";
+import { resolveInsideJobWorkdir } from "@/lib/relion/jobfile";
 import { isMrcPath, renderMrcLargePng, renderMrcMontagePng, renderMrcSlicePng } from "@/lib/mrc";
 
 export const dynamic = "force-dynamic";
@@ -17,30 +18,10 @@ const TEXT_TAIL = 64 * 1024; // last 64 KB for format=text
 /* Workdir + path safety                                               */
 /* ------------------------------------------------------------------ */
 
-/**
- * Resolve `rel` inside the job workdir and verify the path stays inside the
- * workdir (rejects `..`, absolute paths). LEXICAL containment is the security
- * boundary — RELION's engine legitimately symlinks shared inputs (e.g.
- * micrographs) into job workdirs, so realpath may point to project-level
- * files; traversal via `..` is already impossible after path.resolve.
- * Returns { error, status } on failure, { abs, real, name } on success.
- */
-function resolveInside(workdir: string, rel: string): { abs: string; real: string; name: string } | { error: string; status: number } {
-  if (!rel || rel.startsWith("/") || rel.startsWith("\\") || rel.split("/").includes("..")) {
-    return { error: "Invalid path", status: 400 };
-  }
-  const abs = path.resolve(workdir, rel);
-  if (abs !== workdir && !abs.startsWith(workdir + path.sep)) {
-    return { error: "Path escapes the job directory", status: 400 };
-  }
-  let resolvedReal: string;
-  try {
-    resolvedReal = realpathSync(abs);
-  } catch {
-    return { error: "File not found", status: 404 };
-  }
-  return { abs, real: resolvedReal, name: path.basename(resolvedReal) };
-}
+// Unified containment policy shared with the outputs/star route — see
+// src/lib/relion/jobfile.ts. Lexical workdir scoping + realpath inside the
+// app data tree (engine-created cross-job symlinks stay inside it); the
+// .pathref escape hatch below runs only AFTER this check accepts the marker.
 
 function tailText(file: string): string {
   const size = statSync(file).size;
@@ -76,7 +57,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const rel = url.searchParams.get("path") ?? "";
     const format = url.searchParams.get("format") ?? "png";
 
-    const resolved = resolveInside(run.workdir, rel);
+    const resolved = resolveInsideJobWorkdir(run.workdir, rel);
     if ("error" in resolved) {
       return NextResponse.json({ error: resolved.error }, { status: resolved.status });
     }

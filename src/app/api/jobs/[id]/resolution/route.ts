@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { existsSync, readdirSync, readFileSync } from "fs";
+import { existsSync, readdirSync } from "fs";
 import path from "path";
 import { findEffectiveJob } from "@/lib/link";
 import { getRun } from "@/lib/relion/engine";
+import { cachedFileCompute } from "@/lib/relion/statcache";
 
 export const dynamic = "force-dynamic";
 
@@ -42,10 +43,13 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       const iteration = Number(m[1]);
       if (seen.has(iteration)) continue;
       try {
-        const text = readFileSync(path.join(run.workdir, name), "utf8");
-        const res = text.match(/_rlnCurrentResolution\s+([\d.eE+-]+)/);
+        // Each iteration's model.star is written once — mtime cache makes
+        // every poll re-stat instead of re-read+re-parse all iterations.
+        const res = cachedFileCompute(path.join(run.workdir, name), (text) =>
+          text.match(/_rlnCurrentResolution\s+([\d.eE+-]+)/)?.[1] ?? null
+        );
         if (res) {
-          const value = Number(res[1]);
+          const value = Number(res);
           if (Number.isFinite(value) && value > 0) {
             seen.add(iteration);
             points.push({ iteration, resolution: value });

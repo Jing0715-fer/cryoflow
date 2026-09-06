@@ -3450,8 +3450,11 @@ export function describeExitCode(code: number): string {
  */
 function failureResult(state: RunRecord, exitCode: number): string {
   const meaning = describeExitCode(exitCode);
-  const errTail = tailText(state.errFile, 280);
-  const outTail = errTail ? "" : tailText(state.logFile, 280);
+  // Prefer the ROOT CAUSE line (first high-signal stderr line, skipping the
+  // mpirun/bash epilogue) over the blind tail — an MPI failure's tail is the
+  // wrapper's generic last words, the reason is always printed earlier.
+  const errTail = rootCauseDetail(state.errFile) || tailText(state.errFile, 280);
+  const outTail = errTail ? "" : rootCauseDetail(state.logFile) || tailText(state.logFile, 280);
   const parts: string[] = [`exit ${exitCode}${meaning ? ` (${meaning})` : ""}`];
   const detail = errTail || outTail;
   if (detail) parts.push(detail);
@@ -3483,8 +3486,8 @@ function failureResult(state: RunRecord, exitCode: number): string {
  * to see WHY the process vanished.
  */
 function interruptedResult(state: RunRecord): string {
-  const errTail = tailText(state.errFile, 280);
-  const outTail = errTail ? "" : tailText(state.logFile, 280);
+  const errTail = rootCauseDetail(state.errFile) || tailText(state.errFile, 280);
+  const outTail = errTail ? "" : rootCauseDetail(state.logFile) || tailText(state.logFile, 280);
   const parts: string[] = ["interrupted (exit unknown) — re-run"];
   if (errTail || outTail) parts.push(errTail || outTail);
   const cmd = state.cmd.length > 160 ? state.cmd.slice(0, 160) + "…" : state.cmd;
@@ -3596,6 +3599,97 @@ function tailText(file: string, maxChars: number): string {
     const text = readTail(file, maxChars * 2);
     const clean = text.replace(/\s+/g, " ").trim();
     return clean.slice(-maxChars);
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Wrapper-epilogue noise that lands at the END of a failed run's stderr —
+ * blind-tailing run.err after an MPI failure shows these generic last words
+ * ("mpirun detected that one or more processes exited with non-zero status")
+ * instead of the actual reason a rank died, which was printed EARLIER in the
+ * same file by the rank itself / bash / OpenMPI launch checks.
+ */
+const ERR_NOISE_RE: RegExp[] = [
+  /^-{3,}$/,
+  /^={3,}$/,
+  /^\s*$/,
+  /mpirun (?:has detected|detected that|was unable to|realized|has exited)/i,
+  /mpiexec (?:has detected|detected that)/i,
+  /^Primary job terminated normally/i,
+  /MPI_ABORT was invoked/i,
+  /^\[\d+,\d+\]/, // "[17538,1],1]" rank process tags
+  /^Process name:/i,
+  /^Exit code:/i,
+  /^MCA collector/i,
+  /^SIG(?:TERM|CONT|INT|KILL)\b/i,
+  /set the MCA parameter/i,
+  /^A high-performance Open MPI/i,
+];
+
+/** High-signal shapes worth surfacing as THE reason a run died. */
+const ERR_SIGNAL_RE: RegExp[] = [
+  /\berror\b/i,
+  /cannot\b/i,
+  /no such file/i,
+  /\bnot found\b/i,
+  /fail(?:ed|ure|ing)/i,
+  /abort/i,
+  /assert/i,
+  /segmentation/i,
+  /core dumped/i,
+  /out of memory/i,
+  /bad_alloc/i,
+  /terminate called/i,
+  /std::\w+error/i,
+  /exception/i,
+  /traceback/i,
+  /unable to/i,
+  /\binvalid\b/i,
+  /too (?:few|many)/i,
+  /\bmissing\b/i,
+  /insufficient/i,
+  /permission denied/i,
+  /what\(\):/i,
+  /corrupt/i,
+  /unrecognized|unknown option/i,
+];
+
+/**
+ * Pull the ROOT CAUSE out of a stderr log rather than its tail. Scans the
+ * recent tail of the file line by line, skips the wrapper-noise shapes
+ * above, and returns the earliest high-signal line plus up to two
+ * continuation lines (RELION often prints a bare "ERROR:" with the actual
+ * message on the following line). Returns "" when nothing better than the
+ * epilogue exists — callers then fall back to the plain tail.
+ */
+export function rootCauseDetail(file: string): string {
+  try {
+    if (!existsSync(file)) return "";
+    const lines = readTail(file, 16384).split(/\r?\n/);
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line || ERR_NOISE_RE.some((re) => re.test(line))) continue;
+      if (!ERR_SIGNAL_RE.some((re) => re.test(line))) continue;
+      // First signal hit: attach up to two continuation lines (detail lines
+      // after a bare "ERROR:" / C++ "terminate called after throwing …")
+      const parts: string[] = [line];
+      for (let j = i + 1; j < lines.length && parts.length < 3; j++) {
+        const cont = lines[j];
+        if (!cont.trim()) break;
+        if (ERR_NOISE_RE.some((re) => re.test(cont))) break;
+        parts.push(cont);
+        // a second signal line is its own event — stop attaching
+        if (j > i && ERR_SIGNAL_RE.some((re) => re.test(cont))) break;
+      }
+      return parts
+        .join(" | ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 260);
+    }
+    return "";
   } catch {
     return "";
   }

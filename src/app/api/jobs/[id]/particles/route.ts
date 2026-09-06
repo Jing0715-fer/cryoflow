@@ -265,7 +265,14 @@ export async function GET(request: NextRequest, context: RouteContext) {
     // number of hops upstream.
     const upstreamWorkdirs = new Map<string, string>(); // jobId -> workdir
     {
+      // Batched BFS: ONE edge query per depth level + ONE job query for all
+      // discovered ids. The old loop awaited findEffectiveJob PER EDGE —
+      // 1–2 DB round-trips × every upstream job on each ParticleBrowser
+      // open (the classic N+1). Link chains are followed in-memory from
+      // the same batch (they are collapsed at creation; the hop loop is
+      // defensive only).
       const seen = new Set<string>([id]);
+      const discovered: string[] = [];
       let frontier = [id];
       while (frontier.length > 0) {
         const edges = await db.edge.findMany({
@@ -276,13 +283,27 @@ export async function GET(request: NextRequest, context: RouteContext) {
         for (const e of edges) {
           if (seen.has(e.fromJobId)) continue;
           seen.add(e.fromJobId);
-          // upstream may be a soft LINK — its stacks live in the ORIGINAL workdir
-          const up = await findEffectiveJob(e.fromJobId);
-          const r = getRun(up ? up.id : e.fromJobId);
-          if (r?.workdir && existsSync(r.workdir)) upstreamWorkdirs.set(e.fromJobId, r.workdir);
+          discovered.push(e.fromJobId);
           next.push(e.fromJobId);
         }
         frontier = next;
+      }
+      if (discovered.length > 0) {
+        const linked = await db.job.findMany({
+          where: { id: { in: discovered } },
+          select: { id: true, linkedJobId: true },
+        });
+        const byId = new Map(linked.map((j) => [j.id, j]));
+        for (const uid of discovered) {
+          // upstream may be a soft LINK — its stacks live in the ORIGINAL
+          // workdir; follow the chain in-memory (bounded, cycle-safe)
+          let cur = byId.get(uid);
+          for (let hops = 0; cur?.linkedJobId && hops < 16; hops++) {
+            cur = byId.get(cur.linkedJobId);
+          }
+          const r = getRun(cur?.id ?? uid);
+          if (r?.workdir && existsSync(r.workdir)) upstreamWorkdirs.set(uid, r.workdir);
+        }
       }
     }
     const resolveOwner = (stackAbs: string): { ownerJobId: string; stackRel: string } => {

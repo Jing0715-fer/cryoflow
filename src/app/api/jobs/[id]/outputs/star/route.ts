@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { openSync, readFileSync, readSync, closeSync, realpathSync, statSync } from "fs";
+import { openSync, readFileSync, readSync, closeSync, statSync } from "fs";
 import path from "path";
 import { findEffectiveJob } from "@/lib/link";
 import { getRun } from "@/lib/relion/engine";
+import { resolveInsideJobWorkdir } from "@/lib/relion/jobfile";
 import { biggestLoop, extractFsc, findPair, parseStar } from "@/lib/starfile";
 
 export const dynamic = "force-dynamic";
@@ -13,30 +14,14 @@ const HUGE_FILE = 20 * 1024 * 1024; // above this only the first 5 MB is parsed
 const PREVIEW_BYTES = 5 * 1024 * 1024;
 
 /* ------------------------------------------------------------------ */
-/* Path safety (same rules as the file route)                          */
+/* Path safety (same unified rules as the file route)                  */
 /* ------------------------------------------------------------------ */
 
-function resolveInside(workdir: string, rel: string): { abs: string } | { error: string; status: number } {
-  if (!rel || rel.startsWith("/") || rel.startsWith("\\") || rel.split("/").includes("..")) {
-    return { error: "Invalid path", status: 400 };
-  }
-  let workdirReal: string;
-  let resolvedReal: string;
-  const abs = path.resolve(workdir, rel);
-  try {
-    workdirReal = realpathSync(workdir);
-    resolvedReal = realpathSync(abs);
-  } catch {
-    return { error: "File not found", status: 404 };
-  }
-  if (resolvedReal !== workdirReal && !resolvedReal.startsWith(workdirReal + path.sep)) {
-    return { error: "Path escapes the job directory", status: 400 };
-  }
-  if (!resolvedReal.toLowerCase().endsWith(".star")) {
-    return { error: "Not a STAR file", status: 400 };
-  }
-  return { abs };
-}
+// resolveInsideJobWorkdir — src/lib/relion/jobfile.ts — is the single
+// containment policy for both outputs routes: lexical workdir scoping +
+// realpath inside the app data tree. The old realpath-inside-workdir rule
+// rejected engine-created cross-job symlinks; the file route's old
+// lexical-only rule let planted links escape. Both holes are closed.
 
 function readStarText(file: string): { text: string; previewed: boolean } {
   const size = statSync(file).size;
@@ -73,9 +58,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const rel = url.searchParams.get("path") ?? "";
     const rowsParam = Math.max(1, Math.min(1000, Number.parseInt(url.searchParams.get("rows") ?? "100", 10) || 100));
 
-    const resolved = resolveInside(run.workdir, rel);
+    const resolved = resolveInsideJobWorkdir(run.workdir, rel);
     if ("error" in resolved) {
       return NextResponse.json({ error: resolved.error }, { status: resolved.status });
+    }
+    if (!resolved.real.toLowerCase().endsWith(".star")) {
+      return NextResponse.json({ error: "Not a STAR file" }, { status: 400 });
     }
 
     const { text, previewed } = readStarText(resolved.abs);

@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { existsSync, readdirSync, readFileSync } from "fs";
+import { existsSync, readdirSync } from "fs";
 import path from "path";
 import { findEffectiveJob } from "@/lib/link";
 import { getRun } from "@/lib/relion/engine";
+import { cachedFileCompute } from "@/lib/relion/statcache";
 import { summarizeOrientation } from "@/lib/relion/rebalance-core";
 
 export const dynamic = "force-dynamic";
@@ -137,38 +138,49 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       return NextResponse.json(empty);
     }
 
-    const lines = readFileSync(path.join(run.workdir, best.file), "utf8").split("\n");
-    const rotCol = labelColumn(lines, "_rlnAngleRot");
-    const tiltCol = labelColumn(lines, "_rlnAngleTilt");
-    if (rotCol < 0 || tiltCol < 0) {
+    // Poll-friendly: the star file only changes when RELION finishes an
+    // iteration — cache the full parse+binning+fib pass behind its
+    // (size, mtime) so 1–2 s polls cost one statSync instead of re-parsing
+    // megabytes of STAR text (see statcache.ts).
+    const starPath = path.join(run.workdir, best.file);
+    const aggregate = cachedFileCompute(starPath, (text) => {
+      const lines = text.split("\n");
+      const rotCol = labelColumn(lines, "_rlnAngleRot");
+      const tiltCol = labelColumn(lines, "_rlnAngleTilt");
+      if (rotCol < 0 || tiltCol < 0) return null;
+
+      const cells = new Array<number>(ROT_BINS * TILT_BINS).fill(0);
+      let total = 0;
+      let max = 0;
+      const angles: Array<{ rot: number; tilt: number }> = [];
+      for (const raw of lines) {
+        const t = raw.trim();
+        if (!t || t.startsWith("#") || t.startsWith("_") || t === "loop_" || t.startsWith("data_")) continue;
+        const parts = t.split(/\s+/);
+        if (parts.length <= Math.max(rotCol, tiltCol)) continue;
+        const rot = parseFloat(parts[rotCol]);
+        const tilt = parseFloat(parts[tiltCol]);
+        if (!Number.isFinite(rot) || !Number.isFinite(tilt)) continue;
+        // rot 0–360 (wrap negatives), tilt clamped 0–180
+        const rotIdx = Math.min(ROT_BINS - 1, Math.floor((((rot % 360) + 360) % 360) / (360 / ROT_BINS)));
+        const tiltIdx = Math.min(TILT_BINS - 1, Math.floor(Math.max(0, Math.min(180, tilt)) / (180 / TILT_BINS)));
+        const idx = rotIdx * TILT_BINS + tiltIdx;
+        cells[idx]++;
+        total++;
+        if (cells[idx] > max) max = cells[idx];
+        angles.push({ rot, tilt });
+      }
+      // cryoSPARC-style equal-area summary (fib sphere + marginals) for the
+      // Mollweide panel — computed from the same angle list, live-capable.
+      const fib = total > 0 ? summarizeOrientation(angles, 610, 48, 36) : null;
+      return { cells, total, max, rotCol, tiltCol, fib };
+    });
+
+    if (!aggregate || aggregate.rotCol < 0 || aggregate.tiltCol < 0) {
       return NextResponse.json({ ...empty, starFile: best.file, iteration: best.iteration });
     }
 
-    const cells = new Array<number>(ROT_BINS * TILT_BINS).fill(0);
-    let total = 0;
-    let max = 0;
-    const angles: Array<{ rot: number; tilt: number }> = [];
-    for (const raw of lines) {
-      const t = raw.trim();
-      if (!t || t.startsWith("#") || t.startsWith("_") || t === "loop_" || t.startsWith("data_")) continue;
-      const parts = t.split(/\s+/);
-      if (parts.length <= Math.max(rotCol, tiltCol)) continue;
-      const rot = parseFloat(parts[rotCol]);
-      const tilt = parseFloat(parts[tiltCol]);
-      if (!Number.isFinite(rot) || !Number.isFinite(tilt)) continue;
-      // rot 0–360 (wrap negatives), tilt clamped 0–180
-      const rotIdx = Math.min(ROT_BINS - 1, Math.floor((((rot % 360) + 360) % 360) / (360 / ROT_BINS)));
-      const tiltIdx = Math.min(TILT_BINS - 1, Math.floor(Math.max(0, Math.min(180, tilt)) / (180 / TILT_BINS)));
-      const idx = rotIdx * TILT_BINS + tiltIdx;
-      cells[idx]++;
-      total++;
-      if (cells[idx] > max) max = cells[idx];
-      angles.push({ rot, tilt });
-    }
-
-    // cryoSPARC-style equal-area summary (fib sphere + marginals) for the
-    // Mollweide panel — computed from the same angle list, live-capable.
-    const fib = total > 0 ? summarizeOrientation(angles, 610, 48, 36) : null;
+    const { cells, total, max, fib } = aggregate;
 
     const occupied = cells.reduce((n, c) => n + (c > 0 ? 1 : 0), 0);
     const anisotropy =
