@@ -259,16 +259,31 @@ export async function GET(request: NextRequest, context: RouteContext) {
     // the UPSTREAM Extract job's stacks by absolute path. Resolve which
     // job's workdir actually contains each stack so the client can render
     // PNGs through that job's outputs/file route.
-    const upstream = await db.edge.findMany({
-      where: { toJobId: id },
-      select: { fromJobId: true },
-    });
+    // FULL upstream lineage (BFS over edges, not just direct parents):
+    // symexpand/rebalance/select2d stars reference extract's stacks while
+    // their direct parent is a refine/classify job — the owner can sit any
+    // number of hops upstream.
     const upstreamWorkdirs = new Map<string, string>(); // jobId -> workdir
-    for (const e of upstream) {
-      // upstream may be a soft LINK — its stacks live in the ORIGINAL workdir
-      const up = await findEffectiveJob(e.fromJobId);
-      const r = getRun(up ? up.id : e.fromJobId);
-      if (r?.workdir && existsSync(r.workdir)) upstreamWorkdirs.set(e.fromJobId, r.workdir);
+    {
+      const seen = new Set<string>([id]);
+      let frontier = [id];
+      while (frontier.length > 0) {
+        const edges = await db.edge.findMany({
+          where: { toJobId: { in: frontier } },
+          select: { fromJobId: true },
+        });
+        const next: string[] = [];
+        for (const e of edges) {
+          if (seen.has(e.fromJobId)) continue;
+          seen.add(e.fromJobId);
+          // upstream may be a soft LINK — its stacks live in the ORIGINAL workdir
+          const up = await findEffectiveJob(e.fromJobId);
+          const r = getRun(up ? up.id : e.fromJobId);
+          if (r?.workdir && existsSync(r.workdir)) upstreamWorkdirs.set(e.fromJobId, r.workdir);
+          next.push(e.fromJobId);
+        }
+        frontier = next;
+      }
     }
     const resolveOwner = (stackAbs: string): { ownerJobId: string; stackRel: string } => {
       if (stackAbs.startsWith(workdir + path.sep) || path.dirname(stackAbs) === workdir) {

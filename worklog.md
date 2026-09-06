@@ -1282,3 +1282,25 @@ Stage Summary:
 - 第八个真实 bug 闭环（ORPHAN refine3d）+ 第九个（Dn 轴间隔）+ 第十个（CryoSparcAnglePanel 未挂载）
 - 用户本机操作：git pull → 重跑 class2d 等 MPI job → OpenMPI 应放行；若再失败 run.err 原文会直出根因
 - 未接线（下轮优先）：runRebalanceCore 完整算法（ExclusionCriterion 加权再平衡）与 symmetry expand 尚未成为 job 类型——目前只有 angdist 面板 + orbit 按钮用到了它们的子集
+
+---
+Task ID: 12
+Agent: main (Z.ai Code)
+Task: 用户「继续未完成的工作，完成后push」——把上轮建成的 Orient-Rebalancer 核心与 icosahedral 对称扩展库接线成真正可运行的 job 类型，E2E 验证后推送
+
+Work Log:
+- 【开局核对】git fetch 三重验证：本地 HEAD == origin/main == 07be39c（上轮 OMPI 修复 + handoff 全部已推送，无落后）。dev server 曾死亡（会话切换被杀）→ 按 playbook pkill 全家 + rm .next + dev-server.sh double-fork 重启，UP
+- 【接线·目录】workflow.ts 新增 orientation 分类（Palette 里 "3D Refinement" 之后）+ 两个 core 级 spec：symexpand（Symmetry Expansion，Orbit/cyan，point group 选择 I/O/T/C2-C6/D1-D6 + icoSubset full/vertex/face/edge/non_edge/hemisphere + deduplicate 开关）与 rebalance（Orientation Rebalancer，Scale/cyan，numBins/percentile/exclusionCriterion loglik-maxprob-ncc-random/mode standard-resolution/resolutionWeight/seed 六参数）
+- 【接线·引擎】engine.ts：COMMAND_TEMPLATES 两条；INPUTS 注册（symexpand/rebalance 接受 particles_star + refine_data_star，from 覆盖 extract/select/select2d/class2d/initialmodel/class3d/refine3d/joinstar/自身）；10 个 particles 消费方（select/class2d/initialmodel/class3d/refine3d/multibody/polish/ctfrefine/dynamight）from 列表补 symexpand/rebalance——扩展后颗粒可回流精修
+- 【接线·原生运行器】runSymexpandNative：generatePointGroup → 每行 × |G| 复制，applySymmetryToEuler（R_sym·R_orig ZYZ 复合）重写 rot/tilt/psi 列（toFixed 6），describeRotations 前 12 个轴角写入 run.out；C1 拒绝执行。runRebalanceNative：读 rot/tilt + 按 criterion 映射 _rlnLogLikeliContribution/_rlnMaxValueProbDistribution/_rlnNormCorrection（score=-v 取向化：高者先删），列缺失→诚实降级 seeded random；runRebalanceCore 出 keptIndices 过滤行 + rebalance_report.json（params/bins/stats 全量落盘）
+- 【UI】icons.tsx 补 Orbit/Scale case；angdist 路由文件发现扩至 particles_symexpand/rebalance.star（同一极坐标 + Mollweide 面板直接可用）；新路由 /api/jobs/[id]/rebalance（剥 keptIndices，bins 排序取前 60）；新组件 rebalance-report.tsx（六块 before→after Delta 瓦片 + 前 24 bin 双色柱状图：teal=after 琥珀=trimmed，−n 红标 + 3DFSC 免责声明）；job-inspector OverviewTab：isOrientationType 共享双角度面板 + rebalance 专属报告面板 + ParticleBrowser 纳入两新类型
+- 【E2E·实跑】EMPIAR-10017 全链项目：创建 symexpand(D2——β-gal 真实对称) + rebalance 连线 refine3d → 双双 completed：symexpand "3,438 × 4 = 13,752 particles (D2)"（run.out 含 4 个轴角：z/180°、x/180°、y/180°）；rebalance "3,161 of 3,438 kept · anisotropy 1.88→1.53 · uniformity 0.00→0.05"（55 非空 bin，6 bin 修剪，删 277 颗 8.1%）
+- 【真 bug·修复】E2E 发现 ParticleBrowser 对新 job 全部 "unavailable"：particles 路由 resolveOwner 只查直接上游 workdir，而 symexpand/rebalance（及 select2d）的 .mrcs 堆栈在两跳上游 extract 里 → 404。修复：上游 workdir 收集改为 BFS 全谱系（对齐 lineageFor 语义）→ owner 正确解析为 extract，montage PNG 200，"unavailable" 归零
+- 【E2E·浏览器】palette ORIENTATION 分类两按钮 ✓、卡片点击开 inspector ✓、symexpand Overview 渲染极坐标热图 + Mollweide(13,752 取向) + 颗粒浏览器（黑底白颗粒）✓、rebalance Overview 渲染 Rebalance 报告（六瓦片 + 柱状图 159/271 −112）+ Mollweide(3,161) ✓、UI Re-run（AlertDialog 确认→产物 05:14 重写）✓、console 0 error、390×844 移动端全面板渲染 ✓、VLM 视觉审查报告面板 9/10（瓦片对齐无溢出、双色柱图清晰、红绿 delta 标注）
+- 【收尾】bun run lint 0 错误、tsc src/ 0 错误、dev.log 零运行时错误
+
+Stage Summary:
+- 两大 GitHub 项目功能（icosahedral-symmetry-expander + Orient-Rebalancer）从"面板子集"升级为完整 job 类型：可从 palette 添加、可连线、可 Run/Re-run、产物可浏览、结果可视化
+- EMPIAR-10017 链现在 13 作业：…→refine3d(9.44Å)→symexpand(D2 ×4=13,752)→可回流 refine3d；rebalance 演示 anisotropy 1.88→1.53
+- 第十一个真实 bug 闭环：particles owner 解析只查直接父（select2d 也潜伏受害）→ BFS 全谱系
+- 33 个 SPA job 类型（21 RELION + symexpand + rebalance + 10 tomo），orientation 分类成为独立调色板区

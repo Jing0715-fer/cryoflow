@@ -77,6 +77,7 @@ import { CtfQualityChart } from "./results/ctf-quality-chart";
 import { ClassDistributionChart } from "./results/class-distribution-chart";
 import { AngularDistributionChart } from "./results/angular-distribution-chart";
 import { CryoSparcAnglePanel } from "./results/cryosparc-angle-panel";
+import { RebalanceReport } from "./results/rebalance-report";
 import { ImportGallery } from "./results/import-gallery";
 import { PicksMap } from "./results/picks-map";
 import { ParticleBrowser } from "./results/particle-browser";
@@ -876,6 +877,9 @@ function OverviewTab({
   // refining jobs get a live per-iteration resolution chart
   const isRefineType = /class2d|class3d|initialmodel|refine3d|multibody/i.test(job.type);
   const is3dType = /initialmodel|refine3d|class3d|multibody|postprocess/i.test(job.type);
+  // orientation jobs (symmetry expansion / rebalancing) get the SAME angular
+  // views — their single particles star feeds the polar + Mollweide panels
+  const isOrientationType = /symexpand|rebalance/i.test(job.type);
   const isClassifyType = /class2d|class3d/i.test(job.type);
   const isCtfType = /ctffind|ctf/i.test(job.type);
   const hasIterated = (job.status === "running" || job.status === "completed" || job.status === "failed") &&
@@ -891,8 +895,8 @@ function OverviewTab({
       {/manualpick/i.test(job.type) && job.status !== "idle" ? (
         <PicksMap jobId={job.id} />
       ) : null}
-      {/* extract/select jobs show the particle stack browser. */}
-      {/^(extract|select)/i.test(job.type) && job.status !== "idle" ? (
+      {/* extract/select/orientation jobs show the particle stack browser. */}
+      {/^(extract|select|symexpand|rebalance)/i.test(job.type) && job.status !== "idle" ? (
         <ParticleBrowser jobId={job.id} />
       ) : null}
       {isRefineType && hasIterated ? (
@@ -908,15 +912,20 @@ function OverviewTab({
       ) : null}
       {/* 3D jobs also get the orientation distribution polar heatmap
           (self-hides while the API has no data star to bin). */}
-      {is3dType && job.status !== "idle" ? (
+      {(is3dType || isOrientationType) && job.status !== "idle" ? (
         <AngularDistributionChart jobId={job.id} running={job.status === "running"} />
       ) : null}
       {/* …plus the cryoSPARC-style Mollweide orientation view (equal-area
           Fibonacci-sphere bins + rot/tilt marginals) — the same data, the
           cryoSPARC "Orientation distribution" look. Self-hides until the
           API has angles, mirrors the chart above. */}
-      {is3dType && job.status !== "idle" ? (
+      {(is3dType || isOrientationType) && job.status !== "idle" ? (
         <CryoSparcAnglePanel jobId={job.id} running={job.status === "running"} />
+      ) : null}
+      {/* the Orientation Rebalancer adds its before/after report (stats +
+          per-bin trim chart from rebalance_report.json). */}
+      {/rebalance/i.test(job.type) && job.status !== "idle" ? (
+        <RebalanceReport jobId={job.id} />
       ) : null}
       {/* 2D/3D classification gets class occupancy bars. */}
       {isClassifyType && job.status !== "idle" ? (

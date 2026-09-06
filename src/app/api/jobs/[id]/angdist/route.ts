@@ -125,6 +125,14 @@ export async function GET(_request: NextRequest, context: RouteContext) {
         if (!best || iteration > (best.iteration ?? 0)) best = { iteration, file: name };
       }
     }
+    // engine-native orientation jobs (symexpand / rebalance) write their own
+    // single particles star — feed the SAME polar/Mollweide views from it.
+    if (!best) {
+      const native = files.find(
+        (n) => /^particles_(symexpand|rebalance)\.star$/i.test(n) || /^particles\.star$/i.test(n)
+      );
+      if (native) best = { iteration: null, file: native };
+    }
     if (!best) {
       return NextResponse.json(empty);
     }

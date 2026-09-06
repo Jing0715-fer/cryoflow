@@ -97,6 +97,7 @@ export const JOB_CATEGORIES: JobCategory[] = [
   { key: "class2d", label: "2D Classification", hint: "Multi-reference averaging" },
   { key: "class3d", label: "3D Classification", hint: "Initial models & sorting" },
   { key: "refine", label: "3D Refinement", hint: "Auto-refine · multibody" },
+  { key: "orientation", label: "Orientation", hint: "Symmetry expansion · rebalancing" },
   { key: "postprocess", label: "3D Postprocess", hint: "Masks · sharpening · local res" },
   { key: "polish", label: "Polish & CTF", hint: "Per-particle refinements" },
   { key: "tomo", label: "Tomography", hint: "Tilt series · subtomograms" },
@@ -681,6 +682,80 @@ export const JOB_TYPES: JobTypeSpec[] = [
         outp("bodies", "Body volumes (.mrc)", "volume"),
         outp("particles", L.optParticlesOut, "particles"),
       ],
+    }
+  ),
+
+  /* ---------------- Orientation: symmetry expansion & rebalancing --- */
+  spec(
+    "symexpand",
+    "Symmetry Expansion",
+    "Orbit",
+    "cyan",
+    "Expand particles across a point group's asymmetric units — every row is replicated |G|× with composed Euler angles (icosahedral subsets included). Ports the Jing0715-fer/icosahedral-symmetry-expander algorithm; a superset of relion_particle_symmetry_expand.",
+    2500,
+    [
+      sel("symmetryGroup", "Point group", "I", [
+        "I", "O", "T", "C2", "C3", "C4", "C5", "C6", "D1", "D2", "D3", "D4", "D5", "D6",
+      ], {
+        tab: "Symmetry",
+        hint: "I = icosahedral (60 asymmetric units) · O = octahedral (24) · T = tetrahedral (12) · Cn/Dn cyclic & dihedral",
+      }),
+      sel("icoSubset", "Icosahedral subset (I only)", "full", ["full", "vertex", "face", "edge", "non_edge", "hemisphere"], {
+        tab: "Symmetry",
+        hint: "vertex 12 · face 20 · edge 30 · non_edge 42 · hemisphere 30 · full 60 rotations — subsets only apply to group I",
+      }),
+      bool("deduplicate", "Deduplicate rotations", true, {
+        tab: "Symmetry",
+        advanced: true,
+        hint: "collapse numerically-identical group elements (matters for degenerate Cn/Dn specs)",
+      }),
+    ],
+    "{n} particles expanded",
+    "core",
+    {
+      category: "orientation",
+      tabs: ["Symmetry"],
+      inputs: [inp("particles", L.particlesIn, ["particles"])],
+      outputs: [outp("particles", "Symmetry-expanded particles STAR", "particles")],
+    }
+  ),
+  spec(
+    "rebalance",
+    "Orientation Rebalancer",
+    "Scale",
+    "cyan",
+    "Balance the viewing-direction distribution of a particle stack: Fibonacci-sphere binning, 3DFSC-style resolution estimates and per-bin percentile trimming (loglik/maxprob/ncc/random exclusion). Ports the Jing0715-fer/Orient-Rebalancer algorithm.",
+    2000,
+    [
+      num("numBins", "Orientation bins (Fibonacci sphere)", 200, {
+        min: 20, max: 1000, step: 10, tab: "Binning",
+        hint: "equal-area bins over the viewing sphere — more bins = finer anisotropy resolution",
+      }),
+      num("percentile", "Trim threshold percentile", 90, {
+        unit: "%", min: 5, max: 100, step: 5, tab: "Trimming",
+        hint: "per-bin keep-count = this percentile of non-empty bin counts (over-populated bins are trimmed down to it)",
+      }),
+      sel("exclusionCriterion", "Exclusion criterion", "loglik", ["loglik", "maxprob", "ncc", "random"], {
+        tab: "Trimming",
+        hint: "which per-particle score decides who leaves an over-populated bin: _rlnLogLikeliContribution, _rlnMaxValueProbDistribution, _rlnNormCorrection or seeded random (fallback when columns are absent)",
+      }),
+      sel("mode", "Threshold mode", "standard", ["standard", "resolution"], {
+        tab: "Trimming",
+        hint: "resolution mode scales per-bin thresholds by the 3DFSC estimate — bins BETTER than the median lose more, flattening the resolution field",
+      }),
+      num("resolutionWeight", "Resolution weight α", 1, {
+        step: 0.1, min: 0, max: 5, tab: "Trimming", advanced: true,
+        hint: "threshold_i = base × (res_i / medianRes)^α (resolution mode only)",
+      }),
+      num("seed", "Random seed", 1, { min: 0, step: 1, tab: "Trimming", advanced: true, hint: "reproducible random exclusion" }),
+    ],
+    "{n} particles rebalanced",
+    "core",
+    {
+      category: "orientation",
+      tabs: ["Binning", "Trimming"],
+      inputs: [inp("particles", "Oriented particles STAR (rot/tilt angles)", ["particles"])],
+      outputs: [outp("particles", "Rebalanced particles STAR", "particles")],
     }
   ),
 

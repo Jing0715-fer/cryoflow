@@ -32,6 +32,8 @@ import {
   Merge,
   Move3d,
   Network,
+  Orbit,
+  Scale,
   Scissors,
   Search,
   Sparkles,
@@ -103,6 +105,12 @@ export function TypeIcon({
       return <EyeOff className={className} aria-hidden="true" />;
     case "Terminal":
       return <Terminal className={className} aria-hidden="true" />;
+    case "Orbit":
+      // symmetry expansion — orbits of the point group
+      return <Orbit className={className} aria-hidden="true" />;
+    case "Scale":
+      // orientation rebalancer — balanced viewing directions
+      return <Scale className={className} aria-hidden="true" />;
     case "Brush":
       return <Brush className={className} aria-hidden="true" />;
     case "DynaMight":

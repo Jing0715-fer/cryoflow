@@ -47,6 +47,22 @@ import {
   wrapWslCommand,
   type WslBridge,
 } from "./wsl-bridge";
+import {
+  applySymmetryToEuler,
+  deduplicateRotations,
+  describeRotations,
+  eulerToDirection,
+  generatePointGroup,
+  type Mat3,
+  type PointGroupSpec,
+} from "@/lib/symmetry";
+import {
+  runRebalanceCore,
+  type ExclusionCriterion,
+  type RebalanceParams,
+  type RebalanceReport,
+  type RebParticle,
+} from "./rebalance-core";
 
 /* ------------------------------------------------------------------ */
 /* Paths & constants                                                    */
@@ -669,7 +685,7 @@ const INPUTS: Record<string, InputReq[]> = {
     { key: "coords_dir", accepts: ["coords_dir", "coords_star"], from: ["manualpick", "autopick"], label: "particle coordinates (run ManualPick/AutoPick first)" },
   ],
   select: [
-    { key: "particles_star", accepts: ["particles_star"], from: ["extract", "class2d", "select", "select2d", "joinstar"], label: "particles.star (run Extract first)" },
+    { key: "particles_star", accepts: ["particles_star"], from: ["extract", "class2d", "select", "select2d", "joinstar", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
   ],
   select2d: [
     { key: "particles_star", accepts: ["particles_star"], from: ["class2d", "select2d"], label: "classified particles STAR with _rlnClassNumber (run 2D Classification first)" },
@@ -678,13 +694,13 @@ const INPUTS: Record<string, InputReq[]> = {
     { key: "classes_mrc", accepts: ["classes_mrc"], from: ["class2d"], label: "2D class averages (gallery)", optional: true },
   ],
   class2d: [
-    { key: "particles_star", accepts: ["particles_star"], from: ["extract", "select", "select2d", "class2d", "joinstar"], label: "particles.star (run Extract first)" },
+    { key: "particles_star", accepts: ["particles_star"], from: ["extract", "select", "select2d", "class2d", "joinstar", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
   ],
   initialmodel: [
-    { key: "particles_star", accepts: ["particles_star"], from: ["extract", "select", "select2d", "class2d", "joinstar"], label: "particles.star (run Extract first)" },
+    { key: "particles_star", accepts: ["particles_star"], from: ["extract", "select", "select2d", "class2d", "joinstar", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
   ],
   class3d: [
-    { key: "particles_star", accepts: ["particles_star"], from: ["extract", "select", "select2d", "class2d", "initialmodel"], label: "particles.star (run Extract first)" },
+    { key: "particles_star", accepts: ["particles_star"], from: ["extract", "select", "select2d", "class2d", "initialmodel", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
     // the reference MUST be a 3D map: initialmodel's VDAM model or class3d's
     // own 3D class volumes. class2d is deliberately absent — its classes are
     // 2D averages, and seeding a 3D refinement with them silently produced
@@ -693,13 +709,19 @@ const INPUTS: Record<string, InputReq[]> = {
     { key: "model_mrc", accepts: ["model_mrc", "classes_mrc"], from: ["initialmodel", "class3d"], label: "reference map (run InitialModel first)" },
   ],
   refine3d: [
-    { key: "particles_star", accepts: ["particles_star"], from: ["extract", "select", "select2d", "class2d", "joinstar", "initialmodel"], label: "particles.star (run Extract first)" },
+    { key: "particles_star", accepts: ["particles_star"], from: ["extract", "select", "select2d", "class2d", "joinstar", "initialmodel", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
     // 3D reference only — never class2d's 2D averages (see class3d note)
     { key: "model_mrc", accepts: ["model_mrc", "classes_mrc"], from: ["initialmodel", "class3d"], label: "reference map (run InitialModel first)" },
   ],
   multibody: [
-    { key: "particles_star", accepts: ["particles_star"], from: ["extract", "select", "select2d", "class2d"], label: "particles.star (run Extract first)" },
+    { key: "particles_star", accepts: ["particles_star"], from: ["extract", "select", "select2d", "class2d", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
     { key: "optimiser_star", accepts: ["optimiser_star"], from: ["refine3d", "class3d"], label: "optimiser.star (run Refine3D first)" },
+  ],
+  symexpand: [
+    { key: "particles_star", accepts: ["particles_star", "refine_data_star"], from: ["extract", "select", "select2d", "class2d", "initialmodel", "class3d", "refine3d", "joinstar", "symexpand", "rebalance"], label: "particles.star with Euler angles (run Extract/Refine first)" },
+  ],
+  rebalance: [
+    { key: "particles_star", accepts: ["particles_star", "refine_data_star"], from: ["extract", "select", "select2d", "class2d", "initialmodel", "class3d", "refine3d", "joinstar", "symexpand", "rebalance"], label: "oriented particles STAR with _rlnAngleRot/Tilt (refine/classify output)" },
   ],
   maskcreate: [
     { key: "map_mrc", accepts: ["half1_mrc", "model_mrc", "map_mrc"], from: ["refine3d", "initialmodel", "class3d", "postprocess", "localres"], label: "3D map (run Refine3D first)" },
@@ -714,16 +736,16 @@ const INPUTS: Record<string, InputReq[]> = {
     { key: "mask_mrc", accepts: ["mask_mrc"], from: ["maskcreate"], label: "solvent mask (run MaskCreate first)" },
   ],
   polish: [
-    { key: "particles_star", accepts: ["particles_star"], from: ["extract", "refine3d", "class2d"], label: "particles.star (run Extract first)" },
+    { key: "particles_star", accepts: ["particles_star", "refine_data_star"], from: ["extract", "refine3d", "class2d", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
     { key: "postprocess_star", accepts: ["postprocess_star"], from: ["postprocess"], label: "postprocess.star (run PostProcess first)" },
     { key: "micrographs_star", accepts: ["micrographs_star", "corrected_micrographs_star"], from: ["motioncorr", "import"], label: "corrected micrographs.star (run MotionCorr first)" },
   ],
   ctfrefine: [
-    { key: "particles_star", accepts: ["particles_star"], from: ["extract", "refine3d", "class2d"], label: "particles.star (run Extract first)" },
+    { key: "particles_star", accepts: ["particles_star", "refine_data_star"], from: ["extract", "refine3d", "class2d", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
     { key: "postprocess_star", accepts: ["postprocess_star"], from: ["postprocess"], label: "postprocess.star (run PostProcess first)" },
   ],
   dynamight: [
-    { key: "particles_star", accepts: ["particles_star"], from: ["extract", "refine3d", "class2d"], label: "particles.star (run Extract first)" },
+    { key: "particles_star", accepts: ["particles_star", "refine_data_star"], from: ["extract", "refine3d", "class2d", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
     { key: "model_mrc", accepts: ["model_mrc", "map_mrc"], from: ["refine3d", "postprocess"], label: "consensus map (run Refine3D first)" },
   ],
   modelangelo: [
@@ -872,6 +894,8 @@ export const COMMAND_TEMPLATES: Record<string, string> = {
   class3d: "mpirun -n 2 relion_refine --i <particles.star> --ref <ref.mrc> --o <outdir>/run --K <K> --tau2_fudge 4 --particle_diameter <dia> --sym <sym> --ctf --pad 2 --iter <it> --flatten_solvent",
   refine3d: "mpirun -n 3 relion_refine --i <particles.star> --ref <ref.mrc> --o <outdir>/run --sym <sym> --particle_diameter <dia> --ctf --pad <pad> --firstiter_cc --ini_high <iniHigh> --trust_ref_size --split_random_halves [--auto_refine | --iter <it> --tau2_fudge 1]",
   multibody: "mpirun -n 2 relion_refine --continue <optimiser.star> --o <outdir>/run --solvent_correct_fsc --multibody_masks <bodies.star> --oversampling 1",
+  symexpand: "engine-native: point-group expansion — every particle row replicated |G|× with composed ZYZ Euler angles → particles_symexpand.star (icosahedral-symmetry-expander algorithm)",
+  rebalance: "engine-native: orientation balancing — fib-sphere binning + 3DFSC estimates + per-bin percentile trimming (Orient-Rebalancer core) → particles_rebalance.star + rebalance_report.json",
   maskcreate: "relion_mask_create --i <half1.mrc> --o <outdir>/mask.mrc --lowpass <lp> --angpix <pix> --ini_threshold <thr> --extend_inimask <ext> --width_soft_edge <soft> --j 4",
   joinstar: "relion_star_handler --combine --i <parts1.star parts2.star ...> --check_duplicates rlnImageName --o <outdir>/join_particles.star",
   subtract: "relion_particle_subtract --i <optimiser.star> --mask <mask.mrc> --data <particles.star> --o <outdir>/ [--recenter_on_mask] [--float16] [--new_box <box>]",
@@ -1573,6 +1597,283 @@ async function runSelect2dNative(job: EngineJobRef, upstream: UpstreamRef[]): Pr
     job,
     workdir,
     "engine-native: 2D class selection (gallery / occupancy)",
+    { particles_star: outStar },
+    result,
+    logText
+  );
+  return { ok: true, result };
+}
+
+/** Symmetry Expansion: replicate every particle row |G|× with composed ZYZ
+ *  Euler angles (R_final = R_sym · R_orig — the icosahedral-symmetry-expander
+ *  convention). Engine-native: pure STAR transform, no RELION binary needed. */
+async function runSymexpandNative(job: EngineJobRef, upstream: UpstreamRef[]): Promise<NativeResult> {
+  const resolved = resolveInputs("symexpand", upstream);
+  if (resolved.missing) return { ok: false, error: resolved.missing, wait: resolved.wait };
+  const inStar = resolved.inputs.particles_star;
+
+  const workdir = workdirFor(job);
+  mkdirSync(workdir, { recursive: true });
+  const outStar = path.join(workdir, "particles_symexpand.star");
+
+  // ---- group generation -----------------------------------------------
+  const group = str(job, "symmetryGroup", "I").trim().toUpperCase();
+  const icoSubset = str(job, "icoSubset", "full").trim().toLowerCase();
+  const doDedupe = flag(job, "deduplicate");
+  let groupResult: { matrices: Mat3[]; count: number; description: string };
+  try {
+    groupResult = generatePointGroup({ group, icoSubset } as PointGroupSpec);
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : `unknown point group "${group}"` };
+  }
+  let matrices = groupResult.matrices;
+  if (doDedupe) matrices = deduplicateRotations(matrices);
+  if (matrices.length <= 1) {
+    return {
+      ok: false,
+      error: `group ${group} expands to a single identity rotation — pick a non-trivial group (I, O, T, Cn≥2, Dn)`,
+    };
+  }
+
+  // ---- STAR transform ---------------------------------------------------
+  const text = readFileSync(inStar, "utf8");
+  const blocks = parseStarBlocks(text);
+  const outLines: string[] = [];
+  let total = 0;
+  let expanded = 0;
+
+  for (const block of blocks) {
+    outLines.push(block.header, "");
+    const lines = block.lines;
+    const isParticles = lines.some((l) => l.trim().startsWith("_rlnImageName"));
+    if (!isParticles) {
+      for (const l of lines) outLines.push(l);
+      outLines.push("");
+      continue;
+    }
+    let i = 0;
+    while (
+      i < lines.length &&
+      (lines[i].trim() === "" ||
+        lines[i].trim() === "loop_" ||
+        lines[i].trim().startsWith("_rln") ||
+        lines[i].trim().startsWith("#"))
+    ) {
+      if (lines[i].trim() !== "") outLines.push(lines[i]);
+      i++;
+    }
+
+    const rotCol = labelColumn(lines, i, "_rlnAngleRot");
+    const tiltCol = labelColumn(lines, i, "_rlnAngleTilt");
+    const psiCol = labelColumn(lines, i, "_rlnAnglePsi");
+    if (rotCol < 0 || tiltCol < 0) {
+      return {
+        ok: false,
+        error: `input STAR has no _rlnAngleRot/_rlnAngleTilt columns (${inStar}) — symmetry expansion needs ORIENTED particles: wire a 3D classify/refine data star (or a previously expanded stack)`,
+      };
+    }
+
+    for (let r = i; r < lines.length; r++) {
+      const t = lines[r].trim();
+      if (!t) continue;
+      const parts = t.split(/\s+/);
+      if (parts.length <= Math.max(rotCol, tiltCol)) continue;
+      const rot = parseFloat(parts[rotCol]);
+      const tilt = parseFloat(parts[tiltCol]);
+      if (!Number.isFinite(rot) || !Number.isFinite(tilt)) continue;
+      const psi = psiCol >= 0 && psiCol < parts.length ? parseFloat(parts[psiCol]) : 0;
+      total++;
+      // |G| copies: the identity element preserves the row, the others rotate
+      for (const m of matrices) {
+        const e = applySymmetryToEuler(m, rot, tilt, Number.isFinite(psi) ? psi : 0);
+        const row = [...parts];
+        row[rotCol] = e.rot.toFixed(6);
+        row[tiltCol] = e.tilt.toFixed(6);
+        if (psiCol >= 0 && psiCol < row.length) row[psiCol] = e.psi.toFixed(6);
+        outLines.push(row.join(" "));
+        expanded++;
+      }
+    }
+    outLines.push("");
+  }
+
+  if (total === 0) {
+    return { ok: false, error: `no particle rows found in ${inStar}` };
+  }
+
+  writeFileSync(outStar, outLines.join("\n") + "\n");
+  const factor = matrices.length;
+  const result = `${total.toLocaleString()} × ${factor} = ${expanded.toLocaleString()} particles (${group}${group === "I" ? `/${icoSubset}` : ""})`;
+  const logText = [
+    `CryoFlow engine-native symexpand ${new Date().toISOString()}`,
+    `input:  ${inStar} (${total} particles)`,
+    `group:  ${groupResult.description}${doDedupe ? " (deduplicated)" : ""}`,
+    ...describeRotations(matrices).slice(0, 12).map(
+      (d) =>
+        `  axis [${d.axis.map((v) => v.toFixed(3)).join(", ")}] ${d.angleDeg.toFixed(1)}° order ${d.order}`
+    ),
+    factor > 12 ? `  … ${factor - 12} more rotations` : "",
+    `output: ${outStar} (${expanded} particles)`,
+    result,
+    "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+  recordNativeRun(
+    job,
+    workdir,
+    "engine-native: point-group symmetry expansion (icosahedral-symmetry-expander)",
+    { particles_star: outStar },
+    result,
+    logText
+  );
+  return { ok: true, result };
+}
+
+/** Orientation Rebalancer: fib-sphere binning + per-bin percentile trimming
+ *  (Orient-Rebalancer core). Writes the kept subset AND a full stats report
+ *  (rebalance_report.json) consumed by the inspector's report panel. */
+async function runRebalanceNative(job: EngineJobRef, upstream: UpstreamRef[]): Promise<NativeResult> {
+  const resolved = resolveInputs("rebalance", upstream);
+  if (resolved.missing) return { ok: false, error: resolved.missing, wait: resolved.wait };
+  const inStar = resolved.inputs.particles_star;
+
+  const workdir = workdirFor(job);
+  mkdirSync(workdir, { recursive: true });
+  const outStar = path.join(workdir, "particles_rebalance.star");
+  const reportFile = path.join(workdir, "rebalance_report.json");
+
+  // ---- params -------------------------------------------------------------
+  const criterionRaw = str(job, "exclusionCriterion", "loglik").trim().toLowerCase();
+  const params: RebalanceParams = {
+    numBins: Math.max(20, Math.round(num(job, "numBins", 200))),
+    percentile: Math.min(100, Math.max(5, num(job, "percentile", 90))),
+    exclusionCriterion: (["loglik", "maxprob", "ncc", "random"] as const).includes(
+      criterionRaw as ExclusionCriterion
+    )
+      ? (criterionRaw as ExclusionCriterion)
+      : "loglik",
+    mode: str(job, "mode", "standard").trim().toLowerCase() === "resolution" ? "resolution" : "standard",
+    resolutionWeight: num(job, "resolutionWeight", 1),
+    seed: Math.max(0, Math.round(num(job, "seed", 1))),
+  };
+
+  // ---- STAR → particles ---------------------------------------------------
+  const text = readFileSync(inStar, "utf8");
+  const blocks = parseStarBlocks(text);
+  const outLines: string[] = [];
+
+  // score column per criterion: RELION columns where HIGHER = better particle
+  // → the core removes the highest score first, so orient as score = -value.
+  const SCORE_LABELS: Record<ExclusionCriterion, string> = {
+    loglik: "_rlnLogLikeliContribution",
+    maxprob: "_rlnMaxValueProbDistribution",
+    ncc: "_rlnNormCorrection",
+    random: "",
+  };
+
+  let particles: RebParticle[] = [];
+  let rows: string[][] = [];
+  let total = 0;
+  let scoreFallback = false;
+
+  for (const block of blocks) {
+    outLines.push(block.header, "");
+    const lines = block.lines;
+    const isParticles = lines.some((l) => l.trim().startsWith("_rlnImageName"));
+    if (!isParticles) {
+      for (const l of lines) outLines.push(l);
+      outLines.push("");
+      continue;
+    }
+    let i = 0;
+    while (
+      i < lines.length &&
+      (lines[i].trim() === "" ||
+        lines[i].trim() === "loop_" ||
+        lines[i].trim().startsWith("_rln") ||
+        lines[i].trim().startsWith("#"))
+    ) {
+      if (lines[i].trim() !== "") outLines.push(lines[i]);
+      i++;
+    }
+
+    const rotCol = labelColumn(lines, i, "_rlnAngleRot");
+    const tiltCol = labelColumn(lines, i, "_rlnAngleTilt");
+    if (rotCol < 0 || tiltCol < 0) {
+      return {
+        ok: false,
+        error: `input STAR has no _rlnAngleRot/_rlnAngleTilt columns (${inStar}) — rebalancing needs ORIENTED particles: wire a 3D classify/refine data star`,
+      };
+    }
+    const scoreLabel = SCORE_LABELS[params.exclusionCriterion];
+    const scoreCol = scoreLabel ? labelColumn(lines, i, scoreLabel) : -1;
+    if (params.exclusionCriterion !== "random" && scoreCol < 0) {
+      scoreFallback = true; // honest degrade: seeded random keeps the run usable
+    }
+
+    particles = [];
+    rows = [];
+    total = 0;
+    for (let r = i; r < lines.length; r++) {
+      const t = lines[r].trim();
+      if (!t) continue;
+      const parts = t.split(/\s+/);
+      if (parts.length <= Math.max(rotCol, tiltCol)) continue;
+      const rot = parseFloat(parts[rotCol]);
+      const tilt = parseFloat(parts[tiltCol]);
+      if (!Number.isFinite(rot) || !Number.isFinite(tilt)) continue;
+      let score = 0;
+      if (scoreCol >= 0 && scoreCol < parts.length) {
+        const v = parseFloat(parts[scoreCol]);
+        if (Number.isFinite(v)) score = -v; // oriented: HIGHER = removed first
+      }
+      const v = eulerToDirection(rot, tilt);
+      particles.push({ index: total, rot, tilt, score, vx: v[0], vy: v[1], vz: v[2], binIndex: 0, included: true });
+      rows.push(parts);
+      total++;
+    }
+    break; // first particles block is the stack (RELION single-block in practice)
+  }
+
+  if (total === 0) {
+    return { ok: false, error: `no particle rows found in ${inStar}` };
+  }
+
+  // ---- core algorithm --------------------------------------------------------
+  const report: RebalanceReport = runRebalanceCore(particles, params);
+  const keptSet = new Set(report.keptIndices);
+  for (const idx of keptSet) outLines.push(rows[idx].join(" "));
+  outLines.push("");
+
+  writeFileSync(outStar, outLines.join("\n") + "\n");
+  writeFileSync(reportFile, JSON.stringify(report, null, 2));
+
+  const s = report.stats;
+  const crit = scoreFallback
+    ? `random (fallback — ${SCORE_LABELS[params.exclusionCriterion]} column absent)`
+    : report.criterion;
+  const result =
+    `${s.totalAfter.toLocaleString()} of ${s.totalBefore.toLocaleString()} particles kept · ` +
+    `anisotropy ${s.anisotropyBefore.toFixed(2)}→${s.anisotropyAfter.toFixed(2)} · ` +
+    `uniformity ${s.countUniformityBefore.toFixed(2)}→${s.countUniformityAfter.toFixed(2)}`;
+  const logText = [
+    `CryoFlow engine-native rebalance (Orient-Rebalancer core) ${new Date().toISOString()}`,
+    `input:  ${inStar} (${s.totalBefore} particles)`,
+    `params: bins=${params.numBins} percentile=${params.percentile}% criterion=${crit} mode=${params.mode}${params.mode === "resolution" ? ` α=${params.resolutionWeight}` : ""} seed=${params.seed}`,
+    `bins:   ${s.effectiveBins} non-empty · ${s.binsTrimmed} trimmed · removed ${s.removed} (${s.removedPercent.toFixed(1)}%)`,
+    `3DFSC estimate: mean ${s.meanResolutionBefore.toFixed(2)}→${s.meanResolutionAfter.toFixed(2)} Å · median ${s.medianResolutionBefore.toFixed(2)}→${s.medianResolutionAfter.toFixed(2)} Å · anisotropy ${s.anisotropyBefore.toFixed(2)}→${s.anisotropyAfter.toFixed(2)}`,
+    `count uniformity: ${s.countUniformityBefore.toFixed(3)}→${s.countUniformityAfter.toFixed(3)} · resolution CV ${s.resolutionCVBefore.toFixed(3)}→${s.resolutionCVAfter.toFixed(3)}`,
+    `output: ${outStar} (${s.totalAfter} particles)`,
+    `report: ${reportFile}`,
+    `note: the 3DFSC here is a distribution-based estimate, not a true two-half-map directional FSC`,
+    result,
+    "",
+  ].join("\n");
+  recordNativeRun(
+    job,
+    workdir,
+    "engine-native: orientation rebalancing (Orient-Rebalancer core)",
     { particles_star: outStar },
     result,
     logText
@@ -2907,6 +3208,18 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
   }
   if (job.type === "select2d") {
     const r = await runSelect2dNative(job, upstream);
+    return r.ok
+      ? { ok: true, native: true, result: r.result }
+      : { ok: false, error: r.error, ...(r.wait ? { waiting: r.wait } : {}) };
+  }
+  if (job.type === "symexpand") {
+    const r = await runSymexpandNative(job, upstream);
+    return r.ok
+      ? { ok: true, native: true, result: r.result }
+      : { ok: false, error: r.error, ...(r.wait ? { waiting: r.wait } : {}) };
+  }
+  if (job.type === "rebalance") {
+    const r = await runRebalanceNative(job, upstream);
     return r.ok
       ? { ok: true, native: true, result: r.result }
       : { ok: false, error: r.error, ...(r.wait ? { waiting: r.wait } : {}) };
