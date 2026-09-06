@@ -1256,3 +1256,29 @@ Stage Summary:
 - ①Mol* 加载体验三重修复：3D 意图预热（编译移出打开路径）+ 四阶段进度 + fetch 重试；用户本机"永远 Loading"的静默期变成有解释的进度（且首次后缓存秒开）
 - Mol* 渲染链本会话验证完好（负密度自动检测+手动翻转在 EMPIAR VDAM map 上工作正常）
 - 遗留：refine3d 后台继续（iteration 8+，~9.6min/iter，auto-refine 预计还需 1-3h）；完成后 cron 接力重跑 maskcreate/postprocess 记录 FSC
+
+---
+Task ID: 11
+Agent: main (Z.ai Code)
+Task: 用户两诉求——①核对本地/远程仓库同步状态 ②修复 Job failed exit 1（OMPI 拒绝 root 跑 mpirun）
+
+Work Log:
+- 【①git 核对】git fetch + ls-remote + merge-base 三重验证：本地纯领先 1 commit、无分叉、无落后。本地多的 commit 12d022c 是上一轮 cron 代理提交的 cryoSPARC 角度分布 + icosahedral 对称 + Orient-Rebalancer 三大功能（2312 行）——**从未推送**，这就是用户本机 git pull 拉不到的原因（不是远程丢 commit）。发现该 commit 的 message 是 UUID 裸串 + 带两个 tsc 错误（RotationType 缺 no_c2、matrix 缺 deduplicateRotations 导出）——先修复再 rebase reword 成规范 message
+- 【②OMPI 根因】用户 run.err 原文完整可见（上轮 bash 块级重定向修复的直接收益）：OpenMPI 4+ 检测到 root 用户直接拒绝 mpirun，提示需 OMPI_ALLOW_RUN_AS_ROOT=1 + OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1。用户 WSL Debian 默认用户为 root → 所有 MPI 作业（class2d 等）启动即死 exit 1。**前几轮 Windows 修复全部生效**（bash 正常执行、exec 目标正斜杠、日志落盘）——这次是纯 OpenMPI 行为
+- 【②修复】wsl-bridge wrapWslCommand 的 bash exports 加 OMPI_ALLOW_RUN_AS_ROOT=1 + CONFIRM=1（覆盖所有桥接 MPI job；MPICH 忽略无副作用）；engine relionEnv() 同样加（防御原生 root Linux + OpenMPI 场景）。diag-wsl-bridge 新增 3 断言（变量存在 + 在 exec 之前）→ **57/57 ALL PASS**
+- 【意外收获 1·refine3d 其实收敛了】检查 workdir 发现 run_data.star/run_model.star/run_half1+2 存在——run.out 尾部明示 "Auto-refine: Refinement has converged"（iteration 14，9.44 Å 无掩膜）。detached mpirun 完成 6 小时前，但 exit handler 随旧 server 死亡 → reconcile 误报 interrupted
+- 【修复·ORPHAN_COMPLETABLE + refine3d】auto-refine 的 run_data.star 只在收敛时一次性写（mid-run 只有 run_itXXX_data.star）→ refine3d 加入 orphan-completable 集合，gate 用 refine_data_star 输出键。DB 手动翻回 running 后一次 GET /api/jobs 端到端验证：collectOutputs → completed "REAL: refined — FSC(0.143) = 9.44 Å" → postprocess 自动接力 → **"REAL: sharpened map · FSC(0.143) = 7.08 Å"**（历史基准 3.54Å 用的是 3476 粒子完整流程；本次 3438 粒子+沙箱 CPU+未做 CTF refine，7.08Å 合理）
+- 【意外收获 2·Turbopack 编译死锁】angdist/log 等 API 路由请求 60-90s 挂死且 dev.log 零痕迹（连 404 路径都挂，/classes 正常）。根因：pkill next-server 时孤儿 postcss.js worker（Turbopack CSS 编译进程）存活，新 server 的编译通道与它死锁 + .next 持久缓存损坏。处置：pkill 全家（含 postcss）→ rm -rf .next → double-fork 重启 → angdist/log 全部 200（1.8s 含首次编译）。**处置纪律升级：重启 dev server 必须连 postcss 一起杀 + 视情况清 .next**
+- 【angdist 语义修正】完成态 refine 优先读 run_data.star（最终角度分配）而非最高迭代 itXXX（旧循环让 it013 覆盖收敛后的 run_data.star）；running 态仍用最新迭代
+- 【挂载断链修复】CryoSparcAnglePanel（cryoSPARC Mollweide 视图）上轮已建成但**从未挂载到任何 UI**——补挂 job-inspector OverviewTab（与 AngularDistributionChart 并列，is3dType 且非 idle）
+- 【symmetry 数学修复·Dn 群】generateDihedral 垂直 C2 轴间隔 2π/n 是错的：180° 旋转下 axis 与 -axis 等价，偶数 n 每轴双计（D2 得 3 元素而非 4）。改 π/n 间隔后 D1-D6 阶数 + 闭包 + D2={E,Rz,Rx,Ry} 全 PASS（β-gal 正是 D2）
+- 【E2E·浏览器】/ 渲染 ✓、refine3d 卡片 completed 9.44Å ✓、Overview tab 双角度面板渲染（aria-label 断言）✓、VLM 视觉审查 Mollweide：椭圆投影 + teal→warm 对数色标点阵 + 180°/300° 标签 + 色标条 ✓、"apply D2" 点击 → orbit ×4 展开 ✓、console 0 error、lint 0 错误、tsc src/ 0 错误
+- 【推送】rebase reword 12d022c → 174a81f（feat: cryoSPARC orientation + symmetry expansion + rebalancer core），本轮修复 → 6e3db89，**已推送 4cfd890..6e3db89**
+- 【EMPIAR 终局】11 作业全绿：import→ctf→autopick(3438)→extract(3439)→select→class2d(10类)→initialmodel→refine3d(9.44Å)→maskcreate→postprocess(7.08Å)+select2d(idle 待用)
+
+Stage Summary:
+- 用户两诉求闭环：①本地未落后，纯领先 1 未推送 commit（已推送，pull 即得）②OMPI root 拒绝修复（桥接 bash exports + 原生 env 双路径）
+- EMPIAR-10017 全链收官：**FSC(0.143) = 7.08 Å**（refine 无掩膜 9.44Å，postprocess 掩膜+锐化后 7.08Å）
+- 第八个真实 bug 闭环（ORPHAN refine3d）+ 第九个（Dn 轴间隔）+ 第十个（CryoSparcAnglePanel 未挂载）
+- 用户本机操作：git pull → 重跑 class2d 等 MPI job → OpenMPI 应放行；若再失败 run.err 原文会直出根因
+- 未接线（下轮优先）：runRebalanceCore 完整算法（ExclusionCriterion 加权再平衡）与 symmetry expand 尚未成为 job 类型——目前只有 angdist 面板 + orbit 按钮用到了它们的子集
