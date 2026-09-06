@@ -901,7 +901,7 @@ export const COMMAND_TEMPLATES: Record<string, string> = {
   motioncorr: "relion_run_motioncorr --i <micrographs.star> --o <outdir>/ --use_motioncor2 --motioncor2_exe <mc2> --bin_factor <bf> --bfactor <bfac> --dose_per_frame <dose> --patch_x <px> --patch_y <py> --j <n>",
   ctffind: "relion_run_ctffind --i <micrographs.star> --o <outdir>/ --Box <box> --ResMin <rmin> --ResMax <rmax> --dFMin <dmin> --dFMax <dmax> --FStep 500 --dAst 0 --is_ctffind4 --fast_search [--ctffind_exe <ctffind>]",
   manualpick: "engine-native: import Henderson .coord picks → manualpick.star (_rlnCoordinateX/Y + _rlnMicrographName)",
-  autopick: "relion_autopick --i <micrographs.star> --odir <outdir>/ --pickname autopick [--LoG --LoG_diam_min <Å> --LoG_diam_max <Å> --LoG_adjust_threshold <t> | --ref <refs.mrc> --particle_diameter <dia> --threshold <thr> --lowpass <lp>]",
+  autopick: "relion_autopick --i <micrographs.star> --odir <outdir>/ --pickname autopick [--LoG --LoG_diam_min <Å> --LoG_diam_max <Å> --LoG_adjust_threshold <t> | --ref <refs.mrc> --particle_diameter <dia> --threshold <thr> --lowpass <lp> | --topaz_extract --fn_topaz_exe <topaz> --topaz_nr_particles <n> --topaz_threshold <t> --particle_diameter <Å>]",
   extract: "relion_preprocess --i <micrographs_ctf.star> --coord_list <coords.star> --part_star <outdir>/particles.star --part_dir <outdir>/ --extract --extract_size <box> [--scale <down>] --norm --bg_radius <bgr> --white_dust 3 --black_dust -3",
   select: "engine-native: particle selection — class-aware occupancy pruning when input has _rlnClassNumber, else first-N",
   select2d: "engine-native: 2D class selection — keep particles whose _rlnClassNumber is in the selected set (gallery picks or auto occupancy ≥ cutoff × best) → particles_select2d.star",
@@ -2194,11 +2194,15 @@ async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: string }> {
     }
 
     case "autopick": {
-      // Two picking methods (RELION 5 autopick): Laplacian-of-Gaussian is
+      // Three picking methods (RELION 5 autopick): Laplacian-of-Gaussian is
       // reference-free (blob detection by size — works straight after CTF,
       // no Class2D needed); "References" is classic template matching and
-      // requires 2D class averages. Default = LoG so a fresh pipeline
-      // (Import → CTF → AutoPick) runs end-to-end without references.
+      // requires 2D class averages; "Topaz" is the CNN wrapper (needs the
+      // topaz python module in RELION's conda env, ships a general model).
+      // Default = LoG so a fresh pipeline (Import → CTF → AutoPick) runs
+      // end-to-end without references. NOTE pickname stays "autopick" in
+      // every mode — Extract and the output discovery below key off the
+      // _autopick.star suffix convention.
       const method = str(job, "pickingMethod", "Laplacian of Gaussian");
       const argv = [
         binJoin(binDir, "relion_autopick"),
@@ -2207,7 +2211,8 @@ async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: string }> {
         "--pickname", "autopick",
       ];
       // explicit angpix: the import star carries rlnMicrographPixelSize, but
-      // LoG blob diameters are in Å — never let a default of 1 scale them.
+      // LoG blob diameters / Topaz radii are in Å — never let a default of 1
+      // scale them.
       const mpx = micAngpix(ctx.upstream);
       if (mpx) argv.push("--angpix", String(mpx));
       if (method === "References") {
@@ -2223,6 +2228,34 @@ async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: string }> {
           "--threshold", String(num(job, "threshold", 0.4)),
           "--lowpass", String(num(job, "lowpass", 20)),
         );
+      } else if (method === "Topaz") {
+        // relion_python_topaz is a conda-env python wrapper — it exists on
+        // disk in every RELION 5 install, but the `topaz` MODULE may be
+        // missing. A file-existence probe cannot catch that; if the module
+        // is absent the run fails honestly and rootCauseDetail surfaces the
+        // ModuleNotFoundError from run.err.
+        const topaz = await externalOnPath(binDir, ["relion_python_topaz", "topaz"], ctx.bridge);
+        if (!topaz) {
+          return {
+            error:
+              "Topaz executable not found — install topaz into RELION's python environment (pip install topaz-denoise), or switch Picking method to Laplacian of Gaussian",
+          };
+        }
+        argv.push(
+          "--topaz_extract",
+          "--fn_topaz_exe", topaz,
+          "--topaz_nr_particles", String(Math.round(num(job, "topazNrParticles", 200))),
+          "--topaz_threshold", String(num(job, "topazThreshold", -6)),
+          // particle diameter drives the extract radius (RELION converts
+          // Å → pix with the micrograph pixel size)
+          "--particle_diameter", String(num(job, "topazDiameter", 180)),
+        );
+        const downscale = num(job, "topazDownscale", -1);
+        if (downscale > 0) argv.push("--topaz_downscale", String(Math.round(downscale)));
+        const workers = Math.round(num(job, "topazWorkers", 1));
+        if (workers > 1) argv.push("--topaz_workers", String(workers));
+        const extra = str(job, "topazArgs", "").trim();
+        if (extra) argv.push("--topaz_args", extra);
       } else {
         argv.push(
           "--LoG",

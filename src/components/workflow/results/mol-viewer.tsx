@@ -100,7 +100,7 @@ export function MolViewer({ job, path, name, open, onOpenChange }: MolViewerProp
             </span>
           </DialogTitle>
           <DialogDescription className="text-xs">
-            Isosurface rendering of the MRC map — drag to rotate, scroll to zoom, adjust the contour below.
+            Isosurface rendering of the MRC map — drag to rotate, scroll to zoom, adjust the contour below, or toggle Slice to cut a cross-section through the box.
           </DialogDescription>
         </DialogHeader>
         <div className="min-h-0 w-full flex-1 px-6 pb-6">

@@ -16,7 +16,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { Loader2, Mountain, RotateCw, ZoomIn } from "lucide-react";
+import { Loader2, Mountain, RotateCw, ScanLine, ZoomIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
@@ -101,6 +101,8 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
   // mol* handles — refs so the control bar can act on a live plugin
   const pluginRef = useRef<MolPlugin>(null);
   const reprRef = useRef<any>(null);
+  const volRef = useRef<any>(null);
+  const sliceRef = useRef<any>(null);
   const VolumeReprRef = useRef<any>(null);
   const IsoValueRef = useRef<any>(null);
 
@@ -117,6 +119,8 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
       plugin = null;
       pluginRef.current = null;
       reprRef.current = null;
+      volRef.current = null;
+      sliceRef.current = null;
       if (containerRef.current) containerRef.current.innerHTML = "";
     };
 
@@ -206,6 +210,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
         });
         await b.commit();
         reprRef.current = repr;
+        volRef.current = vol;
         console.debug("[molstar] state committed");
 
         // surface the grid stats for the absolute-threshold readout
@@ -281,6 +286,10 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
     return () => {
       disposed = true;
       disposePlugin();
+      pluginRef.current = null;
+      reprRef.current = null;
+      volRef.current = null;
+      sliceRef.current = null;
     };
   }, [jobId, path, name]);
 
@@ -350,6 +359,180 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
       }
     })();
   };
+
+  /* ---------------- cross-section (volume slice) --------------------- */
+
+  // Cross-section: a second VolumeRepresentation3D node on the SAME volume
+  // data with the 'slice' type — a density-image plane through the box.
+  // The slice shares the contour σ (it tracks the main slider) so the image
+  // and the isosurface always agree on where "signal" starts.
+  type SliceAxis = "X" | "Y" | "Z";
+  const [sliceOn, setSliceOn] = useState(false);
+  const [sliceAxis, setSliceAxis] = useState<SliceAxis>("Z");
+  const [slicePos, setSlicePos] = useState(0.5);
+  const sliceStateRef = useRef({ on: false, axis: "Z" as SliceAxis, pos: 0.5, sigma: 2, sign: 1 as 1 | -1 });
+  const slicePending = useRef(false);
+
+  /** build/update the slice node from the latest intent snapshot.
+   *
+   * Two mol* 5.11 quirks verified live against this exact map (EMPIAR-10017
+   * postprocess_masked.mrc):
+   *  1. the `relativeX/Y/Z` dimension options are REJECTED by the state's
+   *     param normalization — the value silently reverts to the x/0 default
+   *     (the plane then sits at the box edge, looking like "nothing
+   *     happened"). Absolute grid indices (`{ name: 'z', params: 32 }`)
+   *     survive creation AND same-name numeric updates, so we convert the
+   *     fraction slider to a grid index ourselves.
+   *  2. a PD.Mapped NAME switch (axis change) needs a node RECREATE —
+   *     updates only flow within the same option name.
+   * Deletes target every cell labelled "Slice" (not a remembered builder
+   * ref) so a dev hot-refresh can never strand an orphan plane in the
+   * scene. */
+  const sliceAxisRef = useRef<SliceAxis | null>(null);
+  const commitSlice = async () => {
+    const plugin = pluginRef.current;
+    const VolumeRepresentation3D = VolumeReprRef.current;
+    const IsoValue = IsoValueRef.current;
+    if (!plugin || !VolumeRepresentation3D || !IsoValue) throw new Error("not ready");
+    const st = sliceStateRef.current;
+
+    // every live slice cell — "Slice" is the provider label mol* assigns
+    const sliceCells = (): any[] => {
+      const out: any[] = [];
+      for (const cell of plugin.state.data.cells.values()) {
+        if (cell?.obj?.label === "Slice") out.push(cell);
+      }
+      return out;
+    };
+
+    // grid dimensions come from the volume cell (needed for index math)
+    const gridDims = (): number[] | null => {
+      for (const cell of plugin.state.data.cells.values()) {
+        const dims = (cell?.obj?.data as any)?.grid?.cells?.space?.dimensions;
+        if (Array.isArray(dims) && dims.length === 3 && dims.every((d: number) => Number.isFinite(d) && d > 1)) {
+          return dims as number[];
+        }
+      }
+      return null;
+    };
+
+    const setMainAlpha = async (alpha: number) => {
+      if (!reprRef.current) return;
+      await plugin
+        .build()
+        .to(reprRef.current)
+        .update(VolumeRepresentation3D, (old: any) => ({
+          ...old,
+          type: {
+            ...old.type,
+            params: { ...old.type?.params, alpha },
+          },
+        }))
+        .commit();
+    };
+
+    const deleteAllSlices = async () => {
+      const cells = sliceCells();
+      if (cells.length === 0) return;
+      const b = plugin.build();
+      for (const c of cells) b.delete(c.transform.ref);
+      await b.commit();
+      sliceRef.current = null;
+      sliceAxisRef.current = null;
+    };
+
+    if (!st.on) {
+      await deleteAllSlices();
+      await setMainAlpha(1); // restore the opaque isosurface
+      return;
+    }
+
+    const dims = gridDims();
+    if (!dims) throw new Error("volume dims unavailable");
+    const axisIdx = st.axis === "X" ? 0 : st.axis === "Y" ? 1 : 2;
+    const dimName = ["x", "y", "z"][axisIdx];
+    const gridIndex = Math.min(dims[axisIdx] - 1, Math.max(0, Math.round(st.pos * (dims[axisIdx] - 1))));
+
+    if (sliceAxisRef.current !== st.axis) {
+      await deleteAllSlices(); // name switch ⇒ recreate
+    }
+
+    const typeParams = (old: any) => ({
+      ...old?.type?.params,
+      dimension: { name: dimName, params: gridIndex },
+      isoValue: IsoValue.relative(st.sign * st.sigma),
+      alpha: 1,
+    });
+
+    if (!sliceRef.current) {
+      // create WITH the requested axis + position in the initial params
+      const b = plugin.build();
+      const slice = b
+        .to(volRef.current)
+        .apply(VolumeRepresentation3D, {
+          type: { name: "slice", params: typeParams(undefined) },
+          colorTheme: { name: "uniform", params: {} },
+          sizeTheme: { name: "uniform", params: {} },
+        });
+      await b.commit();
+      sliceRef.current = slice;
+      sliceAxisRef.current = st.axis;
+    } else {
+      // same-axis update — numeric position/threshold only (supported)
+      await plugin
+        .build()
+        .to(sliceRef.current)
+        .update(VolumeRepresentation3D, (old: any) => ({
+          ...old,
+          type: { ...old.type, params: typeParams(old) },
+        }))
+        .commit();
+    }
+    // let the isosurface recede behind the slice plane so both read at once
+    await setMainAlpha(0.4);
+  };
+
+  const pumpSlice = async () => {
+    if (phase !== "ready") return;
+    if (slicePending.current) return; // in-flight commit re-checks the snapshot
+    slicePending.current = true;
+    try {
+      for (;;) {
+        const seen = { ...sliceStateRef.current };
+        await commitSlice();
+        const now = sliceStateRef.current;
+        if (
+          now.on === seen.on && now.axis === seen.axis &&
+          now.pos === seen.pos && now.sigma === seen.sigma && now.sign === seen.sign
+        ) break; // nothing newer arrived while committing
+      }
+    } catch (err) {
+      console.debug("[molstar] slice update skipped", err);
+    } finally {
+      slicePending.current = false;
+    }
+  };
+
+  const applySliceIntent = (patch: Partial<{ on: boolean; axis: SliceAxis; pos: number }>) => {
+    sliceStateRef.current = {
+      ...sliceStateRef.current,
+      ...patch,
+      sigma: sigmaRef.current,
+      sign: signRef.current,
+    };
+    if (patch.on !== undefined) setSliceOn(patch.on);
+    if (patch.axis !== undefined) setSliceAxis(patch.axis);
+    if (patch.pos !== undefined) setSlicePos(patch.pos);
+    void pumpSlice();
+  };
+
+  // σ / sign changes flow into the live slice too (it shares the threshold)
+  useEffect(() => {
+    if (!sliceStateRef.current.on) return;
+    sliceStateRef.current.sigma = sigma;
+    sliceStateRef.current.sign = sign;
+    void pumpSlice();
+  }, [sigma, sign]);
 
   const absolute = stats ? stats.mean + sign * stats.sigma * sigma : null;
 
@@ -425,6 +608,27 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                 >
                   −ρ / +ρ
                 </button>
+                {/* cross-section toggle — density-image plane through the box */}
+                <button
+                  type="button"
+                  onClick={() => applySliceIntent({ on: !sliceStateRef.current.on })}
+                  aria-pressed={sliceOn}
+                  aria-label="Toggle cross-section plane"
+                  title={
+                    sliceOn
+                      ? "Hide the cross-section plane"
+                      : "Show a cross-section — a density slice through the box (shares the contour level)"
+                  }
+                  className={
+                    "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors " +
+                    (sliceOn
+                      ? "bg-cyan-600 text-white"
+                      : "bg-muted text-muted-foreground hover:bg-cyan-600/15 hover:text-cyan-700 dark:hover:text-cyan-300")
+                  }
+                >
+                  <ScanLine className="h-3 w-3" aria-hidden="true" />
+                  Slice
+                </button>
               </div>
             </div>
             <Slider
@@ -436,12 +640,51 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
               aria-label="Isosurface contour level in sigma"
               className="mt-2.5"
             />
+            {/* cross-section row — axis pick + plane position (only when on) */}
+            {sliceOn && (
+              <div className="mt-2.5 flex items-center gap-2 rounded-lg border border-cyan-600/25 bg-cyan-600/5 px-2.5 py-2">
+                <ScanLine className="size-3.5 shrink-0 text-cyan-600" aria-hidden="true" />
+                <div className="flex items-center gap-0.5" role="group" aria-label="Cross-section axis">
+                  {(["X", "Y", "Z"] as SliceAxis[]).map((ax) => (
+                    <button
+                      key={ax}
+                      type="button"
+                      onClick={() => applySliceIntent({ axis: ax })}
+                      aria-pressed={sliceAxis === ax}
+                      title={`Slice perpendicular to the ${ax} axis`}
+                      className={
+                        "rounded px-1.5 py-0.5 font-mono text-[10px] font-bold transition-colors " +
+                        (sliceAxis === ax
+                          ? "bg-cyan-600 text-white"
+                          : "bg-muted text-muted-foreground hover:bg-cyan-600/15 hover:text-cyan-700 dark:hover:text-cyan-300")
+                      }
+                    >
+                      {ax}
+                    </button>
+                  ))}
+                </div>
+                <Slider
+                  value={[slicePos]}
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  onValueChange={(v) => applySliceIntent({ pos: v[0] ?? 0.5 })}
+                  aria-label="Cross-section plane position (fraction of the box)"
+                  className="flex-1"
+                />
+                <span className="w-9 shrink-0 text-right font-mono text-[10px] tabular-nums text-muted-foreground">
+                  {Math.round(slicePos * 100)}%
+                </span>
+              </div>
+            )}
             <div className="mt-1 flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
               <span className="font-mono">{SIGMA_MIN}σ</span>
               <span className="hidden truncate sm:inline">
                 {invertedNote
                   ? "inverted map detected — contouring the negative side"
-                  : "drag rotate · scroll zoom · right-drag pan"}
+                  : sliceOn
+                    ? "cross-section shares the contour level — drag the slider to sweep the box"
+                    : "drag rotate · scroll zoom · right-drag pan"}
               </span>
               <span className="font-mono">{SIGMA_MAX}σ</span>
             </div>

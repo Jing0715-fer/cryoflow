@@ -372,12 +372,12 @@ export const JOB_TYPES: JobTypeSpec[] = [
     "Automated Picking",
     "Search",
     "rose",
-    "Reference-free Laplacian-of-Gaussian picking (no templates needed), or template matching with 2D references.",
+    "Reference-free Laplacian-of-Gaussian picking, template matching with 2D references, or deep-learning picking with the Topaz wrapper.",
     7000,
     [
-      sel("pickingMethod", "Picking method", "Laplacian of Gaussian", ["Laplacian of Gaussian", "References"], {
+      sel("pickingMethod", "Picking method", "Laplacian of Gaussian", ["Laplacian of Gaussian", "References", "Topaz"], {
         tab: "autopicking",
-        hint: "Laplacian-of-Gaussian needs no references — pick straight after CTF. References mode needs Class2D averages.",
+        hint: "LoG needs no references — pick straight after CTF. References needs Class2D averages. Topaz is a CNN picker (needs the topaz python module in RELION's env).",
       }),
       num("logDiamMin", "LoG min particle diameter", 120, { unit: "Å", step: 5, tab: "Laplacian", hint: "smallest blob the DoG filter responds to" }),
       num("logDiamMax", "LoG max particle diameter", 180, { unit: "Å", step: 5, tab: "Laplacian", hint: "largest blob the DoG filter responds to" }),
@@ -389,6 +389,12 @@ export const JOB_TYPES: JobTypeSpec[] = [
       num("threshold", "Picking threshold (References mode)", 0.4, { step: 0.05, min: 0, max: 1, tab: "autopicking" }),
       num("minDistance", "Minimum inter-particle distance", 100, { unit: "Å", step: 10, min: 0, tab: "autopicking", advanced: true }),
       num("maxStddevNoise", "Maximum stddev of noise", 0, { step: 0.05, min: 0, tab: "autopicking", advanced: true }),
+      num("topazNrParticles", "Topaz: expected particles per micrograph", 200, { step: 10, min: 1, tab: "Topaz", hint: "steers the CNN's recall — the general model picks roughly this many per image" }),
+      num("topazThreshold", "Topaz: picking threshold", -6, { step: 0.5, tab: "Topaz", hint: "lower (more negative) picks more candidates" }),
+      num("topazDiameter", "Topaz: particle diameter", 180, { unit: "Å", step: 5, min: 0, tab: "Topaz", hint: "sets the extract radius together with the pixel size" }),
+      num("topazDownscale", "Topaz: downscale factor", -1, { step: 1, min: -1, tab: "Topaz", advanced: true, hint: "-1 = automatic (from particle size)" }),
+      num("topazWorkers", "Topaz: workers", 1, { step: 1, min: 1, tab: "Topaz", advanced: true }),
+      txt("topazArgs", "Topaz: extra arguments", "", { tab: "Topaz", advanced: true, hint: "raw extras passed to the topaz wrapper, e.g. --device cpu" }),
     ],
     "{n} particles picked",
     "cmd",

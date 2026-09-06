@@ -16,7 +16,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { Award, Crosshair, Waves } from "lucide-react";
+import { Award, Crosshair, Layers, Waves } from "lucide-react";
 import {
   CartesianGrid,
   Line,
@@ -34,6 +34,7 @@ const TEAL = "#14b8a6";
 const AMBER = "#f59e0b";
 const NOISE = "#71717a";
 const VIOLET = "#8b5cf6";
+const ROSE = "#f43f5e";
 
 interface FscShell {
   freq: number;
@@ -41,6 +42,8 @@ interface FscShell {
   fsc: number;
   correctedFsc?: number;
   phaseRandomizedFsc?: number;
+  /** raw masked-maps FSC before the phase-rand correction (postprocess only) */
+  maskedFsc?: number;
 }
 
 interface FscResponse {
@@ -65,6 +68,10 @@ export function FscChart({
   className?: string;
 }) {
   const [data, setData] = useState<FscResponse | null>(null);
+  // the raw masked-maps FSC (pre-correction) is an expert diagnostic — the
+  // gap between it and the corrected curve IS the mask-induced correlation
+  // boost. Hidden by default so the headline chart stays readable.
+  const [showMasked, setShowMasked] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -101,6 +108,7 @@ export function FscChart({
   if (shells.filter((s) => s.fsc > 0.05).length < 4) return null;
 
   const isPost = data.source === "postprocess";
+  const hasMasked = isPost && shells.some((s) => s.maskedFsc != null);
   const res143 = data.resolutionAt143;
   const res05 = data.resolutionAt05;
   const reported = data.reportedResolution;
@@ -155,6 +163,27 @@ export function FscChart({
             0.5 → {res05.toFixed(2)} Å
           </span>
         )}
+        {hasMasked && (
+          <button
+            type="button"
+            onClick={() => setShowMasked((v) => !v)}
+            aria-pressed={showMasked}
+            title={
+              showMasked
+                ? "Hide the raw masked-maps FSC (before phase-randomization correction)"
+                : "Show the raw masked-maps FSC — its gap to the corrected curve is the mask-induced correlation boost"
+            }
+            className={
+              "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold transition-colors " +
+              (showMasked
+                ? "border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-300"
+                : "border-muted-foreground/25 bg-muted text-muted-foreground hover:border-rose-500/40 hover:text-rose-700 dark:hover:text-rose-300")
+            }
+          >
+            <Layers className="h-3 w-3" aria-hidden="true" />
+            masked (raw)
+          </button>
+        )}
         {running && (
           <span className="ml-auto inline-flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-teal-600 dark:text-teal-400">
             <span className="relative flex size-1.5">
@@ -208,8 +237,9 @@ export function FscChart({
             <Tooltip
               formatter={(value: number | string, name: string) => {
                 const label =
-                  name === "fsc" ? "half-map FSC" :
-                  name === "correctedFsc" ? "masked FSC" : "phase-rand noise";
+                  name === "fsc" ? (isPost ? "unmasked FSC" : "half-map FSC") :
+                  name === "correctedFsc" ? "masked + corrected" :
+                  name === "maskedFsc" ? "masked (raw)" : "phase-rand noise";
                 return [Number(value).toFixed(3), label];
               }}
               labelFormatter={(label: number | string) =>
@@ -288,6 +318,19 @@ export function FscChart({
                 isAnimationActive={false}
               />
             )}
+            {isPost && showMasked && hasMasked && (
+              <Line
+                type="monotone"
+                dataKey="maskedFsc"
+                stroke={ROSE}
+                strokeWidth={1.5}
+                strokeDasharray="1 2"
+                dot={false}
+                activeDot={{ r: 3.5, fill: ROSE }}
+                connectNulls
+                isAnimationActive={false}
+              />
+            )}
             {isPost && (
               <Line
                 type="monotone"
@@ -319,6 +362,12 @@ export function FscChart({
           <span className="inline-flex items-center gap-1">
             <span className="inline-block h-0.5 w-4 rounded bg-zinc-400" style={{ backgroundImage: "linear-gradient(90deg, currentColor 55%, transparent 45%)", backgroundSize: "6px 100%" }} />
             phase-randomized
+          </span>
+        )}
+        {isPost && showMasked && hasMasked && (
+          <span className="inline-flex items-center gap-1">
+            <span className="inline-block h-0.5 w-4 rounded bg-rose-500" style={{ backgroundImage: "linear-gradient(90deg, currentColor 60%, transparent 40%)", backgroundSize: "3px 100%" }} />
+            masked (raw)
           </span>
         )}
         <span className="ml-auto font-mono text-[10px] text-muted-foreground/70">
