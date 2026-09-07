@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { existsSync, readdirSync, readFileSync } from "fs";
+import { existsSync, readdirSync } from "fs";
 import path from "path";
 import { findEffectiveJob } from "@/lib/link";
 import { getRun } from "@/lib/relion/engine";
+import { cachedFileCompute } from "@/lib/relion/statcache";
 import { readMrcHeader } from "@/lib/mrc";
 import { DATA_DIR } from "@/lib/paths";
 
@@ -135,9 +136,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ classes: [], total: 0, iteration: null });
     }
 
-    const lines = readFileSync(path.join(workdir, best.file), "utf8").split("\n");
-    const classCol = labelColumn(lines, "_rlnClassNumber");
-
     // class-averages stack for the selection gallery: RELION 5 writes the
     // final unmasked stack, falling back to the newest per-iteration stack
     let classesFile: string | null = null;
@@ -166,29 +164,41 @@ export async function GET(request: NextRequest, context: RouteContext) {
       }
     }
 
-    if (classCol < 0) {
+    // mtime-cached occupancy count — data stars are MB-scale and re-scanned
+    // per request before; the computed map only changes when the file does
+    const counted = cachedFileCompute(
+      path.join(workdir, best.file),
+      "classes:occupancy",
+      (text) => {
+        const lines = text.split("\n");
+        const classCol = labelColumn(lines, "_rlnClassNumber");
+        if (classCol < 0) return { classCol, counts: [] as [number, number][], total: 0 };
+        const counts = new Map<number, number>();
+        let total = 0;
+        // count rows ONLY inside the loop that owns _rlnClassNumber — the
+        // optics row above the particles loop must never inflate a class
+        const headerEnd = labelLineIndex(lines, "_rlnClassNumber");
+        for (let r = headerEnd + 1; r < lines.length; r++) {
+          const t = lines[r].trim();
+          if (t === "loop_" || t.startsWith("data_")) break; // loop region over
+          if (!t || t.startsWith("#") || t.startsWith("_")) continue;
+          const cells = t.split(/\s+/);
+          if (cells.length <= classCol) continue;
+          const cls = parseInt(cells[classCol], 10);
+          if (Number.isFinite(cls) && cls > 0) {
+            counts.set(cls, (counts.get(cls) ?? 0) + 1);
+            total++;
+          }
+        }
+        return { classCol, counts: [...counts.entries()], total };
+      }
+    );
+    if (!counted) {
       return NextResponse.json({ classes: [], total: 0, iteration: best.iteration, classesFile, classesSlices });
     }
+    const { classCol, counts: countEntries, total } = counted;
 
-    const counts = new Map<number, number>();
-    let total = 0;
-    // count rows ONLY inside the loop that owns _rlnClassNumber — the
-    // optics row above the particles loop must never inflate a class
-    const headerEnd = labelLineIndex(lines, "_rlnClassNumber");
-    for (let r = headerEnd + 1; r < lines.length; r++) {
-      const t = lines[r].trim();
-      if (t === "loop_" || t.startsWith("data_")) break; // loop region over
-      if (!t || t.startsWith("#") || t.startsWith("_")) continue;
-      const cells = t.split(/\s+/);
-      if (cells.length <= classCol) continue;
-      const cls = parseInt(cells[classCol], 10);
-      if (Number.isFinite(cls) && cls > 0) {
-        counts.set(cls, (counts.get(cls) ?? 0) + 1);
-        total++;
-      }
-    }
-
-    const classes: ClassOccupancy[] = [...counts.entries()]
+    const classes: ClassOccupancy[] = countEntries
       .map(([cls, count]) => ({ cls, count, fraction: total > 0 ? count / total : 0 }))
       .sort((a, b) => a.cls - b.cls);
 

@@ -26,6 +26,8 @@ import { fetchJsonRetry } from "@/lib/retry-fetch";
 
 const TEAL = "#14b8a6";
 const AMBER = "#f59e0b";
+const EMERALD = "#10b981";
+const ROSE = "#f43f5e";
 
 interface TopazEpochDTO {
   it: number;
@@ -54,6 +56,10 @@ export function TopazTrainingChart({
 }) {
   const [data, setData] = useState<TopazTrainingResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // two chart views: loss curves (default) and precision/recall on a 0–1
+  // axis. The P/R switch only appears when the log actually carries
+  // picking metrics — older topaz versions log loss only.
+  const [mode, setMode] = useState<"loss" | "pr">("loss");
 
   useEffect(() => {
     let cancelled = false;
@@ -79,16 +85,30 @@ export function TopazTrainingChart({
     };
   }, [jobId, running]);
 
-  // chart rows carry both curves; recharts skips nulls with connectNulls
+  // chart rows carry both curve families; recharts skips nulls with
+  // connectNulls, so each view just reads its own keys
   const rows = useMemo(
     () =>
-      (data?.epochs ?? [])
-        .filter((e) => e.trainLoss != null || e.testLoss != null)
-        .map((e) => ({
-          it: e.it,
-          trainLoss: e.trainLoss,
-          testLoss: e.testLoss,
-        })),
+      (data?.epochs ?? []).map((e) => ({
+        it: e.it,
+        trainLoss: e.trainLoss,
+        testLoss: e.testLoss,
+        precision: e.precision,
+        recall: e.recall,
+        testPrecision: e.testPrecision,
+        testRecall: e.testRecall,
+      })),
+    [data]
+  );
+
+  /** epochs with at least one picking metric — gates the P/R toggle */
+  const hasPR = useMemo(
+    () =>
+      (data?.epochs ?? []).some(
+        (e) =>
+          e.precision != null || e.recall != null ||
+          e.testPrecision != null || e.testRecall != null
+      ),
     [data]
   );
 
@@ -103,9 +123,12 @@ export function TopazTrainingChart({
   if (rows.length < 2) return null; // a single epoch is not a curve
 
   const last = rows[rows.length - 1];
-  const finalLoss = last.testLoss ?? last.trainLoss;
   const first = rows[0];
+  const finalLoss = last.testLoss ?? last.trainLoss;
   const firstLoss = first.trainLoss ?? first.testLoss;
+  // latest picking metrics — surfaced as badges only in P/R view
+  const finalPR: [number | null, number | null] =
+    mode === "pr" ? [last.precision ?? last.testPrecision, last.recall ?? last.testRecall] : [null, null];
 
   return (
     <section
@@ -135,6 +158,16 @@ export function TopazTrainingChart({
         {bestTest != null && (
           <span className="rounded-full border border-amber-600/30 bg-amber-600/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-amber-700 dark:text-amber-300">
             best test {bestTest.toFixed(3)}
+          </span>
+        )}
+        {finalPR[0] != null && (
+          <span className="rounded-full border border-emerald-600/30 bg-emerald-600/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">
+            P {(finalPR[0] * 100).toFixed(0)}%
+          </span>
+        )}
+        {finalPR[1] != null && (
+          <span className="rounded-full border border-rose-600/30 bg-rose-600/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-rose-700 dark:text-rose-300">
+            R {(finalPR[1] * 100).toFixed(0)}%
           </span>
         )}
         {data?.source && (
@@ -176,35 +209,67 @@ export function TopazTrainingChart({
                 fill: "currentColor",
               }}
             />
-            <YAxis
-              domain={["auto", "auto"]}
-              tick={{ fontSize: 10 }}
-              stroke="currentColor"
-              className="text-muted-foreground"
-              tickFormatter={(v: number) => v.toFixed(2)}
-              width={46}
-              label={{
-                value: "loss",
-                angle: -90,
-                position: "insideLeft",
-                offset: 18,
-                fontSize: 10,
-                fill: "currentColor",
-              }}
-            />
+            {mode === "loss" ? (
+              <YAxis
+                domain={["auto", "auto"]}
+                tick={{ fontSize: 10 }}
+                stroke="currentColor"
+                className="text-muted-foreground"
+                tickFormatter={(v: number) => v.toFixed(2)}
+                width={46}
+                label={{
+                  value: "loss",
+                  angle: -90,
+                  position: "insideLeft",
+                  offset: 18,
+                  fontSize: 10,
+                  fill: "currentColor",
+                }}
+              />
+            ) : (
+              <YAxis
+                domain={[0, 1]}
+                tick={{ fontSize: 10 }}
+                stroke="currentColor"
+                className="text-muted-foreground"
+                tickFormatter={(v: number) => `${Math.round(v * 100)}%`}
+                width={46}
+                label={{
+                  value: "P / R",
+                  angle: -90,
+                  position: "insideLeft",
+                  offset: 14,
+                  fontSize: 10,
+                  fill: "currentColor",
+                }}
+              />
+            )}
             <Tooltip
-              formatter={(value: number | string, name: string) => [
-                Number(value).toFixed(4),
-                name === "trainLoss" ? "train loss" : "test loss",
-              ]}
+              formatter={(value: number | string, name: string) => {
+                const labels: Record<string, string> = {
+                  trainLoss: "train loss",
+                  testLoss: "test loss",
+                  precision: "precision",
+                  recall: "recall",
+                  testPrecision: "test precision",
+                  testRecall: "test recall",
+                };
+                const v = Number(value);
+                // P/R read as percentages, loss at full precision
+                return [name.endsWith("Loss") ? v.toFixed(4) : `${(v * 100).toFixed(1)}%`, labels[name] ?? name];
+              }}
               labelFormatter={(label: number | string) =>
                 `epoch ${Number(label)}${Number(label) === last.it ? " (latest)" : ""}`
               }
               contentStyle={{ fontSize: 11, borderRadius: 6, padding: "4px 8px" }}
             />
+            {/* all six curves stay mounted; `hide` swaps the view — recharts
+                walks direct children, so a fragment-wrapped conditional
+                branch would silently drop the Lines (recharts 2.15 + React 19) */}
             <Line
               type="monotone"
               dataKey="trainLoss"
+              hide={mode !== "loss"}
               stroke={TEAL}
               strokeWidth={2}
               dot={{ r: 1.5, fill: TEAL, strokeWidth: 0 }}
@@ -216,6 +281,7 @@ export function TopazTrainingChart({
             <Line
               type="monotone"
               dataKey="testLoss"
+              hide={mode !== "loss"}
               stroke={AMBER}
               strokeWidth={2}
               strokeDasharray="6 3"
@@ -225,17 +291,110 @@ export function TopazTrainingChart({
               isAnimationActive={false}
               name="testLoss"
             />
+            <Line
+              type="monotone"
+              dataKey="precision"
+              hide={mode !== "pr"}
+              stroke={EMERALD}
+              strokeWidth={2}
+              dot={{ r: 1.5, fill: EMERALD, strokeWidth: 0 }}
+              activeDot={{ r: 4, fill: EMERALD }}
+              connectNulls
+              isAnimationActive={false}
+              name="precision"
+            />
+            <Line
+              type="monotone"
+              dataKey="recall"
+              hide={mode !== "pr"}
+              stroke={ROSE}
+              strokeWidth={2}
+              dot={{ r: 1.5, fill: ROSE, strokeWidth: 0 }}
+              activeDot={{ r: 4, fill: ROSE }}
+              connectNulls
+              isAnimationActive={false}
+              name="recall"
+            />
+            <Line
+              type="monotone"
+              dataKey="testPrecision"
+              hide={mode !== "pr"}
+              stroke={EMERALD}
+              strokeWidth={1.5}
+              strokeDasharray="5 3"
+              dot={false}
+              activeDot={{ r: 4, fill: EMERALD }}
+              connectNulls
+              isAnimationActive={false}
+              name="testPrecision"
+            />
+            <Line
+              type="monotone"
+              dataKey="testRecall"
+              hide={mode !== "pr"}
+              stroke={ROSE}
+              strokeWidth={1.5}
+              strokeDasharray="5 3"
+              dot={false}
+              activeDot={{ r: 4, fill: ROSE }}
+              connectNulls
+              isAnimationActive={false}
+              name="testRecall"
+            />
           </LineChart>
         </ResponsiveContainer>
       </div>
+      {/* view switch — only when the log carries picking metrics */}
+      {hasPR && (
+        <div className="mt-1.5 flex items-center gap-2">
+          <div
+            role="group"
+            aria-label="Chart metric view"
+            className="inline-flex overflow-hidden rounded-full border border-fuchsia-600/30"
+          >
+            {([
+              ["loss", "loss"],
+              ["pr", "precision / recall"],
+            ] as const).map(([m, label]) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setMode(m)}
+                aria-pressed={mode === m}
+                className={
+                  "px-2.5 py-0.5 text-[10px] font-semibold transition-colors " +
+                  (mode === m
+                    ? "bg-fuchsia-600 text-white"
+                    : "bg-transparent text-muted-foreground hover:bg-fuchsia-600/10 hover:text-fuchsia-700 dark:hover:text-fuchsia-300")
+                }
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <span className="text-[10px] text-muted-foreground/70">
+            {mode === "pr" && "solid = work set · dashed = held-out test picks"}
+          </span>
+        </div>
+      )}
       <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
-        train = topaz&apos;s objective on the work set · test = held-out{" "}
-        {(data?.epochs?.[0]?.testPrecision != null ||
-          (data?.epochs?.[0]?.testLoss != null) ||
-          data?.epochs?.[0]?.it === 0)
-          ? "cross-validation picks"
-          : "picks"}
-        {" "}— a falling test curve that later climbs means the model is overfitting the training picks.
+        {mode === "loss" ? (
+          <>
+            train = topaz&apos;s objective on the work set · test = held-out{" "}
+            {(data?.epochs?.[0]?.testPrecision != null ||
+              (data?.epochs?.[0]?.testLoss != null) ||
+              data?.epochs?.[0]?.it === 0)
+              ? "cross-validation picks"
+              : "picks"}
+            {" "}— a falling test curve that later climbs means the model is overfitting the training picks.
+          </>
+        ) : (
+          <>
+            precision = fraction of picked particles that are real · recall = fraction of true
+            particles found — climbing curves mean the model is learning to pick; the dashed
+            test curves are the honest estimate on held-out picks.
+          </>
+        )}
       </p>
     </section>
   );

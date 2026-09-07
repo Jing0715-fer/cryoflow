@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { existsSync, readFileSync } from "fs";
+import { existsSync } from "fs";
 import path from "path";
 import { findEffectiveJob } from "@/lib/link";
 import { getRun } from "@/lib/relion/engine";
+import { cachedFileCompute } from "@/lib/relion/statcache";
 
 export const dynamic = "force-dynamic";
 
@@ -83,12 +84,21 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       );
     }
 
-    const raw = JSON.parse(readFileSync(reportFile, "utf8")) as {
-      params: RebalanceReportResponse["params"];
-      criterion: string;
-      stats: RebalanceReportResponse["stats"];
-      bins: Array<RebalanceReportResponse["bins"][number]>;
-    };
+    // mtime-cached parse — the report only changes when the file is rewritten
+    const raw = cachedFileCompute(reportFile, "rebalance:report", (text) =>
+      JSON.parse(text) as {
+        params: RebalanceReportResponse["params"];
+        criterion: string;
+        stats: RebalanceReportResponse["stats"];
+        bins: Array<RebalanceReportResponse["bins"][number]>;
+      }
+    );
+    if (!raw) {
+      return NextResponse.json(
+        { error: "no-report", jobId: id, detail: "rebalance_report.json became unreadable" },
+        { status: 404 }
+      );
+    }
 
     const bins = raw.bins
       .filter((b) => b.countBefore > 0)

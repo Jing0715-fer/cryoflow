@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { existsSync, readdirSync, readFileSync } from "fs";
+import { existsSync, readdirSync } from "fs";
 import path from "path";
 import { findEffectiveJob } from "@/lib/link";
 import { getRun } from "@/lib/relion/engine";
+import { cachedFileCompute } from "@/lib/relion/statcache";
 
 export const dynamic = "force-dynamic";
 
@@ -179,8 +180,9 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       return NextResponse.json({ micrographs: [], summary: null });
     }
 
-    const micrographs = parseCtfStar(readFileSync(candidates[0], "utf8"));
-    micrographs.sort((a, b) => b.defocusU - a.defocusU);
+    // mtime-cached parse — the sort below must NOT mutate the cached array
+    const parsed = cachedFileCompute(candidates[0], "ctf:micrographs-star", (text) => parseCtfStar(text)) ?? [];
+    const micrographs = [...parsed].sort((a, b) => b.defocusU - a.defocusU);
 
     let summary: CtfSummary | null = null;
     if (micrographs.length > 0) {

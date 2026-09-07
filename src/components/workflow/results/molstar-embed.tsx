@@ -75,6 +75,19 @@ const PRESETS = [1, 2, 3, 5];
 const SIGMA_MIN = 0.5;
 const SIGMA_MAX = 10;
 
+/** which 4 wireframe edges lie on each axis' movable clip face. pt indices
+ *  follow the corner ordering in drawClipGuide (0-3 = −Z ring, 4-7 = +Z
+ *  ring); the face sits at hi[i] when keeping [0,fd], at lo[i] when
+ *  inverted. Indexed [axis][invert] → edge list. */
+const FACE_EDGES: [number, number][][][] = [
+  // X: hi face 1-2-6-5 · lo face 0-3-7-4
+  [[[1, 2], [2, 6], [6, 5], [5, 1]], [[0, 3], [3, 7], [7, 4], [4, 0]]],
+  // Y: hi face 2-3-7-6 · lo face 0-1-5-4
+  [[[2, 3], [3, 7], [7, 6], [6, 2]], [[0, 1], [1, 5], [5, 4], [4, 0]]],
+  // Z: hi face 4-5-6-7 · lo face 0-1-2-3
+  [[[4, 5], [5, 6], [6, 7], [7, 4]], [[0, 1], [1, 2], [2, 3], [3, 0]]],
+];
+
 export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [phase, setPhase] = useState<Phase>("loading");
@@ -695,6 +708,22 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
   // the LIVE camera (projectionView, column-major) into container pixel
   // space — orbiting/zooming re-fires via camera.changed.
   const guidePathRef = useRef<SVGPathElement | null>(null);
+  // per-axis movable-face outlines (the 4 edges of the kept box that lie ON
+  // the clip plane) + invisible fat hit paths on top of them — dragging a
+  // face directly manipulates the corresponding X/Y/Z clip slider
+  const facePathRefs = useRef<(SVGPathElement | null)[]>([null, null, null]);
+  const hitPathRefs = useRef<(SVGPathElement | null)[]>([null, null, null]);
+  // face-center affordance dots — a small grabbable-looking marker at each
+  // movable face's centroid (visual only, like the face outlines)
+  const dotRefs = useRef<(SVGCircleElement | null)[]>([null, null, null]);
+  // screen-space drag geometry per axis: full-span direction vector (px) and
+  // |dir|², captured from the LIVE projection each redraw so a drag mid-orbit
+  // still maps correctly. null = axis not currently draggable (degenerate
+  // projection, e.g. box edge-on or a corner behind the camera)
+  const dragGeomRef = useRef<({ dx: number; dy: number; len2: number } | null)[] | null>(null);
+  const dragRef = useRef<{ axis: 0 | 1 | 2; startX: number; startY: number; startFrac: number } | null>(null);
+  const [grabAxis, setGrabAxis] = useState<0 | 1 | 2 | null>(null);
+  const [hoverAxis, setHoverAxis] = useState<0 | 1 | 2 | null>(null);
 
   const drawClipGuide = () => {
     const path = guidePathRef.current;
@@ -758,6 +787,110 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
       d += `M${sx[a].toFixed(1)} ${sy[a].toFixed(1)}L${sx[b].toFixed(1)} ${sy[b].toFixed(1)}`;
     }
     path.setAttribute("d", d);
+
+    // movable faces + drag geometry — the kept box's face lying ON each clip
+    // plane is the grab target; dragging it in screen space maps onto the
+    // axis direction through the same projection (direct manipulation)
+    for (let i = 0; i < 3; i++) {
+      let fd = "";
+      let cxSum = 0;
+      let cySum = 0;
+      let n = 0;
+      for (const [a, b] of FACE_EDGES[i][st.invert ? 1 : 0]) {
+        if (!ok[a] || !ok[b]) continue;
+        fd += `M${sx[a].toFixed(1)} ${sy[a].toFixed(1)}L${sx[b].toFixed(1)} ${sy[b].toFixed(1)}`;
+        cxSum += sx[a] + sx[b];
+        cySum += sy[a] + sy[b];
+        n += 2;
+      }
+      const face = facePathRefs.current[i];
+      if (face) face.setAttribute("d", fd);
+      const hit = hitPathRefs.current[i];
+      if (hit) hit.setAttribute("d", fd);
+      const dot = dotRefs.current[i];
+      if (dot) {
+        // centroid of the projected face corners; hidden while the face is
+        // degenerate (edges dropped behind the camera)
+        const show = n === 8 && fd !== ""; // 4 edges × 2 endpoints
+        dot.setAttribute("cx", show ? (cxSum / n).toFixed(1) : "0");
+        dot.setAttribute("cy", show ? (cySum / n).toFixed(1) : "0");
+        dot.setAttribute("r", show ? "3.5" : "0");
+      }
+    }
+    // per-axis full-span screen vector: voxel mid-plane endpoints along the
+    // axis, projected — the drag delta projects onto this vector to yield a
+    // fraction of the full box extent (same units as the sliders)
+    const mid = (j: number) => box.dims[j] / 2;
+    const axisDir = (i: 0 | 1 | 2): { dx: number; dy: number; len2: number } | null => {
+      const aV = [mid(0), mid(1), mid(2)];
+      const bV = [...aV];
+      bV[i] = box.dims[i];
+      const proj = (v: number[]) => {
+        const cx = pv[0] * v[0] + pv[4] * v[1] + pv[8] * v[2] + pv[12];
+        const cy = pv[1] * v[0] + pv[5] * v[1] + pv[9] * v[2] + pv[13];
+        const cw = pv[3] * v[0] + pv[7] * v[1] + pv[11] * v[2] + pv[15];
+        if (!Number.isFinite(cw) || cw <= 0.001) return null;
+        return [((cx / cw) + 1) / 2 * w, (1 - (cy / cw)) / 2 * h] as [number, number];
+      };
+      const a = proj(aV);
+      const b = proj(bV);
+      if (!a || !b) return null;
+      const dx = b[0] - a[0];
+      const dy = b[1] - a[1];
+      const len2 = dx * dx + dy * dy;
+      return len2 > 25 ? { dx, dy, len2 } : null; // <5 px span → not draggable
+    };
+    dragGeomRef.current = clipStateRef.current.on
+      ? [axisDir(0), axisDir(1), axisDir(2)]
+      : null;
+  };
+
+  /* -------- direct manipulation: drag a wireframe face = drag slider ----- */
+
+  const onFacePointerDown = (axis: 0 | 1 | 2, e: React.PointerEvent<SVGPathElement>) => {
+    if (e.button !== 0) return;
+    const geom = dragGeomRef.current?.[axis];
+    if (!geom) return; // degenerate projection — sliders still work
+    e.preventDefault();
+    e.stopPropagation();
+    // capture routes real-pointer move/up to this element even outside its
+    // bounds; a synthetic event's pointerId has no active pointer, so the
+    // DOM call throws — the drag itself still works (move/up land here
+    // anyway when dispatched on the element)
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      /* synthetic pointer — ignore */
+    }
+    dragRef.current = {
+      axis,
+      startX: e.clientX,
+      startY: e.clientY,
+      startFrac: axis === 0 ? clipStateRef.current.x : axis === 1 ? clipStateRef.current.y : clipStateRef.current.z,
+    };
+    setGrabAxis(axis);
+  };
+
+  const onFacePointerMove = (e: React.PointerEvent<SVGPathElement>) => {
+    const drag = dragRef.current;
+    const geom = dragGeomRef.current?.[drag?.axis ?? 0];
+    if (!drag || !geom) return;
+    const dot = (e.clientX - drag.startX) * geom.dx + (e.clientY - drag.startY) * geom.dy;
+    const frac = Math.min(1, Math.max(0.02, drag.startFrac + dot / geom.len2));
+    applyClipIntent(
+      drag.axis === 0 ? { x: frac } : drag.axis === 1 ? { y: frac } : { z: frac },
+    );
+  };
+
+  const endFaceDrag = (e: React.PointerEvent<SVGPathElement>) => {
+    if (!dragRef.current) return;
+    dragRef.current = null;
+    setGrabAxis(null);
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      /* already released */
+    }
   };
 
   // orbit/zoom/pan → reproject (camera.changed covers every mutation,
@@ -790,7 +923,11 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
       <div ref={containerRef} className="h-full w-full" data-molstar-container="true" />
 
       {/* clip region wireframe — projected live from the mol* camera into
-          this overlay (pointer-events none: orbit/zoom must pass through) */}
+          this overlay. The three movable faces are individually grabbable:
+          dragging one maps the pointer delta onto the axis' screen-space
+          span (same 0–1 units as the panel sliders). Root SVG is
+          pointer-events-none so orbit/zoom passes through everywhere
+          except the fat hit strokes. */}
       {clipOn && phase === "ready" && (
         <svg
           className="pointer-events-none absolute inset-0 z-[5] h-full w-full"
@@ -808,6 +945,63 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
             opacity={0.9}
             vectorEffect="non-scaling-stroke"
           />
+          {/* movable faces — solid violet, emphasized on hover/grab.
+              Visual only: pointer-events none so they never steal events
+              from the fat hit strokes (or the canvas) beneath/around them */}
+          {([0, 1, 2] as const).map((ax) => (
+            <path
+              key={ax}
+              ref={(el) => {
+                facePathRefs.current[ax] = el;
+              }}
+              fill="none"
+              stroke="#8b5cf6"
+              strokeWidth={hoverAxis === ax || grabAxis === ax ? 3 : 2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              opacity={hoverAxis === ax || grabAxis === ax ? 1 : 0.75}
+              vectorEffect="non-scaling-stroke"
+              style={{ pointerEvents: "none" }}
+            />
+          ))}
+          {/* face-center affordance dots — visual only */}
+          {([0, 1, 2] as const).map((ax) => (
+            <circle
+              key={ax}
+              ref={(el) => {
+                dotRefs.current[ax] = el;
+              }}
+              fill="#8b5cf6"
+              opacity={0.9}
+              stroke="white"
+              strokeWidth={1}
+              style={{ pointerEvents: "none" }}
+            />
+          ))}
+          {/* invisible fat hit strokes — the actual drag targets */}
+          {([0, 1, 2] as const).map((ax) => (
+            <path
+              key={ax}
+              ref={(el) => {
+                hitPathRefs.current[ax] = el;
+              }}
+              fill="none"
+              stroke="transparent"
+              strokeWidth={16}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="pointer-events-stroke cursor-grab touch-none"
+              style={{ pointerEvents: "stroke", cursor: grabAxis === ax ? "grabbing" : "grab", touchAction: "none" }}
+              onPointerDown={(e) => onFacePointerDown(ax, e)}
+              onPointerMove={onFacePointerMove}
+              onPointerUp={endFaceDrag}
+              onPointerCancel={endFaceDrag}
+              onPointerEnter={() => !dragRef.current && setHoverAxis(ax)}
+              onPointerLeave={() => setHoverAxis((h) => (h === ax ? null : h))}
+            >
+              <title>{["X", "Y", "Z"][ax]} clip face — drag to move the plane (sliders in the panel do the same)</title>
+            </path>
+          ))}
         </svg>
       )}
 
@@ -1041,7 +1235,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                   : sliceOn
                     ? "cross-section shares the contour level — drag the slider to sweep the box"
                     : clipOn
-                      ? "clip crops into the box — drag X/Y/Z, flip side to crop the other half"
+                      ? "clip crops into the box — drag the highlighted faces or the X/Y/Z sliders; flip side crops the other half"
                       : "drag rotate · scroll zoom · right-drag pan"}
               </span>
               <span className="font-mono">{SIGMA_MAX}σ</span>

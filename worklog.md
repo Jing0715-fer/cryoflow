@@ -1477,3 +1477,27 @@ Stage Summary:
 - 第 23 个真实 bug 闭环：unassigned workspace id ""-折叠——chip 型过滤器的 falsy-id 陷阱
 - 测试资产增值：topaz-training 解析器 15 用例（topaz 源码不可得时的行为锚定）+ 合成 12-epoch 训练日志 fixture
 - 遗留（下轮候选）：clip 线框拖拽把手（线框面拖动=拖滑杆）、Topaz 训练曲线的 precision/recall 第二轴开关、真 RELION 数据回归（EMPIAR 全链重建）、用户机器 class3d/refine3d 顺序模式与 topaz 实测反馈
+
+---
+Task ID: 21
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852）——QA 回归全绿后推进：clip 线框拖拽把手 + Topaz P/R 第二视图 + #7 热路径缓存收尾 + 把手圆点样式 + worklog + push
+
+Work Log:
+- 【开局核对】git 本地 == origin/main == 41f092e（Task 20 已推送）；dev server 死亡 → playbook 重启。作业 14 jobs / 6 completed / 0 running（Task 19/20 QA fixture 现场）
+- 【QA 回归·全绿】主页面 14 jobs/36 types ✓；Dashboard 漏斗 + workspace 芯片（Main · 11 / Unassigned · 3）✓，Resolution ladder 因 fixture 无 FSC 数据诚实自隐藏（/fsc 返回空壳=契约行为）；3D viewer（合成地图）：canvas + contour + 12 棱线框（violet 虚线 non-scaling-stroke）+ flip/关闭卸载 ✓；Topaz Training inspector：训练图 24 点双曲线 + final loss 0.090 ↓87% + best test 0.089 徽章 + 过拟合脚注 ✓。开局出现的 mol* CCP4 console 错误（missing "MAP "/bad axis order/1e-44 矩阵）判为上个 cron 会话残留浏览器页的陈旧缓冲（1e-44 特征=Task 19 修复前的旧坏地图，文件已不在磁盘）；清空 console 后分步复现 0 错误 → 非现役 bug
+- 【新功能 1·clip 线框拖拽把手】molstar-embed.tsx：12 棱线框升级为直接操作——①3 个可移动面（kept 盒位于 clip 平面上的 4 棱，FACE_EDGES 常量按 [axis][invert] 索引）以实线 violet 高亮渲染；②面上叠加透明 16px 宽 hit stroke（pointer-events:stroke，cursor grab/grabbing，touch-action none）作为拖拽目标；③拖拽数学：drawClipGuide 每次重投影时同步缓存每轴「全跨屏幕方向向量」(dx,dy,len2)（体素中点两端点经 LIVE projectionView 投影，len2>25 才可拖，防侧面退化），pointermove 的位移点积该向量 → 全跨分数 → applyClipIntent（与滑杆同单位同 clamp 0.02..1）；④setPointerCapture try/catch 包裹（合成事件 pointerId 无活动指针会抛 DOMException——真实指针不受影响）；⑤face 视觉层 pointer-events:none 防 steal 事件；⑥面板脚注更新"drag the highlighted faces or the X/Y/Z sliders"
+- 【新功能 1 E2E·三轴实证】真实鼠标拖拽（agent-browser mouse 原生事件，合成事件仅能证 handler 链路）：X 面 78px 左拖 → x=0.278（与手算 78×108/11689=0.72 反向投影一致——geom 调试日志实证 X 轴全跨屏幕仅 108px 的近侧面投影）；Y 面 66px 竖拖 → y=0.390（x 不动=轴独立）；Z 面对角拖 → z=0.802；hover 高亮（strokeWidth 2→3 + opacity 1）✓；clamp（1+1.96→1 顶格）✓；线框/滑杆/着色器三同步 ✓。教训：QA 视口 577px 时控制条（z-10）遮住线框中段且 bbox 中心不在描边上——elementFromPoint 预验证 + set viewport 1600×1000 后干净通过
+- 【新功能 2·Topaz P/R 第二视图】topaz-training-chart.tsx：loss / precision-recall 分段切换（仅当日志含 picking 指标时显示——诚实门控 hasPR）；P/R 模式 = 四曲线（precision emerald 实线 / recall rose 实线 / test 双变体虚线）+ 0–100% 专用 Y 轴 + "solid = work set · dashed = held-out test picks" 图例 + final P/R 徽章 + 模式化脚注（precision=真拾取占比 / recall=真颗粒找回率）
+- 【真 bug #24·recharts 2.15 + React 19 fragment 陷阱】首版用 `{mode==="loss" ? <><Line/><Line/></> : <><Line/>×4</>}` 条件分支——切换后 4 条曲线全部不渲染（recharts surface 只剩 tooltip cursor）：recharts 通过遍历直接子元素收集 Curve，fragment 包裹的分支子元素被静默丢弃。修复：6 条 Line 全部常驻挂载 + `hide={mode!==…}` 切换视图（recharts 官方支持）。E2E：P/R 模式 4 曲线/2 虚线/24 dots + 0%/25%/50%/75%/100% 轴刻度 + P 88%/R 56% 徽章；切回 loss 2 曲线无损
+- 【遗留 #7 收尾·chart 路由 statcache 全覆盖】审计发现原清单（guinier/resolution/angdist/fsc）早已 mtime 缓存，剩 4 个裸 readFileSync 热路径全部接入 cachedFileCompute：rebalance（report JSON）、classes（MB 级 data.star 的 occupancy 计数整体进缓存）、ctf（micrographs_ctf.star 解析——注意 sort 前浅拷贝防污染缓存数组）、micrographs（optics+names 解析拆为模块级 parseOptics/parseNames 纯函数后进缓存）。至此 8 个 chart 路由全部 statcache 键控；优雅降级 E2E：idle 作业 ctf → 空响应、rebalance → 404 no-report、无 workdir classes/micrographs → 空壳，零 500
+- 【样式增量】clip 线框每个可移动面中心加 violet 把手圆点（r=3.5 白描边，面质心=4 棱端点均值，面退化时 r=0 隐藏，pointer-events none）——可拖性可视化提示；E2E：3 圆点实时投影坐标 + 拖拽时跟随（cx 937.5→621.6）+ camera reset 重投影联动
+- 【运维】本会话 dev server OOM 回收 10 次（dmesg 实锤：kernel global_oom 杀 next-server，RSS 2.9GB 撞 4GB 沙箱；mol* chunk 重编译窗口最危险）→ 全部 playbook 重启；QA 方法论升级：合成 PointerEvent 仅能证 handler 链路（dispatch 目标必须是被捕获元素本身），真实鼠标 mouse move/down/up 才是 ground truth，且必须 elementFromPoint 预验证命中点（bbox 中心≠描边上、控制条 z-10 会覆盖、相邻面 hit stroke 重叠时 DOM 末位胜出）
+- 【收尾】bun run lint 0/0、tsc src/ 0 错误、console 0 error（清空缓冲后实测）；QA fixture 原样保留
+
+Stage Summary:
+- clip 线框从"可视化"升级为"直接操作"：三个裁剪面可在 3D 视口内拖拽（屏幕空间投影点积映射，与滑杆同单位同 clamp），配把手圆点 + hover 高亮——ChimeraX 式交互完整闭环
+- Topaz 训练图双视图：loss 曲线 + P/R 四曲线（0–100% 轴），装了 topaz 的用户训练时即可判读拾取质量（work vs held-out test 双口径）
+- 第 24 个真实 bug 闭环：recharts 2.15 + React 19 下 fragment 包裹的 Line 子树静默消失——hide prop 模式绕过，注释已锚定该陷阱
+- #7 热路径清理收官：8/8 chart 路由 mtime 缓存全覆盖，最大单个文件从每请求重解析变为 statSync 命中
+- 遗留（下轮候选）：真实 RELION 数据回归（EMPIAR 全链重建，QA fixture 均为注入结果）、用户机器 class3d/refine3d 顺序模式与 topaz 实测反馈、Dashboard 分析区导出（CSV/截图）、Workflow 画布 minimap/缩略图导航、命令面板支持模板参数预设（如 symmetry/CTF binning）
