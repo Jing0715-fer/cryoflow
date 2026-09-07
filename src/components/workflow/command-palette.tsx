@@ -18,6 +18,8 @@ import { useTheme } from "next-themes";
 import {
   Command as CommandIcon,
   Download,
+  FileJson,
+  FileUp,
   Layers,
   LayoutDashboard,
   Maximize2,
@@ -39,9 +41,16 @@ import {
   CommandShortcut,
 } from "@/components/ui/command";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "@/hooks/use-toast";
 import { useWorkflowStore } from "@/lib/store";
 import { JOB_TYPES, jobType, CARD_W, CARD_H } from "@/lib/workflow";
 import { exportCanvasPng } from "@/lib/canvas-export";
+import {
+  buildWorkflowFile,
+  downloadWorkflowJson,
+  parseWorkflowJson,
+  workflowFileName,
+} from "@/lib/workflow-io";
 import { TypeIcon } from "./icons";
 
 const OPEN_EVENT = "cryoflow:open-palette";
@@ -163,6 +172,52 @@ export function CommandPalette() {
       cardH: CARD_H,
     });
     close();
+  };
+
+  const exportJson = () => {
+    // same workspace-scoped graph the canvas renders (both-endpoints rule
+    // for edges is applied inside buildWorkflowFile)
+    const s = useWorkflowStore.getState();
+    const wsJobs =
+      s.activeWorkspaceId == null
+        ? s.jobs
+        : s.jobs.filter((j) => (j.workspaceId ?? "") === s.activeWorkspaceId);
+    const wsName = s.workspaces.find((w) => w.id === s.activeWorkspaceId)?.name;
+    const file = buildWorkflowFile(
+      wsJobs,
+      s.edges,
+      s.project?.name ?? "project",
+      wsName ?? "workspace"
+    );
+    if (!file) {
+      toast({ title: "Nothing to export", description: "The canvas is empty." });
+      close();
+      return;
+    }
+    downloadWorkflowJson(file, workflowFileName(wsName ?? "workspace"));
+    close();
+  };
+
+  const importJson = () => {
+    close(); // the native picker takes focus — drop the palette first
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json,application/json";
+    input.onchange = async () => {
+      const f = input.files?.[0];
+      if (!f) return;
+      const parsed = parseWorkflowJson(await f.text());
+      if (!parsed.ok || !parsed.file) {
+        toast({
+          title: "Import failed",
+          description: parsed.error ?? "Unreadable workflow file",
+          variant: "destructive",
+        });
+        return;
+      }
+      void useWorkflowStore.getState().importWorkflow(parsed.file);
+    };
+    input.click();
   };
 
   const toggleTheme = () => {
@@ -339,6 +394,32 @@ export function CommandPalette() {
               Export canvas as PNG
               <span className="ml-1.5 text-[10px] text-muted-foreground">
                 content-fit poster · footer with project · workspace
+              </span>
+            </span>
+          </CommandItem>
+          <CommandItem
+            value="export workflow json file share graph"
+            onSelect={exportJson}
+            className="gap-2.5"
+          >
+            <FileJson className="size-4 shrink-0" />
+            <span className="flex-1 text-sm">
+              Export workflow as JSON
+              <span className="ml-1.5 text-[10px] text-muted-foreground">
+                graph + params, portable between workspaces
+              </span>
+            </span>
+          </CommandItem>
+          <CommandItem
+            value="import workflow json file load graph"
+            onSelect={importJson}
+            className="gap-2.5"
+          >
+            <FileUp className="size-4 shrink-0" />
+            <span className="flex-1 text-sm">
+              Import workflow from JSON…
+              <span className="ml-1.5 text-[10px] text-muted-foreground">
+                recreate an exported graph below existing content
               </span>
             </span>
           </CommandItem>

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useCallback } from "react";
-import { Download, Link2, Loader2, RotateCcw, Wand2, X, ZoomIn, ZoomOut } from "lucide-react";
+import { Download, FileJson, FileUp, Link2, Loader2, RotateCcw, Wand2, X, ZoomIn, ZoomOut } from "lucide-react";
 import {
   CARD_H,
   CARD_W,
@@ -14,6 +14,12 @@ import {
 } from "@/lib/workflow";
 import { pendingWirePath } from "@/lib/edge-geom";
 import { exportCanvasPng, fmtBytes } from "@/lib/canvas-export";
+import {
+  buildWorkflowFile,
+  downloadWorkflowJson,
+  parseWorkflowJson,
+  workflowFileName,
+} from "@/lib/workflow-io";
 import { useWorkflowStore, useActiveWorkspaceJobs, useActiveWorkspaceEdges, type PendingFrom } from "@/lib/store";
 import type { JobDTO } from "@/lib/types";
 import { toast } from "@/hooks/use-toast";
@@ -501,6 +507,49 @@ export function WorkflowCanvas() {
     }
   }, [exporting, jobs, edges, activeWorkspaceName]);
 
+  // ---- workflow JSON export/import --------------------------------------
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const handleExportJson = useCallback(() => {
+    const s = useWorkflowStore.getState();
+    const file = buildWorkflowFile(
+      jobs,
+      edges,
+      s.project?.name ?? "project",
+      activeWorkspaceName ?? "workspace"
+    );
+    if (!file) {
+      toast({ title: "Nothing to export", description: "The canvas is empty." });
+      return;
+    }
+    downloadWorkflowJson(file, workflowFileName(activeWorkspaceName ?? "workspace"));
+    toast({
+      title: "Workflow exported",
+      description: `${file.jobs.length} jobs · ${file.edges.length} links — import it into any workspace to recreate the graph (idle)`,
+    });
+  }, [jobs, edges, activeWorkspaceName]);
+
+  const handleImportJsonFile = useCallback(async (f: File) => {
+    const parsed = parseWorkflowJson(await f.text());
+    if (!parsed.ok || !parsed.file) {
+      toast({
+        title: "Import failed",
+        description: parsed.error ?? "Unreadable workflow file",
+        variant: "destructive",
+      });
+      return;
+    }
+    await useWorkflowStore.getState().importWorkflow(parsed.file);
+  }, []);
+
+  const onImportFilePick = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const f = e.target.files?.[0];
+      if (f) void handleImportJsonFile(f);
+      e.target.value = ""; // allow re-picking the same file later
+    },
+    [handleImportJsonFile]
+  );
+
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
@@ -703,6 +752,17 @@ export function WorkflowCanvas() {
           )}
         </Button>
       </div>
+
+      {/* workflow JSON import — hidden picker opened from the context menu */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".json,application/json"
+        className="hidden"
+        onChange={onImportFilePick}
+        aria-label="Import workflow JSON file"
+        tabIndex={-1}
+      />
         </section>
       </ContextMenuTrigger>
 
@@ -731,6 +791,14 @@ export function WorkflowCanvas() {
         <ContextMenuItem onClick={() => void handleExportPng()} disabled={jobs.length === 0 || exporting}>
           <Download />
           Export canvas as PNG
+        </ContextMenuItem>
+        <ContextMenuItem onClick={handleExportJson} disabled={jobs.length === 0}>
+          <FileJson />
+          Export workflow as JSON
+        </ContextMenuItem>
+        <ContextMenuItem onClick={() => fileInputRef.current?.click()}>
+          <FileUp />
+          Import workflow from JSON…
         </ContextMenuItem>
         {pendingFrom ? (
           <ContextMenuItem onClick={cancelConnect}>

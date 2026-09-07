@@ -1545,3 +1545,25 @@ Stage Summary:
 - 模板预设从"每次重填"到"记住上次"：成功才记忆 + 防御性校验 + Reset 兜底——筛选→深跑的迭代会话不再重复六旋钮
 - #13 render 副作用清理收官：ETA 基线写入从 useMemo 迁到 effect，读写职责分离 + TTL 修剪
 - 遗留（下轮候选）：真 RELION 数据回归（EMPIAR 全链重建）、命令面板任意 job 类型参数预设、Dashboard KPI 卡迷你 sparkline、#5 fs/browse 鉴权、#8 BFS N+1、导出 PNG 的深色主题对照 QA
+
+---
+Task ID: 24
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852）——QA 回归 + Workflow JSON 导出/导入（全链）+ #5 fs/browse 同源加固 + #8/#13 核实闭环 + 深色主题 PNG QA + worklog + push
+
+Work Log:
+- 【开局核对】git 本地 == origin/main == a96516a（Task 23 已推送）；dev server 死亡 → playbook 重启。QA 回归全绿：24 jobs、console 0 error；核对发现 minimap 点击/拖拽导航与 job Duplicate（右键菜单+store.duplicateJob）均已在位——原计划的两个"新功能"实为已完成功能，转入真正的遗留项
+- 【#8 核实闭环】particles 路由的 stack 归属 BFS 已是"每深度一次边查询 + 一次批量 job 查询"（注释即证据），link 链在批内内存跟随；dispatch.ts lineageFor 亦逐层批量——N+1 已在主谱系消除，无需改动
+- 【新功能·Workflow JSON 导出/导入】画布图的便携快照，与 PNG 海报（给人看）互补（给机器重建）：①src/lib/workflow-io.ts——cryoflow-workflow/1 格式（workspace 范围 jobs[type/name/x/y/params] + edges[索引对+端口]，状态/结果刻意排除=导入即 idle 草图）；buildWorkflowFile（双端点都在工作区的边才收，端口缺失的 legacy 边跳过）；parseWorkflowJson 客户端预校验（格式头/类型白名单/索引范围/自环/端口存在性——错误信息逐条定位到第几个 job/link）；downloadWorkflowJson（blob 下载 cryoflow-workflow-<ws>-<ts>.json）；②POST /api/workflow-import——服务端权威重校验（类型/参数 spec 键白名单标量过滤/portsValid/自环 400 大声失败），名称项目内+批内去重（冲突→" (i2)"）、内部几何保持 + 整体平移到现有内容下方 DROP_GAP=240、$transaction 全或无、返回 jobs+edges 供 store 直合并；③store.importWorkflow（合并去重 + layoutEpoch fit-view + toast）；④入口：画布右键菜单（Export/Import 两条）+ 命令面板两条（palette 路径动态创建 input 触发文件选择器）
+- 【E2E·导出→导入闭环】面板导出 Main 工作区 → 落盘文件 21 jobs · 26 边（双端点口径）· params 完整；API 级导入 → 21 jobs · 26 边全 idle、名称 "(i2)" 去重正确；鲁棒性：unknown type / 坏端口接线 / 自环 三个 payload 全部 400 且错误信息精确；客户端真实路径——agent-browser upload 对画布隐藏 input 设文件 → change → parseWorkflowJson → importWorkflow → toast "21 jobs · 26 links recreated" 全链 PASS；42 个 E2E 导入作业已逐个 DELETE 复原（24 jobs == fixture 态）
+- 【#5 收尾·fs/browse 同源加固】src/lib/http-guard.ts isSameOriginRequest：Sec-Fetch-Site same-origin/none 放行（浏览器同源 fetch 必发）→ Origin/Referer host==Host 校验 → 无任何 fetch metadata（curl/脚本）默认拒绝；挂入 /api/fs/browse 403。测试矩阵：无头 403 / 跨源 Origin 403 / 同源 Origin 200 / Sec-Fetch-Site 200 / 页面内真实 fetch 200（UX 零影响）。残余风险（DNS rebinding，Origin==Host 会通过）已在注释锚定为本地伴生工具的合理取舍
+- 【深色主题 PNG QA】切 dark → 面板导出 → 落盘目检：暗底海报卡片可读、端口彩点/分组框/连线清晰、footer 底色与文字随主题（--card/--border/--foreground 变量实时解析生效）；已切回 light
+- 【运维】本会话 dev server OOM ×2（重启后浏览器首次拉取 client-chunk 的编译窗口，RSS 2.7–2.9GB）→ playbook 重启 ×2 + curl 预热 ×3 后再开浏览器的缓解流程稳定复现成功；E2E 截图/临时 payload 已清理
+- 【收尾】bun run lint 0/0、tsc src/ 0 错误、console 0 error、DB 复原 24 jobs（Task 22 fixture 态）
+
+Stage Summary:
+- Workflow 从"画得出"到"带得走也搬得回来"：cryoflow-workflow/1 JSON 导出/导入全链落地（客户端预校验 + 服务端权威重校验双保险，事务全或无，命名去重，几何保持）——跨工作区/跨项目迁移流水线、分享排布成为可能
+- #5 落地：fs/browse 同源守卫（浏览器 drive-by 探测被 403，本机 UX 无感）——遗留清单仅剩 #6/#14 pathref 一致性审查
+- #8/#13 经核实已在主谱系闭环（本轮零改动）；遗留清单净化
+- 深色主题 PNG 导出对照通过——导出功能双主题交付
+- 遗留（下轮候选）：真 RELION 数据回归（EMPIAR 全链重建）、命令面板任意 job 类型参数预设、Dashboard KPI 卡迷你 sparkline、#6/#14 pathref 与 star 路由包含策略一致性、导入 JSON 的类型版本前向兼容（跨版本 type 改名映射表）

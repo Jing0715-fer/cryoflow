@@ -18,6 +18,7 @@ import type {
   TemplateOverrides,
   WorkspaceDTO,
 } from "./types";
+import type { WorkflowFile } from "./workflow-io";
 
 /**
  * Pending connection: the port being wired.
@@ -106,6 +107,10 @@ interface WorkflowState {
    *  workspace (below existing content), optional parameter overrides,
    *  nothing run. */
   createTemplate: (overrides?: TemplateOverrides) => Promise<void>;
+  /** Recreate an exported cryoflow-workflow/1 file into the ACTIVE
+   *  workspace (POST /api/workflow-import) — server re-validates types,
+   *  params and port wiring; merge + fit-view on success. */
+  importWorkflow: (file: WorkflowFile) => Promise<void>;
   setTemplatePresetsOpen: (open: boolean) => void;
   moveJobCommit: (id: string, x: number, y: number) => Promise<void>;
   applyLayout: () => Promise<void>;
@@ -655,6 +660,34 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       void get().refreshWorkspaces();
     } catch (err) {
       errToast(err instanceof Error ? err.message : "Failed to create the pipeline template");
+    }
+  },
+
+  importWorkflow: async (file) => {
+    try {
+      const data = await api<{ jobs: JobDTO[]; edges: EdgeDTO[] }>("/api/workflow-import", {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({
+          workspaceId: get().activeWorkspaceId ?? undefined,
+          jobs: file.jobs,
+          edges: file.edges,
+        }),
+      });
+      const have = new Set(get().jobs.map((j) => j.id));
+      const haveEdges = new Set(get().edges.map((e) => e.id));
+      set({
+        jobs: [...get().jobs, ...data.jobs.filter((j) => !have.has(j.id))],
+        edges: [...get().edges, ...data.edges.filter((e) => !haveEdges.has(e.id))],
+        layoutEpoch: get().layoutEpoch + 1, // fit-view the imported graph
+      });
+      toast({
+        title: "Workflow imported",
+        description: `${data.jobs.length} jobs · ${data.edges.length} links recreated in this workspace — nothing runs until you start it`,
+      });
+      void get().refreshWorkspaces();
+    } catch (err) {
+      errToast(err instanceof Error ? err.message : "Failed to import the workflow");
     }
   },
 

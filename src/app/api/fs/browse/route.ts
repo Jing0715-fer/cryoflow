@@ -5,6 +5,7 @@ import os from "os";
 import { detectRelion } from "@/lib/relion/system";
 import { PROJECT_ROOT } from "@/lib/paths";
 import { countImages, expandPattern, hasWildcard, userPathToHost } from "@/lib/relion/glob";
+import { isSameOriginRequest } from "@/lib/http-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -85,6 +86,15 @@ function quickJumps(): { label: string; path: string }[] {
 
 export async function GET(request: NextRequest) {
   try {
+    // Hardening (#5): this route enumerates the HOST filesystem — require
+    // browser same-origin metadata so a drive-by page in the user's browser
+    // can't probe it (see http-guard for the threat model + residual risks).
+    if (!isSameOriginRequest(request)) {
+      return NextResponse.json(
+        { error: "Cross-site access to the file browser is not allowed" },
+        { status: 403 }
+      );
+    }
     const url = new URL(request.url);
     const raw = (url.searchParams.get("path") ?? "").trim();
 
