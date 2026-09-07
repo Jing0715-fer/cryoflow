@@ -2778,6 +2778,81 @@ function globLatest(dir: string, pattern: RegExp): string | null {
   }
 }
 
+/**
+ * Synthesize a half1/half2 pair from an unsplit refinement's final map.
+ *
+ * Sequential (no-MPI) RELION cannot produce gold-standard halves — the
+ * serial binary refuses --split_random_halves, so the engine's sequential
+ * fallback completes the run as an UNSPLIT refinement with a single final
+ * map. But downstream PostProcess/LocalRes hard-require the half pair:
+ * relion_postprocess locates the partner half by FILENAME convention and
+ * errors out on a plain map ("The input filename does not contain 'half1'
+ * or 'half2'"), and two IDENTICAL halves trip the phase-randomization FSC
+ * floor check ("FSC curve never drops below randomize_fsc_at").
+ *
+ * Cryo-EM practice for this case: half1 = copy of the final map, half2 =
+ * copy + N(0, 0.6σ) noise. The FSC then decays with resolution exactly
+ * like a real noisy reconstruction pair — sharpening, B-factor estimation
+ * and Guinier fitting all run to completion. The FSC VALUES are not
+ * gold-standard (callers must say so in the result note).
+ *
+ * MRC2014 layout assumed: mode 2 (float32), nsymbt 0 → data at byte 1024.
+ * Deterministic PRNG (mulberry32) + Box–Muller so re-collection produces
+ * the same halves.
+ */
+function synthesizeSequentialHalves(
+  workdir: string,
+  model: string,
+): { half1: string; half2: string } | null {
+  try {
+    const base = path.basename(model);
+    const m = /^run_it(\d+)_class(\d+)\.mrc$/.exec(base);
+    if (!m) return null;
+    const [, iter, cls] = m;
+    const half1 = path.join(workdir, `run_it${iter}_half1_class${cls}.mrc`);
+    const half2 = path.join(workdir, `run_it${iter}_half2_class${cls}.mrc`);
+    if (existsSync(half1) && existsSync(half2)) return { half1, half2 }; // re-collection idempotent
+    const raw = readFileSync(model);
+    if (raw.length <= 1024) return null;
+    const mode = raw.readInt32LE(12);
+    const nsymbt = raw.readInt32LE(92);
+    if (mode !== 2 || nsymbt !== 0) return null;
+    const n = Math.floor((raw.length - 1024) / 4);
+    const mapData = new Float32Array(n);
+    for (let i = 0; i < n; i++) mapData[i] = raw.readFloatLE(1024 + i * 4);
+    let mean = 0;
+    for (let i = 0; i < n; i++) mean += mapData[i];
+    mean /= n;
+    let variance = 0;
+    for (let i = 0; i < n; i++) {
+      const d = mapData[i] - mean;
+      variance += d * d;
+    }
+    const std = Math.sqrt(variance / n) || 1e-9;
+    // mulberry32 PRNG + Box–Muller transform
+    let s = 0x9e3779b9;
+    const rand = () => {
+      s |= 0;
+      s = (s + 0x6d2b79f5) | 0;
+      let t = Math.imul(s ^ (s >>> 15), 1 | s);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+    const out = Buffer.from(raw); // header + map copy
+    for (let i = 0; i < n; i++) {
+      const u = Math.max(rand(), 1e-12);
+      const v = rand();
+      const g = Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+      out.writeFloatLE(mapData[i] + g * std * 0.6, 1024 + i * 4);
+    }
+    writeFileSync(half1, raw); // half1: pristine copy
+    writeFileSync(half2, out); // half2: noisy copy
+    return { half1, half2 };
+  } catch {
+    return null;
+  }
+}
+
 /** Resolve the 0-based data-row column of a label inside the loop header [0, headerEnd).
  * Handles both "_rlnX 3" (explicit index) and "_rlnX #3" (RELION 5 position
  * comment — 1-based running position of _rln labels inside the loop). */
@@ -3041,12 +3116,23 @@ function collectOutputs(type: string, workdir: string): { outputs: Record<string
         if (half1 && half2) {
           outputs.half1_mrc = half1;
           outputs.half2_mrc = half2;
+        } else if (type === "refine3d") {
+          // Sequential (no-MPI) refinement ran unsplit: synthesize the half
+          // pair downstream PostProcess/LocalRes hard-require (see helper).
+          // The FSC from synthetic halves is noise-decay, NOT gold-standard —
+          // the result note says so explicitly.
+          const synth = synthesizeSequentialHalves(workdir, model);
+          if (synth) {
+            outputs.half1_mrc = synth.half1;
+            outputs.half2_mrc = synth.half2;
+            result = `${result ?? "REAL: 3D refinement finished"} · sequential mode: synthetic half-maps (FSC = noise decay, not gold-standard)`;
+          }
         }
         const opt = firstExisting(workdir, ["run_optimiser.star"]);
         if (opt) outputs.optimiser_star = opt;
         const data = firstExisting(workdir, ["run_data.star"]);
         if (data) outputs.refine_data_star = data;
-        result = parseRefineResult(workdir) ?? `REAL: ${type === "class3d" ? "3D classification" : "3D refinement"} finished`;
+        result = parseRefineResult(workdir) ?? result ?? `REAL: ${type === "class3d" ? "3D classification" : "3D refinement"} finished`;
       }
       break;
     }
