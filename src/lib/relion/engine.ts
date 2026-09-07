@@ -3128,9 +3128,19 @@ function collectOutputs(type: string, workdir: string): { outputs: Record<string
             result = `${result ?? "REAL: 3D refinement finished"} · sequential mode: synthetic half-maps (FSC = noise decay, not gold-standard)`;
           }
         }
-        const opt = firstExisting(workdir, ["run_optimiser.star"]);
+        // Same RELION 5 naming story as the data.star below: optimiser.star
+        // is written per-iteration; the ≤4 bare name never appears.
+        const opt =
+          globLatest(workdir, /^run_it\d+_optimiser\.star$/) ??
+          firstExisting(workdir, ["run_optimiser.star"]);
         if (opt) outputs.optimiser_star = opt;
-        const data = firstExisting(workdir, ["run_data.star"]);
+        // RELION 5 writes per-iteration data.star (run_it<N>_data.star) and
+        // never materializes the RELION ≤4 "run_data.star" — without the
+        // globLatest fallback the refinement exposes NO particles output and
+        // downstream CtfRefine/Polish silently degrade to a 2D-class star
+        // (missing rlnAngleRot/Tilt/Psi/RandomSubset → hard error). Mirrors
+        // the class2d collection at ~3057.
+        const data = globLatest(workdir, /^run_it\d+_data\.star$/) ?? firstExisting(workdir, ["run_data.star"]);
         if (data) outputs.refine_data_star = data;
         result = parseRefineResult(workdir) ?? result ?? `REAL: ${type === "class3d" ? "3D classification" : "3D refinement"} finished`;
       }
