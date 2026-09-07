@@ -65,6 +65,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
+import { HpcSbatchDialog } from "./hpc-sbatch-dialog";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
@@ -1194,6 +1195,7 @@ function PanelBody({ job }: { job: JobDTO }) {
           ) : (
             <span className="flex-1 inline-flex">{runButton}</span>
           )}
+          <HpcSbatchDialog jobId={job.id} compact />
           <Button
             variant="ghost"
             size="icon"

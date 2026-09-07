@@ -840,7 +840,7 @@ const GENERIC_REQUIREMENTS: Record<string, string> = {
  * upstream used to cascade red "Waiting for upstream output" failures down
  * the entire pipeline.
  */
-function resolveInputs(
+export function resolveInputs(
   type: string,
   upstream: UpstreamRef[],
   params?: Record<string, unknown>
@@ -1046,7 +1046,15 @@ function synthesizeTrainingPicks(pickFile: string, micrographsStar: string, outD
 
     const indexRows: string[] = [];
 
-    if (files.length > 0) {
+    // AutoPick-family branch ONLY when the resolved file is itself a
+    // per-mic autopick star (…_autopick.star). A ManualPick flat table
+    // (labels carry _rlnMicrographName + X + Y per row) must go through
+    // the split branch below — the earlier sibling-scan caught
+    // manualpick.star itself and forged a "micrographs/manualpick.mrc"
+    // index row that does not exist (EMPIAR E2E, topaz train via
+    // manualpick coords).
+    const isAutoFamily = /_autopick\.star$/i.test(path.basename(pickFile));
+    if (isAutoFamily && files.length > 0) {
       // AutoPick-style resolved file: point the index at the sibling stars
       for (const f of files) {
         const stem = f.replace(/_autopick\.star$/i, "").replace(/\.star$/i, "");
@@ -2123,7 +2131,7 @@ async function externalOnPath(
  * Build the real argv for a type. Returns argv (WITHOUT mpirun prefix —
  * that is decided by the caller) or an honest-failure message.
  */
-async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: string }> {
+export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: string }> {
   const { job, inputs, binDir } = ctx;
   const type = job.type;
 
