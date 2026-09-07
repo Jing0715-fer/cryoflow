@@ -65,6 +65,27 @@ export interface EdgeDTO {
   toPort?: string;
 }
 
+/**
+ * Optional parameter presets for the one-click SPA pipeline template
+ * (POST /api/pipeline-template body.overrides). Every field is optional —
+ * absent fields fall back to the job spec defaults. The API clamps/validates
+ * each value against the job spec (unknown symmetry / NaN → 400).
+ */
+export interface TemplateOverrides {
+  /** Point group applied to BOTH initialmodel + refine3d ("C1"…"I"). */
+  symmetry?: string;
+  /** 2D Classification: number of classes (K). */
+  class2dClasses?: number;
+  /** 2D Classification: number of iterations. */
+  class2dIterations?: number;
+  /** 3D Initial Model: number of classes (K). */
+  initialModelClasses?: number;
+  /** 3D Auto-Refine: initial low-pass filter on the reference (Å). */
+  refineIniHigh?: number;
+  /** 3D Auto-Refine: run in gold-standard auto-refine mode. */
+  refineAutoRefine?: boolean;
+}
+
 export interface ProjectDTO {
   id: string;
   name: string;

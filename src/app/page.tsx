@@ -12,6 +12,7 @@ import { WorkflowCanvas } from "@/components/workflow/canvas";
 import { JobPanel } from "@/components/workflow/job-panel";
 import { JobInspector } from "@/components/workflow/job-inspector";
 import { CommandPalette } from "@/components/workflow/command-palette";
+import { TemplatePresetsDialog } from "@/components/workflow/template-presets-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -293,6 +294,7 @@ export default function Home() {
       {/* Large inspector modal for submitted jobs (running/completed/failed) */}
       <JobInspector />
       <CommandPalette />
+      <TemplatePresetsDialog />
 
       {/* Mobile: floating palette trigger (canvas view only) */}
       {!isDashboard && (

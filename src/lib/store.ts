@@ -15,6 +15,7 @@ import type {
   ProjectDTO,
   ProjectSummaryDTO,
   SystemStatusClient,
+  TemplateOverrides,
   WorkspaceDTO,
 } from "./types";
 
@@ -67,6 +68,9 @@ interface WorkflowState {
   focusJobId: string | null;
   /** Increments per focus request so the canvas effect re-fires. */
   focusEpoch: number;
+  /** SPA template presets dialog open (triggered from the canvas empty
+   *  state, the command palette or the help popover — mounted once). */
+  templatePresetsOpen: boolean;
   loading: boolean;
   error: string | null;
   /** True while a card is being dragged — polling pauses so no re-render
@@ -99,8 +103,10 @@ interface WorkflowState {
   addJob: (type: string) => Promise<void>;
   addJobAt: (type: string, x: number, y: number) => Promise<void>;
   /** One-click standard SPA pipeline: 10 pre-wired jobs into the ACTIVE
-   *  workspace (below existing content), params at defaults, nothing run. */
-  createTemplate: () => Promise<void>;
+   *  workspace (below existing content), optional parameter overrides,
+   *  nothing run. */
+  createTemplate: (overrides?: TemplateOverrides) => Promise<void>;
+  setTemplatePresetsOpen: (open: boolean) => void;
   moveJobCommit: (id: string, x: number, y: number) => Promise<void>;
   applyLayout: () => Promise<void>;
   saveJob: (
@@ -269,6 +275,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   layoutEpoch: 0,
   focusJobId: null,
   focusEpoch: 0,
+  templatePresetsOpen: false,
   loading: true,
   error: null,
   dragActive: false,
@@ -617,12 +624,19 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     }
   },
 
-  createTemplate: async () => {
+  createTemplate: async (overrides) => {
     try {
       const data = await api<{ jobs: JobDTO[]; edges: EdgeDTO[] }>("/api/pipeline-template", {
         method: "POST",
         headers: JSON_HEADERS,
-        body: JSON.stringify({ workspaceId: get().activeWorkspaceId ?? undefined }),
+        body: JSON.stringify({
+          workspaceId: get().activeWorkspaceId ?? undefined,
+          // only send when present — keeps the request shape stable for the
+          // defaults path (and the server treats absent == spec defaults)
+          ...(overrides && Object.values(overrides).some((v) => v != null)
+            ? { overrides }
+            : {}),
+        }),
       });
       const have = new Set(get().jobs.map((j) => j.id));
       const haveEdges = new Set(get().edges.map((e) => e.id));
@@ -631,9 +645,10 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         edges: [...get().edges, ...data.edges.filter((e) => !haveEdges.has(e.id))],
         layoutEpoch: get().layoutEpoch + 1, // canvas fit-views the new content
       });
+      const presetBits = overrides?.symmetry ? ` · symmetry ${overrides.symmetry}` : "";
       toast({
         title: "Standard SPA pipeline created",
-        description: `${data.jobs.length} pre-wired jobs — set the Import source, then run it to chain-start the rest`,
+        description: `${data.jobs.length} pre-wired jobs${presetBits} — set the Import source, then run it to chain-start the rest`,
       });
       // the route may have provisioned the legacy seed's missing "Main"
       // workspace — refresh the sidebar/header lists so they show it
@@ -956,6 +971,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     set((s) => ({ viewport: { ...s.viewport, x: s.viewport.x + dx, y: s.viewport.y + dy } })),
   setDragActive: (active) => set({ dragActive: active }),
   setPaletteDrag: (type) => set({ paletteDrag: type }),
+  setTemplatePresetsOpen: (open) => set({ templatePresetsOpen: open }),
 
   focusJob: (id) =>
     set((s) => ({

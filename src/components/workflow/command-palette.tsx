@@ -23,6 +23,7 @@ import {
   Moon,
   Play,
   RotateCcw,
+  SlidersHorizontal,
   Wand2,
   Workflow,
 } from "lucide-react";
@@ -135,6 +136,12 @@ export function CommandPalette() {
   const createTemplate = () => {
     void useWorkflowStore.getState().createTemplate();
     close();
+  };
+
+  const openTemplatePresets = () => {
+    // close the palette first so the two dialogs never fight over focus
+    close();
+    useWorkflowStore.getState().setTemplatePresetsOpen(true);
   };
 
   const toggleTheme = () => {
@@ -271,6 +278,20 @@ export function CommandPalette() {
               Create standard SPA pipeline
               <span className="ml-1.5 text-[10px] text-muted-foreground">
                 10 pre-wired jobs · import → postprocess
+              </span>
+            </span>
+            <CommandShortcut>↵ defaults</CommandShortcut>
+          </CommandItem>
+          <CommandItem
+            value="create spa pipeline with presets symmetry classes scaffold configure"
+            onSelect={openTemplatePresets}
+            className="gap-2.5"
+          >
+            <SlidersHorizontal className="size-4 shrink-0 text-teal-600" />
+            <span className="flex-1 text-sm">
+              Create SPA pipeline with presets…
+              <span className="ml-1.5 text-[10px] text-muted-foreground">
+                symmetry · class counts · refine mode
               </span>
             </span>
           </CommandItem>

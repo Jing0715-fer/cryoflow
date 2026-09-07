@@ -593,8 +593,8 @@ export function WorkflowCanvas() {
               <Button
                 size="sm"
                 className="pointer-events-auto mt-3 gap-1.5"
-                onClick={() => void useWorkflowStore.getState().createTemplate()}
-                title="Create 10 pre-wired jobs (import → motion correction → CTF → picking → extraction → 2D → initial model → refine → mask → postprocess)"
+                onClick={() => useWorkflowStore.getState().setTemplatePresetsOpen(true)}
+                title="Create 10 pre-wired jobs (import → motion correction → CTF → picking → extraction → 2D → initial model → refine → mask → postprocess) — pick a parameter preset or use the defaults"
               >
                 <Wand2 className="size-3.5" aria-hidden="true" />
                 Scaffold standard SPA pipeline

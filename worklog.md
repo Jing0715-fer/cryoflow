@@ -1501,3 +1501,24 @@ Stage Summary:
 - 第 24 个真实 bug 闭环：recharts 2.15 + React 19 下 fragment 包裹的 Line 子树静默消失——hide prop 模式绕过，注释已锚定该陷阱
 - #7 热路径清理收官：8/8 chart 路由 mtime 缓存全覆盖，最大单个文件从每请求重解析变为 statSync 命中
 - 遗留（下轮候选）：真实 RELION 数据回归（EMPIAR 全链重建，QA fixture 均为注入结果）、用户机器 class3d/refine3d 顺序模式与 topaz 实测反馈、Dashboard 分析区导出（CSV/截图）、Workflow 画布 minimap/缩略图导航、命令面板支持模板参数预设（如 symmetry/CTF binning）
+
+---
+Task ID: 22
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 续轮）——QA 回归全绿后推进：SPA 模板参数预设对话框 + Dashboard 分析区导出（复制摘要/CSV）+ #25 空 scope 锁死修复 + worklog + push
+
+Work Log:
+- 【开局核对】git 本地 == origin/main == 3419a9f（Task 21 已推送）；dev server 存活但 QA 中两次 global OOM（dmesg 实锤 next-server RSS 2.8GB，与 Task 21 的 Turbopack 编译窗口模式一致）→ playbook 重启 ×2，重启后 warm-compile 再进浏览器
+- 【QA 回归·全绿】Workflow 24 jobs / Dashboard spotlight 6/24 / console 0 error（残留 Fast Refresh 警告为 OOM 崩溃余波，非现役 bug）；浏览器残留上次会话 3D viewer 弹窗模式再现（Escape 清除即恢复）
+- 【新功能 1·SPA 模板参数预设】①types.ts 新增 TemplateOverrides（symmetry/class2dClasses/class2dIterations/initialModelClasses/refineIniHigh/refineAutoRefine 六字段全可选）；②API pipeline-template：parseOverrides 严格校验（symmetry 白名单、数字 clamp 到 spec min/max、bool 类型检查，非法值 400 大声失败而非静默忽略）+ applyOverrides 按类型叠加到 spec defaults（class2d→numClasses/iterations，initialmodel→numClasses/symmetry，refine3d→symmetry/iniHigh/autoRefine）；③新组件 template-presets-dialog.tsx：三张预设卡（Quick pass K=10·8iters·IM1·40Å / Standard=spec defaults / Deep pass K=50·25iters·IM8·C1·15Å·autoRefine）+ 六个可编辑旋钮（symmetry select 带 group 释义、3 个数字步进、low-pass、auto-refine switch）+ 底部实时摘要行（"Deep pass preset · 50 2D classes · symmetry C1"）；手动改任意字段即清预设高亮；全默认时省略 overrides 保持与旧路径字节等价；④store：createTemplate(overrides?) 签名升级 + templatePresetsOpen 全局开关（对话框 page.tsx 单点挂载，三处触发：canvas 空状态按钮、命令面板新条目 "Create SPA pipeline with presets…"、palette 关闭后再开避免双对话框抢焦点）；toast 描述带 symmetry
+- 【新功能 1 E2E·全链实证】命令面板 → presets 条目 → 对话框渲染完整（3 卡+6 旋钮）→ 点 Deep pass → 六字段联动（C1/50/25/8/15/autoRefine✓）→ Create → toast "10 pre-wired jobs · symmetry C1" → DB 验证：class2d {numClasses:50,iterations:25}、initialmodel {numClasses:8,symmetry:C1}、refine3d {symmetry:C1,iniHigh:15,autoRefine:true} 全对；API 鲁棒性：symmetry X5 → 400、class2dClasses "abc" → 400、refineAutoRefine "yes" → 400、9999 → clamp 200 后 201（副作用建的真模板已逐个 DELETE 清理，24 jobs 恢复）；minimap 自洽（Main 11+10=21）
+- 【新功能 2·Dashboard 分析区导出】pipeline-analytics header 新增两个图标按钮（chips 左侧右对齐组）：①复制摘要（ClipboardCopy→Check 1.6s 反馈）：纯文本 summary（项目名 + scope + job 计数 + particle flow 全行含 note + resolution ladder 全行 + 生成时间），navigator.clipboard 失败走 destructive toast；②CSV 导出（Blob + a.download）：9 列（name/type/type_label/workspace/status/progress_pct/result/created_at/updated_at）RFC-4180 转义、文件名 cryoflow-<project>-jobs-<date>.csv、尊重当前 scope chip；wsName null/""→"Unassigned" 与 chips 口径一致。E2E：all scope → toast "24 jobs · scope: all workspaces" + 3KB 文件 24 行 9 列；Unassigned scope → toast "3 jobs · scope: Unassigned" + 3 行文件；复制摘要 toast "Summary copied" 实证
+- 【真 bug #25·空 scope 锁死】scope 到无数据 workspace（如 Unassigned 3 idle）时 flow<2 且 milestones=0 → 整节 return null → chips 随之消失 → 用户永远切不回 "all"（只能离开 Dashboard 重挂载）。修复：hasContent=false 且 wsFilter==null 才整体隐藏（保住原"诚实自隐藏"契约）；被过滤时保留整节外壳 + 空状态提示行（"No pipeline data in the … scope yet — switch to another workspace or all above"）。E2E：Unassigned → 空状态提示 + chips/export 全保留 → 点回 all → 漏斗完整恢复（1,444 micrographs 行实证）
+- 【收尾】bun run lint 0/0、tsc src/ 0 错误；QA 临时截图已清理；Deep pass 批次（10 idle 作业）保留为预设功能的现成 fixture
+- 【方法论】agent-browser ref 会因 Fast Refresh 全量重载/重渲染而漂移——点击前必须重新 snapshot 取 ref，否则 click 落到语义完全不同的元素上（本轮两次误开 inspector/切视图均为 stale-ref 所致）；rg -r '$1' 捕获组已含 'e' 前缀，勿再手拼
+
+Stage Summary:
+- SPA 模板从"一键默认"升级为"带预设的一键"：Quick/Standard/Deep 三档 + 六旋钮自定义，参数经严格校验直落 DB——装好即可按样本对称性/算力预算起流水线
+- Dashboard 分析区可带走：复制纯文本摘要（漏斗+分辨率阶梯+计数）与 9 列 CSV 导出，双口径都尊重 scope chip——汇报/存档一键完成
+- 第 25 个真实 bug 闭环：空 scope 过滤自隐藏把 chips 一起带走造成导航锁死——过滤态保留外壳 + 空状态引导
+- 遗留（下轮候选）：真实 RELION 数据回归（EMPIAR 全链重建）、模板预设记忆上次选择（localStorage）、Dashboard KPI "TOTAL JOBS" 聚合在模板创建后不自动刷新（需 reload，projects 列表缓存）、命令面板支持任意 job 类型参数预设、Workflow 画布导出 PNG

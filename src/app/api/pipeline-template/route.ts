@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { ensureActiveProject, ensureDefaultWorkspace, toJobDTO } from "@/lib/seed";
 import { defaultParams, jobType } from "@/lib/workflow";
 import { persistPortEdge, portsValid } from "@/lib/edge-ports";
-import type { EdgeDTO, JobDTO } from "@/lib/types";
+import type { EdgeDTO, JobDTO, TemplateOverrides } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +15,9 @@ export const dynamic = "force-dynamic";
  * paths (the Import job needs a real micrograph folder/pattern) and starts
  * jobs individually or via downstream auto-start.
  *
- * Body: { workspaceId? } (defaults to the project's first workspace).
+ * Body: { workspaceId?, overrides? } (workspace defaults to the project's
+ * first workspace; overrides carry optional parameter presets — symmetry,
+ * class counts, refine settings — validated/clamped against the job specs).
  * Returns the created jobs + edges so the client can merge them straight
  * into its store without a refetch round-trip.
  */
@@ -46,6 +48,84 @@ const ORIGIN_X = 80;
 /** Vertical gap between the existing workspace content and the template. */
 const DROP_GAP = 240;
 
+/** Point groups offered by the symmetry selects (mirrors workflow.ts). */
+const SYMMETRY_OPTIONS = ["C1", "C2", "C4", "D2", "T", "I"];
+
+/** Coerce a number override: non-finite → null; finite → clamped to [min,max]. */
+function clampNum(raw: unknown, min: number, max: number): number | null {
+  const n = typeof raw === "number" ? raw : parseFloat(String(raw ?? ""));
+  if (!Number.isFinite(n)) return null;
+  return Math.min(max, Math.max(min, n));
+}
+
+/**
+ * Parse + validate the optional overrides. Returns either the cleaned
+ * overrides or a 400 message — the route fails LOUDLY on bad input rather
+ * than silently creating a template with ignored settings.
+ */
+function parseOverrides(raw: unknown): { overrides?: TemplateOverrides; error?: string } {
+  if (raw == null || typeof raw !== "object") return {};
+  const o = raw as Record<string, unknown>;
+  const out: TemplateOverrides = {};
+
+  if (o.symmetry != null) {
+    if (typeof o.symmetry !== "string" || !SYMMETRY_OPTIONS.includes(o.symmetry)) {
+      return { error: `Invalid symmetry: ${String(o.symmetry)}` };
+    }
+    out.symmetry = o.symmetry;
+  }
+  const class2dClasses = clampNum(o.class2dClasses, 1, 200);
+  if (o.class2dClasses != null && class2dClasses == null) {
+    return { error: "Invalid class2dClasses (expected a number)" };
+  }
+  if (class2dClasses != null) out.class2dClasses = class2dClasses;
+
+  const class2dIterations = clampNum(o.class2dIterations, 1, 50);
+  if (o.class2dIterations != null && class2dIterations == null) {
+    return { error: "Invalid class2dIterations (expected a number)" };
+  }
+  if (class2dIterations != null) out.class2dIterations = class2dIterations;
+
+  const initialModelClasses = clampNum(o.initialModelClasses, 1, 20);
+  if (o.initialModelClasses != null && initialModelClasses == null) {
+    return { error: "Invalid initialModelClasses (expected a number)" };
+  }
+  if (initialModelClasses != null) out.initialModelClasses = initialModelClasses;
+
+  const refineIniHigh = clampNum(o.refineIniHigh, 5, 60);
+  if (o.refineIniHigh != null && refineIniHigh == null) {
+    return { error: "Invalid refineIniHigh (expected a number)" };
+  }
+  if (refineIniHigh != null) out.refineIniHigh = refineIniHigh;
+
+  if (o.refineAutoRefine != null) {
+    if (typeof o.refineAutoRefine !== "boolean") {
+      return { error: "Invalid refineAutoRefine (expected a boolean)" };
+    }
+    out.refineAutoRefine = o.refineAutoRefine;
+  }
+  return { overrides: out };
+}
+
+/** Apply validated overrides on top of a job type's spec defaults. */
+function applyOverrides(
+  type: string,
+  params: Record<string, number | string | boolean>,
+  ov: TemplateOverrides
+): void {
+  if (type === "class2d") {
+    if (ov.class2dClasses != null) params.numClasses = ov.class2dClasses;
+    if (ov.class2dIterations != null) params.iterations = ov.class2dIterations;
+  } else if (type === "initialmodel") {
+    if (ov.initialModelClasses != null) params.numClasses = ov.initialModelClasses;
+    if (ov.symmetry != null) params.symmetry = ov.symmetry;
+  } else if (type === "refine3d") {
+    if (ov.symmetry != null) params.symmetry = ov.symmetry;
+    if (ov.refineIniHigh != null) params.iniHigh = ov.refineIniHigh;
+    if (ov.refineAutoRefine != null) params.autoRefine = ov.refineAutoRefine;
+  }
+}
+
 /** Explicit port wiring for the chain — [fromType, fromPort, toType, toPort].
  *  Validated against the specs at request time (a spec change that breaks a
  *  pair fails the whole template loudly instead of half-wiring). */
@@ -67,7 +147,15 @@ const TEMPLATE_EDGES: [string, string, string, string][] = [
 
 export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json().catch(() => ({}))) as { workspaceId?: unknown };
+    const body = (await request.json().catch(() => ({}))) as {
+      workspaceId?: unknown;
+      overrides?: unknown;
+    };
+
+    const { overrides, error: ovErr } = parseOverrides(body.overrides);
+    if (ovErr) {
+      return NextResponse.json({ error: ovErr }, { status: 400 });
+    }
 
     // all chain entries must exist in the catalog (defensive — a renamed
     // spec key should 400 here, not create a half-template)
@@ -153,7 +241,16 @@ export async function POST(request: NextRequest) {
             name: `${spec.label} ${n}`,
             x: ORIGIN_X + TEMPLATE_COLS[i] * DX,
             y: baseY + TEMPLATE_ROWS[i] * DY,
-            params: JSON.stringify(defaultParams(type)),
+            params: JSON.stringify(
+              // spec defaults, then the caller's validated presets on top
+              overrides && Object.keys(overrides).length > 0
+                ? (() => {
+                    const p = defaultParams(type);
+                    applyOverrides(type, p, overrides);
+                    return p;
+                  })()
+                : defaultParams(type)
+            ),
             duration: spec.duration,
           },
         });

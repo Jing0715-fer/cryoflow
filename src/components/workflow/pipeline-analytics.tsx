@@ -21,11 +21,21 @@
  * ≥ 1 resolution milestone) so empty/draft projects stay clean.
  */
 
-import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, Award, Crosshair, Filter, Waves } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  ArrowRight,
+  Award,
+  Check,
+  ClipboardCopy,
+  Crosshair,
+  Download,
+  Filter,
+  Waves,
+} from "lucide-react";
 import type { JobDTO } from "@/lib/types";
 import { jobType } from "@/lib/workflow";
 import { useWorkflowStore } from "@/lib/store";
+import { toast } from "@/hooks/use-toast";
 import { TypeIcon } from "./icons";
 import { cn } from "@/lib/utils";
 
@@ -179,13 +189,37 @@ function useResolutionMilestones(jobs: JobDTO[]): Milestone[] {
 }
 
 /* ------------------------------------------------------------------ */
+/* Export helpers (copy summary · CSV download)                        */
+/* ------------------------------------------------------------------ */
+
+/** RFC-4180-ish CSV cell escaping: quote when special chars are present. */
+function csvCell(v: unknown): string {
+  const s = String(v ?? "");
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function downloadText(filename: string, text: string, mime: string): void {
+  const url = URL.createObjectURL(new Blob([text], { type: mime }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  // revoke on the next tick — Chrome ignores an immediate revoke
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+/* ------------------------------------------------------------------ */
 /* Component                                                           */
 /* ------------------------------------------------------------------ */
 
 export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
   const workspaces = useWorkflowStore((s) => s.workspaces);
+  const projectName = useWorkflowStore((s) => s.project?.name);
   /** null = all workspaces; otherwise a workspace id ("" = legacy unassigned). */
   const [wsFilter, setWsFilter] = useState<string | null>(null);
+  /** brief ✓ state on the copy-summary button */
+  const [copied, setCopied] = useState(false);
+  const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // only workspaces that actually hold jobs get a chip — keeps the row
   // honest when a workspace exists but is empty (or was deleted)
@@ -217,7 +251,121 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
   );
   const milestones = useResolutionMilestones(scoped);
 
-  if (flow.length < 2 && milestones.length === 0) return null;
+  // clear the copied-✓ timer on unmount (never setState after unmount)
+  useEffect(
+    () => () => {
+      if (copiedTimer.current) clearTimeout(copiedTimer.current);
+    },
+    []
+  );
+
+  /** Human label of the current scope chip ("all workspaces" / ws name). */
+  const scopeLabel =
+    wsFilter == null
+      ? "all workspaces"
+      : (workspaces.find((w) => w.id === wsFilter)?.name ??
+        (wsFilter === "" ? "Unassigned" : wsFilter.slice(0, 8)));
+
+  /** Plain-text summary of everything this section shows, clipboard-ready. */
+  const buildSummary = (): string => {
+    const lines: string[] = [];
+    const nCompleted = scoped.filter((j) => j.status === "completed").length;
+    const nFailed = scoped.filter((j) => j.status === "failed").length;
+    lines.push(`CryoFlow — ${projectName ?? "project"} pipeline summary`);
+    lines.push(
+      `Scope: ${scopeLabel} · ${scoped.length} jobs (${nCompleted} completed, ${nFailed} failed)`
+    );
+    if (flow.length >= 2) {
+      lines.push("");
+      lines.push("Particle flow:");
+      for (const r of flow) {
+        lines.push(`  ${r.label}: ${fmt(r.count)}${r.note ? ` (${r.note})` : ""}`);
+      }
+    }
+    if (milestones.length > 0) {
+      lines.push("");
+      lines.push("Resolution ladder:");
+      for (const m of milestones) {
+        const best =
+          m.reported != null && (m.at143 == null || m.reported <= m.at143)
+            ? m.reported
+            : (m.at143 ?? m.reported);
+        lines.push(`  ${m.name}: ${best?.toFixed(2)} Å${m.label ? ` (${m.label})` : ""}`);
+      }
+    }
+    lines.push("");
+    lines.push(`Generated ${new Date().toLocaleString()}`);
+    return lines.join("\n");
+  };
+
+  const copySummary = async () => {
+    try {
+      await navigator.clipboard.writeText(buildSummary());
+      setCopied(true);
+      if (copiedTimer.current) clearTimeout(copiedTimer.current);
+      copiedTimer.current = setTimeout(() => setCopied(false), 1600);
+      toast({
+        title: "Summary copied",
+        description: `Pipeline summary (${scopeLabel}) is on your clipboard`,
+      });
+    } catch {
+      toast({
+        title: "Copy failed",
+        description: "Clipboard is unavailable in this browser context",
+        variant: "destructive",
+      });
+    }
+  };
+
+  /** Full job inventory of the current scope → timestamped CSV download. */
+  const exportCsv = () => {
+    const wsName = (id: string | null | undefined) =>
+      // null/"" both mean the legacy "Unassigned" bucket (same as the chips)
+      id == null || id === ""
+        ? "Unassigned"
+        : (workspaces.find((w) => w.id === id)?.name ?? id);
+    const header = [
+      "name",
+      "type",
+      "type_label",
+      "workspace",
+      "status",
+      "progress_pct",
+      "result",
+      "created_at",
+      "updated_at",
+    ];
+    const rows = scoped.map((j) => [
+      j.name,
+      j.type,
+      jobType(j.type)?.label ?? j.type,
+      wsName(j.workspaceId),
+      j.status,
+      j.progress,
+      j.result ?? "",
+      j.createdAt,
+      j.updatedAt,
+    ]);
+    const csv = [header, ...rows].map((r) => r.map(csvCell).join(",")).join("\r\n");
+    const stamp = new Date().toISOString().slice(0, 10);
+    const safe = (projectName ?? "project")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+    downloadText(`cryoflow-${safe}-jobs-${stamp}.csv`, csv, "text/csv;charset=utf-8");
+    toast({
+      title: "CSV exported",
+      description: `${rows.length} jobs · scope: ${scopeLabel}`,
+    });
+  };
+
+  const hasContent = flow.length >= 2 || milestones.length > 0;
+  // Unfiltered + nothing to say → stay out of the way entirely (the
+  // original honest-hide contract). BUT a scoped view with no data must
+  // KEEP the section chrome: hiding the chips alongside the body would
+  // lock the user out of switching back to "all" (they could never see
+  // the section again without leaving the dashboard).
+  if (!hasContent && wsFilter == null) return null;
 
   const maxCount = flow.length > 0 ? Math.max(...flow.map((r) => r.count)) : 1;
 
@@ -234,10 +382,35 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
         <span className="text-[10px] text-muted-foreground/60">
           live from your finished jobs
         </span>
-        {/* per-workspace scope chips — only when the project really spans
-            more than one workspace, otherwise the filter is noise */}
-        {wsOptions.length > 1 && (
-          <div className="ml-auto flex flex-wrap items-center gap-1" role="group" aria-label="Filter analytics by workspace">
+        {/* export toolbar + per-workspace scope chips — only when the project
+            really spans more than one workspace, otherwise the filter is noise */}
+        <div className="ml-auto flex items-center gap-2">
+          <div className="flex items-center gap-0.5" role="group" aria-label="Export analytics">
+            <button
+              type="button"
+              onClick={() => void copySummary()}
+              title="Copy a plain-text summary of the funnel, resolution ladder and job counts"
+              aria-label="Copy pipeline summary"
+              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              {copied ? (
+                <Check className="size-3.5 text-emerald-600" aria-hidden="true" />
+              ) : (
+                <ClipboardCopy className="size-3.5" aria-hidden="true" />
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={exportCsv}
+              title="Download the job inventory (current scope) as CSV"
+              aria-label="Export jobs as CSV"
+              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <Download className="size-3.5" aria-hidden="true" />
+            </button>
+          </div>
+          {wsOptions.length > 1 && (
+            <div className="flex flex-wrap items-center gap-1" role="group" aria-label="Filter analytics by workspace">
             <button
               type="button"
               onClick={() => setWsFilter(null)}
@@ -271,11 +444,20 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
                 {w.name} · {w.count}
               </button>
             ))}
-          </div>
-        )}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className={cn("grid gap-5", milestones.length > 0 && flow.length >= 2 && "lg:grid-cols-2")}>
+        {/* scoped empty state — only when a chip filter carved away every
+            flow row AND no resolution milestone answers for this scope */}
+        {!hasContent && (
+          <p className="py-2 text-xs text-muted-foreground">
+            No pipeline data in the “{scopeLabel}” scope yet — finished jobs with particle counts
+            or resolutions will appear here. Switch to another workspace or “all” above.
+          </p>
+        )}
         {/* particle flow funnel ------------------------------------------ */}
         {flow.length >= 2 && (
           <div>
