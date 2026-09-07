@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useCallback } from "react";
-import { Link2, RotateCcw, Wand2, X, ZoomIn, ZoomOut } from "lucide-react";
+import { Download, Link2, Loader2, RotateCcw, Wand2, X, ZoomIn, ZoomOut } from "lucide-react";
 import {
   CARD_H,
   CARD_W,
@@ -13,8 +13,10 @@ import {
   portY,
 } from "@/lib/workflow";
 import { pendingWirePath } from "@/lib/edge-geom";
+import { exportCanvasPng, fmtBytes } from "@/lib/canvas-export";
 import { useWorkflowStore, useActiveWorkspaceJobs, useActiveWorkspaceEdges, type PendingFrom } from "@/lib/store";
 import type { JobDTO } from "@/lib/types";
+import { toast } from "@/hooks/use-toast";
 import { EdgesLayer } from "./edges-layer";
 import { PipelineKpi } from "./pipeline-kpi";
 import { CanvasMinimap } from "./canvas-minimap";
@@ -469,6 +471,36 @@ export function WorkflowCanvas() {
     setViewport({ x: rect.width / 2 - cx, y: rect.height / 2 - cy, zoom: 1 });
   };
 
+  // ---- PNG export -------------------------------------------------------
+  const [exporting, setExporting] = React.useState(false);
+  const handleExportPng = useCallback(async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const s = useWorkflowStore.getState();
+      const res = await exportCanvasPng({
+        projectName: s.project?.name ?? "project",
+        workspaceName: activeWorkspaceName ?? "workspace",
+        jobs,
+        edges,
+        cardW: CARD_W,
+        cardH: CARD_H,
+      });
+      toast({
+        title: "Canvas exported",
+        description: `${res.fileName} · ${res.width}\u00d7${res.height} px \u00b7 ${fmtBytes(res.bytes)}`,
+      });
+    } catch (err) {
+      toast({
+        title: "Export failed",
+        description: err instanceof Error ? err.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setExporting(false);
+    }
+  }, [exporting, jobs, edges, activeWorkspaceName]);
+
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
@@ -654,6 +686,22 @@ export function WorkflowCanvas() {
         >
           <Wand2 className="size-4" />
         </Button>
+        <span className="mx-0.5 h-4 w-px bg-border" aria-hidden="true" />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-7"
+          onClick={() => void handleExportPng()}
+          disabled={exporting || jobs.length === 0}
+          aria-label="Export canvas as PNG"
+          title="Export the whole workflow as a poster PNG (content-fit, with footer)"
+        >
+          {exporting ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <Download className="size-4" />
+          )}
+        </Button>
       </div>
         </section>
       </ContextMenuTrigger>
@@ -679,6 +727,10 @@ export function WorkflowCanvas() {
         >
           <Wand2 />
           Tidy layout
+        </ContextMenuItem>
+        <ContextMenuItem onClick={() => void handleExportPng()} disabled={jobs.length === 0 || exporting}>
+          <Download />
+          Export canvas as PNG
         </ContextMenuItem>
         {pendingFrom ? (
           <ContextMenuItem onClick={cancelConnect}>

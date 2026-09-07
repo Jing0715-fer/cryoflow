@@ -30,11 +30,12 @@ import {
   Workflow,
 } from "lucide-react";
 import { useWorkflowStore } from "@/lib/store";
+import { withLiveStats } from "@/lib/live-stats";
 import type { JobDTO, ProjectSummaryDTO } from "@/lib/types";
 import { jobType } from "@/lib/workflow";
 import { TypeIcon } from "./icons";
 import { PipelineAnalytics } from "./pipeline-analytics";
-import { StatusBadge, estimateEta, formatEta } from "./job-card";
+import { StatusBadge, estimateEta, formatEta, trackEtaBaseline } from "./job-card";
 import { NewProjectDialog } from "./project-panel";
 import {
   AlertDialog,
@@ -343,10 +344,12 @@ function DashboardProjectCard({
 
 function StageChip({ job, onClick }: { job: JobDTO; onClick: () => void }) {
   const spec = jobType(job.type);
-  const eta =
-    job.status === "running" && job.startedAt
-      ? estimateEta(job.id, job.startedAt, job.progress)
-      : null;
+  const running = job.status === "running" && job.startedAt != null;
+  const eta = running ? estimateEta(job.id, job.startedAt, job.progress) : null;
+  // baseline recording is an effect (storage write), the read above is pure
+  React.useEffect(() => {
+    if (running) trackEtaBaseline(job.id, job.startedAt, job.progress);
+  }, [running, job.id, job.startedAt, job.progress]);
 
   return (
     <button
@@ -391,10 +394,11 @@ function StageChip({ job, onClick }: { job: JobDTO; onClick: () => void }) {
 
 function JobRow({ job, onOpen }: { job: JobDTO; onOpen: () => void }) {
   const spec = jobType(job.type);
-  const eta =
-    job.status === "running" && job.startedAt
-      ? estimateEta(job.id, job.startedAt, job.progress)
-      : null;
+  const running = job.status === "running" && job.startedAt != null;
+  const eta = running ? estimateEta(job.id, job.startedAt, job.progress) : null;
+  React.useEffect(() => {
+    if (running) trackEtaBaseline(job.id, job.startedAt, job.progress);
+  }, [running, job.id, job.startedAt, job.progress]);
 
   return (
     <button
@@ -595,8 +599,9 @@ function ActiveProjectSpotlight() {
 /* ------------------------------------------------------------------ */
 
 export function ProjectDashboard() {
-  const projects = useWorkflowStore((s) => s.projects) as ProjectCard[];
+  const projectsRaw = useWorkflowStore((s) => s.projects) as ProjectCard[];
   const project = useWorkflowStore((s) => s.project);
+  const jobs = useWorkflowStore((s) => s.jobs);
   const system = useWorkflowStore((s) => s.system);
   const switchProject = useWorkflowStore((s) => s.switchProject);
   const setView = useWorkflowStore((s) => s.setView);
@@ -610,7 +615,16 @@ export function ProjectDashboard() {
   const deleteProject = useWorkflowStore((s) => s.deleteProject);
 
   const activeId = project?.id ?? null;
-  const onlyProject = projects.length <= 1;
+  const onlyProject = projectsRaw.length <= 1;
+
+  // The /api/projects stats snapshot only refreshes on full load() — without
+  // this overlay the KPI band lags behind every job mutation (template adds
+  // 10 jobs → "Total jobs" stays put until F5). Active project gets live
+  // numbers computed from the store's job list (server-identical buckets).
+  const projects = React.useMemo(
+    () => withLiveStats(projectsRaw, activeId, jobs) as ProjectCard[],
+    [projectsRaw, activeId, jobs]
+  );
 
   const totals = React.useMemo(() => {
     let total = 0,

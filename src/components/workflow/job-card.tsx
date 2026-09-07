@@ -159,19 +159,10 @@ export function estimateEta(jobId: string, startedAt: string | null, progress: n
   if (!startedAt || !Number.isFinite(progress) || progress < 5 || progress >= 100) return null;
   if (typeof window === "undefined") return null;
   const now = Date.now();
-  const baselines = readBaselines();
-  let b = baselines[jobId];
-  // fresh run, resumed run, or progress regressed (reset) → new baseline
-  if (!b || b.startedAt !== startedAt || b.p0 > progress + 0.01) {
-    b = { startedAt, p0: progress, at: now };
-    try {
-      baselines[jobId] = b;
-      localStorage.setItem(ETA_KEY, JSON.stringify(baselines));
-    } catch {
-      /* private mode etc. — pace tracking simply won't persist */
-    }
-    return null; // no pace observed yet
-  }
+  const b = readBaselines()[jobId];
+  // no baseline for this run yet (or a reset/resumed run) — trackEtaBaseline
+  // records one from an effect; pace needs two observations anyway
+  if (!b || b.startedAt !== startedAt || b.p0 > progress + 0.01) return null;
   const dP = progress - b.p0;
   const dT = now - b.at;
   if (dP >= 0.5 && dT > 20_000) {
@@ -179,6 +170,41 @@ export function estimateEta(jobId: string, startedAt: string | null, progress: n
     return remaining > 30_000 ? remaining : null;
   }
   return null; // progress hasn't moved since the baseline — keep waiting
+}
+
+/** Baselines are only needed while a run is live — prune stale ones so the
+ *  key can't grow unbounded across months of sessions. */
+const ETA_BASELINE_TTL_MS = 7 * 24 * 3600_000;
+
+function pruneBaselines(baselines: Record<string, EtaBaseline>): Record<string, EtaBaseline> {
+  const cutoff = Date.now() - ETA_BASELINE_TTL_MS;
+  const next: Record<string, EtaBaseline> = {};
+  for (const [id, b] of Object.entries(baselines)) {
+    if (b.at >= cutoff) next[id] = b;
+  }
+  return next;
+}
+
+/**
+ * Record/refresh the pace-observation baseline for a running job.
+ * WRITES localStorage — must be called from an effect (or event handler),
+ * never from render/useMemo: this function exists precisely because the
+ * old estimateEta() wrote storage inside a useMemo (impure render).
+ */
+export function trackEtaBaseline(jobId: string, startedAt: string | null, progress: number): void {
+  if (!startedAt || !Number.isFinite(progress) || progress < 5 || progress >= 100) return;
+  if (typeof window === "undefined") return;
+  const baselines = readBaselines();
+  const b = baselines[jobId];
+  // fresh run, resumed run, or progress regressed (reset) → new baseline
+  if (!b || b.startedAt !== startedAt || b.p0 > progress + 0.01) {
+    try {
+      baselines[jobId] = { startedAt, p0: progress, at: Date.now() };
+      localStorage.setItem(ETA_KEY, JSON.stringify(pruneBaselines(baselines)));
+    } catch {
+      /* private mode etc. — pace tracking simply won't persist */
+    }
+  }
 }
 
 /** "~3h 5m" / "~12m" / "~45s" style compact ETA text. */
@@ -648,12 +674,20 @@ export const JobCard = React.memo(function JobCard({
 
   const isSource = pendingFrom?.jobId === job.id;
 
-  // Running-job ETA (client-only gate keeps SSR output hydration-safe)
+  // Running-job ETA (client-only gate keeps SSR output hydration-safe).
+  // The memo is PURE — baseline recording lives in the effect below
+  // (storage writes are a side effect, not render work).
   const mounted = useMounted();
   const etaText = React.useMemo(() => {
     if (!mounted || job.status !== "running") return null;
     const eta = estimateEta(job.id, job.startedAt, job.progress);
     return eta != null ? formatEta(eta) : null;
+  }, [mounted, job.status, job.id, job.startedAt, job.progress]);
+
+  React.useEffect(() => {
+    if (mounted && job.status === "running") {
+      trackEtaBaseline(job.id, job.startedAt, job.progress);
+    }
   }, [mounted, job.status, job.id, job.startedAt, job.progress]);
 
   React.useEffect(() => {

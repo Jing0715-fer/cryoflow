@@ -13,6 +13,12 @@
  * The dialog is mounted ONCE (page.tsx) and triggered from three places —
  * the canvas empty state, the command palette and the job palette — via
  * the shared `templatePresetsOpen` store flag.
+ *
+ * The last created configuration (preset key + form values) persists in
+ * localStorage and is restored on the next open — iterative sessions
+ * (screening → deep pass on the same sample) don't re-enter the same six
+ * knobs every time. A "Reset" button always returns to spec defaults;
+ * restored values are sanitized (whitelist + clamp) before use.
  */
 
 import * as React from "react";
@@ -60,6 +66,61 @@ interface FormState {
   initialModelClasses: number;
   refineIniHigh: number;
   refineAutoRefine: boolean;
+}
+
+/** localStorage key for the last created configuration */
+const LAST_KEY = "cryoflow:template-presets:last";
+
+/**
+ * Defensive re-validation of a persisted { form, preset } pair — anything
+ * written by an older version (or tampered) falls back per-field instead of
+ * being trusted: symmetry is whitelisted, numbers clamped to knob ranges,
+ * booleans coerced.
+ */
+function sanitizeLast(raw: string): { form: FormState; preset: string | null } | null {
+  try {
+    const r = JSON.parse(raw) as Record<string, unknown>;
+    const f = (r.form ?? {}) as Record<string, unknown>;
+    const num = (v: unknown, min: number, max: number, fb: number) => {
+      const n = typeof v === "number" ? Math.round(v) : NaN;
+      return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fb;
+    };
+    const preset = typeof r.preset === "string" && PRESETS.some((p) => p.key === r.preset)
+      ? r.preset
+      : null;
+    return {
+      preset,
+      form: {
+        symmetry: typeof f.symmetry === "string" && SYMMETRIES.includes(f.symmetry)
+          ? f.symmetry
+          : DEFAULTS.symmetry,
+        class2dClasses: num(f.class2dClasses, 1, 200, DEFAULTS.class2dClasses),
+        class2dIterations: num(f.class2dIterations, 1, 50, DEFAULTS.class2dIterations),
+        initialModelClasses: num(f.initialModelClasses, 1, 20, DEFAULTS.initialModelClasses),
+        refineIniHigh: num(f.refineIniHigh, 5, 60, DEFAULTS.refineIniHigh),
+        refineAutoRefine: f.refineAutoRefine === true,
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
+function loadLast(): { form: FormState; preset: string | null } | null {
+  try {
+    const raw = localStorage.getItem(LAST_KEY);
+    return raw ? sanitizeLast(raw) : null;
+  } catch {
+    return null; // private mode / storage disabled — defaults are fine
+  }
+}
+
+function saveLast(form: FormState, preset: string | null): void {
+  try {
+    localStorage.setItem(LAST_KEY, JSON.stringify({ form, preset }));
+  } catch {
+    /* storage full/disabled — memory is best-effort */
+  }
 }
 
 /** Form defaults == the job spec defaults ("Standard" preset). */
@@ -127,21 +188,36 @@ export function TemplatePresetsDialog() {
   const setOpen = useWorkflowStore((s) => s.setTemplatePresetsOpen);
   const [form, setForm] = React.useState<FormState>(DEFAULTS);
   const [activePreset, setActivePreset] = React.useState<string | null>("standard");
+  const [restored, setRestored] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
 
-  // reset to Standard whenever the dialog opens — each invocation is a
-  // fresh decision, never a leftover from last time
+  // restore the last created configuration on open (validated); first run
+  // (or cleared storage) starts at Standard. Reset restores that contract.
   React.useEffect(() => {
-    if (open) {
+    if (!open) return;
+    setBusy(false);
+    const last = loadLast();
+    if (last) {
+      setForm(last.form);
+      setActivePreset(last.preset);
+      setRestored(true);
+    } else {
       setForm(DEFAULTS);
       setActivePreset("standard");
-      setBusy(false);
+      setRestored(false);
     }
   }, [open]);
 
   const pickPreset = (p: Preset) => {
     setActivePreset(p.key);
     setForm(p.values);
+  };
+
+  /** back to the spec defaults (undoes any restored memory) */
+  const resetToDefaults = () => {
+    setForm(DEFAULTS);
+    setActivePreset("standard");
+    setRestored(false);
   };
 
   /** editing any field manually clears the preset highlight */
@@ -173,6 +249,10 @@ export function TemplatePresetsDialog() {
       await useWorkflowStore
         .getState()
         .createTemplate(isDefault ? undefined : overrides);
+      // persist AFTER success only — a failed request must not poison the
+      // next session's starting point
+      saveLast(form, activePreset);
+      setRestored(false);
       setOpen(false);
     } finally {
       setBusy(false);
@@ -341,6 +421,11 @@ export function TemplatePresetsDialog() {
 
         <DialogFooter className="items-center gap-2 sm:justify-between">
           <p className="text-[10px] text-muted-foreground">
+            {restored && (
+              <span className="mr-1.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium text-primary">
+                restored from last time
+              </span>
+            )}
             {activePreset
               ? `${PRESETS.find((p) => p.key === activePreset)?.name} preset`
               : "Custom parameters"}
@@ -348,6 +433,15 @@ export function TemplatePresetsDialog() {
             {form.class2dClasses} 2D classes · symmetry {form.symmetry}
           </p>
           <div className="flex gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={resetToDefaults}
+              disabled={busy}
+              title="Return all knobs to the job-spec defaults"
+            >
+              Reset
+            </Button>
             <Button variant="ghost" size="sm" onClick={() => setOpen(false)} disabled={busy}>
               Cancel
             </Button>

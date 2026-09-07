@@ -26,6 +26,7 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { useWorkflowStore } from "@/lib/store";
+import { withLiveStats } from "@/lib/live-stats";
 import type { ProjectSummaryDTO } from "@/lib/types";
 import {
   AlertDialog,
@@ -452,8 +453,9 @@ function ProjectCardRow({
 /* ------------------------------------------------------------------ */
 
 export function ProjectPanel() {
-  const projects = useWorkflowStore((s) => s.projects) as ProjectCard[];
+  const projectsRaw = useWorkflowStore((s) => s.projects) as ProjectCard[];
   const project = useWorkflowStore((s) => s.project);
+  const jobs = useWorkflowStore((s) => s.jobs);
   const switchProject = useWorkflowStore((s) => s.switchProject);
   const renameProject = useWorkflowStore((s) => s.renameProject);
   const deleteProject = useWorkflowStore((s) => s.deleteProject);
@@ -470,7 +472,14 @@ export function ProjectPanel() {
   const [renaming, setRenaming] = React.useState(false);
 
   const activeId = project?.id ?? null;
-  const onlyProject = projects.length <= 1;
+  const onlyProject = projectsRaw.length <= 1;
+
+  // Live stats overlay for the active project (same rationale as the
+  // Dashboard KPI band — the /api/projects snapshot is load()-frozen).
+  const projects = React.useMemo(
+    () => withLiveStats(projectsRaw, activeId, jobs) as ProjectCard[],
+    [projectsRaw, activeId, jobs]
+  );
 
   const handleSelect = (p: ProjectCard) => {
     if (pendingSwitch || p.id === activeId || editingId) return;

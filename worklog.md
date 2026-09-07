@@ -1522,3 +1522,26 @@ Stage Summary:
 - Dashboard 分析区可带走：复制纯文本摘要（漏斗+分辨率阶梯+计数）与 9 列 CSV 导出，双口径都尊重 scope chip——汇报/存档一键完成
 - 第 25 个真实 bug 闭环：空 scope 过滤自隐藏把 chips 一起带走造成导航锁死——过滤态保留外壳 + 空状态引导
 - 遗留（下轮候选）：真实 RELION 数据回归（EMPIAR 全链重建）、模板预设记忆上次选择（localStorage）、Dashboard KPI "TOTAL JOBS" 聚合在模板创建后不自动刷新（需 reload，projects 列表缓存）、命令面板支持任意 job 类型参数预设、Workflow 画布导出 PNG
+
+---
+Task ID: 23
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852）——QA 回归 + #26 KPI 不自动刷新修复 + 画布 PNG 导出 + 模板预设记忆 + #13 render 副作用清理 + worklog + push
+
+Work Log:
+- 【开局核对】git 本地 == origin/main == 0553c11（Task 22 已推送）；dev server 死亡 → playbook 重启。QA 回归全绿：Workflow 24 jobs / Dashboard spotlight 6/24 · 25% + chips（all·24 / Main·21 / Unassigned·3）/ console 0 error → 无新 bug，转入修复+功能
+- 【真 bug #26·KPI 快照冻结】Dashboard KPI band（TOTAL JOBS 等 5 卡）与项目卡 stats 来自 GET /api/projects 的快照，仅在 load() 刷新——模板创建 +10 jobs 后 KPI 纹丝不动直到 F5。修复：新模块 src/lib/live-stats.ts——computeJobStats()（客户端 jobs 按 status 分桶，与 src/lib/projects.ts groupBy 完全同口径：idle 只计 total）+ withLiveStats()（活动项目条目用实时 stats 覆盖快照，其他项目保留快照）；project-dashboard 与 project-panel 双接入（useMemo 包裹，输入 projectsRaw/activeId/jobs）。E2E：Dashboard 停留页面 → 画布加一个 job（store mutation）→ 切回 Dashboard 无刷新 TOTAL JOBS 30→31、spotlight 6/25 · 24%、chips all·25 同步——KPI band/spotlight/analytics 三面全部实时
+- 【新功能 1·画布导出 PNG】新模块 src/lib/canvas-export.ts + html-to-image@1.11.13（bun add，无原生依赖）：①内容自适应海报——工作区世界层 [data-canvas=workspace] 克隆导出，options.style 仅作用于克隆（transform 改写为 -minX/-minY 平移、0×0 世界赋予真实宽高），导出与用户当前 pan/zoom 无关；②字体预热：首次 toBlob 结果丢弃，字体嵌入缓存生效后二次真捕获（防 webfonts 缺失）；③合成 footer 条（--card 底 + 1px --border 分隔线 + "CryoFlow — <项目>" semibold + "<工作区> · N jobs · M links · 日期" muted 双行文字，CSS 变量实时解析取色）；④pixelRatio = min(dpr×2, √(16MP/面积)) 防超大画布；⑤文件名 cryoflow-<project>-<workspace>-<yyyymmdd-hhmm>.png + URL.revokeObjectURL 4s 延迟回收。三入口：缩放控制条 Download 按钮（exporting 态 Loader2 旋转 + 空 canvas disabled）、画布右键菜单 "Export canvas as PNG"、命令面板条目（同 workspace 渲染口径过滤）。E2E：toast "3696×1872 px · 154 KB" + ~/Downloads 落盘目检——蛇形双链、分组框、端口彩点、连线、footer 元信息全部在图中
+- 【真 bug #27·导出黑图】首版合成忘记 ctx.drawImage(img,0,0)——canvas 初始全透明，查看器把 alpha=0 渲染成黑色 → 整图全黑只有 footer 文字。修复后复导出全内容正常（QA 截图比对确认）。教训：canvas 合成的"先画底图"是不可省的第一笔
+- 【新功能 2·模板预设记忆】template-presets-dialog：①create 成功后（且仅成功后——失败不污染下次起点）saveLast({form,preset}) 到 localStorage["cryoflow:template-presets:last"]；②open 时 loadLast() 恢复并显示 "restored from last time" teal 徽章，无记忆则 Standard 默认（保留"首次=干净决策"契约）；③sanitizeLast 防御性校验：symmetry 白名单、四个数字按旋钮 min/max clamp、bool 强转——旧版本/篡改数据逐字段回退不炸；④Reset 按钮（恢复 Standard + 摘除徽章）保证记忆永远可控。E2E：Deep pass 创建 10 jobs → 重开对话框徽章+Deep 高亮+C1/50/25/8/15/autoRefine 全恢复 → Reset 一键回 Standard（D2/10/12/4/30）→ Cancel 不留副作用
+- 【遗留 #13 收尾·useMemo 内 localStorage 写】job-card 的 etaText useMemo 调 estimateEta()，而后者发现新 run 时写 localStorage——render 副作用（StrictMode 双渲染会双写、并发渲染可能丢弃）。拆分：estimateEta() 纯读（无基线返回 null）；新 trackEtaBaseline() 显式写（注释锚定"必须 effect/handler 调用，不得 render"）；job-card/job-inspector/StageChip/JobRow 四处调用点全部改为 useMemo 纯读 + useEffect 记录；顺带 pruneBaselines（7 天 TTL）防 key 无界增长
+- 【运维】本会话 dev server global OOM ×3（dmesg 实锤 next-server RSS 2.6–2.9GB，Turbopack client-chunk 编译窗口；本轮改动几乎覆盖全图大文件 job-card/inspector/canvas/dashboard）→ playbook 重启 ×3；缓解手段固化：重启后先 curl 预热 / 路由 3 次、关浏览器再开——server 存活率明显提升
+- 【环境观察】顶部引擎芯片 "RELION not found"：沙箱恢复后 /home/z/myproject/relion5-build-cuda-fixed/bin 不存在（动态检测诚实工作），代码无需改动；用户机器自检
+- 【收尾】bun run lint 0/0、tsc src/ 0 错误、console 0 error；E2E 产物已清理（新增 Import job 已删、E2E 模板 10 jobs 已逐个 DELETE、DB 复原 24 jobs == Task 22 fixture 态、QA 截图删除）；~/Downloads 的导出 PNG 样张保留（cryoflow-*-20260907-0527.png）
+
+Stage Summary:
+- 第 26/27 个真实 bug 闭环：KPI 快照冻结（store 实时 stats 覆盖层，三处 UI 同呼吸）+ PNG 导出黑图（canvas 合成先画底图）——都是用户下次操作必然撞上的问题
+- 画布一键带走：内容自适应海报导出（与视口无关的取景 + 预热字体 + footer 署名条），三入口全覆盖；导出的图可直接进组会 slide
+- 模板预设从"每次重填"到"记住上次"：成功才记忆 + 防御性校验 + Reset 兜底——筛选→深跑的迭代会话不再重复六旋钮
+- #13 render 副作用清理收官：ETA 基线写入从 useMemo 迁到 effect，读写职责分离 + TTL 修剪
+- 遗留（下轮候选）：真 RELION 数据回归（EMPIAR 全链重建）、命令面板任意 job 类型参数预设、Dashboard KPI 卡迷你 sparkline、#5 fs/browse 鉴权、#8 BFS N+1、导出 PNG 的深色主题对照 QA

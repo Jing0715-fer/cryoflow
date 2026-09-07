@@ -17,6 +17,7 @@ import * as React from "react";
 import { useTheme } from "next-themes";
 import {
   Command as CommandIcon,
+  Download,
   Layers,
   LayoutDashboard,
   Maximize2,
@@ -40,6 +41,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useWorkflowStore } from "@/lib/store";
 import { JOB_TYPES, jobType, CARD_W, CARD_H } from "@/lib/workflow";
+import { exportCanvasPng } from "@/lib/canvas-export";
 import { TypeIcon } from "./icons";
 
 const OPEN_EVENT = "cryoflow:open-palette";
@@ -142,6 +144,25 @@ export function CommandPalette() {
     // close the palette first so the two dialogs never fight over focus
     close();
     useWorkflowStore.getState().setTemplatePresetsOpen(true);
+  };
+
+  const exportPng = () => {
+    // same workspace render rule as the canvas (useActiveWorkspaceJobs)
+    const s = useWorkflowStore.getState();
+    const wsJobs =
+      s.activeWorkspaceId == null
+        ? s.jobs
+        : s.jobs.filter((j) => (j.workspaceId ?? "") === s.activeWorkspaceId);
+    const wsName = s.workspaces.find((w) => w.id === s.activeWorkspaceId)?.name;
+    void exportCanvasPng({
+      projectName: s.project?.name ?? "project",
+      workspaceName: wsName ?? "workspace",
+      jobs: wsJobs,
+      edges: s.edges,
+      cardW: CARD_W,
+      cardH: CARD_H,
+    });
+    close();
   };
 
   const toggleTheme = () => {
@@ -307,6 +328,19 @@ export function CommandPalette() {
           <CommandItem value="tidy layout arrange auto" onSelect={tidyLayout} className="gap-2.5">
             <Wand2 className="size-4 shrink-0" />
             <span className="flex-1 text-sm">Tidy layout</span>
+          </CommandItem>
+          <CommandItem
+            value="export canvas png image download poster workflow"
+            onSelect={exportPng}
+            className="gap-2.5"
+          >
+            <Download className="size-4 shrink-0" />
+            <span className="flex-1 text-sm">
+              Export canvas as PNG
+              <span className="ml-1.5 text-[10px] text-muted-foreground">
+                content-fit poster · footer with project · workspace
+              </span>
+            </span>
           </CommandItem>
           <CommandItem
             value="toggle theme dark light appearance"

@@ -70,7 +70,7 @@ import { useWorkflowStore } from "@/lib/store";
 import type { EdgeDTO, JobDTO } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { TypeIcon } from "./icons";
-import { StatusBadge, estimateEta, formatEta } from "./job-card";
+import { StatusBadge, estimateEta, formatEta, trackEtaBaseline } from "./job-card";
 import { JobResults } from "./results/results-view";
 import { ResolutionChart } from "./results/resolution-chart";
 import { FscChart } from "./results/fsc-chart";
@@ -1287,8 +1287,12 @@ function InspectorHeader({ job }: { job: JobDTO }) {
   const [confirmRerun, setConfirmRerun] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const elapsed = useElapsed(job.startedAt, running);
-  // ETA for running jobs (dialog opens client-side, no SSR concern)
+  // ETA for running jobs (dialog opens client-side, no SSR concern);
+  // estimateEta is a pure read — baseline recording is an effect-side effect
   const eta = running ? estimateEta(job.id, job.startedAt, job.progress) : null;
+  React.useEffect(() => {
+    if (running) trackEtaBaseline(job.id, job.startedAt, job.progress);
+  }, [running, job.id, job.startedAt, job.progress]);
 
   // linked copies: offer a jump to the ORIGINAL (switch workspace + focus)
   const original = isLink ? jobs.find((j) => j.id === job.linkedJobId) ?? null : null;
