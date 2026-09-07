@@ -3682,10 +3682,17 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
   // WSL2 bridge: the distro-side MPI stack is the known-fragile part (static
   // OpenMPI builds / vader BTL under WSL2 — ranks die at launch with exit 1
   // even with the root opt-in env pair). Every user-reported MPI failure so
-  // far was bridged mpirun, while the sandbox MPICH path is proven. So:
-  // NATIVE keeps multi-rank mpirun; BRIDGED runs the SERIAL relion_refine
-  // with --j threads — single-rank multithreaded is the RELION-supported
-  // fallback (gold-standard halves work on one rank too).
+  // far was bridged mpirun. So: NATIVE keeps multi-rank mpirun when the
+  // launcher resolves; BRIDGED (or native with no mpirun on PATH — e.g. a
+  // source build whose MPI deps were cleaned up) runs the SERIAL
+  // relion_refine with --j threads.
+  // The old comment claimed "gold-standard halves work on one rank too" —
+  // disproved live: RELION 5.0.1's serial binary HARD-ERRORS on
+  // --split_random_halves ("Cannot split data into random halves without
+  // using MPI!"). The RELION-sanctioned serial path is
+  // --debug_split_random_half 1: run half1's data only (FSC stopping is
+  // inert in auto-refine; iterations run to completion). That is exactly
+  // right for CPU/sequential hosts and this engine's job-graph testing.
   const mpiEligible = MPI_PARALLEL_TYPES.has(job.type);
   if (mpiEligible && mpirun && !bridge) {
     // RELION ships serial AND _mpi builds — mpirun must launch the MPI build
@@ -3701,9 +3708,19 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
     // WSL2 / OpenMPI 4.x: TCP BTL needed for cross-process communication;
     // --allow-run-as-root bypasses the root-check in OMPI 4.x.
     argv = [mpirun, "--mca", "btl", "self,tcp", "--allow-run-as-root", "-n", String(nranks), ...argv];
-  } else if (mpiEligible && bridge) {
-    // sequential bridge fallback — RELION defaults to --j 1 without an
-    // explicit thread count; 4 matches the class2d sequential default
+  } else if (mpiEligible) {
+    // Sequential fallback — covers BOTH the WSL bridge AND native hosts
+    // where mpirun did not resolve (previously this case fell through with
+    // NO handling at all: no --j AND --split_random_halves left in argv,
+    // so refine3d hard-errored and class3d ran single-threaded).
+    const splitIdx = argv.indexOf("--split_random_halves");
+    if (splitIdx !== -1) {
+      // serial relion_refine cannot split halves: swap in the debug path
+      argv.splice(splitIdx, 1);
+      argv.push("--debug_split_random_half", "1");
+    }
+    // RELION defaults to --j 1 without an explicit thread count; 4 matches
+    // the class2d sequential default
     if (!argv.includes("--j")) {
       argv.push("--j", String(Math.max(1, Math.round(num(job, "threads", 4)))));
     }
