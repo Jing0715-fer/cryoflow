@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { existsSync } from "fs";
 import { db } from "@/lib/db";
-import { ensureActiveProject, toJobDTO } from "@/lib/seed";
+import { ensureActiveProject, ensureDefaultWorkspace, toJobDTO } from "@/lib/seed";
 import { defaultParams, jobType } from "@/lib/workflow";
 import { readRuns, reconcileRealJobs } from "@/lib/relion/engine";
 import { autoStartPendingDownstream } from "@/lib/relion/dispatch";
@@ -177,8 +177,17 @@ export async function POST(request: NextRequest) {
       where: { projectId: active.project.id },
       orderBy: [{ order: "asc" }, { createdAt: "asc" }],
     });
+    // legacy zero-workspace seed: provision "Main" instead of 500-ing the
+    // user's very first job-add action
     if (projectWorkspaces.length === 0) {
-      return NextResponse.json({ error: "No workspace available" }, { status: 500 });
+      projectWorkspaces.push({
+        id: await ensureDefaultWorkspace(active.project.id),
+        projectId: active.project.id,
+        name: "Main",
+        order: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
     }
     let workspaceId = projectWorkspaces[0].id;
     if (typeof body.workspaceId === "string" && body.workspaceId) {

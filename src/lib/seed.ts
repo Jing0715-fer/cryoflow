@@ -148,3 +148,24 @@ export async function ensureActiveProject(): Promise<
   await ensureProject();
   return getActiveProject();
 }
+
+/**
+ * Projects seeded before the workspace layer (or via legacy import paths)
+ * can carry ZERO workspace rows — every job-creating route would then 500
+ * ("No workspace available") exactly when a new user presses their first
+ * action (job add, pipeline template). Heal on demand: return the first
+ * workspace, or create the default "Main" one (order 0).
+ */
+export async function ensureDefaultWorkspace(projectId: string): Promise<string> {
+  const existing = await db.workspace.findFirst({
+    where: { projectId },
+    orderBy: [{ order: "asc" }, { createdAt: "asc" }],
+    select: { id: true },
+  });
+  if (existing) return existing.id;
+  const created = await db.workspace.create({
+    data: { projectId, name: "Main", order: 0 },
+    select: { id: true },
+  });
+  return created.id;
+}

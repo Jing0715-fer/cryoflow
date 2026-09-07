@@ -24,6 +24,7 @@ import {
   Play,
   RotateCcw,
   Wand2,
+  Workflow,
 } from "lucide-react";
 import {
   CommandDialog,
@@ -128,6 +129,11 @@ export function CommandPalette() {
 
   const tidyLayout = () => {
     void useWorkflowStore.getState().applyLayout();
+    close();
+  };
+
+  const createTemplate = () => {
+    void useWorkflowStore.getState().createTemplate();
     close();
   };
 
@@ -255,6 +261,19 @@ export function CommandPalette() {
 
         {/* ---------------- canvas + app actions ---------------- */}
         <CommandGroup heading="Canvas & app">
+          <CommandItem
+            value="create standard spa pipeline template prewired workflow scaffold"
+            onSelect={createTemplate}
+            className="gap-2.5"
+          >
+            <Workflow className="size-4 shrink-0 text-teal-600" />
+            <span className="flex-1 text-sm">
+              Create standard SPA pipeline
+              <span className="ml-1.5 text-[10px] text-muted-foreground">
+                10 pre-wired jobs · import → postprocess
+              </span>
+            </span>
+          </CommandItem>
           <CommandItem value="zoom to fit workflow view" onSelect={zoomToFit} className="gap-2.5">
             <Maximize2 className="size-4 shrink-0" />
             <span className="flex-1 text-sm">Zoom to fit workflow</span>

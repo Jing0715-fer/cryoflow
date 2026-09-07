@@ -3461,10 +3461,53 @@ function spawnTrackedRun(
 }
 
 /**
- * Newest run_itXXX_optimiser.star checkpoint in a workdir (RELION's
- * --continue entry point), or null when none exists.
+ * Companion files RELION's --continue actually reads back for a checkpoint
+ * iteration, per job type. A run killed mid-checkpoint-flush (crash, OOM,
+ * Stop, server restart) can leave `run_itNNN_optimiser.star` behind without
+ * its siblings — resuming from THAT checkpoint aborts inside RELION with
+ * e.g. "ERROR: HealpixSampling::readStar: File run_it000_sampling.star
+ * cannot be read" (real case: class2d_u8voe932). Naming is deterministic:
+ * RELION derives <root>_it<NNN>_<kind> from the optimiser path itself.
  */
-function resumableOptimiser(workdir: string): { file: string; iteration: number } | null {
+function continueCompanions(type: string, it: string): string[] {
+  // every continue mode reloads the data/model/sampling triple
+  const stars = [
+    `run_it${it}_data.star`,
+    `run_it${it}_model.star`,
+    `run_it${it}_sampling.star`,
+  ];
+  if (type === "refine3d" || type === "multibody" || type === "class3d") {
+    // 3D reconstruction restart reads the unfiltered gold-standard halves
+    // (class001 — refine3d/multibody are K=1; class3d K>1 writes them all
+    // in the same flush, so class001 missing ⇔ the iteration is partial)
+    return [
+      ...stars,
+      `run_it${it}_half1_class001_unfil.mrc`,
+      `run_it${it}_half2_class001_unfil.mrc`,
+    ];
+  }
+  if (type === "class2d") {
+    // the reloaded model references the per-class average images
+    return [...stars, `run_it${it}_class001.mrc`];
+  }
+  return stars; // initialmodel (VDAM/grad) & anything else — star-only
+}
+
+/**
+ * Newest FULLY-WRITTEN run_itXXX_optimiser.star checkpoint in a workdir
+ * (RELION's --continue entry point), or null when none is usable.
+ *
+ * Scans newest → oldest and returns the first iteration whose companion
+ * set is complete on disk: a checkpoint flush killed mid-way leaves the
+ * optimiser STAR without its sampling/model/data siblings and --continue
+ * on it dies inside RELION (HealpixSampling::readStar — class2d_u8voe932).
+ * Falling back to an older COMPLETE iteration preserves hours of refine
+ * progress; no complete iteration at all → null → the rerun starts fresh.
+ */
+export function resumableOptimiser(
+  workdir: string,
+  type = ""
+): { file: string; iteration: number } | null {
   try {
     const matches = readdirSync(workdir)
       .map((n) => {
@@ -3473,7 +3516,14 @@ function resumableOptimiser(workdir: string): { file: string; iteration: number 
       })
       .filter((x): x is { file: string; iteration: number } => x != null);
     matches.sort((a, b) => b.iteration - a.iteration);
-    return matches[0] ?? null;
+    for (const candidate of matches) {
+      const it = String(candidate.iteration).padStart(3, "0");
+      const ok = continueCompanions(type, it).every((f) =>
+        existsSync(path.join(workdir, f))
+      );
+      if (ok) return candidate;
+    }
+    return null;
   } catch {
     return null;
   }
@@ -3554,7 +3604,7 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
     interrupted &&
     prevRun.jobId === job.id
   ) {
-    const checkpoint = resumableOptimiser(workdir);
+    const checkpoint = resumableOptimiser(workdir, job.type);
     if (checkpoint) {
       // --o MUST point at the SAME output root the checkpoint was written
       // to (RELION in continue mode still checks the output dir from --o;

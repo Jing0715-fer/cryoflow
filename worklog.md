@@ -1434,3 +1434,25 @@ Stage Summary:
 - 第 19/20 个真实 bug 闭环：--topaz_train_picks 三重格式坑（块名/索引表/平面表拆分）+ RELION 吞 topaz 失败的 exit 0 误报——全部经由源码级（autopicker.cpp/metadata_table.cpp）确认后修复，非猜测
 - synthesizeTrainingPicks 是本引擎首个"格式桥接器"：把 CryoFlow 两种内部 coords 形态（autopick per-mic 星族 / manualpick 平面表）无损翻译为 RELION 期望的 data_coordinate_files 索引格式
 - 遗留（下轮候选）：mol* clip 盒线框可视化、Dashboard 分析区 per-workspace 过滤、Topaz train 的训练曲线图展示（topaz 写 model_training.txt loss 曲线可画图）、用户机器上装 topaz 后的实测反馈
+
+---
+Task ID: 19
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852）——沙箱重置恢复 + 用户 class2d 部分检查点崩溃修复 + clip 盒线框 + 一键 SPA 流水线模板 + worklog + push
+
+Work Log:
+- 【沙箱重置恢复】开局发现 /home/z/my-project 被回滚到 09-05 快照：worklog 丢失 Task 13-18、git 本地领先 4 个陈旧 cron commit（f2108ce..b790e90，含 BFS lineage/flip 实验等）、origin/main 被强推至 286a288（Task 18 tip）。处置：4 个本地 commit 全部核对——BFS seen-set 修复已在主谱系 dispatch.ts:85（注释即证据）、密度翻转已在 molstar-embed（−ρ/+ρ 按钮）、fsc/guinier 实验被 Task 15 正式版超越→ 建 backup-stale-cron-20260907 分支后 hard reset 到 origin/main，worklog 恢复 1436 行
+- 【P0 修复·第 21 个真实 bug】用户报告 class2d_u8voe932 崩溃："HealpixSampling::readStar: run_it000_sampling.star cannot be read"——workdir 有部分检查点（optimiser.star 已写、sampling.star 未写时进程被杀），旧 resumableOptimiser() 只查 optimiser.star 存在 → 误走 --continue → RELION 读缺失伴生文件 abort。修复：新增 continueCompanions(type, it)（--continue 实际回读的文件族：class2d=data/model/sampling.star+class001.mrc；refine3d/class3d/multibody=+half1/2_class001_unfil.mrc；initialmodel=star 三件套），resumableOptimiser() 改为从新到旧扫描、返回首个伴生齐全的检查点、部分检查点自动跳过退回更早完整迭代、全缺则 null → 全新开始。scripts/test-resume-checkpoint.ts 10/10 PASS（含用户实际故障形态 partial it000、partial it007 over complete it002 回退、refine3d 缺 half map 拒绝等）
+- 【新功能 1·mol* clip 盒线框】molstar-embed.tsx：clip 裁剪区域的 12 棱边线框，SVG overlay 实时相机投影（camera.projectionView 列主序 8 角投影 + w≤0 后裁剔除），零 mol* 状态树改动；clipBox() 扩展返回基列 cols + dims（体素单位走列向量）；camera.changed 订阅重投影 + 滑杆 intent 即时预览；紫罗兰虚线 vectorEffect 非缩放描边。E2E：开→12 棱全投影（278×278px 盒）、X 滑杆 1→0.5 线框精确减半（277→140px）、flip side 线框镜像、reset all 全盒恢复、关闭 SVG 卸载——全链 eval 实测通过
+- 【新功能 2·一键 SPA 流水线模板】POST /api/pipeline-template：10 作业（import→motioncorr→ctffind→autopick→extract→class2d→initialmodel→refine3d→maskcreate→postprocess）serpentine 蛇形布局（6 上 + 4 下回折）、13 条边全部显式端口接线（请求时 portsValid 预校验，规格漂移整单 400 而非半接线）、$transaction 全或无、RELION 式编号延续（已有 Import 1 → 模板变 Import 2）、放置于目标 workspace 现有内容下方 DROP_GAP=240；store.createTemplate 合并去重 + layoutEpoch 触发 fit-view + refreshWorkspaces；命令面板 "Create standard SPA pipeline" 入口 + 空画布 CTA 按钮（"Scaffold standard SPA pipeline"）。E2E：命令面板路径 10 jobs + 13 edges 全部按端口精确落位（API 逐条核对）、编号/布局/fit-view 正确
+- 【第 22 个真实 bug·零 workspace 种子死锁】seed 的 demo 项目无 workspace 行 → 首个用户动作（加作业/建模板）500 "No workspace available"。修复：seed.ts 新增 ensureDefaultWorkspace(projectId)（findFirst 或建 "Main" order 0），jobs POST 与 pipeline-template 路由双接入（heal 后继续原逻辑，模板路由成功后前端 refreshWorkspaces 刷新侧栏）。E2E：零 workspace 项目模板创建成功、workspace "Main" 出现在头部选择器
+- 【QA 基建·合成 CCP4 地图】scripts/make-qa-map.py：mol* 严格校验级的 MRC2014 头（"MAP " 魔数在 byte 208、machst DD44、mapc/r/s=1/2/3、cella/cellb 必须 float32 视图写入——int 写 70/90 位模式重解释为 ~1e-44 导致单位盒退化 fromFractional 全零、轴序错报 "bad axis order"），三高斯 blob + 负密度口袋（测 −ρ/+ρ 与 slice）。注：CryoFlow 自家 mrc.ts 宽容所以 PNG 渲染此前一直正常，mol* 不宽容——两类解析器的严格度差异被 QA 地图钉死。合成地图 + 注入 engine-state run 记录（outputs 相对路径形态）打通 idle 作业的 3D viewer QA 路径
+- 【运维】会话内 dev server 2 次 OOM（mol* 首编 + 4GB 沙箱）→ playbook 重启；agent-browser 教训固化：canvas job 卡片是 DIV[role=button] 必须 agent-browser 原生 click（React 需 trusted event）、对话框内部按钮 DOM eval .click() 可靠、refs 每次快照重新编号禁止跨快照复用
+- 【收尾】lint 0/0、tsc src/+scripts/ 0 错误、checkpoint 测试 10/10；QA 现场保留（demo 项目 13 jobs 含模板 + QA refine3d completed + 合成地图——可复用作后续 3D QA fixture）
+
+Stage Summary:
+- 沙箱灾难恢复闭环：4 个陈旧 commit 逐一核对后安全丢弃（主谱系已含等价实现），代码基回到 Task 18 tip 286a288
+- 第 21 个真实 bug（部分检查点 --continue 崩溃，用户实际踩中）修复 + 10 用例回归测试——长 refine 作业中断后重跑不再有"越续越崩"路径，部分检查点自动退回最近完整迭代
+- 两大新功能落地并 E2E 实证：clip 盒线框（ChimeraX 式裁剪可视化，相机投影零状态树污染）+ 一键标准 SPA 流水线（10 jobs 13 端口级连线，新项目 30 秒成链）
+- 第 22 个真实 bug（零 workspace 种子死锁）——新用户首次动作不再 500
+- 遗留（下轮候选）：Topaz 训练曲线图（model_training.txt loss 可视化）、Dashboard 分析区 per-workspace 过滤、clip 线框的拖拽把手（在线框面上拖动 = 拖滑杆）、用户机器 class3d/refine3d 顺序模式与 topaz 实测反馈、真实 RELION 数据回归（沙箱 workdir 待重建 EMPIAR 全链）

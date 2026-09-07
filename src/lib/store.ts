@@ -98,6 +98,9 @@ interface WorkflowState {
   fetchLog: (jobId: string) => Promise<string | null>;
   addJob: (type: string) => Promise<void>;
   addJobAt: (type: string, x: number, y: number) => Promise<void>;
+  /** One-click standard SPA pipeline: 10 pre-wired jobs into the ACTIVE
+   *  workspace (below existing content), params at defaults, nothing run. */
+  createTemplate: () => Promise<void>;
   moveJobCommit: (id: string, x: number, y: number) => Promise<void>;
   applyLayout: () => Promise<void>;
   saveJob: (
@@ -611,6 +614,32 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       });
     } catch (err) {
       errToast(err instanceof Error ? err.message : "Failed to add job");
+    }
+  },
+
+  createTemplate: async () => {
+    try {
+      const data = await api<{ jobs: JobDTO[]; edges: EdgeDTO[] }>("/api/pipeline-template", {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ workspaceId: get().activeWorkspaceId ?? undefined }),
+      });
+      const have = new Set(get().jobs.map((j) => j.id));
+      const haveEdges = new Set(get().edges.map((e) => e.id));
+      set({
+        jobs: [...get().jobs, ...data.jobs.filter((j) => !have.has(j.id))],
+        edges: [...get().edges, ...data.edges.filter((e) => !haveEdges.has(e.id))],
+        layoutEpoch: get().layoutEpoch + 1, // canvas fit-views the new content
+      });
+      toast({
+        title: "Standard SPA pipeline created",
+        description: `${data.jobs.length} pre-wired jobs — set the Import source, then run it to chain-start the rest`,
+      });
+      // the route may have provisioned the legacy seed's missing "Main"
+      // workspace — refresh the sidebar/header lists so they show it
+      void get().refreshWorkspaces();
+    } catch (err) {
+      errToast(err instanceof Error ? err.message : "Failed to create the pipeline template");
     }
   },
 

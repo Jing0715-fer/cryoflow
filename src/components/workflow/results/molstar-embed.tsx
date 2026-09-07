@@ -557,12 +557,19 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
   const clipStateRef = useRef({ on: false, x: 1, y: 1, z: 1, invert: false });
   const clipPending = useRef(false);
 
-  /** cartesian box origin + extents of the loaded volume, derived from the
-   *  authoritative Grid.getGridToCartesianTransform (handles both the
-   *  'spacegroup' transform CCP4 maps carry and plain matrices). Mesh
-   *  positions are that matrix applied to voxel indices, so the box runs
-   *  origin → origin + extents with extents = basis-column length × dims. */
-  const clipBox = (): { origin: [number, number, number]; extents: [number, number, number] } | null => {
+  /** cartesian box origin + extents (+ basis columns & grid dims) of the
+   *  loaded volume, derived from the authoritative
+   *  Grid.getGridToCartesianTransform (handles both the 'spacegroup'
+   *  transform CCP4 maps carry and plain matrices). Mesh positions are that
+   *  matrix applied to voxel indices, so the box runs origin →
+   *  origin + extents with extents = basis-column length × dims; the raw
+   *  columns let callers walk corners in voxel units (the clip wireframe). */
+  const clipBox = (): {
+    origin: [number, number, number];
+    extents: [number, number, number];
+    cols: [[number, number, number], [number, number, number], [number, number, number]];
+    dims: number[];
+  } | null => {
     const plugin = pluginRef.current;
     const Grid = GridRef.current;
     if (!plugin || !Grid) return null;
@@ -577,13 +584,14 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
         const m = Grid.getGridToCartesianTransform(grid) as number[];
         if (!Array.isArray(m) || m.length < 16) continue;
         const col = (i: number) => [m[i * 4], m[i * 4 + 1], m[i * 4 + 2]] as [number, number, number];
+        const cols = [col(0), col(1), col(2)] as [[number, number, number], [number, number, number], [number, number, number]];
         const origin: [number, number, number] = [m[12], m[13], m[14]];
         const extents: [number, number, number] = [
-          Math.hypot(...col(0)) * dims[0],
-          Math.hypot(...col(1)) * dims[1],
-          Math.hypot(...col(2)) * dims[2],
+          Math.hypot(...cols[0]) * dims[0],
+          Math.hypot(...cols[1]) * dims[1],
+          Math.hypot(...cols[2]) * dims[2],
         ];
-        if (extents.every((e) => Number.isFinite(e) && e > 0)) return { origin, extents };
+        if (extents.every((e) => Number.isFinite(e) && e > 0)) return { origin, extents, cols, dims };
       } catch {
         /* fall through */
       }
@@ -678,11 +686,130 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
     void pumpClip();
   };
 
+  /* ---------------- clip region wireframe (SVG overlay) --------------- */
+
+  // The clip planes live in the isosurface's shader props — invisible them-
+  // selves, so the cropped region's boundary is drawn as a camera-projected
+  // 12-edge box outline in an SVG overlay above the canvas. Zero mol* state-
+  // tree involvement: each redraw projects the kept-region corners through
+  // the LIVE camera (projectionView, column-major) into container pixel
+  // space — orbiting/zooming re-fires via camera.changed.
+  const guidePathRef = useRef<SVGPathElement | null>(null);
+
+  const drawClipGuide = () => {
+    const path = guidePathRef.current;
+    const camera = pluginRef.current?.canvas3d?.camera;
+    if (!path || !camera) return;
+    if (!clipStateRef.current.on) {
+      path.setAttribute("d", "");
+      return;
+    }
+    const box = clipBox();
+    const pv = camera.projectionView as number[] | undefined;
+    const w = containerRef.current?.clientWidth ?? 0;
+    const h = containerRef.current?.clientHeight ?? 0;
+    if (!box || !Array.isArray(pv) || pv.length < 16 || w < 2 || h < 2) {
+      path.setAttribute("d", "");
+      return;
+    }
+    const st = clipStateRef.current;
+    const fracs = [st.x, st.y, st.z];
+    const lo: number[] = [];
+    const hi: number[] = [];
+    for (let i = 0; i < 3; i++) {
+      const fd = fracs[i] * box.dims[i];
+      lo.push(st.invert ? fd : 0);
+      hi.push(st.invert ? box.dims[i] : fd);
+    }
+    // 8 corners of the KEPT region in world space (voxel units × basis cols)
+    const corner = (a: number, b: number, c: number): [number, number, number] => [
+      box.origin[0] + a * box.cols[0][0] + b * box.cols[1][0] + c * box.cols[2][0],
+      box.origin[1] + a * box.cols[0][1] + b * box.cols[1][1] + c * box.cols[2][1],
+      box.origin[2] + a * box.cols[0][2] + b * box.cols[1][2] + c * box.cols[2][2],
+    ];
+    const pts = [
+      corner(lo[0], lo[1], lo[2]), corner(hi[0], lo[1], lo[2]),
+      corner(hi[0], hi[1], lo[2]), corner(lo[0], hi[1], lo[2]),
+      corner(lo[0], lo[1], hi[2]), corner(hi[0], lo[1], hi[2]),
+      corner(hi[0], hi[1], hi[2]), corner(lo[0], hi[1], hi[2]),
+    ];
+    const edges: [number, number][] = [
+      [0, 1], [1, 2], [2, 3], [3, 0], // −Z face
+      [4, 5], [5, 6], [6, 7], [7, 4], // +Z face
+      [0, 4], [1, 5], [2, 6], [3, 7], // pillars
+    ];
+    // project through the combined view-projection; edges with an endpoint
+    // behind the camera (w ≤ 0) would mirror across the screen — drop them
+    const sx: number[] = [];
+    const sy: number[] = [];
+    const ok: boolean[] = [];
+    for (const p of pts) {
+      const cx = pv[0] * p[0] + pv[4] * p[1] + pv[8] * p[2] + pv[12];
+      const cy = pv[1] * p[0] + pv[5] * p[1] + pv[9] * p[2] + pv[13];
+      const cw = pv[3] * p[0] + pv[7] * p[1] + pv[11] * p[2] + pv[15];
+      const good = Number.isFinite(cw) && cw > 0.001;
+      ok.push(good);
+      sx.push(good ? ((cx / cw) + 1) / 2 * w : 0);
+      sy.push(good ? (1 - (cy / cw)) / 2 * h : 0);
+    }
+    let d = "";
+    for (const [a, b] of edges) {
+      if (!ok[a] || !ok[b]) continue;
+      d += `M${sx[a].toFixed(1)} ${sy[a].toFixed(1)}L${sx[b].toFixed(1)} ${sy[b].toFixed(1)}`;
+    }
+    path.setAttribute("d", d);
+  };
+
+  // orbit/zoom/pan → reproject (camera.changed covers every mutation,
+  // including drags from mol*'s own controls)
+  useEffect(() => {
+    if (phase !== "ready") return;
+    const camera = pluginRef.current?.canvas3d?.camera;
+    if (!camera?.changed) return;
+    const sub = camera.changed.subscribe(() => drawClipGuide());
+    return () => {
+      try {
+        sub.unsubscribe();
+      } catch {
+        /* cosmetic */
+      }
+    };
+  }, [phase]);
+
+  // slider/toggle intent → immediate guide update (the shader clip itself
+  // lands asynchronously through pumpClip; the frame previews the intent)
+  useEffect(() => {
+    if (phase !== "ready" || !clipOn) return;
+    drawClipGuide();
+  }, [phase, clipOn, clipX, clipY, clipZ, clipInvert]);
+
   const absolute = stats ? stats.mean + sign * stats.sigma * sigma : null;
 
   return (
     <div className="relative h-full w-full overflow-hidden rounded-md border bg-white dark:bg-zinc-950">
       <div ref={containerRef} className="h-full w-full" data-molstar-container="true" />
+
+      {/* clip region wireframe — projected live from the mol* camera into
+          this overlay (pointer-events none: orbit/zoom must pass through) */}
+      {clipOn && phase === "ready" && (
+        <svg
+          className="pointer-events-none absolute inset-0 z-[5] h-full w-full"
+          aria-hidden="true"
+          data-clip-guide="true"
+        >
+          <path
+            ref={guidePathRef}
+            fill="none"
+            stroke="#8b5cf6"
+            strokeWidth={1.5}
+            strokeDasharray="7 5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            opacity={0.9}
+            vectorEffect="non-scaling-stroke"
+          />
+        </svg>
+      )}
 
       {/* contour control bar */}
       {phase === "ready" && (

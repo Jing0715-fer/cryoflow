@@ -578,7 +578,7 @@ export function WorkflowCanvas() {
       {/* Empty state */}
       {!loading && jobs.length === 0 && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <div className="rounded-xl border border-dashed bg-card/60 px-6 py-5 text-center backdrop-blur-sm">
+          <div className="max-w-md rounded-xl border border-dashed bg-card/60 px-6 py-5 text-center backdrop-blur-sm animate-rise">
             <p className="text-sm font-medium">
               {allJobs.length > 0
                 ? `“${activeWorkspaceName ?? "This workspace"}” is empty`
@@ -587,8 +587,19 @@ export function WorkflowCanvas() {
             <p className="mt-1 text-xs text-muted-foreground">
               {allJobs.length > 0
                 ? "Drag job types in, or right-click a job in another workspace → “Copy as link to…” to continue that pipeline here."
-                : "Drag a job type from the palette onto the canvas to start building your workflow."}
+                : "Drag a job type from the palette onto the canvas, or scaffold the whole single-particle workflow in one click:"}
             </p>
+            {allJobs.length === 0 && (
+              <Button
+                size="sm"
+                className="pointer-events-auto mt-3 gap-1.5"
+                onClick={() => void useWorkflowStore.getState().createTemplate()}
+                title="Create 10 pre-wired jobs (import → motion correction → CTF → picking → extraction → 2D → initial model → refine → mask → postprocess)"
+              >
+                <Wand2 className="size-3.5" aria-hidden="true" />
+                Scaffold standard SPA pipeline
+              </Button>
+            )}
           </div>
         </div>
       )}
