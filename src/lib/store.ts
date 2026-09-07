@@ -115,7 +115,7 @@ interface WorkflowState {
   /** Recreate an exported cryoflow-workflow/1 file into the ACTIVE
    *  workspace (POST /api/workflow-import) — server re-validates types,
    *  params and port wiring; merge + fit-view on success. */
-  importWorkflow: (file: WorkflowFile) => Promise<void>;
+  importWorkflow: (file: WorkflowFile, warning?: string) => Promise<void>;
   setTemplatePresetsOpen: (open: boolean) => void;
   moveJobCommit: (id: string, x: number, y: number) => Promise<void>;
   applyLayout: () => Promise<void>;
@@ -672,7 +672,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     }
   },
 
-  importWorkflow: async (file) => {
+  importWorkflow: async (file, warning) => {
     try {
       const data = await api<{ jobs: JobDTO[]; edges: EdgeDTO[] }>("/api/workflow-import", {
         method: "POST",
@@ -692,7 +692,9 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       });
       toast({
         title: "Workflow imported",
-        description: `${data.jobs.length} jobs · ${data.edges.length} links recreated in this workspace — nothing runs until you start it`,
+        description: warning
+          ? `${warning} — ${data.jobs.length} jobs · ${data.edges.length} links recreated; nothing runs until you start it`
+          : `${data.jobs.length} jobs · ${data.edges.length} links recreated in this workspace — nothing runs until you start it`,
       });
       void get().refreshWorkspaces();
     } catch (err) {

@@ -146,6 +146,9 @@ interface ActivityFeed {
   completed: number[];
   createdInWindow: number;
   completedInWindow: number;
+  /** global mode only — cumulative project count per day */
+  projects?: number[];
+  projectsInWindow?: number;
 }
 
 /* ------------------------------------------------------------------ */
@@ -177,6 +180,36 @@ function DashboardProjectCard({
   const done = stats?.completed ?? 0;
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
   const tomo = project.mode === "tomo";
+
+  // per-project 14-day creation trend — refetched when the job count moves
+  // (same live-stats trigger the KPI band uses). Decorative: a failed or
+  // pending fetch simply leaves the card without its spark.
+  const [spark, setSpark] = React.useState<React.ReactNode>(null);
+  React.useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/activity?days=14&projectId=${project.id}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((data: ActivityFeed) => {
+        if (cancelled || !Array.isArray(data?.days) || data.days.length < 2) return;
+        const allDone = total > 0 && done >= total;
+        setSpark(
+          <KpiSparkline
+            values={data.total}
+            days={data.days}
+            unit="jobs"
+            width={72}
+            height={20}
+            className={allDone ? "text-emerald-500" : "text-muted-foreground/60"}
+          />
+        );
+      })
+      .catch(() => {
+        /* decorative — hide on failure */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [project.id, total, done]);
 
   const commitRename = () => {
     const trimmed = name.trim();
@@ -300,15 +333,19 @@ function DashboardProjectCard({
         </span>
       </div>
 
-      {/* completion progress */}
-      <div className="mt-3">
-        <div className="mb-1 flex items-center justify-between text-[10px] font-medium text-muted-foreground">
-          <span className="uppercase tracking-wider">Completion</span>
-          <span className="tabular-nums">
-            {done}/{total} · {pct}%
-          </span>
+      {/* completion progress + per-project trend spark (in-flow right slot —
+          a watermark here would sit on the rename/delete buttons) */}
+      <div className="mt-3 flex items-end gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="mb-1 flex items-center justify-between text-[10px] font-medium text-muted-foreground">
+            <span className="uppercase tracking-wider">Completion</span>
+            <span className="tabular-nums">
+              {done}/{total} · {pct}%
+            </span>
+          </div>
+          <Progress value={pct} className="h-1.5" />
         </div>
-        <Progress value={pct} className="h-1.5" />
+        {spark ? <div className="shrink-0 pb-0.5">{spark}</div> : null}
       </div>
 
       {/* actions */}
@@ -753,8 +790,24 @@ export function ProjectDashboard() {
             icon={<FolderGit2 className="size-5" />}
             value={projects.length}
             label="Projects"
-            sub={onlyProject ? "single workspace" : `${projects.length - 1} others beside active`}
+            sub={
+              activity && activity.projectsInWindow
+                ? `+${activity.projectsInWindow} in the last 14 days`
+                : onlyProject
+                  ? "single workspace"
+                  : `${projects.length - 1} others beside active`
+            }
             tone="bg-primary/10 text-primary ring-primary/25"
+            spark={
+              activity?.projects ? (
+                <KpiSparkline
+                  values={activity.projects}
+                  days={activity.days}
+                  unit="projects"
+                  className="text-primary/70"
+                />
+              ) : undefined
+            }
           />
           <KpiCard
             icon={<Boxes className="size-5" />}
@@ -770,6 +823,8 @@ export function ProjectDashboard() {
               activity ? (
                 <KpiSparkline
                   values={activity.total}
+                  days={activity.days}
+                  unit="jobs"
                   className="text-muted-foreground"
                 />
               ) : undefined
@@ -804,6 +859,8 @@ export function ProjectDashboard() {
               activity ? (
                 <KpiSparkline
                   values={activity.completed}
+                  days={activity.days}
+                  unit="completed"
                   className="text-emerald-500"
                 />
               ) : undefined

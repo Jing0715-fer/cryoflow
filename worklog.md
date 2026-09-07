@@ -1603,3 +1603,24 @@ Stage Summary:
 - #6/#14 正式闭环（运行时矩阵实证）：双路由统一 containment + pathref 仅 file 路由后置逃逸口——遗留清单现存仅：真 RELION 数据回归、导入 JSON 类型版本前向兼容
 - 测试资产：test-job-presets.ts（15 预设 × 5 重校验，workflow.ts spec 漂移时第一时间红）
 - 遗留（下轮候选）：真 RELION 数据回归（EMPIAR 全链重建，沙箱无 RELION binary 不可行——需用户机器）、导入 JSON 的类型版本前向兼容（跨版本 type 改名映射表）、Dashboard KPI Projects 卡也可加 sparkline（当前仅 2 卡有数据叙事）、sparkline tooltip（hover 显示具体日期数值）
+
+---
+Task ID: 26
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852）——QA 回归全绿后推进：sparkline hover tooltip + Projects/项目卡趋势图 + 导入 JSON 前向兼容（类型别名/版本宽容）+ worklog + push
+
+Work Log:
+- 【开局核对】worklog 实际最新为 Task 25（指令所称"末尾 Task 13"已严重过期，按实际状态执行）；git 本地 == origin/main == 2ef57e8；dev server 存活 → 预热 5 路由全 200；QA 回归全绿（Workflow 24 jobs / Dashboard KPI band+spotlight+analytics 正常 / console 0 error）→ 无新 bug，转入功能开发
+- 【功能 1·sparkline hover tooltip】kpi-sparkline.tsx 升级为交互组件：传 days 标签即启用 hover 层——十字线（dasharray 2×2, 40% currentColor）+ 放大点（双 circle：currentColor 填充 + var(--card) 描边圈）跟随指针最近点（getBoundingClientRect 比例映射 + clamp），chip 固定悬于 spark 右上（bottom-full right-0）显示 "Sep 6 · 9 jobs (+9)"（日期 · 累计值 · 对前一日增量），bg-foreground/text-background 反色 chip 双主题自适应。KpiCard 水印容器 pointer-events-none 下 spark 根元素按需 pointer-events-auto 恢复命中。两版迭代：首版 chip 跟随 X 定位（tipW clamp）在最右点被卡片 overflow-hidden 裁掉尾括号（截图实锤）→ 84px spark 远窄于 ~110px chip、clamp 区间退化 → 改为固定右对齐（十字线承担位置指示，chip 只承担数值指示），三个 hover 点复测零裁剪
+- 【功能 2·Projects/项目卡趋势】①/api/activity 扩展：全局模式新增 projects 累计序列 + projectsInWindow（project.findMany createdAt 同口径前缀和）；新增 ?projectId= 过滤模式（jobs where projectId，无 projects 字段）——响应式可选字段不破坏旧客户端；②Dashboard Projects KPI 卡接入 spark（text-primary/70 线），sub 升级 "+N in the last 14 days"（窗口内 0 新建回退原文案）；③DashboardProjectCard 每卡 fetch /api/activity?projectId= 14 天创建趋势（72×20 in-flow 放 Completion 行右侧——watermark 方案在此会压住 rename/delete 按钮，被否），全程完成的卡线变 emerald（灰线=增长中、绿线=已交付的视觉暗号），deps [project.id, total, done] 跟随 live-stats
+- 【功能 3·导入 JSON 前向兼容】workflow-io.ts 新增兼容层：①TYPE_ALIASES 15 条别名（classify_2d/classify_3d/auto_pick/ctf_find/ctffind4/motion_cor/motioncor2/motion_correction/initial_model/refine_3d/mask_create/post_process/import_movies/importmovies → 现行 id，证据导向不臆测）；②normalizeTypeId() 三级归一（catalog 精确命中 → 化妆漂移 trim/lowercase/去非 alnum → ALIAS_LOOKUP 表键同口径归一化后查询）——首版用 alias 目标集做 canonical 判定会误杀 rebalance/select2d 等不在表内的正式类型（自测抓出），改为权威 jobType() 查询；③parseWorkflowJson 版本宽容：format 必须精确匹配，version 任何整数 ≥1 都尝试解析（per-job/edge 校验才是真闸门），>当前版本 → warning "exported by a newer CryoFlow… best-effort"、<当前 → "migrated" 提示、非整数 → 大声拒绝；未知类型错误信息列出该 build 认识的类型预览（前 6 + 计数）；④服务端 /api/workflow-import parseBody 同走 normalizeTypeId（不信任客户端 parser 的对等归一，真正未知类型仍 400 指名）；⑤store.importWorkflow 增加可选 warning 透传至成功 toast，canvas 右键菜单与命令面板两个调用点接线
+- 【测试资产】scripts/test-workflow-compat.ts 七组校验（36 现行 id 恒等 / 别名目标均为 canonical 且不遮蔽 / 化妆漂移 4 例 / 别名 11 例 / 未知 6 例保持 null / 版本策略 5 例 / 别名文件往返+端口保留）ALL PASS——首跑抓出 3 个真 bug（alias 表键未归一化查不到 motion_cor、jobTypeListPreview 误用 t.id 打印全空、type 收窄缺失 TS2322）
+- 【E2E】①API 级：MotionCor2+classify_2d 导入 → 201 且 DB 落 motioncorr/class2d；quantum_fold → 400 "unknown type"；micrographs→class2d:particles 被 portsValid 权威拒绝（400 指名接线无效）——客户端 parse 只查端口存在性、服务端查 kind 兼容的双层设计按预期工作；②客户端全链：eval 构造 v2 文件（含 futureField）→ DataTransfer 注入隐藏 input → change → toast 完整显示 "Workflow imported — File was exported by a newer CryoFlow (v2 — this app reads v1); imported best-effort and extra fields are dropped — 2 jobs · 0 links recreated"；③sparkline hover：light 下三点复测（左 0 值/中 Aug 30/d右 Sep 6 · 9 jobs (+9)）+ 项目卡迷你 spark hover + dark 主题反色 chip 复测，全部通过
+- 【运维】dev server 中途 OOM 崩溃 ×1（开会话浏览器窗口期）→ dev-server.sh playbook 重启 + 预热；stale-ref 又误开一次 Next DevTools（Esc 脱困）——ref 漂移方法论再+1；E2E 4 个 job 已逐个 DELETE，DB 复原 30 jobs / 3 项目 fixture 态；浏览器已关（内存纪律）
+- 【收尾】eslint 0/0、tsc -p tsconfig.json src/+scripts/ 0 错误（examples//skills/ 预存在错误与项目无关）、test-workflow-compat ALL PASS、test-job-presets 15/15 PASS；light 主题已恢复
+
+Stage Summary:
+- Dashboard KPI band 五卡中三卡（Projects/Total jobs/Completed）+ 三张项目卡全部带 14 天趋势 sparkline，hover 十字线+日期/数值/增量 chip（双主题反色自适应）——"增长中还是已交付"在网格里一眼可读
+- workflow JSON 导入从"同版本专用"到"跨版本兼容"：15 条类型别名 + 化妆漂移归一 + 版本宽容（新版本 best-effort + toast 明示、旧版本迁移提示），服务端同口径权威归一，静态测试七组锚定防 spec 漂移
+- 遗留清单现存仅：真 RELION 数据回归（EMPIAR 全链重建，需用户机器）、sparkline 触屏适配（pointermove 已覆盖多数场景，长按未见异常）
+- 遗留（下轮候选）：项目卡 sparkline 的 tooltip 在 md 以下窄卡的最左点可能贴边（84→72px 已收窄，未观察到裁剪）、导入 JSON 的 workspace 选择（当前固定活动 workspace）、Dashboard 项目卡 updated-at 排序选项

@@ -224,7 +224,7 @@ export function CommandPalette() {
         });
         return;
       }
-      void useWorkflowStore.getState().importWorkflow(parsed.file);
+      void useWorkflowStore.getState().importWorkflow(parsed.file, parsed.warning);
     };
     input.click();
   };

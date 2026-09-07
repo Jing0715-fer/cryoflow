@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { ensureActiveProject, ensureDefaultWorkspace, toJobDTO } from "@/lib/seed";
 import { defaultParams, jobType } from "@/lib/workflow";
 import { persistPortEdge, portsValid } from "@/lib/edge-ports";
+import { normalizeTypeId } from "@/lib/workflow-io";
 import type { EdgeDTO, JobDTO, ParamValue } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -67,10 +68,15 @@ function parseBody(
   const jobs: ImportJob[] = [];
   for (let i = 0; i < rawJobs.length; i++) {
     const j = rawJobs[i] as Record<string, unknown>;
-    const type = typeof j.type === "string" ? j.type : "";
-    const spec = jobType(type);
-    if (!spec) {
-      return { jobs: [], edges: [], error: `Job #${i + 1}: unknown type "${type}"` };
+    const rawType = typeof j.type === "string" ? j.type : "";
+    // authoritative normalization (same layer the client parser uses):
+    // legacy spellings and cosmetic drift map onto canonical ids — a file
+    // exported by another CryoFlow version still lands, but a genuinely
+    // unknown type still fails LOUDLY (never silently skip a job)
+    const type = normalizeTypeId(rawType);
+    const spec = type ? jobType(type) : undefined;
+    if (!type || !spec) {
+      return { jobs: [], edges: [], error: `Job #${i + 1}: unknown type "${rawType}"` };
     }
     const x = typeof j.x === "number" && Number.isFinite(j.x) ? j.x : null;
     const y = typeof j.y === "number" && Number.isFinite(j.y) ? j.y : null;

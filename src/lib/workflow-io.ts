@@ -16,10 +16,67 @@
  */
 
 import type { EdgeDTO, JobDTO, ParamValue } from "./types";
-import { jobType } from "./workflow";
+import { JOB_TYPES, jobType } from "./workflow";
 
 export const WORKFLOW_FORMAT = "cryoflow-workflow";
 export const WORKFLOW_VERSION = 1;
+
+/**
+ * Forward/backward compatibility layer.
+ *
+ * Job-type ids are code identifiers — they occasionally get renamed between
+ * CryoFlow versions (and files travel across versions: exported on v1,
+ * imported on v2). The alias table maps every historical/legacy spelling to
+ * the canonical id; normalizeTypeId() additionally tolerates cosmetic drift
+ * (case, dashes, underscores) so "Class2D", "class-2d" and "classify_2d"
+ * all land on "class2d".
+ *
+ * The map is intentionally small and evidence-based — RELION-style names
+ * we have actually used or shipped in older catalogs — not speculative.
+ */
+export const TYPE_ALIASES: Record<string, string> = {
+  // pre-catalog RELION-legacy spellings
+  classify_2d: "class2d",
+  classify_3d: "class3d",
+  auto_pick: "autopick",
+  auto_pick_v2: "autopick",
+  ctf_find: "ctffind",
+  ctffind4: "ctffind",
+  motion_cor: "motioncorr",
+  motioncor2: "motioncorr",
+  motion_correction: "motioncorr",
+  initial_model: "initialmodel",
+  refine_3d: "refine3d",
+  mask_create: "maskcreate",
+  post_process: "postprocess",
+  // renamed types
+  import_movies: "import",
+  importmovies: "import",
+};
+
+/** Alias keys normalized (underscores/case stripped) — lookup matches the way ids are normalized. */
+const ALIAS_LOOKUP = new Map(
+  Object.entries(TYPE_ALIASES).map(([k, v]) => [k.toLowerCase().replace(/[^a-z0-9]/g, ""), v])
+);
+
+/**
+ * Normalize a job-type id from a foreign file: exact catalog hit first,
+ * then cosmetic drift (trim/lowercase/strip non-alnum → "Class2D" and
+ * "class-2d" both land on "class2d"), then the legacy alias table.
+ * Returns the canonical id, or null when unrecognizable under any known
+ * spelling.
+ */
+export function normalizeTypeId(rawId: string): string | null {
+  const id = typeof rawId === "string" ? rawId.trim() : "";
+  if (!id) return null;
+  if (jobType(id)) return id;
+  const norm = id.toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (!norm) return null;
+  if (jobType(norm)) return norm;
+  const aliased = ALIAS_LOOKUP.get(norm);
+  if (aliased && jobType(aliased)) return aliased;
+  return null;
+}
 
 export interface WorkflowFileJob {
   type: string;
@@ -94,6 +151,8 @@ export function buildWorkflowFile(
 export interface ParsedImport {
   ok: boolean;
   error?: string;
+  /** non-fatal notice (e.g. "file from a newer CryoFlow") — surfaced in the import toast */
+  warning?: string;
   file?: WorkflowFile;
 }
 
@@ -113,9 +172,23 @@ export function parseWorkflowJson(text: string): ParsedImport {
     return { ok: false, error: "Unexpected file shape (expected an object)" };
   }
   const r = raw as Record<string, unknown>;
-  if (r.format !== WORKFLOW_FORMAT || r.version !== WORKFLOW_VERSION) {
-    return { ok: false, error: `Unrecognized format — expected ${WORKFLOW_FORMAT}/v${WORKFLOW_VERSION}` };
+  if (r.format !== WORKFLOW_FORMAT) {
+    return { ok: false, error: `Unrecognized format — expected ${WORKFLOW_FORMAT}` };
   }
+  // version tolerance: any integer ≥ 1 parses — the per-job/per-edge
+  // validation below is the real gate. A NEWER file still imports (unknown
+  // extra fields are dropped, renamed types map through TYPE_ALIASES);
+  // the caller surfaces a warning so users know provenance may be lossy.
+  const version = typeof r.version === "number" && Number.isInteger(r.version) ? r.version : 0;
+  if (version < 1) {
+    return { ok: false, error: `Missing or invalid version field — expected an integer ≥ 1 (${WORKFLOW_FORMAT}/v${WORKFLOW_VERSION})` };
+  }
+  const warning =
+    version > WORKFLOW_VERSION
+      ? `File was exported by a newer CryoFlow (v${version} — this app reads v${WORKFLOW_VERSION}); imported best-effort and extra fields are dropped`
+      : version < WORKFLOW_VERSION
+        ? `File from an older CryoFlow (v${version}) — migrated to v${WORKFLOW_VERSION} on import`
+        : undefined;
   if (!Array.isArray(r.jobs) || r.jobs.length === 0) {
     return { ok: false, error: "The file contains no jobs" };
   }
@@ -125,9 +198,13 @@ export function parseWorkflowJson(text: string): ParsedImport {
   const jobs: WorkflowFileJob[] = [];
   for (let i = 0; i < r.jobs.length; i++) {
     const j = r.jobs[i] as Record<string, unknown>;
-    const type = typeof j.type === "string" ? j.type : "";
-    if (!jobType(type)) {
-      return { ok: false, error: `Job #${i + 1}: unknown type "${type}" (file from a different CryoFlow version?)` };
+    const rawType = typeof j.type === "string" ? j.type : "";
+    const type = normalizeTypeId(rawType);
+    if (!type || !jobType(type)) {
+      return {
+        ok: false,
+        error: `Job #${i + 1}: unknown type "${rawType}" — this build knows ${jobTypeListPreview()}`,
+      };
     }
     const x = typeof j.x === "number" && Number.isFinite(j.x) ? j.x : null;
     const y = typeof j.y === "number" && Number.isFinite(j.y) ? j.y : null;
@@ -176,6 +253,7 @@ export function parseWorkflowJson(text: string): ParsedImport {
   }
   return {
     ok: true,
+    warning,
     file: {
       format: WORKFLOW_FORMAT,
       version: WORKFLOW_VERSION,
@@ -186,6 +264,13 @@ export function parseWorkflowJson(text: string): ParsedImport {
       edges,
     },
   };
+}
+
+/** "import, motioncorr, ctffind … (+N more)" — for unknown-type errors. */
+function jobTypeListPreview(): string {
+  const ids = JOB_TYPES.map((t) => t.key);
+  const head = ids.slice(0, 6).join(", ");
+  return ids.length > 6 ? `${head} … (+${ids.length - 6} more)` : head;
 }
 
 export function workflowFileName(workspace: string): string {

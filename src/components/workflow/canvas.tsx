@@ -538,7 +538,7 @@ export function WorkflowCanvas() {
       });
       return;
     }
-    await useWorkflowStore.getState().importWorkflow(parsed.file);
+    await useWorkflowStore.getState().importWorkflow(parsed.file, parsed.warning);
   }, []);
 
   const onImportFilePick = useCallback(
