@@ -44,6 +44,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { useWorkflowStore } from "@/lib/store";
 import { JOB_TYPES, jobType, CARD_W, CARD_H } from "@/lib/workflow";
+import { JOB_PRESETS } from "@/lib/job-presets";
 import { exportCanvasPng } from "@/lib/canvas-export";
 import {
   buildWorkflowFile,
@@ -108,6 +109,14 @@ export function CommandPalette() {
 
   const addType = (type: string) => {
     void useWorkflowStore.getState().addJob(type);
+    close();
+  };
+
+  /** Preset add: place the type AND apply the curated params in one shot.
+   *  The new card lands selected, so the inspector shows exactly which
+   *  knobs the preset moved off their defaults. */
+  const addPreset = (p: (typeof JOB_PRESETS)[number]) => {
+    void useWorkflowStore.getState().addJob(p.type, p.params);
     close();
   };
 
@@ -307,6 +316,34 @@ export function CommandPalette() {
               </span>
             </CommandItem>
           ))}
+        </CommandGroup>
+
+        {/* ---------------- add with preset ---------------- */}
+        <CommandSeparator />
+        <CommandGroup heading="Add with preset">
+          {JOB_PRESETS.map((p) => {
+            const t = jobType(p.type);
+            return (
+              <CommandItem
+                key={`preset-${p.type}-${p.preset}`}
+                value={`preset add ${p.type} ${t?.label ?? ""} ${p.preset} ${p.note}`}
+                onSelect={() => addPreset(p)}
+                className="gap-2.5"
+              >
+                <TypeIcon
+                  name={t?.icon ?? "boxes"}
+                  className={`size-4 shrink-0 ${t?.color.text ?? "text-muted-foreground"}`}
+                />
+                <span className="min-w-0 flex-1 truncate text-sm">
+                  {t?.label ?? p.type}
+                  <span className="ml-1.5 font-medium">{p.preset}</span>
+                </span>
+                <span className="hidden shrink-0 max-w-40 truncate text-[10px] text-muted-foreground sm:inline">
+                  {p.note}
+                </span>
+              </CommandItem>
+            );
+          })}
         </CommandGroup>
 
         <CommandSeparator />

@@ -101,8 +101,13 @@ interface WorkflowState {
    *  node mirrors the original and downstream jobs consume its outputs. */
   linkJobTo: (id: string, workspaceId: string) => Promise<void>;
   fetchLog: (jobId: string) => Promise<string | null>;
-  addJob: (type: string) => Promise<void>;
-  addJobAt: (type: string, x: number, y: number) => Promise<void>;
+  addJob: (type: string, params?: Record<string, number | string | boolean>) => Promise<void>;
+  addJobAt: (
+    type: string,
+    x: number,
+    y: number,
+    params?: Record<string, number | string | boolean>
+  ) => Promise<void>;
   /** One-click standard SPA pipeline: 10 pre-wired jobs into the ACTIVE
    *  workspace (below existing content), optional parameter overrides,
    *  nothing run. */
@@ -592,15 +597,15 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     }
   },
 
-  addJob: async (type) => {
+  addJob: async (type, params) => {
     // legacy keyboard path: place in the middle of the current viewport
     const { viewport } = get();
     const x = clamp(-viewport.x + 480 / viewport.zoom - CARD_W / 2, WORLD_MIN, WORLD_MAX - CARD_W);
     const y = clamp(-viewport.y + 360 / viewport.zoom - CARD_H / 2, WORLD_MIN, WORLD_MAX - CARD_H);
-    await get().addJobAt(type, x, y);
+    await get().addJobAt(type, x, y, params);
   },
 
-  addJobAt: async (type, x, y) => {
+  addJobAt: async (type, x, y, params) => {
     const spec = jobType(type);
     if (!spec) {
       errToast(`Unknown job type: ${type}`);
@@ -617,6 +622,10 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
           x: cx,
           y: cy,
           workspaceId: get().activeWorkspaceId ?? undefined,
+          // preset overrides (command palette "Add with preset") — the server
+          // scalar-filters against the type's schema, so stale/unknown keys
+          // degrade to spec defaults instead of erroring
+          ...(params && Object.keys(params).length > 0 ? { params } : {}),
         }),
       });
       set({ jobs: [...get().jobs, job], selectedId: job.id });

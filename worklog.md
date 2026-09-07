@@ -1567,3 +1567,39 @@ Stage Summary:
 - #8/#13 经核实已在主谱系闭环（本轮零改动）；遗留清单净化
 - 深色主题 PNG 导出对照通过——导出功能双主题交付
 - 遗留（下轮候选）：真 RELION 数据回归（EMPIAR 全链重建）、命令面板任意 job 类型参数预设、Dashboard KPI 卡迷你 sparkline、#6/#14 pathref 与 star 路由包含策略一致性、导入 JSON 的类型版本前向兼容（跨版本 type 改名映射表）
+
+---
+Task ID: 25 (IN PROGRESS)
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852）——QA 回归全绿后推进：Dashboard KPI sparkline + 命令面板 job 参数预设 + #6/#14 审查（进行中检查点）
+
+Work Log (so far):
+- 【开局】worklog 实际最新为 Task 24（指令所称 Task 13 已严重过期，按实际状态执行）；git == 4f26215 干净；dev server 死亡 → dev-server.sh 重启 + warm ×4；QA 回归全绿（24 jobs / 6 completed / console 0 error / Dashboard chips+spotlight 正常）
+- 【功能1·KPI sparkline】新增 GET /api/activity?days=14（全项目 per-day created/completed 双累计序列 + 窗口内增量；UTC 日界；≤30 天 clamp；updatedAt-近似 completion 已在注释锚定）；kpi-sparkline.tsx 手写 SVG polyline（currentColor 继承卡片 tone / flat 序列 pad / 尾点圆点 / aria-hidden 装饰）；KpiCard 增加可选 spark 槽；Total jobs + Completed 两卡接入；fetch 跟随 totals 变化重取
+- 【功能2·命令面板参数预设】job-presets.ts 15 个精选预设（motioncorr/ctffind/autopick×3/extract×2/class2d×2/initialmodel×2/refine3d×3/select，全部对照 workflow.ts spec keys 手工核实）；store addJob/addJobAt 支持 params 透传（server 已有标量白名单过滤）；palette 新增 "Add with preset" 组；scripts/test-job-presets.ts 静态一致性测试 15/15 PASS（type 存在性/key 白名单/min-max/enum/bool 类型五重校验）
+- 【#6/#14 初判】jobfile.ts 已是统一 containment 策略（resolveInsideJobWorkdir 被 file/star 两路由共用，pathref 逃逸口仅 file 路由且在 containment 之后），代码注释即证据——待运行时验证后正式闭环
+- 【运维】dmesg 实锤 global OOM ×1（next-server RSS 2.64GB，首次编译新路由窗口）→ playbook 重启 + curl 预热 ×4
+
+---
+Task ID: 25
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852）——QA 回归全绿后推进：Dashboard KPI sparkline + 命令面板 job 参数预设 + #6/#14 运行时审查闭环 + worklog + push
+
+Work Log:
+- 【开局核对】worklog 实际最新为 Task 24（任务指令所称"末尾 Task 13"已严重过期，按实际最新状态执行）；git 本地 == origin/main == 4f26215；dev server 死亡 → dev-server.sh playbook 重启 + warm ×4（api/jobs / api/projects / api/system / root 全 200）
+- 【QA 回归·全绿】Workflow 24 jobs（活动项目）/ 全项目 30 jobs（3 项目：24+3+3）/ 6 completed / console 0 error；Dashboard spotlight 6/24 · 25% + chips（all·24 / Main·21 / Unassigned·3）→ 无新 bug，转入功能开发
+- 【新功能 1·Dashboard KPI sparkline】①新增 GET /api/activity?days=14：全项目 per-day 双累计序列（total=当日及以前创建的 job 数、completed=completed 且 updatedAt ≤ 当日末）+ 窗口内增量（createdInWindow/completedInWindow），UTC 日界、7..30 clamp；completed 用 updatedAt 近似 completion 时点已在注释锚定（完成后的 x/y PATCH 会把点平移一天，接受为噪声，不加 completedAt 列）；窗口前存量经前缀和计入首点——成熟项目不再画"从零开始"的假趋势；②kpi-sparkline.tsx 手写 SVG polyline（area 12% currentColor wash + 1.5px line + 尾点圆点；flat 序列 pad 保证零宽序列仍画中线；<2 点诚实不渲染；aria-hidden 纯装饰）——不引 recharts，避免为 84×24 装饰图拖整套 surface/tooltip；③KpiCard 增加可选 spark 槽：Total jobs（muted 灰线）+ Completed（emerald 绿线）接入，sub 升级为 "+N in the last 14 days"（窗口内 0 增量时回退原文案）；fetch 挂 totals.total/completed 依赖——模板增删后趋势与 live-stats 数字同呼吸
+- 【新功能 1 样式迭代·watermark 化】首版 spark 走 ml-auto 在流内放右侧 → lg 宽度下挤压文字列，"TOTAL JOBS" 截断成 "TO…"（截图实锤）→ 重构为 bottom-right 绝对定位水印（pointer-events-none + opacity-80 + 卡片 overflow-hidden），文字列恢复全宽——截图复验两主题下 label/sub/spark 三清
+- 【新功能 2·命令面板 job 参数预设】①src/lib/job-presets.ts：15 个精选预设（motioncorr 超分辨 7×7 / ctffind 快筛 256 / autopick LoG+Topaz+References 三态 / extract 小颗粒 96→48 与无降采样 256 / class2d K50·25it 与 K20·8it / initialmodel C1 单模型与 K8 D2 / refine3d C1 auto + D2 fixed + C4 high-sym / select Top 5000）——全部对照 workflow.ts spec keys 手工核实，值域遵守 min/max/enum；②store addJob/addJobAt 增加 params 透传（POST /api/jobs 本就支持 params 且服务端按 spec 标量白名单过滤——陈旧/未知键静默降级为 spec 默认，不会 500）；③palette 新增 "Add with preset" 组（type 图标 + 预设名 + note 尾注，fuzzy 可搜 "preset/topaz/deep pass" 等词）；放置后卡片自动选中 → inspector 立即可见哪些旋钮被预设拨动；④scripts/test-job-presets.ts 静态一致性测试（type 存在性 / key ∈ schema / number min-max / select options 成员 / bool 类型 / 空预设拒绝）15/15 PASS——修一处 TS2367（ParamType 联合是 "bool" 非 "boolean"）
+- 【功能 2 E2E·双预设实证】palette → class2d Deep pass → DB params {"numClasses":50,"iterations":25} ✓；palette → autopick Topaz general → DB params {"pickingMethod":"Topaz","topazNrParticles":300,"topazThreshold":-6} ✓（select 类型字符串值同样过服务端白名单）；2 个 E2E job 已 DELETE，DB 复原 30 jobs（fixture 态）
+- 【#6/#14 运行时审查闭环·零代码改动】jobfile.ts 已是统一 containment 策略：resolveInsideJobWorkdir（相对+无..+无NUL 词法检查 → workdir 词法包含 → realpath ∈ data 树或 workdir）被 outputs/file 与 outputs/star 双路由共用；pathref 逃逸口仅 file 路由、且在 containment 之后（readPathrefTarget 校验目标是存在普通文件）。运行时矩阵全绿：traversal（../../../etc/passwd）双路由 400/400、绝对路径 400/400、planted symlink → /etc/passwd 双路由 400/400（历史上的词法-only 漏洞已死）、.pathref 标记：file 路由 format=text 被扩展名白名单拒绝（不泄 marker 内容）、star 路由 400 "Not a STAR file"（by design 不 follow）——残留行为与模块文档声明完全一致，#6/#14 正式从遗留清单划掉
+- 【双主题 QA】sparkline currentColor 继承在 dark 下同样成立（灰线/emerald 线清晰、12% wash 不压暗底）；light 已切回
+- 【运维】dmesg 实锤 global OOM ×1（next-server RSS 2.64GB，新路由首次编译窗口——与 Task 21-24 模式一致）→ playbook 重启 + curl 预热；本轮浏览器用完即关（内存纪律）
+- 【收尾】bun run lint 0/0、tsc src/+scripts/ 0 错误（skills/ 下 1 个预存在错误与本项目无关）、console 0 error；QA fixture 原样保留（30 jobs / 3 项目）
+
+Stage Summary:
+- Dashboard KPI 从"数字"到"趋势"：Total jobs / Completed 两卡各带 14 天累计水印 sparkline（全项目口径与 KPI 数字同源、live-stats 触发重取、双主题 currentColor 自适应）——项目增速与完成速度一眼可读
+- 命令面板从"加类型"到"加配置"：15 个经静态测试锚定的参数预设（LoG/Topaz/References 三种 picking、K50 deep pass、C1/C4/D2 refine 矩阵……），一次搜索直达"带参数的作业"，服务端白名单兜底绝不 500
+- #6/#14 正式闭环（运行时矩阵实证）：双路由统一 containment + pathref 仅 file 路由后置逃逸口——遗留清单现存仅：真 RELION 数据回归、导入 JSON 类型版本前向兼容
+- 测试资产：test-job-presets.ts（15 预设 × 5 重校验，workflow.ts spec 漂移时第一时间红）
+- 遗留（下轮候选）：真 RELION 数据回归（EMPIAR 全链重建，沙箱无 RELION binary 不可行——需用户机器）、导入 JSON 的类型版本前向兼容（跨版本 type 改名映射表）、Dashboard KPI Projects 卡也可加 sparkline（当前仅 2 卡有数据叙事）、sparkline tooltip（hover 显示具体日期数值）

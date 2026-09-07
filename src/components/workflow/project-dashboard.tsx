@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { useWorkflowStore } from "@/lib/store";
 import { withLiveStats } from "@/lib/live-stats";
+import { KpiSparkline } from "./kpi-sparkline";
 import type { JobDTO, ProjectSummaryDTO } from "@/lib/types";
 import { jobType } from "@/lib/workflow";
 import { TypeIcon } from "./icons";
@@ -98,15 +99,18 @@ function KpiCard({
   label,
   sub,
   tone,
+  spark,
 }: {
   icon: React.ReactNode;
   value: React.ReactNode;
   label: string;
   sub?: string;
   tone: string;
+  /** optional 14-day trend sparkline — inherits the card tone (currentColor) */
+  spark?: React.ReactNode;
 }) {
   return (
-    <div className="card-lift flex items-center gap-3 rounded-xl border bg-card p-4">
+    <div className="card-lift relative flex items-center gap-3 overflow-hidden rounded-xl border bg-card p-4">
       <span
         className={cn(
           "flex size-10 shrink-0 items-center justify-center rounded-lg ring-1 ring-inset",
@@ -123,8 +127,25 @@ function KpiCard({
         </p>
         {sub ? <p className="truncate text-[10px] text-muted-foreground/70">{sub}</p> : null}
       </div>
+      {/* sparkline as a bottom-right watermark: decorative trend that never
+          squeezes the text column (in-flow placement truncated "TOTAL JOBS"
+          to "TO…" at lg width) — pointer-events-none so it can't block */}
+      {spark ? (
+        <div className="pointer-events-none absolute bottom-1.5 right-2.5 opacity-80">
+          {spark}
+        </div>
+      ) : null}
     </div>
   );
+}
+
+/** Shape of GET /api/activity — the KPI sparkline feed. */
+interface ActivityFeed {
+  days: string[];
+  total: number[];
+  completed: number[];
+  createdInWindow: number;
+  completedInWindow: number;
 }
 
 /* ------------------------------------------------------------------ */
@@ -611,6 +632,7 @@ export function ProjectDashboard() {
   const [deleting, setDeleting] = React.useState(false);
   const [pendingSwitch, setPendingSwitch] = React.useState<string | null>(null);
   const [query, setQuery] = React.useState("");
+  const [activity, setActivity] = React.useState<ActivityFeed | null>(null);
 
   const deleteProject = useWorkflowStore((s) => s.deleteProject);
 
@@ -641,6 +663,24 @@ export function ProjectDashboard() {
     }
     return { total, running, pending, completed, failed };
   }, [projects]);
+
+  // KPI sparkline feed — global (all projects) per-day counts. Refetched on
+  // mount and whenever the job count changes (template adds / deletes), so
+  // the trend tracks the same live-stats layer the numbers come from.
+  React.useEffect(() => {
+    let cancelled = false;
+    fetch("/api/activity?days=14")
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((data: ActivityFeed) => {
+        if (!cancelled && Array.isArray(data?.days) && data.days.length > 1) setActivity(data);
+      })
+      .catch(() => {
+        /* sparklines are decorative — a failed fetch just hides them */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [totals.total, totals.completed]);
 
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -720,8 +760,20 @@ export function ProjectDashboard() {
             icon={<Boxes className="size-5" />}
             value={totals.total}
             label="Total jobs"
-            sub="across all projects"
+            sub={
+              activity && activity.createdInWindow > 0
+                ? `+${activity.createdInWindow} in the last 14 days`
+                : "across all projects"
+            }
             tone="bg-secondary text-muted-foreground ring-border"
+            spark={
+              activity ? (
+                <KpiSparkline
+                  values={activity.total}
+                  className="text-muted-foreground"
+                />
+              ) : undefined
+            }
           />
           <KpiCard
             icon={<Loader2 className={cn("size-5", totals.running > 0 && "animate-spin")} />}
@@ -740,8 +792,22 @@ export function ProjectDashboard() {
             icon={<CheckCircle2 className="size-5" />}
             value={totals.completed}
             label="Completed"
-            sub={totals.failed > 0 ? `${totals.failed} failed` : "zero failures"}
+            sub={
+              activity && activity.completedInWindow > 0
+                ? `+${activity.completedInWindow} in the last 14 days`
+                : totals.failed > 0
+                  ? `${totals.failed} failed`
+                  : "zero failures"
+            }
             tone="bg-emerald-500/10 text-emerald-600 ring-emerald-500/30 dark:text-emerald-400"
+            spark={
+              activity ? (
+                <KpiSparkline
+                  values={activity.completed}
+                  className="text-emerald-500"
+                />
+              ) : undefined
+            }
           />
           <KpiCard
             icon={<Snowflake className="size-5" />}
