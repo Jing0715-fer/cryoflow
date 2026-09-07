@@ -1470,7 +1470,7 @@ Work Log:
 - 【新功能 2·Dashboard 分析区 per-workspace 过滤】pipeline-analytics.tsx：仅当项目 jobs 实际横跨 ≥2 workspace 时显示芯片行（诚实计数：all · N / 工作点名 · N / Unassigned · N——旧种子 null workspaceId 计入 Unassigned）；选中芯片同时 scope 漏斗 + 分辨率阶梯（useResolutionMilestones 接 scoped 集）
 - 【真 bug #23·""-id 折叠】首版 onClick 用 setWsFilter(w.id || null)——legacy unassigned 芯片的 id 是 ""，|| 折叠成 null（=all），点击后选中态与数据完全不变。修复：setWsFilter(w.id)（"" 是合法过滤值，!== null）；E2E 复测 Unassigned 芯片正确生效（该 workspace 仅 1 个 flow 阶段 → 整节诚实隐藏，符合 ≥2 行自隐藏契约）、Main 芯片漏斗只剩 Main 链（Picked→Extracted→Classified）、all 恢复全量
 - 【收尾】lint 0/0、tsc src/+scripts/ 0、两套测试 15+10 全 PASS；QA fixture 保留（topaztrain 作业 + 模板作业 completed 结果——后续漏斗/图表回归的现成数据）；dev server 会话中 2 次 OOM（Turbopack 编译窗口）→ playbook 重启
-- 【推送】<commit> 已推送，本地 == origin/main
+- 【推送】48912a8 已推送（050bb9a..48912a8），本地 == origin/main
 
 Stage Summary:
 - 两大功能落地并 E2E 实证：Topaz 训练曲线（容错解析器 + 双曲线图 + 过拟合脚注，装了 topaz 的用户跑完训练立即可见损失曲线）、Dashboard 分析区 per-workspace 过滤（多 workspace 项目一眼分辨各工作流的颗粒去向）
