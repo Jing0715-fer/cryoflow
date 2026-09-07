@@ -39,6 +39,13 @@ import { PipelineAnalytics } from "./pipeline-analytics";
 import { StatusBadge, estimateEta, formatEta, trackEtaBaseline } from "./job-card";
 import { NewProjectDialog } from "./project-panel";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -79,6 +86,73 @@ function fmtAgo(iso: string): string {
   } catch {
     return "—";
   }
+}
+
+/**
+ * Project grid sort keys. "oldest" == the server's default createdAt-asc
+ * order; everything else is a client-side sort over the (already fetched)
+ * cards. The choice persists per browser (localStorage, defensively
+ * sanitized on read) — an iterative session shouldn't re-sort every visit.
+ */
+type ProjectSortKey = "oldest" | "newest" | "name" | "jobs" | "done";
+
+const PROJECT_SORTS: { key: ProjectSortKey; label: string }[] = [
+  { key: "oldest", label: "Oldest first" },
+  { key: "newest", label: "Newest first" },
+  { key: "name", label: "Name A–Z" },
+  { key: "jobs", label: "Most jobs" },
+  { key: "done", label: "Most complete" },
+];
+
+const SORT_KEY = "cryoflow:projects-sort";
+
+function loadSortKey(): ProjectSortKey {
+  try {
+    const raw = localStorage.getItem(SORT_KEY);
+    return PROJECT_SORTS.some((s) => s.key === raw) ? (raw as ProjectSortKey) : "oldest";
+  } catch {
+    return "oldest"; // private mode / storage disabled — server order
+  }
+}
+
+function sortProjects(list: ProjectCard[], key: ProjectSortKey): ProjectCard[] {
+  const out = [...list];
+  // every branch ends with an id tie-break — duplicate project NAMES are
+  // legal (two "demo" projects are a normal sight), and an unstable order
+  // across visits makes the grid feel haunted
+  const tie = (a: ProjectCard, b: ProjectCard) => a.id.localeCompare(b.id);
+  switch (key) {
+    case "newest":
+      out.sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? "") || tie(a, b));
+      break;
+    case "name":
+      out.sort(
+        (a, b) =>
+          a.name.localeCompare(b.name, undefined, { sensitivity: "base" }) || tie(a, b)
+      );
+      break;
+    case "jobs":
+      out.sort((a, b) => (b.stats?.total ?? 0) - (a.stats?.total ?? 0) || tie(a, b));
+      break;
+    case "done":
+      // completion RATIO first (0.5/1 beats 0/1000), total count as the
+      // tiebreaker (2/2 outranks 1/1 — more delivered work overall);
+      // empty projects (-1) sink below everything so the grid leads with
+      // genuinely finished pipelines
+      out.sort((a, b) => {
+        const ra =
+          (a.stats?.total ?? 0) > 0 ? (a.stats?.completed ?? 0) / (a.stats?.total ?? 1) : -1;
+        const rb =
+          (b.stats?.total ?? 0) > 0 ? (b.stats?.completed ?? 0) / (b.stats?.total ?? 1) : -1;
+        if (rb !== ra) return rb - ra;
+        const ta = (a.stats?.total ?? 0) - (b.stats?.total ?? 0);
+        return ta !== 0 ? -ta : tie(a, b);
+      });
+      break;
+    default:
+      break; // "oldest" — keep the fetched (createdAt asc) order
+  }
+  return out;
 }
 
 const STATUS_DOT: Record<string, string> = {
@@ -670,6 +744,24 @@ export function ProjectDashboard() {
   const [pendingSwitch, setPendingSwitch] = React.useState<string | null>(null);
   const [query, setQuery] = React.useState("");
   const [activity, setActivity] = React.useState<ActivityFeed | null>(null);
+  // grid sort — initialized from persisted choice on mount (localStorage
+  // read stays out of render per #13 discipline: state init via lazy
+  // initializer is fine, it's not a side effect, but storage may not exist
+  // during SSR so the effect below re-syncs on the client)
+  const [sortKey, setSortKey] = React.useState<ProjectSortKey>("oldest");
+
+  React.useEffect(() => {
+    setSortKey(loadSortKey());
+  }, []);
+
+  const changeSort = (key: ProjectSortKey) => {
+    setSortKey(key);
+    try {
+      localStorage.setItem(SORT_KEY, key);
+    } catch {
+      /* storage full/disabled — the session-local choice still applies */
+    }
+  };
 
   const deleteProject = useWorkflowStore((s) => s.deleteProject);
 
@@ -725,6 +817,10 @@ export function ProjectDashboard() {
     return projects.filter((p) => p.name.toLowerCase().includes(q));
   }, [projects, query]);
 
+  // sort AFTER filter — the count line shows "N / M" for the filtered set
+  // and the grid renders the same set in the chosen order
+  const sortedProjects = React.useMemo(() => sortProjects(filtered, sortKey), [filtered, sortKey]);
+
   const openProject = (p: ProjectCard) => {
     if (pendingSwitch) return;
     if (p.id === activeId) {
@@ -777,6 +873,22 @@ export function ProjectDashboard() {
                 className="h-9 w-44 pl-8 text-xs sm:w-56"
               />
             </div>
+            <Select value={sortKey} onValueChange={(v) => changeSort(v as ProjectSortKey)}>
+              <SelectTrigger
+                aria-label="Sort projects"
+                className="h-9 w-[7.5rem] text-xs sm:w-36"
+                title="Sort the project grid"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PROJECT_SORTS.map((s) => (
+                  <SelectItem key={s.key} value={s.key} className="text-xs">
+                    {s.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Button size="sm" className="h-9 gap-1.5" onClick={() => setCreateOpen(true)}>
               <Plus className="size-4" aria-hidden="true" />
               New project
@@ -916,7 +1028,7 @@ export function ProjectDashboard() {
             </p>
           ) : (
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {filtered.map((p) => (
+              {sortedProjects.map((p) => (
                 <DashboardProjectCard
                   key={p.id}
                   project={p}

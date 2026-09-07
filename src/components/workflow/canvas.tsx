@@ -538,7 +538,9 @@ export function WorkflowCanvas() {
       });
       return;
     }
-    await useWorkflowStore.getState().importWorkflow(parsed.file, parsed.warning);
+    // NOT imported here — the preview dialog (mounted once in page.tsx)
+    // takes over: file summary + target-workspace picker before any POST
+    useWorkflowStore.getState().openImportPreview(parsed.file, parsed.warning, f.name);
   }, []);
 
   const onImportFilePick = useCallback(

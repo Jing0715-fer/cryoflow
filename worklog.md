@@ -1624,3 +1624,30 @@ Stage Summary:
 - workflow JSON 导入从"同版本专用"到"跨版本兼容"：15 条类型别名 + 化妆漂移归一 + 版本宽容（新版本 best-effort + toast 明示、旧版本迁移提示），服务端同口径权威归一，静态测试七组锚定防 spec 漂移
 - 遗留清单现存仅：真 RELION 数据回归（EMPIAR 全链重建，需用户机器）、sparkline 触屏适配（pointermove 已覆盖多数场景，长按未见异常）
 - 遗留（下轮候选）：项目卡 sparkline 的 tooltip 在 md 以下窄卡的最左点可能贴边（84→72px 已收窄，未观察到裁剪）、导入 JSON 的 workspace 选择（当前固定活动 workspace）、Dashboard 项目卡 updated-at 排序选项
+
+---
+Task ID: 27
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852）——QA 回归全绿后推进：导入 JSON 的 workspace 选择对话框（Task 26 遗留#1）+ Dashboard 项目卡排序（遗留#2）+ fixture 数据正名 + 排序 tie-break + worklog + push
+
+Work Log:
+- 【开局核对】worklog 实际最新为 Task 26（指令所称"末尾 Task 13"已严重过期，按实际状态执行）；git 本地 == origin/main == 89fcf5d；dev server 死亡 → dev-server.sh playbook 重启 + 预热 4 路由全 200；DB fixture 核对 30 jobs / 3 项目（8 completed 均为 Task 19/20 注入的 QA fixture，无 E2E 残留）
+- 【QA 回归·全绿】Workflow 24 jobs（活动项目）/ Dashboard KPI band（3/30/0/8）+ spotlight 6/24 · 25% + 分析区 chips/export 正常 / console 0 error → 无新 bug，转入功能开发。开局误访 /dashboard 得 404——应用是单页 "/"+tab 结构，非路由缺失，非 bug
+- 【功能 1·导入 JSON workspace 选择对话框】遗留清单#1 落地。①store：importPreview 状态槽（{file,warning,fileName}）+ openImportPreview/closeImportPreview；importWorkflow(file,warning?,workspaceId?) 三参升级——显式目标优先于活动 workspace，导入落到非活动 workspace 时自动跟随切换（activeWorkspaceId + 清 selectedId/pendingFrom，layoutEpoch fit-view 新内容），toast 报目标 workspace 名与 switched 提示；②新组件 import-workflow-dialog.tsx（page.tsx 单点挂载）：文件身份卡（文件名+导出时间+jobs/links/来源项目·workspace chips）→ 琥珀色版本警告横幅（preview.warning 时）→ 目标 workspace 单选列表（每行 name+stats("N jobs · M completed · K running")+"current" 徽章+radio 圆点动画）→ 非活动目标时显示"canvas will switch to …"提示 → Confirm 后置 busy 且失败不关对话框（选择保留，store 只 toast 错误）；打开时 void refreshWorkspaces() 防列表过期（别处新建的 workspace 也能选）；③接线：canvas.tsx handleImportJsonFile 与 command-palette importJson 均改为 parse→openImportPreview（不再直接 importWorkflow）
+- 【功能 1 E2E·全链实证】UI 导出 Main（21 jobs · 26 links）→ API 建 "QA Import" workspace → 隐藏 input upload → 对话框完整渲染（双 radio：Main current 21·5 / QA Import 0 jobs）→ 选 QA Import → 提示行出现 → Confirm → toast "21 jobs · 26 links recreated in QA Import — canvas switched there" → 画布顶栏 combobox 已切 QA Import → DB 验证 21 jobs 全 idle + 名称 "(i2)" 去重正确；v2 文件 → 对话框内琥珀横幅正确显示 "exported by a newer CryoFlow (v2 — this app reads v1)…"
+- 【排查插曲·非 bug 的"26 vs 24"】DB edge 行数 24 ≠ toast 26——深挖为**双层边架构**：DB Edge 表 @@unique([fromJobId,toJobId]) 每对作业一行镜像，端口级真值（half1→half1/half2→half2 同对多线）在 data/edge-ports.json sidecar（persistPortEdge 先 upsertFileEdge 再 DB findUnique-跳过）；/api/edges 实证 QA Import 26 条端口级接线含 4 条 half 线——toast 数字诚实，导入完整无损
+- 【现场复原】QA Import 21 jobs + edges + workspace 全删，sidecar 对账 27 条 0 陈旧（服务端删除路径自清理），DB 复原 30 jobs / 3 项目 / API edges 27
+- 【功能 2·Dashboard 项目卡排序】遗留清单#2 落地。project-dashboard：ProjectSortKey 五档（oldest=服务端 createdAt-asc 默认 / newest / name A–Z / jobs 降序 / done 完成率优先-总数 tie-空项目 -1 沉底）；搜索框旁 Select（h-9 与搜索框同高对齐）；排序在 filter 之后（计数行 N/M 口径不变）；选择持久化 localStorage["cryoflow:projects-sort"]（防御性白名单校验，SSR 安全的 effect 初始化——非 render 副作用）
+- 【fixture 数据正名】E2E 排序时发现三张项目卡同名同统计——查实 DB 三个项目字面同名"β-Galactosidase Tutorial (demo)"（Task 19 灾难恢复时创建的 QA 脚手架沿用了 demo 名），非 UI bug；两个 3-job 项目（import→motioncorr→ctffind 同构迷你链）正名为 "QA Sandbox A/B"，卡片从此可分辨
+- 【排序稳定性加固】同名项目合法存在 → sortProjects 每个分支补 id localeCompare tie-break（newest/name/jobs 直接 || tie，done 三级：ratio→total→id）——重访/重渲染不再出现"同序 haunted"抖动
+- 【功能 2 E2E】Most complete：QA A/B(33%) → demo(25%) ✓；重载页面排序保持 Most complete（localStorage 持久化）✓；Name A–Z：QA < β（en-US collation 希腊字母排拉丁后，顺序正确）✓；Most jobs：demo(24) 剧烈跳到第一 + A/B(3) id tie 稳定 ✓；恢复 oldest 默认态
+- 【双主题 QA】深色下导入对话框截图目检：暗底文件卡/chips/单选高亮环/teal 确认按钮对比度全部正常，canvas 背景正确压暗；light 已恢复；console 0 error
+- 【运维】本会话 dev server OOM 崩溃 ×2（浏览器窗口期 + Turbopack 编译窗口模式）→ playbook 重启 ×2 + curl 预热；E2E 临时文件（v2 payload/QA 截图/旧导出样张）已清理，0642 导出样张保留于 ~/Downloads
+- 【收尾】bun run lint 0/0、tsc src/ 0 错误（examples/skills 预存在错误与项目无关）、test-job-presets 15/15 PASS、test-workflow-compat ALL PASS；浏览器已关（内存纪律）
+
+Stage Summary:
+- 工作流导入从"静默落进当前 workspace"升级为"先看清再决定落哪"：文件摘要（jobs/links/来源/导出时间）+ 版本警告横幅 + 带 stats 的 workspace 单选 + 跨 workspace 自动跟随切换——多 workspace 项目的图搬运最后一处盲区补齐
+- Dashboard 项目网格可排序：五档排序 + localStorage 记忆 + id tie-break 防同名抖动——"哪个项目活最多/完成最好"一眼可得
+- 第 28 个发现闭环：QA fixture 三项目同名（灾难恢复遗留）正名 QA Sandbox A/B + 排序 tie-break 加固——同名项目从"无法分辨"到"可分辨且序稳定"
+- 架构认知沉淀：边是双层存储（DB 对级镜像 @@unique + sidecar 端口级真值），"26 vs 24"类差异先查 /api/edges 再定论
+- 遗留（下轮候选）：真 RELION 数据回归（EMPIAR 全链重建，需用户机器）、sparkline 触屏适配（pointermove 已覆盖）、导入对话框的"导入后 toast 内嵌切换按钮"（当前自动跟随已覆盖主场景）、项目同名时创建侧的温和提醒（如名称已被占用提示，不阻断）

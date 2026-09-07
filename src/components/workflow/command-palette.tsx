@@ -224,7 +224,9 @@ export function CommandPalette() {
         });
         return;
       }
-      void useWorkflowStore.getState().importWorkflow(parsed.file, parsed.warning);
+      // preview dialog (mounted once in page.tsx) takes over from here:
+      // file summary + target-workspace picker before any POST
+      useWorkflowStore.getState().openImportPreview(parsed.file, parsed.warning, f.name);
     };
     input.click();
   };

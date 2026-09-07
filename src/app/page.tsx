@@ -13,6 +13,7 @@ import { JobPanel } from "@/components/workflow/job-panel";
 import { JobInspector } from "@/components/workflow/job-inspector";
 import { CommandPalette } from "@/components/workflow/command-palette";
 import { TemplatePresetsDialog } from "@/components/workflow/template-presets-dialog";
+import { ImportWorkflowDialog } from "@/components/workflow/import-workflow-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -295,6 +296,7 @@ export default function Home() {
       <JobInspector />
       <CommandPalette />
       <TemplatePresetsDialog />
+      <ImportWorkflowDialog />
 
       {/* Mobile: floating palette trigger (canvas view only) */}
       {!isDashboard && (

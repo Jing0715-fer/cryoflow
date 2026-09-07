@@ -72,6 +72,10 @@ interface WorkflowState {
   /** SPA template presets dialog open (triggered from the canvas empty
    *  state, the command palette or the help popover — mounted once). */
   templatePresetsOpen: boolean;
+  /** Parsed workflow file awaiting confirmation in the import dialog —
+   *  the dialog shows a summary + target-workspace picker before any
+   *  network call happens (mounted once, like the presets dialog). */
+  importPreview: { file: WorkflowFile; warning?: string; fileName: string } | null;
   loading: boolean;
   error: string | null;
   /** True while a card is being dragged — polling pauses so no re-render
@@ -112,11 +116,16 @@ interface WorkflowState {
    *  workspace (below existing content), optional parameter overrides,
    *  nothing run. */
   createTemplate: (overrides?: TemplateOverrides) => Promise<void>;
-  /** Recreate an exported cryoflow-workflow/1 file into the ACTIVE
-   *  workspace (POST /api/workflow-import) — server re-validates types,
-   *  params and port wiring; merge + fit-view on success. */
-  importWorkflow: (file: WorkflowFile, warning?: string) => Promise<void>;
+  /** Recreate an exported cryoflow-workflow/1 file (POST
+   *  /api/workflow-import) — target workspace selectable (defaults to the
+   *  active one, must belong to the active project — the server rejects
+   *  anything else); server re-validates types, params and port wiring;
+   *  merge + fit-view on success. */
+  importWorkflow: (file: WorkflowFile, warning?: string, workspaceId?: string) => Promise<void>;
   setTemplatePresetsOpen: (open: boolean) => void;
+  /** Stage a parsed file for the import dialog (replaces any earlier one). */
+  openImportPreview: (file: WorkflowFile, warning: string | undefined, fileName: string) => void;
+  closeImportPreview: () => void;
   moveJobCommit: (id: string, x: number, y: number) => Promise<void>;
   applyLayout: () => Promise<void>;
   saveJob: (
@@ -286,6 +295,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   focusJobId: null,
   focusEpoch: 0,
   templatePresetsOpen: false,
+  importPreview: null,
   loading: true,
   error: null,
   dragActive: false,
@@ -672,13 +682,15 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     }
   },
 
-  importWorkflow: async (file, warning) => {
+  importWorkflow: async (file, warning, workspaceId) => {
+    // explicit target (import dialog) wins; absent = the active workspace
+    const targetWsId = workspaceId ?? get().activeWorkspaceId ?? undefined;
     try {
       const data = await api<{ jobs: JobDTO[]; edges: EdgeDTO[] }>("/api/workflow-import", {
         method: "POST",
         headers: JSON_HEADERS,
         body: JSON.stringify({
-          workspaceId: get().activeWorkspaceId ?? undefined,
+          workspaceId: targetWsId,
           jobs: file.jobs,
           edges: file.edges,
         }),
@@ -690,11 +702,21 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         edges: [...get().edges, ...data.edges.filter((e) => !haveEdges.has(e.id))],
         layoutEpoch: get().layoutEpoch + 1, // fit-view the imported graph
       });
+      // Follow the import when it landed in another workspace — the canvas
+      // fit-views the new content via layoutEpoch, so switching here shows
+      // exactly what was just imported instead of leaving the user to find it.
+      let switched = false;
+      if (targetWsId && targetWsId !== get().activeWorkspaceId) {
+        set({ activeWorkspaceId: targetWsId, selectedId: null, pendingFrom: null });
+        switched = true;
+      }
+      const wsName =
+        get().workspaces.find((w) => w.id === targetWsId)?.name ?? "the selected workspace";
       toast({
         title: "Workflow imported",
         description: warning
-          ? `${warning} — ${data.jobs.length} jobs · ${data.edges.length} links recreated; nothing runs until you start it`
-          : `${data.jobs.length} jobs · ${data.edges.length} links recreated in this workspace — nothing runs until you start it`,
+          ? `${warning} — ${data.jobs.length} jobs · ${data.edges.length} links recreated in ${wsName}${switched ? " (canvas switched there)" : ""}; nothing runs until you start it`
+          : `${data.jobs.length} jobs · ${data.edges.length} links recreated in ${wsName}${switched ? " — canvas switched there" : " — nothing runs until you start it"}`,
       });
       void get().refreshWorkspaces();
     } catch (err) {
@@ -1016,6 +1038,10 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   setDragActive: (active) => set({ dragActive: active }),
   setPaletteDrag: (type) => set({ paletteDrag: type }),
   setTemplatePresetsOpen: (open) => set({ templatePresetsOpen: open }),
+
+  openImportPreview: (file, warning, fileName) =>
+    set({ importPreview: { file, warning, fileName } }),
+  closeImportPreview: () => set({ importPreview: null }),
 
   focusJob: (id) =>
     set((s) => ({
