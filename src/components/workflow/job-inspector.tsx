@@ -83,6 +83,7 @@ import { ImportGallery } from "./results/import-gallery";
 import { PicksMap } from "./results/picks-map";
 import { ParticleBrowser } from "./results/particle-browser";
 import { GuinierChart } from "./results/guinier-chart";
+import { TopazTrainingChart } from "./results/topaz-training-chart";
 
 /* ------------------------------------------------------------------ */
 /* Types (mirrors /api/jobs/[id]/outputs)                              */
@@ -959,6 +960,11 @@ function OverviewTab({
       {/* CTF estimation gets a per-micrograph fit quality panel. */}
       {isCtfType && job.status !== "idle" ? (
         <CtfQualityChart jobId={job.id} />
+      ) : null}
+      {/* Topaz training gets its per-epoch loss curve (self-hides until the
+          run log carries recognizable topaz progress). */}
+      {/^topaztrain$/i.test(job.type) && job.status !== "idle" ? (
+        <TopazTrainingChart jobId={job.id} running={job.status === "running"} />
       ) : null}
       <Section icon={Activity} title="Timeline">
         <div className="rounded-xl border bg-card p-5 pt-4">

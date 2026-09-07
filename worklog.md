@@ -1456,3 +1456,24 @@ Stage Summary:
 - 两大新功能落地并 E2E 实证：clip 盒线框（ChimeraX 式裁剪可视化，相机投影零状态树污染）+ 一键标准 SPA 流水线（10 jobs 13 端口级连线，新项目 30 秒成链）
 - 第 22 个真实 bug（零 workspace 种子死锁）——新用户首次动作不再 500
 - 遗留（下轮候选）：Topaz 训练曲线图（model_training.txt loss 可视化）、Dashboard 分析区 per-workspace 过滤、clip 线框的拖拽把手（在线框面上拖动 = 拖滑杆）、用户机器 class3d/refine3d 顺序模式与 topaz 实测反馈、真实 RELION 数据回归（沙箱 workdir 待重建 EMPIAR 全链）
+
+---
+Task ID: 20
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852）——QA 回归全绿后推进两个新功能：Topaz 训练曲线图 + Dashboard 分析区 per-workspace 过滤 + worklog + push
+
+Work Log:
+- 【开局核对】git 本地 == origin/main == 050bb9a（Task 19 已推送）；dev server 死亡 → playbook 重启。QA 回归全绿：主页面 13 jobs / console 0 error；3D viewer（合成地图 fixture）加载 + clip 线框 12 棱 / 全盒跨度 277px 复测通过 → 无新 bug，转入功能开发
+- 【新功能 1·Topaz 训练曲线图】topaz 沙箱不可安装且 GitHub 限流无法考古源码 → 采用多形态容错解析器 src/lib/relion/topaz-training.ts：①CSV 表格（#epoch,train_loss,test_loss,precision,recall 表头 + 数字行）②epoch 标记块（## epoch N + ## training loss:/## test loss: 归属最近命名 epoch）③裸 loss 行流（无标记时位置递增，test/held-out 关键词路由）——伪造零容忍：无法识别 → [] → 图表自隐藏。scripts/test-topaz-parse.ts 15/15 PASS（三形态 + RELION 噪声 + 科学计数法 + 空日志）
+- 【新功能 1 续】GET /api/jobs/[id]/topaz-training：源 = run 记录 logFile（RELION 把 topaz stdout 原样导入 run.out）+ workdir 内 *training*.txt/*loss*.txt/topaz*.log；多源合并（run.out 权威、后续文件只补空缺 epoch）、statcache 键控、4MB 上限防呆；topaz-training-chart.tsx（fuchsia 主题卡片）：teal 实线 train loss + amber 虚线 test loss、徽章（final loss / 下降百分比 / best test / 来源文件）、running 态 20s 轮询 + live 脉冲、脚注解释过拟合判读；挂入 inspector Overview（仅 topaztrain 类型，非 idle）
+- 【E2E·真实形态 fixture】创建 topaztrain QA 作业 + 注入 12-epoch tagged 块形态 run.out（含 RELION "+ Training with 862 picks" 前导噪声）→ API 12 epochs 全字段解析（trainLoss/testLoss/precision/testPrecision/recall）→ inspector Overview 图表渲染：双曲线分离可见（train 持续下降、test 后期趋平——正是脚注所说的过拟合形态）、tooltip 逐 epoch 数值、徽章齐全
+- 【新功能 2·Dashboard 分析区 per-workspace 过滤】pipeline-analytics.tsx：仅当项目 jobs 实际横跨 ≥2 workspace 时显示芯片行（诚实计数：all · N / 工作点名 · N / Unassigned · N——旧种子 null workspaceId 计入 Unassigned）；选中芯片同时 scope 漏斗 + 分辨率阶梯（useResolutionMilestones 接 scoped 集）
+- 【真 bug #23·""-id 折叠】首版 onClick 用 setWsFilter(w.id || null)——legacy unassigned 芯片的 id 是 ""，|| 折叠成 null（=all），点击后选中态与数据完全不变。修复：setWsFilter(w.id)（"" 是合法过滤值，!== null）；E2E 复测 Unassigned 芯片正确生效（该 workspace 仅 1 个 flow 阶段 → 整节诚实隐藏，符合 ≥2 行自隐藏契约）、Main 芯片漏斗只剩 Main 链（Picked→Extracted→Classified）、all 恢复全量
+- 【收尾】lint 0/0、tsc src/+scripts/ 0、两套测试 15+10 全 PASS；QA fixture 保留（topaztrain 作业 + 模板作业 completed 结果——后续漏斗/图表回归的现成数据）；dev server 会话中 2 次 OOM（Turbopack 编译窗口）→ playbook 重启
+- 【推送】<commit> 已推送，本地 == origin/main
+
+Stage Summary:
+- 两大功能落地并 E2E 实证：Topaz 训练曲线（容错解析器 + 双曲线图 + 过拟合脚注，装了 topaz 的用户跑完训练立即可见损失曲线）、Dashboard 分析区 per-workspace 过滤（多 workspace 项目一眼分辨各工作流的颗粒去向）
+- 第 23 个真实 bug 闭环：unassigned workspace id ""-折叠——chip 型过滤器的 falsy-id 陷阱
+- 测试资产增值：topaz-training 解析器 15 用例（topaz 源码不可得时的行为锚定）+ 合成 12-epoch 训练日志 fixture
+- 遗留（下轮候选）：clip 线框拖拽把手（线框面拖动=拖滑杆）、Topaz 训练曲线的 precision/recall 第二轴开关、真 RELION 数据回归（EMPIAR 全链重建）、用户机器 class3d/refine3d 顺序模式与 topaz 实测反馈

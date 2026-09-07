@@ -25,6 +25,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, Award, Crosshair, Filter, Waves } from "lucide-react";
 import type { JobDTO } from "@/lib/types";
 import { jobType } from "@/lib/workflow";
+import { useWorkflowStore } from "@/lib/store";
 import { TypeIcon } from "./icons";
 import { cn } from "@/lib/utils";
 
@@ -182,11 +183,39 @@ function useResolutionMilestones(jobs: JobDTO[]): Milestone[] {
 /* ------------------------------------------------------------------ */
 
 export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
-  const flow = useMemo(
-    () => jobs.map(flowRowOf).filter((r): r is FlowRow => r != null),
-    [jobs]
+  const workspaces = useWorkflowStore((s) => s.workspaces);
+  /** null = all workspaces; otherwise a workspace id ("" = legacy unassigned). */
+  const [wsFilter, setWsFilter] = useState<string | null>(null);
+
+  // only workspaces that actually hold jobs get a chip — keeps the row
+  // honest when a workspace exists but is empty (or was deleted)
+  const wsOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const j of jobs) {
+      const key = j.workspaceId ?? "";
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    return [...counts.entries()]
+      .map(([id, count]) => ({
+        id,
+        count,
+        name:
+          workspaces.find((w) => w.id === id)?.name ??
+          (id === "" ? "Unassigned" : id.slice(0, 8)),
+      }))
+      .sort((a, b) => b.count - a.count);
+  }, [jobs, workspaces]);
+
+  const scoped = useMemo(
+    () => (wsFilter == null ? jobs : jobs.filter((j) => (j.workspaceId ?? "") === wsFilter)),
+    [jobs, wsFilter]
   );
-  const milestones = useResolutionMilestones(jobs);
+
+  const flow = useMemo(
+    () => scoped.map(flowRowOf).filter((r): r is FlowRow => r != null),
+    [scoped]
+  );
+  const milestones = useResolutionMilestones(scoped);
 
   if (flow.length < 2 && milestones.length === 0) return null;
 
@@ -197,7 +226,7 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
       aria-label="Pipeline analytics"
       className="animate-rise rounded-xl border bg-gradient-to-b from-muted/40 to-transparent p-4"
     >
-      <div className="mb-3 flex items-center gap-1.5">
+      <div className="mb-3 flex flex-wrap items-center gap-1.5">
         <Filter className="size-3.5 text-primary" aria-hidden="true" />
         <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
           Pipeline analytics
@@ -205,6 +234,45 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
         <span className="text-[10px] text-muted-foreground/60">
           live from your finished jobs
         </span>
+        {/* per-workspace scope chips — only when the project really spans
+            more than one workspace, otherwise the filter is noise */}
+        {wsOptions.length > 1 && (
+          <div className="ml-auto flex flex-wrap items-center gap-1" role="group" aria-label="Filter analytics by workspace">
+            <button
+              type="button"
+              onClick={() => setWsFilter(null)}
+              aria-pressed={wsFilter == null}
+              className={cn(
+                "rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors",
+                wsFilter == null
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary"
+              )}
+            >
+              all · {jobs.length}
+            </button>
+            {wsOptions.map((w) => (
+              <button
+                key={w.id || "unassigned"}
+                type="button"
+                // NB: the legacy-unassigned chip's id is "" — keep it as-is
+                // ("" !== null); coercing it with || would fold the chip
+                // into the "all" filter
+                onClick={() => setWsFilter(w.id)}
+                aria-pressed={wsFilter === w.id}
+                title={`Scope the analytics to the “${w.name}” workspace`}
+                className={cn(
+                  "rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors",
+                  wsFilter === w.id
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary"
+                )}
+              >
+                {w.name} · {w.count}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className={cn("grid gap-5", milestones.length > 0 && flow.length >= 2 && "lg:grid-cols-2")}>
