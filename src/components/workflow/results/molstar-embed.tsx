@@ -16,7 +16,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { Axis3d, Bookmark, BoxSelect, Camera, Check, ClipboardCopy, Layers, Loader2, Mountain, Orbit, Plus, RotateCw, ScanLine, Video, X, ZoomIn } from "lucide-react";
+import { Axis3d, Bookmark, BoxSelect, Camera, Check, ClipboardCopy, Download, Layers, Loader2, Mountain, Orbit, Plus, RefreshCcw, RotateCw, ScanLine, Upload, Video, X, ZoomIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
@@ -1159,6 +1159,23 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
     toast({ title: "View saved", description: `“${nm}” — jump back from the bookmark menu any time.` });
   };
 
+  /** overwrite an existing bookmark with the CURRENT pose + optics —
+   *  refining a saved view (nudge the angle, tweak σ, re-frame) shouldn't
+   *  force a delete-recreate cycle and re-typing the name. id and name
+   *  stay; everything the capture pipeline freezes gets refreshed. */
+  const updateBookmark = (b: CamBookmark) => {
+    const cam = pluginRef.current?.canvas3d?.camera;
+    if (!cam) return;
+    const snapshot = cam.getSnapshot() as unknown as Record<string, unknown>;
+    const thumb = captureBookmarkThumb();
+    commitBookmarks(
+      bookmarksRef.current.map((x) =>
+        x.id === b.id ? { ...x, ts: Date.now(), thumb, snapshot, view: captureBookmarkView() } : x,
+      ),
+    );
+    toast({ title: "View updated", description: `“${b.name}” now points at the current pose & optics.` });
+  };
+
   const restoreBookmark = (b: CamBookmark) => {
     const cam = pluginRef.current?.canvas3d?.camera;
     if (!cam) return;
@@ -1175,6 +1192,92 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
       applySliceIntent({ on: v.slice.on, axis: v.slice.axis, pos: v.slice.pos });
       applyClipIntent({ on: v.clip.on, x: v.clip.x, y: v.clip.y, z: v.clip.z, invert: v.clip.invert });
     }
+  };
+
+  /* ---------------- bookmark export / import --------------------------- */
+  // The 8 saved views ARE work product — angles hunted down over minutes of
+  // orbiting. Export copies them to a JSON file (per job), import merges a
+  // file back in — so an inspection setup can move between jobs, browsers
+  // or machines without re-flying every pose.
+  const importInputRef = useRef<HTMLInputElement>(null);
+
+  /** imported files are untrusted — a malformed view field would crash
+   *  restoreBookmark mid-flight (v.slice.on on undefined); anything that
+   *  fails the shape check degrades to a pose-only bookmark, which the
+   *  legacy entries already established as a valid state */
+  const saneImportedView = (v: unknown): BookmarkView | undefined => {
+    if (!v || typeof v !== "object") return undefined;
+    const o = v as BookmarkView;
+    const num = (x: unknown) => typeof x === "number" && Number.isFinite(x);
+    if (!num(o.sigma) || (o.sign !== 1 && o.sign !== -1)) return undefined;
+    if (!o.slice || typeof o.slice.on !== "boolean") return undefined;
+    if (o.slice.axis !== "X" && o.slice.axis !== "Y" && o.slice.axis !== "Z") return undefined;
+    if (!num(o.slice.pos) || !o.clip || typeof o.clip.on !== "boolean") return undefined;
+    if (!num(o.clip.x) || !num(o.clip.y) || !num(o.clip.z) || typeof o.clip.invert !== "boolean") return undefined;
+    return o;
+  };
+
+  const exportBookmarks = () => {
+    if (bookmarksRef.current.length === 0) {
+      toast({ title: "Nothing to export", description: "Save at least one view bookmark first." });
+      return;
+    }
+    try {
+      const payload = {
+        format: "cryoflow-view-bookmarks",
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        jobId,
+        bookmarks: bookmarksRef.current,
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `cryoflow-views-${jobId.slice(-6)}-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast({ title: `Exported ${bookmarksRef.current.length} view${bookmarksRef.current.length > 1 ? "s" : ""}`, description: "JSON file — import it on any job to reuse the setup." });
+    } catch {
+      toast({ title: "Export failed", variant: "destructive" });
+    }
+  };
+
+  const onImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-picking the same file later
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed: unknown = JSON.parse(String(reader.result));
+        const raw = Array.isArray(parsed) ? parsed : (parsed as { bookmarks?: unknown })?.bookmarks;
+        const cleaned = cleanBookmarks(raw);
+        if (cleaned.length === 0) {
+          toast({ title: "No views found in that file", description: "Expected a CryoFlow view-bookmarks export.", variant: "destructive" });
+          return;
+        }
+        // re-id imported entries — ids only need uniqueness within the list,
+        // and a file exported from this very job would otherwise collide
+        const room = Math.max(0, 8 - bookmarksRef.current.length);
+        const incoming = cleaned
+          .slice(0, room)
+          .map((b, i) => ({ ...b, id: `bm-${Date.now()}-${i}`, view: saneImportedView(b.view) }));
+        if (incoming.length === 0) {
+          toast({ title: "Bookmark list is full", description: "8 views max — delete one to make room for the import.", variant: "destructive" });
+          return;
+        }
+        commitBookmarks([...bookmarksRef.current, ...incoming]);
+        const dropped = cleaned.length - incoming.length;
+        toast({
+          title: `Imported ${incoming.length} view${incoming.length > 1 ? "s" : ""}`,
+          description: dropped > 0 ? `${dropped} dropped — the list holds 8.` : "Fly back from the list any time.",
+        });
+      } catch {
+        toast({ title: "Import failed", description: "That file could not be read as view bookmarks.", variant: "destructive" });
+      }
+    };
+    reader.readAsText(file);
   };
 
   /* ---------------- view capture (figure export) ---------------------- */
@@ -3238,20 +3341,67 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                           )}
                         </span>
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => removeBookmark(b.id)}
-                        aria-label={`Delete bookmark ${b.name}`}
-                        className="shrink-0 rounded p-0.5 text-muted-foreground/50 transition-colors hover:bg-muted hover:text-destructive"
-                      >
-                        <X className="size-3" />
-                      </button>
+                      <span className="flex shrink-0 flex-col">
+                        <button
+                          type="button"
+                          onClick={() => updateBookmark(b)}
+                          aria-label={`Update bookmark ${b.name} with the current view`}
+                          title="Update — re-capture this bookmark from the current pose & optics"
+                          className="rounded p-0.5 text-muted-foreground/50 transition-colors hover:bg-muted hover:text-primary"
+                        >
+                          <RefreshCcw className="size-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeBookmark(b.id)}
+                          aria-label={`Delete bookmark ${b.name}`}
+                          className="rounded p-0.5 text-muted-foreground/50 transition-colors hover:bg-muted hover:text-destructive"
+                        >
+                          <X className="size-3" />
+                        </button>
+                      </span>
                     </div>
                   ))
                 )}
               </div>
-              <p className="border-t px-1 pb-0.5 pt-1.5 text-[10px] leading-tight text-muted-foreground">
-                Saves the full view — pose, contour σ, slice and clip. Synced to the job · B key quick-saves · up to 8.
+              {/* export / import — saved views are work product; move the
+                  whole setup between jobs, browsers or machines */}
+              <div className="mt-1.5 flex items-center gap-1 border-t pt-1.5">
+                <button
+                  type="button"
+                  onClick={exportBookmarks}
+                  aria-label="Export view bookmarks to a JSON file"
+                  title="Export — download these views as a JSON file"
+                  className="flex items-center gap-1 rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  <Download className="size-3" />
+                  Export
+                </button>
+                <button
+                  type="button"
+                  onClick={() => importInputRef.current?.click()}
+                  aria-label="Import view bookmarks from a JSON file"
+                  title="Import — merge views from a JSON file into this job"
+                  className="flex items-center gap-1 rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  <Upload className="size-3" />
+                  Import
+                </button>
+                <span className="ml-auto font-mono text-[9px] tabular-nums text-muted-foreground/60" aria-hidden="true">
+                  {bookmarks.length}/8
+                </span>
+                <input
+                  ref={importInputRef}
+                  type="file"
+                  accept="application/json,.json"
+                  className="hidden"
+                  onChange={onImportFile}
+                  tabIndex={-1}
+                  aria-hidden="true"
+                />
+              </div>
+              <p className="px-1 pb-0.5 pt-1 text-[10px] leading-tight text-muted-foreground">
+                Saves the full view — pose, contour σ, slice and clip. Update re-captures from the current view · B quick-saves · synced per job.
               </p>
             </PopoverContent>
           </Popover>

@@ -619,6 +619,54 @@ interface RecentJob {
   projectName: string | null;
 }
 
+/** Tiny progress-history sparkline for a running feed row — answers "is it
+ *  actually moving or quietly stalled" at a glance, without opening the
+ *  job. Normalized to the OBSERVED window (not 0–100): a slow steady crawl
+ *  should read as a slope, not a flat line at the bottom. Latest point is
+ *  emphasized — that is where the job is now. */
+function ProgressSparkline({ values, samples }: { values: number[]; samples: number }) {
+  const W = 40;
+  const H = 12;
+  const PAD = 1.5;
+  let pts: string[] = [];
+  if (values.length >= 2) {
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const span = Math.max(max - min, 0.02); // ≥2% window so one-step jumps don't pin to the edges
+    pts = values.map((v, i) => {
+      const x = PAD + (i / (values.length - 1)) * (W - PAD * 2);
+      const y = H - PAD - ((v - min) / span) * (H - PAD * 2);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    });
+  }
+  const last = pts.length > 0 ? pts[pts.length - 1].split(",").map(Number) : null;
+  return (
+    <span
+      className="shrink-0 text-teal-600 dark:text-teal-400"
+      title={`Progress history — last ${samples} sample${samples === 1 ? "" : "s"}, oldest → newest`}
+    >
+      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} aria-hidden="true" className="block">
+        {pts.length >= 2 ? (
+          <>
+            <polyline
+              points={pts.join(" ")}
+              fill="none"
+              stroke="currentColor"
+              strokeOpacity={0.45}
+              strokeWidth={1}
+              strokeLinejoin="round"
+              strokeLinecap="round"
+            />
+            {last && <circle cx={last[0]} cy={last[1]} r={1.7} fill="currentColor" />}
+          </>
+        ) : (
+          <circle cx={W / 2} cy={H / 2} r={1.5} fill="currentColor" className="animate-pulse" />
+        )}
+      </svg>
+    </span>
+  );
+}
+
 function RecentActivityFeed({ activeProjectId }: { activeProjectId: string | null }) {
   const setView = useWorkflowStore((s) => s.setView);
   const select = useWorkflowStore((s) => s.select);
@@ -626,6 +674,27 @@ function RecentActivityFeed({ activeProjectId }: { activeProjectId: string | nul
   const switchProject = useWorkflowStore((s) => s.switchProject);
   const jobCount = useWorkflowStore((s) => s.jobs.length);
   const [recent, setRecent] = React.useState<RecentJob[] | null>(null);
+  // per-job progress history (client-side, lives as long as the feed does):
+  // each fetch folds the fresh progress values in, so the sparkline in a
+  // running row shows the trend ACROSS polls, not just the current frame
+  const [hist, setHist] = React.useState<Map<string, number[]>>(() => new Map());
+
+  /** fold one fetch frame into the history — appends each job's progress,
+   *  prunes rows that left the feed, and restarts the series when progress
+   *  moves BACKWARDS (re-run after completion), which would otherwise draw
+   *  a misleading sawtooth */
+  const absorb = (jobs: RecentJob[]) => {
+    setHist((prev) => {
+      const next = new Map<string, number[]>();
+      for (const j of jobs) {
+        const prevArr = prev.get(j.id) ?? [];
+        const last = prevArr[prevArr.length - 1];
+        const arr = last != null && j.progress < last - 0.05 ? [j.progress] : [...prevArr, j.progress].slice(-24);
+        next.set(j.id, arr);
+      }
+      return next;
+    });
+  };
 
   // refetch on mount and whenever the active project's job list moves
   // (run/complete/reorder) — the feed mirrors the same freshness trigger
@@ -635,7 +704,10 @@ function RecentActivityFeed({ activeProjectId }: { activeProjectId: string | nul
     fetch("/api/activity/recent?limit=8")
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
       .then((d: { jobs?: RecentJob[] }) => {
-        if (alive) setRecent(Array.isArray(d.jobs) ? d.jobs : []);
+        if (alive) {
+          setRecent(Array.isArray(d.jobs) ? d.jobs : []);
+          absorb(Array.isArray(d.jobs) ? d.jobs : []);
+        }
       })
       .catch(() => {
         /* feed is a convenience, not a dependency — render nothing on failure */
@@ -657,7 +729,9 @@ function RecentActivityFeed({ activeProjectId }: { activeProjectId: string | nul
       fetch("/api/activity/recent?limit=8")
         .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
         .then((d: { jobs?: RecentJob[] }) => {
-          setRecent(Array.isArray(d.jobs) ? d.jobs : []);
+          const arr = Array.isArray(d.jobs) ? d.jobs : [];
+          setRecent(arr);
+          absorb(arr);
         })
         .catch(() => {
           /* keep the last good frame — the next tick retries */
@@ -741,6 +815,7 @@ function RecentActivityFeed({ activeProjectId }: { activeProjectId: string | nul
                           style={{ width: `${Math.min(100, Math.max(2, j.progress * 100))}%` }}
                         />
                       </span>
+                      <ProgressSparkline values={hist.get(j.id) ?? []} samples={(hist.get(j.id) ?? []).length} />
                       <span className="w-7 shrink-0 text-right font-mono text-[9px] tabular-nums text-muted-foreground">
                         {Math.round(j.progress * 100)}%
                       </span>

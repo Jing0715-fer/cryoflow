@@ -1973,3 +1973,25 @@ Stage Summary:
 - overlay 会话从"最后写入者赢"升级为"按条目合并 + 墓碑"：双浏览器并发编辑不再互吞，显式删除不再被复活；restore 自愈保留 replace 语义（它有 live outputs 背书）。这是 localStorage 双镜像架构的并发语义补课
 - 方法论增补：mirror 层手写字段清单是新字段的黑洞（view 字段被 destructure 静默丢弃——"本地有 server 无"的不对称是这类 bug 的指纹）；aria-label vs title 探针属性要对照源码；contour σ 探针必须 scope 面板（chips 也含 σ 文本）
 - 遗留（下轮候选）：真 RELION 数据回归（EMPIAR 全链，需用户机器）、HPC SBATCH 真集群实测（需用户机器）、Turntable GIF 转码（wasm ffmpeg，重）、书签"更新位姿"按钮（覆盖现有书签不新增）、feed 行内嵌 sparkline（单 job 进度历史）、书签导出/导入（跨 job 复制检视配置）
+
+---
+Task ID: 42
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 晚轮 2026-09-08 18:29）——QA 回归后交付三功能：书签「更新位姿」按钮（RefreshCcw 覆盖现有书签不新增）+ 书签导出/导入（JSON 跨 job 搬检视配置，容量截断 + junk view 降级）+ Recent feed 行内嵌 progress sparkline（跨轮询进度趋势）；QA 期间揪出"像素 hash 断言路径依赖"假阴性并改为数值相机对比；worklog + push
+
+Work Log:
+- 【开局核对】worklog 实际最新 Task 41；git 本地 == origin/main == d3baa8f；本次会话收到的摘要停在 Task 28（过时两轮）——以 worklog + git 为准
+- 【新功能 1·书签更新位姿】行内 RefreshCcw 按钮（updateBookmark）：从 live refs 重捕 pose+optics+thumb，id/name 保留、ts 刷新——微调角度/改 σ 后不必删了重存再打名字；与 delete X 纵向双钮组（hover 分色 primary/destructive）；脚注更新 "Update re-captures from the current view"
+- 【新功能 2·书签导出/导入】popover 底部 Export/Import 行 + n/8 计数器：Export = {format,version,exportedAt,jobId,bookmarks} JSON 下载（cryoflow-views-<job尾6位>-<日期>.json）；Import = 隐藏 file input，cleanBookmarks 形状过滤 + saneImportedView 严格校验 view 四元组（junk 降级为 pose-only，与 legacy 语义一致）+ 重生成 id 防同 job 重导入碰撞 + 容量截断（8 席先到先得）+ toast 报 dropped 数
+- 【新功能 3·feed 进度 sparkline】RecentActivityFeed 内 hist Map（per-job，cap 24 采样）+ absorb()：每次 fetch 折叠新 progress、剪掉离开 feed 的行、progress 倒退 >5% 视为重跑重置序列（防锯齿）；ProgressSparkline（40×12 svg）：**归一化到观测窗口而非 0-100**（慢爬坡读出斜率而非贴底平线），末点实心圆，<2 采样时脉冲点占位保布局稳定；running 行布局 [bar flex-1][spark][%]
+- 【QA·qa42-e2e.mjs 三阶段全绿】B（update-pose）：存 Base(Top/3σ/slice-on) → 移 Front/2σ/slice-off → update → 移远 3σ/slice-on/Top → restore → σ2.00 ✓ slice-off ✓ **数值位姿 vs 服务器更新快照 MATCH**；C（export/import）：Export toast ✓、import 2（有效+junk 降级）→ 3 行/3/8/服务器 3 名单核对 ✓、8 入 3/8 → 5 进 3 丢/8/8 ✓、delete-all → 服务器行自删 ✓；D（sparkline）：mock running → @2.5s 脉冲点占位 → @12s polyline 4 点 → 后续 6 点持续增长、console 0 error
+- 【QA 揪出的假阴性·重要教训】restore 后像素 hash 断言失败 → 深挖：**restore 全精度精确**（live camera getSnapshot 与服务器更新快照逐字符一致），但像素 hash 是"相机×网格重建历史"的函数——σ pump 重建 isosurface 的亚像素 AA 差异让同一相机在不同重建路径下 hash 不同（且各自稳定）。位姿断言改为数值对比（pos/target/radius tol 0.01）——比像素 hash 更强且诚实。hash 比较器保留给"位姿确实移动了"类 sanity 断言
+- 【QA 工具链】agent-browser eval 返回值是 JSON 编码的——字符串返回值带字面引号，startsWith/=== 断言前必须 strip（本轮 ×3 踩坑）；对 evalJs 返回结构化数据直接 return 对象（CLI 序列化）别自己 JSON.stringify（防双重编码）；**沙箱静默 SIGKILL 长驻分离 node 进程（spawn 过 agent-browser 的）**——纯 node canary 存活、e2e 全灭、无 OOM 记录、信号钩子不触发；且 node stdout 重定向到文件是块缓冲，SIGKILL 吞掉全部进度日志 → step() 用 fs.appendFileSync 落盘 + **前台分段跑**（QA_PHASES=A,B / A,C / D 环境变量拆阶段，每次 ≤10min 工具超时内）
+- 【运维】next-server OOM ×1（4GB 盒子上 Turbopack+mol* 推到 2.7GB）→ playbook 重启 ×2；dev server 日志迁到 agent-ctx/（.gitignore 已含）
+- 【收尾】bun run lint 0/0、tsc src 0 错误；DB 终态 BookmarkSession 空（delete-all 自愈）✓；浏览器已关
+
+Stage Summary:
+- 书签生命周期补完最后一环：找角度（save/B 键）→ 精修（update 原位重捕）→ 搬运（export/import 跨 job、跨机器）——8 席"检视配置"第一次成为可迁移的工作成果；import 的 junk-view 降级沿用 legacy pose-only 语义，服务端白名单与客户端校验双保险
+- Dashboard 的 running 行从"一条 3px 进度条"升级为"进度条 + 40px 趋势 sparkline"：爬坡还是停滞、加速还是卡顿，一眼可读；观测窗口归一化是故意的——0-100 归一化会把早期进度画成贴底平线，等于没画
+- 方法论增补：位姿相等性的诚实断言是数值对比不是像素 hash（网格重建亚像素差异是 hash 翻转的系统性来源）；evalJs 返回值引号剥离；长驻 QA 进程前台分段跑 + appendFileSync 落盘（缓冲日志会被 SIGKILL 吞）
+- 遗留（下轮候选）：真 RELION 数据回归（EMPIAR 全链，需用户机器）、HPC SBATCH 真集群实测（需用户机器）、Turntable GIF 转码（wasm ffmpeg，重）、书签导入对话框（预览+勾选，当前是直接并入）、feed sparkline 触屏 tooltip、#5 fs/browse 无鉴权等 Task 13 遗留清单
