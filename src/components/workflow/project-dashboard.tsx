@@ -901,12 +901,59 @@ function RecentActivityFeed({ activeProjectId }: { activeProjectId: string | nul
   );
 }
 
+/** status filter chip for the spotlight Jobs list — single-select, the
+ *  count rides along so the chips double as a mini status bar; active chip
+ *  fills with the status tone, inactive stays a ghost outline */
+function StatusFilterChip({
+  label,
+  n,
+  active,
+  tone,
+  onClick,
+}: {
+  label: string;
+  n: number;
+  active: boolean;
+  tone?: "teal" | "amber" | "emerald" | "rose";
+  onClick: () => void;
+}) {
+  const toneCls =
+    tone === "teal"
+      ? "border-teal-500/40 bg-teal-500/10 text-teal-600 dark:text-teal-400"
+      : tone === "amber"
+        ? "border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+        : tone === "emerald"
+          ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+          : tone === "rose"
+            ? "border-rose-500/40 bg-rose-500/10 text-rose-600 dark:text-rose-400"
+            : "border-foreground/25 bg-foreground text-background";
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      title={`Show ${label.toLowerCase()} job${n === 1 ? "" : "s"} only`}
+      className={cn(
+        "h-5 rounded-full border px-1.5 text-[9px] font-semibold uppercase tracking-wider transition-colors",
+        active ? toneCls : "border-border text-muted-foreground hover:bg-muted hover:text-foreground",
+      )}
+    >
+      {label} <span className="tabular-nums opacity-70">{n}</span>
+    </button>
+  );
+}
+
 function ActiveProjectSpotlight() {
   const project = useWorkflowStore((s) => s.project);
   const jobs = useWorkflowStore((s) => s.jobs);
   const setView = useWorkflowStore((s) => s.setView);
   const inspect = useWorkflowStore((s) => s.inspect);
   const select = useWorkflowStore((s) => s.select);
+  // status filter for the Jobs list — chips double as a mini status bar;
+  // "all" is the default so the section reads exactly as before until used
+  const [jobFilter, setJobFilter] = React.useState<
+    "all" | "running" | "pending" | "completed" | "failed" | "idle"
+  >("all");
 
   if (!project) return null;
 
@@ -915,6 +962,8 @@ function ActiveProjectSpotlight() {
   const completed = sorted.filter((j) => j.status === "completed");
   const failed = sorted.filter((j) => j.status === "failed");
   const pending = sorted.filter((j) => j.status === "pending");
+  const idleCount = sorted.filter((j) => j.status === "idle").length;
+  const visibleJobs = jobFilter === "all" ? sorted : sorted.filter((j) => j.status === jobFilter);
   const pct = sorted.length > 0 ? Math.round((completed.length / sorted.length) * 100) : 0;
 
   const openJob = (job: JobDTO) => {
@@ -1042,10 +1091,36 @@ function ActiveProjectSpotlight() {
             <ArrowRight className="size-3" aria-hidden="true" />
           </Button>
         </div>
+        {sorted.length > 0 && (
+          <div className="mb-1.5 flex flex-wrap items-center gap-1" role="group" aria-label="Filter jobs by status">
+            <StatusFilterChip label="All" n={sorted.length} active={jobFilter === "all"} onClick={() => setJobFilter("all")} />
+            {running.length > 0 && (
+              <StatusFilterChip label="Running" n={running.length} tone="teal" active={jobFilter === "running"} onClick={() => setJobFilter("running")} />
+            )}
+            {pending.length > 0 && (
+              <StatusFilterChip label="Pending" n={pending.length} tone="amber" active={jobFilter === "pending"} onClick={() => setJobFilter("pending")} />
+            )}
+            {completed.length > 0 && (
+              <StatusFilterChip label="Completed" n={completed.length} tone="emerald" active={jobFilter === "completed"} onClick={() => setJobFilter("completed")} />
+            )}
+            {failed.length > 0 && (
+              <StatusFilterChip label="Failed" n={failed.length} tone="rose" active={jobFilter === "failed"} onClick={() => setJobFilter("failed")} />
+            )}
+            {idleCount > 0 && (
+              <StatusFilterChip label="Idle" n={idleCount} active={jobFilter === "idle"} onClick={() => setJobFilter("idle")} />
+            )}
+          </div>
+        )}
         <div className="max-h-80 space-y-0.5 overflow-y-auto pr-1 nice-scroll">
-          {[...sorted].reverse().map((j) => (
-            <JobRow key={j.id} job={j} onOpen={() => openJob(j)} />
-          ))}
+          {visibleJobs.length === 0 ? (
+            <p className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground">
+              No {jobFilter === "all" ? "" : `${jobFilter} `}jobs in this project yet.
+            </p>
+          ) : (
+            [...visibleJobs].reverse().map((j) => (
+              <JobRow key={j.id} job={j} onOpen={() => openJob(j)} />
+            ))
+          )}
         </div>
       </div>
     </section>

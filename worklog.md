@@ -2056,3 +2056,22 @@ Stage Summary:
 - 触屏一致性补齐：hover-only 的 title 信息在触屏有了等价物；stopPropagation 语义（点趋势≠点行）顺带修正了一个隐性 UX 缺陷
 - OOM 根治方法论：V8 堆上限只是半边——Turbopack 引擎要配 turbopackMemoryLimit；双上限总和要按「杀线 − Chrome 峰值」反推，而不是各拍脑袋
 - 遗留（下轮候选）：Turntable GIF 转码（wasm ffmpeg，重）；导入对话框文件/跨 job 双来源的混合多选；KPI KpiSparkline 的同类触屏适配；#5 的鉴权若要再收紧可考虑 token gate；sparkline 趋势箭头非零 delta 的 e2e 覆盖（需可变 mock 源）
+
+---
+Task ID: 46
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 晚轮 2026-09-08 21:14）——触屏一致性收尾（KpiSparkline tap chip）+ Dashboard spotlight Jobs 状态过滤 chips（新功能）；qa46 e2e 全绿（现场揪出 QA 探针自身缺 unq 的假阴性）；worklog + push
+
+Work Log:
+- 【开局核对】HEAD 877a79f 工作树干净；上轮内存双上限后 server 首次撑满整轮（轮内零 OOM），但 30 分钟轮间 idle 窗口仍蠕变到 anon 2.72GB 被杀——「每轮开工先重启 dev server」从惯例升级为规程（caps 挡轮内、重启挡轮间）
+- 【新功能 1·KpiSparkline 触屏 tap】hover 层靠 onPointerMove 驱动——触屏 tap 不产生 move，crosshair+chip 对触屏用户永远不可达；补 onPointerDown 分支（同一 pointFromEvent 采样 tapped x），touch/pen 触发 2.6s 自动消失计时器（手指抬起后 pointerleave 永不 fire），mouse 保持 hover 语义不变；卸载清理计时器
+- 【新功能 2·spotlight Jobs 状态过滤】ActiveProjectSpotlight 的 Jobs 列表头加单选 chips 组（role=group + aria-pressed）：All(n) 常驻 + Running(teal)/Pending(amber)/Completed(emerald)/Failed(rose)/Idle(灰) 按存在性渲染，计数随行——chips 兼作迷你状态条；激活态填充状态色调、非激活 ghost 描边；过滤作用于 JobRow 列表（空态出虚线占位「No X jobs」）；默认 All 视图与改前逐像素一致
+- 【e2e·qa46-e2e.mjs 三阶段全绿（exit 0）】A：KPI spark tap 出 chip「Sep 2 · 0 projects」→ mouse 移开消失（hover 语义）→ 合成 PointerEvent(pointerType='touch') 走真触屏分支 → chip 3s 后自动消失（计时器语义）；B：chips 渲染 ["All 5","Completed 1","Idle 4"] → 点 Completed → aria-pressed 翻转 + 行数 5→1 → 点 All 恢复 5；C：console 0 error；截图目检（COMPLETED 1 emerald 激活态 + 过滤后单行列表）
+- 【QA 探针现场翻车与自愈】① 轮询断言漏了 unq()——evalJs 返回 JSON 带引号，'"true"' !== 'true' 永假，spotlight 明明在 DOM 里却判缺失，加了诊断转储才现形（教训：新写探针第一轮先跑「应恒真」断言）② 坐标点击在页面微滚动后落空 → 改 el.click() 直点（React 合成事件不在乎 isTrusted）③ agent-browser 的 tap 只是 click 别名（pointerType 恒 mouse），真触屏分支只能合成 PointerEvent 驱动
+- 【收尾】bun run lint 0/0、tsc src 0 错误；DB 无 QA 残留（纯前端状态）；截图保留 agent-ctx/；浏览器已关
+
+Stage Summary:
+- 触屏一致性工程收官：ProgressSparkline（上轮）与 KpiSparkline（本轮）两处 hover-only 信息都有了触屏等价物，语义统一（tap 弹 chip、触屏计时消失、鼠标 hover 跟随）；pointerdown 分支让「tap 不产生 pointermove」这一触屏物理特性第一次被产品代码正面处理
+- spotlight Jobs 过滤 chips 把「看板」属性补完：状态分布读数（chips 即计数）与聚焦查看（单选过滤）一体两面，aria-pressed 全程无障碍可达
+- 方法论：QA 假阴性先怀疑探针再怀疑产品——本「spotlight 消失」追了六步最后是引号问题；诊断转储（失败时把现场 DOM 结构吐出来）比反复猜快得多
+- 遗留（下轮候选）：Turntable GIF 转码（重）；导入对话框双来源混合多选；#5 token gate；KPI 卡整体可点击 drill-down（点 KPI 卡过滤项目网格——chips 已是现成模式）

@@ -27,6 +27,12 @@ import * as React from "react";
  * inverted chip shows "Sep 3 · 24 (+3)" (date · cumulative · delta vs the
  * previous day). Still decorative for assistive tech; the hover layer is
  * pure affordance for pointer users.
+ *
+ * Touch (v3): a tap fires pointerdown but NO pointermove, so the hover
+ * layer above never engaged on touch screens. pointerdown now also samples
+ * the tapped x (same pointFromEvent); touch/pen taps auto-dismiss after
+ * ~2.6 s because pointerleave never fires for a lifted finger — mouse
+ * hover keeps the live-follow + leave semantics unchanged.
  */
 
 export function KpiSparkline({
@@ -51,6 +57,19 @@ export function KpiSparkline({
 }) {
   const [hover, setHover] = React.useState<number | null>(null);
   const svgRef = React.useRef<SVGSVGElement | null>(null);
+  // touch/pen taps must self-dismiss (pointerleave never fires for a
+  // lifted finger); mouse hover dismisses via onPointerLeave instead
+  const dismissTimer = React.useRef<number | null>(null);
+  const armDismiss = () => {
+    if (dismissTimer.current) window.clearTimeout(dismissTimer.current);
+    dismissTimer.current = window.setTimeout(() => setHover(null), 2600);
+  };
+  React.useEffect(
+    () => () => {
+      if (dismissTimer.current) window.clearTimeout(dismissTimer.current);
+    },
+    [],
+  );
 
   if (values.length < 2) return null;
 
@@ -108,6 +127,15 @@ export function KpiSparkline({
             ? (e) => {
                 const i = pointFromEvent(e);
                 if (i != null) setHover(i);
+              }
+            : undefined
+        }
+        onPointerDown={
+          interactive
+            ? (e) => {
+                const i = pointFromEvent(e);
+                if (i != null) setHover(i);
+                if (e.pointerType !== "mouse") armDismiss();
               }
             : undefined
         }
