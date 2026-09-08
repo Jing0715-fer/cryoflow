@@ -80,8 +80,11 @@ const SIGMA_MIN = 0.5;
 const SIGMA_MAX = 10;
 
 /** overlay surface colors, in assignment order (distinct from the main
- *  map's orange and from each other; readable on both themes) */
+ *  map's orange and from each other; readable on both themes). The
+ *  SWATCH palette adds three more for manual overrides in the Layers
+ *  panel — auto-assignment still cycles the first five. */
 const OVERLAY_COLORS = ["#22d3ee", "#a78bfa", "#34d399", "#f472b6", "#facc15"];
+const SWATCH_COLORS = [...OVERLAY_COLORS, "#60a5fa", "#e879f9", "#a3e635"];
 /** default surface opacity for overlays — the main map stays in front */
 const OVERLAY_ALPHA = 0.55;
 
@@ -151,6 +154,8 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
   const [mapChoices, setMapChoices] = useState<MapChoice[] | null>(null);
   const [choicesLoading, setChoicesLoading] = useState(false);
   const [overlayBusy, setOverlayBusy] = useState<string | null>(null);
+  /** overlay row whose color swatches are expanded (path, or null) */
+  const [colorPickerFor, setColorPickerFor] = useState<string | null>(null);
   const overlayReprsRef = useRef<Map<string, { data: any; vol: any; repr: any }>>(new Map());
   const overlaySeqRef = useRef(0);
   /** per-overlay σ offset (sync source for commitContour — UI state lags) */
@@ -614,6 +619,32 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
     );
   };
 
+  /** per-overlay color — one immediate commit (a click, not a drag); the
+   *  legend chips in the Layers panel AND the exported figure footer both
+   *  read from the same overlays state, so they follow for free */
+  const setOverlayColor = async (filePath: string, color: string) => {
+    setOverlays((o) => o.map((x) => (x.path === filePath ? { ...x, color } : x)));
+    const plugin = pluginRef.current;
+    const entry = overlayReprsRef.current.get(filePath);
+    const VolumeRepresentation3D = VolumeReprRef.current;
+    if (!plugin || !entry || !VolumeRepresentation3D) return;
+    try {
+      await plugin
+        .build()
+        .to(entry.repr)
+        .update(VolumeRepresentation3D, (old: any) => ({
+          ...old,
+          colorTheme: {
+            ...old.colorTheme,
+            params: { ...old.colorTheme?.params, value: Number.parseInt(color.slice(1), 16) },
+          },
+        }))
+        .commit();
+    } catch {
+      /* cosmetic — picking the swatch again retries */
+    }
+  };
+
   /** teardown raced against a pending overlay download — checked after await */
   const disposedOverlayGuard = useRef(false);
   useEffect(() => {
@@ -665,6 +696,35 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
     if (!(radius > 0)) return; // focus() ignores radius ≤ 0 — nothing framed yet
     cam.focus(target, radius, 320, up as unknown as Parameters<typeof cam.focus>[3], dir as unknown as Parameters<typeof cam.focus>[4]);
   };
+  // keyboard: 1-6 swing to the matching axis view, 0 returns to the default
+  // ¾ view — same muscle memory as the canvas (0 = reset). Scoped to the
+  // viewer being ready; form fields and open menus keep their keys.
+  useEffect(() => {
+    if (phase !== "ready") return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const t = e.target;
+      if (
+        t instanceof HTMLElement &&
+        (t.closest("input, textarea, select, [contenteditable='true']") != null || t.isContentEditable)
+      )
+        return;
+      if (document.querySelector('[role="menu"][data-state="open"]')) return;
+      const cam = pluginRef.current?.canvas3d?.camera;
+      if (!cam) return;
+      const idx = "123456".indexOf(e.key);
+      if (idx >= 0) {
+        const p = VIEW_PRESETS[idx];
+        e.preventDefault();
+        applyViewPreset(p.dir, p.up);
+      } else if (e.key === "0") {
+        e.preventDefault();
+        resetCamera();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [phase]);
 
   /* ---------------- view capture (figure export) ---------------------- */
 
@@ -692,6 +752,30 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
     setExportScale(v);
     try {
       localStorage.setItem(EXPORT_SCALE_KEY, String(v));
+    } catch {
+      /* non-fatal */
+    }
+  };
+
+  // ---- custom figure caption ------------------------------------------
+  // Non-empty → the footer title becomes this text instead of the default
+  // "CryoFlow — <map>". Publication captions are a per-figure habit, so it
+  // persists per browser and follows every sink (download / clipboard).
+  const CAPTION_KEY = "cryoflow.mol-figure-caption";
+  const CAPTION_MAX = 120;
+  const [caption, setCaption] = useState("");
+  useEffect(() => {
+    try {
+      setCaption(localStorage.getItem(CAPTION_KEY) ?? "");
+    } catch {
+      /* private mode — default caption stands */
+    }
+  }, []);
+  const editCaption = (v: string) => {
+    setCaption(v);
+    try {
+      if (v.trim()) localStorage.setItem(CAPTION_KEY, v);
+      else localStorage.removeItem(CAPTION_KEY);
     } catch {
       /* non-fatal */
     }
@@ -792,6 +876,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
           canvas,
           background: plate,
           mapName: name,
+          caption,
           sigma,
           annotations,
           legend: figureLegend,
@@ -820,6 +905,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
               canvas,
               background: getComputedStyle(containerRef.current?.parentElement ?? containerRef.current ?? document.body).backgroundColor,
               mapName: name,
+              caption,
               sigma,
               annotations: [],
               legend: figureLegend,
@@ -1754,10 +1840,19 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                       data-testid={`overlay-row-${o.path}`}
                     >
                       <div className="flex items-center gap-2">
-                        <span
-                          className="size-2.5 shrink-0 rounded-full ring-1 ring-black/10"
+                        <button
+                          type="button"
+                          className={cn(
+                            "size-2.5 shrink-0 rounded-full ring-1 ring-black/10 transition-transform",
+                            colorPickerFor === o.path && "scale-125 ring-2 ring-ring ring-offset-1 ring-offset-card"
+                          )}
                           style={{ backgroundColor: o.color }}
-                          aria-hidden="true"
+                          onClick={() =>
+                            setColorPickerFor((p) => (p === o.path ? null : o.path))
+                          }
+                          aria-label={`Color for ${o.name} — open swatches`}
+                          aria-expanded={colorPickerFor === o.path}
+                          title="Change this map's color"
                         />
                         <span className="min-w-0 flex-1 truncate text-xs font-medium" title={o.path}>
                           {o.name}
@@ -1772,6 +1867,36 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                           <X className="size-3.5" />
                         </button>
                       </div>
+                      {colorPickerFor === o.path && (
+                        <div
+                          className="mt-1.5 flex items-center gap-1.5 pl-4.5"
+                          data-testid={`swatches-${o.path}`}
+                          role="radiogroup"
+                          aria-label={`Surface color for ${o.name}`}
+                        >
+                          {SWATCH_COLORS.map((c) => {
+                            const active = c.toLowerCase() === o.color.toLowerCase();
+                            return (
+                              <button
+                                key={c}
+                                type="button"
+                                role="radio"
+                                aria-checked={active}
+                                aria-label={`Set color ${c}`}
+                                onClick={() => {
+                                  void setOverlayColor(o.path, c);
+                                  setColorPickerFor(null);
+                                }}
+                                className={cn(
+                                  "size-4 rounded-full ring-1 ring-black/15 transition-transform hover:scale-110",
+                                  active && "ring-2 ring-ring ring-offset-1 ring-offset-card"
+                                )}
+                                style={{ backgroundColor: c }}
+                              />
+                            );
+                          })}
+                        </div>
+                      )}
                       <div className="mt-1 flex items-center gap-2 pl-4.5">
                         <span className="text-[9px] font-medium uppercase tracking-wide text-muted-foreground">
                           opacity
@@ -1887,16 +2012,20 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
               </p>
             </PopoverContent>
           </Popover>
-          {/* export resolution chip — persists per browser; the Camera
-              capture and the figure footer both follow it instantly */}
+          {/* figure export chip — resolution + caption, both persist per
+              browser; the Camera capture and the figure footer follow them
+              instantly */}
           <Popover>
             <PopoverTrigger asChild>
               <Button
                 variant="secondary"
                 size="icon"
-                className="size-8 rounded-lg font-mono text-[10px] font-bold shadow-sm transition-colors"
-                aria-label={`Export resolution: ${exportScale}× — open to change`}
-                title="Export resolution — 1× native · 2× supersampled · 3× print"
+                className={cn(
+                  "size-8 rounded-lg font-mono text-[10px] font-bold shadow-sm transition-colors",
+                  caption.trim() && "border-primary/40 text-primary"
+                )}
+                aria-label={`Figure export: ${exportScale}×${caption.trim() ? ", custom caption set" : ""} — open to change`}
+                title="Figure export — resolution (1×/2×/3×) and custom caption"
               >
                 {exportScale}×
               </Button>
@@ -1951,8 +2080,44 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                   );
                 })}
               </div>
+              {/* custom figure caption — replaces the default "CryoFlow —
+                  <map>" footer title; persists per browser */}
+              <div className="border-t px-1 pb-1 pt-1.5">
+                <label
+                  htmlFor="figure-caption"
+                  className="flex items-center justify-between text-[11px] font-semibold"
+                >
+                  Figure caption
+                  {caption.trim() && (
+                    <button
+                      type="button"
+                      onClick={() => editCaption("")}
+                      className="flex items-center gap-0.5 text-[9px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+                      aria-label="Reset caption to the default"
+                      data-testid="caption-reset"
+                    >
+                      <X className="size-3" />
+                      reset
+                    </button>
+                  )}
+                </label>
+                <input
+                  id="figure-caption"
+                  data-testid="figure-caption-input"
+                  value={caption}
+                  maxLength={CAPTION_MAX}
+                  onChange={(e) => editCaption(e.target.value)}
+                  placeholder={`Default: CryoFlow — ${name}`}
+                  className="mt-1 h-7 w-full rounded-md border bg-background px-2 text-xs outline-none transition-colors placeholder:text-muted-foreground/60 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
+                />
+                <p className="mt-0.5 text-[9px] leading-tight text-muted-foreground">
+                  {caption.trim()
+                    ? "Footer title uses your caption."
+                    : "Optional — names the figure in the exported footer."}
+                </p>
+              </div>
               <p className="border-t px-1 pb-0.5 pt-1.5 text-[10px] leading-tight text-muted-foreground">
-                The rate applies to the next capture; the figure footer annotates it.
+                Both apply to the next capture; the figure footer annotates them.
               </p>
             </PopoverContent>
           </Popover>
@@ -2026,15 +2191,22 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
             <PopoverContent align="end" className="w-52 p-2" data-canvas-ui="view-presets">
               <p className="px-1 pb-1 text-[11px] font-semibold">Standard views</p>
               <div className="grid grid-cols-3 gap-1">
-                {VIEW_PRESETS.map((p) => (
+                {VIEW_PRESETS.map((p, i) => (
                   <button
                     key={p.key}
                     type="button"
                     data-testid={`view-preset-${p.key}`}
                     onClick={() => applyViewPreset(p.dir, p.up)}
-                    className="rounded-md border bg-card px-1 py-1.5 text-[11px] font-medium text-foreground/90 transition-colors hover:bg-primary/10 hover:text-primary"
+                    title={`${p.label} view (key ${i + 1})`}
+                    className="relative rounded-md border bg-card px-1 py-1.5 text-[11px] font-medium text-foreground/90 transition-colors hover:bg-primary/10 hover:text-primary"
                   >
                     {p.label}
+                    <span
+                      aria-hidden="true"
+                      className="absolute right-1 top-0.5 font-mono text-[8px] leading-none text-muted-foreground/60"
+                    >
+                      {i + 1}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -2045,9 +2217,12 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
               >
                 <RotateCw className="size-3" />
                 Default ¾ view
+                <span aria-hidden="true" className="font-mono text-[8px] text-muted-foreground/60">
+                  0
+                </span>
               </button>
               <p className="border-t px-1 pb-0.5 pt-1.5 text-[10px] leading-tight text-muted-foreground">
-                Swing the camera to an axis — zoom level stays put.
+                Keys 1–6 / 0 work too. Swing the camera to an axis — zoom stays put.
               </p>
             </PopoverContent>
           </Popover>

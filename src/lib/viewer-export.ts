@@ -30,6 +30,9 @@ export interface ViewerExportOptions {
   background: string;
   /** map file name for the footer title + download file name */
   mapName: string;
+  /** custom figure caption — replaces the default "CryoFlow — <mapName>"
+   *  title when non-empty (publication figure captions live here) */
+  caption?: string;
   /** current contour level in σ (footer meta) */
   sigma: number;
   /** figure annotations beyond the contour level — the slice/clip state
@@ -125,7 +128,8 @@ async function composeViewerFigure(opts: ViewerExportOptions): Promise<ComposedF
   octx.fillStyle = cssColor("--border", "#e5e7eb");
   octx.fillRect(0, canvas.height, out.width, Math.max(1, scale));
 
-  const title = `CryoFlow — ${opts.mapName}`;
+  const defaultTitle = `CryoFlow — ${opts.mapName}`;
+  const title = opts.caption?.trim() ? opts.caption.trim() : defaultTitle;
   const notes = (opts.annotations ?? []).filter(Boolean);
   const meta = [`contour ${opts.sigma.toFixed(2)} σ`, ...notes, new Date().toLocaleDateString()].join(" · ");
   octx.textBaseline = "middle";

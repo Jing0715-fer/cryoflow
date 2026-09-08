@@ -1840,3 +1840,23 @@ Stage Summary:
 - #35 闭环：事件 target 的 instanceof 守卫——`as HTMLElement` cast 在合成事件面前是谎言，radix/extension/testing 环境的 target 可以是任何东西
 - 方法论增补：Radix ContextMenuTrigger 内建 700ms 触摸长按定时器（与浏览器原生 ~500ms 是两套系统，suppress contextmenu 只防后者）；Radix Popover/Dialog 的 toggle 竞态与 ensureOpen 模式；Turbopack 陈旧 chunk 的"pkill 强重启"处置
 - 遗留（下轮候选）：真 RELION 数据回归（EMPIAR 全链，需用户机器）、HPC SBATCH 真集群实测（需用户机器）、view presets 的键盘快捷键（1-6 数字键）、3D 导出 footer 图例支持自定义标题（论文图注）、叠加图色板自定义
+---
+Task ID: 36
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 新日轮 2026-09-08 14:14）——QA 回归全绿后清完 Task 35 三条可行遗留：3D 视角预设键盘快捷键（1-6/0）+ 自定义图注 caption（持久化、三 sink 跟随）+ 叠加图色板自定义（8 色实时重着色）；worklog + push
+
+Work Log:
+- 【开局核对】worklog 实际最新为 Task 35（d5bd847 已推送）；git 本地 == origin/main 干净；dev server 存活；DB fixture 4 项目 / 11 jobs 与 Task 35 收官一致
+- 【QA 回归·全绿】Workflow 画布（QA Sandbox C 2 jobs + minimap）/ Dashboard KPI band（4 projects · 11 jobs）/ console 0 error → 无新 bug，转功能
+- 【遗留 1·视角预设键盘快捷键】molstar-embed 新增 window keydown（phase==="ready" 挂载）：1-6 → Front/Back/Left/Right/Top/Bottom（VIEW_PRESETS 顺序即键位），0 → Default ¾（对齐画布"0=reset"肌肉记忆）；守卫链复用 #35 惯例（instanceof HTMLElement + input/textarea/contenteditable 早退 + 开放 menu 让键）；Ctrl/Meta/Alt 组合不拦；E2E：5→Top hash 变 ✓、1→Front 变 ✓、0→default 变 ✓；backToStart=false 属预期（Reset 恢复初始快照，自动取景是更紧的 radius*0.7，两条路径本就不同）；input 守卫：焦点在 caption 输入框内按 1 相机纹丝不动 ✓；popover 按钮右上角 mono 数字角标 + Default ¾ 行"0"角标 + 脚注"Keys 1–6 / 0 work too"
+- 【遗留 2·自定义图注 caption】viewer-export.ts：ViewerExportOptions.caption?（trim 非空时替换默认 "CryoFlow — <map>" 标题）；molstar-embed：cryoflow.mol-figure-caption localStorage 持久化（mount 水合、editCaption 双写、清空即 removeItem）、CAPTION_MAX=120；download/copy/clipboard-refused 降级三路 sink 全部携带；导出弹层升级为 "Figure export"（分辨率 radios + Figure caption 输入区：reset 按钮 testid=caption-reset、动态脚注"Footer title uses your caption."、placeholder 展示默认标题）；caption 非空时 chip 按钮 primary 高亮 + aria-label 注明 "custom caption set"；E2E：输入 "Fig. 3 — β-gal postprocess, 3.2 Å" → localStorage 精确 ✓ → 导出落盘目检 footer 标题即 caption（meta 行不变）✓ → reset 后 localStorage null + trigger 标签回退 ✓
+- 【遗留 3·叠加图色板自定义】SWATCH_COLORS = OVERLAY_COLORS 5 色 + #60a5fa 蓝 / #e879f9 fuchsia / #a3e635 lime（共 8，自动指派仍走前 5 循环避开主图 orange）；setOverlayColor 单次立即 commit（点击非拖拽）——build().to(repr).update 的 colorTheme.params.value 分支（type/params 分支不动，σ 联动天然无扰）；Layers 面板颜色 chip 升级为按钮（点击展开/收起 8 色 radiogroup、active 环 + ring-offset-card 双主题、选中即关闭）；图例 chip 与面板 chip 同读 overlays state——变色后导出图例自动跟随；E2E：色板 8 点渲染 ✓ → 选 #60a5fa → canvas 像素 hash 变（表面实时重着色）✓ → chip backgroundColor rgb(96,165,250) ✓ → picker 自动收起 ✓ → 3σ preset 回归（recolor 不扰 contour 更新）✓ → 移除叠加 badge 清空 + swatch 卸载 ✓；导出 toast "2298×982 px · 120 KB"（982=图例行在位；下载落盘漂移为已知 headless 现象，toast 高度 + chip DOM 颜色 + hash 变化构成证据链——图例渲染代码未动，Task 35 已像素级验证）
+- 【dark 主题目检】角落实键 6 键（Layers 徽标/2×/复制/相机/Reset/Axis3d）暗面板清晰；色板 8 色点 + 选中环 + OPACITY/σ NUDGE 滑杆行无挤压；light 主题已恢复（异步渲染后复核）
+- 【运维】无 OOM（本轮 tsc/lint 与浏览器严格错峰）；molstar chunk 按需重编译正常（新 UI 以 trigger aria-label "Figure export:" 为在位标记——popover content 关闭时不渲染，textContent 探测会误判 stale）
+- 【收尾】bun run lint 0/0（顺手清了一条 unused eslint-disable warning）、tsc 0 错误；DB 终态 4 项目 / 11 jobs 与开局一致；light 主题；浏览器已关
+
+Stage Summary:
+- 3D viewer 的"figure 工作台"闭环再加三块：键盘党 1-6/0 一秒摆位（与画布 0=reset 同语言）、论文级 caption 直接进 footer（习惯持久化，三出口像素一致）、对比图颜色不再将就自动指派（8 色板 + 图例自动跟随——half-map 蓝、class 紫由用户语义决定）
+- 导出弹层从"分辨率选择器"升级为"Figure export 设置面板"：分辨率 + caption 一个入口，chip 按钮的状态高亮（primary 边框）让"当前图带自定义标注"一眼可读
+- 方法论增补：Radix Popover content 关闭时不渲染——用 trigger aria-label 而非 content textContent 做"新 UI 是否生效"的探针；下载落盘漂移的既定替代证据链（toast 尺寸数学 → state DOM 值 → hash 差分）
+- 遗留（下轮候选）：真 RELION 数据回归（EMPIAR 全链，需用户机器）、HPC SBATCH 真集群实测（需用户机器）、caption 支持 per-map 覆盖（当前 per-browser 单值）、色板支持任意 hex 输入、视角预设加入 Turntable 自动旋转导出（GIF/WebM）
