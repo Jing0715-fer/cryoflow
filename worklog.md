@@ -1698,3 +1698,31 @@ Stage Summary:
 - 第 30 号发现（自动化伪影级）：agent-browser 合成点击 × Radix dialog 互换竞态——直调 __reactProps.onClick 绕过；应用代码零缺陷
 - 并行 cron 轮资源竞争复盘：同沙箱双会话在 DB/dev server/browser 三层交叠，Fast Refresh 清 dialog 状态 ×N——下轮建议错峰或开工前先 git pull + worklog 对表（本轮已按此执行）
 - 遗留（下轮候选）：真 RELION 数据回归（EMPIAR 全链重建，需用户机器）、HPC SBATCH 真集群实测反馈（需用户机器）、3D 导出可选 2× 超采样（molstar canvas props）、导入对话框 toast 内嵌切换按钮（自动跟随已覆盖主场景）
+
+---
+Task ID: 30
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 新日轮）——QA 回归全绿后推进：画布多选体系（Shift+drag 框选 + 编组拖拽 + 浮动批量工具条 + Ctrl/A/Del/Esc 键盘链）+ 修 #31 zustand selector 无限循环 + #32 setPointerCapture 防御加固 + worklog + push
+
+Work Log:
+- 【开局核对】worklog 实际最新为 Task 29（指令所称"末尾 Task 13"严重过期，按实际执行）；git 本地 == origin/main == 9244523 干净；dev server 存活 → 预热 5 路由全 200；DB fixture 核对 4 项目（A 空 / B 3 / demo 3 / C 5 含 1 completed）
+- 【QA 回归·全绿】Workflow 画布（QA Sandbox C 5 jobs / 2 edges / minimap+KPI 正常）/ Dashboard KPI band（4 projects · 11 jobs · sparkline）+ 排序选择器在位 / console 0 error → 无新 bug，转入功能开发
+- 【新功能·画布多选体系】①store：selectedIds: string[] 多选成员状态（selectedId 仍为 primary——驱动编辑面板/F focus/minimap 环，恒为 selectedIds 成员）+ 9 个动作（toggleSelect shift 切换带 primary 让渡 / selectMany 框选提交保 primary / selectAll 活动工作域全选 / deleteSelected Promise.allSettled 并行删+单次乐观更新+双态 toast / duplicateSelected 两阶段复制（并行 POST jobs → 依 idMap 逐条重接内部边，单线失败不丢批次，linked copy 跳过并计数）/ moveJobsCommit 复用既有 POST /api/jobs/layout 批量端点 / alignSelected 六向对齐 / distributeSelected 等间隙分布（端点不动，<3 卡与零 span 诚实拒绝））；全部 12 处 selectedId 写点协同维护 selectedIds（工作区/项目切换清空、delete/move 提升新 primary、run/inspect 收敛）
+- 【新功能 ②】group-drag.ts 编组注册表：每卡 mount 时注册 {begin,move,end} 命令回调；被拖卡成为 leader 在自身 rAF 内驱动全组——零 React 每帧（与边线直 patch 同模式）；follower begin 缓存边 DOM、move 平移+patch 连线、end(commit=false) 恢复几何；leader 提交时按 leader 的 clamp 后世界增量对每卡独立 clamp，一批 moveJobsCommit 落库
+- 【新功能 ③】canvas.tsx：Shift+drag 框选（bandRef 捕获 + canvas-local 矩形 state + bandIds useMemo 命中测试（相交语义、workspace 坐标反变换）+ SVG marching-ants 选框（band-ants 动画 + prefers-reduced-motion 降级）+ crosshair 光标 + 实时命中卡 ring 预高亮；空结果=清除选区）；SelectionToolbar 浮动工具条（≥2 选中出现在 bbox 上方 -46px，顶部放不下回退 bbox 下方 +10px 再钉顶，水平 clamp 防溢出；"N selected" 计数 + Align▾ 六项 + Distribute▾ 两项 + Copy + 红色 Trash2（内嵌 AlertDialog 批量确认，名称预览 3+N 与 running 警告）；框选进行中隐藏；ResizeObserver 测尺寸不碰 ref 渲染违例）
+- 【新功能 ④】job-card.tsx：primary 强环 / 多选弱环（ring-primary/30）/ bandMatch 预高亮三态样式 + zIndex 提升；Shift+点击切换（shiftPidRef 语义：shift 按卡永不拖拽，pointerup 提交 toggle）；page.tsx 键盘链：Ctrl/Cmd+A 全选（dashboard 视图豁免）、Del/Backspace 多选→批量确认对话框、Esc 三级退化（pending→inspector→collapse 多选到 primary→清除）
+- 【真 bug #31·zustand selector 无限循环】首版 bulkTargets 选择器 (s) => cond ? s.jobs.filter(...) : [] 每次返回新数组 → React "getServerSnapshot should be cached" 死循环（dev overlay 实锤、页面瘫痪）——单数版 deleteTarget 用 .find 返回稳定引用幸存，复数版 filter 必炸；修正为稳定引用订阅（s.jobs / s.selectedIds）+ useMemo 派生，并给单选面板条件同款处理；方法论入库：**zustand 选择器绝不能在 selector 内分配新容器，复数派生一律 useMemo**
+- 【加固 #32·setPointerCapture 防御】合成/边缘 pointerId（已释放指针、自动化事件）令 setPointerCapture 抛 NotFoundError 并中断 pointerdown handler 后续（状态设置、preventDefault）——新 lib/pointer.ts capturePointer() try-catch helper，8 处调用点（canvas pan/band、job-card drag/shift/port、palette、minimap）统一替换；无 capture 时事件流仍经冒泡工作，仅丢窗口外抬起安全网
+- 【设计修正·多选收起编辑面板】selectedIds>1 时右侧 JobPanel 收起（desktop aside + mobile sheet 双条件）——批量操作由工具条主导，面板只跟单选；plain-click 单选回归实测面板正常
+- 【细节】help-popover 快捷键表新增 ⇧Click/⇧Drag/⌘A 三条 + Del/Esc 文案更新；minimap 多选卡 45% 透明度 primary 描边
+- 【E2E·12 项全绿】专用 QA MultiSelect 项目（4 卡 2 边，测试后整项目删除）：①框选蚂蚁线→工具条"3 selected"+三卡环 ②编组拖拽 3 卡同步 Δ(+191,-128) 未选卡不动+连线跟随+DB 持久 ③Align Top 三卡 y=132 全等 ④打乱 x=900 → Distribute H 归位 gaps 360/360 端点不动 ⑤批量复制 +3 jobs +2 内部边重接（toast 完整）副本成为新选区 ⑥shift-click 3→4→3 ⑦Ctrl+A 7 selected ⑧Esc collapse 工具条消失 ⑨Ctrl+A+Del 确认框名称预览→7 jobs 全删 DB 0 行 ⑩单选面板回归 ⑪dark 主题工具条/双环清晰 ⑫console 0 error（终态）
+- 【并行会话观察·2 次】QA MultiSelect 项目删除后一度"复活"（同名新 id）——实为删除事务竞态窗口内 findFirst 命中旧行+并行轮重建同名项目的时间线巧合；二次 DELETE 后 DB 终态 4 fixture 项目 / 11 jobs / 6 edges 与 Task 29 一致
+- 【运维】本会话 dev server OOM ×3（Turbopack 编译窗口模式，RSS 2.3-2.9GB，dmesg 实锤）→ dev-server.sh playbook 重启 ×3 + curl 预热；测试合成 PointerEvent 脚本（band-start/end、group-drag）留 /tmp；qa-multiselect-fixture.py 留 scripts/ 作可复用测试资产（幂等，注意 edge 端口名 micrographs→movies）
+- 【收尾】bun run lint 0/0、tsc src/ 0 错误（skills/ 预存在错误与项目无关）；light 主题已恢复；浏览器已关（内存纪律）
+
+Stage Summary:
+- 画布从"单选世界"进入"多选世界"：Shift+drag 框选（marching-ants+实时命中高亮）、Shift+点击切换、Ctrl+A 全选——与既有单选/连线/拖拽手势零冲突（Shift 保留给选择，pan 肌肉记忆不动）
+- 批量操作四件套：编组拖拽（零 React 每帧注册表模式）、六向对齐+双轴等隙分布（端点锚定）、批量复制（内部连线自动重接——wired 子管线整体克隆）、批量删除（双入口确认框）；全部走一次性乐观更新+批量/并行 API
+- #31 闭环：zustand 复数选择器的"新数组每调用"陷阱——React useSyncExternalStore 缓存契约的必修课，已沉淀为代码注释与方法论
+- #32 闭环：capturePointer 防御 helper 全局替换——自动化测试与真实指针竞态都不再能打断 pointerdown 链
+- 遗留（下轮候选）：真 RELION 数据回归（EMPIAR 全链重建，需用户机器）、HPC SBATCH 真集群实测（需用户机器）、3D 导出可选 2× 超采样（molstar canvas props）、多选的 Shift+D 整组复制快捷键（工具条已覆盖）、框选的触屏长按适配（当前 Shift 手势桌面优先）

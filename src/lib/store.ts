@@ -56,6 +56,12 @@ interface WorkflowState {
   /** True while a forced re-detect is in flight (Re-detect button spinner). */
   systemRefreshing: boolean;
   selectedId: string | null;
+  /** Multi-selection membership (rubber band / shift-click / Ctrl+A). The
+   *  PRIMARY selection in selectedId drives the edit panel, the F focus
+   *  shortcut and the minimap ring — it is always a member of selectedIds
+   *  when non-null. Bulk ops (align/distribute/duplicate/delete/drag)
+   *  operate on the whole set. */
+  selectedIds: string[];
   /** Job opened in the large inspector modal (submitted jobs only). */
   inspectId: string | null;
   pendingFrom: PendingFrom | null;
@@ -146,6 +152,29 @@ interface WorkflowState {
   pollTick: () => Promise<void>;
 
   select: (id: string | null) => void;
+  /** Shift-click toggle: add/remove a card from the multi-selection (the
+   *  toggled card becomes primary when it joins; leaving promotes the
+   *  last remaining card to primary). */
+  toggleSelect: (id: string) => void;
+  /** Commit a rubber-band result (empty array clears). Keeps the current
+   *  primary when it survives inside the new selection. */
+  selectMany: (ids: string[]) => void;
+  /** Ctrl/Cmd+A — select every card of the ACTIVE workspace. */
+  selectAll: () => void;
+  /** Delete every selected job (plus their edges) — parallel server calls,
+   *  ONE optimistic state update, one toast. */
+  deleteSelected: () => Promise<void>;
+  /** Duplicate every selected job; edges BETWEEN the copies are recreated
+   *  so a wired sub-pipeline comes back as a wired sub-pipeline. */
+  duplicateSelected: () => Promise<void>;
+  /** Commit a group drag: one optimistic update + one bulk layout PATCH. */
+  moveJobsCommit: (moves: { id: string; x: number; y: number }[]) => Promise<void>;
+  /** Snap the selection onto a shared edge/center line. */
+  alignSelected: (
+    mode: "left" | "hcenter" | "right" | "top" | "vcenter" | "bottom"
+  ) => void;
+  /** Even out the gaps between 3+ selected cards along one axis. */
+  distributeSelected: (axis: "h" | "v") => void;
   /** Open the big job inspector (submitted jobs); null closes it. */
   inspect: (id: string | null) => void;
   /** Switch the top-level view (canvas ⇄ project dashboard). */
@@ -287,6 +316,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   system: null,
   systemRefreshing: false,
   selectedId: null,
+  selectedIds: [],
   inspectId: null,
   pendingFrom: null,
   viewport: { x: 0, y: 0, zoom: 1 },
@@ -360,7 +390,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     if (get().activeWorkspaceId === id) return;
     // leaving the old canvas: clear selection/pending wire so the new
     // workspace doesn't start with stale state from the previous one
-    set({ activeWorkspaceId: id, selectedId: null, pendingFrom: null });
+    set({ activeWorkspaceId: id, selectedId: null, selectedIds: [], pendingFrom: null });
   },
 
   createWorkspace: async (name) => {
@@ -424,9 +454,12 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     const target = workspaces.find((w) => w.id === workspaceId);
     if (!job || !target || job.workspaceId === workspaceId) return false;
     // optimistic: the job leaves this canvas immediately
+    const restIds = get().selectedIds.filter((x) => x !== id);
+    const keepPrimary = get().selectedId === id ? (restIds[0] ?? null) : get().selectedId;
     set({
       jobs: jobs.map((j) => (j.id === id ? { ...j, workspaceId } : j)),
-      selectedId: get().selectedId === id ? null : get().selectedId,
+      selectedId: keepPrimary,
+      selectedIds: keepPrimary ? restIds : [],
     });
     try {
       await api(`/api/jobs/${id}`, {
@@ -483,6 +516,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         ),
         activeWorkspaceId: workspaceId,
         selectedId: job.id,
+        selectedIds: [job.id],
         pendingFrom: null,
       });
       get().focusJob(job.id);
@@ -542,6 +576,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       });
       set({
         selectedId: null,
+        selectedIds: [],
         inspectId: null,
         pendingFrom: null,
         viewport: { x: 0, y: 0, zoom: 1 },
@@ -588,7 +623,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   deleteProject: async (id) => {
     try {
       await api<{ ok: boolean }>(`/api/projects/${id}`, { method: "DELETE" });
-      set({ selectedId: null, inspectId: null, pendingFrom: null });
+      set({ selectedId: null, selectedIds: [], inspectId: null, pendingFrom: null });
       await get().load();
       toast({ title: "Project deleted" });
       return true;
@@ -638,7 +673,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
           ...(params && Object.keys(params).length > 0 ? { params } : {}),
         }),
       });
-      set({ jobs: [...get().jobs, job], selectedId: job.id });
+      set({ jobs: [...get().jobs, job], selectedId: job.id, selectedIds: [job.id] });
       toast({
         title: "Job added",
         description: `${job.name} placed on the canvas`,
@@ -707,7 +742,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       // exactly what was just imported instead of leaving the user to find it.
       let switched = false;
       if (targetWsId && targetWsId !== get().activeWorkspaceId) {
-        set({ activeWorkspaceId: targetWsId, selectedId: null, pendingFrom: null });
+        set({ activeWorkspaceId: targetWsId, selectedId: null, selectedIds: [], pendingFrom: null });
         switched = true;
       }
       const wsName =
@@ -804,7 +839,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
             " It starts automatically once ready.",
         });
         // show the waiting reason where the user is looking
-        set({ inspectId: id, selectedId: null });
+        set({ inspectId: id, selectedId: null, selectedIds: [] });
         return false;
       }
       if (data.error) {
@@ -818,7 +853,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       }
       toast({ title: "Job started", description: `${data.job.name} is now running` });
       // CryoSPARC-style: submitting a job opens its inspector page
-      set({ inspectId: id, selectedId: null });
+      set({ inspectId: id, selectedId: null, selectedIds: [] });
       return true;
     } catch (err) {
       errToast(err instanceof Error ? err.message : "Failed to run job");
@@ -859,10 +894,15 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   deleteJob: async (id) => {
     try {
       await api(`/api/jobs/${id}`, { method: "DELETE" });
+      // drop the job from the multi-selection too; when the PRIMARY card is
+      // the one going away, promote the first remaining selected card
+      const restIds = get().selectedIds.filter((x) => x !== id);
+      const primary = get().selectedId === id ? (restIds[0] ?? null) : get().selectedId;
       set({
         jobs: get().jobs.filter((j) => j.id !== id),
         edges: get().edges.filter((e) => e.fromJobId !== id && e.toJobId !== id),
-        selectedId: get().selectedId === id ? null : get().selectedId,
+        selectedId: primary,
+        selectedIds: primary ? restIds : [],
         inspectId: get().inspectId === id ? null : get().inspectId,
         pendingFrom: get().pendingFrom?.jobId === id ? null : get().pendingFrom,
       });
@@ -889,7 +929,12 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
           params: src.params,
         }),
       });
-      set({ jobs: [...get().jobs, job], selectedId: job.id, inspectId: null });
+      set({
+        jobs: [...get().jobs, job],
+        selectedId: job.id,
+        selectedIds: [job.id],
+        inspectId: null,
+      });
       toast({
         title: "Job duplicated",
         description: `${job.name} placed beside the original — edit & connect it, then run`,
@@ -1016,7 +1061,264 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     }
   },
 
-  select: (id) => set({ selectedId: id }),
+  select: (id) => set({ selectedId: id, selectedIds: id ? [id] : [] }),
+
+  toggleSelect: (id) => {
+    const ids = get().selectedIds;
+    if (ids.includes(id)) {
+      const rest = ids.filter((x) => x !== id);
+      const nextPrimary =
+        get().selectedId === id ? (rest[rest.length - 1] ?? null) : get().selectedId;
+      set({ selectedIds: rest, selectedId: nextPrimary });
+    } else {
+      set({ selectedIds: [...ids, id], selectedId: id });
+    }
+  },
+
+  selectMany: (ids) => {
+    const unique = [...new Set(ids)];
+    if (unique.length === 0) {
+      set({ selectedId: null, selectedIds: [] });
+      return;
+    }
+    const prev = get().selectedId;
+    set({
+      selectedIds: unique,
+      selectedId: prev && unique.includes(prev) ? prev : unique[unique.length - 1],
+    });
+  },
+
+  selectAll: () => {
+    const ws = get().activeWorkspaceId;
+    const ids = get().jobs.filter((j) => j.workspaceId === ws).map((j) => j.id);
+    if (ids.length === 0) return;
+    const prev = get().selectedId;
+    set({
+      selectedIds: ids,
+      selectedId: prev && ids.includes(prev) ? prev : ids[0],
+    });
+  },
+
+  deleteSelected: async () => {
+    const ws = get().activeWorkspaceId;
+    const ids = get().selectedIds.filter((id) =>
+      get().jobs.some((j) => j.id === id && j.workspaceId === ws)
+    );
+    if (ids.length === 0) return;
+    const results = await Promise.allSettled(
+      ids.map((id) => api(`/api/jobs/${id}`, { method: "DELETE" }))
+    );
+    const deleted = ids.filter((_, i) => results[i].status === "fulfilled");
+    const failed = ids.length - deleted.length;
+    if (deleted.length > 0) {
+      const delSet = new Set(deleted);
+      const prevInspect = get().inspectId;
+      const prevPending = get().pendingFrom;
+      set({
+        jobs: get().jobs.filter((j) => !delSet.has(j.id)),
+        edges: get().edges.filter((e) => !delSet.has(e.fromJobId) && !delSet.has(e.toJobId)),
+        selectedId: null,
+        selectedIds: [],
+        inspectId: prevInspect != null && delSet.has(prevInspect) ? null : prevInspect,
+        pendingFrom: prevPending && delSet.has(prevPending.jobId) ? null : prevPending,
+      });
+    }
+    if (failed > 0) {
+      toast({
+        title: `Deleted ${deleted.length} · ${failed} refused`,
+        description: "Some jobs could not be deleted — they are still on the canvas",
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: `Deleted ${deleted.length} job${deleted.length === 1 ? "" : "s"}`,
+        description:
+          deleted.length === 1
+            ? "Removed from the workflow"
+            : "Removed from the workflow with every wire attached to them",
+      });
+    }
+  },
+
+  duplicateSelected: async () => {
+    const ws = get().activeWorkspaceId;
+    const sel = get().jobs.filter(
+      (j) => get().selectedIds.includes(j.id) && j.workspaceId === ws && !j.linkedJobId
+    );
+    if (sel.length === 0) return;
+    const skippedLinks = get().selectedIds.length - sel.length;
+    const idSet = new Set(sel.map((j) => j.id));
+    try {
+      // phase 1 — copy the jobs in parallel (each POST scalar-filters its
+      // params against the type schema server-side, same as single add)
+      const copies = await Promise.all(
+        sel.map((src) =>
+          api<{ job: JobDTO }>("/api/jobs", {
+            method: "POST",
+            headers: JSON_HEADERS,
+            body: JSON.stringify({
+              type: src.type,
+              x: clamp(src.x + 48, WORLD_MIN, WORLD_MAX - CARD_W),
+              y: clamp(src.y + 40, WORLD_MIN, WORLD_MAX - CARD_H),
+              name: `${src.name} (copy)`,
+              params: src.params,
+            }),
+          }).then(({ job }) => ({ srcId: src.id, job }))
+        )
+      );
+      // phase 2 — rewire edges BETWEEN the copies (order needs the full
+      // id map, hence the second pass); one bad wire never loses the batch
+      const idMap = new Map(copies.map(({ srcId, job }) => [srcId, job.id]));
+      const internal = get().edges.filter(
+        (e) => idSet.has(e.fromJobId) && idSet.has(e.toJobId)
+      );
+      const rewired: EdgeDTO[] = [];
+      for (const e of internal) {
+        const from = idMap.get(e.fromJobId);
+        const to = idMap.get(e.toJobId);
+        if (!from || !to) continue;
+        try {
+          const { edge } = await api<{ edge: EdgeDTO }>("/api/edges", {
+            method: "POST",
+            headers: JSON_HEADERS,
+            body: JSON.stringify({
+              fromJobId: from,
+              toJobId: to,
+              fromPort: e.fromPort,
+              toPort: e.toPort,
+            }),
+          });
+          rewired.push(edge);
+        } catch {
+          // skip this wire — the copies still exist and can be wired by hand
+        }
+      }
+      const newJobs = copies.map((c) => c.job);
+      set({
+        jobs: [...get().jobs, ...newJobs],
+        edges: [...get().edges, ...rewired],
+        selectedIds: newJobs.map((j) => j.id),
+        selectedId: newJobs[newJobs.length - 1]?.id ?? null,
+        inspectId: null,
+      });
+      toast({
+        title: `Duplicated ${newJobs.length} job${newJobs.length === 1 ? "" : "s"}`,
+        description: [
+          internal.length
+            ? `${internal.length} internal link${internal.length === 1 ? "" : "s"} rewired between the copies`
+            : "no internal links to rewire",
+          skippedLinks > 0 ? `${skippedLinks} linked cop${skippedLinks === 1 ? "y" : "ies"} skipped` : null,
+          "everything stays idle until you run it",
+        ]
+          .filter(Boolean)
+          .join(" — "),
+      });
+    } catch (err) {
+      errToast(err instanceof Error ? err.message : "Failed to duplicate the selection");
+    }
+  },
+
+  moveJobsCommit: async (moves) => {
+    if (moves.length === 0) return;
+    const map = new Map(moves.map((m) => [m.id, m]));
+    set({
+      jobs: get().jobs.map((j) => {
+        const m = map.get(j.id);
+        return m ? { ...j, x: m.x, y: m.y } : j;
+      }),
+    });
+    try {
+      await api("/api/jobs/layout", {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ updates: moves }),
+      });
+    } catch (err) {
+      errToast(err instanceof Error ? err.message : "Failed to save positions");
+    }
+  },
+
+  alignSelected: (mode) => {
+    const ws = get().activeWorkspaceId;
+    const sel = get().jobs.filter(
+      (j) => get().selectedIds.includes(j.id) && j.workspaceId === ws
+    );
+    if (sel.length < 2) return;
+    const minX = Math.min(...sel.map((j) => j.x));
+    const maxX = Math.max(...sel.map((j) => j.x + CARD_W));
+    const minY = Math.min(...sel.map((j) => j.y));
+    const maxY = Math.max(...sel.map((j) => j.y + CARD_H));
+    const moves = sel.map((j) => {
+      let x = j.x;
+      let y = j.y;
+      if (mode === "left") x = minX;
+      else if (mode === "right") x = maxX - CARD_W;
+      else if (mode === "hcenter") x = (minX + maxX) / 2 - CARD_W / 2;
+      else if (mode === "top") y = minY;
+      else if (mode === "bottom") y = maxY - CARD_H;
+      else y = (minY + maxY) / 2 - CARD_H / 2;
+      return {
+        id: j.id,
+        x: Math.round(clamp(x, WORLD_MIN, WORLD_MAX - CARD_W)),
+        y: Math.round(clamp(y, WORLD_MIN, WORLD_MAX - CARD_H)),
+      };
+    });
+    void get().moveJobsCommit(moves);
+    const target: Record<typeof mode, string> = {
+      left: "left edges",
+      hcenter: "horizontal centers",
+      right: "right edges",
+      top: "top edges",
+      vcenter: "vertical centers",
+      bottom: "bottom edges",
+    };
+    toast({
+      title: `Aligned ${sel.length} job${sel.length === 1 ? "" : "s"}`,
+      description: `Snapped to a shared line along their ${target[mode]}`,
+    });
+  },
+
+  distributeSelected: (axis) => {
+    const ws = get().activeWorkspaceId;
+    const sel = get().jobs.filter(
+      (j) => get().selectedIds.includes(j.id) && j.workspaceId === ws
+    );
+    if (sel.length < 3) {
+      toast({
+        title: "Pick at least 3 jobs",
+        description: "Distribution needs a first, a middle and a last",
+      });
+      return;
+    }
+    const size = axis === "h" ? CARD_W : CARD_H;
+    const sorted = [...sel].sort((a, b) => (axis === "h" ? a.x - b.x : a.y - b.y));
+    const first = sorted[0];
+    const last = sorted[sorted.length - 1];
+    const start = axis === "h" ? first.x : first.y;
+    const end = (axis === "h" ? last.x : last.y) + size;
+    const span = end - start - size * sorted.length;
+    if (span <= 0) {
+      toast({
+        title: "Nothing to distribute",
+        description: "The selection is already tighter than its own footprint",
+      });
+      return;
+    }
+    const gap = span / (sorted.length - 1);
+    let cursor = start;
+    const moves = sorted.map((j) => {
+      const pos = Math.round(cursor);
+      cursor += size + gap;
+      return axis === "h" ? { id: j.id, x: pos, y: j.y } : { id: j.id, x: j.x, y: pos };
+    });
+    void get().moveJobsCommit(moves);
+    toast({
+      title: `Distributed ${sorted.length} jobs`,
+      description: `Even ~${Math.round(gap)}px gaps along the ${
+        axis === "h" ? "horizontal" : "vertical"
+      } axis — endpoints stay put`,
+    });
+  },
 
   inspect: (id) => {
     if (id !== null) {

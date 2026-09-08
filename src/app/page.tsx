@@ -44,6 +44,10 @@ function useMediaQuery(query: string) {
 export default function Home() {
   const workspaces = useWorkflowStore((s) => s.workspaces);
   const selectedId = useWorkflowStore((s) => s.selectedId);
+  // ⚠ selectors must return STABLE references (a fresh .filter() array per
+  // call trips zustand's getServerSnapshot cache check — infinite loop)
+  const allJobs = useWorkflowStore((s) => s.jobs);
+  const allSelectedIds = useWorkflowStore((s) => s.selectedIds);
   const inspectId = useWorkflowStore((s) => s.inspectId);
   const select = useWorkflowStore((s) => s.select);
   const view = useWorkflowStore((s) => s.view);
@@ -53,6 +57,9 @@ export default function Home() {
   const [mounted, setMounted] = React.useState(false);
   const [paletteOpen, setPaletteOpen] = React.useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = React.useState<string | null>(null);
+  // bulk delete (multi-selection via Del/Backspace) gets its own confirm —
+  // the toolbar's delete button has an equivalent one inside canvas.tsx
+  const [confirmBulkDelete, setConfirmBulkDelete] = React.useState(false);
   const isXl = useMediaQuery("(min-width: 1280px)");
 
   // Initial data load
@@ -93,15 +100,17 @@ export default function Home() {
     return () => clearInterval(timer);
   }, [anyActive, pageVisible]);
 
-  // ESC cancels connect mode, closes the inspector, then deselects
-  // (the right-side panel). The Radix dialog handles its own ESC first —
-  // this fires only when no modal captured the key.
+  // ESC cancels connect mode, closes the inspector, collapses the
+  // multi-selection to its primary, then deselects (the right-side panel).
+  // The Radix dialog handles its own ESC first — this fires only when no
+  // modal captured the key.
   React.useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       const s = useWorkflowStore.getState();
       if (s.pendingFrom) s.cancelConnect();
       else if (s.inspectId) s.inspect(null);
+      else if (s.selectedIds.length > 1) s.select(s.selectedId); // collapse to the primary card
       else if (s.selectedId) s.select(null);
     };
     window.addEventListener("keydown", onKeyDown);
@@ -175,6 +184,13 @@ export default function Home() {
           e.preventDefault();
           s.focusJob(s.selectedId);
         }
+      } else if ((e.ctrlKey || e.metaKey) && (k === "a" || k === "A")) {
+        // select-all on the canvas — text fields are already excluded by
+        // the guard above, so the browser's native select never fights us
+        if (s.view !== "dashboard") {
+          e.preventDefault();
+          s.selectAll();
+        }
       } else if (k === "0") {
         e.preventDefault();
         s.setViewport({ x: 0, y: 0, zoom: 1 });
@@ -184,22 +200,33 @@ export default function Home() {
       } else if (k === "-" || k === "_") {
         e.preventDefault();
         zoomAtCenter(1 / 1.15);
-      } else if ((k === "Delete" || k === "Backspace") && s.selectedId) {
+      } else if (k === "Delete" || k === "Backspace") {
         // destructive: route through the same confirmation the context menu
         // and the job panel use — a stray Backspace must not cascade-delete
-        // a wired job (and its edges) with zero friction
-        e.preventDefault();
-        setConfirmDeleteId(s.selectedId);
+        // wired jobs (and their edges) with zero friction
+        if (s.selectedIds.length > 1) {
+          e.preventDefault();
+          setConfirmBulkDelete(true);
+        } else if (s.selectedId) {
+          e.preventDefault();
+          setConfirmDeleteId(s.selectedId);
+        }
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  const panelSheetOpen = mounted && !isXl && selectedId != null;
+  // panel shows only for a SINGLE-card selection — with 2+ jobs selected the
+  // bulk toolbar owns the interaction and the panel would just crowd it
+  const panelSheetOpen = mounted && !isXl && selectedId != null && allSelectedIds.length <= 1;
   const isDashboard = view === "dashboard";
   const deleteTarget = useWorkflowStore((s) =>
     confirmDeleteId ? s.jobs.find((j) => j.id === confirmDeleteId) : undefined
+  );
+  const bulkTargets = React.useMemo(
+    () => (confirmBulkDelete ? allJobs.filter((j) => allSelectedIds.includes(j.id)) : []),
+    [confirmBulkDelete, allJobs, allSelectedIds]
   );
 
   return (
@@ -282,7 +309,7 @@ export default function Home() {
           <WorkflowCanvas />
 
           {/* Desktop job panel — only mounted while a job is selected */}
-          {selectedId != null && (
+          {selectedId != null && allSelectedIds.length <= 1 && (
             <aside className="hidden w-[380px] shrink-0 animate-in border-l bg-card duration-200 slide-in-from-right-4 xl:flex xl:flex-col">
               <JobPanel />
             </aside>
@@ -370,6 +397,38 @@ export default function Home() {
               }}
             >
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Keyboard bulk-delete confirmation (Del with 2+ jobs selected) */}
+      <AlertDialog open={confirmBulkDelete} onOpenChange={setConfirmBulkDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {bulkTargets.length} jobs?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {bulkTargets
+                .slice(0, 3)
+                .map((j) => `“${j.name}”`)
+                .join(", ")
+                .concat(bulkTargets.length > 3 ? ` and ${bulkTargets.length - 3} more` : "")}{" "}
+              — this removes every wire attached to them.
+              {bulkTargets.some((j) => j.status === "running") &&
+                " Running processes will be stopped."}{" "}
+              This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-rose-600 text-white hover:bg-rose-700 focus-visible:ring-rose-400"
+              onClick={() => {
+                setConfirmBulkDelete(false);
+                void useWorkflowStore.getState().deleteSelected();
+              }}
+            >
+              Delete {bulkTargets.length} jobs
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -180,6 +180,23 @@
   animation: edge-dash-flow 0.7s linear infinite;
 }
 
+/* Rubber-band selection rectangle — marching ants (canvas.tsx) */
+@keyframes ants-march {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+
+.band-ants {
+  animation: ants-march 0.6s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .band-ants {
+    animation: none;
+  }
+}
+
 @keyframes soft-pulse {
   0%,
   100% {

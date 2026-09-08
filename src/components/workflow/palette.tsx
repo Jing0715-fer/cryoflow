@@ -17,6 +17,7 @@ import { TypeIcon } from "./icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { capturePointer } from "@/lib/pointer";
 
 interface PaletteDragState {
   type: string;
@@ -148,7 +149,7 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
       active: false,
     };
     try {
-      e.currentTarget.setPointerCapture(e.pointerId);
+      capturePointer(e);
     } catch {
       // capture is best-effort — the window listeners below cover the rest
     }

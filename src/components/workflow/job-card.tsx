@@ -27,6 +27,7 @@ import {
 } from "@/lib/workflow";
 import { useWorkflowStore, type PendingFrom } from "@/lib/store";
 import { computeEdgeGeoms, setLiveDrag } from "@/lib/edge-geom";
+import { registerGroupMember, beginGroupDrag, moveGroupDrag, endGroupDrag } from "@/lib/group-drag";
 import type { JobDTO, JobTypeSpec, ParamValue } from "@/lib/types";
 import { TypeIcon } from "./icons";
 import { Badge } from "@/components/ui/badge";
@@ -54,6 +55,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
+import { capturePointer } from "@/lib/pointer";
 
 /* ------------------------------------------------------------------ */
 /* Shared bits (also used by the details panel)                        */
@@ -427,7 +429,14 @@ function JobCardMenu({
 
 interface JobCardProps {
   job: JobDTO;
+  /** This card is part of the current selection (multi-select aware). */
   selected: boolean;
+  /** The PRIMARY selection — full-strength ring; the edit panel + F focus
+   *  + minimap ring follow it. Other selected cards get a softer ring. */
+  primary: boolean;
+  /** True while the rubber band currently sweeps over this card
+   *  (pre-commit highlight — a lighter ring, not a selection yet). */
+  bandMatch: boolean;
   zoom: number;
   /** Pending connection source ({jobId, port}) or null. */
   pendingFrom: PendingFrom | null;
@@ -437,9 +446,14 @@ interface JobCardProps {
   /** True while this job is open in the large inspector modal. */
   inspected: boolean;
   onSelect: (id: string) => void;
+  /** Shift-click toggle for the multi-selection. */
+  onToggleSelect: (id: string) => void;
   /** Opens the large inspector modal (submitted jobs only). */
   onInspect: (id: string) => void;
   onDragCommit: (id: string, x: number, y: number) => void;
+  /** Commit a GROUP drag: the leader card submits every selected card's
+   *  final position in one call (one bulk PATCH, one state update). */
+  onGroupDragCommit: (moves: { id: string; x: number; y: number }[]) => void;
   onStartConnect: (pending: PendingFrom) => void;
   onCancelConnect: () => void;
   onConnect: (from: string, to: string, fromPort: string, toPort: string) => void;
@@ -452,6 +466,9 @@ interface DragState {
   origX: number;
   origY: number;
   moved: boolean;
+  /** When this card is part of a multi-selection with 2+ members, the
+   *  drag leads the whole group (see lib/group-drag) — follower ids. */
+  group: string[] | null;
 }
 
 /** Drag-to-connect state on a port (output ports drag out→in, input ports drag in→out). */
@@ -648,14 +665,18 @@ function JobCardPreview({
 export const JobCard = React.memo(function JobCard({
   job,
   selected,
+  primary,
+  bandMatch,
   zoom,
   pendingFrom,
   pendingFromType,
   isReady,
   inspected,
   onSelect,
+  onToggleSelect,
   onInspect,
   onDragCommit,
+  onGroupDragCommit,
   onStartConnect,
   onCancelConnect,
   onConnect,
@@ -667,6 +688,8 @@ export const JobCard = React.memo(function JobCard({
   const cardRef = React.useRef<HTMLDivElement>(null);
   const dragRef = React.useRef<DragState | null>(null);
   const portDragRef = React.useRef<PortDragState | null>(null);
+  /** pointerId of an active Shift+card press (selection toggle — no drag). */
+  const shiftPidRef = React.useRef<number | null>(null);
   const rafRef = React.useRef(0);
   /** edge-layer DOM groups to patch during this drag (null = no wires) */
   const edgeDomRef = React.useRef<Map<string, SVGGElement> | null>(null);
@@ -698,8 +721,34 @@ export const JobCard = React.memo(function JobCard({
         useWorkflowStore.getState().setDragActive(false);
         edgeDomRef.current = null;
       }
+      // drop any group-drag follower transform this card still wears
+      if (cardRef.current) cardRef.current.style.transform = "";
     };
   }, []);
+
+  /* ------------- group-drag follower registration ----------------- */
+  // Every card registers imperative follow callbacks; the SELECTED card
+  // the user actually drags (the leader) calls them for the rest of the
+  // selection inside its own rAF — zero React work per frame.
+  React.useEffect(() => {
+    let groups: Map<string, SVGGElement> | null = null;
+    return registerGroupMember(job.id, {
+      begin() {
+        groups = collectEdgeGroups(job.id);
+      },
+      move(dx, dy) {
+        if (cardRef.current) {
+          cardRef.current.style.transform = `translate(${dx}px, ${dy}px)`;
+        }
+        if (groups) patchEdgeGroups(groups, job.id, dx, dy);
+      },
+      end(commit) {
+        if (cardRef.current) cardRef.current.style.transform = "";
+        if (!commit && groups) patchEdgeGroups(groups, job.id, 0, 0);
+        groups = null;
+      },
+    });
+  }, [job.id]);
 
   /* ---------------- card drag (whole node incl. ports) ------------- */
 
@@ -711,6 +760,15 @@ export const JobCard = React.memo(function JobCard({
     // otherwise the capture below hijacks their clicks (see canvas.tsx).
     if (target !== e.currentTarget && !e.currentTarget.contains(target)) return;
     if (target.closest("[data-port]")) return; // ports handle their own events
+    if (e.shiftKey) {
+      // Shift + card = selection toggle, never a drag (matches design-tool
+      // conventions — shift-drag on a card stays reserved for the band).
+      // The toggle commits on pointerup so a press-cancel still reverts.
+      shiftPidRef.current = e.pointerId;
+      capturePointer(e);
+      e.preventDefault();
+      return;
+    }
     dragRef.current = {
       pointerId: e.pointerId,
       startX: e.clientX,
@@ -718,12 +776,14 @@ export const JobCard = React.memo(function JobCard({
       origX: job.x,
       origY: job.y,
       moved: false,
+      group: null,
     };
-    e.currentTarget.setPointerCapture(e.pointerId);
+    capturePointer(e);
     e.preventDefault();
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (shiftPidRef.current === e.pointerId) return; // toggle press — no drag
     const d = dragRef.current;
     if (!d || e.pointerId !== d.pointerId) return;
     const dx = e.clientX - d.startX;
@@ -735,6 +795,14 @@ export const JobCard = React.memo(function JobCard({
       // cache the wire DOM nodes we will patch directly each frame
       useWorkflowStore.getState().setDragActive(true);
       edgeDomRef.current = collectEdgeGroups(job.id);
+      // dragging a card that sits inside a multi-selection moves the WHOLE
+      // selection: this card becomes the leader, followers react through
+      // the group-drag registry (same zero-React pattern as the wires)
+      const s = useWorkflowStore.getState();
+      if (s.selectedIds.length > 1 && s.selectedIds.includes(job.id)) {
+        d.group = [...s.selectedIds];
+        beginGroupDrag(d.group, job.id);
+      }
     }
     if (!d.moved) return;
     const cdx = dx / zoom;
@@ -753,6 +821,7 @@ export const JobCard = React.memo(function JobCard({
         setLiveDrag({ id: job.id, dx: cdx, dy: cdy });
         patchEdgeGroups(groups, job.id, cdx, cdy);
       }
+      if (d.group) moveGroupDrag(d.group, job.id, cdx, cdy);
     });
   };
 
@@ -781,15 +850,43 @@ export const JobCard = React.memo(function JobCard({
       // patch wires to the final position first — covers the (theoretical)
       // case of the committed position rounding back onto the original
       if (groups) patchEdgeGroups(groups, job.id, nx - d.origX, ny - d.origY);
-      onDragCommit(job.id, Math.round(nx), Math.round(ny));
+      if (d.group && d.group.length > 1) {
+        // group drag: the leader's clamped world delta is applied to every
+        // follower (each re-clamped to its own world bounds) and the whole
+        // batch commits as ONE bulk PATCH via moveJobsCommit
+        const dxw = nx - d.origX;
+        const dyw = ny - d.origY;
+        const s = useWorkflowStore.getState();
+        const moves = [{ id: job.id, x: Math.round(nx), y: Math.round(ny) }];
+        for (const id of d.group) {
+          if (id === job.id) continue;
+          const j = s.jobs.find((x) => x.id === id);
+          if (!j) continue; // follower vanished mid-drag (deleted elsewhere)
+          moves.push({
+            id,
+            x: Math.round(Math.min(Math.max(j.x + dxw, WORLD_MIN), WORLD_MAX - CARD_W)),
+            y: Math.round(Math.min(Math.max(j.y + dyw, WORLD_MIN), WORLD_MAX - CARD_H)),
+          });
+        }
+        onGroupDragCommit(moves);
+      } else {
+        onDragCommit(job.id, Math.round(nx), Math.round(ny));
+      }
     } else if (groups) {
       // drag aborted (pointer cancel) — restore the stored geometry so
       // the wires don't stay visually detached from the card
       patchEdgeGroups(groups, job.id, 0, 0);
     }
+    if (d.group) endGroupDrag(d.group, job.id, d.moved);
   };
 
   const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (shiftPidRef.current === e.pointerId) {
+      // shift+click without drag — toggle this card in the multi-selection
+      shiftPidRef.current = null;
+      onToggleSelect(job.id);
+      return;
+    }
     const d = dragRef.current;
     if (!d || e.pointerId !== d.pointerId) return;
     dragRef.current = null;
@@ -804,6 +901,10 @@ export const JobCard = React.memo(function JobCard({
   };
 
   const handlePointerCancel = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (shiftPidRef.current === e.pointerId) {
+      shiftPidRef.current = null;
+      return;
+    }
     const d = dragRef.current;
     if (!d || e.pointerId !== d.pointerId) return;
     dragRef.current = null;
@@ -850,7 +951,7 @@ export const JobCard = React.memo(function JobCard({
       port: portName,
       mode: completesIn ? "complete" : "out",
     };
-    e.currentTarget.setPointerCapture(e.pointerId);
+    capturePointer(e);
     if (!wasPending && !completesIn) {
       onStartConnect({ jobId: job.id, port: portName, dir: "out" });
     }
@@ -946,7 +1047,7 @@ export const JobCard = React.memo(function JobCard({
       port: portName,
       mode: completesOut ? "complete" : "in",
     };
-    e.currentTarget.setPointerCapture(e.pointerId);
+    capturePointer(e);
     if (!wasPending && !completesOut) {
       onStartConnect({ jobId: job.id, port: portName, dir: "in" });
     }
@@ -1022,7 +1123,7 @@ export const JobCard = React.memo(function JobCard({
           top: job.y,
           width: CARD_W,
           height: CARD_H,
-          zIndex: selected ? 30 : dragging ? 20 : 10,
+          zIndex: selected || bandMatch ? 30 : dragging ? 20 : 10,
         }}
       >
       {/* transform host: card body + ports move together (zero lag) */}
@@ -1043,18 +1144,24 @@ export const JobCard = React.memo(function JobCard({
           className={cn(
             "card-lift no-drag-select absolute inset-0 cursor-grab overflow-hidden rounded-xl border bg-card outline-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing",
             selected
-              ? "border-primary ring-2 ring-primary/60"
-              : inspected
-                ? "border-teal-500 ring-2 ring-teal-500/70"
-                : "hover:border-primary/50 hover:shadow-md",
+              ? primary
+                ? "border-primary ring-2 ring-primary/60"
+                : "border-primary/70 ring-2 ring-primary/30" // in the multi-selection, not the primary
+              : bandMatch
+                ? "border-primary/60 ring-2 ring-primary/40" // rubber band is sweeping over — pre-commit
+                : inspected
+                  ? "border-teal-500 ring-2 ring-teal-500/70"
+                  : "hover:border-primary/50 hover:shadow-md",
             job.status === "running" &&
               !selected &&
               !inspected &&
+              !bandMatch &&
               "job-running border-teal-400/60 dark:border-teal-500/50",
             // soft links: dashed outline + tinted body (read-only mirror)
             job.linkedJobId != null &&
               !selected &&
               !inspected &&
+              !bandMatch &&
               "border-dashed border-primary/45 bg-primary/[0.03]"
           )}
           title={

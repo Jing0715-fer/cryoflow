@@ -38,8 +38,11 @@ const SHORTCUTS: { keys: string; text: string }[] = [
   { keys: "F", text: "Focus the selected job" },
   { keys: "0", text: "Reset the view (100 %)" },
   { keys: "+ / -", text: "Zoom in / out" },
-  { keys: "Del", text: "Delete the selected job" },
-  { keys: "Esc", text: "Cancel wire · close panels" },
+  { keys: "⇧ Click", text: "Toggle a card in the selection" },
+  { keys: "⇧ Drag", text: "Box-select on empty canvas" },
+  { keys: "⌘/Ctrl A", text: "Select every job in the workspace" },
+  { keys: "Del", text: "Delete the selection (confirms first)" },
+  { keys: "Esc", text: "Cancel wire · collapse selection · close panels" },
 ];
 
 export function HelpPopover() {

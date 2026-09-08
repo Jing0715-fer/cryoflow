@@ -13,6 +13,7 @@
 import * as React from "react";
 import { useWorkflowStore, useActiveWorkspaceJobs, useActiveWorkspaceEdges } from "@/lib/store";
 import { CARD_W, CARD_H } from "@/lib/workflow";
+import { capturePointer } from "@/lib/pointer";
 
 const MM_W = 192;
 const MM_MIN_H = 88;
@@ -39,6 +40,7 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
   const jobs = useActiveWorkspaceJobs();
   const edges = useActiveWorkspaceEdges();
   const selectedId = useWorkflowStore((s) => s.selectedId);
+  const selectedIds = useWorkflowStore((s) => s.selectedIds);
   const viewport = useWorkflowStore((s) => s.viewport);
   const setViewport = useWorkflowStore((s) => s.setViewport);
 
@@ -132,7 +134,7 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
         onPointerDown={(e) => {
           draggingRef.current = true;
           try {
-            e.currentTarget.setPointerCapture(e.pointerId);
+            capturePointer(e);
           } catch {
             /* synthesized / lost pointer — navigation still works */
           }
@@ -195,6 +197,7 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
           const s = Math.max(4, Math.min(26, world.w / 80));
           return jobs.map((j) => {
             const selected = j.id === selectedId;
+            const inMulti = !selected && selectedIds.includes(j.id);
             return (
               <rect
                 key={j.id}
@@ -205,7 +208,8 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
                 rx={26}
                 fill={STATUS_FILL[j.status] ?? STATUS_FILL.idle}
                 opacity={j.status === "idle" ? 0.55 : 0.9}
-                stroke={selected ? "var(--primary)" : "none"}
+                stroke={selected ? "var(--primary)" : inMulti ? "var(--primary)" : "none"}
+                strokeOpacity={inMulti ? 0.45 : 1}
                 strokeWidth={s}
               >
                 <title>{`${j.name} — ${j.status}${j.status === "running" ? ` (${Math.round(j.progress)}%)` : j.result ? ` · ${j.result}` : ""}`}</title>

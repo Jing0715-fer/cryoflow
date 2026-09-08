@@ -2,7 +2,29 @@
 
 import * as React from "react";
 import { useCallback } from "react";
-import { Download, FileJson, FileUp, Link2, Loader2, RotateCcw, Wand2, X, ZoomIn, ZoomOut } from "lucide-react";
+import {
+  AlignCenterHorizontal,
+  AlignCenterVertical,
+  AlignEndHorizontal,
+  AlignEndVertical,
+  AlignHorizontalDistributeCenter,
+  AlignStartHorizontal,
+  AlignStartVertical,
+  AlignVerticalDistributeCenter,
+  ChevronDown,
+  Copy,
+  Download,
+  FileJson,
+  FileUp,
+  Link2,
+  Loader2,
+  RotateCcw,
+  Trash2,
+  Wand2,
+  X,
+  ZoomIn,
+  ZoomOut,
+} from "lucide-react";
 import {
   CARD_H,
   CARD_W,
@@ -21,6 +43,7 @@ import {
   workflowFileName,
 } from "@/lib/workflow-io";
 import { useWorkflowStore, useActiveWorkspaceJobs, useActiveWorkspaceEdges, type PendingFrom } from "@/lib/store";
+import { beginGroupDrag, endGroupDrag, moveGroupDrag } from "@/lib/group-drag";
 import type { JobDTO } from "@/lib/types";
 import { toast } from "@/hooks/use-toast";
 import { EdgesLayer } from "./edges-layer";
@@ -37,6 +60,23 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { capturePointer } from "@/lib/pointer";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 function clamp(v: number, min: number, max: number) {
   return Math.min(Math.max(v, min), max);
@@ -162,6 +202,194 @@ const LiveWire = React.memo(function LiveWire({
   );
 });
 
+/* ------------------------------------------------------------------ */
+/* Floating selection toolbar (multi-select ≥ 2)                       */
+/* ------------------------------------------------------------------ */
+
+const ALIGN_ITEMS = [
+  { mode: "left", icon: AlignStartVertical, label: "Left edges" },
+  { mode: "hcenter", icon: AlignCenterVertical, label: "Horizontal centers" },
+  { mode: "right", icon: AlignEndVertical, label: "Right edges" },
+  { mode: "top", icon: AlignStartHorizontal, label: "Top edges" },
+  { mode: "vcenter", icon: AlignCenterHorizontal, label: "Vertical centers" },
+  { mode: "bottom", icon: AlignEndHorizontal, label: "Bottom edges" },
+] as const;
+
+/**
+ * Appears above the selection's bounding box whenever 2+ cards of the
+ * ACTIVE workspace are selected. Screen-space chrome: hidden while a
+ * rubber band is being drawn (the band owns the gesture) and driven by
+ * store bulk actions. Delete routes through a local confirm dialog —
+ * the same destructive guard every other delete path uses.
+ */
+const SelectionToolbar = React.memo(function SelectionToolbar({
+  rootRef,
+  hidden,
+}: {
+  rootRef: React.RefObject<HTMLDivElement | null>;
+  hidden: boolean;
+}) {
+  const selectedIds = useWorkflowStore((s) => s.selectedIds);
+  const jobs = useActiveWorkspaceJobs();
+  const viewport = useWorkflowStore((s) => s.viewport);
+  const alignSelected = useWorkflowStore((s) => s.alignSelected);
+  const distributeSelected = useWorkflowStore((s) => s.distributeSelected);
+  const duplicateSelected = useWorkflowStore((s) => s.duplicateSelected);
+  const deleteSelected = useWorkflowStore((s) => s.deleteSelected);
+  const [confirmDel, setConfirmDel] = React.useState(false);
+  const [busy, setBusy] = React.useState(false);
+  // canvas layout size, measured outside render (refs are off-limits there)
+  const [canvasSize, setCanvasSize] = React.useState<{ w: number; h: number }>({ w: 0, h: 0 });
+  React.useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    const update = () => setCanvasSize({ w: el.clientWidth, h: el.clientHeight });
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [rootRef]);
+
+  const sel = React.useMemo(
+    () => (selectedIds.length > 1 ? jobs.filter((j) => selectedIds.includes(j.id)) : []),
+    [selectedIds, jobs]
+  );
+
+  if (hidden || sel.length < 2) return null;
+
+  const zoom = viewport.zoom;
+  const minX = Math.min(...sel.map((j) => j.x));
+  const maxX = Math.max(...sel.map((j) => j.x + CARD_W));
+  const minY = Math.min(...sel.map((j) => j.y));
+  const maxY = Math.max(...sel.map((j) => j.y + CARD_H));
+  const cx = viewport.x + ((minX + maxX) / 2) * zoom;
+  const bboxTop = viewport.y + minY * zoom;
+  const bboxBottom = viewport.y + maxY * zoom;
+  // keep the (≤ ~360px) toolbar inside the canvas: clamp the anchor
+  const clampedCx = canvasSize.w > 0 ? clamp(cx, 190, Math.max(190, canvasSize.w - 190)) : cx;
+  // prefer floating above the bbox; fall through to below, then pin top
+  const ty =
+    bboxTop - 46 >= 8
+      ? bboxTop - 46
+      : Math.min(bboxBottom + 10, Math.max(8, (canvasSize.h || 400) - 56));
+  const runningCount = sel.filter((j) => j.status === "running").length;
+  const namePreview = sel
+    .slice(0, 3)
+    .map((j) => `“${j.name}”`)
+    .join(", ");
+
+  return (
+    <div className="pointer-events-none absolute z-40" style={{ left: clampedCx, top: ty }}>
+      <div
+        data-canvas-ui="selection-toolbar"
+        className="card-lift pointer-events-auto flex -translate-x-1/2 animate-rise items-center gap-0.5 rounded-lg border bg-card/95 p-1 shadow-md backdrop-blur"
+        role="toolbar"
+        aria-label={`${sel.length} jobs selected — align, distribute, duplicate or delete`}
+      >
+        <span className="whitespace-nowrap px-2 text-[11px] font-semibold tabular-nums text-muted-foreground">
+          {sel.length} selected
+        </span>
+        <span className="h-4 w-px bg-border" aria-hidden="true" />
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" className="h-7 gap-1 px-2 text-xs font-medium">
+              <AlignCenterVertical className="size-3.5" aria-hidden="true" />
+              Align
+              <ChevronDown className="size-3 opacity-60" aria-hidden="true" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-48">
+            {ALIGN_ITEMS.map(({ mode, icon: Icon, label }) => (
+              <DropdownMenuItem key={mode} onClick={() => alignSelected(mode)}>
+                <Icon aria-hidden="true" />
+                {label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 gap-1 px-2 text-xs font-medium"
+              title={sel.length < 3 ? "Distribution needs at least 3 jobs" : undefined}
+            >
+              <AlignHorizontalDistributeCenter className="size-3.5" aria-hidden="true" />
+              Distribute
+              <ChevronDown className="size-3 opacity-60" aria-hidden="true" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-48">
+            <DropdownMenuItem onClick={() => distributeSelected("h")}>
+              <AlignHorizontalDistributeCenter aria-hidden="true" />
+              Distribute horizontally
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => distributeSelected("v")}>
+              <AlignVerticalDistributeCenter aria-hidden="true" />
+              Distribute vertically
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <span className="h-4 w-px bg-border" aria-hidden="true" />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-7"
+          disabled={busy}
+          onClick={() => {
+            setBusy(true);
+            void duplicateSelected().finally(() => setBusy(false));
+          }}
+          aria-label="Duplicate selection"
+          title="Duplicate the selection — wires BETWEEN the copies are recreated, everything stays idle"
+        >
+          <Copy className="size-3.5" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-7 text-rose-600 hover:bg-rose-500/10 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300"
+          onClick={() => setConfirmDel(true)}
+          aria-label="Delete selection"
+          title="Delete the selection (with every wire attached)"
+        >
+          <Trash2 className="size-3.5" />
+        </Button>
+      </div>
+
+      {/* bulk delete confirm — mirrors the single-job guard (page.tsx /
+          job-card.tsx): cascades wires, so require an explicit OK */}
+      <AlertDialog open={confirmDel} onOpenChange={setConfirmDel}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {sel.length} jobs?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {namePreview}
+              {sel.length > 3 ? ` and ${sel.length - 3} more` : ""} — this removes every
+              wire attached to them. Files already written to the workdirs stay on disk.
+              {runningCount > 0 && ` ${runningCount} running process${runningCount === 1 ? " will be stopped" : "es will be stopped"}.`}{" "}
+              This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-rose-600 text-white hover:bg-rose-700 focus-visible:ring-rose-400"
+              onClick={() => {
+                setConfirmDel(false);
+                void deleteSelected();
+              }}
+            >
+              Delete {sel.length} jobs
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+});
+
 export function WorkflowCanvas() {
   // workspace-scoped view: only the active workspace's jobs render, wires
   // draw where BOTH endpoints are visible (cross-workspace data flows
@@ -176,6 +404,8 @@ export function WorkflowCanvas() {
   const paletteDrag = useWorkflowStore((s) => s.paletteDrag);
   const loading = useWorkflowStore((s) => s.loading);
   const select = useWorkflowStore((s) => s.select);
+  const selectedIds = useWorkflowStore((s) => s.selectedIds);
+  const toggleSelect = useWorkflowStore((s) => s.toggleSelect);
   const cancelConnect = useWorkflowStore((s) => s.cancelConnect);
   const setViewport = useWorkflowStore((s) => s.setViewport);
   const panBy = useWorkflowStore((s) => s.panBy);
@@ -185,6 +415,33 @@ export function WorkflowCanvas() {
   const rootRef = React.useRef<HTMLDivElement>(null);
   const panRef = React.useRef<PanState | null>(null);
   const panRafRef = React.useRef(0);
+
+  /* ------------- rubber-band select (Shift + drag) ------------------ */
+  /** Canvas-LOCAL rect of the band being drawn (null = idle). Lives in
+   *  state so both the ants overlay and the live hit test re-render. */
+  const [band, setBand] = React.useState<{
+    x1: number;
+    y1: number;
+    x2: number;
+    y2: number;
+  } | null>(null);
+  const bandRef = React.useRef<{ pointerId: number; startX: number; startY: number } | null>(null);
+
+  /** Jobs enclosed by the band (intersect semantics), workspace coords. */
+  const bandIds = React.useMemo(() => {
+    if (!band) return null;
+    const wx1 = (Math.min(band.x1, band.x2) - viewport.x) / viewport.zoom;
+    const wx2 = (Math.max(band.x1, band.x2) - viewport.x) / viewport.zoom;
+    const wy1 = (Math.min(band.y1, band.y2) - viewport.y) / viewport.zoom;
+    const wy2 = (Math.max(band.y1, band.y2) - viewport.y) / viewport.zoom;
+    const hit = new Set<string>();
+    for (const j of jobs) {
+      if (j.x < wx2 && j.x + CARD_W > wx1 && j.y < wy2 && j.y + CARD_H > wy1) {
+        hit.add(j.id);
+      }
+    }
+    return hit;
+  }, [band, viewport, jobs]);
 
   React.useEffect(
     () => () => {
@@ -370,7 +627,7 @@ export function WorkflowCanvas() {
     setViewport({ x: cx - px * nz, y: cy - py * nz, zoom: nz });
   };
 
-  /* ---------------- left-drag pan ----------------------------------- */
+  /* ---------------- left-drag pan / shift-drag band ---------------- */
   const handlePointerDown = (e: React.PointerEvent<HTMLElement>) => {
     if (e.button !== 0) return;
     const target = e.target as HTMLElement;
@@ -384,6 +641,19 @@ export function WorkflowCanvas() {
     if (target !== e.currentTarget && !e.currentTarget.contains(target)) return;
     if (target.closest("[data-job]")) return; // cards handle their own drag
     if (target.closest("[data-canvas-ui]")) return; // overlays keep their events
+    const rect = e.currentTarget.getBoundingClientRect();
+    if (e.shiftKey) {
+      // Shift + background drag = rubber-band select (plain drag keeps
+      // panning so existing muscle memory is untouched; a shift-click
+      // without movement falls out below as "clear selection")
+      bandRef.current = {
+        pointerId: e.pointerId,
+        startX: e.clientX - rect.left,
+        startY: e.clientY - rect.top,
+      };
+      capturePointer(e);
+      return;
+    }
     panRef.current = {
       pointerId: e.pointerId,
       lastX: e.clientX,
@@ -394,10 +664,21 @@ export function WorkflowCanvas() {
       pendX: 0,
       pendY: 0,
     };
-    e.currentTarget.setPointerCapture(e.pointerId);
+    capturePointer(e);
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLElement>) => {
+    const b = bandRef.current;
+    if (b && e.pointerId === b.pointerId) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      setBand({
+        x1: b.startX,
+        y1: b.startY,
+        x2: e.clientX - rect.left,
+        y2: e.clientY - rect.top,
+      });
+      return;
+    }
     const p = panRef.current;
     if (!p || e.pointerId !== p.pointerId) return;
     const dx = e.clientX - p.lastX;
@@ -418,6 +699,16 @@ export function WorkflowCanvas() {
   };
 
   const handlePointerUp = (e: React.PointerEvent<HTMLElement>) => {
+    const b = bandRef.current;
+    if (b && e.pointerId === b.pointerId) {
+      bandRef.current = null;
+      // commit whatever the band enclosed — an empty result (shift-click on
+      // bare canvas, or a band over empty space) clears the selection
+      const ids = bandIds ? [...bandIds] : [];
+      setBand(null);
+      useWorkflowStore.getState().selectMany(ids);
+      return;
+    }
     const p = panRef.current;
     if (!p || e.pointerId !== p.pointerId) return;
     if (panRafRef.current) {
@@ -440,6 +731,12 @@ export function WorkflowCanvas() {
   };
 
   const handlePointerCancel = (e: React.PointerEvent<HTMLElement>) => {
+    const b = bandRef.current;
+    if (b && e.pointerId === b.pointerId) {
+      bandRef.current = null;
+      setBand(null);
+      return;
+    }
     const p = panRef.current;
     if (!p || e.pointerId !== p.pointerId) return;
     panRef.current = null;
@@ -571,6 +868,9 @@ export function WorkflowCanvas() {
             // workspace points, size keeps ~22px on screen at any zoom
             backgroundSize: `${(22 / zoom).toFixed(2)}px ${(22 / zoom).toFixed(2)}px`,
             backgroundPosition: `${viewport.x}px ${viewport.y}px`,
+            // rubber-band gesture gets a precision cursor (overrides the
+            // grab cursor while the band is being drawn)
+            cursor: band ? "crosshair" : undefined,
           }}
         >
       {loading && jobs.length === 0 ? (
@@ -592,7 +892,9 @@ export function WorkflowCanvas() {
             <JobCard
               key={job.id}
               job={job}
-              selected={selectedId === job.id}
+              selected={selectedIds.includes(job.id)}
+              primary={selectedId === job.id}
+              bandMatch={bandIds?.has(job.id) ?? false}
               zoom={zoom}
               pendingFrom={pendingFrom}
               pendingFromType={pendingFromType}
@@ -601,8 +903,10 @@ export function WorkflowCanvas() {
               }
               inspected={inspectId === job.id}
               onSelect={select}
+              onToggleSelect={toggleSelectProxy}
               onInspect={inspect}
               onDragCommit={moveJobCommitProxy}
+              onGroupDragCommit={groupDragCommitProxy}
               onStartConnect={setPendingFromProxy}
               onCancelConnect={cancelConnect}
               onConnect={connectProxy}
@@ -613,6 +917,34 @@ export function WorkflowCanvas() {
 
       {/* Pipeline overview KPI bar (top-left) */}
       <PipelineKpi />
+
+      {/* Rubber-band selection rectangle (marching ants) */}
+      {band && (
+        <svg
+          className="pointer-events-none absolute inset-0 z-20"
+          width="100%"
+          height="100%"
+          aria-hidden="true"
+        >
+          <rect
+            x={Math.min(band.x1, band.x2)}
+            y={Math.min(band.y1, band.y2)}
+            width={Math.abs(band.x2 - band.x1)}
+            height={Math.abs(band.y2 - band.y1)}
+            rx={4}
+            className="band-ants"
+            fill="var(--primary)"
+            fillOpacity={0.05}
+            stroke="var(--primary)"
+            strokeOpacity={0.85}
+            strokeWidth={1.5}
+            strokeDasharray="7 5"
+          />
+        </svg>
+      )}
+
+      {/* Bulk-selection toolbar (align · distribute · duplicate · delete) */}
+      <SelectionToolbar rootRef={rootRef} hidden={band != null} />
 
       {/* Bird's-eye navigation map (bottom-right) */}
       <CanvasMinimap rootRef={rootRef} />
@@ -819,6 +1151,12 @@ export function WorkflowCanvas() {
 
 const moveJobCommitProxy = (id: string, x: number, y: number) => {
   void useWorkflowStore.getState().moveJobCommit(id, x, y);
+};
+const groupDragCommitProxy = (moves: { id: string; x: number; y: number }[]) => {
+  void useWorkflowStore.getState().moveJobsCommit(moves);
+};
+const toggleSelectProxy = (id: string) => {
+  useWorkflowStore.getState().toggleSelect(id);
 };
 const setPendingFromProxy = (pending: PendingFrom) => {
   useWorkflowStore.getState().setPendingFrom(pending);
