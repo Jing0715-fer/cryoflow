@@ -930,7 +930,7 @@ function OverviewTab({
       ) : null}
       {/* 3D reconstructions get the FSC curve (gold-standard report card). */}
       {is3dType ? (
-        <FscChart jobId={job.id} running={job.status === "running"} />
+        <FscChart jobId={job.id} running={job.status === "running"} projectId={job.projectId} />
       ) : null}
       {/* postprocess jobs add the Guinier plot (B-factor validation). */}
       {/postprocess/i.test(job.type) ? (

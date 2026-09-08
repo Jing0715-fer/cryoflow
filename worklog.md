@@ -2346,3 +2346,26 @@ Stage Summary:
 - 「清空 ≡ auto」别名语义被 QA 逼出来后做了正确取舍：删除不可达的空态 UI、把测试转向钉住回退行为——测试该钉住产品真实语义而不是理想化的边缘
 - 坐标点击在本环境对面板级 UI 不可靠的结论值得固化为默认：纯按钮 JS click + 语义验证重试，坐标点击保留给画布拖拽/指针敏感场景；僵尸页面覆写是「重启浏览器再播种」的又一条理由
 - 遗留（下轮候选）：workflow-import 多文件（低优先）；dev overlay「1 Issue」定位（dev-only）；EMPIAR 真数据回归（重）；gallery zoom 按钮 roving tabindex；report 深色模式打印样式
+
+---
+Task ID: 60
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 晨轮 2026-09-09 04:29）——新功能「FSC 曲线跨任务对比 overlay」：项目级 fsc-index 便宜发现 API + Compare chips 对话框（多曲线 union 网格合并、官方判据曲线、图例 chips 显隐、localStorage 持久化、6 曲线帽）；QA 逼出「嵌套 Radix 对话框 Esc 连锁关闭双层」真 bug（qa58 lightbox 同类第二例）并以 React 层吞 Esc 修复；qa60 三阶段两连全绿（production next start）+ qa47 A 回归绿；worklog + push
+
+Work Log:
+- 【开局核对】交接摘要第 10 轮过期（停在 Task 47）——worklog 实际最新 Task 59、HEAD b40e74f 干净；任务原文 Task 13 清单照旧全部早已闭环；2.8GB RSS 9h20m 的 idle 蠕变 server 按规程杀掉重启；勘查选定本轮重点：KPI 的 resolution chip 只取单条曲线，而「哪个重建更好」是 cryo-EM 恒久问题（polish 前后 / 两次 refine / masked 对比），每 job 的 FSC 图各自孤立——跨任务 overlay 是数据面已就绪（/fsc 路由 + statcache）只差发现层和 UI 的刚需
+- 【API·fsc-index】GET /api/projects/[id]/fsc-index：parse-free 发现层——每 job 的 workdir readdir 一次按文件名分类（postprocess.star → _fsc.fsc → _fsc.dat → run_half1_model.star → run_itNNN_model.star，与 per-job FSC 路由同优先序），软链经 findEffectiveJob 解析后 seen 去重（镜像 job 不重复造行）；shell 解析只发生在对话框对「选中」job 并行拉 /fsc 时（statcache 让重复便宜）——项目级全解析会把一次打开变成 N 个 star 文件读；排序 postprocess 组在前（官方判据所在）；空 index 返回 {jobs: []} 由 UI 诚实空态接住
+- 【UI·FscCompareDialog】两层数据流：index 发现 → 选中项并行 /fsc；合并把各 job 异构分辨率网格 union 到同一 x 轴（postprocess 网格跑到各自 Nyquist、model star 更粗——共采样点会掩盖坏合并，种子刻意用四条不同网格），每曲线 connectNulls 桥接自己的空档；每 job 画「官方判据」曲线（correctedFsc ?? fsc——与 job 卡徽章同一数字，overlay 永不与卡片矛盾）；6 色板 teal/amber 打头（2-way 对比落回应用 FSC 经典配色）；图例 chips=色条+job 名+0.143 穿越值（tabular-nums），点击隐藏/恢复曲线（aria-pressed、隐藏态 line-through、不丢勾选）；行=checkbox+状态点+名+(this job) 标记+类型+source 徽章+色样+res 列（curve 落地后填 0.143 值）；6 曲线帽（满员行禁用+诚实 title）；选择按 project 持久化 localStorage（restore latch 每 mount 一次、host job 恒回、持久 id 过滤存在性、cap 内截断）；空态/读数中/无曲线三态诚实文案；解读脚注（右缘更高=更精细、masked 爬升的意义、过度 mask 的警示）
+- 【接线】FscChart 增 projectId prop：header 加 compare chip（GitCompareArrows，hover teal、focus ring、title 说明），挂载 FscCompareDialog（currentJobId=自身）；job-inspector OverviewTab 与 results-view 两处传 job.projectId——任何 3D job 的 FSC 卡都能起对比
+- 【bug·Esc 连锁第二例】B 阶段抓到：compare dialog 里按 Esc 连身后的 inspector modal 一起关——诊断实锤（手开两层→Esc→[role=dialog] 数组变空）：每条 Radix Dialog 根各自 createDialogContext，dismissable-layer 的 layers Set 不共享（源码核实无全局 Provider），两层都自认 highest layer 各自 dismiss；qa58 在 lightbox 修过同款（当时误判为 window handler 越权，真正机制是 Radix 层栈天然分裂）——同药方：DialogContent onKeyDown 在 React 层消费 Esc（preventDefault+stopPropagation+手动 onOpenChange(false)），事件到不了 document 级 Radix listener，inspector 无感；系统性隐患（AlertDialog on Dialog 等所有嵌套组合）记入下轮候选
+- 【种子·qa60-seed-fsc.py】四条异构 FSC 曲线：QA Post 300/320/385（postprocess.star，corrected 判据 3.00/3.20/3.85 Å）+ QA Refine 410（run_half1_model.star，gold-standard 4.10 Å）；logistic 曲线族 fm=1/R−1.7969w 锚定穿越点、随机种子按 job 定（可复现 jitter）；网格刻意互异（45/41/31/24 shells、Nyquist 2.78–3.57 Å）逼真 union 合并；job 骨架沿用 qa58 惯例（API 建 job+prisma 翻 completed+手写 engine-state run 记录）；--clean 删文件+弹 state 条目；种子尾部用 app 自己的 index API 验证发现（missing 即 exit）
+- 【e2e·qa60 三阶段两连全绿（production next start）】A：inspector 打开 QA Post 320 → FSC 卡 compare chip → 对话框 4 行（host 预选+1/6、(this job) 标记、postprocess/half-maps 徽章）→ 勾三条 → 4 曲线 + 4/6 + 行内 0.143 值逐一 ±0.15 命中（3.00/3.20/3.85/4.09）+ 4 图例 chips（host chip 含 3.20 Å）+ 截图；B：图例隐 385（曲线 4→3、行保持勾选）→ 复显（3→4）→ Esc 关对话框（且 inspector 不陪葬）→ 关 inspector → 重开（FscChart 重挂载）→ 再开对话框：localStorage 恢复 4/6 全勾 + 4 曲线；C：console 0 error + seed --clean（复核 index 归零）
+- 【QA 探针两课】①errCount 三度落坑：J(JSON.parse) 把裸 "0" 变数字 0，`errs === "0"` 永假——qa58 已记过的坑本轮再踩（此前 qa57 同款代码侥幸只因从未在 0 时断言），本轮 harness 内注释钉死「unq only 不经 J」②agent-browser CLI 的 FATAL 输出走 step+console.error 双通道，tail 截断时别把两行当两次失败
+- 【运维】dev server 本轮两死（开局 2.8GB 蠕变一杀、lint 期间 OOM 一杀）→ 按 Task 54+ 配方整体转 production（build cap 1536 → next start → 播种 → 全套一次过）；收尾杀 production 换回新鲜 dev server 且 ss 核对监听身份
+- 【收尾】eslint 0、tsc src 0；qa60-compare.png 目检出版级（4 曲线物理一致：Post 300 青色最右=最精细、Refine 410 红色最左=最差、徽章/标记/数值全对）；seed --clean 复核 0 残留；浏览器已关
+
+Stage Summary:
+- 「哪个重建更好」第一次能在应用内直接回答：任何 3D job 的 FSC 卡一键起对比，四条异构曲线合并到同一根分辨率轴，每条画的是与 job 卡徽章同源的官方判据数字；图例 chips 让「隐藏这条再看」成为对比工作流的一部分，选择按项目记住
+- 发现/解析两层拆分是本轮的结构性收获：fsc-index 用 readdir 分类把「谁有曲线」做到近乎免费，重活只落在被选中的曲线上——发现层便宜才能让对话框敢每次打开都重新扫描
+- 嵌套 Radix 对话框 Esc 连锁的真正机制本轮才水落石出：不是 window handler 越权（qa58 的第一解释），而是每条 Dialog 根的 dismissable-layer 栈天然独立、都自认顶层——React 层吞 Esc + 手动关自己是唯一可靠药方；所有「对话框叠对话框」组合都该过一遍这个检查
+- 遗留（下轮候选）：嵌套对话框 Esc 语义系统性排查（AlertDialog on Dialog、path-browser on panel 等）；对比对话框内再点行标题跳转对应 job；fsc-index 对 running job 的 live 曲线加轮询徽章；workflow-import 多文件（低优先）；dev overlay「1 Issue」定位（dev-only）；EMPIAR 真数据回归（重）；gallery zoom roving tabindex；report 深色模式打印样式

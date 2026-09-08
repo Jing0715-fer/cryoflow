@@ -657,7 +657,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
       </div>
 
       {/* FSC curve (live: half-map FSC while refining, masked FSC after postprocess) */}
-      <FscChart jobId={job.id} running={job.status === "running"} />
+      <FscChart jobId={job.id} running={job.status === "running"} projectId={job.projectId} />
 
       {/* Maps & images gallery */}
       {mrcFiles.length > 0 && (

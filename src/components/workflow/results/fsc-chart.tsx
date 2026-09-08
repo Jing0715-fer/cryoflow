@@ -16,7 +16,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { Award, Crosshair, Layers, Waves } from "lucide-react";
+import { Award, Crosshair, GitCompareArrows, Layers, Waves } from "lucide-react";
 import {
   CartesianGrid,
   Line,
@@ -30,6 +30,7 @@ import {
 } from "recharts";
 import { cn } from "@/lib/utils";
 import { fetchJsonRetry } from "@/lib/retry-fetch";
+import { FscCompareDialog } from "./fsc-compare-dialog";
 
 const TEAL = "#14b8a6";
 const AMBER = "#f59e0b";
@@ -62,13 +63,18 @@ export function FscChart({
   jobId,
   running,
   className,
+  projectId,
 }: {
   jobId: string;
   /** live jobs poll every 30 s so the curve tracks the refinement. */
   running?: boolean;
   className?: string;
+  /** when set, the header earns a Compare chip that opens the project-
+   *  wide FSC overlay (other jobs' curves plotted on the same axis) */
+  projectId?: string;
 }) {
   const [data, setData] = useState<FscResponse | null>(null);
+  const [compareOpen, setCompareOpen] = useState(false);
   // the raw masked-maps FSC (pre-correction) is an expert diagnostic — the
   // gap between it and the corrected curve IS the mask-induced correlation
   // boost. Hidden by default so the headline chart stays readable.
@@ -161,6 +167,18 @@ export function FscChart({
           <span className="rounded-full border border-muted-foreground/25 bg-muted px-2 py-0.5 text-[11px] font-semibold tabular-nums text-muted-foreground">
             0.5 → {res05.toFixed(2)} Å
           </span>
+        )}
+        {projectId && (
+          <button
+            type="button"
+            onClick={() => setCompareOpen(true)}
+            data-testid="fsc-compare-open"
+            title="Overlay FSC curves from other jobs in this project — compare this reconstruction against refinements and postprocess runs on the same axis"
+            className="inline-flex items-center gap-1 rounded-full border border-muted-foreground/25 bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground transition-colors hover:border-teal-500/40 hover:text-teal-700 dark:hover:text-teal-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+          >
+            <GitCompareArrows className="h-3 w-3" aria-hidden="true" />
+            compare
+          </button>
         )}
         {hasMasked && (
           <button
@@ -379,6 +397,14 @@ export function FscChart({
             ? "The corrected FSC stays above 0.143 through the last sampled shell — the reported value sits at the box Nyquist limit (2 × pixel size). Re-extract with a smaller pixel size or larger box to probe beyond it."
             : (data.reportedLabel ?? "RELION's own smoothed estimate of the resolution.")}
         </p>
+      )}
+      {projectId && (
+        <FscCompareDialog
+          projectId={projectId}
+          open={compareOpen}
+          onOpenChange={setCompareOpen}
+          currentJobId={jobId}
+        />
       )}
     </section>
   );
