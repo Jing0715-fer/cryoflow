@@ -418,11 +418,25 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
         const host = containerRef.current?.parentElement ?? containerRef.current;
         const bg = host ? getComputedStyle(host).backgroundColor : "";
         const plate = bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent" ? bg : "";
+        // figure annotations: document HOW the map was cut — the same
+        // slice/clip state the on-screen wireframe + sliders represent.
+        // Clip axes still at 1 are uncropped and silently omitted.
+        const st = sliceStateRef.current;
+        const cp = clipStateRef.current;
+        const annotations: string[] = [];
+        if (st.on) annotations.push(`slice ${st.axis} ${Math.round(st.pos * 100)}%`);
+        if (cp.on) {
+          const axes = (["x", "y", "z"] as const)
+            .filter((ax) => cp[ax] < 0.999)
+            .map((ax) => `${ax.toUpperCase()} ${Math.round(cp[ax] * 100)}%`);
+          if (axes.length) annotations.push(`clip ${axes.join(" ")}${cp.invert ? " · flip" : ""}`);
+        }
         const res = await exportViewerPng({
           canvas,
           background: plate,
           mapName: name,
           sigma,
+          annotations,
         });
         toast({
           title: "3D view exported",
@@ -1320,7 +1334,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
             onClick={captureView}
             disabled={shot === "busy"}
             aria-label="Export the current 3D view as PNG"
-            title="Export view as PNG — the exact density you see (contour, clip, slice) as a slide-ready figure"
+            title="Export view as PNG — the exact density you see; contour / slice / clip state is annotated in the figure footer"
           >
             {shot === "busy" ? (
               <Loader2 className="size-4 animate-spin" />

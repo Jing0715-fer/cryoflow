@@ -1676,3 +1676,25 @@ Stage Summary:
 - 第 29 个真实 bug 闭环：mol* Canvas3D 无 .canvas 属性（API 幻觉）→ webgl.gl.canvas 标准路径 + DOM 兜底
 - Task 27 遗留#4 落地：项目创建/重命名双入口的琥珀撞名提醒（非阻断、自动显隐、case-insensitive）——同名项目从"事后发现难分辨"到"事前一眼提醒"
 - 遗留（下轮候选）：真 RELION 数据回归（EMPIAR 全链重建，需用户机器）、HPC SBATCH 在真集群的实测反馈、并行 cron 轮的资源竞争（同沙箱 DB/dev server 共享，建议错峰或分工作副本）、3D 截图的 σ 水印随 slice/clip 状态扩展（当前仅 contour σ）
+
+---
+Task ID: 29
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 新日轮）——Task 28 三功能回归 QA + 3D 导出页脚 slice/clip 水印（Task 28 遗留#4）+ 并行会话竞争复盘 + worklog + push
+
+Work Log:
+- 【开局核对】worklog 实际最新为 Task 28（指令所称"末尾 Task 13"已严重过期）；git 起始工作树含未提交改动（Task 28 会话的三大功能实现）——E2E 期间检测到 Task 28 会话在旁路并行收尾并于 02:12 提交推送 7e4451c（含 #29 canvas 访问器修复 + parentElement 背景修正 + 沙箱恢复记录），本地 reset 后与 origin 一致；origin/main 另含用户真机侧 6 提交（HPC/Slurm/SBATCH/引擎修复——Task 28 已 QA）
+- 【QA 回归·全绿】dev server playbook 重启 ×2（OOM 窗口模式）+ 预热；Workflow/Dashboard/console 0 error；上轮中断会话的三大功能（3D 截图导出/创建重名提醒/重命名重名提醒）逐一实测通过
+- 【E2E·重名提醒双入口】创建对话框：输入 demo 重名 → 琥珀提示出现 + Create 保持 enabled（非阻断契约）；改唯一名 → 提示消失 → "QA Sandbox A" 创建成功并自动激活；卡片内联重命名：输入**另一项目**名（"QA Sandbox A"）→ 紧凑 nudge 出现（"Enter still renames" 契约文案在位）；输入自身当前名 → 守卫正确不提示（自名≠碰撞）；唯一名 Enter 提交 → DB 持久。fixture 正名完成：QA Sandbox A（空）/B（3 jobs）/C（4 jobs 含 completed refine3d）+ demo
+- 【真 bug 排查·"View in 3D 对话框不开"= 自动化伪影非应用 bug】agent-browser 合成点击 "View in 3D (Mol*)" 后 MolViewer dialog 从不挂载（MutationObserver 取证：只 REMOVED 无 ADDED）；Live DOM 读 React fiber __reactProps 确认 onClick 源码正确 → **直接调用 onClick() 一发命中**（mol:true, dlgN:2）——agent-browser 指针事件序列触发 Radix 双 dialog 同 commit 互换的 dismiss 竞态；Task 28 真实点击成功旁证。方法论入库：**dialog 互换场景用 __reactProps 直调或 MutationObserver 取证，勿赖合成点击**
+- 【新功能·3D 导出页脚 slice/clip 水印（Task 28 遗留#4）】①viewer-export.ts：ViewerExportOptions 增可选 annotations?: string[]——与 contour σ、日期一起以 " · " join 进 footer meta；溢出防护：meta 宽度超出右缘时改右对齐（小画布+长 clip 链不破版）；②molstar-embed captureView：从 sliceStateRef/clipStateRef 构建注记——slice on → "slice <AXIS> <pct>%"；clip on → 仅列实际裁剪轴（<0.999）"clip X 85%"，invert 追加 " · flip"，全 1 轴静默省略；③按钮 title 同步升级（"...contour / slice / clip state is annotated in the figure footer"）
+- 【E2E·水印全链】viewer ready → Slice on（默认 Z 50%）+ Clip on → X 面键盘步进至 0.85 → 导出 → toast "cryoflow-map-sharpened-map-20260908-0239.png · 1149×469 px" → 落盘目检：页脚完整呈现 "contour 2.00 σ · slice Z 50% · clip X 85% · 9/8/2026"，图面为 WYSIWYG 灰面（cross-section+clip 后状态）——导出图从此自文档化（"这图怎么切的"一眼可读）；关 Slice/Clip 复导 → toast 成功（headless 下载偶发抑制不影响管线判定，toast+尺寸+字节为准）
+- 【运维】本会话 dev server OOM ×2（molstar chunk 编译窗口，dmesg 实锤 RSS 2.5–2.8GB）→ playbook 重启 ×2；无头 Chrome 下载对同一文件名连导偶发不落盘（toast 已报成功）——判定以 toast/尺寸为准，落盘为 bonus
+- 【收尾】bun run lint 0/0、tsc src/ 0 错误（skills/ 预存在错误与项目无关）；E2E 无残留 job（重命名/创建均为 fixture 有意保留态）；~/Downloads 保留 0239 注记水印样张；浏览器已关（内存纪律，闲时 3.5GB 可用）
+
+Stage Summary:
+- Task 28 三功能回归全绿并正式入库（7e4451c 已在 origin/main）：3D 截图导出 + 创建/重命名重名双提醒
+- 3D 导出页脚从"只记阈值"到"记录切割方式"：slice/clip 状态自动成为图注——与画布 PNG（谁看的图）、workflow JSON（机器重建）互为补充的"密度图三件套"收官
+- 第 30 号发现（自动化伪影级）：agent-browser 合成点击 × Radix dialog 互换竞态——直调 __reactProps.onClick 绕过；应用代码零缺陷
+- 并行 cron 轮资源竞争复盘：同沙箱双会话在 DB/dev server/browser 三层交叠，Fast Refresh 清 dialog 状态 ×N——下轮建议错峰或开工前先 git pull + worklog 对表（本轮已按此执行）
+- 遗留（下轮候选）：真 RELION 数据回归（EMPIAR 全链重建，需用户机器）、HPC SBATCH 真集群实测反馈（需用户机器）、3D 导出可选 2× 超采样（molstar canvas props）、导入对话框 toast 内嵌切换按钮（自动跟随已覆盖主场景）

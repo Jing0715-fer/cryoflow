@@ -28,6 +28,11 @@ export interface ViewerExportOptions {
   mapName: string;
   /** current contour level in σ (footer meta) */
   sigma: number;
+  /** figure annotations beyond the contour level — the slice/clip state
+   *  the view is showing ("slice Y 50%", "clip X 60% · flip", …). Joined
+   *  into the footer meta so the exported figure documents HOW it was
+   *  cut, not just WHAT threshold it used. */
+  annotations?: string[];
 }
 
 export interface ViewerExportResult {
@@ -102,7 +107,8 @@ export async function exportViewerPng(opts: ViewerExportOptions): Promise<Viewer
   octx.fillRect(0, canvas.height, out.width, Math.max(1, scale));
 
   const title = `CryoFlow — ${opts.mapName}`;
-  const meta = `contour ${opts.sigma.toFixed(2)} σ · ${new Date().toLocaleDateString()}`;
+  const notes = (opts.annotations ?? []).filter(Boolean);
+  const meta = [`contour ${opts.sigma.toFixed(2)} σ`, ...notes, new Date().toLocaleDateString()].join(" · ");
   octx.textBaseline = "middle";
   octx.fillStyle = cssColor("--foreground", "#0f172a");
   octx.font = `600 ${13 * scale}px ui-sans-serif, system-ui, sans-serif`;
@@ -111,7 +117,14 @@ export async function exportViewerPng(opts: ViewerExportOptions): Promise<Viewer
   const titleW = octx.measureText(title).width;
   octx.fillStyle = cssColor("--muted-foreground", "#64748b");
   octx.font = `400 ${11 * scale}px ui-sans-serif, system-ui, sans-serif`;
-  octx.fillText(meta, 16 * scale + titleW + 12 * scale, canvas.height + footerH * 0.5 + scale);
+  // inline after the title; when the annotated meta would overflow the
+  // right edge, right-align it instead (small canvases + long clip chains)
+  const metaX = 16 * scale + titleW + 12 * scale;
+  const metaW = octx.measureText(meta).width;
+  const margin = 16 * scale;
+  const metaY = canvas.height + footerH * 0.5 + scale;
+  const inline = metaX + metaW <= out.width - margin;
+  octx.fillText(meta, inline ? metaX : out.width - margin - metaW, metaY);
 
   const blob = await new Promise<Blob | null>((res) => out.toBlob(res, "image/png"));
   if (!blob) throw new Error("PNG encoding failed.");
