@@ -32,9 +32,14 @@ WORKSPACE = "cmts0qohh0001p8dasv88cddv"
 SRC_NAME = "QA Class2D Source"
 SEL_NAME = "QA Class Select"
 
-# occupancy ladder — 8 classes, 1455 particles, spread wide enough that
-# auto (0.5 × best = 210) draws a visible 3-kept / 5-discarded line
-COUNTS = [420, 300, 240, 180, 120, 90, 60, 45]
+# occupancy ladder — 8 classes, 1455 particles, occupancy DECOUPLED from
+# class number so the gallery's occupancy sort genuinely reorders (and the
+# auto cutoff still draws a 3-kept line):
+#   cls:      1    2    3    4    5   6    7   8
+#   count:  180  420   90  300   60 240   45 120
+#   rank:     4    1    6    2    7   3    8   5
+#   auto (0.5 × 420 = 210) keeps classes 2, 4, 6 → 960 / 1455 (66%)
+COUNTS = [180, 420, 90, 300, 60, 240, 45, 120]
 ITER = 12
 
 

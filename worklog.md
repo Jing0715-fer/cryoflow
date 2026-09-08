@@ -2324,3 +2324,25 @@ Stage Summary:
 - 两个真 bug 都是种子过程捞出来的：①stack 过滤器死代码只有「用真实 RELION 文件名播种」才暴露（单测/自测都用 masked 栈名绕过了它）②Esc 连锁只有「在面板内开 controlled dialog」这个组合才触发——QA 种子造的是真实数据布局，不是合成快照
 - 方法论沉淀：①面板内 controlled dialog 的 Esc 必须自吞（stopPropagation）否则窗口级 handler 链会越权关闭身后的编辑现场 ②idle/completed 卡点击语义分叉（参数面板 vs inspector modal）是 QA bootstrap 的隐藏分叉点，视口宽度还掺一脚（xl 断点）③production 模式跑 QA 的配方已稳定到「build → next start → 预热 → 全套一次过」零惊喜
 - 遗留（下轮候选）：workflow-import 多文件（低优先）；dev overlay「1 Issue」定位（dev-only 观察）；真 RELION 数据回归（EMPIAR 全链重建，重）；gallery 卡片键盘可达性已有（原生 button）但 zoom 按钮在 tab 序里 8×2 个 stop 可考虑 roving tabindex；report 图表在深色模式下的打印样式
+
+---
+Task ID: 59
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 晨轮 2026-09-09 03:59）——落地 Class gallery 分诊工具（Sort Class #/Occupancy 双 chips + Kept only 视图 + showing N of M 诚实徽章 + lightbox 跟随可见序导航）；种子占有率阶梯与类号解耦让排序真正可测；过程中揪出「清空选择 ≡ auto」的别名语义让 0-kept 空态不可达（删除死 UI 分支改为钉住回退语义）；qa59 + qa58（适配新阶梯）双套件全绿（production next start）；worklog + push
+
+Work Log:
+- 【开局核对】worklog 最新 Task 58（本 agent 上轮）、HEAD 0d05880 == origin 干净；任务原文第 9+ 次引用过期的 Task 13 清单（已在 Task 22-58 全闭环）→ 转新功能；选定「class gallery 分诊」：真实 RELION 2D 运行 K=50-200 类，按占有率找好类 + 只看已保留复查是刚需
+- 【功能·triage 视图栏】画廊 header 与网格之间新增 view bar：SORT 双 chips（Class # = RELION 原生序默认 / Occupancy = rank 序即 count desc cls asc 平局）+ Kept only chip（带实时 · N 计数）+ 溢出时 showing N of M 徽章（mono tabular-nums，排序不触发——8 of 8 全可见不撒谎）；全部沿用 Auto/All/None 的圆 chips 视觉语言；纯视图态，永不改写选择
+- 【功能·lightbox 跟随可见序】visible = filter(keptOnly) → sort 派生数组；网格、lightbox 导航（stepZoom 环形）、邻图预加载、计数分母全部消费 visible——←/→ 永远是「网格上看得见的下一个」；lightbox 打开时被检类离开可见集（如 kept-only 下被 discard）→ zoomClass 变 null → dialog 优雅关闭（复用 Task 58 的 null 守卫）
+- 【语义发现·死 UI 删除】QA 写「0-kept 空态」时发现不可达：discarding 最后一个 kept 类 onChange("") → 空串按既有别名规则读作 auto → 选择瞬间回弹 auto 集——kept.size 在手动模式恒 ≥1，visible.length===0 分支是真死代码；删除该分支（留注释说明非空保证），QA 改为钉住这个诚实回退：kept-only 开着时清空选择 → 视图自动跟随 auto 集 [2,4,6] + chip 计数 · 3 + footer Auto selection——比一个永远看不见的空态有价值得多
+- 【种子·阶梯解耦】COUNTS 从单调 [420,300,…,45] 改为打乱 [180,420,90,300,60,240,45,120]（cls: 1-8 / rank: 4,1,6,2,7,3,8,5）——occupancy 排序从此真正重排 [2,4,6,1,8,3,5,7] 而非恒等；auto 线不变（0.5×420=210 保 {2,4,6} → 960/1455 66%）；qa58 断言适配（class 2 rank #1、toggle 舞步换 class 2、footer 1,080/1,260、卡回归换 class 1）
+- 【QA·qa59 三阶段全绿】A：默认序 [1..8] + chips 初态 + 无徽章 → Occupancy 重排 [2,4,6,1,8,3,5,7] → lightbox 可见序导航（cls2 是 1st、→cls4 rank#2、←×2 环绕到 cls7 rank#8）+ 排序不触徽章 → kept-only [2,4,6] + showing 3 of 8 + 灯箱内 wrap 6→2 → kept-only 下 discard 最后可见类 → dialog 优雅关闭 + 徽章 2 of 8 + footer 720 → 复原链（kept-only off / sort back / auto 960 轮询等待 debounce）→ 回退语义段（None→kept-only [1]→discard→auto [2,4,6] 跟随）→ 截图 qa59-triage.png；B：qa58 要点回归（rank #1、箭头、960）；C：console 0 + 清场
+- 【QA 探针新三课】①右侧面板内坐标点击（realClick）对本环境整体不可靠且间歇（zoom 按钮成功、Auto/None/card 间歇失败——返回 clicked@ 但 React 不触发）：纯按钮一律 JS el.click() + 语义验证重试（clickChipUi/clickHeaderChip/toggleCard 三帮手），坐标点击只留给画布/指针语义场景 ②「僵尸页面覆写」：FATAL 退出的旧页面 + params debounce auto-save 会把种子刚写的 selectedClasses 覆写回去（seed auto → 页面 2,4）——harness bootCanvas 开头 agent-browser close 杀僵尸再 boot ③断言自纠三连：occupancy 序末位是 cls7 非 cls5（自己数错）、footer 裸字符串用 unq 非 J（qa58 老课重犯）、B 阶段 counter 期望值抄错上下文
+- 【运维】dev server 本轮又 OOM 一死（168 次 oom-kill 计数）→ 全程 production next start（rebuild 后两套件 + 完整轮全部一次过，内存平稳）；浏览器已关、seed --clean 无残留
+- 【收尾】eslint 0、tsc src 0；qa59-triage.png 目检（Occupancy 序 8 卡 [✓2 420|✓4 300|✓6 240|1 180|8 120|3 90|5 60|7 45] + view bar + lightbox Class 6 rank #3 · 3/8 同框出版级）
+
+Stage Summary:
+- 挑类的「分诊」层补齐：大 K 运行的两个真实动作——「按占有率从大到小找好类」和「只看已保留的复查取舍」——现在都是一键视图且互相正交（filter 先于 sort 派生同一个 visible 数组，lightbox 跟随）；诚实徽章只在真过滤时出现，排序全量可见不制造假稀缺
+- 「清空 ≡ auto」别名语义被 QA 逼出来后做了正确取舍：删除不可达的空态 UI、把测试转向钉住回退行为——测试该钉住产品真实语义而不是理想化的边缘
+- 坐标点击在本环境对面板级 UI 不可靠的结论值得固化为默认：纯按钮 JS click + 语义验证重试，坐标点击保留给画布拖拽/指针敏感场景；僵尸页面覆写是「重启浏览器再播种」的又一条理由
+- 遗留（下轮候选）：workflow-import 多文件（低优先）；dev overlay「1 Issue」定位（dev-only）；EMPIAR 真数据回归（重）；gallery zoom 按钮 roving tabindex；report 深色模式打印样式

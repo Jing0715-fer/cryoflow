@@ -140,22 +140,37 @@ export function ClassGallery({
     onChange([...next].sort((a, b) => a - b).join(","));
   };
 
-  // ---------------- lightbox (zoom inspection) ----------------
-  // occupancy rank: 1 = most occupied class (ties broken by class number)
+  // ---------------- triage views (sort + kept-only) ----------------
+  // Real 2D runs spawn 50–200 classes; triage means finding the good ones
+  // fast (occupancy sort) and reviewing decisions without the noise
+  // (kept-only). Both are VIEW state — they never rewrite the selection.
+  const [sortMode, setSortMode] = useState<"class" | "occupancy">("class");
+  const [keptOnly, setKeptOnly] = useState(false);
+
   const rankByCls = useMemo(() => {
     const ordered = [...classes].sort((a, b) => b.count - a.count || a.cls - b.cls);
     return new Map(ordered.map((c, i) => [c.cls, i + 1]));
   }, [classes]);
 
-  /** class under inspection in the lightbox — cls number, null = closed */
+  /** what the grid shows: kept-only filter applied first, then the sort */
+  const visible = useMemo(() => {
+    const base = keptOnly ? classes.filter((c) => kept.has(c.cls)) : classes;
+    if (sortMode === "class") return [...base].sort((a, b) => a.cls - b.cls);
+    // occupancy = rank order (count desc, ties by class number)
+    return [...base].sort((a, b) => (rankByCls.get(a.cls) ?? 0) - (rankByCls.get(b.cls) ?? 0));
+  }, [classes, kept, keptOnly, sortMode, rankByCls]);
+
+  // ---------------- lightbox (zoom inspection) ----------------
+  /** class under inspection in the lightbox — cls number, null = closed.
+   *  Navigation walks the VISIBLE order, so ← / → mean what the grid shows. */
   const [zoom, setZoom] = useState<number | null>(null);
-  const zoomIdx = zoom == null ? -1 : classes.findIndex((c) => c.cls === zoom);
-  const zoomClass = zoomIdx >= 0 ? classes[zoomIdx] : null;
+  const zoomIdx = zoom == null ? -1 : visible.findIndex((c) => c.cls === zoom);
+  const zoomClass = zoomIdx >= 0 ? visible[zoomIdx] : null;
 
   // wrap-around navigation inside the lightbox
   const stepZoom = (dir: 1 | -1) => {
-    if (zoomIdx < 0 || classes.length === 0) return;
-    const next = classes[(zoomIdx + dir + classes.length) % classes.length];
+    if (zoomIdx < 0 || visible.length === 0) return;
+    const next = visible[(zoomIdx + dir + visible.length) % visible.length];
     setZoom(next.cls);
   };
 
@@ -164,12 +179,12 @@ export function ClassGallery({
   useEffect(() => {
     if (zoomIdx < 0 || !classesFile) return;
     for (const d of [1, -1] as const) {
-      const n = classes[(zoomIdx + d + classes.length) % classes.length];
+      const n = visible[(zoomIdx + d + visible.length) % visible.length];
       if (!n) continue;
       const img = new Image();
       img.src = `/api/jobs/${upstream.id}/outputs/file?path=${encodeURIComponent(classesFile)}&format=png&montage=0&slice=${n.cls - 1}`;
     }
-  }, [zoomIdx, classesFile, classes]);
+  }, [zoomIdx, classesFile, visible]);
 
   // ← / → inside the dialog walk the classes; Radix handles focus trap
   const onLightboxKey = (e: React.KeyboardEvent) => {
@@ -323,6 +338,57 @@ export function ClassGallery({
         </div>
       </div>
 
+      {/* view bar: sort + kept-only — triage tools for large K runs */}
+      <div
+        className="flex flex-wrap items-center gap-1.5 border-b bg-secondary/20 px-3 py-1.5"
+        data-canvas-ui="class-viewbar"
+      >
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+          Sort
+        </span>
+        {(["class", "occupancy"] as const).map((m) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => setSortMode(m)}
+            aria-pressed={sortMode === m}
+            data-canvas-ui={`sort-${m}`}
+            title={m === "class" ? "RELION order — by class number" : "Biggest classes first — triage by occupancy"}
+            className={cn(
+              "rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors",
+              sortMode === m
+                ? "bg-zinc-700 text-white dark:bg-zinc-300 dark:text-zinc-900"
+                : "bg-muted text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {m === "class" ? "Class #" : "Occupancy"}
+          </button>
+        ))}
+        <button
+          type="button"
+          onClick={() => setKeptOnly((v) => !v)}
+          aria-pressed={keptOnly}
+          data-canvas-ui="kept-only"
+          title={keptOnly ? "Show every class again" : "Show only the kept classes — review your picks"}
+          className={cn(
+            "ml-1 rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors",
+            keptOnly
+              ? "bg-teal-600 text-white"
+              : "bg-muted text-muted-foreground hover:bg-teal-600/15 hover:text-teal-700 dark:hover:text-teal-300"
+          )}
+        >
+          Kept only{kept.size > 0 ? ` · ${kept.size}` : ""}
+        </button>
+        {visible.length !== classes.length && (
+          <span
+            className="ml-auto rounded-md bg-primary/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold tabular-nums text-primary"
+            data-canvas-ui="class-visible-count"
+          >
+            showing {visible.length} of {classes.length}
+          </span>
+        )}
+      </div>
+
       {/* the grid */}
       <div
         data-canvas-ui="class-grid"
@@ -332,7 +398,11 @@ export function ClassGallery({
         )}
         style={{ maxHeight: "26rem", overflowY: "auto" }}
       >
-        {classes.map((c) => {
+        {/* visible can never be empty here: an emptied selection aliases
+            back to auto ("" ≡ "auto"), so kept-only always has the auto set
+            to show — the guaranteed non-emptiness is what lets the lightbox
+            navigate without an out-of-range guard */}
+        {visible.map((c) => {
           const on = kept.has(c.cls);
           const share = maxCount > 0 ? c.count / maxCount : 0;
           return (
@@ -538,7 +608,7 @@ export function ClassGallery({
                     className="ml-1 font-mono text-xs tabular-nums text-muted-foreground"
                     data-canvas-ui="lightbox-counter"
                   >
-                    {zoomIdx + 1} / {classes.length}
+                    {zoomIdx + 1} / {visible.length}
                   </span>
                 </div>
 

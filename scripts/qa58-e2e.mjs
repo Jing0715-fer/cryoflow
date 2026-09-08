@@ -145,6 +145,10 @@ const closeDialogEsc = async () => {
 
 /** open the app and land on the canvas with the select2d job card visible */
 const bootCanvas = async () => {
+  // kill any zombie page first — a stale session's params auto-save can
+  // overwrite the freshly-seeded selection state after boot (seen live:
+  // seed wrote 'auto', the leftover page wrote '2,4' back over it)
+  sh(`${AB} close`); await sleep(1500);
   sh(`${AB} set viewport 1600 900`); // desktop aside path (xl breakpoint) —
   // the narrow viewport opens the inspector modal for completed jobs instead
   sh(`${AB} open ${B}`);
@@ -205,12 +209,12 @@ async function phaseA() {
   must(g.zooms === 8, "8 hover-zoom buttons present");
   must((g.footer || "").includes("960") && (g.footer || "").includes("1,455"), "auto footer 960 / 1,455 particles");
 
-  // --- open lightbox on class 2 (kept, rank #2) ---
+  // --- open lightbox on class 2 (kept, rank #1 on the shuffled ladder) ---
   must((await openLightbox(2)).includes("clicked@"), "zoom class 2 opens the lightbox");
   let lb = lightboxProbe();
   step(`  lightbox: ${JSON.stringify(lb)}`);
   must(lb && lb.counter === "2 / 8", "counter reads 2 / 8");
-  must(lb.rank === "2", "class 2 shows rank #2");
+  must(lb.rank === "1", "class 2 shows rank #1 (420 particles — shuffled ladder)");
   must(lb.keepPressed === "true", "class 2 starts kept (auto)");
   must((lb.imgAlt || "").startsWith("Class 2 average"), "full-size image present for class 2");
 
@@ -227,17 +231,19 @@ async function phaseA() {
   await keyInDialog("ArrowRight");
   must(lightboxProbe().counter === "1 / 8", "ArrowRight wraps → 1 / 8");
   lb = lightboxProbe();
-  must(lb.rank === "1", "class 1 shows rank #1");
+  must(lb.rank === "4", "class 1 shows rank #4 (180 particles)");
 
-  // --- keep-toggle button flips both directions ---
+  // --- keep-toggle button flips both directions (class 2 = kept in auto) ---
+  await keyInDialog("ArrowRight"); // → class 2 (rank #1, kept)
+  must(lightboxProbe().rank === "1", "back on class 2 for the toggle dance");
   await realClick(`[...document.querySelectorAll('[role=dialog]')].find(d => d.querySelector('[data-canvas-ui=lightbox-counter]')).querySelector('[data-canvas-ui=lightbox-keep]')`);
   await sleep(300);
   lb = lightboxProbe();
-  must(lb.keepPressed === "false" && (lb.keepText || "").includes("Discarded"), "class 1 toggled OFF via button");
+  must(lb.keepPressed === "false" && (lb.keepText || "").includes("Discarded"), "class 2 toggled OFF via button");
   await realClick(`[...document.querySelectorAll('[role=dialog]')].find(d => d.querySelector('[data-canvas-ui=lightbox-counter]')).querySelector('[data-canvas-ui=lightbox-keep]')`);
   await sleep(300);
   lb = lightboxProbe();
-  must(lb.keepPressed === "true" && lb.keepText === "Keep class", "class 1 toggled back ON");
+  must(lb.keepPressed === "true" && lb.keepText === "Keep class", "class 2 toggled back ON");
 
   // --- Esc closes ---
   must(await closeDialogEsc(), "Esc closes the lightbox");
@@ -253,17 +259,17 @@ async function phaseA() {
   must(await closeDialogEsc(), "Esc closes again");
   g = galleryProbe();
   must(g.pressed[7] === "true", "card 8 aria-pressed after Enter-keep");
-  must((g.footer || "").includes("Manual selection") && (g.footer || "").includes("1,005"), "footer now manual 1,005 particles");
+  must((g.footer || "").includes("Manual selection") && (g.footer || "").includes("1,080"), "footer now manual 1,080 particles (960 + 120)");
 
   // --- card click regression (toggle still works on the card itself) ---
-  const card4 = await realClick(
-    `[...document.querySelectorAll('section[aria-label="Class selection gallery"] button[aria-pressed]')].filter(b => (b.getAttribute('aria-label')||'').startsWith('Toggle class 4 '))[0]`,
+  const card1 = await realClick(
+    `[...document.querySelectorAll('section[aria-label="Class selection gallery"] button[aria-pressed]')].filter(b => (b.getAttribute('aria-label')||'').startsWith('Toggle class 1 '))[0]`,
   );
-  must(card4.includes("clicked@"), "card 4 clicked");
+  must(card1.includes("clicked@"), "card 1 clicked");
   await sleep(400);
   g = galleryProbe();
-  must(g.pressed[3] === "true", "card 4 now kept");
-  must((g.footer || "").includes("1,185"), "footer 1,185 particles (1,2,3,4,8)");
+  must(g.pressed[0] === "true", "card 1 now kept");
+  must((g.footer || "").includes("1,260"), "footer 1,260 particles (1,2,4,6,8)");
 
   // --- screenshot with the lightbox open on class 1 ---
   must((await openLightbox(1)).includes("clicked@"), "reopen lightbox on class 1 for the shot");
