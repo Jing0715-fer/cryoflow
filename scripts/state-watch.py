@@ -25,13 +25,13 @@ while True:
                 gone = prev_keys - keys
                 added = keys - prev_keys
                 if gone:
-                    log(f"SHRINK size={st.size} keys={len(keys)} GONE={sorted(gone)}")
+                    log(f"SHRINK size={st.st_size} keys={len(keys)} GONE={sorted(gone)}")
                 elif added:
-                    log(f"grow size={st.size} keys={len(keys)} ADDED={len(added)}")
+                    log(f"grow size={st.st_size} keys={len(keys)} ADDED={len(added)}")
                 else:
-                    log(f"rewrite size={st.size} keys={len(keys)} (same keys)")
+                    log(f"rewrite size={st.st_size} keys={len(keys)} (same keys)")
             else:
-                log(f"baseline size={st.size} keys={len(keys)}")
+                log(f"baseline size={st.st_size} keys={len(keys)}")
             prev = sig
             prev_keys = keys
     except Exception as e:
