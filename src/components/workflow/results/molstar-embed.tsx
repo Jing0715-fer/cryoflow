@@ -16,8 +16,10 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { Axis3d, Bookmark, BoxSelect, Camera, Check, ClipboardCopy, Download, Layers, Loader2, Mountain, Orbit, Plus, RefreshCcw, RotateCw, ScanLine, Upload, Video, X, ZoomIn } from "lucide-react";
+import { Axis3d, Bookmark, BoxSelect, Camera, Check, ClipboardCopy, Download, Layers, Loader2, Mountain, Orbit, Pencil, Plus, RefreshCcw, RotateCw, ScanLine, Upload, Video, X, ZoomIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
@@ -1004,6 +1006,17 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
   type CamBookmark = { id: string; name: string; ts: number; thumb?: string; snapshot: Record<string, unknown>; view?: BookmarkView };
   const [bookmarks, setBookmarks] = useState<CamBookmark[]>([]);
   const [bookmarkName, setBookmarkName] = useState("");
+  // inline rename — the pencil swaps the row's name span for an input;
+  // commit lives in onBlur (Enter just blurs) so there is exactly ONE
+  // commit path and Esc marks the cancel flag before the same blur fires
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
+  const renameCancelRef = useRef(false);
+  // import preview dialog — files are parsed up front and shown as a
+  // checklist (thumb / name / optics chips / pose-only badge) instead of
+  // being merged sight unseen
+  const [importPreview, setImportPreview] = useState<{ fileName: string; entries: CamBookmark[]; rawCount: number } | null>(null);
+  const [importPicked, setImportPicked] = useState<Set<number>>(new Set());
   // restore guard: a slow server response must never clobber a bookmark
   // the user saved while the fetch was in flight
   const bookmarkDirtyRef = useRef(false);
@@ -1176,6 +1189,52 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
     toast({ title: "View updated", description: `“${b.name}” now points at the current pose & optics.` });
   };
 
+  /** single commit path for the inline rename — runs from the input's blur
+   *  (Enter blurs, Esc raises the cancel flag first), so rapid Enter+unmount
+   *  can never double-commit or double-toast */
+  const commitRename = () => {
+    const id = renamingId;
+    setRenamingId(null);
+    if (!id || renameCancelRef.current) {
+      renameCancelRef.current = false;
+      return;
+    }
+    const nm = renameDraft.trim().slice(0, 40);
+    const cur = bookmarksRef.current.find((x) => x.id === id);
+    if (!nm || !cur || cur.name === nm) return; // empty or untouched — silent
+    commitBookmarks(bookmarksRef.current.map((x) => (x.id === id ? { ...x, name: nm } : x)));
+    toast({ title: "View renamed", description: `“${cur.name}” is now “${nm}”.` });
+  };
+
+  const beginRename = (b: CamBookmark) => {
+    setRenameDraft(b.name);
+    setRenamingId(b.id);
+  };
+
+  /** the optical annotation trio — shared by bookmark rows and the import
+   *  preview dialog (same language in both places) */
+  const renderViewChips = (v: BookmarkView) => (
+    <span className="mt-0.5 flex flex-wrap items-center gap-1" aria-hidden="true">
+      <span className="rounded bg-muted/80 px-1 py-px font-mono text-[8px] font-medium tabular-nums text-muted-foreground">
+        {v.sigma.toFixed(2)} σ
+      </span>
+      {v.slice.on && (
+        <span className="rounded bg-teal-600/10 px-1 py-px font-mono text-[8px] font-medium tabular-nums text-teal-700 dark:text-teal-400">
+          slice {v.slice.axis} {Math.round(v.slice.pos * 100)}%
+        </span>
+      )}
+      {v.clip.on && (
+        <span className="rounded bg-amber-600/10 px-1 py-px font-mono text-[8px] font-medium tabular-nums text-amber-700 dark:text-amber-400">
+          clip
+          {(["x", "y", "z"] as const)
+            .filter((ax) => v.clip[ax] < 0.999)
+            .map((ax) => ` ${ax.toUpperCase()} ${Math.round(v.clip[ax] * 100)}%`)
+            .join("")}
+        </span>
+      )}
+    </span>
+  );
+
   const restoreBookmark = (b: CamBookmark) => {
     const cam = pluginRef.current?.canvas3d?.camera;
     if (!cam) return;
@@ -1252,32 +1311,45 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
       try {
         const parsed: unknown = JSON.parse(String(reader.result));
         const raw = Array.isArray(parsed) ? parsed : (parsed as { bookmarks?: unknown })?.bookmarks;
-        const cleaned = cleanBookmarks(raw);
+        const rawCount = Array.isArray(raw) ? raw.length : 0;
+        // shape filter + strict view validation up front — the dialog shows
+        // exactly what would land (junk views already degraded to pose-only)
+        const cleaned = cleanBookmarks(raw).map((b) => ({ ...b, view: saneImportedView(b.view) }));
         if (cleaned.length === 0) {
           toast({ title: "No views found in that file", description: "Expected a CryoFlow view-bookmarks export.", variant: "destructive" });
           return;
         }
-        // re-id imported entries — ids only need uniqueness within the list,
-        // and a file exported from this very job would otherwise collide
         const room = Math.max(0, 8 - bookmarksRef.current.length);
-        const incoming = cleaned
-          .slice(0, room)
-          .map((b, i) => ({ ...b, id: `bm-${Date.now()}-${i}`, view: saneImportedView(b.view) }));
-        if (incoming.length === 0) {
+        if (room === 0) {
           toast({ title: "Bookmark list is full", description: "8 views max — delete one to make room for the import.", variant: "destructive" });
           return;
         }
-        commitBookmarks([...bookmarksRef.current, ...incoming]);
-        const dropped = cleaned.length - incoming.length;
-        toast({
-          title: `Imported ${incoming.length} view${incoming.length > 1 ? "s" : ""}`,
-          description: dropped > 0 ? `${dropped} dropped — the list holds 8.` : "Fly back from the list any time.",
-        });
+        // preselect whatever fits (file order) — the dialog explains the rest
+        setImportPicked(new Set(cleaned.map((_, i) => i).filter((i) => i < room)));
+        setImportPreview({ fileName: file.name, entries: cleaned, rawCount });
       } catch {
         toast({ title: "Import failed", description: "That file could not be read as view bookmarks.", variant: "destructive" });
       }
     };
     reader.readAsText(file);
+  };
+
+  /** merge the checked entries — ids re-generated here (not at parse time)
+   *  so re-opening the same file twice still lands distinct rows */
+  const confirmImport = () => {
+    if (!importPreview) return;
+    const room = Math.max(0, 8 - bookmarksRef.current.length);
+    const picked = importPreview.entries
+      .filter((_, i) => importPicked.has(i))
+      .slice(0, room)
+      .map((b, i) => ({ ...b, id: `bm-${Date.now()}-${i}` }));
+    setImportPreview(null);
+    if (picked.length === 0) return;
+    commitBookmarks([...bookmarksRef.current, ...picked]);
+    toast({
+      title: `Imported ${picked.length} view${picked.length > 1 ? "s" : ""}`,
+      description: "Fly back from the list any time.",
+    });
   };
 
   /* ---------------- view capture (figure export) ---------------------- */
@@ -3285,32 +3357,60 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                     No bookmarks yet — set up a view, then save it.
                   </p>
                 ) : (
-                  bookmarks.map((b) => (
+                  bookmarks.map((b) => {
+                    const isRenaming = renamingId === b.id;
+                    const thumb = b.thumb ? (
+                      <img
+                        src={b.thumb}
+                        alt=""
+                        aria-hidden="true"
+                        className="h-8 w-11 shrink-0 rounded-[4px] border border-border/70 bg-zinc-950 object-cover"
+                      />
+                    ) : (
+                      <span
+                        className="flex h-8 w-11 shrink-0 items-center justify-center rounded-[4px] border border-border/70 bg-muted/50"
+                        aria-hidden="true"
+                      >
+                        <Mountain className="size-3.5 text-muted-foreground/50" />
+                      </span>
+                    );
+                    return (
                     <div
                       key={b.id}
                       className="group/bm flex items-center gap-1.5 rounded-md border bg-card p-1 pr-1 transition-colors hover:border-primary/40"
                     >
+                      {isRenaming ? (
+                        <span className="flex min-w-0 flex-1 items-center gap-2" data-testid={`bm-rename-${b.id}`}>
+                          {thumb}
+                          <input
+                            autoFocus
+                            value={renameDraft}
+                            onChange={(e) => setRenameDraft(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                e.currentTarget.blur(); // the ONE commit path
+                              } else if (e.key === "Escape") {
+                                renameCancelRef.current = true;
+                                e.currentTarget.blur();
+                              }
+                            }}
+                            onBlur={commitRename}
+                            onClick={(e) => e.stopPropagation()}
+                            maxLength={40}
+                            aria-label={`Rename bookmark ${b.name}`}
+                            placeholder="View name…"
+                            className="h-6 min-w-0 flex-1 rounded-md border bg-background px-1.5 text-[11px] outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
+                          />
+                        </span>
+                      ) : (
                       <button
                         type="button"
                         onClick={() => restoreBookmark(b)}
                         className="flex min-w-0 flex-1 items-center gap-2 text-left"
                         title={`Fly back to “${b.name}”`}
                       >
-                        {b.thumb ? (
-                          <img
-                            src={b.thumb}
-                            alt=""
-                            aria-hidden="true"
-                            className="h-8 w-11 shrink-0 rounded-[4px] border border-border/70 bg-zinc-950 object-cover"
-                          />
-                        ) : (
-                          <span
-                            className="flex h-8 w-11 shrink-0 items-center justify-center rounded-[4px] border border-border/70 bg-muted/50"
-                            aria-hidden="true"
-                          >
-                            <Mountain className="size-3.5 text-muted-foreground/50" />
-                          </span>
-                        )}
+                        {thumb}
                         <span className="min-w-0">
                           <span className="block truncate text-[11px] font-medium text-foreground/90 transition-colors group-hover/bm:text-primary">
                             {b.name}
@@ -3318,30 +3418,11 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                           <span className="block text-[9px] text-muted-foreground">
                             {new Date(b.ts).toLocaleString()}
                           </span>
-                          {b.view && (
-                            <span className="mt-0.5 flex flex-wrap items-center gap-1" aria-hidden="true">
-                              <span className="rounded bg-muted/80 px-1 py-px font-mono text-[8px] font-medium tabular-nums text-muted-foreground">
-                                {b.view.sigma.toFixed(2)} σ
-                              </span>
-                              {b.view.slice.on && (
-                                <span className="rounded bg-teal-600/10 px-1 py-px font-mono text-[8px] font-medium tabular-nums text-teal-700 dark:text-teal-400">
-                                  slice {b.view.slice.axis} {Math.round(b.view.slice.pos * 100)}%
-                                </span>
-                              )}
-                              {b.view.clip.on && (
-                                <span className="rounded bg-amber-600/10 px-1 py-px font-mono text-[8px] font-medium tabular-nums text-amber-700 dark:text-amber-400">
-                                  clip
-                                  {(["x", "y", "z"] as const)
-                                    .filter((ax) => b.view!.clip[ax] < 0.999)
-                                    .map((ax) => ` ${ax.toUpperCase()} ${Math.round(b.view!.clip[ax] * 100)}%`)
-                                    .join("")}
-                                </span>
-                              )}
-                            </span>
-                          )}
+                          {b.view && renderViewChips(b.view)}
                         </span>
                       </button>
-                      <span className="flex shrink-0 flex-col">
+                      )}
+                      <span className="grid shrink-0 grid-rows-2 grid-flow-col gap-px">
                         <button
                           type="button"
                           onClick={() => updateBookmark(b)}
@@ -3359,9 +3440,19 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                         >
                           <X className="size-3" />
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => beginRename(b)}
+                          aria-label={`Rename bookmark ${b.name}`}
+                          title="Rename this view"
+                          className="rounded p-0.5 text-muted-foreground/50 transition-colors hover:bg-muted hover:text-primary"
+                        >
+                          <Pencil className="size-3" />
+                        </button>
                       </span>
                     </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
               {/* export / import — saved views are work product; move the
@@ -3409,12 +3500,6 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
       ) : null}
 
       {phase === "loading" && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/70 backdrop-blur-[2px]">
-          <div className="flex flex-col items-center gap-2.5 rounded-2xl border bg-background px-5 py-4 text-xs text-muted-foreground shadow-sm">
-            <div className="flex items-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin text-teal-600" aria-hidden="true" />
-              <span aria-live="polite">{STAGE_LABEL[stage]}</span>
-            </div>
             {/* thin stage progress: 4 dots, filled as stages complete */}
             <div className="flex items-center gap-1.5" aria-hidden="true">
               {(["viewer", "plugin", "download", "scene"] as LoadStage[]).map((s) => (
