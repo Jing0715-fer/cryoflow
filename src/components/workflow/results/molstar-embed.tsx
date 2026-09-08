@@ -16,14 +16,14 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { BoxSelect, Camera, Check, Layers, Loader2, Mountain, Plus, RotateCw, ScanLine, X, ZoomIn } from "lucide-react";
+import { BoxSelect, Camera, Check, ClipboardCopy, Layers, Loader2, Mountain, Plus, RotateCw, ScanLine, X, ZoomIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { fmtBytes } from "@/lib/canvas-export";
-import { exportViewerPng } from "@/lib/viewer-export";
+import { canCopyImageToClipboard, copyViewerPng, exportViewerPng } from "@/lib/viewer-export";
 import { MrcImage } from "./mrc-image";
 import "molstar/build/viewer/molstar.css";
 
@@ -92,6 +92,9 @@ interface OverlayEntry {
   color: string;
   /** current surface opacity (0.15–1) */
   alpha: number;
+  /** σ offset from the shared contour slider — nudges THIS map only
+   *  (class maps have different stats; the shared slider alone is tight) */
+  sigmaOffset: number;
 }
 /** an .mrc candidate from the job's outputs, offered in the Layers panel */
 interface MapChoice {
@@ -150,6 +153,8 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
   const [overlayBusy, setOverlayBusy] = useState<string | null>(null);
   const overlayReprsRef = useRef<Map<string, { data: any; vol: any; repr: any }>>(new Map());
   const overlaySeqRef = useRef(0);
+  /** per-overlay σ offset (sync source for commitContour — UI state lags) */
+  const overlayOffsetsRef = useRef<Map<string, number>>(new Map());
 
   // mol* handles — refs so the control bar can act on a live plugin
   const pluginRef = useRef<MolPlugin>(null);
@@ -385,14 +390,15 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
         },
       },
     }));
-    for (const { repr: oRepr } of overlayReprsRef.current.values()) {
+    for (const [oPath, { repr: oRepr }] of overlayReprsRef.current) {
+      const offset = overlayOffsetsRef.current.get(oPath) ?? 0;
       b.to(oRepr).update(VolumeRepresentation3D, (old: any) => ({
         ...old,
         type: {
           ...old.type,
           params: {
             ...old.type?.params,
-            isoValue: IsoValue.relative(dir * value),
+            isoValue: IsoValue.relative(dir * Math.max(0.05, value + offset)),
           },
         },
       }));
@@ -503,7 +509,8 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
       });
       await b.commit();
       overlayReprsRef.current.set(choice.path, { data, vol, repr });
-      setOverlays((o) => [...o, { path: choice.path, name: label, color, alpha: OVERLAY_ALPHA }]);
+      overlayOffsetsRef.current.set(choice.path, 0);
+      setOverlays((o) => [...o, { path: choice.path, name: label, color, alpha: OVERLAY_ALPHA, sigmaOffset: 0 }]);
     } catch (err) {
       toast({
         title: "Could not overlay map",
@@ -532,6 +539,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
          the UI row so the panel never shows a ghost entry */
     }
     overlayReprsRef.current.delete(filePath);
+    overlayOffsetsRef.current.delete(filePath);
     setOverlays((o) => o.filter((x) => x.path !== filePath));
   };
 
@@ -565,6 +573,47 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
     );
   };
 
+  /** per-overlay σ offset (debounced commit — recontours just this map;
+   *  the shared slider keeps working since commitContour reads the ref) */
+  const overlaySigmaTimer = useRef<Map<string, number>>(new Map());
+  const setOverlaySigma = (filePath: string, offset: number) => {
+    overlayOffsetsRef.current.set(filePath, offset);
+    setOverlays((o) => o.map((x) => (x.path === filePath ? { ...x, sigmaOffset: offset } : x)));
+    const prev = overlaySigmaTimer.current.get(filePath);
+    if (prev) window.clearTimeout(prev);
+    overlaySigmaTimer.current.set(
+      filePath,
+      window.setTimeout(async () => {
+        overlaySigmaTimer.current.delete(filePath);
+        const plugin = pluginRef.current;
+        const entry = overlayReprsRef.current.get(filePath);
+        const VolumeRepresentation3D = VolumeReprRef.current;
+        const IsoValue = IsoValueRef.current;
+        if (!plugin || !entry || !VolumeRepresentation3D || !IsoValue) return;
+        try {
+          await plugin
+            .build()
+            .to(entry.repr)
+            .update(VolumeRepresentation3D, (old: any) => ({
+              ...old,
+              type: {
+                ...old.type,
+                params: {
+                  ...old.type?.params,
+                  isoValue: IsoValue.relative(
+                    signRef.current * Math.max(0.05, sigmaRef.current + offset)
+                  ),
+                },
+              },
+            }))
+            .commit();
+        } catch {
+          /* cosmetic — the next slider tick or σ change retries */
+        }
+      }, 140),
+    );
+  };
+
   /** teardown raced against a pending overlay download — checked after await */
   const disposedOverlayGuard = useRef(false);
   useEffect(() => {
@@ -573,6 +622,8 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
       disposedOverlayGuard.current = true;
       for (const t of overlayAlphaTimer.current.values()) window.clearTimeout(t);
       overlayAlphaTimer.current.clear();
+      for (const t of overlaySigmaTimer.current.values()) window.clearTimeout(t);
+      overlaySigmaTimer.current.clear();
     };
   }, []);
 
@@ -620,7 +671,10 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
     }
   };
 
-  const captureView = () => {
+  /** shared capture pipeline: supersample boost → compose → sink. The
+   *  figure (plate + themed footer with annotations) is identical for both
+   *  sinks — only where the PNG lands differs. */
+  const runCapture = (mode: "download" | "copy") => {
     const plugin = pluginRef.current;
     // The onscreen canvas: Canvas3D does NOT expose `.canvas` directly —
     // the authoritative path is webgl.gl.canvas (GLRenderingContext.canvas
@@ -677,6 +731,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
         supersampled = canvas.width > prevW * 1.2; // resize actually landed?
         if (!supersampled) ctx.setProps({ pixelScale: prevScale });
       }
+      const sizeNote = `${mult > 1 ? ` · ${mult}× supersampled` : ""}`;
       try {
         // composite plate background, theme-aware: the mol* canvas renders
         // opaque (renderer clear color) in practice, but if a future render
@@ -704,22 +759,53 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
         if (overlays.length) {
           annotations.push(`${overlays.length} overlay map${overlays.length > 1 ? "s" : ""}`);
         }
-        const res = await exportViewerPng({
+        const opts = {
           canvas,
           background: plate,
           mapName: name,
           sigma,
           annotations,
-        });
-        toast({
-          title: "3D view exported",
-          description: `${res.fileName} · ${res.width}×${res.height} px${mult > 1 ? ` · ${mult}× supersampled` : ""} · ${fmtBytes(res.bytes)}`,
-        });
+        };
+        if (mode === "copy") {
+          const res = await copyViewerPng(opts);
+          toast({
+            title: "Figure copied to clipboard",
+            description: `${res.width}×${res.height} px${sizeNote} · ${fmtBytes(res.bytes)} — paste into slides, docs or chats`,
+          });
+        } else {
+          const res = await exportViewerPng(opts);
+          toast({
+            title: "3D view exported",
+            description: `${res.fileName} · ${res.width}×${res.height} px${sizeNote} · ${fmtBytes(res.bytes)}`,
+          });
+        }
         setShot("done");
         setTimeout(() => setShot("idle"), 1800);
       } catch (err) {
+        // clipboard refusals (permission / unfocused window) degrade to a
+        // download so the capture work is never wasted
+        if (mode === "copy" && canCopyImageToClipboard()) {
+          try {
+            const res = await exportViewerPng({
+              canvas,
+              background: getComputedStyle(containerRef.current?.parentElement ?? containerRef.current ?? document.body).backgroundColor,
+              mapName: name,
+              sigma,
+              annotations: [],
+            });
+            toast({
+              title: "Clipboard refused — downloaded instead",
+              description: `${res.fileName} · ${fmtBytes(res.bytes)}`,
+            });
+            setShot("done");
+            setTimeout(() => setShot("idle"), 1800);
+            return;
+          } catch {
+            /* fall through to the honest error */
+          }
+        }
         toast({
-          title: "Export failed",
+          title: mode === "copy" ? "Copy failed" : "Export failed",
           description: err instanceof Error ? err.message : "Unknown error while capturing the view.",
           variant: "destructive",
         });
@@ -732,6 +818,8 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
       }
     })();
   };
+
+  const captureView = () => runCapture("download");
 
   /* ---------------- cross-section (volume slice) --------------------- */
 
@@ -1670,6 +1758,32 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                           {Math.round(o.alpha * 100)}%
                         </span>
                       </div>
+                      <div className="mt-1 flex items-center gap-2 pl-4.5">
+                        <span
+                          className="text-[9px] font-medium uppercase tracking-wide text-muted-foreground"
+                          title="Nudge this map's contour away from the shared σ slider — class maps have different statistics"
+                        >
+                          σ nudge
+                        </span>
+                        <Slider
+                          value={[o.sigmaOffset]}
+                          min={-1.5}
+                          max={1.5}
+                          step={0.05}
+                          onValueChange={([v]) => setOverlaySigma(o.path, v)}
+                          className="h-3 flex-1"
+                          aria-label={`Sigma offset for ${o.name}`}
+                        />
+                        <span
+                          className={cn(
+                            "w-9 text-right font-mono text-[9px]",
+                            o.sigmaOffset === 0 ? "text-muted-foreground" : "font-bold text-primary"
+                          )}
+                        >
+                          {o.sigmaOffset >= 0 ? "+" : "−"}
+                          {Math.abs(o.sigmaOffset).toFixed(2)}σ
+                        </span>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1736,8 +1850,8 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
               </div>
 
               <p className="border-t px-1 pb-0.5 pt-1.5 text-[10px] leading-tight text-muted-foreground">
-                Overlays follow the contour σ slider — half-maps track the main map exactly.
-                The export footer counts active overlays.
+                Overlays follow the contour σ slider — half-maps track the main map exactly;
+                nudge σ per map when statistics differ. The export footer counts active overlays.
               </p>
             </PopoverContent>
           </Popover>
@@ -1810,6 +1924,27 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
               </p>
             </PopoverContent>
           </Popover>
+          <Button
+            variant="secondary"
+            size="icon"
+            className={cn(
+              "size-8 rounded-lg shadow-sm transition-colors",
+              shot === "done" &&
+                "border-emerald-500/40 text-emerald-600 hover:text-emerald-600 dark:text-emerald-400"
+            )}
+            onClick={() => runCapture("copy")}
+            disabled={shot === "busy"}
+            aria-label="Copy the current 3D figure to the clipboard"
+            title={canCopyImageToClipboard() ? "Copy figure to clipboard — same composed PNG with footer, paste into slides/docs/chats" : "Copy figure to clipboard (falls back to download in this browser)"}
+          >
+            {shot === "busy" ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : shot === "done" ? (
+              <Check className="size-4" />
+            ) : (
+              <ClipboardCopy className="size-4" />
+            )}
+          </Button>
           <Button
             variant="secondary"
             size="icon"

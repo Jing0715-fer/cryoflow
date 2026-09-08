@@ -43,6 +43,13 @@ export interface ViewerExportResult {
   bytes: number;
 }
 
+/** composed figure before any sink (download / clipboard) */
+interface ComposedFigure {
+  blob: Blob;
+  width: number;
+  height: number;
+}
+
 /** footer strip height in CSS px (scaled by device ratio at paint time) */
 const FOOTER_H = 44;
 
@@ -67,7 +74,9 @@ function cssColor(varName: string, fallback: string): string {
   return raw || fallback;
 }
 
-export async function exportViewerPng(opts: ViewerExportOptions): Promise<ViewerExportResult> {
+/** compose the presentation figure (plate + footer) without any sink —
+ *  shared by the download and clipboard-copy paths */
+async function composeViewerFigure(opts: ViewerExportOptions): Promise<ComposedFigure> {
   const { canvas } = opts;
   if (!canvas.width || !canvas.height) {
     throw new Error("The 3D view is not rendered yet — wait for the map and retry.");
@@ -129,6 +138,11 @@ export async function exportViewerPng(opts: ViewerExportOptions): Promise<Viewer
 
   const blob = await new Promise<Blob | null>((res) => out.toBlob(res, "image/png"));
   if (!blob) throw new Error("PNG encoding failed.");
+  return { blob, width: out.width, height: out.height };
+}
+
+export async function exportViewerPng(opts: ViewerExportOptions): Promise<ViewerExportResult> {
+  const { blob, width, height } = await composeViewerFigure(opts);
 
   const fileName = `cryoflow-map-${slug(opts.mapName)}-${timestamp()}.png`;
   const url = URL.createObjectURL(blob);
@@ -138,5 +152,23 @@ export async function exportViewerPng(opts: ViewerExportOptions): Promise<Viewer
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 4000);
 
-  return { fileName, width: out.width, height: out.height, bytes: blob.size };
+  return { fileName, width, height, bytes: blob.size };
+}
+
+/** true when the async-clipboard API can take a PNG in this browser */
+export function canCopyImageToClipboard(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    !!navigator.clipboard?.write &&
+    typeof window.ClipboardItem !== "undefined"
+  );
+}
+
+/** copy the composed figure to the system clipboard as image/png — slides
+ *  straight into slides, docs and chats; throws when the context refuses
+ *  (permission / unfocused window), which callers surface as a toast */
+export async function copyViewerPng(opts: ViewerExportOptions): Promise<{ width: number; height: number; bytes: number }> {
+  const { blob, width, height } = await composeViewerFigure(opts);
+  await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+  return { width, height, bytes: blob.size };
 }

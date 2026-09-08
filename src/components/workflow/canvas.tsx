@@ -486,6 +486,9 @@ export function WorkflowCanvas() {
   } | null>(null);
   const pinchRafRef = React.useRef(0);
   const pinchLatestRef = React.useRef<{ midX: number; midY: number; dist: number } | null>(null);
+  /** floating "63%" chip pinned to the two fingers' midpoint while a pinch
+   *  is live — mobile-maps affordance; rAF-paced like the zoom itself */
+  const [pinchHint, setPinchHint] = React.useState<{ x: number; y: number } | null>(null);
 
   const applyPinch = React.useCallback(() => {
     pinchRafRef.current = 0;
@@ -498,11 +501,13 @@ export function WorkflowCanvas() {
       y: cur.midY - pin.wy * nz,
       zoom: nz,
     });
+    setPinchHint({ x: cur.midX, y: cur.midY });
   }, [setViewport]);
 
   const endPinch = () => {
     pinchRef.current = null;
     pinchLatestRef.current = null;
+    setPinchHint(null);
     if (pinchRafRef.current) {
       cancelAnimationFrame(pinchRafRef.current);
       pinchRafRef.current = 0;
@@ -1210,6 +1215,19 @@ export function WorkflowCanvas() {
           style={{ left: lpHint.x, top: lpHint.y }}
         >
           <span className="lp-pulse absolute block size-12 rounded-full border-2 border-primary/70 bg-primary/10" />
+        </span>
+      )}
+
+      {/* live zoom % bubble pinned between the pinching fingers */}
+      {pinchHint && (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-[150%]"
+          style={{ left: pinchHint.x, top: pinchHint.y }}
+        >
+          <span className="block rounded-full bg-primary px-2 py-0.5 font-mono text-[10px] font-bold leading-none text-primary-foreground shadow-md ring-1 ring-background/60">
+            {Math.round(viewport.zoom * 100)}%
+          </span>
         </span>
       )}
 

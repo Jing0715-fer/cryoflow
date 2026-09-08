@@ -1796,3 +1796,23 @@ Stage Summary:
 - #34 闭环：mol* StateBuilder.delete 只接受 raw ref 字符串 / cell / {cell}——To selector 静默 no-op 是"API 幻觉"家族第二例（#29 canvas 访问链同款）；"删根节点带走整链"同时消灭孤儿数据
 - QA 方法论增补：合成指针手势必须异步分步（≥16ms/帧），同步全手势会被 rAF 取消机制吞掉全部效果；坏 fixture 的错误隔离表现（子树 error cell 不传染主图）是本轮意外收获的架构验证
 - 遗留（下轮候选）：真 RELION 数据回归（EMPIAR 全链重建，需用户机器）、HPC SBATCH 真集群实测（需用户机器）、minimap 触屏适配（当前 minimap 拖拽无 touch 优化）、叠加图独立 σ（当前共享主滑杆——对 class maps 或许过紧）、pinch 期间 zoom % 阵眼提示（当前依赖底部常驻 chip）
+---
+Task ID: 34
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 新日轮 2026-09-08 13:14）——QA 回归全绿后推进 Task 33 三大遗留：pinch 实时 zoom% 浮窗 + 3D figure 一键复制到剪贴板（优雅降级下载）+ 叠加图独立 σ 微调（σ nudge）；viewer-export 三 sink 重构；worklog + push
+
+Work Log:
+- 【开局核对】worklog 实际最新为 Task 33（ffa3cab 已推送，无并行会话写入）；git 本地 == origin/main 干净；dev server 失联（curl 000，历轮 OOM 同款）→ dev-server.sh playbook 重启 + 预热 200
+- 【QA 回归·全绿】Workflow 画布（2 jobs / zoom chip 100%）+ console 0 error → 无新 bug，转功能
+- 【新功能 1·pinch 实时 zoom% 浮窗（Task 33 遗留#3）】canvas.tsx：pinchHint state 在 applyPinch（rAF 帧上下文）随 pinchLatestRef 中点更新——每帧最多一次 setState，与视口合帧同拍；指间浮出 primary 底 mono "209%" 圆片（-translate-x-1/2 -translate-y-[150%] 贴中点上方，shadow+ring 双主题可读），endPinch 即隐；E2E：捏合中 bubbleSeen=true 且实时 "209%"，手势结束 bubbleGone=true，终态 92%（Task 33 锚点数学不变）
+- 【新功能 2·3D figure 一键复制剪贴板】①viewer-export.ts 重构：抽出 composeViewerFigure（plate+footer 合成，无 sink），exportViewerPng 与新 copyViewerPng 共享同一张图——下载与复制像素级一致（同 footer、同注记、同超采样）；canCopyImageToClipboard() 能力探测（clipboard.write + ClipboardItem）②molstar-embed：captureView 重构为 runCapture(mode: "download"|"copy")——超采样 boost/背景解析/注记构建/finally 恢复全共享，仅 sink 分叉；corner actions 新增 ClipboardCopy 按钮（busy Loader2/done emerald Check 与 Camera 同语义，title 说明"paste into slides/docs/chats"）③**优雅降级**：clipboard.write 被拒（权限/失焦/无头）→ 自动落下载 + "Clipboard refused — downloaded instead" toast——捕捉劳动永不浪费；E2E：无头 Chrome 拒写（预期）→ 降级 toast "cryoflow-map-…-0521.png · 105 KB" 一跳即中
+- 【新功能 3·叠加图独立 σ 微调（Task 33 遗留#2）】OverlayEntry.sigmaOffset + overlayOffsetsRef（commitContour 的同步读取源，UI state 只是投影）：commitContour 逐 overlay iso = relative(σ_slider + offset)（clamp ≥0.05 防零阈）；setOverlaySigma 140ms 防抖单图重 contour（不扰主图）；共享滑杆仍即时生效（ref 读取）；Layers 面板每行新增 "σ NUDGE" 滑杆（±1.5σ 步长 0.05，零位 muted / 非零 primary 加粗 "+0.15σ"/"−0.05σ" mono readout）；面板脚注更新"nudge σ per map when statistics differ"；移除 overlay 同步清 offsets ref（无幽灵项）
+- 【E2E·σ nudge 全链】叠加 → thumb 聚焦 ArrowRight×3 → 主 iso 2 / 叠加 iso 2.15（=σ+0.15 精确）+ readout "+0.15σ"；1σ 预设 → isos [1, 1.15]（共享滑杆 × offset 组合分毫不差——commitContour 读 ref 设计实证）；ArrowLeft×4 → [1, 0.95] + "−0.05σ"（负向+符号翻转）；移除 → cells 精确回 5；截图目检：面板双滑杆行（OPACITY 55% + σ NUDGE −0.05σ）、corner 四键（Layers 徽标/2×/复制/相机）布局无挤压、cyan+orange 双色 surface 正常
+- 【回归】Camera 下载路径重构后完好（toast "2298×938 px · 2× supersampled · 118 KB"）；pinch/pan/锚点数学不变；console 0 error
+- 【收尾】bun run lint 0/0、tsc 0 错误（skills/ 预存在与项目无关）；浏览器已关（内存纪律）；无新 fixture（复用 Task 33 half-map）
+
+Stage Summary:
+- 3D figure 双出口收官：同一张合成图（主题 footer + slice/clip/overlay 注记 + 超采样）既可落盘也可进剪贴板——slides/docs/chats 直接 Ctrl+V，被拒即降级下载，零劳动浪费；compose/boost 管线单源化后未来 sink（如分享链接）只需加一个 case
+- 叠加体系从"共享 σ"到"共享基线 + 逐图微调"：half-maps 保持零偏移即精确跟随，class maps 各自 nudge——科学上诚实的默认值 + 必要时的自由度；offsets ref 与 UI state 分离让滑杆拖动与 σ 预设互不阻塞
+- pinch 浮窗补上最后一块手势反馈：缩放量在指尖实时可读，与 minimap 常驻 chip、lp-pulse 蓄力环构成三段式触屏反馈语言（操作中/操作后/蓄力中）
+- 遗留（下轮候选）：真 RELION 数据回归（EMPIAR 全链，需用户机器）、HPC SBATCH 真集群实测（需用户机器）、minimap 触屏拖拽长按适配、Layers 面板多 overlay 时的颜色图例进入导出 footer、pinch 双指中点越界（手指滑出画布）时的 bubble 钳制
