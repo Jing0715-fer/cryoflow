@@ -16,7 +16,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { Axis3d, Bookmark, BoxSelect, Camera, Check, ClipboardCopy, Download, FolderOpen, Layers, Loader2, Mountain, Orbit, Pencil, Plus, RefreshCcw, RotateCw, ScanLine, TriangleAlert, Upload, Video, X, ZoomIn } from "lucide-react";
+import { Axis3d, Bookmark, BoxSelect, Camera, Check, ClipboardCopy, Download, FileJson, FilePlus2, FolderOpen, FolderPlus, Layers, Loader2, Mountain, Orbit, Pencil, Plus, RefreshCcw, RotateCw, ScanLine, TriangleAlert, Upload, Video, X, ZoomIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -1029,9 +1029,15 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
   const renameCancelRef = useRef(false);
   // import preview dialog — files are parsed up front and shown as a
   // checklist (thumb / name / optics chips / pose-only badge) instead of
-  // being merged sight unseen
-  const [importPreview, setImportPreview] = useState<{ fileName: string; entries: CamBookmark[]; rawCount: number } | null>(null);
-  const [importPicked, setImportPicked] = useState<Set<number>>(new Set());
+  // being merged sight unseen. Sources are MIXABLE: several JSON files and
+  // several sibling jobs can pile into one dialog, grouped per source, and
+  // one confirm merges the ticks. `picked` lives inside the same state
+  // object so functional updates chain safely across a multi-file loop
+  // (two appends in one tick never read a stale pick set).
+  const [importPreview, setImportPreview] = useState<{
+    sources: Array<{ kind: "file" | "job"; label: string; entries: CamBookmark[]; rawCount: number }>;
+    picked: Set<number>;
+  } | null>(null);
   // cross-job source — pull views straight from a sibling job's saved list
   // (same preview pipeline as the file import, just a different source;
   // counts are fetched lazily when the section opens — 8 tiny JSON GETs
@@ -1042,6 +1048,9 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
   const [fromJobList, setFromJobList] = useState<
     Array<{ id: string; name: string; status: string; count: number }> // count -1 = that job's row could not be read
   >([]);
+  // in-dialog "add from job" picker — the dialog is modal, so it carries
+  // its own job-list section (sharing the popover's fromJobList state)
+  const [addJobOpen, setAddJobOpen] = useState(false);
   // restore guard: a slow server response must never clobber a bookmark
   // the user saved while the fetch was in flight
   const bookmarkDirtyRef = useRef(false);
@@ -1398,46 +1407,70 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
     }
   };
 
-  const onImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  /** close the dialog and reset the in-dialog "add source" affordances —
+   *  every dismissal path (confirm / cancel / Esc / overlay) funnels here */
+  const closeImport = () => {
+    setImportPreview(null);
+    setAddJobOpen(false);
+  };
+
+  /** pile one more source onto the open (or about-to-open) dialog and
+   *  preselect whatever still fits — the free slots are claimed in file /
+   *  click order, so the first source always wins capacity ties. Functional
+   *  setState: appends from a multi-file loop chain correctly even when
+   *  React batches them into one render pass. */
+  const appendSource = (src: { kind: "file" | "job"; label: string; entries: CamBookmark[]; rawCount: number }) => {
+    setImportPreview((prev) => {
+      const sources = prev?.sources ?? [];
+      const picked = prev?.picked ?? new Set<number>();
+      const base = sources.reduce((a, s) => a + s.entries.length, 0);
+      const room = Math.max(0, 8 - bookmarksRef.current.length - picked.size);
+      const nextPicked = new Set(picked);
+      for (let i = 0; i < Math.min(room, src.entries.length); i++) nextPicked.add(base + i);
+      return { sources: [...sources, src], picked: nextPicked };
+    });
+  };
+
+  /** MULTIPLE files at once — each readable file becomes its own grouped
+   *  source in the same dialog; unreadable / viewless files are skipped and
+   *  reported in one honest summary toast instead of blocking the batch. */
+  const onImportFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
     e.target.value = ""; // allow re-picking the same file later
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
+    if (files.length === 0) return;
+    let skipped = 0;
+    for (const file of files) {
       try {
-        const parsed: unknown = JSON.parse(String(reader.result));
+        const parsed: unknown = JSON.parse(await file.text());
         const raw = Array.isArray(parsed) ? parsed : (parsed as { bookmarks?: unknown })?.bookmarks;
         const rawCount = Array.isArray(raw) ? raw.length : 0;
         // shape filter + strict view validation up front — the dialog shows
         // exactly what would land (junk views already degraded to pose-only)
         const cleaned = cleanBookmarks(raw).map((b) => ({ ...b, view: saneImportedView(b.view) }));
         if (cleaned.length === 0) {
-          toast({ title: "No views found in that file", description: "Expected a CryoFlow view-bookmarks export.", variant: "destructive" });
-          return;
+          skipped++;
+          continue;
         }
-        const room = Math.max(0, 8 - bookmarksRef.current.length);
-        if (room === 0) {
-          toast({ title: "Bookmark list is full", description: "8 views max — delete one to make room for the import.", variant: "destructive" });
-          return;
-        }
-        // preselect whatever fits (file order) — the dialog explains the rest
-        setImportPicked(new Set(cleaned.map((_, i) => i).filter((i) => i < room)));
-        setImportPreview({ fileName: file.name, entries: cleaned, rawCount });
+        appendSource({ kind: "file", label: file.name, entries: cleaned, rawCount });
       } catch {
-        toast({ title: "Import failed", description: "That file could not be read as view bookmarks.", variant: "destructive" });
+        skipped++;
       }
-    };
-    reader.readAsText(file);
+    }
+    if (skipped > 0) {
+      toast({
+        title: `${skipped} of ${files.length} file${files.length === 1 ? "" : "s"} skipped`,
+        description: "No importable views found — expected a CryoFlow view-bookmarks export.",
+        variant: "destructive",
+      });
+    }
   };
 
-  /** open/close the "from job" section — opening lazily counts the sibling
-   *  jobs' saved views (one tiny GET each, capped at 8 jobs; a job whose
-   *  row can't be read shows "?" and stays clickable — importFromJob will
-   *  surface the honest error). Runs on explicit click only. */
-  const toggleFromJob = () => {
-    const next = !fromJobOpen;
-    setFromJobOpen(next);
-    if (!next) return;
+  /** lazy count of the sibling jobs' saved views (one tiny GET each, capped
+   *  at 8 jobs; a job whose row can't be read shows "?" and stays clickable
+   *  — importFromJob will surface the honest error). Shared by the popover
+   *  section and the in-dialog "add from job" list. Runs on explicit click
+   *  only — never on hover. */
+  const loadFromJobCounts = () => {
     const siblings = allJobs.filter((j) => j.id !== jobId).slice(0, 8);
     setFromJobList([]);
     if (siblings.length === 0) return; // empty-state row renders
@@ -1459,9 +1492,27 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
     });
   };
 
+  /** open/close the popover "from job" section */
+  const toggleFromJob = () => {
+    const next = !fromJobOpen;
+    setFromJobOpen(next);
+    if (!next) return;
+    loadFromJobCounts();
+  };
+
+  /** open the in-dialog "add from job" picker — reuses the popover's list;
+   *  when it was never loaded (dialog opened straight from a file pick)
+   *  fire the counts fetch on demand */
+  const openAddJob = () => {
+    setAddJobOpen(true);
+    if (fromJobList.length === 0 && fromJobState === "idle") loadFromJobCounts();
+  };
+
   /** cross-job import: SAME sanitize → preview-dialog pipeline as the file
    *  import (cleanBookmarks + saneImportedView + capacity preselect), just
-   *  sourced from another job's live server row instead of a JSON file */
+   *  sourced from another job's live server row instead of a JSON file.
+   *  APPENDS to the open dialog when one is already up — mixing sources is
+   *  the whole point — and opens it otherwise. */
   const importFromJob = async (other: { id: string; name: string }) => {
     try {
       const r = await fetch(`/api/jobs/${other.id}/camera-bookmarks`);
@@ -1473,14 +1524,9 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
         toast({ title: "No views on that job", description: `“${other.name}” has no importable view bookmarks.`, variant: "destructive" });
         return;
       }
-      const room = Math.max(0, 8 - bookmarksRef.current.length);
-      if (room === 0) {
-        toast({ title: "Bookmark list is full", description: "8 views max — delete one to make room for the import.", variant: "destructive" });
-        return;
-      }
-      setImportPicked(new Set(cleaned.map((_, i) => i).filter((i) => i < room)));
-      setImportPreview({ fileName: `from “${other.name}”`, entries: cleaned, rawCount });
+      appendSource({ kind: "job", label: other.name, entries: cleaned, rawCount });
       setFromJobOpen(false);
+      setAddJobOpen(false);
     } catch {
       toast({ title: "Import failed", description: "That job's saved views could not be read.", variant: "destructive" });
     }
@@ -1491,15 +1537,17 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
   const confirmImport = () => {
     if (!importPreview) return;
     const room = Math.max(0, 8 - bookmarksRef.current.length);
-    const picked = importPreview.entries
-      .filter((_, i) => importPicked.has(i))
+    const picked = importPreview.sources
+      .flatMap((s) => s.entries)
+      .filter((_, i) => importPreview.picked.has(i))
       .slice(0, room)
       .map((b, i) => ({ ...b, id: `bm-${Date.now()}-${i}` }));
-    setImportPreview(null);
+    const srcCount = importPreview.sources.length;
+    closeImport();
     if (picked.length === 0) return;
     commitBookmarks([...bookmarksRef.current, ...picked]);
     toast({
-      title: `Imported ${picked.length} view${picked.length > 1 ? "s" : ""}`,
+      title: `Imported ${picked.length} view${picked.length > 1 ? "s" : ""}${srcCount > 1 ? ` from ${srcCount} sources` : ""}`,
       description: "Fly back from the list any time.",
     });
   };
@@ -1508,13 +1556,106 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
    *  beyond the free slots (checkbox disabled), confirmImport still slices
    *  as a last-resort guard */
   const togglePicked = (i: number) => {
-    setImportPicked((prev) => {
-      const next = new Set(prev);
+    setImportPreview((prev) => {
+      if (!prev) return prev;
+      const next = new Set(prev.picked);
       if (next.has(i)) next.delete(i);
       else next.add(i);
-      return next;
+      return { ...prev, picked: next };
     });
   };
+
+  /** fill every free slot in source order (first source wins ties) */
+  const selectAllPicked = () => {
+    setImportPreview((prev) => {
+      if (!prev) return prev;
+      const room = Math.max(0, 8 - bookmarksRef.current.length);
+      const next = new Set<number>();
+      let idx = 0;
+      for (const s of prev.sources) {
+        for (let i = 0; i < s.entries.length; i++, idx++) {
+          if (next.size < room) next.add(idx);
+        }
+      }
+      return { ...prev, picked: next };
+    });
+  };
+
+  /** untick everything — with room freed the locked rows re-enable live */
+  const clearPicked = () => {
+    setImportPreview((prev) => (prev ? { ...prev, picked: new Set<number>() } : prev));
+  };
+
+  // sources flattened with their base index into the global pick set —
+  // recomputed per render (≤5 sources × 8 rows, no memo warranted)
+  const importGroups = importPreview
+    ? (() => {
+        let o = 0;
+        return importPreview.sources.map((s) => {
+          const base = o;
+          o += s.entries.length;
+          return { ...s, base };
+        });
+      })()
+    : [];
+  const importTotalEntries = importPreview?.sources.reduce((a, s) => a + s.entries.length, 0) ?? 0;
+  const importTotalRaw = importPreview?.sources.reduce((a, s) => a + s.rawCount, 0) ?? 0;
+  const importRoom = Math.max(0, 8 - bookmarks.length);
+
+  /** the sibling-job picker rows, shared verbatim by the popover section
+   *  and the in-dialog "add from job" panel (same lazy counts, same honest
+   *  "?" for unreadable rows, same status dots) */
+  const fromJobRows = () => (
+    <>
+      {fromJobState === "loading" ? (
+        <p className="flex items-center gap-1.5 px-1 py-1.5 text-[10px] text-muted-foreground">
+          <Loader2 className="size-3 animate-spin" />
+          Checking saved views…
+        </p>
+      ) : fromJobList.length === 0 ? (
+        <p className="px-1 py-1.5 text-[10px] leading-tight text-muted-foreground">
+          No other jobs in this project yet — save views there first, or use a JSON file.
+        </p>
+      ) : (
+        <div className="max-h-32 space-y-0.5 overflow-y-auto pr-0.5 nice-scroll">
+          {fromJobList.map((j) => (
+            <button
+              key={j.id}
+              type="button"
+              disabled={j.count <= 0}
+              onClick={() => void importFromJob(j)}
+              title={
+                j.count > 0
+                  ? `Add ${j.count} view${j.count === 1 ? "" : "s"} from “${j.name}” to the import`
+                  : j.count < 0
+                    ? `“${j.name}” could not be read — click to retry the import anyway`
+                    : "No saved views on this job"
+              }
+              className={cn(
+                "flex w-full items-center gap-1.5 rounded px-1 py-1 text-left transition-colors",
+                j.count !== 0 ? "hover:bg-muted" : "cursor-default opacity-50",
+              )}
+            >
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "size-1.5 shrink-0 rounded-full",
+                  j.status === "completed" && "bg-emerald-500",
+                  j.status === "running" && "animate-pulse bg-amber-500",
+                  j.status === "failed" && "bg-red-500",
+                  j.status !== "completed" && j.status !== "running" && j.status !== "failed" && "bg-muted-foreground/40",
+                )}
+              />
+              <span className="min-w-0 flex-1 truncate text-[10px] font-medium">{j.name}</span>
+              <span className="shrink-0 font-mono text-[9px] tabular-nums text-muted-foreground">
+                {j.count < 0 ? "?" : `${j.count} view${j.count === 1 ? "" : "s"}`}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </>
+  );
 
   /* ---------------- view capture (figure export) ---------------------- */
 
@@ -3655,8 +3796,8 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                 <button
                   type="button"
                   onClick={() => importInputRef.current?.click()}
-                  aria-label="Import view bookmarks from a JSON file"
-                  title="Import — merge views from a JSON file into this job"
+                  aria-label="Import view bookmarks from JSON files"
+                  title="Import — merge views from one or more JSON files into this job"
                   className="flex items-center gap-1 rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 >
                   <Upload className="size-3" />
@@ -3679,68 +3820,13 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                 <span className="ml-auto font-mono text-[9px] tabular-nums text-muted-foreground/60" aria-hidden="true">
                   {bookmarks.length}/8
                 </span>
-                <input
-                  ref={importInputRef}
-                  type="file"
-                  accept="application/json,.json"
-                  className="hidden"
-                  onChange={onImportFile}
-                  tabIndex={-1}
-                  aria-hidden="true"
-                />
               </div>
               {fromJobOpen && (
                 <div className="mt-1 rounded-md border bg-muted/30 p-1" data-canvas-ui="from-job-list">
                   <p className="px-1 pb-1 text-[9px] font-medium leading-tight text-muted-foreground">
                     Pull views from another job in this project
                   </p>
-                  {fromJobState === "loading" ? (
-                    <p className="flex items-center gap-1.5 px-1 py-1.5 text-[10px] text-muted-foreground">
-                      <Loader2 className="size-3 animate-spin" />
-                      Checking saved views…
-                    </p>
-                  ) : fromJobList.length === 0 ? (
-                    <p className="px-1 py-1.5 text-[10px] leading-tight text-muted-foreground">
-                      No other jobs in this project yet — save views there first, or use a JSON file.
-                    </p>
-                  ) : (
-                    <div className="max-h-32 space-y-0.5 overflow-y-auto pr-0.5 nice-scroll">
-                      {fromJobList.map((j) => (
-                        <button
-                          key={j.id}
-                          type="button"
-                          disabled={j.count <= 0}
-                          onClick={() => void importFromJob(j)}
-                          title={
-                            j.count > 0
-                              ? `Import ${j.count} view${j.count === 1 ? "" : "s"} from “${j.name}”`
-                              : j.count < 0
-                                ? `“${j.name}” could not be read — click to retry the import anyway`
-                                : "No saved views on this job"
-                          }
-                          className={cn(
-                            "flex w-full items-center gap-1.5 rounded px-1 py-1 text-left transition-colors",
-                            j.count !== 0 ? "hover:bg-muted" : "cursor-default opacity-50",
-                          )}
-                        >
-                          <span
-                            aria-hidden="true"
-                            className={cn(
-                              "size-1.5 shrink-0 rounded-full",
-                              j.status === "completed" && "bg-emerald-500",
-                              j.status === "running" && "animate-pulse bg-amber-500",
-                              j.status === "failed" && "bg-red-500",
-                              j.status !== "completed" && j.status !== "running" && j.status !== "failed" && "bg-muted-foreground/40",
-                            )}
-                          />
-                          <span className="min-w-0 flex-1 truncate text-[10px] font-medium">{j.name}</span>
-                          <span className="shrink-0 font-mono text-[9px] tabular-nums text-muted-foreground">
-                            {j.count < 0 ? "?" : `${j.count} view${j.count === 1 ? "" : "s"}`}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                  {fromJobRows()}
                 </div>
               )}
               <p className="px-1 pb-0.5 pt-1 text-[10px] leading-tight text-muted-foreground">
@@ -3751,82 +3837,192 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
         </div>
       ) : null}
 
-      {/* import preview — files are parsed up front and shown as a checklist;
-          nothing lands in the job until Import is confirmed */}
+      {/* import preview — sources are parsed up front and shown as a
+          grouped checklist; nothing lands in the job until Import is
+          confirmed. File and job sources MIX in one dialog. */}
       {importPreview ? (
-        <Dialog open onOpenChange={(o) => { if (!o) setImportPreview(null); }}>
-          <DialogContent className="sm:max-w-sm">
+        <Dialog open onOpenChange={(o) => { if (!o) closeImport(); }}>
+          <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Import views</DialogTitle>
               <DialogDescription>
-                {importPreview.entries.length} of {importPreview.rawCount} entr{importPreview.rawCount === 1 ? "y" : "ies"} parsed from “{importPreview.fileName}” — tick what lands in this job.
+                {importTotalEntries} of {importTotalRaw} entr{importTotalRaw === 1 ? "y" : "ies"} parsed
+                across {importPreview.sources.length} source{importPreview.sources.length === 1 ? "" : "s"} — tick what lands in this job.
               </DialogDescription>
             </DialogHeader>
-            <div className="max-h-64 space-y-1 overflow-y-auto pr-0.5" role="group" aria-label="Views found in the file">
-              {importPreview.entries.map((e, i) => {
-                const picked = importPicked.has(i);
-                const full = bookmarks.length + importPicked.size >= 8;
-                const locked = full && !picked;
-                return (
-                  <label
-                    key={`${e.name}-${i}`}
-                    className={cn(
-                      "flex cursor-pointer items-start gap-2 rounded-md border p-1.5 transition-colors",
-                      picked ? "border-primary/50 bg-primary/5" : "hover:bg-muted/40",
-                      locked && "cursor-not-allowed opacity-45 hover:bg-transparent",
-                    )}
-                  >
-                    <Checkbox
-                      checked={picked}
-                      disabled={locked}
-                      onCheckedChange={() => togglePicked(i)}
-                      className="mt-0.5"
-                      aria-label={`Import “${e.name}”`}
-                    />
-                    {e.thumb ? (
-                      <img
-                        src={e.thumb}
-                        alt=""
-                        aria-hidden="true"
-                        className="h-8 w-11 shrink-0 rounded-[4px] border border-border/70 bg-zinc-950 object-cover"
-                      />
-                    ) : (
-                      <span
-                        className="flex h-8 w-11 shrink-0 items-center justify-center rounded-[4px] border border-border/70 bg-muted/50"
-                        aria-hidden="true"
-                      >
-                        <Mountain className="size-3.5 text-muted-foreground/50" />
-                      </span>
-                    )}
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[11px] font-medium text-foreground/90">{e.name}</span>
-                      {e.view ? (
-                        renderViewChips(e.view)
-                      ) : (
-                        <span className="mt-0.5 inline-block rounded bg-muted/80 px-1 py-px font-mono text-[8px] font-medium text-muted-foreground">
-                          pose only
-                        </span>
-                      )}
-                      <span className="block text-[9px] text-muted-foreground">{new Date(e.ts).toLocaleString()}</span>
-                    </span>
-                  </label>
-                );
-              })}
+
+            {/* pick summary + bulk actions — "free" means still-tickable
+                (capacity minus saved minus already ticked), not raw slots */}
+            <div className="flex items-center gap-2">
+              <span className="mr-auto font-mono text-[10px] tabular-nums text-muted-foreground">
+                {importPreview.picked.size} ticked · {Math.max(0, importRoom - importPreview.picked.size)} free slot{Math.max(0, importRoom - importPreview.picked.size) === 1 ? "" : "s"}
+              </span>
+              <button
+                type="button"
+                onClick={selectAllPicked}
+                title="Tick everything that fits (source order wins ties)"
+                className="rounded px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                Select all
+              </button>
+              <button
+                type="button"
+                onClick={clearPicked}
+                title="Untick everything — locked rows re-enable as room frees up"
+                className="rounded px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                Clear
+              </button>
             </div>
+
+            {importRoom === 0 && (
+              <p
+                className="flex items-center gap-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1.5 text-[10px] leading-snug text-amber-800 dark:text-amber-200"
+                role="status"
+                data-canvas-ui="import-full-hint"
+              >
+                <TriangleAlert className="size-3 shrink-0" aria-hidden="true" />
+                The list already has 8 saved views — delete one from the list to make room for these.
+              </p>
+            )}
+
+            {/* grouped sources — file groups and job groups side by side */}
+            <div className="max-h-72 space-y-2 overflow-y-auto pr-0.5 nice-scroll" role="group" aria-label="Views found across all sources">
+              {importGroups.map((g, gi) => (
+                <div key={`${g.kind}-${g.label}-${gi}`} className="rounded-lg border bg-muted/20 p-1.5" data-canvas-ui="import-source-group">
+                  <div className="flex items-center gap-1.5 px-0.5 pb-1">
+                    {g.kind === "file" ? (
+                      <FileJson className="size-3 shrink-0 text-teal-600" aria-hidden="true" />
+                    ) : (
+                      <FolderOpen className="size-3 shrink-0 text-amber-600" aria-hidden="true" />
+                    )}
+                    <span className="min-w-0 flex-1 truncate text-[10px] font-semibold text-foreground/80" title={g.label}>
+                      {g.label}
+                    </span>
+                    <span className="shrink-0 font-mono text-[9px] tabular-nums text-muted-foreground" title={`${g.entries.length} importable of ${g.rawCount} entries in the source`}>
+                      {g.entries.length}/{g.rawCount}
+                    </span>
+                  </div>
+                  <div className="space-y-1">
+                    {g.entries.map((e, i) => {
+                      const gi2 = g.base + i;
+                      const picked = importPreview.picked.has(gi2);
+                      const full = bookmarks.length + importPreview.picked.size >= 8;
+                      const locked = full && !picked;
+                      return (
+                        <label
+                          key={`${e.name}-${gi2}`}
+                          className={cn(
+                            "flex cursor-pointer items-start gap-2 rounded-md border p-1.5 transition-colors",
+                            picked ? "border-primary/50 bg-primary/5" : "hover:bg-muted/40",
+                            locked && "cursor-not-allowed opacity-45 hover:bg-transparent",
+                          )}
+                        >
+                          <Checkbox
+                            checked={picked}
+                            disabled={locked}
+                            onCheckedChange={() => togglePicked(gi2)}
+                            className="mt-0.5"
+                            aria-label={`Import “${e.name}”`}
+                          />
+                          {e.thumb ? (
+                            <img
+                              src={e.thumb}
+                              alt=""
+                              aria-hidden="true"
+                              className="h-8 w-11 shrink-0 rounded-[4px] border border-border/70 bg-zinc-950 object-cover"
+                            />
+                          ) : (
+                            <span
+                              className="flex h-8 w-11 shrink-0 items-center justify-center rounded-[4px] border border-border/70 bg-muted/50"
+                              aria-hidden="true"
+                            >
+                              <Mountain className="size-3.5 text-muted-foreground/50" />
+                            </span>
+                          )}
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-[11px] font-medium text-foreground/90">{e.name}</span>
+                            {e.view ? (
+                              renderViewChips(e.view)
+                            ) : (
+                              <span className="mt-0.5 inline-block rounded bg-muted/80 px-1 py-px font-mono text-[8px] font-medium text-muted-foreground">
+                                pose only
+                              </span>
+                            )}
+                            <span className="block text-[9px] text-muted-foreground">{new Date(e.ts).toLocaleString()}</span>
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* mix in more sources — the dialog is modal, so it carries its
+                own adders; appended sources join the groups above */}
+            <div className="rounded-lg border border-dashed p-1.5" data-canvas-ui="import-add-sources">
+              <div className="flex items-center gap-1">
+                <span className="mr-auto text-[10px] font-medium text-muted-foreground">Mix in more</span>
+                <button
+                  type="button"
+                  onClick={() => importInputRef.current?.click()}
+                  title="Add views from one or more JSON files"
+                  className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  <FilePlus2 className="size-3" />
+                  File
+                </button>
+                <button
+                  type="button"
+                  onClick={() => (addJobOpen ? setAddJobOpen(false) : openAddJob())}
+                  aria-expanded={addJobOpen}
+                  title="Add views from another job in this project"
+                  className={cn(
+                    "flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+                    addJobOpen && "bg-muted text-foreground",
+                  )}
+                >
+                  <FolderPlus className="size-3" />
+                  From job
+                </button>
+              </div>
+              {addJobOpen && (
+                <div className="mt-1 rounded-md border bg-muted/30 p-1" data-canvas-ui="import-add-job-list">
+                  {fromJobRows()}
+                </div>
+              )}
+            </div>
+
             <DialogFooter className="gap-2 sm:gap-2">
               <span className="mr-auto flex items-center font-mono text-[10px] tabular-nums text-muted-foreground">
-                {bookmarks.length + importPicked.size}/8 after import
+                {bookmarks.length + importPreview.picked.size}/8 after import
               </span>
-              <Button variant="ghost" size="sm" onClick={() => setImportPreview(null)}>
+              <Button variant="ghost" size="sm" onClick={closeImport}>
                 Cancel
               </Button>
-              <Button size="sm" disabled={importPicked.size === 0} onClick={confirmImport}>
-                Import{importPicked.size > 0 ? ` ${importPicked.size}` : ""}
+              <Button size="sm" disabled={importPreview.picked.size === 0} onClick={confirmImport}>
+                Import{importPreview.picked.size > 0 ? ` ${importPreview.picked.size}` : ""}
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       ) : null}
+
+      {/* hidden multi-file input — lives at the COMPONENT ROOT on purpose:
+          a Radix dialog auto-dismisses the popover beneath it, which would
+          unmount a popover-scoped input and silently kill the in-dialog
+          "Mix in more → File" button (its ref would go null) */}
+      <input
+        ref={importInputRef}
+        type="file"
+        accept="application/json,.json"
+        multiple
+        className="hidden"
+        onChange={(e) => void onImportFiles(e)}
+        tabIndex={-1}
+        aria-hidden="true"
+      />
 
       {phase === "loading" && (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/70 backdrop-blur-[2px]">

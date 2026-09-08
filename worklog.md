@@ -2218,3 +2218,25 @@ Stage Summary:
 - report 六图齐装：分辨率收敛 + FSC + Guinier + CTF 散点/直方 + 取向热图 + Topaz 训练曲线——topaztrain 任务第一次有离开屏幕的训练档案；precision/recall 进表不进图是「快照克制」的新样本（双轴装饰 < 表格可引用）
 - 方法论：①「rebinding 模拟」姿势 = Host + Origin 同为 evil 域（origin host == Host 头，恰好绕过同源闸）——专测钉扎层的唯一可区分输入 ②借已有路由的 workdir 扫描规则播种（/training/i + .txt）零后端改动 ③OOM 死亡的恢复动作已纯粹化：pkill → dev-server.sh → 11 路由 curl → 直接全套（暖化配方的执行成本降到一条命令链）
 - 遗留（下轮候选）：Turntable GIF 转码（重）；gallery 卡内嵌 3D 轻量预览（重）；导入对话框双来源混合多选；dev overlay「1 Issue」定位（dev-only）；report 六图后可考虑目录页/锚点（>10 section 的导航性）
+---
+Task ID: 54
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 晨轮 2026-09-09 00:29）——落地 Task 47/48/49 三连遗留「Import views 对话框双来源混合多选」：viewer 书签导入从「一次一来源」升级为「文件×N + 兄弟 job×N 任意混装、同框分组勾选、一次确认合并」；连带修出 2 个真 UI bug（free-slot 语义矛盾 + modal 内 file input 失效）；qa54 分批 e2e 全绿（dev 跑 A 矩阵 + production 跑 B/C）；worklog + push
+
+Work Log:
+- 【开局核对】交接摘要第 5 轮过期（停在 Task 47）——worklog 实际最新 Task 53、HEAD 875060e == origin 干净；dev server 规程重启；现场勘查澄清候选语义：所谓「导入对话框双来源」= mol* viewer 的 Import views 对话框（Import 文件 / From job 兄弟任务两条管道本就各自通向同一个预览 checklist，但一次只能用一条）——「混合多选」= 让两条管道的产物堆进同一个对话框分组勾选
+- 【功能·多来源结构】importPreview 从 {fileName, entries, rawCount} 升级为 {sources[], picked}——sources 带 kind(file|job)/label/entries/rawCount，picked(全局扁平索引 Set) 与 sources 同住一个 state object，functional setState 串行链式（多文件循环连续 append 在一个 render 批里也不会读到过期 pick 集）；appendSource 按来源顺序认领剩余容量（第一个来源赢容量平局）；confirmImport 扁平遍历 sources.filter(picked).slice(room)，toast「Imported N views from M sources」
+- 【功能·对话框内继续混装】对话框是 modal——底部新增「Mix in more」虚线区：+File（可多选）/+From job（展开兄弟 job 行，与 popover 区共享 fromJobList state，未加载过则惰性触发 counts fetch）；Select all / Clear 批量操作；每源分组头（FileJson teal / FolderOpen amber + "cleaned/raw" 徽章）；满员时 amber hint「The list already has 8 saved views — delete one...」（importRoom===0 时 picked 恒 0，untick 无从谈起——文案如实）；file input 加 multiple + 多文件循环解析，坏文件跳过并汇总一条诚实 toast（"2 of 3 files skipped"）而不是中断整批
+- 【bug1·free-slot 语义】QA A2 抓到「6 ticked · 8 free」自相矛盾——free 原义是空槽（8-bookmarks），与 ticked 并列读起来像还能勾 8 个；修为 still-tickable（room-picked），随勾选实时递减
+- 【bug2·modal 内 input 失效】QA A3 抓到 dialog 内「+File」按钮完全失效——Radix Dialog 打开时自动 dismiss 底层 Popover，hidden input 随 popover unmount、ref 变 null、click() 静默 no-op；修复：input 提升到组件根（带注释说明 Radix 层叠原因）——popover 与 dialog 两个入口都能触发
+- 【重构·fromJobRows 抽取】popover 与 dialog 内的兄弟 job 行渲染抽成共享 helper（同懒加载、同 "?" 诚实态、同状态点），popover 的 From job 区从 50 行缩到 6 行
+- 【e2e·qa54-e2e.mjs 分批全绿】A1×3（dev）：DataTransfer 注入双文件 → desc「4 of 5 entries parsed across 2 sources」/ 双组头 + junk 过滤 2/3 / ticked 4·free 4 / after 4；A2（dev）：dialog 内 From job → 第三组（Motion Correction 1·2/2）→ ticked 6·free 2；A345（dev）：dialog 内 +File → 第四源 → untick → confirm → toast「Imported 2 views from 2 sources」+ dialog 关 + 列表计数 + 服务器行跨批断言；B1/B2（prod）：junk-only skip toast 且不开对话框、fill 2+2+4 到 8/8 后再开 job 源 → fullHint + 0 ticked·0 free + 全 checkbox disabled + Import disabled；C（prod）：跨批 row assert（8==8）→ 清场 0/0 → console 0 error
+- 【运维·OOM 第八~十次与 production 转向】dev 模式 molstar chunk 编译峰 + Chrome 驻留 = 本轮 next-server 被 OOM 杀 ≥8 次（anon 2.6-2.8GB，V8 896 + turbopack 800 管不住 native 侧），成功窗口只剩「重启后第一轮」；warmup 配方再升级仍不够 → build 一次（cap 1536，全路由编译通过）→ standalone start 跑 B/C：无编译器、内存平稳、Chrome 共存无忧，一次全绿。方法论沉淀：**viewer 链路的 QA 在 4GB box 上应该默认 production 模式**——dev 模式的编译峰和 molstar 运行时是两个独立峰值，叠加 Chrome 后必爆
+- 【QA 探针新三课】①DataTransfer 注入 input.files 在 eval 桥完全可行（new File + dt.items.add + change bubbles→React 合成事件）——dropFiles 首轮 dropped:0 是残留浏览器 state，重开即好 ②Radix PopoverContent 的 role 也是 dialog——`.pop()` 取 portal 序最后一个会抓错对象，import dialog 探针改为按标题过滤（textContent.includes('Import views')）③bash 调用间浏览器不持久 + job 名里的空格会被 replace(/\s+/g,'') 吃掉（"3D Auto-Refine 1"→"3DAuto-Refine1" 查无此 job）——json 解析前不得压缩空白
+- 【收尾】bun run lint 0/0、tsc src 0 错误；qa54 截图（dialog 四源同框 / full 满员态）保留 agent-ctx/；浏览器已关；服务器行清零无残留；dev server 已恢复（standalone 已杀）
+
+Stage Summary:
+- 书签视图的「移动性」补完最后一块：一个检视工作流可以同时来自多台机器的导出文件和兄弟任务的现成收藏——勾选合并一次完成，容量语义（预选、锁定、8 上限）在跨来源混合下依然逐条诚实；「Imported N views from M sources」让一次合并的来源构成在事后可追溯
+- Radix 层叠的教训值得记住：modal 会 dismiss 它底下的 popover，任何被 popover 持有的命令式资源（hidden input、ref）都会跟着陪葬——共享资源放组件根，别放浮层里
+- production 模式跑 viewer QA 是本轮最重要的运维沉淀：build 一次性成本 ~2min，换来的是无 OOM 的稳定 QA 窗口；dev 模式留给日常开发，e2e 留给 prod
+- 遗留（下轮候选）：Turntable GIF 转码（重）；gallery 卡内嵌 3D 轻量预览（重）；workflow-import 对话框同款多文件（低优先——工作流文件通常单发）；dev overlay「1 Issue」定位（dev-only 观察）； Import views 对话框可再加 per-source 的 check-all/none（本轮刻意克制未做，逐条勾选已够用）
