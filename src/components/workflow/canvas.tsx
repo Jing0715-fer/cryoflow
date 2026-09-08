@@ -425,7 +425,48 @@ export function WorkflowCanvas() {
     x2: number;
     y2: number;
   } | null>(null);
-  const bandRef = React.useRef<{ pointerId: number; startX: number; startY: number } | null>(null);
+  const bandRef = React.useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    /** touch-originated band (long-press) — lifting WITHOUT a real drag
+     *  cancels instead of committing, so a mode-switch tap never nukes the
+     *  user's selection (desktop shift-click keeps its clear semantics) */
+    fromTouch?: boolean;
+    moved?: boolean;
+    lx?: number;
+    ly?: number;
+  } | null>(null);
+
+  /* ------- touch long-press → rubber-band (no Shift on touch) -------- */
+  /** A touch on the background starts as a pan AND a 420 ms timer. If the
+   *  finger is still (≤9 px drift) when it fires, the pan converts to a
+   *  band; any real movement earlier cancels the timer and the pan
+   *  continues untouched. 420 ms sits just under Chrome's own long-press
+   *  contextmenu (~500 ms) so the conversion owns the gesture first. */
+  const LP_PRESS_MS = 420;
+  const LP_CANCEL_SLOP = 9;
+  const lpTimerRef = React.useRef<number | null>(null);
+  const lpRef = React.useRef<{ pointerId: number; x: number; y: number } | null>(null);
+  /** small expanding ring shown at the finger while the press is pending */
+  const [lpHint, setLpHint] = React.useState<{ x: number; y: number } | null>(null);
+  const clearLongPress = () => {
+    if (lpTimerRef.current != null) {
+      clearTimeout(lpTimerRef.current);
+      lpTimerRef.current = null;
+    }
+    lpRef.current = null;
+    setLpHint(null);
+  };
+
+  /** Capture-phase contextmenu swallow for the tick right after a band
+   *  conversion — the browser fires its own long-press menu and Radix's
+   *  canvas menu would open mid-gesture. Native capture listener beats
+   *  both the browser default and React's synthetic handler at the root. */
+  const suppressNextContextMenu = (ev: Event) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+  };
 
   /** Jobs enclosed by the band (intersect semantics), workspace coords. */
   const bandIds = React.useMemo(() => {
@@ -446,6 +487,7 @@ export function WorkflowCanvas() {
   React.useEffect(
     () => () => {
       if (panRafRef.current) cancelAnimationFrame(panRafRef.current);
+      if (lpTimerRef.current != null) clearTimeout(lpTimerRef.current);
     },
     []
   );
@@ -665,17 +707,77 @@ export function WorkflowCanvas() {
       pendY: 0,
     };
     capturePointer(e);
+    // touch background press: ALSO arm a long-press — if the finger holds
+    // still, the pan converts to a rubber-band (there is no Shift on touch).
+    // A second pointer (pinch) or an early drag disarms it below.
+    if (e.pointerType === "touch") {
+      const lp = { pointerId: e.pointerId, x: e.clientX - rect.left, y: e.clientY - rect.top };
+      lpRef.current = lp;
+      setLpHint({ x: lp.x, y: lp.y });
+      lpTimerRef.current = window.setTimeout(() => {
+        lpTimerRef.current = null;
+        const p = panRef.current;
+        if (!lpRef.current || !p || p.pointerId !== lp.pointerId || p.moved) {
+          lpRef.current = null;
+          setLpHint(null);
+          return;
+        }
+        // convert: the not-yet-moved pan dies, the band is born anchored
+        // at the original touch point (not wherever the finger drifted)
+        panRef.current = null;
+        bandRef.current = {
+          pointerId: lp.pointerId,
+          startX: lp.x,
+          startY: lp.y,
+          fromTouch: true,
+          moved: false,
+          lx: lp.x,
+          ly: lp.y,
+        };
+        setBand({ x1: lp.x, y1: lp.y, x2: lp.x, y2: lp.y });
+        lpRef.current = null;
+        setLpHint(null);
+        try {
+          navigator.vibrate?.(12);
+        } catch {
+          /* no haptics — the ring hint already fired */
+        }
+        // the browser's own long-press contextmenu lands ~80 ms later and
+        // would open the canvas menu mid-gesture — swallow exactly that one
+        rootRef.current?.addEventListener("contextmenu", suppressNextContextMenu, {
+          once: true,
+          capture: true,
+        });
+      }, LP_PRESS_MS);
+    }
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLElement>) => {
+    // real movement while the long-press is pending = it's a pan — disarm
+    const lp = lpRef.current;
+    if (lp && e.pointerId === lp.pointerId && lpTimerRef.current != null) {
+      const lprect = e.currentTarget.getBoundingClientRect();
+      if (Math.hypot(e.clientX - lprect.left - lp.x, e.clientY - lprect.top - lp.y) > LP_CANCEL_SLOP) {
+        clearLongPress();
+      }
+    }
     const b = bandRef.current;
     if (b && e.pointerId === b.pointerId) {
       const rect = e.currentTarget.getBoundingClientRect();
+      const cx = e.clientX - rect.left;
+      const cy = e.clientY - rect.top;
+      // a touch band that never really dragged cancels on lift instead of
+      // committing — track the first real displacement here
+      if (b.fromTouch && !b.moved && Math.hypot(cx - (b.lx ?? b.startX), cy - (b.ly ?? b.startY)) >= 3) {
+        b.moved = true;
+      }
+      b.lx = cx;
+      b.ly = cy;
       setBand({
         x1: b.startX,
         y1: b.startY,
-        x2: e.clientX - rect.left,
-        y2: e.clientY - rect.top,
+        x2: cx,
+        y2: cy,
       });
       return;
     }
@@ -702,6 +804,12 @@ export function WorkflowCanvas() {
     const b = bandRef.current;
     if (b && e.pointerId === b.pointerId) {
       bandRef.current = null;
+      // touch long-press that never dragged = mode-switch tap — cancel
+      // quietly, DON'T commit an empty band over the user's selection
+      if (b.fromTouch && !b.moved) {
+        setBand(null);
+        return;
+      }
       // commit whatever the band enclosed — an empty result (shift-click on
       // bare canvas, or a band over empty space) clears the selection
       const ids = bandIds ? [...bandIds] : [];
@@ -711,6 +819,8 @@ export function WorkflowCanvas() {
     }
     const p = panRef.current;
     if (!p || e.pointerId !== p.pointerId) return;
+    // a touch that lifted before the long-press matured is just a pan-tap
+    if (lpRef.current?.pointerId === e.pointerId) clearLongPress();
     if (panRafRef.current) {
       cancelAnimationFrame(panRafRef.current);
       panRafRef.current = 0;
@@ -731,6 +841,7 @@ export function WorkflowCanvas() {
   };
 
   const handlePointerCancel = (e: React.PointerEvent<HTMLElement>) => {
+    if (lpRef.current?.pointerId === e.pointerId) clearLongPress();
     const b = bandRef.current;
     if (b && e.pointerId === b.pointerId) {
       bandRef.current = null;
@@ -941,6 +1052,18 @@ export function WorkflowCanvas() {
             strokeDasharray="7 5"
           />
         </svg>
+      )}
+
+      {/* touch long-press affordance — an expanding ring at the finger so
+          the gesture's 420 ms arm time reads as intent, not lag */}
+      {lpHint && (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute z-20"
+          style={{ left: lpHint.x, top: lpHint.y }}
+        >
+          <span className="lp-pulse absolute block size-12 rounded-full border-2 border-primary/70 bg-primary/10" />
+        </span>
       )}
 
       {/* Bulk-selection toolbar (align · distribute · duplicate · delete) */}

@@ -6,7 +6,8 @@
 
 import * as React from "react";
 import { create } from "zustand";
-import { toast } from "@/hooks/use-toast";
+import { toast, type ToastActionElement } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
 import { CARD_W, CARD_H, WORLD_MIN, WORLD_MAX, ZOOM_MAX, ZOOM_MIN, jobType, portsCompatible } from "./workflow";
 import { autoLayout } from "./layout";
 import type {
@@ -128,6 +129,11 @@ interface WorkflowState {
    *  anything else); server re-validates types, params and port wiring;
    *  merge + fit-view on success. */
   importWorkflow: (file: WorkflowFile, warning?: string, workspaceId?: string) => Promise<void>;
+  /** Undo a just-imported batch: delete the created jobs (cascade removes
+   *  their fresh edges), optionally step the canvas back to the workspace
+   *  the user was on when the import auto-switched. Idempotent and honest —
+   *  jobs that already left "idle" are KEPT and reported. */
+  undoImport: (createdIds: string[], restoreWorkspaceId: string | null, switched: boolean) => Promise<void>;
   setTemplatePresetsOpen: (open: boolean) => void;
   /** Stage a parsed file for the import dialog (replaces any earlier one). */
   openImportPreview: (file: WorkflowFile, warning: string | undefined, fileName: string) => void;
@@ -732,6 +738,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   importWorkflow: async (file, warning, workspaceId) => {
     // explicit target (import dialog) wins; absent = the active workspace
     const targetWsId = workspaceId ?? get().activeWorkspaceId ?? undefined;
+    // remembered for undo — where the canvas was before an auto-switch
+    const wsBeforeImport = get().activeWorkspaceId;
     try {
       const data = await api<{ jobs: JobDTO[]; edges: EdgeDTO[] }>("/api/workflow-import", {
         method: "POST",
@@ -759,16 +767,79 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       }
       const wsName =
         get().workspaces.find((w) => w.id === targetWsId)?.name ?? "the selected workspace";
+      const createdIds = data.jobs.map((j) => j.id);
       toast({
         title: "Workflow imported",
         description: warning
           ? `${warning} — ${data.jobs.length} jobs · ${data.edges.length} links recreated in ${wsName}${switched ? " (canvas switched there)" : ""}; nothing runs until you start it`
           : `${data.jobs.length} jobs · ${data.edges.length} links recreated in ${wsName}${switched ? " — canvas switched there" : " — nothing runs until you start it"}`,
+        // wrong-project/wrong-workspace imports are the classic slip — keep
+        // the toast up long enough to matter and offer a one-tap undo
+        duration: 12_000,
+        action: createdIds.length
+          ? (React.createElement(
+              ToastAction,
+              {
+                altText: "Undo the import",
+                onClick: () =>
+                  void get().undoImport(createdIds, wsBeforeImport ?? null, switched),
+              },
+              "Undo"
+            ) as unknown as ToastActionElement)
+          : undefined,
       });
       void get().refreshWorkspaces();
     } catch (err) {
       errToast(err instanceof Error ? err.message : "Failed to import the workflow");
     }
+  },
+
+  undoImport: async (createdIds, restoreWorkspaceId, switched) => {
+    // only jobs that are still untouched idle imports get deleted — if the
+    // user already started one (or it's gone entirely), keep it and say so
+    const undoable = createdIds.filter(
+      (id) => {
+        const j = get().jobs.find((x) => x.id === id);
+        return !!j && j.status === "idle" && !j.linkedJobId;
+      }
+    );
+    if (undoable.length === 0) {
+      toast({
+        title: "Nothing to undo",
+        description: "The imported jobs already changed — they are kept as they are.",
+      });
+      return;
+    }
+    const results = await Promise.allSettled(
+      undoable.map((id) => api(`/api/jobs/${id}`, { method: "DELETE" }))
+    );
+    const ok = undoable.filter((_, i) => results[i].status === "fulfilled");
+    if (ok.length === 0) {
+      errToast("Undo failed — none of the imported jobs could be deleted");
+      return;
+    }
+    const okSet = new Set(ok);
+    const selectedId = get().selectedId;
+    set({
+      jobs: get().jobs.filter((j) => !okSet.has(j.id)),
+      // fresh import edges only connect created jobs — filtering by
+      // endpoints covers them (DB cascades the rest)
+      edges: get().edges.filter((e) => !okSet.has(e.fromJobId) && !okSet.has(e.toJobId)),
+      selectedIds: get().selectedIds.filter((id) => !okSet.has(id)),
+      selectedId: selectedId && okSet.has(selectedId) ? null : selectedId,
+      // step the canvas back to where the user was before the auto-switch
+      ...(switched && restoreWorkspaceId != null
+        ? { activeWorkspaceId: restoreWorkspaceId, pendingFrom: null }
+        : {}),
+    });
+    toast({
+      title: "Import undone",
+      description:
+        ok.length === createdIds.length
+          ? `${ok.length} job${ok.length === 1 ? "" : "s"} removed${switched ? " — canvas switched back" : ""}`
+          : `${ok.length} of ${createdIds.length} jobs removed — the rest already changed and were kept`,
+    });
+    void get().refreshWorkspaces();
   },
 
   moveJobCommit: async (id, x, y) => {

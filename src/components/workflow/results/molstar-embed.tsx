@@ -18,6 +18,7 @@
 import { useEffect, useRef, useState } from "react";
 import { BoxSelect, Camera, Check, Loader2, Mountain, RotateCw, ScanLine, ZoomIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
@@ -388,6 +389,31 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
   // even when the download itself is instant
   const [shot, setShot] = useState<"idle" | "busy" | "done">("idle");
 
+  // ---- export resolution (1× native / 2× supersampled / 3× print) -------
+  // persisted per browser — a figure workflow is a habit, not a per-open
+  // decision. The rate multiplies the backing-store pixelScale (capped so
+  // dpr-2 + 3× can never demand an absurd framebuffer).
+  const EXPORT_SCALES = [1, 2, 3] as const;
+  const EXPORT_SCALE_KEY = "cryoflow.mol-export-scale";
+  const EXPORT_SCALE_CAP = 6; // max total pixelScale (× dpr) we ever request
+  const [exportScale, setExportScale] = useState<number>(2);
+  useEffect(() => {
+    try {
+      const v = Number(localStorage.getItem(EXPORT_SCALE_KEY));
+      if ((EXPORT_SCALES as readonly number[]).includes(v)) setExportScale(v);
+    } catch {
+      /* private mode — default 2× stands */
+    }
+  }, []);
+  const pickExportScale = (v: number) => {
+    setExportScale(v);
+    try {
+      localStorage.setItem(EXPORT_SCALE_KEY, String(v));
+    } catch {
+      /* non-fatal */
+    }
+  };
+
   const captureView = () => {
     const plugin = pluginRef.current;
     // The onscreen canvas: Canvas3D does NOT expose `.canvas` directly —
@@ -417,7 +443,10 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
       // tab can never hang the export. Restored in `finally`.
       const ctx = plugin?.canvas3dContext;
       const prevScale = ctx?.props?.pixelScale ?? 0;
-      const wantBoost = !!ctx && prevScale > 0 && prevScale * 2 <= 4;
+      // chosen export rate: 1× captures as-is; 2×/3× raise the backing-store
+      // pixelScale for the capture frame only (capped against absurd framebuffers)
+      const mult = exportScale;
+      const wantBoost = mult > 1 && !!ctx && prevScale > 0 && prevScale * mult <= EXPORT_SCALE_CAP;
       const prevW = canvas.width;
       let supersampled = false;
       // one real frame at the new size: didDraw fires after the plugin's
@@ -437,7 +466,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
           setTimeout(res, 400);
         });
       if (wantBoost && ctx) {
-        ctx.setProps({ pixelScale: prevScale * 2 });
+        ctx.setProps({ pixelScale: prevScale * mult });
         await awaitRedraw();
         supersampled = canvas.width > prevW * 1.2; // resize actually landed?
         if (!supersampled) ctx.setProps({ pixelScale: prevScale });
@@ -458,7 +487,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
         const st = sliceStateRef.current;
         const cp = clipStateRef.current;
         const annotations: string[] = [];
-        if (supersampled) annotations.push("2× supersampled");
+        if (supersampled) annotations.push(`${mult}× supersampled`);
         if (st.on) annotations.push(`slice ${st.axis} ${Math.round(st.pos * 100)}%`);
         if (cp.on) {
           const axes = (["x", "y", "z"] as const)
@@ -475,7 +504,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
         });
         toast({
           title: "3D view exported",
-          description: `${res.fileName} · ${res.width}×${res.height} px${supersampled ? " · 2× supersampled" : ""} · ${fmtBytes(res.bytes)}`,
+          description: `${res.fileName} · ${res.width}×${res.height} px${mult > 1 ? ` · ${mult}× supersampled` : ""} · ${fmtBytes(res.bytes)}`,
         });
         setShot("done");
         setTimeout(() => setShot("idle"), 1800);
@@ -1363,6 +1392,75 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
       {/* corner actions */}
       {phase === "ready" ? (
         <div className="absolute right-3 top-3 z-10 flex gap-1.5">
+          {/* export resolution chip — persists per browser; the Camera
+              capture and the figure footer both follow it instantly */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="secondary"
+                size="icon"
+                className="size-8 rounded-lg font-mono text-[10px] font-bold shadow-sm transition-colors"
+                aria-label={`Export resolution: ${exportScale}× — open to change`}
+                title="Export resolution — 1× native · 2× supersampled · 3× print"
+              >
+                {exportScale}×
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-60 p-2" data-canvas-ui="export-scale-popover">
+              <p className="px-1 pb-1 text-[11px] font-semibold">Export resolution</p>
+              <div role="radiogroup" aria-label="Export resolution">
+                {(
+                  [
+                    [1, "Native", "What you see is what you get — fastest"],
+                    [2, "Supersampled", "2× the pixels — sharper figures on any display"],
+                    [3, "Print", "3× — publications and deep zoom-ins, larger file"],
+                  ] as const
+                ).map(([v, label, desc]) => {
+                  const active = exportScale === v;
+                  return (
+                    <button
+                      key={v}
+                      type="button"
+                      role="radio"
+                      aria-checked={active}
+                      data-testid={`export-scale-${v}`}
+                      onClick={() => pickExportScale(v)}
+                      className={cn(
+                        "flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left transition-colors",
+                        active ? "bg-primary/10" : "hover:bg-muted"
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "mt-0.5 flex size-3.5 shrink-0 items-center justify-center rounded-full border",
+                          active ? "border-primary" : "border-muted-foreground/40"
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "size-1.5 rounded-full transition-transform",
+                            active ? "scale-100 bg-primary" : "scale-0 bg-transparent"
+                          )}
+                        />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="flex items-center gap-1.5 text-xs font-medium">
+                          {label}
+                          <span className="font-mono text-[10px] text-muted-foreground">{v}×</span>
+                        </span>
+                        <span className="mt-0.5 block text-[10px] leading-tight text-muted-foreground">
+                          {desc}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="border-t px-1 pb-0.5 pt-1.5 text-[10px] leading-tight text-muted-foreground">
+                The rate applies to the next capture; the figure footer annotates it.
+              </p>
+            </PopoverContent>
+          </Popover>
           <Button
             variant="secondary"
             size="icon"
@@ -1374,7 +1472,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
             onClick={captureView}
             disabled={shot === "busy"}
             aria-label="Export the current 3D view as PNG"
-            title="Export view as PNG — 2× supersampled; contour / slice / clip state is annotated in the figure footer"
+            title={`Export view as PNG — ${exportScale}× ${exportScale > 1 ? "supersampled" : "native"}; contour / slice / clip state is annotated in the figure footer`}
           >
             {shot === "busy" ? (
               <Loader2 className="size-4 animate-spin" />

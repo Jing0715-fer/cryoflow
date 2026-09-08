@@ -1750,3 +1750,24 @@ Stage Summary:
 - #33 闭环：可见性谓词与操作守卫必须同源——"看得到但删不掉"类 bug 的根因是两套 workspace 判定并存；jobInWorkspace 单一事实源
 - QA 资产沉淀：fix-sandbox-b-fixture.mjs（幂等修复）+ restore-sandbox-b.py（3 连线链重建）；synthetic contextmenu dispatch 方法论
 - 遗留（下轮候选）：真 RELION 数据回归（EMPIAR 全链重建，需用户机器）、HPC SBATCH 真集群实测（需用户机器）、框选触屏长按适配、导入对话框 toast 内嵌切换按钮、3D 导出可选倍率 UI（当前固定 2×）
+---
+Task ID: 32
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 新日轮 2026-09-08 12:14）——QA 回归全绿后推进 Task 31 三大遗留：3D 导出倍率选择 UI（1×/2×/3× 持久化）+ 导入 toast 内嵌 Undo（一键撤销误导入）+ 触屏长按框选（420ms 长按→band 转换）；worklog + push
+
+Work Log:
+- 【开局核对】worklog 实际最新为 Task 31（指令所称"末尾 Task 13"严重过期，按实际执行）；交接摘要停在 Task 28 中断点也已过期（Task 28-31 均已入库 7e4451c/9244523/64534c8/4fa59db）；git 本地 == origin/main == 4fa59db 干净；dev server 存活；DB fixture 4 项目 / 11 jobs / 6 edges（10 idle+1 completed）与 Task 31 收官一致
+- 【QA 回归·全绿】Workflow 画布（QA Sandbox C/Main：2 jobs 可见系工作区过滤语义——NULL-ws 旧 jobs 归一 "" ≠ cddv 不可见，与 #33 修复后 jobInWorkspace 单一谓词一致，非回归；minimap+catalog 36 正常）/ Dashboard KPI band（4 projects · 11 jobs · sparkline + 排序选择器）/ console 0 error → 无新 bug，全面转功能
+- 【新功能 1·3D 导出倍率选择（Task 31 首遗留）】molstar-embed 角落动作区新增分辨率 chip（mono "2×"）+ Popover 单选面板（Native 1× "what you see" / Supersampled 2× 默认 / Print 3×，各带场景描述 + radio 环 + 底部说明行）；localStorage cryoflow.mol-export-scale 持久化（mount 水合，private mode 静默默认）；captureView 改用所选倍率：wantBoost = mult>1 && prevScale*mult ≤ CAP 6（替代硬编码 2×/cap4），页脚注记与 toast 同步动态（"3× supersampled"）；Camera 按钮 title 随倍率实时（"1× native"/"2× supersampled"）
+- 【新功能 2·导入 toast 内嵌 Undo（Task 31 遗留重定向）】原 leftover"toast 内嵌切换按钮"已被 Task 29 导入对话框的自动跟随覆盖（switched 路径）——重定向为更有价值的"误导入一键撤销"：importWorkflow 成功 toast 加 ToastAction"Undo"（duration 12s 给足决策时间）+ undoImport store 动作——并行 DELETE created ids（边线 DB 级联）、诚实守卫（已非 idle/已消失的 job 保留并在 toast 报告"N of M removed"）、switched 时画布回切 wsBeforeImport、refreshWorkspaces 收尾；ToastAction 经 React.createElement（store.ts 无 JSX）+ as unknown as ToastActionElement cast（forwardRef 元素类型不可直接赋值，use-toast 补导出 ToasterToast/ToastActionElement 类型）
+- 【新功能 3·触屏长按框选（Task 31 遗留）】canvas.tsx：触摸背景 pointerdown 同时臂 pan + 420ms 长按定时器——手指静止（≤9px 漂移）到点 → pan 转换为 band（锚定原始触点、vibrate(12) 触觉、once+capture 原生监听吞掉浏览器自身长按 contextmenu 防止 Radix 画布菜单中途弹开）；真实移动超阈 → 取消定时器 pan 继续；420ms 刻意压在 Chrome 自身 contextmenu（~500ms）之前让手势先赢；bandRef 扩展 fromTouch/moved/lx/ly——触屏 band 抬起时未真实拖动（<3px）= 静默取消不清空选择（桌面 shift-click 保留原"清空"语义）；多指（pinch）/pointerup/cancel 全路径清理；lpHint 脉冲环（48px 圆环 420ms 扩散动画，globals.css lp-pulse keyframes + prefers-reduced-motion 降级静态 0.7 scale）让蓄力时读作"意图"而非卡顿；help popover 快捷键表补 Long-press 行
+- 【E2E·三功能全链】①导入 Undo：eval 构造 workflow JSON（DataTransfer→隐藏 input，Task 29 先例）→ 对话框 Main 目标导入 → toast Undo 按钮 → 点击 → 画布 4→2 卡 + "Import undone — 2 jobs removed" + DB 精确还原 11/6；切换场景：建 QA WS2 → 导入目标 WS2 → 画布自动切换（combobox+侧栏 ACTIVE 实证）→ Undo → 画布回切 Main + WS2 归零 → 删除 WS2 fixture 还原；②3D 倍率：__reactProps 直调全链（card 点击→inspector→Results→Enlarge→View in 3D）→ chip 默认 2× → popover 三项 radio 渲染 → 1×：localStorage "1" + title "1× native" + 拍照落盘 1149×469（=CSS 尺寸+44 页脚，零超采样）→ 3×：toast "3447×1407 px · 3× supersampled · 203 KB"（=3× 精确 + 页脚随 ratio ×3）→ reload 后 chip 水合 3×（持久化实证）→ 重置 2×；③触屏长按（合成 PointerEvent pointerType:'touch' 四场景）：长按 700ms→拖过两卡→抬起 = "2 selected" 工具条 ✓；长按未拖→抬起 = 选择保留不清空 ✓；短触摸 150ms = 既有 tap 清选语义 ✓；等待中移动 48px = lp 取消 pan 正常（viewport transform 实证）✓；mouse shift-drag band 回归 ✓；dark 主题 lpHint 环截图目检清晰 ✓
+- 【运维】dev server OOM ×1（本轮首次打开页面时，历轮同款 Turbopack 编译窗口）→ dev-server.sh playbook 重启 + 预热；agent-browser eval 不序列化 Promise（返回 {}）→ 长交互改"eval 触发 + bash sleep 轮询"两段式；headless 下载目录漂移（rm 后 3× 文件未落盘）→ toast 文本作为导出内容的权威证据（尺寸数学精确），1× 文件落盘已先行验证流程
+- 【收尾】bun run lint 0/0、tsc src/ 0 错误（skills/ 预存在错误与项目无关）；DB 终态 4 项目 / 11 jobs / 2 workspaces 与开局一致；light 主题；浏览器已关
+
+Stage Summary:
+- 3D 导出从"固定 2×"升级为可声明的分辨率档位（1× 原生 / 2× 超采样 / 3× 印刷），档位是习惯不是每次的决策——localStorage 持久 + chip 即时反映 + 页脚注记/toast/按钮 title 三处同步；帧缓冲上限 CAP 6 防 dpr-2×3× 组合申请荒谬 GPU 资源
+- 导入失败恢复路径补完：误导入（错项目/错工作区）从"手动逐卡删除"到 12 秒内一键 Undo——诚实守卫让已变化的 job 保留并报告，部分撤销也算真话；ToastAction 的 React.createElement 模式为 store 层内嵌 UI 元素立了先例
+- 画布手势矩阵补上触屏最后一块：单指 pan / 长按 420ms 框选 / 桌面 shift 语义全保留——长按-转换模式（pan 先行 + 静止判定 + contextmenu 吞截）让 touch 用户零学习成本获得桌面级框选，lift-to-cancel 语义防误触清空
+- QA 资产：合成 touch PointerEvent 四场景脚本（band/lift-cancel/tap/pan-convert）方法论——pointerType:'touch' + pointerId 一致性 + 700ms>420ms 定时窗口
+- 遗留（下轮候选）：真 RELION 数据回归（EMPIAR 全链重建，需用户机器）、HPC SBATCH 真集群实测（需用户机器）、pinch-zoom 双指缩放（当前触屏缩放只能走工具条按钮）、导入对话框撤销的 redo（低优）、3D viewer 内 建 multi-map 叠加对比

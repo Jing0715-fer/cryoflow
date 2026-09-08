@@ -197,6 +197,32 @@
   }
 }
 
+/* touch long-press affordance: one expanding ring over the 420 ms arm time
+   — reads as "the gesture is charging" instead of a dead first frames */
+@keyframes lp-pulse {
+  from {
+    transform: translate(-50%, -50%) scale(0.3);
+    opacity: 0.95;
+  }
+  to {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.3;
+  }
+}
+
+.lp-pulse {
+  transform: translate(-50%, -50%);
+  animation: lp-pulse 0.42s ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-pulse {
+    animation: none;
+    transform: translate(-50%, -50%) scale(0.7);
+    opacity: 0.55;
+  }
+}
+
 @keyframes soft-pulse {
   0%,
   100% {
