@@ -185,6 +185,7 @@ function KpiCard({
   onClick,
   pressed,
   hint,
+  kbd,
 }: {
   icon: React.ReactNode;
   value: React.ReactNode;
@@ -200,6 +201,9 @@ function KpiCard({
   pressed?: boolean;
   /** one-line hint under the label — what clicking will do */
   hint?: string;
+  /** dashboard drill-down shortcut digit — corner badge replaces the hover
+   *  chevron and wires aria-keyshortcuts on the button */
+  kbd?: string;
 }) {
   const interactive = typeof onClick === "function";
   const body = (
@@ -232,10 +236,22 @@ function KpiCard({
           pressed dot states "this card IS the active filter" — both sit
           above the spark watermark so they never fight for attention */}
       {interactive && !pressed ? (
-        <ChevronRight
-          className="pointer-events-none absolute right-1.5 top-1.5 size-3 text-muted-foreground/0 transition-colors motion-reduce:transition-none group-hover/kpi:text-muted-foreground/60"
-          aria-hidden="true"
-        />
+        kbd ? (
+          // shortcut badge: faintly visible at rest (discoverability — the
+          // chevron was hover-only), brightens on hover; inherits border
+          // color from currentColor so it reads on every card tone
+          <kbd
+            className="pointer-events-none absolute right-1.5 top-1.5 rounded border px-1 text-[9px] font-semibold leading-[14px] text-muted-foreground/40 transition-colors motion-reduce:transition-none group-hover/kpi:text-muted-foreground/80"
+            aria-hidden="true"
+          >
+            {kbd}
+          </kbd>
+        ) : (
+          <ChevronRight
+            className="pointer-events-none absolute right-1.5 top-1.5 size-3 text-muted-foreground/0 transition-colors motion-reduce:transition-none group-hover/kpi:text-muted-foreground/60"
+            aria-hidden="true"
+          />
+        )
       ) : null}
       {pressed ? (
         <span
@@ -264,6 +280,7 @@ function KpiCard({
       type="button"
       onClick={onClick}
       aria-pressed={Boolean(pressed)}
+      aria-keyshortcuts={kbd}
       title={hint ?? "Filter the project grid below"}
       className={cn(shell, "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-1")}
     >
@@ -1157,12 +1174,15 @@ function StatusFilterChip({
   active,
   tone,
   onClick,
+  kbd,
 }: {
   label: string;
   n: number;
   active: boolean;
   tone?: "teal" | "amber" | "emerald" | "rose";
   onClick: () => void;
+  /** matching dashboard shortcut digit — tiny inline badge + aria */
+  kbd?: string;
 }) {
   const toneCls =
     tone === "teal"
@@ -1178,14 +1198,26 @@ function StatusFilterChip({
     <button
       type="button"
       aria-pressed={active}
+      aria-keyshortcuts={kbd}
       onClick={onClick}
-      title={`Show ${label.toLowerCase()} job${n === 1 ? "" : "s"} only`}
+      title={`Show ${label.toLowerCase()} job${n === 1 ? "" : "s"} only${kbd ? ` — or press ${kbd}` : ""}`}
       className={cn(
         "h-5 rounded-full border px-1.5 text-[9px] font-semibold uppercase tracking-wider transition-colors",
         active ? toneCls : "border-border text-muted-foreground hover:bg-muted hover:text-foreground",
       )}
     >
       {label} <span className="tabular-nums opacity-70">{n}</span>
+      {kbd ? (
+        // currentColor border keeps the badge legible in both the active
+        // tone and the muted rest state; hidden on the smallest screens
+        // where the tap targets are thumb-reachable anyway
+        <kbd
+          className="ml-0.5 hidden rounded-[3px] border px-[3px] text-[8px] font-bold normal-case leading-[11px] sm:inline-block"
+          aria-hidden="true"
+        >
+          {kbd}
+        </kbd>
+      ) : null}
     </button>
   );
 }
@@ -1502,6 +1534,46 @@ export function ProjectDashboard() {
   const toggleGridFilter = (f: Exclude<GridFilter, "all">) =>
     drillToGrid(gridFilter === f ? "all" : f);
 
+  // Grid filter keyboard shortcuts (1–4): each key mirrors its visible
+  // counterpart — 1 the whole grid (Projects KPI), 2/3/4 the running/
+  // completed/failed drill-downs (KPI cards and presence chips). The ref
+  // indirection keeps the window subscription stable while the handler
+  // reads fresh state every render.
+  const shortcutsRef = React.useRef<(e: KeyboardEvent) => void>(() => {});
+  React.useEffect(() => {
+    shortcutsRef.current = (e: KeyboardEvent) => {
+      // browsers own Ctrl/Cmd+digit (tab switching) — never fight them
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const key = e.key;
+      if (key !== "1" && key !== "2" && key !== "3" && key !== "4") return;
+      const target = e.target;
+      if (
+        target instanceof HTMLElement &&
+        (target.closest("input, textarea, select, [contenteditable='true']") != null ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      // an open dialog / menu owns the keyboard — same guard as page.tsx
+      if (
+        document.querySelector(
+          '[role="dialog"][data-state="open"], [role="menu"][data-state="open"]'
+        )
+      )
+        return;
+      if (projectsRaw.length === 0) return;
+      if (key === "1") drillToGrid("all");
+      else if (key === "2") toggleGridFilter("running");
+      else if (key === "3") toggleGridFilter("completed");
+      else toggleGridFilter("failed");
+    };
+  });
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => shortcutsRef.current(e);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   // sort AFTER filter — the count line shows "N / M" for the filtered set
   // and the grid renders the same set in the chosen order
   const sortedProjects = React.useMemo(() => sortProjects(filtered, sortKey), [filtered, sortKey]);
@@ -1609,7 +1681,8 @@ export function ProjectDashboard() {
               ) : undefined
             }
             onClick={() => drillToGrid("all")}
-            hint="Show the whole project grid — clears any status filter"
+            kbd="1"
+            hint="Show the whole project grid — clears any status filter (press 1)"
           />
           <KpiCard
             icon={<Boxes className="size-5" />}
@@ -1646,10 +1719,11 @@ export function ProjectDashboard() {
             tone="bg-teal-500/10 text-teal-600 ring-teal-500/30 dark:text-teal-400"
             onClick={() => toggleGridFilter("running")}
             pressed={gridFilter === "running"}
+            kbd="2"
             hint={
               gridFilter === "running"
-                ? "Filter on — click to show every project again"
-                : "Show only projects with running jobs"
+                ? "Filter on — click or press 2 to show every project again"
+                : "Show only projects with running jobs — or press 2"
             }
           />
           <KpiCard
@@ -1676,10 +1750,11 @@ export function ProjectDashboard() {
             }
             onClick={() => toggleGridFilter("completed")}
             pressed={gridFilter === "completed"}
+            kbd="3"
             hint={
               gridFilter === "completed"
-                ? "Filter on — click to show every project again"
-                : "Show only projects with completed jobs"
+                ? "Filter on — click or press 3 to show every project again"
+                : "Show only projects with completed jobs — or press 3"
             }
           />
           <KpiCard
@@ -1736,6 +1811,7 @@ export function ProjectDashboard() {
                   n={projects.length}
                   active={gridFilter === "all"}
                   onClick={() => setGridFilter("all")}
+                  kbd="1"
                 />
                 {presence.running > 0 && (
                   <StatusFilterChip
@@ -1744,6 +1820,7 @@ export function ProjectDashboard() {
                     tone="teal"
                     active={gridFilter === "running"}
                     onClick={() => toggleGridFilter("running")}
+                    kbd="2"
                   />
                 )}
                 {presence.completed > 0 && (
@@ -1753,6 +1830,7 @@ export function ProjectDashboard() {
                     tone="emerald"
                     active={gridFilter === "completed"}
                     onClick={() => toggleGridFilter("completed")}
+                    kbd="3"
                   />
                 )}
                 {presence.failed > 0 && (
@@ -1762,6 +1840,7 @@ export function ProjectDashboard() {
                     tone="rose"
                     active={gridFilter === "failed"}
                     onClick={() => toggleGridFilter("failed")}
+                    kbd="4"
                   />
                 )}
               </div>

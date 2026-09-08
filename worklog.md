@@ -2240,3 +2240,23 @@ Stage Summary:
 - Radix 层叠的教训值得记住：modal 会 dismiss 它底下的 popover，任何被 popover 持有的命令式资源（hidden input、ref）都会跟着陪葬——共享资源放组件根，别放浮层里
 - production 模式跑 viewer QA 是本轮最重要的运维沉淀：build 一次性成本 ~2min，换来的是无 OOM 的稳定 QA 窗口；dev 模式留给日常开发，e2e 留给 prod
 - 遗留（下轮候选）：Turntable GIF 转码（重）；gallery 卡内嵌 3D 轻量预览（重）；workflow-import 对话框同款多文件（低优先——工作流文件通常单发）；dev overlay「1 Issue」定位（dev-only 观察）； Import views 对话框可再加 per-source 的 check-all/none（本轮刻意克制未做，逐条勾选已够用）
+
+---
+Task ID: 55
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 晨轮 2026-09-09 01:44）——双功能：① Run report 目录页（Contents 编号跳转 + 每节显式锚点，Task 53 遗留「>10 section 导航性」销账）；② Dashboard 网格过滤键盘快捷键 1–4（Task 47 遗留候选「spotlight 与 Dashboard 快捷键统一」落地：KPI 卡 kbd 角标 + chips 徽章 + aria-keyshortcuts）；qa55 三阶段 e2e 全绿（后半程 production 模式）；worklog + push
+
+Work Log:
+- 【开局核对】交接摘要第 6 轮过期（停在 Task 47）——worklog 实际最新 Task 54、HEAD 916b166 == origin 干净；dev server 规程重启 + 预热；qa47 A 基线回归绿（在全部改动之后跑，dashboard 改动零回归）→ 转功能
+- 【功能 1·report Contents】9 个 h2 区段（Summary/Resolution/progress/FSC/Guinier/CTF/angdist/Topaz/Outputs）在 8+ section 的 QC 档案里需要跳转列表：sections 数组与条件 section 变量同源派生（progressSection 存在才入目录），≥5 section 才渲染 Contents——slim report 诚实省略；slug 用 GitHub 规则（lowercase + 连字符），锚点 pass 对组装完的 mdLines 做 flatMap 后处理：/^## (.+)$/ 逐行命中即在 heading 前插 `<a id name>` 双属性锚（GitHub sanitizer 全局白名单含 id/name，VS Code/Obsidian/Typora 认 id——裸 markdown 渲染器也能跳）；slug 从 heading 文本实时派生，TOC 与锚永不错位；md join 从数组尾迁到锚点 pass 之后
+- 【功能 2·Dashboard 快捷键 1–4】语义=镜像可见物：1=drillToGrid("all")（Projects 卡）、2/3/4=toggleGridFilter（Running/Completed KPI 卡 + chips；Failed 无卡只有 chip，键仍映射）；KpiCard 新 kbd prop：角标替代 hover-only chevron（常显 text-muted-foreground/40、悬停 /80——可发现性优先于克制），aria-keyshortcuts 上 button；StatusFilterChip 加 kbd 徽章（currentColor 边框随 tone、normal-case、sm 起显）+ title 追加 "— or press N"；effect 用 ref 两段式（无依赖 effect 每 render 更新 handlerRef + 一次性 window 订阅）——零 stale closure 且 lint 无别名抱怨；守卫链：modifier（Ctrl/Cmd+数字是浏览器切 tab 领地）/typing/dialog-open/空项目
+- 【e2e·qa55 三阶段全绿】A：Contents 9 条编号条目逐条断言 + 位置断言（Workdir 表之后 Summary 之前）+ slugHeading 显式映射逐一验锚（锚在 heading 前、锚序==TOC 序、恰 9 枚）+ qa53 全部 24 条内容断言回归 + 6 PNG IHDR；B：kbd 角标探针（label p → closest('.card-lift') → kbd）+ chips aria-keyshortcuts + window.dispatchEvent 键盘矩阵（2→诚实空态+pressed、1→复原、3→1 卡、Ctrl+2 无视、搜索框内 2 无视、2 从 completed 切换=单选语义）+ 收尾按 1 复位；C：slim report 无 Contents 无 TOC 链接（3 锚仍在）+ 平版 toast + console 0 error
+- 【QA 探针三课】①eval 桥转义第三层：blob 文本里 `"` 序列化为 `\"`——此前所有 needle 都不含双引号，锚点 HTML 首次踩中，norm 补 \\" 还原（引号/换行/多 blob 三层坑集齐）②自踩假断言：slug 反推 heading 用 title-case 会把 fsc-curve 变 "Fsc Curve"（真 heading "FSC curve"）——改显式 slug→heading 映射，断言反而更强 ③C 阶段 NO-REFRESH：qa53 的「B 不动浏览器视图」是巧合不是不变量——本轮 B 导航去 dashboard 后 C 的视图假设全灭，改无条件 re-bootstrap（openJobResults 自带完整 bootstrap）
+- 【运维·OOM 第 10/11 次与 prod 转正】dev 模式 11 路由预热后仅剩 697MB，首轮 A 跑完（含 6 次光栅化）后 next-server 被 OOM 杀（anon 2.6GB），重启再暖化后第二轮开场即死——两连杀后按 Task 54 教训整体转 production：pkill → NODE_OPTIONS cap 1536 build（全路由过）→ standalone start → 预热（3.2GB 可用）→ 全套 A,B,C 一次通过且内存平稳——**report 链路 QA 也应默认 prod 模式**（viewer 教训正式推广为全站默认）；C 单独重跑验证 exit 0 后完整三阶段再跑一遍收官
+- 【收尾】eslint 0、tsc src 0 错误；seed --clean 无残留（workdir 剩余 mrc 为 sandbox 原生产物）；qa55-report.md 落盘目检（**Contents** 9 条编号链接 + 隐形锚排版出版级）；qa55-keys.png（chips kbd 角标 + grid flash ring）目检通过；浏览器已关；standalone 已杀、dev server 已换新
+
+Stage Summary:
+- 报告第一次能「跳着读」：metadata 表下的 Contents 把 9 个区段变成编号目录，每个 h2 前的隐形锚让 GitHub/Obsidian/VS Code/裸渲染器都能点击跳转——TOC 条目、锚点 id、heading 文本三者同源派生，未来加第七/八张图只需在 sections 数组加一行
+- Dashboard 的三层输入（KPI 卡点击/chip 点击/键盘 1–4）收敛到同一个 drill-down 语义：每个可见的可点物都有键盘等价物，kbd 角标常显让快捷键可被「看见」，aria-keyshortcuts 让它们可被读屏器「听见」；空项目/弹窗打开/输入框聚焦时键盘静默
+- 方法论沉淀：①eval 桥转义三层坑（换行/引号/多 blob）集齐，needle 含引号前先想 norm ②「B 阶段不动视图」是巧合不是不变量——跨阶段视图假设必须显式 re-bootstrap ③prod 模式 QA 从 viewer 特例升级为全站默认：build 2 分钟买断 OOM 焦虑，dev 模式留给日常开发
+- 遗留（下轮候选）：Turntable GIF 转码（重）；gallery 卡内嵌 3D 轻量预览（重）；Import dialog per-source check-all/none；workflow-import 对话框多文件（低优先）；dev overlay「1 Issue」定位（dev-only 观察）；report 可再加「返回目录」脚部链接（克制未做）
