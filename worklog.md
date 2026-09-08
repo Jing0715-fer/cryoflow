@@ -2134,3 +2134,24 @@ Stage Summary:
 - reduced-motion 适配收尾：动效丰富的 drill-down/flash/hover 全部拿到瞬时等价物——「样式越做越细」的应有之义是让每个动效都有人不在动的版本
 - 方法论：跨调用浏览器不持久 → 独立批自带 bootstrap；冷编译等「ready+目标」双条件轮询；hook 标准平台 API（createObjectURL）是验证下载链路而不真碰文件系统的干净路径
 - 遗留（下轮候选）：Turntable GIF 转码（重）；gallery 卡内嵌 3D 轻量预览（重）；导入对话框双来源混合多选；#5 token gate；report 富化（图表快照嵌 PNG / FSC 曲线数据表）；dev overlay「1 Issue」定位（dev-only）
+
+---
+Task ID: 50
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 晚轮 2026-09-08 22:59）——落地 Task 49 遗留「report 富化」：Run report 新增 FSC curve section（里程碑分辨率数据表 + 自绘 SVG→canvas 2× 光栅化的 PNG 快照内嵌 data URL）+ Resolution 行扩充（0.5 half-bit / RELION reported+label / box Nyquist）；新 lib/fsc-snapshot.ts（自绘快照管道，不依赖 DOM）；qa50 三阶段 e2e 两连全绿；worklog + push
+
+Work Log:
+- 【开局核对】worklog 实际最新 Task 49（交接摘要里的 Task 47 已过期两轮）；HEAD d2ad724 == origin 工作树干净；dev server 规程重启；qa47 A + qa49 A 回归全绿 → 转功能
+- 【新功能 1·FSC 快照管道 lib/fsc-snapshot.ts】设计立场：不抓 recharts DOM——图表靠 Tailwind class（text-muted-foreground/currentColor 网格）出样式，SVG 离开页面即裸奔；自绘 standalone SVG（显式色值 + 白底 + 640×280）再 blob URL→Image→canvas 2×→PNG data URL，走哪贴哪都一个样。fail-soft 全程：shells<2 或跨度退化→buildFscSvg null；光栅化失败/4s 超时→null——report 赚到图或诚实留缺，绝不嵌破图。x 轴 log 刻度（{1,2,5}×10^k 阶梯）：线性轴被 ~100 Å 首壳压扁高分辨率端（目检抓到后返工），与应用内 chart 的 scale="log" 对齐
+- 【新功能 2·里程碑数据表】常规检查点 [20,15,10,8,6,5,4,3.5,3,2.5] Å 各认领最近 shell（15% 容差带；两检查点抢同 shell 时更近者留）；列随来源变形：postprocess 四列（unmasked/corrected/phase-rand）vs model 两列（gold-standard）——诚实缺列胜过假破折号
+- 【新功能 3·report 接线】Resolution 行按到达 earn：0.143 → 0.5 half-bit → RELION reported+label → box Nyquist(1/maxFreq) → refine current/best；FSC curve section 夹在 Resolution 与 Outputs 之间（source 行 + 表 + PNG）；文件名加 job id 后缀（-<id6>）防同名任务在 Downloads 混淆；toast 双变体（有 FSC 段 → "Markdown + FSC table & curve snapshot"）；Report 按钮 aria-busy + title 更新。TS 坑再+1：lib 里 const lx（log 函数）与图例循环 let lx 撞名 TS2451——图例游标改名 curX
+- 【QA 播种】scripts/qa50-seed-fsc.py：向 sandbox refine3d workdir 生成 RELION 5 形制 postprocess.star（data_general._rlnFinalResolution=3.12 + data_fsc 四列 loop，logistic 曲线锚定 0.143@3.12 Å、0.5@3.58 Å、Nyquist 2.857 Å，确定性 RNG 保证可复现）；--clean 清场；fatal 兜底自动清理
+- 【e2e·qa50-e2e.mjs 三阶段两连全绿（exit 0 ×2）】A：播种→Results 打开→应用内 FSC chart 同步点亮（回归守卫：同一 payload 喂图与报告）→blob 断言（md 85KB、FSC section/表头/10 行里程碑（行内曲线序 phase≤corrected≤unmasked）/PNG magic/RELION reported/label/Nyquist 2.86/half-bit 3.58 全命中、IHDR 1280×560=2× 校验、PNG 落盘目检出版级）→B：--clean→report 复抓（md 610B 无 FSC section 无 PNG、toast 平版变体）诚实缺口双向验证→C：console 0 error
+- 【QA 探针三课（本轮最贵收获）】①`(() => x) + ''` 少了调用括号——IIFE 从未调用，轮询比较的是函数源码字符串恒 false，"Report 按钮 36s 不出现"追了三轮最后 DIAG 转储反证按钮一直都在（qa46「先跑应恒真断言」教训第三次应验，已固化为 sanity 探针前置）②eval 桥把 blob 文本 JSON 序列化，换行成字面 \n——split("\n") 前先归一化 ③hook createObjectURL 一箭双雕：blob[0] 是 svgToPngDataUrl 的 SVG 中间产物，markdown 是 blob[last]——断言取错即假阴性
+- 【收尾】bun run lint 0/0、tsc src 0 错误（lx 撞名修清）；seed 已 --clean 无残留；qa50-fsc-snapshot.png / qa50-report.png / qa50-final.png 保留 agent-ctx/；浏览器已关
+
+Stage Summary:
+- Run report 从「数字快照」升级为「可发表的运行档案」：FSC 曲线第一次能以表格+图像双形态离开屏幕——里程碑表给审阅者数值锚点，PNG 快照给一眼定性的曲线形状，全部 honest-gap（无数据整段缺席、浏览器拒绝光栅化只留表）
+- 自绘快照 vs DOM 抓取的取舍值得沉淀：凡是「靠页面 CSS 出样式」的图表，离开页面的复制品都是残废——独立渲染（显式色值、白底、log 轴）多花 30 行，换来贴进 Obsidian/GitHub/打印稿都一个样的确定性
+- 方法论：①恒真哨兵进 SOP——新探针上岗位前先证明它能返回 true ②eval 桥三层坑（引号/转义/多 blob）都有了肌肉记忆式防御 ③坐标点击 vs el.click() 分工再确认（React 合成事件吃 el.click()，但 Radix overlay 场景只有真鼠标事件稳）
+- 遗留（下轮候选）：同一快照管道推广到 guinier/angdist/ctf 图表（report 二阶段：全图表嵌入）；Turntable GIF 转码（重）；gallery 卡内嵌 3D 轻量预览（重）；导入对话框双来源混合多选；#5 token gate；dev overlay「1 Issue」定位（dev-only 观察）

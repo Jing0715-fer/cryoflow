@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/hooks/use-toast";
+import { buildFscSvg, fscMilestones, fscNyquist, fscTableMarkdown, svgToPngDataUrl } from "@/lib/fsc-snapshot";
 import type { JobDTO } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { FscChart } from "./fsc-chart";
@@ -159,22 +160,43 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
   const [reportBusy, setReportBusy] = useState(false);
 
   /** Run report → Markdown download. The file list and summary come from
-   *  data already on screen; resolution lines earn their place by arriving
-   *  (postprocess FSC first, then the live refine value) — a failed fetch
-   *  is simply not a line, honest gaps over placeholder dashes. */
+   *  data already on screen; resolution lines and the FSC section earn
+   *  their place by arriving (postprocess FSC first, then the live refine
+   *  value) — a failed fetch is simply not a line, honest gaps over
+   *  placeholder dashes. The FSC section carries a milestone-resolution
+   *  table plus a self-drawn curve snapshot (PNG data URL, 2× rasterized
+   *  from a standalone SVG — never scraped from the class-styled DOM
+   *  chart); both degrade to nothing when the data or the browser says no. */
   const exportReport = useCallback(async () => {
     setReportBusy(true);
     try {
+      interface FscBody {
+        source: "postprocess" | "model" | null;
+        sourceFile: string | null;
+        shells: {
+          freq: number;
+          res: number;
+          fsc: number;
+          correctedFsc?: number;
+          phaseRandomizedFsc?: number;
+        }[];
+        resolutionAt143: number | null;
+        resolutionAt05: number | null;
+        reportedResolution: number | null;
+        reportedLabel: string | null;
+      }
       // wrapped in an object: TS's control-flow analysis narrows bare `let`
       // locals back to null after the await (closures assign them), an
       // object property keeps the declared union
-      const found: { fsc: string | null; refine: string | null } = { fsc: null, refine: null };
+      const found: { fsc: FscBody | null; refine: string | null } = {
+        fsc: null,
+        refine: null,
+      };
       await Promise.all([
         fetch(`/api/jobs/${job.id}/fsc`, { cache: "no-store" })
           .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-          .then((d: { resolutionAt143?: number | null }) => {
-            if (d.resolutionAt143 != null)
-              found.fsc = `FSC 0.143 resolution: **${d.resolutionAt143.toFixed(2)} Å**`;
+          .then((d: FscBody) => {
+            if (d.resolutionAt143 != null || (d.shells ?? []).length > 0) found.fsc = d;
           })
           .catch(() => {}),
         fetch(`/api/jobs/${job.id}/resolution`, { cache: "no-store" })
@@ -188,7 +210,49 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
           })
           .catch(() => {}),
       ]);
-      const resLines = [found.fsc, found.refine].filter((l): l is string => l != null);
+      const fsc = found.fsc;
+
+      // Resolution lines — each earns its place by arriving
+      const resLines: string[] = [];
+      if (fsc?.resolutionAt143 != null)
+        resLines.push(`FSC 0.143 resolution: **${fsc.resolutionAt143.toFixed(2)} Å**`);
+      if (fsc?.resolutionAt05 != null)
+        resLines.push(`FSC 0.5 (half-bit) resolution: **${fsc.resolutionAt05.toFixed(2)} Å**`);
+      if (fsc?.reportedResolution != null)
+        resLines.push(
+          `RELION reported: **${fsc.reportedResolution.toFixed(2)} Å**${
+            fsc.reportedLabel ? ` — ${fsc.reportedLabel}` : ""
+          }`
+        );
+      const nyq = fsc ? fscNyquist(fsc.shells) : null;
+      if (nyq != null && Number.isFinite(nyq))
+        resLines.push(`Box Nyquist limit (2 × pixel size): **${nyq.toFixed(2)} Å**`);
+      if (found.refine) resLines.push(found.refine);
+
+      // FSC section — milestone table + curve snapshot, each optional
+      let fscSection: string[] | null = null;
+      if (fsc && fsc.shells.length > 0) {
+        const rows = fscMilestones(fsc.shells);
+        const table = fscTableMarkdown(rows, fsc.source);
+        const src = fsc.sourceFile ? `\`Source: ${fsc.sourceFile}\`` : null;
+        const snap = buildFscSvg({
+          title: job.name,
+          source: fsc.source,
+          sourceFile: fsc.sourceFile,
+          shells: fsc.shells,
+          resolutionAt143: fsc.resolutionAt143,
+        });
+        const png = snap ? await svgToPngDataUrl(snap.svg, snap.width, snap.height) : null;
+        const block: string[] = ["## FSC curve", ""];
+        if (src) block.push(src, "");
+        if (table) block.push(table, "");
+        if (png) {
+          block.push(`![FSC curve${fsc.resolutionAt143 != null ? ` — ${fsc.resolutionAt143.toFixed(2)} Å` : ""} for ${job.name}](${png})`, "");
+        } else {
+          block.push("_Curve snapshot unavailable in this browser — the table above is the full data._", "");
+        }
+        fscSection = block;
+      }
 
       const fmtDur = (s: number) =>
         s >= 3600
@@ -220,6 +284,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
         "",
         resLines.length > 0 ? resLines.map((l) => `- ${l}`).join("\n") : "_No resolution data available for this job._",
         "",
+        ...(fscSection ?? []),
         "## Outputs on disk",
         "",
         `- ${mrcFiles.length} map/image file${mrcFiles.length === 1 ? "" : "s"}${mrcFiles[0] ? ` — latest: \`${mrcFiles[0].name}\`` : ""}`,
@@ -234,12 +299,15 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `cryoflow-report-${slug}.md`;
+      // id suffix keeps same-named jobs' reports distinguishable in Downloads
+      a.download = `cryoflow-report-${slug}-${job.id.slice(-6)}.md`;
       a.click();
       URL.revokeObjectURL(url);
       toast({
         title: "Run report downloaded",
-        description: "Markdown — paste straight into lab notes or an issue.",
+        description: fscSection
+          ? "Markdown + FSC table & curve snapshot — paste straight into lab notes or an issue."
+          : "Markdown — paste straight into lab notes or an issue.",
       });
     } catch {
       toast({ title: "Report export failed", variant: "destructive" });
@@ -315,9 +383,10 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
             size="sm"
             onClick={() => void exportReport()}
             disabled={reportBusy}
+            aria-busy={reportBusy}
             className="h-7 gap-1.5 px-2 text-[11px]"
             aria-label="Export run report"
-            title="Download a Markdown summary of this run — metadata, resolution, outputs"
+            title="Download a Markdown summary of this run — metadata, resolution, FSC table & curve snapshot, outputs"
           >
             <FileDown className={cn("h-3.5 w-3.5", reportBusy && "animate-pulse motion-reduce:animate-none")} aria-hidden="true" />
             Report
