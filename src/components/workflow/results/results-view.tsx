@@ -37,7 +37,14 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/hooks/use-toast";
-import { buildFscSvg, fscMilestones, fscNyquist, fscTableMarkdown, svgToPngDataUrl } from "@/lib/fsc-snapshot";
+import { buildFscSvg, fscMilestones, fscNyquist, fscTableMarkdown } from "@/lib/fsc-snapshot";
+import {
+  buildGuinierSvg,
+  buildResolutionSvg,
+  guinierTableMarkdown,
+  resolutionTableMarkdown,
+  svgToPngDataUrl,
+} from "@/lib/report-snapshots";
 import type { JobDTO } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { FscChart } from "./fsc-chart";
@@ -188,10 +195,10 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
       // wrapped in an object: TS's control-flow analysis narrows bare `let`
       // locals back to null after the await (closures assign them), an
       // object property keeps the declared union
-      const found: { fsc: FscBody | null; refine: string | null } = {
-        fsc: null,
-        refine: null,
-      };
+      const found: {
+        fsc: FscBody | null;
+        res: { current: number | null; best: number | null; points: { iteration: number; resolution: number }[] } | null;
+      } = { fsc: null, res: null };
       await Promise.all([
         fetch(`/api/jobs/${job.id}/fsc`, { cache: "no-store" })
           .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
@@ -201,13 +208,24 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
           .catch(() => {}),
         fetch(`/api/jobs/${job.id}/resolution`, { cache: "no-store" })
           .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-          .then((d: { current?: number | null; best?: number | null }) => {
-            if (d.current != null || d.best != null) {
-              const cur = d.current != null ? `${d.current.toFixed(2)} Å` : "—";
-              const best = d.best != null ? `${d.best.toFixed(2)} Å` : "—";
-              found.refine = `Refinement resolution: current **${cur}**, best **${best}**`;
+          .then(
+            (d: {
+              current?: number | null;
+              best?: number | null;
+              points?: { iteration: number; resolution: number }[];
+            }) => {
+              if (
+                d.current != null ||
+                d.best != null ||
+                (d.points ?? []).length > 0
+              )
+                found.res = {
+                  current: d.current ?? null,
+                  best: d.best ?? null,
+                  points: d.points ?? [],
+                };
             }
-          })
+          )
           .catch(() => {}),
       ]);
       const fsc = found.fsc;
@@ -227,7 +245,38 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
       const nyq = fsc ? fscNyquist(fsc.shells) : null;
       if (nyq != null && Number.isFinite(nyq))
         resLines.push(`Box Nyquist limit (2 × pixel size): **${nyq.toFixed(2)} Å**`);
-      if (found.refine) resLines.push(found.refine);
+      const res = found.res;
+      if (res && (res.current != null || res.best != null)) {
+        const cur = res.current != null ? `${res.current.toFixed(2)} Å` : "—";
+        const best = res.best != null ? `${res.best.toFixed(2)} Å` : "—";
+        resLines.push(`Refinement resolution: current **${cur}**, best **${best}**`);
+      }
+
+      // Snapshot sections — each earns its place by arriving; a failed
+      // rasterization degrades to the table alone, never a broken embed
+      const snapshot = async (
+        built: { svg: string; width: number; height: number } | null
+      ): Promise<string | null> => {
+        if (!built) return null;
+        return await svgToPngDataUrl(built.svg, built.width, built.height);
+      };
+
+      // Resolution progress — the convergence story (per-iteration curve)
+      let progressSection: string[] | null = null;
+      if (res && res.points.length >= 2) {
+        const table = resolutionTableMarkdown(res.points);
+        const png = await snapshot(buildResolutionSvg({ title: job.name, points: res.points }));
+        const block: string[] = ["## Resolution progress", ""];
+        block.push("Per-iteration `_rlnCurrentResolution` (gold-standard half when available).", "");
+        if (table) block.push(table, "");
+        if (png) {
+          const lastPt = res.points[res.points.length - 1];
+          block.push(`![Resolution progress — ${lastPt.resolution.toFixed(2)} Å at iteration ${lastPt.iteration} for ${job.name}](${png})`, "");
+        } else {
+          block.push("_Curve snapshot unavailable in this browser — the table above is the full data._", "");
+        }
+        progressSection = block;
+      }
 
       // FSC section — milestone table + curve snapshot, each optional
       let fscSection: string[] | null = null;
@@ -235,14 +284,15 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
         const rows = fscMilestones(fsc.shells);
         const table = fscTableMarkdown(rows, fsc.source);
         const src = fsc.sourceFile ? `\`Source: ${fsc.sourceFile}\`` : null;
-        const snap = buildFscSvg({
-          title: job.name,
-          source: fsc.source,
-          sourceFile: fsc.sourceFile,
-          shells: fsc.shells,
-          resolutionAt143: fsc.resolutionAt143,
-        });
-        const png = snap ? await svgToPngDataUrl(snap.svg, snap.width, snap.height) : null;
+        const png = await snapshot(
+          buildFscSvg({
+            title: job.name,
+            source: fsc.source,
+            sourceFile: fsc.sourceFile,
+            shells: fsc.shells,
+            resolutionAt143: fsc.resolutionAt143,
+          })
+        );
         const block: string[] = ["## FSC curve", ""];
         if (src) block.push(src, "");
         if (table) block.push(table, "");
@@ -252,6 +302,36 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
           block.push("_Curve snapshot unavailable in this browser — the table above is the full data._", "");
         }
         fscSection = block;
+      }
+
+      // Guinier plot — postprocess-only evidence for the applied B-factor
+      let guinierSection: string[] | null = null;
+      if (fsc?.source === "postprocess") {
+        try {
+          const g = await fetch(`/api/jobs/${job.id}/guinier`, { cache: "no-store" }).then((r) =>
+            r.ok ? r.json() : Promise.reject(new Error(String(r.status)))
+          );
+          const gPts: { x: number; lnAmp: number | null; lnAmpSharpened?: number | null }[] =
+            g.points ?? [];
+          if (gPts.length >= 4) {
+            const block: string[] = ["## Guinier plot", ""];
+            if (g.bfactor != null)
+              block.push(`Applied B-factor: **${Number(g.bfactor).toFixed(1)} Å²**`, "");
+            const table = guinierTableMarkdown(gPts);
+            if (table) block.push(table, "");
+            const png = await snapshot(
+              buildGuinierSvg({ title: job.name, points: gPts, bfactor: g.bfactor ?? null })
+            );
+            if (png) {
+              block.push(`![Guinier plot for ${job.name}](${png})`, "");
+            } else {
+              block.push("_Curve snapshot unavailable in this browser — the table above is the full data._", "");
+            }
+            guinierSection = block;
+          }
+        } catch {
+          /* no guinier data — honest gap */
+        }
       }
 
       const fmtDur = (s: number) =>
@@ -284,7 +364,9 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
         "",
         resLines.length > 0 ? resLines.map((l) => `- ${l}`).join("\n") : "_No resolution data available for this job._",
         "",
+        ...(progressSection ?? []),
         ...(fscSection ?? []),
+        ...(guinierSection ?? []),
         "## Outputs on disk",
         "",
         `- ${mrcFiles.length} map/image file${mrcFiles.length === 1 ? "" : "s"}${mrcFiles[0] ? ` — latest: \`${mrcFiles[0].name}\`` : ""}`,
@@ -307,7 +389,9 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
         title: "Run report downloaded",
         description: fscSection
           ? "Markdown + FSC table & curve snapshot — paste straight into lab notes or an issue."
-          : "Markdown — paste straight into lab notes or an issue.",
+          : progressSection
+            ? "Markdown + resolution progress chart — paste straight into lab notes or an issue."
+            : "Markdown — paste straight into lab notes or an issue.",
       });
     } catch {
       toast({ title: "Report export failed", variant: "destructive" });

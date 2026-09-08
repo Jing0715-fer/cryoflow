@@ -2155,3 +2155,23 @@ Stage Summary:
 - 自绘快照 vs DOM 抓取的取舍值得沉淀：凡是「靠页面 CSS 出样式」的图表，离开页面的复制品都是残废——独立渲染（显式色值、白底、log 轴）多花 30 行，换来贴进 Obsidian/GitHub/打印稿都一个样的确定性
 - 方法论：①恒真哨兵进 SOP——新探针上岗位前先证明它能返回 true ②eval 桥三层坑（引号/转义/多 blob）都有了肌肉记忆式防御 ③坐标点击 vs el.click() 分工再确认（React 合成事件吃 el.click()，但 Radix overlay 场景只有真鼠标事件稳）
 - 遗留（下轮候选）：同一快照管道推广到 guinier/angdist/ctf 图表（report 二阶段：全图表嵌入）；Turntable GIF 转码（重）；gallery 卡内嵌 3D 轻量预览（重）；导入对话框双来源混合多选；#5 token gate；dev overlay「1 Issue」定位（dev-only 观察）
+
+---
+Task ID: 51
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 晚轮 2026-09-08 23:29）——落地 Task 50 遗留「report 二阶段」：Run report 新增 Resolution progress（逐迭代收敛曲线，复用已 fetch 的 resolution points 零额外请求）+ Guinier plot（postprocess 的 B-factor 证据，双曲线）两个快照 section；新 lib/report-snapshots.ts 通用线图快照引擎（simpleLineChart 脚手架）；qa51 三阶段 e2e 全绿；期间三次 OOM 逼出「编辑后暖化配方」；worklog + push
+
+Work Log:
+- 【开局核对】worklog 最新 Task 50；HEAD 4182ffe 干净；dev server 重启；qa47 A + qa50 A 回归绿
+- 【运维·OOM 三连与暖化配方】本轮 next-server 被 OOM 杀 3 次（anon 2.6-3.1GB，caps 896+800 管不住编译瞬峰）—— kills 全部发生在「src 编辑弄脏 chunk 后 + Chrome 驻留」的首轮重编译窗口；其中一次杀在测试中途，report 的 fetch 静默失败拿到 650B 空报告（.catch(()=>{}) 吞掉连接拒绝——诚实降级反而掩盖了服务器已死）；配方固化：重启 → curl 暖 / + /api/jobs + 全部将用到的图表 API（API 路由冷编译也在测试中炸过雷）→ qa47 A 暖化（Chrome 驻留下的页面编译尖峰吸收）→ 才跑目标 QA；方法论：报告/图表「诚实降级」需要配一个「数据源存活性」 sanity，否则降级会替宕机打掩护
+- 【新功能 1·lib/report-snapshots.ts】simpleLineChart 通用脚手架（线性轴 + niceTicks/iterationTicks 阶梯 + 多系列 + dotLast + 注记 dot+label 防越界钳位 + 右对齐图例 + note 行）：buildResolutionSvg（收敛曲线，current=末点 amber 注记，best≠last 时 violet 注记——RELION 平滑估计常与裸末次迭代不一致）、resolutionTableMarkdown（>24 行抽样保首末）、buildGuinierSvg（original/sharpened 双曲线 + B-factor note 行）、guinierTableMarkdown；x 域 2% 内边距让端点圆点离开边框（目检后打磨）；光栅化复用 fsc-snapshot 的 svgToPngDataUrl——FSC 保留专属 builder（log 轴 + 判据线跟线性脚手架不同构）
+- 【新功能 2·report 接线】resolution fetch 扩展保留 points（current/best 本来就在取——零额外请求白捡收敛故事）；guinier 仅当 fsc.source === "postprocess" 才 fetch（精准条件，refine 任务零浪费）；section 顺序 Resolution → Resolution progress → FSC curve → Guinier plot → Outputs；toast 三变体（FSC > progress > 平版）；快照失败降级为表——「赚不到图就留表，绝不嵌破图」
+- 【QA 播种 v2】qa51-seed-report.py：qa50 种子超集——postprocess.star 加 data_guinier loop（36 点 1/d² 0.001→0.120，original 缓降 + sharpened 上翘 B 加权形）+ _rlnBfactorUsedForSharpening -52.4；run_it{2,5,8,12,16,20,24,30}_half1_model.star 族（_rlnCurrentResolution 28.50→3.18）；--clean 全家清场
+- 【e2e·qa51-e2e.mjs 三阶段全绿（A 单跑 + ABC 完整各一）】A：blob 4 枚（3 SVG 中间产物 + md 290KB）→ 16 条内容断言全中（progress 表首末行 / refine 行 current 3.18 / FSC 回归 / Guinier B-factor -52.4 / 双表头 / 三 PNG alt）→ 严格 section 顺序断言 → 3 PNG IHDR 全 1280×560 并落盘目检（收敛曲线 + B-factor 双曲线均出版级）→ B：清种子 → 610B 无三 section 无 PNG 平版 toast → C：console 0 error
+- 【收尾】bun run lint 0/0、tsc src 0 错误；seed 已清；qa51-snap-{resolution,fsc,guinier}.png 目检通过；浏览器已关；qa47 A 回归绿
+
+Stage Summary:
+- Run report 三图表齐装：收敛曲线（每次迭代怎么变好）+ FSC（最终多好）+ Guinier（B-factor 证据）——一次下载即完整的重构档案，resolution progress 复用已取数据零额外请求，guinier 只在 postprocess 源时才问
+- simpleLineChart 脚手架让「下一种图表进 report」变成 ~40 行的活：报告图表管道从 FSC 特例升级为平台
+- OOM 对策升级为本轮最重要沉淀：暖化配方从「重启 + 首页 curl」细化到「编辑过的路由 + 将用到的 API 全部预热，qa47 A 作 Chrome 驻留编译尖峰的吸收剂」；诚实降级的系统需要数据源活性检查配套
+- 遗留（下轮候选）：CTF quality 散点图 + angdist 热图进 report（angdist 是格子渲染要新渲染路径）；Turntable GIF 转码（重）；gallery 卡内嵌 3D 轻量预览（重）；导入对话框双来源混合多选；#5 token gate；dev overlay「1 Issue」定位
