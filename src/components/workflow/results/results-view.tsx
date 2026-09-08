@@ -39,11 +39,17 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/hooks/use-toast";
 import { buildFscSvg, fscMilestones, fscNyquist, fscTableMarkdown } from "@/lib/fsc-snapshot";
 import {
+  angdistSummaryMarkdown,
+  buildAngdistHeatmapSvg,
+  buildCtfScatterSvg,
   buildGuinierSvg,
   buildResolutionSvg,
+  ctfTableMarkdown,
   guinierTableMarkdown,
   resolutionTableMarkdown,
   svgToPngDataUrl,
+  type AngDistSnapshot,
+  type CtfSnapshotMicrograph,
 } from "@/lib/report-snapshots";
 import type { JobDTO } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -198,7 +204,9 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
       const found: {
         fsc: FscBody | null;
         res: { current: number | null; best: number | null; points: { iteration: number; resolution: number }[] } | null;
-      } = { fsc: null, res: null };
+        ctf: { micrographs: CtfSnapshotMicrograph[]; summary: { count: number; meanDefocus: number; maxAstigmatism: number; meanFom: number; worstResolution: number } | null } | null;
+        ang: AngDistSnapshot | null;
+      } = { fsc: null, res: null, ctf: null, ang: null };
       await Promise.all([
         fetch(`/api/jobs/${job.id}/fsc`, { cache: "no-store" })
           .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
@@ -226,6 +234,27 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
                 };
             }
           )
+          .catch(() => {}),
+        // CTF fit quality (CtfFind-style micrographs_ctf.star) + orientation
+        // distribution (refine/class data star) — same honest-arrival
+        // contract: an empty or failed fetch simply is not a section.
+        fetch(`/api/jobs/${job.id}/ctf`, { cache: "no-store" })
+          .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+          .then(
+            (d: {
+              micrographs?: CtfSnapshotMicrograph[];
+              summary?: { count: number; meanDefocus: number; maxAstigmatism: number; meanFom: number; worstResolution: number } | null;
+            }) => {
+              if ((d.micrographs ?? []).length > 0)
+                found.ctf = { micrographs: d.micrographs!, summary: d.summary ?? null };
+            }
+          )
+          .catch(() => {}),
+        fetch(`/api/jobs/${job.id}/angdist`, { cache: "no-store" })
+          .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+          .then((d: AngDistSnapshot) => {
+            if (d.total > 0 && (d.cells ?? []).length > 0) found.ang = d;
+          })
           .catch(() => {}),
       ]);
       const fsc = found.fsc;
@@ -334,6 +363,43 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
         }
       }
 
+      // CTF fit quality — per-micrograph defocus/astigmatism/FOM evidence
+      let ctfSection: string[] | null = null;
+      const ctf = found.ctf;
+      if (ctf && ctf.micrographs.length >= 3) {
+        const block: string[] = ["## CTF fit quality", ""];
+        const s = ctf.summary;
+        if (s)
+          block.push(
+            `${s.count} micrographs — mean defocus **${s.meanDefocus.toFixed(2)} µm**, astigmatism ≤ **${s.maxAstigmatism.toFixed(2)} µm**${s.worstResolution > 0 ? `, worst fit **${s.worstResolution.toFixed(1)} Å**` : ""}${s.meanFom > 0 ? `, mean FOM **${s.meanFom.toFixed(3)}**` : ""}.`,
+            ""
+          );
+        const table = ctfTableMarkdown(ctf.micrographs);
+        if (table) block.push(table, "");
+        const png = await snapshot(buildCtfScatterSvg({ title: job.name, micrographs: ctf.micrographs }));
+        if (png) {
+          block.push(`![CTF defocus scatter for ${job.name}](${png})`, "");
+        } else {
+          block.push("_Scatter snapshot unavailable in this browser — the table above is the full data._", "");
+        }
+        ctfSection = block;
+      }
+
+      // Angular distribution — orientation coverage from the final data star
+      let angSection: string[] | null = null;
+      const ang = found.ang;
+      if (ang) {
+        const block: string[] = ["## Angular distribution", ""];
+        block.push(angdistSummaryMarkdown(ang), "");
+        const png = await snapshot(buildAngdistHeatmapSvg({ ...ang, title: job.name }));
+        if (png) {
+          block.push(`![Orientation distribution heatmap for ${job.name}](${png})`, "");
+        } else {
+          block.push("_Heatmap snapshot unavailable in this browser — the summary table above is the full data._", "");
+        }
+        angSection = block;
+      }
+
       const fmtDur = (s: number) =>
         s >= 3600
           ? `${Math.floor(s / 3600)}h ${Math.round((s % 3600) / 60)}m`
@@ -367,6 +433,8 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
         ...(progressSection ?? []),
         ...(fscSection ?? []),
         ...(guinierSection ?? []),
+        ...(ctfSection ?? []),
+        ...(angSection ?? []),
         "## Outputs on disk",
         "",
         `- ${mrcFiles.length} map/image file${mrcFiles.length === 1 ? "" : "s"}${mrcFiles[0] ? ` — latest: \`${mrcFiles[0].name}\`` : ""}`,
@@ -385,12 +453,20 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
       a.download = `cryoflow-report-${slug}-${job.id.slice(-6)}.md`;
       a.click();
       URL.revokeObjectURL(url);
+      // toast names what the report actually carries — the FSC phrase stays
+      // first so the long-standing assertion-friendly wording survives
+      const chartBits = [
+        fscSection ? "FSC table & curve snapshot" : null,
+        progressSection ? "resolution progress chart" : null,
+        guinierSection ? "Guinier plot" : null,
+        ctfSection ? "CTF fit quality scatter" : null,
+        angSection ? "orientation distribution map" : null,
+      ].filter(Boolean) as string[];
       toast({
         title: "Run report downloaded",
-        description: fscSection
-          ? "Markdown + FSC table & curve snapshot — paste straight into lab notes or an issue."
-          : progressSection
-            ? "Markdown + resolution progress chart — paste straight into lab notes or an issue."
+        description:
+          chartBits.length > 0
+            ? `Markdown + ${chartBits.join(" + ")} — paste straight into lab notes or an issue.`
             : "Markdown — paste straight into lab notes or an issue.",
       });
     } catch {

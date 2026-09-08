@@ -1,18 +1,19 @@
-// Task 51 QA — run report phase 2 (resolution progress + Guinier snapshot
-// sections join the FSC one):
-//   A  FULL REPORT: seed postprocess.star (fsc + guinier + B-factor) AND
-//      run_itXXX_half1_model.star family → Results → Report → markdown
-//      asserts (Resolution progress table+PNG, FSC table+PNG regression,
-//      Guinier B-factor + table+PNG, section order, 3 PNGs at 1280×560)
-//   B  HONEST GAP: clean seed → report again → all three chart sections
-//      absent, plain toast, tiny blob
+// Task 52 QA — run report phase 3 (CTF fit quality + angular distribution
+// join the snapshot suite):
+//   A  FULL REPORT: seed postprocess.star + iteration family + micrographs_ctf.star
+//      (48 mics, optics decoy block) + run_data.star (900 particles, bimodal)
+//      → Results → Report → markdown asserts (5 sections in order, CTF
+//      summary/table/PNG, angdist summary table + anisotropic verdict +
+//      PNG, 5 PNGs: first 3 @1280×560, ctf+angdist @1280×640)
+//   B  HONEST GAP: clean seed → report again → all five chart sections
+//      absent, plain toast, tiny blob, zero PNGs
 //   C  console errors + close
-// Usage: QA_PHASES=A,B,C node scripts/qa51-e2e.mjs
+// Usage: QA_PHASES=A,B,C node scripts/qa52-e2e.mjs
 import { execSync } from "node:child_process";
 import { appendFileSync, writeFileSync } from "node:fs";
 
 const AB = "agent-browser";
-const LOGF = new URL("../.qa-logs/qa51-trace.log", import.meta.url).pathname;
+const LOGF = new URL("../.qa-logs/qa52-trace.log", import.meta.url).pathname;
 const step = (m) => {
   const line = `[${(Date.now() / 1000).toFixed(0)}] ${m}`;
   try { appendFileSync(LOGF, line + "\n"); } catch { /* ignore */ }
@@ -33,8 +34,8 @@ const unq = (s) => (s || "").replace(/^"|"$/g, "");
 const J = (expr) => JSON.parse(unq(evalJs(expr)));
 const PHASES = (process.env.QA_PHASES || "A,B,C").split(",").map((s) => s.trim().toUpperCase());
 
-const SEED = "python3 /home/z/my-project/scripts/qa51-seed-report.py";
-const SEED_CLEAN = "python3 /home/z/my-project/scripts/qa51-seed-report.py --clean";
+const SEED = "python3 /home/z/my-project/scripts/qa52-seed-report.py";
+const SEED_CLEAN = "python3 /home/z/my-project/scripts/qa52-seed-report.py --clean";
 const JOB = "3D Auto-Refine 1";
 
 const openJobResults = async () => {
@@ -117,7 +118,7 @@ const hookAndClickReport = async () => {
     b.click(); return 'clicked';
   })()`));
   if (clk !== "clicked") throw new Error(clk);
-  await sleep(6000); // three rasterizations join the fetch set — give room
+  await sleep(9000); // five rasterizations join the fetch set — give room
   const toasts = unq(evalJs(`(window.__qaToasts||[]).map(t=>t.text).join(' | ') || 'NONE'`));
   const blobs = J(`({ n: (window.__qaBlobs||[]).length, sizes: (window.__qaBlobs||[]).map(b => b.size) })`);
   step(`  toasts: ${toasts}`);
@@ -135,13 +136,14 @@ const blobText = async () =>
 const norm = (mdRaw) =>
   mdRaw.includes("\\n") && !mdRaw.includes("\n") ? mdRaw.replace(/\\n/g, "\n") : mdRaw;
 
-/** PHASE A — full report with all three snapshot sections */
+/** PHASE A — full report with all five snapshot sections */
 const phaseA = async () => {
-  console.log("== PHASE A: full report (progress + fsc + guinier) ==");
-  step("  seeding postprocess.star + iteration family …");
+  console.log("== PHASE A: full report (progress + fsc + guinier + ctf + angdist) ==");
+  step("  seeding postprocess + iterations + micrographs_ctf.star + run_data.star …");
   sh(SEED);
   await openJobResults();
 
+  // regression guard: the FSC chart still lights up from the same payload
   const chart = unq(evalJs(`(() => {
     const sec = document.querySelector('section[aria-label="Fourier-shell correlation"]');
     if (!sec) return 'NO-CHART';
@@ -153,11 +155,13 @@ const phaseA = async () => {
   const { toasts, blobs } = await hookAndClickReport();
   if (!/Run report downloaded/i.test(toasts)) throw new Error(`toast missing: ${toasts}`);
   if (!/Markdown \+ FSC table & curve snapshot/i.test(toasts))
-    throw new Error(`toast not enriched variant: ${toasts}`);
-  // 3 SVG intermediates + 1 markdown blob; markdown is the LAST
-  if (blobs.n < 4) throw new Error(`expected ≥4 blobs (3 svg + md), got ${JSON.stringify(blobs)}`);
+    throw new Error(`toast fsc bit missing: ${toasts}`);
+  if (!/CTF fit quality scatter \+ orientation distribution map/.test(toasts))
+    throw new Error(`toast phase-3 bits missing: ${toasts}`);
+  // 5 SVG intermediates + 1 markdown blob; markdown is the LAST
+  if (blobs.n < 6) throw new Error(`expected ≥6 blobs (5 svg + md), got ${JSON.stringify(blobs)}`);
   const size = blobs.sizes[blobs.sizes.length - 1] ?? 0;
-  if (size < 60_000) throw new Error(`blob suspiciously small for 3 PNG embeds: ${size}B`);
+  if (size < 100_000) throw new Error(`blob suspiciously small for 5 PNG embeds: ${size}B`);
 
   const md = norm(await blobText());
   step(`  md bytes: ${md.length}`);
@@ -166,51 +170,70 @@ const phaseA = async () => {
     ["## Resolution", "resolution section"],
     ["Refinement resolution: current **3.18 Å**, best **3.18 Å**", "refine line from points"],
     ["## Resolution progress", "progress section"],
-    ["Per-iteration `_rlnCurrentResolution`", "progress note"],
-    ["| Iteration | Resolution (Å) |", "progress table header"],
     ["| 2 | 28.50 |", "progress first row"],
     ["| 30 | 3.18 |", "progress last row"],
     ["![Resolution progress — 3.18 Å at iteration 30 for " + JOB + "]", "progress png alt"],
     ["## FSC curve", "fsc section"],
-    ["| Resolution (Å) | Unmasked FSC | Masked + corrected | Phase-rand noise |", "fsc table header"],
     ["![FSC curve — 3.12 Å", "fsc png alt"],
     ["## Guinier plot", "guinier section"],
     ["Applied B-factor: **-52.4 Å²**", "bfactor line"],
-    ["| 1/d² (Å⁻²) | ln amplitude | after sharpening |", "guinier table header"],
     ["![Guinier plot for " + JOB + "]", "guinier png alt"],
+    // phase-3: CTF fit quality
+    ["## CTF fit quality", "ctf section"],
+    ["48 micrographs — mean defocus **", "ctf summary line"],
+    ["astigmatism ≤ **0.25 µm**", "ctf astig summary"],
+    ["mean FOM **0.090**", "ctf fom summary"],
+    ["| Micrograph | Defocus (µm) | Astig (µm) | FOM | Fit (Å) |", "ctf table header"],
+    ["![CTF defocus scatter for " + JOB + "]", "ctf png alt"],
+    // phase-3: angular distribution
+    ["## Angular distribution", "angdist section"],
+    ["| Particles binned | 900 |", "angdist total"],
+    ["anisotropic (preferred-orientation risk)", "angdist verdict"],
+    ["| Symmetry | C1 |", "angdist symmetry"],
+    ["| Source | `run_data.star` (final) |", "angdist source"],
+    ["![Orientation distribution heatmap for " + JOB + "]", "angdist png alt"],
     ["## Outputs on disk", "outputs intact"],
   ];
   for (const [needle, label] of asserts) {
     if (!md.includes(needle)) throw new Error(`report missing ${label}: "${needle}"`);
   }
-  // strict section order
-  const order = ["## Resolution", "## Resolution progress", "## FSC curve", "## Guinier plot", "## Outputs on disk"]
+  // ctf rows are sorted by defocusU desc (route contract), then sampled
+  // 48 → 25 (k=2, first+last kept) — count by name pattern, not position
+  const micRows = (md.match(/\| mic_\d{4}\.mrc \|/g) ?? []).length;
+  step(`  ctf table rows: ${micRows}`);
+  if (micRows !== 25) throw new Error(`ctf table rows: want 25 (48 sampled k=2), got ${micRows}`);
+  // strict section order — phase-3 sections slot between Guinier and Outputs
+  const order = ["## Resolution", "## Resolution progress", "## FSC curve", "## Guinier plot",
+    "## CTF fit quality", "## Angular distribution", "## Outputs on disk"]
     .map((s) => md.indexOf(s));
   if (order.some((i) => i < 0) || !order.every((v, i) => i === 0 || v > order[i - 1]))
     throw new Error(`section order broken: ${order.join(",")}`);
-  // three embedded PNGs, each 1280×560; save for the eyeball
+  // five embedded PNGs: line charts @640×280 (→1280×560), ctf/angdist @640×320 (→1280×640)
   const pngs = [...md.matchAll(/data:image\/png;base64,([A-Za-z0-9+/=]+)/g)].map((m) => m[1]);
   step(`  embedded PNGs: ${pngs.length}`);
-  // three legacy snapshot PNGs minimum — phase-3 (Task 52) may append more
-  // (CTF scatter + orientation heatmap); the count stays future-tolerant
-  if (pngs.length < 3) throw new Error(`want ≥3 embedded PNGs, got ${pngs.length}`);
-  const names = ["resolution", "fsc", "guinier"];
-  pngs.slice(0, 3).forEach((b64, i) => {
+  if (pngs.length !== 5) throw new Error(`want 5 embedded PNGs, got ${pngs.length}`);
+  const names = ["resolution", "fsc", "guinier", "ctf", "angdist"];
+  const wantH = [560, 560, 560, 640, 640];
+  pngs.forEach((b64, i) => {
     const bin = Buffer.from(b64.slice(0, 120), "base64");
     const w = bin.readUInt32BE(16);
     const h = bin.readUInt32BE(20);
     step(`  png[${names[i]}]: ${w}x${h}`);
-    if (w !== 1280 || h !== 560) throw new Error(`png[${i}] dims wrong: ${w}x${h}`);
-    writeFileSync(`/home/z/my-project/agent-ctx/qa51-snap-${names[i]}.png`, Buffer.from(b64, "base64"));
+    if (w !== 1280 || h !== wantH[i])
+      throw new Error(`png[${names[i]}] dims wrong: ${w}x${h} (want 1280x${wantH[i]})`);
+    writeFileSync(`/home/z/my-project/agent-ctx/qa52-snap-${names[i]}.png`, Buffer.from(b64, "base64"));
   });
   step("  ALL markdown assertions PASS");
-  sh(`${AB} screenshot /home/z/my-project/agent-ctx/qa51-report.png`);
+  sh(`${AB} screenshot /home/z/my-project/agent-ctx/qa52-report.png`);
 };
 
 /** PHASE B — honest gap when no chart data */
 const phaseB = async () => {
   console.log("== PHASE B: honest gap (no chart data) ==");
   sh(SEED_CLEAN);
+  // standalone batch: browser session does not survive across processes
+  // (qa49 lesson) — re-open the job Results tab ourselves
+  if (!PHASES.includes("A")) await openJobResults();
   const rf = unq(evalJs(`(() => {
     const b = [...document.querySelectorAll('button')].find(x => x.getAttribute('aria-label') === 'Refresh outputs');
     if (!b) return 'NO-REFRESH';
@@ -221,10 +244,11 @@ const phaseB = async () => {
   await sleep(2500);
   const { toasts, blobs } = await hookAndClickReport();
   if (!/Run report downloaded/i.test(toasts)) throw new Error(`toast missing: ${toasts}`);
-  if (/FSC table & curve snapshot|resolution progress chart/.test(toasts))
+  if (/FSC table & curve snapshot|resolution progress chart|CTF fit quality scatter|orientation distribution map/.test(toasts))
     throw new Error(`toast should be plain variant: ${toasts}`);
   const md = norm(await blobText());
-  for (const s of ["## Resolution progress", "## FSC curve", "## Guinier plot"]) {
+  for (const s of ["## Resolution progress", "## FSC curve", "## Guinier plot",
+    "## CTF fit quality", "## Angular distribution"]) {
     if (md.includes(s)) throw new Error(`${s} should be absent without data`);
   }
   if (md.includes("data:image/png")) throw new Error("no PNG should be embedded without data");
@@ -239,7 +263,7 @@ const phaseC = async () => {
   const errs = sh(`${AB} errors`) || "(none)";
   step(`  console errors: ${errs}`);
   if (errs !== "(none)") throw new Error("console errors present");
-  sh(`${AB} screenshot /home/z/my-project/agent-ctx/qa51-final.png`);
+  sh(`${AB} screenshot /home/z/my-project/agent-ctx/qa52-final.png`);
 };
 
 (async () => {
@@ -254,7 +278,7 @@ const phaseC = async () => {
   sh(`${AB} close`);
 })().catch((e) => {
   step(`FATAL: ${e.message}`);
-  sh(`${AB} screenshot /home/z/my-project/agent-ctx/qa51-fatal.png`);
+  sh(`${AB} screenshot /home/z/my-project/agent-ctx/qa52-fatal.png`);
   sh(SEED_CLEAN);
   sh(`${AB} close`);
   process.exit(1);

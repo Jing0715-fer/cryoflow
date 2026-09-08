@@ -373,3 +373,380 @@ export function guinierTableMarkdown(points: GuinierSnapshotPoint[]): string | n
   );
   return [head, sep, ...lines].join("\n");
 }
+
+/* ------------------------------------------------------------------ */
+/* CTF fit quality — defocus scatter + FOM histogram                   */
+/* ------------------------------------------------------------------ */
+
+export interface CtfSnapshotMicrograph {
+  name: string;
+  /** µm */
+  defocusU: number;
+  /** µm */
+  defocusV: number;
+  /** µm */
+  astigmatism: number;
+  /** ctffind figure of merit 0–1 */
+  fom: number;
+  /** Å */
+  maxResolution: number;
+}
+
+/** CTF quality snapshot, mirroring the in-app CtfQualityChart semantics on
+ *  a wide canvas: LEFT — defocus U vs V square plot (shared domain so the
+ *  dashed diagonal is geometrically true; off-diagonal distance IS the
+ *  astigmatism, dot size encodes it); RIGHT — FOM health histogram with
+ *  the app's emerald/amber/rose buckets, so "how many micrographs are
+ *  healthy" reads at a glance. Fail-soft: needs ≥3 usable points. */
+export function buildCtfScatterSvg(input: {
+  title: string;
+  micrographs: CtfSnapshotMicrograph[];
+}): { svg: string; width: number; height: number } | null {
+  const pts = input.micrographs.filter(
+    (m) => Number.isFinite(m.defocusU) && Number.isFinite(m.defocusV)
+  );
+  if (pts.length < 3) return null;
+
+  const W = 640;
+  const H = 320;
+  const title = input.title.length > 52 ? input.title.slice(0, 51) + "…" : input.title;
+  const parts: string[] = [];
+  parts.push(`<rect width="${W}" height="${H}" fill="#ffffff"/>`);
+  parts.push(
+    `<text x="54" y="17" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="600" fill="${C.text}">${esc(title)} — CTF fit quality</text>`
+  );
+  parts.push(
+    `<text x="54" y="32" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10" fill="${C.faint}">${pts.length} micrographs · dot size encodes astigmatism · dashed diagonal = zero astigmatism</text>`
+  );
+
+  // LEFT square: U vs V. Shared domain over both axes keeps the diagonal
+  // at exactly 45° — the plot area is square to match.
+  const M = { t: 46, b: 40, l: 54, r: 18 };
+  const ph = H - M.t - M.b; // square side
+  const pw = ph;
+  const all = pts.flatMap((p) => [p.defocusU, p.defocusV]);
+  let lo = Math.min(...all);
+  let hi = Math.max(...all);
+  const pad = Math.max((hi - lo) * 0.06, 0.05);
+  lo -= pad;
+  hi += pad;
+  const px = (v: number) => M.l + ((v - lo) / (hi - lo)) * pw;
+  const py = (v: number) => M.t + (1 - (v - lo) / (hi - lo)) * ph;
+
+  for (const v of niceTicks(lo, hi, 5)) {
+    parts.push(
+      `<line x1="${M.l}" y1="${fx(py(v))}" x2="${M.l + pw}" y2="${fx(py(v))}" stroke="${C.grid}" stroke-width="1"/>`
+    );
+    parts.push(
+      `<text x="${M.l - 6}" y="${fx(py(v) + 3)}" text-anchor="end" font-family="ui-sans-serif, system-ui, sans-serif" font-size="9.5" fill="${C.muted}">${v.toFixed(1)}</text>`
+    );
+    parts.push(
+      `<line x1="${fx(px(v))}" y1="${M.t}" x2="${fx(px(v))}" y2="${M.t + ph}" stroke="${C.gridSoft}" stroke-width="1"/>`
+    );
+    parts.push(
+      `<text x="${fx(px(v))}" y="${M.t + ph + 13}" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="9.5" fill="${C.muted}">${v.toFixed(1)}</text>`
+    );
+  }
+  // dashed zero-astigmatism diagonal (amber, as in the app)
+  parts.push(
+    `<line x1="${fx(px(lo))}" y1="${fx(py(lo))}" x2="${fx(px(hi))}" y2="${fx(py(hi))}" stroke="${C.amber}" stroke-width="1.5" stroke-dasharray="5 4" opacity="0.75"/>`
+  );
+  // dots — radius scales with astigmatism (clamped), app's ZAxis mirror
+  const astigMax = Math.max(...pts.map((p) => p.astigmatism), 1e-6);
+  for (const p of pts) {
+    const r = 2.2 + 4.5 * Math.min(1, p.astigmatism / astigMax);
+    parts.push(
+      `<circle cx="${fx(px(p.defocusU))}" cy="${fx(py(p.defocusV))}" r="${r.toFixed(2)}" fill="${C.teal}" fill-opacity="0.7" stroke="${C.teal}" stroke-width="1"/>`
+    );
+  }
+  parts.push(
+    `<text x="${M.l + pw}" y="${H - 8}" text-anchor="end" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10" fill="${C.muted}">defocus U (µm)</text>`
+  );
+  parts.push(
+    `<text x="13" y="${fx(M.t + ph / 2)}" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10" fill="${C.muted}" transform="rotate(-90 13 ${fx(M.t + ph / 2)})">defocus V (µm)</text>`
+  );
+
+  // RIGHT panel: FOM health histogram (same buckets as the app's fomTone)
+  const hx0 = M.l + pw + 34;
+  const hx1 = W - M.r;
+  const foms = pts.map((p) => p.fom).filter((f) => Number.isFinite(f) && f > 0);
+  const hy0 = M.t;
+  const hy1 = M.t + ph;
+  if (foms.length >= 3) {
+    const fMax = Math.max(0.3, Math.max(...foms) * 1.05);
+    const BINS = 12;
+    const bw = (hx1 - hx0) / BINS;
+    const counts = new Array<number>(BINS).fill(0);
+    for (const f of foms) {
+      const b = Math.min(BINS - 1, Math.max(0, Math.floor((f / fMax) * BINS)));
+      counts[b]++;
+    }
+    const cMax = Math.max(...counts, 1);
+    const fomTone = (center: number) =>
+      center >= 0.1 ? "#059669" : center >= 0.05 ? "#d97706" : "#e11d48";
+    for (const v of [0, Math.round(cMax / 2), cMax]) {
+      const y = hy1 - (v / cMax) * (hy1 - hy0);
+      parts.push(
+        `<line x1="${hx0}" y1="${fx(y)}" x2="${hx1}" y2="${fx(y)}" stroke="${C.grid}" stroke-width="1"/>`
+      );
+      parts.push(
+        `<text x="${hx0 - 6}" y="${fx(y + 3)}" text-anchor="end" font-family="ui-sans-serif, system-ui, sans-serif" font-size="9.5" fill="${C.muted}">${v}</text>`
+      );
+    }
+    counts.forEach((c, i) => {
+      if (c === 0) return;
+      const h = (c / cMax) * (hy1 - hy0);
+      const center = ((i + 0.5) / BINS) * fMax;
+      parts.push(
+        `<rect x="${fx(hx0 + i * bw + 1)}" y="${fx(hy1 - h)}" width="${fx(Math.max(1, bw - 2))}" height="${fx(h)}" fill="${fomTone(center)}" fill-opacity="0.82"/>`
+      );
+    });
+    for (const v of [0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3]) {
+      if (v > fMax) break;
+      parts.push(
+        `<text x="${fx(hx0 + (v / fMax) * (hx1 - hx0))}" y="${hy1 + 13}" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="9.5" fill="${C.muted}">${v.toFixed(2)}</text>`
+      );
+    }
+    parts.push(
+      `<text x="${hx1}" y="${hy1 + 27}" text-anchor="end" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10" fill="${C.muted}">figure of merit (green ≥ 0.10 · amber ≥ 0.05 · red below)</text>`
+    );
+    parts.push(
+      `<text x="${hx0}" y="17" text-anchor="start" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10" font-weight="600" fill="${C.text}">FOM health</text>`
+    );
+  } else {
+    parts.push(
+      `<text x="${fx((hx0 + hx1) / 2)}" y="${fx((hy0 + hy1) / 2)}" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10" fill="${C.faint}">no FOM column in source star</text>`
+    );
+  }
+
+  return {
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${parts.join("")}</svg>`,
+    width: W,
+    height: H,
+  };
+}
+
+/** Markdown table for per-micrograph CTF fits; long lists are sampled to
+ *  ~24 rows (always keeping the first and the last). */
+export function ctfTableMarkdown(micrographs: CtfSnapshotMicrograph[]): string | null {
+  const pts = micrographs.filter(
+    (m) => Number.isFinite(m.defocusU) && Number.isFinite(m.defocusV)
+  );
+  if (pts.length === 0) return null;
+  let rows = pts;
+  if (pts.length > 24) {
+    const k = Math.ceil(pts.length / 24);
+    rows = pts.filter((p, i) => i % k === 0 || i === pts.length - 1);
+  }
+  const lines = rows.map((m) => {
+    const defocus = ((m.defocusU + m.defocusV) / 2).toFixed(2);
+    const astig = Number.isFinite(m.astigmatism) ? m.astigmatism.toFixed(2) : "—";
+    const fom = Number.isFinite(m.fom) && m.fom > 0 ? m.fom.toFixed(3) : "—";
+    const fit =
+      Number.isFinite(m.maxResolution) && m.maxResolution > 0 ? m.maxResolution.toFixed(1) : "—";
+    return `| ${m.name} | ${defocus} | ${astig} | ${fom} | ${fit} |`;
+  });
+  return ["| Micrograph | Defocus (µm) | Astig (µm) | FOM | Fit (Å) |", "| --- | ---: | ---: | ---: | ---: |", ...lines].join(
+    "\n"
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Angular distribution — polar sector heatmap                         */
+/* ------------------------------------------------------------------ */
+
+export interface AngDistSnapshot {
+  title: string;
+  /** row-major cells[rotIdx * tiltBins + tiltIdx] */
+  cells: number[];
+  rotBins: number;
+  tiltBins: number;
+  total: number;
+  max: number;
+  occupied: number;
+  /** concentration factor = max / mean over occupied cells */
+  anisotropy: number;
+  symmetry: string | null;
+  iteration: number | null;
+  starFile: string | null;
+}
+
+const ANGDIST_TEAL = "#0d9488"; // teal-600, same as the in-app polar heatmap
+
+/** Angular-distribution polar heatmap for the report — a standalone-SVG
+ *  replica of the in-app AngularDistributionChart: radius = tilt θ
+ *  (0° centre → 180° edge), sweep = rot φ, sqrt opacity scale so faint
+ *  bins stay visible, tilt rings + rot spokes, right-hand legend column
+ *  with the isotropy verdict. Everything uses explicit colors so the PNG
+ *  looks identical wherever it is pasted. Fail-soft on empty/degenerate
+ *  grids. */
+export function buildAngdistHeatmapSvg(
+  input: AngDistSnapshot
+): { svg: string; width: number; height: number } | null {
+  const { rotBins, tiltBins, cells, max, total } = input;
+  if (!(total > 0) || !(max > 0) || cells.length < rotBins * tiltBins) return null;
+
+  const W = 640;
+  const H = 320;
+  const CX = 172;
+  const CY = 182;
+  const MAX_R = 118;
+  const parts: string[] = [];
+
+  const sectorPath = (rotIdx: number, tiltIdx: number): string => {
+    const padAngle = ((Math.PI * 2) / rotBins) * 0.06;
+    const padR = 0.6;
+    const r0 = (tiltIdx / tiltBins) * MAX_R + (tiltIdx === 0 ? 0 : padR);
+    const r1 = ((tiltIdx + 1) / tiltBins) * MAX_R - padR;
+    const a0 = (rotIdx / rotBins) * Math.PI * 2 - Math.PI / 2 + padAngle;
+    const a1 = ((rotIdx + 1) / rotBins) * Math.PI * 2 - Math.PI / 2 - padAngle;
+    const x = (r: number, a: number) => (CX + r * Math.cos(a)).toFixed(2);
+    const y = (r: number, a: number) => (CY + r * Math.sin(a)).toFixed(2);
+    return [
+      `M ${x(r1, a0)} ${y(r1, a0)}`,
+      `A ${r1.toFixed(2)} ${r1.toFixed(2)} 0 0 1 ${x(r1, a1)} ${y(r1, a1)}`,
+      `L ${x(r0, a1)} ${y(r0, a1)}`,
+      `A ${r0.toFixed(2)} ${r0.toFixed(2)} 0 0 0 ${x(r0, a0)} ${y(r0, a0)}`,
+      "Z",
+    ].join(" ");
+  };
+
+  const title = input.title.length > 52 ? input.title.slice(0, 51) + "…" : input.title;
+  const iterLabel = input.iteration != null ? `iteration ${input.iteration}` : "final";
+  parts.push(`<rect width="${W}" height="${H}" fill="#ffffff"/>`);
+  parts.push(
+    `<text x="20" y="17" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="600" fill="${C.text}">${esc(title)} — orientation distribution</text>`
+  );
+  parts.push(
+    `<text x="20" y="32" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10" fill="${C.faint}">${total.toLocaleString("en-US")} particles binned · source ${esc(input.starFile ?? "?")} (${iterLabel})</text>`
+  );
+
+  // tilt rings (labels are painted AFTER the heat cells so hot lobes can't
+  // bury them — see ringLabels below)
+  const ringLabels: string[] = [];
+  for (const deg of [30, 60, 90, 120, 150]) {
+    const r = (deg / 180) * MAX_R;
+    parts.push(
+      `<circle cx="${CX}" cy="${CY}" r="${r.toFixed(2)}" fill="none" stroke="${C.faint}" stroke-width="0.6" stroke-dasharray="2 3" opacity="0.55"/>`
+    );
+    const a = -Math.PI / 4;
+    ringLabels.push(
+      `<text x="${fx(CX + (r + 3) * Math.cos(a))}" y="${fx(CY + (r + 3) * Math.sin(a))}" text-anchor="start" dominant-baseline="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="7" font-weight="600" fill="${C.muted}" stroke="#ffffff" stroke-width="2.5" paint-order="stroke">${deg}°</text>`
+    );
+  }
+  // rot spokes
+  for (const deg of [0, 90, 180, 270]) {
+    const a = (deg / 360) * Math.PI * 2 - Math.PI / 2;
+    parts.push(
+      `<line x1="${CX}" y1="${CY}" x2="${fx(CX + MAX_R * Math.cos(a))}" y2="${fx(CY + MAX_R * Math.sin(a))}" stroke="${C.faint}" stroke-width="0.6" opacity="0.55"/>`
+    );
+  }
+  // heat cells — sqrt scale, zero cells stay empty (as in the app)
+  for (let idx = 0; idx < rotBins * tiltBins; idx++) {
+    const count = cells[idx];
+    if (count === 0) continue;
+    const rotIdx = Math.floor(idx / tiltBins);
+    const tiltIdx = idx % tiltBins;
+    const t = Math.sqrt(count / max);
+    const opacity = 0.12 + 0.83 * t;
+    parts.push(
+      `<path d="${sectorPath(rotIdx, tiltIdx)}" fill="${ANGDIST_TEAL}" fill-opacity="${opacity.toFixed(3)}"/>`
+    );
+  }
+  // outer circle + rot labels + centre marker
+  parts.push(
+    `<circle cx="${CX}" cy="${CY}" r="${MAX_R}" fill="none" stroke="${C.muted}" stroke-width="0.9" opacity="0.7"/>`
+  );
+  for (const deg of [0, 90, 180, 270]) {
+    const a = (deg / 360) * Math.PI * 2 - Math.PI / 2;
+    const lx = CX + (MAX_R + 14) * Math.cos(a);
+    const ly = CY + (MAX_R + 14) * Math.sin(a);
+    parts.push(
+      `<text x="${fx(lx)}" y="${fx(ly)}" text-anchor="middle" dominant-baseline="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="8" fill="${C.muted}">rot ${deg}°</text>`
+    );
+  }
+  parts.push(`<circle cx="${CX}" cy="${CY}" r="1.4" fill="${C.muted}"/>`);
+  // ring labels ride on top of the heat cells, with a white halo
+  parts.push(...ringLabels);
+
+  // right column — legend + verdict (app-mirroring, explicit colors)
+  const rx = 336;
+  const rw = W - rx - 20;
+  parts.push(
+    `<text x="${rx}" y="66" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10" font-weight="600" fill="${C.text}">particles per bin</text>`
+  );
+  parts.push(
+    `<text x="${W - 20}" y="66" text-anchor="end" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10" fill="${C.muted}">0 → ${max.toLocaleString("en-US")}</text>`
+  );
+  parts.push(
+    `<defs><linearGradient id="ag-grad" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="${ANGDIST_TEAL}" stop-opacity="0.12"/><stop offset="0.45" stop-color="${ANGDIST_TEAL}" stop-opacity="0.4"/><stop offset="1" stop-color="${ANGDIST_TEAL}" stop-opacity="0.95"/></linearGradient></defs>`
+  );
+  parts.push(
+    `<rect x="${rx}" y="74" width="${rw}" height="10" rx="5" fill="url(#ag-grad)" stroke="${C.grid}"/>`
+  );
+  parts.push(
+    `<text x="${rx}" y="98" font-family="ui-sans-serif, system-ui, sans-serif" font-size="9.5" fill="${C.faint}">radius = tilt θ (0°–180°) · sweep = rot φ · sqrt colour scale</text>`
+  );
+
+  const anisotropic = input.anisotropy > 6;
+  const verdictLines = anisotropic
+    ? [
+        `anisotropic views — concentration ×${input.anisotropy.toFixed(1)}.`,
+        "Preferred orientation can bias the map",
+        "along the missing directions.",
+      ]
+    : [
+        `isotropic coverage — concentration ×${input.anisotropy.toFixed(1)},`,
+        `${input.occupied}/${rotBins * tiltBins} bins populated.`,
+        "Orientations sample the sphere evenly.",
+      ];
+  const boxTop = 116;
+  const boxH = 64;
+  parts.push(
+    `<rect x="${rx}" y="${boxTop}" width="${rw}" height="${boxH}" rx="6" fill="${anisotropic ? "#fffbeb" : "#ecfdf5"}" stroke="${anisotropic ? "#f59e0b66" : "#10b98166"}"/>`
+  );
+  verdictLines.forEach((line, i) => {
+    parts.push(
+      `<text x="${rx + 8}" y="${boxTop + 16 + i * 15}" font-family="ui-sans-serif, system-ui, sans-serif" font-size="9.5" font-weight="${i === 0 ? 600 : 400}" fill="${anisotropic ? "#92400e" : "#065f46"}">${esc(line)}</text>`
+    );
+  });
+  // stats block under the verdict
+  const stats: string[] = [
+    `hottest bin: ${max.toLocaleString("en-US")} particles`,
+    `bins populated: ${input.occupied} / ${rotBins * tiltBins}`,
+  ];
+  if (input.symmetry) stats.push(`point-group symmetry: ${input.symmetry}`);
+  stats.forEach((line, i) => {
+    parts.push(
+      `<text x="${rx}" y="${boxTop + boxH + 18 + i * 14}" font-family="ui-sans-serif, system-ui, sans-serif" font-size="9.5" fill="${C.muted}">${esc(line)}</text>`
+    );
+  });
+
+  return {
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${parts.join("")}</svg>`,
+    width: W,
+    height: H,
+  };
+}
+
+/** Key/value Markdown table summarizing the orientation distribution —
+ *  the 288-cell grid itself lives in the PNG, the table keeps the numbers
+ *  citable. */
+export function angdistSummaryMarkdown(input: AngDistSnapshot): string {
+  const anisotropic = input.anisotropy > 6;
+  const iterLabel = input.iteration != null ? `iteration ${input.iteration}` : "final";
+  const rows: [string, string][] = [
+    ["Particles binned", input.total.toLocaleString("en-US")],
+    ["Bins populated", `${input.occupied} / ${input.rotBins * input.tiltBins}`],
+    ["Hottest bin", `${input.max.toLocaleString("en-US")} particles`],
+    [
+      "Concentration",
+      `×${input.anisotropy.toFixed(1)} — ${anisotropic ? "anisotropic (preferred-orientation risk)" : "isotropic coverage"}`,
+    ],
+    ["Symmetry", input.symmetry ?? "—"],
+    ["Source", `\`${input.starFile ?? "?"}\` (${iterLabel})`],
+  ];
+  return ["| Field | Value |", "| --- | --- |", ...rows.map(([k, v]) => `| ${k} | ${v} |`)].join(
+    "\n"
+  );
+}

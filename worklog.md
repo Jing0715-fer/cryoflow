@@ -2175,3 +2175,26 @@ Stage Summary:
 - simpleLineChart 脚手架让「下一种图表进 report」变成 ~40 行的活：报告图表管道从 FSC 特例升级为平台
 - OOM 对策升级为本轮最重要沉淀：暖化配方从「重启 + 首页 curl」细化到「编辑过的路由 + 将用到的 API 全部预热，qa47 A 作 Chrome 驻留编译尖峰的吸收剂」；诚实降级的系统需要数据源活性检查配套
 - 遗留（下轮候选）：CTF quality 散点图 + angdist 热图进 report（angdist 是格子渲染要新渲染路径）；Turntable GIF 转码（重）；gallery 卡内嵌 3D 轻量预览（重）；导入对话框双来源混合多选；#5 token gate；dev overlay「1 Issue」定位
+
+---
+Task ID: 52
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 晚轮 2026-09-08 23:44）——落地 Task 51 遗留「report 三连收尾」：Run report phase 3 新增 CTF fit quality（defocus U×V 散点 + FOM 健康直方图）+ Angular distribution（极坐标扇区热图，应用内图表的独立 SVG 复刻）两个快照 section；toast 升级为 chartBits 阶梯（qa50/qa51 断言兼容）；qa52 三阶段 e2e 全绿 + qa51 回归绿；worklog + push
+
+Work Log:
+- 【开局核对】交接摘要又过期一轮（停在 Task 47）——worklog 实际最新 Task 51；HEAD f426838 == origin 干净；dev server 报「already running」但内存 2.87GB 蠕变中 → 强制 kill + 重启 + 6 条 chart API 全预热（含本轮新用的 ctf/angdist）；qa51 A 基线回归绿 → 转功能
+- 【新功能 1·CTF 散点 buildCtfScatterSvg】640×320 宽画布双面板：LEFT defocus U×V 方图（两轴共享 domain + 正方形绘图区 → 琥珀虚线对角线几何上真 45°，离对角线距离即像散；点半径编码像散 clamp 2.2-6.7px，应用内 ZAxis 的镜像）；RIGHT FOM 健康直方图（12 桶，复用应用 fomTone 三色桶 emerald≥0.10/amber≥0.05/rose 以下——「多少微图健康」一眼读出）；无 FOM 列时诚实占位文本
+- 【新功能 2·极坐标热图 buildAngdistHeatmapSvg】应用内 AngularDistributionChart 的独立 SVG 复刻：sectorPath 环形扇区数学自包含移植、半径=tilt 0° 圆心→180° 外缘、sweep=rot、sqrt 色阶（0.12+0.83·√(c/max) 淡格可见）、tilt 虚线环 + rot 辐条 + 外圈、右列图例渐变条（linearGradient 三停）+ amber/emerald 判定框（anisotropy>6 分界）+ stats 块；全程显式色值
+- 【report 接线】exportReport 的 Promise.all 扩到 4 路并发（fsc/resolution/ctf/angdist，同一条 honest-arrival 契约：空/失败 fetch 就不是 section）；section 顺序 Resolution → progress → FSC → Guinier → CTF fit quality → Angular distribution → Outputs；ctf 摘要行（count/mean defocus/max astig/worst fit/mean FOM 按到达 earn）+ 采样表（>24 行保首末）+ PNG；angdist 键值表（288 格进 PNG 不进表）+ PNG；toast 从三变阶梯改为 chartBits 过滤 join（FSC 短语保持首位 → qa50/qa51 的 regex 断言原样兼容）
+- 【QA 播种 v3】qa52-seed-report.py：qa51 种子超集 + micrographs_ctf.star（data_optics 诱饵块考验 block-aware 解析不泄漏 + 48 微图 Å 制 defocus 验证 µm 换算、FOM 三桶 12/18/18、6 个像散离群点喂点径编码）+ run_data.star（900 粒子 65% 双叶 + 10% 小叶 + 25% 均匀 → anisotropy ×6.57 确定性越过 >6 判定线）；--clean 全家清（含 qa50/51 遗产）
+- 【e2e·qa52-e2e.mjs 三阶段两连全绿（A/B 分批 + ABC 完整各一）】A：toast 五段全中、6 blobs（5 SVG 中间产物 + md 708KB）、26 条内容断言全 PASS（ctf 采样行数按名式计数 25=48·k2——按位置断言翻车一次：路由按 defocusU 降序，mic_0001 不在首位）、严格 section 序、5 PNG IHDR（3×1280×560 + 2×1280×640）落盘目检出版级；B：清种子 → 610B 五 section 全缺席 + 平版 toast；C：console 0 error
+- 【快照打磨两连】①tilt 环标签原沿 +x 轴与 rot 90° 标签挤成「120° 150°rot 90°」粥 → 挪到东北对角线 ②挪位后 30°/60° 被热点叶盖住 → 标签改到热格子之后绘制 + 白描边 halo（paint-order=stroke）——两步目检迭代，样式越做越细的应有节奏
+- 【回归兼容】qa51 png 硬计数 !==3 未来化为 ≥3 + slice(0,3)（phase-3 追加 PNG 不再炸旧断言）；qa50 检查后无需动（其 toast regex 与 chartBits 兼容、其首 PNG 断言取 md 首个 data:image 恰为 resolution progress 同尺寸）；qa51 A 回归全绿收尾
+- 【QA 工具链】跨进程浏览器不持久教训第四次应验（qa52 B 单批跑 NO-REFRESH → 独立批自带 openJobResults bootstrap 固化进脚本）；agent-browser eval 桥与 routing 全部复用 qa51 骨架零新坑
+- 【收尾】eslint 0、tsc src 0 错误；seed --clean 9 文件清场无残留；qa52-snap-{ctf,angdist}.png 等 5 快照 + 截图保留 agent-ctx/；浏览器已关
+
+Stage Summary:
+- Run report 五图表齐装收官：收敛曲线 + FSC + Guinier + CTF 散点/FOM 直方图 + 极坐标取向热图——一个 completed job 的完整质控档案（分辨率多好、B-factor 证据、CTF 健康度、取向各向异性风险）一键离开屏幕；CTF 面板从「CtfFind job 专属」升级为「有 micrographs_ctf.star 就进报告」的到达制
+- 极坐标复刻的方法论：应用内 SVG 组件的几何数学（sectorPath/sqrt 色阶/环辐条）可以直接自包含移植到 standalone 快照，只要把所有 className 色翻译成显式色值 + 白底——「同一份数据、同一个视觉语言、两个渲染路径」
+- toast chartBits 化是「断言兼容演进」的样本：老短语保持首位、新短语 append-only join，qa50/qa51 的 regex 原样通过——改文案前先 grep 断言
+- 遗留（下轮候选）：Turntable GIF 转码（重）；gallery 卡内嵌 3D 轻量预览（重）；导入对话框双来源混合多选；#5 token gate；topaz-training 曲线进 report（第六张图，simpleLineChart 直接套）；dev overlay「1 Issue」定位（dev-only）
