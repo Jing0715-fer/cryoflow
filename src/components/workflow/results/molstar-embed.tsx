@@ -16,7 +16,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { BoxSelect, Camera, Check, Loader2, Mountain, RotateCw, ScanLine, ZoomIn } from "lucide-react";
+import { BoxSelect, Camera, Check, Layers, Loader2, Mountain, Plus, RotateCw, ScanLine, X, ZoomIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
@@ -79,6 +79,28 @@ const PRESETS = [1, 2, 3, 5];
 const SIGMA_MIN = 0.5;
 const SIGMA_MAX = 10;
 
+/** overlay surface colors, in assignment order (distinct from the main
+ *  map's orange and from each other; readable on both themes) */
+const OVERLAY_COLORS = ["#22d3ee", "#a78bfa", "#34d399", "#f472b6", "#facc15"];
+/** default surface opacity for overlays — the main map stays in front */
+const OVERLAY_ALPHA = 0.55;
+
+/** one comparison volume layered over the main map */
+interface OverlayEntry {
+  path: string;
+  name: string;
+  color: string;
+  /** current surface opacity (0.15–1) */
+  alpha: number;
+}
+/** an .mrc candidate from the job's outputs, offered in the Layers panel */
+interface MapChoice {
+  path: string;
+  name: string;
+  label?: string;
+  size: number;
+}
+
 /** which 4 wireframe edges lie on each axis' movable clip face. pt indices
  *  follow the corner ordering in drawClipGuide (0-3 = −Z ring, 4-7 = +Z
  *  ring); the face sits at hi[i] when keeping [0,fd], at lo[i] when
@@ -115,6 +137,20 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
   const [stats, setStats] = useState<GridStats | null>(null);
   const [invertedNote, setInvertedNote] = useState(false);
 
+  // ---- overlay maps (compare) -----------------------------------------
+  // Extra volumes from the SAME job layered over the main map — half-maps
+  // against the full map, sharpened vs masked, class 1 vs class 2. Each
+  // overlay is its own RawData→ParseCcp4→VolumeFromCcp4→repr subtree that
+  // FOLLOWS the main contour σ slider (relative σ per map: identical stats
+  // for half-maps means identical absolute thresholds; class maps scale
+  // sensibly per map). Handles live in a ref, UI state in `overlays`.
+  const [overlays, setOverlays] = useState<OverlayEntry[]>([]);
+  const [mapChoices, setMapChoices] = useState<MapChoice[] | null>(null);
+  const [choicesLoading, setChoicesLoading] = useState(false);
+  const [overlayBusy, setOverlayBusy] = useState<string | null>(null);
+  const overlayReprsRef = useRef<Map<string, { data: any; vol: any; repr: any }>>(new Map());
+  const overlaySeqRef = useRef(0);
+
   // mol* handles — refs so the control bar can act on a live plugin
   const pluginRef = useRef<MolPlugin>(null);
   const reprRef = useRef<any>(null);
@@ -139,6 +175,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
       reprRef.current = null;
       volRef.current = null;
       sliceRef.current = null;
+      overlayReprsRef.current.clear();
       if (containerRef.current) containerRef.current.innerHTML = "";
     };
 
@@ -334,10 +371,22 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
     const VolumeRepresentation3D = VolumeReprRef.current;
     const IsoValue = IsoValueRef.current;
     if (!plugin || !repr || !VolumeRepresentation3D || !IsoValue) throw new Error("not ready");
-    await plugin
-      .build()
-      .to(repr)
-      .update(VolumeRepresentation3D, (old: any) => ({
+    // one build for the main map AND every overlay — overlays track the σ
+    // slider in RELATIVE units, so each volume resolves the threshold
+    // against its own stats (identical for half-maps, sensible for classes)
+    const b = plugin.build();
+    b.to(repr).update(VolumeRepresentation3D, (old: any) => ({
+      ...old,
+      type: {
+        ...old.type,
+        params: {
+          ...old.type?.params,
+          isoValue: IsoValue.relative(dir * value),
+        },
+      },
+    }));
+    for (const { repr: oRepr } of overlayReprsRef.current.values()) {
+      b.to(oRepr).update(VolumeRepresentation3D, (old: any) => ({
         ...old,
         type: {
           ...old.type,
@@ -346,8 +395,9 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
             isoValue: IsoValue.relative(dir * value),
           },
         },
-      }))
-      .commit();
+      }));
+    }
+    await b.commit();
   };
 
   const pumpContour = async () => {
@@ -369,6 +419,162 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
       updatePending.current = false;
     }
   };
+
+  /** next unused overlay color (cycles once the palette is exhausted) */
+  const pickOverlayColor = (): string => {
+    const used = new Set(overlays.map((o) => o.color));
+    return OVERLAY_COLORS.find((c) => !used.has(c)) ?? OVERLAY_COLORS[overlays.length % OVERLAY_COLORS.length];
+  };
+
+  /** list other .mrc outputs of this job (lazy — first Layers panel open).
+   *  The outputs route walks the workdir, so ANY map file the engine (or a
+   *  user) dropped into the job folder is offered here. */
+  const loadMapChoices = async () => {
+    if (choicesLoading) return;
+    setChoicesLoading(true);
+    try {
+      const r = await fetch(`/api/jobs/${jobId}/outputs`);
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const json = await r.json();
+      const files: MapChoice[] = (json?.files ?? [])
+        .filter((f: { kind: string; path: string }) => f.kind === "mrc" && f.path !== path)
+        .map((f: { path: string; name: string; label?: string; size: number }) => ({
+          path: f.path,
+          name: f.name,
+          label: f.label,
+          size: f.size,
+        }));
+      setMapChoices(files);
+    } catch {
+      setMapChoices([]); // honest empty state; the panel offers a retry via reopen
+    } finally {
+      setChoicesLoading(false);
+    }
+  };
+
+  /** fetch raw map bytes with one retry (dev route-compile blips) */
+  const fetchMapBytes = async (filePath: string): Promise<Uint8Array> => {
+    let lastErr: unknown = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      if (attempt > 0) await new Promise((r) => setTimeout(r, 1200));
+      try {
+        const r = await fetch(
+          `/api/jobs/${jobId}/outputs/file?path=${encodeURIComponent(filePath)}&format=raw`
+        );
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return new Uint8Array(await r.arrayBuffer());
+      } catch (err) {
+        lastErr = err;
+      }
+    }
+    throw lastErr instanceof Error ? lastErr : new Error("map download failed");
+  };
+
+  /** add a comparison volume: own state subtree, distinct color, translucent
+   *  surface, contoured at the CURRENT σ (and following it from then on) */
+  const addOverlay = async (choice: MapChoice) => {
+    if (overlayReprsRef.current.has(choice.path)) return;
+    const plugin = pluginRef.current;
+    const VolumeRepresentation3D = VolumeReprRef.current;
+    const IsoValue = IsoValueRef.current;
+    if (!plugin || !VolumeRepresentation3D || !IsoValue) return;
+    setOverlayBusy(choice.path);
+    try {
+      const bytes = await fetchMapBytes(choice.path);
+      // the plugin may have been torn down while the bytes were downloading
+      if (pluginRef.current !== plugin || disposedOverlayGuard.current) return;
+      const [{ RawData, ParseCcp4 }, { VolumeFromCcp4 }] = await Promise.all([
+        import("molstar/lib/mol-plugin-state/transforms/data"),
+        import("molstar/lib/mol-plugin-state/transforms/volume"),
+      ]);
+      const color = pickOverlayColor();
+      const label = choice.label ?? choice.name.replace(/\.[^.]+$/, "");
+      const b = plugin.build();
+      const data = b.toRoot().apply(RawData, { data: bytes, label });
+      const parsed = data.apply(ParseCcp4, {});
+      const vol = parsed.apply(VolumeFromCcp4, { entryId: `overlay-${overlaySeqRef.current++}` });
+      const repr = vol.apply(VolumeRepresentation3D, {
+        type: {
+          name: "isosurface",
+          params: { isoValue: IsoValue.relative(signRef.current * sigmaRef.current), alpha: OVERLAY_ALPHA },
+        },
+        colorTheme: { name: "uniform", params: { value: Number.parseInt(color.slice(1), 16) } },
+        sizeTheme: { name: "uniform", params: {} },
+      });
+      await b.commit();
+      overlayReprsRef.current.set(choice.path, { data, vol, repr });
+      setOverlays((o) => [...o, { path: choice.path, name: label, color, alpha: OVERLAY_ALPHA }]);
+    } catch (err) {
+      toast({
+        title: "Could not overlay map",
+        description: err instanceof Error ? err.message : "Failed to load the comparison map.",
+        variant: "destructive",
+      });
+    } finally {
+      setOverlayBusy(null);
+    }
+  };
+
+  /** remove an overlay: delete its whole subtree (RawData→…→repr). The
+   *  builder's delete() needs the raw node REF (the To selector itself does
+   *  not resolve — mol* silently no-ops) and the RawData node is the root
+   *  of the chain, so one delete takes the entire subtree with it. */
+  const removeOverlay = async (filePath: string) => {
+    const plugin = pluginRef.current;
+    const entry = overlayReprsRef.current.get(filePath);
+    if (!plugin || !entry) return;
+    try {
+      const b = plugin.build();
+      b.delete(entry.data.ref);
+      await b.commit();
+    } catch {
+      /* the subtree may already be gone (plugin teardown race) — still drop
+         the UI row so the panel never shows a ghost entry */
+    }
+    overlayReprsRef.current.delete(filePath);
+    setOverlays((o) => o.filter((x) => x.path !== filePath));
+  };
+
+  /** per-overlay surface opacity (debounced commit — slider fires fast) */
+  const overlayAlphaTimer = useRef<Map<string, number>>(new Map());
+  const setOverlayAlpha = (filePath: string, alpha: number) => {
+    setOverlays((o) => o.map((x) => (x.path === filePath ? { ...x, alpha } : x)));
+    const prev = overlayAlphaTimer.current.get(filePath);
+    if (prev) window.clearTimeout(prev);
+    overlayAlphaTimer.current.set(
+      filePath,
+      window.setTimeout(async () => {
+        overlayAlphaTimer.current.delete(filePath);
+        const plugin = pluginRef.current;
+        const entry = overlayReprsRef.current.get(filePath);
+        const VolumeRepresentation3D = VolumeReprRef.current;
+        if (!plugin || !entry || !VolumeRepresentation3D) return;
+        try {
+          await plugin
+            .build()
+            .to(entry.repr)
+            .update(VolumeRepresentation3D, (old: any) => ({
+              ...old,
+              type: { ...old.type, params: { ...old.type?.params, alpha } },
+            }))
+            .commit();
+        } catch {
+          /* cosmetic — next slider tick retries */
+        }
+      }, 140),
+    );
+  };
+
+  /** teardown raced against a pending overlay download — checked after await */
+  const disposedOverlayGuard = useRef(false);
+  useEffect(() => {
+    disposedOverlayGuard.current = false;
+    return () => {
+      disposedOverlayGuard.current = true;
+      for (const t of overlayAlphaTimer.current.values()) window.clearTimeout(t);
+      overlayAlphaTimer.current.clear();
+    };
+  }, []);
 
   const resetCamera = () => {
     const plugin = pluginRef.current;
@@ -494,6 +700,9 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
             .filter((ax) => cp[ax] < 0.999)
             .map((ax) => `${ax.toUpperCase()} ${Math.round(cp[ax] * 100)}%`);
           if (axes.length) annotations.push(`clip ${axes.join(" ")}${cp.invert ? " · flip" : ""}`);
+        }
+        if (overlays.length) {
+          annotations.push(`${overlays.length} overlay map${overlays.length > 1 ? "s" : ""}`);
         }
         const res = await exportViewerPng({
           canvas,
@@ -1392,6 +1601,146 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
       {/* corner actions */}
       {phase === "ready" ? (
         <div className="absolute right-3 top-3 z-10 flex gap-1.5">
+          {/* overlay maps (compare) — layered volumes from the same job */}
+          <Popover onOpenChange={(open) => open && loadMapChoices()}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="secondary"
+                size="icon"
+                className="relative size-8 rounded-lg shadow-sm transition-colors"
+                aria-label={`Overlay maps — ${overlays.length} active`}
+                title="Overlay maps — compare other volumes from this job (half-maps, masked, classes)"
+              >
+                <Layers className="size-4" />
+                {overlays.length > 0 && (
+                  <span className="absolute -right-1 -top-1 flex size-3.5 items-center justify-center rounded-full bg-primary text-[9px] font-bold leading-none text-primary-foreground shadow-sm">
+                    {overlays.length}
+                  </span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-72 p-2" data-canvas-ui="layers-popover">
+              <p className="px-1 pb-1 text-[11px] font-semibold">Overlay maps</p>
+              <p className="px-1 pb-1.5 text-[10px] leading-tight text-muted-foreground">
+                Layer other volumes from this job over the main map — half-maps, masked maps, classes.
+              </p>
+
+              {/* active overlays */}
+              {overlays.length > 0 && (
+                <div className="mb-1 space-y-1">
+                  {overlays.map((o) => (
+                    <div
+                      key={o.path}
+                      className="rounded-md border bg-muted/40 px-2 py-1.5"
+                      data-testid={`overlay-row-${o.path}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="size-2.5 shrink-0 rounded-full ring-1 ring-black/10"
+                          style={{ backgroundColor: o.color }}
+                          aria-hidden="true"
+                        />
+                        <span className="min-w-0 flex-1 truncate text-xs font-medium" title={o.path}>
+                          {o.name}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => void removeOverlay(o.path)}
+                          className="flex size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                          aria-label={`Remove overlay ${o.name}`}
+                          title="Remove overlay"
+                        >
+                          <X className="size-3.5" />
+                        </button>
+                      </div>
+                      <div className="mt-1 flex items-center gap-2 pl-4.5">
+                        <span className="text-[9px] font-medium uppercase tracking-wide text-muted-foreground">
+                          opacity
+                        </span>
+                        <Slider
+                          value={[o.alpha]}
+                          min={0.15}
+                          max={1}
+                          step={0.05}
+                          onValueChange={([v]) => setOverlayAlpha(o.path, v)}
+                          className="h-3 flex-1"
+                          aria-label={`Opacity for ${o.name}`}
+                        />
+                        <span className="w-7 text-right font-mono text-[9px] text-muted-foreground">
+                          {Math.round(o.alpha * 100)}%
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* available candidates */}
+              <div className="border-t pt-1.5">
+                <p className="px-1 pb-1 text-[9px] font-semibold uppercase tracking-widest text-muted-foreground">
+                  {overlays.length > 0 ? "More maps in this job" : "Maps in this job"}
+                </p>
+                {choicesLoading || mapChoices === null ? (
+                  <div className="flex items-center gap-2 px-1.5 py-2 text-[11px] text-muted-foreground">
+                    <Loader2 className="size-3.5 animate-spin" />
+                    Scanning job outputs…
+                  </div>
+                ) : mapChoices.length === 0 ? (
+                  <p className="px-1.5 py-2 text-[11px] leading-tight text-muted-foreground">
+                    No other maps in this job's outputs yet — half-maps, masked maps or class maps
+                    appear here once the job (or a follow-up) produces them.
+                  </p>
+                ) : (
+                  <div className="max-h-44 space-y-0.5 overflow-y-auto">
+                    {mapChoices.map((c) => {
+                      const active = overlays.some((o) => o.path === c.path);
+                      const busy = overlayBusy === c.path;
+                      return (
+                        <button
+                          key={c.path}
+                          type="button"
+                          disabled={active || busy || overlayBusy !== null}
+                          onClick={() => void addOverlay(c)}
+                          className={cn(
+                            "flex w-full items-center gap-2 rounded-md px-1.5 py-1.5 text-left transition-colors",
+                            active ? "opacity-50" : "hover:bg-muted",
+                            "disabled:cursor-default"
+                          )}
+                          data-testid={`map-choice-${c.path}`}
+                          title={active ? "Already overlaid" : c.path}
+                        >
+                          {busy ? (
+                            <Loader2 className="size-3.5 shrink-0 animate-spin text-primary" />
+                          ) : (
+                            <Plus
+                              className={cn(
+                                "size-3.5 shrink-0",
+                                active ? "text-emerald-500" : "text-muted-foreground"
+                              )}
+                            />
+                          )}
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-xs font-medium leading-tight">
+                              {c.label ?? c.name.replace(/\.[^.]+$/, "")}
+                            </span>
+                            <span className="block truncate font-mono text-[9px] leading-tight text-muted-foreground">
+                              {c.name} · {fmtBytes(c.size)}
+                            </span>
+                          </span>
+                          {active && <Check className="size-3.5 shrink-0 text-emerald-500" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <p className="border-t px-1 pb-0.5 pt-1.5 text-[10px] leading-tight text-muted-foreground">
+                Overlays follow the contour σ slider — half-maps track the main map exactly.
+                The export footer counts active overlays.
+              </p>
+            </PopoverContent>
+          </Popover>
           {/* export resolution chip — persists per browser; the Camera
               capture and the figure footer both follow it instantly */}
           <Popover>

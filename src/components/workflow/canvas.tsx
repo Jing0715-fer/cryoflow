@@ -468,6 +468,78 @@ export function WorkflowCanvas() {
     ev.stopPropagation();
   };
 
+  /* ---------------- two-finger pinch zoom (touch) --------------------- */
+  /** Every background touch registers here; the SECOND concurrent finger
+   *  converts the gesture to a pinch (disarming long-press, pan and any
+   *  young band). The workspace point under the initial midpoint stays
+   *  glued to the CURRENT midpoint, so pinch-zoom and two-finger pan are
+   *  one continuous gesture — the standard maps/Figma feel. */
+  const touchesRef = React.useRef<Map<number, { x: number; y: number }>>(new Map());
+  const pinchRef = React.useRef<{
+    a: number;
+    b: number;
+    startDist: number;
+    startZoom: number;
+    /** workspace coords under the initial midpoint (the zoom anchor) */
+    wx: number;
+    wy: number;
+  } | null>(null);
+  const pinchRafRef = React.useRef(0);
+  const pinchLatestRef = React.useRef<{ midX: number; midY: number; dist: number } | null>(null);
+
+  const applyPinch = React.useCallback(() => {
+    pinchRafRef.current = 0;
+    const pin = pinchRef.current;
+    const cur = pinchLatestRef.current;
+    if (!pin || !cur) return;
+    const nz = clamp((pin.startZoom * cur.dist) / pin.startDist, ZOOM_MIN, ZOOM_MAX);
+    setViewport({
+      x: cur.midX - pin.wx * nz,
+      y: cur.midY - pin.wy * nz,
+      zoom: nz,
+    });
+  }, [setViewport]);
+
+  const endPinch = () => {
+    pinchRef.current = null;
+    pinchLatestRef.current = null;
+    if (pinchRafRef.current) {
+      cancelAnimationFrame(pinchRafRef.current);
+      pinchRafRef.current = 0;
+    }
+  };
+
+  /** Called on the second background touch: snapshot both fingers, seed
+   *  the anchor, capture both pointers so moves keep arriving even if a
+   *  finger slides off the canvas edge. */
+  const beginPinch = (secondId: number) => {
+    const t = touchesRef.current;
+    const ids = [...t.keys()].filter((id) => id !== secondId);
+    const firstId = ids[0];
+    const a = firstId != null ? t.get(firstId) : undefined;
+    const b = t.get(secondId);
+    if (!a || !b) return;
+    const s = useWorkflowStore.getState();
+    const midX = (a.x + b.x) / 2;
+    const midY = (a.y + b.y) / 2;
+    pinchRef.current = {
+      a: firstId,
+      b: secondId,
+      startDist: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)),
+      startZoom: s.viewport.zoom,
+      wx: (midX - s.viewport.x) / s.viewport.zoom,
+      wy: (midY - s.viewport.y) / s.viewport.zoom,
+    };
+    // neither finger is captured yet (the first down armed a plain pan but
+    // capturePointer already ran for it — re-capture is harmless); capture
+    // both so the gesture survives fingers crossing the canvas border
+    try {
+      rootRef.current?.setPointerCapture(firstId);
+    } catch {
+      /* pointer gone or captured elsewhere — gesture still works on-canvas */
+    }
+  };
+
   /** Jobs enclosed by the band (intersect semantics), workspace coords. */
   const bandIds = React.useMemo(() => {
     if (!band) return null;
@@ -488,6 +560,7 @@ export function WorkflowCanvas() {
     () => () => {
       if (panRafRef.current) cancelAnimationFrame(panRafRef.current);
       if (lpTimerRef.current != null) clearTimeout(lpTimerRef.current);
+      if (pinchRafRef.current) cancelAnimationFrame(pinchRafRef.current);
     },
     []
   );
@@ -639,7 +712,14 @@ export function WorkflowCanvas() {
       const cx = e.clientX - rect.left;
       const cy = e.clientY - rect.top;
       const s = useWorkflowStore.getState();
-      const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+      // trackpad pinch arrives as ctrl+wheel with small deltas — map it to a
+      // smooth exponential zoom instead of the discrete mouse-wheel factor
+      // (deltaY < 0 = fingers apart = zoom in, same sign as the wheel)
+      const factor = e.ctrlKey
+        ? Math.exp(-e.deltaY * 0.014)
+        : e.deltaY < 0
+          ? 1.1
+          : 1 / 1.1;
       const nextZoom = clamp(s.viewport.zoom * factor, ZOOM_MIN, ZOOM_MAX);
       // keep the workspace point under the cursor fixed
       const px = (cx - s.viewport.x) / s.viewport.zoom;
@@ -684,6 +764,33 @@ export function WorkflowCanvas() {
     if (target.closest("[data-job]")) return; // cards handle their own drag
     if (target.closest("[data-canvas-ui]")) return; // overlays keep their events
     const rect = e.currentTarget.getBoundingClientRect();
+    // touch: register every background finger. A SECOND concurrent finger
+    // converts whatever is running (pan / pending long-press / young band)
+    // into a pinch — the one gesture touch has that desktop lacks.
+    if (e.pointerType === "touch") {
+      touchesRef.current.set(e.pointerId, {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+      });
+      if (pinchRef.current) return; // 3rd+ finger rides along — ignored
+      if (touchesRef.current.size >= 2 && !pinchRef.current) {
+        clearLongPress();
+        if (panRafRef.current) {
+          cancelAnimationFrame(panRafRef.current);
+          panRafRef.current = 0;
+        }
+        panRef.current = null; // pending sub-frame deltas are negligible
+        if (bandRef.current) {
+          // a band younger than the second finger discards quietly — the
+          // selection stays untouched (committing mid-gesture would surprise)
+          bandRef.current = null;
+          setBand(null);
+        }
+        capturePointer(e); // second finger travels with the root too
+        beginPinch(e.pointerId);
+        return;
+      }
+    }
     if (e.shiftKey) {
       // Shift + background drag = rubber-band select (plain drag keeps
       // panning so existing muscle memory is untouched; a shift-click
@@ -753,6 +860,31 @@ export function WorkflowCanvas() {
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLElement>) => {
+    // keep the touch registry fresh; while a pinch is live it consumes the
+    // moves of its two fingers (rAF-coalesced like pan) and nothing else runs
+    if (e.pointerType === "touch" && touchesRef.current.has(e.pointerId)) {
+      const trect = e.currentTarget.getBoundingClientRect();
+      touchesRef.current.set(e.pointerId, {
+        x: e.clientX - trect.left,
+        y: e.clientY - trect.top,
+      });
+      const pin = pinchRef.current;
+      if (pin && (e.pointerId === pin.a || e.pointerId === pin.b)) {
+        const a = touchesRef.current.get(pin.a);
+        const b = touchesRef.current.get(pin.b);
+        if (a && b) {
+          pinchLatestRef.current = {
+            midX: (a.x + b.x) / 2,
+            midY: (a.y + b.y) / 2,
+            dist: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)),
+          };
+          if (pinchRafRef.current === 0) {
+            pinchRafRef.current = requestAnimationFrame(applyPinch);
+          }
+        }
+        return;
+      }
+    }
     // real movement while the long-press is pending = it's a pan — disarm
     const lp = lpRef.current;
     if (lp && e.pointerId === lp.pointerId && lpTimerRef.current != null) {
@@ -801,6 +933,15 @@ export function WorkflowCanvas() {
   };
 
   const handlePointerUp = (e: React.PointerEvent<HTMLElement>) => {
+    touchesRef.current.delete(e.pointerId);
+    const pin = pinchRef.current;
+    if (pin && (e.pointerId === pin.a || e.pointerId === pin.b)) {
+      // one finger lifted = pinch over. The remaining finger does NOT resume
+      // pan (pointer identity changed mid-gesture) and this up must not fall
+      // through to the "click on background" semantics below.
+      endPinch();
+      return;
+    }
     const b = bandRef.current;
     if (b && e.pointerId === b.pointerId) {
       bandRef.current = null;
@@ -841,6 +982,12 @@ export function WorkflowCanvas() {
   };
 
   const handlePointerCancel = (e: React.PointerEvent<HTMLElement>) => {
+    touchesRef.current.delete(e.pointerId);
+    const pin = pinchRef.current;
+    if (pin && (e.pointerId === pin.a || e.pointerId === pin.b)) {
+      endPinch();
+      return;
+    }
     if (lpRef.current?.pointerId === e.pointerId) clearLongPress();
     const b = bandRef.current;
     if (b && e.pointerId === b.pointerId) {

@@ -41,6 +41,7 @@ const SHORTCUTS: { keys: string; text: string }[] = [
   { keys: "⇧ Click", text: "Toggle a card in the selection" },
   { keys: "⇧ Drag", text: "Box-select on empty canvas" },
   { keys: "Long-press", text: "Touch: hold empty canvas, then drag to box-select" },
+  { keys: "Pinch", text: "Touch: two fingers to zoom · trackpad pinch / ctrl-scroll" },
   { keys: "⌘/Ctrl A", text: "Select every job in the workspace" },
   { keys: "⌘/Ctrl D", text: "Duplicate the selection (1 job or a group)" },
   { keys: "Del", text: "Delete the selection (confirms first)" },

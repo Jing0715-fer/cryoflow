@@ -1771,3 +1771,28 @@ Stage Summary:
 - 画布手势矩阵补上触屏最后一块：单指 pan / 长按 420ms 框选 / 桌面 shift 语义全保留——长按-转换模式（pan 先行 + 静止判定 + contextmenu 吞截）让 touch 用户零学习成本获得桌面级框选，lift-to-cancel 语义防误触清空
 - QA 资产：合成 touch PointerEvent 四场景脚本（band/lift-cancel/tap/pan-convert）方法论——pointerType:'touch' + pointerId 一致性 + 700ms>420ms 定时窗口
 - 遗留（下轮候选）：真 RELION 数据回归（EMPIAR 全链重建，需用户机器）、HPC SBATCH 真集群实测（需用户机器）、pinch-zoom 双指缩放（当前触屏缩放只能走工具条按钮）、导入对话框撤销的 redo（低优）、3D viewer 内 建 multi-map 叠加对比
+---
+Task ID: 33
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 新日轮 2026-09-08 12:44）——QA 回归全绿后推进 Task 32 首遗留：触屏双指捏合缩放（补完手势矩阵）+ 触控板 ctrl+wheel 平滑捏合 + 3D viewer 多图叠加对比（Task 32 遗留"multi-map 叠加"）；修 #34 mol* overlay 子树删除 API 幻觉；worklog + push
+
+Work Log:
+- 【开局核对】worklog 实际最新为 Task 32（交接摘要所称"Task 28 中断点"早已过期——Task 28-32 均已入库 7e4451c…968c6a3）；git 本地 == origin/main == 968c6a3 干净；DB fixture 4 项目 / 11 jobs
+- 【QA 回归·全绿】Workflow 画布（QA Sandbox C / 5 jobs / catalog 36 / minimap）+ Dashboard（搜索/排序/KPI band）+ console 0 error → 无新 bug，转功能
+- 【新功能 1·双指捏合缩放（Task 32 首遗留）】canvas.tsx 手势矩阵收官：touchesRef 注册每根背景触指；第二根触指落地即接管为 pinch（ disarm long-press、杀 pan、静默丢弃年轻 band 且不动已选集）；锚定模型 = 初始中点下的工作区点焊在当前中点（捏合缩放与双指平移合成一个连续手势，maps/Figma 手感）；rAF 合帧与 pan 同模式；双指 setPointerCapture 防手指滑出画布断流；抬一指即结束（余指不复活 pan、up 不落入"点击清选"语义）；第三根指忽略（pinch 活动时不 arm pan）；unmount 清理 pinch rAF
+- 【新功能 1b·触控板 ctrl+wheel】trackpad 捏合以 ctrl+wheel 小增量到达 → 平滑指数 zoom（exp(-deltaY·0.014)）替代离散 1.1 因子，zoom-to-cursor 锚定不变；help 快捷键表补 Pinch 行（"Touch: two fingers · trackpad pinch / ctrl-scroll"）
+- 【E2E·捏合全链（合成 PointerEvent 异步分步）】**方法论教训**：全同步派发整个手势会零生效——down/move/up 同任务跑完，rAF 的 applyPinch 被 pointerup 的 endPinch 取消（真实手指 ~200ms 时长才有帧间 flush）；改异步 16ms/帧后：①pinch-out 70→382px → 220%（ZOOM_MAX clamp）→ pinch-in → 92%（=220%×79.6/380 精确）②锚点受控测试：off-center 中点 pinch 1→1.6667×，期望 translate(-198.4,-194) scale(1.66667) = 实测分毫不差 ③回归：单指 pan（translate 120px 精确）、long-press band（蚂蚁线出现）、mouse wheel（121%）、ctrl+wheel（25% = ZOOM_MIN clamp）、shift-drag band、背景点击清选、三指防护（第三指拖 120px 视口 0 位移）全部通过；console 0 error
+- 【新功能 2·3D viewer 多图叠加对比（Task 32 遗留）】molstar-embed corner actions 新增 Layers 按钮（active 徽标计数）+ Popover 面板：①候选列表 = 该 job 其余 .mrc 输出（outputs 路由 live walk workdir，friendly label + 字节，懒加载首次打开时拉取）②添加 = 独立 RawData→ParseCcp4→VolumeFromCcp4→VolumeRepresentation3D 子树（专属颜色板 cyan/violet/emerald/pink/yellow 避让主图 orange，alpha 0.55 半透明，entryId 递增）③σ 联动：commitContour 重构为单 build 更新主图+全部 overlay（relative σ 每图自解析——half-maps 统计相同即绝对阈值一致，class maps 逐图合理缩放）④每图 opacity 滑杆（140ms 防抖 commit）⑤移除 = 删 RawData 根 ref 一次带走整链 ⑥导出 footer 注记 "N overlay map(s)" ⑦诚实空态（"No other maps…"）+ 下载中 spinner + teardown 竞态守卫（download 后校验 plugin 身份）
+- 【真 bug #34·mol* overlay 子树删除 API 幻觉】removeOverlay 首版 b.delete(entry.vol)（StateBuilder.To selector）静默 no-op——StateObjectRef.resolveRef 只认 string ref / StateObjectCell / {cell}，To selector 三者皆非 → delete 早退不报错（纯类型检查再次救不了 any 断言，API 链必须对着 lib 源码验证——Task 31 同款教训第 2 次）；修正为 b.delete(entry.data.ref)（raw ref 字符串 + 从 RawData 根删，tree.remove 级联整条子树）
+- 【QA fixture·#34 发现战】合成 half-map 首版连踩两坑（make-qa-halfmap.py 已修）：mapc/mapr/s 漏设 → mol* "bad axis order" 拒载；ispg=0 + cellb=0° + C-order 数据 → mesh 构建 "Invalid typed array length: -Infinity"（均对照 make-qa-map.py 修正：ispg=1、cellb 90°、F-order、machst 0x4444）；**应用韧性旁证**：坏图错误被封闭在 overlay 子树内（cell status=error、主图完好、UI 行可移除、面板不崩）——错误隔离设计按预期工作
+- 【E2E·叠加全链】fixture job（QA Sandbox C / refine3d "QA synthetic map"）注入 run_it001_half1_class001.mrc（251KB，outputs 即列 "Half-map 1 (iter 1)"）→ Results 双图并排 → View in 3D → Layers 面板列出候选 → 添加：state 2 Volumes + cyan 0x22D3EE repr（alpha 0.55, iso 2, status ok）+ 徽标 "1 active" → 3σ 预设 → iso [3,3] 双图联动 → opacity 键盘 ArrowRight×2 → alpha 0.55→0.65（UI 65%，防抖 commit 落 repr）→ Camera 导出 → toast "2298×938 px · 2× supersampled · 112 KB" → 落盘 footer 像素目检 "contour 3.00 σ · 2× supersampled · 1 overlay map · 9/8/2026" → 截图目检：cyan 半透明 blob 叠在 orange 主图上（blob 几何刻意错位可辨）→ X 移除 → cells 精确回到 5（整链无孤儿）；console 陈旧 "1 Issue" 为坏 fixture 时代记录，刷新后 0 error
+- 【运维】dev server 一度失联（curl 000，历轮 OOM 同款）→ dev-server.sh playbook 重启 + 预热；tsc/lint 与浏览器错峰（先关浏览器）纪律执行
+- 【收尾】bun run lint 0/0、tsc src/ 0 错误（skills/ 预存在错误与项目无关）；QA 资产入库：make-qa-halfmap.py（幂等可重跑）、pinch-qa.js / pinch-anchor-qa.js / touch-regression-qa.js / mouse-regression-qa.js / third-finger-qa.js（合成手势套件——**全部异步分步派发，16ms/帧**）；half-map fixture 保留在 refine3d workdir 供后续轮复用；浏览器已关
+
+Stage Summary:
+- 触屏手势矩阵收官：单指 pan / 长按 420ms 框选 / 双指捏合缩放（+双指平移）三手势互补共存，捏合可从 pan、长按蓄力甚至年轻 band 中无缝接管——中点锚定模型让"放大哪里"完全由手指位置决定
+- 触控板用户获得桌面级捏合：ctrl+wheel 平滑指数缩放替代离散档位，与 Mac/Windows 触控板系统手势同频
+- 3D viewer 从"单图独奏"到"多图对唱"：half-maps 对全图、sharpened 对 masked、class 对 class——同一 σ 滑杆驱动全部图层（relative σ 逐图解析），半透明色彩区分 + 每图 opacity 微调 + 导出图注记叠加数， cryo-EM 最日常的对比工作流首次进 3D 视图
+- #34 闭环：mol* StateBuilder.delete 只接受 raw ref 字符串 / cell / {cell}——To selector 静默 no-op 是"API 幻觉"家族第二例（#29 canvas 访问链同款）；"删根节点带走整链"同时消灭孤儿数据
+- QA 方法论增补：合成指针手势必须异步分步（≥16ms/帧），同步全手势会被 rAF 取消机制吞掉全部效果；坏 fixture 的错误隔离表现（子树 error cell 不传染主图）是本轮意外收获的架构验证
+- 遗留（下轮候选）：真 RELION 数据回归（EMPIAR 全链重建，需用户机器）、HPC SBATCH 真集群实测（需用户机器）、minimap 触屏适配（当前 minimap 拖拽无 touch 优化）、叠加图独立 σ（当前共享主滑杆——对 class maps 或许过紧）、pinch 期间 zoom % 阵眼提示（当前依赖底部常驻 chip）
