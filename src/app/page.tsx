@@ -161,9 +161,11 @@ export default function Home() {
    * open (their own key handling wins), or a popover menu is active. */
   React.useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
+      const target = e.target;
       if (
-        target &&
+        // instanceof (not just truthiness): synthetic events can target
+        // document/window, which have no .closest — don't crash on them
+        target instanceof HTMLElement &&
         (target.closest("input, textarea, select, [contenteditable='true']") != null ||
           target.isContentEditable)
       ) {

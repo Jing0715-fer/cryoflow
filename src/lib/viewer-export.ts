@@ -12,7 +12,10 @@
  *   2. the DOM/SVG overlays (clip wireframe, control bar) are NOT part of
  *      the canvas — by design the export is the clean density figure.
  *   3. footer strip (same visual language as canvas-export.ts): CryoFlow —
- *      <map name> · contour σ level · date, painted beneath the capture.
+ *      <map name> · contour σ level · date, painted beneath the capture —
+ *      plus an optional LEGEND line: one color chip + label per overlaid
+ *      comparison map, so multi-map figures are self-describing without
+ *      the reader needing the app.
  *
  * The backing store is CSS-size × devicePixelRatio × mol* pixelScale; the
  * capture flow briefly doubles the plugin's pixelScale (2× supersampling,
@@ -34,6 +37,9 @@ export interface ViewerExportOptions {
    *  into the footer meta so the exported figure documents HOW it was
    *  cut, not just WHAT threshold it used. */
   annotations?: string[];
+  /** color legend for overlaid comparison maps (Layers panel state) —
+   *  painted as a second footer line of chips + labels */
+  legend?: Array<{ color: string; label: string }>;
 }
 
 export interface ViewerExportResult {
@@ -52,6 +58,8 @@ interface ComposedFigure {
 
 /** footer strip height in CSS px (scaled by device ratio at paint time) */
 const FOOTER_H = 44;
+/** extra footer height when a legend line is present (CSS px) */
+const LEGEND_H = 22;
 
 function slug(s: string): string {
   return (
@@ -100,7 +108,8 @@ async function composeViewerFigure(opts: ViewerExportOptions): Promise<ComposedF
 
   // footer scale: match the capture's device pixel ratio (backing / CSS size)
   const scale = px / Math.max(1, canvas.clientWidth || px);
-  const footerH = Math.round(FOOTER_H * scale);
+  const legend = (opts.legend ?? []).filter((l) => l.label);
+  const footerH = Math.round((FOOTER_H + (legend.length ? LEGEND_H : 0)) * scale);
 
   const out = document.createElement("canvas");
   out.width = px;
@@ -123,7 +132,7 @@ async function composeViewerFigure(opts: ViewerExportOptions): Promise<ComposedF
   octx.fillStyle = cssColor("--foreground", "#0f172a");
   octx.font = `600 ${13 * scale}px ui-sans-serif, system-ui, sans-serif`;
   octx.textRendering = "geometricPrecision";
-  octx.fillText(title, 16 * scale, canvas.height + footerH * 0.5);
+  octx.fillText(title, 16 * scale, canvas.height + footerH * 0.5 - (legend.length ? (LEGEND_H * scale) / 2 : 0));
   const titleW = octx.measureText(title).width;
   octx.fillStyle = cssColor("--muted-foreground", "#64748b");
   octx.font = `400 ${11 * scale}px ui-sans-serif, system-ui, sans-serif`;
@@ -132,9 +141,51 @@ async function composeViewerFigure(opts: ViewerExportOptions): Promise<ComposedF
   const metaX = 16 * scale + titleW + 12 * scale;
   const metaW = octx.measureText(meta).width;
   const margin = 16 * scale;
-  const metaY = canvas.height + footerH * 0.5 + scale;
+  const metaY = canvas.height + footerH * 0.5 + scale - (legend.length ? (LEGEND_H * scale) / 2 : 0);
   const inline = metaX + metaW <= out.width - margin;
   octx.fillText(meta, inline ? metaX : out.width - margin - metaW, metaY);
+
+  // ---- legend line: one chip + label per overlaid map -------------------
+  // Truncates with an ellipsis chip-label when the row would overflow —
+  // a legend that overflows the figure is worse than a short one.
+  if (legend.length) {
+    const legendY = canvas.height + (FOOTER_H + LEGEND_H * 0.5) * scale;
+    const chip = 9 * scale;
+    const gapChip = 4 * scale;
+    const gapGroup = 14 * scale;
+    const labelFont = `500 ${10 * scale}px ui-sans-serif, system-ui, sans-serif`;
+    octx.font = labelFont;
+    octx.textBaseline = "middle";
+    let x = 16 * scale;
+    const rightEdge = out.width - 16 * scale;
+    for (let i = 0; i < legend.length; i++) {
+      const item = legend[i];
+      const last = i === legend.length - 1;
+      const labelW = octx.measureText(item.label).width;
+      const groupW = chip + gapChip + labelW;
+      const needsEllipsis =
+        !last && x + groupW + gapGroup + octx.measureText("…").width > rightEdge;
+      if (x + (needsEllipsis ? octx.measureText("…").width : groupW) > rightEdge) {
+        octx.fillStyle = cssColor("--muted-foreground", "#64748b");
+        octx.fillText("…", x, legendY);
+        break;
+      }
+      // chip (rounded square in the map's own color) + label
+      const r = 2 * scale;
+      const cy = legendY - chip / 2;
+      octx.fillStyle = item.color || cssColor("--primary", "#0d9488");
+      octx.beginPath();
+      octx.roundRect(x, cy, chip, chip, r);
+      octx.fill();
+      octx.fillStyle = cssColor("--muted-foreground", "#64748b");
+      octx.fillText(item.label, x + chip + gapChip, legendY);
+      if (needsEllipsis) {
+        octx.fillText("…", x + groupW, legendY);
+        break;
+      }
+      x += groupW + gapGroup;
+    }
+  }
 
   const blob = await new Promise<Blob | null>((res) => out.toBlob(res, "image/png"));
   if (!blob) throw new Error("PNG encoding failed.");

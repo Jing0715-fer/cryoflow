@@ -1816,3 +1816,27 @@ Stage Summary:
 - 叠加体系从"共享 σ"到"共享基线 + 逐图微调"：half-maps 保持零偏移即精确跟随，class maps 各自 nudge——科学上诚实的默认值 + 必要时的自由度；offsets ref 与 UI state 分离让滑杆拖动与 σ 预设互不阻塞
 - pinch 浮窗补上最后一块手势反馈：缩放量在指尖实时可读，与 minimap 常驻 chip、lp-pulse 蓄力环构成三段式触屏反馈语言（操作中/操作后/蓄力中）
 - 遗留（下轮候选）：真 RELION 数据回归（EMPIAR 全链，需用户机器）、HPC SBATCH 真集群实测（需用户机器）、minimap 触屏拖拽长按适配、Layers 面板多 overlay 时的颜色图例进入导出 footer、pinch 双指中点越界（手指滑出画布）时的 bubble 钳制
+---
+Task ID: 35
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 新日轮 2026-09-08 13:29）——QA 回归全绿后清完 Task 34 全部三条可行遗留（pinch 中点越界 bubble 钳制 / minimap 触屏适配 / 叠加图颜色图例进导出 footer）+ 新功能：3D viewer 相机标准视角预设（6 轴 + Default ¾）；顺带修 #35 合成 keydown 的 target.closest 崩溃；worklog + push
+
+Work Log:
+- 【开局核对】worklog 实际最新为 Task 34（交接摘要所称"Task 28 中断点"已过期两轮——Task 28-34 均已入库）；git 本地 == origin/main == 4b37882 干净；DB fixture 4 项目 / 11 jobs / 1 completed 与 Task 34 收官一致
+- 【QA 回归·全绿】Workflow 画布（QA Sandbox C 2 jobs 可见系工作区过滤语义——3 个 NULL-ws 旧 jobs 归一 "" 不可见，#33 语义一致；3D Auto-Refine 1 + 3D Classification 1 在位）/ Dashboard KPI band（4 projects · 11 jobs · pipeline stages 5）/ console 0 error → 无新 bug，转功能
+- 【遗留 1·pinch bubble 钳制】applyPinch 的 setPinchHint 改经 clamp——PINCH_HINT_HALF_W=26（"1000%" mono 最宽半宽）+ PINCH_HINT_TOP=32（1.5×chip 高 + pad），rootRef clientWidth/Height 实时测量；E2E：18 帧密集采样，画布内 l=435.3（=原始中点分毫不差）→ 越界后 rawMidX=1090 而 l 钳在 960=bound（W−32）精确、t=477=H−8，手势结束即隐；缩放本体不受影响（146%→220%）
+- 【遗留 2·minimap 触屏适配】pointer handlers 从 SVG 上移到容器 div（padding + "map" 标签成为拖拽面——手指尺寸），SVG 保留 hover <title> 提示（事件冒泡足够）；容器 touch-none + select-none + [-webkit-touch-callout:none] + onContextMenu prevent/stop（浏览器自身长按菜单）；**真 bug 发现**：Radix ContextMenuTrigger 自带 700ms 触摸长按定时器（onPointerDown → setTimeout(handleOpen, 700)，node_modules 源码实锤）——静止触指在 minimap 上 700ms 会打开画布 Radix 菜单打断导航（拖拽场景因 onPointerMove 清定时器幸免）→ minimap onPointerDown stopPropagation 根治（root 本就 data-canvas-ui 过滤，零副作用）；E2E 四场景：touch 拖 SVG 生效 ✓ / touch 从 caption 拖生效 ✓ / 静止长按 800ms 0 menus（修复前 1 menu 6 items）✓ / mouse 拖拽回归 ✓
+- 【遗留 3·叠加图颜色图例进导出 footer】viewer-export.ts：ViewerExportOptions 新增 legend?: {color,label}[]；有 legend 时 footer 44→66 CSS px（LEGEND_H=22），第二行绘制圆角 chip（9px, roundRect r=2）+ muted 标签，组间距 14px，行尾溢出诚实截断为"…"；title/meta 行在有 legend 时整体上移 LEGEND_H/2 保持视觉居中；molstar-embed runCapture 构造 figureLegend = overlays.map(o=>({color, name}))，download/copy/clipboard-refused-降级三路 sink 全部携带；Layers 面板脚注同步改文案
+- 【E2E·图例】加 half-map 叠加（Layers 面板 candidate 行点击，badge=1）→ Camera 导出 → toast "2298×982 px · 2× supersampled · 134 KB"——982=(425+44+22)×2 精确命中（图例行 +44 物理像素）；落盘 PNG 目检：footer 第二行"青色 chip + Half-map 1 (iter 1)"与画面 cyan 半透明 blob 颜色一致；移除叠加新会话再导出 → "2298×938 px · 2× · 105 KB" 精确回位（无图例行）
+- 【新功能·3D 相机标准视角】molstar camera.focus(target, radius, durationMs, up, dir) 源码验证（getFocus 匹配 dir 到 deltaDirection、position=target−dir·d、up matchDirection）——applyViewPreset 保持当前 target+radius 只摆视线方向，320ms 缓动；6 预设 Front/Back/Left/Right/Top/Bottom（dir/up 精确轴对齐）+ "Default ¾ view"（复用 resetCamera）；corner actions 新增 Axis3d 图标按钮 + Popover（3 列网格 + 虚线 reset 行 + 说明行）；E2E：canvas 像素 hash 前后对比——Top 改变 ✓ / Front 从 Top 改变 ✓ / Default ¾ 回位 ✓，popover 六按钮渲染 ✓
+- 【修 #35·合成 keydown closest 崩溃】E2E 顺带抓到：document.dispatchEvent(KeyboardEvent) 直派 window 监听时 e.target=document（无 .closest）→ page.tsx canvas 快捷键 handler TypeError（L164 的 `as HTMLElement | null` cast 撒谎）；修正为 instanceof HTMLElement 守卫（与 Shift+D handler L127 同款）；真实用户零影响（真实 keydown target 恒为 Element），合成事件/扩展程序不再能炸快捷键链
+- 【调试陷阱记录】①agent-browser click/eval 竞态：Enlarge 对话框的 View in 3D 按钮在 MrcImage 加载完才渲染（aria-label 不存在——accessible name 来自文本内容，选择器必须用 textContent）②Radix Popover toggle 语义：trigger 在已开时再点即关——脚本必须 ensureOpen（查 content 在场再决定点不点）③"2 errors"僵尸条目：errors --clear 后列表仍粘滞旧条目，before/after 计数相等即无新增；终判以全新浏览器会话为准（0 errors）④Turbopack 陈旧 chunk：文件监听失效时 touch 无效、hash 不变（b4090435 三连）——dev-server.sh 的 curl 探活让"already running"短路了真正重启，需手动 pkill + 重启才拿到新 chunk
+- 【运维】dev server OOM ×2（molstar 冷编译 + 浏览器 + tsc 叠加窗口）→ dev-server.sh playbook 重启 ×2 + 手动 pkill ×1；测试资产入库：qa35-minimap-touch.mjs（四场景异步分步 16ms/帧）、qa35-pinch-clamp.mjs（18 帧越界钳制）、check-fixture-prisma.mjs（Prisma 只读 fixture 核对，替代失效的 better-sqlite3 方案）
+- 【收尾】bun run lint 0/0、tsc 0 错误（skills/ 预存在错误与项目无关）；DB 终态 4 项目 / 11 jobs 与开局一致；light 主题；浏览器已关（内存纪律）
+
+Stage Summary:
+- Task 34 三条可行遗留全部清零：pinch 浮窗在手指滑出画布后仍可读（maps/Figma 级细节）、minimap 触屏获得与主画布同级的Gesture 待遇（全容器拖拽面 + 长按菜单抑制）、多图对比导出图自带颜色图例（figure 自描述，读者不需要打开 app 就知道每层是什么）
+- 3D viewer 获得 cryo-EM 日常检视的轴对齐视角矩阵：沿 X/Y/Z 直读各向异性、Top/Bottom 查看盒顶底、Default ¾ 回位——zoom 保持不动只摆方向，320ms 缓动是"摆头"不是"传送"
+- #35 闭环：事件 target 的 instanceof 守卫——`as HTMLElement` cast 在合成事件面前是谎言，radix/extension/testing 环境的 target 可以是任何东西
+- 方法论增补：Radix ContextMenuTrigger 内建 700ms 触摸长按定时器（与浏览器原生 ~500ms 是两套系统，suppress contextmenu 只防后者）；Radix Popover/Dialog 的 toggle 竞态与 ensureOpen 模式；Turbopack 陈旧 chunk 的"pkill 强重启"处置
+- 遗留（下轮候选）：真 RELION 数据回归（EMPIAR 全链，需用户机器）、HPC SBATCH 真集群实测（需用户机器）、view presets 的键盘快捷键（1-6 数字键）、3D 导出 footer 图例支持自定义标题（论文图注）、叠加图色板自定义

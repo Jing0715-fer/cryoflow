@@ -8,6 +8,11 @@
  * anywhere on it to jump the viewport (zoom is preserved). Rendered as a
  * single tiny SVG whose viewBox IS the canvas coordinate system, so every
  * element is drawn in workspace coordinates for free.
+ *
+ * Pointer handling lives on the container (not the SVG) so the padding
+ * and "map" caption are part of the drag surface — finger-sized on
+ * touch — and the container swallows contextmenu so a touch long-press
+ * mid-drag can't open the canvas-wide Radix menu.
  */
 
 import * as React from "react";
@@ -120,54 +125,67 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
   return (
     <div
       data-canvas-ui="minimap"
-      className="card-lift absolute bottom-3 right-3 z-30 rounded-lg border bg-card/95 p-1.5 backdrop-blur"
+      className="card-lift absolute bottom-3 right-3 z-30 touch-none select-none rounded-lg border bg-card/95 p-1.5 backdrop-blur [-webkit-touch-callout:none]"
       aria-label="Canvas minimap"
+      onContextMenu={(e) => {
+        // the canvas-wide Radix menu would otherwise open mid-drag when the
+        // browser fires its touch long-press (~500 ms) — the minimap owns
+        // that gesture instead
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+      onPointerDown={(e) => {
+        // The canvas-wide Radix ContextMenuTrigger (the root section) starts
+        // its OWN 700ms touch long-press timer from any bubbling touch
+        // pointerdown — a still finger on the minimap would open the canvas
+        // menu mid-navigation. Root's pan/long-press already ignores UI
+        // elements, so nothing up-chain misses this event.
+        e.stopPropagation();
+        draggingRef.current = true;
+        try {
+          capturePointer(e);
+        } catch {
+          /* synthesized / lost pointer — navigation still works */
+        }
+        const p = toWorld(e);
+        if (p) navigate(p.x, p.y);
+      }}
+      onPointerMove={(e) => {
+        if (!draggingRef.current) return;
+        const p = toWorld(e);
+        if (p) navigate(p.x, p.y);
+      }}
+      onPointerUp={(e) => {
+        draggingRef.current = false;
+        try {
+          e.currentTarget.releasePointerCapture(e.pointerId);
+        } catch {
+          /* pointer already gone */
+        }
+      }}
+      onPointerCancel={() => {
+        draggingRef.current = false;
+      }}
+      onPointerLeave={() => {
+        // capture was stolen (e.g. by an overlay) → pointerup will never
+        // fire here; without this reset a stray `true` would make every
+        // later hover drag the viewport around
+        draggingRef.current = false;
+      }}
+      onLostPointerCapture={() => {
+        // last-writer-wins: if another element took capture mid-drag,
+        // stop tracking so hover moves don't pan the canvas
+        draggingRef.current = false;
+      }}
     >
       <svg
         ref={svgRef}
         width={MM_W}
         height={mmH}
         viewBox={`${world.x} ${world.y} ${world.w} ${world.h}`}
-        className="block cursor-pointer touch-none select-none rounded-sm bg-muted/50"
+        className="block cursor-pointer rounded-sm bg-muted/50"
         role="application"
         aria-label={`Workflow overview — ${jobs.length} jobs. Click to navigate.`}
-        onPointerDown={(e) => {
-          draggingRef.current = true;
-          try {
-            capturePointer(e);
-          } catch {
-            /* synthesized / lost pointer — navigation still works */
-          }
-          const p = toWorld(e);
-          if (p) navigate(p.x, p.y);
-        }}
-        onPointerMove={(e) => {
-          if (!draggingRef.current) return;
-          const p = toWorld(e);
-          if (p) navigate(p.x, p.y);
-        }}
-        onPointerUp={(e) => {
-          draggingRef.current = false;
-          try {
-            e.currentTarget.releasePointerCapture(e.pointerId);
-          } catch {
-            /* pointer already gone */
-          }
-        }}
-        onPointerCancel={() => {
-          draggingRef.current = false;
-        }}
-        onPointerLeave={() => {
-          // capture was stolen (e.g. by an overlay) → pointerup will never
-          // fire here; without this reset a stray `true` would make every
-          // later hover drag the viewport around
-          draggingRef.current = false;
-        }}
-        onLostPointerCapture={() => {
-          // last-writer-wins: if another element took capture mid-drag,
-          // stop tracking so hover moves don't pan the canvas
-          draggingRef.current = false;
-        }}
       >
         {/* edges (thin, muted) — cheap straight port-to-port lines */}
         {edges.length <= 160 &&
@@ -264,7 +282,7 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
           />
         )}
       </svg>
-      <p className="mt-0.5 text-center text-[9px] font-medium uppercase tracking-widest text-muted-foreground/70">
+      <p className="mt-0.5 cursor-pointer text-center text-[9px] font-medium uppercase tracking-widest text-muted-foreground/70">
         map
       </p>
     </div>

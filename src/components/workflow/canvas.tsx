@@ -487,7 +487,12 @@ export function WorkflowCanvas() {
   const pinchRafRef = React.useRef(0);
   const pinchLatestRef = React.useRef<{ midX: number; midY: number; dist: number } | null>(null);
   /** floating "63%" chip pinned to the two fingers' midpoint while a pinch
-   *  is live — mobile-maps affordance; rAF-paced like the zoom itself */
+   *  is live — mobile-maps affordance; rAF-paced like the zoom itself.
+   *  The two constants keep the chip fully on-canvas when fingers slide
+   *  past the edge: half the widest chip ("1000%" mono ≈ 52px) and the
+   *  chip's top offset above the midpoint (1.5× its ~16px height + pad). */
+  const PINCH_HINT_HALF_W = 26;
+  const PINCH_HINT_TOP = 32;
   const [pinchHint, setPinchHint] = React.useState<{ x: number; y: number } | null>(null);
 
   const applyPinch = React.useCallback(() => {
@@ -501,7 +506,16 @@ export function WorkflowCanvas() {
       y: cur.midY - pin.wy * nz,
       zoom: nz,
     });
-    setPinchHint({ x: cur.midX, y: cur.midY });
+    // the bubble floats above the fingers' midpoint; capture keeps the
+    // gesture alive when a finger slides past the canvas edge, but the
+    // raw midpoint would drag the chip out of view — clamp it on-canvas
+    const W = rootRef.current?.clientWidth ?? 0;
+    const H = rootRef.current?.clientHeight ?? 0;
+    const minX = PINCH_HINT_HALF_W + 6;
+    setPinchHint({
+      x: clamp(cur.midX, minX, Math.max(minX, W - PINCH_HINT_HALF_W - 6)),
+      y: clamp(cur.midY, PINCH_HINT_TOP, Math.max(PINCH_HINT_TOP, H - 8)),
+    });
   }, [setViewport]);
 
   const endPinch = () => {

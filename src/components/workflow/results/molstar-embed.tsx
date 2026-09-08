@@ -16,7 +16,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { BoxSelect, Camera, Check, ClipboardCopy, Layers, Loader2, Mountain, Plus, RotateCw, ScanLine, X, ZoomIn } from "lucide-react";
+import { Axis3d, BoxSelect, Camera, Check, ClipboardCopy, Layers, Loader2, Mountain, Plus, RotateCw, ScanLine, X, ZoomIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
@@ -640,6 +640,32 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
     })();
   };
 
+  /* ---------------- standard view orientations ------------------------- */
+  // Axis-aligned presets are the daily bread of cryo-EM inspection — look
+  // straight down X/Y/Z to judge anisotropy, check the top/bottom of the
+  // box, or return to the default ¾ view. Camera.focus(target, radius,
+  // durationMs, up, dir) keeps the current target + zoom radius and only
+  // swings the view direction (dir = camera→target, up = screen north),
+  // eased over 320 ms — verified against molstar/lib/mol-canvas3d/camera.js
+  // (getFocus matches deltaDirection to `dir`, position = target − dir·d).
+  const VIEW_PRESETS: Array<{ key: string; label: string; dir: [number, number, number]; up: [number, number, number] }> = [
+    { key: "front", label: "Front", dir: [0, 0, -1], up: [0, 1, 0] },
+    { key: "back", label: "Back", dir: [0, 0, 1], up: [0, 1, 0] },
+    { key: "left", label: "Left", dir: [1, 0, 0], up: [0, 1, 0] },
+    { key: "right", label: "Right", dir: [-1, 0, 0], up: [0, 1, 0] },
+    { key: "top", label: "Top", dir: [0, -1, 0], up: [0, 0, -1] },
+    { key: "bottom", label: "Bottom", dir: [0, 1, 0], up: [0, 0, 1] },
+  ];
+  const applyViewPreset = (dir: [number, number, number], up: [number, number, number]) => {
+    const cam = pluginRef.current?.canvas3d?.camera;
+    if (!cam) return;
+    const st = cam.state;
+    const target = Array.from(st.target ?? [0, 0, 0]) as [number, number, number];
+    const radius = Number(st.radius) || 0;
+    if (!(radius > 0)) return; // focus() ignores radius ≤ 0 — nothing framed yet
+    cam.focus(target, radius, 320, up as unknown as Parameters<typeof cam.focus>[3], dir as unknown as Parameters<typeof cam.focus>[4]);
+  };
+
   /* ---------------- view capture (figure export) ---------------------- */
 
   // busy → spinner; done → emerald check for 1.8s so the click lands visibly
@@ -732,6 +758,9 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
         if (!supersampled) ctx.setProps({ pixelScale: prevScale });
       }
       const sizeNote = `${mult > 1 ? ` · ${mult}× supersampled` : ""}`;
+      // color legend for the Layers overlays — chip + label per map in the
+      // figure footer, so multi-map figures are self-describing
+      const figureLegend = overlays.map((o) => ({ color: o.color, label: o.name }));
       try {
         // composite plate background, theme-aware: the mol* canvas renders
         // opaque (renderer clear color) in practice, but if a future render
@@ -765,6 +794,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
           mapName: name,
           sigma,
           annotations,
+          legend: figureLegend,
         };
         if (mode === "copy") {
           const res = await copyViewerPng(opts);
@@ -792,6 +822,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
               mapName: name,
               sigma,
               annotations: [],
+              legend: figureLegend,
             });
             toast({
               title: "Clipboard refused — downloaded instead",
@@ -1851,7 +1882,8 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
 
               <p className="border-t px-1 pb-0.5 pt-1.5 text-[10px] leading-tight text-muted-foreground">
                 Overlays follow the contour σ slider — half-maps track the main map exactly;
-                nudge σ per map when statistics differ. The export footer counts active overlays.
+                nudge σ per map when statistics differ. Exports list active overlays as a
+                color legend in the figure footer.
               </p>
             </PopoverContent>
           </Popover>
@@ -1976,6 +2008,49 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
           >
             <RotateCw className="size-4" />
           </Button>
+          {/* standard view orientations — swing to an axis without losing
+              the current zoom; the grid doubles as a crash course in the
+              box's shape (anisotropy reads instantly along each axis) */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="secondary"
+                size="icon"
+                className="size-8 rounded-lg shadow-sm"
+                aria-label="Standard view orientations — front, back, left, right, top, bottom"
+                title="Standard views — axis-aligned orientations, zoom preserved"
+              >
+                <Axis3d className="size-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-52 p-2" data-canvas-ui="view-presets">
+              <p className="px-1 pb-1 text-[11px] font-semibold">Standard views</p>
+              <div className="grid grid-cols-3 gap-1">
+                {VIEW_PRESETS.map((p) => (
+                  <button
+                    key={p.key}
+                    type="button"
+                    data-testid={`view-preset-${p.key}`}
+                    onClick={() => applyViewPreset(p.dir, p.up)}
+                    className="rounded-md border bg-card px-1 py-1.5 text-[11px] font-medium text-foreground/90 transition-colors hover:bg-primary/10 hover:text-primary"
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={resetCamera}
+                className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed px-1 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <RotateCw className="size-3" />
+                Default ¾ view
+              </button>
+              <p className="border-t px-1 pb-0.5 pt-1.5 text-[10px] leading-tight text-muted-foreground">
+                Swing the camera to an axis — zoom level stays put.
+              </p>
+            </PopoverContent>
+          </Popover>
         </div>
       ) : null}
 
