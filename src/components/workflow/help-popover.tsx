@@ -41,6 +41,7 @@ const SHORTCUTS: { keys: string; text: string }[] = [
   { keys: "⇧ Click", text: "Toggle a card in the selection" },
   { keys: "⇧ Drag", text: "Box-select on empty canvas" },
   { keys: "⌘/Ctrl A", text: "Select every job in the workspace" },
+  { keys: "⌘/Ctrl D", text: "Duplicate the selection (1 job or a group)" },
   { keys: "Del", text: "Delete the selection (confirms first)" },
   { keys: "Esc", text: "Cancel wire · collapse selection · close panels" },
 ];

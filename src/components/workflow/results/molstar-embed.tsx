@@ -408,6 +408,40 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
     }
     setShot("busy");
     void (async () => {
+      // ---- hi-res: briefly double the backing-store pixel scale so the
+      // exported figure is supersampled even on dpr-1 displays (Task 30
+      // leftover). canvas3dContext.setProps re-syncs the GL scale and
+      // resizes the canvas synchronously; the redraw lands on the plugin's
+      // rAF loop, so we await one real `didDraw` (the BehaviorSubject's seed
+      // value is skipped) with a 400 ms fallback — a throttled background
+      // tab can never hang the export. Restored in `finally`.
+      const ctx = plugin?.canvas3dContext;
+      const prevScale = ctx?.props?.pixelScale ?? 0;
+      const wantBoost = !!ctx && prevScale > 0 && prevScale * 2 <= 4;
+      const prevW = canvas.width;
+      let supersampled = false;
+      // one real frame at the new size: didDraw fires after the plugin's
+      // render pass (its BehaviorSubject replays the seed on subscribe —
+      // skipped); 400 ms fallback so a throttled tab can't hang the export
+      const awaitRedraw = () =>
+        new Promise<void>((res) => {
+          const subject = plugin?.canvas3d?.didDraw;
+          if (!subject?.subscribe) return res();
+          let seeded = false;
+          const sub = subject.subscribe(() => {
+            if (!seeded) return;
+            sub.unsubscribe();
+            res();
+          });
+          seeded = true;
+          setTimeout(res, 400);
+        });
+      if (wantBoost && ctx) {
+        ctx.setProps({ pixelScale: prevScale * 2 });
+        await awaitRedraw();
+        supersampled = canvas.width > prevW * 1.2; // resize actually landed?
+        if (!supersampled) ctx.setProps({ pixelScale: prevScale });
+      }
       try {
         // composite plate background, theme-aware: the mol* canvas renders
         // opaque (renderer clear color) in practice, but if a future render
@@ -424,6 +458,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
         const st = sliceStateRef.current;
         const cp = clipStateRef.current;
         const annotations: string[] = [];
+        if (supersampled) annotations.push("2× supersampled");
         if (st.on) annotations.push(`slice ${st.axis} ${Math.round(st.pos * 100)}%`);
         if (cp.on) {
           const axes = (["x", "y", "z"] as const)
@@ -440,7 +475,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
         });
         toast({
           title: "3D view exported",
-          description: `${res.fileName} · ${res.width}×${res.height} px · ${fmtBytes(res.bytes)}`,
+          description: `${res.fileName} · ${res.width}×${res.height} px${supersampled ? " · 2× supersampled" : ""} · ${fmtBytes(res.bytes)}`,
         });
         setShot("done");
         setTimeout(() => setShot("idle"), 1800);
@@ -451,6 +486,11 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
           variant: "destructive",
         });
         setShot("idle");
+      } finally {
+        if (supersampled && ctx) {
+          ctx.setProps({ pixelScale: prevScale }); // on-screen scale back
+          await awaitRedraw();
+        }
       }
     })();
   };
@@ -1334,7 +1374,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
             onClick={captureView}
             disabled={shot === "busy"}
             aria-label="Export the current 3D view as PNG"
-            title="Export view as PNG — the exact density you see; contour / slice / clip state is annotated in the figure footer"
+            title="Export view as PNG — 2× supersampled; contour / slice / clip state is annotated in the figure footer"
           >
             {shot === "busy" ? (
               <Loader2 className="size-4 animate-spin" />

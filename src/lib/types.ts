@@ -305,3 +305,13 @@ export interface SystemStatusClient {
    *  re-verifying in the background and the next poll flips it off. */
   fromCache?: boolean;
 }
+
+/**
+ * Window event fired by the job-card BULK context menu ("Delete N jobs…")
+ * to request the page-level confirmation dialog — the dialog (name
+ * preview + running-jobs warning) lives beside the Del-key handler in
+ * page.tsx, and threading a callback through the memoized canvas layers
+ * would re-render every card; the command palette already uses this
+ * dispatch pattern (cryoflow:open-palette).
+ */
+export const BULK_DELETE_EVENT = "cryoflow:bulk-delete-request";

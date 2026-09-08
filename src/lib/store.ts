@@ -200,6 +200,18 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
   return data;
 }
 
+/**
+ * Workspace membership EXACTLY as the canvas visibility rule computes it
+ * (useActiveWorkspaceJobs): legacy NULL-workspace jobs normalize to "".
+ * Every selection guard (selectAll / deleteSelected / duplicateSelected /
+ * alignSelected / distributeSelected) MUST use this same predicate — a
+ * strict `j.workspaceId === ws` disagreeing with visibility produces cards
+ * that are visible but silently undeletable (Bug #33).
+ */
+function jobInWorkspace(j: { workspaceId?: string | null }, ws: string | null): boolean {
+  return (j.workspaceId ?? "") === ws;
+}
+
 /** Client-side cycle check: would edge from→to create a cycle? */
 function wouldCreateCycle(edges: EdgeDTO[], from: string, to: string): boolean {
   const adj = new Map<string, string[]>();
@@ -1090,7 +1102,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   selectAll: () => {
     const ws = get().activeWorkspaceId;
-    const ids = get().jobs.filter((j) => j.workspaceId === ws).map((j) => j.id);
+    const ids = get().jobs.filter((j) => jobInWorkspace(j, ws)).map((j) => j.id);
     if (ids.length === 0) return;
     const prev = get().selectedId;
     set({
@@ -1102,7 +1114,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   deleteSelected: async () => {
     const ws = get().activeWorkspaceId;
     const ids = get().selectedIds.filter((id) =>
-      get().jobs.some((j) => j.id === id && j.workspaceId === ws)
+      get().jobs.some((j) => j.id === id && jobInWorkspace(j, ws))
     );
     if (ids.length === 0) return;
     const results = await Promise.allSettled(
@@ -1143,7 +1155,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   duplicateSelected: async () => {
     const ws = get().activeWorkspaceId;
     const sel = get().jobs.filter(
-      (j) => get().selectedIds.includes(j.id) && j.workspaceId === ws && !j.linkedJobId
+      (j) => get().selectedIds.includes(j.id) && jobInWorkspace(j, ws) && !j.linkedJobId
     );
     if (sel.length === 0) return;
     const skippedLinks = get().selectedIds.length - sel.length;
@@ -1162,6 +1174,10 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
               y: clamp(src.y + 40, WORLD_MIN, WORLD_MAX - CARD_H),
               name: `${src.name} (copy)`,
               params: src.params,
+              // copies live where their source lives — the API defaults to
+              // the project's first workspace otherwise, which could teleport
+              // the copy into a workspace the user never looks at
+              workspaceId: src.workspaceId ?? undefined,
             }),
           }).then(({ job }) => ({ srcId: src.id, job }))
         )
@@ -1241,7 +1257,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   alignSelected: (mode) => {
     const ws = get().activeWorkspaceId;
     const sel = get().jobs.filter(
-      (j) => get().selectedIds.includes(j.id) && j.workspaceId === ws
+      (j) => get().selectedIds.includes(j.id) && jobInWorkspace(j, ws)
     );
     if (sel.length < 2) return;
     const minX = Math.min(...sel.map((j) => j.x));
@@ -1281,7 +1297,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   distributeSelected: (axis) => {
     const ws = get().activeWorkspaceId;
     const sel = get().jobs.filter(
-      (j) => get().selectedIds.includes(j.id) && j.workspaceId === ws
+      (j) => get().selectedIds.includes(j.id) && jobInWorkspace(j, ws)
     );
     if (sel.length < 3) {
       toast({

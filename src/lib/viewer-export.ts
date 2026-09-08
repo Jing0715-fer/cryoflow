@@ -14,9 +14,10 @@
  *   3. footer strip (same visual language as canvas-export.ts): CryoFlow —
  *      <map name> · contour σ level · date, painted beneath the capture.
  *
- * The backing store is CSS-size × devicePixelRatio, so on HiDPI screens
- * the export is naturally supersampled — no manual pixelRatio work needed
- * (unlike html-to-image, which must invent its own).
+ * The backing store is CSS-size × devicePixelRatio × mol* pixelScale; the
+ * capture flow briefly doubles the plugin's pixelScale (2× supersampling,
+ * see captureView in molstar-embed.tsx) so figures stay razor-sharp even
+ * on dpr-1 displays — the footer scales itself off the same ratio.
  */
 
 export interface ViewerExportOptions {

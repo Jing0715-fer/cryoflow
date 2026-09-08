@@ -14,6 +14,7 @@ import { JobInspector } from "@/components/workflow/job-inspector";
 import { CommandPalette } from "@/components/workflow/command-palette";
 import { TemplatePresetsDialog } from "@/components/workflow/template-presets-dialog";
 import { ImportWorkflowDialog } from "@/components/workflow/import-workflow-dialog";
+import { BULK_DELETE_EVENT } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -140,6 +141,17 @@ export default function Home() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
+  // job-card BULK context menu ("Delete N jobs…") routes here — the confirm
+  // dialog (name preview + running warning) lives beside the Del-key path,
+  // so both entries share one guarded exit
+  React.useEffect(() => {
+    const onBulkDeleteRequest = () => {
+      if (useWorkflowStore.getState().selectedIds.length > 1) setConfirmBulkDelete(true);
+    };
+    window.addEventListener(BULK_DELETE_EVENT, onBulkDeleteRequest);
+    return () => window.removeEventListener(BULK_DELETE_EVENT, onBulkDeleteRequest);
+  }, []);
+
   /* Canvas keyboard shortcuts (n8n-style power moves):
    *   F    — center the selected job
    *   0    — reset pan/zoom
@@ -190,6 +202,16 @@ export default function Home() {
         if (s.view !== "dashboard") {
           e.preventDefault();
           s.selectAll();
+        }
+      } else if ((e.ctrlKey || e.metaKey) && (k === "d" || k === "D")) {
+        // Figma-convention duplicate (Shift+D is taken by the view toggle):
+        // one selected job → single duplicate; 2+ → the bulk path, which
+        // clones the jobs and rewires their internal edges as a block.
+        // preventDefault keeps the browser's bookmark dialog out of the way.
+        if (s.view !== "dashboard") {
+          e.preventDefault();
+          if (s.selectedIds.length > 1) void s.duplicateSelected();
+          else if (s.selectedId) void s.duplicateJob(s.selectedId);
         }
       } else if (k === "0") {
         e.preventDefault();

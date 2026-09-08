@@ -1726,3 +1726,27 @@ Stage Summary:
 - #31 闭环：zustand 复数选择器的"新数组每调用"陷阱——React useSyncExternalStore 缓存契约的必修课，已沉淀为代码注释与方法论
 - #32 闭环：capturePointer 防御 helper 全局替换——自动化测试与真实指针竞态都不再能打断 pointerdown 链
 - 遗留（下轮候选）：真 RELION 数据回归（EMPIAR 全链重建，需用户机器）、HPC SBATCH 真集群实测（需用户机器）、3D 导出可选 2× 超采样（molstar canvas props）、多选的 Shift+D 整组复制快捷键（工具条已覆盖）、框选的触屏长按适配（当前 Shift 手势桌面优先）
+---
+Task ID: 31
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 新日轮 2026-09-08 11:30）——QA 回归全绿后推进：3D 导出 2× 超采样（Task 30 首遗留）+ Ctrl/Cmd+D 复制选区（单/组双态）+ 卡片多选上下文菜单（open-time 快照）；顺带修 #33 工作区守卫与可见性不一致（可见但删不掉）+ 修复 QA Sandbox B fixture 损坏；worklog + push
+
+Work Log:
+- 【开局核对】worklog 实际最新为 Task 30（指令所称"末尾 Task 13"严重过期）；git 本地 == origin/main == 64534c8 干净；DB fixture 4 项目 11 jobs 与 Task 29 收官态一致
+- 【QA 回归·全绿】Workflow 画布（QA Sandbox C 5 jobs/2 edges/catalog 36/minimap）+ Dashboard KPI band（4 projects · 11 jobs）+ console 0 error
+- 【代码债盘点·全部已清】Task 13 遗留逐项核实现状：#7 statcache 已覆盖全部 9 条 chart 路由（mtime-keyed LRU）、#8 particles 路由已是 frontier 批量 BFS、#13 localStorage 写已 effect 化、#5 fs/browse 已有同源守卫 + 补偿控制文档、#6/#14 前轮已闭环——本轮零修复需求，全面转功能
+- 【新功能·3D 导出 2× 超采样】molstar 源码考古：Canvas3DContext.setProps({pixelScale}) 同步 syncPixelScale+resize（canvas.width=dpr×pixelScale×CSS），重绘走插件 rAF；didDraw BehaviorSubject（订阅即回放种子值——用 seeded 标志跳过）+400ms 兜底等待新尺寸首帧；captureView 导出前 pixelScale×2（cap 4），finally 恢复；canvas.width 增长验证失败则立即还原（headless 节流安全）；页脚注记 "2× supersampled"、toast 尺寸标签、按钮 title 同步。**踩坑记录**：molstar-embed 的 MolPlugin=any 令 `ctx.canvas3d.didDraw` 通过 tsc 但 Canvas3DContext 运行时无 canvas3d 字段（在 plugin.canvas3d 上）——纯类型检查救不了 any 断言，API 链必须对着 lib 源码验证
+- 【新功能·Ctrl/Cmd+D 复制选区】Shift+D 已被视图切换占用→改 Figma 惯例 Ctrl/Cmd+D：单选走 duplicateJob、2+ 走 duplicateSelected（整组克隆+内部连线重接）；preventDefault 压制浏览器书签；help 快捷键表补 ⌘/Ctrl D 行；单卡菜单 Duplicate 项补 ⌘D shortcut 提示
+- 【新功能·卡片多选上下文菜单】JobCardMenu 升级为选择感知：onOpenChange 打开瞬间 getState() 快照（count+状态分布摘要 "3 idle"），零新增 props/订阅（Radix 菜单模态期内状态不会漂移）；bulk 变体：N jobs selected 标签 + Collapse to "<primary>" (Esc) + Focus primary card (F) + Duplicate N jobs (⌘D) + Delete N jobs… (Del, destructive)；批量删除经 BULK_DELETE_EVENT（types.ts 导出，命令面板同款 dispatch 模式）路由到 page.tsx 既有确认对话框（名称预览+running 警告）——回调穿 memo 化画布层会全卡重渲，事件总线是既有先例
+- 【真 bug #33·工作区守卫与可见性不一致】E2E 抓到：NULL-workspace 旧数据（demo/C 的工作区功能前 jobs）在画布可见（useActiveWorkspaceJobs 归一化 (j.workspaceId ?? "")===ws），但 selectAll/deleteSelected/duplicateSelected/alignSelected/distributeSelected 5 处守卫用严格 ===——副本被 API 默认分进真实 ws 后，选中集与守卫集错位→批量删除静默 no-op（ids=0 早退无 toast）。修复：store 模块级 jobInWorkspace() 谓词统一 5 处；duplicateSelected 显式传 workspaceId（副本留在源工作区，不再被 API 默认第一工作区"传送"）
+- 【fixture 修复】QA Sandbox B 并行会话竞态损伤：双 "Main" 工作区（Task 30 观察到的复活事件的后续）+ 3 个 NULL-ws 原始 jobs——scripts/fix-sandbox-b-fixture.mjs 合并重复工作区+归位 NULL jobs（幂等可重跑）；#33 E2E 全链消耗 B 后 scripts/restore-sandbox-b.py 还原 3 连线 jobs（import→motioncorr→ctffind + 2 edges）
+- 【E2E·三功能全链】①多选菜单：Ctrl+A 6/6（修复前 3）→右键派发 contextmenu→"6 jobs selected · 6 idle"→Collapse 工具条消失→Duplicate 3/4/6 jobs→DB 数量/连线精确验证（4 edges=原 2+副本内部 2）→Delete 6 jobs…→确认框名称预览→删除落库 0 行；②Ctrl+D 单个：copy 落同工作区+toast；多选 Ctrl+A+Ctrl+D：8 jobs 副本成新选区→Del 键路径清理还原 fixture；③3D 导出：View in 3D（__reactProps 直调，Radix 对话框竞态 playbook）→Camera→toast "2298×938 px · 2× supersampled · 105 KB"（1149×2 精确）→落盘目检：页脚注记在位、密度图边缘明显更平滑、canvas 导出后还原 1149×425
+- 【运维】dev server OOM ×2（tsc 全量检查 + dev server + headless Chrome 三者叠加，dmesg 实锤 next-server RSS 2.75GB 被杀）→ dev-server.sh 重启 ×2；纪律入库：tsc/lint 与浏览器错峰跑（先关浏览器）；agent-browser 无右键命令→eval 派发 contextmenu MouseEvent 可靠触发 Radix 菜单
+- 【收尾】bun run lint 0/0、tsc src/ 0 错误（examples/skills 预存在错误与项目无关）；DB 终态 4 项目/11 jobs（10 idle+1 completed）与开局一致；light 主题；浏览器已关
+
+Stage Summary:
+- 3D 导出页脚三部曲收官上加码：图不仅记录"怎么切的"（slice/clip），还以 2× 超采样保证印刷级锐度——dpr-1 显示器用户首次获得真超采样 figure
+- 画布多选体系补完最后一块交互拼图：右键上下文菜单从"单卡世界"升级为选择感知（快照式零重渲），批量四件套（拖拽/对齐分布/复制/删除）全部获得菜单入口，快捷键提示与 Del/Esc/⌘D/F 键位链完全对齐
+- #33 闭环：可见性谓词与操作守卫必须同源——"看得到但删不掉"类 bug 的根因是两套 workspace 判定并存；jobInWorkspace 单一事实源
+- QA 资产沉淀：fix-sandbox-b-fixture.mjs（幂等修复）+ restore-sandbox-b.py（3 连线链重建）；synthetic contextmenu dispatch 方法论
+- 遗留（下轮候选）：真 RELION 数据回归（EMPIAR 全链重建，需用户机器）、HPC SBATCH 真集群实测（需用户机器）、框选触屏长按适配、导入对话框 toast 内嵌切换按钮、3D 导出可选倍率 UI（当前固定 2×）

@@ -10,6 +10,7 @@ import {
   Locate,
   Maximize2,
   FolderInput,
+  MousePointerClick,
   Play,
   RotateCcw,
   SquarePen,
@@ -28,7 +29,7 @@ import {
 import { useWorkflowStore, type PendingFrom } from "@/lib/store";
 import { computeEdgeGeoms, setLiveDrag } from "@/lib/edge-geom";
 import { registerGroupMember, beginGroupDrag, moveGroupDrag, endGroupDrag } from "@/lib/group-drag";
-import type { JobDTO, JobTypeSpec, ParamValue } from "@/lib/types";
+import { BULK_DELETE_EVENT, type JobDTO, type JobTypeSpec, type ParamValue } from "@/lib/types";
 import { TypeIcon } from "./icons";
 import { Badge } from "@/components/ui/badge";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
@@ -259,6 +260,35 @@ function JobCardMenu({
   const [busy, setBusy] = React.useState(false);
   const [copiedId, setCopiedId] = React.useState(false);
 
+  // multi-select menu variant — snapshotted at OPEN time (getState), so the
+  // facts (count + status breakdown) are always fresh and no card carries
+  // extra subscriptions or props; a context menu is modal, nothing moves
+  // under it while it's open. Kept while closing so the exit frame is stable.
+  const [bulk, setBulk] = React.useState({ active: false, count: 0, summary: "" });
+  const handleMenuOpenChange = React.useCallback(
+    (open: boolean) => {
+      if (!open) return;
+      const s = useWorkflowStore.getState();
+      const ids = s.selectedIds;
+      const active = ids.length > 1 && ids.includes(job.id);
+      if (!active) {
+        setBulk({ active: false, count: 0, summary: "" });
+        return;
+      }
+      const counts = new Map<string, number>();
+      for (const j of s.jobs) {
+        if (!ids.includes(j.id)) continue;
+        counts.set(j.status, (counts.get(j.status) ?? 0) + 1);
+      }
+      const summary = Array.from(counts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .map(([st, c]) => `${c} ${st}`)
+        .join(" · ");
+      setBulk({ active: true, count: ids.length, summary });
+    },
+    [job.id]
+  );
+
   const idle = job.status === "idle";
   const running = job.status === "running";
   const isLink = job.linkedJobId != null;
@@ -272,9 +302,58 @@ function JobCardMenu({
   };
 
   return (
-    <ContextMenu>
+    <ContextMenu onOpenChange={handleMenuOpenChange}>
       <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
       <ContextMenuContent className="w-60">
+        {bulk.active ? (
+          <>
+            <ContextMenuLabel className="flex items-center gap-2 pr-3">
+              <span className="font-semibold">{bulk.count} jobs selected</span>
+              {bulk.summary && (
+                <span
+                  className="ml-auto shrink-0 text-[10px] font-medium uppercase tracking-wider text-muted-foreground"
+                  title="Statuses across the selection"
+                >
+                  {bulk.summary}
+                </span>
+              )}
+            </ContextMenuLabel>
+            <ContextMenuSeparator />
+            <ContextMenuItem
+              onClick={() => useWorkflowStore.getState().select(job.id)}
+              title="Keep only this card selected — the edit panel follows the primary"
+            >
+              <MousePointerClick />
+              Collapse to “{job.name}”
+              <ContextMenuShortcut>Esc</ContextMenuShortcut>
+            </ContextMenuItem>
+            <ContextMenuItem onClick={() => void useWorkflowStore.getState().focusJob(job.id)}>
+              <Locate />
+              Focus primary card
+              <ContextMenuShortcut>F</ContextMenuShortcut>
+            </ContextMenuItem>
+            <ContextMenuSeparator />
+            <ContextMenuItem
+              onClick={() => void useWorkflowStore.getState().duplicateSelected()}
+              title="Clone the whole selection — internal wires are rewired to the copies"
+            >
+              <Copy />
+              Duplicate {bulk.count} jobs
+              <ContextMenuShortcut>⌘D</ContextMenuShortcut>
+            </ContextMenuItem>
+            <ContextMenuSeparator />
+            <ContextMenuItem
+              variant="destructive"
+              onClick={() => window.dispatchEvent(new CustomEvent(BULK_DELETE_EVENT))}
+              title="Opens the bulk confirm dialog (name preview + running warning)"
+            >
+              <Trash2 />
+              Delete {bulk.count} jobs…
+              <ContextMenuShortcut>Del</ContextMenuShortcut>
+            </ContextMenuItem>
+          </>
+        ) : (
+        <>
         <ContextMenuLabel className="flex items-center gap-2 pr-3">
           <span className="truncate font-semibold">{job.name}</span>
           {isLink && (
@@ -339,6 +418,7 @@ function JobCardMenu({
           <ContextMenuItem onClick={() => void duplicateJob(job.id)}>
             <Copy />
             Duplicate
+            <ContextMenuShortcut>⌘D</ContextMenuShortcut>
           </ContextMenuItem>
         )}
         <ContextMenuItem onClick={copyId}>
@@ -393,6 +473,8 @@ function JobCardMenu({
           <Trash2 />
           Delete…
         </ContextMenuItem>
+        </>
+        )}
       </ContextMenuContent>
 
       {/* delete confirm — cascades edges, so require an explicit OK */}
