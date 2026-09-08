@@ -1928,3 +1928,26 @@ Stage Summary:
 - Dashboard 补上"跨项目最近动态"：昨晚在 B 项目跑的 CTF 今早在 feed 里一眼可见，点击直接跳回（切项目 → 画布 → 选中/结果面板）——"我在哪留下的摊子"不再需要翻项目网格
 - 方法论沉淀：headless 帧率是 transition 类断言的天敌——"稳态后取证"必须显式等待；toast viewport 与 corner 控件的坐标冲突用程序化 click 绕行；toast 迟到 ≠ 功能故障，全量 dump 数组补证据链
 - 遗留（下轮候选）：真 RELION 数据回归（EMPIAR 全链，需用户机器）、HPC SBATCH 真集群实测（需用户机器）、书签进 overlay-session 云端化（跨浏览器跟 job 走）、Turntable GIF 转码（wasm ffmpeg，重）、Recent feed 的 running 任务实时进度条、书签缩略图（保存时快照 mini PNG）
+---
+Task ID: 40
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 新日轮 2026-09-08 17:17）——QA 回归全绿后交付三功能：相机书签云端化（BookmarkSession 表 + 缩略图）+ 书签缩略图 contact sheet + Recent feed 实时进度条；期间修掉 canvas 访问器 bug、server 恢复不回种 bug、双删竞态 bug；worklog + push
+
+Work Log:
+- 【开局核对】worklog 实际最新为 Task 39（交接摘要所称"Task 28 中断点"已过期 12 轮）；git 本地 == origin/main == d122b57；dev server 失联 → dev-server.sh playbook 重启 + curl 预热（root/api/jobs/activity/recent/projects）
+- 【QA 回归·全绿】Workflow 画布（QA Sandbox C 5 jobs / 2 edges / catalog 36）+ mol* viewer（canvas 1149×425 挂载、contour/slice/clip/overlay/export/turntable/bookmark 全 corner 控件在位）+ Dashboard（KPI band + Recent feed 8 行 + spotlight）+ console 0 error → 无新 bug，转功能
+- 【新功能 1·相机书签云端化】①新 Prisma 模型 BookmarkSession（jobId @unique + data + updatedAt，onDelete Cascade）——刻意不与 OverlaySession 共行：两种数据形状同一行会互相覆盖；db push + generate 零迁移②新路由 /api/jobs/[id]/camera-bookmarks GET/PUT：防御式 sanitize（≤8 条、id ≤64、name ≤80、ts 钳制未来 60s、snapshot 白名单——三 vec3 必须齐（是位姿本体）、fov 钳 (0.001,π]、radius/fog/clipFar ≤1e12、thumb 必须 ^data:image/(png|jpeg);base64, 且 ≤48K 字符；空表 deleteMany 删行）③客户端双镜像：localStorage 即时 + PUT 立发（保存/删除是离散点击，无需防抖；keepalive 兜底）；恢复 server-first（2.5s AbortController 上限）→ 本地兜底 + **server 恢复后回种 localStorage**（不回种则下次保存会 PUT 丢同步条目的列表）；bookmarkDirtyRef 防"fetch 途中用户保存被服务器旧列表 clobber"
+- 【新功能 2·书签缩略图 contact sheet】captureBookmarkThumb：webgl.gl.canvas（**不是 canvas3d.canvas——它不存在**，首版因此静默返回 undefined）→ 112px 宽 JPEG(0.72) 先填 viewer 面色（containerRef.parentElement computed bg，透明回退 #09090b）再 drawImage，~3KB/张；popover 行升级 44×30 缩略（border+rounded+object-cover，无 thumb 回退 Mountain 图标占位）+ hover primary 边框；脚注改"Synced to the job — follows you across browsers"
+- 【新功能 3·Recent feed 实时进度条】①/api/activity/recent select 加 progress（一列 Float 顺路带走，无需第二请求）②running 行渲染 3px 进度条（.progress-shimmer 微光 + width transition-700 ease-out，min 2% 防空条）+ 右侧 mono tabular-nums 百分比③4s 轮询仅在有 running 行时存活（hasLive 派生 effect，无 running 即自毁——静态 feed 不保温网络）；刷新同时带新相对时间
+- 【E2E·五阶段全链（scripts/qa40-e2e.mjs）】A 清场+开 viewer → B 存书签（稳态 Top hash -2038742305 → toast "View saved" + localStorage JPEG thumb + popover 行 <img> 42×30 + 服务器行 hasThumb:true）→ C 跨会话恢复（抹 localStorage → 重开 → toast "Restored 1 view bookmark" + localStorage 由服务器重建**含 thumb** → Front(670246508) → 书签回跳 **-2038742305 分毫不差==保存值**）→ D 删除（X → 空表 PUT → 服务器行自删 {"bookmarks":[]}）→ E feed（mock running 42% → 3px 条+42% 标签渲染 + 4s 轮询实证 2 请求）；console 0 error；截图目检：书签 contact sheet（两张橙色密度图缩略）+ feed 68% 进度条样式均正确
+- 【本轮修的三个 bug（全部 QA 过程中抓到）】①captureBookmarkThumb 用 plugin.canvas3d.canvas（undefined）→ 换 webgl.gl.canvas + container query 兜底（与 turntable/export 同链）②server 恢复不回种 localStorage → 加 setItem 回种③**双删竞态**：同帧点 2 个 X，两个 onClick 闭包读同一份 bookmarks state，最后一次 PUT 把第一条复活（visual QA 时亲眼抓到服务器行剩 "Top view"）→ bookmarksRef 同步镜像 + commitBookmarks 单一变更路径（state/ref/localStorage/PUT 四者同动），回归实证 3 连删 → 服务器 []+本地 0
+- 【QA 工具链增补】stableHash 轮询（两次连续 hash 相等才算稳态，qa39"稳态取证"教训的自动化版——本轮 C 阶段首跑 5s 等待不足、保存了 transition 途中位姿致 hash 断言假红，stableHash 后分毫不差）；编辑 molstar-embed.tsx 后旧 chunk 引用会 ChunkLoadError（volume.js async loader 404）→ 必须重新整链预热（root reload → viewer 全链）再跑 e2e
+- 【运维】dev server OOM ×3（tsc/eslint 与 Turbopack 争内存 + prisma generate 触发重编译）→ playbook 重启 + 预热；pkill chrome 清场
+- 【收尾】bun run lint 0/0、tsc 0 错误；DB 终态 4 项目 / 11 jobs / OverlaySession 0 / BookmarkSession 0（测试残留全部自愈干净）；QA 截图（书签 contact sheet + feed 进度条）目检后已删；浏览器已关
+
+Stage Summary:
+- 相机书签完成"跟 job 走"的最后一公里：换浏览器/清缓存后好角度还在，且列表自带密度图缩略 contact sheet——8 个书签一眼扫出"通道轴那张"；与 Layers 会话同一套双镜像/服务器优先/脏保护设计语言，但按数据本性分表（overlay 会过期需自愈，bookmark 是纯数字永不过期）
+- Dashboard 的"我在哪留下的摊子"升级为实时：running 行自带微光进度条 + 百分比，4s 轮询只在有活跑时存在——离开画布也能看到 refine 推进，跑完状态翻转自动落定
+- 三个 bug 都是 QA 现场抓的：错误的 canvas 访问器（静默 undefined）、镜像不同步（恢复不回种）、闭包竞态（双删复活）——"删两条剩一条"这种 bug 只有真实连点才暴露，单元测试 imagination 之外
+- 方法论增补：稳态取证升级为 stableHash 自动轮询；源码编辑后的 chunk 失效要整链预热（root reload 不够，viewer 异步 chunk 要走到）；视觉 QA 截图是抓竞态 bug 的意外利器（服务器行内容与 UI 不符一眼可见）
+- 遗留（下轮候选）：真 RELION 数据回归（EMPIAR 全链，需用户机器）、HPC SBATCH 真集群实测（需用户机器）、Turntable GIF 转码（wasm ffmpeg，重）、书签缩略图进 WebM 录制帧（录制时显示当前角度小图）、feed 行内嵌 sparkline（单 job 进度历史）、overlay 会话冲突合并（双浏览器并发 last-write-wins 现状）

@@ -951,42 +951,148 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
   // and bookmarks turn that hunt into a one-time cost. getSnapshot()/
   // setState() are mol*'s own camera serialization (the same mechanism
   // Camera.Reset uses for the initial view); Vec3 extends Array<number>,
-  // so poses survive JSON round-trips intact. Persisted per browser + job.
+  // so poses survive JSON round-trips intact.
+  //
+  // Each save also captures a small JPEG thumbnail straight off the live
+  // canvas, so the bookmark list reads like a contact sheet instead of
+  // names alone. Dual mirror like the Layers session: localStorage
+  // (instant, per browser) + a server row /api/jobs/:id/camera-bookmarks
+  // (immediate PUT — saves are discrete clicks, nothing to debounce)
+  // so saved views follow the JOB across browsers and devices.
   const camBookmarkKey = (id: string) => `cryoflow.mol-camera-bookmarks:${id}`;
-  type CamBookmark = { id: string; name: string; ts: number; snapshot: Record<string, unknown> };
+  type CamBookmark = { id: string; name: string; ts: number; thumb?: string; snapshot: Record<string, unknown> };
   const [bookmarks, setBookmarks] = useState<CamBookmark[]>([]);
   const [bookmarkName, setBookmarkName] = useState("");
+  // restore guard: a slow server response must never clobber a bookmark
+  // the user saved while the fetch was in flight
+  const bookmarkDirtyRef = useRef(false);
+  // synchronous mirror of the list — rapid mutations (two X clicks in one
+  // render frame) read stale closure state otherwise, and the last PUT
+  // would resurrect the entry the first click deleted
+  const bookmarksRef = useRef<CamBookmark[]>([]);
+
+  const cleanBookmarks = (parsed: unknown): CamBookmark[] =>
+    Array.isArray(parsed)
+      ? parsed
+          .filter(
+            (b): b is CamBookmark =>
+              !!b &&
+              typeof b === "object" &&
+              typeof (b as CamBookmark).id === "string" &&
+              typeof (b as CamBookmark).name === "string" &&
+              typeof (b as CamBookmark).ts === "number" &&
+              !!(b as CamBookmark).snapshot,
+          )
+          .slice(0, 8)
+      : [];
 
   useEffect(() => {
     if (phase !== "ready") return;
+    let local: CamBookmark[] = [];
     try {
-      const raw = localStorage.getItem(camBookmarkKey(jobId));
-      if (!raw) return;
-      const parsed: unknown = JSON.parse(raw);
-      if (!Array.isArray(parsed)) return;
-      const clean = parsed
-        .filter(
-          (b): b is CamBookmark =>
-            !!b &&
-            typeof b === "object" &&
-            typeof (b as CamBookmark).id === "string" &&
-            typeof (b as CamBookmark).name === "string" &&
-            typeof (b as CamBookmark).ts === "number" &&
-            !!(b as CamBookmark).snapshot,
-        )
-        .slice(0, 8);
-      setBookmarks(clean);
+      local = cleanBookmarks(JSON.parse(localStorage.getItem(camBookmarkKey(jobId)) ?? "[]"));
     } catch {
-      /* private mode / corrupt entry — start empty */
+      local = []; // private mode / corrupt entry — start empty
     }
+    // the SERVER list wins when it has entries — it follows the job
+    // across browsers and devices (same semantics as the Layers session);
+    // 2.5 s cap so a stalled request never delays the bookmark menu
+    void (async () => {
+      let server: CamBookmark[] = [];
+      try {
+        const ctl = new AbortController();
+        const timer = window.setTimeout(() => ctl.abort(), 2500);
+        const r = await fetch(`/api/jobs/${jobId}/camera-bookmarks`, { signal: ctl.signal });
+        window.clearTimeout(timer);
+        if (r.ok) {
+          const j = await r.json();
+          server = cleanBookmarks(j?.bookmarks);
+        }
+      } catch {
+        /* offline / timeout — the local copy restores the views */
+      }
+      if (bookmarkDirtyRef.current) return; // user saved during the fetch
+      const restored = server.length > 0 && server.length !== local.length;
+      const applied = server.length > 0 ? server : local;
+      bookmarksRef.current = applied;
+      setBookmarks(applied);
+      // re-seed the local mirror from the server list — without this the
+      // next save/delete would PUT a list that silently lost the synced
+      // entries whenever this browser had never seen them
+      if (server.length > 0) {
+        try {
+          localStorage.setItem(camBookmarkKey(jobId), JSON.stringify(server));
+        } catch {
+          /* private mode — session-local list still works */
+        }
+      }
+      if (restored) {
+        toast({
+          title: `Restored ${server.length} view bookmark${server.length > 1 ? "s" : ""}`,
+          description: "Saved views for this job, synced from its last visit.",
+        });
+      }
+    })();
   }, [phase, jobId]);
 
-  const persistBookmarks = (next: CamBookmark[]) => {
+  /** push the list to the job's server row — best-effort by design:
+   *  localStorage stays the instant, offline-capable mirror */
+  const putBookmarkSession = (list: CamBookmark[]) =>
+    fetch(`/api/jobs/${jobId}/camera-bookmarks`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        bookmarks: list.map(({ id, name, ts, thumb, snapshot }) => ({ id, name, ts, thumb, snapshot })),
+      }),
+      keepalive: true,
+    }).catch(() => {
+      /* offline / dev server restarting — the local copy still holds it */
+    });
+
+  /** single mutation path — state, synchronous mirror, localStorage and
+   *  the server row all move together, so N rapid clicks can never disagree */
+  const commitBookmarks = (next: CamBookmark[]) => {
+    bookmarkDirtyRef.current = true;
+    bookmarksRef.current = next;
     setBookmarks(next);
     try {
       localStorage.setItem(camBookmarkKey(jobId), JSON.stringify(next));
     } catch {
       /* private mode — the session-local list still works */
+    }
+    void putBookmarkSession(next);
+  };
+
+  const removeBookmark = (id: string) =>
+    commitBookmarks(bookmarksRef.current.filter((x) => x.id !== id));
+
+  /** small JPEG snapshot of the current frame for the bookmark list —
+   *  a contact sheet beats names alone when you saved 8 angles. Composited
+   *  over the viewer surface color (the GL canvas runs with alpha),
+   *  downscaled to a 112-px-wide thumb that costs ~3 KB. */
+  const captureBookmarkThumb = (): string | undefined => {
+    const c3d = pluginRef.current?.canvas3d;
+    const src =
+      (c3d?.webgl?.gl?.canvas as HTMLCanvasElement | undefined) ??
+      containerRef.current?.querySelector("canvas") ??
+      null;
+    const host = containerRef.current?.parentElement ?? containerRef.current;
+    if (!src || !src.width || !src.height || !host) return undefined;
+    try {
+      const W = 112;
+      const H = Math.max(1, Math.round((src.height / src.width) * W));
+      const c = document.createElement("canvas");
+      c.width = W;
+      c.height = H;
+      const ctx = c.getContext("2d");
+      if (!ctx) return undefined;
+      const bgRaw = getComputedStyle(host).backgroundColor;
+      ctx.fillStyle = bgRaw && bgRaw !== "rgba(0, 0, 0, 0)" && bgRaw !== "transparent" ? bgRaw : "#09090b";
+      ctx.fillRect(0, 0, W, H);
+      ctx.drawImage(src, 0, 0, W, H);
+      return c.toDataURL("image/jpeg", 0.72);
+    } catch {
+      return undefined; // tainted canvas / OOM — the name still saves
     }
   };
 
@@ -995,7 +1101,10 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
     if (!cam) return;
     const snapshot = cam.getSnapshot() as unknown as Record<string, unknown>;
     const nm = (bookmarkName.trim() || `View ${bookmarks.length + 1}`).slice(0, 40);
-    persistBookmarks([...bookmarks, { id: `bm-${Date.now()}`, name: nm, ts: Date.now(), snapshot }].slice(-8));
+    const thumb = captureBookmarkThumb();
+    commitBookmarks(
+      [...bookmarksRef.current, { id: `bm-${Date.now()}`, name: nm, ts: Date.now(), thumb, snapshot }].slice(-8),
+    );
     setBookmarkName("");
     toast({ title: "View saved", description: `“${nm}” — jump back from the bookmark menu any time.` });
   };
@@ -2978,7 +3087,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                 <Bookmark className="size-4" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent align="end" className="w-60 p-2" data-canvas-ui="camera-bookmarks">
+            <PopoverContent align="end" className="w-64 p-2" data-canvas-ui="camera-bookmarks">
               <p className="px-1 pb-1 text-[11px] font-semibold">View bookmarks</p>
               <p className="px-1 pb-1.5 text-[10px] leading-tight text-muted-foreground">
                 Save the exact camera pose — orbit, zoom and target — and fly back to it later.
@@ -3016,24 +3125,41 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                   bookmarks.map((b) => (
                     <div
                       key={b.id}
-                      className="flex items-center gap-1 rounded-md border bg-card px-2 py-1"
+                      className="group/bm flex items-center gap-1.5 rounded-md border bg-card p-1 pr-1 transition-colors hover:border-primary/40"
                     >
                       <button
                         type="button"
                         onClick={() => restoreBookmark(b)}
-                        className="min-w-0 flex-1 text-left"
+                        className="flex min-w-0 flex-1 items-center gap-2 text-left"
                         title={`Fly back to “${b.name}”`}
                       >
-                        <span className="block truncate text-[11px] font-medium text-foreground/90 transition-colors hover:text-primary">
-                          {b.name}
-                        </span>
-                        <span className="block text-[9px] text-muted-foreground">
-                          {new Date(b.ts).toLocaleString()}
+                        {b.thumb ? (
+                          <img
+                            src={b.thumb}
+                            alt=""
+                            aria-hidden="true"
+                            className="h-8 w-11 shrink-0 rounded-[4px] border border-border/70 bg-zinc-950 object-cover"
+                          />
+                        ) : (
+                          <span
+                            className="flex h-8 w-11 shrink-0 items-center justify-center rounded-[4px] border border-border/70 bg-muted/50"
+                            aria-hidden="true"
+                          >
+                            <Mountain className="size-3.5 text-muted-foreground/50" />
+                          </span>
+                        )}
+                        <span className="min-w-0">
+                          <span className="block truncate text-[11px] font-medium text-foreground/90 transition-colors group-hover/bm:text-primary">
+                            {b.name}
+                          </span>
+                          <span className="block text-[9px] text-muted-foreground">
+                            {new Date(b.ts).toLocaleString()}
+                          </span>
                         </span>
                       </button>
                       <button
                         type="button"
-                        onClick={() => persistBookmarks(bookmarks.filter((x) => x.id !== b.id))}
+                        onClick={() => removeBookmark(b.id)}
                         aria-label={`Delete bookmark ${b.name}`}
                         className="shrink-0 rounded p-0.5 text-muted-foreground/50 transition-colors hover:bg-muted hover:text-destructive"
                       >
@@ -3044,7 +3170,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                 )}
               </div>
               <p className="border-t px-1 pb-0.5 pt-1.5 text-[10px] leading-tight text-muted-foreground">
-                Kept per browser + job · up to 8 views · eased 320 ms return.
+                Synced to the job — follows you across browsers · up to 8 views · eased 320 ms return.
               </p>
             </PopoverContent>
           </Popover>

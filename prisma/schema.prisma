@@ -67,6 +67,7 @@ model Job {
   outEdges  Edge[]     @relation("fromJob")
   inEdges   Edge[]     @relation("toJob")
   overlaySession OverlaySession?
+  bookmarkSession BookmarkSession?
 
   @@index([projectId])
   @@index([workspaceId])
@@ -81,6 +82,23 @@ model Job {
  * the job's live outputs on restore, so stale rows self-heal.
  */
 model OverlaySession {
+  id        String   @id @default(cuid())
+  jobId     String   @unique
+  data      String
+  updatedAt DateTime @updatedAt
+
+  job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
+}
+
+/**
+ * Server-side copy of a job's 3D-viewer camera bookmarks (named view
+ * poses: orbit/zoom/target, plus a small JPEG thumbnail per bookmark).
+ * localStorage mirrors it per browser; this row makes the saved views
+ * follow the JOB across browsers and devices. `data` is a JSON-encoded
+ * array of { id, name, ts, thumb?, snapshot } — snapshots are pure
+ * camera numbers (no file references), so rows never go stale.
+ */
+model BookmarkSession {
   id        String   @id @default(cuid())
   jobId     String   @unique
   data      String

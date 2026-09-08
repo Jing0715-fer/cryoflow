@@ -11,6 +11,8 @@ export const dynamic = "force-dynamic";
  * param edits all count, so a job the user is actively shepherding stays
  * visible instead of sinking behind its creation date. Slim select (no
  * params/results blobs) keeps the read cheap even as the job table grows.
+ * `progress` rides along for free (one Float column) so the feed can draw
+ * live bars for running jobs without a second request.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -25,6 +27,7 @@ export async function GET(request: NextRequest) {
         name: true,
         type: true,
         status: true,
+        progress: true,
         updatedAt: true,
         project: { select: { id: true, name: true } },
       },
@@ -36,6 +39,7 @@ export async function GET(request: NextRequest) {
         name: j.name,
         type: j.type,
         status: j.status,
+        progress: j.progress,
         updatedAt: j.updatedAt,
         projectId: j.project?.id ?? null,
         projectName: j.project?.name ?? null,

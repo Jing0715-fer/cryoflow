@@ -613,6 +613,7 @@ interface RecentJob {
   name: string;
   type: string;
   status: string;
+  progress: number;
   updatedAt: string;
   projectId: string | null;
   projectName: string | null;
@@ -644,6 +645,26 @@ function RecentActivityFeed({ activeProjectId }: { activeProjectId: string | nul
       alive = false;
     };
   }, [jobCount]);
+
+  // live tick: while any feed row is running, poll every 4 s so the
+  // progress bars sweep and status flips land without a manual refresh;
+  // the moment nothing is running the interval dissolves (a static feed
+  // must not keep the network warm)
+  const hasLive = (recent ?? []).some((j) => j.status === "running");
+  React.useEffect(() => {
+    if (!hasLive) return;
+    const iv = window.setInterval(() => {
+      fetch("/api/activity/recent?limit=8")
+        .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+        .then((d: { jobs?: RecentJob[] }) => {
+          setRecent(Array.isArray(d.jobs) ? d.jobs : []);
+        })
+        .catch(() => {
+          /* keep the last good frame — the next tick retries */
+        });
+    }, 4000);
+    return () => window.clearInterval(iv);
+  }, [hasLive]);
 
   const open = async (j: RecentJob) => {
     // same deep-link semantics as the spotlight: idle jobs get the canvas
@@ -709,6 +730,22 @@ function RecentActivityFeed({ activeProjectId }: { activeProjectId: string | nul
                     {!isLocal && j.projectName ? `${j.projectName} · ` : ""}
                     {formatDistanceToNow(new Date(j.updatedAt), { addSuffix: true })}
                   </span>
+                  {j.status === "running" && (
+                    <span
+                      className="mt-1 flex items-center gap-1.5"
+                      aria-label={`Progress ${Math.round(j.progress * 100)}%`}
+                    >
+                      <span className="h-[3px] min-w-0 flex-1 overflow-hidden rounded-full bg-muted">
+                        <span
+                          className="progress-shimmer relative block h-full rounded-full bg-teal-600 transition-[width] duration-700 ease-out"
+                          style={{ width: `${Math.min(100, Math.max(2, j.progress * 100))}%` }}
+                        />
+                      </span>
+                      <span className="w-7 shrink-0 text-right font-mono text-[9px] tabular-nums text-muted-foreground">
+                        {Math.round(j.progress * 100)}%
+                      </span>
+                    </span>
+                  )}
                 </span>
                 <ChevronRight
                   className="size-3.5 shrink-0 text-muted-foreground/40 transition-transform group-hover/row:translate-x-0.5"
