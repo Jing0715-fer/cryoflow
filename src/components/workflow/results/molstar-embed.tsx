@@ -1587,6 +1587,37 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
     setImportPreview((prev) => (prev ? { ...prev, picked: new Set<number>() } : prev));
   };
 
+  /** tick the unpicked entries of ONE source, in entry order, claiming
+   *  only the still-free slots (a capacity-starved source takes what fits;
+   *  the header checkbox then reads indeterminate and its title says so —
+   *  same honest accounting as the global Select all, scoped to a group) */
+  const tickSource = (base: number, count: number) => {
+    setImportPreview((prev) => {
+      if (!prev) return prev;
+      const next = new Set(prev.picked);
+      let room = Math.max(0, 8 - bookmarksRef.current.length - next.size);
+      for (let i = 0; i < count && room > 0; i++) {
+        const idx = base + i;
+        if (!next.has(idx)) {
+          next.add(idx);
+          room--;
+        }
+      }
+      return { ...prev, picked: next };
+    });
+  };
+
+  /** untick every entry of ONE source — freed slots re-enable locked rows
+   *  of the other groups on the very next render */
+  const untickSource = (base: number, count: number) => {
+    setImportPreview((prev) => {
+      if (!prev) return prev;
+      const next = new Set(prev.picked);
+      for (let i = 0; i < count; i++) next.delete(base + i);
+      return { ...prev, picked: next };
+    });
+  };
+
   // sources flattened with their base index into the global pick set —
   // recomputed per render (≤5 sources × 8 rows, no memo warranted)
   const importGroups = importPreview
@@ -1602,6 +1633,10 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
   const importTotalEntries = importPreview?.sources.reduce((a, s) => a + s.entries.length, 0) ?? 0;
   const importTotalRaw = importPreview?.sources.reduce((a, s) => a + s.rawCount, 0) ?? 0;
   const importRoom = Math.max(0, 8 - bookmarks.length);
+  // same full-ness signal the row checkboxes use — with the list full every
+  // unpicked row is locked, which is what makes the per-source header
+  // checkbox honest about what a click can still achieve
+  const importFull = importPreview ? bookmarks.length + importPreview.picked.size >= 8 : false;
 
   /** the sibling-job picker rows, shared verbatim by the popover section
    *  and the in-dialog "add from job" panel (same lazy counts, same honest
@@ -4028,9 +4063,42 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
 
             {/* grouped sources — file groups and job groups side by side */}
             <div className="max-h-72 space-y-2 overflow-y-auto pr-0.5 nice-scroll" role="group" aria-label="Views found across all sources">
-              {importGroups.map((g, gi) => (
+              {importGroups.map((g, gi) => {
+                // per-source header accounting — standard tri-state
+                // semantics: "checked" means every TICKABLE row of this
+                // source is in (locked rows don't count — they were never
+                // reachable), "indeterminate" means a partial pick. When the
+                // list is full the unpicked rows are all locked, so the box
+                // reads checked as soon as anything here is ticked, and a
+                // source with nothing ticked disables its header entirely.
+                const pickedInG = g.entries.reduce(
+                  (a, _, i) => a + (importPreview.picked.has(g.base + i) ? 1 : 0),
+                  0,
+                );
+                const tickableInG = importFull ? pickedInG : g.entries.length;
+                const allIn = pickedInG > 0 && pickedInG === tickableInG;
+                const someIn = pickedInG > 0 && pickedInG < tickableInG;
+                const headerStuck = pickedInG === 0 && tickableInG === 0;
+                const headerTitle = headerStuck
+                  ? "The list is full and nothing from this source is ticked — untick a row or Clear first"
+                  : allIn
+                    ? `Untick all ${g.entries.length} view${g.entries.length === 1 ? "" : "s"} from this source`
+                    : `Tick the views from this source${importFull ? " — only the free slots will fill" : ""}`;
+                return (
                 <div key={`${g.kind}-${g.label}-${gi}`} className="rounded-lg border bg-muted/20 p-1.5" data-canvas-ui="import-source-group">
                   <div className="flex items-center gap-1.5 px-0.5 pb-1">
+                    <Checkbox
+                      checked={allIn ? true : someIn ? "indeterminate" : false}
+                      disabled={headerStuck}
+                      onCheckedChange={() => {
+                        if (allIn) untickSource(g.base, g.entries.length);
+                        else tickSource(g.base, g.entries.length);
+                      }}
+                      aria-label={`Toggle all views from ${g.label}`}
+                      title={headerTitle}
+                      className="size-3.5"
+                      data-canvas-ui="import-source-toggle"
+                    />
                     {g.kind === "file" ? (
                       <FileJson className="size-3 shrink-0 text-teal-600" aria-hidden="true" />
                     ) : (
@@ -4096,7 +4164,8 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                     })}
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* mix in more sources — the dialog is modal, so it carries its

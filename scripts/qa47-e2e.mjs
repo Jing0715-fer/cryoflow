@@ -76,6 +76,10 @@ const gridState = () => J(`(() => {
     cards: root.querySelectorAll('.grid > div.group').length,
     chipRow: chips ? [...chips.querySelectorAll('button')].map(b => ({
       t: b.textContent.replace(/\\s+/g, ' ').trim(),
+      // the count lives in its own tabular-nums span — textContent would
+      // concatenate the kbd corner digit ("Completed 1"+"3" → parse 13),
+      // which only looks right when the old sandbox had 13 such projects
+      n: (() => { const s = [...b.querySelectorAll('span')].find(x => /tabular-nums/.test(x.className || '')); return s ? parseInt(s.textContent, 10) : null; })(),
       pressed: b.getAttribute('aria-pressed'),
     })) : null,
     flash: root.className.includes('ring-primary') || root.parentElement?.className?.includes('ring-primary'),
@@ -146,7 +150,7 @@ const phaseA = async () => {
   step(`  after Completed click: pressed=${band.Completed.pressed} cards=${gs.cards}`);
   if (band.Completed.pressed !== "true") throw new Error("Completed card did not show pressed");
   const doneChip = gs.chipRow.find((c) => c.t.startsWith("Completed"));
-  const expectedDone = doneChip ? parseInt(doneChip.t.replace(/[^\d]/g, ""), 10) : 0;
+  const expectedDone = doneChip ? (doneChip.n ?? parseInt(doneChip.t.replace(/[^\d]/g, ""), 10)) : 0;
   if (expectedDone > 0 && gs.cards !== expectedDone)
     throw new Error(`grid cards ${gs.cards} != presence.completed ${expectedDone}`);
   if (expectedDone === 0 && !gs.empty) throw new Error("expected empty state");

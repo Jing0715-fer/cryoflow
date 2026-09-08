@@ -232,7 +232,9 @@ const phaseA = async () => {
     prev = ai;
   }
   const anchorCount = (md.match(/<a id="/g) || []).length;
-  if (anchorCount !== 9) throw new Error(`want 9 anchors (one per h2), got ${anchorCount}`);
+  // ≥9: one per h2. 10 when the Contents block itself carries the footer
+  // link's target anchor (Task 57 added `#contents` + "Back to contents")
+  if (anchorCount < 9) throw new Error(`want ≥9 anchors (one per h2), got ${anchorCount}`);
   step("  Contents block: 9 entries, anchors verified, position OK");
 
   // ---- regression: qa53's content asserts ----

@@ -2281,3 +2281,24 @@ Stage Summary:
 - 「采样走 rAF 搭车、编码在录后单飞」的分工是本次的结构性收获：录制路径零新开销（采样只占 paint 循环一个 drawImage+getImageData），编码的重活推迟到 WebM 已安全的时刻，失败域彼此隔离
 - 运维新签名值得记住：**导航拿到 7.5KB 空壳 + in-page fetch 完整 = 端口被另一个（冷编译中的）服务器占用**——ss 核对监听 pid 身份应加入暖化配方；`errors` CLI 的孤立 ✗ 不可信，页面内错误收集器才是确定性探针
 - 遗留（下轮候选）：gallery 卡内嵌 3D 轻量预览（重）；Import dialog per-source check-all/none；workflow-import 多文件（低优先）；dev overlay「1 Issue」定位；GIF 帧内容级目检（落盘逐帧抽检，本轮只验了 magic+尺寸）；report「返回目录」脚部链接（克制未做）
+
+---
+Task ID: 57
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 晨轮 2026-09-09 02:31）——落地 Task 56 遗留「Import dialog per-source check-all/none」：每个来源组头升级为三态 Checkbox（全选/半选/未选 + 容量诚实语义），连带 Dashboard gallery 墙「Show all N」展开/收起 + report 文末「↑ Back to contents」导航页脚；期间诊断出本轮最重要的运维签名「stale-chunk 空壳」（孤儿 standalone 服务旧 HTML + 静态资产 404 → 永不水合）；qa57 三阶段 e2e 全绿（production `next start` 模式）+ qa47 A / qa55 C 回归绿；worklog + push
+
+Work Log:
+- 【开局核对】交接摘要第 8 轮过期——worklog 实际最新 Task 56、HEAD 660e9d1 干净；任务原文的 Task 13 清单（#5/#6/#7/#8/#13、Topaz wrapper）经 grep 核实在 Task 22–53 间全部闭环，零修复需求；gallery「3D 轻预览」候选经勘查确认已落地（书签保存时捕获 JPEG thumb、dashboard 墙已在渲染 b.thumb）→ 转下一优先
+- 【功能 1·import 组头三态】来源组头新增 Checkbox（size-3.5 + data-canvas-ui=import-source-toggle）：checked = 该源全部 tickable 行已勾（锁定行不计数——从来够不着的不算）、indeterminate = 部分勾选、未满时全勾即 checked；headerStuck（列表满且本源零勾选）→ disabled + 诚实 title「untick a row or Clear first」；tickSource 按条目序只吃 free slots（容量饥饿的源勾到满为止、标题注明 "only the free slots will fill"）、untickSource 整源撤勾即时解锁他源行；ui/checkbox.tsx 补 indeterminate 视觉（MinusIcon + 填充态三件套 data-[state=indeterminate]）——此前 indeterminate 会撒谎显示对勾
+- 【功能 2·gallery 展开】Saved views 墙 12 卡帽升级为可展开：溢出行改「Show all N bookmarks」按钮（ChevronsDown/Up 随态、aria-expanded + aria-controls=saved-views-wall、focus-visible ring）；showAllViews state 独立于 refetch、集合缩水时诚实少渲染
+- 【功能 3·report 页脚】TOC 存在时文末追加 hr + [↑ Back to contents](#contents)；anchor pass 扩展匹配 **Contents** 粗体行给页脚一个真 target（Contents 是粗体不是 h2）——TOC 存在才生成，slim report 不制造导航；qa55 硬断言 anchorCount==9 future-proof 为 ≥9（加 #contents 后满版报告 10 枚）
+- 【运维·新签名「stale-chunk 空壳」】首轮 QA 页面 160KB 但零交互（tab 点击不动、bodyLen 永恒不变）：performance.getEntriesByType('resource') 实锤全部 JS/CSS 404——端口被一个 standalone 占着，其 prerendered HTML 引用旧 chunk 哈希而 .next/standalone/.next/static 为空壳（build 未拷贝全）；**进程自改名 next-server (v16.1.3) 让 pkill -f 永远失配**（这就是历轮孤儿 server 的根因！）——必须 ss 查 pid + kill -9 精确杀；standalone 修不好静态层 → 改用 `bun next start`（读完整 .next、无编译器内存同样平稳、chunk 200）——**本机 prod QA 配方改写为 next start**；验收链：curl chunk URL 200 + ss 核对监听 pid
+- 【QA·qa57 三阶段两连全绿（分批 + ABC 完整各一）】A：三 regime 矩阵——A1 宽松态（header checked ↔ untick-all/tick-all 双击、job 源混入、撤一行 → indeterminate、点 header 补齐）+ A2 容量饥饿 6/8（预选 2、撤勾实时解锁第 3 行、header 只填 free slots、confirm → toast「Imported 2 views」+ 服务器行 8）+ A3 满 8/8 诚实缺口（header disabled + 解释性 title、全行 locked、Import disabled）；B：8+8 播种 → 12 卡帽 + Show all 16 → 16 卡 + Show less → 复原；C：qa53 种子 → 满版报告页脚最后 + hr + #contents 锚 + 恰 10 锚 + console 0 error → --clean
+- 【探针三课】①putBm 静默失败审计化：旧版 try/catch 吞响应、bmLiteral 返回字符串二次 stringify 成 {"bookmarks":"[...]"}（count 0）——新版回显响应 + serverRow 复核 + 失败即 FATAL；②qa47 chips 计数解析被 kbd 角标污染（"Completed 1"+kbd"3" → 13）——旧沙盒恰有 13 完成项目才侥幸通过；探针改读 tabular-nums 计数 span；③书签 QA 的 localStorage 幽灵：上一轮 confirm 的 8 条在 daemon 会话内持久、本地优先恢复压过已清零的服务器行——bootViewer 先 wipe cryoflow.mol-camera-bookmarks:* 再重载
+- 【收尾】eslint 0、tsc src 0；书签行全清 0/0、workdir 种子 --clean 无残留；浏览器已关
+
+Stage Summary:
+- Import views 对话框的批量操作收敛到标准三态语义：组头 Checkbox 是「本源全部可勾行」的诚实读数——锁定行不计数、容量饥饿只吃 free slots、满员零勾选直接 disabled 并解释出路；tri-state 语义补齐了 Task 54 多源混装的最后一层操作效率（多源场景下逐行点选的痛点在 4×N 矩阵里是真的疼）
+- Dashboard 墙从「 glance + 溢出提示」升级为「glance + 一键全览」；report 从「目录开头」到「返回目录收尾」——三处都是同一设计观的落地：可见物有等价操作、诚实计数、导航闭环
+- 运维沉淀（本轮最值钱）：①孤儿 server 的真身是进程改名——pkill -f 必失配，ss → pid → kill -9 是唯一可靠链；②stale-chunk 空壳的诊断入口是 performance entries 的 404 状态（bodyLen 恒定 + 零交互是症状）；③prod QA 服务器从 standalone 改判 next start（静态层完整、内存同稳）
+- 遗留（下轮候选）：GIF 帧内容级目检（落盘逐帧抽检）；Import dialog 的 header toggle 键盘可达性已有（原生 button）但可加 ⌘A 作用域化；dev overlay「1 Issue」定位（dev-only）；workflow-import 多文件（低优先）；真 RELION 数据回归（EMPIAR 全链重建，重）

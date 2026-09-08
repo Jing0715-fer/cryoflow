@@ -17,6 +17,8 @@ import {
   Boxes,
   CheckCircle2,
   ChevronRight,
+  ChevronsDown,
+  ChevronsUp,
   CircleAlert,
   Clock,
   FolderGit2,
@@ -637,6 +639,10 @@ function SavedViewsGallery({ activeProjectId }: { activeProjectId: string | null
   const select = useWorkflowStore((s) => s.select);
   const jobCount = useWorkflowStore((s) => s.jobs.length);
   const [views, setViews] = React.useState<GalleryEntry[] | null>(null);
+  // the wall is a glance by default (12 cards); "Show all" expands it to
+  // the full flat list without leaving the dashboard — state survives
+  // refetches, and a shrinking collection just renders fewer cards
+  const [showAllViews, setShowAllViews] = React.useState(false);
 
   // same freshness trigger as the recent feed: mount + whenever the
   // active project's job list moves (a saved view appearing/disappearing
@@ -665,9 +671,11 @@ function SavedViewsGallery({ activeProjectId }: { activeProjectId: string | null
   const total = views.reduce((n, v) => n + v.bookmarks.length, 0);
   const flat: Array<{ v: GalleryEntry; b: GalleryBookmark }> = [];
   for (const v of views) for (const b of v.bookmarks) flat.push({ v, b });
-  // 12 cards keep the section a glance, not a scroll; the overflow line
-  // says honestly that more exist (and where to find them)
-  const wall = flat.slice(0, 12);
+  // 12 cards keep the section a glance, not a scroll; the overflow button
+  // says honestly how many more exist and expands in place (the viewer
+  // bookmark lists remain the full-featured home for every view)
+  const WALL_CAP = 12;
+  const wall = showAllViews ? flat : flat.slice(0, WALL_CAP);
 
   const jump = async (v: GalleryEntry, b: GalleryBookmark) => {
     // one-shot handoff: the viewer consumes this once its bookmark list
@@ -700,7 +708,7 @@ function SavedViewsGallery({ activeProjectId }: { activeProjectId: string | null
           {total} bookmark{total === 1 ? "" : "s"} · {views.length} job{views.length === 1 ? "" : "s"} · click to jump
         </span>
       </div>
-      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+      <div id="saved-views-wall" className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
         {wall.map(({ v, b }) => {
           const spec = jobType(v.jobType);
           return (
@@ -753,10 +761,26 @@ function SavedViewsGallery({ activeProjectId }: { activeProjectId: string | null
           );
         })}
       </div>
-      {flat.length > wall.length && (
-        <p className="mt-2 text-[10px] text-muted-foreground/70">
-          +{flat.length - wall.length} more in the viewer bookmark lists
-        </p>
+      {flat.length > WALL_CAP && (
+        <button
+          type="button"
+          onClick={() => setShowAllViews((v) => !v)}
+          aria-expanded={showAllViews}
+          aria-controls="saved-views-wall"
+          title={
+            showAllViews
+              ? "Collapse the wall back to the first 12 cards"
+              : `Expand the wall to all ${flat.length} saved views — ${flat.length - WALL_CAP} more sit behind the cap`
+          }
+          className="mt-2 inline-flex items-center gap-1 rounded text-[10px] font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+        >
+          {showAllViews ? (
+            <ChevronsUp className="size-3" aria-hidden="true" />
+          ) : (
+            <ChevronsDown className="size-3" aria-hidden="true" />
+          )}
+          {showAllViews ? "Show less" : `Show all ${flat.length} bookmarks`}
+        </button>
       )}
     </section>
   );
