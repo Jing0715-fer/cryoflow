@@ -1089,19 +1089,32 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
     })();
   }, [phase, jobId]);
 
-  /** push the list to the job's server row — best-effort by design:
-   *  localStorage stays the instant, offline-capable mirror */
-  const putBookmarkSession = (list: CamBookmark[]) =>
-    fetch(`/api/jobs/${jobId}/camera-bookmarks`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        bookmarks: list.map(({ id, name, ts, thumb, view, snapshot }) => ({ id, name, ts, thumb, view, snapshot })),
-      }),
-      keepalive: true,
-    }).catch(() => {
-      /* offline / dev server restarting — the local copy still holds it */
-    });
+  /** PUT ordering: N rapid deletes fire N PUTs whose snapshots are taken in
+   *  order, but the requests themselves run concurrently and can COMMIT out
+   *  of order — a stale longer list then wins the upsert and resurrects
+   *  rows (observed live: a delete-all of 8 left one survivor on the server
+   *  while every mirror held []). Serialize every PUT through a chain so
+   *  the server always observes the sequence the user produced. The chain
+   *  never rejects, so one failed request cannot poison the next. */
+  const putChainRef = useRef<Promise<unknown>>(Promise.resolve());
+  const putBookmarkSession = (list: CamBookmark[]) => {
+    const go = async () => {
+      try {
+        await putChainRef.current;
+        await fetch(`/api/jobs/${jobId}/camera-bookmarks`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            bookmarks: list.map(({ id, name, ts, thumb, view, snapshot }) => ({ id, name, ts, thumb, view, snapshot })),
+          }),
+          keepalive: true,
+        });
+      } catch {
+        /* offline / dev server restarting — the local copy still holds it */
+      }
+    };
+    putChainRef.current = go();
+  };
 
   /** single mutation path — state, synchronous mirror, localStorage and
    *  the server row all move together, so N rapid clicks can never disagree */
@@ -1349,6 +1362,18 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
     toast({
       title: `Imported ${picked.length} view${picked.length > 1 ? "s" : ""}`,
       description: "Fly back from the list any time.",
+    });
+  };
+
+  /** checkbox toggle for the import preview — the UI prevents selecting
+   *  beyond the free slots (checkbox disabled), confirmImport still slices
+   *  as a last-resort guard */
+  const togglePicked = (i: number) => {
+    setImportPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(i)) next.delete(i);
+      else next.add(i);
+      return next;
     });
   };
 
@@ -3499,7 +3524,90 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
         </div>
       ) : null}
 
+      {/* import preview — files are parsed up front and shown as a checklist;
+          nothing lands in the job until Import is confirmed */}
+      {importPreview ? (
+        <Dialog open onOpenChange={(o) => { if (!o) setImportPreview(null); }}>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Import views</DialogTitle>
+              <DialogDescription>
+                {importPreview.entries.length} of {importPreview.rawCount} entr{importPreview.rawCount === 1 ? "y" : "ies"} parsed from “{importPreview.fileName}” — tick what lands in this job.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="max-h-64 space-y-1 overflow-y-auto pr-0.5" role="group" aria-label="Views found in the file">
+              {importPreview.entries.map((e, i) => {
+                const picked = importPicked.has(i);
+                const full = bookmarks.length + importPicked.size >= 8;
+                const locked = full && !picked;
+                return (
+                  <label
+                    key={`${e.name}-${i}`}
+                    className={cn(
+                      "flex cursor-pointer items-start gap-2 rounded-md border p-1.5 transition-colors",
+                      picked ? "border-primary/50 bg-primary/5" : "hover:bg-muted/40",
+                      locked && "cursor-not-allowed opacity-45 hover:bg-transparent",
+                    )}
+                  >
+                    <Checkbox
+                      checked={picked}
+                      disabled={locked}
+                      onCheckedChange={() => togglePicked(i)}
+                      className="mt-0.5"
+                      aria-label={`Import “${e.name}”`}
+                    />
+                    {e.thumb ? (
+                      <img
+                        src={e.thumb}
+                        alt=""
+                        aria-hidden="true"
+                        className="h-8 w-11 shrink-0 rounded-[4px] border border-border/70 bg-zinc-950 object-cover"
+                      />
+                    ) : (
+                      <span
+                        className="flex h-8 w-11 shrink-0 items-center justify-center rounded-[4px] border border-border/70 bg-muted/50"
+                        aria-hidden="true"
+                      >
+                        <Mountain className="size-3.5 text-muted-foreground/50" />
+                      </span>
+                    )}
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[11px] font-medium text-foreground/90">{e.name}</span>
+                      {e.view ? (
+                        renderViewChips(e.view)
+                      ) : (
+                        <span className="mt-0.5 inline-block rounded bg-muted/80 px-1 py-px font-mono text-[8px] font-medium text-muted-foreground">
+                          pose only
+                        </span>
+                      )}
+                      <span className="block text-[9px] text-muted-foreground">{new Date(e.ts).toLocaleString()}</span>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+            <DialogFooter className="gap-2 sm:gap-2">
+              <span className="mr-auto flex items-center font-mono text-[10px] tabular-nums text-muted-foreground">
+                {bookmarks.length + importPicked.size}/8 after import
+              </span>
+              <Button variant="ghost" size="sm" onClick={() => setImportPreview(null)}>
+                Cancel
+              </Button>
+              <Button size="sm" disabled={importPicked.size === 0} onClick={confirmImport}>
+                Import{importPicked.size > 0 ? ` ${importPicked.size}` : ""}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      ) : null}
+
       {phase === "loading" && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/70 backdrop-blur-[2px]">
+          <div className="flex flex-col items-center gap-2.5 rounded-2xl border bg-background px-5 py-4 text-xs text-muted-foreground shadow-sm">
+            <div className="flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin text-teal-600" aria-hidden="true" />
+              <span aria-live="polite">{STAGE_LABEL[stage]}</span>
+            </div>
             {/* thin stage progress: 4 dots, filled as stages complete */}
             <div className="flex items-center gap-1.5" aria-hidden="true">
               {(["viewer", "plugin", "download", "scene"] as LoadStage[]).map((s) => (

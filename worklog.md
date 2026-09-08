@@ -1995,3 +1995,25 @@ Stage Summary:
 - Dashboard 的 running 行从"一条 3px 进度条"升级为"进度条 + 40px 趋势 sparkline"：爬坡还是停滞、加速还是卡顿，一眼可读；观测窗口归一化是故意的——0-100 归一化会把早期进度画成贴底平线，等于没画
 - 方法论增补：位姿相等性的诚实断言是数值对比不是像素 hash（网格重建亚像素差异是 hash 翻转的系统性来源）；evalJs 返回值引号剥离；长驻 QA 进程前台分段跑 + appendFileSync 落盘（缓冲日志会被 SIGKILL 吞）
 - 遗留（下轮候选）：真 RELION 数据回归（EMPIAR 全链，需用户机器）、HPC SBATCH 真集群实测（需用户机器）、Turntable GIF 转码（wasm ffmpeg，重）、书签导入对话框（预览+勾选，当前是直接并入）、feed sparkline 触屏 tooltip、#5 fs/browse 无鉴权等 Task 13 遗留清单
+---
+Task ID: 43
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 晚轮 2026-09-08 19:59）——接手上一轮中断 cron 的半成品（书签导入预览对话框 + 行内重命名），修好破损 JSX 后补完 Dialog、E2E 全链 QA；QA 现场揪出并修掉「8 连删 PUT 并发乱序复活书签」传输层竞态；给 dev server 加 V8 堆上限治 OOM；worklog + push
+
+Work Log:
+- 【开局核对】worklog 实际最新 Task 42；git HEAD == ec88f50（一个 cron 命名的自动 commit，+144/-59 只动 molstar-embed.tsx，未推送）——深挖发现是上一轮 cron 中断的半成品：行内重命名（完整）+ 导入预览对话框（只有 state/handler，Dialog JSX 缺失）+ loading overlay 的包裹 div 被删坏（孤立闭合标签 → 编译失败 → dev server 500）
+- 【修 bug 1·破损 JSX】loading overlay 恢复 17b1906 的已知良好结构（Loader2 + STAGE_LABEL + 4 点进度条 + slow 提示卡），保留半成品里所有完整的新功能代码
+- 【补完功能 1·导入预览对话框】补写 Dialog JSX（正是 Task 42 遗留清单第一项）：标题/描述「N of M entries parsed from …」+ max-h-64 滚动清单（Checkbox + 44×30 缩略/Mountain 占位 + 名称 + renderViewChips 复用三色 chips 或 pose-only 徽章 + 时间戳）+ 勾选行 primary 高亮 + 容量满时未勾行 disabled+45% 透明锁选 + footer「n/8 after import」mono 计数 + Cancel ghost + Import N primary（0 勾禁用）；togglePicked handler；confirmImport（半成品已有）id 重生成防同 job 重导入碰撞
+- 【新功能 2·行内重命名（半成品直接验收）】Pencil 钮 → 行名称 span 换 input（autoFocus、Enter blur=唯一提交路径、Esc 先设 cancel 标志再 blur）→ commitRename 走 commitBookmarks 单一变更路径 + toast「View renamed」；空名/未改动静默返回；与 update/delete 构成三钮竖排组
+- 【修 bug 2·PUT 并发乱序（本轮最重要发现）】E2E delete-all 8 连删后服务器剩「Bulk 6」——Task 40 修的闭包竞态没回来，这次是传输层：客户端 8 次 commitBookmarks 每次都基于同步 ref（快照有序），但 8 个 fetch 并发在服务端并发提交，PUT1（7 条快照）比 PUT8（空表）晚落地 → 旧长列表赢 upsert → 已删行复活。修复：putChainRef 链式串行化（每个 PUT await 前一个，链永不 reject 防单次失败毒化后续），服务器永远看到用户产生的顺序；回归实证 8 连删 → 服务器行自删 []
+- 【E2E·qa43-e2e.mjs 五阶段全绿（exit 0）】A viewer 回归（canvas 1149×425 + corner 键 + slider）→ B1 行内重命名（toast + 行 + 服务器 + localStorage 四路跟随）→ C 导入对话框全链（3 条目文件：full view + pose-only + junk view 降级；勾选/取消勾选；Import 2 → 服务器名单精确匹配勾选集；Cancel 路径不动列表；7 文件进 3/8 → room=5 preselect=5 locked=2（相对断言）；8/8 后再注入 → 「Bookmark list is full」toast + 不开对话框；delete-all 8 连删竞态回归）→ D console 0 error + 截图 → B2 Esc 取消（不落盘，自播种设计支持独立批跑）；两张新 UI 截图目检（对话框 chips 三色 + pose-only 徽章 + mono 计数；重命名行缩略图 + 2.00 σ chip + toast）
+- 【QA 工具链增补】①Radix Dialog 打开抢焦点 → 书签 Popover 的 focus-outside 自动收起——对话框交互后的 popover 探针必须 ensurePopover（否则 rows=0 假阴性）②dispatch KeyboardEvent 前必须 inp.focus()——无真实焦点时 handler 里的 blur() 不触发 blur 事件，提交路径根本不走（断言会假绿）③断言相对化：existing 计数先行，counter/room/preselect/locked 全部按 existing 计算（B1 残留书签不再炸 C 的硬编码断言）④deleteAllBookmarks 加「popover 不在 → curl+localStorage 直清」兜底（Esc 关掉 viewer 后收尾不瞎）
+- 【运维·OOM 治理】本轮 next-server OOM ×3（anon-rss 2.67GB / 4GB 盒子，dmesg 实锤）；dev-server.sh 加 NODE_OPTIONS=--max-old-space-size=2048——V8 主动 GC 换内核 SIGKILL，本轮后续跑批稳定；「pkill chrome → playbook 重启 → curl 预热全路由」序列依旧有效
+- 【收尾】bun run lint 0/0、tsc src 0 错误；DB 终态 4 项目 / 11 jobs / BookmarkSession [] / OverlaySession 空（QA 残留全部自愈）；QA 截图目检后保留 agent-ctx/（.gitignore 内）；浏览器已关
+
+Stage Summary:
+- 上轮中断 cron 的遗产抢救成功：破损 JSX 修复 + 导入预览对话框补完 = Task 42 遗留清单第一项正式落地——「先看后进」取代盲目并入，junk view 在清单里就标成 pose-only，容量满的行直接锁选，勾多少进多少
+- 行内重命名补完书签生命周期的命名体验：改名字不再删了重存，三钮组（update/rename/delete）与 Esc/Enter 键盘语义齐备
+- 「8 连删剩 1 条」是客户端竞态修复后的第二层洋葱：快照有序 ≠ 提交有序——并发 PUT 在服务端的落库顺序才是最后一环；链式串行化让「服务器看到的序列 = 用户产生的序列」，链永不 reject 保住后续请求
+- 方法论增补：Radix 层叠（Dialog 抢焦点收 Popover）是探针假阴性的新来源；合成键盘事件必须配真实 focus 才能走完 blur 提交路径；E2E 断言相对化让多阶段套件免疫前阶段残留
+- 遗留（下轮候选）：overlay-session PUT 同样存在并发乱序风险（900ms 防抖降低概率但未串行化，值得同样 treatment）；真 RELION 数据回归（EMPIAR 全链，需用户机器）、HPC SBATCH 真集群实测（需用户机器）、Turntable GIF 转码（wasm ffmpeg，重）、导入对话框支持跨 job 文件互选（当前仅 file picker）、书签重名温和提示
