@@ -48,8 +48,11 @@ import {
   guinierTableMarkdown,
   resolutionTableMarkdown,
   svgToPngDataUrl,
+  buildTopazSvg,
+  topazTableMarkdown,
   type AngDistSnapshot,
   type CtfSnapshotMicrograph,
+  type TopazSnapshotEpoch,
 } from "@/lib/report-snapshots";
 import type { JobDTO } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -206,7 +209,8 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
         res: { current: number | null; best: number | null; points: { iteration: number; resolution: number }[] } | null;
         ctf: { micrographs: CtfSnapshotMicrograph[]; summary: { count: number; meanDefocus: number; maxAstigmatism: number; meanFom: number; worstResolution: number } | null } | null;
         ang: AngDistSnapshot | null;
-      } = { fsc: null, res: null, ctf: null, ang: null };
+        topaz: { epochs: TopazSnapshotEpoch[]; source: string | null } | null;
+      } = { fsc: null, res: null, ctf: null, ang: null, topaz: null };
       await Promise.all([
         fetch(`/api/jobs/${job.id}/fsc`, { cache: "no-store" })
           .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
@@ -255,6 +259,19 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
           .then((d: AngDistSnapshot) => {
             if (d.total > 0 && (d.cells ?? []).length > 0) found.ang = d;
           })
+          .catch(() => {}),
+        // Topaz training progress — per-epoch loss curves from run.out / a
+        // workdir training log. Cheap route (log tail only), so it rides
+        // unconditionally in the parallel set: a non-topaz job answers an
+        // empty epochs list and simply earns no section.
+        fetch(`/api/jobs/${job.id}/topaz-training`, { cache: "no-store" })
+          .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+          .then(
+            (d: { epochs?: TopazSnapshotEpoch[]; source?: string | null }) => {
+              if ((d.epochs ?? []).length > 0)
+                found.topaz = { epochs: d.epochs!, source: d.source ?? null };
+            }
+          )
           .catch(() => {}),
       ]);
       const fsc = found.fsc;
@@ -400,6 +417,30 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
         angSection = block;
       }
 
+      // Topaz training — per-epoch convergence of the particle-picker model
+      let topazSection: string[] | null = null;
+      const topaz = found.topaz;
+      if (topaz && topaz.epochs.length >= 2) {
+        const block: string[] = ["## Topaz training", ""];
+        if (topaz.source) block.push(`Source: \`${topaz.source}\``, "");
+        const last = [...topaz.epochs].sort((a, b) => a.it - b.it).at(-1);
+        const trainLast = last?.trainLoss;
+        if (last && trainLast != null)
+          block.push(
+            `${topaz.epochs.length} epoch${topaz.epochs.length === 1 ? "" : "s"} — final train loss **${trainLast.toFixed(3)}**${last.testLoss != null ? `, test loss **${last.testLoss.toFixed(3)}**` : ""}. Lower is better; a widening train/test gap is the overfitting signature.`,
+            ""
+          );
+        const table = topazTableMarkdown(topaz.epochs);
+        if (table) block.push(table, "");
+        const png = await snapshot(buildTopazSvg({ title: job.name, epochs: topaz.epochs }));
+        if (png) {
+          block.push(`![Topaz training loss curves for ${job.name}](${png})`, "");
+        } else {
+          block.push("_Curve snapshot unavailable in this browser — the table above is the full data._", "");
+        }
+        topazSection = block;
+      }
+
       const fmtDur = (s: number) =>
         s >= 3600
           ? `${Math.floor(s / 3600)}h ${Math.round((s % 3600) / 60)}m`
@@ -435,6 +476,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
         ...(guinierSection ?? []),
         ...(ctfSection ?? []),
         ...(angSection ?? []),
+        ...(topazSection ?? []),
         "## Outputs on disk",
         "",
         `- ${mrcFiles.length} map/image file${mrcFiles.length === 1 ? "" : "s"}${mrcFiles[0] ? ` — latest: \`${mrcFiles[0].name}\`` : ""}`,
@@ -461,6 +503,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
         guinierSection ? "Guinier plot" : null,
         ctfSection ? "CTF fit quality scatter" : null,
         angSection ? "orientation distribution map" : null,
+        topazSection ? "Topaz training curves" : null,
       ].filter(Boolean) as string[];
       toast({
         title: "Run report downloaded",

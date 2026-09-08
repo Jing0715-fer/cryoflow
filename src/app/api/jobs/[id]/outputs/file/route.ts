@@ -6,6 +6,7 @@ import { findEffectiveJob } from "@/lib/link";
 import { getRun } from "@/lib/relion/engine";
 import { readPathrefTarget } from "@/lib/relion/pathref";
 import { resolveInsideJobWorkdir } from "@/lib/relion/jobfile";
+import { isLocalRequest } from "@/lib/http-guard";
 import { isMrcPath, renderMrcLargePng, renderMrcMontagePng, renderMrcSlicePng } from "@/lib/mrc";
 
 export const dynamic = "force-dynamic";
@@ -43,6 +44,19 @@ function tailText(file: string): string {
 
 export async function GET(request: NextRequest, context: RouteContext) {
   try {
+    // Hardening (#5, round 2): this route serves CONTENT BYTES from the job
+    // workdir — and via the .pathref escape hatch from arbitrary import
+    // sources on the host (cross-drive/UNC micrographs). Same-origin fetch
+    // metadata + pinned Host header, same pair as /api/fs/browse: the
+    // browser-always-sent headers a drive-by page cannot control, with Host
+    // pinning catching the DNS-rebinding case the origin check alone
+    // passes (see http-guard for the full threat model).
+    if (!isLocalRequest(request)) {
+      return NextResponse.json(
+        { error: "Cross-site access to job outputs is not allowed" },
+        { status: 403 }
+      );
+    }
     const { id } = await context.params;
     const job = await findEffectiveJob(id); // resolves soft links to the original
     if (!job) {

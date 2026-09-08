@@ -2198,3 +2198,23 @@ Stage Summary:
 - 极坐标复刻的方法论：应用内 SVG 组件的几何数学（sectorPath/sqrt 色阶/环辐条）可以直接自包含移植到 standalone 快照，只要把所有 className 色翻译成显式色值 + 白底——「同一份数据、同一个视觉语言、两个渲染路径」
 - toast chartBits 化是「断言兼容演进」的样本：老短语保持首位、新短语 append-only join，qa50/qa51 的 regex 原样通过——改文案前先 grep 断言
 - 遗留（下轮候选）：Turntable GIF 转码（重）；gallery 卡内嵌 3D 轻量预览（重）；导入对话框双来源混合多选；#5 token gate；topaz-training 曲线进 report（第六张图，simpleLineChart 直接套）；dev overlay「1 Issue」定位（dev-only）
+
+---
+Task ID: 53
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 晨轮 2026-09-09 00:14）——双主线：① #5 安全加固第二轮：Host 白名单钉扎关闭 DNS-rebinding 残余风险 + 防护扩展到 outputs/file（内容字节路由此前裸奔）；② Topaz training 曲线进 report（第六图，simpleLineChart 脚手架直接套）；qa53 三阶段 e2e 全绿（含 10 项安全闸矩阵）；qa47 A 回归绿；worklog + push
+
+Work Log:
+- 【开局核对】交接摘要停在 Task 47（第 4 轮过期）——worklog 实际最新 Task 52、HEAD 053d4e6 == origin；dev server 报 already running 但内存 2.6GB 蠕变 → 强杀重启 + 全 API 预热；qa47 A + qa52 A 基线回归双绿 → 转开发；现场勘查发现 #5 的 same-origin 闸（isSameOriginRequest）其实早已落地，真正残余 = http-guard 注释里记录的 DNS-rebinding + outputs/file（服务 workdir 内容字节、pathref 逃生舱可达任意导入源）完全无防护
+- 【安全 1·Host 钉扎】http-guard.ts 新增 isAllowedHost + isLocalRequest：OWN_HOSTNAMES = loopback 全家 + os.networkInterfaces() 全部本机地址（模块加载时采样一次），Host 头剥端口/剥 IPv6 方括号后比对——rebound 页面伪造不了 Host（浏览器从地址栏填），attacker.com 不在集合即 403；权衡文档化：自定义 DNS 名访问被拒（companion 场景用 IP/localhost 即可）；fs/browse 升级为 isLocalRequest，outputs/file 首次装闸（同源 + 钉扎双检）
+- 【安全 2·闸序有讲究】metadata 检查在前（便宜的门闩）+ Host 钉扎兜底（rebinding 背锅位）；QA 断言用「Host: evil.com + Origin: http://evil.com」专测钉扎（此组合下 origin host == Host，旧闸必放行）——qa53 B 十姿势矩阵全中：fs/browse 四姿势（control 200 / 跨站 403 / rebinding 403 / 裸 curl 403）、outputs/file 四姿势（裸 curl 403——改动前这里是 200 的裸奔、过闸后业务 404、跨站 403、rebinding 403）、本机 interface IP + 匹配 Origin → 200（LAN 访问幸存）
+- 【功能·Topaz 第六图】report-snapshots.ts 增 buildTopazSvg（train teal 实线 + test amber 虚线——与 in-app TopazTrainingChart 同语言；precision/recall 进表不进图：同 [0,1] 值域不同量纲，双轴是快照的过度装饰；final train loss 钳位注记）+ topazTableMarkdown（Precision/Recall 列按存在 earn、>24 行抽样保首末）；results-view 接线：fetch 集扩到 5 路并发（topaz-training 便宜——log tail only——无条件并行，非 topaz 任务答空列表就不成 section）、section 夹在 Angular distribution 与 Outputs 之间（qa52 的 indexOf 顺序断言不破）、chartBits append "Topaz training curves"（FSC 首位不动 → qa50/51/52 regex 全兼容）
+- 【QA·qa53 三阶段全绿】种子 qa53-seed-topaz.py = qa52 超集 + topaz_training.txt（30 epochs CSV，seed 53 确定性，test loss 24 epoch 后上翘的过拟合签名）；A：toast 六短语、7 blobs（6 SVG + md 808KB）、24 条内容断言全中（topaz summary "30 epochs — final train loss **0.309**, test loss **0.896**"、5 列表头、首末行、PNG alt）、严格 8 section 顺序、6 PNG IHDR（3+1×1280×560 + 2×1280×640）落盘目检出版级（双曲线 + final 0.31 注记 + 过拟合分叉清晰可读）；B：安全矩阵 10/10；C：诚实缺口（610B、平版 toast、六 section 全缺席、0 PNG）+ console 0 error
+- 【运维·OOM 第四次】qa53 全套首轮开场即撞 dev server 已死——dmesg 实锤 next-server OOM 被杀（anon 2.69GB，caps 896+800 管不住编译瞬峰+Chrome 驻留）；重启 + 11 条路由全预热后整套一次通过——暖化配方再次应验；另：workdir 路径嵌旧 id 片段（cmtrzp5x80002… vs 现 job id cmts0qoho…），用 /api/jobs 列表对名查 id 才不踩坑
+- 【收尾】eslint 0、tsc src 0 错误（examples/skills 的 4 条预存噪音除外）；种子 --clean 全清无残留；qa53-snap-{resolution,fsc,guinier,ctf,angdist,topaz}.png + qa53-report/final.png 保留 agent-ctx/；浏览器已关
+
+Stage Summary:
+- #5 遗留两轮收口：同源闸（前轮）+ Host 钉扎（本轮）= 对 drive-by 和 DNS-rebinding 双关门，且防护面从「目录列表」扩到「文件内容」——outputs/file 才是 pathref 逃生舱的终点，闸门终于装在敏感面上而不是名义面上；LAN 直连 IP 的合法访问路径实测幸存（200）
+- report 六图齐装：分辨率收敛 + FSC + Guinier + CTF 散点/直方 + 取向热图 + Topaz 训练曲线——topaztrain 任务第一次有离开屏幕的训练档案；precision/recall 进表不进图是「快照克制」的新样本（双轴装饰 < 表格可引用）
+- 方法论：①「rebinding 模拟」姿势 = Host + Origin 同为 evil 域（origin host == Host 头，恰好绕过同源闸）——专测钉扎层的唯一可区分输入 ②借已有路由的 workdir 扫描规则播种（/training/i + .txt）零后端改动 ③OOM 死亡的恢复动作已纯粹化：pkill → dev-server.sh → 11 路由 curl → 直接全套（暖化配方的执行成本降到一条命令链）
+- 遗留（下轮候选）：Turntable GIF 转码（重）；gallery 卡内嵌 3D 轻量预览（重）；导入对话框双来源混合多选；dev overlay「1 Issue」定位（dev-only）；report 六图后可考虑目录页/锚点（>10 section 的导航性）

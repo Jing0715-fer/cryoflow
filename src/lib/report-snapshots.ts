@@ -750,3 +750,92 @@ export function angdistSummaryMarkdown(input: AngDistSnapshot): string {
     "\n"
   );
 }
+
+/* ------------------------------------------------------------------ */
+/* Topaz training progress                                             */
+/* ------------------------------------------------------------------ */
+
+/** Mirrors the /api/jobs/[id]/topaz-training DTO (TopazEpoch) — shape
+ *  duplicated here so the report lib stays independent of the parser. */
+export interface TopazSnapshotEpoch {
+  it: number;
+  trainLoss: number | null;
+  testLoss: number | null;
+  precision: number | null;
+  recall: number | null;
+}
+
+/** Topaz training-loss curves (topaztrain inspector companion). Train
+ *  loss = teal solid, test loss = amber dashed — the same language as the
+ *  in-app TopazTrainingChart. Precision/recall live in the table, not the
+ *  plot: they share the [0,1] range but not the loss y-scale, and a
+ *  twin-axis would over-decorate a snapshot whose job is "did training
+ *  converge". The last train-loss epoch gets the amber-style pinned dot
+ *  annotation. Fails soft: <2 plottable loss points → null. */
+export function buildTopazSvg(input: {
+  title: string;
+  epochs: TopazSnapshotEpoch[];
+}): { svg: string; width: number; height: number } | null {
+  const eps = input.epochs
+    .filter((e) => Number.isFinite(e.it) && (Number.isFinite(e.trainLoss as number) || Number.isFinite(e.testLoss as number)))
+    .sort((a, b) => a.it - b.it);
+  const train: [number, number][] = eps
+    .filter((e) => Number.isFinite(e.trainLoss as number))
+    .map((e) => [e.it, e.trainLoss as number]);
+  const test: [number, number][] = eps
+    .filter((e) => Number.isFinite(e.testLoss as number))
+    .map((e) => [e.it, e.testLoss as number]);
+  if (train.length + test.length < 2) return null;
+  const series: SnapshotSeries[] = [];
+  if (train.length >= 2)
+    series.push({ label: "train loss", color: C.teal, points: train, dotLast: true });
+  if (test.length >= 2)
+    series.push({ label: "test loss", color: C.amber, points: test, dotLast: true, dash: "5 3" });
+  const allY = series.flatMap((s) => s.points.map((p) => p[1]));
+  const maxIter = Math.max(...eps.map((e) => e.it));
+  const annotations: SnapshotAnnotation[] | undefined =
+    train.length > 0
+      ? [
+          {
+            x: train[train.length - 1][0],
+            y: train[train.length - 1][1],
+            label: `final ${train[train.length - 1][1].toFixed(2)}`,
+            color: C.teal,
+          },
+        ]
+      : undefined;
+  return simpleLineChart({
+    title: `${input.title} — Topaz training loss`,
+    xLabel: "epoch",
+    yLabel: "loss",
+    series,
+    xTicks: iterationTicks(maxIter),
+    yTickFmt: (v) => (v >= 10 ? v.toFixed(0) : v.toFixed(2)),
+    annotations,
+  });
+}
+
+/** Markdown table for the per-epoch training log; precision/recall columns
+ *  earn their place by existing (a topaz run that never printed them gets
+ *  a leaner table). Long runs sample to ~24 rows keeping first + last. */
+export function topazTableMarkdown(epochs: TopazSnapshotEpoch[]): string | null {
+  const eps = epochs
+    .filter((e) => Number.isFinite(e.it))
+    .sort((a, b) => a.it - b.it);
+  if (eps.length === 0) return null;
+  const hasPrecision = eps.some((e) => Number.isFinite(e.precision as number));
+  const hasRecall = eps.some((e) => Number.isFinite(e.recall as number));
+  const head = ["| Epoch | Train loss | Test loss", ...(hasPrecision ? [" | Precision"] : []), ...(hasRecall ? [" | Recall"] : []), " |"].join("");
+  const sep = "| ---: | ---: | ---: |" + (hasPrecision ? " ---: |" : "") + (hasRecall ? " ---: |" : "");
+  const cell = (v: number | null) => (Number.isFinite(v as number) ? (v as number).toFixed(3) : "—");
+  let rows = eps;
+  if (eps.length > 24) {
+    const k = Math.ceil(eps.length / 24);
+    rows = eps.filter((e, i) => i % k === 0 || i === eps.length - 1);
+  }
+  const lines = rows.map(
+    (e) =>
+      `| ${e.it} | ${cell(e.trainLoss)} | ${cell(e.testLoss)}${hasPrecision ? ` | ${cell(e.precision)}` : ""}${hasRecall ? ` | ${cell(e.recall)}` : ""} |`
+  );
+  return [head, sep, ...lines].join("\n");
+}
