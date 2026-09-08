@@ -16,7 +16,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { Axis3d, Bookmark, BoxSelect, Camera, Check, ClipboardCopy, Download, Layers, Loader2, Mountain, Orbit, Pencil, Plus, RefreshCcw, RotateCw, ScanLine, TriangleAlert, Upload, Video, X, ZoomIn } from "lucide-react";
+import { Axis3d, Bookmark, BoxSelect, Camera, Check, ClipboardCopy, Download, FolderOpen, Layers, Loader2, Mountain, Orbit, Pencil, Plus, RefreshCcw, RotateCw, ScanLine, TriangleAlert, Upload, Video, X, ZoomIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -24,6 +24,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
+import { useWorkflowStore } from "@/lib/store";
 import { fmtBytes } from "@/lib/canvas-export";
 import { canCopyImageToClipboard, copyViewerPng, downloadViewerBlob, drawFigureFooter, exportViewerPng, figureFooterHeightPx, figureTitleMeta, viewerFileSlug, viewerFileTimestamp } from "@/lib/viewer-export";
 import { MrcImage } from "./mrc-image";
@@ -1030,6 +1031,16 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
   // being merged sight unseen
   const [importPreview, setImportPreview] = useState<{ fileName: string; entries: CamBookmark[]; rawCount: number } | null>(null);
   const [importPicked, setImportPicked] = useState<Set<number>>(new Set());
+  // cross-job source — pull views straight from a sibling job's saved list
+  // (same preview pipeline as the file import, just a different source;
+  // counts are fetched lazily when the section opens — 8 tiny JSON GETs
+  // only ever happen on explicit click, never on popover hover)
+  const allJobs = useWorkflowStore((s) => s.jobs);
+  const [fromJobOpen, setFromJobOpen] = useState(false);
+  const [fromJobState, setFromJobState] = useState<"idle" | "loading">("idle");
+  const [fromJobList, setFromJobList] = useState<
+    Array<{ id: string; name: string; status: string; count: number }> // count -1 = that job's row could not be read
+  >([]);
   // restore guard: a slow server response must never clobber a bookmark
   // the user saved while the fetch was in flight
   const bookmarkDirtyRef = useRef(false);
@@ -1381,6 +1392,62 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
       }
     };
     reader.readAsText(file);
+  };
+
+  /** open/close the "from job" section — opening lazily counts the sibling
+   *  jobs' saved views (one tiny GET each, capped at 8 jobs; a job whose
+   *  row can't be read shows "?" and stays clickable — importFromJob will
+   *  surface the honest error). Runs on explicit click only. */
+  const toggleFromJob = () => {
+    const next = !fromJobOpen;
+    setFromJobOpen(next);
+    if (!next) return;
+    const siblings = allJobs.filter((j) => j.id !== jobId).slice(0, 8);
+    setFromJobList([]);
+    if (siblings.length === 0) return; // empty-state row renders
+    setFromJobState("loading");
+    Promise.all(
+      siblings.map(async (j) => {
+        try {
+          const r = await fetch(`/api/jobs/${j.id}/camera-bookmarks`, { signal: AbortSignal.timeout(6000) });
+          const json = (await r.json().catch(() => null)) as { bookmarks?: unknown } | null;
+          const n = Array.isArray(json?.bookmarks) ? json.bookmarks.length : 0;
+          return { id: j.id, name: j.name, status: j.status, count: n };
+        } catch {
+          return { id: j.id, name: j.name, status: j.status, count: -1 };
+        }
+      }),
+    ).then((rows) => {
+      setFromJobList(rows);
+      setFromJobState("idle");
+    });
+  };
+
+  /** cross-job import: SAME sanitize → preview-dialog pipeline as the file
+   *  import (cleanBookmarks + saneImportedView + capacity preselect), just
+   *  sourced from another job's live server row instead of a JSON file */
+  const importFromJob = async (other: { id: string; name: string }) => {
+    try {
+      const r = await fetch(`/api/jobs/${other.id}/camera-bookmarks`);
+      const json = (await r.json().catch(() => null)) as { bookmarks?: unknown } | null;
+      const raw = json?.bookmarks;
+      const rawCount = Array.isArray(raw) ? raw.length : 0;
+      const cleaned = cleanBookmarks(raw).map((b) => ({ ...b, view: saneImportedView(b.view) }));
+      if (cleaned.length === 0) {
+        toast({ title: "No views on that job", description: `“${other.name}” has no importable view bookmarks.`, variant: "destructive" });
+        return;
+      }
+      const room = Math.max(0, 8 - bookmarksRef.current.length);
+      if (room === 0) {
+        toast({ title: "Bookmark list is full", description: "8 views max — delete one to make room for the import.", variant: "destructive" });
+        return;
+      }
+      setImportPicked(new Set(cleaned.map((_, i) => i).filter((i) => i < room)));
+      setImportPreview({ fileName: `from “${other.name}”`, entries: cleaned, rawCount });
+      setFromJobOpen(false);
+    } catch {
+      toast({ title: "Import failed", description: "That job's saved views could not be read.", variant: "destructive" });
+    }
   };
 
   /** merge the checked entries — ids re-generated here (not at parse time)
@@ -3367,7 +3434,9 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
           </Popover>
           {/* named camera poses — save the current orbit/zoom/target combo
               and fly back to it any time (per browser + job) */}
-          <Popover>
+          <Popover onOpenChange={(o) => {
+            if (!o) setFromJobOpen(false); // stale counts must not survive a close
+          }}>
             <PopoverTrigger asChild>
               <Button
                 variant="secondary"
@@ -3557,6 +3626,20 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                   <Upload className="size-3" />
                   Import
                 </button>
+                <button
+                  type="button"
+                  onClick={toggleFromJob}
+                  aria-expanded={fromJobOpen}
+                  aria-label="Import view bookmarks from another job"
+                  title="From job — pull saved views straight from another job in this project"
+                  className={cn(
+                    "flex items-center gap-1 rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+                    fromJobOpen && "bg-muted text-foreground",
+                  )}
+                >
+                  <FolderOpen className="size-3" />
+                  From job
+                </button>
                 <span className="ml-auto font-mono text-[9px] tabular-nums text-muted-foreground/60" aria-hidden="true">
                   {bookmarks.length}/8
                 </span>
@@ -3570,6 +3653,60 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                   aria-hidden="true"
                 />
               </div>
+              {fromJobOpen && (
+                <div className="mt-1 rounded-md border bg-muted/30 p-1" data-canvas-ui="from-job-list">
+                  <p className="px-1 pb-1 text-[9px] font-medium leading-tight text-muted-foreground">
+                    Pull views from another job in this project
+                  </p>
+                  {fromJobState === "loading" ? (
+                    <p className="flex items-center gap-1.5 px-1 py-1.5 text-[10px] text-muted-foreground">
+                      <Loader2 className="size-3 animate-spin" />
+                      Checking saved views…
+                    </p>
+                  ) : fromJobList.length === 0 ? (
+                    <p className="px-1 py-1.5 text-[10px] leading-tight text-muted-foreground">
+                      No other jobs in this project yet — save views there first, or use a JSON file.
+                    </p>
+                  ) : (
+                    <div className="max-h-32 space-y-0.5 overflow-y-auto pr-0.5 nice-scroll">
+                      {fromJobList.map((j) => (
+                        <button
+                          key={j.id}
+                          type="button"
+                          disabled={j.count <= 0}
+                          onClick={() => void importFromJob(j)}
+                          title={
+                            j.count > 0
+                              ? `Import ${j.count} view${j.count === 1 ? "" : "s"} from “${j.name}”`
+                              : j.count < 0
+                                ? `“${j.name}” could not be read — click to retry the import anyway`
+                                : "No saved views on this job"
+                          }
+                          className={cn(
+                            "flex w-full items-center gap-1.5 rounded px-1 py-1 text-left transition-colors",
+                            j.count !== 0 ? "hover:bg-muted" : "cursor-default opacity-50",
+                          )}
+                        >
+                          <span
+                            aria-hidden="true"
+                            className={cn(
+                              "size-1.5 shrink-0 rounded-full",
+                              j.status === "completed" && "bg-emerald-500",
+                              j.status === "running" && "animate-pulse bg-amber-500",
+                              j.status === "failed" && "bg-red-500",
+                              j.status !== "completed" && j.status !== "running" && j.status !== "failed" && "bg-muted-foreground/40",
+                            )}
+                          />
+                          <span className="min-w-0 flex-1 truncate text-[10px] font-medium">{j.name}</span>
+                          <span className="shrink-0 font-mono text-[9px] tabular-nums text-muted-foreground">
+                            {j.count < 0 ? "?" : `${j.count} view${j.count === 1 ? "" : "s"}`}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
               <p className="px-1 pb-0.5 pt-1 text-[10px] leading-tight text-muted-foreground">
                 Saves the full view — pose, contour σ, slice and clip. Update re-captures from the current view · B quick-saves · synced per job.
               </p>

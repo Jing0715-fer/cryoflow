@@ -22,11 +22,14 @@ import {
   FolderGit2,
   LayoutDashboard,
   Loader2,
+  Minus,
   Pencil,
   Plus,
   Search,
   Snowflake,
   Trash2,
+  TrendingDown,
+  TrendingUp,
   TriangleAlert,
   Workflow,
 } from "lucide-react";
@@ -623,8 +626,29 @@ interface RecentJob {
  *  actually moving or quietly stalled" at a glance, without opening the
  *  job. Normalized to the OBSERVED window (not 0–100): a slow steady crawl
  *  should read as a slope, not a flat line at the bottom. Latest point is
- *  emphasized — that is where the job is now. */
+ *  emphasized — that is where the job is now.
+ *
+ *  Tooltip: the native `title` only works on hover devices, so a tap /
+ *  pointer-down pops a small inverted chip (samples seen, first→latest
+ *  progress, trend arrow) that auto-dismisses — touch users get the same
+ *  "what am I looking at" answer hover users do. */
 function ProgressSparkline({ values, samples }: { values: number[]; samples: number }) {
+  const [tip, setTip] = React.useState(false);
+  const tipTimer = React.useRef<number | null>(null);
+  const popTip = () => {
+    setTip(true);
+    if (tipTimer.current) window.clearTimeout(tipTimer.current);
+    tipTimer.current = window.setTimeout(() => setTip(false), 2000);
+  };
+  const hideTip = () => {
+    setTip(false);
+    if (tipTimer.current) {
+      window.clearTimeout(tipTimer.current);
+      tipTimer.current = null;
+    }
+  };
+  React.useEffect(() => hideTip, []); // unmount — never setState after
+
   const W = 40;
   const H = 12;
   const PAD = 1.5;
@@ -640,10 +664,30 @@ function ProgressSparkline({ values, samples }: { values: number[]; samples: num
     });
   }
   const last = pts.length > 0 ? pts[pts.length - 1].split(",").map(Number) : null;
+  // progress values are FRACTIONS (0–1) — every percent label here scales ×100
+  const pct = (v: number) => Math.round(v * 100);
+  const firstV = values[0];
+  const lastV = values[values.length - 1];
+  const delta = values.length >= 2 && firstV != null && lastV != null ? lastV - firstV : null;
+  const Trend = delta == null || Math.abs(delta) < 0.005 ? Minus : delta > 0 ? TrendingUp : TrendingDown;
+  const tipText =
+    values.length >= 2
+      ? `${samples} samples · ${pct(firstV)}%→${pct(lastV)}%`
+      : `${samples} sample${samples === 1 ? "" : "s"} so far`;
   return (
     <span
-      className="shrink-0 text-teal-600 dark:text-teal-400"
+      className="relative inline-flex shrink-0 text-teal-600 dark:text-teal-400"
       title={`Progress history — last ${samples} sample${samples === 1 ? "" : "s"}, oldest → newest`}
+      role="img"
+      aria-label={`Progress history, ${tipText}`}
+      onPointerDown={(e) => {
+        // the row is a navigation button — a tap on the trend must pop the
+        // chip, not yank the user off the dashboard mid-glance
+        e.stopPropagation();
+        popTip();
+      }}
+      onClick={(e) => e.stopPropagation()}
+      onMouseLeave={hideTip}
     >
       <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} aria-hidden="true" className="block">
         {pts.length >= 2 ? (
@@ -663,6 +707,28 @@ function ProgressSparkline({ values, samples }: { values: number[]; samples: num
           <circle cx={W / 2} cy={H / 2} r={1.5} fill="currentColor" className="animate-pulse" />
         )}
       </svg>
+      {tip && (
+        <span
+          className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-1 flex -translate-x-1/2 items-center gap-1 whitespace-nowrap rounded-md bg-foreground px-1.5 py-0.5 font-mono text-[9px] font-medium tabular-nums text-background shadow-md"
+          role="status"
+        >
+          {tipText}
+          {delta != null && (
+            <span
+              className={cn(
+                "inline-flex items-center gap-px",
+                delta > 0 && "text-emerald-500 dark:text-emerald-400",
+                delta < 0 && "text-red-500 dark:text-red-400",
+                Math.abs(delta) < 0.005 && "opacity-60",
+              )}
+            >
+              <Trend className="size-2.5" />
+              {delta >= 0 ? "+" : ""}
+              {Math.round(delta * 100)}%
+            </span>
+          )}
+        </span>
+      )}
     </span>
   );
 }

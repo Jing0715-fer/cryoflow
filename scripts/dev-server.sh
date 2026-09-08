@@ -23,6 +23,6 @@ sleep 1
 # 4GB box: unbounded V8 heap lets Turbopack caches push RSS past 2.6GB and
 # the kernel OOM-kills next-server mid-QA. Cap the old space so V8 GCs
 # aggressively instead — a slow collect beats a SIGKILL.
-export NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--max-old-space-size=2048"
+export NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--max-old-space-size=1024"
 setsid bun run dev > /dev/null 2>&1 < /dev/null &
 # this script exits immediately → server re-parents to init → survives

@@ -2035,3 +2035,24 @@ Stage Summary:
 - 书签重名体验从「静默允许」升级为「三段式温和引导」：打字时 amber 边框+提示条 → 保存时 amber toast → 菜单里两条同名依旧共存（名字非键，不越俎代庖）；aria-invalid + aria-describedby 让屏幕阅读器也能读到
 - 方法论：交接摘要会过期——本轮开局 worklog 核对推翻了「Task 27/截图功能进行中」的上下文，避免了对已完成功能的重做；开局核对 worklog 尾部这条惯例再次证明是必要防线
 - 遗留（下轮候选）：导入对话框支持跨 job 文件互选（当前仅 file picker）；Recent feed sparkline 触屏 tooltip；Topaz wrapper；#5 fs/browse 无鉴权、#6/#14 pathref 策略、#7 chart 全量同步读、#8 particles BFS N+1、#13 useMemo 内 localStorage 写；Turntable GIF 转码（重）
+
+---
+Task ID: 45
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 晚轮 2026-09-08 20:44）——核对 Task 13 审查清单全销账后，落地两个新功能：书签「From job」跨 job 导入（复用预览对话框管道）+ Recent feed sparkline 触屏 tooltip（反色 chip + 趋势箭头）；顺带根治本盒子 dev server 反复 OOM（turbopackMemoryLimit + V8 双降）；qa45 分批 e2e 全绿；worklog + push
+
+Work Log:
+- 【开局核对】HEAD 69a4b53 工作树干净；逐一核查 Task 13 遗留：#7 已被 statcache.ts 的 cachedFileCompute（mtime 键 LRU）全覆盖（guinier/resolution/fsc/angdist/ctf/classes/micrographs/topaz-training 全部接入）、#8 particles BFS 已批量化（注释明写修了 N+1）、#13 localStorage 写已按纪律迁移（代码注释引用 #13）、#5 fs/browse 有 isSameOriginRequest guard + 「import UX 必须任意浏览」的补偿控制说明、#6/#14 已统一 resolveInsideJobWorkdir——整张审计清单正式关闭；Topaz wrapper 也已存在（picking 方法三选一 + topaztrain 类型 + 训练曲线图）
+- 【运维·OOM 根治（本轮最重要的发现）】dev server 本轮被内核 OOM-kill 5 次（anon-rss 2.66-2.83GB，4GB 盒子 + Chrome QA 并存）；Task 43 的 V8 上限治标不治本——Turbopack Rust 引擎内存不受 --max-old-space-size 管；根治：next.config.ts experimental.turbopackMemoryLimit: 900 + dev-server.sh V8 1024，双引擎合计峰值 <2GB，此后 viewer 编译 + Chrome 并存稳定不再挂；方法论：RSS ≠ anon-rss（mmap 的 .next 文件页可回收），判活要看 dmesg 的 anon 值
+- 【新功能 1·书签 From job 跨 job 导入】书签 popover footer 第三钮（FolderOpen）：展开列出同项目其他 job（zustand store 取 siblings，capped 8），惰性并行 GET 各自 camera-bookmarks 计数（状态点 emerald/amber/red + 「n views」mono 徽章 + 0 views 禁用 + 读失败「?」仍可点击诚实报错）；点击行 → 与文件导入完全同一条 sanitize→预览对话框管道（cleanBookmarks + saneImportedView + 容量预选 + pose-only 降级），来源标注「from “<job>”」；popover 关闭即弃列表防陈旧计数
+- 【新功能 2·sparkline 触屏 tooltip】ProgressSparkline 的原生 title 在触屏无效：pointerdown 弹反色 chip（bg-foreground/text-background mono 9px：`N samples · a%→b%` + 趋势箭头 TrendingUp/Down/Minus 着色 emerald/red/60% 透明）2s 自动消失；stopPropagation 防行按钮抢导航（点趋势不该被拽离 dashboard）；修掉 QA 现场揪出的真 bug——progress 是 0-1 小数，直接取整全显示 0%，全部 ×100 换算 + 平坦阈值 0.5→0.005
+- 【e2e·qa45-e2e.mjs 分批全绿】AB：viewer 回归（1149×425）→ 种子兄弟 job（full view + junk view）→ From job 行「Import Movies 1 2 views」→ 对话框 2 行/pose-only 徽章/预选 2/Import 2/来源「from …」→ 服务器 ["Top view","Legacy pose"] + toast + 计数 2/8 → 双行清场 → console 0；CD：mock feed 4→6 点增长 → tap 出 chip「6 samples · 30%→30% +0%」→ 2.4s 自动消失 → console 0；截图目检（三条 chips 的 Top view 行 + From job 钮 + 反色 chip 悬浮）
+- 【QA 工具链增补】① QA_PHASES 分批（AB/CD）绕开内存天花板，批间 close Chrome 释放 ~1GB ② curl 探针 3 次重试（内存压力窗口的连接抖动）③ 静态 network route mock 无法产出非零 delta（route 不叠加，首个命中生效）——趋势箭头非零分支由代码审查覆盖，如实记录
+- 【收尾】bun run lint 0/0、tsc src 0 错误；DB 终态双书签行清空；qa45-fromjob.png / qa45-spark-tip.png 目检通过并保留 agent-ctx/；浏览器已关
+
+Stage Summary:
+- Task 13 审计清单正式销账：五项全部在此前轮次修复（statcache 缓存、BFS 批量化、localStorage 纪律、same-origin guard、统一 containment），本轮逐项验证而非重做——worklog 交接的遗留清单要先验证再动手
+- 书签视图的工作产品属性再进一步：文件导入之外，「From job」让已存视图跨 job 即取即用（同一预览管道，junk 照样降级、容量照样锁选），导入体验三分支齐备（文件 / 兄弟 job / Esc 取消）
+- 触屏一致性补齐：hover-only 的 title 信息在触屏有了等价物；stopPropagation 语义（点趋势≠点行）顺带修正了一个隐性 UX 缺陷
+- OOM 根治方法论：V8 堆上限只是半边——Turbopack 引擎要配 turbopackMemoryLimit；双上限总和要按「杀线 − Chrome 峰值」反推，而不是各拍脑袋
+- 遗留（下轮候选）：Turntable GIF 转码（wasm ffmpeg，重）；导入对话框文件/跨 job 双来源的混合多选；KPI KpiSparkline 的同类触屏适配；#5 的鉴权若要再收紧可考虑 token gate；sparkline 趋势箭头非零 delta 的 e2e 覆盖（需可变 mock 源）
