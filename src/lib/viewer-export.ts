@@ -52,17 +52,105 @@ export interface ViewerExportResult {
   bytes: number;
 }
 
-/** composed figure before any sink (download / clipboard) */
-interface ComposedFigure {
-  blob: Blob;
+/** Everything the footer painter needs — positions in backing-store px,
+ *  fonts/margins scaled by `scale` (backing / CSS px ratio). */
+export interface FigureFooterSpec {
+  /** total figure width in backing px */
   width: number;
-  height: number;
+  /** plate height in backing px — the footer strip starts at this y */
+  plateHeight: number;
+  /** footer strip height in backing px (already legend-extended + scaled) */
+  footerH: number;
+  /** backing / CSS px ratio for font + margin scaling */
+  scale: number;
+  title: string;
+  meta: string;
+  legend: Array<{ color: string; label: string }>;
 }
 
 /** footer strip height in CSS px (scaled by device ratio at paint time) */
 const FOOTER_H = 44;
 /** extra footer height when a legend line is present (CSS px) */
 const LEGEND_H = 22;
+
+/** footer strip height in backing px for a given scale + legend presence —
+ *  the video compositor sizes its canvas with the same math as the PNG one */
+export function figureFooterHeightPx(scale: number, legendCount: number): number {
+  return Math.round((FOOTER_H + (legendCount > 0 ? LEGEND_H : 0)) * scale);
+}
+
+/** paint the figure footer strip (card plate + hairline + title/meta line
+ *  + optional legend row) onto a 2d context — shared verbatim by the
+ *  static PNG compositor and the turntable video compositor so every
+ *  sink renders the pixel-identical footer */
+export function drawFigureFooter(ctx: CanvasRenderingContext2D, spec: FigureFooterSpec): void {
+  const { width, plateHeight, footerH, scale } = spec;
+  const legend = spec.legend.filter((l) => l.label);
+
+  // footer plate + hairline
+  ctx.fillStyle = cssColor("--card", "#ffffff");
+  ctx.fillRect(0, plateHeight, width, footerH);
+  ctx.fillStyle = cssColor("--border", "#e5e7eb");
+  ctx.fillRect(0, plateHeight, width, Math.max(1, scale));
+
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = cssColor("--foreground", "#0f172a");
+  ctx.font = `600 ${13 * scale}px ui-sans-serif, system-ui, sans-serif`;
+  ctx.textRendering = "geometricPrecision";
+  ctx.fillText(spec.title, 16 * scale, plateHeight + footerH * 0.5 - (legend.length ? (LEGEND_H * scale) / 2 : 0));
+  const titleW = ctx.measureText(spec.title).width;
+  ctx.fillStyle = cssColor("--muted-foreground", "#64748b");
+  ctx.font = `400 ${11 * scale}px ui-sans-serif, system-ui, sans-serif`;
+  // inline after the title; when the annotated meta would overflow the
+  // right edge, right-align it instead (small canvases + long clip chains)
+  const metaX = 16 * scale + titleW + 12 * scale;
+  const metaW = ctx.measureText(spec.meta).width;
+  const margin = 16 * scale;
+  const metaY = plateHeight + footerH * 0.5 + scale - (legend.length ? (LEGEND_H * scale) / 2 : 0);
+  const inline = metaX + metaW <= width - margin;
+  ctx.fillText(spec.meta, inline ? metaX : width - margin - metaW, metaY);
+
+  // ---- legend line: one chip + label per overlaid map -------------------
+  // Truncates with an ellipsis chip-label when the row would overflow —
+  // a legend that overflows the figure is worse than a short one.
+  if (legend.length) {
+    const legendY = plateHeight + (FOOTER_H + LEGEND_H * 0.5) * scale;
+    const chip = 9 * scale;
+    const gapChip = 4 * scale;
+    const gapGroup = 14 * scale;
+    ctx.font = `500 ${10 * scale}px ui-sans-serif, system-ui, sans-serif`;
+    ctx.textBaseline = "middle";
+    let x = 16 * scale;
+    const rightEdge = width - 16 * scale;
+    for (let i = 0; i < legend.length; i++) {
+      const item = legend[i];
+      const last = i === legend.length - 1;
+      const labelW = ctx.measureText(item.label).width;
+      const groupW = chip + gapChip + labelW;
+      const needsEllipsis =
+        !last && x + groupW + gapGroup + ctx.measureText("…").width > rightEdge;
+      if (x + (needsEllipsis ? ctx.measureText("…").width : groupW) > rightEdge) {
+        ctx.fillStyle = cssColor("--muted-foreground", "#64748b");
+        ctx.fillText("…", x, legendY);
+        break;
+      }
+      // chip (rounded square in the map's own color) + label
+      const r = 2 * scale;
+      const cy = legendY - chip / 2;
+      ctx.fillStyle = item.color || cssColor("--primary", "#0d9488");
+      ctx.beginPath();
+      ctx.roundRect(x, cy, chip, chip, r);
+      ctx.fill();
+      ctx.fillStyle = cssColor("--muted-foreground", "#64748b");
+      ctx.fillText(item.label, x + chip + gapChip, legendY);
+      if (needsEllipsis) {
+        ctx.fillText("…", x + groupW, legendY);
+        break;
+      }
+      x += groupW + gapGroup;
+    }
+  }
+}
 
 function slug(s: string): string {
   return (
@@ -83,6 +171,25 @@ function timestamp(): string {
 function cssColor(varName: string, fallback: string): string {
   const raw = getComputedStyle(document.body).getPropertyValue(varName).trim();
   return raw || fallback;
+}
+
+/** footer title + meta line — shared by the static PNG compositor and the
+ *  turntable video compositor so both sinks label figures identically */
+export function figureTitleMeta(opts: Pick<ViewerExportOptions, "mapName" | "caption" | "sigma" | "annotations">): {
+  title: string;
+  meta: string;
+} {
+  const title = opts.caption?.trim() ? opts.caption.trim() : `CryoFlow — ${opts.mapName}`;
+  const notes = (opts.annotations ?? []).filter(Boolean);
+  const meta = [`contour ${opts.sigma.toFixed(2)} σ`, ...notes, new Date().toLocaleDateString()].join(" · ");
+  return { title, meta };
+}
+
+/** composed figure before any sink (download / clipboard) */
+interface ComposedFigure {
+  blob: Blob;
+  width: number;
+  height: number;
 }
 
 /** compose the presentation figure (plate + footer) without any sink —
@@ -112,7 +219,7 @@ async function composeViewerFigure(opts: ViewerExportOptions): Promise<ComposedF
   // footer scale: match the capture's device pixel ratio (backing / CSS size)
   const scale = px / Math.max(1, canvas.clientWidth || px);
   const legend = (opts.legend ?? []).filter((l) => l.label);
-  const footerH = Math.round((FOOTER_H + (legend.length ? LEGEND_H : 0)) * scale);
+  const footerH = figureFooterHeightPx(scale, legend.length);
 
   const out = document.createElement("canvas");
   out.width = px;
@@ -121,75 +228,16 @@ async function composeViewerFigure(opts: ViewerExportOptions): Promise<ComposedF
   if (!octx) throw new Error("Canvas 2D context unavailable.");
 
   octx.drawImage(plate, 0, 0);
-
-  // footer plate + hairline
-  octx.fillStyle = cssColor("--card", opts.background || "#ffffff");
-  octx.fillRect(0, canvas.height, out.width, footerH);
-  octx.fillStyle = cssColor("--border", "#e5e7eb");
-  octx.fillRect(0, canvas.height, out.width, Math.max(1, scale));
-
-  const defaultTitle = `CryoFlow — ${opts.mapName}`;
-  const title = opts.caption?.trim() ? opts.caption.trim() : defaultTitle;
-  const notes = (opts.annotations ?? []).filter(Boolean);
-  const meta = [`contour ${opts.sigma.toFixed(2)} σ`, ...notes, new Date().toLocaleDateString()].join(" · ");
-  octx.textBaseline = "middle";
-  octx.fillStyle = cssColor("--foreground", "#0f172a");
-  octx.font = `600 ${13 * scale}px ui-sans-serif, system-ui, sans-serif`;
-  octx.textRendering = "geometricPrecision";
-  octx.fillText(title, 16 * scale, canvas.height + footerH * 0.5 - (legend.length ? (LEGEND_H * scale) / 2 : 0));
-  const titleW = octx.measureText(title).width;
-  octx.fillStyle = cssColor("--muted-foreground", "#64748b");
-  octx.font = `400 ${11 * scale}px ui-sans-serif, system-ui, sans-serif`;
-  // inline after the title; when the annotated meta would overflow the
-  // right edge, right-align it instead (small canvases + long clip chains)
-  const metaX = 16 * scale + titleW + 12 * scale;
-  const metaW = octx.measureText(meta).width;
-  const margin = 16 * scale;
-  const metaY = canvas.height + footerH * 0.5 + scale - (legend.length ? (LEGEND_H * scale) / 2 : 0);
-  const inline = metaX + metaW <= out.width - margin;
-  octx.fillText(meta, inline ? metaX : out.width - margin - metaW, metaY);
-
-  // ---- legend line: one chip + label per overlaid map -------------------
-  // Truncates with an ellipsis chip-label when the row would overflow —
-  // a legend that overflows the figure is worse than a short one.
-  if (legend.length) {
-    const legendY = canvas.height + (FOOTER_H + LEGEND_H * 0.5) * scale;
-    const chip = 9 * scale;
-    const gapChip = 4 * scale;
-    const gapGroup = 14 * scale;
-    const labelFont = `500 ${10 * scale}px ui-sans-serif, system-ui, sans-serif`;
-    octx.font = labelFont;
-    octx.textBaseline = "middle";
-    let x = 16 * scale;
-    const rightEdge = out.width - 16 * scale;
-    for (let i = 0; i < legend.length; i++) {
-      const item = legend[i];
-      const last = i === legend.length - 1;
-      const labelW = octx.measureText(item.label).width;
-      const groupW = chip + gapChip + labelW;
-      const needsEllipsis =
-        !last && x + groupW + gapGroup + octx.measureText("…").width > rightEdge;
-      if (x + (needsEllipsis ? octx.measureText("…").width : groupW) > rightEdge) {
-        octx.fillStyle = cssColor("--muted-foreground", "#64748b");
-        octx.fillText("…", x, legendY);
-        break;
-      }
-      // chip (rounded square in the map's own color) + label
-      const r = 2 * scale;
-      const cy = legendY - chip / 2;
-      octx.fillStyle = item.color || cssColor("--primary", "#0d9488");
-      octx.beginPath();
-      octx.roundRect(x, cy, chip, chip, r);
-      octx.fill();
-      octx.fillStyle = cssColor("--muted-foreground", "#64748b");
-      octx.fillText(item.label, x + chip + gapChip, legendY);
-      if (needsEllipsis) {
-        octx.fillText("…", x + groupW, legendY);
-        break;
-      }
-      x += groupW + gapGroup;
-    }
-  }
+  const { title, meta } = figureTitleMeta(opts);
+  drawFigureFooter(octx, {
+    width: out.width,
+    plateHeight: canvas.height,
+    footerH,
+    scale,
+    title,
+    meta,
+    legend,
+  });
 
   const blob = await new Promise<Blob | null>((res) => out.toBlob(res, "image/png"));
   if (!blob) throw new Error("PNG encoding failed.");

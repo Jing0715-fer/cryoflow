@@ -1882,3 +1882,25 @@ Stage Summary:
 - 颜色自由度补完最后一格：8 色板之外的任意 hex，打满 6 位即生效——与 swatch/图例/导出 footer/持久化四路共用同一 setOverlayColor 单源
 - 方法论沉淀：Radix toast 自动 dismiss 与慢速探针的竞速、role=button div 的真实输入点击、eval --stdin 的转义零损通道、"must observe in-page" 的 QA 范式
 - 遗留（下轮候选）：真 RELION 数据回归（EMPIAR 全链，需用户机器）、HPC SBATCH 真集群实测（需用户机器）、Turntable 转速/圈数持久化 + GIF 转码选项、叠加会话云端化（跨浏览器跟项目走）、导出 footer 图例进入 WebM（当前录像是纯画面）
+---
+Task ID: 38
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 新日轮 2026-09-08 15:44）——QA 回归全绿后清完 Task 37 全部三条可行遗留：Turntable WebM 烧入 figure footer（composite canvas 共享绘制器）+ 转速偏好持久化 + 叠加会话云端化（Prisma OverlaySession + API + 双镜像自愈）；worklog + push
+
+Work Log:
+- 【开局核对】worklog 实际最新为 Task 37（交接摘要所称"Task 28 中断点"已过期多轮——28-37 均已入库）；Task 13 老遗留（#5/#6/#7/#8/#13）经 grep 核实在后续轮全部闭环，零修复需求；git 本地 == origin/main == 78e3738 干净；dev server 失联 → dev-server.sh playbook 重启
+- 【QA 回归·全绿】Workflow 画布（QA Sandbox C 2 可见 job 节点 / catalog 36 / 1 completed）+ Dashboard KPI band（TOTAL JOBS/RUNNING/COMPLETED/PIPELINE STAGES + 项目卡）+ console 0 error → 转功能
+- 【新功能 1·Turntable WebM 烧入 figure footer（Task 37 遗留）】viewer-export.ts 重构：drawFigureFooter(纯函数 painter) + figureTitleMeta + figureFooterHeightPx 三个共享出口抽出——PNG 静帧与 WebM 视频帧用同一绘制器，footer 像素级同源；recordTurntable 升级 composite 管线：录制开始时快照 footer 内容（caption/mapName/σ/slice/clip/overlay legend），offscreen canvas = GL 帧 + footer 条，rAF 循环持续合成（fillRect 背景 → drawImage GL 帧 → drawFigureFooter），captureStream(30) 采样 composite 而非裸 canvas；finally 停 rAF；toast 注记 "figure footer (+ N-map legend / custom caption) burned in"；弹层脚注同步。E2E 实锤：captureStream 包装器捕获 composite → delta=44（footer 条高度精确）+ footer 条带 656 暗色文字像素（烧入非空）+ toast 全文捕获 + 录制前后 canvas hash 分毫不差（AnimateCameraSpin 复位语义在 composite 管线下保持）
+- 【新功能 2·转速偏好持久化】cryoflow.mol-turntable-speed localStorage（12000/8000/5000 白名单）——mount 恢复 + 选择即写 + aria-pressed 高亮跟随；E2E：pick Quick → key=5000 → 重开 viewer 后 Quick 仍高亮、key 存活
+- 【新功能 3·叠加会话云端化（Task 37 遗留"跟项目走"）】①Prisma 新模型 OverlaySession（jobId @unique + data JSON + updatedAt，onDelete Cascade）+ Job.overlaySession 反向关系，db push + generate（14ms，零数据迁移）②API /api/jobs/[id]/overlay-session GET/PUT：sanitize 防御式清洗（≤12 条、path ≤512 无 NUL、name ≤160、color 强 #hex6、alpha clamp 0.05-1、σ offset clamp ±3；非法条目丢弃、合法条目钳制）+ upsert/空数组 deleteMany 语义③客户端双镜像：save effect 写 localStorage（即时）+ 900ms 防抖 PUT（hex 输入/opacity 拖动不逐键发包）；restore server-first（2.5s AbortController 上限，不阻塞 viewer 上屏）→ 本地兜底；unmount flush（清 timer + keepalive PUT 最新 payload——关 viewer 不丢最后 900ms 编辑）④**自愈对称**：restore 丢弃陈旧条目时重写两个 mirror（原实现只重写 localStorage，phantom server 行要等无关编辑才被冲掉——本轮补 putOverlaySession(matches)，空表即自删）
+- 【E2E·六阶段全链（scripts/qa38-e2e.mjs，单浏览器会话）】A 清场（curl 清 server 行 + localStorage）→ B 转速持久化 → C 录制+footer 探针 → D 加 overlay → 4.5s 后 in-page fetch GET server 行 = postprocess.mrc #22d3ee alpha 0.55（900ms 防抖 PUT 落地；2.5s 等待窗会 miss——实测教训）→ E 跨浏览器恢复：关 viewer → 抹 localStorage → 重开 → toast "Restored 1 overlay map"（observer 提前安装才捕到——恢复 toast 在 mount 等待窗内闪过）+ badge 1 active + localStorage 由 server 重建 + 转速 key 存活 → F 自愈：server 注入 phantom（gone_forever.mrc #ff00ff）→ 重开 → 无 restore toast + badge 0 active + **server 行自删 = []**（自愈 PUT 修复实证）；console 0 error；截图目检 light 主题 7 corner 键 + contour 面板完好
+- 【QA 工具链两坑】①agent-browser eval 现输出 pretty-printed 多行 JSON——紧凑子串匹配（'"m":"object"'）永不命中，必须 .replace(/\s+/g,'') 归一化（Task 32 "eval 不序列化 Promise" 行为已变为 await Promise，serverGet 探针直接拿到 resolve 值）②Escape 会冒泡关掉整个 Radix dialog（viewer+inspector 一体）——录制后收 Popover 不能用 Escape，让下一次点击自然收起；openViewer 需兼容"dialog 已关"场景（先探 enlarge 按钮、缺则重点 job 节点走全链）
+- 【运维】dev server OOM ×3（Turbopack root/molstar/新 API 路由冷编译 + 浏览器叠加窗口）→ playbook 重启 ×3 + **无浏览器 curl 预热全部编译路径**（root → /api/jobs → overlay-session PUT）后再开浏览器——预热序列是本轮稳定关键
+- 【收尾】bun run lint 0/0（3 条 unused eslint-disable 清理）、tsc 0 错误；DB 终态 4 项目 / 11 jobs + overlaySession 表空（自愈后干净）；light 主题；浏览器已关
+
+Stage Summary:
+- Turntable 视频从"纯画面"升级为"自描述 figure"：录像每帧都带 PNG 导出同源的 footer（标题/caption + contour σ + slice/clip 注记 + overlay 颜色图例）——发到组会/聊天里的 WebM 不再需要上下文解释；共享绘制器让所有 sink（PNG 下载/剪贴板/WebM）像素级一致，未来新 sink 只需复用三件套
+- 叠加会话获得"跟 job 走"的服务端记忆：换浏览器/清缓存不丢多图对比工作台；localStorage（即时+离线）与 server 行（防抖+跨设备）双镜像各司其职，陈旧条目在任一 mirror 被丢弃时双侧同步自愈——诚实镜像原则从存储层贯彻到恢复层
+- 转速偏好补完 Turntable 的习惯记忆（与导出分辨率、caption 同一设计语言：档位是习惯不是每次的决策）
+- 方法论增补：agent-browser eval 输出格式会漂移（紧凑→pretty-print），探针断言必须空白归一；Radix dialog 级 Escape 冒泡是 Popover 收起的陷阱；OOM 高发期的"curl 预热 → 后开浏览器"序列
+- 遗留（下轮候选）：真 RELION 数据回归（EMPIAR 全链，需用户机器）、HPC SBATCH 真集群实测（需用户机器）、Turntable GIF 转码选项（需 wasm ffmpeg，重）、叠加会话冲突合并（双浏览器并发编辑同一 job 的 last-write-wins 现状）、导出 footer 图例支持论文图注多行排版、WebM 录制分辨率档位（当前跟 canvas 原生尺寸）

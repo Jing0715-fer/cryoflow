@@ -66,9 +66,27 @@ model Job {
   links     Job[]      @relation("JobLinks")
   outEdges  Edge[]     @relation("fromJob")
   inEdges   Edge[]     @relation("toJob")
+  overlaySession OverlaySession?
 
   @@index([projectId])
   @@index([workspaceId])
+}
+
+/**
+ * Server-side copy of a job's 3D-viewer overlay session (the Layers panel
+ * setup: which comparison maps, their colors, opacities and σ nudges).
+ * localStorage mirrors it per browser; this row makes the session follow
+ * the JOB across browsers and devices. `data` is a JSON-encoded array of
+ * { path, name, color, alpha, sigmaOffset } — paths are validated against
+ * the job's live outputs on restore, so stale rows self-heal.
+ */
+model OverlaySession {
+  id        String   @id @default(cuid())
+  jobId     String   @unique
+  data      String
+  updatedAt DateTime @updatedAt
+
+  job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
 }
 
 model Edge {

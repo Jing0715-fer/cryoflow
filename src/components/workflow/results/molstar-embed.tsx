@@ -23,7 +23,7 @@ import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { fmtBytes } from "@/lib/canvas-export";
-import { canCopyImageToClipboard, copyViewerPng, downloadViewerBlob, exportViewerPng, viewerFileSlug, viewerFileTimestamp } from "@/lib/viewer-export";
+import { canCopyImageToClipboard, copyViewerPng, downloadViewerBlob, drawFigureFooter, exportViewerPng, figureFooterHeightPx, figureTitleMeta, viewerFileSlug, viewerFileTimestamp } from "@/lib/viewer-export";
 import { MrcImage } from "./mrc-image";
 import "molstar/build/viewer/molstar.css";
 
@@ -736,29 +736,55 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
   /* ---------------- overlay session persistence ------------------------ */
   // The Layers setup (which maps, colors, opacities, σ nudges) is a WORKING
   // session — coming back to the job should restore it, not rebuild it from
-  // scratch. Keyed per job in localStorage; entries whose map left the
-  // outputs are dropped on restore (the saved list is rewritten honestly).
+  // scratch. Two mirrors: localStorage (instant, per browser) and a server
+  // row /api/jobs/:id/overlay-session (debounced) so the session follows
+  // the JOB across browsers and devices. Entries whose map left the
+  // outputs are dropped on restore and both mirrors are rewritten honestly.
   const OVERLAY_KEY = `cryoflow.mol-overlays:${jobId}`;
   // the save effect must not run until the restore attempt has finished —
   // otherwise the initial empty `overlays` render would wipe the saved
   // session BEFORE it was ever read
   const overlayRestoreDoneRef = useRef(false);
   const overlayRestoreKeyRef = useRef("");
+  // server mirror state: debounce timer + latest payload for flush-on-unmount
+  const overlaySyncTimerRef = useRef<number | null>(null);
+  const overlayLastPayloadRef = useRef<Array<{ path: string; name: string; color: string; alpha: number; sigmaOffset: number }>>([]);
+  /** push a session snapshot to the job's server row — best-effort by
+   *  design: localStorage stays the instant, offline-capable mirror */
+  const putOverlaySession = (entries: Array<{ path: string; name: string; color: string; alpha: number; sigmaOffset: number }>) =>
+    fetch(`/api/jobs/${jobId}/overlay-session`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ entries }),
+      keepalive: true,
+    }).catch(() => {
+      /* offline / dev server restarting — the local copy still holds it */
+    });
 
   useEffect(() => {
     if (!overlayRestoreDoneRef.current) return; // restore owns storage first
+    const payload = overlays.map(({ path, name, color, alpha, sigmaOffset }) => ({
+      path,
+      name,
+      color,
+      alpha,
+      sigmaOffset,
+    }));
     try {
-      if (overlays.length === 0) localStorage.removeItem(OVERLAY_KEY);
-      else
-        localStorage.setItem(
-          OVERLAY_KEY,
-          JSON.stringify(
-            overlays.map(({ path, name, color, alpha, sigmaOffset }) => ({ path, name, color, alpha, sigmaOffset })),
-          ),
-        );
+      if (payload.length === 0) localStorage.removeItem(OVERLAY_KEY);
+      else localStorage.setItem(OVERLAY_KEY, JSON.stringify(payload));
     } catch {
       /* private mode — session lives for this visit only */
     }
+    // debounced server mirror so the session follows the JOB across
+    // browsers and devices (typing in the hex field or dragging opacity
+    // must not fire a request per keystroke / frame)
+    overlayLastPayloadRef.current = payload;
+    if (overlaySyncTimerRef.current) window.clearTimeout(overlaySyncTimerRef.current);
+    overlaySyncTimerRef.current = window.setTimeout(() => {
+      overlaySyncTimerRef.current = null;
+      void putOverlaySession(payload);
+    }, 900);
   }, [overlays, OVERLAY_KEY]);
 
   useEffect(() => {
@@ -772,6 +798,22 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
         saved = JSON.parse(localStorage.getItem(OVERLAY_KEY) ?? "[]");
       } catch {
         saved = [];
+      }
+      // the SERVER session wins when it has entries — it follows the job
+      // across browsers and devices; localStorage is the same-browser /
+      // offline fallback. 2.5 s cap: a stalled request must never delay
+      // the viewer coming up.
+      try {
+        const ctl = new AbortController();
+        const timer = window.setTimeout(() => ctl.abort(), 2500);
+        const r = await fetch(`/api/jobs/${jobId}/overlay-session`, { signal: ctl.signal });
+        window.clearTimeout(timer);
+        if (r.ok) {
+          const j = await r.json();
+          if (Array.isArray(j?.entries) && j.entries.length > 0) saved = j.entries;
+        }
+      } catch {
+        /* offline / timeout — the local copy restores the session */
       }
       if (!Array.isArray(saved) || saved.length === 0) {
         overlayRestoreDoneRef.current = true;
@@ -797,13 +839,17 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
             !overlayReprsRef.current.has(s.path),
         );
         // storage rewritten WITHOUT the stale entries (and only once the
-        // live listing — the source of truth for what still exists — read)
+        // live listing — the source of truth for what still exists — read).
+        // The server mirror is rewritten too: a restore that dropped stale
+        // entries must heal BOTH copies, not leave a phantom row behind
+        // waiting for an unrelated edit.
         try {
           if (matches.length === 0) localStorage.removeItem(OVERLAY_KEY);
           else if (matches.length !== saved.length) localStorage.setItem(OVERLAY_KEY, JSON.stringify(matches));
         } catch {
           /* private mode */
         }
+        if (matches.length !== saved.length) void putOverlaySession(matches);
         let restored = 0;
         for (const m of matches) {
           const choice = files.find((f) => f.path === m.path);
@@ -1116,15 +1162,29 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
   // Records one full 360° camera rotation around the current view as a
   // WebM clip — the mol* built-in AnimateCameraSpin drives the camera (one
   // turn per duration, camera restored to the pre-spin view on finish) and
-  // MediaRecorder captures the live canvas (mol* renders continuously, so
-  // the stream always has fresh frames). `preserveDrawingBuffer` and the
-  // PNG figure pipeline are irrelevant here: this is a pure video capture.
+  // MediaRecorder captures a COMPOSITE canvas: every rAF the live WebGL
+  // frame is drawn onto an offscreen canvas together with the same figure
+  // footer the PNG export uses (title/caption + contour meta + overlay
+  // legend), so videos are self-describing exactly like stills. The
+  // footer content is snapshotted at record start — what you see when you
+  // press record is what the clip is labeled with.
   const [spin, setSpin] = useState<"idle" | "recording">("idle");
   const [spinElapsed, setSpinElapsed] = useState(0);
   /** re-render tick for the speed highlight (the speed itself lives in a
    *  ref so `recordTurntable` always reads the latest choice) */
   const [, setSpinSpeedTick] = useState(0);
   const spinSpeedRef = useRef(8000);
+  // the turn length is a habit, not a per-recording decision — remembered
+  // across visits like the export scale and figure caption
+  const SPIN_SPEED_KEY = "cryoflow.mol-turntable-speed";
+  useEffect(() => {
+    const v = Number(localStorage.getItem(SPIN_SPEED_KEY));
+    if (v === 12000 || v === 8000 || v === 5000) {
+      spinSpeedRef.current = v;
+      setSpinSpeedTick((t) => t + 1);
+    }
+  }, []);
+
   const spinCancelRef = useRef(false);
   const spinRecRef = useRef<MediaRecorder | null>(null);
   const spinStreamRef = useRef<MediaStream | null>(null);
@@ -1144,6 +1204,13 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
       spinStreamRef.current?.getTracks().forEach((t) => t.stop());
       const plugin = pluginRef.current;
       if (plugin?.managers?.animation?.isAnimating) void plugin.managers.animation.stop();
+      // flush a pending overlay-session mirror immediately — closing the
+      // viewer right after a tweak must not lose the last 900 ms of edits
+      if (overlaySyncTimerRef.current) {
+        window.clearTimeout(overlaySyncTimerRef.current);
+        overlaySyncTimerRef.current = null;
+        if (overlayLastPayloadRef.current.length) void putOverlaySession(overlayLastPayloadRef.current);
+      }
     };
   }, []);
 
@@ -1181,7 +1248,62 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
     setSpinElapsed(0);
     spinCancelRef.current = false;
     void (async () => {
-      const stream = canvas.captureStream(30);
+      // ---- composite canvas: live frame + figure footer (snapshot) -------
+      // The footer is built once, from the state visible when Record was
+      // pressed — same title/caption, contour σ, slice/clip annotations and
+      // overlay legend the PNG figure pipeline would burn in.
+      const st = sliceStateRef.current;
+      const cp = clipStateRef.current;
+      const annotations: string[] = [];
+      if (st.on) annotations.push(`slice ${st.axis} ${Math.round(st.pos * 100)}%`);
+      if (cp.on) {
+        const axes = (["x", "y", "z"] as const)
+          .filter((ax) => cp[ax] < 0.999)
+          .map((ax) => `${ax.toUpperCase()} ${Math.round(cp[ax] * 100)}%`);
+        if (axes.length) annotations.push(`clip ${axes.join(" ")}${cp.invert ? " · flip" : ""}`);
+      }
+      if (overlays.length) {
+        annotations.push(`${overlays.length} overlay map${overlays.length > 1 ? "s" : ""}`);
+      }
+      const figureLegend = overlays.map((o) => ({ color: o.color, label: o.name }));
+      const { title, meta } = figureTitleMeta({ mapName: name, caption, sigma, annotations });
+      const host = containerRef.current?.parentElement ?? containerRef.current;
+      const bgRaw = host ? getComputedStyle(host).backgroundColor : "";
+      const bgColor =
+        bgRaw && bgRaw !== "rgba(0, 0, 0, 0)" && bgRaw !== "transparent"
+          ? bgRaw
+          : getComputedStyle(document.body).getPropertyValue("--background").trim() || "#ffffff";
+      const scale = canvas.width / Math.max(1, canvas.clientWidth || canvas.width);
+      const footerH = figureFooterHeightPx(scale, figureLegend.length);
+      const composite = document.createElement("canvas");
+      composite.width = canvas.width;
+      composite.height = canvas.height + footerH;
+      const cctx = composite.getContext("2d");
+      if (!cctx) throw new Error("Canvas 2D context unavailable for the video footer.");
+
+      // paint loop: one composite frame per rAF for as long as the recorder
+      // is alive — captureStream(30) samples this canvas at a fixed 30 fps
+      let painting = true;
+      let paintRaf = 0;
+      const paint = () => {
+        if (!painting || !viewerAliveRef.current) return;
+        cctx.fillStyle = bgColor;
+        cctx.fillRect(0, 0, composite.width, canvas.height);
+        cctx.drawImage(canvas, 0, 0);
+        drawFigureFooter(cctx, {
+          width: composite.width,
+          plateHeight: canvas.height,
+          footerH,
+          scale,
+          title,
+          meta,
+          legend: figureLegend,
+        });
+        paintRaf = requestAnimationFrame(paint);
+      };
+      paint();
+
+      const stream = composite.captureStream(30);
       spinStreamRef.current = stream;
       const chunks: Blob[] = [];
       const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 12_000_000 });
@@ -1223,6 +1345,9 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
         await new Promise((r) => setTimeout(r, 300));
       } finally {
         window.clearInterval(elapsedTimer);
+        // stop the footer paint loop before tearing the stream down
+        painting = false;
+        if (paintRaf) cancelAnimationFrame(paintRaf);
         try {
           if (pluginRef.current === plugin && plugin.managers.animation.isAnimating) {
             await plugin.managers.animation.stop();
@@ -1253,9 +1378,14 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
         const secs = Math.round(perTurnMs / 1000);
         const fileName = `cryoflow-turntable-${viewerFileSlug(name)}-${viewerFileTimestamp()}.webm`;
         downloadViewerBlob(blob, fileName);
+        const footerNote = figureLegend.length
+          ? `figure footer + ${figureLegend.length}-map legend burned in · `
+          : caption?.trim()
+            ? "figure footer (custom caption) burned in · "
+            : "figure footer burned in · ";
         toast({
           title: "Turntable video exported",
-          description: `${fileName} · one 360° loop (${secs}s @ 30 fps) · ${fmtBytes(blob.size)}`,
+          description: `${fileName} · one 360° loop (${secs}s @ 30 fps) · ${footerNote}${fmtBytes(blob.size)}`,
         });
       }
       if (viewerAliveRef.current) {
@@ -2587,6 +2717,11 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                       data-testid={`turntable-speed-${s.ms}`}
                       onClick={() => {
                         spinSpeedRef.current = s.ms;
+                        try {
+                          localStorage.setItem(SPIN_SPEED_KEY, String(s.ms));
+                        } catch {
+                          /* private mode — choice lives for this visit */
+                        }
                         setSpinSpeedTick((t) => t + 1);
                       }}
                       aria-pressed={active}
@@ -2612,7 +2747,8 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                 Record 360° loop
               </Button>
               <p className="border-t px-1 pb-0.5 pt-1.5 text-[10px] leading-tight text-muted-foreground">
-                30 fps · WebM (VP9/VP8) · current styling and overlays included.
+                30 fps · WebM (VP9/VP8) · figure footer with caption + overlay legend burned
+                in · your speed choice is remembered.
               </p>
             </PopoverContent>
           </Popover>
