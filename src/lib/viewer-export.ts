@@ -200,14 +200,30 @@ export async function exportViewerPng(opts: ViewerExportOptions): Promise<Viewer
   const { blob, width, height } = await composeViewerFigure(opts);
 
   const fileName = `cryoflow-map-${slug(opts.mapName)}-${timestamp()}.png`;
+  downloadViewerBlob(blob, fileName);
+
+  return { fileName, width, height, bytes: blob.size };
+}
+
+/** download any produced blob (PNG figure, WebM turntable clip, …) via a
+ *  transient anchor — the one sink every capture path shares */
+export function downloadViewerBlob(blob: Blob, fileName: string): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
   a.download = fileName;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
 
-  return { fileName, width, height, bytes: blob.size };
+/** file-name slug + timestamp helpers shared by viewer export sinks
+ *  (turntable clips name themselves the same way as PNG figures) */
+export function viewerFileSlug(s: string): string {
+  return slug(s);
+}
+
+export function viewerFileTimestamp(): string {
+  return timestamp();
 }
 
 /** true when the async-clipboard API can take a PNG in this browser */

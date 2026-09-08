@@ -16,14 +16,14 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { Axis3d, BoxSelect, Camera, Check, ClipboardCopy, Layers, Loader2, Mountain, Plus, RotateCw, ScanLine, X, ZoomIn } from "lucide-react";
+import { Axis3d, BoxSelect, Camera, Check, ClipboardCopy, Layers, Loader2, Mountain, Orbit, Plus, RotateCw, ScanLine, Video, X, ZoomIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { fmtBytes } from "@/lib/canvas-export";
-import { canCopyImageToClipboard, copyViewerPng, exportViewerPng } from "@/lib/viewer-export";
+import { canCopyImageToClipboard, copyViewerPng, downloadViewerBlob, exportViewerPng, viewerFileSlug, viewerFileTimestamp } from "@/lib/viewer-export";
 import { MrcImage } from "./mrc-image";
 import "molstar/build/viewer/molstar.css";
 
@@ -51,6 +51,65 @@ function isInvertedStats(s: GridStats): boolean {
 }
 
 type Phase = "loading" | "ready" | "error";
+
+/** free-text hex color entry for the Layers color swatches — accepts with
+ *  or without the leading "#" and applies LIVE once six hex digits are
+ *  typed (no apply button to hunt for); invalid drafts revert on blur */
+function HexSwatchInput({ color, onCommit }: { color: string; onCommit: (hex: string) => void }) {
+  const [draft, setDraft] = useState(color);
+  const [focused, setFocused] = useState(false);
+  // while unfocused the input simply SHOWS the prop — no prop→state sync
+  // effect needed (and drafts can never go stale behind the user's back);
+  // focusing seeds the draft from the current color, blur drops it
+  const shown = focused ? draft : color;
+  const m = shown.trim().match(/^#?([0-9a-fA-F]{6})$/);
+  const valid = !!m;
+  const normalized = m ? `#${m[1].toLowerCase()}` : "";
+  // live-apply: the moment the draft parses as a full hex color it IS the
+  // surface color — Enter just confirms, blur reverts an invalid draft
+  const onChange = (v: string) => {
+    setDraft(v);
+    const mm = v.trim().match(/^#?([0-9a-fA-F]{6})$/);
+    if (mm) onCommit(`#${mm[1].toLowerCase()}`);
+  };
+  return (
+    <span className="flex min-w-0 flex-1 items-center gap-1.5">
+      <span
+        aria-hidden="true"
+        className="size-3 shrink-0 rounded-full ring-1 ring-black/15"
+        style={{ backgroundColor: valid ? normalized : color }}
+      />
+      <input
+        value={shown}
+        onChange={(e) => onChange(e.target.value)}
+        onFocus={() => {
+          setDraft(color);
+          setFocused(true);
+        }}
+        onBlur={() => setFocused(false)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            if (valid) onCommit(normalized);
+            (e.target as HTMLInputElement).blur();
+          }
+          if (e.key === "Escape") (e.target as HTMLInputElement).blur();
+        }}
+        spellCheck={false}
+        maxLength={7}
+        placeholder="RRGGBB"
+        aria-label={`Custom hex color for this map (currently ${color})`}
+        data-testid="hex-color-input"
+        className={cn(
+          "h-4 w-16 rounded border bg-background px-1 font-mono text-[9px] leading-none outline-none transition-colors placeholder:text-muted-foreground/50",
+          valid ? "border-input focus-visible:border-ring" : draft.trim() ? "border-destructive/60" : "",
+        )}
+      />
+      <span className="truncate text-[8px] leading-tight text-muted-foreground">
+        {valid ? "live" : draft.trim() ? "invalid hex" : "type a hex color"}
+      </span>
+    </span>
+  );
+}
 
 /** Fine-grained progress for the loading veil — distinguishes "compiling
  * the ~2 MB viewer" (slow on first open, expected) from "downloading the
@@ -482,8 +541,13 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
   };
 
   /** add a comparison volume: own state subtree, distinct color, translucent
-   *  surface, contoured at the CURRENT σ (and following it from then on) */
-  const addOverlay = async (choice: MapChoice) => {
+   *  surface, contoured at the CURRENT σ (and following it from then on).
+   *  `preset` re-applies a saved session's look (see overlay persistence);
+   *  `silent` suppresses the error toast for auto-restores. */
+  const addOverlay = async (
+    choice: MapChoice,
+    preset?: { color?: string; alpha?: number; sigmaOffset?: number; silent?: boolean },
+  ) => {
     if (overlayReprsRef.current.has(choice.path)) return;
     const plugin = pluginRef.current;
     const VolumeRepresentation3D = VolumeReprRef.current;
@@ -498,8 +562,10 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
         import("molstar/lib/mol-plugin-state/transforms/data"),
         import("molstar/lib/mol-plugin-state/transforms/volume"),
       ]);
-      const color = pickOverlayColor();
+      const color = preset?.color ?? pickOverlayColor();
       const label = choice.label ?? choice.name.replace(/\.[^.]+$/, "");
+      const alpha = preset?.alpha ?? OVERLAY_ALPHA;
+      const offset = preset?.sigmaOffset ?? 0;
       const b = plugin.build();
       const data = b.toRoot().apply(RawData, { data: bytes, label });
       const parsed = data.apply(ParseCcp4, {});
@@ -507,21 +573,30 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
       const repr = vol.apply(VolumeRepresentation3D, {
         type: {
           name: "isosurface",
-          params: { isoValue: IsoValue.relative(signRef.current * sigmaRef.current), alpha: OVERLAY_ALPHA },
+          params: {
+            isoValue: IsoValue.relative(
+              signRef.current * Math.max(0.05, sigmaRef.current + offset)
+            ),
+            alpha,
+          },
         },
         colorTheme: { name: "uniform", params: { value: Number.parseInt(color.slice(1), 16) } },
         sizeTheme: { name: "uniform", params: {} },
       });
       await b.commit();
       overlayReprsRef.current.set(choice.path, { data, vol, repr });
-      overlayOffsetsRef.current.set(choice.path, 0);
-      setOverlays((o) => [...o, { path: choice.path, name: label, color, alpha: OVERLAY_ALPHA, sigmaOffset: 0 }]);
+      overlayOffsetsRef.current.set(choice.path, offset);
+      setOverlays((o) => [...o, { path: choice.path, name: label, color, alpha, sigmaOffset: offset }]);
     } catch (err) {
-      toast({
-        title: "Could not overlay map",
-        description: err instanceof Error ? err.message : "Failed to load the comparison map.",
-        variant: "destructive",
-      });
+      if (preset?.silent) {
+        console.debug("[molstar] overlay restore skipped", choice.path, err);
+      } else {
+        toast({
+          title: "Could not overlay map",
+          description: err instanceof Error ? err.message : "Failed to load the comparison map.",
+          variant: "destructive",
+        });
+      }
     } finally {
       setOverlayBusy(null);
     }
@@ -657,6 +732,104 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
       overlaySigmaTimer.current.clear();
     };
   }, []);
+
+  /* ---------------- overlay session persistence ------------------------ */
+  // The Layers setup (which maps, colors, opacities, σ nudges) is a WORKING
+  // session — coming back to the job should restore it, not rebuild it from
+  // scratch. Keyed per job in localStorage; entries whose map left the
+  // outputs are dropped on restore (the saved list is rewritten honestly).
+  const OVERLAY_KEY = `cryoflow.mol-overlays:${jobId}`;
+  // the save effect must not run until the restore attempt has finished —
+  // otherwise the initial empty `overlays` render would wipe the saved
+  // session BEFORE it was ever read
+  const overlayRestoreDoneRef = useRef(false);
+  const overlayRestoreKeyRef = useRef("");
+
+  useEffect(() => {
+    if (!overlayRestoreDoneRef.current) return; // restore owns storage first
+    try {
+      if (overlays.length === 0) localStorage.removeItem(OVERLAY_KEY);
+      else
+        localStorage.setItem(
+          OVERLAY_KEY,
+          JSON.stringify(
+            overlays.map(({ path, name, color, alpha, sigmaOffset }) => ({ path, name, color, alpha, sigmaOffset })),
+          ),
+        );
+    } catch {
+      /* private mode — session lives for this visit only */
+    }
+  }, [overlays, OVERLAY_KEY]);
+
+  useEffect(() => {
+    if (phase !== "ready") return;
+    const restoreKey = `${jobId}|${path}`;
+    if (overlayRestoreKeyRef.current === restoreKey) return;
+    overlayRestoreKeyRef.current = restoreKey;
+    void (async () => {
+      let saved: Array<{ path: string; name: string; color: string; alpha: number; sigmaOffset: number }> = [];
+      try {
+        saved = JSON.parse(localStorage.getItem(OVERLAY_KEY) ?? "[]");
+      } catch {
+        saved = [];
+      }
+      if (!Array.isArray(saved) || saved.length === 0) {
+        overlayRestoreDoneRef.current = true;
+        return;
+      }
+      try {
+        const r = await fetch(`/api/jobs/${jobId}/outputs`);
+        if (!r.ok) return; // transient — storage kept, retry on next mount
+        const json = await r.json();
+        const files: MapChoice[] = (json?.files ?? [])
+          .filter((f: { kind: string; path: string }) => f.kind === "mrc" && f.path !== path)
+          .map((f: { path: string; name: string; label?: string; size: number }) => ({
+            path: f.path,
+            name: f.name,
+            label: f.label,
+            size: f.size,
+          }));
+        const matches = saved.filter(
+          (s) =>
+            files.some((f) => f.path === s.path) &&
+            typeof s.color === "string" &&
+            /^#[0-9a-f]{6}$/.test(s.color) &&
+            !overlayReprsRef.current.has(s.path),
+        );
+        // storage rewritten WITHOUT the stale entries (and only once the
+        // live listing — the source of truth for what still exists — read)
+        try {
+          if (matches.length === 0) localStorage.removeItem(OVERLAY_KEY);
+          else if (matches.length !== saved.length) localStorage.setItem(OVERLAY_KEY, JSON.stringify(matches));
+        } catch {
+          /* private mode */
+        }
+        let restored = 0;
+        for (const m of matches) {
+          const choice = files.find((f) => f.path === m.path);
+          if (!choice) continue;
+          const before = overlayReprsRef.current.size;
+          await addOverlay(choice, {
+            color: m.color,
+            alpha: typeof m.alpha === "number" ? Math.min(1, Math.max(0.15, m.alpha)) : undefined,
+            sigmaOffset: typeof m.sigmaOffset === "number" ? m.sigmaOffset : undefined,
+            silent: true,
+          });
+          if (overlayReprsRef.current.size > before) restored++;
+        }
+        if (restored > 0 && !disposedOverlayGuard.current) {
+          toast({
+            title: `Restored ${restored} overlay map${restored > 1 ? "s" : ""}`,
+            description: "Your Layers setup from the last visit to this job.",
+          });
+        }
+      } catch (err) {
+        console.debug("[molstar] overlay restore skipped", err);
+      } finally {
+        overlayRestoreDoneRef.current = true;
+      }
+    })();
+  }, [phase, OVERLAY_KEY]);
 
   const resetCamera = () => {
     const plugin = pluginRef.current;
@@ -937,6 +1110,170 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
   };
 
   const captureView = () => runCapture("download");
+
+  /* ---------------- turntable video export ---------------------------- */
+
+  // Records one full 360° camera rotation around the current view as a
+  // WebM clip — the mol* built-in AnimateCameraSpin drives the camera (one
+  // turn per duration, camera restored to the pre-spin view on finish) and
+  // MediaRecorder captures the live canvas (mol* renders continuously, so
+  // the stream always has fresh frames). `preserveDrawingBuffer` and the
+  // PNG figure pipeline are irrelevant here: this is a pure video capture.
+  const [spin, setSpin] = useState<"idle" | "recording">("idle");
+  const [spinElapsed, setSpinElapsed] = useState(0);
+  /** re-render tick for the speed highlight (the speed itself lives in a
+   *  ref so `recordTurntable` always reads the latest choice) */
+  const [, setSpinSpeedTick] = useState(0);
+  const spinSpeedRef = useRef(8000);
+  const spinCancelRef = useRef(false);
+  const spinRecRef = useRef<MediaRecorder | null>(null);
+  const spinStreamRef = useRef<MediaStream | null>(null);
+  /** component alive? (unmount during a recording discards silently) */
+  const viewerAliveRef = useRef(true);
+  useEffect(() => {
+    viewerAliveRef.current = true;
+    return () => {
+      viewerAliveRef.current = false;
+      // stop animation + recorder without saving — unmount mid-record
+      spinCancelRef.current = true;
+      try {
+        if (spinRecRef.current && spinRecRef.current.state !== "inactive") spinRecRef.current.stop();
+      } catch {
+        /* best-effort */
+      }
+      spinStreamRef.current?.getTracks().forEach((t) => t.stop());
+      const plugin = pluginRef.current;
+      if (plugin?.managers?.animation?.isAnimating) void plugin.managers.animation.stop();
+    };
+  }, []);
+
+  const recordTurntable = (perTurnMs: number) => {
+    const plugin = pluginRef.current;
+    if (!plugin || spin === "recording") return;
+    const c3d = plugin.canvas3d;
+    const glCanvas = c3d?.webgl?.gl?.canvas as HTMLCanvasElement | undefined;
+    const canvas: HTMLCanvasElement | null =
+      glCanvas ?? containerRef.current?.querySelector("canvas") ?? null;
+    if (
+      !canvas ||
+      typeof canvas.captureStream !== "function" ||
+      typeof MediaRecorder === "undefined"
+    ) {
+      toast({
+        title: "Turntable recording unavailable",
+        description: "This browser cannot record canvas video (MediaRecorder / captureStream missing).",
+        variant: "destructive",
+      });
+      return;
+    }
+    const mime = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"].find((m) =>
+      MediaRecorder.isTypeSupported(m),
+    );
+    if (!mime) {
+      toast({
+        title: "Turntable recording unavailable",
+        description: "No supported WebM encoder found in this browser.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setSpin("recording");
+    setSpinElapsed(0);
+    spinCancelRef.current = false;
+    void (async () => {
+      const stream = canvas.captureStream(30);
+      spinStreamRef.current = stream;
+      const chunks: Blob[] = [];
+      const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 12_000_000 });
+      spinRecRef.current = rec;
+      rec.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) chunks.push(e.data);
+      };
+      const stopped = new Promise<void>((res) => {
+        rec.onstop = () => res();
+      });
+      rec.start();
+      const t0 = Date.now();
+      const elapsedTimer = window.setInterval(
+        () => setSpinElapsed(Math.round((Date.now() - t0) / 1000)),
+        500,
+      );
+      try {
+        const { AnimateCameraSpin } = await import(
+          "molstar/lib/mol-plugin-state/animation/built-in/camera-spin"
+        );
+        if (pluginRef.current !== plugin) return; // torn down mid-import
+        await plugin.managers.animation.play(AnimateCameraSpin, {
+          durationInMs: perTurnMs,
+          speed: 1,
+          axis: [0, -1, 0], // around the current view's up axis — a turntable
+        });
+        // one full turn: the animation auto-stops (and restores the camera
+        // to the pre-spin view); hard deadline guards a stalled tick loop
+        const deadline = perTurnMs + 5000;
+        while (
+          pluginRef.current === plugin &&
+          !spinCancelRef.current &&
+          plugin.managers.animation.isAnimating &&
+          Date.now() - t0 < deadline
+        ) {
+          await new Promise((r) => setTimeout(r, 80));
+        }
+        // let the final frame land before the stream closes
+        await new Promise((r) => setTimeout(r, 300));
+      } finally {
+        window.clearInterval(elapsedTimer);
+        try {
+          if (pluginRef.current === plugin && plugin.managers.animation.isAnimating) {
+            await plugin.managers.animation.stop();
+          }
+        } catch {
+          /* cosmetic */
+        }
+        try {
+          if (rec.state !== "inactive") rec.stop();
+        } catch {
+          /* best-effort */
+        }
+        await stopped;
+        stream.getTracks().forEach((t) => t.stop());
+        spinRecRef.current = null;
+        spinStreamRef.current = null;
+      }
+      if (spinCancelRef.current) {
+        if (viewerAliveRef.current) {
+          toast({
+            title: "Turntable recording discarded",
+            description: "The partial clip was not saved — record again any time.",
+          });
+        }
+      } else {
+        const blob = new Blob(chunks, { type: mime });
+        if (blob.size === 0) throw new Error("The recorder produced an empty clip.");
+        const secs = Math.round(perTurnMs / 1000);
+        const fileName = `cryoflow-turntable-${viewerFileSlug(name)}-${viewerFileTimestamp()}.webm`;
+        downloadViewerBlob(blob, fileName);
+        toast({
+          title: "Turntable video exported",
+          description: `${fileName} · one 360° loop (${secs}s @ 30 fps) · ${fmtBytes(blob.size)}`,
+        });
+      }
+      if (viewerAliveRef.current) {
+        setSpin("idle");
+        setSpinElapsed(0);
+      }
+    })().catch((err) => {
+      if (viewerAliveRef.current) {
+        setSpin("idle");
+        setSpinElapsed(0);
+        toast({
+          title: "Turntable recording failed",
+          description: err instanceof Error ? err.message : "Unknown recording error.",
+          variant: "destructive",
+        });
+      }
+    });
+  };
 
   /* ---------------- cross-section (volume slice) --------------------- */
 
@@ -1803,6 +2140,33 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
         </div>
       )}
 
+      {/* turntable recording badge — DOM overlay only, never enters the
+          captured video; cancel discards the partial clip */}
+      {spin === "recording" && (
+        <div
+          className="absolute left-3 top-3 z-10 flex items-center gap-1.5 rounded-md bg-red-600/90 px-2 py-1 text-[10px] font-semibold text-white shadow-sm"
+          data-testid="turntable-rec-badge"
+        >
+          <span className="relative flex size-2">
+            <span className="absolute inline-flex size-2 animate-ping rounded-full bg-white opacity-75" />
+            <span className="relative inline-flex size-2 rounded-full bg-white" />
+          </span>
+          <span className="font-mono tabular-nums">
+            REC {Math.floor(spinElapsed / 60)}:{String(spinElapsed % 60).padStart(2, "0")}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              spinCancelRef.current = true;
+            }}
+            className="ml-0.5 rounded px-1 text-[9px] font-medium transition-colors hover:bg-white/20"
+            aria-label="Cancel the turntable recording (partial clip is discarded)"
+          >
+            cancel
+          </button>
+        </div>
+      )}
+
       {/* corner actions */}
       {phase === "ready" ? (
         <div className="absolute right-3 top-3 z-10 flex gap-1.5">
@@ -1868,33 +2232,50 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                         </button>
                       </div>
                       {colorPickerFor === o.path && (
-                        <div
-                          className="mt-1.5 flex items-center gap-1.5 pl-4.5"
-                          data-testid={`swatches-${o.path}`}
-                          role="radiogroup"
-                          aria-label={`Surface color for ${o.name}`}
-                        >
-                          {SWATCH_COLORS.map((c) => {
-                            const active = c.toLowerCase() === o.color.toLowerCase();
-                            return (
-                              <button
-                                key={c}
-                                type="button"
-                                role="radio"
-                                aria-checked={active}
-                                aria-label={`Set color ${c}`}
-                                onClick={() => {
-                                  void setOverlayColor(o.path, c);
-                                  setColorPickerFor(null);
-                                }}
-                                className={cn(
-                                  "size-4 rounded-full ring-1 ring-black/15 transition-transform hover:scale-110",
-                                  active && "ring-2 ring-ring ring-offset-1 ring-offset-card"
-                                )}
-                                style={{ backgroundColor: c }}
-                              />
-                            );
-                          })}
+                        <div className="mt-1.5 space-y-1.5 pl-4.5">
+                          <div
+                            className="flex items-center gap-1.5"
+                            data-testid={`swatches-${o.path}`}
+                            role="radiogroup"
+                            aria-label={`Surface color for ${o.name}`}
+                          >
+                            {SWATCH_COLORS.map((c) => {
+                              const active = c.toLowerCase() === o.color.toLowerCase();
+                              return (
+                                <button
+                                  key={c}
+                                  type="button"
+                                  role="radio"
+                                  aria-checked={active}
+                                  aria-label={`Set color ${c}`}
+                                  onClick={() => {
+                                    void setOverlayColor(o.path, c);
+                                    setColorPickerFor(null);
+                                  }}
+                                  className={cn(
+                                    "size-4 rounded-full ring-1 ring-black/15 transition-transform hover:scale-110",
+                                    active && "ring-2 ring-ring ring-offset-1 ring-offset-card"
+                                  )}
+                                  style={{ backgroundColor: c }}
+                                />
+                              );
+                            })}
+                          </div>
+                          {/* free hex entry — live-applies once a full
+                              #rrggbb is typed; Enter confirms, blur reverts
+                              an invalid draft (styled destructive) */}
+                          <div
+                            className="flex items-center gap-2"
+                            data-testid={`hex-row-${o.path}`}
+                          >
+                            <span className="text-[9px] font-medium uppercase tracking-wide text-muted-foreground">
+                              custom
+                            </span>
+                            <HexSwatchInput
+                              color={o.color}
+                              onCommit={(hex) => void setOverlayColor(o.path, hex)}
+                            />
+                          </div>
                         </div>
                       )}
                       <div className="mt-1 flex items-center gap-2 pl-4.5">
@@ -2163,6 +2544,78 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
               <Camera className="size-4" />
             )}
           </Button>
+          {/* turntable video — one full 360° camera loop recorded off the
+              live canvas as WebM (MediaRecorder + mol* camera-spin anim) */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="secondary"
+                size="icon"
+                className={cn(
+                  "size-8 rounded-lg shadow-sm transition-colors",
+                  spin === "recording" &&
+                    "border-red-500/40 text-red-600 hover:text-red-600 dark:text-red-400"
+                )}
+                disabled={spin === "recording"}
+                aria-label="Record a turntable video of the current view"
+                title="Turntable video — record one full 360° rotation of the current view as a WebM clip"
+              >
+                {spin === "recording" ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Orbit className="size-4" />
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-60 p-2" data-canvas-ui="turntable-popover">
+              <p className="px-1 pb-1 text-[11px] font-semibold">Turntable video</p>
+              <p className="px-1 pb-1.5 text-[10px] leading-tight text-muted-foreground">
+                Records one full 360° rotation around the current view as a .webm clip —
+                the camera returns to where it started.
+              </p>
+              <div className="space-y-1">
+                {[
+                  { ms: 12000, label: "Slow", desc: "12 s / turn — smoothest" },
+                  { ms: 8000, label: "Normal", desc: "8 s / turn — balanced" },
+                  { ms: 5000, label: "Quick", desc: "5 s / turn — preview" },
+                ].map((s) => {
+                  const active = spinSpeedRef.current === s.ms;
+                  return (
+                    <button
+                      key={s.ms}
+                      type="button"
+                      data-testid={`turntable-speed-${s.ms}`}
+                      onClick={() => {
+                        spinSpeedRef.current = s.ms;
+                        setSpinSpeedTick((t) => t + 1);
+                      }}
+                      aria-pressed={active}
+                      className={cn(
+                        "flex w-full items-center justify-between rounded-md border px-2 py-1.5 text-[11px] transition-colors",
+                        active
+                          ? "border-primary/50 bg-primary/10 text-primary"
+                          : "bg-card text-foreground/90 hover:bg-muted"
+                      )}
+                    >
+                      <span className="font-medium">{s.label}</span>
+                      <span className="text-[9px] text-muted-foreground">{s.desc}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <Button
+                size="sm"
+                className="mt-1.5 w-full gap-1.5"
+                onClick={() => recordTurntable(spinSpeedRef.current)}
+              >
+                <Video className="size-3.5" />
+                Record 360° loop
+              </Button>
+              <p className="border-t px-1 pb-0.5 pt-1.5 text-[10px] leading-tight text-muted-foreground">
+                30 fps · WebM (VP9/VP8) · current styling and overlays included.
+              </p>
+            </PopoverContent>
+          </Popover>
           <Button
             variant="secondary"
             size="icon"

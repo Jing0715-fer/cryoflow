@@ -1860,3 +1860,25 @@ Stage Summary:
 - 导出弹层从"分辨率选择器"升级为"Figure export 设置面板"：分辨率 + caption 一个入口，chip 按钮的状态高亮（primary 边框）让"当前图带自定义标注"一眼可读
 - 方法论增补：Radix Popover content 关闭时不渲染——用 trigger aria-label 而非 content textContent 做"新 UI 是否生效"的探针；下载落盘漂移的既定替代证据链（toast 尺寸数学 → state DOM 值 → hash 差分）
 - 遗留（下轮候选）：真 RELION 数据回归（EMPIAR 全链，需用户机器）、HPC SBATCH 真集群实测（需用户机器）、caption 支持 per-map 覆盖（当前 per-browser 单值）、色板支持任意 hex 输入、视角预设加入 Turntable 自动旋转导出（GIF/WebM）
+---
+Task ID: 37
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 新日轮 2026-09-08 14:29）——QA 回归全绿后清完 Task 36 全部三条可行遗留：Turntable 360° WebM 录制导出（mol* 内建 AnimateCameraSpin + MediaRecorder）+ 叠加会话持久化（per-job localStorage 自动恢复）+ 色板任意 hex 输入（live-apply）；worklog + push
+
+Work Log:
+- 【开局核对】worklog 实际最新为 Task 36（交接摘要所称"Task 28 中断点"已过期多轮——28-36 均已入库）；git 本地 == origin/main == c39cbd2 干净；QA 回归全绿：Workflow 画布（5 jobs / 1 completed，QA Sandbox C）+ Dashboard（4 projects KPI）+ console 0 error
+- 【可行性预研·源码实证】mol* Camera 有内建 getRotation/setRotation（绕 target ZYX Euler）；更进一步发现 mol-plugin-state/animation/built-in/camera-spin.js 的 AnimateCameraSpin（view-space 竖轴 turntable、isExportable、teardown 自动 requestCameraReset 复位到初始快照）；动画管理器链条实证：managers.animation.play → isAnimating.next(true) → context 订阅 → canvas3d 连续 rAF（PluginAnimationLoop 自 init 即启动）→ MediaRecorder captureStream 恒有新帧
+- 【新功能 1·Turntable 360° WebM 录制】corner actions 新增 Orbit 按钮 + Popover（Slow 12s / Normal 8s / Quick 5s 每转三档 + "Record 360° loop" + 脚注）；recordTurntable：canvas.captureStream(30) + MediaRecorder（vp9→vp8→webm 降级链、12 Mbps）→ play(AnimateCameraSpin, {durationInMs, speed:1, axis:[0,-1,0]}) → 轮询 isAnimating 到 auto-stop（硬 deadline perTurnMs+5s 防卡）→ 300ms 落帧缓冲 → rec.stop → WebM 下载（cryoflow-turntable-<slug>-<ts>.webm，复用新导出的 downloadViewerBlob/viewerFileSlug/viewerFileTimestamp）；录制锁（spin==="recording" 时二次点击 no-op 实证）；REC 徽章（左上红底白点 ping + mono 计时 + cancel 按钮——DOM 覆盖层不入镜）；cancel = 丢弃部分片段不落盘；能力探测（captureStream/MediaRecorder/isTypeSupported 缺失 → 诚实 destructive toast）；卸载清理（viewerAliveRef + spinCancelRef + recorder/stream stop，卸载中完成则静默丢弃）
+- 【新功能 2·叠加会话持久化】localStorage key cryoflow.mol-overlays:<jobId> 存 {path,name,color,alpha,sigmaOffset} 数组；save effect 门控在 overlayRestoreDoneRef 之后——否则挂载时空 overlays 首渲染会在恢复前把存储抹掉（设计期抓掉的竞态）；restore 在 phase==="ready" 时跑一次：拉 outputs → 只恢复仍存在的 path（主图自身 path 排除）→ 陈旧条目诚实重写掉 → addOverlay 新 preset 参数（color/alpha/sigmaOffset/silent——silent 供自动恢复吞错）→ toast "Restored N overlay map(s)"；恢复后 σ 滑杆、图例、导出 footer 全部自动跟随（读同一 state）
+- 【新功能 3·hex 色板】Layers 颜色行下方新增 custom 行：预览圆点 + 7 字宽 mono 输入（带/不带 # 均可，placeholder=RRGGBB）+ 状态注记（live/invalid hex/type a hex color）；**live-apply**：输入满 6 位十六进制即刻 commit 表面重着色（无 apply 按钮）；无效草稿 destructive 边框、blur 回显当前色；实现为"未聚焦显示 prop / 聚焦显示 draft"模式——无 prop→state 同步 effect（react-hooks/set-state-in-effect 0 违例）；swatches radiogroup 与 hex 行 ARIA 分离
+- 【E2E·持久化+hex 全链】加 Sharpened map 叠加 → σ nudge +0.15 → hex 输入 zz（红框）→ 88ccbb → chip rgb(136,204,187) 即时变色 + "live" 注记 + 存储同步 [#88ccbb, 0.55, +0.15]；**reload → 重开 viewer：badge "1 active" + 行内 55% / +0.15σ / 颜色 chip 全数自动恢复**；dark 主题目检：橙色主图 + 青色 #88ccbb 半透明叠加同框清晰、corner 7 键无挤压
+- 【E2E·Turntable 全链（页面内 MutationObserver 零延迟观测）】录制：badge REC 计时上线 → anim playing≈8s（Normal 档）→ toast "Turntable video exported · cryoflow-turntable-half-map-1-iter-1-…webm · one 360° loop (8s @ 30 fps) · 25 KB" 被逐字捕获 → **录制前后 canvas hash 分毫不差（-1667025677 == -1667025677）——AnimateCameraSpin teardown 相机精确复位**；cancel：录制 2s 后点 cancel → toast "Turntable recording discarded — The partial clip was not saved" 捕获 + 徽章清除
+- 【调试方法论增补】①画布 job 节点是 DIV[role=button]（accessible name 来自内容），querySelectorAll('button') 摸不到，且 element.click() 被 pointer 交互管理器忽略——须 mouse move/down/up 真实坐标点击（agent-browser mouse 子命令）；②JSON.stringify(expr) 过 execSync 会被 shell 转义损毁（\n→n）——多行 JS 用 agent-browser eval --stdin 管道零损；③**toast 自动消失 ~3s**：shadcn TOAST_REMOVE_DELAY=1e6 只管 remove，Radix ToastProvider 默认 duration 会自动 dismiss——慢速工具轮询永远错过 toast，"toast 没发"≠"toast 没触发"；页面内 MutationObserver 记录 addedNodes 才是零延迟证据链；④ref 跨 snapshot 必失效：每步点击前必须重新 snapshot 解析 ref；⑤本轮 dev server OOM×2 + 页面 renderer 崩溃×2（chrome-error://chromewebdata，~2 分钟生命周期）——molstar 冷编译+浏览器+tsc 严格错峰后稳定
+- 【收尾】bun run lint 0/0、tsc src/ 0 错误（examples/ 预存在 2 条与项目无关）；QA 资产入库：qa37-open-viewer.mjs（真实坐标点击链 + 轮询等待）、qa37-turntable-observe.mjs（观察器全套：toast 捕获/badge 时间线/hash 前后差分）、qa37-turntable-cancel.mjs（取消路径）；light 主题恢复；浏览器已关
+
+Stage Summary:
+- 3D viewer 从"静帧导出"走进"动帧导出"：一键把当前视角录成 360° turntable WebM（30fps、三档转速、camera-spin 动画驱动 + MediaRecorder 捕获）——演示/汇报/组会循环播放的首选载体，且相机在录制结束后像素级回到原位（hash 实证）
+- Layers 面板获得"工作台记忆"：回到同一个 job，上次对比的图、每图的颜色/透明度/σ 微调自动回位——多图对比从一次性操作变成可持续加工的会话；陈旧输出诚实清除，恢复不打扰
+- 颜色自由度补完最后一格：8 色板之外的任意 hex，打满 6 位即生效——与 swatch/图例/导出 footer/持久化四路共用同一 setOverlayColor 单源
+- 方法论沉淀：Radix toast 自动 dismiss 与慢速探针的竞速、role=button div 的真实输入点击、eval --stdin 的转义零损通道、"must observe in-page" 的 QA 范式
+- 遗留（下轮候选）：真 RELION 数据回归（EMPIAR 全链，需用户机器）、HPC SBATCH 真集群实测（需用户机器）、Turntable 转速/圈数持久化 + GIF 转码选项、叠加会话云端化（跨浏览器跟项目走）、导出 footer 图例进入 WebM（当前录像是纯画面）
