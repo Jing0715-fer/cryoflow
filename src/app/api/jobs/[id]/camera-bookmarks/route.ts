@@ -29,12 +29,20 @@ interface BookmarkSnapshot {
   minFar?: number;
 }
 
+interface BookmarkView {
+  sigma: number;
+  sign: number;
+  slice: { on: boolean; axis: string; pos: number };
+  clip: { on: boolean; x: number; y: number; z: number; invert: boolean };
+}
+
 interface BookmarkEntry {
   id: string;
   name: string;
   ts: number;
   thumb?: string;
   snapshot: BookmarkSnapshot;
+  view?: BookmarkView;
 }
 
 const MAX_BOOKMARKS = 8;
@@ -54,6 +62,34 @@ function vec3(raw: unknown): number[] | undefined {
 
 const bounded = (v: unknown, lo: number, hi: number, fallback: number): number =>
   isFiniteNum(v) ? Math.min(hi, Math.max(lo, v)) : fallback;
+
+/** the optical half of a saved view — contour σ (and sign), the slice
+ *  plane and the clip box. A bookmark that restores only the camera
+ *  brings you back to the right angle looking at the WRONG threshold;
+ *  view state makes "fly back" mean the whole picture. */
+function sanitizeView(raw: unknown): BookmarkView | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const v = raw as Record<string, unknown>;
+  const sl = (v.slice ?? {}) as Record<string, unknown>;
+  const cp = (v.clip ?? {}) as Record<string, unknown>;
+  const axis = sl.axis === "X" || sl.axis === "Y" || sl.axis === "Z" ? sl.axis : "Z";
+  return {
+    sigma: bounded(v.sigma, 0.01, 100, 2),
+    sign: v.sign === -1 ? -1 : 1,
+    slice: {
+      on: sl.on === true,
+      axis,
+      pos: bounded(sl.pos, 0, 1, 0.5),
+    },
+    clip: {
+      on: cp.on === true,
+      x: bounded(cp.x, 0, 1, 1),
+      y: bounded(cp.y, 0, 1, 1),
+      z: bounded(cp.z, 0, 1, 1),
+      invert: cp.invert === true,
+    },
+  };
+}
 
 function sanitizeSnapshot(raw: unknown): BookmarkSnapshot | null {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
@@ -99,6 +135,8 @@ function sanitize(raw: unknown): BookmarkEntry[] {
     if (typeof e.thumb === "string" && e.thumb.length <= MAX_THUMB_CHARS && THUMB_RE.test(e.thumb)) {
       entry.thumb = e.thumb;
     }
+    const view = sanitizeView(e.view);
+    if (view) entry.view = view;
     out.push(entry);
   }
   return out;

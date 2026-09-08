@@ -71,27 +71,64 @@ export async function GET(_req: NextRequest, ctx: RouteContext) {
 
 export async function PUT(req: NextRequest, ctx: RouteContext) {
   const { id } = await ctx.params;
-  let body: unknown;
+  let body: {
+    entries?: unknown;
+    removedPaths?: unknown;
+    mode?: unknown;
+  } | null;
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "invalid JSON body" }, { status: 400 });
   }
-  const entries = sanitize((body as { entries?: unknown } | null)?.entries);
+  const entries = sanitize(body?.entries);
+  const mode = body?.mode === "replace" ? "replace" : "merge";
+  // tombstones: paths the user explicitly deleted in this browser — without
+  // them a merge would resurrect deleted overlays when another browser's
+  // older session still carries the entry
+  const removedPaths = new Set(
+    Array.isArray(body?.removedPaths)
+      ? body.removedPaths
+          .filter((p): p is string => typeof p === "string" && !!p && p.length <= 512 && !p.includes("\0"))
+          .slice(0, 24)
+      : [],
+  );
   try {
     const job = await db.job.findUnique({ where: { id }, select: { id: true } });
     if (!job) return NextResponse.json({ error: "job not found" }, { status: 404 });
-    if (entries.length === 0) {
+
+    let final = entries;
+    if (mode === "merge") {
+      // concurrent-browser merge: the client's list is the LIVE edit for the
+      // paths it carries, but paths it never saw (edited in another browser
+      // since this mount) must survive instead of being clobbered by a
+      // last-write-wins replace. "replace" mode is the restore self-heal,
+      // which HAS validated against the live outputs and speaks absolute truth.
+      const row = await db.overlaySession.findUnique({ where: { jobId: id } });
+      let existing: OverlayEntry[] = [];
+      if (row) {
+        try {
+          existing = sanitize(JSON.parse(row.data));
+        } catch {
+          existing = []; // corrupt row — the client list rebuilds it
+        }
+      }
+      const byPath = new Map(existing.filter((e) => !removedPaths.has(e.path)).map((e) => [e.path, e]));
+      for (const e of entries) byPath.set(e.path, e);
+      final = [...byPath.values()].slice(0, MAX_ENTRIES);
+    }
+
+    if (final.length === 0) {
       // empty session = no overlays — drop the row instead of storing []
       await db.overlaySession.deleteMany({ where: { jobId: id } });
     } else {
       await db.overlaySession.upsert({
         where: { jobId: id },
-        update: { data: JSON.stringify(entries) },
-        create: { jobId: id, data: JSON.stringify(entries) },
+        update: { data: JSON.stringify(final) },
+        create: { jobId: id, data: JSON.stringify(final) },
       });
     }
-    return NextResponse.json({ ok: true, count: entries.length });
+    return NextResponse.json({ ok: true, count: final.length });
   } catch {
     return NextResponse.json({ error: "persist failed" }, { status: 500 });
   }

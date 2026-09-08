@@ -1951,3 +1951,25 @@ Stage Summary:
 - 三个 bug 都是 QA 现场抓的：错误的 canvas 访问器（静默 undefined）、镜像不同步（恢复不回种）、闭包竞态（双删复活）——"删两条剩一条"这种 bug 只有真实连点才暴露，单元测试 imagination 之外
 - 方法论增补：稳态取证升级为 stableHash 自动轮询；源码编辑后的 chunk 失效要整链预热（root reload 不够，viewer 异步 chunk 要走到）；视觉 QA 截图是抓竞态 bug 的意外利器（服务器行内容与 UI 不符一眼可见）
 - 遗留（下轮候选）：真 RELION 数据回归（EMPIAR 全链，需用户机器）、HPC SBATCH 真集群实测（需用户机器）、Turntable GIF 转码（wasm ffmpeg，重）、书签缩略图进 WebM 录制帧（录制时显示当前角度小图）、feed 行内嵌 sparkline（单 job 进度历史）、overlay 会话冲突合并（双浏览器并发 last-write-wins 现状）
+---
+Task ID: 41
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 新日轮 2026-09-08 18:08）——QA 回归全绿后交付三功能：书签升级为「全视图」（位姿 + contour σ + slice + clip 存取与还原，行内 chips 注记）+ 键盘 B 快速存书签 + overlay 会话并发合并（per-entry merge + 墓碑）；期间修掉 putBookmarkSession 丢 view 字段 bug；worklog + push
+
+Work Log:
+- 【开局核对】worklog 实际最新为 Task 40；git 本地 == origin/main == b7fd079；server 200；回归：画布 + mol* viewer（slider 挂载）+ console 0 error → 转功能
+- 【新功能 1·书签 = 全视图】①captureBookmarkView：saveBookmark 时从 refs 冻结光学状态（sigmaRef/signRef/sliceStateRef/clipStateRef——refs 读实时值，所见即所存）②restoreBookmark：cam.setState 之后光学随行——σ/sign 走 setState（pumpContour 自动提交，slice 共享 σ 的 effect 也自动跟上），slice/clip 走 applySliceIntent/applyClipIntent（各自更新屏上滑杆，不与用户打架）；legacy 无 view 书签优雅跳过③行内 chips：`3.00 σ`（muted）+ `slice Z 50%`（teal）+ `clip X 60%`（amber，只列 <0.999 的轴）——8 个书签的"光学档案"一眼可读④脚注更新 "Saves the full view — pose, contour σ, slice and clip…"
+- 【新功能 2·键盘 B 快速存书签】挂在既有 1-6/0 键盘 effect：B = 免命名即存（auto "View N"），toast 注 "(B key)"；guard 链共享（input/textarea/menu 打开时正确忽略——QA 现场验证：书签输入框聚焦时按 B 无动作是正确行为）；好角度不期而遇，B 冻结它
+- 【新功能 3·overlay 会话并发合并】①PUT 语义升级：mode "merge"（默认）= 服务器现存条目按 path 合并、客户端条目同 path 覆盖——另一浏览器编辑的本 browser 从未见过的 path 不再被 last-write-wins 冲掉；mode "replace" = 恢复自愈专用（已对照 live outputs 验证，说绝对真话，旧行为）②墓碑 removedPaths：客户端 removeOverlay 收集（overlayRemovedRef，PUT 成功后清空、失败滞留下轮补发），没有墓碑的 merge 会复活已删条目③curl 实证四语义：replace 空=删行 ✓、A/B 两浏览器各自 PUT 互存 ✓、墓碑删 path ✓、view 白名单 round-trip（junk 丢弃）✓
+- 【E2E·qa41-e2e.mjs 全绿】A 开 viewer（初始 σ 2.00/slice false）→ B 3σ+slice on + Top 稳态（233381442）→ 存 "Full optics" → 行 chips "3.00 σ slice Z 50%" + **server view 字段 {sigma:3,sign:1,slice:{on,axis:Z,pos:0.5},clip:{…}}** → C 移走（2σ/slice off/Front -1890524656）→ 书签回跳 → **位姿 hash 分毫不差（233381442）+ σ 回 3.00 + slice 回 true** → D 按 B → toast "'View 2' (B key)" + 2 行 → 全删 → 服务器行自删 []；console 0 error；截图目检：chips 三色注记 + clip 线框/slice 面/3σ 状态 + 新脚注
+- 【本轮修的 bug】putBookmarkSession 的解构 `{id,name,ts,thumb,snapshot}` 是 Task 40 的旧字段清单——view 加进 CamBookmark 后它静默丢弃该字段（localStorage 有 view、server 行 view:null 的不对称暴露了它）；解构补 view 后两端 mirror 一致。教训：**镜像层的手写字段清单是新字段的黑洞——新增字段必须 grep 所有 destructure/mapper**
+- 【QA 工具链】σ 预设按钮是 aria-label（"Set contour to 3 sigma"）不是 title——探针用错属性假红一次；serverRow curl 加 3 次重试（server OOM 中途挂掉不再炸整个脚本）；contour 面板 σ 探针 scope 到 rounded-2xl 面板（书签 chips 也含 σ 文本，会误匹配）
+- 【运维】dev server OOM ×2（tsc/eslint 争内存 + e2e 中途挂一次）→ playbook 重启 ×2 + 预热；QA 截图目检后已删；DB 终态 4 项目/11 jobs/BookmarkSession 0/OverlaySession 空
+- 【收尾】bun run lint 0/0、tsc 0 错误；浏览器已关
+
+Stage Summary:
+- 书签从"相机位姿"进化为"完整视图"：回跳 = 同一个角度 + 同一个阈值 + 同一个切面/裁剪——"回到上次看的地方"第一次有了完整的含义；行内三色 chips 让每个书签自带光学档案，8 个视角谁是"3σ 全貌"谁是"slice 通道切面"一目了然
+- B 键补全检视经济学：找角度是搜索过程，好角度出现在移动中——免命名即存把它接住，之后在 popover 里改名也行（与轴预设 1-6/0 同一键盘语言）
+- overlay 会话从"最后写入者赢"升级为"按条目合并 + 墓碑"：双浏览器并发编辑不再互吞，显式删除不再被复活；restore 自愈保留 replace 语义（它有 live outputs 背书）。这是 localStorage 双镜像架构的并发语义补课
+- 方法论增补：mirror 层手写字段清单是新字段的黑洞（view 字段被 destructure 静默丢弃——"本地有 server 无"的不对称是这类 bug 的指纹）；aria-label vs title 探针属性要对照源码；contour σ 探针必须 scope 面板（chips 也含 σ 文本）
+- 遗留（下轮候选）：真 RELION 数据回归（EMPIAR 全链，需用户机器）、HPC SBATCH 真集群实测（需用户机器）、Turntable GIF 转码（wasm ffmpeg，重）、书签"更新位姿"按钮（覆盖现有书签不新增）、feed 行内嵌 sparkline（单 job 进度历史）、书签导出/导入（跨 job 复制检视配置）

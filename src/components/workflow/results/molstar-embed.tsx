@@ -620,6 +620,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
     }
     overlayReprsRef.current.delete(filePath);
     overlayOffsetsRef.current.delete(filePath);
+    overlayRemovedRef.current.add(filePath); // merge tombstone — see putOverlaySession
     setOverlays((o) => o.filter((x) => x.path !== filePath));
   };
 
@@ -749,17 +750,37 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
   // server mirror state: debounce timer + latest payload for flush-on-unmount
   const overlaySyncTimerRef = useRef<number | null>(null);
   const overlayLastPayloadRef = useRef<Array<{ path: string; name: string; color: string; alpha: number; sigmaOffset: number }>>([]);
+  // paths removed since the last server flush — tombstones so a merge-mode
+  // PUT can never resurrect an overlay this browser explicitly deleted
+  const overlayRemovedRef = useRef<Set<string>>(new Set());
   /** push a session snapshot to the job's server row — best-effort by
-   *  design: localStorage stays the instant, offline-capable mirror */
-  const putOverlaySession = (entries: Array<{ path: string; name: string; color: string; alpha: number; sigmaOffset: number }>) =>
-    fetch(`/api/jobs/${jobId}/overlay-session`, {
+   *  design: localStorage stays the instant, offline-capable mirror.
+   *  mode "merge" (default) lets paths this browser never saw survive a
+   *  concurrent edit in another browser; "replace" is the restore
+   *  self-heal, which has validated against the live outputs. */
+  const putOverlaySession = (
+    entries: Array<{ path: string; name: string; color: string; alpha: number; sigmaOffset: number }>,
+    opts: { mode?: "merge" | "replace" } = {},
+  ) => {
+    const mode = opts.mode ?? "merge";
+    const body: Record<string, unknown> = { entries, mode };
+    if (mode === "merge" && overlayRemovedRef.current.size > 0) {
+      body.removedPaths = [...overlayRemovedRef.current];
+    }
+    return fetch(`/api/jobs/${jobId}/overlay-session`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ entries }),
+      body: JSON.stringify(body),
       keepalive: true,
-    }).catch(() => {
-      /* offline / dev server restarting — the local copy still holds it */
-    });
+    })
+      .then(() => {
+        if (mode === "merge") overlayRemovedRef.current.clear(); // delivered
+      })
+      .catch(() => {
+        /* offline / dev server restarting — the local copy still holds it;
+           tombstones stay accumulated and ride the next flush */
+      });
+  };
 
   useEffect(() => {
     if (!overlayRestoreDoneRef.current) return; // restore owns storage first
@@ -849,7 +870,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
         } catch {
           /* private mode */
         }
-        if (matches.length !== saved.length) void putOverlaySession(matches);
+        if (matches.length !== saved.length) void putOverlaySession(matches, { mode: "replace" });
         let restored = 0;
         for (const m of matches) {
           const choice = files.find((f) => f.path === m.path);
@@ -939,6 +960,17 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
       } else if (e.key === "0") {
         e.preventDefault();
         resetCamera();
+      } else if (e.key === "b" || e.key === "B") {
+        // quick-save: the whole point of a good angle is that it shows up
+        // unannounced — B freezes it before it drifts, no naming detour
+        e.preventDefault();
+        const snapshot = cam.getSnapshot() as unknown as Record<string, unknown>;
+        const nm = `View ${bookmarksRef.current.length + 1}`;
+        commitBookmarks([
+          ...bookmarksRef.current,
+          { id: `bm-${Date.now()}`, name: nm, ts: Date.now(), thumb: captureBookmarkThumb(), snapshot, view: captureBookmarkView() },
+        ].slice(-8));
+        toast({ title: "View saved", description: `“${nm}” (B key) — jump back from the bookmark menu any time.` });
       }
     };
     window.addEventListener("keydown", onKeyDown);
@@ -960,7 +992,16 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
   // (immediate PUT — saves are discrete clicks, nothing to debounce)
   // so saved views follow the JOB across browsers and devices.
   const camBookmarkKey = (id: string) => `cryoflow.mol-camera-bookmarks:${id}`;
-  type CamBookmark = { id: string; name: string; ts: number; thumb?: string; snapshot: Record<string, unknown> };
+  /** the optical half of a saved view — a pose without its contour/slice/
+   *  clip brings you back to the right angle looking at the WRONG
+   *  threshold; "fly back" should mean the whole picture */
+  type BookmarkView = {
+    sigma: number;
+    sign: 1 | -1;
+    slice: { on: boolean; axis: SliceAxis; pos: number };
+    clip: { on: boolean; x: number; y: number; z: number; invert: boolean };
+  };
+  type CamBookmark = { id: string; name: string; ts: number; thumb?: string; snapshot: Record<string, unknown>; view?: BookmarkView };
   const [bookmarks, setBookmarks] = useState<CamBookmark[]>([]);
   const [bookmarkName, setBookmarkName] = useState("");
   // restore guard: a slow server response must never clobber a bookmark
@@ -1042,7 +1083,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        bookmarks: list.map(({ id, name, ts, thumb, snapshot }) => ({ id, name, ts, thumb, snapshot })),
+        bookmarks: list.map(({ id, name, ts, thumb, view, snapshot }) => ({ id, name, ts, thumb, view, snapshot })),
       }),
       keepalive: true,
     }).catch(() => {
@@ -1096,6 +1137,15 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
     }
   };
 
+  /** freeze the optical state next to the pose — refs read live values,
+   *  so this is always what the screen shows right now */
+  const captureBookmarkView = (): BookmarkView => ({
+    sigma: Math.round(sigmaRef.current * 100) / 100,
+    sign: signRef.current,
+    slice: { on: sliceStateRef.current.on, axis: sliceStateRef.current.axis, pos: sliceStateRef.current.pos },
+    clip: { on: clipStateRef.current.on, x: clipStateRef.current.x, y: clipStateRef.current.y, z: clipStateRef.current.z, invert: clipStateRef.current.invert },
+  });
+
   const saveBookmark = () => {
     const cam = pluginRef.current?.canvas3d?.camera;
     if (!cam) return;
@@ -1103,7 +1153,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
     const nm = (bookmarkName.trim() || `View ${bookmarks.length + 1}`).slice(0, 40);
     const thumb = captureBookmarkThumb();
     commitBookmarks(
-      [...bookmarksRef.current, { id: `bm-${Date.now()}`, name: nm, ts: Date.now(), thumb, snapshot }].slice(-8),
+      [...bookmarksRef.current, { id: `bm-${Date.now()}`, name: nm, ts: Date.now(), thumb, snapshot, view: captureBookmarkView() }].slice(-8),
     );
     setBookmarkName("");
     toast({ title: "View saved", description: `“${nm}” — jump back from the bookmark menu any time.` });
@@ -1115,6 +1165,16 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
     // eased 320 ms flight — the same "swing, don't teleport" language as
     // the axis presets
     cam.setState(b.snapshot as Parameters<typeof cam.setState>[0], 320);
+    // optics ride along: contour σ (and sign) through the pumped state
+    // setters, slice/clip through their intent appliers — each commit path
+    // updates the on-screen sliders/panels so nothing fights the user
+    const v = b.view;
+    if (v) {
+      if (Math.abs(sigmaRef.current - v.sigma) > 1e-6) setSigma(Math.min(10, Math.max(0.05, v.sigma)));
+      if (signRef.current !== v.sign) setSign(v.sign);
+      applySliceIntent({ on: v.slice.on, axis: v.slice.axis, pos: v.slice.pos });
+      applyClipIntent({ on: v.clip.on, x: v.clip.x, y: v.clip.y, z: v.clip.z, invert: v.clip.invert });
+    }
   };
 
   /* ---------------- view capture (figure export) ---------------------- */
@@ -3155,6 +3215,27 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                           <span className="block text-[9px] text-muted-foreground">
                             {new Date(b.ts).toLocaleString()}
                           </span>
+                          {b.view && (
+                            <span className="mt-0.5 flex flex-wrap items-center gap-1" aria-hidden="true">
+                              <span className="rounded bg-muted/80 px-1 py-px font-mono text-[8px] font-medium tabular-nums text-muted-foreground">
+                                {b.view.sigma.toFixed(2)} σ
+                              </span>
+                              {b.view.slice.on && (
+                                <span className="rounded bg-teal-600/10 px-1 py-px font-mono text-[8px] font-medium tabular-nums text-teal-700 dark:text-teal-400">
+                                  slice {b.view.slice.axis} {Math.round(b.view.slice.pos * 100)}%
+                                </span>
+                              )}
+                              {b.view.clip.on && (
+                                <span className="rounded bg-amber-600/10 px-1 py-px font-mono text-[8px] font-medium tabular-nums text-amber-700 dark:text-amber-400">
+                                  clip
+                                  {(["x", "y", "z"] as const)
+                                    .filter((ax) => b.view!.clip[ax] < 0.999)
+                                    .map((ax) => ` ${ax.toUpperCase()} ${Math.round(b.view!.clip[ax] * 100)}%`)
+                                    .join("")}
+                                </span>
+                              )}
+                            </span>
+                          )}
                         </span>
                       </button>
                       <button
@@ -3170,7 +3251,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                 )}
               </div>
               <p className="border-t px-1 pb-0.5 pt-1.5 text-[10px] leading-tight text-muted-foreground">
-                Synced to the job — follows you across browsers · up to 8 views · eased 320 ms return.
+                Saves the full view — pose, contour σ, slice and clip. Synced to the job · B key quick-saves · up to 8.
               </p>
             </PopoverContent>
           </Popover>
