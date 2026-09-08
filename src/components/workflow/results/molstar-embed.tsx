@@ -24,6 +24,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
+import { PENDING_VIEW_KEY } from "@/lib/view-link";
 import { useWorkflowStore } from "@/lib/store";
 import { fmtBytes } from "@/lib/canvas-export";
 import { canCopyImageToClipboard, copyViewerPng, downloadViewerBlob, drawFigureFooter, exportViewerPng, figureFooterHeightPx, figureTitleMeta, viewerFileSlug, viewerFileTimestamp } from "@/lib/viewer-export";
@@ -1110,6 +1111,34 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
           description: "Saved views for this job, synced from its last visit.",
         });
       }
+      // dashboard gallery deep-link: a saved view clicked on the dashboard
+      // lands here — the viewer is up and the list has loaded, so fly to
+      // that view once and clear the request (one-shot by design; a view
+      // deleted in the meantime reports honestly instead of no-op'ing)
+      try {
+        const pending = JSON.parse(
+          sessionStorage.getItem(PENDING_VIEW_KEY) ?? "null"
+        ) as { jobId?: string; bookmarkId?: string } | null;
+        if (pending && pending.jobId === jobId && typeof pending.bookmarkId === "string") {
+          sessionStorage.removeItem(PENDING_VIEW_KEY);
+          const target = applied.find((b) => b.id === pending.bookmarkId);
+          if (!target) {
+            toast({
+              title: "Saved view not found",
+              description:
+                "It may have been deleted, or its server copy could not be read just now.",
+            });
+          } else {
+            restoreBookmarkRef.current(target);
+            toast({
+              title: `View “${target.name}” restored`,
+              description: "Jumped here from the dashboard gallery.",
+            });
+          }
+        }
+      } catch {
+        /* malformed pending entry — ignore, the wall stays usable */
+      }
     })();
   }, [phase, jobId]);
 
@@ -1312,6 +1341,13 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
       applyClipIntent({ on: v.clip.on, x: v.clip.x, y: v.clip.y, z: v.clip.z, invert: v.clip.invert });
     }
   };
+
+  // stable handle for effects that fire before this definition runs (the
+  // bookmark-load effect consumes the gallery's pending-view handoff above)
+  const restoreBookmarkRef = useRef<(b: CamBookmark) => void>(() => {});
+  useEffect(() => {
+    restoreBookmarkRef.current = restoreBookmark;
+  });
 
   /* ---------------- bookmark export / import --------------------------- */
   // The 8 saved views ARE work product — angles hunted down over minutes of

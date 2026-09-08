@@ -2094,3 +2094,24 @@ Stage Summary:
 - presence 过滤语义是刻意的：网格单元是项目，chips 计数是「多少项目携带该类工作」而非 job 数——与 spotlight 的 per-job chips 视觉同语言、语义各司其职
 - 方法论增补：DOM 探针按 label 找元素时，从 label 节点 closest 上爬是唯一不被祖先竞争污染的路径；querySelectorAll('div') 的文档序首占是隐性陷阱
 - 遗留（下轮候选）：Turntable GIF 转码（重）；导入对话框双来源混合多选；#5 token gate；KPI drill-down 的 flash ring 在 reduced-motion 下应禁用（细节打磨）；spotlight Jobs 过滤与 Dashboard 网格过滤的快捷键统一（如 1/2/3 切过滤）
+
+---
+Task ID: 48
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 晚轮 2026-09-08 22:14）——新功能「跨项目 Saved views gallery」：Dashboard 书签收藏墙（新聚合 API /api/views/gallery + 缩略图/光学 chips/面包屑卡片）+ 点击深链（sessionStorage pending-view 一次性握手）+ 3D viewer 书签加载后自动恢复（飞行 + 具名 toast）；顺带 OOM 再压双上限（V8 896 + turbopack 800）；qa48 分批 e2e 全绿；worklog + push
+
+Work Log:
+- 【开局核对】HEAD aa9f7e4 == origin，worklog 最新 Task 47；dev server 规程重启；qa47 三阶段回归全绿 → 转功能
+- 【新功能 1·gallery 聚合 API】GET /api/views/gallery：bookmarkSession findMany（updatedAt desc，cap 8 jobs）+ job/project 名 join；行内 JSON 轻量过滤（id/name/ts 必需、thumb data:image 前缀 + 48k 上限、view 对象直通）——读路径只做「够渲染卡片」的形状检查，严格白名单仍归 per-job camera-bookmarks 路由所有；corrupt 行 skip 不拖垮整墙
+- 【新功能 2·Dashboard SavedViewsGallery】Recent activity 下方新 section：Mountain 图标 + 「N bookmarks · M jobs · click to jump」摘要行 + 4 列卡片墙（64×44 缩略图/Mountain 占位 + 名称 + mini 光学 chips（muted σ / teal slice / amber clip，与 viewer 书签行同语言 8px 缩比）+ TypeIcon + job·project 面包屑 + hover chevron）；12 卡 cap + 溢出行「+N more in the viewer bookmark lists」诚实截流；fetch 触发器与 Recent feed 同步（mount + jobCount）；失败/空 → 整 section 不渲染（decorative 原则）
+- 【新功能 3·pending-view 一次性握手】①gallery 点击 → sessionStorage 写 {jobId, bookmarkId}（PENDING_VIEW_KEY="cryoflow:pending-view"，新 lib/view-link.ts 两侧共享）→ switchProject + setView(canvas) + inspect（idle 则 select）②molstar-embed 书签加载 effect 尾部消费：phase ready 且列表已落地 → jobId 匹配则消费——命中：restoreBookmarkRef 飞行 + σ/slice/clip 光学随行 + 具名 toast「View "X" restored / Jumped here from the dashboard gallery」；未命中（已删/服务器抖动）：诚实 toast 不装死③restoreBookmark 经 ref 中转（定义在 effect 之后——latest-ref 模式绕开 TDZ 与 exhaustive-deps 双坑）
+- 【运维·OOM 再压】本轮 next-server 又被杀 3 次（anon 2.55→2.95GB，viewer 打开瞬间 mol* wasm/WebGL 冲高——不归 V8/turbopack 上限管）；V8 1024→896 + turbopackMemoryLimit 900→800；QA 策略改为「A 暖机 → 紧接 B（同浏览器复用 sessionStorage）→ C 收尾」的分批节奏——冷 server 上 viewer 链反复撞 OOM 窗口，半暖状态是历史成功的隐性条件
+- 【e2e·qa48-e2e.mjs 三批全绿（exit 0 ×3）】A：canvas 生成真缩略图种子 → wall 渲染（header/meta 正则、卡片名、3.00 σ + slice Z chips、hasImg、面包屑「3D Auto-Refine 1 · QA Sandbox C」）→ el.click() 深链 → pending={jobId,bookmarkId} 精确断言 + 离开 dashboard；B（自播种支持独立批跑 + 服务器行重播种）：openViewer ready → pending 消费 null + σ=3.00 + 具名 toast + Slice aria-pressed=true；C：PUT [] → 服务器行 [] + console 0 error + 重载后 gallery=null（诚实空态）；截图目检：CONTOUR 3.00 σ 徽章 + Slice 激活 + Z 50% 滑杆 + 右下角具名 toast 同框
+- 【QA 探针三课】①CSS 类名转义（span.mt-0\\.5）在 CLI --stdin 传递中丢失反斜杠 → className 过滤替代 ②sessionStorage.getItem 的 null 是「已消费」不是「未消费」——断言先定义语义 ③坐标点击再次落空（gallery 卡片）→ el.click() 直点（qa46 教训第三次应验，已成本能）
+- 【收尾】bun run lint 0/0、tsc src 0 错误；QA 残留自愈（服务器行 []、sessionStorage 清、浏览器关）；截图保留 agent-ctx/；dev overlay「1 Issue」徽章在截图出现但 console errors=0——记录为 dev-mode 观察项，非阻断
+
+Stage Summary:
+- 书签生命周期的「展示」维度补完：save→update→rename→export/import→from-job 之后，「所有收藏一墙尽览」落地——跨项目的检视工作第一次有了统一的 shelf；点击一次直达「该项目该 job 该视角」，viewer 自动飞行 + 光学随行，不用再手动找 popover 里的对应行
+- pending-view 握手的设计立场：一次性消费（fresh intent 覆盖 stale）、双向诚实（命中具名 toast、未命中说明可能已删或没读到）、私有模式降级（sessionStorage 写失败深链照常落地）
+- 方法论：latest-ref 中转让「定义在 effect 之后的函数」可以被早先注册的 effect 安全调用；冷 server 反复 OOM 时「暖机批 + 复用浏览器 sessionStorage」比「重试同一批」更省内存也更省时间
+- 遗留（下轮候选）：Turntable GIF 转码（重）；gallery 卡片直接内嵌 3D 预览（mol* 轻量 instance，重）；导入对话框双来源混合多选；#5 token gate；flash ring 的 reduced-motion 适配；dev overlay「1 Issue」的定位（dev-only 观察）

@@ -33,10 +33,12 @@ import {
   TriangleAlert,
   Workflow,
   Filter,
+  Mountain,
   X,
 } from "lucide-react";
 import { useWorkflowStore } from "@/lib/store";
 import { withLiveStats } from "@/lib/live-stats";
+import { PENDING_VIEW_KEY } from "@/lib/view-link";
 import { KpiSparkline } from "./kpi-sparkline";
 import type { JobDTO, ProjectSummaryDTO } from "@/lib/types";
 import { jobType } from "@/lib/workflow";
@@ -548,6 +550,198 @@ function DashboardProjectCard({
         )}
       </div>
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Saved-views gallery (cross-project)                                  */
+/* ------------------------------------------------------------------ */
+
+/** Shape of GET /api/views/gallery — every 3D view bookmark across all
+ *  projects. The "my inspection work" shelf: an angle hunted in one
+ *  project shows up here without remembering which job it lived on. */
+interface GalleryBookmark {
+  id: string;
+  name: string;
+  ts: number;
+  thumb?: string;
+  view?: {
+    sigma?: number;
+    slice?: { on?: boolean; axis?: string; pos?: number };
+    clip?: { on?: boolean; x?: number; y?: number; z?: number };
+  };
+}
+
+interface GalleryEntry {
+  projectId: string | null;
+  projectName: string | null;
+  jobId: string;
+  jobName: string;
+  jobType: string;
+  jobStatus: string;
+  updatedAt: string;
+  bookmarks: GalleryBookmark[];
+}
+
+/** mini optical chips — the same three-tone language as the viewer's
+ *  bookmark rows (muted σ / teal slice / amber clip), sized for a wall */
+function GalleryViewChips({ b }: { b: GalleryBookmark }) {
+  const v = b.view;
+  if (!v || typeof v.sigma !== "number") {
+    return (
+      <span className="rounded bg-muted px-1 py-px font-mono text-[8px] font-medium text-muted-foreground">
+        pose
+      </span>
+    );
+  }
+  return (
+    <>
+      <span className="rounded bg-muted px-1 py-px font-mono text-[8px] font-medium tabular-nums text-muted-foreground">
+        {v.sigma.toFixed(2)} σ
+      </span>
+      {v.slice?.on && (
+        <span className="rounded bg-teal-600/10 px-1 py-px font-mono text-[8px] font-medium text-teal-700 dark:text-teal-400">
+          slice {(v.slice.axis ?? "Z").toUpperCase()}
+        </span>
+      )}
+      {v.clip?.on && (
+        <span className="rounded bg-amber-600/10 px-1 py-px font-mono text-[8px] font-medium text-amber-700 dark:text-amber-400">
+          clip
+        </span>
+      )}
+    </>
+  );
+}
+
+function SavedViewsGallery({ activeProjectId }: { activeProjectId: string | null }) {
+  const switchProject = useWorkflowStore((s) => s.switchProject);
+  const setView = useWorkflowStore((s) => s.setView);
+  const inspect = useWorkflowStore((s) => s.inspect);
+  const select = useWorkflowStore((s) => s.select);
+  const jobCount = useWorkflowStore((s) => s.jobs.length);
+  const [views, setViews] = React.useState<GalleryEntry[] | null>(null);
+
+  // same freshness trigger as the recent feed: mount + whenever the
+  // active project's job list moves (a saved view appearing/disappearing
+  // rides the same commit path as a job mutation)
+  React.useEffect(() => {
+    let alive = true;
+    fetch("/api/views/gallery")
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((d: { views?: GalleryEntry[] }) => {
+        if (alive)
+          setViews(
+            Array.isArray(d.views) ? d.views.filter((v) => v.bookmarks.length > 0) : []
+          );
+      })
+      .catch(() => {
+        /* the wall is a convenience, not a dependency — hide on failure */
+        if (alive) setViews(null);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [jobCount]);
+
+  if (views === null || views.length === 0) return null;
+
+  const total = views.reduce((n, v) => n + v.bookmarks.length, 0);
+  const flat: Array<{ v: GalleryEntry; b: GalleryBookmark }> = [];
+  for (const v of views) for (const b of v.bookmarks) flat.push({ v, b });
+  // 12 cards keep the section a glance, not a scroll; the overflow line
+  // says honestly that more exist (and where to find them)
+  const wall = flat.slice(0, 12);
+
+  const jump = async (v: GalleryEntry, b: GalleryBookmark) => {
+    // one-shot handoff: the viewer consumes this once its bookmark list
+    // has loaded and flies to the view (fresh intent overwrites stale)
+    try {
+      sessionStorage.setItem(
+        PENDING_VIEW_KEY,
+        JSON.stringify({ jobId: v.jobId, bookmarkId: b.id })
+      );
+    } catch {
+      /* private mode — the deep link still lands on the job */
+    }
+    if (v.projectId && v.projectId !== activeProjectId) {
+      await switchProject(v.projectId);
+    }
+    setView("canvas");
+    if (v.jobStatus === "idle") select(v.jobId);
+    else inspect(v.jobId);
+  };
+
+  return (
+    <section
+      aria-label="Saved 3D views across all projects"
+      className="card-lift rounded-xl border bg-card px-4 py-3.5 sm:px-5"
+    >
+      <div className="mb-2 flex items-center gap-2">
+        <Mountain className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        <h2 className="text-sm font-semibold tracking-tight">Saved views</h2>
+        <span className="text-[11px] text-muted-foreground">
+          {total} bookmark{total === 1 ? "" : "s"} · {views.length} job{views.length === 1 ? "" : "s"} · click to jump
+        </span>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        {wall.map(({ v, b }) => {
+          const spec = jobType(v.jobType);
+          return (
+            <button
+              key={`${v.jobId}:${b.id}`}
+              type="button"
+              onClick={() => void jump(v, b)}
+              title={`Open “${b.name}” — jumps to ${v.jobName}${v.projectName ? ` in ${v.projectName}` : ""} and restores the view in the 3D viewer`}
+              className="group/card flex min-w-0 items-center gap-2.5 rounded-lg border bg-card p-2 text-left transition-all hover:border-primary/40 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+            >
+              <span
+                className="relative h-11 w-16 shrink-0 overflow-hidden rounded-md border bg-muted"
+                aria-hidden="true"
+              >
+                {b.thumb ? (
+                  <img src={b.thumb} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <Mountain className="absolute inset-0 m-auto size-4 text-muted-foreground/40" />
+                )}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center gap-1.5">
+                  <span className="truncate text-[11px] font-semibold" title={b.name}>
+                    {b.name}
+                  </span>
+                  <GalleryViewChips b={b} />
+                </span>
+                <span className="mt-0.5 flex items-center gap-1 truncate text-[10px] text-muted-foreground">
+                  <span
+                    className={cn(
+                      "flex size-3.5 shrink-0 items-center justify-center rounded ring-1 ring-inset",
+                      spec?.color.soft,
+                      spec?.color.border
+                    )}
+                    aria-hidden="true"
+                  >
+                    <TypeIcon name={spec?.icon ?? "Boxes"} className={cn("size-2.5", spec?.color.text)} />
+                  </span>
+                  <span className="truncate">
+                    {v.jobName}
+                    {v.projectName ? ` · ${v.projectName}` : ""}
+                  </span>
+                </span>
+              </span>
+              <ChevronRight
+                className="size-3.5 shrink-0 text-muted-foreground/40 transition-transform group-hover/card:translate-x-0.5"
+                aria-hidden="true"
+              />
+            </button>
+          );
+        })}
+      </div>
+      {flat.length > wall.length && (
+        <p className="mt-2 text-[10px] text-muted-foreground/70">
+          +{flat.length - wall.length} more in the viewer bookmark lists
+        </p>
+      )}
+    </section>
   );
 }
 
@@ -1506,6 +1700,11 @@ export function ProjectDashboard() {
         {/* cross-project recent activity — the "where did I leave off" strip */}
         <div className="mt-6">
           <RecentActivityFeed activeProjectId={activeId} />
+        </div>
+
+        {/* cross-project saved views — the "my inspection work" shelf */}
+        <div className="mt-6">
+          <SavedViewsGallery activeProjectId={activeId} />
         </div>
 
         {/* active project spotlight */}
