@@ -30,6 +30,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  onEscapeClose,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { MrcImage } from "./mrc-image";
@@ -246,7 +247,10 @@ function GroupSection({
 
       {/* single-particle lightbox */}
       <Dialog open={zoomed != null} onOpenChange={(o) => !o && setZoomed(null)}>
-        <DialogContent className="max-w-md sm:max-w-md">
+        <DialogContent
+          className="max-w-md sm:max-w-md"
+          onKeyDown={onEscapeClose(() => setZoomed(null))}
+        >
           {zoomed ? (
             <>
               <DialogHeader>

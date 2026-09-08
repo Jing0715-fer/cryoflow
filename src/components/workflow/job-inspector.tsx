@@ -58,6 +58,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { onEscapeClose } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1484,7 +1485,10 @@ function InspectorHeader({ job }: { job: JobDTO }) {
 
       {/* rerun confirm */}
       <AlertDialog open={confirmRerun} onOpenChange={setConfirmRerun}>
-        <AlertDialogContent>
+        {/* Escape peels ONE layer: this confirm floats on the inspector
+            modal, and without the React-level consume both Radix roots
+            dismiss on the same keypress (ui/dialog onEscapeClose) */}
+        <AlertDialogContent onKeyDown={onEscapeClose(() => setConfirmRerun(false))}>
           <AlertDialogHeader>
             <AlertDialogTitle>Re-run {job.name}?</AlertDialogTitle>
             <AlertDialogDescription>

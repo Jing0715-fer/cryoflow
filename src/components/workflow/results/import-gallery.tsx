@@ -19,6 +19,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  onEscapeClose,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { MrcImage } from "./mrc-image";
@@ -160,7 +161,10 @@ export function ImportGallery({
 
       {/* lightbox */}
       <Dialog open={selected != null} onOpenChange={(open) => !open && setSelected(null)}>
-        <DialogContent className="max-w-2xl sm:max-w-2xl">
+        <DialogContent
+          className="max-w-2xl sm:max-w-2xl"
+          onKeyDown={onEscapeClose(() => setSelected(null))}
+        >
           {selected && (
             <>
               <DialogHeader>

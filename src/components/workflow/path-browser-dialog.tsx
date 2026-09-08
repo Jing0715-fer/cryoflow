@@ -40,6 +40,7 @@ import {
   Zap,
 } from "lucide-react";
 import {
+  onEscapeClose,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -272,7 +273,12 @@ export function PathBrowserDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl">
+      {/* narrow viewports host the job panel in a Radix Sheet — without the
+          React-level Escape consume, Esc here would close the Sheet too */}
+      <DialogContent
+        className="sm:max-w-2xl"
+        onKeyDown={onEscapeClose(() => onOpenChange(false))}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-sm">
             {displayedMode === "files" ? (

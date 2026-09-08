@@ -19,7 +19,8 @@ import { useEffect, useRef, useState } from "react";
 import { Axis3d, Bookmark, BoxSelect, Camera, Check, ClipboardCopy, Download, FileJson, FilePlus2, FolderOpen, FolderPlus, Layers, Loader2, Mountain, Orbit, Pencil, Plus, RefreshCcw, RotateCw, ScanLine, TriangleAlert, Upload, Video, X, ZoomIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  onEscapeClose, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
@@ -215,6 +216,17 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
   // for half-maps means identical absolute thresholds; class maps scale
   // sensibly per map). Handles live in a ref, UI state in `overlays`.
   const [overlays, setOverlays] = useState<OverlayEntry[]>([]);
+
+  // Escape-peel: these popovers float on the fullscreen viewer dialog, which
+  // itself floats on the job inspector modal — every Radix root carries its
+  // own dismissable-layer stack, so each layer must consume Escape and close
+  // ITSELF (see onEscapeClose in ui/dialog.tsx). Controlled open state is
+  // what makes that possible for a Popover.
+  const [layersOpen, setLayersOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [turntableOpen, setTurntableOpen] = useState(false);
+  const [presetsOpen, setPresetsOpen] = useState(false);
+  const [bookmarksOpen, setBookmarksOpen] = useState(false);
   const [mapChoices, setMapChoices] = useState<MapChoice[] | null>(null);
   const [choicesLoading, setChoicesLoading] = useState(false);
   const [overlayBusy, setOverlayBusy] = useState<string | null>(null);
@@ -3190,7 +3202,13 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
       {phase === "ready" ? (
         <div className="absolute right-3 top-3 z-10 flex gap-1.5">
           {/* overlay maps (compare) — layered volumes from the same job */}
-          <Popover onOpenChange={(open) => open && loadMapChoices()}>
+          <Popover
+            open={layersOpen}
+            onOpenChange={(open) => {
+              setLayersOpen(open);
+              if (open) loadMapChoices();
+            }}
+          >
             <PopoverTrigger asChild>
               <Button
                 variant="secondary"
@@ -3207,7 +3225,12 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                 )}
               </Button>
             </PopoverTrigger>
-            <PopoverContent align="end" className="w-72 p-2" data-canvas-ui="layers-popover">
+            <PopoverContent
+              align="end"
+              className="w-72 p-2"
+              data-canvas-ui="layers-popover"
+              onKeyDown={onEscapeClose(() => setLayersOpen(false))}
+            >
               <p className="px-1 pb-1 text-[11px] font-semibold">Overlay maps</p>
               <p className="px-1 pb-1.5 text-[10px] leading-tight text-muted-foreground">
                 Layer other volumes from this job over the main map — half-maps, masked maps, classes.
@@ -3415,7 +3438,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
           {/* figure export chip — resolution + caption, both persist per
               browser; the Camera capture and the figure footer follow them
               instantly */}
-          <Popover>
+          <Popover open={exportOpen} onOpenChange={setExportOpen}>
             <PopoverTrigger asChild>
               <Button
                 variant="secondary"
@@ -3430,7 +3453,12 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                 {exportScale}×
               </Button>
             </PopoverTrigger>
-            <PopoverContent align="end" className="w-60 p-2" data-canvas-ui="export-scale-popover">
+            <PopoverContent
+              align="end"
+              className="w-60 p-2"
+              data-canvas-ui="export-scale-popover"
+              onKeyDown={onEscapeClose(() => setExportOpen(false))}
+            >
               <p className="px-1 pb-1 text-[11px] font-semibold">Export resolution</p>
               <div role="radiogroup" aria-label="Export resolution">
                 {(
@@ -3566,7 +3594,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
           </Button>
           {/* turntable video — one full 360° camera loop recorded off the
               live canvas as WebM (MediaRecorder + mol* camera-spin anim) */}
-          <Popover>
+          <Popover open={turntableOpen} onOpenChange={setTurntableOpen}>
             <PopoverTrigger asChild>
               <Button
                 variant="secondary"
@@ -3587,7 +3615,12 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                 )}
               </Button>
             </PopoverTrigger>
-            <PopoverContent align="end" className="w-60 p-2" data-canvas-ui="turntable-popover">
+            <PopoverContent
+              align="end"
+              className="w-60 p-2"
+              data-canvas-ui="turntable-popover"
+              onKeyDown={onEscapeClose(() => setTurntableOpen(false))}
+            >
               <p className="px-1 pb-1 text-[11px] font-semibold">Turntable video</p>
               <p className="px-1 pb-1.5 text-[10px] leading-tight text-muted-foreground">
                 Records one full 360° rotation around the current view as a .webm clip —
@@ -3734,7 +3767,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
           {/* standard view orientations — swing to an axis without losing
               the current zoom; the grid doubles as a crash course in the
               box's shape (anisotropy reads instantly along each axis) */}
-          <Popover>
+          <Popover open={presetsOpen} onOpenChange={setPresetsOpen}>
             <PopoverTrigger asChild>
               <Button
                 variant="secondary"
@@ -3746,7 +3779,12 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                 <Axis3d className="size-4" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent align="end" className="w-52 p-2" data-canvas-ui="view-presets">
+            <PopoverContent
+              align="end"
+              className="w-52 p-2"
+              data-canvas-ui="view-presets"
+              onKeyDown={onEscapeClose(() => setPresetsOpen(false))}
+            >
               <p className="px-1 pb-1 text-[11px] font-semibold">Standard views</p>
               <div className="grid grid-cols-3 gap-1">
                 {VIEW_PRESETS.map((p, i) => (
@@ -3786,9 +3824,13 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
           </Popover>
           {/* named camera poses — save the current orbit/zoom/target combo
               and fly back to it any time (per browser + job) */}
-          <Popover onOpenChange={(o) => {
-            if (!o) setFromJobOpen(false); // stale counts must not survive a close
-          }}>
+          <Popover
+            open={bookmarksOpen}
+            onOpenChange={(o) => {
+              setBookmarksOpen(o);
+              if (!o) setFromJobOpen(false); // stale counts must not survive a close
+            }}
+          >
             <PopoverTrigger asChild>
               <Button
                 variant="secondary"
@@ -3804,7 +3846,12 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                 <Bookmark className="size-4" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent align="end" className="w-64 p-2" data-canvas-ui="camera-bookmarks">
+            <PopoverContent
+              align="end"
+              className="w-64 p-2"
+              data-canvas-ui="camera-bookmarks"
+              onKeyDown={onEscapeClose(() => setBookmarksOpen(false))}
+            >
               <p className="px-1 pb-1 text-[11px] font-semibold">View bookmarks</p>
               <p className="px-1 pb-1.5 text-[10px] leading-tight text-muted-foreground">
                 Save the exact camera pose — orbit, zoom and target — and fly back to it later.
@@ -4017,7 +4064,10 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
           confirmed. File and job sources MIX in one dialog. */}
       {importPreview ? (
         <Dialog open onOpenChange={(o) => { if (!o) closeImport(); }}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent
+            className="sm:max-w-md"
+            onKeyDown={onEscapeClose(closeImport)}
+          >
             <DialogHeader>
               <DialogTitle>Import views</DialogTitle>
               <DialogDescription>

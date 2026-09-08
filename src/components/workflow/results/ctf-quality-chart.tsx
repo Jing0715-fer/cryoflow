@@ -21,7 +21,7 @@ import {
   YAxis,
   ZAxis,
 } from "recharts";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, onEscapeClose } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { MrcImage } from "./mrc-image";
 import { fetchJsonRetry } from "@/lib/retry-fetch";
@@ -283,7 +283,10 @@ export function CtfQualityChart({ jobId, className }: { jobId: string; className
 
       {/* Lightbox: full-size micrograph + CTF fit numbers. */}
       <Dialog open={selected != null} onOpenChange={(open) => !open && setSelected(null)}>
-        <DialogContent className="max-w-2xl sm:max-w-2xl">
+        <DialogContent
+          className="max-w-2xl sm:max-w-2xl"
+          onKeyDown={onEscapeClose(() => setSelected(null))}
+        >
           {selected && (
             <>
               <DialogHeader>

@@ -34,6 +34,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  onEscapeClose,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/hooks/use-toast";
@@ -782,7 +783,10 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
 
       {/* map / stack dialog */}
       <Dialog open={imageFile !== null} onOpenChange={(o) => !o && setImageFile(null)}>
-        <DialogContent className="max-w-2xl sm:max-w-2xl">
+        <DialogContent
+          className="max-w-2xl sm:max-w-2xl"
+          onKeyDown={onEscapeClose(() => setImageFile(null))}
+        >
           {imageFile && (
             <>
               <DialogHeader>
@@ -843,7 +847,10 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
 
       {/* STAR table dialog */}
       <Dialog open={starFile !== null} onOpenChange={(o) => !o && setStarFile(null)}>
-        <DialogContent className="max-w-4xl sm:max-w-4xl">
+        <DialogContent
+          className="max-w-4xl sm:max-w-4xl"
+          onKeyDown={onEscapeClose(() => setStarFile(null))}
+        >
           {starFile && (
             <>
               <DialogHeader>
@@ -861,7 +868,10 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
 
       {/* text preview dialog */}
       <Dialog open={textFile !== null} onOpenChange={(o) => !o && setTextFile(null)}>
-        <DialogContent className="max-w-3xl sm:max-w-3xl">
+        <DialogContent
+          className="max-w-3xl sm:max-w-3xl"
+          onKeyDown={onEscapeClose(() => setTextFile(null))}
+        >
           {textFile && (
             <>
               <DialogHeader>

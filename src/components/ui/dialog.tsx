@@ -129,6 +129,38 @@ function DialogDescription({
   )
 }
 
+/**
+ * Escape peels exactly ONE floating layer.
+ *
+ * Every Radix Dialog/AlertDialog/Popover root carries its OWN dismissable-
+ * layer stack (no shared provider — verified in @radix-ui/react-dismissable-
+ * layer dist: the layers Set lives in a per-root context), so when a dialog
+ * floats on top of another dialog or sheet, BOTH layers see themselves as
+ * the highest layer and one Escape press dismisses the whole tower.
+ *
+ * Consuming the key at the REACT level (onKeyDown on the content) stops the
+ * native event at the React root container — before any document-level
+ * Radix listener fires — and the caller closes itself through its own
+ * onOpenChange. Behavior for a top-layer dialog is identical to Radix's
+ * default dismissal; the layer behind simply survives.
+ *
+ * Usage: <DialogContent onKeyDown={onEscapeClose(() => setOpen(false))}>
+ * (Nested layers resolve themselves: React dispatches to the innermost
+ * handler first, so a popover/dialog consuming Escape inside this content
+ * stops propagation before this content's handler runs.)
+ */
+export function onEscapeClose(
+  close: () => void
+): (e: React.KeyboardEvent) => void {
+  return (e) => {
+    if (e.key === "Escape") {
+      e.preventDefault()
+      e.stopPropagation()
+      close()
+    }
+  }
+}
+
 export {
   Dialog,
   DialogClose,

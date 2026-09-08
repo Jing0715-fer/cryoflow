@@ -17,6 +17,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  onEscapeClose,
 } from "@/components/ui/dialog";
 import type { JobDTO } from "@/lib/types";
 
@@ -87,7 +88,9 @@ export function MolViewer({ job, path, name, open, onOpenChange }: MolViewerProp
           DialogContent carries sm:max-w-lg, and a media-query rule beats any
           same-specificity base rule in the compiled CSS, so a plain
           max-w-[…] would silently lose to 512 px on every desktop. */}
-      <DialogContent className="flex h-[92vh] w-[94vw] max-w-[min(1500px,94vw)] flex-col gap-0 p-0 sm:max-w-[min(1500px,94vw)] sm:p-0">
+      <DialogContent className="flex h-[92vh] w-[94vw] max-w-[min(1500px,94vw)] flex-col gap-0 p-0 sm:max-w-[min(1500px,94vw)] sm:p-0"
+        onKeyDown={onEscapeClose(() => onOpenChange(false))}
+      >
         <DialogHeader className="shrink-0 px-6 pt-5 pb-3">
           <DialogTitle className="flex items-center gap-2 text-sm">
             <Box className="h-4 w-4 shrink-0 text-teal-600" aria-hidden="true" />

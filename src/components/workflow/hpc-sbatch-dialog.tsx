@@ -13,6 +13,7 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import {
+  onEscapeClose,
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 import {
@@ -103,7 +104,10 @@ export function HpcSbatchDialog({ jobId, compact = false }: { jobId: string; com
           {compact ? null : <span className="ml-1.5">HPC</span>}
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-3xl">
+      <DialogContent
+        className="max-w-3xl"
+        onKeyDown={onEscapeClose(() => setOpen(false))}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Server className="size-4 text-primary" aria-hidden="true" />

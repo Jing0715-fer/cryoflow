@@ -2369,3 +2369,26 @@ Stage Summary:
 - 发现/解析两层拆分是本轮的结构性收获：fsc-index 用 readdir 分类把「谁有曲线」做到近乎免费，重活只落在被选中的曲线上——发现层便宜才能让对话框敢每次打开都重新扫描
 - 嵌套 Radix 对话框 Esc 连锁的真正机制本轮才水落石出：不是 window handler 越权（qa58 的第一解释），而是每条 Dialog 根的 dismissable-layer 栈天然独立、都自认顶层——React 层吞 Esc + 手动关自己是唯一可靠药方；所有「对话框叠对话框」组合都该过一遍这个检查
 - 遗留（下轮候选）：嵌套对话框 Esc 语义系统性排查（AlertDialog on Dialog、path-browser on panel 等）；对比对话框内再点行标题跳转对应 job；fsc-index 对 running job 的 live 曲线加轮询徽章；workflow-import 多文件（低优先）；dev overlay「1 Issue」定位（dev-only）；EMPIAR 真数据回归（重）；gallery zoom roving tabindex；report 深色模式打印样式
+
+---
+Task ID: 61
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 晨轮 2026-09-09 04:59）——Task 60 遗留「嵌套对话框 Esc 语义系统性排查」销账：审计出 inspector modal 浮层塔上 8 个 Dialog + 5 个 Popover + 窄屏 Sheet 上 2 个 Dialog 全部携带 Esc 连锁病；ui/dialog.tsx 新增共享 onEscapeClose helper（React 层吞 Esc + 自关），12 处站点接线 + molstar 5 popover 转受控；先手动实证两例（Re-run alert 与 volume dialog 均杀死身后 inspector）再修，qa61 分层剥离矩阵 e2e 全绿 + qa60/qa47 双回归绿；worklog + push
+
+Work Log:
+- 【开局核对】HEAD 113a5ac == Task 60、工作树干净；dev server 规程重启后本轮又两死（OOM 蠕变第 4/5 次）→ 按 Task 54+ 配方整体转 production（build cap 1536 → next start）
+- 【审计·浮层塔全图谱】逐文件枚举 Dialog/AlertDialog/Popover/Sheet 宿主关系：inspector modal（completed job 点开）上有 results-view image/star/text 三 dialog、picks-map/ctf-quality-chart/import-gallery/particle-browser 四 zoom、mol-viewer 全屏 viewer、viewer 内 molstar 五 popover（layers/export-scale/turntable/view-presets/camera-bookmarks）+ import views dialog、inspector 自身 Re-run AlertDialog——共 8 Dialog + 5 Popover 叠在同一 modal 上；窄屏（<xl）JobPanel 住 Radix Sheet，path-browser/hpc-sbatch/lightbox/import 叠 Sheet；顶层的（canvas bulk-delete、header/help popover、template-presets、import-workflow、command palette）不在塔里、无需修
+- 【实证先行】修前手动确诊两例：Re-run AlertDialog 上 Esc → [role=dialog]+[role=alertdialog] 全空（inspector 陪葬）；volume dialog 上 Esc → 同样全空——qa58/qa60 的第三、四例，确认是「类病」而非「个案」
+- 【机制·完整病理】Radix 每条 Dialog/Popover 根 createDialogContext 各带一套 dismissable-layer 栈（无全局 Provider——dist 源码核实 layers Set 在 per-root context），浮层叠浮层时两层都自认 highest layer、同一 Esc 各自 dismiss；document 级 onEscapeKeyDown/preventDefault 救不了（监听器注册序 = 挂载序，父层先跑、defaultPrevented 检查来不及）；唯一可靠阻断点是 React 合成事件（attach 在 root container，先于所有 document listener）→ onKeyDown 消费 + preventDefault + stopPropagation + 手动自关，顶层时行为与 Radix 默认 dismiss 完全一致、零行为差
+- 【修复·onEscapeClose helper】ui/dialog.tsx 导出共享 helper（注释完整记载病理与用法）；12 站点接线：results-view ×3、picks-map/ctf/import-gallery/particle-browser ×4、mol-viewer、molstar import dialog、job-inspector Re-run AlertDialog（AlertDialogContent 同款 onKeyDown——Esc 语义=取消确认，正好）、path-browser（窄屏 Sheet 宿主）、hpc-sbatch（自包含组件、本地 setOpen）
+- 【修复·popover 受控化】5 个 molstar popover 原为非受控（Radix 自管 open）——React 层吞 Esc 后其自身 dismiss 也被阻断，必须受控才能自关：新增 layersOpen/exportOpen/turntableOpen/presetsOpen/bookmarksOpen 五 state（注释说明为何受控），Popover 接 open/onOpenChange（layers 保留惰性 loadMapChoices、bookmarks 保留 fromJobOpen 残留清理），PopoverContent 接 onEscapeClose；React 内层 handler 先跑 + stopPropagation 保证 popover 消费后父 dialog 的 onKeyDown 不再触发——同树嵌套的显序由 React dispatch 序天然保证
+- 【e2e·qa61 分层剥离矩阵】A（1600×900，3D Auto-Refine 1）：①Re-run alert→Esc：alert 关、inspector 活 ②Results→enlarge volume→Esc：dialog 关、inspector 活 ③→View in 3D 全屏（三层塔）→Esc：viewer 关、inspector 活 ④toolbar 就绪后 turntable popover→Esc：popover 关、viewer+inspector 双活 ⑤viewer Esc→inspector 仍活 + 截图；B（1200×800 窄屏，harness 自建 idle QA Esc Import job）：Sheet→Params（坐标点击——qa59 老课「面板 Radix tabs 无视 JS click」重演）→Browse→path-browser→Esc：dialog 关、SHEET 活（修复前双双亡）；C：console 0 error
+- 【QA 探针两课】①面板 Tabs 的 JS click() 无声失效（qa59 已记）本轮在 harness 里再踩——合成 pointer 序也不行，唯坐标点击有效，已把 realClick 帮手搬进 qa61 并注释归因 ②harness 建的临时 job（QA Esc Import）要在收尾按名 API 清理（本轮 5 个全部 200 删除）
+- 【运维】dev 模式两连 OOM 后全程 production；qa60 修复版对照跑一轮全绿（compare dialog Esc 断言在 B 阶段），qa47 A 回归绿；收尾 fsc seed --clean 复核 index 归零、临时 job 清零
+- 【收尾】eslint 0、tsc src 0；qa61-inspector-alive.png 目检（剥离全程后 inspector Results tab 完好）；浏览器已关；production server 留守、dev server 待下轮按规程换回
+
+Stage Summary:
+- 「Esc 只剥一层」从个案补丁升级为全站保证：浮层塔上 13 个 Dialog/AlertDialog 站点 + 5 个 Popover 全部接线 onEscapeClose，任何一层按 Esc 都只关自己——修复对顶层浮层行为零差异（与 Radix 默认 dismiss 等价），只在「身后还有层」时兑现价值
+- 病理终于完整：qa58 的第一例（lightbox）当时误诊为 window handler 越权，qa60 第二例（compare）发现 Radix 层栈分裂，本轮第三/四例实证 + dist 源码核实「per-root context、无全局 Provider」+ document 监听器注册序让 preventDefault 方案失效——React 层阻断是唯一可靠点，三段证据链闭环
+- 受控化是 popover 参与分层协议的门票：非受控浮层没有「自关」的把手，吞掉 Esc 就关不掉自己；「谁消费 Esc、谁负责自关」的配对语义现在是 molstar 工具条五 popover 的显式契约
+- 遗留（下轮候选）：AlertDialog on Popover 等剩余组合的抽查（AlertDialog 本身未受控化的站点——page.tsx 两处 keyboard-delete confirm 在 canvas 顶层无嵌套、暂无需要）；import views 对话框内 fromJob 子列表 popover 的 Esc 行为抽查；对比对话框行点击跳转对应 job；fsc-index running job live 徽章；workflow-import 多文件（低优先）；dev overlay「1 Issue」（dev-only）；EMPIAR 真数据回归（重）；gallery zoom roving tabindex；report 深色打印样式
