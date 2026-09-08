@@ -16,10 +16,13 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { BoxSelect, Loader2, Mountain, RotateCw, ScanLine, ZoomIn } from "lucide-react";
+import { BoxSelect, Camera, Check, Loader2, Mountain, RotateCw, ScanLine, ZoomIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
+import { toast } from "@/hooks/use-toast";
+import { fmtBytes } from "@/lib/canvas-export";
+import { exportViewerPng } from "@/lib/viewer-export";
 import { MrcImage } from "./mrc-image";
 import "molstar/build/viewer/molstar.css";
 
@@ -375,6 +378,65 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
         await PluginCommands.Camera.Reset(plugin, {});
       } catch {
         /* cosmetic */
+      }
+    })();
+  };
+
+  /* ---------------- view capture (figure export) ---------------------- */
+
+  // busy → spinner; done → emerald check for 1.8s so the click lands visibly
+  // even when the download itself is instant
+  const [shot, setShot] = useState<"idle" | "busy" | "done">("idle");
+
+  const captureView = () => {
+    const plugin = pluginRef.current;
+    // The onscreen canvas: Canvas3D does NOT expose `.canvas` directly —
+    // the authoritative path is webgl.gl.canvas (GLRenderingContext.canvas
+    // is the standard DOM backreference to the canvas molstar created the
+    // context on). DOM query is the fallback for API drift.
+    const c3d = plugin?.canvas3d;
+    const glCanvas = c3d?.webgl?.gl?.canvas as HTMLCanvasElement | undefined;
+    const canvas: HTMLCanvasElement | null =
+      glCanvas ?? containerRef.current?.querySelector("canvas") ?? null;
+    if (!canvas) {
+      toast({
+        title: "Nothing to capture yet",
+        description: "The 3D view is still starting — try again in a moment.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setShot("busy");
+    void (async () => {
+      try {
+        // composite plate background, theme-aware: the mol* canvas renders
+        // opaque (renderer clear color) in practice, but if a future render
+        // pipeline leaves alpha, the plate should match the viewer surface.
+        // containerRef is the inner transparent host — its PARENT carries
+        // bg-white dark:bg-zinc-950. Resolve through it; a transparent
+        // computed value falls back to the theme's --background.
+        const host = containerRef.current?.parentElement ?? containerRef.current;
+        const bg = host ? getComputedStyle(host).backgroundColor : "";
+        const plate = bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent" ? bg : "";
+        const res = await exportViewerPng({
+          canvas,
+          background: plate,
+          mapName: name,
+          sigma,
+        });
+        toast({
+          title: "3D view exported",
+          description: `${res.fileName} · ${res.width}×${res.height} px · ${fmtBytes(res.bytes)}`,
+        });
+        setShot("done");
+        setTimeout(() => setShot("idle"), 1800);
+      } catch (err) {
+        toast({
+          title: "Export failed",
+          description: err instanceof Error ? err.message : "Unknown error while capturing the view.",
+          variant: "destructive",
+        });
+        setShot("idle");
       }
     })();
   };
@@ -1247,6 +1309,27 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
       {/* corner actions */}
       {phase === "ready" ? (
         <div className="absolute right-3 top-3 z-10 flex gap-1.5">
+          <Button
+            variant="secondary"
+            size="icon"
+            className={cn(
+              "size-8 rounded-lg shadow-sm transition-colors",
+              shot === "done" &&
+                "border-emerald-500/40 text-emerald-600 hover:text-emerald-600 dark:text-emerald-400"
+            )}
+            onClick={captureView}
+            disabled={shot === "busy"}
+            aria-label="Export the current 3D view as PNG"
+            title="Export view as PNG — the exact density you see (contour, clip, slice) as a slide-ready figure"
+          >
+            {shot === "busy" ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : shot === "done" ? (
+              <Check className="size-4" />
+            ) : (
+              <Camera className="size-4" />
+            )}
+          </Button>
           <Button
             variant="secondary"
             size="icon"

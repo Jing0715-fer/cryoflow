@@ -1651,3 +1651,28 @@ Stage Summary:
 - 第 28 个发现闭环：QA fixture 三项目同名（灾难恢复遗留）正名 QA Sandbox A/B + 排序 tie-break 加固——同名项目从"无法分辨"到"可分辨且序稳定"
 - 架构认知沉淀：边是双层存储（DB 对级镜像 @@unique + sidecar 端口级真值），"26 vs 24"类差异先查 /api/edges 再定论
 - 遗留（下轮候选）：真 RELION 数据回归（EMPIAR 全链重建，需用户机器）、sparkline 触屏适配（pointermove 已覆盖）、导入对话框的"导入后 toast 内嵌切换按钮"（当前自动跟随已覆盖主场景）、项目同名时创建侧的温和提醒（如名称已被占用提示，不阻断）
+
+---
+Task ID: 28
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 续轮·沙箱重置恢复）——git reset 恢复最新代码 + 用户真机侧新提交 QA（HPC/Slurm）+ Mol* 3D 视图截图导出 + 项目重名温和提醒（Task 27 遗留#4）+ worklog + push
+
+Work Log:
+- 【开局核对·沙箱已重置】worklog 实际最新为 Task 27（指令所称 Task 13 严重过期）；发现本沙箱被回滚到 Task 18 中途快照（本地孤儿 HEAD 99e8c09，与已推送 286a288 内容完全一致仅 dev.pid 差异——git diff 实证），而 origin/main 已推进 6 个提交到 23f5d0d（Task 27 之后用户真机侧的提交：HPC/Slurm 模块、SBATCH 生成器、集群模拟器、引擎修复×3、:3001 启动器——硬编码 /home/z/cryoflow 等真机路径，未写 worklog）
+- 【恢复流程】git reset --hard origin/main（孤儿提交无损丢弃）→ bun add html-to-image@1.11.13（新依赖缺失）→ dev-server.sh playbook 重启 + 三路由预热 200；DB 随快照回滚到 Task 18 态（9 jobs 全 idle，data/relion 空）
+- 【QA·拉取代码全绿】根页/console 0 error；HPC 三路由 curl 实证（profiles 默认注册表 / sbatch dry-run / simulate 全项目模拟）；HpcSbatchDialog E2E：import job 诚实 "no builder implemented"、motioncorr 诚实 "Waiting for upstream output: micrographs.star"（idle 图无上游产出，符合设计的 dry-run 契约），Copy script 正确禁用
+- 【新功能 1·Mol* 3D 视图截图导出】①新模块 src/lib/viewer-export.ts：plugin.canvas3d 的 onscreen WebGL canvas（mol* 默认 preserveDrawingBuffer:true → drawImage 任意时刻可见当前帧）→ 2D plate 合成（背景先画 #27 教训锚定）→ 44px footer 条（--card 底 + --border 发丝线 + "CryoFlow — <map name>" 600 字重 + "contour <σ>σ · 日期" muted，cssColor 双主题实时解析）→ blob 下载 cryoflow-map-<slug>-<ts>.png + 4s revoke；backing store 天然 HiDPI 超采样（scale = backing/CSS 口径，无需 html-to-image 式手造 pixelRatio）——DOM/SVG overlay（clip 线框/控制条）刻意不入图：导出的是干净密度图；②molstar-embed.tsx corner actions 新增 Camera 按钮（busy→Loader2 / done→emerald Check 1.8s / idle→Camera，title 带说明），toast 报文件名+尺寸+字节
+- 【真 bug #29·mol* canvas 访问链】首版用 plugin.canvas3d.canvas——Canvas3D 接口根本没有 .canvas 属性（d.ts 实证：只有 webgl），运行时 toast "Nothing to capture yet"（DOM canvas 明明存在）。修正为 webgl.gl.canvas（GLRenderingContext.canvas 标准 DOM 反向引用，权威路径）+ containerRef DOM 查询兜底；plate 背景同步修正：containerRef 是内层透明 host，背景类在外层 wrapper → 读 parentElement 计算值，透明串回退 cssColor("--background")（实证 mol* renderer 自身 clear 为不透明 252,251,249，plate 仅作未来 alpha 管线的保险层）
+- 【E2E·截图导出全链】QA fixture 注入（scripts/make-qa-map.py 生成 40³ 高斯 blob → POST /api/jobs 建 refine3d → data/engine-state.json 注册 RunRecord{outputs.map_mrc} → DB status=completed）：卡片→inspector→Results→Enlarge→View in 3D→等 ready→点 Camera → toast "3D view exported cryoflow-map-sharpened-map-20260908-0203.png · 1149×469 px · 35 KB"；落盘 PNG 像素级验证：RGBA 有效、橙色 isosurface（251,173,67=0xffae42）在图、footer 深字 470px + 发丝线（216,224,227）在位；深色主题复测：footer 变 zinc-950 底（23,30,37）+ 3D 区保持 mol* 自身白底（WYSIWYG——用户所见即所得）
+- 【新功能 2·项目重名温和提醒（Task 27 遗留#4）】①NewProjectDialog：trimmed 名与已有项目 case-insensitive 相等 → 输入框下琥珀提示卡（TriangleAlert 图标 + "A project named "X" already exists — you can still create this one, but a distinct name keeps cards and exports easy to tell apart"），Create 永不禁用（合法操作只提醒不阻断），唯一名自动隐藏；②Dashboard 项目卡内联重命名：编辑中输入与"其他项目"撞名 → 卡内紧凑琥珀 nudge（"Another project is already named "X" — Enter still renames (sort order breaks ties by creation)"），只在该卡编辑态渲染、几 px 增量不破坏布局
+- 【E2E·重名提醒】对话框输入 "QA Sandbox A"（已有 4 项目）→ 琥珀卡出现 + Create disabled=false（非阻断实证）；改唯一名 → 提示消失；卡片重命名输入 "QA Sandbox C"（撞 QA Sandbox C）→ nudge 出现 → Escape 取消（fixture 零副作用）
+- 【并行会话观察】QA 期间检测到同 Job 362852 的并行 cron 轮在本沙箱活动：创建 "QA Sandbox A" 项目 + 将三重名 β-Galactosidase 项目正名 QA Sandbox B/C（Task 27 式 fixture 重建，良性）；其 DB 操作与我的文件编辑交错触发 Fast Refresh 全量重载 ×3（对话框状态被清）——方法论入库：**每次文件编辑后必须重载页面再继续 UI 测试**
+- 【运维】dev server OOM/回收崩溃 ×2（编译窗口模式）→ playbook 重启 ×2 + curl 预热；QA fixture 保留：refine3d "QA synthetic map" completed job（本 DB 唯一可开 3D viewer 的 fixture，后续轮次直接可用）；~/Downloads 保留 1 张导出样张
+- 【收尾】bun run lint 0/0；tsc src/ 0 错误（skills/ 预存在错误与项目无关）；console 0 error（molstar "not ready" debug 与 createRoot 双调用为已知 dev 模式告警）
+
+Stage Summary:
+- 沙箱重置恢复闭环：孤儿提交验证→reset→依赖补装→playbook 重启，全程零代码丢失；用户真机侧 6 提交（HPC/Slurm+引擎修复）首次在本沙箱 QA 通过
+- Mol* 3D 视图可"带走"：截图导出（WYSIWYG 密度图 + 双主题 footer 署名条 + HiDPI 超采样 + 干净图刻意排除 UI overlay）——与画布 PNG 海报（给机器重建的 JSON、给人看的画布图）组成完整三件套
+- 第 29 个真实 bug 闭环：mol* Canvas3D 无 .canvas 属性（API 幻觉）→ webgl.gl.canvas 标准路径 + DOM 兜底
+- Task 27 遗留#4 落地：项目创建/重命名双入口的琥珀撞名提醒（非阻断、自动显隐、case-insensitive）——同名项目从"事后发现难分辨"到"事前一眼提醒"
+- 遗留（下轮候选）：真 RELION 数据回归（EMPIAR 全链重建，需用户机器）、HPC SBATCH 在真集群的实测反馈、并行 cron 轮的资源竞争（同沙箱 DB/dev server 共享，建议错峰或分工作副本）、3D 截图的 σ 水印随 slice/clip 状态扩展（当前仅 contour σ）

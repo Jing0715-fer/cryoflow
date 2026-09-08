@@ -27,6 +27,7 @@ import {
   Search,
   Snowflake,
   Trash2,
+  TriangleAlert,
   Workflow,
 } from "lucide-react";
 import { useWorkflowStore } from "@/lib/store";
@@ -245,9 +246,21 @@ function DashboardProjectCard({
   onRequestDelete: () => void;
 }) {
   const renameProject = useWorkflowStore((s) => s.renameProject);
+  const allProjects = useWorkflowStore((s) => s.projects);
   const [editing, setEditing] = React.useState(false);
   const [name, setName] = React.useState(project.name);
   const [renaming, setRenaming] = React.useState(false);
+
+  // gentle, non-blocking: renaming to another project's name is legal but
+  // makes cards/exports ambiguous — hint while typing (same contract as the
+  // create dialog's amber hint)
+  const renameDup =
+    editing &&
+    name.trim() !== project.name &&
+    name.trim().length > 0 &&
+    allProjects.some(
+      (p) => p.id !== project.id && p.name.trim().toLowerCase() === name.trim().toLowerCase()
+    );
 
   const stats = project.stats;
   const total = stats?.total ?? 0;
@@ -360,6 +373,18 @@ function DashboardProjectCard({
           </Badge>
         )}
       </div>
+
+      {/* rename-collision nudge — compact so the card only grows a few px
+          while editing, and only when the typed name actually collides */}
+      {renameDup && (
+        <p className="mt-1.5 flex items-start gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[10px] leading-snug text-amber-700 dark:text-amber-400">
+          <TriangleAlert className="mt-px size-3 shrink-0" aria-hidden="true" />
+          <span>
+            Another project is already named “{name.trim()}” — Enter still
+            renames (sort order breaks ties by creation).
+          </span>
+        </p>
+      )}
 
       {/* badges + stats */}
       <div className="mt-3 flex flex-wrap items-center gap-1.5">

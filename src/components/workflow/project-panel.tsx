@@ -146,6 +146,7 @@ export function NewProjectDialog({
 }) {
   const createProject = useWorkflowStore((s) => s.createProject);
   const system = useWorkflowStore((s) => s.system);
+  const projects = useWorkflowStore((s) => s.projects);
 
   const [name, setName] = React.useState("");
   const [mode, setMode] = React.useState("spa");
@@ -157,6 +158,12 @@ export function NewProjectDialog({
     touched && (trimmed.length < 1 || trimmed.length > 80)
       ? "Name must be 1–80 characters"
       : null;
+  // gentle, non-blocking duplicate hint (Task 27 leftover): same-name
+  // projects are LEGAL (the sorter tie-breaks by id), but cards, exports
+  // and CSVs become hard to tell apart — so we nudge, never block
+  const duplicateName =
+    trimmed.length > 0 &&
+    projects.some((p) => p.name.trim().toLowerCase() === trimmed.toLowerCase());
   const relionMissing = system !== null && !system.found;
   const relionWslOnly = system !== null && system.found && system.execution === "wsl";
 
@@ -205,9 +212,18 @@ export function NewProjectDialog({
               placeholder="e.g. Apoferritin prep 04"
               aria-invalid={nameError ? true : undefined}
             />
-            {nameError && (
+            {nameError ? (
               <p className="text-[11px] text-destructive">{nameError}</p>
-            )}
+            ) : duplicateName ? (
+              <p className="flex items-start gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[11px] leading-snug text-amber-700 dark:text-amber-400">
+                <TriangleAlert className="mt-px size-3 shrink-0" aria-hidden="true" />
+                <span>
+                  A project named “{trimmed}” already exists — you can still
+                  create this one, but a distinct name keeps cards and exports
+                  easy to tell apart.
+                </span>
+              </p>
+            ) : null}
           </div>
           <div>
             <Label htmlFor="new-project-mode">Mode</Label>
