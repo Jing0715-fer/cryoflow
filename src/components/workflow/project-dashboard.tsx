@@ -32,6 +32,8 @@ import {
   TrendingUp,
   TriangleAlert,
   Workflow,
+  Filter,
+  X,
 } from "lucide-react";
 import { useWorkflowStore } from "@/lib/store";
 import { withLiveStats } from "@/lib/live-stats";
@@ -178,6 +180,9 @@ function KpiCard({
   sub,
   tone,
   spark,
+  onClick,
+  pressed,
+  hint,
 }: {
   icon: React.ReactNode;
   value: React.ReactNode;
@@ -186,9 +191,17 @@ function KpiCard({
   tone: string;
   /** optional 14-day trend sparkline — inherits the card tone (currentColor) */
   spark?: React.ReactNode;
+  /** when present the whole card drills down into the grid — rendered as a
+   *  real button so keyboard users get the same affordance for free */
+  onClick?: () => void;
+  /** active filter state for clickable cards (aria-pressed) */
+  pressed?: boolean;
+  /** one-line hint under the label — what clicking will do */
+  hint?: string;
 }) {
-  return (
-    <div className="card-lift relative flex items-center gap-3 overflow-hidden rounded-xl border bg-card p-4">
+  const interactive = typeof onClick === "function";
+  const body = (
+    <>
       <span
         className={cn(
           "flex size-10 shrink-0 items-center justify-center rounded-lg ring-1 ring-inset",
@@ -213,7 +226,47 @@ function KpiCard({
           {spark}
         </div>
       ) : null}
-    </div>
+      {/* drill-down affordances: a corner chevron whispers "clickable", the
+          pressed dot states "this card IS the active filter" — both sit
+          above the spark watermark so they never fight for attention */}
+      {interactive && !pressed ? (
+        <ChevronRight
+          className="pointer-events-none absolute right-1.5 top-1.5 size-3 text-muted-foreground/0 transition-colors group-hover/kpi:text-muted-foreground/60"
+          aria-hidden="true"
+        />
+      ) : null}
+      {pressed ? (
+        <span
+          className="pointer-events-none absolute right-2 top-2 flex items-center gap-0.5"
+          aria-hidden="true"
+        >
+          <span className="size-1.5 animate-pulse rounded-full bg-primary" />
+          <Filter className="size-2.5 text-primary" />
+        </span>
+      ) : null}
+    </>
+  );
+
+  const shell = cn(
+    "card-lift group/kpi relative flex items-center gap-3 overflow-hidden rounded-xl border bg-card p-4 text-left transition-[box-shadow,border-color,background-color]",
+    interactive
+      ? pressed
+        ? "cursor-pointer border-primary/50 ring-1 ring-primary/30"
+        : "cursor-pointer hover:border-primary/40 hover:shadow-md"
+      : "border-border"
+  );
+
+  if (!interactive) return <div className={shell}>{body}</div>;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={Boolean(pressed)}
+      title={hint ?? "Filter the project grid below"}
+      className={cn(shell, "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-1")}
+    >
+      {body}
+    </button>
   );
 }
 
