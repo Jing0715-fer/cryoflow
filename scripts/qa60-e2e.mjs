@@ -91,6 +91,11 @@ const bootCanvas = async () => {
   sh(`${AB} open ${B}`);
   await sleep(5000);
   evalJs(errCollector);
+  // Task 62 hardening: a stale persisted compare selection (left by a
+  // previous QA round in the same browser profile) would pre-tick rows
+  // and poison the 1/6 assert — the compare restore reads this key at
+  // OPEN time, so clearing it here is enough
+  evalJs(`(() => { const ks = Object.keys(localStorage).filter(k => k.startsWith('cryoflow.fsc-compare')); ks.forEach(k => localStorage.removeItem(k)); return 'cleared'; })()`);
   for (let i = 0; i < 12; i++) {
     const probe = evalJs(`(() => {
       const card = [...document.querySelectorAll('[role=button]')].find(x => (x.textContent||'').includes('${HOST_JOB}'));

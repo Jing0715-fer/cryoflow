@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
-"""Task 60 E2E seed — three FSC-bearing jobs with REAL-shape curves on
+"""Task 60/62 E2E seed — three FSC-bearing jobs with REAL-shape curves on
 DIFFERENT resolution grids, so the compare-FSC overlay dialog has a
 three-way comparison to render (two postprocess corrected curves + one
-refine3d gold-standard half-map curve).
+refine3d gold-standard half-map curve), plus (Task 62) a fourth RUNNING
+refine3d whose row exercises the live badge + re-scan affordances.
 
 Curve model (logistic, anchored to RELION conventions — same family as
 qa50's seed, retargeted per job):
   curve(f) = 0.97/(1+exp((f-fm)/0.0226)) + 0.005
   → crosses 0.143 at fm + 1.7969*w  (w = 0.0226 → +0.0406)
 
-  job            target    fm       grid (1/Å)      Nyquist
-  QA Post 320    3.20 Å    0.2719   0.01–0.35 ×41   2.857 Å
-  QA Post 385    3.85 Å    0.2191   0.01–0.30 ×31   3.333 Å
-  QA Refine 410  4.10 Å    0.2033   0.01–0.28 ×24   3.571 Å
+  job             target    fm       grid (1/Å)      Nyquist
+  QA Post 320     3.20 Å    0.2719   0.01–0.35 ×41   2.857 Å
+  QA Post 385     3.85 Å    0.2191   0.01–0.30 ×31   3.333 Å
+  QA Refine 410   4.10 Å    0.2033   0.01–0.28 ×24   3.571 Å
+  QA Refine Live  4.60 Å    0.1772   0.01–0.22 ×20   4.545 Å  (RUNNING)
 
 Distinct grids matter: the overlay merges shells from all curves onto a
 UNION resolution axis with per-curve gap-bridging, so co-sampled points
@@ -21,10 +23,15 @@ would hide a broken merge.
 Job skeleton follows qa58's convention: create via API (idempotent by
 name), flip to completed straight in the DB (PATCH only allows idle),
 hand-write the engine-state run record (a seeded job never went through
-dispatch, and every workdir-reading route refuses jobs without one).
+dispatch, and every workdir-reading route refuses jobs without one). The
+live job keeps done=False and a None pid — nothing in the app
+re-dispatches or liveness-checks running rows, so it stays honestly
+"running" until cleanup.
 
 Usage: python3 scripts/qa60-seed-fsc.py [--clean]
-  --clean removes the seeded star files + engine-state entries (jobs stay).
+  --clean removes the seeded star files + engine-state entries (the four
+  completed jobs stay; the QA Refine Live job is DELETED via the API so no
+  fake running card lingers on the canvas).
 """
 import datetime
 import json
@@ -48,6 +55,13 @@ SPECS = [
     ("QA Post 385",   "postprocess", 3.85, 0.30, 31, 460, 780),
     ("QA Refine 410", "refine3d",    4.10, 0.28, 24, 770, 780),
 ]
+
+# Task 62: a still-running refinement — its iteration checkpoint matches
+# the index regex (^run_it(\d+)_(half1_)?model\.star$), its row shows the
+# pulsing live badge, and the header re-scan button has something honest
+# to re-read (a refinement's newest FSC lands as iterations complete)
+LIVE = ("QA Refine Live", "refine3d", 4.60, 0.22, 20, 770, 590)
+LIVE_CHECKPOINT = "run_it014_half1_model.star"
 
 
 def api(path, method="GET", body=None):
@@ -121,38 +135,38 @@ def model_star(fm: float, f1: float, n: int) -> str:
     return "\n".join(lines) + "\n"
 
 
-def flip_status(job_id: str) -> None:
+def flip_status(job_id: str, status: str = "completed", progress: int = 100) -> None:
     mark = """
 const { PrismaClient } = require('@prisma/client');
 const p = new PrismaClient();
-p.job.update({ where: { id: process.argv[1] }, data: { status: 'completed', progress: 100 } })
-  .then(() => { console.log('completed'); return p.$disconnect(); })
+p.job.update({ where: { id: process.argv[1] }, data: { status: process.argv[2], progress: Number(process.argv[3]) } })
+  .then(() => { console.log('flipped'); return p.$disconnect(); })
   .catch((e) => { console.error(e.message); process.exit(1); });
 """
     r = subprocess.run(
-        ["node", "-e", mark, job_id],
+        ["node", "-e", mark, job_id, status, str(progress)],
         cwd="/home/z/my-project", capture_output=True, text=True,
     )
-    if "completed" not in r.stdout:
+    if "flipped" not in r.stdout:
         sys.exit(f"DB status flip failed for {job_id}: {r.stderr.strip()[:200]}")
 
 
-def register_run(job: dict, workdir: str) -> None:
+def register_run(job: dict, workdir: str, done: bool = True, pid=None) -> None:
     with open(STATE_PATH) as f:
         state = json.load(f)
     state[job["id"]] = {
         "jobId": job["id"],
         "projectId": PROJECT,
         "type": job["type"],
-        "pid": None,
+        "pid": pid,
         "cmd": "qa-fixture (qa60-seed-fsc.py)",
         "workdir": workdir,
         "logFile": os.path.join(workdir, "run.out"),
         "errFile": os.path.join(workdir, "run.err"),
         "startedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "outputs": {},
-        "done": True,
-        "exitCode": 0,
+        "done": done,
+        "exitCode": 0 if done else None,
     }
     with open(STATE_PATH, "w") as f:
         json.dump(state, f, indent=2)
@@ -211,13 +225,60 @@ def main() -> None:
         print(f"  seeded {fname} → 0.143 @ ~{1.0 / f_cross:.2f} Å (target {target})")
 
     if not clean:
-        # verify through the app's own API — the index must discover all three
+        # ----- Task 62: the live running refinement -----
+        name, jtype, target, f1, n, x, y = LIVE
+        job = next((j for j in jobs if j.get("name") == name), None)
+        if job is None:
+            r = api("/api/jobs", "POST", {"type": jtype, "x": x, "y": y, "workspaceId": WORKSPACE})
+            job = r.get("job") or r
+            api(f"/api/jobs/{job['id']}", "PATCH", {"name": name})
+            print(f"{name} (created): {job['id']}")
+        else:
+            print(f"{name} (existing): {job['id']}")
+
+        workdir = os.path.join(
+            "/home/z/my-project/data/relion", PROJECT, f"{jtype}_{job['id'][-8:]}"
+        )
+        os.makedirs(workdir, exist_ok=True)
+        fpath = os.path.join(workdir, LIVE_CHECKPOINT)
+        with open(fpath, "w") as fh:
+            fh.write(model_star(fm_for(target), f1, n))
+        created_files.append(fpath)
+
+        # running rows keep done=False — and NEED a pid that /proc resolves:
+        # the /api/jobs reconcile probes pidAlive(state.pid) and flips
+        # pid-less running rows to failed ('stale running state'). pid 1 is
+        # init, exists on every Linux box, owns nothing we could hurt (a
+        # stop call would signal-0 probe only — QA never stops this job)
+        flip_status(job["id"], status="running", progress=42)
+        register_run(job, workdir, done=False, pid=1)
+        f_cross = fm_for(target) + 1.7969 * W
+        print(f"  seeded {LIVE_CHECKPOINT} (status running) → 0.143 @ ~{1.0 / f_cross:.2f} Å (target {target})")
+
+    if not clean:
+        # verify through the app's own API — the index must discover all
+        # five (four completed + the running checkpoint)
         idx = api(f"/api/projects/{PROJECT}/fsc-index")
         names = {j["name"] for j in idx.get("jobs", [])}
-        missing = {s[0] for s in SPECS} - names
+        want = {s[0] for s in SPECS} | {LIVE[0]}
+        missing = want - names
         if missing:
             sys.exit(f"seed verification FAILED — index missing: {missing}")
-        print(f"index verified: {len(idx['jobs'])} FSC jobs, seeded names all present")
+        live_row = next(j for j in idx["jobs"] if j["name"] == LIVE[0])
+        if live_row.get("status") != "running" or not live_row["sourceFile"].startswith("run_it"):
+            sys.exit(f"seed verification FAILED — live row wrong: {live_row}")
+        print(f"index verified: {len(idx['jobs'])} FSC jobs (live row: {live_row['sourceFile']}, running)")
+    else:
+        # clean must ALSO delete the live job — a fake running card must
+        # never linger on the canvas between QA rounds
+        jobs = api("/api/jobs")
+        jobs = jobs["jobs"] if isinstance(jobs, dict) else jobs
+        live = next((j for j in jobs if j.get("name") == LIVE[0]), None)
+        if live is not None:
+            api(f"/api/jobs/{live['id']}", "DELETE")
+            print(f"clean: deleted live job {LIVE[0]}")
+        else:
+            print("clean: live job already absent")
 
 
 if __name__ == "__main__":

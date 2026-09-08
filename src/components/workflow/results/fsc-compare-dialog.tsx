@@ -24,10 +24,25 @@
  *
  * Selection persists per project (localStorage) — reopening the dialog
  * restores last time's comparison.
+ *
+ * Acting on the comparison (Task 62): hovering a candidate row or legend
+ * chip highlights ITS curve and dims the rest (the eye needs a tether
+ * between a row and a line among six); every non-host job name is a
+ * button that jumps the inspector straight to that job; rows for still-
+ * running refinements carry a pulsing live badge and the header gains a
+ * re-scan button — a refinement lands a new model checkpoint every few
+ * minutes, so a comparison opened an hour ago is stale by definition.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { GitCompareArrows, Info, Loader2, Waves } from "lucide-react";
+import {
+  ArrowUpRight,
+  GitCompareArrows,
+  Info,
+  Loader2,
+  RefreshCw,
+  Waves,
+} from "lucide-react";
 import {
   CartesianGrid,
   Line,
@@ -39,6 +54,7 @@ import {
   YAxis,
 } from "recharts";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useWorkflowStore } from "@/lib/store";
 import {
   Dialog,
   DialogContent,
@@ -137,8 +153,15 @@ export function FscCompareDialog({
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [curves, setCurves] = useState<Map<string, FscResponse | null>>(new Map());
   const [hidden, setHidden] = useState<Set<string>>(new Set());
+  /** the job whose row/legend chip is hovered (or keyboard-focused) — its
+   *  curve bolds while the others dim, tying list entries to lines */
+  const [hoverId, setHoverId] = useState<string | null>(null);
+  /** bumped by the header re-scan button — re-runs discovery AND curve
+   *  fetches (running refinements land new checkpoints while open) */
+  const [scan, setScan] = useState(0);
+  const [scanning, setScanning] = useState(false);
   const restoreLatch = useRef(false);
-
+  const inspect = useWorkflowStore((s) => s.inspect);
   /* ---------- discovery + selection restore ---------- */
   useEffect(() => {
     if (!open) return;
@@ -146,12 +169,13 @@ export function FscCompareDialog({
 
     (async () => {
       // stale-open reset + index refetch happen after the commit yields —
-      // a dialog re-opening clears last open's fetch state first
+      // a dialog re-opening starts discovery from scratch (the CURVE cache
+      // is reset on close — see the close-time reset below — so the open
+      // commit's curve-effect re-run already sees an empty cache)
       await Promise.resolve();
       if (cancelled) return;
       setIndex(null);
       setIndexError(false);
-      setCurves(new Map());
       setHidden(new Set());
 
       try {
@@ -162,6 +186,7 @@ export function FscCompareDialog({
         if (cancelled) return;
         const jobs = body.jobs ?? [];
         setIndex(jobs);
+        setScanning(false);
 
         // restore the persisted selection once per mount; the launching
         // job always joins (it demonstrably has a curve — its card is
@@ -184,13 +209,18 @@ export function FscCompareDialog({
           setPicked(next);
         }
       } catch {
-        if (!cancelled) setIndexError(true);
+        if (!cancelled) {
+          setIndexError(true);
+          setScanning(false);
+        }
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [open, projectId, currentJobId]);
+    // `scan` re-runs discovery on the header re-scan button; the restore
+    // latch keeps the persisted selection intact across re-scans
+  }, [open, projectId, currentJobId, scan]);
 
   /* ---------- persist selection ---------- */
   useEffect(() => {
@@ -255,8 +285,9 @@ export function FscCompareDialog({
     };
     // the effect reads `curves` only to decide which targets are missing;
     // re-running on its own writes would loop — the narrower dep list is
-    // deliberate (picked/open are the real triggers)
-  }, [picked, open]);
+    // deliberate (picked/open are the real triggers; `scan` joins because
+    // a re-scan empties the map to force re-reads)
+  }, [picked, open, scan]);
 
   /* ---------- merged resolution grid ---------- */
   const rows = useMemo(() => {
@@ -287,6 +318,50 @@ export function FscCompareDialog({
   const loaded = [...picked].filter((id) => curves.has(id));
   const anyData = [...curves.values()].some((c) => c && c.shells.length > 0);
 
+  /* ---------- hover highlight ---------- */
+  // Hovering a row/legend bolds ITS curve and dims the others — but only
+  // when the hovered job actually owns a VISIBLE curve: a hidden, unpicked
+  // or still-loading curve must not dim everything into fog.
+  const highlightId =
+    hoverId != null &&
+    picked.has(hoverId) &&
+    !hidden.has(hoverId) &&
+    (curves.get(hoverId)?.shells.length ?? 0) > 0
+      ? hoverId
+      : null;
+
+  /* ---------- header re-scan ---------- */
+  const rescan = useCallback(() => {
+    setScanning(true);
+    // drop every fetched curve so the curve effect re-reads the picked
+    // jobs (a running refinement may have landed a newer checkpoint), then
+    // bump `scan` to re-run discovery alongside
+    setCurves(new Map());
+    setScan((s) => s + 1);
+  }, []);
+
+  /* ---------- close-path cache reset ---------- */
+  // Every dismissal (Esc, overlay click, jump-to-job) funnels through
+  // onOpenChange(false) — the perfect place to wipe the curve cache: it is
+  // an EVENT handler (no setState-in-effect lint cascade), fully
+  // synchronous, and by the time the dialog reopens the cache is already
+  // empty, so the open commit's curve-effect re-run sees zero targets and
+  // refetches everything. The Task 60 placement (wipe in the open
+  // effect's async body) landed one microtask AFTER the curve effect had
+  // already read the stale cache — the effect computed zero targets,
+  // never re-ran (curves is deliberately not its dependency), and the
+  // dialog hung on "Reading curves…" forever (caught by qa62's jump path:
+  // reopen on a live mount).
+  const handleOpenChange = useCallback(
+    (o: boolean) => {
+      if (!o) {
+        setCurves((prev) => (prev.size > 0 ? new Map() : prev));
+      }
+      onOpenChange(o);
+    },
+    [onOpenChange]
+  );
+
   const toggle = useCallback((id: string) => {
     setPicked((prev) => {
       const next = new Set(prev);
@@ -305,7 +380,7 @@ export function FscCompareDialog({
   }, []);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
         className="flex max-h-[85vh] w-[calc(100vw-2rem)] max-w-2xl flex-col gap-4 overflow-hidden sm:max-w-2xl"
         onKeyDown={(e) => {
@@ -314,11 +389,12 @@ export function FscCompareDialog({
           // dismissable-layer stack — both layers see themselves as highest
           // and BOTH would dismiss (the inspector behind dies with it).
           // Consuming Escape at the React level stops the event before the
-          // document-level Radix listeners ever fire; we close ourselves.
+          // document-level Radix listeners ever fire; we close ourselves
+          // (through handleOpenChange so the close-path cache reset runs).
           if (e.key === "Escape") {
             e.preventDefault();
             e.stopPropagation();
-            onOpenChange(false);
+            handleOpenChange(false);
           }
         }}
       >
@@ -329,6 +405,20 @@ export function FscCompareDialog({
             <span className="rounded-full border border-muted-foreground/25 bg-muted px-2 py-0.5 text-[11px] font-semibold tabular-nums text-muted-foreground">
               {pickedCount}/{MAX_CURVES}
             </span>
+            <button
+              type="button"
+              onClick={rescan}
+              disabled={scanning}
+              data-testid="fsc-compare-rescan"
+              aria-label="Re-scan the project for FSC curves"
+              title="Re-scan the project for FSC curves — running refinements land a new model checkpoint every few minutes, so an index read from a minute ago is already stale"
+              className="ml-auto inline-flex size-6 items-center justify-center rounded-md border border-transparent text-muted-foreground transition-colors hover:border-border hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+            >
+              <RefreshCw
+                className={cn("h-3.5 w-3.5", scanning && "animate-spin motion-reduce:animate-none")}
+                aria-hidden="true"
+              />
+            </button>
           </DialogTitle>
           <DialogDescription>
             Overlay the official criterion curve of every selected job —
@@ -368,6 +458,8 @@ export function FscCompareDialog({
             const isPicked = picked.has(job.jobId);
             const atCap = !isPicked && pickedCount >= MAX_CURVES;
             const curve = curves.get(job.jobId);
+            const isHost = job.jobId === currentJobId;
+            const isRunning = job.status === "running";
             return (
               <label
                 key={job.jobId}
@@ -385,6 +477,8 @@ export function FscCompareDialog({
                     ? `The overlay holds ${MAX_CURVES} curves at most — untick one first`
                     : `${job.sourceFile} — ${job.source === "postprocess" ? "masked + corrected criterion" : "gold-standard half-map curve"}`
                 }
+                onMouseEnter={() => setHoverId(job.jobId)}
+                onMouseLeave={() => setHoverId((h) => (h === job.jobId ? null : h))}
               >
                 <Checkbox
                   checked={isPicked}
@@ -392,18 +486,55 @@ export function FscCompareDialog({
                   onCheckedChange={() => toggle(job.jobId)}
                   aria-label={`Compare ${job.name}`}
                 />
-                <span
-                  className={cn("inline-block size-1.5 shrink-0 rounded-full", statusDot(job.status))}
-                  aria-hidden="true"
-                />
-                <span className="min-w-0 flex-1 truncate text-xs font-medium">
-                  {job.name}
-                  {job.jobId === currentJobId && (
+                {isRunning ? (
+                  <span
+                    className="relative inline-flex size-1.5 shrink-0"
+                    data-testid="fsc-compare-live"
+                    role="img"
+                    aria-label={`${job.name} is still running — its curve grows as iterations land`}
+                  >
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal-400 opacity-75 motion-reduce:animate-none" />
+                    <span className="relative inline-flex size-1.5 rounded-full bg-teal-500" />
+                  </span>
+                ) : (
+                  <span
+                    className={cn("inline-block size-1.5 shrink-0 rounded-full", statusDot(job.status))}
+                    aria-hidden="true"
+                  />
+                )}
+                {isHost ? (
+                  <span className="min-w-0 flex-1 truncate text-xs font-medium">
+                    {job.name}
                     <span className="ml-1.5 text-[10px] font-normal text-muted-foreground">
                       (this job)
                     </span>
-                  )}
-                </span>
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    data-testid={`fsc-compare-jump-${job.jobId}`}
+                    title={`Open ${job.name} in the inspector — its card, curves and outputs replace this one`}
+                    onClick={(e) => {
+                      // the row is a <label> for the checkbox — a click on
+                      // the name button must NOT forward to the checkbox
+                      // (preventDefault for the browsers that would, plus
+                      // this is a navigation, not a selection change);
+                      // handleOpenChange also wipes the curve cache before
+                      // the whole subtree swaps to the jumped-to job
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleOpenChange(false);
+                      inspect(job.jobId);
+                    }}
+                    className="flex min-w-0 flex-1 items-center gap-0.5 rounded-sm text-left text-xs font-medium underline-offset-2 decoration-dotted hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                  >
+                    <span className="truncate">{job.name}</span>
+                    <ArrowUpRight
+                      className="h-3 w-3 shrink-0 text-muted-foreground/50"
+                      aria-hidden="true"
+                    />
+                  </button>
+                )}
                 <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70">
                   {job.type}
                 </span>
@@ -535,7 +666,8 @@ export function FscCompareDialog({
                           dataKey={seriesKey(id)}
                           name={index?.find((e) => e.jobId === id)?.name ?? id}
                           stroke={pal.stroke}
-                          strokeWidth={2}
+                          strokeWidth={highlightId === id ? 3 : 2}
+                          strokeOpacity={highlightId == null || highlightId === id ? 1 : 0.15}
                           dot={false}
                           activeDot={{ r: 4, fill: pal.stroke }}
                           connectNulls
@@ -573,6 +705,10 @@ export function FscCompareDialog({
                         return next;
                       })
                     }
+                    onMouseEnter={() => setHoverId(id)}
+                    onMouseLeave={() => setHoverId((h) => (h === id ? null : h))}
+                    onFocus={() => setHoverId(id)}
+                    onBlur={() => setHoverId((h) => (h === id ? null : h))}
                     title={
                       c?.sourceFile
                         ? `${c.sourceFile} — click to ${isHidden ? "show" : "hide"} this curve`
@@ -582,7 +718,10 @@ export function FscCompareDialog({
                       "inline-flex max-w-56 items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
                       isHidden
                         ? "border-muted-foreground/25 bg-muted text-muted-foreground/60 line-through"
-                        : "border-border bg-background hover:border-primary/40"
+                        : "border-border bg-background hover:border-primary/40",
+                      highlightId === id &&
+                        !isHidden &&
+                        "border-primary/50 bg-primary/5 ring-1 ring-primary/30"
                     )}
                   >
                     <span
