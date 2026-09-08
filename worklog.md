@@ -2302,3 +2302,25 @@ Stage Summary:
 - Dashboard 墙从「 glance + 溢出提示」升级为「glance + 一键全览」；report 从「目录开头」到「返回目录收尾」——三处都是同一设计观的落地：可见物有等价操作、诚实计数、导航闭环
 - 运维沉淀（本轮最值钱）：①孤儿 server 的真身是进程改名——pkill -f 必失配，ss → pid → kill -9 是唯一可靠链；②stale-chunk 空壳的诊断入口是 performance entries 的 404 状态（bodyLen 恒定 + 零交互是症状）；③prod QA 服务器从 standalone 改判 next start（静态层完整、内存同稳）
 - 遗留（下轮候选）：GIF 帧内容级目检（落盘逐帧抽检）；Import dialog 的 header toggle 键盘可达性已有（原生 button）但可加 ⌘A 作用域化；dev overlay「1 Issue」定位（dev-only）；workflow-import 多文件（低优先）；真 RELION 数据回归（EMPIAR 全链重建，重）
+
+---
+Task ID: 58
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 晨轮 2026-09-09 03:29）——落地 Class selection gallery 放大检视 lightbox（zoom 按钮 + Dialog + ←/→ 环形导航 + Enter/Space keep 开关 + 邻图预加载）；连带把 dashboard 1-4 与 lightbox 快捷键收录进 help popover；种子过程揪出 classes 路由 stack 过滤器死代码真 bug（真实 RELION 布局下画廊永远 no image）+ 修出 lightbox Esc 连锁关闭 job 面板的 UX 纸刀；qa58 三阶段两连全绿（production `next start` 模式）+ qa47 A 回归绿；worklog + push
+
+Work Log:
+- 【开局核对】交接摘要第 9 轮过期（停在 Task 47）——worklog 实际最新 Task 57、HEAD ad9c7bb == origin 干净；任务原文的 Task 13 清单经核实全部闭环（3D 体积截面工具在 Task 22-53 间已落地：Slice 开关+轴+滑杆+σ 同步+水印全链 E2E）→ 转新功能；现场勘查选定「class gallery lightbox」：挑类（class selection）是 cryo-EM 真实痛点，RELION 的 subset display 原生有 zoom，应用内画廊 384px 缩略图看不清细节
+- 【功能·lightbox】ClassGallery 每卡新增 hover-zoom 按钮（Maximize2，group-hover/cell + focus-visible 双显——键盘用户也能到）：关键 HTML 约束是卡片本体是 button、zoom 必须做兄弟节点绝对定位覆盖右上角（button 不能嵌套）；Dialog 内容 = 标题行（类号 chip 随 keep 态换色 + kept/discarded 徽章 + rank #N by occupancy + 百分比）+ 大图（同 slice URL 服务端 ≤384px）+ 底栏（‹ › 环形导航 + "k / N" 计数 + 粒子数 + Keep class 主按钮 aria-pressed）；←/→ 环形导航（首尾回绕）、Enter/Space 在 dialog 根上即为主按钮开关（BUTTON 聚焦时礼让原生语义）；邻图预加载 effect（zoom±1 new Image().src，切片几十 KB 近乎免费）
+- 【bug1·classes 路由 stack 过滤器死代码】种子验证抓到 classesFile=None——stackNames 收集器的正则 `(?:run_it|_it)\d+_classes|(?:run_it|_it)_unmasked_classes` 与下方 unmasked 查找器 `\d+_unmasked_classes|^run_unmasked_classes` 不一致：`run_unmasked_classes.mrcs`（RELION 5 最终栈，画廊注释里写的正是它）和 `run_itNNN_unmasked_classes.mrcs` 进不了候选列表，查找器是死代码——真实 RELION 输出布局下画廊将永远显示 "no image"；修为收集器三模式并列（per-iter masked / per-iter unmasked / RELION 5 final unmasked），查找器逻辑不动
+- 【bug2·Esc 连锁关闭】lightbox 打开按 Esc 会把身后的 job 面板也关掉——page.tsx 的 window 级 Escape handler（注释声称「Radix 先处理自己」但对 controlled dialog 不成立：Radix 的 document listener 不 stopPropagation）会 select(null) 取消选择；修法：DialogContent 的 onKeyDown 消费 Escape（preventDefault + stopPropagation + setZoom(null)）——阻断 document/window 链后 Radix 的 dismiss 也被拦，手动关；这是真实用户纸刀不只是 QA 问题
+- 【种子·qa58-seed-gallery.py】幂等建 QA Class2D Source（completed）/ QA Class Select（**idle**——completed 卡点击开的是 inspector modal，画廊只住参数面板，idle 才是「先挑类再运行」的真实流）+ edge classAverages→classes + prisma 直改状态 + engine-state.json 手写 run 记录（outputs/file 无 run 记录一律 400「No on-disk outputs」，种子 job 没走过 dispatch 必须补）+ workdir 播种：run_it012_data.star（1455 粒子 8 类 [420,300,240,180,120,90,60,45]→auto 0.5×best=210 保 1-3）+ run_it012_unmasked_classes.mrcs（64×64×8 mode2 MRC2014 手写头，8 片图案互异：donut/rod/dimer/对角纹/crescent/散斑/偏心 blob/近空点）；--clean 连带 pop engine-state 条目；selectedClasses 幂等重置 auto（上轮 FATAL 退出会留手动模式）
+- 【e2e·qa58 三阶段两连全绿（production next start）】A：8 卡 + auto 3 保 + footer 960/1,455(66%) + zoom 开 Class 2（counter 2/8、rank #2、kept、大图 alt）+ 箭头矩阵（→3、←×2→1、←环绕→8、→环绕→1、rank #1）+ keep 按钮双向翻转 + Esc 关 + 选择不变 + Enter 保 discard 类 8（卡 aria-pressed 翻转 + footer 1,005 手动）+ 卡点回归（类 4 加入 footer 1,185——断言曾写 1,125 是自己算错）+ lightbox 截图 + 复位 auto；B：help 列 dashboard 1-4 与 lightbox ←/→；C：console 0 error + 清场
+- 【QA 探针三课】①卡片是 button → zoom 兄弟节点后，卡选择器必须走 [data-canvas-ui=class-grid] 作用域（:scope 嵌套路径脆）②eval 桥 JSON.parse 把裸 `0` 变数字——errCount 的 `errs === "0"` 永假，String() 比较（qa57 同款代码侥幸只因从未在 0 时断言）③视口 1280 恰在 xl 断点，1280×577 时 completed 卡开 inspector modal、idle 卡开 sheet——set viewport 1600 900 走桌面 aside 路径 + 面板 body tabs 默认 I/O，画廊在 Params 标签下
+- 【运维·OOM 又双叒】qa58 首轮 A 全绿后二轮开场 next-server 被 OOM 杀（anon 2.8GB）——按 Task 54/55 配方整体转 production：NODE_OPTIONS cap 1536 build + `bun next start`（build 脚本顺带 cp static 到 standalone 不影响 next start 读完整 .next）→ 两连 A,B,C 全绿内存平稳；生产服务器留到收尾由 dev server 接回
+- 【收尾】eslint 0、tsc src 0；qa58-lightbox.png 目检出版级（标题行徽章/环形图/导航栏/背后画廊 8 图案互异全可辨）；seed --clean 无残留；浏览器已关
+
+Stage Summary:
+- 挑类工作流的「看清再决定」补完：384px 缩略图网格 + 一键放大检视 + 键盘全导航（←/→ 环形浏览、Enter 开关 keep、Esc 关闭不牵连面板）——inspect→decide→toggle 在一个对话框里闭环，rank/百分比/粒子数让「这个类值不值得留」有数字可依；邻图预加载让连续浏览无白闪
+- 两个真 bug 都是种子过程捞出来的：①stack 过滤器死代码只有「用真实 RELION 文件名播种」才暴露（单测/自测都用 masked 栈名绕过了它）②Esc 连锁只有「在面板内开 controlled dialog」这个组合才触发——QA 种子造的是真实数据布局，不是合成快照
+- 方法论沉淀：①面板内 controlled dialog 的 Esc 必须自吞（stopPropagation）否则窗口级 handler 链会越权关闭身后的编辑现场 ②idle/completed 卡点击语义分叉（参数面板 vs inspector modal）是 QA bootstrap 的隐藏分叉点，视口宽度还掺一脚（xl 断点）③production 模式跑 QA 的配方已稳定到「build → next start → 预热 → 全套一次过」零惊喜
+- 遗留（下轮候选）：workflow-import 多文件（低优先）；dev overlay「1 Issue」定位（dev-only 观察）；真 RELION 数据回归（EMPIAR 全链重建，重）；gallery 卡片键盘可达性已有（原生 button）但 zoom 按钮在 tab 序里 8×2 个 stop 可考虑 roving tabindex；report 图表在深色模式下的打印样式

@@ -35,6 +35,7 @@ const TIPS: { icon: React.ReactNode; text: string }[] = [
 const SHORTCUTS: { keys: string; text: string }[] = [
   { keys: "⌘/Ctrl K", text: "Command palette — jump, add, run" },
   { keys: "⇧ D", text: "Toggle canvas ⇄ project dashboard" },
+  { keys: "1–4", text: "Dashboard — grid filter (1 all · 2 running · 3 completed · 4 failed)" },
   { keys: "F", text: "Focus the selected job" },
   { keys: "0", text: "Reset the view (100 %)" },
   { keys: "+ / -", text: "Zoom in / out" },
@@ -46,6 +47,7 @@ const SHORTCUTS: { keys: string; text: string }[] = [
   { keys: "⌘/Ctrl D", text: "Duplicate the selection (1 job or a group)" },
   { keys: "Del", text: "Delete the selection (confirms first)" },
   { keys: "Esc", text: "Cancel wire · collapse selection · close panels" },
+  { keys: "← / →", text: "Class gallery lightbox — browse averages (Enter toggles keep)" },
 ];
 
 export function HelpPopover() {

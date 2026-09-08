@@ -15,10 +15,25 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { Grid2x2Check, Loader2, Sparkles, Users } from "lucide-react";
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Grid2x2Check,
+  Loader2,
+  Maximize2,
+  Sparkles,
+  Users,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { EdgeDTO, JobDTO } from "@/lib/types";
 import { useWorkflowStore } from "@/lib/store";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface ClassOccupancy {
   cls: number;
@@ -123,6 +138,64 @@ export function ClassGallery({
     if (next.has(cls)) next.delete(cls);
     else next.add(cls);
     onChange([...next].sort((a, b) => a - b).join(","));
+  };
+
+  // ---------------- lightbox (zoom inspection) ----------------
+  // occupancy rank: 1 = most occupied class (ties broken by class number)
+  const rankByCls = useMemo(() => {
+    const ordered = [...classes].sort((a, b) => b.count - a.count || a.cls - b.cls);
+    return new Map(ordered.map((c, i) => [c.cls, i + 1]));
+  }, [classes]);
+
+  /** class under inspection in the lightbox — cls number, null = closed */
+  const [zoom, setZoom] = useState<number | null>(null);
+  const zoomIdx = zoom == null ? -1 : classes.findIndex((c) => c.cls === zoom);
+  const zoomClass = zoomIdx >= 0 ? classes[zoomIdx] : null;
+
+  // wrap-around navigation inside the lightbox
+  const stepZoom = (dir: 1 | -1) => {
+    if (zoomIdx < 0 || classes.length === 0) return;
+    const next = classes[(zoomIdx + dir + classes.length) % classes.length];
+    setZoom(next.cls);
+  };
+
+  // preload the two neighbours so ← / → feels instant — class stacks are
+  // small (a few dozen KB per slice), prefetching is effectively free
+  useEffect(() => {
+    if (zoomIdx < 0 || !classesFile) return;
+    for (const d of [1, -1] as const) {
+      const n = classes[(zoomIdx + d + classes.length) % classes.length];
+      if (!n) continue;
+      const img = new Image();
+      img.src = `/api/jobs/${upstream.id}/outputs/file?path=${encodeURIComponent(classesFile)}&format=png&montage=0&slice=${n.cls - 1}`;
+    }
+  }, [zoomIdx, classesFile, classes]);
+
+  // ← / → inside the dialog walk the classes; Radix handles focus trap
+  const onLightboxKey = (e: React.KeyboardEvent) => {
+    if (e.key === "Escape") {
+      // consume Esc HERE: the canvas-level window handler would otherwise
+      // also fire (Radix's document listener doesn't stop propagation) and
+      // deselect the job behind the panel — closing the lightbox must not
+      // close the gallery the user is mid-selection in
+      e.preventDefault();
+      e.stopPropagation();
+      setZoom(null);
+      return;
+    }
+    if (e.key === "ArrowRight") {
+      e.preventDefault();
+      stepZoom(1);
+    } else if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      stepZoom(-1);
+    } else if (e.key === "Enter" || e.key === " ") {
+      // the keep/discard toggle is the dialog's primary action — make it
+      // reachable without hunting for the button (Space scrolls otherwise)
+      if (e.target instanceof HTMLElement && ["BUTTON", "INPUT", "TEXTAREA"].includes(e.target.tagName)) return;
+      e.preventDefault();
+      if (zoomClass) toggle(zoomClass.cls);
+    }
   };
 
   // ---------------- empty / loading states ----------------
@@ -252,6 +325,7 @@ export function ClassGallery({
 
       {/* the grid */}
       <div
+        data-canvas-ui="class-grid"
         className={cn(
           "grid gap-2 p-2",
           "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
@@ -262,8 +336,8 @@ export function ClassGallery({
           const on = kept.has(c.cls);
           const share = maxCount > 0 ? c.count / maxCount : 0;
           return (
+            <div key={c.cls} className="group/cell relative">
             <button
-              key={c.cls}
               type="button"
               onClick={() => toggle(c.cls)}
               aria-pressed={on}
@@ -322,12 +396,36 @@ export function ClassGallery({
                 </div>
               </div>
             </button>
+
+            {/* zoom affordance — a SIBLING of the toggle button (buttons
+                cannot nest): overlays the thumbnail's top-right corner on
+                hover/focus-within, opens the inspection lightbox */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setZoom(c.cls);
+              }}
+              aria-label={`Zoom class ${c.cls} — inspect the average full size`}
+              title="Inspect full size (← / → to browse)"
+              data-canvas-ui="class-zoom"
+              className={cn(
+                "absolute right-1.5 top-1.5 z-10 grid size-6 place-items-center rounded-md",
+                "bg-black/55 text-zinc-100 shadow-sm backdrop-blur-sm",
+                "opacity-0 transition-opacity duration-150",
+                "group-hover/cell:opacity-100 focus-visible:opacity-100",
+                "hover:bg-black/80 focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:outline-none"
+              )}
+            >
+              <Maximize2 className="size-3" aria-hidden="true" />
+            </button>
+          </div>
           );
         })}
       </div>
 
       {/* footer: effective selection */}
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-t bg-secondary/30 px-3 py-2 text-[11px]">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-t bg-secondary/30 px-3 py-2 text-[11px]" data-canvas-ui="class-gallery-footer">
         <span className="font-semibold">
           {isAuto ? (
             <>
@@ -348,6 +446,128 @@ export function ClassGallery({
           </span>
         </span>
       </div>
+
+      {/* ---------------- inspection lightbox ---------------- */}
+      <Dialog
+        open={zoomClass != null}
+        onOpenChange={(o) => {
+          if (!o) setZoom(null);
+        }}
+      >
+        <DialogContent
+          className="max-w-2xl gap-0 overflow-hidden p-0"
+          onKeyDown={onLightboxKey}
+          aria-describedby={undefined}
+        >
+          {zoomClass && (
+            <>
+              <DialogTitle asChild>
+                <div className="flex flex-wrap items-center gap-2 border-b px-4 py-3">
+                  <span
+                    className={cn(
+                      "grid size-6 place-items-center rounded-md font-mono text-xs font-bold tabular-nums",
+                      kept.has(zoomClass.cls)
+                        ? "bg-teal-600 text-white"
+                        : "bg-muted text-muted-foreground"
+                    )}
+                  >
+                    {zoomClass.cls}
+                  </span>
+                  <span className="text-sm font-semibold" data-canvas-ui="lightbox-title">
+                    Class {zoomClass.cls}
+                  </span>
+                  {kept.has(zoomClass.cls) ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-teal-600/10 px-2 py-0.5 text-[11px] font-semibold text-teal-700 dark:text-teal-300">
+                      <Check className="size-3" aria-hidden="true" />
+                      kept
+                    </span>
+                  ) : (
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                      discarded
+                    </span>
+                  )}
+                  <span className="ml-auto font-mono text-xs tabular-nums text-muted-foreground">
+                    rank #{rankByCls.get(zoomClass.cls) ?? "?"} · {Math.round(zoomClass.fraction * 100)}%
+                  </span>
+                </div>
+              </DialogTitle>
+              <DialogDescription className="sr-only">
+                Full-size view of class {zoomClass.cls} — {zoomClass.count} particles. Use the arrow
+                keys to browse classes, Enter or Space to toggle keeping it.
+              </DialogDescription>
+
+              {/* the average — same slice URL as the grid thumbnail, just
+                  given room to breathe (render is ≤384 px wide server-side) */}
+              <div className="bg-zinc-950 p-4">
+                {classesFile ? (
+                  <img
+                    key={zoomClass.cls}
+                    src={`/api/jobs/${upstream.id}/outputs/file?path=${encodeURIComponent(classesFile)}&format=png&montage=0&slice=${zoomClass.cls - 1}`}
+                    alt={`Class ${zoomClass.cls} average, full size`}
+                    className="mx-auto aspect-square max-h-[26rem] w-auto max-w-full rounded-md object-contain"
+                  />
+                ) : (
+                  <div className="grid aspect-square max-h-64 place-items-center text-xs text-zinc-500">
+                    no image available
+                  </div>
+                )}
+              </div>
+
+              {/* footer: browse + decide */}
+              <div className="flex flex-wrap items-center gap-2 border-t bg-secondary/30 px-4 py-3">
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => stepZoom(-1)}
+                    aria-label="Previous class"
+                    title="Previous class (←)"
+                    className="grid size-7 place-items-center rounded-md border bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <ChevronLeft className="size-4" aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => stepZoom(1)}
+                    aria-label="Next class"
+                    title="Next class (→)"
+                    className="grid size-7 place-items-center rounded-md border bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <ChevronRight className="size-4" aria-hidden="true" />
+                  </button>
+                  <span
+                    className="ml-1 font-mono text-xs tabular-nums text-muted-foreground"
+                    data-canvas-ui="lightbox-counter"
+                  >
+                    {zoomIdx + 1} / {classes.length}
+                  </span>
+                </div>
+
+                <span className="ml-auto flex items-center gap-1.5 font-mono text-xs tabular-nums text-muted-foreground">
+                  <Users className="size-3" aria-hidden="true" />
+                  {zoomClass.count.toLocaleString()} particles
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => toggle(zoomClass.cls)}
+                  aria-pressed={kept.has(zoomClass.cls)}
+                  data-canvas-ui="lightbox-keep"
+                  title={kept.has(zoomClass.cls) ? "Remove this class from the selection" : "Add this class to the selection (Enter)"}
+                  className={cn(
+                    "rounded-md px-3 py-1.5 text-xs font-semibold transition-colors",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    kept.has(zoomClass.cls)
+                      ? "bg-teal-600 text-white hover:bg-teal-700"
+                      : "border bg-background text-foreground hover:bg-accent"
+                  )}
+                >
+                  {kept.has(zoomClass.cls) ? "Keep class" : "Discarded — keep?"}
+                </button>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

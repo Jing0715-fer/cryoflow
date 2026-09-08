@@ -138,10 +138,17 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     // class-averages stack for the selection gallery: RELION 5 writes the
     // final unmasked stack, falling back to the newest per-iteration stack
+    // (the collector below MUST know every name the finders look for —
+    // a narrower filter here silently dead-codes the finders underneath:
+    // found by qa58 seeding, where run_unmasked_classes.mrcs never made
+    // it into candidates and the gallery rendered "no image" everywhere)
     let classesFile: string | null = null;
     let classesSlices: number | null = null;
     const stackNames = readdirSync(workdir).filter(
-      (n) => /^(?:run_it|_it)\d+_classes\.mrcs?$/i.test(n) || /^(?:run_it|_it)_unmasked_classes\.mrcs?$/i.test(n)
+      (n) =>
+        /^(?:run_it|_it)\d+_classes\.mrcs?$/i.test(n) || // per-iteration masked
+        /^(?:run_it|_it)\d+_unmasked_classes\.mrcs?$/i.test(n) || // per-iteration unmasked
+        /^run_unmasked_classes\.mrcs?$/i.test(n) // RELION 5 final unmasked
     );
     const unmasked = stackNames.find((n) => /^(?:run_it|_it)\d+_unmasked_classes\.mrcs?$|^run_unmasked_classes\.mrcs?$/i.test(n));
     let stackName = unmasked ?? null;
