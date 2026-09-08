@@ -16,7 +16,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { Axis3d, Bookmark, BoxSelect, Camera, Check, ClipboardCopy, Download, Layers, Loader2, Mountain, Orbit, Pencil, Plus, RefreshCcw, RotateCw, ScanLine, Upload, Video, X, ZoomIn } from "lucide-react";
+import { Axis3d, Bookmark, BoxSelect, Camera, Check, ClipboardCopy, Download, Layers, Loader2, Mountain, Orbit, Pencil, Plus, RefreshCcw, RotateCw, ScanLine, TriangleAlert, Upload, Video, X, ZoomIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -755,6 +755,15 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
   // paths removed since the last server flush — tombstones so a merge-mode
   // PUT can never resurrect an overlay this browser explicitly deleted
   const overlayRemovedRef = useRef<Set<string>>(new Set());
+  /** PUT ordering: the debounced flush, the restore self-heal (replace) and
+   *  the unmount flush all fire the same endpoint — snapshots are taken in
+   *  order, but the requests run concurrently and can COMMIT out of order
+   *  (same transport race the bookmark PUTs hit: an older merge landing
+   *  after a newer replace resurrects dropped entries). Serialize every
+   *  overlay PUT through a chain so the server observes the exact sequence
+   *  this browser produced. The chain never rejects, so one failed request
+   *  cannot poison the next. */
+  const overlayChainRef = useRef<Promise<unknown>>(Promise.resolve());
   /** push a session snapshot to the job's server row — best-effort by
    *  design: localStorage stays the instant, offline-capable mirror.
    *  mode "merge" (default) lets paths this browser never saw survive a
@@ -769,19 +778,23 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
     if (mode === "merge" && overlayRemovedRef.current.size > 0) {
       body.removedPaths = [...overlayRemovedRef.current];
     }
-    return fetch(`/api/jobs/${jobId}/overlay-session`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      keepalive: true,
-    })
-      .then(() => {
-        if (mode === "merge") overlayRemovedRef.current.clear(); // delivered
-      })
-      .catch(() => {
+    const go = async () => {
+      try {
+        await overlayChainRef.current;
+        await fetch(`/api/jobs/${jobId}/overlay-session`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+          keepalive: true,
+        });
+        if (mode === "merge") overlayRemovedRef.current.clear(); // delivered in order
+      } catch {
         /* offline / dev server restarting — the local copy still holds it;
            tombstones stay accumulated and ride the next flush */
-      });
+      }
+    };
+    overlayChainRef.current = go();
+    return overlayChainRef.current;
   };
 
   useEffect(() => {
@@ -1172,17 +1185,37 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
     clip: { on: clipStateRef.current.on, x: clipStateRef.current.x, y: clipStateRef.current.y, z: clipStateRef.current.z, invert: clipStateRef.current.invert },
   });
 
+  /** gentle duplicate-name guard — saving/renaming to a name another view
+   *  already uses is ALLOWED (names aren't unique keys; ids are), but the
+   *  toast says so in amber so the user can disambiguate before the list
+   *  grows two "Top view"s that are impossible to tell apart in the menu */
+  const duplicateNameToast = (nm: string) =>
+    toast({
+      title: `A view named “${nm}” already exists`,
+      description: "Saved anyway — consider a distinct name so the menu stays tell-apart.",
+      className: "border-amber-500/40 bg-amber-50/95 text-amber-900 dark:border-amber-500/30 dark:bg-amber-950/80 dark:text-amber-100",
+    });
+
+  /** live duplicate check for the name field — amber ring + hint while
+   *  typing, long before the save lands (the toast stays as the final
+   *  safety net for the auto-name path) */
+  const nameDupe =
+    bookmarkName.trim().length > 0 &&
+    bookmarks.some((x) => x.name.trim().toLowerCase() === bookmarkName.trim().toLowerCase());
+
   const saveBookmark = () => {
     const cam = pluginRef.current?.canvas3d?.camera;
     if (!cam) return;
     const snapshot = cam.getSnapshot() as unknown as Record<string, unknown>;
     const nm = (bookmarkName.trim() || `View ${bookmarks.length + 1}`).slice(0, 40);
+    const dupe = bookmarksRef.current.some((x) => x.name.trim().toLowerCase() === nm.toLowerCase());
     const thumb = captureBookmarkThumb();
     commitBookmarks(
       [...bookmarksRef.current, { id: `bm-${Date.now()}`, name: nm, ts: Date.now(), thumb, snapshot, view: captureBookmarkView() }].slice(-8),
     );
     setBookmarkName("");
-    toast({ title: "View saved", description: `“${nm}” — jump back from the bookmark menu any time.` });
+    if (dupe) duplicateNameToast(nm);
+    else toast({ title: "View saved", description: `“${nm}” — jump back from the bookmark menu any time.` });
   };
 
   /** overwrite an existing bookmark with the CURRENT pose + optics —
@@ -1215,8 +1248,11 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
     const nm = renameDraft.trim().slice(0, 40);
     const cur = bookmarksRef.current.find((x) => x.id === id);
     if (!nm || !cur || cur.name === nm) return; // empty or untouched — silent
+    const dupe = bookmarksRef.current.some((x) => x.id !== id && x.name.trim().toLowerCase() === nm.toLowerCase());
     commitBookmarks(bookmarksRef.current.map((x) => (x.id === id ? { ...x, name: nm } : x)));
-    toast({ title: "View renamed", description: `“${cur.name}” is now “${nm}”.` });
+    if (dupe)
+      duplicateNameToast(nm);
+    else toast({ title: "View renamed", description: `“${cur.name}” is now “${nm}”.` });
   };
 
   const beginRename = (b: CamBookmark) => {
@@ -3364,7 +3400,14 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                   }}
                   maxLength={40}
                   placeholder={bookmarks.length ? `Name view ${bookmarks.length + 1}…` : "Name this view…"}
-                  className="h-7 min-w-0 flex-1 rounded-md border bg-background px-2 text-xs outline-none placeholder:text-muted-foreground/60 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
+                  aria-invalid={nameDupe}
+                  aria-describedby={nameDupe ? "bm-name-dupe-hint" : undefined}
+                  className={cn(
+                    "h-7 min-w-0 flex-1 rounded-md border bg-background px-2 text-xs outline-none placeholder:text-muted-foreground/60 focus-visible:ring-2",
+                    nameDupe
+                      ? "border-amber-500/70 focus-visible:border-amber-500 focus-visible:ring-amber-500/25"
+                      : "focus-visible:border-ring focus-visible:ring-ring/30",
+                  )}
                 />
                 <Button
                   size="sm"
@@ -3376,6 +3419,17 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                   Save
                 </Button>
               </div>
+              {nameDupe && (
+                <p
+                  id="bm-name-dupe-hint"
+                  className="mt-1 flex items-start gap-1 rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-1 text-[10px] leading-tight text-amber-700 dark:text-amber-400"
+                >
+                  <TriangleAlert className="mt-px size-3 shrink-0" />
+                  <span>
+                    “{bookmarkName.trim()}” is already in the list — saving adds a second view with this name.
+                  </span>
+                </p>
+              )}
               <div className="mt-1.5 max-h-44 space-y-0.5 overflow-y-auto pr-0.5 nice-scroll">
                 {bookmarks.length === 0 ? (
                   <p className="px-1 py-2 text-center text-[10px] text-muted-foreground">

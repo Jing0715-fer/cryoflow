@@ -2017,3 +2017,21 @@ Stage Summary:
 - 「8 连删剩 1 条」是客户端竞态修复后的第二层洋葱：快照有序 ≠ 提交有序——并发 PUT 在服务端的落库顺序才是最后一环；链式串行化让「服务器看到的序列 = 用户产生的序列」，链永不 reject 保住后续请求
 - 方法论增补：Radix 层叠（Dialog 抢焦点收 Popover）是探针假阴性的新来源；合成键盘事件必须配真实 focus 才能走完 blur 提交路径；E2E 断言相对化让多阶段套件免疫前阶段残留
 - 遗留（下轮候选）：overlay-session PUT 同样存在并发乱序风险（900ms 防抖降低概率但未串行化，值得同样 treatment）；真 RELION 数据回归（EMPIAR 全链，需用户机器）、HPC SBATCH 真集群实测（需用户机器）、Turntable GIF 转码（wasm ffmpeg，重）、导入对话框支持跨 job 文件互选（当前仅 file picker）、书签重名温和提示
+
+---
+Task ID: 44
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 晚轮 2026-09-08 20:29）——落地 Task 43 遗留清单两项：overlay-session PUT 串行化（与书签 PUT 同款 transport-race treatment）+ 书签重名温和提示（打字实时 amber 提示 + 保存/重命名 amber toast，非阻断）；qa44 e2e 全绿；worklog + push
+
+Work Log:
+- 【开局核对】worklog 实际最新 Task 43（交接摘要里的 Task 27 已严重过期——中间多个 cron 轮次把截图导出进化成了 caption/legend/annotations/剪贴板/turntable 全家桶，书签生命周期也已补完）；git HEAD == 8f45eb1 工作树干净；dev server 未运行 → dev-server.sh 拉起 + 预热全路由 200
+- 【修复 1·overlay PUT 串行化】Task 43 遗留清单原话「overlay-session PUT 同样存在并发乱序风险（900ms 防抖降低概率但未串行化）」——本场落地：overlayChainRef 链式串行化（防抖 flush、restore self-heal 的 replace、unmount flush 三种来源共用同一条链），服务器看到的序列 = 本浏览器产生的序列；链永不 reject 防单次失败毒化后续；tombstone 只在 merge 请求按序落地后清空。修复逻辑与 Task 43 书签 putChainRef 完全同构（同一洋葱的第二层剥掉）
+- 【新功能 2·书签重名温和提示】三层防线全部非阻断：① 输入框打字实时检测（trim + case-insensitive 对既有书签名）→ amber 边框 + ring + #bm-name-dupe-hint 提示条（TriangleAlert 图标 + 「already in the list — saving adds a second view」）+ aria-invalid/aria-describedby 无障碍标注，清空即复位；② saveBookmark 撞名 → amber toast（border/bg/text 全 amber token，dark 模式适配）替代默认「View saved」；③ commitRename 撞名（排除自身 id）→ 同款 amber toast。设计立场：名字不是唯一键（id 才是），保存照常执行，只提醒不拦截
+- 【e2e·qa44-e2e.mjs 四阶段全绿（exit 0）】A viewer 回归（canvas 1149×425 + 5 corner 按键 + slider）→ B 重名 UX 全链（干净名无假阳性提示；"beta "（尾空格+大小写）实时命中 amber 提示 + aria-invalid=true；保存 → amber toast + 服务器 ["Beta","beta"]；清空 → 提示复位；行内重命名撞名 → amber toast + 服务器 ["beta","beta"]）→ C overlay 链功能回归（添加 postprocess.mrc → 900ms 防抖后服务器 1 条；移除 → [] 且 +2s 复查仍 [] 无幻影复活）→ D console 0 error + 清场（双服务器行清空 + localStorage 清除）；截图目检：amber toast + 双 beta 行 + 2/8 计数 + σ chips 齐活
+- 【收尾】bun run lint 0/0、项目级 tsc 下 src 0 错误（examples/skills 的报错为历史遗留，非本轮引入）；QA 残留全部自愈（bm=[] ov=[]）；截图保留 agent-ctx/（.gitignore 内）；浏览器已关
+
+Stage Summary:
+- Task 43 遗留清单两项正式销账：overlay PUT 有了和书签 PUT 同一条「服务器看到的序列 = 用户产生的序列」保证——防抖只降低并发概率，链式串行化才消灭它；tombstone 清空时机从「请求发出后」收严为「按序落地后」
+- 书签重名体验从「静默允许」升级为「三段式温和引导」：打字时 amber 边框+提示条 → 保存时 amber toast → 菜单里两条同名依旧共存（名字非键，不越俎代庖）；aria-invalid + aria-describedby 让屏幕阅读器也能读到
+- 方法论：交接摘要会过期——本轮开局 worklog 核对推翻了「Task 27/截图功能进行中」的上下文，避免了对已完成功能的重做；开局核对 worklog 尾部这条惯例再次证明是必要防线
+- 遗留（下轮候选）：导入对话框支持跨 job 文件互选（当前仅 file picker）；Recent feed sparkline 触屏 tooltip；Topaz wrapper；#5 fs/browse 无鉴权、#6/#14 pathref 策略、#7 chart 全量同步读、#8 particles BFS N+1、#13 useMemo 内 localStorage 写；Turntable GIF 转码（重）
