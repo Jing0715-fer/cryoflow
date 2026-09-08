@@ -27,6 +27,7 @@ import { toast } from "@/hooks/use-toast";
 import { PENDING_VIEW_KEY } from "@/lib/view-link";
 import { useWorkflowStore } from "@/lib/store";
 import { fmtBytes } from "@/lib/canvas-export";
+import { encodeGifFrames } from "@/lib/gif-export";
 import { canCopyImageToClipboard, copyViewerPng, downloadViewerBlob, drawFigureFooter, exportViewerPng, figureFooterHeightPx, figureTitleMeta, viewerFileSlug, viewerFileTimestamp } from "@/lib/viewer-export";
 import { MrcImage } from "./mrc-image";
 import "molstar/build/viewer/molstar.css";
@@ -1917,6 +1918,22 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
       setSpinScaleTick((t) => t + 1);
     }
   }, []);
+  /** also hand-rolled an animated GIF from the same composite plates —
+   *  the WebM stays the archival artifact, the GIF is what slide decks
+   *  and READMEs actually embed. Remembered like speed and size. */
+  const gifOnRef = useRef(true);
+  const [, setGifOnTick] = useState(0);
+  const SPIN_GIF_KEY = "cryoflow.mol-turntable-gif";
+  useEffect(() => {
+    const v = localStorage.getItem(SPIN_GIF_KEY);
+    if (v === "0" || v === "1") {
+      gifOnRef.current = v === "1";
+      setGifOnTick((t) => t + 1);
+    }
+  }, []);
+  /** GIF encode progress while `spin` is still "recording" — the badge
+   *  switches from the REC timer to "GIF n/m" for the encode tail */
+  const [gifEnc, setGifEnc] = useState<{ done: number; total: number } | null>(null);
   /** component alive? (unmount during a recording discards silently) */
   const viewerAliveRef = useRef(true);
   useEffect(() => {
@@ -2027,6 +2044,27 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
       const cctx = composite.getContext("2d");
       if (!cctx) throw new Error("Canvas 2D context unavailable for the video footer.");
 
+      // ---- GIF plate sampling: while the recorder eats the composite at
+      // 30 fps, sample ≤90 evenly spaced plates scaled to GIF width for the
+      // post-recording encode. ImageData keeps frames off the GPU (heap,
+      // ~0.5 MB each at 480 px) so a 2× supersampled recording stays light.
+      const GIF_W = 480;
+      const GIF_MAX = 90;
+      const gifWanted = gifOnRef.current;
+      const gifFrames: ImageData[] = [];
+      const gifInterval = perTurnMs / GIF_MAX;
+      const gifScale = Math.min(1, GIF_W / Math.max(1, composite.width));
+      const gifW = Math.max(2, Math.round(composite.width * gifScale));
+      const gifH = Math.max(2, Math.round(composite.height * gifScale));
+      const gifCanvas = gifWanted ? document.createElement("canvas") : null;
+      if (gifCanvas) {
+        gifCanvas.width = gifW;
+        gifCanvas.height = gifH;
+      }
+      const gifCtx =
+        gifCanvas?.getContext("2d", { willReadFrequently: true }) ?? null;
+      let lastGifSample = -Infinity;
+
       // paint loop: one composite frame per rAF for as long as the recorder
       // is alive — captureStream(30) samples this canvas at a fixed 30 fps
       let painting = true;
@@ -2046,6 +2084,14 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
           sub,
           legend: figureLegend,
         });
+        if (gifCtx) {
+          const now = performance.now();
+          if (now - lastGifSample >= gifInterval && gifFrames.length < GIF_MAX) {
+            lastGifSample = now;
+            gifCtx.drawImage(composite, 0, 0, gifW, gifH);
+            gifFrames.push(gifCtx.getImageData(0, 0, gifW, gifH));
+          }
+        }
         paintRaf = requestAnimationFrame(paint);
       };
       paint();
@@ -2129,7 +2175,10 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
         const blob = new Blob(chunks, { type: mime });
         if (blob.size === 0) throw new Error("The recorder produced an empty clip.");
         const secs = Math.round(perTurnMs / 1000);
-        const fileName = `cryoflow-turntable-${viewerFileSlug(name)}-${viewerFileTimestamp()}.webm`;
+        // one shared timestamp so the .webm and its .gif sibling sort
+        // together in Downloads
+        const clipBase = `cryoflow-turntable-${viewerFileSlug(name)}-${viewerFileTimestamp()}`;
+        const fileName = `${clipBase}.webm`;
         downloadViewerBlob(blob, fileName);
         const sizeNote = supersampled ? ` · ${mult}× supersampled` : "";
         const footerNote = figureLegend.length
@@ -2141,6 +2190,47 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
           title: "Turntable video exported",
           description: `${fileName} · one 360° loop (${secs}s @ 30 fps)${sizeNote} · ${footerNote}${fmtBytes(blob.size)}`,
         });
+        // ---- animated GIF: the same plates the video was fed, encoded
+        // per-frame at 256 colors. The delay derives from the ACTUAL plate
+        // count (headless/throttled rAF can starve the sampler — 28 plates
+        // instead of 90), so the loop always replays the turn at its true
+        // pace instead of silently speeding it up. Runs AFTER the WebM is
+        // safely on disk — a failed/skipped encode must never take the
+        // video down with it.
+        if (gifWanted && gifFrames.length >= 2 && viewerAliveRef.current) {
+          const gifDelay = perTurnMs / gifFrames.length;
+          setGifEnc({ done: 0, total: gifFrames.length });
+          try {
+            const gifBlob = await encodeGifFrames(gifFrames, gifDelay, {
+              alive: () => viewerAliveRef.current && pluginRef.current === plugin,
+              onProgress: (p) => {
+                if (viewerAliveRef.current) setGifEnc({ done: p.done, total: p.total });
+              },
+            });
+            if (viewerAliveRef.current && pluginRef.current === plugin) {
+              downloadViewerBlob(gifBlob, `${clipBase}.gif`);
+              toast({
+                title: "Turntable GIF exported",
+                description: `${clipBase}.gif · ${gifFrames.length} frames × ${Math.round(gifDelay)} ms — replays the turn at true pace · ${fmtBytes(gifBlob.size)}`,
+              });
+            }
+          } catch (err) {
+            // gif-cancelled = viewer closed mid-encode — stay silent, same
+            // contract as the discard-on-unmount path above
+            if (
+              viewerAliveRef.current &&
+              !(err instanceof Error && err.message === "gif-cancelled")
+            ) {
+              toast({
+                title: "GIF encode failed",
+                description: err instanceof Error ? err.message : "Unknown GIF encoding error.",
+                variant: "destructive",
+              });
+            }
+          } finally {
+            if (viewerAliveRef.current) setGifEnc(null);
+          }
+        }
       }
       if (viewerAliveRef.current) {
         setSpin("idle");
@@ -3032,22 +3122,32 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
           data-testid="turntable-rec-badge"
         >
           <span className="relative flex size-2">
-            <span className="absolute inline-flex size-2 animate-ping rounded-full bg-white opacity-75" />
+            <span className="absolute inline-flex size-2 animate-ping rounded-full bg-white opacity-75 motion-reduce:animate-none" />
             <span className="relative inline-flex size-2 rounded-full bg-white" />
           </span>
-          <span className="font-mono tabular-nums">
-            REC {Math.floor(spinElapsed / 60)}:{String(spinElapsed % 60).padStart(2, "0")}
-          </span>
-          <button
-            type="button"
-            onClick={() => {
-              spinCancelRef.current = true;
-            }}
-            className="ml-0.5 rounded px-1 text-[9px] font-medium transition-colors hover:bg-white/20"
-            aria-label="Cancel the turntable recording (partial clip is discarded)"
-          >
-            cancel
-          </button>
+          {gifEnc ? (
+            // encode tail: the WebM is already on disk, frames are turning
+            // into GIF palettes — progress reads as a fraction, not a timer
+            <span className="font-mono tabular-nums" data-testid="turntable-gif-progress">
+              GIF {gifEnc.done}/{gifEnc.total}
+            </span>
+          ) : (
+            <>
+              <span className="font-mono tabular-nums">
+                REC {Math.floor(spinElapsed / 60)}:{String(spinElapsed % 60).padStart(2, "0")}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  spinCancelRef.current = true;
+                }}
+                className="ml-0.5 rounded px-1 text-[9px] font-medium transition-colors hover:bg-white/20"
+                aria-label="Cancel the turntable recording (partial clip is discarded)"
+              >
+                cancel
+              </button>
+            </>
+          )}
         </div>
       )}
 
@@ -3443,7 +3543,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                 )}
                 disabled={spin === "recording"}
                 aria-label="Record a turntable video of the current view"
-                title="Turntable video — record one full 360° rotation of the current view as a WebM clip"
+                title={`Turntable video — record one full 360° rotation of the current view as a WebM clip${gifOnRef.current ? " plus an animated GIF" : ""}`}
               >
                 {spin === "recording" ? (
                   <Loader2 className="size-4 animate-spin" />
@@ -3532,6 +3632,45 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                   );
                 })}
               </div>
+              {/* animated GIF — the WebM keeps archival quality; the GIF is
+                  the copy that actually gets embedded in slides/READMEs */}
+              <p className="px-1 pb-1 pt-1.5 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Animated GIF
+              </p>
+              <div className="grid grid-cols-2 gap-1">
+                {[
+                  { v: "1", label: "Also export", desc: "480 px · ≤90 frames" },
+                  { v: "0", label: "WebM only", desc: "skip the GIF encode" },
+                ].map((s) => {
+                  const active = gifOnRef.current === (s.v === "1");
+                  return (
+                    <button
+                      key={s.v}
+                      type="button"
+                      data-testid={`turntable-gif-${s.v}`}
+                      onClick={() => {
+                        gifOnRef.current = s.v === "1";
+                        try {
+                          localStorage.setItem(SPIN_GIF_KEY, s.v);
+                        } catch {
+                          /* private mode — choice lives for this visit */
+                        }
+                        setGifOnTick((t) => t + 1);
+                      }}
+                      aria-pressed={active}
+                      className={cn(
+                        "flex flex-col items-start rounded-md border px-2 py-1.5 text-[11px] transition-colors",
+                        active
+                          ? "border-primary/50 bg-primary/10 text-primary"
+                          : "bg-card text-foreground/90 hover:bg-muted"
+                      )}
+                    >
+                      <span className="font-medium">{s.label}</span>
+                      <span className="text-[9px] text-muted-foreground">{s.desc}</span>
+                    </button>
+                  );
+                })}
+              </div>
               <Button
                 size="sm"
                 className="mt-1.5 w-full gap-1.5"
@@ -3541,8 +3680,9 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                 Record 360° loop
               </Button>
               <p className="border-t px-1 pb-0.5 pt-1.5 text-[10px] leading-tight text-muted-foreground">
-                30 fps · WebM (VP9/VP8) · figure footer with caption + overlay legend burned
-                in · speed and size choices are remembered.
+                30 fps · WebM (VP9/VP8){gifOnRef.current ? " + animated GIF (480 px, ≤90 frames)" : ""} ·
+                figure footer with caption + overlay legend burned in · speed, size and GIF choices are
+                remembered.
               </p>
             </PopoverContent>
           </Popover>

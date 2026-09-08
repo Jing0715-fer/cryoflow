@@ -2260,3 +2260,24 @@ Stage Summary:
 - Dashboard 的三层输入（KPI 卡点击/chip 点击/键盘 1–4）收敛到同一个 drill-down 语义：每个可见的可点物都有键盘等价物，kbd 角标常显让快捷键可被「看见」，aria-keyshortcuts 让它们可被读屏器「听见」；空项目/弹窗打开/输入框聚焦时键盘静默
 - 方法论沉淀：①eval 桥转义三层坑（换行/引号/多 blob）集齐，needle 含引号前先想 norm ②「B 阶段不动视图」是巧合不是不变量——跨阶段视图假设必须显式 re-bootstrap ③prod 模式 QA 从 viewer 特例升级为全站默认：build 2 分钟买断 OOM 焦虑，dev 模式留给日常开发
 - 遗留（下轮候选）：Turntable GIF 转码（重）；gallery 卡内嵌 3D 轻量预览（重）；Import dialog per-source check-all/none；workflow-import 对话框多文件（低优先）；dev overlay「1 Issue」定位（dev-only 观察）；report 可再加「返回目录」脚部链接（克制未做）
+
+---
+Task ID: 56
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 晨轮 2026-09-09 02:09）——落地 Task 47 起最老的新功能遗留「Turntable GIF 转码」：turntable 录制在 WebM 之外并行采样同一 composite 画布的 ≤90 帧平板，录后用 gifenc 逐帧 256 色编码出同图异构的动画 GIF（480px、真实节奏回放、共享文件名时间戳）；新增 lib/gif-export.ts + src/types/gifenc.d.ts + Animated GIF 开关 chips + REC 徽章编码进度态；qa56 三阶段 e2e 全绿（production 模式）；期间诊断出「孤儿 dev server 抢占 3000 → 浏览器导航拿到 7.5KB 空壳」的新故障签名；worklog + push
+
+Work Log:
+- 【开局核对】交接摘要第 7 轮过期——worklog 实际最新 Task 55、HEAD 0bb3bcf == origin 干净；dev 规程重启；勘查发现「Turntable」基建已存在（WebM 录制全链路：AnimateCameraSpin + composite 画布 + MediaRecorder + 图注 footer），遗留的真实缺口 = GIF 侧产出
+- 【功能·GIF 编码管道 lib/gif-export.ts】gifenc@1.0.3（4KB，bun add 一次成功）动态 import（不进 viewer 首包）；encodeGifFrames(frames, delayMs, {onProgress, alive})：逐帧 quantize(256 色 rgb565) + applyPalette + writeFrame(delay/repeat=0)，每帧 macrotask 让出主线程（进度徽章能画、卸载能取消）；alive() 翻 false 抛 "gif-cancelled"（与既有 discard-on-unmount 契约同款）；gifDelayMs 地板 20ms（浏览器钳制同款）；src/types/gifenc.d.ts 手写最小声明（包无类型）
+- 【功能·采样与编码语义】采样在 paint 循环里搭车：每 gifInterval=perTurnMs/90 取一张 composite（图注 footer 已烧入——GIF 与 WebM/stills 同一自我描述契约）缩放到 480w 存 ImageData（离 GPU，~0.5MB/帧，≤90 帧约 50MB 堆）；编码在 WebM 落盘之后（GIF 失败绝不连坐视频，独立 destructive toast）；**真实节奏回放**：headless/节流的 rAF 只采到 27-28 帧（非 90），delay 按实际帧数=perTurnMs/frames 推导——GIF 永远按真实速度回放转台而非静默快放（首跑发现 28 帧 × 56ms 会 3× 快放，返工）；文件名共享时间戳（.webm/.gif 在 Downloads 里相邻排序）；REC 徽章编码尾态切换为 "GIF n/m"（data-testid=turntable-gif-progress）并隐藏 cancel
+- 【功能·UI】popover 新增 Animated GIF 区（Also export 480px·≤90帧 / WebM only 双 chips，aria-pressed + data-testid=turntable-gif-{1,0}，localStorage cryoflow.mol-turntable-gif 持久化，与 speed/scale 同款 habit 语义）；脚注动态（开=“+ animated GIF (480 px, ≤90 frames)”）；触发按钮 title 追加 "plus an animated GIF"；badge ping 加 motion-reduce:animate-none（顺手补的适配）
+- 【e2e·qa56 三阶段全绿】A：chips 默认态 + 脚注 GIF 短语 + Quick 速度 → Record → REC 徽章 → GIF 进度徽章现身（"GIF 3/28"）→ 双 blob（vp9 webm 22-25KB + image/gif 77-82KB）+ GIF89a magic 逐字节断言 + 双 toast（含 "× 179 ms — replays the turn at true pace"）；B：关 chip → 脚注短语消失 → 单 webm blob、无 GIF toast；C：localStorage 持久化 + 恢复默认 ON + console 干净
+- 【QA 探针两课】①toast observer 跨阶段累积——A 的 GIF toast 泄漏进 B 的「应缺席」断言（假阴性 FATAL），B record 前重置 observer；②CLI `errors` 子命令在 daemon 死后会重启空浏览器并打印孤立 "✗"（rc=0），与真错误不可区分——改为页面内 window.onerror + unhandledrejection 收集器（bootstrap 安装、C 读取），CLI 降级为 informational
+- 【运维·新故障签名「空壳导航」】B 独立批首跑 openViewer 全灭：页面 7.5KB 空 Suspense 壳（role=button=0、h1=Command palette SSR 残影）而 in-page fetch 同 URL 163KB 完整——根因：一个孤儿 dev server（OOM 死掉的原 server 被 setsid 血统的进程树残留抢占重启）占用 3000，dev 冷编译 20.8s 的流被浏览器导航放弃；诊断路径：curl 完整 → 浏览器 fetch 完整 → 唯独导航残缺 → ss 查监听进程身份（"next-server (v1)"= dev，非 standalone）→ 全杀重启；教训：**多服务器混跑期后必须 `ss -tlnp | grep 3000` 核对监听进程身份**，curl 200 不代表 served-by 正确
+- 【收尾】eslint 0、tsc 0；qa56-recording.png 目检（ANIMATED GIF chips、WebM only 选中态、REC 徽章、Quick 高亮同框）；浏览器已关；standalone 已杀、dev server 恢复且监听身份核实
+
+Stage Summary:
+- Turntable 的最后一块拼图落位：一次录制同时产出「存档级 WebM + 幻灯片友好的 GIF」——同一个 composite（背景/图注/图例全烧入）、同一份自描述语义、两个分发形态；真实节奏回放让 GIF 不说谎（27 帧 × 179ms ≈ 5s 转台原速）
+- 「采样走 rAF 搭车、编码在录后单飞」的分工是本次的结构性收获：录制路径零新开销（采样只占 paint 循环一个 drawImage+getImageData），编码的重活推迟到 WebM 已安全的时刻，失败域彼此隔离
+- 运维新签名值得记住：**导航拿到 7.5KB 空壳 + in-page fetch 完整 = 端口被另一个（冷编译中的）服务器占用**——ss 核对监听 pid 身份应加入暖化配方；`errors` CLI 的孤立 ✗ 不可信，页面内错误收集器才是确定性探针
+- 遗留（下轮候选）：gallery 卡内嵌 3D 轻量预览（重）；Import dialog per-source check-all/none；workflow-import 多文件（低优先）；dev overlay「1 Issue」定位；GIF 帧内容级目检（落盘逐帧抽检，本轮只验了 magic+尺寸）；report「返回目录」脚部链接（克制未做）
