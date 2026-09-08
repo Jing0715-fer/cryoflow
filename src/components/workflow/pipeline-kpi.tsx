@@ -29,18 +29,32 @@ function KpiItem({
   children,
   title,
   className,
+  onClick,
 }: {
   children: React.ReactNode;
   title: string;
   className?: string;
+  /** when present the item becomes a real button — the summary drills into
+   *  its detail view (dashboard / job results) instead of being a dead end */
+  onClick?: () => void;
 }) {
+  const cls = cn(
+    "flex items-center gap-1.5 whitespace-nowrap",
+    typeof onClick === "function" &&
+      "cursor-pointer rounded-md transition-colors hover:bg-secondary/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
+    className
+  );
+  if (typeof onClick !== "function") {
+    return (
+      <span title={title} className={cls}>
+        {children}
+      </span>
+    );
+  }
   return (
-    <span
-      title={title}
-      className={cn("flex items-center gap-1.5 whitespace-nowrap", className)}
-    >
+    <button type="button" onClick={onClick} title={title} aria-label={title} className={cls}>
       {children}
-    </span>
+    </button>
   );
 }
 
@@ -71,6 +85,8 @@ function ProgressRing({ done, total }: { done: number; total: number }) {
 
 export function PipelineKpi() {
   const jobs = useWorkflowStore((s) => s.jobs);
+  const setView = useWorkflowStore((s) => s.setView);
+  const inspect = useWorkflowStore((s) => s.inspect);
 
   const stats = useMemo(() => {
     const total = jobs.length;
@@ -154,8 +170,14 @@ export function PipelineKpi() {
       aria-label="Pipeline overview"
       className="card-lift absolute left-3 top-3 z-20 flex max-w-[calc(100%-90px)] flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border bg-card/90 px-3 py-1.5 shadow-sm backdrop-blur-md"
     >
-      {/* pipeline completion */}
-      <KpiItem title="Pipeline completion" className="text-xs font-semibold tabular-nums">
+      {/* pipeline completion — clicking opens the dashboard (the summary's
+          detail view); the ring itself is not interactive-looking, the hover
+          wash + title carry the affordance */}
+      <KpiItem
+        title="Pipeline completion — click to open the dashboard"
+        onClick={() => setView("dashboard")}
+        className="-mx-1 px-1 text-xs font-semibold tabular-nums"
+      >
         <ProgressRing done={stats.completed} total={stats.total} />
         <span className={stats.failed > 0 ? "text-rose-600 dark:text-rose-400" : "text-foreground"}>
           {stats.completed}
@@ -179,7 +201,12 @@ export function PipelineKpi() {
         <>
           <span className="h-4 w-px bg-border" aria-hidden="true" />
           <KpiItem
-            title={wantFsc ? "Final FSC 0.143 resolution" : "Current reconstruction resolution"}
+            title={
+              wantFsc
+                ? "Final FSC 0.143 resolution — click to open the postprocess results"
+                : "Current reconstruction resolution — click to open the refinement results"
+            }
+            onClick={resSource ? () => inspect(resSource.id) : undefined}
             className="rounded-full border border-amber-600/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-amber-700 dark:text-amber-300"
           >
             <Crosshair className="size-3 shrink-0" aria-hidden="true" />
@@ -222,7 +249,8 @@ export function PipelineKpi() {
         <>
           <span className="h-4 w-px bg-border" aria-hidden="true" />
           <KpiItem
-            title={`${stats.runningJob.name} — running`}
+            title={`${stats.runningJob.name} — running · click to open its results`}
+            onClick={() => inspect(stats.runningJob!.id)}
             className="rounded-full border border-teal-600/30 bg-teal-600/10 px-2 py-0.5 text-[11px] font-semibold text-teal-700 dark:text-teal-300"
           >
             <Loader2 className="size-3 shrink-0 animate-spin" aria-hidden="true" />

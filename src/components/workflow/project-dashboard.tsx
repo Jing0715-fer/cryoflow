@@ -1184,6 +1184,11 @@ function ActiveProjectSpotlight() {
 /* Dashboard root                                                       */
 /* ------------------------------------------------------------------ */
 
+/** grid drill-down filter — which slice of the project grid a KPI card
+ *  click reveals. Presence-based ("has ≥1 running job"), not per-job: the
+ *  grid's unit is the project. */
+type GridFilter = "all" | "running" | "completed" | "failed";
+
 export function ProjectDashboard() {
   const projectsRaw = useWorkflowStore((s) => s.projects) as ProjectCard[];
   const project = useWorkflowStore((s) => s.project);
@@ -1198,6 +1203,12 @@ export function ProjectDashboard() {
   const [pendingSwitch, setPendingSwitch] = React.useState<string | null>(null);
   const [query, setQuery] = React.useState("");
   const [activity, setActivity] = React.useState<ActivityFeed | null>(null);
+  // KPI drill-down: which presence filter the project grid is narrowed by.
+  // Clicking the Running/Completed KPI card toggles it AND scrolls the grid
+  // into view — the summary above and the detail below act as one surface.
+  const [gridFilter, setGridFilter] = React.useState<GridFilter>("all");
+  const gridRef = React.useRef<HTMLDivElement | null>(null);
+  const [gridFlash, setGridFlash] = React.useState(false);
   // grid sort — initialized from persisted choice on mount (localStorage
   // read stays out of render per #13 discipline: state init via lazy
   // initializer is fine, it's not a side effect, but storage may not exist
@@ -1267,9 +1278,35 @@ export function ProjectDashboard() {
 
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return projects;
-    return projects.filter((p) => p.name.toLowerCase().includes(q));
-  }, [projects, query]);
+    let base = q ? projects.filter((p) => p.name.toLowerCase().includes(q)) : projects;
+    if (gridFilter === "running") base = base.filter((p) => (p.stats?.running ?? 0) > 0);
+    else if (gridFilter === "completed") base = base.filter((p) => (p.stats?.completed ?? 0) > 0);
+    else if (gridFilter === "failed") base = base.filter((p) => (p.stats?.failed ?? 0) > 0);
+    return base;
+  }, [projects, query, gridFilter]);
+
+  // presence counts per project — the chip counts next to the grid header
+  const presence = React.useMemo(
+    () => ({
+      running: projects.filter((p) => (p.stats?.running ?? 0) > 0).length,
+      completed: projects.filter((p) => (p.stats?.completed ?? 0) > 0).length,
+      failed: projects.filter((p) => (p.stats?.failed ?? 0) > 0).length,
+    }),
+    [projects]
+  );
+
+  /** KPI → grid drill-down: apply the filter, then bring the grid into view
+   *  with a one-shot highlight ring so the eye lands where the effect is. */
+  const drillToGrid = (f: GridFilter) => {
+    setGridFilter(f);
+    requestAnimationFrame(() => {
+      gridRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      setGridFlash(true);
+      window.setTimeout(() => setGridFlash(false), 1400);
+    });
+  };
+  const toggleGridFilter = (f: Exclude<GridFilter, "all">) =>
+    drillToGrid(gridFilter === f ? "all" : f);
 
   // sort AFTER filter — the count line shows "N / M" for the filtered set
   // and the grid renders the same set in the chosen order
@@ -1350,7 +1387,10 @@ export function ProjectDashboard() {
           </div>
         </div>
 
-        {/* KPI band */}
+        {/* KPI band — Running / Completed cards are live drill-downs into the
+            grid below (pressed = that filter is on); Projects reals the grid
+            and clears; Total jobs & engine stay informational (no project
+            dimension to reveal) */}
         <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           <KpiCard
             icon={<FolderGit2 className="size-5" />}
@@ -1374,6 +1414,8 @@ export function ProjectDashboard() {
                 />
               ) : undefined
             }
+            onClick={() => drillToGrid("all")}
+            hint="Show the whole project grid — clears any status filter"
           />
           <KpiCard
             icon={<Boxes className="size-5" />}
@@ -1408,6 +1450,13 @@ export function ProjectDashboard() {
                   : "nothing in flight"
             }
             tone="bg-teal-500/10 text-teal-600 ring-teal-500/30 dark:text-teal-400"
+            onClick={() => toggleGridFilter("running")}
+            pressed={gridFilter === "running"}
+            hint={
+              gridFilter === "running"
+                ? "Filter on — click to show every project again"
+                : "Show only projects with running jobs"
+            }
           />
           <KpiCard
             icon={<CheckCircle2 className="size-5" />}
@@ -1430,6 +1479,13 @@ export function ProjectDashboard() {
                   className="text-emerald-500"
                 />
               ) : undefined
+            }
+            onClick={() => toggleGridFilter("completed")}
+            pressed={gridFilter === "completed"}
+            hint={
+              gridFilter === "completed"
+                ? "Filter on — click to show every project again"
+                : "Show only projects with completed jobs"
             }
           />
           <KpiCard
@@ -1458,13 +1514,59 @@ export function ProjectDashboard() {
         </div>
 
         {/* projects grid */}
-        <div className="mt-6">
-          <div className="mb-3 flex items-center gap-2">
+        <div
+          ref={gridRef}
+          className={cn(
+            "mt-6 scroll-mt-4 rounded-xl transition-shadow duration-700",
+            gridFlash && "ring-2 ring-primary/40 ring-offset-4 ring-offset-background"
+          )}
+        >
+          <div className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1.5">
             <h2 className="text-sm font-semibold tracking-tight">All projects</h2>
             <span className="text-[11px] tabular-nums text-muted-foreground">
               {filtered.length}
               {filtered.length !== projects.length ? ` / ${projects.length}` : ""}
             </span>
+            {/* presence chips — same visual language as the spotlight's job
+                filters, but the unit is the project; counts show how many
+                projects carry each kind of work */}
+            {projects.length > 0 && (
+              <div className="ml-auto flex items-center gap-1" role="group" aria-label="Filter projects by job presence">
+                <StatusFilterChip
+                  label="All"
+                  n={projects.length}
+                  active={gridFilter === "all"}
+                  onClick={() => setGridFilter("all")}
+                />
+                {presence.running > 0 && (
+                  <StatusFilterChip
+                    label="Running"
+                    n={presence.running}
+                    tone="teal"
+                    active={gridFilter === "running"}
+                    onClick={() => toggleGridFilter("running")}
+                  />
+                )}
+                {presence.completed > 0 && (
+                  <StatusFilterChip
+                    label="Completed"
+                    n={presence.completed}
+                    tone="emerald"
+                    active={gridFilter === "completed"}
+                    onClick={() => toggleGridFilter("completed")}
+                  />
+                )}
+                {presence.failed > 0 && (
+                  <StatusFilterChip
+                    label="Failed"
+                    n={presence.failed}
+                    tone="rose"
+                    active={gridFilter === "failed"}
+                    onClick={() => toggleGridFilter("failed")}
+                  />
+                )}
+              </div>
+            )}
           </div>
 
           {projects.length === 0 ? (
@@ -1482,9 +1584,21 @@ export function ProjectDashboard() {
               </Button>
             </div>
           ) : filtered.length === 0 ? (
-            <p className="rounded-xl border border-dashed py-10 text-center text-xs text-muted-foreground">
-              No project matches “{query.trim()}”.
-            </p>
+            query.trim() ? (
+              <p className="rounded-xl border border-dashed py-10 text-center text-xs text-muted-foreground">
+                No project matches “{query.trim()}”.
+              </p>
+            ) : (
+              <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed py-10 text-center">
+                <p className="text-xs text-muted-foreground">
+                  No project with {gridFilter} jobs right now.
+                </p>
+                <Button size="sm" variant="outline" className="h-7 gap-1 text-[11px]" onClick={() => setGridFilter("all")}>
+                  <X className="size-3" aria-hidden="true" />
+                  Clear filter
+                </Button>
+              </div>
+            )
           ) : (
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {sortedProjects.map((p) => (

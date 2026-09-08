@@ -2075,3 +2075,22 @@ Stage Summary:
 - spotlight Jobs 过滤 chips 把「看板」属性补完：状态分布读数（chips 即计数）与聚焦查看（单选过滤）一体两面，aria-pressed 全程无障碍可达
 - 方法论：QA 假阴性先怀疑探针再怀疑产品——本「spotlight 消失」追了六步最后是引号问题；诊断转储（失败时把现场 DOM 结构吐出来）比反复猜快得多
 - 遗留（下轮候选）：Turntable GIF 转码（重）；导入对话框双来源混合多选；#5 token gate；KPI 卡整体可点击 drill-down（点 KPI 卡过滤项目网格——chips 已是现成模式）
+
+---
+Task ID: 47
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 晚轮 2026-09-08 21:29 起、21:59 轮续完）——落地 Task 46 遗留清单「KPI 卡整体可点击 drill-down」：Dashboard KPI 卡 button 化（Projects/Running/Completed 三卡驱动项目网格 presence 过滤 + scrollIntoView + flash 高亮 + 网格 presence chips 双向同步）+ Canvas 浮动 KPI 条可点击（completion→dashboard、resolution/running→inspect）；qa47 e2e 全绿；worklog + push
+
+Work Log:
+- 【开局核对】（21:29 轮）worklog 实际最新 Task 46；HEAD dd2e4f2 == origin；dev server 按规程重启 + 预热 200；qa46 三阶段回归全绿（exit 0）→ 转功能
+- 【新功能 1·Dashboard KPI drill-down】①KpiCard 可点态：onClick/pressed/hint 三 props——有点击时渲染真 button（aria-pressed + focus-visible ring + title 提示），无点击保持 div；hover 提亮 + 角落 ChevronRight 渐显（group-hover/kpi），pressed 时 primary ring + 脉冲圆点 + Filter 角标（右上角，与 spark 水印分层不互抢）②gridFilter presence 过滤（all/running/completed/failed）："有 ≥1 该状态 job" 的项目才入选——网格的单元是项目不是 job ③drillToGrid：setState + requestAnimationFrame scrollIntoView(smooth) + 1.4s 一次性 flash ring（ring-2 ring-primary/40 ring-offset-4，transition-shadow 700ms）——眼睛落点即效果落点 ④网格头部 presence chips（复用 StatusFilterChip 视觉语言，role=group + aria-label）：All(n) 常驻 + Running/Completed/Failed 按存在性渲染，计数=携带该类工作的项目数；chips 与 KPI 卡 pressed 双向同步（点网格 All chip → KPI pressed 复位）⑤过滤空态：虚线框 + "No project with running jobs right now." + Clear filter 按钮（X 图标）；query 搜索空态文案保持原样
+- 【新功能 2·Canvas KPI 条可点击】KpiItem 加 onClick → 渲染 button（cursor + hover:bg-secondary/70 + focus ring）；三处接线：completion ring → setView("dashboard")（摘要的详情页就是 dashboard）、resolution chip → inspect(resSource.id)（打开产生该分辨率的 postprocess/refine 结果面板）、running job chip → inspect(runningJob.id)；title 全部带上 "— click to open …" 动效提示；completion 项 -mx-1 px-1 让 hover 色块稳定不跳动
+- 【e2e·qa47-e2e.mjs 三阶段全绿（exit 0）】A：band 探针（Projects/Running/Completed=BUTTON、Total jobs/engine=DIV）→ 点 Running → pressed=true + 网格空态诚实断言（本库 presence.running=0 → "No project with running jobs" + Clear filter）→ toggle-off 恢复 4 卡 → 点 Completed → 1 卡过滤（presence.completed=1）→ 网格 All chip 反向同步（KPI pressed 复位 + 4 卡恢复）→ B：canvas pipeline-kpi completion button 存在 + 全部可点项 title 带 "click to open" → 点击 → h1=Dashboard 确认视图切换 → C：console 0 error；截图目检（flash ring + 空态 + chips + 0/4 计数）
+- 【QA 探针两连翻车（同源不同相）】①querySelectorAll('div') 会把卡片祖先容器按文档序排进结果，byLabel 首占让真 button 被 DIV 抢注——改为「label p → closest('.card-lift')」语义直达卡片本体 ②J()（JSON.parse）误用于裸字符串返回值（'clicked'）——unq 后直接比较，与 Task 46 的 unq 教训同源，本轮在「对象用 J、字符串用 unq」上形成肌肉记忆
+- 【收尾】bun run lint 0/0、tsc src 0 错误；QA 残留=纯前端 state（刷新即消，无服务器/DB 副作用）；截图保留 agent-ctx/；浏览器已关
+
+Stage Summary:
+- Task 46 遗留「KPI 卡 drill-down」双场景落地：Dashboard 上「数字是入口不是终点」——Running 8 个还是 0 个，点一下就知道哪些项目在忙（或诚实地说没有）；Canvas 上摘要条同样可钻取（completion→dashboard、resolution/running→结果面板），两处 KPI 从纯展示升级为导航结构的一部分
+- presence 过滤语义是刻意的：网格单元是项目，chips 计数是「多少项目携带该类工作」而非 job 数——与 spotlight 的 per-job chips 视觉同语言、语义各司其职
+- 方法论增补：DOM 探针按 label 找元素时，从 label 节点 closest 上爬是唯一不被祖先竞争污染的路径；querySelectorAll('div') 的文档序首占是隐性陷阱
+- 遗留（下轮候选）：Turntable GIF 转码（重）；导入对话框双来源混合多选；#5 token gate；KPI drill-down 的 flash ring 在 reduced-motion 下应禁用（细节打磨）；spotlight Jobs 过滤与 Dashboard 网格过滤的快捷键统一（如 1/2/3 切过滤）
