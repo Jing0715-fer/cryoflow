@@ -600,6 +600,129 @@ function JobRow({ job, onOpen }: { job: JobDTO; onOpen: () => void }) {
   );
 }
 
+/* ------------------------------------------------------------------ */
+/* Recent activity feed (cross-project)                                 */
+/* ------------------------------------------------------------------ */
+
+/** Shape of GET /api/activity/recent — the latest-touched jobs across ALL
+ *  projects. This is the "where did I leave off" strip: a job you ran in
+ *  another project this morning shows up here without hunting through the
+ *  project grid. */
+interface RecentJob {
+  id: string;
+  name: string;
+  type: string;
+  status: string;
+  updatedAt: string;
+  projectId: string | null;
+  projectName: string | null;
+}
+
+function RecentActivityFeed({ activeProjectId }: { activeProjectId: string | null }) {
+  const setView = useWorkflowStore((s) => s.setView);
+  const select = useWorkflowStore((s) => s.select);
+  const inspect = useWorkflowStore((s) => s.inspect);
+  const switchProject = useWorkflowStore((s) => s.switchProject);
+  const jobCount = useWorkflowStore((s) => s.jobs.length);
+  const [recent, setRecent] = React.useState<RecentJob[] | null>(null);
+
+  // refetch on mount and whenever the active project's job list moves
+  // (run/complete/reorder) — the feed mirrors the same freshness trigger
+  // the KPI band uses, so both tell the same story
+  React.useEffect(() => {
+    let alive = true;
+    fetch("/api/activity/recent?limit=8")
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((d: { jobs?: RecentJob[] }) => {
+        if (alive) setRecent(Array.isArray(d.jobs) ? d.jobs : []);
+      })
+      .catch(() => {
+        /* feed is a convenience, not a dependency — render nothing on failure */
+        if (alive) setRecent(null);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [jobCount]);
+
+  const open = async (j: RecentJob) => {
+    // same deep-link semantics as the spotlight: idle jobs get the canvas
+    // selection (params editing), anything else opens its results panel;
+    // cross-project rows switch the active project first (await load so
+    // the job actually exists in the store before we point at it)
+    const isLocal = j.projectId != null && j.projectId === activeProjectId;
+    if (!isLocal && j.projectId) {
+      await switchProject(j.projectId);
+    }
+    setView("canvas");
+    if (j.status === "idle") select(j.id);
+    else inspect(j.id);
+  };
+
+  if (recent !== null && recent.length === 0) return null;
+
+  return (
+    <section
+      aria-label="Recent activity across all projects"
+      className="card-lift rounded-xl border bg-card px-4 py-3.5 sm:px-5"
+    >
+      <div className="mb-2 flex items-center gap-2">
+        <Clock className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        <h2 className="text-sm font-semibold tracking-tight">Recent activity</h2>
+        <span className="text-[11px] text-muted-foreground">across all projects</span>
+      </div>
+      {recent === null ? (
+        <div className="flex flex-wrap gap-1.5" aria-hidden="true">
+          {[0, 1, 2, 3].map((i) => (
+            <span key={i} className="h-9 flex-1 basis-56 animate-pulse rounded-lg bg-muted/60" />
+          ))}
+        </div>
+      ) : (
+        <div className="grid gap-1 sm:grid-cols-2 xl:grid-cols-4">
+          {recent.map((j) => {
+            const spec = jobType(j.type);
+            const isLocal = j.projectId != null && j.projectId === activeProjectId;
+            return (
+              <button
+                key={j.id}
+                type="button"
+                onClick={() => void open(j)}
+                className="group/row flex min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-secondary/60"
+                title={`Open ${j.name}${!isLocal && j.projectName ? ` in ${j.projectName}` : ""}`}
+              >
+                <span
+                  className={cn(
+                    "flex size-7 shrink-0 items-center justify-center rounded-lg ring-1 ring-inset",
+                    spec?.color.soft,
+                    spec?.color.border
+                  )}
+                  aria-hidden="true"
+                >
+                  <TypeIcon name={spec?.icon ?? "Boxes"} className={cn("size-3.5", spec?.color.text)} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-1.5">
+                    <span className="truncate text-[11px] font-semibold">{j.name}</span>
+                    <StatusBadge status={j.status} />
+                  </span>
+                  <span className="mt-0.5 block truncate text-[10px] text-muted-foreground">
+                    {!isLocal && j.projectName ? `${j.projectName} · ` : ""}
+                    {formatDistanceToNow(new Date(j.updatedAt), { addSuffix: true })}
+                  </span>
+                </span>
+                <ChevronRight
+                  className="size-3.5 shrink-0 text-muted-foreground/40 transition-transform group-hover/row:translate-x-0.5"
+                  aria-hidden="true"
+                />
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function ActiveProjectSpotlight() {
   const project = useWorkflowStore((s) => s.project);
   const jobs = useWorkflowStore((s) => s.jobs);
@@ -1016,6 +1139,11 @@ export function ProjectDashboard() {
             }
             tone="bg-primary/10 text-primary ring-primary/25"
           />
+        </div>
+
+        {/* cross-project recent activity — the "where did I leave off" strip */}
+        <div className="mt-6">
+          <RecentActivityFeed activeProjectId={activeId} />
         </div>
 
         {/* active project spotlight */}

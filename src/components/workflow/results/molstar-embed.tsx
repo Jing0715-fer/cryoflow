@@ -16,7 +16,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { Axis3d, BoxSelect, Camera, Check, ClipboardCopy, Layers, Loader2, Mountain, Orbit, Plus, RotateCw, ScanLine, Video, X, ZoomIn } from "lucide-react";
+import { Axis3d, Bookmark, BoxSelect, Camera, Check, ClipboardCopy, Layers, Loader2, Mountain, Orbit, Plus, RotateCw, ScanLine, Video, X, ZoomIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
@@ -945,11 +945,93 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [phase]);
 
+  /* ---------------- camera view bookmarks ------------------------------ */
+  // Named camera poses per job — cryo-EM inspection spends a lot of time
+  // hunting for THE angle (channel axis, preferred particle orientation),
+  // and bookmarks turn that hunt into a one-time cost. getSnapshot()/
+  // setState() are mol*'s own camera serialization (the same mechanism
+  // Camera.Reset uses for the initial view); Vec3 extends Array<number>,
+  // so poses survive JSON round-trips intact. Persisted per browser + job.
+  const camBookmarkKey = (id: string) => `cryoflow.mol-camera-bookmarks:${id}`;
+  type CamBookmark = { id: string; name: string; ts: number; snapshot: Record<string, unknown> };
+  const [bookmarks, setBookmarks] = useState<CamBookmark[]>([]);
+  const [bookmarkName, setBookmarkName] = useState("");
+
+  useEffect(() => {
+    if (phase !== "ready") return;
+    try {
+      const raw = localStorage.getItem(camBookmarkKey(jobId));
+      if (!raw) return;
+      const parsed: unknown = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return;
+      const clean = parsed
+        .filter(
+          (b): b is CamBookmark =>
+            !!b &&
+            typeof b === "object" &&
+            typeof (b as CamBookmark).id === "string" &&
+            typeof (b as CamBookmark).name === "string" &&
+            typeof (b as CamBookmark).ts === "number" &&
+            !!(b as CamBookmark).snapshot,
+        )
+        .slice(0, 8);
+      setBookmarks(clean);
+    } catch {
+      /* private mode / corrupt entry — start empty */
+    }
+  }, [phase, jobId]);
+
+  const persistBookmarks = (next: CamBookmark[]) => {
+    setBookmarks(next);
+    try {
+      localStorage.setItem(camBookmarkKey(jobId), JSON.stringify(next));
+    } catch {
+      /* private mode — the session-local list still works */
+    }
+  };
+
+  const saveBookmark = () => {
+    const cam = pluginRef.current?.canvas3d?.camera;
+    if (!cam) return;
+    const snapshot = cam.getSnapshot() as unknown as Record<string, unknown>;
+    const nm = (bookmarkName.trim() || `View ${bookmarks.length + 1}`).slice(0, 40);
+    persistBookmarks([...bookmarks, { id: `bm-${Date.now()}`, name: nm, ts: Date.now(), snapshot }].slice(-8));
+    setBookmarkName("");
+    toast({ title: "View saved", description: `“${nm}” — jump back from the bookmark menu any time.` });
+  };
+
+  const restoreBookmark = (b: CamBookmark) => {
+    const cam = pluginRef.current?.canvas3d?.camera;
+    if (!cam) return;
+    // eased 320 ms flight — the same "swing, don't teleport" language as
+    // the axis presets
+    cam.setState(b.snapshot as Parameters<typeof cam.setState>[0], 320);
+  };
+
   /* ---------------- view capture (figure export) ---------------------- */
 
   // busy → spinner; done → emerald check for 1.8s so the click lands visibly
   // even when the download itself is instant
   const [shot, setShot] = useState<"idle" | "busy" | "done">("idle");
+
+  /** one real frame at the (possibly new) canvas size: didDraw fires after
+   *  the plugin's render pass (its BehaviorSubject replays the seed on
+   *  subscribe — skipped); 400 ms fallback so a throttled background tab
+   *  can never hang the caller. Shared by the still-figure boost and the
+   *  turntable recording boost. */
+  const awaitPluginRedraw = (plugin: NonNullable<typeof pluginRef.current>) =>
+    new Promise<void>((res) => {
+      const subject = plugin?.canvas3d?.didDraw;
+      if (!subject?.subscribe) return res();
+      let seeded = false;
+      const sub = subject.subscribe(() => {
+        if (!seeded) return;
+        sub.unsubscribe();
+        res();
+      });
+      seeded = true;
+      setTimeout(res, 400);
+    });
 
   // ---- export resolution (1× native / 2× supersampled / 3× print) -------
   // persisted per browser — a figure workflow is a habit, not a per-open
@@ -1038,25 +1120,9 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
       const wantBoost = mult > 1 && !!ctx && prevScale > 0 && prevScale * mult <= EXPORT_SCALE_CAP;
       const prevW = canvas.width;
       let supersampled = false;
-      // one real frame at the new size: didDraw fires after the plugin's
-      // render pass (its BehaviorSubject replays the seed on subscribe —
-      // skipped); 400 ms fallback so a throttled tab can't hang the export
-      const awaitRedraw = () =>
-        new Promise<void>((res) => {
-          const subject = plugin?.canvas3d?.didDraw;
-          if (!subject?.subscribe) return res();
-          let seeded = false;
-          const sub = subject.subscribe(() => {
-            if (!seeded) return;
-            sub.unsubscribe();
-            res();
-          });
-          seeded = true;
-          setTimeout(res, 400);
-        });
       if (wantBoost && ctx) {
         ctx.setProps({ pixelScale: prevScale * mult });
-        await awaitRedraw();
+        await awaitPluginRedraw(plugin);
         supersampled = canvas.width > prevW * 1.2; // resize actually landed?
         if (!supersampled) ctx.setProps({ pixelScale: prevScale });
       }
@@ -1149,7 +1215,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
       } finally {
         if (supersampled && ctx) {
           ctx.setProps({ pixelScale: prevScale }); // on-screen scale back
-          await awaitRedraw();
+          await awaitPluginRedraw(plugin);
         }
       }
     })();
@@ -1188,6 +1254,20 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
   const spinCancelRef = useRef(false);
   const spinRecRef = useRef<MediaRecorder | null>(null);
   const spinStreamRef = useRef<MediaStream | null>(null);
+  /** recording resolution — 2× briefly raises the GL backing-store
+   *  pixelScale for the whole recording (same mechanism as the still-figure
+   *  boost), so the WebM itself is supersampled rather than upscaled.
+   *  Persisted like the turn speed — output size is a habit, too. */
+  const spinScaleRef = useRef(1);
+  const [, setSpinScaleTick] = useState(0);
+  const SPIN_SCALE_KEY = "cryoflow.mol-turntable-scale";
+  useEffect(() => {
+    const v = Number(localStorage.getItem(SPIN_SCALE_KEY));
+    if (v === 1 || v === 2) {
+      spinScaleRef.current = v;
+      setSpinScaleTick((t) => t + 1);
+    }
+  }, []);
   /** component alive? (unmount during a recording discards silently) */
   const viewerAliveRef = useRef(true);
   useEffect(() => {
@@ -1248,6 +1328,22 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
     setSpinElapsed(0);
     spinCancelRef.current = false;
     void (async () => {
+      // ---- resolution boost: raise the GL backing-store pixelScale for the
+      // whole recording (2×) — every captured frame is supersampled, not
+      // upscaled. Restored in `finally` (both the success and cancel paths).
+      const ctx = plugin.canvas3dContext;
+      const prevScale = ctx?.props?.pixelScale ?? 0;
+      const mult = spinScaleRef.current;
+      const wantBoost = mult > 1 && !!ctx && prevScale > 0 && prevScale * mult <= EXPORT_SCALE_CAP;
+      const prevW = canvas.width;
+      let supersampled = false;
+      if (wantBoost && ctx) {
+        ctx.setProps({ pixelScale: prevScale * mult });
+        await awaitPluginRedraw(plugin);
+        supersampled = canvas.width > prevW * 1.2;
+        if (!supersampled) ctx.setProps({ pixelScale: prevScale });
+      }
+
       // ---- composite canvas: live frame + figure footer (snapshot) -------
       // The footer is built once, from the state visible when Record was
       // pressed — same title/caption, contour σ, slice/clip annotations and
@@ -1255,6 +1351,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
       const st = sliceStateRef.current;
       const cp = clipStateRef.current;
       const annotations: string[] = [];
+      if (supersampled) annotations.push(`${mult}× supersampled`);
       if (st.on) annotations.push(`slice ${st.axis} ${Math.round(st.pos * 100)}%`);
       if (cp.on) {
         const axes = (["x", "y", "z"] as const)
@@ -1266,7 +1363,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
         annotations.push(`${overlays.length} overlay map${overlays.length > 1 ? "s" : ""}`);
       }
       const figureLegend = overlays.map((o) => ({ color: o.color, label: o.name }));
-      const { title, meta } = figureTitleMeta({ mapName: name, caption, sigma, annotations });
+      const { title, meta, sub } = figureTitleMeta({ mapName: name, caption, sigma, annotations });
       const host = containerRef.current?.parentElement ?? containerRef.current;
       const bgRaw = host ? getComputedStyle(host).backgroundColor : "";
       const bgColor =
@@ -1274,7 +1371,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
           ? bgRaw
           : getComputedStyle(document.body).getPropertyValue("--background").trim() || "#ffffff";
       const scale = canvas.width / Math.max(1, canvas.clientWidth || canvas.width);
-      const footerH = figureFooterHeightPx(scale, figureLegend.length);
+      const footerH = figureFooterHeightPx(scale, figureLegend.length, sub.length);
       const composite = document.createElement("canvas");
       composite.width = canvas.width;
       composite.height = canvas.height + footerH;
@@ -1297,6 +1394,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
           scale,
           title,
           meta,
+          sub,
           legend: figureLegend,
         });
         paintRaf = requestAnimationFrame(paint);
@@ -1348,6 +1446,12 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
         // stop the footer paint loop before tearing the stream down
         painting = false;
         if (paintRaf) cancelAnimationFrame(paintRaf);
+        // restore the interactive pixelScale before anything else — the
+        // user is back in the scene the moment the recorder winds down
+        if (supersampled && ctx) {
+          ctx.setProps({ pixelScale: prevScale });
+          await awaitPluginRedraw(plugin);
+        }
         try {
           if (pluginRef.current === plugin && plugin.managers.animation.isAnimating) {
             await plugin.managers.animation.stop();
@@ -1378,6 +1482,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
         const secs = Math.round(perTurnMs / 1000);
         const fileName = `cryoflow-turntable-${viewerFileSlug(name)}-${viewerFileTimestamp()}.webm`;
         downloadViewerBlob(blob, fileName);
+        const sizeNote = supersampled ? ` · ${mult}× supersampled` : "";
         const footerNote = figureLegend.length
           ? `figure footer + ${figureLegend.length}-map legend burned in · `
           : caption?.trim()
@@ -1385,7 +1490,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
             : "figure footer burned in · ";
         toast({
           title: "Turntable video exported",
-          description: `${fileName} · one 360° loop (${secs}s @ 30 fps) · ${footerNote}${fmtBytes(blob.size)}`,
+          description: `${fileName} · one 360° loop (${secs}s @ 30 fps)${sizeNote} · ${footerNote}${fmtBytes(blob.size)}`,
         });
       }
       if (viewerAliveRef.current) {
@@ -2612,19 +2717,20 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                     </button>
                   )}
                 </label>
-                <input
+                <textarea
                   id="figure-caption"
                   data-testid="figure-caption-input"
                   value={caption}
                   maxLength={CAPTION_MAX}
+                  rows={2}
                   onChange={(e) => editCaption(e.target.value)}
                   placeholder={`Default: CryoFlow — ${name}`}
-                  className="mt-1 h-7 w-full rounded-md border bg-background px-2 text-xs outline-none transition-colors placeholder:text-muted-foreground/60 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
+                  className="mt-1 w-full resize-none rounded-md border bg-background px-2 py-1 text-xs outline-none transition-colors placeholder:text-muted-foreground/60 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
                 />
                 <p className="mt-0.5 text-[9px] leading-tight text-muted-foreground">
                   {caption.trim()
-                    ? "Footer title uses your caption."
-                    : "Optional — names the figure in the exported footer."}
+                    ? "Footer title uses line 1; extra lines become muted subtitle rows."
+                    : "Optional — press Enter for a second caption line."}
                 </p>
               </div>
               <p className="border-t px-1 pb-0.5 pt-1.5 text-[10px] leading-tight text-muted-foreground">
@@ -2738,6 +2844,45 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                   );
                 })}
               </div>
+              {/* output size — 2× raises the GL pixelScale for the whole
+                  recording so frames are supersampled, not upscaled */}
+              <p className="px-1 pb-1 pt-1.5 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Output size
+              </p>
+              <div className="grid grid-cols-2 gap-1">
+                {[
+                  { v: 1, label: "Native", desc: "1× — lightest" },
+                  { v: 2, label: "2× super", desc: "sharper, heavier" },
+                ].map((s) => {
+                  const active = spinScaleRef.current === s.v;
+                  return (
+                    <button
+                      key={s.v}
+                      type="button"
+                      data-testid={`turntable-scale-${s.v}`}
+                      onClick={() => {
+                        spinScaleRef.current = s.v;
+                        try {
+                          localStorage.setItem(SPIN_SCALE_KEY, String(s.v));
+                        } catch {
+                          /* private mode — choice lives for this visit */
+                        }
+                        setSpinScaleTick((t) => t + 1);
+                      }}
+                      aria-pressed={active}
+                      className={cn(
+                        "flex flex-col items-start rounded-md border px-2 py-1.5 text-[11px] transition-colors",
+                        active
+                          ? "border-primary/50 bg-primary/10 text-primary"
+                          : "bg-card text-foreground/90 hover:bg-muted"
+                      )}
+                    >
+                      <span className="font-medium">{s.label}</span>
+                      <span className="text-[9px] text-muted-foreground">{s.desc}</span>
+                    </button>
+                  );
+                })}
+              </div>
               <Button
                 size="sm"
                 className="mt-1.5 w-full gap-1.5"
@@ -2748,7 +2893,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
               </Button>
               <p className="border-t px-1 pb-0.5 pt-1.5 text-[10px] leading-tight text-muted-foreground">
                 30 fps · WebM (VP9/VP8) · figure footer with caption + overlay legend burned
-                in · your speed choice is remembered.
+                in · speed and size choices are remembered.
               </p>
             </PopoverContent>
           </Popover>
@@ -2812,6 +2957,94 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
               </button>
               <p className="border-t px-1 pb-0.5 pt-1.5 text-[10px] leading-tight text-muted-foreground">
                 Keys 1–6 / 0 work too. Swing the camera to an axis — zoom stays put.
+              </p>
+            </PopoverContent>
+          </Popover>
+          {/* named camera poses — save the current orbit/zoom/target combo
+              and fly back to it any time (per browser + job) */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="secondary"
+                size="icon"
+                className={cn(
+                  "size-8 rounded-lg shadow-sm transition-colors",
+                  bookmarks.length > 0 &&
+                    "border-primary/40 text-primary hover:text-primary"
+                )}
+                aria-label={`Camera view bookmarks${bookmarks.length ? ` — ${bookmarks.length} saved` : ""}`}
+                title="View bookmarks — save the current angle and jump back to it any time"
+              >
+                <Bookmark className="size-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-60 p-2" data-canvas-ui="camera-bookmarks">
+              <p className="px-1 pb-1 text-[11px] font-semibold">View bookmarks</p>
+              <p className="px-1 pb-1.5 text-[10px] leading-tight text-muted-foreground">
+                Save the exact camera pose — orbit, zoom and target — and fly back to it later.
+              </p>
+              <div className="flex gap-1">
+                <input
+                  value={bookmarkName}
+                  onChange={(e) => setBookmarkName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      saveBookmark();
+                    }
+                  }}
+                  maxLength={40}
+                  placeholder={bookmarks.length ? `Name view ${bookmarks.length + 1}…` : "Name this view…"}
+                  className="h-7 min-w-0 flex-1 rounded-md border bg-background px-2 text-xs outline-none placeholder:text-muted-foreground/60 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
+                />
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="h-7 shrink-0 gap-1 px-2 text-[11px]"
+                  onClick={saveBookmark}
+                >
+                  <Plus className="size-3" />
+                  Save
+                </Button>
+              </div>
+              <div className="mt-1.5 max-h-44 space-y-0.5 overflow-y-auto pr-0.5 nice-scroll">
+                {bookmarks.length === 0 ? (
+                  <p className="px-1 py-2 text-center text-[10px] text-muted-foreground">
+                    No bookmarks yet — set up a view, then save it.
+                  </p>
+                ) : (
+                  bookmarks.map((b) => (
+                    <div
+                      key={b.id}
+                      className="flex items-center gap-1 rounded-md border bg-card px-2 py-1"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => restoreBookmark(b)}
+                        className="min-w-0 flex-1 text-left"
+                        title={`Fly back to “${b.name}”`}
+                      >
+                        <span className="block truncate text-[11px] font-medium text-foreground/90 transition-colors hover:text-primary">
+                          {b.name}
+                        </span>
+                        <span className="block text-[9px] text-muted-foreground">
+                          {new Date(b.ts).toLocaleString()}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => persistBookmarks(bookmarks.filter((x) => x.id !== b.id))}
+                        aria-label={`Delete bookmark ${b.name}`}
+                        className="shrink-0 rounded p-0.5 text-muted-foreground/50 transition-colors hover:bg-muted hover:text-destructive"
+                      >
+                        <X className="size-3" />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+              <p className="border-t px-1 pb-0.5 pt-1.5 text-[10px] leading-tight text-muted-foreground">
+                Kept per browser + job · up to 8 views · eased 320 ms return.
               </p>
             </PopoverContent>
           </Popover>

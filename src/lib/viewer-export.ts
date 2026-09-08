@@ -65,6 +65,8 @@ export interface FigureFooterSpec {
   scale: number;
   title: string;
   meta: string;
+  /** caption subtitle lines (caption lines 2+; muted, under the title row) */
+  sub?: string[];
   legend: Array<{ color: string; label: string }>;
 }
 
@@ -72,20 +74,36 @@ export interface FigureFooterSpec {
 const FOOTER_H = 44;
 /** extra footer height when a legend line is present (CSS px) */
 const LEGEND_H = 22;
+/** extra footer height per caption subtitle line (CSS px) — publication
+ *  figure captions often wrap onto a second line (\n in the caption field) */
+const SUB_H = 16;
 
-/** footer strip height in backing px for a given scale + legend presence —
- *  the video compositor sizes its canvas with the same math as the PNG one */
-export function figureFooterHeightPx(scale: number, legendCount: number): number {
-  return Math.round((FOOTER_H + (legendCount > 0 ? LEGEND_H : 0)) * scale);
+/** footer strip height in backing px for a given scale + legend/subtitle
+ *  presence — the video compositor sizes its canvas with the same math as
+ *  the PNG one */
+export function figureFooterHeightPx(scale: number, legendCount: number, subCount = 0): number {
+  return Math.round(
+    (FOOTER_H + (legendCount > 0 ? LEGEND_H : 0) + subCount * SUB_H) * scale,
+  );
+}
+
+/** how many caption subtitle lines a figure footer will paint (0 = none) —
+ *  caption line 1 becomes the title, lines 2+ become muted subtitle rows */
+export function figureCaptionSubCount(caption?: string): number {
+  const lines = (caption ?? "").split("\n").map((l) => l.trim()).filter(Boolean);
+  return Math.max(0, lines.length - 1);
 }
 
 /** paint the figure footer strip (card plate + hairline + title/meta line
- *  + optional legend row) onto a 2d context — shared verbatim by the
- *  static PNG compositor and the turntable video compositor so every
- *  sink renders the pixel-identical footer */
+ *  + optional caption subtitle rows + optional legend row) onto a 2d
+ *  context — shared verbatim by the static PNG compositor and the
+ *  turntable video compositor so every sink renders the pixel-identical
+ *  footer. Row stack: title (44 CSS px) → subtitle lines (16 each) →
+ *  legend (22 when present). */
 export function drawFigureFooter(ctx: CanvasRenderingContext2D, spec: FigureFooterSpec): void {
   const { width, plateHeight, footerH, scale } = spec;
   const legend = spec.legend.filter((l) => l.label);
+  const sub = (spec.sub ?? []).map((s) => s.trim()).filter(Boolean);
 
   // footer plate + hairline
   ctx.fillStyle = cssColor("--card", "#ffffff");
@@ -93,11 +111,14 @@ export function drawFigureFooter(ctx: CanvasRenderingContext2D, spec: FigureFoot
   ctx.fillStyle = cssColor("--border", "#e5e7eb");
   ctx.fillRect(0, plateHeight, width, Math.max(1, scale));
 
+  // title + inline meta — centered inside the first 44 CSS px of the
+  // footer (identical y math to the pre-subtitle layout, so existing
+  // figures stay pixel-identical when the caption has no second line)
   ctx.textBaseline = "middle";
   ctx.fillStyle = cssColor("--foreground", "#0f172a");
   ctx.font = `600 ${13 * scale}px ui-sans-serif, system-ui, sans-serif`;
   ctx.textRendering = "geometricPrecision";
-  ctx.fillText(spec.title, 16 * scale, plateHeight + footerH * 0.5 - (legend.length ? (LEGEND_H * scale) / 2 : 0));
+  ctx.fillText(spec.title, 16 * scale, plateHeight + (FOOTER_H / 2) * scale);
   const titleW = ctx.measureText(spec.title).width;
   ctx.fillStyle = cssColor("--muted-foreground", "#64748b");
   ctx.font = `400 ${11 * scale}px ui-sans-serif, system-ui, sans-serif`;
@@ -106,15 +127,25 @@ export function drawFigureFooter(ctx: CanvasRenderingContext2D, spec: FigureFoot
   const metaX = 16 * scale + titleW + 12 * scale;
   const metaW = ctx.measureText(spec.meta).width;
   const margin = 16 * scale;
-  const metaY = plateHeight + footerH * 0.5 + scale - (legend.length ? (LEGEND_H * scale) / 2 : 0);
+  const metaY = plateHeight + (FOOTER_H / 2) * scale + scale;
   const inline = metaX + metaW <= width - margin;
   ctx.fillText(spec.meta, inline ? metaX : width - margin - metaW, metaY);
+
+  // ---- caption subtitle lines: muted, one row per extra caption line ----
+  if (sub.length) {
+    ctx.font = `400 ${11 * scale}px ui-sans-serif, system-ui, sans-serif`;
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = cssColor("--muted-foreground", "#64748b");
+    for (let i = 0; i < sub.length; i++) {
+      ctx.fillText(sub[i], 16 * scale, plateHeight + (FOOTER_H + (i + 0.5) * SUB_H) * scale);
+    }
+  }
 
   // ---- legend line: one chip + label per overlaid map -------------------
   // Truncates with an ellipsis chip-label when the row would overflow —
   // a legend that overflows the figure is worse than a short one.
   if (legend.length) {
-    const legendY = plateHeight + (FOOTER_H + LEGEND_H * 0.5) * scale;
+    const legendY = plateHeight + (FOOTER_H + sub.length * SUB_H + LEGEND_H * 0.5) * scale;
     const chip = 9 * scale;
     const gapChip = 4 * scale;
     const gapGroup = 14 * scale;
@@ -173,16 +204,24 @@ function cssColor(varName: string, fallback: string): string {
   return raw || fallback;
 }
 
-/** footer title + meta line — shared by the static PNG compositor and the
- *  turntable video compositor so both sinks label figures identically */
+/** footer title + meta line + caption subtitle rows — shared by the static
+ *  PNG compositor and the turntable video compositor so both sinks label
+ *  figures identically. A multi-line caption (\n) promotes line 1 to the
+ *  title and paints lines 2+ as muted subtitle rows. */
 export function figureTitleMeta(opts: Pick<ViewerExportOptions, "mapName" | "caption" | "sigma" | "annotations">): {
   title: string;
   meta: string;
+  sub: string[];
 } {
-  const title = opts.caption?.trim() ? opts.caption.trim() : `CryoFlow — ${opts.mapName}`;
+  const capLines = (opts.caption ?? "")
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+  const title = capLines[0] || `CryoFlow — ${opts.mapName}`;
+  const sub = capLines.slice(1);
   const notes = (opts.annotations ?? []).filter(Boolean);
   const meta = [`contour ${opts.sigma.toFixed(2)} σ`, ...notes, new Date().toLocaleDateString()].join(" · ");
-  return { title, meta };
+  return { title, meta, sub };
 }
 
 /** composed figure before any sink (download / clipboard) */
@@ -219,7 +258,8 @@ async function composeViewerFigure(opts: ViewerExportOptions): Promise<ComposedF
   // footer scale: match the capture's device pixel ratio (backing / CSS size)
   const scale = px / Math.max(1, canvas.clientWidth || px);
   const legend = (opts.legend ?? []).filter((l) => l.label);
-  const footerH = figureFooterHeightPx(scale, legend.length);
+  const { title, meta, sub } = figureTitleMeta(opts);
+  const footerH = figureFooterHeightPx(scale, legend.length, sub.length);
 
   const out = document.createElement("canvas");
   out.width = px;
@@ -228,7 +268,6 @@ async function composeViewerFigure(opts: ViewerExportOptions): Promise<ComposedF
   if (!octx) throw new Error("Canvas 2D context unavailable.");
 
   octx.drawImage(plate, 0, 0);
-  const { title, meta } = figureTitleMeta(opts);
   drawFigureFooter(octx, {
     width: out.width,
     plateHeight: canvas.height,
@@ -236,6 +275,7 @@ async function composeViewerFigure(opts: ViewerExportOptions): Promise<ComposedF
     scale,
     title,
     meta,
+    sub,
     legend,
   });
 

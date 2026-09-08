@@ -1904,3 +1904,27 @@ Stage Summary:
 - 转速偏好补完 Turntable 的习惯记忆（与导出分辨率、caption 同一设计语言：档位是习惯不是每次的决策）
 - 方法论增补：agent-browser eval 输出格式会漂移（紧凑→pretty-print），探针断言必须空白归一；Radix dialog 级 Escape 冒泡是 Popover 收起的陷阱；OOM 高发期的"curl 预热 → 后开浏览器"序列
 - 遗留（下轮候选）：真 RELION 数据回归（EMPIAR 全链，需用户机器）、HPC SBATCH 真集群实测（需用户机器）、Turntable GIF 转码选项（需 wasm ffmpeg，重）、叠加会话冲突合并（双浏览器并发编辑同一 job 的 last-write-wins 现状）、导出 footer 图例支持论文图注多行排版、WebM 录制分辨率档位（当前跟 canvas 原生尺寸）
+---
+Task ID: 39
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 新日轮 2026-09-08 16:29）——QA 回归全绿后交付四功能：3D 相机视角书签（getSnapshot/setState + per-job 持久化）+ Turntable 2× 真超采样录制（pixelScale boost 全程）+ figure caption 多行排版（三 sink 同源自适应 footer）+ Dashboard 跨项目 Recent activity feed（新 API + deep-link）；worklog + push
+
+Work Log:
+- 【开局核对】worklog 实际最新为 Task 38（交接摘要所称"Task 28 中断点"已过期 11 轮——Camera 按钮早随 Task 28-34 落地）；Task 13 老遗留已全部闭环；git 本地 == origin/main == 22f97f4 干净；DB fixture 4 项目 / 11 jobs 与 Task 38 收官一致
+- 【QA 回归·全绿】Workflow 画布（QA Sandbox C 5 jobs / 1 completed / catalog 36）+ Dashboard KPI band + spotlight 5 jobs + console 0 error → 无新 bug，转功能
+- 【新功能 1·相机视角书签】①API 实证：Camera.getSnapshot()/setState(partial, durationMs) 是 mol* 自有序列化（Camera.Reset 同源）；Vec3 extends Array<number> → JSON round-trip 无损；Snapshot 全字段（mode/fov/position/up/target/radius/radiusMax/fog/clipFar/minNear/minFar）可序列化②UI：corner actions 第 8 键 Bookmark（有书签时 primary 边框高亮）+ Popover（命名输入 Enter/Save 保存 + 列表行点击回跳 + X 删除 + 空态引导 + 脚注）；恢复走 setState(snapshot, 320) 缓动——与轴预设同"摆头不传送"语言③持久化 cryoflow.mol-camera-bookmarks:<jobId>（per browser + per job，≤8 个，防御式清洗，private mode try/catch）④E2E：Top 稳态保存 "QA top view" → localStorage 精确 → 按 1 Front（hash 变）→ 书签行点击 → **稳态 hash 分毫不差回到 -2038742305**
+- 【关键技术陷阱·headless 帧率】首轮 E2E restore hash 不等 → 自建 cam state 探针诊断：320ms transition 在 SwiftShader（每帧数百 ms）下走数秒——书签保存/对比都发生在 transition 途中，两个"途中点"当然不相等；**非代码 bug，是观测方法错误**——修正为"每个视角等 5s 稳态再 hash"后精确匹配；诊断脚本 qa39-diag.mjs（camera.state 数值探针）入库
+- 【新功能 2·Turntable 2× 真超采样】Task 38 遗留"分辨率档位"以诚实方式落地：不做拉伸放大（假超采样），而是录制全程 ctx.setProps({pixelScale: prev×2})——每帧 GL backing store 真超采样（与静帧 boost 同机制），finally 还原（成功/cancel/异常三路）；awaitRedraw 提取为组件级 awaitPluginRedraw（静帧/录制两路共用）；composite canvas 读 boost 后大帧，footer scale 自动跟随；Popover 新增 "Output size" 双选（Native 1× / 2× super）+ localStorage cryoflow.mol-turntable-scale 持久化 + toast/annotations 注记 "2× supersampled"；E2E：key=2 → 录制 → toast 全文捕获 "...· 2× supersampled · figure footer burned in · 30 KB" → 录后 canvas hash == 录前 + 尺寸回 1149×425 native（pixelScale 还原实证）
+- 【新功能 3·caption 多行排版】Task 38 遗留"论文图注多行"：①viewer-export.ts 重构——figureTitleMeta 返回 {title, meta, sub}（caption 按 \n 拆行，行1=标题、行2+=muted 副标题行）；figureFooterHeightPx 增 subCount 参数（每行 +16 CSS px）；drawFigureFooter 行堆叠布局 title(44)→sub(16×n)→legend(22)，y 数学与旧布局在 subCount=0 时像素级一致（向后兼容）②caption 输入 input→textarea rows=2（Enter 自然换行，键盘守卫链已有 textarea）③三 sink（PNG 下载/剪贴板/WebM composite）全部同源跟随④E2E：两行 caption → 导出 toast "2298×970 px" = (425+44+16)×2 **分毫不差**（SwiftShader 慢编码导致 toast >2.2s 才到——首查 NONE 是观测窗口问题，非功能故障；toast 数组全量 dump 拿到铁证）；reset → localStorage null
+- 【新功能 4·Dashboard Recent activity feed】①新路由 GET /api/activity/recent?limit=8（跨项目 jobs 按 updatedAt desc，slim select + project join——updatedAt 是诚实触点：状态翻转/进度扫动/参数编辑都算）②Dashboard KPI band 与 spotlight 之间新卡片：Clock 标题 + 8 行网格（sm:2 列/xl:4 列）每行 TypeIcon 徽标 + job 名 + StatusBadge + 项目归属前缀（本地项目省略）+ 相对时间（date-fns）③点击 deep-link 与 spotlight 同语义：idle→select、否则→inspect；**跨项目行先 await switchProject（load 完成后 job 确在 store）再定位**④mount + jobs.length 变化 refetch；骨架屏 + 失败静默（feed 是便利不是依赖）；E2E：8 行渲染（QA Sandbox B/β-Gal 前缀 + 本地行无前缀）→ 点击 "CTF Estimation 1 · QA Sandbox B" → 活动项目切换 + Workflow 画布 + inspector 选中该 job 全链通
+- 【QA 工具链增补】①corner action 按钮落在右上 toast viewport 带内——残留 toast 吞真实坐标点击（first outside click 只是 dismiss popover），el.click() 程序化触发是正解（React onClick 响应）②agent-browser type 按空格拆参——多词输入必须走 native setter + input event ③realClick 传 NodeList 忘 [0] → getBoundingClientRect is not a function
+- 【运维】dev server OOM ×3（本轮叠加 molstar 冷编译 + 5 浏览器 tab + 多次 eval 窗口）→ dev-server.sh playbook 重启 ×3 + pkill chrome 清场；"curl 预热 → 后开浏览器"纪律再次证明是稳定关键
+- 【收尾】bun run lint 0/0、tsc 0 错误（examples/skills 预存在与项目无关）；dark 主题目检截图：8 corner 键 + 书签 popover（Diag top 行 + 时间戳 + 删除 X）深色面板清晰、primary 高亮正确；light 主题恢复、测试书签清理、浏览器已关；DB 终态 4 项目 / 11 jobs 与开局一致
+
+Stage Summary:
+- 3D viewer 的"检视经济学"再下一城：找到好角度是一次性成本——书签把它存下来，任意漂移后 320ms 缓动精确回位（稳态 hash 分毫不差）；与轴预设（1-6/0）、Reset（初始快照）构成三层相机记忆
+- Turntable 视频以"真超采样"方式拿到分辨率自由度：录制全程 GL backing store 翻倍，每帧都是 2× 渲染而非拉伸——与静帧同一机制、同一 CAP、同一 toast 语言，取消/异常路径同样还原
+- figure caption 支持论文级两行排版：行1 标题 + 行2 muted 副标题，footer 高度自适应（+16px/行），PNG/剪贴板/WebM 三出口像素级同源；旧单行 caption 的图逐像素不变
+- Dashboard 补上"跨项目最近动态"：昨晚在 B 项目跑的 CTF 今早在 feed 里一眼可见，点击直接跳回（切项目 → 画布 → 选中/结果面板）——"我在哪留下的摊子"不再需要翻项目网格
+- 方法论沉淀：headless 帧率是 transition 类断言的天敌——"稳态后取证"必须显式等待；toast viewport 与 corner 控件的坐标冲突用程序化 click 绕行；toast 迟到 ≠ 功能故障，全量 dump 数组补证据链
+- 遗留（下轮候选）：真 RELION 数据回归（EMPIAR 全链，需用户机器）、HPC SBATCH 真集群实测（需用户机器）、书签进 overlay-session 云端化（跨浏览器跟 job 走）、Turntable GIF 转码（wasm ffmpeg，重）、Recent feed 的 running 任务实时进度条、书签缩略图（保存时快照 mini PNG）
