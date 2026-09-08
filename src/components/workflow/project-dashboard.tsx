@@ -233,7 +233,7 @@ function KpiCard({
           above the spark watermark so they never fight for attention */}
       {interactive && !pressed ? (
         <ChevronRight
-          className="pointer-events-none absolute right-1.5 top-1.5 size-3 text-muted-foreground/0 transition-colors group-hover/kpi:text-muted-foreground/60"
+          className="pointer-events-none absolute right-1.5 top-1.5 size-3 text-muted-foreground/0 transition-colors motion-reduce:transition-none group-hover/kpi:text-muted-foreground/60"
           aria-hidden="true"
         />
       ) : null}
@@ -242,7 +242,7 @@ function KpiCard({
           className="pointer-events-none absolute right-2 top-2 flex items-center gap-0.5"
           aria-hidden="true"
         >
-          <span className="size-1.5 animate-pulse rounded-full bg-primary" />
+          <span className="size-1.5 animate-pulse rounded-full bg-primary motion-reduce:animate-none" />
           <Filter className="size-2.5 text-primary" />
         </span>
       ) : null}
@@ -692,7 +692,7 @@ function SavedViewsGallery({ activeProjectId }: { activeProjectId: string | null
               type="button"
               onClick={() => void jump(v, b)}
               title={`Open “${b.name}” — jumps to ${v.jobName}${v.projectName ? ` in ${v.projectName}` : ""} and restores the view in the 3D viewer`}
-              className="group/card flex min-w-0 items-center gap-2.5 rounded-lg border bg-card p-2 text-left transition-all hover:border-primary/40 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+              className="group/card flex min-w-0 items-center gap-2.5 rounded-lg border bg-card p-2 text-left transition-all motion-reduce:transition-none hover:border-primary/40 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
             >
               <span
                 className="relative h-11 w-16 shrink-0 overflow-hidden rounded-md border bg-muted"
@@ -1716,7 +1716,7 @@ export function ProjectDashboard() {
         <div
           ref={gridRef}
           className={cn(
-            "mt-6 scroll-mt-4 rounded-xl transition-shadow duration-700",
+            "mt-6 scroll-mt-4 rounded-xl transition-shadow duration-700 motion-reduce:transition-none",
             gridFlash && "ring-2 ring-primary/40 ring-offset-4 ring-offset-background"
           )}
         >

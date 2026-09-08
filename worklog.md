@@ -2115,3 +2115,22 @@ Stage Summary:
 - pending-view 握手的设计立场：一次性消费（fresh intent 覆盖 stale）、双向诚实（命中具名 toast、未命中说明可能已删或没读到）、私有模式降级（sessionStorage 写失败深链照常落地）
 - 方法论：latest-ref 中转让「定义在 effect 之后的函数」可以被早先注册的 effect 安全调用；冷 server 反复 OOM 时「暖机批 + 复用浏览器 sessionStorage」比「重试同一批」更省内存也更省时间
 - 遗留（下轮候选）：Turntable GIF 转码（重）；gallery 卡片直接内嵌 3D 预览（mol* 轻量 instance，重）；导入对话框双来源混合多选；#5 token gate；flash ring 的 reduced-motion 适配；dev overlay「1 Issue」的定位（dev-only 观察）
+
+---
+Task ID: 49
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 晚轮 2026-09-08 22:44）——新功能「Run report 导出」：Results tab 一键下载 Markdown 运行报告（元数据表 + summary + resolution 双源探测 + outputs 盘点）；顺带 reduced-motion 无障碍适配收尾（Task 47 遗留细节）；qa49 分批 e2e 全绿；worklog + push
+
+Work Log:
+- 【开局核对】HEAD edd030b == origin，worklog 最新 Task 48；dev server 规程重启（轮间又挂过一次）；qa47 回归全绿 → 转功能；虚惊一场：grep 输出渲染吞了 results-view 的 "[m" 字符疑似语法损坏，读原文完好——诊断前先看原始文件
+- 【新功能 1·Run report 导出】JobResults header 行加 Report 按钮（FileDown + busy pulse）：点击 → 并行 fetch fsc（postprocess 的 resolutionAt143）+ resolution（refine 的 current/best）→ 组装 Markdown（元数据表 type/status/engine/created/started/duration/workdir + Summary（job.result）+ Resolution（行按到达 earn——失败 fetch 就不是一行，诚实缺口胜过占位破折号）+ Outputs on disk（mrc/star/text 计数 + 最新文件名）+ 生成时间戳）→ Blob 下载 cryoflow-report-<slug>.md + toast；TS 坑：闭包内赋值的裸 let 被 await 后控制流收窄回 null（TS2677）→ 对象属性包装保住联合类型；OutputKind 无 "log"（是 "text"）——文案如实 text/log
+- 【细节 2·reduced-motion 收尾】四处 motion-reduce 变体：KPI drill-down chevron 渐显（motion-reduce:transition-none）、grid flash ring 容器（transition-shadow）、gallery 卡 hover（transition-all）、canvas KpiItem hover + reportBusy pulse/pressed 点 animate（motion-reduce:animate-none）——prefers-reduced-motion 用户拿到瞬时但完整的反馈
+- 【e2e·qa49-e2e.mjs 分批全绿】A：job 节点 → Results tab → Report 按钮/title 探针 → hook URL.createObjectURL → 点击 → toast「Run report downloaded」+ Blob 捕获 619B + **markdown 内容断言 PASS**（eval 桥支持 promise：# CryoFlow run report — 3D Auto-Refine 1 / Job type refine3d / Status completed 全命中，含 Resolution + Outputs section）→ B：flash 容器/chevron/canvas KpiItem 的 motion-reduce 变体在 DOM（gallery 墙空 → 条件跳过）→ C：console 0 error；截图目检（Report 按钮 + toast 同框）
+- 【QA 工具链】①跨 bash 调用浏览器 session 不持久——独立批跑必须自带 open bootstrap（qa48 已踩过，本轮固化进脚本入口）②dashboard 冷编译 20s+ → 探针轮询（ready + 目标元素双条件）而非定长 sleep ③blob 内容断言的新路：createObjectURL hook + blob.text()——eval 桥 promise 可解析时做全内容断言，否则 size 兜底
+- 【收尾】bun run lint 0/0、tsc src 0 错误（TS2677/TS2367 修清）；report 导出无副作用（Blob 下载不落 DB）；浏览器已关
+
+Stage Summary:
+- Run 的故事第一次能离开屏幕：一个 completed job 的元数据/摘要/分辨率/产出清单一键变 Markdown——实验室笔记、issue、组会纪要的直接原料；分辨率行「按到达 earn」的语义让失败的数据源不会在报告里留下假破折号
+- reduced-motion 适配收尾：动效丰富的 drill-down/flash/hover 全部拿到瞬时等价物——「样式越做越细」的应有之义是让每个动效都有人不在动的版本
+- 方法论：跨调用浏览器不持久 → 独立批自带 bootstrap；冷编译等「ready+目标」双条件轮询；hook 标准平台 API（createObjectURL）是验证下载链路而不真碰文件系统的干净路径
+- 遗留（下轮候选）：Turntable GIF 转码（重）；gallery 卡内嵌 3D 轻量预览（重）；导入对话框双来源混合多选；#5 token gate；report 富化（图表快照嵌 PNG / FSC 曲线数据表）；dev overlay「1 Issue」定位（dev-only）

@@ -41,7 +41,7 @@ function KpiItem({
   const cls = cn(
     "flex items-center gap-1.5 whitespace-nowrap",
     typeof onClick === "function" &&
-      "cursor-pointer rounded-md transition-colors hover:bg-secondary/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
+      "cursor-pointer rounded-md transition-colors motion-reduce:transition-none hover:bg-secondary/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
     className
   );
   if (typeof onClick !== "function") {
