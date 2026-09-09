@@ -41,9 +41,13 @@ import subprocess
 import sys
 import urllib.request
 
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from qa_lib import resolve_project, resolve_workspace
+
 BASE = "http://localhost:3000"
-PROJECT = "cmtrzp5x80002p8uofb9eu5pp"
-WORKSPACE = "cmts0qohh0001p8dasv88cddv"
+PROJECT = resolve_project()
+WORKSPACE = resolve_workspace(PROJECT)
 STATE_PATH = "/home/z/my-project/data/engine-state.json"
 W = 0.0226
 F0 = 0.01

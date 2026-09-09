@@ -226,10 +226,24 @@ function KpiCard({
       </span>
       <div className="min-w-0 leading-tight">
         <p className="text-xl font-semibold tabular-nums tracking-tight">{value}</p>
-        <p className="truncate text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+        {/* truncate is a SCREEN economy — on paper the card has room and no
+            hover to recover hidden text, so labels/subs unwrap to full
+            width (Task 85: the paper contract expands what the screen
+            clips); title keeps screen hover recovery honest */}
+        <p
+          title={label}
+          className="truncate print:whitespace-normal print:overflow-visible text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
+        >
           {label}
         </p>
-        {sub ? <p className="truncate text-[10px] text-muted-foreground/70">{sub}</p> : null}
+        {sub ? (
+          <p
+            title={sub}
+            className="truncate print:whitespace-normal print:overflow-visible text-[10px] text-muted-foreground/70"
+          >
+            {sub}
+          </p>
+        ) : null}
       </div>
       {/* sparkline as a bottom-right watermark: decorative trend that never
           squeezes the text column (in-flow placement truncated "TOTAL JOBS"
@@ -248,21 +262,24 @@ function KpiCard({
           // chevron was hover-only), brightens on hover; inherits border
           // color from currentColor so it reads on every card tone
           <kbd
-            className="pointer-events-none absolute right-1.5 top-1.5 rounded border px-1 text-[9px] font-semibold leading-[14px] text-muted-foreground/40 transition-colors motion-reduce:transition-none group-hover/kpi:text-muted-foreground/80"
+            className="no-print pointer-events-none absolute right-1.5 top-1.5 rounded border px-1 text-[9px] font-semibold leading-[14px] text-muted-foreground/40 transition-colors motion-reduce:transition-none group-hover/kpi:text-muted-foreground/80"
             aria-hidden="true"
           >
             {kbd}
           </kbd>
         ) : (
           <ChevronRight
-            className="pointer-events-none absolute right-1.5 top-1.5 size-3 text-muted-foreground/0 transition-colors motion-reduce:transition-none group-hover/kpi:text-muted-foreground/60"
+            className="no-print pointer-events-none absolute right-1.5 top-1.5 size-3 text-muted-foreground/0 transition-colors motion-reduce:transition-none group-hover/kpi:text-muted-foreground/60"
             aria-hidden="true"
           />
         )
       ) : null}
       {pressed ? (
+        // no-print: "this filter is ON" is live screen state — a paper
+        // reader can't press anything, and a stamped pulse dot would read
+        // as a defect in the toner
         <span
-          className="pointer-events-none absolute right-2 top-2 flex items-center gap-0.5"
+          className="no-print pointer-events-none absolute right-2 top-2 flex items-center gap-0.5"
           aria-hidden="true"
         >
           <span className="size-1.5 animate-pulse rounded-full bg-primary motion-reduce:animate-none" />

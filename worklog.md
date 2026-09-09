@@ -2875,3 +2875,30 @@ Stage Summary:
 - 测试「重复/跨页」类行为的三件套：先让被测物真的跨页（filler 种子）→ 匹配要锚定完整带文本（裸前缀撞文档其他住户）→ 行存在判据要区分同名数据的多表面出场（feed 也有 filler 名）。三处 FAIL 全是断言的错不是功能的错——但每处都让功能语义更清楚了
 - Task 79 预留的全局 tr{break-inside:avoid} 在表格化当天无缝接住行原子性——「为还没到来的结构留规则」的远期回报；同时 "> * avoid" 升格为整表陷阱需要显式 auto 覆盖——预留规则也要随结构演化复审
 - 遗留（下轮候选）：KPI 卡 truncate 徽章纸上展开细节；palette Notes/Class notes 组计数徽章视觉统一；workflow-import 多文件（低优先）；EMPIAR 真数据回归（重）；β-Gal 零 workspace seed 规则；名册表头带的暗色模式纸张观感复查（muted-foreground 在纸上的对比度）
+
+---
+Task ID: 85
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-10 00:29 window)
+Task: cron 自主巡检——【灾备重建轮】沙箱回滚致本地仓库倒退 83 提交 + 画廊 living instance 全灭：git 对齐 + seeder 项目无关化 + 一键 restore-gallery.py 灾备重建 + 三项视觉契约收尾（palette 徽章统一 / KPI 纸上展开 / 名册表头带暗色纸张对比度）。t85 探针 19 断言三连绿 + qa69 数据驱动补丁 + 全回归矩阵 16 套绿 + worklog + push
+
+Work Log:
+- 【开局核对·发现灾难】worklog 尾部竟停在 Task 18（Topaz Training），与 cron 惯例（应 Task 84）矛盾 → git fetch 揭示真相：本地被回滚到旧快照（HEAD=99e8c09，Task 18 时代），而 origin/main 已至 9db11a1（Task 84），ahead 1 behind 83。merge-base=f23dba2 实证 99e8c09（Topaz Training）与远程 286a288 同题同内容——本地提交被远程改写版完全取代，`git reset --hard origin/main` 安全快进，worklog 尾部即刻恢复 Task 84 视野
+- 【环境修复三连】①依赖失配：package.json/schema.prisma 跨 83 提交演进 → bun install + prisma generate（client 6.19.2）+ db push（DB 已同步——回滚快照里 DB 文件本身是新的，只有 node_modules 与 git 旧）；②API 500→200；③dev server 冷启动 + smoke
+- 【真 bug #21·DB 倒退】DB 只有 β-Gal demo seed（3 idle 作业），Task 84 时代的 13-job 画廊 living instance（qa58 链 + 12 completed + fixtures）全灭；qa84 S2 立刻 FAIL（ambient 3 < 8）。更深一层：全部 7 个 python seeder 硬编码旧 DB 的 project/workspace/workdir 后缀 id（qa50-53 的 WORKDIR 甚至写死 refine3d_a75rvxycc）——「id 锚定」是比「数据丢失」更本质的脆弱性：数据可重播，锚定的 id 永远失配
+- 【seeder 项目无关化】新建 scripts/qa_lib.py（resolve_project/resolve_workspace/find_by_name/job_workdir/register_engine_state/resolve_refine_host，env QA_PROJECT/QA_WORKSPACE/QA_REFINE 可覆盖）；qa58/qa60 换 PROJECT/WORKSPACE 运行时发现，qa50-53 的 WORKDIR 换 refine 宿主名解析（QA Refine3D）；qa67 本就名字锚定无需补丁；qa69 的硬编码 PROJECT 同修（.mjs 顶部 fetch /api/projects）
+- 【一键灾备】新建 scripts/restore-gallery.py：切换 active project → 收养 β-Gal 孤儿（workspaceId NULL——顺带闭环「β-Gal 零 workspace seed 规则」遗留：新 seed 不该制造永久孤儿噪音）→ 11 作业骨架（import→motioncorr→ctffind→autopick→extract→select→symexpand→rebalance→class3d→refine3d→postprocess，全 completed + result 字符串按引擎语法手写——pipeline-analytics 漏斗七级全部可读）→ qa58 链 → 14 条边按 workflow.ts 真端口名接线（idempotent）→ DB 直翻状态（PATCH 只许 idle 的既有约定）→ engine-state 运行记录注册（outputs 路由的硬前提）→ 种子链 qa50→51→52→53→60→67。实测 21 jobs/16 completed，幂等重跑安全
+- 【真 bug #22·qa69 断言过期】qa69 连 FATAL：compare dialog rows=0。逐层考古（内省 palette/DOM/fsc 路由/引擎状态）后实锤两层：①fixture 增长——restore 给 QA Refine3D + QA Post-process 也播了 FSC fodder，compare 索引 5→6，qa69 的硬编码 ===5 过期；② Mol* 阶段 + 逐路由 Turbopack 编译的内存尖峰在 4GB 沙箱反复 OOM 杀 next-server（dmesg 实证 anon-rss 2.7GB），会话内 6+ 次回收，冷编译期的失败点漂移（palette→Mol*→Slice 开关）全是同一灾情的不同切面。修法：qa69 行数断言改数据驱动（读 fsc-index API 实时计数，>=5 守底）；dev 切生产服务器（scripts/start-prod.sh：prebuilt 路由零编译尖峰）——生产服务器跑完整个矩阵一次未死
+- 【qa60 命名考古插曲】"QA Post 318/322 消失"是误报——qa60 按靶分辨率命名（Post 300/320/385/Refine 410/Live 4.60），全部在位
+- 【功能 1·palette 徽章方言统一】command-palette：Notes 组行尾新增琥珀 class-notes 计数胶囊（data-palette-note-classbadge，与 canvas card Row 1 / dashboard row 徽章同语法——h-4 rounded-full amber + StickyNote size-2.5 + tabular 计数 + title 列全部类号）， granularity twin（Task 82 教义）延伸到检索面：icon 读「步骤被注记」、计数读「判断被注记」；Class notes 组的裸 mono "Class N" 升级为同语法琥珀胶囊（data-palette-classnote-chip）——badge→preview→editor→palette→paper 五级展开的视觉方言自此一致
+- 【功能 2·KPI 卡纸上展开】project-dashboard KpiCard：label/sub 的 truncate 是屏幕经济学——纸上无 hover 可恢复被裁文本 → print:whitespace-normal + print:overflow-visible（屏裁纸展）+ title 属性保 hover 诚实；kbd 快捷角标 / ChevronRight / pressed 脉冲点三类交互图章 no-print（纸面无键可按、无滤可按，盖印只会读作纸缺陷）
+- 【功能 3·名册表头带暗色纸张对比度】实证复查：打印 CSS 的 :root,.dark remap（--muted-foreground: oklch(0.45 0.02 232)）已把暗色屏幕灰（0.685≈纸上 2:1）挡在门外——t85 探针 R 相在 print 模拟下翻 .dark 类实测 L=36.26（paper remap）恒定、暗屏灰零泄漏。结论：无需修复，契约以 4 条断言锁定（含「Chromium 把 oklch 报告为 lab()」的断言写法——比 lightness 数值比较而非字符串全等）
+- 【t85 探针三折教学】①场景设计：granularity twin 需要双粒度宿主（只设 note 的行永远不显胶囊——功能没坏，是探针造错了数据）；②API 契约：PATCH params 只收 number/string/boolean 标量（对象被静默丢弃）——classNotes 必须走 JSON 编码字符串通道，note:null 被 PATCH 校验忽略（清除用 ""）；③颜色断言：getComputedStyle 把 oklch 报成 lab()，跨 chromeb 版本稳定的是 lab L 值（paper 36.3 vs dark-screen ~73），阈值断言优于字符串全等
+- 【回归】t85 探针 19 断言 ×3 全绿；qa66 35（画廊重播后首轮即绿）+ qa69 35（数据驱动补丁后）+ qa70 19（家族抖动复跑绿）+ qa72-verify 9 + qa73 32 + qa75 34 + qa76 26 + qa77 38 + qa78 33 + qa79 25 + qa80 34 + qa81 22 + qa82 41 + qa83 34 + qa84 28 串行全绿——生产服务器全程零回收
+- 【收尾】eslint src 0（存量 scripts/qa63/64 2 错非本轮）；tsc src 0（仅 skills/ 外部目录既有错）；production build（BUILD_ID mqNZoPGagZdQ_zHR20QJ2）；palette 徽章截图实证（Notes 行 📎2 胶囊 + Class 3/7 琥珀芯片）；终态 21 jobs/16 completed、无残留注记、QA Class Select 复原 idle
+
+Stage Summary:
+- 「id 锚定是状态的单点故障」：画廊灾备的本质不是重播数据而是消灭锚定——seeders 全部换成运行时发现（名字/env/API），restore-gallery.py 成为可幂等重放的一键重建，DB 复位从「手工考古数小时」降为「一条命令 90 秒」；「名字是身份，id 只是地址」的又一印证实例
+- 「断言过期是 fixture 生长的影子」：qa69 的 ===5 在 restore 给骨架作业播了 fodder 的当天过期——硬编码期望值应读被测系统的真相源（fsc-index API）；同一教训的第三种形态（前两种：qa58 重播种、qa82 S2 基线规范化）
+- 「内存灾情的对答案是换运行模式」：dev 的逐路由编译在 4GB 沙箱是持续的 OOM 风暴源，生产服务器的 prebuilt 路由让 16 套 QA 零回收跑完——scripts/start-prod.sh 入库为 QA 专用档位；冷编译失败点漂移（palette→Mol*→Slice）是同一灾情的不同切面，别被表象骗去修三个「bug」
+- 视觉方言三收口：palette 计数胶囊（批注五表面的最后一处不一致消除）、KPI 屏裁纸展（truncate 是屏幕经济学）、表头带对比度（实证无需修——「复查后确认无恙」也是有效交付，契约断言让它永驻）
+- 遗留（下轮候选）：workflow-import 多文件（低优先）；EMPIAR 真数据回归（重）；KPI 卡 kbd 徽章的 hover-none 环境复核；palette Notes 组与画布 lens 的 workspace 作用域语义对齐复查；用户机器 class3d/refine3d 顺序模式与 topaz 实测反馈

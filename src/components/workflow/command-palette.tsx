@@ -354,6 +354,12 @@ export function CommandPalette() {
             >
               {notedJobs.map((j) => {
                 const spec = jobType(j.type);
+                // granularity twin (Task 82 doctrine): the StickyNote icon
+                // reads "this step is noted", the amber count capsule reads
+                // "judgments inside the step are noted" — same visual
+                // grammar as the canvas card (Row 1) and dashboard row
+                // badges, so the palette speaks the same dialect
+                const classNotes = Object.entries(parseClassNotes(j.params?.classNotes));
                 // the note TEXT is the searchable payload — "note" leading
                 // token makes plain "note" queries land in this group first
                 return (
@@ -370,6 +376,19 @@ export function CommandPalette() {
                     <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
                       {j.note}
                     </span>
+                    {classNotes.length > 0 && (
+                      <span
+                        data-palette-note-classbadge=""
+                        data-palette-note-classcount={classNotes.length}
+                        role="img"
+                        aria-label={`${classNotes.length} class${classNotes.length === 1 ? "" : "es"} noted`}
+                        title={`Class notes on ${classNotes.map(([k]) => `Class ${k}`).join(", ")}`}
+                        className="flex h-4 shrink-0 items-center gap-0.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 text-[9px] font-semibold tabular-nums text-amber-600 dark:text-amber-400"
+                      >
+                        <StickyNote className="size-2.5" aria-hidden="true" />
+                        {classNotes.length}
+                      </span>
+                    )}
                     <TypeIcon
                       name={spec?.icon ?? "boxes"}
                       className={`size-3.5 shrink-0 ${spec?.color.text ?? "text-muted-foreground"}`}
@@ -398,7 +417,10 @@ export function CommandPalette() {
                     className="gap-2.5"
                   >
                     <StickyNote className="size-4 shrink-0 text-amber-500 dark:text-amber-400" />
-                    <span className="min-w-0 shrink-0 truncate font-mono text-xs font-semibold tabular-nums">
+                    <span
+                      data-palette-classnote-chip=""
+                      className="flex h-4 shrink-0 items-center rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 font-mono text-[9px] font-semibold tabular-nums text-amber-600 dark:text-amber-400"
+                    >
                       Class {cls}
                     </span>
                     <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">

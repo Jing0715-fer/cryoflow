@@ -26,9 +26,14 @@ import struct
 import sys
 import urllib.request
 
+import os
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from qa_lib import resolve_project, resolve_workspace
+
 BASE = "http://localhost:3000"
-PROJECT = "cmtrzp5x80002p8uofb9eu5pp"
-WORKSPACE = "cmts0qohh0001p8dasv88cddv"
+PROJECT = resolve_project()
+WORKSPACE = resolve_workspace(PROJECT)
 SRC_NAME = "QA Class2D Source"
 SEL_NAME = "QA Class Select"
 

@@ -24,7 +24,10 @@ import { readFileSync, readdirSync } from "node:fs";
 
 const AB = "agent-browser";
 const B = "http://localhost:3000";
-const PROJECT = "cmtrzp5x80002p8uofb9eu5pp";
+// Task 85: DB resets stranded this anchor — resolve the living project at
+// runtime (env override keeps the old escape hatch)
+const PROJECT = process.env.QA_PROJECT
+  ?? (await (await fetch(`${B}/api/projects`)).json()).projects[0].id;
 const CARD2D = "QA Class2D Source";
 const HOST_JOB = "QA Post 320";
 const sh = (cmd) => execSync(cmd, { encoding: "utf8", timeout: 120_000 }).trim();
@@ -309,6 +312,14 @@ for (let i = 0; i < 5; i++) {
   await sleep(1400);
 }
 
+// expected row count is DATA-DRIVEN (Task 85): restore-gallery seeds six
+// FSC-bearing jobs into the living instance (qa60's four + the qa50/51-
+// foddered skeleton pair), and future fodder growth should widen the
+// dialog, not break this suite — read the index, assert the dialog agrees
+const WANT_ROWS = await fetch(`${B}/api/projects/${PROJECT}/fsc-index`)
+  .then((r) => r.json()).then((d) => (d.jobs ?? []).length)
+  .catch(() => 0);
+must(WANT_ROWS >= 5, `fsc-index reachable for row expectation (got ${WANT_ROWS})`);
 let dialog = false;
 const attempts = [];
 for (let i = 0; i < 5 && !dialog; i++) {
@@ -317,11 +328,11 @@ for (let i = 0; i < 5 && !dialog; i++) {
   );
   if (r.includes("clicked@")) {
     await sleep(1800);
-    dialog = unq(evalJs(`String(document.querySelectorAll('[data-testid=fsc-compare-row]').length)`)) === "5";
+    dialog = unq(evalJs(`String(document.querySelectorAll('[data-testid=fsc-compare-row]').length)`)) === String(WANT_ROWS);
   } else await sleep(1500);
   attempts.push(`${i}:${r.slice(0, 14)}:rows=${unq(evalJs("String(document.querySelectorAll('[data-testid=fsc-compare-row]').length)"))}`);
 }
-must(dialog, `compare dialog opens with 5 rows (attempts: ${attempts.join(" | ")})`);
+must(dialog, `compare dialog opens with ${WANT_ROWS} rows (attempts: ${attempts.join(" | ")})`);
 
 // the strip always exists, with real idle content and a labeled Scan button
 let stripIdle = "";
@@ -334,7 +345,7 @@ for (let i = 0; i < 6 && !stripIdle; i++) {
   })()`));
   if (!stripIdle || stripIdle === "NOSTRIPTEXT") { stripIdle = ""; await sleep(900); }
 }
-must(stripIdle === "5 curves indexed", `idle strip counts the index (got "${stripIdle}")`);
+must(stripIdle === `${WANT_ROWS} curves indexed`, `idle strip counts the index (got "${stripIdle}")`);
 
 const scanBtn = unq(evalJs(`(() => {
   const b = document.querySelector('[data-testid=fsc-compare-rescan]');
@@ -347,7 +358,7 @@ must(scanBtn === "VISIBLE:Scan", `Scan button visible with a real label (got ${s
 await realClick(`document.querySelector('[data-testid=fsc-compare-rescan]')`);
 await sleep(2200);
 const rowsAfter = unq(evalJs(`String(document.querySelectorAll('[data-testid=fsc-compare-row]').length)`));
-must(rowsAfter === "5", `list survives a re-scan (rows=${rowsAfter})`);
+must(rowsAfter === String(WANT_ROWS), `list survives a re-scan (rows=${rowsAfter})`);
 
 // picking the running job flips the whole strip teal, notice inside
 await realClick(`document.querySelector('[data-testid=fsc-compare-row][data-job-id="${LIVE_ID}"]')?.querySelector('button[role=checkbox]')`);

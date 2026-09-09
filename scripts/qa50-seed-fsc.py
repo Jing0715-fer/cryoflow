@@ -18,7 +18,13 @@ import os
 import random
 import sys
 
-WORKDIR = "/home/z/my-project/data/relion/cmtrzp5x80002p8uofb9eu5pp/refine3d_a75rvxycc"
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from qa_lib import resolve_project, resolve_refine_host
+
+_PROJECT = resolve_project()
+_REFINE_JOB, WORKDIR = resolve_refine_host(_PROJECT)
+PROJECT = _PROJECT
 TARGET = os.path.join(WORKDIR, "postprocess.star")
 
 F0, F1, N = 0.01, 0.35, 40
