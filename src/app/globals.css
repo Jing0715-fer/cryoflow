@@ -470,6 +470,28 @@
   .no-print {
     display: none !important;
   }
+  /* modals are screen state, not document content: printing with a dialog
+     or sheet open would otherwise stamp the floating panel over the canvas
+     paper.  Step aside entirely — Ctrl+P anywhere yields the same clean
+     pipeline sheet (Task 70; verified via qa66's modal-open print leg). */
+  [data-slot="dialog-overlay"],
+  [data-slot="dialog-content"],
+  [data-slot="sheet-overlay"],
+  [data-slot="sheet-content"],
+  [data-slot="alert-dialog-overlay"],
+  [data-slot="alert-dialog-content"] {
+    display: none !important;
+  }
+  /* Radix's scroll-lock injects body[data-scroll-locked] { overflow: hidden
+     !important; position: relative !important } while any modal is open.
+     A sheet-open printout laid out fine WITH the lock, but overflow:hidden
+     on body is a known Chromium print hazard (content clipped to page one
+     on tall documents) — undo it on paper.  html-body specificity beats
+     the injected sheet regardless of cascade order. */
+  html body[data-scroll-locked] {
+    overflow: auto !important;
+    position: static !important;
+  }
   /* keep multi-line data tables intact across page breaks */
   table {
     break-inside: auto;

@@ -15,6 +15,8 @@
 //   static: @media print rule forces the light palette under BOTH :root
 //   and .dark, hides tooltips/.no-print; the masthead is screen-hidden;
 //   interactive chrome carries .no-print; a Print button exists.
+//   modal-on-paper (Task 70): print WITH a Radix Sheet open (scroll-locked
+//   body) — the modal must step aside, the paper stays the clean canvas.
 //   dynamic: forced-dark printToPDF → pdftoppm → corner/mean/dark-ratio
 //   sampling + pdftotext masthead echo.
 //
@@ -270,26 +272,43 @@ must(/cryoflow/i.test(masthead.text) && /pipeline snapshot/i.test(masthead.text)
 must(evalJs(`!!document.querySelector('button[aria-label="Print this view"]')`) === "true",
   "header exposes a Print button (window.print entry point)");
 
-// close the job inspector before printing — the canvas view is the paper
-// surface.  Printing with a Radix modal open squeezes the layout into
-// scroll-locked narrow columns (masthead h1 truncates to "M", card names
-// collapse) — a Chromium+Radix scroll-lock print quirk, documented in the
-// worklog.  Radix's Esc handler is a JS listener, so a synthetic keydown
-// works here (unlike Enter, which needs real CDP keys for default actions).
-const escNow = unq(evalJs(`(() => {
-  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-  return document.querySelectorAll('[role=dialog]').length + '';
-})()`));
-await sleep(600);
-if (escNow !== "0") { sh(`${AB} press Escape`); await sleep(600); }
-must(unq(evalJs(`document.querySelectorAll('[role=dialog]').length + ''`)) === "0",
-  "job inspector closed before print (canvas view is the paper surface)");
+// ---- modal-on-paper: print WITH a dialog open (Task 70) ------------------
+// The paper contract: Ctrl+P anywhere yields the same clean canvas sheet —
+// modals step aside (display:none via print CSS) and the Radix scroll-lock
+// (body[data-scroll-locked], overflow:hidden !important) is undone.  Shrink
+// below the xl breakpoint so the job panel opens as a Radix Sheet
+// (deterministic modal) instead of the static aside, verify the lock is
+// actually engaged, then print straight through it.
+sh(`${AB} set viewport 1100 800`);
+await sleep(1200);
+await realClick(
+  `[...document.querySelectorAll('[role=button]')].find(x => (x.textContent||'').includes('${HOST_JOB}'))`,
+);
+await sleep(1500);
+const modalState = JSON.parse(unq(evalJs(`(() => {
+  const d = document.querySelector('[role=dialog]');
+  return {
+    dialogs: document.querySelectorAll('[role=dialog]').length,
+    locked: document.body.getAttribute('data-scroll-locked'),
+    sheetHasDescription: d ? /pick good classes/i.test(d.textContent || '') : false,
+  };
+})()`)));
+must(modalState.dialogs >= 1 && modalState.locked === "1",
+  `Radix Sheet open with body scroll-locked (dialogs=${modalState.dialogs}, locked=${modalState.locked})`);
+must(modalState.sheetHasDescription === true,
+  "open sheet actually shows panel-only content (description text) that must NOT reach the paper");
 
 // a real printToPDF pass — the stylesheet is applied by the print pipeline
 const pdf = sh(`${AB} pdf ${PDF_OUT}`);
 await sleep(1200);
 const pdfOk = existsSync(PDF_OUT) && statSync(PDF_OUT).size > 2000;
 must(pdfOk, `printToPDF produced an artifact (${existsSync(PDF_OUT) ? statSync(PDF_OUT).size : 0} bytes)`);
+
+// modal step-aside on paper: the open sheet's panel-only description must
+// NOT be stamped onto the canvas paper
+const lightText = sh(`pdftotext ${PDF_OUT} -`).replace(/\s+/g, "").toLowerCase();
+must(!lightText.includes("pickgoodclasses"),
+  "open modal steps aside on paper (sheet panel text absent from the print)");
 
 // ---- PIXEL-VERIFIED PAPER: force dark, print, rasterize, sample ----------
 // The honest test of the paper palette: print under a FORCED dark theme.
@@ -376,6 +395,12 @@ if (masthead.title) {
   must(flatText.includes(masthead.title.replace(/\s+/g, "").toLowerCase()),
     `paper title matches the DOM masthead ("${masthead.title}")`);
 }
+
+// restore the screen state: dismiss the sheet, restore the desktop viewport
+sh(`${AB} press Escape`);
+await sleep(800);
+sh(`${AB} set viewport 1600 900`);
+await sleep(800);
 
 const errsB = JSON.parse(evalJs(`({ errs: window.__qaErrs || [] })`)).errs;
 must(errsB.length === 0, `zero page errors overall (got ${JSON.stringify(errsB)})`);

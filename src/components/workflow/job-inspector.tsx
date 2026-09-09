@@ -1556,15 +1556,21 @@ export function JobInspector() {
   // results (previously the effect only ran on jobId change, so the currently
   // inspected job stayed on the Log tab forever).
   const [tab, setTab] = React.useState<string>("log");
-  const tabTouchedRef = React.useRef(false);
+  // manual tab choice latches PER JOB: never stomp a tab the user chose
+  // while THIS job is inspected (live status transitions included), but a
+  // different job starts fresh — the smart default (Log for running/failed,
+  // Results otherwise) applies again.  The latch used to be a bare boolean
+  // that survived across jobs, so opening job B silently landed on
+  // whatever tab job A had touched (Task 68 QA finding, Task 70 fix).
+  const tabTouchedForRef = React.useRef<string | null>(null);
   React.useEffect(() => {
-    if (!job) return;
-    // never stomp a tab the user chose manually (only auto-switch on
-    // transitions we did not cause)
-    if (!tabTouchedRef.current) {
+    if (!job || inspectId == null) return;
+    // never stomp a tab the user chose manually for THIS job (only
+    // auto-switch on transitions we did not cause)
+    if (tabTouchedForRef.current !== inspectId) {
       setTab(job.status === "running" || job.status === "failed" ? "log" : "results");
     }
-  }, [jobId, job?.status]);
+  }, [inspectId, job, job?.status]);
 
   const filesCount = data?.files.length ?? 0;
 
@@ -1602,7 +1608,7 @@ export function JobInspector() {
               </DialogDescription>
             </DialogHeader>
 
-            <Tabs value={tab} onValueChange={(v) => { tabTouchedRef.current = true; setTab(v); }} className="flex min-h-0 flex-1 flex-col gap-0">
+            <Tabs value={tab} onValueChange={(v) => { if (inspectId != null) tabTouchedForRef.current = inspectId; setTab(v); }} className="flex min-h-0 flex-1 flex-col gap-0">
               <div className="shrink-0 border-b px-5 pt-2.5 sm:px-6">
                 <TabsList className="h-9 bg-muted/60 p-0.5">
                   <TabsTrigger value="overview" className="h-8 gap-1.5 px-3 text-xs">

@@ -2567,3 +2567,25 @@ Stage Summary:
 - 「强制暗色再打印」是 print 样式表唯一诚实的测法：规则存在性断言对「`.dark` 选择器拼错」完全免疫，而像素采样对调色板损坏的两种故障模式（深底浅字 / 浅底浅字）都给出不可混淆的信号（角落变暗 / 墨量归零）——「验证渲染结果而非渲染规则」是视觉 QA 的分水岭
 - Radix 模态打印压缩是「全局 scroll-lock × 打印布局」的隐性交互：模态开着时用户的一切都非常态——harness 的状态归位（关 inspector 再打印）不仅是测试卫生，更暴露了一个真实产品边界（Ctrl+P with modal = 垃圾纸张）；「测试需要的状态归位」与「产品需要的边界防御」是同一枚硬币的两面
 - 遗留（下轮候选）：Radix 模态开着打印的纸张垃圾（产品修复：print 块对 overlay/data-state=open 隐藏或打印前自动收模态——需独立调查 scroll-lock 对打印布局的影响面）；tab latch 是否按 job 重置（产品决策）；workflow-import 多文件（低优先）；EMPIAR 真数据回归（重）；打印页眉可扩展 per-page 页脚页码（@page margin boxes 浏览器支持存疑，需调查）
+
+---
+Task ID: 70
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 午轮 2026-09-09 14:14 窗口）——Task 70「模态纸张让位 + tab latch 职业边界」：修 Task 69 破获的「模态开着 Ctrl+P = 垃圾纸张」真 bug——print CSS 新增模态让位（dialog/sheet/alert-dialog 的 overlay+content 六个 data-slot 纸上 display:none）+ Radix 滚动锁纸上解锁（html body[data-scroll-locked] 高特异性反杀注入样式表的 overflow:hidden!important）；JobInspector tab latch 从布尔升级为按 inspectId 键控（Task 68 产品待议项落地：同 job 内手动选择跨状态迁移存活，换 job 即回归智能默认）；qa66 Phase B 再升级（18→20 断言）：把上轮「打印前关模态」的状态舞蹈反转为「模态开着打印、纸上必须干净」的产品契约验证（Sheet 开 + 锁实锤 + 面板独有文本必须缺席纸面）；35 + 回归 qa69 34 / qa63-smoke 6/6 / qa58 ALL 全绿；worklog + push
+
+Work Log:
+- 【开局核对 + 选题】HEAD 22defa6 == Task 69 已 push、工作树净；BUILD_ID 06:00 含 Task 69 免重建；遗留清单首条「Radix 模态开着打印的纸张垃圾」为主线——Task 69 只做了 harness 状态回避（关模态再打印），本轮升级为产品级修复
+- 【机制考古大反转】上轮结论「scroll-lock → 布局压缩」被本轮实验推翻一半：实机复现 Sheet 开 + body[data-scroll-locked="1"]（react-remove-scroll 注入 body[data-scroll-locked]{overflow:hidden!important;position:relative!important}，computed overflow=hidden 实锤）后打印竟是干净的 244KB——scroll-lock 单独不构成压缩；上轮 debug2 的「压缩」更可能是窄视口纸张渲染（默认视口下卡片名/页眉 h1 的 truncate 表现恰好吻合「M」/「QA Comp」症状）；真正的可修复 bug 是**模态内容印上纸**（244KB 纸面上检出 Sheet 面板独有文本「Subset-selection on a 2D classification run…」）；上轮 37KB 压缩 vs 131KB 干净的真正差异变量存疑（run-1 状态不可完全复现），诚实记入 worklog 而非强行归因
+- 【修法·模态让位】纸张契约 = 「Ctrl+P anywhere yields the same clean pipeline sheet」：@media print 对 dialog/sheet/alert-dialog 三族 modal 的 overlay+content 六个 data-slot display:none——模态是屏幕态不是文档内容；与 Task 69 的 .no-print 哲学同源（纸张面 = 画布管线图），一处规则覆盖全应用所有模态（含未来的）
+- 【修法·滚动锁解锁（防御性加固）】html body[data-scroll-locked] { overflow:auto!important; position:static!important }——特异性 (0,1,2) 压过注入样式表的 (0,1,1) 无论层叠顺序；本机实验证明锁与打印可共存，但 body overflow:hidden 是 Chromium 打印的已知风险类（长文档裁剪到第一页），保留为廉价保险；注释里诚实写明「sheet-open printout laid out fine WITH the lock」防止后人误判因果
+- 【实机考古工具链】agent-browser set viewport 1200 800 实际 innerWidth=1280（set 1100 才生效——工具视口设置有下限截断或取整行为）；xl 断点 (1280) 恰在边界——1600 宽点卡开静态 aside（无模态）、1100 宽点卡开 Radix Sheet（模态+锁）——同一交互在不同断点的模态性差异是本轮复现的关键杠杆；真 CDP 鼠标（move/down/up）必需，合成 pointer 事件打不开面板（qa66 realClick 惯例第三次验证）
+- 【tab latch 按 job 键控】tabTouchedRef 布尔 → tabTouchedForRef（inspectId 键）：onValueChange 记住「为哪个 job 手动选过」，effect 守卫从「从不 stomping」细化为「从不 stomping 本 job 的手动选择」——同 job 的 running→completed 活迁移仍尊重用户选择（latch 设计初衷），换 job 回归智能默认（Log for running/failed, Results otherwise）；修的是 qa68 首跑撞上的真实陷阱（job A 手选 Files → job B 的 inspector 静默落在 Files，compare 按钮不在 DOM）
+- 【qa66 Phase B 反转】上轮「job inspector closed before print」断言 → 本轮「Radix Sheet open with body scroll-locked (dialogs=1, locked=1)」——打印直穿模态；新增面板独有性前置断言（sheet 内必须检出 description，确保「纸面缺席」断言的靶子真实存在——防空转假绿）+ 纸面反断言（pdftotext 无 "pickgoodclasses"）；尾部补 Escape 关 Sheet + 视口还原 1600×900 保持状态卫生；文件头注释同步更新为 modal-on-paper 契约
+- 【harness 两坑】①agent-browser eval 返回 JSON 字符串双重序列化（坐标解析需 json.loads 两次）第五次咬人；②bash 内联 heredoc 里箭头函数体 JSON.stringify 简写被 shell 吞（IIFE 全括号最稳）；③Bash 工具调用超时一次（1MiB MCP SSE 帧限）——长命令链拆小步成新惯例
+- 【收尾】eslint 0、tsc src 0、production build 成功（BUILD_ID 4ykfCBu9，CSS chunk 实测含 data-slot=dialog-overlay 规则）；QA：qa66 35（A 15 + B 20）+ qa63-smoke 6/6 + qa69 34 + qa58 ALL 串行全绿；gallery seed 重播种（上轮 qa58 自清理）→ 本轮 qa58 又按设计清掉——跨窗口 seed 生命周期惯例不变
+
+Stage Summary:
+- 「Ctrl+P anywhere = 同一张干净管线纸」从 harness 的状态舞蹈升级为产品契约：模态让位是 .no-print 哲学的自然延伸——交互 chrome（侧栏/小地图/浮动按钮）和屏幕态（模态/tooltip）在纸上集体退场，纸面只剩文档页眉 + 管线画布；一处 print 规则覆盖三族 modal，未来新增的 Radix 模态自动继承
+- 实验推翻自己的上一轮结论是 QA 的常态而非事故：「scroll-lock → 压缩」的因果链在本轮受控实验（Sheet 开 + 锁实锤 + 打印干净）中被切断——上轮观察到的压缩另有真因（疑似窄视口渲染），而真正可修的 bug 是模态内容上纸；把两个机制分开修、分开验，注释里留下诚实的历史，比一个笼统的「修好了」更有长期价值
+- tab latch 按 job 键控是「记忆的正确范围」问题：布尔 latch 把「本会话的手动选择」和「本 job 的手动选择」混为一谈——跨实体共享的记忆（tab、滚动位置、过滤器）都该问一句「这个偏好在换实体后还有意义吗」；inspectId 键控让同一 effect 同时表达「尊重选择」与「智能默认」两个语义
+- 遗留（下轮候选）：上轮 37KB 压缩打印的真因考古（窄视口纸张渲染假说待验——用 agent-browser set viewport 到极窄值复现）；打印页眉扩展 per-page 页脚页码（@page margin boxes Chromium 不支持，需调查替代）；workflow-import 多文件（低优先）；EMPIAR 真数据回归（重）；移动端 Sheet 内 gallery 键盘导航与桌面 aside 的行为一致性（低优先）
