@@ -35,6 +35,7 @@ import {
   ArrowDownToLine,
   Boxes,
   CheckCircle2,
+  Copy,
   FileJson,
   FileX2,
   Link2,
@@ -67,12 +68,21 @@ function fmtDate(iso: string): string {
   }
 }
 
+/** Tooltip copy for the per-file duplicate chip (grammar for 1 vs N). */
+function dupTitle(n: number, wsName: string): string {
+  return n === 1
+    ? `1 job name already exists in ${wsName} — importing creates a duplicate`
+    : `${n} job names already exist in ${wsName} — importing creates duplicates`;
+}
+
 export function ImportWorkflowDialog() {
   const preview = useWorkflowStore((s) => s.importPreview);
   const closePreview = useWorkflowStore((s) => s.closeImportPreview);
   const workspaces = useWorkflowStore((s) => s.workspaces);
   const activeWorkspaceId = useWorkflowStore((s) => s.activeWorkspaceId);
   const doImport = useWorkflowStore((s) => s.importWorkflowBatch);
+  // Task 95 — duplicate guard reads the project's live job list
+  const jobs = useWorkflowStore((s) => s.jobs);
 
   const open = preview !== null;
   const entries = preview?.entries ?? [];
@@ -81,6 +91,24 @@ export function ImportWorkflowDialog() {
 
   const [targetWs, setTargetWs] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
+
+  // Task 95 — duplicate guard: job names that already exist in the
+  // SELECTED target workspace. Re-importing the same export currently
+  // creates silent copies; the per-file chip + confirm suffix move that
+  // knowledge BEFORE the confirm. Keyed on targetWs so switching the
+  // picker re-evaluates — the same file is a duplicate in one workspace
+  // and fresh in another (which is exactly why this warns instead of
+  // blocking: a deliberate copy into another workspace is legitimate).
+  const existingNames = React.useMemo(() => {
+    const set = new Set<string>();
+    if (targetWs) for (const j of jobs) if (j.workspaceId === targetWs) set.add(j.name);
+    return set;
+  }, [jobs, targetWs]);
+  const dupCount = (entry: (typeof entries)[number]) =>
+    entry.file.jobs.reduce((acc, j) => acc + (existingNames.has(j.name) ? 1 : 0), 0);
+  const dupJobTotal = entries.reduce((acc, e) => acc + dupCount(e), 0);
+  const targetWsName =
+    workspaces.find((w) => w.id === targetWs)?.name ?? "the target workspace";
 
   // Re-derive the picker default on every open: the active workspace at
   // the time of the pick. Kept in local state so the user's explicit
@@ -168,6 +196,22 @@ export function ImportWorkflowDialog() {
                         {origin ? ` · from ${origin}` : ` · exported ${fmtDate(entry.file.exportedAt)}`}
                       </span>
                     </span>
+                    {/* Task 95 — duplicate guard: computed per selected target workspace */}
+                    {(() => {
+                      const dup = dupCount(entry);
+                      return dup > 0 ? (
+                        <span
+                          className="flex h-4 shrink-0 items-center gap-0.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 text-[9px] font-semibold text-amber-600 dark:text-amber-400"
+                          role="status"
+                          title={dupTitle(dup, targetWsName)}
+                          data-testid="import-row-dup"
+                          aria-label="Duplicate warning"
+                        >
+                          <Copy className="size-2.5" aria-hidden="true" />
+                          {dup} dup
+                        </span>
+                      ) : null;
+                    })()}
                     {entry.warning ? (
                       <span
                         className="flex h-4 shrink-0 items-center gap-0.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 text-[9px] font-semibold text-amber-600 dark:text-amber-400"
@@ -317,7 +361,7 @@ export function ImportWorkflowDialog() {
             {busy
               ? "Importing…"
               : entries.length > 0
-                ? `Import ${entries.length} workflow${entries.length === 1 ? "" : "s"} · ${totalJobs} jobs`
+                ? `Import ${entries.length} workflow${entries.length === 1 ? "" : "s"} · ${totalJobs} jobs${dupJobTotal > 0 ? ` · ${dupJobTotal} dup` : ""}`
                 : "Nothing to import"}
           </Button>
         </DialogFooter>

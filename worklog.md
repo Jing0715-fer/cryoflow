@@ -3097,3 +3097,23 @@ Stage Summary:
 - 「探针的查询词也要数据驱动」：B3 首版拿 job 名首词（"QA"）当交集查询——种子全部同前缀，断言 16==16 绿得毫无意义。修成「在切片内真正收窄的词元」+ B3a 元断言（先证明查询收窄，再证明结果正确）——数据驱动的下一步是驱动查询词本身，否则断言在退化的种子上空转
 - 「审计清单要核实着退役」：cron 文本每轮搬运同一份 Task 13 遗留，但 #5/#6/#7/#8/#13/#14 与两个新功能方向全部已在后续轮次落地——本轮逐项 rg/读源确认后正式退役；worklog 的「下轮候选」需要带着怀疑读，重复审计不会发生但重复候选会
 - 遗留（下轮候选）：EMPIAR 真数据回归（重）；用户机器 class3d/refine3d 顺序模式与 topaz 实测反馈；import 队列 rich tooltip（低优先）；diff 对话框 Open 行 canvas 入口价值复查（观察真实使用）；文件夹拖拽真机手势反馈；名册搜索与 palette 全局搜索的地盘划分观察（roster 搜 job 实例，palette 搜命令与跳转——语义不同,暂不合并）
+
+---
+Task ID: 95
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-10 05:29 window)
+Task: cron 自主巡检——Task 95「导入重复守卫（preview 对话框 dup 芯片 + confirm 后缀）」：重复导入同一导出文件目前静默在目标 workspace 造同名副本——守卫把这份知识搬到 confirm 之前：①逐文件 amber 芯片 "N dup"（Copy 图标，复用 version-warning 的 amber 方言但独立判定——v1 文件可以同时带两种芯片），tooltip 点名目标 workspace 并写明 warn-not-block 语义（「故意复制到另一个 workspace 是合法的，所以警告不拦截」）；②confirm 按钮追加 "· N dup" 后缀（dupJobTotal 跨文件汇总）；③核心是 existingNames memo keyed [jobs, targetWs]——切 picker 即重算，同一文件在一个 workspace 是重复在另一个是全新。t95 23 断言三连绿 + 全回归矩阵 27 套绿 + worklog + push
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 94、HEAD af0798a == origin/main、BUILD_ID 2NhNpUegmaSUIp0z40-TS200 匹配；生产冷启动 + smoke + t94/qa84 全绿 → 稳定
+- 【选题】Task 94 遗留候选逐一评估：EMPIAR（重）、真机手势/顺序模式反馈（不可 headless）、rich tooltip（三连否）、搜索地盘观察（暂不合并）——全部让位。名册搜索落地后的自然追问：搜索找到的重复 job 从哪来？最大来源之一是重复导入。对话框结构调研（全文精读）确认 jobs 已可从 store 读取、targetWs 在本地 state、version-warning 芯片方言可复用——增量小、价值实、可探针
+- 【实现】import-workflow-dialog.tsx：jobs selector + existingNames useMemo（targetWs null 时空集守卫）+ dupCount 闭包 + dupTitle 单复数文案助手 + IIFE 芯片（dup>0 ? span : null）+ confirm 模板字符串后缀。一折：IIFE 首版写成 `{const dup=...}` 裸块造成 JSX 语法断裂——tsc 抓住后补 return + `})()` 闭合；hooks 全部在渲染路径顶部（无 early return，Task 90 教义天然满足）
+- 【t95 探针三折皆探针侧】①POST /api/jobs 响应是 {job:{...}} 包裹不是裸对象（qa84 教义的又一次缴纳——每条路由的包裹形状要实测）；②POST /api/workspaces 同病 {workspace:{...}}；③checkedWs 首版抓 radio 的第一个 span（空心圆点，空文本）——名字在 .truncate span 里。curl 先行探形状后再写断言是唯一可靠顺序
+- 【探针设计】A 相混合文件（1 既有 + 1 全新）→ 芯片 "1 dup" + tooltip 点名 Main + confirm "· 1 dup" + version 芯片独立性双断言；B 相切 picker 重算——t95 Other 芯片消失/后缀消失、切回 Main 复活（这是 keyed targetWs 的行为合同）；C 相全全新文件零芯片零后缀（回归）；D 相静态契约（memo 键 + 后缀模板 + 警告语义文案）；自清理播种（t95 前缀 job + workspace 双扫）
+- 【收尾】eslint src 0、tsc src 0、production build（BUILD_ID _egz8Trw9337J1Y2FxHNx200）+ served 自证；t95 23×3 三连绿；全矩阵 27 套（+t95）串行全绿
+
+Stage Summary:
+- 「警告的合法性来自它不拦截」：重复导入有时是故意的（把模板复制进另一个 workspace），所以守卫只做信息不做门禁——chip + 后缀 + tooltip 三处都在说「这会发生」而不是「这不允许」；真要拦的是误操作，而误操作在被告知后就不是误操作了。现有 t92/t93 的 confirm copy 断言零改动通过——无重复时后缀不存在，行为保持式增强
+- 「keyed state 是组合事实的代码形态」：dup 与否不是文件的属性，是（文件 × 目标 workspace）的属性——memo 依赖数组里放 targetWs 就是把这句产品语义写进依赖声明；探针 B 相对切 picker 的双向断言（消失/复活）锁的是这个组合性本身
+- 「包裹形状要实测不要记忆」：同一天里 POST /api/jobs 包 {job}、POST /api/workspaces 包 {workspace}、API 响应包 {jobs}/{workspaces}——每条路由各自为政的包裹惯例没有统一合同，探针写断言前 curl 一下比翻源码猜快且准
+- 「复用视觉方言要连语义一起复用」：dup 芯片抄了 version-warning 的 amber pill 类，但 D4 静态断言同时锁住 tooltip 的解释性文案——方言复用降低的是识别成本，语义解释不能跟着省（两个 amber 芯片同时出现时，用户靠 tooltip 分辨谁在警告什么）
+- 遗留（下轮候选）：EMPIAR 真数据回归（重）；用户机器 class3d/refine3d 顺序模式与 topaz 实测反馈；import 队列 rich tooltip（低优先，dup 芯片 tooltip 已覆盖最有价值的信息）；diff 对话框 Open 行 canvas 入口价值复查（观察真实使用）；文件夹拖拽真机手势反馈；同批多文件内部撞名（两个文件定义同名 job）——本轮守卫只对既有 workspace 内容，批内撞名是另一个判定（post-import 才能发生），观察真实需求再定
