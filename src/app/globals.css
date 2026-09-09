@@ -3,6 +3,20 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/**
+ * Input-modality variant: matches devices whose PRIMARY pointer cannot
+ * hover (touch screens, the headless QA browser). Tailwind v4 gates every
+ * hover: variant behind @media (hover: hover) — correct for styling, but
+ * it means "hidden until hover" controls stay invisible forever on touch.
+ * Use hover-none: to reveal FUNCTIONAL controls there (decorative labels
+ * intentionally stay hover-only: touch keeps images clean).
+ */
+@custom-variant hover-none {
+  @media (hover: none) {
+    @slot;
+  }
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

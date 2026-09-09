@@ -426,7 +426,7 @@ function ProjectCardRow({
 
       {/* Hover actions */}
       {!editing && (
-        <div className="absolute right-2 top-2 flex items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+        <div className="absolute right-2 top-2 flex items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 hover-none:opacity-100">
           <Button
             variant="ghost"
             size="icon"

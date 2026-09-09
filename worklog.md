@@ -2520,3 +2520,26 @@ Stage Summary:
 - shadcn 包装组件的 {...props} 直铺 Root 是 a11y 属性黑洞：aria-label 等面向交互元素的属性若组件内部另渲染了实际焦点/角色节点（Thumb），必须显式转发——单测 DOM 断言（getAttribute）比信任包装层更可靠
 - QA harness 的选择器失败两次都是「组件契约与 DOM 现实不符」：与其绕路写脆弱选择器，不如先修组件的可访问性契约——测试需求推动 a11y 还债是良性循环
 - 遗留（下轮候选）：qa66 Phase B PDF 视觉像素抽样；re-scan 与 autolive 提示条视觉层次打磨；workflow-import 多文件（低优先）；EMPIAR 真数据回归（重）；ortho tile 悬停揭示 crosshair 的 group-hover 样式在本机未生效（hoverMatch=true 但 opacity 0，疑似 Tailwind group/tile 变体编译缺失，纯视觉不影响键盘路径 focus-visible:opacity-100）
+
+---
+Task ID: 68
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 午轮 2026-09-09 13:07 窗口）——Task 68「输入模态平权 + 新鲜度统一条」：破案 Task 67 遗留「ortho tile group-hover 悬停揭示不生效」之谜（Tailwind v4 把一切 hover: 变体门进 @media (hover:hover)，QA 无头浏览器与真触屏设备匹配的是 (hover:none)——规则编译在但媒体查询拦掉，非编译缺失）；新增 @custom-variant hover-none + 7 处功能类 hover 揭示控制补触屏/键盘路径（装饰类图注保持 hover-only 的明确决策）；FSC compare「新鲜度统一条」（re-scan 从 rest 态隐形 ghost 图标升级为带标签按钮、idle 态显示真实数据 N curves indexed、live 态整条泛 teal）；顺手根治 map-ortho-panel follow effect 的 react-hooks/set-state-in-effect 存量 lint（HEAD 同报，渲染期采用模式重写）；qa69 三阶段 34 断言首跑即绿（两轮 harness 修复后）+ 回归 qa68 19 / qa67 27 / qa66 20 / qa63-smoke 6/6 全绿；worklog + push
+
+Work Log:
+- 【开局核对 + 选题】HEAD 63e9ddf == Task 67 已 push、工作树净；构建 BUILD_ID 13:02（上一窗口刚收尾）含 Task 67 全部代码免重建；server 死（收割常态）。Task 67 遗留清单首条「ortho tile group-hover 未生效（hoverMatch=true 但 opacity 0，疑似 Tailwind group/tile 变体编译缺失）」被选为本轮主线——它是真 bug 且 qa69 可闭环验证
+- 【根因考古】rg 编译产物：.group-hover\/tile\:opacity-100:is(:where(.group\/tile):hover *) 规则**确实在** fcae…css 里；向前回溯包裹块发现 @media (hover:hover){——Tailwind v4 的 hover 变体定义即 r.static("hover", …F("@media","(hover: hover)",…))，一切 hover:/group-hover: 门进该媒体查询；agent-browser eval matchMedia 实测：hoverHover:false / hoverNone:true / pointerFine:false——「DOM hover 态为真但 CSS 规则被媒体查询拦掉」与症状完全吻合；此前未暴露的原因：Task 62 的 hover 联动走 React onMouseEnter state（非 CSS hover），qa62 检测的是 state 效果而非 hover: 变体
+- 【影响面盘点】rg 全应用 opacity-0+group-hover 模式分两类：功能类（⌖ crosshair、inspector Download、class-gallery zoom、project-panel/dashboard/workspace 动作组、sidebar SidebarMenuAction——触屏上按钮永久不可见=功能缺失）vs 装饰类（picks-map/ctf-quality/particle-browser/import-gallery/results-view 的 pointer-events-none 图注——hover-only 可接受，触屏画面更干净）；决策：只修功能类
+- 【修法】Tailwind 4.1.18 无内置 hover-none 变体（rg dist 只有 pointer-none）→ globals.css 新增 @custom-variant hover-none 块形式（@media (hover: none){@slot}；圆括号简写对 at-rule 支持存疑，改文档块形式后一次编译通过）+ 注释钉死「功能控制用、装饰不用」的设计语义；7 处功能控制补 hover-none:opacity-100，⌖ 额外补 group-focus-within/tile:opacity-100（键盘焦点进 tile 即揭示，Tab 顺序里按钮不再是隐形岛屿）；编译验证 @media (hover:none){.hover-none\:opacity-100{opacity:1}} 落进 chunk
+- 【新鲜度统一条】Task 66 遗留视觉层次：re-scan 是 header 里 border-transparent 的 rest 态隐形 ghost 图标，autolive 是孤立色带——同属「我的对比还新鲜吗」却视觉上毫无关联。重构为一条 shrink-0 strip：live 时 teal 底+脉冲点+12s 文案（testid autolive 留在 live 集群保 qa64 契约），idle 时静默「N curves indexed」（真实 index.length）+ scanning 时 pulse；右侧 Scan 按钮带图标+标签+title（aria-label 原文保留，可见文案 "Scan" ⊂ accessible name 过 Label-in-Name）；testid fsc-compare-freshness 新增于条本体；qa62/qa64 的 rescan 点击与 12s 断言契约零破坏
+- 【存量 lint 根治】eslint 直接调用报 map-ortho-panel:97 set-state-in-effect（stash 对照证实 HEAD 同报——历轮「eslint 0」系跑法口径不同）；follow effect 同步 setPos+setFlash 重写为 React 文档「props 变化时渲染期调整 state」模式（prevNonce state 守卫 nonce 重放）+ flash 计时器改「仅点亮时挂载」的独立 effect——语义等价（每次 commit 采用一次、批量 nonce 取最新）且 lint 归零
+- 【qa69 harness】A 静态 14（编译 CSS 规则 / 7 功能文件 opt-in / 5 装饰文件明确不加 / focus-within 类存在）+ B 实机 10（hover:none 环境下 ⌖ opacity=1——Task 67 时为 0 的症状正式销账；⌖ 点击后 3D cross-section pressed=true 功能平权；Esc 单层剥离；Files 表 Download opacity=1；console-0）+ C 10（freshness 条 idle "5 curves indexed" / Scan 可见带标签 / re-scan 后 5 行幸存 / 选中 running 后 TEAL+CADENCE12 / Esc 剥 compare 保 inspector / console-0）
+- 【harness 两坑一课】①Files 触发器 textContent 带计数徽章（"Files5"）——`=== 'Files'` 永不匹配，改 startsWith + 限定 [role=dialog] 内；②Phase C 首跑 FATAL NO-ELEMENT 的真因：**JobInspector 常挂载**（page.tsx:354 无条件渲染，Dialog 只是 open prop 显隐）→ Phase B 点过 Files 后 tabTouchedRef=true 跨开关存活，「never stomp a manual tab choice」守卫让第二个 job 的 inspector 直接落在 Files 标签、compare 按钮不在 DOM——设计内行为（用户偏好跨 job 记忆）非 bug，harness 补「打开后先点 Results」模拟真实用户路径；③realClick 升级为 qa64 的滚动感知版（可滚祖先 walk + CDP scroll 手势）
+- 【细节考古】fsc-compare 旧 autolive 文案含 \xa0（数字与 "s;" 间的不换行空格，防换行断裂）——Edit 工具归一化空格导致两次 verbatim 匹配失败，python 字节级补丁保留该字符（patch-freshness.py 留档 scripts/）
+- 【收尾】eslint 0、tsc src 0、production build 成功（05:23）；QA 矩阵：qa69 34 + qa68 19 + qa67 27 + qa66 20 + qa63-smoke 6/6 全绿（串行）；server 杀（内存帽配方留下窗口）、浏览器关；FSC/gallery/orthovol 三套 seed 留作跨窗口基线
+
+Stage Summary:
+- 「hover 揭示」的输入模态平权从此是系统语义而非逐点补丁：功能控制三通道（hover→鼠标、focus-within→键盘、hover-none→触屏/无 pointer 设备），装饰图注刻意留在 hover-only——触屏画面保持干净是特性不是遗漏；@custom-variant 让该语义一处定义全应用复用，「样式细节」的最深一层是模态覆盖的完备性
+- Tailwind v4 的 hover 门进 (hover:hover) 是符合规范的进步，但它把「无 pointer 环境」从边缘推到台前：QA 无头浏览器恰好是 (hover:none)，触屏设备也是——「QA 环境的怪现象=真设备的日常」再次应验；今后凡 opacity-0 + hover 揭示的新控制，三通道审查应成为 checklist 项
+- JobInspector 的 tab latch（常挂载 + touched 守卫跨开关存活）是本轮最隐蔽的 harness 陷阱：DOM 探针、按钮属性、滚动位置全部正常，唯一变量是组件 state 的跨会话记忆——「模拟真实用户路径」比「归零状态」更诚实，而「用户在 job A 手选的标签是否该带到 job B」已记为产品层待议项
+- 遗留（下轮候选）：qa66 Phase B PDF 视觉像素抽样（print 主题收官）；tab latch 是否按 job 重置（产品决策）；workflow-import 多文件（低优先）；EMPIAR 真数据回归（重）；hover-none 语义可推广到未来一切「悬浮工具提示按钮」（如 mol* viewport 内浮动控制）

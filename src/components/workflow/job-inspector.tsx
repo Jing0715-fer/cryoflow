@@ -1155,7 +1155,7 @@ function FilesTab({ job, data, reload }: { job: JobDTO; data: OutputsResponse | 
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="size-6 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                          className="size-6 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 hover-none:opacity-100"
                           aria-hidden={false}
                           aria-label={`Download ${f.name}`}
                           onClick={() => {

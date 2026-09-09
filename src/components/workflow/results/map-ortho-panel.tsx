@@ -78,7 +78,8 @@ function OrthoTile({
   const [rendered, setRendered] = useState(0.5);
   const [flash, setFlash] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastNonce = useRef(follow?.nonce ?? 0);
+  /** last nonce adopted — render-phase guard against replaying the same event */
+  const [prevNonce, setPrevNonce] = useState(follow?.nonce ?? 0);
 
   useEffect(() => {
     if (timer.current) clearTimeout(timer.current);
@@ -89,16 +90,24 @@ function OrthoTile({
     };
   }, [pos, rendered]);
 
-  // 3D → 2D: the embed's slice UI moved — glide this tile to the plane
-  useEffect(() => {
-    if (!follow || follow.nonce === lastNonce.current) return;
-    lastNonce.current = follow.nonce;
+  // 3D → 2D: the embed's slice UI moved — glide this tile to the plane.
+  // The adoption happens DURING RENDER when a fresh nonce arrives (the
+  // React-documented "adjust state when a prop changes" pattern): an
+  // effect writing both states synchronously trips the cascading-render
+  // lint and splits one logical event into two render passes.
+  if (follow && follow.nonce !== prevNonce) {
+    setPrevNonce(follow.nonce);
     const p = Math.min(1, Math.max(0, follow.pos));
     setPos((cur) => (Math.abs(cur - p) < 0.0005 ? cur : p));
     setFlash(true);
+  }
+
+  // the flash clears itself — the timer only exists while lit
+  useEffect(() => {
+    if (!flash) return;
     const t = setTimeout(() => setFlash(false), FOLLOW_FLASH_MS);
     return () => clearTimeout(t);
-  }, [follow]);
+  }, [flash]);
 
   const src = `/api/jobs/${jobId}/outputs/file?path=${encodeURIComponent(path)}&format=png&axis=${spec.axis}&pos=${rendered.toFixed(3)}`;
 
@@ -137,7 +146,7 @@ function OrthoTile({
           onClick={syncTo3d}
           aria-label={`Show the ${spec.plane} at ${readout} in 3D`}
           title="Move the 3D cross-section to this plane"
-          className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-all duration-150 hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none group-hover/tile:opacity-100"
+          className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-all duration-150 hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none group-hover/tile:opacity-100 group-focus-within/tile:opacity-100 hover-none:opacity-100"
         >
           <Crosshair className="size-3.5" aria-hidden="true" />
         </button>

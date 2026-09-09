@@ -536,7 +536,7 @@ function DashboardProjectCard({
           {isActive ? "Open workflow" : "Switch & open"}
         </Button>
         {!editing && (
-          <div className="flex items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+          <div className="flex items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 hover-none:opacity-100">
             <Button
               variant="outline"
               size="icon"

@@ -562,7 +562,7 @@ export function ClassGallery({
                 "absolute right-1.5 top-1.5 z-10 grid size-6 place-items-center rounded-md",
                 "bg-black/55 text-zinc-100 shadow-sm backdrop-blur-sm",
                 "opacity-0 transition-opacity duration-150",
-                "group-hover/cell:opacity-100 group-focus-within/cell:opacity-100 focus-visible:opacity-100",
+                "group-hover/cell:opacity-100 group-focus-within/cell:opacity-100 focus-visible:opacity-100 hover-none:opacity-100",
                 "hover:bg-black/80 focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:outline-none"
               )}
             >
