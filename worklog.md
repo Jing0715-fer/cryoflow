@@ -2950,3 +2950,26 @@ Stage Summary:
 - 「预期内的失败要有断言户口」：注入 4 个服务端拒绝后 console 里出现 4 条 400——把它们从「console 干净」断言里豁免并**精确计数**（恰 4 条），比粗暴忽略更诚实：多一条少一条都该红
 - 「自种子教义完成时」：qa58 → qa66 → （更早的 qa81/83）全部自播后，矩阵里不再有隐藏的套件间顺序承诺——「先跑 X 再跑 Y」的口头惯例是定时炸弹，套件自己负责自己的前提
 - 遗留（下轮候选）：EMPIAR 真数据回归（重）；用户机器 class3d/refine3d 顺序模式与 topaz 实测反馈；params diff 的第三入口（job inspector 内「与同型兄弟比较」picker）；import 队列行 rich tooltip（title 已有全文）；qa58 时代 agent-browser CLI 探针迁移 playwright（66 是最后一个重度依赖 CLI 的套件，迁移收益随 66 的自种子递减）
+---
+Task ID: 88
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-10 02:29 window)
+Task: cron 自主巡检——Task 88「params diff 第三入口（inspector 同型兄弟 picker）+ 对话框列交换」双主题，diff 生态收口轮：①新功能——Task 87 的比较对话框只有画布框选一个入口，本轮补上 inspector 工具栏 Compare 按钮：popover 列出同型兄弟（同 workspace 先、跨 workspace 后，组内按 createdAt 即运行序），每行状态点 + 名字 + 跨工作区徽章 + **diff 预览芯片**（identical/N differ/M one-sided）——开表之前先知道差多少；②Task 87 遗留——ParamsDiffDialog 列交换按钮（ArrowLeftRight + aria-pressed）：画布入口按点选序开列，inspector 入口锚定被检 job 在左（teal），swap 翻转列序而颜色保持按位（teal 永远在左）——谁当基线谁落左，picker 不必关心点选序；③单源抽取——classifyParamRows/summarizeParamDiff 从 FscParamsDiff 内部导出为共享 diff 大脑，picker 芯片的「1 differ」与对话框表格的 changed 行永远是同一个分类。t88 33 断言三连绿 + 全回归矩阵 21 套绿（qa70 家族抖动复跑两绿）+ worklog + push
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 87（cron 文本所称 Task 13 早已完成勿信）、HEAD bdafbf7 == origin/main、BUILD_ID PPyi9xCdDkqFCTSHujy07 匹配；生产冷启动 + served 自证 + smoke + t87/qa84/qa83 全绿 → 稳定
+- 【选题】Task 87 遗留首位「params diff 第三入口」+ 自提的列交换控件打包（86/87 双主题惯例）；import 队列 rich tooltip 评估后放弃（warning 全文已在 title，收益边际太小）
+- 【实现①单源先行】fsc-params-diff.tsx：DiffJob/RowKind/DiffRow 升格为导出的 ParamDiffJob/ParamDiffRowKind/ParamDiffRow + classifyParamRows（行分类全逻辑）+ summarizeParamDiff（taxonomy 计数 + allSame）；FscParamsDiff 的 useMemo 缩为一行调用——先立单源再做第二个读者，防止 picker 长出私有分类法
+- 【实现②picker】job-inspector.tsx：SiblingComparePicker 自包含组件（状态/兄弟列表/对话框全在内，InspectorHeader 只插一行）——兄弟 = 同型 && 非自身 && 非链副本（链的 params 是原物的镜像，镜像 vs 实件读作噪声，头部 Go to original 已覆盖该故事）；SiblingDiffChip 走 summarizeParamDiff；job.id 变化时清 compareWith/popover（inspector 可经 breadcrumb 跳 job，陈旧 compareWith 不得开对话框）；无兄弟则整个不渲染（守卫与画布工具栏同教义）
+- 【实现③swap】params-diff-dialog.tsx：swapped 状态 + pairKey（两 job id 拼 key）变化时复位；复位用渲染期调整模式（seenPair !== pairKey 时 setState）而非 effect——eslint react-hooks/set-state-in-effect 拦截后改写并注释「渲染期复位避免 effect 多画一帧 swapped 闪烁」；描述改 entry 中立：「left column: {ordered[0].name}」随 swap 实时显示左列真名，比 first-picked 措辞对 inspector 入口更诚实
+- 【探针三折皆探针侧】①A8 芯片断言：textContent 无 flex gap 空格（"2 differ·2 one-sided"）→ 加 norm() 双侧归一化（视觉间隔来自 gap-1，是探针伪差不是 UI bug）；②C4/C7 把返回数组当对象取 .cols → TypeError；③Phase E 点击画布卡片超时——inspector 模态还开着挡住画布 → 补第二个 Escape + E0 断言（模态已关才点卡）
+- 【数据驱动断言】芯片期望值不硬编码：探针内联 20 行 summarize2 重实现（2 job 版）+ 从 /api/jobs 真值计算期望文本（qa69 教义：硬编码期望值应读被测系统真相源）——锚点 job（既有 completed motioncorr "QA MotionCorr"）的参数故事无需预先考古
+- 【探针数据设计】inspector 只对 submitted job 开（idle 卡片点击开编辑面板）→ 锚点必须用既有 completed job；自种 3 个 idle 兄弟（本地 twin/异地 offsite/链副本 mirror，POST + workspaceId/linkedJobId）+ 新建 "t88 Offsite" workspace；Phase E 用运行时普查找单例类型（autopick 唯一实例）验证无兄弟无按钮
+- 【qa70 家族抖动新证据】回归批次 1 中 qa70 三连同点 FAIL（Escape peels the dialog layer）——非抖动特征，专项排查：干净 playwright 会话绿、agent-browser 手工全序列绿（含 --stdin 通道 + errCollector）、诊断副本装捕获探针实测：真实 Esc 的 keydown **已到达页面**（window 捕获日志 Escape@INPUT:prev=false）且未被 preventDefault，Radix 层却不关；diag 二跑又绿（FAIL×4/PASS×4 分布）→ 结论维持 Task 85 教义「qa70 家族抖动、复跑绿」，但本轮新证据把根因进一步钉在 agent-browser CDP 键事件与 Radix 层的竞态（键盘送达且无拦截却关闭失效），playwright 迁移（Task 87 遗留）的优先级因此上调
+- 【收尾】eslint src 0、tsc src 0、production build（BUILD_ID RvrIXX-myZ25rRS27VfnX200）+ served 自证 + 新 build smoke 绿；t88 33×3 全绿；全矩阵 21 套：smoke + qa58 + qa66 35 + qa69 35 + qa70 19（抖动复跑×2 绿）+ qa72-verify + qa73 + qa75 + qa76 + qa77 + qa78 + qa79 + qa80 + qa81 + qa82 + qa83 + qa84 + t85 + t86 38 + t87 34 串行全绿；诊断脚本（qa70-diag/t88-diag）用毕即删不入库
+
+Stage Summary:
+- 「泛化只是可达性问题」的第二章：Task 87 判定「组件接口在说通用语言 → 泛化只差一根线」；本轮把线接到 inspector 才发现真正的增量在**开表之前**——picker 行上的 diff 预览芯片把「要不要开这个比较」的判断前移到列表里，而芯片与表格共用一个分类大脑（classifyParamRows 抽取）才是这根线的工程成本所在：不抽单源，两个表面的「1 differ」迟早各说各话
+- 「颜色跟位不跟人」：swap 翻转列序时 teal/amber 保持按位不动——用户心智里左列=基线=teal，交换是「换个基线」而非「换个颜色」；描述同步显示左列真名，aria-pressed 暴露翻转态，三个读者（列头色块/描述/屏幕阅读器）同一事实
+- 「探针的期望值要么来自真相源要么来自显式契约」：芯片文本数据驱动（API 真值计算），而 C7「新对开箱未翻转」是显式契约断言（pairKey 复位的行为合同）——前者防参数故事漂移，后者锁行为承诺，两类断言别混用
+- 「复跑绿不是结论而是待办」：qa70 的 Esc 抖动三轮复跑绿过了三次，本轮 4 红终于逼出捕获探针证据（键盘已送达、未被拦截、Radix 不关）——间歇性失败每多活一轮，根因证据就贵一分；agent-browser CLI 探针整体迁 playwright 从「收益递减」上调为「qa70 一族的根治路径」
+- 遗留（下轮候选）：agent-browser 系套件（qa58/70 等）分批迁移 playwright（qa70 Esc 抖动根治）；EMPIAR 真数据回归（重）；用户机器 class3d/refine3d 顺序模式与 topaz 实测反馈；diff 大脑第三读者落地后的第四入口评估（dashboard roster 行级 compare）；import 队列 rich tooltip（title 已有全文，维持低优先）

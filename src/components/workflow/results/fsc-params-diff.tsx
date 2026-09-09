@@ -32,21 +32,86 @@ import { useMemo, useState } from "react";
 import { SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-interface DiffJob {
+const serialize = (v: unknown): string => JSON.stringify(v) ?? "null";
+
+/** minimal job shape every diff surface must provide */
+export interface ParamDiffJob {
   jobId: string;
   name: string;
   type: string;
   params: Record<string, unknown>;
 }
 
-type RowKind = "changed" | "partial" | "same";
+export type ParamDiffRowKind = "changed" | "partial" | "same";
 
-interface DiffRow {
+export interface ParamDiffRow {
   key: string;
-  kind: RowKind;
+  kind: ParamDiffRowKind;
   /** per-job raw values, aligned with the jobs prop order; undefined = absent */
   values: (unknown | undefined)[];
 }
+
+/**
+ * The ONE diff brain (Task 88): row classification shared by every surface
+ * that compares launch parameters — the FSC dialog's provenance table, the
+ * standalone compare dialog, and the inspector sibling picker's preview
+ * chips. Before this lived inline in FscParamsDiff and the picker would
+ * have quietly grown its own taxonomy ("1 key differs" meaning something
+ * subtly different from the table's "changed" row). One brain, N readers —
+ * the parseWorkflowFiles doctrine.
+ */
+export function classifyParamRows(jobs: ParamDiffJob[]): ParamDiffRow[] {
+  const keys = new Set<string>();
+  for (const j of jobs) for (const k of Object.keys(j.params)) keys.add(k);
+  const out: ParamDiffRow[] = [];
+  for (const key of keys) {
+    const values = jobs.map((j) => j.params[key]);
+    const missing = values.some((v) => v === undefined);
+    const distinct = new Set(
+      values.filter((v) => v !== undefined).map((v) => serialize(v))
+    );
+    // disagreement between PROVIDED values outranks absence: D2 vs C1 is
+    // the story even when a third job doesn't set symmetry at all
+    const kind: ParamDiffRowKind =
+      distinct.size > 1 ? "changed" : missing ? "partial" : "same";
+    out.push({ key, kind, values });
+  }
+  // changed rows float to the top, partial next, identical last; inside a
+  // group alphabetical keeps the table scannable run over run
+  const rank: Record<ParamDiffRowKind, number> = { changed: 0, partial: 1, same: 2 };
+  return out.sort(
+    (a, b) => rank[a.kind] - rank[b.kind] || a.key.localeCompare(b.key)
+  );
+}
+
+export interface ParamDiffSummary {
+  changed: number;
+  partial: number;
+  same: number;
+  total: number;
+  /** every PROVIDED value agrees AND nothing is one-sided */
+  allSame: boolean;
+}
+
+/** taxonomy counts for a pair/group, computed from the shared row brain */
+export function summarizeParamDiff(jobs: ParamDiffJob[]): ParamDiffSummary {
+  const rows = classifyParamRows(jobs);
+  const changed = rows.filter((r) => r.kind === "changed").length;
+  const partial = rows.filter((r) => r.kind === "partial").length;
+  const same = rows.length - changed - partial;
+  return {
+    changed,
+    partial,
+    same,
+    total: rows.length,
+    allSame: changed === 0 && partial === 0 && same > 0,
+  };
+}
+
+/** internal aliases — FscParamsDiff predates the export names */
+type DiffJob = ParamDiffJob;
+type RowKind = ParamDiffRowKind;
+type DiffRow = ParamDiffRow;
 
 /** camelCase → spaced lowercase for display ("particleDiameter" →
  *  "particle diameter"); the original key stays available as the title */
@@ -67,7 +132,6 @@ function formatParam(v: unknown): string {
   return s.length > 18 ? `${s.slice(0, 17)}…` : s;
 }
 
-const serialize = (v: unknown): string => JSON.stringify(v) ?? "null";
 
 export function FscParamsDiff({
   jobs,
@@ -81,29 +145,7 @@ export function FscParamsDiff({
   /** differences-only view (the default — identical rows are one toggle away) */
   const [diffOnly, setDiffOnly] = useState(true);
 
-  const rows = useMemo<DiffRow[]>(() => {
-    const keys = new Set<string>();
-    for (const j of jobs) for (const k of Object.keys(j.params)) keys.add(k);
-    const out: DiffRow[] = [];
-    for (const key of keys) {
-      const values = jobs.map((j) => j.params[key]);
-      const missing = values.some((v) => v === undefined);
-      const distinct = new Set(
-        values.filter((v) => v !== undefined).map((v) => serialize(v))
-      );
-      // disagreement between PROVIDED values outranks absence: D2 vs C1 is
-      // the story even when a third job doesn't set symmetry at all
-      const kind: RowKind =
-        distinct.size > 1 ? "changed" : missing ? "partial" : "same";
-      out.push({ key, kind, values });
-    }
-    // changed rows float to the top, partial next, identical last; inside a
-    // group alphabetical keeps the table scannable run over run
-    const rank: Record<RowKind, number> = { changed: 0, partial: 1, same: 2 };
-    return out.sort(
-      (a, b) => rank[a.kind] - rank[b.kind] || a.key.localeCompare(b.key)
-    );
-  }, [jobs]);
+  const rows = useMemo<DiffRow[]>(() => classifyParamRows(jobs), [jobs]);
 
   if (jobs.length < 2) return null;
 
