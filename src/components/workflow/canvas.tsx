@@ -40,7 +40,7 @@ import { exportCanvasPng, fmtBytes } from "@/lib/canvas-export";
 import {
   buildWorkflowFile,
   downloadWorkflowJson,
-  parseWorkflowJson,
+  parseWorkflowFiles,
   workflowFileName,
 } from "@/lib/workflow-io";
 import { useWorkflowStore, useActiveWorkspaceJobs, useActiveWorkspaceEdges, type PendingFrom } from "@/lib/store";
@@ -1163,29 +1163,29 @@ export function WorkflowCanvas() {
     });
   }, [jobs, edges, activeWorkspaceName]);
 
-  const handleImportJsonFile = useCallback(async (f: File) => {
-    const parsed = parseWorkflowJson(await f.text());
-    if (!parsed.ok || !parsed.file) {
-      toast({
-        title: "Import failed",
-        description: parsed.error ?? "Unreadable workflow file",
-        variant: "destructive",
-      });
-      return;
-    }
-    // NOT imported here — the preview dialog (mounted once in page.tsx)
-    // takes over: file summary + target-workspace picker before any POST
-    useWorkflowStore.getState().openImportPreview(parsed.file, parsed.warning, f.name);
+  // Multi-file since Task 86: the picker stages ANY number of JSON files —
+  // parse via the shared funnel (parseWorkflowFiles, same funnel the
+  // command palette uses) and hand the whole queue to the preview dialog.
+  // All-invalid picks never open the dialog; the first parse error toasts.
+  const onImportFilePick = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = ""; // allow re-picking the same file later
+    if (files.length === 0) return;
+    void (async () => {
+      const { entries, failures } = await parseWorkflowFiles(files);
+      if (entries.length === 0) {
+        toast({
+          title: "Import failed",
+          description: failures[0]?.error ?? "No readable workflow files",
+          variant: "destructive",
+        });
+        return;
+      }
+      // NOT imported here — the preview dialog (mounted once in page.tsx)
+      // takes over: file queue + target-workspace picker before any POST
+      useWorkflowStore.getState().openImportPreview(entries, failures);
+    })();
   }, []);
-
-  const onImportFilePick = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const f = e.target.files?.[0];
-      if (f) void handleImportJsonFile(f);
-      e.target.value = ""; // allow re-picking the same file later
-    },
-    [handleImportJsonFile]
-  );
 
   return (
     <ContextMenu>
@@ -1468,14 +1468,16 @@ export function WorkflowCanvas() {
         </Button>
       </div>
 
-      {/* workflow JSON import — hidden picker opened from the context menu */}
+      {/* workflow JSON import — hidden picker opened from the context menu;
+          multiple since Task 86 (any number of files staged per session) */}
       <input
         ref={fileInputRef}
         type="file"
         accept=".json,application/json"
+        multiple
         className="hidden"
         onChange={onImportFilePick}
-        aria-label="Import workflow JSON file"
+        aria-label="Import workflow JSON files"
         tabIndex={-1}
       />
         </section>

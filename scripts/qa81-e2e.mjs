@@ -72,7 +72,14 @@ const paletteProbe = () => p.evaluate(() => {
   const groups = [...document.querySelectorAll("[cmdk-group]")];
   const headings = groups.map((g) => g.querySelector("[cmdk-group-heading]")?.textContent?.trim() ?? "");
   const items = [...document.querySelectorAll("[cmdk-group] [cmdk-item]")].map((x) => x.textContent?.trim() ?? "");
-  return { headings, items };
+  // role-anchored class-annotation rows (Task 86 re-anchor): the Notes
+  // group's host rows now ALSO carry "Class N" text (index fallback +
+  // fused payload), so "item text includes 'Class 3'" no longer identifies
+  // a class-annotation row — the chip does
+  const classRows = [...document.querySelectorAll("[cmdk-group] [cmdk-item]")]
+    .filter((x) => x.querySelector("[data-palette-classnote-chip]"))
+    .map((x) => x.textContent?.trim() ?? "");
+  return { headings, items, classRows };
 });
 
 /* ---------------- Phase A: retrieval ---------------- */
@@ -84,7 +91,7 @@ let pal = await paletteProbe();
 const classHeading = pal.headings.find((h) => h.startsWith("Class notes"));
 must(classHeading !== undefined, "A1 Class notes group present");
 must(classHeading === "Class notes · 2 annotations", `A2 heading counts both (${classHeading})`);
-const classItems = pal.items.filter((t) => t.includes("Class 3") || t.includes("Class 5"));
+const classItems = pal.classRows.filter((t) => t.includes("Class 5"));
 must(classItems.length === 1 && classItems[0].includes("Class 5"), `A3 "ice contamination" lands on Class 5 (${classItems[0]?.slice(0, 60)})`);
 must(classItems[0]?.includes(N5.slice(0, 16)) && classItems[0]?.includes(SEL_JOB), "A4 row carries note text + host job name");
 
@@ -92,15 +99,20 @@ await p.locator("[cmdk-input]").fill("");
 await p.keyboard.type("qa81 marker");
 await sleep(400);
 pal = await paletteProbe();
-const three = pal.items.find((t) => t.includes("Class 3"));
+const three = pal.classRows.find((t) => t.includes("Class 3"));
 must(three !== undefined && three.includes(N3.slice(0, 16)), "A5 note-text query surfaces Class 3");
 
 await p.locator("[cmdk-input]").fill("");
 await sleep(300);
 pal = await paletteProbe();
-const noteRows = pal.items.filter((t) => t.startsWith("note") || t.includes("Class "));
 must(!pal.items.some((t) => t.includes("not started") && t.includes("note") && !t.includes("Class")), "A6 job Notes group honest at zero job notes");
-must((pal.headings.find((h) => h.startsWith("Notes ·")) ?? "absent") === "absent", "A7 no empty Notes group heading");
+// Task 86 upgrade: with class notes planted, the Notes group LEGITIMATELY
+// exists now (hasJudgment) — the old "no Notes group heading" contract only
+// held when the palette read the raw j.note. New contract: exactly the one
+// class-notes-only host, index-first fallback, count badge.
+const notesHeading = pal.headings.find((h) => h.startsWith("Notes ·"));
+must(notesHeading === "Notes · 1 annotated job", `A7 Notes group lists the class-notes-only host (${notesHeading})`);
+must(pal.items.some((t) => t.includes(SEL_JOB) && t.includes("class notes on Class 3, Class 5")), "A7b host row carries the index-first fallback");
 
 /* ---------------- Phase B: deep link ---------------- */
 console.log("Phase B — deep link");
@@ -108,8 +120,10 @@ await p.locator("[cmdk-input]").fill(N5.slice(0, 20));
 await sleep(400);
 pal = await paletteProbe();
 must(pal.items.some((t) => t.includes("Class 5")), "B1 searching by note text finds the class row");
-// click the Class 5 row (the only Class-notes row in this filtered view)
-await p.locator("[cmdk-item]", { hasText: "Class 5" }).first().click();
+// click the Class 5 ANNOTATION row — anchored by its chip, not bare text:
+// the Notes group's host row also contains "Class 5" since Task 86's
+// payload fusion (qa79 B2 doctrine — anchor the role, not the string)
+await p.locator("[cmdk-item]").filter({ has: p.locator("[data-palette-classnote-chip]") }).filter({ hasText: "Class 5" }).first().click();
 await sleep(1200); // panel mount + gallery fetch
 const dl = await p.evaluate(() => {
   // the header also renders tabs (Canvas/Workflow/Dashboard) — scope to the
@@ -138,7 +152,7 @@ must(dl.grid, "B6 gallery grid alive behind the lightbox");
 await p.keyboard.press("Escape");
 await sleep(300);
 await openPalette();
-await p.locator("[cmdk-item]", { hasText: "Class 3" }).first().click();
+await p.locator("[cmdk-item]").filter({ has: p.locator("[data-palette-classnote-chip]") }).filter({ hasText: "Class 3" }).first().click();
 await sleep(1200);
 const dl2 = await p.evaluate(() => ({
   lightbox: document.querySelector('[data-canvas-ui="lightbox-title"]')?.textContent?.trim() ?? null,

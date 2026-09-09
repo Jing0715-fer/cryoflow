@@ -199,6 +199,12 @@ const openSelectPanel = async () => {
 // ============================================================ phase A
 async function phaseA() {
   step("== PHASE A: gallery lightbox ==");
+  // self-seed (Task 86): every newer suite (qa81/qa83/…) runs the seeder
+  // itself — qa58 predated that convention and relied on the runner to
+  // remember, which silently broke whenever the gallery was left in the
+  // manual state by a previous run's mid-crash. The seeder is idempotent
+  // and project-agnostic (Task 85) and resets selectedClasses to auto.
+  step(`  seed: ${sh(SEED).split("\n").slice(-2).join(" | ").slice(0, 120)}`);
   if (!(await bootCanvas())) FATAL("canvas never appeared");
   if (!(await openSelectPanel())) FATAL("select2d panel with gallery never appeared");
 
@@ -274,6 +280,7 @@ async function phaseA() {
   // --- screenshot with the lightbox open on class 1 ---
   must((await openLightbox(1)).includes("clicked@"), "reopen lightbox on class 1 for the shot");
   await sleep(600);
+  sh(`mkdir -p /home/z/my-project/agent-ctx`); // disaster-recovery rounds may wipe it
   sh(`${AB} screenshot /home/z/my-project/agent-ctx/qa58-lightbox.png`);
   step("  screenshot: qa58-lightbox.png");
   await closeDialogEsc();

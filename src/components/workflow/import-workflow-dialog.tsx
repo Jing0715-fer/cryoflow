@@ -16,10 +16,18 @@
  *      that isn't the active one automatically follows the import (the
  *      canvas switches over and fit-views the fresh content).
  *
+ * Since Task 86 the picker accepts MULTIPLE files, so the dialog is a
+ * QUEUE: one summary row per staged file (per-file warning chips), one
+ * destructive row per parse failure (the error travels with the file so
+ * the user knows exactly which file to fix), and a single shared
+ * workspace picker + confirm — the confirm sends one POST per file and
+ * one aggregate toast (with a spanning Undo) lands at the end.
+ *
  * Mounted ONCE (page.tsx), triggered from both import entry points (canvas
  * context menu + command palette) via the shared `importPreview` store
- * slot — the file is parsed client-side first, so the dialog only ever
- * shows validated data; the server re-validates everything on confirm.
+ * slot — files are parsed client-side first (parseWorkflowFiles), so the
+ * dialog only ever shows validated data; the server re-validates
+ * everything on confirm.
  */
 
 import * as React from "react";
@@ -28,7 +36,7 @@ import {
   Boxes,
   CheckCircle2,
   FileJson,
-  FolderGit2,
+  FileX2,
   Link2,
   TriangleAlert,
 } from "lucide-react";
@@ -64,10 +72,12 @@ export function ImportWorkflowDialog() {
   const closePreview = useWorkflowStore((s) => s.closeImportPreview);
   const workspaces = useWorkflowStore((s) => s.workspaces);
   const activeWorkspaceId = useWorkflowStore((s) => s.activeWorkspaceId);
-  const doImport = useWorkflowStore((s) => s.importWorkflow);
+  const doImport = useWorkflowStore((s) => s.importWorkflowBatch);
 
   const open = preview !== null;
-  const file = preview?.file ?? null;
+  const entries = preview?.entries ?? [];
+  const failures = preview?.failures ?? [];
+  const totalJobs = entries.reduce((acc, e) => acc + e.file.jobs.length, 0);
 
   const [targetWs, setTargetWs] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
@@ -87,10 +97,10 @@ export function ImportWorkflowDialog() {
   }, [open, activeWorkspaceId, refreshWorkspaces]);
 
   const confirm = async () => {
-    if (!file || !targetWs || busy) return;
+    if (entries.length === 0 || !targetWs || busy) return;
     setBusy(true);
     try {
-      await doImport(file, preview?.warning, targetWs);
+      await doImport(entries, targetWs);
       // close AFTER the await so a failed request leaves the dialog up
       // with the user's choice intact (the store only toasts the error)
       closePreview();
@@ -110,75 +120,111 @@ export function ImportWorkflowDialog() {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
             <ArrowDownToLine className="size-4 text-teal-600" aria-hidden="true" />
-            Import workflow
+            Import workflow{entries.length === 1 ? "" : "s"}
           </DialogTitle>
           <DialogDescription>
-            Recreate the exported graph as idle jobs — nothing runs until you start it.
+            Recreate the exported graph{entries.length === 1 ? "" : "s"} as idle jobs —
+            nothing runs until you start it.
           </DialogDescription>
         </DialogHeader>
 
-        {file ? (
+        {entries.length > 0 ? (
           <div className="grid gap-3">
-            {/* file identity + summary chips */}
-            <div className="flex items-start gap-2.5 rounded-lg border bg-muted/30 p-3">
-              <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-                <FileJson className="size-4" aria-hidden="true" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p
-                  className="truncate text-xs font-semibold"
-                  title={preview?.fileName}
-                  data-testid="import-file-name"
-                >
-                  {preview?.fileName ?? "workflow.json"}
-                </p>
-                <p className="mt-0.5 text-[10px] leading-tight text-muted-foreground">
-                  exported {fmtDate(file.exportedAt)}
-                </p>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium">
-                    <Boxes className="size-3 text-muted-foreground" aria-hidden="true" />
-                    {file.jobs.length} jobs
-                  </span>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium">
-                    <Link2 className="size-3 text-muted-foreground" aria-hidden="true" />
-                    {file.edges.length} links
-                  </span>
-                  {(file.project || file.workspace) && (
-                    <span
-                      className="inline-flex max-w-full items-center gap-1 truncate rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium"
-                      title={`from project “${file.project || "?"}” · workspace “${file.workspace || "?"}”`}
-                    >
-                      <FolderGit2 className="size-3 shrink-0 text-muted-foreground" aria-hidden="true" />
-                      <span className="truncate">
-                        {file.project || "?"} · {file.workspace || "?"}
+            {/* staged queue: one summary row per file, failures inline */}
+            <div
+              className="grid max-h-44 gap-1 overflow-y-auto nice-scroll rounded-lg border bg-muted/20 p-1.5"
+              data-testid="import-queue"
+              aria-label="Files staged for import"
+            >
+              {entries.map((entry, i) => {
+                const origin =
+                  entry.file.project || entry.file.workspace
+                    ? `${entry.file.project || "?"} · ${entry.file.workspace || "?"}`
+                    : null;
+                return (
+                  <div
+                    key={`${entry.fileName}-${i}`}
+                    className="flex items-center gap-2 rounded-md border bg-background px-2 py-1.5"
+                    data-testid="import-queue-row"
+                    data-queue-file-name={entry.fileName}
+                  >
+                    <div className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                      <FileJson className="size-3.5" aria-hidden="true" />
+                    </div>
+                    <span className="min-w-0 flex-1">
+                      <span
+                        className="block truncate text-xs font-semibold"
+                        title={entry.fileName}
+                        data-testid="import-file-name"
+                      >
+                        {entry.fileName}
+                      </span>
+                      <span
+                        className="mt-0.5 block truncate text-[10px] leading-tight text-muted-foreground"
+                        title={origin ?? undefined}
+                      >
+                        {entry.file.jobs.length} job{entry.file.jobs.length === 1 ? "" : "s"} ·{" "}
+                        {entry.file.edges.length} link{entry.file.edges.length === 1 ? "" : "s"}
+                        {origin ? ` · from ${origin}` : ` · exported ${fmtDate(entry.file.exportedAt)}`}
                       </span>
                     </span>
-                  )}
+                    {entry.warning ? (
+                      <span
+                        className="flex h-4 shrink-0 items-center gap-0.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 text-[9px] font-semibold text-amber-600 dark:text-amber-400"
+                        role="status"
+                        title={entry.warning}
+                        data-testid="import-row-warning"
+                        aria-label="Version warning"
+                      >
+                        <TriangleAlert className="size-2.5" aria-hidden="true" />
+                        v{entry.file.version}
+                      </span>
+                    ) : null}
+                  </div>
+                );
+              })}
+              {failures.map((fail, i) => (
+                <div
+                  key={`${fail.fileName}-fail-${i}`}
+                  className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-2 py-1.5"
+                  data-testid="import-queue-fail"
+                  data-queue-file-name={fail.fileName}
+                  title={fail.error}
+                >
+                  <div className="flex size-6 shrink-0 items-center justify-center rounded-md bg-destructive/10 text-destructive">
+                    <FileX2 className="size-3.5" aria-hidden="true" />
+                  </div>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-xs font-semibold">
+                      {fail.fileName}
+                    </span>
+                    <span className="mt-0.5 block truncate text-[10px] leading-tight text-destructive/90">
+                      {fail.error}
+                    </span>
+                  </span>
+                  <span className="shrink-0 rounded-full bg-destructive/10 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-destructive">
+                    skipped
+                  </span>
                 </div>
-              </div>
+              ))}
             </div>
 
-            {/* version-compatibility warning (newer exporter / migrated) */}
-            {preview?.warning ? (
-              <div
-                className="flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-2.5"
-                role="status"
-                data-testid="import-warning"
-              >
-                <TriangleAlert
-                  className="mt-0.5 size-3.5 shrink-0 text-amber-600 dark:text-amber-400"
-                  aria-hidden="true"
-                />
-                <p className="text-[11px] leading-snug text-amber-800 dark:text-amber-200">
-                  {preview.warning}
-                </p>
+            {/* aggregate banner — the box/links counts of the WHOLE batch */}
+            {entries.length > 1 && (
+              <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                <Boxes className="size-3.5 shrink-0" aria-hidden="true" />
+                <span data-testid="import-queue-count">
+                  {entries.length} files · {totalJobs} jobs queued — imported in one batch,
+                  undone in one click
+                </span>
               </div>
-            ) : null}
+            )}
 
             {/* target workspace picker */}
             <div className="grid gap-1.5">
-              <p className="text-xs font-semibold">Target workspace</p>
+              <p className="text-xs font-semibold">
+                Target workspace{entries.length > 1 ? " (all files)" : ""}
+              </p>
               <div
                 className="grid max-h-44 gap-1 overflow-y-auto nice-scroll rounded-lg border p-1.5"
                 role="radiogroup"
@@ -265,10 +311,14 @@ export function ImportWorkflowDialog() {
             size="sm"
             className="gap-1.5"
             onClick={() => void confirm()}
-            disabled={busy || !targetWs}
+            disabled={busy || !targetWs || entries.length === 0}
           >
             <ArrowDownToLine className="size-3.5" aria-hidden="true" />
-            {busy ? "Importing…" : `Import ${file ? `${file.jobs.length} jobs` : ""}`}
+            {busy
+              ? "Importing…"
+              : entries.length > 0
+                ? `Import ${entries.length} workflow${entries.length === 1 ? "" : "s"} · ${totalJobs} jobs`
+                : "Nothing to import"}
           </Button>
         </DialogFooter>
       </DialogContent>

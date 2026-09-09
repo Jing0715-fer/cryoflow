@@ -2902,3 +2902,27 @@ Stage Summary:
 - 「内存灾情的对答案是换运行模式」：dev 的逐路由编译在 4GB 沙箱是持续的 OOM 风暴源，生产服务器的 prebuilt 路由让 16 套 QA 零回收跑完——scripts/start-prod.sh 入库为 QA 专用档位；冷编译失败点漂移（palette→Mol*→Slice）是同一灾情的不同切面，别被表象骗去修三个「bug」
 - 视觉方言三收口：palette 计数胶囊（批注五表面的最后一处不一致消除）、KPI 屏裁纸展（truncate 是屏幕经济学）、表头带对比度（实证无需修——「复查后确认无恙」也是有效交付，契约断言让它永驻）
 - 遗留（下轮候选）：workflow-import 多文件（低优先）；EMPIAR 真数据回归（重）；KPI 卡 kbd 徽章的 hover-none 环境复核；palette Notes 组与画布 lens 的 workspace 作用域语义对齐复查；用户机器 class3d/refine3d 顺序模式与 topaz 实测反馈
+
+---
+Task ID: 86
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-10 01:29 window)
+Task: cron 自主巡检——Task 86「palette Notes 组谓词对齐 + workflow-import 多文件」双主题：①真 bug #23 修复——palette Notes 组是 hasJudgment 涟漪半径漏掉的第四个读者（Task 75 原始 j.note 谓词残留），只有 class notes 的 job 画布亮着却检索不到；升级谓词 + 无 job note 时行中列显示类号索引（索引先行教义）+ class 注记文本融入行搜索 payload（搜注记短语同时命中宿主聚合行与逐条注记行，240 字符融合上限防 200 类跑撑爆 fuzzy 匹配器）；②功能——workflow-import 多文件：input multiple + parseWorkflowFiles 共享解析漏斗（canvas/palette 双入口单源）+ 对话框队列化（每文件摘要行/警告 chip/失败行内联 "skipped"）+ 共享 workspace picker + 逐文件顺序 POST（并行会互相丢 jobs 的 read-modify-write 竞态）+ 单条汇总 toast + 单个 Undo 跨全部文件（undoImport 天然收 id 数组）；③真 bug #24 修复——start-prod.sh 的 pkill 模式永远杀不死 standalone/server.js（bun run start 的进程名两个模式都不匹配），旧实例占 :3000 继续服务旧内存 HTML 引用已被新 build 替换掉的 chunk → ChunkLoadError 500。t86 38 断言三连绿 + 全回归矩阵 18 套绿（qa58 自种子加固、qa81 角色重锚定）+ worklog + push
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 85（cron 文本所称 Task 13 早已完成勿信）、HEAD 6a0cef4 == origin/main、BUILD_ID mqNZoPGagZdQ_zHR20QJ2 匹配；生产服务器冷启动 + smoke + t85/qa84/qa83 全绿 → 稳定
+- 【选题调研双发现】①复查 Task 85 遗留「palette Notes 组与画布 lens 作用域对齐」时发现比作用域更深的病灶：notedJobs 谓词仍是 j.note——Task 85 刚给 Notes 组行尾加了 class 计数胶囊，但只有 class notes 的 job 根本进不了组，胶囊永远没机会显示（自相矛盾实锤）；②Task 85 遗留首位 workflow-import 多文件。双主题打包（Task 85 先例）
+- 【实现①palette】command-palette：notedJobs 过滤换 hasJudgment（import 补齐）；行中列 `j.note || "class notes on " + classIdx`（索引先行：类号清单是 truncate 下幸存的身份）；value 融合 classNotes 文本 slice(0,240)；注释记录「palette 是最后一个还在裸 j.note 上的读者」
+- 【实现②多文件】workflow-io：ImportPreviewEntry/ImportFailure 类型 + parseWorkflowFiles 漏斗（解析全部文件而非遇错即停——对话框要呈现全貌）；store：importPreview 槽改 {entries, failures}、openImportPreview 双参、importWorkflow 重构为 importWorkflowBatch（顺序 POST + createdIds 聚合 + 切 workspace 一次 + 失败文件进 toast 描述 "N of M imported — failed: a.json, b.json" + Undo 一次删全部）；对话框重写为队列形态（queue rows/失败行/聚合横幅/import-queue-count 等语义钩子；单文件时聚合横幅与复数文案全部退回原样）；canvas input multiple + onImportFilePick 走漏斗 + 全失效不弹对话框只 toast 首错；palette importJson 同漏斗 + input.multiple
+- 【真 bug #24·首跑 500 的考古】t86 首跑 A 段全 FAIL 而 A7（旧 Class notes 组）通过 = 旧代码特征 → served HTML 引用的 chunk 磁盘不存在（484904a 等全 .next 无踪）→ pgrep 实锤 PID 19530 `bun .next/standalone/server.js` 是 Task 85 时代启动的老进程——start-prod.sh 的 pkill -f "next start"/"next-server" 与它的进程名零交集，rebuild 后旧实例仍占 :3000，内存里的旧 prerender HTML 引用已被新 build 从磁盘换掉的 chunk。修：start-prod.sh 加 pkill -f "standalone/server.js" + lsof/fuser 端口兜底循环；新教义「服务中的 build 要对着服务进程自证」——重启后 rg served HTML 的 BUILD_ID + 逐 chunk curl 200 才算 live（本轮后续每次 build 都照此验证）
+- 【A8-A10 确定式重造】DB 只剩单 workspace（Task 85 收养孤儿后）→ 作用域断言原本 skip；改为自建数据：POST /api/workspaces 建 "t86 Scope Probe" + POST /api/jobs 建异地宿主 + PATCH classNotes → 断言 Notes 组排除异地宿主、保留本地宿主 → Z 相 DELETE job + DELETE workspace（qa84「让被测条件真实存在」教义）
+- 【探针自身二折】①B7/B18 confirm 文案断言抓到画布工具栏的 "Import" 按钮——按钮探针未限定对话框作用域 → 锚定 [data-canvas-ui="import-workflow-dialog"] button + 空白归一化；②首跑撞旧 build 的 A 段 FAIL 全数转绿证明「断言歧义排查前先排除 stale build」的顺序价值
+- 【回归一折·qa58 无种子裸奔】矩阵首跑 qa58 exit 2 无输出（uncaughtException 钩子）→ 复跑见 FATAL auto 断言：DB 里 selectedClasses 停在上次中断的 manual 态——qa58 预 dating 自种子惯例（qa81/83 都自己 execSync seeder），runner 忘了跑 seed 就裸奔。加固：phaseA 开头补 sh(SEED)（seeder 幂等 + 项目无关 + 重置 selectedClasses=auto），runner 陷阱永久拔除；顺手 mkdir -p agent-ctx（灾备回滚把截图目录也抹了）
+- 【回归二折·qa81 歧义（t86 payload 融合的涟漪）】qa81 hasText "Class 3/5" 点行——融合后宿主行也含 "Class N" 文本且 Notes 组排在 Class notes 组前 → 点击落到宿主行，B 相深链全偏航、C 相 class-note chip 超时崩溃。qa79 B2 教义（锚定角色非裸文本）新印：paletteProbe 加 classRows（data-palette-classnote-chip 锚定）、两处点击改 chip-anchored locator、A6/A7 升级到 hasJudgment 新世界（「Notes 组缺席」旧契约只在裸 j.note 世界成立，新契约 = 恰好 1 行宿主 + 索引先行回退）。复跑 2 次全绿
+- 【收尾】eslint src 0、tsc src 0（examples/skills 既有错非本轮）、production build（BUILD_ID iD9StF89C6DvxQTN_CKvy）+ served 自证一致 + 新 build smoke 绿；t86 38×3 全绿；全矩阵 18 套：smoke + qa58 + qa66 35 + qa69 35 + qa70 19 + qa72-verify + qa73 + qa75 + qa76 + qa77 + qa78 + qa79 + qa80 + qa81（重锚定后 ×2）+ qa82 + qa83 + qa84 + t85 串行全绿
+
+Stage Summary:
+- 「涟漪半径的最后一米」：hasJudgment 的四个读者（chip/lens/filter/palette）跨三轮（83/85/86）才全部到齐——语义扩张的完整成本不在改动本身而在找出所有隐蔽读者，palette 这个最晚的读者恰恰是最讽刺的：Task 85 给它加了 class 计数胶囊，胶囊的主人却进不了组。跨表面合同审计应该是 checklist 而非记忆：改谓词时 grep 谓词字段的所有消费方
+- 「payload 融合的断言涟漪是可预付的」：把注记文本融入宿主行的搜索 payload，同时让两个既有套件的裸文本定位器变歧义——qa79 的「锚定角色」教义在 qa81 落地成 classRows/chip-anchored locator。功能与测试的耦合改动要同步盘点所有文本断言；「宿主行 vs 注记行」在文本世界不可分，在角色世界一查即分
+- 「服务中的 build ≠ 磁盘上的 build」：BUILD_ID 对比、git log、树上验证都只证明磁盘状态；standalone 服务器是一个独立的、可能陈旧的、且 start-prod.sh 从未真正管理过的进程。重启脚本要按进程身份（server.js 路径）+ 端口双重清扫，live 判定要 served HTML 的 BUILD_ID + chunk 全 200 自证——「我重启过了」从来不是「新 build 在服务」的证据
+- 「漏斗共享先于形态扩张」：多文件导入没有让 canvas/palette 两个入口各自长大，而是先收敛出 parseWorkflowFiles 单源漏斗再让两入口变薄——形态可以多样（input 元素 vs 动态创建），解析契约只有一个。顺序 POST 的理由写在注释里：store 的 read-modify-write 合并是并发的天敌，性能让位给正确性
+- 遗留（下轮候选）：EMPIAR 真数据回归（重）；用户机器 class3d/refine3d 顺序模式与 topaz 实测反馈；undo toast 的批量文件名折叠（>3 文件时 failed 列表截断诚实化）；import 队列行的 hover 预览（warning 全文已在 title，可考虑 rich tooltip）；qa58 时代的 agent-browser CLI 探针整体迁移 playwright（冷启动竞态根除）

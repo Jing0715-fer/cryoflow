@@ -45,7 +45,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { useWorkflowStore } from "@/lib/store";
-import { parseClassNotes } from "@/lib/class-notes";
+import { hasJudgment, parseClassNotes } from "@/lib/class-notes";
 import type { JobDTO } from "@/lib/types";
 import { JOB_TYPES, jobType, CARD_W, CARD_H } from "@/lib/workflow";
 import { JOB_PRESETS } from "@/lib/job-presets";
@@ -53,7 +53,7 @@ import { exportCanvasPng } from "@/lib/canvas-export";
 import {
   buildWorkflowFile,
   downloadWorkflowJson,
-  parseWorkflowJson,
+  parseWorkflowFiles,
   workflowFileName,
 } from "@/lib/workflow-io";
 import { TypeIcon } from "./icons";
@@ -74,16 +74,22 @@ export function CommandPalette() {
   const noteSpotlight = useWorkflowStore((s) => s.noteSpotlight);
   const toggleNoteSpotlight = useWorkflowStore((s) => s.toggleNoteSpotlight);
 
-  // Notes group (Task 75) — the scientist's margin notes become first-class
-  // palette citizens: each noted job is one row whose SEARCH VALUE carries
-  // the note TEXT, so fuzzy-typing a phrase from the annotation ("good
-  // class", "redo ab initio") finds the job even when its name wouldn't.
+  // Notes group (Task 75; predicate upgraded to hasJudgment in Task 86) —
+  // the scientist's margin notes become first-class palette citizens: each
+  // judged job is one row whose SEARCH VALUE carries the note TEXT (plus the
+  // class note texts, fused below), so fuzzy-typing a phrase from an
+  // annotation ("good class", "redo ab initio") finds the job even when its
+  // name wouldn't. hasJudgment is the SAME predicate the canvas lens dims
+  // by, the header chip counts and the dashboard Noted chip filters — the
+  // palette was the last reader still on the raw j.note, which meant a job
+  // annotated only through class notes stayed lit on canvas yet was
+  // unsearchable here (cross-surface contract break, fixed).
   // Workspace-scoped, same rule the canvas lens dims by.
   const notedJobs = (
     activeWorkspaceId == null
       ? jobs
       : jobs.filter((j) => (j.workspaceId ?? "") === activeWorkspaceId)
-  ).filter((j) => j.note);
+  ).filter(hasJudgment);
 
   // Class notes group (Task 81) — the gallery's per-class annotations become
   // palette citizens too: one row per noted class, searchable by the note
@@ -280,22 +286,24 @@ export function CommandPalette() {
     close(); // the native picker takes focus — drop the palette first
     const input = document.createElement("input");
     input.type = "file";
+    // multi-file since Task 86 — same funnel the canvas picker uses
+    input.multiple = true;
     input.accept = ".json,application/json";
     input.onchange = async () => {
-      const f = input.files?.[0];
-      if (!f) return;
-      const parsed = parseWorkflowJson(await f.text());
-      if (!parsed.ok || !parsed.file) {
+      const files = Array.from(input.files ?? []);
+      if (files.length === 0) return;
+      const { entries, failures } = await parseWorkflowFiles(files);
+      if (entries.length === 0) {
         toast({
           title: "Import failed",
-          description: parsed.error ?? "Unreadable workflow file",
+          description: failures[0]?.error ?? "No readable workflow files",
           variant: "destructive",
         });
         return;
       }
       // preview dialog (mounted once in page.tsx) takes over from here:
-      // file summary + target-workspace picker before any POST
-      useWorkflowStore.getState().openImportPreview(parsed.file, parsed.warning, f.name);
+      // file queue + target-workspace picker before any POST
+      useWorkflowStore.getState().openImportPreview(entries, failures);
     };
     input.click();
   };
@@ -360,12 +368,26 @@ export function CommandPalette() {
                 // grammar as the canvas card (Row 1) and dashboard row
                 // badges, so the palette speaks the same dialect
                 const classNotes = Object.entries(parseClassNotes(j.params?.classNotes));
+                // index-first doctrine (Task 83): when a job carries only
+                // class notes, the middle column shows the scannable class
+                // INDEX (which classes are annotated) — the identity that
+                // survives a truncate — instead of an empty cell
+                const classIdx = classNotes.map(([k]) => `Class ${k}`).join(", ");
                 // the note TEXT is the searchable payload — "note" leading
-                // token makes plain "note" queries land in this group first
+                // token makes plain "note" queries land in this group first.
+                // Class note texts fuse into the payload (Task 86) so a
+                // phrase from any judgment finds its HOST row here and its
+                // per-annotation row in the Class notes group below. The
+                // fusion is capped: a 200-class run's texts must never
+                // bloat the fuzzy matcher's haystack.
+                const fusedClassTexts = classNotes
+                  .map(([, t]) => t)
+                  .join(" ")
+                  .slice(0, 240);
                 return (
                   <CommandItem
                     key={`note-${j.id}`}
-                    value={`note ${j.name} ${j.type} ${j.note ?? ""}`}
+                    value={`note ${j.name} ${j.type} ${j.note ?? ""} ${fusedClassTexts}`}
                     onSelect={() => jumpToJob(j.id)}
                     className="gap-2.5"
                   >
@@ -374,7 +396,7 @@ export function CommandPalette() {
                       {j.name}
                     </span>
                     <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
-                      {j.note}
+                      {j.note || `class notes on ${classIdx}`}
                     </span>
                     {classNotes.length > 0 && (
                       <span

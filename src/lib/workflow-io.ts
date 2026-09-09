@@ -273,6 +273,48 @@ function jobTypeListPreview(): string {
   return ids.length > 6 ? `${head} … (+${ids.length - 6} more)` : head;
 }
 
+/** One parsed, valid workflow file queued for the import dialog. */
+export interface ImportPreviewEntry {
+  file: WorkflowFile;
+  /** non-fatal version-compatibility notice — surfaced as a row chip */
+  warning?: string;
+  fileName: string;
+}
+
+/** One file that failed client-side parsing — shown in the dialog queue. */
+export interface ImportFailure {
+  fileName: string;
+  error: string;
+}
+
+/**
+ * Parse a PICKED FILE SELECTION (one or many) into the dialog's queue:
+ * valid files become entries, unreadable ones become failures with their
+ * specific parse error. The single shared funnel for BOTH import entry
+ * points (canvas context-menu picker + command palette) — Task 83 doctrine:
+ * every reader of a parse result must read the same one. All files are
+ * parsed even when some fail, so the dialog can show the full picture.
+ */
+export async function parseWorkflowFiles(
+  files: File[]
+): Promise<{ entries: ImportPreviewEntry[]; failures: ImportFailure[] }> {
+  const entries: ImportPreviewEntry[] = [];
+  const failures: ImportFailure[] = [];
+  for (const f of files) {
+    try {
+      const parsed = parseWorkflowJson(await f.text());
+      if (parsed.ok && parsed.file) {
+        entries.push({ file: parsed.file, warning: parsed.warning, fileName: f.name });
+      } else {
+        failures.push({ fileName: f.name, error: parsed.error ?? "Unreadable workflow file" });
+      }
+    } catch {
+      failures.push({ fileName: f.name, error: "Unreadable workflow file" });
+    }
+  }
+  return { entries, failures };
+}
+
 export function workflowFileName(workspace: string): string {
   const slug =
     workspace

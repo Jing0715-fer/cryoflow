@@ -19,7 +19,7 @@ import type {
   TemplateOverrides,
   WorkspaceDTO,
 } from "./types";
-import type { WorkflowFile } from "./workflow-io";
+import type { ImportFailure, ImportPreviewEntry } from "./workflow-io";
 
 /**
  * Pending connection: the port being wired.
@@ -100,10 +100,15 @@ interface WorkflowState {
    *  were dimmed last session" to survive a reload. Toggled from the
    *  header chip, the command palette, or the N key. */
   noteSpotlight: boolean;
-  /** Parsed workflow file awaiting confirmation in the import dialog —
-   *  the dialog shows a summary + target-workspace picker before any
-   *  network call happens (mounted once, like the presets dialog). */
-  importPreview: { file: WorkflowFile; warning?: string; fileName: string } | null;
+  /** Parsed workflow files awaiting confirmation in the import dialog —
+   *  the dialog shows a QUEUE (one summary row per file, plus per-file
+   *  parse failures) + one shared target-workspace picker before any
+   *  network call happens (mounted once, like the presets dialog).
+   *  Multi-file since Task 86: one picker session can stage any number. */
+  importPreview: {
+    entries: ImportPreviewEntry[];
+    failures: ImportFailure[];
+  } | null;
   loading: boolean;
   error: string | null;
   /** True while a card is being dragged — polling pauses so no re-render
@@ -144,12 +149,17 @@ interface WorkflowState {
    *  workspace (below existing content), optional parameter overrides,
    *  nothing run. */
   createTemplate: (overrides?: TemplateOverrides) => Promise<void>;
-  /** Recreate an exported cryoflow-workflow/1 file (POST
-   *  /api/workflow-import) — target workspace selectable (defaults to the
-   *  active one, must belong to the active project — the server rejects
-   *  anything else); server re-validates types, params and port wiring;
-   *  merge + fit-view on success. */
-  importWorkflow: (file: WorkflowFile, warning?: string, workspaceId?: string) => Promise<void>;
+  /** Recreate one or more exported cryoflow-workflow/1 files (a POST
+   *  /api/workflow-import PER file, sequential so merges never race) —
+   *  target workspace selectable (defaults to the active one, must belong
+   *  to the active project — the server rejects anything else); server
+   *  re-validates types, params and port wiring per file; ONE summary
+   *  toast at the end carries the aggregate counts, per-file failures and
+   *  a single Undo spanning every file's created jobs (Task 86). */
+  importWorkflowBatch: (
+    entries: ImportPreviewEntry[],
+    workspaceId?: string
+  ) => Promise<void>;
   /** Undo a just-imported batch: delete the created jobs (cascade removes
    *  their fresh edges), optionally step the canvas back to the workspace
    *  the user was on when the import auto-switched. Idempotent and honest —
@@ -158,8 +168,9 @@ interface WorkflowState {
   setTemplatePresetsOpen: (open: boolean) => void;
   setShortcutsOpen: (open: boolean) => void;
   toggleNoteSpotlight: () => void;
-  /** Stage a parsed file for the import dialog (replaces any earlier one). */
-  openImportPreview: (file: WorkflowFile, warning: string | undefined, fileName: string) => void;
+  /** Stage parsed files for the import dialog (replaces any earlier
+   *  staging — one picker session at a time). */
+  openImportPreview: (entries: ImportPreviewEntry[], failures: ImportFailure[]) => void;
   closeImportPreview: () => void;
   moveJobCommit: (id: string, x: number, y: number) => Promise<void>;
   applyLayout: () => Promise<void>;
@@ -766,63 +777,90 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     }
   },
 
-  importWorkflow: async (file, warning, workspaceId) => {
+  importWorkflowBatch: async (entries, workspaceId) => {
     // explicit target (import dialog) wins; absent = the active workspace
     const targetWsId = workspaceId ?? get().activeWorkspaceId ?? undefined;
     // remembered for undo — where the canvas was before an auto-switch
     const wsBeforeImport = get().activeWorkspaceId;
-    try {
-      const data = await api<{ jobs: JobDTO[]; edges: EdgeDTO[] }>("/api/workflow-import", {
-        method: "POST",
-        headers: JSON_HEADERS,
-        body: JSON.stringify({
-          workspaceId: targetWsId,
-          jobs: file.jobs,
-          edges: file.edges,
-        }),
-      });
-      const have = new Set(get().jobs.map((j) => j.id));
-      const haveEdges = new Set(get().edges.map((e) => e.id));
-      set({
-        jobs: [...get().jobs, ...data.jobs.filter((j) => !have.has(j.id))],
-        edges: [...get().edges, ...data.edges.filter((e) => !haveEdges.has(e.id))],
-        layoutEpoch: get().layoutEpoch + 1, // fit-view the imported graph
-      });
-      // Follow the import when it landed in another workspace — the canvas
-      // fit-views the new content via layoutEpoch, so switching here shows
-      // exactly what was just imported instead of leaving the user to find it.
-      let switched = false;
-      if (targetWsId && targetWsId !== get().activeWorkspaceId) {
-        set({ activeWorkspaceId: targetWsId, selectedId: null, selectedIds: [], pendingFrom: null });
-        switched = true;
+    // sequential POSTs, not Promise.all: each success merges into the
+    // store (read-modify-write on jobs/edges), and parallel merges would
+    // read the same base and drop each other's jobs. Order also keeps
+    // per-file fit-view churn to a single final layoutEpoch bump per
+    // import — the LAST merge's epoch is the one the canvas fits to.
+    const createdIds: string[] = [];
+    let totalJobs = 0;
+    let totalEdges = 0;
+    const failedFiles: string[] = [];
+    for (const entry of entries) {
+      try {
+        const data = await api<{ jobs: JobDTO[]; edges: EdgeDTO[] }>("/api/workflow-import", {
+          method: "POST",
+          headers: JSON_HEADERS,
+          body: JSON.stringify({
+            workspaceId: targetWsId,
+            jobs: entry.file.jobs,
+            edges: entry.file.edges,
+          }),
+        });
+        const have = new Set(get().jobs.map((j) => j.id));
+        const haveEdges = new Set(get().edges.map((e) => e.id));
+        set({
+          jobs: [...get().jobs, ...data.jobs.filter((j) => !have.has(j.id))],
+          edges: [...get().edges, ...data.edges.filter((e) => !haveEdges.has(e.id))],
+          layoutEpoch: get().layoutEpoch + 1, // fit-view the imported graph
+        });
+        createdIds.push(...data.jobs.map((j) => j.id));
+        totalJobs += data.jobs.length;
+        totalEdges += data.edges.length;
+      } catch {
+        // one bad file must not sink the batch — the summary toast names
+        // every failure so the user knows exactly what to re-export
+        failedFiles.push(entry.fileName);
       }
-      const wsName =
-        get().workspaces.find((w) => w.id === targetWsId)?.name ?? "the selected workspace";
-      const createdIds = data.jobs.map((j) => j.id);
-      toast({
-        title: "Workflow imported",
-        description: warning
-          ? `${warning} — ${data.jobs.length} jobs · ${data.edges.length} links recreated in ${wsName}${switched ? " (canvas switched there)" : ""}; nothing runs until you start it`
-          : `${data.jobs.length} jobs · ${data.edges.length} links recreated in ${wsName}${switched ? " — canvas switched there" : " — nothing runs until you start it"}`,
-        // wrong-project/wrong-workspace imports are the classic slip — keep
-        // the toast up long enough to matter and offer a one-tap undo
-        duration: 12_000,
-        action: createdIds.length
-          ? (React.createElement(
-              ToastAction,
-              {
-                altText: "Undo the import",
-                onClick: () =>
-                  void get().undoImport(createdIds, wsBeforeImport ?? null, switched),
-              },
-              "Undo"
-            ) as unknown as ToastActionElement)
-          : undefined,
-      });
-      void get().refreshWorkspaces();
-    } catch (err) {
-      errToast(err instanceof Error ? err.message : "Failed to import the workflow");
     }
+    if (createdIds.length === 0) {
+      errToast(
+        failedFiles.length === entries.length
+          ? `Import failed — none of the ${entries.length} workflow${entries.length === 1 ? "" : "s"} could be imported`
+          : "Import failed — no jobs were created"
+      );
+      return;
+    }
+    // Follow the import when it landed in another workspace — the canvas
+    // fit-views the new content via layoutEpoch, so switching here shows
+    // exactly what was just imported instead of leaving the user to find
+    // it. Switched ONCE for the whole batch (not per file).
+    let switched = false;
+    if (targetWsId && targetWsId !== get().activeWorkspaceId) {
+      set({ activeWorkspaceId: targetWsId, selectedId: null, selectedIds: [], pendingFrom: null });
+      switched = true;
+    }
+    const wsName =
+      get().workspaces.find((w) => w.id === targetWsId)?.name ?? "the selected workspace";
+    const okCount = entries.length - failedFiles.length;
+    const where = `${switched ? " (canvas switched there)" : ""}`;
+    const desc = failedFiles.length
+      ? `${okCount} of ${entries.length} imported — ${totalJobs} jobs · ${totalEdges} links in ${wsName}${where}; failed: ${failedFiles.join(", ")}`
+      : `${okCount} workflow${okCount === 1 ? "" : "s"} — ${totalJobs} jobs · ${totalEdges} links recreated in ${wsName}${where}; nothing runs until you start it`;
+    toast({
+      title: failedFiles.length ? "Partially imported" : "Workflows imported",
+      description: desc,
+      // wrong-project/wrong-workspace imports are the classic slip — keep
+      // the toast up long enough to matter and offer a one-tap undo
+      duration: 12_000,
+      action: createdIds.length
+        ? (React.createElement(
+            ToastAction,
+            {
+              altText: "Undo the import",
+              onClick: () =>
+                void get().undoImport(createdIds, wsBeforeImport ?? null, switched),
+            },
+            "Undo"
+          ) as unknown as ToastActionElement)
+        : undefined,
+    });
+    void get().refreshWorkspaces();
   },
 
   undoImport: async (createdIds, restoreWorkspaceId, switched) => {
@@ -1463,8 +1501,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   setShortcutsOpen: (open) => set({ shortcutsOpen: open }),
   toggleNoteSpotlight: () => set((s) => ({ noteSpotlight: !s.noteSpotlight })),
 
-  openImportPreview: (file, warning, fileName) =>
-    set({ importPreview: { file, warning, fileName } }),
+  openImportPreview: (entries, failures) =>
+    set({ importPreview: { entries, failures } }),
   closeImportPreview: () => set({ importPreview: null }),
 
   focusJob: (id) =>
