@@ -2648,3 +2648,22 @@ Stage Summary:
 - 「换 job 冲刷旧草稿」是 debounced-autosave 的经典暗礁：effect cleanup 跑在 re-render 之后，live ref 已易主——per-job Map 把「这份草稿属于谁」钉死在 effect run 捕获的 id 上；任何「切实体 + 防抖保存」组合（job 参数、workspace 偏好、查看器会话）都该用同一模式
 - 打印契约的边界又精确了一格：屏幕元数据（批注）与文档内容（管线结构）分治——.no-print 角标 + pdftotext 反断言让「纸上有意不出现什么」也成为可执行契约，与 Task 69/70 的「纸上必须出现什么」互为补集
 - 遗留（下轮候选）：Letter/A4 双纸张 verify（Task 72 预算按双纸设计但只测默认纸）；dashboard 打印跨页表头重复（break-after 未做）；shortcuts dialog 按键高亮分组（锦上添花）；workflow-import 多文件（低优先）；EMPIAR 真数据回归（重）；批注的打印化（若用户想归档批注，可在 PrintDocHeader 加 note 计数或 job 卡下缘加一行 note 摘要——需重新过 qa72 像素契约）
+
+---
+Task ID: 74
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 晚轮 2026-09-09 17:29 窗口）——Task 74「批注上纸 + Letter/A4 双纸张 verify」：Task 73 两条遗留合成一个连贯主题——①批注打印化（有意反转 Task 73 的 screen-only 边界）：带批注的卡片纸上多一行 9px 斜体琥珀摘录行，与 Row 3（进度/ETA）做 16px↔16px 的位置交换——CARD_H 不变故 fit-to-paper 预算与单页契约零扰动；truncate 省略号是「摘录」的诚实信号（与标题不截断规则相对：名字是身份、散文是梗概）；PrintDocHeader 计数行加「· N annotated」②qa72-verify 补 Letter 横向腿（preferCSSPageSize:false + format:Letter——预算取双纸更紧轴，同一管线必须两张纸都装得下）③qa73 Phase C 契约翻转：短注全文上纸 + 长注被裁尾部诚实缺席（truncate 在 paint 层裁剪，pdftotext 只见真正上纸的字形）；全矩阵绿后 worklog + push
+
+Work Log:
+- 【开局核对 + 选题】HEAD 1d4b30d == Task 73 已 push、树净、BUILD_ID 09:21 免重建；engine-state 空但 prisma jobs 完好（上轮已明 engine-state 与 DB 是两层）；qa58 gallery 重播种后 smoke 基线绿；从 Task 73 遗留选「批注打印化 + 双纸张 verify」——前者是功能演进（边界反转需重过两个契约），后者是 Task 72 预算设计的欠账验证，合成「纸面批注」一个主题一次交付
+- 【布局物理·换位不增高】卡片内容盒是 h-full flex-col（CARD_H=96 定高）——纸上加行必然挤爆或裁剪，除非等高交换；Row 3（h-4 进度/ETA 行）在档案快照里信息价值最低（状态徽章已表达完成度）→ 批注行 print:block 与 Row 3 print:hidden 条件互换（仅对带 note 的卡），卡片总高逐像素不变；V1/V5（单页/墨迹原点）实测零漂移
+- 【摘录诚实性设计】truncate（nowrap+ellipsis+overflow hidden）在 paint 层裁剪——被裁字形根本不进 PDF，pdftotext 只见纸上真有的文字；C3/C4 双向断言把这个物理钉死（长注头在纸上 + 尾巴缺席）；与 Task 72「job-card-title 纸上换行不截断」对照：名字是身份（截断 = 丢失），批注是散文（省略号明示续文在应用内 hover 可得）——两条规则写进同一处注释防止后人误用其一
+- 【双纸张腿】@page 定 A4 landscape（preferCSSPageSize:true 走它），Letter 用 pdf options 强制（preferCSSPageSize:false + format:Letter + landscape:true）绕开 @page；预算数学（宽取 Letter 965px、高取 A4 703px）若错，Letter 更窄的内容盒会让卡片溢出到第 2 页——V6 两断言（单页 + 9/9 卡名）实测一次通过
+- 【qa73 Phase C 契约翻转】Task 73 的 C2/C3「纸上无 note 文本」反断言反向：C2 短注全文上纸、C2b masthead「annotated」计数上纸、C3 长注头上纸、C4 裁尾缺席；标记词全 ASCII 避开 pdftotext 的 em-dash/tracking 抽取怪癖；masthead 计数来自 store（reload 后 API 回填），先 PATCH 再 reload 保证新鲜
+- 【收尾】eslint 0、tsc src 0、production build（新 BUILD_ID）；QA：qa72-verify（8 断言含 V6 双纸）+ qa73 33（A7/B18/C5 + console 0）+ smoke 6/6 + qa66 35（像素断言对批注墨量免疫——darkFrac 上界余量巨大）+ qa69 34 + qa70 19 + qa58 ALL 串行全绿；worklog + push
+
+Stage Summary:
+- 边界反转是产品演进而非自打脸：Task 73 的「纸上无批注」是当时最小正确边界，Task 74 在等高交换的布局物理出现后升级它——契约测试的价值恰恰在于每次反转都要显式改断言（qa73 C 的翻转 diff 就是产品决策的可执行记录），沉默的边界才会烂掉
+- 「纸上的每个字都该是有意的」：pdftotext 断言既验「短注全文在」也验「裁尾不在」——truncate 的 paint 层裁剪让 DOM 文本与纸上字形天然分层，摘录语义（省略号）由 CSS 显式表达；档案打印的诚实 = 读者能分辨「这是全部」还是「这是梗概」
+- 双纸张 verify 补上 fit-to-paper 的最后一块：预算「取双纸更紧轴」的设计从注释里的承诺变成 V6 的可执行断言——同一管线在 A4 与 Letter 横向都单页全名，打印机默认纸张不再是用户要赌的变量
+- 遗留（下轮候选）：dashboard 打印跨页表头重复（break-after 未做）；shortcuts dialog 按键高亮分组（锦上添花）；workflow-import 多文件（低优先）；EMPIAR 真数据回归（重）；批注的搜索/过滤（画布按「有无批注」过滤 job——功能自然延伸）

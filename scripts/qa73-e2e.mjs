@@ -169,21 +169,41 @@ await p.waitForTimeout(900);
 must(!(await p.evaluate((s) => !!document.querySelector(s), badgeSel(target.id))), "B16 badge disappears when cleared");
 
 /* ---------------- Phase C: print contract ---------------- */
-console.log("Phase C — print contract (notes are screen-only)");
+console.log("Phase C — print contract (notes ON paper as honest excerpts)");
 {
-  await api(`/api/jobs/${target.id}`, { note: "GOLDENCLASSMARKER archival margin note" });
-  // reopen the inspector so the fresh note is in view state, then close it —
-  // paper shows the canvas (masthead + cards), like a user's Ctrl+P
+  // Task 74 reversed Task 73's screen-only boundary: annotated cards print
+  // a one-line excerpt (swapping vertical space with the progress row) and
+  // the masthead grows an "N annotated" count. The contract now has two
+  // honest halves:
+  //   short note  → the WHOLE remark is on paper
+  //   long note   → the head is on paper, the clipped tail is NOT
+  //                (truncate clips at paint time, so pdftotext sees only
+  //                the glyphs that actually reached the sheet)
+  const strip = (s) => s.replace(/\s+/g, "").toLowerCase();
+
+  await api(`/api/jobs/${target.id}`, { note: "GOLDENMARKER use for refine3d" });
   await p.reload({ waitUntil: "networkidle" });
   await p.waitForTimeout(3000);
   const has = await p.evaluate((s) => !!document.querySelector(s), badgeSel(target.id));
   must(has, "C1 note badge visible on screen");
+
   await p.emulateMedia({ media: "print" });
   await p.pdf({ path: OUT, printBackground: true, preferCSSPageSize: true });
   await p.emulateMedia({ media: "screen" });
-  const txt = execSync(`pdftotext ${OUT} -`, { encoding: "utf8" }).replace(/\s+/g, "").toLowerCase();
-  must(!txt.includes("goldenclassmarker"), "C2 note text absent from paper");
-  must(!txt.includes("archivalmarginnote"), "C3 note tail absent from paper");
+  let txt = strip(execSync(`pdftotext ${OUT} -`, { encoding: "utf8" }));
+  must(txt.includes("goldenmarker"), "C2 short note fully on paper");
+  must(txt.includes("annotated"), "C2b masthead carries the annotated count");
+
+  const LONG = "HEADMARKER dense remark " + "x".repeat(220) + " TAILMARKER9Q";
+  await api(`/api/jobs/${target.id}`, { note: LONG });
+  await p.reload({ waitUntil: "networkidle" });
+  await p.waitForTimeout(3000);
+  await p.emulateMedia({ media: "print" });
+  await p.pdf({ path: OUT, printBackground: true, preferCSSPageSize: true });
+  await p.emulateMedia({ media: "screen" });
+  txt = strip(execSync(`pdftotext ${OUT} -`, { encoding: "utf8" }));
+  must(txt.includes("headmarker"), "C3 long note head on paper");
+  must(!txt.includes("tailmarker9q"), "C4 clipped tail honestly absent (excerpt marked by ellipsis)");
   await api(`/api/jobs/${target.id}`, { note: "" });
 }
 

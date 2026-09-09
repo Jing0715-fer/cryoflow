@@ -47,6 +47,21 @@ await p.pdf({
   printBackground: true,
   preferCSSPageSize: true,
 });
+// Task 74 — dual-paper leg: the fit budget takes the tighter axis of
+// Letter/A4 landscape (width from Letter, height from A4), so the SAME
+// pipeline must fit on BOTH papers. A4 comes via @page (above,
+// preferCSSPageSize); Letter is forced through the pdf options with the
+// @page size ignored — if the budget math were wrong for Letter's
+// narrower content box, cards would spill to page 2 here.
+const OUT_LETTER = "/home/z/my-project/.qa-logs/t72-verify-letter.pdf";
+rmSync(OUT_LETTER, { force: true });
+await p.pdf({
+  path: OUT_LETTER,
+  printBackground: true,
+  preferCSSPageSize: false,
+  format: "Letter",
+  landscape: true,
+});
 await b.close();
 
 // ---- assertions -----------------------------------------------------
@@ -102,6 +117,16 @@ for (const n of names) if (!text.includes(n)) { console.log("  MISSING:", n); mi
 must(missing === 0, `V3 all job names on the sheet (${names.length - missing}/${names.length})`);
 must(text.toLowerCase().includes("cryoflow—pipelinesnapshot"), "V4 masthead kicker on paper");
 must(/cryoflow—/i.test(text) && /·\d+jobs·\d+edges/.test(text), "V4 per-page footer on paper");
+
+// V6 — Letter landscape leg: same fit contract on the OTHER common paper
+const lraw = readFileSync(OUT_LETTER).toString("latin1");
+const lcounts = [...lraw.matchAll(/\/Count (\d+)/g)].map((m) => +m[1]);
+const lpages = Math.max(...lcounts);
+must(lpages === 1, `V6 Letter landscape single page (got ${lpages})`);
+const ltext = execSync(`pdftotext ${OUT_LETTER} -`, { encoding: "utf8" }).replace(/\s+/g, "");
+let lmissing = 0;
+for (const n of names) if (!ltext.includes(n)) { console.log("  MISSING (Letter):", n); lmissing++; }
+must(lmissing === 0, `V6 all job names on Letter sheet (${names.length - lmissing}/${names.length})`);
 
 rmSync("/home/z/my-project/.qa-logs/t72v-1.pgm", { force: true });
 console.log(fail === 0 ? "QA72-VERIFY GREEN" : `QA72-VERIFY FAILED (${fail})`);

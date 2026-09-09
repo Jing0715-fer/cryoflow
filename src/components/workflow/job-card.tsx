@@ -1356,8 +1356,28 @@ export const JobCard = React.memo(function JobCard({
               ) : null}
             </div>
 
+            {/* Print-only note excerpt — the scientist's margin annotation
+                goes to paper (Task 74: deliberate reversal of Task 73's
+                screen-only boundary). It SWAPS its 16px line with Row 3
+                (progress/ETA, print:hidden here): an archived snapshot gains
+                nothing from a percent bar but plenty from the remark, and
+                the like-for-like swap keeps CARD_H identical so the
+                fit-to-paper budget and the one-page contract stay intact.
+                truncate+ellipsis is honest HERE (unlike the title rule —
+                names are identity and must never truncate on paper; notes
+                are prose and the "…" explicitly marks continuation — the
+                full text lives one hover away in the app). */}
+            {job.note ? (
+              <p
+                className="hidden truncate text-[9px] italic leading-4 text-amber-700 print:block"
+                title={job.note}
+              >
+                {job.note}
+              </p>
+            ) : null}
+
             {/* Row 3: progress + ETA / result / ready hint */}
-            <div className="h-4">
+            <div className={`h-4 ${job.note ? "print:hidden" : ""}`}>
               {job.status === "running" ? (
                 <div className="flex items-center gap-1.5">
                   <MiniProgress

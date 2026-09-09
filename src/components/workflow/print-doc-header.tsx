@@ -28,6 +28,9 @@ export function PrintDocHeader() {
   const workspaceName =
     workspaces.find((w) => w.id === activeWorkspaceId)?.name ?? null;
   const modeLabel = project?.mode === "tomo" ? "tomography" : "single-particle";
+  // annotations on paper: the count tells an archive reader that human
+  // judgment is present on this sheet (the per-card excerpt lines carry it)
+  const noted = jobs.filter((j) => (j.note ?? "").length > 0).length;
 
   const title = isDashboard
     ? (project?.name ?? "Project dashboard")
@@ -71,6 +74,11 @@ export function PrintDocHeader() {
           <br />
           {jobs.length} {jobs.length === 1 ? "job" : "jobs"} · {edges.length}{" "}
           {edges.length === 1 ? "edge" : "edges"}
+          {noted > 0 ? (
+            <span data-print-notes-count>
+              {" "}· {noted} annotated
+            </span>
+          ) : null}
         </p>
       </div>
     </header>
