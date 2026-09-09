@@ -26,7 +26,7 @@ import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { PENDING_VIEW_KEY } from "@/lib/view-link";
-import { ORTHO_SLICE_EVENT } from "./map-ortho-panel";
+import { ORTHO_SLICE_EVENT, ORTHO_SLICE_STATE_EVENT } from "./map-ortho-panel";
 import { useWorkflowStore } from "@/lib/store";
 import { fmtBytes } from "@/lib/canvas-export";
 import { encodeGifFrames } from "@/lib/gif-export";
@@ -2461,6 +2461,14 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
     if (patch.axis !== undefined) setSliceAxis(patch.axis);
     if (patch.pos !== undefined) setSlicePos(patch.pos);
     void pumpSlice();
+    // 3D → 2D echo: the orthogonal panel's matching tile follows this plane
+    // (its ⌖ mirror path comes back through here too — same value, no-op,
+    // so the loop terminates)
+    window.dispatchEvent(
+      new CustomEvent(ORTHO_SLICE_STATE_EVENT, {
+        detail: { axis: sliceStateRef.current.axis.toLowerCase(), pos: sliceStateRef.current.pos },
+      })
+    );
   };
 
   // Orthogonal panel sync — the 2D slice browser (map-ortho-panel) mirrors

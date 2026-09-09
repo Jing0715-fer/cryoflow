@@ -2500,3 +2500,23 @@ Stage Summary:
 - 「window 级 Esc 兜底处理器 + Radix 分层对话框」是隐性冲突范式：兜底处理器假设自己只在「无模态」时被触发，但 capture 阶段的 dismiss 和 React 层的 stopPropagation 都拦不住焦点孤儿场景——修法不是在每个对话框里打补丁，而是给兜底处理器补上「有模态开着就让路」的守卫，一处修复全站生效
 - 「合成 seed 要为断言而设计」：体积数据若不在每个轴的每个位置都有可辨内容，pos 敏感性断言会在拉伸归一化后全部塌缩成同一张灰图——drift-tube 设计让「两张 PNG md5 必须不同」成为数据的必然而非巧合
 - 遗留（下轮候选）：ortho 面板 3D→2D 反向同步（3D slice 滑块动 → 2D tile 跟随）；切片读数显示体素索引（需 MRC 头 nz 暴露给前端）；qa66 Phase B PDF 视觉像素抽样；re-scan 与 autolive 提示条视觉层次打磨；workflow-import 多文件（低优先）；EMPIAR 真数据回归（重）
+
+---
+Task ID: 67
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 午轮 2026-09-09 12:44 窗口）——Task 67「3D↔2D 双向联动收官」：正交面板反向同步（embed 的 slice UI 变更经 cryoflow:slice-state 回声，匹配 tile 带 cyan flash 跟随，事件回路自然终止）+ 读数升级为真实体素索引（outputs 路由为 volume mrc 暴露 dims [nx,ny,nz]）+ 顺手根治共享 Slider 组件的 a11y 缺陷（aria-label 从未到达 Thumb，全应用滑块 thumb 皆无名）；qa68 三阶段 19 断言 + qa67 27 + qa63-smoke 6/6 回归绿；worklog + push
+
+Work Log:
+- 【开局核对 + 选向】HEAD 2b67008 == Task 66 已 push；Task 66 遗留候选首条「3D→2D 反向同步」是双向联动的天然收官，顺手带走「体素索引读数」（二者共享 dims 数据源）
+- 【dims 数据源】outputs 路由的 mrc 分支本就 readMrcHeader（为 slices/label），volume（非 .mrcs）顺带 file.dims = [nx,ny,nz]——零额外 IO；stack 诚实不带 dims（像内轴不可导航）；results-view 的 OutputFile 类型同步补字段
+- 【反向同步设计】embed 的 applySliceIntent 末尾 dispatch `cryoflow:slice-state` {axis 小写, pos}——axis 按钮/位置滑块/书签恢复全走此口，一处广播全覆盖；面板 per-axis {pos, nonce} 跟随，tile 收到 nonce 变化 → setPos（差值 <0.0005 no-op）+ cyan flash 650ms；⌖ 镜像路径的回声（crosshair → embed → echo → 面板）同值 no-op，回路自然终止（qa68 有专门的 src 稳定性断言）
+- 【读数升级】面板首次展开 fetch outputs JSON 取 dims → tile 读数从 `z 50%` 升级为 `z 33/64`（1-based 体素索引），dims 缺席时优雅回退百分比；title 提示语义
+- 【a11y 真 bug·共享 Slider】qa68 用 aria-label 选择 3D 截面滑块失败 → 手测发现 5 个 [role=slider] thumb 全部 aria-label=null：shadcn slider.tsx 把 {...props}（含 aria-label）铺在 Radix Root 上、Thumb 渲染时未转发——全应用所有滑块（contour/截面/clip/ortho tile）的 thumb 皆无名。修复 = Thumb 上补 aria-label 转发；此 bug 由 QA 选择器需求牵出，价值超出本轮 feature
+- 【harness】qa68：A 3（dims 存在性/stack 诚实缺 dims）+ B 13（体素读数/⌖ 点亮 3D/End 驱动 XY tile + flash + URL/Y 轴切换驱动 XZ tile/他 tile 持位/事件回路终止/console-0）+ C 2（Esc 单层剥离）；qa67 读数断言同步更新为体素格式（y 64/64）；中途 seed 被 qa58 回归的自清理连记录带文件清掉 → 无参重播种即愈（可恢复 setup 设计再次实战验证）
+- 【收尾】tsc 0、production build ×2；回归 qa67 27 + qa63-smoke 6/6 全绿；server 杀、浏览器关；三套 seed（FSC/gallery/orthovol）留作基线
+
+Stage Summary:
+- 双向联动把正交面板从「3D 的观察窗」升级为「3D 的对等伙伴」：3D 滑块动 → 对应 tile 带闪光跟随且读数直达体素级；回路终止性被写成显式断言（src 稳定性）——事件回声架构的组件对，其正确性必须包含「安静」本身
+- shadcn 包装组件的 {...props} 直铺 Root 是 a11y 属性黑洞：aria-label 等面向交互元素的属性若组件内部另渲染了实际焦点/角色节点（Thumb），必须显式转发——单测 DOM 断言（getAttribute）比信任包装层更可靠
+- QA harness 的选择器失败两次都是「组件契约与 DOM 现实不符」：与其绕路写脆弱选择器，不如先修组件的可访问性契约——测试需求推动 a11y 还债是良性循环
+- 遗留（下轮候选）：qa66 Phase B PDF 视觉像素抽样；re-scan 与 autolive 提示条视觉层次打磨；workflow-import 多文件（低优先）；EMPIAR 真数据回归（重）；ortho tile 悬停揭示 crosshair 的 group-hover 样式在本机未生效（hoverMatch=true 但 opacity 0，疑似 Tailwind group/tile 变体编译缺失，纯视觉不影响键盘路径 focus-visible:opacity-100）

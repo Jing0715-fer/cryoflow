@@ -219,8 +219,8 @@ await realClick(`document.querySelector('[data-canvas-ui=ortho-tile-y] [role=sli
 await sleep(400);
 sh(`${AB} press End`);
 await sleep(1400); // debounce 220ms + fetch + render
-const yReadout = unq(evalJs(`String(document.querySelector('[data-canvas-ui=ortho-tile-y]')?.textContent.match(/y=\\d+/)?.[0] || 'none')`));
-must(yReadout === "y=100", `End jumps the readout to 100% (got ${yReadout})`);
+const yReadout = unq(evalJs(`String(document.querySelector('[data-canvas-ui=ortho-tile-y]')?.textContent.match(/y \\d+\\/\\d+/)?.[0] || 'none')`));
+must(yReadout === "y 64/64", `End jumps the readout to the last voxel (got ${yReadout})`);
 const ySrc1 = unq(evalJs(`String(document.querySelector('[data-canvas-ui=ortho-tile-y] img')?.src || 'none')`));
 must(ySrc0 !== ySrc1 && ySrc1.includes("pos=1"), "scrubbed position reaches the render URL");
 let yLoaded = false;

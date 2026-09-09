@@ -74,6 +74,8 @@ interface OutputFile {
   kind: OutputKind;
   size: number;
   slices?: number;
+  /** volume grid [nx, ny, nz] — 3D maps only */
+  dims?: [number, number, number];
   label?: string;
   rows?: number;
 }

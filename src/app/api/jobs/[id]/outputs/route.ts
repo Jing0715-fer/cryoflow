@@ -24,6 +24,9 @@ export interface OutputFile {
   size: number;
   /** number of images in a .mrcs stack */
   slices?: number;
+  /** volume grid dimensions [nx, ny, nz] — 3D maps only (stacks' in-plane
+   *  axes are not navigable) */
+  dims?: [number, number, number];
   /** friendly caption for MRC files */
   label?: string;
   /** parsed row count for STAR files (small files only) */
@@ -125,6 +128,9 @@ function walkWorkdir(workdir: string): { files: OutputFile[]; truncated: boolean
           const hdr = readMrcHeader(childAbs);
           if (hdr) {
             file.slices = hdr.nz;
+            if (!entry.name.toLowerCase().endsWith(".mrcs")) {
+              file.dims = [hdr.nx, hdr.ny, hdr.nz];
+            }
             file.label = friendlyLabel(entry.name, childRel);
           }
         } else if (kind === "star" && size <= 2 * 1024 * 1024 && starBudget > 0) {
