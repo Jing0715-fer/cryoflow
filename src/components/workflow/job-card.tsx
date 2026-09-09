@@ -14,6 +14,7 @@ import {
   Play,
   RotateCcw,
   SquarePen,
+  StickyNote,
   Trash2,
 } from "lucide-react";
 import {
@@ -1317,6 +1318,17 @@ export const JobCard = React.memo(function JobCard({
                 </HoverCardTrigger>
                 <JobCardPreview job={job} spec={spec} etaText={etaText} />
               </HoverCard>
+              {job.note ? (
+                <span
+                  className="no-print size-3.5 shrink-0 text-amber-500 dark:text-amber-400"
+                  data-note-badge=""
+                  role="img"
+                  aria-label="Job has a note"
+                  title={job.note}
+                >
+                  <StickyNote className="size-3.5" aria-hidden="true" />
+                </span>
+              ) : null}
             </div>
 
             {/* Row 2: status + type + link lineage */}

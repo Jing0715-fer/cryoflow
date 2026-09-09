@@ -16,6 +16,10 @@ export interface JobDTO {
   /** Parsed from the JSON string stored in the DB ({} fallback). */
   params: Record<string, ParamValue>;
   result: string | null;
+  /** User annotation (free text, ≤500 chars) — the scientist's margin note.
+   *  null = no note (renders no badge anywhere); empty string never occurs
+   *  (the PATCH route normalizes it to null). */
+  note?: string | null;
   duration: number;
   startedAt: string | null;
   createdAt: string;

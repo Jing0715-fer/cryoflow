@@ -38,6 +38,7 @@ export function toJobDTO(job: Job): JobDTO {
     progress: job.progress,
     params: parseParams(job.params),
     result: job.result,
+    note: job.note,
     duration: job.duration,
     startedAt: job.startedAt ? job.startedAt.toISOString() : null,
     createdAt: job.createdAt.toISOString(),

@@ -2627,3 +2627,24 @@ Stage Summary:
 - Chromium 的碎片化物理是 print CSS 的地心引力：绝对定位内容不跨页 fragment 而是 clip、transform 内容溢出 block 轴被丢弃、zoom 与 scale 的语义差异——三个探针实证的引擎行为决定了「fit-to-one-page 是唯一诚实的画布打印」，代码注释把这些物理写下来防止后人用「直觉 CSS」重踩
 - 断窗救援协议：infra auto-commit 保住了代码、.qa-logs 时间戳保住了进度线索、代码注释保住了设计决策——上一窗口丢失的只是「验证与记录」，本窗口从产物反推现场比从头再来便宜一个量级；交接摘要会陈旧，git log + 文件 mtime 不会撒谎
 - 遗留（下轮候选）：Letter 与 A4 双纸张 verify（预算按双纸更紧轴设计但 verify 只测默认纸，emulateMedia 中 pageSize 可补）；dashboard 打印的 flow 分页体验（break-inside avoid 已上，跨页表头重复 break-after 未做）；workflow-import 多文件（低优先）；EMPIAR 真数据回归（重）；移动端 Sheet 内 gallery 键盘导航一致性（低优先）；shortcuts dialog 按键高亮分组（锦上添花）
+
+---
+Task ID: 73
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 晚轮 2026-09-09 16:44 窗口）——Task 73「Job 批注（margin note）」：print 主题收官后开新功能主题——给 job 挂科学家的页边批注（「这个 3D class 好，喂给 refine3d」）：DB note 列 + PATCH 扩展（trim/≤500/空→null）+ inspector Overview 的 JobNoteSection（600ms 防抖自动保存，dirty→saving→saved 状态机 + 内联错误不弹 toast）+ 卡片琥珀色 StickyNote 角标（title 悬浮全文 + no-print）；「换 job 冲刷旧草稿」用 per-job 草稿 Map 规避 React render-before-cleanup 的 ref 陷阱；qa73 三阶段 31 断言全绿（A API 矩阵 7 / B UI 17 含「Esc 快关仍落盘」与重载持久化 / C 打印契约 3）+ 回归 smoke 6/6 / qa69 34 / qa66 35 / qa70 19 / qa72-verify / qa58 ALL；worklog + push
+
+Work Log:
+- 【开局核对 + 遗留审计反转】HEAD c44f55b == Task 72 已 push、树净；engine-state 全空（上轮「seed 留存」记载与实况不符）→ qa58/qa67/qa60 三脚本重播种；逐项审计 Task 13 时代的 cron 遗留清单发现**几乎全部已在中间轮次静默完成**：#7 chart 热路径已挂 statcache（mtime 键 cachedFileCompute）、#13 ETA 写早已移出 useMemo（job-card 注释自证）、#5 fs/browse 有 403 门、Topaz 是 engine 一等 job type（topaztrain + slurm 单 GPU 分档 + 报告解析），3D 截面工具即 Task 66/67 的 ortho slice + clip——「遗留清单要对着代码核实，不能照抄交接摘要」
+- 【选题】真开口 = Task 72 小遗留（双纸张 verify / dashboard 打印分页）与新功能；按 cron「功能要越多」选 **job 批注**——类型/store/组件全仓 rg 零命中，是真空缺且有真实工作流价值（分类结果的人肉判读目前无处落地）
+- 【数据层】Job.note String? 直接入列（批注是 job 核心元数据，不是 session blob——与 Overlay/BookmarkSession 的 per-job @unique 表模式区分开）；PATCH /api/jobs/[id] 加 note 分支：trim、>500 报 400、空串归一化为 NULL（「空字符串永不出现」是全链路不变式）、语义定位为「与 name 同类的 cosmetic per-row 元数据」故 linked 副本也可批注（同一条拷贝放进分类工作区可能值得自己的注）；toJobDTO/JobDTO 透传
+- 【防抖自动保存的暗礁】600ms 防抖 + blur 冲刷 + unmount 冲刷（Esc 关 inspector 也覆盖）——**换 job 时的冲刷不能读 live ref**：React 先渲染新 job（ref 已指向新 job）再跑旧 effect 的 cleanup，naive ref 会把旧草稿写进新 job 的 note；解法 = per-job 草稿 Map（draftsRef/savedRef 双 Map，cleanup 冲刷本 effect run 捕获的 id）；saveJob（silent）是唯一写路径，响应回填让「编辑器/角标/任何读者」与服务器归一化文本零漂移
+- 【UI 细节】Note 区放 Overview tab 的 ResultSummary 之后（机器判语先于人肉批注）；状态机 dirty（琥珀点）/saving（Loader2 旋转）/saved（teal 勾 + tabular-nums 时钟）/idle（「Stored with the job, not the browser」点题服务器侧持久化）；字数计 n/500（≥450 琥珀、=500 rose）；保存失败**内联 rose 提示**不弹 toast——「toast 会消失，表单错误会等你」；Clear 按钮一键清空并即时冲刷
+- 【卡片角标】StickyNote 琥珀图标挂标题行（size-3.5 shrink-0 + role=img aria-label + title 全文悬浮）+ **no-print**——批注是屏幕元数据，纸张契约（纸 = 页眉 + 管线）不破；qa73 Phase C 用 pdftotext 反断言把这条边界钉死
+- 【QA 两课】①completed job 默认 tab 是 log/results（智能默认），Note 在 Overview——harness 先点 Overview tab；②playwright evaluate **不携带 Node 闭包**（agent-browser eval 引号坑的 playwright 表亲）——选择器在 Node 侧拼好经参数传入；另 PATCH /api/jobs/[id] 只有 PATCH/DELETE 无 GET，单 job 读用 list 端点
+- 【收尾】eslint 0、tsc src 0、production build ×2（BUILD_ID 前后两个，第二个为类型注解/注释级 inert 改动后的不变量重建）；QA：qa73 31 + smoke 6/6 + qa69 34 + qa66 35 + qa70 19 + qa72-verify + qa58 ALL 串行全绿；诊断脚本 qa73-click-probe.mjs（inspector 打开探针）留 scripts/；两个 QA 靶 job 的 note 全程自清理
+
+Stage Summary:
+- 批注把「人肉判读」变成一等数据：cryo-EM 工作流里科学家对 class/refine 的口头结论（哪个好、喂给谁、为什么重跑）此前只能活在聊天记录里——note 让它跟着 job 走（跨浏览器、跨会话、随项目归档），卡片角标让扫一眼画布就能看到「哪里有人的判断」
+- 「换 job 冲刷旧草稿」是 debounced-autosave 的经典暗礁：effect cleanup 跑在 re-render 之后，live ref 已易主——per-job Map 把「这份草稿属于谁」钉死在 effect run 捕获的 id 上；任何「切实体 + 防抖保存」组合（job 参数、workspace 偏好、查看器会话）都该用同一模式
+- 打印契约的边界又精确了一格：屏幕元数据（批注）与文档内容（管线结构）分治——.no-print 角标 + pdftotext 反断言让「纸上有意不出现什么」也成为可执行契约，与 Task 69/70 的「纸上必须出现什么」互为补集
+- 遗留（下轮候选）：Letter/A4 双纸张 verify（Task 72 预算按双纸设计但只测默认纸）；dashboard 打印跨页表头重复（break-after 未做）；shortcuts dialog 按键高亮分组（锦上添花）；workflow-import 多文件（低优先）；EMPIAR 真数据回归（重）；批注的打印化（若用户想归档批注，可在 PrintDocHeader 加 note 计数或 job 卡下缘加一行 note 摘要——需重新过 qa72 像素契约）

@@ -13,6 +13,9 @@ type RouteContext = { params: Promise<{ id: string }> };
  * PATCH /api/jobs/[id] — body may contain:
  *  - x / y (numbers)
  *  - name (trimmed, 1–60 chars)
+ *  - note (string, ≤500 chars, trimmed; "" clears → stored as NULL).
+ *    Cosmetic per-row metadata like the name, so — also like the name —
+ *    it stays editable on linked copies (each row's remark is its own).
  *  - params (object, merged with existing; keys sanitized against the schema)
  *  - status: "idle" (reset → progress 0, result null)
  *  - workspaceId (string) — MOVE the job to another workspace of the SAME
@@ -26,6 +29,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       x?: unknown;
       y?: unknown;
       name?: unknown;
+      note?: unknown;
       params?: unknown;
       status?: unknown;
       workspaceId?: unknown;
@@ -79,6 +83,20 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         );
       }
       data.name = name;
+    }
+
+    if (typeof body.note === "string") {
+      // An explicit note key is an edit intent — "" (or whitespace) clears.
+      // 500 chars ≙ a dense margin remark; the client textarea maxLength
+      // mirrors this so honest typing never sees the 400.
+      const note = body.note.trim();
+      if (note.length > 500) {
+        return NextResponse.json(
+          { error: "Job note must be 500 characters or fewer" },
+          { status: 400 }
+        );
+      }
+      data.note = note.length > 0 ? note : null;
     }
 
     if (body.params && typeof body.params === "object" && !Array.isArray(body.params)) {

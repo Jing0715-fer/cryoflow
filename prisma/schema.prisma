@@ -55,6 +55,14 @@ model Job {
   progress   Float     @default(0)
   params     String    @default("{}") // JSON-encoded parameter map
   result     String? // JSON-encoded result summary
+  /**
+   * Free-text user annotation (the scientist's margin note: "this is the
+   * good 3D class — feed it to refine3d"). Cosmetic per-ROW metadata like
+   * the name — linked copies carry their own (a link placed into the
+   * Classification workspace may deserve its own remark). Empty string is
+   * normalized to NULL by the PATCH route; null renders no badge anywhere.
+   */
+  note       String?
   startedAt  DateTime? // used to derive progress while running
   duration   Int       @default(8000) // simulated run duration in ms
   createdAt  DateTime  @default(now())

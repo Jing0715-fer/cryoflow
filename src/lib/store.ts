@@ -147,7 +147,12 @@ interface WorkflowState {
   applyLayout: () => Promise<void>;
   saveJob: (
     id: string,
-    patch: { name?: string; params?: Record<string, number | string | boolean> },
+    patch: {
+      name?: string;
+      params?: Record<string, number | string | boolean>;
+      /** free-text margin annotation (≤500 chars, "" clears → server null) */
+      note?: string;
+    },
     opts?: { silent?: boolean }
   ) => Promise<{ ok: boolean; error?: string }>;
   runJob: (id: string) => Promise<boolean>;

@@ -48,6 +48,7 @@ import {
   Terminal,
   WrapText,
   X,
+  StickyNote,
 } from "lucide-react";
 import {
   Dialog,
@@ -62,6 +63,7 @@ import { onEscapeClose } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -892,6 +894,197 @@ function Section({
   );
 }
 
+/* ------------------------------------------------------------------ */
+/* Job note — the scientist's margin annotation                        */
+/* ------------------------------------------------------------------ */
+
+const NOTE_MAX = 500; // must mirror the PATCH route's cap
+
+type NoteSaveState = "idle" | "dirty" | "saving" | "saved";
+
+/**
+ * Autosaving margin note ("this is the good 3D class — feed it to
+ * refine3d"). Debounced 600 ms like a document editor, with flushes on
+ * blur, on job switch and on unmount (the Esc-close path included) so a
+ * fast typist never loses more than one debounce window of text.
+ *
+ * The switch-flush reads the pending draft from a per-job map keyed by
+ * the job id THIS effect run owned — not from a live ref. React runs the
+ * previous effect's cleanup AFTER the re-render that changed job.id, so
+ * a naive ref would already hold the NEW job's id and the old draft
+ * would land on the wrong job's note. The map makes the handshake
+ * impossible to cross-wire.
+ *
+ * saveJob() is the single write path (same PATCH as drag-commit) and its
+ * response backfills the store, so the server's normalization (trim,
+ * ""→null) is what lands in state — the editor, the card badge and any
+ * other reader can never drift apart. Save failures stay INLINE (rose
+ * line under the field): a toast disappears, a form error waits for you.
+ */
+function JobNoteSection({ job }: { job: JobDTO }) {
+  const saveJob = useWorkflowStore((s) => s.saveJob);
+  const [draft, setDraft] = React.useState(job.note ?? "");
+  const [state, setState] = React.useState<NoteSaveState>("idle");
+  const [savedAt, setSavedAt] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
+  const timerRef = React.useRef<number | null>(null);
+  /** latest draft per job id (see doc comment — switch-flush safety) */
+  const draftsRef = React.useRef(new Map<string, string>());
+  /** last value known to be on the server, per job id (flush dedupe) */
+  const savedRef = React.useRef(new Map<string, string>());
+
+  /** write the pending draft for `id` to the server (deduped, normalized) */
+  const flushNote = React.useCallback(
+    async (id: string) => {
+      const raw = draftsRef.current.get(id);
+      if (raw == null) return;
+      const normalized = raw.trim().length > 0 ? raw.trim() : "";
+      if (normalized === (savedRef.current.get(id) ?? "")) {
+        setState((s) => (s === "dirty" ? "idle" : s));
+        return;
+      }
+      setState("saving");
+      setError(null);
+      const res = await saveJob(id, { note: normalized }, { silent: true });
+      if (res.ok) {
+        savedRef.current.set(id, normalized);
+        draftsRef.current.set(id, normalized);
+        // snap the textarea to the server-normalized text — mid-typing
+        // this never fires (flush only runs after the idle window or blur)
+        setDraft(normalized);
+        setState("saved");
+        setSavedAt(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
+      } else {
+        // draft is kept — the user's text is not lost; the next keystroke
+        // or blur retries. The message is inline, not a toast.
+        setState("dirty");
+        setError(res.error ?? "Could not save the note");
+      }
+    },
+    [saveJob]
+  );
+
+  const scheduleFlush = React.useCallback(
+    (id: string) => {
+      if (timerRef.current != null) window.clearTimeout(timerRef.current);
+      timerRef.current = window.setTimeout(() => {
+        timerRef.current = null;
+        void flushNote(id);
+      }, 600);
+    },
+    [flushNote]
+  );
+
+  // adopt the new job's note; on switch/unmount flush THIS run's pending
+  // draft under the id this run captured (never the incoming job's)
+  React.useEffect(() => {
+    const id = job.id;
+    draftsRef.current.set(id, job.note ?? "");
+    if (!savedRef.current.has(id)) savedRef.current.set(id, job.note ?? "");
+    setDraft(job.note ?? "");
+    setState("idle");
+    setError(null);
+    return () => {
+      if (timerRef.current != null) window.clearTimeout(timerRef.current);
+      timerRef.current = null;
+      const raw = draftsRef.current.get(id);
+      if (raw == null) return;
+      const normalized = raw.trim().length > 0 ? raw.trim() : "";
+      if (normalized === (savedRef.current.get(id) ?? "")) return;
+      void saveJob(id, { note: normalized }, { silent: true });
+    };
+  }, [job.id]);
+
+  const counterTone =
+    draft.length >= NOTE_MAX
+      ? "text-rose-600 dark:text-rose-400"
+      : draft.length >= NOTE_MAX - 50
+        ? "text-amber-600 dark:text-amber-400"
+        : "text-muted-foreground";
+
+  return (
+    <Section
+      icon={StickyNote}
+      title="Note"
+      hint={state === "idle" && draft.length === 0 ? "autosaves as you type" : undefined}
+    >
+      <div
+        className="rounded-xl border bg-card p-4 space-y-2.5"
+        data-note-editor=""
+        data-note-state={state}
+      >
+        <Textarea
+          aria-label="Job note"
+          value={draft}
+          maxLength={NOTE_MAX}
+          placeholder="Annotate this job — why it was run, which class is the good one, what to reuse downstream…"
+          className="min-h-20 resize-y border-0 bg-transparent px-0 py-0 text-sm shadow-none focus-visible:ring-0 dark:bg-transparent"
+          onChange={(e) => {
+            const text = e.target.value;
+            draftsRef.current.set(job.id, text);
+            setDraft(text);
+            setError(null);
+            setState("dirty");
+            scheduleFlush(job.id);
+          }}
+          onBlur={() => {
+            if (state === "dirty") void flushNote(job.id);
+          }}
+        />
+        <div className="flex items-center justify-between gap-3 border-t pt-2">
+          <div className="flex min-w-0 items-center gap-2 text-[11px]">
+            {state === "dirty" ? (
+              <span className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+                <span className="size-1.5 rounded-full bg-current" aria-hidden="true" />
+                Unsaved
+              </span>
+            ) : state === "saving" ? (
+              <span className="flex items-center gap-1.5 text-muted-foreground">
+                <Loader2 className="size-3 animate-spin" aria-hidden="true" />
+                Saving…
+              </span>
+            ) : state === "saved" && savedAt ? (
+              <span className="flex items-center gap-1.5 text-muted-foreground">
+                <Check className="size-3 text-teal-600 dark:text-teal-400" aria-hidden="true" />
+                <span className="tabular-nums">Saved {savedAt}</span>
+              </span>
+            ) : (
+              <span className="text-muted-foreground/70">Stored with the job, not the browser</span>
+            )}
+            {error ? (
+              <span className="truncate text-rose-600 dark:text-rose-400" role="alert">
+                {error} — retries on your next edit
+              </span>
+            ) : null}
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            {draft.length > 0 ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 gap-1 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+                aria-label="Clear note"
+                onClick={() => {
+                  draftsRef.current.set(job.id, "");
+                  setDraft("");
+                  setState("dirty");
+                  void flushNote(job.id);
+                }}
+              >
+                <X className="size-3" aria-hidden="true" />
+                Clear
+              </Button>
+            ) : null}
+            <span className={`text-[11px] tabular-nums ${counterTone}`}>
+              {draft.length}/{NOTE_MAX}
+            </span>
+          </div>
+        </div>
+      </div>
+    </Section>
+  );
+}
+
 function OverviewTab({
   job,
   data,
@@ -914,6 +1107,7 @@ function OverviewTab({
   return (
     <div className="space-y-6">
       <ResultSummary job={job} />
+      <JobNoteSection job={job} />
       {/* import jobs show the raw detector frames gallery. */}
       {/^import$/i.test(job.type) && job.status !== "idle" ? (
         <ImportGallery jobId={job.id} />
