@@ -35,9 +35,15 @@ const api = async (path, body) => {
 /* ---------------- pick targets ---------------- */
 const list = (await api("/api/jobs")).json.jobs ?? [];
 must(list.length >= 3, `seed present (${list.length} jobs)`);
-const notedA = list[0];
-const notedB = list[1];
-const clean = list[2];
+// targets MUST live inside a workspace: the canvas renders only the active
+// workspace's jobs, so a null-workspace job (QA-era strays in the seed)
+// shows on the dashboard but has no canvas card — Phase C would chase a
+// badge that can never exist. Dashboard asserts stay full-roster.
+const wsJobs = list.filter((j) => j.workspaceId);
+must(wsJobs.length >= 3, `workspace-scoped jobs present (${wsJobs.length})`);
+const notedA = wsJobs[0];
+const notedB = wsJobs[1];
+const clean = wsJobs[2];
 const M1 = "DASHMARKER1 refine candidate";
 const M2 = "DASHMARKER2 ab initio redo";
 await api(`/api/jobs/${notedA.id}`, { note: "" });
@@ -57,13 +63,29 @@ await p.goto(BASE, { waitUntil: "networkidle" });
 await p.waitForSelector('[data-canvas="viewport"]');
 await p.waitForTimeout(600);
 
+// view is in-memory state: a reload lands on the canvas regardless of
+// where the previous page was — every post-reload assertion must aim
+// at the right view first (harness lesson from the first qa76 run:
+// A10/A11/B1/C1 all failed only because the dashboard wasn't mounted)
+const curView = () =>
+  p.evaluate(() => document.querySelector("[data-view]")?.getAttribute("data-view") ?? null);
+const ensureView = async (target) => {
+  for (let i = 0; i < 4; i++) {
+    if ((await curView()) === target) return true;
+    await p.keyboard.press("Shift+D");
+    await p.waitForTimeout(700);
+  }
+  return (await curView()) === target;
+};
+
 /* ---------------- Phase A: aggregation ---------------- */
 console.log("Phase A — dashboard aggregation");
 const spot = p.locator('section[aria-label="Active project spotlight"]');
 {
   await p.keyboard.press("Shift+D"); // canvas → dashboard
   await p.waitForTimeout(700);
-  must(await spot.count() === 1, "A1 spotlight section visible");
+  must(await ensureView("dashboard"), "A1 dashboard view reached, spotlight section visible");
+  must(await spot.count() === 1, "A1b spotlight section visible");
 
   const badgeSel = (id) => `section[aria-label="Active project spotlight"] button[data-row-note-badge], section[aria-label="Active project spotlight"] [data-row-note-badge]`;
   // count badges + titles in one Node-side composed evaluate (no closures!)
@@ -104,7 +126,9 @@ const spot = p.locator('section[aria-label="Active project spotlight"]');
   // the filter is component state by design — reload resets to All while
   // the badges persist (notes live on the server)
   await p.reload({ waitUntil: "networkidle" });
+  await p.waitForSelector('[data-canvas="viewport"]');
   await p.waitForTimeout(800);
+  must(await ensureView("dashboard"), "A10b back on the dashboard after reload");
   const pressed = await p.evaluate(() => {
     const g = document.querySelector('section[aria-label="Active project spotlight"] [aria-label="Filter jobs by status"]');
     return [...(g?.querySelectorAll("button") ?? [])].filter((x) => x.getAttribute("aria-pressed") === "true").map((x) => x.textContent.trim());
@@ -116,6 +140,11 @@ const spot = p.locator('section[aria-label="Active project spotlight"]');
 /* ---------------- Phase B: print hygiene ---------------- */
 console.log("Phase B — dashboard print: roster on paper, chrome off");
 {
+  // print from the DASHBOARD view: its paper is a flowing portrait roster.
+  // (Printing the canvas view would engage the fit-to-paper landscape
+  // contract — an A4 PORTRAIT sheet is outside that contract's budget and
+  // clips the pipeline, which is the expected canvas behavior, not a bug.)
+  must(await ensureView("dashboard"), "B0 dashboard view for the portrait print");
   await p.emulateMedia({ media: "print" });
   await p.pdf({ path: OUT, printBackground: true, preferCSSPageSize: false, format: "A4" });
   await p.emulateMedia({ media: "screen" });
@@ -129,7 +158,7 @@ console.log("Phase B — dashboard print: roster on paper, chrome off");
 /* ---------------- Phase C: cross-view consistency ---------------- */
 console.log("Phase C — canvas ↔ dashboard consistency");
 {
-  await p.keyboard.press("Shift+D"); // dashboard → canvas
+  must(await ensureView("canvas"), "C0 canvas view for badge checks");
   await p.waitForTimeout(700);
   const badgeSel = (id) => `[data-job="${id}"] [data-note-badge]`;
   const canvasA = await p.evaluate((s) => !!document.querySelector(s), badgeSel(notedA.id));

@@ -2689,3 +2689,22 @@ Stage Summary:
 - 「测过的宽度才是真实宽度」：头部溢出是存量 bug（估算内容宽 1085px vs 1280 可用 921px），若无新 chip 被点击遮拦，它还会继续潜伏——QA 新断言（真实点击）比像素快照更能钓出布局回归；渐进披露（xl 中簇 / 2xl 计数器）是 fix 的正形，而非把 chip 挪去别处
 - print transition:none 是「媒体切换即风格切换」的物理课：屏幕的动画属性会跟着元素走进 print 树，media emulation 或真实打印的瞬间 opacity 会被动画成中间值——纸面状态必须即拍即合，所有进 print 覆盖的属性都该问一句「它的 transition 会不会跟进来」
 - 遗留（下轮候选）：dashboard 打印跨页表头重复（break-after 未做）；shortcuts dialog 按键高亮分组（锦上添花）；workflow-import 多文件（低优先）；EMPIAR 真数据回归（重）；批注聚合视图（dashboard 表格加 note 列/筛选——镜头的 dashboard 表亲）；gallery/ortho 卡片也可挂批注（note 从 job 扩展到 class 级）
+
+---
+Task ID: 76
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 晚轮 2026-09-09 18:29→18:44 断窗续）——Task 76「批注聚合到 dashboard」：批注主题第四层（73 数据 → 74 纸面 → 75 镜头 → 76 管理视图）——①ActiveProjectSpotlight 的 Jobs 列表行加琥珀 StickyNote 徽章（data-row-note-badge + role=img + title 悬浮全文 + no-print，与画布角标同视觉语言 size-3 更小一层）；②状态芯片行加「Noted N」属性过滤芯片（StatusFilterChip 扩展可选 icon prop，StickyNote 前缀让眼睛读出「批注过滤器」而非第六种状态；active 时列表只剩有批注的 job）；③过滤器芯片行整组 no-print（打印卫生：纸上的 roster 不该宣称「Noted 2」却没有镜头）；qa76 三阶段 26 断言两连绿 + 全回归矩阵绿 + eslint/tsc 0；worklog + push
+
+Work Log:
+- 【开局核对 + 断窗】HEAD af5bb6c == Task 75 已 push、树净、smoke 绿；从 Task 75 遗留选「批注聚合视图（dashboard 表亲）」；发现 dashboard 的 StatusFilterChip 早已预留 kbd prop 却从未传（设计悬置），1–4 键实为 project grid 钻取（与 jobs 过滤器是两套上下文）
+- 【实现】StatusFilterChip 加 icon?: React.ReactNode；jobFilter 类型 union 扩展 "noted"；visibleJobs 三分支（all/noted/status）；Noted 芯片 amber tone + StickyNote size-2.5 前缀 + 计数；JobRow 名字行 badge 后插 note 徽章（注释写明「画布角标的行级孪生；dashboard 纸面是管理摘要，批注的正式纸张通道仍是画布 sheet 摘录行」）；过滤组 div 加 no-print（纸上有意不出现什么的边界又推进一格）
+- 【qa76 首跑 4 FAIL 全为 harness 盲点】①reload 后 view 回 canvas（视图是内存态）——A10/A11/B1/C1 全在查未挂载的 dashboard：修法 = curView()/ensureView() helper（读 [data-view] 属性 + Shift+D 循环到位）；②B1 在 canvas 视图打 A4 纵向 → fit-to-paper 契约绑定横向纸预算，纵向 clip 是预期行为非 bug——B phase 显式 ensureView("dashboard") 再打，注释写明两种纸张语义
+- 【C1 根因·孤儿 job 语义发现】画布角标断言失败 → jobs workspaceId 分布实查：12 job 中 3 个 null（QA 时代遗留 strays）——canvas 只渲染 active workspace（useActiveWorkspaceJobs 的 (workspaceId ?? "") === active 匹配不到 null），dashboard 却全量显示：「dashboard 说有、画布看不见」的不一致；harness 修靶 = A/C 全用 workspace 内 job（同靶断言）；孤儿 job 收纳策略记为下轮候选
+- 【回归】qa70 首跑 Esc FATAL 复发（Task 71 run-3 / Task 72 同款一次性抖动，bisect 已证机制正常）→ 重跑全绿；qa58 自清理 gallery seed → 无参重播种后 qa66 绿；qa76 两连跑 ALL PASS
+- 【收尾】eslint src 0、tsc src 0、production build（BUILD_ID BeyuXWDcptWgllmJ-39242）；QA：qa76 26×2 + smoke 6/6 + qa72-verify 8 + qa75 31 + qa73 33 + qa66 35 + qa69 34 + qa70 19 + qa58 ALL 串行全绿；cron 文本所列 Task 13 遗留已在前轮审计确认全部完成，勿重复
+
+Stage Summary:
+- 批注系统四层闭环：数据（73）→ 归档（74）→ 导航（75）→ 管理（76）——同一个 note 字段在画布是角标、在纸面是摘录、在面板是镜头、在 dashboard 是行徽章 + 过滤芯片：一等数据的标志就是每个视图都能用自己的语法读它
+- 「视图是内存态」是 SPA e2e 的高频暗礁：reload 不还原 view、filter、selection——断言前先「到达」再「看见」（ensureView 模式），否则测的是错误视图的虚空；B1 的纵向 clip 更提醒：canvas 的纸张契约绑定了横向预算，跨视图打印必须显式声明在哪张纸上打什么
+- null-workspace 孤儿 job 是数据层语义漏洞（画布不可见、dashboard 可见、API 可改）：QA 脚本直接 POST 的 job 不该混进生产基线——要么创建时强制分配 workspace，要么 dashboard 给孤儿一个归属徽章/收纳区；被 harness 钓出的数据洁癖问题记入下轮
+- 遗留（下轮候选）：null-workspace 孤儿 job 的收纳（dashboard workspace 归属徽章或 seed 修复）；dashboard 打印跨页表头重复（break-after 未做）；shortcuts dialog 按键高亮分组（锦上添花）；jobs 过滤器的键盘化（kbd prop 预留位：5 = Noted 需动 qa58/qa70 断言链）；workflow-import 多文件（低优先）；EMPIAR 真数据回归（重）
