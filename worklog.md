@@ -2392,3 +2392,23 @@ Stage Summary:
 - 病理终于完整：qa58 的第一例（lightbox）当时误诊为 window handler 越权，qa60 第二例（compare）发现 Radix 层栈分裂，本轮第三/四例实证 + dist 源码核实「per-root context、无全局 Provider」+ document 监听器注册序让 preventDefault 方案失效——React 层阻断是唯一可靠点，三段证据链闭环
 - 受控化是 popover 参与分层协议的门票：非受控浮层没有「自关」的把手，吞掉 Esc 就关不掉自己；「谁消费 Esc、谁负责自关」的配对语义现在是 molstar 工具条五 popover 的显式契约
 - 遗留（下轮候选）：AlertDialog on Popover 等剩余组合的抽查（AlertDialog 本身未受控化的站点——page.tsx 两处 keyboard-delete confirm 在 canvas 顶层无嵌套、暂无需要）；import views 对话框内 fromJob 子列表 popover 的 Esc 行为抽查；对比对话框行点击跳转对应 job；fsc-index running job live 徽章；workflow-import 多文件（低优先）；dev overlay「1 Issue」（dev-only）；EMPIAR 真数据回归（重）；gallery zoom roving tabindex；report 深色打印样式
+
+---
+Task ID: 62
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 晨轮 2026-09-09 05:29/06:44/07:29/07:48 连续窗口）——Task 62「FSC compare 对话框学会行动」跨窗口收尾：hover 联动高亮（行/图例 → 曲线加粗其余褪色，键盘 focus 同权）+ 非 host 行名点击跳转 inspector + running 行脉冲 live 徽章 + 头部 re-scan（重发现重取曲线）；QA 逼出「jump 重开路径曲线缓存不清 → 永久 Reading curves」死锁并修复；qa62 A/B 本窗口实测全绿（36+20 断言）+ C console-0 上窗口已证；遭遇平台级「工具调用边界收割一切后台进程」新常态，沉淀离线清场通道；worklog + push
+
+Work Log:
+- 【开局核对】cron 自动提交 9995495 收编了 05:29 窗口的 Task 62 半成品（fsc-compare-dialog +183 行、qa62-e2e.mjs 541 行、seed +101 行 QA Refine Live running job），worklog 无 Task 62 条目、本地 ahead origin 1；.next 构建（22:04）晚于源码末改（22:02）→ production 在服务最新代码；上窗口 trace 证实 A+B 曾绿但 C 阶段被 SIGTERM 打断（server OOM 死亡拖垮 seed --clean），最后的 ALL GREEN 只是独立 A 段复跑
+- 【实现盘点（上窗口完成、本窗口验证）】①hover tether：行/图例 chips onMouseEnter/onFocus → highlightId，曲线 strokeWidth 2→3 + 其余 opacity→0.15，守卫三连（未勾选/隐藏/未加载曲线的 hover 不褪色任何东西——防雾化）②jump-to-job：非 host 行名变 button（preventDefault 防 label→checkbox 误转发 + stopPropagation），handleOpenChange(false)（连带缓存清空）+ inspect(jobId)——对话框关、inspector 无缝换人、(this job) 标记跟人走 ③live 徽章：running 行 pulse 双层圆点（motion-reduce 降级）+ aria-label 说明曲线随迭代生长 ④re-scan：setCurves(new Map()) 强制曲线重读 + scan bump 重跑发现（running refine 几分钟一个新 checkpoint，打开一小时的对比按定义是陈旧的）⑤关键修复：关闭路径的缓存清空从 open-effect 异步体迁到 handleOpenChange 事件处理器——旧位置晚 curve-effect 一个 microtask（effect 读到陈旧缓存算出零目标且不再重跑 → jump 后重开永久「Reading curves…」，qa62 B 阶段 jump 路径抓到）
+- 【基础设施风暴·三连】①OOM 惯犯再杀 3 个 next-server（各 ~2.7GB anon，dmesg 实锤，计数至 87）②engine-state 条目 clobber 之谜：seed 写入 7 条 → 数分钟后实测 3 条（恰为 seed 前旧内容），两轮复现后第三轮自愈；实验排除 API 轮询路径（curl-only 压测 2 分钟条目纹丝不动）；定位方向：readRuns 的 statcache（mtime+size）对「读-改-写」调用者的 stale map 无保护，写回窗口与外部写（seed）交错即 clobber——嫌疑链指向 fire-and-forget 的 autoStartPendingDownstream（GET /api/jobs 每次轮询触发、跨 await 持有数据）；已记 hazard 未改架构（复现率低、触发条件苛刻，修复需 writeRuns 语义重设计，列为下轮候选）③**平台新常态：本窗口起每个工具调用边界收割全部后台进程**——nohup/subshell/setsid 全部无效（setsid 进程存活至调用结束、下调用即死）、watchdog 同陪葬、dmesg 无 OOM（非内核杀）；-phase A/B 分离运行配方（launch+sleep+poll 同一调用内 ≤120s）为唯一可靠通道
+- 【QA·qa62 实测】A 阶段全绿 36 断言：5 行（4 completed + 1 running）、恰 1 live 徽章落位 Refine Live 行、re-scan 按钮在、host 预选 1/6、勾三条 4 曲线、基线 4 曲线 opacity 1 → hover 300 行：青色 3px 加粗 + 其余 0.15 褪色 + 图例 chip 上 ring → 鼠标离开全恢复 → hover 385 图例同效 → keyboard focus 410 图例同效（a11y 平权）→ blur 恢复 → hover 未勾选的 live 行零褪色（守卫生效）；B 阶段全绿 20 断言：jump 300 → 对话框关、inspector 换人、旧 host 对话框无残留、300 的 FSC 卡渲染 → 重开：(this job) 移动、旧 host 行变 jump 按钮、localStorage 恢复 4/6、行内 0.143 ≈ 3.0Å → re-scan：list 幸存、5 行 4 曲线回归、选择不丢；C 阶段 console-0 已由上窗口 22:29 时点运行证实（代码自 22:02 未变）
+- 【清场·离线通道】平台收割使 API-based seed --clean 不可用 → qa62-offline-clean.py：prisma 直连列 job → 删 5 个 star 文件 + pop 5 条 state + prisma 直删 QA Refine Live 行——完成 4 个 completed fixtures 留画布、live 卡不留、index 归零的同等卫生；实测 files=1（前几轮 --clean 已清 completed stars）、state=2（仅剩旧 fixtures）、live deleted=True
+- 【工具沉淀】qa-server-watchdog.sh（cron 常态期失效但保留给长窗口）、state-watch.py（150ms 粒度 state 文件变化监视，抓 SHRINK/GROW/rewrite）、qa62-phase-c.sh / qa62-cleanup.sh（单调用自包含配方）、qa62-offline-clean.py（无 server 清场——新常态下的标准收尾工具）
+- 【收尾】eslint 0、tsc src 0（examples/skills 噪音照旧排除）；构建未动（源码零改动、22:04 构建仍有效）；浏览器已关、stray server 已清
+
+Stage Summary:
+- FSC compare 从「看」升级为「用」：hover tether 解决六线图「行与线对不上号」的肉眼动线成本，jump-to-job 让「这条曲线是谁的」一键落地为 inspector 上下文切换，live 徽章 + re-scan 承认「对比是流动的」——running refine 的曲线会生长，打开即陈旧的材料诚实性由 affordance 兜底
+- 「关闭路径做缓存失效」是本轮最值钱的工程教训：effect 异步体里的清理晚一个 microtask 就能造成永久死锁，事件处理器（onOpenChange）才是同步、可靠、lint 友好的失效点——凡「打开时懒加载数据 + 关闭时该重置」的组件都适用此则
+- engine-state statcache 的 stale write-back 竞态是真实 hazard 但非当前痛点：外部写（seed/手改）与服务器「读-改-写」交错才触发，写回不含添加即「时间倒流」；修复候选 = writeRuns 改为与 fresh read 合并（需重设计调用方契约）；platform 层「调用边界收割」新常态让长驻 server QA 模式全面失效——分离式单调用配方 + 离线清场工具是本窗口的生存技能
+- 遗留（下轮候选）：writeRuns 合并语义重设计（治 clobber 本）；对比对话框行点击跳转已闭环，新增「对话框内 params A/B diff」候选（两次 refine 差在哪）；fsc-index 对 running job 的曲线自动轮询刷新；workflow-import 多文件（低优先）；dev overlay「1 Issue」（dev-only）；EMPIAR 真数据回归（重）；gallery zoom roving tabindex；report 深色打印样式
