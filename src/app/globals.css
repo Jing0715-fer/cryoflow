@@ -501,4 +501,74 @@
   th {
     break-inside: avoid;
   }
+
+  /* --------------------------------------------------------------------
+   * Fit-to-paper canvas (Task 72).  Paper contract: printing the canvas
+   * yields the WHOLE pipeline on ONE landscape sheet.  The workspace is
+   * re-laid from a transformed 0×0 pan/zoom host into a static, sized box
+   * at scale(--print-z) with its min corner pulled to the content-box
+   * origin — geometry comes from canvas.tsx (--print-* custom props).
+   * Scoped under [data-view="canvas"] so dashboard prints keep their
+   * flowing layout.  WHY scale() instead of zoom(): zoom re-multiplies
+   * the element's own specified size (probe: 550px box rendered 338px),
+   * transform does exact single-factor math with no engine ambiguity.
+   * WHY single page, always: absolutely-positioned cards do NOT fragment
+   * across pages in Chromium — they clip (overflow pages rendered 0.00%
+   * ink; far cards vanished).  No zoom floor: "tiny but complete" beats
+   * "readable but cropped" for a snapshot map.
+   * ------------------------------------------------------------------ */
+  [data-view="canvas"] {
+    display: block !important;
+    height: auto !important;
+  }
+  [data-view="canvas"] main {
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+  [data-view="canvas"] [data-canvas="viewport"] {
+    /* THE single-page guarantee, by construction: the section itself is
+       sized to the scaled world box and HARD-CLIPS its descendants. The
+       edges svg's LAYER_PAD (+1200px on every side, drag hit-testing)
+       and any card/ring overflow are invisible beyond the world bounds
+       on paper — without the clip they fragment into blank phantom
+       pages (probe: overflow sheets rendered 0.00% ink). flow-root
+       keeps the workspace's negative top margin INSIDE the section
+       (plain blocks collapse it through, dragging main under the
+       masthead). */
+    display: flow-root !important;
+    overflow: clip !important;
+    width: calc(var(--print-w, 0px) * var(--print-z, 1)) !important;
+    height: calc(var(--print-h, 0px) * var(--print-z, 1)) !important;
+  }
+  [data-view="canvas"] [data-canvas="workspace"] {
+    position: static !important;
+    transform: scale(var(--print-z, 1)) !important;
+    transform-origin: 0 0;
+    /* negative margins land the world's min corner exactly on the
+       content-box origin; box = UNSCALED world size so every card lives
+       INSIDE its fragmentainer box — Chromium DROPS transformed content
+       that overflows the box along the block axis (probe: the card at
+       ws-y 980 of a 504-tall box painted 0.00% ink while everything
+       above painted; inline-axis overflow paints but the section clip
+       below keeps it from spawning page columns) */
+    margin-left: calc(var(--print-minx, 0px) * var(--print-z, 1) * -1);
+    margin-top: calc(var(--print-miny, 0px) * var(--print-z, 1) * -1);
+    width: var(--print-w, 0px) !important;
+    height: var(--print-h, 0px) !important;
+  }
+  /* job cards are document content — never slice a card across a page
+     (matters for dashboard prints; the canvas fit guarantees one page) */
+  [data-job] {
+    break-inside: avoid;
+  }
+  /* card names: DOM ellipsis would print "QA Class2D Sou…" — paper has
+     room to wrap, and a truncated name in an archival printout is a lost
+     name (path lines keep their truncate: wrapped paths wreck the card) */
+  [data-view="canvas"] .job-card-title {
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: unset !important;
+  }
 }

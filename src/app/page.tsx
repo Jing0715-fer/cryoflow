@@ -6,6 +6,7 @@ import { useWorkflowStore } from "@/lib/store";
 import { Header } from "@/components/workflow/header";
 import { Footer } from "@/components/workflow/footer";
 import { PrintDocHeader } from "@/components/workflow/print-doc-header";
+import { PrintDocFooter } from "@/components/workflow/print-doc-footer";
 import { JobPalette } from "@/components/workflow/palette";
 import { WorkspacePanel } from "@/components/workflow/workspace-panel";
 import { ProjectDashboard } from "@/components/workflow/project-dashboard";
@@ -269,14 +270,16 @@ export default function Home() {
   );
 
   return (
-    <div className="flex h-dvh flex-col bg-background text-foreground">
+    <div
+      data-view={view}
+      className="flex h-dvh flex-col bg-background text-foreground"
+    >
       <Header />
 
       {/* Paper masthead: screen-hidden, print-only document opener (qa66) */}
       <div className="hidden px-6 pt-5 print:block">
         <PrintDocHeader />
       </div>
-
       {/* Initial-load failure banner: the canvas would otherwise show a
           misleading "empty" state with no way back except a full reload */}
       {loadError && (
@@ -369,6 +372,9 @@ export default function Home() {
       <TemplatePresetsDialog />
       <ImportWorkflowDialog />
       <ShortcutsDialog />
+
+      {/* Paper footer: screen-hidden, print-only, repeats on every sheet */}
+      <PrintDocFooter />
 
       {/* Mobile: floating palette trigger (canvas view only) */}
       {!isDashboard && (

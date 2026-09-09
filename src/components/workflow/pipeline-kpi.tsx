@@ -168,7 +168,7 @@ export function PipelineKpi() {
     <div
       data-canvas-ui="pipeline-kpi"
       aria-label="Pipeline overview"
-      className="card-lift absolute left-3 top-3 z-20 flex max-w-[calc(100%-90px)] flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border bg-card/90 px-3 py-1.5 shadow-sm backdrop-blur-md"
+      className="no-print card-lift absolute left-3 top-3 z-20 flex max-w-[calc(100%-90px)] flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border bg-card/90 px-3 py-1.5 shadow-sm backdrop-blur-md"
     >
       {/* pipeline completion — clicking opens the dashboard (the summary's
           detail view); the ring itself is not interactive-looking, the hover

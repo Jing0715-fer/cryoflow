@@ -2609,3 +2609,21 @@ Stage Summary:
 - 「过滤输入」是 20+ 条清单的规模适配器：全量渲染 + 实时收窄 + 清空恢复三态被写成显式断言——「列表可过滤」不只是样式细节，是可发现性架构从「展示」到「检索」的升级
 - 窄视口假说证伪补全了打印布局的认知地图：printToPDF 布局宽度 = 纸张内容盒而非视口——上一轮的「压缩」悬案在三次复现失败后正式标记为「不可复现 + 已被让位修复覆盖」，考古有止损线，注释与 worklog 留下诚实边界比强行归因更有价值
 - 遗留（下轮候选）：per-page 页脚页码（@page margin boxes Chromium 不支持——评估 CSS counter + 固定 footer 假分页的可行性）；workflow-import 多文件（低优先）；EMPIAR 真数据回归（重）；移动端 Sheet 内 gallery 键盘导航一致性（低优先）；shortcuts dialog 可加「按键高亮对应分组」（快捷键按下时 dialog 内高亮，纯锦上添花）
+
+---
+Task ID: 72
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 午轮 2026-09-09 16:14 窗口）——Task 72「Fit-to-paper 单页横向管线图 + per-page 打印页脚」收官：上一窗口（14:44-16:14 之间）开发中途被截断，代码被 infra auto-commit（eea3be7）扫走但 worklog 未写、验证链未跑完——本窗口接力完成验证闭环：qa72-verify 7/7 绿（单页/横向/墨迹锚定内容原点/全卡名上纸/页眉页脚上纸）+ 全套回归（qa66 35 / qa70 19 / qa69 34 / smoke 6/6 / qa58 ALL）+ eslint 0 / tsc src 0；worklog + push
+
+Work Log:
+- 【开局核对·断窗救援】HEAD eea3be7 = infra auto-commit「<session-id>-cron」——上一窗口 Task 72 开发（print-doc-footer + fit-to-paper CSS + qa72 三脚本）完成后、收尾前被截断，auto-commit 把半成品状态存档（本地 ahead 1、worklog 停在 Task 71、BUILD_ID 08:21 刚构建、t72-verify.pdf 08:22 产物在而结果无人知）；「读 git log 与 .qa-logs 时间戳还原现场」比读陈旧交接摘要更可靠——交接摘要声称末轮是 Task 69，实际已滚动到 71/72
+- 【Task 72 设计还原（自代码注释考古）】①纸张契约升级：旧契约「纸上无 chrome」→ 新契约「打印画布 = 整条管线 fitted 到一张横向纸」——旧打印只出当前视口切片（屏外 job 丢失、卡名截断）；②geometry 经 custom props 交接（--print-minx/miny/w/h/z 挂 section，printFit useMemo 按 jobs 包络 + PAD40 + Letter/A4 横向更紧轴预算 960×700 减 masthead160/footer36）；③Chromium 碎片化物理：绝对定位卡片不跨页 fragment 而是 clip（探针：溢出页 0.00% 墨）→ 单页由构造保证 = overflow:clip 的定尺 section + scale(--print-z) 静态重排 + 负 margin 把世界 min 角拉到内容盒原点；④scale() 不用 zoom()（zoom 重乘自身 specified size：550px 盒渲染 338px 的探针实证）；⑤盒宽 = 未缩放世界尺寸（缩放后内容溢出 block 轴会被 Chromium 丢弃：ws-y 980 的卡在 504 盒里 0.00% 墨）；⑥无 zoom 下限——「tiny but complete」胜「readable but cropped」；⑦@page landscape 经 <style media="print"> 只在 canvas 视图挂载（dashboard 保持纵向），data-view 钩子 scoping；⑧per-page 页脚 position:fixed in print = 每张纸底部重绘（页码明确放弃：Chromium 无 @page margin boxes，counter(page) 够不到内容流——页无关身份 workspace·project·date·counts 是诚实子集）；⑨job-card-title 纸上换行（DOM ellipsis 会印出「QA Class2D Sou…」，档案打印里截断的名字就是丢失的名字）+ [data-job] break-inside avoid + pipeline-kpi .no-print
+- 【本窗口执行】①重跑 qa72-verify 7/7 绿；②修 verify 探针瑕疵（读 --print-z 读了 workspace div 而属性在 section——custom props 向下继承，读 div 得空串假象；改读 section 后探针亮出 pz=0.5625/pw=1429px 的真实几何交接）；③gallery seed 被 qa58 上轮自清理 → 无参重播种（8 classes 1455 行）后 qa66 通过；④qa70 Esc FATAL 复发 → qa72-esc-diag 实机 bisect（CDP Esc 350ms 关层、escLog 证 keydown 到达 INPUT、console 干净）= Task 71 run-3 同款一次性抖动非回归，重跑全绿；⑤全套回归 + lint/tsc
+- 【回归矩阵】qa72-verify 7（V1 单页/V2 横向 1170×827/V3 9/9 卡名/V4 页眉+页脚/V5 墨迹 col48 起 12mm 原点锚定）+ qa66 35（A 15 + B 20 像素级——横向纸张未破坏其尺寸无关断言）+ qa70 19 + qa69 34 + qa63-smoke 6/6 + qa58 ALL 串行全绿；eslint 0；tsc 全仓报错均在 examples//skills/（非项目代码），src 全检 0（scripts/tsconfig.src.json 留作 src 范围检查惯例）
+- 【收尾】worklog（本条）+ amend auto-commit 为规范提交 + push；server 杀、浏览器关；FSC/ortho/gallery seed 留作基线
+
+Stage Summary:
+- 纸张契约三级跳完成：Task 65「样式规则存在」→ Task 69「像素级验证渲染结果」→ Task 72「整条管线 fitted 单页横向」——打印不再视口切片而是全量快照，qa72-verify 的五断言（单页/横向/锚定/全名/页眉页脚）就是新契约的可执行规范
+- Chromium 的碎片化物理是 print CSS 的地心引力：绝对定位内容不跨页 fragment 而是 clip、transform 内容溢出 block 轴被丢弃、zoom 与 scale 的语义差异——三个探针实证的引擎行为决定了「fit-to-one-page 是唯一诚实的画布打印」，代码注释把这些物理写下来防止后人用「直觉 CSS」重踩
+- 断窗救援协议：infra auto-commit 保住了代码、.qa-logs 时间戳保住了进度线索、代码注释保住了设计决策——上一窗口丢失的只是「验证与记录」，本窗口从产物反推现场比从头再来便宜一个量级；交接摘要会陈旧，git log + 文件 mtime 不会撒谎
+- 遗留（下轮候选）：Letter 与 A4 双纸张 verify（预算按双纸更紧轴设计但 verify 只测默认纸，emulateMedia 中 pageSize 可补）；dashboard 打印的 flow 分页体验（break-inside avoid 已上，跨页表头重复 break-after 未做）；workflow-import 多文件（低优先）；EMPIAR 真数据回归（重）；移动端 Sheet 内 gallery 键盘导航一致性（低优先）；shortcuts dialog 按键高亮分组（锦上添花）

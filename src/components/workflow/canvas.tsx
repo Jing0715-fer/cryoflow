@@ -416,6 +416,58 @@ export function WorkflowCanvas() {
   const panRef = React.useRef<PanState | null>(null);
   const panRafRef = React.useRef(0);
 
+  /* ------------- fit-to-paper (print) bounds ------------------------- */
+  /**
+   * The paper contract (Task 72): printing the canvas yields the WHOLE
+   * pipeline fitted to a single landscape sheet — never the current
+   * viewport slice (which truncates card names and drops off-screen
+   * jobs), and never multi-page, because absolutely-positioned cards do
+   * NOT fragment across pages in Chromium — they clip (probe-verified:
+   * overflow pages rendered 0.00% ink and far cards vanished). So the
+   * print stylesheet re-lays the workspace out as a static, sized box at
+   * scale(--pz) with the world's min corner pulled to the content-box
+   * origin; these custom properties carry the geometry. Recomputed on
+   * every jobs change — a style-object update, no layout work on screen.
+   *
+   * Budgets take the tighter axis of Letter/A4 landscape content boxes
+   * at 12 mm margins (see printFit) minus the printed masthead and
+   * per-page footer bands. No zoom floor by design:
+   * "tiny but complete" beats "readable but cropped" for a snapshot map.
+   */
+  const printFit = React.useMemo(() => {
+    const PAD = 40; // breathing room around the card union
+    // Budgets take the TIGHTER axis of the two common papers so the fit
+    // holds whether the printer defaults to Letter or A4: width from
+    // Letter landscape (965px content at 12 mm), height from A4 landscape
+    // (703px) — both minus a safety hair.
+    const PAPER_W = 960;
+    const PAPER_H = 700;
+    const MASTHEAD_H = 160; // app brand bar + print doc masthead
+    const FOOTER_H = 36; // per-page print footer strip
+    if (jobs.length === 0) {
+      return { minx: 0, miny: 0, w: 0, h: 0, z: 1 };
+    }
+    let x0 = Infinity;
+    let y0 = Infinity;
+    let x1 = -Infinity;
+    let y1 = -Infinity;
+    for (const j of jobs) {
+      x0 = Math.min(x0, j.x);
+      y0 = Math.min(y0, j.y);
+      x1 = Math.max(x1, j.x + CARD_W);
+      y1 = Math.max(y1, j.y + CARD_H);
+    }
+    x0 -= PAD;
+    y0 -= PAD;
+    x1 += PAD;
+    y1 += PAD;
+    const w = x1 - x0;
+    const h = y1 - y0;
+    const z = Math.min(1, PAPER_W / w, (PAPER_H - MASTHEAD_H - FOOTER_H) / h);
+    return { minx: x0, miny: y0, w, h, z };
+  }, [jobs]);
+
+
   /* ------------- rubber-band select (Shift + drag) ------------------ */
   /** Canvas-LOCAL rect of the band being drawn (null = idle). Lives in
    *  state so both the ants overlay and the live hit test re-render. */
@@ -1128,6 +1180,12 @@ export function WorkflowCanvas() {
 
   return (
     <ContextMenu>
+      {/* Pipeline paper is wide, not tall: the canvas view prints to a
+          LANDSCAPE sheet (the fit-to-paper budget in globals.css assumes
+          it). A <style> tag because @page cannot be scoped by selectors —
+          this element only mounts in the canvas view, so dashboard prints
+          keep their portrait default. */}
+      <style media="print">{`@page { size: A4 landscape; margin: 12mm; }`}</style>
       <ContextMenuTrigger asChild>
         <section
           ref={rootRef}
@@ -1148,7 +1206,16 @@ export function WorkflowCanvas() {
             // rubber-band gesture gets a precision cursor (overrides the
             // grab cursor while the band is being drawn)
             cursor: band ? "crosshair" : undefined,
-          }}
+            // fit-to-paper geometry — consumed by the @media print rules
+            // in globals.css; screen layout ignores these. Lives on the
+            // SECTION (not the workspace): custom properties inherit
+            // DOWNWARD, and the section's own print rules read them too.
+            "--print-minx": `${printFit.minx}px`,
+            "--print-miny": `${printFit.miny}px`,
+            "--print-w": `${printFit.w}px`,
+            "--print-h": `${printFit.h}px`,
+            "--print-z": printFit.z,
+          } as React.CSSProperties}
         >
       {loading && jobs.length === 0 ? (
         <CanvasSkeleton />
@@ -1161,6 +1228,8 @@ export function WorkflowCanvas() {
             height: 0,
             transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${zoom})`,
             transformOrigin: "0 0",
+            // (fit-to-paper geometry lives on the parent section — custom
+            // properties inherit downward to this div's print rules)
           }}
         >
           <EdgesLayer edges={edges} jobs={jobs} />

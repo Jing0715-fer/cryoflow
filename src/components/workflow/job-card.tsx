@@ -1309,7 +1309,7 @@ export const JobCard = React.memo(function JobCard({
               <HoverCard openDelay={500} closeDelay={150}>
                 <HoverCardTrigger asChild>
                   <p
-                    className="truncate text-sm font-semibold tracking-tight leading-none"
+                    className="job-card-title truncate text-sm font-semibold tracking-tight leading-none"
                     title={job.name}
                   >
                     {job.name}
