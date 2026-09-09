@@ -14,6 +14,10 @@
  * launch parameters land side by side. Task 88 adds the third entry: the
  * job inspector's "Compare" button lists same-type siblings (same-workspace
  * first, cross-workspace after) with a per-sibling diff preview chip.
+ * Task 89 wires the fourth: the dashboard roster's rows carry the same
+ * picker as a hover-revealed icon — the survey surface, where siblings
+ * across ALL workspaces are visible at once. Entries 3 and 4 share one
+ * picker module (sibling-compare-picker.tsx); only the trigger differs.
  *
  * Deliberately a thin shell: FscParamsDiff owns the row taxonomy (changed
  * / partial / same), the differences-only default and the humanized keys —

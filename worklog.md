@@ -2973,3 +2973,23 @@ Stage Summary:
 - 「探针的期望值要么来自真相源要么来自显式契约」：芯片文本数据驱动（API 真值计算），而 C7「新对开箱未翻转」是显式契约断言（pairKey 复位的行为合同）——前者防参数故事漂移，后者锁行为承诺，两类断言别混用
 - 「复跑绿不是结论而是待办」：qa70 的 Esc 抖动三轮复跑绿过了三次，本轮 4 红终于逼出捕获探针证据（键盘已送达、未被拦截、Radix 不关）——间歇性失败每多活一轮，根因证据就贵一分；agent-browser CLI 探针整体迁 playwright 从「收益递减」上调为「qa70 一族的根治路径」
 - 遗留（下轮候选）：agent-browser 系套件（qa58/70 等）分批迁移 playwright（qa70 Esc 抖动根治）；EMPIAR 真数据回归（重）；用户机器 class3d/refine3d 顺序模式与 topaz 实测反馈；diff 大脑第三读者落地后的第四入口评估（dashboard roster 行级 compare）；import 队列 rich tooltip（title 已有全文，维持低优先）
+---
+Task ID: 89
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-10 03:14 window)
+Task: cron 自主巡检——Task 89「diff 第四入口（dashboard roster 行级 Compare）+ picker 单源抽取」，泛化三章之三：①单源先行——SiblingComparePicker/SiblingDiffChip/asDiffJob/STATUS_DOT 从 job-inspector.tsx 整体迁入新模块 sibling-compare-picker.tsx，新增 variant（labeled=inspector 头部按钮 / icon=名册行图标）、idPrefix（testid 命名空间，inspector 默认值保持 t88 契约不变）、triggerClassName（调用方注入 hover-reveal 类，组件自身对悬停编排保持无上下文）；②第四入口——名册每行挂 icon 触发器（GitCompareArrows size-6，data-sibling-count 随行暴露兄弟数），hover-reveal 用 line-561 既有惯用法（opacity-0 + group-hover/row + focus-visible + hover-none 兜底 + motion-reduce:transition-none），no-print（纸面名册不能比较）；锚定语义「这一行 vs 那一个」——行 job 落左（teal），与 inspector 同故事；③行为全部共享——兄弟过滤（同型 && 非自身 && 非链副本）、同 workspace 先跨 workspace 后排序、跨 ws 徽章、预览芯片、对话框左列锚定，两个表面一个组件。t89 27 断言一次全绿 + t88 复跑绿（抽取行为保持）+ 全回归矩阵 22 套绿 + worklog + push
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 88（cron 文本所称 Task 13 早已完成勿信）、HEAD 2fe0a98 == origin/main、BUILD_ID RvrIXX-myZ25rRS27VfnX200 匹配；生产冷启动 + smoke + t88/qa84/qa83 全绿 → 稳定
+- 【选题】Task 88 遗留「diff 第四入口评估」转为落地：名册是 survey 表面——跨全部 workspace 一次看尽所有 run，「比较 run 1 vs run 2」在这里被问得最多；泛化只是可达性问题第三章 = picker 本身成为单源（t88 只抽了大脑，本轮抽的是表面）
+- 【实现】三文件：新建 sibling-compare-picker.tsx（215 行，doc 注释写明 3+4 入口共享史）；job-inspector.tsx 删 1473-1642 行本地副本改 import（顺手清孤儿 imports：GitCompareArrows/ParamsDiffDialog/summarizeParamDiff/Popover 四组）；project-dashboard.tsx JobRow 在 adopt 按钮与 ChevronRight 之间挂触发器——flex-1 打开按钮吸收宽度差，右缘簇（compare+chevron）全行右对齐，无行间错位；返回 null 守卫在组件内部（无兄弟行不占位）
+- 【QA 探针 t89】27 断言七相（S/A/B/C/D/E/Z）：A 相**双向普查**——DOM 有按钮的行数 == API 真相普查（siblingCensus 内联重实现：同型 && 非自身 && 非链副本）应有按钮的行数，15==15；B 相兄弟列表与 API 真相**全序相等**（expectedOrder 复刻排序：同 ws 先按 createdAt，跨 ws 后）+ 跨 ws 徽章 + 芯片 norm() 归一化对真值；C 相行 job 锚左（thead title + 描述双断言）；D 相静态契约（源码 hover-none opt-in + 编译 CSS @media (hover:none) 规则（qa69 教义）+ no-print）；headless 匹配 hover-none 故 opacity 恒 1，探针先 hover 再断言以兼容悬停世界
+- 【真回归一折·qa76 A7/A8】Noted 过徤断言「got 4 rows」——探针数的是容器内**全部 button**（把行打开按钮当行的代理），本轮给每个有兄弟的行加了第二个合法按钮（Compare）后代理断裂；A9 注释早已为 orphan adopt 按钮警告过同一陷阱（数 ROWS 不数按钮）——修探针：数 [data-roster-row] + 每行读 button[title^="Open"] 的 title；产品行为正确（被注记的行理应提供比较），复跑全绿。教训归档：**给行加新按钮时，所有数按钮的老探针都要过一遍**——qa80 教义「锚定语义单元」的再一次延期缴纳
+- 【qa70 一折】回归批 2 中 Esc 抖动再现（shortcuts dialog 未剥层），复跑即绿——Task 85 教义第 5 次应验；playwright 迁移仍是根治路径（下轮候选维持）
+- 【收尾】eslint src 0、tsc 0、production build（BUILD_ID ffZP7YTuFDYqc_OEHJe01）+ served 自证 + 新 build 上 t89 探针直接跑绿；全矩阵 22 套：smoke + qa58 + qa66 35 + qa69 35 + qa70 19（复跑绿）+ qa72-verify + qa73 + qa75 + qa76（探针升级后）+ qa77 + qa78 + qa79 + qa80 + qa81 + qa82 + qa83 + qa84 + t85 + t86 38 + t87 34 + t88 33 + t89 27 串行全绿
+
+Stage Summary:
+- 「泛化只是可达性问题」三章完：一章抽大脑（classifyParamRows）、二章接 inspector 线、三章抽表面（picker 组件本身）——第四入口的增量只剩 6 行 JSX + 一组 triggerClassName，这正是前三章工程成本买下的复利；下一个入口（若真有）应是「行级 compare 意义存疑」的产品判断题，而非工程题
+- 「idPrefix 是 testid 的命名空间而不是前缀字符串」：inspector 默认值让 t88 断言零改动通过——行为保持式抽取的验收标准就是老探针原样绿；共享组件的每个 testid（按钮/弹层/选项/芯片）都从同一命名空间派生，探针按表面 scope 不按全局抓
+- 「hover-reveal 的三重可达性」：mouse 悬停（group-hover/row）、键盘聚焦（focus-visible）、主指针无法悬停的设备（hover-none，headless QA 浏览器亦命中）三条路都通向 opacity-1；装饰性揭示留在 hover-only，功能性揭示必须 opt-in hover-none——globals.css 变体注释是这份契约的原文
+- 「探针代理的半衰期」：qa76 A7 用 button 数当行代理活了七轮，本轮才碎——代理不是错误而是负债，每加一个合法控件就增值一次利息；「数语义单元（data-roster-row）+ 单元内锚定角色（title^=Open）」是还债的唯一方式
+- 遗留（下轮候选）：agent-browser 系套件（qa58/70 等）分批迁移 playwright（qa70 Esc 抖动根治，优先级维持上调）；EMPIAR 真数据回归（重）；用户机器 class3d/refine3d 顺序模式与 topaz 实测反馈；diff 第五入口评估（palette Notes 行内 compare——大概率判定「不做」，palette 是检索面不是比较面）；import 队列 rich tooltip（低优先）

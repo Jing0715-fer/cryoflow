@@ -51,6 +51,11 @@ import { jobType } from "@/lib/workflow";
 import { TypeIcon } from "./icons";
 import { PipelineAnalytics } from "./pipeline-analytics";
 import { StatusBadge, estimateEta, formatEta, trackEtaBaseline } from "./job-card";
+// diff entry No.4 (Task 89): the roster is the SURVEY surface — "compare
+// run 1 vs run 2" is asked here more than anywhere, across every workspace
+// at once. Same shared picker as the inspector (one sibling list, one
+// ordering, one chip brain); only the trigger dialect differs.
+import { SiblingComparePicker } from "./sibling-compare-picker";
 import { NewProjectDialog } from "./project-panel";
 import {
   Select,
@@ -1050,6 +1055,17 @@ function JobRow({ job, onOpen }: { job: JobDTO; onOpen: () => void }) {
           Adopt
         </button>
       ) : null}
+      <SiblingComparePicker
+        job={job}
+        variant="icon"
+        idPrefix="roster"
+        // hover-reveal, the line-561 idiom: invisible until the row is
+        // hovered, but FUNCTIONAL controls must stay reachable where hover
+        // doesn't exist — keyboard focus (focus-visible:) and primary-touch
+        // devices (hover-none:, which the headless QA browser also matches)
+        // get it at opacity-100. no-print: a paper roster can't compare.
+        triggerClassName="no-print opacity-0 transition-opacity motion-reduce:transition-none focus-visible:opacity-100 group-hover/row:opacity-100 hover-none:opacity-100"
+      />
       <ChevronRight
         className="size-4 shrink-0 text-muted-foreground/50 transition-transform group-hover/row:translate-x-0.5"
         aria-hidden="true"

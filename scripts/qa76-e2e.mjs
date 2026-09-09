@@ -107,9 +107,15 @@ const spot = p.locator('section[aria-label="Active project spotlight"]');
 
   await spot.locator("button", { hasText: /^Noted/ }).first().click();
   await p.waitForTimeout(300);
+  // count ROWS and read the OPEN button's title, not all buttons: since
+  // Task 89 a sibling-bearing row carries a second legitimate button (the
+  // roster Compare icon) — button-counting broke here exactly the way the
+  // A9 comment below already warned for orphan rows (same lesson, one
+  // probe later: anchor the semantic unit, then the per-row affordance)
   const rows = await p.evaluate(() => {
     const list = document.querySelector('section[aria-label="Active project spotlight"] .max-h-80');
-    return [...(list?.querySelectorAll("button") ?? [])].map((r) => r.getAttribute("title"));
+    return [...(list?.querySelectorAll("[data-roster-row]") ?? [])].map((r) =>
+      r.querySelector('button[title^="Open"]')?.getAttribute("title") ?? null);
   });
   must(rows.length === 2, `A7 filter narrows to 2 rows (got ${rows.length})`);
   must(rows.every((t) => t === `Open ${notedA.name}` || t === `Open ${notedB.name}`),
