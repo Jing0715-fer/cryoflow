@@ -29,6 +29,7 @@ import {
   Plus,
   Search,
   Snowflake,
+  StickyNote,
   Trash2,
   TrendingDown,
   TrendingUp,
@@ -869,6 +870,21 @@ function JobRow({ job, onOpen }: { job: JobDTO; onOpen: () => void }) {
         <span className="flex items-center gap-2">
           <span className="truncate text-xs font-semibold">{job.name}</span>
           <StatusBadge status={job.status} />
+          {job.note ? (
+            // the row-level twin of the canvas badge (Task 73): amber
+            // StickyNote, full text on hover, .no-print — the dashboard's
+            // paper flow is a management summary, the annotation's official
+            // paper channel stays the canvas sheet's excerpt line
+            <span
+              data-row-note-badge
+              role="img"
+              aria-label="Job has a note"
+              title={job.note}
+              className="no-print shrink-0 text-amber-500 dark:text-amber-400"
+            >
+              <StickyNote className="size-3" aria-hidden="true" />
+            </span>
+          ) : null}
         </span>
         {job.status === "running" ? (
           <span className="mt-1 flex items-center gap-2">
@@ -1199,6 +1215,7 @@ function StatusFilterChip({
   tone,
   onClick,
   kbd,
+  icon,
 }: {
   label: string;
   n: number;
@@ -1207,6 +1224,9 @@ function StatusFilterChip({
   onClick: () => void;
   /** matching dashboard shortcut digit — tiny inline badge + aria */
   kbd?: string;
+  /** optional leading glyph — the Noted chip carries the StickyNote mark
+   *  so the eye reads "annotation filter", not a sixth status */
+  icon?: React.ReactNode;
 }) {
   const toneCls =
     tone === "teal"
@@ -1230,6 +1250,7 @@ function StatusFilterChip({
         active ? toneCls : "border-border text-muted-foreground hover:bg-muted hover:text-foreground",
       )}
     >
+      {icon}
       {label} <span className="tabular-nums opacity-70">{n}</span>
       {kbd ? (
         // currentColor border keeps the badge legible in both the active
@@ -1253,9 +1274,12 @@ function ActiveProjectSpotlight() {
   const inspect = useWorkflowStore((s) => s.inspect);
   const select = useWorkflowStore((s) => s.select);
   // status filter for the Jobs list — chips double as a mini status bar;
-  // "all" is the default so the section reads exactly as before until used
+  // "all" is the default so the section reads exactly as before until used.
+  // "noted" (Task 76) is the one property filter in the row: it answers
+  // "which jobs carry a human judgment" — the dashboard twin of the canvas
+  // note spotlight, and the natural next step after Task 75's lens.
   const [jobFilter, setJobFilter] = React.useState<
-    "all" | "running" | "pending" | "completed" | "failed" | "idle"
+    "all" | "running" | "pending" | "completed" | "failed" | "idle" | "noted"
   >("all");
 
   if (!project) return null;
@@ -1266,7 +1290,13 @@ function ActiveProjectSpotlight() {
   const failed = sorted.filter((j) => j.status === "failed");
   const pending = sorted.filter((j) => j.status === "pending");
   const idleCount = sorted.filter((j) => j.status === "idle").length;
-  const visibleJobs = jobFilter === "all" ? sorted : sorted.filter((j) => j.status === jobFilter);
+  const noted = sorted.filter((j) => j.note);
+  const visibleJobs =
+    jobFilter === "all"
+      ? sorted
+      : jobFilter === "noted"
+        ? noted
+        : sorted.filter((j) => j.status === jobFilter);
   const pct = sorted.length > 0 ? Math.round((completed.length / sorted.length) * 100) : 0;
 
   const openJob = (job: JobDTO) => {
@@ -1395,7 +1425,10 @@ function ActiveProjectSpotlight() {
           </Button>
         </div>
         {sorted.length > 0 && (
-          <div className="mb-1.5 flex flex-wrap items-center gap-1" role="group" aria-label="Filter jobs by status">
+          // .no-print: filter chips are interactive chrome — on paper the
+          // job list reads as a plain roster, not a filtered slice (a print
+          //out that says "Noted 2" without the lens would be confusing)
+          <div className="no-print mb-1.5 flex flex-wrap items-center gap-1" role="group" aria-label="Filter jobs by status">
             <StatusFilterChip label="All" n={sorted.length} active={jobFilter === "all"} onClick={() => setJobFilter("all")} />
             {running.length > 0 && (
               <StatusFilterChip label="Running" n={running.length} tone="teal" active={jobFilter === "running"} onClick={() => setJobFilter("running")} />
@@ -1411,6 +1444,16 @@ function ActiveProjectSpotlight() {
             )}
             {idleCount > 0 && (
               <StatusFilterChip label="Idle" n={idleCount} active={jobFilter === "idle"} onClick={() => setJobFilter("idle")} />
+            )}
+            {noted.length > 0 && (
+              <StatusFilterChip
+                label="Noted"
+                n={noted.length}
+                tone="amber"
+                active={jobFilter === "noted"}
+                onClick={() => setJobFilter("noted")}
+                icon={<StickyNote className="size-2.5" aria-hidden="true" />}
+              />
             )}
           </div>
         )}
