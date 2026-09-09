@@ -3077,3 +3077,23 @@ Stage Summary:
 - 「上限是 walked 的边界而不是 enough 的声明」：深度 8/数量 200/扫描 2000 三个上限各管一维（嵌套深度、队列体量、总扫描量），E 相的边界断言（depth-8 收、depth-10 拒）锁的是合同而不是实现细节——跑路的树遍历不需要恶意输入，一个 symlink 环就够了
 - 「readEntries 是游标不是快照」：单次 readEntries 只交一页（常 ≤100），空批才是终点——把它当一次性快照的代码在大于一页的目录上静默丢数据，且无任何报错。F4 静态断言把这个不变量钉进合同
 - 遗留（下轮候选）：EMPIAR 真数据回归（重）；用户机器 class3d/refine3d 顺序模式与 topaz 实测反馈；import 队列 rich tooltip（低优先）；diff 对话框 Open 行 canvas 入口价值复查（观察真实使用）；文件夹拖拽的深过评估——sentinel stub 已验证 walk 主干，真 OS 文件夹手势（ Finder/Explorer 拖入）在 headless 里无法构造，依赖用户真机反馈
+
+---
+Task ID: 94
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-10 05:14 window)
+Task: cron 自主巡检——Task 94「名册文本搜索（dashboard job roster）+ Task 13 审计清单退役核实」：①旧账核实——#5 fs/browse 已有 isLocalRequest 两轮加固（同源 + Host 钉扎，注释立碑）、#6/#14 已统一 resolveInsideJobWorkdir 单源包含策略（两条 outputs 路由共享）、上轮已核 #7/#8/#13——Task 13 审计清单（#5/#6/#7/#8/#13/#14）连同新功能方向（3D 截面工具= slice+clip XYZ 轴全套已存在、Topaz wrapper= topaz-training 已落地）全部退役；②新功能——名册（跨 workspace job 表）此前只有状态芯片过滤，补文本搜索：role=search 输入框 + 可见切片 =（状态芯片）∩（干草堆匹配），干草堆 = 名字+类型+workspace 名+状态（一个框答「哪些 motioncorr 还在 idle」），计数芯片 "N of M"（no-print 实时屏面 chrome），空结果专用文案（区别于「还没有 job」启动态）+ 清除按钮，项目切换时渲染期调整复位查询（Task 88 模式——查询跨项目残留会在用户没搜索的切片上静默过滤）。t94 26 断言三连绿 + 全回归矩阵 26 套绿 + worklog + push
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 93、HEAD f0936fa == origin/main、BUILD_ID M1eiH-GuMR33TGxIVUXnG 匹配；生产冷启动 + smoke + t93/qa84 全绿 → 稳定
+- 【审计清单退役核实】fs/browse/route.ts 读全文——isLocalRequest 门卫 + procfs/sysfs 虚拟文件系统守卫 + 只列名不上内容的补偿控制齐备；outputs/star 注释明示 resolveInsideJobWorkdir 是两条 outputs 路由的单源包含策略（lexical + realpath 双规则互补，两个历史洞都已闭）；molstar-embed rg slice/clip——SliceAxis X/Y/Z + sigma/sign + clip 六面 + invert + 书签快照含双态 + 导出链路齐备。选题让位：EMPIAR（重）、真机手势反馈（不可 headless）
+- 【选题】项目网格有 "Search projects…" 而名册没有——同一屏面上搜索能力的单侧不对称；roster 是跨全部 workspace 的 survey 面（t89 教义），找特定 run 靠眼扫是真缺口
+- 【实现】project-dashboard.tsx ActiveProjectSpotlight 五处：①rosterQuery + prevProjectId 双 state（hooks 全部在 early return 之前——Task 90 教义自查）；②渲染期调整复位（project.id !== prevProjectId → setState，Task 88 模式）；③statusSlice 先算状态切片再 ∩ 干草堆（q trim+lowercase，wsNameById Map 查 workspace 名）；④搜索行（role=search + no-print + Search 图标 + X 清除 + 计数芯片）插在状态芯片行上方——不混入 chips 的 role=group 语义；⑤空结果分叉：q 非空 → roster-empty-search 专用文案回显查询词，否则原启动态文案
+- 【t94 探针·数据驱动】期望值全部运行时从 /api/jobs + /api/workspaces 计算（探针内联同款干草堆）：A 相选出现最多的 type token 做 split 查询（postprocess 4/21）+ 行数/chip 文本/行名三断言对齐真相；B 相状态芯片 × 查询真交集——B3a 专项断言「词元真正收窄」（首词 QA 全撞种子前缀的陷阱：token 搜索循环找 expectFor(w,status).length < 切片长的词元，Import 1 < 16）；C 相空结果三分（专用文案 + 0 of M + 启动态不越位）；D 相 padding 宽容；E 相静态契约
+- 【收尾】eslint src 0、tsc src 0、production build（BUILD_ID 2NhNpUegmaSUIp0z40-TS200）+ served 自证；t94 26×3 三连绿；全矩阵 26 套（+t94）串行全绿；回归循环又犯 .mjs 双拼（qa63-smoke.mjs.mjs）——「Node.js vX 崩栈尾行 = 文件名错误指纹」教义第二次应验，两套改名复跑即绿
+
+Stage Summary:
+- 「同一屏面的搜索能力不能单侧」：项目网格能搜、名册不能搜，不是设计是遗漏——spotlight 名册是跨 workspace 的 survey 面（t89「比较在这里被问得最多」的同款论证：找在这里被问得更多）。补齐时刻意不混 role=group（状态芯片的语义容器）——role=search 是独立地标，读屏用户跳转它不该路过一排状态按钮
+- 「组合过滤的芯片分母是全局」：N of M 的 M 永远是全名册（21），不是当前芯片切片（16）——分母回答「我在多大范围内挑」，切片内分母会让用户以为芯片把世界变小了。B4 断言钉死
+- 「探针的查询词也要数据驱动」：B3 首版拿 job 名首词（"QA"）当交集查询——种子全部同前缀，断言 16==16 绿得毫无意义。修成「在切片内真正收窄的词元」+ B3a 元断言（先证明查询收窄，再证明结果正确）——数据驱动的下一步是驱动查询词本身，否则断言在退化的种子上空转
+- 「审计清单要核实着退役」：cron 文本每轮搬运同一份 Task 13 遗留，但 #5/#6/#7/#8/#13/#14 与两个新功能方向全部已在后续轮次落地——本轮逐项 rg/读源确认后正式退役；worklog 的「下轮候选」需要带着怀疑读，重复审计不会发生但重复候选会
+- 遗留（下轮候选）：EMPIAR 真数据回归（重）；用户机器 class3d/refine3d 顺序模式与 topaz 实测反馈；import 队列 rich tooltip（低优先）；diff 对话框 Open 行 canvas 入口价值复查（观察真实使用）；文件夹拖拽真机手势反馈；名册搜索与 palette 全局搜索的地盘划分观察（roster 搜 job 实例，palette 搜命令与跳转——语义不同,暂不合并）

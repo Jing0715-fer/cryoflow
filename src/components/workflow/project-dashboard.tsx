@@ -1453,6 +1453,12 @@ function ActiveProjectSpotlight({
   const setView = useWorkflowStore((s) => s.setView);
   const inspect = useWorkflowStore((s) => s.inspect);
   const select = useWorkflowStore((s) => s.select);
+  // Task 94 — roster text search state. The query composes WITH the status
+  // chips (visible = status filter ∩ haystack match), and resets when the
+  // active project changes so a search that made sense in project A never
+  // silently filters project B's first paint.
+  const [rosterQuery, setRosterQuery] = React.useState("");
+  const [prevProjectId, setPrevProjectId] = React.useState<string | null>(project?.id ?? null);
   // status filter for the Jobs list — chips double as a mini status bar;
   // "all" is the default so the section reads exactly as before until used.
   // "noted" (Task 76) is the property filter: it answers "which jobs carry
@@ -1463,6 +1469,14 @@ function ActiveProjectSpotlight({
   // so keys 5/6 can drive it.
 
   if (!project) return null;
+
+  // Render-time adjustment (Task 88 pattern — no extra frame, no effect):
+  // project switched → the stale query would filter rows the user never
+  // searched for, so drop it in the same render that adopts the new id.
+  if (project.id !== prevProjectId) {
+    setPrevProjectId(project.id);
+    setRosterQuery("");
+  }
 
   const sorted = [...jobs].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   const running = sorted.filter((j) => j.status === "running");
@@ -1475,7 +1489,12 @@ function ActiveProjectSpotlight({
   // that the canvas renders every job, so nothing is invisible) — same
   // condition the row badge uses
   const unassigned = workspaces.length > 0 ? sorted.filter((j) => !j.workspaceId) : [];
-  const visibleJobs =
+  // Task 94 — the visible slice is (status filter) ∩ (text match). The
+  // haystack spans name + type + workspace name + status so one box answers
+  // "which motioncorr runs are still idle" without leaving the dashboard.
+  const q = rosterQuery.trim().toLowerCase();
+  const wsNameById = new Map(workspaces.map((w) => [w.id, w.name]));
+  const statusSlice =
     jobFilter === "all"
       ? sorted
       : jobFilter === "noted"
@@ -1483,6 +1502,13 @@ function ActiveProjectSpotlight({
         : jobFilter === "unassigned"
           ? unassigned
           : sorted.filter((j) => j.status === jobFilter);
+  const visibleJobs = q
+    ? statusSlice.filter((j) =>
+        `${j.name} ${j.type} ${j.workspaceId ? (wsNameById.get(j.workspaceId) ?? "") : ""} ${j.status}`
+          .toLowerCase()
+          .includes(q),
+      )
+    : statusSlice;
   const pct = sorted.length > 0 ? Math.round((completed.length / sorted.length) * 100) : 0;
 
   const openJob = (job: JobDTO) => {
@@ -1625,6 +1651,52 @@ function ActiveProjectSpotlight({
           </Button>
         </div>
         {sorted.length > 0 && (
+          // Task 94 — roster text search. Composes with the status chips
+          // below (AND); role=search + the count chip are live screen
+          // chrome, so the whole row is no-print (paper prints the same
+          // slice the band header counts, but never the lens itself).
+          <div
+            className="no-print mb-1.5 flex items-center gap-2"
+            role="search"
+            aria-label="Search the job roster"
+          >
+            <div className="relative">
+              <Search
+                className="pointer-events-none absolute left-2 top-1/2 size-3 -translate-y-1/2 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <input
+                data-testid="roster-search-input"
+                value={rosterQuery}
+                onChange={(e) => setRosterQuery(e.target.value)}
+                placeholder="Search name, type, workspace…"
+                aria-label="Search the job roster"
+                spellCheck={false}
+                className="h-7 w-52 rounded-md border bg-background pl-7 pr-7 text-xs outline-none placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:ring-primary/30"
+              />
+              {rosterQuery !== "" && (
+                <button
+                  type="button"
+                  data-testid="roster-search-clear"
+                  onClick={() => setRosterQuery("")}
+                  aria-label="Clear roster search"
+                  className="absolute right-1 top-1/2 flex size-5 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+                >
+                  <X className="size-3" aria-hidden="true" />
+                </button>
+              )}
+            </div>
+            {q !== "" && (
+              <span
+                data-testid="roster-count-chip"
+                className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary tabular-nums"
+              >
+                {visibleJobs.length} of {sorted.length}
+              </span>
+            )}
+          </div>
+        )}
+        {sorted.length > 0 && (
           // .no-print: filter chips are interactive chrome — on paper the
           // job list reads as a plain roster, not a filtered slice (a print
           //out that says "Noted 2" without the lens would be confusing)
@@ -1673,9 +1745,18 @@ function ActiveProjectSpotlight({
         )}
         <div className="max-h-80 overflow-y-auto pr-1 nice-scroll">
           {visibleJobs.length === 0 ? (
-            <p className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground">
-              No {jobFilter === "all" ? "" : `${jobFilter} `}jobs in this project yet.
-            </p>
+            q ? (
+              <p
+                data-testid="roster-empty-search"
+                className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground"
+              >
+                No jobs match “{rosterQuery.trim()}” — clear the search or pick another status chip.
+              </p>
+            ) : (
+              <p className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground">
+                No {jobFilter === "all" ? "" : `${jobFilter} `}jobs in this project yet.
+              </p>
+            )
           ) : (
             /* Task 84 — the roster is a REAL table. On screen the table
                scaffolding is neutralized to plain blocks (globals.css), so
