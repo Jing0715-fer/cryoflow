@@ -3013,3 +3013,22 @@ Stage Summary:
 - 「hooks 不看 early return 的脸色」：组件先 return null 再 useStore 是隐形炸弹（开/关两态钩数不同）——eslint react-hooks 会拦，但本轮是自查先发现；把 hooks 上移并注释立碑，比依赖 linter 兜底多一层人为记忆
 - 「幻影 testid 的债」：t88 探针里 [data-testid="job-inspector"] 从第一天起就不存在（靠逗号选择器的 role=dialog 兜底），本轮 D2 如法炮制才暴露——探针里的 OR 备选会掩盖选择器失真，新探针应逐个验证测号在 src 里真实存在
 - 遗留（下轮候选）：agent-browser 系套件分批迁移 playwright（qa58 下一批——迁移样板已立）；EMPIAR 真数据回归（重）；用户机器 class3d/refine3d 顺序模式与 topaz 实测反馈；import 队列 rich tooltip（低优先）；diff 对话框 Open 行的 canvas 入口价值复查（画布入口两列本就可见，跳转是轻冗余——观察真实使用再定去留）
+---
+Task ID: 91
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-10 03:59 window)
+Task: cron 自主巡检——Task 91「qa66 + qa69 迁移 playwright，矩阵迁移收官」：回归矩阵内最后两套 agent-browser 套件（qa66 35 断言 roving-tabindex + 像素纸面采样；qa69 35 断言 hover:none 揭示 + FSC compare 新鲜度条）整体迁到 playwright，断言集逐字保留只换驱动器。迁移中钉死一个**环境级事实**：playwright 桌面默认上下文报告 (hover: hover)，与 agent-browser 旧 headless 的 (hover: none) 相反——qa69 的两个核心断言（ortho ⌖ 静息可见、Files Download 静息可见）在新上下文下会静默失效（opacity=0），修法 = 上下文 hasTouch: true 真实翻转 (hover: none) 而非放宽断言。两套各自三连绿 + 全回归矩阵 23 套绿 → **矩阵自此零 agent-browser 依赖，qa70 Esc 抖动家族连根拔除**。worklog + push
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 90、HEAD 35ffbb9 == origin/main、BUILD_ID 894C6yw0HNeE_KXaU1q0X 匹配；生产冷启动 + smoke + t90/t89 全绿 → 稳定
+- 【选题调研三连否】候选功能逐一核实后排除：① Recent activity 跨项目跳转——已有（open() 内 switchProject + 深链，Task 77 同款）；② 名册 CSV 导出——PipelineAnalytics 已有全量 inventory CSV（csvCell/downloadText 助手 + 时间戳文件名 + toast）；③ import 失败行 Retry——失败是客户端解析的确定性错误，重试无意义。产品在管理/导出角落已饱和，功能性候选全部让位给既定基建收官项
+- 【qa66 迁移】键盘几何相保留 synthetic keydown（roving 逻辑是 React onKeyDown，合成事件照常驱动），Enter 切换用 playwright 真实按键（原生激活语义需要 trusted 事件——与旧 CLI press 同理由）；p.pdf + pdftoppm + P5 采样器全链不变；**一折**：Phase B 缩视口后选择已持久 → Sheet 已开（overlay 拦截指针），冗余的卡片点击被 playwright 正确拒绝——旧 CLI 裸坐标点击不查拦截才侥幸过；改为先查 [role=dialog] 再条件点击（overlay 拦截是产品行为，不是 bug）
+- 【qa69 迁移 + 环境发现】滚动感知 CDP 点击助手（Radix scroll-lock 回滚 scrollTop 手写的绕行）整体坍缩为 locator.click()（playwright 自动 scrollIntoView 穿透 scroll-lock）；**二折·环境级**：首跑 opacity=0 FATAL——playwright 桌面默认 (hover: hover)，hover-none 揭示规则永不命中，套件前提（hover:none 浏览器）失效；实验钉死 hasTouch: true 翻转 (hover: none) + (pointer: coarse) 且不破坏 1600×900 桌面布局（isMobile 不需要）；修法选「让环境真实匹配前提」而非「放宽断言」——断言是契约，环境才是变量
+- 【must() 落穿一折】迁移版 must() 的 FATAL 分支 cleanup().then(exit) 是异步，未 return 导致失败后还打印 "ok:"（同步 cleanup + 同步 exit 的旧版无此问题）；qa66/qa69 双双补 return
+- 【收尾】eslint src 0（src 本轮零改动）；两套迁移版各三连绿（qa66 35×3、qa69 35×3）；全矩阵 23 套串行全绿；BUILD_ID 不变（894C6yw0HNeE_KXaU1q0X，本轮纯 QA 侧）；worklog + push
+
+Stage Summary:
+- 「矩阵迁移收官」：qa70（试点）→ qa66（键盘几何 + 像素纸面）→ qa69（输入模态 + 分层 Esc）三套最难的都迁完了，其余矩阵套件本就是 playwright 或纯 API——agent-browser 依赖正式归零；Esc 抖动家族（qa70 一族）的宿主介质消失，「复跑绿不是结论而是待办」这条教义同时退役
+- 「迁移会暴露前提」：qa69 首跑的 opacity=0 不是回归，是套件前提（hover:none）在新驱动器下不成立——**断言失败先问「环境还是产品」**；修环境（hasTouch）不修断言，因为断言锁的是「hover:none 设备上功能控件静息可见」这个真契约，放宽断言等于把契约改成没人需要的弱版本
+- 「拦截指针的 overlay 是证人不是敌人」：旧 CLI 的裸坐标点击穿透 overlay 侥幸过审，playwright 的 actionability 检查把「Sheet 已开时点卡片」判为非法——迁移的第二价值是把旧通道的侥幸行为全部显性化，要么修测试语义（条件点击）要么确认产品意图
+- 「选题调研的三连否也是产出」：三个功能候选各花一次 rg/read 就确认「已存在或无意义」——同表操作的幂等性检查；worklog 里留下排除记录，下一轮不必重查
+- 遗留（下轮候选）：EMPIAR 真数据回归（重）；用户机器 class3d/refine3d 顺序模式与 topaz 实测反馈；import 队列 rich tooltip（低优先）；diff 对话框 Open 行的 canvas 入口价值复查；迁移收尾清点——scripts/ 里残留的 agent-browser 诊断脚本（qa64-net-diag/qa70-esc-bisect/qa72-* 等）标注或删除

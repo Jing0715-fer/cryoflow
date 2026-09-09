@@ -20,10 +20,18 @@
 //   dynamic: forced-dark printToPDF → pdftoppm → corner/mean/dark-ratio
 //   sampling + pdftotext masthead echo.
 //
-// Run: node scripts/qa66-e2e.mjs   (server on :3000, gallery seeded)
+// Task 91 — MIGRATED agent-browser CLI → playwright (qa70 was the pilot,
+// Task 90): assertion set is byte-identical, only the driver changed.
+// The synthetic keydown dispatches stay synthetic (the roving handler is
+// a React keydown listener); Enter/Escape are REAL playwright presses
+// (native button activation needs trusted events — same reason the old
+// suite reached for `agent-browser press`).
+//
+// Run: node scripts/qa66-e2e.mjs   (server on :3000)
+import { chromium } from "playwright";
 import { execSync } from "node:child_process";
 import { statSync, existsSync, readFileSync, readdirSync, mkdirSync, rmSync } from "node:fs";
-const AB = "agent-browser";
+
 const B = "http://localhost:3000";
 const HOST_JOB = "QA Class Select";
 const PDF_OUT = "/home/z/my-project/.qa-logs/qa66-print.pdf";
@@ -31,45 +39,35 @@ const PDF_DARK = "/home/z/my-project/.qa-logs/qa66-print-dark.pdf";
 const PPM_DIR = "/home/z/my-project/.qa-logs/qa66-ppm";
 const sh = (cmd) => execSync(cmd, { encoding: "utf8", timeout: 120_000 }).trim();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const evalJs = (expr) => execSync(`${AB} eval --stdin`, { encoding: "utf8", timeout: 120_000, input: expr }).trim();
-const unq = (s) => (s || "").replace(/^"|"$/g, "");
 let PASS = 0;
 const must = (cond, label) => {
-  if (!cond) { console.log(`FATAL: ${label}`); cleanup(); process.exit(1); }
+  if (!cond) { console.log(`FATAL: ${label}`); cleanup().then(() => process.exit(1)); return; }
   PASS++;
   console.log(`  ok: ${label}`);
 };
-function cleanup() {
-  try { sh(`${AB} close`); } catch {}
+let b = null;
+async function cleanup() {
+  try { if (b) await b.close(); } catch {}
   try { if (existsSync(PDF_OUT)) sh(`rm -f ${PDF_OUT}`); } catch {}
   try { rmSync(PDF_DARK, { force: true }); } catch {}
   try { rmSync(PPM_DIR, { recursive: true, force: true }); } catch {}
 }
 
-const errCollector = `(() => {
-  if (window.__qaErrColl) return 'errcoll-kept';
-  window.__qaErrs = [];
-  window.addEventListener('error', (e) => window.__qaErrs.push(String(e.message || e).slice(0, 160)));
-  window.addEventListener('unhandledrejection', (e) => window.__qaErrs.push('rej:' + String((e.reason && e.reason.message) || e.reason).slice(0, 160)));
-  window.__qaErrColl = true;
-  return 'errcoll-on';
-})()`;
-const realClick = async (findExpr) => {
-  const coords = evalJs(
-    `(() => { const el = (${findExpr}); if (!el) return null; const r = el.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }; })()`,
-  );
-  if (!coords || coords === "null") return "NO-ELEMENT";
-  const c = JSON.parse(coords);
-  sh(`${AB} mouse move ${c.x} ${c.y}`);
-  sh(`${AB} mouse down`);
-  sh(`${AB} mouse up`);
-  return `clicked@${c.x},${c.y}`;
-};
-const key = (k, opts = "") => evalJs(`(() => {
+try { execSync("pkill -f agent-browser"); } catch { /* none running */ }
+b = await chromium.launch();
+const p = await b.newPage({ viewport: { width: 1600, height: 900 } });
+const consoleErrors = [];
+p.on("console", (m) => { if (m.type() === "error") consoleErrors.push(m.text().slice(0, 160)); });
+p.on("pageerror", (e) => consoleErrors.push(String(e).slice(0, 160)));
+
+// synthetic keydown for React-listener handlers (arrows/Home/End) — the
+// roving logic is a React onKeyDown, so dispatched events drive it exactly
+const key = (k, opts = "") => p.evaluate(`(() => {
   const el = document.activeElement || document.body;
   el.dispatchEvent(new KeyboardEvent('keydown', { key: '${k}', bubbles: true${opts} }));
   return 'sent:' + (document.activeElement?.getAttribute('aria-label') || document.activeElement?.tagName || '?');
 })()`);
+const evalJs = (expr) => p.evaluate(expr);
 
 // ---- boot: dashboard → canvas → class2d inspector → gallery ---------------
 // self-seed (Task 87): the gallery chain is qa58's living instance — when
@@ -79,22 +77,19 @@ const key = (k, opts = "") => evalJs(`(() => {
 // so seeding here makes the suite order-independent like qa58/qa81/qa83.
 console.log("— seed gallery (self-seed, Task 87) —");
 sh("python3 /home/z/my-project/scripts/qa58-seed-gallery.py");
-sh(`${AB} close`); await sleep(1200);
-sh(`${AB} set viewport 1600 900`);
-sh(`${AB} open ${B}`);
-await sleep(5000);
-evalJs(errCollector);
+await p.goto(B, { waitUntil: "networkidle" });
+await sleep(1200);
 
 let onCanvas = false;
 for (let i = 0; i < 10 && !onCanvas; i++) {
-  const probe = evalJs(`(() => {
+  const probe = await evalJs(`(() => {
     const card = [...document.querySelectorAll('[role=button]')].find(x => (x.textContent||'').includes('${HOST_JOB}'));
     const dash = !!document.querySelector('h1') && (document.querySelector('h1').textContent||'').includes('Dashboard');
     return (card ? 'CARD' : 'NOCARD') + (dash ? '+DASH' : '');
   })()`);
   if (probe.includes("CARD")) onCanvas = true;
   else if (probe.includes("DASH")) {
-    evalJs(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'D', shiftKey: true, bubbles: true }))`);
+    await p.keyboard.press("Shift+D");
     await sleep(2200);
   } else await sleep(2000);
 }
@@ -105,95 +100,90 @@ must(onCanvas, "canvas renders with the class2d job card");
 // the gallery lives under its Params tab
 let panel = false;
 for (let i = 0; i < 6 && !panel; i++) {
-  const r = await realClick(
-    `[...document.querySelectorAll('[role=button]')].find(x => (x.textContent||'').includes('${HOST_JOB}'))`,
-  );
-  if (r.includes("clicked@")) {
-    await sleep(1500);
-    await realClick(
-      `[...document.querySelectorAll('aside')].slice(1).map(a => [...a.querySelectorAll('[role=tab]')].find(t => t.textContent.trim() === 'Params')).find(Boolean)`,
-    );
-    await sleep(1000);
-    panel = unq(evalJs(`(() => !!document.querySelector('section[aria-label="Class selection gallery"]'))() + ''`)) === "true";
-  } else await sleep(1500);
+  await p.locator('[role="button"]', { hasText: HOST_JOB }).first().click();
+  await sleep(1500);
+  await p.locator('aside [role="tab"]', { hasText: "Params" }).first().click();
+  await sleep(1000);
+  panel = await evalJs(`(() => !!document.querySelector('section[aria-label="Class selection gallery"]'))()`);
+  if (!panel) await sleep(1500);
 }
 must(panel, "select2d params panel opens with the class gallery");
 
 // the gallery lives in the inspector (class selection panel)
 let grid = false;
 for (let i = 0; i < 8 && !grid; i++) {
-  grid = unq(evalJs(`(() => {
+  grid = await evalJs(`(() => {
     const g = document.querySelector('section[aria-label="Class selection gallery"] [data-canvas-ui=class-grid]');
     const n = g ? g.querySelectorAll('button[aria-pressed]').length : 0;
-    return n > 0 ? 'GRID:' + n : 'NOGRID';
-  })() + ''`)).startsWith("GRID");
+    return n > 0;
+  })()`);
   if (!grid) await sleep(1200);
 }
-const gridInfo = unq(evalJs(`(() => {
+const gridInfo = await evalJs(`(() => {
   const g = document.querySelector('section[aria-label="Class selection gallery"] [data-canvas-ui=class-grid]');
   return 'GRID:' + g.querySelectorAll('button[aria-pressed]').length;
-})() + ''`));
+})()`);
 must(grid, `class gallery grid rendered (${gridInfo})`);
 
 // ===========================================================================
 console.log("— PHASE A: roving tabindex —");
 
-const tabMap = () => JSON.parse(evalJs(`(() => {
+const tabMap = () => evalJs(`(() => {
   const cards = [...document.querySelectorAll('section[aria-label="Class selection gallery"] [data-canvas-ui=class-grid] button[aria-pressed]')];
   return {
     n: cards.length,
     zero: cards.filter(b => b.tabIndex === 0).map(b => (b.getAttribute('aria-label')||'').match(/class (\\d+)/)?.[1]),
     neg: cards.filter(b => b.tabIndex === -1).length,
   };
-})()`));
+})()`);
 
-let tm = tabMap();
+const tm = await tabMap();
 must(tm.n >= 4, `grid has ${tm.n} class cards`);
 must(tm.zero.length === 1 && tm.neg === tm.n - 1,
   `exactly ONE card is in the tab order (zero=[${tm.zero}], -1 × ${tm.neg})`);
 
 // focus the single tabbable card, then walk the grid
-evalJs(`(() => {
+await evalJs(`(() => {
   const first = [...document.querySelectorAll('section[aria-label="Class selection gallery"] [data-canvas-ui=class-grid] button[aria-pressed]')].find(b => b.tabIndex === 0);
   first.focus();
   return 'focused:' + first.getAttribute('aria-label');
 })()`);
-const labelOf = () => unq(evalJs(`String((document.activeElement?.getAttribute('aria-label')||'').match(/class (\\d+)/)?.[1] || 'NONE')`));
-const clsOf = () => Number(labelOf());
-const startCls = clsOf();
+const labelOf = () => evalJs(`String((document.activeElement?.getAttribute('aria-label')||'').match(/class (\\d+)/)?.[1] || 'NONE')`);
+const clsOf = async () => Number(await labelOf());
+const startCls = await clsOf();
 must(Number.isFinite(startCls), `focus starts on the roving anchor (class ${startCls})`);
 
 await key("ArrowRight");
-const rightCls = clsOf();
+const rightCls = await clsOf();
 must(rightCls !== startCls, `ArrowRight moves focus (class ${startCls} → ${rightCls})`);
 
 await key("ArrowLeft");
-must(clsOf() === startCls, "ArrowLeft returns to the start card");
+must((await clsOf()) === startCls, "ArrowLeft returns to the start card");
 
 // ArrowDown/Up cross rows (grid-cols vary with viewport; the geometry
 // handles any column count — assert the focus actually moved and returned)
 await key("ArrowDown");
-const downCls = clsOf();
+const downCls = await clsOf();
 await key("ArrowUp");
-must(downCls !== startCls && clsOf() === startCls,
+must(downCls !== startCls && (await clsOf()) === startCls,
   `ArrowDown/Up cross rows and return (${startCls} → ${downCls} → ${startCls})`);
 
 await key("End");
-const endCls = clsOf();
+const endCls = await clsOf();
 must(endCls !== startCls, `End jumps to the last card (class ${endCls})`);
 await key("Home");
-must(clsOf() === startCls || clsOf() !== endCls, `Home returns to the first card (class ${clsOf()})`);
+must((await clsOf()) === startCls || (await clsOf()) !== endCls, `Home returns to the first card (class ${await clsOf()})`);
 
-// Enter toggles keep on the focused card — via a REAL CDP keypress:
+// Enter toggles keep on the focused card — via a REAL playwright press:
 // synthetic KeyboardEvents don't run a button's native activation (the
 // browser default action), only genuine key events do
-const pressed0 = unq(evalJs(`String(document.activeElement?.getAttribute('aria-pressed'))`));
-sh(`${AB} press Enter`);
+const pressed0 = await evalJs(`String(document.activeElement?.getAttribute('aria-pressed'))`);
+await p.keyboard.press("Enter");
 await sleep(600);
-const pressed1 = unq(evalJs(`String(document.activeElement?.getAttribute('aria-pressed'))`));
+const pressed1 = await evalJs(`String(document.activeElement?.getAttribute('aria-pressed'))`);
 must(pressed0 !== pressed1, `Enter toggles keep (aria-pressed ${pressed0} → ${pressed1})`);
 // restore: toggle back
-sh(`${AB} press Enter`);
+await p.keyboard.press("Enter");
 await sleep(500);
 
 // Tab moves OUT of the roving set to the zoom sibling (still tabbable)
@@ -206,24 +196,23 @@ await evalJs(`(() => {
   if (zoom) zoom.focus();
   return 'tab-sim';
 })()`);
-const zoomTabbable = unq(evalJs(`String(document.querySelector('[data-canvas-ui=class-zoom]')?.tabIndex >= 0)`));
+const zoomTabbable = await evalJs(`String(document.querySelector('[data-canvas-ui=class-zoom]')?.tabIndex >= 0)`);
 must(zoomTabbable === "true", "zoom sibling stays tabbable (lightbox reachable)");
 
 // focus-within reveals the zoom affordance on the focused cell
-const zoomVisible = unq(evalJs(`(() => {
+const zoomVisible = await evalJs(`(() => {
   const cell = document.activeElement?.closest('div');
   const z = cell?.querySelector('[data-canvas-ui=class-zoom]');
   return z ? String(getComputedStyle(z).opacity !== '0' || z.className.includes('focus-within')) : 'nozoom';
-})() + ''`));
+})()`);
 must(zoomVisible === "true", "focused cell reveals its zoom affordance");
 
-const errsA = JSON.parse(evalJs(`({ errs: window.__qaErrs || [] })`)).errs;
-must(errsA.length === 0, `zero page errors in Phase A (got ${JSON.stringify(errsA)})`);
+must(consoleErrors.length === 0, `zero page errors in Phase A (got ${JSON.stringify(consoleErrors)})`);
 console.log(`PHASE A GREEN (${PASS} asserts)`);
 
 // ===========================================================================
 console.log("— PHASE B: print (paper) stylesheet —");
-const printRule = unq(evalJs(`(() => {
+const printRule = await evalJs(`(() => {
   for (const sheet of document.styleSheets) {
     let rules;
     try { rules = sheet.cssRules; } catch { continue; }
@@ -239,7 +228,7 @@ const printRule = unq(evalJs(`(() => {
     }
   }
   return 'NO-PRINT-RULE';
-})() + ''`));
+})()`);
 must(printRule.startsWith("RULE"), `print media rule present (${printRule})`);
 must(printRule.includes("root:true") && printRule.includes("dark:true"),
   "paper palette forced under BOTH :root and .dark");
@@ -247,20 +236,20 @@ must(printRule.includes("tooltip:true") && printRule.includes("no-print:true"),
   "tooltips + .no-print hidden on paper");
 
 // ---- Task 69: .no-print has landed on real chrome ------------------------
-const noPrintInfo = JSON.parse(unq(evalJs(`({
+const noPrintInfo = await evalJs(`(() => ({
   count: document.querySelectorAll('.no-print').length,
   minimap: !!document.querySelector('[data-canvas-ui=minimap].no-print'),
   zoom: !!document.querySelector('[data-canvas-ui=zoom-controls].no-print'),
   footer: !!document.querySelector('footer.no-print'),
   sidebar: !!document.querySelector('aside.no-print'),
   actions: !!document.querySelector('header .no-print, .no-print.flex.items-center.gap-1\\\\.5')
-})`)));
+}))()`);
 must(noPrintInfo.count >= 5, `at least 5 chrome blocks carry .no-print (got ${noPrintInfo.count})`);
 must(noPrintInfo.minimap && noPrintInfo.zoom && noPrintInfo.footer && noPrintInfo.sidebar,
   "minimap + zoom controls + footer + sidebar all opt out of paper");
 
 // ---- print-only document masthead ----------------------------------------
-const masthead = JSON.parse(unq(evalJs(`(() => {
+const masthead = await evalJs(`(() => {
   const el = document.querySelector('[data-print-doc]');
   if (!el) return { present: false };
   return {
@@ -269,14 +258,14 @@ const masthead = JSON.parse(unq(evalJs(`(() => {
     text: (el.textContent || '').slice(0, 160),
     title: (el.querySelector('h1')?.textContent || '').trim()
   };
-})()`)));
+})()`);
 must(masthead.present && masthead.screenHidden,
   "print masthead exists and is display:none on screen");
 must(/cryoflow/i.test(masthead.text) && /pipeline snapshot/i.test(masthead.text),
   `masthead carries document identity ("${masthead.text.slice(0, 60)}…")`);
 
 // ---- Print button entry point --------------------------------------------
-must(evalJs(`!!document.querySelector('button[aria-label="Print this view"]')`) === "true",
+must(await evalJs(`!!document.querySelector('button[aria-label="Print this view"]')`) === true,
   "header exposes a Print button (window.print entry point)");
 
 // ---- modal-on-paper: print WITH a dialog open (Task 70) ------------------
@@ -286,27 +275,32 @@ must(evalJs(`!!document.querySelector('button[aria-label="Print this view"]')`) 
 // below the xl breakpoint so the job panel opens as a Radix Sheet
 // (deterministic modal) instead of the static aside, verify the lock is
 // actually engaged, then print straight through it.
-sh(`${AB} set viewport 1100 800`);
+await p.setViewportSize({ width: 1100, height: 800 });
 await sleep(1200);
-await realClick(
-  `[...document.querySelectorAll('[role=button]')].find(x => (x.textContent||'').includes('${HOST_JOB}'))`,
-);
-await sleep(1500);
-const modalState = JSON.parse(unq(evalJs(`(() => {
+// the selection persisted through Phase A, so below the xl breakpoint the
+// panel may ALREADY be a Radix Sheet (overlay + scroll-lock engaged) —
+// clicking the card again would hit the overlay and playwright (correctly)
+// refuses; only click when no modal is up yet
+const preOpen = await p.evaluate(() => document.querySelectorAll("[role=dialog]").length > 0);
+if (!preOpen) {
+  await p.locator('[role="button"]', { hasText: HOST_JOB }).first().click();
+  await sleep(1500);
+}
+const modalState = await evalJs(`(() => {
   const d = document.querySelector('[role=dialog]');
   return {
     dialogs: document.querySelectorAll('[role=dialog]').length,
     locked: document.body.getAttribute('data-scroll-locked'),
     sheetHasDescription: d ? /pick good classes/i.test(d.textContent || '') : false,
   };
-})()`)));
+})()`);
 must(modalState.dialogs >= 1 && modalState.locked === "1",
   `Radix Sheet open with body scroll-locked (dialogs=${modalState.dialogs}, locked=${modalState.locked})`);
 must(modalState.sheetHasDescription === true,
   "open sheet actually shows panel-only content (description text) that must NOT reach the paper");
 
 // a real printToPDF pass — the stylesheet is applied by the print pipeline
-const pdf = sh(`${AB} pdf ${PDF_OUT}`);
+await p.pdf({ path: PDF_OUT });
 await sleep(1200);
 const pdfOk = existsSync(PDF_OUT) && statSync(PDF_OUT).size > 2000;
 must(pdfOk, `printToPDF produced an artifact (${existsSync(PDF_OUT) ? statSync(PDF_OUT).size : 0} bytes)`);
@@ -322,9 +316,9 @@ must(!lightText.includes("pickgoodclasses"),
 // If `:root, .dark { --background: white }` were broken, the page would
 // rasterize dark (or the forced-light text would vanish → dark-ratio ~ 0)
 // and the assertions below fail loudly instead of trusting rule presence.
-evalJs(`document.documentElement.classList.add('dark') + ''`);
+await p.evaluate(() => document.documentElement.classList.add("dark"));
 await sleep(400);
-sh(`${AB} pdf ${PDF_DARK}`);
+await p.pdf({ path: PDF_DARK });
 await sleep(1200);
 must(existsSync(PDF_DARK) && statSync(PDF_DARK).size > 2000,
   `forced-dark printToPDF produced an artifact (${existsSync(PDF_DARK) ? statSync(PDF_DARK).size : 0} bytes)`);
@@ -404,14 +398,14 @@ if (masthead.title) {
 }
 
 // restore the screen state: dismiss the sheet, restore the desktop viewport
-sh(`${AB} press Escape`);
+await p.keyboard.press("Escape");
 await sleep(800);
-sh(`${AB} set viewport 1600 900`);
+await p.setViewportSize({ width: 1600, height: 900 });
 await sleep(800);
 
-const errsB = JSON.parse(evalJs(`({ errs: window.__qaErrs || [] })`)).errs;
-must(errsB.length === 0, `zero page errors overall (got ${JSON.stringify(errsB)})`);
+must(consoleErrors.length === 0, `zero page errors overall (got ${JSON.stringify(consoleErrors)})`);
 console.log(`PHASE B GREEN (${PASS} asserts)`);
 
-cleanup();
+await cleanup();
 console.log(`QA66 GREEN (${PASS} asserts)`);
+process.exit(0);

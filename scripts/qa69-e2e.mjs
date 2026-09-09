@@ -18,11 +18,18 @@
 //   + labeled Scan button; picking the running job flips it teal with the
 //   autolive notice inside (12 s cadence, qa64 contract intact).
 //
+// Task 91 — MIGRATED agent-browser CLI → playwright (qa70 pilot, qa66
+// follow-up): assertion set byte-identical, only the driver changed. The
+// scroll-aware CDP click helper (Radix scroll-lock reverts scrollTop
+// writes) collapses into locator.click() — playwright auto-scrolls the
+// target into view through scroll-locked ancestors. Esc presses are real
+// trusted key events.
+//
 // Run: node scripts/qa69-e2e.mjs   (server on :3000, qa58+qa60+qa67 seeded)
+import { chromium } from "playwright";
 import { execSync } from "node:child_process";
 import { readFileSync, readdirSync } from "node:fs";
 
-const AB = "agent-browser";
 const B = "http://localhost:3000";
 // Task 85: DB resets stranded this anchor — resolve the living project at
 // runtime (env override keeps the old escape hatch)
@@ -30,66 +37,17 @@ const PROJECT = process.env.QA_PROJECT
   ?? (await (await fetch(`${B}/api/projects`)).json()).projects[0].id;
 const CARD2D = "QA Class2D Source";
 const HOST_JOB = "QA Post 320";
-const sh = (cmd) => execSync(cmd, { encoding: "utf8", timeout: 120_000 }).trim();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const evalJs = (expr) => execSync(`${AB} eval --stdin`, { encoding: "utf8", timeout: 120_000, input: expr }).trim();
-const unq = (s) => (s || "").replace(/^"|"$/g, "");
 let PASS = 0;
 const must = (cond, label) => {
-  if (!cond) { console.log(`FATAL: ${label}`); cleanup(); process.exit(1); }
+  if (!cond) { console.log(`FATAL: ${label}`); cleanup().then(() => process.exit(1)); return; }
   PASS++;
   console.log(`  ok: ${label}`);
 };
-function cleanup() {
-  try { sh(`${AB} close`); } catch {}
+let b = null;
+async function cleanup() {
+  try { if (b) await b.close(); } catch {}
 }
-
-const errCollector = `(() => {
-  if (window.__qaErrColl) return 'errcoll-kept';
-  window.__qaErrs = [];
-  window.addEventListener('error', (e) => window.__qaErrs.push(String(e.message || e).slice(0, 160)));
-  window.addEventListener('unhandledrejection', (e) => window.__qaErrs.push('rej:' + String((e.reason && e.reason.message) || e.reason).slice(0, 160)));
-  window.__qaErrColl = true;
-  return 'errcoll-on';
-})()`;
-const realClick = async (findExpr) => {
-  // scroll-aware (qa64 recipe): Radix scroll-lock reverts programmatic
-  // scrollTop writes, so when the target sits outside a scrollable
-  // ancestor's viewport drive agent-browser's CDP scroll gesture first
-  const locate = `(() => {
-    const el = (${findExpr}); if (!el) return null;
-    let p = el.parentElement, container = null;
-    while (p) {
-      const cs = getComputedStyle(p);
-      if (/(auto|scroll)/.test(cs.overflowY) && p.scrollHeight > p.clientHeight) { container = p; break; }
-      p = p.parentElement;
-    }
-    if (container) {
-      const er = el.getBoundingClientRect(), cr = container.getBoundingClientRect();
-      if (er.top < cr.top + 1 || er.bottom > cr.bottom - 1) {
-        const tid = container.getAttribute('data-testid');
-        const sel = tid ? '[data-testid=' + tid + ']' : (container.id ? '#' + container.id : null);
-        if (sel) return { scrollSel: sel, dir: er.top < cr.top ? 'up' : 'down' };
-      }
-    }
-    const r = el.getBoundingClientRect();
-    return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) };
-  })()`;
-  let probe = evalJs(locate);
-  if (!probe || probe === "null") return "NO-ELEMENT";
-  let pos = JSON.parse(probe);
-  if (pos.scrollSel) {
-    sh(`${AB} scroll ${pos.dir} 250 -s ${pos.scrollSel}`);
-    await sleep(250);
-    probe = evalJs(`(() => { const el = (${findExpr}); if (!el) return null; const r = el.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }; })()`);
-    if (!probe || probe === "null") return "NO-ELEMENT";
-    pos = JSON.parse(probe);
-  }
-  sh(`${AB} mouse move ${pos.x} ${pos.y}`);
-  sh(`${AB} mouse down`);
-  sh(`${AB} mouse up`);
-  return `clicked@${pos.x},${pos.y}`;
-};
 
 // ---- job ids via prisma (base64 script — quoting hell immunity) -----------
 function nodeRun(script, ...args) {
@@ -154,24 +112,34 @@ console.log(`PHASE A GREEN (${PASS} asserts)`);
 // ===========================================================================
 console.log("— PHASE B: live reveal in the hover:none browser —");
 
-sh(`${AB} close`); await sleep(1200);
-sh(`${AB} set viewport 1600 900`);
-sh(`${AB} open ${B}`);
-await sleep(5000);
-evalJs(errCollector);
+try { execSync("pkill -f agent-browser"); } catch { /* none running */ }
+// hasTouch flips the media environment to (hover: none) — the suite's
+// premise IS the hover:none browser (agent-browser's old headless reported
+// hover:none; playwright's desktop-default reports hover:hover, which
+// would silently verify nothing). Touch without isMobile keeps the
+// 1600×900 desktop layout.
+b = await chromium.launch();
+const touchCtx = await b.newContext({ viewport: { width: 1600, height: 900 }, hasTouch: true });
+const p = await touchCtx.newPage();
+const consoleErrors = [];
+p.on("console", (m) => { if (m.type() === "error") consoleErrors.push(m.text().slice(0, 160)); });
+p.on("pageerror", (e) => consoleErrors.push(String(e).slice(0, 160)));
+
+await p.goto(B, { waitUntil: "networkidle" });
+await sleep(1200);
 // forget persisted compare picks — each phase drives its own (qa64 parity)
-evalJs(`localStorage.removeItem('cryoflow.fsc-compare:${PROJECT}'); 'cleared'`);
+await p.evaluate((k) => localStorage.removeItem(k), `cryoflow.fsc-compare:${PROJECT}`);
 
 let onCanvas = false;
 for (let i = 0; i < 10 && !onCanvas; i++) {
-  const probe = evalJs(`(() => {
-    const card = [...document.querySelectorAll('[role=button]')].find(x => (x.textContent||'').includes('${CARD2D}'));
-    const dash = !!document.querySelector('h1') && (document.querySelector('h1').textContent||'').includes('Dashboard');
-    return (card ? 'CARD' : 'NOCARD') + (dash ? '+DASH' : '');
-  })()`);
+  const probe = await p.evaluate((card2d) => {
+    const card = [...document.querySelectorAll("[role=button]")].find((x) => (x.textContent || "").includes(card2d));
+    const dash = !!document.querySelector("h1") && (document.querySelector("h1").textContent || "").includes("Dashboard");
+    return (card ? "CARD" : "NOCARD") + (dash ? "+DASH" : "");
+  }, CARD2D);
   if (probe.includes("CARD")) onCanvas = true;
   else if (probe.includes("DASH")) {
-    evalJs(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'D', shiftKey: true, bubbles: true }))`);
+    await p.keyboard.press("Shift+D");
     await sleep(2200);
   } else await sleep(2000);
 }
@@ -179,76 +147,74 @@ must(onCanvas, "canvas renders with the class2d job card");
 
 let inResults = false;
 for (let i = 0; i < 6 && !inResults; i++) {
-  const c = await realClick(
-    `[...document.querySelectorAll('[role=button]')].find(x => (x.textContent||'').includes('${CARD2D}'))`,
-  );
-  if (c.includes("clicked@")) {
-    await sleep(1800);
-    await realClick(`[...document.querySelectorAll('[role=tab]')].find(t => t.textContent.trim() === 'Results')`);
-    await sleep(1200);
-    inResults = unq(evalJs(`String(!!document.querySelector('section[aria-label="Maps and images"]'))`)) === "true";
-  } else await sleep(1500);
+  await p.locator('[role="button"]', { hasText: CARD2D }).first().click();
+  await sleep(1800);
+  await p.locator('[role="tab"]', { hasText: /^Results$/ }).first().click();
+  await sleep(1200);
+  inResults = await p.evaluate(() => !!document.querySelector('section[aria-label="Maps and images"]'));
+  if (!inResults) await sleep(1500);
 }
 must(inResults, "inspector opens on the Results tab");
 
 for (let i = 0; i < 5; i++) {
-  await realClick(
-    `[...document.querySelectorAll('button[aria-label^="Enlarge"]')].find(b => (b.getAttribute('aria-label')||'').includes('orthovol'))`,
-  );
+  await p.locator('button[aria-label^="Enlarge"][aria-label*="orthovol"]').first().click();
   await sleep(1400);
-  if (unq(evalJs(`String([...document.querySelectorAll('button')].some(b => (b.textContent||'').includes('View in 3D')))`)) === "true") break;
+  if (await p.evaluate(() => [...document.querySelectorAll("button")].some((el) => (el.textContent || "").includes("View in 3D")))) break;
   await sleep(800);
 }
 for (let i = 0; i < 5; i++) {
-  await realClick(`[...document.querySelectorAll('button')].find(b => (b.textContent||'').includes('View in 3D'))`);
+  await p.locator("button", { hasText: "View in 3D" }).first().click();
   await sleep(1500);
-  if (unq(evalJs(`String(!!document.querySelector('[data-canvas-ui=ortho-panel]'))`)) === "true") break;
+  if (await p.evaluate(() => !!document.querySelector("[data-canvas-ui=ortho-panel]"))) break;
 }
 let viewerOpen = false;
 for (let i = 0; i < 10 && !viewerOpen; i++) {
-  viewerOpen = unq(evalJs(`String(!!document.querySelector('[data-canvas-ui=ortho-panel]'))`)) === "true";
+  viewerOpen = await p.evaluate(() => !!document.querySelector("[data-canvas-ui=ortho-panel]"));
   if (!viewerOpen) await sleep(2000);
 }
 must(viewerOpen, "Mol* dialog opens with the orthogonal slice strip");
 
-await realClick(`document.querySelector('[data-canvas-ui=ortho-panel] button[aria-expanded]')`);
+await p.locator('[data-canvas-ui="ortho-panel"] button[aria-expanded]').first().click();
 let tiles = 0;
 for (let i = 0; i < 6 && tiles < 3; i++) {
-  tiles = Number(unq(evalJs(`String(document.querySelectorAll('[data-canvas-ui^=ortho-tile] img').length)`)));
+  tiles = await p.evaluate(() => document.querySelectorAll("[data-canvas-ui^=ortho-tile] img").length);
   if (tiles < 3) await sleep(1200);
 }
 must(tiles === 3, `strip expands to three plane tiles (${tiles})`);
 
 // THE fix: at rest, with no pointer in sight, the crosshair is visible.
 // In this env (hover:hover does NOT match) Task 67 measured opacity 0.
-const xhOpacity = unq(evalJs(`String(document.querySelector('[data-canvas-ui=ortho-tile-z] button[aria-label^="Show the XY plane"]') ? getComputedStyle(document.querySelector('[data-canvas-ui=ortho-tile-z] button[aria-label^="Show the XY plane"]')).opacity : 'NOBTN')`));
+const xhOpacity = await p.evaluate(() => {
+  const el = document.querySelector('[data-canvas-ui=ortho-tile-z] button[aria-label^="Show the XY plane"]');
+  return el ? getComputedStyle(el).opacity : "NOBTN";
+});
 must(xhOpacity === "1", `crosshair visible at rest in hover:none env (opacity=${xhOpacity})`);
 
 // functionality intact: ⌖ still mirrors the plane into the 3D scene
-await realClick(`document.querySelector('[data-canvas-ui=ortho-tile-z] button[aria-label^="Show the XY plane"]')`);
+await p.locator('[data-canvas-ui="ortho-tile-z"] button[aria-label^="Show the XY plane"]').first().click();
 await sleep(1200);
 let slice3d = "";
 for (let i = 0; i < 8 && !slice3d.startsWith("OK"); i++) {
-  slice3d = unq(evalJs(`(() => {
+  slice3d = await p.evaluate(() => {
     const t = [...document.querySelectorAll('button[aria-label="Toggle cross-section plane"]')].pop();
     const s = document.querySelector('[role=slider][aria-label^="Cross-section plane position"]');
-    if (!t) return 'NO-TOGGLE';
-    if (!s) return 'NO-SLIDER';
-    return 'OK pressed=' + t.getAttribute('aria-pressed');
-  })()`));
+    if (!t) return "NO-TOGGLE";
+    if (!s) return "NO-SLIDER";
+    return "OK pressed=" + t.getAttribute("aria-pressed");
+  });
   if (!slice3d.startsWith("OK")) await sleep(1200);
 }
 must(slice3d.startsWith("OK") && slice3d.includes("true"),
   `crosshair still lights the 3D cross-section (got ${slice3d})`);
 
 // one Esc peels only the viewer (Task 66's global-Esc guard holds)
-sh(`${AB} press Escape`);
+await p.keyboard.press("Escape");
 await sleep(900);
-const layer1 = unq(evalJs(`(() => {
-  const ortho = !!document.querySelector('[data-canvas-ui=ortho-panel]');
-  const insp = !!document.querySelector('[role=dialog]');
-  return (ortho ? 'ORTHO ' : 'no-ortho ') + (insp ? 'INSP' : 'no-insp');
-})() + ''`));
+const layer1 = await p.evaluate(() => {
+  const ortho = !!document.querySelector("[data-canvas-ui=ortho-panel]");
+  const insp = !!document.querySelector("[role=dialog]");
+  return (ortho ? "ORTHO " : "no-ortho ") + (insp ? "INSP" : "no-insp");
+});
 must(layer1.trim() === "no-ortho INSP", `Esc peels only the viewer (got ${layer1})`);
 
 // Files tab: the row Download button is visible at rest too.
@@ -257,47 +223,43 @@ must(layer1.trim() === "no-ortho INSP", `Esc peels only the viewer (got ${layer1
 // its own [role=tab]s).
 let filesTab = false;
 for (let i = 0; i < 5 && !filesTab; i++) {
-  await realClick(`[...document.querySelectorAll('[role=dialog] [role=tab]')].find(t => t.textContent.trim().startsWith('Files'))`);
+  await p.locator('[role="dialog"] [role="tab"]').filter({ hasText: /^Files/ }).first().click();
   await sleep(1200);
-  filesTab = unq(evalJs(`String(!!document.querySelector('[role=dialog] table'))`)) === "true";
+  filesTab = await p.evaluate(() => !!document.querySelector("[role=dialog] table"));
 }
 must(filesTab, "Files tab opens the output file table");
 let dlOpacity = "";
 for (let i = 0; i < 6 && dlOpacity !== "1"; i++) {
-  dlOpacity = unq(evalJs(`(() => {
-    const b = [...document.querySelectorAll('[role=dialog] button[aria-label^="Download"]')][0];
-    if (!b) return 'NOBTN';
-    return String(getComputedStyle(b).opacity);
-  })()`));
+  dlOpacity = await p.evaluate(() => {
+    const el = [...document.querySelectorAll('[role=dialog] button[aria-label^="Download"]')][0];
+    if (!el) return "NOBTN";
+    return String(getComputedStyle(el).opacity);
+  });
   if (dlOpacity !== "1") await sleep(900); // outputs fetch + table render
 }
 must(dlOpacity === "1", `Download visible in hover:none env (opacity=${dlOpacity})`);
 
-const errsB = JSON.parse(evalJs(`({ errs: window.__qaErrs || [] })`)).errs;
-must(errsB.length === 0, `zero page errors in Phase B (got ${JSON.stringify(errsB)})`);
+must(consoleErrors.length === 0, `zero page errors in Phase B (got ${JSON.stringify(consoleErrors)})`);
 console.log(`PHASE B GREEN (${PASS} asserts)`);
 
 // ===========================================================================
 console.log("— PHASE C: compare dialog freshness strip —");
 
 // leave the class2d inspector, open the host postprocess instead
-sh(`${AB} press Escape`);
+await p.keyboard.press("Escape");
 await sleep(900);
-const backToCanvas = unq(evalJs(`String(!document.querySelector('[role=dialog]'))`));
+const backToCanvas = await p.evaluate(() => !document.querySelector("[role=dialog]"));
 must(backToCanvas, "second Esc peels the inspector back to the canvas");
 
 let modal = false;
 for (let i = 0; i < 5 && !modal; i++) {
-  const r = await realClick(
-    `[...document.querySelectorAll('[role=button]')].find(x => (x.textContent||'').includes('${HOST_JOB}'))`,
-  );
-  if (r.includes("clicked@")) {
-    await sleep(1500);
-    modal = unq(evalJs(`(() => {
-      const dl = [...document.querySelectorAll('[role=dialog]')].find(d => (d.textContent||'').includes('${HOST_JOB}'));
-      return dl ? 'MODAL' : 'NONE';
-    })() + ''`)) === "MODAL";
-  } else await sleep(1500);
+  await p.locator('[role="button"]', { hasText: HOST_JOB }).first().click();
+  await sleep(1500);
+  modal = await p.evaluate((host) => {
+    const dl = [...document.querySelectorAll("[role=dialog]")].find((d) => (d.textContent || "").includes(host));
+    return !!dl;
+  }, HOST_JOB);
+  if (!modal) await sleep(1500);
 }
 must(modal, "inspector modal opens for the host postprocess job");
 
@@ -306,9 +268,12 @@ must(modal, "inspector modal opens for the host postprocess job");
 // and the "never stomp a manual tab choice" guard is doing its job. A real
 // user would click Results; so does the harness.
 for (let i = 0; i < 5; i++) {
-  const hasCompare = unq(evalJs(`String([...document.querySelectorAll('[role=dialog] button')].some(b => (b.getAttribute('aria-label')||'').includes('compare') || (b.title||'').includes('compare')))`));
-  if (hasCompare === "true") break;
-  await realClick(`[...document.querySelectorAll('[role=dialog] [role=tab]')].find(t => t.textContent.trim().startsWith('Results'))`);
+  const hasCompare = await p.evaluate(() =>
+    [...document.querySelectorAll("[role=dialog] button")].some(
+      (el) => (el.getAttribute("aria-label") || "").includes("compare") || (el.title || "").includes("compare")
+    ));
+  if (hasCompare) break;
+  await p.locator('[role="dialog"] [role="tab"]').filter({ hasText: /^Results/ }).first().click();
   await sleep(1400);
 }
 
@@ -323,78 +288,74 @@ must(WANT_ROWS >= 5, `fsc-index reachable for row expectation (got ${WANT_ROWS})
 let dialog = false;
 const attempts = [];
 for (let i = 0; i < 5 && !dialog; i++) {
-  const r = await realClick(
-    `[...document.querySelectorAll('[role=dialog] button')].find(b => (b.getAttribute('aria-label')||'').includes('compare') || (b.title||'').includes('compare'))`,
-  );
-  if (r.includes("clicked@")) {
-    await sleep(1800);
-    dialog = unq(evalJs(`String(document.querySelectorAll('[data-testid=fsc-compare-row]').length)`)) === String(WANT_ROWS);
-  } else await sleep(1500);
-  attempts.push(`${i}:${r.slice(0, 14)}:rows=${unq(evalJs("String(document.querySelectorAll('[data-testid=fsc-compare-row]').length)"))}`);
+  await p.locator('[role="dialog"] button[aria-label*="compare"], [role="dialog"] button[title*="compare"]').first().click();
+  await sleep(1800);
+  const rows = await p.evaluate(() => document.querySelectorAll("[data-testid=fsc-compare-row]").length);
+  dialog = rows === WANT_ROWS;
+  attempts.push(`${i}:rows=${rows}`);
 }
 must(dialog, `compare dialog opens with ${WANT_ROWS} rows (attempts: ${attempts.join(" | ")})`);
 
 // the strip always exists, with real idle content and a labeled Scan button
 let stripIdle = "";
 for (let i = 0; i < 6 && !stripIdle; i++) {
-  stripIdle = unq(evalJs(`(() => {
-    const s = document.querySelector('[data-testid=fsc-compare-freshness]');
-    if (!s) return '';
-    const idle = (s.textContent || '').match(/\\d+ curves? indexed/);
-    return idle ? idle[0] : 'NOSTRIPTEXT';
-  })()`));
+  stripIdle = await p.evaluate(() => {
+    const s = document.querySelector("[data-testid=fsc-compare-freshness]");
+    if (!s) return "";
+    const idle = (s.textContent || "").match(/\d+ curves? indexed/);
+    return idle ? idle[0] : "NOSTRIPTEXT";
+  });
   if (!stripIdle || stripIdle === "NOSTRIPTEXT") { stripIdle = ""; await sleep(900); }
 }
 must(stripIdle === `${WANT_ROWS} curves indexed`, `idle strip counts the index (got "${stripIdle}")`);
 
-const scanBtn = unq(evalJs(`(() => {
-  const b = document.querySelector('[data-testid=fsc-compare-rescan]');
-  if (!b) return 'NOBTN';
-  return (b.offsetParent ? 'VISIBLE' : 'HIDDEN') + ':' + (b.textContent || '').trim();
-})()`));
+const scanBtn = await p.evaluate(() => {
+  const el = document.querySelector("[data-testid=fsc-compare-rescan]");
+  if (!el) return "NOBTN";
+  return (el.offsetParent ? "VISIBLE" : "HIDDEN") + ":" + (el.textContent || "").trim();
+});
 must(scanBtn === "VISIBLE:Scan", `Scan button visible with a real label (got ${scanBtn})`);
 
 // re-scan keeps the list intact (qa62's survival contract, restated)
-await realClick(`document.querySelector('[data-testid=fsc-compare-rescan]')`);
+await p.locator('[data-testid="fsc-compare-rescan"]').click();
 await sleep(2200);
-const rowsAfter = unq(evalJs(`String(document.querySelectorAll('[data-testid=fsc-compare-row]').length)`));
-must(rowsAfter === String(WANT_ROWS), `list survives a re-scan (rows=${rowsAfter})`);
+const rowsAfter = await p.evaluate(() => document.querySelectorAll("[data-testid=fsc-compare-row]").length);
+must(rowsAfter === WANT_ROWS, `list survives a re-scan (rows=${rowsAfter})`);
 
 // picking the running job flips the whole strip teal, notice inside
-await realClick(`document.querySelector('[data-testid=fsc-compare-row][data-job-id="${LIVE_ID}"]')?.querySelector('button[role=checkbox]')`);
+await p.locator(`[data-testid="fsc-compare-row"][data-job-id="${LIVE_ID}"] button[role="checkbox"]`).first().click();
 await sleep(1200);
-const checked = unq(evalJs(
-  `String(document.querySelector('[data-testid=fsc-compare-row][data-job-id="${LIVE_ID}"] button[role=checkbox]')?.getAttribute('aria-checked') || 'MISSING')`,
-));
+const checked = await p.evaluate((liveId) =>
+  document.querySelector(`[data-testid=fsc-compare-row][data-job-id="${liveId}"] button[role=checkbox]`)?.getAttribute("aria-checked") || "MISSING", LIVE_ID);
 must(checked === "true", `picked QA Refine Live (aria-checked=${checked})`);
 
 let liveInfo = "";
 for (let i = 0; i < 6 && !liveInfo; i++) {
-  liveInfo = unq(evalJs(`(() => {
-    const strip = document.querySelector('[data-testid=fsc-compare-freshness]');
-    const notice = document.querySelector('[data-testid=fsc-compare-autolive]');
-    if (!strip || !notice) return '';
-    const teal = strip.className.includes('border-teal-600');
-    const cadence = (notice.textContent || '').includes('12');
-    return (teal ? 'TEAL' : 'PLAIN') + '+' + (cadence ? 'CADENCE12' : 'NOCADENCE');
-  })()`));
+  liveInfo = await p.evaluate(() => {
+    const strip = document.querySelector("[data-testid=fsc-compare-freshness]");
+    const notice = document.querySelector("[data-testid=fsc-compare-autolive]");
+    if (!strip || !notice) return "";
+    const teal = strip.className.includes("border-teal-600");
+    const cadence = (notice.textContent || "").includes("12");
+    return (teal ? "TEAL" : "PLAIN") + "+" + (cadence ? "CADENCE12" : "NOCADENCE");
+  });
   if (!liveInfo) await sleep(900);
 }
 must(liveInfo === "TEAL+CADENCE12", `live strip is teal with the 12 s cadence (got ${liveInfo})`);
 
 // Esc peels the compare dialog; the inspector survives (layering intact)
-sh(`${AB} press Escape`);
+await p.keyboard.press("Escape");
 await sleep(900);
-const layerC = unq(evalJs(`(() => {
-  const cmp = !!document.querySelector('[data-testid=fsc-compare-freshness]');
-  const insp = !!document.querySelector('[role=dialog]');
-  return (cmp ? 'CMP ' : 'no-cmp ') + (insp ? 'INSP' : 'no-insp');
-})() + ''`));
+const layerC = await p.evaluate(() => {
+  const cmp = !!document.querySelector("[data-testid=fsc-compare-freshness]");
+  const insp = !!document.querySelector("[role=dialog]");
+  return (cmp ? "CMP " : "no-cmp ") + (insp ? "INSP" : "no-insp");
+});
 must(layerC.trim() === "no-cmp INSP", `Esc peels only the compare dialog (got ${layerC})`);
 
-const errsC = JSON.parse(evalJs(`({ errs: window.__qaErrs || [] })`)).errs;
-must(errsC.length === 0, `zero page errors overall (got ${JSON.stringify(errsC)})`);
+must(consoleErrors.length === 0, `zero page errors overall (got ${JSON.stringify(consoleErrors)})`);
 console.log(`PHASE C GREEN (${PASS} asserts)`);
 
-cleanup();
+await cleanup();
 console.log(`QA69 GREEN (${PASS} asserts)`);
+process.exit(0);
