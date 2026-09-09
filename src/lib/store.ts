@@ -90,9 +90,12 @@ interface WorkflowState {
    *  command palette) — single source of truth so all three entries stay
    *  in sync. */
   shortcutsOpen: boolean;
-  /** Note spotlight (Task 75) — when true, canvas cards WITHOUT a note dim
-   *  toward the background so the scientist's annotations (Task 73) jump
-   *  out at a glance. In-memory only, like the selection: the spotlight is
+  /** Note spotlight (Task 75) — when true, canvas cards WITHOUT a human
+   *  judgment dim toward the background so the scientist's annotations
+   *  (job notes, Task 73; class notes, Task 80/83) jump out at a glance.
+   *  "Judgment" = hasJudgment in lib/class-notes.ts — the same predicate
+   *  the header chip count and the dashboard Noted filter read. In-memory
+   *  only, like the selection: the spotlight is
    *  a viewing lens, not a document property — nobody expects "which cards
    *  were dimmed last session" to survive a reload. Toggled from the
    *  header chip, the command palette, or the N key. */

@@ -34,6 +34,7 @@ import {
   jobType,
   portY,
 } from "@/lib/workflow";
+import { hasJudgment } from "@/lib/class-notes";
 import { pendingWirePath } from "@/lib/edge-geom";
 import { exportCanvasPng, fmtBytes } from "@/lib/canvas-export";
 import {
@@ -739,9 +740,13 @@ export function WorkflowCanvas() {
   // "Ready" hint: idle job whose upstream (any incoming edge, possibly in
   // ANOTHER workspace — links included) is completed.
   const allJobs = useWorkflowStore((s) => s.jobs);
-  // Note spotlight lens (Task 75): cards without a note dim as one unit —
-  // the class lives on the positioned [data-job] root so body, badge and
-  // ports recede together (print is exempt via the globals.css override).
+  // Note spotlight lens (Task 75, predicate upgraded in Task 83): cards
+  // without human judgment dim as one unit — the class lives on the
+  // positioned [data-job] root so body, badge and ports recede together
+  // (print is exempt via the globals.css override). hasJudgment is the
+  // SAME predicate the dashboard Noted chip and the header count read:
+  // a card annotated only through class notes must not go dark while
+  // the lens claims to spotlight "noted" work.
   const noteSpotlight = useWorkflowStore((s) => s.noteSpotlight);
   const allEdges = useWorkflowStore((s) => s.edges);
   const completedIds = React.useMemo(
@@ -1242,7 +1247,7 @@ export function WorkflowCanvas() {
             <JobCard
               key={job.id}
               job={job}
-              dimmed={noteSpotlight && !job.note}
+              dimmed={noteSpotlight && !hasJudgment(job)}
               selected={selectedIds.includes(job.id)}
               primary={selectedId === job.id}
               bandMatch={bandIds?.has(job.id) ?? false}

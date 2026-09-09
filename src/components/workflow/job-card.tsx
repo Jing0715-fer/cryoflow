@@ -31,6 +31,7 @@ import { useWorkflowStore, type PendingFrom } from "@/lib/store";
 import { computeEdgeGeoms, setLiveDrag } from "@/lib/edge-geom";
 import { registerGroupMember, beginGroupDrag, moveGroupDrag, endGroupDrag } from "@/lib/group-drag";
 import { BULK_DELETE_EVENT, type JobDTO, type JobTypeSpec, type ParamValue } from "@/lib/types";
+import { parseClassNotes } from "@/lib/class-notes";
 import { TypeIcon } from "./icons";
 import { Badge } from "@/components/ui/badge";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
@@ -512,9 +513,11 @@ function JobCardMenu({
 
 interface JobCardProps {
   job: JobDTO;
-  /** Note spotlight lens (Task 75) — the canvas turns this on for cards
-   *  WITHOUT a note while the lens is active; the card recedes (opacity +
-   *  desaturation) so noted cards pop. Print ignores it entirely. */
+  /** Note spotlight lens (Task 75, predicate upgraded in Task 83) — the
+   *  canvas turns this on for cards WITHOUT a human judgment (job note OR
+   *  class notes, via hasJudgment) while the lens is active; the card
+   *  recedes (opacity + desaturation) so annotated cards pop. Print
+   *  ignores it entirely. */
   dimmed?: boolean;
   /** This card is part of the current selection (multi-select aware). */
   selected: boolean;
@@ -726,6 +729,44 @@ function JobCardPreview({
             {job.result}
           </p>
         ) : null}
+        {/* Annotations (Task 83) — the preview is the "inspect without
+            opening" surface, so this is where the remarks actually read:
+            the row-1 badges only carry a count/title. Job note first (the
+            step-level remark), then up to two class notes with "+N more"
+            when the map runs longer. line-clamp keeps the 300-char cap
+            from wrecking the card; the full text lives in the editors. */}
+        {(() => {
+          const entries = Object.entries(parseClassNotes(job.params.classNotes));
+          const shown = entries.slice(0, 2);
+          const rest = entries.length - shown.length;
+          if (!job.note && entries.length === 0) return null;
+          return (
+            <div className="space-y-1">
+              {job.note ? (
+                <p
+                  className="line-clamp-2 rounded border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[10.5px] italic leading-snug text-amber-700 dark:text-amber-300"
+                  title={job.note}
+                >
+                  {job.note}
+                </p>
+              ) : null}
+              {shown.map(([k, v]) => (
+                <p
+                  key={k}
+                  className="line-clamp-1 rounded border border-amber-500/20 bg-amber-500/5 px-2 py-1 text-[10px] italic leading-snug text-amber-700 dark:text-amber-300"
+                  title={`Class ${k}: ${v}`}
+                >
+                  <span className="font-semibold not-italic">Class {k}</span> · {v}
+                </p>
+              ))}
+              {rest > 0 ? (
+                <p className="text-[9.5px] font-medium tabular-nums text-amber-600/80 dark:text-amber-400/80">
+                  +{rest} more class note{rest === 1 ? "" : "s"}
+                </p>
+              ) : null}
+            </div>
+          );
+        })()}
         {params.length > 0 ? (
           <div className="space-y-1">
             {params.map((p) => (
@@ -794,6 +835,19 @@ export const JobCard = React.memo(function JobCard({
     const eta = estimateEta(job.id, job.startedAt, job.progress);
     return eta != null ? formatEta(eta) : null;
   }, [mounted, job.status, job.id, job.startedAt, job.progress]);
+
+  // Class-level annotations on this card (Task 83): the select2d classNotes
+  // param parsed through the shared lib helper. Memoized on the whole params
+  // object — the card re-renders on any job field change anyway, and the
+  // parse is O(notes), so this is about keeping the render body readable.
+  const classNotes = React.useMemo(
+    () => parseClassNotes(job.params.classNotes),
+    [job.params]
+  );
+  const classNoteEntries = React.useMemo(
+    () => Object.entries(classNotes),
+    [classNotes]
+  );
 
   React.useEffect(() => {
     if (mounted && job.status === "running") {
@@ -1334,6 +1388,26 @@ export const JobCard = React.memo(function JobCard({
                   <StickyNote className="size-3.5" aria-hidden="true" />
                 </span>
               ) : null}
+              {classNoteEntries.length > 0 ? (
+                // The canvas cousin of the dashboard's class-notes badge
+                // (Task 83): same amber count-pill grammar, so "the step's
+                // decisions carry margin notes" reads identically on both
+                // surfaces. Icon-only job-note badge + counted pill here
+                // mirror the dashboard's granularity twins. no-print: the
+                // paper card carries the notes themselves (excerpt swap
+                // below), not the management cue.
+                <span
+                  data-card-classnotes-badge=""
+                  data-card-classnotes-count={classNoteEntries.length}
+                  role="img"
+                  aria-label={`${classNoteEntries.length} class${classNoteEntries.length === 1 ? "" : "es"} noted`}
+                  title={`Class notes on ${classNoteEntries.map(([k]) => `Class ${k}`).join(", ")}`}
+                  className="no-print flex h-4 shrink-0 items-center gap-0.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 text-[9px] font-semibold tabular-nums text-amber-600 dark:text-amber-400"
+                >
+                  <StickyNote className="size-2.5" aria-hidden="true" />
+                  {classNoteEntries.length}
+                </span>
+              ) : null}
             </div>
 
             {/* Row 2: status + type + link lineage */}
@@ -1371,7 +1445,12 @@ export const JobCard = React.memo(function JobCard({
                 truncate+ellipsis is honest HERE (unlike the title rule —
                 names are identity and must never truncate on paper; notes
                 are prose and the "…" explicitly marks continuation — the
-                full text lives one hover away in the app). */}
+                full text lives one hover away in the app).
+                Task 83 extends the same swap to class-level annotations:
+                a card whose ONLY judgment lives in the select2d classNotes
+                param prints a compact "Class N: remark" digest — the paper
+                snapshot should not look un-annotated just because the note
+                is one granularity deeper. */}
             {job.note ? (
               <p
                 className="hidden truncate text-[9px] italic leading-4 text-amber-700 print:block"
@@ -1379,10 +1458,24 @@ export const JobCard = React.memo(function JobCard({
               >
                 {job.note}
               </p>
+            ) : classNoteEntries.length > 0 ? (
+              <p
+                className="hidden truncate text-[9px] italic leading-4 text-amber-700 print:block"
+                title={classNoteEntries.map(([k, v]) => `Class ${k}: ${v}`).join(" — ")}
+              >
+                {classNoteEntries.length === 1
+                  ? `Class ${classNoteEntries[0][0]}: ${classNoteEntries[0][1]}`
+                  : // Multi-entry digest leads with the class INDEX: the
+                    // truncate clip cuts at the card width, so the scannable
+                    // fact ("which classes carry remarks") must paint before
+                    // the prose teasers — the clip eats the tail, and the
+                    // "…" marks continuation exactly as for a job note.
+                    `Notes on Class ${classNoteEntries.map(([k]) => k).join(", ")} — ${classNoteEntries.map(([k, v]) => `Class ${k}: ${v}`).join(" — ")}`}
+              </p>
             ) : null}
 
             {/* Row 3: progress + ETA / result / ready hint */}
-            <div className={`h-4 ${job.note ? "print:hidden" : ""}`}>
+            <div className={`h-4 ${job.note || classNoteEntries.length > 0 ? "print:hidden" : ""}`}>
               {job.status === "running" ? (
                 <div className="flex items-center gap-1.5">
                   <MiniProgress

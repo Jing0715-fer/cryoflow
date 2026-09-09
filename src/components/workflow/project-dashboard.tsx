@@ -42,7 +42,7 @@ import {
   X,
 } from "lucide-react";
 import { useWorkflowStore } from "@/lib/store";
-import { parseClassNotes } from "@/lib/class-notes";
+import { parseClassNotes, hasJudgment } from "@/lib/class-notes";
 import { withLiveStats } from "@/lib/live-stats";
 import { PENDING_VIEW_KEY } from "@/lib/view-link";
 import { KpiSparkline } from "./kpi-sparkline";
@@ -852,11 +852,10 @@ function StageChip({ job, onClick }: { job: JobDTO; onClick: () => void }) {
  * Noted chip, the Noted filter slice and the dashboard 5-key all read
  * this one predicate, so pointer, filter and keyboard can never disagree
  * about what "noted" means.
+ * (Task 83: the predicate itself now lives in lib/class-notes.ts — the
+ * canvas spotlight lens and the header spotlight chip read the same
+ * source, so the dashboard and the canvas cannot drift apart.)
  */
-function hasJudgment(j: JobDTO): boolean {
-  if (j.note) return true;
-  return Object.keys(parseClassNotes(j.params.classNotes)).length > 0;
-}
 
 function JobRow({ job, onOpen }: { job: JobDTO; onOpen: () => void }) {
   const spec = jobType(job.type);

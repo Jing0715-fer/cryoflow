@@ -1,5 +1,5 @@
 /**
- * CryoFlow — class-note param helpers (shared by gallery + palette).
+ * CryoFlow — class-note param helpers (shared by gallery + palette + canvas).
  *
  * Class notes are the class-level annotation layer (Task 80): per-class
  * margin notes stored as the select2d `classNotes` param — a JSON map
@@ -7,6 +7,8 @@
  * Both the gallery (editor) and the command palette (retrieval) must agree
  * on exactly what counts as a note, so the parse lives here once.
  */
+
+import type { JobDTO } from "@/lib/types";
 
 /** Hard cap mirrored by the gallery's textarea maxLength. */
 export const CLASS_NOTE_MAX = 300;
@@ -32,4 +34,17 @@ export function parseClassNotes(raw: unknown): Record<string, string> {
     if (typeof v === "string" && v.trim().length > 0) out[k] = v;
   }
   return out;
+}
+
+/**
+ * The unified "Noted" predicate (Task 82, promoted to lib in Task 83):
+ * a job carries human judgment if it has a job-level note OR any class
+ * note inside its select2d params. Every "noted" surface must read THIS
+ * function — dashboard Noted chip + 5-key filter, the canvas note
+ * spotlight lens, and the header spotlight count — so the pointer and
+ * the keyboard and the lens can never disagree about what "noted" means.
+ */
+export function hasJudgment(j: Pick<JobDTO, "note" | "params">): boolean {
+  if (j.note) return true;
+  return Object.keys(parseClassNotes(j.params?.classNotes)).length > 0;
 }

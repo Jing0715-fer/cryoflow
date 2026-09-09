@@ -21,6 +21,7 @@ import {
   X,
 } from "lucide-react";
 import { useWorkflowStore, useActiveWorkspaceJobs } from "@/lib/store";
+import { hasJudgment } from "@/lib/class-notes";
 import { ThemeToggle } from "./theme-toggle";
 import { HelpPopover } from "./help-popover";
 import { CommandPaletteTrigger } from "./command-palette";
@@ -609,16 +610,19 @@ function ViewSwitcher() {
 /* ------------------------------------------------------------------ */
 
 /** Toggles the note-spotlight lens and shows how many jobs in the ACTIVE
- *  workspace carry a note. Disabled at zero — a lens over nothing is a
- *  dead control, and a disabled chip says "no annotations yet" more
+ *  workspace carry a human judgment. Disabled at zero — a lens over nothing
+ *  is a dead control, and a disabled chip says "no annotations yet" more
  *  honestly than an empty toggle. Counts the active workspace (not the
  *  global store) because the lens itself only dims the canvas in front
- *  of the user. */
+ *  of the user.
+ *  Task 83: counts via hasJudgment — job notes AND select2d class notes —
+ *  the same predicate the canvas lens and the dashboard Noted chip read,
+ *  so the chip can never promise a spotlight the lens won't deliver. */
 function NoteSpotlightChip() {
   const jobs = useActiveWorkspaceJobs();
   const on = useWorkflowStore((s) => s.noteSpotlight);
   const toggle = useWorkflowStore((s) => s.toggleNoteSpotlight);
-  const noted = jobs.filter((j) => j.note).length;
+  const noted = jobs.filter(hasJudgment).length;
   return (
     <button
       type="button"
@@ -630,8 +634,8 @@ function NoteSpotlightChip() {
       onClick={toggle}
       title={
         noted === 0
-          ? "No noted jobs yet — add a note from a job's Overview tab"
-          : `${noted} job${noted === 1 ? "" : "s"} carry a note — ${on ? "showing" : "click to spotlight"} them`
+          ? "No noted jobs yet — add a note from a job's Overview tab or annotate classes in the gallery"
+          : `${noted} job${noted === 1 ? "" : "s"} carry annotations — ${on ? "showing" : "click to spotlight"} them`
       }
       className={cn(
         "flex h-8 items-center gap-1.5 rounded-lg border px-2.5 card-lift transition-colors",

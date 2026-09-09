@@ -2832,3 +2832,23 @@ Stage Summary:
 - 「API 契约 = 编辑器契约」：classNotes 是单键参数，PATCH 整包替换——逐类编辑的正形是重建全 map 再 PATCH（gallery 如此，API 调用者亦然）。测试场景假设「逐类合并」静默丢失其余类，徽章归零暴露真相：参数级 JSON map 的合并粒度是参数键，不是 map 内键
 - harness 三课再印（闭包/序列化/场景设计）合计第六、首次、第二次应验——evaluate 探针的骨架应为：参数透传 + 返回纯数据 + 不返回 DOM 节点；「chip 文本胶水」（计数+kbd 拼接）加入弱断言模式库，与 pdftotext 拼接断裂同族
 - 遗留（下轮候选）：dashboard 打印表头跨页重复（真表格语义，继续悬置）；workflow-import 多文件（低优先）；EMPIAR 真数据回归（重）；β-Gal 零 workspace seed 规则；KPI 卡 truncate 徽章纸上展开细节；class-notes 徽章的 canvas job-card 表亲（画布卡片尚不显示类级注记）
+
+---
+Task ID: 83
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-09 22:14 window)
+Task: cron 自主巡检——Task 83「class 批注抵达画布」：批注五部曲（73 数据 → 74 纸面 → 75 检索 → 76/81 导航 → 82 dashboard 聚合）之后的最后缺口——画布（工作主界面）对类级注记视而不见。①job-card Row 1 新增琥珀 class-notes 计数徽章（dashboard 徽章的画布表亲，与 icon-only 的 job-note 徽章构成粒度孪生）；②hover 预览卡新增注记区（job note 块 + 至多两条 class note + "+N more" 诚实溢出）；③纸面契约扩展：classNotes-only 卡的 Row 3 swap 为多条目摘要——**索引先行**（"Notes on Class 3, 5, 7 — Class 3: …"），truncate 裁切只吃尾部 prose，可扫读的类号清单幸存；④note spotlight 生态（header chip 计数 + canvas lens 调光）从 j.note 升级为 hasJudgment 单谓词——与 dashboard Noted 芯片/5 键同一真相。hasJudgment 提升至 lib/class-notes.ts 单源。qa83 33 断言三连绿 + 全回归矩阵 16 套绿 + worklog + push
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 82（cron 文本所称 Task 13 早已完成勿信）、HEAD 98efd41 == origin/main、BUILD_ID e7T0P0rCKz0YQxUs_6Fp2 匹配；server 冷启动 + smoke + qa82/81/80 全绿 → 稳定，从 Task 82 遗留首位选题
+- 【调研升级】选题过程中发现缺口比「画布徽章」大一级：note spotlight 生态（Task 75）的三处引用——canvas dimmed 谓词（!job.note）、header NoteSpotlightChip 计数（filter j.note）、store 类型注释——全部只认 job note，与 Task 82 确立的 hasJudgment 单谓词矛盾：一个只在 gallery 里有类注记的卡会被 lens 调暗，而 lens 自称 spotlight「noted」工作。合并进本轮主题：批注的画布语义一次到位
+- 【实现】①lib/class-notes.ts：hasJudgment 提升（Pick<JobDTO,"note"|"params"> 放宽入参），dashboard 删本地定义改 import；②job-card：classNotes/classNoteEntries memo + Row 1 徽章（data-card-classnotes-badge，h-4 琥珀胶囊与 dashboard 同语法，no-print——纸面通道是摘要 swap 不是管理徽章）；③JobCardPreview 注记区（IIFE 内联块：job note line-clamp-2 琥珀框 + 至多两条 Class N · text + "+N more class notes"）；④纸面：print 摘录三元扩为三分支（job.note / classNotes 摘要 / null），Row 3 print:hidden 条件同步 `job.note || classNoteEntries.length > 0`；⑤canvas dimmed + header chip + store 注释换 hasJudgment；chip 零态文案补「or annotate classes in the gallery」、非零态改 carry annotations
+- 【qa83 首跑 3 FAIL 双教学】①A5：裸卡从 jobs0 取——jobs 列表跨全 workspace 而画布只渲染一个（qa77 教义），present=false → 改从画布 DOM 的 [data-job] ids 取；②D7/D8：纸面 pdftotext 实锤摘录被 truncate 裁到 "Class 3: qa83 ice ring artifact at th…"——**Task 74 的设计性裁切**（prose 截断 + … 续文标记是诚实的设计）但多类摘要下索引信息随尾部一起被吃 → 改摘要格式为索引先行（单条保持 "Class N: text" 散文体），断言重构为「索引上纸 + teaser 起笔 + 尾条刻意不上纸（D9 设计性缺席断言）」
+- 【回归三折皆家族性】qa66 class-grid null（qa58 自清理，第 N 次应验）→ 重播种绿；qa69 inspector-tab FATAL + qa70 Escape-peels FATAL（家族性抖动第 N 次现身）→ 各复跑绿；其余 12 套首轮全绿
+- 【收尾】eslint src 0（存量 scripts/qa63/64 2 错非本轮）、tsc src 0、production build（BUILD_ID o3ESfrlVk9u0U8aa6VGe4）；全矩阵：qa83 33×3 + smoke + qa58 + qa66 35 + qa69 34 + qa70 19 + qa72-verify（A4/Letter 双纸 11/11）+ qa73 + qa75 + qa76 + qa77 + qa78 + qa79 + qa80 + qa81 + qa82 串行全绿
+
+Stage Summary:
+- 「谓词升级的涟漪半径」：hasJudgment 诞生于 dashboard（Task 82），本轮提升到 lib 并扫过 spotlight 生态——一次语义扩张（Noted = 任意粒度的人类判断）要等它的全部三个读者（chip/lens/filter）同读一源才算完成；漏掉 lens 的后果是「画布调暗了 dashboard 说是 noted 的卡」，单源不只是 DRY 而是跨表面一致性合同
+- 「索引先行」是 truncate 纸面裁切下的信息架构原则：裁切不可避免时（卡宽固定、摘要长），让幸存的是可扫读的索引（哪些类被注记）而非第一个 prose teaser；Task 74 的「截断的名字=丢失的档案」教义在多条目场景的推广——名字/索引是身份，prose 是续文
+- 「设计性裁切」要有断言：D9 断言尾条注记**不在**纸上——截断行为本身是被测试的合同（… 标记 + 全文悬停可得），而不是被容忍的缺陷；与 qa79「弱断言」教训互补：存在性断言要全量，设计性缺席也要有断言守护
+- 预览卡注记区回答「hover 即读」：badge 只承载数（count/title），预览承载全文——与 palette 检索行（Task 81 列注记全文）同构：每个表面承载它密度合适的注记切片，同一数据从角标到纸面的五级展开（badge→preview→editor→palette→paper）
+- 遗留（下轮候选）：dashboard 打印表头跨页重复（真表格语义，继续悬置）；workflow-import 多文件（低优先）；EMPIAR 真数据回归（重）；β-Gal 零 workspace seed 规则；KPI 卡 truncate 徽章纸上展开细节；命令面板 Notes 组与 Class notes 组的计数徽章视觉统一（Notes 组无角标胶囊）
