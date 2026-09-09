@@ -529,7 +529,7 @@ function DashboardProjectCard({
       </div>
 
       {/* actions */}
-      <div className="mt-4 flex items-center gap-1.5">
+      <div className="no-print mt-4 flex items-center gap-1.5">
         <Button
           size="sm"
           className="h-8 flex-1 gap-1.5 text-xs"
@@ -712,7 +712,7 @@ function SavedViewsGallery({ activeProjectId }: { activeProjectId: string | null
           {total} bookmark{total === 1 ? "" : "s"} · {views.length} job{views.length === 1 ? "" : "s"} · click to jump
         </span>
       </div>
-      <div id="saved-views-wall" className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+      <div id="saved-views-wall" data-atomic-grid className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
         {wall.map(({ v, b }) => {
           const spec = jobType(v.jobType);
           return (
@@ -1533,7 +1533,9 @@ function ActiveProjectSpotlight({
           <Button
             size="sm"
             variant="outline"
-            className="ml-auto h-7 gap-1 px-2 text-[11px]"
+            // .no-print (Task 79): navigation CTA — paper has no view to
+            // switch to, the roster itself is the document
+            className="no-print ml-auto h-7 gap-1 px-2 text-[11px]"
             onClick={() => setView("canvas")}
           >
             <Workflow className="size-3.5" aria-hidden="true" />
@@ -1889,7 +1891,7 @@ export function ProjectDashboard() {
             grid below (pressed = that filter is on); Projects reals the grid
             and clears; Total jobs & engine stay informational (no project
             dimension to reveal) */}
-        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <div data-atomic-grid className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           <KpiCard
             icon={<FolderGit2 className="size-5" />}
             value={projects.length}
@@ -2110,7 +2112,7 @@ export function ProjectDashboard() {
               </div>
             )
           ) : (
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <div data-atomic-grid className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {sortedProjects.map((p) => (
                 <DashboardProjectCard
                   key={p.id}

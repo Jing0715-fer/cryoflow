@@ -665,7 +665,11 @@ export function Header() {
   const completed = jobs.filter((j) => j.status === "completed").length;
 
   return (
-    <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center justify-between gap-3 border-b bg-background/80 px-3 backdrop-blur supports-[backdrop-filter]:bg-background/60 sm:px-4">
+    // .no-print (Task 79): the app header is interactive chrome — on paper
+    // its controls (project picker, search, menus) are dead weight, and a
+    // sticky header would repeat on every printed page of a multi-page
+    // dashboard roster. PrintDocHeader is the official paper masthead.
+    <header className="no-print sticky top-0 z-40 flex h-14 shrink-0 items-center justify-between gap-3 border-b bg-background/80 px-3 backdrop-blur supports-[backdrop-filter]:bg-background/60 sm:px-4">
       {/* Brand */}
       <div className="flex min-w-0 items-center gap-2.5">
         <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">

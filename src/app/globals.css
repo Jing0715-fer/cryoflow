@@ -601,4 +601,71 @@
     overflow: visible !important;
     text-overflow: unset !important;
   }
+
+  /* --------------------------------------------------------------------
+   * Dashboard paper unroll (Task 79).
+   * The dashboard is an app SCREEN: its root is a flex-1 overflow-y-auto
+   * pane inside a h-dvh shell, and the Jobs roster is a max-h-80 scroller.
+   * On paper those constraints are lies — Chromium paginates inner scroll
+   * containers as fixed boxes, so a dashboard printout kept only the top
+   * KPI band and silently dropped everything below the fold (probe:
+   * 1798px of content in a 745px window, roster 677px inside 320px, one
+   * page total, spotlight section absent from the PDF). Paper is a
+   * document, not a viewport: release the shell height, unroll every
+   * scroll pane, and let the roster flow across as many pages as it needs.
+   * -------------------------------------------------------------------- */
+  [data-view="dashboard"] {
+    height: auto !important;
+  }
+  /* main (flex-1 pane) and the dashboard root it wraps — released together;
+     scoped to DIRECT children so inner progress bars (h-1 flex-1) survive */
+  [data-view="dashboard"] > main,
+  [data-view="dashboard"] > main > div {
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+  /* the Jobs roster: max-h-80 + overflow-y-auto is a 320px window on a
+     677px+ list — paper shows every row, not the first six */
+  [data-view="dashboard"]
+    section[aria-label="Active project spotlight"]
+    .max-h-80 {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  /* a roster row is one record — half a row on each of two pages is a
+     tear no paper archive should show */
+  [data-view="dashboard"]
+    section[aria-label="Active project spotlight"]
+    .max-h-80
+    > * {
+    break-inside: avoid;
+  }
+  /* roster names and workspace badges unwrap on paper (Task 74 doctrine:
+     a truncated name in an archival printout is a lost record); the path
+     line keeps its truncate — a wrapped path wrecks the row the same way
+     it wrecks a canvas card */
+  [data-view="dashboard"]
+    section[aria-label="Active project spotlight"]
+    .max-h-80
+    span.truncate:not(.block) {
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: unset !important;
+  }
+  /* the pipeline breadcrumb strip is a horizontal scroller on screen; on
+     paper let it wrap so the full stage sequence reads across lines
+     instead of clipping at the page edge */
+  [data-view="dashboard"]
+    section[aria-label="Active project spotlight"]
+    .overflow-x-auto {
+    overflow: visible !important;
+    flex-wrap: wrap !important;
+  }
+  /* small card grids (KPI band, saved views, projects): a tile split
+     across a page boundary reads as two broken halves */
+  [data-view="dashboard"] [data-atomic-grid] > * {
+    break-inside: avoid;
+  }
 }

@@ -2749,3 +2749,26 @@ Stage Summary:
 - 「当前视图」高亮是快捷键文档的第三次进化：清单（Task 71）→ 搜索（qa58 断言其内容）→ 上下文感知（本轮）——文档不再是静态列表而是「此刻可用性」的视图，scope 字段让数据自己声明作用域
 - 静默 GET 第三次咬人（qa77 worklog 明写教训仍犯）：api helper 的调用约定必须在脚本骨架里固化——**载荷必须显式走 body 字段**，且 setup 阶段就要有 API 真值断言当绊线（notedCount 拦截成功，浏览器阶段零浪费）；顺序也重要：re-orphan 先于 seed，否则自我擦拭
 - 遗留（下轮候选）：dashboard 打印跨页表头重复（break-after 未做）；workflow-import 多文件（低优先）；EMPIAR 真数据回归（重）；β-Gal 零 workspace 项目的 seed 规则；jobs 状态芯片的键盘化（1–4 被网格占用，状态类或需 7+ 或改为 h/j/k/l 循环——设计未决，先悬置）
+
+---
+Task ID: 79
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-09 19:59 window)
+Task: cron 自主巡检——Task 79「dashboard 全页打印修复（paper unroll）」：Task 74-78 的打印 QA 全部瞄准 canvas 契约，dashboard 纸面从未被真正验证——探针（t79-print-probe）实锤：dashboard 根容器是 h-dvh 壳内 flex-1 overflow-y-auto 滚动 pane，jobs 名册是 max-h-80 滚动盒，Chromium 打印时内层滚动容器按固定盒分页 → 1798px 内容被裁进 745px 单页（roster 677px 裁进 320px，spotlight 整段缺席，12 行只上纸 ~6 行且 qa76 B1 的「名字在场」恰好落在可见切片故从未暴露）。修复五件套 + qa79 25 断言三连绿 + 全回归矩阵 12 套绿 + worklog + push
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部实为 Task 78（cron 文本所称 Task 13 早已完成勿信）；HEAD c7933ea == origin/main、BUILD_ID 匹配；server 冷启动 + smoke 6/6 + qa78/77/76/75/73 串行全绿 → 稳定，进入选题
+- 【选题 + 探针】从 Task 78 遗留首位「dashboard 打印跨页表头」下钻，发现真问题大一级：不是表头重复而是整段内容被裁——探针实测 print 模拟下 root scroll 1798/client 745、roster 677/320、PDF 1 页、spotlight 完全缺席（first/last row 均不在纸上）
+- 【修复①unroll】@media print 下 [data-view="dashboard"] height:auto；> main 与 > main > div（直接子代限定——内层 h-1 flex-1 进度条幸存，A9 断言守护）释放 height/max-height/overflow；spotlight .max-h-80 名册解封（max-height:none + overflow:visible）
+- 【修复②行原子】名册行 break-inside:avoid（一行记录不跨页劈开）；③名字展开 span.truncate:not(.block)（Task 74 教义移植：截断的名字=丢失的档案；路径行保留 truncate——wrapped path wrecks the row）；④面包屑 StageChip 条 print 下 flex-wrap:wrap + overflow:visible（横向滚动条在纸上裁边）
+- 【修复⑤header 禁印】app Header 根加 no-print——交互 chrome 上纸无意义且 sticky 在多页打印会每页重复；PrintDocHeader 是官方纸面 masthead（qa72-verify 只断言 masthead+names+footer，不受影响）；连带项目卡 actions 行 + spotlight「Open workflow」CTA no-print；saved-views wall / KPI band / projects grid 挂 data-atomic-grid（> * break-inside:avoid）
+- 【qa79 首跑 2 FAIL 教学双例】B5：dashboard 里「Open workflow」有两处（540 项目卡 + 1542 roster），只禁了一处 → 项目卡 actions 行补 no-print；C2：canvas PDF 上 app header 在纸、masthead 缺席——**page.pdf() 尊重当前 emulateMedia 状态**（t79-media-probe 三腿实锤：screen 模拟直接把屏幕 chrome 打上纸），B 阶段留下的 screen 模拟污染 C 阶段 → C 阶段显式 re-emulate print。新暗礁类型：媒体模拟是持久状态，跨阶段泄漏
+- 【探针伪阴性教训】first row「不在纸上」实为探针 24 字符跨元素拼接断裂：job 名是「QA Refine Live」+ 状态「running」拼成「Liverunning」被误读为「Liver」，且 pdftotext 按 DOM 列序交错输出——B2 改为逐名匹配（12/12）而非行拼接
+- 【回归一折】qa66 首跑崩 class-grid null（qa58 上轮自清理拿走 gallery seed，第三次应验）→ qa58-seed-gallery.py 重播种后 35 断言绿
+- 【收尾】eslint src 0、tsc src 0、production build（BUILD_ID 5EMTX3ipL5QL_ZzEvqhZ1）；全矩阵：qa79 25×3 + smoke + qa72-verify（A4/Letter 双纸）+ qa78 + qa77 + qa76 + qa75 + qa73 + qa66 35 + qa69 34 + qa70 19 + qa58 ALL 串行全绿
+
+Stage Summary:
+- 「每个视图都该有自己的纸面契约」：canvas 有 fit-to-paper 单页快照（Task 72），dashboard 直到本轮才有真正的多页文档流——同一份 CSS 里两个视图走两条 print 路线（[data-view] 作用域隔离），打印不是视图的附属品而是第二张脸
+- 内层滚动容器是 Chromium 打印的第一暗礁（overflow 盒按固定分页不展开）：凡是 max-h/overflow-y 的 UI 折叠，纸上都要有一个明确的 unroll 反转，否则被折叠的内容静默消失——静默是最坏的失败模式（用户拿到的是「看起来完整」的 1 页纸）
+- 页面媒体模拟是持久状态：emulateMedia(screen) 之后 page.pdf() 就打屏幕——跨阶段的媒体状态要显式复位，与 Task 75 的「print transition:none」同属「媒体切换即风格切换」暗礁家族，但方向相反（那次是屏幕动画漏进 print，这次是 print 合同被屏幕模拟顶替）
+- qa76 B1 的「名字在场」是弱断言的活例：种子落在可见切片上 → 缺陷潜伏四轮。存在性断言要问「该在的都在」（全量）而非「想找的在」（抽查）
+- 遗留（下轮候选）：dashboard 打印表头跨页重复需真表格语义（thead 才会重复，roster 是 div 列表——刻意取舍未做）；KPI 卡片内 truncate 徽章纸上展开的细节；class 级批注（note 从 job 扩展到 gallery class）；workflow-import 多文件（低优先）；EMPIAR 真数据回归（重）；β-Gal 零 workspace 项目的 seed 规则
