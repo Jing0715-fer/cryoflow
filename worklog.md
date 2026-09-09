@@ -2729,3 +2729,23 @@ Stage Summary:
 - 「行事实 vs 交互 chrome」的打印二分又进一格：workspace 归属徽章是行的属性（纸上保留），过滤芯片行是交互工具（纸上 no-print）——判断标准不是好不好看而是「纸上的读者需不需要这个信息来理解行」
 - 静默 GET 是 harness 的暗礁新形态：helper 的 init 门控在 body 上，让所有无载荷调用（DELETE/带顶层载荷的 PATCH）降级成 GET——读永远成功所以无声无息；唯有「写后再读断言真值」（C2b/D1 模式）能钓出它。两层陷阱在同一轮连续出现，说明这个模式值得写进每个新 QA 脚本的骨架
 - 遗留（下轮候选）：dashboard 打印跨页表头重复（break-after 未做）；shortcuts dialog 按键高亮分组（锦上添花）；jobs 过滤器的键盘化（kbd prop 预留位：5 = Noted / 6 = Unassigned，需动 qa58/qa70 断言链）；workflow-import 多文件（低优先）；EMPIAR 真数据回归（重）；β-Gal 零 workspace 项目的 workspace 自动创建（degenerate case 目前安全但值得一条 seed 规则）
+
+---
+Task ID: 78
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 晚轮 2026-09-09 19:29 窗口）——Task 78「dashboard 过滤器键盘化 + shortcuts dialog 上下文高亮」：兑现 Task 76 悬置的 kbd prop 设计——①jobFilter 从 ActiveProjectSpotlight 上提到 ProjectDashboard（5/6 键与芯片共享同一状态源，键盘与指针一个真相）；②dashboard shortcutsRef 处理器扩展 5=Noted / 6=Unassigned（toggle 语义：再按回到 all；空切片时诚实死键 no-op，不做幽灵空态）；③Noted/Unassigned 芯片挂 <kbd>5</kbd>/<kbd>6</kbd> 徽章 + aria-keyshortcuts（可发现性与处理器互为孪生）；④shortcuts dialog dashboard 组新增 5/6 两行 + 「当前视图」分组高亮（scope 字段 + data-current-view + primary 色环 + current view 胶囊，随视图切换而移动——回答「这些键里哪些现在就能用」）。qa78 31 断言三连绿 + 全回归矩阵 10 套绿；worklog + push
+
+Work Log:
+- 【开局核对 + 选题】HEAD d9b1937 == Task 77 已 push、树净、BUILD_ID 匹配、smoke 绿；从 Task 77 遗留选「jobs 过滤器键盘化（kbd 预留位）+ shortcuts dialog 按键高亮分组」合成一个键盘主题；现场确认：1–4 处理器在 ProjectDashboard 的 shortcutsRef 模式内（视图条件渲染随组件卸载，作用域天然隔离），1–4 与 5/6 同视图不冲突
+- 【实现】JobFilter 类型提模块级；ActiveProjectSpotlight 改 props 注入（jobFilter + setJobFilter）；处理器键过滤扩到 1–6，原 else 惰性分支（key 4 隐式落入）改显式 else if；5/6 的守卫读渲染闭包新鲜状态（jobs.some(note) / workspaces.length && jobs.some(!workspaceId)——与芯片出现条件同一条判断，死键与隐藏芯片同语义）
+- 【dialog 上下文高亮】ShortcutGroup 加 scope?: "canvas" | "dashboard"；ShortcutsDialog 订阅 view；命中组 = rounded-lg primary/25 环 + primary/0.045 底 + 标签变 primary + 右侧「current view」胶囊（size-1 圆点）；未命中组 border-transparent 占位防布局跳；kbd 芯片命中时 primary 描边、否则原 muted——安静环而非接管，组仍是同一列表的一部分
+- 【qa78 首跑 setup 被自己的 API 真值断言拦下】noted PATCH 载荷又放顶层没包 body → 静默 GET——**qa77 刚写进 worklog 的教训第三次应验**；且 setup 顺序缺陷：re-orphan 靶（Import）同时是 note 靶，prisma 的 note:null 会抹掉刚种的 M1 → 重排为「先 re-orphan、后从 post 快照选 note 靶（排除孤儿，保证 Noted/Unassigned 切片不相交）」；notedCount 改从 seed 后重取的快照读
+- 【回归一折】qa76 首跑 1 FAIL（输出未留存）→ 连跑两轮 26 断言全绿，判一次性抖动（qa69/qa70 同款家族）；gallery 预防性重播种（qa58 上轮自清理，qa66 免疫）
+- 【收尾】eslint src 0、tsc src 0、production build（BUILD_ID 0gk4JArAfEXufwcBcEAJi200）；QA：qa78 31×3 + smoke 6/6 + qa72-verify（V6 双纸 11/11）+ qa75 + qa76 26×2 + qa77 + qa73 + qa66 35 + qa69 34 + qa70 19 + qa58 ALL 串行全绿
+
+Stage Summary:
+- 「预留位终会兑现」：Task 76 给 StatusFilterChip 留的 kbd prop 悬置了两轮——真正兑现它的不是更多设计而是等一个功能理由（键盘化）；悬置的设计要么长大要么删掉，悬置本身才是技术债
+- 键盘与指针共享一个状态源是「同一功能两个入口」的正形：jobFilter 上提后，按 5 和点 Noted 芯片不可能打架，aria-pressed 永远真实；分发器（keys）与展示（chips）分离但状态唯一
+- 「当前视图」高亮是快捷键文档的第三次进化：清单（Task 71）→ 搜索（qa58 断言其内容）→ 上下文感知（本轮）——文档不再是静态列表而是「此刻可用性」的视图，scope 字段让数据自己声明作用域
+- 静默 GET 第三次咬人（qa77 worklog 明写教训仍犯）：api helper 的调用约定必须在脚本骨架里固化——**载荷必须显式走 body 字段**，且 setup 阶段就要有 API 真值断言当绊线（notedCount 拦截成功，浏览器阶段零浪费）；顺序也重要：re-orphan 先于 seed，否则自我擦拭
+- 遗留（下轮候选）：dashboard 打印跨页表头重复（break-after 未做）；workflow-import 多文件（低优先）；EMPIAR 真数据回归（重）；β-Gal 零 workspace 项目的 seed 规则；jobs 状态芯片的键盘化（1–4 被网格占用，状态类或需 7+ 或改为 h/j/k/l 循环——设计未决，先悬置）

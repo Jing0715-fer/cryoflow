@@ -29,6 +29,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useWorkflowStore } from "@/lib/store";
+import { cn } from "@/lib/utils";
 
 interface ShortcutRow {
   /** key chips — split on spaces into individual <kbd>s */
@@ -40,6 +41,10 @@ interface ShortcutGroup {
   id: string;
   label: string;
   hint?: string;
+  /** which view this group lives on — when the dialog opens from the same
+   *  view the group gets the "you are here" treatment (Task 78): the eye
+   *  lands on the shortcuts that work RIGHT NOW before scanning the rest */
+  scope?: "canvas" | "dashboard";
   rows: ShortcutRow[];
 }
 
@@ -59,6 +64,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     id: "canvas",
     label: "Canvas",
     hint: "Ignored while typing in a form field",
+    scope: "canvas",
     rows: [
       { keys: "F", text: "Center the selected job in the viewport" },
       { keys: "0", text: "Reset pan & zoom (100 %)" },
@@ -74,8 +80,11 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
   {
     id: "dashboard",
     label: "Project dashboard",
+    scope: "dashboard",
     rows: [
       { keys: "1–4", text: "Grid filter — all · running · completed · failed" },
+      { keys: "5", text: "Jobs filter — noted (annotated) jobs only" },
+      { keys: "6", text: "Jobs filter — unassigned orphans only" },
     ],
   },
   {
@@ -105,6 +114,7 @@ const toChips = (keys: string) => keys.split(" ").filter(Boolean);
 export function ShortcutsDialog() {
   const open = useWorkflowStore((s) => s.shortcutsOpen);
   const setOpen = useWorkflowStore((s) => s.setShortcutsOpen);
+  const view = useWorkflowStore((s) => s.view);
   const [query, setQuery] = React.useState("");
 
   // reopening starts unfiltered — a stale filter looks like "the dialog
@@ -168,38 +178,73 @@ export function ShortcutsDialog() {
             </p>
           ) : (
             <div className="space-y-5">
-              {groups.map((g) => (
-                <section key={g.id} aria-label={`${g.label} shortcuts`}>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                    {g.label}
-                  </p>
-                  {g.hint && (
-                    <p className="mt-0.5 text-[10px] text-muted-foreground/70">{g.hint}</p>
-                  )}
-                  <dl className="mt-2 space-y-1.5">
-                    {g.rows.map((r) => (
-                      <div
-                        key={r.keys}
-                        className="flex items-center justify-between gap-4 rounded-md px-1.5 py-1 transition-colors hover:bg-muted/50"
-                      >
-                        <dd className="text-xs leading-relaxed text-muted-foreground">
-                          {r.text}
-                        </dd>
-                        <dt className="flex shrink-0 items-center gap-1">
-                          {toChips(r.keys).map((chip, i) => (
-                            <kbd
-                              key={i}
-                              className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px] font-semibold text-foreground/80"
-                            >
-                              {chip}
-                            </kbd>
-                          ))}
-                        </dt>
-                      </div>
-                    ))}
-                  </dl>
-                </section>
-              ))}
+              {groups.map((g) => {
+                const current = g.scope != null && g.scope === view;
+                return (
+                  <section
+                    key={g.id}
+                    aria-label={`${g.label} shortcuts`}
+                    data-current-view={current ? "true" : undefined}
+                    className={cn(
+                      // "you are here" — a quiet ring + tint, not a takeover:
+                      // the group still reads as part of the same list, it
+                      // just answers "which of these work right now" first
+                      "rounded-lg transition-colors duration-200",
+                      current
+                        ? "border border-primary/25 bg-primary/[0.045] px-2.5 py-2.5"
+                        : "border border-transparent"
+                    )}
+                  >
+                    <p
+                      className={cn(
+                        "flex items-center text-[10px] font-semibold uppercase tracking-[0.14em]",
+                        current ? "text-primary" : "text-muted-foreground"
+                      )}
+                    >
+                      {g.label}
+                      {current && (
+                        <span
+                          className="ml-auto flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-1.5 py-px text-[8px] font-bold uppercase tracking-wider text-primary"
+                          aria-hidden="true"
+                        >
+                          <span className="size-1 rounded-full bg-primary" />
+                          current view
+                        </span>
+                      )}
+                    </p>
+                    {g.hint && (
+                      <p className="mt-0.5 text-[10px] text-muted-foreground/70">{g.hint}</p>
+                    )}
+                    <dl className="mt-2 space-y-1.5">
+                      {g.rows.map((r) => (
+                        <div
+                          key={r.keys}
+                          className="flex items-center justify-between gap-4 rounded-md px-1.5 py-1 transition-colors hover:bg-muted/50"
+                        >
+                          <dd className="text-xs leading-relaxed text-muted-foreground">
+                            {r.text}
+                          </dd>
+                          <dt className="flex shrink-0 items-center gap-1">
+                            {toChips(r.keys).map((chip, i) => (
+                              <kbd
+                                key={i}
+                                className={cn(
+                                  "rounded border px-1.5 py-0.5 font-mono text-[10px] font-semibold",
+                                  current
+                                    ? "border-primary/40 bg-primary/10 text-primary"
+                                    : "bg-muted text-foreground/80"
+                                )}
+                              >
+                                {chip}
+                              </kbd>
+                            ))}
+                          </dt>
+                        </div>
+                      ))}
+                    </dl>
+                  </section>
+                );
+              })}
             </div>
           )}
         </div>

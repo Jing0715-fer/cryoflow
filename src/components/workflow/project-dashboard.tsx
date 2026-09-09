@@ -1363,7 +1363,13 @@ function StatusFilterChip({
   );
 }
 
-function ActiveProjectSpotlight() {
+function ActiveProjectSpotlight({
+  jobFilter,
+  setJobFilter,
+}: {
+  jobFilter: JobFilter;
+  setJobFilter: React.Dispatch<React.SetStateAction<JobFilter>>;
+}) {
   const project = useWorkflowStore((s) => s.project);
   const jobs = useWorkflowStore((s) => s.jobs);
   const workspaces = useWorkflowStore((s) => s.workspaces);
@@ -1377,9 +1383,7 @@ function ActiveProjectSpotlight() {
   // "noted" (Task 76) is the property filter: it answers "which jobs carry
   // a human judgment". "unassigned" (Task 77) is the location filter: it
   // answers "which rows live on NO canvas" — the cleanup queue for orphans.
-  const [jobFilter, setJobFilter] = React.useState<
-    "all" | "running" | "pending" | "completed" | "failed" | "idle" | "noted" | "unassigned"
-  >("all");
+  // State lives in ProjectDashboard (Task 78) so keys 5/6 can drive it.
 
   if (!project) return null;
 
@@ -1564,7 +1568,9 @@ function ActiveProjectSpotlight() {
                 n={noted.length}
                 tone="amber"
                 active={jobFilter === "noted"}
-                onClick={() => setJobFilter("noted")}
+                onClick={() => setJobFilter(jobFilter === "noted" ? "all" : "noted")}
+                dataFilter="noted"
+                kbd="5"
                 icon={<StickyNote className="size-2.5" aria-hidden="true" />}
               />
             )}
@@ -1574,8 +1580,9 @@ function ActiveProjectSpotlight() {
                 n={unassigned.length}
                 tone="amber"
                 active={jobFilter === "unassigned"}
-                onClick={() => setJobFilter("unassigned")}
+                onClick={() => setJobFilter(jobFilter === "unassigned" ? "all" : "unassigned")}
                 dataFilter="unassigned"
+                kbd="6"
                 icon={<TriangleAlert className="size-2.5" aria-hidden="true" />}
               />
             )}
@@ -1606,10 +1613,24 @@ function ActiveProjectSpotlight() {
  *  grid's unit is the project. */
 type GridFilter = "all" | "running" | "completed" | "failed";
 
+/** spotlight Jobs-list filter (Task 76/78) — "noted" and "unassigned" are
+ *  property filters, the rest are statuses. Hoisted to ProjectDashboard so
+ *  the 5/6 dashboard keys can drive it (same owner as the 1–4 grid keys). */
+type JobFilter =
+  | "all"
+  | "running"
+  | "pending"
+  | "completed"
+  | "failed"
+  | "idle"
+  | "noted"
+  | "unassigned";
+
 export function ProjectDashboard() {
   const projectsRaw = useWorkflowStore((s) => s.projects) as ProjectCard[];
   const project = useWorkflowStore((s) => s.project);
   const jobs = useWorkflowStore((s) => s.jobs);
+  const workspaces = useWorkflowStore((s) => s.workspaces);
   const system = useWorkflowStore((s) => s.system);
   const switchProject = useWorkflowStore((s) => s.switchProject);
   const setView = useWorkflowStore((s) => s.setView);
@@ -1631,6 +1652,11 @@ export function ProjectDashboard() {
   // initializer is fine, it's not a side effect, but storage may not exist
   // during SSR so the effect below re-syncs on the client)
   const [sortKey, setSortKey] = React.useState<ProjectSortKey>("oldest");
+
+  // spotlight Jobs-list filter — hoisted from ActiveProjectSpotlight so the
+  // 5/6 keys below drive the SAME state the chips render (keyboard and
+  // pointer share one source of truth)
+  const [jobFilter, setJobFilter] = React.useState<JobFilter>("all");
 
   React.useEffect(() => {
     setSortKey(loadSortKey());
@@ -1725,18 +1751,22 @@ export function ProjectDashboard() {
   const toggleGridFilter = (f: Exclude<GridFilter, "all">) =>
     drillToGrid(gridFilter === f ? "all" : f);
 
-  // Grid filter keyboard shortcuts (1–4): each key mirrors its visible
-  // counterpart — 1 the whole grid (Projects KPI), 2/3/4 the running/
-  // completed/failed drill-downs (KPI cards and presence chips). The ref
-  // indirection keeps the window subscription stable while the handler
-  // reads fresh state every render.
+  // Grid filter keyboard shortcuts (1–4) + Jobs-list filter keys (5/6,
+  // Task 78): each key mirrors its visible counterpart — 1 the whole grid
+  // (Projects KPI), 2/3/4 the running/completed/failed drill-downs (KPI
+  // cards and presence chips), 5 the Noted property filter, 6 the
+  // Unassigned location filter. 5/6 toggle: the key again returns to all —
+  // and both are HONEST DEAD KEYS when their slice is empty (no phantom
+  // empty state; the chip is hidden at zero and the key does nothing).
+  // The ref indirection keeps the window subscription stable while the
+  // handler reads fresh state every render.
   const shortcutsRef = React.useRef<(e: KeyboardEvent) => void>(() => {});
   React.useEffect(() => {
     shortcutsRef.current = (e: KeyboardEvent) => {
       // browsers own Ctrl/Cmd+digit (tab switching) — never fight them
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const key = e.key;
-      if (key !== "1" && key !== "2" && key !== "3" && key !== "4") return;
+      if (key !== "1" && key !== "2" && key !== "3" && key !== "4" && key !== "5" && key !== "6") return;
       const target = e.target;
       if (
         target instanceof HTMLElement &&
@@ -1756,7 +1786,18 @@ export function ProjectDashboard() {
       if (key === "1") drillToGrid("all");
       else if (key === "2") toggleGridFilter("running");
       else if (key === "3") toggleGridFilter("completed");
-      else toggleGridFilter("failed");
+      else if (key === "4") toggleGridFilter("failed");
+      else if (key === "5") {
+        if (jobs.some((j) => j.note)) {
+          setJobFilter((f) => (f === "noted" ? "all" : "noted"));
+        }
+      } else if (key === "6") {
+        // same condition the Unassigned chip uses: orphans only exist as a
+        // filterable slice once the project HAS workspaces
+        if (workspaces.length > 0 && jobs.some((j) => !j.workspaceId)) {
+          setJobFilter((f) => (f === "unassigned" ? "all" : "unassigned"));
+        }
+      }
     };
   });
   React.useEffect(() => {
@@ -1975,7 +2016,7 @@ export function ProjectDashboard() {
 
         {/* active project spotlight */}
         <div className="mt-6">
-          <ActiveProjectSpotlight />
+          <ActiveProjectSpotlight jobFilter={jobFilter} setJobFilter={setJobFilter} />
         </div>
 
         {/* projects grid */}
