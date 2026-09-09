@@ -839,8 +839,16 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       get().workspaces.find((w) => w.id === targetWsId)?.name ?? "the selected workspace";
     const okCount = entries.length - failedFiles.length;
     const where = `${switched ? " (canvas switched there)" : ""}`;
+    // toast real estate is a summary, not a ledger: past three files the
+    // names stop being scannable — name the first three honestly and point
+    // at the rest; the import dialog's queue (before confirm) always showed
+    // every failure in full, so the full truth was never hidden
+    const failedLabel =
+      failedFiles.length > 3
+        ? `${failedFiles.slice(0, 3).join(", ")} + ${failedFiles.length - 3} more`
+        : failedFiles.join(", ");
     const desc = failedFiles.length
-      ? `${okCount} of ${entries.length} imported — ${totalJobs} jobs · ${totalEdges} links in ${wsName}${where}; failed: ${failedFiles.join(", ")}`
+      ? `${okCount} of ${entries.length} imported — ${totalJobs} jobs · ${totalEdges} links in ${wsName}${where}; failed: ${failedLabel}`
       : `${okCount} workflow${okCount === 1 ? "" : "s"} — ${totalJobs} jobs · ${totalEdges} links recreated in ${wsName}${where}; nothing runs until you start it`;
     toast({
       title: failedFiles.length ? "Partially imported" : "Workflows imported",

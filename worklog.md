@@ -2926,3 +2926,27 @@ Stage Summary:
 - 「服务中的 build ≠ 磁盘上的 build」：BUILD_ID 对比、git log、树上验证都只证明磁盘状态；standalone 服务器是一个独立的、可能陈旧的、且 start-prod.sh 从未真正管理过的进程。重启脚本要按进程身份（server.js 路径）+ 端口双重清扫，live 判定要 served HTML 的 BUILD_ID + chunk 全 200 自证——「我重启过了」从来不是「新 build 在服务」的证据
 - 「漏斗共享先于形态扩张」：多文件导入没有让 canvas/palette 两个入口各自长大，而是先收敛出 parseWorkflowFiles 单源漏斗再让两入口变薄——形态可以多样（input 元素 vs 动态创建），解析契约只有一个。顺序 POST 的理由写在注释里：store 的 read-modify-write 合并是并发的天敌，性能让位给正确性
 - 遗留（下轮候选）：EMPIAR 真数据回归（重）；用户机器 class3d/refine3d 顺序模式与 topaz 实测反馈；undo toast 的批量文件名折叠（>3 文件时 failed 列表截断诚实化）；import 队列行的 hover 预览（warning 全文已在 title，可考虑 rich tooltip）；qa58 时代的 agent-browser CLI 探针整体迁移 playwright（冷启动竞态根除）
+
+---
+Task ID: 87
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-10 01:59 window)
+Task: cron 自主巡检——Task 87「params diff 泛化 + undo toast 文件名折叠」双主题：①新功能——FSC compare 对话框的 A/B 参数表（FscParamsDiff）从此只服务有 FSC 文件的 job；本轮泛化为任意同型 job 对的参数比较：画布框选恰好两个同型 job → 多选工具栏长出 Compare 按钮 → 薄壳对话框（ParamsDiffDialog）并排呈现启动参数——「两次 MotionCorr 到底差了哪」不再需要 FSC 曲线作为入场券。一个差异大脑两个表面（曲线溯源 + 独立比较），列序 = 点选序；②Task 86 遗留收尾——undo toast 的 failed 文件列表超 3 个诚实折叠（前三个点名 + "+N more"，全量真相仍在确认前的对话框队列）。t87 34 断言三连绿 + 全回归矩阵 20 套绿（qa66 自种子加固）+ worklog + push
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 86、HEAD 33e897a == origin/main、BUILD_ID iD9StF89C6DvxQTN_CKvy 匹配；生产冷启动 + served 自证 + smoke + t86/qa84/qa83 全绿 → 稳定
+- 【选题调研】Task 13 清单复核：#8 particles BFS 已是批处理实现（早年已修）、3D viewer 体积截面（slice+clip+bookmarks）已在位——13 时代清单彻底过时；duplicate/CSV 导出均已有。真缺口 = params diff：FscParamsDiff 组件本身完全通用（N 路行分类 changed/partial/same + differences-only 默认 + 人性化键名）却只挂在 FSC 对话框里
+- 【实现①diff 泛化】新建 params-diff-dialog.tsx：Dialog 壳 + FscParamsDiff + 固定列色（teal/amber，无曲线可配色的场景只需可分辨且一致）+ 可执行脚注；canvas SelectionToolbar：pickOrderPair memo（selectedIds 序 map 回 sel——点选序就是列序，jobs 列表序会打乱）、同型对才渲染 Compare 按钮（GitCompareArrows）、aria-label 动态加 "compare"
+- 【实现②折叠】store.ts importWorkflowBatch：failedFiles > 3 → slice(0,3) + "+N more"；注释写明「toast 是摘要不是账本，全量清单在确认前的队列里」
+- 【t87 首跑三折皆断言侧】①S4 期待 patchY=5 双侧相等——实际 POST /api/jobs 只存提供的键、不合并 defaults → patchY 双方缺失 → 根本不进 keys 集（partial 需要「至少一方有」）→ 断言改为「bfactor 相等 + patchY 双缺」；②A9/A13 读反了 toggle 语义——FscParamsDiff 的按钮文本是当前状态芯片（diffOnly=true 显示 "differences only"）非动作动词；③B2 选择序列逻辑错：3 选后移除 select2d 剩 A+B（同型）而非 A+select2d（异型）→ 改移除 B；④Z2 基线采集点在播种之后 → 移到 pre-clean 后
+- 【服务端失败注入·无 workspace 戏法】partial 路径需要 ≥1 成功 + >3 失败；客户端 parse 校验端口「存在性」而 server 校验「兼容性」（workflow-io 注释明示）→ 毒化文件 = motioncorr.outputs[micrographs] → extract.inputs[coords]（名字合法、kind 不兼容）×4 + 干净文件 ×1，默认 active workspace 即可，无需删 workspace 注入
+- 【D1 预期 400 学】4 个毒化 POST 的 400 是设计内结果，浏览器把失败 XHR 记为 console error → 断言拆成「恰 4 条 400 + 其余为 0」——预期内的失败不是污染，是断言的一部分
+- 【回归一折·qa66 家族病根治】qa66 首跑 class-grid null（qa58 自清理后 gallery 残缺，Task 80 以来第 N 次应验）→ 与 Task 86 对 qa58 的处理同构：qa66 boot 前自播 qa58-seed-gallery.py，套件顺序依赖从此拔除
+- 【B 相顺手的洞察】3 选时 compare 消失 = 同型对的唯一性守卫在 N>2 时天然成立（pickOrderPair 只在 length===2 且同型时非空）
+- 【收尾】eslint src 0、tsc src 0、production build（BUILD_ID PPyi9xCdDkqFCTSHujy07）+ served 自证 + 新 build smoke 绿；t87 34×3 全绿；全矩阵 20 套：smoke + qa58 + qa66 35（自种子后）+ qa69 35 + qa70 19 + qa72-verify + qa73 + qa75 + qa76 + qa77 + qa78 + qa79 + qa80 + qa81 + qa82 + qa83 + qa84 + t85 + t86 + t87 34×3 串行全绿
+
+Stage Summary:
+- 「组件的通用性是事实，可达性才是功能」：FscParamsDiff 写成 N 路通用表的那一刻就注定会有第二个表面——本轮没有重写任何 diff 逻辑，只是接了一根线（工具栏 → 薄壳对话框）。判断「泛化是否值得」的测试：组件接口是否已经在说通用语言（jobs + colorOf）而非领域语言（FSC 索引条目）——是的话，泛化只是可达性问题
+- 「POST 的参数键契约是『所写即所得』」：POST /api/jobs 只存提供的键、不合并 defaults（PATCH 同理）——测试造「相同行」要真正提供相同的值，而不是指望默认值兜底；「缺失」在 diff 表里是身份信息（partial 行），不是空白
+- 「预期内的失败要有断言户口」：注入 4 个服务端拒绝后 console 里出现 4 条 400——把它们从「console 干净」断言里豁免并**精确计数**（恰 4 条），比粗暴忽略更诚实：多一条少一条都该红
+- 「自种子教义完成时」：qa58 → qa66 → （更早的 qa81/83）全部自播后，矩阵里不再有隐藏的套件间顺序承诺——「先跑 X 再跑 Y」的口头惯例是定时炸弹，套件自己负责自己的前提
+- 遗留（下轮候选）：EMPIAR 真数据回归（重）；用户机器 class3d/refine3d 顺序模式与 topaz 实测反馈；params diff 的第三入口（job inspector 内「与同型兄弟比较」picker）；import 队列行 rich tooltip（title 已有全文）；qa58 时代 agent-browser CLI 探针迁移 playwright（66 是最后一个重度依赖 CLI 的套件，迁移收益随 66 的自种子递减）

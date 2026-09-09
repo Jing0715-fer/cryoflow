@@ -16,6 +16,7 @@ import {
   Download,
   FileJson,
   FileUp,
+  GitCompareArrows,
   Link2,
   Loader2,
   RotateCcw,
@@ -51,6 +52,7 @@ import { EdgesLayer } from "./edges-layer";
 import { PipelineKpi } from "./pipeline-kpi";
 import { CanvasMinimap } from "./canvas-minimap";
 import { JobCard } from "./job-card";
+import { ParamsDiffDialog } from "./params-diff-dialog";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -239,6 +241,10 @@ const SelectionToolbar = React.memo(function SelectionToolbar({
   const deleteSelected = useWorkflowStore((s) => s.deleteSelected);
   const [confirmDel, setConfirmDel] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
+  // Task 87: two same-type jobs unlock the params comparison — the dialog
+  // reads the selection in PICK order (first click = left column), which
+  // selectedIds preserves and the jobs-list filter would scramble
+  const [compareOpen, setCompareOpen] = React.useState(false);
   // canvas layout size, measured outside render (refs are off-limits there)
   const [canvasSize, setCanvasSize] = React.useState<{ w: number; h: number }>({ w: 0, h: 0 });
   React.useEffect(() => {
@@ -254,6 +260,16 @@ const SelectionToolbar = React.memo(function SelectionToolbar({
   const sel = React.useMemo(
     () => (selectedIds.length > 1 ? jobs.filter((j) => selectedIds.includes(j.id)) : []),
     [selectedIds, jobs]
+  );
+  // pick-order pair for the diff dialog (selectedIds order, not job order)
+  const pickOrderPair = React.useMemo(
+    () =>
+      sel.length === 2 && sel[0].type === sel[1].type
+        ? selectedIds
+            .map((id) => sel.find((j) => j.id === id))
+            .filter((j): j is (typeof sel)[number] => j != null)
+        : null,
+    [sel, selectedIds]
   );
 
   if (hidden || sel.length < 2) return null;
@@ -285,12 +301,28 @@ const SelectionToolbar = React.memo(function SelectionToolbar({
         data-canvas-ui="selection-toolbar"
         className="card-lift pointer-events-auto flex -translate-x-1/2 animate-rise items-center gap-0.5 rounded-lg border bg-card/95 p-1 shadow-md backdrop-blur"
         role="toolbar"
-        aria-label={`${sel.length} jobs selected — align, distribute, duplicate or delete`}
+        aria-label={`${sel.length} jobs selected — align, distribute${pickOrderPair ? ", compare" : ""}, duplicate or delete`}
       >
         <span className="whitespace-nowrap px-2 text-[11px] font-semibold tabular-nums text-muted-foreground">
           {sel.length} selected
         </span>
         <span className="h-4 w-px bg-border" aria-hidden="true" />
+        {pickOrderPair && (
+          <>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-7"
+              onClick={() => setCompareOpen(true)}
+              aria-label="Compare parameters"
+              title="Compare the two selected jobs' launch parameters side by side"
+              data-testid="toolbar-compare-params"
+            >
+              <GitCompareArrows className="size-3.5" />
+            </Button>
+            <span className="h-4 w-px bg-border" aria-hidden="true" />
+          </>
+        )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="sm" className="h-7 gap-1 px-2 text-xs font-medium">
@@ -358,6 +390,13 @@ const SelectionToolbar = React.memo(function SelectionToolbar({
           <Trash2 className="size-3.5" />
         </Button>
       </div>
+
+      {/* Task 87: two same-type jobs → side-by-side launch params */}
+      <ParamsDiffDialog
+        jobs={pickOrderPair ?? []}
+        open={compareOpen}
+        onOpenChange={setCompareOpen}
+      />
 
       {/* bulk delete confirm — mirrors the single-job guard (page.tsx /
           job-card.tsx): cascades wires, so require an explicit OK */}

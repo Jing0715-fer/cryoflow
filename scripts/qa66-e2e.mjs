@@ -72,6 +72,13 @@ const key = (k, opts = "") => evalJs(`(() => {
 })()`);
 
 // ---- boot: dashboard → canvas → class2d inspector → gallery ---------------
+// self-seed (Task 87): the gallery chain is qa58's living instance — when
+// qa58 runs BEFORE this suite it cleans its workdir state and the gallery
+// can be left mid-chain (the "class-grid null" family failure, documented
+// since Task 80). The seeder is idempotent + project-agnostic (Task 85),
+// so seeding here makes the suite order-independent like qa58/qa81/qa83.
+console.log("— seed gallery (self-seed, Task 87) —");
+sh("python3 /home/z/my-project/scripts/qa58-seed-gallery.py");
 sh(`${AB} close`); await sleep(1200);
 sh(`${AB} set viewport 1600 900`);
 sh(`${AB} open ${B}`);
