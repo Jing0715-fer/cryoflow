@@ -18,6 +18,13 @@
  * picker as a hover-revealed icon — the survey surface, where siblings
  * across ALL workspaces are visible at once. Entries 3 and 4 share one
  * picker module (sibling-compare-picker.tsx); only the trigger differs.
+ * Task 90 closes the loop with a per-column "Open" affordance: the compare
+ * story ends at "this parameter differs" and the NEXT action is always
+ * "go tweak the idle twin, re-run" — from the canvas entry both jobs are
+ * already visible, but from the inspector/roster entries they may live in
+ * another workspace entirely. Each column button carries its positional
+ * color dot (teal/amber, same doctrine as the table columns: color follows
+ * POSITION, not identity, so it survives the swap).
  *
  * Deliberately a thin shell: FscParamsDiff owns the row taxonomy (changed
  * / partial / same), the differences-only default and the humanized keys —
@@ -34,7 +41,7 @@
  */
 
 import { useState } from "react";
-import { ArrowLeftRight, GitCompareArrows, Info } from "lucide-react";
+import { ArrowLeftRight, GitCompareArrows, Info, SquareArrowOutUpRight } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -43,6 +50,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { useWorkflowStore } from "@/lib/store";
 import { FscParamsDiff } from "./results/fsc-params-diff";
 import type { JobDTO } from "@/lib/types";
 
@@ -54,8 +62,11 @@ export function ParamsDiffDialog({
   open,
   onOpenChange,
 }: {
-  /** exactly two same-type jobs, in presentation order (left column first) */
-  jobs: Pick<JobDTO, "id" | "name" | "type" | "params">[];
+  /** exactly two same-type jobs, in presentation order (left column first).
+   *  workspaceId + status ride along for the Open affordance (Task 90) —
+   *  every caller passes full JobDTOs from the store, the narrow Pick just
+   *  documents what the dialog actually reads. */
+  jobs: Pick<JobDTO, "id" | "name" | "type" | "params" | "workspaceId" | "status">[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -74,6 +85,27 @@ export function ParamsDiffDialog({
     setSeenPair(pairKey);
     setSwapped(false);
   }
+
+  // Task 90 — the compare→edit→rerun loop-closer. Same recipe as the
+  // dashboard roster's openJob (Task 77 deep-link repair): switch the
+  // canvas workspace FIRST or the view lands on a card that isn't there,
+  // then canvas view, then select (idle — the twin you're about to edit)
+  // or inspect (completed — the run you're auditing). Hooks live ABOVE the
+  // early return below — closed renders must run the same hook set.
+  const switchWorkspace = useWorkflowStore((s) => s.switchWorkspace);
+  const setView = useWorkflowStore((s) => s.setView);
+  const select = useWorkflowStore((s) => s.select);
+  const inspect = useWorkflowStore((s) => s.inspect);
+  const activeWorkspaceId = useWorkflowStore((s) => s.activeWorkspaceId);
+  const jumpTo = (j: (typeof jobs)[number]) => {
+    onOpenChange(false);
+    if (j.workspaceId && j.workspaceId !== activeWorkspaceId) {
+      switchWorkspace(j.workspaceId);
+    }
+    setView("canvas");
+    if (j.status === "idle") select(j.id);
+    else inspect(j.id);
+  };
 
   if (jobs.length !== 2) return null;
   const ordered = swapped ? [jobs[1], jobs[0]] : jobs;
@@ -121,6 +153,46 @@ export function ParamsDiffDialog({
             COLUMN_COLORS[diffJobs.findIndex((j) => j.jobId === jobId)] ?? "#71717a"
           }
         />
+
+        {/* Task 90 — column-jump row. Color dots follow POSITION (teal =
+           left) matching the table above, so the mapping survives a swap;
+           orphans (pre-workspace-era jobs) have no canvas to land on and
+           are disabled with guidance instead of silently navigating. */}
+        <div
+          className="flex items-center gap-1.5"
+          data-testid="params-diff-openrow"
+        >
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Open
+          </span>
+          {ordered.map((j, i) => {
+            const orphan = !j.workspaceId;
+            return (
+              <Button
+                key={j.id}
+                variant="ghost"
+                size="sm"
+                disabled={orphan}
+                data-testid={`params-diff-open-${i}`}
+                className="h-6 gap-1.5 rounded-md px-1.5 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
+                title={
+                  orphan
+                    ? "Not on any canvas — adopt it from the dashboard first"
+                    : `Go to ${j.name} on the canvas`
+                }
+                onClick={() => jumpTo(j)}
+              >
+                <span
+                  className="size-1.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: COLUMN_COLORS[i] }}
+                  aria-hidden="true"
+                />
+                <SquareArrowOutUpRight className="size-3 shrink-0" aria-hidden="true" />
+                <span className="max-w-44 truncate">{j.name}</span>
+              </Button>
+            );
+          })}
+        </div>
 
         <p
           className="flex items-start gap-1.5 text-[10px] leading-snug text-muted-foreground"

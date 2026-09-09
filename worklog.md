@@ -2993,3 +2993,23 @@ Stage Summary:
 - 「hover-reveal 的三重可达性」：mouse 悬停（group-hover/row）、键盘聚焦（focus-visible）、主指针无法悬停的设备（hover-none，headless QA 浏览器亦命中）三条路都通向 opacity-1；装饰性揭示留在 hover-only，功能性揭示必须 opt-in hover-none——globals.css 变体注释是这份契约的原文
 - 「探针代理的半衰期」：qa76 A7 用 button 数当行代理活了七轮，本轮才碎——代理不是错误而是负债，每加一个合法控件就增值一次利息；「数语义单元（data-roster-row）+ 单元内锚定角色（title^=Open）」是还债的唯一方式
 - 遗留（下轮候选）：agent-browser 系套件（qa58/70 等）分批迁移 playwright（qa70 Esc 抖动根治，优先级维持上调）；EMPIAR 真数据回归（重）；用户机器 class3d/refine3d 顺序模式与 topaz 实测反馈；diff 第五入口评估（palette Notes 行内 compare——大概率判定「不做」，palette 是检索面不是比较面）；import 队列 rich tooltip（低优先）
+---
+Task ID: 90
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-10 03:29 window)
+Task: cron 自主巡检——Task 90「qa70 迁移 playwright（Esc 抖动根治实验）+ diff 对话框列级 Open 跳转（compare→edit→rerun 环闭合）」双主题：①QA 基建——qa70（键盘快捷键对话框套件，19 断言）从 agent-browser CLI 整体迁到 playwright：断言集逐字保留，只换驱动器；Esc 关闭保留「真实按键 → 合成回退」两段式但**真实按键失手必须打 diag 日志**（迁移的实验读数——旧通道五轮抖动，新通道若也抖则竞态在 Radix 本身而非 CLI 传输）；三连绿 + 零 diag 信号 → 根治证据落袋；②新功能——ParamsDiffDialog 新增 Open 行：每列一枚跳转按钮（positional 色点 teal/amber 与表格同教义、swap 后色点不动），跳转配方复刻名册 openJob（先 switchWorkspace 再 setView("canvas") 后 idle?select:inspect——Task 77 深链修复教义）；孤儿 job（无 workspaceId）按钮禁用并给指引；jobs prop 类型放宽 Pick<JobDTO,…|"workspaceId"|"status">（调用方本就传全量 JobDTO）。t90 20 断言全绿 + qa70 迁移版三连绿 + 全回归矩阵 23 套绿 + worklog + push
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 89、HEAD 6595bd4 == origin/main、BUILD_ID ffZP7YTuFDYqc_OEHJe01 匹配；生产冷启动 + smoke + t89/t88 全绿 → 稳定
+- 【选题】Task 89 遗留双取：qa70 迁移（优先级已上调，本轮回归批 2 又抖一折 = 第 6 次）+ diff 环闭合（第四入口落地后自然追问「比完然后呢」——roster/inspector 入口的两列可能都不在当前画布上，跳转是刚需而非锦上添花）
+- 【实现②dialog】params-diff-dialog：新增 Open 行（data-testid="params-diff-openrow" + open-0/open-1 按钮测号）；色点用 inline backgroundColor 绑 COLUMN_COLORS[i]（位色绑定，swap 时 ordered 数组翻转但 i 位色不变）；**hooks 纪律自查救场**——首版把 useWorkflowStore 五连写在了 early return 之后（开→关渲染钩数变化会炸 React），自查发现后上移到 `if (jobs.length !== 2) return null` 之前并注释立碑
+- 【实现①qa70 迁移】agent-browser 版存档于 git 历史（6595bd4）；playwright 版：p.keyboard.press("?")/"Escape"/"Control+k" 真实键事件、locator.fill 替手写 setter、p.pdf() 替 CLI pdf、pageerror/console 双收集替 window.__qaErrs 注入；FATAL+cleanup 语义与 19 断言逐字保留；运行前置 pkill agent-browser 防串扰
+- 【探针 t90】20 断言六相：A 相 openrow 解剖（双按钮 + 左=行 job + getComputedStyle 色点逐字节断言 rgb(13,148,136)/rgb(217,119,6)）；B 相 swap 后按钮序翻转而色点按位不动；C 相跳 idle twin → data-view=canvas + 卡片 ring-2 ring-primary 选中环；D 相跳 completed anchor → role=dialog inspector（**探针教训：[data-testid="job-inspector"] 是 t88 幻影备选，真实 DOM 是 [role=dialog]，src 里从不存在该 testid**）+ 跨 ws 跳转后 twin 卡片可见（画布只渲染一个 workspace，可见即切换成功）；E 相孤儿分支诚实跳过——POST 无 workspaceId 时服务端默认指派 ws，活孤儿无法播种（与 qa84 显式传 workspaceId 的惯例互证）
+- 【探针返工一折】openCompare 初版硬编码 pick NAME_A，Phase D 跨 ws 腿要跳 twinB 时才发现对话框里只有被选中那个 sibling——openCompare 加 siblingName 参数，删掉中途的 swap 试探；「对话框的两列 = 锚 + 被选 sibling」是组合事实，探针设计要先算组合再写点击
+- 【收尾】eslint src 0、tsc 0、production build（BUILD_ID 894C6yw0HNeE_KXaU1q0X）+ served 自证；全矩阵 23 套：smoke + qa58 + qa66 35 + qa69 35 + qa70 19（迁移版，矩阵内再绿一次）+ qa72-verify + qa73 + qa75 + qa76 + qa77 + qa78 + qa79 + qa80 + qa81 + qa82 + qa83 + qa84 + t85 + t86 38 + t87 34 + t88 33 + t89 27 + t90 20 串行全绿
+
+Stage Summary:
+- 「迁移即实验」：修不认识的 bug 先把信仰问题变成实验问题——Esc 抖动五轮归因于 agent-browser CDP 传输，但没人换过通道；迁移后三连绿 + 零 diag 是第一份「通道换竞态灭」的正证据，qa70 从抖动惯犯变成迁移样板，qa58 等后续迁移有了先例可抄（断言逐字保留只换驱动器 = 迁移不改合同）
+- 「环闭合是功能不是装饰」：diff 对话框四入口讲的都是「差异是什么」，Open 行补的是「差异看到了然后呢」——第四入口落地后这个跳转从 nice-to-have 变成刚需（roster 入口两列可能都不在画布上）；功能的完备性跟着可达性走，可达性跟着入口走
+- 「hooks 不看 early return 的脸色」：组件先 return null 再 useStore 是隐形炸弹（开/关两态钩数不同）——eslint react-hooks 会拦，但本轮是自查先发现；把 hooks 上移并注释立碑，比依赖 linter 兜底多一层人为记忆
+- 「幻影 testid 的债」：t88 探针里 [data-testid="job-inspector"] 从第一天起就不存在（靠逗号选择器的 role=dialog 兜底），本轮 D2 如法炮制才暴露——探针里的 OR 备选会掩盖选择器失真，新探针应逐个验证测号在 src 里真实存在
+- 遗留（下轮候选）：agent-browser 系套件分批迁移 playwright（qa58 下一批——迁移样板已立）；EMPIAR 真数据回归（重）；用户机器 class3d/refine3d 顺序模式与 topaz 实测反馈；import 队列 rich tooltip（低优先）；diff 对话框 Open 行的 canvas 入口价值复查（画布入口两列本就可见，跳转是轻冗余——观察真实使用再定去留）
