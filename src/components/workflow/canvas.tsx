@@ -1217,7 +1217,7 @@ export function WorkflowCanvas() {
   // Task 92 — third import form: drop files anywhere on the canvas. The
   // section's pointer handlers never see this gesture (HTML5 DnD ≠ pointer
   // events), so card dragging and panning are untouched.
-  const { dropProps, active: dropActive, fileCount: dropFileCount } = useDropImport(stageWorkflowFiles);
+  const { dropProps, active: dropActive, fileCount: dropFileCount, folderDrag: dropFolder } = useDropImport(stageWorkflowFiles);
 
   return (
     <ContextMenu>
@@ -1517,7 +1517,7 @@ export function WorkflowCanvas() {
       {/* Task 92 — drop-import veil. Rendered last so it paints above the
           canvas layers; pointer-events-none keeps the drop event free to
           land on the section itself. */}
-      {dropActive && <DropImportOverlay count={dropFileCount} />}
+      {dropActive && <DropImportOverlay count={dropFileCount} folder={dropFolder} />}
         </section>
       </ContextMenuTrigger>
 

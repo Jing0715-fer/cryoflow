@@ -3056,3 +3056,24 @@ Stage Summary:
 - 「窗口级守卫是不可约的边界」：画布上的 drop 有 handler，dashboard 上的 drop 没有——浏览器的默认（导航走、内存态全丢）只在没人 preventDefault 时发生。把守卫挂在使用者（canvas）而不是受害者（整个 app）的范围上，等于把 dashboard 当成了可以牺牲的表面；守卫的全部价值恰在它声称保护的范围之外
 - 「深度计数器是 dragenter/dragleave 的唯一正确状态」：enter/leave 对每层元素成对发射，「指针是否还在区域内」是 enter−leave 的代数余项而非最后一次事件的函数；探针 A4（子进父出不闪烁）把这个不变量锁进了合同
 - 遗留（下轮候选）：EMPIAR 真数据回归（重）；用户机器 class3d/refine3d 顺序模式与 topaz 实测反馈；import 队列 rich tooltip（低优先）；diff 对话框 Open 行 canvas 入口价值复查（观察真实使用）；drop veil 的文件数芯片在 items.length 不可靠的来源（如文件夹拖拽）下隐藏——可考虑 drop 后在 toast 里补真实计数
+
+---
+Task ID: 93
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-10 04:59 window)
+Task: cron 自主巡检——Task 93「文件夹拖拽导入（drop 形态第四章）+ veil 目录芯片（Task 92 明示遗留收尾）」：①collectDroppedFiles——entries API（webkitGetAsEntry）递归走目录树，readEntries 批次循环（空批才停，单次调用静默丢第二页之后的所有条目），.json + 8MB 双门卫（镜像 picker 表单的 accept 契约——Relion job 文件夹满是 GB 级 .mrcs，parseWorkflowFiles 会对收集到的每个文件 text() 进内存，门卫让数据文件「不被提供」而非「失败响亮」，与 picker 的沉默过滤同一语义），深度(8)/数量(200)/扫描(2000) 三重上限，fullPath 相对路径重命名（File 构造器保留 "/"，同名文件跨子目录消歧 + 队列显示来源；松散文件 fullPath===name 保持原 File 身份）；②veil 文件夹手势——dragenter 时 webkitGetAsEntry().isDirectory 检测，FolderOpen 图标 + "Drop folder to import" 文案 + drop-folder-chip 芯片，计数芯片对目录手势抑制（items.length 读 1 对整个文件夹是谎言）；③诚实空手 toast——gesture 提供了文件但零候选通过门卫时报 "Nothing to import"（parse 漏斗的破坏性 toast 只覆盖被收集者，门卫跳过的会无声消失）。t93 35 断言一次全绿 + t92 复跑绿（松散 drop 行为保持）+ 全回归矩阵 25 套绿 + worklog + push
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 92、HEAD 046e32a == origin/main、BUILD_ID IeN15u5hbVA1isaTXJARb 匹配；生产冷启动 + smoke + t92/t89/qa84 全绿 → 稳定
+- 【旧账核实三连清】cron 文本携带的 Task 13 时代性能遗留逐一核实：#7 chart 路由全量同步读——angdist/guinier/resolution/micrographs/rebalance/topaz-training/fsc/ctf/classes 九路由已全接 cachedFileCompute（mtime 缓存）；#8 particles BFS N+1——已批量化（每深度一次边查询 + 一次 job 批查，注释立碑）；#13 useMemo 内 localStorage 写——rg 全 src 无命中。三笔旧债全部在 Task 13→92 之间的轮次里还清，「下轮候选」里的记忆需要核实而不是照抄
+- 【选题】Task 92 遗留「drop veil 文件数芯片在文件夹手势下隐藏 + drop 后补真实计数」升级为完整功能：文件夹拖拽是真用户故事（用户拖一整个 job 目录），且是「漏斗共享先于形态扩张」的第四章——门卫逻辑镜像 picker 的 accept 契约，staging 走同一 stageWorkflowFiles
+- 【实现】drop-import.tsx 重写（124→330 行）：collectDroppedFiles 导出（entries 同步抓取——transfer item 在 handler 让出后即死，异步走在 entry 对象上；entries 为空回退 dt.files 过滤——合成 drop/异源拖拽的兼容路径，t92 探针恰好全走此路）；walkEntry 深度上限在先扫描计数在后；readAllEntries 批次循环 resolve；onDrop 改 async 链（void .then 保持 onFiles(files) 调用形——t92 F1 静态断言逐字存活）；useDropImport 增 folderDrag 状态；DropImportOverlay 增 folder prop
+- 【t93 探针·假 entry 树驱动真产品代码】addInitScript 补丁 DataTransferItem.prototype.webkitGetAsEntry：sentinel 文件名键入注册表，未命中回落真实 API（合成 drop 返回 null → 松散路径）；mkDir 的 readEntries 分页（batchSize=2 锻炼循环）；35 断言八相：A 相文件夹 veil（芯片抑制 + 松散计数芯片回归双断言）；B 相相对路径行名（"jobs/sub/wf-b.json"）+ 内联失败行 + 数据文件不入队；C 相 9MB json 被 8MB 门卫跳过 + Import 2 jobs idle + 卡片落画布 + 聚合 toast；D 相零候选文件夹诚实 toast；E 相 9 层深链只收 depth-8 的 wf-mid（边界正向断言 + 越界负向断言）；F 相静态契约（walk/gate/chip/循环/接线）
+- 【命名学一折】回归循环用 `t86.mjs` 拼文件名——实际是 `t86-e2e.mjs`，batch 3 整批 "Node.js v24.19.0"（module-not-found 崩栈尾行）；qa63-smoke/qa72-verify 同病。修正后全绿——崩栈尾行 "Node.js vX" 是文件名错误的指纹，不是套件失败
+- 【收尾】eslint src 0、tsc src 0、production build（BUILD_ID M1eiH-GuMR33TGxIVUXnG）+ served 自证（t93 直接跑在新 build 上）；全矩阵 25 套：smoke + qa58 + qa66 35 + qa69 35 + qa70 19 + qa72-verify + qa73 + qa75 + qa76 + qa77 + qa78 + qa79 + qa80 + qa81 + qa82 + qa83 + qa84 + t85 + t86 38 + t87 34 + t88 33 + t89 27 + t90 20 + t92 36 + t93 35 串行全绿
+
+Stage Summary:
+- 「同源契约的两种方言」：picker 表单用 accept=".json" 在 OS 对话框层过滤，drop 表单用 extension+size 门卫在 walk 层过滤——同一契约（只有 workflow 导出进 parse 漏斗）的两种方言，语义对齐点在「不被提供 ≠ 失败」：数据文件既不入队也不入失败清单，失败清单只收真正被收集后解析失败的。三条导入形态 + 一份门卫方言表，漏斗的完整性又厚了一层
+- 「stub 的层级决定测的是谁」：t93 不 mock 产品函数，而是 stub 浏览器 API（webkitGetAsEntry）——产品代码的 walk/分页循环/重命名/门卫全部真实执行，假 entry 树只是把 OS 的文件系统换成了注册表。探针的保真度取决于替身在离产品多远的位置站岗：越靠近浏览器边界，产品覆盖越完整
+- 「上限是 walked 的边界而不是 enough 的声明」：深度 8/数量 200/扫描 2000 三个上限各管一维（嵌套深度、队列体量、总扫描量），E 相的边界断言（depth-8 收、depth-10 拒）锁的是合同而不是实现细节——跑路的树遍历不需要恶意输入，一个 symlink 环就够了
+- 「readEntries 是游标不是快照」：单次 readEntries 只交一页（常 ≤100），空批才是终点——把它当一次性快照的代码在大于一页的目录上静默丢数据，且无任何报错。F4 静态断言把这个不变量钉进合同
+- 遗留（下轮候选）：EMPIAR 真数据回归（重）；用户机器 class3d/refine3d 顺序模式与 topaz 实测反馈；import 队列 rich tooltip（低优先）；diff 对话框 Open 行 canvas 入口价值复查（观察真实使用）；文件夹拖拽的深过评估——sentinel stub 已验证 walk 主干，真 OS 文件夹手势（ Finder/Explorer 拖入）在 headless 里无法构造，依赖用户真机反馈
