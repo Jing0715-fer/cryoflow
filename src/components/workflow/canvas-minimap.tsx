@@ -125,7 +125,7 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
   return (
     <div
       data-canvas-ui="minimap"
-      className="card-lift absolute bottom-3 right-3 z-30 touch-none select-none rounded-lg border bg-card/95 p-1.5 backdrop-blur [-webkit-touch-callout:none]"
+      className="no-print card-lift absolute bottom-3 right-3 z-30 touch-none select-none rounded-lg border bg-card/95 p-1.5 backdrop-blur [-webkit-touch-callout:none]"
       aria-label="Canvas minimap"
       onContextMenu={(e) => {
         // the canvas-wide Radix menu would otherwise open mid-drag when the

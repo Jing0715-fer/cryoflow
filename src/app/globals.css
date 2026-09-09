@@ -446,6 +446,24 @@
   body {
     background: white !important;
   }
+  /* paper margins: printers and PDF exports both honor @page; 12 mm keeps
+     job cards comfortably inside the printable area without wasting sheets */
+  @page {
+    margin: 12mm;
+  }
+  /* the infinite dot grid is a background-image on the canvas — browsers
+     only paint backgrounds when explicitly asked (printToPDF's
+     printBackground:true) and dots are pure toner waste on paper */
+  .canvas-grid {
+    background-image: none !important;
+    background-color: white;
+  }
+  /* elevated-card shadows rasterize as gray halos on paper; cards keep
+     their borders for separation, so the shadow layer is removable */
+  .card-lift,
+  .card-lift-lg {
+    box-shadow: none !important;
+  }
   /* interactive chrome is meaningless on paper — tooltips never print
      well (positioned, translucent); .no-print marks app-specific chrome */
   [data-slot="tooltip-content"],

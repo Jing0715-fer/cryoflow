@@ -1324,7 +1324,7 @@ export function WorkflowCanvas() {
       {/* Zoom controls + auto-arrange */}
       <div
         data-canvas-ui="zoom-controls"
-        className="card-lift absolute bottom-3 left-3 z-30 flex items-center gap-0.5 rounded-lg border bg-card/95 p-1 backdrop-blur"
+        className="no-print card-lift absolute bottom-3 left-3 z-30 flex items-center gap-0.5 rounded-lg border bg-card/95 p-1 backdrop-blur"
       >
         <Button
           variant="ghost"

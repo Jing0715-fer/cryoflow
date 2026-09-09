@@ -2543,3 +2543,27 @@ Stage Summary:
 - Tailwind v4 的 hover 门进 (hover:hover) 是符合规范的进步，但它把「无 pointer 环境」从边缘推到台前：QA 无头浏览器恰好是 (hover:none)，触屏设备也是——「QA 环境的怪现象=真设备的日常」再次应验；今后凡 opacity-0 + hover 揭示的新控制，三通道审查应成为 checklist 项
 - JobInspector 的 tab latch（常挂载 + touched 守卫跨开关存活）是本轮最隐蔽的 harness 陷阱：DOM 探针、按钮属性、滚动位置全部正常，唯一变量是组件 state 的跨会话记忆——「模拟真实用户路径」比「归零状态」更诚实，而「用户在 job A 手选的标签是否该带到 job B」已记为产品层待议项
 - 遗留（下轮候选）：qa66 Phase B PDF 视觉像素抽样（print 主题收官）；tab latch 是否按 job 重置（产品决策）；workflow-import 多文件（低优先）；EMPIAR 真数据回归（重）；hover-none 语义可推广到未来一切「悬浮工具提示按钮」（如 mol* viewport 内浮动控制）
+
+---
+Task ID: 69
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 午轮 2026-09-09 13:44 窗口）——Task 69「纸上工作台收官」：Task 65 起悬置的 print 主题三件套补全——① `.no-print` 真正落地（minimap/zoom 控件/侧栏/job 面板/footer/header 动作区/移动浮动按钮 7 处 chrome 纸上隐身）② print-only 文档页眉 PrintDocHeader（`hidden print:block`，kicker+工作区名+项目·模式·日期·job/edge 计数，数据直连 store 永不漂移）③ header 新增 Print 按钮（window.print 入口，print 样式表第一次有了用户入口）；globals.css print 块补 @page 12mm、canvas-grid 点阵灭印、card-lift 阴影去灰晕；qa66 Phase B 从 5 断言升级为 18 断言——**PDF 像素级验证**（强制暗色 → printToPDF → pdftoppm P5 解析 → 四角/均值/墨量采样 + pdftotext 页眉回显）；QA 链路破获「Radix 模态开着时打印布局压缩成窄列」怪癖；33 + 回归 qa69 34 / qa63-smoke 6/6 / qa58 ALL 全绿；worklog + push
+
+Work Log:
+- 【开局核对 + 选题】HEAD 713fbd1 == Task 68 已 push、工作树净；BUILD_ID 05:23 含 Task 68 代码免重建（后因本轮新增 UI 组件重建一次）；Task 68 遗留清单首条「qa66 Phase B PDF 视觉像素抽样（print 主题收官）」被选为主线——Task 65 至今悬置三轮；pdftoppm/pdftotext 工具链在位（poppler）使像素级验证首次可行
+- 【.no-print 落地】Task 65 只定义了类、零组件使用；本轮盘点 canvas chrome（minimap/zoom-controls/空态/连接提示/选区工具栏——后三者瞬态无需标）+ 页面骨架（sidebar/job 面板/移动浮动触发器）+ footer + header 动作区，7 处常驻 chrome 挂 `.no-print`；「纸张面 = 画布管线图」是设计核心——sidebar 目录与参数编辑面板在纸上无意义，打印输出自动变为「页眉 + 全宽管线」
+- 【PrintDocHeader】print-only 文档页眉：`hidden print:block`（Tailwind 内建 print 变体）+ data-print-doc QA 契约钩子；kicker「CryoFlow — pipeline snapshot」+ h1 工作区名（dashboard 视图退化为项目名）+ 副标 项目·模式 + 右侧 打印日期·计数；数据全部来自 useWorkflowStore 选择器，与画布实况零漂移；外层 wrapper div `hidden px-6 pt-5 print:block` 挂在两种视图共享的 root——dashboard 打印同样获得文档页眉
+- 【Print 按钮】window.print() 全应用首次被接通：header Actions 区 ghost icon 按钮（Printer 图标 + aria-label="Print this view" + title 阐明纸张样式表行为）；按钮本身位于 .no-print 动作区内，纸上自动隐身——入口在屏上、不在纸上
+- 【纸张细节三则】@page 12mm 页边距（真打印机与 PDF 导出同遵）；.canvas-grid 的无限点阵是 background-image——printToPDF printBackground:true 时会照印纯费墨，print 块里 background-image:none + 白底；.card-lift/.card-lift-lg 阴影在纸上光栅化为灰晕，卡片有 border 足够分离故阴影层整体移除
+- 【qa66 Phase B 像素管线】printToPDF 产物 → `pdftoppm -gray -r 100 -f 1 -l 1` → **零依赖手写 P5 (binary PGM) 解析器**（头部 token 扫描 + 注释容错 + maxval 后单字节空白 + 原始采样）；四角 12% 盒均值 >200（纸是浅的）+ 整页均值 >140（读作纸非屏）+ 墨量 darkFrac(<128) ∈ (0.08%, 60%)（有真内容且大面积留白）；**诚实性设计 = 强制暗色打印**：documentElement.classList.add('dark') 后再 printToPDF——若 `:root,.dark` 强制浅色损坏，要么整页变暗（角落断言炸）要么浅字隐入白纸（墨量≈0 断言炸），两条路都大声失败
+- 【校准三课】①box 坐标笔误（右下角 x1 写成 cw 而非 w → 0/0=NaN）被「先探针后 harness」迭代法秒抓；②60 DPI 文字糊成灰（darkFrac 阈值 <100 时 0.16%）→ 100 DPI + <128 阈值；③**legal-state 方差**：干净画布页 0.50% vs inspector 开着 0.17% 差 3 倍 → 下界从 0.2% 放宽到 0.08% 并注释原因——「断言阈值要给合法状态留方差，同时保持对故障模式（≈0%）的 10 倍区分度」
+- 【真怪癖破获·Radix 模态打印压缩】harness 打印时 Phase A 留下的 inspector 还开着 → pdftotext 显示页眉 h1 截成「M」、卡片名截成「QA Comp」、整版压缩成窄列——Radix 打开模态时对 body 施加 scroll-lock（overflow hidden + 滚动条补偿），Chromium 打印管线在 scroll-locked body 上的布局与正常页面完全不同；修法 = harness 打印前先关 inspector（synthetic Escape 有效——Radix 的 Esc 是 JS 监听器，与 Enter 需要真 CDP 键形成对照）；**产品层启示**：用户开着模态 Ctrl+P 会得到垃圾纸张，候选修法（print 块隐藏 overlay 或 print 前自动收模态）记入遗留；旁证：inspector 开着 37KB vs 画布视图 131KB——压缩版打印连内容都少一个量级
+- 【pdftotext 回显坑】tracking-[0.18em] 字距使 pdftotext 把 kicker 抽成「P I P E L I N E S N A P S H O T」→ 断言改去空白后匹配；h1 工作区名「Main」在画布视图干净抽出且与 DOM masthead 标题交叉验证
+- 【harness 老坑三连再确认】eval 字符串返回带引号（length+'' 得 '"0"' !== "0" → FATAL，unq 解之，Task 66 的课第四次咬人）；nohup 后台 build 在本会话静默秒死（前台跑成功——后台化 + 本 shell 组合有坑，构建还是前台 52s 稳）；OOM 前科：server 与 build 并存时 dmesg 又见 next-server 被杀——先杀 server 再构建成铁律
+- 【收尾】eslint 0、tsc src 0、production build 成功（06:00，BUILD_ID 8hX3uagq）；QA 矩阵：qa66 33（A 15 + B 18）+ qa63-smoke 6/6 + qa69 34 + qa58 ALL 串行全绿；诊断脚本 qa69-pgm-probe.mjs（PGM 解析探针）/ qa69-title-debug*.mjs（模态打印压缩破案记录）留 scripts/；server 杀、浏览器关；FSC/orthovol seed 留作基线（gallery seed 被 qa58 自清理按设计移除，无参重播种即愈）
+
+Stage Summary:
+- print 主题三轮闭环收官：Task 65 立「纸上工作台」规则（强制浅色/隐 tooltip/表格防撕裂）→ Task 66-68 沿途打磨 → 本轮 `.no-print` 从「有类无客」到 7 处落地 + 文档页眉 + 用户入口 + **像素级验证**——QA 从「规则存在」跃迁到「渲染结果正确」，pdftoppm + 手写 P5 解析器 = 零新依赖的 PDF 视觉断言管线，可复用于一切「打印/导出」类功能的回归
+- 「强制暗色再打印」是 print 样式表唯一诚实的测法：规则存在性断言对「`.dark` 选择器拼错」完全免疫，而像素采样对调色板损坏的两种故障模式（深底浅字 / 浅底浅字）都给出不可混淆的信号（角落变暗 / 墨量归零）——「验证渲染结果而非渲染规则」是视觉 QA 的分水岭
+- Radix 模态打印压缩是「全局 scroll-lock × 打印布局」的隐性交互：模态开着时用户的一切都非常态——harness 的状态归位（关 inspector 再打印）不仅是测试卫生，更暴露了一个真实产品边界（Ctrl+P with modal = 垃圾纸张）；「测试需要的状态归位」与「产品需要的边界防御」是同一枚硬币的两面
+- 遗留（下轮候选）：Radix 模态开着打印的纸张垃圾（产品修复：print 块对 overlay/data-state=open 隐藏或打印前自动收模态——需独立调查 scroll-lock 对打印布局的影响面）；tab latch 是否按 job 重置（产品决策）；workflow-import 多文件（低优先）；EMPIAR 真数据回归（重）；打印页眉可扩展 per-page 页脚页码（@page margin boxes 浏览器支持存疑，需调查）

@@ -11,6 +11,7 @@ import {
   Layers,
   LayoutDashboard,
   Loader2,
+  Printer,
   RefreshCw,
   Server,
   Snowflake,
@@ -657,14 +658,25 @@ export function Header() {
         </div>
       </div>
 
-      {/* Actions */}
-      <div className="flex items-center gap-1.5">
+      {/* Actions — interactive chrome has no paper meaning; .no-print hides
+          the whole cluster when printing, the paper masthead takes over */}
+      <div className="no-print flex items-center gap-1.5">
         <div className="hidden sm:block">
           <RelionStatusChip />
         </div>
         <div className="hidden md:block">
           <CommandPaletteTrigger />
         </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-muted-foreground hover:text-foreground"
+          onClick={() => window.print()}
+          aria-label="Print this view"
+          title="Print / save as PDF — the paper stylesheet forces a light palette and hides interactive chrome"
+        >
+          <Printer className="size-4" aria-hidden="true" />
+        </Button>
         <HelpPopover />
         <ThemeToggle />
         <Button

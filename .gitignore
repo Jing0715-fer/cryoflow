@@ -62,4 +62,4 @@ server.log
 3001
 3001.*
 qa44-*.png
-*.qa-logs/*.txt
+.qa-logs/

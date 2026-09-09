@@ -13,7 +13,7 @@ export function Footer() {
   const modeLabel = project?.mode === "tomo" ? "tomography" : "single-particle";
 
   return (
-    <footer className="mt-auto flex min-h-9 shrink-0 items-center justify-between gap-4 border-t bg-background/80 px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] text-xs text-muted-foreground backdrop-blur supports-[backdrop-filter]:bg-background/60 sm:px-4">
+    <footer className="no-print mt-auto flex min-h-9 shrink-0 items-center justify-between gap-4 border-t bg-background/80 px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] text-xs text-muted-foreground backdrop-blur supports-[backdrop-filter]:bg-background/60 sm:px-4">
       <p className="truncate">
         CryoFlow — light-first cryo-EM workflow UI · {project ? `${project.name} · ${modeLabel} · ${engineLabel}` : "Demo data stored in SQLite"}
       </p>

@@ -5,6 +5,7 @@ import { AlertTriangle, Boxes, Layers, Plus, RefreshCw, X } from "lucide-react";
 import { useWorkflowStore } from "@/lib/store";
 import { Header } from "@/components/workflow/header";
 import { Footer } from "@/components/workflow/footer";
+import { PrintDocHeader } from "@/components/workflow/print-doc-header";
 import { JobPalette } from "@/components/workflow/palette";
 import { WorkspacePanel } from "@/components/workflow/workspace-panel";
 import { ProjectDashboard } from "@/components/workflow/project-dashboard";
@@ -264,6 +265,11 @@ export default function Home() {
     <div className="flex h-dvh flex-col bg-background text-foreground">
       <Header />
 
+      {/* Paper masthead: screen-hidden, print-only document opener (qa66) */}
+      <div className="hidden px-6 pt-5 print:block">
+        <PrintDocHeader />
+      </div>
+
       {/* Initial-load failure banner: the canvas would otherwise show a
           misleading "empty" state with no way back except a full reload */}
       {loadError && (
@@ -302,7 +308,7 @@ export default function Home() {
       ) : (
         <main className="flex min-h-0 flex-1">
           {/* Desktop sidebar: job catalog + workspace navigator */}
-          <aside className="hidden w-72 shrink-0 flex-col border-r bg-gradient-to-b from-sidebar via-sidebar to-sidebar/70 lg:flex">
+          <aside className="no-print hidden w-72 shrink-0 flex-col border-r bg-gradient-to-b from-sidebar via-sidebar to-sidebar/70 lg:flex">
             <Tabs defaultValue="catalog" className="flex h-full min-h-0 flex-col gap-0">
               <div className="shrink-0 border-b bg-sidebar/40 p-2 backdrop-blur-sm">
                 <TabsList className="grid h-9 w-full grid-cols-2 shadow-none">
@@ -341,7 +347,7 @@ export default function Home() {
 
           {/* Desktop job panel — only mounted while a job is selected */}
           {selectedId != null && allSelectedIds.length <= 1 && (
-            <aside className="hidden w-[380px] shrink-0 animate-in border-l bg-card duration-200 slide-in-from-right-4 xl:flex xl:flex-col">
+            <aside className="no-print hidden w-[380px] shrink-0 animate-in border-l bg-card duration-200 slide-in-from-right-4 xl:flex xl:flex-col">
               <JobPanel />
             </aside>
           )}
@@ -361,7 +367,7 @@ export default function Home() {
         <Button
           size="icon"
           aria-label="Add a job"
-          className="card-lift-lg fixed right-5 bottom-20 z-40 size-12 rounded-full shadow-lg lg:hidden"
+          className="no-print card-lift-lg fixed right-5 bottom-20 z-40 size-12 rounded-full shadow-lg lg:hidden"
           onClick={() => setPaletteOpen(true)}
         >
           <Plus className="size-6" />
