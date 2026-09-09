@@ -2458,3 +2458,23 @@ Stage Summary:
 - 「自取消竞态」是 async-poll-in-React 的通用陷阱样本：poll 的写操作若改变自己的 effect 依赖（setIndex→runningPicked），则重启的 cleanup 会取消 poll 自身未完成的写——「先写结果、后触发依赖变化」的顺序纪律 + 「fetch 计数器走通但 UI 不动」的典型症状指纹，适用于一切「轮询中带状态刷新」的组件
 - overflow-hidden 裁切 + flex 收缩叠加是「加内容破坏既有交互」的隐性通道：overflow-y-auto 不等于内容可达（flex shrink 先饿死子项），shrink-0 的完整预算（每个子块）才是；elementFromPoint 是验证「所见即所点」的一击必杀探针
 - 遗留（下轮候选）：params 表与 chart 的联动高亮（hover params 行高亮对应曲线段？弱相关，缓）；fsc-index 对 running job 的 index 轮询已闭环但 re-scan 按钮与 autolive 提示条的视觉层次可再打磨；workflow-import 多文件（低优先）；dev overlay「1 Issue」（dev-only）；EMPIAR 真数据回归（重）；gallery zoom roving tabindex；report 深色打印样式
+
+---
+Task ID: 65
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 晨轮 2026-09-09 10:44 窗口）——上窗口半成品 Task 65「键盘平权 + 纸上工作台」收尾：class-gallery 类选择网格 roving tabindex（WAI-ARIA 模式：唯一 tab 停留点 + 方向键按真实几何移动焦点 + Home/End + Enter 切 keep + zoom 兄弟保持可达）+ 全局 print 纸张样式表（@media print 双主题强制浅色 + 隐 tooltip/.no-print + 表格跨页断行保护）；qa66 两阶段 20 断言首跑全绿 + qa58/qa63-smoke 回归绿；worklog + push
+
+Work Log:
+- 【开局核对 + 意外发现】HEAD 3259e1e（cron 自动提交）收编了上窗口 Task 65 半成品（class-gallery.tsx +85、globals.css +49、qa66-e2e.mjs 241 行）但 worklog 无条目；mtime 考古给出精确死因时间线：源码 02:27/02:28 → production build 02:32 → qa66 harness 02:40 → 自动提交 02:42——窗口死在「harness 写完、尚未跑」的窄缝里；关键红利：**02:32 的构建已含 Task 65 代码**（.next chunks 实测含 roving/class-zoom 符号），本窗口免重建直接起 server
+- 【静态契约核查】data-canvas-ui=class-zoom（:560）/ section[aria-label="Class selection gallery"]（:364）/ data-canvas-ui=class-grid（:464）与 qa66 选择器逐一对照；seed 源 = qa58-seed-gallery.py（"QA Class Select" idle select2d + "QA Class2D Source"，8 类 1455 粒子 mrcs 栈）；tsc src 0 错
+- 【roving tabindex 设计要点】锚点 state activeCls + cardRefs Map；方向键导航不做列数猜测——用 getBoundingClientRect 真实几何 + 行/列容差（height/width 的一半）算邻居，响应式 grid 任何列数都对；Home/End 跳首尾；visible 变化（keep 过滤/排序/新数据）时 anchor 失踪自动回锚首卡；网格 role=listbox + aria-label 声明键盘语义；focus-visible teal ring + group-focus-within 揭示 zoom 按钮（键盘用户的 lightbox 之路与 hover 同权）
+- 【qa66 Phase A 15 断言】唯一 tab 停留点（zero=1 / -1 × n-1）→ 焦点起步 → ArrowRight/Left 往返 → ArrowDown/Up 跨行往返 → End/Home 首尾跳 → Enter 真实 CDP 键击切 keep（synthetic KeyboardEvent 不触发浏览器默认激活行为，必须 agent-browser press）→ zoom 兄弟 tabbable → focus-within 揭示 zoom → console-0
+- 【qa66 Phase B 5 断言】@media print 规则存在且 root:true + dark:true（浅色调色板在 :root 和 .dark 双写——深底打印费墨且浏览器会剥背景留下白底白字）+ tooltip-content/.no-print 隐藏 + 真实 printToPDF 产出 47961 字节工件；表格 break-inside 规则保护数据表跨页
+- 【回归二则】qa58 gallery e2e ALL PHASES GREEN（组件本尊无回归，自带 cleanup 清 seed）；qa63-smoke 首跑 FATAL「FSC section rendered」——本窗口只跑了 gallery seed，state 无 postprocess run 记录，是 seed 生命周期问题非代码回归；补跑 qa60-seed-fsc.py 后 SMOKE GREEN 6/6
+- 【收尾】FSC seed（5 jobs：4 completed + 1 running live）留作跨窗口基线；server 杀（内存帽配方 NODE_OPTIONS=--max-old-space-size=1536 留给下窗口）、浏览器已关；qa66-print.pdf 工件随 harness cleanup 清除
+
+Stage Summary:
+- Task 65 双落地补全上窗口缺口：类选择网格从「tab 墓地」（几十个 toggle 全在 tab 序）升级为 WAI-ARIA roving 模式——一个 tab 停留点、方向键几何导航、Enter 切换、zoom 平权可达；「几何优先于列数猜测」是响应式 grid 键盘导航的唯一稳妥解（getBoundingClientRect + 行列容差，列数变化零维护）
+- print 样式表是「深色应用上纸」的系统性答案：浅色调色板双主题强制写（:root 与 .dark 同权）、tooltip/悬浮 chrome 纸上无意义故隐藏、图表保色（颜色即信息）、表格行防跨页撕裂；printToPDF 真管线验证而非仅查规则存在
+- 「cron 自动提交 + mtime 考古」二度证明半成品可无损续接：构建先于 harness 完成意味着免重建直接 QA——每窗口开局核对顺序升级为 worklog → git → **源码/构建 mtime 对比**，可省一次 4GB 机器上的昂贵构建
+- 遗留（下轮候选）：qa66 Phase B 只验 PDF 非空未验视觉（可加 PDF 渲染像素抽样）；.no-print 类尚无元素使用（canvas 小地图/侧栏 chrome 标记后生效）；re-scan 与 autolive 提示条视觉层次打磨；workflow-import 多文件（低优先）；EMPIAR 真数据回归（重）
