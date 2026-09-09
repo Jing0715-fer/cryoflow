@@ -739,6 +739,10 @@ export function WorkflowCanvas() {
   // "Ready" hint: idle job whose upstream (any incoming edge, possibly in
   // ANOTHER workspace — links included) is completed.
   const allJobs = useWorkflowStore((s) => s.jobs);
+  // Note spotlight lens (Task 75): cards without a note dim as one unit —
+  // the class lives on the positioned [data-job] root so body, badge and
+  // ports recede together (print is exempt via the globals.css override).
+  const noteSpotlight = useWorkflowStore((s) => s.noteSpotlight);
   const allEdges = useWorkflowStore((s) => s.edges);
   const completedIds = React.useMemo(
     () => new Set(allJobs.filter((j) => j.status === "completed").map((j) => j.id)),
@@ -1238,6 +1242,7 @@ export function WorkflowCanvas() {
             <JobCard
               key={job.id}
               job={job}
+              dimmed={noteSpotlight && !job.note}
               selected={selectedIds.includes(job.id)}
               primary={selectedId === job.id}
               bandMatch={bandIds?.has(job.id) ?? false}

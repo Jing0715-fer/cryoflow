@@ -65,6 +65,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: "+ / −", text: "Zoom in / out around the viewport center" },
       { keys: "⌘/Ctrl A", text: "Select every job in the workspace" },
       { keys: "⌘/Ctrl D", text: "Duplicate the selection (one job or a group)" },
+      { keys: "N", text: "Note spotlight — dim jobs without a note" },
       { keys: "Delete", text: "Delete the selection (asks first)" },
       { keys: "⇧ Click", text: "Toggle a card in the selection" },
       { keys: "⇧ Drag", text: "Box-select on empty canvas" },

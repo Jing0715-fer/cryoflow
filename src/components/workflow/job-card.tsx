@@ -512,6 +512,10 @@ function JobCardMenu({
 
 interface JobCardProps {
   job: JobDTO;
+  /** Note spotlight lens (Task 75) — the canvas turns this on for cards
+   *  WITHOUT a note while the lens is active; the card recedes (opacity +
+   *  desaturation) so noted cards pop. Print ignores it entirely. */
+  dimmed?: boolean;
   /** This card is part of the current selection (multi-select aware). */
   selected: boolean;
   /** The PRIMARY selection — full-strength ring; the edit panel + F focus
@@ -747,6 +751,7 @@ function JobCardPreview({
 
 export const JobCard = React.memo(function JobCard({
   job,
+  dimmed,
   selected,
   primary,
   bandMatch,
@@ -1200,7 +1205,7 @@ export const JobCard = React.memo(function JobCard({
     <JobCardMenu job={job} onSelect={onSelect} onInspect={onInspect}>
       <div
         data-job={job.id}
-        className="absolute"
+        className={cn("absolute", dimmed && "note-spotlight-dim")}
         style={{
           left: job.x,
           top: job.y,

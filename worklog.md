@@ -2667,3 +2667,25 @@ Stage Summary:
 - 「纸上的每个字都该是有意的」：pdftotext 断言既验「短注全文在」也验「裁尾不在」——truncate 的 paint 层裁剪让 DOM 文本与纸上字形天然分层，摘录语义（省略号）由 CSS 显式表达；档案打印的诚实 = 读者能分辨「这是全部」还是「这是梗概」
 - 双纸张 verify 补上 fit-to-paper 的最后一块：预算「取双纸更紧轴」的设计从注释里的承诺变成 V6 的可执行断言——同一管线在 A4 与 Letter 横向都单页全名，打印机默认纸张不再是用户要赌的变量
 - 遗留（下轮候选）：dashboard 打印跨页表头重复（break-after 未做）；shortcuts dialog 按键高亮分组（锦上添花）；workflow-import 多文件（低优先）；EMPIAR 真数据回归（重）；批注的搜索/过滤（画布按「有无批注」过滤 job——功能自然延伸）
+
+---
+Task ID: 75
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 晚轮 2026-09-09 17:44 窗口）——Task 75「批注聚光（note spotlight）」：Task 74 遗留首条「批注的搜索/过滤」落地为三层功能——①画布镜头（noteSpotlight 布尔 + toggle）：开镜头后无批注的卡片整体沉底（opacity .28 + 去饱和，与 edges-layer 选择调暗同一视觉语法），有批注的卡全强度；②头部计数芯片（StickyNote + active workspace 计数，aria-pressed/disabled-at-zero）；③命令面板 Notes 组：每条批注一行、**批注文本进搜索 value**（fuzzy 输入批注原文即可找到 job，Enter 跳转 inspector）+ Canvas & app 组 spotlight 开关项；N 键全局快捷键 + shortcuts dialog 同步行。QA 中钓出并修复**头部存量溢出 bug**（<1470px 中簇静默压进右簇）+ print 树 transition 动画暗礁；qa75 31 断言两连绿 + 全回归矩阵绿 + eslint/tsc 0；worklog + push
+
+Work Log:
+- 【开局核对 + 选题】HEAD 2d66564 == Task 74 已 push、树净、无 server；从 Task 74 遗留选「批注的搜索/过滤」（批注主题的自然延伸：73 造数据、74 上纸、75 变导航层）；rg 确认 noteSpotlight 全仓零命中为真空缺
+- 【实现三件套】store noteSpotlight（内存态，注释点明「镜头不是文档属性——没人期待上次会话的调暗状态跨 reload 存活」）；globals.css .note-spotlight-dim（opacity+grayscale+200ms transition，挂在定位根 [data-job] 上让卡身/角标/端口作为一个整体退场）+ print 覆盖（opacity:1!important）；canvas 订阅传 dimmed prop（第一版误挂进 SelectionToolbar 组件作用域，tsc 钓出后挪进渲染 JobCard 的主组件）；job-card 根 div cn("absolute", dimmed && "note-spotlight-dim")
+- 【头部芯片】NoteSpotlightChip 用 useActiveWorkspaceJobs（镜头只调暗当前画布，计数也只数当前 workspace——与旁边全局计数的 StatChip 语义刻意区分）；aria-pressed + disabled-at-zero（「空镜头是死控件，禁用比空开关诚实」）+ title 两态文案
+- 【面板 Notes 组】value = `note ${name} ${type} ${note 全文}` —— 批注文本成为可检索载荷；heading 带计数（Notes · N annotated jobs）；行内 StickyNote 琥珀 + 名字 + 摘录 + 类型图标；Enter 复用 jumpToJob（completed → inspector）
+- 【QA 钓出 bug #1·头部存量溢出】chip 点击被 palette 触发钮拦截 → 写探针测 1280/1366/1440/1536/1600 五档宽度：中簇内容在 <1470px 全部溢出右簇（1280 下 chip 右缘 1101.6 vs 右簇起点 949.4，**存量统计芯片早已被盖住**，新 chip 只是第一个被点击的元素）→ 修法 = 渐进披露：中簇（workspace+project+chip）md→xl、统计芯片 lg→2xl、project 选择器 md:w-220→xl:w-220；修后 1280 chip 右缘 886.2 < 898.2 干净 12px 间隙
+- 【QA 钓出 bug #2·print 树动画】C2 断言抓到 opacity 0.908936 中途值——media emulation 重定向 opacity（0.28→1）时屏幕 transition 属性延续进 print 树继续动画 → print 覆盖补 transition:none!important（「纸面即拍即合，只有屏幕滑动」），注释写明 load-bearing 防后人删
+- 【harness 两课复现】①同 workspace 选靶：镜头/计数都按 active workspace 作用域，跨 workspace 靶会 flake（首轮 chip 计 1 不计 2 即此因）；②playwright evaluate 不携带 Node 闭包——选择器 Node 侧拼好传入（qa73 课第三次应验）
+- 【回归两折】qa66 崩在 class-grid null = qa58 上轮自清理拿走 gallery seed（Task 72 同款），无参重播种后绿；qa70 契约 `>= 20 chips` 弹性设计使新增 N 行零破坏
+- 【收尾】eslint src 0、tsc src 0、production build ×3（BUILD_ID sQW…/LQbH…/LmSf…，后两个为 header 渐进披露与 print transition:none 修复）；QA：qa75 31×2 + smoke 6/6 + qa72-verify 8 + qa66 35 + qa69 34 + qa70 19 + qa73 33 + qa58 ALL 串行全绿；探针 qa75-header-probe.mjs 留 scripts/
+
+Stage Summary:
+- 批注三层终于闭环：73 让判断有处落（数据）、74 让判断上纸（归档）、75 让判断可导航（检索）——「批注文本 = 搜索载荷」把命令面板变成批注检索引擎，科学家输入「golden class」直达那张卡，无需记得 job 名字；镜头则回答扫视问题「画布上哪里有人的判断」
+- 「测过的宽度才是真实宽度」：头部溢出是存量 bug（估算内容宽 1085px vs 1280 可用 921px），若无新 chip 被点击遮拦，它还会继续潜伏——QA 新断言（真实点击）比像素快照更能钓出布局回归；渐进披露（xl 中簇 / 2xl 计数器）是 fix 的正形，而非把 chip 挪去别处
+- print transition:none 是「媒体切换即风格切换」的物理课：屏幕的动画属性会跟着元素走进 print 树，media emulation 或真实打印的瞬间 opacity 会被动画成中间值——纸面状态必须即拍即合，所有进 print 覆盖的属性都该问一句「它的 transition 会不会跟进来」
+- 遗留（下轮候选）：dashboard 打印跨页表头重复（break-after 未做）；shortcuts dialog 按键高亮分组（锦上添花）；workflow-import 多文件（低优先）；EMPIAR 真数据回归（重）；批注聚合视图（dashboard 表格加 note 列/筛选——镜头的 dashboard 表亲）；gallery/ortho 卡片也可挂批注（note 从 job 扩展到 class 级）

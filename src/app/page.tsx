@@ -240,6 +240,14 @@ export default function Home() {
       } else if (k === "-" || k === "_") {
         e.preventDefault();
         zoomAtCenter(1 / 1.15);
+      } else if (k === "n" || k === "N") {
+        // note spotlight (Task 75) — same canvas-scoped rule as F/0/+−: the
+        // lens dims CARDS, so it has nothing to do while the dashboard owns
+        // the screen (the header chip stays clickable there)
+        if (s.view !== "dashboard") {
+          e.preventDefault();
+          s.toggleNoteSpotlight();
+        }
       } else if (k === "Delete" || k === "Backspace") {
         // destructive: route through the same confirmation the context menu
         // and the job panel use — a stray Backspace must not cascade-delete

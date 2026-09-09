@@ -83,6 +83,13 @@ interface WorkflowState {
    *  command palette) — single source of truth so all three entries stay
    *  in sync. */
   shortcutsOpen: boolean;
+  /** Note spotlight (Task 75) — when true, canvas cards WITHOUT a note dim
+   *  toward the background so the scientist's annotations (Task 73) jump
+   *  out at a glance. In-memory only, like the selection: the spotlight is
+   *  a viewing lens, not a document property — nobody expects "which cards
+   *  were dimmed last session" to survive a reload. Toggled from the
+   *  header chip, the command palette, or the N key. */
+  noteSpotlight: boolean;
   /** Parsed workflow file awaiting confirmation in the import dialog —
    *  the dialog shows a summary + target-workspace picker before any
    *  network call happens (mounted once, like the presets dialog). */
@@ -140,6 +147,7 @@ interface WorkflowState {
   undoImport: (createdIds: string[], restoreWorkspaceId: string | null, switched: boolean) => Promise<void>;
   setTemplatePresetsOpen: (open: boolean) => void;
   setShortcutsOpen: (open: boolean) => void;
+  toggleNoteSpotlight: () => void;
   /** Stage a parsed file for the import dialog (replaces any earlier one). */
   openImportPreview: (file: WorkflowFile, warning: string | undefined, fileName: string) => void;
   closeImportPreview: () => void;
@@ -354,6 +362,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   focusEpoch: 0,
   templatePresetsOpen: false,
   shortcutsOpen: false,
+  noteSpotlight: false,
   importPreview: null,
   loading: true,
   error: null,
@@ -1439,6 +1448,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   setPaletteDrag: (type) => set({ paletteDrag: type }),
   setTemplatePresetsOpen: (open) => set({ templatePresetsOpen: open }),
   setShortcutsOpen: (open) => set({ shortcutsOpen: open }),
+  toggleNoteSpotlight: () => set((s) => ({ noteSpotlight: !s.noteSpotlight })),
 
   openImportPreview: (file, warning, fileName) =>
     set({ importPreview: { file, warning, fileName } }),

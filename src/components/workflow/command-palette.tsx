@@ -28,6 +28,7 @@ import {
   Play,
   RotateCcw,
   SlidersHorizontal,
+  StickyNote,
   Wand2,
   Workflow,
 } from "lucide-react";
@@ -67,6 +68,19 @@ export function CommandPalette() {
   const workspaces = useWorkflowStore((s) => s.workspaces);
   const activeWorkspaceId = useWorkflowStore((s) => s.activeWorkspaceId);
   const switchWorkspace = useWorkflowStore((s) => s.switchWorkspace);
+  const noteSpotlight = useWorkflowStore((s) => s.noteSpotlight);
+  const toggleNoteSpotlight = useWorkflowStore((s) => s.toggleNoteSpotlight);
+
+  // Notes group (Task 75) — the scientist's margin notes become first-class
+  // palette citizens: each noted job is one row whose SEARCH VALUE carries
+  // the note TEXT, so fuzzy-typing a phrase from the annotation ("good
+  // class", "redo ab initio") finds the job even when its name wouldn't.
+  // Workspace-scoped, same rule the canvas lens dims by.
+  const notedJobs = (
+    activeWorkspaceId == null
+      ? jobs
+      : jobs.filter((j) => (j.workspaceId ?? "") === activeWorkspaceId)
+  ).filter((j) => j.note);
 
   // Ctrl+K / ⌘K from anywhere + the header chip's custom event.
   React.useEffect(() => {
@@ -283,6 +297,42 @@ export function CommandPalette() {
           })}
         </CommandGroup>
 
+        {/* ---------------- notes (annotated jobs) ---------------- */}
+        {notedJobs.length > 0 && (
+          <>
+            <CommandSeparator />
+            <CommandGroup
+              heading={`Notes · ${notedJobs.length} annotated job${notedJobs.length === 1 ? "" : "s"}`}
+            >
+              {notedJobs.map((j) => {
+                const spec = jobType(j.type);
+                // the note TEXT is the searchable payload — "note" leading
+                // token makes plain "note" queries land in this group first
+                return (
+                  <CommandItem
+                    key={`note-${j.id}`}
+                    value={`note ${j.name} ${j.type} ${j.note ?? ""}`}
+                    onSelect={() => jumpToJob(j.id)}
+                    className="gap-2.5"
+                  >
+                    <StickyNote className="size-4 shrink-0 text-amber-500 dark:text-amber-400" />
+                    <span className="min-w-0 shrink-0 truncate text-sm font-medium">
+                      {j.name}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+                      {j.note}
+                    </span>
+                    <TypeIcon
+                      name={spec?.icon ?? "boxes"}
+                      className={`size-3.5 shrink-0 ${spec?.color.text ?? "text-muted-foreground"}`}
+                    />
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+          </>
+        )}
+
         {/* ---------------- run (idle jobs) ---------------- */}
         {jobs.some((j) => j.status === "idle") && (
           <>
@@ -429,6 +479,27 @@ export function CommandPalette() {
           <CommandItem value="tidy layout arrange auto" onSelect={tidyLayout} className="gap-2.5">
             <Wand2 className="size-4 shrink-0" />
             <span className="flex-1 text-sm">Tidy layout</span>
+          </CommandItem>
+          <CommandItem
+            value="note spotlight annotated annotations margin lens filter dim discover"
+            onSelect={() => {
+              toggleNoteSpotlight();
+              close();
+            }}
+            className="gap-2.5"
+          >
+            <StickyNote
+              className={`size-4 shrink-0 ${
+                noteSpotlight ? "text-amber-500 dark:text-amber-400" : "text-muted-foreground"
+              }`}
+            />
+            <span className="flex-1 text-sm">
+              {noteSpotlight ? "Show all jobs (spotlight off)" : "Spotlight noted jobs"}
+              <span className="ml-1.5 text-[10px] text-muted-foreground">
+                dim cards without a note
+              </span>
+            </span>
+            <CommandShortcut>N</CommandShortcut>
           </CommandItem>
           <CommandItem
             value="keyboard shortcuts keys help bindings discover"

@@ -15,11 +15,12 @@ import {
   RefreshCw,
   Server,
   Snowflake,
+  StickyNote,
   Terminal,
   Workflow,
   X,
 } from "lucide-react";
-import { useWorkflowStore } from "@/lib/store";
+import { useWorkflowStore, useActiveWorkspaceJobs } from "@/lib/store";
 import { ThemeToggle } from "./theme-toggle";
 import { HelpPopover } from "./help-popover";
 import { CommandPaletteTrigger } from "./command-palette";
@@ -83,7 +84,7 @@ function ProjectSwitcher() {
     <div className="flex items-center gap-1.5">
       <Select value={project?.id ?? ""} onValueChange={onChange}>
         <SelectTrigger
-          className="h-8 w-[150px] rounded-lg border bg-card text-xs font-medium sm:w-[190px] md:w-[220px]"
+          className="h-8 w-[150px] rounded-lg border bg-card text-xs font-medium xl:w-[220px]"
           aria-label="Active project"
           title={project?.name}
         >
@@ -604,6 +605,55 @@ function ViewSwitcher() {
 }
 
 /* ------------------------------------------------------------------ */
+/* Note spotlight chip (Task 75)                                        */
+/* ------------------------------------------------------------------ */
+
+/** Toggles the note-spotlight lens and shows how many jobs in the ACTIVE
+ *  workspace carry a note. Disabled at zero — a lens over nothing is a
+ *  dead control, and a disabled chip says "no annotations yet" more
+ *  honestly than an empty toggle. Counts the active workspace (not the
+ *  global store) because the lens itself only dims the canvas in front
+ *  of the user. */
+function NoteSpotlightChip() {
+  const jobs = useActiveWorkspaceJobs();
+  const on = useWorkflowStore((s) => s.noteSpotlight);
+  const toggle = useWorkflowStore((s) => s.toggleNoteSpotlight);
+  const noted = jobs.filter((j) => j.note).length;
+  return (
+    <button
+      type="button"
+      data-note-spotlight
+      data-note-spotlight-count={noted}
+      aria-pressed={on}
+      aria-label="Spotlight noted jobs"
+      disabled={noted === 0}
+      onClick={toggle}
+      title={
+        noted === 0
+          ? "No noted jobs yet — add a note from a job's Overview tab"
+          : `${noted} job${noted === 1 ? "" : "s"} carry a note — ${on ? "showing" : "click to spotlight"} them`
+      }
+      className={cn(
+        "flex h-8 items-center gap-1.5 rounded-lg border px-2.5 card-lift transition-colors",
+        on
+          ? "border-amber-500/60 bg-amber-500/10"
+          : "border-border bg-card hover:bg-secondary/60",
+        noted === 0 && "opacity-50"
+      )}
+    >
+      <StickyNote
+        className={cn(
+          "size-3.5",
+          on ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"
+        )}
+      />
+      <span className="text-xs font-medium tabular-nums">{noted}</span>
+      <span className="hidden text-xs text-muted-foreground xl:inline">noted</span>
+    </button>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Header                                                               */
 /* ------------------------------------------------------------------ */
 
@@ -632,10 +682,15 @@ export function Header() {
         <ViewSwitcher />
 
         {/* Workspace + project switcher, stats chips */}
-        <div className="hidden items-center gap-2 md:flex">
+        {/* Progressive disclosure — the header only truly fits when each
+            tier has room (measured at 1280/1366/1440/1536: the middle zone
+            used to overflow INTO the actions cluster below ~1470px, the
+            last stat chip silently hidden under it). xl = workspace +
+            project + lens chip; 2xl = the three counters join. */}
+        <div className="hidden items-center gap-2 xl:flex">
           <WorkspaceSelect />
           <ProjectSwitcher />
-          <div className="hidden items-center gap-2 lg:flex" aria-label="Workflow statistics">
+          <div className="hidden items-center gap-2 2xl:flex" aria-label="Workflow statistics">
             <StatChip
               icon={<Boxes className="size-3.5" />}
               label="jobs"
@@ -655,6 +710,10 @@ export function Header() {
               tone="text-emerald-600 dark:text-emerald-400"
             />
           </div>
+          {/* lens control, not a stat — sits beside the counters but outside
+              the "Workflow statistics" group so assistive tech sees the
+              difference between "how many" and "do something" */}
+          <NoteSpotlightChip />
         </div>
       </div>
 
