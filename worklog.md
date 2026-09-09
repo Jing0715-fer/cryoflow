@@ -3117,3 +3117,24 @@ Stage Summary:
 - 「包裹形状要实测不要记忆」：同一天里 POST /api/jobs 包 {job}、POST /api/workspaces 包 {workspace}、API 响应包 {jobs}/{workspaces}——每条路由各自为政的包裹惯例没有统一合同，探针写断言前 curl 一下比翻源码猜快且准
 - 「复用视觉方言要连语义一起复用」：dup 芯片抄了 version-warning 的 amber pill 类，但 D4 静态断言同时锁住 tooltip 的解释性文案——方言复用降低的是识别成本，语义解释不能跟着省（两个 amber 芯片同时出现时，用户靠 tooltip 分辨谁在警告什么）
 - 遗留（下轮候选）：EMPIAR 真数据回归（重）；用户机器 class3d/refine3d 顺序模式与 topaz 实测反馈；import 队列 rich tooltip（低优先，dup 芯片 tooltip 已覆盖最有价值的信息）；diff 对话框 Open 行 canvas 入口价值复查（观察真实使用）；文件夹拖拽真机手势反馈；同批多文件内部撞名（两个文件定义同名 job）——本轮守卫只对既有 workspace 内容，批内撞名是另一个判定（post-import 才能发生），观察真实需求再定
+
+---
+Task ID: 96
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-10 05:44 window)
+Task: cron 自主巡检——Task 96「改名守卫机制闭环：服务端改名作用域收窄到 workspace + 预览警告镜像 uniqueName 走查」：curl 探形实验钉死服务端真实行为后推翻 Task 95 的两个前提——服务端从不造同名副本（uniqueName 把一切撞名改写成 "X (i2)"），Task 95 的 chip 警告的「duplicate」从未发生过；而真正发生的改名（批内撞名、跨 workspace 撞名）chip 反而全盲。修法 = 两地方言收敛：①服务端改名作用域从 project 收窄到 target workspace（(iN) 是前 workspace 时代的历史惯性——当时 project==workspace，改动后「拷贝到另一个 workspace 保留原名」成为机制事实，Task 95 宣称的合法拷贝语义终于为真）；②客户端 preview 走查逐字镜像服务端 uniqueName（target-ws 名字种子 + 批内顺序消耗 + 空名默认 label 补全），覆盖三类撞名：目标 ws 已有 / 批内先前文件 / 文件内先前 job；③chip 文案从谎言式 "N dup"（声称造同名副本）改为机制式 "N renames"（tooltip 点名两种撞名来源 + "(i2)" 实例）。t96 26 断言三连绿（含三条 MECHANICS 闭环断言：chip 的承诺 vs 服务端实际所为一一对照）+ t95 合同更新三连绿 + 全回归矩阵 28 套绿 + worklog + push
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 95、HEAD a10662e == origin/main、BUILD_ID _egz8Trw9337J1Y2FxHNx 匹配；生产冷启动 + smoke + t95/t93 全绿 → 稳定
+- 【选题调研一石三鸟】Task 95 遗留候选「同批多文件内部撞名」着手核实——读 import-workflow-dialog 全文 + workflow-import 路由全文时发现 uniqueName 的 taken 集合是 `where: { projectId }`（项目级）；curl 探形实验（E1 全新保留/E2 同 ws 改 (i2)/E3 跨 ws 也改 (i3)——项目级判别实验/E4 单请求双同名改 (i4)(i5)——批内判别实验）钉死全部机制；「包裹形状要实测不要记忆」教义的行为版：「行为要实测不要照抄注释」——Task 95 的警告文案就是照着想象写的，从未 curl 验证过
+- 【方言错位三处定性】①文案错位：chip 说 "importing creates a duplicate"，服务端实际 rename 从不 duplicate（E2）；②盲区一（批内）：两个 staged 文件共享 job 名 → 无 chip 但第二个文件的服务端后果是改名（E4 机制）；③盲区二（跨 ws）：名字存在于另一 workspace → 无 chip 但项目级 rename 照样发生（E3 机制）——用户挑了干净 workspace 期待忠实拷贝却被静默改名
+- 【方案权衡】Option 1 客户端镜像项目级机制（零服务端改动，但把历史惯性固化成契约，且「导入到干净 workspace 也亮 chip」违背 picker 的 workspace 域直觉）vs Option 2 服务端收窄 + 客户端镜像 workspace 域（跨 ws 拷贝保留名字——模板拷贝故事为真；警告域=picker 域=机制域三域合一）。选 Option 2：唯一身份假设审计通过（diff 对话框/compare picker/roster 全部 id 基，DB 无 unique 约束，palette 仅展示）
+- 【实现①服务端】route.ts 一行 `where: { projectId, workspaceId }` + 头注释与块注释重写（点名 pre-workspace-era artifact + 拷贝语义 + preview 镜像关系）；【实现②客户端】dialog：existingNames/dupCount/dupJobTotal 三件套 → renameCountByFile 单 memo（deps [entries, jobs, targetWs]——批内顺序走查必须按 entries 序）；空名镜像 `${jobType(j.type)?.label ?? "Job"} 1`（客户端 WorkflowFileJob.name 规范化为 ""，服务端 parseBody 规范化为 null→默认 label，两侧殊途同归）；dupTitle→renameTitle（"already taken in X (or by an earlier file in this batch) — the copy arrives renamed, e.g. \"Import Movies 1 (i2)\""）；图标 Copy→Replace（Copy 讲复制故事，Replace 讲改名故事）；testid import-row-dup→import-row-rename
+- 【t96 探针·机制闭环】26 断言六相，独有特征是三条 MECHANICS 断言把 chip 的「承诺」与服务端「所为」对照：A5 批内撞名导入后 "t96 Batch Shared"×1 + "(i2)"×1；B4 跨 ws 拷贝逐字保留原名（pre-96 是静默 (i2)——新契约的正向断言）；C3 重导入落 "(i2)"（Task 95 原故事，诚实文案版）。A 相多文件队列按 data-queue-file-name 定位（row() 取首行的旧法在双行队列里失义）；C 相一折：探针预期 ws2 干净无 chip，但 B 相刚把 Alpha 拷进了 ws2——守卫正确、探针预期错误，C 相改用只存在于 homeWs 的 Beta 名讲故事（S 相播种 Alpha+Beta 双种子）；首跑语法错一折：箭头函数用 await 缺 async
+- 【收尾】eslint src 0、tsc src 0、production build（BUILD_ID oftJ48uahqUX-pKENJQ6U）+ 重启后 t95 一次全绿；t96 26×3、t95 23×3 三连绿；全矩阵 28 套（+t96）串行全绿；t96-shape-probe.mjs 归档 diag-archive/（README 加行——curl 实验是本轮的「石中剑」，留档备查）
+
+Stage Summary:
+- 「警告要给真实发生的城市报天气」：Task 95 的 chip 是精心制作的假预报——它警告的行为（造同名副本）从未发生，它漏报的行为（静默改名）天天发生。护栏类功能的验收标准不是「警告出现了」而是「警告的内容与后果一一对应」；curl 探形十分钟，胜过注释考古十轮
+- 「作用域历史惯性要挑明 不要迁就」：项目级改名诞生于前 workspace 时代（当时 project==workspace，项目级就是 workspace 级），workspace 出现后没人重审——一行 where 子句的惯性让「拷贝保留名字」这个用户直觉等了二十轮。历史代码的每个作用域选择都该问一句「这个作用域在它诞生时和现在是不是同一个东西」
+- 「镜像走查让警告成为模拟器」：preview 的 renameCountByFile 不是启发式（「名字撞了大概会改名」）而是服务端 uniqueName 的逐字镜像（同样的种子、同样的顺序、同样的空名默认）——警告的每个数字都是对未来的精确模拟。两侧共享同一算法意味着服务端改走查时探针的 MECHANICS 断言会抓住两侧漂移
+- 「探针的预期也要跟着状态走」：C1 的 FATAL 是探针犯错产品无辜——B 相的导入改变了 C 相看到的世界，串行相位的每一步都是下一相的前提；修法不是放宽断言而是给 C 相一个未被污染的故事角色（Beta 只活在 homeWs）
+- 遗留（下轮候选）：EMPIAR 真数据回归（重）；用户机器 class3d/refine3d 顺序模式与 topaz 实测反馈；diff 对话框 Open 行 canvas 入口价值复查（观察真实使用）；文件夹拖拽真机手势反馈；import 队列 rich tooltip（低优先）；undo 的 toast 文案可点名被改名的 job（现只报数量——观察真实需求再定）

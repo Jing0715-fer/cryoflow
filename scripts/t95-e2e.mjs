@@ -1,21 +1,23 @@
-// t95 — Task 95: duplicate-import guard in the preview dialog.
+// t95 — Task 95: rename guard in the preview dialog (contract updated by
+// Task 96 — see t96-e2e.mjs for the mechanics closure).
 //
-// Re-importing the same workflow export currently creates silent name
-// copies in the target workspace. Task 95 moves that knowledge BEFORE the
-// confirm: each queue row gets an amber "N dup" chip when any of the
-// file's job names already exist in the SELECTED target workspace, and
-// the confirm button gains a "· N dup" suffix. Keyed on the picker state
-// — the same file is a duplicate in one workspace and fresh in another,
-// which is exactly why the guard warns instead of blocking.
+// Task 95 originally warned "importing creates a duplicate" — but the curl
+// experiment proved the server NEVER creates same-name duplicates: its
+// uniqueName walk renames every collision to "X (i2)". Task 96 corrected
+// the warning to describe the rename that actually happens (chip "N
+// renames", tooltip with the (i2) example), narrowed the server's rename
+// scope from project to target workspace, and extended the client walk to
+// cover batch-internal collisions. This suite keeps t95's structure —
+// chip follows the picker, fresh files stay silent — with the new copy.
 //
 // Phase S — setup: baseline, seed one existing job, boot to canvas
 // Phase A — drop a workflow whose jobs are [existing, fresh] → dialog row
-//   carries the dup chip ("1 dup"), tooltip names the target workspace,
-//   confirm copy carries the "· 1 dup" suffix
+//   carries the rename chip ("1 rename"), tooltip names the target
+//   workspace + the (i2) mechanics, confirm copy carries "· 1 rename"
 // Phase B — switch the target workspace radio → chip disappears (fresh
 //   there) and the confirm suffix goes; switch back → chip returns
 // Phase C — all-fresh workflow → no chip anywhere (regression)
-// Phase D — static contract: testid, memo keyed on targetWs, suffix logic
+// Phase D — static contract: testid, walk memo keyed on targetWs, suffix
 // Phase Z — cleanup: delete seeded job + t95 workspace, counts restored
 //
 // Run: node scripts/t95-e2e.mjs   (server on :3000)
@@ -129,8 +131,8 @@ const row = () =>
     const r = document.querySelector('[data-testid="import-queue-row"]');
     if (!r) return null;
     return {
-      dupChip: r.querySelector('[data-testid="import-row-dup"]')?.textContent?.replace(/\s+/g, " ").trim() ?? null,
-      dupTitle: r.querySelector('[data-testid="import-row-dup"]')?.getAttribute("title") ?? null,
+      renameChip: r.querySelector('[data-testid="import-row-rename"]')?.textContent?.replace(/\s+/g, " ").trim() ?? null,
+      renameTitle: r.querySelector('[data-testid="import-row-rename"]')?.getAttribute("title") ?? null,
       versionChip: !!r.querySelector('[data-testid="import-row-warning"]'),
     };
   });
@@ -156,39 +158,39 @@ const closeDialog = async () => {
   await p.waitForSelector('[data-canvas-ui="import-workflow-dialog"]', { state: "detached", timeout: 10_000 });
 };
 
-/* ---------------- Phase A: mixed file → dup chip + confirm suffix ---------------- */
-console.log("Phase A — duplicate chip on the mixed file");
+/* ---------------- Phase A: mixed file → rename chip + confirm suffix ---------------- */
+console.log("Phase A — rename chip on the mixed file");
 await drop(MIXED);
 must((await checkedWs()) === homeWs.name,
   `A1 default target is the active workspace (got "${await checkedWs()}", want "${homeWs.name}")`);
 let r = await row();
-must(r && r.dupChip !== null && /1 dup/.test(r.dupChip),
-  `A2 dup chip reads the existing-name count (got ${JSON.stringify(r && r.dupChip)})`);
-must(r.dupTitle?.includes("1 job name already exists in") && r.dupTitle?.includes(homeWs.name),
-  `A3 tooltip names the target workspace (got "${r.dupTitle?.slice(0, 70)}")`);
+must(r && r.renameChip !== null && /1 rename/.test(r.renameChip) && !/renames/.test(r.renameChip),
+  `A2 chip counts names the server will rename (got ${JSON.stringify(r && r.renameChip)})`);
+must(r.renameTitle?.includes("already taken in") && r.renameTitle?.includes(homeWs.name) && r.renameTitle?.includes("(i2)"),
+  `A3 tooltip names the workspace + the (i2) mechanics (got "${r.renameTitle?.slice(0, 70)}")`);
 must(!r.versionChip, "A4 v1 file carries no version chip — the two amber chips are independent");
-must((await confirmText()).includes("Import 1 workflow · 2 jobs · 1 dup"),
-  `A5 confirm copy carries the dup suffix (got "${await confirmText()}")`);
+must((await confirmText()).includes("Import 1 workflow · 2 jobs · 1 rename"),
+  `A5 confirm copy carries the rename suffix (got "${await confirmText()}")`);
 
 /* ---------------- Phase B: switch target → chip re-evaluates ---------------- */
 console.log("Phase B — chip follows the target workspace");
 await pickWs(otherWs.name);
 r = await row();
-must(r && r.dupChip === null, `B1 fresh workspace → chip gone (got ${JSON.stringify(r && r.dupChip)})`);
-must(!(await confirmText()).includes("dup"), `B2 confirm suffix gone (got "${await confirmText()}")`);
+must(r && r.renameChip === null, `B1 fresh workspace → chip gone (got ${JSON.stringify(r && r.renameChip)})`);
+must(!(await confirmText()).includes("rename"), `B2 confirm suffix gone (got "${await confirmText()}")`);
 await pickWs(homeWs.name);
 r = await row();
-must(r && r.dupChip !== null && /1 dup/.test(r.dupChip), "B3 switching back brings the chip and the suffix");
-must((await confirmText()).includes("· 1 dup"), "B4 confirm suffix restored");
+must(r && r.renameChip !== null && /1 rename/.test(r.renameChip), "B3 switching back brings the chip and the suffix");
+must((await confirmText()).includes("· 1 rename"), "B4 confirm suffix restored");
 await closeDialog();
 must((await listJobs()).length === jobsBefore + 1, "B5 Cancel imports nothing (only the seed exists)");
 
 /* ---------------- Phase C: all-fresh file → no chip ---------------- */
-console.log("Phase C — fresh file carries no dup chip");
+console.log("Phase C — fresh file carries no rename chip");
 await drop(FRESH, "t95-fresh.json");
 r = await row();
-must(r && r.dupChip === null, `C1 no duplicate names in target → no chip (got ${JSON.stringify(r && r.dupChip)})`);
-must(!(await confirmText()).includes("dup"), "C2 confirm copy stays clean");
+must(r && r.renameChip === null, `C1 no colliding names in target → no chip (got ${JSON.stringify(r && r.renameChip)})`);
+must(!(await confirmText()).includes("rename"), "C2 confirm copy stays clean");
 await closeDialog();
 
 /* ---------------- Phase D: static contract ---------------- */
@@ -196,13 +198,13 @@ console.log("Phase D — static contract (source)");
 const { execSync } = await import("node:child_process");
 const sh = (cmd) => execSync(cmd, { encoding: "utf8", timeout: 60_000 }).trim();
 const dlgSrc = sh("cat src/components/workflow/import-workflow-dialog.tsx");
-must(dlgSrc.includes('data-testid="import-row-dup"'), "D1 dup chip testid in the dialog");
-must(dlgSrc.includes("[jobs, targetWs]") && dlgSrc.includes("existingNames"),
-  "D2 memo keyed on the SELECTED workspace (re-evaluates on picker change)");
-must(dlgSrc.includes("dupTitle") && dlgSrc.includes("· ${dupJobTotal} dup"),
+must(dlgSrc.includes('data-testid="import-row-rename"'), "D1 rename chip testid in the dialog");
+must(dlgSrc.includes("[entries, jobs, targetWs]") && dlgSrc.includes("renameCountByFile"),
+  "D2 walk memo keyed on batch + SELECTED workspace (re-evaluates on picker change)");
+must(dlgSrc.includes("renameTitle") && dlgSrc.includes("${renameSuffix}"),
   "D3 tooltip helper + confirm suffix in source");
-must(dlgSrc.includes("importing creates a duplicate") && dlgSrc.includes("importing creates duplicates"),
-  "D4 tooltip copy explains the warn-not-block semantics");
+must(dlgSrc.includes("already taken in") && dlgSrc.includes("arrives renamed"),
+  "D4 tooltip copy describes the rename mechanics (warn-not-block)");
 
 /* ---------------- Phase Z: cleanup ---------------- */
 console.log("Phase Z — cleanup");

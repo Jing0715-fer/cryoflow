@@ -35,13 +35,13 @@ import {
   ArrowDownToLine,
   Boxes,
   CheckCircle2,
-  Copy,
   FileJson,
   FileX2,
-  Link2,
+  Replace,
   TriangleAlert,
 } from "lucide-react";
 import { useWorkflowStore } from "@/lib/store";
+import { jobType } from "@/lib/workflow";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -68,11 +68,15 @@ function fmtDate(iso: string): string {
   }
 }
 
-/** Tooltip copy for the per-file duplicate chip (grammar for 1 vs N). */
-function dupTitle(n: number, wsName: string): string {
+/** Tooltip copy for the per-file rename chip (grammar for 1 vs N).
+ *  Task 96 — the chip used to claim importing "creates a duplicate", but
+ *  the server NEVER creates same-name duplicates: its uniqueName walk
+ *  renames every collision to "X (i2)", "X (i3)"… Warn about the rename
+ *  that actually happens, not the duplicate that never does. */
+function renameTitle(n: number, wsName: string): string {
   return n === 1
-    ? `1 job name already exists in ${wsName} — importing creates a duplicate`
-    : `${n} job names already exist in ${wsName} — importing creates duplicates`;
+    ? `1 job name is already taken in ${wsName} (or by an earlier file in this batch) — the copy arrives renamed, e.g. "Import Movies 1 (i2)"`
+    : `${n} job names are already taken in ${wsName} (or by an earlier file in this batch) — the copies arrive renamed, e.g. "Import Movies 1 (i2)"`;
 }
 
 export function ImportWorkflowDialog() {
@@ -92,21 +96,37 @@ export function ImportWorkflowDialog() {
   const [targetWs, setTargetWs] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
 
-  // Task 95 — duplicate guard: job names that already exist in the
-  // SELECTED target workspace. Re-importing the same export currently
-  // creates silent copies; the per-file chip + confirm suffix move that
-  // knowledge BEFORE the confirm. Keyed on targetWs so switching the
-  // picker re-evaluates — the same file is a duplicate in one workspace
-  // and fresh in another (which is exactly why this warns instead of
-  // blocking: a deliberate copy into another workspace is legitimate).
-  const existingNames = React.useMemo(() => {
-    const set = new Set<string>();
-    if (targetWs) for (const j of jobs) if (j.workspaceId === targetWs) set.add(j.name);
-    return set;
-  }, [jobs, targetWs]);
-  const dupCount = (entry: (typeof entries)[number]) =>
-    entry.file.jobs.reduce((acc, j) => acc + (existingNames.has(j.name) ? 1 : 0), 0);
-  const dupJobTotal = entries.reduce((acc, e) => acc + dupCount(e), 0);
+  // Task 95/96 — rename guard: walks the staged batch in order with a
+  // taken-set seeded from the SELECTED target workspace's existing job
+  // names — a faithful client-side mirror of the server's uniqueName walk
+  // (workflow-import route), which renames every collision to "(i2)",
+  // "(i3)"… instead of creating same-name duplicates. Covers all three
+  // collision kinds the server renames: existing-in-target-workspace,
+  // earlier-FILE-in-batch (two staged exports sharing a job name), and
+  // earlier-JOB-in-file (hand-edited duplicate). Keyed on targetWs so
+  // switching the picker re-evaluates — the same file collides in one
+  // workspace and lands fresh in another (which is exactly why this
+  // warns instead of blocking: a deliberate copy into another workspace
+  // is legitimate — and since Task 96 the server agrees: its rename
+  // scope IS the workspace, so fresh-target imports keep their names).
+  const renameCountByFile = React.useMemo(() => {
+    const taken = new Set<string>();
+    if (targetWs)
+      for (const j of jobs) if (j.workspaceId === targetWs && j.name) taken.add(j.name);
+    return entries.map((e) => {
+      let n = 0;
+      for (const j of e.file.jobs) {
+        // mirror the server's name normalization: empty name → "<Label> 1"
+        const raw = (j.name.trim() || `${jobType(j.type)?.label ?? "Job"} 1`).slice(0, 120);
+        if (taken.has(raw)) n++;
+        taken.add(raw);
+      }
+      return n;
+    });
+  }, [entries, jobs, targetWs]);
+  const renameTotal = renameCountByFile.reduce((acc, n) => acc + n, 0);
+  const renameSuffix =
+    renameTotal > 0 ? ` · ${renameTotal === 1 ? "1 rename" : `${renameTotal} renames`}` : "";
   const targetWsName =
     workspaces.find((w) => w.id === targetWs)?.name ?? "the target workspace";
 
@@ -196,19 +216,19 @@ export function ImportWorkflowDialog() {
                         {origin ? ` · from ${origin}` : ` · exported ${fmtDate(entry.file.exportedAt)}`}
                       </span>
                     </span>
-                    {/* Task 95 — duplicate guard: computed per selected target workspace */}
+                    {/* Task 95/96 — rename guard: mirrors the server's uniqueName walk */}
                     {(() => {
-                      const dup = dupCount(entry);
-                      return dup > 0 ? (
+                      const ren = renameCountByFile[i] ?? 0;
+                      return ren > 0 ? (
                         <span
                           className="flex h-4 shrink-0 items-center gap-0.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 text-[9px] font-semibold text-amber-600 dark:text-amber-400"
                           role="status"
-                          title={dupTitle(dup, targetWsName)}
-                          data-testid="import-row-dup"
-                          aria-label="Duplicate warning"
+                          title={renameTitle(ren, targetWsName)}
+                          data-testid="import-row-rename"
+                          aria-label="Rename warning"
                         >
-                          <Copy className="size-2.5" aria-hidden="true" />
-                          {dup} dup
+                          <Replace className="size-2.5" aria-hidden="true" />
+                          {ren === 1 ? "1 rename" : `${ren} renames`}
                         </span>
                       ) : null;
                     })()}
@@ -361,7 +381,7 @@ export function ImportWorkflowDialog() {
             {busy
               ? "Importing…"
               : entries.length > 0
-                ? `Import ${entries.length} workflow${entries.length === 1 ? "" : "s"} · ${totalJobs} jobs${dupJobTotal > 0 ? ` · ${dupJobTotal} dup` : ""}`
+                ? `Import ${entries.length} workflow${entries.length === 1 ? "" : "s"} · ${totalJobs} jobs${renameSuffix}`
                 : "Nothing to import"}
           </Button>
         </DialogFooter>

@@ -33,6 +33,7 @@ and the next investigation of the same subsystem may want to start from it.
 | t81-chain-replay.mjs / -palette-diag / -store-diag | 81 | chain replay / palette / store isolations |
 | t84-table-probe.mjs / -probe2 | 84 | aside table geometry probes |
 | qa58-geom-probe.mjs | 92 | zoom/note button overlap measurement (the smoking gun) |
+| t96-shape-probe.mjs | 96 | curl experiment nailing the server rename scope: project-wide (iN) renames, never same-name duplicates |
 
 ## Status
 

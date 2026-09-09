@@ -20,9 +20,15 @@ export const dynamic = "force-dynamic";
  *     the DB, so engine-adjacent params can't be injected via a file)
  *   - edges must connect existing indexes with spec-valid ports
  *     (portsValid), self-links rejected
- *   - names are de-duplicated against the project's EXISTING names AND the
- *     incoming batch (collision → " (i2)", " (i3)" …) — display-only,
- *     graph identity is the index mapping
+ *   - names are de-duplicated against the TARGET WORKSPACE's existing names
+ *     AND the incoming batch (collision → " (i2)", " (i3)" …) — display-only,
+ *     graph identity is the index mapping. Scope is the workspace, not the
+ *     project (Task 96): the project-wide rule was a pre-workspace-era
+ *     artifact (back then project == workspace), and it silently renamed
+ *     deliberate copies into other workspaces — the template-copy story
+ *     (export a pipeline, import it into a fresh workspace) expects the
+ *     SAME names to land there, like a copied folder keeps its filenames.
+ *     The import dialog's preview warning mirrors exactly this walk.
  *
  * Placement: the file's internal geometry is preserved (relative spacing)
  * and the whole graph is shifted BELOW the workspace's existing content —
@@ -176,9 +182,14 @@ export async function POST(request: NextRequest) {
         : existing.reduce((m, j) => Math.max(m, j.y), 0) + DROP_GAP;
     const yShift = baseY - minY;
 
-    // ---- name de-duplication (project-wide + batch-internal) -------------
+    // ---- name de-duplication (target-workspace + batch-internal) ---------
+    // Task 96: scoped to the WORKSPACE, not the project — a deliberate copy
+    // into another workspace keeps its names (that's what "copy" means);
+    // collisions that would actually confuse (same workspace, or earlier in
+    // this same batch) get the (iN) suffix. The preview dialog walks this
+    // exact algorithm client-side to warn BEFORE the confirm.
     const projectJobs = await db.job.findMany({
-      where: { projectId: active.project.id },
+      where: { projectId: active.project.id, workspaceId },
       select: { name: true },
     });
     const taken = new Set(projectJobs.map((j) => j.name));
