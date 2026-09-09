@@ -41,7 +41,6 @@ import { exportCanvasPng, fmtBytes } from "@/lib/canvas-export";
 import {
   buildWorkflowFile,
   downloadWorkflowJson,
-  parseWorkflowFiles,
   workflowFileName,
 } from "@/lib/workflow-io";
 import { useWorkflowStore, useActiveWorkspaceJobs, useActiveWorkspaceEdges, type PendingFrom } from "@/lib/store";
@@ -53,6 +52,8 @@ import { PipelineKpi } from "./pipeline-kpi";
 import { CanvasMinimap } from "./canvas-minimap";
 import { JobCard } from "./job-card";
 import { ParamsDiffDialog } from "./params-diff-dialog";
+import { useDropImport, DropImportOverlay } from "./drop-import";
+import { stageWorkflowFiles } from "@/lib/import-stage";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -1202,29 +1203,21 @@ export function WorkflowCanvas() {
     });
   }, [jobs, edges, activeWorkspaceName]);
 
-  // Multi-file since Task 86: the picker stages ANY number of JSON files —
-  // parse via the shared funnel (parseWorkflowFiles, same funnel the
-  // command palette uses) and hand the whole queue to the preview dialog.
-  // All-invalid picks never open the dialog; the first parse error toasts.
+  // Multi-file since Task 86: the picker stages ANY number of JSON files.
+  // Task 92: the post-parse choreography (all-invalid toast / preview
+  // dialog hand-off) is stageWorkflowFiles — shared with the palette and
+  // the canvas drop form, so all three entry points stay one contract.
   const onImportFilePick = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
     e.target.value = ""; // allow re-picking the same file later
     if (files.length === 0) return;
-    void (async () => {
-      const { entries, failures } = await parseWorkflowFiles(files);
-      if (entries.length === 0) {
-        toast({
-          title: "Import failed",
-          description: failures[0]?.error ?? "No readable workflow files",
-          variant: "destructive",
-        });
-        return;
-      }
-      // NOT imported here — the preview dialog (mounted once in page.tsx)
-      // takes over: file queue + target-workspace picker before any POST
-      useWorkflowStore.getState().openImportPreview(entries, failures);
-    })();
+    void stageWorkflowFiles(files);
   }, []);
+
+  // Task 92 — third import form: drop files anywhere on the canvas. The
+  // section's pointer handlers never see this gesture (HTML5 DnD ≠ pointer
+  // events), so card dragging and panning are untouched.
+  const { dropProps, active: dropActive, fileCount: dropFileCount } = useDropImport(stageWorkflowFiles);
 
   return (
     <ContextMenu>
@@ -1244,6 +1237,7 @@ export function WorkflowCanvas() {
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerCancel}
+          {...dropProps}
           style={{
             // infinite dot grid — painted on the viewport itself so it
             // covers the whole screen wherever the (unbounded) workspace
@@ -1519,6 +1513,11 @@ export function WorkflowCanvas() {
         aria-label="Import workflow JSON files"
         tabIndex={-1}
       />
+
+      {/* Task 92 — drop-import veil. Rendered last so it paints above the
+          canvas layers; pointer-events-none keeps the drop event free to
+          land on the section itself. */}
+      {dropActive && <DropImportOverlay count={dropFileCount} />}
         </section>
       </ContextMenuTrigger>
 

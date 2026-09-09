@@ -45,6 +45,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { useWorkflowStore } from "@/lib/store";
+import { stageWorkflowFiles } from "@/lib/import-stage";
 import { hasJudgment, parseClassNotes } from "@/lib/class-notes";
 import type { JobDTO } from "@/lib/types";
 import { JOB_TYPES, jobType, CARD_W, CARD_H } from "@/lib/workflow";
@@ -53,7 +54,6 @@ import { exportCanvasPng } from "@/lib/canvas-export";
 import {
   buildWorkflowFile,
   downloadWorkflowJson,
-  parseWorkflowFiles,
   workflowFileName,
 } from "@/lib/workflow-io";
 import { TypeIcon } from "./icons";
@@ -286,24 +286,15 @@ export function CommandPalette() {
     close(); // the native picker takes focus — drop the palette first
     const input = document.createElement("input");
     input.type = "file";
-    // multi-file since Task 86 — same funnel the canvas picker uses
+    // multi-file since Task 86 — same funnel the canvas picker uses;
+    // Task 92: staging (all-invalid toast / preview hand-off) extracted to
+    // stageWorkflowFiles, shared with the canvas input AND the canvas drop
     input.multiple = true;
     input.accept = ".json,application/json";
     input.onchange = async () => {
       const files = Array.from(input.files ?? []);
       if (files.length === 0) return;
-      const { entries, failures } = await parseWorkflowFiles(files);
-      if (entries.length === 0) {
-        toast({
-          title: "Import failed",
-          description: failures[0]?.error ?? "No readable workflow files",
-          variant: "destructive",
-        });
-        return;
-      }
-      // preview dialog (mounted once in page.tsx) takes over from here:
-      // file queue + target-workspace picker before any POST
-      useWorkflowStore.getState().openImportPreview(entries, failures);
+      await stageWorkflowFiles(files);
     };
     input.click();
   };

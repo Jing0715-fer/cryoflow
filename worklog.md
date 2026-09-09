@@ -3032,3 +3032,27 @@ Stage Summary:
 - 「拦截指针的 overlay 是证人不是敌人」：旧 CLI 的裸坐标点击穿透 overlay 侥幸过审，playwright 的 actionability 检查把「Sheet 已开时点卡片」判为非法——迁移的第二价值是把旧通道的侥幸行为全部显性化，要么修测试语义（条件点击）要么确认产品意图
 - 「选题调研的三连否也是产出」：三个功能候选各花一次 rg/read 就确认「已存在或无意义」——同表操作的幂等性检查；worklog 里留下排除记录，下一轮不必重查
 - 遗留（下轮候选）：EMPIAR 真数据回归（重）；用户机器 class3d/refine3d 顺序模式与 topaz 实测反馈；import 队列 rich tooltip（低优先）；diff 对话框 Open 行的 canvas 入口价值复查；迁移收尾清点——scripts/ 里残留的 agent-browser 诊断脚本（qa64-net-diag/qa70-esc-bisect/qa72-* 等）标注或删除
+
+---
+Task ID: 92
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-10 04:14 window)
+Task: cron 自主巡检——Task 92「拖放导入（第三导入形态）+ smoke/qa58 迁移收官 + 诊断脚本归档」三主题：①新功能——画布拖放导入：dragenter/over/leave/drop 四 handler + 深度计数器防抖 veil overlay + Files 类型门卫（文本拖拽不响应）+ 窗口级误拖守卫（useDropNavigationGuard 挂 page.tsx——无人处理的文件 drop 的浏览器默认行为是把整个 app 导航走）；②单源抽取——stageWorkflowFiles 从 canvas/palette 的两份重复 post-parse 编排中抽出为第三份（drop）的前置工程：全无效→破坏性 toast、否则→预览对话框，三形态一契约；③QA 基建——qa63-smoke + qa58 迁移 playwright（Task 91「矩阵零 agent-browser」结论的漏网——两套都还在矩阵里跑），断言逐字保留只换驱动器；迁移顺带钉死一个真产品 bug：Task 80 起 note pen 与 zoom 按钮在干净类上完全同位叠放（right-1.5 top-1.5），zoom 对真实指针死区 14 轮无人察觉；④scripts/ 清点——29 个一次性诊断脚本归档 scripts/diag-archive/ + README 清单。t92 36 断言全绿 + smoke/qa58 各三连绿 + 全回归矩阵 24 套绿 + worklog + push
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 91、HEAD 487455e == origin/main、BUILD_ID 894C6yw0HNeE_KXaU1q0X 匹配（91 纯 QA 轮不变）；生产冷启动 + served 自证 + smoke + t90/t89/qa70 全绿 → 稳定
+- 【选题】Task 91 遗留首位「diag 清点」+ 复查发现 Task 91 归零结论漏网（grep agent-browser 实启动：qa63-smoke 的 const AB + qa58 的 eval --stdin——pkill 注释造成的假阳性差点掩盖真依赖）；功能选题：全 src 无 onDrop/onDragOver——拖放导入是真缺口，且是「漏斗共享先于形态扩张」的天然第三章（input/动态创建/拖放三形态）
+- 【实现①单源先行】新建 src/lib/import-stage.ts：stageWorkflowFiles(files)——parseWorkflowFiles 后的编排（entries=0→destructive toast with failures[0].error；否则 openImportPreview）从 canvas.tsx 与 command-palette.tsx 各抽一份合成单源；两个旧调用点各缩成一行
+- 【实现②拖放】新建 drop-import.tsx：useDropImport（depthRef 计数器而非 boolean——子元素的 dragenter 会在父上发 dragleave，布尔会在手势内闪烁；hasFiles 门卫读 dataTransfer.types；drop 读 dataTransfer.files 走 stageWorkflowFiles）+ DropImportOverlay（pointer-events-none——veil 永不吞自己的 drop；aria-hidden——读屏用户走按钮；count 芯片读 dragenter 的 items.length；motion-reduce:animate-none；no-print）+ useDropNavigationGuard（window 级 swallow dragover/drop——挂 page.tsx 全 app，dashboard 上的误拖同样不导航）
+- 【实现③接线】canvas section spread dropProps + 尾部渲染 veil（ContextMenuTrigger asChild 不受影响；HTML5 DnD ≠ pointer events，卡片拖拽/画布平移零冲突）；page.tsx 挂 guard
+- 【t92 探针 36 断言八相】S/A/B/C/D/E/F/Z：A 相 veil 契约（Files dragenter 唤出、子进父出不闪烁、文本拖不响应）；B 相 drop→预览对话框（queue row 名、Cancel 不改数据）；C 相 drop→Import（2 jobs idle、卡片上画布、聚合 toast）；D 相毒文件→无对话框+破坏性 toast；E 相守卫（探针 listener 后注册于 guard 才能观察到 defaultPrevented——同 target 注册序）+ URL 不变 + app 存活；F 相静态契约（三调用方 + guard 全局挂载 + pointer-events-none + motion-reduce）
+- 【探针三折皆探针侧】①API 响应是 {jobs:[...]}/.{workspaces:[...]} 包裹不是裸数组；②must() 的异步 cleanup 落穿导致 FATAL 后继续跑后面相——修成 fire-and-forget close + process.exit 同步退出（Task 91 must() 教义的本套件落地版）；③上一次崩溃遗留 t92 作业污染下次基线——S 相自清理后再取基线（幂等惯例）；④E 相 header 双命中（app 头 vs print-doc 头）——role/类锚定
+- 【qa58 迁移 + 真 bug】smoke 迁移顺手（6 断言逐字 + data-job wrapper 与 role=button 内层分离的定位链修正）；qa58 迁移撞 playwright actionability 拒绝点击 zoom 按钮：几何探针实测 zoom 与 note pen 矩形完全重合（x:1411 y:554 24×24）——Task 80 引入 pen on clean cards 时两者同位，pen 在 DOM 后命中在上；产品结局侥幸（pen 的 onClick 也是 setZoom 开 lightbox，老 CLI 盲坐标点击歪打正着十四轮），但 zoom aria-label 与实际命中元素不符 + 干净类上 zoom 指针死区是真实可达性缺陷。修产品：角位单座制——注记类 badge 占角 zoom 让位 right-8（原状），干净类 zoom 占角 pen 让位 right-8（新）；「两个按钮同开 lightbox」不再是重叠的遮羞布
+- 【归档】scripts/diag-archive/：29 个一次性诊断（qa39-qa84 时代的 *-diag/*-probe/*-debug/*-bisect/*-measure + t79-t84 probe + diag-*.ts + qa58-geom-probe）git mv 保留历史 + README 表格（文件/任务/回答过的问题）+ 复活指南；矩阵套件（t85/qa72-verify 虽名 probe/measure 不在列）与历史完整套件（qa35-62）不动
+- 【收尾】eslint src 0、tsc 0、production build（BUILD_ID IeN15u5hbVA1isaTXJARb，含 drop-import + 几何修复）+ served 自证；smoke 迁移版三连绿 + qa58 迁移版三连绿；全矩阵 24 套（+t92）串行全绿
+
+Stage Summary:
+- 「迁移的拒单是真话」：playwright 拒绝点击被遮挡的 zoom 按钮不是误报—— 十四轮全绿是十四轮盲点击恰好落在另一个也开同一对话框的按钮上。 actionability 检查把「老通道的侥幸」显性化的又一例（qa66 overlay 拦截之后第二例）；修法选「让产品几何诚实」（角位单座、各让一步）而非「探针 force 点击」——force 点击会真的点到 pen 上，把断言语义也一起打歪
+- 「归零结论要 grep 实启动而不是 grep 字符串」：Task 91 的「矩阵零 agent-browser」被 qa63-smoke/qa58 的 const AB 和 eval --stdin 打脸——pkill 注释让字符串 grep 假阳性满天飞，真正可信的是「谁 spawn 了它」。审计依赖时锚定运行时行为（spawn/exec 参数），注释和死代码只是噪声
+- 「窗口级守卫是不可约的边界」：画布上的 drop 有 handler，dashboard 上的 drop 没有——浏览器的默认（导航走、内存态全丢）只在没人 preventDefault 时发生。把守卫挂在使用者（canvas）而不是受害者（整个 app）的范围上，等于把 dashboard 当成了可以牺牲的表面；守卫的全部价值恰在它声称保护的范围之外
+- 「深度计数器是 dragenter/dragleave 的唯一正确状态」：enter/leave 对每层元素成对发射，「指针是否还在区域内」是 enter−leave 的代数余项而非最后一次事件的函数；探针 A4（子进父出不闪烁）把这个不变量锁进了合同
+- 遗留（下轮候选）：EMPIAR 真数据回归（重）；用户机器 class3d/refine3d 顺序模式与 topaz 实测反馈；import 队列 rich tooltip（低优先）；diff 对话框 Open 行 canvas 入口价值复查（观察真实使用）；drop veil 的文件数芯片在 items.length 不可靠的来源（如文件夹拖拽）下隐藏——可考虑 drop 后在 toast 里补真实计数

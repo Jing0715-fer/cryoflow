@@ -663,10 +663,15 @@ export function ClassGallery({
 
             {/* zoom affordance — a SIBLING of the toggle button (buttons
                 cannot nest): overlays the thumbnail's top-right corner on
-                hover/focus-within, opens the inspection lightbox. A noted
-                class parks the note badge in that corner instead, so the
-                zoom button slides left to make room — both paths reach the
-                same lightbox, the note badge just claims its spot. */}
+                hover/focus-within, opens the inspection lightbox. The corner
+                is a single seat: a NOTED class parks the amber badge there
+                and the zoom button slides left; a CLEAN class keeps zoom in
+                the corner and the pen slides left instead (Task 92 — the
+                pen used to stack on zoom at right-1.5, a perfect overlap
+                that made zoom pointer-dead on every clean class; playwright
+                refused the click, and the refusal was right — the old CLI's
+                blind coordinates never noticed because BOTH buttons open
+                the same lightbox). */}
             <button
               type="button"
               onClick={(e) => {
@@ -693,7 +698,9 @@ export function ClassGallery({
                 a note, a faint pen on hover otherwise. Click opens the
                 lightbox focused on the note editor — ONE editor surface,
                 no grid reflow, the same place the scientist already stares
-                at the class deciding its fate. */}
+                at the class deciding its fate. Corner seat: the badge owns
+                it on noted classes; on clean classes the pen yields it to
+                zoom and parks at right-8 (Task 92 overlap fix). */}
             <button
               type="button"
               onClick={(e) => {
@@ -710,12 +717,12 @@ export function ClassGallery({
               data-canvas-ui="class-note"
               data-noted={noteText(c.cls) ? "true" : "false"}
               className={cn(
-                "absolute right-1.5 top-1.5 z-10 grid size-6 place-items-center rounded-md shadow-sm backdrop-blur-sm transition-all duration-150",
+                "absolute top-1.5 z-10 grid size-6 place-items-center rounded-md shadow-sm backdrop-blur-sm transition-all duration-150",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70",
                 noteText(c.cls)
-                  ? "bg-amber-500/90 text-white opacity-100 hover:bg-amber-500"
+                  ? "bg-amber-500/90 text-white opacity-100 hover:bg-amber-500 right-1.5"
                   : cn(
-                      "bg-black/55 text-zinc-100 opacity-0",
+                      "bg-black/55 text-zinc-100 opacity-0 right-8",
                       "group-hover/cell:opacity-100 group-focus-within/cell:opacity-100 focus-visible:opacity-100 hover-none:opacity-100",
                       "hover:bg-amber-500"
                     )

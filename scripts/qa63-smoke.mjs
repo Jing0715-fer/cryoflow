@@ -3,131 +3,114 @@
 // dialog open/close, then asserts ZERO page errors. ~60 s total (fits the
 // tool-call window that kept eating longer calls this window).
 //
+// Task 92 — MIGRATED agent-browser CLI → playwright (the last matrix
+// member still on the old channel; Task 91's "zero agent-browser" claim
+// missed it and qa58). Assertion set byte-identical, driver swapped per
+// the qa70/qa66/qa69 migration template. The boot view depends on the
+// store's persisted last view, so the Shift+D toggle loop converges on
+// canvas from either start (press only while NOT canvas; t90 pattern).
+//
 // Run: node scripts/qa63-smoke.mjs   (server must be on :3000)
+import { chromium } from "playwright";
 import { execSync } from "node:child_process";
 
-const AB = "agent-browser";
 const B = "http://localhost:3000";
 const HOST_JOB = "QA Post 320";
 const sh = (cmd) => execSync(cmd, { encoding: "utf8", timeout: 120_000 }).trim();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const evalJs = (expr) =>
-  execSync(`${AB} eval --stdin`, { encoding: "utf8", timeout: 120_000, input: expr }).trim();
-const unq = (s) => (s || "").replace(/^"|"$/g, "");
+
 const must = (cond, label) => {
   if (!cond) { console.log(`FATAL: ${label}`); process.exit(1); }
   console.log(`  ok: ${label}`);
 };
 
-const errCollector = `(() => {
-  if (window.__qaErrColl) return 'errcoll-kept';
-  window.__qaErrs = [];
-  window.addEventListener('error', (e) => window.__qaErrs.push(String(e.message || e).slice(0, 160)));
-  window.addEventListener('unhandledrejection', (e) => window.__qaErrs.push('rej:' + String((e.reason && e.reason.message) || e.reason).slice(0, 160)));
-  window.__qaErrColl = true;
-  return 'errcoll-on';
-})()`;
-const errCount = () => unq(evalJs(`String((window.__qaErrs||[]).length)`));
-const realClick = async (findExpr) => {
-  const coords = evalJs(
-    `(() => { const el = (${findExpr}); if (!el) return null; const r = el.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }; })()`,
-  );
-  if (!coords || coords === "null") return "NO-ELEMENT";
-  const c = JSON.parse(coords);
-  sh(`${AB} mouse move ${c.x} ${c.y}`);
-  sh(`${AB} mouse down`);
-  sh(`${AB} mouse up`);
-  return `clicked@${c.x},${c.y}`;
-};
-
 // ---- boot -----------------------------------------------------------------
-sh(`${AB} close`); await sleep(1200);
-sh(`${AB} set viewport 1600 900`);
-sh(`${AB} open ${B}`);
-await sleep(5000);
-evalJs(errCollector);
+try { sh("pkill -f agent-browser"); } catch { /* none running */ }
+const b = await chromium.launch();
+const p = await b.newPage({ viewport: { width: 1600, height: 900 } });
+// dual collection replaces the old window.__qaErrs injection (qa70 template)
+const consoleErrors = [];
+p.on("console", (m) => { if (m.type() === "error") consoleErrors.push(String(m.text() || m).slice(0, 160)); });
+p.on("pageerror", (e) => consoleErrors.push(String(e).slice(0, 160)));
 
+await p.goto(B, { waitUntil: "networkidle" });
+await sleep(1500);
+
+const curView = () =>
+  p.evaluate(() => document.querySelector("[data-view]")?.getAttribute("data-view") ?? null);
 let onCanvas = false;
 for (let i = 0; i < 10 && !onCanvas; i++) {
-  const probe = evalJs(`(() => {
-    const card = [...document.querySelectorAll('[role=button]')].find(x => (x.textContent||'').includes('${HOST_JOB}'));
-    const dash = !!document.querySelector('h1') && (document.querySelector('h1').textContent||'').includes('Dashboard');
-    return (card ? 'CARD' : 'NOCARD') + (dash ? '+DASH' : '');
-  })()`);
-  if (probe.includes("CARD")) onCanvas = true;
-  else if (probe.includes("DASH")) {
-    evalJs(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'D', shiftKey: true, bubbles: true }))`);
+  if ((await curView()) === "canvas") {
+    const card = await p.locator(`[data-job]`, { hasText: HOST_JOB }).count();
+    if (card > 0) onCanvas = true;
+  }
+  if (!onCanvas) {
+    await p.keyboard.press("Shift+D"); // toggle dashboard/canvas — converges
     await sleep(2200);
-  } else await sleep(2000);
+  }
 }
 must(onCanvas, "canvas renders with seeded job cards");
 
 // ---- inspector -------------------------------------------------------------
 let modal = false;
 for (let i = 0; i < 5 && !modal; i++) {
-  const r = await realClick(
-    `[...document.querySelectorAll('[role=button]')].find(x => (x.textContent||'').includes('${HOST_JOB}'))`,
-  );
-  if (r.includes("clicked@")) {
+  // data-job lives on the wrapper, role=button on the card body INSIDE it —
+  // two elements, so the locator must chain, not compound
+  const card = p.locator("[data-job]", { hasText: HOST_JOB }).locator('[role="button"]').first();
+  try {
+    await card.click({ timeout: 3000 });
     await sleep(1500);
-    modal = unq(evalJs(`(() => {
-      const dl = [...document.querySelectorAll('[role=dialog]')].find(d => (d.textContent||'').includes('${HOST_JOB}'));
-      return dl ? 'MODAL' : 'NONE';
-    })() + ''`)) === "MODAL";
-  } else await sleep(1500);
+    modal = await p.evaluate((host) => {
+      const dl = [...document.querySelectorAll("[role=dialog]")].find((d) => (d.textContent || "").includes(host));
+      return !!dl;
+    }, HOST_JOB);
+  } catch { await sleep(1500); }
 }
 must(modal, "inspector modal opens for the completed postprocess job");
 
-const fsc = unq(evalJs(`(() => {
-  const s = document.querySelector('section[aria-label="Fourier-shell correlation"]');
-  return s ? 'YES' : 'NO';
-})() + ''`));
-must(fsc === "YES", "FSC section rendered inside inspector (state→workdir resolution alive post-migration)");
+const fsc = await p.evaluate(() =>
+  !!document.querySelector('section[aria-label="Fourier-shell correlation"]'));
+must(fsc, "FSC section rendered inside inspector (state→workdir resolution alive post-migration)");
 
 // ---- compare dialog open/close ---------------------------------------------
 let dialog = false;
+let rowCount = "0";
 for (let i = 0; i < 5 && !dialog; i++) {
-  const r = await realClick(
-    `[...document.querySelectorAll('[role=dialog] button')].find(b => (b.getAttribute('aria-label')||'').includes('compare') || (b.title||'').includes('compare'))`,
-  );
-  if (r.includes("clicked@")) {
+  try {
+    await p.locator('[role=dialog] button[aria-label*="compare"], [role=dialog] button[title*="compare"]')
+      .first().click({ timeout: 3000 });
     await sleep(1800);
-    dialog = unq(evalJs(`(() => {
-      const rows = document.querySelectorAll('[data-testid=fsc-compare-row]');
-      return rows.length >= 5 ? 'DIALOG:' + rows.length : 'NONE';
-    })() + ''`)).startsWith("DIALOG");
-  } else await sleep(1500);
+    rowCount = String(await p.locator("[data-testid=fsc-compare-row]").count());
+    dialog = Number(rowCount) >= 5;
+  } catch { await sleep(1500); }
 }
-const rowCount = unq(evalJs(`String(document.querySelectorAll('[data-testid=fsc-compare-row]').length)`));
 must(dialog, `compare dialog opens with rows (got ${rowCount}, expect 5)`);
 
 // Esc closes only the dialog (inspector survives — qa61 layered-escape contract).
 // Dispatch on the DIALOG element (qa62 pattern): target must be a DOM node on
 // the React root's bubble path — a document-target event never reaches the
 // Radix/React onKeyDown handlers.
-const escRet = evalJs(`(() => {
-  const dl = [...document.querySelectorAll('[role=dialog]')].find(d => d.querySelector('[data-testid=fsc-compare-list]'));
-  if (dl) dl.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-  return dl ? 'esc-dispatched' : 'esc-NO-DIALOG';
-})()`);
+const escRet = await p.evaluate(() => {
+  const dl = [...document.querySelectorAll("[role=dialog]")].find((d) => d.querySelector("[data-testid=fsc-compare-list]"));
+  if (dl) dl.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  return dl ? "esc-dispatched" : "esc-NO-DIALOG";
+});
 // Radix unmounts on animation end — poll instead of a fixed sleep (a 1s
 // wait raced the exit animation and false-failed this assertion once)
 let cmpGone = false;
 for (let i = 0; i < 10 && !cmpGone; i++) {
   await sleep(400);
-  cmpGone = unq(evalJs(`String(!document.querySelector('[data-testid=fsc-compare-list]'))`)) === "true";
+  cmpGone = (await p.locator("[data-testid=fsc-compare-list]").count()) === 0;
 }
-const afterEsc = unq(evalJs(`(() => {
-  const cmp = !!document.querySelector('[data-testid=fsc-compare-row]');
-  const insp = [...document.querySelectorAll('[role=dialog]')].some(d => (d.textContent||'').includes('${HOST_JOB}'));
-  return (cmp ? 'CMP' : 'NOCMP') + (insp ? '+INSP' : '+NOINSP');
-})() + ''`));
-must(afterEsc === "NOCMP+INSP", `Esc closes compare dialog, inspector survives - got "${afterEsc}" (dispatch: ${unq(escRet)}, cmpGone: ${cmpGone})`);
+const afterEsc = await p.evaluate((host) => {
+  const cmp = !!document.querySelector("[data-testid=fsc-compare-row]");
+  const insp = [...document.querySelectorAll("[role=dialog]")].some((d) => (d.textContent || "").includes(host));
+  return (cmp ? "CMP" : "NOCMP") + (insp ? "+INSP" : "+NOINSP");
+}, HOST_JOB);
+must(afterEsc === "NOCMP+INSP", `Esc closes compare dialog, inspector survives - got "${afterEsc}" (dispatch: ${escRet}, cmpGone: ${cmpGone})`);
 
 // ---- console verdict --------------------------------------------------------
-const n = Number(errCount());
-const errs = unq(evalJs(`JSON.stringify((window.__qaErrs||[]).slice(0,5))`));
-must(n === 0, `console errors: ${n === 0 ? "0" : `**${n}** ${errs}`}`);
+must(consoleErrors.length === 0, `console errors: ${consoleErrors.length === 0 ? "0" : `**${consoleErrors.length}** ${JSON.stringify(consoleErrors.slice(0, 5))}`}`);
 
-sh(`${AB} close`);
+await b.close();
 console.log("SMOKE GREEN");

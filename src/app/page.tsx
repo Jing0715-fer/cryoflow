@@ -4,6 +4,7 @@ import * as React from "react";
 import { AlertTriangle, Boxes, Layers, Plus, RefreshCw, X } from "lucide-react";
 import { useWorkflowStore } from "@/lib/store";
 import { Header } from "@/components/workflow/header";
+import { useDropNavigationGuard } from "@/components/workflow/drop-import";
 import { Footer } from "@/components/workflow/footer";
 import { PrintDocHeader } from "@/components/workflow/print-doc-header";
 import { PrintDocFooter } from "@/components/workflow/print-doc-footer";
@@ -48,6 +49,11 @@ function useMediaQuery(query: string) {
 export default function Home() {
   const workspaces = useWorkflowStore((s) => s.workspaces);
   const selectedId = useWorkflowStore((s) => s.selectedId);
+  // Task 92 — app-wide drop guard: an accidental file drop on ANY view
+  // (dashboard included, where no import handler exists) must navigate the
+  // tab nowhere. Canvas drop-import claims its own drops deeper in the
+  // bubble path; this only swallows what nobody else wants.
+  useDropNavigationGuard();
   // ⚠ selectors must return STABLE references (a fresh .filter() array per
   // call trips zustand's getServerSnapshot cache check — infinite loop)
   const allJobs = useWorkflowStore((s) => s.jobs);
