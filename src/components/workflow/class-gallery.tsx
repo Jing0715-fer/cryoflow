@@ -23,6 +23,7 @@ import {
   Loader2,
   Maximize2,
   Sparkles,
+  StickyNote,
   Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -54,6 +55,8 @@ export function ClassGallery({
   value,
   cutoff,
   onChange,
+  notes,
+  onNotesChange,
 }: {
   job: JobDTO;
   /** current selectedClasses param ("auto" | "1,2,5") */
@@ -61,6 +64,9 @@ export function ClassGallery({
   /** occupancyCutoff param (auto mode) */
   cutoff: number;
   onChange: (next: string) => void;
+  /** classNotes param — JSON map {"3":"text"}, pruned of empty values */
+  notes: string;
+  onNotesChange: (next: string) => void;
 }) {
   const jobs = useWorkflowStore((s) => s.jobs);
   const edges = useWorkflowStore((s) => s.edges);
@@ -109,6 +115,36 @@ export function ClassGallery({
   const classes = data?.classes ?? [];
   const isAuto = value.trim() === "auto" || value.trim() === "";
 
+  /* -------- class annotations (Task 80) --------
+   * Per-class margin notes — "secondary structure visible, feed to
+   * refine3d", "ice contamination, discard". Stored as the classNotes
+   * param: a JSON map {cls: text} through the SAME debounced channel as
+   * selectedClasses, because a note IS metadata on the selection decision
+   * (annotation trilogy, gallery surface: Job.note notes the job, the
+   * class note notes the JUDGMENT inside it). Empty strings prune to
+   * absent — a cleared note renders no badge anywhere, like Job.note. */
+  const notesMap = useMemo<Record<string, string>>(() => {
+    try {
+      const parsed = JSON.parse(notes) as unknown;
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+      const out: Record<string, string> = {};
+      for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+        if (typeof v === "string" && v.trim().length > 0) out[k] = v;
+      }
+      return out;
+    } catch {
+      return {};
+    }
+  }, [notes]);
+  const notedCount = Object.keys(notesMap).length;
+  const noteText = (cls: number) => notesMap[String(cls)] ?? "";
+  const setNote = (cls: number, text: string) => {
+    const next: Record<string, string> = { ...notesMap };
+    if (text.trim().length === 0) delete next[String(cls)];
+    else next[String(cls)] = text;
+    onNotesChange(JSON.stringify(next));
+  };
+
   // effective kept set: "auto" → occupancy rule; manual → parsed list
   const { kept, maxCount } = useMemo(() => {
     const max = Math.max(0, ...classes.map((c) => c.count));
@@ -146,24 +182,52 @@ export function ClassGallery({
   // (kept-only). Both are VIEW state — they never rewrite the selection.
   const [sortMode, setSortMode] = useState<"class" | "occupancy">("class");
   const [keptOnly, setKeptOnly] = useState(false);
+  // noted-only: the triage twin of kept-only — "show me the classes I
+  // annotated". Disabled at zero notes (an empty lens is a dead control —
+  // the same honesty rule as the dashboard's Noted chip), and self-healing
+  // if the last note is deleted while the lens is on.
+  const [notedOnly, setNotedOnly] = useState(false);
+  useEffect(() => {
+    if (notedOnly && notedCount === 0) setNotedOnly(false);
+  }, [notedOnly, notedCount]);
 
   const rankByCls = useMemo(() => {
     const ordered = [...classes].sort((a, b) => b.count - a.count || a.cls - b.cls);
     return new Map(ordered.map((c, i) => [c.cls, i + 1]));
   }, [classes]);
 
-  /** what the grid shows: kept-only filter applied first, then the sort */
+  /** what the grid shows: kept-only and noted-only filters first, then
+   *  the sort */
   const visible = useMemo(() => {
-    const base = keptOnly ? classes.filter((c) => kept.has(c.cls)) : classes;
+    let base = classes;
+    if (keptOnly) base = base.filter((c) => kept.has(c.cls));
+    if (notedOnly) base = base.filter((c) => notesMap[String(c.cls)] != null);
     if (sortMode === "class") return [...base].sort((a, b) => a.cls - b.cls);
     // occupancy = rank order (count desc, ties by class number)
     return [...base].sort((a, b) => (rankByCls.get(a.cls) ?? 0) - (rankByCls.get(b.cls) ?? 0));
-  }, [classes, kept, keptOnly, sortMode, rankByCls]);
+  }, [classes, kept, keptOnly, notedOnly, notesMap, sortMode, rankByCls]);
 
   // ---------------- lightbox (zoom inspection) ----------------
   /** class under inspection in the lightbox — cls number, null = closed.
    *  Navigation walks the VISIBLE order, so ← / → mean what the grid shows. */
   const [zoom, setZoom] = useState<number | null>(null);
+
+  // the lightbox note editor's live draft — synced when the inspected class
+  // changes, NOT on every notesMap write (the draft is the typing truth;
+  // syncing against the map would fight the cursor)
+  const noteRef = useRef<HTMLTextAreaElement | null>(null);
+  const [noteDraft, setNoteDraft] = useState("");
+  const [focusNote, setFocusNote] = useState(false);
+  useEffect(() => {
+    if (zoom == null) return;
+    setNoteDraft(noteText(zoom));
+    if (focusNote) {
+      setFocusNote(false);
+      requestAnimationFrame(() => noteRef.current?.focus());
+    }
+    // noteText deliberately excluded: re-syncing on map writes would
+    // clobber mid-typing drafts (the debounce save lands below the cursor)
+  }, [zoom, focusNote]);
 
   /* ---------- roving tabindex (grid keyboard navigation) ----------
    * A class grid can hold dozens of toggle buttons — tabbing through all
@@ -268,6 +332,10 @@ export function ClassGallery({
       setZoom(null);
       return;
     }
+    // inside the note editor the arrows/Enter/Space are TYPING — cursor
+    // moves, newlines, nothing to do with class navigation (Task 80)
+    const t = e.target as HTMLElement | null;
+    if (t && ["INPUT", "TEXTAREA"].includes(t.tagName)) return;
     if (e.key === "ArrowRight") {
       e.preventDefault();
       stepZoom(1);
@@ -449,6 +517,29 @@ export function ClassGallery({
         >
           Kept only{kept.size > 0 ? ` · ${kept.size}` : ""}
         </button>
+        <button
+          type="button"
+          onClick={() => setNotedOnly((v) => !v)}
+          aria-pressed={notedOnly}
+          disabled={notedCount === 0}
+          data-canvas-ui="noted-only"
+          title={
+            notedCount === 0
+              ? "No annotated classes yet — use the note button on a card"
+              : notedOnly
+                ? "Show every class again"
+                : "Show only the annotated classes"
+          }
+          className={cn(
+            "rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40",
+            notedOnly
+              ? "bg-amber-500 text-white hover:bg-amber-500"
+              : "bg-muted text-muted-foreground hover:bg-amber-500/15 hover:text-amber-600 dark:hover:text-amber-300"
+          )}
+        >
+          <StickyNote className="mr-1 inline size-2.5" aria-hidden="true" />
+          Noted{notedCount > 0 ? ` · ${notedCount}` : ""}
+        </button>
         {visible.length !== classes.length && (
           <span
             className="ml-auto rounded-md bg-primary/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold tabular-nums text-primary"
@@ -471,10 +562,25 @@ export function ClassGallery({
         )}
         style={{ maxHeight: "26rem", overflowY: "auto" }}
       >
-        {/* visible can never be empty here: an emptied selection aliases
-            back to auto ("" ≡ "auto"), so kept-only always has the auto set
-            to show — the guaranteed non-emptiness is what lets the lightbox
-            navigate without an out-of-range guard */}
+        {/* visible is normally never empty (an emptied selection aliases
+            back to auto, so kept-only always has the auto set) — the one
+            hole is kept-only ∩ noted-only yielding ∅, which the inline
+            reset below covers; the lightbox self-closes on empty visible */}
+        {visible.length === 0 && (
+          <p className="col-span-full py-6 text-center text-[11px] text-muted-foreground">
+            No classes match the current filter combination —{" "}
+            <button
+              type="button"
+              onClick={() => {
+                setKeptOnly(false);
+                setNotedOnly(false);
+              }}
+              className="font-semibold text-teal-700 underline underline-offset-2 hover:text-teal-600 dark:text-teal-300"
+            >
+              reset the filters
+            </button>
+          </p>
+        )}
         {visible.map((c) => {
           const on = kept.has(c.cls);
           const share = maxCount > 0 ? c.count / maxCount : 0;
@@ -548,7 +654,10 @@ export function ClassGallery({
 
             {/* zoom affordance — a SIBLING of the toggle button (buttons
                 cannot nest): overlays the thumbnail's top-right corner on
-                hover/focus-within, opens the inspection lightbox */}
+                hover/focus-within, opens the inspection lightbox. A noted
+                class parks the note badge in that corner instead, so the
+                zoom button slides left to make room — both paths reach the
+                same lightbox, the note badge just claims its spot. */}
             <button
               type="button"
               onClick={(e) => {
@@ -559,14 +668,51 @@ export function ClassGallery({
               title="Inspect full size (← / → to browse)"
               data-canvas-ui="class-zoom"
               className={cn(
-                "absolute right-1.5 top-1.5 z-10 grid size-6 place-items-center rounded-md",
+                "absolute top-1.5 z-10 grid size-6 place-items-center rounded-md",
                 "bg-black/55 text-zinc-100 shadow-sm backdrop-blur-sm",
                 "opacity-0 transition-opacity duration-150",
                 "group-hover/cell:opacity-100 group-focus-within/cell:opacity-100 focus-visible:opacity-100 hover-none:opacity-100",
-                "hover:bg-black/80 focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:outline-none"
+                "hover:bg-black/80 focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:outline-none",
+                noteText(c.cls) ? "right-8" : "right-1.5"
               )}
             >
               <Maximize2 className="size-3" aria-hidden="true" />
+            </button>
+
+            {/* note affordance (Task 80) — a sibling of the toggle (buttons
+                cannot nest): amber and always-visible when the class carries
+                a note, a faint pen on hover otherwise. Click opens the
+                lightbox focused on the note editor — ONE editor surface,
+                no grid reflow, the same place the scientist already stares
+                at the class deciding its fate. */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setZoom(c.cls);
+                setFocusNote(true);
+              }}
+              aria-label={
+                noteText(c.cls)
+                  ? `Class ${c.cls} has a note: ${noteText(c.cls)}`
+                  : `Add a note to class ${c.cls}`
+              }
+              title={noteText(c.cls) || "Add a class note"}
+              data-canvas-ui="class-note"
+              data-noted={noteText(c.cls) ? "true" : "false"}
+              className={cn(
+                "absolute right-1.5 top-1.5 z-10 grid size-6 place-items-center rounded-md shadow-sm backdrop-blur-sm transition-all duration-150",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70",
+                noteText(c.cls)
+                  ? "bg-amber-500/90 text-white opacity-100 hover:bg-amber-500"
+                  : cn(
+                      "bg-black/55 text-zinc-100 opacity-0",
+                      "group-hover/cell:opacity-100 group-focus-within/cell:opacity-100 focus-visible:opacity-100 hover-none:opacity-100",
+                      "hover:bg-amber-500"
+                    )
+              )}
+            >
+              <StickyNote className="size-3" aria-hidden="true" />
             </button>
           </div>
           );
@@ -660,6 +806,39 @@ export function ClassGallery({
                     no image available
                   </div>
                 )}
+              </div>
+
+              {/* annotation strip (Task 80): the lightbox is where a
+                  scientist stares at ONE class deciding its fate — the
+                  natural place to write down WHY. Edits flow through the
+                  same debounced params save as the selection itself. */}
+              <div className="border-t bg-background px-4 py-2.5">
+                <label
+                  htmlFor={`class-note-${zoomClass.cls}`}
+                  className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
+                >
+                  <StickyNote className="size-2.5" aria-hidden="true" />
+                  Class note
+                  {noteText(zoomClass.cls) ? (
+                    <span className="ml-auto rounded bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-medium normal-case tracking-normal text-amber-600 dark:text-amber-300">
+                      travels with the selection params
+                    </span>
+                  ) : null}
+                </label>
+                <textarea
+                  ref={noteRef}
+                  id={`class-note-${zoomClass.cls}`}
+                  data-canvas-ui="class-note-editor"
+                  value={noteDraft}
+                  onChange={(e) => {
+                    setNoteDraft(e.target.value);
+                    setNote(zoomClass.cls, e.target.value);
+                  }}
+                  rows={2}
+                  maxLength={300}
+                  placeholder="Why keep (or discard) this class — e.g. 'secondary structure visible, feed to refine3d'…"
+                  className="mt-1.5 w-full resize-none rounded-md border bg-secondary/40 px-2.5 py-1.5 text-xs leading-relaxed text-foreground placeholder:text-muted-foreground/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/50"
+                />
               </div>
 
               {/* footer: browse + decide */}

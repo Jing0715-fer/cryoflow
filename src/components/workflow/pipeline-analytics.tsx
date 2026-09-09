@@ -383,8 +383,9 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
           live from your finished jobs
         </span>
         {/* export toolbar + per-workspace scope chips — only when the project
-            really spans more than one workspace, otherwise the filter is noise */}
-        <div className="ml-auto flex items-center gap-2">
+            really spans more than one workspace, otherwise the filter is noise.
+            Both groups are interactive chrome: .no-print (Task 80 follow-up). */}
+        <div className="no-print ml-auto flex items-center gap-2">
           <div className="flex items-center gap-0.5" role="group" aria-label="Export analytics">
             <button
               type="button"
@@ -410,7 +411,10 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
             </button>
           </div>
           {wsOptions.length > 1 && (
-            <div className="flex flex-wrap items-center gap-1" role="group" aria-label="Filter analytics by workspace">
+            // .no-print (Task 80 follow-up): interactive slice toggles —
+            // on paper they read as "Unassigned · 1" junk and collide with
+            // the dashboard roster's own Unassigned badge text
+            <div className="no-print flex flex-wrap items-center gap-1" role="group" aria-label="Filter analytics by workspace">
             <button
               type="button"
               onClick={() => setWsFilter(null)}

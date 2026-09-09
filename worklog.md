@@ -2772,3 +2772,23 @@ Stage Summary:
 - 页面媒体模拟是持久状态：emulateMedia(screen) 之后 page.pdf() 就打屏幕——跨阶段的媒体状态要显式复位，与 Task 75 的「print transition:none」同属「媒体切换即风格切换」暗礁家族，但方向相反（那次是屏幕动画漏进 print，这次是 print 合同被屏幕模拟顶替）
 - qa76 B1 的「名字在场」是弱断言的活例：种子落在可见切片上 → 缺陷潜伏四轮。存在性断言要问「该在的都在」（全量）而非「想找的在」（抽查）
 - 遗留（下轮候选）：dashboard 打印表头跨页重复需真表格语义（thead 才会重复，roster 是 div 列表——刻意取舍未做）；KPI 卡片内 truncate 徽章纸上展开的细节；class 级批注（note 从 job 扩展到 gallery class）；workflow-import 多文件（低优先）；EMPIAR 真数据回归（重）；β-Gal 零 workspace 项目的 seed 规则
+
+---
+Task ID: 80
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-09 20:29 window)
+Task: cron 自主巡检——Task 80「class 级批注」：批注系统第四张面孔——Job.note 注记 job（73-79），class note 注记 job 内部的判断本身。2D Class Selection gallery 每类可挂琥珀批注：卡片角标（永远可见）+ lightbox 内嵌编辑器（检视一处即批注一处）+ Noted-only 三分镜（kept-only 的孪生）+ 视图条 Noted 芯片。数据走 classNotes param（JSON map cls→text）与 selectedClasses 同一条 debounced 通道，零 schema 变更、引擎惰性。qa80 32 断言三连绿 + 全回归矩阵绿 + 钓出并修复存量 Esc 拆面板 bug + worklog + push
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 79（上轮自写）、HEAD 76d1986 == origin/main、BUILD_ID 匹配；server 冷启动 + smoke + qa79 + qa78 全绿 → 稳定
+- 【选题调研】Task 79 遗留首位 class 级批注；调研定形：classes 无独立表（来自 /api/jobs/[id]/classes + .mrcs 切片渲染），选择态存 select2d 的 selectedClasses param → 批注走 classNotes param 同通道；PATCH params 按 spec 白名单清洗 → classNotes 必须先进 spec（workflow.ts txt 声明，advanced 折叠）
+- 【实现】①workflow.ts：select2d 增 classNotes txt 参数（advanced，hint 声明引擎惰性）；②job-panel：ClassGallery 增 notes/onNotesChange props 接 form.classNotes；③class-gallery：notesMap 容错解析（非对象/数组/空值剪枝）+ notedCount + setNote（空文本=删键）+ 卡片琥珀角标（永远可见，aria-label 携全文）+ hover 笔（未注记卡）+ zoom 按钮让位逻辑（noted 卡 zoom 滑到 right-8）+ lightbox 注记条（label+textarea 300 上限+自动聚焦）+ Noted-only 镜头（disabled-at-zero + 最后一条注记消失自愈撤销 + 空组合态 reset 链接）+ 键盘守卫（textarea 内 arrows/Enter 是打字不是导航）
+- 【qa80 首跑三折】①evaluate 闭包陷阱第五应验（N3/N5a 不在浏览器侧）→ probe helper 补 arg 透传，且 playwright evaluate 单 arg 限制 → 对象传参；②B7 FAIL：Esc 后面板整体被拆——**存量交互 bug**（qa58 的 closeDialogEsc 用合成 dispatch 且从未断言面板存活，真键盘 Esc 一直会连面板一起拆）；③C1/C2 场景设计错：清 note 3 后 note 5 仍在，lens 合法保持收窄——自愈只在最后一条注记消失时触发，改测试场景连清两条
+- 【Esc 拆面板修复（page.tsx）】window deselect 处理器加 defaultPrevented 守卫——已被组件消费（preventDefault）的 Escape 不再触发 deselect；查事件对象而非 DOM：React 同步 flush 会在冒泡中途卸载守卫用的 dialog 节点，dialog 守卫空转（观察到的竞态：lightbox 关了 → 守卫查不到 dialog → deselect 照跑 → 面板拆）。t80-esc-diag 实证修复后 grid/gallery/asides 全存活
+- 【回归二折（qa78 孤儿后效）】qa76 A9 FAIL（13/12）：A9 数名册 button 总数，qa77 给孤儿行加了 Adopt button、qa78 留下 living-instance 孤儿 → button 数 = jobs+1（Task 78 时代 qa76 跑在 qa77/78 之前故从未暴露）→ 改数行 :scope > div；qa79 B6 FAIL：dashboard 纸上现 "Unassigned·1" —— 源头是 **PipelineAnalytics 的 workspace 切片芯片**（all·12/Main·11/Unassigned·1 交互开关）一直打印，正则放行孤儿行徽章（行事实故打印）+ analytics 两处 chrome 补 no-print
+- 【收尾】qa80 32×3 绿；全矩阵：smoke + qa58 + qa66 35（gallery 重播种，qa58 自清理老规律）+ qa69 34（首跑 FATAL inspector tab，家族性抖动复跑绿）+ qa70 19 + qa72-verify 双纸 + qa73 + qa75 + qa76（断言修正后）+ qa77 + qa78 + qa79（analytics 修正后）+ qa80；eslint src 0、tsc src 0、build hiYUH4pjQvBal7h3xofHh
+
+Stage Summary:
+- 「批注的第四张面孔」：job 注记回答「这个步骤怎么了」，class 注记回答「这个判断为什么」——批注粒度下沉到决策内部。同一条 params debounced 通道承载选择与批注，意味着「选择即批注、批注即参数」：没有新的持久化机制，只有同一个机制的新住户
+-存量 bug 被新断言钓出（Esc 拆面板）：qa58 的合成 dispatch 从未覆盖真键盘路径，且从未断言「面板还在」——测试的盲区=合成事件的 isTrusted 差异+断言只看目标不看邻域。修法 defaultPrevented 守卫是「事件对象 vs DOM 状态」的教科书案例：React 离散事件同步 flush 让 DOM 守卫在冒泡中途失效，唯有事件自身的属性竞态免疫
+- 「弱计数断言的第二次应验」（继 qa79 B2 教训后）：qa76 A9 数 button 不数行、qa79 B6 匹配裸文本不带上下文——两处都被 qa78 的 living-instance 孤儿合法数据击穿。套件间没有隔离承诺，凡「living instance」设计（刻意留下的数据）都是其他套件的隐藏输入；计数断言要数语义单元（行、卡片），文本断言要锚定角色（chip=计数、badge=事实）
+- 遗留（下轮候选）：class 级批注的 dashboard/命令面板聚合面（classNotes 现只在 gallery 可见）；dashboard 打印表头跨页重复（真表格语义，继续悬置）；workflow-import 多文件（低优先）；EMPIAR 真数据回归（重）；β-Gal 零 workspace seed 规则；KPI 卡 truncate 徽章纸上展开细节

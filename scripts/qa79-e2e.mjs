@@ -130,7 +130,7 @@ must(missing === 0, `B2 every roster name on the paper (${roster.names.length - 
 must(txt.includes("cryoflow—pipelinesnapshot"), "B3 masthead kicker on paper");
 must(txt.includes("projectdashboard—allworkspacesataglance"), "B4 dashboard subtitle on paper");
 must(!txt.includes("openworkflow") && !txt.includes("switch&open"), "B5 navigation CTAs off the paper (roster + project cards)");
-must(!txt.includes("noted") && !txt.includes("unassigned"), "B6 filter chips off the paper (interactive chrome)");
+must(!/noted·?\d/.test(txt) && !/unassigned·?\d/.test(txt), "B6 filter CHIPS off the paper (counted chip text; the orphan row's plain Unassigned badge is a row fact and prints by design — qa78 leaves one living instance)");
 
 /* ---------------- Phase C: canvas contract not regressed ---------------- */
 console.log("Phase C — canvas contract not regressed");

@@ -115,6 +115,14 @@ export default function Home() {
   React.useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
+      // an Escape a component already CONSUMED (preventDefault) is not ours
+      // to act on — the gallery lightbox closes itself this way. Checking
+      // the EVENT, not the DOM: React flushes discrete events synchronously,
+      // so a dialog closed by an earlier handler is already unmounted when
+      // this listener runs and the dialog guard below would pass vacuously
+      // (observed live: Esc in the class lightbox closed the lightbox AND
+      // deselected the job, tearing down the panel beneath it).
+      if (e.defaultPrevented) return;
       if (document.querySelector('[role="dialog"][data-state="open"], [role="menu"][data-state="open"]')) {
         return;
       }

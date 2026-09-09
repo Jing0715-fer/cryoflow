@@ -119,7 +119,10 @@ const spot = p.locator('section[aria-label="Active project spotlight"]');
   await p.waitForTimeout(300);
   const allRows = await p.evaluate(() => {
     const list = document.querySelector('section[aria-label="Active project spotlight"] .max-h-80');
-    return list ? list.querySelectorAll("button").length : -1;
+    // count ROWS (one div per job), not buttons: since Task 77 an orphan
+    // row carries a second (adopt) button — button-counting breaks the
+    // moment qa78's living-instance orphan exists
+    return list ? list.querySelectorAll(":scope > div").length : -1;
   });
   must(allRows === list.length, `A9 All restores the full roster (got ${allRows}/${list.length})`);
 

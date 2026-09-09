@@ -583,6 +583,11 @@ export const JOB_TYPES: JobTypeSpec[] = [
         tab: "Classes",
         hint: "'auto' keeps classes with occupancy ≥ cutoff × best · or an explicit comma list like 1,2,5 — driven by the gallery below",
       }),
+      txt("classNotes", "Class notes", "{}", {
+        tab: "Classes",
+        advanced: true,
+        hint: 'per-class annotations as a JSON map ({"3":"text"}) — edited from the gallery\'s note affordance, inert to the engine',
+      }),
       num("occupancyCutoff", "Auto-mode occupancy cutoff", 0.5, {
         step: 0.05, min: 0, max: 1, tab: "Classes",
         hint: "auto-selection: keep classes whose particle count is at least this fraction of the largest class",

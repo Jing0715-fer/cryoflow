@@ -783,6 +783,8 @@ function ParamsTab({ job, spec }: { job: JobDTO; spec: JobTypeSpec | undefined }
                   value={String(form.selectedClasses ?? "auto")}
                   cutoff={typeof form.occupancyCutoff === "number" ? form.occupancyCutoff : 0.5}
                   onChange={(next) => setForm((f) => ({ ...f, selectedClasses: next }))}
+                  notes={typeof form.classNotes === "string" ? form.classNotes : "{}"}
+                  onNotesChange={(next) => setForm((f) => ({ ...f, classNotes: next }))}
                 />
               )}
               <div className="grid grid-cols-2 gap-3">
