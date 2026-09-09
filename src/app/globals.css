@@ -399,3 +399,52 @@
     );
   background-size: 28px 28px;
 }
+
+/* ============================================================
+   Print — CryoFlow on paper (Task 65)
+   The app defaults to a dark UI; printing that wastes toner and
+   browsers strip dark backgrounds anyway, leaving white-on-white
+   text. Force the light "paper" palette for ANY printout regardless
+   of the active theme, and hide the chrome that has no meaning on
+   paper. Charts keep their colors (they ARE the information).
+   ============================================================ */
+@media print {
+  :root,
+  .dark {
+    --background: white;
+    --foreground: oklch(0.25 0.02 244);
+    --card: white;
+    --card-foreground: oklch(0.25 0.02 244);
+    --popover: white;
+    --popover-foreground: oklch(0.25 0.02 244);
+    --secondary: oklch(0.96 0.005 214);
+    --secondary-foreground: oklch(0.3 0.03 230);
+    --muted: oklch(0.96 0.005 214);
+    --muted-foreground: oklch(0.45 0.02 232);
+    --accent: oklch(0.95 0.02 190);
+    --accent-foreground: oklch(0.32 0.06 192);
+    --border: oklch(0.85 0.01 220);
+    --input: oklch(0.85 0.01 220);
+    --sidebar: white;
+    --sidebar-foreground: oklch(0.25 0.02 244);
+  }
+  html,
+  body {
+    background: white !important;
+  }
+  /* interactive chrome is meaningless on paper — tooltips never print
+     well (positioned, translucent); .no-print marks app-specific chrome */
+  [data-slot="tooltip-content"],
+  .no-print {
+    display: none !important;
+  }
+  /* keep multi-line data tables intact across page breaks */
+  table {
+    break-inside: auto;
+  }
+  tr,
+  td,
+  th {
+    break-inside: avoid;
+  }
+}

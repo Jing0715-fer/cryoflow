@@ -14,7 +14,7 @@
  *     auto-saves through the params debounce and feeds the engine run
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Check,
   ChevronLeft,
@@ -164,6 +164,76 @@ export function ClassGallery({
   /** class under inspection in the lightbox — cls number, null = closed.
    *  Navigation walks the VISIBLE order, so ← / → mean what the grid shows. */
   const [zoom, setZoom] = useState<number | null>(null);
+
+  /* ---------- roving tabindex (grid keyboard navigation) ----------
+   * A class grid can hold dozens of toggle buttons — tabbing through all
+   * of them is a graveyard walk. WAI-ARIA roving pattern: exactly ONE card
+   * is in the tab order (tabIndex 0), the arrows move focus between cards
+   * geometrically (row/col neighbours of the responsive grid, no column
+   * count guessing), Home/End jump to the ends. The zoom sibling stays
+   * tabbable so keyboard users still reach the lightbox. */
+  const cardRefs = useRef(new Map<number, HTMLButtonElement>());
+  const [activeCls, setActiveCls] = useState<number | null>(null);
+  useEffect(() => {
+    // the active card may vanish (kept-only toggle, sort switch, new data)
+    // — re-anchor the roving anchor to the first visible card
+    if (activeCls != null && !visible.some((v) => v.cls === activeCls)) {
+      setActiveCls(visible[0]?.cls ?? null);
+    }
+  }, [visible, activeCls]);
+  const onGridKeyDown = (e: React.KeyboardEvent) => {
+    const NAV = ["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown", "Home", "End"];
+    if (!NAV.includes(e.key)) return;
+    const cur = document.activeElement as HTMLButtonElement | null;
+    const entries = visible
+      .map((v) => ({ cls: v.cls, el: cardRefs.current.get(v.cls) }))
+      .filter((en): en is { cls: number; el: HTMLButtonElement } => Boolean(en.el));
+    if (entries.length === 0) return;
+    const rects = entries.map((en) => ({ ...en, r: en.el.getBoundingClientRect() }));
+    const curEntry =
+      rects.find((en) => en.el === cur) ??
+      rects.find((en) => en.cls === activeCls) ??
+      rects[0];
+    const cx = curEntry.r.left + curEntry.r.width / 2;
+    const cy = curEntry.r.top + curEntry.r.height / 2;
+    const rowTol = curEntry.r.height / 2;
+    const colTol = curEntry.r.width / 2;
+    let target: (typeof rects)[number] | undefined;
+    switch (e.key) {
+      case "ArrowRight":
+        target = rects
+          .filter((en) => en.r.left > curEntry.r.left + 1 && Math.abs(en.r.top + en.r.height / 2 - cy) < rowTol)
+          .sort((a, b) => a.r.left - b.r.left)[0];
+        break;
+      case "ArrowLeft":
+        target = rects
+          .filter((en) => en.r.left < curEntry.r.left - 1 && Math.abs(en.r.top + en.r.height / 2 - cy) < rowTol)
+          .sort((a, b) => b.r.left - a.r.left)[0];
+        break;
+      case "ArrowDown":
+        target = rects
+          .filter((en) => en.r.top > curEntry.r.top + 1 && Math.abs(en.r.left + en.r.width / 2 - cx) < colTol)
+          .sort((a, b) => a.r.top - b.r.top)[0];
+        break;
+      case "ArrowUp":
+        target = rects
+          .filter((en) => en.r.top < curEntry.r.top - 1 && Math.abs(en.r.left + en.r.width / 2 - cx) < colTol)
+          .sort((a, b) => b.r.top - a.r.top)[0];
+        break;
+      case "Home":
+        target = rects[0];
+        break;
+      case "End":
+        target = rects[rects.length - 1];
+        break;
+    }
+    // arrows must never scroll the grid — an edge cell simply holds focus
+    e.preventDefault();
+    if (target && target.cls !== curEntry.cls) {
+      setActiveCls(target.cls);
+      target.el.focus();
+    }
+  };
   const zoomIdx = zoom == null ? -1 : visible.findIndex((c) => c.cls === zoom);
   const zoomClass = zoomIdx >= 0 ? visible[zoomIdx] : null;
 
@@ -392,6 +462,9 @@ export function ClassGallery({
       {/* the grid */}
       <div
         data-canvas-ui="class-grid"
+        role="listbox"
+        aria-label="Class selection grid — arrow keys move between classes, Enter toggles"
+        onKeyDown={onGridKeyDown}
         className={cn(
           "grid gap-2 p-2",
           "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
@@ -408,12 +481,18 @@ export function ClassGallery({
           return (
             <div key={c.cls} className="group/cell relative">
             <button
+              ref={(el) => {
+                if (el) cardRefs.current.set(c.cls, el);
+                else cardRefs.current.delete(c.cls);
+              }}
+              tabIndex={c.cls === (activeCls ?? visible[0]?.cls) ? 0 : -1}
               type="button"
-              onClick={() => toggle(c.cls)}
+              onClick={() => { setActiveCls(c.cls); toggle(c.cls); }}
               aria-pressed={on}
               aria-label={`Toggle class ${c.cls} (${c.count} particles, ${Math.round(c.fraction * 100)}%)`}
               className={cn(
                 "group relative overflow-hidden rounded-lg border text-left transition-all",
+                "focus-visible:ring-2 focus-visible:ring-teal-500/60 focus-visible:outline-none",
                 on
                   ? "border-teal-500 ring-1 ring-teal-500/40"
                   : "border-border opacity-80 hover:opacity-100 hover:border-teal-500/40"
@@ -483,7 +562,7 @@ export function ClassGallery({
                 "absolute right-1.5 top-1.5 z-10 grid size-6 place-items-center rounded-md",
                 "bg-black/55 text-zinc-100 shadow-sm backdrop-blur-sm",
                 "opacity-0 transition-opacity duration-150",
-                "group-hover/cell:opacity-100 focus-visible:opacity-100",
+                "group-hover/cell:opacity-100 group-focus-within/cell:opacity-100 focus-visible:opacity-100",
                 "hover:bg-black/80 focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:outline-none"
               )}
             >
