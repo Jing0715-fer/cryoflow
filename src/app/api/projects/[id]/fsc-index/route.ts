@@ -19,6 +19,10 @@ export interface FscIndexEntry {
   /** the on-disk file that made this job a candidate (same priority order
    *  the per-job /api/jobs/[id]/fsc route uses) */
   sourceFile: string;
+  /** the job's launch parameter map (already JSON-decoded; {} when the
+   *  stored blob is empty or corrupt) — feeds the compare dialog's A/B
+   *  parameter diff, saving the dialog a per-job params round-trip */
+  params: Record<string, unknown>;
 }
 
 export interface FscIndexResponse {
@@ -54,7 +58,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     const jobs = await db.job.findMany({
       where: { projectId: id },
       orderBy: { createdAt: "asc" },
-      select: { id: true, name: true, type: true, status: true },
+      select: { id: true, name: true, type: true, status: true, params: true },
     });
 
     const seen = new Set<string>();
@@ -109,6 +113,18 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       }
       if (!source || !sourceFile) continue;
 
+      // params rides along for the compare dialog's parameter diff — a
+      // corrupt blob degrades to {} rather than poisoning the whole index
+      let parsedParams: Record<string, unknown> = {};
+      try {
+        const p = JSON.parse(j.params ?? "{}");
+        if (p && typeof p === "object" && !Array.isArray(p)) {
+          parsedParams = p as Record<string, unknown>;
+        }
+      } catch {
+        /* corrupt params blob — the diff just shows nothing for this job */
+      }
+
       out.push({
         jobId: j.id,
         name: j.name,
@@ -116,6 +132,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
         status: j.status,
         source,
         sourceFile,
+        params: parsedParams,
       });
     }
 

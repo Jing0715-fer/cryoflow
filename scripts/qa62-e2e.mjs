@@ -92,26 +92,52 @@ async function paletteByJob() {
 }
 
 const realClick = async (findExpr) => {
-  const coords = evalJs(
-    `(() => { const el = (${findExpr}); if (!el) return null; const r = el.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }; })()`,
-  );
-  if (!coords || coords === "null") return "NO-ELEMENT";
-  const c = JSON.parse(coords);
-  sh(`${AB} mouse move ${c.x} ${c.y}`);
+  // delegate to hoverAt for the scroll-into-view handling, then click
+  const h = await hoverAt(findExpr);
+  if (!h.includes("hovered@")) return h; // NO-ELEMENT passthrough
   sh(`${AB} mouse down`);
   sh(`${AB} mouse up`);
-  return `clicked@${c.x},${c.y}`;
+  return h.replace("hovered@", "clicked@");
 };
 
-/** real CDP hover (NO click) — React's onMouseEnter fires from the move */
+/** real CDP hover (NO click) — React's onMouseEnter fires from the move.
+ *  Targets below the dialog's scrollable body first get a CDP scroll
+ *  gesture: the Task 64 params table pushed the legend chips past the 85vh
+ *  fold, and a mouse move at an off-screen rect hovers NOTHING. Radix's
+ *  scroll-lock reverts programmatic scrollTop writes, so use agent-browser's
+ *  scroll command (native gesture semantics) instead of scrollIntoView. */
 const hoverAt = async (findExpr) => {
-  const coords = evalJs(
-    `(() => { const el = (${findExpr}); if (!el) return null; const r = el.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }; })()`,
-  );
-  if (!coords || coords === "null") return "NO-ELEMENT";
-  const c = JSON.parse(coords);
-  sh(`${AB} mouse move ${c.x} ${c.y}`);
-  return `hovered@${c.x},${c.y}`;
+  const locate = `(() => {
+    const el = (${findExpr}); if (!el) return null;
+    let p = el.parentElement, container = null;
+    while (p) {
+      const cs = getComputedStyle(p);
+      if (/(auto|scroll)/.test(cs.overflowY) && p.scrollHeight > p.clientHeight) { container = p; break; }
+      p = p.parentElement;
+    }
+    if (container) {
+      const er = el.getBoundingClientRect(), cr = container.getBoundingClientRect();
+      if (er.top < cr.top + 1 || er.bottom > cr.bottom - 1) {
+        const tid = container.getAttribute('data-testid');
+        const sel = tid ? '[data-testid=' + tid + ']' : (container.id ? '#' + container.id : null);
+        if (sel) return { scrollSel: sel, dir: er.top < cr.top ? 'up' : 'down' };
+      }
+    }
+    const r = el.getBoundingClientRect();
+    return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) };
+  })()`;
+  let probe = evalJs(locate);
+  if (!probe || probe === "null") return "NO-ELEMENT";
+  let pos = JSON.parse(probe);
+  if (pos.scrollSel) {
+    sh(`${AB} scroll ${pos.dir} 250 -s ${pos.scrollSel}`);
+    await sleep(250);
+    probe = evalJs(`(() => { const el = (${findExpr}); if (!el) return null; const r = el.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }; })()`);
+    if (!probe || probe === "null") return "NO-ELEMENT";
+    pos = JSON.parse(probe);
+  }
+  sh(`${AB} mouse move ${pos.x} ${pos.y}`);
+  return `hovered@${pos.x},${pos.y}`;
 };
 
 const bootCanvas = async () => {

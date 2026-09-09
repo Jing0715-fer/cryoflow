@@ -65,6 +65,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchJsonRetry } from "@/lib/retry-fetch";
 import { cn } from "@/lib/utils";
+import { FscParamsDiff } from "./fsc-params-diff";
 
 /* ------------------------------------------------------------------ */
 /* Types + palette                                                     */
@@ -77,6 +78,9 @@ interface FscIndexEntry {
   status: string;
   source: "postprocess" | "model";
   sourceFile: string;
+  /** launch parameter map — rides along from the index fetch and feeds
+   *  the A/B parameter diff table (no extra per-job round-trip) */
+  params: Record<string, unknown>;
 }
 
 interface FscShell {
@@ -110,6 +114,11 @@ const PALETTE = [
 
 /** how many curves one overlay can hold before it becomes spaghetti */
 export const MAX_CURVES = 6;
+
+/** auto-refresh cadence while a PICKED job is still running — refinements
+ *  land a model checkpoint every few minutes, so a 12 s poll catches new
+ *  FSC estimates within one checkpoint of them appearing on disk */
+export const LIVE_POLL_MS = 12_000;
 
 const AMBER = "#f59e0b";
 const NOISE = "#71717a";
@@ -340,6 +349,73 @@ export function FscCompareDialog({
     setScan((s) => s + 1);
   }, []);
 
+  /* ---------- live auto-refresh (running picks) ---------- */
+  // A refinement that is still running lands a new model checkpoint every
+  // few minutes — the re-scan button covers the manual case, but a dialog
+  // left open next to a live job would still drift stale. While any PICKED
+  // job is running, poll the index (so status flips running→completed stop
+  // the poll and flip the badge) plus each running pick's curve; the
+  // interval resets on every index commit, which is exactly one cadence.
+  const runningPicked = useMemo(
+    () =>
+      (index ?? [])
+        .filter((j) => j.status === "running" && picked.has(j.jobId))
+        .map((j) => j.jobId),
+    [index, picked]
+  );
+  useEffect(() => {
+    if (!open || runningPicked.length === 0) return;
+    let cancelled = false;
+    const tick = async () => {
+      // CURVES FIRST. setIndex at the bottom of this tick replaces the
+      // index state, which re-derives `runningPicked` (a fresh array),
+      // which re-runs THIS effect and flips the old closure's `cancelled`.
+      // The original order (index → curves) therefore cancelled the poll's
+      // own curve updates one microtask after the index commit — the fetch
+      // counter ticked, the UI never moved. Updating curves before the
+      // index commit keeps the fresh shells inside the same synchronous
+      // span as their fetch, and the re-run interval takes the next beat.
+      await Promise.all(
+        runningPicked.map(async (id) => {
+          try {
+            const c = await fetchJsonRetry<FscResponse>(
+              `/api/jobs/${id}/fsc`,
+              { init: { cache: "no-store" } }
+            );
+            if (cancelled) return;
+            // merge the single job's fresh curve — other picks' curves
+            // (and their hover states) stay untouched, unlike re-scan
+            setCurves((prev) => {
+              if (prev.get(id) === c) return prev; // referential no-op guard
+              const next = new Map(prev);
+              next.set(id, c);
+              return next;
+            });
+          } catch {
+            /* this tick misses the job — the next one retries */
+          }
+        })
+      );
+      if (cancelled) return;
+      try {
+        const body = await fetchJsonRetry<{ jobs: FscIndexEntry[] }>(
+          `/api/projects/${projectId}/fsc-index`,
+          { init: { cache: "no-store" } }
+        );
+        if (cancelled) return;
+        setIndex(body.jobs ?? []);
+        setScanning(false);
+      } catch {
+        /* silent — a failed poll must never surface as indexError */
+      }
+    };
+    const t = setInterval(tick, LIVE_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, [open, projectId, runningPicked]);
+
   /* ---------- close-path cache reset ---------- */
   // Every dismissal (Esc, overlay click, jump-to-job) funnels through
   // onOpenChange(false) — the perfect place to wipe the curve cache: it is
@@ -382,7 +458,14 @@ export function FscCompareDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
-        className="flex max-h-[85vh] w-[calc(100vw-2rem)] max-w-2xl flex-col gap-4 overflow-hidden sm:max-w-2xl"
+        className="flex max-h-[85vh] w-[calc(100vw-2rem)] max-w-2xl flex-col gap-4 overflow-y-auto sm:max-w-2xl"
+        // overflow-y-auto, NOT overflow-hidden: the Task 64 params table
+        // pushed the dialog past its 85vh budget on 4-pick comparisons, and
+        // the hidden overflow SILENTLY CLIPPED the legend chips + footnote —
+        // qa62's legend-hover assertions caught the hover landing on nothing.
+        // With a scrollable body the flex children keep their natural height
+        // (the candidate list is no longer starved by the chart) and long
+        // comparisons scroll like any other modal.
         onKeyDown={(e) => {
           // Escape must peel ONE layer: this dialog floats on top of the
           // job inspector modal, and each Radix Dialog root carries its own
@@ -398,7 +481,7 @@ export function FscCompareDialog({
           }
         }}
       >
-        <DialogHeader>
+        <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2 text-base">
             <GitCompareArrows className="h-4 w-4 text-teal-600" aria-hidden="true" />
             Compare FSC curves
@@ -426,9 +509,23 @@ export function FscCompareDialog({
           </DialogDescription>
         </DialogHeader>
 
+        {/* ---------- live auto-refresh notice ---------- */}
+        {runningPicked.length > 0 && (
+          <p
+            data-testid="fsc-compare-autolive"
+            className="flex shrink-0 items-center gap-1.5 rounded-md border border-teal-600/20 bg-teal-500/5 px-2.5 py-1 text-[11px] text-teal-700 dark:text-teal-300"
+          >
+            <span className="relative inline-flex size-1.5 shrink-0" aria-hidden="true">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal-400 opacity-75 motion-reduce:animate-none" />
+              <span className="relative inline-flex size-1.5 rounded-full bg-teal-500" />
+            </span>
+            Live — curves for the running job{runningPicked.length === 1 ? "" : "s"} refresh every {LIVE_POLL_MS / 1000} s; the badge flips when it completes.
+          </p>
+        )}
+
         {/* ---------- candidate list ---------- */}
         <div
-          className="min-h-0 space-y-1 overflow-y-auto pr-1"
+          className="min-h-24 space-y-1 overflow-y-auto pr-1"
           role="group"
           aria-label="Select jobs to compare"
           data-testid="fsc-compare-list"
@@ -584,7 +681,10 @@ export function FscCompareDialog({
           </div>
         )}
         {anyData && rows.length > 0 && (
-          <div className="min-h-0">
+          // shrink-0 is load-bearing: without it the flex container starves
+          // this wrapper and the legend chips OVERFLOW into the params table
+          // below (they end up unclickable — qa62's legend hover caught it)
+          <div className="min-h-0 shrink-0">
             <div className="h-60" data-testid="fsc-compare-chart">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={rows} margin={{ top: 6, right: 14, bottom: 2, left: -14 }}>
@@ -741,8 +841,19 @@ export function FscCompareDialog({
             </div>
           </div>
         )}
+        {pickedCount >= 2 && index && (
+          <FscParamsDiff
+            jobs={[...picked]
+              .map((id) => index.find((e) => e.jobId === id))
+              .filter((e): e is NonNullable<typeof e> => Boolean(e))}
+            colorOf={(id) => {
+              const i = index.findIndex((e) => e.jobId === id);
+              return PALETTE[(i >= 0 ? i : 0) % PALETTE.length].stroke;
+            }}
+          />
+        )}
         {pickedCount >= 2 && anyData && (
-          <p className="flex items-start gap-1.5 text-[10px] leading-snug text-muted-foreground/80">
+          <p className="flex shrink-0 items-start gap-1.5 text-[10px] leading-snug text-muted-foreground/80">
             <Waves className="mt-px h-3 w-3 shrink-0 text-teal-600" aria-hidden="true" />
             The curve that stays higher at the right edge resolves finer
             detail — a masked postprocess typically climbs above its raw
