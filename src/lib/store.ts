@@ -77,6 +77,10 @@ interface WorkflowState {
   pendingFrom: PendingFrom | null;
   /** Pan + zoom of the free canvas viewport. */
   viewport: Viewport;
+  /** Per-(project:workspace) viewport memory (session scope): what the canvas
+   *  restores when the user comes BACK to a workspace. Written through on
+   *  every viewport change; deliberately NOT persisted across reloads. */
+  viewportMemory: Record<string, Viewport>;
   /** Job type key being dragged from the palette (drop target hint). */
   paletteDrag: string | null;
   /** Increments on every one-click auto-arrange (canvas fit-views on change). */
@@ -392,6 +396,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   inspectId: null,
   pendingFrom: null,
   viewport: { x: 0, y: 0, zoom: 1 },
+  viewportMemory: {},
   paletteDrag: null,
   layoutEpoch: 0,
   focusJobId: null,
@@ -1648,12 +1653,26 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   setView: (view) => set({ view }),
   setPendingFrom: (pending) => set({ pendingFrom: pending }),
   cancelConnect: () => set({ pendingFrom: null }),
+  // Every viewport change is remembered under the (project:workspace) key —
+  // the canvas' switch effect restores it when the user comes BACK to a
+  // workspace instead of always zoom-to-fit (first visit still fits).
+  // Session-scope only: no localStorage, a reload deliberately re-fits.
   setViewport: (patch) =>
-    set((s) => ({
-      viewport: { ...s.viewport, ...patch, zoom: clamp(patch.zoom ?? s.viewport.zoom, ZOOM_MIN, ZOOM_MAX) },
-    })),
+    set((s) => {
+      const next = {
+        ...s.viewport,
+        ...patch,
+        zoom: clamp(patch.zoom ?? s.viewport.zoom, ZOOM_MIN, ZOOM_MAX),
+      };
+      const key = `${s.project?.id ?? "-"}:${s.activeWorkspaceId ?? "-"}`;
+      return { viewport: next, viewportMemory: { ...s.viewportMemory, [key]: next } };
+    }),
   panBy: (dx, dy) =>
-    set((s) => ({ viewport: { ...s.viewport, x: s.viewport.x + dx, y: s.viewport.y + dy } })),
+    set((s) => {
+      const next = { ...s.viewport, x: s.viewport.x + dx, y: s.viewport.y + dy };
+      const key = `${s.project?.id ?? "-"}:${s.activeWorkspaceId ?? "-"}`;
+      return { viewport: next, viewportMemory: { ...s.viewportMemory, [key]: next } };
+    }),
   setDragActive: (active) => set({ dragActive: active }),
   setPaletteDrag: (type) => set({ paletteDrag: type }),
   requestClassFocus: (jobId, cls) => set({ pendingClassFocus: { jobId, cls } }),

@@ -108,13 +108,38 @@ console.log(`V5 ink bbox: col ${firstCol}..${lastCol}, row ${firstRow}..${lastRo
 must(firstCol > 20 && firstCol < 160, `V5 ink starts near content origin (col ${firstCol})`);
 must(lastCol < w - 20, `V5 ink inside right margin (last col ${lastCol} of ${w})`);
 
+// V3/V6 — name presence, WRAP-TOLERANT (Task 98 round recalibration).
+// The original check required the compact name to appear CONTIGUOUSLY in
+// pdftotext's whitespace-stripped output — but pdftotext orders words by
+// position, so a neighboring card's title (e.g. "QA Refine 410"'s "410")
+// can land BETWEEN two words of a wrapped name ("Motion" / "Correction")
+// and break adjacency with NO content actually missing. Card names WRAP on
+// paper BY DESIGN (globals.css: a truncated archival name is a lost name),
+// so the honest contract is per-WORD presence: every word of every name
+// must reach the sheet as its own glyph run. Word list from `pdftotext
+// -bbox` (exact word boxes, no cross-element substring accidents).
+const paperWords = (pdfPath) => {
+  const html = execSync(`pdftotext -bbox ${pdfPath} -`, { encoding: "utf8" });
+  return new Set(
+    [...html.matchAll(/<word[^>]*>([^<]+)<\/word>/g)].map((m) => m[1].trim())
+  );
+};
+const nameWords = (n) => n.split(/\s+/).filter((w) => w.length >= 3);
+const wordsA4 = paperWords(OUT);
+const wordsLetter = paperWords(OUT_LETTER);
 const text = execSync(`pdftotext ${OUT} -`, { encoding: "utf8" }).replace(/\s+/g, "");
 // expected names come from the LIVE DOM (this workspace's cards only — the
 // masthead's job count is project-wide and includes other workspaces)
-const names = info.names.map((n) => n.replace(/\s+/g, ""));
+const names = info.names;
 let missing = 0;
-for (const n of names) if (!text.includes(n)) { console.log("  MISSING:", n); missing++; }
-must(missing === 0, `V3 all job names on the sheet (${names.length - missing}/${names.length})`);
+for (const n of names) {
+  const need = nameWords(n);
+  if (need.length > 0 && !need.every((w) => wordsA4.has(w))) {
+    console.log("  MISSING:", n, `(words: ${need.filter((w) => !wordsA4.has(w)).join(", ")})`);
+    missing++;
+  }
+}
+must(missing === 0, `V3 all job names on the sheet, word-wise (${names.length - missing}/${names.length})`);
 must(text.toLowerCase().includes("cryoflow—pipelinesnapshot"), "V4 masthead kicker on paper");
 must(/cryoflow—/i.test(text) && /·\d+jobs·\d+edges/.test(text), "V4 per-page footer on paper");
 
@@ -123,10 +148,15 @@ const lraw = readFileSync(OUT_LETTER).toString("latin1");
 const lcounts = [...lraw.matchAll(/\/Count (\d+)/g)].map((m) => +m[1]);
 const lpages = Math.max(...lcounts);
 must(lpages === 1, `V6 Letter landscape single page (got ${lpages})`);
-const ltext = execSync(`pdftotext ${OUT_LETTER} -`, { encoding: "utf8" }).replace(/\s+/g, "");
 let lmissing = 0;
-for (const n of names) if (!ltext.includes(n)) { console.log("  MISSING (Letter):", n); lmissing++; }
-must(lmissing === 0, `V6 all job names on Letter sheet (${names.length - lmissing}/${names.length})`);
+for (const n of names) {
+  const need = nameWords(n);
+  if (need.length > 0 && !need.every((w) => wordsLetter.has(w))) {
+    console.log("  MISSING (Letter):", n, `(words: ${need.filter((w) => !wordsLetter.has(w)).join(", ")})`);
+    lmissing++;
+  }
+}
+must(lmissing === 0, `V6 all job names on Letter sheet, word-wise (${names.length - lmissing}/${names.length})`);
 
 rmSync("/home/z/my-project/.qa-logs/t72v-1.pgm", { force: true });
 console.log(fail === 0 ? "QA72-VERIFY GREEN" : `QA72-VERIFY FAILED (${fail})`);

@@ -59,11 +59,19 @@ for (const j of (await listJobs()).filter((j) => j.name.startsWith("t87 "))) {
 }
 await sleep(1200);
 const jobsBefore = (await listJobs()).length; // baseline AFTER pre-clean, BEFORE seeding — Z restores to this
-// anchor the seeded pair inside the existing content bbox so Reset view
-// (zoom 1, recenter on the content) puts them on screen
-const anchor = (await listJobs()).find((j) => j.status === "completed" && j.workspaceId);
-must(anchor != null, "S1 anchor job found for coordinates");
-const ax = anchor.x, ay = anchor.y;
+// anchor the seeded pair in an EMPTY BAND just below the content bbox —
+// bbox-center placement collides with whatever card the persisted layout
+// already put there (a neighbor's badge intercepts the click), and Reset
+// view (zoom 1 + recenter) cannot contain a world wider than the viewport
+// anyway. Everything-visible comes from wheel zoom-out below instead.
+const allNow = await listJobs();
+const inWs = allNow.filter((j) => j.workspaceId);
+must(inWs.length > 0, "S1 workspace jobs present for bbox math");
+const maxy = Math.max(...inWs.map((j) => j.y));
+const bcx = (Math.min(...inWs.map((j) => j.x)) + Math.max(...inWs.map((j) => j.x))) / 2;
+const ax = Math.round(bcx) - 260;
+const ay = Math.round(maxy) + 240;
+must(inWs.some((j) => j.status === "completed"), "S1b a completed job exists (world is alive)");
 const mk = async (name, x, y, params) => {
   const r = await api("/api/jobs", "POST", { type: "motioncorr", name, x, y, params });
   if (r.status !== 200 && r.status !== 201) throw new Error(`POST ${name}: ${r.status} ${JSON.stringify(r.json)}`);
@@ -93,9 +101,14 @@ await p.goto(BASE, { waitUntil: "networkidle" });
 await p.waitForSelector('[data-canvas="viewport"]');
 await p.waitForTimeout(800);
 
-// zoom 1 + recenter on the content bbox — the seeded pair lands on screen
-await p.locator('button[aria-label="Reset view"]').click();
-await sleep(600);
+// zoom out so the WHOLE world (wider than the viewport at zoom 1) is
+// clickable — wheel down = zoom out (zoom-to-cursor at the view center)
+await p.mouse.move(800, 450);
+for (let i = 0; i < 8; i++) {
+  await p.mouse.wheel(0, 240);
+  await sleep(120);
+}
+await sleep(500);
 
 // selection: plain click selects, Shift+click toggles in (design-tool
 // convention, job-card pointerdown). Click the [data-job] ROOT by id —

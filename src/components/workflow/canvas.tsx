@@ -742,40 +742,50 @@ export function WorkflowCanvas() {
     return () => el.removeEventListener("scroll", pin);
   }, []);
 
-  // after one-click auto-arrange: frame the whole workflow in the viewport
-  React.useEffect(() => {
-    if (!layoutEpoch) return;
-    const cur = useWorkflowStore.getState().jobs;
-    const rect = rootRef.current?.getBoundingClientRect();
-    if (cur.length === 0 || !rect) return;
-    const minX = Math.min(...cur.map((j) => j.x));
-    const maxX = Math.max(...cur.map((j) => j.x + CARD_W));
-    const minY = Math.min(...cur.map((j) => j.y));
-    const maxY = Math.max(...cur.map((j) => j.y + CARD_H));
-    frameBounds(rect.width, rect.height, minX, minY, maxX, maxY);
-  }, [layoutEpoch, frameBounds]);
-
-  // frame the workflow ONCE after the initial load (the store viewport resets
-  // on reload; without this the canvas would boot showing empty space) —
-  // and AGAIN whenever the active project OR workspace changes: the store
-  // resets the viewport on switch, so a wide pipeline would otherwise sit
-  // top-left and out of view until the user hits zoom-to-fit
-  const fittedProject = React.useRef<string | null>(null);
-  const projectKey = jobs.length > 0 ? jobs[0].projectId : null;
+  // Viewport ownership on trigger changes (Task 98). One effect owns the
+  // decision, with two triggers and a clear priority:
+  //   layoutEpoch changed (import landed / auto-arrange) → ALWAYS re-fit,
+  //     on the same workspace or after an auto-switch — the fresh content
+  //     must be framed, a remembered view would frame the wrong world;
+  //   workspace/project changed → restore the remembered viewport if this
+  //     (project:workspace) pair has one (Task 98: coming BACK to a
+  //     workspace lands you where you left it), else fit (first visit).
+  // Poll ticks replace the `jobs` array reference every few seconds — the
+  // two refs make those re-runs no-ops (nothing actually changed).
   const activeWorkspaceId = useWorkflowStore((s) => s.activeWorkspaceId);
+  const projectKey = jobs.length > 0 ? jobs[0].projectId : null;
   const fitKey = projectKey ? `${projectKey}:${activeWorkspaceId ?? "-"}` : null;
+  const fittedKeyRef = React.useRef<string | null>(null);
+  const fittedEpochRef = React.useRef<number>(-1);
   React.useEffect(() => {
     if (loading || jobs.length === 0) return;
-    if (fittedProject.current === fitKey) return;
     const rect = rootRef.current?.getBoundingClientRect();
     if (!rect) return;
-    fittedProject.current = fitKey;
-    const minX = Math.min(...jobs.map((j) => j.x));
-    const maxX = Math.max(...jobs.map((j) => j.x + CARD_W));
-    const minY = Math.min(...jobs.map((j) => j.y));
-    const maxY = Math.max(...jobs.map((j) => j.y + CARD_H));
-    frameBounds(rect.width, rect.height, minX, minY, maxX, maxY);
-  }, [loading, jobs, frameBounds, fitKey]);
+    const epochChanged = fittedEpochRef.current !== layoutEpoch;
+    const keyChanged = fittedKeyRef.current !== fitKey;
+    if (!epochChanged && !keyChanged) return;
+    fittedEpochRef.current = layoutEpoch;
+    fittedKeyRef.current = fitKey;
+    const frameAll = () => {
+      const minX = Math.min(...jobs.map((j) => j.x));
+      const maxX = Math.max(...jobs.map((j) => j.x + CARD_W));
+      const minY = Math.min(...jobs.map((j) => j.y));
+      const maxY = Math.max(...jobs.map((j) => j.y + CARD_H));
+      frameBounds(rect.width, rect.height, minX, minY, maxX, maxY);
+    };
+    if (epochChanged) {
+      // import/arrange wins over memory — and the fit lands in memory via
+      // the store's write-through, so "where I left it" becomes the fit
+      frameAll();
+      return;
+    }
+    const remembered = fitKey ? useWorkflowStore.getState().viewportMemory[fitKey] : undefined;
+    if (remembered) {
+      setViewport(remembered);
+      return;
+    }
+    frameAll();
+  }, [loading, jobs, frameBounds, fitKey, layoutEpoch, setViewport]);
 
   // "Ready" hint: idle job whose upstream (any incoming edge, possibly in
   // ANOTHER workspace — links included) is completed.

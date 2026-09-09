@@ -98,9 +98,21 @@ const wsList1 = (await api("/api/workspaces")).json.workspaces ?? [];
 const wsBefore = wsList1.length;
 
 // anchor: an existing COMPLETED motioncorr — the inspector opens for
-// submitted jobs only, and idle seeds can't be inspected
-const anchor = (await listJobs()).find((j) => j.type === "motioncorr" && j.status === "completed" && !j.name.startsWith("t88"));
+// submitted jobs only, and idle seeds can't be inspected. It is then MOVED
+// to an empty band just BELOW the content bbox (restored in Z): the
+// persisted layout's own cards occupy the bbox interior, and a neighbor's
+// badge intercepts clicks on any overlapping card — below-bbox is
+// collision-free and the initial fit-all still shows it
+const allNow = await listJobs();
+const inWs = allNow.filter((j) => j.workspaceId);
+const anchor = allNow.find((j) => j.type === "motioncorr" && j.status === "completed" && !j.name.startsWith("t88"));
 must(anchor != null, `S1 completed motioncorr anchor found (${anchor?.name ?? "none"})`);
+must(inWs.length > 0, "S1b workspace jobs present for bbox math");
+const bcx = (Math.min(...inWs.map((j) => j.x)) + Math.max(...inWs.map((j) => j.x))) / 2;
+const maxy = Math.max(...inWs.map((j) => j.y));
+const anchorHome = { x: anchor.x, y: anchor.y };
+const anchorPos = { x: Math.round(bcx) - 350, y: Math.round(maxy) + 240 };
+await api(`/api/jobs/${anchor.id}`, "PATCH", { x: anchorPos.x, y: anchorPos.y });
 
 // offsite workspace first (the offsite sibling needs its id)
 const mkWs = await api("/api/workspaces", "POST", { name: "t88 Offsite" });
@@ -110,7 +122,7 @@ const offWsId = (mkWs.json.workspace ?? mkWs.json).id;
 const mainWsId = anchor.workspaceId;
 const mk = async (name, extra) => {
   const r = await api("/api/jobs", "POST", {
-    type: "motioncorr", name, x: anchor.x + 700, y: anchor.y + 560, ...extra,
+    type: "motioncorr", name, x: anchorPos.x + 700, y: anchorPos.y + 560, ...extra,
   });
   if (r.status !== 200 && r.status !== 201) throw new Error(`POST ${name}: ${r.status} ${JSON.stringify(r.json)}`);
   return r.json.job;
@@ -295,6 +307,9 @@ if (consoleErrors.length) console.log(consoleErrors.slice(0, 5).map((e) => `    
 
 /* ---------------- Phase Z: cleanup ---------------- */
 console.log("Phase Z — cleanup");
+// restore the anchor's original position FIRST (S-phase moved it to the
+// bbox center so Reset view could see it) — world-restoring probe
+await api(`/api/jobs/${anchor.id}`, "PATCH", { x: anchorHome.x, y: anchorHome.y });
 for (const j of (await listJobs()).filter((j) => j.name.startsWith("t88 "))) {
   await api(`/api/jobs/${j.id}`, "DELETE");
 }

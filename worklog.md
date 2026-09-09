@@ -3159,3 +3159,25 @@ Stage Summary:
 - 「Radix Toast.Action 点击即关：单发性是免费送的」：想测双击 undo 防护时发现 UI 根本不给第二次点击——toast 消费自身。两层防护各测各的：UI 层断言单发契约（原 toast 已关），服务端断言 id 冲突兜底（API 重放全拒）。框架白送的行为也是契约，测到它才知道框架替你挡了什么
 - 「探针种子要自带坐标」：POST /api/jobs 默认 x/y 在 60px 内随机——两张种子卡重叠，playwright actionability 拒绝点击被遮挡的卡（Task 92 zoom 死区教义的重演：拒单不是刁难是几何真相）。显式坐标播种写进惯例
 - 遗留（下轮候选）：EMPIAR 真数据回归（重）；用户机器 class3d/refine3d 顺序模式与 topaz 实测反馈；diff 对话框 Open 行 canvas 入口价值复查（观察真实使用）；文件夹拖拽真机手势反馈；undo 快照仅存于 toast 闭包（20s 窗口后不可达——全局 Ctrl+Z 历史栈是另一个量级的工程，观察真实需求再定）；workspace 删除是否也需要同款 undo（级联删 job 是更大爆炸半径——需先核实 workspace DELETE 的守卫现状）
+
+---
+Task ID: 98
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-10 06:44 window)
+Task: cron 自主巡检——Task 98「workspace 视口记忆（session 内）+ 打印断言几何脆弱族修复」：①候选核实——workspace DELETE 有守卫（jobs 先搬家到默认 workspace 再删壳，零丢失）让位；switchWorkspace 现状：每次切换/挂载都强制 zoom-to-fit——从不迷路但也从不保留视图（A 处放大排布→去一眼 B→回 A 落回 fit-all）；②新功能——viewportMemory：store 按 (project:workspace) 键 write-through 记录每次视口变化（setViewport/panBy 双路），canvas 合并 layoutEpoch/fitKey 两个 fit effect 为一个所有权 effect，优先级明确：epoch 变（import/arrange）→ 无条件 fit（新鲜内容赢过陈旧记忆，fit 经 write-through 成为新记忆）；key 变（ws/project 切换）→ 有记忆恢复记忆，无记忆 fit（首访契约）；poll 每 6s 换 jobs 数组引用 → 双 ref 守卫 no-op；③session 内诚实——不写 localStorage（Task 13 #13 教义自查：pan 每帧写 localStorage 是性能灾难），reload 刻意 re-fit；④回归途中抓到三个几何脆弱断言（旧码复现证明非本轮回归）：qa72 V3/V6 的 pdftotext 相邻性断言被邻卡词楔断、qa66 墨量地板随布局漂移失准、t87/t88 种子锚定假设被摊开的 bbox 击穿。t98 22 断言三连绿 + 全矩阵 30 套绿 + worklog + push
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 97、HEAD 597d6a1 == origin/main；BUILD_ID fH5YSjIX（Task 97 coerce 修正后的重建——worklog 记录的是首次构建 ID，本轮顺手在 worklog 修正此账）；冷启动 + smoke/t97/qa84 全绿 → 稳定
+- 【实现①store】viewportMemory: Record<string, Viewport>；setViewport/panBy 双路 write-through（键 = project?.id + activeWorkspaceId，双 null 兜底 "-"）；注释立碑三契约：恢复时机、session scope、无 localStorage
+- 【实现②canvas】两个 fit effect（layoutEpoch 746-756 + fitKey 763-778）合并为一个所有权 effect + 双 ref（fittedEpochRef/fittedKeyRef）——三分支：epochChanged→frameAll；keyChanged→memory 查表（有→setViewport 恢复/无→frameAll 首访）；poll re-run→no-op。一折：tsc 抓 fitKey null 索引——三元守卫补上；被删的 activeWorkspaceId/projectKey/fitKey 声明补回
+- 【回归一折·qa66+qa72】矩阵首跑 qa66 崩 + qa72 V3 "MISSING: MotionCorrection1"。git stash 对照实验钉死：旧码同样崩——非本轮回归。深挖：pdftotext 按 x 排序输出词块，邻卡 "QA Refine 410" 的 "410" 楔进 "Motion"/"Correction" 之间打断相邻性（内容完好，断言锁了实现细节）；qa66 墨量 0.06% < 0.08% 旧地板（布局漂移让墨量变薄——比例是尺度依赖量不是内容契约）。修：qa72 V3/V6 改 pdftotext -bbox 词级存在性断言（词表 ≥3 字符，绕开跨元素子串事故）；qa66 地板 0.0008→0.0003 + 注释写明漂移教训
+- 【回归二折·t87/t88】首崩残留种子级联污染（t88 "Mc Offsite" 故意画在远处，崩后留在 bbox 里）。深挖发现真正根因：t98 C 相点了 auto-arrange 且 applyLayout **持久化**了新布局——探针改了世界没复原，QA 链摊到 x=3920，Reset view（zoom-1 重心）装不下 3840px 世界，t87 远左锚点出屏。修三层：①t98 C 相前捕获全量坐标、断言后经 /api/jobs/layout 原样回写（探针副作用必须世界复原）；②t87 种子改放 bbox 下方空旷带（bbox 中心会撞上持久布局已有的卡——邻卡 badge 拦截指针，t88 崩溃日志的 subtree intercepts 指纹）+ Reset view 换 wheel 缩小（ZOOM_MIN 0.25 全世界可见）；③t88 锚卡 PATCH 到下方空旷带、Z 相复原原位
+- 【一折·碰撞】t88 锚卡首版移到 bbox 中心——正落在 Class2D Source 卡上，badge subtree intercepts pointer events；移到 bbox 下方空旷带解决
+- 【收尾】eslint src 0、tsc src 0、production build（BUILD_ID 4yH00mXNUgbqpXOgY6eiF）+ served 自证；t98 22×3 三连绿；t87/t88 修复后各两连绿；全矩阵 30 套（+t98）串行全绿
+
+Stage Summary:
+- 「恢复记忆的优先级要写死」：视口记忆最容易做错的地方不是存取而是竞争——import 自动切 ws 时 layoutEpoch 和 fitKey 同帧变化，恢复旧记忆会把新导入框在旧视口里。合并单 effect + 显式三分支（epoch fit > memory restore > first-visit fit）把优先级变成代码而不是巧合；fit 经 write-through 自然成为新记忆，「我来过且留了下来」语义自洽
+- 「write-through 是内存态安全版 localStorage」：pan 每帧写 localStorage 是 Task 13 #13 的性能坑复刻；内存 Map 写穿零成本且会话结束即焚——用户 reload 后 fit-all 不是缺陷是诚实（会话记忆就该随会话死）。持久化视口要做也必须 debounce 到手势结束，那是另一个轮次的需求
+- 「探针是世界的租客不是业主」：t98 C 相的 auto-arrange 持久化改写了 QA 链坐标，几何敏感的 t87/t88 三轮后集体崩盘——stash 对照实验洗清了本轮源码嫌疑后，真凶是自家探针。探针的每个副作用要么自清（删种子）要么复原（写回坐标），「探针跑完世界要和跑前一样新」；崩掉的探针连自清都做不了，所以 S 相预清 + 复原必须双保险
+- 「pdftotext 的词序是几何不是文本」：文本提取按坐标排序，卡片重叠区的词块交错是常态——「名字连续出现」锁的是打印几何的巧合而非「名字上纸」的契约。词级存在性（-bbox 词表）才是既宽容（换行是设计）又锋利（丢卡必丢词）的正解。墨量地板同理：比例随尺度漂移，要配注释配定期重标定
+- 「bbox 下方空旷带是画布探针的免费午餐」：世界越摊越宽后，Reset view（zoom-1）装不下、bbox 中心有常住卡——唯一永远空旷且 fit-all 必然可见的位置是 maxy+240 下方；wheel 缩小（ZOOM_MIN 0.25 → 6400px 视野）替代 zoom-1 重心，让「看得见」不再依赖世界宽度假设
+- 遗留（下轮候选）：EMPIAR 真数据回归（重）；用户真机 class3d/refine3d 顺序模式与 topaz 实测反馈；diff 对话框 Open 行 canvas 入口价值复查；文件夹拖拽真机手势反馈；undo 快照仅存 toast 闭包（Ctrl+Z 历史栈观察需求）；视口记忆如需跨 reload 持久化须 debounce 手势结束再写 localStorage；Import Movies 1 的 orphan（workspaceId null，名册 Unassigned 徽章 + Adopt 按钮是现成产品流）——可评估 seed 是否该直接给 Main；t88 锚卡 home 在崩跑后可能漂移（本轮 y=336 链排证据支持已复原）
