@@ -42,6 +42,7 @@ import {
   X,
 } from "lucide-react";
 import { useWorkflowStore } from "@/lib/store";
+import { parseClassNotes } from "@/lib/class-notes";
 import { withLiveStats } from "@/lib/live-stats";
 import { PENDING_VIEW_KEY } from "@/lib/view-link";
 import { KpiSparkline } from "./kpi-sparkline";
@@ -844,6 +845,19 @@ function StageChip({ job, onClick }: { job: JobDTO; onClick: () => void }) {
   );
 }
 
+/**
+ * Task 82 — "carries a human judgment" spans BOTH annotation granularities:
+ * the job note (a margin note on the step, Task 73) and select2d class
+ * notes (margin notes on the decisions INSIDE the step, Task 80). The
+ * Noted chip, the Noted filter slice and the dashboard 5-key all read
+ * this one predicate, so pointer, filter and keyboard can never disagree
+ * about what "noted" means.
+ */
+function hasJudgment(j: JobDTO): boolean {
+  if (j.note) return true;
+  return Object.keys(parseClassNotes(j.params.classNotes)).length > 0;
+}
+
 function JobRow({ job, onOpen }: { job: JobDTO; onOpen: () => void }) {
   const spec = jobType(job.type);
   const running = job.status === "running" && job.startedAt != null;
@@ -863,6 +877,13 @@ function JobRow({ job, onOpen }: { job: JobDTO; onOpen: () => void }) {
   // every job, so there is nothing to explain.
   const orphan = !job.workspaceId && workspaces.length > 0;
   const [adopting, setAdopting] = React.useState(false);
+  // class-level annotations (Task 80) aggregated at row level (Task 82):
+  // a select2d job whose classes carry margin notes shows an amber count
+  // pill next to the status. The icon-only job-note twin reads "this STEP
+  // is annotated"; the count pill reads "the decisions INSIDE the step are
+  // annotated". Tolerant parse — a corrupted param must never take the
+  // roster down (same contract as the gallery and the palette).
+  const classNotes = Object.entries(parseClassNotes(job.params.classNotes));
   const open = () => {
     if (orphan) {
       toast({
@@ -924,6 +945,22 @@ function JobRow({ job, onOpen }: { job: JobDTO; onOpen: () => void }) {
                 className="no-print shrink-0 text-amber-500 dark:text-amber-400"
               >
                 <StickyNote className="size-3" aria-hidden="true" />
+              </span>
+            ) : null}
+            {classNotes.length > 0 ? (
+              // .no-print: same paper rationale as the job-note badge — the
+              // paper roster is a management summary; the notes' official
+              // channels stay the gallery editor and the palette (80/81).
+              <span
+                data-row-classnotes-badge
+                data-row-classnotes-count={classNotes.length}
+                role="img"
+                aria-label={`${classNotes.length} class${classNotes.length === 1 ? "" : "es"} noted`}
+                title={`Class notes on ${classNotes.map(([k]) => `Class ${k}`).join(", ")}`}
+                className="no-print flex h-4 shrink-0 items-center gap-0.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 text-[9px] font-semibold tabular-nums text-amber-600 dark:text-amber-400"
+              >
+                <StickyNote className="size-2.5" aria-hidden="true" />
+                {classNotes.length}
               </span>
             ) : null}
             {wsName ? (
@@ -1381,9 +1418,11 @@ function ActiveProjectSpotlight({
   // status filter for the Jobs list — chips double as a mini status bar;
   // "all" is the default so the section reads exactly as before until used.
   // "noted" (Task 76) is the property filter: it answers "which jobs carry
-  // a human judgment". "unassigned" (Task 77) is the location filter: it
-  // answers "which rows live on NO canvas" — the cleanup queue for orphans.
-  // State lives in ProjectDashboard (Task 78) so keys 5/6 can drive it.
+  // a human judgment" — since Task 82 that spans BOTH granularities (job
+  // notes AND class notes, via hasJudgment). "unassigned" (Task 77) is the
+  // location filter: it answers "which rows live on NO canvas" — the
+  // cleanup queue for orphans. State lives in ProjectDashboard (Task 78)
+  // so keys 5/6 can drive it.
 
   if (!project) return null;
 
@@ -1393,7 +1432,7 @@ function ActiveProjectSpotlight({
   const failed = sorted.filter((j) => j.status === "failed");
   const pending = sorted.filter((j) => j.status === "pending");
   const idleCount = sorted.filter((j) => j.status === "idle").length;
-  const noted = sorted.filter((j) => j.note);
+  const noted = sorted.filter(hasJudgment);
   // orphans only exist as a PROBLEM once the project has workspaces (before
   // that the canvas renders every job, so nothing is invisible) — same
   // condition the row badge uses
@@ -1790,7 +1829,9 @@ export function ProjectDashboard() {
       else if (key === "3") toggleGridFilter("completed");
       else if (key === "4") toggleGridFilter("failed");
       else if (key === "5") {
-        if (jobs.some((j) => j.note)) {
+        // same predicate the Noted chip filters by — job notes AND class
+        // notes (Task 82): one definition, two entry points
+        if (jobs.some(hasJudgment)) {
           setJobFilter((f) => (f === "noted" ? "all" : "noted"));
         }
       } else if (key === "6") {

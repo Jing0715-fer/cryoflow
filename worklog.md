@@ -2812,3 +2812,23 @@ Stage Summary:
 - 「幽灵写者」的破案路径值得存档：症状（PATCH 值消失）→ 二分（DB 直读 vs API 读同错→写者在服务侧）→ 采样锁时刻（200ms 步进锁定 1.6-1.8s 窗口）→ 时刻指纹匹配已知机制（debounce+poll 节奏）→ 假设验证（杀 daemon 值存活）。200ms 采样比日志/strace 便宜且精确
 - ParamsTab 的 debounced save 是「持有 form 即持有写权」：任何开着面板的页面都会在 dirty 时整包覆写 params——对单用户这是特性（离线编辑可回填），对多写者（测试 setup、僵尸页）是数据竞争。S3 式「写后重读绊线」应成为所有 setup PATCH 的标准动作
 - 遗留（下轮候选）：class 批注的 dashboard 聚合面（classNotes 在 job 行的体现）；dashboard 打印表头跨页重复（真表格语义，继续悬置）；workflow-import 多文件（低优先）；EMPIAR 真数据回归（重）；β-Gal 零 workspace seed 规则；KPI 卡 truncate 徽章纸上展开细节
+
+---
+Task ID: 82
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-09 21:53 window)
+Task: cron 自主巡检——Task 82「class 批注的 dashboard 聚合面」：批注四部曲（73 数据 → 74 纸面 → 75 检索 → 76/81 管理与导航）之后的聚合闭环——①JobRow 名字行新增琥珀 class-notes 计数徽章（StickyNote + tabular 数字胶囊，title 列出全部类号，aria-label 复数诚实变形），与 icon-only 的 job-note 徽章构成「粒度孪生」：icon 读「这一步被注记」，计数读「步骤内部的判断被注记」；②Noted 属性过滤器升级为双重粒度聚合（job note OR class notes）——模块级 hasJudgment 谓词单源，芯片/过滤切片/键盘 5 三个入口读同一个真相，指针与键盘永不打架；③徽章 no-print（沿用 job-note 徽章的纸面教义：管理摘要非正式纸张通道）。qa82 35 断言三连绿 + 全回归矩阵 15 套绿 + worklog + push
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 81（cron 文本所称 Task 13 早已完成勿信）、HEAD 43f5a86 == origin/main、BUILD_ID 匹配；server 冷启动 + smoke + qa81/80/79/58/66（qa66 需 qa58 后重播种——自清理规律第 N 次应验）全绿 → 稳定，从 Task 81 遗留首位选题
+- 【实现】project-dashboard.tsx：import parseClassNotes；模块级 hasJudgment(j) = j.note || parseClassNotes(j.params.classNotes) 非空；JobRow 解析 classNotes 后条件渲染计数徽章（data-row-classnotes-badge/-count，h-4 琥珀胶囊与 Unassigned 徽章同视觉语法）；ActiveProjectSpotlight 的 noted 切片与 ProjectDashboard 键盘 5 守卫（jobs.some(hasJudgment)）同步换谓词——「Noted」从此回答「哪里有人的判断（任意粒度）」
+- 【qa82 两折皆 harness 老暗礁】①SEL_JOB 漏进 evaluate 闭包（qa73 课第六应验）→ probe 参数透传 + sed 批改裸调用；②probe 返回 DOM 元素无法跨 evaluate 序列化（{}) 真值但无方法）→ 浏览器侧取好 title/aria/count 字符串再返回；③B6 场景设计错（qa80 C1/C2 同族）：PATCH params 是参数键级合并——classNotes 整个 map 被传入值替换，逐类清空须重建全 map（与 gallery setNote 契约一致），API 调用者无逐类合并的幻觉
+- 【弱断言预防性修正】A7 首版用 includes("2") 撞上 chip 文本胶水（"Noted 2"+kbd"5"→"Noted 25" 碰巧含 "2"）——qa79 B2 教义（文本断言锚定角色）预防性落地：probe 改读 chip 内 span.tabular-nums 的纯计数
+- 【S2 基线规范化】setup 遍历全 job 清除存量 note/classNotes（qa78「切片刻意不相交」教义），使 Noted 并集计数从零构造完全确定——living instance 残留不能当隐藏输入
+- 【回归一折】qa70 首跑 Escape-peels FATAL（家族性抖动第四次现身）→ 复跑 19 断言绿；其余 13 套首轮全绿
+- 【收尾】eslint src 0（bun run lint 的 2 个 no-require-imports 在存量 scripts/qa63-race-test.ts 与 qa64-setparams.cjs，非本轮引入）、tsc src 0、production build（BUILD_ID e7T0P0rCKz0YQxUs_6Fp2）；全矩阵：qa82 35×3 + smoke + qa58 + qa66 35 + qa69 34 + qa70 19 + qa72-verify（Letter 11/11）+ qa73 + qa75 + qa76 + qa77 + qa78 + qa79 + qa80 + qa81 串行全绿
+
+Stage Summary:
+- 「批注的第五张面孔是并集」：同一 note 字段在画布是角标、在纸面是摘录、在面板是镜头、在 dashboard 是行徽章，本轮 class notes 加入同一行——hasJudgment 单谓词让「Noted」从「这步有批注」升级为「这里有人类判断（步骤级或判断级）」；过滤器语义随数据维度生长而不换名字，是一等数据气化的标志
+- 「API 契约 = 编辑器契约」：classNotes 是单键参数，PATCH 整包替换——逐类编辑的正形是重建全 map 再 PATCH（gallery 如此，API 调用者亦然）。测试场景假设「逐类合并」静默丢失其余类，徽章归零暴露真相：参数级 JSON map 的合并粒度是参数键，不是 map 内键
+- harness 三课再印（闭包/序列化/场景设计）合计第六、首次、第二次应验——evaluate 探针的骨架应为：参数透传 + 返回纯数据 + 不返回 DOM 节点；「chip 文本胶水」（计数+kbd 拼接）加入弱断言模式库，与 pdftotext 拼接断裂同族
+- 遗留（下轮候选）：dashboard 打印表头跨页重复（真表格语义，继续悬置）；workflow-import 多文件（低优先）；EMPIAR 真数据回归（重）；β-Gal 零 workspace seed 规则；KPI 卡 truncate 徽章纸上展开细节；class-notes 徽章的 canvas job-card 表亲（画布卡片尚不显示类级注记）
