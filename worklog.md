@@ -2412,3 +2412,26 @@ Stage Summary:
 - 「关闭路径做缓存失效」是本轮最值钱的工程教训：effect 异步体里的清理晚一个 microtask 就能造成永久死锁，事件处理器（onOpenChange）才是同步、可靠、lint 友好的失效点——凡「打开时懒加载数据 + 关闭时该重置」的组件都适用此则
 - engine-state statcache 的 stale write-back 竞态是真实 hazard 但非当前痛点：外部写（seed/手改）与服务器「读-改-写」交错才触发，写回不含添加即「时间倒流」；修复候选 = writeRuns 改为与 fresh read 合并（需重设计调用方契约）；platform 层「调用边界收割」新常态让长驻 server QA 模式全面失效——分离式单调用配方 + 离线清场工具是本窗口的生存技能
 - 遗留（下轮候选）：writeRuns 合并语义重设计（治 clobber 本）；对比对话框行点击跳转已闭环，新增「对话框内 params A/B diff」候选（两次 refine 差在哪）；fsc-index 对 running job 的曲线自动轮询刷新；workflow-import 多文件（低优先）；dev overlay「1 Issue」（dev-only）；EMPIAR 真数据回归（重）；gallery zoom roving tabindex；report 深色打印样式
+
+---
+Task ID: 63
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 晨轮 2026-09-09 08:17 窗口）——Task 62 遗留 #1 销账：engine-state「时间倒流」根治，writeRuns 全量盲写语义升级为增量单条写 API（upsertRun/updateRun/removeRun + mutateRuns 同步原子原语），11 个调用点全迁移；顺带破获「收割机之谜」——Task 62 观察到的 7→3 条目消失是失败工具调用里存活的后台 QA 进程跑了 cleanup（seed --clean 直改文件），非引擎代码；qa63-race-test 6 场景 21 断言 + qa62 A/B + qa63-smoke 6/6 + qa60 A 全绿；worklog + push
+
+Work Log:
+- 【开局核对】HEAD 22480f1 == Task 62、origin 同步、server 死（收割常态）、state 2 条旧 fixture；选定本轮重点 = Task 62 Stage Summary 首条候选「writeRuns 合并语义重设计（治 clobber 本）」
+- 【勘查·竞态图谱】11 个 writeRuns 调用点逐一定性：全部「read→突变→write 同步相邻」，真正的病灶不是跨 await 持有 map，而是 writeRuns 的**全量覆盖语义本身**——任何写者都以自己快照为唯一真相，外部写者（seed 脚本）或共存进程的条目被整体抹掉；readRuns 返回 cache 共享引用、外部写自然 bust cache（mtime/size）——这两个既有事实是修复的地基
+- 【修复·增量写契约】engine.ts 新增：mutateRuns(fn) 同步读-改-写原语（fn throw 时 runsCache=null 防脏 cache 服务）；upsertRun(id, rec)（基底=当前磁盘真相）；updateRun(id, fn)（条件更新，fn 返回 null=守卫拒绝不写）；removeRun(id)；clearRunRecord 复用 removeRun。迁移 9 处调用点（stopRun×2 条件中断标记、recordNativeRun、spawnTrackedRun×2、exit finalize×2 含 topaz 静默失败分支、spawn error、reconcile 孤儿完结）——每处保留 startedAt 守卫语义；writeRuns 保留为全量重建专用（in-tree 调用者清零，注释钉死「引擎内部 MUST NOT 直用」+ 完整病理记录）
+- 【收割机破案（本轮意外收获）】qa63-smoke 首跑 FSC section 缺席 → state 恰好又被打回「2 旧 fixture + 1 live」→ 怀疑引擎回归 → 但 qa62-C2.log 实锤：之前「Error calling tool」的失败调用里 nohup 后台发射的 C 阶段**没有立刻被杀**，跑完 console 检查（0 page errors）后执行尾部 cleanup（seed --clean），其 state pop 直接改文件不走 server → pop 掉的恰是 SPECS 的 4 条 completed fixture。Task 62 的「7→3 之谜」同源闭环：**收割机 = 失败调用的后台进程遗骸 + seed --clean 的直改文件设计**，非引擎代码、非双进程写回
+- 【竞态回归·qa63-race-test.ts】bun 直跑 TS（import 引擎真函数，state 备份/恢复包裹）：A 外部条目在 upsert 后幸存；B 旧 cache 快照不复活（THE bug 的精确复现——旧代码此处丢 seed-a/seed-b）；C updateRun 守卫匹配/拒绝/absent 三态；D removeRun 只删自己的 key；E clearRunRecord 对 absent key 文件字节不变；F finalize 中途 seed 写入幸存——21/21 全绿一次过
+- 【QA·验证矩阵】qa62 A+B 全绿（36+20：hover 联动/键盘平权/live 徽章/re-scan/jump 换宿/localStorage 恢复）；C 阶段 console-0 由 C2.log 证据补位；qa63-smoke 6/6（canvas→inspector→FSC section→compare 5 行→Esc 分层契约→console 0）；qa60 A 全绿（4 曲线/0.143 数值/图例 chips）——production next start 全程
+- 【qa63-smoke 三连假失败的三课】①Radix dialog 关闭 unmount 在动画结束——固定 sleep(1000) 撞竞态，改 400ms×10 轮询；②agent-browser eval 对字符串返回值**带引号**——`afterEsc === "NOCMP+INSP"` 永假（got `"NOCMP+INSP"`），unq 只该用在带引号的返回上、裸 JSON（坐标）直接 JSON.parse；③document-target 的 KeyboardEvent 不在 React root 冒泡路径——Esc 必须dispatch 到 dialog 元素（qa62 配方）；另：diagnostic 脚本的 JSON.parse 包裹层让 `"NOCARD".includes("CARD")` 为真导致 boot 循环误 break——裸 ev/unq 才是 harness 的正确原语
+- 【工具语义澄清】qa60-seed-fsc.py 的 --clean 是**纯清理**（删文件+pop state+continue，不重建）——本轮两次误当「先清后种」用导致「existing job 无 star 文件」的空 index；正常种子 = 无参调用（existing job 会重写 star + flip_status + register_run）
+- 【平台观察补充】「工具调用边界收割」不是瞬时的：失败调用（Error calling tool 空错误）里 nohup 后台进程可存活数十秒跑完整个 QA 阶段；>2 分钟的前台调用开始随机空错误失败（A+B 的 3 分钟调用成功过，4 分钟级三连失败）——server+QA 同调用绑定的配方仍有效但要控制在 ~3 分钟内
+- 【收尾】eslint 0、tsc src 0（examples/skills 噪音照旧）、production build 成功；qa62-offline-clean.py 清场（5 star 删、live job prisma 直删、state 回 2 条基线）；server 已杀；诊断脚本 esc-diag/page-diag 保留在 scripts/ 供下轮参考
+
+Stage Summary:
+- engine-state 的「时间倒流」从 hazard 升级为不可能：写路径契约从「全量快照覆盖」改为「单条增量、基底恒为磁盘最新」——外部写者（seed）与引擎写天然合并，任何单条 upsert/update/remove 都无法再抹掉别人的条目；同步 read→mutate→write 的 span 是单线程 Node 的天然事务
+- 「收割机」破案是本轮的方法论收获：不是所有反常都是代码 bug——「失败的工具调用」≠「没发射的进程」，后台遗骸跑完的 cleanup 会污染下一个断言的现场；qa62-C2.log 的「0 page errors」也从失败调用里抢救了出来
+- harness 三课（动画竞态轮询化 / eval 引号语义 / React 树外的 dispatch 无效）让 qa63-smoke 从三连假失败到 6/6——前两轮失败全部是 harness 自身问题，应用行为从头到尾正确
+- 遗留（下轮候选）：writeRuns 全量重建语义暂无调用者（seed 走文件直写）；双进程并存时增量写仍可能交错（无文件锁，4GB QA box 权衡接受，hazard 已注释）；compare params A/B diff（两次 refine 差在哪）；fsc-index 对 running job 的曲线自动轮询刷新；嵌套 Esc 的 AlertDialog-on-Popover 抽查；workflow-import 多文件（低优先）；dev overlay「1 Issue」（dev-only）；EMPIAR 真数据回归（重）；gallery zoom roving tabindex；report 深色打印样式

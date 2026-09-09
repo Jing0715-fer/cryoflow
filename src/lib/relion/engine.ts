@@ -178,6 +178,84 @@ export function writeRuns(map: Record<string, RunRecord>): void {
   runsCache = null;
 }
 
+/* --- Incremental run-record writes (the ONLY sanctioned write path) ---- *
+ *
+ * writeRuns is a BLIND full-file overwrite: whatever the caller passes
+ * becomes the whole truth. That semantics caused the "engine-state time
+ * travel" incident (Task 62): a caller holding a stale snapshot (external
+ * seed script wrote new entries in between, or a second server process was
+ * still alive beside the watchdog's replacement) wrote its snapshot back
+ * and silently DELETED every entry it didn't know about — completed jobs'
+ * records vanished while the DB still said completed, so /fsc and every
+ * per-job route that resolves the workdir through the state file came up
+ * empty ("FSC section not rendered").
+ *
+ * The fix is CONTRACT-level, not another cache tweak: from here on the
+ * engine writes ONE RECORD AT A TIME through upsertRun / updateRun /
+ * removeRun. Each call re-reads the on-disk truth (readRuns' mtime/size
+ * check naturally picks up external writers) and touches exactly one key,
+ * so entries owned by other writers can never be lost again. writeRuns
+ * stays exported for the rare FULL-REBUILD cases (nothing in-tree today)
+ * and as the shared primitive below — engine-internal callers MUST NOT
+ * use it directly.
+ *
+ * All three helpers keep the read→mutate→write span SYNCHRONOUS (no await
+ * between them): Node is single-threaded, so no other request path can
+ * interleave. An external PROCESS can still write between our read and
+ * write — that window is microseconds and the worst case degrades to the
+ * pre-fix behavior for that one write; no file lock on a 4GB QA box.
+ */
+
+/** Synchronous read→mutate→write primitive. fn mutates `runs` in place;
+ * if it THROWS, the cache (which `runs` aliases) may be half-mutated —
+ * drop it so the next read re-parses the on-disk truth instead of
+ * serving poisoned state. Returns fn's result. */
+function mutateRuns<T>(fn: (runs: Record<string, RunRecord>) => T): T {
+  const runs = readRuns();
+  try {
+    const result = fn(runs);
+    writeRuns(runs);
+    return result;
+  } catch (err) {
+    runsCache = null; // half-mutated alias — never serve it again
+    throw err;
+  }
+}
+
+/** Write (or replace) a single run record. Base = the CURRENT on-disk
+ * state, not the caller's snapshot — this is the anti-time-travel
+ * guarantee. */
+export function upsertRun(jobId: string, record: RunRecord): void {
+  mutateRuns((runs) => {
+    runs[jobId] = record;
+  });
+}
+
+/** Conditionally update a single record. fn receives the CURRENT record
+ * and returns the replacement — or null to mean "guard failed / nothing
+ * to change" (no write happens). Returns the record now in state (null
+ * when the job had no record or the guard declined). */
+export function updateRun(
+  jobId: string,
+  fn: (current: RunRecord) => RunRecord | null
+): RunRecord | null {
+  return mutateRuns((runs) => {
+    const current = runs[jobId];
+    if (!current) return null;
+    const next = fn(current);
+    if (!next) return current;
+    runs[jobId] = next;
+    return next;
+  });
+}
+
+/** Remove a single record (no-op when absent). */
+export function removeRun(jobId: string): void {
+  mutateRuns((runs) => {
+    delete runs[jobId];
+  });
+}
+
 export function getRun(jobId: string): RunRecord | null {
   return readRuns()[jobId] ?? null;
 }
@@ -188,10 +266,7 @@ export function getRun(jobId: string): RunRecord | null {
  * "Reset & edit" semantically means "discard this run".
  */
 export function clearRunRecord(jobId: string): void {
-  const runs = readRuns();
-  if (!(jobId in runs)) return;
-  delete runs[jobId];
-  writeRuns(runs);
+  removeRun(jobId);
 }
 
 /**
@@ -319,12 +394,13 @@ export async function stopRun(jobId: string): Promise<{ stopped: boolean; messag
       /* best effort — pkill exits non-zero when nothing matched */
     });
     if (!child) {
-      const runs = readRuns();
-      const rec = runs[jobId];
-      if (rec && rec.done === false) {
-        runs[jobId] = { ...rec, done: true, exitCode: -1, result: "stopped by user (WSL bridge)" };
-        writeRuns(runs);
-      }
+      // incremental write — the record-swap must not clobber entries other
+      // writers (seed scripts, sibling processes) added while we killed the tree
+      updateRun(jobId, (rec) =>
+        rec.done === false
+          ? { ...rec, done: true, exitCode: -1, result: "stopped by user (WSL bridge)" }
+          : null
+      );
     }
     return {
       stopped: true,
@@ -378,12 +454,9 @@ export async function stopRun(jobId: string): Promise<{ stopped: boolean; messag
   // survived a server restart), mark the record interrupted ourselves so
   // reconcile + the resume branch see a consistent state.
   if (!child) {
-    const runs = readRuns();
-    const rec = runs[jobId];
-    if (rec && rec.done === false) {
-      runs[jobId] = { ...rec, done: true, exitCode: -1, result: "stopped by user" };
-      writeRuns(runs);
-    }
+    updateRun(jobId, (rec) =>
+      rec.done === false ? { ...rec, done: true, exitCode: -1, result: "stopped by user" } : null
+    );
   }
   return {
     stopped: true,
@@ -1159,8 +1232,7 @@ function recordNativeRun(
   const errFile = path.join(workdir, "run.err");
   appendFileSync(logFile, logText);
   writeFileSync(errFile, "");
-  const runs = readRuns();
-  runs[job.id] = {
+  upsertRun(job.id, {
     jobId: job.id,
     projectId: job.projectId,
     type: job.type,
@@ -1174,8 +1246,7 @@ function recordNativeRun(
     done: true,
     exitCode: 0,
     result,
-  };
-  writeRuns(runs);
+  });
 }
 
 /** Import: writes a RELION 5 optics-group micrographs.star (EMPIAR or empty). */
@@ -3496,9 +3567,7 @@ function spawnTrackedRun(
     done: false,
     exitCode: null,
   };
-  const runs = readRuns();
-  runs[job.id] = record;
-  writeRuns(runs);
+  upsertRun(job.id, record);
 
   // Pre-open the log files and pass the raw fds as stdio: the child keeps
   // its own dup'd descriptors, so a Next.js dev-server restart no longer
@@ -3551,9 +3620,7 @@ function spawnTrackedRun(
   live.set(job.id, child);
 
   record.pid = child.pid ?? null;
-  const runsNow = readRuns();
-  runsNow[job.id] = { ...record };
-  writeRuns(runsNow);
+  upsertRun(job.id, { ...record });
 
   attachExitHandler(job, child, record.startedAt);
 
@@ -3947,8 +4014,7 @@ function attachExitHandler(
     const finalize = (): void => {
       if (settled) return;
       settled = true;
-      const runs = readRuns();
-      const state = runs[job.id];
+      const state = getRun(job.id);
       // A newer run may have replaced this record — only handle our own.
       if (!state || state.startedAt !== startedAt) return;
 
@@ -3982,8 +4048,9 @@ function attachExitHandler(
           rootCauseDetail(state.errFile) ||
           tailText(state.logFile, 280);
         result = `topaz training failed — ${cause || "no model produced (see run.out)"}`;
-        runs[job.id] = { ...state, done: true, exitCode, outputs, result };
-        writeRuns(runs);
+        updateRun(job.id, (rec) =>
+          rec.startedAt === startedAt ? { ...rec, done: true, exitCode, outputs, result } : null
+        );
         void db.job
           .update({
             where: { id: job.id },
@@ -3993,8 +4060,9 @@ function attachExitHandler(
         return;
       }
 
-      runs[job.id] = { ...state, done: true, exitCode, outputs, result };
-      writeRuns(runs);
+      updateRun(job.id, (rec) =>
+        rec.startedAt === startedAt ? { ...rec, done: true, exitCode, outputs, result } : null
+      );
 
       const elapsed = Date.now() - new Date(state.startedAt).getTime();
       void db.job
@@ -4036,16 +4104,11 @@ function attachExitHandler(
 
   child.on("error", (err) => {
     live.delete(job.id);
-    const runs = readRuns();
-    const state = runs[job.id];
-    if (!state || state.startedAt !== startedAt) return;
-    runs[job.id] = {
-      ...state,
-      done: true,
-      exitCode: -1,
-      result: `spawn failed — ${err.message}`,
-    };
-    writeRuns(runs);
+    updateRun(job.id, (rec) =>
+      rec.startedAt === startedAt
+        ? { ...rec, done: true, exitCode: -1, result: `spawn failed — ${err.message}` }
+        : null
+    );
     void db.job
       .update({
         where: { id: job.id },
@@ -4280,18 +4343,17 @@ export async function reconcileRealJobs(jobs: Job[]): Promise<Job[]> {
         const collected = collectOutputs(job.type, state.workdir);
         const key = ORPHAN_PRIMARY_KEY[job.type];
         if (collected.outputs[key]) {
-          const runsNow = readRuns();
-          const rec = runsNow[job.id];
-          if (rec && rec.startedAt === state.startedAt) {
-            runsNow[job.id] = {
-              ...rec,
-              done: true,
-              exitCode: 0,
-              outputs: collected.outputs,
-              result: collected.result,
-            };
-            writeRuns(runsNow);
-          }
+          updateRun(job.id, (rec) =>
+            rec.startedAt === state.startedAt
+              ? {
+                  ...rec,
+                  done: true,
+                  exitCode: 0,
+                  outputs: collected.outputs,
+                  result: collected.result,
+                }
+              : null
+          );
           const patch = {
             status: "completed" as const,
             progress: 100,
