@@ -117,7 +117,8 @@ const reloadToDashboard = async () => {
 const rosterProbe = (selName) => p.evaluate((SEL_JOB) => {
   const spot = 'section[aria-label="Active project spotlight"]';
   const box = document.querySelector(`${spot} .max-h-80`);
-  const rows = [...(box?.children ?? [])];
+  // Task 84: rows live inside the roster table — anchor on data-roster-row
+  const rows = [...(box?.querySelectorAll("[data-roster-row]") ?? [])];
   const rowFor = (name) => rows.find((r) => r.textContent?.includes(name)) ?? null;
   const badges = [...box?.querySelectorAll("[data-row-classnotes-badge]") ?? []];
   const selBadgeEl = rowFor(SEL_JOB)?.querySelector("[data-row-classnotes-badge]") ?? null;
@@ -150,7 +151,7 @@ must(rp.selBadgeTitle === "Class notes on Class 3, Class 5", `A3 title lists the
 must(rp.selBadgeAria === "2 classes noted", `A4 aria-label reads '2 classes noted' (got ${rp.selBadgeAria})`);
 must(rp.badgeTotal === 1, `A5 exactly one class-notes badge in the roster (got ${rp.badgeTotal})`);
 const noteRowHasBadge = await p.evaluate((name) => {
-  const rows = [...document.querySelectorAll('section[aria-label="Active project spotlight"] .max-h-80 > *')];
+  const rows = [...document.querySelectorAll('section[aria-label="Active project spotlight"] [data-roster-row]')];
   const row = rows.find((r) => r.textContent?.includes(name));
   return !!row?.querySelector("[data-row-note-badge]");
 }, noteJob.name);
@@ -163,7 +164,7 @@ await p.locator('[data-filter="noted"]').click();
 await sleep(350);
 rp = await rosterProbe(SEL_JOB);
 const notedNames = await p.evaluate(() =>
-  [...document.querySelectorAll('section[aria-label="Active project spotlight"] .max-h-80 > *')]
+  [...document.querySelectorAll('section[aria-label="Active project spotlight"] [data-roster-row]')]
     .map((r) => r.querySelector("button")?.textContent ?? "")
 );
 must(rp.total === 2, `B1 Noted slice shows exactly 2 rows (got ${rp.total})`);

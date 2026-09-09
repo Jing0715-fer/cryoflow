@@ -2852,3 +2852,26 @@ Stage Summary:
 - 「设计性裁切」要有断言：D9 断言尾条注记**不在**纸上——截断行为本身是被测试的合同（… 标记 + 全文悬停可得），而不是被容忍的缺陷；与 qa79「弱断言」教训互补：存在性断言要全量，设计性缺席也要有断言守护
 - 预览卡注记区回答「hover 即读」：badge 只承载数（count/title），预览承载全文——与 palette 检索行（Task 81 列注记全文）同构：每个表面承载它密度合适的注记切片，同一数据从角标到纸面的五级展开（badge→preview→editor→palette→paper）
 - 遗留（下轮候选）：dashboard 打印表头跨页重复（真表格语义，继续悬置）；workflow-import 多文件（低优先）；EMPIAR 真数据回归（重）；β-Gal 零 workspace seed 规则；KPI 卡 truncate 徽章纸上展开细节；命令面板 Notes 组与 Class notes 组的计数徽章视觉统一（Notes 组无角标胶囊）
+
+---
+Task ID: 84
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-09 22:44 window)
+Task: cron 自主巡检——Task 84「dashboard 名册真表格化：表头跨页重复」：悬置五轮（79-83 逐轮 legacy）的打印表头问题以探针定性收口——t84-table-probe 实锤 Chromium 只对**真 <table> 元素**重复 <thead>（page 2 有表头），display:table div 不重复（page 4 无表头）；t84-table-probe2 进一步实锤真 <thead> 放进生成表格也不重复。正形：名册 DOM 换真表格骨架——屏幕上 display:block 家族中性化（div-list 观感像素级保留、thead 隐藏、标签行说话），打印时回归 table 语义，thead 带「Jobs · N · newest first」在名册跨的每一页重复。qa84 33 断言三连绿 + 全回归矩阵 17 套绿（三套探针迁移）+ worklog + push
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 83（cron 文本所称 Task 13 早已完成勿信）、HEAD d96ead1 == origin/main、BUILD_ID 匹配；server 冷启动 + smoke + qa83/82/81 全绿 → 稳定
+- 【选题 + 探针】从 Task 83 遗留选中悬置最久的「打印表头跨页重复」——先花两支探针把「能不能做」钉死再做：probe1（真 table vs 生成表格并排 60 行）→ 真 thead 重复 ✓ / 生成表格 ✗；probe2（真 thead 塞进 display:table div + table-row div 行）→ 竟也不重复——重复是真 <table> 元素专属行为，此为历代悬置的根因
+- 【实现】①project-dashboard：名册盒内 rows 包进 <table data-roster-table><thead data-roster-head hidden print:table-header-group><th>Jobs · N · newest first</th></thead><tbody><tr><td><JobRow/></td></tr></tbody>；屏幕标签行整行 no-print（纸面身份由 thead 带统一承载——否则第 1 页 "Jobs" 说两遍）；JobRow 根挂 data-roster-row 语义钩子；②globals.css 屏幕侧：[data-roster-table] display:block 家族 + tr+tr margin 0.125rem（还原 space-y-0.5）；打印侧：table/table-header-group/table-row-group/table-row/table-cell 语义恢复 + **table break-inside:auto !important 覆盖 Task 79 的 "> * avoid"**（否则整表 avoid = 不许跨页）——行原子性由既有全局 tr{break-inside:avoid} 承接，正好是当年预留的规则
+- 【JSX 注释陷阱一次即中】在 JSX children 位置写了 // 注释 → 会渲染成文本，自查发现立即改回 {/* */}——这条是该写进骨架的
+- 【qa84 首跑三折】①S4 算式写错（期望值错把总量当增量）——纯断言 bug；②C2 大小写盲：th 带 uppercase 类，纸上印 "JOBS · 20 · NEWEST FIRST"，断言找 "Jobs·" 全程瞎——改 case-blind + **完整带文本**匹配（裸 "jobs·" 撞上 masthead 的 "12 jobs · 3 edges" 每页误报）；③C3 行存在判据被 recent activity feed 击穿：刚建的 filler 也出现在 feed（第 1 页 8 个 filler 名、零 band）→ 判据改为 filler 名 + "not started" 共现（roster idle 行的摘要语，feed 永远没有）
+- 【首跑前的一个重要发现】12 行 ambient 名册整段落在一页——重复机制根本未被行使。S 阶段加 filler jobs（POST /api/jobs + PATCH 名，20 行 ≈ 1100px 撑破一页）后 band 真实出现在第 2、3 页；Z 阶段 DELETE 清理 + API 真值复核（幂等重跑安全）。测试「重复」类行为必须先让被测物真的跨页
+- 【探针迁移三套】qa76 A9 `:scope > div`、qa79 inventory/geometry `box.children`、qa82 两处 `.max-h-80 > *` 全部迁到 [data-roster-row]；qa79 A4 的原子性断言从行 div 改读 closest("tr")（原子性载体随表格化搬家）——语义钩子让迁移只动选择器不动断言语义
+- 【回归】qa66 gallery 重播种（qa58 自清理老规律）+ qa70 Escape-peels FATAL（家族性抖动复现）复跑绿；其余首轮全绿
+- 【收尾】eslint src 0、tsc src 0、production build（BUILD_ID WVwesYxkmCSxQtOoR5ZS4）；全矩阵：qa84 33×3 + smoke + qa58 + qa66 35 + qa69 34 + qa70 19 + qa72-verify + qa73 + qa75 + qa76 + qa77 + qa78 + qa79 + qa80 + qa81 + qa82 + qa83 串行全绿
+
+Stage Summary:
+- 「探针先行，悬置终有裁决」：一个悬置五轮的「刻意取舍」用两支 5 分钟探针就钉死了可行性边界（真 table 专属）——悬置的代价从来不是做不了，而是不知道能不能做；知道边界后方案自己浮出来（DOM 真骨架 + 屏幕 display:block 中性化 = 观感零变化 + 纸面全语义）
+- 「重复的表头是文档的页眉」：名册从此是多页文档而非长列表——每页自带身份（Jobs · N · newest first）；同一信息在屏幕和纸上由不同载体承载（标签行 vs thead 带），no-print + print-only 互斥是同一身份的两个化身，不是重复
+- 测试「重复/跨页」类行为的三件套：先让被测物真的跨页（filler 种子）→ 匹配要锚定完整带文本（裸前缀撞文档其他住户）→ 行存在判据要区分同名数据的多表面出场（feed 也有 filler 名）。三处 FAIL 全是断言的错不是功能的错——但每处都让功能语义更清楚了
+- Task 79 预留的全局 tr{break-inside:avoid} 在表格化当天无缝接住行原子性——「为还没到来的结构留规则」的远期回报；同时 "> * avoid" 升格为整表陷阱需要显式 auto 覆盖——预留规则也要随结构演化复审
+- 遗留（下轮候选）：KPI 卡 truncate 徽章纸上展开细节；palette Notes/Class notes 组计数徽章视觉统一；workflow-import 多文件（低优先）；EMPIAR 真数据回归（重）；β-Gal 零 workspace seed 规则；名册表头带的暗色模式纸张观感复查（muted-foreground 在纸上的对比度）

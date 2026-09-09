@@ -57,7 +57,9 @@ must(await ensureView("dashboard"), "A0 dashboard view reached");
 const roster = await p.evaluate(() => {
   const spot = 'section[aria-label="Active project spotlight"]';
   const box = document.querySelector(`${spot} .max-h-80`);
-  const rows = [...(box?.children ?? [])];
+  // Task 84: the roster is a real <table> — rows anchor on the
+  // data-roster-row hook, not on box.children (now the <table>)
+  const rows = [...(box?.querySelectorAll("[data-roster-row]") ?? [])];
   const names = rows.map((r) => r.querySelector("button .truncate")?.textContent?.trim() ?? "");
   return { rowCount: rows.length, names, nonEmpty: names.filter(Boolean).length };
 });
@@ -74,7 +76,8 @@ const geo = await p.evaluate(() => {
   const root = document.querySelector(`${spot}`)?.closest("div.min-h-0.flex-1");
   const box = document.querySelector(`${spot} .max-h-80`);
   const strip = document.querySelector(`${spot} .overflow-x-auto`);
-  const row = box?.children[0];
+  const row = box?.querySelector("[data-roster-row]");
+  const tr = row?.closest("tr"); // Task 84: atomicity lives on the table row
   const nameSpan = row?.querySelector("button .truncate");
   const pathSpan = row?.querySelector("span.block.truncate");
   const bar = document.querySelector(`${spot} [class*="h-1 "]`);
@@ -85,7 +88,7 @@ const geo = await p.evaluate(() => {
     rootScroll: root?.scrollHeight ?? 0,
     rosterClient: box?.clientHeight ?? 0,
     rosterScroll: box?.scrollHeight ?? 0,
-    rowBreak: cs(row)?.breakInside ?? "",
+    rowBreak: cs(tr)?.breakInside ?? "",
     nameWrap: cs(nameSpan)?.whiteSpace ?? "",
     pathWrap: cs(pathSpan)?.whiteSpace ?? "",
     stripWrap: cs(strip)?.flexWrap ?? "",

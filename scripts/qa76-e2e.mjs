@@ -122,7 +122,7 @@ const spot = p.locator('section[aria-label="Active project spotlight"]');
     // count ROWS (one div per job), not buttons: since Task 77 an orphan
     // row carries a second (adopt) button — button-counting breaks the
     // moment qa78's living-instance orphan exists
-    return list ? list.querySelectorAll(":scope > div").length : -1;
+    return list ? list.querySelectorAll("[data-roster-row]").length : -1;
   });
   must(allRows === list.length, `A9 All restores the full roster (got ${allRows}/${list.length})`);
 

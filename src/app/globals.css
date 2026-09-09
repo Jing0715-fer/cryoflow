@@ -384,6 +384,31 @@
 }
 
 /* ============================================================
+   Roster table scaffolding (Task 84)
+   ============================================================ */
+/* The dashboard Jobs roster is a REAL <table> in the DOM so that print
+   gets genuine <thead> repetition across pages — Chromium only repeats
+   the header of REAL table elements (probe: scripts/t84-table-probe2.mjs;
+   display:table divs and generated tables keep their header group on the
+   first page only, which is why this stayed suspended through 79-83).
+   On screen the scaffolding is neutralized to plain blocks: the roster
+   keeps its exact div-list look and the thead is hidden — the label row
+   above the box speaks for the list. In print (see the @media print
+   roster rules) the scaffolding reverts to table semantics. */
+[data-roster-table] {
+  display: block;
+  width: 100%;
+}
+[data-roster-table] tbody,
+[data-roster-table] tr,
+[data-roster-table] td {
+  display: block;
+}
+[data-roster-table] tr + tr {
+  margin-top: 0.125rem; /* restores the box's former space-y-0.5 */
+}
+
+/* ============================================================
    Misc niceties
    ============================================================ */
 .no-drag-select {
@@ -641,6 +666,45 @@
     .max-h-80
     > * {
     break-inside: avoid;
+  }
+  /* Task 84: the roster is now a REAL table on paper. The generic
+     "> * avoid" above would try to keep the WHOLE table on one page —
+     step it back down to auto (the global `table { break-inside: auto }`
+     rule says the same) and let the ROWS carry the atomicity via the
+     global `tr { break-inside: avoid }`. The real <thead> then repeats
+     the identity band on every page the roster spans. */
+  [data-view="dashboard"]
+    section[aria-label="Active project spotlight"]
+    .max-h-80
+    > [data-roster-table] {
+    display: table !important;
+    width: 100% !important;
+    break-inside: auto !important;
+  }
+  [data-view="dashboard"]
+    section[aria-label="Active project spotlight"]
+    .max-h-80
+    [data-roster-head] {
+    display: table-header-group !important;
+  }
+  [data-view="dashboard"]
+    section[aria-label="Active project spotlight"]
+    .max-h-80
+    [data-roster-table] tbody {
+    display: table-row-group;
+  }
+  [data-view="dashboard"]
+    section[aria-label="Active project spotlight"]
+    .max-h-80
+    [data-roster-table] tr {
+    display: table-row;
+    margin-top: 0 !important; /* screen spacing is meaningless between table rows */
+  }
+  [data-view="dashboard"]
+    section[aria-label="Active project spotlight"]
+    .max-h-80
+    [data-roster-table] td {
+    display: table-cell;
   }
   /* roster names and workspace badges unwrap on paper (Task 74 doctrine:
      a truncated name in an archival printout is a lost record); the path

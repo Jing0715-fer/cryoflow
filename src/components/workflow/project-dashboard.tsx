@@ -910,7 +910,13 @@ function JobRow({ job, onOpen }: { job: JobDTO; onOpen: () => void }) {
   // button inside it (invalid HTML, hydration warnings) — so the row is a
   // div and the open affordance is an inner button, with adopt as sibling.
   return (
-    <div className="group/row flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-secondary/60">
+    // data-roster-row: the semantic-unit hook (Task 80 lesson — count ROWS,
+    // not buttons or children) — the roster's table scaffolding makes
+    // "direct children" fragile, so suites anchor here instead
+    <div
+      data-roster-row=""
+      className="group/row flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-secondary/60"
+    >
       <button
         type="button"
         onClick={open}
@@ -1561,7 +1567,11 @@ function ActiveProjectSpotlight({
         <div className="my-4 h-px bg-border" />
 
         {/* job list */}
-        <div className="mb-2 flex items-center gap-1.5">
+        {/* Task 84: the whole label row is screen chrome — on paper the
+            roster's identity (Jobs · N · newest first) is carried by the
+            REAL <thead> band inside the table below, which repeats on every
+            printed page. Printing both would say "Jobs" twice on page 1. */}
+        <div className="no-print mb-2 flex items-center gap-1.5">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             Jobs
           </p>
@@ -1628,15 +1638,43 @@ function ActiveProjectSpotlight({
             )}
           </div>
         )}
-        <div className="max-h-80 space-y-0.5 overflow-y-auto pr-1 nice-scroll">
+        <div className="max-h-80 overflow-y-auto pr-1 nice-scroll">
           {visibleJobs.length === 0 ? (
             <p className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground">
               No {jobFilter === "all" ? "" : `${jobFilter} `}jobs in this project yet.
             </p>
           ) : (
-            [...visibleJobs].reverse().map((j) => (
-              <JobRow key={j.id} job={j} onOpen={() => openJob(j)} />
-            ))
+            /* Task 84 — the roster is a REAL table. On screen the table
+               scaffolding is neutralized to plain blocks (globals.css), so
+               the rows look exactly as they did as a div list; in print the
+               scaffolding becomes a genuine table, and ONLY a genuine <thead>
+               repeats across pages (probe t84-table-probe2: display:table
+               divs and generated tables do NOT repeat their header groups —
+               that is why this stayed suspended through Tasks 79-83). The
+               band carries the roster's identity (count + sort order) on
+               every printed page; on screen it is hidden and the label row
+               above speaks instead. */
+            <table data-roster-table className="w-full">
+              <thead data-roster-head className="hidden print:table-header-group">
+                <tr>
+                  <th
+                    colSpan={1}
+                    className="border-b border-border px-2.5 pb-1.5 pt-0 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
+                  >
+                    Jobs · {visibleJobs.length} · newest first
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...visibleJobs].reverse().map((j) => (
+                  <tr key={j.id}>
+                    <td>
+                      <JobRow job={j} onOpen={() => openJob(j)} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </div>
       </div>
