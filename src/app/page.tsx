@@ -456,7 +456,7 @@ export default function Home() {
             <AlertDialogDescription>
               This removes the job and its connections from the workflow.
               {deleteTarget?.status === "running" && " A running process will be stopped."}{" "}
-              This cannot be undone.
+              You'll get a short window to undo from the toast afterwards.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -489,7 +489,7 @@ export default function Home() {
               — this removes every wire attached to them.
               {bulkTargets.some((j) => j.status === "running") &&
                 " Running processes will be stopped."}{" "}
-              This cannot be undone.
+              You'll get a short window to undo from the toast afterwards.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

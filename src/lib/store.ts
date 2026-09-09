@@ -40,6 +40,15 @@ export interface Viewport {
   zoom: number;
 }
 
+/** Pre-delete capture carried by the delete toast's Undo action (Task 97).
+ *  Jobs hold the FULL pre-delete DTOs — status/progress/result/note included —
+ *  because restore re-creates the rows verbatim; edges hold the deleted
+ *  jobs' wires (both endpoints: restored↔restored and restored↔survivor). */
+export interface DeleteSnapshot {
+  jobs: JobDTO[];
+  edges: EdgeDTO[];
+}
+
 interface WorkflowState {
   jobs: JobDTO[];
   edges: EdgeDTO[];
@@ -165,6 +174,12 @@ interface WorkflowState {
    *  the user was on when the import auto-switched. Idempotent and honest —
    *  jobs that already left "idle" are KEPT and reported. */
   undoImport: (createdIds: string[], restoreWorkspaceId: string | null, switched: boolean) => Promise<void>;
+  /** Undo a job deletion (Task 97): the toast's Undo action carries the
+   *  pre-delete snapshot — jobs are restored under their ORIGINAL ids via
+   *  /api/jobs/restore (same-id re-attaches the surviving workdir/outputs),
+   *  then wires are re-POSTed one by one (the sidecar file is a
+   *  read-modify-write store — parallel restores could lose edges). */
+  undoDelete: (snapshot: DeleteSnapshot) => Promise<void>;
   setTemplatePresetsOpen: (open: boolean) => void;
   setShortcutsOpen: (open: boolean) => void;
   toggleNoteSpotlight: () => void;
@@ -919,6 +934,95 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     void get().refreshWorkspaces();
   },
 
+  undoDelete: async (snapshot) => {
+    // defensive: jobs that somehow reappeared (another undo already ran) are
+    // skipped — the server's id-collision guard is the real backstop
+    const jobs = snapshot.jobs.filter((j) => !get().jobs.some((x) => x.id === j.id));
+    if (jobs.length === 0) {
+      toast({
+        title: "Nothing to undo",
+        description: "The deleted jobs are already back on the canvas.",
+      });
+      return;
+    }
+    let res: { restored: { id: string; coerced: boolean }[]; failed: { id: string; error: string }[] };
+    try {
+      res = await api("/api/jobs/restore", {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ jobs }),
+      });
+    } catch (err) {
+      errToast(err instanceof Error ? err.message : "Undo failed — the jobs could not be restored");
+      return;
+    }
+    const restoredIds = new Set(res.restored.map((r) => r.id));
+    if (restoredIds.size === 0) {
+      toast({
+        title: "Nothing to undo",
+        description: "None of the deleted jobs could be restored — they may already be back.",
+      });
+      return;
+    }
+    // re-wire sequentially: the sidecar edge file is a read-modify-write
+    // store, parallel POSTs could drop edges; wires to survivors restore
+    // too (one endpoint restored, the other never left)
+    const alive = (id: string) => restoredIds.has(id) || get().jobs.some((j) => j.id === id);
+    let edgeOk = 0;
+    let edgeFail = 0;
+    const restoredEdges: EdgeDTO[] = [];
+    for (const e of snapshot.edges) {
+      if (!alive(e.fromJobId) || !alive(e.toJobId)) {
+        edgeFail += 1;
+        continue;
+      }
+      try {
+        await api("/api/edges", {
+          method: "POST",
+          headers: JSON_HEADERS,
+          body: JSON.stringify({
+            fromJobId: e.fromJobId,
+            toJobId: e.toJobId,
+            fromPort: e.fromPort,
+            toPort: e.toPort,
+          }),
+        });
+        restoredEdges.push(e);
+        edgeOk += 1;
+      } catch {
+        edgeFail += 1;
+      }
+    }
+    // optimistic append — status coercion (running→idle) mirrors the server
+    const coercedIds = new Set(res.restored.filter((r) => r.coerced).map((r) => r.id));
+    const backJobs = snapshot.jobs
+      .filter((j) => restoredIds.has(j.id))
+      .map((j) => (coercedIds.has(j.id) ? { ...j, status: "idle", progress: 0 } : j));
+    set({
+      jobs: [...get().jobs, ...backJobs],
+      edges: [...get().edges, ...restoredEdges],
+    });
+    const refused = res.failed.length;
+    const coercedCount = coercedIds.size;
+    const bits: string[] = [
+      `${restoredIds.size} of ${jobs.length} job${jobs.length === 1 ? "" : "s"} back on the canvas`,
+    ];
+    if (edgeOk > 0) bits.push(`${edgeOk} wire${edgeOk === 1 ? "" : "s"} reconnected`);
+    if (edgeFail > 0) bits.push(`${edgeFail} wire${edgeFail === 1 ? "" : "s"} could not be reconnected`);
+    if (coercedCount > 0)
+      bits.push("the interrupted run came back as idle — start it again when ready");
+    if (refused > 0) bits.push(`${refused} could not be restored`);
+    toast({
+      title:
+        restoredIds.size === jobs.length && refused === 0
+          ? "Delete undone"
+          : "Partially undone",
+      description: bits.join(" · "),
+      variant: refused > 0 && restoredIds.size === 0 ? "destructive" : undefined,
+    });
+    void get().refreshWorkspaces();
+  },
+
   moveJobCommit: async (id, x, y) => {
     // optimistic
     set({ jobs: get().jobs.map((j) => (j.id === id ? { ...j, x, y } : j)) });
@@ -1052,6 +1156,15 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
 
   deleteJob: async (id) => {
+    // snapshot BEFORE the delete — the toast's Undo action carries the full
+    // pre-delete world (job DTO + attached wires) for /api/jobs/restore
+    const snapJob = get().jobs.find((j) => j.id === id);
+    const snapshot: DeleteSnapshot | null = snapJob
+      ? {
+          jobs: [snapJob],
+          edges: get().edges.filter((e) => e.fromJobId === id || e.toJobId === id),
+        }
+      : null;
     try {
       await api(`/api/jobs/${id}`, { method: "DELETE" });
       // drop the job from the multi-selection too; when the PRIMARY card is
@@ -1066,7 +1179,23 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         inspectId: get().inspectId === id ? null : get().inspectId,
         pendingFrom: get().pendingFrom?.jobId === id ? null : get().pendingFrom,
       });
-      toast({ title: "Job deleted", description: "Removed from the workflow" });
+      toast({
+        title: "Job deleted",
+        // name the job — "removed from the workflow" said nothing about WHICH
+        description: snapJob
+          ? `${snapJob.name} removed from the workflow`
+          : "Removed from the workflow",
+        // wrong-card deletes are the classic slip — the undo window is the
+        // safety net the confirm dialog now promises (Task 97)
+        duration: 20_000,
+        action: snapshot
+          ? (React.createElement(
+              ToastAction,
+              { altText: "Undo the delete", onClick: () => void get().undoDelete(snapshot) },
+              "Undo"
+            ) as unknown as ToastActionElement)
+          : undefined,
+      });
     } catch (err) {
       errToast(err instanceof Error ? err.message : "Failed to delete job");
     }
@@ -1265,11 +1394,31 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       get().jobs.some((j) => j.id === id && jobInWorkspace(j, ws))
     );
     if (ids.length === 0) return;
+    // snapshot BEFORE the deletes — only jobs that actually delete are
+    // undoable (refused ones never left, they must not be restored)
+    const idSet = new Set(ids);
+    const snapshot: DeleteSnapshot = {
+      jobs: get().jobs.filter((j) => idSet.has(j.id)),
+      edges: get().edges.filter((e) => idSet.has(e.fromJobId) || idSet.has(e.toJobId)),
+    };
     const results = await Promise.allSettled(
       ids.map((id) => api(`/api/jobs/${id}`, { method: "DELETE" }))
     );
     const deleted = ids.filter((_, i) => results[i].status === "fulfilled");
     const failed = ids.length - deleted.length;
+    const deletedSet = new Set(deleted);
+    // the undo payload covers the FULFILLED deletions only
+    const undoSnapshot: DeleteSnapshot = {
+      jobs: snapshot.jobs.filter((j) => deletedSet.has(j.id)),
+      edges: snapshot.edges,
+    };
+    const undoAction = undoSnapshot.jobs.length
+      ? (React.createElement(
+          ToastAction,
+          { altText: "Undo the delete", onClick: () => void get().undoDelete(undoSnapshot) },
+          "Undo"
+        ) as unknown as ToastActionElement)
+      : undefined;
     if (deleted.length > 0) {
       const delSet = new Set(deleted);
       const prevInspect = get().inspectId;
@@ -1288,6 +1437,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         title: `Deleted ${deleted.length} · ${failed} refused`,
         description: "Some jobs could not be deleted — they are still on the canvas",
         variant: "destructive",
+        duration: 20_000,
+        action: undoAction,
       });
     } else {
       toast({
@@ -1296,6 +1447,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
           deleted.length === 1
             ? "Removed from the workflow"
             : "Removed from the workflow with every wire attached to them",
+        duration: 20_000,
+        action: undoAction,
       });
     }
   },

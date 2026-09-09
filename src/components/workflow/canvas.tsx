@@ -410,7 +410,7 @@ const SelectionToolbar = React.memo(function SelectionToolbar({
               {sel.length > 3 ? ` and ${sel.length - 3} more` : ""} — this removes every
               wire attached to them. Files already written to the workdirs stay on disk.
               {runningCount > 0 && ` ${runningCount} running process${runningCount === 1 ? " will be stopped" : "es will be stopped"}.`}{" "}
-              This cannot be undone.
+              You'll get a short window to undo from the toast afterwards.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

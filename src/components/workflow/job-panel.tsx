@@ -1263,8 +1263,8 @@ function PanelBody({ job }: { job: JobDTO }) {
               <AlertDialogHeader>
                 <AlertDialogTitle>Delete “{job.name}”?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  This removes the job and every connection attached to it. This
-                  action cannot be undone.
+                  This removes the job and every connection attached to it. You'll
+                  get a short window to undo from the toast afterwards.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>

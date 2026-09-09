@@ -488,8 +488,9 @@ function JobCardMenu({
               This removes the job and every connection attached to it. Files
               already written to the workdir stay on disk.
               {job.linkCount
-                ? ` ${job.linkCount} linked cop${job.linkCount === 1 ? "y" : "ies"} in other workspaces reference this job and will be removed too.`
-                : ""}
+                ? ` ${job.linkCount} linked cop${job.linkCount === 1 ? "y" : "ies"} in other workspaces reference this job — the server refuses to delete it until they are removed.`
+                : ""}{" "}
+              You'll get a short window to undo from the toast afterwards.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

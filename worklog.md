@@ -3138,3 +3138,24 @@ Stage Summary:
 - 「镜像走查让警告成为模拟器」：preview 的 renameCountByFile 不是启发式（「名字撞了大概会改名」）而是服务端 uniqueName 的逐字镜像（同样的种子、同样的顺序、同样的空名默认）——警告的每个数字都是对未来的精确模拟。两侧共享同一算法意味着服务端改走查时探针的 MECHANICS 断言会抓住两侧漂移
 - 「探针的预期也要跟着状态走」：C1 的 FATAL 是探针犯错产品无辜——B 相的导入改变了 C 相看到的世界，串行相位的每一步都是下一相的前提；修法不是放宽断言而是给 C 相一个未被污染的故事角色（Beta 只活在 homeWs）
 - 遗留（下轮候选）：EMPIAR 真数据回归（重）；用户机器 class3d/refine3d 顺序模式与 topaz 实测反馈；diff 对话框 Open 行 canvas 入口价值复查（观察真实使用）；文件夹拖拽真机手势反馈；import 队列 rich tooltip（低优先）；undo 的 toast 文案可点名被改名的 job（现只报数量——观察真实需求再定）
+
+---
+Task ID: 97
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-10 06:14 window)
+Task: cron 自主巡检——Task 97「删除撤销（delete undo，同 id 全保真恢复）+ 四处 cannot-be-undone 谎话退场」：五个删除入口（单删×3、批量删×2）此前都写着 "This cannot be undone"——产品自己承认的缺口，导入撤销（Task 86）之后破坏性动作的最后一块。核心机制：POST /api/jobs/restore 以**原 id** 重建行——DELETE 从不清理 workdir（workdirFor 按 id 派生 RELION_ROOT/projectId/{type}_{id尾8}），同 id 恢复让 outputs/日志/引擎记录重新挂接如从未删除；新 id 恢复会把这些全部遗弃在磁盘上。契约：status 白名单（idle/pending/completed/failed，running→idle coerce 且对齐 PATCH reset 语义清 progress/result/startedAt——带着 42% 进度和开始时间戳的 idle 行是谎言）、params 标量过滤镜像 POST（含 import empiarData 引擎旗标例外）、workspace 消失诚实拒绝、linkedJobId 原件存活校验；逐 job 独立成败（{restored:[{id,coerced}], failed:[{id,error}]}）——一行坏数据不弃整批。t97 40 断言三连绿 + 全回归矩阵 29 套绿 + worklog + push
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 96、HEAD 765390e == origin/main、BUILD_ID oftJ48uahqUX-pKENJQ6U 匹配；生产冷启动 + smoke + t96/t95/qa84/t94 全绿 → 稳定
+- 【选题】导入漏斗连续五轮（92–96）后主动换面。调研 deleteJob/deleteSelected 发现零撤销机制；DELETE 路由读源钉死三个关键事实：有链接的 job 409 拒删（被删集合必无链接纠缠）、workdir 不清（同 id 恢复的保真依据）、edges DB cascade + sidecar sweep；edges POST 全程校验+persistPortEdge（sidecar+DB mirror）——边恢复复用现成路径
+- 【实现①服务端】新建 /api/jobs/restore：批量 {jobs:[...]} 同 id 重建；curl 探形先行（空体 400/未知类型 failed/正常 restored/重复 id failed 四行为实测）；一折：coerce 初版留着 progress 42——与 PATCH reset 语义不一致，改为 coerce 时同步清 progress/result/startedAt（「恢复的行不许保留谎言」）
+- 【实现②store】DeleteSnapshot 类型（jobs 全 DTO + edges）；deleteJob/deleteSelected 删除前快照（deleteSelected 只收 fulfilled——被拒的没离开就不许恢复）；toast Undo action（20s 窗口，比 import 的 12s 大——爆炸半径大）；undoDelete：RESTORE 批量→边逐条顺序 POST（sidecar 是 read-modify-write 文件，并行会丢边）→乐观 append（coerce 镜像）→诚实 toast（N of M back · K wires reconnected · interrupted run came back as idle · refused 计数）；单删 toast 顺带点名 job 名（「removed from the workflow」没说哪个）
+- 【实现③文案诚实化】page.tsx×2 + canvas.tsx + job-panel.tsx 四处 "This cannot be undone" → "You'll get a short window to undo from the toast afterwards"；job-card.tsx 抓到同族复制漂移（Task 95 教义第三次应验）：对话框声称 linked copies "will be removed too"，DELETE 实际 409 拒删——改为 "the server refuses to delete it until they are removed"；DELETE 路由头注释的过时 cascade 故事一并修正（注释讲 cascade、代码行 409，注释输给了自己）
+- 【t97 探针 40 断言六相】S 相数据驱动选靶（completed + 有边，QA Extract：2 条线）；A 相单删全保真闭环（对话框承诺 undo 窗口→删除→API 消失→Undo→**同 id** 回归 + completed/progress100 逐字保真 + 2 条线端口对齐回归 + toast 点名）；B 相多选删（显式坐标播种——首版默认 x/y 随机导致两卡重叠互相遮挡，playwright actionability 拒单是真话）→Undo→双 job 同 id + 中间线回归；C 相前提一折：Radix Toast.Action 点击即关 toast——双击 undo 在 UI 层不可能，改断言「单发契约」（原 toast 已关）+ 直打 API 验证服务端 id 冲突兜底（replay 全部 failed "already exists"）；D 相静态契约 10 断言（白名单/coerce/兜底/顺序重连/20s 窗口/快照先行/四处新文案/409 故事）；Z 相自清
+- 【收尾】eslint src 0、tsc src 0、production build（BUILD_ID wGIs4EF8Mr6mkip6UstlK200）+ served 自证；t97 40×3 三连绿；全矩阵 29 套（+t97）串行全绿
+
+Stage Summary:
+- 「"cannot be undone" 是产品对用户撒的谎，直到它不再是」：确认对话框的这句话不是警告是自白——五个入口、无数次的删除都不可逆，而删除恰恰是误操作的高发区（shift+click 选了整条支线手一抖 Del）。undo 的成本是一次快照 + 一条路由，收益是把「慎重确认」从唯一防线降级为第一道防线。文案改动与机制改动必须同轮落地：承诺 undo 窗口的对话框若配一个没有 undo 的实现，是更糟的谎
+- 「同 id 恢复是保真的分水岭」：新 id 重建行的 undo 是「恢复一个记忆」（卡片回来了，outputs/图表/引擎历史永远留在孤儿 workdir 里）；同 id 重建是「恢复世界」（workdirFor 按 id 派生 → 同 id 即重挂）。判断依据是「删除实际销毁了什么」——DELETE 只删 DB 行+边，那 undo 就只补这两样，其余本来就没走
+- 「Radix Toast.Action 点击即关：单发性是免费送的」：想测双击 undo 防护时发现 UI 根本不给第二次点击——toast 消费自身。两层防护各测各的：UI 层断言单发契约（原 toast 已关），服务端断言 id 冲突兜底（API 重放全拒）。框架白送的行为也是契约，测到它才知道框架替你挡了什么
+- 「探针种子要自带坐标」：POST /api/jobs 默认 x/y 在 60px 内随机——两张种子卡重叠，playwright actionability 拒绝点击被遮挡的卡（Task 92 zoom 死区教义的重演：拒单不是刁难是几何真相）。显式坐标播种写进惯例
+- 遗留（下轮候选）：EMPIAR 真数据回归（重）；用户机器 class3d/refine3d 顺序模式与 topaz 实测反馈；diff 对话框 Open 行 canvas 入口价值复查（观察真实使用）；文件夹拖拽真机手势反馈；undo 快照仅存于 toast 闭包（20s 窗口后不可达——全局 Ctrl+Z 历史栈是另一个量级的工程，观察真实需求再定）；workspace 删除是否也需要同款 undo（级联删 job 是更大爆炸半径——需先核实 workspace DELETE 的守卫现状）

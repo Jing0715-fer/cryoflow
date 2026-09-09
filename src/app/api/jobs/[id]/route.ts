@@ -161,8 +161,13 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 /**
  * DELETE /api/jobs/[id] — edges cascade via Prisma. A live process tree is
  * stopped first (the old behavior deleted the row and let the mpirun ranks
- * keep running untracked for hours). Deleting an ORIGINAL also cascades its
- * soft links in other workspaces (Prisma onDelete: Cascade).
+ * keep running untracked for hours). Deleting an ORIGINAL that soft links
+ * reference is REFUSED (409) — the client dialog says so too; the historical
+ * "cascades its links" story here was stale: the schema's cascade only fires
+ * when the DB row goes, and the guard below refuses exactly that case.
+ * The engine workdir on disk is intentionally kept — undo (POST
+ * /api/jobs/restore) restores the row under the same id and re-attaches
+ * every output.
  */
 export async function DELETE(_request: NextRequest, context: RouteContext) {
   try {
