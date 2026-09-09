@@ -271,6 +271,133 @@ export async function renderMrcLargePng(file: string, slice: number): Promise<Bu
   return grayToPng(gray, small.width, small.height);
 }
 
+/* ------------------------------------------------------------------ */
+/* Orthogonal planes (3D volumes only)                                 */
+/* ------------------------------------------------------------------ */
+
+/** Decode one voxel at a byte offset (mode-dispatched). */
+function decodeVoxel(raw: Buffer, off: number, mode: number): number {
+  switch (mode) {
+    case 0:
+      return raw.readInt8(off);
+    case 1:
+      return raw.readInt16LE(off);
+    case 6:
+      return raw.readUInt16LE(off);
+    default: // 2 — float32
+      return raw.readFloatLE(off);
+  }
+}
+
+export type OrthoAxis = "x" | "y";
+
+/** upper bound on raw bytes touched by one X-plane extraction (IO guard —
+ *  the X axis needs a full section read per Z; anything beyond this is a
+ *  "use a smaller map" situation, not a job for a thumbnail renderer) */
+const ORTHO_MAX_BYTES = 512 * 1024 * 1024;
+
+/**
+ * Read one plane perpendicular to the X or Y axis through a 3D volume.
+ *
+ *  - axis "y" → image width = nx, height = nz. One row pread per Z
+ *    section (cheap: nz seeks of nx·bpp bytes).
+ *  - axis "x" → image width = ny, height = nz. Voxels at fixed x are
+ *    strided nx·bpp apart inside each section, so per section we read the
+ *    whole plane once into a reused buffer and sample the column (nz
+ *    sections of nx·ny·bpp — the ORTHO_MAX_BYTES guard caps the total).
+ *
+ * Z-perpendicular planes are NOT handled here — a .map volume's Z
+ * sections are already contiguous (readMrcSlice), and for .mrcs stacks
+ * the "ortho" X/Y planes are meaningless (in-plane axes of each image).
+ */
+export function readMrcOrthoSlice(
+  file: string,
+  axis: OrthoAxis,
+  idx: number,
+  header?: MrcHeader
+): { values: Float32Array; width: number; height: number } | null {
+  const h = header ?? readMrcHeader(file);
+  if (!h) return null;
+  if (h.nz < 2) return null; // a 1-section file has no ortho plane
+
+  const dataStart = 1024 + h.nsymbt;
+  const bytesPerSection = h.nx * h.ny * h.bytesPerVoxel;
+  if (bytesPerSection * h.nz > ORTHO_MAX_BYTES) return null;
+
+  let fd: number;
+  try {
+    fd = openSync(file, "r");
+  } catch {
+    return null;
+  }
+
+  try {
+    if (axis === "y") {
+      const yi = Math.max(0, Math.min(Math.trunc(idx), h.ny - 1));
+      const rowBytes = h.nx * h.bytesPerVoxel;
+      const row = Buffer.alloc(rowBytes);
+      const out = new Float32Array(h.nx * h.nz);
+      for (let zi = 0; zi < h.nz; zi++) {
+        const off = dataStart + zi * bytesPerSection + yi * rowBytes;
+        const got = readSync(fd, row, 0, rowBytes, off);
+        if (got < rowBytes) return null;
+        for (let x = 0; x < h.nx; x++) {
+          out[zi * h.nx + x] = decodeVoxel(row, x * h.bytesPerVoxel, h.mode);
+        }
+      }
+      return { values: out, width: h.nx, height: h.nz };
+    }
+
+    const xi = Math.max(0, Math.min(Math.trunc(idx), h.nx - 1));
+    const section = Buffer.alloc(bytesPerSection);
+    const out = new Float32Array(h.ny * h.nz);
+    for (let zi = 0; zi < h.nz; zi++) {
+      const got = readSync(fd, section, 0, bytesPerSection, dataStart + zi * bytesPerSection);
+      if (got < bytesPerSection) return null;
+      for (let yi = 0; yi < h.ny; yi++) {
+        out[zi * h.ny + yi] = decodeVoxel(section, (yi * h.nx + xi) * h.bytesPerVoxel, h.mode);
+      }
+    }
+    return { values: out, width: h.ny, height: h.nz };
+  } catch {
+    return null;
+  } finally {
+    closeSync(fd);
+  }
+}
+
+/**
+ * Render one plane through a map as a grayscale PNG (≤384 px wide).
+ * `axis` is the plane's NORMAL (movement) axis: "z" → native sections,
+ * "x"/"y" → orthogonal reconstruction planes. `pos` ∈ 0…1 positions the
+ * plane inside the box fractionally (0.5 = centre).
+ */
+export async function renderMrcOrthoPng(
+  file: string,
+  axis: "x" | "y" | "z",
+  pos: number,
+  header?: MrcHeader
+): Promise<Buffer | null> {
+  const h = header ?? readMrcHeader(file);
+  if (!h) return null;
+  const p = Number.isFinite(pos) ? Math.min(1, Math.max(0, pos)) : 0.5;
+
+  if (axis === "z") {
+    const z = Math.round(p * (h.nz - 1));
+    const data = readMrcSlice(file, z, h);
+    if (!data) return null;
+    const small = downsample(data, h.nx, h.ny, MAX_W);
+    return grayToPng(stretchToGray(small.values), small.width, small.height);
+  }
+
+  const idx =
+    axis === "y" ? Math.round(p * (h.ny - 1)) : Math.round(p * (h.nx - 1));
+  const plane = readMrcOrthoSlice(file, axis, idx, h);
+  if (!plane) return null;
+  const small = downsample(plane.values, plane.width, plane.height, MAX_W);
+  return grayToPng(stretchToGray(small.values), small.width, small.height);
+}
+
 /** MRC-format extensions (ctffind .ctf diagnostics are classic MRC too) */
 export function mrcExtensions(): string[] {
   return [".mrc", ".mrcs", ".map", ".ccp4", ".ctf"];

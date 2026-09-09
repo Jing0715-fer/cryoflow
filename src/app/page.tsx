@@ -103,11 +103,18 @@ export default function Home() {
 
   // ESC cancels connect mode, closes the inspector, collapses the
   // multi-selection to its primary, then deselects (the right-side panel).
-  // The Radix dialog handles its own ESC first — this fires only when no
-  // modal captured the key.
+  // Runs ONLY when no modal owns the key: while any dialog/menu is open,
+  // Radix's own layer machinery peels exactly ONE layer per Esc (capture
+  // phase, before this bubble listener) — and this fallback must not ALSO
+  // fire, or one Esc tears down the whole dialog stack plus the inspector
+  // beneath it (observed live: Esc on the 3D viewer closed the viewer AND
+  // the inspector). Mirrors the open-modal guard the Shift+D handler uses.
   React.useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
+      if (document.querySelector('[role="dialog"][data-state="open"], [role="menu"][data-state="open"]')) {
+        return;
+      }
       const s = useWorkflowStore.getState();
       if (s.pendingFrom) s.cancelConnect();
       else if (s.inspectId) s.inspect(null);

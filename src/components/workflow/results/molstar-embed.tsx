@@ -26,6 +26,7 @@ import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { PENDING_VIEW_KEY } from "@/lib/view-link";
+import { ORTHO_SLICE_EVENT } from "./map-ortho-panel";
 import { useWorkflowStore } from "@/lib/store";
 import { fmtBytes } from "@/lib/canvas-export";
 import { encodeGifFrames } from "@/lib/gif-export";
@@ -2461,6 +2462,28 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
     if (patch.pos !== undefined) setSlicePos(patch.pos);
     void pumpSlice();
   };
+
+  // Orthogonal panel sync — the 2D slice browser (map-ortho-panel) mirrors
+  // its scrubbed plane into the 3D scene through this window CustomEvent.
+  // One listener per mount; the intent applier is read through a ref so the
+  // listener never goes stale across re-renders (closures would pin the
+  // first-render applySliceIntent and with it a stale sigma/sign).
+  const sliceIntentRef = useRef(applySliceIntent);
+  sliceIntentRef.current = applySliceIntent;
+  useEffect(() => {
+    const onOrtho = (e: Event) => {
+      const d = (e as CustomEvent<{ axis?: string; pos?: number }>).detail;
+      const axis = d?.axis?.toUpperCase();
+      if (axis !== "X" && axis !== "Y" && axis !== "Z") return;
+      const pos =
+        typeof d.pos === "number" && Number.isFinite(d.pos)
+          ? Math.min(1, Math.max(0, d.pos))
+          : 0.5;
+      sliceIntentRef.current({ on: true, axis, pos });
+    };
+    window.addEventListener(ORTHO_SLICE_EVENT, onOrtho);
+    return () => window.removeEventListener(ORTHO_SLICE_EVENT, onOrtho);
+  }, []);
 
   // σ / sign changes flow into the live slice too (it shares the threshold)
   useEffect(() => {

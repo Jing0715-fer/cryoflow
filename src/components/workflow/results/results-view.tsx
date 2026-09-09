@@ -138,6 +138,11 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
 
   // external refresh signal (inspector's live polling while the job runs)
   const firstKey = useRef(refreshKey);
+  /* where the 3D viewer returns focus on close — the Maps gallery the user
+   * started from (its "View in 3D" trigger dies with the image dialog, so
+   * Radix's default restore-focus would orphan focus onto <body> and the
+   * inspector's focus-outside guard would then dismiss the whole modal) */
+  const molFocusRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
     if (refreshKey !== firstKey.current) void load();
   }, [refreshKey, load]);
@@ -662,7 +667,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
 
       {/* Maps & images gallery */}
       {mrcFiles.length > 0 && (
-        <section aria-label="Maps and images">
+        <section aria-label="Maps and images" data-canvas-ui="maps-gallery" tabIndex={-1} ref={molFocusRef} className="outline-none">
           <h4 className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-foreground/80">
             <Layers className="h-3.5 w-3.5 text-teal-600" aria-hidden="true" />
             Maps &amp; images
@@ -896,6 +901,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
         name={molFile?.label ?? molFile?.name ?? ""}
         open={molFile !== null}
         onOpenChange={(o) => !o && setMolFile(null)}
+        restoreFocusRef={molFocusRef}
       />
     </div>
   );

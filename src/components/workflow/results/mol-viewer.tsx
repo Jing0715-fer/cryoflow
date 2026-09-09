@@ -20,6 +20,7 @@ import {
   onEscapeClose,
 } from "@/components/ui/dialog";
 import type { JobDTO } from "@/lib/types";
+import { MapOrthoPanel } from "./map-ortho-panel";
 
 const MolStarEmbed = dynamic(() => import("./molstar-embed"), {
   ssr: false,
@@ -72,9 +73,15 @@ interface MolViewerProps {
   name: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** where focus should land when the viewer closes. The default Radix
+   *  restore-focus target is this dialog's trigger — but our trigger (the
+   *  "View in 3D" button) dies with the image dialog that spawned it, so
+   *  without a park target focus orphans onto <body> and the inspector's
+   *  focus-outside guard dismisses the whole modal chain. */
+  restoreFocusRef?: React.RefObject<HTMLElement | null>;
 }
 
-export function MolViewer({ job, path, name, open, onOpenChange }: MolViewerProps) {
+export function MolViewer({ job, path, name, open, onOpenChange, restoreFocusRef }: MolViewerProps) {
   // pre-warm the molstar chunk on 3D intent (this component mounting), NOT
   // on page load — see warmMolstar's doc comment
   useEffect(() => {
@@ -88,8 +95,13 @@ export function MolViewer({ job, path, name, open, onOpenChange }: MolViewerProp
           DialogContent carries sm:max-w-lg, and a media-query rule beats any
           same-specificity base rule in the compiled CSS, so a plain
           max-w-[…] would silently lose to 512 px on every desktop. */}
-      <DialogContent className="flex h-[92vh] w-[94vw] max-w-[min(1500px,94vw)] flex-col gap-0 p-0 sm:max-w-[min(1500px,94vw)] sm:p-0"
+      <DialogContent
+        className="flex h-[92vh] w-[94vw] max-w-[min(1500px,94vw)] flex-col gap-0 p-0 sm:max-w-[min(1500px,94vw)] sm:p-0"
         onKeyDown={onEscapeClose(() => onOpenChange(false))}
+        onCloseAutoFocus={(e) => {
+          e.preventDefault();
+          restoreFocusRef?.current?.focus();
+        }}
       >
         <DialogHeader className="shrink-0 px-6 pt-5 pb-3">
           <DialogTitle className="flex items-center gap-2 text-sm">
@@ -106,8 +118,13 @@ export function MolViewer({ job, path, name, open, onOpenChange }: MolViewerProp
             Isosurface rendering of the MRC map — drag to rotate, scroll to zoom, adjust the contour below, or toggle Slice to cut a cross-section through the box.
           </DialogDescription>
         </DialogHeader>
-        <div className="min-h-0 w-full flex-1 px-6 pb-6">
-          {open && <MolStarEmbed jobId={job.id} path={path} name={name} />}
+        <div className="flex min-h-0 w-full flex-1 flex-col gap-2 px-6 pb-6">
+          <div className="min-h-0 w-full flex-1">
+            {open && <MolStarEmbed jobId={job.id} path={path} name={name} />}
+          </div>
+          {/* orthogonal 2D slice browser — collapses to a one-line strip;
+              hidden for .mrcs stacks (their ortho planes are in-image axes) */}
+          {open && <MapOrthoPanel jobId={job.id} path={path} />}
         </div>
       </DialogContent>
     </Dialog>

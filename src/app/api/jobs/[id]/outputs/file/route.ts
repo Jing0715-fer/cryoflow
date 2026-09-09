@@ -7,7 +7,7 @@ import { getRun } from "@/lib/relion/engine";
 import { readPathrefTarget } from "@/lib/relion/pathref";
 import { resolveInsideJobWorkdir } from "@/lib/relion/jobfile";
 import { isLocalRequest } from "@/lib/http-guard";
-import { isMrcPath, renderMrcLargePng, renderMrcMontagePng, renderMrcSlicePng } from "@/lib/mrc";
+import { isMrcPath, renderMrcLargePng, renderMrcMontagePng, renderMrcOrthoPng, renderMrcSlicePng } from "@/lib/mrc";
 
 export const dynamic = "force-dynamic";
 
@@ -131,7 +131,31 @@ export async function GET(request: NextRequest, context: RouteContext) {
       const scale = url.searchParams.get("scale") ?? "thumb";
       let png: Buffer | null = null;
       const isStack = lower.endsWith(".mrcs");
-      if (isStack && montageParam !== "0") {
+
+      // orthogonal plane request? axis = the plane's normal/movement axis
+      // (x|y|z), pos ∈ 0…1 positions it inside the box. Volumes only —
+      // for .mrcs stacks the X/Y "planes" are in-image axes, and the Z
+      // axis is already covered by the slice/montage renders below.
+      const axisParam = (url.searchParams.get("axis") ?? "z").toLowerCase();
+      const axis = axisParam === "x" || axisParam === "y" || axisParam === "z" ? axisParam : "z";
+      const posRaw = url.searchParams.get("pos");
+      const toPos = () => {
+        const p = posRaw !== null ? Number.parseFloat(posRaw) : 0.5;
+        return Number.isFinite(p) ? p : 0.5;
+      };
+      if (axis !== "z") {
+        if (isStack) {
+          return NextResponse.json(
+            { error: "Orthogonal planes are for 3D volumes — stacks browse images with slice/montage" },
+            { status: 400 }
+          );
+        }
+        png = await renderMrcOrthoPng(abs, axis, toPos());
+      } else if (!isStack && posRaw !== null) {
+        // fractional z plane (pos) — without pos, the legacy slice/montage
+        // params below keep their meaning
+        png = await renderMrcOrthoPng(abs, "z", toPos());
+      } else if (isStack && montageParam !== "0") {
         const n = Math.min(16, Math.max(1, Number.parseInt(montageParam ?? "8", 10) || 8));
         png = await renderMrcMontagePng(abs, n);
       } else if (scale === "large") {

@@ -2478,3 +2478,25 @@ Stage Summary:
 - print 样式表是「深色应用上纸」的系统性答案：浅色调色板双主题强制写（:root 与 .dark 同权）、tooltip/悬浮 chrome 纸上无意义故隐藏、图表保色（颜色即信息）、表格行防跨页撕裂；printToPDF 真管线验证而非仅查规则存在
 - 「cron 自动提交 + mtime 考古」二度证明半成品可无损续接：构建先于 harness 完成意味着免重建直接 QA——每窗口开局核对顺序升级为 worklog → git → **源码/构建 mtime 对比**，可省一次 4GB 机器上的昂贵构建
 - 遗留（下轮候选）：qa66 Phase B 只验 PDF 非空未验视觉（可加 PDF 渲染像素抽样）；.no-print 类尚无元素使用（canvas 小地图/侧栏 chrome 标记后生效）；re-scan 与 autolive 提示条视觉层次打磨；workflow-import 多文件（低优先）；EMPIAR 真数据回归（重）
+
+---
+Task ID: 66
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 晨轮 2026-09-09 10:59 窗口）——Task 66「正交三视图切片浏览器」全新落地：Mol* 3D 对话框新增可折叠 Orthogonal slices 面板（XY/XZ/YZ 三轴 2D 切片 + Radix scrub + 轴色 chips + ⌖ 一键镜像进 3D），服务端新增 CCP4 正交平面重建（x/y 轴 strided 读取）；QA 链路逼出并根治两个真 bug（outputs 路由 z 轴忽略 pos；page.tsx 全局 Esc 处理器连锁关闭整个 inspector）；qa67 三阶段 27 断言 + 回归矩阵 qa66/qa60/qa63/qa58 全绿；worklog + push
+
+Work Log:
+- 【开局核对 + 选向】HEAD 1602d05 == Task 65 已 push、工作树净；Task 13 遗留清单经 worklog 2291 行证实在 Task 22–53 间全部闭环、Topaz wrapper 已落地（route+chart+report 六图）、3D viewer 已有单平面 slice+三轴 clip——选「正交三视图」为体积截面的真增量（cryo-EM 人员滚动切片检视重构的惯用姿势，mol* 不开箱提供）
+- 【lib 层】mrc.ts 新增 readMrcOrthoSlice（axis y：每 z 段一次 row pread，nz 次 nx·bpp 廉价读；axis x：固定 x 列跨 y 步进，复用整段 buffer 采样列，ORTHIO_MAX_BYTES 512MB IO 守卫）+ decodeVoxel 模式分发 + renderMrcOrthoPng（pos 0…1 → 索引，z 轴复用 readMrcSlice，2–98 百分位拉伸与既有渲染同语言）
+- 【路由层】outputs/file 的 png 分支扩展 axis=x|y|z + pos——复用全部安全管道（isLocalRequest/resolveInsideJobWorkdir/pathref）零安全面增量；.mrcs + axis=x/y → 400 守卫（栈的 X/Y 是像内轴）；QA 首跑即抓到 **z 分支忽略 pos** 的真 bug（pos=0/1 都渲染中截面）→ 补 `!isStack && posRaw !== null` 分支
+- 【UI 层】map-ortho-panel.tsx：三 tile（XY teal / XZ violet / YZ amber）各带 MrcImage（自带 shimmer/error、换 src 不闪旧图）+ 0.01 步进 scrub + mono 百分比读数 + ⌖ crosshair 按钮 dispatch `cryoflow:ortho-slice` CustomEvent；220ms debounce 防拖动洪泛；面板对 .mrcs 隐藏、默认折叠；molstar-embed 挂 window 监听（ref 转发 applySliceIntent 防闭包过期）→ 2D scrub 位置一键映入 3D 截面平面（Slice 点亮 + 轴切换 + wireframe 同步）
+- 【seed】qa67-seed-volume.py：64³ float32 合成体积注入 class2d workdir——**首版设计缺陷被 QA 抓到**：3D 高斯 blob 中心 z=32，z=0/1 截面远离中心拉伸后全平、两张 PNG 相同 → 改为沿 z 漂移的 2D 管状轨迹（每截面必有亮斑）+ 固定副 blob；urllib 需带 Origin 头过 same-origin 守卫（http-guard 文档明示的 QA 契约）
+- 【真 bug ①·路由】见上——harness 的 pos 敏感性断言（z=0 vs z=1 PNG md5 必须不同）一击命中
+- 【真 bug ②·全局 Esc 链】qa67 Phase C 首跑：Esc 关 viewer 后 **38ms 内 inspector 跟着关闭**。三重插桩定位（dialog 打 qa-tag + data-state MutationObserver 时间线 + focusin 侧写）：`page.tsx` 的 window 级 keydown 处理器注释假设「Radix 先处理自己的 Esc，这里只在无模态时触发」是错的——Radix 的 capture dismiss 与 dialog 的 React 层 swallow 都不阻止事件到达 window，焦点在 body 时（viewer 卸载瞬间 target 不穿任何 DialogContent）处理器直接 `inspect(null)`。根治 = 给该处理器加与 Shift+D 同款的 open-modal 守卫（`[role=dialog][data-state=open]` → return），**对全应用所有对话框的全局 Esc 链一次性生效**；配套 ① inspector DialogContent 补 onEscapeClose（浮层塔里最后一个走 Radix 原生路径的成员，Task 61 模式收官）② MolViewer onCloseAutoFocus 把焦点停靠回 Maps gallery（restoreFocusRef，trigger 随 image dialog 卸载后的孤儿焦点有了着落）
+- 【harness 三课】① agent-browser eval 返回值的「双重序列化」坑第三次咬人（JSON.stringify 套 unq 仍残留 \" 转义）→ 断言逻辑移进 eval 内部、跨边界只传 token 字符串；② `[role=tab]` 不是 inspector 存在性探针（画布 aside params 面板的 tabs 一直在）→ 用 `[role=dialog]`；③ **回归 harness 严禁并行启动**——两串 battery 抢同一 agent-browser 会话互相拆台（对话框消失/NO-BTN），串行后全部转绿
+- 【收尾】eslint 0、tsc 0、production build ×3 迭代；QA：qa67 A 12（PNG magic+维度/pos 敏感性/clamping/stack 守卫/traversal 仍拒）+ B 12（tile 加载/scrub 读数+URL/crosshair 事件/3D 镜像/console-0）+ C 3（单层剥离/焦点停靠/二次 Esc）全绿；回归 qa66 20 + qa60 A ALL + qa63-smoke 6/6 + qa58 ALL；server 杀（内存帽配方留下窗口）、浏览器关；FSC seed + gallery seed + orthovol.mrc 留作基线（qa67-seed --clean 可清）
+
+Stage Summary:
+- 正交三视图补上「3D 检视」的另一半：iso 曲面看形状、2D 切片看内容——服务端 strided 重建让 X/Y 平面与原生 z 截面同管线渲染（同一拉伸、同一 PNG 通道），CustomEvent 2D→3D 镜像让「滚动找到的截面」即刻成为 3D 场景里的检查平面，而 prop drilling 无需穿透 4300 行的 embed
+- 「window 级 Esc 兜底处理器 + Radix 分层对话框」是隐性冲突范式：兜底处理器假设自己只在「无模态」时被触发，但 capture 阶段的 dismiss 和 React 层的 stopPropagation 都拦不住焦点孤儿场景——修法不是在每个对话框里打补丁，而是给兜底处理器补上「有模态开着就让路」的守卫，一处修复全站生效
+- 「合成 seed 要为断言而设计」：体积数据若不在每个轴的每个位置都有可辨内容，pos 敏感性断言会在拉伸归一化后全部塌缩成同一张灰图——drift-tube 设计让「两张 PNG md5 必须不同」成为数据的必然而非巧合
+- 遗留（下轮候选）：ortho 面板 3D→2D 反向同步（3D slice 滑块动 → 2D tile 跟随）；切片读数显示体素索引（需 MRC 头 nz 暴露给前端）；qa66 Phase B PDF 视觉像素抽样；re-scan 与 autolive 提示条视觉层次打磨；workflow-import 多文件（低优先）；EMPIAR 真数据回归（重）

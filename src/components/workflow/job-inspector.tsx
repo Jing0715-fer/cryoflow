@@ -1574,6 +1574,7 @@ export function JobInspector() {
         showCloseButton={false}
         className="flex max-w-[min(1480px,96vw)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[min(1480px,96vw)] h-[min(940px,92dvh)] data-[state=open]:duration-300"
         aria-describedby={undefined}
+        onKeyDown={onEscapeClose(() => inspect(null))}
       >
         {job ? (
           <>
