@@ -2708,3 +2708,24 @@ Stage Summary:
 - 「视图是内存态」是 SPA e2e 的高频暗礁：reload 不还原 view、filter、selection——断言前先「到达」再「看见」（ensureView 模式），否则测的是错误视图的虚空；B1 的纵向 clip 更提醒：canvas 的纸张契约绑定了横向预算，跨视图打印必须显式声明在哪张纸上打什么
 - null-workspace 孤儿 job 是数据层语义漏洞（画布不可见、dashboard 可见、API 可改）：QA 脚本直接 POST 的 job 不该混进生产基线——要么创建时强制分配 workspace，要么 dashboard 给孤儿一个归属徽章/收纳区；被 harness 钓出的数据洁癖问题记入下轮
 - 遗留（下轮候选）：null-workspace 孤儿 job 的收纳（dashboard workspace 归属徽章或 seed 修复）；dashboard 打印跨页表头重复（break-after 未做）；shortcuts dialog 按键高亮分组（锦上添花）；jobs 过滤器的键盘化（kbd prop 预留位：5 = Noted 需动 qa58/qa70 断言链）；workflow-import 多文件（低优先）；EMPIAR 真数据回归（重）
+
+---
+Task ID: 77
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 晚轮 2026-09-09 18:59 窗口）——Task 77「dashboard 的 workspace 归属 + 孤儿收编」：正面解决 Task 76 钓出的「dashboard 说有、画布看不见」数据层不一致——①JobRow 加 workspace 归属徽章（Layers + 名字胶囊，行事实故打印，与 no-print 的过滤 chrome 刻意二分）；②孤儿 job（workspaceId NULL）虚线琥珀 Unassigned 徽章 + 一键 Adopt 收编进默认 workspace（复用 store.moveJob 的 PATCH 通道，行结构 button→div+内层开卡按钮修复嵌套 button 非法 HTML）；③openJob 深链修复：跨 workspace 行先 switchWorkspace 再导航（此前落点是无卡之地的 inspector）；孤儿行点击不再导航而是 toast 引导先收编；④Unassigned N 过滤芯片（StatusFilterChip 加 dataFilter e2e 钩子）。qa77 35 断言两连绿（含 0 孤儿自愈的幂等重跑）+ 全回归矩阵 9 套绿；worklog + push
+
+Work Log:
+- 【开局核对 + 选题】HEAD 8f7308d == Task 76 已 push、树净、BUILD_ID 匹配；DB 实查孤儿矩阵：Sandbox C 12 job = 9 在 Main + 3 孤儿（pre-workspace 时代 demo job），β-Gal 3 孤儿但零 workspace（退化安全：activeWorkspaceId==null 时画布全量显示）——Sandbox C 正是「活例」；从 Task 76 遗留首位选「孤儿收纳」，并升级为完整的归属语义
+- 【实现】JobRow 订阅 workspaces/moveJob（行内自包含）；ws 徽章 = data-row-ws + title Workspace: X + max-w-20 truncate；孤儿徽章虚线边框（placeholder 语法）+ TriangleAlert；Adopt = h-5 琥珀胶囊（与 StatusFilterChip 同视觉语法）+ FolderInput + adopting 时 Loader2；收编目标 = workspaces[0]（workspace-panel 注释里的「默认 workspace，删除的 workspace 的 job 也落回它」——给家而不是给我家）；孤儿 chip/过滤仅在 workspaces.length>0 时出现（无 workspace 项目画布全量可见，无需解释）
+- 【嵌套 button 修复】行原是单个 button，Adopt 塞进去就是 button-in-button（非法 HTML + hydration 警告）→ 行改 div.group\\/row + 内层开卡 button + Adopt 兄弟节点；hover 态随 group/row 保留；title 分家（孤儿行 = 引导文案，普通行 = Open X）
+- 【qa77 钓出 harness 双层静默 GET 陷阱】①api() helper 载荷没放 opts.body（顶层 x/y）→ fetch 无 init → GET，PATCH 静默变读；②method:DELETE 无 body 时 init 整个不传 → DELETE 也是 GET——读操作永远 200 所以无声；钓出手段 = C2b 式「PATCH 后再 GET 断言 API 真值」+ D1 的 {ok:true} 结构断言；修法 = init 按调用实际需要构建，注释写明陷阱防后人
+- 【幂等三件套】0 孤儿开局 → prisma 直连把原 strays 之一 re-orphan（PATCH 路由刻意拒收 NULL workspaceId——只能搬不能撤，故走 DB）；残留 QA Overflow workspace 开局清扫（DELETE 的 API 侧有 job 落回默认的兜底）；收编卡坐标 = 按占用坐标集合挑第一个空槽（防重复跑把不同 stray 塞进同一位）；B4b 条件断言：收编最后一个孤儿后 chip 自行消失是诚实设计（与状态芯片同语义）
+- 【打印预算卫生】收编卡若留在原坐标 (16,220) 会撑大画布包围盒 → qa77 B4c 把卡 PATCH 进既有 bbox 的空带 (y=420)；qa72-verify 实测 12/12 卡名 A4 + Letter 双纸单页，零预算扰动
+- 【回归两折（皆既有模式）】qa66 class-grid null = qa58 上轮自清理拿走 gallery seed → 重播种后绿；qa69「inspector opens on the Results tab」FATAL 一次 = 既有一次性抖动（与 qa70 Esc 抖动同款）→ 重跑 34 全绿
+- 【收尾】eslint src 0、tsc src 0、production build（BUILD_ID z_XI_1Cw4xbtfzx0gHgjy200，src 冻结后无再改）；QA：qa77 35×2 + smoke 6/6 + qa72-verify 8（V6 双纸 12/12）+ qa75 + qa76 + qa73 + qa66 35 + qa69 34 + qa70 19 + qa58 ALL 串行全绿
+
+Stage Summary:
+- 孤儿不是脏数据而是「语义空洞的可见化」：workspace 出现之前的 job 没有 home，dashboard 诚实地列出它们、徽章诚实地承认无处可去、Adopt 诚实地一步给家——数据迁移做成产品功能而不是一次性 SQL，因为 legacy 状态在任何用户的旧项目里都会重新出现
+- 「行事实 vs 交互 chrome」的打印二分又进一格：workspace 归属徽章是行的属性（纸上保留），过滤芯片行是交互工具（纸上 no-print）——判断标准不是好不好看而是「纸上的读者需不需要这个信息来理解行」
+- 静默 GET 是 harness 的暗礁新形态：helper 的 init 门控在 body 上，让所有无载荷调用（DELETE/带顶层载荷的 PATCH）降级成 GET——读永远成功所以无声无息；唯有「写后再读断言真值」（C2b/D1 模式）能钓出它。两层陷阱在同一轮连续出现，说明这个模式值得写进每个新 QA 脚本的骨架
+- 遗留（下轮候选）：dashboard 打印跨页表头重复（break-after 未做）；shortcuts dialog 按键高亮分组（锦上添花）；jobs 过滤器的键盘化（kbd prop 预留位：5 = Noted / 6 = Unassigned，需动 qa58/qa70 断言链）；workflow-import 多文件（低优先）；EMPIAR 真数据回归（重）；β-Gal 零 workspace 项目的 workspace 自动创建（degenerate case 目前安全但值得一条 seed 规则）

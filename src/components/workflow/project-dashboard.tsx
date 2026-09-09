@@ -22,6 +22,8 @@ import {
   CircleAlert,
   Clock,
   FolderGit2,
+  FolderInput,
+  Layers,
   LayoutDashboard,
   Loader2,
   Minus,
@@ -70,6 +72,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
+import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
 /* ------------------------------------------------------------------ */
@@ -849,61 +852,150 @@ function JobRow({ job, onOpen }: { job: JobDTO; onOpen: () => void }) {
     if (running) trackEtaBaseline(job.id, job.startedAt, job.progress);
   }, [running, job.id, job.startedAt, job.progress]);
 
+  const workspaces = useWorkflowStore((s) => s.workspaces);
+  const moveJob = useWorkflowStore((s) => s.moveJob);
+  const wsName = workspaces.find((w) => w.id === job.workspaceId)?.name ?? null;
+  const defaultWs = workspaces[0] ?? null;
+  // An orphan is a pre-workspace-era job (or one whose workspace row was
+  // removed server-side): it shows in this roster but sits on NO canvas, so
+  // deep-linking would land on an invisible card. Only meaningful once the
+  // project HAS workspaces — in a workspace-less project the canvas renders
+  // every job, so there is nothing to explain.
+  const orphan = !job.workspaceId && workspaces.length > 0;
+  const [adopting, setAdopting] = React.useState(false);
+  const open = () => {
+    if (orphan) {
+      toast({
+        title: "Not on any canvas",
+        description: `${job.name} predates workspaces — adopt it into ${defaultWs?.name ?? "a workspace"} to see it on the workflow canvas.`,
+      });
+      return;
+    }
+    onOpen();
+  };
+  const adopt = async () => {
+    if (!defaultWs || adopting) return;
+    setAdopting(true);
+    const ok = await moveJob(job.id, defaultWs.id);
+    setAdopting(false);
+    if (ok) {
+      toast({
+        title: `Adopted into ${defaultWs.name}`,
+        description: `${job.name} is now visible on that canvas.`,
+      });
+    }
+  };
+
+  // The row used to be a single <button>; the adopt action would nest a
+  // button inside it (invalid HTML, hydration warnings) — so the row is a
+  // div and the open affordance is an inner button, with adopt as sibling.
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className="group/row flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-secondary/60"
-      title={`Open ${job.name}`}
-    >
-      <span
-        className={cn(
-          "flex size-8 shrink-0 items-center justify-center rounded-lg ring-1 ring-inset",
-          spec?.color.soft,
-          spec?.color.border
-        )}
-        aria-hidden="true"
+    <div className="group/row flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-secondary/60">
+      <button
+        type="button"
+        onClick={open}
+        title={orphan ? "Adopt this job to see it on a canvas" : `Open ${job.name}`}
+        className="flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left"
       >
-        <TypeIcon name={spec?.icon ?? "Boxes"} className={cn("size-4", spec?.color.text)} />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-2">
-          <span className="truncate text-xs font-semibold">{job.name}</span>
-          <StatusBadge status={job.status} />
-          {job.note ? (
-            // the row-level twin of the canvas badge (Task 73): amber
-            // StickyNote, full text on hover, .no-print — the dashboard's
-            // paper flow is a management summary, the annotation's official
-            // paper channel stays the canvas sheet's excerpt line
-            <span
-              data-row-note-badge
-              role="img"
-              aria-label="Job has a note"
-              title={job.note}
-              className="no-print shrink-0 text-amber-500 dark:text-amber-400"
-            >
-              <StickyNote className="size-3" aria-hidden="true" />
-            </span>
-          ) : null}
+        <span
+          className={cn(
+            "flex size-8 shrink-0 items-center justify-center rounded-lg ring-1 ring-inset",
+            spec?.color.soft,
+            spec?.color.border
+          )}
+          aria-hidden="true"
+        >
+          <TypeIcon name={spec?.icon ?? "Boxes"} className={cn("size-4", spec?.color.text)} />
         </span>
-        {job.status === "running" ? (
-          <span className="mt-1 flex items-center gap-2">
-            <Progress value={job.progress} className="h-1 flex-1 overflow-hidden" />
-            <span className="shrink-0 text-[10px] font-semibold tabular-nums text-teal-600 dark:text-teal-400">
-              {Math.round(job.progress)}%{eta != null ? ` · ${formatEta(eta)}` : ""}
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-2">
+            <span className="truncate text-xs font-semibold">{job.name}</span>
+            <StatusBadge status={job.status} />
+            {job.note ? (
+              // the row-level twin of the canvas badge (Task 73): amber
+              // StickyNote, full text on hover, .no-print — the dashboard's
+              // paper flow is a management summary, the annotation's official
+              // paper channel stays the canvas sheet's excerpt line
+              <span
+                data-row-note-badge
+                role="img"
+                aria-label="Job has a note"
+                title={job.note}
+                className="no-print shrink-0 text-amber-500 dark:text-amber-400"
+              >
+                <StickyNote className="size-3" aria-hidden="true" />
+              </span>
+            ) : null}
+            {wsName ? (
+              // workspace attribution (Task 77): the roster spans every
+              // workspace of the project while the canvas renders ONE —
+              // without this chip "which canvas is it on?" is a guessing
+              // game. A row FACT (not interactive chrome), so unlike the
+              // filter row it prints.
+              <span
+                data-row-ws={wsName}
+                title={`Workspace: ${wsName}`}
+                className="flex h-4 shrink-0 items-center gap-0.5 rounded-full border border-border/70 bg-muted/40 px-1.5 text-[9px] font-medium text-muted-foreground"
+              >
+                <Layers className="size-2.5" aria-hidden="true" />
+                <span className="max-w-20 truncate">{wsName}</span>
+              </span>
+            ) : null}
+            {orphan ? (
+              <span
+                data-row-orphan
+                role="img"
+                aria-label="Job not assigned to any workspace"
+                title={`Not on any canvas — adopt it into ${defaultWs?.name ?? "a workspace"} to make it visible`}
+                className="flex h-4 shrink-0 items-center gap-0.5 rounded-full border border-dashed border-amber-500/50 bg-amber-500/5 px-1.5 text-[9px] font-semibold text-amber-600 dark:text-amber-400"
+              >
+                <TriangleAlert className="size-2.5" aria-hidden="true" />
+                Unassigned
+              </span>
+            ) : null}
+          </span>
+          {job.status === "running" ? (
+            <span className="mt-1 flex items-center gap-2">
+              <Progress value={job.progress} className="h-1 flex-1 overflow-hidden" />
+              <span className="shrink-0 text-[10px] font-semibold tabular-nums text-teal-600 dark:text-teal-400">
+                {Math.round(job.progress)}%{eta != null ? ` · ${formatEta(eta)}` : ""}
+              </span>
             </span>
-          </span>
-        ) : (
-          <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
-            {job.result ?? (job.status === "idle" ? "not started" : "—")}
-          </span>
-        )}
-      </span>
+          ) : (
+            <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
+              {job.result ?? (job.status === "idle" ? "not started" : "—")}
+            </span>
+          )}
+        </span>
+      </button>
+      {orphan && defaultWs ? (
+        // one-click fix for the "dashboard says it exists, the canvas can't
+        // see it" inconsistency: the orphan moves into the project's default
+        // workspace (the same home deleted workspaces fall back to), and the
+        // row's badge flips from dashed Unassigned to the workspace name.
+        // .no-print: a paper roster can't adopt anything.
+        <button
+          type="button"
+          data-adopt
+          aria-label={`Adopt into ${defaultWs.name}`}
+          title={`Move to ${defaultWs.name} — makes the job visible on that canvas`}
+          onClick={adopt}
+          disabled={adopting}
+          className="no-print flex h-5 shrink-0 items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 text-[9px] font-semibold uppercase tracking-wider text-amber-600 transition-colors hover:bg-amber-500/20 disabled:opacity-50 dark:text-amber-400"
+        >
+          {adopting ? (
+            <Loader2 className="size-2.5 animate-spin" aria-hidden="true" />
+          ) : (
+            <FolderInput className="size-2.5" aria-hidden="true" />
+          )}
+          Adopt
+        </button>
+      ) : null}
       <ChevronRight
         className="size-4 shrink-0 text-muted-foreground/50 transition-transform group-hover/row:translate-x-0.5"
         aria-hidden="true"
       />
-    </button>
+    </div>
   );
 }
 
@@ -1216,6 +1308,7 @@ function StatusFilterChip({
   onClick,
   kbd,
   icon,
+  dataFilter,
 }: {
   label: string;
   n: number;
@@ -1227,6 +1320,8 @@ function StatusFilterChip({
   /** optional leading glyph — the Noted chip carries the StickyNote mark
    *  so the eye reads "annotation filter", not a sixth status */
   icon?: React.ReactNode;
+  /** e2e hook — stable identity for a chip regardless of label copy */
+  dataFilter?: string;
 }) {
   const toneCls =
     tone === "teal"
@@ -1243,6 +1338,7 @@ function StatusFilterChip({
       type="button"
       aria-pressed={active}
       aria-keyshortcuts={kbd}
+      data-filter={dataFilter}
       onClick={onClick}
       title={`Show ${label.toLowerCase()} job${n === 1 ? "" : "s"} only${kbd ? ` — or press ${kbd}` : ""}`}
       className={cn(
@@ -1270,16 +1366,19 @@ function StatusFilterChip({
 function ActiveProjectSpotlight() {
   const project = useWorkflowStore((s) => s.project);
   const jobs = useWorkflowStore((s) => s.jobs);
+  const workspaces = useWorkflowStore((s) => s.workspaces);
+  const activeWorkspaceId = useWorkflowStore((s) => s.activeWorkspaceId);
+  const switchWorkspace = useWorkflowStore((s) => s.switchWorkspace);
   const setView = useWorkflowStore((s) => s.setView);
   const inspect = useWorkflowStore((s) => s.inspect);
   const select = useWorkflowStore((s) => s.select);
   // status filter for the Jobs list — chips double as a mini status bar;
   // "all" is the default so the section reads exactly as before until used.
-  // "noted" (Task 76) is the one property filter in the row: it answers
-  // "which jobs carry a human judgment" — the dashboard twin of the canvas
-  // note spotlight, and the natural next step after Task 75's lens.
+  // "noted" (Task 76) is the property filter: it answers "which jobs carry
+  // a human judgment". "unassigned" (Task 77) is the location filter: it
+  // answers "which rows live on NO canvas" — the cleanup queue for orphans.
   const [jobFilter, setJobFilter] = React.useState<
-    "all" | "running" | "pending" | "completed" | "failed" | "idle" | "noted"
+    "all" | "running" | "pending" | "completed" | "failed" | "idle" | "noted" | "unassigned"
   >("all");
 
   if (!project) return null;
@@ -1291,15 +1390,29 @@ function ActiveProjectSpotlight() {
   const pending = sorted.filter((j) => j.status === "pending");
   const idleCount = sorted.filter((j) => j.status === "idle").length;
   const noted = sorted.filter((j) => j.note);
+  // orphans only exist as a PROBLEM once the project has workspaces (before
+  // that the canvas renders every job, so nothing is invisible) — same
+  // condition the row badge uses
+  const unassigned = workspaces.length > 0 ? sorted.filter((j) => !j.workspaceId) : [];
   const visibleJobs =
     jobFilter === "all"
       ? sorted
       : jobFilter === "noted"
         ? noted
-        : sorted.filter((j) => j.status === jobFilter);
+        : jobFilter === "unassigned"
+          ? unassigned
+          : sorted.filter((j) => j.status === jobFilter);
   const pct = sorted.length > 0 ? Math.round((completed.length / sorted.length) * 100) : 0;
 
   const openJob = (job: JobDTO) => {
+    // deep-link repair (Task 77): the canvas renders ONE workspace — a row
+    // from another workspace must switch the canvas first, or the view lands
+    // on an inspector over a card that isn't there. Orphans have no
+    // workspace to switch to; JobRow intercepts their click with guidance
+    // before onOpen is ever reached.
+    if (job.workspaceId && job.workspaceId !== activeWorkspaceId) {
+      switchWorkspace(job.workspaceId);
+    }
     setView("canvas");
     if (job.status === "idle") select(job.id);
     else inspect(job.id);
@@ -1453,6 +1566,17 @@ function ActiveProjectSpotlight() {
                 active={jobFilter === "noted"}
                 onClick={() => setJobFilter("noted")}
                 icon={<StickyNote className="size-2.5" aria-hidden="true" />}
+              />
+            )}
+            {unassigned.length > 0 && (
+              <StatusFilterChip
+                label="Unassigned"
+                n={unassigned.length}
+                tone="amber"
+                active={jobFilter === "unassigned"}
+                onClick={() => setJobFilter("unassigned")}
+                dataFilter="unassigned"
+                icon={<TriangleAlert className="size-2.5" aria-hidden="true" />}
               />
             )}
           </div>
