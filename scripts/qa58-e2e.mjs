@@ -296,17 +296,35 @@ async function phaseB() {
   );
   must(opened.includes("clicked@"), "help trigger clicked");
   await sleep(700);
+  // Task 71: the popover no longer carries its own shortcut list — the
+  // full inventory moved into the shortcuts dialog (one data source). The
+  // popover must now carry the CTA door; the 1–4 and lightbox entries are
+  // asserted INSIDE the dialog.
   const probe = J(`(() => {
     const pop = [...document.querySelectorAll('[data-radix-popper-content-wrapper]')].map(w => w.textContent).join(' ');
-    return {
-      dash: pop.includes('Dashboard — grid filter') && pop.includes('1–4'),
-      lightbox: pop.includes('Class gallery lightbox') && pop.includes('← / →'),
-      len: pop.length,
-    };
+    return { cta: pop.includes('View all keyboard shortcuts'), len: pop.length };
   })()`);
   step(`  help: ${JSON.stringify(probe)}`);
-  must(probe.dash, "help lists dashboard 1–4 grid filter");
-  must(probe.lightbox, "help lists lightbox ← / → navigation");
+  must(probe.cta, "help popover carries the shortcuts-dialog CTA");
+  const openedDlg = await realClick(
+    `[...document.querySelectorAll('button')].find(b => (b.textContent||'').includes('View all keyboard shortcuts'))`,
+  );
+  must(openedDlg.includes("clicked@"), "CTA opens the shortcuts dialog");
+  await sleep(700);
+  const dlg = J(`(() => {
+    const d = [...document.querySelectorAll('[role=dialog]')].find(x => (x.textContent || '').includes('Keyboard shortcuts'));
+    const t = d ? (d.textContent || '') : '';
+    return {
+      dash: t.includes('Grid filter') && t.includes('1–4'),
+      // kbd chips render adjacent (flex gap, no text nodes) — the combo
+      // reads "←→↑↓" contiguous in textContent
+      lightbox: t.includes('Move focus across the class grid') && t.includes('←→↑↓'),
+      arrows: t.includes('←→↑↓'),
+    };
+  })()`);
+  step(`  dialog: ${JSON.stringify(dlg)}`);
+  must(dlg.dash, "shortcuts dialog lists dashboard 1–4 grid filter");
+  must(dlg.lightbox, "shortcuts dialog lists gallery arrow navigation");
   evalJs(`(() => { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); return 'esc'; })()`);
   await sleep(400);
 }

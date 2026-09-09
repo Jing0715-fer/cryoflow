@@ -2589,3 +2589,23 @@ Stage Summary:
 - 实验推翻自己的上一轮结论是 QA 的常态而非事故：「scroll-lock → 压缩」的因果链在本轮受控实验（Sheet 开 + 锁实锤 + 打印干净）中被切断——上轮观察到的压缩另有真因（疑似窄视口渲染），而真正可修的 bug 是模态内容上纸；把两个机制分开修、分开验，注释里留下诚实的历史，比一个笼统的「修好了」更有长期价值
 - tab latch 按 job 键控是「记忆的正确范围」问题：布尔 latch 把「本会话的手动选择」和「本 job 的手动选择」混为一谈——跨实体共享的记忆（tab、滚动位置、过滤器）都该问一句「这个偏好在换实体后还有意义吗」；inspectId 键控让同一 effect 同时表达「尊重选择」与「智能默认」两个语义
 - 遗留（下轮候选）：上轮 37KB 压缩打印的真因考古（窄视口纸张渲染假说待验——用 agent-browser set viewport 到极窄值复现）；打印页眉扩展 per-page 页脚页码（@page margin boxes Chromium 不支持，需调查替代）；workflow-import 多文件（低优先）；EMPIAR 真数据回归（重）；移动端 Sheet 内 gallery 键盘导航与桌面 aside 的行为一致性（低优先）
+
+---
+Task ID: 71
+Agent: main (Z.ai Code)
+Task: cron 自主巡检（Job 362852 午轮 2026-09-09 14:44 窗口）——Task 71「键盘快捷键发现性层」：Task 61-65 修的键盘平权路径（roving gallery/分层 Esc/canvas power moves）一直对用户不可见——新增 ShortcutsDialog（`?` 全局键 + help popover CTA + command palette 三入口一个 store 字段），20 条快捷键按五个语境分组（Global/Canvas/Project dashboard/Class gallery/Touch & pointer），带过滤输入实时收窄/恢复；HelpPopover 的 15 条 cramped 列表退役（数据单一来源化，popover 只留 CTA）；顺带收尾上轮「窄视口打印假说」考古——500px 视口打印干净（122KB 页眉完整）假说被证伪：printToPDF 按纸张宽度排版与视口无关；qa70 两阶段 19 断言首周折后全绿 + 回归 qa63 6/6 / qa69 34 / qa66 35 / qa58 ALL（补丁跟随新架构）全绿；worklog + push
+
+Work Log:
+- 【开局核对 + 选向】HEAD 4e5a184 == Task 70 已 push、树净、BUILD_ID 06:39 免重建；主线从 polish 转功能：键盘层发现性（rg 盘点现存快捷键：全局 F/0/+−/Ctrl A/Ctrl D/Del/Shift+D/Esc/Ctrl K + dashboard 1-4 + gallery roving 四向/Enter/Home/End + 打印 Ctrl P）
+- 【窄视口假说证伪】上轮遗留首条：500px 视口打开真页面打印 → 122KB、页眉/kicker/工作区名/卡名全部完整——无「M」无「QA Comp」；结论 printToPDF 布局宽度 = 纸张内容盒（约 740px）而非浏览器视口，视口无关性成立；上轮 37KB 压缩的三次复现全败（sheet@1100/窄视口@500/canvas 常态），不可复现性诚实记录，Task 70 的模态让位修复继续覆盖合理机制；乌龙插曲：browser 关闭后 set viewport 拉起 about:blank → 848 字节空白 PDF 假信号，重开页面即消
+- 【设计·三入口一数据】store 新增 shortcutsOpen/setShortcutsOpen（镜像 templatePresetsOpen 惯例）；ShortcutsDialog 数据源 SHORTCUT_GROUPS 单一导出；HelpPopover 删 SHORTCUTS 数组 + dl 渲染（15 条塞 w-80 的 cramped 布局）改全宽 CTA 按钮（关 popover 再开 dialog——两 Radix 浮层不打架，palette 同款舞蹈）；command palette 新增 "Keyboard shortcuts" 条目（value 塞 discover 关键词 + CommandShortcut "?"）
+- 【实现细节】`?` 处理器挂进 page.tsx 全局 keydown（typing guard + dialog guard 双保险继承——模态开着不会误开）；过滤输入用 aria-label="Filter shortcuts"（QA 契约）+ 原生 setter 触发 React onChange；重开自动清空过滤（stale filter 看起来像「条目丢了」）；行 hover 高亮 + kbd 芯片按空格拆分（「⌘/Ctrl K」= 两枚芯片）；footer 提示「? anywhere / Escape closes one layer」
+- 【qa70 harness】A 阶段 11 断言（? 开启/5 分组/35 枚 kbd 芯片清单/过滤收窄 35→6/清空恢复/Esc 单层剥离/console-0）+ B 阶段 8（popover CTA/CTA 开启/Ctrl K palette/palette 条目开启/打印产物/对话框文本纸面缺席——Task 70 让位规则对新对话框自动生效/关闭干净/console-0）
+- 【harness 三折】①布尔 eval 断言 `!!x` 裸返回 vs 字符串化 `+''` 带引号——同文件两种风格混用导致三种 FATAL，统一 unq 后归零（Task 66 课第五次）；②run-3 Esc 剥离 FATAL 为一次性抖动（bisect 脚本实测 Esc 正常关闭、escLog 显示 Radix 在 document capture 层 preventDefault 正是关闭机制本身），closeDialog 加合成回退 + 诊断输出后 run-4 全绿；③qa58 Phase B 契约断裂（help lists dashboard 1–4）——设计内破坏，补丁跟随新架构（popover CTA → 打开 dialog → 断言 1–4/箭头导航在 dialog 内）；kbd 芯片相邻渲染 textContent 无空格（「←→↑↓」）坑断言一次
+- 【收尾】eslint 0、tsc src 0、production build（BUILD_ID i5Qfd6p5）；QA：qa70 19 + qa63-smoke 6/6 + qa69 34 + qa66 35 + qa58 ALL 串行全绿；诊断脚本 qa70-esc-bisect.mjs（Esc 关闭机制实录）留 scripts/；server 杀、浏览器关；FSC/ortho seed 留基线、gallery seed 被 qa58 按设计清理
+
+Stage Summary:
+- 发现性是键盘平权的最后一公里：65 里修的 roving tabindex、66 里的分层 Esc、70 里的纸张契约，用户若不知道就等于不存在——「? / popover / palette 三入口一个数据源」让快捷键从部落知识变成一等公民；数据单一来源化同时消灭了 popover 副本的漂移风险（上轮 freshness strip 的 \xa0 之坑就是多副本文案的必然）
+- 「过滤输入」是 20+ 条清单的规模适配器：全量渲染 + 实时收窄 + 清空恢复三态被写成显式断言——「列表可过滤」不只是样式细节，是可发现性架构从「展示」到「检索」的升级
+- 窄视口假说证伪补全了打印布局的认知地图：printToPDF 布局宽度 = 纸张内容盒而非视口——上一轮的「压缩」悬案在三次复现失败后正式标记为「不可复现 + 已被让位修复覆盖」，考古有止损线，注释与 worklog 留下诚实边界比强行归因更有价值
+- 遗留（下轮候选）：per-page 页脚页码（@page margin boxes Chromium 不支持——评估 CSS counter + 固定 footer 假分页的可行性）；workflow-import 多文件（低优先）；EMPIAR 真数据回归（重）；移动端 Sheet 内 gallery 键盘导航一致性（低优先）；shortcuts dialog 可加「按键高亮对应分组」（快捷键按下时 dialog 内高亮，纯锦上添花）

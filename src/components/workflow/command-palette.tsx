@@ -20,6 +20,7 @@ import {
   Download,
   FileJson,
   FileUp,
+  Keyboard,
   Layers,
   LayoutDashboard,
   Maximize2,
@@ -162,6 +163,12 @@ export function CommandPalette() {
     // close the palette first so the two dialogs never fight over focus
     close();
     useWorkflowStore.getState().setTemplatePresetsOpen(true);
+  };
+
+  const openShortcuts = () => {
+    // same dance: the palette must yield focus before the dialog opens
+    close();
+    useWorkflowStore.getState().setShortcutsOpen(true);
   };
 
   const exportPng = () => {
@@ -422,6 +429,15 @@ export function CommandPalette() {
           <CommandItem value="tidy layout arrange auto" onSelect={tidyLayout} className="gap-2.5">
             <Wand2 className="size-4 shrink-0" />
             <span className="flex-1 text-sm">Tidy layout</span>
+          </CommandItem>
+          <CommandItem
+            value="keyboard shortcuts keys help bindings discover"
+            onSelect={openShortcuts}
+            className="gap-2.5"
+          >
+            <Keyboard className="size-4 shrink-0" />
+            <span className="flex-1 text-sm">Keyboard shortcuts</span>
+            <CommandShortcut>?</CommandShortcut>
           </CommandItem>
           <CommandItem
             value="export canvas png image download poster workflow"

@@ -79,6 +79,10 @@ interface WorkflowState {
   /** SPA template presets dialog open (triggered from the canvas empty
    *  state, the command palette or the help popover — mounted once). */
   templatePresetsOpen: boolean;
+  /** Keyboard-shortcuts dialog ("?" anywhere, the help popover, or the
+   *  command palette) — single source of truth so all three entries stay
+   *  in sync. */
+  shortcutsOpen: boolean;
   /** Parsed workflow file awaiting confirmation in the import dialog —
    *  the dialog shows a summary + target-workspace picker before any
    *  network call happens (mounted once, like the presets dialog). */
@@ -135,6 +139,7 @@ interface WorkflowState {
    *  jobs that already left "idle" are KEPT and reported. */
   undoImport: (createdIds: string[], restoreWorkspaceId: string | null, switched: boolean) => Promise<void>;
   setTemplatePresetsOpen: (open: boolean) => void;
+  setShortcutsOpen: (open: boolean) => void;
   /** Stage a parsed file for the import dialog (replaces any earlier one). */
   openImportPreview: (file: WorkflowFile, warning: string | undefined, fileName: string) => void;
   closeImportPreview: () => void;
@@ -343,6 +348,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   focusJobId: null,
   focusEpoch: 0,
   templatePresetsOpen: false,
+  shortcutsOpen: false,
   importPreview: null,
   loading: true,
   error: null,
@@ -1427,6 +1433,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   setDragActive: (active) => set({ dragActive: active }),
   setPaletteDrag: (type) => set({ paletteDrag: type }),
   setTemplatePresetsOpen: (open) => set({ templatePresetsOpen: open }),
+  setShortcutsOpen: (open) => set({ shortcutsOpen: open }),
 
   openImportPreview: (file, warning, fileName) =>
     set({ importPreview: { file, warning, fileName } }),

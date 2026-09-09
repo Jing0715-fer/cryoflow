@@ -15,6 +15,7 @@ import { JobInspector } from "@/components/workflow/job-inspector";
 import { CommandPalette } from "@/components/workflow/command-palette";
 import { TemplatePresetsDialog } from "@/components/workflow/template-presets-dialog";
 import { ImportWorkflowDialog } from "@/components/workflow/import-workflow-dialog";
+import { ShortcutsDialog } from "@/components/workflow/shortcuts-dialog";
 import { BULK_DELETE_EVENT } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -213,6 +214,12 @@ export default function Home() {
           e.preventDefault();
           s.selectAll();
         }
+      } else if (k === "?") {
+        // "?" is shift+/ — the typing guard above already excluded form
+        // fields, and the dialog guard below the modal-open case, so the
+        // sheet only ever opens from a calm surface
+        e.preventDefault();
+        useWorkflowStore.getState().setShortcutsOpen(true);
       } else if ((e.ctrlKey || e.metaKey) && (k === "d" || k === "D")) {
         // Figma-convention duplicate (Shift+D is taken by the view toggle):
         // one selected job → single duplicate; 2+ → the bulk path, which
@@ -361,6 +368,7 @@ export default function Home() {
       <CommandPalette />
       <TemplatePresetsDialog />
       <ImportWorkflowDialog />
+      <ShortcutsDialog />
 
       {/* Mobile: floating palette trigger (canvas view only) */}
       {!isDashboard && (

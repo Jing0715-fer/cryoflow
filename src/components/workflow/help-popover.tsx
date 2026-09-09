@@ -4,6 +4,7 @@ import * as React from "react";
 import { HelpCircle, MousePointer2, Link2, Play, ZoomIn, Trash2, Keyboard } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
+import { useWorkflowStore } from "@/lib/store";
 
 const TIPS: { icon: React.ReactNode; text: string }[] = [
   {
@@ -32,26 +33,9 @@ const TIPS: { icon: React.ReactNode; text: string }[] = [
   },
 ];
 
-const SHORTCUTS: { keys: string; text: string }[] = [
-  { keys: "⌘/Ctrl K", text: "Command palette — jump, add, run" },
-  { keys: "⇧ D", text: "Toggle canvas ⇄ project dashboard" },
-  { keys: "1–4", text: "Dashboard — grid filter (1 all · 2 running · 3 completed · 4 failed)" },
-  { keys: "F", text: "Focus the selected job" },
-  { keys: "0", text: "Reset the view (100 %)" },
-  { keys: "+ / -", text: "Zoom in / out" },
-  { keys: "⇧ Click", text: "Toggle a card in the selection" },
-  { keys: "⇧ Drag", text: "Box-select on empty canvas" },
-  { keys: "Long-press", text: "Touch: hold empty canvas, then drag to box-select" },
-  { keys: "Pinch", text: "Touch: two fingers to zoom · trackpad pinch / ctrl-scroll" },
-  { keys: "⌘/Ctrl A", text: "Select every job in the workspace" },
-  { keys: "⌘/Ctrl D", text: "Duplicate the selection (1 job or a group)" },
-  { keys: "Del", text: "Delete the selection (confirms first)" },
-  { keys: "Esc", text: "Cancel wire · collapse selection · close panels" },
-  { keys: "← / →", text: "Class gallery lightbox — browse averages (Enter toggles keep)" },
-];
-
 export function HelpPopover() {
   const [open, setOpen] = React.useState(false);
+  const setShortcutsOpen = useWorkflowStore((s) => s.setShortcutsOpen);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -79,20 +63,24 @@ export function HelpPopover() {
             </li>
           ))}
         </ul>
-        <p className="mt-4 flex items-center gap-1.5 border-t pt-3 text-xs font-medium">
+        {/* the full shortcut inventory lives in the shortcuts dialog (one
+            data source, three doors: "?" key, this CTA, command palette) —
+            a popover copy drifted and cramped 15 rows into w-80 */}
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-4 w-full gap-2"
+          onClick={() => {
+            setOpen(false);
+            setShortcutsOpen(true);
+          }}
+        >
           <Keyboard className="size-3.5 text-primary" aria-hidden="true" />
-          Keyboard shortcuts
-        </p>
-        <dl className="mt-2 space-y-1.5">
-          {SHORTCUTS.map((sc) => (
-            <div key={sc.keys} className="flex items-center justify-between gap-3">
-              <dd className="text-xs text-muted-foreground">{sc.text}</dd>
-              <dt className="shrink-0 rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px] font-semibold text-foreground/80">
-                {sc.keys}
-              </dt>
-            </div>
-          ))}
-        </dl>
+          View all keyboard shortcuts
+          <kbd className="ml-auto rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px] font-semibold text-foreground/80">
+            ?
+          </kbd>
+        </Button>
       </PopoverContent>
     </Popover>
   );
