@@ -76,6 +76,13 @@ interface WorkflowState {
   focusJobId: string | null;
   /** Increments per focus request so the canvas effect re-fires. */
   focusEpoch: number;
+  /** One-shot deep link from the command palette's Class notes group
+   *  (Task 81): "open THIS class's note editor". The job panel consumes it
+   *  (switches to the params tab, the gallery opens the lightbox on the
+   *  class) and clears it — never observed twice. */
+  pendingClassFocus: { jobId: string; cls: number } | null;
+  requestClassFocus: (jobId: string, cls: number) => void;
+  consumeClassFocus: () => void;
   /** SPA template presets dialog open (triggered from the canvas empty
    *  state, the command palette or the help popover — mounted once). */
   templatePresetsOpen: boolean;
@@ -359,6 +366,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   paletteDrag: null,
   layoutEpoch: 0,
   focusJobId: null,
+  pendingClassFocus: null,
   focusEpoch: 0,
   templatePresetsOpen: false,
   shortcutsOpen: false,
@@ -1446,6 +1454,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     set((s) => ({ viewport: { ...s.viewport, x: s.viewport.x + dx, y: s.viewport.y + dy } })),
   setDragActive: (active) => set({ dragActive: active }),
   setPaletteDrag: (type) => set({ paletteDrag: type }),
+  requestClassFocus: (jobId, cls) => set({ pendingClassFocus: { jobId, cls } }),
+  consumeClassFocus: () => set({ pendingClassFocus: null }),
   setTemplatePresetsOpen: (open) => set({ templatePresetsOpen: open }),
   setShortcutsOpen: (open) => set({ shortcutsOpen: open }),
   toggleNoteSpotlight: () => set((s) => ({ noteSpotlight: !s.noteSpotlight })),

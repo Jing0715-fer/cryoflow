@@ -45,6 +45,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { useWorkflowStore } from "@/lib/store";
+import { parseClassNotes } from "@/lib/class-notes";
+import type { JobDTO } from "@/lib/types";
 import { JOB_TYPES, jobType, CARD_W, CARD_H } from "@/lib/workflow";
 import { JOB_PRESETS } from "@/lib/job-presets";
 import { exportCanvasPng } from "@/lib/canvas-export";
@@ -63,6 +65,7 @@ export function CommandPalette() {
   const { resolvedTheme, setTheme } = useTheme();
 
   const jobs = useWorkflowStore((s) => s.jobs);
+  const edges = useWorkflowStore((s) => s.edges);
   const view = useWorkflowStore((s) => s.view);
   const setView = useWorkflowStore((s) => s.setView);
   const workspaces = useWorkflowStore((s) => s.workspaces);
@@ -81,6 +84,39 @@ export function CommandPalette() {
       ? jobs
       : jobs.filter((j) => (j.workspaceId ?? "") === activeWorkspaceId)
   ).filter((j) => j.note);
+
+  // Class notes group (Task 81) — the gallery's per-class annotations become
+  // palette citizens too: one row per noted class, searchable by the note
+  // TEXT, the class number and the host job's name. Scope: the same active
+  // workspace the canvas lens dims by; only IDLE select2d hosts (the edit
+  // panel is the only surface with a gallery) whose upstream classification
+  // has actually completed — otherwise the jump would land on a panel with
+  // no gallery to open, a promise the entry must not make.
+  const wsScope = (j: JobDTO) =>
+    activeWorkspaceId == null || (j.workspaceId ?? "") === activeWorkspaceId;
+  const upstreamDone = (job: JobDTO) => {
+    const sources = edges
+      .filter((e) => e.toJobId === job.id)
+      .map((e) => jobs.find((j) => j.id === e.fromJobId))
+      .filter((j): j is JobDTO => j != null && (j.type === "class2d" || j.type === "select2d"));
+    const pick = sources.find((j) => j.status === "completed") ?? sources[0];
+    return pick != null && pick.status === "completed";
+  };
+  const notedClasses = jobs
+    .filter(wsScope)
+    .filter((j) => j.type === "select2d" && j.status === "idle" && upstreamDone(j))
+    .flatMap((j) =>
+      Object.entries(parseClassNotes(j.params?.classNotes)).map(([cls, text]) => ({
+        job: j,
+        cls: Number(cls),
+        text,
+      }))
+    )
+    .sort((a, b) => a.job.name.localeCompare(b.job.name) || a.cls - b.cls);
+  // a 200-class run can theoretically carry hundreds of notes — cap the
+  // list, keep the heading honest about the total
+  const CLASS_NOTE_CAP = 12;
+  const notedClassRows = notedClasses.slice(0, CLASS_NOTE_CAP);
 
   // Ctrl+K / ⌘K from anywhere + the header chip's custom event.
   React.useEffect(() => {
@@ -114,6 +150,18 @@ export function CommandPalette() {
     } else {
       s.inspect(id);
     }
+    close();
+  };
+
+  /** Class-note deep link (Task 81): land on the host job's edit panel with
+   *  the lightbox open on the noted class, editor focused. The one-shot
+   *  handshake rides in the store (pendingClassFocus) — the panel consumes
+   *  it on arrival, so a stale request can never re-open later. */
+  const jumpToClassNote = (jobId: string, cls: number) => {
+    const s = useWorkflowStore.getState();
+    s.select(jobId);
+    s.focusJob(jobId);
+    s.requestClassFocus(jobId, cls);
     close();
   };
 
@@ -321,6 +369,43 @@ export function CommandPalette() {
                     </span>
                     <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
                       {j.note}
+                    </span>
+                    <TypeIcon
+                      name={spec?.icon ?? "boxes"}
+                      className={`size-3.5 shrink-0 ${spec?.color.text ?? "text-muted-foreground"}`}
+                    />
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+          </>
+        )}
+
+        {/* ---------------- class notes (gallery annotations) ---------------- */}
+        {notedClassRows.length > 0 && (
+          <>
+            <CommandSeparator />
+            <CommandGroup
+              heading={`Class notes · ${notedClasses.length} annotation${notedClasses.length === 1 ? "" : "s"}${notedClasses.length > notedClassRows.length ? ` — first ${notedClassRows.length}` : ""}`}
+            >
+              {notedClassRows.map(({ job, cls, text }) => {
+                const spec = jobType(job.type);
+                return (
+                  <CommandItem
+                    key={`class-note-${job.id}-${cls}`}
+                    value={`class note class ${cls} ${job.name} ${job.type} ${text}`}
+                    onSelect={() => jumpToClassNote(job.id, cls)}
+                    className="gap-2.5"
+                  >
+                    <StickyNote className="size-4 shrink-0 text-amber-500 dark:text-amber-400" />
+                    <span className="min-w-0 shrink-0 truncate font-mono text-xs font-semibold tabular-nums">
+                      Class {cls}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+                      {text}
+                    </span>
+                    <span className="max-w-32 shrink-0 truncate text-[11px] text-muted-foreground/70">
+                      {job.name}
                     </span>
                     <TypeIcon
                       name={spec?.icon ?? "boxes"}

@@ -652,7 +652,18 @@ function PathParamField({
   );
 }
 
-function ParamsTab({ job, spec }: { job: JobDTO; spec: JobTypeSpec | undefined }) {
+function ParamsTab({
+  job,
+  spec,
+  focusClass,
+  onClassFocusConsumed,
+}: {
+  job: JobDTO;
+  spec: JobTypeSpec | undefined;
+  /** one-shot class-lightbox request handed down from the panel (Task 81) */
+  focusClass: number | null;
+  onClassFocusConsumed: () => void;
+}) {
   const saveJob = useWorkflowStore((s) => s.saveJob);
 
   const params = spec?.params ?? [];
@@ -785,6 +796,8 @@ function ParamsTab({ job, spec }: { job: JobDTO; spec: JobTypeSpec | undefined }
                   onChange={(next) => setForm((f) => ({ ...f, selectedClasses: next }))}
                   notes={typeof form.classNotes === "string" ? form.classNotes : "{}"}
                   onNotesChange={(next) => setForm((f) => ({ ...f, classNotes: next }))}
+                  focusClass={focusClass}
+                  onClassFocusConsumed={onClassFocusConsumed}
                 />
               )}
               <div className="grid grid-cols-2 gap-3">
@@ -1039,6 +1052,9 @@ function PanelBody({ job }: { job: JobDTO }) {
   const runJob = useWorkflowStore((s) => s.runJob);
   const resetJob = useWorkflowStore((s) => s.resetJob);
   const deleteJob = useWorkflowStore((s) => s.deleteJob);
+  // class-note deep link (Task 81): the palette's Class notes group lands here
+  const pendingClassFocus = useWorkflowStore((s) => s.pendingClassFocus);
+  const consumeClassFocus = useWorkflowStore((s) => s.consumeClassFocus);
 
   const spec = jobType(job.type);
   // The engine is always the REAL RELION one (the simulation was retired).
@@ -1057,6 +1073,18 @@ function PanelBody({ job }: { job: JobDTO }) {
   const [name, setName] = React.useState(job.name);
   const [runPending, setRunPending] = React.useState(false);
   const [tab, setTab] = React.useState("io");
+  // the class the palette asked to open (cleared by ParamsTab/gallery)
+  const [focusCls, setFocusCls] = React.useState<number | null>(null);
+
+  // one-shot deep link: switch to the params tab (the gallery's home) and
+  // hand the class number down. Runs on mount too — a palette jump selects
+  // the job and mounts this panel in the same commit.
+  React.useEffect(() => {
+    if (pendingClassFocus?.jobId !== job.id) return;
+    setTab("params");
+    setFocusCls(pendingClassFocus.cls);
+    consumeClassFocus();
+  }, [pendingClassFocus, job.id, consumeClassFocus]);
 
   const commitName = () => {
     const trimmed = name.trim();
@@ -1324,7 +1352,12 @@ function PanelBody({ job }: { job: JobDTO }) {
           <IOTab job={job} spec={spec} />
         </TabsContent>
         <TabsContent value="params" className="mt-0 flex min-h-0 flex-1 flex-col">
-          <ParamsTab job={job} spec={spec} />
+          <ParamsTab
+            job={job}
+            spec={spec}
+            focusClass={focusCls}
+            onClassFocusConsumed={() => setFocusCls(null)}
+          />
         </TabsContent>
         <TabsContent value="results" className="mt-0 min-h-0 flex-1 overflow-y-auto">
           <ResultsTab job={job} />

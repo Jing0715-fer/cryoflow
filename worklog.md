@@ -2792,3 +2792,23 @@ Stage Summary:
 -存量 bug 被新断言钓出（Esc 拆面板）：qa58 的合成 dispatch 从未覆盖真键盘路径，且从未断言「面板还在」——测试的盲区=合成事件的 isTrusted 差异+断言只看目标不看邻域。修法 defaultPrevented 守卫是「事件对象 vs DOM 状态」的教科书案例：React 离散事件同步 flush 让 DOM 守卫在冒泡中途失效，唯有事件自身的属性竞态免疫
 - 「弱计数断言的第二次应验」（继 qa79 B2 教训后）：qa76 A9 数 button 不数行、qa79 B6 匹配裸文本不带上下文——两处都被 qa78 的 living-instance 孤儿合法数据击穿。套件间没有隔离承诺，凡「living instance」设计（刻意留下的数据）都是其他套件的隐藏输入；计数断言要数语义单元（行、卡片），文本断言要锚定角色（chip=计数、badge=事实）
 - 遗留（下轮候选）：class 级批注的 dashboard/命令面板聚合面（classNotes 现只在 gallery 可见）；dashboard 打印表头跨页重复（真表格语义，继续悬置）；workflow-import 多文件（低优先）；EMPIAR 真数据回归（重）；β-Gal 零 workspace seed 规则；KPI 卡 truncate 徽章纸上展开细节
+
+---
+Task ID: 81
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-09 21:14 window)
+Task: cron 自主巡检——Task 81「class 批注可导航」：批注检索层补完最后一块——命令面板新增 Class notes 组（每条注记一行：琥珀角标 + Class N + 注记全文 + 宿主 job 名），注记全文即搜索 payload；选中行经 store 一次性握手（pendingClassFocus）深链到宿主 job 的编辑面板 → 自动切 Params tab → gallery lightbox 开在该类、编辑器聚焦。qa81 26 断言三连绿 + 全回归矩阵绿 + 途中破获「PATCH 被幽灵清空」悬案（僵尸页 debounce 整包覆写）+ worklog + push
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 80、HEAD 89c98da == origin/main；smoke + qa80/79/76/58 全绿 → 稳定
+- 【实现】①新 lib/class-notes.ts：parseClassNotes 容错解析（字符串/对象双形态、坏 JSON/数组/非字符串降级空、空值剪枝）+ CLASS_NOTE_MAX=300——gallery 写与 palette 读共用同一语义；②store：pendingClassFocus {jobId, cls} + requestClassFocus/consumeClassFocus——一次性握手，面板消费即清，永不过期误触发；③PanelBody：effect 订阅 pendingClassFocus → setTab("params") + focusCls 下传 + consume；④ParamsTab/ClassGallery：focusClass prop → effect setZoom(cls)+setFocusNote(true)+onConsumed（zoom 先行安全：lightbox 从 visible 派生，数据落地即开）；⑤palette：Class notes 组（Notes 组后）——作用域同镜头（active workspace），只列 idle select2d 且上游 completed 的宿主（编辑面板是唯一有 gallery 的表面，entry 不许兑现不了的承诺）+ 上游完成校验；cap 12 条，heading 报总数；jumpToClassNote = select+focusJob+requestClassFocus
+- 【悬案：PATCH 后 ~1.7s 被幽灵清空】qa81 首跑 Class notes 组缺失 → 排查链：API 直读 ✓（params 对象、edge 通、upstream completed）→ build chunk 里有新代码 ✓ → 挂 window.__wsStore 调试钩子实测 live store：**classNotes="{}"** → curl PATCH 后采样 DB（200ms 步进）：**t+1.6s 存活、t+1.8s 清空** → 唯一嫌疑人：**agent-browser 常驻 daemon 的残留 tab**（qa58 系列遗留）开着 select2d ParamsTab，form 里旧 classNotes "{}" 判 dirty → debounce 整包覆写 → pkill daemon 后 PATCH 值稳定存活。**qa58 zombie-page 教训的 param 通道马甲**（当年：seed 写 auto，僵尸页写回 2,4）
+- 【处置】qa81 setup 开头 pkill agent-browser + S3 绊线（PATCH 后 sleep 2.5s 重读，僵尸窗口内值必须存活）；移除 store 调试钩子
+- 【探针二折】B3 FAIL：querySelector('[role=tab][aria-selected]') 抓到 **header 的视图切换 tab**（Canvas/Workflow/Dashboard）而非面板 tab → 探针限定含 "Params" trigger 的 tablist；C 段超时：palette Esc 关闭动画期间 force-click 被 portal overlay 拦截 → 调整顺序（先编辑后开 palette）
+- 【回归一折】qa70 首跑 FATAL Escape-peels（家族性抖动第三次现身，复跑 19 断言绿）；qa66 gallery 重播种（qa58 自清理，第四次应验）
+- 【收尾】qa81 26×3 绿；全矩阵：smoke + qa58 + qa66 35 + qa69 34 + qa70 19 + qa72-verify 双纸 + qa73 + qa75 + qa76 + qa77 + qa78 + qa79 + qa80 串行绿；eslint src 0、tsc src 0、build dKV1thCN3PMHE3oAYoI7O
+
+Stage Summary:
+- 「检索层补完」：批注四部曲闭环——73 让判断有处落、74 上纸、75 镜头、76 管理视图、81 让任何一条 class 注记在 Ctrl+K 里三秒可达（检索 → 深链 → 编辑器聚焦）。深链的桥梁是一次性 store 握手而非 URL——SPA 内跳转链（视图+面板+tab+lightbox）跨四个组件边界，state 单向流动比序列化路由更诚实
+- 「幽灵写者」的破案路径值得存档：症状（PATCH 值消失）→ 二分（DB 直读 vs API 读同错→写者在服务侧）→ 采样锁时刻（200ms 步进锁定 1.6-1.8s 窗口）→ 时刻指纹匹配已知机制（debounce+poll 节奏）→ 假设验证（杀 daemon 值存活）。200ms 采样比日志/strace 便宜且精确
+- ParamsTab 的 debounced save 是「持有 form 即持有写权」：任何开着面板的页面都会在 dirty 时整包覆写 params——对单用户这是特性（离线编辑可回填），对多写者（测试 setup、僵尸页）是数据竞争。S3 式「写后重读绊线」应成为所有 setup PATCH 的标准动作
+- 遗留（下轮候选）：class 批注的 dashboard 聚合面（classNotes 在 job 行的体现）；dashboard 打印表头跨页重复（真表格语义，继续悬置）；workflow-import 多文件（低优先）；EMPIAR 真数据回归（重）；β-Gal 零 workspace seed 规则；KPI 卡 truncate 徽章纸上展开细节

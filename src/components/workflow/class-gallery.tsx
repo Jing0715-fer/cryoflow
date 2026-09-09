@@ -27,6 +27,7 @@ import {
   Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { parseClassNotes } from "@/lib/class-notes";
 import type { EdgeDTO, JobDTO } from "@/lib/types";
 import { useWorkflowStore } from "@/lib/store";
 import {
@@ -57,6 +58,8 @@ export function ClassGallery({
   onChange,
   notes,
   onNotesChange,
+  focusClass,
+  onClassFocusConsumed,
 }: {
   job: JobDTO;
   /** current selectedClasses param ("auto" | "1,2,5") */
@@ -67,6 +70,10 @@ export function ClassGallery({
   /** classNotes param — JSON map {"3":"text"}, pruned of empty values */
   notes: string;
   onNotesChange: (next: string) => void;
+  /** One-shot deep link (Task 81): open the lightbox on THIS class with
+   *  the note editor focused. Consumed via onClassFocusConsumed. */
+  focusClass?: number | null;
+  onClassFocusConsumed?: () => void;
 }) {
   const jobs = useWorkflowStore((s) => s.jobs);
   const edges = useWorkflowStore((s) => s.edges);
@@ -122,20 +129,10 @@ export function ClassGallery({
    * selectedClasses, because a note IS metadata on the selection decision
    * (annotation trilogy, gallery surface: Job.note notes the job, the
    * class note notes the JUDGMENT inside it). Empty strings prune to
-   * absent — a cleared note renders no badge anywhere, like Job.note. */
-  const notesMap = useMemo<Record<string, string>>(() => {
-    try {
-      const parsed = JSON.parse(notes) as unknown;
-      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
-      const out: Record<string, string> = {};
-      for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
-        if (typeof v === "string" && v.trim().length > 0) out[k] = v;
-      }
-      return out;
-    } catch {
-      return {};
-    }
-  }, [notes]);
+   * absent — a cleared note renders no badge anywhere, like Job.note.
+   * Parsing lives in lib/class-notes so the palette retrieves with the
+   * exact same semantics the editor writes. */
+  const notesMap = useMemo(() => parseClassNotes(notes), [notes]);
   const notedCount = Object.keys(notesMap).length;
   const noteText = (cls: number) => notesMap[String(cls)] ?? "";
   const setNote = (cls: number, text: string) => {
@@ -228,6 +225,18 @@ export function ClassGallery({
     // noteText deliberately excluded: re-syncing on map writes would
     // clobber mid-typing drafts (the debounce save lands below the cursor)
   }, [zoom, focusNote]);
+
+  // deep-link handshake (Task 81): the palette requested THIS class's note
+  // editor — open the lightbox on it and focus the field. Setting zoom is
+  // safe while classes are still loading: the dialog derives from `visible`
+  // and opens the moment the occupancy data lands. One-shot: the parent
+  // clears its state (and the store field) through the consumed callback.
+  useEffect(() => {
+    if (focusClass == null) return;
+    setZoom(focusClass);
+    setFocusNote(true);
+    onClassFocusConsumed?.();
+  }, [focusClass, onClassFocusConsumed]);
 
   /* ---------- roving tabindex (grid keyboard navigation) ----------
    * A class grid can hold dozens of toggle buttons — tabbing through all
