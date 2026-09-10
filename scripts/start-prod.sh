@@ -26,6 +26,13 @@ done
 # the real ./data) diverge silently: seeded workdirs and engine-state records
 # are invisible to the API (classes → 0, verify fails) and fs routes 400.
 # Restore the live link before boot, EVERY time, whatever the build left.
+# Task 109 lesson: a bare `next build` (bypassing package.json's build
+# script) leaves .next/standalone/.next/static EMPTY — the server boots,
+# / returns 200, but EVERY chunk 404s and the page is a dead SSR shell
+# (skeleton forever, zero interactivity, console clean). The copy is
+# idempotent — do it here so the boot never depends on who ran the build.
+cp -r .next/static .next/standalone/.next/ 2>/dev/null || true
+cp -r public .next/standalone/ 2>/dev/null || true
 rm -rf .next/standalone/data
 ln -s /home/z/my-project/data .next/standalone/data
 sleep 1

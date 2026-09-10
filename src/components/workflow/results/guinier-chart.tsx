@@ -26,6 +26,7 @@ import {
 } from "recharts";
 import { cn } from "@/lib/utils";
 import { fetchJsonRetry } from "@/lib/retry-fetch";
+import { ChartExportButtons } from "./chart-export-buttons";
 
 const TEAL = "#14b8a6";
 const AMBER = "#f59e0b";
@@ -98,6 +99,7 @@ export function GuinierChart({
   return (
     <section
       aria-label="Guinier plot"
+      data-chart-export-root
       className={cn(
         "animate-rise rounded-lg border border-amber-500/25 bg-gradient-to-b from-amber-500/5 to-transparent p-3",
         className
@@ -117,7 +119,7 @@ export function GuinierChart({
           </span>
         ) : null}
         {running ? (
-          <span className="ml-auto inline-flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-teal-600 dark:text-teal-400">
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-teal-600 dark:text-teal-400">
             <span className="relative flex size-1.5">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal-400 opacity-75" />
               <span className="relative inline-flex size-1.5 rounded-full bg-teal-500" />
@@ -125,6 +127,17 @@ export function GuinierChart({
             live
           </span>
         ) : null}
+        <ChartExportButtons
+          name="Guinier plot"
+          getRows={() =>
+            points.map((p) => ({
+              "1/s": p.x,
+              "ln(amplitude)": p.lnAmp,
+              "ln(amplitude) sharpened": p.lnAmpSharpened,
+            }))
+          }
+          className="ml-auto"
+        />
       </div>
       <div className="h-40">
         <ResponsiveContainer width="100%" height="100%">

@@ -3416,3 +3416,26 @@ Stage Summary:
 - 「几何中心不是瞄准点，顶层元素才是」：物理指针 hover 的合同应该是「elementFromPoint(x,y) 属于 target」——rect 中心可能被吸顶 header、浮层、tooltip 覆盖，指针落在覆盖物上时 onMouseEnter 永不触发且无任何报错。aim-verify（多候选点 + 验证 + scrollIntoView 重试）把这个隐式前提变成显式检查，qa60/61 族的「间歇性脆弱」很可能同根
 - 「工具返回值约定要跟宿主套件走」：qa62 的 evalJs/unq 是「剥引号」约定（对象裸 JSON、字符串带引号、null 裸）——从别的套件带来的 JSON.stringify+双重 parse 习惯在这里每一层都错位。借用的 helper 连同它的编码约定一起借，或者干脆用宿主的
 - 遗留（下轮候选）：EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势）；qa63 smoke 连跑瞬态观察（本轮单跑复绿，若矩阵复发再查服务器负载模式）；qa60/61 间歇通道问题的 hoverAt 同族移植评估（两套件有自己的 helper 副本）；书签同步真实浏览器人工验证；3D viewer 的 minimap node-only 取景与「只看选区」滤镜（真机需求观察）；undo 手感参数真机调优
+
+---
+Task ID: 109
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-10 22:15 window)
+Task: cron 自主巡检——Task 109「全图表数据导出套件（CSV + PNG）」：QA 已连两轮（107/108），本轮转向功能开发。动工前 rg 整树确认卡片/背景右键菜单均已存在（Task 105 撞车教训生效，避免二次覆写），选定真实空白：六个 results 图表零单图导出能力。交付共享管线 src/lib/chart-export.ts（CSV 行序列化 RFC-4180 引号 + SVG→2× canvas 栅格）+ ChartExportButtons 组件（closest('[data-chart-export-root]') 自寻根，零 per-chart ref 管线）+ 六图统一接线（fsc/guinier/resolution/ctf/topaz/angdist）。t107 40 断言三连绿 + 全矩阵 47 套 0 失败 + qa63 顺序依赖根治（qa62 --clean 删 Live 致其 5 行断言挂——自种子教义补齐）+ start-prod.sh 焊死 stale-chunk 防线
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 108（0c1f61e == origin/main）、BUILD_ID rM0e3ep 匹配；冷启动 + smoke/qa00/t106 三套全绿 → 稳定
+- 【选题·查证先行】候选「卡片右键菜单」被 rg 证伪——job-card.tsx 已有双模式成熟菜单（bulk N-selected / 单卡 Run/Reset/Copy-id）+ canvas.tsx 背景菜单（Zoom/Reset/Tidy/Export/Import/Cancel-connect）；palette 拖拽已覆盖指定位置加卡。转向 rg 空白：results/*.tsx 除报告/Mol* 外无 toBlob/download → 六图导出是真实空白
+- 【实现①lib】chart-export.ts：rowsToCsv（首行键序、含逗号/引号/换行即引注、内嵌引号翻倍、nullish→空串）+ downloadBlob（anchor click + 4s 后 revoke 防竞态）+ exportChartPng（克隆 svg → 逐元素内联 computed stroke/fill/font——CSS 类与自定义属性在序列化后死亡 → 显式写入；data URL → Image → 2× canvas → toBlob）+ fileSlug
+- 【实现②组件】ChartExportButtons：name + getRows 两 props；PNG root 由按钮自身 closest('[data-chart-export-root]') 上溯——图表只交数据与命名，不交 ref；CSV 空数据诚实禁用（0 行文件无人受益）而 PNG 保持可用（空轴框仍是用户所见快照）；双钮 testid + title 提示 + busy spinner
+- 【实现③接线×6】统一信息架构：live pill 的 ml-auto 收回徽章流、导出钮 ml-auto 靠右——「状态聚左、动作聚右」跨图一致；CSV 行名人类可读（resolution (A) / ln(amplitude) / rot bin…）；angdist 行 = 极坐标网格逐 cell（rot×tilt×particles）
+- 【t107 探针四折】①首跑 inspector 不开——不是套件问题而是 **stale-chunk shell**：我直接 npx next build 绕过 package.json 的 build 脚本（next build && cp -r .next/static .next/standalone/.next/ && cp public）→ standalone 的 static 空 → served 200 但全部 chunk 404 → SSR 死壳骨架常驻、console 干净、 API 10ms 全 200——三重假象把嫌疑引向数据层。手工 chunk 探测（curl HTML 提取 chunk URL 逐个打）实锤；start-prod.sh 补幂等拷贝焊死此类；②dlLast 帮手 JSON.parse 撞墙——qa62 CLI 约定字符串返回被再编码，改对象直返；③blobText 的 FileReader 回读——CLI 把换行转义成字面 \\n，unq() 只剥引号不解码，split("\n") 永远单行 → JSON.parse 解码；④PNG 651 字节「成功」——root.querySelector("svg") 抓到头部 14px 图标而非图表本体！页面内实验（getImageData 数非底色像素）定位后改为「根内最大面积 svg + 40px 下限」（recharts 与手写极坐标通吃）→ 95KB 真栅格
+- 【qa63 顺序依赖根治】矩阵 chunk 7-12 两轮同位失败后不再是「瞬态」：复现序列 qa62→qa63 抓到 "got 4, expect 5"——qa62 的 --clean 按 API 删除 QA Refine Live，而 qa63 的 compare 对话框第 5 行正是这个 running fixture；单跑绿是因为更早套件恰好重建过它。按 Task 86 教义补自种子（qa60-seed-fsc.py 幂等按名）→ qa62 全跑后紧接 qa63 GREEN
+- 【收尾】eslint 0、tsc src 0、重建 BUILD_ID zWcJI5ms + start-prod 自愈拷贝；t107 40×3 三连绿；全矩阵 47 套（+t107 glob 自动收录）分块串行 0 失败；worklog + commit + push + 环境清理
+
+Stage Summary:
+- 「build 命令不再是单数」：package.json 的 build 早已是三段式（编译 + static 拷贝 + public 拷贝），直接 npx next build 只跑三分之一——产物 BUILD_ID 新鲜、服务器 200、API 秒回，唯独浏览器拿不到一个 chunk。健康检查不能只验端口：页面可交互（卡片计数 > 0）才是「活着」的下限，start-prod.sh 现在把拷贝职责收归自身，boot 从此不依赖谁跑的 build
+- 「导出的是图表画的数据，不是数据的另一份真相」：CSV 行从图表自己的渲染数组派生（shells/points/cells）——曲线画什么文件就有什么，永不与图分歧；行名按人类可读写（resolution (A) 而非 res），文件是给人用的不是给解析器用的
+- 「最大的 svg 才是图表，第一个 svg 是图标」：querySelector 取首个命中在带装饰性 svg（图标/占位山形）的组件树里必错——「按面积选最大 + 40px 下限」把『图表的本体』变成几何事实而非 DOM 序运气。651 字节的「成功」PNG 是最危险的失败形态：合同全过、产物全空
+- 「两次同位失败就是秩序，不是运气」：qa63 连续两轮在矩阵同位置挂、单跑同位置绿——第一次当瞬态放过（Task 108 误判），第二次抓序列复现（qa62→qa63）拿到铁证。自种子教义的完整推论：谁依赖 running fixture，谁就自己种它——按名幂等让套件顺序从此无关
+- 「CLI 桥的三层编码要分清」：对象直返=裸 JSON 一层解析；字符串返回=CLI 再包一层引号+转义，unq 只剥引号不解码；换行等控制符必须 JSON.parse 才还原。同一个套件里三种读法混用，每次 FATAL 的报错（JSON at position 1 / 行数 0）都指向别处
+- 遗留（下轮候选）：EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势）；PNG 导出的 aria 快照无障碍描述（现 title-only）；导出按钮在打印样式的呈现（print 下隐藏或保留待观察）；qa60/61 helper 同族移植评估；命令面板的图表导出入口（绕过 chart 可见性直接导）；3D viewer 截图钮与 Mol* 自带 screenshot 的统一

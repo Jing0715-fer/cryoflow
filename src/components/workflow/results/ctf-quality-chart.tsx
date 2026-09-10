@@ -25,6 +25,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, on
 import { cn } from "@/lib/utils";
 import { MrcImage } from "./mrc-image";
 import { fetchJsonRetry } from "@/lib/retry-fetch";
+import { ChartExportButtons } from "./chart-export-buttons";
 
 const TEAL = "#14b8a6";
 const AMBER = "#d97706";
@@ -105,6 +106,7 @@ export function CtfQualityChart({ jobId, className }: { jobId: string; className
   return (
     <section
       aria-label="CTF fit quality"
+      data-chart-export-root
       className={cn(
         "animate-rise rounded-lg border border-teal-600/25 bg-gradient-to-b from-teal-600/5 to-transparent p-3",
         className
@@ -133,6 +135,21 @@ export function CtfQualityChart({ jobId, className }: { jobId: string; className
             )}
           </>
         )}
+        <ChartExportButtons
+          name="CTF fit quality"
+          getRows={() =>
+            micrographs.map((m) => ({
+              micrograph: m.name,
+              "defocus U (um)": m.defocusU,
+              "defocus V (um)": m.defocusV,
+              "astigmatism (um)": m.astigmatism,
+              "defocus angle (deg)": m.defocusAngle,
+              fom: m.fom,
+              "max resolution (A)": m.maxResolution,
+            }))
+          }
+          className="ml-auto"
+        />
       </div>
 
       {/* Defocus U vs V scatter — on-diagonal = no astigmatism. */}

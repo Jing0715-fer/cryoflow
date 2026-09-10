@@ -16,6 +16,7 @@ import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Compass, RadioTower, TriangleAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fetchJsonRetry } from "@/lib/retry-fetch";
+import { ChartExportButtons } from "./chart-export-buttons";
 
 interface AngDistResponse {
   iteration: number | null;
@@ -119,6 +120,7 @@ export function AngularDistributionChart({
   return (
     <section
       aria-label="Orientation distribution"
+      data-chart-export-root
       className={cn(
         "animate-rise rounded-lg border border-teal-600/25 bg-gradient-to-b from-teal-600/5 to-transparent p-3",
         className
@@ -139,10 +141,25 @@ export function AngularDistributionChart({
             live
           </span>
         ) : null}
-        <span className="ml-auto inline-flex items-center gap-1 rounded bg-muted/60 px-1.5 py-px text-[10px] font-medium tabular-nums text-muted-foreground">
+        <span className="inline-flex items-center gap-1 rounded bg-muted/60 px-1.5 py-px text-[10px] font-medium tabular-nums text-muted-foreground">
           <RadioTower className="h-3 w-3" aria-hidden="true" />
           {total.toLocaleString()} particles · {iterLabel}
         </span>
+        <ChartExportButtons
+          name="Orientation distribution"
+          getRows={() => {
+            // one row per polar cell — rot bin × tilt bin × particle count,
+            // the exact grid the heatmap paints
+            const out: Array<Record<string, number>> = [];
+            for (let t = 0; t < tiltBins; t++) {
+              for (let r = 0; r < rotBins; r++) {
+                out.push({ "rot bin": r, "tilt bin": t, particles: cells[t * rotBins + r] ?? 0 });
+              }
+            }
+            return out;
+          }}
+          className="ml-auto"
+        />
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">

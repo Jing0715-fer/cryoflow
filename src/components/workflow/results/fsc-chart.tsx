@@ -30,6 +30,7 @@ import {
 } from "recharts";
 import { cn } from "@/lib/utils";
 import { fetchJsonRetry } from "@/lib/retry-fetch";
+import { ChartExportButtons } from "./chart-export-buttons";
 import { FscCompareDialog } from "./fsc-compare-dialog";
 
 const TEAL = "#14b8a6";
@@ -134,6 +135,7 @@ export function FscChart({
   return (
     <section
       aria-label="Fourier-shell correlation"
+      data-chart-export-root
       className={cn(
         "animate-rise rounded-lg border border-teal-600/25 bg-gradient-to-b from-teal-600/5 to-transparent p-3",
         className
@@ -202,7 +204,7 @@ export function FscChart({
           </button>
         )}
         {running && (
-          <span className="ml-auto inline-flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-teal-600 dark:text-teal-400">
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-teal-600 dark:text-teal-400">
             <span className="relative flex size-1.5">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal-400 opacity-75" />
               <span className="relative inline-flex size-1.5 rounded-full bg-teal-500" />
@@ -210,6 +212,26 @@ export function FscChart({
             live
           </span>
         )}
+        <ChartExportButtons
+          name="FSC curve"
+          getRows={() =>
+            shells.map((s) => ({
+              "resolution (A)": Number(s.res.toFixed(4)),
+              "spatial frequency (1/A)": Number(s.freq.toFixed(6)),
+              fsc: Number(s.fsc.toFixed(4)),
+              ...(Number.isFinite(s.correctedFsc)
+                ? { "fsc corrected": Number(s.correctedFsc!.toFixed(4)) }
+                : {}),
+              ...(Number.isFinite(s.phaseRandomizedFsc)
+                ? { "fsc phase-randomized": Number(s.phaseRandomizedFsc!.toFixed(4)) }
+                : {}),
+              ...(Number.isFinite(s.maskedFsc)
+                ? { "fsc masked (raw)": Number(s.maskedFsc!.toFixed(4)) }
+                : {}),
+            }))
+          }
+          className="ml-auto"
+        />
       </div>
       <div className="h-40">
         <ResponsiveContainer width="100%" height="100%">

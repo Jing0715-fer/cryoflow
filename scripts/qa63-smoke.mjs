@@ -26,6 +26,12 @@ const must = (cond, label) => {
 
 // ---- boot -----------------------------------------------------------------
 try { sh("pkill -f agent-browser"); } catch { /* none running */ }
+// self-seed (Task 86 doctrine): the compare-dialog row count includes the
+// RUNNING fixture, and qa62's --clean deletes exactly that job — running
+// this suite right after qa62 (the matrix's alphabetical order) left 4
+// rows vs the expected 5. Seed is idempotent by name, so the world this
+// suite needs exists regardless of who ran before.
+try { sh("python3 /home/z/my-project/scripts/qa60-seed-fsc.py >/dev/null 2>&1"); } catch { /* seed best-effort */ }
 const b = await chromium.launch();
 const p = await b.newPage({ viewport: { width: 1600, height: 900 } });
 // dual collection replaces the old window.__qaErrs injection (qa70 template)

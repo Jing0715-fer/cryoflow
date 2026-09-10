@@ -23,6 +23,7 @@ import {
 } from "recharts";
 import { cn } from "@/lib/utils";
 import { fetchJsonRetry } from "@/lib/retry-fetch";
+import { ChartExportButtons } from "./chart-export-buttons";
 
 const TEAL = "#14b8a6";
 
@@ -99,6 +100,7 @@ export function ResolutionChart({
   return (
     <section
       aria-label="Resolution evolution"
+      data-chart-export-root
       className={cn(
         "animate-rise rounded-lg border border-teal-600/25 bg-gradient-to-b from-teal-600/5 to-transparent p-3",
         className
@@ -122,7 +124,7 @@ export function ResolutionChart({
           </span>
         )}
         {running && (
-          <span className="ml-auto inline-flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-teal-600 dark:text-teal-400">
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-teal-600 dark:text-teal-400">
             <span className="relative flex size-1.5">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal-400 opacity-75" />
               <span className="relative inline-flex size-1.5 rounded-full bg-teal-500" />
@@ -130,6 +132,16 @@ export function ResolutionChart({
             live
           </span>
         )}
+        <ChartExportButtons
+          name="Resolution evolution"
+          getRows={() =>
+            points.map((p) => ({
+              iteration: p.iteration,
+              "resolution (A)": p.resolution,
+            }))
+          }
+          className="ml-auto"
+        />
       </div>
       <div className="h-40">
         <ResponsiveContainer width="100%" height="100%">

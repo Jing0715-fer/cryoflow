@@ -23,6 +23,7 @@ import {
 } from "recharts";
 import { cn } from "@/lib/utils";
 import { fetchJsonRetry } from "@/lib/retry-fetch";
+import { ChartExportButtons } from "./chart-export-buttons";
 
 const TEAL = "#14b8a6";
 const AMBER = "#f59e0b";
@@ -133,6 +134,7 @@ export function TopazTrainingChart({
   return (
     <section
       aria-label="Topaz training progress"
+      data-chart-export-root
       className={cn(
         "animate-rise rounded-lg border border-fuchsia-600/25 bg-gradient-to-b from-fuchsia-600/5 to-transparent p-3",
         className
@@ -187,6 +189,21 @@ export function TopazTrainingChart({
             live
           </span>
         )}
+        <ChartExportButtons
+          name="Topaz training"
+          getRows={() =>
+            rows.map((r) => ({
+              epoch: r.it,
+              "train loss": r.trainLoss,
+              "test loss": r.testLoss,
+              precision: r.precision,
+              recall: r.recall,
+              "test precision": r.testPrecision,
+              "test recall": r.testRecall,
+            }))
+          }
+          className="ml-auto"
+        />
       </div>
       <div className="h-40">
         <ResponsiveContainer width="100%" height="100%">
