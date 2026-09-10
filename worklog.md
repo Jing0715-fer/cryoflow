@@ -3552,3 +3552,24 @@ Stage Summary:
 - 「打印树的验收在栅格不在规则」：打印 CSS 的正确性只有两条路——emulateMedia 读几何（诊断脚本）或 printToPDF 读产物（探针）；「规则在 bundle 里」什么都不证明。像素腿（forced-dark → pdftoppm → mean=250.3/dark 1.1%）把 qa66 的纸面教义延伸进对话框内部：var 重映射穿透 portal 边界
 - 「探针前必有 fresh build」：首跑三连 FATAL 的原因是服务器还在跑上一轮 bundle——改的是源码、测的是旧世界。冷启动流程在「开发中途重启」场景同样适用：编辑 → build → restart → probe，四步缺一不可
 - 遗留（下轮候选）：EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势、TSV/海报粘贴验证）；打印族深挖——inspector Overview/Files tab 的 PDF 腿（现只验 Results/Log 两 tab）、A4 纵向页的 report 排版（agent-browser pdf 按视口比选横向）；minimap node-only 取景与「只看选区」滤镜；undo 手感参数真机调优；3D viewer 体积截面工具（大功能，需评估 Mol* 集成深度）；palette Copy PNG（仍持 Task 110 拒绝——需挂载 SVG 的脆弱编排）
+
+---
+Task ID: 115
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-11 03:15 window)
+Task: cron 自主巡检——Task 115「Job report 深挖：Overview/Files 纸腿 + 纵向纸 + 清单细节」：开局 QA 三连绿（worklog 尾部 Task 114/401f4ee == origin/main，02:45 无窗口推进）。按 Task 114 交接首选定案打印族深挖。交付四项纸面细节：Command line 暗块复用 data-log-console 反色、.truncate 报告域全解卷（丢档教义）、Files 清单 Get 空列纸面裁除 + 纸面摘要行（N files · total）、canvas 注入的 @page size 在 report 打印时让位（portrait 修复）。t112 51→77 断言九相 ×2 绿 + 全矩阵 52 套 0 失败 + worklog + push
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 114（401f4ee == origin/main，树净）、BUILD_ID lmU-aySh9uyx6KR_missQ 匹配；冷启动 + qa63-smoke/qa00/t112 三套全绿 → 稳定
+- 【选题·纸面审计】OverviewTab/FilesTab 逐件过堂：Command line 节 bg-zinc-950 暗块（与 LogConsole 同病——纸上浅灰字近不可见）；ParamsGrid 键值/FilesTab 文件名路径/InputsCard 路径/workdir footer 全带 truncate（Task 74 丢档教义：打印截断=丢失记录）；Files 清单 Get 列在纸上印成空列头；计数行活在 .no-print 过滤行里（纸上零摘要）；「Contents」块自我否决——它是 Markdown 报告自身目录，纸面目录是正当文档内容
+- 【实现】job-inspector.tsx：cmd 块挂 data-log-console（复用 Task 114 反色规则族：bg 白/border 浅/zinc 重墨/pre 换行——零新 CSS）；FilesTab 表挂 data-files-table + 表尾纸面摘要行（data.files.length 单复数 + formatBytes 全量求和，data null 不谎报 0）；canvas.tsx：注入的 @page 改 inspectId 条件化（report 打印时只留 margins，画布整版合同原样）——【编辑伤情】MultiEdit 后回显发现 inspectId 双声明（原有订阅被 old_str 连带），tsc 前修复并补回单份
+- 【CSS】globals.css print Task 114 节增补：.truncate 报告域解卷三件套（white-space normal/overflow visible/text-overflow unset——流动报告处处可换行，无布局依赖裁切）；[data-files-table] 末列表头+单元格 display:none
+- 【探针六折】①t112 扩到九相（+A2 纵向 +D2 Overview/Files 双腿）51→77 断言；②agent-browser pdf 定向硬编码自 launch viewport 且无 flag——纵向腿改 playwright 内联（qa70 先例：locator.click 可信 + p.pdf landscape:false 钉几何）；③纵向视口 900 宽把画布卡片推出视口（canvas 是平移缩放工作区非文档流）——viewport 留 1600×900，纵向只来自 pdf flag；④纵向 PDF 仍 792×612——最小复现正常、真实页面才横版：canvas.tsx 注入的 @page size: A4 landscape 被 Chromium 映射到 API 纸张上（inspectId 条件化修复后 612×792 ✓）；⑤Overview 断言三连大小写坑：Section 标题渲染成 TIMELINE（CSS uppercase）、timeline 标签 Created——全部改 /i 正则；⑥Files 触发器带计数徽章（textContent="Files1"）——startsWith 替代严格相等
+- 【收尾】eslint 0、tsc src 0、npm run build 三段式 BUILD_ID dM_YGn6BS77Wky_d1i9zv + bundle 自证（@page 条件、on disk · total、data-files-table 裁列规则均在 static+standalone）；t112 77×2 绿（连跑 + 各相独立验证）；qa72/qa70/qa66（canvas @page 牵连的画布打印合同）/qa00/t111/smoke 受影响面全绿；全矩阵 52 套分 7 块串行 0 失败；worklog + commit + push + 环境清理
+
+Stage Summary:
+- 「@page 是整份文档的，不是某个视图的」：canvas 注入 size: A4 landscape 是 Task 72 画布整版的合同，但 @page 无法被选择器作用域——它作用于穿过该视图的每一次打印，包括 Task 114 的 job 报告（Chromium 把 CSS 纸张方向映射到 API 请求的纸上：纵向参数印出 792×612）。多视图 app 的 @page 注入必须感知「此刻的文档是谁」——条件化注入是唯一出路（CSS 的 @page 不支持 :has 条件）
+- 「最小复现是归因的手术刀」：纵向腿三折时，「最小页面正常、真实页面横版」的二分一击定位到 @page 注入——若没有 6 行最小复现，嫌疑会散布在 playwright 参数、viewport、缓存之间。复现要缩到只剩差异本身
+- 「截断是屏幕的经济学，不是纸张的」：DOM ellipsis 在卡片/表格行里保护布局，在流动的报告里只丢记录——Task 74 的丢档教义从画布卡片（unwrap 卡名）延伸到报告全域（.truncate 三件套解卷）。判断标准不是「哪里有 truncate」而是「纸有没有布局理由裁掉信息」
+- 「纸上不留空列头」：Get 列的按钮被玻璃门规则藏掉后，列头还在——隐藏内容会留下结构残骸，残骸要跟着走（th/td 末列一起 display:none）。每个「隐藏 X」的规则都要问一句「X 的容器/表头/边框去哪了」
+- 「断言文本要经过渲染管线再写」：三处断言死在「源码文本 ≠ 渲染文本」——CSS uppercase 把 Timeline 印成 TIMELINE，计数徽章把 Files 拼成 Files1，跨行选择器拆散字面量。pdftotext 断言的正确写法是 /i 正则 + 词边界 + 渲染后形态；探针Assertion的假红和假绿同罪
+- 遗留（下轮候选）：EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势、TSV/海报粘贴验证）；3D viewer 体积截面工具（大功能，需评估 Mol* 集成深度与 headless 可测性，连续多轮让位——若再让位应降级为「真机需求观察」）；minimap node-only 取景与「只看选区」滤镜（真机观察）；undo 手感参数真机调优；报告分页控制（chart 卡片跨页撕裂的 break-inside 审计——本轮保守跳过，需逐卡观察）；palette Copy PNG（Task 110 拒绝维持）

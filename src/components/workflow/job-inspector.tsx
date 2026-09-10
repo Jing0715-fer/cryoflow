@@ -1204,7 +1204,13 @@ function OverviewTab({
       </div>
       {data?.cmd ? (
         <Section icon={Terminal} title="Command line">
-          <div className="flex items-start gap-2 rounded-lg border bg-zinc-950 p-3 dark:bg-zinc-900">
+          {/* data-log-console: the same dark-console print re-ink as the Log
+              tab (globals.css Task 114) — zinc-300 mono on unprinted
+              bg-zinc-950 would vanish on paper */}
+          <div
+            data-log-console=""
+            className="flex items-start gap-2 rounded-lg border bg-zinc-950 p-3 dark:bg-zinc-900"
+          >
             <pre className="m-0 min-w-0 flex-1 overflow-x-auto whitespace-pre-wrap break-all font-mono text-[10.5px] leading-relaxed text-zinc-300">
               {data.cmd}
             </pre>
@@ -1312,7 +1318,7 @@ function FilesTab({ job, data, reload }: { job: JobDTO; data: OutputsResponse | 
             </p>
           </div>
         ) : (
-          <table className="w-full border-collapse text-xs">
+          <table data-files-table="" className="w-full border-collapse text-xs">
             <thead className="sticky top-0 z-10 bg-muted/95 backdrop-blur">
                 <tr className="border-b text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                   <th scope="col" className="px-3 py-2">File</th>
@@ -1382,6 +1388,15 @@ function FilesTab({ job, data, reload }: { job: JobDTO; data: OutputsResponse | 
             </table>
         )}
       </div>
+
+      {/* paper manifest summary — the count line lives in the screen filter
+          row (.no-print), so paper earns its own closing record (Task 115) */}
+      {data ? (
+        <p className="hidden px-1 pb-1 text-[10px] tabular-nums text-muted-foreground print:block">
+          {data.files.length} {data.files.length === 1 ? "file" : "files"} on disk · total{" "}
+          {formatBytes(data.files.reduce((s, f) => s + (f.size ?? 0), 0))}
+        </p>
+      ) : null}
     </div>
   );
 }

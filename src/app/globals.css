@@ -849,4 +849,27 @@
     [data-print-keep] {
     display: flex !important;
   }
+  /* archival doctrine (Task 74/84): a truncated name in a printout is a
+     lost record — param keys/values, file names, input paths and the
+     workdir footer all DOM-ellipsis on screen; the flowing report has
+     room to unwrap every one of them, and nothing in the dialog depends
+     on clipping for its paper layout */
+  html:has([data-inspector-dialog][data-state="open"])
+    [data-slot="dialog-content"]
+    .truncate {
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: unset !important;
+  }
+  /* the Get column hosts per-row download buttons (screen-only) — on
+     paper it would print as a header over an empty column; the manifest
+     drops the column entirely (probe: t112 Files leg asserts no "Get") */
+  html:has([data-inspector-dialog][data-state="open"])
+    [data-files-table]
+    th:last-child,
+  html:has([data-inspector-dialog][data-state="open"])
+    [data-files-table]
+    td:last-child {
+    display: none !important;
+  }
 }

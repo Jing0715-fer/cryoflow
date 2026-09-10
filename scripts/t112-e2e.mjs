@@ -22,13 +22,17 @@
 // Usage: node scripts/t112-e2e.mjs
 import { execSync } from "node:child_process";
 import { readFileSync, appendFileSync, existsSync, rmSync, mkdirSync, readdirSync, statSync } from "node:fs";
+import { chromium } from "playwright";
 
 const AB = "agent-browser";
 const B = "http://localhost:3000";
 const LOGF = "/home/z/my-project/.qa-logs/t112-trace.log";
 const OUT = "/home/z/my-project/.qa-logs/t112-report.pdf";
+const OUT_P = "/home/z/my-project/.qa-logs/t112-portrait.pdf";
 const OUT2 = "/home/z/my-project/.qa-logs/t112-canvas.pdf";
 const OUT3 = "/home/z/my-project/.qa-logs/t112-log.pdf";
+const OUT_O = "/home/z/my-project/.qa-logs/t112-overview.pdf";
+const OUT_F = "/home/z/my-project/.qa-logs/t112-files.pdf";
 const OUT_DARK = "/home/z/my-project/.qa-logs/t112-dark.pdf";
 const PPM_DIR = "/home/z/my-project/.qa-logs/t112-ppm";
 const step = (m) => {
@@ -249,6 +253,54 @@ const phaseA = async () => {
   step("PHASE A GREEN");
 };
 
+const phaseA2 = async () => {
+  console.log("== PHASE A2: portrait paper ==");
+  // agent-browser pdf hard-codes orientation from the launch viewport and
+  // has no flag — the portrait leg runs on playwright (qa70 precedent,
+  // Task 91 migration): locator.click() is a trusted CDP click, and
+  // p.pdf({ landscape: false }) pins portrait Letter.
+  const b = await chromium.launch();
+  // viewport stays 1600×900 — the canvas is a pan/zoom workspace, not a
+  // document flow: a narrow portrait viewport pushes job cards outside it
+  // and locator.click() never fires. Portrait comes from the pdf flag
+  // (landscape:false), not from the viewport aspect.
+  const p = await b.newPage({ viewport: { width: 1600, height: 900 } });
+  await p.goto(B, { waitUntil: "networkidle" });
+  await p.waitForTimeout(4000);
+  const onDash = await p.evaluate(() =>
+    (document.querySelector("h1")?.textContent || "").includes("Dashboard")
+  );
+  if (onDash) {
+    await p.keyboard.press("Shift+D");
+    await p.waitForTimeout(1500);
+  }
+  let opened = false;
+  for (let i = 0; i < 8 && !opened; i++) {
+    const card = p.locator("[role=button]", { hasText: HOST_JOB }).first();
+    if ((await card.count()) > 0) {
+      await card.click();
+      await p.waitForTimeout(1800);
+      opened = await p.evaluate(() => !!document.querySelector("[data-inspector-dialog]"));
+    }
+    await p.waitForTimeout(1500);
+  }
+  must(opened, "playwright leg opened the inspector (completed → Results default)");
+  await p.waitForTimeout(2500);
+  await p.pdf({ path: OUT_P, format: "Letter", landscape: false });
+  await sleep(1200);
+  await b.close();
+  must(existsSync(OUT_P) && statSync(OUT_P).size > 2000,
+    `portrait printToPDF produced an artifact (${existsSync(OUT_P) ? statSync(OUT_P).size : 0} bytes)`);
+  const size = sh(`pdfinfo ${OUT_P} | grep -i 'Page size'`);
+  must(/612 x 792/i.test(size), `portrait letter geometry (${size.replace(/\s+/g, " ").trim()})`);
+  const tp = pdfText(OUT_P);
+  must(tp.includes("showing Results") && /job report/i.test(tp),
+    "report identity survives the reflow to portrait");
+  must(new RegExp(HOST_JOB.replace(/[.*+?^${}()|[\]\\]/g, "\\$")).test(tp),
+    "job name reaches portrait paper");
+  step("PHASE A2 GREEN");
+};
+
 const phaseB = async () => {
   console.log("== PHASE B: forced-dark theme still prints light paper ==");
   evalJs(`document.documentElement.classList.add('dark'); 'ok'`);
@@ -320,6 +372,70 @@ const phaseD = async () => {
   step("PHASE D GREEN");
 };
 
+const phaseD2 = async () => {
+  console.log("== PHASE D2: Overview + Files paper legs ==");
+  must(await openInspector(), "inspector reopened for the D2 legs");
+  // --- Overview: timeline, params, command line ---
+  let tab = "";
+  for (let i = 0; i < 8 && !tab.includes("active"); i++) {
+    await realClick(
+      `[...document.querySelectorAll('[role=tab]')].find(x => x.textContent.trim() === 'Overview')`,
+    );
+    await sleep(1200);
+    tab = evalJs(`(() => {
+      const t=[...document.querySelectorAll('[role=tab]')].find(x => x.textContent.trim() === 'Overview');
+      return t && t.getAttribute('data-state') === 'active' ? 'active' : 'INACTIVE';
+    })()`);
+  }
+  must(tab.includes("active"), "Overview tab active");
+  const cmdInDom = J(`(() => {
+    const pre = document.querySelector('[data-inspector-dialog] [role=tabpanel]:not([hidden]) [data-log-console] pre');
+    return { has: !!pre, text: pre ? (pre.textContent || '').slice(0, 80) : '' };
+  })()`);
+  await sleep(1500);
+  sh(`${AB} pdf ${OUT_O} >/dev/null 2>&1`);
+  await sleep(1200);
+  must(existsSync(OUT_O) && statSync(OUT_O).size > 2000, "overview printToPDF produced an artifact");
+  const to = pdfText(OUT_O);
+  must(to.includes("showing Overview"), "masthead retitles to Overview");
+  must(/timeline/i.test(to) && /key parameters/i.test(to),
+    "timeline + params sections reach the paper (section titles render uppercase)");
+  must(/created/i.test(to) && /started/i.test(to), "timeline step labels reach the paper");
+  must(/command line/i.test(to), "command line section reaches the paper");
+  if (cmdInDom.has) {
+    const frag = cmdInDom.text.replace(/\s+/g, " ").slice(0, 40).trim();
+    must(frag.length > 8 && to.includes(frag),
+      `command text reaches the paper ("${frag.slice(0, 30)}…")`);
+  }
+  must(!/Re-run/.test(to), "action toolbar chrome absent from the overview paper");
+  // --- Files: the manifest ---
+  tab = "";
+  for (let i = 0; i < 8 && !tab.includes("active"); i++) {
+    // the Files trigger carries the file-count badge ("Files1") — startsWith,
+    // not strict equality
+    await realClick(
+      `[...document.querySelectorAll('[role=tab]')].find(x => x.textContent.trim().startsWith('Files'))`,
+    );
+    await sleep(1200);
+    tab = evalJs(`(() => {
+      const t=[...document.querySelectorAll('[role=tab]')].find(x => x.textContent.trim().startsWith('Files'));
+      return t && t.getAttribute('data-state') === 'active' ? 'active' : 'INACTIVE';
+    })()`);
+  }
+  must(tab.includes("active"), "Files tab active");
+  await sleep(1800);
+  sh(`${AB} pdf ${OUT_F} >/dev/null 2>&1`);
+  await sleep(1200);
+  must(existsSync(OUT_F) && statSync(OUT_F).size > 2000, "files printToPDF produced an artifact");
+  const tf = pdfText(OUT_F);
+  must(tf.includes("showing Files"), "masthead retitles to Files");
+  must(/files? on disk · total/.test(tf), "paper manifest summary line reaches the paper");
+  must(!/\bGet\b/.test(tf), "Get column header dropped from the paper manifest");
+  must(!tf.includes("Refresh"), "filter-row chrome (count + refresh) absent from the paper");
+  sh(`${AB} press Escape`); await sleep(1000);
+  step("PHASE D2 GREEN");
+};
+
 const phaseF = () => {
   console.log("== PHASE F: static contracts ==");
   const inspector = readFileSync("/home/z/my-project/src/components/workflow/job-inspector.tsx", "utf8");
@@ -339,6 +455,12 @@ const phaseF = () => {
   must((inspector.match(/no-print/g) || []).length >= 4,
     "screen-chrome rows carry .no-print (tabs, actions, file filter, log toolbar)");
   must(inspector.includes("data-log-console"), "log console carries the print remap hook");
+  must((inspector.match(/data-log-console=""/g) || []).length === 2,
+    "cmd line block shares the console re-ink hook (exactly two: log tab + command line)");
+  must(inspector.includes("data-files-table"), "files manifest carries the column-contract hook");
+  must(/on disk · total/.test(inspector), "paper manifest summary line exists in JSX");
+  must(inspector.includes("print:[translate:none]"),
+    "standalone-translate kill rides the className (Lightning CSS merge-proof)");
   must(inspector.includes("print:fixed print:bottom-1"), "per-sheet identity strip is print-fixed");
 
   must(browser.includes("data-print-keep"), "ParticleBrowser montage header opts back in");
@@ -346,7 +468,12 @@ const phaseF = () => {
     "escape hatch used exactly once (comments may name it, attributes count)");
 
   const hasRules = (css.match(/html:has\(\[data-inspector-dialog\]\[data-state="open"\]\)/g) || []).length;
-  must(hasRules >= 9, `:has() exclusivity rules present (got ${hasRules})`);
+  must(hasRules >= 12, `:has() exclusivity rules present (got ${hasRules})`);
+  must(/\[data-slot="dialog-content"\]\s*\.truncate\s*\{/.test(css) &&
+       css.includes("text-overflow: unset"),
+    "paper unwrap rule for DOM ellipses present (lost-record doctrine)");
+  must(/\[data-files-table\]\s*th:last-child/.test(css),
+    "Get-column drop rule present");
   must(css.includes("[data-print-keep]"), "keep-rule backdoor exists in the print block");
   must(/\[data-sonner-toaster\],\n  \.no-print/.test(css), "toasts join the print-hidden chrome");
   must((css.match(/\[data-log-console\]/g) || []).length >= 2, "log remap rules present");
@@ -379,9 +506,11 @@ const phaseZ = async () => {
     if (!existsSync("/home/z/my-project/.qa-logs")) execSync("mkdir -p /home/z/my-project/.qa-logs");
     await phaseS();
     await phaseA();
+    await phaseA2();
     await phaseB();
     await phaseC();
     await phaseD();
+    await phaseD2();
     phaseF();
     await phaseZ();
     console.log(`T112 ALL PASS (${PASSED} assertions)`);

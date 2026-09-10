@@ -449,6 +449,11 @@ export function WorkflowCanvas() {
   const jobs = useActiveWorkspaceJobs();
   const edges = useActiveWorkspaceEdges();
   const selectedId = useWorkflowStore((s) => s.selectedId);
+  // Task 115 — the injected @page size is the CANVAS sheet's contract; when
+  // the job inspector is open the paper is the job REPORT and the report
+  // picks its own geometry (playwright landscape:false, printer default).
+  // Chromium maps "size: A4 landscape" onto whatever paper the API asks
+  // for — without this branch a portrait report print came out 792×612.
   const inspectId = useWorkflowStore((s) => s.inspectId);
   const inspect = useWorkflowStore((s) => s.inspect);
   const pendingFrom = useWorkflowStore((s) => s.pendingFrom);
@@ -1336,8 +1341,10 @@ export function WorkflowCanvas() {
           LANDSCAPE sheet (the fit-to-paper budget in globals.css assumes
           it). A <style> tag because @page cannot be scoped by selectors —
           this element only mounts in the canvas view, so dashboard prints
-          keep their portrait default. */}
-      <style media="print">{`@page { size: A4 landscape; margin: 12mm; }`}</style>
+          keep their portrait default. WITH the job inspector open the
+          report is the document (Task 114) and the landscape size stands
+          down — margins only, so the report's own paper wins (Task 115). */}
+      <style media="print">{inspectId == null ? `@page { size: A4 landscape; margin: 12mm; }` : `@page { margin: 12mm; }`}</style>
       <ContextMenuTrigger asChild>
         <section
           ref={rootRef}
