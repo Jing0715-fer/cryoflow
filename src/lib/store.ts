@@ -170,6 +170,33 @@ function parseViewportBookmark(v: unknown): ViewportBookmark | null {
   return { viewport: { x, y, zoom }, slot };
 }
 
+/** Parse a raw v2 payload (the exact string localStorage holds) into the
+ *  bookmark map. The SINGLE parse path for both boot hydrate and the
+ *  cross-tab storage listener — two parse implementations would drift,
+ *  and a bookmark trusted by one tab must be trusted by every tab. */
+function parseViewportBookmarksRaw(
+  raw: string | null
+): Record<string, Record<string, ViewportBookmark>> {
+  if (!raw) return {};
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return {};
+    const out: Record<string, Record<string, ViewportBookmark>> = {};
+    for (const [wsKey, named] of Object.entries(parsed as Record<string, unknown>)) {
+      if (!named || typeof named !== "object") continue;
+      const names: Record<string, ViewportBookmark> = {};
+      for (const [name, v] of Object.entries(named as Record<string, unknown>)) {
+        const bookmark = parseViewportBookmark(v);
+        if (bookmark) names[name] = bookmark;
+      }
+      if (Object.keys(names).length > 0) out[wsKey] = names;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
 /** Seed the bookmarks from localStorage (cross-session, see key doc).
  *  Reads v2; if only the v1 pre-slot format exists, migrates it: slots
  *  are assigned by stored key order (insertion order — the best guess
@@ -178,21 +205,7 @@ function hydrateViewportBookmarks(): Record<string, Record<string, ViewportBookm
   if (typeof window === "undefined") return {};
   try {
     const raw = window.localStorage.getItem(VIEWPORT_BOOKMARKS_KEY);
-    if (raw) {
-      const parsed: unknown = JSON.parse(raw);
-      if (!parsed || typeof parsed !== "object") return {};
-      const out: Record<string, Record<string, ViewportBookmark>> = {};
-      for (const [wsKey, named] of Object.entries(parsed as Record<string, unknown>)) {
-        if (!named || typeof named !== "object") continue;
-        const names: Record<string, ViewportBookmark> = {};
-        for (const [name, v] of Object.entries(named as Record<string, unknown>)) {
-          const bookmark = parseViewportBookmark(v);
-          if (bookmark) names[name] = bookmark;
-        }
-        if (Object.keys(names).length > 0) out[wsKey] = names;
-      }
-      return out;
-    }
+    if (raw) return parseViewportBookmarksRaw(raw);
     // v1 migration — plain name → viewport, no slots. Key insertion order
     // is the only history we have, so seat order = stored order.
     const rawV1 = window.localStorage.getItem(VIEWPORT_BOOKMARKS_KEY_V1);
@@ -1957,6 +1970,27 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       inspectId: null,
     })),
 }));
+
+/* Cross-tab bookmark freshness (Task 102): a localStorage write fires a
+ * `storage` event in every OTHER tab of the same origin — the writing tab
+ * hears nothing, so there is no echo loop. Re-parse e.newValue and replace
+ * the bookmark state wholesale: bookmark writes are synchronous, so
+ * localStorage is the source of truth at event time, and the shared
+ * parser revalidates every entry (corrupt payloads degrade to empty, never
+ * trusted). e.key === null means another tab ran localStorage.clear() —
+ * same treatment: a cleared store is cleared everywhere. The v1 migration
+ * key is deliberately NOT listened for: migration happens once at hydrate
+ * and writes v2, whose event carries the payload to every live tab.
+ * sessionStorage (viewport memory) never fires storage events — the
+ * per-tab contract from Task 99 survives untouched. */
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", (e: StorageEvent) => {
+    if (e.key !== VIEWPORT_BOOKMARKS_KEY && e.key !== null) return;
+    useWorkflowStore.setState({
+      viewportBookmarks: parseViewportBookmarksRaw(e.key === null ? null : e.newValue),
+    });
+  });
+}
 
 /* ------------------------------------------------------------------ */
 /* Workspace-scoped derivations (shared by canvas, minimap, KPI bar)    */

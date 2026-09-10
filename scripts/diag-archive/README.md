@@ -49,3 +49,26 @@ to `scripts/` and check its hardcoded paths still exist.
   Also documented here: the diag itself shipped with a broken stdin pipe
   (evalJs passed {input} to a one-arg wrapper — every eval returned null)
   and had to be fixed before it could prove anything.
+
+- t102-diag-storage-event.mjs — Task 102 (2026-09-10): vanilla-listener
+  proof that headless Chromium via Playwright does NOT deliver storage
+  events across pages of one browser context (the cross-tab bookmark sync
+  rides a platform contract, so the t102 probe dispatches the exact event
+  itself — see the probe's TRANSPORT HONESTY note).
+- t102-diag-sharing.mjs — Task 102: same finding one layer down —
+  localStorage is PER-PAGE in this Playwright build (p2 never sees p1's
+  write), which is why the probe reads the payload from the WRITER page.
+- t102-diag-chain.mjs — Task 102: single-page bisect of the sync chain
+  (UI save → localStorage → synthetic dispatch → vanilla listener →
+  app listener → panel row) proving every app-owned link works.
+- t102-diag-a4.mjs — Task 102: A4 zoom-mismatch bisect; the row rendered
+  the right value all along, the probe compared "32" with "32%" (regex
+  capture group vs full match).
+
+## legacy-suites/
+
+Formally archived 2026-09-10 (Task 102): qa35–qa41 (agent-browser
+generation, features long superseded) plus run-matrix-t101.sh — the wide
+matrix whose comment claimed "34 suites" while carrying 66; running it
+caused the Task 101 OOM incident. Replaced by scripts/run-matrix.sh
+(explicit official list, computed total, missing files abort).

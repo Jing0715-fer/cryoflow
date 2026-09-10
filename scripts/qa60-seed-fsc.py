@@ -199,18 +199,13 @@ def main() -> None:
         fpath = os.path.join(workdir, fname)
 
         if clean:
-            if os.path.exists(fpath):
-                os.remove(fpath)
-                print(f"clean: removed {fname}")
-            try:
-                with open(STATE_PATH) as f:
-                    state = json.load(f)
-                if state.pop(job["id"], None) is not None:
-                    with open(STATE_PATH, "w") as f:
-                        json.dump(state, f, indent=2)
-                    print(f"clean: engine-state entry popped for {name}")
-            except Exception as e:
-                print(f"clean: state pop failed for {name} ({e})")
+            # Task 102: clean must NOT touch the SPECS entries — they are
+            # SHARED fixtures (qa62 / qa63-smoke / qa64 assert their FSC
+            # curves). Popping their engine-state or star files here made
+            # every suite after qa60 order-dependent on a manual re-seed
+            # (Task 86 doctrine: no suite may depend on who ran before
+            # it). The live card is the only thing qa60 adds to the
+            # world; it is the only thing clean removes (below).
             continue
 
         os.makedirs(workdir, exist_ok=True)
@@ -279,6 +274,27 @@ def main() -> None:
         jobs = jobs["jobs"] if isinstance(jobs, dict) else jobs
         live = next((j for j in jobs if j.get("name") == LIVE[0]), None)
         if live is not None:
+            # full-fidelity cleanup: the job row AND its on-disk traces
+            # (DELETE never cleans workdir — Task 97; the engine-state
+            # entry would leave a stale running record for /api/jobs'
+            # reconcile to trip over)
+            workdir = os.path.join(
+                "/home/z/my-project/data/relion", PROJECT,
+                f"{LIVE[1]}_{live['id'][-8:]}"
+            )
+            checkpoint = os.path.join(workdir, LIVE_CHECKPOINT)
+            if os.path.exists(checkpoint):
+                os.remove(checkpoint)
+                print(f"clean: removed {LIVE_CHECKPOINT}")
+            try:
+                with open(STATE_PATH) as f:
+                    state = json.load(f)
+                if state.pop(live["id"], None) is not None:
+                    with open(STATE_PATH, "w") as f:
+                        json.dump(state, f, indent=2)
+                    print("clean: engine-state entry popped for live card")
+            except Exception as e:
+                print(f"clean: state pop failed ({e})")
             api(f"/api/jobs/{live['id']}", "DELETE")
             print(f"clean: deleted live job {LIVE[0]}")
         else:

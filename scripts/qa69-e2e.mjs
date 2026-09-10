@@ -57,6 +57,16 @@ function nodeRun(script, ...args) {
     { encoding: "utf8", timeout: 60_000 }
   ).trim();
 }
+// Task 86 doctrine, belatedly applied (Task 102): qa69 needs the Live
+// card + FSC fixtures, but qa62's own cleanup deletes the Live card and
+// the matrix may reorder. Seed (idempotent seeder) instead of trusting
+// whoever ran before — "self-contained" applies to old suites too.
+try {
+  execSync("python3 /home/z/my-project/scripts/qa60-seed-fsc.py", { encoding: "utf8", timeout: 120_000 });
+} catch (e) {
+  console.log(`FATAL: self-seed failed: ${String(e).slice(0, 120)}`);
+  process.exit(1);
+}
 const ids = JSON.parse(nodeRun(`
 const { PrismaClient } = require('@prisma/client');
 const p = new PrismaClient();

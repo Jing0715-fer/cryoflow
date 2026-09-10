@@ -1586,7 +1586,17 @@ export function WorkflowCanvas() {
             ) : (
               <ul className="max-h-44 overflow-y-auto">
                 {namedList.map(([name, bm]) => (
-                  <li key={name} className="group flex items-center gap-1 rounded px-1" data-canvas-ui="viewport-bookmark-row">
+                  // key binds the SNAPSHOT (name + rounded zoom), not just the
+                  // name: a same-name overwrite — local or synced from another
+                  // tab via the storage event — remounts the row, replaying the
+                  // entrance animation so "this view changed" is visible
+                  // without any wording. Slot is excluded: overwrite keeps the
+                  // seat (Task 101), re-seating must not flash.
+                  <li
+                    key={`${name}:${Math.round(bm.viewport.zoom * 100)}`}
+                    className="group flex items-center gap-1 rounded px-1 animate-in fade-in slide-in-from-left-1 duration-200"
+                    data-canvas-ui="viewport-bookmark-row"
+                  >
                     {bm.slot != null && (
                       <kbd
                         className="shrink-0 rounded border bg-muted px-1 font-mono text-[10px] leading-4 text-muted-foreground"

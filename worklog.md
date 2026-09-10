@@ -3254,3 +3254,28 @@ Stage Summary:
 - 「诊断工具先诊断自己」：qa61 的点击失败追了五层（孤儿 → 状态 → 泄漏遮蔽），中途诊断脚本本身带着坏 stdin 管道（{input} 传给一参包装器，所有 eval 返 null）——坏探针给出的「页面坏了」假象差点把方向带偏到 hydration。诊断结论的置信度受限于诊断工具的置信度，工具先自证
 - 「watchdog 的悖论」：保活脚本自己拉起的服务器是坏的（bun next start vs output:standalone），日志里明晃晃写着 does not work——watchdog 忠实地每 2 秒重启一次坏服务器，比没有 watchdog 更糟（掩盖了真凶）。保活机制必须和启动机制共享同一条命令路径，单一真相源不是洁癖是保命
 - 遗留（下轮候选）：EMPIAR 真数据回归（重，连续让位）；用户真机 class3d/refine3d 顺序模式与 topaz 实测反馈；diff 对话框 Open 行 canvas 入口价值复查；文件夹拖拽真机手势反馈；undo 快照仅存 toast 闭包（Ctrl+Z 历史栈观察需求）；书签跨 tab storage 事件同步（多 tab 书签新鲜度）；qa61 B 相的 Sheet 几何依赖 agent-browser 坐标点击（本轮修的是视口竞速，坐标法本身的脆弱性仍在——长期宜移植 playwright）；qa35–41 废弃套件应正式归档（本轮误入矩阵触发 OOM 的直接原因）
+
+---
+Task ID: 102
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-10 11:59 window)
+Task: cron 自主巡检——Task 102「书签跨 tab storage 事件同步（cross-tab freshness）+ qa35–41 正式归档 + 矩阵 runner 真相修复 + 三处陈年顺序依赖拆除」：①新功能——Task 100/101 书签三部曲的续章：书签在真实浏览器的多 tab 场景下是死数据（tab A 保存/删除，tab B 要 reload 才看见）。修法是标准 storage 事件监听：写方 tab 听不见自己（无回声环），其他 tab 收到 e.newValue 后走与 boot hydrate 完全共享的解析路径整体替换 state——坏载荷降级为空、永不信任；e.key null（他 tab localStorage.clear()）同待遇；v1 迁移键刻意不监听（迁移只发生在 hydrate 且写 v2，v2 事件把载荷带给所有活 tab）；sessionStorage（视口记忆）永不触发 storage 事件——Task 99 的 per-tab 契约毫发无损。UI 侧样式细节：书签行 key 从 name 升格为 name:rounded-zoom（快照绑定）——同名覆盖（本地或跨 tab 同步）触发 React 重挂载 → 入场动画（animate-in fade-in slide-in-from-left-1）重放，「这个视图变了」无需任何文案就可见；座位不参与 key（覆盖保座不闪，Task 101 语义）。②QA 基建三连——qa35–41 九个 agent-browser 世代废弃套件正式归档 diag-archive/legacy-suites/（Task 101 决议落地）；同目录收编 run-matrix-t101.sh（注释谎称 34 套实载 66 套的超宽矩阵本体——Task 101 OOM 事故的直接凶器，已随 cb60c74 进库成活哑弹）改名 run-matrix-t101-wide-OOM-landmine.sh 立碑；新 runner run-matrix.sh（官方清单显式枚举 + 总数动态计算「注释会漂移，计算不会」+ 缺文件硬失败 + 最新 t 套件自动收录 + 区间参数支持前台分块）+ run-matrix-chunk.sh（每块前重启即活的自愈守卫）。③回归途中拆除三处陈年顺序依赖——qa60-seed-fsc.py --clean 连带回滚共享 fixture（QA Post 300/320/385 + QA Refine 410 的 engine-state + star 文件）改为只清理 qa60 自己的 LIVE 卡（job 行 + checkpoint 文件 + engine-state 三位一体）；qa62 里逃过 Task 101 qa64 去硬编码的第二份 project id 字面量（paletteByJob 的 cmtrzp5x8…）改运行时派生；qa69 依赖 qa62 清掉的 Live 卡补自种子。t102 31 断言三连绿 + 全矩阵 42 套绿 + worklog + push
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 101、HEAD cb60c74 == origin/main、BUILD_ID tAVLj4ovtz1xuAfzkoT2T 匹配；冷启动 + smoke/qa00/t101/qa84 四套全绿 → 稳定
+- 【开局即抓真 bug】run-matrix-t101.sh 注释 "34 suites" vs rg 实数 66——Task 101 OOM 事故的「超宽矩阵」本体已提交进库，下轮谁跑谁 OOM。本轮选题由此定型：书签跨 tab 同步（功能）+ 归档与 runner 重建（基建）
+- 【实现①store】parseViewportBookmarksRaw 从 hydrate 抽出（单一解析路径——两个解析实现会漂移，一个 tab 信任的书签必须所有 tab 都信任）；store 创建后挂 window storage 监听（typeof window SSR 守卫、键过滤 + null clear 分支、监听体零写回——回声环在构造上不可能）
+- 【实现②canvas】行 key name → `${name}:${Math.round(zoom*100)}` + 入场动画类；注释立碑 key 绑快照不绑座位的原因
+- 【t102 探针四折】①首跑 FATAL——playwright 双 tab 实测 storage 事件零投递（t102-diag-storage-event 钉死：原生监听器也收不到，环境限制非产品缺陷）；②二跑 FATAL——t102-diag-sharing 钉死 localStorage 连共享都没有（per-page）→ 改「写方页读真实载荷 → 节点侧转交 → 观察方派发字节一致 StorageEvent」，浏览器跨 tab 投递与存储共享两个平台环节按 Radix toast 先例记平台契约；③三跑 FATAL A4——rowZoom 返回捕获组 "32" vs payloadZoom "32%" 单位错（got/want 进断言文案后一眼定位）；④四跑 FATAL E2——断言自己错了：异 ws 条目不泄漏进当前面板才是 Task 100 的 per-ws 契约，改双断言（异 ws 不得泄漏 + 同 ws 外来载荷整体采纳）；D 相 openBookmarks 非幂等（面板已开时点触发钮=切换关闭，Task 101「数 chip 忘开面板」教义的镜像）——openBookmarks 幂等化 + D 相每断言前显式开面板
+- 【must() 语义修正】首版 FATAL 路径 cleanup().finally(exit) + return——调用方继续跑撞「page closed」崩栈；改回 t101 的同步 close+exit 模式
+- 【OOM 再现】矩阵首块三连崩，dmesg 实锤 next-server RSS 2.5GB 被全局击杀；且每次工具调用报错（含 qa60 的 agent-browser 通道破坏型报错）都伴随服务器被会话收割——run-matrix-chunk.sh 自愈守卫 + 2–3 套小块推进
+- 【qa60/61 工具通道现象】任何前台跑 qa60 的调用都报 Error calling tool，但文件日志显示套件完整跑完且 ALL GREEN（34 断言）——agent-browser 世代套件与持久 shell 通道的兼容性问题；采用「点火 + 事后读日志验证」模式，qa60 二连绿、qa61 复跑绿（B 相坐标点击偶发，Task 101 已知脆弱点）
+- 【三处顺序依赖】①qa60 --clean 连带回滚共享 fixture → chunk 6-8 qa62/smoke/qa64 齐崩 → seeder 外科手术（clean 只动 LIVE 卡）+ 无 clean 重播恢复；②qa62 paletteByJob 硬编码 project id 404 → palette {} → 崩栈 → resolveProject 动态派生（qa64 同款病的漏网之鱼）；③qa69 依赖 Live 卡存在而 qa62 clean 已删 → 补自种子。三处全是 Task 86/101 教义的既有违例，矩阵暴露出来正好
+- 【收尾】eslint src 0、tsc src 0；src 变更已在 BUILD_ID DrKhEeyxJzkLFoomOAORD 内（t102 三连绿 + 全矩阵正是它上面跑的）+ served 自证；全矩阵 42 套（+t102）分块串行全绿；4 个 t102 诊断脚本归档 diag-archive/（README 加段）
+
+Stage Summary:
+- 「平台的契约测不到，就测它旁边每一寸自己的代码」：跨 tab storage 事件在 headless 里既不投递、存储也不共享——两个平台环节全被环境隔离。探针没有假装测它，而是把「我方拥有的每一环」（真实 UI 写入 → 真实 localStorage 载荷 → 字节一致的 StorageEvent → 监听过滤 → 共享解析 → setState → 面板重渲染）用真数据串起来测，平台环节按 Radix「点击即关 toast」先例记为平台契约。诚实的探针不是测得最多的探针，是清楚自己哪一环没测的探针
+- 「注释会漂移，计算不会」：run-matrix-t101.sh 的 "34 suites" 注释配 66 套清单骗过了作者自己——写清单时 34 是真的，加套件时没人改注释。修法不是改注释是把总数改成 ${#SUITES[@]}：任何能被计算的东西都不该被断言。runner 的缺失文件也改为硬失败——静默缩水的矩阵比崩溃的矩阵更危险，绿色不该有折扣
+- 「clean 是套件的影子，影子不该比本体大」：qa60 的 --clean 把共享 fixture 一起回滚，等价于「每个跑在 qa60 后面的套件都依赖一个不在合同里的人工步骤」。修法是让 clean 只清理套件自己创建的东西——自清的完整性按「谁加了什么」算，不按「seeder 碰过什么」算。顺手补上 DELETE 不清 workdir（Task 97）留下的 checkpoint 文件与 engine-state 孤儿
+- 「硬编码 id 的病会复发，因为它的载体不止一处」：Task 101 修了 qa64 的硬编码 project id，qa62 里同一行代码的另一份拷贝安然活到本轮爆炸——「同类问题已修」的安慰剂效应只覆盖被点名的那一处。根治不是修两个文件是把「派生」写成函数：resolveProject 一处定义，字面量无处藏身
+- 「工具报错和套件失败是两个命题」：qa60 每次都把工具调用弄报错，文件日志里却回回 ALL GREEN——信证据还是信通道？日志落盘 + 事后验证把两者解耦。诊断工具先诊断自己（Task 101）的续篇：分发渠道本身也可能是故障点
+- 遗留（下轮候选）：EMPIAR 真数据回归（重，连续让位）；用户真机 class3d/refine3d 顺序模式与 topaz 实测反馈；diff 对话框 Open 行 canvas 入口价值复查；文件夹拖拽真机手势反馈；undo 快照仅存 toast 闭包（Ctrl+Z 历史栈观察需求）；qa61 B 相坐标点击移植 playwright（本轮又偶发一次）；qa42–qa57 状态未知（agent-browser 世代、矩阵外、未验证——跑或归档待定）；书签同步的真实浏览器人工验证（探针覆盖不到的平台环节，值得在真 Chrome 双 tab 里点一次看一眼）

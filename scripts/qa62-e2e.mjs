@@ -49,7 +49,21 @@ const J = (expr) => JSON.parse(unq(evalJs(expr)));
 const PHASES = (process.env.QA_PHASES || "A,B,C").split(",").map((s) => s.trim().toUpperCase());
 
 const B = "http://localhost:3000";
-const PROJECT = "cmtrzp5x80002p8uofb9eu5pp"; // same as the seed's PROJECT
+// Task 64 lesson, now applied to the LAST hardcoded project literal
+// (qa64 itself was de-hardcoded in Task 101; this copy in qa62 escaped).
+// The world migrates — project ids are minted per fixture rebuild, so any
+// literal dies with the old world. Derive from a seeded job at runtime.
+let PROJECT_CACHE = null;
+async function resolveProject() {
+  if (PROJECT_CACHE) return PROJECT_CACHE;
+  const res = await fetch(`${B}/api/jobs`);
+  const body = await res.json();
+  const jobs = body.jobs ?? body;
+  const anchor = jobs.find((j) => j.name === "QA Post 300") ?? jobs[0];
+  PROJECT_CACHE = anchor?.projectId ?? null;
+  if (!PROJECT_CACHE) throw new Error("resolveProject: no jobs in /api/jobs");
+  return PROJECT_CACHE;
+}
 const HOST_JOB = "QA Post 320";
 const SEED = "python3 /home/z/my-project/scripts/qa60-seed-fsc.py";
 const SEED_CLEAN = "python3 /home/z/my-project/scripts/qa60-seed-fsc.py --clean";
@@ -84,7 +98,8 @@ async function jobIdsByName() {
  *  API at runtime instead of hardcoding a color per job name */
 const PALETTE6 = ["#14b8a6", "#f59e0b", "#8b5cf6", "#f43f5e", "#0ea5e9", "#84cc16"];
 async function paletteByJob() {
-  const res = await fetch(`${B}/api/projects/${PROJECT}/fsc-index`);
+  const pid = await resolveProject();
+  const res = await fetch(`${B}/api/projects/${pid}/fsc-index`);
   const body = await res.json();
   const map = {};
   (body.jobs ?? []).forEach((j, i) => { map[j.jobId] = PALETTE6[i % PALETTE6.length]; });
