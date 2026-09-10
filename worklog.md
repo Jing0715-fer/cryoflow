@@ -3485,3 +3485,26 @@ Stage Summary:
 - 「观察窗要跟相位走」：lastToasts() 的 3 条尾窗跨相位存活，上一相的成功 toast 会让「无伪造成功」断言误杀——每个相位重置观察器（re-arm 即清零），断言窗口与行为窗口对齐。这个坑与 qa48 的 errors 缓冲污染同族：断言前的观察器状态是探针的卫生学
 - 「Radix Dialog 的 Escape 只认真键」：合成 KeyboardEvent 无论派发在 window（根本不在 document 传播路径上）还是 document（dismiss layer 不认）都关不掉对话框——qa63 compare dialog 的合成 Escape 能关是它自己的监听路径不同。CDP 的 `press Escape` 是可信事件，一律用它；「Escape 关 Radix」从此不再尝试合成派发
 - 遗留（下轮候选）：EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势）；canvas PNG 导出（handleExportPng）的剪贴板孪生（本轮只做了图表域，canvas 域管线独立待评估）；palette 的 Copy 数据入口（TSV 文本进剪贴板对笔记场景有价值，palette 行数会翻倍需设计）；TSV 粘贴进 Excel 的真机验证（headless 无电子表格）；打印样式 results 面板整体排版未审；minimap node-only 取景与「只看选区」滤镜；历史面板条目分组；undo 手感参数真机调优
+
+---
+Task ID: 112
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-11 00:45 window)
+Task: cron 自主巡检——Task 112「canvas poster PNG 剪贴板孪生（Copy Canvas PNG）」：QA 三连绿后按 Task 111 交接清单选题，rg 撞车检查证实 canvas 域只有下载没有复制（打印样式多轮深耕、历史面板不存在、palette Copy 需行数翻倍设计成本均让位）。交付：canvasPngBlob 单源栅格（一张 poster 图，下载/复制两扇门）+ copyCanvasPng 复用 chart-export 的 copyPngToClipboard（零剪贴板原语孪生）+ 工具栏 ImageUp 钮（Check 瞬态 1600ms + data-copy-state 探针钩）+ 右键菜单第二入口。t110 49 断言六相 ×4 绿（含矩阵内）+ 全矩阵 50 套收官（qa61 瞬态单跑复绿）+ worklog + push
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 111（8c1c646 == origin/main，树净）、BUILD_ID LBzvTgCacbOdVk7HCURDj 匹配；冷启动 + qa63-smoke/qa00/t109 三套全绿 → 稳定
+- 【选题·撞车检查】候选盘：canvas 剪贴板孪生（Task 111 显式交接）/ 打印排版（Task 65+ 多轮已深）/ 历史面板分组（rg 证实面板不存在，无从分组）/ palette Copy（行数翻倍设计成本）。rg clipboard 全树：canvas 域零复制路径——真实空白定案
+- 【实现①lib】canvas-export.ts：canvasPngBlob 提取（bbox + pixelRatio + warm-up + footer 合成全在门控之前，产出 {blob,width,height,fileName}）；exportCanvasPng 变薄壳（canvasPngBlob → anchor 下载）；copyCanvasPng（canvasPngBlob → copyPngToClipboard，false = 权限拒绝诚实失败）；import copyPngToClipboard from "./chart-export"——剪贴板原语单源，canvas 域不养孪生
+- 【实现②组件】canvas.tsx：exporting 布尔升级 posterBusy 判别联合（"download"|"copy"|null——两门共享栅格资源，任一忙碌双门全禁，二连栅格只会白烧字体缓存）；posterMeta useCallback 收敛元数据构造；handleCopyPng（成功 Check 瞬态 1600ms + text-primary + data-copy-state、失败 destructive 点名下载替代路径、栅格抛错走 "Copy failed" 独立门名）；工具栏 ImageUp 钮（Download/ImageUp 落盘-出剪贴板方言延续图表域）+ 右键菜单 "Copy canvas as PNG image" 第二入口（data-canvas-ui="canvas-menu-png-copy"）
+- 【编辑伤情自查】Check 图标与 cn 工具未导入（lucide import 清单 + @/lib/utils 两处补齐）——MultiEdit 回显扫描时发现，tsc 前修复
+- 【t110 探针 49 断言六相】S 种子+双门在场+门控启用态；A 工具栏复制 spy（ClipboardItem image/png、794KB 真 poster 栅格、toast 措辞、copy-state=png→idle 回弹、Check 进退）；B 诚实失败（write reject → destructive「use the PNG download instead」、copy-state 不翻转、无伪造成功）；C 右键菜单路径（agent-browser mouse down/up right 可信右键 → Radix 菜单七项 → aim-verify 点 Copy 项 → 同一 spy 再次捕获同体量栅格——菜单与工具栏共用一条管线）；F 静态合同 19 条（单栅格 toBlob(world)×1、单下载锚 a.download×1、组件零 navigator.clipboard、门控行×2、ImageUp×2、措辞镜像图表域）；Z 清理 + console 0
+- 【探针三折】①CLI 编码约定再咬人：toasts()/copy-state 读数走字符串返回被再编码（JSON.parse "Canvas cop..." 撞墙）——Task 111 教训生效，改对象直返一次修复；②栅格化秒级时长 vs 固定 1.5s sleep：reject 要等 poster 栅格完成后才触发，B 相改轮询（24×500ms）等待 destructive toast；③F 相 ImageUp 断言写死字面量 `<ImageUp />` 漏计工具栏处 `<ImageUp className="size-4" />`——改 `<ImageUp\b` 词边界计数
+- 【收尾】eslint 0、tsc src 0、npm run build 三段式 BUILD_ID dOu-TBIRKv0xEGl2NrhWF + bundle 自证（canvas-export-png-copy 同时在 static 与 standalone chunks）；t110 49×4 绿（3 连跑 + 矩阵内 1 次）；t109/t108/t107 受影响面全绿（共享原语 copyPngToClipboard 牵连面）；全矩阵 50 套（t110 glob 自动收录）分 8 块串行：qa61 第 5 位瞬态 FAIL（document undefined 上下文死亡形态、单跑复绿、失败位次在 t110 运行之前——与本轮改动无序关联，沿用 qa60/61 间歇通道观察记录）余 49 全绿；worklog + commit + push + 环境清理
+
+Stage Summary:
+- 「一张图，两扇门」：canvas poster 的下载与复制共享 canvasPngBlob 的同一次栅格——不止是代码复用：两次独立栅格可能出现微妙差异（footer 时间戳、像素预算浮动），复制到剪贴板的图必须与下载到磁盘的图是同一张。t110 的 C 相从菜单路径捕获的 793934 字节与 A 相工具栏路径的 783942 字节共享同一管线，体量同族即是构造证明
+- 「共享资源用判别联合门控，不用两个布尔」：exporting: boolean 无法表达「谁在忙」；posterBusy: "download"|"copy"|null 让每个按钮转自己的 spinner，同时任一忙碌全门禁用——栅格是共享资源，并发第二跑只会白烧 html-to-image 的字体缓存。判别联合还给了每扇门独立的错误话术（"Export failed" vs "Copy failed"）
+- 「等待要跟最慢的路径走」：B 相固定 1.5s sleep 输给了秒级 poster 栅格化——reject 只在栅格完成后触发，断言在行为之前就读了观察器。轮询（条件满足即退）是慢路径前唯一诚实的等待；这与 t109 的「瞬态断言先于长路径」互补：反馈窗短于断言路径时先读反馈，行为慢于断言等待时改轮询
+- 「可信右键从此开箱即用」：agent-browser `mouse down right`/`mouse up right` 是 CDP 可信事件，Radix ContextMenu 一次即开——与 Task 111 的「Radix Dialog Escape 只认真键」凑成同一族结论：Radix 的浮层交互（Escape 关闭、右键打开）都认 CDP 可信事件，合成派发两类都试过都死，探针从此不再绕路
+- 「矩阵瞬态的归属判定看两件事」：qa61 在矩阵第 5 位挂、单跑复绿——判定与本轮无关的证据链：失败形态是 eval 上下文死亡（document undefined）而非应用 DOM 断言失败；失败位次在 t110 首次运行之前（排序上 qa* < t85 < t105+，无先后影响）；qa60/61 间歇通道在 Task 108/111 已有同族记录。单次瞬态 + 复绿 + 无序关联 = 观察不立案；两轮同位 = 秩序立案（Task 111 的 qa63 教义）
+- 遗留（下轮候选）：EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势）；TSV/海报 PNG 粘贴进 Excel/docs 的真机验证（headless 无电子表格）；palette 的 Copy 数据入口（行数翻倍需设计）；qa60/61 间歇通道根治评估（B 相 hoverAt/上下文死亡两形态）；minimap node-only 取景与「只看选区」滤镜；历史面板条目分组（需先建面板）；undo 手感参数真机调优；打印样式 results 面板整体排版

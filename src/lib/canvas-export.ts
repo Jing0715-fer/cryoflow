@@ -26,6 +26,7 @@
 
 import { toBlob } from "html-to-image";
 import type { JobDTO, EdgeDTO } from "./types";
+import { copyPngToClipboard } from "./chart-export";
 
 export interface CanvasExportMeta {
   projectName: string;
@@ -72,11 +73,19 @@ export interface CanvasExportResult {
   bytes: number;
 }
 
-/**
- * Export the canvas. Returns the result for the caller's success toast;
- * throws with a user-facing message on failure.
- */
-export async function exportCanvasPng(meta: CanvasExportMeta): Promise<CanvasExportResult> {
+/** One poster rasterization, destination-agnostic: blob + geometry + name.
+ *  The download and clipboard doors both consume THIS — one raster, two
+ *  destinations (same doctrine as the chart domain's chartPngBlob). Throws
+ *  with a user-facing message when the canvas is unmounted, empty, or the
+ *  raster fails. */
+export interface CanvasPng {
+  blob: Blob;
+  width: number;
+  height: number;
+  fileName: string;
+}
+
+export async function canvasPngBlob(meta: CanvasExportMeta): Promise<CanvasPng> {
   const world = document.querySelector<HTMLElement>('[data-canvas="workspace"]');
   const section = document.querySelector<HTMLElement>('[data-canvas="viewport"]');
   if (!world) throw new Error("Canvas is not mounted yet — open the Workflow view and retry.");
@@ -163,14 +172,35 @@ export async function exportCanvasPng(meta: CanvasExportMeta): Promise<CanvasExp
   if (!blob) throw new Error("PNG encoding failed.");
 
   const fileName = `cryoflow-${slug(meta.projectName)}-${slug(meta.workspaceName)}-${timestamp()}.png`;
-  const url = URL.createObjectURL(blob);
+  return { blob, width: outW, height: outH, fileName };
+}
+
+/**
+ * Export the canvas as a poster PNG download. Returns the result for the
+ * caller's success toast; throws with a user-facing message on failure.
+ */
+export async function exportCanvasPng(meta: CanvasExportMeta): Promise<CanvasExportResult> {
+  const png = await canvasPngBlob(meta);
+
+  const url = URL.createObjectURL(png.blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = fileName;
+  a.download = png.fileName;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 4000);
 
-  return { fileName, width: outW, height: outH, bytes: blob.size };
+  return { fileName: png.fileName, width: png.width, height: png.height, bytes: png.blob.size };
+}
+
+/** The clipboard twin of the poster download: SAME raster (canvasPngBlob),
+ *  different destination. Resolves false when the browser refuses the
+ *  clipboard write (permission-locked / API absent) so the caller can toast
+ *  one honest failure pointing at the download door — identical contract to
+ *  the chart domain's copy buttons. Throws the same user-facing messages as
+ *  the download door for unmounted/empty/failed rasters. */
+export async function copyCanvasPng(meta: CanvasExportMeta): Promise<boolean> {
+  const png = await canvasPngBlob(meta);
+  return copyPngToClipboard(png.blob);
 }
 
 export function fmtBytes(n: number): string {

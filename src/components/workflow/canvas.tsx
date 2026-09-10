@@ -13,6 +13,7 @@ import {
   AlignVerticalDistributeCenter,
   Bookmark,
   BookmarkPlus,
+  Check,
   ChevronDown,
   Copy,
   Download,
@@ -20,6 +21,7 @@ import {
   FileUp,
   GitCompareArrows,
   History,
+  ImageUp,
   Link2,
   Loader2,
   RotateCcw,
@@ -43,7 +45,7 @@ import {
 } from "@/lib/workflow";
 import { hasJudgment } from "@/lib/class-notes";
 import { pendingWirePath } from "@/lib/edge-geom";
-import { exportCanvasPng, fmtBytes } from "@/lib/canvas-export";
+import { copyCanvasPng, exportCanvasPng, fmtBytes } from "@/lib/canvas-export";
 import {
   buildWorkflowFile,
   downloadWorkflowJson,
@@ -52,6 +54,7 @@ import {
 import { useWorkflowStore, useActiveWorkspaceJobs, useActiveWorkspaceEdges, type PendingFrom } from "@/lib/store";
 import { beginGroupDrag, endGroupDrag, moveGroupDrag } from "@/lib/group-drag";
 import type { JobDTO } from "@/lib/types";
+import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { EdgesLayer } from "./edges-layer";
 import { PipelineKpi } from "./pipeline-kpi";
@@ -1216,21 +1219,35 @@ export function WorkflowCanvas() {
     setViewport({ x: rect.width / 2 - cx, y: rect.height / 2 - cy, zoom: 1 });
   };
 
-  // ---- PNG export -------------------------------------------------------
-  const [exporting, setExporting] = React.useState(false);
+  // ---- PNG poster doors (download + clipboard share ONE raster) ---------
+  // posterBusy discriminates the two doors so each button can spin its own
+  // icon while BOTH stay disabled — the raster is a shared resource and a
+  // second concurrent capture would just burn the font cache for nothing.
+  const [posterBusy, setPosterBusy] = React.useState<"download" | "copy" | null>(null);
+  const [copiedPng, setCopiedPng] = React.useState(false);
+  const copiedTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  React.useEffect(
+    () => () => {
+      if (copiedTimer.current) clearTimeout(copiedTimer.current);
+    },
+    [],
+  );
+  const posterMeta = useCallback(
+    () => ({
+      projectName: useWorkflowStore.getState().project?.name ?? "project",
+      workspaceName: activeWorkspaceName ?? "workspace",
+      jobs,
+      edges,
+      cardW: CARD_W,
+      cardH: CARD_H,
+    }),
+    [jobs, edges, activeWorkspaceName],
+  );
   const handleExportPng = useCallback(async () => {
-    if (exporting) return;
-    setExporting(true);
+    if (posterBusy) return;
+    setPosterBusy("download");
     try {
-      const s = useWorkflowStore.getState();
-      const res = await exportCanvasPng({
-        projectName: s.project?.name ?? "project",
-        workspaceName: activeWorkspaceName ?? "workspace",
-        jobs,
-        edges,
-        cardW: CARD_W,
-        cardH: CARD_H,
-      });
+      const res = await exportCanvasPng(posterMeta());
       toast({
         title: "Canvas exported",
         description: `${res.fileName} · ${res.width}\u00d7${res.height} px \u00b7 ${fmtBytes(res.bytes)}`,
@@ -1242,9 +1259,39 @@ export function WorkflowCanvas() {
         variant: "destructive",
       });
     } finally {
-      setExporting(false);
+      setPosterBusy(null);
     }
-  }, [exporting, jobs, edges, activeWorkspaceName]);
+  }, [posterBusy, posterMeta]);
+  const handleCopyPng = useCallback(async () => {
+    if (posterBusy) return;
+    setPosterBusy("copy");
+    try {
+      const ok = await copyCanvasPng(posterMeta());
+      if (ok) {
+        if (copiedTimer.current) clearTimeout(copiedTimer.current);
+        setCopiedPng(true);
+        copiedTimer.current = setTimeout(() => setCopiedPng(false), 1600);
+        toast({
+          title: "Canvas copied",
+          description: "Poster PNG on the clipboard — paste into docs or slides",
+        });
+      } else {
+        toast({
+          title: "Canvas could not be copied",
+          description: "Clipboard access was blocked — use the PNG download instead.",
+          variant: "destructive",
+        });
+      }
+    } catch (err) {
+      toast({
+        title: "Copy failed",
+        description: err instanceof Error ? err.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setPosterBusy(null);
+    }
+  }, [posterBusy, posterMeta]);
 
   // ---- workflow JSON export/import --------------------------------------
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -1821,14 +1868,37 @@ export function WorkflowCanvas() {
           size="icon"
           className="size-7"
           onClick={() => void handleExportPng()}
-          disabled={exporting || jobs.length === 0}
+          disabled={posterBusy !== null || jobs.length === 0}
           aria-label="Export canvas as PNG"
           title="Export the whole workflow as a poster PNG (content-fit, with footer)"
         >
-          {exporting ? (
+          {posterBusy === "download" ? (
             <Loader2 className="size-4 animate-spin" />
           ) : (
             <Download className="size-4" />
+          )}
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className={cn("size-7", copiedPng && "text-primary")}
+          onClick={() => void handleCopyPng()}
+          disabled={posterBusy !== null || jobs.length === 0}
+          aria-label="Copy canvas as PNG image"
+          data-canvas-ui="canvas-export-png-copy"
+          data-copy-state={copiedPng ? "png" : "idle"}
+          title={
+            copiedPng
+              ? "Copied — paste it wherever you need it"
+              : "Copy the whole workflow as a poster PNG — paste into docs or slides"
+          }
+        >
+          {posterBusy === "copy" ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : copiedPng ? (
+            <Check className="size-4" />
+          ) : (
+            <ImageUp className="size-4" />
           )}
         </Button>
       </div>
@@ -1875,9 +1945,17 @@ export function WorkflowCanvas() {
           <Wand2 />
           Tidy layout
         </ContextMenuItem>
-        <ContextMenuItem onClick={() => void handleExportPng()} disabled={jobs.length === 0 || exporting}>
+        <ContextMenuItem onClick={() => void handleExportPng()} disabled={jobs.length === 0 || posterBusy !== null}>
           <Download />
           Export canvas as PNG
+        </ContextMenuItem>
+        <ContextMenuItem
+          onClick={() => void handleCopyPng()}
+          disabled={jobs.length === 0 || posterBusy !== null}
+          data-canvas-ui="canvas-menu-png-copy"
+        >
+          <ImageUp />
+          Copy canvas as PNG image
         </ContextMenuItem>
         <ContextMenuItem onClick={handleExportJson} disabled={jobs.length === 0}>
           <FileJson />
