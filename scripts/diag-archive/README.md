@@ -35,6 +35,8 @@ and the next investigation of the same subsystem may want to start from it.
 | qa58-geom-probe.mjs | 92 | zoom/note button overlap measurement (the smoking gun) |
 | t96-shape-probe.mjs | 96 | curl experiment nailing the server rename scope: project-wide (iN) renames, never same-name duplicates |
 
+| t99-diag*.mjs / t99-sample.mjs | 99 | #418 hunt: single/dense/3-tab reload samplers — pinned the culprit to the standalone data snapshot divergence, not hydration code |
+
 ## Status
 
 Archived 2026-09-10 (Task 92) when the migration to playwright removed the

@@ -3181,3 +3181,27 @@ Stage Summary:
 - 「pdftotext 的词序是几何不是文本」：文本提取按坐标排序，卡片重叠区的词块交错是常态——「名字连续出现」锁的是打印几何的巧合而非「名字上纸」的契约。词级存在性（-bbox 词表）才是既宽容（换行是设计）又锋利（丢卡必丢词）的正解。墨量地板同理：比例随尺度漂移，要配注释配定期重标定
 - 「bbox 下方空旷带是画布探针的免费午餐」：世界越摊越宽后，Reset view（zoom-1）装不下、bbox 中心有常住卡——唯一永远空旷且 fit-all 必然可见的位置是 maxy+240 下方；wheel 缩小（ZOOM_MIN 0.25 → 6400px 视野）替代 zoom-1 重心，让「看得见」不再依赖世界宽度假设
 - 遗留（下轮候选）：EMPIAR 真数据回归（重）；用户真机 class3d/refine3d 顺序模式与 topaz 实测反馈；diff 对话框 Open 行 canvas 入口价值复查；文件夹拖拽真机手势反馈；undo 快照仅存 toast 闭包（Ctrl+Z 历史栈观察需求）；视口记忆如需跨 reload 持久化须 debounce 手势结束再写 localStorage；Import Movies 1 的 orphan（workspaceId null，名册 Unassigned 徽章 + Adopt 按钮是现成产品流）——可评估 seed 是否该直接给 Main；t88 锚卡 home 在崩跑后可能漂移（本轮 y=336 链排证据支持已复原）
+
+---
+Task ID: 99
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-10 07:44 window)
+Task: cron 自主巡检——Task 99「视口记忆 reload 存续（sessionStorage hydrate + debounced persist）+ standalone 数据分叉根因修复」：①新功能——Task 98 内存视口记忆的续章：「会话记忆随会话死」的精确化——reload ≠ 会话结束（F5 误刷新不该丢视图），关 tab 才是会话终点；store 启动时从 sessionStorage hydrate（per-tab 语义免费给出三层正确性：同 tab reload 恢复、新 tab 不继承、关 tab 即焚），每次视口变化 trailing-debounce 400ms 落盘（pan 是 per-frame 事件流，同步 IO 进去就是 Task 13 #13 复刻）；②回归惊魂升级为 infra 级根因修复——矩阵首跑 qa58/qa84 崩 React #418，一路追到 standalone 数据快照分叉：服务器 CWD=.next/standalone → DATA_DIR 解析到 standalone/data，rebuild 把真 data/ 复制成冻结快照 → 探针写真目录、服务器读快照，静默分叉；start-prod.sh 启动前幂等恢复 symlink 立碑。t99 20 断言三连绿 + 全矩阵 31 套绿 + worklog + push
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 98、HEAD 8cd7bdb == origin/main、BUILD_ID 4yH00mXNUgbqpXOgY6eiF 匹配；冷启动 + smoke + t98/qa84 全绿 → 稳定
+- 【选题】Task 98 遗留候选评估：EMPIAR（重）、真机反馈（不可 headless）、Ctrl+Z 栈（另一量级）让位；Task 98 遗留写的是 localStorage，但那会把记忆烧进永久存储——sessionStorage 才是「reload 存续 + 会话即焚」的正解
+- 【实现①store】VIEWPORT_MEMORY_KEY v1 版本化键名 + hydrateViewportMemory()（typeof window SSR 守卫 + JSON.parse try/catch + 每条 isFinite 形状校验——损坏数据丢弃不信任）作 create 初值；scheduleViewportMemoryPersist 400ms trailing debounce + quota try/catch（隐私模式降级纯内存）；setViewport/panBy 双路 write-through 内存 + schedule（内存层零延迟、磁盘层一手势一写）
+- 【实现②canvas 一折】t99 B1 三连 FATAL——fittedEpochRef 初值 -1 vs layoutEpoch 初值 0：reload 后首次挂载 epochChanged=true → fit 分支抢跑，记忆恢复分支永不可达（Task 98 时代正确——reload 本来就 re-fit；Task 99 后成死锁）。修：lazy-init ref 首次 render 采纳当前 epoch → mount 决策权交 keyChanged 分支（hydrate 记忆→恢复/无→首访 fit）；顺带统一 dashboard⇄canvas remount 路径（此前 arrange 过再切 view 回来也丢记忆）
+- 【t98 合同更新】B 相「reload re-fits」→「reload restores」（sessionStorage hydrate 逐字恢复）；D1 write-through×2 → schedule×2；D2 初值字面量 → hydrate 调用
+- 【t99 探针 20 断言六相】S 相 sessionStorage.clear 干净起点；A 相个性化+debounce 落盘（记录存在 + zoom 对齐 live UI）；B 相 reload transform 逐字恢复；C 相新 tab 首访 fit（per-tab 隔离正向）+ 原 tab detour 后仍恢复（双向）；D 相静态 8 断言（SSR 守卫/debounce/try-catch/形状校验/键名/无 localStorage/clamp 恢复/lazy-init 契约）；Z 相 console+计数
+- 【回归惊魂·#418 与工作树误判】矩阵批 1 首跑 qa58/qa84 崩「Minified React error #418」（hydration text mismatch）。stash 对照钉死因果——随后发现**工作树误判**：首轮 stash 后忘 pop，此后所有「新码」实验全跑在旧码 build 上（diag 0 错/采样 0 命中/qa58+qa84 全绿全是假象）；pop 恢复后新码 16 页采样仍 0 命中、同源码不同 build 表现漂移——证据链指向非源码方向
+- 【真根因·infra 级】负载复现重跑批 1：qa58/qa80-83 崩「VERIFY FAIL: expected 8 classes, got 0」——种子写真目录 data/、服务器 0 classes。三路 curl 对照（plain 空 / workdir override 400「must stay inside」/ iter 空）钉死 DATA_DIR 错位：paths.ts PROJECT_ROOT=process.cwd() → standalone server 的 DATA_DIR=.next/standalone/data；rebuild 重建该目录时 Next 把真 data/ 复制成冻结快照（曾经的 symlink 被实体化）→ getRun 的 record 在真目录 engine-state（服务器读不到）→ workdir 回退计算路径在快照中不存在 → existsSync false → 空响应。#418 同源：预渲染 HTML 烘焙 build 时刻的快照文本，CSR 首帧 fetch 分叉后的空数据 → 文本 mismatch（间歇性 = 仅当 fetch 数据在 build 后变过）
+- 【修复】diff -rq 确认快照无独有数据（engine-state snapshot-only 空）后，start-prod.sh 启动前 rm -rf .next/standalone/data + ln -s 真目录（幂等，无论 build 留下什么）+ 注释立碑；classes curl 立即恢复 8 类真实占用率；**#418 一并消失**——批 1 全绿
+- 【收尾】eslint src 0、tsc src 0、production build（BUILD_ID IqKTyHOmIopODqgqJGFO0）+ served 自证；t99 20×3 三连绿；t98 22 断言合同更新版绿；全矩阵 31 套（+t99）串行全绿；4 个 diag 采样器归档 diag-archive/（README 加行）
+
+Stage Summary:
+- 「reload 不是会话的终点，是 React 树的终点」：内存 store 的记忆随组件树死，用户的会话随 tab 死——两个生命周期本来就不该混为一谈。sessionStorage 的 per-tab 语义免费给出三层正确性：同 tab reload 恢复（用户预期）、新 tab 不继承（隔离）、关 tab 即焚（不污染永久存储）。localStorage 是「永久记忆」的工具，用来做会话记忆是把最重的工具用在最轻的需求上
+- 「mount 不是内容变化」：fittedEpochRef=-1 的隐含假设是「首挂载必须 fit」——在「reload 本来就 fit」的时代无伤大雅，记忆层上移后成了恢复路径的死锁。ref 初值 lazy 采纳当前 epoch 把「挂载」从「epoch 事件」里除名，恢复权交还 keyChanged 分支——视图所有权优先级链（epoch fit > memory > first-visit fit）从此在每个入口都成立
+- 「工作树状态是实验的前提，不是背景」：stash 后忘 pop，此后一小时的「对照实验」全在跑错误的版本——旧码行为被误读成新码行为。git stash 是有副作用的实验操作：做之前记下 git status -sb，做完立刻核对「我以为在测的版本」真的在工作树里
+- 「数据分叉是 infra 级哑弹」：standalone 快照分叉不动声色——服务器活着、API 200、UI 正常，只是所有「探针写文件→API 读」链路全部空转。三类症状（#418 hydration、VERIFY FAIL 0 classes、workdir override 400）横跨浏览器渲染、Python 种子、API 契约三层指向同一根因——「Cross-site 400」这个反常报错是钥匙：一个明明在树内的路径被拒，说明服务器的树和我的树不是同一棵。修在 start-prod.sh（每次启动幂等恢复 symlink）而不是 build 后手动补——惯例要活在对 build 的防御里，不是活在人的记忆里
+- 遗留（下轮候选）：EMPIAR 真数据回归（重）；用户真机 class3d/refine3d 顺序模式与 topaz 实测反馈；diff 对话框 Open 行 canvas 入口价值复查；文件夹拖拽真机手势反馈；undo 快照仅存 toast 闭包（Ctrl+Z 历史栈观察需求）；server data 视角一致性探针（轻量路由 vs 磁盘直读对照）进 qa_lib，防其他启动方式（bun dev/pm2）重蹈分叉；paths.ts 的 process.cwd() 可移植性设计 vs standalone cwd 现实在便携部署下是否成立值得复查

@@ -10,13 +10,16 @@
 //   - FIRST visit still fits (fresh landing contract);
 //   - layoutEpoch (import / auto-arrange) always re-fits and the fit
 //     becomes the new memory — fresh content wins over stale memory;
-//   - session scope only: no localStorage, a reload deliberately re-fits.
+//   - session scope: hydrated from sessionStorage (same tab) on load, so a
+//     reload in THIS tab restores the view (Task 99); a fresh tab or a
+//     closed tab deliberately re-fits — never localStorage.
 //
 // Phase S — setup: baseline, second workspace + one seeded job, canvas up
 // Phase A — remember & restore: pan+zoom Main → switch to Second (first
 //   visit FITS, not Main's view) → pan Second → back to Main (view returns
 //   EXACTLY) → back to Second (its own memory, not its fit)
-// Phase B — reload re-fits: session memory is honest (no localStorage)
+// Phase B — reload restores: sessionStorage hydrate brings Main's view back
+//   in the same tab (Task 99 contract)
 // Phase C — arrange wins: auto-arrange reframes Main, and the fit becomes
 //   the remembered view (switch away and back → still the fit)
 // Phase D — static contract: write-through in setViewport+panBy, merged
@@ -160,8 +163,8 @@ await switchWs("t98 Second");
 const tfBack2 = await worldTf();
 must(tfBack2 === tfB2, "A8 back to Second — ITS remembered view (not the fit)");
 
-/* ---------------- Phase B: reload re-fits (session scope) ---------------- */
-console.log("Phase B — reload re-fits");
+/* ---------------- Phase B: reload restores (same tab) ---------------- */
+console.log("Phase B — reload restores");
 await switchWs("Main");
 const tfPre = await worldTf();
 await p.reload({ waitUntil: "networkidle" });
@@ -169,7 +172,7 @@ await p.waitForSelector('[data-canvas="viewport"]');
 await sleep(1000);
 const tfReload = await worldTf();
 const zoomReload = await zoomPct();
-must(tfReload !== tfPre, `B1 reload re-fits — session memory is honest (zoom ${zoomReload}%)`);
+must(tfReload === tfPre, `B1 reload restores Main's remembered view via sessionStorage hydrate (zoom ${zoomReload}%)`);
 
 /* ---------------- Phase C: arrange wins ---------------- */
 console.log("Phase C — arrange wins");
@@ -197,12 +200,12 @@ await api("/api/jobs/layout", "POST", { updates: posBefore });
 console.log("Phase D — static contract");
 const storeSrc = readFileSync("src/lib/store.ts", "utf8");
 must(
-  (storeSrc.match(/viewportMemory: \{ \.\.\.s\.viewportMemory/g) ?? []).length === 2,
-  "D1 store: write-through in BOTH setViewport and panBy"
+  (storeSrc.match(/scheduleViewportMemoryPersist\(memory\)/g) ?? []).length === 2,
+  "D1 store: debounced sessionStorage persist wired in BOTH setViewport and panBy"
 );
 must(
-  storeSrc.includes("viewportMemory: {}") && storeSrc.includes("Record<string, Viewport>"),
-  "D2 store: memory field typed + defaulted"
+  storeSrc.includes("viewportMemory: hydrateViewportMemory()") && storeSrc.includes("Record<string, Viewport>"),
+  "D2 store: memory field typed + hydrated from sessionStorage seed"
 );
 const canvasSrc = readFileSync("src/components/workflow/canvas.tsx", "utf8");
 must(

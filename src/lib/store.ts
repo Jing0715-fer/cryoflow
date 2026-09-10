@@ -40,6 +40,60 @@ export interface Viewport {
   zoom: number;
 }
 
+/** sessionStorage key for the viewport memory (Task 99). Lives exactly as
+ *  long as the tab: a reload (F5, accidental or deliberate) keeps the view,
+ *  closing the tab burns it — never touches localStorage, never leaks
+ *  across tabs or sessions. */
+const VIEWPORT_MEMORY_KEY = "cryoflow.viewportMemory.v1";
+
+/** Debounce window for sessionStorage writes: pan emits a state update per
+ *  pointer move, and sessionStorage IO is synchronous — trailing-debounce
+ *  so the disk sees ONE write per gesture, ~400ms after it ends. */
+const VIEWPORT_MEMORY_PERSIST_MS = 400;
+
+let viewportMemoryPersistTimer: ReturnType<typeof setTimeout> | null = null;
+
+function scheduleViewportMemoryPersist(memory: Record<string, Viewport>) {
+  if (typeof window === "undefined") return;
+  if (viewportMemoryPersistTimer) clearTimeout(viewportMemoryPersistTimer);
+  viewportMemoryPersistTimer = setTimeout(() => {
+    viewportMemoryPersistTimer = null;
+    try {
+      window.sessionStorage.setItem(VIEWPORT_MEMORY_KEY, JSON.stringify(memory));
+    } catch {
+      // private mode / quota — memory stays in-RAM, reload just re-fits
+    }
+  }, VIEWPORT_MEMORY_PERSIST_MS);
+}
+
+/** Seed the memory from sessionStorage (same tab only, see key doc). Every
+ *  entry is shape-checked — corrupted or stale-shaped data is dropped, not
+ *  trusted (zoom must be finite; the canvas clamps on restore anyway). */
+function hydrateViewportMemory(): Record<string, Viewport> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.sessionStorage.getItem(VIEWPORT_MEMORY_KEY);
+    if (!raw) return {};
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return {};
+    const out: Record<string, Viewport> = {};
+    for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+      if (!v || typeof v !== "object") continue;
+      const { x, y, zoom } = v as Record<string, unknown>;
+      if (
+        typeof x === "number" && Number.isFinite(x) &&
+        typeof y === "number" && Number.isFinite(y) &&
+        typeof zoom === "number" && Number.isFinite(zoom)
+      ) {
+        out[k] = { x, y, zoom };
+      }
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
 /** Pre-delete capture carried by the delete toast's Undo action (Task 97).
  *  Jobs hold the FULL pre-delete DTOs — status/progress/result/note included —
  *  because restore re-creates the rows verbatim; edges hold the deleted
@@ -77,9 +131,10 @@ interface WorkflowState {
   pendingFrom: PendingFrom | null;
   /** Pan + zoom of the free canvas viewport. */
   viewport: Viewport;
-  /** Per-(project:workspace) viewport memory (session scope): what the canvas
-   *  restores when the user comes BACK to a workspace. Written through on
-   *  every viewport change; deliberately NOT persisted across reloads. */
+  /** Per-(project:workspace) viewport memory (tab-session scope): what the
+   *  canvas restores when the user comes BACK to a workspace or RELOADS the
+   *  page. Written through on every viewport change and debounced into
+   *  sessionStorage (same tab only); closing the tab deliberately burns it. */
   viewportMemory: Record<string, Viewport>;
   /** Job type key being dragged from the palette (drop target hint). */
   paletteDrag: string | null;
@@ -396,7 +451,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   inspectId: null,
   pendingFrom: null,
   viewport: { x: 0, y: 0, zoom: 1 },
-  viewportMemory: {},
+  viewportMemory: hydrateViewportMemory(),
   paletteDrag: null,
   layoutEpoch: 0,
   focusJobId: null,
@@ -1655,8 +1710,10 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   cancelConnect: () => set({ pendingFrom: null }),
   // Every viewport change is remembered under the (project:workspace) key —
   // the canvas' switch effect restores it when the user comes BACK to a
-  // workspace instead of always zoom-to-fit (first visit still fits).
-  // Session-scope only: no localStorage, a reload deliberately re-fits.
+  // workspace instead of always zoom-to-fit (first visit still fits), and
+  // the hydrate seed restores it across a reload in the same tab.
+  // Tab-session scope only: sessionStorage (debounced — pan is per-frame),
+  // never localStorage, closing the tab deliberately burns it.
   setViewport: (patch) =>
     set((s) => {
       const next = {
@@ -1665,13 +1722,17 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         zoom: clamp(patch.zoom ?? s.viewport.zoom, ZOOM_MIN, ZOOM_MAX),
       };
       const key = `${s.project?.id ?? "-"}:${s.activeWorkspaceId ?? "-"}`;
-      return { viewport: next, viewportMemory: { ...s.viewportMemory, [key]: next } };
+      const memory = { ...s.viewportMemory, [key]: next };
+      scheduleViewportMemoryPersist(memory);
+      return { viewport: next, viewportMemory: memory };
     }),
   panBy: (dx, dy) =>
     set((s) => {
       const next = { ...s.viewport, x: s.viewport.x + dx, y: s.viewport.y + dy };
       const key = `${s.project?.id ?? "-"}:${s.activeWorkspaceId ?? "-"}`;
-      return { viewport: next, viewportMemory: { ...s.viewportMemory, [key]: next } };
+      const memory = { ...s.viewportMemory, [key]: next };
+      scheduleViewportMemoryPersist(memory);
+      return { viewport: next, viewportMemory: memory };
     }),
   setDragActive: (active) => set({ dragActive: active }),
   setPaletteDrag: (type) => set({ paletteDrag: type }),

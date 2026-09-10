@@ -19,6 +19,15 @@ for i in 1 2 3 4 5; do
   fuser -k 3000/tcp 2>/dev/null
   sleep 1
 done
+# Task 99 lesson: the standalone server resolves DATA_DIR against ITS cwd
+# (.next/standalone), and every `next build` REGENERATES that dir — Next
+# copies the real data/ tree in as a FROZEN SNAPSHOT (a previous symlink is
+# materialized). From then on the server and every probe script (which write
+# the real ./data) diverge silently: seeded workdirs and engine-state records
+# are invisible to the API (classes → 0, verify fails) and fs routes 400.
+# Restore the live link before boot, EVERY time, whatever the build left.
+rm -rf .next/standalone/data
+ln -s /home/z/my-project/data .next/standalone/data
 sleep 1
 export NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--max-old-space-size=896"
 setsid bun run start >/dev/null 2>&1 < /dev/null &

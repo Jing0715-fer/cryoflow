@@ -756,7 +756,13 @@ export function WorkflowCanvas() {
   const projectKey = jobs.length > 0 ? jobs[0].projectId : null;
   const fitKey = projectKey ? `${projectKey}:${activeWorkspaceId ?? "-"}` : null;
   const fittedKeyRef = React.useRef<string | null>(null);
-  const fittedEpochRef = React.useRef<number>(-1);
+  // adopts the CURRENT layoutEpoch on first render: a fresh mount (reload,
+  // or dashboard ⇄ canvas remount) must NOT read as "epoch changed" — the
+  // restore decision on mount belongs to the keyChanged branch below
+  // (hydrated memory → restore, else first-visit fit). A fixed -1 here made
+  // every mount fit-again even when a remembered view existed (Task 99 bug).
+  const fittedEpochRef = React.useRef<number | null>(null);
+  if (fittedEpochRef.current === null) fittedEpochRef.current = layoutEpoch;
   React.useEffect(() => {
     if (loading || jobs.length === 0) return;
     const rect = rootRef.current?.getBoundingClientRect();
