@@ -71,7 +71,7 @@ const phaseA = async () => {
   let node = "";
   for (let i = 0; i < 15 && !node.includes("clicked@"); i++) {
     node = await realClick(
-      `[...document.querySelectorAll('[role=button]')].find(x => (x.textContent||'').includes('3D Auto-Refine 1') && (x.textContent||'').includes('completed'))`,
+      `[...document.querySelectorAll('[role=button]')].find(x => (x.textContent||'').includes('QA Refine3D') && (x.textContent||'').includes('completed'))`,
     );
     if (!node.includes("clicked@")) await sleep(2000);
   }
@@ -129,7 +129,7 @@ const phaseA = async () => {
   })()`));
   step(`  md head: ${text.slice(0, 160)}`);
   if (text.includes("# CryoFlow run report")) {
-    if (!text.includes("3D Auto-Refine 1")) throw new Error("report missing job name");
+    if (!text.includes("QA Refine3D")) throw new Error("report missing job name");
     if (!text.includes("## Resolution") || !text.includes("## Outputs on disk"))
       throw new Error("report missing sections");
     step("  content assertions: PASS (promise resolved)");

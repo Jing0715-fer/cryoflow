@@ -28,7 +28,18 @@ process.on("exit", (c) => step(`exit code=${c}`));
 process.on("uncaughtException", (e) => { step(`uncaught: ${e.message}`); process.exit(2); });
 process.on("unhandledRejection", (e) => { step(`unhandledRejection: ${e}`); process.exit(3); });
 
-const JID = process.env.QA_JID || "cmts0qoho0003p8da75rvxycc";
+const JID = process.env.QA_JID || (() => {
+  // resolve job id by NAME — the hardcoded fixture id died with the old
+  // DB (qa53 lesson: ids drift across seeds, names survive; restore
+  // the sandbox with scripts/restore-gallery.py when missing)
+  const raw = execSync(`curl -s --max-time 20 "http://localhost:3000/api/jobs"`,
+    { encoding: "utf8", timeout: 60_000 });
+  const parsed = JSON.parse(raw);
+  const arr = Array.isArray(parsed) ? parsed : parsed.jobs ?? [];
+  const j = arr.find((x) => x.name === "QA Refine3D" && x.status === "completed");
+  if (!j) throw new Error('host job "QA Refine3D" (completed) not found — run scripts/restore-gallery.py first');
+  return j.id;
+})();
 const BM_KEY = `cryoflow.mol-camera-bookmarks:${JID}`;
 const sh = (cmd) => execSync(cmd, { encoding: "utf8", timeout: 120_000 }).trim();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -93,50 +104,164 @@ const srvEmpty = (raw) => raw === "CURL-FAIL" || (JSON.parse(raw).bookmarks?.len
 const srvNames = (raw) => (JSON.parse(raw).bookmarks ?? []).map((b) => b.name);
 
 const openViewer = async () => {
-  let card = "";
-  for (let i = 0; i < 14; i++) {
-    card = await realClick(
-      `[...document.querySelectorAll('button')].find(x => x.getAttribute('aria-label') === 'Enlarge Half-map 1 (iter 1)')`,
-    );
-    if (card.includes("clicked@")) break;
-    await realClick(
-      `[...document.querySelectorAll('[role=button]')].find(x => (x.textContent||'').includes('3D Auto-Refine 1') && (x.textContent||'').includes('completed'))`,
-    );
-    step(`  openViewer iter ${i}: enlarge=${card.slice(0, 24)}`);
-    await sleep(2200);
+  // modern entry chain, all-atomic edition: CLI `click` resolves the rect
+  // and clicks in one step (realClick's measure-then-move window let the
+  // canvas settle onto a stale point → deselect → inspector self-close
+  // flap); inside the Radix modal, programmatic .click() drives the
+  // handlers with zero coordinates. orthovol.mrc is self-seeded (qa67
+  // seeder, QA_VOL_HOST selects the refine3d sandbox).
+  sh(`QA_VOL_HOST="QA Refine3D" python3 /home/z/my-project/scripts/qa67-seed-volume.py >/dev/null 2>&1 || true; python3 /home/z/my-project/scripts/seed-refine-halves.py >/dev/null 2>&1 || true`);
+  // world reset: a fresh load guarantees no stale modal overlaying the nav
+  // (a leftover inspector from a prior phase covers everything otherwise)
+  // the CLI JSON-encodes eval output — a bare `true` comes back as `"true"`
+  // (the unq() lesson from qa54/qa68); compare through this helper
+  const truthy = (s) => String(s).replace(/^"|"$/g, "") === "true";
+  const pollClose = async (n) => {
+    for (let c = 0; c < n; c++) {
+      const anyDialog = truthy(evalJs(`String(!!document.querySelector('[role=dialog]'))`));
+      if (!anyDialog) return true;
+      evalJs(`(() => { const b=[...document.querySelectorAll('button')].find(x=>x.getAttribute('aria-label')==='Close inspector'); b ? b.click() : 0; return 'done'; })()`);
+      await sleep(1500);
+    }
+    return !truthy(evalJs(`String(!!document.querySelector('[role=dialog]'))`));
+  };
+  // phase A may have left the inspector open (its card click opens it) —
+  // close BEFORE navigating, so the nav is reachable either way
+  await pollClose(4);
+  // navigate; `open` may no-op on the same URL — verify the generation via
+  // performance.timeOrigin and force location.reload() when unchanged
+  const before = evalJs(`String(performance.timeOrigin)`);
+  sh(`${AB} errors --clear >/dev/null 2>&1 || true`);
+  sh(`${AB} open http://localhost:3000`);
+  await sleep(2500);
+  if (evalJs(`String(performance.timeOrigin)`) === before) {
+    evalJs(`location.reload(); 'reloading'`);
+    await sleep(2500);
   }
-  if (!card.includes("clicked@")) throw new Error("half-map card never appeared");
-  await sleep(1500);
-  let v3d = "";
-  for (let i = 0; i < 12; i++) {
-    v3d = evalJs(
-      `(() => { const b = [...document.querySelectorAll('button')].find(x => x.textContent.trim().startsWith('View in 3D')); b ? b.click() : 0; return b ? 'v3d-clicked' : 'V3D-WAIT'; })()`,
-    );
-    if (v3d.includes("v3d-clicked")) break;
-    await sleep(2000);
+  // wait for the app's DATA LOAD to land (cards render) — modal restore
+  // timing rides on the same load, so only now does "no dialog" mean it
+  let loaded = false;
+  for (let c = 0; c < 20 && !loaded; c++) {
+    loaded = truthy(evalJs(`String([...document.querySelectorAll('[role=button]')].some(x => (x.textContent||'').includes('QA Refine3D')))`,));
+    if (!loaded) await sleep(1500);
   }
-  step(`  v3d: ${v3d}`);
-  for (let i = 0; i < 75; i++) {
-    await sleep(2000);
-    const probe = evalJs(`({m: typeof window.__molstar, s: !!document.querySelector('[role=slider]')})`).replace(/\s+/g, "");
-    if (i % 10 === 9) step(`  ready-wait ${i}: ${probe.slice(0, 50)}`);
-    if (probe.includes('"m":"object"') && probe.includes('"s":true')) return true;
+  await pollClose(10);
+  // the world-reset reload wiped the suite's toast observer — re-arm it
+  // BEFORE any restore path can fire (the pending-view restore lands as
+  // soon as the bookmark list loads, possibly before Mol* is ready)
+  evalJs(toastObserver);
+  await sleep(800);
+  const cliClick = (sel) => {
+    try { sh(`${AB} click '${sel}'`); return true; } catch { return false; }
+  };
+  const resultsTab = `(() => { const t=[...document.querySelectorAll('[role=tab]')].find(x=>x.textContent.trim()==='Results'); t ? t.click() : 0; return t ? 'tab' : 'NO-TAB'; })()`;
+  for (let i = 0; i < 8; i++) {
+    const hasInspector = truthy(evalJs(`String([...document.querySelectorAll('[role=tab]')].some(t => t.textContent.trim() === 'Results'))`));
+    if (!hasInspector) {
+      const dash = cliClick(`[title^="Project dashboard"]`);
+      // wait for the dashboard to actually mount — clicking the row before
+      // the view switches logs a CLI "not found" that pollutes the error
+      // buffer the suite asserts on later
+      let onDash = false;
+      for (let w = 0; w < 8 && !onDash; w++) {
+        await sleep(800);
+        onDash = truthy(evalJs(`String(!!document.querySelector('section[aria-label="Active project spotlight"]'))`));
+      }
+      const rowPresent = truthy(evalJs(`String(!!document.querySelector('[title^="Open QA Refine3D"]'))`));
+      const row = rowPresent ? cliClick(`[title^="Open QA Refine3D"]`) : "absent";
+      step(`  entry ${i}: dash=${dash} row=${row}`);
+      await sleep(3200);
+      if (!truthy(evalJs(`String([...document.querySelectorAll('[role=tab]')].some(t => t.textContent.trim() === 'Results'))`))) continue;
+    }
+    evalJs(resultsTab);
+    await sleep(1200);
+    // programmatic click — a PHYSICAL click on a tile inside the Radix
+    // modal stack closes the whole stack (overlay pointerdown races the
+    // nested dialog); el.click() drives the handler with no pointer events
+    const tile = evalJs(`(() => { const b=[...document.querySelectorAll('button[aria-label^="Enlarge"]')].find(x => (x.getAttribute('aria-label')||'').includes('orthovol')); if (!b) return 'NO-TILE'; b.click(); return 'clicked'; })()`);
+    step(`  tile ${i}: ${tile}`);
+    // the central-slice PNG is rendered server-side — poll for the dialog's
+    // "View in 3D" button instead of a single fixed wait
+    let ready = false;
+    for (let w = 0; w < 12 && !ready; w++) {
+      await sleep(1500);
+      ready = truthy(evalJs(`String([...document.querySelectorAll('button')].some(b => (b.textContent||'').includes('View in 3D')))`));
+    }
+    step(`  enlarge-dialog ${i}: tile=${tile} ready=${ready}`);
+    if (!ready) continue;
+    let v3d = "";
+    for (let k = 0; k < 6; k++) {
+      v3d = evalJs(
+        `(() => { const b = [...document.querySelectorAll('button')].find(x => x.textContent.trim().startsWith('View in 3D')); b ? b.click() : 0; return b ? 'v3d-clicked' : 'V3D-WAIT'; })()`,
+      );
+      if (v3d.includes("v3d-clicked")) break;
+      await sleep(1500);
+    }
+    step(`  v3d: ${v3d}`);
+    for (let w = 0; w < 75; w++) {
+      await sleep(2000);
+      const probe = evalJs(`({m: typeof window.__molstar, s: !!document.querySelector('[role=slider]')})`).replace(/\s+/g, "");
+      if (w % 10 === 9) step(`  ready-wait ${w}: ${probe.slice(0, 50)}`);
+      if (probe.includes('"m":"object"') && probe.includes('"s":true')) {
+        // the "View in 3D" spawn no longer auto-closes the image dialog —
+        // it stays up and covers the viewer toolbar. Close THAT dialog by
+        // its own Close button — a blanket Escape tears down the whole
+        // Radix stack (inspector + Mol* pane die with it)
+        evalJs(`(() => {
+          const dlgs = [...document.querySelectorAll('[role=dialog][data-state=open]')];
+          const img = dlgs.find(d => [...d.querySelectorAll('button')].some(b => (b.textContent||'').includes('View in 3D')));
+          if (!img) return 'no-image-dialog';
+          const c = [...img.querySelectorAll('button')].find(b => (b.textContent||'').trim() === 'Close');
+          if (!c) return 'no-close';
+          c.click();
+          return 'closed';
+        })()`);
+        await sleep(1500);
+        return true;
+      }
+    }
+    return false;
   }
   return false;
 };
 
 const ensurePopover = async (uiName, triggerAria) => {
-  const open = evalJs(`(() => {
-    const p = document.querySelector('[data-canvas-ui=${uiName}]');
-    if (!p) { const t = [...document.querySelectorAll('button')].find(b => (b.getAttribute('aria-label')||'').includes('${triggerAria}')); if (!t) return 'NO-TRIGGER'; t.click(); return 'opened'; }
-    return 'was-open';
-  })()`);
-  await sleep(1200);
-  return open;
+  // Radix Popover triggers fire on POINTERDOWN — a programmatic t.click()
+  // never opens it. Poke first (cheap when already open), then verify and
+  // follow up with a physical CLI click while the panel is still absent.
+  for (let i = 0; i < 4; i++) {
+    const state = evalJs(`(() => {
+      const p = document.querySelector('[data-canvas-ui=${uiName}]');
+      if (p) return 'was-open';
+      const t = [...document.querySelectorAll('button')].find(b => (b.getAttribute('aria-label')||'').startsWith('${triggerAria}'));
+      if (!t) return 'NO-TRIGGER';
+      t.click();
+      return 'poked';
+    })()`);
+    await sleep(1200);
+    const open = evalJs(`String(!!document.querySelector('[data-canvas-ui=${uiName}]'))`).replace(/^"|"$/g, "") === "true";
+    if (open) return "was-open";
+    if (String(state).includes("NO-TRIGGER")) return "NO-TRIGGER";
+    // physical CLI clicks refuse covered points (the trigger can sit under
+    // the inspector footer inside the modal scroll area); a synthetic
+    // PointerEvent pair drives Radix's pointerdown handler with no geometry
+    evalJs(`(() => {
+      const t = [...document.querySelectorAll('button')].find(b => (b.getAttribute('aria-label')||'').startsWith('${triggerAria}'));
+      if (!t) return 'NO-TRIGGER';
+      const r = t.getBoundingClientRect();
+      const opts = { bubbles: true, cancelable: true, clientX: r.x + r.width / 2, clientY: r.y + r.height / 2, button: 0, pointerId: 1 };
+      t.dispatchEvent(new PointerEvent('pointerdown', opts));
+      t.dispatchEvent(new PointerEvent('pointerup', opts));
+      t.dispatchEvent(new MouseEvent('click', opts));
+      return 'pointer-poked';
+    })()`);
+    await sleep(1200);
+  }
+  return evalJs(`String(!!document.querySelector('[data-canvas-ui=${uiName}]'))`).includes("true") ? "was-open" : "NEVER-OPENED";
 };
 
 const deleteAllBookmarks = async () => {
-  await ensurePopover("camera-bookmarks", "bookmarks"); // the import dialog steals focus and closes it
+  await ensurePopover("camera-bookmarks", "Camera view bookmarks"); // the import dialog steals focus and closes it
   const hasPopover = evalJs(`(!!document.querySelector('[data-canvas-ui=camera-bookmarks]') + '')`);
   if (hasPopover !== '"true"' && hasPopover !== "true") {
     // viewer closed (Escape did) — clear both mirrors without the UI
@@ -167,9 +292,13 @@ const fullView = () => ({
   clip: { on: true, x: 0.6, y: 1, z: 1, invert: false },
 });
 
-const importViaInput = (payload) =>
-  evalJs(`(() => {
-    const inp = document.querySelector('[data-canvas-ui=camera-bookmarks] input[type=file]');
+const importViaInput = async (payload, autoConfirm = false) => {
+  // the hidden file input lives at the COMPONENT ROOT now (Task 54: a
+  // Radix dialog auto-dismisses the popover beneath it, unmounting a
+  // popover-scoped input) and imports land in the preview dialog, which
+  // needs the confirm click
+  const res = evalJs(`(() => {
+    const inp = document.querySelector('input[accept="application/json,.json"]');
     if (!inp) return 'NO-INPUT';
     const dt = new DataTransfer();
     const f = new File([JSON.stringify((${JSON.stringify(payload)}))], 'views.json', { type: 'application/json' });
@@ -178,6 +307,27 @@ const importViaInput = (payload) =>
     inp.dispatchEvent(new Event('change', { bubbles: true }));
     return 'injected';
   })()`);
+  if (!String(res).includes("injected")) return res;
+  // inject-only mode: the caller drives the preview dialog (qa43 asserts
+  // the checklist before confirming); autoConfirm for row-count flows
+  if (!autoConfirm) return "injected";
+  // confirm with retries — the preview dialog's buttons can lag the open
+  for (let k = 0; k < 6; k++) {
+    await sleep(1200);
+    const r = evalJs(`(() => {
+      const dlgs = [...document.querySelectorAll('[role=dialog][data-state=open]')];
+      const dlg = dlgs.find(d => (d.textContent||'').includes('Import views'));
+      if (!dlg) return 'NO-IMPORT-DIALOG';
+      const btn = [...dlg.querySelectorAll('button')].find(b => /^Import( \\d+)?$/.test((b.textContent||'').trim()));
+      if (!btn) return 'NO-CONFIRM';
+      btn.click();
+      return 'confirmed';
+    })()`);
+    if (String(r).includes("confirmed")) return "confirmed";
+    if (String(r).includes("NO-IMPORT-DIALOG")) continue; // dialog may still mount
+  }
+  return "NEVER-CONFIRMED";
+};
 
 /** the import-preview dialog probe — returns a structured object directly */
 const dlgProbe = `(() => {
@@ -189,7 +339,9 @@ const dlgProbe = `(() => {
     desc: (d.textContent.match(/\\d+ of \\d+ entr\\w+ parsed[^—]*— tick what lands/) || [''])[0].replace(/\\s+/g, ' '),
     rows: d.querySelectorAll('[role=group] label').length,
     poseOnly: /pose only/.test(d.textContent),
-    checked: cbs.filter(b => b.getAttribute('aria-checked') === 'true').length,
+    // Task 57 added the per-source tri-state HEADER checkbox — count only the
+    // per-entry ones (their aria-label starts with 'Import')
+    checked: cbs.filter(b => b.getAttribute('aria-checked') === 'true' && (b.getAttribute('aria-label')||'').startsWith('Import')).length,
     locked: cbs.filter(b => b.disabled).length,
     counter: (d.textContent.match(/\\d+\\/8 after import/) || [''])[0],
     importBtn: imp ? imp.textContent.trim() : 'NO-BTN',
@@ -208,7 +360,7 @@ const phaseA = async () => {
   let node = "";
   for (let i = 0; i < 20 && !node.includes("clicked@"); i++) {
     node = await realClick(
-      `[...document.querySelectorAll('[role=button]')].find(x => (x.textContent||'').includes('3D Auto-Refine 1') && (x.textContent||'').includes('completed'))`,
+      `[...document.querySelectorAll('[role=button]')].find(x => (x.textContent||'').includes('QA Refine3D') && (x.textContent||'').includes('completed'))`,
     );
     if (!node.includes("clicked@")) await sleep(2000);
   }
@@ -227,7 +379,7 @@ const phaseA = async () => {
 /** PHASE B1 — inline rename, Enter commits */
 const phaseB1 = async () => {
   console.log("== PHASE B1: inline rename (Enter) ==");
-  await ensurePopover("camera-bookmarks", "bookmarks");
+  await ensurePopover("camera-bookmarks", "Camera view bookmarks");
   // save one bookmark named "Alpha"
   evalJs(`(() => {
     const p = document.querySelector('[data-canvas-ui=camera-bookmarks]');
@@ -288,7 +440,7 @@ const phaseC = async () => {
   // PUT-ordering regression test)
   sh(`curl -s -X PUT "http://localhost:3000/api/jobs/${JID}/camera-bookmarks" -H "Content-Type: application/json" -d '{"bookmarks":[]}' > /dev/null`);
   if (!srvEmpty(serverRow())) throw new Error("curl clean slate failed");
-  await ensurePopover("camera-bookmarks", "bookmarks");
+  await ensurePopover("camera-bookmarks", "Camera view bookmarks");
 
   // ---- C1: 3-entry file (full view + pose-only + junk view) → checklist ----
   const existing = parseInt(unq(evalJs(`document.querySelectorAll('[data-canvas-ui=camera-bookmarks] button[title^="Fly back"]').length + ''`)), 10) || 0;
@@ -298,7 +450,7 @@ const phaseC = async () => {
     { id: "f2", name: "Imported pose", ts: Date.now() - 1800e3, snapshot: fakeSnap() },
     { id: "f3", name: "Imported junkview", ts: Date.now() - 600e3, snapshot: fakeSnap(), view: { sigma: "oops" } },
   ];
-  console.log("  inject(3):", importViaInput(file1));
+  console.log("  inject(3):", await importViaInput(file1));
   await sleep(2200);
   const d1 = dlg();
   console.log("  dialog after inject:", JSON.stringify(d1));
@@ -329,7 +481,7 @@ const phaseC = async () => {
     b.click(); return 'confirmed';
   })()`);
   await sleep(2200);
-  await ensurePopover("camera-bookmarks", "bookmarks");
+  await ensurePopover("camera-bookmarks", "Camera view bookmarks");
   const rowsAfter = unq(evalJs(`document.querySelectorAll('[data-canvas-ui=camera-bookmarks] button[title^="Fly back"]').length + ''`));
   console.log("  popover rows:", rowsAfter, `(existing ${existing} + 2)`);
   if (!/Imported 2 views/.test(lastToasts(4))) throw new Error("'Imported 2 views' toast missing");
@@ -342,8 +494,8 @@ const phaseC = async () => {
   }
 
   // ---- C2: cancel path ----
-  await ensurePopover("camera-bookmarks", "bookmarks");
-  console.log("  inject(1):", importViaInput([{ id: "g1", name: "Cancel me", ts: Date.now(), snapshot: fakeSnap() }]));
+  await ensurePopover("camera-bookmarks", "Camera view bookmarks");
+  console.log("  inject(1):", await importViaInput([{ id: "g1", name: "Cancel me", ts: Date.now(), snapshot: fakeSnap() }]));
   await sleep(2000);
   const d3 = dlg();
   console.log("  dialog(1 entry):", JSON.stringify(d3));
@@ -355,20 +507,20 @@ const phaseC = async () => {
   })()`);
   await sleep(1200);
   const d4 = dlg();
-  await ensurePopover("camera-bookmarks", "bookmarks"); // dialog stole focus → popover self-closed
+  await ensurePopover("camera-bookmarks", "Camera view bookmarks"); // dialog stole focus → popover self-closed
   const rowsC2 = unq(evalJs(`document.querySelectorAll('[data-canvas-ui=camera-bookmarks] button[title^="Fly back"]').length + ''`));
   console.log("  after cancel — dialog:", JSON.stringify(d4), "| rows:", rowsC2);
   if (d4 !== null) throw new Error("dialog did not close on Cancel");
   if (rowsC2 !== String(existing + 2)) throw new Error(`cancel changed the list: ${rowsC2}`);
 
   // ---- C3: capacity lock — 7-file into the list → fit-fill + locked tail ----
-  await ensurePopover("camera-bookmarks", "bookmarks");
+  await ensurePopover("camera-bookmarks", "Camera view bookmarks");
   const have = existing + 2;
   const room = Math.max(0, 8 - have);
   const pre = Math.min(7, room);
   const file7 = Array.from({ length: 7 }, (_, i) => ({ id: `h${i}`, name: `Bulk ${i + 1}`, ts: Date.now() - i * 1000, snapshot: fakeSnap() }));
   console.log(`  inject(7 into ${have}/8): room=${room} preselect=${pre}`);
-  console.log("  inject(7):", importViaInput(file7));
+  console.log("  inject(7):", await importViaInput(file7));
   await sleep(2200);
   const d5 = dlg();
   console.log("  dialog(7):", JSON.stringify(d5));
@@ -382,19 +534,24 @@ const phaseC = async () => {
     b.click(); return 'confirmed-${pre}';
   })()`);
   await sleep(2200);
-  await ensurePopover("camera-bookmarks", "bookmarks"); // dialog stole focus → popover self-closed
+  await ensurePopover("camera-bookmarks", "Camera view bookmarks"); // dialog stole focus → popover self-closed
   const counter = unq(evalJs(`document.querySelector('[data-canvas-ui=camera-bookmarks] .ml-auto')?.textContent ?? 'NO-COUNTER'`));
   const rowsC3 = unq(evalJs(`document.querySelectorAll('[data-canvas-ui=camera-bookmarks] button[title^="Fly back"]').length + ''`));
   console.log("  after bulk import — rows:", rowsC3, "| counter:", counter);
   if (rowsC3 !== "8" || counter !== "8/8") throw new Error(`bulk import landed wrong: rows=${rowsC3} counter=${counter}`);
 
   // ---- C4: full list → "Bookmark list is full" toast, NO dialog ----
-  await ensurePopover("camera-bookmarks", "bookmarks");
-  console.log("  inject(1 into 8/8):", importViaInput([{ id: "x1", name: "No room", ts: Date.now(), snapshot: fakeSnap() }]));
+  await ensurePopover("camera-bookmarks", "Camera view bookmarks");
+  console.log("  inject(1 into 8/8):", await importViaInput([{ id: "x1", name: "No room", ts: Date.now(), snapshot: fakeSnap() }]));
   await sleep(2000);
   const d6 = dlg();
   console.log("  dialog after full inject:", JSON.stringify(d6), "| toasts:", lastToasts(2));
-  if (d6 !== null) throw new Error("dialog should NOT open when the list is full");
+  // Task 54 replaced the silent no-open with an HONEST empty dialog: it
+  // opens, preselects nothing (0 free slots), disables the confirm and
+  // explains "The list already has 8 saved views". Either no dialog or an
+  // honest-disabled one satisfies the contract; a confirming dialog fails.
+  if (d6 !== null && (d6.impDisabled !== true || d6.checked !== 0))
+    throw new Error(`full-list dialog must be honest-empty (got ${JSON.stringify(d6)})`);
   if (!/full/i.test(lastToasts(3))) throw new Error("'Bookmark list is full' toast missing");
 
   // ---- cleanup ----
@@ -415,7 +572,7 @@ const phaseD = async () => {
 /** PHASE B2 — Escape-cancel (LAST: Escape may close the viewer dialog) */
 const phaseB2 = async () => {
   console.log("== PHASE B2: inline rename (Escape cancels) ==");
-  await ensurePopover("camera-bookmarks", "bookmarks");
+  await ensurePopover("camera-bookmarks", "Camera view bookmarks");
   // self-contained: batches that skipped B1 have no "Beta prime" — save one
   const have = unq(evalJs(`(!!document.querySelector('[data-canvas-ui=camera-bookmarks] button[aria-label="Rename bookmark Beta prime"]') + '')`));
   if (have !== "true") {

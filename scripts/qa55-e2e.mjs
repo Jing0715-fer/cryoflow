@@ -41,7 +41,7 @@ const PHASES = (process.env.QA_PHASES || "A,B,C").split(",").map((s) => s.trim()
 
 const SEED = "python3 /home/z/my-project/scripts/qa53-seed-topaz.py";
 const SEED_CLEAN = "python3 /home/z/my-project/scripts/qa53-seed-topaz.py --clean";
-const JOB = "3D Auto-Refine 1";
+const JOB = "QA Refine3D";
 const B = "http://localhost:3000";
 
 const openDashboard = async () => {
@@ -332,6 +332,9 @@ const gridState = () => J(`(() => {
       t: b.textContent.replace(/\\s+/g, ' ').trim(),
       pressed: b.getAttribute('aria-pressed'),
       ks: b.getAttribute('aria-keyshortcuts'),
+      // the count lives in its own tabular-nums span — textContent swallows
+      // the kbd corner digit ("Running 1"+"2" → 12; the qa47 lesson)
+      n: (() => { const sp = [...b.querySelectorAll('span')].find(x => /tabular-nums/.test(x.className || '')); return sp ? parseInt(sp.textContent, 10) : null; })(),
     })) : null,
     empty: (root.textContent.match(/No project with \\w+ jobs right now/) || [null])[0],
     clearBtn: [...root.querySelectorAll('button')].some(b => b.textContent.trim() === 'Clear filter'),
@@ -374,7 +377,12 @@ const phaseB = async () => {
   const chipRunning = gs.chipRow.find((c) => c.t.startsWith("Running "));
   if (!chipAll || chipAll.ks !== "1") throw new Error(`All chip keyshortcuts: ${JSON.stringify(gs.chipRow)}`);
   if (!chipCompleted || chipCompleted.ks !== "3") throw new Error("Completed chip keyshortcuts missing");
-  if (chipRunning) throw new Error("Running chip should be absent (no running jobs in sandbox)");
+  // the sandbox now carries a permanent running fixture ('QA Refine Live',
+  // live-tail era) — the Running chip renders whenever running jobs exist.
+  // The keyboard-shortcut contract only pins its KBD digit (2), never
+  // whether it is present.
+  if (chipRunning && chipRunning.ks !== "2")
+    throw new Error(`Running chip keyshortcuts wrong: ${JSON.stringify(chipRunning)}`);
 
   // key 2 — running filter on (presence 0 → honest empty state)
   if (pressKey("2") !== "dispatched") throw new Error("dispatch failed");
@@ -383,8 +391,21 @@ const phaseB = async () => {
   band = kpiBand();
   step(`  after key 2: cards=${gs.cards} empty=${JSON.stringify(gs.empty)} runningPressed=${band.Running.pressed}`);
   if (band.Running.pressed !== "true") throw new Error("key 2 did not engage running filter");
-  if (gs.cards !== 0 || !gs.empty || !/running/.test(gs.empty)) throw new Error("honest empty state missing");
-  if (!gs.clearBtn) throw new Error("clear-filter affordance missing");
+  // presence-dependent (the sandbox's permanent running fixture): with a
+  // running project the grid shows it; with none, the honest empty state
+  const runningPresence = (() => {
+    const chip = gs.chipRow && gs.chipRow.find((c) => c.t.startsWith("Running "));
+    return chip ? (chip.n ?? parseInt(chip.t.replace(/[^\d]/g, ""), 10)) : 0;
+  })();
+  if (runningPresence > 0) {
+    if (gs.cards !== runningPresence)
+      throw new Error(`running filter should show ${runningPresence} card(s), got ${gs.cards}`);
+  } else if (gs.cards !== 0 || !gs.empty || !/running/.test(gs.empty)) {
+    throw new Error("honest empty state missing");
+  }
+  // Clear filter renders only inside the EMPTY state — with a running
+  // project the grid shows the card and the All chip / KPI toggle clear
+  if (runningPresence === 0 && !gs.clearBtn) throw new Error("clear-filter affordance missing");
 
   // key 1 — back to the whole grid (mirrors the Projects card)
   if (pressKey("1") !== "dispatched") throw new Error("dispatch failed");

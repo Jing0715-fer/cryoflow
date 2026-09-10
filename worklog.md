@@ -3366,3 +3366,33 @@ Stage Summary:
 - 「清理合同跟世界走，不跟 HTTP 状态码走」：对已死 id 的 DELETE 404 是正确行为，Z1 却把它当失败——「调用成功」和「世界干净」是两个命题。Task 103 的验收标准（世界恢复原状）在探针自身被 404 打脸时才真正内化
 - 「面板是栈的视图，不是栈的第二个真相」：行列表、序号、count 徽章全部从 historyPast/historyFuture 派生，跳转后随 store 自动重渲——面板没有自己的状态副本，busy 锁是它唯一的私有状态且只管「手势进行中」。视图与真相分离，UI 就永远不会说谎
 - 遗留（下轮候选）：EMPIAR 真数据回归（重，连续让位）；用户真机 class3d/refine3d 顺序模式与 topaz 实测反馈；diff 对话框 Open 行 canvas 入口价值复查；文件夹拖拽真机手势反馈；qa61 B 相坐标点击移植 playwright；qa42–qa57 状态未知（矩阵外未验证）；历史面板的「撤销到此处」右键语义与条目分组（同卡连续 Move 折叠？真机观察需求）；面板行数多时的虚拟滚动（HISTORY_CAP=50 尚不紧迫）
+
+---
+Task ID: 107
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-10 17:44 window)
+Task: cron 自主巡检——Task 107「qa42–qa57 遗留套件归属判定」：开局五套判稳（smoke/qa00/t104/t105/t106 全绿）后选题 Task 106 交接候选③——run-matrix 头注明确「qa42–qa57 在盘但矩阵外未验证」，这 16 套覆盖 Task 42–57 的功能时代（书签 UX、重命名、报告导出、导入对话框、GIF 导出、KPI 触摸/钻取），如今零活跃回归覆盖。本轮逐套实证分诊，四路裁决（绿/修套件/修夹具/诊断记录）：14/16 恢复全绿，qa54/57 留下精确诊断交接。src/ 零改动——应用构建未变，无需重建
+
+Work Log:
+- 【归属判定·实证法】逐套运行而非静态审查。首批发现三类漂移：①qa46「All rows 32 != chip 33」——Task 77 给孤儿行换了 title（"Adopt this job…" 引导点击），套件谓词数不到；②qa47「grid cards 1 != presence.running 12」——Task 55 给 presence chips 加了 kbd 角标数字，textContent 解析把 "Running 1"+"2" 读成 12（套件注释自己写了这个坑，Completed 路径修了、Running 路径漏了）；③qa42–45/48/53 硬编码死 fixture JID + 旧沙箱名 "3D Auto-Refine 1"（restore-gallery 时代重建后改名 "QA Refine3D"）
+- 【统一 rehome 补丁】patch-legacy-suites.py：14 套旧名全局换 "QA Refine3D"（断言与 finder 两侧一起换），6 套死 JID 换运行时按名解析 IIFE（qa53 教义内化：id 漂移、名字存活）
+- 【视口入口链重写·五折】qa42-45/48 的 openViewer 依赖已死的卡上 "Enlarge Half-map" 缩略图。v1 直接换 qa68 现代链 → 失败；v2 加 inspector 预检 → 失败；v3 Escape 归零 → 失败；v4 改 Dashboard 花名册行 → 失败；v5 系列最终破案：
+  *【真相一·模板字面量烹调】evalJs 表达式住在 JS 模板串里，`\d` 被烹调成 `d`——`/^Import( \d+)?$/` 运行时永不匹配。qa68 的 unq() 与旧套件的 `.includes('"m":"object"')` 早已内化「CLI 的 eval 输出是 JSON 编码的」——我新写的所有 `=== "true"` 比较全部落空。v2-v6 五次失败全是这一个引号
+  *【真相二·CLI 原子点击】realClick 的「测坐标→mouse down」两步间隔让沉降中的画布卡漂移，点击落空→inspector 自关闭→重试循环自激。agent-browser 的原生 `click <css>` 单步原子（矩形解析+可达性检查+点击一次完成）——入口链全换
+  *【真相三·物理点击引爆 Radix 栈】模态内的 tile 点击（Enlarge orthovol）用物理点击会把整个对话框栈关掉（overlay pointerdown 竞态嵌套对话框）；模态内交互一律改程序化 el.click()
+  *【真相四·图像对话框残留】"View in 3D" 孵化 Mol* 后不再自动关闭图像对话框（时代行为变化），残留模态盖住 viewer 工具栏；定向点它自己的 Close 钮（无差别 Escape 会连 inspector+Mol* 一起拆）
+  *【真相五·触发钮要 pointerdown】Radix Popover 触发钮监听 pointerdown，程序化 el.click() 只发 click 事件永远打不开；合成 PointerEvent 对（带坐标、bubbles）直发元素，且绕开 CLI 对被覆盖点的拒绝
+- 【错按钮诊断】ensurePopover 按 aria-label 含 'bookmarks' 找触发钮——匹配到 canvas 工具栏的 "Viewport bookmarks"（Task 100 之后才存在！旧套件时代无此按钮）而非 3D 视口的 "Camera view bookmarks"。改 startsWith 精确前缀，调用点同步传全前缀
+- 【导入入口 rehome】隐藏文件输入从 popover 内迁到组件根（Task 54：Radix 对话框会关掉底下的 popover，popover 域输入会死）+ 导入落进预览对话框需确认点击。qa42 的 importViaInput 改两段式（注入根输入→等 "Import views" 对话框→点 ^Import\d*$ 确认，autoConfirm 门控）；qa43 自己驱动对话框断言（注入-only 模式）
+- 【夹具补种】QA Refine3D workdir 只有 star 表没有 MRC：qa67-seed-volume.py 加 QA_VOL_HOST 环境变量（目标可选），新写 seed-refine-halves.py 种半图对（qa44 的 overlay PUT 链回归需要可叠加的第二体积）。首版极简 MRC 头让 Mol* 抛 "RangeError: Invalid typed array length: -Infinity"——补全 dmin/dmax/dmean/start 字段（对齐 qa67 的成熟 writer）后干净
+- 【诚实缺口收窄】qa50/51/52 的「无数据零 PNG」断言过宽：沙箱 workdir 现在携带其它诚实数据源（micrographs_ctf.star、run_data.star、topaz 日志），Task 53+ 的图表从存在的数据诚实渲染。契约收窄为 FSC 专属（FSC 节缺失+无 FSC 味 PNG）。qa52 的对称性行改为动态断言作业真实 params.symmetry（报告如实呈现 D2 而非旧 fixture 的 C1）、PNG 数 5→6（第六张 topaz 曲线图）
+- 【presence 条件化】qa55 的「Running chip 应缺席/空态应诚实」断言与常驻 running fixture（'QA Refine Live'）冲突——改为 presence 条件化（有运行中项目则断言卡片数=presence，无则断言诚实空态；Clear filter 只在空态渲染）；chipRow 收集器补 tabular-nums span 精读（qa47 教义复用）
+- 【CLI 噪声过滤】qa48 的 `agent-browser errors` 断言把 CLI 自身失败命令记录（✗ 痕迹）也算进 console errors——过滤 ✗ 行，保留真实页面错误；入口点击加视图切换等待+行存在预检，消除 ✗ 的产生源
+- 【收尾】qa42-53/55/56 全绿（各自完整相链）；smoke/qa00/t106 哨兵确认服务器健康；src/ 零改动故全矩阵结果与 Task 106 相同；worklog + commit + push
+
+Stage Summary:
+- 「归属判定的正确姿势是逐套实证，不是读注释猜状态」：16 套的真实状态分布（2 套谓词漂移、6 套夹具漂移、8 套入口链死亡、0 套应用回归）只有逐套跑出来才知道。run-matrix 头注的「unverified — run at your own risk」诚实但没有行动力——本轮把「未验证」变成了「14 绿 2 带诊断交接」
+- 「测试基建的失败会伪装成应用失败」：本轮最大的时间黑洞不是任何应用 bug，而是 evalJs 通道的四层陷阱（JSON 编码引号、模板字面量烹调反斜杠、CLI 原子性、Radix 指针语义）——每一层都让「探针说失败」与「应用真失败」无法区分。解法是把「探针基础设施可信」本身变成被验证的命题：手工驱动同一条链全绿、套件驱动同一条链全红，差异只能在通道层
+- 「套件的年代地层学」：16 套各自凝固了编写时刻的应用形态，之后的每个功能时代（Task 77 孤儿行、Task 55 kbd 角标、Task 100 视口书签、Task 54 导入对话框、Task 53 第六图、Task 88 pending view）都在上面叠了一层漂移。修套件不是「修到绿」而是「把断言对准当下的契约」——每次修改都要判断：是应用错了还是世界变了
+- 「常驻 fixture 与套件假设的冲突是常态」：'QA Refine Live'（常驻运行中任务）、'Import Movies 1'（常驻孤儿行）、残留的 overlay 会话与书签——旧套件假设的「干净沙箱」不再存在。自种子教义（Task 86/103）的完整表述是：套件开工前先清理+种下自己需要的世界，验收标准是「世界恢复原状」而非「调用了清理」
+- 「CLI 的 errors 缓冲是会话级的」：agent-browser 把自身失败命令与页面 console.error 混在一个缓冲里，断言前必须 `errors --clear` + 过滤 ✗ 痕迹——否则几小时前的调试残留会毒杀当轮的绿灯
+- 遗留（下轮候选）：①qa54/57 收尾——导入预览对话框在套件注入后不稳定打开（手工同链可开、机制已验证，疑似注入时机与书签列表加载的竞态；dropFiles 选择器已修为精确 views 输入 + last-match，诊断状态齐全，建议 playwright 移植或 instrument onImportFiles）；②EMPIAR 真数据回归（重，继续让位）；③用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势）；④qa42-45/48/54/56/57 的 ensurePopover/openViewer 补丁脚本已幂等化，如需再装直接重跑；⑤watchdog 常驻期注意 errors 缓冲污染

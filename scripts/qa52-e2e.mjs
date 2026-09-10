@@ -36,7 +36,16 @@ const PHASES = (process.env.QA_PHASES || "A,B,C").split(",").map((s) => s.trim()
 
 const SEED = "python3 /home/z/my-project/scripts/qa52-seed-report.py";
 const SEED_CLEAN = "python3 /home/z/my-project/scripts/qa52-seed-report.py --clean";
-const JOB = "3D Auto-Refine 1";
+const JOB = "QA Refine3D";
+// the angdist symmetry row surfaces the JOB's params.symmetry — resolve it
+// dynamically instead of hardcoding the old fixture's C1
+const HOST_SYM = (() => {
+  const raw = execSync(`curl -s --max-time 20 "http://localhost:3000/api/jobs"`, { encoding: "utf8", timeout: 60_000 });
+  const parsed = JSON.parse(raw);
+  const arr = Array.isArray(parsed) ? parsed : parsed.jobs ?? [];
+  const j = arr.find((x) => x.name === JOB && x.status === "completed");
+  return (j && j.params && typeof j.params.symmetry === "string" && j.params.symmetry) || "C1";
+})();
 
 const openJobResults = async () => {
   sh(`${AB} open http://localhost:3000`);
@@ -189,7 +198,7 @@ const phaseA = async () => {
     ["## Angular distribution", "angdist section"],
     ["| Particles binned | 900 |", "angdist total"],
     ["anisotropic (preferred-orientation risk)", "angdist verdict"],
-    ["| Symmetry | C1 |", "angdist symmetry"],
+    ["| Symmetry | " + HOST_SYM + " |", "angdist symmetry"],
     ["| Source | `run_data.star` (final) |", "angdist source"],
     ["![Orientation distribution heatmap for " + JOB + "]", "angdist png alt"],
     ["## Outputs on disk", "outputs intact"],
@@ -208,12 +217,14 @@ const phaseA = async () => {
     .map((s) => md.indexOf(s));
   if (order.some((i) => i < 0) || !order.every((v, i) => i === 0 || v > order[i - 1]))
     throw new Error(`section order broken: ${order.join(",")}`);
-  // five embedded PNGs: line charts @640×280 (→1280×560), ctf/angdist @640×320 (→1280×640)
+  // six embedded PNGs (Task 53 added the topaz curves): progress/fsc/guinier
+  // @640×280 (→1280×560), ctf/angdist @640×320 (→1280×640), topaz @640×360
   const pngs = [...md.matchAll(/data:image\/png;base64,([A-Za-z0-9+/=]+)/g)].map((m) => m[1]);
   step(`  embedded PNGs: ${pngs.length}`);
-  if (pngs.length !== 5) throw new Error(`want 5 embedded PNGs, got ${pngs.length}`);
-  const names = ["resolution", "fsc", "guinier", "ctf", "angdist"];
-  const wantH = [560, 560, 560, 640, 640];
+  if (pngs.length !== 6) throw new Error(`want 6 embedded PNGs, got ${pngs.length}`);
+  // Task 53 added the topaz-training chart — a 6th PNG with its own height
+  const names = ["resolution", "fsc", "guinier", "ctf", "angdist", "topaz"];
+  const wantH = [560, 560, 560, 640, 640, 560];
   pngs.forEach((b64, i) => {
     const bin = Buffer.from(b64.slice(0, 120), "base64");
     const w = bin.readUInt32BE(16);
@@ -251,7 +262,10 @@ const phaseB = async () => {
     "## CTF fit quality", "## Angular distribution"]) {
     if (md.includes(s)) throw new Error(`${s} should be absent without data`);
   }
-  if (md.includes("data:image/png")) throw new Error("no PNG should be embedded without data");
+  // honest-gap contract is FSC-specific (Task 53+ charts honestly render
+  // from whatever else lives in the workdir — micrographs_ctf.star etc.)
+  if (md.includes("## FSC curve") || /!\[[^\]]*FSC/i.test(md))
+    throw new Error("FSC section or PNG should be absent without the seed");
   if (!md.includes("## Resolution") || !md.includes("## Outputs on disk"))
     throw new Error("base sections missing");
   step(`  honest-gap markdown OK (${md.length}B, plain toast)`);

@@ -35,7 +35,7 @@ const PHASES = (process.env.QA_PHASES || "A,B,C").split(",").map((s) => s.trim()
 
 const SEED = "python3 /home/z/my-project/scripts/qa51-seed-report.py";
 const SEED_CLEAN = "python3 /home/z/my-project/scripts/qa51-seed-report.py --clean";
-const JOB = "3D Auto-Refine 1";
+const JOB = "QA Refine3D";
 
 const openJobResults = async () => {
   sh(`${AB} open http://localhost:3000`);
@@ -227,7 +227,13 @@ const phaseB = async () => {
   for (const s of ["## Resolution progress", "## FSC curve", "## Guinier plot"]) {
     if (md.includes(s)) throw new Error(`${s} should be absent without data`);
   }
-  if (md.includes("data:image/png")) throw new Error("no PNG should be embedded without data");
+  // the sandbox workdir now carries OTHER honest data sources (Task 53+
+  // charts: micrographs_ctf.star, run_data.star, topaz logs) — the honest-
+  // gap contract is about the FSC section specifically: it must be absent,
+  // and no FSC-flavored PNG may embed. Other charts legitimately render
+  // from whatever data still exists in the workdir.
+  if (md.includes("## FSC curve") || /!\[[^\]]*FSC/i.test(md))
+    throw new Error("FSC section or PNG should be absent without the seed");
   if (!md.includes("## Resolution") || !md.includes("## Outputs on disk"))
     throw new Error("base sections missing");
   step(`  honest-gap markdown OK (${md.length}B, plain toast)`);

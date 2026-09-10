@@ -152,7 +152,10 @@ const phaseB = async () => {
   const rowCount = () => JSON.parse(unq(evalJs(`(() => {
     const g = document.querySelector('section[aria-label="Active project spotlight"] [aria-label="Filter jobs by status"]');
     let list = g && g.nextElementSibling;
-    return { rows: list ? list.querySelectorAll('button[title^="Open "]').length : -1 };
+    // Task 77 gave orphan rows an "Adopt this job…" title (guidance click,
+    // not Open) — they are still roster rows, so count both (qa42-era
+    // predicate predates the orphan UX and under-counted by the orphan count)
+    return { rows: list ? list.querySelectorAll('button[title^="Open "], button[title^="Adopt this job"]').length : -1 };
   })()`))).rows;
 
   const allN = parseInt(chips0[0].replace(/[^\d]/g, ""), 10);

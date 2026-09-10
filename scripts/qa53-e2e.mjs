@@ -38,8 +38,19 @@ const PHASES = (process.env.QA_PHASES || "A,B,C").split(",").map((s) => s.trim()
 
 const SEED = "python3 /home/z/my-project/scripts/qa53-seed-topaz.py";
 const SEED_CLEAN = "python3 /home/z/my-project/scripts/qa53-seed-topaz.py --clean";
-const JOB = "3D Auto-Refine 1";
-const JID = "cmts0qoho0003p8da75rvxycc";
+const JOB = "QA Refine3D";
+const JID = process.env.QA_JID || (() => {
+  // resolve job id by NAME — the hardcoded fixture id died with the old
+  // DB (qa53 lesson: ids drift across seeds, names survive; restore
+  // the sandbox with scripts/restore-gallery.py when missing)
+  const raw = execSync(`curl -s --max-time 20 "http://localhost:3000/api/jobs"`,
+    { encoding: "utf8", timeout: 60_000 });
+  const parsed = JSON.parse(raw);
+  const arr = Array.isArray(parsed) ? parsed : parsed.jobs ?? [];
+  const j = arr.find((x) => x.name === "QA Refine3D" && x.status === "completed");
+  if (!j) throw new Error('host job "QA Refine3D" (completed) not found — run scripts/restore-gallery.py first');
+  return j.id;
+})();
 const B = "http://localhost:3000";
 
 const openJobResults = async () => {

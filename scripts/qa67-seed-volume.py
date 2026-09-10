@@ -20,12 +20,16 @@ Usage: python3 scripts/qa67-seed-volume.py [--clean]
 """
 import json
 import math
+import os
 import struct
 import sys
 import urllib.request
 
 BASE = "http://localhost:3000"
-SRC_NAME = "QA Class2D Source"
+# Task 107 — the target host is overridable: the legacy bookmark suites
+# (qa42-45, 48) seed the same synthetic volume into the refine3d sandbox
+# ("QA Refine3D") so their viewer entry chain finds an enlargeable tile.
+SRC_NAME = os.environ.get("QA_VOL_HOST", "QA Class2D Source")
 VOL_NAME = "orthovol.mrc"
 N = 64
 SIGMA = 5.5
@@ -49,7 +53,9 @@ def find_workdir() -> tuple[str, str]:
     jobs = jobs["jobs"] if isinstance(jobs, dict) else jobs
     src = next((j for j in jobs if j.get("name") == SRC_NAME), None)
     if not src:
-        raise SystemExit(f"FATAL: seed job '{SRC_NAME}' missing — run qa58-seed-gallery.py first")
+        raise SystemExit(
+            f"FATAL: seed job '{SRC_NAME}' missing — restore the sandbox with scripts/restore-gallery.py first"
+        )
     with open("data/engine-state.json", "r", encoding="utf-8") as f:
         state = json.load(f)
     rec = state.get(src["id"]) or {}

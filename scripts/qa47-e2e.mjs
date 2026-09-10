@@ -122,7 +122,10 @@ const phaseA = async () => {
   if (band.Running.pressed !== "true") throw new Error("Running card did not show pressed");
   const runChip = gs.chipRow.find((c) => c.t.startsWith("Running"));
   if (runChip && runChip.pressed !== "true") throw new Error("grid Running chip not synced");
-  const expectedRunning = runChip ? parseInt(runChip.t.replace(/[^\d]/g, ""), 10) : 0;
+  // read the tabular-nums span (runChip.n) — Task 55 added a kbd corner digit
+  // to each presence chip, so textContent reads "Running 1"+"2" → 12 (same
+  // trap the Completed path below already guards against)
+  const expectedRunning = runChip ? (runChip.n ?? parseInt(runChip.t.replace(/[^\d]/g, ""), 10)) : 0;
   if (expectedRunning > 0) {
     if (gs.cards !== expectedRunning)
       throw new Error(`grid cards ${gs.cards} != presence.running ${expectedRunning}`);
