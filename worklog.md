@@ -3621,3 +3621,24 @@ Stage Summary:
 - 「stderr 是指纹的住址」：spawnSync 分流后，自愈重启指纹、页面侧异常、崩溃退码各住各的流——execSync 时代的 2>&1 合流把三种死法糊成一个「Command failed」。分流取证才能让每个死法有自己的名字；死亡检测要查双流
 - 「测试基建也要守泄漏纪律」：36 行种子泄漏安静累积了三十余轮——套件的清理路径与播种路径没有对称。t100 Z 教义（删除必须发生）只保护了 A 相的 host，B 相的新种子没人管；每加一个 seed 就要同步加一条 delete，不对称即泄漏
 - 遗留（下轮候选）：其余 51 套件的内联 evalJs 是否迁移共享传输（规模收益评估——非qa60/61 通道的套件无同位失败史，暂缓）；EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势、TSV/海报粘贴验证）；3D viewer 体积截面（真机需求观察）；minimap node-only 取景；undo 手感参数调优；打印族 Logs 行真数据腿；palette Copy PNG（Task 110 拒绝维持）
+
+---
+Task ID: 118
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-11 06:35 window)
+Task: cron 自主巡检——Task 118「minimap 取景三模式 + 只看选区滤镜」：开局三连绿（worklog 尾部 Task 117/472c047 == origin/main，BUILD_ID 9KnhwRZTpZ_1XZf_MFlpP 匹配；smoke/qa00/t117 全绿）。按 Task 117 交接候选定案 minimap 深化（打印族已连做三轮 114-116，转向新鲜领地）。交付：头部分段控件三取景模式（fit=内容∪视口默认 / nodes=node-only 内容取景 / sel=只框选区+其余调暗含边）、sel 空选区自动回落 fit、按钮按压态跟 effective mode、SMIL 脉冲在暗卡上休止、dim 300ms 过渡。t118 69 断言 ×2 绿 + 受影响面（t105/t106/qa66/smoke/qa00）全绿 + 全矩阵 55 套分八块 0 失败 + t117 稳态合同修补 + worklog + push
+
+Work Log:
+- 【实现】canvas-minimap.tsx：MmMode 类型 + MM_MODES 表（id/label/title 三元组）；mode useState（ephemeral 无存储，remount 复位）；selIds useMemo（selectedId ∪ selectedIds）；effMode 派生（sel 空选区→fit）；frameJobs 按 effMode 过滤；取景公式统一 withVp 开关（fit 并入视口窗，nodes/sel 用 Infinity 排除——远视口被 viewBox 天然裁切，零额外代码）；头部分段控件（map 标题 + 三钮：bg-muted/60 槽 + 激活 bg-card text-primary shadow-sm，原生 title tooltip，aria-pressed，disabled sel@空选区）；按钮 onPointerDown stopPropagation（容器 navigate 门卫）；dots data-mm-dim + opacity 0.13 + transition-opacity duration-300；edges 无选中端点 opacity 0.06；底部 map caption 移除（升格为头部）
+- 【编辑伤情①】自查抓出 disabled+pressed 鬼影态：选区清空后 mode 仍是 "sel"（仅 effMode 回落），按钮 aria-pressed/高亮若跟原始 state 会呈现禁用却按下的矛盾——按压态与高亮改跟 effMode
+- 【t118 探针 69 断言七相】S 种子 4 卡远端带 + 2 边（A→B、C→D）+ 头部在场/默认 fit/sel 禁用/dots+lines；A fit 跟视口（ratchetEast 棘轮东进 + fitBox 数值合同）vs nodes 内容精确盒 + node-only 不变式（导航不放大）；B sel 盒精确（C,D 排除）+ dim 合同（dots 0.13/data-mm-dim、边 0.06/0.25 按端点）+ 活体重框（取消 A→盒缩 B）+ 空选区回落 + 按压态跟随；C M 开关回归 + remount 复位；F 静态 ×12；Z 清理 + console 0
+- 【探针四折】①S10 断言 === 2 条线撞车项目存量 15 边——改按端点坐标断言自己的两条边（「恰好断言你播种的」）；②A3 fitBox 期望只含 4 种子而应用框的是活跃工作区全部 26 作业——期望集改为从 minimap 自身 dots 属性读取（对应用可观察面验证公式，不对测试的假设验证）；③A10 阈值 +400 被 A7 的回中导航作废（视口已回内容区，并集不再放大）——重排：先在远东视口下验 re-dilate 再回 nodes 验不变式；④单次远跳落在框外——map 点击只能导航到可见框内，远距离需 ratchetEast 棘轮（每次点右缘内 60 世界像素逐跳推进）
+- 【矩阵意外收获·t117 稳态合同】块 6 t117 于矩阵第 40 位 FATAL「zero deaths」：runner 的每套 close --all（Task 117 卫生腿）保证下套首触时 daemon 必死，自愈重启竞态落 blank page → 传输记一次死亡+恢复阶梯成功落地 273 divs——恢复机制完美工作但断言禁止任何死亡。断言写于卫生腿之前，世界状态已被 runner 改写。修补：稳态合同（首触 absorbs ≤1 次自愈死亡 → 快照 steadyDeaths → 第二评验证零新增 → 故意杀后 deaths ≥ steady+1）——单跑 + 矩阵位次复跑全绿
+- 【收尾】eslint 0、tsc src 0、npm run build 三段式 BUILD_ID rKybnX6dtqCmTwU0WMlr + bundle 自证（data-mm-btn 在 static+standalone chunks）；t118 69×2 绿；t105(45)/t106(46)/qa66(35)/smoke/qa00 受影响面全绿；全矩阵 55 套（t118 glob 自动收录）分八块串行 0 失败（块 6 t117 修补后复跑）；worklog + commit + push + 环境清理
+
+Stage Summary:
+- 「取景合同验证的是公式，断言的集合要对齐应用的观察面」：fitBox 期望若用测试自己的种子清单，撞上活跃工作区的 26 个存量作业就是假红——期望集从 minimap 自身的 dots 属性读取，公式断言才从「测我的假设」变成「测应用的合同」。数值合同珍贵的前提是集合对；集合错的数值断言比没有断言更毒（它绿得偶然、红得冤枉）
+- 「runner 的卫生腿会改写每个套件的世界状态」：close --all 保证首触必见死 daemon——t117 的「零死亡」断言写于该合同之前，两者相撞时恢复阶梯工作得越好（死亡+自愈+落地）死得越冤。测试断言隐含的世界假设要随 harness 演进重审；「稳态零新增」比「全程零事件」更诚实——首触成本是系统在自愈，不是系统在失败
+- 「每个派生回落都要重派生它的显示合同」：effMode 回落 fit 时若按压态仍跟原始 state，用户看到 disabled+pressed 的鬼影钮。状态机加一条 fallback 规则，所有从 state 派生的 UI（aria-pressed、高亮、data-attr）都要回答「回落时你显示什么」
+- 「单次远跳落在框外」：地图点击只能导航到可见框内——fit 模式下视口越远框越大是双刃（想一次跳到框外目标点必然失败）。棘轮式边缘点击是诚实的远距离遍历；这本身就是 node-only 模式的存在理由：把导航面锚在内容上
+- 「恰好断言你播种的」：S10 的 === 2 撞上项目存量 15 边——minimap 正确渲染了 17 条线而被判 FATAL。存在共置数据时，计数断言必须按身份（端点坐标）而非数量断言；「恰好 N」只对隔离世界成立
+- 遗留（下轮候选）：打印族 Logs 行真数据腿（qa53 topaz 种子可补——Task 116 静态覆盖后的欠账）；minimap mode 若真机反馈需要持久化再评估（现为 ephemeral 设计，remount 复位）；EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势、TSV/海报粘贴验证）；3D viewer 体积截面（真机需求观察）；undo 手感参数调优；其余 51 套件迁移共享传输（暂缓维持）；palette Copy PNG（Task 110 拒绝维持）
