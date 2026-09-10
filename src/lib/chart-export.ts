@@ -80,14 +80,15 @@ function inlineComputed(clone: SVGElement, source: Element): void {
   }
 }
 
-/** Rasterize the chart's own <svg> to a 2× PNG. Returns false when the
+/** Rasterize the chart's own <svg> to a 2× PNG blob, or null when the
  *  root carries no SVG (chart still loading) so the caller can toast an
- *  honest miss instead of silently writing a blank file. */
-export async function exportChartPng(
+ *  honest miss instead of silently producing a blank artifact. Shared by
+ *  the download button and the copy-to-clipboard button — one raster,
+ *  two destinations. */
+export async function chartPngBlob(
   root: HTMLElement | null,
-  filename: string,
   background = getComputedStyle(document.body).backgroundColor || "#09090b",
-): Promise<boolean> {
+): Promise<Blob | null> {
   // the chart's DRAWING SURFACE, not the first svg — every chart header
   // carries 14px icon svgs that would otherwise rasterize into a 651-byte
   // "success". Biggest area wins (recharts surface, or the hand-rolled
@@ -97,9 +98,9 @@ export async function exportChartPng(
     .map((s) => ({ s, r: s.getBoundingClientRect() }))
     .filter((x) => x.r.width >= 40 && x.r.height >= 40)
     .sort((a, b) => b.r.width * b.r.height - a.r.width * a.r.height)[0]?.s;
-  if (!(svg instanceof SVGSVGElement)) return false;
+  if (!(svg instanceof SVGSVGElement)) return null;
   const rect = svg.getBoundingClientRect();
-  if (rect.width < 4 || rect.height < 4) return false;
+  if (rect.width < 4 || rect.height < 4) return null;
 
   const clone = svg.cloneNode(true) as SVGSVGElement;
   clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
@@ -122,17 +123,67 @@ export async function exportChartPng(
   canvas.width = Math.round(rect.width * scale);
   canvas.height = Math.round(rect.height * scale);
   const ctx = canvas.getContext("2d");
-  if (!ctx) return false;
+  if (!ctx) return null;
   ctx.fillStyle = background;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-  const blob = await new Promise<Blob | null>((resolve) =>
+  return await new Promise<Blob | null>((resolve) =>
     canvas.toBlob((b) => resolve(b), "image/png"),
   );
+}
+
+/** Rasterize the chart's own <svg> to a 2× PNG and hand it to the browser
+ *  as a download. Thin wrapper over chartPngBlob — returns false when the
+ *  chart has not rendered yet so the caller can toast an honest miss. */
+export async function exportChartPng(
+  root: HTMLElement | null,
+  filename: string,
+): Promise<boolean> {
+  const blob = await chartPngBlob(root);
   if (!blob) return false;
   downloadBlob(blob, `${filename}.png`);
   return true;
+}
+
+/** The PASTE dialect of the chart's rows. CSV quotes, TSV doesn't —
+ *  spreadsheets split pasted text on tabs natively, so the honest move is
+ *  tabs + replacing the two row-breaking characters (tab/newline) with a
+ *  space rather than inventing a quoting scheme no paste target parses.
+ *  No trailing newline either: a pasted selection should not mint an
+ *  empty last row in the sheet. */
+export function rowsToTsv(rows: CsvRow[]): string {
+  if (rows.length === 0) return "";
+  const keys = Object.keys(rows[0]);
+  const cell = (v: CsvCell): string => {
+    if (v == null) return "";
+    return (typeof v === "number" ? String(v) : v).replace(/[\t\n]+/g, " ");
+  };
+  return [keys.join("\t"), ...rows.map((r) => keys.map((k) => cell(r[k])).join("\t"))].join("\n");
+}
+
+/** Clipboard write is a PERMISSION, not a right: the API can be absent
+ *  (insecure context), unsupported (no ClipboardItem), or denied by the
+ *  browser. All three collapse into `false` so the caller toasts one
+ *  honest failure and points at the download button instead. */
+export async function copyTextToClipboard(text: string): Promise<boolean> {
+  try {
+    if (!navigator.clipboard?.writeText) return false;
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function copyPngToClipboard(blob: Blob): Promise<boolean> {
+  try {
+    if (typeof ClipboardItem === "undefined" || !navigator.clipboard?.write) return false;
+    await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** Slug a chart/job name into a filename fragment: lowercase, spaces and

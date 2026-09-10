@@ -3463,3 +3463,25 @@ Stage Summary:
 - 「MultiEdit 的回显是免费的验收」：本轮两处编辑伤情（函数头被吞、const 块重复）都是工具输出回显里肉眼可见的——「写完即查」的成本是扫一眼回显，漏查的成本是 fomTone 尸体留在文件里等 tsc 或运行时爆。Task 105 的教义在本轮以「回显即验收」的形式完成内化
 - 「撞车检查要查到导入清单那一层」：「3D viewer 截图统一」在 rg import 清单时当场证伪（viewer-export 六件套已在 molstar-embed 头部）——功能存在性检查的正确深度是「谁 import 了它、用它做了什么」，不是「有没有同名文件」
 - 遗留（下轮候选）：EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势）；palette 导出 PNG 需要已挂载的 SVG（jump+滚动+按钮编排已评估、本轮拒绝——脆弱编排换不来对等价值，等真机需求）；fsc-compare-dialog/pipeline-kpi/cryosparc-angle-panel 仍持本地类型副本（只读者，结构化类型既有惯例，收编收益低）；打印样式只做了按钮隐藏，results 面板整体 print 排版未审；minimap node-only 取景与「只看选区」滤镜；历史面板条目分组（同卡连续 Move 折叠）；undo 手感参数真机调优
+
+---
+Task ID: 111
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-11 00:00 window)
+Task: cron 自主巡检——Task 111「图表剪贴板三号门（Copy TSV + Copy PNG）」：Task 110 交接清单薄（EMPIAR 让位、真机项不可 headless、palette PNG 已被评估拒绝），rg 撞车检查发现图表导出只有「落盘」没有「剪贴板」——四目的地一真相收官。交付：chartPngBlob 单源栅格提取（下载/复制共用一份管线）+ rowsToTsv 粘贴方言 + copy* 诚实失败折叠；chart-export-buttons 升级四钮（下载×2 + 分隔线 + 复制×2）带 Check 瞬态反馈；t109 68 断言六相 ×3 三连绿 + 全矩阵 49 套 0 失败
+
+Work Log:
+- 【开局 + QA】worklog 尾部 Task 110（d21817f == origin/main，树净）、BUILD_ID pEYLv6PJeFeH_MyWlAzCR 匹配；冷启动 + smoke/qa00/t108 全绿 → 稳定（start-prod 首查 curl 过早 000，等 6s 复查 200——脚本 pkill+setsid 启动序列的正常延迟，不是故障）
+- 【选题·能力先行】候选盘点：canvas PNG 导出已存在（handleExportPng poster）、reduced-motion 已有（globals.css 四段）、viewer copyViewerPng 已有、palette PNG 已拒——rg 空白定位「图表导出零剪贴板路径」；agent-browser clipboard write/read 实测双 NotAllowedError → 无头探针定调为 spy 合同（验证组件调了哪个 API、带什么负载；权限行为是环境不是应用）
+- 【实现①lib】chart-export.ts：chartPngBlob 提取（SVG 选择器/内联计算样式/2× 栅格管线单源化，exportChartPng 变薄壳：blob → downloadBlob）；rowsToTsv（粘贴方言：tab 分隔无引号方案、cell 内 tab/换行替换空格、无尾随换行——粘贴不铸造空表行）；copyTextToClipboard/copyPngToClipboard（API 缺席/ClipboardItem 不支持/权限拒绝三种死法全折叠成 false，调用方只 toast 一种诚实失败）
+- 【实现②组件】四钮信息架构：CSV/PNG 下载（ImageDown 落盘）| 发丝分隔线 | Copy/TSV（Copy 图标）+ Copy/PNG（ImageUp——Down/Up 双关「落盘/出剪贴板」）；copied 瞬态 1600ms（Check 图标 + text-primary + data-copy-state 探针钩子，timer ref 卸载清理防悬挂）；失败 toast 点名替代路径（「use the CSV download instead」）；空行门控：数据钮禁用而 PNG 复制保持可用（空轴框仍是用户所见快照）
+- 【t109 探针 68 断言六相】S 种子+四钮在场+copy-state idle；A TSV spy（header+41 行、6 列自适应、无尾换行、copy-state=tsv→idle 回弹、Check 图标进退、TSV/CSV 行数全等 42=42——同 rows 双方言）；B PNG spy（ClipboardItem types image/png、95056 字节真栅格——651 字节惨案的反向验收）；C 诚实失败（writeText/write re-patch reject → destructive「could not be copied」、copy-state 不翻转、无伪造成功）；D 跨 job（Refine 410 payload 25 行 ≠ Post 320 的 42 行——复制跟随被点击的图表，无陈旧负载）+ 门控合同（disabled 严格跟踪 has-rows、PNG 复制恒可用）；F 静态合同 19 条；Z 清理+console 0
+- 【探针四折】①FSC 行是可变列（base 3 + corrected/phase-randomized 条件列）——断言写死 3 列当场爆，改首行键序前缀 + nCols 自适应全行校验；②copy-state 断言时机晚于 CSV 交叉检查（1.5s > 1600ms 反馈窗）→「已复原」假象——瞬态断言必须先于长路径执行；③lastToasts 尾窗取 3 条被前相成功 toast 污染，「无伪造成功」断言撞上 A/B 相历史——逐相重置观察器；④Radix Dialog 的 Escape 拒绝合成事件：window 派发不在 document 传播路径上、document 派发也不是 dismiss layer 的菜——`agent-browser press Escape` 走 CDP 可信事件一击即中
+- 【收尾】eslint 0、tsc src 0、npm run build 三段式 BUILD_ID LBzvTgCacbOdVk7HCURDj + bundle 自证（chart-export-csv-copy 同时在 static 与 standalone chunks）；t109 68×3 三连绿；t107 40 / t108 72 / smoke / qa00 全绿（受影响面：PNG 管线被重构、导出按钮被扩容）；全矩阵 49 套（t109 glob 收录）分 7 块串行 0 失败；worklog + commit + push + 环境清理
+
+Stage Summary:
+- 「无头探针验的是我们能拥有的合同」：真实剪贴板读写被浏览器权限锁死后，探针的职责边界是「按钮调了正确的 API、带着正确的负载」——spy 拦截把 navigator.clipboard.writeText/write 换成记账器即可全量断言；而「权限拒绝时用户看到什么」用 re-patch reject 独立成相。真实浏览器的权限行为是环境变量，把它从应用合同里剥出去，探针才既不假绿也不误红
+- 「文件用 CSV，剪贴板用 TSV」：同份 rows 两种方言两个目的地——CSV 有 RFC-4180 引号体系给解析器，TSV 无引号方案给电子表格的原生粘贴；TSV 的诚实是减法（tab/换行替换成空格、砍掉尾随换行），因为没有粘贴目标会解析任何转义。文件名有 slug 而剪贴板没有名字——「粘贴进去就是整齐的列」是它唯一的验收
+- 「瞬态反馈窗比断言路径短时，先读反馈再走长路」：1600ms 的 Check 回弹敌不过 1.5s 的 CSV 交叉检查——顺序错了状态永远显示「已复原」，功能其实完好。时序合同类的断言（闪现、spinner、hover 态）要安排在一切长路径之前，或者把回弹时长与探针节奏一起纳入设计
+- 「观察窗要跟相位走」：lastToasts() 的 3 条尾窗跨相位存活，上一相的成功 toast 会让「无伪造成功」断言误杀——每个相位重置观察器（re-arm 即清零），断言窗口与行为窗口对齐。这个坑与 qa48 的 errors 缓冲污染同族：断言前的观察器状态是探针的卫生学
+- 「Radix Dialog 的 Escape 只认真键」：合成 KeyboardEvent 无论派发在 window（根本不在 document 传播路径上）还是 document（dismiss layer 不认）都关不掉对话框——qa63 compare dialog 的合成 Escape 能关是它自己的监听路径不同。CDP 的 `press Escape` 是可信事件，一律用它；「Escape 关 Radix」从此不再尝试合成派发
+- 遗留（下轮候选）：EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势）；canvas PNG 导出（handleExportPng）的剪贴板孪生（本轮只做了图表域，canvas 域管线独立待评估）；palette 的 Copy 数据入口（TSV 文本进剪贴板对笔记场景有价值，palette 行数会翻倍需设计）；TSV 粘贴进 Excel 的真机验证（headless 无电子表格）；打印样式 results 面板整体排版未审；minimap node-only 取景与「只看选区」滤镜；历史面板条目分组；undo 手感参数真机调优
