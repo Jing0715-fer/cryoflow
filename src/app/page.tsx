@@ -179,6 +179,7 @@ export default function Home() {
   /* Canvas keyboard shortcuts (n8n-style power moves):
    *   F    — center the selected job
    *   0    — reset pan/zoom
+   *   1–9  — jump to a bookmarked view (Task 101, stable hotkey seats)
    *   +/−  — zoom in/out around the viewport center
    *   Del  — delete the selected job
    * Guarded: no shortcuts while typing in a form field, a sheet/dialog is
@@ -248,6 +249,16 @@ export default function Home() {
       } else if (k === "0") {
         e.preventDefault();
         s.setViewport({ x: 0, y: 0, zoom: 1 });
+      } else if (k >= "1" && k <= "9" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        // bookmark hotkey jump (Task 101): digits 1–9 land on the saved
+        // view holding that seat. Canvas-only scope like F/N — the
+        // dashboard owns digits 1–6 for its grid filters (and browsers
+        // own Ctrl/Cmd+digit for tab switching, excluded above). Dead
+        // when no bookmark holds the seat: an honest dead key, the
+        // store action just returns false.
+        if (s.view !== "dashboard") {
+          if (s.jumpToViewportBookmark(Number(k))) e.preventDefault();
+        }
       } else if (k === "+" || k === "=") {
         e.preventDefault();
         zoomAtCenter(1.15);

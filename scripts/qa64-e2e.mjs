@@ -20,12 +20,16 @@ import { writeFileSync, unlinkSync, existsSync } from "node:fs";
 
 const AB = "agent-browser";
 const B = "http://localhost:3000";
-const PROJECT = "cmtrzp5x80002p8uofb9eu5pp";
+const sh = (cmd) => execSync(cmd, { encoding: "utf8", timeout: 120_000 }).trim();
+// Task 101 repair: the hardcoded project id + workdir tail died with the
+// world migration (old-world "cmtrzp5x8…"/refine3d_q8mu0tdp no longer
+// exist) — derive both from the live API instead
+const PROJECT = JSON.parse(sh(`curl -s ${B}/api/workspaces`)).workspaces[0].projectId;
+const LIVE_TAIL = (((JSON.parse(sh(`curl -s ${B}/api/jobs`)).jobs ?? []).find((j) => j.name === "QA Refine Live")?.id) ?? "________________").slice(-8);
 const HOST_JOB = "QA Post 320";
-const LIVE_WD = `/home/z/my-project/data/relion/${PROJECT}/refine3d_q8mu0tdp`;
+const LIVE_WD = `/home/z/my-project/data/relion/${PROJECT}/refine3d_${LIVE_TAIL}`;
 const IT016 = `${LIVE_WD}/run_it016_model.star`;
 const PHASES = (process.env.QA_PHASES || "A,B,C").split(",");
-const sh = (cmd) => execSync(cmd, { encoding: "utf8", timeout: 120_000 }).trim();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const evalJs = (expr) =>
   execSync(`${AB} eval --stdin`, { encoding: "utf8", timeout: 120_000, input: expr }).trim();
@@ -196,10 +200,14 @@ async function bootToDialog(pickLabel) {
     );
     if (r.includes("clicked@")) {
       await sleep(1800);
-      dialog = unq(evalJs(`String(document.querySelectorAll('[data-testid=fsc-compare-row]').length)`)) === "5";
+      // Task 101: the count is the FIXTURE's business, not the dialog's
+      // contract — the reseeded world carries 6 FSC-bearing jobs (the chain
+      // Refine3D gained a postprocess.star), the old world had 5. Assert
+      // the durable part: every seeded FSC row is listed (≥ 5).
+      dialog = Number(unq(evalJs(`String(document.querySelectorAll('[data-testid=fsc-compare-row]').length)`))) >= 5;
     } else await sleep(1500);
   }
-  must(dialog, `compare dialog opens with 5 rows (${pickLabel})`);
+  must(dialog, `compare dialog opens with all FSC rows listed, ≥ 5 (${pickLabel})`);
 }
 
 /** tick (or untick with expect="false") a row's checkbox by job id */

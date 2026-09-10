@@ -30,7 +30,10 @@ import { readFileSync } from "node:fs";
 import { chromium } from "playwright";
 
 const BASE = "http://localhost:3000";
-const KEY = "cryoflow.viewportBookmarks.v1";
+// v2 since Task 101 (each entry now carries a stable hotkey slot);
+// v1 keys are migrated-and-removed at hydrate, so S/Z sweep BOTH
+const KEY = "cryoflow.viewportBookmarks.v2";
+const KEY_V1 = "cryoflow.viewportBookmarks.v1";
 const NAME = "t100 Spot";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -107,6 +110,7 @@ await p.goto(BASE, { waitUntil: "networkidle" });
 await p.waitForSelector('[data-canvas="viewport"]');
 await sleep(800);
 await p.evaluate((k) => window.localStorage.removeItem(k), KEY);
+await p.evaluate((k) => window.localStorage.removeItem(k), KEY_V1);
 await toCanvas();
 must((await curView()) === "canvas", "S1 canvas view active");
 await p.locator('[aria-label="Reset view"]').click();
@@ -217,9 +221,9 @@ await sleep(300);
 console.log("Phase E — static contract");
 const storeSrc = readFileSync("src/lib/store.ts", "utf8");
 must(
-  storeSrc.includes('VIEWPORT_BOOKMARKS_KEY = "cryoflow.viewportBookmarks.v1"') &&
+  storeSrc.includes('VIEWPORT_BOOKMARKS_KEY = "cryoflow.viewportBookmarks.v2"') &&
     storeSrc.includes("window.localStorage.setItem(VIEWPORT_BOOKMARKS_KEY"),
-  "E1 localStorage key namespaced + versioned, persisted synchronously"
+  "E1 localStorage key namespaced + versioned (v2: slots), persisted synchronously"
 );
 must(
   /function hydrateViewportBookmarks\(\)[\s\S]*?typeof window === "undefined"/.test(storeSrc) &&
@@ -245,7 +249,7 @@ must(
   "E5 all four UI landmarks in place (trigger/row/empty/delete)"
 );
 must(
-  canvasSrc.includes("setViewport(vp);") &&
+  canvasSrc.includes("setViewport(bm.viewport);") &&
     canvasSrc.includes('maxLength={60}'),
   "E6 jump routes through setViewport (clamp gate); names capped at 60"
 );
@@ -257,6 +261,7 @@ console.log("Phase Z — cleanup");
 const delRes = await fetch(`${BASE}/api/workspaces/${ws2.id}`, { method: "DELETE" });
 must(delRes.ok, `Z2 seeded workspace deleted (got ${delRes.status})`);
 await p.evaluate((k) => window.localStorage.removeItem(k), KEY);
+await p.evaluate((k) => window.localStorage.removeItem(k), KEY_V1);
 await sleep(400);
 must(consoleErrors.length === 0, `Z1 console clean (got ${consoleErrors.length})`);
 

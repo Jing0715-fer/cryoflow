@@ -42,3 +42,10 @@ and the next investigation of the same subsystem may want to start from it.
 Archived 2026-09-10 (Task 92) when the migration to playwright removed the
 agent-browser channel these mostly drove. To resurrect one: `git mv` it back
 to `scripts/` and check its hardcoded paths still exist.
+
+- t101-diag-inspector-click.mjs — Task 101 (2026-09-10): near/far card ×
+  timing matrix that isolated qa61's inspector-click failure to a same-name
+  idle leak row shadowing the suite's completed host (first-match click).
+  Also documented here: the diag itself shipped with a broken stdin pipe
+  (evalJs passed {input} to a one-arg wrapper — every eval returned null)
+  and had to be fixed before it could prove anything.

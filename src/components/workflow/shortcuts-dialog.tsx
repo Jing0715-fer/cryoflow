@@ -68,6 +68,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     rows: [
       { keys: "F", text: "Center the selected job in the viewport" },
       { keys: "0", text: "Reset pan & zoom (100 %)" },
+      { keys: "1–9", text: "Jump to a bookmarked view — seats shown in the bookmarks panel" },
       { keys: "+ / −", text: "Zoom in / out around the viewport center" },
       { keys: "⌘/Ctrl A", text: "Select every job in the workspace" },
       { keys: "⌘/Ctrl D", text: "Duplicate the selection (one job or a group)" },

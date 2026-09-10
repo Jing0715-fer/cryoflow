@@ -98,10 +98,30 @@ function hydrateViewportMemory(): Record<string, Viewport> {
  *  viewport memory above (ephemeral, per-tab), a bookmark is a USER-CREATED
  *  asset — it must outlive the tab AND the session, so it lives in
  *  localStorage. Writes only happen on explicit save/delete actions
- *  (low-frequency), never per-frame — Task 13 #13 stays retired. */
-const VIEWPORT_BOOKMARKS_KEY = "cryoflow.viewportBookmarks.v1";
+ *  (low-frequency), never per-frame — Task 13 #13 stays retired.
+ *
+ *  v2 (Task 101): each entry carries a STABLE HOTKEY SLOT (1–9, or null
+ *  when all nine are taken). The slot is assigned at creation and NEVER
+ *  renumbered — deleting bookmark #3 must not turn #4 into #3: muscle
+ *  memory is a contract. Re-saving under the same name keeps its slot
+ *  (an overwrite updates the snapshot, not the seat). */
+const VIEWPORT_BOOKMARKS_KEY = "cryoflow.viewportBookmarks.v2";
+/** Pre-slot-format key — migrated once at hydrate, then removed. */
+const VIEWPORT_BOOKMARKS_KEY_V1 = "cryoflow.viewportBookmarks.v1";
+/** Hotkey slots: digits 1–9 map to the first nine saved views. */
+const MAX_BOOKMARK_SLOTS = 9;
 
-function persistViewportBookmarks(bookmarks: Record<string, Record<string, Viewport>>) {
+/** A named view: the saved viewport plus its permanent hotkey seat
+ *  (1–9), or null when the slots were full at save time (panel-click
+ *  only — the row simply shows no number chip). */
+export interface ViewportBookmark {
+  viewport: Viewport;
+  slot: number | null;
+}
+
+function persistViewportBookmarks(
+  bookmarks: Record<string, Record<string, ViewportBookmark>>
+) {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.setItem(VIEWPORT_BOOKMARKS_KEY, JSON.stringify(bookmarks));
@@ -110,20 +130,81 @@ function persistViewportBookmarks(bookmarks: Record<string, Record<string, Viewp
   }
 }
 
+/** Lowest free hotkey slot across a workspace's bookmarks, or null when
+ *  all nine are taken. "Free" = no existing bookmark holds it — deleting
+ *  a bookmark releases its seat for the NEXT new save, while survivors
+ *  keep theirs (stability over compactness). */
+function lowestFreeSlot(named: Record<string, ViewportBookmark>): number | null {
+  const taken = new Set(
+    Object.values(named)
+      .map((b) => b.slot)
+      .filter((s): s is number => typeof s === "number")
+  );
+  for (let s = 1; s <= MAX_BOOKMARK_SLOTS; s++) {
+    if (!taken.has(s)) return s;
+  }
+  return null;
+}
+
+/** Validate one stored bookmark (v2 shape). Every viewport must be
+ *  all-finite and the slot an integer in 1..9 or null — anything else
+ *  drops the whole entry (corrupt data is never trusted). */
+function parseViewportBookmark(v: unknown): ViewportBookmark | null {
+  if (!v || typeof v !== "object") return null;
+  const { viewport, slot } = v as Record<string, unknown>;
+  if (!viewport || typeof viewport !== "object") return null;
+  const { x, y, zoom } = viewport as Record<string, unknown>;
+  if (
+    !(typeof x === "number" && Number.isFinite(x)) ||
+    !(typeof y === "number" && Number.isFinite(y)) ||
+    !(typeof zoom === "number" && Number.isFinite(zoom))
+  ) {
+    return null;
+  }
+  if (
+    slot !== null &&
+    !(typeof slot === "number" && Number.isInteger(slot) && slot >= 1 && slot <= MAX_BOOKMARK_SLOTS)
+  ) {
+    return null;
+  }
+  return { viewport: { x, y, zoom }, slot };
+}
+
 /** Seed the bookmarks from localStorage (cross-session, see key doc).
- *  Double shape-check: outer map is (project:workspace) → name → viewport;
- *  every viewport must be all-finite or the whole entry is dropped. */
-function hydrateViewportBookmarks(): Record<string, Record<string, Viewport>> {
+ *  Reads v2; if only the v1 pre-slot format exists, migrates it: slots
+ *  are assigned by stored key order (insertion order — the best guess
+ *  available), capped at nine, then v2 is written and v1 removed. */
+function hydrateViewportBookmarks(): Record<string, Record<string, ViewportBookmark>> {
   if (typeof window === "undefined") return {};
   try {
     const raw = window.localStorage.getItem(VIEWPORT_BOOKMARKS_KEY);
-    if (!raw) return {};
-    const parsed: unknown = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object") return {};
-    const out: Record<string, Record<string, Viewport>> = {};
-    for (const [wsKey, named] of Object.entries(parsed as Record<string, unknown>)) {
+    if (raw) {
+      const parsed: unknown = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object") return {};
+      const out: Record<string, Record<string, ViewportBookmark>> = {};
+      for (const [wsKey, named] of Object.entries(parsed as Record<string, unknown>)) {
+        if (!named || typeof named !== "object") continue;
+        const names: Record<string, ViewportBookmark> = {};
+        for (const [name, v] of Object.entries(named as Record<string, unknown>)) {
+          const bookmark = parseViewportBookmark(v);
+          if (bookmark) names[name] = bookmark;
+        }
+        if (Object.keys(names).length > 0) out[wsKey] = names;
+      }
+      return out;
+    }
+    // v1 migration — plain name → viewport, no slots. Key insertion order
+    // is the only history we have, so seat order = stored order.
+    const rawV1 = window.localStorage.getItem(VIEWPORT_BOOKMARKS_KEY_V1);
+    if (!rawV1) return {};
+    const parsedV1: unknown = JSON.parse(rawV1);
+    if (!parsedV1 || typeof parsedV1 !== "object") return {};
+    const out: Record<string, Record<string, ViewportBookmark>> = {};
+    let dirty = false;
+    for (const [wsKey, named] of Object.entries(parsedV1 as Record<string, unknown>)) {
       if (!named || typeof named !== "object") continue;
-      const names: Record<string, Viewport> = {};
+      const names: Record<string, ViewportBookmark> = {};
+      let seat = 1;
       for (const [name, v] of Object.entries(named as Record<string, unknown>)) {
         if (!v || typeof v !== "object") continue;
         const { x, y, zoom } = v as Record<string, unknown>;
@@ -132,10 +213,18 @@ function hydrateViewportBookmarks(): Record<string, Record<string, Viewport>> {
           typeof y === "number" && Number.isFinite(y) &&
           typeof zoom === "number" && Number.isFinite(zoom)
         ) {
-          names[name] = { x, y, zoom };
+          names[name] = { viewport: { x, y, zoom }, slot: seat <= MAX_BOOKMARK_SLOTS ? seat : null };
+          seat++;
         }
       }
       if (Object.keys(names).length > 0) out[wsKey] = names;
+    }
+    if (Object.keys(out).length > 0) {
+      persistViewportBookmarks(out);
+      dirty = true;
+    }
+    if (dirty || window.localStorage.getItem(VIEWPORT_BOOKMARKS_KEY_V1) !== null) {
+      window.localStorage.removeItem(VIEWPORT_BOOKMARKS_KEY_V1);
     }
     return out;
   } catch {
@@ -186,9 +275,11 @@ interface WorkflowState {
    *  sessionStorage (same tab only); closing the tab deliberately burns it. */
   viewportMemory: Record<string, Viewport>;
   /** Named viewport bookmarks (Task 100), keyed (project:workspace) → name →
-   *  viewport — the user's SAVED views. Hydrated from localStorage,
-   *  persisted synchronously on explicit save/delete only. */
-  viewportBookmarks: Record<string, Record<string, Viewport>>;
+   *  { viewport, slot } — the user's SAVED views with their stable hotkey
+   *  seats (Task 101: slot 1–9 assigned at creation, never renumbered).
+   *  Hydrated from localStorage, persisted synchronously on explicit
+   *  save/delete only. */
+  viewportBookmarks: Record<string, Record<string, ViewportBookmark>>;
   /** Job type key being dragged from the palette (drop target hint). */
   paletteDrag: string | null;
   /** Increments on every one-click auto-arrange (canvas fit-views on change). */
@@ -356,9 +447,16 @@ interface WorkflowState {
   setViewport: (patch: Partial<Viewport>) => void;
   panBy: (dx: number, dy: number) => void;
   /** Save the current viewport under a name for THIS (project:workspace) —
-   *  same-name saves overwrite (a bookmark is a named snapshot, not a log). */
+   *  same-name saves overwrite (a bookmark is a named snapshot, not a log)
+   *  and KEEP the existing hotkey slot; new names take the lowest free
+   *  slot (Task 101), or none when all nine are taken. */
   saveViewportBookmark: (name: string) => boolean;
   deleteViewportBookmark: (name: string) => void;
+  /** Jump straight to the saved view holding hotkey `slot` (1–9) for THIS
+   *  (project:workspace) — Task 101. Routes through setViewport (zoom clamp
+   *  gate); false when no bookmark holds the seat — an honest dead key, no
+   *  phantom jump (mirrors the dashboard's empty-slice dead filters). */
+  jumpToViewportBookmark: (slot: number) => boolean;
   setDragActive: (active: boolean) => void;
   setPaletteDrag: (type: string | null) => void;
   /** Center the canvas on a job ("Focus" from the inspector). */
@@ -1795,13 +1893,20 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   // Bookmark = a named snapshot of the CURRENT viewport for THIS
   // (project:workspace). Explicit user action → synchronous localStorage
   // write is fine (low-frequency); trimmed empty names are refused (the UI
-  // disables save, this is the belt to that braces). Same name overwrites.
+  // disables save, this is the belt to that braces). Same name overwrites
+  // AND keeps its hotkey seat — the slot is part of the bookmark's
+  // identity, re-saving a view must not silently move its key (Task 101).
   saveViewportBookmark: (name) => {
     const trimmed = name.trim().slice(0, 60);
     if (!trimmed) return false;
     set((s) => {
       const key = `${s.project?.id ?? "-"}:${s.activeWorkspaceId ?? "-"}`;
-      const forWs = { ...(s.viewportBookmarks[key] ?? {}), [trimmed]: { ...s.viewport } };
+      const existing = s.viewportBookmarks[key]?.[trimmed];
+      const slot = existing ? existing.slot : lowestFreeSlot(s.viewportBookmarks[key] ?? {});
+      const forWs = {
+        ...(s.viewportBookmarks[key] ?? {}),
+        [trimmed]: { viewport: { ...s.viewport }, slot },
+      };
       const bookmarks = { ...s.viewportBookmarks, [key]: forWs };
       persistViewportBookmarks(bookmarks);
       return { viewportBookmarks: bookmarks };
@@ -1819,6 +1924,19 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       persistViewportBookmarks(bookmarks);
       return { viewportBookmarks: bookmarks };
     }),
+  jumpToViewportBookmark: (slot) => {
+    // key derivation mirrors save/delete EXACTLY — one rule, four sites.
+    // The jump lands via setViewport, so the jump is also written through
+    // to the session memory ("where I am now") and zoom clamps to range.
+    const s = get();
+    const key = `${s.project?.id ?? "-"}:${s.activeWorkspaceId ?? "-"}`;
+    const named = s.viewportBookmarks[key];
+    if (!named) return false;
+    const hit = Object.values(named).find((b) => b.slot === slot);
+    if (!hit) return false;
+    s.setViewport(hit.viewport);
+    return true;
+  },
   setDragActive: (active) => set({ dragActive: active }),
   setPaletteDrag: (type) => set({ paletteDrag: type }),
   requestClassFocus: (jobId, cls) => set({ pendingClassFocus: { jobId, cls } }),

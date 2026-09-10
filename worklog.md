@@ -3228,3 +3228,29 @@ Stage Summary:
 - 「探针的自清要显式断言成功」：Z 相的 try/catch DELETE 静默吞掉偶发失败，t100 Second 残留进 workspaces——「试过删」和「删掉了」之间隔着整个世界的干净程度。加固双层：S 相预清（崩跑到不了 Z，必须由下一跑的 S 兜底）+ Z 相断言删除响应 ok。探针失败可见永远好过残留不可见
 - 「中途播种的实体对已加载页面不可见」：API 直发的 workspace 不进页面的下拉（store 在加载时拉取）——探针要么先播种后开页（t98 模式）要么播种后 reload（t100 模式）；两种模式都是「探针世界与页面世界同步」的成本，选择取决于探针结构
 - 遗留（下轮候选）：EMPIAR 真数据回归（重）；用户真机 class3d/refine3d 顺序模式与 topaz 实测反馈；diff 对话框 Open 行 canvas 入口价值复查；文件夹拖拽真机手势反馈；undo 快照仅存 toast 闭包（Ctrl+Z 历史栈观察需求）；书签的快捷键跳转（1-9 数字直跳？与现有 shortcuts 的冲突面要先核实）与跨 tab storage 事件同步（多 tab 同时开时的书签新鲜度）；paths.ts process.cwd() 可移植性 vs standalone 现实的部署审查
+
+---
+Task ID: 101
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-10 08:59 window)
+Task: cron 自主巡检——Task 101「书签快捷键直跳（stable slots 1–9，v2 存储 + v1 迁移）+ 三套旧世代套件复活（qa59/60/61）+ watchdog standalone 死锁修复」：①新功能——Task 100 书签的自然延伸：数字键 1–9 在 canvas 直跳对应书签（dashboard 的 1–6 filter 不冲突，Ctrl/Cmd+digit 让给浏览器 tab 切换）；slot 是「座位」不是序号——创建时取最低空闲位、永不重编号（删 #3 不许把 #4 变 #3——肌肉记忆是合同）、同名覆盖保座（重存换的是快照不是钥匙）、9 位满则 unnumbered（面板点击可达）；存储升 v2（name → {viewport, slot}），hydrate 时 v1 按键序迁移进 v2 并删旧键；顺手统一键派生（面板读从 jobs[0].projectId 改为 project?.id——书签是用户资产，不该随最后一个 job 删除而从面板消失）；UI 行首 kbd 座位 chip + 座位序排序（unnumbered 殿后）+ footer 提示 + shortcuts 对话框新行；②QA 基建——全矩阵途中发现 qa59/60/61（agent-browser 世代）依赖「别人种好的世界」而 qa58 的 Z 相会清场（Task 86 教义违例的陈年债）：三套补自种子；qa61 宿主从硬编码旧世界名升级为全套自包含（POST 唯一名 + Prisma 翻 completed + 合成 postprocess.mrc + engine-state 注册 + outputs API 自验 + FATAL 路径全套自清）；qa64 的旧世界硬编码（project id + workdir tail）改动态派生、世界计数断言改合同断言；qa-server-watchdog 用 `bun next start` 被 output:standalone 拒绝（日志明示 does not work）——改走 start-prod.sh 单一真相源；③OOM 惊魂——废弃套件批跑触发全局 OOM 击杀 next-server（4GB 盒子），查明后按官方矩阵（qa58+/t85+）重跑全绿。t101 33 断言三连绿 + 全矩阵 34 套绿 + worklog + push
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 100（fc45310，08:29 窗口实际已完成）、HEAD == origin/main、BUILD_ID dzQa-YuspPHCfV-QILTkf 匹配；冷启动 + smoke/qa00/t100/qa84 四套全绿 → 稳定
+- 【实现①store】键升 v2 + MAX_BOOKMARK_SLOTS=9 + lowestFreeSlot（洞复用）+ parseViewportBookmark（viewport 全 finite + slot 为 null 或 1–9 整数，坏条目整条丢弃）+ v1 迁移（键插入序分派座位、写 v2、删 v1）；saveViewportBookmark 同名保座/新名取位；新增 jumpToViewportBookmark(slot)（键派生镜像 save/delete、走 setViewport 的 zoom clamp 网关、无座位诚实死键返回 false）
+- 【实现②canvas+page+dialog】面板行 slot chip（data-canvas-ui=viewport-bookmark-slot）+ 座位序排序 + footer 提示；页面键盘分支 `k>="1"&&k<="9"` 带 modifier 排除 + canvas-only 守卫（dashboard 的 1–6 不串扰）；shortcuts-dialog Canvas 组新增 1–9 行
+- 【t101 探针 33 断言七相】S 相 S0 迁移行为真测（种 v1 载荷 → hydrate → v2 有座 + v1 键消失；D2 只验代码存在不够）；A 相 1/2/3 按序入座 + v2 磁盘形状；B 相按键 1/3/2 跳转 transform 逐字恢复 + sessionStorage 记忆写穿；C 相删 2 号幸存者不重编号 + 洞复用 + 同名覆盖保座换快照；E 相 9 座满 + 第 10 本 unnumbered（无 chip + slot null + 面板可跳）+ 键 9 落位；D 相 8 条静态合同；一折：数 chip 忘了开面板（Escape 后 DOM 无 popover）——探针自己的 DOM 语义错
+- 【回归惊魂·OOM】超宽矩阵批（误把 qa35-41 废弃套件算进官方矩阵）触发 agent-browser 重试风暴 → 全局 OOM 击杀 next-server（dmesg 实锤 2.5GB RSS）；服务器两次随工具会话被收割 → 分块前台跑 + 每块内置自愈启动
+- 【套件复活·qa59/60】qa58 自种子后 Z 相清场、qa59/60 只在 Z 清种不自种 → 顺序依赖死锁：各自 A 相补 sh(SEED)（Task 86 教义：seeder 幂等，套件不该依赖「谁跑在我前面」）
+- 【套件复活·qa61 四折】①宿主硬编码旧世界名「3D Auto-Refine 1」→ 改自种；②POST 不带 workspaceId → 孤儿行永不渲染成卡（六次 NO-CARD）；③PATCH status 只收 "idle"（重置语义）——静默 no-op，completed 翻状态走 Prisma 直改 DB（qa58-seed 同款）；④idle 宿主点击开侧板（xl 不可见）而非检查器模态；⑤泄漏的同名 idle 行遮蔽 first-match 点击（诊断矩阵：近卡 t+6s 开、completed 远卡 t+9/16s 不开 → 排除时序/状态/位置 → 撞名实锤）→ 唯一名 "qa61 Host"；⑥volume enlarge 需要 postprocess.mrc + engine-state 记录（outputs 路由走 getRun.workdir）→ 合成 64³ MRC + 注册 + outputs API 自验「Sharpened map」在列；B 相 viewport 竞速（daemon 重启丢 set viewport → 1600 宽 xl 布局 → Sheet 探针 undefined 崩栈）→ boot 内宽底验证重试环；FATAL 直通 process.exit 绕过 finally → hostCleanup 进 FATAL 路径
+- 【套件修复·qa64】硬编码 project id（cmtrzp5x8…）+ workdir tail（q8mu0tdp）死于世界迁移 → 动态派生；「5 rows」世界计数断言 → 「≥5」合同断言（fixture 现有 6 个 FSC job——链条 Refine3D 也带了 postprocess.star）
+- 【infra·watchdog】`bun next start` 与 output:standalone 不兼容（prod-server.log 明示警告）——watchdog 永远在拉起一个坏服务器；改调 start-prod.sh（端口清理 + data symlink 保障 + 真 standalone server.js 单一真相源）
+- 【fixture 恢复】qa60 的 --clean 连带清掉 QA Post 300/320/385 的 engine-state 记录 → qa63-smoke 的 FSC 断言崩；qa60-seed-fsc.py（无 clean）重播恢复，smoke 复绿
+- 【收尾】src tsc 0、eslint 0（无需重建——src 变更已在 BUILD_ID tAVLj4ovtz1xuAfzkoT2T 内，t101 三连绿正是它上面跑的）；t101 33×3 三连绿；官方矩阵 34 套（qa00 + qa58–qa84 + t85–t101）串行全绿；诊断矩阵归档 diag-archive/（README 加行）
+
+Stage Summary:
+- 「座位是身份，序号是巧合」：快捷键映射最直觉的实现是「按顺序重编号」——存的时候排第几就按几跳。但删除让重编号变成肌肉记忆的背叛：Overview 昨天在 3 号键今天变 2 号，用户的手指比代码诚实。座位在创建时领取、覆盖时保留、删除时释放、九位满则诚实无座——「稳定」不是不变量（座位会换主人）而是「幸存者不动」
+- 「套件不该依赖『谁跑在我前面』」：qa59/60/61 依赖 qa58 种下的世界，而 qa58 的 Z 相清场——顺序依赖在矩阵里就是定时炸弹，炸不炸取决于谁排前面。Task 86 的教义（每个新套件自种子、seeder 幂等）在 qa58+ 世代执行了，但更老的 agent-browser 世代没人回头补——「后来者的规矩」要主动溯及既往，不然矩阵里永远躺着一排只在特定顺序下绿的僵尸套件
+- 「自包含宿主的四层真相」：一个「completed 且有输出的 job」= DB 行（status 翻转只能走 Prisma，PATCH 只收 idle）+ workdir 文件（postprocess.mrc 决定 enlarge 按钮渲染）+ engine-state 注册（outputs 路由读 getRun.workdir，缺了就是 "job has not run yet"）+ 每层自验（outputs API 必须列出 Sharpened map 才算种上）。API 响应 200 ≠ 状态生效——PATCH 静默忽略未知字段就是教训；「种上了」必须用消费方自己的读取路径验证
+- 「诊断工具先诊断自己」：qa61 的点击失败追了五层（孤儿 → 状态 → 泄漏遮蔽），中途诊断脚本本身带着坏 stdin 管道（{input} 传给一参包装器，所有 eval 返 null）——坏探针给出的「页面坏了」假象差点把方向带偏到 hydration。诊断结论的置信度受限于诊断工具的置信度，工具先自证
+- 「watchdog 的悖论」：保活脚本自己拉起的服务器是坏的（bun next start vs output:standalone），日志里明晃晃写着 does not work——watchdog 忠实地每 2 秒重启一次坏服务器，比没有 watchdog 更糟（掩盖了真凶）。保活机制必须和启动机制共享同一条命令路径，单一真相源不是洁癖是保命
+- 遗留（下轮候选）：EMPIAR 真数据回归（重，连续让位）；用户真机 class3d/refine3d 顺序模式与 topaz 实测反馈；diff 对话框 Open 行 canvas 入口价值复查；文件夹拖拽真机手势反馈；undo 快照仅存 toast 闭包（Ctrl+Z 历史栈观察需求）；书签跨 tab storage 事件同步（多 tab 书签新鲜度）；qa61 B 相的 Sheet 几何依赖 agent-browser 坐标点击（本轮修的是视口竞速，坐标法本身的脆弱性仍在——长期宜移植 playwright）；qa35–41 废弃套件应正式归档（本轮误入矩阵触发 OOM 的直接原因）

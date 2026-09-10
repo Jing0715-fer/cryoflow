@@ -1148,14 +1148,27 @@ export function WorkflowCanvas() {
 
   /* ---------------- named viewport bookmarks (Task 100) -------------- */
   // bookmarks live in the store (hydrated from localStorage at boot, saved
-  // synchronously on the explicit save/delete actions — never per-frame)
+  // synchronously on the explicit save/delete actions — never per-frame).
+  // Rows sort by hotkey slot first (Task 101): seats 1–9 read top-to-bottom
+  // like the keys they map to; unnumbered (slots were full) trail behind.
   const wsBookmarks = useWorkflowStore((s) => s.viewportBookmarks);
   const saveViewportBookmark = useWorkflowStore((s) => s.saveViewportBookmark);
   const deleteViewportBookmark = useWorkflowStore((s) => s.deleteViewportBookmark);
+  const project = useWorkflowStore((s) => s.project);
   const [bookmarksOpen, setBookmarksOpen] = React.useState(false);
   const [bookmarkName, setBookmarkName] = React.useState("");
-  const namedViews = fitKey ? (wsBookmarks[fitKey] ?? {}) : {};
-  const namedList = Object.entries(namedViews).sort(([a], [b]) => a.localeCompare(b));
+  // bookmark key mirrors the store actions' derivation (project?.id, NOT
+  // jobs[0].projectId): bookmarks are a per-(project:workspace) USER asset —
+  // they must survive deleting the last job, unlike fitKey which frames
+  // content and therefore needs jobs to exist
+  const bookmarkWsKey = `${project?.id ?? "-"}:${activeWorkspaceId ?? "-"}`;
+  const namedViews = wsBookmarks[bookmarkWsKey] ?? {};
+  const namedList = Object.entries(namedViews).sort(([an, a], [bn, b]) => {
+    const sa = a.slot ?? Number.MAX_SAFE_INTEGER;
+    const sb = b.slot ?? Number.MAX_SAFE_INTEGER;
+    if (sa !== sb) return sa - sb;
+    return an.localeCompare(bn);
+  });
 
   /* ---------------- background context menu ------------------------- */
 
@@ -1572,19 +1585,28 @@ export function WorkflowCanvas() {
               </p>
             ) : (
               <ul className="max-h-44 overflow-y-auto">
-                {namedList.map(([name, vp]) => (
+                {namedList.map(([name, bm]) => (
                   <li key={name} className="group flex items-center gap-1 rounded px-1" data-canvas-ui="viewport-bookmark-row">
+                    {bm.slot != null && (
+                      <kbd
+                        className="shrink-0 rounded border bg-muted px-1 font-mono text-[10px] leading-4 text-muted-foreground"
+                        title={`Press ${bm.slot} on the canvas to jump here`}
+                        data-canvas-ui="viewport-bookmark-slot"
+                      >
+                        {bm.slot}
+                      </kbd>
+                    )}
                     <button
                       type="button"
                       className="flex min-w-0 flex-1 items-center justify-between rounded px-1.5 py-1 text-left text-xs hover:bg-accent"
                       onClick={() => {
-                        setViewport(vp);
+                        setViewport(bm.viewport);
                         setBookmarksOpen(false);
                       }}
                       title={`Jump to "${name}"`}
                     >
                       <span className="truncate font-medium">{name}</span>
-                      <span className="ml-2 shrink-0 tabular-nums text-muted-foreground">{Math.round(vp.zoom * 100)}%</span>
+                      <span className="ml-2 shrink-0 tabular-nums text-muted-foreground">{Math.round(bm.viewport.zoom * 100)}%</span>
                     </button>
                     <button
                       type="button"
@@ -1598,6 +1620,11 @@ export function WorkflowCanvas() {
                   </li>
                 ))}
               </ul>
+            )}
+            {namedList.length > 0 && (
+              <p className="border-t px-1 pb-0.5 pt-1.5 text-[10px] leading-4 text-muted-foreground" data-canvas-ui="viewport-bookmark-hint">
+                Keys 1–9 jump straight to a numbered view — the seat stays with its name even after deletions.
+              </p>
             )}
           </PopoverContent>
         </Popover>

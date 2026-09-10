@@ -270,6 +270,9 @@ const parseRes = (s) => {
 // ============================================================ phase A
 async function phaseA() {
   step("== PHASE A: FSC compare overlay (index + multi-curve merge) ==");
+  // self-seed (Task 86 doctrine): the seeder is idempotent — the suite must
+  // not depend on who ran before it (qa60-seed-fsc.py --clean runs in Z)
+  step(`  seed: ${(sh(SEED).split("\n").slice(-1)[0] ?? "").slice(0, 100)}`);
   if (!(await bootCanvas())) FATAL("canvas never appeared");
   if (!(await openInspector())) FATAL("inspector modal for QA Post 320 never appeared");
   if (!(await waitFor(async () => fscSection() === "YES", "FSC section"))) FATAL("FSC section never rendered");

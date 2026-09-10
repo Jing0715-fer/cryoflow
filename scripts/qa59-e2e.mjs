@@ -258,6 +258,9 @@ const clickChipUi = async (ui, verifyExpr, tries = 3) => {
 // ============================================================ phase A
 async function phaseA() {
   step("== PHASE A: gallery triage (sort + kept-only) ==");
+  // self-seed (Task 86 doctrine): the seeder is idempotent, and qa58's Z
+  // phase cleans the world — a suite must not depend on WHO ran before it
+  step(`  seed: ${(sh(SEED).split("\n").slice(-1)[0] ?? "").slice(0, 100)}`);
   if (!(await bootCanvas())) FATAL("canvas never appeared");
   if (!(await openSelectPanel())) FATAL("select2d panel with gallery never appeared");
 
