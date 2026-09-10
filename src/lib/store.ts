@@ -254,6 +254,26 @@ export interface DeleteSnapshot {
   edges: EdgeDTO[];
 }
 
+/** One user-initiated, server-synced workflow mutation with its faithful
+ *  inverse (Task 104). The delete toast's Undo closure (Task 97) pioneered
+ *  the pattern — the history stack generalizes it: each entry captures the
+ *  before/after DTOs it needs and performs its own server sync, so undo and
+ *  redo survive toast expiry, workspace switches and poll merges.
+ *  Only mutations whose inverse is id-stable qualify: position commits
+ *  (PATCH by job id) and deletes (restore re-creates rows VERBATIM).
+ *  Adds and edge edits churn server-generated ids — they stay outside the
+ *  stack and kill the redo branch instead (invalidateRedo). */
+export interface HistoryEntry {
+  label: string;
+  undo: () => Promise<void>;
+  redo: () => Promise<void>;
+}
+
+/** Linear stack depth. 50 entries of before/after position maps and delete
+ *  snapshots are bytes; the cap exists so an all-day session can never
+ *  grow it unbounded. */
+const HISTORY_CAP = 50;
+
 interface WorkflowState {
   jobs: JobDTO[];
   edges: EdgeDTO[];
@@ -396,6 +416,29 @@ interface WorkflowState {
    *  then wires are re-POSTed one by one (the sidecar file is a
    *  read-modify-write store — parallel restores could lose edges). */
   undoDelete: (snapshot: DeleteSnapshot) => Promise<void>;
+  /** Task 104 — linear history. In-memory only: a reload starts a fresh
+   *  history by design (the same honesty as the per-tab viewport memory —
+   *  an undo stack that survives reload would resurrect state the user
+   *  may have left deliberately). */
+  historyPast: HistoryEntry[];
+  historyFuture: HistoryEntry[];
+  undo: () => Promise<void>;
+  redo: () => Promise<void>;
+  /** The delete toasts' Undo button runs its OWN entry, not the stack top:
+   *  after later mutations the linear stack has branched, and a buried
+   *  entry must be undone out-of-band with the divergent tail discarded. */
+  undoEntry: (entry: HistoryEntry) => Promise<void>;
+  /** Any user mutation without a faithful inverse (add / duplicate /
+   *  import / edge edit) kills the redo branch — redo is only valid
+   *  immediately after undos, before new work diverges the world. */
+  invalidateRedo: () => void;
+  /** Server-cascade delete + local cleanup with NO toasts and NO history —
+   *  the shared core of user deletes (single + bulk) and history redo
+   *  (Task 104). Returns the ids whose DELETE round-tripped. */
+  removeJobsRaw: (
+    ids: string[],
+    opts?: { keepSelection?: boolean }
+  ) => Promise<{ deleted: string[]; error: string | null }>;
   setTemplatePresetsOpen: (open: boolean) => void;
   setShortcutsOpen: (open: boolean) => void;
   toggleNoteSpotlight: () => void;
@@ -450,7 +493,10 @@ interface WorkflowState {
    *  so a wired sub-pipeline comes back as a wired sub-pipeline. */
   duplicateSelected: () => Promise<void>;
   /** Commit a group drag: one optimistic update + one bulk layout PATCH. */
-  moveJobsCommit: (moves: { id: string; x: number; y: number }[]) => Promise<void>;
+  moveJobsCommit: (
+    moves: { id: string; x: number; y: number }[],
+    opts?: { history?: boolean }
+  ) => Promise<void>;
   /** Snap the selection onto a shared edge/center line. */
   alignSelected: (
     mode: "left" | "hcenter" | "right" | "top" | "vcenter" | "bottom"
@@ -623,6 +669,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   selectedId: null,
   selectedIds: [],
   inspectId: null,
+  historyPast: [],
+  historyFuture: [],
   pendingFrom: null,
   viewport: { x: 0, y: 0, zoom: 1 },
   viewportMemory: hydrateViewportMemory(),
@@ -984,6 +1032,9 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         }),
       });
       set({ jobs: [...get().jobs, job], selectedId: job.id, selectedIds: [job.id] });
+      // a fresh card has no faithful inverse (recreating it would mint a
+      // new id) — the redo branch dies here (Task 104)
+      get().invalidateRedo();
       toast({
         title: "Job added",
         description: `${job.name} placed on the canvas`,
@@ -1014,6 +1065,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         edges: [...get().edges, ...data.edges.filter((e) => !haveEdges.has(e.id))],
         layoutEpoch: get().layoutEpoch + 1, // canvas fit-views the new content
       });
+      get().invalidateRedo();
       const presetBits = overrides?.symmetry ? ` · symmetry ${overrides.symmetry}` : "";
       toast({
         title: "Standard SPA pipeline created",
@@ -1118,6 +1170,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
           ) as unknown as ToastActionElement)
         : undefined,
     });
+    // the import minted brand-new job ids — the redo branch dies here
+    get().invalidateRedo();
     void get().refreshWorkspaces();
   },
 
@@ -1166,8 +1220,117 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
           ? `${ok.length} job${ok.length === 1 ? "" : "s"} removed${switched ? " — canvas switched back" : ""}`
           : `${ok.length} of ${createdIds.length} jobs removed — the rest already changed and were kept`,
     });
+    // out-of-band undo — the recorded future can no longer be trusted
+    get().invalidateRedo();
     void get().refreshWorkspaces();
   },
+
+  /** Task 104 — the shared bare delete: server cascade + local cleanup,
+   *  no toasts, no history. keepSelection preserves the single-delete
+   *  promotion semantics (bulk delete clears outright, as it always has). */
+  removeJobsRaw: async (ids, opts) => {
+    const alive = ids.filter((id) => get().jobs.some((j) => j.id === id));
+    if (alive.length === 0) return { deleted: [], error: null };
+    const results = await Promise.allSettled(
+      alive.map((id) => api(`/api/jobs/${id}`, { method: "DELETE" }))
+    );
+    const deleted = alive.filter((_, i) => results[i].status === "fulfilled");
+    if (deleted.length === 0) {
+      const rej = results.find((r): r is PromiseRejectedResult => r.status === "rejected");
+      const reason = rej?.reason;
+      return {
+        deleted,
+        error: reason instanceof Error ? reason.message : "Failed to delete job",
+      };
+    }
+    const delSet = new Set(deleted);
+    // keepSelection: when the PRIMARY card goes away, promote the first
+    // remaining selected card (the single-delete behavior since Task 97)
+    const restIds = get().selectedIds.filter((x) => !delSet.has(x));
+    const selId = get().selectedId;
+    const prevInspect = get().inspectId;
+    const prevPending = get().pendingFrom;
+    const primary =
+      opts?.keepSelection && selId != null && delSet.has(selId)
+        ? (restIds[0] ?? null)
+        : selId;
+    set({
+      jobs: get().jobs.filter((j) => !delSet.has(j.id)),
+      edges: get().edges.filter((e) => !delSet.has(e.fromJobId) && !delSet.has(e.toJobId)),
+      selectedId: opts?.keepSelection ? primary : null,
+      selectedIds: opts?.keepSelection ? restIds : [],
+      inspectId: prevInspect != null && delSet.has(prevInspect) ? null : prevInspect,
+      pendingFrom: prevPending && delSet.has(prevPending.jobId) ? null : prevPending,
+    });
+    return { deleted, error: null };
+  },
+
+  undo: async () => {
+    const past = get().historyPast;
+    const entry = past[past.length - 1];
+    if (!entry) {
+      toast({
+        title: "Nothing to undo",
+        description: "The canvas is already at its oldest remembered state",
+      });
+      return;
+    }
+    // pop FIRST: re-entrant undos (a double Ctrl+Z racing the async work)
+    // must never run the same entry twice
+    set({ historyPast: past.slice(0, -1) });
+    await entry.undo();
+    set({ historyFuture: [...get().historyFuture, entry] });
+  },
+
+  redo: async () => {
+    const future = get().historyFuture;
+    const entry = future[future.length - 1];
+    if (!entry) {
+      toast({
+        title: "Nothing to redo",
+        description: "Every undone change is already back on the canvas",
+      });
+      return;
+    }
+    set({ historyFuture: future.slice(0, -1) });
+    await entry.redo();
+    set({ historyPast: [...get().historyPast, entry].slice(-HISTORY_CAP) });
+  },
+
+  undoEntry: async (entry) => {
+    const past = get().historyPast;
+    const i = past.indexOf(entry);
+    if (i >= 0) {
+      if (i === past.length - 1) {
+        // the common case — the toast is fresh, the entry is the stack top:
+        // walk the plain linear path so future/redo stays coherent
+        await get().undo();
+        return;
+      }
+      // buried under newer work — the linear stack has branched. Undo this
+      // entry out-of-band and discard the divergent tail: a linear stack
+      // cannot represent a branch, and pretending otherwise would apply
+      // the wrong inverse to the wrong world
+      await entry.undo();
+      set({ historyPast: past.slice(0, i), historyFuture: [] });
+      return;
+    }
+    const future = get().historyFuture;
+    if (future.includes(entry)) {
+      // already undone from the keyboard — the toast button arrived late;
+      // run it anyway (undoDelete's own guard makes it a polite no-op)
+      // and retire the entry so it can never fire twice
+      await entry.undo();
+      set({ historyFuture: future.filter((e) => e !== entry) });
+      return;
+    }
+    // entry unknown to the stack (history reset, imported world) — bare
+    // undo, and the recorded future can no longer be trusted
+    await entry.undo();
+    set({ historyFuture: [] });
+  },
+
+  invalidateRedo: () => set({ historyFuture: [] }),
 
   undoDelete: async (snapshot) => {
     // defensive: jobs that somehow reappeared (another undo already ran) are
@@ -1259,6 +1422,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
 
   moveJobCommit: async (id, x, y) => {
+    const j0 = get().jobs.find((j) => j.id === id);
     // optimistic
     set({ jobs: get().jobs.map((j) => (j.id === id ? { ...j, x, y } : j)) });
     try {
@@ -1270,6 +1434,25 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     } catch (err) {
       errToast(err instanceof Error ? err.message : "Failed to save position");
     }
+    // Task 104 — the entry is pushed after the PATCH attempt so even a
+    // failed save leaves an exit: undo restores the local card, and once
+    // the server answers again the row follows. A drag that rounds back
+    // onto the origin records nothing (there is nothing to undo).
+    if (j0 && (j0.x !== x || j0.y !== y)) {
+      const entry: HistoryEntry = {
+        label: `Move ${j0.name}`,
+        undo: async () => {
+          await get().moveJobsCommit([{ id, x: j0.x, y: j0.y }], { history: false });
+        },
+        redo: async () => {
+          await get().moveJobsCommit([{ id, x, y }], { history: false });
+        },
+      };
+      set((s) => ({
+        historyPast: [...s.historyPast, entry].slice(-HISTORY_CAP),
+        historyFuture: [],
+      }));
+    }
   },
 
   applyLayout: async () => {
@@ -1280,6 +1463,12 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       edges.map((e) => ({ fromJobId: e.fromJobId, toJobId: e.toJobId }))
     );
     const updates = [...positions.entries()].map(([id, p]) => ({ id, x: p.x, y: p.y }));
+    const before = jobs
+      .filter((j) => {
+        const p = positions.get(j.id);
+        return p && (p.x !== j.x || p.y !== j.y);
+      })
+      .map((j) => ({ id: j.id, x: j.x, y: j.y }));
     set({
       jobs: get().jobs.map((j) => ({ ...j, ...(positions.get(j.id) ?? {}) })),
       layoutEpoch: get().layoutEpoch + 1,
@@ -1293,6 +1482,25 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       toast({ title: "Workflow tidied", description: `${updates.length} jobs auto-arranged` });
     } catch (err) {
       errToast(err instanceof Error ? err.message : "Failed to save layout");
+    }
+    // Task 104 — undo the tidy: every pre-layout position comes back, but
+    // WITHOUT a layoutEpoch bump. The epoch would yank the viewport into a
+    // refit the user never asked for; undo restores the GRAPH, the user
+    // keeps the camera.
+    if (before.length > 0) {
+      const entry: HistoryEntry = {
+        label: "Auto-arrange",
+        undo: async () => {
+          await get().moveJobsCommit(before, { history: false });
+        },
+        redo: async () => {
+          await get().moveJobsCommit(updates, { history: false });
+        },
+      };
+      set((s) => ({
+        historyPast: [...s.historyPast, entry].slice(-HISTORY_CAP),
+        historyFuture: [],
+      }));
     }
   },
 
@@ -1391,7 +1599,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
 
   deleteJob: async (id) => {
-    // snapshot BEFORE the delete — the toast's Undo action carries the full
+    // snapshot BEFORE the delete — the undo stack entry carries the full
     // pre-delete world (job DTO + attached wires) for /api/jobs/restore
     const snapJob = get().jobs.find((j) => j.id === id);
     const snapshot: DeleteSnapshot | null = snapJob
@@ -1400,40 +1608,50 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
           edges: get().edges.filter((e) => e.fromJobId === id || e.toJobId === id),
         }
       : null;
-    try {
-      await api(`/api/jobs/${id}`, { method: "DELETE" });
-      // drop the job from the multi-selection too; when the PRIMARY card is
-      // the one going away, promote the first remaining selected card
-      const restIds = get().selectedIds.filter((x) => x !== id);
-      const primary = get().selectedId === id ? (restIds[0] ?? null) : get().selectedId;
-      set({
-        jobs: get().jobs.filter((j) => j.id !== id),
-        edges: get().edges.filter((e) => e.fromJobId !== id && e.toJobId !== id),
-        selectedId: primary,
-        selectedIds: primary ? restIds : [],
-        inspectId: get().inspectId === id ? null : get().inspectId,
-        pendingFrom: get().pendingFrom?.jobId === id ? null : get().pendingFrom,
-      });
-      toast({
-        title: "Job deleted",
-        // name the job — "removed from the workflow" said nothing about WHICH
-        description: snapJob
-          ? `${snapJob.name} removed from the workflow`
-          : "Removed from the workflow",
-        // wrong-card deletes are the classic slip — the undo window is the
-        // safety net the confirm dialog now promises (Task 97)
-        duration: 20_000,
-        action: snapshot
-          ? (React.createElement(
-              ToastAction,
-              { altText: "Undo the delete", onClick: () => void get().undoDelete(snapshot) },
-              "Undo"
-            ) as unknown as ToastActionElement)
-          : undefined,
-      });
-    } catch (err) {
-      errToast(err instanceof Error ? err.message : "Failed to delete job");
+    const { deleted, error } = await get().removeJobsRaw([id], { keepSelection: true });
+    if (deleted.length === 0) {
+      errToast(error ?? "Failed to delete job");
+      return;
     }
+    // Task 104 — the toast Undo button and Ctrl+Z share ONE entry: the
+    // button routes through undoEntry (which detects whether this entry is
+    // still the stack top), so the two paths can never fight over state
+    const entry: HistoryEntry | null =
+      snapshot && snapJob
+        ? {
+            label: `Delete ${snapJob.name}`,
+            undo: async () => {
+              await get().undoDelete(snapshot);
+            },
+            redo: async () => {
+              await get().removeJobsRaw([id], { keepSelection: true });
+            },
+          }
+        : null;
+    if (entry) {
+      set((s) => ({
+        historyPast: [...s.historyPast, entry].slice(-HISTORY_CAP),
+        historyFuture: [],
+      }));
+    }
+    toast({
+      title: "Job deleted",
+      // name the job — "removed from the workflow" said nothing about WHICH
+      description: snapJob
+        ? `${snapJob.name} removed from the workflow`
+        : "Removed from the workflow",
+      // wrong-card deletes are the classic slip — the undo window is the
+      // safety net the confirm dialog now promises (Task 97), and since
+      // Task 104 it outlives the toast: Ctrl+Z walks the same entry later
+      duration: 20_000,
+      action: entry
+        ? (React.createElement(
+            ToastAction,
+            { altText: "Undo the delete", onClick: () => void get().undoEntry(entry) },
+            "Undo"
+          ) as unknown as ToastActionElement)
+        : undefined,
+    });
   },
 
   duplicateJob: async (id) => {
@@ -1459,6 +1677,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         selectedIds: [job.id],
         inspectId: null,
       });
+      get().invalidateRedo(); // duplicate mints a new id — no faithful redo
       toast({
         title: "Job duplicated",
         description: `${job.name} placed beside the original — edit & connect it, then run`,
@@ -1506,6 +1725,9 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         body: JSON.stringify({ fromJobId: from, toJobId: to, fromPort, toPort }),
       });
       set({ edges: [...get().edges, edge], pendingFrom: null });
+      // wire edits have no id-stable inverse (re-creating mints a new edge
+      // row) — they live outside the history stack and kill the redo branch
+      get().invalidateRedo();
       const fromName = fromJob?.name ?? "Job";
       const toName = toJob?.name ?? "job";
       toast({ title: "Connected", description: `${fromName} → ${toName}` });
@@ -1519,6 +1741,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     try {
       await api(`/api/edges/${id}`, { method: "DELETE" });
       set({ edges: get().edges.filter((e) => e.id !== id) });
+      get().invalidateRedo();
       toast({ title: "Edge removed" });
     } catch (err) {
       errToast(err instanceof Error ? err.message : "Failed to remove edge");
@@ -1647,10 +1870,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       jobs: get().jobs.filter((j) => idSet.has(j.id)),
       edges: get().edges.filter((e) => idSet.has(e.fromJobId) || idSet.has(e.toJobId)),
     };
-    const results = await Promise.allSettled(
-      ids.map((id) => api(`/api/jobs/${id}`, { method: "DELETE" }))
-    );
-    const deleted = ids.filter((_, i) => results[i].status === "fulfilled");
+    const { deleted } = await get().removeJobsRaw(ids);
     const failed = ids.length - deleted.length;
     const deletedSet = new Set(deleted);
     // the undo payload covers the FULFILLED deletions only
@@ -1658,26 +1878,31 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       jobs: snapshot.jobs.filter((j) => deletedSet.has(j.id)),
       edges: snapshot.edges,
     };
-    const undoAction = undoSnapshot.jobs.length
+    // Task 104 — same entry shared by the toast button and Ctrl+Z
+    const entry: HistoryEntry | null = undoSnapshot.jobs.length
+      ? {
+          label: `Delete ${undoSnapshot.jobs.length} job${undoSnapshot.jobs.length === 1 ? "" : "s"}`,
+          undo: async () => {
+            await get().undoDelete(undoSnapshot);
+          },
+          redo: async () => {
+            await get().removeJobsRaw(deleted, { keepSelection: true });
+          },
+        }
+      : null;
+    if (entry) {
+      set((s) => ({
+        historyPast: [...s.historyPast, entry].slice(-HISTORY_CAP),
+        historyFuture: [],
+      }));
+    }
+    const undoAction = entry
       ? (React.createElement(
           ToastAction,
-          { altText: "Undo the delete", onClick: () => void get().undoDelete(undoSnapshot) },
+          { altText: "Undo the delete", onClick: () => void get().undoEntry(entry) },
           "Undo"
         ) as unknown as ToastActionElement)
       : undefined;
-    if (deleted.length > 0) {
-      const delSet = new Set(deleted);
-      const prevInspect = get().inspectId;
-      const prevPending = get().pendingFrom;
-      set({
-        jobs: get().jobs.filter((j) => !delSet.has(j.id)),
-        edges: get().edges.filter((e) => !delSet.has(e.fromJobId) && !delSet.has(e.toJobId)),
-        selectedId: null,
-        selectedIds: [],
-        inspectId: prevInspect != null && delSet.has(prevInspect) ? null : prevInspect,
-        pendingFrom: prevPending && delSet.has(prevPending.jobId) ? null : prevPending,
-      });
-    }
     if (failed > 0) {
       toast({
         title: `Deleted ${deleted.length} · ${failed} refused`,
@@ -1764,6 +1989,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         selectedId: newJobs[newJobs.length - 1]?.id ?? null,
         inspectId: null,
       });
+      get().invalidateRedo();
       toast({
         title: `Duplicated ${newJobs.length} job${newJobs.length === 1 ? "" : "s"}`,
         description: [
@@ -1781,9 +2007,26 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     }
   },
 
-  moveJobsCommit: async (moves) => {
+  moveJobsCommit: async (moves, opts) => {
     if (moves.length === 0) return;
-    const map = new Map(moves.map((m) => [m.id, m]));
+    const map = new Map(moves.map((m) => [m.id, m] as const));
+    // before-positions must be read BEFORE the optimistic set: the drag
+    // never touches the store mid-gesture (CSS transform + direct SVG
+    // patching own the screen until pointer-up), so get().jobs right here
+    // IS the pre-drag truth — the one snapshot undo can be faithful to
+    const beforeMoves =
+      opts?.history === false
+        ? null
+        : moves
+            .map((m) => {
+              const j = get().jobs.find((x) => x.id === m.id);
+              return j ? { id: m.id, x: j.x, y: j.y, name: j.name } : null;
+            })
+            .filter((v): v is { id: string; x: number; y: number; name: string } => v !== null)
+            .filter((v) => {
+              const m = map.get(v.id);
+              return m ? m.x !== v.x || m.y !== v.y : false;
+            });
     set({
       jobs: get().jobs.map((j) => {
         const m = map.get(j.id);
@@ -1798,6 +2041,27 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       });
     } catch (err) {
       errToast(err instanceof Error ? err.message : "Failed to save positions");
+    }
+    if (beforeMoves && beforeMoves.length > 0) {
+      const entry: HistoryEntry = {
+        label:
+          beforeMoves.length === 1
+            ? `Move ${beforeMoves[0].name}`
+            : `Move ${beforeMoves.length} jobs`,
+        undo: async () => {
+          await get().moveJobsCommit(
+            beforeMoves.map(({ id, x, y }) => ({ id, x, y })),
+            { history: false }
+          );
+        },
+        redo: async () => {
+          await get().moveJobsCommit(moves, { history: false });
+        },
+      };
+      set((s) => ({
+        historyPast: [...s.historyPast, entry].slice(-HISTORY_CAP),
+        historyFuture: [],
+      }));
     }
   },
 

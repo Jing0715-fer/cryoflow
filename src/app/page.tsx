@@ -247,6 +247,23 @@ export default function Home() {
           if (s.selectedIds.length > 1) void s.duplicateSelected();
           else if (s.selectedId) void s.duplicateJob(s.selectedId);
         }
+      } else if ((e.ctrlKey || e.metaKey) && (k === "z" || k === "Z")) {
+        // Task 104 history: Ctrl+Z walks the linear undo stack back, +Shift
+        // walks it forward. The typing guard upstream already gave form
+        // fields their native text undo back; the dialog guard above keeps
+        // an open dialog's own undo semantics undisturbed. The dashboard
+        // has no canvas state to unwind — excluded like F/N/arrows.
+        if (s.view !== "dashboard") {
+          e.preventDefault();
+          if (e.shiftKey) void s.redo();
+          else void s.undo();
+        }
+      } else if ((e.ctrlKey || e.metaKey) && (k === "y" || k === "Y")) {
+        // the Windows-editor convention for redo — same stack, same guard
+        if (s.view !== "dashboard") {
+          e.preventDefault();
+          void s.redo();
+        }
       } else if (k === "0") {
         e.preventDefault();
         s.setViewport({ x: 0, y: 0, zoom: 1 });

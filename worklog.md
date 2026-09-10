@@ -3302,3 +3302,24 @@ Stage Summary:
 - 「派生之前必须先有事实」：qa64 的 LIVE_TAIL 在模块加载时冻结，而种子在 117 行——顺序错了，派生就是空尾巴的化石。自种子的正确位置不是「函数里某处」而是「一切依赖它的派生之前」。Task 86 的「自种子」教义隐含了这条时序约束，直到被空下划线戳穿
 - 「探针的崩跑会污染世界的形状」：FATAL 路径不带清理，残带一累累进 maxY——下一次运行把种子放到更深处，几何假设全盘漂移。S 相预清是兜底（崩跑到不了 Z），预清后重取边界是兜底的兜底——清理的正确性按「世界恢复原状」验收，不按「调用了 DELETE」验收
 - 遗留（下轮候选）：EMPIAR 真数据回归（重，连续让位）；用户真机 class3d/refine3d 顺序模式与 topaz 实测反馈；diff 对话框 Open 行 canvas 入口价值复查；文件夹拖拽真机手势反馈；undo 快照仅存 toast 闭包（Ctrl+Z 历史栈观察需求）；qa60/61 的 agent-browser 通道问题间歇性（本轮 qa60 直接过——若复发再评估 playwright 移植）；qa42–qa57 状态未知（矩阵外未验证）；箭头导航的真机手感（锥宽 45° 与 drift 惩罚系数是拍脑袋值，真机用着别扭再调）
+
+---
+Task ID: 104
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-10 16:14 window)
+Task: cron 自主巡检——Task 104「线性 undo/redo 历史栈（Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y）」收尾验证：开局发现上轮被截断会话的完整开发已以 8f0641f（UUID-cron 自动提交名、ahead 1 未推送、worklog 无条目）落在树上——把 Task 97 delete toast 的 Undo 闭包泛化为线性命令栈：位置提交（drag/group drag/align/distribute/auto-tidy）与删除（single/bulk）入栈，undo/redo 闭包自带服务器同步（PATCH by job id / /api/jobs/restore VERBATIM 重建），两者皆 id-stable——正因如此 add/edge 编辑被排除在栈外（重建会铸造新服务器 id），改以 invalidateRedo 杀 redo 分支；toast Undo 走 undoEntry（埋藏条目带分歧尾部截断的带外撤销）。本轮以成品标准验收：静态 0 错 + bundle 自证 + t104 41×3 三连绿 + t97/t103/smoke 合同核对 + 全矩阵 44 套绿 + worklog + push
+
+Work Log:
+- 【开局核对 + 异常发现】worklog 尾部 Task 103、git 显示 ahead 1——HEAD 8f0641f 非 Task 103 的 96e8aba；审查确认是 Task 104 完整实现（store.ts +376/-56、t104-e2e.mjs 346 行九相、canvas 工具栏 Undo2/Redo2 ghost 按钮、page 键盘分支、shortcuts 行），commit 时间 16:13:37 恰在本轮 cron 触发（16:14:54）前 1 分钟——上轮会话开发完毕、收尾（worklog/push）被截断
+- 【验收·静态】冷启动（standalone/data symlink 幂等保障在位）→ eslint src 0、tsc src 0（diag-archive/skills 的历史报错非 src 范围）；BUILD_ID h0gTMN8npphX7kI7N79kf 的 mtime（15:45）晚于 store.ts 最后修改（15:39），bundle 内 rg 到 invalidateRedo/historyPast 标记——构建含 Task 104 源码自证
+- 【t104 三连绿】41 断言九相首跑即绿 ×3：S 相远带种子（2200 南 + 3000 东净空，Task 103 几何教义复用）+ A 卡上屏；M 相拖拽提交 + Ctrl+Z 逐字恢复（服务器 PATCH 真值仲裁）+ Ctrl+Shift+Z 重施；U 相工具栏 undo/redo 按钮走同一条栈 + 禁用态跟随栈存亡；D 相键盘删除（Task 97 确认门卫）→ Ctrl+Z 恢复 SAME id（restore 而非重铸）→ 重删；B 相 toast Undo 与线性栈统一——B4 断言「toast 撤销后 redo 仍可用」是路径统一的存在性证明；T 相 Wand2 tidy 整体挪动 → Ctrl+Z 三卡位置全部回滚；I 相 Ctrl+D 复制铸新 id → redo 诚实死亡（I2 不复活删除 + I3 不重施 tidy 双断言）；F 相 8 条静态合同（5 处 push 全 honors HISTORY_CAP slice、undo pop-before-run 防重入双发、undoEntry 三分支、≥8 处 invalidateRedo、键盘分支、shortcuts 行、按钮读活栈、历史纯内存永不持久化）；Z 相全种子 + 复制卡自清 + console 0
+- 【合同核对】t97 40 断言绿——delete toast 契约在 Undo 改走 undoEntry 后无伤（旧断言测的是「撤了」语义，不绑实现路径）；t103 29 绿（键盘处理区共存的箭头导航无串扰）；qa63-smoke 绿
+- 【全矩阵 44 套】run-matrix.sh 自动收录 t104（glob 兜底「忘加 t10X 不可能发生」）分 9 块串行 0 失败——qa00 哨兵 + qa58–qa84（25）+ t85–t104（19）全绿；分块自带自愈守卫，本轮服务器全程无 OOM 无收割
+- 【收尾】本条 worklog + commit 消息修正（UUID-cron 名 → repo 惯例 feat 格式）+ push + 环境清理
+
+Stage Summary:
+- 「没有 worklog 条目的 commit 是半件文物」：8f0641f 的代码是完整的、探针是调通的，但 commit 消息是一个 UUID、worklog 无条目、未推送——收尾三件套被截断后，这轮工作在历史里就是「不可信的匿名品」：下一位接手者无法从 commit 消息得知它是什么，只能靠读 diff 猜。worklog 是轮次的真相源，commit 消息是给 git log 考古者的第一句话——两者缺一，成品就退化成待验收品
+- 「半成品按成品的标准验收」：树上的匿名 WIP 不因「它看起来做完了」而免检——静态检查、bundle 自证、探针三连、全矩阵，一步不少。首轮即绿的探针本身就是上轮会话已调试完毕的证据（41 断言九相不可能是没跑过的代码）；验收的意义是把这个证据链从「看起来」升级成「验证过」
+- 「栈的资格判据是逆操作的 id 稳定性」：位置提交（PATCH by id）和删除（restore VERBATIM 重建）的逆是 id 稳定的——它们能安全入栈；add/duplicate/edge 编辑的逆会铸造新服务器 id——redo 它们等于复活一个世界不该有的孪生。这不是功能取舍是正确性边界：逆不忠实，历史就不是历史而是时间旅行事故。所有无忠实逆的入口（≥8 处）统一走 invalidateRedo
+- 「禁用态是诚实的空栈」：undo/redo 按钮读 historyPast/historyFuture 的长度做 disabled——栈空就禁用，不隐藏不假装。toast 的 Undo 不走栈顶而走 undoEntry（埋藏条目 + 分歧尾部截断）：线性栈在后续变更大后已分叉，埋藏条目只能带外撤销——语义诚实比接口统一重要
+- 「reload 清空历史是设计不是缺陷」：undo 栈纯内存（F8 断言永不持久化）——reload 后的「重做」会复活用户可能刻意离开的状态，与视口记忆的 per-tab 契约同一哲学：瞬态状态不跨生命周期
+- 遗留（下轮候选）：EMPIAR 真数据回归（重，连续让位）；用户真机 class3d/refine3d 顺序模式与 topaz 实测反馈；diff 对话框 Open 行 canvas 入口价值复查；文件夹拖拽真机手势反馈；undo 栈的 UI 深度提示（history 浅层可视化：按钮 tooltip 显示栈深 N？价值待观察）；qa61 B 相坐标点击移植 playwright（间歇性脆弱）；qa42–qa57 状态未知（矩阵外未验证）；箭头导航/undo 手感参数的真机调优（锥宽 45°、drift 惩罚、HISTORY_CAP=50 均为拍脑袋值）

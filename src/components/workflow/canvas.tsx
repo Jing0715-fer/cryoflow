@@ -23,6 +23,8 @@ import {
   Loader2,
   RotateCcw,
   Trash2,
+  Undo2,
+  Redo2,
   Wand2,
   X,
   ZoomIn,
@@ -456,6 +458,10 @@ export function WorkflowCanvas() {
   const panBy = useWorkflowStore((s) => s.panBy);
   const applyLayout = useWorkflowStore((s) => s.applyLayout);
   const layoutEpoch = useWorkflowStore((s) => s.layoutEpoch);
+  const historyPast = useWorkflowStore((s) => s.historyPast);
+  const historyFuture = useWorkflowStore((s) => s.historyFuture);
+  const undoHistory = useWorkflowStore((s) => s.undo);
+  const redoHistory = useWorkflowStore((s) => s.redo);
 
   const rootRef = React.useRef<HTMLDivElement>(null);
   const panRef = React.useRef<PanState | null>(null);
@@ -1515,6 +1521,35 @@ export function WorkflowCanvas() {
           title="Reset zoom and recenter on the workflow"
         >
           <RotateCcw className="size-4" />
+        </Button>
+        <span className="mx-0.5 h-4 w-px bg-border" aria-hidden="true" />
+        {/* Task 104 — undo/redo live next to the tools they reverse: the
+            buttons read the SAME stacks the keyboard walks, so a toast
+            expiry never leaves the UI guessing. Disabled = the stack's
+            honest empty state, not a hidden feature. */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-7"
+          onClick={() => void undoHistory()}
+          disabled={historyPast.length === 0}
+          aria-label="Undo"
+          title="Undo the last move, tidy or delete (Ctrl+Z)"
+          data-canvas-ui="undo-btn"
+        >
+          <Undo2 className="size-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-7"
+          onClick={() => void redoHistory()}
+          disabled={historyFuture.length === 0}
+          aria-label="Redo"
+          title="Redo an undone change (Ctrl+Shift+Z or Ctrl+Y)"
+          data-canvas-ui="redo-btn"
+        >
+          <Redo2 className="size-4" />
         </Button>
         <span className="mx-0.5 h-4 w-px bg-border" aria-hidden="true" />
         <Button
