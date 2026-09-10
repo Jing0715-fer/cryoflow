@@ -335,6 +335,12 @@ interface WorkflowState {
    *  command palette) — single source of truth so all three entries stay
    *  in sync. */
   shortcutsOpen: boolean;
+  /** Task 105 — world-overview minimap visibility (bottom-right corner).
+   *  Session-local by design: a collapsed tool is a UI mood, not a user
+   *  asset — default open on every fresh session keeps the map discover-
+   *  able and keeps localStorage free of yet another key. */
+  minimapOpen: boolean;
+  setMinimapOpen: (open: boolean) => void;
   /** Note spotlight (Task 75) — when true, canvas cards WITHOUT a human
    *  judgment dim toward the background so the scientist's annotations
    *  (job notes, Task 73; class notes, Task 80/83) jump out at a glance.
@@ -682,6 +688,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   focusEpoch: 0,
   templatePresetsOpen: false,
   shortcutsOpen: false,
+  minimapOpen: true,
   noteSpotlight: false,
   importPreview: null,
   loading: true,
@@ -2237,6 +2244,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   consumeClassFocus: () => set({ pendingClassFocus: null }),
   setTemplatePresetsOpen: (open) => set({ templatePresetsOpen: open }),
   setShortcutsOpen: (open) => set({ shortcutsOpen: open }),
+  setMinimapOpen: (open) => set({ minimapOpen: open }),
   toggleNoteSpotlight: () => set((s) => ({ noteSpotlight: !s.noteSpotlight })),
 
   openImportPreview: (entries, failures) =>

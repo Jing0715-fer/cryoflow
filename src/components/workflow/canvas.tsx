@@ -23,6 +23,7 @@ import {
   Loader2,
   RotateCcw,
   Trash2,
+  Map as MapIcon,
   Undo2,
   Redo2,
   Wand2,
@@ -462,6 +463,8 @@ export function WorkflowCanvas() {
   const historyFuture = useWorkflowStore((s) => s.historyFuture);
   const undoHistory = useWorkflowStore((s) => s.undo);
   const redoHistory = useWorkflowStore((s) => s.redo);
+  const minimapOpen = useWorkflowStore((s) => s.minimapOpen);
+  const setMinimapOpen = useWorkflowStore((s) => s.setMinimapOpen);
 
   const rootRef = React.useRef<HTMLDivElement>(null);
   const panRef = React.useRef<PanState | null>(null);
@@ -1410,8 +1413,10 @@ export function WorkflowCanvas() {
       {/* Bulk-selection toolbar (align · distribute · duplicate · delete) */}
       <SelectionToolbar rootRef={rootRef} hidden={band != null} />
 
-      {/* Bird's-eye navigation map (bottom-right) */}
-      <CanvasMinimap rootRef={rootRef} />
+      {/* Bird's-eye navigation map (bottom-right) — visibility is a
+          session-local store switch so the M key, the toolbar toggle and
+          the map itself all agree on one source of truth (Task 105) */}
+      {minimapOpen && <CanvasMinimap rootRef={rootRef} />}
 
       {/* Drop hint while dragging a job type from the palette */}
       {paletteDrag && (
@@ -1523,6 +1528,22 @@ export function WorkflowCanvas() {
           <RotateCcw className="size-4" />
         </Button>
         <span className="mx-0.5 h-4 w-px bg-border" aria-hidden="true" />
+        {/* Task 105 — minimap toggle: the map is discoverable by default;
+            hiding it is one keypress (M) or this button away, and the
+            active state reads from the same store the M branch flips. */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className={`size-7 ${minimapOpen ? "text-primary" : ""}`}
+          onClick={() => setMinimapOpen(!minimapOpen)}
+          aria-pressed={minimapOpen}
+          aria-label="Toggle minimap"
+          title="Toggle the world-overview map (M)"
+          data-canvas-ui="minimap-toggle"
+        >
+          <MapIcon className="size-4" />
+        </Button>
+        <span className="mx-0.5 h-4 w-px bg-border" aria-hidden="true" />
         {/* Task 104 — undo/redo live next to the tools they reverse: the
             buttons read the SAME stacks the keyboard walks, so a toast
             expiry never leaves the UI guessing. Disabled = the stack's
@@ -1534,7 +1555,11 @@ export function WorkflowCanvas() {
           onClick={() => void undoHistory()}
           disabled={historyPast.length === 0}
           aria-label="Undo"
-          title="Undo the last move, tidy or delete (Ctrl+Z)"
+          title={
+            historyPast.length > 0
+              ? `Undo: ${historyPast[historyPast.length - 1].label} — ${historyPast.length} step${historyPast.length === 1 ? "" : "s"} in history (Ctrl+Z)`
+              : "Nothing to undo (Ctrl+Z)"
+          }
           data-canvas-ui="undo-btn"
         >
           <Undo2 className="size-4" />
@@ -1546,7 +1571,11 @@ export function WorkflowCanvas() {
           onClick={() => void redoHistory()}
           disabled={historyFuture.length === 0}
           aria-label="Redo"
-          title="Redo an undone change (Ctrl+Shift+Z or Ctrl+Y)"
+          title={
+            historyFuture.length > 0
+              ? `Redo: ${historyFuture[historyFuture.length - 1].label} (Ctrl+Shift+Z or Ctrl+Y)`
+              : "Nothing to redo (Ctrl+Shift+Z or Ctrl+Y)"
+          }
           data-canvas-ui="redo-btn"
         >
           <Redo2 className="size-4" />

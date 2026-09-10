@@ -183,6 +183,7 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
         width={MM_W}
         height={mmH}
         viewBox={`${world.x} ${world.y} ${world.w} ${world.h}`}
+        data-canvas-ui="minimap-svg"
         className="block cursor-pointer rounded-sm bg-muted/50"
         role="application"
         aria-label={`Workflow overview — ${jobs.length} jobs. Click to navigate.`}
@@ -219,6 +220,8 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
             return (
               <rect
                 key={j.id}
+                data-canvas-ui="minimap-dot"
+                data-job-id={j.id}
                 x={j.x}
                 y={j.y}
                 width={CARD_W}
@@ -268,6 +271,7 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
         {/* current viewport window */}
         {size.w > 0 && (
           <rect
+            data-canvas-ui="minimap-vp"
             x={view.x}
             y={view.y}
             width={view.w}

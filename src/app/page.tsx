@@ -224,6 +224,14 @@ export default function Home() {
           e.preventDefault();
           s.focusJob(s.selectedId);
         }
+      } else if (k === "m" || k === "M") {
+        // Task 105 — toggle the world-overview minimap. Session-local
+        // store state: the toolbar toggle button and this key share the
+        // same switch, and a reload restores the default (open).
+        if (s.view !== "dashboard") {
+          e.preventDefault();
+          s.setMinimapOpen(!s.minimapOpen);
+        }
       } else if ((e.ctrlKey || e.metaKey) && (k === "a" || k === "A")) {
         // select-all on the canvas — text fields are already excluded by
         // the guard above, so the browser's native select never fights us

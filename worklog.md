@@ -3323,3 +3323,25 @@ Stage Summary:
 - 「禁用态是诚实的空栈」：undo/redo 按钮读 historyPast/historyFuture 的长度做 disabled——栈空就禁用，不隐藏不假装。toast 的 Undo 不走栈顶而走 undoEntry（埋藏条目 + 分歧尾部截断）：线性栈在后续变更大后已分叉，埋藏条目只能带外撤销——语义诚实比接口统一重要
 - 「reload 清空历史是设计不是缺陷」：undo 栈纯内存（F8 断言永不持久化）——reload 后的「重做」会复活用户可能刻意离开的状态，与视口记忆的 per-tab 契约同一哲学：瞬态状态不跨生命周期
 - 遗留（下轮候选）：EMPIAR 真数据回归（重，连续让位）；用户真机 class3d/refine3d 顺序模式与 topaz 实测反馈；diff 对话框 Open 行 canvas 入口价值复查；文件夹拖拽真机手势反馈；undo 栈的 UI 深度提示（history 浅层可视化：按钮 tooltip 显示栈深 N？价值待观察）；qa61 B 相坐标点击移植 playwright（间歇性脆弱）；qa42–qa57 状态未知（矩阵外未验证）；箭头导航/undo 手感参数的真机调优（锥宽 45°、drift 惩罚、HISTORY_CAP=50 均为拍脑袋值）
+
+---
+Task ID: 105
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-10 16:29 window)
+Task: cron 自主巡检——Task 105「minimap 人机工学补全 + 历史 UX 抛光」：开局三套全绿判稳后选题画布 minimap——设计途中惊觉 **minimap 早已存在**（d5bd847 时代产物：290 行成熟组件，状态色点 + SMIL 脉冲 + edges 折线 + 视口矩形 + 点击/拖拽导航 + touch 长按抑制，挂载于 canvas line 1414），自己写的 166 行替代品覆盖了它（git restore 抢救）。选题随即重定型为「给既有组件补人机工学」：可见性开关（store minimapOpen 会话内状态，默认开）+ zoom-controls Map 切换钮（aria-pressed + 活跃高亮）+ M 键分支（canvas-only，dashboard 豁免）+ shortcuts 行 + undo/redo 动态 tooltip（命名下一个条目 + 栈深）+ 组件补三处探针 testid——顺带交付 minimap 的**第一份探针合同**（它此前零覆盖）。t105 45 断言三连绿 + 全矩阵 45 套绿 + worklog + push
+
+Work Log:
+- 【开局 + QA】worklog 尾部 Task 104（3756a45 == origin/main）、BUILD_ID h0gTMN8npphX7kI7N79kf 匹配；冷启动 + smoke/qa00/t104 三套全绿 → 稳定
+- 【选题·一折】Task 104 交接候选「undo 栈深提示」偏小，扩为 minimap（右下角空闲、zoom-controls 左下不冲突；世界无限延伸、管线横向生长——现有导航全在答「我要去哪」，没人答「所有东西在哪」）；按 t103 几何教义核实 M 键空闲、CARD_W/H=220/96、pan 守卫 data-canvas-ui 豁免、canvasSize 已有 ResizeObserver——前提全部就绪后动工
+- 【撞车·二折】写完 166 行新组件才发现 canvas.tsx line 56 早有 `import { CanvasMinimap }`——git log 证实组件自 d5bd847（Task 69 前）就存在；我的 Write 已把 290 行成熟实现覆盖成 166 行半成品（净删 252 行）。git restore 抢救 + 通读全文：既有实现连 SMIL 脉冲、<title> hover、指针捕获边界情况、contextmenu 抑制都做了——计划中的新功能只剩「开关 + 快捷键 + 探针」
+- 【实现】store：minimapOpen: true + setMinimapOpen（会话内——「折叠一个工具是 UI 心情不是用户资产」，不碰 localStorage）；canvas：挂载守卫 {minimapOpen && <CanvasMinimap/>} + Map 切换钮（Map as MapIcon 避免遮蔽全局 Map、text-primary 活跃态、aria-pressed）+ undo/redo title 动态化（Undo: ${label} — N step(s) in history / Redo: ${label}，空栈诚实文案）；page：M 分支（dashboard 豁免）；shortcuts-dialog：M 行；minimap 组件纯增量补 data-canvas-ui="minimap-svg/minimap-dot/minimap-vp" 三钩子
+- 【MultiEdit 原子性惊魂·三折】三处 testid 编辑报「edit #2 失败」但核查发现 #1（svg）已落盘——「全有或全无」的承诺与文件状态不符；逐段 cat -A 核对后分两次 Edit 补齐 dots/vp。教训内化：编辑后验证文件实际状态，不信工具的自我报告
+- 【t105 探针 45 断言八相】S 相种远带三卡 + minimap 默认可见 + 逐卡 dot 存在 + vp 矩形在 + 首次 map-click 兼当导航把 A 卡带上屏；C 相选中耦合（点 A 的 dot 吃 primary 描边，点 B 描边搬家）；E 相动态 tooltip 四翻（空栈诚实文案 → 拖拽后 Undo: Move t105 A — 1 step → Ctrl+Z 后 Redo: Move t105 A + undo 回空 → 重施后回翻）；A 相点击导航（got 6873,628 want 6873,628 精确命中 + zoom 保持 + vp 窗口仍被取景）；B 相拖拽导航（画布动 + zoom 保持 + union bounds 保证「图始终框住你在哪」）；D 相开关四连（M 藏 → 钮显 → 钮藏 → reload 复默认开——会话内语义行为验证）；F 相 8 条静态合同（setViewport 网关/stopPropagation/无存储/SMIL/M 分支守卫/shortcuts 行/挂载守卫 + title 模板）；Z 相自清 + console 0
+- 【收尾】eslint 0、tsc src 0、构建 BUILD_ID U14cL3gvHIS3dxXFUNgfG + served 200 自证；t105 45×3 三连绿；t104 41 / t103 29 / t98 / t100 / smoke / qa00 合同全绿；全矩阵 45 套分 8 块串行 0 失败
+
+Stage Summary:
+- 「动手设计『缺失的功能』之前，先确认它真的缺失」：本轮最大的险情不是 bug 而是撞车——grep canvas.tsx 的布局类名找不到 minimap（它的样式住在自己的文件里）、读 JSX 恰好跳过 line 1414 的挂载点，「空白」是搜索方式制造的错觉。检查功能存在性的正确姿势是 rg 整棵树找组件名，不是在一个文件里找痕迹。给既有世界添东西前，先让世界证明它没有
+- 「成熟但零覆盖的组件是陌生人」：minimap 功能齐全却连一个断言都没有——「存在」不等于「被验证」，没进矩阵的代码再精致也是寄存品。本轮它拿到了第一份合同（45 断言含几何精确命中与 union bounds 保证），从此才算是这个项目的东西
+- 「工具的原子性承诺要靠文件状态验收」：MultiEdit 报「全部未应用」但 svg 钩子已在——编辑器的事务语义和磁盘现实出现分歧时，以磁盘为准。写完即查（cat -A / rg 核对）应该和保存本身同属一个动作
+- 「framing 是设计选择，探针测的是保证不是实现」：既有 minimap 把视口矩形算进取景框（n8n 式「永远看得见你在哪」），我计划的是节点-only 边界 + 出界裁切——两种都有理， shipped 的那个优化取向性。B3/A4 断言「拖拽后视口仍被取景」这个用户可感知的保证，而不是任何一边的实现细节——合同写保证，实现才有换的自由
+- 「会话内偏好不进存储」：minimapOpen 默认开、reload 复原——和视口记忆（sessionStorage）、书签（localStorage）三分天下的第三类：UI 心情。判定标准依旧是「谁创造了它」：系统默认的行为模式不属于用户资产，别让 localStorage 变成第二个抽屉塞满没人找的东西
+- 遗留（下轮候选）：EMPIAR 真数据回归（重，连续让位）；用户真机 class3d/refine3d 顺序模式与 topaz 实测反馈；diff 对话框 Open 行 canvas 入口价值复查；文件夹拖拽真机手势反馈；qa61 B 相坐标点击移植 playwright；qa42–qa57 状态未知（矩阵外未验证）；minimap 的 node-only 取景模式与「只看选区」滤镜（真机需求观察）；undo 栈的历史面板（点击条目跳转 = 顺序 undo/redo 的批量执行，与 tooltip 深度提示同族）
