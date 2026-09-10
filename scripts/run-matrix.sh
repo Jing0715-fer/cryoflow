@@ -104,6 +104,13 @@ for s in "${SUITES[@]}"; do
   if [ "$N" -lt "$FROM_IDX" ] || [ "$N" -gt "$TO_IDX" ]; then continue; fi
   name=$(basename "$s")
   out=$(node "$s" 2>&1)
+  # Task 117 (prevention leg of the qa60/61 position-5 intermittent): the
+  # browser is released AFTER every suite so suite N+1 relaunches Chromium
+  # instead of inheriting suite N's renderer churn. Two same-slot failures
+  # ("document undefined" transport deaths) were live-reproduced as a
+  # renderer crash under memory pressure; a fresh browser per suite
+  # removes the accumulation the failures fed on (~2s per relaunch).
+  agent-browser close --all >/dev/null 2>&1 || true
   if echo "$out" | grep -qE "ALL PASS|GREEN|SMOKE GREEN|PROBE OK|PAPER PROBE"; then
     echo "[$N/$TOTAL] PASS $name"
   else

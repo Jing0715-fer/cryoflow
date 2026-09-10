@@ -26,6 +26,11 @@
 import { execSync } from "node:child_process";
 import { mkdirSync, writeFileSync, rmSync, readFileSync, existsSync } from "node:fs";
 import { appendFileSync } from "node:fs";
+// Task 117: evals ride the shared transport — death detection across the
+// four live-reproduced signatures (crash exit-1 / wedged hang / silent
+// blank-page ""), one close→open→sentinel recovery ladder, then a tagged
+// error on double death. See scripts/lib/browser-transport.mjs.
+import { makeTransport } from "./lib/browser-transport.mjs";
 
 const AB = "agent-browser";
 const LOGF = "/home/z/my-project/.qa-logs/qa61-trace.log";
@@ -43,13 +48,14 @@ process.on("unhandledRejection", (e) => { step(`unhandledRejection: ${e}`); proc
 
 const sh = (cmd) => execSync(cmd, { encoding: "utf8", timeout: 120_000 }).trim();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const evalJs = (expr) =>
-  execSync(`${AB} eval --stdin`, { encoding: "utf8", timeout: 120_000, input: expr }).trim();
 const unq = (s) => (s || "").replace(/^"|"$/g, "");
-const J = (expr) => JSON.parse(unq(evalJs(expr)));
 const PHASES = (process.env.QA_PHASES || "A,B,C").split(",").map((s) => s.trim().toUpperCase());
 
 const B = "http://localhost:3000";
+// single-source transport (Task 117): 15s hang ceiling replaces the old
+// 120s per-eval slow-motion death; the ladder below rescued the position-5
+// intermittent live in Task 117's forensics
+const { evalJs, J } = makeTransport({ url: B, log: step });
 // self-seeded host (Task 86 doctrine): a throwaway refine3d row created at
 // setup — its default label is "3D Auto-Refine N" (count-suffixed, so the
 // REAL name is captured from the POST response) and it is deleted at exit.
@@ -58,6 +64,14 @@ const B = "http://localhost:3000";
 // pointed at a world generation that no longer exists.
 let hostJob = "";
 let hostJobId = "";
+// phase B's idle import seed — same leak discipline as the host: tracked
+// and deleted at exit (the hard way: 36 stray "QA Esc Import" rows
+// discovered on Task 117's close-out, one per run since the suite went
+// self-seeding)
+let bJobId = "";
+// Task 117: the viewport this suite booted at (boot() records it; clickCard
+// re-asserts it — see the race-heal note there)
+let currentVp = "";
 const seedHost = () => {
   // the canvas renders the ACTIVE workspace's jobs only — a host row
   // without workspaceId is an orphan (dashboard "Unassigned" roster) and
@@ -127,11 +141,16 @@ const seedHost = () => {
   step(`  host seeded: ${hostJob} (${hostJobId}, completed, sharpened map on disk)`);
 };
 const hostCleanup = () => {
-  if (!hostJobId) return;
-  try {
-    const code = sh(`curl -s -X DELETE ${B}/api/jobs/${hostJobId} -o /dev/null -w "%{http_code}"`);
-    step(`  host deleted (got ${code})`);
-  } catch (e) { step(`  host cleanup warn: ${String(e).slice(0, 100)}`); }
+  const tryDelete = (id, label) => {
+    if (!id) return;
+    try {
+      const code = sh(`curl -s -X DELETE ${B}/api/jobs/${id} -o /dev/null -w "%{http_code}"`);
+      step(`  ${label} deleted (got ${code})`);
+    } catch (e) { step(`  ${label} cleanup warn: ${String(e).slice(0, 100)}`); }
+  };
+  tryDelete(hostJobId, "host");
+  tryDelete(bJobId, "phase-B seed");
+  hostJobId = ""; bJobId = "";
   // DELETE does not sweep disk (t97 doctrine) — the workdir and the
   // engine-state record are ours, so remove them here
   try {
@@ -177,8 +196,30 @@ const stackProbe = () => J(`(() => {
   };
 })()`);
 
+// Task 117: the viewport is UNTRUSTED at every interaction point — the
+// fresh-daemon relaunch race (boot's own comment) can revert the window to
+// the default 1600 AFTER any verify (three same-slot failures, evolving
+// signatures: transport death → page-side TypeError → Params tab found at
+// x=1371 on a "1200" viewport, click landing on the xl geometry and
+// dismissing the Sheet). Heal right before every coordinate interaction.
+const healViewport = async () => {
+  if (!currentVp) return true;
+  sh(`${AB} set viewport ${currentVp}`);
+  await sleep(700);
+  const gotW = unq(evalJs(`String(window.innerWidth)`));
+  if (gotW !== currentVp.split(" ")[0]) {
+    step(`  viewport still wrong (want ${currentVp}, got ${gotW})`);
+    return false;
+  }
+  return true;
+};
+
 const clickCard = async (name) => {
   for (let i = 0; i < 6; i++) {
+    if (currentVp) {
+      const ok = await healViewport();
+      if (!ok) continue;
+    }
     unq(evalJs(`(() => {
       const card = [...document.querySelectorAll('[role=button]')].find(x => (x.textContent||'').includes('${name}'));
       if (!card) return 'NO-CARD';
@@ -220,6 +261,7 @@ const pressEscOn = (findExpr) => {
 };
 
 const boot = async (viewport) => {
+  currentVp = viewport;
   sh(`${AB} close`); await sleep(1500);
   sh(`${AB} set viewport ${viewport}`);
   sh(`${AB} open ${B}`);
@@ -362,6 +404,7 @@ async function phaseB() {
   });
   const body = await res.json();
   const job = body.job ?? body;
+  bJobId = job.id;
   await fetch(`${B}/api/jobs/${job.id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
@@ -374,8 +417,10 @@ async function phaseB() {
 
   // Movies/mics fields live under the Params tab (I/O is the default);
   // panel-body Radix tabs need a COORDINATE click (JS click is a no-op —
-  // the qa59 openSelectPanel lesson)
+  // the qa59 openSelectPanel lesson); viewport healed before every round
+  // (Task 117: the tab was once found at x=1371 on a "1200" window)
   for (let i = 0; i < 5; i++) {
+    await healViewport();
     const r = await realClick(
       `[...document.querySelectorAll('[role=dialog]')].flatMap(d => [...d.querySelectorAll('[role=tab]')]).find(t => t.textContent.trim() === 'Params')`,
     );
@@ -389,6 +434,7 @@ async function phaseB() {
   }
   let opened = false;
   for (let i = 0; i < 5 && !opened; i++) {
+    await healViewport();
     unq(evalJs(`(() => {
       const sheet = [...document.querySelectorAll('[role=dialog]')].find(d => (d.textContent||'').includes('Job details'));
       const btn = [...sheet.querySelectorAll('button')].find(b => (b.getAttribute('aria-label')||'').includes('Browse') || (b.getAttribute('title')||'').includes('Browse'));

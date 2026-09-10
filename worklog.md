@@ -3597,3 +3597,27 @@ Stage Summary:
 - 「textarea 的裁切是丢档的隐形形态」：truncate 裁宽度（Task 74/115 已解卷）、overflow 裁高度、textarea 裁「行数以外的全部」——长笔记在 min-h-20 的框里只印前三行，纸面上看起来像全文。field-sizing:content 是这类裁切的唯一 CSS 解，且必须配 print-atomic 保整块不跨页
 - 「点击行为跟 status 走」：同一张卡片，idle 点击开编辑面板、submitted 点击开 inspector——探针的「打开 inspector」必须先核对 job.status。这解释了此前若干「点击无效」的假象：不是事件没送达，是送达给了另一个处理器
 - 遗留（下轮候选）：qa60/61 间歇通道根治评估（qa61 矩阵第 5 位两轮同位 FAIL，秩序立案——B 相 hoverAt/eval 上下文死亡两形态，优先级上调）；EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势、TSV/海报粘贴验证）；3D viewer 体积截面工具（大功能，连续多轮让位——按 Task 115 交接降级为「真机需求观察」）；minimap node-only 取景与「只看选区」滤镜；undo 手感参数真机调优；打印族下一层——Logs & reports 行的真数据腿（本轮只静态覆盖，qa53 topaz 种子可补）、paper 目录（Contents 块页码化需 CSS target-counter，Chromium 不支持——评估 JS 预计算方案）；palette Copy PNG（Task 110 拒绝维持）
+---
+Task ID: 117
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-11 05:15 window)
+Task: cron 自主巡检——Task 117「qa60/61 间歇通道根治：浏览器传输层单源化」：秩序立案定案。开局三连绿（worklog 尾部 Task 116/55ecb05 == origin/main）。活体取证完整复现死亡四形态（渲染器崩溃 exit-1 空输出 / 卡死 daemon 无限挂起 / 全死后自愈重启的 stderr 指纹 + 静默垃圾 / 页面侧异常 ✗ 走 stderr）——归因：3.9GB 无 swap 机器上 Mol* WebGL 是全应用最重分配，矩阵第 5 位时渲染器内存压力崩溃；close→open 恢复阶梯实测复活。交付：scripts/lib/browser-transport.mjs 单源传输层（15s 挂起天花板 + 四形态死亡检测 + close→open→sentinel 恢复 + 双死带标签错误）+ qa60/61 接入 + 矩阵套件间 close --all 预防腿 + qa61 视口竞态三交互点治愈 + B 相种子泄漏修复（36 行存量）。t117 31 断言 ×3 绿（含活体恢复 + 双死标签 + 零泄漏）+ gauntlet(1..5) 三轮绿 + 全矩阵 54 套 0 失败 + worklog + push
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 116（55ecb05 == origin/main，树净）、BUILD_ID 9KnhwRZTpZ_1XZf_MFlpP 匹配；冷启动 + smoke/qa00/t113 三套全绿 → 稳定
+- 【取证·死亡形态活体复现】dmesg 无失败日 OOM（排除 next-server 被杀）；内存炸弹实测：渲染器崩溃中 eval exit 1 空输出 → 崩溃后 daemon 卡死、后续 eval **无限挂起**（EXIT=124）→ close 对卡死 daemon 秒回 → open 复活（484 divs 实据）；close 后 eval 自愈重启、stderr 带 "[agent-browser] launched browser" 指纹（仅触发重启的那次 eval 打印）、stdout 静默垃圾（数值 0/空串——合法形状绕过空串检测！）；页面侧异常 ✗ Evaluation error 在 spawnSync 下走 **stderr**（execSync 时代 2>&1 合流掩盖）；dispatchEvent 返回 true、void 返回 null（无空形态干扰）
+- 【实现①单源模块】scripts/lib/browser-transport.mjs：makeTransport({url,log,evalTimeoutMs=15s,openTimeoutMs,sentinelExpr}) → {evalJs,J,recover,stats,rawEvalErr}；死亡判定序：killed/超时 → stderr 指纹 → status≠0 且 ✗(双流) → status≠0 → 静默空；恢复：close(20s,容忍卡死) → syncSleep(0.8) → open → syncSleep(2.5) → sentinel 轮询×5×1.2s（CryoFlow 标题哨兵——错误页/空白页诚实说 no）；双死抛「browser transport died twice — renderer crash likely under memory pressure」带标签错误；页面侧异常原样透传
+- 【实现②套件接入】qa60/qa61：evalJs/J 换共享传输（unq 留本地、sh 不动——鼠标命令残余风险已记录）；qa61 另加 currentVp + healViewport()（set viewport → 700ms → innerWidth 核验）在 clickCard/Params 点击/Browse 点击三交互点前治愈——x=1371 现行（"1200" 视口上 xl 布局坐标，点击落 xl 几何把 Sheet 点没）第三次同位失败时抓到
+- 【实现③矩阵预防腿】run-matrix.sh：每套件后 agent-browser close --all（套件 N+1 重启 Chromium 不继承渲染器 churn，~2s/次）——位置依赖性失败的食物来源被移除
+- 【实现④泄漏修复】qa61 hostCleanup 扩 tryDelete(host + phase-B seed)——bJobId 追踪；存量 36 行「QA Esc Import」全删、跑后零遗留实证
+- 【探针 t117 31 断言四相】S 静态（模块导出/指纹机制/双流分类/15s 天花板/qa60-61 单源/qa59 范围纪律/runner close--all/三交互点治愈计数/泄漏合同）；A 活体恢复（健康 eval → close 杀传输 → 同一 evalJs 检测指纹 → 阶梯 → 重试落 500 divs 实据 + url 核验 + stats）；B 双死标签（死端口 ERR_UNSAFE_PORT → sentinel 诚实 no → unrecoverable 抛出）；C runner 合同（bash -n/≥40 条目/glob 含 t117）；Z 清理
+- 【探针五折】①qa58 无 eval 管道（参照物换 qa59）；②recover 里 promise-sleep 不睡（同步函数里 await 不了）——close→open 零间隔竞态被 t117 A 相当场抓住，改 execSync("sleep")同步阻塞；③sentinel 单读太脆（健康 app 也说 no）——轮询×5；④t117 静态断言引用重构后旧文案「viewport race healed」（现「viewport still wrong」）；⑤healViewport 计数断言 4 错（实为 3 处）+ 泄漏断言查模板字面量（改查标签）
+- 【验证】t117 单跑×3 + 矩阵内绿；qa60/qa61 终版单跑绿；gauntlet(1..5=两轮同位失败前缀)三轮全绿；全矩阵 54 套分八块串行 0 失败（t117 glob 自动收录）；eslint 0；存量 36 行泄漏清零
+- 【无 src 改动】本轮纯测试基建——应用代码零变更，无需 build/bundle 自证（服务器 bundle 仍是 Task 116 的 dM_YGn... 之后的 9KnhwRZTpZ_1XZf_MFlpP）
+
+Stage Summary:
+- 「间歇不是玄学，是未取证的时序」：qa60/61 三个失败签名（传输死亡/页面侧 TypeError/x=1371 错位点击）不是三个 bug，是同一条通道的三次显影—— daemon 生命周期（relaunch 回默认视口）+ 渲染器内存压力 + 套件对视口/传输的盲目信任。秩序立案的价值在立案那一刻就开始复利：本轮 gauntlet 第三跑当场抓住 x=1371 现行，把「视口在交互点不可信」从推测升格为实据
+- 「信任边界画在交互点，不画在启动时」：boot 的宽度核验过了不等于三秒后还对。healViewport 把「设一遍验一遍」变成「每次落点前重设重验」——对不可信资源，验证的粒度要跟使用的粒度对齐
+- 「同步函数里的 promise-sleep 是零」：recover() 同步、sleep() 返回 Promise——await 不了、也没人等，close→open 零间隔竞态。类型系统的沉默让这种 bug 只能靠活体测试暴露（t117 A 相正是为此而生）；同步上下文的等待必须走真阻塞（execSync sleep）
+- 「stderr 是指纹的住址」：spawnSync 分流后，自愈重启指纹、页面侧异常、崩溃退码各住各的流——execSync 时代的 2>&1 合流把三种死法糊成一个「Command failed」。分流取证才能让每个死法有自己的名字；死亡检测要查双流
+- 「测试基建也要守泄漏纪律」：36 行种子泄漏安静累积了三十余轮——套件的清理路径与播种路径没有对称。t100 Z 教义（删除必须发生）只保护了 A 相的 host，B 相的新种子没人管；每加一个 seed 就要同步加一条 delete，不对称即泄漏
+- 遗留（下轮候选）：其余 51 套件的内联 evalJs 是否迁移共享传输（规模收益评估——非qa60/61 通道的套件无同位失败史，暂缓）；EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势、TSV/海报粘贴验证）；3D viewer 体积截面（真机需求观察）；minimap node-only 取景；undo 手感参数调优；打印族 Logs 行真数据腿；palette Copy PNG（Task 110 拒绝维持）

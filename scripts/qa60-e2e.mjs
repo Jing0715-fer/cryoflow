@@ -18,6 +18,11 @@
 // Usage: QA_PHASES=A node scripts/qa60-e2e.mjs
 import { execSync } from "node:child_process";
 import { appendFileSync } from "node:fs";
+// Task 117: evals ride the shared transport — death detection across the
+// four live-reproduced signatures (crash exit-1 / wedged hang / silent
+// blank-page ""), one close→open→sentinel recovery ladder, then a tagged
+// error on double death. See scripts/lib/browser-transport.mjs.
+import { makeTransport } from "./lib/browser-transport.mjs";
 
 const AB = "agent-browser";
 const LOGF = "/home/z/my-project/.qa-logs/qa60-trace.log";
@@ -35,13 +40,14 @@ process.on("unhandledRejection", (e) => { step(`unhandledRejection: ${e}`); proc
 
 const sh = (cmd) => execSync(cmd, { encoding: "utf8", timeout: 120_000 }).trim();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const evalJs = (expr) =>
-  execSync(`${AB} eval --stdin`, { encoding: "utf8", timeout: 120_000, input: expr }).trim();
 const unq = (s) => (s || "").replace(/^"|"$/g, "");
-const J = (expr) => JSON.parse(unq(evalJs(expr)));
 const PHASES = (process.env.QA_PHASES || "A,B,C").split(",").map((s) => s.trim().toUpperCase());
 
 const B = "http://localhost:3000";
+// single-source transport (Task 117): 15s hang ceiling replaces the old
+// 120s per-eval slow-motion death; recovery ladder + CryoFlow-title
+// sentinel per scripts/lib/browser-transport.mjs
+const { evalJs, J } = makeTransport({ url: B, log: step });
 const HOST_JOB = "QA Post 320";
 const SEED = "python3 /home/z/my-project/scripts/qa60-seed-fsc.py";
 const SEED_CLEAN = "python3 /home/z/my-project/scripts/qa60-seed-fsc.py --clean";
