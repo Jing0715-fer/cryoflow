@@ -3279,3 +3279,26 @@ Stage Summary:
 - 「硬编码 id 的病会复发，因为它的载体不止一处」：Task 101 修了 qa64 的硬编码 project id，qa62 里同一行代码的另一份拷贝安然活到本轮爆炸——「同类问题已修」的安慰剂效应只覆盖被点名的那一处。根治不是修两个文件是把「派生」写成函数：resolveProject 一处定义，字面量无处藏身
 - 「工具报错和套件失败是两个命题」：qa60 每次都把工具调用弄报错，文件日志里却回回 ALL GREEN——信证据还是信通道？日志落盘 + 事后验证把两者解耦。诊断工具先诊断自己（Task 101）的续篇：分发渠道本身也可能是故障点
 - 遗留（下轮候选）：EMPIAR 真数据回归（重，连续让位）；用户真机 class3d/refine3d 顺序模式与 topaz 实测反馈；diff 对话框 Open 行 canvas 入口价值复查；文件夹拖拽真机手势反馈；undo 快照仅存 toast 闭包（Ctrl+Z 历史栈观察需求）；qa61 B 相坐标点击移植 playwright（本轮又偶发一次）；qa42–qa57 状态未知（agent-browser 世代、矩阵外、未验证——跑或归档待定）；书签同步的真实浏览器人工验证（探针覆盖不到的平台环节，值得在真 Chrome 双 tab 里点一次看一眼）
+
+---
+Task ID: 103
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-10 14:14 window)
+Task: cron 自主巡检——Task 103「画布箭头图导航（arrow-walk spatial navigation）+ Task 86 教义溯及既往第二波（qa62/qa64 自种子）」：①新功能——节点编辑器的最后一块键盘交互空白：方向键在画布上把锚点沿图「走」起来。语义四件套：±45° 硬锥（预测性压倒聪明——右下方 280px 的斜角卡不许偷走本该给 600px 正前方链卡的步子；锥内温和漂移偏好，45° 偏角多付 ~59% 距离）；Shift+方向扩展选区且目标升为主选（沿链行走即生长选区，幸存者保持成员资格——与 toggleSelect 的「再点即移除」刻意不同，stepArrowFocus 永不移除，重访已选卡只是重新锚定）；越界 minimal pan（把新锚点拉回 96px margin 内的恰好位移，绝不重新居中——F 键才是显式居中——绝不碰 zoom）；无选区时锚点=视口中心的世界坐标（箭头从用户正在看的地方进入图，锚卡自身因零前进量被排除）。守卫三重：typing 表单字段豁免（复用既有 guard）、开着的 Radix Select listbox 拥有方向键（listbox 的选项导航优先）、dashboard 完全豁免（网格有自己的方向键语义）。无候选=诚实死路（不环绕不跳）。shortcuts 对话框新增 Canvas 行。②探针侧两处老毛病复发即修——must() 的 FATAL 路径又写成 async-cleanup+return（调用方继续跑撞已关页面，t102 修过的坑再修一次后固化 sync-exit）；readSelection 读 [data-job] 外壳的 className 而环形选区类在卡片体（role=button）上——读数器全空导致 S3 空洞通过、A1 假 FATAL，而应用本身工作正常（诊断确认后修正读数器）。③几何两课——fixture 世界不是空的：2200px 垂直净空保护水平行走但把旧世界放进垂直锥（正上方 ±2200px 水平带内全是锥内候选），空旷带最终形态=「南 2200 + 东 3000」双向净空（S1 断言写死）；FATAL 路径不清理种子 + maxY/maxX 在预清前采样 → 历次崩跑的残带把坐标基线越推越深，预清后必须重取世界边界。④qa62/qa64 补自种子（Task 86 教义溯及既往第二波）——qa60 的 clean（Task 102 修正后）删 Live 卡暴露了两套件的顺序依赖：qa62 从不 seed 只 clean（五卡检查挂）、qa64 的 LIVE_TAIL 在模块加载时冻结（早于行内 seed 插入 → workdir 拼出 8 个下划线的空尾巴）——种子必须发生在派生之前。t103 29 断言三连绿 + 全矩阵 43 套分块串行全绿 + worklog + push
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 102、HEAD 07c468d == origin/main、BUILD_ID DrKhEeyxJzkLFoomOAORD 匹配；冷启动 + smoke/qa00/t102/qa84 四套全绿 → 稳定
+- 【选题】交接候选复查：体积截面工具已是完成态（3D 平面 + 2D 正交瓦片双向联动 + 服务端 PNG——交接文本过时）；rubber-band/框选/Ctrl+A/duplicate 均已存在；画布箭头图导航是空白（类网格有方向键，画布没有）——与既有选区/diff 配对/F 居中强组合，纯客户端可 headless 测试 → 定为本轮功能
+- 【实现①store】stepArrowFocus(id, extend)：plain 替换选区、extend 增员且目标升主选；includes 时保持成员稳定只挪主选——「toggleSelect 再点即移除」的刻意反义
+- 【实现②page.tsx】canvas 键盘 effect 新增 Arrow 分支：方向向量表 → 锚点（selectedId 卡中心或视口中心世界坐标）→ 半平面门（forward ≤ 0 出局）→ 硬 ±45° 锥（cos < √½/2 出局，一折补上——初版只有漂移惩罚，D1 以 60° 偏角赢得 Up 行走被 V1 抓住）→ 锥内漂移偏好评分 → stepArrowFocus → minimal pan（dx/dy 只拉回 margin 内，零 zoom 触碰）；listbox 守卫 + dashboard 排除
+- 【实现③shortcuts-dialog】Canvas 组新增「← → ↑ ↓ Walk the graph」行
+- 【t103 探针六折】①首跑 A1 FATAL——readSelection 读外壳 className 永远空（ring 在卡片体上）：S3 空洞通过、应用无辜；②A1 再 FATAL——must() 的 async-cleanup 复发（t102 同款坑）固化 sync-exit；③S3 reload 方案失败——选区驱动的右面板让 rect 跨 reload 漂移 + 拖拽起点 (200,200) 在 rect（x≥288）之外被调色板吃掉——改为「加载后就地拖拽平移 + 800ms 等 debounce + 不 reload 不点击」；④V1 FATAL 抓住实现-设计漂移（无硬锥）→ handler 补 Math.SQRT1_2 锥门；⑤V1 再 FATAL——fixture 世界在垂直锥内（净空只在南北轴想清楚）→ 空旷带改双向（南 2200 + 东 3000）；⑥S1 基线膨胀——FATAL 不清种子 + 边界预清前采样 → 预清后重取 + got 值进断言文案
+- 【矩阵途中拆弹】qa62 挂五卡检查（qa60 clean 删 Live 而它从不 seed 只 clean）→ phase A 顶部补 SEED；qa64 挂 LIVE_TAIL 冻结（workdir 拼出 refine3d_________）→ 自种子移到模块顶（先于一切派生）——两处都是 Task 86 教义的既有违例，被 Task 102 的 clean 修正顺带暴露
+- 【收尾】eslint src 0、tsc src 0；构建 BUILD_ID QfC99pLpdrceKZYs9JOAas + served 200 自证；t103 29×3 三连绿；全矩阵 43 套（+t103）分块串行全绿；诊断脚本归档 diag-archive/
+
+Stage Summary:
+- 「实现会静默漂移成设计的影子」：设计文档写「±45° 硬锥」，落地的代码只有漂移惩罚——两者在大多数行走里行为一致，差异只在斜角近邻处显形，而探针的 decoy 恰好站在那里。行为断言（V1 的诚实死路）抓到了静态审查看不出的漂移——「写测试时把设计当真值」的价值就在这种时刻
+- 「读数器坏了会先冤枉应用」：S3 空洞通过 + A1 假 FATAL，第一反应全指向处理器没跑——诊断脚本拿到地面真值（点击确实选中、按键确实生效）后才发现是探针在错误的元素上找 ring 类。修读数器前的一切理论（bundle 缺失、守卫链断裂）全是空中楼阁。诊断的置信度受限于读数的置信度
+- 「几何隔离要在所有被测方向上成立」：2200px 南向净空让水平行走免疫，却把整个旧世界送进垂直锥的射程——隔离带不是「离得够远」而是「在被测的每一个方向上都出锥」。双向净空（南 2200 + 东 3000）写进 S1 断言，几何前提从此是契约不是运气
+- 「派生之前必须先有事实」：qa64 的 LIVE_TAIL 在模块加载时冻结，而种子在 117 行——顺序错了，派生就是空尾巴的化石。自种子的正确位置不是「函数里某处」而是「一切依赖它的派生之前」。Task 86 的「自种子」教义隐含了这条时序约束，直到被空下划线戳穿
+- 「探针的崩跑会污染世界的形状」：FATAL 路径不带清理，残带一累累进 maxY——下一次运行把种子放到更深处，几何假设全盘漂移。S 相预清是兜底（崩跑到不了 Z），预清后重取边界是兜底的兜底——清理的正确性按「世界恢复原状」验收，不按「调用了 DELETE」验收
+- 遗留（下轮候选）：EMPIAR 真数据回归（重，连续让位）；用户真机 class3d/refine3d 顺序模式与 topaz 实测反馈；diff 对话框 Open 行 canvas 入口价值复查；文件夹拖拽真机手势反馈；undo 快照仅存 toast 闭包（Ctrl+Z 历史栈观察需求）；qa60/61 的 agent-browser 通道问题间歇性（本轮 qa60 直接过——若复发再评估 playwright 移植）；qa42–qa57 状态未知（矩阵外未验证）；箭头导航的真机手感（锥宽 45° 与 drift 惩罚系数是拍脑袋值，真机用着别扭再调）

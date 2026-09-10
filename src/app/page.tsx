@@ -4,6 +4,7 @@ import * as React from "react";
 import { AlertTriangle, Boxes, Layers, Plus, RefreshCw, X } from "lucide-react";
 import { useWorkflowStore } from "@/lib/store";
 import { Header } from "@/components/workflow/header";
+import { CARD_H, CARD_W } from "@/lib/workflow";
 import { useDropNavigationGuard } from "@/components/workflow/drop-import";
 import { Footer } from "@/components/workflow/footer";
 import { PrintDocHeader } from "@/components/workflow/print-doc-header";
@@ -272,6 +273,87 @@ export default function Home() {
         if (s.view !== "dashboard") {
           e.preventDefault();
           s.toggleNoteSpotlight();
+        }
+      } else if (k.startsWith("Arrow") && s.view !== "dashboard") {
+        // Task 103 arrow-walk: spatial navigation across the graph. The
+        // anchor hops to the nearest card in the pressed direction (small
+        // sideways drift penalized over raw distance); Shift extends the
+        // selection instead of replacing it. Radix Select's listbox is
+        // arrow-driven too — an open one owns the keys before we do.
+        if (document.querySelector('[role="listbox"]')) return;
+        e.preventDefault();
+        const dir =
+          k === "ArrowLeft" ? { x: -1, y: 0 } :
+          k === "ArrowRight" ? { x: 1, y: 0 } :
+          k === "ArrowUp" ? { x: 0, y: -1 } : { x: 0, y: 1 };
+        const rect = document
+          .querySelector('[data-canvas="viewport"]')
+          ?.getBoundingClientRect();
+        const anchor = s.selectedId
+          ? s.jobs.find((j) => j.id === s.selectedId)
+          : undefined;
+        // anchor POINT: the selected card's center, or — with nothing
+        // selected — the world point under the viewport center, so arrows
+        // enter the graph from wherever the user is looking
+        const ax = anchor
+          ? anchor.x + CARD_W / 2
+          : rect
+            ? (rect.width / 2 - s.viewport.x) / s.viewport.zoom
+            : 0;
+        const ay = anchor
+          ? anchor.y + CARD_H / 2
+          : rect
+            ? (rect.height / 2 - s.viewport.y) / s.viewport.zoom
+            : 0;
+        // same workspace rule as useActiveWorkspaceJobs (the derivation is
+        // hook-bound; this handler reads the store imperatively)
+        const wsJobs =
+          s.activeWorkspaceId == null
+            ? s.jobs
+            : s.jobs.filter((j) => (j.workspaceId ?? "") === s.activeWorkspaceId);
+        let best: (typeof wsJobs)[number] | null = null;
+        let bestScore = Infinity;
+        for (const j of wsJobs) {
+          if (anchor && j.id === anchor.id) continue;
+          const vx = j.x + CARD_W / 2 - ax;
+          const vy = j.y + CARD_H / 2 - ay;
+          const forward = vx * dir.x + vy * dir.y;
+          if (forward <= 0) continue; // behind the anchor — not a candidate
+          const len = Math.hypot(vx, vy);
+          const cos = forward / len; // deviation from the pressed direction
+          // HARD ±45° CONE: a down-right card 280px away must not steal the
+          // walk from the next chain card 600px dead ahead — predictability
+          // beats cleverness, and dead zones stay dead (no wraparound)
+          if (cos < Math.SQRT1_2) continue;
+          // within the cone, mild drift preference: 0° deviation costs
+          // nothing, 45° costs ~59% extra distance
+          const score = len * (1 + 2 * (1 - cos));
+          if (score < bestScore) {
+            bestScore = score;
+            best = j;
+          }
+        }
+        if (!best) return; // dead end in that direction — no wrap, honest no-op
+        s.stepArrowFocus(best.id, e.shiftKey);
+        // pan just enough that the new anchor is comfortably on screen —
+        // never re-centering (F centers explicitly), never touching zoom
+        if (rect) {
+          const margin = 96;
+          const sx = (best.x + CARD_W / 2) * s.viewport.zoom + s.viewport.x;
+          const sy = (best.y + CARD_H / 2) * s.viewport.zoom + s.viewport.y;
+          const dx =
+            sx < margin
+              ? margin - sx
+              : sx > rect.width - margin
+                ? rect.width - margin - sx
+                : 0;
+          const dy =
+            sy < margin
+              ? margin - sy
+              : sy > rect.height - margin
+                ? rect.height - margin - sy
+                : 0;
+          if (dx || dy) s.setViewport({ x: s.viewport.x + dx, y: s.viewport.y + dy });
         }
       } else if (k === "Delete" || k === "Backspace") {
         // destructive: route through the same confirmation the context menu

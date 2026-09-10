@@ -350,6 +350,12 @@ const parseRes = (s) => {
 // ============================================================ phase A
 async function phaseA() {
   step("== PHASE A: hover highlight + live badge + re-scan affordance ==");
+  // Task 86 doctrine, belatedly applied (Task 103): the five fixture jobs
+  // (4 completed + the live card) are qa62's OWN prerequisites, but only
+  // the cleanup ran — the seed was left to whoever ran before. qa60's
+  // clean now (rightly) deletes the live card, so qa62 must seed itself.
+  // The seeder is idempotent: existing jobs are found and refreshed.
+  try { sh(SEED); } catch (e) { FATAL(`self-seed failed: ${String(e).slice(0, 120)}`); }
   if (!(await bootCanvas())) FATAL("canvas never appeared");
   // a stale persisted selection would pre-tick rows and poison the
   // toggle dance — the compare restore reads this key at OPEN time

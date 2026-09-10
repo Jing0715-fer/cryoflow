@@ -21,6 +21,16 @@ import { writeFileSync, unlinkSync, existsSync } from "node:fs";
 const AB = "agent-browser";
 const B = "http://localhost:3000";
 const sh = (cmd) => execSync(cmd, { encoding: "utf8", timeout: 120_000 }).trim();
+// Task 86 doctrine, belatedly applied (Task 103): qa64 reads the five FSC
+// fixture jobs, but qa62's cleanup deletes the live card and the matrix
+// may reorder — seed (idempotent) BEFORE LIVE_TAIL freezes, at module top,
+// or the workdir derivation bakes in an empty id tail.
+try {
+  sh("python3 /home/z/my-project/scripts/qa60-seed-fsc.py");
+} catch (e) {
+  console.log(`FATAL: self-seed failed: ${String(e).slice(0, 120)}`);
+  process.exit(1);
+}
 // Task 101 repair: the hardcoded project id + workdir tail died with the
 // world migration (old-world "cmtrzp5x8…"/refine3d_q8mu0tdp no longer
 // exist) — derive both from the live API instead

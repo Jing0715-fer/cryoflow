@@ -432,6 +432,12 @@ interface WorkflowState {
    *  toggled card becomes primary when it joins; leaving promotes the
    *  last remaining card to primary). */
   toggleSelect: (id: string) => void;
+  /** Arrow-key graph navigation (Task 103): land the anchor on `id`.
+   *  Plain arrow REPLACES the selection with the target; Shift+Arrow adds
+   *  the target and promotes it to primary (walking a chain grows the
+   *  selection). Unlike toggleSelect this never removes — re-visiting an
+   *  already-selected card just re-anchors on it. */
+  stepArrowFocus: (id: string, extend: boolean) => void;
   /** Commit a rubber-band result (empty array clears). Keeps the current
    *  primary when it survives inside the new selection. */
   selectMany: (ids: string[]) => void;
@@ -1580,6 +1586,17 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
 
   select: (id) => set({ selectedId: id, selectedIds: id ? [id] : [] }),
+  stepArrowFocus: (id, extend) =>
+    set((s) =>
+      extend
+        ? {
+            selectedId: id,
+            selectedIds: s.selectedIds.includes(id)
+              ? s.selectedIds
+              : [...s.selectedIds, id],
+          }
+        : { selectedId: id, selectedIds: [id] }
+    ),
 
   toggleSelect: (id) => {
     const ids = get().selectedIds;
