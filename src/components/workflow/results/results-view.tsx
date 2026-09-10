@@ -699,6 +699,10 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
                 <button
                   type="button"
                   onClick={() => setStarFile(f)}
+                  /* data-print-keep: the row IS document content on paper
+                     (file name + row count + size) — the Task 114 glass
+                     door hides raw controls, not wrapped records (Task 116) */
+                  data-print-keep=""
                   className="flex w-full items-center gap-2 rounded-md border px-2.5 py-2 text-left text-xs transition-colors hover:border-violet-600/40 hover:bg-violet-600/5"
                 >
                   <FileText className="h-3.5 w-3.5 shrink-0 text-violet-600" aria-hidden="true" />
@@ -748,6 +752,9 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
                   <button
                     type="button"
                     onClick={() => setTextFile(f)}
+                    /* data-print-keep: same paper contract as the STAR rows
+                       above — the wrapped name/size record must print */
+                    data-print-keep=""
                     className="flex w-full items-center gap-2 rounded-md border px-2.5 py-2 text-left text-xs transition-colors hover:border-amber-600/40 hover:bg-amber-600/5"
                   >
                     <ScrollText className="h-3.5 w-3.5 shrink-0 text-amber-600" aria-hidden="true" />
@@ -1087,6 +1094,10 @@ function MrcGallery({
               key={f.path}
               type="button"
               onClick={() => onOpen(f)}
+              /* data-print-block: the tile is a stacked visual record
+                 (image + name + meta) — it prints as a block, not a flex
+                 row, and never splits across a page (Task 116) */
+              data-print-block=""
               className="group relative rounded-lg border p-1.5 text-left transition-all hover:border-teal-600/50 hover:shadow-sm"
               aria-label={`Enlarge ${f.label ?? f.name}`}
               title={`Click to enlarge — ${f.label ?? f.name}`}

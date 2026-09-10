@@ -3573,3 +3573,27 @@ Stage Summary:
 - 「纸上不留空列头」：Get 列的按钮被玻璃门规则藏掉后，列头还在——隐藏内容会留下结构残骸，残骸要跟着走（th/td 末列一起 display:none）。每个「隐藏 X」的规则都要问一句「X 的容器/表头/边框去哪了」
 - 「断言文本要经过渲染管线再写」：三处断言死在「源码文本 ≠ 渲染文本」——CSS uppercase 把 Timeline 印成 TIMELINE，计数徽章把 Files 拼成 Files1，跨行选择器拆散字面量。pdftotext 断言的正确写法是 /i 正则 + 词边界 + 渲染后形态；探针Assertion的假红和假绿同罪
 - 遗留（下轮候选）：EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势、TSV/海报粘贴验证）；3D viewer 体积截面工具（大功能，需评估 Mol* 集成深度与 headless 可测性，连续多轮让位——若再让位应降级为「真机需求观察」）；minimap node-only 取景与「只看选区」滤镜（真机观察）；undo 手感参数真机调优；报告分页控制（chart 卡片跨页撕裂的 break-inside 审计——本轮保守跳过，需逐卡观察）；palette Copy PNG（Task 110 拒绝维持）
+
+---
+Task ID: 116
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-11 04:00 window)
+Task: cron 自主巡检——Task 116「报告分页与玻璃门记录抢救」：开局 QA 三连绿（worklog 尾部 Task 115/86dfdf7 == origin/main）。按 Task 115 交接首选定案「chart 卡片跨页撕裂 break-inside 审计」，实地诊断升级了案情：Task 114 玻璃门（:is(button,input,select) display:none）把「包裹文档内容的按钮」整块蒸发——画廊瓦片（img+文件名+体积）、STAR 行（名+rows 徽章+尺寸）在纸上只剩裸标题，零记录。交付三线：data-print-keep/-block 逃生门 + data-print-atomic ×11/chart/files-tr/h4 分页规则族 + 笔记 textarea field-sizing 纸面自撑高。t113 45 断言七相 ×2 绿 + 全矩阵 53 套（52 绿 + qa61 已知瞬态）+ worklog + push
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 115（86dfdf7 == origin/main，树净）、BUILD_ID dM_YGn6BS77Wky_d1i9zv 匹配；冷启动 + qa63-smoke/qa00/t112(77) 三套全绿 → 稳定
+- 【选题 + 现场办案】Task 115 交接的 break-inside 审计为首选；先跑诊断（qa58 种子 → Source job Results tab → printToPDF + pdftotext）：SCREEN 有 2 瓦片 + unmasked_classes 文件名，PAPER 只剩 "Maps & images (2)"/"STAR tables (1)" 裸标题——玻璃门蒸发实锤，审计升级为 bug 修复 + 分页双线
+- 【诊断三折】①playwright 点 idle 的 QA Class Select 开的是 job-panel 不是 inspector——handlePointerUp 按 status 分流（idle→编辑面板，submitted→inspector），探针须选 completed 的 Source；②canvas 卡片 playwright 点击首两跑未生效（boot 2.5s 太短 + 单次点击无重试），t112 式重试循环解决；③/api/projects 与 /api/jobs 响应是 {projects}/{jobs} 包裹对象
+- 【实现①逃生门】results-view.tsx：STAR 行与 log 文本行挂 data-print-keep（Task 114 已有属性，行是 flex、纸上 display:flex 原样回归——ParticleBrowser 先例的推广）；画廊瓦片挂新属性 data-print-block（瓦片是纵向堆叠记录 img+名+meta，display:flex 会拆散它——display:block + break-inside:avoid 一体）；Logs 图片行是 <a> 不在玻璃门清单，天然存活零改动
+- 【实现②分页规则族】job-inspector.tsx：data-print-atomic ×11（ResultSummary 四态卡、Timeline 步骤 li、ParamsGrid 项、InputsCard li、OutputsSummary 项、Note 卡、Timeline 外卡、cmd 暗块）；globals.css Task 114 节增补：[data-print-atomic]/[data-chart-export-root]/[data-files-table] tr 各 break-inside:avoid、h4 break-after:avoid+break-inside:avoid（标题不孤行）、data-print-keep 加 break-inside:avoid；长内容（活日志）不受困——avoid 是 best-effort，超页盒仍按规范分片
+- 【实现③笔记不裁尾】data-note-editor textarea 纸面 field-sizing:content + min-height:0——textarea 屏上是固定 min-h-20 控件，长笔记纸上会被裁到屏高（Task 74 丢档教义的 textarea 变体）；Chromium 123+ 的 field-sizing 是唯一纯 CSS 出路，卡本身 print-atomic 保整块
+- 【t113 探针 45 断言七相】S 种子×2+屏幕合同（瓦片/行带属性、名字捕获）；A 玻璃门纸（scale-1 纵向：瓦片名上纸=修复前世界证伪、meta 行、rows 徽章）；B 分页（scale-2 跨页、瓦片名+meta 同页、STAR 名+rows 同页、逐页孤行标题扫描=0）；C FSC 卡原子（Post 320、标题+图例同页）；D Overview+笔记（PATCH 338 字长笔记、HEAD 与 TAIL 标记双双上纸=field-sizing 撑高实证、3 页、Created/Started 同页、孤行=0、还原）；F 静态 ×13（属性计数、globals 规则、编译 chunk、ParticleBrowser 逃生门未动）；Z 清理+console 0
+- 【探针三折】①GET /api/jobs/[id] 405（PATCH-only）——原 note 从列表 API 读；②ParticleBrowser 的 data-print-keep 在 particle-browser.tsx 不在 job-panel.tsx——「谁 import 了它」的教训反向前栽，rg 文件名定位后修复；③qa72 连跑四套时资源抖动炸、单跑复绿（浏览器套件背靠背的 OOM 边缘）
+- 【收尾】eslint 0、tsc src 0、npm run build 三段式 BUILD_ID 9KnhwRZTpZ_1XZf_MFlpP + bundle 自证（data-print-block/atomic/chart-export-root/files-table tr/h4 break-after/field-sizing 五规则均在编译 css，属性在 static+standalone chunks）；t113 45×2 绿；t112(77)/qa66(35)/qa70(19)/qa72/qa79/smoke/qa00 受影响面全绿；全矩阵 53 套（t113 glob 自动收录）分 9 块串行：qa61 第 5 位瞬态 FAIL（单跑复绿）——Task 112 同位第二次，按教义从「观察」升级「秩序立案」，根治列入下轮候选；worklog + commit + push + 环境清理
+
+Stage Summary:
+- 「玻璃门藏的是控件，不是控件裹着的记录」：Task 114 的 :is(button) 门把「用 button 语义承载可点击行」的文档内容一起藏了——STAR 行、日志行、画廊瓦片在纸上蒸发成裸标题。规则的生命周期要覆盖它的意外后果：每条「隐藏 X」的规则都要审计「X 裹着什么」；包裹记录的控件用 data-print-keep/-block 显式逃生，而不是让存档去迁就实现细节
+- 「atomic 是纸面词汇，不是屏幕词汇」：屏幕上原子性由布局隐式保证（flex/grid 不会把 44px 卡片劈成两半），纸上分页引擎只认 break-* 声明。data-print-atomic 把「这个单元是一个意思」从视觉惯例升级为打印合同——瓦片、参数卡、时间线步、结果横幅、清单行各自独立成意，跨页劈开任何一个都是丢记录
+- 「scale 是无需造数据的分页杠杆」：探针要验证多页行为，最诚实的做法不是灌水数据而是 page.pdf({scale:2})——同一份内容、同一套规则，页边界从 0 个变 2 个，break-* 声明立刻接受真实分页引擎的检验。比造种子便宜一个数量级，比 mock 布局诚实
+- 「textarea 的裁切是丢档的隐形形态」：truncate 裁宽度（Task 74/115 已解卷）、overflow 裁高度、textarea 裁「行数以外的全部」——长笔记在 min-h-20 的框里只印前三行，纸面上看起来像全文。field-sizing:content 是这类裁切的唯一 CSS 解，且必须配 print-atomic 保整块不跨页
+- 「点击行为跟 status 走」：同一张卡片，idle 点击开编辑面板、submitted 点击开 inspector——探针的「打开 inspector」必须先核对 job.status。这解释了此前若干「点击无效」的假象：不是事件没送达，是送达给了另一个处理器
+- 遗留（下轮候选）：qa60/61 间歇通道根治评估（qa61 矩阵第 5 位两轮同位 FAIL，秩序立案——B 相 hoverAt/eval 上下文死亡两形态，优先级上调）；EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势、TSV/海报粘贴验证）；3D viewer 体积截面工具（大功能，连续多轮让位——按 Task 115 交接降级为「真机需求观察」）；minimap node-only 取景与「只看选区」滤镜；undo 手感参数真机调优；打印族下一层——Logs & reports 行的真数据腿（本轮只静态覆盖，qa53 topaz 种子可补）、paper 目录（Contents 块页码化需 CSS target-counter，Chromium 不支持——评估 JS 预计算方案）；palette Copy PNG（Task 110 拒绝维持）

@@ -707,7 +707,7 @@ function Timeline({ job }: { job: JobDTO }) {
       {steps.map((s) => {
         const Icon = s.icon;
         return (
-          <li key={s.label} className="relative z-10 flex flex-col items-center gap-1.5 text-center">
+          <li key={s.label} data-print-atomic="" className="relative z-10 flex flex-col items-center gap-1.5 text-center">
             <span
               className={cn(
                 "flex size-10 items-center justify-center rounded-full border-2 bg-card shadow-sm",
@@ -736,7 +736,7 @@ function Timeline({ job }: { job: JobDTO }) {
 function ResultSummary({ job }: { job: JobDTO }) {
   if (job.status === "running") {
     return (
-      <div className="flex items-center gap-3 rounded-lg border border-teal-600/30 bg-teal-600/5 p-3.5">
+      <div className="flex items-center gap-3 rounded-lg border border-teal-600/30 bg-teal-600/5 p-3.5" data-print-atomic="">
         <span className="relative flex size-9 shrink-0 items-center justify-center rounded-full bg-teal-600/15 text-teal-600">
           <Loader2 className="size-4.5 animate-spin" aria-hidden="true" />
         </span>
@@ -751,7 +751,7 @@ function ResultSummary({ job }: { job: JobDTO }) {
   }
   if (job.status === "pending") {
     return (
-      <div className="flex items-start gap-3 rounded-lg border border-amber-600/30 bg-amber-600/5 p-3.5">
+      <div className="flex items-start gap-3 rounded-lg border border-amber-600/30 bg-amber-600/5 p-3.5" data-print-atomic="">
         <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-amber-600/15 text-amber-600">
           <Clock className="size-4.5" aria-hidden="true" />
         </span>
@@ -770,7 +770,7 @@ function ResultSummary({ job }: { job: JobDTO }) {
   }
   if (job.status === "failed") {
     return (
-      <div className="flex items-start gap-3 rounded-lg border border-rose-600/30 bg-rose-600/5 p-3.5">
+      <div className="flex items-start gap-3 rounded-lg border border-rose-600/30 bg-rose-600/5 p-3.5" data-print-atomic="">
         <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-rose-600/15 text-rose-600">
           <AlertTriangle className="size-4.5" aria-hidden="true" />
         </span>
@@ -784,7 +784,7 @@ function ResultSummary({ job }: { job: JobDTO }) {
     );
   }
   return (
-    <div className="flex items-start gap-3 rounded-lg border border-emerald-600/30 bg-emerald-600/5 p-3.5">
+    <div className="flex items-start gap-3 rounded-lg border border-emerald-600/30 bg-emerald-600/5 p-3.5" data-print-atomic="">
       <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-600/15 text-emerald-600">
         <Check className="size-4.5" aria-hidden="true" />
       </span>
@@ -807,7 +807,7 @@ function ParamsGrid({ job }: { job: JobDTO }) {
   return (
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
       {entries.map(([key, value]) => (
-        <div key={key} className="rounded-lg border bg-card px-3 py-2.5">
+        <div key={key} data-print-atomic="" className="rounded-lg border bg-card px-3 py-2.5">
           <p className="truncate text-[10px] font-medium uppercase tracking-wide text-muted-foreground" title={labelFor(key)}>
             {labelFor(key)}
           </p>
@@ -836,6 +836,7 @@ function InputsCard({ inputs }: { inputs?: { flag: string; path: string }[] }) {
       {inputs.map((inp) => (
         <li
           key={inp.flag + inp.path}
+          data-print-atomic=""
           className="flex items-center gap-2 rounded-md border bg-card px-2.5 py-2 text-xs"
         >
           <ArrowRight className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
@@ -865,7 +866,7 @@ function OutputsSummary({ files }: { files: OutputFile[] }) {
   return (
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
       {items.map(({ kind, label, icon: Icon, color }) => (
-        <div key={kind} className="flex items-center gap-2.5 rounded-lg border bg-card px-3 py-2.5">
+        <div key={kind} data-print-atomic="" className="flex items-center gap-2.5 rounded-lg border bg-card px-3 py-2.5">
           <Icon className={cn("size-4 shrink-0", color)} aria-hidden="true" />
           <div className="min-w-0">
             <p className="text-lg font-semibold leading-none tabular-nums text-foreground/90">
@@ -1022,6 +1023,7 @@ function JobNoteSection({ job }: { job: JobDTO }) {
         className="rounded-xl border bg-card p-4 space-y-2.5"
         data-note-editor=""
         data-note-state={state}
+        data-print-atomic=""
       >
         <Textarea
           aria-label="Job note"
@@ -1172,7 +1174,7 @@ function OverviewTab({
         <TopazTrainingChart jobId={job.id} running={job.status === "running"} />
       ) : null}
       <Section icon={Activity} title="Timeline">
-        <div className="rounded-xl border bg-card p-5 pt-4">
+        <div data-print-atomic="" className="rounded-xl border bg-card p-5 pt-4">
           <Timeline job={job} />
         </div>
       </Section>
@@ -1209,6 +1211,7 @@ function OverviewTab({
               bg-zinc-950 would vanish on paper */}
           <div
             data-log-console=""
+            data-print-atomic=""
             className="flex items-start gap-2 rounded-lg border bg-zinc-950 p-3 dark:bg-zinc-900"
           >
             <pre className="m-0 min-w-0 flex-1 overflow-x-auto whitespace-pre-wrap break-all font-mono text-[10.5px] leading-relaxed text-zinc-300">

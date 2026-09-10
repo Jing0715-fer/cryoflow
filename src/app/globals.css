@@ -848,6 +848,66 @@
     [data-slot="dialog-content"]
     [data-print-keep] {
     display: flex !important;
+    break-inside: avoid;
+  }
+  /* --------------------------------------------------------------------
+   * Report pagination (Task 116) — the paper is a document, and a
+   * document's atomic units never straddle a page boundary:
+   *   [data-print-keep]  buttons that WRAP document content opt back onto
+   *                      the paper as flex rows (STAR rows, log rows, the
+   *                      ParticleBrowser montage header) — and stay whole
+   *   [data-print-block] buttons that wrap a STACKED record (gallery
+   *                      tiles: image + name + meta) print as blocks
+   *   [data-print-atomic] plain atomic units (params cards, timeline
+   *                      steps, result banner, note card, cmd block)
+   *   chart sections      a curve card split across pages loses its axis
+   *                      against its legend — the reader needs them in
+   *                      one glance
+   *   files-table rows    a manifest row is one line — it cannot break
+   * A box taller than the page still fragments (avoid is best-effort per
+   * the fragmentation spec), so long flowing content (the live log) is
+   * never trapped. Section headings break-after: avoid so a title never
+   * orphans at a page bottom away from its card.
+   * ------------------------------------------------------------------ */
+  html:has([data-inspector-dialog][data-state="open"])
+    [data-slot="dialog-content"]
+    [data-print-block] {
+    display: block !important;
+    break-inside: avoid;
+  }
+  html:has([data-inspector-dialog][data-state="open"])
+    [data-slot="dialog-content"]
+    [data-print-atomic] {
+    break-inside: avoid;
+  }
+  html:has([data-inspector-dialog][data-state="open"])
+    [data-slot="dialog-content"]
+    [data-chart-export-root] {
+    break-inside: avoid;
+  }
+  html:has([data-inspector-dialog][data-state="open"])
+    [data-slot="dialog-content"]
+    [data-files-table]
+    tr {
+    break-inside: avoid;
+  }
+  html:has([data-inspector-dialog][data-state="open"])
+    [data-slot="dialog-content"]
+    h4 {
+    break-after: avoid;
+    break-inside: avoid;
+  }
+  /* the margin note is a record (Task 74 doctrine): a textarea is a fixed-
+     rows control on screen, so a long note would print CLIPPED to its
+     screen height. field-sizing grows the box to its content on paper
+     (Chromium 123+); the card is print-atomic so the whole note keeps
+     together with its annotation frame. */
+  html:has([data-inspector-dialog][data-state="open"])
+    [data-slot="dialog-content"]
+    [data-note-editor]
+    textarea {
+    field-sizing: content !important;
+    min-height: 0 !important;
   }
   /* archival doctrine (Task 74/84): a truncated name in a printout is a
      lost record — param keys/values, file names, input paths and the
