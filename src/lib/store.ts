@@ -430,6 +430,12 @@ interface WorkflowState {
   historyFuture: HistoryEntry[];
   undo: () => Promise<void>;
   redo: () => Promise<void>;
+  /** Task 106 — batch jumps for the history panel: run n undos/redos
+   *  SEQUENTIALLY (each awaits its server sync — two concurrent PATCH/\n   *  restore round-trips would race the optimistic job maps) and stop
+   *  early if the stack empties. Silent by design: the panel's live rows
+   *  are the feedback surface, a toast per step would be noise. */
+  undoSteps: (n: number) => Promise<void>;
+  redoSteps: (n: number) => Promise<void>;
   /** The delete toasts' Undo button runs its OWN entry, not the stack top:
    *  after later mutations the linear stack has branched, and a buried
    *  entry must be undone out-of-band with the divergent tail discarded. */
@@ -1302,6 +1308,25 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     set({ historyFuture: future.slice(0, -1) });
     await entry.redo();
     set({ historyPast: [...get().historyPast, entry].slice(-HISTORY_CAP) });
+  },
+
+  /** Task 106 — the history panel's time machine: n sequential single
+   *  steps through the SAME undo()/redo() paths the keyboard walks (one
+   *  implementation of the inverse semantics, zero drift). Early exit on
+   *  an empty stack keeps a stale count from toasting "Nothing to undo"
+   *  n times. */
+  undoSteps: async (n) => {
+    for (let k = 0; k < n; k++) {
+      if (get().historyPast.length === 0) return;
+      await get().undo();
+    }
+  },
+
+  redoSteps: async (n) => {
+    for (let k = 0; k < n; k++) {
+      if (get().historyFuture.length === 0) return;
+      await get().redo();
+    }
   },
 
   undoEntry: async (entry) => {

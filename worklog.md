@@ -3345,3 +3345,24 @@ Stage Summary:
 - 「framing 是设计选择，探针测的是保证不是实现」：既有 minimap 把视口矩形算进取景框（n8n 式「永远看得见你在哪」），我计划的是节点-only 边界 + 出界裁切——两种都有理， shipped 的那个优化取向性。B3/A4 断言「拖拽后视口仍被取景」这个用户可感知的保证，而不是任何一边的实现细节——合同写保证，实现才有换的自由
 - 「会话内偏好不进存储」：minimapOpen 默认开、reload 复原——和视口记忆（sessionStorage）、书签（localStorage）三分天下的第三类：UI 心情。判定标准依旧是「谁创造了它」：系统默认的行为模式不属于用户资产，别让 localStorage 变成第二个抽屉塞满没人找的东西
 - 遗留（下轮候选）：EMPIAR 真数据回归（重，连续让位）；用户真机 class3d/refine3d 顺序模式与 topaz 实测反馈；diff 对话框 Open 行 canvas 入口价值复查；文件夹拖拽真机手势反馈；qa61 B 相坐标点击移植 playwright；qa42–qa57 状态未知（矩阵外未验证）；minimap 的 node-only 取景模式与「只看选区」滤镜（真机需求观察）；undo 栈的历史面板（点击条目跳转 = 顺序 undo/redo 的批量执行，与 tooltip 深度提示同族）
+
+---
+Task ID: 106
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-10 17:14 window)
+Task: cron 自主巡检——Task 106「undo 栈历史面板」三部曲收官（104 命令栈 → 105 动态 tooltip → 106 可视面板）：zoom-controls 新增 History 触发钮 + Popover 面板——past 行按应用序（最旧→最新）、Now 分隔线、future 行灰斜体（next-redo 离 Now 最近）；点击 past 行 = 保留该变更、撤销其后所有（undoSteps 顺序 await）；点击 future 行 = 重做至该变更（redoSteps）；批量跳转复用单步 undo()/redo() 路径（一份逆语义实现零漂移）+ 空栈早退 + busy 锁防批间交错；触发钮在 future 有存货时 text-primary（「这里存着东西」方言，与书签 fill 同族）；空态文案 + 0 steps 徽章。t106 46 断言三连绿 + 全矩阵 46 套绿 + worklog + push
+
+Work Log:
+- 【开局 + QA】worklog 尾部 Task 105（1fb4296 == origin/main）、BUILD_ID U14cL3gvHIS3dxXFUNgfG 匹配；冷启动 + smoke/qa00/t105 三套全绿 → 稳定
+- 【选题】Task 105 交接候选评估：历史面板是 104/105 的自然收官（栈的 UI 从 tooltip 深度提示升维到完整时间线），EMPIAR（重）让位、真机项不可 headless、qa42–57 归属判定留作轻量轮备选
+- 【实现①store】undoSteps(n)/redoSteps(n)：for 循环顺序 await get().undo()/redo()（复用 pop-before-run + future push 的同一路径——两份逆语义实现必然漂移）+ 每步前查栈空早退（陈旧计数不会触发 n 个「Nothing to undo」toast）；接口注释写明 SEQUENTIAL 的理由（两个并发 PATCH/restore 会竞态乐观 job 映射）
+- 【实现②canvas】History 图标（lucide History）+ Popover w-64（History 标题 + N steps 徽章 + max-h-64 滚动列表）：past 行（序号 tabular-nums + label truncate，title 写「undo N step(s) after this」，末行 target=0 时 title=「You are here」+ no-op return）；Now 分隔线；future 行灰斜体 hover 复色（[...future].reverse() 渲染 + 数组下标记账，title 写「redo N step(s) up to this」）；busy 锁 jumping state + disabled:pointer-events-none；空态文案。挂载于 redo 钮之后（历史工具成组）
+- 【t106 探针三折】①R0 FATAL——future 显示序假设反了：undo 把 Delete C 先推入 future、Move B 后入（future=[Delete C, Move B]），next-redo 是数组**末位** = 最近撤销的 Move B；组件 reverse 渲染没错，探针的预期错——「栈底沉旧、栈顶迎新」在 push 端同样成立；②F5 FATAL——断言用 includes(localStorage) 咬到书签区块的**注释**字样（Task 100 教义在我自己的探针里复发）：改为行为合同 canvas.tsx 全文件零 storage.setItem（存储写入统一住 store）；③Z1 FATAL——R2 已删 C，对死 id 的 DELETE 404，按「DELETE ok 数」验收错位——改 Task 103 教义「清理按世界恢复原状验收」：删后断言 listJobs 无踪迹
+- 【收尾】eslint 0、tsc src 0、构建 BUILD_ID rM0e3ep_1YBM9QxrOxixJ + served 200 自证；t106 46×3 三连绿；t104 41 / t105 45 / smoke / qa00 合同全绿；全矩阵 46 套分 8 块串行 0 失败
+
+Stage Summary:
+- 「批量跳转不配拥有第二份逆语义」：undoSteps 的每一环都调 undo()——pop-before-run、future 推入、id 稳定逆，全部单源。复制一份循环体进 undoSteps 也许能跑，但下次改 undo 语义（比如加进度回调）时面板就会静默漂移。时间旅行只有一条时间线，代码里也只能有一条实现
+- 「栈顶迎新对 future 同样成立」：future 数组也是「栈」——最近撤销的在末位、最先重做。R0 的假设错误源于把 future 当「按撤销顺序的队列」而它实际是「按撤销顺序的栈」：两端都对，但 push 端才是活口。面板的 reverse 渲染 + 数组下标记账把这个语义钉进了代码和探针两处
+- 「查行为不查字样，在自己身上也一样」：F5 用 includes(localStorage) 复发了 Task 100 点名批评过的病——这次咬到的是注释。教义不会因为被写过就自动生效，它只在被应用时生效；断言「canvas 零 storage.setItem 调用」比「没有 localStorage 字样」精确且不会误伤注释
+- 「清理合同跟世界走，不跟 HTTP 状态码走」：对已死 id 的 DELETE 404 是正确行为，Z1 却把它当失败——「调用成功」和「世界干净」是两个命题。Task 103 的验收标准（世界恢复原状）在探针自身被 404 打脸时才真正内化
+- 「面板是栈的视图，不是栈的第二个真相」：行列表、序号、count 徽章全部从 historyPast/historyFuture 派生，跳转后随 store 自动重渲——面板没有自己的状态副本，busy 锁是它唯一的私有状态且只管「手势进行中」。视图与真相分离，UI 就永远不会说谎
+- 遗留（下轮候选）：EMPIAR 真数据回归（重，连续让位）；用户真机 class3d/refine3d 顺序模式与 topaz 实测反馈；diff 对话框 Open 行 canvas 入口价值复查；文件夹拖拽真机手势反馈；qa61 B 相坐标点击移植 playwright；qa42–qa57 状态未知（矩阵外未验证）；历史面板的「撤销到此处」右键语义与条目分组（同卡连续 Move 折叠？真机观察需求）；面板行数多时的虚拟滚动（HISTORY_CAP=50 尚不紧迫）

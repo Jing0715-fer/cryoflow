@@ -19,6 +19,7 @@ import {
   FileJson,
   FileUp,
   GitCompareArrows,
+  History,
   Link2,
   Loader2,
   RotateCcw,
@@ -465,6 +466,16 @@ export function WorkflowCanvas() {
   const redoHistory = useWorkflowStore((s) => s.redo);
   const minimapOpen = useWorkflowStore((s) => s.minimapOpen);
   const setMinimapOpen = useWorkflowStore((s) => s.setMinimapOpen);
+  const undoSteps = useWorkflowStore((s) => s.undoSteps);
+  const redoSteps = useWorkflowStore((s) => s.redoSteps);
+
+  // history panel (local open state — the panel is a transient surface,
+  // not a persisted preference)
+  const [historyOpen, setHistoryOpen] = React.useState(false);
+  // Task 106 — a batch jump runs n sequential server-synced steps; while
+  // one is in flight every row locks (a second click would interleave two
+  // batches and scramble the order the user asked for)
+  const [jumping, setJumping] = React.useState(false);
 
   const rootRef = React.useRef<HTMLDivElement>(null);
   const panRef = React.useRef<PanState | null>(null);
@@ -1580,6 +1591,108 @@ export function WorkflowCanvas() {
         >
           <Redo2 className="size-4" />
         </Button>
+        <span className="mx-0.5 h-4 w-px bg-border" aria-hidden="true" />
+        {/* Task 106 — the history panel: the linear stack made visible.
+            Rows are the ENTRIES (transitions), the Now divider is the
+            present; clicking a past row undoes everything after it,
+            clicking a future row redoes up to it. The trigger picks up
+            text-primary while undone work is parked in the future — the
+            same "this button holds something" dialect as the bookmark
+            icon's fill. */}
+        <Popover open={historyOpen} onOpenChange={setHistoryOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={`size-7 ${historyFuture.length > 0 ? "text-primary" : ""}`}
+              aria-label="History"
+              title="Walk the undo/redo timeline entry by entry"
+              data-canvas-ui="history-trigger"
+            >
+              <History className="size-4" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-64 p-2" data-canvas-ui="history-panel">
+            <div className="flex items-baseline justify-between px-1 pb-1.5">
+              <span className="text-xs font-semibold">History</span>
+              <span className="text-[10px] tabular-nums text-muted-foreground" data-canvas-ui="history-count">
+                {historyPast.length + historyFuture.length} steps
+              </span>
+            </div>
+            {historyPast.length + historyFuture.length === 0 ? (
+              <p className="px-1 py-3 text-[11px] leading-4 text-muted-foreground" data-canvas-ui="history-empty">
+                No history yet — moves, aligns, tidies and deletes land here. Click a step to jump back to it.
+              </p>
+            ) : (
+              <div className="max-h-64 overflow-y-auto" data-canvas-ui="history-list">
+                <ul>
+                  {historyPast.map((entry, i) => (
+                    <li key={`p:${i}:${entry.label}`}>
+                      <button
+                        type="button"
+                        disabled={jumping}
+                        className="flex w-full items-center gap-1.5 rounded px-1.5 py-1 text-left text-xs hover:bg-accent disabled:pointer-events-none disabled:opacity-50"
+                        data-canvas-ui="history-row"
+                        data-history-kind="past"
+                        data-history-index={i}
+                        onClick={() => {
+                          const target = historyPast.length - 1 - i;
+                          if (target <= 0) return;
+                          setJumping(true);
+                          void undoSteps(target).finally(() => setJumping(false));
+                        }}
+                        title={
+                          historyPast.length - 1 - i === 0
+                            ? "You are here"
+                            : `Jump back — undo ${historyPast.length - 1 - i} step${historyPast.length - 1 - i === 1 ? "" : "s"} after this`
+                        }
+                      >
+                        <span className="w-4 shrink-0 text-right font-mono text-[9px] tabular-nums text-muted-foreground">
+                          {i + 1}
+                        </span>
+                        <span className="truncate">{entry.label}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                <div className="my-1 flex items-center gap-1.5 px-1" data-canvas-ui="history-now">
+                  <span className="h-px flex-1 bg-border" />
+                  <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">now</span>
+                  <span className="h-px flex-1 bg-border" />
+                </div>
+                <ul>
+                  {[...historyFuture].reverse().map((entry, r) => {
+                    const i = historyFuture.length - 1 - r; // array index — the NEXT redo is r === 0
+                    return (
+                      <li key={`f:${i}:${entry.label}`}>
+                        <button
+                          type="button"
+                          disabled={jumping}
+                          className="flex w-full items-center gap-1.5 rounded px-1.5 py-1 text-left text-xs italic text-muted-foreground hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+                          data-canvas-ui="history-row"
+                          data-history-kind="future"
+                          data-history-index={i}
+                          onClick={() => {
+                            const target = historyFuture.length - i;
+                            if (target <= 0) return;
+                            setJumping(true);
+                            void redoSteps(target).finally(() => setJumping(false));
+                          }}
+                          title={`Jump forward — redo ${historyFuture.length - i} step${historyFuture.length - i === 1 ? "" : "s"} up to this`}
+                        >
+                          <span className="w-4 shrink-0 text-right font-mono text-[9px] tabular-nums text-muted-foreground/60">
+                            {historyPast.length + i + 1}
+                          </span>
+                          <span className="truncate">{entry.label}</span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+          </PopoverContent>
+        </Popover>
         <span className="mx-0.5 h-4 w-px bg-border" aria-hidden="true" />
         <Button
           variant="ghost"
