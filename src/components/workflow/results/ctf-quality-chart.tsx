@@ -25,36 +25,16 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, on
 import { cn } from "@/lib/utils";
 import { MrcImage } from "./mrc-image";
 import { fetchJsonRetry } from "@/lib/retry-fetch";
+import {
+  ctfRenderable,
+  ctfRows,
+  type CtfMicrograph,
+  type CtfResponse,
+} from "@/lib/chart-rows";
 import { ChartExportButtons } from "./chart-export-buttons";
 
 const TEAL = "#14b8a6";
 const AMBER = "#d97706";
-
-interface CtfMicrograph {
-  name: string;
-  relPath: string;
-  defocusU: number;
-  defocusV: number;
-  astigmatism: number;
-  defocusAngle: number;
-  fom: number;
-  maxResolution: number;
-}
-
-interface CtfSummary {
-  count: number;
-  meanDefocus: number;
-  minDefocus: number;
-  maxDefocus: number;
-  maxAstigmatism: number;
-  meanFom: number;
-  worstResolution: number;
-}
-
-interface CtfResponse {
-  micrographs: CtfMicrograph[];
-  summary: CtfSummary | null;
-}
 
 /** FOM health buckets (ctffind figure of merit 0–1). */
 function fomTone(fom: number): string {
@@ -101,7 +81,9 @@ export function CtfQualityChart({ jobId, className }: { jobId: string; className
   }, [data]);
 
   if (error && !data) return null; // enhancement, stay silent
-  if (micrographs.length === 0) return null;
+  // gate single-sourced in lib/chart-rows (t110: the palette exports the
+  // same micrographs through the same predicate)
+  if (!ctfRenderable(micrographs.length)) return null;
 
   return (
     <section
@@ -137,17 +119,7 @@ export function CtfQualityChart({ jobId, className }: { jobId: string; className
         )}
         <ChartExportButtons
           name="CTF fit quality"
-          getRows={() =>
-            micrographs.map((m) => ({
-              micrograph: m.name,
-              "defocus U (um)": m.defocusU,
-              "defocus V (um)": m.defocusV,
-              "astigmatism (um)": m.astigmatism,
-              "defocus angle (deg)": m.defocusAngle,
-              fom: m.fom,
-              "max resolution (A)": m.maxResolution,
-            }))
-          }
+          getRows={() => ctfRows(data)}
           className="ml-auto"
         />
       </div>

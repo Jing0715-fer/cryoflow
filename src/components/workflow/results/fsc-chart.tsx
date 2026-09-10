@@ -30,6 +30,7 @@ import {
 } from "recharts";
 import { cn } from "@/lib/utils";
 import { fetchJsonRetry } from "@/lib/retry-fetch";
+import { fscShells, fscRenderable, fscRows, type FscResponse } from "@/lib/chart-rows";
 import { ChartExportButtons } from "./chart-export-buttons";
 import { FscCompareDialog } from "./fsc-compare-dialog";
 
@@ -38,27 +39,6 @@ const AMBER = "#f59e0b";
 const NOISE = "#71717a";
 const VIOLET = "#8b5cf6";
 const ROSE = "#f43f5e";
-
-interface FscShell {
-  freq: number;
-  res: number;
-  fsc: number;
-  correctedFsc?: number;
-  phaseRandomizedFsc?: number;
-  /** raw masked-maps FSC before the phase-rand correction (postprocess only) */
-  maskedFsc?: number;
-}
-
-interface FscResponse {
-  source: "postprocess" | "model" | null;
-  sourceFile: string | null;
-  shells: FscShell[];
-  resolutionAt143: number | null;
-  resolutionAt05: number | null;
-  /** RELION's own estimate (_rlnFinalResolution / _rlnCurrentResolution) */
-  reportedResolution: number | null;
-  reportedLabel: string | null;
-}
 
 export function FscChart({
   jobId,
@@ -102,16 +82,11 @@ export function FscChart({
 
   // clip 999-sentinel / non-finite rows, keep resolution ascending;
   // jobs whose FSC column is all zeros (e.g. VDAM initialmodel) stay hidden
-  const shells = useMemo(
-    () =>
-      (data?.shells ?? [])
-        .filter((s) => Number.isFinite(s.fsc) && Number.isFinite(s.res) && s.res < 900 && s.res > 0)
-        .sort((a, b) => a.res - b.res), // low-res (large Å) → high-res (right)
-    [data]
-  );
+  // — derivation single-sourced in lib/chart-rows (t110: the palette exports
+  // the same shells through the same function)
+  const shells = useMemo(() => fscShells(data), [data]);
 
-  if (!data || shells.length < 4) return null; // silent for 2D / not-yet-3D jobs
-  if (shells.filter((s) => s.fsc > 0.05).length < 4) return null;
+  if (!data || !fscRenderable(shells)) return null;
 
   const isPost = data.source === "postprocess";
   const hasMasked = isPost && shells.some((s) => s.maskedFsc != null);
@@ -212,26 +187,7 @@ export function FscChart({
             live
           </span>
         )}
-        <ChartExportButtons
-          name="FSC curve"
-          getRows={() =>
-            shells.map((s) => ({
-              "resolution (A)": Number(s.res.toFixed(4)),
-              "spatial frequency (1/A)": Number(s.freq.toFixed(6)),
-              fsc: Number(s.fsc.toFixed(4)),
-              ...(Number.isFinite(s.correctedFsc)
-                ? { "fsc corrected": Number(s.correctedFsc!.toFixed(4)) }
-                : {}),
-              ...(Number.isFinite(s.phaseRandomizedFsc)
-                ? { "fsc phase-randomized": Number(s.phaseRandomizedFsc!.toFixed(4)) }
-                : {}),
-              ...(Number.isFinite(s.maskedFsc)
-                ? { "fsc masked (raw)": Number(s.maskedFsc!.toFixed(4)) }
-                : {}),
-            }))
-          }
-          className="ml-auto"
-        />
+        <ChartExportButtons name="FSC curve" getRows={() => fscRows(data)} className="ml-auto" />
       </div>
       <div className="h-40">
         <ResponsiveContainer width="100%" height="100%">

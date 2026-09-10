@@ -3439,3 +3439,27 @@ Stage Summary:
 - 「两次同位失败就是秩序，不是运气」：qa63 连续两轮在矩阵同位置挂、单跑同位置绿——第一次当瞬态放过（Task 108 误判），第二次抓序列复现（qa62→qa63）拿到铁证。自种子教义的完整推论：谁依赖 running fixture，谁就自己种它——按名幂等让套件顺序从此无关
 - 「CLI 桥的三层编码要分清」：对象直返=裸 JSON 一层解析；字符串返回=CLI 再包一层引号+转义，unq 只剥引号不解码；换行等控制符必须 JSON.parse 才还原。同一个套件里三种读法混用，每次 FATAL 的报错（JSON at position 1 / 行数 0）都指向别处
 - 遗留（下轮候选）：EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势）；PNG 导出的 aria 快照无障碍描述（现 title-only）；导出按钮在打印样式的呈现（print 下隐藏或保留待观察）；qa60/61 helper 同族移植评估；命令面板的图表导出入口（绕过 chart 可见性直接导）；3D viewer 截图钮与 Mol* 自带 screenshot 的统一
+
+---
+Task ID: 110
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-10 23:15 window)
+Task: cron 自主巡检——Task 110「命令面板 Export chart data 组 + 单一 row-builder 提升」：QA 连两轮后回功能轮。开局解决 BUILD_ID 疑案（mtime 为 UTC 时区，rg 源码标记双证产物新鲜）；候选「3D viewer 截图统一」被 rg 证伪为撞车项（viewer-export.ts 成熟在先），选定真实空白：Task 109 的图表导出与 Ctrl+K 命令面板之间零连接。交付 src/lib/chart-rows.ts（六图类型+派生+可渲染门控+行构建器+注册表的单源），六图组件全部收编委托，palette 新增 Export 组（与图表按钮字节级同源），print 样式细节。t108 72 断言多连绿 + 全矩阵 48 套 0 失败 + worklog + push
+
+Work Log:
+- 【开局核对 + 疑案】worklog 尾部 Task 109（8157f38 == origin/main，树净）；.next/BUILD_ID = KlY_i-B5TbRm4crSItcg0（mtime 14:50）与 worklog 缩写 zWcJI5ms 不一致——`date` 实证沙箱时钟为 UTC（15:18 UTC = 23:18 +08），14:50 UTC ≈ 22:50 +08 正是 Task 109 收尾构建时刻；rg Task 109 源码标记 data-chart-export-root 同时存在于 root 与 standalone chunks = 双证产物含最新源码。冷启动 + smoke/qa00/t107/t106 四套全绿 → 稳定
+- 【选题·排除法】候选「3D viewer 截图与 Mol* 统一」撞车——molstar-embed 已 import 成熟 viewer-export 套件（copyViewerPng/downloadViewerBlob/GIF/figure footer）；命令面板（716 行，Ctrl+K，Jobs/Notes/Class notes/Run/Add/Workspaces/Canvas & app 组）确认存在且**无任何导出入口** → Task 109 交接候选「命令面板的图表导出入口」是真实空白。核实六图数据流：各自 fetch /api/jobs/{id}/{fsc,guinier,resolution,ctf,topaz-training,angdist} + 组件内闭包派生 rows——palette 直导需要把派生逻辑提出去，否则第二份实现必然漂移
+- 【实现①lib】chart-rows.ts：FscResponse/GuinierResponse/ResolutionResponse/CtfResponse/TopazTrainingResponse/AngDistResponse 类型 + 派生（fscShells 过滤排序、guinierPoints 有限性清洗、topazSeries 逐 epoch 映射）+ 可渲染谓词（fsc ≥4 shells 且 fsc>0.05 ≥4、guinier ≥4 点、resolution ≥1、ctf ≥1、topaz ≥2、angdist total>0 且 cells 非空——逐一镜像各图 render-null 条件）+ 行构建器（gate 不过返回 []）+ CHART_EXPORT_TARGETS 注册表（key/label/endpoint/rows）
+- 【实现②六图收编】删六处本地 interface 副本、memo/getRows/early-return 全部委托 lib；fsc/guinier 顺带缩短 60 行。两处 MultiEdit 伤情被输出回显当场抓获：ctf 的 fomTone 函数头被 old_str 连带吞掉（补回）、topaz 出现重复 const 块（接口块原夹在两组 const 之间）——「编辑器的原子性承诺要以文件状态验收」再次生效
+- 【tsc 一折】angdist 谓词调用不收窄 data（TS18047 ×13）——TS 的 narrowing 不流经布尔函数调用，恢复 `if (!data || !angDistRenderable(data))` 前置守卫（lib 谓词内部的 !!data 仍为 palette 场景保留）
+- 【实现③palette】Export 组目标 = inspectId ?? selectedId（无目标不渲染组——面板不许做兑现不了的承诺）；onSelect 先 close（与其他条目同舞步）再异步 fetch→rows→空则诚实 toast「no data yet」（不伪造零行文件）、有数据走共享 downloadCsv（成功 toast 与 ChartExportButtons 同措辞：`N rows → cryoflow-{slug}.csv`）、fetch 失败 destructive toast；图标+色调复用各图头部方言（Waves/TrendingDown/TrendingUp/Radar/GraduationCap/RadioTower）——点击前就能认出「这是那张图」；注册表 label 必须等于图内 name prop（filename = fileSlug(label)，错位即第二个文件名）
+- 【实现④细节】chart-export-buttons 根 span 加 print:hidden（打印报告不该带网页按钮）
+- 【t108 探针 72 断言六相】S 种子+inspector+Results+FSC 图表；A Ctrl+K → 组标题点名宿主 job → 六行齐全 → 点 FSC curve → palette 自关 → blob CSV + toast 措辞 + 行数合同 + inspector 存活；B **字节级跨表面一致性**（palette blob 暂存浏览器侧 vs 图表自身 blob 两次 FileReader 回读全等）；N 诚实空态（Topaz training 对非 topaz job——实证 /topaz-training 返回 200 空数组——「no data yet」toast + 零下载）；F 25 条静态合同（lib 导出清单、注册表 label↔图表 name 逐对核对、六图零本地类型副本、零内联行映射、palette 接线、print:hidden）；Z 清理 + console 0。命名从 t110 更正为 t108（探针序号连续性：Task 109 交付 t107，glob 自动收录 + TOTAL 计算不受影响）
+- 【收尾】eslint 0、tsc src 0、npm run build 三段式 BUILD_ID pEYLv6PJeFeH_MyWlAzCR + 逐 chunk 200 扫描 + 「Export chart data」在服务 bundle 中自证；t108 72×4 绿；smoke/qa00/t107（受影响面）/t106 全绿；全矩阵 48 套分 8 块串行 0 失败
+
+Stage Summary:
+- 「两个门，一份行」：palette 导出的 CSV 与图表按钮导出的 CSV 字节级全等——不靠评审约定靠构造（同一个 fscRows、同一个 rowsToCsv、同一个 fileSlug）。跨表面合同一旦存在两份实现，漂移只是时间问题；把「行」收进 lib，两个门都成了视图。t108 的 B 相把这个保证钉成断言而不是注释
+- 「门控也是数据的一部分」：builder 返回 [] 的条件 = 图表 render-null 的条件——「CSV 持有曲线所画」的合同在图未渲染时同样成立（没有渲染就没有行可导）。palette 的诚实是三层递进：无目标→无组、行空→诚实 toast、fetch 败→destructive toast；每一层都拒绝伪造一份「看起来成功」的产物
+- 「narrowing 不流经谓词」：TS 的类型收窄是控制流分析不是布尔代数——`if (pred(data))` 不会让 data 非 null。`!data ||` 前置守卫是语言层的惯例不是代码味的妥协；lib 谓词内部保留 !!data 是为 palette 的 unknown 入口服务，两处不矛盾
+- 「MultiEdit 的回显是免费的验收」：本轮两处编辑伤情（函数头被吞、const 块重复）都是工具输出回显里肉眼可见的——「写完即查」的成本是扫一眼回显，漏查的成本是 fomTone 尸体留在文件里等 tsc 或运行时爆。Task 105 的教义在本轮以「回显即验收」的形式完成内化
+- 「撞车检查要查到导入清单那一层」：「3D viewer 截图统一」在 rg import 清单时当场证伪（viewer-export 六件套已在 molstar-embed 头部）——功能存在性检查的正确深度是「谁 import 了它、用它做了什么」，不是「有没有同名文件」
+- 遗留（下轮候选）：EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势）；palette 导出 PNG 需要已挂载的 SVG（jump+滚动+按钮编排已评估、本轮拒绝——脆弱编排换不来对等价值，等真机需求）；fsc-compare-dialog/pipeline-kpi/cryosparc-angle-panel 仍持本地类型副本（只读者，结构化类型既有惯例，收编收益低）；打印样式只做了按钮隐藏，results 面板整体 print 排版未审；minimap node-only 取景与「只看选区」滤镜；历史面板条目分组（同卡连续 Move 折叠）；undo 手感参数真机调优

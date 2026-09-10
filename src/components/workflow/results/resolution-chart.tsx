@@ -23,20 +23,14 @@ import {
 } from "recharts";
 import { cn } from "@/lib/utils";
 import { fetchJsonRetry } from "@/lib/retry-fetch";
+import {
+  resolutionRenderable,
+  resolutionRows,
+  type ResolutionResponse,
+} from "@/lib/chart-rows";
 import { ChartExportButtons } from "./chart-export-buttons";
 
 const TEAL = "#14b8a6";
-
-interface ResolutionPoint {
-  iteration: number;
-  resolution: number;
-}
-
-interface ResolutionResponse {
-  points: ResolutionPoint[];
-  current: number | null;
-  best: number | null;
-}
 
 export function ResolutionChart({
   jobId,
@@ -91,7 +85,9 @@ export function ResolutionChart({
   }, [data]);
 
   if (error && !data) return null; // silent — the chart is an enhancement
-  if (points.length < 1) return null;
+  // gate single-sourced in lib/chart-rows (t110: the palette exports the
+  // same points through the same predicate)
+  if (!resolutionRenderable(points)) return null;
 
   const current = data?.current ?? null;
   const best = data?.best ?? null;
@@ -134,12 +130,7 @@ export function ResolutionChart({
         )}
         <ChartExportButtons
           name="Resolution evolution"
-          getRows={() =>
-            points.map((p) => ({
-              iteration: p.iteration,
-              "resolution (A)": p.resolution,
-            }))
-          }
+          getRows={() => resolutionRows(data)}
           className="ml-auto"
         />
       </div>

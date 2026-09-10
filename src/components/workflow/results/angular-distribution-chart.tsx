@@ -16,20 +16,8 @@ import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Compass, RadioTower, TriangleAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fetchJsonRetry } from "@/lib/retry-fetch";
+import { angDistRenderable, angDistRows, type AngDistResponse } from "@/lib/chart-rows";
 import { ChartExportButtons } from "./chart-export-buttons";
-
-interface AngDistResponse {
-  iteration: number | null;
-  total: number;
-  rotBins: number;
-  tiltBins: number;
-  cells: number[];
-  max: number;
-  occupied: number;
-  anisotropy: number;
-  symmetry: string | null;
-  starFile: string | null;
-}
 
 const SIZE = 236;
 const CX = SIZE / 2;
@@ -108,7 +96,9 @@ export function AngularDistributionChart({
   }, []);
 
   if (error && !data) return null; // enhancement — stays silent on failure
-  if (!data || data.total === 0 || data.cells.length === 0) return null;
+  // gate single-sourced in lib/chart-rows (t110: the palette exports the
+  // same grid through the same predicate); !data first so TS narrows below
+  if (!data || !angDistRenderable(data)) return null;
 
   const { cells, max, rotBins, tiltBins, total } = data;
   const anisotropic = data.anisotropy > 6;
@@ -147,17 +137,7 @@ export function AngularDistributionChart({
         </span>
         <ChartExportButtons
           name="Orientation distribution"
-          getRows={() => {
-            // one row per polar cell — rot bin × tilt bin × particle count,
-            // the exact grid the heatmap paints
-            const out: Array<Record<string, number>> = [];
-            for (let t = 0; t < tiltBins; t++) {
-              for (let r = 0; r < rotBins; r++) {
-                out.push({ "rot bin": r, "tilt bin": t, particles: cells[t * rotBins + r] ?? 0 });
-              }
-            }
-            return out;
-          }}
+          getRows={() => angDistRows(data)}
           className="ml-auto"
         />
       </div>

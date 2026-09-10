@@ -26,23 +26,16 @@ import {
 } from "recharts";
 import { cn } from "@/lib/utils";
 import { fetchJsonRetry } from "@/lib/retry-fetch";
+import {
+  guinierPoints,
+  guinierRenderable,
+  guinierRows,
+  type GuinierResponse,
+} from "@/lib/chart-rows";
 import { ChartExportButtons } from "./chart-export-buttons";
 
 const TEAL = "#14b8a6";
 const AMBER = "#f59e0b";
-
-interface GuinierPoint {
-  x: number;
-  lnAmp: number | null;
-  lnAmpSharpened: number | null;
-}
-
-interface GuinierResponse {
-  jobId: string;
-  sourceFile: string | null;
-  points: GuinierPoint[];
-  bfactor: number | null;
-}
 
 export function GuinierChart({
   jobId,
@@ -76,22 +69,11 @@ export function GuinierChart({
     };
   }, [jobId, running]);
 
-  const points = useMemo(
-    () =>
-      (data?.points ?? [])
-        .map((p) => ({
-          ...p,
-          lnAmp: p.lnAmp != null && Number.isFinite(p.lnAmp) ? p.lnAmp : null,
-          lnAmpSharpened:
-            p.lnAmpSharpened != null && Number.isFinite(p.lnAmpSharpened)
-              ? p.lnAmpSharpened
-              : null,
-        }))
-        .filter((p) => Number.isFinite(p.x) && p.x > 0 && p.lnAmp != null),
-    [data]
-  );
+  // derivation single-sourced in lib/chart-rows (t110: palette + chart +
+  // export buttons all read the same points)
+  const points = useMemo(() => guinierPoints(data), [data]);
 
-  if (!data || points.length < 4) return null; // silent until postprocess runs
+  if (!data || !guinierRenderable(points)) return null; // silent until postprocess runs
 
   const hasSharpened = points.some((p) => p.lnAmpSharpened != null);
   const bf = data.bfactor;
@@ -129,13 +111,7 @@ export function GuinierChart({
         ) : null}
         <ChartExportButtons
           name="Guinier plot"
-          getRows={() =>
-            points.map((p) => ({
-              "1/s": p.x,
-              "ln(amplitude)": p.lnAmp,
-              "ln(amplitude) sharpened": p.lnAmpSharpened,
-            }))
-          }
+          getRows={() => guinierRows(data)}
           className="ml-auto"
         />
       </div>

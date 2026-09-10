@@ -23,27 +23,18 @@ import {
 } from "recharts";
 import { cn } from "@/lib/utils";
 import { fetchJsonRetry } from "@/lib/retry-fetch";
+import {
+  topazRenderable,
+  topazRows,
+  topazSeries,
+  type TopazTrainingResponse,
+} from "@/lib/chart-rows";
 import { ChartExportButtons } from "./chart-export-buttons";
 
 const TEAL = "#14b8a6";
 const AMBER = "#f59e0b";
 const EMERALD = "#10b981";
 const ROSE = "#f43f5e";
-
-interface TopazEpochDTO {
-  it: number;
-  trainLoss: number | null;
-  testLoss: number | null;
-  precision: number | null;
-  recall: number | null;
-  testPrecision: number | null;
-  testRecall: number | null;
-}
-
-interface TopazTrainingResponse {
-  epochs: TopazEpochDTO[];
-  source: string | null;
-}
 
 export function TopazTrainingChart({
   jobId,
@@ -88,19 +79,9 @@ export function TopazTrainingChart({
 
   // chart rows carry both curve families; recharts skips nulls with
   // connectNulls, so each view just reads its own keys
-  const rows = useMemo(
-    () =>
-      (data?.epochs ?? []).map((e) => ({
-        it: e.it,
-        trainLoss: e.trainLoss,
-        testLoss: e.testLoss,
-        precision: e.precision,
-        recall: e.recall,
-        testPrecision: e.testPrecision,
-        testRecall: e.testRecall,
-      })),
-    [data]
-  );
+  // series derivation single-sourced in lib/chart-rows (t110: the palette
+  // exports the same epochs through the same function)
+  const rows = useMemo(() => topazSeries(data), [data]);
 
   /** epochs with at least one picking metric — gates the P/R toggle */
   const hasPR = useMemo(
@@ -121,7 +102,8 @@ export function TopazTrainingChart({
   }, [data]);
 
   if (error && !data) return null; // silent — the chart is an enhancement
-  if (rows.length < 2) return null; // a single epoch is not a curve
+  // gate single-sourced in lib/chart-rows (a single epoch is not a curve)
+  if (!topazRenderable(rows)) return null;
 
   const last = rows[rows.length - 1];
   const first = rows[0];
@@ -191,17 +173,7 @@ export function TopazTrainingChart({
         )}
         <ChartExportButtons
           name="Topaz training"
-          getRows={() =>
-            rows.map((r) => ({
-              epoch: r.it,
-              "train loss": r.trainLoss,
-              "test loss": r.testLoss,
-              precision: r.precision,
-              recall: r.recall,
-              "test precision": r.testPrecision,
-              "test recall": r.testRecall,
-            }))
-          }
+          getRows={() => topazRows(data)}
           className="ml-auto"
         />
       </div>

@@ -8,6 +8,8 @@
  *   • Run       — one-shot launch for idle jobs
  *   • Job types — add any catalog type onto the canvas
  *   • Canvas    — zoom to fit · reset view · tidy layout · theme toggle
+ *   • Export    — chart CSV for the job you're looking at, no inspector
+ *                 needed (Task 110; same rows, same filename, same toast)
  *
  * Opens with Ctrl+K (⌘K) or the header chip, which dispatches the
  * "cryoflow:open-palette" event (keeps the dialog owner decoupled).
@@ -19,17 +21,24 @@ import {
   Command as CommandIcon,
   Download,
   FileJson,
+  FileSpreadsheet,
   FileUp,
+  GraduationCap,
   Keyboard,
   Layers,
   LayoutDashboard,
   Maximize2,
   Moon,
   Play,
+  Radar,
+  RadioTower,
   RotateCcw,
   SlidersHorizontal,
   StickyNote,
+  TrendingDown,
+  TrendingUp,
   Wand2,
+  Waves,
   Workflow,
 } from "lucide-react";
 import {
@@ -51,6 +60,9 @@ import type { JobDTO } from "@/lib/types";
 import { JOB_TYPES, jobType, CARD_W, CARD_H } from "@/lib/workflow";
 import { JOB_PRESETS } from "@/lib/job-presets";
 import { exportCanvasPng } from "@/lib/canvas-export";
+import { fetchJsonRetry } from "@/lib/retry-fetch";
+import { downloadCsv, fileSlug } from "@/lib/chart-export";
+import { CHART_EXPORT_TARGETS, type ChartExportTarget } from "@/lib/chart-rows";
 import {
   buildWorkflowFile,
   downloadWorkflowJson,
@@ -59,6 +71,21 @@ import {
 import { TypeIcon } from "./icons";
 
 const OPEN_EVENT = "cryoflow:open-palette";
+
+/** Per-chart icon + accent for the Export group — the SAME icon the chart's
+ *  own header carries, so a palette row is recognizably "that chart" before
+ *  it is clicked (cross-surface recognition, not a new icon dialect). */
+const CHART_ICONS: Record<
+  string,
+  { Icon: React.ComponentType<{ className?: string }>; tone: string }
+> = {
+  fsc: { Icon: Waves, tone: "text-teal-600" },
+  guinier: { Icon: TrendingDown, tone: "text-amber-600" },
+  resolution: { Icon: TrendingUp, tone: "text-teal-600" },
+  ctf: { Icon: Radar, tone: "text-teal-600" },
+  topaz: { Icon: GraduationCap, tone: "text-fuchsia-600" },
+  angdist: { Icon: RadioTower, tone: "text-teal-600" },
+};
 
 export function CommandPalette() {
   const [open, setOpen] = React.useState(false);
@@ -73,6 +100,9 @@ export function CommandPalette() {
   const switchWorkspace = useWorkflowStore((s) => s.switchWorkspace);
   const noteSpotlight = useWorkflowStore((s) => s.noteSpotlight);
   const toggleNoteSpotlight = useWorkflowStore((s) => s.toggleNoteSpotlight);
+  // Export group target (Task 110): the inspector job, else primary selection
+  const inspectId = useWorkflowStore((s) => s.inspectId);
+  const selectedId = useWorkflowStore((s) => s.selectedId);
 
   // Notes group (Task 75; predicate upgraded to hasJudgment in Task 86) —
   // the scientist's margin notes become first-class palette citizens: each
@@ -237,6 +267,43 @@ export function CommandPalette() {
     // same dance: the palette must yield focus before the dialog opens
     close();
     useWorkflowStore.getState().setShortcutsOpen(true);
+  };
+
+  // ---- Export chart data (Task 110) -------------------------------------
+  // Target: the job the user is ALREADY looking at — the open inspector,
+  // else the primary canvas selection. No target, no group: a promise the
+  // palette must not make.
+  const exportTargetJob =
+    jobs.find((j) => j.id === (inspectId ?? selectedId)) ?? null;
+
+  const exportChartRows = (t: ChartExportTarget, job: JobDTO) => {
+    // close first (same dance as every other entry); the toast is the
+    // receipt — success names the file, an empty result stays honest
+    close();
+    void (async () => {
+      try {
+        const data = await fetchJsonRetry<unknown>(t.endpoint(job.id));
+        const rows = t.rows(data);
+        if (rows.length === 0) {
+          toast({
+            title: `${t.label}: no data yet`,
+            description: `${job.name} has no rendered rows for this chart — it only exports what the curve draws.`,
+          });
+          return;
+        }
+        downloadCsv(`cryoflow-${fileSlug(t.label)}`, rows);
+        toast({
+          title: `${t.label} exported`,
+          description: `${rows.length} row${rows.length === 1 ? "" : "s"} → cryoflow-${fileSlug(t.label)}.csv`,
+        });
+      } catch {
+        toast({
+          title: `${t.label} export failed`,
+          description: `Could not fetch chart data for ${job.name}.`,
+          variant: "destructive",
+        });
+      }
+    })();
   };
 
   const exportPng = () => {
@@ -554,6 +621,35 @@ export function CommandPalette() {
               </CommandItem>
             ))}
           </CommandGroup>
+        )}
+
+        {/* ---------------- export chart data (Task 110) ---------------- */}
+        {exportTargetJob && (
+          <>
+            <CommandSeparator />
+            <CommandGroup heading={`Export chart data · ${exportTargetJob.name}`}>
+              {CHART_EXPORT_TARGETS.map((t) => {
+                const { Icon, tone } = CHART_ICONS[t.key] ?? {
+                  Icon: FileSpreadsheet,
+                  tone: "text-muted-foreground",
+                };
+                return (
+                  <CommandItem
+                    key={`chart-export-${t.key}`}
+                    value={`export ${t.label} csv chart data ${exportTargetJob.name}`}
+                    onSelect={() => exportChartRows(t, exportTargetJob)}
+                    className="gap-2.5"
+                  >
+                    <Icon className={`size-4 shrink-0 ${tone}`} />
+                    <span className="min-w-0 flex-1 truncate text-sm">{t.label}</span>
+                    <span className="shrink-0 text-[10px] uppercase tracking-wide text-muted-foreground">
+                      csv · cryoflow-{fileSlug(t.label)}
+                    </span>
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+          </>
         )}
 
         <CommandSeparator />

@@ -71,7 +71,7 @@ export function ChartExportButtons({
   return (
     <span
       ref={selfRef}
-      className={cn("inline-flex items-center gap-0.5", className)}
+      className={cn("inline-flex items-center gap-0.5 print:hidden", className)}
       data-canvas-ui="chart-export"
       data-chart-name={name}
       data-has-rows={hasRows ? "1" : "0"}
