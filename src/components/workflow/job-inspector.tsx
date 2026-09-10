@@ -398,9 +398,15 @@ function LogConsole({ job }: { job: JobDTO }) {
   const matchCount = q ? visible.length : null;
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950 shadow-inner">
-      {/* toolbar */}
-      <div className="flex shrink-0 items-center gap-2 border-b border-zinc-800 bg-zinc-900/80 px-3 py-1.5">
+    /* data-log-console: print remap hook (globals.css Task 114) — the dark
+       console re-inks to dark-on-white on paper */
+    <div
+      data-log-console=""
+      className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950 shadow-inner"
+    >
+      {/* toolbar is screen chrome (search, follow/wrap, mode) — .no-print
+          keeps the paper report to the log text itself */}
+      <div className="no-print flex shrink-0 items-center gap-2 border-b border-zinc-800 bg-zinc-900/80 px-3 py-1.5">
         <Terminal className="size-3.5 text-zinc-500" aria-hidden="true" />
         <span className="font-mono text-[11px] font-medium text-zinc-400">run.out</span>
         {running ? (
@@ -1241,7 +1247,9 @@ function FilesTab({ job, data, reload }: { job: JobDTO; data: OutputsResponse | 
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3">
-      <div className="flex shrink-0 flex-wrap items-center gap-2">
+      {/* filter row hosts only screen controls — paper lists the files
+          themselves, unfiltered (the whole listing IS the document) */}
+      <div className="no-print flex shrink-0 flex-wrap items-center gap-2">
         <div className="relative w-64 max-w-full">
           <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
           <Input
@@ -1601,9 +1609,10 @@ function InspectorHeader({ job }: { job: JobDTO }) {
 
       {/* action toolbar — its own row: Focus / Reset & edit / Re-run (or
        * Stop while running), right-aligned on a quiet background strip so
-       * the buttons never fight the job title for horizontal space */}
+       * the buttons never fight the job title for horizontal space. Pure
+       * screen chrome — the job report prints without it (.no-print). */}
       {!isLink ? (
-        <div className="flex flex-wrap items-center justify-end gap-1.5 rounded-lg border bg-muted/40 px-2 py-1.5">
+        <div className="no-print flex flex-wrap items-center justify-end gap-1.5 rounded-lg border bg-muted/40 px-2 py-1.5">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="ghost" size="sm" onClick={() => focusJob(job.id)} className="h-7 gap-1.5 px-2.5 text-xs text-muted-foreground hover:bg-background hover:text-foreground">
@@ -1715,6 +1724,79 @@ function InspectorHeader({ job }: { job: JobDTO }) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Paper identity (Task 114) — when the inspector prints, it IS the    */
+/* document: a print-only masthead (job · type · status · active tab · */
+/* printed date) opens the sheet and a position:fixed identity strip   */
+/* repeats on every printed page (same mechanism as PrintDocFooter).   */
+/* Screen never sees either element — `hidden` + print:* variants.     */
+/* The masthead lives INSIDE the dialog so it survives the app-page    */
+/* hide (globals.css print block: html:has([data-inspector-dialog]))   */
+/* and the paper reads masthead → screen identity → active tab body.   */
+/* ------------------------------------------------------------------ */
+
+const INSPECTOR_PRINT_TAB: Record<string, string> = {
+  overview: "Overview",
+  log: "Engine log",
+  results: "Results",
+  files: "Files",
+};
+
+function InspectorPrintDoc({ job, tab }: { job: JobDTO; tab: string }) {
+  const workspaces = useWorkflowStore((s) => s.workspaces);
+  const spec = jobType(job.type);
+  const ws = workspaces.find((w) => w.id === job.workspaceId)?.name ?? null;
+  // rendered at masthead mount — moments before the print dialog reads the
+  // DOM, so "printed <date>" is honest to the day
+  const printed = new Date().toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+  const annotated = (job.note ?? "").trim().length > 0;
+  const sub = [
+    spec?.label ?? job.type,
+    job.status,
+    ws ? `workspace “${ws}”` : null,
+    `showing ${INSPECTOR_PRINT_TAB[tab] ?? tab}`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  return (
+    <>
+      <div
+        data-inspector-print-doc
+        className="hidden border-b border-foreground/15 px-5 pb-3 pt-4 print:block sm:px-6"
+      >
+        <div className="flex items-end justify-between gap-6">
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              CryoFlow — job report
+            </p>
+            <h1 className="mt-1 truncate text-xl font-semibold tracking-tight">{job.name}</h1>
+            <p className="mt-0.5 text-xs text-muted-foreground">{sub}</p>
+          </div>
+          <p className="shrink-0 text-right text-[11px] leading-4 tabular-nums text-muted-foreground">
+            printed {printed}
+            {annotated ? (
+              <>
+                <br />
+                annotated
+              </>
+            ) : null}
+          </p>
+        </div>
+      </div>
+      {/* per-sheet identity strip — fixed repaints at the bottom of every
+          printed page (PrintDocFooter doctrine); muted so full pages at
+          worst get a near-invisible overlap, never obscured content */}
+      <p className="hidden px-6 text-center text-[9px] text-muted-foreground print:fixed print:bottom-1 print:left-0 print:right-0 print:block">
+        {job.name} — CryoFlow job report · printed {printed}
+      </p>
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* The modal                                                           */
 /* ------------------------------------------------------------------ */
 
@@ -1779,12 +1861,17 @@ export function JobInspector() {
     <Dialog open={open} onOpenChange={(o) => !o && inspect(null)}>
       <DialogContent
         showCloseButton={false}
-        className="flex max-w-[min(1480px,96vw)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[min(1480px,96vw)] h-[min(940px,92dvh)] data-[state=open]:duration-300"
+        /* data-inspector-dialog: the print opt-in (globals.css Task 114) —
+           the ONLY dialog that becomes a paper document instead of
+           stepping aside; the attribute also anchors the probe contract */
+        data-inspector-dialog=""
+        className="flex max-w-[min(1480px,96vw)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[min(1480px,96vw)] h-[min(940px,92dvh)] data-[state=open]:duration-300 print:[translate:none] print:[scale:none] print:[rotate:none]"
         aria-describedby={undefined}
         onKeyDown={onEscapeClose(() => inspect(null))}
       >
         {job ? (
           <>
+            <InspectorPrintDoc job={job} tab={tab} />
             {/* status accent */}
             <div
               aria-hidden="true"
@@ -1810,7 +1897,9 @@ export function JobInspector() {
             </DialogHeader>
 
             <Tabs value={tab} onValueChange={(v) => { if (inspectId != null) tabTouchedForRef.current = inspectId; setTab(v); }} className="flex min-h-0 flex-1 flex-col gap-0">
-              <div className="shrink-0 border-b px-5 pt-2.5 sm:px-6">
+              {/* tab triggers are screen navigation — paper prints the ACTIVE
+                  tab and the report masthead names it ("showing Results") */}
+              <div className="no-print shrink-0 border-b px-5 pt-2.5 sm:px-6">
                 <TabsList className="h-9 bg-muted/60 p-0.5">
                   <TabsTrigger value="overview" className="h-8 gap-1.5 px-3 text-xs">
                     <LayoutDashboard className="size-3.5" aria-hidden="true" />

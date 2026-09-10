@@ -520,8 +520,11 @@
     transition: none !important;
   }
   /* interactive chrome is meaningless on paper — tooltips never print
-     well (positioned, translucent); .no-print marks app-specific chrome */
+     well (positioned, translucent); toasts are body-level portals that
+     would stamp transient screen state onto archival paper; .no-print
+     marks app-specific chrome */
   [data-slot="tooltip-content"],
+  [data-sonner-toaster],
   .no-print {
     display: none !important;
   }
@@ -731,5 +734,119 @@
      across a page boundary reads as two broken halves */
   [data-view="dashboard"] [data-atomic-grid] > * {
     break-inside: avoid;
+  }
+
+  /* --------------------------------------------------------------------
+   * Job report on paper (Task 114) — the frontmost document wins.
+   * Task 70 taught every dialog to step aside so Ctrl+P yields the clean
+   * pipeline sheet. But the job inspector is not chrome — it is the app's
+   * analysis READER (FSC curves, galleries, STAR tables, live log, file
+   * listing): a document the user is actively reading when they hit
+   * Ctrl+P. When it is open, the paper should BE the job report: the app
+   * page hides ([data-view] — the portal'd dialog is a body-level
+   * sibling and survives), the pipeline masthead hides with the page,
+   * and the dialog re-lays itself out from a centered fixed-height modal
+   * into a flowing paper document with its own print-only masthead and
+   * per-sheet identity strip. Every other dialog (compare, import, path
+   * browser, sbatch) keeps the Task 70 step-aside — data-inspector-dialog
+   * is the only opt-in. :has() resolves in Chromium's print pipeline like
+   * any other style recalc (probe: t112 PDF + emulation legs).
+   * ------------------------------------------------------------------ */
+  html:has([data-inspector-dialog][data-state="open"]) [data-view] {
+    display: none !important;
+  }
+  html:has([data-inspector-dialog][data-state="open"])
+    [data-slot="dialog-overlay"] {
+    /* the fixed dimmed backdrop becomes plain flow — no stamp, no scrim */
+    display: block !important;
+    position: static !important;
+    inset: auto !important;
+    background: none !important;
+    z-index: auto !important;
+  }
+  html:has([data-inspector-dialog][data-state="open"])
+    [data-slot="dialog-content"] {
+    /* inspector re-layout: modal → document. The :has() chain lands at
+       (0,3,1)+ — it beats the generic step-aside display:none (0,1,0)
+       for THIS content while every other dialog stays hidden. */
+    display: flex !important;
+    position: static !important;
+    inset: auto !important;
+    /* the -50%/-50% centering: top/left die with position:static, but
+       Tailwind v4's translate-x/y utilities set the STANDALONE `translate`
+       property — and Lightning CSS folds a same-block `translate: none`
+       into an identity `transform` (probe: built css showed
+       "transform:translate(0)rotate(0)scale(1)", rect still x=-800), so
+       the standalone kill lives in a print:[translate:none] utility on
+       the DialogContent className instead (own rule block → survives). */
+    transform: none !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    border-radius: 0 !important;
+    border-width: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    gap: 0 !important;
+    /* the per-sheet identity strip (print:fixed, below) repaints at the
+       bottom of every page; this lane keeps the last content line clear */
+    padding-bottom: 10mm !important;
+  }
+  /* scroll panes inside the report are screen furniture — paper is a
+     document, every pane unrolls (same doctrine as the Task 79 dashboard
+     unroll): the active tab panel and the log console shell */
+  html:has([data-inspector-dialog][data-state="open"])
+    [data-slot="tabs-content"] {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
+  }
+  html:has([data-inspector-dialog][data-state="open"]) [data-log-console] {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    background: white !important;
+    border-color: oklch(0.85 0.01 220) !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+  /* the console is dark chrome (text-zinc-300 on bg-zinc-950); PDF print
+     runs with printBackground off, so "light text on unprinted dark bg"
+     is white paper with nearly invisible text. The paper console re-inks:
+     dark mono body, muted meta, and WRAPPED lines — a horizontally
+     clipped line in an archival printout is a lost line. */
+  html:has([data-inspector-dialog][data-state="open"])
+    [data-log-console]
+    [role="log"] {
+    overflow: visible !important;
+    color: oklch(0.32 0.02 244) !important;
+  }
+  html:has([data-inspector-dialog][data-state="open"])
+    [data-log-console]
+    :is(.text-zinc-300, .text-zinc-400, .text-zinc-500, .text-zinc-600) {
+    color: oklch(0.45 0.02 232) !important;
+  }
+  html:has([data-inspector-dialog][data-state="open"]) [data-log-console] pre {
+    white-space: pre-wrap !important;
+    word-break: break-word !important;
+  }
+  /* interactive chrome inside the report — buttons, inputs and selects
+     are screen controls (tab triggers, rerun/stop actions, copy and
+     download buttons, the file filter); the content around them is the
+     document. Rows that EXIST only to host controls carry .no-print in
+     JSX; the one button that WRAPS document content (ParticleBrowser's
+     montage header) opts back in via [data-print-keep]. */
+  html:has([data-inspector-dialog][data-state="open"])
+    [data-slot="dialog-content"]
+    :is(button, input, select) {
+    display: none !important;
+  }
+  html:has([data-inspector-dialog][data-state="open"])
+    [data-slot="dialog-content"]
+    [data-print-keep] {
+    display: flex !important;
   }
 }

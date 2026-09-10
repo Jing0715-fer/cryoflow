@@ -137,11 +137,16 @@ function GroupSection({
 
   return (
     <div className="overflow-hidden rounded-lg border bg-card">
-      {/* row header: montage preview + stats + toggle */}
+      {/* row header: montage preview + stats + toggle. A <button> that
+          WRAPS document content (montage + stack stats) — the blanket
+          print rule hides inspector controls, but this row opts back in
+          via data-print-keep (globals.css Task 114): on paper the
+          montage and its stats are the document, the toggle is not. */}
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
+        data-print-keep=""
         className="flex w-full items-center gap-3 p-2.5 text-left outline-none transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring"
         title={`${group.count} particles in this micrograph's stack — ${open ? "collapse" : "expand to browse"}`}
       >

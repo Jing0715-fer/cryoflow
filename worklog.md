@@ -3530,3 +3530,25 @@ Stage Summary:
 - 「观察器清零前先抢救」：per-phase re-arm 是观察器卫生学，但 re-arm 会抹掉上一相的记录——当证据要跨相位比较（B 相的字符串全等），先把它读进探针侧的变量再清零。清零是为了窗口对齐，不是为了销毁证据
 - 「撞车检查的收益复利」：历史面板候选在 rg 后 30 秒证伪（Task 106 已建）——若直接开工将是一个完整的重复面板。Task 105 撞车教训的持续复利：每个「显而易见的空白」都要先问「谁 import 了它、谁渲染了它」
 - 遗留（下轮候选）：EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势、TSV/海报粘贴真机验证）；minimap node-only 取景与「只看选区」滤镜（真机需求观察）；打印样式 results 面板整体排版；undo 手感参数真机调优；3D viewer 体积截面工具（大功能，需评估 Mol* 集成深度与 headless 可测性）；qa60/61 间歇通道（上两轮矩阵内均绿，观察降级）
+
+---
+Task ID: 114
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-11 02:15 window)
+Task: cron 自主巡检——Task 114「Inspector on paper：job 报告打印（最前方的文档赢）」：开局 QA 三连绿（worklog 尾部 Task 113/1466de7 == origin/main）。候选清点：EMPIAR 让位、真机项不可 headless、minimap 让位、qa60/61 观察降级；选定 Task 110 起挂账的「results 面板整体 print 排版未审」的实质空白——inspector（Results/Log/Files 所在的全页 Dialog）被 Task 70 的 dialog step-aside 规则在纸上整体隐藏，results 今天根本不可打印。交付：data-inspector-dialog 单一 opt-in + html:has() 互斥打印架构 + InspectorPrintDoc 纸面 masthead/每页 identity 条 + 暗色控制台纸上反白 + data-print-keep 逃生门。t112 51 断言七相 ×2 绿（含矩阵内）+ 全矩阵 52 套 0 失败 + worklog + push
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 113（1466de7 == origin/main，树净）、BUILD_ID nKg-cSKzmF-oKmXRIBkGe 匹配；冷启动 + qa63-smoke/qa00/t111 三套全绿 → 稳定
+- 【选题·空白定案】qa66 modal-on-paper 合同核实用 Sheet（job-panel）而非 inspector——不冲突；qa70/72/79 打印家族探针基建健全（playwright pdf + pdftotext + pdftoppm 像素采样）；MolViewer 本身是 Dialog（Mol* 永远活在 step-aside 浮层），Results 内联内容全为 svg/img/table——纸上安全
+- 【实现①CSS】globals.css print 块 Task 114 节：html:has([data-inspector-dialog][data-state=open]) 下 [data-view] display:none（portal 兄弟存活）、overlay static 化、dialog-content modal→document 重排（flex/static/inset:auto/尺寸放 通/overflow visible/padding-bottom:10mm 给每页条让位）、tabs-content unroll、[data-log-console] 纸上反白（role=log 深色正文 + zinc 灰阶重墨 + pre 强制换行——横向裁切的日志行是丢失的行）、:is(button,input,select) 玻璃门隐藏 + [data-print-keep] 逃生门；sonner toast 加入打印隐藏 chrome
+- 【实现②JSX】job-inspector.tsx：DialogContent 挂 data-inspector-dialog（全树唯一 opt-in，探针合同锚点）；InspectorPrintDoc 组件（纸面 masthead：job 名/type/status/workspace/活动 tab/printed 日期/annotated 标记 + print:fixed 每页 identity 条——PrintDocFooter 教义复用）；四行屏幕 chrome 补 .no-print（tabs 行/动作工具行/Files 过滤行/Log 工具行）；particle-browser.tsx 蒙太奇组头 button 挂 data-print-keep（包裹文档内容的按钮例外回归）
+- 【探针三折】①首跑即撞旧 bundle——服务器未重建，三段式后重探（开局流程教训：探针前必有 fresh build）；②Lightning CSS 把同块 translate:none 合并进 identity transform（内建 css 实证 transform:translate(0)rotate(0)scale(1)，rect 仍 x=-800）——standalone translate 属性没被杀，Tailwind v4 的 translate-x-[-50%] 恰好落在 standalone 属性；绕行走 print:[translate:none] 任意属性工具类（独立规则块无可合并对象）；③D 相 Log tab 合成 click 不生效——Radix TabsTrigger 认 pointerdown；t111 openResults 的同类写法是假绿（被 completed 自动默认 Results 掩盖）——t112 改 realClick + 先断言激活态再打印
+- 【诊断基建】diag-t112-print-tree.mjs（playwright emulateMedia(print) 读打印树几何）立功：rect x=-800/y=-326 一击定位位移源，修复后 (0,0) 归位归档备查
+- 【收尾】eslint 0、tsc src 0、npm run build 三段式 BUILD_ID lmU-aySh9uyx6KR_missQ + bundle 自证（data-inspector-dialog CSS 与 job report masthead 同时在 static 与 standalone chunks，translate:none 存活）；t112 51×2 绿（连跑 + 矩阵内）；qa66/qa70/qa72/qa79/t111/smoke/qa00 受影响面全绿；全矩阵 52 套（t112 glob 自动收录）分 7 块串行 0 失败；worklog + commit + push + 环境清理
+
+Stage Summary:
+- 「最前方的文档赢」：Task 70 的「dialog 一律 step aside」是防浮层盖章，不是纸面宪法——inspector 是用户正在读的文档，打开时 Ctrl+P 就该印它。纸面身份从「恰好可见的东西」变成「最前方的文档」：互斥由 :has() 构造（一个 attr opt-in），不靠评审约定。对照腿（C 相）把双向互斥钉成断言：关掉 inspector 同一个 Ctrl+P 立刻回到管线图
+- 「transform:none 杀不死 translate」：Tailwind v4 的 translate-x/y 工具类落在 CSS 独立变换属性上，computed transform 读 none 而位移照跑；更狠的是 Lightning CSS 会把同块的 translate:none 合并进 identity transform（对级联语义的合法化偷换——它假设没有其他规则设置该属性）。教训：杀 motion 要杀对属性；被优化器合并的声明要拆进独立规则块（任意属性工具类天然独立）
+- 「Radix TabsTrigger 认 pointerdown，不认 click」：合成 .click() 在 Radix Tabs 上是死按钮——t111 的 openResults 由此假绿两轮（completed 自动默认 Results 掩盖了点击从未生效）。断言「点击生效」要读 data-state，不是读「点击已派发」；这与 qa57 wall「套件不检查点击返回值」同族：发出去不等于发生了
+- 「打印树的验收在栅格不在规则」：打印 CSS 的正确性只有两条路——emulateMedia 读几何（诊断脚本）或 printToPDF 读产物（探针）；「规则在 bundle 里」什么都不证明。像素腿（forced-dark → pdftoppm → mean=250.3/dark 1.1%）把 qa66 的纸面教义延伸进对话框内部：var 重映射穿透 portal 边界
+- 「探针前必有 fresh build」：首跑三连 FATAL 的原因是服务器还在跑上一轮 bundle——改的是源码、测的是旧世界。冷启动流程在「开发中途重启」场景同样适用：编辑 → build → restart → probe，四步缺一不可
+- 遗留（下轮候选）：EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势、TSV/海报粘贴验证）；打印族深挖——inspector Overview/Files tab 的 PDF 腿（现只验 Results/Log 两 tab）、A4 纵向页的 report 排版（agent-browser pdf 按视口比选横向）；minimap node-only 取景与「只看选区」滤镜；undo 手感参数真机调优；3D viewer 体积截面工具（大功能，需评估 Mol* 集成深度）；palette Copy PNG（仍持 Task 110 拒绝——需挂载 SVG 的脆弱编排）
