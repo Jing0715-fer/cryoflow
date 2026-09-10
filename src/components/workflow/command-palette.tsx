@@ -10,6 +10,9 @@
  *   • Canvas    — zoom to fit · reset view · tidy layout · theme toggle
  *   • Export    — chart CSV for the job you're looking at, no inspector
  *                 needed (Task 110; same rows, same filename, same toast)
+ *   • Copy      — the same chart rows as clipboard TSV (Task 113; one
+ *                 fetch-and-derive feeds both destinations, wording mirrors
+ *                 the chart domain's copy buttons)
  *
  * Opens with Ctrl+K (⌘K) or the header chip, which dispatches the
  * "cryoflow:open-palette" event (keeps the dialog owner decoupled).
@@ -19,6 +22,7 @@ import * as React from "react";
 import { useTheme } from "next-themes";
 import {
   Command as CommandIcon,
+  Copy,
   Download,
   FileJson,
   FileSpreadsheet,
@@ -61,7 +65,7 @@ import { JOB_TYPES, jobType, CARD_W, CARD_H } from "@/lib/workflow";
 import { JOB_PRESETS } from "@/lib/job-presets";
 import { exportCanvasPng } from "@/lib/canvas-export";
 import { fetchJsonRetry } from "@/lib/retry-fetch";
-import { downloadCsv, fileSlug } from "@/lib/chart-export";
+import { downloadCsv, fileSlug, copyTextToClipboard, rowsToTsv, type CsvRow } from "@/lib/chart-export";
 import { CHART_EXPORT_TARGETS, type ChartExportTarget } from "@/lib/chart-rows";
 import {
   buildWorkflowFile,
@@ -269,12 +273,25 @@ export function CommandPalette() {
     useWorkflowStore.getState().setShortcutsOpen(true);
   };
 
-  // ---- Export chart data (Task 110) -------------------------------------
+  // ---- Export chart data (Task 110) + Copy chart data (Task 113) --------
   // Target: the job the user is ALREADY looking at — the open inspector,
   // else the primary canvas selection. No target, no group: a promise the
   // palette must not make.
   const exportTargetJob =
     jobs.find((j) => j.id === (inspectId ?? selectedId)) ?? null;
+
+  // ONE fetch-and-derive for both destinations: the rows the palette hands
+  // to the CSV download are the SAME rows it hands to the TSV copy — a
+  // second implementation here would be a second truth waiting to drift.
+  // Throws on fetch failure (the caller toasts); an empty array is the
+  // chart's own "nothing drawn yet" and stays honest in both doors.
+  const fetchChartRows = async (
+    t: ChartExportTarget,
+    job: JobDTO,
+  ): Promise<CsvRow[]> => {
+    const data = await fetchJsonRetry<unknown>(t.endpoint(job.id));
+    return t.rows(data);
+  };
 
   const exportChartRows = (t: ChartExportTarget, job: JobDTO) => {
     // close first (same dance as every other entry); the toast is the
@@ -282,8 +299,7 @@ export function CommandPalette() {
     close();
     void (async () => {
       try {
-        const data = await fetchJsonRetry<unknown>(t.endpoint(job.id));
-        const rows = t.rows(data);
+        const rows = await fetchChartRows(t, job);
         if (rows.length === 0) {
           toast({
             title: `${t.label}: no data yet`,
@@ -299,6 +315,45 @@ export function CommandPalette() {
       } catch {
         toast({
           title: `${t.label} export failed`,
+          description: `Could not fetch chart data for ${job.name}.`,
+          variant: "destructive",
+        });
+      }
+    })();
+  };
+
+  // The clipboard door (Task 113): same rows, paste dialect. Wording mirrors
+  // the chart domain's copy buttons — one vocabulary across all surfaces.
+  // The failure path points at the EXPORT group (the palette's own CSV
+  // door), not at a chart button the palette never showed.
+  const copyChartRows = (t: ChartExportTarget, job: JobDTO) => {
+    close();
+    void (async () => {
+      try {
+        const rows = await fetchChartRows(t, job);
+        if (rows.length === 0) {
+          toast({
+            title: `${t.label}: no data yet`,
+            description: `${job.name} has no rendered rows for this chart — there is nothing to copy.`,
+          });
+          return;
+        }
+        const ok = await copyTextToClipboard(rowsToTsv(rows));
+        if (ok) {
+          toast({
+            title: `${t.label} copied`,
+            description: `${rows.length} row${rows.length === 1 ? "" : "s"} as TSV — paste straight into a spreadsheet`,
+          });
+        } else {
+          toast({
+            title: `${t.label} could not be copied`,
+            description: "Clipboard access was blocked — use the CSV export instead.",
+            variant: "destructive",
+          });
+        }
+      } catch {
+        toast({
+          title: `${t.label} copy failed`,
           description: `Could not fetch chart data for ${job.name}.`,
           variant: "destructive",
         });
@@ -644,6 +699,35 @@ export function CommandPalette() {
                     <span className="min-w-0 flex-1 truncate text-sm">{t.label}</span>
                     <span className="shrink-0 text-[10px] uppercase tracking-wide text-muted-foreground">
                       csv · cryoflow-{fileSlug(t.label)}
+                    </span>
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+            {/* Task 113 — the clipboard door reaches the keyboard flow: the
+                SAME rows as the export group (one fetchChartRows), paste
+                dialect, Copy icon tinted with each chart's tone so a row is
+                recognizably "that chart's copy" before it is clicked. PNG
+                copy stays palette-excluded: it needs a mounted SVG, and the
+                jump-and-scroll orchestration was rejected in Task 110. */}
+            <CommandGroup heading={`Copy chart data · ${exportTargetJob.name}`}>
+              {CHART_EXPORT_TARGETS.map((t) => {
+                const { Icon, tone } = CHART_ICONS[t.key] ?? {
+                  Icon: FileSpreadsheet,
+                  tone: "text-muted-foreground",
+                };
+                return (
+                  <CommandItem
+                    key={`chart-copy-${t.key}`}
+                    value={`copy ${t.label} tsv clipboard chart data ${exportTargetJob.name}`}
+                    onSelect={() => copyChartRows(t, exportTargetJob)}
+                    className="gap-2.5"
+                    data-canvas-ui={`palette-chart-copy-${t.key}`}
+                  >
+                    <Copy className={`size-4 shrink-0 ${tone}`} />
+                    <span className="min-w-0 flex-1 truncate text-sm">{t.label}</span>
+                    <span className="shrink-0 text-[10px] uppercase tracking-wide text-muted-foreground">
+                      tsv · clipboard
                     </span>
                   </CommandItem>
                 );

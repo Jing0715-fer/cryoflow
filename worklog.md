@@ -3508,3 +3508,25 @@ Stage Summary:
 - 「可信右键从此开箱即用」：agent-browser `mouse down right`/`mouse up right` 是 CDP 可信事件，Radix ContextMenu 一次即开——与 Task 111 的「Radix Dialog Escape 只认真键」凑成同一族结论：Radix 的浮层交互（Escape 关闭、右键打开）都认 CDP 可信事件，合成派发两类都试过都死，探针从此不再绕路
 - 「矩阵瞬态的归属判定看两件事」：qa61 在矩阵第 5 位挂、单跑复绿——判定与本轮无关的证据链：失败形态是 eval 上下文死亡（document undefined）而非应用 DOM 断言失败；失败位次在 t110 首次运行之前（排序上 qa* < t85 < t105+，无先后影响）；qa60/61 间歇通道在 Task 108/111 已有同族记录。单次瞬态 + 复绿 + 无序关联 = 观察不立案；两轮同位 = 秩序立案（Task 111 的 qa63 教义）
 - 遗留（下轮候选）：EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势）；TSV/海报 PNG 粘贴进 Excel/docs 的真机验证（headless 无电子表格）；palette 的 Copy 数据入口（行数翻倍需设计）；qa60/61 间歇通道根治评估（B 相 hoverAt/上下文死亡两形态）；minimap node-only 取景与「只看选区」滤镜；历史面板条目分组（需先建面板）；undo 手感参数真机调优；打印样式 results 面板整体排版
+
+---
+Task ID: 113
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-11 01:30 window)
+Task: cron 自主巡检——Task 113「命令面板 Copy chart data 组（TSV 进键盘流）」：开局 QA 三连绿。候选清点：历史面板被 rg 证伪（Task 106 已建面板——撞车检查再立功）；陈年清单 #5/#6/#14 核实均已修复（fs/browse 与 outputs/file 双防线 same-origin+pinned Host、micrographs 走 findEffectiveJob）；minimap node-only 取景意图不明让位。定案 Task 111 交接的 palette Copy 入口并完成其索要的设计：新增「Copy chart data」组六行（TSV 剪贴板），与 Export 组共享 fetchChartRows 单源 fetch-and-derive，措辞镜像图表域。t111 49 断言 ×3 绿 + 全矩阵 51 套 0 失败 + worklog + push
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 112（c000aa2 == origin/main，树净）、BUILD_ID dOu-TBIRKv0xEGl2NrhWF 匹配；冷启动 + qa63-smoke/qa00/t110 三套全绿 → 稳定
+- 【选题·三重排除】①历史面板分组：rg 证实 Task 106 已交付完整 history panel（entries 行 + Now 分隔线 + 点击跳转 + text-primary 未来提示）——撞车证伪；②#5/#6/#14 陈年遗留核实：fs/browse route 90-96 行 same-origin+pinned Host 403 防线、outputs/file 注释明言 same pair、micrographs findEffectiveJob 软链解析——全部已修复，非 bug；③minimap node-only 取景：现有实现成熟（导航/视口窗/选中环/running 动画），候选意图本就是「真机观察」——让位
+- 【设计定案】palette Export 组旁加 Copy chart data 组：六图各一行「Copy 图标染图表 tone + 右缀 tsv · clipboard」；行 value 串带 copy/tsv/clipboard 关键词可搜；目标规则与 Export 组同源（inspectId ?? selectedId，无目标不渲染组）；PNG 复制维持 Task 110 拒绝（需挂载 SVG 的脆弱编排）；剪贴板失败话术指向 palette 自己的 CSV 导出门而非图表按钮
+- 【实现】command-palette.tsx：fetchChartRows 提取（ONE fetch-and-derive，两门同 rows——第二份实现必然漂移）；exportChartRows 重构为消费共享 fetch；copyChartRows（close → fetch → 空诚实 toast「there is nothing to copy」→ copyTextToClipboard(rowsToTsv(rows)) → 成功/失败镜像图表域措辞）；Copy 组 JSX（data-canvas-ui="palette-chart-copy-{key}" 探针钩）；头注补 Copy 族条目
+- 【t111 探针 49 断言七相】S 双组在场（6+6 行、tsv·clipboard 后缀、per-chart testids）；A palette 复制 spy（42 行 TSV、tab 分隔、无尾换行、头部列名、toast 措辞、palette 自关）；B 跨面字符串全等（palette payload vs 图表 Copy TSV 钮 payload 全等 1676 chars——一行构建器三扇门）；N 诚实空态（Copy Topaz 于非 topaz job → no data yet + 零剪贴板写入）；C 拒绝 spy（destructive「use the CSV export instead」、无伪造成功）；D 无目标不渲染组（Escape 关 inspector → 物理点击画布空白 select(null) → 两组消失）；F 静态合同 13 条（单 fetch、零第二行构建器、原语 import 自 chart-export、PNG 排除、措辞四方言）；Z 清理 + console 0
+- 【探针三折】①settle 竞态：palette close() 是 React state 写，卸载落在点击后一 tick——同步断言 palGone 必挂，palGonePoll 轮询修复（与 t109「瞬态断言先于长路径」互补成对：反馈快于断言则轮询反馈，行为慢于断言则轮询行为）；②spy 重置吞证据：armTextSpy 重置数组抹掉了要对比的 palette payload——先读存 JS 变量再 re-arm（t110 观察器卫生学的对偶：清零前先抢救）；③文本匹配双关：paletteItem('FSC curve') 命中 Export 组同名行——testid 点击从一开始就是正确答案，文本匹配在双组并存时天然歧义
+- 【收尾】eslint 0、tsc src 0、npm run build 三段式 BUILD_ID nKg-cSKzmF-oKmXRIBkGe + bundle 自证（palette-chart-copy- 前缀与 Copy chart data 标题在 static+standalone chunks；模板字面量 lesson：rg 标记要用编译后前缀）；t111 49×3 绿；t108/t109/t110/t107/smoke 受影响面全绿；全矩阵 51 套分 8 块串行 0 失败（qa61 矩阵内全绿，上轮瞬态未复发）；worklog + commit + push + 环境清理
+
+Stage Summary:
+- 「同一行数据，三个门」：palette Copy TSV 的 payload 与图表 Copy TSV 钮的 payload 字符串级全等（t111 B 相断言）——图表面前现在有完整的四门（CSV/PNG × 下载/复制），palette 补上键盘流的第五、第六扇（CSV 下载 + TSV 复制）。跨面合同不靠约定靠构造：fetchChartRows 一份、rowsToTsv 一份、copyTextToClipboard 一份，所有门都是这些单源的视图
+- 「失败话术指向最近的真实出口」：palette 复制失败说「use the CSV export instead」——是 palette 自己的 Export 组，不是图表按钮（palette 从未展示过它们）。错误恢复指引的粒度要跟界面走：用户此刻在哪里，最近的替代路径就在哪里
+- 「测试基建的两条时序对称律」：反馈快于断言（React 卸载慢一 tick）→ 轮询断言；行为慢于断言（poster 栅格秒级、fetch 拒绝迟到）→ 轮询行为。同步断言在异步 UI 面前只有两种死法：读到旧态（假红）或读到新态前的空窗（假绿）——轮询是唯一的诚实等待，sleep 固定窗只是把赌注押在运气上
+- 「观察器清零前先抢救」：per-phase re-arm 是观察器卫生学，但 re-arm 会抹掉上一相的记录——当证据要跨相位比较（B 相的字符串全等），先把它读进探针侧的变量再清零。清零是为了窗口对齐，不是为了销毁证据
+- 「撞车检查的收益复利」：历史面板候选在 rg 后 30 秒证伪（Task 106 已建）——若直接开工将是一个完整的重复面板。Task 105 撞车教训的持续复利：每个「显而易见的空白」都要先问「谁 import 了它、谁渲染了它」
+- 遗留（下轮候选）：EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势、TSV/海报粘贴真机验证）；minimap node-only 取景与「只看选区」滤镜（真机需求观察）；打印样式 results 面板整体排版；undo 手感参数真机调优；3D viewer 体积截面工具（大功能，需评估 Mol* 集成深度与 headless 可测性）；qa60/61 间歇通道（上两轮矩阵内均绿，观察降级）
