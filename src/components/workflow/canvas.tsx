@@ -11,6 +11,8 @@ import {
   AlignStartHorizontal,
   AlignStartVertical,
   AlignVerticalDistributeCenter,
+  Bookmark,
+  BookmarkPlus,
   ChevronDown,
   Copy,
   Download,
@@ -71,6 +73,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { capturePointer } from "@/lib/pointer";
+import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -1142,6 +1146,17 @@ export function WorkflowCanvas() {
 
   const zoom = viewport.zoom;
 
+  /* ---------------- named viewport bookmarks (Task 100) -------------- */
+  // bookmarks live in the store (hydrated from localStorage at boot, saved
+  // synchronously on the explicit save/delete actions — never per-frame)
+  const wsBookmarks = useWorkflowStore((s) => s.viewportBookmarks);
+  const saveViewportBookmark = useWorkflowStore((s) => s.saveViewportBookmark);
+  const deleteViewportBookmark = useWorkflowStore((s) => s.deleteViewportBookmark);
+  const [bookmarksOpen, setBookmarksOpen] = React.useState(false);
+  const [bookmarkName, setBookmarkName] = React.useState("");
+  const namedViews = fitKey ? (wsBookmarks[fitKey] ?? {}) : {};
+  const namedList = Object.entries(namedViews).sort(([a], [b]) => a.localeCompare(b));
+
   /* ---------------- background context menu ------------------------- */
 
   const zoomToFit = () => {
@@ -1499,6 +1514,93 @@ export function WorkflowCanvas() {
         >
           <Wand2 className="size-4" />
         </Button>
+        <span className="mx-0.5 h-4 w-px bg-border" aria-hidden="true" />
+        {/* named viewport bookmarks — a bookmark is a USER-CREATED asset
+            (localStorage, cross-session), unlike the per-workspace memory
+            (sessionStorage, per-tab). Same toolbar dialect as the rest:
+            ghost icon + Popover panel. */}
+        <Popover open={bookmarksOpen} onOpenChange={setBookmarksOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-7"
+              aria-label="Viewport bookmarks"
+              title="Save / jump to named views (kept across sessions)"
+              data-canvas-ui="viewport-bookmarks-trigger"
+            >
+              <Bookmark className={`size-4 ${namedList.length > 0 ? "fill-current text-primary" : ""}`} />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-64 p-2" data-canvas-ui="viewport-bookmarks-panel">
+            <div className="flex items-baseline justify-between px-1 pb-1.5">
+              <span className="text-xs font-semibold">Saved views</span>
+              <span className="text-[10px] tabular-nums text-muted-foreground">now {Math.round(zoom * 100)}%</span>
+            </div>
+            <div className="flex gap-1 pb-1">
+              <Input
+                value={bookmarkName}
+                onChange={(e) => setBookmarkName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && bookmarkName.trim()) {
+                    if (saveViewportBookmark(bookmarkName)) setBookmarkName("");
+                  }
+                }}
+                placeholder="Name this view…"
+                aria-label="Bookmark name"
+                className="h-7 text-xs"
+                maxLength={60}
+                data-canvas-ui="viewport-bookmark-input"
+              />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-7 shrink-0"
+                disabled={!bookmarkName.trim()}
+                aria-label="Save current view"
+                data-canvas-ui="viewport-bookmark-save"
+                onClick={() => {
+                  if (saveViewportBookmark(bookmarkName)) setBookmarkName("");
+                }}
+              >
+                <BookmarkPlus className="size-4" />
+              </Button>
+            </div>
+            {namedList.length === 0 ? (
+              <p className="px-1 py-2 text-xs text-muted-foreground" data-canvas-ui="viewport-bookmark-empty">
+                No saved views here yet — name the current view to keep it.
+              </p>
+            ) : (
+              <ul className="max-h-44 overflow-y-auto">
+                {namedList.map(([name, vp]) => (
+                  <li key={name} className="group flex items-center gap-1 rounded px-1" data-canvas-ui="viewport-bookmark-row">
+                    <button
+                      type="button"
+                      className="flex min-w-0 flex-1 items-center justify-between rounded px-1.5 py-1 text-left text-xs hover:bg-accent"
+                      onClick={() => {
+                        setViewport(vp);
+                        setBookmarksOpen(false);
+                      }}
+                      title={`Jump to "${name}"`}
+                    >
+                      <span className="truncate font-medium">{name}</span>
+                      <span className="ml-2 shrink-0 tabular-nums text-muted-foreground">{Math.round(vp.zoom * 100)}%</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="shrink-0 rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100 focus-visible:opacity-100"
+                      aria-label={`Delete bookmark ${name}`}
+                      data-canvas-ui="viewport-bookmark-delete"
+                      onClick={() => deleteViewportBookmark(name)}
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </PopoverContent>
+        </Popover>
         <span className="mx-0.5 h-4 w-px bg-border" aria-hidden="true" />
         <Button
           variant="ghost"

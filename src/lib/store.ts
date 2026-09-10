@@ -94,6 +94,55 @@ function hydrateViewportMemory(): Record<string, Viewport> {
   }
 }
 
+/** localStorage key for NAMED VIEWPORT BOOKMARKS (Task 100). Unlike the
+ *  viewport memory above (ephemeral, per-tab), a bookmark is a USER-CREATED
+ *  asset — it must outlive the tab AND the session, so it lives in
+ *  localStorage. Writes only happen on explicit save/delete actions
+ *  (low-frequency), never per-frame — Task 13 #13 stays retired. */
+const VIEWPORT_BOOKMARKS_KEY = "cryoflow.viewportBookmarks.v1";
+
+function persistViewportBookmarks(bookmarks: Record<string, Record<string, Viewport>>) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(VIEWPORT_BOOKMARKS_KEY, JSON.stringify(bookmarks));
+  } catch {
+    // private mode / quota — bookmarks stay in-RAM for this session
+  }
+}
+
+/** Seed the bookmarks from localStorage (cross-session, see key doc).
+ *  Double shape-check: outer map is (project:workspace) → name → viewport;
+ *  every viewport must be all-finite or the whole entry is dropped. */
+function hydrateViewportBookmarks(): Record<string, Record<string, Viewport>> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(VIEWPORT_BOOKMARKS_KEY);
+    if (!raw) return {};
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return {};
+    const out: Record<string, Record<string, Viewport>> = {};
+    for (const [wsKey, named] of Object.entries(parsed as Record<string, unknown>)) {
+      if (!named || typeof named !== "object") continue;
+      const names: Record<string, Viewport> = {};
+      for (const [name, v] of Object.entries(named as Record<string, unknown>)) {
+        if (!v || typeof v !== "object") continue;
+        const { x, y, zoom } = v as Record<string, unknown>;
+        if (
+          typeof x === "number" && Number.isFinite(x) &&
+          typeof y === "number" && Number.isFinite(y) &&
+          typeof zoom === "number" && Number.isFinite(zoom)
+        ) {
+          names[name] = { x, y, zoom };
+        }
+      }
+      if (Object.keys(names).length > 0) out[wsKey] = names;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
 /** Pre-delete capture carried by the delete toast's Undo action (Task 97).
  *  Jobs hold the FULL pre-delete DTOs — status/progress/result/note included —
  *  because restore re-creates the rows verbatim; edges hold the deleted
@@ -136,6 +185,10 @@ interface WorkflowState {
    *  page. Written through on every viewport change and debounced into
    *  sessionStorage (same tab only); closing the tab deliberately burns it. */
   viewportMemory: Record<string, Viewport>;
+  /** Named viewport bookmarks (Task 100), keyed (project:workspace) → name →
+   *  viewport — the user's SAVED views. Hydrated from localStorage,
+   *  persisted synchronously on explicit save/delete only. */
+  viewportBookmarks: Record<string, Record<string, Viewport>>;
   /** Job type key being dragged from the palette (drop target hint). */
   paletteDrag: string | null;
   /** Increments on every one-click auto-arrange (canvas fit-views on change). */
@@ -302,6 +355,10 @@ interface WorkflowState {
   cancelConnect: () => void;
   setViewport: (patch: Partial<Viewport>) => void;
   panBy: (dx: number, dy: number) => void;
+  /** Save the current viewport under a name for THIS (project:workspace) —
+   *  same-name saves overwrite (a bookmark is a named snapshot, not a log). */
+  saveViewportBookmark: (name: string) => boolean;
+  deleteViewportBookmark: (name: string) => void;
   setDragActive: (active: boolean) => void;
   setPaletteDrag: (type: string | null) => void;
   /** Center the canvas on a job ("Focus" from the inspector). */
@@ -452,6 +509,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   pendingFrom: null,
   viewport: { x: 0, y: 0, zoom: 1 },
   viewportMemory: hydrateViewportMemory(),
+  viewportBookmarks: hydrateViewportBookmarks(),
   paletteDrag: null,
   layoutEpoch: 0,
   focusJobId: null,
@@ -1733,6 +1791,33 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       const memory = { ...s.viewportMemory, [key]: next };
       scheduleViewportMemoryPersist(memory);
       return { viewport: next, viewportMemory: memory };
+    }),
+  // Bookmark = a named snapshot of the CURRENT viewport for THIS
+  // (project:workspace). Explicit user action → synchronous localStorage
+  // write is fine (low-frequency); trimmed empty names are refused (the UI
+  // disables save, this is the belt to that braces). Same name overwrites.
+  saveViewportBookmark: (name) => {
+    const trimmed = name.trim().slice(0, 60);
+    if (!trimmed) return false;
+    set((s) => {
+      const key = `${s.project?.id ?? "-"}:${s.activeWorkspaceId ?? "-"}`;
+      const forWs = { ...(s.viewportBookmarks[key] ?? {}), [trimmed]: { ...s.viewport } };
+      const bookmarks = { ...s.viewportBookmarks, [key]: forWs };
+      persistViewportBookmarks(bookmarks);
+      return { viewportBookmarks: bookmarks };
+    });
+    return true;
+  },
+  deleteViewportBookmark: (name) =>
+    set((s) => {
+      const key = `${s.project?.id ?? "-"}:${s.activeWorkspaceId ?? "-"}`;
+      const forWs = { ...(s.viewportBookmarks[key] ?? {}) };
+      delete forWs[name];
+      const bookmarks = { ...s.viewportBookmarks };
+      if (Object.keys(forWs).length > 0) bookmarks[key] = forWs;
+      else delete bookmarks[key];
+      persistViewportBookmarks(bookmarks);
+      return { viewportBookmarks: bookmarks };
     }),
   setDragActive: (active) => set({ dragActive: active }),
   setPaletteDrag: (type) => set({ paletteDrag: type }),

@@ -3205,3 +3205,26 @@ Stage Summary:
 - 「工作树状态是实验的前提，不是背景」：stash 后忘 pop，此后一小时的「对照实验」全在跑错误的版本——旧码行为被误读成新码行为。git stash 是有副作用的实验操作：做之前记下 git status -sb，做完立刻核对「我以为在测的版本」真的在工作树里
 - 「数据分叉是 infra 级哑弹」：standalone 快照分叉不动声色——服务器活着、API 200、UI 正常，只是所有「探针写文件→API 读」链路全部空转。三类症状（#418 hydration、VERIFY FAIL 0 classes、workdir override 400）横跨浏览器渲染、Python 种子、API 契约三层指向同一根因——「Cross-site 400」这个反常报错是钥匙：一个明明在树内的路径被拒，说明服务器的树和我的树不是同一棵。修在 start-prod.sh（每次启动幂等恢复 symlink）而不是 build 后手动补——惯例要活在对 build 的防御里，不是活在人的记忆里
 - 遗留（下轮候选）：EMPIAR 真数据回归（重）；用户真机 class3d/refine3d 顺序模式与 topaz 实测反馈；diff 对话框 Open 行 canvas 入口价值复查；文件夹拖拽真机手势反馈；undo 快照仅存 toast 闭包（Ctrl+Z 历史栈观察需求）；server data 视角一致性探针（轻量路由 vs 磁盘直读对照）进 qa_lib，防其他启动方式（bun dev/pm2）重蹈分叉；paths.ts 的 process.cwd() 可移植性设计 vs standalone cwd 现实在便携部署下是否成立值得复查
+
+---
+Task ID: 100
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-10 08:29 window)
+Task: cron 自主巡检——Task 100（整百轮）「视口书签（named viewport bookmarks，跨会话用户资产）+ data 视角一致性哨兵（qa00）」：①新功能——Task 98/99 视口三部曲收官章：书签是用户主动创建的资产（「我想回到的地方」）而非瞬态状态（「我在哪」），生命周期对偶立碑——瞬态状态（视口记忆）sessionStorage 随 tab 死、用户资产（书签）localStorage 跨会话活；per-(project:workspace) 命名空间、同名覆盖（书签是命名快照不是日志）、跳转走 setViewport clamp 网关、显式动作才同步写 localStorage（pan 每帧写是 Task 13 #13，永不复活）；UI 沿 zoom-controls 工具栏方言（ghost icon + Popover 面板：输入行 + 书签行列表 hover 显删除 + 空态文案 + 有书签时触发钮实心高亮）；②qa 基建——Task 99 分叉哑弹的防复发哨兵：qa00 在真磁盘种唯一探针目录 → 页面内同源 fetch fs/browse 列 data/relion → 探针名必须可见（curl 被 isLocalRequest 的 fetch-metadata 门卫默认拒绝——哨兵走 playwright 同源 fetch 是唯一合法客户端）；入列矩阵每轮开头。t100 25 断言三连绿 + t100 自清加固（S 相预清 + Z 相删除显式断言成功）+ 全矩阵 33 套绿 + worklog + push
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 99、HEAD 058e70b == origin/main；冷启动 + smoke + t99/qa84 全绿 → 稳定
+- 【选题】Task 99 遗留评估：一致性哨兵（轻，infra 防御）+ EMPIAR（重）、真机反馈（不可 headless）、Ctrl+Z 栈（观察需求）让位；整百轮配视口三部曲收官——书签与记忆的生命周期对偶是 Task 98/99 教义的自然延伸，产品语义（设计工具惯例）与探针可行性俱佳
+- 【实现①store】VIEWPORT_BOOKMARKS_KEY v1 + hydrateViewportBookmarks（typeof window 守卫 + 双层形状校验：外层 wsKey→name 映射、内层每个 viewport 全 finite——损坏条目整条丢弃）+ persistViewportBookmarks（同步写、quota try/catch）；state viewportBookmarks: Record<wsKey, Record<name, Viewport>>；saveViewportBookmark（trim + 60 字上限 + 空名拒绝返回 false——UI disabled 的 belt）+ deleteViewportBookmark（空桶时删 wsKey 键本身）
+- 【实现②canvas】zoom-controls 插 Bookmark 触发钮（namedList.length>0 时 fill-current text-primary 实心——「这里存着东西」的视觉暗示）+ Popover w-64（Saved views 标题 + 实时 now N% + input/Enter 保存 + 行列表 name+zoom%/hover-opacity 删除 + max-h-44 滚动 + 空态）+ 跳转 setViewport(vp) 后关面板；六处 data-canvas-ui testid
+- 【qa00 哨兵】两折：①curl 探形被拒——isSameOriginRequest 对无 fetch-metadata 的客户端默认拒绝（设计正确），哨兵改走 playwright 页内同源 fetch（唯一合法客户端）；②path 参数是绝对主机路径不是 DATA_DIR 相对——fs/browse 是主机文件浏览器。探针名带 pid+时间戳自清，失败信息直接点名修复路径（run start-prod.sh, NOT raw bun start）
+- 【t100 探针 25 断言七相】A 相保存+覆盖语义（同名二次保存仍一行——命名快照不是日志）；B 相 reload 后 localStorage hydrate 行仍在 → pan 别处 → 跳转 transform 逐字恢复（B3 的断言力来自先离开再回来）；C 相 per-ws 隔离双向（ws2 空态 / 切回完好）——一折：API 中途播种的 ws 不在已加载页面的下拉里，reload 后再切（t98 先播种后开页的模式不适用）；D 相删除三连（行消失/空态回归/localStorage 同步移除）；E 相静态 6 断言；Z 相自清加固——S 相预清崩跑残留（FATAL 的跑永远到不了自己的 Z）+ Z 相删除断言 ok（静默 catch 吞掉的失败会脏化后续所有套件）
+- 【合同更新两处】t98 D5 / t99 D6 的「无 localStorage viewport 写」正则 `[^)]*viewport` 误吞书签键（VIEWPORT_BOOKMARKS_KEY 也含 viewport 字样）且 canvas 注释里的 localStorage 字样触发 includes——精确化为「VIEWPORT_MEMORY_KEY 永不进 localStorage / canvas 无 localStorage.setItem 调用」，文案点名书签是不同对象不同生命周期
+- 【收尾】eslint src 0、tsc src 0、production build（BUILD_ID dzQa-YuspPHCfV-QILTkf）；t100 25×3 三连绿 + 残留 NONE；t98 22×2 / t99 20 合同更新版绿；全矩阵 33 套（+qa00 +t100）串行全绿
+
+Stage Summary:
+- 「瞬态状态和用户资产的存储层不同」：视口记忆（sessionStorage）和书签（localStorage）都是「视口的记录」，但一个是「我在哪」（会话结束即焚），一个是「我想回到哪」（跨会话留存）——存储介质选错就是把用户的创作当缓存烧掉。判断标准不是数据长什么样而是「谁创造了它」：系统自动写的是状态，用户显式命名的是资产
+- 「断言的正则是合同，宽了会咬到自己」：`[^)]*viewport` 在只有 viewportMemory 一个 localStorage 对象的时代是精确合同，书签键加入后成了误报——「无 X 写入」类断言应该点名确切的键/常量名而不是模糊模式，否则每个新功能都要回来重签合同。同理 includes("localStorage") 连注释都会咬——查行为（setItem 调用）不查字样
+- 「哨兵的失败信息要包含修复路径」：qa00 失败时不只说 DIVERGED，直接写「Fix: run scripts/start-prod.sh — do NOT boot via raw bun start」——凌晨三点看到哨兵红的人需要的不是机制论文而是那一条命令。探针是给未来的自己留的便条，便条要写到能执行
+- 「探针的自清要显式断言成功」：Z 相的 try/catch DELETE 静默吞掉偶发失败，t100 Second 残留进 workspaces——「试过删」和「删掉了」之间隔着整个世界的干净程度。加固双层：S 相预清（崩跑到不了 Z，必须由下一跑的 S 兜底）+ Z 相断言删除响应 ok。探针失败可见永远好过残留不可见
+- 「中途播种的实体对已加载页面不可见」：API 直发的 workspace 不进页面的下拉（store 在加载时拉取）——探针要么先播种后开页（t98 模式）要么播种后 reload（t100 模式）；两种模式都是「探针世界与页面世界同步」的成本，选择取决于探针结构
+- 遗留（下轮候选）：EMPIAR 真数据回归（重）；用户真机 class3d/refine3d 顺序模式与 topaz 实测反馈；diff 对话框 Open 行 canvas 入口价值复查；文件夹拖拽真机手势反馈；undo 快照仅存 toast 闭包（Ctrl+Z 历史栈观察需求）；书签的快捷键跳转（1-9 数字直跳？与现有 shortcuts 的冲突面要先核实）与跨 tab storage 事件同步（多 tab 同时开时的书签新鲜度）；paths.ts process.cwd() 可移植性 vs standalone 现实的部署审查

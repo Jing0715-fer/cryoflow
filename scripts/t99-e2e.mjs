@@ -205,8 +205,8 @@ must(
   "D5 storage key namespaced + versioned"
 );
 must(
-  !/localStorage\.setItem\([^)]*viewport/i.test(storeSrc),
-  "D6 never localStorage — the memory burns with the tab by design"
+  !storeSrc.includes("localStorage.setItem(VIEWPORT_MEMORY_KEY"),
+  "D6 the MEMORY never localStorage — it burns with the tab by design (Task 100's bookmarks are user assets, a different key and lifetime)"
 );
 const canvasSrc = readFileSync("src/components/workflow/canvas.tsx", "utf8");
 must(

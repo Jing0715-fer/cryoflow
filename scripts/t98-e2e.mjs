@@ -217,8 +217,9 @@ must(
   "D4 canvas: epoch fit wins BEFORE the memory restore"
 );
 must(
-  !/localStorage\.setItem\([^)]*viewport/i.test(canvasSrc) && !/localStorage\.setItem\([^)]*viewport/i.test(storeSrc),
-  "D5 session scope: no viewport localStorage writes anywhere"
+  !storeSrc.includes("localStorage.setItem(VIEWPORT_MEMORY_KEY") &&
+    !canvasSrc.includes("localStorage.setItem"),
+  "D5 session scope: the viewport MEMORY never touches localStorage (Task 100's bookmarks are a different object — user assets, different key)"
 );
 
 /* ---------------- Phase Z: cleanup ---------------- */
