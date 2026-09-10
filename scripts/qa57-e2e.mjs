@@ -507,7 +507,10 @@ const phaseB = async () => {
 
   // the count is dynamic (stray fixture rows) — match the affordance by
   // its Show all shape, not the era's exact number
-  evalJs(`(() => { const b = [...document.querySelectorAll('button')].find(x => /^Show all \d+ bookmarks$/.test(x.textContent.trim())); if (!b) return 'NO-BTN'; b.scrollIntoView({ block: 'center' }); b.click(); return 'clicked'; })()`);
+  // \\d — this expression travels inside a template literal: a single \d
+  // would be cooked down to "d" before eval and the regex would never match
+  // (Task 107's template-literal cooking trap, phase-B edition)
+  evalJs(`(() => { const b = [...document.querySelectorAll('button')].find(x => /^Show all \\d+ bookmarks$/.test(x.textContent.trim())); if (!b) return 'NO-BTN'; b.scrollIntoView({ block: 'center' }); b.click(); return 'clicked'; })()`);
   await sleep(900);
   wall = J(`(() => { const s = ${sec}; const w = s.querySelector('#saved-views-wall'); const b = [...s.querySelectorAll('button')].find(x => /Show (all|less)/.test(x.textContent)); return { cards: w.querySelectorAll(':scope > button').length, btn: { t: b.textContent.trim(), exp: b.getAttribute('aria-expanded') } }; })()`);
   step(`  wall expanded: ${JSON.stringify(wall)}`);

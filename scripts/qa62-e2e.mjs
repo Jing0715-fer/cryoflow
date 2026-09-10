@@ -122,35 +122,41 @@ const realClick = async (findExpr) => {
  *  scroll-lock reverts programmatic scrollTop writes, so use agent-browser's
  *  scroll command (native gesture semantics) instead of scrollIntoView. */
 const hoverAt = async (findExpr) => {
-  const locate = `(() => {
+  // aim-verify contract: move the pointer ONLY where the target is the TOP
+  // element. A geometric center can be covered — a sticky dialog header
+  // after a list scroll, a floating panel — and the hover then lands on the
+  // cover instead (observed: row center hidden under the header paragraph,
+  // pointer hit the <p>, onMouseEnter never fired, curve stayed 2px).
+  // Walk candidate points inside the rect; if all are covered, center the
+  // element in its scroll container and retry.
+  // CLI convention (qa62 evalJs): return OBJECTS not strings — a bare
+  // object prints as raw JSON and parses in one step, while a stringified
+  // value comes back wrapped+escaped and needs a second parse
+  const aimProbe = `(() => {
     const el = (${findExpr}); if (!el) return null;
-    let p = el.parentElement, container = null;
-    while (p) {
-      const cs = getComputedStyle(p);
-      if (/(auto|scroll)/.test(cs.overflowY) && p.scrollHeight > p.clientHeight) { container = p; break; }
-      p = p.parentElement;
-    }
-    if (container) {
-      const er = el.getBoundingClientRect(), cr = container.getBoundingClientRect();
-      if (er.top < cr.top + 1 || er.bottom > cr.bottom - 1) {
-        const tid = container.getAttribute('data-testid');
-        const sel = tid ? '[data-testid=' + tid + ']' : (container.id ? '#' + container.id : null);
-        if (sel) return { scrollSel: sel, dir: er.top < cr.top ? 'up' : 'down' };
-      }
-    }
     const r = el.getBoundingClientRect();
-    return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) };
+    const cands = [[0.5, 0.5], [0.5, 0.72], [0.35, 0.5], [0.5, 0.3]];
+    for (const [fx, fy] of cands) {
+      const x = Math.round(r.x + r.width * fx), y = Math.round(r.y + r.height * fy);
+      const top = document.elementFromPoint(x, y);
+      if (top && el.contains(top)) return { x, y };
+    }
+    el.scrollIntoView({ block: 'center' });
+    return { scroll: true };
   })()`;
-  let probe = evalJs(locate);
-  if (!probe || probe === "null") return "NO-ELEMENT";
-  let pos = JSON.parse(probe);
-  if (pos.scrollSel) {
-    sh(`${AB} scroll ${pos.dir} 250 -s ${pos.scrollSel}`);
-    await sleep(250);
-    probe = evalJs(`(() => { const el = (${findExpr}); if (!el) return null; const r = el.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }; })()`);
-    if (!probe || probe === "null") return "NO-ELEMENT";
-    pos = JSON.parse(probe);
+  let pos = null;
+  for (let i = 0; i < 4; i++) {
+    const a = evalJs(aimProbe);
+    if (!a || a === "null") return "NO-ELEMENT";
+    const cand = JSON.parse(a);
+    if (cand.scroll) { await sleep(500); continue; }
+    if (Number.isFinite(cand.x) && Number.isFinite(cand.y)) { pos = cand; break; }
+    // a non-coordinate answer (CLI error object, unexpected wrapper) —
+    // log it and retry; never aim at an undefined coordinate
+    step(`  hoverAt iter ${i}: unparsable aim=${String(a).slice(0, 80)}`);
+    await sleep(400);
   }
+  if (!pos) return "NO-ELEMENT";
   sh(`${AB} mouse move ${pos.x} ${pos.y}`);
   return `hovered@${pos.x},${pos.y}`;
 };

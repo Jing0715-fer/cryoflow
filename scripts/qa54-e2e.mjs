@@ -113,7 +113,10 @@ const dialogProbe = () => J(`(() => {
   return {
     desc: (c.querySelector('p')?.textContent || '').replace(/\\s+/g, ' ').trim().slice(0, 140),
     nGroups: groups.length,
-    groupHeads: groups.map(g => (g.querySelector('span')?.textContent || '').trim()),
+    // Task 57 added a tri-state header Checkbox to each group — its Radix
+    // Indicator renders an EMPTY span that precedes the label in DOM order.
+    // Skip spans inside buttons so the first survivor is the label span.
+    groupHeads: groups.map(g => ([...g.querySelectorAll('span')].find(s => !s.closest('button'))?.textContent || '').trim()),
     groupCounts: groups.map(g => { const head = g.querySelector(':scope > div'); const s = head ? [...head.querySelectorAll('span')] : []; return s.length ? s[s.length-1].textContent.trim() : '?'; }),
     ticked: (c.textContent.match(/(\\d+) ticked/) || [])[1] ?? null,
     free: (c.textContent.match(/(\\d+) free slot/) || [])[1] ?? null,
@@ -312,6 +315,18 @@ const phaseA = async () => {
   sh(`${AB} open ${B}`);
   await sleep(6000);
   await sanityCheck();
+  // mirror sweep (qa57's bootViewer lesson): the viewer falls back to the
+  // per-browser localStorage mirror whenever the server row reads empty —
+  // a server-side wipe alone resurrects the previous run's list on mount
+  evalJs(`(() => {
+    const n = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('cryoflow.mol-camera-bookmarks')) n.push(k);
+    }
+    n.forEach((k) => localStorage.removeItem(k));
+    return 'wiped:' + n.length;
+  })()`);
   const ready = await openViewer();
   if (!ready) throw new Error("viewer never became ready");
   await sleep(1500);
@@ -381,7 +396,9 @@ const phaseA = async () => {
   // untick one row → 6 ticked
   const unt = unq(evalJs(`(() => {
     const c = ${dlg}; if (!c) return 'NO-DLG';
-    const cb = [...c.querySelectorAll('[role=checkbox]')].find(x => x.getAttribute('aria-checked') === 'true' && !x.getAttribute('aria-disabled'));
+    // rows only — with all-ticked sources the first checked box in DOM
+    // order is a group HEADER (unticking it would drop a whole source)
+    const cb = [...c.querySelectorAll('label [role=checkbox]')].find(x => x.getAttribute('aria-checked') === 'true' && !x.getAttribute('aria-disabled'));
     if (!cb) return 'NO-CHECKED';
     cb.click(); return 'unticked';
   })()`));
@@ -423,6 +440,18 @@ const phaseA345 = async () => {
   sh(`${AB} open ${B}`);
   await sleep(6000);
   await sanityCheck();
+  // mirror sweep (qa57's bootViewer lesson): the viewer falls back to the
+  // per-browser localStorage mirror whenever the server row reads empty —
+  // a server-side wipe alone resurrects the previous run's list on mount
+  evalJs(`(() => {
+    const n = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('cryoflow.mol-camera-bookmarks')) n.push(k);
+    }
+    n.forEach((k) => localStorage.removeItem(k));
+    return 'wiped:' + n.length;
+  })()`);
   const ready = await openViewer();
   if (!ready) throw new Error("viewer never became ready");
   await sleep(1500);
@@ -460,7 +489,9 @@ const phaseA345 = async () => {
   // untick one → confirm → toast names BOTH sources
   const unt = unq(evalJs(`(() => {
     const c = ${dlg}; if (!c) return 'NO-DLG';
-    const cb = [...c.querySelectorAll('[role=checkbox]')].find(x => x.getAttribute('aria-checked') === 'true' && !x.getAttribute('aria-disabled'));
+    // rows only — with all-ticked sources the first checked box in DOM
+    // order is a group HEADER (unticking it would drop a whole source)
+    const cb = [...c.querySelectorAll('label [role=checkbox]')].find(x => x.getAttribute('aria-checked') === 'true' && !x.getAttribute('aria-disabled'));
     if (!cb) return 'NO-CHECKED';
     cb.click(); return 'unticked';
   })()`));
@@ -494,6 +525,18 @@ const phaseB = async () => {
   sh(`${AB} open ${B}`);
   await sleep(6000);
   await sanityCheck();
+  // mirror sweep (qa57's bootViewer lesson): the viewer falls back to the
+  // per-browser localStorage mirror whenever the server row reads empty —
+  // a server-side wipe alone resurrects the previous run's list on mount
+  evalJs(`(() => {
+    const n = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('cryoflow.mol-camera-bookmarks')) n.push(k);
+    }
+    n.forEach((k) => localStorage.removeItem(k));
+    return 'wiped:' + n.length;
+  })()`);
   const ready = await openViewer();
   if (!ready) throw new Error("viewer never became ready");
   await sleep(1500);

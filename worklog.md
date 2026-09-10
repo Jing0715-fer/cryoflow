@@ -3396,3 +3396,23 @@ Stage Summary:
 - 「常驻 fixture 与套件假设的冲突是常态」：'QA Refine Live'（常驻运行中任务）、'Import Movies 1'（常驻孤儿行）、残留的 overlay 会话与书签——旧套件假设的「干净沙箱」不再存在。自种子教义（Task 86/103）的完整表述是：套件开工前先清理+种下自己需要的世界，验收标准是「世界恢复原状」而非「调用了清理」
 - 「CLI 的 errors 缓冲是会话级的」：agent-browser 把自身失败命令与页面 console.error 混在一个缓冲里，断言前必须 `errors --clear` + 过滤 ✗ 痕迹——否则几小时前的调试残留会毒杀当轮的绿灯
 - 遗留（下轮候选）：①qa54/57 收尾——导入预览对话框在套件注入后不稳定打开（手工同链可开、机制已验证，疑似注入时机与书签列表加载的竞态；dropFiles 选择器已修为精确 views 输入 + last-match，诊断状态齐全，建议 playwright 移植或 instrument onImportFiles）；②EMPIAR 真数据回归（重，继续让位）；③用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势）；④qa42-45/48/54/56/57 的 ensurePopover/openViewer 补丁脚本已幂等化，如需再装直接重跑；⑤watchdog 常驻期注意 errors 缓冲污染
+
+---
+Task ID: 108
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-10 21:15 window)
+Task: cron 自主巡检——Task 108「qa54/57 收尾 + qa62 hover 竞态根治」：Task 107 交接的最后两套 legacy（qa54/57 导入预览对话框注入后不稳定打开）+ 全矩阵途中 qa62 复发。三套全数收复：qa54 三处年代漂移（Task 57 给 group 头加 tri-state Checkbox 后 Radix 指示器空 span 截胡 groupHeads 读数器；untick finder 被 header 框截胡会整源撤销；viewer 挂载的 localStorage 镜像回填让服务器清空失效——qa57 早已内化的 mirror sweep 移植）+ qa57 模板字面量烹调陷阱（wall 展开 finder 的 `\d` 被烹调成 `d`，正则永不匹配，NO-BTN 假点击）+ qa62 hoverAt 重写为 aim-verify 合同（几何中心被对话框吸顶 header 覆盖，指针落在 `<p>` 上 onMouseEnter 永不触发——Task 106 绿是滚动落点运气的间歇病）。qa42–qa57 时代 16/16 全绿收官；全矩阵 46 套 45 块内绿 + qa63 瞬态单跑复绿；src/ 零改动（构建未动）
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 107（4a5079e == origin/main）、BUILD_ID rM0e3ep 匹配（Task 107 src 零改动无需重建）；冷启动 + smoke/qa00/t106 三套全绿 → 稳定
+- 【qa54 三折】①groupHeads 读数器 `g.querySelector('span')` 抓到 Radix Checkbox.Indicator 的空 span（Task 54 时代头部无框，Task 57 加框后 DOM 序变化）→ 改为「第一个不在 button 内的 span」；②phase A/A345 的 untick finder `[role=checkbox]` 全局首个 aria-checked=true 在全勾状态下是 export-a 头框（点击=整源撤销 2 行，断言期望 1 行）→ 换 qa57 的 `label [role=checkbox]` 行级作用域；③镜像发现——putBm([]) 清了服务器行，但 viewer 挂载时 `applied = server.length > 0 ? server : local`（离线连续性合同）让 phase A 遗留的 6 条 localStorage 镜像回填：fill-1 的 want=min(2,8-6)=2 恰好匹配、合并后 8/8、fill-2 全锁 0 勾确认钮文案是裸 "Import"（line 4295 无数字后缀）而 finder 正则要求带数字 → NO-ELEMENT。qa57 的 bootViewer mirror sweep（清扫 cryoflow.mol-camera-bookmarks）移植进 qa54 三个 bootstrap → ALL PHASES GREEN
+- 【qa57 一折】phase A 本就全绿（它自带正确选择器），phase B gallery wall 展开 FATAL：点击 finder 住反引号模板串，`\d` 被烹调成 `d` → `/^Show all d+ bookmarks$/` 永不匹配 → evalJs 返回 NO-BTN 但套件不检查返回值 → 假点击。Task 107 真相一的漏网点（collapsed 断言在套件侧用真 regex 所以能过——同一正则两种命运）。修为 `\\d` + 全套件扫描确认无同类残留 → ALL PHASES GREEN
+- 【qa62 五折（全矩阵途中拆弹）】chunk 1-6 挂「hovered 300 bolds to 3px (got 2px)」且稳定复现（src 零改动排除应用回归）：①手工 diag 实证 app 完全正常（hover 到 row 上 #14b8a6 加粗 3px、:hover 链含 row、section 无重挂载）；②hoverAt 埋点抓到直接证据——aim (798,162) elementFromPoint=`<p>` OUT-ROW，真值在 (798,247)：对话框行列表滚动后目标 row 的几何中心被吸顶 header 段落覆盖；③settle poll 无效（rect 本就稳定，是覆盖不是漂移）；④重写 hoverAt 为 aim-verify 合同——多候选点（0.5/0.72/0.35/0.3）+ elementFromPoint 验证 target 是顶层元素 + 全覆盖则 scrollIntoView 居中重试（原注释警告 Radix scroll-lock 回滚 scrollTop，实证此内列表不受影响）；⑤CLI 约定坑：aimProbe 返回 JSON.stringify 字符串会被 CLI 再编码一层（qa62 的 unq 只剥引号不 parse），改回对象直接 return 的裸 JSON 约定 + Number.isFinite 守卫拒绝 undefined 坐标 → ALL GREEN
+- 【收尾】run-matrix.sh 头注修正（「unverified」声明已过时——16/16 实证全绿，保留矩阵外的原因改为 Task 101 OOM 余量的显式清单设计 + 运行时长 ~40%）；诊断脚本归档 diag-archive/diag-scripts/；eslint/tsc src 0；全矩阵 46 套分 8 块串行（45 块内绿 + qa63 smoke 连跑瞬态、单跑即复绿）；worklog + commit + push + 环境清理
+
+Stage Summary:
+- 「读数器是套件里最先过期的零件」：qa54 的三处病灶全是读数器/选择器层（指示器空 span、header 截胡、镜像回填），应用行为分毫不差——DOM 的一次结构性变化（加一个 header checkbox）让所有「取第一个 span/第一个 checked」式读数器同时变哑。读数器要按语义定位（不在 button 内的第一个 span、label 作用域内的行框），不按 DOM 序定位
+- 「清理世界要清理到 viewer 看得见的那一层」：putBm([]) 只清了服务器行，而 viewer 的加载合同是「服务器优先、镜像兜底」——镜像不空就回填。测试基建的「清空」必须等于应用视角的「清空」，否则上一次运行的幽灵会以合法身份复活（fill-1 的 want=min(2,8-6)=2 恰好通过断言，毒药穿过了所有检查）
+- 「套件不检查点击返回值，假点击就是静默的」：qa57 wall 的 finder 永远返回 NO-BTN，套件照样往下走、断言在 900ms 后读状态才爆——错误被推迟了三步。evalJs 的返回值要么被断言、要么被 step() 落日志，「发了就算做了」是点击竞态之外的第二种假绿
+- 「几何中心不是瞄准点，顶层元素才是」：物理指针 hover 的合同应该是「elementFromPoint(x,y) 属于 target」——rect 中心可能被吸顶 header、浮层、tooltip 覆盖，指针落在覆盖物上时 onMouseEnter 永不触发且无任何报错。aim-verify（多候选点 + 验证 + scrollIntoView 重试）把这个隐式前提变成显式检查，qa60/61 族的「间歇性脆弱」很可能同根
+- 「工具返回值约定要跟宿主套件走」：qa62 的 evalJs/unq 是「剥引号」约定（对象裸 JSON、字符串带引号、null 裸）——从别的套件带来的 JSON.stringify+双重 parse 习惯在这里每一层都错位。借用的 helper 连同它的编码约定一起借，或者干脆用宿主的
+- 遗留（下轮候选）：EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势）；qa63 smoke 连跑瞬态观察（本轮单跑复绿，若矩阵复发再查服务器负载模式）；qa60/61 间歇通道问题的 hoverAt 同族移植评估（两套件有自己的 helper 副本）；书签同步真实浏览器人工验证；3D viewer 的 minimap node-only 取景与「只看选区」滤镜（真机需求观察）；undo 手感参数真机调优

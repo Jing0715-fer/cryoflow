@@ -13,9 +13,14 @@
 #   3. Missing files fail loudly instead of silently shrinking the matrix.
 #
 # Official matrix: qa00 (data-view divergence sentinel) + qa58–qa84 +
-# t85–tN. qa42–qa57 remain on disk but OUTSIDE this matrix: unverified
-# agent-browser generation — run them individually at your own risk.
-# qa35–qa41 are formally archived under diag-archive/legacy-suites/.
+# t85–tN. qa42–qa57 remain on disk but OUTSIDE this matrix — NOT because
+# they are unverified (Task 107 rehomed 14/16, Task 108 closed the last
+# two: qa54 mirror-sweep + row-scoped readers, qa57 template-cooking fix;
+# all 16 green as of 2026-09-10) but because the explicit list keeps the
+# OOM margin of Task 101: 16 extra agent-browser suites would grow the
+# serial runtime ~40%. Run them individually after touching bookmark /
+# import-dialog / dashboard-gallery code. qa35–qa41 are formally archived
+# under diag-archive/legacy-suites/.
 #
 # Usage:
 #   bash scripts/run-matrix.sh            # full matrix
