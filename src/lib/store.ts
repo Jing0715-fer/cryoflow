@@ -22,6 +22,12 @@ import type {
   WorkspaceDTO,
 } from "./types";
 import type { ImportFailure, ImportPreviewEntry } from "./workflow-io";
+import {
+  buildTemplateFile,
+  downloadTemplateJson,
+  parseTemplateFiles,
+  templateFileName,
+} from "./template-io";
 
 /**
  * Pending connection: the port being wired.
@@ -351,6 +357,15 @@ interface WorkflowState {
   /** Re-instantiate a saved snippet below the active workspace's content. */
   applyCustomTemplate: (id: string) => Promise<boolean>;
   deleteCustomTemplate: (id: string) => Promise<void>;
+  /** Task 128 — download a saved template as a cryoflow-template/1 .json
+   *  file (the share leg of save → apply → share). */
+  exportCustomTemplate: (id: string) => Promise<boolean>;
+  /** Task 128 — import shared template files into this project's shelf:
+   *  client pre-parse (template-io) → authoritative POST per entry →
+   *  aggregate toast. Returns { imported, failed } for callers/tests. */
+  importCustomTemplateFiles: (
+    files: File[]
+  ) => Promise<{ imported: number; failed: number; firstError?: string }>;
   /** Keyboard-shortcuts dialog ("?" anywhere, the help popover, or the
    *  command palette) — single source of truth so all three entries stay
    *  in sync. */
@@ -2435,6 +2450,91 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       if (victim) set({ customTemplates: [victim, ...get().customTemplates] });
       errToast(err instanceof Error ? err.message : "Failed to delete the template");
     }
+  },
+
+  exportCustomTemplate: async (id) => {
+    try {
+      const { template } = await api<{
+        template: {
+          id: string;
+          name: string;
+          payload: CustomTemplatePayload;
+          createdAt: string;
+          project: string;
+        };
+      }>(`/api/custom-template?id=${encodeURIComponent(id)}`);
+      const file = buildTemplateFile(template.name, template.payload, template.project);
+      downloadTemplateJson(file, templateFileName(template.name));
+      toast({
+        title: `Template “${template.name}” exported`,
+        description: `${file.payload.jobs.length} jobs · ${file.payload.edges.length} wires — import the .json into any project's shelf`,
+      });
+      return true;
+    } catch (err) {
+      errToast(err instanceof Error ? err.message : "Failed to export the template");
+      return false;
+    }
+  },
+
+  importCustomTemplateFiles: async (files) => {
+    // client pre-parse — instant, specific feedback without a round-trip;
+    // each entry then goes through the authoritative POST (same endpoint
+    // the selection save uses, so an imported template is INDISTINGUISHABLE
+    // from a hand-saved one — provenance is not a second-class citizen)
+    const { entries, failures } = await parseTemplateFiles(files);
+    let imported = 0;
+    let firstTemplateName: string | null = null;
+    for (const entry of entries) {
+      try {
+        const { template } = await api<{ template: CustomTemplateSummary }>(
+          "/api/custom-template",
+          {
+            method: "POST",
+            headers: JSON_HEADERS,
+            body: JSON.stringify({ name: entry.file.name, payload: entry.file.payload }),
+          }
+        );
+        set({ customTemplates: [template, ...get().customTemplates] });
+        imported++;
+        if (!firstTemplateName) firstTemplateName = template.name;
+      } catch (err) {
+        failures.push({
+          fileName: entry.fileName,
+          error: err instanceof Error ? err.message : "Import failed",
+        });
+      }
+    }
+    // server is the truth after a multi-POST batch — re-read once so the
+    // shelf order (createdAt desc) is exactly what a reopen would show
+    await get().loadCustomTemplates();
+
+    const versionWarnings = entries
+      .map((e) => e.warning)
+      .filter((w): w is string => !!w);
+    if (imported > 0 && failures.length === 0) {
+      toast({
+        title:
+          imported === 1
+            ? `Template “${firstTemplateName}” imported`
+            : `${imported} templates imported`,
+        description:
+          versionWarnings[0] ??
+          `${files.length === 1 ? files[0].name : `${files.length} files`} — apply from the shelf, edit or delete like any saved template`,
+      });
+    } else if (imported > 0) {
+      toast({
+        title: `Imported ${imported} · ${failures.length} failed`,
+        description: failures[0]?.error ?? "Some files could not be imported",
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Import failed",
+        description: failures[0]?.error ?? "No readable template files",
+        variant: "destructive",
+      });
+    }
+    return { imported, failed: failures.length, firstError: failures[0]?.error };
   },
 
   setShortcutsOpen: (open) => set({ shortcutsOpen: open }),

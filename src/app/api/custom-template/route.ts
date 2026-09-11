@@ -3,6 +3,10 @@ import { db } from "@/lib/db";
 import { ensureActiveProject, ensureDefaultWorkspace, toJobDTO } from "@/lib/seed";
 import { jobType } from "@/lib/workflow";
 import { persistPortEdge, portsValid } from "@/lib/edge-ports";
+import {
+  MAX_TEMPLATE_PAYLOAD_BYTES,
+  validateTemplatePayload,
+} from "@/lib/template-io";
 import type {
   CustomTemplatePayload,
   CustomTemplateSummary,
@@ -36,117 +40,79 @@ export const dynamic = "force-dynamic";
  */
 
 /** Sanity cap — a selection snapshot is small; this only stops abuse. */
-const MAX_PAYLOAD_BYTES = 100_000;
 const MAX_NAME = 80;
 /** Placement constants (mirror the SPA scaffold's placement contract). */
 const ORIGIN_X = 80;
 const DROP_GAP = 240;
 const FIRST_Y = 140;
 
-/** Max nodes / wires in one snippet — a template is a branch, not a project. */
-const MAX_JOBS = 64;
-const MAX_EDGES = 256;
-
-interface ValidatedPayload {
-  jobs: CustomTemplatePayload["jobs"];
-  edges: CustomTemplatePayload["edges"];
+/**
+ * Port-pair compatibility at SAVE time — edge-ports is a server module
+ * (fs/db), so this pass lives HERE while the structural checks live in
+ * the SHARED validator (lib/template-io.ts, Task 128): the client import
+ * parser runs the same structural gate for instant feedback, and the
+ * POST re-runs everything authoritatively plus this compat gate. A
+ * broken pair fails the save loudly instead of applying half-wired.
+ */
+function validatePortPairs(payload: CustomTemplatePayload): string | null {
+  for (const [i, e] of payload.edges.entries()) {
+    if (
+      (e.fromPort != null || e.toPort != null) &&
+      !portsValid(
+        payload.jobs[e.from].type,
+        e.fromPort ?? "",
+        payload.jobs[e.to].type,
+        e.toPort ?? ""
+      )
+    ) {
+      return `Edge #${i} wiring broken: ${payload.jobs[e.from].type}:${e.fromPort ?? ""} → ${payload.jobs[e.to].type}:${e.toPort ?? ""}`;
+    }
+  }
+  return null;
 }
 
 /**
- * Normalize + validate a raw payload. Returns either the cleaned payload
- * or a 400 message — the route fails LOUDLY on bad input rather than
- * silently saving a template that would half-apply later.
+ * GET /api/custom-template           → list summaries (light — no payload,
+ *                                      the blob only travels on apply)
+ * GET /api/custom-template?id=<uuid> → ONE template with its parsed
+ *                                      payload — the export leg (Task
+ *                                      128): the client wraps it into a
+ *                                      cryoflow-template/1 file.
  */
-function validatePayload(raw: unknown): { payload?: ValidatedPayload; error?: string } {
-  if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
-    return { error: "Payload must be an object" };
-  }
-  const p = raw as Partial<CustomTemplatePayload>;
-  if (!Array.isArray(p.jobs) || p.jobs.length === 0) {
-    return { error: "Payload needs at least one job" };
-  }
-  if (p.jobs.length > MAX_JOBS) {
-    return { error: `Too many jobs in one template (max ${MAX_JOBS})` };
-  }
-  if (p.edges != null && Array.isArray(p.edges) && p.edges.length > MAX_EDGES) {
-    return { error: `Too many edges in one template (max ${MAX_EDGES})` };
-  }
-
-  const jobs: ValidatedPayload["jobs"] = [];
-  for (const [i, j] of p.jobs.entries()) {
-    if (j == null || typeof j !== "object") {
-      return { error: `Job #${i} is not an object` };
-    }
-    const type = typeof j.type === "string" ? j.type : "";
-    if (!jobType(type)) {
-      return { error: `Job #${i} references unknown job type: ${type || "(none)"}` };
-    }
-    const dx = typeof j.dx === "number" && Number.isFinite(j.dx) ? j.dx : NaN;
-    const dy = typeof j.dy === "number" && Number.isFinite(j.dy) ? j.dy : NaN;
-    if (Number.isNaN(dx) || Number.isNaN(dy)) {
-      return { error: `Job #${i} has non-finite offsets` };
-    }
-    // params are re-filtered against the type's LIVE spec at APPLY time
-    // (the schema may have drifted since the snapshot) — save keeps
-    // scalars only, mirroring the jobs route's duplication contract
-    const params: Record<string, number | string | boolean> = {};
-    if (j.params != null && typeof j.params === "object" && !Array.isArray(j.params)) {
-      for (const [k, v] of Object.entries(j.params as Record<string, unknown>)) {
-        if (typeof v === "number" || typeof v === "string" || typeof v === "boolean") {
-          params[k] = v;
-        }
-      }
-    }
-    jobs.push({ type, dx, dy, params });
-  }
-
-  const edges: ValidatedPayload["edges"] = [];
-  const seen = new Set<string>();
-  for (const [i, e] of (p.edges ?? []).entries()) {
-    if (e == null || typeof e !== "object") {
-      return { error: `Edge #${i} is not an object` };
-    }
-    const { from, to } = e as { from?: unknown; to?: unknown };
-    if (
-      typeof from !== "number" || !Number.isInteger(from) || from < 0 || from >= jobs.length ||
-      typeof to !== "number" || !Number.isInteger(to) || to < 0 || to >= jobs.length
-    ) {
-      return { error: `Edge #${i} references a job index out of range` };
-    }
-    if (from === to) {
-      return { error: `Edge #${i} is a self-loop` };
-    }
-    const key = `${from}->${to}`;
-    if (seen.has(key)) continue; // dedupe — (from,to) is unique like the DB
-    // port pairs must satisfy the type specs at SAVE time too — a broken
-    // pair fails the save loudly instead of applying half-wired
-    if (
-      (e.fromPort != null || e.toPort != null) &&
-      !portsValid(jobs[from].type, e.fromPort ?? "", jobs[to].type, e.toPort ?? "")
-    ) {
-      return {
-        error: `Edge #${i} wiring broken: ${jobs[from].type}:${e.fromPort ?? ""} → ${jobs[to].type}:${e.toPort ?? ""}`,
-      };
-    }
-    seen.add(key);
-    edges.push({
-      from,
-      to,
-      ...(e.fromPort ? { fromPort: e.fromPort } : {}),
-      ...(e.toPort ? { toPort: e.toPort } : {}),
-    });
-  }
-
-  return { payload: { jobs, edges } };
-}
-
-/** List the active project's saved snippets (summaries only). */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const active = await ensureActiveProject();
     if (!active) {
       return NextResponse.json({ error: "No project available" }, { status: 500 });
     }
+
+    // ---- single fetch (export): project-scoped, payload included -------
+    const id = request.nextUrl.searchParams.get("id");
+    if (id) {
+      const row = await db.customTemplate.findFirst({
+        where: { id, projectId: active.project.id },
+      });
+      if (!row) {
+        return NextResponse.json({ error: "Template not found" }, { status: 404 });
+      }
+      let payload: CustomTemplatePayload;
+      try {
+        payload = JSON.parse(row.payload) as CustomTemplatePayload;
+      } catch {
+        return NextResponse.json({ error: "Template payload is corrupt" }, { status: 500 });
+      }
+      return NextResponse.json({
+        template: {
+          id: row.id,
+          name: row.name,
+          payload,
+          createdAt: row.createdAt.toISOString(),
+          // informational provenance for the exported file's header
+          project: active.project.name,
+        },
+      });
+    }
+
     const rows = await db.customTemplate.findMany({
       where: { projectId: active.project.id },
       orderBy: [{ createdAt: "desc" }],
@@ -188,11 +154,15 @@ export async function POST(request: NextRequest) {
     if (!name) {
       return NextResponse.json({ error: "Template name is required" }, { status: 400 });
     }
-    const { payload, error } = validatePayload(body.payload);
+    const { payload, error } = validateTemplatePayload(body.payload);
     if (error || !payload) {
       return NextResponse.json({ error: error ?? "Invalid payload" }, { status: 400 });
     }
-    if (JSON.stringify(payload).length > MAX_PAYLOAD_BYTES) {
+    const portError = validatePortPairs(payload);
+    if (portError) {
+      return NextResponse.json({ error: portError }, { status: 400 });
+    }
+    if (JSON.stringify(payload).length > MAX_TEMPLATE_PAYLOAD_BYTES) {
       return NextResponse.json({ error: "Payload too large" }, { status: 400 });
     }
 

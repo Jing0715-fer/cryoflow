@@ -22,7 +22,7 @@
  */
 
 import * as React from "react";
-import { LayoutTemplate, Loader2, Sparkles, Trash2, Wand2, Zap } from "lucide-react";
+import { Download, LayoutTemplate, Loader2, Sparkles, Trash2, Upload, Wand2, Zap } from "lucide-react";
 import { useWorkflowStore } from "@/lib/store";
 import type { CustomTemplateSummary, TemplateOverrides } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -187,13 +187,24 @@ const PRESETS: Preset[] = [
  * Task 127 — the dialog's "Your templates" shelf: user-saved selection
  * snippets (project-scoped), apply-on-click, two-step inline delete.
  * Lives at module level so its confirm state resets with the dialog.
+ *
+ * Task 128 — the section is SELF-CONTAINED (header + import trigger +
+ * rows + empty state): export rides per-row (Download, hover-reveal),
+ * import lives in the header (and the empty-state hint), both through
+ * the store's exportCustomTemplate / importCustomTemplateFiles. The
+ * import picker is the palette's dynamic-<input> dialect — a click
+ * cannot open a native picker synchronously inside React's event,
+ * but a fresh detached input clicks fine.
  */
 function CustomTemplatesSection() {
   const templates = useWorkflowStore((s) => s.customTemplates);
   const applyCustomTemplate = useWorkflowStore((s) => s.applyCustomTemplate);
   const deleteCustomTemplate = useWorkflowStore((s) => s.deleteCustomTemplate);
+  const exportCustomTemplate = useWorkflowStore((s) => s.exportCustomTemplate);
   const [armDeleteId, setArmDeleteId] = React.useState<string | null>(null);
   const [applyingId, setApplyingId] = React.useState<string | null>(null);
+  const [exportingId, setExportingId] = React.useState<string | null>(null);
+  const [importing, setImporting] = React.useState(false);
 
   const apply = (t: CustomTemplateSummary) => {
     setApplyingId(t.id);
@@ -203,104 +214,187 @@ function CustomTemplatesSection() {
       .finally(() => setApplyingId(null));
   };
 
+  const exportOne = (t: CustomTemplateSummary) => {
+    setExportingId(t.id);
+    void useWorkflowStore
+      .getState()
+      .exportCustomTemplate(t.id)
+      .finally(() => setExportingId(null));
+  };
+
+  /** native picker via a detached input (command-palette's dialect) */
+  const pickImportFiles = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.multiple = true;
+    input.accept = ".json,application/json";
+    input.onchange = async () => {
+      const files = Array.from(input.files ?? []);
+      if (files.length === 0) return;
+      setImporting(true);
+      try {
+        await useWorkflowStore.getState().importCustomTemplateFiles(files);
+      } finally {
+        setImporting(false);
+      }
+    };
+    input.click();
+  };
+
+  const importButton = (testid: string) => (
+    <Button
+      size="sm"
+      variant="ghost"
+      className="h-6 gap-1 px-2 text-[11px]"
+      onClick={pickImportFiles}
+      disabled={importing}
+      title="Import shared template .json files into this project's shelf"
+      data-testid={testid}
+    >
+      {importing ? (
+        <Loader2 className="size-3 animate-spin" aria-hidden="true" />
+      ) : (
+        <Upload className="size-3" aria-hidden="true" />
+      )}
+      Import
+    </Button>
+  );
+
+  const header = (
+    <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+      <LayoutTemplate className="size-3" aria-hidden="true" />
+      Your templates
+      {templates.length > 0 && (
+        <span className="rounded-full bg-muted px-1.5 py-px text-[9px] font-medium tabular-nums">
+          {templates.length}
+        </span>
+      )}
+      <span className="ml-auto normal-case">{importButton("custom-template-import")}</span>
+    </p>
+  );
+
   if (templates.length === 0) {
     return (
-      <p
-        className="rounded-lg border border-dashed bg-muted/20 px-3 py-2.5 text-[11px] leading-snug text-muted-foreground"
-        data-canvas-ui="custom-templates-empty"
-      >
-        No saved templates yet — select two or more jobs on the canvas and use the selection
-        toolbar's <LayoutTemplate className="inline size-3 align-[-1px]" aria-hidden="true" /> button
-        to snapshot the branch (types, positions, parameters, wiring). It lands here.
-      </p>
+      <div className="grid gap-1.5">
+        {header}
+        <p
+          className="rounded-lg border border-dashed bg-muted/20 px-3 py-2.5 text-[11px] leading-snug text-muted-foreground"
+          data-canvas-ui="custom-templates-empty"
+        >
+          No saved templates yet — select two or more jobs on the canvas and use the selection
+          toolbar's <LayoutTemplate className="inline size-3 align-[-1px]" aria-hidden="true" /> button
+          to snapshot the branch (types, positions, parameters, wiring). It lands here — or share
+          one in: {importButton("custom-template-import-empty")} takes a
+          cryoflow-template .json file.
+        </p>
+      </div>
     );
   }
 
   return (
-    <ul className="grid max-h-44 gap-1.5 overflow-y-auto pr-0.5" data-canvas-ui="custom-templates-list">
-      {templates.map((t) => {
-        const armed = armDeleteId === t.id;
-        const applying = applyingId === t.id;
-        return (
-          <li
-            key={t.id}
-            className={cn(
-              "group flex items-center gap-2 rounded-lg border bg-card px-2.5 py-1.5 transition-colors",
-              armed ? "border-rose-300 bg-rose-500/5" : "hover:border-primary/40"
-            )}
-            data-canvas-ui="custom-template-row"
-            data-template-id={t.id}
-          >
-            <LayoutTemplate className="size-3.5 shrink-0 text-muted-foreground group-hover:text-primary" aria-hidden="true" />
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-medium" title={t.name}>
-                {t.name}
-              </p>
-              <p className="text-[10px] tabular-nums text-muted-foreground">
-                {t.jobCount} jobs · {t.edgeCount} wire{t.edgeCount === 1 ? "" : "s"} · {t.createdAt.slice(0, 10)}
-              </p>
-            </div>
-            {armed ? (
-              <>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-6 gap-1 px-2 text-[11px] text-rose-600 hover:bg-rose-500/10 hover:text-rose-700"
-                  onClick={() => {
-                    setArmDeleteId(null);
-                    void deleteCustomTemplate(t.id);
-                  }}
-                  data-testid="custom-template-delete-confirm"
-                >
-                  <Trash2 className="size-3" aria-hidden="true" />
-                  Delete
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-6 px-2 text-[11px]"
-                  onClick={() => setArmDeleteId(null)}
-                >
-                  Keep
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-6 px-2 text-[11px] text-rose-600 opacity-0 transition-opacity hover:bg-rose-500/10 hover:text-rose-700 focus-visible:opacity-100 group-hover:opacity-100"
-                  onClick={() => setArmDeleteId(t.id)}
-                  aria-label={`Delete template ${t.name}`}
-                  title="Forget this template"
-                  data-testid="custom-template-delete"
-                >
-                  <Trash2 className="size-3" aria-hidden="true" />
-                </Button>
-                <Button
-                  size="sm"
-                  className="h-6 gap-1 px-2.5 text-[11px]"
-                  disabled={applying}
-                  onClick={() => apply(t)}
-                  data-testid="custom-template-apply"
-                >
-                  {applying ? (
-                    <Loader2 className="size-3 animate-spin" aria-hidden="true" />
-                  ) : null}
-                  Apply
-                </Button>
-              </>
-            )}
-          </li>
-        );
-      })}
-    </ul>
+    <div className="grid gap-1.5">
+      {header}
+      <ul className="grid max-h-44 gap-1.5 overflow-y-auto pr-0.5" data-canvas-ui="custom-templates-list">
+        {templates.map((t) => {
+          const armed = armDeleteId === t.id;
+          const applying = applyingId === t.id;
+          const exporting = exportingId === t.id;
+          return (
+            <li
+              key={t.id}
+              className={cn(
+                "group flex items-center gap-2 rounded-lg border bg-card px-2.5 py-1.5 transition-colors",
+                armed ? "border-rose-300 bg-rose-500/5" : "hover:border-primary/40"
+              )}
+              data-canvas-ui="custom-template-row"
+              data-template-id={t.id}
+            >
+              <LayoutTemplate className="size-3.5 shrink-0 text-muted-foreground group-hover:text-primary" aria-hidden="true" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-medium" title={t.name}>
+                  {t.name}
+                </p>
+                <p className="text-[10px] tabular-nums text-muted-foreground">
+                  {t.jobCount} jobs · {t.edgeCount} wire{t.edgeCount === 1 ? "" : "s"} · {t.createdAt.slice(0, 10)}
+                </p>
+              </div>
+              {armed ? (
+                <>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 gap-1 px-2 text-[11px] text-rose-600 hover:bg-rose-500/10 hover:text-rose-700"
+                    onClick={() => {
+                      setArmDeleteId(null);
+                      void deleteCustomTemplate(t.id);
+                    }}
+                    data-testid="custom-template-delete-confirm"
+                  >
+                    <Trash2 className="size-3" aria-hidden="true" />
+                    Delete
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 px-2 text-[11px]"
+                    onClick={() => setArmDeleteId(null)}
+                  >
+                    Keep
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 px-2 text-[11px] opacity-0 transition-opacity hover:bg-primary/10 hover:text-primary focus-visible:opacity-100 group-hover:opacity-100"
+                    onClick={() => exportOne(t)}
+                    disabled={exporting}
+                    aria-label={`Export template ${t.name}`}
+                    title="Download this template as a shareable .json file"
+                    data-testid="custom-template-export"
+                  >
+                    {exporting ? (
+                      <Loader2 className="size-3 animate-spin" aria-hidden="true" />
+                    ) : (
+                      <Download className="size-3" aria-hidden="true" />
+                    )}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 px-2 text-[11px] text-rose-600 opacity-0 transition-opacity hover:bg-rose-500/10 hover:text-rose-700 focus-visible:opacity-100 group-hover:opacity-100"
+                    onClick={() => setArmDeleteId(t.id)}
+                    aria-label={`Delete template ${t.name}`}
+                    title="Forget this template"
+                    data-testid="custom-template-delete"
+                  >
+                    <Trash2 className="size-3" aria-hidden="true" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="h-6 gap-1 px-2.5 text-[11px]"
+                    disabled={applying}
+                    onClick={() => apply(t)}
+                    data-testid="custom-template-apply"
+                  >
+                    {applying ? (
+                      <Loader2 className="size-3 animate-spin" aria-hidden="true" />
+                    ) : null}
+                    Apply
+                  </Button>
+                </>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
 
 export function TemplatePresetsDialog() {
   const open = useWorkflowStore((s) => s.templatePresetsOpen);
-  const templatesCount = useWorkflowStore((s) => s.customTemplates.length);
   const setOpen = useWorkflowStore((s) => s.setTemplatePresetsOpen);
   const [form, setForm] = React.useState<FormState>(DEFAULTS);
   const [activePreset, setActivePreset] = React.useState<string | null>("standard");
@@ -537,19 +631,10 @@ export function TemplatePresetsDialog() {
           </div>
         </div>
 
-        {/* Task 127 — the user's own saved snippets, one click to re-plant */}
-        <div className="grid gap-1.5">
-          <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            <LayoutTemplate className="size-3" aria-hidden="true" />
-            Your templates
-            {templatesCount > 0 && (
-              <span className="rounded-full bg-muted px-1.5 py-px text-[9px] font-medium tabular-nums">
-                {templatesCount}
-              </span>
-            )}
-          </p>
-          <CustomTemplatesSection />
-        </div>
+        {/* Task 127 — the user's own saved snippets, one click to re-plant.
+            Task 128 — the section is self-contained: header + import live
+            inside, export rides per-row. */}
+        <CustomTemplatesSection />
 
         <DialogFooter className="items-center gap-2 sm:justify-between">
           <p className="text-[10px] text-muted-foreground">

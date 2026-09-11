@@ -3861,3 +3861,27 @@ Stage Summary:
 - 「探针的失败路径必须自我了断」：main.catch 里不关浏览器 = playwright 子进程吊住 event loop = 300s 假超时 + 孤儿污染下一轮（shelf 双行、侧栏双同名）。测试骨架的 catch 是清理路径不是记录路径——「EXIT 前先收尸」。被 kill 的跑无法 cleanup，所以 Phase S 必须自带三清（外部状态的世界没有 setup/teardown 的神圣性）
 - 「工具调用会杀后台子进程」：nohup + & 的矩阵跑在工具调用结束时被整个进程组回收（日志 0 字节、进程消失）——runner 的前台分块参数（FROM TO）就是为 10 分钟工具调用天花板设计的，分块前台跑是唯一正确姿势（七块七调用，块块落日志）
 - 遗留（下轮候选）：模板应用后与新邻居的连线（应用体是孤岛——补一个「连到画布上同类型输出口」的建议跳纹，需交互设计）；模板导入导出（JSON 分享跨项目，workflow-io 已有底子）；runner wall-time 剖面观察（qa64 72s 三轮一致，继续积累）；qa60/61 共享传输推广（暂缓维持）；EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势、TSV/海报粘贴验证）；minimap mode 持久化（真机反馈再评估）；undo 手感参数调优；诊断签名命中率观察（真机）
+
+---
+Task ID: 128
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-11 16:00 window)
+Task: cron 自主巡检——Task 128「模板导入导出：save → apply → share 谱系闭环」：开局核实 worklog 尾部 Task 127/22c8027 == origin/main（14:45 窗口已闭环为 Task 127，更早的摘要快照 Task 122 继续过时），冷启动 + smoke/qa00/t127 三件套绿判稳。按 Task 127 交接候选定案「模板导入导出」（候选①建议跳纹需交互设计、等真机反馈让位；workflow-io 已有完整底子）。交付：cryoflow-template/1 文件格式（wrapper + 形状 payload）+ lib/template-io.ts（共享校验器 validateTemplatePayload——从 route 提取、客户端 parser 与服务端 POST 双调用同一函数 + parse/build/download 三件套）+ route GET ?id= 单个带 payload（导出腿；列表保持轻载）+ POST 换共享校验器 + validatePortPairs 服务端兼容关（edge-ports 是 server 模块）+ store 两动作（exportCustomTemplate 取单→包装→下载；importCustomTemplateFiles 预解析→逐条权威 POST→聚合 toast）+ 预设对话框架自治化（架头 Import 钮 + 行内 hover 显形 Download 钮 + 空态导入引导）+ t128 41 断言七相绿（矩阵位 #50）+ 受影响面（t127 35/smoke/qa00）全绿 + 全矩阵 64 套分 7 块 0 失败 + worklog + push
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 127（22c8027 == origin/main，树净）；BUILD_ID 0jW7H5CpClTJ9CMsm3dSl 匹配；冷启动 + qa63-smoke/qa00/t127(35) 三件套全绿 → 稳定
+- 【选题】Task 127 交接候选盘点：①应用后建议跳纹（需交互设计，真机反馈后再做）②模板导入导出（workflow-io 范式 + POST 校验现成）→ 定案②；rg 摸底 custom-template 四动词路由、workflow-io 全套（build/parse/download/normalizeTypeId）、import-stage 三表单一合同、palette 动态 input 方言
+- 【实现·template-io】新 lib 文件：TEMPLATE_FORMAT/VERSION + 共享 validateTemplatePayload（结构检查：类型存在/偏移有限/索引界内/自环拒绝/去重/scalar 过滤；端口对兼容性留给服务端——edge-ports 含 fs/db）+ parseTemplateJson（wrapper 检查 + version 前向容忍警告）+ parseTemplateFiles 漏斗 + templateFileName/downloadTemplateJson（workflow-io 孪生）
+- 【实现·route】GET 支持 ?id=（project 作用域 + payload 解析 + project 名 provenance；404/500 语义与 PUT 一致），列表 GET 不变（payload 只在应用与导出时旅行）；POST 的本地 validatePayload 删除换共享版 + validatePortPairs 第二道关（端口对 SAVE 时兼容性检查保留在服务端，错误消息逐字保留）
+- 【实现·store】exportCustomTemplate（GET ?id= → buildTemplateFile → downloadTemplateJson → toast）；importCustomTemplateFiles（parseTemplateFiles 预解析 → 逐条 POST（与手存模板同一端点——导入的模板与手存的完全无法区分）→ loadCustomTemplates 重读（服务端是真相）→ 三态聚合 toast：全成/部分失败/全败 destructive）
+- 【实现·UI】CustomTemplatesSection 自治化：架头（icon + YOUR TEMPLATES + 计数徽章 + ml-auto Import 钮）+ 行内 Download 钮（hover 显形，与 trash 同款 opacity-0→100）+ 空态文案带导入引导 + pickImportFiles 动态 input 方言（palette 同款）；TemplatePresetsDialog 甩掉 templatesCount 订阅（架自治后父组件不再需要）
+- 【探针伤情一折】Phase F Escape 关不掉 Radix Dialog——filechooser 交互后页面焦点脱离对话框，全局 Esc handler 未命中；改点 Cancel 按钮（确定性关闭路径）。产品无恙，是探针方言盲区
+- 【视觉验收】t128-shot 屏摄：架头 YOUR TEMPLATES 1 徽章 + Import 钮（upload icon），行 T128 shot branch · 3 jobs · 2 wires · 2026-09-11 + hover 显形 Download/trash + Apply——人眼过
+- 【收尾】eslint 0、tsc src 0、构建 BUILD_ID 8ikr9tQHKSTr8bhgcLcKP200；t128 终跑 41 全绿；受影响面 t127(35)/smoke/qa00 全绿；全矩阵 64 套（t128 auto-include 位 #50，wall 20s）分 7 块前台串行 0 失败（块峰 189-197MB 零阈值重启，Task 122 卫生学持续生效）；worklog + commit + push + 环境清理
+
+Stage Summary:
+- 「一个校验器两个世界」：客户端预校验与服务端权威校验共享同一个 validateTemplatePayload（纯 TS、无 fs/db）——两份手工同步的校验逻辑必然漂移，提取是唯一的防漂移手段。端口对兼容性检查（portsValid 依赖 server 模块）留在 route 成第二道关：分层不是复制，是各层做自己能做的事
+- 「导入的模板不是二等公民」：importCustomTemplateFiles 走与手存完全相同的 POST 端点、同一校验、同一货架——provenance 在文件头（exportedAt/project 字段）而不在存储层。批量导入后 loadCustomTemplates 重读一次：多笔 POST 后服务端顺序才是真相，乐观拼接会攒出与重开不一致的序
+- 「前向兼容是警告不是拒绝」：version 2 的文件仍导入（payload 校验才是真门），toast 带出「导自更新版的 CryoFlow」警告——与 workflow-io 同一条定律；格式标记不符才是硬拒（workflow 文件该走 workflow 导入器，错误消息里指路）
+- 「roundtrip 是导入导出的唯一充分证明」：导出的字节原样回导、删原件、应用落地、参数逐项对——t128 的 E→F 相位把「文件形状正确」升级为「谱系无损」。断言文件 shape（C 相）只是必要条件
+- 「filechooser 之后焦点不在你以为的地方」：原生文件选择器交互后 Radix Dialog 的全局 Esc 未命中——探针的关闭路径要点确定性按钮（Cancel），Escape 只在焦点血缘清晰时可信
+- 遗留（下轮候选）：模板应用后与新邻居的建议连线（应用体仍是孤岛，需交互设计——真机反馈后再做）；模板批量管理（全选导出/一键清空，货架行多后的整理需求）；runner wall-time 剖面观察（qa64 71s 四轮一致最慢，继续积累）；qa60/61 共享传输推广（暂缓维持）；EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势、TSV/海报粘贴验证）；minimap mode 持久化（真机反馈再评估）；undo 手感参数调优；诊断签名命中率观察（真机）
