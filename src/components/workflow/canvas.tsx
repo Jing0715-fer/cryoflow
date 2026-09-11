@@ -51,7 +51,7 @@ import {
 } from "@/lib/workflow";
 import { hasJudgment } from "@/lib/class-notes";
 import { pendingWirePath } from "@/lib/edge-geom";
-import { CanvasFindBar, jobMatchesQuery } from "./canvas-find-bar";
+import { CanvasFindBar, jobMatchesFind } from "./canvas-find-bar";
 import { copyCanvasPng, exportCanvasPng, fmtBytes } from "@/lib/canvas-export";
 import {
   buildWorkflowFile,
@@ -923,17 +923,20 @@ export function WorkflowCanvas() {
   // Task 134 — the find lens: the bar owns the input; the canvas derives
   // the match set with the SAME exported predicate the bar counts with
   // (one matcher, two consumers) to ring matches amber and dim the rest.
+  // Task 135 — the predicate is the FULL one (status gate + text gate):
+  // a chip with no query is itself a lens, so the canvas follows it too.
   const findOpen = useWorkflowStore((s) => s.findOpen);
   const findQuery = useWorkflowStore((s) => s.findQuery);
+  const findStatus = useWorkflowStore((s) => s.findStatus);
   const openFind = useWorkflowStore((s) => s.openFind);
   const closeFind = useWorkflowStore((s) => s.closeFind);
   const findMatchIds = React.useMemo(() => {
     const q = findQuery.trim();
-    if (!findOpen || !q) return null;
+    if (!findOpen || (!q && findStatus === "all")) return null;
     const ids = new Set<string>();
-    for (const j of jobs) if (jobMatchesQuery(j, q)) ids.add(j.id);
+    for (const j of jobs) if (jobMatchesFind(j, findQuery, findStatus)) ids.add(j.id);
     return ids;
-  }, [findOpen, findQuery, jobs]);
+  }, [findOpen, findQuery, findStatus, jobs]);
   // The lens only engages with a live query AND at least one match — a
   // zero-match search must not blank the canvas (the count chip carries
   // the "no matches" honestly instead).

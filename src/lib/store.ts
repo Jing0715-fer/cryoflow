@@ -15,6 +15,7 @@ import type {
   CustomTemplateSummary,
   EdgeDTO,
   JobDTO,
+  JobStatus,
   ProjectDTO,
   ProjectSummaryDTO,
   SystemStatusClient,
@@ -426,6 +427,12 @@ interface WorkflowState {
    *  history: nothing on the canvas changed. */
   findOpen: boolean;
   findQuery: string;
+  /** Task 135 — the status half of the find lens: "all" (no filter) or
+   *  one JobStatus the matches must carry. Orthogonal to the text query:
+   *  with a query it narrows those matches, alone it IS the lens ("show
+   *  me every running job"). Same ephemerality as the query — closing
+   *  the bar resets it, nothing enters undo or storage. */
+  findStatus: JobStatus | "all";
   /** Parsed workflow files awaiting confirmation in the import dialog —
    *  the dialog shows a QUEUE (one summary row per file, plus per-file
    *  parse failures) + one shared target-workspace picker before any
@@ -538,6 +545,8 @@ interface WorkflowState {
    *  residue; reopening starts fresh like the browser's own find. */
   closeFind: () => void;
   setFindQuery: (q: string) => void;
+  /** Task 135 — set/clear the status filter of the find lens. */
+  setFindStatus: (s: JobStatus | "all") => void;
   /** Stage parsed files for the import dialog (replaces any earlier
    *  staging — one picker session at a time). */
   openImportPreview: (entries: ImportPreviewEntry[], failures: ImportFailure[]) => void;
@@ -812,6 +821,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   noteSpotlight: false,
   findOpen: false,
   findQuery: "",
+  findStatus: "all",
   importPreview: null,
   loading: true,
   error: null,
@@ -2755,8 +2765,9 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   setMinimapOpen: (open) => set({ minimapOpen: open }),
   toggleNoteSpotlight: () => set((s) => ({ noteSpotlight: !s.noteSpotlight })),
   openFind: () => set((s) => (s.findOpen ? s : { findOpen: true })),
-  closeFind: () => set({ findOpen: false, findQuery: "" }),
+  closeFind: () => set({ findOpen: false, findQuery: "", findStatus: "all" }),
   setFindQuery: (q) => set({ findQuery: q }),
+  setFindStatus: (s) => set({ findStatus: s }),
 
   openImportPreview: (entries, failures) =>
     set({ importPreview: { entries, failures } }),

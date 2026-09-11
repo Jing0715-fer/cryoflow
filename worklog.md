@@ -4027,3 +4027,26 @@ Stage Summary:
 - 「一个谓词两个消费者」：bar 计数与 canvas 调暗/ring 走同一个导出的 jobMatchesQuery——匹配判定存在两份的时刻就是它开始漂移的时刻（edge-geom 共享数学、template-io 校验器同律第四次应用）；bar 与 canvas 同用 useActiveWorkspaceJobs 则是同一律的计数版：跨工作区的匹配是视口永远无法兑现的空头支票
 - 「Escape 的归属权要显式声明」：find input 的 Escape preventDefault 后，page 层阶梯（先查 defaultPrevented）自动让位——关透镜不塌选择。Task 132 在 Radix capture 相位学到的规则，在普通 input 上是它的正向形式：每个 Escape 都要有一个明确的主人
 - 遗留（下轮候选）：find 的进一步细节（匹配计数点击滚动缩略图联动、按状态过滤 running/completed，真机反馈再评估）；favorites 拖拽排序（真机）；预览卡端口点/边高亮（真机）；建议连线手感增强（真机）；runner wall-time 剖面（qa64 73s 九轮一致，继续让位）；qa60/qa75 瞬时抖动观察账本（本轮全矩阵零抖动）；EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势、TSV/海报粘贴验证）；minimap mode 持久化（真机）；undo 手感参数调优；诊断签名命中率观察（真机）
+
+---
+Task ID: 135
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-11 22:30 window)
+Task: cron 自主巡检——Task 135「find 状态透镜：chips × 文本，一个谓词」：开局核实 worklog 尾部 Task 134/27bccf == origin/main（旧摘要快照停在 Task 131 已过时——19:30/20:15/21:15 三窗口分别闭环为 Task 132/133/134），冷启动 1s READY + smoke/qa00/t134 三件套绿判稳。交接候选盘点：Task 134 遗留首选「按状态过滤」→ 定案——「所有还在跑的 motioncorr」「所有 failed」是长跑工作流的真实问题，空查询+状态过滤 = 独立状态透镜。交付：store findStatus 切片（JobStatus|"all"、closeFind 连状态一起清——透镜不留残迹）+ 组合谓词 jobMatchesFind（状态门 ∧ 文本门；chip 激活+空查询 = 该状态全体命中，无 chip+空查询 = 零命中——Task 134 合同不变；一个谓词两个消费者第 n 次应用）+ find bar 第二行 chips（Running/Completed/Failed/Idle/Pending，radio 语义——点激活 chip 再点即清；状态色点沿用 badge/minimap 同一色系 teal/emerald/rose/slate/amber——透镜不得为同一概念发明第二种颜色语言；running 激活点 animate-soft-pulse 同 StatusBadge 方言）+ countLabel 诚实零升级（armed lens 零命中读 "no matches"，无 chip+无查询读 ""）+ t135 52 断言七相绿（矩阵位 #57，wall 13s）+ t134 G 相探针几何修正 + 全矩阵 71 套分 8 块 0 失败 + worklog + push
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 134（27bccf == origin/main，树净）；BUILD_ID 9z8lz0vU1ZNuj7tzdKTLu 匹配；冷启动 1s READY + qa63-smoke/qa00/t134(36) 三件套全绿 → 稳定
+- 【选题】Task 134 交接候选多为真机让位项 → 定案「find 状态透镜」：JobStatus = idle|pending|running|completed|failed 五态已在 types.ts；rg 确认 find 切片（findOpen/findQuery/setFindQuery）与 findMatchIds 派生点；job-card STATUS_STYLES / minimap STATUS_FILL 提供现成状态色方言
+- 【实现·store】findStatus: JobStatus|"all"（瞬态不入 undo 不持久化——同 findOpen/findQuery）；setFindStatus；closeFind 三清（open+query+status）
+- 【实现·谓词】jobMatchesFind(job, query, status)：status 门先行、空查询时 `return status !== "all"`（chip 单独成透镜）、否则落 jobMatchesQuery——jobMatchesQuery 降级为内部实现细节，外部消费者全部走组合谓词（canvas import 换 jobMatchesFind，rg 证实无第三个消费者）
+- 【实现·UI】容器纵向 flex：row1 原胶囊（所有既有 testid 不动）、row2 chips 行（canvas-find-status-row + 每 chip canvas-find-status-<value> + aria-pressed + title 双语提示）；chips 常显——「看不见的过滤器没法被信任是关着的，chips 就是发现面（无 funnel 绕路）」；STATUS_CHIP 色板 dot+active 两片段
+- 【探针伤情三折】①stamp "running" 后 API 读回 failed——诊断实锤 reconcileRealJobs：无 engine record 的 running 行 startedAt 缺失 → ageMs=Infinity ≥120s → 诚实标 failed——stamp 补写新鲜 startedAt（qa75 startedIso 先例同理），落进 spawn-race 120s 宽限窗；②E3 钉 "1 match" 挂——世界 active workspace 原有 1 个 failed，空查询+chip 透镜跨全工作区匹配——D/E 相改 oracle 相对断言（expected = onCanvas ∩ status，「断言不变量，别钉具体演员」教义再应用）；③E10 挂——chip 点击把焦点留在 button 上，keyboard.type 进不了 input——探针补 click input（真实用户同款动作）；F 相 Esc 前 click input（input 的 Esc preventDefault → page 阶梯让位，chip 的 Esc 会撞阶梯）
+- 【真几何回归一枚】t134 G 相挂：两行 bar 遮挡带从 ~36px 增至 ~76px，视口恰停在 Alpha 卡中心落入 chips 行下方——悬浮 bar 合法拦截点击（任何固定 widget 都遮挡其下方，bar 开启期才存在，Esc 即还；产品无错）——t134 G 相改「先关 lens → 空地选中卡 → 重开 bar → 再按被测 Esc」，「bar 开 + 有选择 + Esc 保留选择」合同原样保留
+- 【收尾】eslint 0、tsc src 0、构建 BUILD_ID eUUx_b6pvA4GJLXPo9pkd；t135 终跑 52 断言全绿；受影响面 t134(36)/smoke/qa00 全绿；全矩阵 71 套（t135 auto-include 位 #57，wall 13s）分 8 块前台串行 0 失败（块峰 188-198MB 零阈值重启，Task 122 卫生学持续生效）；worklog + commit + push + 环境清理
+
+Stage Summary:
+- 「chip 单独成透镜，文本只是收窄」：状态门在文本门之前——空查询+chip 命中该状态全体（"show me every running job" 不该强迫用户先打字），空查询+无 chip 零命中（Task 134 合同原封）。两个正交维度组合而非覆盖，与 Task 133「先过滤后搜索」同一条组合律的第五次应用
+- 「透镜不得重绘世界的颜色」：chips 的五个状态色是 badge/minimap 已在说的同一方言（teal running/emerald completed/rose failed）——一个给 "running" 发紫色滤镜的透镜是在撒谎。UI 新表面的颜色词汇表必须从被描述的世界里借
+- 「假 running 是 engine 的诚实猎物」：直写 DB 的 running 行没有 engine record，reconcile 120s 后诚实标 failed——这不是 bug 而是系统在正确地不信任无据的 "running"。探针造假要造全套（fresh startedAt = spawn-race 宽限窗的入场券）；测试基建的造假成本就是产品不变量的测量仪
+- 「断言不变量，别钉具体演员」第三次重演：空查询+chip 的匹配集跨全工作区，世界原有 1 个 failed 就把 "1 match" 钉成了假红——expected = onCanvas ∩ 谓词（UI == 工作区真相的集合相等），T135 种子只是「必须在内」的锚点演员。演员随便换，合同不松
+- 「悬浮 widget 的遮挡是合法的」：两行 bar 遮挡带 +40px 拦了探针的点击——任何固定位置的悬浮物都会遮住某处的画布，这是几何不是 bug；用户 Esc 即还。探针先关 lens 再在空地完成选择，测的合同一字未改。真机遮挡抱怨若来，那才是产品问题（move-on-click 或让位 stats 条）
+- 遗留（下轮候选）：find 的进一步细节（minimap 匹配点高亮联动、按类型过滤 chips，真机反馈再评估）；状态透镜的 count 点击进入循环（cur 语义已有，边际小）；favorites 拖拽排序（真机）；预览卡端口点/边高亮（真机）；建议连线手感增强（真机）；runner wall-time 剖面（qa64 73s 十轮一致，继续让位）；qa60/qa75 瞬时抖动观察账本（本轮全矩阵零抖动）；EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势、TSV/海报粘贴验证）；minimap mode 持久化（真机）；undo 手感参数调优；诊断签名命中率观察（真机）

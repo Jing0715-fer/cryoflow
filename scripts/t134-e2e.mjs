@@ -272,12 +272,23 @@ async function main() {
 
   /* ---------------- Phase G — close paths keep their promises ---------------- */
   step("--- Phase G: Esc preserves the selection; × clears; reopen is fresh ---");
+  // Task 135 made the lens two rows tall, and after Phase F the viewport
+  // happens to sit with Alpha's center under the chip row — a floating
+  // bar legitimately occludes the strip beneath it (any fixed widget
+  // does). Close the lens first, select the card in clear space, reopen,
+  // and THEN press the Esc the phase is about: "bar open + selection +
+  // Esc keeps the selection" is tested unchanged.
+  await p.keyboard.press("Escape");
+  await p.waitForSelector('[data-testid="canvas-find-bar"]', { state: "detached", timeout: 5000 });
   // select a card first: Esc in the find input must NOT deselect it
   await p.locator(`[data-job="${seedIds["T134 Alpha"]}"] [role="button"]`).first().click();
   await sleep(300);
+  await p.keyboard.press("Control+f");
+  await p.waitForSelector('[data-testid="canvas-find-input"]', { timeout: 5000 });
+  await sleep(350);
   await p.keyboard.press("Escape");
   await p.waitForSelector('[data-testid="canvas-find-bar"]', { state: "detached", timeout: 5000 });
-  must(true, "G1 Esc closed the bar");
+  must(true, "G1 Esc closed the reopened bar");
   const alphaSelected = await p
     .locator(`[data-job="${seedIds["T134 Alpha"]}"] [role="button"]`)
     .first()
