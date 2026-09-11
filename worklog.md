@@ -3718,3 +3718,27 @@ Stage Summary:
 - 「浏览器的 404 日志是诚实的噪音」：Chromium 对任何 HTTP 失败自动记 console error——无日志作业的特性路径必然带 4 条 404 资源日志。零容忍断言在这里是假红；分类断言（形状=Failed to load resource、路由=log、数量=可解释、非 404 零容忍）才是对「诚实 404」的诚实验收
 - 「MultiEdit 的原子性要实测不要相信」：中途失败报「No replacement was performed」但前序编辑已落盘——工具文档与行为的差异只能靠回显抓。任何批量编辑后立即 rg 核对落盘状态，是编辑伤情唯一可靠的止血点
 - 遗留（下轮候选）：诊断签名命中率观察（新签名 mpi-abort/python-traceback 在真机日志上的召回——6 签名时代的欠账是否补上待真机）；runner 块间 fresh-server 选项评估（Task 119 OOM 后价值上调，本轮 10 块未现压力）；qa60/61 共享传输推广（暂缓维持）；EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势、TSV/海报粘贴验证）；3D viewer 体积截面（真机需求观察）；minimap mode 持久化（真机反馈再评估）；undo 手感参数调优；palette Copy PNG（Task 110 拒绝维持）
+
+---
+Task ID: 122
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-11 11:00 window)
+Task: cron 自主巡检——Task 122「runner 服务器卫生学：fresh-server + RSS 保险丝 + 每套遥测」：开局核实 worklog 尾部 Task 121/e55afaf == origin/main（09:45 窗口已执行），冷启动 + smoke/qa00/t121 三件套绿判稳。按 Task 121 交接首选候选定案 runner 块间 fresh-server 选项评估——评估结论为实现（Task 119 OOM 实证 + 矩阵单调增长 58 套，压力是结构性的）。交付：run-matrix.sh 三机制——①chunk 开场 fresh server（FRESH_SERVER=1 默认，新进程自动化 Task 86 stale-server 教训；FRESH_SERVER=0 退出）②每套前 RSS 保险丝（RSS_RESTART_MB 默认 1200，超阈值或进程已死就地重启，失败级联截断在单套内）③每套 RSS 遥测落盘 .next/matrix-memory.log + chunk 峰值终报。Test A（RSS_RESTART_MB=1 强制每套重启路径）/Test B（FRESH_SERVER=0 旧路径）双验证 + 全矩阵 58 套 10 块默认跑 0 失败 + 首份 58 套 RSS 剖面（天花板 203MB）+ worklog + push
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 121（e55afaf == origin/main，树净）；BUILD_ID uEqBxACIYDC3zkRAYOEWf 匹配 + bundle 双证（data-mm-btn + MPI_ABORT 签名文本）；冷启动 + qa63-smoke/qa00/t121(95 断言) 三件套全绿 → 稳定
+- 【选题】Task 121 交接候选多为真机/暂缓项；「runner 块间 fresh-server 选项评估」为首选可行动项——Task 119 实证 next-server 2.5GB anon-rss 被 OOM 杀（896MB heap cap 只管 JS 堆，RSS 还载路线缓存/缓冲/Prisma engine），7 套级联假失败 + 数小时取证；矩阵 50→56→57→58 套单调增长 → 评估结论：实现
+- 【原语验证先行】pgrep -f "standalone/server.js" 命中双进程（bash 包装壳 3MB + 真 bun server 188MB，求和无害）；ps -o rss= 可读——30 秒证实设计可行再动手
+- 【实现】run-matrix.sh：server_pids/server_rss_mb（多 PID 求和）/fresh_server（start-prod.sh + curl 200 就绪轮询 30s）三函数；开场重启 + 每套前健康门（[ -z pids ] 或 rss>=阈值 → 重启，reason 点名「no server process」vs「rss XMB >= threshold」）+ 遥测行（时间,套件,RSS,是否重启）+ 头行（区分 chunk/参数）+ PASS/FAIL 行内联 rss 后缀 + 终报峰值（PEAK/PEAK_AT）
+- 【Test A 极端参数】RSS_RESTART_MB=1 跑套 1-2：开场重启 + 每套前强制重启（"rss 144MB >= threshold 1MB -> inline restart"）+ qa00/qa58 重启后仍 PASS——机制路径全绿
+- 【Test B 旧路径】FRESH_SERVER=0 跑套 2：零重启（restarted=no）+ 套件 PASS + 遥测仍记录——legacy 行为保持
+- 【全矩阵默认跑】58 套 10 块（1 6 / 7 12 / ... / 55 58）0 失败（qa60/61 干净，Task 117 传输层持续生效）；每套行 rss 后缀全程在案
+- 【RSS 剖面分析】fresh 基线 ~144MB；块内 6 套增长 43-56MB（~8-9MB/套近线性）；块峰 187-203MB，全跑天花板 203MB（t119/qa83）；默认跑零阈值重启（,yes ×2 全来自 Test A）——对 1200MB 阈值 12x 余量，对 2.5GB OOM 区 ~8x 余量；旧单服务器 58 套外推 ~490MB 起步且 Task 119 证明可超线性——块开场重置把累积上限结构性钉在 6 套增量
+- 【收尾】bash -n 语法过；纯 scripts 域改动无 src 变更——无重建（BUILD_ID 不变）；worklog + commit + push + 环境清理
+
+Stage Summary:
+- 「重启的时机在套件之间，不在套件里面」：健康门按构造坐在套件边界——没有任何套件在服务器弹跳中运行，盘上种子状态天然幸存。门回答的是「这套开始前服务器活着且瘦吗」——前置条件检查，不是飞行中干预
+- 「OOM 的教训要从取证变成护栏」：Task 119 的 dmesg 验尸花了数小时；同类失败现在用每块 ~8 秒的重启预防。事故已经付过设计费，保险就是便宜的
+- 「阈值是保险丝，不是运行参数」：默认跑峰值 203MB，1200MB 从未触发（12x 余量）——它为病态情形存在（进程消失 → 重启还能救回矩阵中段的 OOM 现场）。每次都触发的阈值是多余步骤的重启；永不触发的是死配置——遥测告诉你处在哪个世界
+- 「遥测让 folklore 变成数据」：本轮之前「服务器会不会攒内存」靠 folklore 回答（Task 119 的 2.5GB 是唯一数据点，且来自尸体）；现在有剖面——基线 144MB、每套 ~8-9MB、58 套天花板 203MB。下一个 OOM 问题从剖面出发，不从 dmesg 出发
+- 「机制验证走极端参数」：RSS_RESTART_MB=1 强制每套都走重启路径（套件仍绿）、FRESH_SERVER=0 验证旧路径、默认跑验证「永不触发」路径——三跑三态，机制在它的所有状态下被验证，而不只是 happy path
+- 遗留（下轮候选）：runner 遥测可加每套 wall-time 列（慢套件取证，小）；qa60/61 共享传输推广（暂缓维持）；EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势、TSV/海报粘贴验证）；3D viewer 体积截面（真机需求观察）；minimap mode 持久化（真机反馈再评估）；undo 手感参数调优；palette Copy PNG（Task 110 拒绝维持）；诊断签名命中率观察（真机）

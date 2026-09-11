@@ -96,13 +96,86 @@ if [ "$FROM_IDX" -lt 1 ] || [ "$TO_IDX" -gt "$TOTAL" ] || [ "$FROM_IDX" -gt "$TO
   echo "ABORT: range $FROM_IDX..$TO_IDX outside 1..$TOTAL"
   exit 2
 fi
-echo "matrix: $TOTAL suites, serial, one server (running $FROM_IDX..$TO_IDX)"
+echo "matrix: $TOTAL suites, serial (running $FROM_IDX..$TO_IDX)"
+
+# ---- Task 122: server hygiene inside the runner ----------------------
+# WHY: Task 119's full-matrix run died mid-flight — next-server grew to
+# 2.5GB anon-rss (the 896MB heap cap in start-prod.sh bounds JS heap only;
+# RSS also carries route caches, buffers and the Prisma engine) and the
+# kernel OOM-killed it on a 3.9GB no-swap box. Everything after the kill
+# failed in its own way (7-suite cascade of fake failures), and the
+# forensics (dmesg autopsy, phantom hydration bug, 3 rebuilds) cost hours.
+# The matrix keeps growing (58 suites as of Task 121), so the pressure is
+# structural, not accidental.
+#
+# Design (evaluated + implemented Task 122):
+#   FRESH_SERVER=1 (default) — restart the prod server at chunk start, so
+#     every invocation begins from a known-good state (automates the
+#     Task 86 stale-server lesson: fresh PROCESS beats stale memory).
+#     Opt out with FRESH_SERVER=0.
+#   RSS_RESTART_MB (default 1200) — before each suite: if server RSS is
+#     over the threshold OR no server process exists (OOM already fired),
+#     restart inline. The failure cascade stays bounded to one suite
+#     instead of everything after a mid-matrix death.
+#   Telemetry — per-suite RSS is appended to .next/matrix-memory.log and
+#     the chunk peak is printed at the end: future OOM questions get data,
+#     not folklore.
+FRESH_SERVER="${FRESH_SERVER:-1}"
+RSS_RESTART_MB="${RSS_RESTART_MB:-1200}"
+MEMLOG=".next/matrix-memory.log"
+
+server_pids() { pgrep -f "standalone/server.js" 2>/dev/null; }
+server_rss_mb() {
+  local kb total=0 pid
+  for pid in $(server_pids); do
+    kb=$(ps -o rss= -p "$pid" 2>/dev/null | tr -d ' ')
+    [ -n "$kb" ] && total=$((total + kb))
+  done
+  echo $((total / 1024))
+}
+fresh_server() {
+  bash scripts/start-prod.sh
+  local i code
+  for i in $(seq 1 30); do
+    code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/ 2>/dev/null)
+    [ "$code" = "200" ] && return 0
+    sleep 1
+  done
+  echo "matrix: WARNING - server not ready 30s after restart"
+  return 1
+}
+
+if [ "$FRESH_SERVER" = "1" ]; then
+  echo "matrix: chunk-start fresh server (threshold ${RSS_RESTART_MB}MB) ..."
+  fresh_server || true
+fi
+mkdir -p .next
+echo "# $(date '+%F %T') chunk $FROM_IDX..$TO_IDX/$TOTAL fresh=$FRESH_SERVER thr=${RSS_RESTART_MB}MB" >> "$MEMLOG"
 FAILS=()
 N=0
+PEAK=0
+PEAK_AT="-"
 for s in "${SUITES[@]}"; do
   N=$((N+1))
   if [ "$N" -lt "$FROM_IDX" ] || [ "$N" -gt "$TO_IDX" ]; then continue; fi
   name=$(basename "$s")
+  # server health gate BEFORE the suite (restarts between suites only —
+  # no suite is ever running while the server bounces, and disk-backed
+  # seed state survives a restart by construction)
+  rss=$(server_rss_mb)
+  restarted="no"
+  if [ "$FRESH_SERVER" = "1" ]; then
+    pids=$(server_pids)
+    if [ -z "$pids" ] || [ "$rss" -ge "$RSS_RESTART_MB" ]; then
+      if [ -z "$pids" ]; then reason="no server process"; else reason="rss ${rss}MB >= threshold ${RSS_RESTART_MB}MB"; fi
+      echo "[$N/$TOTAL] server hygiene: $reason -> inline restart"
+      fresh_server || true
+      rss=$(server_rss_mb)
+      restarted="yes"
+    fi
+  fi
+  echo "$(date '+%H:%M:%S'),$name,${rss}MB,$restarted" >> "$MEMLOG"
+  if [ "$rss" -gt "$PEAK" ]; then PEAK=$rss; PEAK_AT=$name; fi
   out=$(node "$s" 2>&1)
   # Task 117 (prevention leg of the qa60/61 position-5 intermittent): the
   # browser is released AFTER every suite so suite N+1 relaunches Chromium
@@ -111,15 +184,18 @@ for s in "${SUITES[@]}"; do
   # renderer crash under memory pressure; a fresh browser per suite
   # removes the accumulation the failures fed on (~2s per relaunch).
   agent-browser close --all >/dev/null 2>&1 || true
+  suffix=""
+  [ "$restarted" = "yes" ] && suffix=", restarted"
   if echo "$out" | grep -qE "ALL PASS|GREEN|SMOKE GREEN|PROBE OK|PAPER PROBE"; then
-    echo "[$N/$TOTAL] PASS $name"
+    echo "[$N/$TOTAL] PASS $name (rss ${rss}MB${suffix})"
   else
-    echo "[$N/$TOTAL] FAIL $name"
+    echo "[$N/$TOTAL] FAIL $name (rss ${rss}MB${suffix})"
     echo "$out" | tail -6
     FAILS+=("$name")
   fi
 done
 echo "=================================="
 echo "TOTAL ${#FAILS[@]} failures / suites $FROM_IDX..$TO_IDX of $TOTAL"
+echo "server memory: chunk peak ${PEAK}MB (before '$PEAK_AT'); telemetry: $MEMLOG"
 for f in "${FAILS[@]}"; do echo "  FAILED: $f"; done
 [ ${#FAILS[@]} -eq 0 ]
