@@ -44,6 +44,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { TemplateShapeHoverCard } from "@/components/workflow/template-shape-preview";
 import { cn } from "@/lib/utils";
 
 /** The symmetry selects' option list (mirrors workflow.ts / template route). */
@@ -398,14 +399,14 @@ function CustomTemplatesSection() {
               data-template-id={t.id}
             >
               <LayoutTemplate className="size-3.5 shrink-0 text-muted-foreground group-hover:text-primary" aria-hidden="true" />
-              <div className="min-w-0 flex-1">
+              <TemplateShapeHoverCard id={t.id} name={t.name}>
                 <p className="truncate text-xs font-medium" title={t.name}>
                   {t.name}
                 </p>
                 <p className="text-[10px] tabular-nums text-muted-foreground">
                   {t.jobCount} jobs · {t.edgeCount} wire{t.edgeCount === 1 ? "" : "s"} · {t.createdAt.slice(0, 10)}
                 </p>
-              </div>
+              </TemplateShapeHoverCard>
               {armed ? (
                 <>
                   <Button
