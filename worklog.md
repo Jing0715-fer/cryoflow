@@ -3937,3 +3937,27 @@ Stage Summary:
 - 「基线还原要连序一起还原」：清空测试会连带真基线一起清掉——探针先用被测端点（GET ?all=1）快照、清完按 asc 序 POST 回去，desc 货架阅读序精确复原（F2 断言顶行名字）。外部状态的世界里，还原不止内容，还有顺序
 - 「批量工具住在批量出现之后」：N=1 的货架不出 Export all/Clear——单模板的导出和删除就在行上，重复入口是噪音不是便利。功能出现的时机本身就是交互设计（N≥2 门槛一行代码，省掉的是常态下的 header 拥挤）
 - 遗留（下轮候选）：模板批量管理延伸的 shelf 计数徽章点击过滤（小）；建议连线手感增强（连接后脉冲高亮新线，真机反馈再评估）；runner wall-time 剖面（qa64 73s 六轮一致，继续让位）；qa60/61 共享传输推广（暂缓维持）；EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势、TSV/海报粘贴验证）；minimap mode 持久化（真机反馈再评估）；undo 手感参数调优；诊断签名命中率观察（真机）
+
+---
+Task ID: 131
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-11 18:45 window)
+Task: cron 自主巡检——Task 131「模板货架形状预览卡：hover 先看见，再 apply」：开局核实 worklog 尾部 Task 130/a0dcff2 == origin/main（14:45-17:55 四窗口均已闭环，旧摘要快照继续过时），冷启动 + smoke/qa00/t130 三件套绿判稳。交接候选盘点：建议连线手感增强（真机让位）、qa64 剖面（六轮一致设计使然再让位）→ 定案新功能「形状预览」——货架行只有「N jobs · M wires」的数字，形状只有 apply 后才能看见；hover 弹出迷你画布（spec 色 chips + 端口色连线 + 同款点阵）补完「存 → 看 → 用」谱系。交付：template-shape-preview.tsx（模块级 payload 缓存 + 懒取 GET ?id= + shapeOf 缩放布局 + 简化贝塞尔迷你图 + 加载/错误诚实态）+ 货架行 name/meta 块包 TemplateShapeHoverCard（动作按钮留外，hover 不吞点击）+ t131 25 断言七相一发全绿（矩阵位 #53，wall 9s）+ 受影响面（t127 35/t128 41/t129 29/t130 37/smoke/qa00）全绿 + 全矩阵 67 套分 7 块 0 失败 + worklog + push
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 130（a0dcff2 == origin/main，树净）；BUILD_ID Fdz2Kjsw89mlbaBiipcUF 匹配；冷启动 + qa63-smoke/qa00/t130(37) 三件套全绿；agent-browser 快照画布/工作区/项目选择器正常 → 稳定
+- 【选题】Task 130 交接候选盘点：①shelf 计数徽章点击过滤（小而边际）②建议连线手感增强（真机反馈再评估）③qa64 剖面（73s 六轮一致）→ 定案新功能「形状预览」：rg 盘点 HoverCard 组件已在（job-card 同款）、JobTypeSpec.color 四片段（text/bg/border/soft）、portY/PORT_COLORS/jobType 全客户端可用、canvas-grid-fine 点阵类可直接复用
+- 【实现·组件】TemplateShapePreview：模块级 payloadCache（Map<id, payload>）跨对话框存活——列表端点故意轻载（无 payload），首hover懒取 GET ?id=，之后瞬时；失败不缓存（下一次 hover 重试，瞬态故障自愈）；shapeOf：bbox（dx/dy 已是 bbox 相对，天然在原点）→ s = max(0.26, min(1, 264/bw, 224/bh))，chips 不过-legibility 地板、卡片纵向长高
+- 【实现·迷你图】chips = 绝对定位 div（left/top = (dx-minX)·s，尺寸 CARD_W/H·s）+ spec.color.border 框 + soft 底 + 左色条（bg）+ 9px truncate 标签（spec.color.text）——job-card 同一视觉语言；边 = 单 SVG（portY 定端口 y，kind→STROKE_HEX 表 stroke 色，reach = max(8, |ex-sx|·0.42) 缩放前向贝塞尔；后向线诚实画折返环）；浮层点阵 = canvas-grid-fine（与画布同质感）；未知 type 降级 slate（Task 127「spec 漂移降级不报错」同律）
+- 【实现·集成】TemplateShapeHoverCard 包行内 name/meta 块（openDelay 350 / closeDelay 120，side=top 自适应碰撞）；Apply/Download/Delete 留在 trigger 外——hover-to-peek 不吞任何点击目标；页脚提示「Apply drops this shape below the workspace content」
+- 【类型伤情一处】shapeOf 可返 null（空 jobs）而 Status ready 分支钉了 Shaped——三处改 null 时落 error 态（tsc 抓 TS2345，秒修）
+- 【探针】t131 七相：S 清孤儿+基线快照+种 chain（motioncorr/ctffind/extract，dy=40 抖动）/solo（import 单节点零边）；B hover 出卡（B0 证明 hover 前零 ?id= 取数——列表保持轻载 + B2 首 hover 恰取一次）；C 几何读形状（x 严格递增 536<633<729、dy 抖动成 top 偏移 +13px、chips 缩放 71px 非 220、边 stroke=#14b8a6 微图端口色）；D 移开即关 + solo 1 chip 零边；E 缓存真实性（两次重 hover 零新取数）；F 屏摄；Z 控制台清洁+清理后基线原封。25 断言一发全绿
+- 【视觉验收】t131-shape-preview.png 人眼过：卡头「T131 chain + SHAPE 徽章」、三 chips 类型色由青色连线、CTF chip 下沉可读、点阵底纹、页脚提示
+- 【收尾】eslint 0、tsc src 0、构建 BUILD_ID moWrJ9kbHHbmjp9xuDYao；受影响面 t127(35)/t128(41)/t129(29)/t130(37)/smoke/qa00 全绿；全矩阵 67 套（t131 auto-include 位 #53，wall 9s）分 7 块前台串行 0 失败（块峰 184-202MB 零阈值重启，Task 122 卫生学持续生效）；worklog + commit + push + 环境清理
+
+Stage Summary:
+- 「先看见，再承诺」：apply 是有副作用的动作，hover 是免费的——预览卡把「这个模板长什么样」从 apply 后才有的知识提前到 apply 前。货架行的数字（N jobs · M wires）回答多少，迷你图回答什么形状——两个表示服务两个问题，数字替代不了几何
+- 「预览是阅读，不是路由」：迷你图的边是缩放前向贝塞尔（无避障、无扇形展开）——保存的选区是左到右手工布局的，形状可读性不需要画布的完整边路由；后向线画诚实的折返环。复制品不必复制原件的全部复杂度，只需复制它的读法
+- 「缓存放模块级，不放组件级」：Radix HoverCard 关闭即卸载——组件级缓存（useRef/state）活不过一次 hover；模块级 Map 跨对话框存活，首次取数后每次 hover 瞬时。缓存的正确位置由卸载语义决定，不由「就近原则」决定
+- 「失败不缓存」：GET 失败只进 error 态、不写 cache——瞬态 500 在下一次 hover 自愈；如果错误也被缓存，一次抖动就变成永久伤疤。成功才配被记住
+- 「trigger 是名字块，不是整行」：hover 卡的触发区只包 name/meta——Apply/Download/Delete 留在外面。hover-to-peek 若吞掉整行，行内按钮的命中区就被一个被动功能殖民了；功能新增不得改变既有控件的可达性
+- 遗留（下轮候选）：预览卡的进一步细节（chips 内端口点、hover 高亮对应边等，真机反馈再评估）；建议连线手感增强（连接后脉冲高亮新线，真机反馈再评估）；模板搜索/重命名（货架行多后的整理需求，与预览卡同一货架面）；runner wall-time 剖面（qa64 73s 七轮一致，继续让位）；qa60/61 共享传输推广（暂缓维持）；EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势、TSV/海报粘贴验证）；minimap mode 持久化（真机反馈再评估）；undo 手感参数调优；诊断签名命中率观察（真机）
