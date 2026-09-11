@@ -4123,3 +4123,25 @@ Stage Summary:
 - 「反演要懂投影」：SVG 的 viewBox→盒是投影，盒→viewBox 的反演必须知晓 letterbox（中心带 + min 缩放）——探针用 235px 的系统性偏移买来了这条几何课。凡是「屏幕点 ↔ 世界点」的双向映射，两个方向都必须过同一套投影数学；一半忠实一半线性就是一半撒谎
 - 「探针的 oracle 从产品源码提取」：手写映射必然漂移（35 类型里两处想当然）——用工具从 spec(...)→category: 原样提取，产品的词表是唯一词表。这和「断言不变量」同源：oracle 的每一条目都应该能指着产品代码说「就是这里来的」
 - 遗留（下轮候选）：minimap sel 模式 chip 点击聚焦（跳转语义平移到选中框，headless 可验证）；hygiene 稳态观察账本（本轮首跑 2 重叠收敛、块 4 瞬时抖动 2 套——账本在记）；find 三维的持久化讨论（会话内暂存 vs 用户期望保留？真机反馈再评估）；favorites 拖拽排序（真机）；预览卡端口点/边高亮（真机）；建议连线手感（真机）；runner wall-time 剖面（qa64 74s 十三轮一致，继续让位）；EMPIAR 真数据回归（重，让位）；用户真机项；undo 手感参数；诊断签名命中率观察（真机）
+
+---
+Task ID: 139
+Agent: main (cron window 2026-09-12 05:00:36 +08:00, trace …202609120508)
+Task: 例行七条——开局核对 + QA 判稳 → 选题开发（sel 模式的门）→ 回归 → 交接闭环。本轮交付「取景即意图」（minimap sel 模式选中 chip 成门 + 装饰线不偷手势）+ 探针两课（wire 吞 pointerdown 的网格扫描、DOM 全集 dim 名册）
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部实际为 Task 138（9cf806c→9cf808c == origin/main，树净）——会话续接摘要仍停在 Task 135，23:30/02:30/04:15 三窗口已分别闭环为 Task 136/137/138，以 worklog 为准；BUILD_ID VBkkddgxX1TAA7yiqj72D 匹配；冷启动 1s READY + 三件套（qa63-smoke/qa00/t138 34）全绿 → 稳定
+- 【选题】Task 138 交接首选「minimap sel 模式 chip 点击聚焦（跳转语义平移到选中框，headless 可验证）」→ 定案。侦察：focusJob 只设 focusJobId+epoch 并清 inspectId，**不碰 selectedId/selectedIds**（多选不会塌缩——sel 门的前提合同）；shift+click 卡片 = 纯 toggle（job-card shiftPidRef 分支，不开面板不开 inspector）；sel 按钮 disabled 门 = selIds.size===0；sel 模式 viewBox = 选中 bbox ± MM_PAD(160) 无 viewport union——可从 API 坐标精确预言
+- 【实现·sel 门】canvas-minimap pointerdown 武装条件第二分支（selFocus && selIds.has(dotId)——与 find 门共享 pendingJumpRef/JUMP_SLOP/focusJob 释放语义；选择是更强意图：选中+匹配 chip 走任一门都聚焦同一 job）；affordance 三件套：data-mm-door 锚（findHit||selDoor）+ cursor-pointer/hover 提亮 + title 尾注 " · click to jump"；aria-label 四态组合（lens∧sel→"amber or selected"、lens→amber、sel→selected、裸→navigate）
+- 【产品加固·装饰线】minimap 边线 <line> 补 pointerEvents="none"——canvas wire 有意可交互（click-to-delete，EdgesLayer path pointerEvents:"stroke"），map wire 纯装饰却可被命中：wire 横穿 chip 投影中心时门点击合法变 pan，几何依赖的间歇 bug——装饰层不得偷手势
+- 【t139 探针】七相 42 断言两跑全绿：S 种 6 卡（2 门对 + 框内 witness + 3 远散，running 带新鲜 startedAt）；B shift+click 造 2 选（B1 sel 钮空选禁用=意图门）+ B3 zoom 不动（纯 toggle）；C 相 sel 取景（C2 门锚恰 2、C3 除选中全员 dim、**C4 viewBox 逐位相等 -20 1600 540 896**、C5-7 aria/title 意图面）；D 门跳转（D3 0.33→0.70、D4 Δ=(0,0)、**D5 多选挺过自己的门**：mode sel + 2 门 + witness 仍暗）；E 拖=pan；F 两道边界（F1 fit 模式门锚消失——affordance 不 outlive 手势；F5-6 框内暗 witness 仍 pan——门只在选中者上）；G 屏摄（sel 框 + hover 门 + "2 selected" 工具条人眼过）；Z console 清 + roster 还原 48
+- 【探针伤情两折】①C2 假红→诊断 elementFromPoint：Beta 卡中心被既有 wire 合法遮挡（canvas wire pointerEvents:"stroke" 在卡之上，pointerdown 被 svg 吞掉，toggle 未发生）——shiftClickCard 改网格扫描 35 点 + closest([data-job]) 命中验证（真手势 + 几何查询，不钉中心点）；②C3 假设错——sel 模式 dim 的是**全工作区**非选中者（52 个），viewBox 外 chip 视觉裁剪但元素在场——断言改集合不变量 dim == dots − selection
+- 【收尾】eslint 0、tsc src 0、构建 BUILD_ID tllbp7maGY6wW8D-qXLAu（含 minimap 边线加固）；t139 两跑 42×2 全绿；受影响面 t136(31)/t137(38)/t138(34) 全绿；全矩阵 75 套（t139 auto-include 位 #61，wall 16s）分 9 块前台串行 0 失败（块峰 202MB 零阈值重启，Task 122 卫生学持续生效；qa64 74s 十四轮一致）；worklog + commit + push + 环境清理
+
+Stage Summary:
+- 「取景即意图」：sel 模式本身就是意图陈述——用户要求地图取景这些 job，框内亮着的每个 chip 都是"你关心的之一"。但选择本身不武装门，取景才武装：fit 模式下选中 chip 的 press 照旧 pan（F3）。与 find 门的 lens-gated 同一条纪律——intent-laden gesture 的意图必须来自一个显式的模式声明，而不是一个恰好成立的状态
+- 「affordance 不 outlive 手势」：门锚/光标/hover 提亮/title 尾注在 fit 模式全部消失（F1）——一个承诺了已不存在的可点击性的光标是在撒谎。affordance 的存活边界 = 手势的武装边界，二者由同一个 selFocus 布尔驱动，永不漂移
+- 「装饰层不得偷手势」：map wire 无交互语义却 hit-testable，横穿 chip 投影中心就把门合法变 pan——几何依赖的间歇 bug 最阴险之处在于它只在世界几何恰好人肉命中时发作。装饰（map 边线、band 蚂蚁线、pending wire）一律 pointer-events:none；交互（canvas wire 删除钮）才配被命中
+- 「探针的点也要命中验证」：shift+click 的 pointerdown 被wire 合法吞掉（产品无错——wire 本就要可点）——网格扫描 + elementFromPoint 命中验证是「query the geometry, don't pin the actor」在点击目标域的形态：不止 chip 会重排，点击点本身也要被验证打在想要的元素上
+- 「DOM 全集才是名册」：viewBox 外的 chip 视觉被裁剪但元素在场且带 dim——「除选中全员 dim」是 52 不是肉眼可见的 4。枚举肉眼演员是探针的读心术；集合不变量（dim == dots − selection）才是合同。第四次重演「断言不变量，别钉具体演员」
+- 遗留（下轮候选）：minimap sel 模式 chip 点击聚焦已闭环 → 下一个 headless 候选是「canvas wire 横穿卡中心的偷点击」（产品级已知项：wire 有意可交互，z 序在卡上——真机抱怨再评估，探针已有网格扫描范式可借鉴到真实用户教育/智能点位）；find 三维的持久化讨论（真机反馈再评估）；favorites 拖拽排序（真机）；预览卡端口点/边高亮（真机）；建议连线手感（真机）；runner wall-time 剖面（qa64 74s 十四轮一致，继续让位）；世界卫生观察账本（本轮 9 块首跑全绿零撞车，账本在记）；EMPIAR 真数据回归（重，让位）；用户真机项；undo 手感参数；诊断签名命中率观察（真机）

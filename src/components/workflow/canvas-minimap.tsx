@@ -39,6 +39,15 @@
  * jump is intent-laden: the lens loaded the click with "this is one of
  * the ones you're looking for", so taking over the gesture only under
  * an active lens keeps the plain-pan contract intact.
+ *
+ * Task 139 — the framed selection is an intent too: in sel mode a
+ * SELECTED chip is a door with the exact same gesture contract (clean
+ * click → focusJob — which never touches the selection, so a multi-select
+ * survives its own door; drag → pan). The mode itself is the intent
+ * statement — the user asked the map to frame these jobs, so every chip
+ * it frames brightly is "one of the ones you care about". Outside sel
+ * mode a selected chip still pans: selection alone doesn't arm doors,
+ * the FRAMING does — same discipline that keeps find doors lens-gated.
  */
 
 import * as React from "react";
@@ -256,11 +265,19 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
         }
         // Task 137 — a press on an amber match chip arms a jump instead of
         // panning immediately: the release decides (clean click → focusJob,
-        // drag → pan from wherever the finger lands next)
+        // drag → pan from wherever the finger lands next). Task 139 — in
+        // sel mode a selected chip arms the same door: the framing is the
+        // intent, and focusJob never touches the selection.
         const dotId = (e.target as Element | null)?.getAttribute?.("data-job-id");
-        if (findLens && dotId && findMatchIds?.has(dotId)) {
-          pendingJumpRef.current = { id: dotId, x: e.clientX, y: e.clientY };
-          return;
+        if (dotId) {
+          if (findLens && findMatchIds?.has(dotId)) {
+            pendingJumpRef.current = { id: dotId, x: e.clientX, y: e.clientY };
+            return;
+          }
+          if (selFocus && selIds.has(dotId)) {
+            pendingJumpRef.current = { id: dotId, x: e.clientX, y: e.clientY };
+            return;
+          }
         }
         pendingJumpRef.current = null;
         const p = toWorld(e);
@@ -350,11 +367,15 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
         data-canvas-ui="minimap-svg"
         className="block cursor-pointer rounded-sm bg-muted/50"
         role="application"
-        aria-label={
-          findLens
-            ? `Workflow overview — ${jobs.length} jobs. Click to navigate; click an amber chip to jump to that match.`
-            : `Workflow overview — ${jobs.length} jobs. Click to navigate.`
-        }
+        aria-label={`Workflow overview — ${jobs.length} jobs. ${
+          findLens && selFocus
+            ? "Click to navigate; click an amber or selected chip to jump to that job."
+            : findLens
+              ? "Click to navigate; click an amber chip to jump to that match."
+              : selFocus
+                ? "Click to navigate; click a selected chip to jump to that job."
+                : "Click to navigate."
+        }`}
       >
         {/* edges (thin, muted) — cheap straight port-to-port lines;
             in sel focus, edges with no selected endpoint dim further */}
@@ -375,6 +396,11 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
                 strokeWidth={Math.max(6, Math.min(18, world.w / 120))}
                 opacity={dim ? 0.06 : 0.25}
                 className="text-muted-foreground"
+                // Task 139 — the map's wires are pure decoration (the canvas
+                // wires carry the click-to-delete affordance, these don't):
+                // a wire crossing a chip's projected center must never steal
+                // the door/navigate gesture
+                pointerEvents="none"
               />
             );
           })}
@@ -391,6 +417,11 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
             const dimmed = selFocus && !selIds.has(j.id);
             const findHit = findLens && findMatchIds!.has(j.id);
             const findDim = findDimActive && !findHit;
+            // Task 139 — the sel-mode door affordance: framed-bright chips
+            // promise the jump the mode armed (cursor + hover brighten +
+            // title tail), and never outside sel mode — an affordance that
+            // outlives its gesture is a lie
+            const selDoor = selFocus && selIds.has(j.id);
             return (
               <rect
                 key={j.id}
@@ -398,6 +429,7 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
                 data-job-id={j.id}
                 data-mm-dim={dimmed || findDim ? "1" : undefined}
                 data-mm-find={findHit ? "1" : undefined}
+                data-mm-door={findHit || selDoor ? "1" : undefined}
                 x={j.x}
                 y={j.y}
                 width={CARD_W}
@@ -407,10 +439,10 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
                 opacity={dimmed || findDim ? 0.13 : j.status === "idle" ? 0.55 : 0.9}
                 className={cn(
                   "transition-opacity duration-300",
-                  // Task 137 — a match chip is a door: brighten on hover to
-                  // say so (stroke stays amber, fill stays the world's —
+                  // Task 137/139 — a door chip brightens on hover to say so
+                  // (stroke stays primary/amber, fill stays the world's —
                   // the lens never repaints the world's colors)
-                  findHit && "cursor-pointer hover:opacity-100",
+                  (findHit || selDoor) && "cursor-pointer hover:opacity-100",
                 )}
                 stroke={
                   selected || inMulti
@@ -422,7 +454,7 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
                 strokeOpacity={inMulti ? 0.45 : 1}
                 strokeWidth={s}
               >
-                <title>{`${j.name} — ${j.status}${j.status === "running" ? ` (${Math.round(j.progress)}%)` : j.result ? ` · ${j.result}` : ""}${findHit ? " · click to jump" : ""}`}</title>
+                <title>{`${j.name} — ${j.status}${j.status === "running" ? ` (${Math.round(j.progress)}%)` : j.result ? ` · ${j.result}` : ""}${findHit || selDoor ? " · click to jump" : ""}`}</title>
                 {j.status === "running" && !dimmed && !findDim && (
                   <animate
                     attributeName="opacity"
