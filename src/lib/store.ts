@@ -433,6 +433,13 @@ interface WorkflowState {
    *  me every running job"). Same ephemerality as the query — closing
    *  the bar resets it, nothing enters undo or storage. */
   findStatus: JobStatus | "all";
+  /** Task 138 — the type half of the find lens: "all" or one palette
+   *  category key (workflow stage: motion / ctf / refine / …) the match's
+   *  job type must belong to. Third orthogonal dimension — text ∧ status
+   *  ∧ stage combine, none overrides another. Chips only surface the
+   *  categories actually present in the workspace; a stage that doesn't
+   *  exist can't be a filter. Same ephemerality as findStatus. */
+  findCategory: string | "all";
   /** Parsed workflow files awaiting confirmation in the import dialog —
    *  the dialog shows a QUEUE (one summary row per file, plus per-file
    *  parse failures) + one shared target-workspace picker before any
@@ -547,6 +554,10 @@ interface WorkflowState {
   setFindQuery: (q: string) => void;
   /** Task 135 — set/clear the status filter of the find lens. */
   setFindStatus: (s: JobStatus | "all") => void;
+  /** Task 138 — arm/disarm the type-half lens (palette category key or
+   *  "all"). Radio semantics live in the chip row; the store just holds
+   *  the armed key. */
+  setFindCategory: (c: string | "all") => void;
   /** Stage parsed files for the import dialog (replaces any earlier
    *  staging — one picker session at a time). */
   openImportPreview: (entries: ImportPreviewEntry[], failures: ImportFailure[]) => void;
@@ -822,6 +833,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   findOpen: false,
   findQuery: "",
   findStatus: "all",
+  findCategory: "all",
   importPreview: null,
   loading: true,
   error: null,
@@ -2765,9 +2777,10 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   setMinimapOpen: (open) => set({ minimapOpen: open }),
   toggleNoteSpotlight: () => set((s) => ({ noteSpotlight: !s.noteSpotlight })),
   openFind: () => set((s) => (s.findOpen ? s : { findOpen: true })),
-  closeFind: () => set({ findOpen: false, findQuery: "", findStatus: "all" }),
+  closeFind: () => set({ findOpen: false, findQuery: "", findStatus: "all", findCategory: "all" }),
   setFindQuery: (q) => set({ findQuery: q }),
   setFindStatus: (s) => set({ findStatus: s }),
+  setFindCategory: (c) => set({ findCategory: c }),
 
   openImportPreview: (entries, failures) =>
     set({ importPreview: { entries, failures } }),

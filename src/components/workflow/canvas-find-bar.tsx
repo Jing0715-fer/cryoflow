@@ -37,13 +37,19 @@
  *    a button that advances the cycle (one cursor, three triggers:
  *    Enter, next-arrow, count click), and the minimap's amber match
  *    chips jump to their job on a clean click (drag stays pan).
+ *  • Task 138 — the TYPE half: a third chip row surfaces the palette's
+ *    own workflow stages (RELION job-browser categories) that are
+ *    actually present in the workspace. Three orthogonal dimensions —
+ *    text ∧ status ∧ stage — combine in one exported predicate; a stage
+ *    that doesn't exist can't be a filter, and a single-category
+ *    workspace hides the row entirely.
  */
 
 import * as React from "react";
 import { ChevronDown, ChevronUp, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useActiveWorkspaceJobs, useWorkflowStore } from "@/lib/store";
-import { jobType } from "@/lib/workflow";
+import { JOB_CATEGORIES, jobType } from "@/lib/workflow";
 import type { JobDTO, JobStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -105,9 +111,13 @@ const STATUS_CHIP: Record<string, { dot: string; active: string }> = {
  *  query matches nothing (Task 134's contract, unchanged). Exported
  *  next to jobMatchesQuery so the bar and the canvas share ONE
  *  definition of "is a match". */
-export function jobMatchesFind(job: JobDTO, query: string, status: JobStatus | "all"): boolean {
+export function jobMatchesFind(job: JobDTO, query: string, status: JobStatus | "all", category: string | "all" = "all"): boolean {
   if (status !== "all" && job.status !== status) return false;
-  if (!query.trim()) return status !== "all";
+  // Task 138 — the type half: the match's job type must belong to the
+  // armed palette category (workflow stage). An unknown type has no
+  // category, so an armed stage lens honestly excludes it.
+  if (category !== "all" && jobType(job.type)?.category !== category) return false;
+  if (!query.trim()) return status !== "all" || category !== "all";
   return jobMatchesQuery(job, query);
 }
 
@@ -115,9 +125,11 @@ export function CanvasFindBar() {
   const findOpen = useWorkflowStore((s) => s.findOpen);
   const findQuery = useWorkflowStore((s) => s.findQuery);
   const findStatus = useWorkflowStore((s) => s.findStatus);
+  const findCategory = useWorkflowStore((s) => s.findCategory);
   const closeFind = useWorkflowStore((s) => s.closeFind);
   const setFindQuery = useWorkflowStore((s) => s.setFindQuery);
   const setFindStatus = useWorkflowStore((s) => s.setFindStatus);
+  const setFindCategory = useWorkflowStore((s) => s.setFindCategory);
   const focusJob = useWorkflowStore((s) => s.focusJob);
   const pendingFrom = useWorkflowStore((s) => s.pendingFrom);
   // The SAME workspace-scoped list the canvas renders — counting matches
@@ -132,17 +144,26 @@ export function CanvasFindBar() {
 
   const matches = React.useMemo(() => {
     if (!findOpen) return [] as JobDTO[];
-    return jobs.filter((j) => jobMatchesFind(j, findQuery, findStatus));
-  }, [findOpen, findQuery, findStatus, jobs]);
+    return jobs.filter((j) => jobMatchesFind(j, findQuery, findStatus, findCategory));
+  }, [findOpen, findQuery, findStatus, findCategory, jobs]);
 
   const n = matches.length;
 
-  // A new query or a new status chip is a new world — the centered index
-  // resets (and if jobs changed underneath a live index, the guard in
-  // go() folds it back).
+  // Categories actually PRESENT in the workspace, in the palette's own
+  // order — a stage that doesn't exist can't be a filter, and the row
+  // stays hidden entirely while every job shares one category (a lens
+  // with nothing to separate promises nothing).
+  const presentCategories = React.useMemo(() => {
+    const present = new Set(jobs.map((j) => jobType(j.type)?.category));
+    return JOB_CATEGORIES.filter((c) => present.has(c.key));
+  }, [jobs]);
+
+  // A new query, status chip, or type chip is a new world — the centered
+  // index resets (and if jobs changed underneath a live index, the guard
+  // in go() folds it back).
   React.useEffect(() => {
     setCur(null);
-  }, [findQuery, findStatus]);
+  }, [findQuery, findStatus, findCategory]);
 
   // Opening arms the input: focus + preselect whatever was typed so a
   // second Ctrl+F overtypes instead of appending.
@@ -211,11 +232,11 @@ export function CanvasFindBar() {
   if (!findOpen || pendingFrom) return null;
 
   // Honest zero: with no query AND no chip the bar simply isn't looking
-  // for anything (no count); but an active chip with zero hits must say
-  // so — the lens is armed, the canvas has nothing of that status.
+  // for anything (no count); but an armed lens with zero hits must say
+  // so — the lens is on, the canvas has nothing that matches it.
   const countLabel =
     n === 0
-      ? findQuery.trim() || findStatus !== "all"
+      ? findQuery.trim() || findStatus !== "all" || findCategory !== "all"
         ? "no matches"
         : ""
       : cur == null
@@ -352,6 +373,42 @@ export function CanvasFindBar() {
           );
         })}
       </div>
+      {/* Task 138 — the TYPE half of the lens: the palette's own workflow
+          stages (RELION job-browser tree), surfaced only when present in
+          the workspace and hidden entirely while every job shares one
+          category. Radio semantics like the status chips; neutral active
+          hue — a category spans several job types with several colors, so
+          no single hue could speak for it without lying for the others. */}
+      {presentCategories.length > 1 && (
+        <div
+          data-testid="canvas-find-type-row"
+          role="group"
+          aria-label="Filter matches by type"
+          className="flex max-w-[min(92vw,560px)] flex-wrap items-center justify-center gap-0.5 rounded-full border bg-card/95 px-1.5 py-1 shadow-md backdrop-blur"
+        >
+          {presentCategories.map(({ key, label, hint }) => {
+            const active = findCategory === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                data-testid={`canvas-find-type-${key}`}
+                aria-pressed={active}
+                title={active ? `Clear the ${label} filter` : `Only ${hint.toLowerCase()}`}
+                onClick={() => setFindCategory(active ? "all" : key)}
+                className={cn(
+                  "rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors",
+                  active
+                    ? "border-primary/60 bg-primary/10 text-foreground"
+                    : "border-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                )}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

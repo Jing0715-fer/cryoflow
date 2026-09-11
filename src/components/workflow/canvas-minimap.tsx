@@ -127,14 +127,24 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
    *  and release turns an armed jump back into an ordinary pan */
   const JUMP_SLOP = 6;
 
-  /** client coords → world coords (via the svg bounding box + viewBox) */
+  /** client coords → world coords (via the svg bounding box + viewBox).
+   *  Task 138 — the svg letterboxes (preserveAspectRatio xMidYMid meet):
+   *  whenever the viewBox aspect differs from the element's (fit mode
+   *  unions a zoomed-out viewport window into the box; mmH clamps at
+   *  88..264), the content renders with centered bands and a naive linear
+   *  map lands BESIDE the clicked point — the probe caught pans drifting
+   *  235 world px off-target. Map into the content box first, then
+   *  through the viewBox. */
   const toWorld = (e: React.PointerEvent): { x: number; y: number } | null => {
     const rect = svgRef.current?.getBoundingClientRect();
     const vb = worldBox;
     if (!rect || !vb) return null;
+    const scale = Math.min(rect.width / vb.w, rect.height / vb.h);
+    const offX = (rect.width - vb.w * scale) / 2;
+    const offY = (rect.height - vb.h * scale) / 2;
     return {
-      x: vb.x + ((e.clientX - rect.left) / rect.width) * vb.w,
-      y: vb.y + ((e.clientY - rect.top) / rect.height) * vb.h,
+      x: vb.x + (e.clientX - rect.left - offX) / scale,
+      y: vb.y + (e.clientY - rect.top - offY) / scale,
     };
   };
 
@@ -156,13 +166,14 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
   const findOpen = useWorkflowStore((st) => st.findOpen);
   const findQuery = useWorkflowStore((st) => st.findQuery);
   const findStatus = useWorkflowStore((st) => st.findStatus);
+  const findCategory = useWorkflowStore((st) => st.findCategory);
   const findMatchIds = React.useMemo(() => {
     const q = findQuery.trim();
-    if (!findOpen || (!q && findStatus === "all")) return null;
+    if (!findOpen || (!q && findStatus === "all" && findCategory === "all")) return null;
     const ids = new Set<string>();
-    for (const j of jobs) if (jobMatchesFind(j, findQuery, findStatus)) ids.add(j.id);
+    for (const j of jobs) if (jobMatchesFind(j, findQuery, findStatus, findCategory)) ids.add(j.id);
     return ids;
-  }, [findOpen, findQuery, findStatus, jobs]);
+  }, [findOpen, findQuery, findStatus, findCategory, jobs]);
   const findLens = findMatchIds != null && findMatchIds.size > 0;
 
   if (jobs.length === 0) return null;

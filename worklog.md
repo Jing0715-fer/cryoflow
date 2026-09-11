@@ -4100,3 +4100,26 @@ Stage Summary:
 - 「渲染集合才是演员名册」：API roster 是数据真相，DOM 是舞台真相；从名册挑演员可能挑到没上台的。多 workspace 语义改变了 ws=null 行的可见性——单 workspace 时代的侥幸（全量渲染）不是合同
 - 「map 上的点也会出画框」：fit∪viewport 取景 + letterbox 让 chip 投影随视口漂移，钉住某个 chip 的可点性等于钉住整个世界状态。自愈式几何查询（pick→verify→click，失效重挑）是探针域对「视口不可信」教义的终极形态
 - 遗留（下轮候选）：find 的类型过滤 chips（状态 chips 同款方言，headless 可验证）；minimap sel 模式的 chip 点击聚焦（跳转语义可平移到选中框）；world-hygiene 稳态观察账本（三审计后撞车/蔓延应绝迹，观察几轮）；favorites 拖拽排序（真机）；预览卡端口点/边高亮（真机）；建议连线手感（真机）；runner wall-time 剖面（qa64 74s 十二轮一致，继续让位）；EMPIAR 真数据回归（重，让位）；用户真机项；undo 手感参数；诊断签名命中率观察（真机）
+
+---
+Task ID: 138
+Agent: main (cron window 2026-09-12 04:15:35 +08:00, trace …202609120415)
+Task: 例行七条——开局核对 + QA 判稳 → 选题开发（find 类型维）→ 回归 → 交接闭环。本轮交付「三目录志」（文本 ∧ 状态 ∧ 类型）+ 顺手修掉 minimap letterbox 真产品 bug
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 137（30f840c == origin/main，树净）；BUILD_ID rZDOmM021u8yaMizgk_HX 匹配；冷启动 2s READY；hygiene 稳态观察账本：首跑 2 重叠（上轮末套件遗留，挪卡即收敛）→ 二跑 0/0/0 稳态；三件套（qa63/qa00/t137 38）全绿 → 稳定
+- 【实现·类型维】store 新增 findCategory（"all" | palette category key，与 findStatus 同款短暂性：closeFind 重置、不入 undo/存储）；jobMatchesFind 升级第三正交维（category 门 ∧ status 门 ∧ 文本门——未知类型无 category，武装的 stage 透镜诚实排除之）；诚实零条件扩为 query‖status‖category
+- 【实现·chips 行】第三行 chips（canvas-find-type-row）：**在场派生**（只出现工作区实际存在的类别——不存在的 stage 不能成为过滤器；单一类别工作区整行隐藏）；palette 序展示（RELION job-browser 树的 14 组顺序）；radio 语义与状态 chips 同款（再点即清）；中性激活色（类别横跨多类型多色，无单一色相能代言——状态 chips 借状态色、类型 chips 不撒谎）；title 复用现成 hint 词汇；max-w + flex-wrap 防溢出
+- 【实现·消费者同步】canvas.tsx 与 canvas-minimap.tsx 的 findMatchIds 派生换四参谓词（空门条件同步扩展）——一个谓词四只眼：bar 计数、卡片 ring、minimap 琥珀、（计数按钮的）循环目标永不漂移
+- 【t138 探针】七相 34 断言：S 种 6 卡跨 5 stage × 4 状态；B chips 集 == 在场类别且按 palette 序、fresh open 零武装；C Motion chip 收窄 + bar/ring/amber 三眼 == live ∩ motion oracle + 无越 ring；D 正交性（motion∧running→1 / 清状态回 2 / 文本 Alpha∧motion→Alpha）；E radio（CTF 替换 Motion / 再点清空）；F 诚实零 + Esc 遗忘三半（reopen 零残迹）；G 屏摄；Z console 清 + roster 还原
+- 【探针教训·oracle 映射从源码提取】手写 CATEGORY_OF 两连败（缺 rebalance/symexpand→orientation；select2d 实为 class2d 非 select）→ 用正则从 workflow.ts 的 spec(...)→category: 原样提取完整 35 类型映射——产品的映射是唯一真相，探针不复述它；B2 还纠正了排序比较（DOM 是 palette 序不是字母序）
+- 【真 bug·letterbox 反演】全矩阵块 7 t137 E3 抓到 Δ=(−0,−235)：minimap toWorld() 忽略 preserveAspectRatio letterbox——fit 模式把 zoom-out 后的巨大视口窗并进取景框，mmH 又钳在 88..264，viewBox 纵横比 ≠ svg 盒纵横比时内容带居中留白带，线性反演落点系统性偏移。修复：先映入内容盒（scale = min(rx,ry) + 中心偏移）再过 viewBox → 修复后 E3 Δ=(-0,0)，点击平移精确落点；t136/t138/qa63 复验全绿
+- 【收尾】构建 VBkkddgxX1TAA7yiqj72D；全矩阵 74 套（t138 自动收录）分 9 块全绿——块 1-6 跑在 letterbox 修复前的构建（该修复唯一 delta 是 minimap 平移反演，直接消费者 t136/t137/t138/qa63 已在新构建逐套复绿），块 7-9 + t137 槽位在新构建全绿；块 4 t108/t109 瞬时抖动复跑自愈（观察账本）；worklog + commit + push + 环境清理
+
+Stage Summary:
+- 「三目录志」：透镜现在是完整的三维张量——文本（名字/类型标签子串）∧ 状态（radio chips）∧ 类型（palette stage chips）。维度正交而谓词唯一：jobMatchesFind 是四只眼共享的同一份真相，多一个消费者就多一份漂移风险，所以三个 UI 面全部走导出函数——「匹配判定存在 N 份的时刻就是它开始漂移 N 倍速的时刻」的延续
+- 「不存在的过滤器不能存在」：chips 从工作区在场类别派生——一个 tomo 工作区不该看到 Motion chip，单一类别工作区连整行都不渲染。过滤器承诺的是「这个世界的某个切面」，世界里没有的切面无从过滤；派生集合让谎言在渲染层就不可能被说出
+- 「类别 chip 不借色」：状态 chips 借状态色（teal/emerald/rose——世界已在说的方言），类别横跨多类型多色相，任何单一激活色都会替别的类型撒谎——中性主色激活态是唯一诚实的选择。借色的原则是「借它本来就在说的」，不是「借什么都行」
+- 「反演要懂投影」：SVG 的 viewBox→盒是投影，盒→viewBox 的反演必须知晓 letterbox（中心带 + min 缩放）——探针用 235px 的系统性偏移买来了这条几何课。凡是「屏幕点 ↔ 世界点」的双向映射，两个方向都必须过同一套投影数学；一半忠实一半线性就是一半撒谎
+- 「探针的 oracle 从产品源码提取」：手写映射必然漂移（35 类型里两处想当然）——用工具从 spec(...)→category: 原样提取，产品的词表是唯一词表。这和「断言不变量」同源：oracle 的每一条目都应该能指着产品代码说「就是这里来的」
+- 遗留（下轮候选）：minimap sel 模式 chip 点击聚焦（跳转语义平移到选中框，headless 可验证）；hygiene 稳态观察账本（本轮首跑 2 重叠收敛、块 4 瞬时抖动 2 套——账本在记）；find 三维的持久化讨论（会话内暂存 vs 用户期望保留？真机反馈再评估）；favorites 拖拽排序（真机）；预览卡端口点/边高亮（真机）；建议连线手感（真机）；runner wall-time 剖面（qa64 74s 十三轮一致，继续让位）；EMPIAR 真数据回归（重，让位）；用户真机项；undo 手感参数；诊断签名命中率观察（真机）

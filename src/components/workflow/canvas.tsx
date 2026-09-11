@@ -928,15 +928,16 @@ export function WorkflowCanvas() {
   const findOpen = useWorkflowStore((s) => s.findOpen);
   const findQuery = useWorkflowStore((s) => s.findQuery);
   const findStatus = useWorkflowStore((s) => s.findStatus);
+  const findCategory = useWorkflowStore((s) => s.findCategory);
   const openFind = useWorkflowStore((s) => s.openFind);
   const closeFind = useWorkflowStore((s) => s.closeFind);
   const findMatchIds = React.useMemo(() => {
     const q = findQuery.trim();
-    if (!findOpen || (!q && findStatus === "all")) return null;
+    if (!findOpen || (!q && findStatus === "all" && findCategory === "all")) return null;
     const ids = new Set<string>();
-    for (const j of jobs) if (jobMatchesFind(j, findQuery, findStatus)) ids.add(j.id);
+    for (const j of jobs) if (jobMatchesFind(j, findQuery, findStatus, findCategory)) ids.add(j.id);
     return ids;
-  }, [findOpen, findQuery, findStatus, jobs]);
+  }, [findOpen, findQuery, findStatus, findCategory, jobs]);
   // The lens only engages with a live query AND at least one match — a
   // zero-match search must not blank the canvas (the count chip carries
   // the "no matches" honestly instead).
