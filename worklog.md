@@ -3983,3 +3983,25 @@ Stage Summary:
 - 「探针的失败先自省再他省」：C3/C5 两连败都是探针自己的断言错位（旧名过滤器、asc/desc 混淆）——30 秒的 allInnerTexts 转储分辨了「产品没改名」与「探针找错行」；第三败（gamma 超时）才是真 bug。假红三折里两折在探针、一折在产品——诊断的成本永远低于瞎修
 - 「搜索框要自己挣位置」：N≥5 才现身——五条以内的货架一屏放得下，搜索框是 chrome 不是能力；与批量工具的 N≥2 同一条交互设计定律：功能出现的时机本身就是设计。诚实计数「k of N」让过滤永远可证伪
 - 遗留（下轮候选）：模板搜索的进一步细节（按 job type 过滤、按日期排序，真机反馈再评估）；预览卡端口点/边高亮（真机）；建议连线手感增强（真机）；runner wall-time 剖面（qa64 72s 八轮一致，继续让位）；qa60/61 共享传输推广（暂缓维持）；EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势、TSV/海报粘贴验证）；minimap mode 持久化（真机反馈再评估）；undo 手感参数调优；诊断签名命中率观察（真机）
+
+---
+Task ID: 133
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-11 20:15 window)
+Task: cron 自主巡检——Task 133「job palette 收藏星标：深思熟虑的常用类型永不滚走」：开局核实 worklog 尾部 Task 132/69e199f == origin/main，冷启动 + smoke/qa00/t132 三件套绿判稳。模板货架连做六轮后换面——rg 盘点确认 palette 无收藏功能（36 类型只有「最近使用」chips）。交付：localStorage cryoflow-fav-types（star 序、sanitize-or-default 与 recents 同合同）+ 行内星标（hover 显形、starred 常显琥珀；span 非嵌套 button——行内 button 套 button 是非法 DOM；pointerdown 吞掉防误拖；槽位常驻 tier 徽章永不移位）+ Favorites chips 行（Recently used 之上——「深思熟虑压过临时」；点击视口中心加 job，与 recents 同方言）+ 头部星形「只看收藏」过滤（先过滤后搜索；琥珀 ring 激活态；计数徽章同染）+ 诚实空态（「Show all types」逃生门）+ t133 28 断言九相绿（矩阵位 #54，wall 22s）+ 受影响面（t92/t126/t124/t108/qa83/qa81/qa75/t86/smoke/qa00）10/10 全绿 + 全矩阵 69 套分 7 块 0 失败（qa61/qa75 各一次档案内瞬时抖动，单跑+复跑块均绿）+ worklog + push
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 132（69e199f == origin/main，树净）；BUILD_ID sA5i5XKhkx0oZiF9O7Xld 匹配；冷启动 + qa63-smoke/qa00/t132(30) 三件套全绿 → 稳定
+- 【选题】Task 132 交接候选多为真机让位项；模板货架已连做六轮（127-132）→ 换面到 palette：rg 确认无 favorite/starred/pinned；「最近使用」回答「我刚用过什么」，收藏回答「我一直回来用什么」——稳定、深思熟虑、重启幸存
+- 【实现·存储】FAV_KEY + readFavs/writeFavs（数组 + try/catch 兜底，与 recents 逐字同构）；favs state 挂载后读（hydration 安全）；toggleFavType 用函数式 setState、NEXT 数组一次写入（星序 = 插入序）
+- 【实现·行内星标】span role=button（行已是 button，嵌套非法）+ tabIndex 0 + aria-pressed + Enter/Space 全键盘语义；onPointerDown stopPropagation——星标永不触发拖拽；未选中 opacity-0 → group-hover 60% → 自身 hover/focus 100%（opacity 方案避开颜色变体优先级歧义）；size-5 槽位常驻——tier 徽章零移位
+- 【实现·chips + 过滤】FAVORITES chips 行在 RECENTLY USED 之上（琥珀描边 + 行尾小星）；favOnly 头部开关（aria-pressed + 琥珀激活态）；baseTypes = favOnly ? JOB_TYPES.filter(fav) : all——「先收藏门后搜索」组合律；空态带逃生门（Show all types）；no-match 分支加 !(favOnly && favs=0) 守卫防双空态
+- 【探针伤情一折】sticky 分类头拦截指针 + 折叠分类里的行是 grid-rows-[0fr] 幽灵——hover 死循环超时；加固：expandAll 循环点开全部 aria-expanded=false 分类头 + 星标 force click（opacity-0 元素 CDP 直投、合法越过 sticky 重叠）；计数断言全部先 expandAll
+- 【收尾】eslint 0、tsc src 0、构建 BUILD_ID zxwvED3iffDLSymeBnRYF；t133 终跑 28 全绿（roster 151 jobs 原样归还——chip 点击真的加 job、探针按 id 追踪 DELETE /api/jobs/{id} 清理）；受影响面 t92(36)/t126(40)/t124(32)/t108(72)/qa83/qa81/qa75/t86(38)/smoke/qa00 全绿；全矩阵 69 套分 7 块 0 失败（qa61 位 #5、qa75 位 #16 各一次瞬时——两者均为档案内已知间歇，单跑绿 + 所在块复跑绿；块峰 186-203MB 零阈值重启）；worklog + commit + push + 环境清理
+
+Stage Summary:
+- 「深思熟虑压过临时」：Favorites 行压在 Recently used 之上——recents 是「我刚碰过什么」（一次性、易翻篇），favorites 是「我一直回来用什么」（稳定、可经营）。两个快速通道各答一个问题，顺序就是价值序
+- 「span 不是 button，是语义的替身」：行本身是 button，HTML 禁止 button 套 button——span + role=button + tabIndex + 键盘 handler 是合法替身；pointerdown stopPropagation 让收藏与拖拽两个手势在同一行和平共处。可达性不因 DOM 合法性妥协
+- 「槽位常驻，世界不动」：未选中星标 opacity-0 但 size-5 槽位永远在——hover 时 tier 徽章不被推挤。布局稳定性是隐合同：一个 hover 不该让旁边的东西搬家
+- 「先过滤后搜索」：favOnly 门在搜索之前——「在我的收藏里找」和「在全部里找」是两个意图；组合而非覆盖，两个维度正交
+- 「探针的 sticky 头课」：sticky 元素合法地遮挡滚动到顶边的行——Playwright 的 actionability 检查永远等不到；折叠分类里的行是 opacity-0 幽灵。expandAll + force click 是 palette 类 UI 探针的标准起手式（与 Task 129 的 pan-until-visible 同族：校准常数会过期，闭环不会）
+- 遗留（下轮候选）：favorites 的进一步细节（拖拽排序、按使用频次建议星标，真机反馈再评估）；模板搜索按 job type 过滤/日期排序（真机）；预览卡端口点/边高亮（真机）；建议连线手感增强（真机）；runner wall-time 剖面（继续让位）；qa60/qa75 瞬时抖动的观察账本（本轮 qa61 1 次、qa75 2 次，继续记账）；EMPIAR 真数据回归（重，继续让位）；用户真机项；minimap mode 持久化；undo 手感参数调优；诊断签名命中率观察（真机）
