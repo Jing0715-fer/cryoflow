@@ -3668,3 +3668,29 @@ Stage Summary:
 - 「hydration 幽灵先怀疑产物再怀疑源码」：同一源码 A 构建 4/4 确定性挂、C/D 构建全绿、dev 零复现——二分树还没画完，真凶已被 rebuild 击毙。Task 114 教义（探针前 fresh build）的延伸形态：源码二分前先做产物二分（同源重建对照）；不然会用 stash 重建的 3 分钟买来一个不存在的源码 bug
 - 「OOM 是这台机器的底色，矩阵是它的放大器」：3.9GB 无 swap 跑 56 套浏览器套件，next-server 2.5GB anon-rss 被内核点名——服务器死机时的一切「测试失败」先验尸（dmesg）再立案；死了的服务器上每个套件都死于各自的姿势，七连挂是七个假嫌疑人
 - 遗留（下轮候选）：qa60/61 共享传输向其余 51 套件推广（暂缓维持）；server 内存健康度——runner 增加块间 fresh-server 选项的评估（本轮手动重启即可，自动化的收益待观察）；打印族收尾——诊断 strip 的 Overview 腿（现仅 Log tab 触发，Overview 的 result 摘要是否也该带 findings 计数待真机反馈）；EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势、TSV/海报粘贴验证）；3D viewer 体积截面（真机需求观察）；minimap mode 持久化（真机反馈再评估）；undo 手感参数调优；palette Copy PNG（Task 110 拒绝维持）
+
+---
+
+## Task 120 — 诊断 strip 的 Overview 腿：teaser 计整本日志，jump 落 Full 凑齐 parity（2026-09-11 08:45 窗口）
+
+Agent: Super Z (main)
+Task: cron 七条惯例——判稳后从 Task 119 交接候选中选题「诊断 strip 的 Overview 腿」并完整闭环。
+
+Work Log:
+- 开局核实：worklog 尾部 Task 119（cron 文本所称 Task 13 已过时 100+ 轮）；HEAD ce98f23 == origin/main，BUILD_ID 7BXDjGzJrwuOyO3IN2-_j 新鲜；冷启动 + smoke/qa00/t119 三件套全绿判稳
+- 选题：Task 119 交接「Overview 的 result 摘要带 findings 计数」——诊断 strip 活在 LogConsole（Radix Tabs 惰性挂载），用户读 Overview 时失败原因信息量为零
+- 实现（src/components/workflow/job-inspector.tsx）：
+  - JobInspector：failed 作业一次 `?full=1` 取整本日志（失败后日志静态）→ diagnoseLog → fullFindings；teaser 跳转 openDiagnosis 置 one-shot `logJumpFull`，onValueChange（手动切 tab）与 dialog 关闭都清位
+  - ResultSummary 失败分支：data-overview-diagnosis teaser——Stethoscope 头 + 计数 pill + 「across the full run.out — the log is the ground truth」注 + 每签名一枚 chip（图标+FINDING_ICONS 同源 + label，title=hint，×count）+ 「Open the full diagnosis」按钮（ArrowRight）
+  - LogConsole：新增 initialMode prop（useState 初始化器消费）——jump 落地即 Full 模式，strip 与 teaser 计数构造性一致；一次性，手动切 tab 即回 tail
+  - OverviewTab 透传 diagnosis/onOpenDiagnosis
+- 样式细节（globals.css）：teaser 纸面重墨六规则（ovd-head-label/ovd-count/ovd-note 深玫红、chip 白底玫红边框、chip label/×count 重墨），chip break-inside atomic；跳转按钮靠既有按钮 print 隐藏规则自动上不了纸——纸上 chip 就是路标
+- t120-e2e.mjs（82 断言五相）：S 种子 717 行日志（签名钉在 L5/L6、700+ filler 推出 tail 窗口）+ 完整对照——双窗口预言机 full=5/tail=3；A 相 29 条（tail strip 3 不变→teaser 5→jump 后 Full strip 5 parity→手动回程 tail 3→对照零 teaser）；B 相 16 条（Overview 纸腿 A4 portrait、按钮不上纸、对照纸净）；F 相 15 条静态合同；Z 相级联清理
+- 三段式构建 BUILD_ID n2TYUcMqdxYtEmxFr65yu；t120 首跑 82 全绿；受影响面 t119(96)/t117/t113(46)/smoke/qa00 全绿；全矩阵 57 套分 10 块 0 失败（t120 矩阵位 #43 一次过，qa60/61 本轮干净）
+
+Stage Summary:
+- 「strip 答 View 里的 WHY，teaser 答 Tab 外的 WHY」：Radix Tabs 惰性挂载意味着每个 tab 的信息要自给——LogConsole 随 tab 卸载，它的诊断不能只活在它里面。失败的 Overview 卡现在自带结论（计数+签名+下一步），证据仍在 Log——两层各说各的窗口（teaser 计整本、strip 计在视窗口），jump 落 Full 让两次见面数字必然相同
+- 「parity 靠构造不靠巧合」：两个窗口的计数天然可以不同（700 行日志的 tail 看不见 L5 的 CUDA 行）；与其让用户撞上不一致再解释，不如让跳转这个动作本身切换窗口（initialMode one-shot）——语义不同就造一次相遇，相遇时必须相等
+- 「fixture 的设计点就是断言的陷阱」：t120 种子故意把签名推出 600 行 tail 窗口（这是存在意义），照抄 t119 的「tail 含首行」断言恰好反向撞死——复用旧断言前先问新 fixture 改了什么不变量；tailNeedle 参数化（M-step / Final map written）是正确形态
+- 「seed 探针先行」：CLI 嵌套引号（$disconnect 被 shell 吞）先在独立探针脚本里把种子机制验通（status 翻转/log 200/stderr 合并），再回到 e2e 排查——探针判「机制无罪」后，FATAL 的嫌疑人立刻收敛到断言自身
+- 遗留（下轮候选）：server 内存健康度——runner 块间 fresh-server 选项评估（本轮 10 块全绿未现压力）；qa60/61 共享传输推广（暂缓维持）；EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势、TSV/海报粘贴验证）；3D viewer 体积截面（真机需求观察）；minimap mode 持久化（真机反馈再评估）；undo 手感参数调优；palette Copy PNG（Task 110 拒绝维持）；诊断 teaser 是否需要「签名无匹配」的阴性提示（failed 无 finding 时卡片沉默——是否该说「无已知签名」待真机反馈）

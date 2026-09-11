@@ -76,7 +76,7 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { diagnoseLines } from "@/lib/log-diagnosis";
+import { diagnoseLines, diagnoseLog, type LogFinding } from "@/lib/log-diagnosis";
 import { jobType } from "@/lib/workflow";
 import { useWorkflowStore } from "@/lib/store";
 import type { EdgeDTO, JobDTO } from "@/lib/types";
@@ -308,10 +308,20 @@ const FINDING_ICONS: Record<string, React.ElementType> = {
   segfault: Zap,
 };
 
-function LogConsole({ job }: { job: JobDTO }) {
+function LogConsole({
+  job,
+  initialMode,
+}: {
+  job: JobDTO;
+  /** Task 120: the Overview diagnosis teaser's jump lands in Full mode so
+   *  the strip counts the same whole-log evidence the teaser counted —
+   *  parity by construction. One-shot: any manual tab change remounts the
+   *  console without it, and the tail default returns. */
+  initialMode?: "tail" | "full";
+}) {
   const [log, setLog] = React.useState<string | null>(null);
   const [noLog, setNoLog] = React.useState(false);
-  const [mode, setMode] = React.useState<"tail" | "full">("tail");
+  const [mode, setMode] = React.useState<"tail" | "full">(initialMode ?? "tail");
   const [totalLines, setTotalLines] = React.useState(0);
   const [truncated, setTruncated] = React.useState(false);
   const [follow, setFollow] = React.useState(true);
@@ -829,7 +839,18 @@ function Timeline({ job }: { job: JobDTO }) {
   );
 }
 
-function ResultSummary({ job }: { job: JobDTO }) {
+function ResultSummary({
+  job,
+  diagnosis,
+  onOpenDiagnosis,
+}: {
+  job: JobDTO;
+  /** Task 120: full-log findings for the failed summary — the Overview leg
+   *  of Task 119's diagnosis. Undefined/empty keeps the card exactly as it
+   *  was (healthy jobs, failed jobs with no known signature). */
+  diagnosis?: LogFinding[];
+  onOpenDiagnosis?: () => void;
+}) {
   if (job.status === "running") {
     return (
       <div className="flex items-center gap-3 rounded-lg border border-teal-600/30 bg-teal-600/5 p-3.5" data-print-atomic="">
@@ -875,6 +896,68 @@ function ResultSummary({ job }: { job: JobDTO }) {
           <p className="mt-0.5 break-words text-xs leading-relaxed text-rose-700 dark:text-rose-300">
             {job.result ?? "The engine exited with an error — see the Log tab for details."}
           </p>
+          {diagnosis && diagnosis.length > 0 ? (
+            /* Task 120: the Overview leg of the failure diagnosis — the strip
+               lives in the Log console, which unmounts with its tab, so the
+               failed summary carries the verdict here: count + one chip per
+               signature (hint on hover), one click to the evidence. The teaser
+               counts the WHOLE run.out (one ?full=1 fetch — the log is static
+               once failed); the jump lands the console in Full mode so the
+               strip's count agrees on arrival. A hint with provenance, not a
+               verdict: the log stays the ground truth. */
+            <div
+              data-overview-diagnosis=""
+              role="note"
+              aria-label={`Failure diagnosis: ${diagnosis.length} finding${diagnosis.length === 1 ? "" : "s"} in the full log`}
+              className="mt-2.5 rounded-lg border border-rose-500/20 bg-rose-500/[0.05] p-2.5"
+            >
+              <div className="flex items-center gap-1.5">
+                <Stethoscope className="size-3.5 shrink-0 text-rose-500 dark:text-rose-400" aria-hidden="true" />
+                <span className="ovd-head-label text-[11px] font-semibold uppercase tracking-wider text-rose-600 dark:text-rose-300">
+                  Failure diagnosis
+                </span>
+                <span className="ovd-count rounded-full bg-rose-500/15 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-rose-600 dark:text-rose-300">
+                  {diagnosis.length} {diagnosis.length === 1 ? "finding" : "findings"}
+                </span>
+                <span className="ovd-note hidden min-w-0 truncate text-[10px] text-muted-foreground sm:inline">
+                  across the full run.out — the log is the ground truth
+                </span>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {diagnosis.map((f) => {
+                  const Icon = FINDING_ICONS[f.id] ?? AlertTriangle;
+                  return (
+                    <span
+                      key={f.id}
+                      data-ovd-chip={f.id}
+                      title={f.hint}
+                      className="inline-flex max-w-full items-center gap-1 rounded-full border border-rose-500/20 bg-zinc-950/[0.03] py-0.5 pl-1.5 pr-2 dark:bg-zinc-950/40"
+                    >
+                      <Icon className="size-3 shrink-0 text-rose-500 dark:text-rose-400" aria-hidden="true" />
+                      <span className="ovd-chip-label min-w-0 truncate text-[10.5px] font-medium text-rose-700 dark:text-rose-200">
+                        {f.label}
+                      </span>
+                      {f.count > 1 ? (
+                        <span className="ovd-chip-count shrink-0 font-mono text-[9.5px] tabular-nums text-muted-foreground">
+                          ×{f.count}
+                        </span>
+                      ) : null}
+                    </span>
+                  );
+                })}
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={onOpenDiagnosis}
+                className="mt-2 h-6 gap-1.5 border-rose-500/30 px-2 text-[10.5px] text-rose-600 hover:bg-rose-500/10 hover:text-rose-700 dark:text-rose-300 dark:hover:text-rose-200"
+              >
+                <ArrowRight className="size-3" aria-hidden="true" />
+                Open the full diagnosis
+              </Button>
+            </div>
+          ) : null}
         </div>
       </div>
     );
@@ -1197,10 +1280,15 @@ function OverviewTab({
   job,
   data,
   onOpenFiles,
+  diagnosis,
+  onOpenDiagnosis,
 }: {
   job: JobDTO;
   data: OutputsResponse | null;
   onOpenFiles: () => void;
+  /** Task 120: full-log diagnosis for the failed summary card. */
+  diagnosis?: LogFinding[];
+  onOpenDiagnosis?: () => void;
 }) {
   // refining jobs get a live per-iteration resolution chart
   const isRefineType = /class2d|class3d|initialmodel|refine3d|multibody/i.test(job.type);
@@ -1214,7 +1302,7 @@ function OverviewTab({
     (job.progress > 4 || job.status !== "running");
   return (
     <div className="space-y-6">
-      <ResultSummary job={job} />
+      <ResultSummary job={job} diagnosis={diagnosis} onOpenDiagnosis={onOpenDiagnosis} />
       <JobNoteSection job={job} />
       {/* import jobs show the raw detector frames gallery. */}
       {/^import$/i.test(job.type) && job.status !== "idle" ? (
@@ -1971,6 +2059,46 @@ export function JobInspector() {
 
   const filesCount = data?.files.length ?? 0;
 
+  // Task 120: the Overview leg of the failure diagnosis — the strip lives in
+  // the Log console, which unmounts with its tab, so the Overview summary
+  // needs its own findings. A failed job's log is static: ONE ?full=1 fetch
+  // answers for the whole visit, and the teaser counts the WHOLE run.out
+  // while the strip counts whichever window it renders.
+  const [fullFindings, setFullFindings] = React.useState<LogFinding[]>([]);
+  const jobFailed = job?.status === "failed";
+  React.useEffect(() => {
+    setFullFindings([]);
+    if (!jobId || !jobFailed) return;
+    let alive = true;
+    void (async () => {
+      try {
+        const res = await fetch(`/api/jobs/${jobId}/log?full=1`, { cache: "no-store" });
+        if (!res.ok) return; // no log (job never ran) — no teaser, honestly
+        const body = (await res.json()) as { tail?: string };
+        if (alive) setFullFindings(diagnoseLog(body.tail));
+      } catch {
+        /* transient — the teaser is a summary, not a promise; the next open retries */
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [jobId, jobFailed]);
+
+  // the teaser's jump lands the console in Full mode so the strip's count
+  // equals the teaser's on arrival (parity by construction). One-shot: any
+  // manual tab change goes through onValueChange and clears the flag, and
+  // closing the dialog clears it too — the tail default returns.
+  const [logJumpFull, setLogJumpFull] = React.useState(false);
+  React.useEffect(() => {
+    if (inspectId == null) setLogJumpFull(false);
+  }, [inspectId]);
+  const openDiagnosis = React.useCallback(() => {
+    if (inspectId != null) tabTouchedForRef.current = inspectId;
+    setLogJumpFull(true);
+    setTab("log");
+  }, [inspectId]);
+
   return (
     <Dialog open={open} onOpenChange={(o) => !o && inspect(null)}>
       <DialogContent
@@ -2010,7 +2138,7 @@ export function JobInspector() {
               </DialogDescription>
             </DialogHeader>
 
-            <Tabs value={tab} onValueChange={(v) => { if (inspectId != null) tabTouchedForRef.current = inspectId; setTab(v); }} className="flex min-h-0 flex-1 flex-col gap-0">
+            <Tabs value={tab} onValueChange={(v) => { if (inspectId != null) tabTouchedForRef.current = inspectId; setLogJumpFull(false); setTab(v); }} className="flex min-h-0 flex-1 flex-col gap-0">
               {/* tab triggers are screen navigation — paper prints the ACTIVE
                   tab and the report masthead names it ("showing Results") */}
               <div className="no-print shrink-0 border-b px-5 pt-2.5 sm:px-6">
@@ -2043,11 +2171,11 @@ export function JobInspector() {
               </div>
 
               <TabsContent value="overview" className="mt-0 min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
-                <OverviewTab job={job} data={data} onOpenFiles={() => setTab("files")} />
+                <OverviewTab job={job} data={data} onOpenFiles={() => setTab("files")} diagnosis={fullFindings} onOpenDiagnosis={openDiagnosis} />
               </TabsContent>
 
               <TabsContent value="log" className="mt-0 min-h-0 flex-1 px-5 py-4 sm:px-6">
-                <LogConsole job={job} />
+                <LogConsole job={job} initialMode={logJumpFull ? "full" : undefined} />
               </TabsContent>
 
               <TabsContent value="results" className="mt-0 min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
