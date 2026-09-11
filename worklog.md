@@ -3742,3 +3742,26 @@ Stage Summary:
 - 「遥测让 folklore 变成数据」：本轮之前「服务器会不会攒内存」靠 folklore 回答（Task 119 的 2.5GB 是唯一数据点，且来自尸体）；现在有剖面——基线 144MB、每套 ~8-9MB、58 套天花板 203MB。下一个 OOM 问题从剖面出发，不从 dmesg 出发
 - 「机制验证走极端参数」：RSS_RESTART_MB=1 强制每套都走重启路径（套件仍绿）、FRESH_SERVER=0 验证旧路径、默认跑验证「永不触发」路径——三跑三态，机制在它的所有状态下被验证，而不只是 happy path
 - 遗留（下轮候选）：runner 遥测可加每套 wall-time 列（慢套件取证，小）；qa60/61 共享传输推广（暂缓维持）；EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势、TSV/海报粘贴验证）；3D viewer 体积截面（真机需求观察）；minimap mode 持久化（真机反馈再评估）；undo 手感参数调优；palette Copy PNG（Task 110 拒绝维持）；诊断签名命中率观察（真机）
+
+---
+Task ID: 123
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-11 11:30 window)
+Task: cron 自主巡检——Task 123「Pipeline 时间线：会话故事的第三视图」：开局核实 worklog 尾部 Task 122/70d815f == origin/main，冷启动 + smoke/qa00/t121 三件套绿判稳。盘点发现旧候选大多已被消化（Copy 数据四门已齐、历史面板 Task 106 已建、3D 体积截面已实质建成、作业 note/presets 已在），数据核查发现 updatedAt 被轮询污染（26 作业同一时刻）而引擎印章 startedAt+实测 duration 才是诚实运行窗口 → 定案 PipelineAnalytics 第三视图「Session timeline」。交付：甘特式每作业一行时间轴（x=[startedAt, startedAt+duration]，completed=emerald/failed=rose/running=amber+soft-pulse 方言）+ niceStep 刻度轴（≤5 格）+ never-run 页脚（诚实缺席者计数）+ running 行 5s ticker 实时伸展 + 剪贴板 summary 时间线腿 + 纸面保墨腿（print-color-adjust exact + 护栏 unroll）+ duration.ts 单源上提（fmtDuration/fmtClock/fmtAgo 三件出 inspector，全 src 唯一定义）+ t123 51 断言五相 ×2 绿（含矩阵位 #45 一次过）+ 受影响面（t119 96/t120 82/t121 95/smoke/qa00）全绿 + 全矩阵 59 套分 10 块 0 失败 + worklog + push
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 122（70d815f == origin/main）；三件套全绿判稳
+- 【选题·候选消化盘点】agent-browser 观察式 QA（画布/顶栏截图）+ 逐项核实：图表四门导出（Task 110 chart-export-buttons：CSV/PNG 下载 + TSV/PNG 复制）已齐、palette Export 组双腿已在、历史面板 Task 106 已建（past/future + Now 分界 + 批量跳转）、快捷键 ? 对话框三门单源已在、作业 note（Prisma 字段）与 per-type presets 已在、map-ortho-panel + embed 截面 UI 双向联动已实质建成 → cron 所称方向多已被往轮消化
+- 【数据前提核查】GET /api/jobs 实测：26 作业 updatedAt 全部 = 最后一次轮询时刻（03:31:55 同一刻）——updatedAt 不可作时间轴；startedAt+duration 完成后保留（engine finalize 只写 status/progress/result/duration，不清 startedAt）→ 诚实窗口；demo 种子直接写 completed 不带 startedAt（0/26）→ 时间线按兄弟节合同自隐，探针以引擎级种子填充
+- 【实现】pipeline-analytics：runs memo（scoped 过滤 startedAt+三状态，completed/failed 用 [start, start+max(1000,duration)]，running 伸展到 now）+ anyRunning 条件 5s ticker（无 running 零定时器）+ niceStepMs 刻度阶梯（sec/step≤5）+ neverRan 计数 + hasContent 加入 runs.rows>0 + JSX 全宽块（grid 之外、section 直属：36px 图标列 + 112px 名列 + 轨道 + 56px 时长列，轴 hairline 与刻度标签共享 164px/64px 内缩算术）+ bar print-color-adjust exact；duration.ts 上提三件格式化器（job-inspector 删本地 twin 改导入）
+- 【放置伤情一次】时间线块锚定 </div></section> 插入时落进 grid 容器内部（会成半宽 cell）——回显核对发现，移出为 section 直属子块
+- 【探针三折】①A2b 选择器 span[title] 咬到图标壳（title 空文本交替）→ 改名列专属 span.w-28；②A9b 假挂揭示真疣：fmtOffset 分钟粒度把 80s/88s 都坍缩成 "+1m → +1m (completed, 8s)" 自相矛盾 → 行偏移改用 fmtDuration 复合精度（"1m 28s"），轴刻度保持粗粒度；③A9c 零偏移被 fmtDuration(0) 的 "—" 哨兵渲染成 "+—" → fmtOffsetPrecise 零守卫（"+0s" 是数据，"+—" 是毛刺）
+- 【视觉验收】t123-shot.mjs 屏/纸双摄：五行三色条、轴刻度 0s-3m、时长列、诚实页脚、纸上保墨 + chrome 隐没——人眼过
+- 【收尾】eslint 0、tsc src 0、三段式 BUILD_ID bPCjj8Cx0nP3eUfzRoc_O3759；t123 终跑 51 全绿；受影响面 t119(96)/t120(82)/t121(95)/smoke/qa00 全绿；全矩阵 59 套（t123 glob 自动收录）分 10 块串行 0 失败（块峰 190-200MB，零阈值重启，Task 122 卫生学持续生效）；worklog + commit + push + 环境清理
+
+Stage Summary:
+- 「时间轴跟引擎的印章走，不跟 updatedAt」：updatedAt 是接触面（每次轮询合并都碰它），startedAt+duration 是测量值（引擎翻转时盖戳、完成时写实测）——一个视图敢声称「什么时候跑的」，它的数据来源必须是测量而不是接触。数据的出身决定视图的资格
+- 「两种精度服务两种读者」：轴刻度是路标（1m/2m/3m，粗即美德），行偏移是证据（1m 28s，精确即诚实）；同一个数字在两种岗位上需要两种标签——fmtOffset 一肩挑时把 80s 和 88s 坍缩成同一个 "1m"，行读作 "+1m → +1m (completed, 8s)"，与自己的时长自相矛盾。测试的假挂在这里是 UI 的真疣，修 app 不修断言
+- 「零是数据，—是哨兵」：fmtDuration(0)="—" 守护的是空缺字段；但首作业的偏移量合法地等于零，"+—" 读作毛刺，"+0s" 读作数据。哨兵保护缺席，不保护到场的零——让合法的零借用缺席的字形，是把两种空混为一谈
+- 「插入锚点决定容器归属」：JSX 块锚 </div></section> 插入时天然落进最近的容器——时间线一度成为 grid 的半宽 cell。锚定式编辑后必须核对容器成员资格（回显 + 视觉双验），「我以为它在网格外面」不是它的位置
+- 「诚实缺席者要计数不要假装」：种子作业没跑过就没有窗口——时间线不伪造零宽条，页脚说「1 of 6 never started」；兄弟节（漏斗/阶梯）的自隐合同在时间线上延续为「有运行才画轴，没运行就数数」
+- 遗留（下轮候选）：时间线行点击 → 画布选中跳转（导航腿，需 store 接线，真机价值观察）；runner 遥测加每套 wall-time 列（小）；历史面板条目分组（kind 图标 + 连续同动作折叠，Task 106 面板的既定打磨项）；qa60/61 共享传输推广（暂缓维持）；EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势、TSV/海报粘贴验证）；3D viewer 体积截面（已建成，真机需求观察深化）；minimap mode 持久化（真机反馈再评估）；undo 手感参数调优；诊断签名命中率观察（真机）

@@ -25,6 +25,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
   Award,
+  ChartGantt,
   Check,
   ClipboardCopy,
   Crosshair,
@@ -32,6 +33,7 @@ import {
   Filter,
   Waves,
 } from "lucide-react";
+import { fmtClock, fmtDuration } from "@/lib/duration";
 import type { JobDTO } from "@/lib/types";
 import { jobType } from "@/lib/workflow";
 import { useWorkflowStore } from "@/lib/store";
@@ -212,6 +214,30 @@ function downloadText(filename: string, text: string, mime: string): void {
 /* Component                                                           */
 /* ------------------------------------------------------------------ */
 
+/** tick ladder: the coarsest step that still yields ≤ ~5 ticks on the axis */
+function niceStepMs(spanMs: number): number {
+  const sec = spanMs / 1000;
+  for (const s of [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200, 14400, 43200, 86400]) {
+    if (sec / s <= 5) return s * 1000;
+  }
+  return 86_400 * 1000;
+}
+
+/** compact axis-offset label: "45s" · "3m" · "2h" */
+function fmtOffset(ms: number): string {
+  const s = Math.round(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.round(s / 60);
+  if (m < 60) return `${m}m`;
+  return `${Math.round(m / 60)}h`;
+}
+
+/** precise offset for summary rows: fmtDuration says "—" at zero, but the
+ *  first run's offset IS zero — "+—" reads as a glitch, "+0s" reads as data */
+function fmtOffsetPrecise(ms: number): string {
+  return ms <= 0 ? "0s" : fmtDuration(ms);
+}
+
 export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
   const workspaces = useWorkflowStore((s) => s.workspaces);
   const projectName = useWorkflowStore((s) => s.project?.name);
@@ -250,6 +276,51 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
     [scoped]
   );
   const milestones = useResolutionMilestones(scoped);
+
+  /* Task 123 — session timeline: the run window each job actually occupied.
+   *
+   * The axis is REAL run data: the engine stamps startedAt when a job flips
+   * to running and writes the measured elapsed into duration on completion,
+   * so [startedAt, startedAt + duration] is the honest window (updatedAt is
+   * NOT — every poll merge touches it, all rows would share one instant).
+   * Jobs the engine never started (seeded / idle) have no window and stay
+   * off the bars; the footer counts them instead of pretending. A live run
+   * stretches to "now" — a 5s ticker only exists while one is running,
+   * otherwise the axis is frozen data and costs no timers. */
+  const anyRunning = scoped.some((j) => j.status === "running");
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!anyRunning) return;
+    const t = setInterval(() => setNow(Date.now()), 5000);
+    return () => clearInterval(t);
+  }, [anyRunning]);
+
+  const runs = useMemo(() => {
+    const rows = scoped
+      .filter(
+        (j) =>
+          j.startedAt &&
+          (j.status === "completed" || j.status === "failed" || j.status === "running")
+      )
+      .map((j) => {
+        const start = new Date(j.startedAt as string).getTime();
+        const end =
+          j.status === "running" ? Math.max(now, start + 1000) : start + Math.max(1000, j.duration);
+        return { job: j, start, end, ms: Math.max(1000, end - start) };
+      })
+      .filter((r) => Number.isFinite(r.start) && r.end > r.start)
+      .sort((a, b) => a.start - b.start || a.job.name.localeCompare(b.job.name));
+    if (rows.length === 0) return { rows, t0: 0, span: 0, ticks: [] as number[] };
+    const t0 = rows[0].start;
+    const span = Math.max(rows[rows.length - 1].end - t0, 1000);
+    const step = niceStepMs(span);
+    const ticks: number[] = [];
+    for (let t = 0; t <= span + 1; t += step) ticks.push(t);
+    return { rows, t0, span, ticks };
+  }, [scoped, now]);
+
+  /** jobs the engine never started — the timeline's honest absentees */
+  const neverRan = scoped.filter((j) => !j.startedAt).length;
 
   // clear the copied-✓ timer on unmount (never setState after unmount)
   useEffect(
@@ -291,6 +362,18 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
             ? m.reported
             : (m.at143 ?? m.reported);
         lines.push(`  ${m.name}: ${best?.toFixed(2)} Å${m.label ? ` (${m.label})` : ""}`);
+      }
+    }
+    if (runs.rows.length > 0) {
+      lines.push("");
+      lines.push(`Session timeline (${runs.rows.length} runs, ${fmtOffset(runs.span)} span):`);
+      for (const r of runs.rows) {
+        // row offsets keep fmtDuration's composite precision ("1m 28s") —
+        // the axis-tick fmtOffset collapses sub-minute runs into the same
+        // minute label, which would read "+1m → +1m (completed, 8s)"
+        lines.push(
+          `  ${r.job.name}: +${fmtOffsetPrecise(r.start - runs.t0)} → +${fmtOffsetPrecise(r.end - runs.t0)} (${r.job.status}, ${fmtDuration(r.ms)})`
+        );
       }
     }
     lines.push("");
@@ -359,7 +442,7 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
     });
   };
 
-  const hasContent = flow.length >= 2 || milestones.length > 0;
+  const hasContent = flow.length >= 2 || milestones.length > 0 || runs.rows.length > 0;
   // Unfiltered + nothing to say → stay out of the way entirely (the
   // original honest-hide contract). BUT a scoped view with no data must
   // KEEP the section chrome: hiding the chips alongside the body would
@@ -390,7 +473,7 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
             <button
               type="button"
               onClick={() => void copySummary()}
-              title="Copy a plain-text summary of the funnel, resolution ladder and job counts"
+              title="Copy a plain-text summary of the funnel, resolution ladder, session timeline and job counts"
               aria-label="Copy pipeline summary"
               className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
@@ -584,6 +667,110 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
           </div>
         )}
       </div>
+        {/* session timeline ------------------------------------------------
+            Full-width third view: one row per engine run, x = wall-clock
+            window [startedAt → +measured duration]. Column arithmetic is
+            shared with the axis overlay: icon 36 + gap 8 + name 112 + gap 8
+            = 164px track origin; duration column 56 + gap 8 = 64px right
+            inset — keep the four numbers in sync with the row below. */}
+        {runs.rows.length > 0 && (
+          <div
+            className="mt-5 border-t pt-4"
+            data-canvas-ui="analytics-timeline"
+            data-tl-count={runs.rows.length}
+          >
+            <p className="mb-2 flex items-center gap-1 text-[11px] font-medium text-foreground/80">
+              <ChartGantt className="size-3 text-amber-600" aria-hidden="true" />
+              Session timeline
+              <span className="font-normal text-muted-foreground">
+                · {runs.rows.length} run{runs.rows.length === 1 ? "" : "s"} across {fmtOffset(runs.span)}
+              </span>
+            </p>
+            <div className="max-h-72 overflow-y-auto pr-1 print:max-h-none print:overflow-visible">
+              <div className="relative">
+                {/* axis hairlines: behind every row, aligned to the track */}
+                <div className="pointer-events-none absolute inset-y-0 left-[164px] right-16" aria-hidden="true">
+                  {runs.ticks.map((t) => (
+                    <span
+                      key={t}
+                      className="absolute inset-y-0 w-px bg-border/45"
+                      style={{ left: `${(t / runs.span) * 100}%` }}
+                    />
+                  ))}
+                </div>
+                {runs.rows.map((r) => {
+                  const x = ((r.start - runs.t0) / runs.span) * 100;
+                  const w = Math.max((r.ms / runs.span) * 100, 0.75);
+                  const spec = jobType(r.job.type);
+                  return (
+                    <div
+                      key={r.job.id}
+                      className="relative flex items-center gap-2 py-[3px]"
+                      data-tl-row=""
+                      data-status={r.job.status}
+                    >
+                      <span className="flex w-9 shrink-0 justify-end">
+                        <span
+                          className={cn(
+                            "flex size-4.5 items-center justify-center rounded ring-1 ring-inset",
+                            spec?.color.soft,
+                            spec?.color.border
+                          )}
+                          title={r.job.name}
+                          aria-hidden="true"
+                        >
+                          <TypeIcon name={spec?.icon ?? "Boxes"} className="size-2.5" />
+                        </span>
+                      </span>
+                      <span
+                        className="w-28 shrink-0 truncate text-[10.5px] text-muted-foreground"
+                        title={r.job.name}
+                      >
+                        {r.job.name}
+                      </span>
+                      <div className="relative h-4 min-w-0 flex-1">
+                        <span
+                          className={cn(
+                            "absolute top-1/2 h-2.5 -translate-y-1/2 rounded-[3px] transition-[left,width] duration-500 ease-out [print-color-adjust:exact] [-webkit-print-color-adjust:exact]",
+                            r.job.status === "running"
+                              ? "animate-soft-pulse bg-amber-500"
+                              : r.job.status === "failed"
+                                ? "bg-rose-500/85"
+                                : "bg-emerald-500/80"
+                          )}
+                          style={{ left: `${x}%`, width: `${w}%` }}
+                          data-tl-bar=""
+                          title={`${r.job.name} — started ${fmtClock(r.job.startedAt as string)}, ran ${fmtDuration(r.ms)}, ${r.job.status}`}
+                        />
+                      </div>
+                      <span className="w-14 shrink-0 text-right font-mono text-[9.5px] tabular-nums text-muted-foreground">
+                        {fmtDuration(r.ms)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+              {/* relative-time axis labels, same insets as the hairlines */}
+              <div className="relative mt-1 ml-[164px] h-3 mr-16" aria-hidden="true">
+                {runs.ticks.map((t) => (
+                  <span
+                    key={t}
+                    className="absolute top-0 -translate-x-1/2 font-mono text-[8.5px] tabular-nums text-muted-foreground/60"
+                    style={{ left: `${(t / runs.span) * 100}%` }}
+                  >
+                    {fmtOffset(t)}
+                  </span>
+                ))}
+              </div>
+            </div>
+            {neverRan > 0 && (
+              <p className="mt-1.5 text-[10px] leading-relaxed text-muted-foreground/70" data-tl-never="">
+                {neverRan} of {scoped.length} job{scoped.length === 1 ? "" : "s"} in scope never
+                started — bars cover engine runs only (startedAt → measured wall time)
+              </p>
+            )}
+          </div>
+        )}
     </section>
   );
 }

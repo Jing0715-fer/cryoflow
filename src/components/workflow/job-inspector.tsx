@@ -80,6 +80,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { diagnoseLines, diagnoseLog, type LogFinding } from "@/lib/log-diagnosis";
+import { fmtAgo, fmtClock, fmtDuration } from "@/lib/duration";
 import { jobType } from "@/lib/workflow";
 import { useWorkflowStore } from "@/lib/store";
 import type { EdgeDTO, JobDTO } from "@/lib/types";
@@ -140,27 +141,8 @@ function formatBytes(n: number): string {
   return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
-function fmtDuration(ms: number): string {
-  if (!Number.isFinite(ms) || ms <= 0) return "—";
-  const s = Math.round(ms / 1000);
-  if (s < 60) return `${s}s`;
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ${s % 60}s`;
-  const h = Math.floor(m / 60);
-  if (h < 48) return `${h}h ${m % 60}m`;
-  return `${Math.floor(h / 24)}d ${h % 24}h`;
-}
-
-function fmtClock(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-}
-
-function fmtAgo(iso: string): string {
-  const ms = Date.now() - new Date(iso).getTime();
-  if (ms < 60_000) return "just now";
-  return `${fmtDuration(ms)} ago`;
-}
+// fmtDuration / fmtClock / fmtAgo live in @/lib/duration (Task 123) —
+// the pipeline timeline prints the same labels, one source serves both
 
 const SUBMITTED = new Set(["running", "completed", "failed"]);
 
