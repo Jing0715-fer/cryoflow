@@ -8,6 +8,7 @@ import {
   GripVertical,
   Search,
   Shapes,
+  Star,
   X,
 } from "lucide-react";
 import { JOB_CATEGORIES, JOB_TYPES, jobType } from "@/lib/workflow";
@@ -30,6 +31,33 @@ interface PaletteDragState {
 
 const RECENT_KEY = "cryoflow-recent-types";
 const RECENT_MAX = 6;
+
+/** Task 133 — starred job types. Recents answer "what did I just use?",
+ * favorites answer "what do I keep coming back to?" — a deliberate,
+ * stable pick that survives restarts and never scrolls away. Order is
+ * star order (first-starred first); persistence is localStorage with the
+ * same sanitize-or-default contract as recents. */
+const FAV_KEY = "cryoflow-fav-types";
+
+function readFavs(): string[] {
+  try {
+    const raw = localStorage.getItem(FAV_KEY);
+    const parsed = raw ? (JSON.parse(raw) as unknown) : [];
+    return Array.isArray(parsed)
+      ? parsed.filter((v): v is string => typeof v === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeFavs(next: string[]): void {
+  try {
+    localStorage.setItem(FAV_KEY, JSON.stringify(next));
+  } catch {
+    /* private mode — favorites just won't persist */
+  }
+}
 
 function readRecent(): string[] {
   try {
@@ -71,6 +99,9 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
   );
   const [ghost, setGhost] = React.useState<{ type: string; x: number; y: number } | null>(null);
   const [recent, setRecent] = React.useState<string[]>([]);
+  // Task 133 — favorites: star order, client-only until mount (hydration)
+  const [favs, setFavs] = React.useState<string[]>([]);
+  const [favOnly, setFavOnly] = React.useState(false);
 
   const dragRef = React.useRef<PaletteDragState | null>(null);
   const ghostRef = React.useRef<HTMLDivElement>(null);
@@ -85,6 +116,20 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
   // SSR output hydration-safe
   React.useEffect(() => {
     setRecent(readRecent());
+    setFavs(readFavs());
+  }, []);
+
+  const favSet = React.useMemo(() => new Set(favs), [favs]);
+
+  /** Star/unstar one type; the NEXT array persists (order = star order). */
+  const toggleFavType = React.useCallback((type: string) => {
+    setFavs((prev) => {
+      const next = prev.includes(type)
+        ? prev.filter((t) => t !== type)
+        : [...prev, type];
+      writeFavs(next);
+      return next;
+    });
   }, []);
 
   const recordAndAdd = React.useCallback(
@@ -121,15 +166,17 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
 
   const q = query.trim().toLowerCase();
   const searching = q.length > 0;
+  // favorites-only gate applies FIRST, then search narrows within it
+  const baseTypes = favOnly ? JOB_TYPES.filter((t) => favSet.has(t.key)) : JOB_TYPES;
   const filtered = searching
-    ? JOB_TYPES.filter(
+    ? baseTypes.filter(
         (t) =>
           t.label.toLowerCase().includes(q) ||
           t.key.toLowerCase().includes(q) ||
           t.description.toLowerCase().includes(q) ||
           t.category.toLowerCase().includes(q)
       )
-    : JOB_TYPES;
+    : baseTypes;
 
   /* ---------------- drag-to-create --------------------------------- */
 
@@ -216,6 +263,9 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
   const recentSpecs = recent
     .map((key) => jobType(key))
     .filter((t): t is NonNullable<typeof t> => t != null);
+  const favSpecs = favs
+    .map((key) => jobType(key))
+    .filter((t): t is NonNullable<typeof t> => t != null);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -231,8 +281,27 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Job Types
           </p>
+          <button
+            type="button"
+            onClick={() => setFavOnly((v) => !v)}
+            aria-pressed={favOnly}
+            aria-label="Show favorites only"
+            title={favOnly ? "Showing favorites only — click to show all" : "Show favorites only"}
+            data-testid="palette-fav-filter"
+            className={cn(
+              "ml-auto flex size-5 items-center justify-center rounded transition-colors",
+              favOnly
+                ? "bg-amber-500/15 text-amber-600 ring-1 ring-inset ring-amber-500/40 dark:text-amber-400"
+                : "text-muted-foreground/70 hover:bg-accent hover:text-foreground"
+            )}
+          >
+            <Star className={cn("size-3", favOnly && "fill-amber-400 text-amber-500")} aria-hidden="true" />
+          </button>
           <span
-            className="ml-auto rounded-full bg-muted/70 px-1.5 py-px text-[10px] font-medium tabular-nums text-muted-foreground"
+            className={cn(
+              "rounded-full bg-muted/70 px-1.5 py-px text-[10px] font-medium tabular-nums text-muted-foreground",
+              favOnly && "bg-amber-500/10 text-amber-700 dark:text-amber-400"
+            )}
             title={`${filtered.length} of ${JOB_TYPES.length} types shown`}
           >
             {filtered.length}
@@ -276,6 +345,53 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
           )}
         </div>
       </div>
+
+      {/* ---- favorites quick-add chips (Task 133) ---- */}
+      {!searching && favSpecs.length > 0 && (
+        <div className="shrink-0 border-b bg-muted/25 px-3 py-2">
+          <div className="mb-1.5 flex items-center gap-1.5">
+            <Star className="size-3 fill-amber-400 text-amber-500" aria-hidden="true" />
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">
+              Favorites
+            </p>
+            <span className="sr-only">— click a chip to add that job at the viewport center</span>
+            <span
+              className="ml-auto rounded-full bg-muted/80 px-1.5 py-px text-[9px] font-medium tabular-nums text-muted-foreground"
+              data-testid="palette-favs-count"
+            >
+              {favSpecs.length}
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-1.5" data-testid="palette-favs-row">
+            {favSpecs.map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => void recordAndAdd(t.key)}
+                title={`Add ${t.label} at the viewport center`}
+                data-testid={`palette-fav-chip-${t.key}`}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-card py-1 pl-1.5 pr-2.5 text-[11px] font-medium shadow-sm transition-all hover:-translate-y-px hover:shadow active:translate-y-0",
+                  "hover:border-amber-500/50 hover:ring-1 hover:ring-amber-500/25"
+                )}
+              >
+                <span
+                  className={cn(
+                    "flex size-4.5 items-center justify-center rounded-full",
+                    t.color.soft,
+                    t.color.text
+                  )}
+                  aria-hidden="true"
+                >
+                  <TypeIcon name={t.icon} className="size-3" />
+                </span>
+                <span className="max-w-28 truncate">{t.label}</span>
+                <Star className="size-2.5 shrink-0 fill-amber-400 text-amber-500" aria-hidden="true" />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ---- recently used quick-add chips ---- */}
       {!searching && recentSpecs.length > 0 && (
@@ -336,7 +452,26 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
         aria-label="RELION 5 job type catalog"
         className="nice-scroll min-h-0 flex-1 overflow-y-auto px-2 pb-3 pt-1"
       >
-        {filtered.length === 0 && (
+        {favOnly && favSpecs.length === 0 && (
+          <div className="px-3 py-8 text-center" data-testid="palette-favs-empty">
+            <Star className="mx-auto size-5 text-muted-foreground/40" aria-hidden="true" />
+            <p className="mt-2 text-xs font-medium text-muted-foreground">
+              No starred job types yet
+            </p>
+            <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground/70">
+              Hover a row below and click its star — starred types gather up top
+              and survive restarts.
+            </p>
+            <button
+              type="button"
+              onClick={() => setFavOnly(false)}
+              className="mt-1.5 text-[11px] font-medium text-primary underline-offset-2 hover:underline"
+            >
+              Show all types
+            </button>
+          </div>
+        )}
+        {filtered.length === 0 && !(favOnly && favSpecs.length === 0) && (
           <div className="px-3 py-8 text-center">
             <Search className="mx-auto size-5 text-muted-foreground/40" aria-hidden="true" />
             <p className="mt-2 text-xs font-medium text-muted-foreground">
@@ -436,6 +571,42 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
                           <span className="block truncate text-[11px] leading-tight text-muted-foreground">
                             {t.description}
                           </span>
+                        </span>
+                        {/* Task 133 — star toggle: reserved width so the tier
+                            badge never shifts; a span (not a nested button —
+                            invalid DOM inside the row's button) with full
+                            keyboard semantics, and pointerdown is swallowed
+                            so starring never starts a drag */}
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          aria-pressed={favSet.has(t.key)}
+                          aria-label={favSet.has(t.key) ? `Unstar ${t.label}` : `Star ${t.label}`}
+                          title={favSet.has(t.key) ? `Unstar ${t.label}` : `Star ${t.label} for quick access`}
+                          data-testid={`palette-star-${t.key}`}
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleFavType(t.key);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              toggleFavType(t.key);
+                            }
+                          }}
+                          className={cn(
+                            "flex size-5 shrink-0 items-center justify-center rounded transition-all",
+                            favSet.has(t.key)
+                              ? "text-amber-500 hover:text-amber-600 dark:text-amber-400"
+                              : "opacity-0 hover:opacity-100 group-hover/item:opacity-60 focus-visible:opacity-100 hover:bg-accent"
+                          )}
+                        >
+                          <Star
+                            className={cn("size-3", favSet.has(t.key) && "fill-amber-400 text-amber-500")}
+                            aria-hidden="true"
+                          />
                         </span>
                         <span
                           className={cn(
