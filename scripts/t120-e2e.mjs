@@ -194,10 +194,31 @@ const boot = async () => {
 };
 const openInspector = async (name) => {
   for (let i = 0; i < 8; i++) {
-    await p.locator(`[data-job]`, { hasText: name }).first().click().catch(() => {});
+    // reach FIRST (Task 136 doctrine, backfilled after the boot-fit click
+    // point landed on the zoom-controls' find-toggle button — fixed
+    // widgets legally cover some canvas points, and a world-dependent
+    // screen point is never trustworthy): Ctrl+F → name → Enter =
+    // focusJob centers the card mid-viewport at legibility zoom, away
+    // from every fixed widget, then the click lands on a visible target.
+    await p.keyboard.press("Control+f").catch(() => {});
+    const bar = p.locator('[data-testid="canvas-find-input"]');
+    if (await bar.isVisible().catch(() => false)) {
+      await bar.fill(name);
+      await sleep(300);
+      await p.keyboard.press("Enter");
+      await sleep(800);
+      await p.keyboard.press("Escape");
+      await sleep(400);
+    }
+    await p.locator(`[data-job]`, { hasText: name }).first().click({ timeout: 3000 }).catch(() => {});
     await sleep(1200);
-    const open = await p.locator("[data-inspector-dialog][data-state=open]").count();
-    if (open === 1) return true;
+    // the RIGHT inspector — a covered/jittered click must not bless a
+    // neighbor's dialog (the t113 lineage lesson)
+    const open = await p.evaluate((nm) => {
+      const dl = document.querySelector("[data-inspector-dialog]");
+      return !!dl && dl.getAttribute("data-state") === "open" && (dl.textContent || "").includes(nm);
+    }, name).catch(() => false);
+    if (open) return true;
     await sleep(1500);
   }
   return false;

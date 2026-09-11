@@ -33,6 +33,10 @@
  *  • Chip colors reuse the status dialect the cards/minimap already
  *    speak (teal running, emerald completed, rose failed) — the lens
  *    must not invent a second color language for the same concept.
+ *  • Task 137 — the lens leads: the count label with matches on hand is
+ *    a button that advances the cycle (one cursor, three triggers:
+ *    Enter, next-arrow, count click), and the minimap's amber match
+ *    chips jump to their job on a clean click (drag stays pan).
  */
 
 import * as React from "react";
@@ -241,14 +245,36 @@ export function CanvasFindBar() {
         spellCheck={false}
         className="w-48 bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground/60 sm:w-60"
       />
-      <span
-        data-testid="canvas-find-count"
-        className={`shrink-0 whitespace-nowrap text-[11px] font-medium tabular-nums ${
-          n === 0 && findQuery.trim() ? "text-destructive" : "text-muted-foreground"
-        }`}
-      >
-        {countLabel}
-      </span>
+      {/* Task 137 — the count is a DOOR: with matches on hand, clicking it
+          advances the cycle (same go(1) as Enter/next — one cursor, three
+          triggers). Rendered as a span only in the honest-zero state where
+          there is nothing to cycle into. */}
+      {n > 0 ? (
+        <button
+          type="button"
+          data-testid="canvas-find-count"
+          onClick={() => {
+            go(1);
+            // keyboard continuity: focus returns to the input so typing
+            // keeps editing the query (plain focus — no select, appends
+            // are honest; the opening effect owns the overtype-select)
+            requestAnimationFrame(() => inputRef.current?.focus());
+          }}
+          title="Jump to next match"
+          className="shrink-0 cursor-pointer whitespace-nowrap rounded px-0.5 text-[11px] font-medium tabular-nums text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+        >
+          {countLabel}
+        </button>
+      ) : (
+        <span
+          data-testid="canvas-find-count"
+          className={`shrink-0 whitespace-nowrap px-0.5 text-[11px] font-medium tabular-nums ${
+            findQuery.trim() ? "text-destructive" : "text-muted-foreground"
+          }`}
+        >
+          {countLabel}
+        </span>
+      )}
       <Button
         variant="ghost"
         size="icon"

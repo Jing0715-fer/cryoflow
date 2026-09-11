@@ -30,6 +30,15 @@
  * when they span several viewports. Third consumer of the SAME
  * jobMatchesFind predicate — the count, the card rings, and these dots
  * can never disagree about what a match is.
+ *
+ * Task 137 — the map leads: an amber match chip is a DOOR. A clean
+ * press+release (≤6 px of travel) on one jumps the canvas to that job
+ * (focusJob: center + legibility zoom + arrival flash — the same go()
+ * semantics the find bar's Enter/count click use); a drag still pans.
+ * Without the lens nothing changes — every press pans, as always. The
+ * jump is intent-laden: the lens loaded the click with "this is one of
+ * the ones you're looking for", so taking over the gesture only under
+ * an active lens keeps the plain-pan contract intact.
  */
 
 import * as React from "react";
@@ -76,9 +85,15 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
   const selectedIds = useWorkflowStore((s) => s.selectedIds);
   const viewport = useWorkflowStore((s) => s.viewport);
   const setViewport = useWorkflowStore((s) => s.setViewport);
+  const focusJob = useWorkflowStore((s) => s.focusJob);
 
   const svgRef = React.useRef<SVGSVGElement>(null);
   const draggingRef = React.useRef(false);
+  /** Task 137 — a press on an amber match chip arms a jump; more than
+   *  JUMP_SLOP of travel converts it back into a plain pan (and a clean
+   *  release fires the focusJob). Null whenever the press started off a
+   *  match or the lens is off. */
+  const pendingJumpRef = React.useRef<{ id: string; x: number; y: number } | null>(null);
 
   // framing mode — ephemeral chrome (no storage, resets on remount)
   const [mode, setMode] = React.useState<MmMode>("fit");
@@ -107,6 +122,10 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
       zoom: s.viewport.zoom,
     });
   };
+
+  /** Task 137 — travel beyond this many px (client space) between press
+   *  and release turns an armed jump back into an ordinary pan */
+  const JUMP_SLOP = 6;
 
   /** client coords → world coords (via the svg bounding box + viewBox) */
   const toWorld = (e: React.PointerEvent): { x: number; y: number } | null => {
@@ -224,16 +243,35 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
         } catch {
           /* synthesized / lost pointer — navigation still works */
         }
+        // Task 137 — a press on an amber match chip arms a jump instead of
+        // panning immediately: the release decides (clean click → focusJob,
+        // drag → pan from wherever the finger lands next)
+        const dotId = (e.target as Element | null)?.getAttribute?.("data-job-id");
+        if (findLens && dotId && findMatchIds?.has(dotId)) {
+          pendingJumpRef.current = { id: dotId, x: e.clientX, y: e.clientY };
+          return;
+        }
+        pendingJumpRef.current = null;
         const p = toWorld(e);
         if (p) navigate(p.x, p.y);
       }}
       onPointerMove={(e) => {
         if (!draggingRef.current) return;
+        const pj = pendingJumpRef.current;
+        if (
+          pj &&
+          Math.abs(e.clientX - pj.x) + Math.abs(e.clientY - pj.y) > JUMP_SLOP
+        ) {
+          pendingJumpRef.current = null; // this became a pan
+        }
         const p = toWorld(e);
         if (p) navigate(p.x, p.y);
       }}
       onPointerUp={(e) => {
         draggingRef.current = false;
+        const pj = pendingJumpRef.current;
+        pendingJumpRef.current = null;
+        if (pj) focusJob(pj.id); // clean click on a match → jump
         try {
           e.currentTarget.releasePointerCapture(e.pointerId);
         } catch {
@@ -301,7 +339,11 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
         data-canvas-ui="minimap-svg"
         className="block cursor-pointer rounded-sm bg-muted/50"
         role="application"
-        aria-label={`Workflow overview — ${jobs.length} jobs. Click to navigate.`}
+        aria-label={
+          findLens
+            ? `Workflow overview — ${jobs.length} jobs. Click to navigate; click an amber chip to jump to that match.`
+            : `Workflow overview — ${jobs.length} jobs. Click to navigate.`
+        }
       >
         {/* edges (thin, muted) — cheap straight port-to-port lines;
             in sel focus, edges with no selected endpoint dim further */}
@@ -352,7 +394,13 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
                 rx={26}
                 fill={STATUS_FILL[j.status] ?? STATUS_FILL.idle}
                 opacity={dimmed || findDim ? 0.13 : j.status === "idle" ? 0.55 : 0.9}
-                className="transition-opacity duration-300"
+                className={cn(
+                  "transition-opacity duration-300",
+                  // Task 137 — a match chip is a door: brighten on hover to
+                  // say so (stroke stays amber, fill stays the world's —
+                  // the lens never repaints the world's colors)
+                  findHit && "cursor-pointer hover:opacity-100",
+                )}
                 stroke={
                   selected || inMulti
                     ? "var(--primary)"
@@ -363,7 +411,7 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
                 strokeOpacity={inMulti ? 0.45 : 1}
                 strokeWidth={s}
               >
-                <title>{`${j.name} — ${j.status}${j.status === "running" ? ` (${Math.round(j.progress)}%)` : j.result ? ` · ${j.result}` : ""}`}</title>
+                <title>{`${j.name} — ${j.status}${j.status === "running" ? ` (${Math.round(j.progress)}%)` : j.result ? ` · ${j.result}` : ""}${findHit ? " · click to jump" : ""}`}</title>
                 {j.status === "running" && !dimmed && !findDim && (
                   <animate
                     attributeName="opacity"

@@ -57,6 +57,23 @@ for (let i = 0; i < 10 && !onCanvas; i++) {
 }
 must(onCanvas, "canvas renders with seeded job cards");
 
+// ---- reach via find (Task 136 doctrine, backfilled here after the smoke
+// false-failed twice: world-hygiene moves + restore events make the
+// remembered viewport untrustworthy — the host card sat 474px ABOVE the
+// viewport and playwright cannot scroll a transformed canvas. Ctrl+F →
+// name → Enter (focusJob: center + legibility zoom) reaches any card in
+// any world state; Esc leaves the selection intact (t134 contract).) ----
+await p.keyboard.press("Control+f");
+const findInput = p.locator('[data-testid="canvas-find-input"]');
+if (await findInput.isVisible().catch(() => false)) {
+  await findInput.fill(HOST_JOB);
+  await sleep(300);
+  await p.keyboard.press("Enter");
+  await sleep(800);
+  await p.keyboard.press("Escape");
+  await sleep(400);
+}
+
 // ---- inspector -------------------------------------------------------------
 let modal = false;
 for (let i = 0; i < 5 && !modal; i++) {

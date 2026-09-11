@@ -4076,3 +4076,27 @@ Stage Summary:
 - 「正身判定是 inspect 类探针的隐合同」：dialog 开着 ≠ 开的是目标 job——lineage 条让错误 inspector 也含目标 job 的名字；类型 label 永不出现在 lineage 里，是唯一免役的判别物。「假绿比失败更贵」的又一场
 - 「find-reach 是演化世界的通用到达术」：fit、remembered viewport、hygiene 挪卡、种子动态坐标——视口状态永远不可信；Ctrl+F + Enter（focusJob）对任意世界状态成立。Task 134/135 造的透镜成为全矩阵的导航载具——功能与测试基建互相成就的闭环
 - 遗留（下轮候选）：find 的进一步细节（minimap 匹配点点击跳转、按类型过滤 chips，真机反馈再评估）；favorites 拖拽排序（真机）；预览卡端口点/边高亮（真机）；建议连线手感增强（真机）；runner wall-time 剖面（qa64 74s 十一轮一致，继续让位）；世界卫生观察账本（hygiene 每套自动跑后撞车应绝迹，观察几轮）；EMPIAR 真数据回归（重，继续让位）；用户真机项；minimap mode 持久化；undo 手感参数调优；诊断签名命中率观察（真机）
+
+---
+Task ID: 137
+Agent: main (cron window 2026-09-12 02:30:33 +08:00, trace …202609120230)
+Task: 例行七条——开局核对 + QA 判稳 → 选题开发 → 回归 → 交接闭环。本轮交付「透镜会带路」（find 计数循环门 + minimap 琥珀点跳转门）+ 世界卫生三审计 + 四则探针教训
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 136（7b042c6 == origin/main，树净）；BUILD_ID YV48VclpfGGjC0jiWrEBx 匹配；冷启动 2s READY → **qa63-smoke 两连败**：宿主卡在视口上方 474px（记忆视口不可信再发作，Task 136 六套大修的漏网之鱼）→ reach-first 补齐（Ctrl+F → 名字 → Enter → Esc）→ SMOKE GREEN；qa00/t136 全绿 → 稳定
+- 【实现·count 门】canvas-find-bar 计数标签有匹配时从 span 升级为 button（data-testid 不变，t134/t135/t136 文本断言全兼容）：点击 = go(1)，同一 cursor 三个触发器（Enter / next 箭头 / 计数点击）；诚实零状态保持 span（不承诺不存在的循环）；点击后 rAF 焦点回 input（继续打字=收窄查询，append 诚实，overtype-select 仍归开启效果）
+- 【实现·map 门】canvas-minimap 琥珀匹配点升级为门：pointerdown 在匹配 chip 上武装 pendingJump（不立即平移），移动 >6px 降级为普通 pan，干净释放 → focusJob（居中 + legibility zoom ≥0.7 + 到达 glide）——与 find Enter 同一 go() 语义；无透镜或非匹配 chip 手势零变化（jump 是意图承载：透镜加载了「这是你在找的」才接管）；匹配 chip hover 提亮（stroke 琥珀/fill 世界色不变——透镜不重绘世界的颜色）+ title 尾注 " · click to jump" + svg aria-label 动态提及跳转
+- 【t137 探针】七相 38 断言：S 种 6 卡 4 状态（running 带新鲜 startedAt——Task 135 教义）；B 计数门（BUTTON 标签 / 1 of 6 / 2 of 6 / Enter 同 cursor / 精确居中 Δ=(0,0)）；C map 门（0.33→0.70 legibility 跳转 / 精确居中 / bar cursor 不动）；D 拖拽=pan（zoom 不变）；E 无透镜=pan + 非匹配=pan；F 诚实零=span；G hover 屏摄；Z console 清 + 种子清理 + roster 还原
+- 【全矩阵灾变一：世界蔓延】块 1 七套连锁失败（qa58-62/64/66）→ 诊断：孤儿卡 "QA MotionCorr" 深处 (313,8780)（Task 136 收尾某次崩溃/恢复遗留，updatedAt 17:38 锚定）把世界 bbox 撑到 8716px 高 → boot fit 0.25 取景空虚世界 → QA 行全出视口。世界卫生升级：**EXTENT 审计**（剔除候选后 bbox 收缩超 480px 即孤儿 → 召回主簇右侧网格）；手动送回骨架位 (300,160) → bbox 回落 8876→1076 → 块 1 复跑 9/9
+- 【全矩阵灾变二：t120 假绿翻转】t120 274s 超时 A27 "inspector opened on the control job" → 诊断：boot-fit 缩放下点击点恰被 zoom-controls 的 find-toggle 按钮合法遮挡（固定悬浮物遮挡合法——Task 135 教义第三次应用）；t120 openInspector 是 reach-first 大修漏网 → 补 reach-first + 正身判定（dialog 文本含名字）+ 3s 快超时 → T120 82 断言全绿
+- 【全矩阵灾变三：roster ≠ canvas】块 7 t137/t88 两败同根：**ws=null 行不渲染于任何画布**（activeWorkspaceId 恒非空 → (workspaceId??"") 永不匹配）但占据 API roster——t137 的 stranger 从 roster 挑中隐形行 → minimap dot 永不存在；t88 Phase E 的 singleton (QA Auto-pick) 同理。而且该病是多 workspace 出现后才显形（单 workspace 时 activeWorkspaceId==null → 全量渲染——第一轮 t137 侥幸通过的真因）。世界卫生升级：**ADOPT 审计**（ws=null 收养进首个 workspace，roster==canvas 成为不变量）+ **OVERLAP 网格占用感知 + 无限向下行军**（旧 4×4 网格 %ROWS 回绕 16 槽耗尽堆叠——收养的原始行入场即耗尽）；t137 stranger 改从渲染 DOM 集合挑选（防御纵深）
+- 【探针教训·map 可点性自愈】t137 反复 "Element is outside of the viewport"：fit 模式把视口窗并进 viewBox + letterbox，特定 chip 投影可出页面，且 map 随每次视口变化重排——pick 与 click 之间都可失效 → clickMmDot/dragMmDot 自愈循环（pick → playwright 自己的 boundingBox → 验证页内 → 原地 mouse.click，失效重挑）。「断言不变量，别钉具体演员」在几何域的重演：query the geometry, don't pin the actor
+- 【收尾】三遍 hygiene 收敛至稳态（0 孤儿 / 0 重叠 / 0 strays，maxY 1096）；全矩阵 73 套分 9 块全绿（块 1/7 带修复复跑；块峰 ~200MB 零阈值重启；qa64 74s 十二轮一致）；BUILD_ID rZDOmM021u8yaMizgk_HX；t133/t134/t135/t136/t137/qa63/qa00 受影响面全绿；worklog + commit + push + 环境清理
+
+Stage Summary:
+- 「透镜会带路」：门（door）是透镜的完成态——计数从"报告"升级为"触发"，地图琥珀点从"看这里"升级为"带我去"；三个触发器共享一个 cursor，跳转与循环互不越界（jump ≠ cycle）。手势分层是合同本身：干净按下-释放=跳、拖拽=平移、无透镜=一切照旧——意图由透镜加载，手势不被偷换
+- 「世界卫生的三审计是不变量清单」：ADOPT（roster==canvas——任何从 roster 挑演员的探针都隐含它）、EXTENT（世界 bbox 紧致——任何 boot-fit 可见性都隐含它）、OVERLAP（无叠卡——一切真实鼠标点击都隐含它）。三者都是「隐合同」：平日无人看见，破约时以七套连锁假败的方式现身
+- 「假绿会翻转成真红」：t120 双种子 + 无正身判定的 openInspector 靠「点击总命中顶层卡」的巧合绿了很多轮；世界几何一变，同一个缺陷从假绿翻转为 274s 真红。正身判定（开的是谁的 inspector）不是奢侈品，是假绿的拆弹器
+- 「渲染集合才是演员名册」：API roster 是数据真相，DOM 是舞台真相；从名册挑演员可能挑到没上台的。多 workspace 语义改变了 ws=null 行的可见性——单 workspace 时代的侥幸（全量渲染）不是合同
+- 「map 上的点也会出画框」：fit∪viewport 取景 + letterbox 让 chip 投影随视口漂移，钉住某个 chip 的可点性等于钉住整个世界状态。自愈式几何查询（pick→verify→click，失效重挑）是探针域对「视口不可信」教义的终极形态
+- 遗留（下轮候选）：find 的类型过滤 chips（状态 chips 同款方言，headless 可验证）；minimap sel 模式的 chip 点击聚焦（跳转语义可平移到选中框）；world-hygiene 稳态观察账本（三审计后撞车/蔓延应绝迹，观察几轮）；favorites 拖拽排序（真机）；预览卡端口点/边高亮（真机）；建议连线手感（真机）；runner wall-time 剖面（qa64 74s 十二轮一致，继续让位）；EMPIAR 真数据回归（重，让位）；用户真机项；undo 手感参数；诊断签名命中率观察（真机）
