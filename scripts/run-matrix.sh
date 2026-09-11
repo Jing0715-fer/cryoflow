@@ -117,9 +117,10 @@ echo "matrix: $TOTAL suites, serial (running $FROM_IDX..$TO_IDX)"
 #     over the threshold OR no server process exists (OOM already fired),
 #     restart inline. The failure cascade stays bounded to one suite
 #     instead of everything after a mid-matrix death.
-#   Telemetry — per-suite RSS is appended to .next/matrix-memory.log and
-#     the chunk peak is printed at the end: future OOM questions get data,
-#     not folklore.
+#   Telemetry — per-suite RSS + wall-time are appended to
+#     .next/matrix-memory.log (cols: time,suite,rss,restarted,wall) and
+#     the chunk peak + slowest suite are printed at the end: future OOM
+#     and slow-suite questions get data, not folklore.
 FRESH_SERVER="${FRESH_SERVER:-1}"
 RSS_RESTART_MB="${RSS_RESTART_MB:-1200}"
 MEMLOG=".next/matrix-memory.log"
@@ -150,11 +151,13 @@ if [ "$FRESH_SERVER" = "1" ]; then
   fresh_server || true
 fi
 mkdir -p .next
-echo "# $(date '+%F %T') chunk $FROM_IDX..$TO_IDX/$TOTAL fresh=$FRESH_SERVER thr=${RSS_RESTART_MB}MB" >> "$MEMLOG"
+echo "# $(date '+%F %T') chunk $FROM_IDX..$TO_IDX/$TOTAL fresh=$FRESH_SERVER thr=${RSS_RESTART_MB}MB cols=time,suite,rss,restarted,wall" >> "$MEMLOG"
 FAILS=()
 N=0
 PEAK=0
 PEAK_AT="-"
+WALL_MAX=0
+WALL_AT="-"
 for s in "${SUITES[@]}"; do
   N=$((N+1))
   if [ "$N" -lt "$FROM_IDX" ] || [ "$N" -gt "$TO_IDX" ]; then continue; fi
@@ -174,9 +177,14 @@ for s in "${SUITES[@]}"; do
       restarted="yes"
     fi
   fi
-  echo "$(date '+%H:%M:%S'),$name,${rss}MB,$restarted" >> "$MEMLOG"
+  # the row's timestamp is the GATE time (when rss was sampled); the row
+  # itself is written after the suite so wall-time is known (Task 125)
+  gate_ts=$(date '+%H:%M:%S')
   if [ "$rss" -gt "$PEAK" ]; then PEAK=$rss; PEAK_AT=$name; fi
+  t0=$(date +%s)
   out=$(node "$s" 2>&1)
+  wall=$(( $(date +%s) - t0 ))
+  if [ "$wall" -gt "$WALL_MAX" ]; then WALL_MAX=$wall; WALL_AT=$name; fi
   # Task 117 (prevention leg of the qa60/61 position-5 intermittent): the
   # browser is released AFTER every suite so suite N+1 relaunches Chromium
   # instead of inheriting suite N's renderer churn. Two same-slot failures
@@ -186,16 +194,17 @@ for s in "${SUITES[@]}"; do
   agent-browser close --all >/dev/null 2>&1 || true
   suffix=""
   [ "$restarted" = "yes" ] && suffix=", restarted"
+  echo "$gate_ts,$name,${rss}MB,$restarted,${wall}s" >> "$MEMLOG"
   if echo "$out" | grep -qE "ALL PASS|GREEN|SMOKE GREEN|PROBE OK|PAPER PROBE"; then
-    echo "[$N/$TOTAL] PASS $name (rss ${rss}MB${suffix})"
+    echo "[$N/$TOTAL] PASS $name (rss ${rss}MB, wall ${wall}s${suffix})"
   else
-    echo "[$N/$TOTAL] FAIL $name (rss ${rss}MB${suffix})"
+    echo "[$N/$TOTAL] FAIL $name (rss ${rss}MB, wall ${wall}s${suffix})"
     echo "$out" | tail -6
     FAILS+=("$name")
   fi
 done
 echo "=================================="
 echo "TOTAL ${#FAILS[@]} failures / suites $FROM_IDX..$TO_IDX of $TOTAL"
-echo "server memory: chunk peak ${PEAK}MB (before '$PEAK_AT'); telemetry: $MEMLOG"
+echo "server memory: chunk peak ${PEAK}MB (before '$PEAK_AT'); slowest suite: ${WALL_AT} ${WALL_MAX}s; telemetry: $MEMLOG"
 for f in "${FAILS[@]}"; do echo "  FAILED: $f"; done
 [ ${#FAILS[@]} -eq 0 ]

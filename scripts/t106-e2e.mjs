@@ -288,9 +288,11 @@ try {
        /setJumping\(true\)/.test(canvasSrc) &&
        /finally\(\(\) => setJumping\(false\)\)/.test(canvasSrc),
     "F3 busy lock: rows disabled while a batch is in flight");
-  must(/historyPast\.length - 1 - i/.test(canvasSrc) &&
-       /historyFuture\.length - i/.test(canvasSrc),
-    "F4 jump math reads live stack lengths (panel = a view over the stacks)");
+  must(/past\.length - 1 - i/.test(canvasSrc) &&
+       /future\.length - i/.test(canvasSrc) &&
+       /past=\{historyPast\}/.test(canvasSrc) &&
+       /future=\{historyFuture\}/.test(canvasSrc),
+    "F4 jump math reads live stack lengths (HistoryRows = a view over the stacks — Task 125 moved the math into the rows component, props stay wired to the stacks)");
   must(!/storage\.setItem\([^)]*histor/i.test(storeSrc) &&
        !/storage\.setItem/.test(canvasSrc),
     "F5 history stays in-memory (canvas has ZERO storage.setItem calls — all storage writes live in the store)");

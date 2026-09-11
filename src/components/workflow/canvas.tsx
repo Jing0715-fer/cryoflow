@@ -15,6 +15,7 @@ import {
   BookmarkPlus,
   Check,
   ChevronDown,
+  CircleDashed,
   Copy,
   Download,
   FileJson,
@@ -27,6 +28,7 @@ import {
   RotateCcw,
   Trash2,
   Map as MapIcon,
+  Move,
   Undo2,
   Redo2,
   Wand2,
@@ -51,7 +53,7 @@ import {
   downloadWorkflowJson,
   workflowFileName,
 } from "@/lib/workflow-io";
-import { useWorkflowStore, useActiveWorkspaceJobs, useActiveWorkspaceEdges, type PendingFrom } from "@/lib/store";
+import { useWorkflowStore, useActiveWorkspaceJobs, useActiveWorkspaceEdges, type PendingFrom, type HistoryEntry, type HistoryEntryKind } from "@/lib/store";
 import { beginGroupDrag, endGroupDrag, moveGroupDrag } from "@/lib/group-drag";
 import type { JobDTO } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -216,6 +218,217 @@ const LiveWire = React.memo(function LiveWire({
     </svg>
   );
 });
+
+/* ------------------------------------------------------------------ */
+/* History panel rows (Task 125): kind icons + run disclosure groups   */
+/* ------------------------------------------------------------------ */
+
+type HistoryRowKind = HistoryEntryKind | "other";
+
+const HISTORY_KIND_META: Record<HistoryRowKind, { icon: typeof Move; noun: string; className: string }> = {
+  move: { icon: Move, noun: "move", className: "text-muted-foreground" },
+  tidy: { icon: Wand2, noun: "auto-arrange", className: "text-muted-foreground" },
+  delete: { icon: Trash2, noun: "delete", className: "text-rose-500/90" },
+  other: { icon: CircleDashed, noun: "edit", className: "text-muted-foreground" },
+};
+
+const historyKindOf = (e: HistoryEntry): HistoryRowKind =>
+  e.kind && HISTORY_KIND_META[e.kind] ? e.kind : "other";
+
+interface HistoryRun {
+  kind: HistoryRowKind;
+  start: number;
+  end: number;
+  labels: string[];
+}
+
+/** Consecutive same-kind runs over one rendered row order. A pair of
+ *  moves is normal work — only HISTORY_GROUP_MIN+ collapses. */
+const HISTORY_GROUP_MIN = 3;
+
+function historyRuns(kinds: HistoryRowKind[], labels: string[]): HistoryRun[] {
+  const runs: HistoryRun[] = [];
+  for (let i = 0; i < kinds.length; i++) {
+    const last = runs[runs.length - 1];
+    if (last && last.kind === kinds[i]) {
+      last.end = i;
+      last.labels.push(labels[i]);
+    } else {
+      runs.push({ kind: kinds[i], start: i, end: i, labels: [labels[i]] });
+    }
+  }
+  return runs;
+}
+
+/** Task 125 — the panel's body. Lives at module level so its expansion
+ *  state unmounts with the popover: every open starts collapsed, a fresh
+ *  overview instead of stale UI state. Rows never parse display labels —
+ *  the entry's structural kind (store.ts sets it at every push site)
+ *  drives icons and grouping. Jump semantics stay with the canvas
+ *  (onBack/onForward carry the guard + jumping wrapper). */
+function HistoryRows({
+  past,
+  future,
+  jumping,
+  onBack,
+  onForward,
+}: {
+  past: HistoryEntry[];
+  future: HistoryEntry[];
+  jumping: boolean;
+  onBack: (steps: number) => void;
+  onForward: (steps: number) => void;
+}) {
+  const [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
+  const toggleRun = (k: string) => setExpanded((s) => ({ ...s, [k]: !s[k] }));
+
+  const pastRuns = historyRuns(past.map(historyKindOf), past.map((e) => e.label));
+  // the NEXT redo displays first (closest to Now) — runs follow DISPLAY order
+  const futureRendered = [...future].reverse();
+  const futureRuns = historyRuns(futureRendered.map(historyKindOf), futureRendered.map((e) => e.label));
+
+  return (
+    <>
+      <ul>
+        {pastRuns.map((run, rr) => {
+          const key = `p${run.start}-${run.end}:${run.kind}`;
+          const grouped = run.labels.length >= HISTORY_GROUP_MIN;
+          const open = grouped && !!expanded[key];
+          const Meta = HISTORY_KIND_META[run.kind];
+          return (
+            <React.Fragment key={`pr:${rr}`}>
+              {grouped && (
+                <li>
+                  <button
+                    type="button"
+                    disabled={jumping}
+                    aria-expanded={open}
+                    className="flex w-full items-center gap-1.5 rounded px-1.5 py-1 text-left text-xs hover:bg-accent disabled:pointer-events-none disabled:opacity-50"
+                    data-canvas-ui="history-group"
+                    data-history-kind={run.kind}
+                    data-run-count={run.labels.length}
+                    onClick={() => toggleRun(key)}
+                    title={run.labels.join(" · ")}
+                  >
+                    <span className="flex w-4 shrink-0 justify-center">
+                      <ChevronDown className={`size-3 text-muted-foreground transition-transform ${open ? "" : "-rotate-90"}`} />
+                    </span>
+                    <Meta.icon className={`size-3.5 shrink-0 ${Meta.className}`} />
+                    <span className="truncate font-medium">
+                      {run.labels.length}× {Meta.noun}
+                    </span>
+                  </button>
+                </li>
+              )}
+              {(!grouped || open) &&
+                past.slice(run.start, run.end + 1).map((entry, k) => {
+                  const i = run.start + k;
+                  const target = past.length - 1 - i;
+                  return (
+                    <li key={`p:${i}:${entry.label}`}>
+                      <button
+                        type="button"
+                        disabled={jumping}
+                        className="flex w-full items-center gap-1.5 rounded px-1.5 py-1 text-left text-xs hover:bg-accent disabled:pointer-events-none disabled:opacity-50"
+                        data-canvas-ui="history-row"
+                        data-history-kind="past"
+                        data-history-index={i}
+                        onClick={() => onBack(target)}
+                        title={
+                          target === 0
+                            ? "You are here"
+                            : `Jump back — undo ${target} step${target === 1 ? "" : "s"} after this`
+                        }
+                      >
+                        <span className="w-4 shrink-0 text-right font-mono text-[9px] tabular-nums text-muted-foreground">
+                          {i + 1}
+                        </span>
+                        <Meta2Icon entry={entry} />
+                        <span className="truncate">{entry.label}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+            </React.Fragment>
+          );
+        })}
+      </ul>
+      <div className="my-1 flex items-center gap-1.5 px-1" data-canvas-ui="history-now">
+        <span className="h-px flex-1 bg-border" />
+        <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">now</span>
+        <span className="h-px flex-1 bg-border" />
+      </div>
+      <ul>
+        {futureRuns.map((run, rr) => {
+          const key = `f${run.start}-${run.end}:${run.kind}`;
+          const grouped = run.labels.length >= HISTORY_GROUP_MIN;
+          const open = grouped && !!expanded[key];
+          const Meta = HISTORY_KIND_META[run.kind];
+          return (
+            <React.Fragment key={`fr:${rr}`}>
+              {grouped && (
+                <li>
+                  <button
+                    type="button"
+                    disabled={jumping}
+                    aria-expanded={open}
+                    className="flex w-full items-center gap-1.5 rounded px-1.5 py-1 text-left text-xs italic text-muted-foreground hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+                    data-canvas-ui="history-group"
+                    data-history-kind={run.kind}
+                    data-run-count={run.labels.length}
+                    onClick={() => toggleRun(key)}
+                    title={run.labels.join(" · ")}
+                  >
+                    <span className="flex w-4 shrink-0 justify-center">
+                      <ChevronDown className={`size-3 text-muted-foreground transition-transform ${open ? "" : "-rotate-90"}`} />
+                    </span>
+                    <Meta.icon className={`size-3.5 shrink-0 ${Meta.className}`} />
+                    <span className="truncate font-medium">
+                      {run.labels.length}× {Meta.noun}
+                    </span>
+                  </button>
+                </li>
+              )}
+              {(!grouped || open) &&
+                futureRendered.slice(run.start, run.end + 1).map((entry, k) => {
+                  const r = run.start + k;
+                  const i = future.length - 1 - r; // array index — the NEXT redo is r === 0
+                  const target = future.length - i;
+                  return (
+                    <li key={`f:${i}:${entry.label}`}>
+                      <button
+                        type="button"
+                        disabled={jumping}
+                        className="flex w-full items-center gap-1.5 rounded px-1.5 py-1 text-left text-xs italic text-muted-foreground hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+                        data-canvas-ui="history-row"
+                        data-history-kind="future"
+                        data-history-index={i}
+                        onClick={() => onForward(target)}
+                        title={`Jump forward — redo ${target} step${target === 1 ? "" : "s"} up to this`}
+                      >
+                        <span className="w-4 shrink-0 text-right font-mono text-[9px] tabular-nums text-muted-foreground/60">
+                          {past.length + i + 1}
+                        </span>
+                        <Meta2Icon entry={entry} />
+                        <span className="truncate">{entry.label}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+            </React.Fragment>
+          );
+        })}
+      </ul>
+    </>
+  );
+}
+
+/** The row's kind icon — a leaf helper so past/future maps stay flat. */
+function Meta2Icon({ entry }: { entry: HistoryEntry }) {
+  const Meta = HISTORY_KIND_META[historyKindOf(entry)];
+  const Icon = Meta.icon;
+  return <Icon className={`size-3.5 shrink-0 ${Meta.className}`} />;
+}
 
 /* ------------------------------------------------------------------ */
 /* Floating selection toolbar (multi-select ≥ 2)                       */
@@ -484,6 +697,18 @@ export function WorkflowCanvas() {
   // one is in flight every row locks (a second click would interleave two
   // batches and scramble the order the user asked for)
   const [jumping, setJumping] = React.useState(false);
+  // Task 125 — the jump verbs the history rows share: guard + jumping
+  // wrapper live here so HistoryRows stays a pure renderer.
+  const jumpBack = (target: number) => {
+    if (target <= 0) return;
+    setJumping(true);
+    void undoSteps(target).finally(() => setJumping(false));
+  };
+  const jumpForward = (target: number) => {
+    if (target <= 0) return;
+    setJumping(true);
+    void redoSteps(target).finally(() => setJumping(false));
+  };
 
   const rootRef = React.useRef<HTMLDivElement>(null);
   const panRef = React.useRef<PanState | null>(null);
@@ -1687,70 +1912,13 @@ export function WorkflowCanvas() {
               </p>
             ) : (
               <div className="max-h-64 overflow-y-auto" data-canvas-ui="history-list">
-                <ul>
-                  {historyPast.map((entry, i) => (
-                    <li key={`p:${i}:${entry.label}`}>
-                      <button
-                        type="button"
-                        disabled={jumping}
-                        className="flex w-full items-center gap-1.5 rounded px-1.5 py-1 text-left text-xs hover:bg-accent disabled:pointer-events-none disabled:opacity-50"
-                        data-canvas-ui="history-row"
-                        data-history-kind="past"
-                        data-history-index={i}
-                        onClick={() => {
-                          const target = historyPast.length - 1 - i;
-                          if (target <= 0) return;
-                          setJumping(true);
-                          void undoSteps(target).finally(() => setJumping(false));
-                        }}
-                        title={
-                          historyPast.length - 1 - i === 0
-                            ? "You are here"
-                            : `Jump back — undo ${historyPast.length - 1 - i} step${historyPast.length - 1 - i === 1 ? "" : "s"} after this`
-                        }
-                      >
-                        <span className="w-4 shrink-0 text-right font-mono text-[9px] tabular-nums text-muted-foreground">
-                          {i + 1}
-                        </span>
-                        <span className="truncate">{entry.label}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-                <div className="my-1 flex items-center gap-1.5 px-1" data-canvas-ui="history-now">
-                  <span className="h-px flex-1 bg-border" />
-                  <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">now</span>
-                  <span className="h-px flex-1 bg-border" />
-                </div>
-                <ul>
-                  {[...historyFuture].reverse().map((entry, r) => {
-                    const i = historyFuture.length - 1 - r; // array index — the NEXT redo is r === 0
-                    return (
-                      <li key={`f:${i}:${entry.label}`}>
-                        <button
-                          type="button"
-                          disabled={jumping}
-                          className="flex w-full items-center gap-1.5 rounded px-1.5 py-1 text-left text-xs italic text-muted-foreground hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
-                          data-canvas-ui="history-row"
-                          data-history-kind="future"
-                          data-history-index={i}
-                          onClick={() => {
-                            const target = historyFuture.length - i;
-                            if (target <= 0) return;
-                            setJumping(true);
-                            void redoSteps(target).finally(() => setJumping(false));
-                          }}
-                          title={`Jump forward — redo ${historyFuture.length - i} step${historyFuture.length - i === 1 ? "" : "s"} up to this`}
-                        >
-                          <span className="w-4 shrink-0 text-right font-mono text-[9px] tabular-nums text-muted-foreground/60">
-                            {historyPast.length + i + 1}
-                          </span>
-                          <span className="truncate">{entry.label}</span>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
+                <HistoryRows
+                  past={historyPast}
+                  future={historyFuture}
+                  jumping={jumping}
+                  onBack={jumpBack}
+                  onForward={jumpForward}
+                />
               </div>
             )}
           </PopoverContent>

@@ -263,8 +263,14 @@ export interface DeleteSnapshot {
  *  (PATCH by job id) and deletes (restore re-creates rows VERBATIM).
  *  Adds and edge edits churn server-generated ids — they stay outside the
  *  stack and kill the redo branch instead (invalidateRedo). */
+export type HistoryEntryKind = "move" | "tidy" | "delete";
+
 export interface HistoryEntry {
   label: string;
+  /** Task 125 — what the mutation WAS, set at every push site; the history
+   *  panel icons and groups rows by this instead of parsing display labels
+   *  (the label is prose for humans, kind is structure for views). */
+  kind: HistoryEntryKind;
   undo: () => Promise<void>;
   redo: () => Promise<void>;
 }
@@ -1479,6 +1485,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     if (j0 && (j0.x !== x || j0.y !== y)) {
       const entry: HistoryEntry = {
         label: `Move ${j0.name}`,
+        kind: "move",
         undo: async () => {
           await get().moveJobsCommit([{ id, x: j0.x, y: j0.y }], { history: false });
         },
@@ -1528,6 +1535,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     if (before.length > 0) {
       const entry: HistoryEntry = {
         label: "Auto-arrange",
+        kind: "tidy",
         undo: async () => {
           await get().moveJobsCommit(before, { history: false });
         },
@@ -1658,6 +1666,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       snapshot && snapJob
         ? {
             label: `Delete ${snapJob.name}`,
+            kind: "delete",
             undo: async () => {
               await get().undoDelete(snapshot);
             },
@@ -1920,6 +1929,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     const entry: HistoryEntry | null = undoSnapshot.jobs.length
       ? {
           label: `Delete ${undoSnapshot.jobs.length} job${undoSnapshot.jobs.length === 1 ? "" : "s"}`,
+          kind: "delete",
           undo: async () => {
             await get().undoDelete(undoSnapshot);
           },
@@ -2086,6 +2096,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
           beforeMoves.length === 1
             ? `Move ${beforeMoves[0].name}`
             : `Move ${beforeMoves.length} jobs`,
+        kind: "move",
         undo: async () => {
           await get().moveJobsCommit(
             beforeMoves.map(({ id, x, y }) => ({ id, x, y })),

@@ -3787,3 +3787,28 @@ Stage Summary:
 - 「滑行只属于程序化到达」：viewport-glide 类只在 focus 驱动的跳变期间存在（520ms 后撤）——滚轮和拖拽永远即时，因为用户手上的变换不该有延迟。动画是到达的庆祝，不是操控的阻尼
 - 「诊断先于修复」：html-intercepts 三连败后没有瞎改产品，诊断脚本同一状态同一坐标 elementFromPoint 命中按钮干净——竞速在探针侧不在产品侧（animate-rise 重挂载 + 轮询提交帧），hardClick 回退是测试鲁棒性手段而非产品缺陷遮羞布
 - 遗留（下轮候选）：dashboard 深链 open 方言的居中增强（idle 路径加 focus，需回归 gallery/bookmark 套件）；runner 遥测加每套 wall-time 列（小）；历史面板条目分组（kind 图标 + 连续同动作折叠）；qa60/61 共享传输推广（暂缓维持）；EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势、TSV/海报粘贴验证）；minimap mode 持久化（真机反馈再评估）；undo 手感参数调优；诊断签名命中率观察（真机）
+
+---
+Task ID: 125
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-11 13:00 window)
+Task: cron 自主巡检——Task 125「历史面板的 kind 结构：条目自带出身 + 连续同动作折叠」+ runner wall-time 骑兵项：开局核实 worklog 尾部 Task 124/aa8b27f == origin/main（11:30 窗口实为 Task 123、12:15 窗口实为 Task 124，摘要快照又一次过时），冷启动 + smoke/qa00/t124 三件套绿判稳。按 Task 124 交接候选定案「历史面板条目分组（kind 图标 + 连续同动作折叠，Task 106 面板既定打磨项）」；顺手兑现交接小项「runner 遥测加每套 wall-time 列」。交付：store HistoryEntry 增结构化 kind 字段（"move"|"tidy"|"delete"，5 推入点全设，视图不解析显示 label）+ canvas HistoryRows 模块级组件（kind 图标表 + 连续 ≥3 同类折叠为 disclosure 行 + aria-expanded + 展开态随 popover 卸载）+ t106 F4 断言随迁（合同不变文本跟实现走）+ runner 每套 wall 列 + slowest 终报。t125 48 断言六相 ×2 绿（矩阵位 #47 一次过）+ 受影响面（t104 41/t105 45/t106 46/smoke/qa00）全绿 + 全矩阵 61 套分 9 块 0 失败 + worklog + push
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 124（aa8b27f == origin/main，树净）；BUILD_ID ycBquaEm7_XJ3_vfzsl7J 匹配；冷启动 + qa63-smoke/qa00/t124(32) 三件套全绿 → 稳定
+- 【选题】Task 124 交接候选盘点：③历史面板条目分组自 Task 122 交接起挂账（Task 106 既定打磨项）+ 主战场面板现状行 = 序号 + 纯文本（label 五推入点：Move 单/多、Delete 单/多、Auto-arrange）；骑兵项② runner wall-time 列（交接标注「小」）顺手带上
+- 【实现·store】HistoryEntryKind 类型 + HistoryEntry.kind 结构化字段（注释明言「label 是给人读的散文，kind 是给视图的结构」）+ 5 推入点全设 kind（1486/1536/1668/1932/2099，rg 复核 5 处）
+- 【实现·canvas】模块级 HistoryRows 组件（HISTORY_KIND_META 图标表：Move/Wand2/Trash2/ CircleDashed 兜底，delete 行玫瑰 trash 显性度；historyRuns 连续同类 run 计算；HISTORY_GROUP_MIN=3——一对 move 是正常工作量，三个起算噪音）+ 折叠行 = chevron(w-4 列对齐叶行序号) + kind 图标 + 「N× move」font-medium + title=全 label join(" · ") + aria-expanded + data-run-count；叶行加 kind 图标（绝对编号列不变）；展开态 useState 在组件内——组件随 popover 卸载，每次打开全新折叠概览；跳转动词留在 canvas（jumpBack/jumpForward 守卫 + jumping 包装，HistoryRows 纯渲染器）
+- 【骑兵项·runner】每套 wall-time：gate_ts 变量留 gate 时刻戳、行移到套件后写（wall 已知）、列 time,suite,rss,restarted,wall、PASS/FAIL 行内联 wall、终报 + slowest suite（WALL_MAX/WALL_AT）
+- 【t106 F4 断言随迁】旧断言钉内联跳转算术文本（historyPast.length - 1 - i）；重构后算术在 HistoryRows（props 即活栈）——合同不变（jump math reads live stack lengths），文本随实现走 + 新增 props 接线断言（past={historyPast}）
+- 【t125 探针三折】①finally 里 process.exit(0) 吞异常（EXIT 0 零输出假象）——删掉让异常自然冒泡（t106 的 finally 无 exit 是对的）；②listJobs 响应形状 j.jobs ?? j + 种子需 workspaceId + 卡片属性 data-job（非 data-job-id）——对齐 t106 方言；③诊断脚本实锤第三拖静默未提交：卡中心 x≈1744 > 1600 视口（boundingBox 存在但 pointer 落屏外）——种子网格 400×260 横排收成 320×260 两行两列，四卡同屏；Z1 算术自伤（===1 应为 ===3）——探针自己的计数错误
+- 【视觉验收】t125-shot 屏摄双态：折叠态「4× move + 5 Delete(玫瑰 trash) + NOW」、展开态四叶带 move 图标绝对编号 1-4 + chevron 下指——人眼过
+- 【收尾】eslint 0、tsc src 0、三段式构建 BUILD_ID Te2TiHJh3jRf4zjxvsahE；t125 终跑 48 全绿；受影响面 t104(41)/t105(45)/t106(46)/smoke/qa00 全绿；全矩阵 61 套（t125 glob 自动收录 #47）分 9 块串行 0 失败（块峰 191-203MB 零重启，Task 122 卫生学持续生效）；诊断脚本删除、worklog + commit + push + 环境清理
+
+Stage Summary:
+- 「label 是散文，kind 是结构」：视图需要回答「这行动是什么类别」时，解析显示 label（startsWith("Move")）是拿排版当数据——改名即碎。出身在推入点写进条目（kind 字段），视图只消费结构；五推入点全设是类型系统逼出来的完整（漏一处 tsc 就红）
+- 「折叠是组织，跳转是导航，两个动词不混住」：折叠行的点击只展开/收拢（disclosure），跳转仍在叶行——混住的替代设计（组行点击=跳到 run 某端）撞上「run 贴着 Now 时目标步数为 0 → 整组行假死」的陷阱。行话对齐既有教义（reveal 与 open 是两个动词）：一个控件只回答一个问题
+- 「阈值 3 是产品判断，恰好也是回归安全」：一对连续 move 是正常工作量（拖两下卡），三个起算噪音；t106 的种子序列最大 run=2——产品阈值与旧断言天然相容，无需改旧探针的动态断言。两个约束同向时不要怀疑巧合，记下即可
+- 「展开态住在会卸载的组件里」：popover 关闭即卸载，重开全新折叠——「每次打开是一张新概览」比「记住你上次的展开」便宜且诚实（栈已变，旧展开指向的 run 可能不存在了）；瞬态 UI 状态跟着它的表面走
+- 「探针的 boundingBox 不保证可点」：部分出屏的卡 boundingBox 有值、pointer 却落在视口外——第三拖静默未提交、面板少一行。t106 从没踩中只因它从不拖第三张卡。远程带种子的网格要按视口算（320×260 两行两列），不是按世界坐标大方差
+- 「finally 里的 process.exit 是异常黑洞」：EXIT 0 + 零输出 = throw 发生了但 exit(0) 抢在栈打印前终止进程。测试骨架的 finally 只做清理，退出码让进程自然结束——假绿比真红贵得多
+- 遗留（下轮候选）：runner wall-time 剖面观察（qa64 73s/t113 70s/t112 64s/qa61 54s 为慢四套——是否值得拆分待数据积累）；历史面板「N× auto-arrange」分组在真实长会话的手感（真机反馈）；dashboard 深链 open 方言的居中增强（idle 路径加 focus，需回归 gallery/bookmark 套件）；qa60/61 共享传输推广（暂缓维持）；EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势、TSV/海报粘贴验证）；minimap mode 持久化（真机反馈再评估）；undo 手感参数调优；诊断签名命中率观察（真机）
