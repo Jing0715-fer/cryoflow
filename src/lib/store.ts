@@ -538,6 +538,12 @@ interface WorkflowState {
   setPaletteDrag: (type: string | null) => void;
   /** Center the canvas on a job ("Focus" from the inspector). */
   focusJob: (id: string) => void;
+  /** Task 124 — one-click arrival from the dashboard surfaces (timeline rows,
+   *  ladder chips): canvas view + selection + centered viewport in one
+   *  semantic. Deliberately NOT the deep-link "open" dialect (idle→select /
+   *  submitted→inspect): reveal is about WHERE the job is, not opening its
+   *  editors — and focusJob's inspectId-clear keeps the two honest apart. */
+  revealJob: (id: string) => void;
 }
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
@@ -2283,6 +2289,23 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       // the modal would cover the canvas — close it so the user sees the focus
       inspectId: null,
     })),
+
+  revealJob: (id) => {
+    // guard against a stale row: the dashboard can outlive a deleted job by
+    // one poll — revealing a ghost would center an empty viewport
+    const job = get().jobs.find((j) => j.id === id);
+    if (!job) return;
+    get().setView("canvas");
+    // cross-workspace rows land in the job's home workspace first (the
+    // canvas renders active-workspace jobs only — same spirit as the
+    // recent-activity deep link switching projects before opening);
+    // switchWorkspace clears selection, so select AFTER the landing
+    if ((job.workspaceId ?? "") !== (get().activeWorkspaceId ?? "")) {
+      get().switchWorkspace(job.workspaceId ?? "");
+    }
+    get().select(id);
+    get().focusJob(id);
+  },
 }));
 
 /* Cross-tab bookmark freshness (Task 102): a localStorage write fires a

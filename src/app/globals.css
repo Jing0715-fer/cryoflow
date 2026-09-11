@@ -1049,3 +1049,49 @@
     display: none !important;
   }
 }
+
+/* ===================== Task 124 — reveal arrivals ===================== */
+
+/* The card a reveal/focus just landed on pulses once: a primary ring that
+   blooms and fades. The span is keyed by focusEpoch (job-card.tsx), so
+   every arrival remounts it and restarts the animation — no JS timers. */
+@keyframes reveal-flash {
+  0% {
+    opacity: 0.95;
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 38%, transparent);
+  }
+  70% {
+    opacity: 0.5;
+    box-shadow: 0 0 0 14px color-mix(in srgb, var(--primary) 12%, transparent);
+  }
+  100% {
+    opacity: 0;
+    box-shadow: 0 0 0 18px transparent;
+  }
+}
+.reveal-flash {
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--primary) 55%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--primary) 45%, transparent);
+  animation: reveal-flash 1.15s ease-out 1 both;
+}
+
+/* Programmatic viewport arrivals GLIDE (store.revealJob / focus): the
+   canvas adds this class only around the focus-driven setViewport —
+   wheel and pan never touch it, so gestures stay raw. */
+.viewport-glide {
+  transition:
+    transform 0.48s cubic-bezier(0.22, 0.61, 0.36, 1),
+    -webkit-transform 0.48s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+/* The paper has no arrivals: the flash never prints (the span also carries
+   print:hidden), and a mid-glide print must not smear the transform. */
+@media print {
+  .reveal-flash {
+    display: none !important;
+  }
+  .viewport-glide {
+    transition: none !important;
+  }
+}

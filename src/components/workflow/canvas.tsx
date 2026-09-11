@@ -750,11 +750,19 @@ export function WorkflowCanvas() {
     if (!job || !rect) return;
     // a readable zoom: bump very low zooms up so the card is legible
     const zoom = clamp(Math.max(useWorkflowStore.getState().viewport.zoom, 0.7), ZOOM_MIN, 1);
+    // Task 124 — arrivals GLIDE, gestures stay instant: the transition class
+    // lives only for this programmatic jump (wheel/pan never add it, so the
+    // transform stays raw under the user's hand); the timer retracts it
+    // right after the cubic-bezier lands
+    const ws = rootRef.current?.querySelector("[data-canvas='workspace']");
+    ws?.classList.add("viewport-glide");
+    const retract = setTimeout(() => ws?.classList.remove("viewport-glide"), 520);
     setViewport({
       x: rect.width / 2 - (job.x + CARD_W / 2) * zoom,
       y: rect.height / 2 - (job.y + CARD_H / 2) * zoom,
       zoom,
     });
+    return () => clearTimeout(retract);
   }, [focusEpoch]);
 
   // The viewport is a pure CSS transform on the workspace — the section must

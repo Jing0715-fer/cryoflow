@@ -815,6 +815,12 @@ export const JobCard = React.memo(function JobCard({
   const inputs = spec?.inputs ?? [];
   const outputs = spec?.outputs ?? [];
 
+  // Task 124 — arrival flash: the card a reveal/focus just landed on pulses
+  // once per focusEpoch. The selector pins re-renders to the two cards a
+  // focus move actually touches (previous → 0, new → epoch); the key on the
+  // span remounts it, restarting the CSS animation for every arrival.
+  const revealEpoch = useWorkflowStore((s) => (s.focusJobId === job.id ? s.focusEpoch : 0));
+
   const cardRef = React.useRef<HTMLDivElement>(null);
   const dragRef = React.useRef<DragState | null>(null);
   const portDragRef = React.useRef<PortDragState | null>(null);
@@ -1269,6 +1275,17 @@ export const JobCard = React.memo(function JobCard({
           zIndex: selected || bandMatch ? 30 : dragging ? 20 : 10,
         }}
       >
+        {/* Task 124 — arrival flash: keyed by focusEpoch so each reveal
+            re-triggers the animation; pointer-events-none keeps it pure
+            eye-line. Screen-only — the paper has no arrivals. */}
+        {revealEpoch > 0 && (
+          <span
+            key={revealEpoch}
+            data-reveal-flash=""
+            aria-hidden="true"
+            className="reveal-flash pointer-events-none absolute -inset-1.5 z-40 rounded-2xl print:hidden"
+          />
+        )}
       {/* transform host: card body + ports move together (zero lag) */}
       <div
         ref={cardRef}

@@ -241,6 +241,7 @@ function fmtOffsetPrecise(ms: number): string {
 export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
   const workspaces = useWorkflowStore((s) => s.workspaces);
   const projectName = useWorkflowStore((s) => s.project?.name);
+  const revealJob = useWorkflowStore((s) => s.revealJob);
   /** null = all workspaces; otherwise a workspace id ("" = legacy unassigned). */
   const [wsFilter, setWsFilter] = useState<string | null>(null);
   /** brief ✓ state on the copy-summary button */
@@ -624,14 +625,16 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
                 return (
                   <div key={m.jobId} className="flex items-center gap-1">
                     {i > 0 && <ArrowRight className="size-3 text-muted-foreground/40" aria-hidden="true" />}
-                    <div
+                    <button
+                      type="button"
+                      onClick={() => revealJob(m.jobId)}
                       className={cn(
-                        "rounded-lg border bg-card px-2.5 py-1.5 shadow-sm",
+                        "cursor-pointer rounded-lg border bg-card px-2.5 py-1.5 text-left shadow-sm transition-colors hover:border-violet-500/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
                         m.reported != null && m.reported === best
                           ? "border-violet-500/40 ring-1 ring-violet-500/15"
                           : "border-amber-500/30"
                       )}
-                      title={`${m.name}${m.label ? ` · ${m.label}` : ""}`}
+                      title={`${m.name}${m.label ? ` · ${m.label}` : ""} — click to reveal on the canvas`}
                     >
                       <p className="max-w-28 truncate text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                         {m.name.replace(/ \d+$/, "")}
@@ -653,7 +656,7 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
                           </span>
                         )}
                       </p>
-                    </div>
+                    </button>
                   </div>
                 );
               })}
@@ -669,10 +672,12 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
       </div>
         {/* session timeline ------------------------------------------------
             Full-width third view: one row per engine run, x = wall-clock
-            window [startedAt → +measured duration]. Column arithmetic is
-            shared with the axis overlay: icon 36 + gap 8 + name 112 + gap 8
-            = 164px track origin; duration column 56 + gap 8 = 64px right
-            inset — keep the four numbers in sync with the row below. */}
+            window [startedAt → +measured duration]. Rows are REVEAL buttons
+            (Task 124): click lands on the job in the canvas. Column
+            arithmetic is shared with the axis overlay: icon 36 + gap 8 +
+            name 112 + gap 8 = 164px track origin; duration 56 + gap 8 +
+            reveal icon 12 + gap 8 = 84px right inset — keep the six numbers
+            in sync with the rows below. */}
         {runs.rows.length > 0 && (
           <div
             className="mt-5 border-t pt-4"
@@ -689,7 +694,7 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
             <div className="max-h-72 overflow-y-auto pr-1 print:max-h-none print:overflow-visible">
               <div className="relative">
                 {/* axis hairlines: behind every row, aligned to the track */}
-                <div className="pointer-events-none absolute inset-y-0 left-[164px] right-16" aria-hidden="true">
+                <div className="pointer-events-none absolute inset-y-0 left-[164px] right-[84px]" aria-hidden="true">
                   {runs.ticks.map((t) => (
                     <span
                       key={t}
@@ -703,11 +708,14 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
                   const w = Math.max((r.ms / runs.span) * 100, 0.75);
                   const spec = jobType(r.job.type);
                   return (
-                    <div
+                    <button
+                      type="button"
                       key={r.job.id}
-                      className="relative flex items-center gap-2 py-[3px]"
+                      className="group relative flex w-full cursor-pointer items-center gap-2 rounded py-[3px] text-left transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
                       data-tl-row=""
                       data-status={r.job.status}
+                      onClick={() => revealJob(r.job.id)}
+                      title={`Reveal ${r.job.name} on the canvas — ${r.job.status}, ran ${fmtDuration(r.ms)}`}
                     >
                       <span className="flex w-9 shrink-0 justify-end">
                         <span
@@ -746,12 +754,18 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
                       <span className="w-14 shrink-0 text-right font-mono text-[9.5px] tabular-nums text-muted-foreground">
                         {fmtDuration(r.ms)}
                       </span>
-                    </div>
+                      {/* reveal affordance: fades in on row hover, never on
+                          paper (the paper has nowhere to arrive) */}
+                      <Crosshair
+                        className="size-3 shrink-0 text-muted-foreground/60 opacity-0 transition-opacity group-hover:opacity-100 print:hidden"
+                        aria-hidden="true"
+                      />
+                    </button>
                   );
                 })}
               </div>
               {/* relative-time axis labels, same insets as the hairlines */}
-              <div className="relative mt-1 ml-[164px] h-3 mr-16" aria-hidden="true">
+              <div className="relative mt-1 ml-[164px] h-3 mr-[84px]" aria-hidden="true">
                 {runs.ticks.map((t) => (
                   <span
                     key={t}

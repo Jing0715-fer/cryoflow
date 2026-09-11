@@ -3765,3 +3765,25 @@ Stage Summary:
 - 「插入锚点决定容器归属」：JSX 块锚 </div></section> 插入时天然落进最近的容器——时间线一度成为 grid 的半宽 cell。锚定式编辑后必须核对容器成员资格（回显 + 视觉双验），「我以为它在网格外面」不是它的位置
 - 「诚实缺席者要计数不要假装」：种子作业没跑过就没有窗口——时间线不伪造零宽条，页脚说「1 of 6 never started」；兄弟节（漏斗/阶梯）的自隐合同在时间线上延续为「有运行才画轴，没运行就数数」
 - 遗留（下轮候选）：时间线行点击 → 画布选中跳转（导航腿，需 store 接线，真机价值观察）；runner 遥测加每套 wall-time 列（小）；历史面板条目分组（kind 图标 + 连续同动作折叠，Task 106 面板的既定打磨项）；qa60/61 共享传输推广（暂缓维持）；EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势、TSV/海报粘贴验证）；3D viewer 体积截面（已建成，真机需求观察深化）；minimap mode 持久化（真机反馈再评估）；undo 手感参数调优；诊断签名命中率观察（真机）
+
+---
+Task ID: 124
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-11 12:15 window)
+Task: cron 自主巡检——Task 124「reveal 到达：仪表盘行一键落在画布上」：开局核实 worklog 尾部 Task 123/5fb5967 == origin/main，冷启动 + smoke/qa00/t123 三件套绿判稳。按 Task 123 交接首选候选定案「时间线行点击 → 画布跳转」——盘点发现 focusJob/focusEpoch 画布居中机制早已存在（palette/右键菜单/连线副本在用）但 dashboard 深链方言（idle→select/submitted→inspect）不居中，且 focusJob 清 inspectId 与 inspect 深链互斥 → 定案独立 reveal 语义。交付：store.revealJob 单源动作（存在守卫 + setView + 跨工作区先 switchWorkspace 再 select+focus）+ 时间线行升级真按钮（hover 十字准星浮现 + 纸面隐没）+ 梯子 chip 同语义 + 卡片到达脉冲（focusEpoch 键控重挂载重放 CSS 动画，选择器钉死只重渲染新旧两张卡）+ 视口滑行类（仅程序化跳变带 0.48s cubic-bezier，滚轮/拖拽保持即时）+ 打印三豁免。t124 32 断言五相 ×2 绿（居中偏差 (0,0)px；矩阵位 #46 一次过）+ 受影响面（t123 51/t118 69/t121 95/smoke/qa00）全绿 + 全矩阵 60 套分 10 块 0 失败 + worklog + push
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 123；三件套全绿判稳
+- 【选题·机制盘点】store 已有 focusJob/focusEpoch（canvas 消费：居中 + 可读缩放提升）；palette jumpToJob 自有方言（idle→select+focus / submitted→inspect，注释明言 focusJob 清 inspectId 与 inspector 互斥）；dashboard 深链（gallery/recent）走 idle→select / submitted→inspect 不居中 → reveal 是正交语义：回答「作业在哪」而非「打开它的编辑器」
+- 【实现】store.revealJob（幽灵守卫 jobs.some + setView + 跨工作区 switchWorkspace 先行——canvas 只渲染 activeWorkspace 作业，与 recent 深链先 switchProject 同族；switch 清选择故 select 后置）+ canvas focus effect 加 viewport-glide 类（520ms 后撤）+ job-card reveal-flash span（revealEpoch = focusJobId===id ? focusEpoch : 0 选择器——新旧两卡重渲染，key 重挂载重放动画）+ globals.css Task 124 节（reveal-flash 关键帧 color-mix primary 光晕 + viewport-glide 过渡 + @media print 双豁免）+ analytics 时间线行 div→真 button（group hover 十字准星 print:hidden）+ 梯子 chip div→button + 轨道右内缩 64→84px 三处算术同步（新图标列 12px+gap）
+- 【编辑伤情一次】useWorkflowStore 重复导入（回显抓到）即时修复；ring-width 伪 CSS 属性（非合法属性）改双 box-shadow
+- 【探针三折】①A2a 假挂抓出真 bug：canvas 渲染 useActiveWorkspaceJobs()——reveal 不切工作区 = 静默落空 → store 修 + 探针钉合同；②html intercepts 竞速：诊断脚本 elementFromPoint 实锤同行同点命中按钮干净（animate-rise 入场 + 轮询重渲染的提交帧竞速，非产品 bug）→ hardClick 真点优先/派发回退；③strict mode 揭示 recent-activity 行文本含工作区名 → chip 选择器改 title 精确匹配
+- 【视觉验收】t124-shot 截图：TL Shot B 居中 + 主选环 + 到达脉冲光晕 + 侧栏编辑面板跟随选中——人眼过
+- 【收尾】eslint 0、tsc src 0、三段式构建 BUILD_ID ycBquaEm7_XJ3_vfzsl7J；t124 终跑 32 全绿；受影响面 t123(51)/t118(69)/t121(95)/smoke/qa00 全绿；全矩阵 60 套（t124 glob 自动收录）分 10 块 0 失败（块峰 199-204MB 零重启）；worklog + commit + push + 环境清理
+
+Stage Summary:
+- 「reveal 与 open 是两个动词」：dashboard 深链的 open 回答「打开它的编辑器」（idle→参数面板 / submitted→结果检查器），reveal 回答「它画布上的哪里」（选中 + 居中 + 脉冲，不开任何模态）。focusJob 清 inspectId 的既有设计恰好把两者隔开——语义正交就给两个动词，别让一个动作同时回答两个问题
+- 「画布只渲染活跃工作区」是 reveal 的第一堵墙：不切工作区的跳转是静默落空（store 里找得到、画布上看不见）——探针的 A2a 假挂抓的是真产品 bug，不是测试环境问题。跨视图跳转必须清点目标视图的可见性合同（canvas→activeWorkspace、dashboard→activeProject），与 recent 深链先 switchProject 同一条定律
+- 「到场的三个层次」：选中（状态可见）→ 居中（位置可见）→ 脉冲（注意力可见）——只做前两层用户仍要在卡片堆里找；1.15s 的一次性光晕把「到了」说出口。epoch 键控重挂载让 CSS 动画每次到达都重放，无需 JS 定时器
+- 「滑行只属于程序化到达」：viewport-glide 类只在 focus 驱动的跳变期间存在（520ms 后撤）——滚轮和拖拽永远即时，因为用户手上的变换不该有延迟。动画是到达的庆祝，不是操控的阻尼
+- 「诊断先于修复」：html-intercepts 三连败后没有瞎改产品，诊断脚本同一状态同一坐标 elementFromPoint 命中按钮干净——竞速在探针侧不在产品侧（animate-rise 重挂载 + 轮询提交帧），hardClick 回退是测试鲁棒性手段而非产品缺陷遮羞布
+- 遗留（下轮候选）：dashboard 深链 open 方言的居中增强（idle 路径加 focus，需回归 gallery/bookmark 套件）；runner 遥测加每套 wall-time 列（小）；历史面板条目分组（kind 图标 + 连续同动作折叠）；qa60/61 共享传输推广（暂缓维持）；EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势、TSV/海报粘贴验证）；minimap mode 持久化（真机反馈再评估）；undo 手感参数调优；诊断签名命中率观察（真机）
