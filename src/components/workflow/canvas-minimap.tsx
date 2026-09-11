@@ -23,6 +23,13 @@
  *   sel   — selection bbox only; everything unselected dims (chips,
  *           edges). Falls back to fit automatically when the selection
  *           clears. Mode is ephemeral component state — no storage.
+ *
+ * Task 136 — the find lens reaches the map: with the Ctrl+F bar open,
+ * matching chips gain an amber stroke and non-matches dim (the same
+ * 0.13 the sel focus uses), so scattered matches read at a glance even
+ * when they span several viewports. Third consumer of the SAME
+ * jobMatchesFind predicate — the count, the card rings, and these dots
+ * can never disagree about what a match is.
  */
 
 import * as React from "react";
@@ -30,6 +37,7 @@ import { useWorkflowStore, useActiveWorkspaceJobs, useActiveWorkspaceEdges } fro
 import { CARD_W, CARD_H } from "@/lib/workflow";
 import { capturePointer } from "@/lib/pointer";
 import { cn } from "@/lib/utils";
+import { jobMatchesFind } from "./canvas-find-bar";
 
 const MM_W = 192;
 const MM_MIN_H = 88;
@@ -118,6 +126,26 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
     return s;
   }, [selectedId, selectedIds]);
 
+  // Task 136 — the find lens reaches the map: the SAME exported predicate
+  // the bar counts with and the canvas rings with now also marks matches
+  // here (third consumer). Matches keep their status fill and gain an
+  // amber stroke (the canvas find ring's hue); non-matches dim with the
+  // SAME 0.13 the sel focus uses — but only when the lens has ≥1 hit,
+  // and never on top of sel focus (selection is the stronger intent,
+  // same priority the card rings obey). Hooks live ABOVE the empty-jobs
+  // early return — rules-of-hooks has no exceptions for "map not drawn".
+  const findOpen = useWorkflowStore((st) => st.findOpen);
+  const findQuery = useWorkflowStore((st) => st.findQuery);
+  const findStatus = useWorkflowStore((st) => st.findStatus);
+  const findMatchIds = React.useMemo(() => {
+    const q = findQuery.trim();
+    if (!findOpen || (!q && findStatus === "all")) return null;
+    const ids = new Set<string>();
+    for (const j of jobs) if (jobMatchesFind(j, findQuery, findStatus)) ids.add(j.id);
+    return ids;
+  }, [findOpen, findQuery, findStatus, jobs]);
+  const findLens = findMatchIds != null && findMatchIds.size > 0;
+
   if (jobs.length === 0) return null;
 
   // viewport window in WORLD coordinates:
@@ -134,6 +162,8 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
   // an active sel must also survive the selection clearing mid-session)
   const effMode: MmMode = mode === "sel" && selIds.size === 0 ? "fit" : mode;
   const selFocus = effMode === "sel";
+  // find-dim never stacks on sel focus — selection is the stronger intent
+  const findDimActive = findLens && !selFocus;
 
   // the framed content: selection-only in sel mode, everything otherwise
   const frameJobs = selFocus ? jobs.filter((j) => selIds.has(j.id)) : jobs;
@@ -306,26 +336,35 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
             const selected = j.id === selectedId;
             const inMulti = !selected && selectedIds.includes(j.id);
             const dimmed = selFocus && !selIds.has(j.id);
+            const findHit = findLens && findMatchIds!.has(j.id);
+            const findDim = findDimActive && !findHit;
             return (
               <rect
                 key={j.id}
                 data-canvas-ui="minimap-dot"
                 data-job-id={j.id}
-                data-mm-dim={dimmed ? "1" : undefined}
+                data-mm-dim={dimmed || findDim ? "1" : undefined}
+                data-mm-find={findHit ? "1" : undefined}
                 x={j.x}
                 y={j.y}
                 width={CARD_W}
                 height={CARD_H}
                 rx={26}
                 fill={STATUS_FILL[j.status] ?? STATUS_FILL.idle}
-                opacity={dimmed ? 0.13 : j.status === "idle" ? 0.55 : 0.9}
+                opacity={dimmed || findDim ? 0.13 : j.status === "idle" ? 0.55 : 0.9}
                 className="transition-opacity duration-300"
-                stroke={selected ? "var(--primary)" : inMulti ? "var(--primary)" : "none"}
+                stroke={
+                  selected || inMulti
+                    ? "var(--primary)"
+                    : findHit
+                      ? "#f59e0b"
+                      : "none"
+                }
                 strokeOpacity={inMulti ? 0.45 : 1}
                 strokeWidth={s}
               >
                 <title>{`${j.name} — ${j.status}${j.status === "running" ? ` (${Math.round(j.progress)}%)` : j.result ? ` · ${j.result}` : ""}`}</title>
-                {j.status === "running" && !dimmed && (
+                {j.status === "running" && !dimmed && !findDim && (
                   <animate
                     attributeName="opacity"
                     values="0.55;0.95;0.55"

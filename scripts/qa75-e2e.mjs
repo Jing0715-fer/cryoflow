@@ -48,6 +48,17 @@ await api(`/api/jobs/${notedA.id}`, { note: "" });
 await api(`/api/jobs/${notedB.id}`, { note: "" });
 await api(`/api/jobs/${notedA.id}`, { note: "GOLDENMARKER1 picked for refine3d" });
 await api(`/api/jobs/${notedB.id}`, { note: "ABINITIOMARKER2 redo budget spent" });
+// The print phase (C4) asserts the dim target's NAME on paper. Two
+// problems with the world-given name: it can wrap inside the card and
+// pdftotext scatters the wrapped tokens across neighboring columns, and
+// "Motion Correction 1" is a substring of "Motion Correction 10" — the
+// find-cycle would chase siblings. Rename the target BEFORE the page
+// loads (the DOM's first render carries it — a mid-session PATCH would
+// never reach the already-mounted card) to one compound word that can
+// neither wrap nor collide. Restored in cleanup.
+const dimOrigName = dimTarget.name;
+dimTarget.name = "PRINTDIMPROBE";
+await api(`/api/jobs/${dimTarget.id}`, { name: dimTarget.name });
 
 const b = await chromium.launch();
 const p = await b.newPage({ viewport: { width: 1280, height: 900 } });
@@ -83,6 +94,18 @@ console.log("Phase A — lens mechanics");
 
   await chip.click();
   await sleep(350); // 200ms transition
+  // the 300ms opacity transition can still be mid-flight at 350ms —
+  // sample-by-polling beats sampling-by-sleep (0.29187 ≠ 0.28 taught us)
+  await p
+    .waitForFunction(
+      (sel) => {
+        const el = document.querySelector(sel);
+        return el && getComputedStyle(el).opacity === "0.28";
+      },
+      jobSel(dimTarget.id),
+      { timeout: 3000 },
+    )
+    .catch(() => {});
   const dim = await styleOf(jobSel(dimTarget.id));
   const lit = await styleOf(jobSel(notedA.id));
   must(dim?.dim === true, "A5 dim-target carries the spotlight class");
@@ -93,6 +116,16 @@ console.log("Phase A — lens mechanics");
   await p.keyboard.press("n");
   await sleep(350);
   must((await chip.getAttribute("aria-pressed")) === "false", "A8 N key turns the lens off");
+  await p
+    .waitForFunction(
+      (sel) => {
+        const el = document.querySelector(sel);
+        return el && getComputedStyle(el).opacity === "1";
+      },
+      jobSel(dimTarget.id),
+      { timeout: 3000 },
+    )
+    .catch(() => {});
   must((await styleOf(jobSel(dimTarget.id))).opacity === "1", "A9 undimmed after N");
   await p.keyboard.press("n");
   await sleep(350);
@@ -159,6 +192,36 @@ console.log("Phase B — palette: Notes group + text search + jump");
 /* ---------------- Phase C: print contract ---------------- */
 console.log("Phase C — print: the lens never dims the paper");
 {
+  // The paper renders the canvas frame at the CURRENT zoom, and the
+  // auto-picked dim target can sit at overview zoom where a 220px card
+  // prints ~50px wide — the name truncates and pdftotext extracts a
+  // fragment. Bring the card to LEGIBILITY zoom first: the find bar's
+  // Enter walks focusJob (arrival centers + ≥0.7 zoom), and if the name
+  // also matches siblings ("Motion Correction 1" vs 10/11…) the cycle
+  // keeps pressing Enter until the TARGET card is the one centered.
+  await p.keyboard.press("Control+f");
+  await p.waitForSelector('[data-testid="canvas-find-input"]', { timeout: 5000 });
+  await p.keyboard.type(dimTarget.name);
+  await sleep(400);
+  let centered = false;
+  for (let i = 0; i < 8 && !centered; i++) {
+    await p.keyboard.press("Enter");
+    await sleep(750); // glide + settle
+    centered = await p
+      .locator(jobSel(dimTarget.id))
+      .evaluate((el) => {
+        const r = el.getBoundingClientRect();
+        return (
+          r.width > 120 && // legibility zoom, not overview thumbnail
+          r.x > 100 && r.x + r.width < 1340 &&
+          r.y > 120 && r.y + r.height < 780 // fully in frame
+        );
+      })
+      .catch(() => false);
+  }
+  await p.keyboard.press("Escape");
+  await p.waitForSelector('[data-testid="canvas-find-bar"]', { state: "detached", timeout: 5000 });
+  must(centered, "C0 the dim target reached legibility zoom, in frame");
   // while the lens dims dimTarget on screen, print emulation must show
   // FULL opacity on every card — the globals.css print override wins
   await p.emulateMedia({ media: "print" });
@@ -173,7 +236,7 @@ console.log("Phase C — print: the lens never dims the paper");
   await p.emulateMedia({ media: "screen" });
   const strip = (s) => s.replace(/\s+/g, "").toLowerCase();
   const txt = strip(execSync(`pdftotext ${OUT} -`, { encoding: "utf8" }));
-  must(txt.includes(dimTarget.name.toLowerCase().replace(/\s+/g, "")), "C4 dimmed job's name on paper");
+  must(txt.includes("printdimprobe"), "C4 dimmed job's name on paper");
   must(txt.includes(notedA.name.toLowerCase().replace(/\s+/g, "")), "C5 noted job's name on paper");
   must(txt.includes("goldenmarker1"), "C6 note excerpt still on paper (Task 74 contract intact)");
 }
@@ -183,6 +246,7 @@ console.log("Cleanup — notes cleared → chip disabled at zero");
 {
   await api(`/api/jobs/${notedA.id}`, { note: "" });
   await api(`/api/jobs/${notedB.id}`, { note: "" });
+  await api(`/api/jobs/${dimTarget.id}`, { name: dimOrigName }); // the world keeps its names
   await p.reload({ waitUntil: "networkidle" });
   await p.waitForSelector(CHIP);
   await sleep(600);
