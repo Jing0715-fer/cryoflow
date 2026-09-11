@@ -172,7 +172,10 @@ async function main() {
 
   /* ---------------- Phase B — the bare map ---------------- */
   step("--- Phase B: bare map — no find markers, no dims ---");
-  must((await p.locator('[data-canvas-ui="minimap-dot"]').count()) > 100, "B1 the map renders the world's chips");
+  // the world's SIZE is not the contract (a restored living instance is
+  // ~21 chips; the full demo world is 170+) — what matters is that the
+  // map renders chips AT ALL and carries no lens residue
+  must((await p.locator('[data-canvas-ui="minimap-dot"]').count()) >= 5, "B1 the map renders the world's chips");
   must((await mmFindIds()).length === 0, "B2 no find markers with the bar closed");
   must((await mmDimIds()).length === 0, "B3 no dims in fit mode with no selection");
 

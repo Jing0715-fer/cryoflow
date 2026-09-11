@@ -197,10 +197,31 @@ const boot = async () => {
 };
 const openInspector = async (name) => {
   for (let i = 0; i < 8; i++) {
+    // reach FIRST: seeds land at maxY+260 where a small world's fit zoom
+    // leaves them BELOW the viewport — playwright's click has no real
+    // scroll for a transform-positioned canvas (the t113 family of
+    // lessons). The find bar's Enter = focusJob: centers + legibility
+    // zoom, then the click lands on a visible, stationary card.
+    await p.keyboard.press("Control+f").catch(() => {});
+    const bar = p.locator('[data-testid="canvas-find-input"]');
+    if (await bar.isVisible().catch(() => false)) {
+      await bar.fill(name);
+      await sleep(300);
+      await p.keyboard.press("Enter");
+      await sleep(800);
+      await p.keyboard.press("Escape");
+      await sleep(400);
+    }
     await p.locator(`[data-job]`, { hasText: name }).first().click().catch(() => {});
     await sleep(1200);
-    const open = await p.locator("[data-inspector-dialog][data-state=open]").count();
-    if (open === 1) return true;
+    // the RIGHT inspector — a jittered click must not bless a neighbor's
+    // dialog (the t113 lineage lesson; t119 seeds have no downstream so
+    // the name itself is unambiguous)
+    const open = await p.evaluate((nm) => {
+      const dl = document.querySelector("[data-inspector-dialog]");
+      return !!dl && dl.getAttribute("data-state") === "open" && (dl.textContent || "").includes(nm);
+    }, name).catch(() => false);
+    if (open) return true;
     await sleep(1500);
   }
   return false;

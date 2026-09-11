@@ -210,8 +210,32 @@ const bootCanvas = async () => {
   return false;
 };
 
+/** bring HOST_JOB into the viewport before any real click: the world's
+ *  span evolves (seeds, restores, hygiene relocations) and a fresh tab's
+ *  fit can leave ANY card outside it — the find bar's Enter (focusJob)
+ *  centers it at legibility zoom regardless. */
+const reachHost = async () => {
+  const viaFind = `(() => {
+    const inp = document.querySelector('[data-testid="canvas-find-input"]');
+    if (!inp) return 'NOBAR';
+    return 'BAR';
+  })()`;
+  evalJs(`(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'f', ctrlKey: true, bubbles: true })); return 1; })()`);
+  await sleep(400);
+  const bar = unq(evalJs(viaFind));
+  if (bar === "BAR") {
+    evalJs(`(() => { const i = document.querySelector('[data-testid="canvas-find-input"]'); i.focus(); const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set; setter.call(i, '${HOST_JOB}'); i.dispatchEvent(new Event('input', { bubbles: true })); return 1; })()`);
+    await sleep(400);
+    evalJs(`(() => { const i = document.querySelector('[data-testid="canvas-find-input"]'); i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); return 1; })()`);
+    await sleep(900);
+    evalJs(`(() => { const i = document.querySelector('[data-testid="canvas-find-input"]'); i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); return 1; })()`);
+    await sleep(400);
+  }
+};
+
 const openInspector = async () => {
   for (let i = 0; i < 10; i++) {
+    await reachHost();
     const r = await realClick(
       `[...document.querySelectorAll('[role=button]')].find(x => (x.textContent||'').includes('${HOST_JOB}'))`,
     );

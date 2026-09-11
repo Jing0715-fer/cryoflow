@@ -225,29 +225,32 @@ const boot = async () => {
 const openInspector = async (name) => {
   const loc = p.locator(`[data-job]`, { hasText: name }).first();
   for (let i = 0; i < 12; i++) {
+    // reach first (find Enter = focusJob centers at legibility zoom —
+    // robust to any fit/viewport state), then verify the RIGHT inspector:
+    // a jittered click must not bless a neighbor's dialog (t113 lesson)
+    await p.keyboard.press("Control+f").catch(() => {});
+    const bar = p.locator('[data-testid="canvas-find-input"]');
+    if (await bar.isVisible().catch(() => false)) {
+      await bar.fill(name);
+      await sleep(300);
+      await p.keyboard.press("Enter");
+      await sleep(800);
+      await p.keyboard.press("Escape");
+      await sleep(400);
+    }
     const box = await loc.boundingBox().catch(() => null);
     if (box && box.width > 0) {
-      const cx = box.x + box.width / 2, cy = box.y + box.height / 2;
-      const inVp = cx > 100 && cx < 1500 && cy > 80 && cy < 840;
-      if (!inVp) {
-        await p.mouse.move(800, 450);
-        await p.mouse.wheel(0, 400); // zoom OUT — the world shrinks toward the cursor
-        await sleep(900);
-        continue;
-      }
-      if (box.width < 120) {
-        await p.mouse.move(Math.round(Math.min(Math.max(cx, 100), 1500)), Math.round(Math.min(Math.max(cy, 80), 840)));
-        await p.mouse.wheel(0, -350); // zoom IN at the card — outgrow fixed occluders
-        await sleep(900);
-        continue;
-      }
       const [fx, fy] = CLICK_FRACS[i % CLICK_FRACS.length];
       await p.mouse.click(Math.round(box.x + box.width * fx), Math.round(box.y + box.height * fy));
     } else {
       await loc.click().catch(() => {});
     }
     await sleep(1200);
-    if (await p.locator("[data-inspector-dialog][data-state=open]").count() === 1) return true;
+    const ok = await p.evaluate((nm) => {
+      const dl = document.querySelector("[data-inspector-dialog]");
+      return !!dl && dl.getAttribute("data-state") === "open" && (dl.textContent || "").includes(nm);
+    }, name).catch(() => false);
+    if (ok) return true;
     await sleep(700);
   }
   return false;

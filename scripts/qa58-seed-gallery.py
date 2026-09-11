@@ -71,7 +71,7 @@ src = find_by_name(SRC_NAME)
 if src:
     print(f"class2d (existing): {src['id']}")
 else:
-    r = api("/api/jobs", "POST", {"type": "class2d", "x": 150, "y": 620, "workspaceId": WORKSPACE})
+    r = api("/api/jobs", "POST", {"type": "class2d", "x": 1050, "y": 780, "workspaceId": WORKSPACE})
     src = r.get("job") or r
     api("/api/jobs/" + src["id"], "PATCH", {"name": SRC_NAME})
     print(f"class2d (created):  {src['id']}")
@@ -80,7 +80,7 @@ sel = find_by_name(SEL_NAME)
 if sel:
     print(f"select2d (existing): {sel['id']}")
 else:
-    r = api("/api/jobs", "POST", {"type": "select2d", "x": 520, "y": 620, "workspaceId": WORKSPACE})
+    r = api("/api/jobs", "POST", {"type": "select2d", "x": 1310, "y": 780, "workspaceId": WORKSPACE})
     sel = r.get("job") or r
     api("/api/jobs/" + sel["id"], "PATCH", {"name": SEL_NAME})
     print(f"select2d (created):  {sel['id']}")

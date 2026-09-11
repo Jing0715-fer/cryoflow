@@ -121,8 +121,26 @@ const bootCanvas = async () => {
   return false;
 };
 
+/** bring HOST_JOB into the viewport before any real click — the world's
+ *  span evolves and a fresh tab's fit can leave ANY card outside it
+ *  (find Enter = focusJob centers it at legibility zoom regardless). */
+const reachHost = async () => {
+  evalJs(`(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'f', ctrlKey: true, bubbles: true })); return 1; })()`);
+  await sleep(400);
+  const bar = unq(evalJs(`(() => { return document.querySelector('[data-testid="canvas-find-input"]') ? 'BAR' : 'NOBAR'; })()`));
+  if (bar === "BAR") {
+    evalJs(`(() => { const i = document.querySelector('[data-testid="canvas-find-input"]'); i.focus(); const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set; setter.call(i, '${HOST_JOB}'); i.dispatchEvent(new Event('input', { bubbles: true })); return 1; })()`);
+    await sleep(400);
+    evalJs(`(() => { const i = document.querySelector('[data-testid="canvas-find-input"]'); i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); return 1; })()`);
+    await sleep(900);
+    evalJs(`(() => { const i = document.querySelector('[data-testid="canvas-find-input"]'); i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); return 1; })()`);
+    await sleep(400);
+  }
+};
+
 const openInspector = async () => {
   for (let i = 0; i < 10; i++) {
+    await reachHost();
     const r = await realClick(
       `[...document.querySelectorAll('[role=button]')].find(x => (x.textContent||'').includes('${HOST_JOB}'))`,
     );
@@ -130,7 +148,7 @@ const openInspector = async () => {
       await sleep(1500);
       const has = J(`(() => {
         const dl = document.querySelector('[data-inspector-dialog]');
-        return { m: !!dl && dl.getAttribute('data-state') === 'open' };
+        return { m: !!dl && dl.getAttribute('data-state') === 'open' && (dl.textContent||'').includes('${HOST_JOB}') };
       })()`).m;
       if (has === true) return true;
     }
@@ -276,6 +294,18 @@ const phaseA2 = async () => {
   }
   let opened = false;
   for (let i = 0; i < 8 && !opened; i++) {
+    // reach first (fresh page → fresh fit; the card may sit outside it —
+    // find Enter = focusJob centers it; t111's reachHost, playwright leg)
+    await p.keyboard.press("Control+f").catch(() => {});
+    const bar = p.locator('[data-testid="canvas-find-input"]');
+    if (await bar.isVisible().catch(() => false)) {
+      await bar.fill(HOST_JOB);
+      await p.waitForTimeout(300);
+      await p.keyboard.press("Enter");
+      await p.waitForTimeout(900);
+      await p.keyboard.press("Escape");
+      await p.waitForTimeout(400);
+    }
     const card = p.locator("[role=button]", { hasText: HOST_JOB }).first();
     if ((await card.count()) > 0) {
       await card.click();

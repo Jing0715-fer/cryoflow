@@ -131,7 +131,7 @@ const panUntilVisible = async (id) => {
     if (r.w > 0 && r.x >= 4 && r.y >= 110 && r.x + r.w <= r.vw - 4 && r.y + r.h <= r.vh - 110) return;
     const dx = Math.round(r.vw / 2 - (r.x + r.w / 2));
     const dy = Math.round(r.vh / 2 - (r.y + r.h / 2));
-    const origin = await p.evaluate((vw, vh) => {
+    const origin = await p.evaluate(({ vw, vh }) => {
       const empty = (x, y) => {
         const el = document.elementFromPoint(x, y);
         if (!el) return false;
@@ -141,7 +141,7 @@ const panUntilVisible = async (id) => {
       const cands = [[vw / 2, vh / 2], [vw / 2, vh - 150], [vw / 2, 190], [170, vh / 2], [vw - 170, vh / 2], [vw / 2, vh / 2 + 130], [vw / 2, vh / 2 - 130]];
       for (const [x, y] of cands) if (empty(x, y)) return { x, y };
       return null;
-    }, r.vw, r.vh);
+    }, { vw: r.vw, vh: r.vh });
     if (!origin) return; // nowhere empty to drag from — let the click speak
     const cx = Math.round(origin.x);
     const cy = Math.round(origin.y);

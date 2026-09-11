@@ -381,8 +381,9 @@ try {
   must(/onPointerDown=\{\(e\) => e\.stopPropagation\(\)\}/.test(mmSrc),
     "F3 header buttons stop propagation (container navigate guard)");
   must(/data-mm-mode=\{effMode\}/.test(mmSrc), "F4 container advertises the effective mode");
-  must(/data-mm-dim=\{dimmed \? "1" : undefined\}/.test(mmSrc), "F5 dim flag contract on chips");
-  must(/opacity=\{dimmed \? 0\.13 : /.test(mmSrc) && /opacity=\{dim \? 0\.06 : 0\.25\}/.test(mmSrc),
+  must(/data-mm-dim=\{dimmed \|\| findDim \? "1" : undefined\}/.test(mmSrc),
+    "F5 dim flag contract on chips (sel focus OR find dim — Task 136)");
+  must(/opacity=\{dimmed \|\| findDim \? 0\.13 : /.test(mmSrc) && /opacity=\{dim \? 0\.06 : 0\.25\}/.test(mmSrc),
     "F6 dim opacity constants (chips 0.13, edges 0.06/0.25)");
   must(/transition-opacity duration-300/.test(mmSrc), "F7 dimming eases via transition");
   must(!/localStorage/.test(mmSrc), "F8 minimap still touches no storage");

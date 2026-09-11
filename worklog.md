@@ -4050,3 +4050,29 @@ Stage Summary:
 - 「断言不变量，别钉具体演员」第三次重演：空查询+chip 的匹配集跨全工作区，世界原有 1 个 failed 就把 "1 match" 钉成了假红——expected = onCanvas ∩ 谓词（UI == 工作区真相的集合相等），T135 种子只是「必须在内」的锚点演员。演员随便换，合同不松
 - 「悬浮 widget 的遮挡是合法的」：两行 bar 遮挡带 +40px 拦了探针的点击——任何固定位置的悬浮物都会遮住某处的画布，这是几何不是 bug；用户 Esc 即还。探针先关 lens 再在空地完成选择，测的合同一字未改。真机遮挡抱怨若来，那才是产品问题（move-on-click 或让位 stats 条）
 - 遗留（下轮候选）：find 的进一步细节（minimap 匹配点高亮联动、按类型过滤 chips，真机反馈再评估）；状态透镜的 count 点击进入循环（cur 语义已有，边际小）；favorites 拖拽排序（真机）；预览卡端口点/边高亮（真机）；建议连线手感增强（真机）；runner wall-time 剖面（qa64 73s 十轮一致，继续让位）；qa60/qa75 瞬时抖动观察账本（本轮全矩阵零抖动）；EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势、TSV/海报粘贴验证）；minimap mode 持久化（真机）；undo 手感参数调优；诊断签名命中率观察（真机）
+
+---
+Task ID: 136
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-11 23:30 window)
+Task: cron 自主巡检——Task 136「find 透镜延伸到 minimap：第三只眼」+ 沙箱回滚灾变恢复 + 探针可达性大修：开局核实 worklog 尾部 Task 135/9816e5f == origin/main，冷启动 + smoke/qa00/t135 三件套绿判稳。定案 Task 135 交接候选「minimap 匹配点联动」——160 jobs 的画布上匹配散布视口外，minimap 是唯一全局视野。交付：canvas-minimap 读 find 切片 + jobMatchesFind（第三消费者，一个谓词三个消费者的第五次应用）+ 匹配点琥珀描边（fill 保 status 色不与 pending 撞色——透镜不得重绘世界的颜色）+ 非匹配 0.13 聚焦暗（同 selFocus 值；不叠加 sel 焦点——选择是更强意图）+ data-mm-find 探针锚 + t136 31 断言七相一发全绿 + 沙箱回滚灾变恢复（DB/standalone/engine-state 三层回退 → restore-gallery + 补 engine-state + npm run build）+ qa58 种子坐标解撞 + run-matrix per-suite world hygiene + 六套探针可达性加固（reachViaFind/find-reach + 正身判定）+ playwright 1.62 双参 evaluate 适配 + 全矩阵 72 套分 9 块时序全绿 + worklog + push
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 135（9816e5f == origin/main，树净）；BUILD_ID eUUx_b6pvA4GJLXPo9pkd 匹配；冷启动 2s READY + smoke/qa00/t135(52) 三件套全绿 → 稳定
+- 【实现·minimap】hooks 放 empty-jobs early return 之前（rules-of-hooks 无「地图不画」豁免；findDimActive 依赖 selFocus 需在early return 后计算——TDZ 教训）+ 渲染分支 findHit/findDim + stroke 三态（selected/inMulti primary → findHit #f59e0b → none）
+- 【t136 探针】七相 31 断言一发全绿：S 种 6 卡 4 状态（prisma stamp + running 带新鲜 startedAt——Task 135 教义复用）；C 相 oracle 集合相等 + stroke/fill 双断言 + 非匹配 0.13；D 相 chip 收窄跟随；E/F 相裸地图还原/零匹配不清场；G 屏摄人眼过（地图聚焦形态：少数亮点 + 大片淡出）
+- 【真 bug 灾变】矩阵块 2 qa75 两连败 → 排查中世界从 178 卡塌到 3 卡、workspaces 空、engine-state.json 消失、.next/standalone/server.js 消失——**沙箱快照回滚**（restore-gallery.py 注释明言的既知现象，DB+运行时文件+构建产物一起回退）；恢复三步：restore-gallery.py（收养 3 张 ws=null 孤儿 + 重建 11 卡 QA 骨架 + seeder 链）→ 补 data/engine-state.json {}（qa58 裸读缺口）→ npm run build 重建 standalone（OOM 杀掉内存里的旧进程后无法重启才暴露）
+- 【探针撞车链】restore 后世界 21 卡 vs 探针种子坐标：qa58 class2d (150,620) 撞骨架 Class3D (160,560) → 挪 (150,760) 又撞 qa60 Post 320 (150,780) → 终定位 (1050,780)/(1310,780)；原生残片 CTF4/CTF6/MotionCorr4-6/Import4-6 等 13 张与骨架/qa60 行大面积重叠 → world-hygiene.mjs（重叠审计 + 挪卡到右侧空网格 1600+，复验 0 对）
+- 【t113 三层考古】①AB 会话跨套残留——旧 Class3D inspector dialog 盖住 querySelector（FATAL 即 exit 绕过 Task 117 cleanup）→ phaseS 起手 close --all；②点击命中覆盖卡开出错 inspector 而 has 判定 includes(name) 被 **lineage 条的上游名字**误判放行 → 正身判定加类型 label（"2D Classification"，lineage 永不含类型 label）+ 错误 inspector Escape 重试；③outputs fetch 异步 → 轮询取样
+- 【可达性大修】fit 视口对演化世界不再可靠（zoom 0.25 下限 + 世界 span 漂移 → 任意卡可出界）→ t111/t112/t113/t119/t121/t97 六套的 openInspector/pick 统一加 **find-reach**（Ctrl+F → 名字 → Enter = focusJob 居中 + legibility zoom → Esc——Task 134/135 造的透镜成为全矩阵的导航载具）；t119/t121 加正身判定；t97 加 reachViaFind（同 tab reload 恢复 remembered viewport 也是坑）
+- 【环境漂移】全局 playwright 升到 1.62（禁双参 evaluate）→ t87/t88 的 panUntilVisible 双参改对象参数（rg 全库扫同类）
+- 【矩阵基建】run-matrix.sh 每套前跑 world-hygiene（挪重叠对对全部套安全——所有套都用 find/pan 到达，不记坐标；~1s 开销）
+- 【收尾】eslint 0、tsc src 0、构建 BUILD_ID YV48VclpfGGjC0jiWrEB；受影响面 t134(36)/t135(52)/smoke/qa00/qa75 全绿；全矩阵 72 套分 9 块时序全绿（块 2/5a/5b/7/8 复跑验证修复；qa64 wall 74s 十一轮一致；块峰 183-202MB 零阈值重启）；worklog + commit + push + 环境清理
+
+Stage Summary:
+- 「一个谓词，三只眼」：bar 计数、卡片 ring/dim、minimap 琥珀点全部走同一个导出的 jobMatchesFind——匹配判定存在三份的时刻就是它开始漂移三倍速的时刻。地图不是画布的缩略副本，是同一真相的第二个投影
+- 「透镜不得重绘世界的颜色」：minimap 匹配点用描边不换 fill——running 的 teal 是引擎写进世界的颜色，琥珀只是「你正在找它」的注视标记；两个语义分层，fill 讲世界、stroke 讲透镜
+- 「沙箱回滚是既知天气，恢复链是基础设施」：DB 回种子点、engine-state 消失、standalone/server.js 消失同属一次回滚事件——restore-gallery.py + 空 engine-state 兜底 + rebuild standalone 三步恢复预案首次完整演练；「世界 21 卡的 living instance」就是矩阵标准起跑线，169 卡的演示世界不必复辟
+- 「种子坐标撞车是探针域的公共基础设施问题」：restore 骨架（固定坐标）×qa60 行（固定）×qa58 pair（固定）×动态 maxY 种子——四方在共享世界上各自为政，撞出的卡叠卡吃掉真实鼠标点击；根治是 run-matrix 每套前的重叠审计挪卡，而不是每次手动 PATCH 一张
+- 「正身判定是 inspect 类探针的隐合同」：dialog 开着 ≠ 开的是目标 job——lineage 条让错误 inspector 也含目标 job 的名字；类型 label 永不出现在 lineage 里，是唯一免役的判别物。「假绿比失败更贵」的又一场
+- 「find-reach 是演化世界的通用到达术」：fit、remembered viewport、hygiene 挪卡、种子动态坐标——视口状态永远不可信；Ctrl+F + Enter（focusJob）对任意世界状态成立。Task 134/135 造的透镜成为全矩阵的导航载具——功能与测试基建互相成就的闭环
+- 遗留（下轮候选）：find 的进一步细节（minimap 匹配点点击跳转、按类型过滤 chips，真机反馈再评估）；favorites 拖拽排序（真机）；预览卡端口点/边高亮（真机）；建议连线手感增强（真机）；runner wall-time 剖面（qa64 74s 十一轮一致，继续让位）；世界卫生观察账本（hygiene 每套自动跑后撞车应绝迹，观察几轮）；EMPIAR 真数据回归（重，继续让位）；用户真机项；minimap mode 持久化；undo 手感参数调优；诊断签名命中率观察（真机）

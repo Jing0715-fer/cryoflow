@@ -101,6 +101,22 @@ for (let i = 0; i < 4 && (await curView()) !== "canvas"; i++) {
   await sleep(700);
 }
 must((await curView()) === "canvas", `S4 canvas view active (got "${await curView()}")`);
+// reach helper: same-tab reload restores the remembered viewport (Task
+// 99) and a transform canvas cannot be scrolled by playwright — the
+// find bar's Enter (focusJob) is the reliable way to bring a card in
+const reachViaFind = async (name) => {
+  await p.keyboard.press("Control+f");
+  const bar = p.locator('[data-testid="canvas-find-input"]');
+  if (await bar.isVisible().catch(() => false)) {
+    await bar.fill(name);
+    await sleep(300);
+    await p.keyboard.press("Enter");
+    await sleep(800);
+    await p.keyboard.press("Escape");
+    await sleep(400);
+  }
+};
+await reachViaFind(target.name);
 const card = p.locator(`[data-job="${target.id}"]`).first();
 must(await card.isVisible(), "S5 target card visible on the canvas");
 
@@ -185,8 +201,14 @@ must(!!seededA?.id && !!seededB?.id && !!seededEdge?.id, "B1 two idle jobs + one
 await p.reload({ waitUntil: "networkidle" });
 await p.waitForSelector('[data-canvas="viewport"]');
 await sleep(800);
+// same-tab reload RESTORES the remembered viewport (Task 99) — the seeds
+// can sit outside it, and a transform-positioned canvas cannot be
+// scrolled into view by playwright. Reach first (find Enter = focusJob),
+// then click: the card is centered, legible, and stationary.
+await reachViaFind(seededA.name);
 await p.locator(`[data-job="${seededA.id}"]`).first().click();
 await sleep(300);
+await reachViaFind(seededB.name);
 await p.locator(`[data-job="${seededB.id}"]`).first().click({ modifiers: ["Shift"] });
 await sleep(300);
 await p.keyboard.press("Delete");

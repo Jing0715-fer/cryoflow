@@ -162,6 +162,13 @@ for s in "${SUITES[@]}"; do
   N=$((N+1))
   if [ "$N" -lt "$FROM_IDX" ] || [ "$N" -gt "$TO_IDX" ]; then continue; fi
   name=$(basename "$s")
+  # world hygiene BEFORE the suite: suites seed jobs at dynamic maxY
+  # coordinates and restore-gallery rebuilds on a fixed skeleton — over a
+  # chunk those collide into card stacks that eat real-mouse clicks (the
+  # t113 Class3D-ghost family). Relocating overlap pairs is safe for
+  # every suite (all of them reach cards by find/pan, not by memorized
+  # position) and costs ~1s.
+  node scripts/world-hygiene.mjs >/dev/null 2>&1 || true
   # server health gate BEFORE the suite (restarts between suites only —
   # no suite is ever running while the server bounces, and disk-backed
   # seed state survives a restart by construction)

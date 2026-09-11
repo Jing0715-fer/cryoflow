@@ -85,6 +85,17 @@ async function withSession(jobName, tab, fn) {
   if (onDash) { await p.keyboard.press("Shift+D"); await p.waitForTimeout(1500); }
   let opened = false;
   for (let i = 0; i < 8 && !opened; i++) {
+    // reach first (fresh page → fresh fit; find Enter = focusJob centers)
+    await p.keyboard.press("Control+f").catch(() => {});
+    const bar = p.locator('[data-testid="canvas-find-input"]');
+    if (await bar.isVisible().catch(() => false)) {
+      await bar.fill(jobName);
+      await p.waitForTimeout(300);
+      await p.keyboard.press("Enter");
+      await p.waitForTimeout(900);
+      await p.keyboard.press("Escape");
+      await p.waitForTimeout(400);
+    }
     const card = p.locator("[role=button]", { hasText: jobName }).first();
     if ((await card.count()) > 0) {
       await card.click();
@@ -106,6 +117,10 @@ async function withSession(jobName, tab, fn) {
 // ---------- phases ----------
 const phaseS = async () => {
   console.log("== PHASE S: seed + screen contract ==");
+  // a FATAL from ANY earlier run leaves its agent-browser session alive —
+  // an old inspector dialog then shadows every later querySelector
+  // (the Class3D ghost taught us). Start from a clean session, always.
+  sh(`${AB} close --all >/dev/null 2>&1 || true`);
   sh(`${SEED_G} >/dev/null 2>&1`);
   sh(`${SEED_F} >/dev/null 2>&1`);
   // agent-browser screen leg: inspector on Source, Results default
@@ -115,19 +130,36 @@ const phaseS = async () => {
   errClear();
   let opened = false;
   for (let i = 0; i < 8 && !opened; i++) {
+    // reach first: the world's span evolves and fit can leave the target
+    // outside the viewport (find Enter = focusJob centers it regardless)
+    evalJs(`(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'f', ctrlKey: true, bubbles: true })); return 1; })()`);
+    await sleep(400);
+    const bar = unq(evalJs(`(() => { return document.querySelector('[data-testid="canvas-find-input"]') ? 'BAR' : 'NOBAR'; })()`));
+    if (bar === "BAR") {
+      evalJs(`(() => { const i = document.querySelector('[data-testid="canvas-find-input"]'); i.focus(); const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set; setter.call(i, '${GALLERY_JOB}'); i.dispatchEvent(new Event('input', { bubbles: true })); return 1; })()`);
+      await sleep(400);
+      evalJs(`(() => { const i = document.querySelector('[data-testid="canvas-find-input"]'); i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); return 1; })()`);
+      await sleep(900);
+      evalJs(`(() => { const i = document.querySelector('[data-testid="canvas-find-input"]'); i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); return 1; })()`);
+      await sleep(400);
+    }
+    // a mid-fit click can land on the card ABOVE (the Class3D ghost: the
+    // wrong inspector's lineage even contains our job's NAME, so the old
+    // open-check passed on it). Close any wrong inspector, then re-click.
     evalJs(`(() => {
-      const el = [...document.querySelectorAll('[role=button]')].find(x => (x.textContent||'').includes('${GALLERY_JOB}'));
-      if (!el) return 'NOCARD';
-      const r = el.getBoundingClientRect();
-      return 'CARD@' + Math.round(r.x + r.width/2) + ',' + Math.round(r.y + r.height/2);
+      const dl = document.querySelector('[data-inspector-dialog]');
+      if (dl && dl.getAttribute('data-state') === 'open' && !(dl.textContent||'').includes('2D Classification')) {
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        return 'closed-wrong';
+      }
+      return 'clean';
     })()`);
+    await sleep(500);
     const pos = unq(evalJs(`(() => {
       const el = [...document.querySelectorAll('[role=button]')].find(x => (x.textContent||'').includes('${GALLERY_JOB}'));
       if (!el) return 'NOCARD';
       const r = el.getBoundingClientRect();
-      el.scrollIntoView({ block: 'center' });
-      const r2 = el.getBoundingClientRect();
-      return Math.round(r2.x + r2.width/2) + ',' + Math.round(r2.y + r2.height/2);
+      return Math.round(r.x + r.width/2) + ',' + Math.round(r.y + r.height/2);
     })()`));
     if (pos && pos !== "NOCARD" && pos.includes(",")) {
       const [x, y] = pos.split(",").map(Number);
@@ -136,16 +168,25 @@ const phaseS = async () => {
         sh(`${AB} mouse down`);
         sh(`${AB} mouse up`);
         await sleep(1800);
+        // the RIGHT inspector: open AND carrying the job's own type label
+        // ("2D Classification") — the lineage strip lists upstream NAMES,
+        // never this label, so a Class3D inspector can never pass
         opened = J(`(() => {
           const dl = document.querySelector('[data-inspector-dialog]');
-          return { m: !!dl && dl.getAttribute('data-state') === 'open' };
+          return { m: !!dl && dl.getAttribute('data-state') === 'open' && (dl.textContent||'').includes('2D Classification') };
         })()`).m === true;
       }
     }
     if (!opened) { step(`  openInspector iter ${i}`); await sleep(1500); }
   }
   must(opened, "inspector opened on the gallery job (completed → inspector)");
-  const scr = J(`(() => {
+  // the inspector loads its outputs ASYNC — the Maps/STAR sections mount
+  // a fetch later. Sample by polling, not by trusting the open instant
+  // (a cold server after restore can take seconds to serve /outputs).
+  let scr = null;
+  for (let i = 0; i < 12; i++) {
+    await sleep(800);
+    scr = J(`(() => {
     const dl = document.querySelector('[data-inspector-dialog]');
     const tiles = [...(dl?.querySelectorAll('[data-print-block]') ?? [])];
     const starRows = [...(dl?.querySelectorAll('[data-print-keep]') ?? [])];
@@ -161,6 +202,8 @@ const phaseS = async () => {
       starHeading: !!(dl && [...dl.querySelectorAll('h4')].some(h => /STAR/i.test(h.textContent || ''))),
     };
   })()`);
+    if (scr.mapsHeading && scr.starHeading && scr.tiles >= 1) break;
+  }
   must(scr.mapsHeading && scr.starHeading, "Maps & STAR section headings on screen");
   must(scr.tiles >= 1, `gallery tiles carry data-print-block on screen (${scr.tiles})`);
   must(scr.keeps >= 1, `document-wrapping rows carry data-print-keep on screen (${scr.keeps})`);
