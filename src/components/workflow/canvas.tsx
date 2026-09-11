@@ -23,6 +23,7 @@ import {
   GitCompareArrows,
   History,
   ImageUp,
+  LayoutTemplate,
   Link2,
   Loader2,
   RotateCcw,
@@ -94,6 +95,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 function clamp(v: number, min: number, max: number) {
   return Math.min(Math.max(v, min), max);
@@ -459,13 +461,19 @@ const SelectionToolbar = React.memo(function SelectionToolbar({
 }) {
   const selectedIds = useWorkflowStore((s) => s.selectedIds);
   const jobs = useActiveWorkspaceJobs();
+  const wsEdges = useActiveWorkspaceEdges();
   const viewport = useWorkflowStore((s) => s.viewport);
   const alignSelected = useWorkflowStore((s) => s.alignSelected);
   const distributeSelected = useWorkflowStore((s) => s.distributeSelected);
   const duplicateSelected = useWorkflowStore((s) => s.duplicateSelected);
   const deleteSelected = useWorkflowStore((s) => s.deleteSelected);
+  const saveSelectionTemplate = useWorkflowStore((s) => s.saveSelectionTemplate);
   const [confirmDel, setConfirmDel] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
+  // Task 127 — save-the-selection-as-template naming dialog
+  const [tplOpen, setTplOpen] = React.useState(false);
+  const [tplName, setTplName] = React.useState("");
+  const [tplBusy, setTplBusy] = React.useState(false);
   // Task 87: two same-type jobs unlock the params comparison — the dialog
   // reads the selection in PICK order (first click = left column), which
   // selectedIds preserves and the jobs-list filter would scramble
@@ -496,6 +504,12 @@ const SelectionToolbar = React.memo(function SelectionToolbar({
         : null,
     [sel, selectedIds]
   );
+  // Task 127 — wires whose BOTH endpoints are in the selection (the count
+  // shown in the save dialog, and what the snapshot will carry)
+  const internalWireCount = React.useMemo(() => {
+    const ids = new Set(sel.map((j) => j.id));
+    return wsEdges.filter((e) => ids.has(e.fromJobId) && ids.has(e.toJobId)).length;
+  }, [sel, wsEdges]);
 
   if (hidden || sel.length < 2) return null;
 
@@ -594,6 +608,21 @@ const SelectionToolbar = React.memo(function SelectionToolbar({
           variant="ghost"
           size="icon"
           className="size-7"
+          onClick={() => {
+            // a sensible seed name — the user edits it in the dialog
+            setTplName(`${sel.length}-job pipeline`);
+            setTplOpen(true);
+          }}
+          aria-label="Save selection as template"
+          title="Save the selection as a reusable template — types, positions, parameters and internal wires; apply it later from the template presets dialog"
+          data-testid="toolbar-save-template"
+        >
+          <LayoutTemplate className="size-3.5" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-7"
           disabled={busy}
           onClick={() => {
             setBusy(true);
@@ -622,6 +651,62 @@ const SelectionToolbar = React.memo(function SelectionToolbar({
         open={compareOpen}
         onOpenChange={setCompareOpen}
       />
+
+      {/* Task 127 — name-and-save the selection as a reusable template.
+          The dialog steals focus for typing; Enter saves, Esc cancels. */}
+      <Dialog open={tplOpen} onOpenChange={setTplOpen}>
+        <DialogContent className="max-w-sm gap-3" data-canvas-ui="save-template-dialog">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <LayoutTemplate className="size-4 text-primary" aria-hidden="true" />
+              Save selection as template
+            </DialogTitle>
+            <DialogDescription>
+              {sel.length} jobs · {internalWireCount} internal wire{internalWireCount === 1 ? "" : "s"} —
+              types, positions, parameters and wiring are snapshotted. Apply it later from the
+              template presets dialog, in any workspace of this project.
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            value={tplName}
+            onChange={(e) => setTplName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !tplBusy && tplName.trim()) {
+                setTplBusy(true);
+                void saveSelectionTemplate(tplName).finally(() => {
+                  setTplBusy(false);
+                  setTplOpen(false);
+                });
+              }
+            }}
+            placeholder="e.g. Tuned 2D branch"
+            maxLength={80}
+            autoFocus
+            data-testid="save-template-name"
+            aria-label="Template name"
+          />
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setTplOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              disabled={tplBusy || !tplName.trim()}
+              onClick={() => {
+                setTplBusy(true);
+                void saveSelectionTemplate(tplName).finally(() => {
+                  setTplBusy(false);
+                  setTplOpen(false);
+                });
+              }}
+              data-testid="save-template-confirm"
+            >
+              {tplBusy ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true" /> : <LayoutTemplate className="size-3.5" aria-hidden="true" />}
+              Save template
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* bulk delete confirm — mirrors the single-job guard (page.tsx /
           job-card.tsx): cascades wires, so require an explicit OK */}

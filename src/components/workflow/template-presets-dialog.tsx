@@ -22,9 +22,9 @@
  */
 
 import * as React from "react";
-import { Sparkles, Wand2, Zap } from "lucide-react";
+import { LayoutTemplate, Loader2, Sparkles, Trash2, Wand2, Zap } from "lucide-react";
 import { useWorkflowStore } from "@/lib/store";
-import type { TemplateOverrides } from "@/lib/types";
+import type { CustomTemplateSummary, TemplateOverrides } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -183,8 +183,124 @@ const PRESETS: Preset[] = [
   },
 ];
 
+/**
+ * Task 127 — the dialog's "Your templates" shelf: user-saved selection
+ * snippets (project-scoped), apply-on-click, two-step inline delete.
+ * Lives at module level so its confirm state resets with the dialog.
+ */
+function CustomTemplatesSection() {
+  const templates = useWorkflowStore((s) => s.customTemplates);
+  const applyCustomTemplate = useWorkflowStore((s) => s.applyCustomTemplate);
+  const deleteCustomTemplate = useWorkflowStore((s) => s.deleteCustomTemplate);
+  const [armDeleteId, setArmDeleteId] = React.useState<string | null>(null);
+  const [applyingId, setApplyingId] = React.useState<string | null>(null);
+
+  const apply = (t: CustomTemplateSummary) => {
+    setApplyingId(t.id);
+    void useWorkflowStore
+      .getState()
+      .applyCustomTemplate(t.id)
+      .finally(() => setApplyingId(null));
+  };
+
+  if (templates.length === 0) {
+    return (
+      <p
+        className="rounded-lg border border-dashed bg-muted/20 px-3 py-2.5 text-[11px] leading-snug text-muted-foreground"
+        data-canvas-ui="custom-templates-empty"
+      >
+        No saved templates yet — select two or more jobs on the canvas and use the selection
+        toolbar's <LayoutTemplate className="inline size-3 align-[-1px]" aria-hidden="true" /> button
+        to snapshot the branch (types, positions, parameters, wiring). It lands here.
+      </p>
+    );
+  }
+
+  return (
+    <ul className="grid max-h-44 gap-1.5 overflow-y-auto pr-0.5" data-canvas-ui="custom-templates-list">
+      {templates.map((t) => {
+        const armed = armDeleteId === t.id;
+        const applying = applyingId === t.id;
+        return (
+          <li
+            key={t.id}
+            className={cn(
+              "group flex items-center gap-2 rounded-lg border bg-card px-2.5 py-1.5 transition-colors",
+              armed ? "border-rose-300 bg-rose-500/5" : "hover:border-primary/40"
+            )}
+            data-canvas-ui="custom-template-row"
+            data-template-id={t.id}
+          >
+            <LayoutTemplate className="size-3.5 shrink-0 text-muted-foreground group-hover:text-primary" aria-hidden="true" />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-medium" title={t.name}>
+                {t.name}
+              </p>
+              <p className="text-[10px] tabular-nums text-muted-foreground">
+                {t.jobCount} jobs · {t.edgeCount} wire{t.edgeCount === 1 ? "" : "s"} · {t.createdAt.slice(0, 10)}
+              </p>
+            </div>
+            {armed ? (
+              <>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 gap-1 px-2 text-[11px] text-rose-600 hover:bg-rose-500/10 hover:text-rose-700"
+                  onClick={() => {
+                    setArmDeleteId(null);
+                    void deleteCustomTemplate(t.id);
+                  }}
+                  data-testid="custom-template-delete-confirm"
+                >
+                  <Trash2 className="size-3" aria-hidden="true" />
+                  Delete
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 px-2 text-[11px]"
+                  onClick={() => setArmDeleteId(null)}
+                >
+                  Keep
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 px-2 text-[11px] text-rose-600 opacity-0 transition-opacity hover:bg-rose-500/10 hover:text-rose-700 focus-visible:opacity-100 group-hover:opacity-100"
+                  onClick={() => setArmDeleteId(t.id)}
+                  aria-label={`Delete template ${t.name}`}
+                  title="Forget this template"
+                  data-testid="custom-template-delete"
+                >
+                  <Trash2 className="size-3" aria-hidden="true" />
+                </Button>
+                <Button
+                  size="sm"
+                  className="h-6 gap-1 px-2.5 text-[11px]"
+                  disabled={applying}
+                  onClick={() => apply(t)}
+                  data-testid="custom-template-apply"
+                >
+                  {applying ? (
+                    <Loader2 className="size-3 animate-spin" aria-hidden="true" />
+                  ) : null}
+                  Apply
+                </Button>
+              </>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 export function TemplatePresetsDialog() {
   const open = useWorkflowStore((s) => s.templatePresetsOpen);
+  const templatesCount = useWorkflowStore((s) => s.customTemplates.length);
   const setOpen = useWorkflowStore((s) => s.setTemplatePresetsOpen);
   const [form, setForm] = React.useState<FormState>(DEFAULTS);
   const [activePreset, setActivePreset] = React.useState<string | null>("standard");
@@ -196,6 +312,8 @@ export function TemplatePresetsDialog() {
   React.useEffect(() => {
     if (!open) return;
     setBusy(false);
+    // Task 127 — the user-saved shelf refreshes on every open
+    void useWorkflowStore.getState().loadCustomTemplates();
     const last = loadLast();
     if (last) {
       setForm(last.form);
@@ -417,6 +535,20 @@ export function TemplatePresetsDialog() {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Task 127 — the user's own saved snippets, one click to re-plant */}
+        <div className="grid gap-1.5">
+          <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <LayoutTemplate className="size-3" aria-hidden="true" />
+            Your templates
+            {templatesCount > 0 && (
+              <span className="rounded-full bg-muted px-1.5 py-px text-[9px] font-medium tabular-nums">
+                {templatesCount}
+              </span>
+            )}
+          </p>
+          <CustomTemplatesSection />
         </div>
 
         <DialogFooter className="items-center gap-2 sm:justify-between">

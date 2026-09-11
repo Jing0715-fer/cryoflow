@@ -3835,3 +3835,29 @@ Stage Summary:
 - 「探针相位的顺序是数据流依赖的镜像」：palette 只列 active project 的作业，C 相位把 active project 切走了，D 相位就必须排在它前面——不是风格偏好，是前置条件。同理 E 相位的删除对象必须是「当前 roster 真的含有」的行，否则 waitForFunction 平凡通过——假绿比假挂更隐蔽，因为它看起来是绿的
 - 「一个动词一个 store 动作」：open 与 reveal 的边界（Task 124 教义）在本轮加固成代码——reveal 是「在哪里」（不开面板），open 是「打开编辑器」（idle 路径现在也居中+脉冲，因为跨视图跳转的到达感是同一个问题）；focusJob 清 inspectId 的设计让两个动词永远不会互相污染
 - 遗留（下轮候选）：runner wall-time 剖面观察（qa64 72s 仍最慢，待多轮积累）；历史面板 N× auto-arrange 真实长会话手感（真机）；qa60/61 共享传输推广（暂缓维持）；EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势、TSV/海报粘贴验证）；minimap mode 持久化（真机反馈再评估）；undo 手感参数调优；诊断签名命中率观察（真机）
+
+---
+Task ID: 127
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-11 14:45 window)
+Task: cron 自主巡检——Task 127「自定义子管线模板：选区变成可复用的形状」：开局核实 worklog 尾部 Task 126/adfa47d == origin/main（14:45 窗口到达前已有四轮完整闭环，摘要快照 Task 122 严重过时），冷启动 + smoke/qa00/t126 三件套绿判稳。兑现交接小项「runner wall-time 剖面观察」（qa64 72s 稳居最慢与 Task 125/126 收尾观察一致——但卫生学已在套件边界隔离其风险，拆分继续让位给数据积累）。主战场按惯例 #3/#5 定案新功能「自定义子管线模板」：rg 盘点确认框选（Shift+拖拽）、job-presets、SPA 大模板、workflow 导入导出俱在，唯缺「选区存为可复用 snippet」——交付：CustomTemplate 表（project 作用域 + JSON payload 形状合同）+ /api/custom-template 四动词路由（GET 列表摘要 / POST 保存校验 / PUT 应用落位 / DELETE）+ store 四动作（saveSelectionTemplate 序列化 bbox 归一化 + loadCustomTemplates + applyCustomTemplate 合并 + deleteCustomTemplate 乐观回滚）+ SelectionToolbar 存模板钮（命名对话框诚实计数）+ 预设对话框「Your templates」架（行应用 + 两步 inline 删除 + 空态指引）+ t127 35 断言九相绿（矩阵位 #49）+ 受影响面（qa57/qa58/t104 41/t105 45/t111 49/smoke）全绿 + 全矩阵 63 套分 7 块 0 失败 + worklog + push
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 126（adfa47d == origin/main，树净）；BUILD_ID D-6KN2iwT37BEscKc33iZ 匹配；冷启动 + qa63-smoke/qa00/t126(40) 三件套全绿 → 稳定
+- 【骑兵项】wall-time 剖面复核：唯一完整剖面（Task 126 七块跑）qa64 72s 最慢 / t113 69s / t112 65s，与 Task 125/126 收尾观察一致；结论——拆分让位，遥测继续积累（memlog 的 wall 列已在 Task 125 落地，每轮自动留档）
+- 【选题·缺口盘点】候选清单多为真机让位项 → 提出新功能：rg 逐项核查（rubber-band=Shift+拖拽已在、job 完成通知已在、job-presets 已在、重复已存）→ 定案「选区存为可复用模板」——workflow builder 的 snippet 能力是唯一缺口，且与 SPA 大模板/复制/导入导出形成完整谱系
+- 【实现·schema】CustomTemplate 模型（projectId + name + payload JSON + 索引；注释明言「模板是形状不是行集」）+ prisma db push + generate
+- 【实现·types】CustomTemplateJob（type/dx/dy/params，dx/dy 是 bbox 左上角偏移——形状幸存、绝对位置自由）+ CustomTemplateEdge（from/to 是索引）+ CustomTemplatePayload + CustomTemplateSummary（列表轻载，payload 只在应用时旅行）
+- 【实现·route】四动词：GET 摘要列表（corrupt 行保留可删但计数诚实）；POST 保存（校验 fails LOUDLY：类型存在/偏移有限/边索引界内/自环拒绝/端口对 SAVE 时即验/去重/64 节点 256 线 100KB 上限）；PUT 应用（workspace 解析含 legacy 治愈 + 落位 below content + RELION 编号延续 + 参数对 LIVE spec 重过滤——schema 漂移降级为默认而非报错 + 漂移线跳过不拖死整次应用）；DELETE 项目作用域守卫
+- 【实现·store】四动作挂接口与实现：saveSelectionTemplate（canvas 序非 pick 序——形状按布局读；仅两端都在选区的边——外部连线是上下文不是形状）；deleteCustomTemplate 乐观移除 + 失败回滚
+- 【实现·UI】SelectionToolbar + LayoutTemplate 钮（data-testid）+ 命名 Dialog（诚实计数 internalWireCount useMemo、Enter 保存、默认名「N-job pipeline」）；预设对话框 + CustomTemplatesSection 模块级组件（确认态随对话框卸载复位；Apply 即应用；trash 两步 inline 确认 hover 显形；空态 dashed 指引框）；每开必 loadCustomTemplates
+- 【探针伤情三折】①300s 假超时：main.catch 不关浏览器——playwright 进程吊住 event loop，进程永不退；修为 catch 内 cleanup + process.exit(1)（「失败路径必须自我了断」）；②孤儿污染：被 kill 的跑不执行 cleanup—— shelf 双行撞 strict mode、侧栏双 T127 dest 撞 strict violation → Phase S 三清前置（模板/工作区/作业按 T127 前缀清扫）；③侧栏默认 Catalog 页签——Workspaces 行要先点页签（探针假挂暴露的是我的方言盲区非产品 bug）
+- 【视觉验收】t127-shot 双摄：保存对话框（图标 + 3 jobs · 2 internal wires 诚实计数 + 命名输入）+ 架（YOUR TEMPLATES 2 徽章 + 两行各带 job/wire/日期 + Apply + 保存 toast）——人眼过
+- 【收尾】eslint 0、tsc src 0、构建 BUILD_ID 0jW7H5CpClTJ9CMsm3dSl；t127 终跑 35 全绿；受影响面 qa57/qa58/t104(41)/t105(45)/t111(49)/smoke/qa00 全绿；全矩阵 63 套（t127 auto-include 位 #49，wall 22s）分 7 块前台串行 0 失败（块峰 144-196MB 零阈值重启，Task 122 卫生学持续生效）；诊断脚本删除、worklog + commit + push + 环境清理
+
+Stage Summary:
+- 「模板是形状，不是行集」：payload 里没有 id、没有绝对坐标——dx/dy 是 bbox 偏移，边是索引。应用时才铸 id、才落位、才编号。存「形状」而非「行」让同一模板在任何工作区、任何内容高度下都语义成立（落位 below content 的 SPA 大模板合同原样继承）
+- 「出身跟着请求走」的第三课：CustomTemplate 挂 projectId（模板属于项目的调参惯例），路由每个动词先 ensureActiveProject 再 findFirst { id, projectId }——跨项目的 id 直接 404。行级资源的隔离不必新发明，roster/视图先例照抄
+- 「保存时校验 ≠ 应用时校验」：保存时端口对按当时的 spec 验（坏的整单拒收）；应用时对 LIVE spec 重过滤（spec 漂移的参数键降级默认、漂移的线跳过——「保存的形状不该死在一条漂移的线上」）。写入时严格、读出时宽容，和 localStorage 净化是同一条定律
+- 「探针的失败路径必须自我了断」：main.catch 里不关浏览器 = playwright 子进程吊住 event loop = 300s 假超时 + 孤儿污染下一轮（shelf 双行、侧栏双同名）。测试骨架的 catch 是清理路径不是记录路径——「EXIT 前先收尸」。被 kill 的跑无法 cleanup，所以 Phase S 必须自带三清（外部状态的世界没有 setup/teardown 的神圣性）
+- 「工具调用会杀后台子进程」：nohup + & 的矩阵跑在工具调用结束时被整个进程组回收（日志 0 字节、进程消失）——runner 的前台分块参数（FROM TO）就是为 10 分钟工具调用天花板设计的，分块前台跑是唯一正确姿势（七块七调用，块块落日志）
+- 遗留（下轮候选）：模板应用后与新邻居的连线（应用体是孤岛——补一个「连到画布上同类型输出口」的建议跳纹，需交互设计）；模板导入导出（JSON 分享跨项目，workflow-io 已有底子）；runner wall-time 剖面观察（qa64 72s 三轮一致，继续积累）；qa60/61 共享传输推广（暂缓维持）；EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势、TSV/海报粘贴验证）；minimap mode 持久化（真机反馈再评估）；undo 手感参数调优；诊断签名命中率观察（真机）

@@ -15,6 +15,31 @@ model Project {
   jobs       Job[]
   edges      Edge[]
   workspaces Workspace[]
+  customTemplates CustomTemplate[]
+}
+
+/**
+ * A user-saved sub-pipeline snippet: the selected jobs' types, relative
+ * positions and parameters plus the edges between them, snapshotted at
+ * save time. Rows are PROJECT-SCOPED — a template born from a tuned
+ * preprocessing branch belongs to that project's conventions. `payload`
+ * is JSON-encoded { jobs: [{ type, dx, dy, params }], edges: [{ from, to,
+ * fromPort?, toPort? }] } where from/to are INDICES into the jobs array
+ * (ids are minted fresh at apply time — a template is a shape, not a set
+ * of rows). Applied templates land BELOW the target workspace's existing
+ * content, mirroring the built-in SPA scaffold's placement contract.
+ */
+model CustomTemplate {
+  id        String   @id @default(cuid())
+  projectId String
+  name      String
+  payload   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
 }
 
 /**

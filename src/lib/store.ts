@@ -11,6 +11,8 @@ import { ToastAction } from "@/components/ui/toast";
 import { CARD_W, CARD_H, WORLD_MIN, WORLD_MAX, ZOOM_MAX, ZOOM_MIN, jobType, portsCompatible } from "./workflow";
 import { autoLayout } from "./layout";
 import type {
+  CustomTemplatePayload,
+  CustomTemplateSummary,
   EdgeDTO,
   JobDTO,
   ProjectDTO,
@@ -337,6 +339,18 @@ interface WorkflowState {
   /** SPA template presets dialog open (triggered from the canvas empty
    *  state, the command palette or the help popover — mounted once). */
   templatePresetsOpen: boolean;
+  /** Task 127 — user-saved sub-pipeline snippets (project-scoped). The
+   *  list lives in the store so the presets dialog, the selection toolbar
+   *  and future entry points all read one source; save/apply/delete keep
+   *  it in sync server-first. */
+  customTemplates: CustomTemplateSummary[];
+  loadCustomTemplates: () => Promise<void>;
+  /** Snapshot the current selection (types / relative positions / params
+   *  + internal wires) into a named reusable template. */
+  saveSelectionTemplate: (name: string) => Promise<boolean>;
+  /** Re-instantiate a saved snippet below the active workspace's content. */
+  applyCustomTemplate: (id: string) => Promise<boolean>;
+  deleteCustomTemplate: (id: string) => Promise<void>;
   /** Keyboard-shortcuts dialog ("?" anywhere, the help popover, or the
    *  command palette) — single source of truth so all three entries stay
    *  in sync. */
@@ -727,6 +741,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   pendingClassFocus: null,
   focusEpoch: 0,
   templatePresetsOpen: false,
+  customTemplates: [],
   shortcutsOpen: false,
   minimapOpen: true,
   noteSpotlight: false,
@@ -2307,6 +2322,121 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   requestClassFocus: (jobId, cls) => set({ pendingClassFocus: { jobId, cls } }),
   consumeClassFocus: () => set({ pendingClassFocus: null }),
   setTemplatePresetsOpen: (open) => set({ templatePresetsOpen: open }),
+
+  loadCustomTemplates: async () => {
+    try {
+      const { templates } = await api<{ templates: CustomTemplateSummary[] }>(
+        "/api/custom-template"
+      );
+      set({ customTemplates: templates });
+    } catch {
+      // transient — the dialog renders the last known list; the next open
+      // retries (load is also called on every dialog mount)
+    }
+  },
+
+  saveSelectionTemplate: async (name) => {
+    const trimmed = name.trim().slice(0, 80);
+    if (!trimmed) {
+      errToast("Give the template a name first");
+      return false;
+    }
+    const { selectedIds, jobs, edges } = get();
+    // canvas order (jobs array), not pick order — a template is a SHAPE,
+    // and shapes read best in the order they were laid out
+    const sel = jobs.filter((j) => selectedIds.includes(j.id));
+    if (sel.length === 0) {
+      errToast("Select jobs on the canvas first");
+      return false;
+    }
+    // normalize positions to the selection's bbox top-left — the saved
+    // shape survives, the absolute canvas position stays free
+    const minX = Math.min(...sel.map((j) => j.x));
+    const minY = Math.min(...sel.map((j) => j.y));
+    const idx = new Map(sel.map((j, i) => [j.id, i]));
+    const payload: CustomTemplatePayload = {
+      jobs: sel.map((j) => ({
+        type: j.type,
+        dx: Math.round(j.x - minX),
+        dy: Math.round(j.y - minY),
+        params: j.params,
+      })),
+      // only edges whose BOTH endpoints are in the selection — wires to
+      // the outside world are context, not shape (the applied copy gets
+      // fresh neighbors where it lands)
+      edges: edges
+        .filter((e) => idx.has(e.fromJobId) && idx.has(e.toJobId))
+        .map((e) => ({
+          from: idx.get(e.fromJobId) as number,
+          to: idx.get(e.toJobId) as number,
+          ...(e.fromPort ? { fromPort: e.fromPort } : {}),
+          ...(e.toPort ? { toPort: e.toPort } : {}),
+        })),
+    };
+    try {
+      const { template } = await api<{ template: CustomTemplateSummary }>(
+        "/api/custom-template",
+        {
+          method: "POST",
+          headers: JSON_HEADERS,
+          body: JSON.stringify({ name: trimmed, payload }),
+        }
+      );
+      set({ customTemplates: [template, ...get().customTemplates] });
+      toast({
+        title: `Template “${template.name}” saved`,
+        description: `${template.jobCount} jobs · ${template.edgeCount} wires — apply it from the template presets dialog`,
+      });
+      return true;
+    } catch (err) {
+      errToast(err instanceof Error ? err.message : "Failed to save the template");
+      return false;
+    }
+  },
+
+  applyCustomTemplate: async (id) => {
+    try {
+      const tpl = get().customTemplates.find((t) => t.id === id);
+      const data = await api<{ jobs: JobDTO[]; edges: EdgeDTO[]; workspaceId: string }>(
+        "/api/custom-template",
+        {
+          method: "PUT",
+          headers: JSON_HEADERS,
+          body: JSON.stringify({ id, workspaceId: get().activeWorkspaceId ?? undefined }),
+        }
+      );
+      const have = new Set(get().jobs.map((j) => j.id));
+      const haveEdges = new Set(get().edges.map((e) => e.id));
+      set({
+        jobs: [...get().jobs, ...data.jobs.filter((j) => !have.has(j.id))],
+        edges: [...get().edges, ...data.edges.filter((e) => !haveEdges.has(e.id))],
+        layoutEpoch: get().layoutEpoch + 1, // canvas fit-views the new content
+      });
+      get().invalidateRedo();
+      toast({
+        title: `Template “${tpl?.name ?? "snippet"}” applied`,
+        description: `${data.jobs.length} jobs · ${data.edges.length} wires placed below this workspace's content`,
+      });
+      return true;
+    } catch (err) {
+      errToast(err instanceof Error ? err.message : "Failed to apply the template");
+      return false;
+    }
+  },
+
+  deleteCustomTemplate: async (id) => {
+    const victim = get().customTemplates.find((t) => t.id === id);
+    // optimistic removal — a deleted row must not linger in the dialog
+    set({ customTemplates: get().customTemplates.filter((t) => t.id !== id) });
+    try {
+      await api(`/api/custom-template?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+    } catch (err) {
+      // roll back so the row stays deletable (and honest)
+      if (victim) set({ customTemplates: [victim, ...get().customTemplates] });
+      errToast(err instanceof Error ? err.message : "Failed to delete the template");
+    }
+  },
+
   setShortcutsOpen: (open) => set({ shortcutsOpen: open }),
   setMinimapOpen: (open) => set({ minimapOpen: open }),
   toggleNoteSpotlight: () => set((s) => ({ noteSpotlight: !s.noteSpotlight })),

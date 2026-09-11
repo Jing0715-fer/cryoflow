@@ -90,6 +90,47 @@ export interface TemplateOverrides {
   refineAutoRefine?: boolean;
 }
 
+/**
+ * One snapshot node inside a CustomTemplate payload. `dx`/`dy` are offsets
+ * from the selection's bounding-box top-left corner at save time — apply
+ * time adds them onto the drop anchor, so the saved SHAPE survives while
+ * the absolute canvas position stays free.
+ */
+export interface CustomTemplateJob {
+  type: string;
+  dx: number;
+  dy: number;
+  params: Record<string, number | string | boolean>;
+}
+
+/**
+ * One snapshot wire: `from`/`to` are INDICES into the payload's jobs array
+ * (ids are minted fresh at apply time — a template is a shape, not a set
+ * of rows). Ports ride along exactly as the live edges carried them.
+ */
+export interface CustomTemplateEdge {
+  from: number;
+  to: number;
+  fromPort?: string;
+  toPort?: string;
+}
+
+/** The JSON blob stored in CustomTemplate.payload. */
+export interface CustomTemplatePayload {
+  jobs: CustomTemplateJob[];
+  edges: CustomTemplateEdge[];
+}
+
+/** List-row shape returned by GET /api/custom-template (no payload — the
+ *  blob only travels on apply, keeping the list response light). */
+export interface CustomTemplateSummary {
+  id: string;
+  name: string;
+  jobCount: number;
+  edgeCount: number;
+  createdAt: string;
+}
+
 export interface ProjectDTO {
   id: string;
   name: string;
