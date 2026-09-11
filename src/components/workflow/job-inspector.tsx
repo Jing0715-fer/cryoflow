@@ -29,6 +29,7 @@ import {
   Clock,
   Copy,
   Cpu,
+  Bug,
   Database,
   Download,
   FileText,
@@ -48,6 +49,7 @@ import {
   RotateCcw,
   ScrollText,
   Search,
+  SearchX,
   Skull,
   Square,
   Stethoscope,
@@ -55,6 +57,7 @@ import {
   Terminal,
   WrapText,
   X,
+  XOctagon,
   StickyNote,
   Zap,
 } from "lucide-react";
@@ -298,7 +301,8 @@ function LogLegend() {
 }
 
 /** Task 119: failure-signature → icon. Keyed by LogFinding.id from
- *  log-diagnosis.ts; unknown ids fall back to AlertTriangle. */
+ *  log-diagnosis.ts; unknown ids fall back to AlertTriangle. Task 121
+ *  added mpi-abort and python-traceback to the table. */
 const FINDING_ICONS: Record<string, React.ElementType> = {
   "oom-kill": Skull,
   "gpu-oom": Cpu,
@@ -306,6 +310,8 @@ const FINDING_ICONS: Record<string, React.ElementType> = {
   "missing-input": FileX,
   permission: Lock,
   segfault: Zap,
+  "mpi-abort": XOctagon,
+  "python-traceback": Bug,
 };
 
 function LogConsole({
@@ -846,9 +852,11 @@ function ResultSummary({
 }: {
   job: JobDTO;
   /** Task 120: full-log findings for the failed summary — the Overview leg
-   *  of Task 119's diagnosis. Undefined/empty keeps the card exactly as it
-   *  was (healthy jobs, failed jobs with no known signature). */
-  diagnosis?: LogFinding[];
+   *  of Task 119's diagnosis. Task 121 three states: null = not scanned yet
+   *  or NO LOG (the card stays silent, honestly); [] = scanned the full log
+   *  and no known signature matched (the negative teaser says so); non-empty
+   *  = the classic teaser with count + chips. */
+  diagnosis?: LogFinding[] | null;
   onOpenDiagnosis?: () => void;
 }) {
   if (job.status === "running") {
@@ -955,6 +963,49 @@ function ResultSummary({
               >
                 <ArrowRight className="size-3" aria-hidden="true" />
                 Open the full diagnosis
+              </Button>
+            </div>
+          ) : null}
+          {diagnosis && diagnosis.length === 0 ? (
+            /* Task 121: the negative leg — the diagnosis RAN on the full log
+               and no known signature matched. Silence here would leave the
+               user guessing whether the diagnosis exists at all; this card
+               says "we looked, nothing known, the cause is custom". Calm
+               zinc, not rose: "nothing found" is information, not alarm.
+               The jump lands Full mode where the strip is absent by design
+               (findings.length > 0 gate) — the log itself is the answer. */
+            <div
+              data-overview-diagnosis=""
+              data-ovd-negative=""
+              role="note"
+              aria-label="No known failure signature matched the full log"
+              className="mt-2.5 rounded-lg border border-zinc-500/25 bg-zinc-500/[0.04] p-2.5"
+            >
+              <div className="flex items-center gap-1.5">
+                <SearchX className="size-3.5 shrink-0 text-zinc-400 dark:text-zinc-500" aria-hidden="true" />
+                <span className="ovd-head-label text-[11px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                  Failure diagnosis
+                </span>
+                <span className="ovd-count rounded-full bg-zinc-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-500 dark:text-zinc-400">
+                  0 findings
+                </span>
+                <span className="ovd-note hidden min-w-0 truncate text-[10px] text-muted-foreground sm:inline">
+                  scanned the full run.out — no loose matching, no crying wolf
+                </span>
+              </div>
+              <p className="ovd-negative-note mt-1.5 text-[10.5px] leading-relaxed text-muted-foreground">
+                No known failure signature matched the full log — the cause is
+                custom to this job. The log is the ground truth: read it end to end.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={onOpenDiagnosis}
+                className="mt-2 h-6 gap-1.5 border-zinc-500/30 px-2 text-[10.5px] text-zinc-600 hover:bg-zinc-500/10 hover:text-zinc-700 dark:text-zinc-300 dark:hover:text-zinc-200"
+              >
+                <ArrowRight className="size-3" aria-hidden="true" />
+                Read the full log
               </Button>
             </div>
           ) : null}
@@ -1286,8 +1337,9 @@ function OverviewTab({
   job: JobDTO;
   data: OutputsResponse | null;
   onOpenFiles: () => void;
-  /** Task 120: full-log diagnosis for the failed summary card. */
-  diagnosis?: LogFinding[];
+  /** Task 120: full-log diagnosis for the failed summary card. Task 121
+   *  three states: null (no log / not scanned) flows through untouched. */
+  diagnosis?: LogFinding[] | null;
   onOpenDiagnosis?: () => void;
 }) {
   // refining jobs get a live per-iteration resolution chart
@@ -2064,16 +2116,21 @@ export function JobInspector() {
   // needs its own findings. A failed job's log is static: ONE ?full=1 fetch
   // answers for the whole visit, and the teaser counts the WHOLE run.out
   // while the strip counts whichever window it renders.
-  const [fullFindings, setFullFindings] = React.useState<LogFinding[]>([]);
+  const [fullFindings, setFullFindings] = React.useState<LogFinding[] | null>(null);
   const jobFailed = job?.status === "failed";
   React.useEffect(() => {
-    setFullFindings([]);
+    // Task 121 three states, not two: null = not scanned yet or NO LOG
+    // (job never ran — the card stays silent, honestly); [] = scanned the
+    // full log and NO known signature matched (the negative teaser says
+    // so); non-empty = the classic teaser. The old [] initial state made
+    // "no log" and "no match" indistinguishable.
+    setFullFindings(null);
     if (!jobId || !jobFailed) return;
     let alive = true;
     void (async () => {
       try {
         const res = await fetch(`/api/jobs/${jobId}/log?full=1`, { cache: "no-store" });
-        if (!res.ok) return; // no log (job never ran) — no teaser, honestly
+        if (!res.ok) return; // no log (job never ran) — stays null, silent
         const body = (await res.json()) as { tail?: string };
         if (alive) setFullFindings(diagnoseLog(body.tail));
       } catch {

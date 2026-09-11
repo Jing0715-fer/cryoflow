@@ -4,10 +4,13 @@
  * When a job fails, the Log tab answers WHAT happened (the log itself);
  * this module answers WHY, the way a colleague skimming the tail would:
  * a handful of well-known failure signatures (OOM kill, CUDA/GPU memory,
- * full disk, missing upstream file, permissions, segfault) each mapped to
- * an actionable next step. The Log tab strip (job-inspector) renders the
- * findings; nothing else interprets log text — this table is the single
- * source of that interpretation, so a pattern tweak heals every surface.
+ * full disk, missing upstream file, permissions, segfault, MPI abort,
+ * Python traceback) each mapped to an actionable next step. The Log tab
+ * strip (job-inspector) renders the findings; nothing else interprets log
+ * text — this table is the single source of that interpretation, so a
+ * pattern tweak heals every surface. A failed log matching NOTHING is
+ * itself a verdict the UI reports honestly (Task 121 negative teaser):
+ * "no known signature — the cause is custom, the log is the truth".
  *
  * Deliberately conservative: every pattern is a string the OS/runtime
  * itself emits (errno text, shell kill message, CUDA error text), never
@@ -50,9 +53,11 @@ export const LOG_PATTERNS: LogPattern[] = [
   },
   {
     id: "gpu-oom",
-    // CUDA's allocation failure text; "out of memory" also catches
-    // std::bad_alloc from the RAM allocator (same remedy family)
-    re: /cuda[\w: ]*(?:error|out of memory)|out of memory|hipError/i,
+    // CUDA's allocation failure text; "out of memory" catches the RAM
+    // allocator's phrasing and std::bad_alloc is the C++ runtime's name
+    // for the same death (same remedy family) — Task 121 made the comment
+    // true by adding the marker itself
+    re: /cuda[\w: ]*(?:error|out of memory)|out of memory|hipError|std::bad_alloc/i,
     label: "Out-of-memory error (GPU/RAM allocator)",
     hint: "Reduce memory pressure: fewer threads, smaller batch, or a smaller box — GPU jobs can also split the data across cards.",
   },
@@ -80,6 +85,22 @@ export const LOG_PATTERNS: LogPattern[] = [
     re: /segmentation fault|\bcore dumped\b/i,
     label: "Segmentation fault (native crash)",
     hint: "A native binary crashed — often threading or CUDA related; try fewer threads or a different GPU build before re-running.",
+  },
+  {
+    id: "mpi-abort",
+    // OpenMPI's exact abort announcement — the runtime itself, not RELION
+    // chatter; the abort is the symptom, the cause prints earlier
+    re: /MPI_ABORT was invoked/i,
+    label: "MPI abort — a rank asked the runtime to stop",
+    hint: "An MPI rank called MPI_ABORT: the root cause is usually printed earlier in the log — switch to Full mode and read upward from the first error.",
+  },
+  {
+    id: "python-traceback",
+    // CPython's own traceback header — the interpreter, not a loose word;
+    // Topaz/cryolo and other wrappers die here
+    re: /Traceback \(most recent call last\)/,
+    label: "Python traceback (script failure)",
+    hint: "A Python wrapper crashed — the traceback's last line names the exception; check the wrapper's environment (module versions, CUDA_VISIBLE_DEVICES) before re-running.",
   },
 ];
 

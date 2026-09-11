@@ -927,6 +927,28 @@
     .ovd-chip-count {
     color: oklch(0.55 0.02 232) !important;
   }
+  /* Task 121: the negative teaser ("no known signature matched") re-inks to
+     calm zinc on paper — the shared ovd-head-label/ovd-count rules above
+     force rose; the [data-ovd-negative] variant outranks them (higher
+     specificity) so the negative card keeps its "information, not alarm"
+     voice on paper too. */
+  html:has([data-inspector-dialog][data-state="open"])
+    [data-overview-diagnosis][data-ovd-negative]
+    .ovd-head-label {
+    color: oklch(0.45 0.02 232) !important;
+  }
+  html:has([data-inspector-dialog][data-state="open"])
+    [data-overview-diagnosis][data-ovd-negative]
+    .ovd-count {
+    background: oklch(0.93 0.01 232) !important;
+    color: oklch(0.45 0.02 232) !important;
+  }
+  html:has([data-inspector-dialog][data-state="open"])
+    [data-overview-diagnosis][data-ovd-negative]
+    .ovd-negative-note {
+    color: oklch(0.42 0.02 232) !important;
+    break-inside: avoid;
+  }
   /* interactive chrome inside the report — buttons, inputs and selects
      are screen controls (tab triggers, rerun/stop actions, copy and
      download buttons, the file filter); the content around them is the

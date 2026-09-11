@@ -3694,3 +3694,27 @@ Stage Summary:
 - 「fixture 的设计点就是断言的陷阱」：t120 种子故意把签名推出 600 行 tail 窗口（这是存在意义），照抄 t119 的「tail 含首行」断言恰好反向撞死——复用旧断言前先问新 fixture 改了什么不变量；tailNeedle 参数化（M-step / Final map written）是正确形态
 - 「seed 探针先行」：CLI 嵌套引号（$disconnect 被 shell 吞）先在独立探针脚本里把种子机制验通（status 翻转/log 200/stderr 合并），再回到 e2e 排查——探针判「机制无罪」后，FATAL 的嫌疑人立刻收敛到断言自身
 - 遗留（下轮候选）：server 内存健康度——runner 块间 fresh-server 选项评估（本轮 10 块全绿未现压力）；qa60/61 共享传输推广（暂缓维持）；EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势、TSV/海报粘贴验证）；3D viewer 体积截面（真机需求观察）；minimap mode 持久化（真机反馈再评估）；undo 手感参数调优；palette Copy PNG（Task 110 拒绝维持）；诊断 teaser 是否需要「签名无匹配」的阴性提示（failed 无 finding 时卡片沉默——是否该说「无已知签名」待真机反馈）
+
+---
+Task ID: 121
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-11 09:45 window)
+Task: cron 自主巡检——Task 121「诊断族收口：阴性 teaser 出声 + 签名表 6→8」：开局核实发现摘要快照严重过时（worklog 尾部实为 Task 120/b79bdb6，01:30 以来各窗口实际都有执行，113-120 已完成），冷启动 + smoke/qa00/t120 三件套绿判稳。按 Task 120 交接候选定案「签名无匹配的阴性提示」，顺手兑现 gpu-oom 注释欠账（声称捕获 std::bad_alloc 三轮、regex 里从来没有）。交付：log-diagnosis.ts 签名表 +mpi-abort（OpenMPI 原生 MPI_ABORT was invoked）+python-traceback（CPython 原生 Traceback 头）+gpu-oom 补 std::bad_alloc；job-inspector 三态化（null=无日志/未扫=诚实沉默、[]=扫过无匹配=阴性锌灰卡、非空=经典玫瑰 teaser）+ 阴性卡（SearchX + 0 findings pill + 「cause is custom」注 + Read the full log CTA 落 Full 模式——strip 在 0 findings 时缺席是设计，日志本身就是答案）；globals.css 阴性纸面重墨（高特异性覆盖共享玫瑰规则）。t121 95 断言七相 ×2 绿（含矩阵位 #44）+ 受影响面（t120/t119/t113/smoke/qa00）全绿 + 全矩阵 58 套分 10 块 0 失败 + worklog + push
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 120（b79bdb6 == origin/main，树净）——cron 文本所称 Task 13 及摘要快照的 Task 112 均已过时；BUILD_ID n2TYUcMqdxYtEmxFr65yu 匹配；冷启动（服务器 09:45 已死按惯例清理过）+ qa63-smoke/qa00/t120 三套全绿 → 稳定（另记录：`$?` 取的是管道尾 tail 的退出码不是 node 的——文件名猜错时 EXIT 0 是假象）
+- 【选题 + 撞车检查】Task 120 交接候选大多是「暂缓/待真机/拒绝维持」，可行动者为阴性 teaser；rg 确认 0 findings 时 `diagnosis.length > 0` 门控下卡片全沉默（849-850 注释记录是刻意的「保持原样」）；顺手发现 gpu-oom 注释与 regex 不符——注释说「out of memory 也捕获 std::bad_alloc」但 bad_alloc 不含该子串，从未被捕获
+- 【实现】log-diagnosis.ts：+mpi-abort（/MPI_ABORT was invoked/i——症状非根因，hint 明说「向上读日志/开 Full 模式」）+python-traceback（/Traceback \(most recent call last\)/——Topaz/cryolo 系失败）+gpu-oom regex 补 std::bad_alloc 并把注释改真；job-inspector：fullFindings 改 `LogFinding[] | null`（无日志 !res.ok 保持 null；[] 唯一语义=扫过无匹配）、ResultSummary/OverviewTab prop 类型跟随、阴性卡锌灰系（信息不报警）同级追加条件块零重构、FINDING_ICONS +XOctagon/Bug；globals.css [data-ovd-negative] 三条纸面规则（特异性高于共享 ovd 规则，玫瑰让位锌灰）
+- 【t121 探针 95 断言七相】S 三种子（NewSig 短日志只含新签名 L3 bad_alloc→gpu-oom/L4 traceback/L8 MPI_ABORT + Custom 自定义错误零匹配 + NoLog 无日志 404）+ 双预言机（探针内 PATTERNS 表同步 8 条，独立重推）；A 屏（新 chips 顺序+hover 措辞、阴性卡 aria/pill/零 chips/注、CTA 落 Full+strip 缺席、NoLog 沉默）；B 纸（阳性标签上纸、阴性注上纸、CTA 双双不上纸、无日志纸无诊断块）；F 静态 19（8 签名、非全局 flags、三态 wiring、双世界编译产物、server bundle 含新签名文本）；Z 级联清理
+- 【探针四折】①A13 minimap-toggle 固定浮层恰好压住 55×24 卡中心（fit 缩放 28 卡后卡片 55×24；诊断脚本 elementFromPoint 实锤 occluder 身份）→ openInspector 升级为调度式：量 bbox → 出屏 wheel+400 zoom-out（世界向光标收拢）→ 在屏但 <120px 宽则 wheel-350 zoom-in at 卡（长过一切固定浮层）→ 5 点位轮击；②A28 种子纵向堆叠漂出视口（M+780 线屏幕 y≈974>900）且 fit 已到底 min-zoom clamp 令 zoom-out 无效 → 三种子横排同 y（M+260 实证可见线，M+780 线被本轮证伪）；③F13 检查正则自伤（/re: [^\n]*\/[a-z]*g/ 被 "seg"mentation 撞出假阳性）→ flags 检查锚定闭合斜杠后 + [,;] 收尾；④Z3 无日志作业的 404 fetch 被 Chromium 自动记 console error（×4=Log tab+full ×两次打开）→ 分类断言（每条必须 404 资源日志、page error 零容忍、非 404 零容忍）
+- 【MultiEdit 原子性实测咬人】首轮 5 编辑组在第 4 条（注释缩进两空格不符）失败，报「No replacement was performed」但前 3 条已实际落盘——与工具文档声明的原子性相反；第二轮复用旧 old_str 全部空转才发现。编辑后 rg 回显核对是唯一防线
+- 【nohup 后台矩阵被杀】run-matrix.sh 全量后台跑（nohup）在 qa00 后静默死亡——Bash 会话清理杀进程组，nohup 不可靠；前台分块（runner 原生 `7 10` 区间参数）10 块串行才是本环境正解，与既往「分 X 块」惯例的成因对上了
+- 【收尾】eslint 0、tsc src 0、三段式 BUILD_ID uEqBxACIYDC3zkRAYOEWf；t121 终跑 95 全绿；受影响面 t120(82)/t119(96)/t113(46)/smoke/qa00 全绿；全矩阵 58 套（t121 glob 自动收录）分 10 块串行 0 失败（qa60/61 干净，Task 117 传输层持续生效）；worklog + commit + push + 环境清理
+
+Stage Summary:
+- 「阴性也是结论，沉默不是」：诊断系统扫完全日志零匹配时，沉默让用户分不清「没运行」和「运行了没看出」——三态各自有话术：null（无日志）不出声是诚实，[]（无匹配）出声说「cause is custom」也是诚实；错把无日志当无匹配说「没发现」才是撒谎。UI 的每个空态都要回答「这是哪一种空」
+- 「注释声称的行为要能兑现」：gpu-oom 注释声称捕获 std::bad_alloc 三轮之久，regex 里从来没有它——文档漂移在正则上尤其隐蔽，读注释的人自信地以为有覆盖。本轮把注释改真（regex 补上）而不是把注释删了：覆盖是真实需求（C++ 运行时的死法措辞），欠的是实现
+- 「探针的视口假设是负债」：fit 缩放到 55×24、固定浮层压中心、种子漂出视口、min-zoom clamp 废掉 zoom-out——四个几何假设在同一条探针里连环炸。调度式交互（量真实 bbox → 出屏拉回 → 太小放大 → 多点位轮击）把「假设布局」换成「自愈导航」；诊断脚本先实锤 occluder 身份（elementFromPoint + data-canvas-ui）再动手，两分钟省掉一轮瞎猜
+- 「检查正则会咬自己」：用 /\/[a-z]*g/ 查非全局 flags，模式体里的字面量 segmentation 撞出假阳性——正则查正则时，字面模式体就是假阳性雷区；flags 检查必须锚定闭合斜杠之后的尾部。「用 X 检查 X」时先问 X 的内容会不会伪装成 X 的语法
+- 「浏览器的 404 日志是诚实的噪音」：Chromium 对任何 HTTP 失败自动记 console error——无日志作业的特性路径必然带 4 条 404 资源日志。零容忍断言在这里是假红；分类断言（形状=Failed to load resource、路由=log、数量=可解释、非 404 零容忍）才是对「诚实 404」的诚实验收
+- 「MultiEdit 的原子性要实测不要相信」：中途失败报「No replacement was performed」但前序编辑已落盘——工具文档与行为的差异只能靠回显抓。任何批量编辑后立即 rg 核对落盘状态，是编辑伤情唯一可靠的止血点
+- 遗留（下轮候选）：诊断签名命中率观察（新签名 mpi-abort/python-traceback 在真机日志上的召回——6 签名时代的欠账是否补上待真机）；runner 块间 fresh-server 选项评估（Task 119 OOM 后价值上调，本轮 10 块未现压力）；qa60/61 共享传输推广（暂缓维持）；EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势、TSV/海报粘贴验证）；3D viewer 体积截面（真机需求观察）；minimap mode 持久化（真机反馈再评估）；undo 手感参数调优；palette Copy PNG（Task 110 拒绝维持）
