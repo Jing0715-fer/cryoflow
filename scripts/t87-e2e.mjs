@@ -114,11 +114,51 @@ await sleep(500);
 // convention, job-card pointerdown). Click the [data-job] ROOT by id —
 // deterministic and always the card body (ports handle their own events).
 const ids = { a: jobA.id, b: jobB.id, sel2d: (await listJobs()).find((j) => j.name === "QA Class Select")?.id };
+// Task 129 round: the world grows as template suites apply batches below
+// the content bbox — no FIXED number of wheel-outs can guarantee an old
+// demo card stays on screen. Before every pick: pan (plain drag from a
+// VERIFIED-EMPTY canvas point — a drag started on a card would move the
+// job) until the target sits inside the viewport. Bounded, self-healing.
+const panUntilVisible = async (id) => {
+  for (let i = 0; i < 8; i++) {
+    const r = await p.evaluate((jobId) => {
+      const el = document.querySelector(`[data-job="${jobId}"]`);
+      if (!el) return null;
+      const b = el.getBoundingClientRect();
+      return { x: b.x, y: b.y, w: b.width, h: b.height, vw: innerWidth, vh: innerHeight };
+    }, id).catch(() => null);
+    if (r == null) return; // not in DOM — the click fails loudly on its own
+    if (r.w > 0 && r.x >= 4 && r.y >= 110 && r.x + r.w <= r.vw - 4 && r.y + r.h <= r.vh - 110) return;
+    const dx = Math.round(r.vw / 2 - (r.x + r.w / 2));
+    const dy = Math.round(r.vh / 2 - (r.y + r.h / 2));
+    const origin = await p.evaluate((vw, vh) => {
+      const empty = (x, y) => {
+        const el = document.elementFromPoint(x, y);
+        if (!el) return false;
+        if (el.closest('[data-job],[role="button"],[role="toolbar"],[data-canvas-ui="minimap"],[role="dialog"]')) return false;
+        return !!el.closest('[data-canvas="viewport"]');
+      };
+      const cands = [[vw / 2, vh / 2], [vw / 2, vh - 150], [vw / 2, 190], [170, vh / 2], [vw - 170, vh / 2], [vw / 2, vh / 2 + 130], [vw / 2, vh / 2 - 130]];
+      for (const [x, y] of cands) if (empty(x, y)) return { x, y };
+      return null;
+    }, r.vw, r.vh);
+    if (!origin) return; // nowhere empty to drag from — let the click speak
+    const cx = Math.round(origin.x);
+    const cy = Math.round(origin.y);
+    await p.mouse.move(cx, cy);
+    await p.mouse.down();
+    await p.mouse.move(cx + Math.max(-900, Math.min(900, dx)), cy + Math.max(-420, Math.min(420, dy)), { steps: 8 });
+    await p.mouse.up();
+    await sleep(350);
+  }
+};
 const pickFirst = async (id) => {
+  await panUntilVisible(id);
   await p.locator(`[data-job="${id}"]`).first().click();
   await sleep(350);
 };
 const pickSecond = async (id) => {
+  await panUntilVisible(id);
   await p.locator(`[data-job="${id}"]`).first().click({ modifiers: ["Shift"] });
   await sleep(350);
 };

@@ -154,7 +154,47 @@ await p.goto(BASE, { waitUntil: "networkidle" });
 await p.waitForSelector('[data-canvas="viewport"]');
 await p.waitForTimeout(800);
 
+// Task 129 round: the world grows as template suites apply batches below
+// the content bbox — no FIXED zoom-out dance guarantees an old demo card
+// stays on screen. Before a data-job click: pan (plain drag from a
+// VERIFIED-EMPTY canvas point — a drag started on a card would move the
+// job) until the target sits inside the viewport. Bounded, self-healing.
+const panUntilVisible = async (id) => {
+  for (let i = 0; i < 8; i++) {
+    const r = await p.evaluate((jobId) => {
+      const el = document.querySelector(`[data-job="${jobId}"]`);
+      if (!el) return null;
+      const b = el.getBoundingClientRect();
+      return { x: b.x, y: b.y, w: b.width, h: b.height, vw: innerWidth, vh: innerHeight };
+    }, id).catch(() => null);
+    if (r == null) return; // not in DOM — the click fails loudly on its own
+    if (r.w > 0 && r.x >= 4 && r.y >= 110 && r.x + r.w <= r.vw - 4 && r.y + r.h <= r.vh - 110) return;
+    const dx = Math.round(r.vw / 2 - (r.x + r.w / 2));
+    const dy = Math.round(r.vh / 2 - (r.y + r.h / 2));
+    const origin = await p.evaluate((vw, vh) => {
+      const empty = (x, y) => {
+        const el = document.elementFromPoint(x, y);
+        if (!el) return false;
+        if (el.closest('[data-job],[role="button"],[role="toolbar"],[data-canvas-ui="minimap"],[role="dialog"]')) return false;
+        return !!el.closest('[data-canvas="viewport"]');
+      };
+      const cands = [[vw / 2, vh / 2], [vw / 2, vh - 150], [vw / 2, 190], [170, vh / 2], [vw - 170, vh / 2], [vw / 2, vh / 2 + 130], [vw / 2, vh / 2 - 130]];
+      for (const [x, y] of cands) if (empty(x, y)) return { x, y };
+      return null;
+    }, r.vw, r.vh);
+    if (!origin) return; // nowhere empty to drag from — let the click speak
+    const cx = Math.round(origin.x);
+    const cy = Math.round(origin.y);
+    await p.mouse.move(cx, cy);
+    await p.mouse.down();
+    await p.mouse.move(cx + Math.max(-900, Math.min(900, dx)), cy + Math.max(-420, Math.min(420, dy)), { steps: 8 });
+    await p.mouse.up();
+    await sleep(350);
+  }
+};
+
 // plain click on a completed card opens the big inspector
+await panUntilVisible(anchor.id);
 await p.locator(`[data-job="${anchor.id}"]`).first().click();
 await p.waitForSelector('[data-testid="job-inspector"], [role="dialog"]');
 await sleep(700);
@@ -288,6 +328,7 @@ if (soloType) {
   const solo = (await listJobs()).find((j) => j.type === soloType[0] && j.status === "completed");
   must(solo != null, `E2 singleton has a completed instance (${solo?.name ?? "none"})`);
   if (solo) {
+    await panUntilVisible(solo.id);
     await p.locator(`[data-job="${solo.id}"]`).first().click();
     await sleep(900);
     const guard = await p.evaluate(() => ({

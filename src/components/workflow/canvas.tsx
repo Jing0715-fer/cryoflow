@@ -23,6 +23,8 @@ import {
   GitCompareArrows,
   History,
   ImageUp,
+  ArrowRight,
+  Waypoints,
   LayoutTemplate,
   Link2,
   Loader2,
@@ -444,6 +446,148 @@ const ALIGN_ITEMS = [
   { mode: "vcenter", icon: AlignCenterHorizontal, label: "Vertical centers" },
   { mode: "bottom", icon: AlignEndHorizontal, label: "Bottom edges" },
 ] as const;
+
+/**
+ * Task 129 — post-apply connection suggestions. An applied template
+ * lands as a wired island; this chip proposes the wires to its new
+ * neighbors (free boundary inputs × same-workspace free outputs),
+ * lists every pair EXPLICITLY, and wires only on Connect — a
+ * suggestion never connects anything by itself. Rows toggle inclusion
+ * (the excluded ones dim), the whole chip dismisses; navigation and
+ * vanished endpoints clear it silently.
+ */
+const TemplateSuggestionsChip = React.memo(function TemplateSuggestionsChip() {
+  const suggestions = useWorkflowStore((s) => s.templateSuggestions);
+  const activeWorkspaceId = useWorkflowStore((s) => s.activeWorkspaceId);
+  const jobs = useWorkflowStore((s) => s.jobs);
+  const [busy, setBusy] = React.useState(false);
+  const [excluded, setExcluded] = React.useState<Set<string>>(new Set());
+
+  // a new batch (different pairs) resets per-row inclusion — excluded
+  // rows belong to the batch they were excluded from
+  const batchKey = suggestions
+    ? suggestions.items.map((i) => `${i.fromJobId}>${i.toJobId}`).join(",")
+    : "";
+  React.useEffect(() => {
+    setExcluded(new Set());
+  }, [batchKey]);
+
+  // three silent exits: another workspace's batch, every endpoint already
+  // applied, or an endpoint vanished (job deleted) — a chip pointing at a
+  // ghost would be a lie the canvas renders
+  const alive = React.useMemo(() => {
+    if (!suggestions || suggestions.workspaceId !== (activeWorkspaceId ?? "")) return null;
+    const ids = new Set(jobs.map((j) => j.id));
+    const items = suggestions.items.filter((i) => ids.has(i.fromJobId) && ids.has(i.toJobId));
+    return items.length > 0 ? items : null;
+  }, [suggestions, activeWorkspaceId, jobs]);
+
+  if (!alive) return null;
+  const included = alive.filter((i) => !excluded.has(`${i.fromJobId}>${i.toJobId}`));
+  const connectIncluded = () => {
+    setBusy(true);
+    void useWorkflowStore
+      .getState()
+      .applyTemplateSuggestions(included)
+      .finally(() => setBusy(false));
+  };
+
+  return (
+    <div
+      data-canvas-ui="template-suggestions"
+      className="card-lift animate-rise absolute bottom-14 left-1/2 z-30 w-[min(420px,calc(100%-24px))] -translate-x-1/2 rounded-lg border bg-card/95 p-2 shadow-md backdrop-blur"
+    >
+      <div className="flex items-center gap-1.5">
+        <Waypoints className="size-3.5 shrink-0 text-primary" aria-hidden="true" />
+        <p className="flex-1 text-[11px] font-semibold text-muted-foreground">
+          {alive.length === 1 ? "1 suggested wire" : `${alive.length} suggested wires`}
+          <span className="ml-1.5 font-normal text-muted-foreground/70">
+            from the applied template — click a row to skip it
+          </span>
+        </p>
+        <button
+          type="button"
+          onClick={() => useWorkflowStore.getState().dismissTemplateSuggestions()}
+          aria-label="Dismiss connection suggestions"
+          title="Dismiss — wire by hand instead"
+          className="rounded-full p-0.5 text-muted-foreground transition-colors hover:text-foreground"
+          data-testid="template-suggestions-dismiss"
+        >
+          <X className="size-3.5" aria-hidden="true" />
+        </button>
+      </div>
+      <ul className="mt-1.5 grid gap-0.5">
+        {alive.map((i) => {
+          const key = `${i.fromJobId}>${i.toJobId}`;
+          const on = !excluded.has(key);
+          return (
+            <li key={key}>
+              <button
+                type="button"
+                onClick={() =>
+                  setExcluded((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(key)) next.delete(key);
+                    else next.add(key);
+                    return next;
+                  })
+                }
+                aria-pressed={on}
+                title={on ? "Click to skip this wire" : "Click to include this wire"}
+                className={cn(
+                  "flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-[11px] transition-colors",
+                  on ? "bg-muted/40 hover:bg-muted/70" : "text-muted-foreground/50 line-through decoration-border hover:bg-muted/40"
+                )}
+                data-testid="template-suggestion-row"
+                data-suggestion-key={key}
+              >
+                <span
+                  className={cn(
+                    "size-1.5 shrink-0 rounded-full",
+                    on ? "bg-primary" : "bg-border"
+                  )}
+                  aria-hidden="true"
+                />
+                <span className="max-w-[38%] truncate font-medium" title={i.fromName}>
+                  {i.fromName}
+                </span>
+                <span className="shrink-0 text-[9px] tabular-nums text-muted-foreground">
+                  {i.fromPort}
+                </span>
+                <ArrowRight className="size-3 shrink-0 text-primary" aria-hidden="true" />
+                <span className="max-w-[38%] truncate font-medium" title={i.toName}>
+                  {i.toName}
+                </span>
+                <span className="shrink-0 text-[9px] tabular-nums text-muted-foreground">
+                  {i.toPort}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      <div className="mt-1.5 flex justify-end">
+        <Button
+          size="sm"
+          className="h-6 gap-1 px-2.5 text-[11px]"
+          onClick={connectIncluded}
+          disabled={busy || included.length === 0}
+          title="Wire the included suggestions through the same endpoint a manual drag uses"
+          data-testid="template-suggestions-connect"
+        >
+          {busy ? (
+            <Loader2 className="size-3 animate-spin" aria-hidden="true" />
+          ) : (
+            <Link2 className="size-3" aria-hidden="true" />
+          )}
+          {included.length === alive.length
+            ? `Connect ${included.length}`
+            : `Connect ${included.length} of ${alive.length}`}
+        </Button>
+      </div>
+    </div>
+  );
+});
 
 /**
  * Appears above the selection's bounding box whenever 2+ cards of the
@@ -1795,6 +1939,9 @@ export function WorkflowCanvas() {
 
       {/* Bulk-selection toolbar (align · distribute · duplicate · delete) */}
       <SelectionToolbar rootRef={rootRef} hidden={band != null} />
+
+      {/* Task 129 — post-apply connection suggestions (bottom-center chip) */}
+      <TemplateSuggestionsChip />
 
       {/* Bird's-eye navigation map (bottom-right) — visibility is a
           session-local store switch so the M key, the toolbar toggle and

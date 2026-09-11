@@ -3885,3 +3885,30 @@ Stage Summary:
 - 「roundtrip 是导入导出的唯一充分证明」：导出的字节原样回导、删原件、应用落地、参数逐项对——t128 的 E→F 相位把「文件形状正确」升级为「谱系无损」。断言文件 shape（C 相）只是必要条件
 - 「filechooser 之后焦点不在你以为的地方」：原生文件选择器交互后 Radix Dialog 的全局 Esc 未命中——探针的关闭路径要点确定性按钮（Cancel），Escape 只在焦点血缘清晰时可信
 - 遗留（下轮候选）：模板应用后与新邻居的建议连线（应用体仍是孤岛，需交互设计——真机反馈后再做）；模板批量管理（全选导出/一键清空，货架行多后的整理需求）；runner wall-time 剖面观察（qa64 71s 四轮一致最慢，继续积累）；qa60/61 共享传输推广（暂缓维持）；EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势、TSV/海报粘贴验证）；minimap mode 持久化（真机反馈再评估）；undo 手感参数调优；诊断签名命中率观察（真机）
+
+---
+Task ID: 129
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-11 16:45 window)
+Task: cron 自主巡检——Task 129「模板应用后的建议连线：显式确认 chip」+ 矩阵世界污染取证与护栏：开局核实 worklog 尾部 Task 128/d94d1e7 == origin/main，冷启动 + smoke/qa00/t128 三件套绿判稳。交接候选盘点：qa64 71s 剖面深挖被判收益率低（三相位各自 boot ~15s×3 + 12s 轮询节奏是设计使然，套件微优化省 ~20s 且有致 flaky 风险——继续让位）；定案挂账两轮的「应用体是孤岛」——交互设计现场定案为显式确认 chip（列出每对建议线 + 行点击排除 + Connect/Dismiss，零魔法自动接线，不需要真机手感调参）。交付：lib/template-suggest.ts 纯引擎（自由边界输入 × 同工作区自由供体输出 × portsCompatible × 最近者配对 × 一供口一线 × 上限 4）+ store 三件（apply 后算建议 / applyTemplateSuggestions 走手拖同一 POST 端点聚合 toast / dismissTemplateSuggestions）+ switchWorkspace/switchProject 导航清理 + canvas TemplateSuggestionsChip（行 aria-pressed 排除、Connect N of M、幽灵端点静默退场）+ t129 29 断言六相绿（矩阵位 #51）。矩阵块 6 爆出 t87/t88 假失败 → 取证实锤「模板套件 apply 进共享 demo 世界的 RELION 编号批无人认领，世界 bbox 天天长高（今天已 7800px），t87/t88 的固定滚轮缩小校准到达原理极限」→ 三修：清世界 21 残留批 + 送还漂移的 QA MotionCorr + t129 cleanup 基线还原 + t87/t88 装 pan-until-visible 闭环护栏。全矩阵 65 套分块 0 失败 + worklog + push
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 128（d94d1e7 == origin/main，树净）；BUILD_ID 8ikr9tQHKSTr8bhgcLcKP200 匹配；冷启动 + smoke/qa00/t128(41) 三件套全绿 → 稳定
+- 【选题】qa64 剖面深挖（交接候选③）：读套件结构——18 处 sleep + bootToDialog 每相位重来（~15s×3）+ Phase B 12s 轮询等待是 LIVE_POLL_MS 设计使然；判定收益率低继续让位。改定案候选①「建议连线」，交互设计两轮悬置后现场拍板：显式确认 chip——「一个控件只回答一个问题」（wire these?）不需要手感调参，真机反馈只影响未来增强
+- 【实现·引擎】lib/template-suggest.ts 纯客户端安全：边界输入=applied 节点无入线的输入口；供体=同工作区非 applied 节点无出线的输出口（从不偷已喂人的口）；portsCompatible 与手拖同一谓词；按布局序走边界（最左先挑）、最近供者胜、一供口一线、MAX_SUGGESTIONS=4
+- 【实现·store】applyCustomTemplate 落位后算建议（存 {workspaceId, items}）；applyTemplateSuggestions 走 /api/edges（手拖同端点，服务端权威重验）allSettled 批量、拒收静默丢弃、聚合 toast；dismiss 清空；switchWorkspace/switchProject 都清（建议是工作区生的，不过导航）
+- 【实现·chip】canvas 模块级 TemplateSuggestionsChip（bottom-14 居中、Waypoints 图标、行=供体名+口名+箭头+边界名+口名、行点击 aria-pressed 排除/恢复、Connect N[ of M]、Dismiss X）；三静默退场：别的 workspace 的批、端点全接线、端点被删（幽灵 chip 是画布撒的谎）；batchKey 换批重置排除集
+- 【类型伤情一处】Promise.allSettled 里 r.value.json() ——api() 已返回解析体，fulfilled 即带 edge；删多余 json() 调用
+- 【t129 探针】六相：S 种供体+模板+空 dest；B apply→chip 1 行（模板内线已喂 ctffind，唯一自由边界是 motioncorr.movies）+行排除/恢复+Connect 0 of 1 disabled；C Connect→DB 线精确端口；D 二次 apply→dismiss 零增线；E 空 dest apply 无 chip（无供体）+导航清态；Z 控制台。伤情两折：①Escape 关不掉 Radix Dialog（Task 128 教训重演——改 Cancel 确定路径）；②B4 假设「供体必是我种的 import」被 busy 演示世界打脸（CTF Estimation 18 的空闲口更近且合法——motioncorr.movies 接受 micrographs）→ 改断言不变量：data-suggestion-key 携带精确 id 对、边界侧钉 /Motion Correction/、供体不可知
+- 【顺手修】apply toast "1 wires" 复数 bug（视觉验收时人眼抓到）
+- 【矩阵取证】块 6 t87/t88 假失败（element outside viewport 死循环）：诊断脚本实锤 QA Class Select 在 8 次滚轮缩小后 y=-379 出视口；深挖发现世界 maxY=7412——t129 探针 Phase B/D apply 进 ws1 的 RELION 编号批（Motion Correction/CTF Estimation 对）无人认领，加上当天累计 20+ 批把世界撑高；t87 种子锚「内容 bbox 下方」随之越种越深，固定 8 次缩小原理上装不下（ZOOM_MIN=0.25×7800>视口）
+- 【三修】①清 21 个残留批 + QA MotionCorr（09-09 被拖离家族 7000px）送回 (400,336)→maxY 1072；②t129 cleanup 基线还原（Phase S 记 baseline ids，Z 删一切非基线——t87 的 Z-restores-to 模式）；③t87/t88 装 panUntilVisible 闭环护栏（点击前从 elementFromPoint 验证的空点平移拖拽直至目标入视口，8 次封顶——校准常数会过期，闭环不会）
+- 【收尾】eslint 0、tsc src 0、构建 BUILD_ID IH1oWWSzJWUUdrBluWo2（含复数修复）；t87(35)/t88(34)/t129(29) 重跑全绿；世界零残留复核（96 jobs / maxY 1072）；全矩阵 65 套：块 1-5 一次过 + 块 6-7 修复后重跑 0 失败（块峰 190-202MB 零阈值重启）；诊断脚本删除、worklog + commit + push + 环境清理
+
+Stage Summary:
+- 「建议是提议，不是动作」：chip 列出每一对线、行可排除、Connect 才 POST、Dismiss 即散——建议系统最危险的失败模式是静默自动接线（用户发现画布多了线时已经晚了）。显式列表 + 显式确认把交互设计的悬置一锤定音：不需要手感调参的保守设计不需要等真机
+- 「引擎的谓词必须与手拖同一份」：portsCompatible 直接复用 lib/workflow 的既存函数——建议若比手拖更宽松，用户会连出手拖拒绝的线；若更严，建议永远在猜。同一谓词 + 服务端 POST 重验 = 建议永远不会产出非法线
+- 「断言不变量，别钉具体演员」：busy 演示世界里「最近的空闲兼容供体」是谁由数据决定——探针钉死具体供体名就在下一次世界变化时假红。data-suggestion-key 携带精确 id 对、边界侧钉类型、供体不可知——合同不变，演员随便换
+- 「共享世界的 bbox 是公共基础设施」：往共享 demo 世界 apply 的套件必须还原基线（RELION 编号的批不属于任何 cleanup）——无人认领的污染是复利的，今天 20 批 7800px，直到把别的套件的固定校准挤断。外部状态的世界里，你的副产品就是别人的输入
+- 「校准常数会过期，闭环不会」：8 次滚轮缩小是当世界 ~3000px 高时校准的常数；世界长到 7800px 它就原理性失效。pan-until-visible 循环（验空点拖拽 + 有界重试）对任意世界高度成立——把「假设世界不变」换成「适应世界变化」是测试鲁棒性的一般律
+- 「取证的 30 秒省掉瞎修的 3 小时」：t87 假挂后没有先调产品——诊断脚本同一状态量化（卡片 rect y=-379、世界 bbox 7800、ZOOM_MIN 不够用）才定位到世界卫生而非本轮 diff。假挂抓真疣的第四次重演，这次疣在测试基础设施
+- 遗留（下轮候选）：建议 chip 的批量管理延伸（模板批量导出/清空货架）；建议连线的手感增强（连接后脉冲高亮新线，真机反馈再评估）；runner wall-time 剖面（qa64 72s 五轮一致，继续让位）；qa60/61 共享传输推广（暂缓维持）；EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势、TSV/海报粘贴验证）；minimap mode 持久化（真机反馈再评估）；undo 手感参数调优；诊断签名命中率观察（真机）

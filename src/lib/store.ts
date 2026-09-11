@@ -22,6 +22,8 @@ import type {
   WorkspaceDTO,
 } from "./types";
 import type { ImportFailure, ImportPreviewEntry } from "./workflow-io";
+import type { TemplateSuggestion } from "./template-suggest";
+import { suggestTemplateConnections } from "./template-suggest";
 import {
   buildTemplateFile,
   downloadTemplateJson,
@@ -345,6 +347,17 @@ interface WorkflowState {
   /** SPA template presets dialog open (triggered from the canvas empty
    *  state, the command palette or the help popover — mounted once). */
   templatePresetsOpen: boolean;
+  /** Task 129 — wires proposed after a template apply: the applied body
+   *  lands as an island; these pair its free boundary inputs with
+   *  same-workspace donors' free outputs (pure engine in
+   *  lib/template-suggest.ts). The chip renders them ONLY for the
+   *  workspace the apply landed in; any navigation clears them. */
+  templateSuggestions: { workspaceId: string; items: TemplateSuggestion[] } | null;
+  /** Wire every suggestion through POST /api/edges (the manual drag's
+   *  endpoint — the server re-validates each pair); surviving edges
+   *  merge, refusals drop, one aggregate toast. */
+  applyTemplateSuggestions: (items: TemplateSuggestion[]) => Promise<void>;
+  dismissTemplateSuggestions: () => void;
   /** Task 127 — user-saved sub-pipeline snippets (project-scoped). The
    *  list lives in the store so the presets dialog, the selection toolbar
    *  and future entry points all read one source; save/apply/delete keep
@@ -756,6 +769,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   pendingClassFocus: null,
   focusEpoch: 0,
   templatePresetsOpen: false,
+  templateSuggestions: null,
   customTemplates: [],
   shortcutsOpen: false,
   minimapOpen: true,
@@ -825,7 +839,14 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     if (get().activeWorkspaceId === id) return;
     // leaving the old canvas: clear selection/pending wire so the new
     // workspace doesn't start with stale state from the previous one
-    set({ activeWorkspaceId: id, selectedId: null, selectedIds: [], pendingFrom: null });
+    // (Task 129: apply-suggestions belong to the workspace they landed in)
+    set({
+      activeWorkspaceId: id,
+      selectedId: null,
+      selectedIds: [],
+      pendingFrom: null,
+      templateSuggestions: null,
+    });
   },
 
   createWorkspace: async (name) => {
@@ -1014,6 +1035,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         selectedIds: [],
         inspectId: null,
         pendingFrom: null,
+        templateSuggestions: null, // suggestions are workspace-born, never cross projects
         viewport: { x: 0, y: 0, zoom: 1 },
         activeWorkspaceId: null, // load() lands on the project's first workspace
       });
@@ -2422,15 +2444,34 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       );
       const have = new Set(get().jobs.map((j) => j.id));
       const haveEdges = new Set(get().edges.map((e) => e.id));
+      const landedJobs = data.jobs.filter((j) => !have.has(j.id));
+      const landedEdges = data.edges.filter((e) => !haveEdges.has(e.id));
+      const allJobs = [...get().jobs, ...landedJobs];
+      const allEdges = [...get().edges, ...landedEdges];
       set({
-        jobs: [...get().jobs, ...data.jobs.filter((j) => !have.has(j.id))],
-        edges: [...get().edges, ...data.edges.filter((e) => !haveEdges.has(e.id))],
+        jobs: allJobs,
+        edges: allEdges,
         layoutEpoch: get().layoutEpoch + 1, // canvas fit-views the new content
+      });
+      // Task 129 — the applied body is an island: propose wires from its
+      // free boundary inputs to same-workspace donors' free outputs. The
+      // chip is dismissible and navigation clears it — a suggestion never
+      // wires anything by itself.
+      const suggestions = suggestTemplateConnections(
+        landedJobs.map((j) => j.id),
+        allJobs,
+        allEdges
+      );
+      set({
+        templateSuggestions:
+          suggestions.length > 0
+            ? { workspaceId: data.workspaceId, items: suggestions }
+            : null,
       });
       get().invalidateRedo();
       toast({
         title: `Template “${tpl?.name ?? "snippet"}” applied`,
-        description: `${data.jobs.length} jobs · ${data.edges.length} wires placed below this workspace's content`,
+        description: `${data.jobs.length} jobs · ${data.edges.length} wire${data.edges.length === 1 ? "" : "s"} placed below this workspace's content`,
       });
       return true;
     } catch (err) {
@@ -2438,6 +2479,54 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       return false;
     }
   },
+
+  applyTemplateSuggestions: async (items) => {
+    const s = get().templateSuggestions;
+    if (!s || items.length === 0) return;
+    // fire the batches through the manual drag's endpoint — the server
+    // re-validates every pair, and a refusal (spec drift since the
+    // suggestion was computed) simply drops out of the merge
+    const results = await Promise.allSettled(
+      items.map((it) =>
+        api<{ edge: EdgeDTO }>("/api/edges", {
+          method: "POST",
+          headers: JSON_HEADERS,
+          body: JSON.stringify({
+            fromJobId: it.fromJobId,
+            toJobId: it.toJobId,
+            fromPort: it.fromPort,
+            toPort: it.toPort,
+          }),
+        })
+      )
+    );
+    const landed: EdgeDTO[] = [];
+    for (const r of results) {
+      // api() parses the body AND throws on non-OK — a fulfilled settle
+      // already carries the edge object
+      if (r.status === "fulfilled" && r.value?.edge?.id) {
+        landed.push(r.value.edge);
+      }
+    }
+    const have = new Set(get().edges.map((e) => e.id));
+    const fresh = landed.filter((e) => e?.id && !have.has(e.id));
+    if (fresh.length > 0) {
+      set({ edges: [...get().edges, ...fresh] });
+      get().invalidateRedo();
+    }
+    set({ templateSuggestions: null });
+    const refused = items.length - fresh.length;
+    toast({
+      title: fresh.length > 0 ? `Connected ${fresh.length} suggested wire${fresh.length === 1 ? "" : "s"}` : "Nothing connected",
+      description:
+        refused > 0
+          ? `${refused} suggestion${refused === 1 ? " was" : "s were"} refused (port specs may have drifted) — wire it by hand if needed`
+          : "The template is wired into its neighbors",
+      ...(fresh.length === 0 ? { variant: "destructive" as const } : {}),
+    });
+  },
+
+  dismissTemplateSuggestions: () => set({ templateSuggestions: null }),
 
   deleteCustomTemplate: async (id) => {
     const victim = get().customTemplates.find((t) => t.id === id);
