@@ -659,11 +659,13 @@ function GalleryViewChips({ b }: { b: GalleryBookmark }) {
   );
 }
 
-function SavedViewsGallery({ activeProjectId }: { activeProjectId: string | null }) {
-  const switchProject = useWorkflowStore((s) => s.switchProject);
-  const setView = useWorkflowStore((s) => s.setView);
-  const inspect = useWorkflowStore((s) => s.inspect);
-  const select = useWorkflowStore((s) => s.select);
+function SavedViewsGallery() {
+  // Task 126: the landing dialect lives in the store — one action carries
+  // the ghost guard, the workspace/project landing repair, and the open
+  // contract (idle→select+focus / submitted→inspect) for every card here.
+  // (The gallery no longer needs activeProjectId: the store action reads
+  // the project off the job itself.)
+  const openJob = useWorkflowStore((s) => s.openJob);
   const jobCount = useWorkflowStore((s) => s.jobs.length);
   const [views, setViews] = React.useState<GalleryEntry[] | null>(null);
   // the wall is a glance by default (12 cards); "Show all" expands it to
@@ -704,9 +706,10 @@ function SavedViewsGallery({ activeProjectId }: { activeProjectId: string | null
   const WALL_CAP = 12;
   const wall = showAllViews ? flat : flat.slice(0, WALL_CAP);
 
-  const jump = async (v: GalleryEntry, b: GalleryBookmark) => {
+  const jump = (v: GalleryEntry, b: GalleryBookmark) => {
     // one-shot handoff: the viewer consumes this once its bookmark list
-    // has loaded and flies to the view (fresh intent overwrites stale)
+    // has loaded and flies to the view (fresh intent overwrites stale);
+    // the landing itself is the store's shared deep-link action (Task 126)
     try {
       sessionStorage.setItem(
         PENDING_VIEW_KEY,
@@ -715,12 +718,9 @@ function SavedViewsGallery({ activeProjectId }: { activeProjectId: string | null
     } catch {
       /* private mode — the deep link still lands on the job */
     }
-    if (v.projectId && v.projectId !== activeProjectId) {
-      await switchProject(v.projectId);
-    }
-    setView("canvas");
-    if (v.jobStatus === "idle") select(v.jobId);
-    else inspect(v.jobId);
+    // cross-project rows carry their home project as the hint — the id
+    // will not be in the store until the switch lands
+    void openJob(v.jobId, { projectId: v.projectId });
   };
 
   return (
@@ -1205,10 +1205,9 @@ function ProgressSparkline({ values, samples }: { values: number[]; samples: num
 }
 
 function RecentActivityFeed({ activeProjectId }: { activeProjectId: string | null }) {
-  const setView = useWorkflowStore((s) => s.setView);
-  const select = useWorkflowStore((s) => s.select);
-  const inspect = useWorkflowStore((s) => s.inspect);
-  const switchProject = useWorkflowStore((s) => s.switchProject);
+  // Task 126: the store's shared deep-link action owns the landing —
+  // cross-project rows included (switchProject + home-workspace hop)
+  const openJob = useWorkflowStore((s) => s.openJob);
   const jobCount = useWorkflowStore((s) => s.jobs.length);
   const [recent, setRecent] = React.useState<RecentJob[] | null>(null);
   // per-job progress history (client-side, lives as long as the feed does):
@@ -1277,18 +1276,12 @@ function RecentActivityFeed({ activeProjectId }: { activeProjectId: string | nul
     return () => window.clearInterval(iv);
   }, [hasLive]);
 
-  const open = async (j: RecentJob) => {
-    // same deep-link semantics as the spotlight: idle jobs get the canvas
-    // selection (params editing), anything else opens its results panel;
-    // cross-project rows switch the active project first (await load so
-    // the job actually exists in the store before we point at it)
-    const isLocal = j.projectId != null && j.projectId === activeProjectId;
-    if (!isLocal && j.projectId) {
-      await switchProject(j.projectId);
-    }
-    setView("canvas");
-    if (j.status === "idle") select(j.id);
-    else inspect(j.id);
+  const open = (j: RecentJob) => {
+    // Task 126: the store's shared deep-link action owns the whole landing —
+    // ghost guard, cross-project switch (the row's projectId rides as the
+    // hint) + home-workspace hop, then the open dialect. The row only
+    // forwards what it knows.
+    void openJob(j.id, { projectId: j.projectId });
   };
 
   if (recent !== null && recent.length === 0) return null;
@@ -1448,11 +1441,12 @@ function ActiveProjectSpotlight({
   const project = useWorkflowStore((s) => s.project);
   const jobs = useWorkflowStore((s) => s.jobs);
   const workspaces = useWorkflowStore((s) => s.workspaces);
-  const activeWorkspaceId = useWorkflowStore((s) => s.activeWorkspaceId);
-  const switchWorkspace = useWorkflowStore((s) => s.switchWorkspace);
   const setView = useWorkflowStore((s) => s.setView);
-  const inspect = useWorkflowStore((s) => s.inspect);
-  const select = useWorkflowStore((s) => s.select);
+  // Task 126: the shared deep-link action owns the landing (ghost guard +
+  // workspace/project repair + focus arrival) — the local inline dialect
+  // (and its Task 77 repair, now inside the store action) is gone; the
+  // hook keeps the call-site name so rows/chips stay untouched.
+  const openJob = useWorkflowStore((s) => s.openJob);
   // Task 94 — roster text search state. The query composes WITH the status
   // chips (visible = status filter ∩ haystack match), and resets when the
   // active project changes so a search that made sense in project A never
@@ -1510,20 +1504,6 @@ function ActiveProjectSpotlight({
       )
     : statusSlice;
   const pct = sorted.length > 0 ? Math.round((completed.length / sorted.length) * 100) : 0;
-
-  const openJob = (job: JobDTO) => {
-    // deep-link repair (Task 77): the canvas renders ONE workspace — a row
-    // from another workspace must switch the canvas first, or the view lands
-    // on an inspector over a card that isn't there. Orphans have no
-    // workspace to switch to; JobRow intercepts their click with guidance
-    // before onOpen is ever reached.
-    if (job.workspaceId && job.workspaceId !== activeWorkspaceId) {
-      switchWorkspace(job.workspaceId);
-    }
-    setView("canvas");
-    if (job.status === "idle") select(job.id);
-    else inspect(job.id);
-  };
 
   return (
     <section
@@ -1610,7 +1590,7 @@ function ActiveProjectSpotlight({
                     <ChevronRight className="size-3.5" />
                   </span>
                 )}
-                <StageChip job={j} onClick={() => openJob(j)} />
+                <StageChip job={j} onClick={() => openJob(j.id)} />
               </React.Fragment>
             ))}
           </div>
@@ -1783,7 +1763,7 @@ function ActiveProjectSpotlight({
                 {[...visibleJobs].reverse().map((j) => (
                   <tr key={j.id}>
                     <td>
-                      <JobRow job={j} onOpen={() => openJob(j)} />
+                      <JobRow job={j} onOpen={() => openJob(j.id)} />
                     </td>
                   </tr>
                 ))}
@@ -2205,7 +2185,7 @@ export function ProjectDashboard() {
 
         {/* cross-project saved views — the "my inspection work" shelf */}
         <div className="mt-6">
-          <SavedViewsGallery activeProjectId={activeId} />
+          <SavedViewsGallery />
         </div>
 
         {/* active project spotlight */}

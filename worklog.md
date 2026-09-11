@@ -3812,3 +3812,26 @@ Stage Summary:
 - 「探针的 boundingBox 不保证可点」：部分出屏的卡 boundingBox 有值、pointer 却落在视口外——第三拖静默未提交、面板少一行。t106 从没踩中只因它从不拖第三张卡。远程带种子的网格要按视口算（320×260 两行两列），不是按世界坐标大方差
 - 「finally 里的 process.exit 是异常黑洞」：EXIT 0 + 零输出 = throw 发生了但 exit(0) 抢在栈打印前终止进程。测试骨架的 finally 只做清理，退出码让进程自然结束——假绿比真红贵得多
 - 遗留（下轮候选）：runner wall-time 剖面观察（qa64 73s/t113 70s/t112 64s/qa61 54s 为慢四套——是否值得拆分待数据积累）；历史面板「N× auto-arrange」分组在真实长会话的手感（真机反馈）；dashboard 深链 open 方言的居中增强（idle 路径加 focus，需回归 gallery/bookmark 套件）；qa60/61 共享传输推广（暂缓维持）；EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势、TSV/海报粘贴验证）；minimap mode 持久化（真机反馈再评估）；undo 手感参数调优；诊断签名命中率观察（真机）
+
+---
+Task ID: 126
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-11 13:45 window)
+Task: cron 自主巡检——Task 126「一个深链着陆：open 方言的居中到达 + 跨项目着陆修复」：开局核实 worklog 尾部 Task 125/7980b32 == origin/main，冷启动 + smoke/qa00/t125 三件套绿判稳。按 Task 124/125 交接候选定案「dashboard 深链 open 方言的居中增强」——盘点发现三处深链（gallery jump / recent open / spotlight openJob）各自内联同一方言且 idle 路径只 select 不居中，且跨项目行 switchProject 后落 ws[0]、作业在深 workspace 时画布空着陆（Task 124「画布只渲染活跃工作区」教义的跨项目版本），palette 在 dashboard 可达但 jumpToJob 缺 setView。交付：store.openJob 单源动作（ghost guard + 着陆修复三分支 + idle→select+focus / submitted→inspect 方言 + hint 参数携带跨项目出身）+ dashboard 三调用点收敛（gallery/recent 传 projectId hint、spotlight 同名 hook 接管、SavedViewsGallery 甩掉无用 activeProjectId prop）+ palette jumpToJob 换 store 动作（白得 setView+着陆修复）+ t126 40 断言六相绿（矩阵位 #48）+ 受影响面（t124 32/t123 51/t121 95/smoke/qa00）全绿 + 全矩阵 62 套分 7 块 0 失败 + worklog + push
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 125（7980b32 == origin/main，树净）；BUILD_ID Te2TiHJh3jRf4zjxvsahE 匹配；冷启动 + qa63-smoke/qa00/t125(48) 三件套全绿 → 稳定；顺手删 Task 124 诊断脚本残留（diag-t124-a4.mjs）
+- 【选题·缺口盘点】Task 125 交接候选里「runner wall-time 剖面观察」需多轮数据积累、「N× auto-arrange 手感」等真机项让位 → 定案「dashboard 深链居中增强」：rg 摸出 setView("canvas") 全部 7 处调用点，确认 dashboard 三处作业级深链 + palette jumpToJob 四调用点；switchProject→load() 落 ws[0] 无 home 修复（跨项目深链第二 workspace 空着陆）；JobDTO.projectId 存在 → 统一动作可行
+- 【实现·store】openJob 动作（revealJob 同族邻位）+ 接口注释三段（ghost guard / landing repair / open dialect）
+- 【实现·dashboard】gallery jump 保留 PENDING_VIEW_KEY viewer 握手 + 换 store 动作（async→sync）；recent open 换；spotlight 本地 openJob 函数删除、调用点 openJob(j.id) 直连 hook；SavedViewsGallery 甩掉 activeProjectId prop（store 从作业自身读 project）
+- 【实现·palette】jumpToJob 换 getState().openJob(id)（注释明言 header trigger 全局可达——dashboard 里跳转必须切视图）；jumpToClassNote 的 select+focusJob 特化保留
+- 【探针伤情三折·每折都是真缺陷】①C 相位超时抓出入口 ghost guard 用 store.jobs 判断——但 recent/gallery 是跨项目视图，目标作业本来就不在 store.jobs！guard 把所有跨项目深链挡死；且原实现「跨项目分支」是死代码（known() 命中即本项目）→ 重构为 hint 参数设计：known 未命中 + 有 hint + hint≠active → switchProject 后 re-find；②D 相位超时抓出 palette 只列 active project 作业 + cmdk Enter 跑首项 → 相位重排 D 在 C 前（顺序即依赖）+ 改精确点击 item；③E 相位 waitForFunction 在「删除的作业不在当前 roster」时平凡通过（假绿）→ 删行对象改用当前 project 的作业
+- 【类型伤情两处】home(job) truthy 不能让 TS 推断 job 非 undefined → 显式守卫；SavedViewsGallery 的 activeProjectId 成死 prop → 连 prop 带传参一起删
+- 【收尾】eslint 0、tsc src 0、构建 BUILD_ID D-6KN2iwT37BEscKc33iZ；t126 终跑 40 全绿；受影响面 t124(32)/t123(51)/t121(95)/smoke/qa00 全绿；全矩阵 62 套（t126 auto-include 位 #48——sort 字典序 t1xx 排在 t8x 前）分 7 块串行 0 失败（块峰 194-205MB 零重启，Task 122 卫生学持续生效）；worklog + commit + push + 环境清理
+
+Stage Summary:
+- 「store.jobs 的出身决定着陆分支的形状」：jobs 数组只装 active project 的作业——known() 命中就必然是本项目（原实现的跨项目分支永远不可达，是死代码）；未命中则要么 ghost 要么跨项目请求，而 store 自己无法分辨——出身在调用方手里（recent 行知道自己跨项目），hint 参数就是让出身跟着请求走。守卫的位置错了，整个功能就静默死亡
+- 「探针的假挂是设计的探雷器」：C 相位 30s 超时不是测试不稳——它抓的是入口 guard 挡死全部跨项目深链的真缺陷。产品行为和测试期望冲突时，先问哪边该改：这次改产品（hint 设计），不是放松断言。假挂抓真疣的第三次重演（Task 124 A2a、Task 125 第三拖之后）
+- 「着陆修复是分层的第一」：同项目异工作区一个 sync hop 就够；跨项目要 switchProject（落在 ws[0]）之后再来一跳 home workspace——第二跳必须在 await 之后；孤儿（workspaceId 不在列表）不动——roster 的 adopt 流程已经解释了它们，深链别抢别的动词的活
+- 「探针相位的顺序是数据流依赖的镜像」：palette 只列 active project 的作业，C 相位把 active project 切走了，D 相位就必须排在它前面——不是风格偏好，是前置条件。同理 E 相位的删除对象必须是「当前 roster 真的含有」的行，否则 waitForFunction 平凡通过——假绿比假挂更隐蔽，因为它看起来是绿的
+- 「一个动词一个 store 动作」：open 与 reveal 的边界（Task 124 教义）在本轮加固成代码——reveal 是「在哪里」（不开面板），open 是「打开编辑器」（idle 路径现在也居中+脉冲，因为跨视图跳转的到达感是同一个问题）；focusJob 清 inspectId 的设计让两个动词永远不会互相污染
+- 遗留（下轮候选）：runner wall-time 剖面观察（qa64 72s 仍最慢，待多轮积累）；历史面板 N× auto-arrange 真实长会话手感（真机）；qa60/61 共享传输推广（暂缓维持）；EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势、TSV/海报粘贴验证）；minimap mode 持久化（真机反馈再评估）；undo 手感参数调优；诊断签名命中率观察（真机）

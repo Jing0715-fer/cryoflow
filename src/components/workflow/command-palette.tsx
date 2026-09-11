@@ -177,19 +177,14 @@ export function CommandPalette() {
 
   const close = () => setOpen(false);
 
-  /** idle → select + focus (edit panel); submitted → results inspector.
-   *  NOTE: focusJob clears inspectId by design (the modal covers the
-   *  canvas), so the inspector branch must NOT call it. */
+  /** Task 126: the landing dialect lives in the store now — openJob carries
+   *  the ghost guard, the workspace/project landing repair, and the same
+   *  idle→select+focus / submitted→inspect contract this used to inline.
+   *  The palette opens from ANY view (the header trigger is global): from
+   *  the dashboard, jumping without a view switch would "arrive"
+   *  invisibly — the store action's setView covers that leg too. */
   const jumpToJob = (id: string) => {
-    const s = useWorkflowStore.getState();
-    const job = s.jobs.find((j) => j.id === id);
-    if (!job) return;
-    if (job.status === "idle") {
-      s.select(id);
-      s.focusJob(id);
-    } else {
-      s.inspect(id);
-    }
+    void useWorkflowStore.getState().openJob(id);
     close();
   };
 

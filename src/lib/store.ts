@@ -550,6 +550,28 @@ interface WorkflowState {
    *  submitted→inspect): reveal is about WHERE the job is, not opening its
    *  editors — and focusJob's inspectId-clear keeps the two honest apart. */
   revealJob: (id: string) => void;
+  /** Task 126 — the ONE deep-link landing every dashboard card shares
+   *  (spotlight rows, recent activity, saved-view gallery, palette jump).
+   *  Three jobs in order: ghost guard; landing repair; then the open
+   *  dialect — idle → select + focus (centered arrival with the params
+   *  panel), submitted → results inspector. focusJob clears inspectId by
+   *  design, so the inspector branch must NOT call it (same contract as
+   *  the palette's jumpToJob).
+   *
+   *  The guard and the repair have a CROSS-PROJECT leg the store can't see
+   *  alone: jobs in the store belong to the ACTIVE project, so a
+   *  recent-activity or gallery row pointing at another project will not
+   *  be found here — that is not a ghost, it is a landing request. Callers
+   *  that own the row's home project pass it as the hint; with a hint the
+   *  action switches projects first and re-reads the job from the fresh
+   *  load (switchProject lands on the project's FIRST workspace, so the
+   *  home-workspace hop happens AFTER the await). Without a hint a missing
+   *  id stays a ghost — same-project callers (spotlight, palette) never
+   *  need the switch. */
+  openJob: (
+    id: string,
+    hint?: { projectId?: string | null }
+  ) => Promise<void>;
 }
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
@@ -2316,6 +2338,48 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     }
     get().select(id);
     get().focusJob(id);
+  },
+
+  openJob: async (id, hint) => {
+    const findJob = () => get().jobs.find((j) => j.id === id);
+    const homeWs = (j) => j?.workspaceId ?? "";
+    // 1. landing repair. jobs in the store belong to the ACTIVE project —
+    // a hit here can only need a workspace hop; a miss is either a ghost
+    // or a cross-project row (the hint decides which).
+    let job = findJob();
+    if (job) {
+      const h = homeWs(job);
+      // same-project, other workspace → hop (switchWorkspace clears
+      // selection, so select happens AFTER the landing, below). A
+      // workspace id not in the list is an ORPHAN — the roster's adopt
+      // flow already explains those; don't move them here.
+      if (h && h !== (get().activeWorkspaceId ?? "") && get().workspaces.some((w) => w.id === h)) {
+        get().switchWorkspace(h);
+      }
+    } else {
+      const pid = hint?.projectId;
+      if (!pid || pid === (get().project?.id ?? "")) return; // ghost
+      await get().switchProject(pid);
+      job = findJob();
+      if (!job) return; // switched but the job vanished — a true ghost
+      // switchProject landed on the project's FIRST workspace — hop to
+      // the job's home workspace inside it
+      const h = homeWs(job);
+      if (h && h !== (get().activeWorkspaceId ?? "")) {
+        get().switchWorkspace(h);
+      }
+    }
+    get().setView("canvas");
+    // 2. the open dialect — same contract as the palette's jumpToJob;
+    // re-read after any load: a switch can replace the jobs array
+    job = findJob();
+    if (!job) return;
+    if (job.status === "idle") {
+      get().select(id);
+      get().focusJob(id);
+    } else {
+      get().inspect(id);
+    }
   },
 }));
 
