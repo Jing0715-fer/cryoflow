@@ -29,9 +29,15 @@ export const dynamic = "force-dynamic";
  * REST split:
  * - GET                    → list summaries (no payload — the blob only
  *                            travels on apply, keeping the list light)
+ * - GET ?id=<uuid>         → ONE template with payload (the export leg)
+ * - GET ?all=1             → EVERY template with payloads, oldest first
+ *                            (the export-ALL leg, Task 130 — the client
+ *                            wraps them into one bundle file)
  * - POST {name, payload}   → save (validate + normalize)
  * - PUT  {id, workspaceId?} → apply into a workspace (mints fresh rows)
- * - DELETE ?id=            → forget
+ * - DELETE ?id=            → forget one
+ * - DELETE ?all=1          → forget every template in the project (the
+ *                            clear-shelf leg, Task 130)
  *
  * Payload contract: { jobs: [{ type, dx, dy, params }],
  * edges: [{ from, to, fromPort?, toPort? }] } — from/to are INDICES into
@@ -111,6 +117,40 @@ export async function GET(request: NextRequest) {
           project: active.project.name,
         },
       });
+    }
+
+    // ---- export-all fetch (Task 130): every template with its payload --
+    // oldest first so a bundle round-trips in the shelf's reading order;
+    // a corrupt row cannot be exported — it is SKIPPED and counted, and
+    // the client's toast names the loss honestly
+    const all = request.nextUrl.searchParams.get("all");
+    if (all === "1" || all === "true") {
+      const rows = await db.customTemplate.findMany({
+        where: { projectId: active.project.id },
+        orderBy: [{ createdAt: "asc" }],
+      });
+      let skipped = 0;
+      const templates: {
+        id: string;
+        name: string;
+        payload: CustomTemplatePayload;
+        createdAt: string;
+        project: string;
+      }[] = [];
+      for (const row of rows) {
+        try {
+          templates.push({
+            id: row.id,
+            name: row.name,
+            payload: JSON.parse(row.payload) as CustomTemplatePayload,
+            createdAt: row.createdAt.toISOString(),
+            project: active.project.name,
+          });
+        } catch {
+          skipped++;
+        }
+      }
+      return NextResponse.json({ templates, skipped });
     }
 
     const rows = await db.customTemplate.findMany({
@@ -357,9 +397,27 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-/** Forget a saved snippet. */
+/**
+ * Forget saved snippets.
+ * ?id=   → one template (404 when not in this project)
+ * ?all=1 → EVERY template in the project — the clear-shelf leg (Task
+ *          130); project-scoped by construction, returns the count so
+ *          the toast can be honest about what just left.
+ */
 export async function DELETE(request: NextRequest) {
   try {
+    const all = request.nextUrl.searchParams.get("all");
+    if (all === "1" || all === "true") {
+      const active = await ensureActiveProject();
+      if (!active) {
+        return NextResponse.json({ error: "No project available" }, { status: 500 });
+      }
+      const res = await db.customTemplate.deleteMany({
+        where: { projectId: active.project.id },
+      });
+      return NextResponse.json({ ok: true, deleted: res.count });
+    }
+
     const id = request.nextUrl.searchParams.get("id");
     if (!id) {
       return NextResponse.json({ error: "Template id is required" }, { status: 400 });

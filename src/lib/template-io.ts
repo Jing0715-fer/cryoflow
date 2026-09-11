@@ -14,6 +14,13 @@
  * Run state has no place here by construction (a template never carried
  * it), so the file is pure geometry + wiring + parameters.
  *
+ * Task 130 — the BUNDLE (cryoflow-template-bundle/1) is the export-ALL
+ * container: one file, every template on the shelf —
+ *   { format, version, exportedAt, project, templates: [<cryoflow-template/1>…] }
+ * The bundle is a WRAPPER, not a new dialect: each inner entry is a full
+ * single-template file re-validated with the same shared validator, so
+ * "one file on the wire" costs no second payload contract.
+ *
  * The client pre-validates for instant feedback; POST /api/custom-template
  * re-validates EVERYTHING authoritatively (it must not trust the file or
  * this parser). Both callers share ONE validator — validateTemplatePayload
@@ -30,6 +37,12 @@ import { jobType } from "./workflow";
 
 export const TEMPLATE_FORMAT = "cryoflow-template";
 export const TEMPLATE_VERSION = 1;
+
+/** Task 130 — the export-ALL container format (a wrapper, not a dialect). */
+export const TEMPLATE_BUNDLE_FORMAT = "cryoflow-template-bundle";
+export const TEMPLATE_BUNDLE_VERSION = 1;
+/** Sanity cap for one bundle — the shelf is project-scoped and small. */
+export const MAX_BUNDLE_TEMPLATES = 64;
 
 /** Sanity caps — must mirror the route's abuse guards (same validator). */
 export const MAX_TEMPLATE_JOBS = 64;
@@ -127,6 +140,15 @@ export function validateTemplatePayload(
   return { payload: { jobs, edges } };
 }
 
+/** Task 130 — the export-ALL container: one file, every template. */
+export interface TemplateBundleFile {
+  format: string;
+  version: number;
+  exportedAt: string;
+  project: string;
+  templates: TemplateFile[];
+}
+
 /**
  * Wrap a saved shape into the portable file. The payload is trusted to
  * have come from the server (GET ?id= re-serves what the POST validated).
@@ -146,12 +168,44 @@ export function buildTemplateFile(
   };
 }
 
+/**
+ * Task 130 — wrap the shelf's files into the export-ALL bundle. Entries
+ * are trusted (each came from GET ?all=1, which re-serves what POST
+ * validated); size is sanity-capped by the parser on the way back in.
+ */
+export function buildTemplateBundle(
+  templates: TemplateFile[],
+  project: string
+): TemplateBundleFile {
+  return {
+    format: TEMPLATE_BUNDLE_FORMAT,
+    version: TEMPLATE_BUNDLE_VERSION,
+    exportedAt: new Date().toISOString(),
+    project,
+    templates,
+  };
+}
+
 export interface ParsedTemplate {
   ok: boolean;
   error?: string;
   /** non-fatal notice (e.g. "file from a newer CryoFlow") — surfaced in the import toast */
   warning?: string;
   file?: TemplateFile;
+}
+
+/** Task 130 — result of unwrapping one bundle file. */
+export interface ParsedTemplateBundle {
+  /** true when at least one inner template survived validation */
+  ok: boolean;
+  /** structural failure of the BUNDLE itself (version/shape/size) */
+  error?: string;
+  /** non-fatal bundle-level notice (newer-CryoFlow version) */
+  warning?: string;
+  /** valid inner templates, ready for the POST funnel */
+  entries: { file: TemplateFile; warning?: string }[];
+  /** inner templates that failed validation — named for the toast */
+  invalid: { name: string; error: string }[];
 }
 
 /**
@@ -172,6 +226,15 @@ export function parseTemplateJson(text: string): ParsedTemplate {
   } catch {
     return { ok: false, error: "Not valid JSON — is this a CryoFlow template file?" };
   }
+  return parseTemplateRaw(raw);
+}
+
+/**
+ * Object-level single-template parse — the shared body of parseTemplateJson
+ * (string entry point) and the import funnel (which must JSON.parse first
+ * to DETECT a bundle before dispatching). Same checks, same messages.
+ */
+function parseTemplateRaw(raw: unknown): ParsedTemplate {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
     return { ok: false, error: "Unexpected file shape (expected an object)" };
   }
@@ -220,6 +283,56 @@ export function parseTemplateJson(text: string): ParsedTemplate {
   };
 }
 
+/**
+ * Task 130 — unwrap a BUNDLE: the wrapper gets format/version/size checks,
+ * every inner entry then runs the SAME single-template parse (shared
+ * validator, same messages). Partial survival is a feature: valid inners
+ * import, broken ones are named in the toast — "all files are parsed even
+ * when some fail" applies WITHIN a file too.
+ */
+export function parseTemplateBundleRaw(raw: unknown): ParsedTemplateBundle {
+  const out: ParsedTemplateBundle = { ok: false, entries: [], invalid: [] };
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    out.error = "Unexpected bundle shape (expected an object)";
+    return out;
+  }
+  const r = raw as Record<string, unknown>;
+  const version = typeof r.version === "number" && Number.isInteger(r.version) ? r.version : 0;
+  if (version < 1) {
+    out.error = `Missing or invalid version field — expected an integer ≥ 1 (${TEMPLATE_BUNDLE_FORMAT}/v${TEMPLATE_BUNDLE_VERSION})`;
+    return out;
+  }
+  if (version > TEMPLATE_BUNDLE_VERSION) {
+    out.warning = `Bundle was exported by a newer CryoFlow (v${version} — this app reads v${TEMPLATE_BUNDLE_VERSION}); imported best-effort`;
+  }
+  if (!Array.isArray(r.templates) || r.templates.length === 0) {
+    out.error = "Bundle has no templates";
+    return out;
+  }
+  if (r.templates.length > MAX_BUNDLE_TEMPLATES) {
+    out.error = `Too many templates in one bundle (max ${MAX_BUNDLE_TEMPLATES})`;
+    return out;
+  }
+  for (const [i, inner] of (r.templates as unknown[]).entries()) {
+    const obj = inner as Record<string, unknown> | null;
+    const rawName =
+      obj && typeof obj.name === "string" ? obj.name.trim() : "";
+    const innerName = rawName ? rawName.slice(0, 80) : `template #${i + 1}`;
+    const parsed = parseTemplateRaw(inner);
+    if (parsed.ok && parsed.file) {
+      // inner-specific notice wins; otherwise the bundle-level one rides along
+      out.entries.push({ file: parsed.file, warning: parsed.warning ?? out.warning });
+    } else {
+      out.invalid.push({ name: innerName, error: parsed.error ?? "Invalid template" });
+    }
+  }
+  out.ok = out.entries.length > 0;
+  if (!out.ok && !out.error) {
+    out.error = "Every template in the bundle failed validation";
+  }
+  return out;
+}
+
 /** One parsed, valid template file queued for import. */
 export interface TemplateImportEntry {
   file: TemplateFile;
@@ -247,14 +360,36 @@ export async function parseTemplateFiles(
   const failures: TemplateImportFailure[] = [];
   for (const f of files) {
     try {
-      const parsed = parseTemplateJson(await f.text());
-      if (parsed.ok && parsed.file) {
-        entries.push({ file: parsed.file, warning: parsed.warning, fileName: f.name });
+      const raw: unknown = JSON.parse(await f.text());
+      if (
+        raw &&
+        typeof raw === "object" &&
+        !Array.isArray(raw) &&
+        (raw as Record<string, unknown>).format === TEMPLATE_BUNDLE_FORMAT
+      ) {
+        // Task 130 — a bundle EXPANDS: every valid inner becomes its own
+        // import entry (POSTed exactly like a hand-saved template), every
+        // broken inner is named in the toast with its specific error
+        const bundle = parseTemplateBundleRaw(raw);
+        for (const e of bundle.entries) {
+          entries.push({ file: e.file, warning: e.warning, fileName: f.name });
+        }
+        for (const bad of bundle.invalid) {
+          failures.push({ fileName: `${f.name} › ${bad.name}`, error: bad.error });
+        }
+        if (!bundle.ok && bundle.error) {
+          failures.push({ fileName: f.name, error: bundle.error });
+        }
       } else {
-        failures.push({ fileName: f.name, error: parsed.error ?? "Unreadable template file" });
+        const parsed = parseTemplateRaw(raw);
+        if (parsed.ok && parsed.file) {
+          entries.push({ file: parsed.file, warning: parsed.warning, fileName: f.name });
+        } else {
+          failures.push({ fileName: f.name, error: parsed.error ?? "Unreadable template file" });
+        }
       }
     } catch {
-      failures.push({ fileName: f.name, error: "Unreadable template file" });
+      failures.push({ fileName: f.name, error: "Not valid JSON — is this a CryoFlow template file?" });
     }
   }
   return { entries, failures };
@@ -272,12 +407,28 @@ export function templateFileName(name: string): string {
 }
 
 /** Serialize + trigger the browser download (downloadWorkflowJson's twin). */
-export function downloadTemplateJson(file: TemplateFile, fileName: string): void {
-  const blob = new Blob([JSON.stringify(file, null, 2)], { type: "application/json" });
+function downloadJsonBlob(data: unknown, fileName: string): void {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
   a.download = fileName;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
+export function downloadTemplateJson(file: TemplateFile, fileName: string): void {
+  downloadJsonBlob(file, fileName);
+}
+
+/** Task 130 — the export-ALL download (one bundle file). */
+export function downloadTemplateBundleJson(bundle: TemplateBundleFile, fileName: string): void {
+  downloadJsonBlob(bundle, fileName);
+}
+
+/** Bundle file name — count stays in the toast; the date disambiguates. */
+export function templateBundleFileName(): string {
+  const d = new Date();
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `cryoflow-templates-${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}.json`;
 }

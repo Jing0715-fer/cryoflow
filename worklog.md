@@ -3912,3 +3912,28 @@ Stage Summary:
 - 「校准常数会过期，闭环不会」：8 次滚轮缩小是当世界 ~3000px 高时校准的常数；世界长到 7800px 它就原理性失效。pan-until-visible 循环（验空点拖拽 + 有界重试）对任意世界高度成立——把「假设世界不变」换成「适应世界变化」是测试鲁棒性的一般律
 - 「取证的 30 秒省掉瞎修的 3 小时」：t87 假挂后没有先调产品——诊断脚本同一状态量化（卡片 rect y=-379、世界 bbox 7800、ZOOM_MIN 不够用）才定位到世界卫生而非本轮 diff。假挂抓真疣的第四次重演，这次疣在测试基础设施
 - 遗留（下轮候选）：建议 chip 的批量管理延伸（模板批量导出/清空货架）；建议连线的手感增强（连接后脉冲高亮新线，真机反馈再评估）；runner wall-time 剖面（qa64 72s 五轮一致，继续让位）；qa60/61 共享传输推广（暂缓维持）；EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势、TSV/海报粘贴验证）；minimap mode 持久化（真机反馈再评估）；undo 手感参数调优；诊断签名命中率观察（真机）
+
+---
+Task ID: 130
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-11 17:55 window)
+Task: cron 自主巡检——Task 130「模板货架批量管理：Export all 单 bundle + 两步确认 Clear」：开局核实 worklog 尾部 Task 129/a69e71e == origin/main（更早的摘要快照 Task 122 继续过时），冷启动 + smoke/qa00/t129 三件套绿判稳。交接候选盘点：建议连线手感增强（等真机）、qa64 剖面（设计使然再让位）→ 定案「批量管理」（Task 128 导出底子现成、无真机依赖、交互零悬置）。交付：cryoflow-template-bundle/1 新容器格式（wrapper 不是新方言——内层就是完整 cryoflow-template/1，同一共享校验器）+ lib/template-io（buildTemplateBundle/parseTemplateBundleRaw/templateBundleFileName/downloadTemplateBundleJson + parseTemplateRaw 提取：漏斗先 JSON.parse 侦测 bundle 标记再分派，bundle 展开的每个内层走与手存模板同一 POST 漏斗 + 部分存活合法——坏内层具名进 toast）+ route GET ?all=1（payload 全量 asc 序 + 腐坏行 skipped 计数诚实）+ DELETE ?all=1（项目作用域 deleteMany 返回 deleted 计数）+ store 两动作（exportAllCustomTemplates 全量→单 bundle→下载；clearCustomTemplates 乐观清空+失败回滚快照）+ 货架 header 批量钮（N≥2 才现身：Export all + 玫红 trash → header 内两步确认 "Delete all N?"/Clear/Keep，与行内 delete 同 dialect 无模态绕路）+ t130 37 断言七相绿（含 Keep 拒绝腿、基线快照→清空→asc 序还原的闭环）+ t130-shot armed 态屏摄 + 受影响面（t127 35/t128 41/t129 29/smoke/qa00）全绿 + 全矩阵 66 套分 7 块 0 失败 + worklog + push
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 129（a69e71e == origin/main，树净）；BUILD_ID IH1oWWSzJWUUdrBluWo2 匹配；冷启动 + qa63-smoke/qa00/t129(29) 三件套全绿 → 稳定
+- 【选题】Task 129 交接候选盘点：①建议 chip 批量管理延伸（Task 128 导出底子 + POST 漏斗现成，无真机依赖）②建议连线手感增强（真机反馈再评估）③qa64 剖面（五轮一致，设计使然）→ 定案①
+- 【实现·template-io】TEMPLATE_BUNDLE_FORMAT/VERSION + MAX_BUNDLE_TEMPLATES=64 + TemplateBundleFile/ParsedTemplateBundle 接口；buildTemplateBundle 包装器；parseTemplateJson 拆出 parseTemplateRaw（对象级共享体——漏斗要先 JSON.parse 侦测 bundle 再分派，两条路同一校验同一错误消息）；parseTemplateBundleRaw：wrapper 版本/空集/尺寸检查 + 每个内层跑同一 parseTemplateRaw + 内层警告优先于 bundle 级警告；parseTemplateFiles 漏斗扩展：bundle 展开成 N 条 entry、坏内层具名 `${file} › ${name}` 进 failures、bundle 全坏加一条结构性错误；downloadJsonBlob 提取（单文件/bundle 下载共用）
+- 【实现·route】GET ?all=1：payload 全量、createdAt asc（bundle 回导保持货架阅读序）、腐坏行 try/catch skipped++（导不出垃圾但要如实计数）；DELETE ?all=1：ensureActiveProject 后 deleteMany({ projectId }) 返回 { ok, deleted }——项目作用域由构造保证；REST 注释表同步更新
+- 【实现·store】exportAllCustomTemplates：GET ?all=1 → buildTemplateBundle（project 取首条 provenance）→ downloadTemplateBundleJson；空货架防御 toast；skipped 前缀进描述；clearCustomTemplates：快照→乐观清空→DELETE ?all=1→成功 toast（"N templates removed"）→失败回滚快照+errToast（行保持可删、诚实）
+- 【实现·UI】header 右侧 ml-auto span 换 flex 容器：hasBatch=N≥2 时 Export all（Download icon + 文案）+ 玫红 trash icon 钮；armed 态三件（"Delete all N?" 玫红文本 + Clear 玫红 + Keep）替换批量钮、Import 恒在；单模板（N=1）不出批量钮——「有批才有批量工具」，行内操作自足
+- 【伤情两小折】①JSX 注释结尾多打一个 }（eslint 抓 Parsing error，秒修）；②buildTemplateBundle 函数体漏插（tsc TS2724 抓 import 无成员）+ bundle 内层 unknown 收窄（TS2571）——tsc 在 src 域零错误后收工
+- 【探针】t130 七相：S 基线快照（GET ?all=1 本身就是被测端点）+T130 A/B 种子（box 384/256 双标记）；B 批量钮在场未武装；C 下载捕获（cryoflow-templates-* 文件名、bundle 标记、全量 N、内层完整 cryoflow-template/1、双 box 参数、内层连线）；D bundle 回导→货架翻倍（导入不去重是设计——重复行也是一等公民）+ 服务端 2N 诚实；E "Delete all 4?" 武装→Keep 拒绝（行数不变）→Clear→空态+服务端 0（基线也清了——F 还原）；F 基线 asc 序 POST 还原（asc 序保证 desc 货架阅读序不变）+T130 重种→重开对话框屏摄；Z 控制台清洁+T130 清理基线原封。37 断言一发全绿
+- 【视觉验收】两张屏摄人眼过：常态（YOUR TEMPLATES 2 · Export all · 玫红 trash · Import 单行放下）+ armed（玫红 "Delete all 2?" + Clear + Keep，层级清楚）
+- 【收尾】eslint 0、tsc src 0、构建 BUILD_ID Fdz2Kjsw89mlbaBiipcUF；受影响面 t127(35)/t128(41)/t129(29)/smoke/qa00 全绿；全矩阵 66 套（t130 auto-include 位 #52，wall 7s）分 7 块 0 失败（块峰 189-202MB 零阈值重启，Task 122 卫生学持续生效）；worklog + commit + push + 环境清理
+
+Stage Summary:
+- 「bundle 是 wrapper 不是新方言」：导出全部的唯一新概念是"容器"——内层每条都是完整的 cryoflow-template/1 文件，回导时跑同一个 parseTemplateRaw。零第二个 payload 合同 = 零第二份漂移面。一份校验器服务三个世界（单文件导出、bundle 内层、POST 权威），和 Task 128 的「一个校验器两个世界」是同一条定律的第三次应用
+- 「清空的确认住在案发现场」：header 内两步确认（Delete all N? → Clear/Keep）而不是模态弹窗——破坏性操作的保护不该让用户搬家；"N" 如实出现意味着用户武装时看到的确是即将消失的数量。Keep 是证伪腿：确认 UI 的拒绝路径也要测（E2/E3）
+- 「导入不去重，重复也是一等公民」：bundle 回导翻倍货架——POST 漏斗没有"已存在"概念（名字不唯一），provenance 在文件头不在存储层。要不要去重是未来交互设计的事，存储层先保持诚实
+- 「基线还原要连序一起还原」：清空测试会连带真基线一起清掉——探针先用被测端点（GET ?all=1）快照、清完按 asc 序 POST 回去，desc 货架阅读序精确复原（F2 断言顶行名字）。外部状态的世界里，还原不止内容，还有顺序
+- 「批量工具住在批量出现之后」：N=1 的货架不出 Export all/Clear——单模板的导出和删除就在行上，重复入口是噪音不是便利。功能出现的时机本身就是交互设计（N≥2 门槛一行代码，省掉的是常态下的 header 拥挤）
+- 遗留（下轮候选）：模板批量管理延伸的 shelf 计数徽章点击过滤（小）；建议连线手感增强（连接后脉冲高亮新线，真机反馈再评估）；runner wall-time 剖面（qa64 73s 六轮一致，继续让位）；qa60/61 共享传输推广（暂缓维持）；EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势、TSV/海报粘贴验证）；minimap mode 持久化（真机反馈再评估）；undo 手感参数调优；诊断签名命中率观察（真机）

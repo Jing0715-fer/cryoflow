@@ -195,6 +195,11 @@ const PRESETS: Preset[] = [
  * import picker is the palette's dynamic-<input> dialect — a click
  * cannot open a native picker synchronously inside React's event,
  * but a fresh detached input clicks fine.
+ *
+ * Task 130 — batch management once there IS a batch (≥ 2 rows):
+ * "Export all" lands every template as ONE bundle .json, the trash
+ * button arms a two-step "Delete all N?" confirm in the header itself
+ * (the same arm → confirm dialect the rows use — no modal detour).
  */
 function CustomTemplatesSection() {
   const templates = useWorkflowStore((s) => s.customTemplates);
@@ -202,8 +207,10 @@ function CustomTemplatesSection() {
   const deleteCustomTemplate = useWorkflowStore((s) => s.deleteCustomTemplate);
   const exportCustomTemplate = useWorkflowStore((s) => s.exportCustomTemplate);
   const [armDeleteId, setArmDeleteId] = React.useState<string | null>(null);
+  const [armClear, setArmClear] = React.useState(false);
   const [applyingId, setApplyingId] = React.useState<string | null>(null);
   const [exportingId, setExportingId] = React.useState<string | null>(null);
+  const [exportingAll, setExportingAll] = React.useState(false);
   const [importing, setImporting] = React.useState(false);
 
   const apply = (t: CustomTemplateSummary) => {
@@ -220,6 +227,21 @@ function CustomTemplatesSection() {
       .getState()
       .exportCustomTemplate(t.id)
       .finally(() => setExportingId(null));
+  };
+
+  /** Task 130 — export every template as one bundle file. */
+  const exportAll = () => {
+    setExportingAll(true);
+    void useWorkflowStore
+      .getState()
+      .exportAllCustomTemplates()
+      .finally(() => setExportingAll(false));
+  };
+
+  /** Task 130 — clear the shelf after the header's two-step confirm. */
+  const clearAll = () => {
+    setArmClear(false);
+    void useWorkflowStore.getState().clearCustomTemplates();
   };
 
   /** native picker via a detached input (command-palette's dialect) */
@@ -260,6 +282,10 @@ function CustomTemplatesSection() {
     </Button>
   );
 
+  // Task 130 — batch tools exist only when there IS a batch: a single
+  // template manages itself per-row, and the header stays quiet.
+  const hasBatch = templates.length >= 2;
+
   const header = (
     <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
       <LayoutTemplate className="size-3" aria-hidden="true" />
@@ -269,7 +295,69 @@ function CustomTemplatesSection() {
           {templates.length}
         </span>
       )}
-      <span className="ml-auto normal-case">{importButton("custom-template-import")}</span>
+      <span className="ml-auto flex items-center gap-1 normal-case">
+        {hasBatch && !armClear && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-6 gap-1 px-2 text-[11px]"
+            onClick={exportAll}
+            disabled={exportingAll}
+            title="Download every template as one bundle .json file"
+            data-testid="custom-template-export-all"
+          >
+            {exportingAll ? (
+              <Loader2 className="size-3 animate-spin" aria-hidden="true" />
+            ) : (
+              <Download className="size-3" aria-hidden="true" />
+            )}
+            Export all
+          </Button>
+        )}
+        {hasBatch && !armClear && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-6 px-1.5 text-[11px] text-rose-600 hover:bg-rose-500/10 hover:text-rose-700"
+            onClick={() => setArmClear(true)}
+            aria-label={`Clear all ${templates.length} templates`}
+            title="Remove every saved template from this shelf"
+            data-testid="custom-template-clear"
+          >
+            <Trash2 className="size-3" aria-hidden="true" />
+          </Button>
+        )}
+        {hasBatch && armClear && (
+          <>
+            <span
+              className="text-[10px] font-medium normal-case text-rose-600"
+              data-testid="custom-template-clear-arm"
+            >
+              Delete all {templates.length}?
+            </span>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-6 gap-1 px-2 text-[11px] text-rose-600 hover:bg-rose-500/10 hover:text-rose-700"
+              onClick={clearAll}
+              data-testid="custom-template-clear-confirm"
+            >
+              <Trash2 className="size-3" aria-hidden="true" />
+              Clear
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-6 px-2 text-[11px]"
+              onClick={() => setArmClear(false)}
+              data-testid="custom-template-clear-keep"
+            >
+              Keep
+            </Button>
+          </>
+        )}
+        {importButton("custom-template-import")}
+      </span>
     </p>
   );
 
@@ -633,7 +721,8 @@ export function TemplatePresetsDialog() {
 
         {/* Task 127 — the user's own saved snippets, one click to re-plant.
             Task 128 — the section is self-contained: header + import live
-            inside, export rides per-row. */}
+            inside, export rides per-row. Task 130 — batch management
+            (Export all / Clear) arms in the header once there are ≥ 2. */}
         <CustomTemplatesSection />
 
         <DialogFooter className="items-center gap-2 sm:justify-between">

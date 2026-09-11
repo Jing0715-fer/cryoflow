@@ -25,9 +25,12 @@ import type { ImportFailure, ImportPreviewEntry } from "./workflow-io";
 import type { TemplateSuggestion } from "./template-suggest";
 import { suggestTemplateConnections } from "./template-suggest";
 import {
+  buildTemplateBundle,
   buildTemplateFile,
+  downloadTemplateBundleJson,
   downloadTemplateJson,
   parseTemplateFiles,
+  templateBundleFileName,
   templateFileName,
 } from "./template-io";
 
@@ -373,6 +376,14 @@ interface WorkflowState {
   /** Task 128 — download a saved template as a cryoflow-template/1 .json
    *  file (the share leg of save → apply → share). */
   exportCustomTemplate: (id: string) => Promise<boolean>;
+  /** Task 130 — download EVERY template on the shelf as ONE bundle file
+   *  (cryoflow-template-bundle/1); returns false when the shelf is empty
+   *  or the fetch failed. */
+  exportAllCustomTemplates: () => Promise<boolean>;
+  /** Task 130 — forget every template in the project (the clear-shelf
+   *  leg). Optimistic clear + rollback on failure; resolves to the
+   *  deleted count (0 when nothing was removed). */
+  clearCustomTemplates: () => Promise<number>;
   /** Task 128 — import shared template files into this project's shelf:
    *  client pre-parse (template-io) → authoritative POST per entry →
    *  aggregate toast. Returns { imported, failed } for callers/tests. */
@@ -2562,6 +2573,69 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     } catch (err) {
       errToast(err instanceof Error ? err.message : "Failed to export the template");
       return false;
+    }
+  },
+
+  // Task 130 — export ALL: one fetch with payloads, one bundle file. The
+  // server is the truth (GET ?all=1 re-serves what POST validated); the
+  // skipped count (corrupt rows the server could not parse) surfaces in
+  // the toast so the bundle's contents are never silently less than the shelf.
+  exportAllCustomTemplates: async () => {
+    try {
+      const { templates, skipped } = await api<{
+        templates: {
+          id: string;
+          name: string;
+          payload: CustomTemplatePayload;
+          createdAt: string;
+          project: string;
+        }[];
+        skipped?: number;
+      }>("/api/custom-template?all=1");
+      if (!templates?.length) {
+        toast({
+          title: "Shelf is empty",
+          description: "Nothing to export — save a selection as a template first",
+        });
+        return false;
+      }
+      const bundle = buildTemplateBundle(
+        templates.map((t) => buildTemplateFile(t.name, t.payload, t.project)),
+        templates[0].project
+      );
+      downloadTemplateBundleJson(bundle, templateBundleFileName());
+      toast({
+        title: `${templates.length} template${templates.length === 1 ? "" : "s"} exported as one bundle`,
+        description: `${skipped ? `${skipped} corrupt row${skipped === 1 ? "" : "s"} skipped · ` : ""}import the .json into any project's shelf — it expands back into individual templates`,
+      });
+      return true;
+    } catch (err) {
+      errToast(err instanceof Error ? err.message : "Failed to export the templates");
+      return false;
+    }
+  },
+
+  // Task 130 — clear the shelf: one project-scoped deleteMany. Optimistic
+  // clear keeps the dialog honest instantly; a failed request rolls the
+  // snapshot back so nothing disappears without the server agreeing.
+  clearCustomTemplates: async () => {
+    const snapshot = get().customTemplates;
+    if (snapshot.length === 0) return 0;
+    set({ customTemplates: [] });
+    try {
+      const { deleted } = await api<{ ok: boolean; deleted: number }>(
+        "/api/custom-template?all=1",
+        { method: "DELETE" }
+      );
+      toast({
+        title: "Shelf cleared",
+        description: `${deleted} template${deleted === 1 ? "" : "s"} removed — import a bundle or re-save from the canvas to rebuild it`,
+      });
+      return deleted;
+    } catch (err) {
+      set({ customTemplates: snapshot }); // roll back so every row stays deletable
+      errToast(err instanceof Error ? err.message : "Failed to clear the templates");
+      return 0;
     }
   },
 
