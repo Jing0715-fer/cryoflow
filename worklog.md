@@ -3961,3 +3961,25 @@ Stage Summary:
 - 「失败不缓存」：GET 失败只进 error 态、不写 cache——瞬态 500 在下一次 hover 自愈；如果错误也被缓存，一次抖动就变成永久伤疤。成功才配被记住
 - 「trigger 是名字块，不是整行」：hover 卡的触发区只包 name/meta——Apply/Download/Delete 留在外面。hover-to-peek 若吞掉整行，行内按钮的命中区就被一个被动功能殖民了；功能新增不得改变既有控件的可达性
 - 遗留（下轮候选）：预览卡的进一步细节（chips 内端口点、hover 高亮对应边等，真机反馈再评估）；建议连线手感增强（连接后脉冲高亮新线，真机反馈再评估）；模板搜索/重命名（货架行多后的整理需求，与预览卡同一货架面）；runner wall-time 剖面（qa64 73s 七轮一致，继续让位）；qa60/61 共享传输推广（暂缓维持）；EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势、TSV/海报粘贴验证）；minimap mode 持久化（真机反馈再评估）；undo 手感参数调优；诊断签名命中率观察（真机）
+
+---
+Task ID: 132
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-11 19:30 window)
+Task: cron 自主巡检——Task 132「货架整理：行内重命名 + 搜索过滤」+ 拔掉 Radix Escape 真产品 bug：开局核实 worklog 尾部 Task 131/ca7a99b == origin/main，冷启动 + smoke/qa00/t131 三件套绿判稳。交接候选盘点：预览细节与建议手感（真机让位）→ 定案「重命名 + 搜索」（Task 131 预览卡同一货架面的整理能力，无真机依赖）。交付：PATCH ?id= {name} 路由（与 POST 同一份名称合同 trim/slice(80)/required；payload 不可达——改名不许碰形状；createdAt 不动——阅读序永不跳）+ store renameCustomTemplate（服务端名落货架）+ 行内编辑（铅笔 hover 显形 → Input 预填 autoFocus，Enter 提交/Escape 取消/失焦取消，空改静默取消）+ 搜索框（N≥5 才现身——「批量工具住在批量出现之后」同律；大小写不敏感子串 + 诚实「k of N」+ × 清除 + 无匹配诚实态）+【真 bug 修复】编辑中 Escape 原本会把整个对话框一起关掉——Radix Dialog 在 document 上以 {capture:true} 监听 Escape，input 冒泡相位的 stopPropagation 原理性无效，改为 DialogContent onEscapeKeyDown 门（编辑活跃/搜索聚焦时 preventDefault）+ t132 30 断言七相绿（矩阵位 #54，wall 12s）+ 受影响面（t127/t128/t129/t130/t131/smoke/qa00）7/7 全绿 + 全矩阵 68 套分 7 块 0 失败 + worklog + push
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 131（ca7a99b == origin/main，树净）；BUILD_ID moWrJ9kbHHbmjp9xuDYao 匹配；冷启动 + qa63-smoke/qa00/t131(25) 三件套全绿；agent-browser 开合正常 → 稳定
+- 【选题】Task 131 交接候选：预览卡端口点/边高亮（真机）、建议连线手感（真机）→ 定案「重命名 + 搜索」：货架改名是唯一不可编辑的字段，行多后无过滤手段；读 POST 合同（MAX_NAME=80、trim、required）确认 PATCH 镜像
+- 【实现·路由】PATCH ?id= {name}：项目作用域 findFirst→404、名称规则与 POST 逐字同源、update 只碰 name、响应 = 完整 summary（jobCount/edgeCount 从 payload 解析、腐坏行诚实归零镜像列表映射）；REST 注释表同步
+- 【实现·store】renameCustomTemplate：api() PATCH → 响应 summary.name map 进 customTemplates（服务端是真相）；失败 errToast + 返回 false
+- 【实现·UI】铅笔钮（Download 前、hover 显形同方言）→ 行内 Input（预填、autoFocus、maxLength 80）；commitRename：空/未变静默取消、成功用响应名落库；搜索框 SEARCH_THRESHOLD=5 才渲染、Search 图标 + 右侧「k of N」+ × 清除、no-match dashed 诚实态；改名行 hover 卡暂停（编辑态换 Input）
+- 【探针伤情三折 + 真 bug 一枚】①C3 断言用旧名过滤器找改名后的行——探针自伤，拆 oldAlpha/newAlpha 双断言（新名在场 + 旧名退场）；②C5 把 ?all=1 的 asc 序当 desc 断言——探针自伤，改为「alpha 开表、epsilon 收表」不变量；③gamma hover 超时 30s → 诊断脚本实锤「Escape 后 dialog=0, rows=0」：**Radix use-escape-keydown 源码 {capture:true}**——capture 相位先于一切冒泡处理器，stopPropagation 来不及；第一版 stopPropagation 修复无效（这是它该无效的证据），第二版在 DialogContent onEscapeKeyDown 按 shelfEditing/searchFocused preventDefault——「这个 Escape 属于编辑，不属于对话框」；DialogContent prop 透传 + CustomTemplatesSection onEditingChange 上报（renameId≠null ∨ searchFocused）
+- 【收尾】eslint 0、tsc src 0、构建 BUILD_ID sA5i5XKhkx0oZiF9O7Xld（next/font 网络抖动一次重试即过）；t132 终跑 30 全绿；受影响面 t127(35)/t128(41)/t129(29)/t130(37)/t131(25)/smoke/qa00 全绿；全矩阵 68 套（t132 auto-include 位 #54，wall 12s）分 7 块前台串行 0 失败（块峰 185-204MB 零阈值重启）；诊断脚本删除、worklog + commit + push + 环境清理
+
+Stage Summary:
+- 「两个处理器，一份合同」：PATCH 的名称规则是 POST 的逐字镜像（trim、cap 80、required）——写入合同存在两份的时刻就是它开始漂移的时刻，能提取的还有 template-io 的校验器先例；改名不可达 payload 是刻意的：能改形状的「重命名」是 apply 时的惊吓
+- 「阅读序是货架的公共基础设施」：createdAt 永不被编辑触碰——改个名字不应让货架行跳位；PATCH 响应完整 summary 让客户端零二次请求。探针 C5 把它断言成不变量（asc 端点首尾 id 不动）
+- 「stopPropagation 输给 capture 相位」：Radix Dialog 在 document 上 {capture:true} 监听 Escape——事件还没到达 input 就已被决定了命运；输入框里的 stopPropagation 是 bubble 相位的、原理性无效。条件化 dismiss 的唯一正确位置是 onEscapeKeyDown 的 preventDefault。第一版修复「无效」本身就是有效证据（它证实了相位论）
+- 「探针的失败先自省再他省」：C3/C5 两连败都是探针自己的断言错位（旧名过滤器、asc/desc 混淆）——30 秒的 allInnerTexts 转储分辨了「产品没改名」与「探针找错行」；第三败（gamma 超时）才是真 bug。假红三折里两折在探针、一折在产品——诊断的成本永远低于瞎修
+- 「搜索框要自己挣位置」：N≥5 才现身——五条以内的货架一屏放得下，搜索框是 chrome 不是能力；与批量工具的 N≥2 同一条交互设计定律：功能出现的时机本身就是设计。诚实计数「k of N」让过滤永远可证伪
+- 遗留（下轮候选）：模板搜索的进一步细节（按 job type 过滤、按日期排序，真机反馈再评估）；预览卡端口点/边高亮（真机）；建议连线手感增强（真机）；runner wall-time 剖面（qa64 72s 八轮一致，继续让位）；qa60/61 共享传输推广（暂缓维持）；EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势、TSV/海报粘贴验证）；minimap mode 持久化（真机反馈再评估）；undo 手感参数调优；诊断签名命中率观察（真机）
