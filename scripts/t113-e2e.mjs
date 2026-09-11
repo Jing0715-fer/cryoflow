@@ -326,7 +326,14 @@ const phaseF = async () => {
     "data-files-table", "field-sizing: content", "break-after: avoid"]) {
     must(css.includes(rule), `globals.css carries "${rule}"`);
   }
-  const built = sh("cat .next/static/chunks/c69b6e089a234c60.css");
+  // (Task 119 fix: the compiled css chunk hash changes on every rebuild —
+  // hardcoding it shipped a time bomb that detonated on the next feature
+  // build. Locate the chunk by MARKER, the same way t119's F13 does.)
+  const builtPath = sh(
+    "rg -l 'data-print-block' .next/static/chunks/ --glob '*.css' | head -1"
+  );
+  must(builtPath.length > 0, "compiled css chunk located by marker (fresh build)");
+  const built = builtPath ? sh(`cat ${builtPath}`) : "";
   must(built.includes("data-print-block") && built.includes("break-inside:avoid"),
     "compiled CSS chunk carries the pagination rules");
   must(built.includes("field-sizing:content"), "compiled CSS carries field-sizing");

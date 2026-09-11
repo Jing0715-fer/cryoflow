@@ -3642,3 +3642,29 @@ Stage Summary:
 - 「单次远跳落在框外」：地图点击只能导航到可见框内——fit 模式下视口越远框越大是双刃（想一次跳到框外目标点必然失败）。棘轮式边缘点击是诚实的远距离遍历；这本身就是 node-only 模式的存在理由：把导航面锚在内容上
 - 「恰好断言你播种的」：S10 的 === 2 撞上项目存量 15 边——minimap 正确渲染了 17 条线而被判 FATAL。存在共置数据时，计数断言必须按身份（端点坐标）而非数量断言；「恰好 N」只对隔离世界成立
 - 遗留（下轮候选）：打印族 Logs 行真数据腿（qa53 topaz 种子可补——Task 116 静态覆盖后的欠账）；minimap mode 若真机反馈需要持久化再评估（现为 ephemeral 设计，remount 复位）；EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势、TSV/海报粘贴验证）；3D viewer 体积截面（真机需求观察）；undo 手感参数调优；其余 51 套件迁移共享传输（暂缓维持）；palette Copy PNG（Task 110 拒绝维持）
+
+---
+Task ID: 119
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-11 07:15 window)
+Task: cron 自主巡检——Task 119「失败即时诊断：log 回答 WHAT，strip 回答 WHY」：开局三连绿（worklog 尾部 Task 118/1eac981 == origin/main，BUILD_ID 自证含 minimap 源码）。候选清点后撞车检查先证伪 job clone（duplicateJob/duplicateSelected 已全量存在——30 秒省一轮），再定案 failed 作业的「为什么失败」空白。交付：src/lib/log-diagnosis.ts 单源模式表（6 签名：OOM kill/GPU OOM/磁盘满/缺上游文件/权限/段错误，全部 OS/runtime 原生措辞、非 global 正则防 lastIndex 漂移）+ Log tab 诊断 strip（出处行号+摘录+可行动建议+状态门 failed 才诊断）+ 屏上 max-h 护栏（发现列表自滚动，日志正文保住阵地）+ 纸上随报告打印（Post-mortem 上纸，顺带偿还 Task 116 挂账的 Logs 行真数据打印腿）+ t113 硬编码 css 哈希定时炸弹拆除 + OOM 死机取证与恢复。t119 96 断言 ×2 绿（含矩阵内）+ 全矩阵 56 套 0 失败 + worklog + push
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 118（1eac981 == origin/main，树净）；bundle rg 标记 data-mm-btn 在 static+standalone 双证；冷启动复用（服务器 06:50 已起）+ smoke/qa00/t118 三套全绿 → 稳定
+- 【选题·撞车双查】job clone/duplicate 已存在（单作业右键 + 批量工具栏，连线重建）；upstream blocked amber 状态已存在；elapsed/fmtDuration 已存在；bulk 工具栏已有；failed 诊断 UI 是实质空白（rg diagnos|hint|killed 零命中）→ 定案
+- 【实现】log-diagnosis.ts（diagnoseLines 核 + diagnoseLog 便捷层，一行一扫六模式，首现定位摘录，插入序=证据序）；job-inspector：findings useMemo 门在 job.status==="failed"（completed 作业日志提 Killed 不许召唤 strip）+ FINDING_ICONS 映射 + strip JSX（Stethoscope 头 + 每卡图标/标签/L 徽章/mono 摘录/Lightbulb 建议 + ground-truth 注释 hidden xl:inline）；globals.css Task 119 节 9 条纸上重墨（玫瑰标签深玫瑰化 + finding 卡 break-inside avoid + ul 护栏纸上展开）
+- 【视觉 QA 自查】截图两态（屏上暗壳玫瑰调 + print 模拟反白）发现 5 发现时 strip 挤掉日志正文——「日志是 ground truth」关系倒挂 → ul max-h-52 自滚动护栏 + 纸上 unroll 规则 + A18b 实测断言
+- 【探针 t119 96 断言七相】S 双播种（failed 精工日志 5 签名 + completed 对照含 Killed）+ 独立 oracle（探针内联重推导从 API 文本——对应用可观察面验证）；A 屏 23 断言（顺序/徽章/摘录全等/建议/状态门/护栏高度）；B 纸 20 断言（标签+建议+真日志行上纸=Task 116 欠账偿还+A4 纵向 pdfinfo 实证）；F 静态 20；Z 级联（DELETE→run record 级联→log 404）+ console 0
+- 【探针五折】①must 缺 throw——FATAL 后继续跑还打 ok，浏览器拆台下断言（改 throw 立停）；②ground-truth 注释 hidden xl:inline 在纸宽不显示——屏幕 chrome 断言移 A 相；③pdftotext 把 stderr 分隔符尾部横线粘连——/-{3,}\s*stderr/i 防粘连；④format:"A4" 给 595.92×842.88 pts（612×792 是 Letter 默认）——pdfinfo 读几何；⑤css 选择器跨行——断言前空白归一化
+- 【t113 定时炸弹】重建后 t113 FATAL：硬编码 .next/static/chunks/c69b6e089a234c60.css（Task 116 时代哈希）——每次重建哈希必变，globals.css 一动就引爆；改 rg -l 按标记定位（t119 F13 同法），修复后 46 断言绿
+- 【OOM 死机取证】块 3 七连挂（qa73-qa80）；qa73 单跑剩 1 断言（React #418 hydration 文本不匹配 ×4）；归因实验（删 QA Refine Live fixture）时 next-server 被 dmesg 实证 OOM 杀死（anon-rss 2.5GB/total-vm 23GB，3.9GB 无 swap 机器两小时矩阵锤炼后）；fixture pid:1 查明为 qa60-seed-fsc 有文档设计（reconcile 需可解析 pid）；冷启动+fixture 复在（delete 未及提交）
+- 【#418 幽灵办案】干净源码（stash）qa73 绿、恢复源码重建后绿、再重建又绿——build A（4/4 确定性挂，跨两台服务器）是唯一坏产物，C/D 同源同绿；dev 服务器纯加载与 qa73 全流程均零错误；根因未孤立——结论「产物有罪，源码无罪」，与 Task 114「探针前必有 fresh build」同族延伸：二分源码前先重建产物（hydration 幽灵先怀疑 .next 而非 src）
+- 【收尾】eslint 0、tsc src 0、三段式 BUILD_ID 7BXDjGzJrwuOyO3IN2-_j；t119 96×2 绿（连跑+矩阵内 42 位）；t112(77)/t113(46)/qa53/qa66/smoke/qa00 受影响面绿；全矩阵 56 套分 9 块（build D 上全部 9 块）0 失败；worklog + commit + push + 环境清理
+
+Stage Summary:
+- 「log 回答 WHAT，strip 回答 WHY」：失败作业的日志是证据，不是答案——几百行输出里捞一行 errno 不是科学家的工作。诊断的价值在「有出处的提示」：行号+摘录+建议，且明示「log 是 ground truth」——strip 是眼线不是法官。模式表只用 OS/runtime 原生措辞（errno 文本/shell kill 消息/CUDA 错误文本），松泛词如 "error" 永不入表——RELION 全天在说 error，松匹配就是对健康运行狼来了
+- 「状态门是诊断的宪法」：completed 作业的日志提 Killed 不出 strip——诊断的是失败，不是日志里的闲话。门内一句 useMemo 条件，门外一整个假阳性世界
+- 「屏幕的经济学在纸上是丢案」：5 张诊断卡把日志正文挤出视口=关系倒挂；hidden xl:inline 的注释在纸宽消失=屏幕 chrome 上不了纸。护栏（max-h 自滚动）与 unroll（纸上展开）是同一合同的两面：屏上保日志阵地，纸上保证据完整
+- 「哈希是产物的指纹，不是测试的锚」：t113 硬编码 css chunk 哈希在 Task 116 当天绿、Task 119 重建当天炸——产物的每次合法重建都换指纹。断言编译产物要按标记定位（rg -l 'marker' chunks/），不按文件名；「谁 import 了它」的教训在产物域的镜像：谁生成了它、它还会叫什么
+- 「hydration 幽灵先怀疑产物再怀疑源码」：同一源码 A 构建 4/4 确定性挂、C/D 构建全绿、dev 零复现——二分树还没画完，真凶已被 rebuild 击毙。Task 114 教义（探针前 fresh build）的延伸形态：源码二分前先做产物二分（同源重建对照）；不然会用 stash 重建的 3 分钟买来一个不存在的源码 bug
+- 「OOM 是这台机器的底色，矩阵是它的放大器」：3.9GB 无 swap 跑 56 套浏览器套件，next-server 2.5GB anon-rss 被内核点名——服务器死机时的一切「测试失败」先验尸（dmesg）再立案；死了的服务器上每个套件都死于各自的姿势，七连挂是七个假嫌疑人
+- 遗留（下轮候选）：qa60/61 共享传输向其余 51 套件推广（暂缓维持）；server 内存健康度——runner 增加块间 fresh-server 选项的评估（本轮手动重启即可，自动化的收益待观察）；打印族收尾——诊断 strip 的 Overview 腿（现仅 Log tab 触发，Overview 的 result 摘要是否也该带 findings 计数待真机反馈）；EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势、TSV/海报粘贴验证）；3D viewer 体积截面（真机需求观察）；minimap mode 持久化（真机反馈再评估）；undo 手感参数调优；palette Copy PNG（Task 110 拒绝维持）

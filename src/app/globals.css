@@ -833,6 +833,61 @@
     white-space: pre-wrap !important;
     word-break: break-word !important;
   }
+  /* Task 119: the failure diagnosis strip prints as part of the report —
+     it IS the job's post-mortem. printBackground drops the rose tint, so
+     labels re-ink to a darker rose on white; each finding stays atomic
+     (a finding split across pages reads as two half-thoughts). */
+  html:has([data-inspector-dialog][data-state="open"])
+    [data-log-diagnosis]
+    .diag-head-label {
+    color: oklch(0.5 0.18 22) !important;
+  }
+  html:has([data-inspector-dialog][data-state="open"])
+    [data-log-diagnosis]
+    .diag-count {
+    background: oklch(0.94 0.03 22) !important;
+    color: oklch(0.5 0.18 22) !important;
+  }
+  html:has([data-inspector-dialog][data-state="open"])
+    [data-log-diagnosis]
+    .diag-ml {
+    color: oklch(0.55 0.02 232) !important;
+  }
+  html:has([data-inspector-dialog][data-state="open"])
+    [data-log-diagnosis]
+    [data-finding] {
+    break-inside: avoid;
+    background: white !important;
+    border-color: oklch(0.9 0.03 22) !important;
+  }
+  html:has([data-inspector-dialog][data-state="open"])
+    [data-log-diagnosis]
+    .diag-label {
+    color: oklch(0.45 0.17 22) !important;
+  }
+  html:has([data-inspector-dialog][data-state="open"])
+    [data-log-diagnosis]
+    .diag-linebadge {
+    color: oklch(0.55 0.02 232) !important;
+  }
+  html:has([data-inspector-dialog][data-state="open"])
+    [data-log-diagnosis]
+    .diag-excerpt {
+    color: oklch(0.32 0.02 244) !important;
+  }
+  html:has([data-inspector-dialog][data-state="open"])
+    [data-log-diagnosis]
+    .diag-hint {
+    color: oklch(0.45 0.02 232) !important;
+  }
+  /* the screen guardrail (capped, self-scrolling findings list) unrolls
+     on paper — a post-mortem never hides a finding behind a scrollbar */
+  html:has([data-inspector-dialog][data-state="open"])
+    [data-log-diagnosis]
+    ul {
+    max-height: none !important;
+    overflow: visible !important;
+  }
   /* interactive chrome inside the report — buttons, inputs and selects
      are screen controls (tab triggers, rerun/stop actions, copy and
      download buttons, the file filter); the content around them is the

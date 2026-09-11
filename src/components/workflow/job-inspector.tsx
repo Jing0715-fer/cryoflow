@@ -28,27 +28,35 @@ import {
   ChevronRight,
   Clock,
   Copy,
+  Cpu,
   Database,
   Download,
   FileText,
+  FileX,
   FolderOpen,
   GitCommitHorizontal,
+  HardDrive,
   Layers,
   LayoutDashboard,
+  Lightbulb,
   Link2,
   Locate,
+  Lock,
   Loader2,
   Pause,
   Play,
   RotateCcw,
   ScrollText,
   Search,
+  Skull,
   Square,
+  Stethoscope,
   Table2,
   Terminal,
   WrapText,
   X,
   StickyNote,
+  Zap,
 } from "lucide-react";
 import {
   Dialog,
@@ -68,6 +76,7 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { diagnoseLines } from "@/lib/log-diagnosis";
 import { jobType } from "@/lib/workflow";
 import { useWorkflowStore } from "@/lib/store";
 import type { EdgeDTO, JobDTO } from "@/lib/types";
@@ -288,6 +297,17 @@ function LogLegend() {
   );
 }
 
+/** Task 119: failure-signature → icon. Keyed by LogFinding.id from
+ *  log-diagnosis.ts; unknown ids fall back to AlertTriangle. */
+const FINDING_ICONS: Record<string, React.ElementType> = {
+  "oom-kill": Skull,
+  "gpu-oom": Cpu,
+  "disk-full": HardDrive,
+  "missing-input": FileX,
+  permission: Lock,
+  segfault: Zap,
+};
+
 function LogConsole({ job }: { job: JobDTO }) {
   const [log, setLog] = React.useState<string | null>(null);
   const [noLog, setNoLog] = React.useState(false);
@@ -386,6 +406,13 @@ function LogConsole({ job }: { job: JobDTO }) {
   };
 
   const lineCount = lines.length;
+
+  // Task 119: failure diagnosis — only a FAILED job diagnoses; a healthy
+  // job's log mentioning "Killed" in passing must not summon the strip.
+  const findings = React.useMemo(
+    () => (job.status === "failed" ? diagnoseLines(lines) : []),
+    [job.status, lines]
+  );
 
   // search filter — original indices keep the zebra striping stable
   const q = query.trim().toLowerCase();
@@ -589,6 +616,75 @@ function LogConsole({ job }: { job: JobDTO }) {
           </Button>
         </div>
       </div>
+
+      {findings.length > 0 ? (
+        /* Task 119: failure diagnosis — known failure signatures recognized
+           in the log, each with provenance (line + excerpt) and a next
+           step. A hint with provenance, not a verdict: the log above is
+           the ground truth. Sits between toolbar and scroll area so it
+           stays visible while the log scrolls beneath it. */
+        <div
+          data-log-diagnosis=""
+          role="note"
+          aria-label={`Failure diagnosis: ${findings.length} finding${findings.length === 1 ? "" : "s"}`}
+          className="mx-3 mt-2 shrink-0 rounded-lg border border-rose-500/25 bg-rose-500/[0.06] p-3"
+        >
+          <div className="flex items-center gap-1.5">
+            <Stethoscope className="size-3.5 shrink-0 text-rose-400" aria-hidden="true" />
+            <span className="diag-head-label text-[11px] font-semibold uppercase tracking-wider text-rose-300">
+              Failure diagnosis
+            </span>
+            <span className="diag-count rounded-full bg-rose-500/15 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-rose-300">
+              {findings.length} {findings.length === 1 ? "finding" : "findings"}
+            </span>
+            <span className="diag-ml hidden truncate text-[10px] text-zinc-500 xl:inline">
+              known failure signatures in run.out / run.err — the log is the ground truth
+            </span>
+          </div>
+          {/* max-h + own scroll: five findings must not push the log out
+              of view — the log is the ground truth and keeps its lane
+              (paper unrolls the cap away, see globals Task 119 rules) */}
+          <ul className="mt-2 max-h-52 space-y-1.5 overflow-y-auto pr-0.5">
+            {findings.map((f) => {
+              const Icon = FINDING_ICONS[f.id] ?? AlertTriangle;
+              return (
+                <li
+                  key={f.id}
+                  data-finding={f.id}
+                  className="diag-finding rounded-md border border-rose-500/15 bg-zinc-950/50 p-2"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <Icon className="size-3.5 shrink-0 text-rose-400" aria-hidden="true" />
+                    <span
+                      className="diag-label truncate text-[11px] font-semibold text-rose-200"
+                      title={f.label}
+                    >
+                      {f.label}
+                    </span>
+                    <span
+                      className="diag-linebadge ml-auto shrink-0 font-mono text-[10px] tabular-nums text-zinc-500"
+                      title="First matching line in this log window"
+                    >
+                      L{f.firstLine}
+                      {f.count > 1 ? ` · ×${f.count}` : ""}
+                    </span>
+                  </div>
+                  <p
+                    className="diag-excerpt mt-1 truncate font-mono text-[10px] leading-relaxed text-zinc-400"
+                    title={f.excerpt}
+                  >
+                    {f.excerpt}
+                  </p>
+                  <p className="diag-hint mt-1 flex items-start gap-1 text-[10px] leading-relaxed text-zinc-500">
+                    <Lightbulb className="mt-px size-3 shrink-0 text-amber-400/80" aria-hidden="true" />
+                    <span>{f.hint}</span>
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : null}
 
       {/* the console */}
       <div
