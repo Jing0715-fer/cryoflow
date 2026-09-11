@@ -198,15 +198,41 @@ const bootCanvas = async () => {
   return false;
 };
 
+/** bring HOST_JOB into the viewport before any real click (Task 140
+ *  backfill, t112's verbatim idiom): the world's span evolves and a
+ *  fresh tab's fit can leave ANY card outside it — a silent x=9280
+ *  outlier once made boot fit clamp at 0.25 and spill the host card
+ *  off-screen left, and ten blind clicks all missed. find Enter =
+ *  focusJob centers the card at legibility zoom regardless of the
+ *  world's shape. */
+const reachHost = async () => {
+  evalJs(`(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'f', ctrlKey: true, bubbles: true })); return 1; })()`);
+  await sleep(400);
+  const bar = unq(evalJs(`(() => { return document.querySelector('[data-testid="canvas-find-input"]') ? 'BAR' : 'NOBAR'; })()`));
+  if (bar === "BAR") {
+    evalJs(`(() => { const i = document.querySelector('[data-testid="canvas-find-input"]'); i.focus(); const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set; setter.call(i, '${HOST_JOB}'); i.dispatchEvent(new Event('input', { bubbles: true })); return 1; })()`);
+    await sleep(400);
+    evalJs(`(() => { const i = document.querySelector('[data-testid="canvas-find-input"]'); i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); return 1; })()`);
+    await sleep(900);
+    evalJs(`(() => { const i = document.querySelector('[data-testid="canvas-find-input"]'); i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); return 1; })()`);
+    await sleep(400);
+  }
+};
+
 const openInspector = async () => {
   for (let i = 0; i < 10; i++) {
+    await reachHost();
     const r = await realClick(
       `[...document.querySelectorAll('[role=button]')].find(x => (x.textContent||'').includes('${HOST_JOB}'))`,
     );
     if (r.includes("clicked@")) {
       await sleep(1500);
+      // 正身判定 (t112/t113 lineage): the RIGHT inspector — data-state
+      // open AND the dialog's text names the host; a covered or
+      // neighbor dialog must never bless this click
       const has = unq(evalJs(`(() => {
-        const dl = [...document.querySelectorAll('[role=dialog]')].find(d => (d.textContent||'').includes('${HOST_JOB}'));
+        const dl = [...document.querySelectorAll('[role=dialog]')].find(d =>
+          d.getAttribute('data-state') === 'open' && (d.textContent||'').includes('${HOST_JOB}'));
         return dl ? 'MODAL' : 'NONE';
       })() + ''`));
       if (has === "MODAL") return true;

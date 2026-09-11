@@ -76,8 +76,10 @@ export const FIND_STATUSES: { value: JobStatus; label: string }[] = [
 
 /** Chip dialect — the SAME hue family the status badges and minimap
  *  fills already use for each state (teal/emerald/rose/slate/amber); a
- *  filter chip that recolored "running" purple would be a lie. */
-const STATUS_CHIP: Record<string, { dot: string; active: string }> = {
+ *  filter chip that recolored "running" purple would be a lie. Exported
+ *  so the footer's status census borrows the exact same hues — every
+ *  surface that speaks "status" must use the world's own vocabulary. */
+export const STATUS_CHIP: Record<string, { dot: string; active: string }> = {
   running: {
     dot: "bg-teal-500",
     active:

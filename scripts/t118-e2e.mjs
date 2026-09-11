@@ -104,11 +104,23 @@ const mapGeo = async () =>
     const r = svg.getBoundingClientRect();
     return { wx: vb[0], wy: vb[1], ww: vb[2], wh: vb[3], x: r.x, y: r.y, w: r.width, h: r.height };
   });
-/** client point on the minimap for a world point (per current viewBox) */
-const worldToClient = (g, wx, wy) => ({
-  x: g.x + ((wx - g.wx) / g.ww) * g.w,
-  y: g.y + ((wy - g.wy) / g.wh) * g.h,
-});
+/** client point on the minimap for a world point — LETTERBOX-AWARE
+ *  (Task 138's toWorld lesson, mirrored back into probe space): the
+ *  product renders the viewBox with preserveAspectRatio xMidYMid, so a
+ *  viewBox whose aspect ≠ svg box aspect gets centered bands and a
+ *  uniform scale. The old linear map (independent x/y stretch) landed
+ *  systematically off — it only ever passed because the world's aspect
+ *  happened to match; the Task 140 world repairs changed the bbox shape
+ *  and exposed it. Inversion must know the projection, both directions. */
+const worldToClient = (g, wx, wy) => {
+  const s = Math.min(g.w / g.ww, g.h / g.wh);
+  const ox = (g.w - g.ww * s) / 2;
+  const oy = (g.h - g.wh * s) / 2;
+  return {
+    x: g.x + ox + (wx - g.wx) * s,
+    y: g.y + oy + (wy - g.wy) * s,
+  };
+};
 /** map-click navigation: fresh geometry every time (the map re-frames
  *  after each navigation, so stale geometry lies) */
 const mapClick = async (wx, wy) => {

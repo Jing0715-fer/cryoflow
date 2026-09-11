@@ -4145,3 +4145,30 @@ Stage Summary:
 - 「探针的点也要命中验证」：shift+click 的 pointerdown 被wire 合法吞掉（产品无错——wire 本就要可点）——网格扫描 + elementFromPoint 命中验证是「query the geometry, don't pin the actor」在点击目标域的形态：不止 chip 会重排，点击点本身也要被验证打在想要的元素上
 - 「DOM 全集才是名册」：viewBox 外的 chip 视觉被裁剪但元素在场且带 dim——「除选中全员 dim」是 52 不是肉眼可见的 4。枚举肉眼演员是探针的读心术；集合不变量（dim == dots − selection）才是合同。第四次重演「断言不变量，别钉具体演员」
 - 遗留（下轮候选）：minimap sel 模式 chip 点击聚焦已闭环 → 下一个 headless 候选是「canvas wire 横穿卡中心的偷点击」（产品级已知项：wire 有意可交互，z 序在卡上——真机抱怨再评估，探针已有网格扫描范式可借鉴到真实用户教育/智能点位）；find 三维的持久化讨论（真机反馈再评估）；favorites 拖拽排序（真机）；预览卡端口点/边高亮（真机）；建议连线手感（真机）；runner wall-time 剖面（qa64 74s 十四轮一致，继续让位）；世界卫生观察账本（本轮 9 块首跑全绿零撞车，账本在记）；EMPIAR 真数据回归（重，让位）；用户真机项；undo 手感参数；诊断签名命中率观察（真机）
+
+---
+Task ID: 140
+Agent: main (cron window 2026-09-12 06:00:37 +08:00, trace …202609120600)
+Task: 例行七条——开局核对 + QA 判稳 → 选题开发（footer 状态普查即透镜入口）→ 回归 → 交接闭环。本轮交付「chrome 也说透镜方言」+ 三处世界几何病灶的持久修复（reach-first 补课 ×3、letterbox 反演补课 ×1、hygiene NN 审计）
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 139（4a87f65 == origin/main，树净）；BUILD_ID tllbp7maGY6wW8D-qXLAu 匹配；冷启动 1s READY；三件套（qa63/qa00/t139 42）全绿；hygiene 首跑 2 重叠（上轮残留）→ 二跑 0/0/0 稳态 → 判稳
+- 【选题】Task 139 交接的 headless 候选已薄（wire 偷点击/find 持久化均待真机）→ 自主定案「footer 状态普查即透镜入口」：footer 从纯信息条升级为活的 census，延续 T135→139 透镜弧线的 chrome 面
+- 【实现·census】footer.tsx 重写：useActiveWorkspaceJobs 计数（canvas 同源名册）、FIND_STATUSES 序、presence-derived（count>0 才渲染——不存在的过滤器不能存在）；每项 = dot(STATUS_CHIP 借色，running 常驻 soft-pulse=世界心跳)+count+label（lg 下藏字、sr-only 补读屏）；点击 openFind()+setFindStatus(value)——footer 只写 store 字段，ring/dim/琥珀/循环全家自动同源（一个谓词第 N 只眼）
+- 【实现·toggle 合同】「restore to the state you found」：干净透镜上再点=closeFind() 整体关；用户叠加了意图（打字/类别）再点=仅 setFindStatus("all") 解除——一次点击永不摧毁别人的话
+- 【t140 探针】七相 45 断言两跑全绿：S 种 6 卡（running 带新鲜 startedAt）；B census 集合/计数/序/未武装全 oracle（API 派生）；C 一击开镜（bar chip 与 footer aria-pressed 双侧同态、count==rings==琥珀==rendered∩status、dim==rendered−matches）；D 换臂/文本∧状态组合/诚实 "no matches"；E toggle 双语义（干净关整镜/叠加仅解除+查询存活）；F Ctrl+F 与 find-toggle 入口无恙；G 屏摄；Z console 清+roster 还原
+- 【探针伤】typeQuery("") 的 keyboard.type 空串不输入字符——Control+a 只选中未删除；补 Delete 键分支（E1 假红修复）
+- 【真病灶一·世界蔓延】全矩阵块 4 t107/t108/t109 三套一致 "inspector modal never appeared"（t103 同块瞬时抖动复跑即愈）：Micrographs 10 静默漂移至 x=9280（次远卡 2340，距 7160px）→ boot fit 钳 0.25 仍溢出 → 内容居中外溢 → x≈150 的 QA Post 320 卡出视口 → reach-less openInspector 十次盲点全失。手动归位 (2640,160)（撞 QA MotionCorr → overlap 审计依设计分巢）→ t107 即绿 → footer 无罪
+- 【修复·reach-first 补课】t107/t108/t109 的 openInspector 补 t112 正典 reachHost（Ctrl+F dispatch → 原生 setter+input 事件注入 → Enter=focusJob 居中 → Esc），dialog 判定升正身（data-state open ∧ 文本含名）——世界几何无关化；t111/t112/t113 本就是 reach-first（宽世界仍绿之因），t110/qa69 不走卡点击
+- 【证明】复现事故：手动把 Micrographs 4 拉到 x=9000 → t108 仍 72 断言全绿（reach-first 顶住）→ 加固版 hygiene 收回（bbox 审计捕获 9000 离群）
+- 【修复·hygiene EXTENT-NN】新 audit 1b：最近邻距离不变量（NN_STRAY_GAP=1600，rect gap Chebyshev）——bbox 检查的互 shadow 盲区（两个共谋离群互相藏在对方 rest-bbox 内）由邻居不变量堵死；上移检测区保证与 bbox 孤儿同批重定位；去重守卫防双计（首次实现漏了，dogfood 抓到）
+- 【真病灶二·letterbox 反演补课】块 5 t118 A7 一败：t118 的 worldToClient 是线性拉伸反演（T138 教义写下于探险之前）——此前靠世界纵横比巧合蒙混，世界修复改变 bbox 形状 → 地图现留白带 → 系统性偏移。升级为 uniform scale + 居中带补偿（min 缩放 + 中心偏移）→ A7 ±3 全绿 69 断言
+- 【收尾】构建 BUILD_ID CCqV_ZFsEER9_HjSF3hqw；t140 45×2、t103/107/108/109/118 复绿；全矩阵 76 套（t140 auto-include 位 #66）分 9 块 0 失败——块 4 四败与块 5 一败全部修复闭环，最终世界状态补验 t103/107/109 亦绿；块峰 207MB 零阈值重启；worklog + commit + push + 环境清理
+
+Stage Summary:
+- 「chrome 也说透镜方言」：透镜的完成态不止于 canvas 内的门（计数、琥珀点），chrome 上的聚合数（footer census）也是入口——同一个 store、同一个谓词，footer 只写不读判。聚合数从「报告」升级为「触发」的第三站（bar 计数→minimap 点→footer 普查）；借色纪律不变（STATUS_CHIP 原样导出共享），running 的 dot 常驻脉冲是世界的心跳不是透镜的
+- 「reach-first 是探针的免疫」：任何依赖 boot 几何的点击都是世界漂移的人质——本轮三套一致假红不是 bug 是免疫缺陷，reach-first 补课（t107/t108/t109）后同样的 9000px 世界只能证明修复。「假绿会翻转成真红」的逆命题：真红翻回绿之后，要把「为什么曾经红」铸成不变量，而不是庆幸
+- 「反演必须懂投影（第二次重演）」：t118 的线性 worldToClient 靠纵横比巧合活了多轮——巧合不是合同。世界形状一变，同一段代码从绿翻红。T138 的 toWorld 修复与 T140 的 worldToClient 修复是同一节课的两个方向：forward 渲染与反向查询必须过同一套投影数学
+- 「hygiene 的审计也是不变量清单」：ADOPT（roster==canvas）、EXTENT-bbox（世界紧致）、EXTENT-NN（无孤卡——最近邻 1600px 内必有同类）、OVERLAP（无叠卡）。bbox 是集合性质，NN 是拓扑性质——两者互补才完整：bbox 抓「世界的形状错了」，NN 抓「这张卡不属于任何簇」
+- 「修世界前先问谁污染」：Micrographs 10 的 updatedAt 冻结在批写时刻（PATCH x/y 不触 updatedAt）——DB 的时间戳对位置域是盲的，考古线索冷时把修复铸成不变量（NN 审计 + reach-first）比追凶手更值
+- 遗留（下轮候选）：find 三维持久化（真机反馈再评估）；favorites 拖拽排序（真机）；预览卡端口点/边高亮（真机）；建议连线手感（真机）；runner wall-time 剖面（qa64 74s 十五轮一致，继续让位）；EMPIAR 真数据回归（重，让位）；世界卫生观察账本（本轮块 4/5 的两批假红全部溯源修复，下轮观察是否绝迹）；用户真机项；undo 手感参数；诊断签名命中率观察（真机）

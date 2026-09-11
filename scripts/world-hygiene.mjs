@@ -18,6 +18,14 @@
 //     a seven-suite cascade of fake failures (qa58/59/60/61/62/64/66 all
 //     click cards that are simply not in the viewport). Moved back beside
 //     the main cluster, never deleted (suites reference cards by name).
+//   EXTENT-NN (Task 140) — the bbox check has a mutual-shadowing blind
+//     spot: TWO conspiring outliers each sit inside the other's rest-bbox
+//     and both survive. The neighbour invariant doesn't blink: a card
+//     whose nearest LIVE neighbour is NN_STRAY_GAP away belongs to no
+//     cluster, whatever the bbox says. (Born from a real incident: a card
+//     silently at x=9280 while the rest of the world ended at 2340 made
+//     boot fit spill x≈150 content off-screen and t107/t108/t109's
+//     reach-less inspector clicks miss ten times in a row.)
 //
 // Cards are MOVED, never deleted; edges survive a move. Destination slots
 // are occupancy-aware: a slot is only used if no CURRENT job rectangle
@@ -69,6 +77,27 @@ for (const c of j) {
     c.y > rest.maxY + OUTLIER_GAP || c.y + ch < rest.minY - OUTLIER_GAP ||
     c.x > rest.maxX + OUTLIER_GAP || c.x + cw < rest.minX - OUTLIER_GAP
   ) orphans.push(c);
+}
+
+// ---------- audit 1b: nearest-neighbour strays (mutual shadowing) ----------
+// Runs BEFORE the relocation block so NN strays ride the same PATCH pass.
+const NN_STRAY_GAP = 1600;
+const rectGap = (a, b) => {
+  const dx = Math.max(0, Math.max(a.x - (b.x + cw), b.x - (a.x + cw)));
+  const dy = Math.max(0, Math.max(a.y - (b.y + ch), b.y - (a.y + ch)));
+  return Math.max(dx, dy);
+};
+for (const c of j) {
+  if (orphans.includes(c)) continue; // already recalled by the bbox pass
+  let best = Infinity;
+  for (const o of j) {
+    if (o.id === c.id) continue;
+    best = Math.min(best, rectGap(c, o));
+  }
+  if (best > NN_STRAY_GAP) {
+    orphans.push(c);
+    console.log(`nn-stray: ${c.name} — nearest neighbour ${Math.round(best)}px away (belongs to no cluster)`);
+  }
 }
 
 // destination: right of everything that exists (the overlap grid below
