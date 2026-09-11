@@ -414,6 +414,18 @@ interface WorkflowState {
    *  were dimmed last session" to survive a reload. Toggled from the
    *  header chip, the command palette, or the N key. */
   noteSpotlight: boolean;
+  /** Task 134 — canvas find bar (Ctrl/⌘+F). Two ephemeral fields:
+   *  whether the floating find bar is open, and the live query typed
+   *  into it. Matching cards ring amber; everything else recedes with
+   *  the same dim the note spotlight uses; Enter/Shift+Enter cycle the
+   *  viewport through matches via focusJob (arrival flash included).
+   *  In-memory only, like the selection and the spotlight: a find is a
+   *  viewing lens over the CURRENT canvas, not a document property —
+   *  closing the bar clears the query, and nobody expects a stale
+   *  highlight to survive a reload. Deliberately NOT in the undo
+   *  history: nothing on the canvas changed. */
+  findOpen: boolean;
+  findQuery: string;
   /** Parsed workflow files awaiting confirmation in the import dialog —
    *  the dialog shows a QUEUE (one summary row per file, plus per-file
    *  parse failures) + one shared target-workspace picker before any
@@ -517,6 +529,15 @@ interface WorkflowState {
   setTemplatePresetsOpen: (open: boolean) => void;
   setShortcutsOpen: (open: boolean) => void;
   toggleNoteSpotlight: () => void;
+  /** Task 134 — open the find bar (Ctrl/⌘+F, command palette, or the
+   *  toolbar button). Opening focuses the input (the bar owns that
+   *  effect); reopening while open is a no-op so the shortcut is
+   *  idempotent rather than a toggle (Ctrl+F twice ≠ close). */
+  openFind: () => void;
+  /** Close the bar and CLEAR the query — an ephemeral lens leaves no
+   *  residue; reopening starts fresh like the browser's own find. */
+  closeFind: () => void;
+  setFindQuery: (q: string) => void;
   /** Stage parsed files for the import dialog (replaces any earlier
    *  staging — one picker session at a time). */
   openImportPreview: (entries: ImportPreviewEntry[], failures: ImportFailure[]) => void;
@@ -789,6 +810,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   shortcutsOpen: false,
   minimapOpen: true,
   noteSpotlight: false,
+  findOpen: false,
+  findQuery: "",
   importPreview: null,
   loading: true,
   error: null,
@@ -2731,6 +2754,9 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   setShortcutsOpen: (open) => set({ shortcutsOpen: open }),
   setMinimapOpen: (open) => set({ minimapOpen: open }),
   toggleNoteSpotlight: () => set((s) => ({ noteSpotlight: !s.noteSpotlight })),
+  openFind: () => set((s) => (s.findOpen ? s : { findOpen: true })),
+  closeFind: () => set({ findOpen: false, findQuery: "" }),
+  setFindQuery: (q) => set({ findQuery: q }),
 
   openImportPreview: (entries, failures) =>
     set({ importPreview: { entries, failures } }),

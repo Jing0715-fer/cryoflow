@@ -67,6 +67,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     scope: "canvas",
     rows: [
       { keys: "F", text: "Center the selected job in the viewport" },
+      { keys: "⌘/Ctrl F", text: "Find jobs on canvas — matches ring amber, Enter cycles" },
       { keys: "← → ↑ ↓", text: "Walk the graph — hop the anchor to the nearest card in that direction (⇧ extends)" },
       { keys: "0", text: "Reset pan & zoom (100 %)" },
       { keys: "1–9", text: "Jump to a bookmarked view — seats shown in the bookmarks panel" },

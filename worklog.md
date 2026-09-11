@@ -4005,3 +4005,25 @@ Stage Summary:
 - 「先过滤后搜索」：favOnly 门在搜索之前——「在我的收藏里找」和「在全部里找」是两个意图；组合而非覆盖，两个维度正交
 - 「探针的 sticky 头课」：sticky 元素合法地遮挡滚动到顶边的行——Playwright 的 actionability 检查永远等不到；折叠分类里的行是 opacity-0 幽灵。expandAll + force click 是 palette 类 UI 探针的标准起手式（与 Task 129 的 pan-until-visible 同族：校准常数会过期，闭环不会）
 - 遗留（下轮候选）：favorites 的进一步细节（拖拽排序、按使用频次建议星标，真机反馈再评估）；模板搜索按 job type 过滤/日期排序（真机）；预览卡端口点/边高亮（真机）；建议连线手感增强（真机）；runner wall-time 剖面（继续让位）；qa60/qa75 瞬时抖动的观察账本（本轮 qa61 1 次、qa75 2 次，继续记账）；EMPIAR 真数据回归（重，继续让位）；用户真机项；minimap mode 持久化；undo 手感参数调优；诊断签名命中率观察（真机）
+
+---
+Task ID: 134
+Agent: main (cron self-inspection loop, Job 362852, 2026-09-11 21:15 window)
+Task: cron 自主巡检——Task 134「canvas find bar（Ctrl+F）：画布上的环境式匹配透镜」。开局核实 worklog 尾部实际为 Task 133/7ee7489 == origin/main（旧摘要快照仍停在 Task 131——19:30/20:15 两窗口已分别执行为 Task 132/133，以 worklog 为准），冷启动 + smoke/qa00/t133 三件套绿判稳。交接候选盘点：Task 133 遗留多为真机让位项 → 定案「画布查找」——命令面板能跳到一个 job，但回答不了「所有叫 motion 的都在哪」；货架搜索（Task 132）、palette 收藏（Task 133）之后整理能力第三面。交付：store find 切片（findOpen/findQuery 瞬态、openFind 幂等非 toggle、closeFind 清查询、不入 undo）+ canvas-find-bar.tsx（jobMatchesQuery 单谓词双消费者 + k-of-N 诚实计数 + Enter/Shift+Enter 循环 + Ctrl+F 窗口监听三重守卫）+ canvas 派生 findMatchIds（匹配琥珀 ring / 非匹配复用 note-spotlight-dim / 零匹配不 dims）+ JobCard findMatch prop（ring 优先级让位 selection/band/inspect + zIndex 25 抬升）+ 工具栏 find-toggle 钮 + palette/shortcuts 双登记 + t134 36 断言七相两跑绿（矩阵位 #54，wall 12s）+ 受影响面 10/10 全绿 + 全矩阵 70 套分 7 块 0 失败 + worklog + push
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部 Task 133（7ee7489 == origin/main，树净）；BUILD_ID zxwvED3iffDLSymeBnRYF 匹配；冷启动 1s READY + qa63-smoke/qa00/t133(28) 三件套全绿；agent-browser 快照核实 palette 收藏真机在场（星标钮、只看收藏、36 类型）→ 稳定
+- 【选题】Task 133 交接候选多为真机让位（favorites 拖拽排序、预览端口点、建议手感）；rg 盘点确认画布无增量查找（palette jump 是模态单跳，无全部高亮）——160 jobs 的演示项目上找特定 job 是真实痛点，「搜索/过滤/整理」谱系第三面（货架 132 → palette 133 → 画布 134）
+- 【实现·store】findOpen/findQuery 瞬态字段（同 selection/spotlight：视图透镜不是文档属性，重载后无人期待旧高亮幸存；刻意不入 undo——画布什么都没变）；openFind 幂等（Ctrl+F 两次 ≠ 关闭，s.findOpen ? s : {...}）；closeFind 连查询一起清（「透镜不留残迹」）
+- 【实现·bar】canvas-find-bar.tsx：jobMatchesQuery 导出谓词（name ∨ type label 大小写不敏感子串——「motion」同时命中 Motion Correction 2 和改名的 My motion pass）；计数诚实三分支「N matches → k of N → no matches」——cur=null 直到第一次 Enter，数字永远只声称视口真正居中的那一个；go(dir) 函数式 setState + base 越界折叠（jobs 变动下 clamp）；input Escape preventDefault（page 层 Escape 阶梯先查 defaultPrevented——Task 132 Radix capture 教训的正向应用）；Ctrl+F 监听三重守卫（input/textarea 豁免 find-bar 自身 + dialog/menu 在场让路 + preventDefault 压浏览器原生查找）；pendingFrom 时 bar 让位 connect-hint（同一个 top-center 槽位）
+- 【实现·canvas+card】findMatchIds useMemo 与 bar 同谓词（一个匹配器两个消费者——edge-geom 共享数学同律）；findLens = 有查询 ∧ ≥1 匹配（零匹配不 dims——画布不能全黑，count 携带诚实）；JobCard findMatch prop：琥珀 ring（border-amber-500 dark:border-amber-400）+ data-find-match 探针锚 + zIndex 25 抬升 + running/linked 虚线分支加 ！findMatch 守卫（find ring 赢过 running 呼吸框）；selection/band/inspect 环优先级高于 find（更强意图，count 仍告知匹配）；bar 用 useActiveWorkspaceJobs 与画布同名单——全项目计数会虚报视口永远看不见的卡
+- 【探针伤情一折】C4 从 API roster 挑非匹配卡 → 幽灵 locator 超时（API 跨全工作区，DOM 只渲染活动工作区）——改从 [data-job] 实渲染集合挑；F1 oracle 同族堵漏（expected ∩ onCanvas）；终跑 36 断言两跑全绿，F1 强断言：48 张 ctffind 卡的 UI 匹配集 == API 谓词精确相等
+- 【收尾】eslint 0、tsc src 0、构建 BUILD_ID 9z8lz0vU1ZNuj7tzdKTLu（首次 ENOTEMPTY standalone 抖动重试即过）；受影响面 smoke/qa00/t124(32)/t131(25)/t132(30)/t133(28)/t126(40)/qa75/qa76/qa83 十面全绿；全矩阵 70 套（t134 auto-include 位 #54，wall 12s）分 7 块前台串行 0 失败（块峰 185-201MB 零阈值重启，Task 122 卫生学持续生效）；worklog + commit + push + 环境清理
+
+Stage Summary:
+- 「跳转回答一个，透镜回答全部」：命令面板是模态的单跳（take me to X），find bar 是环境的全体高亮（where is everything named motion）——两个工具不冗余，因为两个问题不同。整理能力三面各答一问：货架搜索找模板、palette 收藏沉淀习惯、画布查找定位现场
+- 「计数不声称你没在看的东西」：N matches → k of N → no matches 三态里，k 永远指向视口真正居中的那一张——首次 Enter 前是「3 matches」而不是「1 of 3」。数字的诚实与视口的真实一致，是 find 类 UI 的隐合同
+- 「零匹配不清场」：dim 需要 ≥1 命中才启动——零匹配把整张画布调暗是惩罚提问的人；count 用 destructive 色携带「no matches」，画布保持可用。诚实的空态不劫持视口
+- 「一个谓词两个消费者」：bar 计数与 canvas 调暗/ring 走同一个导出的 jobMatchesQuery——匹配判定存在两份的时刻就是它开始漂移的时刻（edge-geom 共享数学、template-io 校验器同律第四次应用）；bar 与 canvas 同用 useActiveWorkspaceJobs 则是同一律的计数版：跨工作区的匹配是视口永远无法兑现的空头支票
+- 「Escape 的归属权要显式声明」：find input 的 Escape preventDefault 后，page 层阶梯（先查 defaultPrevented）自动让位——关透镜不塌选择。Task 132 在 Radix capture 相位学到的规则，在普通 input 上是它的正向形式：每个 Escape 都要有一个明确的主人
+- 遗留（下轮候选）：find 的进一步细节（匹配计数点击滚动缩略图联动、按状态过滤 running/completed，真机反馈再评估）；favorites 拖拽排序（真机）；预览卡端口点/边高亮（真机）；建议连线手感增强（真机）；runner wall-time 剖面（qa64 73s 九轮一致，继续让位）；qa60/qa75 瞬时抖动观察账本（本轮全矩阵零抖动）；EMPIAR 真数据回归（重，继续让位）；用户真机项（class3d/refine3d 顺序模式、topaz 实测、文件夹拖拽手势、TSV/海报粘贴验证）；minimap mode 持久化（真机）；undo 手感参数调优；诊断签名命中率观察（真机）

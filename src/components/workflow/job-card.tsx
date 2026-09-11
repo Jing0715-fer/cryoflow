@@ -528,6 +528,13 @@ interface JobCardProps {
   /** True while the rubber band currently sweeps over this card
    *  (pre-commit highlight — a lighter ring, not a selection yet). */
   bandMatch: boolean;
+  /** Task 134 — the canvas find lens: this card matches the live find
+   *  query. An AMBER ring (distinct from the primary selection ring and
+   *  the teal inspected ring) plus a slight z-lift so matches sit above
+   *  their dimmed neighbors; the ring yields to selection/band/inspect
+   *  — those are stronger intents, and the count chip still tells the
+   *  user the card matched. */
+  findMatch?: boolean;
   zoom: number;
   /** Pending connection source ({jobId, port}) or null. */
   pendingFrom: PendingFrom | null;
@@ -797,6 +804,7 @@ export const JobCard = React.memo(function JobCard({
   selected,
   primary,
   bandMatch,
+  findMatch,
   zoom,
   pendingFrom,
   pendingFromType,
@@ -1266,13 +1274,14 @@ export const JobCard = React.memo(function JobCard({
     <JobCardMenu job={job} onSelect={onSelect} onInspect={onInspect}>
       <div
         data-job={job.id}
+        data-find-match={findMatch ? "true" : undefined}
         className={cn("absolute", dimmed && "note-spotlight-dim")}
         style={{
           left: job.x,
           top: job.y,
           width: CARD_W,
           height: CARD_H,
-          zIndex: selected || bandMatch ? 30 : dragging ? 20 : 10,
+          zIndex: selected || bandMatch ? 30 : findMatch ? 25 : dragging ? 20 : 10,
         }}
       >
         {/* Task 124 — arrival flash: keyed by focusEpoch so each reveal
@@ -1311,17 +1320,21 @@ export const JobCard = React.memo(function JobCard({
                 ? "border-primary/60 ring-2 ring-primary/40" // rubber band is sweeping over — pre-commit
                 : inspected
                   ? "border-teal-500 ring-2 ring-teal-500/70"
-                  : "hover:border-primary/50 hover:shadow-md",
+                  : findMatch
+                    ? "border-amber-500 ring-2 ring-amber-500/50 dark:border-amber-400 dark:ring-amber-400/50" // find lens hit (Task 134)
+                    : "hover:border-primary/50 hover:shadow-md",
             job.status === "running" &&
               !selected &&
               !inspected &&
               !bandMatch &&
+              !findMatch &&
               "job-running border-teal-400/60 dark:border-teal-500/50",
             // soft links: dashed outline + tinted body (read-only mirror)
             job.linkedJobId != null &&
               !selected &&
               !inspected &&
               !bandMatch &&
+              !findMatch &&
               "border-dashed border-primary/45 bg-primary/[0.03]"
           )}
           title={

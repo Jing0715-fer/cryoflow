@@ -29,6 +29,7 @@ import {
   Link2,
   Loader2,
   RotateCcw,
+  Search,
   Trash2,
   Map as MapIcon,
   Move,
@@ -50,6 +51,7 @@ import {
 } from "@/lib/workflow";
 import { hasJudgment } from "@/lib/class-notes";
 import { pendingWirePath } from "@/lib/edge-geom";
+import { CanvasFindBar, jobMatchesQuery } from "./canvas-find-bar";
 import { copyCanvasPng, exportCanvasPng, fmtBytes } from "@/lib/canvas-export";
 import {
   buildWorkflowFile,
@@ -918,6 +920,24 @@ export function WorkflowCanvas() {
   const setMinimapOpen = useWorkflowStore((s) => s.setMinimapOpen);
   const undoSteps = useWorkflowStore((s) => s.undoSteps);
   const redoSteps = useWorkflowStore((s) => s.redoSteps);
+  // Task 134 — the find lens: the bar owns the input; the canvas derives
+  // the match set with the SAME exported predicate the bar counts with
+  // (one matcher, two consumers) to ring matches amber and dim the rest.
+  const findOpen = useWorkflowStore((s) => s.findOpen);
+  const findQuery = useWorkflowStore((s) => s.findQuery);
+  const openFind = useWorkflowStore((s) => s.openFind);
+  const closeFind = useWorkflowStore((s) => s.closeFind);
+  const findMatchIds = React.useMemo(() => {
+    const q = findQuery.trim();
+    if (!findOpen || !q) return null;
+    const ids = new Set<string>();
+    for (const j of jobs) if (jobMatchesQuery(j, q)) ids.add(j.id);
+    return ids;
+  }, [findOpen, findQuery, jobs]);
+  // The lens only engages with a live query AND at least one match — a
+  // zero-match search must not blank the canvas (the count chip carries
+  // the "no matches" honestly instead).
+  const findLens = findMatchIds != null && findMatchIds.size > 0;
 
   // history panel (local open state — the panel is a transient surface,
   // not a persisted preference)
@@ -1860,7 +1880,11 @@ export function WorkflowCanvas() {
             <JobCard
               key={job.id}
               job={job}
-              dimmed={noteSpotlight && !hasJudgment(job)}
+              dimmed={
+                (noteSpotlight && !hasJudgment(job)) ||
+                (findLens && !findMatchIds!.has(job.id))
+              }
+              findMatch={findLens && findMatchIds!.has(job.id)}
               selected={selectedIds.includes(job.id)}
               primary={selectedId === job.id}
               bandMatch={bandIds?.has(job.id) ?? false}
@@ -1939,6 +1963,11 @@ export function WorkflowCanvas() {
 
       {/* Bulk-selection toolbar (align · distribute · duplicate · delete) */}
       <SelectionToolbar rootRef={rootRef} hidden={band != null} />
+
+      {/* Task 134 — canvas find bar (Ctrl/⌘+F): ambient match lens; the
+          connect hint owns the same top-center slot while a wire is
+          pending, so the bar stands down for it */}
+      <CanvasFindBar />
 
       {/* Task 129 — post-apply connection suggestions (bottom-center chip) */}
       <TemplateSuggestionsChip />
@@ -2072,6 +2101,22 @@ export function WorkflowCanvas() {
           data-canvas-ui="minimap-toggle"
         >
           <MapIcon className="size-4" />
+        </Button>
+        <span className="mx-0.5 h-4 w-px bg-border" aria-hidden="true" />
+        {/* Task 134 — find lens toggle, same dialect as the minimap
+            toggle: one keypress (Ctrl+F) and this button agree on one
+            source of truth; active state reads the store. */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className={`size-7 ${findOpen ? "text-primary" : ""}`}
+          onClick={() => (findOpen ? closeFind() : openFind())}
+          aria-pressed={findOpen}
+          aria-label="Find jobs on canvas"
+          title="Find jobs by name or type (Ctrl+F)"
+          data-canvas-ui="find-toggle"
+        >
+          <Search className="size-4" />
         </Button>
         <span className="mx-0.5 h-4 w-px bg-border" aria-hidden="true" />
         {/* Task 104 — undo/redo live next to the tools they reverse: the

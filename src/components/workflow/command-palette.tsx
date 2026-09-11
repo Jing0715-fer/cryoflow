@@ -37,6 +37,7 @@ import {
   Radar,
   RadioTower,
   RotateCcw,
+  Search,
   SlidersHorizontal,
   StickyNote,
   TrendingDown,
@@ -104,6 +105,9 @@ export function CommandPalette() {
   const switchWorkspace = useWorkflowStore((s) => s.switchWorkspace);
   const noteSpotlight = useWorkflowStore((s) => s.noteSpotlight);
   const toggleNoteSpotlight = useWorkflowStore((s) => s.toggleNoteSpotlight);
+  // Task 134 — the palette can jump to ONE job; the find bar lenses ALL
+  // of them. The command hands off to the bar (it owns input focus).
+  const openFind = useWorkflowStore((s) => s.openFind);
   // Export group target (Task 110): the inspector job, else primary selection
   const inspectId = useWorkflowStore((s) => s.inspectId);
   const selectedId = useWorkflowStore((s) => s.selectedId);
@@ -774,6 +778,19 @@ export function CommandPalette() {
           <CommandItem value="tidy layout arrange auto" onSelect={tidyLayout} className="gap-2.5">
             <Wand2 className="size-4 shrink-0" />
             <span className="flex-1 text-sm">Tidy layout</span>
+          </CommandItem>
+          <CommandItem
+            value="find search locate ring matches lens canvas discover"
+            onSelect={() => {
+              if (view !== "canvas") setView("canvas");
+              openFind();
+              close();
+            }}
+            className="gap-2.5"
+          >
+            <Search className="size-4 shrink-0 text-muted-foreground" />
+            <span className="flex-1 text-sm">Find on canvas</span>
+            <CommandShortcut>⌘/Ctrl F</CommandShortcut>
           </CommandItem>
           <CommandItem
             value="note spotlight annotated annotations margin lens filter dim discover"
