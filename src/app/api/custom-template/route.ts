@@ -34,6 +34,9 @@ export const dynamic = "force-dynamic";
  *                            (the export-ALL leg, Task 130 — the client
  *                            wraps them into one bundle file)
  * - POST {name, payload}   → save (validate + normalize)
+ * - PATCH ?id= {name}      → rename (Task 132 — the payload is untouched;
+ *                            the row keeps its createdAt, so the shelf's
+ *                            reading order never moves under a rename)
  * - PUT  {id, workspaceId?} → apply into a workspace (mints fresh rows)
  * - DELETE ?id=            → forget one
  * - DELETE ?all=1          → forget every template in the project (the
@@ -227,6 +230,61 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ template: summary }, { status: 201 });
   } catch (error) {
     console.error("POST /api/custom-template failed:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
+/**
+ * Rename a saved snippet — the one editable field of a shelf row. The
+ * payload is deliberately OUT of reach here: a rename that could mutate
+ * the shape would be an apply-time surprise, and the shelf's reading
+ * order (createdAt desc) must never move under an edit. Name rules are
+ * the POST's own (trim, cap, required) — two handlers, one contract.
+ */
+export async function PATCH(request: NextRequest) {
+  try {
+    const id = request.nextUrl.searchParams.get("id");
+    if (!id) {
+      return NextResponse.json({ error: "Template id is required" }, { status: 400 });
+    }
+    const body = (await request.json().catch(() => ({}))) as { name?: unknown };
+    const name = typeof body.name === "string" ? body.name.trim().slice(0, MAX_NAME) : "";
+    if (!name) {
+      return NextResponse.json({ error: "Template name is required" }, { status: 400 });
+    }
+    const active = await ensureActiveProject();
+    if (!active) {
+      return NextResponse.json({ error: "No project available" }, { status: 500 });
+    }
+    const row = await db.customTemplate.findFirst({
+      where: { id, projectId: active.project.id },
+    });
+    if (!row) {
+      return NextResponse.json({ error: "Template not found" }, { status: 404 });
+    }
+    const updated = await db.customTemplate.update({
+      where: { id },
+      data: { name },
+    });
+    let jobCount = 0;
+    let edgeCount = 0;
+    try {
+      const parsed = JSON.parse(row.payload) as CustomTemplatePayload;
+      jobCount = Array.isArray(parsed.jobs) ? parsed.jobs.length : 0;
+      edgeCount = Array.isArray(parsed.edges) ? parsed.edges.length : 0;
+    } catch {
+      // corrupt row — counts stay honest-zero (mirrors the list mapping)
+    }
+    const summary: CustomTemplateSummary = {
+      id: updated.id,
+      name: updated.name,
+      jobCount,
+      edgeCount,
+      createdAt: updated.createdAt.toISOString(),
+    };
+    return NextResponse.json({ template: summary });
+  } catch (error) {
+    console.error("PATCH /api/custom-template failed:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

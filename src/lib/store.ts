@@ -376,6 +376,10 @@ interface WorkflowState {
   /** Task 128 — download a saved template as a cryoflow-template/1 .json
    *  file (the share leg of save → apply → share). */
   exportCustomTemplate: (id: string) => Promise<boolean>;
+  /** Task 132 — rename a shelf row (PATCH ?id=); the payload and the
+   *  shelf's reading order stay untouched. Resolves false on failure
+   *  (row stays editable for a retry). */
+  renameCustomTemplate: (id: string, name: string) => Promise<boolean>;
   /** Task 130 — download EVERY template on the shelf as ONE bundle file
    *  (cryoflow-template-bundle/1); returns false when the shelf is empty
    *  or the fetch failed. */
@@ -2572,6 +2576,30 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       return true;
     } catch (err) {
       errToast(err instanceof Error ? err.message : "Failed to export the template");
+      return false;
+    }
+  },
+
+  // Task 132 — rename: PATCH returns the updated summary and the SERVER
+  // name lands in the shelf (trimmed/capped by the same rules as POST);
+  // the row updates in place — createdAt is untouched, so the reading
+  // order never jumps under the user's eye.
+  renameCustomTemplate: async (id, name) => {
+    try {
+      const { template } = await api<{
+        template: CustomTemplateSummary;
+      }>(`/api/custom-template?id=${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ name }),
+      });
+      set((s) => ({
+        customTemplates: s.customTemplates.map((t) =>
+          t.id === id ? { ...t, name: template.name } : t
+        ),
+      }));
+      return true;
+    } catch (err) {
+      errToast(err instanceof Error ? err.message : "Failed to rename the template");
       return false;
     }
   },

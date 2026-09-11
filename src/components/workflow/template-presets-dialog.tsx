@@ -22,7 +22,7 @@
  */
 
 import * as React from "react";
-import { Download, LayoutTemplate, Loader2, Sparkles, Trash2, Upload, Wand2, Zap } from "lucide-react";
+import { Download, LayoutTemplate, Loader2, Pencil, Search, Sparkles, Trash2, Upload, Wand2, X, Zap } from "lucide-react";
 import { useWorkflowStore } from "@/lib/store";
 import type { CustomTemplateSummary, TemplateOverrides } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -71,6 +71,11 @@ interface FormState {
 
 /** localStorage key for the last created configuration */
 const LAST_KEY = "cryoflow:template-presets:last";
+
+/** Task 132 — the shelf search box exists only when there is something to
+ *  search: below five rows the shelf fits on one screen and the box is
+ *  chrome, not capability (same doctrine as the batch tools' N ≥ 2). */
+const SEARCH_THRESHOLD = 5;
 
 /**
  * Defensive re-validation of a persisted { form, preset } pair — anything
@@ -201,18 +206,43 @@ const PRESETS: Preset[] = [
  * "Export all" lands every template as ONE bundle .json, the trash
  * button arms a two-step "Delete all N?" confirm in the header itself
  * (the same arm → confirm dialect the rows use — no modal detour).
+ *
+ * Task 132 — a shelf row's inline editor (and the search box) owns Escape
+ * while it is live: Radix's Dialog dismisses on a CAPTURE-phase document
+ * keydown, so an input-level stopPropagation can never win — the gate has
+ * to sit on DialogContent's onEscapeKeyDown, where preventDefault means
+ * "this Escape belonged to the edit, not to the dialog".
  */
-function CustomTemplatesSection() {
+function CustomTemplatesSection({ onEditingChange }: { onEditingChange: (active: boolean) => void }) {
   const templates = useWorkflowStore((s) => s.customTemplates);
   const applyCustomTemplate = useWorkflowStore((s) => s.applyCustomTemplate);
   const deleteCustomTemplate = useWorkflowStore((s) => s.deleteCustomTemplate);
   const exportCustomTemplate = useWorkflowStore((s) => s.exportCustomTemplate);
+  const renameCustomTemplate = useWorkflowStore((s) => s.renameCustomTemplate);
   const [armDeleteId, setArmDeleteId] = React.useState<string | null>(null);
   const [armClear, setArmClear] = React.useState(false);
   const [applyingId, setApplyingId] = React.useState<string | null>(null);
   const [exportingId, setExportingId] = React.useState<string | null>(null);
   const [exportingAll, setExportingAll] = React.useState(false);
   const [importing, setImporting] = React.useState(false);
+  // Task 132 — inline rename (one row at a time) + shelf name filter
+  const [renameId, setRenameId] = React.useState<string | null>(null);
+  const [renameValue, setRenameValue] = React.useState("");
+  const [searchQ, setSearchQ] = React.useState("");
+  const [searchFocused, setSearchFocused] = React.useState(false);
+
+  // while an edit is live (or the filter box is focused) Escape belongs to
+  // it — reported up to the DialogContent's escape gate
+  React.useEffect(() => {
+    onEditingChange(renameId !== null || searchFocused);
+    return () => onEditingChange(false);
+  }, [renameId, searchFocused, onEditingChange]);
+
+  const q = searchQ.trim().toLowerCase();
+  const visible =
+    q.length > 0
+      ? templates.filter((t) => t.name.toLowerCase().includes(q))
+      : templates;
 
   const apply = (t: CustomTemplateSummary) => {
     setApplyingId(t.id);
@@ -244,6 +274,38 @@ function CustomTemplatesSection() {
     setArmClear(false);
     void useWorkflowStore.getState().clearCustomTemplates();
   };
+
+  /** Task 132 — commit an inline rename: empty or unchanged edits cancel
+   *  QUIETLY (no toast for a non-event); the server response's name lands
+   *  in the shelf, so what's shown is always what's stored. */
+  const commitRename = (t: CustomTemplateSummary) => {
+    const next = renameValue.trim().slice(0, 80);
+    setRenameId(null);
+    if (!next || next === t.name) return;
+    void renameCustomTemplate(t.id, next);
+  };
+
+  /** Task 132 — the inline rename input: Enter commits, Escape cancels,
+   *  blur cancels (deterministic paths only — no commit-on-blur surprises
+   *  when a stray click lands outside the row). */
+  const renameInput = (t: CustomTemplateSummary) => (
+    <div className="min-w-0 flex-1">
+      <Input
+        value={renameValue}
+        onChange={(e) => setRenameValue(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") commitRename(t);
+          if (e.key === "Escape") setRenameId(null);
+        }}
+        onBlur={() => setRenameId(null)}
+        maxLength={80}
+        autoFocus
+        aria-label="Template name"
+        className="h-6 px-1.5 py-0 text-xs"
+        data-testid="custom-template-rename-input"
+      />
+    </div>
+  );
 
   /** native picker via a detached input (command-palette's dialect) */
   const pickImportFiles = () => {
@@ -383,11 +445,58 @@ function CustomTemplatesSection() {
   return (
     <div className="grid gap-1.5">
       {header}
-      <ul className="grid max-h-44 gap-1.5 overflow-y-auto pr-0.5" data-canvas-ui="custom-templates-list">
-        {templates.map((t) => {
+      {templates.length >= SEARCH_THRESHOLD && (
+        <div className="relative">
+          <Search
+            className="pointer-events-none absolute left-2 top-1/2 size-3 -translate-y-1/2 text-muted-foreground"
+            aria-hidden="true"
+          />
+          <Input
+            value={searchQ}
+            onChange={(e) => setSearchQ(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") setSearchQ("");
+            }}
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setSearchFocused(false)}
+            placeholder="Filter templates by name…"
+            aria-label="Filter templates by name"
+            className="h-7 pl-7 pr-16 text-[11px]"
+            data-testid="custom-template-search"
+          />
+          {q.length > 0 ? (
+            <span
+              className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1 text-[9px] tabular-nums text-muted-foreground"
+              data-testid="custom-template-search-count"
+            >
+              {visible.length} of {templates.length}
+              <button
+                type="button"
+                onClick={() => setSearchQ("")}
+                aria-label="Clear filter"
+                className="rounded-sm p-px hover:bg-muted"
+                data-testid="custom-template-search-clear"
+              >
+                <X className="size-3" aria-hidden="true" />
+              </button>
+            </span>
+          ) : null}
+        </div>
+      )}
+      {q.length > 0 && visible.length === 0 ? (
+        <p
+          className="rounded-lg border border-dashed bg-muted/20 px-3 py-2.5 text-[11px] leading-snug text-muted-foreground"
+          data-canvas-ui="custom-templates-no-match"
+        >
+          No templates match “{searchQ.trim()}” — press Escape or click the × to clear the filter.
+        </p>
+      ) : (
+        <ul className="grid max-h-44 gap-1.5 overflow-y-auto pr-0.5" data-canvas-ui="custom-templates-list">
+          {visible.map((t) => {
           const armed = armDeleteId === t.id;
           const applying = applyingId === t.id;
           const exporting = exportingId === t.id;
+          const renaming = renameId === t.id;
           return (
             <li
               key={t.id}
@@ -399,14 +508,18 @@ function CustomTemplatesSection() {
               data-template-id={t.id}
             >
               <LayoutTemplate className="size-3.5 shrink-0 text-muted-foreground group-hover:text-primary" aria-hidden="true" />
-              <TemplateShapeHoverCard id={t.id} name={t.name}>
-                <p className="truncate text-xs font-medium" title={t.name}>
-                  {t.name}
-                </p>
-                <p className="text-[10px] tabular-nums text-muted-foreground">
-                  {t.jobCount} jobs · {t.edgeCount} wire{t.edgeCount === 1 ? "" : "s"} · {t.createdAt.slice(0, 10)}
-                </p>
-              </TemplateShapeHoverCard>
+              {renaming ? (
+                renameInput(t)
+              ) : (
+                <TemplateShapeHoverCard id={t.id} name={t.name}>
+                  <p className="truncate text-xs font-medium" title={t.name}>
+                    {t.name}
+                  </p>
+                  <p className="text-[10px] tabular-nums text-muted-foreground">
+                    {t.jobCount} jobs · {t.edgeCount} wire{t.edgeCount === 1 ? "" : "s"} · {t.createdAt.slice(0, 10)}
+                  </p>
+                </TemplateShapeHoverCard>
+              )}
               {armed ? (
                 <>
                   <Button
@@ -433,6 +546,20 @@ function CustomTemplatesSection() {
                 </>
               ) : (
                 <>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 px-2 text-[11px] opacity-0 transition-opacity hover:bg-primary/10 hover:text-primary focus-visible:opacity-100 group-hover:opacity-100"
+                    onClick={() => {
+                      setRenameValue(t.name);
+                      setRenameId(t.id);
+                    }}
+                    aria-label={`Rename template ${t.name}`}
+                    title="Rename this template"
+                    data-testid="custom-template-rename"
+                  >
+                    <Pencil className="size-3" aria-hidden="true" />
+                  </Button>
                   <Button
                     size="sm"
                     variant="ghost"
@@ -476,8 +603,9 @@ function CustomTemplatesSection() {
               )}
             </li>
           );
-        })}
-      </ul>
+          })}
+        </ul>
+      )}
     </div>
   );
 }
@@ -489,6 +617,9 @@ export function TemplatePresetsDialog() {
   const [activePreset, setActivePreset] = React.useState<string | null>("standard");
   const [restored, setRestored] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
+  // Task 132 — the shelf's inline editor reports liveness; while it is
+  // up, Escape cancels the EDIT instead of dismissing the dialog
+  const [shelfEditing, setShelfEditing] = React.useState(false);
 
   // restore the last created configuration on open (validated); first run
   // (or cleared storage) starts at Standard. Reset restores that contract.
@@ -600,7 +731,13 @@ export function TemplatePresetsDialog() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="max-w-lg gap-4" data-canvas-ui="template-presets-dialog">
+      <DialogContent
+        className="max-w-lg gap-4"
+        data-canvas-ui="template-presets-dialog"
+        onEscapeKeyDown={(e) => {
+          if (shelfEditing) e.preventDefault();
+        }}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
             <Wand2 className="size-4 text-teal-600" aria-hidden="true" />
@@ -724,7 +861,7 @@ export function TemplatePresetsDialog() {
             Task 128 — the section is self-contained: header + import live
             inside, export rides per-row. Task 130 — batch management
             (Export all / Clear) arms in the header once there are ≥ 2. */}
-        <CustomTemplatesSection />
+        <CustomTemplatesSection onEditingChange={setShelfEditing} />
 
         <DialogFooter className="items-center gap-2 sm:justify-between">
           <p className="text-[10px] text-muted-foreground">
