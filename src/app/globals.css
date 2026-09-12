@@ -344,6 +344,41 @@
   }
 }
 
+/* Breathing running-count chip on workspace rows — the switcher twin of
+   .job-running above. The canvas cards breathe while they compute (the
+   run-glow halo), and the workspace row that OWNS them breathes with the
+   same heartbeat, so "where is work happening right now" is answerable
+   from the sidebar without reading a single number — motion is the
+   headline, the count is the detail. Background + a soft ring pulse
+   (at h-5 a full halo would smear into the row), the SAME 2.1s cadence
+   as the card glow so both layers pulse in step; color-mix against the
+   shared --teal-glow var keeps both themes' hue/intensity coherent.
+   prefers-reduced-motion: the chip freezes at its resting tint (the
+   class's own static bg-teal-500/10 reads through) and the Loader2
+   inside is silenced by motion-reduce:animate-none in the component —
+   the count number alone still informs. */
+@keyframes run-breathe {
+  0%,
+  100% {
+    background-color: color-mix(in oklch, var(--teal-glow) 10%, transparent);
+    box-shadow: 0 0 0 0 color-mix(in oklch, var(--teal-glow) 0%, transparent);
+  }
+  50% {
+    background-color: color-mix(in oklch, var(--teal-glow) 22%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in oklch, var(--teal-glow) 14%, transparent);
+  }
+}
+
+.ws-running {
+  animation: run-breathe 2.1s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ws-running {
+    animation: none;
+  }
+}
+
 /* ============================================================
    Custom scrollbars
    ============================================================ */

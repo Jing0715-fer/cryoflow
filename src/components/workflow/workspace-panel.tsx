@@ -188,10 +188,10 @@ function WorkspaceRow({
         )}
         {stats.running > 0 && (
           <span
-            className="inline-flex h-5 items-center gap-1 rounded-md bg-teal-500/10 px-1.5 text-[10px] font-medium tabular-nums text-teal-600 dark:text-teal-400"
+            className="ws-running inline-flex h-5 items-center gap-1 rounded-md bg-teal-500/10 px-1.5 text-[10px] font-medium tabular-nums text-teal-600 dark:text-teal-400"
             title={`${stats.running} running`}
           >
-            <Loader2 className="size-3 animate-spin" aria-hidden="true" />
+            <Loader2 className="size-3 animate-spin motion-reduce:animate-none" aria-hidden="true" />
             {stats.running}
           </span>
         )}
@@ -431,7 +431,7 @@ export function WorkspacePanel() {
                 void confirmDelete();
               }}
             >
-              {deleting ? <Loader2 className="animate-spin" aria-hidden="true" /> : null}
+              {deleting ? <Loader2 className="animate-spin motion-reduce:animate-none" aria-hidden="true" /> : null}
               Delete workspace
             </AlertDialogAction>
           </AlertDialogFooter>

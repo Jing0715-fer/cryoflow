@@ -4554,3 +4554,24 @@ Stage Summary:
 - 「push 过的 commit 是唯一持久的真相」：本轮回滚事故的全过程证明——本地树、scripts、甚至 worklog 都可能消失，远端时间线（每轮 push 的铁律）是唯一幸存者；恢复 = fetch + reset --hard origin/main + 从会话记录重放未提交工作。restore-gallery.py 是这套灾难的既定药方（Task 85 建于同因），**下次开局核对若发现 HEAD 早于 worklog 尾部记载，第一动作就是 fetch+核对远端**
 - 「对话框在活曲线轮询下不该跳动」：qa64 的坐标点击竞态背后是真实 UX 缺陷——Live job 的曲线每秒增长时行列表垂直churn ±122px，用户指针下的内容会移动。本轮用探针收敛重试兜住测试，**产品级修复（布局稳定化：曲线图容器定高/行列表独立滚动域）留给下轮优先**——这是样式细节与交互稳定性的正交交叉点
 - 遗留（下轮候选）：compare dialog 布局churn 的产品级修复（live 轮询下行列表稳定化——上条）；digest failed 行的行内 Retry（真机评估，t146 合同敏感区）；workspace item 呼吸动画（真机）；undo 手感参数（真机）；runner wall-time 剖面（qa64 85s 一致带，让位）；世界卫生观察账本（verdict 列观察日：本轮 4 起失败全部是环境性点名，零真抖动）；EMPIAR 真数据回归（重，让位）；用户真机项
+
+---
+Task ID: 158
+Agent: main (cron window 2026-09-13 02:00:58 +08:00, trace …202609130206)
+Task: 例行七条——开局核对 + QA 判稳 → 选题（上轮交接首选「dialog churn 产品级修复」诊断后**解体** → 转投 workspace 呼吸动画）→ 实现 + t158 探针（×3 世界鲁棒）→ 回归 + 全矩阵 93 套 → 交接闭环。本轮交付「工作区在呼吸」：workspace row 的 running chip 与画布卡片同拍呼吸（2.1s 心跳），「哪里正在跑」从读数字降为瞥一眼
+
+Work Log:
+- 【开局核对】worklog 尾部实际为 Task 157（f3328d5 == origin/main，树净）；BUILD_ID THuRfVE… 匹配；冷启动 + 三件套（qa63/qa00/t157）全绿 → 稳定
+- 【诊断·交接首选解体】上轮实测的 compare dialog ±122px 布局churn 在稳定世界里**不可复现**：4-pick + live poller 下 14 次采样零位移；fsc-index API 行序逐次相同；chart 定高 h-60。回看上轮取证：坐标跳动与 realClick 的滚动纠正吻合（外层对话框 overflow-y-auto 与内层列表双滚动容器，元素贴边时 realClick 主动 scroll 250px 再重定位）——**churn 是探针机制不是产品缺陷**；qa64 的收敛重试（上轮已并入）本就是正确层级的修复。诚实证伪记入 worklog，产品零改动
+- 【选题】转投历轮「真机」候选 workspace item 呼吸动画——headless 重估可验（computed animation-* 断言，同 .animate-rise/.job-running 的 house 先例）：画布卡片已有 run-glow 呼吸光环（Task 111 时代交付），而 workspace 切换器只有静态计数 chip——「哪里正在跑」需要读数字
+- 【实现·globals.css + workspace-panel.tsx】① @keyframes run-breathe（背景色 10%→22% teal 脉冲 + 0→3px 软环，color-mix(in oklch, var(--teal-glow)) 共享变量——双主题色相/强度自动连贯）+ .ws-running（同 2.1s ease-in-out infinite——与卡片光晕同拍，两层同步呼吸）② prefers-reduced-motion：chip 冻结在静息色 ③ 顺手的 a11y 补课：chip 内 Loader2 与删除确认的 spinner 原本在 reduced-motion 下仍转（animate-spin 无 motion-reduce 变体，全局无 kill switch）→ 均加 motion-reduce:animate-none——连续旋转恰是 reduced-motion 用户退出的事物
+- 【t158 探针·27 断言 ×3 全绿（世界鲁棒）】S 双 workspace + stampEx 直写 running（PATCH 只许 idle，startedAt 必带）；X 八 oracle（keyframes/2.1s 同拍/reduced-motion 降级/color-mix 主题连贯/chip 挂线/spinner 静音/条件渲染锚/Task 158 文档）；B **计算样式即呼吸**（animation-name=run-breathe、duration≈2.1s、iteration=infinite、计数=工作区实际 running 数——按 API 现算期望，不钉具体演员）；C 闲置 workspace 零 chip（诚实静息）；D reducedMotion 上下文实测 animation-name=none 且计数仍在（信息不随动画死）；E 完成运行→计数下降、排空→chip 消失（不变量式断言：chip 状态==实际 running 集，世界已被前轮排空也成立）；G 屏摄；Z 严格 console + roster 相等。scars：Workspaces 面板藏在左侧栏 **tab 后**（默认 Catalog——Tab 需真实点击）；chip 计数是工作区全局不是本轮种子（期望值必须现算）；探针排空 live fixture 会污染下一轮 → E 相不变量化后 ×3 稳
+- 【回归 + 全矩阵】restore-gallery 重建 live fixture 后受影响面六套全绿（qa60/qa64(45)/t88/t157/qa63/qa00）；全矩阵 93 套（t158 auto-include 位 #79，t157 之后）9 块 **0 失败**——上轮四起环境性失败全部未复发；qa64 86s 正常带、t152 191s 仍最慢；verdict 列全程 PASS 在案
+- 【收尾】worklog + commit + push + 环境清理（agent-browser close --all、ss 定位杀 server、PORT FREE 验证）
+
+Stage Summary:
+- 「呼吸是可传播的状态」：run-glow（卡片）与 run-breathe（switcher chip）共享同一 2.1s 心跳与同一 --teal-glow 变量——两层 UI 对同一事实（有活在工作）发出同一节律的信号，用户学到一次就能读两处。动画的语义单元是 chip 不是整行（h-5 的 chip 上满幅 halo 会糊进行内），背景+软环在最小面积上完成「活着」的表达
+- 「诊断有权解体交接」：上轮以「产品级修复」交接的候选，本轮用 14 次采样 + API 行序对照 + 定高考古把它证伪为探针机制——**交接候选进入实施前先复测其前提**，证伪本身是有价值的交付（省下一个不存在的修复 + 教义记录）；同族结论：探针的滚动纠正在双滚动容器里是必要的复杂度，不是代码坏味道
+- 「连续旋转也是运动」：reduced-motion 审计不该止于自己新增的动画——chip 里既有的 Loader2 animate-spin 在用户显式退出运动的偏好下照转不误。a11y 补课的正确粒度是「这一处用户视线会停留的完整组件」，而不是「我今天碰的属性」
+- 「期望值现算，演员随缘」：chip 计数断言从 API 现算 running 数（世界里有几个就是几个），探针种子的存活不依赖世界唯一性；E 相排空步骤对后续轮次的副作用由不变量化吸收——「断言不变量，别钉具体演员」第三次重演（t135 后语）
+- 遗留（下轮候选）：pending chip 的同族审视（amber 静态是否该有等待微动画——倾向不动：pending 不是活着）；digest failed 行的行内 Retry（真机评估，t146 合同敏感区）；undo 手感参数（真机）；runner wall-time 剖面（qa64 86s 一致带，让位）；世界卫生观察账本（verdict 列观察：连续两轮 0 真抖动）；EMPIAR 真数据回归（重，让位）；用户真机项
