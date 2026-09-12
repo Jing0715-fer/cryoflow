@@ -232,17 +232,29 @@ async function bootToDialog(pickLabel) {
   must(dialog, `compare dialog opens with all FSC rows listed, ≥ 5 (${pickLabel})`);
 }
 
-/** tick (or untick with expect="false") a row's checkbox by job id */
+/** tick (or untick with expect="false") a row's checkbox by job id.
+ *  Task 157 hardening: while a RUNNING job's curve polls, the dialog's
+ *  layout churns (rows measured moving up to ~120px between reads) and a
+ *  coordinate click can land where the row WAS — the user's pointer
+ *  missing a row that moved under it. A checkbox toggle is exactly
+ *  recoverable: re-locate the CURRENT geometry and click again (the same
+ *  convergence every other interaction in this suite uses). The assert
+ *  itself never loosens: after the attempts, the state must match. */
 async function pickJob(jobId, label, expect = "true") {
-  const r = await realClick(
-    `document.querySelector('[data-testid=fsc-compare-row][data-job-id="${jobId}"]')?.querySelector('button[role=checkbox]')`,
-  );
-  await sleep(900);
+  let checked = "MISSING";
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    await realClick(
+      `document.querySelector('[data-testid=fsc-compare-row][data-job-id="${jobId}"]')?.querySelector('button[role=checkbox]')`,
+    );
+    await sleep(900);
+    checked = unq(evalJs(
+      `String(document.querySelector('[data-testid=fsc-compare-row][data-job-id="${jobId}"] button[role=checkbox]')?.getAttribute('aria-checked') || 'MISSING')`,
+    ));
+    if (checked === expect) break;
+    if (attempt < 3) await sleep(700);
+  }
   // verify the React state actually flipped — a click that lands on the
   // wrong element must fail here, not three asserts later
-  const checked = unq(evalJs(
-    `String(document.querySelector('[data-testid=fsc-compare-row][data-job-id="${jobId}"] button[role=checkbox]')?.getAttribute('aria-checked') || 'MISSING')`,
-  ));
   must(checked === expect, `picked ${label} (aria-checked=${checked})`);
 }
 

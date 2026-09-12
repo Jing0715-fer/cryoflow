@@ -4530,3 +4530,27 @@ Stage Summary:
 - 「untrusted click 敲不开 pointer 的门」：canvas 选中监听 pointerdown/up——evaluate 里的 .click() 只合成 click 不合成 pointer 流，操作必须交给 playwright locator.click()（真实手势）。qa59 当年用 agent-browser 坐标点击正因如此
 - 「假警报也会穿制服」：ERR_MODULE_NOT_FOUND 的尾行是 Node 版本号，形似崩溃栈尾——组合跑先考古文件名再判抖动，本轮 21-30 块式惊报清零
 - 遗留（下轮候选）：keptOnly/notedOnly 的按 job 持久化（若做，key 须带 jobId 命名空间，且空 kept 集合自愈规则要跟 notedOnly 对齐——本轮已论证风险面）；digest failed 行的行内 Retry（真机评估，t146 合同敏感区）；workspace item 呼吸动画（真机）；find 三维持久化（真机）；undo 手感参数（真机）；runner wall-time 剖面（qa64 84s 一致带，让位）；世界卫生观察账本（verdict 列第三个观察日：91×PASS 零抖动）；EMPIAR 真数据回归（重，让位）；用户真机项
+
+---
+Task ID: 157
+Agent: main (cron window 2026-09-12 23:45:56 +08:00, trace …202609122345)
+Task: 例行七条——开局核对 + QA 判稳 → 选题（老候选逐一重估 → 新候选：选中 job 的会话位置）→ 实现 + t157 探针 → **窗口中段环境回滚事故与完整恢复** → 全矩阵 → 交接闭环。本轮交付「你闭眼时的工作区，睁眼时原样还在」：PRIMARY selection 活过 reload——boot 在首次数据落定时一次性恢复，echo 由提交后订阅忠实回声
+
+Work Log:
+- 【开局核对】worklog 尾部实际为 Task 156（a3217c3 == origin/main，树净）；BUILD_ID c3DoOsAT… 与 Task 156 worklog 记录的 S7VX8FGV… 不符（后证实为回滚前残影，非笔误）；冷启动 + 三件套（qa63/qa00/t156）全绿 → 判稳
+- 【考古】cron 文本的 Task 13 遗留清单（#5 fs/browse 无鉴权 / #7 chart 全量同步读 / #8 particles BFS N+1）逐项核实**全部已修**：fs/browse route.ts:93 实际调用 isLocalRequest（http-guard 威胁模型注释完整）；guinier 全路径走 cachedFileCompute（mtime 缓存）；particles route.ts:268 明注「Batched BFS: ONE edge query per depth level」——老清单正式结案
+- 【选题】Task 156 交接首选 keptOnly/notedOnly 按 job 持久化 → **重估后否决**：kept 是受控表单 prop（value）的派生，其 boot 态依赖另一条异步链——恢复一个语义依赖表单链 boot 态的镜头，镜头含义会静默漂移（auto 集与手动剪裁集互换），比死网格更深；Task 156 的 ephemeral 判决反而加强。find 三维持久化早在 Task 152 被否（lens is ephemeral 核心合同）。→ 新候选：**selectedId 会话位置**——从未被审过的 reload 失忆（store.ts:352 驱动 edit panel / F focus / minimap ring）
+- 【实现·store.ts 四处】① SELECTED_JOB_KEY + hydrateSelectedJob（裸串 trim，""=诚实的无选择，hydrate 只读不写）+ persistSelectedJob（双向门写 "" 不删除）② load() 首次落定时一次性 seed 应用（selectionSeedApplied once-flag——手动 reload 不得践踏活选区；**信任门是现实本身**：seed 必须解析为 jobInWorkspace(x, activeWs) 命中的 job——复用画布自己的成员谓词，Bug #33 的教训：可见性与选择必须一致）③ 模块尾提交后订阅 echo——selectedId 有 17+ 变更点（click/arrows/marquee/Ctrl+A/add/import/delete/inspect/workspace switch），逐点包装必留漂移（一处遗漏=陈旧 seed 被忠实恢复成幽灵）；订阅不是 Task 13 #13 之罪（那条禁 render 期副作用；订阅在 commit 之间触发，且仅在 selectedId 真变时写）④ selectedId 字段注释更新
+- 【t157 探针·31 断言 ×2 全绿】S 种子 Alpha/Beta（首工作区，空 workspace 自举 POST Main——qa_lib.resolve_workspace 规则）；X 十 oracle（key/SSR 守卫/trim 信任/双向门 ""/once-flag/成员谓词门/订阅 echo/客户端 only/hydrate 零 setItem/Task 157 文档）；B boot 零写 + 真实 pointer 流点击 Alpha 面板开 + storage 同步回声；C **reload 后面板为 Alpha 重开（CORE）**；D 关面板写 ""（存在非删除）+ reload 尊重显式无选择；E 死 id / 乱串 seed → 诚实空态不崩；F fresh boot 零 cryoflow.* key（负 oracle）；G 屏摄；Z 0 console/0 pageerror/0 4xx/roster 相等。 scars：playwright evaluate 单参约束；oracle 措辞须考古真实源码；B2 幽灵面板（无 storage 开面板）在窗口中段出现 3 次——**后证实为回滚时代的环境不稳**，恢复后的稳定世界 B2 稳定通过
+- 【环境重大事故·窗口中段】~00:30 +08 环境被回滚到 24h 前快照（Task 135 时代）：HEAD 回卷至 c0fef2a（amend）、今天全部本地工作（Task 136-157 的 src 改动、t157 探针、worklog 条目）从工作树消失、scripts/ 被裁（149→102）、16:31 一个 bun run dev（DEV 模式）夺占 :3000。**恢复链**：git fetch（远端时间线完好——今天各轮均已 push，这是唯一幸存的真相）→ git reset --hard origin/main（a3217c3 回归，worklog 全量恢复）→ 杀 dev server（ss 定位 PID）→ Task 157 的 store.ts 编辑**从会话记录逐字重放** + 探针重建 → 重建
+- 【回归修复·四起皆环境性而非 feature】① qa58/qa60 seeder 裸 open 读 engine-state.json 在 fresh DB 崩溃 → 改用 qa_lib.read_engine_state()（容错 {}——fresh-world 自举修复）② qa67 正交体数据被回滚抹掉 → qa67-seed-volume.py 重种 ③ t88/89/90 需 completed motioncorr 锚点等 living instance → **restore-gallery.py（Task 85 为一模一样的快照回滚场景亲建的灾难恢复工具）一键重建 25 jobs/17 completed** ④ qa64 的 untick-385 三连失败 → **隔离实验定罪**（git stash 掉 Task 157 后照败）：live 曲线轮询下对话框布局churn（实测行坐标毫秒间跳动 ±122px），坐标点击落空 → pickJob 收敛重试 ×3（断言从不放松——复选框切换恰可恢复：重定位现几何再点=用户对移动行的再点击）
+- 【全矩阵】92 套（t157 auto-include 位 #78，t156 之后 t85 之前——字典序如录）最终 0 失败：块 1-10/81-92 修复后补跑全绿，11-80 首跑全绿；qa64 85s 正常带；t152 190s 仍最慢；verdict 列全程服务（qa67/qa64 的点名直接可用——Task 154 交付的第二次实战）
+- 【收尾】worklog + commit + push + 环境清理（杀 server 先 ss 查 PID、agent-browser close --all）
+
+Stage Summary:
+- 「会话位置是最强的 stay-put」：视图偏好（sort/fold/scale）恢复的是用户的选择，会话位置恢复的是用户**所在**——浏览器 tab restore 同款合同。它不是过滤器（不藏东西）不是镜头（不改变语义），是纯位置：boot 恢复它不主张任何真假，只回到原地
+- 「信任门是现实本身」：job id 无格式可白名单——seed 的信任不靠格式靠解析：必须命中画布自己的成员谓词（jobInWorkspace + Bug #33 的一致性教训）。解析不到=诚实的无选择，boot 零写入。水合读取、不写回（t153 法）在字符串 id 上原样成立
+- 「17 个写点的 echo 属于订阅」：Task 153 的「chevron 是唯一写路径」在单控件上成立；selectedId 的 17+ 变更点上逐点包装的漂移风险（一处遗漏=陈旧 seed 幽灵）大于订阅的语义代价。t13 #13 的精确边界由此再推导一次：**禁的是 render 期副作用，不是 commit 后事件**——订阅在渲染之间、只在真变化时写，storage 仍是用户所见位置的回声
+- 「push 过的 commit 是唯一持久的真相」：本轮回滚事故的全过程证明——本地树、scripts、甚至 worklog 都可能消失，远端时间线（每轮 push 的铁律）是唯一幸存者；恢复 = fetch + reset --hard origin/main + 从会话记录重放未提交工作。restore-gallery.py 是这套灾难的既定药方（Task 85 建于同因），**下次开局核对若发现 HEAD 早于 worklog 尾部记载，第一动作就是 fetch+核对远端**
+- 「对话框在活曲线轮询下不该跳动」：qa64 的坐标点击竞态背后是真实 UX 缺陷——Live job 的曲线每秒增长时行列表垂直churn ±122px，用户指针下的内容会移动。本轮用探针收敛重试兜住测试，**产品级修复（布局稳定化：曲线图容器定高/行列表独立滚动域）留给下轮优先**——这是样式细节与交互稳定性的正交交叉点
+- 遗留（下轮候选）：compare dialog 布局churn 的产品级修复（live 轮询下行列表稳定化——上条）；digest failed 行的行内 Retry（真机评估，t146 合同敏感区）；workspace item 呼吸动画（真机）；undo 手感参数（真机）；runner wall-time 剖面（qa64 85s 一致带，让位）；世界卫生观察账本（verdict 列观察日：本轮 4 起失败全部是环境性点名，零真抖动）；EMPIAR 真数据回归（重，让位）；用户真机项

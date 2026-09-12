@@ -43,7 +43,7 @@ import urllib.request
 
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from qa_lib import resolve_project, resolve_workspace
+from qa_lib import read_engine_state, resolve_project, resolve_workspace
 
 BASE = "http://localhost:3000"
 PROJECT = resolve_project()
@@ -156,8 +156,7 @@ p.job.update({ where: { id: process.argv[1] }, data: { status: process.argv[2], 
 
 
 def register_run(job: dict, workdir: str, done: bool = True, pid=None) -> None:
-    with open(STATE_PATH) as f:
-        state = json.load(f)
+    state = read_engine_state()  # fresh-world safe: {} when the file doesn't exist yet
     state[job["id"]] = {
         "jobId": job["id"],
         "projectId": PROJECT,

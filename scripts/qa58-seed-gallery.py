@@ -29,7 +29,7 @@ import urllib.request
 import os
 import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from qa_lib import resolve_project, resolve_workspace
+from qa_lib import read_engine_state, resolve_project, resolve_workspace
 
 BASE = "http://localhost:3000"
 PROJECT = resolve_project()
@@ -149,8 +149,7 @@ mrcs_path = os.path.join(workdir, f"run_it{ITER:03d}_unmasked_classes.mrcs")
 # dispatch, so the record must be written by hand, exactly what the engine
 # does for a real run
 state_path = "/home/z/my-project/data/engine-state.json"
-with open(state_path) as f:
-    state = json.load(f)
+state = read_engine_state()  # fresh-world safe: {} when the file doesn't exist yet
 import datetime
 state[src["id"]] = {
     "jobId": src["id"],

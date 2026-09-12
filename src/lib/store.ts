@@ -183,6 +183,40 @@ function persistKpiCollapsed(collapsed: boolean) {
   }
 }
 
+const SELECTED_JOB_KEY = "cryoflow.selectedJob.v1";
+
+/** Read the session-position seed (Task 157). Reads only — no format
+ *  whitelist can name a job id, so the seed stays a BARE string and the
+ *  real trust gate is the apply step in load(): a seed that does not
+ *  resolve to a job on the active canvas is ignored. The honest unknown
+ *  is "no selection", never a crash. */
+function hydrateSelectedJob(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(SELECTED_JOB_KEY);
+    if (raw == null) return null;
+    const trimmed = raw.trim();
+    return trimmed === "" ? null : trimmed;
+  } catch {
+    return null;
+  }
+}
+
+/** Echo a committed selection transition to storage (Task 157). The
+ *  two-way door writes the honest none as an EMPTY STRING rather than
+ *  deleting: "explicitly deselected" is a fact about the user's session,
+ *  and absence must not be misread by a future hydration as "never
+ *  selected". Corrupt/garbage values are pointless to police here — the
+ *  apply gate in load() drops anything that resolves to no job. */
+function persistSelectedJob(id: string | null) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(SELECTED_JOB_KEY, id ?? "");
+  } catch {
+    // private mode / quota — the position stays in-RAM for this session
+  }
+}
+
 /** Lowest free hotkey slot across a workspace's bookmarks, or null when
  *  all nine are taken. "Free" = no existing bookmark holds it — deleting
  *  a bookmark releases its seat for the NEXT new save, while survivors
@@ -354,7 +388,10 @@ interface WorkflowState {
    *  PRIMARY selection in selectedId drives the edit panel, the F focus
    *  shortcut and the minimap ring — it is always a member of selectedIds
    *  when non-null. Bulk ops (align/distribute/duplicate/delete/drag)
-   *  operate on the whole set. */
+   *  operate on the whole set. Task 157: the primary is also the session
+   *  POSITION — it outlives the reload (boot restores it once, on the
+   *  first data landing, gated by the canvas's own membership rule) and
+   *  every committed transition echoes it to storage (module tail). */
   selectedIds: string[];
   /** Job opened in the large inspector modal (submitted jobs only). */
   inspectId: string | null;
@@ -749,6 +786,13 @@ function jobInWorkspace(j: { workspaceId?: string | null }, ws: string | null): 
   return (j.workspaceId ?? "") === ws;
 }
 
+/** Task 157 — the session-position seed applies ONCE per page load. A
+ *  later load() (the manual reload button re-runs it) must never fight
+ *  the user's LIVE selection by re-imposing an old boot seed: after the
+ *  first application the seed is spent, and reloads preserve whatever is
+ *  selected right now. */
+let selectionSeedApplied = false;
+
 /** Client-side cycle check: would edge from→to create a cycle? */
 function wouldCreateCycle(edges: EdgeDTO[], from: string, to: string): boolean {
   const adj = new Map<string, string[]>();
@@ -1052,6 +1096,23 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         activeWorkspaceId: activeWs,
         loading: false,
       });
+      // Task 157 — session position: the FIRST data landing may restore
+      // the selection the user closed the tab with. The seed is a bare
+      // string, so the trust gate is reality itself: it applies only if
+      // it resolves to a job ON THIS CANVAS — the same jobInWorkspace
+      // predicate the canvas renders by (Bug #33's lesson: visibility
+      // and selection must agree). A seed that resolves nowhere —
+      // deleted job, another workspace, hand-edited garbage — is
+      // ignored: the honest unknown is no selection, and this boot
+      // writes nothing to storage either way.
+      if (!selectionSeedApplied) {
+        selectionSeedApplied = true;
+        const seed = hydrateSelectedJob();
+        const seedJob = seed
+          ? j.jobs.find((x) => x.id === seed && jobInWorkspace(x, activeWs))
+          : null;
+        if (seedJob) set({ selectedId: seedJob.id, selectedIds: [seedJob.id] });
+      }
       // RELION status came from the SAVED detection — the server is
       // re-verifying in the background; poll until the fresh probe lands so
       // the chip upgrades automatically (no re-detect click needed).
@@ -3232,4 +3293,26 @@ export function useActiveWorkspaceEdges(): EdgeDTO[] {
     );
     return edges.filter((e) => visible.has(e.fromJobId) && visible.has(e.toJobId));
   }, [edges, jobs, activeWorkspaceId]);
+}
+
+/** Task 157 — the storage echo of the session position. Selection has
+ *  17+ mutation sites across the canvas (click, arrows, marquee,
+ *  Ctrl+A, add, import, delete, inspect, workspace switches) — wrapping
+ *  each one invites the drift where a single forgotten site leaves a
+ *  STALE seed that a reload would then faithfully restore as a ghost.
+ *  So the echo lives at the ONE place every committed transition
+ *  crosses: a post-commit store subscription. This is not the Task 13
+ *  #13 sin — that condemned side effects DURING RENDER (useMemo); a
+ *  subscription fires on state commits, between renders, and it writes
+ *  only when selectedId actually changed. Storage thereby stays the
+ *  echo of the position the user can SEE, whatever path moved it.
+ *  Client-only: the server module load must never install it. */
+if (typeof window !== "undefined") {
+  let prevSelected = useWorkflowStore.getState().selectedId;
+  useWorkflowStore.subscribe((s) => {
+    if (s.selectedId !== prevSelected) {
+      prevSelected = s.selectedId;
+      persistSelectedJob(s.selectedId);
+    }
+  });
 }
