@@ -32,6 +32,7 @@ import { computeEdgeGeoms, setLiveDrag } from "@/lib/edge-geom";
 import { registerGroupMember, beginGroupDrag, moveGroupDrag, endGroupDrag } from "@/lib/group-drag";
 import { BULK_DELETE_EVENT, type JobDTO, type JobTypeSpec, type ParamValue } from "@/lib/types";
 import { parseClassNotes } from "@/lib/class-notes";
+import { formatElapsed } from "@/lib/elapsed";
 import { TypeIcon } from "./icons";
 import { Badge } from "@/components/ui/badge";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
@@ -227,6 +228,29 @@ export function useMounted(): boolean {
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
   return mounted;
+}
+
+/** Live 1s tick for the running elapsed readout (Task 141). The timer
+ *  exists only while the card is running — an idle world pays zero
+ *  intervals — and re-aligns on activation so a resumed run doesn't
+ *  render a stale first second. Lives on the card, not in a context:
+ *  a dozen running cards mean a dozen cheap intervals, not a store
+ *  broadcast that re-renders the whole canvas every second.
+ *
+ *  Starts at 0, never Date.now(): a clock reading must not exist in
+ *  render's first frame — not even inside a lazy initializer, whose
+ *  server-side value would otherwise be frozen into the flight payload
+ *  and become hydration arithmetic. The elapsed text is mounted-gated
+ *  anyway, so nothing renders one beat early. */
+function useNow(active: boolean): number {
+  const [now, setNow] = React.useState(0);
+  React.useEffect(() => {
+    if (!active) return;
+    setNow(Date.now());
+    const t = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(t);
+  }, [active]);
+  return now;
 }
 
 /* ------------------------------------------------------------------ */
@@ -692,10 +716,12 @@ function JobCardPreview({
   job,
   spec,
   etaText,
+  elapsedText,
 }: {
   job: JobDTO;
   spec: JobTypeSpec | undefined;
   etaText: string | null;
+  elapsedText: string | null;
 }) {
   const params = previewParams(job, spec);
   return (
@@ -715,7 +741,11 @@ function JobCardPreview({
         <div className="flex items-center gap-2">
           <StatusBadge status={job.status} />
           {job.status === "running" ? (
-            <span className="text-[10px] font-semibold tabular-nums text-teal-600 dark:text-teal-400">
+            <span
+              data-testid="preview-elapsed"
+              className="text-[10px] font-semibold tabular-nums text-teal-600 dark:text-teal-400"
+            >
+              {elapsedText ? `${elapsedText} elapsed · ` : ""}
               {Math.round(job.progress)}%
               {etaText ? ` · ${etaText} left` : ""}
             </span>
@@ -850,6 +880,17 @@ export const JobCard = React.memo(function JobCard({
     const eta = estimateEta(job.id, job.startedAt, job.progress);
     return eta != null ? formatEta(eta) : null;
   }, [mounted, job.status, job.id, job.startedAt, job.progress]);
+
+  // Elapsed readout (Task 141): the fact half of the running row —
+  // mounted-gated like etaText (SSR output stays hydration-safe) and
+  // driven by the live tick, so the card visibly breathes while the
+  // engine works. No startedAt → no elapsed: a clock without a start
+  // is a lie, and reconcile keeps such rows honest anyway.
+  const now = useNow(job.status === "running");
+  const elapsedText =
+    mounted && now > 0 && job.status === "running" && job.startedAt
+      ? formatElapsed(now - Date.parse(job.startedAt))
+      : null;
 
   // Class-level annotations on this card (Task 83): the select2d classNotes
   // param parsed through the shared lib helper. Memoized on the whole params
@@ -1406,7 +1447,7 @@ export const JobCard = React.memo(function JobCard({
                     {job.name}
                   </p>
                 </HoverCardTrigger>
-                <JobCardPreview job={job} spec={spec} etaText={etaText} />
+                <JobCardPreview job={job} spec={spec} etaText={etaText} elapsedText={elapsedText} />
               </HoverCard>
               {job.note ? (
                 <span
@@ -1515,11 +1556,26 @@ export const JobCard = React.memo(function JobCard({
                     label={`${job.name} progress`}
                     className="flex-1"
                   />
+                  {/* Fact first, prediction second: the elapsed readout is
+                      the world's own arithmetic (teal, the running dialect
+                      the badge pulse speaks), the pace estimate follows it
+                      behind a muted dot. Both tabular so the digits don't
+                      jitter as the seconds tick. */}
+                  {elapsedText ? (
+                    <span
+                      data-testid="card-elapsed"
+                      className="shrink-0 text-[9.5px] font-semibold tabular-nums text-teal-600 dark:text-teal-400"
+                      title={`Running for ${elapsedText}`}
+                    >
+                      {elapsedText}
+                    </span>
+                  ) : null}
                   {etaText ? (
                     <span
                       className="shrink-0 text-[9.5px] font-medium tabular-nums text-teal-600 dark:text-teal-400"
                       title={`Progress ${Math.round(job.progress)}% — ${etaText} remaining (estimate from current pace)`}
                     >
+                      <span aria-hidden="true" className="text-muted-foreground">· </span>
                       {etaText}
                     </span>
                   ) : (

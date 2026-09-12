@@ -174,12 +174,21 @@ must(wsId !== "", "S0 workspace resolved for seeding");
 // eastern clearance protects the VERTICAL walks (a fixture 2200px above
 // but ≤2200px sideways would sit inside an up/down cone — west is safer:
 // everything old is ≥3000px west, outside every vertical cone radius)
+// VERTICAL-cone doctrine (rolled-back-world lesson): a card at the old
+// world's NE corner enters E4's Up-cone whenever |vx| ≤ |vy| — i.e.
+// whenever maxX+1260 ≤ Y0-160 ⟺ maxX ≤ maxY+780. The rolled-back world
+// hit exactly that at a 60px margin (44.9° inside a 45° cone; the probe
+// read a "wrong" hit that was geometrically CORRECT). So X0 takes the
+// MAX of the eastern clearance and maxY+4380 — that keeps
+// |vx| ≥ maxY+2640 > Y0-160 for EVERY old card, whatever aspect ratio
+// the world happens to have. The cone must be killed by construction,
+// not by the world's current shape.
 const maxY = all.reduce((m, j) => Math.max(m, j.y ?? 0), 0);
 const maxX = all.reduce((m, j) => Math.max(m, j.x ?? 0), 0);
 const Y0 = Math.round(maxY + 2200);
-const X0 = Math.round(maxX + 3000);
-must(Y0 > maxY + 2000 && X0 > maxX + 2500,
-  `S1 band is ${Y0 - maxY}px below and ${X0 - maxX}px east of the old world — no cone reaches it`);
+const X0 = Math.round(Math.max(maxX + 3000, maxY + 4380));
+must(Y0 > maxY + 2000 && X0 > maxX + 2500 && X0 - 1740 > Y0 - 160,
+  `S1 band is ${Y0 - maxY}px below and ${X0 - maxX}px east of the old world — no cone reaches it (vertical dead: |vx| ${X0 - 1740} > |vy| ${Y0 - 160})`);
 const LAYOUT = {
   "t103 E1": [X0, Y0],
   "t103 E2": [X0 + 600, Y0],

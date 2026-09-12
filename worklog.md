@@ -4172,3 +4172,27 @@ Stage Summary:
 - 「hygiene 的审计也是不变量清单」：ADOPT（roster==canvas）、EXTENT-bbox（世界紧致）、EXTENT-NN（无孤卡——最近邻 1600px 内必有同类）、OVERLAP（无叠卡）。bbox 是集合性质，NN 是拓扑性质——两者互补才完整：bbox 抓「世界的形状错了」，NN 抓「这张卡不属于任何簇」
 - 「修世界前先问谁污染」：Micrographs 10 的 updatedAt 冻结在批写时刻（PATCH x/y 不触 updatedAt）——DB 的时间戳对位置域是盲的，考古线索冷时把修复铸成不变量（NN 审计 + reach-first）比追凶手更值
 - 遗留（下轮候选）：find 三维持久化（真机反馈再评估）；favorites 拖拽排序（真机）；预览卡端口点/边高亮（真机）；建议连线手感（真机）；runner wall-time 剖面（qa64 74s 十五轮一致，继续让位）；EMPIAR 真数据回归（重，让位）；世界卫生观察账本（本轮块 4/5 的两批假红全部溯源修复，下轮观察是否绝迹）；用户真机项；undo 手感参数；诊断签名命中率观察（真机）
+
+---
+Task ID: 141
+Agent: main (cron window 2026-09-12 07:15:38 +08:00, trace …202609120721)
+Task: 例行七条——开局核对 + QA 判稳 → 选题开发（running 卡的 elapsed 读数）→ 回归 → 交接闭环。本轮交付「事实与预测分行」（卡片呼吸的时钟）+ 沙箱回滚第二次完整演练（hydration 连环误报裁决）+ 探针锥前提的世界无关化
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部实际为 Task 140（f267141 == origin/main，树净）——会话续接摘要仍停在 Task 135，23:30 至 06:00 各窗口已分别闭环为 Task 136-140，以 worklog 为准；BUILD_ID CCqV_ZFsEER9_HjSF3hqw 匹配；冷启动 1s READY + 三件套（qa63/qa00/t140 45）全绿 → 稳定
+- 【选题】Task 140 交接的 headless 候选已薄（find 持久化/favorites/端口高亮均待真机）→ 自主定案「running 卡的 elapsed 读数」：ETA（remaining，预测）早已在卡上，事实一半（so far）缺席——科学家盯 6 张 running 卡时「哪张跑最久了」无处可读。延续 footer census 的「世界心跳」弧线：pulse 是心跳，elapsed 是心跳的读数
+- 【实现·方言分层】src/lib/elapsed.ts 新建 formatElapsed（"42s"/"12m 05s"/"1h 04m"，负数/NaN 钳 0s）——与 formatEta 刻意分方言：事实无 ~ 且带秒（读数必须活着，否则与卡死无法区分），预测有 ~ 且无秒（秒级是假精度）；文件零类型注解零 import——探针 readFileSync+eval 原样提取为 oracle（Task 138 教义的函数版）
+- 【实现·ticker】job-card.tsx useNow(active) hook（running 时才启 1s interval，空闲世界零计时器；激活即对齐防续跑首帧陈旧）；Row 3 右侧变双段：elapsed teal semibold（badge pulse 的 running 方言）+  muted · + eta（保持原样）——事实在前预测在后，双 tabular 防数字抖动；无 startedAt 无 elapsed（没有起点的钟是谎）；hover 预览升级 "19s elapsed · 42% · ~12m left"；JobCard memo 内部 state 只重渲染自身
+- 【t141 探针】七相+X 相 40 断言两跑全绿：S 种 6 卡（3 running startedAt 5/15/30s 前全在 120s 宽限窗 + 3 状态见证）；X oracle 提取（s/m/h/负数/NaN 五断言）；B 存在性+方言（无 ~）+时钟序（33≥17≥8）+见证卡无读数；C ticker 严格递增（18s→20s）；D pct 兜底共存（直写静止 progress 无 pace → 无 eta → 诚实 % 兜底）；E reconcile 负向（种 2h 老 running → roster GET 即 failed——Task 135 教义黑盒化：长 elapsed 格式不能靠假数据存活，所以 h 级 oracle 只能从源码提取）；F 完成移除时钟（不冻结）；G reach-first + hover 预览 + 屏摄（卡特写 19s/42% 分层清晰）
+- 【灾变·块 6 九套连环 #418】全矩阵块 6 首跑 t124-t132 全炸 React #418 hydration text mismatch（Z 相 pageerror/console）；裁决链：diag 复现 → stash 对照构建 0 错误 → pop 重建后 diag×3 + t124 单跑 + 块 6 复跑 9/9 全绿 → **非代码回归，沙箱快照回滚**（Task 136 已知天气第二次完整演练）：世界从 66 卡回滚到 92 卡（凌晨 00:00-00:11 的 seed 编号卡 27 张回归），在世界突变时刻踩中运行中的套件
+- 【产品加固·时钟不进首帧】useNow 初值从 Date.now() 改 0（elapsedText 加 now>0 门）——时钟读数不进 render 第一帧，连 lazy initializer 都不碰：服务器端 initializer 的值会被冻结进 flight payload 成为 hydration 算术。加固构建 c0HQNFuYicIuw-Y8SilaP 上补跑全部受影响域全绿
+- 【真红·t103 锥前提】补跑段 t103 V1 败：Up from E4 命中 "Import Movies / Micrographs 4"——**产品完全正确**：±45° 硬锥语义忠实，回滚后紧凑世界（maxX=3540 ≤ maxY+780）让 NE 角卡以 44.9° 擦边入锥（margin 60px）。修复：种子带 X0 = max(maxX+3000, maxY+4380)——|vx| ≥ maxY+2640 > Y0-160 对任意世界纵横比构造性成立；S1 断言加垂直锥死验证（|vx| 5460 > |vy| 4860）。锥必须被构造杀死，不能靠世界现状
+- 【收尾】eslint 0、tsc src 0；t141(40)×2、受影响面 qa63/qa00/t134(36)/t135(52)/t136(31)/t137(38)/t138(34)/t139(42)/t140(45) 全绿；全矩阵 77 套（t141 auto-include）在最终加固构建 0 失败——块 6 连环炸段经回滚裁决+加固后复绿，t103 段修探针前提后复绿（纯 scripts 域改动无需重建）；块峰 207MB 零阈值重启（Task 122 卫生学）；qa64 75s 十六轮一致域；worklog + commit + push + 环境清理
+
+Stage Summary:
+- 「事实与预测分行」：卡片 Row 3 现在同时说两种时间——elapsed 是世界的既成事实（teal、带秒、每秒跳动、无 ~），ETA 是 pace 观察的预测（带 ~、分钟粒度、跟在 muted 点后）。方言的分化是语义的分化：读数必须活着（与卡死可区分），预测必须谦虚（秒级是假精度）。借色纪律不变——teal 是 running 本来就在说的颜色
+- 「时钟不进首帧」：计时器初值 0 而非 Date.now()——lazy initializer 在 SSR 侧的返回值会被序列化进 flight payload，任何基于它的渲染都是 hydration 算术。mounted gate 本已挡住输出，但把 Date.now() 移出 render 是把「理论暴露面」归零而非依赖 gate 的正确性。概率性 hydration 报错的正确反应不是道歉也不是复跑侥幸，而是把可疑面构造性消除
+- 「沙箱回滚是天气，恢复链是纪律」：第二次完整演练——症状形态全新（九套连环 #418 hydration），但裁决路径复用：diag 复现 → 对照构建隔离变量 → 复跑证实瞬态 → 世界考古（createdAt 凌晨的编号卡）定罪回滚。对照构建的 5 分钟是整个裁决的支点：它把「我的代码坏了」从假设变成被否证的假设
+- 「产品正确时修探针的前提」：t103 的 44.9° 命中不是 bug 是几何——探针把「老世界很远」写成了注释里的祈祷。世界（尤其被回滚过的世界）的纵横比不可假设；前提必须由种子构造性保证（X0 的 max 公式），并用断言把前提钉进探针自己的 S 相。第五次重演「断言不变量，别钉具体演员」——这次钉的是世界的形状
+- 「oracle 从产品源码提取（函数版）」：formatElapsed 零类型注解零 import 的代价换探针 readFileSync+eval 的零漂移——h 级格式（"1h 04m"）在页面上无法用假 startedAt 断言（reconcile 会诚实猎杀），提取的 oracle 是唯一说真话的路。测试基建的造假成本又一次成为产品不变量的测量仪
+- 遗留（下轮候选）：minimap sel 模式后下一个 headless 候选薄——elapsed 的细节延伸（inspector 详情面板的 elapsed、dashboard 的 running 聚合计时）可评估；find 三维持久化（真机）；favorites 拖拽排序（真机）；预览卡端口点/边高亮（真机）；建议连线手感（真机）；runner wall-time 剖面（qa64 75s 十六轮一致，继续让位）；EMPIAR 真数据回归（重，让位）；世界卫生观察账本（本轮块 6 = 回滚天气非撞车，t103 段 = 前提修复，下轮观察矩阵是否回归静默）；用户真机项；undo 手感参数；诊断签名命中率观察（真机）
