@@ -33,6 +33,7 @@ import { registerGroupMember, beginGroupDrag, moveGroupDrag, endGroupDrag } from
 import { BULK_DELETE_EVENT, type JobDTO, type JobTypeSpec, type ParamValue } from "@/lib/types";
 import { parseClassNotes } from "@/lib/class-notes";
 import { formatElapsed } from "@/lib/elapsed";
+import { useNow } from "@/lib/use-now";
 import { TypeIcon } from "./icons";
 import { Badge } from "@/components/ui/badge";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
@@ -230,28 +231,19 @@ export function useMounted(): boolean {
   return mounted;
 }
 
-/** Live 1s tick for the running elapsed readout (Task 141). The timer
- *  exists only while the card is running — an idle world pays zero
- *  intervals — and re-aligns on activation so a resumed run doesn't
- *  render a stale first second. Lives on the card, not in a context:
- *  a dozen running cards mean a dozen cheap intervals, not a store
- *  broadcast that re-renders the whole canvas every second.
+/** Live 1s tick for the running elapsed readout (Task 141, moved to
+ *  lib/use-now.ts in Task 142 — one canonical hook, not N drifting
+ *  copies). The timer exists only while the card is running — an idle
+ *  world pays zero intervals — and re-aligns on activation so a resumed
+ *  run doesn't render a stale first second. Lives on the card, not in a
+ *  context: a dozen running cards mean a dozen cheap intervals, not a
+ *  store broadcast that re-renders the whole canvas every second.
  *
  *  Starts at 0, never Date.now(): a clock reading must not exist in
  *  render's first frame — not even inside a lazy initializer, whose
  *  server-side value would otherwise be frozen into the flight payload
  *  and become hydration arithmetic. The elapsed text is mounted-gated
  *  anyway, so nothing renders one beat early. */
-function useNow(active: boolean): number {
-  const [now, setNow] = React.useState(0);
-  React.useEffect(() => {
-    if (!active) return;
-    setNow(Date.now());
-    const t = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(t);
-  }, [active]);
-  return now;
-}
 
 /* ------------------------------------------------------------------ */
 /* Right-click context menu (wraps the whole card)                     */

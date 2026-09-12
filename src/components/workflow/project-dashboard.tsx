@@ -51,6 +51,8 @@ import { jobType } from "@/lib/workflow";
 import { TypeIcon } from "./icons";
 import { PipelineAnalytics } from "./pipeline-analytics";
 import { StatusBadge, estimateEta, formatEta, trackEtaBaseline } from "./job-card";
+import { formatElapsed } from "@/lib/elapsed";
+import { useNow } from "@/lib/use-now";
 // diff entry No.4 (Task 89): the roster is the SURVEY surface — "compare
 // run 1 vs run 2" is asked here more than anywhere, across every workspace
 // at once. Same shared picker as the inspector (one sibling list, one
@@ -886,6 +888,16 @@ function JobRow({ job, onOpen }: { job: JobDTO; onOpen: () => void }) {
   React.useEffect(() => {
     if (running) trackEtaBaseline(job.id, job.startedAt, job.progress);
   }, [running, job.id, job.startedAt, job.progress]);
+  // Task 142 — the roster row speaks the fact too: "42% · 12m 05s · ~12m"
+  // reads progress, then fact, then prediction — the same composition the
+  // card's Row 3 and the inspector's header speak, so a scientist sweeps
+  // the dashboard and the canvas without switching dialects. The ticker
+  // lives only on running rows (an idle roster pays zero timers).
+  const now = useNow(running);
+  const rowElapsed =
+    running && job.startedAt && now > 0
+      ? Math.max(0, now - new Date(job.startedAt).getTime())
+      : 0;
 
   const workspaces = useWorkflowStore((s) => s.workspaces);
   const moveJob = useWorkflowStore((s) => s.moveJob);
@@ -1022,7 +1034,11 @@ function JobRow({ job, onOpen }: { job: JobDTO; onOpen: () => void }) {
             <span className="mt-1 flex items-center gap-2">
               <Progress value={job.progress} className="h-1 flex-1 overflow-hidden" />
               <span className="shrink-0 text-[10px] font-semibold tabular-nums text-teal-600 dark:text-teal-400">
-                {Math.round(job.progress)}%{eta != null ? ` · ${formatEta(eta)}` : ""}
+                {Math.round(job.progress)}%
+                {rowElapsed > 0 ? (
+                  <span data-testid="row-elapsed"> · {formatElapsed(rowElapsed)}</span>
+                ) : null}
+                {eta != null ? ` · ${formatEta(eta)}` : ""}
               </span>
             </span>
           ) : (

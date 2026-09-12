@@ -2,6 +2,8 @@
 
 import { useActiveWorkspaceJobs, useWorkflowStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
+import { formatElapsed } from "@/lib/elapsed";
+import { useNow } from "@/lib/use-now";
 import React from "react";
 import { FIND_STATUSES, STATUS_CHIP } from "./canvas-find-bar";
 
@@ -61,6 +63,28 @@ export function Footer() {
     }
   };
 
+  // Task 142 — the running entry carries the batch's age: the OLDEST
+  // running job's elapsed, read out next to the count. The count says
+  // "how many"; the readout says "how long has this been going" — the
+  // chrome-level answer to the same question the card's elapsed answers
+  // per card. Same fact dialect (formatElapsed: teal, seconds, no ~),
+  // same one-second heartbeat (a readout that never moves cannot be
+  // told apart from a hung run), and the heartbeat exists only while a
+  // running job does — an idle world pays zero timers.
+  const oldestRunningStart = React.useMemo(() => {
+    let min: number | null = null;
+    for (const j of jobs) {
+      if (j.status !== "running" || !j.startedAt) continue;
+      const t = Date.parse(j.startedAt);
+      if (Number.isFinite(t) && (min === null || t < min)) min = t;
+    }
+    return min;
+  }, [jobs]);
+  const now = useNow(oldestRunningStart !== null);
+  const runningElapsed =
+    oldestRunningStart !== null && now > 0 ? Math.max(0, now - oldestRunningStart) : 0;
+  const runningAge = runningElapsed > 0 ? formatElapsed(runningElapsed) : null;
+
   return (
     <footer className="no-print mt-auto flex min-h-9 shrink-0 items-center justify-between gap-4 border-t bg-background/80 px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] text-xs text-muted-foreground backdrop-blur supports-[backdrop-filter]:bg-background/60 sm:px-4">
       <p className="truncate">
@@ -93,7 +117,7 @@ export function Footer() {
                     title={
                       armed
                         ? `Clear the ${label.toLowerCase()} filter`
-                        : `Highlight ${count} ${label.toLowerCase()} job${count === 1 ? "" : "s"} on the canvas`
+                        : `Highlight ${count} ${label.toLowerCase()} job${count === 1 ? "" : "s"} on the canvas${value === "running" && runningAge ? ` — longest running for ${runningAge}` : ""}`
                     }
                     onClick={() => onCensusClick(value)}
                     className={cn(
@@ -116,6 +140,14 @@ export function Footer() {
                     {count}
                     <span className="hidden lg:inline">{label.toLowerCase()}</span>
                     <span className="sr-only lg:hidden">{label.toLowerCase()}</span>
+                    {value === "running" && runningAge ? (
+                      <span
+                        data-testid="footer-running-elapsed"
+                        className="hidden font-semibold tabular-nums text-teal-600 dark:text-teal-400 lg:inline"
+                      >
+                        · {runningAge}
+                      </span>
+                    ) : null}
                   </button>
                 );
               })}

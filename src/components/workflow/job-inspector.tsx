@@ -87,6 +87,8 @@ import type { EdgeDTO, JobDTO } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { TypeIcon } from "./icons";
 import { StatusBadge, estimateEta, formatEta, trackEtaBaseline } from "./job-card";
+import { formatElapsed } from "@/lib/elapsed";
+import { useNow } from "@/lib/use-now";
 // the sibling picker became a shared module in Task 89 — the dashboard
 // roster's row-level Compare is the same component, only the trigger's
 // dialect differs (labeled here, icon + hover-reveal there)
@@ -151,13 +153,13 @@ const SUBMITTED = new Set(["running", "completed", "failed"]);
 /* ------------------------------------------------------------------ */
 
 function useElapsed(startedAt: string | null, active: boolean): number {
-  const [now, setNow] = React.useState(() => Date.now());
-  React.useEffect(() => {
-    if (!active || !startedAt) return;
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, [active, startedAt]);
-  if (!startedAt) return 0;
+  // Task 142 — rebuilt on the canonical useNow (init 0 — Task 141's
+  // doctrine: a clock reading never enters the first frame; this modal
+  // only mounts client-side, but the surface is eliminated, not
+  // gated). now === 0 reads as "no readout yet"; consumers gate it away
+  // instead of printing a first-frame artifact.
+  const now = useNow(active && startedAt != null);
+  if (!startedAt || now === 0) return 0;
   return Math.max(0, now - new Date(startedAt).getTime());
 }
 
@@ -776,7 +778,7 @@ function Timeline({ job }: { job: JobDTO }) {
       icon: job.status === "failed" ? AlertTriangle : Check,
       label: running ? "Running" : finished ? (job.status === "completed" ? "Completed" : "Failed") : "Pending",
       value: running ? `${Math.round(job.progress)}%` : finished ? fmtDuration(duration) : "—",
-      sub: running ? fmtDuration(duration) + " elapsed" : finished ? "wall time" : "",
+      sub: running && duration > 0 ? formatElapsed(duration) + " elapsed" : finished ? "wall time" : "",
       done: finished,
       live: running,
       tone: job.status === "failed" ? "bad" : job.status === "completed" ? "good" : "run",
@@ -1811,11 +1813,11 @@ function InspectorHeader({ job }: { job: JobDTO }) {
               {spec?.label ?? job.type}
             </Badge>
             <span>created {job.createdAt ? fmtAgo(job.createdAt) : "—"}</span>
-            {running && job.startedAt ? (
+            {running && job.startedAt && elapsed > 0 ? (
               <>
                 <Separator orientation="vertical" className="h-3" decorative />
                 <span className="font-mono tabular-nums text-teal-600 dark:text-teal-400">
-                  {fmtDuration(elapsed)} elapsed
+                  {formatElapsed(elapsed)} elapsed
                 </span>
               </>
             ) : null}

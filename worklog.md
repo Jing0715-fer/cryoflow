@@ -4196,3 +4196,28 @@ Stage Summary:
 - 「产品正确时修探针的前提」：t103 的 44.9° 命中不是 bug 是几何——探针把「老世界很远」写成了注释里的祈祷。世界（尤其被回滚过的世界）的纵横比不可假设；前提必须由种子构造性保证（X0 的 max 公式），并用断言把前提钉进探针自己的 S 相。第五次重演「断言不变量，别钉具体演员」——这次钉的是世界的形状
 - 「oracle 从产品源码提取（函数版）」：formatElapsed 零类型注解零 import 的代价换探针 readFileSync+eval 的零漂移——h 级格式（"1h 04m"）在页面上无法用假 startedAt 断言（reconcile 会诚实猎杀），提取的 oracle 是唯一说真话的路。测试基建的造假成本又一次成为产品不变量的测量仪
 - 遗留（下轮候选）：minimap sel 模式后下一个 headless 候选薄——elapsed 的细节延伸（inspector 详情面板的 elapsed、dashboard 的 running 聚合计时）可评估；find 三维持久化（真机）；favorites 拖拽排序（真机）；预览卡端口点/边高亮（真机）；建议连线手感（真机）；runner wall-time 剖面（qa64 75s 十六轮一致，继续让位）；EMPIAR 真数据回归（重，让位）；世界卫生观察账本（本轮块 6 = 回滚天气非撞车，t103 段 = 前提修复，下轮观察矩阵是否回归静默）；用户真机项；undo 手感参数；诊断签名命中率观察（真机）
+
+---
+Task ID: 142
+Agent: main (cron window 2026-09-12 08:45:39 +08:00, trace …202609120850)
+Task: 例行七条——开局核对 + QA 判稳 → 选题开发（心跳的读数升入 chrome）→ 回归 → 交接闭环。本轮交付「一个事实一个方言，chrome 全面接管」：footer 聚合计时（批次年龄）+ inspector 方言统一 + 正典 useNow 抽取 + dashboard roster 事实段
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部实际为 Task 141（23b0835 == origin/main，树净）——续接摘要仍停在 Task 135，05:00/06:00/07:15 窗口已闭环为 Task 139/140/141，以 worklog 为准；BUILD_ID c0HQNFuYicIuw-Y8SilaP 匹配；冷启动 2s READY + 三件套（qa63/qa00/t141 40）全绿 → 稳定
+- 【选题】Task 141 交接首选「elapsed 细节延伸（inspector 面板、dashboard 聚合计时）」→ 侦察发现 inspector 头部与 Timeline 已有 elapsed 但用 fmtDuration（"12m 5s"）与卡片 formatElapsed（"12m 05s"）方言漂移，且 useElapsed 初值 Date.now() 违反 t141 首帧教义；chrome 各面（footer census/header/dashboard）计「数」不计「时」→ 定案四件：footer 聚合读数 + inspector 方言统一 + 正典 hook 抽取 + roster 事实段
+- 【实现·正典 hook】src/lib/use-now.ts 新建 useNow（初值 0、active 门、激活对齐），job-card 删本地副本改导入，inspector useElapsed 重建其上（now===0 读作「无读数」由消费门消化）；lint 教训：react-hooks/set-state-in-effect 只祝福 React.useState 命名空间形式（命名导入触发）——正典文件与被正典化的卡实现逐字节同形
+- 【实现·footer 批次年龄】census 的 running 条目升格：「2 running · 1m 35s」——最老 running 的 elapsed（min startedAt），formatElapsed 事实方言 + teal + tabular，1s 心跳只在有带 startedAt 的 runner 时存在（闲世界零计时器）；title 尾注 "longest running for"；无 startedAt 的 running（QA Refine Live fixture）被 min 派生诚实跳过——「无起点无读数」在 chrome 层生效
+- 【实现·inspector 方言】头部 meta 与 Timeline Running sub 的 live readout 从 fmtDuration 切 formatElapsed（补零秒——读数必须活着）；静态记录（completed 的 wall time value）保留 fmtDuration——「活读数说事实方言，死记录说记录方言」；头部读数加 elapsed>0 门（首帧不出 "— elapsed" 碎片）
+- 【实现·roster 事实段】dashboard JobRow running 行：「8% · 1m 17s」→ 进度、事实、预测同列；ticker 只住在 running 行（闲名册零计时器）；StageChip 刻意不动——聚光灯 chip 是一瞥粒度，名册行是读数粒度，同屏两种粒度各司其职
+- 【t142 探针】九相 37 断言两跑全绿：S 前提「世界无带 startedAt 的 runner」（footer oracle 拥有地板——fixture running 透明化断言）；X oracle 提取（5 断言）；B footer 读数（恰一个、无 ~、≥95s 地板、title 尾注、completed 条目无尾注）；C 心跳严格递增；D inspector「1m 45s elapsed」正则钉方言 + Timeline sub；E roster 行事实片段 + pct 在前 + 无 pace 不许伪造预测（t141 D 相教义镜像）；F 生命周期——最老 runner 完成 → 读数移交次老（81s < 93s 带宽断言）；G 屏摄；Z console + roster 还原
+- 【探针伤情三折】①S 前提首版钉「0 running」被 QA Refine Live（startedAt:null 的合法 fixture）打脸——前提改为「无带 startedAt 的 running」，fixture 的透明性从偶然变成断言；②E 相 hasText("T142 Beta") 命中 spotlight StageChip（同文名）——定位收窄 [data-roster-table] tr（t139「按容器点名」教义再演）；③E5 期望 eta 在场被直写静态 progress 无 pace 打脸（t141 D 相：无基线无预测）——断言反转为「不许伪造预测」
+- 【真裁决·种子 log 404】Z 相 console 一条 404：D 相重试首轮点中邻居种子卡 → 它的 inspector 拉 /api/jobs/<seed>/log → 种子从未跑 engine 无 log 文件 → 诚实 404。裁决链：UI 有优雅 no-log 态（setNoLog）产品无错；t120 Z2 把 log-404 钉为 API 合同不可改 200；浏览器网络层对任何非 2xx 必然记录 → 探针侧精确容忍（跨查 badResponses ∩ 种子 id 的 /log URL，1 console / 1 seeded-log 逐一对账；其余 4xx 仍炸）——容忍半径写在注释里而不是埋进过滤器
+- 【收尾】eslint 0（use-now.ts 命名空间形态）、tsc src 0；构建 BUILD_ID zF7B8JYdQZIr6PIqnZuYj；t142(37)×2、受影响面 qa63/qa00/t134(36)/t135(52)/t136(31)/t137(38)/t138(34)/t139(42)/t140(45)/t141(40) 全绿；全矩阵 78 套（t142 auto-include 位 #78）分 9 块 0 失败——块 3 t101 一次瞬态（单跑 33 断言 + 原地复跑双绿，入抖动账本）；块峰 185-199MB 零阈值重启（Task 122 卫生学）；qa64 73s 持续一致域；worklog + commit + push + 环境清理
+
+Stage Summary:
+- 「一个事实一个方言」：elapsed 在卡片（t141）、footer、inspector、roster 四面同说 formatElapsed——补零秒、无 ~、teal、tabular。fmtDuration 没有消失，它退到它本来的领地：静态记录（completed 的 wall time、Timeline 的终值）。「活读数说事实方言，死记录说记录方言」——方言的边界就是时间的边界：还在流的用秒，已经停的用分时
+- 「聚合计时是最老 runner 的年龄」：footer 的读数不是 sum（并行时间求和对人无意义）而是 min(startedAt)——「这批跑了多久了」「哪张最久」同一个答案。读数跟着最老的在世 runner 走（F 相：Gamma 完成 → 读数移交 Beta），是活的年龄不是冻结的记忆；无 startedAt 的 running 是透明的（fixture 不污染 oracle）——「无起点无读数」从卡片教义升格为 chrome 不变量
+- 「正典 hook 的位与形」：useNow 搬进 lib 不是搬家是正典化——一个 hook 一份副本（「一个谓词 N 份副本漂移 N 倍速」的 hook 版）；且正典文件与被正典化的实现逐字节同形（React.useState 命名空间形式），lint 规则的静态分析恰好只祝福这个形式——规范与工具在这里同向
+- 「容忍半径要写出来」：种子 log 404 的容忍不是 `filter(e=>!e.includes("404"))` 一刀切——是跨查 badResponses 与种子 id 的逐一对账 + 注释里写明裁决链（UI 优雅态、t120 合同、浏览器网络层必然性）。宽恕没有半径就是漏洞：精确到 URL 模式与数量对账的容忍才叫容忍，其余叫失明
+- 「前提是探针的世界观」：S 相首版前提「0 running」隐含了「世界只有我知道的 running」——被 fixture 一击即溃。修正后的前提「无带 startedAt 的 running」把 fixture 的透明性写成断言：前提的修正不是放水，是把世界观里每一类演员都点名入册（fixture、种子、见证各就各位）
+- 遗留（下轮候选）：find 三维持久化（真机反馈再评估）；favorites 拖拽排序（真机）；预览卡端口点/边高亮（真机）；建议连线手感（真机）；StageChip 粒度讨论（聚光灯 chip 保持一瞥粒度——若真机要求年龄可加 title 尾注，零布局风险）；runner wall-time 剖面（qa64 73s 持续一致，继续让位）；EMPIAR 真数据回归（重，让位）；世界卫生观察账本（本轮块 3 t101 一次瞬态单跑即愈，矩阵基本回归静默）；用户真机项；undo 手感参数；诊断签名命中率观察（真机）
