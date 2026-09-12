@@ -4320,3 +4320,24 @@ Stage Summary:
 - 「转变播报对探针隐含前提」：播报转变非状态（产品合同）⇒ 翻转前客户端必须见过 running（探针前提）——idle 世界 6s poll 节奏下 seed 后立即翻转会让转变从未被观察（产品正确、探针假红）。keeper runner + 每 phase 一个 poll 周期的等待把前提写成显式步骤
 - 「updateMany 是探针的原子性武器」：单 SQL / $transaction 让 bulk 翻转原子落地——中间态的观察窗被 SQL 语义关闭，与「原子 stamp（t145 Mute）」同族但面向 N 个演员
 - 遗留（下轮候选）：auto-started 多条同拍的雪崩（本轮聚焦完成聚合——auto-started 轻新闻被 digest 顶掉可接受，真机抱怨再评估）；digest 的 result 细节（名单不带 result——聚合的代价是细节退场，真机评估是否要展开交互）；KPI 折叠持久化（真机）；find 三维持久化（真机）；favorites 拖拽排序（真机）；undo 手感参数（真机）；runner wall-time 剖面（qa64 85s 一致域，继续让位）；世界卫生观察账本（矩阵连续第三天零抖动，残渣审计静默）；EMPIAR 真数据回归（重，让位）；用户真机项
+
+---
+Task ID: 147
+Agent: main (cron window 2026-09-12 15:30:47 +08:00, trace …202609121534)
+Task: 例行七条——开局核对 + QA 判稳 → 选题开发（auto-started 同拍聚合）→ 探针纯 stamp 驱动播报层 → 回归 → 交接闭环。本轮交付「轻新闻也说同一部法」：Task 146 的聚合律从完成新闻延伸到 kickoff 新闻——同拍 N 个 kickoff 从「N-1 个通知被吞」到一条 digest，且轻新闻首次获得 9s 过期
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部实际为 Task 146（7676fc6 == origin/main，树净）；BUILD_ID Wa5TTpyKjKex6ZVprSnzN 匹配；冷启动 2s READY + 三件套（qa63/qa00/t146 47）全绿 → 稳定；顺带核实 cron 文本反复引用的 Task 13 遗留清单（#5/#6/#7/#8/#13/#14）——worklog 考古证实已在中途各轮实质关闭，纯陈旧引用
+- 【选题】minimap find 联动侦察出局（Task 136/137/139 已做：amber 门 + sel 门 + 跳转手势）→ 选中 Task 146 交接遗留「auto-started 多条同拍的雪崩」：pollTick 轻半边的同步循环病与重半边相同——两个 kickoff 同拍时第一个通知被吞；顺带治愈既存样式病：单条 auto-started 无 duration（Radix 默认 ≈16 分钟驻留——轻新闻霸占 toast 槽，而它的状态活在卡片 teal 呼吸环上）
+- 【实现·kicked 收集聚合】pollTick 的 pending→running 分支从即时 toast 改为收集 kicked 数组：1 个 → 现状通知逐字保留 + duration 9_000（新）；≥2 个 → digest（title "N auto-started" census 计数 + 名单行 `${name} auto-started` 被吞通知逐字 + 8 行上限 + "… and N more" 尾行 + 9s）；无 elapsed 行（kickoff 是开始，没有可读的时长——t145 静默教义的开始版）、无 View 桥（摘要不是门）、非 destructive；播报次序 kept：kicked 先出、finished 后出——完成是重新闻，继续赢 TOAST_LIMIT=1 槽位（Task 146 裁决原封）
+- 【t147 探针】七相 41 断言 ×2 全绿：S keeper（pending 不算 active——keeper 保住 1.2s poll 节奏）；X 源码 oracle（两个分支都带 duration 9_000）；B 原子 stamp 2×pending→running → digest "2 auto-started"（名单 2 行逐字 + 行无 elapsed 碎片 + 无 View + 非 destructive）；C 单 kickoff → 现状通知逐字（title + "Upstream inputs became ready — running now"）；D 10 个 kickoff → "10 auto-started" + 9 span（8 行 + "… and 2 more"）；E 混合拍（2 kickoff + 2 完成同一 $transaction）→ finished digest "2 completed" 幸存（重新闻裁决成立）；G 屏摄；Z /log-404 半径容忍 + roster 还原（22==22）
+- 【探针技术·纯 stamp 驱动播报层】不依赖 engine 真实 auto-start（那会 spawn 真实 RELION 进程/被 stampede guard 限流）——原子 stamp 直接模拟 pending→running 转变：播报层读转变、谁翻的行（engine 或探针）对它不可见；真实 engine auto-start 行为仍由 qa 套件覆盖。前提显式化（t146 教义）：种子先 stamp pending、等一个 poll 周期（letClientSee）、再原子翻 running——「探针的前提写成步骤，不是运气」
+- 【探针伤情·一折】C 相首版钉 textContent 尾巴 " Close"——ToastClose 的 X 按钮无文本（aria-label 不进 textContent），钉了想象 DOM。修正为实际拼接形态——「定位器考古真实 DOM」教义的又一次演练
+- 【收尾】eslint 0、tsc src 0；构建 BUILD_ID csTT6K1fRVwzNa-kLOnQs；t147(41)×2、受影响面 t146(47)/t145(28)/qa63/qa00 全绿；全矩阵 83 套（t147 auto-include）分 9 块 0 失败；块峰 200MB 零阈值重启（Task 122 卫生学）；qa64 85s 一致域；worklog + commit + push + 环境清理
+
+Stage Summary:
+- 「一部法，轻重两半」：Task 146 治了完成的雪崩，Task 147 把同一条法延伸到 kickoff——收集先行、聚合播报、名单逐字、上限计数。轻重之分只在细节：完成的名单带 elapsed（读数层说时间），kickoff 的名单不带（开始没有时长可读）；完成的 digest 可以 destructive（警报压倒活着），kickoff 永远中性（开始不是警报）。法的骨架相同，血肉随事实不同——这才是「同一部法」而非「同一个模板」
+- 「轻新闻也要过期」：单条 auto-started 曾因无 duration 在 toast 槽驻留 ~16 分钟——它的状态活在卡片 teal 呼吸环上，通知的驻留只是占有而不携带信息。「新闻会过期，状态不会」（t145）至此覆盖播报层的全部四个分支（solo/digest × finished/kicked）
+- 「重新闻继续赢槽位」：TOAST_LIMIT=1 的世界里 kicked 先出、finished 后出——混合拍（上游完成 + 下游开跑，engine 级联的常态）最终幸存的是完成 digest。轻新闻被重新闻顶掉不是丢失：它已经被说出过一瞬，且状态在 census 每一层活着——槽位裁决是信息的排序，不是信息的删除
+- 「播报层与引擎层解耦测试」：播报读转变不问起源——原子 stamp 直接驱动 pending→running，绕开 engine 的真实 spawn/stampede guard；这让播报聚合的测试可以逐分支穷举（2/1/10/混合）而不用构造真实管线的时序。测一层时，把别的层当黑箱
+- 遗留（下轮候选）：digest 名单行点击跳转（名单行的 name 已是事实，点击可 focusJob——边际评估，digest 是摘要不是门教义的反向拉力，真机反馈再定）；auto-started 的上游名字（"Class2D finished — Picking started"——需 lineage 反查，边际评估）；KPI 折叠持久化（真机）；find 三维持久化（真机）；favorites 拖拽排序（真机）；undo 手感参数（真机）；runner wall-time 剖面（qa64 85s 一致域，继续让位）；世界卫生观察账本（矩阵连续第四天零抖动）；EMPIAR 真数据回归（重，让位）；用户真机项

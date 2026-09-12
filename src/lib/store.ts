@@ -2021,20 +2021,55 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       // doctrine). A digest carries no View bridge: it is a summary,
       // not a door — each job's results stay one click away on its card.
       const finished: Array<{ job: JobDTO; kind: "completed" | "failed" }> = [];
+      const kicked: JobDTO[] = [];
       for (const job of merged) {
         const before = prev.find((p) => p.id === job.id);
         if (before?.status !== "running") {
           if (before?.status === "pending" && job.status === "running") {
-            toast({
-              title: `${job.name} auto-started`,
-              description: "Upstream inputs became ready — running now",
-            });
+            kicked.push(job); // collect — the aggregation law below speaks for the batch
           }
           continue;
         }
         if (job.status === "completed" || job.status === "failed") {
           finished.push({ job, kind: job.status });
         }
+      }
+      // Task 147 — the light half of the sweep now obeys the same
+      // aggregation law as the heavy half: two kickoffs in one tick used
+      // to swallow the first auto-started notice exactly the way two
+      // completions used to swallow their announcements. One kickoff
+      // keeps its full notice (now with the same 9s expiry every other
+      // news carries — a state that lives on the card's teal ring has no
+      // reason to camp on the toast slot); several kickoffs get one
+      // digest: census-count title, one roster line per kicked job in
+      // the very form its swallowed notice would have had. No elapsed
+      // lines here — a kickoff is a beginning, it has no duration to
+      // read yet; no View bridge for the digest (a summary, not a door).
+      // Announced BEFORE the finished news: the completion is the
+      // heavyweight fact and keeps winning the TOAST_LIMIT=1 slot
+      // (Task 146's ruling, preserved).
+      if (kicked.length === 1) {
+        toast({
+          title: `${kicked[0].name} auto-started`,
+          description: "Upstream inputs became ready — running now",
+          duration: 9_000, // news expires — the teal breathing ring carries the state
+        });
+      } else if (kicked.length >= 2) {
+        const ROSTER_CAP = 8;
+        const lines = kicked.map((job) => `${job.name} auto-started`);
+        const shown = lines.slice(0, ROSTER_CAP);
+        if (lines.length > ROSTER_CAP) shown.push(`… and ${lines.length - ROSTER_CAP} more`);
+        toast({
+          title: `${kicked.length} auto-started`,
+          description: React.createElement(
+            React.Fragment,
+            null,
+            shown.map((line, i) =>
+              React.createElement("span", { key: i, className: "block" }, line),
+            ),
+          ),
+          duration: 9_000, // same expiry — the running census lives in footer, tab, favicon
+        });
       }
       const [solo, ...rest] = finished;
       if (solo && rest.length === 0) {
