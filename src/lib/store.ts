@@ -829,6 +829,20 @@ const announceElapsed = (job: JobDTO): string => {
   return ` · ${formatElapsed(ms)}`;
 };
 
+/** Task 149 — the announcement's destination resolver, shared by the
+ *  View bridge and every digest roster line. The door opens into the
+ *  RIGHT world: a finisher in workspace B announced while the user sits
+ *  in A must switch the lens before opening the inspector, or the
+ *  inspector names a card the canvas doesn't show. */
+const announceNavigate = (get: () => WorkflowState, jobId: string) => {
+  const job = get().jobs.find((j) => j.id === jobId);
+  if (job?.workspaceId && get().activeWorkspaceId !== job.workspaceId) {
+    get().switchWorkspace(job.workspaceId);
+  }
+  get().setView("canvas");
+  get().inspect(jobId);
+};
+
 /** Task 145 — the announcement's one-tap follow-up: jump straight into
  *  the finished job's inspector. The toast is transient; the action is
  *  the bridge from hearing the news to reading the results. */
@@ -837,13 +851,47 @@ const announceViewAction = (get: () => WorkflowState, jobId: string, name: strin
     ToastAction,
     {
       altText: `Open ${name}'s results`,
-      onClick: () => {
-        get().setView("canvas");
-        get().inspect(jobId);
-      },
+      onClick: () => announceNavigate(get, jobId),
     },
     "View"
   ) as unknown as ToastActionElement;
+
+/** Task 149 — the digest roster becomes a directory of doors. Task 146's
+ *  ruling stands: the digest as a WHOLE has no single destination, so it
+ *  carries no View bridge. But each roster LINE names exactly one job —
+ *  a line click has exactly one destination, so every line is its own
+ *  door (the summary is not a door; it is the foyer with the directory).
+ *  The "… and N more" tail is a census line, not a name — it stays
+ *  inert. Buttons get a quiet hover tint, a pressed state, and a
+ *  keyboard-visible focus ring that follows the toast's variant (the
+ *  destructive digest's doors glow white on rose, not ink on rose). */
+const announceRoster = (
+  get: () => WorkflowState,
+  shown: Array<{ job: JobDTO; text: string }>,
+  tail?: string,
+) =>
+  React.createElement(
+    React.Fragment,
+    null,
+    shown.map(({ job, text }, i) =>
+      React.createElement(
+        "span",
+        { key: i, className: "block" },
+        React.createElement(
+          "button",
+          {
+            type: "button",
+            onClick: () => announceNavigate(get, job.id),
+            "aria-label": `Open ${job.name}`,
+            className:
+              "-mx-2 -my-0.5 block w-full cursor-pointer rounded px-2 py-0.5 text-left transition-colors hover:bg-foreground/10 active:bg-foreground/15 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring group-[.destructive]:hover:bg-white/15 group-[.destructive]:active:bg-white/20 group-[.destructive]:focus-visible:ring-white/70 motion-reduce:transition-none",
+          },
+          text,
+        ),
+      ),
+    ),
+    tail ? React.createElement("span", { className: "block" }, tail) : null,
+  );
 
 export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   jobs: [],
@@ -2019,7 +2067,9 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       // had (the reading layer says TIME), destructive whenever the
       // batch carries any failure (alarm outranks alive — the favicon
       // doctrine). A digest carries no View bridge: it is a summary,
-      // not a door — each job's results stay one click away on its card.
+      // not a door — but since Task 149 every roster LINE is its own
+      // door (a line names exactly one job, so its click has exactly
+      // one destination; the summary is the foyer with the directory).
       const finished: Array<{ job: JobDTO; kind: "completed" | "failed" }> = [];
       const kicked: JobDTO[] = [];
       for (const job of merged) {
@@ -2056,18 +2106,12 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         });
       } else if (kicked.length >= 2) {
         const ROSTER_CAP = 8;
-        const lines = kicked.map((job) => `${job.name} auto-started`);
-        const shown = lines.slice(0, ROSTER_CAP);
-        if (lines.length > ROSTER_CAP) shown.push(`… and ${lines.length - ROSTER_CAP} more`);
+        const all = kicked.map((job) => ({ job, text: `${job.name} auto-started` }));
+        const shown = all.slice(0, ROSTER_CAP);
+        const tail = all.length > ROSTER_CAP ? `… and ${all.length - ROSTER_CAP} more` : undefined;
         toast({
           title: `${kicked.length} auto-started`,
-          description: React.createElement(
-            React.Fragment,
-            null,
-            shown.map((line, i) =>
-              React.createElement("span", { key: i, className: "block" }, line),
-            ),
-          ),
+          description: announceRoster(get, shown, tail),
           duration: 9_000, // same expiry — the running census lives in footer, tab, favicon
         });
       }
@@ -2099,18 +2143,12 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         // the roster cap: a roll call must be finishable — beyond 8 lines
         // the digest counts the remainder instead of reciting it
         const ROSTER_CAP = 8;
-        const lines = finished.map(({ job, kind }) => `${job.name} ${kind}${announceElapsed(job)}`);
-        const shown = lines.slice(0, ROSTER_CAP);
-        if (lines.length > ROSTER_CAP) shown.push(`… and ${lines.length - ROSTER_CAP} more`);
+        const all = finished.map(({ job, kind }) => ({ job, text: `${job.name} ${kind}${announceElapsed(job)}` }));
+        const shown = all.slice(0, ROSTER_CAP);
+        const tail = all.length > ROSTER_CAP ? `… and ${all.length - ROSTER_CAP} more` : undefined;
         toast({
           title: parts.join(" · "),
-          description: React.createElement(
-            React.Fragment,
-            null,
-            shown.map((line, i) =>
-              React.createElement("span", { key: i, className: "block" }, line),
-            ),
-          ),
+          description: announceRoster(get, shown, tail),
           variant: failedN ? "destructive" : undefined,
           duration: 9_000, // same expiry — the roster itself lives in the chrome census
         });

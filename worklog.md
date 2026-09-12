@@ -4365,3 +4365,24 @@ Stage Summary:
 - 「FAIL 路径的 cleanup 是空头支票」：void cleanup().then(exit) 对 main().catch 的同步 exit 是永远输的竞速——失败即残留，残留污染下一跑（同名实体连锁假红）。探针开头自清前残（prisma 直删）+ cleanup 全同步化，把「失败可恢复」从愿望变成结构
 - 「假绿比假红更阴」：查错响应字段的还原断言永远为真——它陪跑了所有绿跑却什么都没验证。假红吵闹（会修），假绿沉默（陪跑）。断言的绿必须是「检查了真东西的绿」
 - 遗留（下轮候选）：workspace item 点的呼吸动画（running 的「活」语义—— favicon 同律保持静态，真机反馈再评估）；digest 名单行点击跳转（t146 遗留）；auto-started 上游名字（lineage 反查）；KPI 折叠持久化（真机）；find 三维持久化（真机）；favorites 拖拽排序（真机）；undo 手感参数（真机）；runner wall-time 剖面（qa64 86s 一致域，让位）；世界卫生观察账本（连续第五天零抖动）；EMPIAR 真数据回归（重，让位）；用户真机项
+
+---
+Task ID: 149
+Agent: main (cron window 2026-09-12 17:15:49 +08:00, trace …202609121715)
+Task: 例行七条——开局核对 + QA 判稳 → 选题开发（digest 名单行变成各自的门）→ 探针三折修正 → 受影响面回归 → 全矩阵 → 交接闭环。本轮交付「门厅带点名册」：Task 146「digest 是摘要不是门」教义的完成而非反转——digest 整体仍无桥，但每行名单各有一扇门，且门开在正确的世界里
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部实际为 Task 148（d013fa1 == origin/main，树净）——续接摘要仍停在 Task 146，16:15 窗口已闭环为 Task 147/148，以 worklog 为准；BUILD_ID Fu-uqLwm9Tz6Ao7l0HCih 匹配；冷启动 1s READY + 三件套（qa63/qa00/t148 23）全绿 → 稳定
+- 【选题】Task 148 交接 headless 可验证候选首选「digest 名单行点击跳转」（t146 遗留第一条）→ 教义推演：t146 裁决「digest 是摘要不是门」针对的是 digest 整体（多目的地没有单一的门，强行配桥只能武断选一个 finisher）——但每行名单恰好点名一个 job，行点击恰好有一个目的地；逐行配门不违反教义而是完成它（「每个结果在它的卡上一步之遥」变成「零步之遥」；摘要是门厅，不是没有门）→ 定案三件：名单行变按钮（hover 色/按压态/键盘 focus ring 随 variant）+ "… and N more" 尾行保持惰性（census 行不是门）+ announceNavigate 共享目的地解析器（View 桥与所有行门共用一个铰链）
+- 【实现·store】announceNavigate(get, jobId)：从 store.jobs 解析 job.workspaceId，非活跃工作区先 switchWorkspace 再 setView("canvas")+inspect(jobId)——「门要开在正确的世界里」：坐在 A 听见 B 的完成新闻，点门先进 B 的世界再开 inspector，否则 inspector 点名一张画布上不存在的卡（t145 View 桥的既存盲区顺带治愈）；announceRoster(get, shown, tail)：span.block 包裹层原样保留（t146/t147 探针的 span.block 名单合同逐字幸存——加门不改文本），内嵌 button（type=button、aria-label "Open <name>"、-mx-2/-my-0.5 扩展命中区不动排版、hover:bg-foreground/10、active 加深、focus-visible ring、destructive toast 内 white/15 系 hover——玫瑰底上的门发白光而非墨光、motion-reduce:transition-none）；两个 digest（kicked/finished）同法——轻重两半说同一部法
+- 【t149 探针】七相 57 断言 ×2 全绿：S purge+快照+keeper（1.2s poll 前提）+workspace B（API 创建+reload——t143 教训）；X 源码 oracle（announceNavigate 存在+View 桥委托+行门 aria-label——一个铰链）；B 2 完成 digest（2 行=2 门+无 View 桥+非 destructive+点行开 DA 的 inspector）；C 跨世界门（Stay 在 Main + Else 在 B 同拍原子翻——点 Else 行 → inspector 开 + **透镜切到 B**；教义：别处的门先换世界再开门；随后显式切回 Main 确定化）；D destructive digest 的 failed 行仍是门（警报不撤销门——failed 的卡正是最想去的地方）；E 10 完成 → 8 门+惰性尾行（9 span 中恰好 8 个含 button，尾行零 button——census 行不是门）；F kickoff digest 行也是门（轻半边同法）；G 屏摄；Z console 容忍半径升级+roster/workspaces 双还原（22==22、2==2）
+- 【探针伤情·三折】①X 相 oracle regex 漏对象 key 引号（"aria-label" 是带引号的 key——钉 regex 也要考古真实源码形态）；②C 相假红：B、C 两拍 digest 共享 census 标题 "2 completed"，waitForToast("2 completed") 捞到 B 相未过期的旧 digest（9s 时效内 TOAST_LIMIT=1 尚未替换）——等待锚改用 C 相特有名单行名（"T149 Else"）再回验标题——「census 计数不识别身份，名单行才识别」；③Z 相 /log 404 半径漏 ?full=1（inspect 的拉取带查询串——半径匹配 PATH 而非全等 URL）+ console 泛型 404 回声（无 URL 可圈）按「数量对账」容忍：泛型回声数 ≤ 半径内网络 404 数（3<=3），真 JS 错误照旧响亮
+- 【收尾】eslint 0、tsc src 0；构建 BUILD_ID Ul0cf3NP8hWj6PbAcMfn2（tsc/build 无 OOM）；t149(57)×2、受影响面 t145(28)/t146(47)/t147(41)/t148(23)/qa63/qa00 全绿（t146 的 span.block 名单合同与「无 View 桥」断言在加门后逐字幸存——包裹层设计的回报）；全矩阵 85 套（t149 auto-include）分 10 块 0 失败；块峰 187MB 零阈值重启（Task 122 卫生学）；qa64 85s 一致域；worklog + commit + push + 环境清理
+
+Stage Summary:
+- 「摘要是门厅，不是没有门」：t146 的教义说 digest 整体没有单一目的地所以不配桥——这轮把它推完一步：每行名单恰好一个目的地，所以每行各配一门。教义没有被反转（View 桥缺席依旧、census 标题依旧不可点、尾行依旧惰性），被完成的是「每个结果一步之遥」的承诺——门厅的directory让那一步变成零步。好的教义经得起推到底
+- 「门要开在正确的世界里」：census 是 project 全量，digest 完全可能点名隔壁工作区的 job——坐在 A 点 B 的门，先换世界再开 inspector。announceNavigate 成为 View 桥与所有行门的共享铰链，t145 的 View 桥顺带获得同一修复（一个目的地解析器，两种入口）。共享不是复用的修辞，是「同一件事不该有两套真相」的落地
+- 「加门不改文本」：名单行外面套 span.block、门藏在里面——t146/t147 的 span.block 逐字合同与 textContent 断言全部幸存，回归只跑不改。改 DOM 时先问「旧合同锚在哪」，锚定了就包一层而不是换一层
+- 「census 计数不识别身份」：两条 digest 可以同题（都是 "2 completed"）——探针等待要锚身份（特有名单行）不要锚计数（共享标题）。探针伤情的每一次都是同一课的变奏：钉住系统真实形态，不钉想象形态
+- 「半径与对账」：容忍要带半径（seeded /log 的 404），无 URL 的 console 泛型回声用数量对账兜底（回声数 ≤ 半径内网络 404 数）——听不见 URL 的日志，就让它对得上账
+- 遗留（下轮候选）：workspace item 点的呼吸动画（favicon 同律保持静态，真机反馈再评估）；auto-started 上游名字（lineage 反查——"Class2D finished — Picking started"）；digest 名单行点击后 toast 是否应主动消散（本轮裁决：不消散——新闻已被说过，状态活在 census，Radix focus-within 暂停计时已给足阅读时间；真机再评估）；KPI 折叠持久化（真机）；find 三维持久化（真机）；favorites 拖拽排序（真机）；undo 手感参数（真机）；runner wall-time 剖面（qa64 85s 一致域，继续让位）；世界卫生观察账本（连续第六天零抖动）；EMPIAR 真数据回归（重，让位）；用户真机项
