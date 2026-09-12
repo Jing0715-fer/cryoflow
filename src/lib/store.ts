@@ -123,6 +123,17 @@ function hydrateViewportMemory(): Record<string, Viewport> {
 const VIEWPORT_BOOKMARKS_KEY = "cryoflow.viewportBookmarks.v2";
 /** Pre-slot-format key — migrated once at hydrate, then removed. */
 const VIEWPORT_BOOKMARKS_KEY_V1 = "cryoflow.viewportBookmarks.v1";
+
+/** localStorage key for the PIPELINE KPI FOLD (Task 153). The fold is a
+ *  SPATIAL preference — the user reclaimed canvas from an overlay whose
+ *  width grows with the world (Task 143 forensics) — and a reload must
+ *  not un-reclaim it: every reload re-running the Task 143 occlusion
+ *  the user already fixed is the same bug served daily. It persists
+ *  alongside the dashboard sort and the export scale (the
+ *  view-preference family), NOT with the find lens (whose contract IS
+ *  to close clean). Writes only happen on the explicit chevron action
+ *  — never per-frame, Task 13 #13 stays retired. */
+const KPI_COLLAPSED_KEY = "cryoflow.kpiCollapsed.v1";
 /** Hotkey slots: digits 1–9 map to the first nine saved views. */
 const MAX_BOOKMARK_SLOTS = 9;
 
@@ -142,6 +153,33 @@ function persistViewportBookmarks(
     window.localStorage.setItem(VIEWPORT_BOOKMARKS_KEY, JSON.stringify(bookmarks));
   } catch {
     // private mode / quota — bookmarks stay in-RAM for this session
+  }
+}
+
+/** Seed the KPI fold from localStorage (cross-session, Task 153). Only
+ *  the exact string "true" arms the fold — anything else (missing,
+ *  "false", corrupt, hand-edited) falls back to the expanded default:
+ *  the honest unknown is the unfolded bar, which hides nothing. */
+function hydrateKpiCollapsed(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const raw = window.localStorage.getItem(KPI_COLLAPSED_KEY);
+    if (raw === "true") return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/** Persist the KPI fold on the explicit chevron action (Task 153).
+ *  Storage stays an echo of user intent, not of render state — a
+ *  hydration that merely READ the seed writes nothing back. */
+function persistKpiCollapsed(collapsed: boolean) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(KPI_COLLAPSED_KEY, String(collapsed));
+  } catch {
+    // private mode / quota — the fold stays in-RAM for this session
   }
 }
 
@@ -446,9 +484,12 @@ interface WorkflowState {
    *  bar is a lawful overlay, but its width grows with the world (live
    *  particle counts, resolution pills) and a boot-fit canvas can hide a
    *  whole card under it (Task 143 forensics) — the fold is the user's
-   *  way to reclaim the canvas without losing the glance. Ephemeral UI
-   *  state like the find lens: survives view switches within the
-   *  session, never enters undo or storage. */
+   *  way to reclaim the canvas without losing the glance.
+   *  Task 153 — the fold is a SPATIAL preference, not lens state: it
+   *  outlives the reload (hydrated from localStorage at boot, persisted
+   *  on the explicit chevron action) so a reclaimed canvas stays
+   *  reclaimed. Never enters undo; the find lens stays ephemeral — its
+   *  contract is to close clean, the fold's contract is to stay put. */
   kpiCollapsed: boolean;
   /** Parsed workflow files awaiting confirmation in the import dialog —
    *  the dialog shows a QUEUE (one summary row per file, plus per-file
@@ -976,7 +1017,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   findQuery: "",
   findStatus: "all",
   findCategory: "all",
-  kpiCollapsed: false,
+  kpiCollapsed: hydrateKpiCollapsed(),
   importPreview: null,
   loading: true,
   error: null,
@@ -3056,7 +3097,12 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   setFindQuery: (q) => set({ findQuery: q }),
   setFindStatus: (s) => set({ findStatus: s }),
   setFindCategory: (c) => set({ findCategory: c }),
-  setKpiCollapsed: (c) => set({ kpiCollapsed: c }),
+  // Task 153 — the explicit chevron is the ONLY write path: storage
+  // echoes user intent, never render state.
+  setKpiCollapsed: (c) => {
+    persistKpiCollapsed(c);
+    set({ kpiCollapsed: c });
+  },
 
   openImportPreview: (entries, failures) =>
     set({ importPreview: { entries, failures } }),

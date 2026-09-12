@@ -4449,3 +4449,24 @@ Stage Summary:
 - 「跨连接才叫并发」：页面同 tick 双 fetch 会被 HTTP/1.1 keep-alive 串行化——同一连接上第二个请求永远排在第一个响应之后。「并发」要构造在连接层（Node racer vs 浏览器 = 必然两条 TCP 连接），不是 tick 层
 - 「谓词的极性」：t151 的 tol 实为「不可容忍」谓词——名字叫 tol 的函数撒了谎；照搬名字 + 未取反的 filter = 容忍行反被拦，埋点（tol(L)=true 却在 intolerable）才破案。复用合同时先验证谓词的极性——名字会撒谎，埋点不会
 - 遗留（下轮候选）：digest failed 行的行内 Retry（真机评估——摘要是门厅的裁决要不要为失败破例）；Retry 点击后 toast 的 focus 停留手感（真机）；workspace item 点的呼吸动画（favicon 同律保持静态，真机再评估）；KPI 折叠持久化（真机）；find 三维持久化（真机）；favorites 拖拽排序（真机）；undo 手感参数（真机）；runner wall-time 剖面（qa64 83s 一致域，继续让位）；世界卫生观察账本（矩阵连续第九天零抖动，块峰 187-200MB 全部零阈值）；EMPIAR 真数据回归（重，让位）；用户真机项
+
+---
+Task ID: 153
+Agent: main (cron window 2026-09-12 20:00:52 +08:00, trace …202609122000)
+Task: 例行七条——开局核对（含套位记录修正）+ QA 判稳 → 选题（交接候选重估 → KPI 折叠持久化）→ 实现 + t153 探针 → 受影响面回归 → 全矩阵 → 交接闭环。本轮交付「折叠活得比 reload 久」：KPI 折叠从镜头态重分类为空间偏好——用户收回的画布不再被每次 reload 重新夺走
+
+Work Log:
+- 【开局核对 + 套位修正】worklog 尾部实际为 Task 152（6a65191 == origin/main，树净）——会话摘要停在 Task 149，连续第三轮摘要过时；BUILD_ID Hmkt23cmeZg30Ao_h6Tx2 匹配；**顺带修正上轮记录**：Task 152 所记 t152「位 #88」实为字典序套位 #74（88 是总数不是位次——run-matrix.sh 的 SUITES 经 sort 后 t100/t15x 排在 t85-t99 之前）；冷启动 2s READY + 三件套（qa63/qa00/t152@74）全绿 → 稳定
+- 【选题】Task 152 交接候选全部标「真机」→ 重估：digest failed 行内 Retry 属 t146/t151 裁决敏感区不动；find 三维持久化要推翻「lens is ephemeral」核心合同风险高；KPI 折叠持久化最小且先例充分（SORT_KEY/EXPORT_SCALE_KEY/CAPTION_KEY 视图偏好家族）——Task 144「forgets on reload」不是教义是习惯：折叠的动机本就是 Task 143 取证的遮挡，reload 重演用户已解决的问题 = 同一 bug 每天重新交付一次；老遗留核实：#13（useMemo 写 localStorage）早有 job-card.tsx:197 注明退役，#5-#8 同代已修
+- 【实现·store + kpi】KPI_COLLAPSED_KEY="cryoflow.kpiCollapsed.v1" + hydrateKpiCollapsed（只信裸串 "true"——诚实的未知是展开态，不藏东西的状态）+ persistKpiCollapsed（window 守卫 + try/catch）+ store 初值直接 hydrate（SSR 免疫的结构性理由：PipelineKpi 在 stats.total===0 时渲染 null，jobs 由 client useEffect 加载——HTML 与首渲染都没有 KPI bar，hydration 必然一致）+ setKpiCollapsed 同步 persist（chevron 是唯一写路径——storage 是意图的回声，不是渲染状态的影子）；pipeline-kpi.tsx 头注演进（Task 144 的 ephemeral 裁决让位 Task 153 空间偏好重分类）
+- 【t153 探针】七相 25 断言 ×2 全绿：S keeper；X 六 oracle（key 串/hydrate 信任规则/persist 形态/唯一写路径/初值 hydrate/组件文档）；B 新世界默认展开 + **storage 为 null（hydrate 只读不写）** + 折叠后 storage 即 "true"（同步回声）+ **reload 后仍折叠**（核心）+ aria-expanded 同步；C unfold 也持久化（"false" 而非删除）+ reload 仍展开（双向门）；D corrupt 种子 → 展开默认不崩；G 折叠幸存屏摄 ×2；Z 严格 console（本轮无 inspector 无 404）+ roster 还原（24==24）；一折：oracle regex `\{\s*\npersist` 失配——`\s*` 吃尽缩进后还要求换行——考古真实源码改 `\{\s*persist`（t149 同课：钉 regex 前先考古）
+- 【回归 + 全矩阵】受影响面 t144-t153 十套（66-75）+ qa00(1)/qa63(7) 全绿——t144 fold 诞生轮原样幸存（fresh context localStorage 空 → 默认展开不受影响）；全矩阵 89 套分 9 块 0 失败；**21-30 块首次跑出现 1 failure，同块连跑三次全绿且 wall 模式一致——判定单套抖动**（telemetry 不记 PASS/FAIL，失败套名不可回溯；连续零抖动记录中断一次）；块峰 204MB 零阈值重启（Task 122 卫生学）；qa64 88s 一致带；收尾 BUILD_ID _Mm1-xYCqs5NYULVU0nM-（cat 验证后落笔）；worklog + commit + push + 环境清理
+
+Stage Summary:
+- 「空间偏好不是镜头状态」：同为 ephemeral 嫌疑犯，重分类看合同不看习惯——镜头的合同是 close clean（关掉即清空，Task 134/135/138 不动），折叠的合同是 stay put（收回的空间偏好，像 dashboard 排序、导出比例）。「forgets on reload」在 Task 144 只是没写存储的委婉说法，不是设计论证——教义审查允许翻案，翻案要给出新合同的论证
+- 「用户解决的问题每天重演一次，就是同一个 bug 每天交付一次」：折叠的存在动机（Task 143 的 boot-fit 遮挡取证）在每次 reload 时重新上演——持久化不是新增便利，是对原始 bug 修复的补完
+- 「hydrate 读取，不写回」：boot 时种子从 storage 来，但 hydration 只读——storage 的内容只能被显式用户动作改变（chevron 唯一写路径）。让存储保持「意图的回声」而不是「渲染状态的影子」，Task 13 #13 的教训在偏好转持久化的路上继续保持退役
+- 「诚实的未知是展开态」：corrupt/缺失/手改的种子一律落到展开——两个默认方向里，藏东西少的那边（展开的 bar 不遮任何判断）是唯一诚实的默认。错误状态不应该比正确状态更激进
+- 「数据未到，UI 未生」：store 初值直接读 localStorage 的 SSR 安全性不是碰运气——PipelineKpi 在 jobs 加载前渲染 null，而 jobs 必然在 client useEffect 之后到位，hydration pass 与 SSR HTML 里都没有 KPI bar。偏好种子天然免疫 mismatch 的结构性理由值得写进注释，下一个读代码的人不该重新推导一遍
+- 抖动账本：连续多天零抖动后本轮 21-30 块 1 次单套抖动（三次重跑全绿）——telemetry 加 PASS/FAIL 列的候选再次浮出（失败套名不可回溯是账本的盲区）
+- 遗留（下轮候选）：telemetry 记 PASS/FAIL 列（抖动账本盲区补全——本轮亲历）；digest failed 行的行内 Retry（真机评估）；Retry 点击后 toast focus 手感（真机）；workspace item 呼吸动画（真机）；find 三维持久化（真机）；favorites 拖拽排序（真机）；undo 手感参数（真机）；runner wall-time 剖面（qa64 88s 一致带，让位）；世界卫生观察账本（零抖动记录中断一次：单套抖动 ×1）；EMPIAR 真数据回归（重，让位）；用户真机项

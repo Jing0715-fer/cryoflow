@@ -14,8 +14,13 @@
  * counts, resolution + verdict pills) and a boot-fit canvas can hide a
  * whole card under it (Task 143 forensics) — the fold reclaims the
  * canvas without losing the glance. The alarm never folds away: a
- * failed job keeps the count rose in both modes. State is ephemeral
- * (store, not storage): it survives view switches, forgets on reload.
+ * failed job keeps the count rose in both modes.
+ *
+ * Task 153 — the fold outlives the reload. It is a SPATIAL preference
+ * (like the dashboard sort or the export scale), not lens state (the
+ * find bar's contract is to close clean; the fold's contract is to stay
+ * put): the chevron writes localStorage synchronously, boot hydrates
+ * the seed, and a reclaimed canvas stays reclaimed across sessions.
  */
 
 import { Fragment, useEffect, useMemo, useState } from "react";
