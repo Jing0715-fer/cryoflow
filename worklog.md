@@ -4575,3 +4575,25 @@ Stage Summary:
 - 「连续旋转也是运动」：reduced-motion 审计不该止于自己新增的动画——chip 里既有的 Loader2 animate-spin 在用户显式退出运动的偏好下照转不误。a11y 补课的正确粒度是「这一处用户视线会停留的完整组件」，而不是「我今天碰的属性」
 - 「期望值现算，演员随缘」：chip 计数断言从 API 现算 running 数（世界里有几个就是几个），探针种子的存活不依赖世界唯一性；E 相排空步骤对后续轮次的副作用由不变量化吸收——「断言不变量，别钉具体演员」第三次重演（t135 后语）
 - 遗留（下轮候选）：pending chip 的同族审视（amber 静态是否该有等待微动画——倾向不动：pending 不是活着）；digest failed 行的行内 Retry（真机评估，t146 合同敏感区）；undo 手感参数（真机）；runner wall-time 剖面（qa64 86s 一致带，让位）；世界卫生观察账本（verdict 列观察：连续两轮 0 真抖动）；EMPIAR 真数据回归（重，让位）；用户真机项
+
+---
+Task ID: 159
+Agent: main (cron window 2026-09-13 03:01:00 +08:00, trace …202609130308)
+Task: 例行七条——开局核对（摘要第五次过时，实际尾部 Task 158）+ **环境异动第二起发现与恢复** + QA 判稳 → 选题（activeWs 会话位置：Task 157 未完成的一半）→ 实现 + t159 探针（首跑 E2 一折取证）→ 受影响面回归 + 三起探针世界敏感性修复 → 全矩阵 94 套 → 交接闭环。本轮交付「会话位置的另一半」：你闭眼时站在哪块画布，睁眼时原样站在那里——顺带修复了 selectedId 种子在非首工作区被静默击穿的潜伏缺陷
+
+Work Log:
+- 【开局核对·环境异动第二起】worklog 尾部实际为 Task 158（faf4aca == origin/main，树净）——摘要停在 Task 153，连续第五次过时；BUILD_ID D9XDp7Vm91K2YVSMk38SB 匹配 Task 158。但 :3000 起着 **19:09 Sep 12 的陈旧 server**（早于 Task 158 窗口，与其收尾「PORT FREE 验证」矛盾——进程表残留，Task 157 回滚事故的同族异动），且 data/ 世界为空（0 jobs）。恢复链：脚本内 pkill 首跑失效（原因未明）→ 手动 pkill 生效 PORT FREE → start-prod.sh 干净重启 → **restore-gallery.py 三度救场**重建活体（26 jobs/17 completed）→ 三件套（qa63/qa00/t158）全绿判稳
+- 【选题】Task 158 交接全真机/让位项 → 重估转向 store.ts 侦察：activeWorkspaceId 的 boot 是 `currentWs(get()==null)→wsList[0]`——**页面 reload 后失忆**。这不只是缺一个偏好：它是 Task 157「会话位置」合同的未完成一半（选区恢复的是「看哪张卡」，画布恢复的是「站在哪块」），更严重的是**它静默击穿了 Task 157 的 seed**——选区信任门 jobInWorkspace(x, activeWs) 对着错误画布解析必败，非首工作区的选区从来没能恢复过（t157 的种子恰好都播在首工作区，所以绿）。证据确凿，定案
+- 【实现·store.ts 六处】① ACTIVE_WS_KEY="cryoflow.activeWorkspace.v1" + hydrateActiveWorkspace（裸串 trim，""=诚实的无选择，只读）+ persistActiveWorkspace（双向门写 "" 不删除）② wsSeedApplied once-flag（与 selectionSeedApplied 同款）③ load() 首次落定 **先折叠 ws seed 再评估选区 seed**（顺序即合同：const→let activeWs，wsList.find 信任门，选区 gate 由此对着恢复后的画布解析）④ **echo 包在 switchWorkspace 漏斗内**（sidebar 行/header 切换器/命令面板/params-diff 跳转/inspector 跳转/播报桥全部汇入——真变化才写：早退守卫在前）+ 三个绕过漏斗的手势点各补一行（linkJobTo 画布跟随链路目标、importWorkflowBatch 自动切换、undoImport 步回）⑤ switchProject 置 null 处注释**为何静默**：陈旧 seed 对下个项目信任门必败，而切回原项目时 seed 仍在——按项目记忆免费成立 ⑥ boot 落地/refreshWorkspaces 回退**不写**（t157-F 零 key 负 oracle 必须继续成立）
+- 【t159 探针·37 断言】S 双工作区+各一 job（幂等）；X 十二 oracle（key/SSR 守卫/trim/双向门/once-flag/wsList 信任门/**顺序合同：hydrateActiveWorkspace 在 load 体内先于 hydrateSelectedJob**/load 静默/漏斗回声+真变化守卫/**回声点位计数=5（1 定义+4 手势）**/hydrate 零 setItem/Task 159 文档）；B 新世界 boot 零写+落首工作区+真实行点击同步回声+卡片点击选区回声共存；C **CORE reload：画布=第二工作区 且 面板为 Beta 重开**（恰是 Task 157 单独做不到的案例）；D 切回回声+清选区回声""（t157 订阅在切换上开火=跨 seed 连贯）+死 id/乱串种子诚实落首工作区且 boot 不改写陈旧 seed；E 跨 seed 诚实：选区 seed 指向别工作区 job → 画布恢复、面板不开（可见性与选择一致）；F 新页零 cryoflow key；G 屏摄；Z 严格 console+roster。**首跑 E2 一折**：面板意外开 6s——写了 t159-debug 取证脚本同态复现=关闭，怀疑先跑历史残留；加 ghost 取证后 ×3 全绿（ghost:null），定性首跑瞬态未复发；**疤痕二则**：工作区行 textContent 被 badge 膨胀（"MaindefaultActive"）→ 名称断言必须 includes 不能等值；E2 失败时探针自杀式 cleanup 会吞掉 page.evaluate 报错形态
+- 【三起探针世界敏感性修复·纯 scripts 域零重建】① **qa77**（B4/B6b 2 FAIL）：基线算术假设单工作区世界（wsJobs0.length+1 全算进 Main 徽章行）——t159 的第二工作区带 job 即破；修=按 defaultWs.id 分工作区计数（mainJobs0），「断言不变量别钉演员」第四演 ② **t138**（D4 FAIL）：find 是 **includes 子串匹配**，t138 的 D4 透镜 motion∧"Alpha" 被我的种子 "QA Pos Alpha"（motioncorr!）膨胀成 2；修=t159 种子改名 "QA WSPos Ridgeline"/"QA WSPos Hollow"（无探针会输入的 token）+ 删旧种子——**新教义：find 透镜读全世界，探针种的名必须是别的探针不会打的字** ③ **t88**（E 相 click 30s 超时）：panUntilVisible 只保证可见不保证不被盖——restore-gallery 今日重建把骨架 z 序抬到老 job 之上（QA Auto-pick 被 CTF Estimation 9 覆盖）；修=E 相点击前 API 重定位 solo 卡到全世界 max-y+480 空带（qa77 B4c/t138 既定配方）——三起全部是「探针的世界假设被合法的功能工作改变」，产品零改动
+- 【回归 + 全矩阵】受影响面十套全绿（t157 31/t158 27/t129 29/t153 25/t155 34/t156 34/qa58/qa73/qa63/qa00）；全矩阵 **94 套**（t159 auto-include 位 #80）分 10 块 **0 失败**（qa77/t138/t88 修复后各自复跑绿，t159 最终形态 ×3）；server 全程零重启；t152 190s 仍最慢
+- 【收尾】worklog + commit + push + 环境清理（删一次性诊断脚本、杀 server 先 ss 查 PID、PORT FREE 验证）
+
+Stage Summary:
+- 「会话位置有两半，恢复一半等于忘记两半」：画布与选区是同一个 stay-put 合同的两个分量——只恢复选区而画布失忆，信任门对着错误画布解析，恢复机制静默失效。seed 不是独立的补丁是一个系统：**折叠顺序即合同**（ws seed 先落，选区 gate 后评）。t157 的绿曾掩盖这个洞——种子恰好播在首工作区；「测试通过」与「机制正确」之间永远隔着世界构成的距离
+- 「echo 的两种成语按写点形态选型」：selectedId 17+ 散落写点→订阅（t157）；activeWorkspaceId 一个漏斗+三个手势点→包漏斗（本轮）。判据不是偏好是拓扑：写点收敛于一个必经之路就包路，写点散落就用 commit 后订阅兜网。两者共享同一底线：boot 落地与回退不是手势，永不写；真变化才写
+- 「静默是一种设计而非遗漏」：switchProject 置 null 不 echo——陈旧 seed 成了免费的按项目位置记忆，信任门保证它只在现实命中时生效。**负 oracle（fresh boot 零 key、boot 不改写死 seed）与正行为同等是一等合同**，t159 的 D3b/F 专门钉住它们
+- 「探针的世界是探针合同的一部分」：qa77 的单工作区算术、t138 的 find 子串碰撞、t88 的 z 序遮盖——三个探针各自假设了一个世界，而合法的功能工作改变了世界。修探针的假设而非功能；且这是第二次由「新探针的世界增量」揭出老探针的脆弱（qa77/t138/t88 均非本轮 src 改动所致）。find 透镜教义入册：**探针种的名必须是别的探针不会打的字**——子串匹配的世界里，命名即碰撞面
+- 「环境会坏，账本会说话」：第二起环境异动（陈旧进程残留+世界清空）被开局三项核对（worklog 尾部/git/端口进程年龄交叉验证）当场识破；restore-gallery 三度救场，push 过的远端时间线依旧是唯一持久真相。「进程表不属于文件系统快照」——核对要对照时间戳而不只是状态
+- 遗留（下轮候选）：keptOnly/notedOnly 按 job 持久化（两轮否决在案，让位）；digest failed 行的行内 Retry（真机评估，t146 合同敏感区）；undo 手感参数（真机）；runner wall-time 剖面（qa64 ~85s 一致带，让位）；世界卫生观察账本（verdict 列观察：本轮三起失败全是探针世界敏感性、零真抖动、零环境性回归复发）；EMPIAR 真数据回归（重，让位）；用户真机项

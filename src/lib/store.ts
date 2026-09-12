@@ -217,6 +217,47 @@ function persistSelectedJob(id: string | null) {
   }
 }
 
+const ACTIVE_WS_KEY = "cryoflow.activeWorkspace.v1";
+
+/** Read the workspace-position seed (Task 159). The selection (Task 157)
+ *  is only HALF of "where you were": the canvas you stood on is the other
+ *  half, and it used to be forgotten on every reload — boot always landed
+ *  on the project's first workspace, which ALSO silently defeated the
+ *  selection seed whenever the selected job lived elsewhere (its trust
+ *  gate resolves against the booted canvas). Same shape as the selection
+ *  seed: a BARE string, reads only — no format whitelist can name a
+ *  workspace id, so the real trust gate is the apply step in load(): a
+ *  seed that does not resolve to a workspace of THIS project is ignored. */
+function hydrateActiveWorkspace(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(ACTIVE_WS_KEY);
+    if (raw == null) return null;
+    const trimmed = raw.trim();
+    return trimmed === "" ? null : trimmed;
+  } catch {
+    return null;
+  }
+}
+
+/** Echo a committed workspace transition to storage (Task 159). The echo
+ *  lives at the GESTURES that move the user — switchWorkspace (the funnel
+ *  every tab/palette/jump path goes through) plus the three set() sites
+ *  that relocate the canvas as part of a user action (link-copy, import
+ *  auto-switch, undo's step back). Boot landing and fallbacks stay
+ *  SILENT: a fresh boot writes nothing (Task 157's negative oracle), and
+ *  a stale seed — the workspace was deleted, or the user last worked in
+ *  another project — fails the apply gate and honestly lands on the
+ *  first workspace. Empty string, not a delete: same two-way door. */
+function persistActiveWorkspace(id: string | null) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(ACTIVE_WS_KEY, id ?? "");
+  } catch {
+    // private mode / quota — the position stays in-RAM for this session
+  }
+}
+
 /** Lowest free hotkey slot across a workspace's bookmarks, or null when
  *  all nine are taken. "Free" = no existing bookmark holds it — deleting
  *  a bookmark releases its seat for the NEXT new save, while survivors
@@ -375,7 +416,11 @@ interface WorkflowState {
   projects: ProjectSummaryDTO[];
   /** Workspaces of the ACTIVE project (sidebar tab + header switcher). */
   workspaces: WorkspaceDTO[];
-  /** Canvas filter: only jobs of this workspace render. Null while loading. */
+  /** Canvas filter: only jobs of this workspace render. Null while loading.
+   *  Task 159: the booted value is the session POSITION — the canvas the
+   *  user closed the tab on is restored once at the first landing (gated
+   *  on resolving to a workspace of this project), and gestures that move
+   *  the user echo it to storage. */
   activeWorkspaceId: string | null;
   /** Which top-level view is active: the node canvas or the project dashboard. */
   view: "canvas" | "dashboard";
@@ -793,6 +838,11 @@ function jobInWorkspace(j: { workspaceId?: string | null }, ws: string | null): 
  *  selected right now. */
 let selectionSeedApplied = false;
 
+/** Task 159 — same once-per-page-load rule for the workspace seed: the
+ *  first landing folds it into the active workspace, later load()s keep
+ *  whatever canvas the user is on right now. */
+let wsSeedApplied = false;
+
 /** Client-side cycle check: would edge from→to create a cycle? */
 function wouldCreateCycle(edges: EdgeDTO[], from: string, to: string): boolean {
   const adj = new Map<string, string[]>();
@@ -1082,10 +1132,26 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       // reloads), otherwise land on the project's first workspace
       const currentWs = get().activeWorkspaceId;
       const wsList = ws.workspaces;
-      const activeWs =
+      let activeWs =
         currentWs && wsList.some((w) => w.id === currentWs)
           ? currentWs
           : (wsList[0]?.id ?? null);
+      // Task 159 — the workspace is the other half of the session
+      // position: the canvas you closed the tab on is where you reopen.
+      // The seed applies ONCE at the first landing, and the trust gate is
+      // reality itself: it must resolve to a workspace in THIS project's
+      // list — deleted workspace, other project, hand-edited garbage all
+      // resolve nowhere, and the honest unknown is the first workspace.
+      // Folding it in BEFORE the set() (and before the selection seed
+      // below) is what makes the Task 157 gate resolve against the
+      // RESTORED canvas — a selection in the second workspace used to be
+      // silently defeated by booting on the first.
+      if (!wsSeedApplied) {
+        wsSeedApplied = true;
+        const wsSeed = hydrateActiveWorkspace();
+        const seedWs = wsSeed ? wsList.find((w) => w.id === wsSeed) : null;
+        if (seedWs) activeWs = seedWs.id;
+      }
       set({
         project: p.project ?? null,
         jobs: j.jobs,
@@ -1142,6 +1208,11 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   switchWorkspace: (id) => {
     if (get().activeWorkspaceId === id) return;
+    // Task 159: this is the funnel every switch gesture goes through
+    // (sidebar rows, header switcher, command palette, jump bridges) —
+    // the echo lives HERE once, not at each caller. The early return
+    // above keeps it a real-transition echo (真变化才写).
+    persistActiveWorkspace(id);
     // leaving the old canvas: clear selection/pending wire so the new
     // workspace doesn't start with stale state from the previous one
     // (Task 129: apply-suggestions belong to the workspace they landed in)
@@ -1271,6 +1342,9 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       });
       // append the link AND bump the original's referenced-count badge in
       // the same optimistic batch (a poll may never fire when nothing runs)
+      // Task 159: the canvas follows the link's destination — a user
+      // action that moves the user, so the position echoes too
+      persistActiveWorkspace(workspaceId);
       set({
         jobs: [...get().jobs, job].map((j) =>
           j.id === id ? { ...j, linkCount: (j.linkCount ?? 0) + 1 } : j
@@ -1342,6 +1416,11 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         pendingFrom: null,
         templateSuggestions: null, // suggestions are workspace-born, never cross projects
         viewport: { x: 0, y: 0, zoom: 1 },
+        // Task 159: deliberately SILENT — no echo here. The stale seed
+        // (the old project's workspace) fails the apply gate against the
+        // next project's list, and switching BACK to this project finds
+        // the seed intact: the per-project position survives the round
+        // trip for free, gated by reality at every boot.
         activeWorkspaceId: null, // load() lands on the project's first workspace
       });
       await get().load();
@@ -1538,6 +1617,9 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     // it. Switched ONCE for the whole batch (not per file).
     let switched = false;
     if (targetWsId && targetWsId !== get().activeWorkspaceId) {
+      // Task 159: the canvas follows the import — a user action that
+      // moves the user, so the position echoes too
+      persistActiveWorkspace(targetWsId);
       set({ activeWorkspaceId: targetWsId, selectedId: null, selectedIds: [], pendingFrom: null });
       switched = true;
     }
@@ -1605,6 +1687,10 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     }
     const okSet = new Set(ok);
     const selectedId = get().selectedId;
+    // Task 159: stepping the canvas back is the undo gesture's motion —
+    // echo it, or the seed would say the user still stands on the undone
+    // import's workspace
+    if (switched && restoreWorkspaceId != null) persistActiveWorkspace(restoreWorkspaceId);
     set({
       jobs: get().jobs.filter((j) => !okSet.has(j.id)),
       // fresh import edges only connect created jobs — filtering by

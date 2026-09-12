@@ -328,6 +328,16 @@ if (soloType) {
   const solo = (await listJobs()).find((j) => j.type === soloType[0] && j.status === "completed");
   must(solo != null, `E2 singleton has a completed instance (${solo?.name ?? "none"})`);
   if (solo) {
+    // world-crowding scar: panUntilVisible makes the card VISIBLE, not
+    // UNCOVERED — a later-rendered neighbor (restore-gallery re-inserts
+    // the skeleton above older probes' leftovers) can sit on top and
+    // intercept the click for 30s. Relocate the solo card BELOW the
+    // whole pack first (the t138 free-band recipe): max-y + 480 is a
+    // slot no other card can occupy by construction.
+    const pack = await listJobs();
+    const yFree = pack.reduce((m, j) => Math.max(m, (j.y ?? 0) + 240), 800) + 480;
+    await api(`/api/jobs/${solo.id}`, "PATCH", { x: 140, y: yFree });
+    await sleep(600); // the poller picks the position up before the pan
     await panUntilVisible(solo.id);
     await p.locator(`[data-job="${solo.id}"]`).first().click();
     await sleep(900);

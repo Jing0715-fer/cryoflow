@@ -76,6 +76,12 @@ const orphanIds0 = orphans.map((o) => o.id);
 const wsList = (await api("/api/workspaces")).json.workspaces ?? [];
 must(wsList.length >= 1, `workspaces present (${wsList.length})`);
 const defaultWs = wsList[0];
+// badge-flip baseline is PER-WORKSPACE: the world may legitimately hold
+// several workspaces with jobs (later probes seed their own — t159 keeps
+// a second one), so "rows in Main" counts MAIN's jobs, not the global
+// in-workspace total. The old arithmetic held only in a one-workspace
+// world and miscounted the moment a sibling workspace carried a job.
+const mainJobs0 = list.filter((j) => j.workspaceId === defaultWs.id).length;
 // idempotent re-runs: sweep leftover temporary workspaces from crashed
 // previous runs (DELETE reassigns their jobs to the default first)
 for (const w of wsList) {
@@ -180,8 +186,8 @@ console.log("Phase B — adopt an orphan into the default workspace");
 
   await spot.locator('button[title="Show all jobs only"]').click();
   await p.waitForTimeout(400);
-  must((await spot.locator(`[data-row-ws="${defaultWs.name}"]`).count()) === wsJobs0.length + 1,
-    `B4 badge flip: ${wsJobs0.length} → ${wsJobs0.length + 1} rows now in ${defaultWs.name}`);
+  must((await spot.locator(`[data-row-ws="${defaultWs.name}"]`).count()) === mainJobs0 + 1,
+    `B4 badge flip: ${mainJobs0} → ${mainJobs0 + 1} rows now in ${defaultWs.name}`);
   const remaining = orphans.length - 1;
   if (remaining > 0) {
     must((await spot.locator('[data-filter="unassigned"]').textContent())?.includes(String(remaining)) ?? false,
@@ -221,7 +227,7 @@ console.log("Phase B2 — canvas visibility + reload persistence");
   await p.waitForTimeout(400);
   must((await spot.locator("[data-row-orphan]").count()) === orphans.length - 1,
     "B6 adoption survives a reload (API truth, not just client state)");
-  must((await spot.locator(`[data-row-ws="${defaultWs.name}"]`).count()) === wsJobs0.length + 1,
+  must((await spot.locator(`[data-row-ws="${defaultWs.name}"]`).count()) === mainJobs0 + 1,
     "B6b adopted row still carries the workspace badge after reload");
 }
 
