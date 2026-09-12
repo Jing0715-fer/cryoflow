@@ -856,6 +856,27 @@ const announceViewAction = (get: () => WorkflowState, jobId: string, name: strin
     "View"
   ) as unknown as ToastActionElement;
 
+/** Task 151 — the alarm hands you a direct road. A failed job's news
+ *  already carries a View bridge (go read what happened); the Retry
+ *  bridge beside it starts the rerun immediately (startJob IS a legal
+ *  restart for a failed job — only linked copies and live processes are
+ *  refused). Reading first is the careful path, retrying is the
+ *  impatient one — the alarm offers both, View left (read), Retry right
+ *  (act, nearest the edge). The rerun's own toast ("Job started" or the
+ *  engine's honest refusal) arrives right after and takes the slot —
+ *  the news flow moves on, as it always does. */
+const announceRetryAction = (get: () => WorkflowState, jobId: string, name: string): ToastActionElement =>
+  React.createElement(
+    ToastAction,
+    {
+      altText: `Retry ${name}`,
+      onClick: () => {
+        void get().runJob(jobId);
+      },
+    },
+    "Retry"
+  ) as unknown as ToastActionElement;
+
 /** Task 149 — the digest roster becomes a directory of doors. Task 146's
  *  ruling stands: the digest as a WHOLE has no single destination, so it
  *  carries no View bridge. But each roster LINE names exactly one job —
@@ -2170,7 +2191,15 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
             title: `${job.name} failed${announceElapsed(job)}`,
             description: job.result ?? undefined,
             variant: "destructive",
-            action: announceViewAction(get, job.id, job.name),
+            // Task 151 — the alarm's two bridges: View (go read) and
+            // Retry (go act). A wrapped flex keeps the pair together on
+            // the right; justify-between would otherwise split them.
+            action: React.createElement(
+              "div",
+              { className: "flex shrink-0 gap-2" },
+              announceViewAction(get, job.id, job.name),
+              announceRetryAction(get, job.id, job.name),
+            ),
             duration: 9_000, // same expiry; the rose alarm lives on the card and the favicon
           });
         }

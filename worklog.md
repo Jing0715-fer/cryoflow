@@ -4407,3 +4407,23 @@ Stage Summary:
 - 「fixtures 要建在客户端快照之外」：store.edges 是 load() 时刻的快照——探针的边必须建在浏览器打开之前；服务端 sweep 的单次 fire 是另一个时序债（新 observed completion → auto-start 真跑）——upstream stamp completed 时消费者必须 idle，2.5s settle 让债还清再开浏览器。探针的每一步都在还产品的时序债，先还债再演戏
 - 「想象值落笔就是失实」：上轮 worklog 的 BUILD_ID 未验证就写，本轮开局考古修正——工作日志的每个数字都是下轮的 oracle，写错一个就把下一轮的开局核对变成假绿。环境指纹（BUILD_ID/HEAD/断言数）落笔前一律 cat
 - 遗留（下轮候选）：digest 名单行的 "After" 精简版（每行带因果会太长——真机评估是否值得）；kickoff 通知的因果行点击（行文案含上游名，点击跳上游还是下游——语义含糊，真机再定）；workspace item 点的呼吸动画（favicon 同律保持静态，真机再评估）；KPI 折叠持久化（真机）；find 三维持久化（真机）；favorites 拖拽排序（真机）；undo 手感参数（真机）；runner wall-time 剖面（qa64 87s 一致域，让位）；世界卫生观察账本（连续第七天零抖动）；EMPIAR 真数据回归（重，让位）；用户真机项
+
+---
+Task ID: 151
+Agent: main (cron window 2026-09-12 18:00:50 +08:00, trace …202609121802)
+Task: 例行七条——开局核对 + QA 判稳 → 选题开发（failed 通知的 Retry 桥）→ 类型放宽一折 + t145 合同演进一折 → 受影响面回归 → 全矩阵 → 交接闭环。本轮交付「警报给一条直接的路」：失败通知从"去读"到"去读 + 去重跑"——View 左（读）、Retry 右（行动，最靠近边缘）
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部实际为 Task 150（62b4b0d == origin/main，树净）；BUILD_ID O8-4itDuOISKi9Y2PC287 匹配（上轮 cat 验证后的真实值）；冷启动 2s READY + 三件套（qa63/qa00/t150 41）全绿 → 稳定
+- 【选题 + 侦察先行】headless 候选薄 → 侦察 runJob（POST /api/jobs/[id]/run）对 failed 的行为：startJob 注释明写 "Start (or restart)"，failed 无守卫（只挡 linked copy 400 / busy 活进程 409 / in-flight）→ **failed 重跑是合法路径**，Retry 桥不是谎言；再做引擎实验：裸 import POST run → 本机 native 同步 completed（无 RELION 依赖、无 source data 也 completed 带说明性 result）——探针断言可以锚确定性结局；实验残留 prisma 直删
+- 【实现·store + ui】announceRetryAction（ToastAction "Retry"、altText `Retry ${name}`、onClick void runJob(jobId)——runJob 自带 flush params→POST→toast→inspect 全链）；solo failed 分支 action 从单桥升格双桥：`<div className="flex shrink-0 gap-2">` 包 View+Retry（justify-between 会把三兄弟三等分拆开——包裹保对）；completed 不加（完成没有重跑语义——克制）、digest 不加（摘要是门厅——roster Retry 武断）。类型放宽两处：toast.tsx 的 Toast props（Omit action + `action?: React.ReactNode`，**action 解构出 spread 不下传 Root**——Radix Root 的 ReactElement 期待与 ReactNode 冲突，而 toaster 本来就自渲染 {action}）；use-toast.ts 的 ToasterToast.action 同步放宽——首跑 tsc 抓 TS2322，两处修后 src 0
+- 【t151 探针】八相 32 断言 ×2 全绿：S keeper；X 源码 oracle（announceRetryAction + runJob 直连 + 双桥顺序）；B stamp 驱动失败（running→letClientSee→failed+result）→ destructive 通知带 fact title/elapsed/result + View/Retry 双按钮 + DOM 序 View<Retry（读在行动前）；C 点 Retry → "Job started" toast 顶槽（新闻流继续）+ job 离开 failed（import native completed）+ inspector 开在 job（runJob 的 CryoSPARC 式一步）→ Esc；D completed 通知无 Retry（克制锚）；E 混合 digest（1f）无 Retry 无 View（双裁决锚：t146 摘要不是门 + t151 roster Retry 武断）；G 屏摄（双桥在 destructive 白描边下并排）；Z /log 404 半径+对账 + roster 还原（22==22）
+- 【探针伤情·两折】①tsc 一折：action 的 ReactElement 类型锁——放宽方案选「解构不下传」而非 any/强 cast（toaster 自渲染 {action} 是既存事实，类型只是补认）；②t145 F 相一折（合同合法演进）：钉的逐字 "T145 Mute failedView" 现渲染 "…failedViewRetry"——静默教义本身完好（断言的真正目的「无 · 0s 时间碎片」达成），历史探针跟随双桥演进更新逐字 + 注明缘由——「探针钉的是合同，合同长一节探针跟一节，但断言的灵魂（0s 谎言缺席）代代不变」
+- 【收尾】eslint 0、tsc src 0；构建 BUILD_ID 7DY2QBtWdua5SeYykPJGT（cat 验证后落笔）；t151(32)×2、受影响面 t145(28 演进后)/t146(47)/t147(41)/t148(23)/t149(57)/qa63/qa00 全绿；全矩阵 87 套（t151 auto-include）分 10 块 0 失败；块峰 190MB 零阈值重启（Task 122 卫生学）；qa64 83s 一致域；worklog + commit + push + 环境清理
+
+Stage Summary:
+- 「警报不只指路，还给一条直接的路」：失败通知的双桥是两种用户的两种时间性——View 是「先读再决定」的谨慎路径，Retry 是「我知道哪里坏了直接重来」的急切路径。排序即修辞：View 左（读先于动）、Retry 右（最靠近拇指的边缘）。两个动作并存不冲突：runJob 自带的全链（flush→POST→toast→inspect）让 Retry 点击后新闻流自然接棒
+- 「谎称可重跑比没有重跑更坏」：Retry 桥的产品合法性来自 startJob 的 restart 语义（failed 无守卫）与本机引擎实验（import native completed）——探针断言锚定确定性结局而不是 hopeful 等待。桥是承诺，承诺之前先验证承诺兑现的路径存在
+- 「类型放宽的正确姿势是承认既存事实」：toaster 本来就自渲染 {action}，Root 的 spread 只是类型上顺带——把 action 解构出 spread 不是新设计，是让类型追上运行时。ReactElement→ReactNode 的放宽点选在消费端（toast() 调用方），UI 库文件的改动带着为什么的注释
+- 「合同的灵魂与合同的字面」：t145 的逐字断言死了（View 后多了 Retry），但它的灵魂（start-less job 的时间静默——无 · 0s 谎言）完好。修历史探针时先辨认灵魂再改字面：灵魂不动的，字面跟随产品演进；灵魂被动的，才是真回归
+- 遗留（下轮候选）：digest failed 行的行内 Retry（真机评估——摘要是门厅的裁决要不要为失败破例）；Retry 点击的二次防抖（连点两次 Retry → 双 spawn？starting 集合已守卫——真机连点验证手感）；workspace item 点的呼吸动画（favicon 同律保持静态，真机再评估）；KPI 折叠持久化（真机）；find 三维持久化（真机）；favorites 拖拽排序（真机）；undo 手感参数（真机）；runner wall-time 剖面（qa64 83s 一致域，让位）；世界卫生观察账本（连续第八天零抖动）；EMPIAR 真数据回归（重，让位）；用户真机项

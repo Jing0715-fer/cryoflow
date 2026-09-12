@@ -263,7 +263,10 @@ async function main() {
   const muteToast = await waitForToast("T145 Mute failed");
   must(!!muteToast, "failure announcement for the start-less runner appeared");
   const muteText = ((await muteToast.textContent()) ?? "").replace(/\s+/g, " ").trim();
-  must(muteText === "T145 Mute failedView", `mute toast reads exactly "${muteText}" — no "· 0s" lie for a job with no start`);
+  // Task 151 appended the Retry bridge to every failed notice, so the
+  // verbatim form grew a "Retry" tail — the point of this assertion is
+  // still the ABSENCE of any "· 0s" time fragment for a start-less job.
+  must(muteText === "T145 Mute failedViewRetry", `mute toast reads exactly "${muteText}" — no "· 0s" lie for a job with no start`);
 
   /* ---------------- Phase G — screenshots ---------------- */
   step("--- Phase G: screenshot the announcement stack ---");

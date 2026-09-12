@@ -42,9 +42,17 @@ const toastVariants = cva(
 
 const Toast = React.forwardRef<
   React.ElementRef<typeof ToastPrimitives.Root>,
-  React.ComponentPropsWithoutRef<typeof ToastPrimitives.Root> &
-  VariantProps<typeof toastVariants>
->(({ className, variant, ...props }, ref) => {
+  // Task 151 — action widens from ToastActionElement to React.ReactNode:
+  // a failed job's news carries TWO bridges (View + Retry) side by side,
+  // which needs a wrapper div. The Toaster renders {action} itself, so
+  // the Root never needs the prop — it is destructured OUT of the spread
+  // below instead of being passed through and type-checked against
+  // Radix's ReactElement expectation.
+  Omit<React.ComponentPropsWithoutRef<typeof ToastPrimitives.Root>, "action"> &
+  VariantProps<typeof toastVariants> &
+  { action?: React.ReactNode }
+>(({ className, variant, action: _action, ...props }, ref) => {
+  void _action; // rendered by the Toaster, not by the Root
   return (
     <ToastPrimitives.Root
       ref={ref}

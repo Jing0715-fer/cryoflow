@@ -15,7 +15,10 @@ type ToasterToast = ToastProps & {
   id: string
   title?: React.ReactNode
   description?: React.ReactNode
-  action?: ToastActionElement
+  // Task 151 — widened from ToastActionElement to React.ReactNode: a
+  // failed job's news carries TWO bridges (View + Retry) side by side,
+  // which needs a wrapper div around the pair.
+  action?: React.ReactNode
 }
 
 const actionTypes = {
