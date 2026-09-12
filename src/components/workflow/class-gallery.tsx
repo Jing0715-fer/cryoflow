@@ -51,6 +51,53 @@ interface ClassesResponse {
   classesSlices?: number | null;
 }
 
+/* ------------------------------------------------------------------ */
+/* Sort preference — an arrangement, not an occlusion (Task 156)       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Task 156 — the occupancy sort outlives the reload. Triaging a real
+ * 2D run means re-choosing "Occupancy" on EVERY gallery open and EVERY
+ * reload: a problem the user already solved, delivered fresh each boot
+ * (the same law that persisted the KPI fold in Task 153). The sort is
+ * an ARRANGEMENT — it reorders what is visible but hides nothing — so
+ * its contract is stay-put, like the dashboard sort or the export
+ * scale (the view-preference family). The FILTERS (kept-only,
+ * noted-only) deliberately stay ephemeral: a filter's honest boot state
+ * hides nothing, and kept sets are PER-JOB — a persisted kept-only
+ * meeting another job's empty kept set would boot an honest dead grid,
+ * an error state more aggressive than the correct one.
+ *
+ * Trust rule (Task 153's): only the exact string "occupancy" is
+ * trusted; missing/corrupt/hand-edited seeds fall to "class" — the
+ * RELION index order, the default that hides nothing and matches the
+ * paper. Storage echoes intent (the chip click is the only write
+ * path); hydration reads and writes nothing.
+ */
+const CLASS_GALLERY_SORT_KEY = "cryoflow.classGallerySort.v1";
+
+type GallerySortMode = "class" | "occupancy";
+
+function hydrateClassGallerySort(): GallerySortMode {
+  if (typeof window === "undefined") return "class";
+  try {
+    const raw = window.localStorage.getItem(CLASS_GALLERY_SORT_KEY);
+    if (raw === "occupancy") return "occupancy";
+    return "class";
+  } catch {
+    return "class";
+  }
+}
+
+function persistClassGallerySort(mode: GallerySortMode): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(CLASS_GALLERY_SORT_KEY, mode);
+  } catch {
+    /* private mode / quota — the order stays in-RAM */
+  }
+}
+
 export function ClassGallery({
   job,
   value,
@@ -177,7 +224,24 @@ export function ClassGallery({
   // Real 2D runs spawn 50–200 classes; triage means finding the good ones
   // fast (occupancy sort) and reviewing decisions without the noise
   // (kept-only). Both are VIEW state — they never rewrite the selection.
-  const [sortMode, setSortMode] = useState<"class" | "occupancy">("class");
+  // Task 156 splits their contracts: the SORT is an arrangement (reorders,
+  // hides nothing) so it joins the view-preference family and hydrates
+  // from storage at mount — the chip below is its only write path. The
+  // FILTERS stay ephemeral (occlusion is re-declared every session; kept
+  // sets are per-job, so a persisted filter could boot a dead grid).
+  const [sortMode, setSortModeState] = useState<GallerySortMode>(
+    // lazy initializer: reads storage once at mount, writes nothing —
+    // SSR-safe because the gallery only renders inside a selected job's
+    // parameter panel (jobs load in a client effect), the same "data not
+    // arrived, UI not born" structure that keeps the KPI seed honest
+    hydrateClassGallerySort,
+  );
+  /** event-path wrapper: storage echoes intent BEFORE the state moves —
+   *  persist-then-set, the only write path for the sort preference */
+  const setSortMode = (m: GallerySortMode): void => {
+    persistClassGallerySort(m);
+    setSortModeState(m);
+  };
   const [keptOnly, setKeptOnly] = useState(false);
   // noted-only: the triage twin of kept-only — "show me the classes I
   // annotated". Disabled at zero notes (an empty lens is a dead control —

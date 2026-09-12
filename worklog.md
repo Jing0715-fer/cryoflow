@@ -4510,3 +4510,23 @@ Stage Summary:
 - 「updater 必须纯」的再推导：StrictMode 双调 updater——updater 里写 storage 就是双写。事件路径先算后写（persist-then-set）不是风格偏好，是 Task 13 #13 在函数式更新上的延伸
 - 「键盘孪生让特权不特权」：Alt+←/→ 与拖拽同一 reorder 路径——a11y 不是补丁是对称
 - 遗留（下轮候选）：favorites 重排的触屏长按手势（headless 难验真机手感，让位真机）；digest failed 行的行内 Retry（真机评估）；workspace item 呼吸动画（真机）；find 三维持久化（真机）；undo 手感参数（真机）；runner wall-time 剖面（让位）；世界卫生观察账本（verdict 列第二个全程零抖动日）；EMPIAR 真数据回归（重，让位）；用户真机项
+
+---
+Task ID: 156
+Agent: main (cron window 2026-09-12 22:30:55 +08:00, trace …202609122239)
+Task: 例行七条——开局核对（摘要第四次过时修正）+ QA 判稳 → 选题（交接全真机项重估 → class gallery 排序偏好持久化）→ 实现 + t156 探针（卡片选择器两折）→ 受影响面回归 → 全矩阵 → 交接闭环。本轮交付「排序是安排，过滤是遮蔽」：class gallery 的 Occupancy 排序活得比 reload 久——安排跟随用户，遮蔽每次重新声明
+
+Work Log:
+- 【开局核对】worklog 尾部实际为 Task 155（0353cbd == origin/main，树净）——会话摘要停在 Task 153，连续第四次过时；BUILD_ID S7VX8FGVeGZVZ2Kyhx643 匹配；冷启动 2s READY + 三件套（qa63-smoke/qa00-data-view/t155）全绿 → 稳定
+- 【选题】Task 155 交接候选全标真机 → 逐项重估：过时 cron 文本的两个功能方向考古均已完成（Topaz wrapper = picking job 的 Topaz method + 训练曲线；3D 截面 = molstar-embed clip faces + slice + ortho panel）；digest failed 行内 Retry 仍属 t146「summary 不是 door」合同敏感区不动；class-gallery 侦察发现三个 ephemeral 视图态（sortMode/keptOnly/notedOnly）——按合同拆分：sortMode 是排序（安排，不藏东西）进视图偏好家族（dashboard sort/EXPORT_SCALE/KPI fold 同族），keptOnly/notedOnly 是过滤器（遮蔽）保持 ephemeral
+- 【实现·class-gallery】CLASS_GALLERY_SORT_KEY="cryoflow.classGallerySort.v1" + hydrateClassGallerySort（只信裸串 "occupancy"，其余落 "class"——RELION 索引序，藏东西最少的默认）+ persistClassGallerySort（window 守卫 + try/catch）+ useState 惰性初值 hydrate（SSR 安全的结构性理由：gallery 只在选中 job 的参数面板渲染，jobs 走 client effect——「数据未到 UI 未生」）+ setSortMode 事件路径包装（persist-then-set，chip 点击唯一写路径）；注释写明合同拆分：过滤器的诚实 boot 态不藏任何东西，且 kept 集合按 job 存——持久化的 kept-only 遇到另一 job 的空 kept 集合会 boot 出诚实的死网格（比正确状态更激进的错误状态）
+- 【t156 探针·两折（都在卡片选择）】34 断言 ×2 全绿：S qa58 seeder 幂等播种 + roster 快照；X 九 oracle（key/信任规则/SSR 守卫/persist 形态/唯一写路径=1 定义+1 调用/惰性初值/事件路径先写后移/过滤器仍 useState(false)/Task 156 文档）；B 新世界 boot 写 NOTHING + 默认 Class # 序 [1..8] + 点 Occupancy → 秩序 [2,4,6,1,8,3,5,7] + storage 同步回声；C **reload 后 occupancy 幸存**（核心）；D 双向门（"class" 是字符串修正非删除）+ reload 归位；E corrupt 种子 → 诚实默认不崩；F 过滤器负 oracle（toggle kept-only 零新 key + corrupt 种子不被读取路径改写）；G 屏摄；Z 严格 console + roster 24==24。一折：job-card 的名字在 **aria-label** 不在 textContent（60 个空文本 role=button 误导）；二折：canvas 选中监听 **真实 pointer 流**（pointerdown/up），evaluate 的 untrusted .click() 不开门——playwright locator.click() 才是真手势
+- 【回归 + 全矩阵】受影响面十套全绿：gallery 家族 qa58/qa59/qa66/qa68/qa80/qa82 + 视图偏好家族 t153/t155 + 冒烟 qa63-smoke/qa00-data-view；**组合跑假警报一桩**：for 循环里写 `qa63-e2e.mjs`（真实名 qa63-smoke.mjs）→ Node ERR_MODULE_NOT_FOUND 尾行恰是版本号，形似崩溃——文件名考古即愈，非抖动；全矩阵 91 套（t156 auto-include 位 #77）分 9 块 0 失败；telemetry 91 行 verdict 全 PASS（Task 154 交付全程服务）；零重启；块峰 204MB（阈值 1200MB）；t152 191s 仍最慢、qa64 84s 一致带；worklog + commit + push + 环境清理
+
+Stage Summary:
+- 「排序是安排，过滤是遮蔽」：同为 view state，重分类看合同——排序重排可见之物但藏不了任何东西，合同是 stay-put（跟随用户跨越 reload）；过滤器藏东西，其诚实 boot 态是隐藏零，遮蔽必须每次会话重新声明。家族成员资格按合同逐个审，不按「都是 UI 状态」一锅端
+- 「持久化的过滤器会 boot 出死网格」：kept 集合按 job 存——全局持久化的 kept-only 在另一 job 的空 kept 集合上就是一张诚实的空网格。错误状态不应比正确状态更激进（t153 诚实地未知教义在过滤器上的具体化），这条线写进了代码注释，下一个想持久化过滤器的人不用重新推导
+- 「名字住在 aria-label 里」：job-card 的 role=button 本体 textContent 为空，名字在 aria-label——「textContent 找卡片」的老配方已经过时，选择器考古先于探针编写（qa59 的 aside 配方同批过时：job-panel 无 aside，tab 是 Radix TabsTrigger）
+- 「untrusted click 敲不开 pointer 的门」：canvas 选中监听 pointerdown/up——evaluate 里的 .click() 只合成 click 不合成 pointer 流，操作必须交给 playwright locator.click()（真实手势）。qa59 当年用 agent-browser 坐标点击正因如此
+- 「假警报也会穿制服」：ERR_MODULE_NOT_FOUND 的尾行是 Node 版本号，形似崩溃栈尾——组合跑先考古文件名再判抖动，本轮 21-30 块式惊报清零
+- 遗留（下轮候选）：keptOnly/notedOnly 的按 job 持久化（若做，key 须带 jobId 命名空间，且空 kept 集合自愈规则要跟 notedOnly 对齐——本轮已论证风险面）；digest failed 行的行内 Retry（真机评估，t146 合同敏感区）；workspace item 呼吸动画（真机）；find 三维持久化（真机）；undo 手感参数（真机）；runner wall-time 剖面（qa64 84s 一致带，让位）；世界卫生观察账本（verdict 列第三个观察日：91×PASS 零抖动）；EMPIAR 真数据回归（重，让位）；用户真机项
