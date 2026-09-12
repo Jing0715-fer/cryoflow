@@ -505,16 +505,59 @@ function WorkspaceSelect() {
 
   const active = workspaces.find((w) => w.id === activeWorkspaceId) ?? null;
 
-  // live per-workspace job counts (derived client-side so poll ticks keep
-  // the badges fresh without extra requests)
+  // live per-workspace census (derived client-side so poll ticks keep
+  // the badges fresh without extra requests). Task 148 widens the census
+  // beyond the active workspace: the jobs array is PROJECT-wide (every
+  // job carries its workspaceId), so each workspace's running/failed
+  // counts are already here — the switcher just never spoke them.
   const counts = React.useMemo(() => {
-    const map = new Map<string, number>();
+    const map = new Map<string, { total: number; running: number; failed: number }>();
     for (const j of jobs) {
       const key = j.workspaceId ?? "";
-      map.set(key, (map.get(key) ?? 0) + 1);
+      const c = map.get(key) ?? { total: 0, running: 0, failed: 0 };
+      c.total += 1;
+      if (j.status === "running") c.running += 1;
+      else if (j.status === "failed") c.failed += 1;
+      map.set(key, c);
     }
     return map;
   }, [jobs]);
+
+  // Task 148 — the world next door. A runner in workspace B is invisible
+  // to every census surface that speaks for workspace A (footer, tab
+  // title, favicon) — so the CLOSED trigger carries one small dot while
+  // any non-active workspace has life in it (rose outranks teal — the
+  // favicon doctrine at workspace scope), with the per-workspace facts
+  // spelled out in the title. Opening the menu, each item carries its
+  // own dot. All derived — zero extra requests, poll ticks keep it live.
+  const elsewhere = React.useMemo(() => {
+    let running = 0;
+    let failed = 0;
+    const names: string[] = [];
+    for (const w of workspaces) {
+      if (w.id === activeWorkspaceId) continue;
+      const c = counts.get(w.id);
+      if (!c || (c.running === 0 && c.failed === 0)) continue;
+      running += c.running;
+      failed += c.failed;
+      const bits: string[] = [];
+      if (c.running) bits.push(`${c.running} running`);
+      if (c.failed) bits.push(`${c.failed} failed`);
+      names.push(`${w.name} — ${bits.join(" · ")}`);
+    }
+    return { running, failed, names };
+  }, [workspaces, activeWorkspaceId, counts]);
+  const elsewhereHue: "rose" | "teal" | "none" =
+    elsewhere.failed > 0 ? "rose" : elsewhere.running > 0 ? "teal" : "none";
+
+  /** the per-item dot — rose outranks teal (alarm outranks alive) */
+  const dotFor = (id: string): "rose" | "teal" | "none" => {
+    const c = counts.get(id);
+    if (!c) return "none";
+    if (c.failed > 0) return "rose";
+    if (c.running > 0) return "teal";
+    return "none";
+  };
 
   return (
     <Select
@@ -523,7 +566,10 @@ function WorkspaceSelect() {
     >
       <SelectTrigger
         aria-label="Active workspace"
-        title={active ? `Workspace: ${active.name}` : "Workspaces load with the project"}
+        title={
+          (active ? `Workspace: ${active.name}` : "Workspaces load with the project") +
+          (elsewhereHue !== "none" ? ` · Elsewhere: ${elsewhere.names.join(", ")}` : "")
+        }
         className="h-8 w-[128px] rounded-lg border bg-card text-xs font-medium sm:w-[160px]"
       >
         <span className="flex min-w-0 items-center gap-1.5">
@@ -531,25 +577,55 @@ function WorkspaceSelect() {
           <SelectValue placeholder="Workspace…">
             <span className="truncate">{active?.name ?? "Workspace…"}</span>
           </SelectValue>
+          {elsewhereHue !== "none" && (
+            <span
+              data-ws-elsewhere={elsewhereHue}
+              aria-hidden="true"
+              className={cn(
+                "size-1.5 shrink-0 rounded-full",
+                elsewhereHue === "rose" ? "bg-rose-500" : "bg-teal-500"
+              )}
+            />
+          )}
         </span>
       </SelectTrigger>
       <SelectContent>
-        {workspaces.map((w) => (
-          <SelectItem key={w.id} value={w.id} className="text-xs">
-            <span className="flex min-w-0 items-center gap-2">
-              <span className="max-w-[140px] truncate">{w.name}</span>
-              <Badge
-                variant="secondary"
-                className="h-4 shrink-0 px-1 text-[9px] font-semibold tabular-nums"
+        {workspaces.map((w) => {
+          const dot = dotFor(w.id);
+          const c = counts.get(w.id);
+          const dotBits: string[] = [];
+          if (c?.running) dotBits.push(`${c.running} running`);
+          if (c?.failed) dotBits.push(`${c.failed} failed`);
+          return (
+            <SelectItem key={w.id} value={w.id} className="text-xs">
+              <span
+                className="flex min-w-0 items-center gap-2"
+                title={dotBits.length ? dotBits.join(" · ") : undefined}
               >
-                {counts.get(w.id) ?? 0}
-              </Badge>
+                <span className="max-w-[140px] truncate">{w.name}</span>
+                <Badge
+                  variant="secondary"
+                  className="h-4 shrink-0 px-1 text-[9px] font-semibold tabular-nums"
+                >
+                  {c?.total ?? 0}
+                </Badge>
+                {dot !== "none" && (
+                  <span
+                    data-ws-dot={dot}
+                    aria-hidden="true"
+                    className={cn(
+                      "size-1.5 shrink-0 rounded-full",
+                      dot === "rose" ? "bg-rose-500" : "bg-teal-500"
+                    )}
+                  />
+                )}
+              </span>
               {w.id === activeWorkspaceId && (
                 <span className="size-1.5 shrink-0 rounded-full bg-primary" aria-hidden="true" />
               )}
-            </span>
-          </SelectItem>
-        ))}
+            </SelectItem>
+          );
+        })}
       </SelectContent>
     </Select>
   );

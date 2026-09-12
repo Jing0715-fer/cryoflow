@@ -4341,3 +4341,27 @@ Stage Summary:
 - 「重新闻继续赢槽位」：TOAST_LIMIT=1 的世界里 kicked 先出、finished 后出——混合拍（上游完成 + 下游开跑，engine 级联的常态）最终幸存的是完成 digest。轻新闻被重新闻顶掉不是丢失：它已经被说出过一瞬，且状态在 census 每一层活着——槽位裁决是信息的排序，不是信息的删除
 - 「播报层与引擎层解耦测试」：播报读转变不问起源——原子 stamp 直接驱动 pending→running，绕开 engine 的真实 spawn/stampede guard；这让播报聚合的测试可以逐分支穷举（2/1/10/混合）而不用构造真实管线的时序。测一层时，把别的层当黑箱
 - 遗留（下轮候选）：digest 名单行点击跳转（名单行的 name 已是事实，点击可 focusJob——边际评估，digest 是摘要不是门教义的反向拉力，真机反馈再定）；auto-started 的上游名字（"Class2D finished — Picking started"——需 lineage 反查，边际评估）；KPI 折叠持久化（真机）；find 三维持久化（真机）；favorites 拖拽排序（真机）；undo 手感参数（真机）；runner wall-time 剖面（qa64 85s 一致域，继续让位）；世界卫生观察账本（矩阵连续第四天零抖动）；EMPIAR 真数据回归（重，让位）；用户真机项
+
+---
+Task ID: 148
+Agent: main (cron window 2026-09-12 16:15:47 +08:00, trace …202609121616)
+Task: 例行七条——开局核对 + QA 判稳 → 选题开发（跨工作区 census 点）→ 矩阵两折真裁决（idle 节奏 + FAIL 路径 cleanup 竞态）→ 回归 → 交接闭环。本轮交付「别处的世界也在动」：census 方言到达空间维度——其他工作区的 running/failed 首次可见
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部实际为 Task 147（4c4ee2c == origin/main，树净）；BUILD_ID csTT6K1fRVwzNa-kLOnQs 匹配；冷启动 2s READY + 三件套（qa63/qa00/t147 41）全绿 → 稳定
+- 【选题】侦察发现 WorkspaceSelect 已有 per-workspace 计数徽章但只数总数——而 store.jobs 是 PROJECT 全量（GET /api/jobs 按 projectId 不分 workspace，toJobDTO 透传 workspaceId），每个 workspace 的 running/failed 早已在客户端手里、只是从未被说出；且活跃工作区之外的全部 census 表面（footer/tab/favicon）对别处的 runner 全盲 → 定案「别处的世界也在动」：纯前端派生，零新请求
+- 【实现·WorkspaceSelect census】counts 升格三元组 {total, running, failed}；关闭态 Trigger 加「异地动静」点（任一非活跃 workspace 有 running/failed 时点亮——rose 压倒 teal，favicon 教义的工作区版；title 逐字列出 "Elsewhere: B — 1 running · 1 failed"）；菜单每项自带点（rose > teal，单点不双点）+ title 补计数细节；空工作区无点（presence-derived 零段省略——footer census 同律）；全部静态色点（favicon 同律：一瞥层不闪烁）
+- 【t148 探针】七相 23 断言 ×2 全绿：S 建 workspace B（API）+ keeper runner（活跃工作区，不进 elsewhere 域但锁 1.2s poll 节奏）；B 空 B 静默（item 无点 + trigger 无点）；C stamp 1 running → item teal + trigger teal + title 逐字；D stamp 1 failed → rose 压倒 teal（单点）双向；E 切到 B → trigger 的点重瞄准「B 之外的世界」（oracle 相对式——世界 fixture runner 在 Main 被自动吸收）；F B 全 completed → item 点灭；G 屏摄（点亮菜单）；Z console 清 + roster/workspaces 双还原
+- 【真裁决·矩阵两折】①E 相假红：切到 B 后 trigger 点仍在——钉了「点应消失」的想象——世界 fixture runner 在 Main，切到 B 后「别处」域变成 Main（有 runner）→ 点 teal 是产品正确；探针改 oracle 相对式（elsewhere 色 == 非 B 域的 API 派生色，无论 fixture 做什么）——「断言不变量，别钉具体演员」第 N 次重演；②C 相矩阵假红（单跑也复现）：dot 渲染完好（HTML 考古证实 data-ws-dot="teal" 在场）——真因是 **idle 世界 poll 6s 节奏**（最早全绿全靠世界 fixture runner 碰巧在跑保 1.2s；矩阵 t142-147 跑完 fixture 静默 → idle → sleep 1800 不够一个 poll 周期）→ keeper 修复（与 t146/t147 同一课：探针的前提要写成显式步骤，运气不是前提）
+- 【探针基建·FAIL 路径 cleanup 竞态】must 的 void cleanup().then(exit) 与 main().catch 的 process.exit 竞速——throw 传播到 catch 是同步的，exit 总是抢先，**FAIL 路径的 cleanup 永远跑不完**（上一跑失败 → 残留 workspace+jobs → 下一跑 POST 同名 → 两个同名 B → openMenuAndFind 找到旧的 → 连锁假红）。修复：purgeT148 prisma 直删（t146 先例——无 API 守卫无 fetch 竞态），探针开头也清（前任失败的自愈）+ cleanup 改同步 execSync
+- 【假绿修复】Z 相 workspace 还原断言查了 GET /api/jobs 的 workspaces 字段——该响应根本没有这个字段（store 的 workspaces 来自 GET /api/workspaces）→ 断言一直空转假绿。改查 store 同源 API——「假绿比假红更阴：假红吵闹，假绿沉默地陪跑」
+- 【收尾】eslint 0、tsc src 0；构建 BUILD_ID Fu-uqLwm9Tz6Ao7l0HCih；t148(23)×2、受影响面 t143(37)/t142(37)/t147(41)/qa63/qa00 全绿；全矩阵 84 套（t148 auto-include）分 9 块 0 失败（块 8 首跑 t148 两折经真裁决修复后复绿）；块峰 205MB 零阈值重启；worklog + commit + push + 环境清理
+
+Stage Summary:
+- 「别处的世界也在动」：census 方言此前只对活跃工作区说话——B 工作区的 runner 对坐在 A 里的用户完全不可见（footer/tab/favicon 全盲）。工作区切换器的关闭态一个色点 + 菜单每项一个色点，把「别处有动静」从「打开菜单才能发现」变成「一直可见」。数据零新增（jobs 本来就是 project 全量）——很多不可见不是数据缺失，是最后一厘米的渲染缺失
+- 「rose 压倒 teal 的工作区版」：一个点说一件事——警报优先；细节（各自几个 running/failed）进 title。favicon 的单点教义在空间维度重演：16px 处数字是噪音，一个正确的颜色是信号
+- 「切换时 elsewhere 域跟着重新瞄准」：elsewhere 永远 = 非活跃 workspace 的动静——切到 B，B 的动静升格为「活跃」（footer/tab/favicon 接管），别处的点自动改说 Main 的动静。语义域随视角移动，不需要任何状态迁移——这是纯派生（presence-derived）的礼物
+- 「idle 节奏是探针的隐形前提」：sleep(1800) 假设 poll 1.2s——这只有在世界有 runner 时成立。最早两跑全绿是运气（fixture runner 恰好在跑），矩阵跑完 fixture 静默后同一段代码立刻假红。「测试过了」与「测试的前提成立」是两件事——keeper 模式（t146 首创）应成为一切「stamp 后等一拍」探针的标配
+- 「FAIL 路径的 cleanup 是空头支票」：void cleanup().then(exit) 对 main().catch 的同步 exit 是永远输的竞速——失败即残留，残留污染下一跑（同名实体连锁假红）。探针开头自清前残（prisma 直删）+ cleanup 全同步化，把「失败可恢复」从愿望变成结构
+- 「假绿比假红更阴」：查错响应字段的还原断言永远为真——它陪跑了所有绿跑却什么都没验证。假红吵闹（会修），假绿沉默（陪跑）。断言的绿必须是「检查了真东西的绿」
+- 遗留（下轮候选）：workspace item 点的呼吸动画（running 的「活」语义—— favicon 同律保持静态，真机反馈再评估）；digest 名单行点击跳转（t146 遗留）；auto-started 上游名字（lineage 反查）；KPI 折叠持久化（真机）；find 三维持久化（真机）；favorites 拖拽排序（真机）；undo 手感参数（真机）；runner wall-time 剖面（qa64 86s 一致域，让位）；世界卫生观察账本（连续第五天零抖动）；EMPIAR 真数据回归（重，让位）；用户真机项
