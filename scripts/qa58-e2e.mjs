@@ -156,7 +156,64 @@ const bootCanvas = async () => {
   return false;
 };
 
+// Task 160 window fix (the t88/t157 recipe — sixth world-sensitivity scar):
+// the canvas is a TRANSFORM-PANNED world; the seed card sits wherever the
+// world's pan memory left it, and playwright's scrollIntoView cannot reach
+// it. Relocate BELOW the whole pack (max-y + 480: a slot no other card can
+// occupy by construction) and pan until visible, THEN run the click loop.
+const relocateSeedToFreeBand = async () => {
+  const jobs = (await (await fetch(B + "/api/jobs")).json())?.jobs ?? [];
+  const sel = jobs.find((j) => j.name === SEL_JOB);
+  if (!sel) return;
+  const yFree = jobs.reduce((m, j) => Math.max(m, (j.y ?? 0) + 240), 800) + 480;
+  await fetch(`${B}/api/jobs/${sel.id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ x: 140, y: yFree }),
+  });
+  await sleep(600); // the poller picks the position up before the pan
+};
+
+const panSeedUntilVisible = async () => {
+  for (let i = 0; i < 8; i++) {
+    const r = await p.evaluate((name) => {
+      const wrap = [...document.querySelectorAll("[data-job]")].find((el) =>
+        (el.textContent || "").includes(name)
+      );
+      if (!wrap) return null;
+      const b = wrap.getBoundingClientRect();
+      return { x: b.x, y: b.y, w: b.width, h: b.height, vw: innerWidth, vh: innerHeight };
+    }, SEL_JOB).catch(() => null);
+    if (r == null) return;
+    if (r.w > 0 && r.x >= 4 && r.y >= 110 && r.x + r.w <= r.vw - 4 && r.y + r.h <= r.vh - 110) return;
+    const dx = Math.round(r.vw / 2 - (r.x + r.w / 2));
+    const dy = Math.round(r.vh / 2 - (r.y + r.h / 2));
+    const origin = await p.evaluate(({ vw, vh }) => {
+      const empty = (x, y) => {
+        const el = document.elementFromPoint(x, y);
+        if (!el) return false;
+        if (el.closest('[data-job],[role="button"],[role="toolbar"],[data-canvas-ui="minimap"],[role="dialog"]')) return false;
+        return !!el.closest('[data-canvas="viewport"]');
+      };
+      for (let i = 0; i < 40; i++) {
+        const x = 200 + Math.random() * (vw - 400);
+        const y = 150 + Math.random() * (vh - 300);
+        if (empty(x, y)) return { x, y };
+      }
+      return null;
+    }, { vw: r.vw, vh: r.vh });
+    if (!origin) return;
+    await p.mouse.move(origin.x, origin.y);
+    await p.mouse.down();
+    await p.mouse.move(origin.x + dx, origin.y + dy, { steps: 12 });
+    await p.mouse.up();
+    await sleep(400);
+  }
+};
+
 const openSelectPanel = async () => {
+  await relocateSeedToFreeBand();
+  await panSeedUntilVisible();
   for (let i = 0; i < 10; i++) {
     try {
       // idle card click = "Edit parameters" flow — the ONLY surface that

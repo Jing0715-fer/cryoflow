@@ -168,6 +168,57 @@ const clickCard = async (name) => {
   return false;
 };
 
+// Task 160 window fix (the t88 recipe, fifth world-sensitivity scar): the
+// canvas is a TRANSFORM-PANNED world — playwright's scrollIntoView cannot
+// reach a card the pan has carried out of the viewport, and this probe's
+// click assumed the seed card was on-screen. Whose pan memory the world
+// carries is not the probe's business: relocate Alpha BELOW the whole pack
+// (max-y + 480 is a slot no other card can occupy by construction) and pan
+// until it sits inside the viewport, then click. The click retries stay —
+// panUntilVisible makes a card VISIBLE, not UNCOVERED.
+const relocateCardToFreeBand = async (jobId) => {
+  const pack = await roster();
+  const yFree =
+    pack.reduce((m, j) => Math.max(m, (j.y ?? 0) + 240), 800) + 480;
+  await api(`/api/jobs/${jobId}`, "PATCH", { x: 140, y: yFree });
+  await sleep(600); // the poller picks the position up before the pan
+};
+
+const panUntilVisible = async (id) => {
+  for (let i = 0; i < 8; i++) {
+    const r = await p.evaluate((jobId) => {
+      const el = document.querySelector(`[data-job="${jobId}"]`);
+      if (!el) return null;
+      const b = el.getBoundingClientRect();
+      return { x: b.x, y: b.y, w: b.width, h: b.height, vw: innerWidth, vh: innerHeight };
+    }, id).catch(() => null);
+    if (r == null) return; // not in DOM — the click fails loudly on its own
+    if (r.w > 0 && r.x >= 4 && r.y >= 110 && r.x + r.w <= r.vw - 4 && r.y + r.h <= r.vh - 110) return;
+    const dx = Math.round(r.vw / 2 - (r.x + r.w / 2));
+    const dy = Math.round(r.vh / 2 - (r.y + r.h / 2));
+    const origin = await p.evaluate(({ vw, vh }) => {
+      const empty = (x, y) => {
+        const el = document.elementFromPoint(x, y);
+        if (!el) return false;
+        if (el.closest('[data-job],[role="button"],[role="toolbar"],[data-canvas-ui="minimap"],[role="dialog"]')) return false;
+        return !!el.closest('[data-canvas="viewport"]');
+      };
+      for (let i = 0; i < 40; i++) {
+        const x = 200 + Math.random() * (vw - 400);
+        const y = 150 + Math.random() * (vh - 300);
+        if (empty(x, y)) return { x, y };
+      }
+      return null;
+    }, { vw: r.vw, vh: r.vh });
+    if (!origin) return;
+    await p.mouse.move(origin.x, origin.y);
+    await p.mouse.down();
+    await p.mouse.move(origin.x + dx, origin.y + dy, { steps: 12 });
+    await p.mouse.up();
+    await sleep(400);
+  }
+};
+
 const boot = async () => {
   await p.goto(BASE, { waitUntil: "networkidle" });
   await p.waitForSelector('[data-view="canvas"]', { timeout: 30000 });
@@ -233,6 +284,10 @@ async function main() {
   await boot();
   must((await stored()) === null, "B1 fresh boot writes NOTHING to the position key");
   must(await waitForPanel(false), "B2 fresh boot opens no panel (honest empty state)");
+  // Task 160 window fix: the seed card may sit anywhere in the pan world —
+  // bring it into the viewport before the pointer stream tries to reach it
+  await relocateCardToFreeBand(alphaId);
+  await panUntilVisible(alphaId);
   must(await clickCard(ALPHA), "B3 clicking Alpha opens its panel (real pointer stream)");
   must((await panelName()) === ALPHA, "B4 the panel names Alpha (input[aria-label='Job name'])");
   must((await stored()) === alphaId, "B5 storage echoes Alpha's id synchronously");

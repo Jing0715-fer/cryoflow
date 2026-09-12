@@ -36,6 +36,66 @@ import {
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+// ---------------------------------------------------------------------------
+// Task 160 — the left rail joins the session-position family. The rail's tab
+// (Catalog | Workspaces) is WHERE YOU ARE in the sidebar, the same stay-put
+// contract as the selection (Task 157: which card) and the canvas (Task 159:
+// which workspace) — you close the tab working out of Workspaces, you reopen
+// working out of Workspaces, not dumped back on Catalog. It is NOT a filter
+// (switching tabs hides nothing — the other panel is one click away) and not
+// a lens (it changes no semantics) — pure position, so it follows the user
+// across reloads. Two contract notes before the code:
+//
+//  1. The trust gate is the WHITELIST ITSELF, the mirror image of Task 157's:
+//     a job id has no format any whitelist could name (the seed must resolve
+//     against reality — the canvas's own membership predicate), but a tab
+//     value is a FINITE set this build renders, so the seed is honest only
+//     if it names a tab that exists. Hand-edited garbage, a tab renamed in a
+//     future build, "", null — all resolve nowhere, and the honest unknown is
+//     the default Catalog.
+//  2. The seed applies AFTER hydration, not during it: the aside renders in
+//     the SSR pass (unlike Task 156's gallery, which is "data not arrived,
+//     UI not born" and could lazily hydrate in useState), so an eagerly
+//     hydrated value would fight the server HTML and trip a hydration
+//     mismatch. useState starts on the honest default; a boot-once effect
+//     applies the seed right after hydration — same landing order the data
+//     itself uses (effect → store load).
+//
+// Boot writes NOTHING either way (hydrate reads; the effect never persists),
+// so the fresh-boot-zero-keys negative oracle (t157-F) keeps holding. The
+// echo lives at the GESTURE by topology: Radix funnels every tab change —
+// mouse click AND keyboard arrow navigation — through a single
+// onValueChange, so persist-then-set wraps the funnel once and there is
+// nothing else to wrap (no programmatic tab switch exists).
+// ---------------------------------------------------------------------------
+
+const LEFT_RAIL_TAB_KEY = "cryoflow.leftRailTab.v1";
+const LEFT_RAIL_TABS = ["catalog", "workspaces"] as const;
+type LeftRailTab = (typeof LEFT_RAIL_TABS)[number];
+
+function hydrateLeftRailTab(): LeftRailTab {
+  if (typeof window === "undefined") return "catalog";
+  try {
+    const raw = window.localStorage.getItem(LEFT_RAIL_TAB_KEY);
+    const tab = raw?.trim();
+    if (tab && (LEFT_RAIL_TABS as readonly string[]).includes(tab)) {
+      return tab as LeftRailTab;
+    }
+    return "catalog";
+  } catch {
+    return "catalog";
+  }
+}
+
+function persistLeftRailTab(tab: LeftRailTab): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(LEFT_RAIL_TAB_KEY, tab);
+  } catch {
+    /* private mode / quota — the tab choice stays in-RAM */
+  }
+}
+
 function useMediaQuery(query: string) {
   const [matches, setMatches] = React.useState(false);
   React.useEffect(() => {
@@ -72,6 +132,15 @@ export default function Home() {
 
   const [mounted, setMounted] = React.useState(false);
   const [paletteOpen, setPaletteOpen] = React.useState(false);
+  // Task 160 — the rail's session position. Honest default first (hydration
+  // must match the server HTML); the seed lands once, right after hydration.
+  const [leftRailTab, setLeftRailTab] = React.useState<LeftRailTab>("catalog");
+  React.useEffect(() => {
+    // boot-once seed: reads localStorage, never writes (t157-F zero-keys
+    // negative oracle keeps holding). No once-flag needed — [] deps IS the
+    // once-guard, and a remount of Home is a fresh boot by definition.
+    setLeftRailTab(hydrateLeftRailTab());
+  }, []);
   const [confirmDeleteId, setConfirmDeleteId] = React.useState<string | null>(null);
   // bulk delete (multi-selection via Del/Backspace) gets its own confirm —
   // the toolbar's delete button has an equivalent one inside canvas.tsx
@@ -464,7 +533,21 @@ export default function Home() {
         <main className="flex min-h-0 flex-1">
           {/* Desktop sidebar: job catalog + workspace navigator */}
           <aside className="no-print hidden w-72 shrink-0 flex-col border-r bg-gradient-to-b from-sidebar via-sidebar to-sidebar/70 lg:flex">
-            <Tabs defaultValue="catalog" className="flex h-full min-h-0 flex-col gap-0">
+            <Tabs
+              value={leftRailTab}
+              onValueChange={(v) => {
+                // Task 160 — the echo at the gesture: Radix funnels mouse
+                // clicks AND keyboard arrow navigation through this single
+                // handler, and no programmatic switch exists — one wrap, no
+                // drift (the t159 topology rule: one choke point gets the
+                // funnel-wrap idiom, not a subscription). Persist-then-set:
+                // the storage is the echo of what the user chose.
+                const tab = v as LeftRailTab;
+                persistLeftRailTab(tab);
+                setLeftRailTab(tab);
+              }}
+              className="flex h-full min-h-0 flex-col gap-0"
+            >
               <div className="shrink-0 border-b bg-sidebar/40 p-2 backdrop-blur-sm">
                 <TabsList className="grid h-9 w-full grid-cols-2 shadow-none">
                   <TabsTrigger

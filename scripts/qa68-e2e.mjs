@@ -169,8 +169,18 @@ must(slice3d.startsWith("OK") && slice3d.includes("true"),
 await realClick(`document.querySelector('[role=slider][aria-label^="Cross-section plane position"]')`);
 await sleep(400);
 sh(`${AB} press End`);
-await sleep(500); // flash window (650ms) still open
-const zFlash = unq(evalJs(`String(document.querySelector('[data-canvas-ui=ortho-tile-z]')?.className.includes('border-cyan-500') || false)`));
+// Task 160 window fix: the flash window is 650ms (FOLLOW_FLASH_MS), but a
+// single agent-browser eval COLD-STARTS a CLI process per call (~0.3-1s
+// under load) — one sample can easily land after the flash has already
+// cleared, which is exactly what started failing under this round's load
+// (playwright sampling caught the flash alive at t≈2ms AND t≈1062ms, so
+// the product and the echo chain are fine). Sample THROUGH the window:
+// any sighting of the cyan border inside ~2.5s is the same assertion.
+let zFlash = "false";
+for (let i = 0; i < 20 && zFlash !== "true"; i++) {
+  zFlash = unq(evalJs(`String(document.querySelector('[data-canvas-ui=ortho-tile-z]')?.className.includes('border-cyan-500') || false)`));
+  if (zFlash !== "true") await sleep(120);
+}
 must(zFlash === "true", "driven tile flashes cyan while following");
 await sleep(1400); // debounce + fetch + render
 const zReadout = unq(evalJs(`String(document.querySelector('[data-canvas-ui=ortho-tile-z]')?.textContent.match(/z \\d+\\/\\d+/)?.[0] || 'none')`));
