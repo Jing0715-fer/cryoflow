@@ -4377,7 +4377,7 @@ Work Log:
 - 【实现·store】announceNavigate(get, jobId)：从 store.jobs 解析 job.workspaceId，非活跃工作区先 switchWorkspace 再 setView("canvas")+inspect(jobId)——「门要开在正确的世界里」：坐在 A 听见 B 的完成新闻，点门先进 B 的世界再开 inspector，否则 inspector 点名一张画布上不存在的卡（t145 View 桥的既存盲区顺带治愈）；announceRoster(get, shown, tail)：span.block 包裹层原样保留（t146/t147 探针的 span.block 名单合同逐字幸存——加门不改文本），内嵌 button（type=button、aria-label "Open <name>"、-mx-2/-my-0.5 扩展命中区不动排版、hover:bg-foreground/10、active 加深、focus-visible ring、destructive toast 内 white/15 系 hover——玫瑰底上的门发白光而非墨光、motion-reduce:transition-none）；两个 digest（kicked/finished）同法——轻重两半说同一部法
 - 【t149 探针】七相 57 断言 ×2 全绿：S purge+快照+keeper（1.2s poll 前提）+workspace B（API 创建+reload——t143 教训）；X 源码 oracle（announceNavigate 存在+View 桥委托+行门 aria-label——一个铰链）；B 2 完成 digest（2 行=2 门+无 View 桥+非 destructive+点行开 DA 的 inspector）；C 跨世界门（Stay 在 Main + Else 在 B 同拍原子翻——点 Else 行 → inspector 开 + **透镜切到 B**；教义：别处的门先换世界再开门；随后显式切回 Main 确定化）；D destructive digest 的 failed 行仍是门（警报不撤销门——failed 的卡正是最想去的地方）；E 10 完成 → 8 门+惰性尾行（9 span 中恰好 8 个含 button，尾行零 button——census 行不是门）；F kickoff digest 行也是门（轻半边同法）；G 屏摄；Z console 容忍半径升级+roster/workspaces 双还原（22==22、2==2）
 - 【探针伤情·三折】①X 相 oracle regex 漏对象 key 引号（"aria-label" 是带引号的 key——钉 regex 也要考古真实源码形态）；②C 相假红：B、C 两拍 digest 共享 census 标题 "2 completed"，waitForToast("2 completed") 捞到 B 相未过期的旧 digest（9s 时效内 TOAST_LIMIT=1 尚未替换）——等待锚改用 C 相特有名单行名（"T149 Else"）再回验标题——「census 计数不识别身份，名单行才识别」；③Z 相 /log 404 半径漏 ?full=1（inspect 的拉取带查询串——半径匹配 PATH 而非全等 URL）+ console 泛型 404 回声（无 URL 可圈）按「数量对账」容忍：泛型回声数 ≤ 半径内网络 404 数（3<=3），真 JS 错误照旧响亮
-- 【收尾】eslint 0、tsc src 0；构建 BUILD_ID Ul0cf3NP8hWj6PbAcMfn2（tsc/build 无 OOM）；t149(57)×2、受影响面 t145(28)/t146(47)/t147(41)/t148(23)/qa63/qa00 全绿（t146 的 span.block 名单合同与「无 View 桥」断言在加门后逐字幸存——包裹层设计的回报）；全矩阵 85 套（t149 auto-include）分 10 块 0 失败；块峰 187MB 零阈值重启（Task 122 卫生学）；qa64 85s 一致域；worklog + commit + push + 环境清理
+- 【收尾】eslint 0、tsc src 0；构建 BUILD_ID 1ANjJApk-KUIg_hQS-wXD（上轮误记为 Ul0cf3NP8hWj6PbAcMfn2——未 cat 验证就落笔的想象值，Task 150 开局考古修正）；t149(57)×2、受影响面 t145(28)/t146(47)/t147(41)/t148(23)/qa63/qa00 全绿（t146 的 span.block 名单合同与「无 View 桥」断言在加门后逐字幸存——包裹层设计的回报）；全矩阵 85 套（t149 auto-include）分 10 块 0 失败；块峰 187MB 零阈值重启（Task 122 卫生学）；qa64 85s 一致域；worklog + commit + push + 环境清理
 
 Stage Summary:
 - 「摘要是门厅，不是没有门」：t146 的教义说 digest 整体没有单一目的地所以不配桥——这轮把它推完一步：每行名单恰好一个目的地，所以每行各配一门。教义没有被反转（View 桥缺席依旧、census 标题依旧不可点、尾行依旧惰性），被完成的是「每个结果一步之遥」的承诺——门厅的directory让那一步变成零步。好的教义经得起推到底
@@ -4386,3 +4386,24 @@ Stage Summary:
 - 「census 计数不识别身份」：两条 digest 可以同题（都是 "2 completed"）——探针等待要锚身份（特有名单行）不要锚计数（共享标题）。探针伤情的每一次都是同一课的变奏：钉住系统真实形态，不钉想象形态
 - 「半径与对账」：容忍要带半径（seeded /log 的 404），无 URL 的 console 泛型回声用数量对账兜底（回声数 ≤ 半径内网络 404 数）——听不见 URL 的日志，就让它对得上账
 - 遗留（下轮候选）：workspace item 点的呼吸动画（favicon 同律保持静态，真机反馈再评估）；auto-started 上游名字（lineage 反查——"Class2D finished — Picking started"）；digest 名单行点击后 toast 是否应主动消散（本轮裁决：不消散——新闻已被说过，状态活在 census，Radix focus-within 暂停计时已给足阅读时间；真机再评估）；KPI 折叠持久化（真机）；find 三维持久化（真机）；favorites 拖拽排序（真机）；undo 手感参数（真机）；runner wall-time 剖面（qa64 85s 一致域，继续让位）；世界卫生观察账本（连续第六天零抖动）；EMPIAR 真数据回归（重，让位）；用户真机项
+
+---
+Task ID: 150
+Agent: main (cron window 2026-09-12 17:45:49 +08:00, trace …202609121745)
+Task: 例行七条——开局核对（含上轮 worklog BUILD_ID 失实修正）+ QA 判稳 → 选题开发（kickoff 通知点名因果）→ 探针定位器一折（诊断裁决）→ 受影响面回归 → 全矩阵 → 交接闭环。本轮交付「kickoff 说因果」：auto-started 通知从"上游就绪"到"After <名字> completed"——因果从连线数据里读出，从不凭空指认
+
+Work Log:
+- 【开局核对 + 修正】worklog 尾部实际为 Task 149（9dcf38a == origin/main，树净）；**发现并修正上轮事实错误**：Task 149 条目所记 BUILD_ID Ul0cf3NP8hWj6PbAcMfn2 与实际 .next/BUILD_ID（1ANjJApk-KUIg_hQS-wXD）不符——上轮未 cat 验证就落笔的想象值，本轮 sed 修正 + 条目内注明——「环境指纹也是记录：写了就验证，验证了才写」；冷启动 2s READY + 三件套（qa63/qa00/t149 57）全绿 → 稳定
+- 【选题】Task 149 交接「auto-started 上游名字（lineage 反查）」→ 侦察证实反查同源零新数据：engine 的 autoStartPendingDownstream 本来就 BFS 遍历 edges 表（canvas 画的线就是因果链），store.edges 由 load() 全量加载在手 → 定案：单条 kickoff 通知 description 有可验证上游时升格 "After <upstream> completed — running now"，无可验证上游保持现状文案逐字（t147 合同）；digest 名单行保持裸名字形态（聚合退细节——t146 裁决不变）
+- 【实现·store】kickoffUpstream(get, jobId, merged, finishedIds)：入边 fromJobId 反查，**直接因优先**（本拍 finished 的上游是它开跑的原因）→ 否则 status==="completed" 的入边上游（auto-start 前提：inputs ready 即上游已完成）→ 否则 null——「播报从不猜测：数据撑不起的因果是一个带名字的谎言」；单条分支接上（无上游分支旧文案逐字幸存）
+- 【t150 探针】八相 41 断言 ×2 全绿：S **fixtures 建在浏览器打开之前**（客户端 edges 快照来自 load()）+ upstream 先 stamp completed 而 downstream 仍 idle（服务端 GET sweep 对新观察的 completion 恰好 fire 一次 autoStartPendingDownstream——pending 消费者会被真 start，idle 被跳过）+ 2.5s settle 窗让那次 fire 花掉；X 源码 oracle（kickoffUpstream + 因果行 + 泛型回退）；B wired kickoff → 因果行逐字；C 裸 kickoff → 泛型行逐字（t147 合同）；D wired+bare 同拍 digest → 名单行都是裸形态（带线的也不带 "After"——退细节裁决）；E 双 completed 上游两条边 → edges 序第一条 completed 胜（oracle 相对式：探针用 store 同源 API 算期望）；F 混合拍裁决重申（upstream completed + child running 同拍事务翻——finished solo 后出赢槽位）；G 因果行屏摄在场；Z 严格 console（本轮不开 inspector 无 404）+ roster 还原（22==22）
+- 【探针伤情·一折（诊断裁决产品无罪）】B 相 "无 View 桥" 断言 FAIL——locator("button", { hasText: "View" }) 在探针世界数出按钮，同表达式在诊断脚本里是 0：诊断 dump LI HTML 证实 kickoff toast 仅含无文本 X 按钮 + 因果行完整在场——**产品完全正确，探针定位器病**；改 getByRole("button", { name: "View" })（accessible-name 匹配，t145/t146 历史同款）后全绿——「定位器考古真实 DOM」的又一课：与其争论两种匹配语义的差别，直接换历史探针验证过的形态
+- 【收尾】eslint 0、tsc src 0；构建 BUILD_ID O8-4itDuOISKi9Y2PC287（cat 验证后才写）；t150(41)×2、受影响面 t147(41)/t146(47)/t145(28)/t149(57)/qa63/qa00 全绿（t147 裸 kickoff 合同在增强后逐字幸存）；全矩阵 86 套（t150 auto-include）分 10 块 0 失败；块峰 191MB 零阈值重启（Task 122 卫生学）；qa64 87s 一致域（85-88 波动带）；worklog + commit + push + 环境清理
+
+Stage Summary:
+- 「因果是数据，不是修辞」：kickoff 通知的 "After X completed" 不查引擎日志不猜触发链——engine 的 auto-start 本来就写在 edges 表里，通知只是把因果写成的话从同一张表里读出来。canvas 上的线、engine 的 BFS、通知里的名字：三个表面说同一个数据源——这是 chrome 方言的因果版
+- 「直接因优先，可验证封顶」：本拍 finished 的上游是直接原因（最强）；早已 completed 的上游是 auto-start 的前提（次强但可验证）；两者都无 → 泛型文案。通知宁缺毋滥：一个名字一旦出现在因果位置，它就必须是数据里查得到的事实
+- 「聚合退细节的裁决第二次幸存」：digest 名单行保持裸名字（带线的也不带 "After"）——t146 的「聚合的代价是细节退场」在因果细节上重演：点名册是 census 层，因果是读数层，单条通知才有读数的空间
+- 「fixtures 要建在客户端快照之外」：store.edges 是 load() 时刻的快照——探针的边必须建在浏览器打开之前；服务端 sweep 的单次 fire 是另一个时序债（新 observed completion → auto-start 真跑）——upstream stamp completed 时消费者必须 idle，2.5s settle 让债还清再开浏览器。探针的每一步都在还产品的时序债，先还债再演戏
+- 「想象值落笔就是失实」：上轮 worklog 的 BUILD_ID 未验证就写，本轮开局考古修正——工作日志的每个数字都是下轮的 oracle，写错一个就把下一轮的开局核对变成假绿。环境指纹（BUILD_ID/HEAD/断言数）落笔前一律 cat
+- 遗留（下轮候选）：digest 名单行的 "After" 精简版（每行带因果会太长——真机评估是否值得）；kickoff 通知的因果行点击（行文案含上游名，点击跳上游还是下游——语义含糊，真机再定）；workspace item 点的呼吸动画（favicon 同律保持静态，真机再评估）；KPI 折叠持久化（真机）；find 三维持久化（真机）；favorites 拖拽排序（真机）；undo 手感参数（真机）；runner wall-time 剖面（qa64 87s 一致域，让位）；世界卫生观察账本（连续第七天零抖动）；EMPIAR 真数据回归（重，让位）；用户真机项

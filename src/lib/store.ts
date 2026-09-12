@@ -893,6 +893,34 @@ const announceRoster = (
     tail ? React.createElement("span", { className: "block" }, tail) : null,
   );
 
+/** Task 150 — the kickoff's causal line. The engine's auto-start IS the
+ *  edges table (autoStartPendingDownstream BFS-es downstream over the
+ *  very same wires the canvas draws), so the announcement can NAME the
+ *  upstream by reading the data the cause was written in. The direct
+ *  cause wins: an upstream that finished in THIS sweep is why this job
+ *  started; otherwise an upstream whose status already reads completed
+ *  (the auto-start premise — inputs ready means upstream done). If
+ *  nothing verifiable is found, return null and the notice falls back
+ *  to its generic line. The announcement never guesses: a named cause
+ *  the data cannot back is a lie with a name in it. */
+const kickoffUpstream = (
+  get: () => WorkflowState,
+  jobId: string,
+  merged: JobDTO[],
+  finishedIds: Set<string>,
+): string | null => {
+  const inbound = get().edges.filter((e) => e.toJobId === jobId);
+  const byId = (id: string) => merged.find((j) => j.id === id);
+  const justNow = inbound
+    .map((e) => byId(e.fromJobId))
+    .find((j) => j && finishedIds.has(j.id));
+  if (justNow) return justNow.name;
+  const done = inbound
+    .map((e) => byId(e.fromJobId))
+    .find((j) => j?.status === "completed");
+  return done ? done.name : null;
+};
+
 export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   jobs: [],
   edges: [],
@@ -2099,9 +2127,21 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       // heavyweight fact and keeps winning the TOAST_LIMIT=1 slot
       // (Task 146's ruling, preserved).
       if (kicked.length === 1) {
+        // Task 150 — the notice names its cause when the wires can back
+        // it: "After <upstream> completed — running now". The digest's
+        // roster below keeps the bare name form (the aggregation's cost
+        // is detail leaving — Task 146's ruling, unchanged).
+        const up = kickoffUpstream(
+          get,
+          kicked[0].id,
+          merged,
+          new Set(finished.map((f) => f.job.id)),
+        );
         toast({
           title: `${kicked[0].name} auto-started`,
-          description: "Upstream inputs became ready — running now",
+          description: up
+            ? `After ${up} completed — running now`
+            : "Upstream inputs became ready — running now",
           duration: 9_000, // news expires — the teal breathing ring carries the state
         });
       } else if (kicked.length >= 2) {
