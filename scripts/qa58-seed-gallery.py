@@ -18,7 +18,11 @@ in the DB (PATCH only allows status:"idle" — same approach the engine
 uses: the row is the source of truth for status, the workdir for output).
 
 Usage: python3 scripts/qa58-seed-gallery.py [--clean]
-  --clean removes the seeded workdir files (jobs/edge stay — harmless).
+  --clean removes the seeded workdir files (jobs/edge stay — harmless) and
+  pops the engine-state entry ONLY when the workdir holds no tenant files
+  (Task 161 cleanup-radius protocol — see qa_lib.py; qa67-seed-volume.py
+  drops orthovol.mrc into this workdir, and the /outputs route resolves
+  the workdir THROUGH the entry, so a popped entry orphans every tenant).
 """
 import json
 import os
@@ -175,16 +179,36 @@ if "--clean" in sys.argv:
         if os.path.exists(p):
             os.remove(p)
             removed.append(os.path.basename(p))
-    # drop the engine run record too — the seeded job forgets its outputs
+    # Task 161 — cleanup-radius protocol (the full doctrine lives in
+    # qa_lib.py): pop the engine-state entry ONLY when the workdir holds
+    # nothing beyond this seeder's own assets. The entry is the workdir's
+    # REGISTRATION — /api/jobs/[id]/outputs resolves run.workdir through
+    # it — and this workdir hosts TENANTS: qa67-seed-volume.py drops
+    # orthovol.mrc here. Popping the entry while the job row lives
+    # orphaned that file (outputs: workdir null, files []) and broke
+    # qa67/qa68 whenever they ran after this cleanup without qa66's
+    # self-seed in between (Task 160's qa68 flash failure was exactly
+    # this chain). A living job keeps its registration — outputs then
+    # lists what is REALLY on disk (the route readdirSyncs the workdir);
+    # a tenant-free workdir gets the honest pop, radius = seed radius.
+    own = {os.path.basename(star_path), os.path.basename(mrcs_path)}
+    tenants = []
     try:
-        with open(state_path) as f:
-            state = json.load(f)
-        if state.pop(src["id"], None) is not None:
-            with open(state_path, "w") as f:
-                json.dump(state, f, indent=2)
-            removed.append("engine-state entry")
-    except Exception as e:
-        print(f"clean: state pop failed ({e})")
+        tenants = sorted(f for f in os.listdir(workdir) if f not in own)
+    except FileNotFoundError:
+        pass  # no workdir at all — nothing to protect, pop below is honest
+    if tenants:
+        print(f"clean: engine-state entry KEPT — tenant files present: {tenants}")
+    else:
+        try:
+            with open(state_path) as f:
+                state = json.load(f)
+            if state.pop(src["id"], None) is not None:
+                with open(state_path, "w") as f:
+                    json.dump(state, f, indent=2)
+                removed.append("engine-state entry")
+        except Exception as e:
+            print(f"clean: state pop failed ({e})")
     # the classes route 404s-by-empty when the workdir vanishes entirely —
     # keep the directory itself so a stale job never turns into a 500
     print(f"clean: removed {removed or 'nothing'}")

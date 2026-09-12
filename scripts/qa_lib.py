@@ -116,6 +116,39 @@ def register_engine_state(job_id, project_id, jtype, workdir, cmd="qa-fixture (r
     return True
 
 
+# ---------------------------------------------------------------------------
+# Task 161 — THE CLEANUP-RADIUS PROTOCOL (the shared-workdir house rules).
+#
+# A seeder's --clean may remove ONLY what it seeded: its own files always,
+# and the engine-state entry ONLY when the workdir holds no foreign files.
+# The entry is the workdir's REGISTRATION — /api/jobs/[id]/outputs resolves
+# run.workdir through it and then readdirSyncs the disk — so popping the
+# entry while the job row lives orphans every tenant file on disk (outputs
+# returns workdir:null, files:[]). qa67/qa68's orthovol.mrc died exactly
+# this way: qa58/qa59's cleanup popped the QA Class2D Source entry while
+# qa67-seed-volume.py's volume still lived in that workdir, and the pair
+# survived full matrices ONLY because qa66's self-seed happened to re-
+# register the entry in between (Task 160's qa68 flash failure was the
+# same chain without qa66).
+#
+# The two coherent teardown shapes:
+#   - TENANT-AWARE (qa58-seed-gallery.py): the job row STAYS on the canvas,
+#     so the entry pops only when no foreign files remain — a living job
+#     keeps its registration, and outputs lists what is really on disk.
+#   - ROOT (qa60-seed-fsc.py --clean, qa62-offline-clean.py): the job ROW
+#     is deleted too, so the entry must go with it — a dead root cannot
+#     keep a registration, and tenant assets under it (qa64's run_it016
+#     checkpoint) are moot because their consumers self-seed (qa64 runs
+#     qa60-seed-fsc.py before anything else).
+#
+# New seeders with tenants under their workdir MUST take the tenant-aware
+# shape; new seeders that own the whole job take whichever shape matches
+# whether the row survives the clean. When in doubt: the radius of a
+# cleanup is the radius of its seed, and a registration outlives only
+# what it truthfully describes.
+# ---------------------------------------------------------------------------
+
+
 def resolve_refine_host(project_id):
     """The report-fodder seeders (qa50-53) anchor on one refine3d host job."""
     name = os.environ.get("QA_REFINE", "QA Refine3D")

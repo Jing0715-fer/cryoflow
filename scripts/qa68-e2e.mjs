@@ -11,7 +11,7 @@
 //   the event loop must terminate (srcs stabilize).
 // Phase C — layering sanity: one Esc still peels only the viewer.
 //
-// Run: node scripts/qa68-e2e.mjs   (server on :3000, qa58+qa67 seeded)
+// Run: node scripts/qa68-e2e.mjs   (server on :3000; self-seeds since Task 161)
 import { execSync } from "node:child_process";
 const AB = "agent-browser";
 const B = "http://localhost:3000";
@@ -52,6 +52,14 @@ const realClick = async (findExpr) => {
 };
 
 // ---- job id ----------------------------------------------------------------
+// Task 161 — self-seed (Task 87 doctrine, same as qa66): qa68 consumes
+// qa58's class2d base (star/mrcs/entry) AND qa67's orthovol, and earlier
+// suites' cleans legitimately remove the landlord's own files (the
+// cleanup-radius protocol — qa_lib.py). Seeding here makes the suite
+// order-independent: qa59 → qa68 back-to-back must work.
+sh("python3 /home/z/my-project/scripts/qa58-seed-gallery.py >/dev/null 2>&1");
+sh("python3 /home/z/my-project/scripts/qa67-seed-volume.py >/dev/null 2>&1");
+console.log("  ok: self-seeded (qa58 base + qa67 volume, Task 87 doctrine)");
 const jobsRaw = execSync(`curl -s http://localhost:3000/api/jobs`, { encoding: "utf8" });
 const jobs = JSON.parse(jobsRaw);
 const list = Array.isArray(jobs) ? jobs : jobs.jobs;

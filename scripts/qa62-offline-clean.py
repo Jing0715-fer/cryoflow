@@ -8,7 +8,11 @@ Does exactly what seed --clean does:
   3. delete the QA Refine Live job row via Prisma (the API DELETE also
      clears its run record — we pop it in step 2 anyway)
 The four completed QA fixture jobs stay on the canvas (prior rounds'
-hygiene: completed fixtures remain, only stars/state are removed)."""
+hygiene: completed fixtures remain, only stars/state are removed).
+Task 161 note — this is the ROOT teardown shape (qa_lib.py doctrine):
+the live job ROW is deleted here, so popping its entry is coherent (a
+dead root keeps no registration); tenant assets under the live workdir
+(qa64's run_it016 checkpoint) are moot because qa64 self-seeds."""
 import json, os, subprocess, sys
 
 STATE = "/home/z/my-project/data/engine-state.json"

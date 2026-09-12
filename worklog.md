@@ -4619,3 +4619,25 @@ Stage Summary:
 - 「探针的时序假设也是世界假设」：qa68 的单次 flash 采样赌的是「agent-browser eval 冷启动 < 650ms」——机器负载一变这个假设就碎。playwright 高频采样诊断（2.6s 内 20+ 帧）证明产品行为完好，探针的检测方式修正为窗口内循环采样——「断言不变量，别钉单次观测」在时间维度上的推广。同批三起失败（t157/qa58/qa68）没有一起是产品回归——探针的世界假设（卡在屏内、workdir 常驻、CLI 快过 flash）逐一被现实修正
 - 「clean 的半径要跟 seed 的半径对齐」：qa59 的 SEED_CLEAN 删掉 engine-state entry 时把 qa68 依赖的 orthovol 一并从 outputs 列表上抹了——共享 workdir 的家族里，一个成员的清理半径覆盖了另一个成员的资产。本轮靠重种恢复；家族级 workdir 的清理协议（--clean 该不该动共享文件）留给下轮审计
 - 遗留（下轮候选）：gallery 家族 workdir 清理半径审计（上条）；digest failed 行的行内 Retry（toast 双门已存在，行内入口会稀释 t146 边界——倾向不动）；undo 手感参数（真机）；runner wall-time 剖面（qa64 88s 一致带，让位）；世界卫生观察账本（verdict 列观察：本轮 qa59/t143 两起单套抖动、三起探针世界敏感性、零产品回归）；EMPIAR 真数据回归（重，让位）；用户真机项
+
+---
+Task ID: 161
+Agent: main (cron window 2026-09-13 06:16:04 +08:00, trace …202609130616)
+Task: 例行七条——开局核对（摘要第七次过时，实际尾部 Task 160）+ 陈旧进程残留识破（Task 159 同族异动第三起）+ QA 判稳 → 选题（Task 160 交接首选 workdir 清理半径审计）→ 全家族考古 + 病灶定位 + 协议落地 + t161 探针（×3）→ Task 160 失败链复现修复 → 全矩阵 96 套 → 交接闭环。本轮交付「清理半径 = 种子半径」：qa58 的 --clean 不再孤儿化房客资产——共享 workdir 的房客（qa67 的 orthovol）在房东打扫后安然无恙
+
+Work Log:
+- 【开局核对】worklog 尾部实际为 Task 160（00f7346 == origin/main，树净）——摘要停在 Task 153，连续第七次过时；BUILD_ID B0fKKTEb 匹配 Task 160 构建。**:3000 起着 22:01 Sep 12 的陈旧 server**（15h04m 前启动，早于 Task 160 窗口与其构建——Task 159「进程表不属于文件系统快照」教义的第三起现行）→ ss 定位 kill → start-prod.sh 冷启动 2s READY → 世界 28 jobs/17 completed 健在 → 三件套（qa63/qa00/t160）全绿判稳
+- 【审计·全家族考古】普查 scripts 域清理动作（91 处 rm / 3 处 state.pop / 29 个 --clean/SEED_CLEAN 文件）：engine-state popper 三家——qa58-seed-gallery（pop QA Class2D Source）、qa60-seed-fsc（pop QA Refine Live）、qa62-offline-clean（pop 5 家）；跨 workdir 房客——qa67-seed-volume 把 orthovol.mrc 住进 QA Class2D Source 的 workdir（其 find_workdir 靠 entry 找路）、qa64 往 QA Refine Live 落 run_it016 checkpoint、seed-refine-halves/qa53-seed-topaz 住 QA Refine3D（restore-gallery 的 entry，无人 pop，安全）
+- 【病灶定位·现行犯罪现场】**当前世界 entry=false 而 orthovol.mrc 躺在 workdir**——上一轮 qa58/qa59 清理后孤儿化实锤：outputs 路由 `run.workdir` 从 entry 解析（缺失→workdir:null→files:[]），实测 file 路由 400。**历史矩阵绿之谜破案：qa66 的 self-seed（Task 87）恰好在 qa58/qa59（popper）与 qa67/qa68（消费者）之间重注册 entry——偶然依赖不是协议**；Task 160 的 qa68 失败正是回归阶段 qa59→qa68 相邻跑没有 qa66 隔断。路由考古证实诚实性论证：files 靠 readdirSync 扫盘，entry 在则房客如实列出
+- 【协议落地·三处 scripts 域零重建】① **qa58-seed-gallery.py：条件 pop**——own 集（star+mrcs）之外的 workdir 文件即房客，房客在则 entry KEPT（按名报出），空了才 pop（半径=种子半径）；顺带保护真引擎 dispatch 记录（run.out/run.err 也是「房客」）② **qa_lib.py：教义块**（THE CLEANUP-RADIUS PROTOCOL）——两种连贯拆除形态：TENANT-AWARE（job row 留，entry 条件 pop，如 qa58）vs ROOT（job row 删，entry 必走，如 qa60/qa62——死根不留注册，房客由 self-seed 重建）③ qa62-offline-clean.py 补 ROOT 形态注释（其无条件 pop 因删除 job row 而连贯）
+- 【t161 探针·28 断言 ×3 全绿·无浏览器合同探针】S 幂等预飞 + roster 快照；X 九 oracle（协议注释/own 集/房客检测/KEPT 分支报名/**pop 在 tenants 守卫之后**/qa_lib 教义锚/双形态命名/qa62 ROOT 注释）；B **CORE：房客幸存**——种 orthovol → qa58 --clean → star/mrcs 消失（自身半径仍覆盖）+ orthovol 在盘 + entry KEPT + 真 /outputs 列出房客 + file 路由渲染 PNG（Task 160 断链全部复活）；C 房客离开后诚实 pop（半径闭合）+ outputs 诚实空；D 世界修复（qa58+qa67 重种，leave it better than found）+ roster 恒等。疤痕一桩：Node `toString("ascii")` 把 0x89 掩码成 0x09——PNG magic 比较永远假，改字节比较（探针二折即愈）
+- 【失败链复现修复·qa67/qa68 补自种】修复后 qa59→qa67→qa68 相邻跑首测仍挂——**第二层真相：qa67/qa68 还消费 mrcs stack（qa58 自有文件，清理合法移除）**，二者不自种、一直吃常驻世界老本。正解=Task 87 既定模式：qa67/qa68 各补 self-seed（qa58-seeder + qa67-seed-volume，注释写明「standing world is NOT a contract」）——重跑 qa59→qa67→qa68 全绿（27+19 断言），Task 160 失败模式正式死亡；qa58/qa66/qa63-smoke/qa00 家族回归全绿
+- 【全矩阵 96 套（t161 auto-include 位 #82）10 块 0 失败】t152 191s 仍最慢；块峰 208MB（阈值 1200MB）零重启；telemetry verdict 列全程 PASS；qa62 连根拔拆掉 live fixture 后 qa60-seeder 重建（28 jobs 恢复，leave it better than found 对下一轮的兑现）；worklog + commit + push + 环境清理（杀 server 先 ss 查 PID、agent-browser close --all）
+
+Stage Summary:
+- 「清理半径 = 种子半径，注册比它的描述活得久才是不诚实」：--clean 可以清自己种的一切，但 engine-state entry 不是普通资产——它是 workdir 的注册（outputs 路由靠它解析 workdir 再扫盘）。job row 活着而注册被拔，等于一个健康卡片背后的文件系统被宣判不存在。条件 pop 的判据是现实：房客在册则注册必须留守，outputs 列出的就是盘上实有
+- 「偶然依赖不是协议」：qa67/qa68 靠 qa66 的 self-seed 顺路续命数十轮——这条隐形食物链在 qa66 被移除/改名/失败的当天才会断，且断得莫名其妙。审计的价值不在修 qa58 一处，在于把「谁在吃谁的老本」显式化：消费者自种（Task 87 教义），世界的构成从运气变成合同。t161 的 X 相把「pop 在守卫之后」钉成源码级 oracle——协议退化为无条件 pop 的那天，探针先于矩阵知道
+- 「两种拆除形态按 job row 的生死选型」：TENANT-AWARE（row 留→entry 条件 pop）与 ROOT（row 删→entry 必走）不是两种风格而是同一原则在两个拓扑上的投影——注册的真实性是唯一不变量。qa62 连根拔的无罪判决与 qa58 的定罪同源于此；教义块写进 qa_lib.py，下一个写 seeder 的人不用重新推导
+- 「第二层真相藏在第一层修复的灰烬里」：entry 修复后失败链仍挂——暴露出 qa67/qa68 对 mrcs 的第二重依赖。修复的验收不是「我修的东西过了」而是「原始失败场景整链过了」；相邻跑（qa59→qa67→qa68）正是 Task 160 失败的原样复现，比任何单套回归都诚实
+- 「Node 的 ascii 是 7bit 的」：toString("ascii") 掩码高位字节——PNG magic 这类二进制断言必须字节比较。探针断言二进制时别信字符编码
+- 遗留（下轮候选）：favorites 重排触屏长按手势（真机）；digest failed 行内 Retry（toast 双门已在，t146 边界敏感——维持不动判决）；undo 手感参数（真机）；runner wall-time 剖面（qa64 85s 一致带，让位）；世界卫生观察账本（verdict 列观察：本轮 0 抖动 0 环境性失败，纯 pre-existing 病灶一轮清）；EMPIAR 真数据回归（重，让位）；用户真机项

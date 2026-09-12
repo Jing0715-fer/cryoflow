@@ -20,7 +20,7 @@
 //   then the harness tears the seed down (browser closed, volume kept —
 //   it is part of the standing class2d seed base until --clean).
 //
-// Run: node scripts/qa67-e2e.mjs   (server on :3000, qa58+qa67 seeded)
+// Run: node scripts/qa67-e2e.mjs   (server on :3000; self-seeds since Task 161)
 import { execSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 const AB = "agent-browser";
@@ -64,6 +64,15 @@ const realClick = async (findExpr) => {
 };
 
 // ---- job id (from the API, same lookup the seed used) ----------------------
+// Task 161 — self-seed (Task 87 doctrine, same as qa66): the ortho chain
+// consumes qa58's class2d base (star/mrcs/entry) AND qa67's orthovol.
+// Earlier suites' cleans legitimately remove the landlord's own files
+// (the cleanup-radius protocol — qa_lib.py), so "the standing world" is
+// NOT a contract. Seeding here makes the suite order-independent:
+// qa59 → qa67 back-to-back must work without a qa66 in between.
+sh("python3 /home/z/my-project/scripts/qa58-seed-gallery.py >/dev/null 2>&1");
+sh("python3 /home/z/my-project/scripts/qa67-seed-volume.py >/dev/null 2>&1");
+console.log("  ok: self-seeded (qa58 base + qa67 volume, Task 87 doctrine)");
 const jobsRaw = execSync(`curl -s http://localhost:3000/api/jobs`, { encoding: "utf8" });
 const jobs = JSON.parse(jobsRaw);
 const list = Array.isArray(jobs) ? jobs : jobs.jobs;
