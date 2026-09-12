@@ -26,10 +26,32 @@
 //     silently at x=9280 while the rest of the world ended at 2340 made
 //     boot fit spill x≈150 content off-screen and t107/t108/t109's
 //     reach-less inspector clicks miss ten times in a row.)
+//   RESIDUE (Task 144) — the deletion power, and the only one. EXTENT and
+//     NN recall singletons; Task 144 met what they cannot see: ACCRETION.
+//     Every crashed suite leaves its unnamed seeds behind (POST without a
+//     name auto-generates "<type label> N"), and the residue chains into
+//     the world one ~140px link at a time — a salami whose every slice is
+//     individually innocent (each member sits inside the rest-of-world
+//     bbox; every NN gap is small) while maxY marched 1096 → 4500 and
+//     the boot fit slid the QA row under the pipeline KPI bar (qa60/qa64
+//     ten-iteration click loops, control build proved the product
+//     innocent). Recall cannot cure accretion: relocating a hundred
+//     residue rows builds a recall suburb as tall as the world it
+//     replaced. Deletion is scoped to a signature nothing legitimate can
+//     match — auto-name form "<exact type label> n" with n ≥ 2 (n = 1 is
+//     the seeder skeleton), status idle, no startedAt, no result,
+//     unlinked; labels are extracted from the product source (t138
+//     doctrine — the product's word table is the only word table); a
+//     per-run cap of 400 turns a signature bug into a loud abort instead
+//     of a blind mass deletion.
 //
-// Cards are MOVED, never deleted; edges survive a move. Destination slots
-// are occupancy-aware: a slot is only used if no CURRENT job rectangle
-// sits on it (relocations must not manufacture the next overlap).
+// Cards are MOVED, never deleted — EXCEPT residue rows under the Task 144
+// signature above. Edges survive a move (and cascade away with a deleted
+// residue row: Edge.fromJob/toJob are onDelete: Cascade). Destination
+// slots are occupancy-aware: a slot is only used if no CURRENT job
+// rectangle sits on it (relocations must not manufacture the next
+// overlap).
+import { readFileSync } from "fs";
 const BASE = "http://localhost:3000";
 const j = (await (await fetch(BASE + "/api/jobs")).json()).jobs ?? [];
 const cw = 220, ch = 96;
@@ -61,6 +83,41 @@ const taken = (x, y, ignore = new Set()) =>
       }
     } else console.log("adopt: no workspace exists to host strays");
   } else console.log("adopt: 0 strays (roster == canvas)");
+}
+
+// ---------- audit 0.5: residue (Task 144 — the accretion janitor) ----------
+{
+  let labels = null;
+  try {
+    const wf = readFileSync("/home/z/my-project/src/lib/workflow.ts", "utf8");
+    labels = {};
+    for (const m of wf.matchAll(/spec\(\s*"([a-z0-9_]+)",\s*"([^"]*)"/g)) labels[m[1]] = m[2];
+  } catch { /* label table unavailable → audit skipped below */ }
+  if (labels && Object.keys(labels).length > 0) {
+    const residue = j.filter((o) => {
+      const label = labels[o.type];
+      if (!label) return false; // unknown type → never auto-named residue we recognize
+      const m = (o.name ?? "").match(new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} (\\d+)$`));
+      if (!m || +m[1] < 2) return false; // n = 1 rows are the seeder skeleton's own
+      return o.status === "idle" && !o.startedAt && !o.result && !o.linkedJobId;
+    });
+    if (residue.length > 400) {
+      console.log(`RESIDUE ABORT: ${residue.length} matches exceed the 400 cap — signature bug, not cleanup`);
+    } else if (residue.length > 0) {
+      let dead = 0;
+      for (const o of residue) {
+        const r = await fetch(`${BASE}/api/jobs/${o.id}`, { method: "DELETE" });
+        if (r.ok) { o._dead = true; dead++; }
+        else console.log(`DELETE FAILED residue ${o.name} (HTTP ${r.status})`);
+      }
+      for (let i = j.length - 1; i >= 0; i--) if (j[i]._dead) j.splice(i, 1);
+      console.log(`residue: ${dead}/${residue.length} never-run auto-named rows deleted (edges cascade)`);
+    } else {
+      console.log("residue: 0 (world carries no accreted auto-named rows)");
+    }
+  } else {
+    console.log("residue: skipped (no label table extracted from workflow.ts)");
+  }
 }
 
 // ---------- audit 1: extent (orphan recall) ----------

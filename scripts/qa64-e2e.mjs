@@ -188,6 +188,18 @@ async function bootToDialog(pickLabel) {
   }
   must(onCanvas, "canvas renders with seeded job cards");
 
+  // t144 hardening: center the host card through the lens first — boot
+  // fit frames whatever world it is handed, and a top-area card can sit
+  // lawfully under the pipeline KPI bar (coordinates are never trusted)
+  sh(`${AB} press Control+f`);
+  await sleep(500);
+  sh(`${AB} type '[data-testid="canvas-find-input"]' '${HOST_JOB}'`);
+  await sleep(700);
+  sh(`${AB} press Enter`);
+  await sleep(1200);
+  sh(`${AB} press Escape`);
+  await sleep(500);
+
   let modal = false;
   for (let i = 0; i < 5 && !modal; i++) {
     const r = await realClick(

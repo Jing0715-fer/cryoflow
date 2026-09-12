@@ -90,6 +90,23 @@ const realClick = async (findExpr) => {
   return `clicked@${c.x},${c.y}`;
 };
 
+/** find-reach (t144 hardening): bring the target card to the viewport
+ *  CENTER through the lens before any click — boot fit frames whatever
+ *  world it is handed, and a top-area card can sit lawfully under the
+ *  pipeline KPI bar (Task 143 forensics, Task 144 residue incident).
+ *  Coordinates are never trusted; Ctrl+F → name → Enter = focusJob
+ *  centered + legibility zoom, Esc leaves the view there. */
+const reachViaFind = async (name) => {
+  sh(`${AB} press Control+f`);
+  await sleep(500);
+  sh(`${AB} type '[data-testid="canvas-find-input"]' '${name}'`);
+  await sleep(700);
+  sh(`${AB} press Enter`);
+  await sleep(1200);
+  sh(`${AB} press Escape`);
+  await sleep(500);
+};
+
 const bootCanvas = async () => {
   // zombie page first — stale params auto-save can overwrite fresh state
   sh(`${AB} close`); await sleep(1500);
@@ -119,6 +136,7 @@ const bootCanvas = async () => {
 };
 
 const openInspector = async () => {
+  await reachViaFind(HOST_JOB); // t144: center the card first — never trust the fit
   for (let i = 0; i < 10; i++) {
     const r = await realClick(
       `[...document.querySelectorAll('[role=button]')].find(x => (x.textContent||'').includes('${HOST_JOB}'))`,

@@ -7,10 +7,28 @@
  * live reconstruction resolution, and the currently-running job. Data comes
  * from the store (jobs) + one lightweight resolution/FSC poll against the
  * active reconstruction job.
+ *
+ * Task 144 — the fold: an explicit chevron collapses the bar into a
+ * compact pill (completion ring + count + the live runner chip). The bar
+ * is a lawful overlay, but its width grows with the world (particle
+ * counts, resolution + verdict pills) and a boot-fit canvas can hide a
+ * whole card under it (Task 143 forensics) — the fold reclaims the
+ * canvas without losing the glance. The alarm never folds away: a
+ * failed job keeps the count rose in both modes. State is ephemeral
+ * (store, not storage): it survives view switches, forgets on reload.
  */
 
-import { useEffect, useMemo, useState } from "react";
-import { Activity, Crosshair, Loader2, Medal, Snowflake, Trophy } from "lucide-react";
+import { Fragment, useEffect, useMemo, useState } from "react";
+import {
+  Activity,
+  ChevronsLeft,
+  ChevronsRight,
+  Crosshair,
+  Loader2,
+  Medal,
+  Snowflake,
+  Trophy,
+} from "lucide-react";
 import { useWorkflowStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
@@ -87,6 +105,8 @@ export function PipelineKpi() {
   const jobs = useWorkflowStore((s) => s.jobs);
   const setView = useWorkflowStore((s) => s.setView);
   const inspect = useWorkflowStore((s) => s.inspect);
+  const kpiCollapsed = useWorkflowStore((s) => s.kpiCollapsed);
+  const setKpiCollapsed = useWorkflowStore((s) => s.setKpiCollapsed);
 
   const stats = useMemo(() => {
     const total = jobs.length;
@@ -164,102 +184,156 @@ export function PipelineKpi() {
   const fmtNum = (n: number) =>
     n >= 10000 ? `${(n / 1000).toFixed(1)}k` : n.toLocaleString();
 
-  return (
-    <div
-      data-canvas-ui="pipeline-kpi"
-      aria-label="Pipeline overview"
-      className="no-print card-lift absolute left-3 top-3 z-20 flex max-w-[calc(100%-90px)] flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border bg-card/90 px-3 py-1.5 shadow-sm backdrop-blur-md"
+  // The bar's items, built conditionally, separated mechanically: the
+  // hairline renders BETWEEN neighbors only (the hand-placed separators
+  // used to double up whenever the particle item was absent). The fold
+  // keeps the two glance-critical entries — completion and the live
+  // runner — and sends the world-detail pills back behind the chevron.
+  const items: React.ReactNode[] = [];
+
+  // pipeline completion — clicking opens the dashboard (the summary's
+  // detail view); the ring itself is not interactive-looking, the hover
+  // wash + title carry the affordance. The rose wash when failures
+  // exist is the alarm that survives the fold (both modes keep it).
+  items.push(
+    <KpiItem
+      key="completion"
+      title="Pipeline completion — click to open the dashboard"
+      onClick={() => setView("dashboard")}
+      className="-mx-1 px-1 text-xs font-semibold tabular-nums"
     >
-      {/* pipeline completion — clicking opens the dashboard (the summary's
-          detail view); the ring itself is not interactive-looking, the hover
-          wash + title carry the affordance */}
-      <KpiItem
-        title="Pipeline completion — click to open the dashboard"
-        onClick={() => setView("dashboard")}
-        className="-mx-1 px-1 text-xs font-semibold tabular-nums"
-      >
-        <ProgressRing done={stats.completed} total={stats.total} />
-        <span className={stats.failed > 0 ? "text-rose-600 dark:text-rose-400" : "text-foreground"}>
-          {stats.completed}
-          <span className="text-muted-foreground">/{stats.total}</span>
-        </span>
-      </KpiItem>
+      <ProgressRing done={stats.completed} total={stats.total} />
+      <span className={stats.failed > 0 ? "text-rose-600 dark:text-rose-400" : "text-foreground"}>
+        {stats.completed}
+        <span className="text-muted-foreground">/{stats.total}</span>
+      </span>
+    </KpiItem>
+  );
 
-      <span className="h-4 w-px bg-border" aria-hidden="true" />
-
-      {/* particle count */}
-      {stats.particles != null && (
-        <KpiItem title="Particles fed into 2D/3D classification" className="text-xs tabular-nums">
+  if (!kpiCollapsed) {
+    // particle count
+    if (stats.particles != null) {
+      items.push(
+        <KpiItem
+          key="particles"
+          title="Particles fed into 2D/3D classification"
+          className="text-xs tabular-nums"
+        >
           <Snowflake className="size-3.5 shrink-0 text-teal-600 dark:text-teal-400" aria-hidden="true" />
           <span className="font-medium">{fmtNum(stats.particles)}</span>
           <span className="hidden text-muted-foreground sm:inline">particles</span>
         </KpiItem>
-      )}
+      );
+    }
 
-      {/* live resolution */}
-      {resValue != null && (
-        <>
-          <span className="h-4 w-px bg-border" aria-hidden="true" />
+    // live resolution + target verdict — shown once a source job reports
+    if (resValue != null) {
+      items.push(
+        <KpiItem
+          key="resolution"
+          title={
+            wantFsc
+              ? "Final FSC 0.143 resolution — click to open the postprocess results"
+              : "Current reconstruction resolution — click to open the refinement results"
+          }
+          onClick={resSource ? () => inspect(resSource.id) : undefined}
+          className="rounded-full border border-amber-600/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-amber-700 dark:text-amber-300"
+        >
+          <Crosshair className="size-3 shrink-0" aria-hidden="true" />
+          {resValue.toFixed(2)} Å
+          {isLive && (
+            <span className="relative ml-0.5 flex size-1.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
+              <span className="relative inline-flex size-1.5 rounded-full bg-amber-500" />
+            </span>
+          )}
+        </KpiItem>
+      );
+      // target verdict — only once the FINAL FSC resolution is known
+      if (wantFsc) {
+        items.push(
           <KpiItem
-            title={
-              wantFsc
-                ? "Final FSC 0.143 resolution — click to open the postprocess results"
-                : "Current reconstruction resolution — click to open the refinement results"
+            key="verdict"
+            title={`EMPIAR-10017 published: 4.2 Å (EMD-2824) — this map: ${resValue.toFixed(2)} Å`}
+            className={
+              resValue <= TARGET_ANGSTROM
+                ? "rounded-full border border-emerald-600/40 bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300"
+                : "rounded-full border border-rose-600/30 bg-rose-500/10 px-2 py-0.5 text-[11px] font-semibold text-rose-700 dark:text-rose-300"
             }
-            onClick={resSource ? () => inspect(resSource.id) : undefined}
-            className="rounded-full border border-amber-600/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-amber-700 dark:text-amber-300"
           >
-            <Crosshair className="size-3 shrink-0" aria-hidden="true" />
-            {resValue.toFixed(2)} Å
-            {isLive && (
-              <span className="relative ml-0.5 flex size-1.5">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
-                <span className="relative inline-flex size-1.5 rounded-full bg-amber-500" />
-              </span>
+            {resValue <= TARGET_ANGSTROM ? (
+              <>
+                <Trophy className="size-3 shrink-0" aria-hidden="true" />
+                target ≤{TARGET_ANGSTROM} Å met
+              </>
+            ) : (
+              <>
+                <Medal className="size-3 shrink-0" aria-hidden="true" />
+                above {TARGET_ANGSTROM} Å target
+              </>
             )}
           </KpiItem>
-          {/* target verdict — shown once the final FSC resolution is known */}
-          {wantFsc && resValue != null && (
-            <KpiItem
-              title={`EMPIAR-10017 published: 4.2 Å (EMD-2824) — this map: ${resValue.toFixed(2)} Å`}
-              className={
-                resValue <= TARGET_ANGSTROM
-                  ? "rounded-full border border-emerald-600/40 bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300"
-                  : "rounded-full border border-rose-600/30 bg-rose-500/10 px-2 py-0.5 text-[11px] font-semibold text-rose-700 dark:text-rose-300"
-              }
-            >
-              {resValue <= TARGET_ANGSTROM ? (
-                <>
-                  <Trophy className="size-3 shrink-0" aria-hidden="true" />
-                  target ≤{TARGET_ANGSTROM} Å met
-                </>
-              ) : (
-                <>
-                  <Medal className="size-3 shrink-0" aria-hidden="true" />
-                  above {TARGET_ANGSTROM} Å target
-                </>
-              )}
-            </KpiItem>
-          )}
-        </>
-      )}
+        );
+      }
+    }
+  }
 
-      {/* running job */}
-      {stats.runningJob && (
-        <>
-          <span className="h-4 w-px bg-border" aria-hidden="true" />
-          <KpiItem
-            title={`${stats.runningJob.name} — running · click to open its results`}
-            onClick={() => inspect(stats.runningJob!.id)}
-            className="rounded-full border border-teal-600/30 bg-teal-600/10 px-2 py-0.5 text-[11px] font-semibold text-teal-700 dark:text-teal-300"
-          >
-            <Loader2 className="size-3 shrink-0 animate-spin" aria-hidden="true" />
-            <Activity className="hidden size-3 shrink-0 sm:block" aria-hidden="true" />
-            <span className="max-w-[120px] truncate">{stats.runningJob.name}</span>
-            <span className="tabular-nums">{Math.round(stats.runningJob.progress ?? 0)}%</span>
-          </KpiItem>
-        </>
-      )}
+  // running job — alive in BOTH modes (the fold is for world detail,
+  // never for the live heartbeat); the name truncates tighter when folded
+  if (stats.runningJob) {
+    const rj = stats.runningJob;
+    items.push(
+      <KpiItem
+        key="running"
+        title={`${rj.name} — running · click to open its results`}
+        onClick={() => inspect(rj.id)}
+        className="rounded-full border border-teal-600/30 bg-teal-600/10 px-2 py-0.5 text-[11px] font-semibold text-teal-700 dark:text-teal-300"
+      >
+        <Loader2 className="size-3 shrink-0 animate-spin" aria-hidden="true" />
+        <Activity className="hidden size-3 shrink-0 sm:block" aria-hidden="true" />
+        <span className={kpiCollapsed ? "max-w-[72px] truncate" : "max-w-[120px] truncate"}>
+          {rj.name}
+        </span>
+        <span className="tabular-nums">{Math.round(rj.progress ?? 0)}%</span>
+      </KpiItem>
+    );
+  }
+
+  return (
+    <div
+      data-canvas-ui="pipeline-kpi"
+      data-collapsed={kpiCollapsed ? "true" : "false"}
+      aria-label="Pipeline overview"
+      className="no-print card-lift absolute left-3 top-3 z-20 flex max-w-[calc(100%-90px)] flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border bg-card/90 px-3 py-1.5 shadow-sm backdrop-blur-md"
+    >
+      {items.map((item, i) => (
+        <Fragment key={i}>
+          {i > 0 && <span className="h-4 w-px bg-border" aria-hidden="true" />}
+          {item}
+        </Fragment>
+      ))}
+
+      {/* the fold control — an explicit chevron, never a hover trick:
+          hiding content on hover hides it from people who need it most.
+          aria-expanded carries the state to AT; data-collapsed carries
+          it to probes; ChevronsLeft folds toward the bar's anchor,
+          ChevronsRight unfolds back into the canvas. */}
+      <span className="h-4 w-px bg-border" aria-hidden="true" />
+      <button
+        type="button"
+        data-testid="pipeline-kpi-toggle"
+        aria-expanded={!kpiCollapsed}
+        aria-label={kpiCollapsed ? "Expand pipeline summary" : "Collapse pipeline summary"}
+        title={kpiCollapsed ? "Expand pipeline summary" : "Collapse pipeline summary"}
+        onClick={() => setKpiCollapsed(!kpiCollapsed)}
+        className="flex size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors motion-reduce:transition-none hover:bg-secondary/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+      >
+        {kpiCollapsed ? (
+          <ChevronsRight className="size-3.5" aria-hidden="true" />
+        ) : (
+          <ChevronsLeft className="size-3.5" aria-hidden="true" />
+        )}
+      </button>
     </div>
   );
 }

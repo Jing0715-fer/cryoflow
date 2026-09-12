@@ -440,6 +440,15 @@ interface WorkflowState {
    *  categories actually present in the workspace; a stage that doesn't
    *  exist can't be a filter. Same ephemerality as findStatus. */
   findCategory: string | "all";
+  /** Task 144 — whether the floating pipeline-KPI bar is folded into its
+   *  compact pill (completion ring + count + the live runner chip). The
+   *  bar is a lawful overlay, but its width grows with the world (live
+   *  particle counts, resolution pills) and a boot-fit canvas can hide a
+   *  whole card under it (Task 143 forensics) — the fold is the user's
+   *  way to reclaim the canvas without losing the glance. Ephemeral UI
+   *  state like the find lens: survives view switches within the
+   *  session, never enters undo or storage. */
+  kpiCollapsed: boolean;
   /** Parsed workflow files awaiting confirmation in the import dialog —
    *  the dialog shows a QUEUE (one summary row per file, plus per-file
    *  parse failures) + one shared target-workspace picker before any
@@ -558,6 +567,9 @@ interface WorkflowState {
    *  "all"). Radio semantics live in the chip row; the store just holds
    *  the armed key. */
   setFindCategory: (c: string | "all") => void;
+  /** Task 144 — fold/unfold the pipeline KPI bar (explicit chevron on
+   *  the bar itself; no hover-expansion surprises). */
+  setKpiCollapsed: (c: boolean) => void;
   /** Stage parsed files for the import dialog (replaces any earlier
    *  staging — one picker session at a time). */
   openImportPreview: (entries: ImportPreviewEntry[], failures: ImportFailure[]) => void;
@@ -834,6 +846,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   findQuery: "",
   findStatus: "all",
   findCategory: "all",
+  kpiCollapsed: false,
   importPreview: null,
   loading: true,
   error: null,
@@ -2781,6 +2794,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   setFindQuery: (q) => set({ findQuery: q }),
   setFindStatus: (s) => set({ findStatus: s }),
   setFindCategory: (c) => set({ findCategory: c }),
+  setKpiCollapsed: (c) => set({ kpiCollapsed: c }),
 
   openImportPreview: (entries, failures) =>
     set({ importPreview: { entries, failures } }),

@@ -4246,3 +4246,31 @@ Stage Summary:
 - 「工具条的缺席不是选择的缺席」：探针的判真信号必须与产品的渲染门独立——toolbar 的 sel.length<2 门让「读工具条」在 n=1 永远假阴。逐卡 ring 翻转是单卡真相，工具条是聚合真相，两者粒度不同各司其职（与「聚光灯 chip 一瞥粒度、名册行读数粒度」同构）
 - 「整卡遮挡是部分遮挡的极限」：t139 教义（网格扫描）预设卡上存在净点——boot fit 的极端缩放可以让悬浮条吞掉整卡。reach-first（把目标送到视口中央净地）是遮挡的唯一完备解，网格扫描只是它的验证腿。二者合体才是完整的点击免疫
 - 遗留（下轮候选）：headless 候选继续薄——「find 三维持久化」（真机反馈再评估）；「favorites 拖拽排序」（真机）；「预览卡端口点/边高亮」（真机）；「建议连线手感」（真机）；「undo 手感参数」（真机）；「runner wall-time 剖面」（qa64 74s 持续一致，继续让位）；「EMPIAR 真数据回归」（重，让位）；「世界卫生观察账本」（本轮块 6 两败已溯源为 KPI 条几何+探针判据，非撞车非回归——下轮观察 KPI 条 wrap 是否再吞别套）；「KPI 条 wrap 的产品级评估」（若真机抱怨悬浮条遮挡，可评估 wrap 高度上限/折叠——有本轮取证垫底）；「用户真机项」；「诊断签名命中率观察」（真机）
+
+---
+Task ID: 144
+Agent: main (cron window 2026-09-12 11:45:43 +08:00, trace …202609121145)
+Task: 例行七条——开局核对 + QA 判稳 → 选题开发（KPI 条折叠）→ 矩阵两败真裁决（残留叠增 + RESIDUE 审计）→ 回归 → 交接闭环。本轮交付「一瞥层可收拢」+「世界的清道夫获得了唯一的删除权」
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部实际为 Task 143（c1964fc == origin/main，树净）——续接摘要仍停在 Task 135，05:00-10:00 窗口已闭环为 Task 139-143，以 worklog 为准；BUILD_ID WaVF-gj-qoNdJm3f1nm5f 匹配；冷启动 2s READY + 三件套（qa63/qa00/t143 37）全绿 → 稳定
+- 【选题】Task 143 交接 headless 候选已薄 → 选中「KPI 条 wrap 的产品级评估」（有 Task 143 取证垫底：悬浮条随 live particles 计数增长可整卡吞没）→ 定案「折叠」：显式 chevron 收拢为紧凑药丸（完成环+计数+运行芯片保留，粒子/分辨率/裁决退场）
+- 【实现·store】kpiCollapsed: boolean + setKpiCollapsed（短暂 UI 态同 find 族：跨视图切换存活、不入 undo/存储、reload 遗忘——持久化留给真机反馈讨论）
+- 【实现·pipeline-kpi】渲染体重构为 items 数组 + 项间机械分隔——顺手治愈既存样式病：手工分隔线在 particles 缺席时双 hairline 相邻（[ring][sep][sep][res]）；折叠态跑名 max-w-[72px]（展开 120px）；chevron 是真按钮（aria-expanded + aria-label 翻转 + data-collapsed 探针锚）——「显式，从不 hover：hover 藏内容首先藏住最需要它的人」
+- 【t144 探针】七相 49 断言两跑全绿：S 全名册 oracle（完成计数/首 running/首 select-completed/分辨率路径按产品同 URL 复取）+ 6 种子（select 带 result 触发粒子药丸、refine3d running 新鲜 startedAt、failed 撑报警报）；X fmtNum 源码 regex 锚；B 展开默认（data-collapsed/aria/count==oracle/粒子在场+文本/hairlines==items）；C 折叠（细节药丸退场/完成+运行存活/hairlines==2/宽度严格收缩 474→331）；D 折叠跨视图切换存活（store 不是组件态）；E 再展开还原；F 120ms 双击不卡死；G 双屏摄；Z 容忍半径只圈 resSource URL 的 404 + roster 还原
+- 【oracle 相对式两连救】世界首个已完成 select 是 714（非种子的 2417）、首 running 是 QA Refine Live fixture——钉演员必假红，roster 序 oracle 按产品自己的 find 顺序走
+- 【真裁决·qa60/qa64 矩阵双败】块 1 两套 FATAL（inspector never appeared，clicked@520,71 十连击不达）→ elementFromPoint 取证：卡心在 KPI 条矩形内（条 x:300..774 vs 卡 493..548×59..83）→ **对照构建裁决**（Task 141 教义第三次演练：stash 两文件重建 5 分钟）：净 HEAD 构建同样 FATAL——产品无罪，世界有罪
+- 【世界考古·意大利腊肠式叠增】138 卡、bbox 3390×4340（Task 137 收尾时 maxY 还 1096）：43 行 y>3000 的「Import Movies / Micrographs 37-42」式 demo 三件套——每次 FATAL 套件留下无名 POST 自动命名的种子（`${spec.label} ${count+1}`），链式向世界底部行军（间隙 140-560px）。EXTENT/NN 都是单点审计：每片腊肠相对其余世界的 bbox 都不超阈、每个 NN 间距都小于 1600——**每一片都无辜，整体把世界撑高一倍**
+- 【RESIDUE 审计】召回不能治叠增（117 行召回带自身就 4200px 高）→ hygiene 获得唯一删除权，签名四重锁：自动命名形「精确类型标签 + n≥2」（n=1 是 seeder 骨架自己的 "Motion Correction 1"/"CTF Estimation 1"——数字下标守卫放行）+ idle + 无 startedAt/result + 未链接；标签表从 workflow.ts spec() regex 提取（36 类型，t138 oracle 教义）；单轮 400 上限（签名 bug 变响亮中止而非盲目 mass-delete）；边随 Job 级联（schema onDelete: Cascade）。首跑 117/117 清除 → 世界回 21 卡标准起跑线（bbox 2380×1000）
+- 【探针加固·reach-first 补课 ×2】qa60/qa64 是无 reach 的老式 AB 探针——世界合法再增长时仍可被条吞 → 按 t127/t128 先例补 reachViaFind（Ctrl+F → 名字 → Enter 居中 legibility zoom → Esc，AB press/type 通道；qa60 在 openInspector 起手、qa64 在 modal 循环前）——「reach-first 是遮挡的唯一完备解」适用于全矩阵而不止 playwright 系
+- 【矩阵交学费·三次账本】①首回合分块 600s 超时被杀于块 5——杀掉的套件留下带备注的行，块 2/3 的 qa75/qa76/qa78 因此假败（S1 count>0）；②残渣审计在下一次 chunk-start hygiene 把那行连根删掉，复跑全绿——账自愈；③qa64 wall 86s（历史 74s 一致域 + reach 加固 ~3s + 世界变化，观察账本记一笔）
+- 【收尾】eslint 0（3 项既知噪音域不变）、tsc src 0；构建 BUILD_ID UlBGKYz0NiUriFEUHDfht；t144(49)×2、受影响面 qa63/qa00/t127(35)/t128(41)/qa60/qa64(45) 全绿；全矩阵 80 套（t144 auto-include 位 #66，wall 9s）分 9 块 0 失败（块 2/3 首跑三败为被杀矩阵遗留，复跑与后续块全绿）；块峰 208MB 零阈值重启（Task 122 卫生学）；worklog + commit + push + 环境清理
+
+Stage Summary:
+- 「折叠是显式的，alarm 永不折叠」：chevron 是真按钮（aria-expanded 说状态），折叠收走世界细节药丸但保留完成环+运行芯片——失败人数的玫瑰色在两种模式下都活着。收拢的承诺是「收回画布，不收回一瞥」，不是「藏起来当没事」
+- 「分隔线在项与项之间，不在手里」：条件项 + 手放分隔线的组合必然在缺席分支双线相邻——items 数组 + 机械 interleave 让分隔成为结构而非记忆。样式细节的病根常常是「渲染结构把算术留给了人」
+- 「对照构建是裁决的支点」第三次演练：elementFromPoint 取证指认了 KPI 条，但条在旧构建同样覆盖卡心——stash 两文件 5 分钟重建，把「我的代码坏了」从假设变成被否证的假设。取证指向的嫌疑人和真正的主人经常不是同一个
+- 「意大利腊肠式叠增对单点审计免疫」：EXTENT 看 bbox、NN 看最近邻——都是「这一片离群吗」的问题；叠增的每一片都答「不」。链式生长需要链式检测，而链式检测的尽头是承认：有些东西不是放错位置，是不该存在
+- 「召回不能治叠增，删除权要四重上锁」：召回郊区会和它替代的世界一样高——叠增的唯一 cure 是删除。删除权的半径写在签名里：精确标签+数字下标（骨架豁免）+从未运行+未链接，标签表从产品源码提取，400 上限把签名 bug 变成响亮中止。宽恕没有半径就是失明，删除没有签名就是赌博
+- 「世界的起跑线要主动守」：21 卡不是历史数字是合同——每次 FATAL 都在偷偷改写它。hygiene 每套前跑一遍，把起跑线从「希望」变成「不变量」
+- 遗留（下轮候选）：KPI 折叠的持久化讨论（store 短暂 vs localStorage——真机反馈再评估，注意 #13 useMemo 教训）；find 三维持久化（真机）；favorites 拖拽排序（真机）；预览卡端口点/边高亮（真机）；建议连线手感（真机）；undo 手感参数（真机）；runner wall-time 剖面（qa64 86s——reach 加固 +3s 属预期，若再涨开剖面）；世界卫生观察账本（RESIDUE 审计每套前自动跑，观察叠增是否绝迹、签名命中率是否稳定）；EMPIAR 真数据回归（重，让位）；用户真机项；诊断签名命中率观察（真机）
