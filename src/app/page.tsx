@@ -3,6 +3,7 @@
 import * as React from "react";
 import { AlertTriangle, Boxes, Layers, Plus, RefreshCw, X } from "lucide-react";
 import { useWorkflowStore } from "@/lib/store";
+import { useTabCensus } from "@/lib/use-tab-census";
 import { Header } from "@/components/workflow/header";
 import { CARD_H, CARD_W } from "@/lib/workflow";
 import { useDropNavigationGuard } from "@/components/workflow/drop-import";
@@ -55,6 +56,10 @@ export default function Home() {
   // tab nowhere. Canvas drop-import claims its own drops deeper in the
   // bubble path; this only swallows what nobody else wants.
   useDropNavigationGuard();
+  // Task 143 — the browser tab joins the census: title + favicon speak
+  // the active workspace's running/failed counts (glance granularity,
+  // zero render output — pure effect chrome, hydration-inert).
+  useTabCensus();
   // ⚠ selectors must return STABLE references (a fresh .filter() array per
   // call trips zustand's getServerSnapshot cache check — infinite loop)
   const allJobs = useWorkflowStore((s) => s.jobs);

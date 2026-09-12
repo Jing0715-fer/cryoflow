@@ -4221,3 +4221,28 @@ Stage Summary:
 - 「容忍半径要写出来」：种子 log 404 的容忍不是 `filter(e=>!e.includes("404"))` 一刀切——是跨查 badResponses 与种子 id 的逐一对账 + 注释里写明裁决链（UI 优雅态、t120 合同、浏览器网络层必然性）。宽恕没有半径就是漏洞：精确到 URL 模式与数量对账的容忍才叫容忍，其余叫失明
 - 「前提是探针的世界观」：S 相首版前提「0 running」隐含了「世界只有我知道的 running」——被 fixture 一击即溃。修正后的前提「无带 startedAt 的 running」把 fixture 的透明性写成断言：前提的修正不是放水，是把世界观里每一类演员都点名入册（fixture、种子、见证各就各位）
 - 遗留（下轮候选）：find 三维持久化（真机反馈再评估）；favorites 拖拽排序（真机）；预览卡端口点/边高亮（真机）；建议连线手感（真机）；StageChip 粒度讨论（聚光灯 chip 保持一瞥粒度——若真机要求年龄可加 title 尾注，零布局风险）；runner wall-time 剖面（qa64 73s 持续一致，继续让位）；EMPIAR 真数据回归（重，让位）；世界卫生观察账本（本轮块 3 t101 一次瞬态单跑即愈，矩阵基本回归静默）；用户真机项；undo 手感参数；诊断签名命中率观察（真机）
+
+---
+Task ID: 143
+Agent: main (cron window 2026-09-12 10:00:41 +08:00, trace …202609121008)
+Task: 例行七条——开局核对 + QA 判稳 → 选题开发（心跳升入浏览器 chrome）→ 回归 → 交接闭环。本轮交付「标签页也说 census 方言」（title + favicon）+ 两处探针锥前提的持久修复（KPI 条整卡遮挡的 reach-first 补课、单选无工具条的 ring 判真）
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部实际为 Task 142（77f1e05 == origin/main，树净）——续接摘要仍停在 Task 135，05:00-08:45 各窗口已闭环为 Task 139-142，以 worklog 为准；BUILD_ID zF7B8JYdQZIr6PIqnZuYj 匹配；冷启动 2s READY + 三件套（qa63/qa00/t142 37）全绿 → 稳定
+- 【选题】Task 142 交接的 headless 候选已薄（find 持久化/favorites/端口高亮均待真机）→ 侦察发现：shortcuts-dialog 与 command-palette 已存在（候选出局）、dashboard 已有搜索/排序/过滤、log follow 已在、侧栏已有 Loader2 心跳、**document.title 全库零命中且 favicon 文件完全缺失**（public 仅 logo.svg，无 app/icon）——浏览器标签页是心跳弧线（t135 透镜→t140 footer→t141 卡片→t142 chrome 读数）从未到达的最后一层 chrome → 定案「标签页也说 census 方言」
+- 【实现·title census】src/lib/use-tab-census.ts 新建：活跃工作区名 + running/failed 计数 + 品牌尾锚（"Main · 2 running · 1 failed · CryoFlow"）——ws 名打头因标签条截断的是尾部、活信息必须幸存；品牌锚尾因截断伤不到静态段；零段省略（presence-derived，footer census 同律）；静默世界还原 pristine title（「restore the state you found」footer toggle 合同的标签页版）；一瞥粒度只说计数不说时间（t142 StageChip 教义——1s ticker 永不触碰此 hook，闲世界零计时器）；census 序沿用 footer 的 FIND_STATUSES 阅读序
+- 【实现·favicon 三态】同一 mark（深色圆角方 + teal CTF 环——Thon 环即 cryo-EM 的质量语言，品牌即领域）+ 状态点：teal-400=活着、rose-500=警报、静默无点；**警报压倒活着**（混合世界玫瑰点胜出——警报赢像素）；hook 独占 link（data-cf-tab 标记，CryoFlow 不带静态 icon 文件——mark 的唯一真相源，无多 icon link 的浏览器歧义）；href 写入带守卫（状态不变不触发浏览器重取图标）
+- 【实现·水合教义】hook 零渲染输出——title/favicon 全在 effect 内（纯 effect chrome），服务端流的 <title> 永不参与 reconcile；pristine title 在首次 effect 运行捕获于任何写入之前（世界带 runner 启动也正确）；计数是原始值派生——effect 只在计数变化时重跑，不随 poll tick 的对象churn
+- 【t143 探针】七相 37 断言两跑全绿：S 种 6 卡（2 running 新鲜 startedAt 全在 120s 宽限窗 + 4 状态见证）+ **pristine title 从 SSR HTML 提取**；B title 逐字等于 API 派生 oracle（全工作区名册计数非种子计数）+ 段序 + 品牌尾锚 + favicon 点色随 oracle + 无警报不许玫瑰；C 生命周期（完成一 runner → title 在 poll tick 重数）；D 警报（130s 老 startedAt → reconcile 诚实猎杀 → 玫瑰点；混合世界双段共存且点仍玫瑰）；E 切换空工作区 → pristine title + 点熄灭；切回 → census 回归（census 跟随所视名册）；F 透镜无关性（Ctrl+F 武装不移动标签）；G 记录 title/favicon 字面值 + 屏摄；Z console 清 + roster/workspaces 双还原
+- 【探针伤情三折】①baseTitle 首版从 live DOM 捕获——networkidle 时 hook 已写入 census 值（捕获的「pristine」是污染值）→ 改从 SSR HTML 正则提取（活 DOM 是 hook 领地毫秒级即失守）；②D 相首版钉 oracle.r === 0——重演 t142 S 相教训（世界自带 QA Refine Live fixture runner）→ 断言改 oracle 相对式；③E 相 API 建的 workspace 不在客户端 store（load 时取的列表）→ reload 后行才出现 + 先点 Workspaces 标签（侧栏是 Tabs 非 default 视图）
+- 【真裁决·块 6 t127/t128 连败】全矩阵块 6 两套 TimeoutError：pipeline-kpi 悬浮条（合法交互 widget，flex-wrap 宽度随 live particles 计数增长）拦截种子卡点击。诊断五连（几何测绘 → hit 链取证 → 四手势对照 → 动画取样 → 远地对照）：①boot fit 把世界 fit 进视口后种子卡仅 55×24px 且**整体落在 KPI 条矩形内**——offset 网格无路可逃（t139「部分遮挡」的极端形态：整卡被吞）；②更深的探针伤：selection-toolbar 渲染门是 sel.length < 2 return null——**单选时工具条按设计不存在**，我的「计数判真」在 n=1 全程假阴（诊断中的点击其实大多成功了）；③动画取样排除 focusJob 竞态（~800ms 即稳）
+- 【修复·reach-first 补课 ×2】t127/t128 种子加唯一 T 前缀名（默认类型名撞世界既有卡，find 需唯一匹配）+ reachViaFind 正典（Enter 把卡送到视口中央的净地）+ elementFromPoint 前置验证 + **逐卡 ring 翻转判真**（ring-primary/60=primary、ring-primary/30=多选成员；running 呼吸环是 teal-border、透镜环是 amber——无碰撞）；产品无罪：KPI 条合法可交互、单选无工具条是渲染门设计——两处都是探针的锥前提错误
+- 【收尾】eslint 0、tsc src 0；构建 BUILD_ID WaVF-gj-qoNdJm3f1nm5f；t143 37×2、t127(35)/t128(41) 修后复绿、受影响面 qa63/qa00/t134(36)/t135(52)/t140(45)/t142(37) 全绿；全矩阵 79 套（t143 auto-include 位 #65）分 9 块 0 失败——块 6 两败经五连诊断溯源修复后复绿；块峰 185-199MB 零阈值重启（Task 122 卫生学）；qa64 74s 一致域；五个诊断脚本归档 diag-archive；worklog + commit + push + 环境清理
+
+Stage Summary:
+- 「一瞥层说计数，读数层说时间」的完整版图：卡片是读数（秒级跳动），footer census 是计数+批次年龄，标签页是最纯粹的一瞥层——只说计数，永不闪烁。favicon 是「状态上脸」：16px 处数字是噪音、颜色才是信号；警报色压倒活着色。chrome 的最后一层（浏览器自己）如今也说同一种方言
+- 「restore the state you found」升格为跨表面合同：footer toggle 干净透镜上再点=整体关（t140），标签页静默=还原 pristine title + 无点 favicon——每个 chrome 层都对它接管前的状态负责
+- 「活 DOM 不是 pristine 的故乡」：hook 时代捕获「原始值」必须回到 SSR——水合后的 document.title 早已是 hook 的领地。这与「反演必须懂投影」同族：读回一个被系统管理的值，必须从系统尚未接手的层读
+- 「工具条的缺席不是选择的缺席」：探针的判真信号必须与产品的渲染门独立——toolbar 的 sel.length<2 门让「读工具条」在 n=1 永远假阴。逐卡 ring 翻转是单卡真相，工具条是聚合真相，两者粒度不同各司其职（与「聚光灯 chip 一瞥粒度、名册行读数粒度」同构）
+- 「整卡遮挡是部分遮挡的极限」：t139 教义（网格扫描）预设卡上存在净点——boot fit 的极端缩放可以让悬浮条吞掉整卡。reach-first（把目标送到视口中央净地）是遮挡的唯一完备解，网格扫描只是它的验证腿。二者合体才是完整的点击免疫
+- 遗留（下轮候选）：headless 候选继续薄——「find 三维持久化」（真机反馈再评估）；「favorites 拖拽排序」（真机）；「预览卡端口点/边高亮」（真机）；「建议连线手感」（真机）；「undo 手感参数」（真机）；「runner wall-time 剖面」（qa64 74s 持续一致，继续让位）；「EMPIAR 真数据回归」（重，让位）；「世界卫生观察账本」（本轮块 6 两败已溯源为 KPI 条几何+探针判据，非撞车非回归——下轮观察 KPI 条 wrap 是否再吞别套）；「KPI 条 wrap 的产品级评估」（若真机抱怨悬浮条遮挡，可评估 wrap 高度上限/折叠——有本轮取证垫底）；「用户真机项」；「诊断签名命中率观察」（真机）

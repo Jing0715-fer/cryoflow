@@ -119,16 +119,18 @@ async function main() {
   must(!!ws2Id, "destination workspace created");
   seededWsIds.push(ws2Id);
 
-  const mkJob = async (type, x, y) => {
-    const created = await (await api("/api/jobs", "POST", { type, workspaceId: ws1Id, x, y })).json();
+  const mkJob = async (type, x, y, name) => {
+    const created = await (await api("/api/jobs", "POST", { type, name, workspaceId: ws1Id, x, y })).json();
     const j = created?.job ?? created;
     must(!!j?.id, `${type}: seeded in ws1`);
     seededJobIds.push(j.id);
     return j;
   };
-  const jImport = await mkJob("import", 140, 300);
-  const jMotion = await mkJob("motioncorr", 440, 300);
-  const jCtf = await mkJob("ctffind", 740, 300);
+  // unique T-prefixed names: the reach-first helper finds ONE match —
+  // default type names collide with the world's own cards
+  const jImport = await mkJob("import", 140, 300, "T127 Alpha");
+  const jMotion = await mkJob("motioncorr", 440, 300, "T127 Beta");
+  const jCtf = await mkJob("ctffind", 740, 300, "T127 Gamma");
 
   // a distinctive param value — the applied copy must carry 384, not the
   // spec default 512 (the snapshot is the contract, not the spec)
@@ -157,9 +159,62 @@ async function main() {
 
   /* ---------------- Phase B — shift-click selection ---------------- */
   step("--- Phase B: shift-click the three cards ---");
-  for (const id of [jImport.id, jMotion.id, jCtf.id]) {
-    await p.locator(`[data-job="${id}"]`).click({ modifiers: ["Shift"] });
-    await sleep(250);
+  // t139 orthodoxy + t112 reach-first, re-earned the hard way
+  // (2026-09-12 block-6): the pipeline-kpi bar is a lawfully interactive
+  // floating widget whose flex-wrap width grows with the live particles
+  // count — and at boot-fit scale a top-left seed's whole 55×24 footprint
+  // can sit INSIDE the bar's rect, leaving the offset grid no escape.
+  // So: reach the card through the find lens first (Enter centers it in
+  // the viewport's clear middle), THEN scan a grid of offsets and let
+  // the SELECTION COUNT judge the hit — the one truth a swallowed
+  // pointerdown cannot fake.
+  const reachViaFind = async (name) => {
+    await p.keyboard.press("Control+f");
+    await p.locator('[data-testid="canvas-find-input"]').click();
+    await p.keyboard.press("Control+a");
+    await p.keyboard.type(name, { delay: 20 });
+    await sleep(350);
+    await p.keyboard.press("Enter");
+    await sleep(1000);
+    await p.keyboard.press("Escape");
+    await sleep(350);
+  };
+  // The toolbar only renders at >=2 selections (canvas.tsx: sel.length < 2
+  // returns null) — a TRUE first shift-click shows nothing. The per-card
+  // selected ring is the honest single-card truth: ring-primary/60 (the
+  // primary) or ring-primary/30 (a multi member); the running breathing
+  // ring is teal-border, the find lens ring is amber — no collisions.
+  const isSel = (id) =>
+    p.evaluate(({ id }) => {
+      const btn = document.querySelector(`[data-job="${id}"]`)?.querySelector('[role="button"]');
+      const cls = btn?.className ?? "";
+      return cls.includes("ring-primary/60") || cls.includes("ring-primary/30");
+    }, { id });
+  const shiftClickCard = async (id, name) => {
+    await reachViaFind(name);
+    const box = await p.locator(`[data-job="${id}"]`).boundingBox();
+    if (!box) throw new Error(`card ${id} has no box (off-canvas?)`);
+    const offsets = [[0.5, 0.6], [0.5, 0.4], [0.3, 0.5], [0.7, 0.5], [0.5, 0.75], [0.5, 0.3], [0.3, 0.65], [0.7, 0.65]];
+    for (const [fx, fy] of offsets) {
+      // t139 verbatim: verify the point hits the card BEFORE clicking —
+      // the KPI bar (or any lawful overlay) must not eat the gesture
+      const inside = await p.evaluate(
+        ({ x, y, sel }) => !!document.elementFromPoint(x, y)?.closest(`[data-job="${sel}"]`),
+        { x: box.x + box.width * fx, y: box.y + box.height * fy, sel: id },
+      );
+      if (!inside) continue;
+      await p.keyboard.down("Shift");
+      try {
+        await p.mouse.click(box.x + box.width * fx, box.y + box.height * fy);
+      } catch {}
+      await p.keyboard.up("Shift");
+      await sleep(350);
+      if (await isSel(id)) return;
+    }
+    throw new Error(`shift-click never selected ${id} (ring never lit)`);
+  };
+  for (const [id, name] of [[jImport.id, "T127 Alpha"], [jMotion.id, "T127 Beta"], [jCtf.id, "T127 Gamma"]]) {
+    await shiftClickCard(id, name);
   }
   await p.waitForSelector('[data-canvas-ui="selection-toolbar"]', { timeout: 5000 });
   must(
