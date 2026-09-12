@@ -29,14 +29,33 @@ interface PaletteDragState {
   active: boolean;
 }
 
+/** Task 155 — reordering a favorite chip. A SEPARATE drag family from
+ *  drag-to-create (which owns PaletteDragState): a favorite chip is a
+ *  click-to-add button first, and the two windows-level pointer flows
+ *  must never share a ref — reordering a chip must never be able to
+ *  drop a job onto the canvas, and vice versa. The 5px threshold is the
+ *  same law as everywhere else: a pointer that never really moved is a
+ *  click, and the chip's add contract survives untouched. */
+interface FavDragState {
+  type: string;
+  pointerId: number;
+  startX: number;
+  startY: number;
+  fromIndex: number;
+  active: boolean;
+}
+
 const RECENT_KEY = "cryoflow-recent-types";
 const RECENT_MAX = 6;
 
 /** Task 133 — starred job types. Recents answer "what did I just use?",
  * favorites answer "what do I keep coming back to?" — a deliberate,
  * stable pick that survives restarts and never scrolls away. Order is
- * star order (first-starred first); persistence is localStorage with the
- * same sanitize-or-default contract as recents. */
+ * star order (first-starred first) — until the user drags a chip (or
+ * Alt+arrows it): Task 155, the last explicit reorder WINS, and storage
+ * holds the visual truth from then on. Star order remains the initial
+ * arrangement and new stars still append at the tail; persistence is
+ * localStorage with the same sanitize-or-default contract as recents. */
 const FAV_KEY = "cryoflow-fav-types";
 
 function readFavs(): string[] {
@@ -88,6 +107,13 @@ function pushRecent(type: string): void {
  *
  * Quick-add affordances: a "Recently used" chip row (click to add at the
  * viewport center) and "/" to focus search.
+ *
+ * Task 155 — the favorites row is orderable: drag a chip (or focus it and
+ * press Alt+←/→) to reorder; the last explicit order wins and persists.
+ * A chip is a click-to-add button first — the 5px drag threshold keeps
+ * the add contract intact, the reorder drag lives in its own pointer
+ * family (never drag-to-create's), and the amber caret only appears
+ * where a drop would actually change the order.
  */
 export function JobPalette({ onAdded }: { onAdded?: () => void }) {
   const addJob = useWorkflowStore((s) => s.addJob);
@@ -104,6 +130,15 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
   const [favOnly, setFavOnly] = React.useState(false);
 
   const dragRef = React.useRef<PaletteDragState | null>(null);
+  // Task 155 — the reorder drag's OWN ref (never the drag-to-create one)
+  const favDragRef = React.useRef<FavDragState | null>(null);
+  // a drag that ended over the chip it started on must swallow the click
+  // the browser still synthesizes — the pointer moved >5px, so it was a
+  // reorder gesture, not an add
+  const suppressFavClickRef = React.useRef(false);
+  const [favDragType, setFavDragType] = React.useState<string | null>(null);
+  // insertion caret: "the dropped chip would become index k" (0..len)
+  const [favDropHint, setFavDropHint] = React.useState<number | null>(null);
   const ghostRef = React.useRef<HTMLDivElement>(null);
   const onAddedRef = React.useRef(onAdded);
   const searchRef = React.useRef<HTMLInputElement>(null);
@@ -121,7 +156,9 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
 
   const favSet = React.useMemo(() => new Set(favs), [favs]);
 
-  /** Star/unstar one type; the NEXT array persists (order = star order). */
+  /** Star/unstar one type; the NEXT array persists (order = star order,
+   *  unless a Task 155 reorder already overrode it — new stars still
+   *  append at the tail of whatever order is current). */
   const toggleFavType = React.useCallback((type: string) => {
     setFavs((prev) => {
       const next = prev.includes(type)
@@ -131,6 +168,44 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
       return next;
     });
   }, []);
+
+  /** Task 155 — reorder helpers, on the EVENT path: compute the next
+   *  array from the render-current favs, persist, then set. Never inside
+   *  a setState updater — StrictMode double-invokes updaters and the
+   *  storage write would double with it (the Task 13 #13 law, re-derived
+   *  for updaters: an updater must stay pure). */
+  const reorderFavs = React.useCallback(
+    (fromIndex: number, insertAt: number) => {
+      if (fromIndex < 0 || fromIndex >= favs.length) return;
+      // normalize: after removal, an insert past the removal point slides
+      // left by one; same-slot drops are a no-op (no write, no state
+      // churn — a drag that lands where it started changed nothing and
+      // must not pretend otherwise)
+      const k = insertAt > fromIndex ? insertAt - 1 : insertAt;
+      if (k === fromIndex) return;
+      const next = [...favs];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(k, 0, moved);
+      writeFavs(next);
+      setFavs(next);
+    },
+    [favs]
+  );
+
+  /** Keyboard twin of the drag (Alt+Left/Right on a focused chip): the
+   *  reorder must not be a pointer-only privilege. */
+  const moveFav = React.useCallback(
+    (fromIndex: number, dir: -1 | 1) => {
+      const k = fromIndex + dir;
+      if (fromIndex < 0 || k < 0 || k >= favs.length) return;
+      const next = [...favs];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(k, 0, moved);
+      writeFavs(next);
+      setFavs(next);
+    },
+    [favs]
+  );
 
   const recordAndAdd = React.useCallback(
     async (type: string) => {
@@ -202,7 +277,51 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
     }
   };
 
+  /** Task 155 — a favorite chip's pointerdown ARMS a reorder (never
+   *  activates it): the 5px threshold decides drag-vs-click, and an
+   *  un-armed pointerup lets the browser's click deliver the chip's add
+   *  contract unchanged. */
+  const handleFavChipPointerDown = (e: React.PointerEvent<HTMLButtonElement>, type: string) => {
+    if (e.button !== 0) return;
+    const fromIndex = favs.indexOf(type);
+    if (fromIndex < 0) return;
+    favDragRef.current = {
+      type,
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      fromIndex,
+      active: false,
+    };
+  };
+
   React.useEffect(() => {
+    /** Where would a drop at this point insert? Three answers: a chip
+     *  under the pointer → its insertion index k (left of midpoint =
+     *  before, right = after); a GAP inside the row → the last answer
+     *  still stands (the pointer is between chips — that IS a position
+     *  signal, and Task 155's first caret was a 2px flex item whose own
+     *  appearance SHOVED the chips sideways and un-hit the pointer: a
+     *  layout feedback loop that flickered the caret out of existence);
+     *  outside the row entirely → null (a reorder is never guessed). */
+    const favInsertIndex = (x: number, y: number): number | null | "inRow" => {
+      const el = document.elementFromPoint(x, y);
+      if (!el) return null;
+      const chip = el?.closest("[data-fav-chip]") as HTMLElement | null;
+      if (chip) {
+        const idx = Number(chip.dataset.favChipIndex);
+        if (!Number.isInteger(idx)) return null;
+        const rect = chip.getBoundingClientRect();
+        return x < rect.left + rect.width / 2 ? idx : idx + 1;
+      }
+      if (el.closest('[data-testid="palette-favs-row"]')) return "inRow";
+      return null;
+    };
+    const cleanupFavDrag = () => {
+      favDragRef.current = null;
+      setFavDragType(null);
+      setFavDropHint(null);
+    };
     const onMove = (e: PointerEvent) => {
       const d = dragRef.current;
       if (!d || e.pointerId !== d.pointerId) return;
@@ -217,6 +336,23 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
       }
     };
     const onUp = (e: PointerEvent) => {
+      // Task 155 first — the reorder family has its own lifecycle and
+      // must never fall through into drag-to-create's drop logic
+      const fd = favDragRef.current;
+      if (fd && e.pointerId === fd.pointerId) {
+        if (fd.active) {
+          const k = favInsertIndex(e.clientX, e.clientY);
+          if (typeof k === "number") {
+            reorderFavs(fd.fromIndex, k);
+            // the pointer moved far past the click threshold — whatever
+            // click the browser synthesizes on top of this gesture is a
+            // reorder's tail, not an add
+            suppressFavClickRef.current = true;
+          }
+        }
+        cleanupFavDrag();
+        return;
+      }
       const d = dragRef.current;
       if (!d || e.pointerId !== d.pointerId) return;
       if (d.active) {
@@ -236,19 +372,45 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
       cleanupDrag();
     };
     const onCancel = (e: PointerEvent) => {
+      const fd = favDragRef.current;
+      if (fd && e.pointerId === fd.pointerId) {
+        cleanupFavDrag();
+        return;
+      }
       const d = dragRef.current;
       if (!d || e.pointerId !== d.pointerId) return;
       cleanupDrag();
     };
+    const onFavMove = (e: PointerEvent) => {
+      const fd = favDragRef.current;
+      if (!fd || e.pointerId !== fd.pointerId) return;
+      if (!fd.active) {
+        if (Math.hypot(e.clientX - fd.startX, e.clientY - fd.startY) < 5) return;
+        fd.active = true;
+        setFavDragType(fd.type);
+      }
+      if (fd.active) {
+        const k = favInsertIndex(e.clientX, e.clientY);
+        // hovering the dragged chip itself (k === fromIndex or fromIndex+1)
+        // is a same-slot drop — no caret theater: the indicator appears
+        // only where a drop would actually change something
+        const sameSlot = typeof k === "number" && (k === fd.fromIndex || k === fd.fromIndex + 1);
+        if (sameSlot) setFavDropHint(null);
+        else if (k === "inRow") { /* gap between chips — the last hint stands */ }
+        else setFavDropHint(k);
+      }
+    };
     window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointermove", onFavMove);
     window.addEventListener("pointerup", onUp);
     window.addEventListener("pointercancel", onCancel);
     return () => {
       window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointermove", onFavMove);
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onCancel);
     };
-  }, []);
+  }, [reorderFavs]);
 
   const toggleCategory = (key: string) => {
     setExpanded((prev) => {
@@ -362,33 +524,66 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
               {favSpecs.length}
             </span>
           </div>
-          <div className="flex flex-wrap gap-1.5" data-testid="palette-favs-row">
-            {favSpecs.map((t) => (
-              <button
-                key={t.key}
-                type="button"
-                onClick={() => void recordAndAdd(t.key)}
-                title={`Add ${t.label} at the viewport center`}
-                data-testid={`palette-fav-chip-${t.key}`}
-                className={cn(
-                  "flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-card py-1 pl-1.5 pr-2.5 text-[11px] font-medium shadow-sm transition-all hover:-translate-y-px hover:shadow active:translate-y-0",
-                  "hover:border-amber-500/50 hover:ring-1 hover:ring-amber-500/25"
-                )}
-              >
-                <span
+          <div className="flex flex-wrap items-center gap-1.5" data-testid="palette-favs-row">
+            {favSpecs.map((t, i) => {
+              const dragging = favDragType === t.key;
+              // Task 155's insertion caret is an INSET SHADOW on the target
+              // chip, not a flex item: a real element shoved the row sideways
+              // when it appeared, which moved the chip from under the pointer
+              // and killed the very hit that summoned it (flicker by layout
+              // feedback). A shadow occupies NOTHING — the geometry the
+              // pointer sees is the geometry the drop sees.
+              const caretSide =
+                favDropHint === i ? "before" : favDropHint === favSpecs.length && i === favSpecs.length - 1 ? "after" : null;
+              return (
+                <button
+                  key={t.key}
+                  type="button"
+                  onPointerDown={(e) => handleFavChipPointerDown(e, t.key)}
+                  onClick={() => {
+                    if (suppressFavClickRef.current) {
+                      suppressFavClickRef.current = false;
+                      return;
+                    }
+                    void recordAndAdd(t.key);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.altKey && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+                      e.preventDefault();
+                      moveFav(i, e.key === "ArrowLeft" ? -1 : 1);
+                    }
+                  }}
+                  data-fav-chip=""
+                  data-fav-chip-index={i}
+                  data-fav-dragging={dragging ? "true" : undefined}
+                  data-fav-caret={caretSide ?? undefined}
+                  title={`Add ${t.label} at the viewport center — drag to reorder (Alt+←/→)`}
+                  data-testid={`palette-fav-chip-${t.key}`}
                   className={cn(
-                    "flex size-4.5 items-center justify-center rounded-full",
-                    t.color.soft,
-                    t.color.text
+                    "flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-card py-1 pl-1.5 pr-2.5 text-[11px] font-medium shadow-sm transition-all hover:-translate-y-px hover:shadow active:translate-y-0",
+                    "hover:border-amber-500/50 hover:ring-1 hover:ring-amber-500/25",
+                    dragging && "opacity-40 translate-y-0 scale-[0.98] shadow-none",
+                    caretSide === "before" &&
+                      "shadow-[inset_3px_0_0_0_#f59e0b,0_0_0_1px_rgba(245,158,11,0.45)]",
+                    caretSide === "after" &&
+                      "shadow-[inset_-3px_0_0_0_#f59e0b,0_0_0_1px_rgba(245,158,11,0.45)]"
                   )}
-                  aria-hidden="true"
                 >
-                  <TypeIcon name={t.icon} className="size-3" />
-                </span>
-                <span className="max-w-28 truncate">{t.label}</span>
-                <Star className="size-2.5 shrink-0 fill-amber-400 text-amber-500" aria-hidden="true" />
-              </button>
-            ))}
+                  <span
+                    className={cn(
+                      "flex size-4.5 items-center justify-center rounded-full",
+                      t.color.soft,
+                      t.color.text
+                    )}
+                    aria-hidden="true"
+                  >
+                    <TypeIcon name={t.icon} className="size-3" />
+                  </span>
+                  <span className="max-w-28 truncate">{t.label}</span>
+                  <Star className="size-2.5 shrink-0 fill-amber-400 text-amber-500" aria-hidden="true" />
+                </button>
+              );
+            })}
           </div>
         </div>
       )}

@@ -4489,3 +4489,24 @@ Stage Summary:
 - 「零读者不等于零责任」：列扩展前先考古消费者（rg 全局仅 runner 自写）——零读者意味着零破坏面，也意味着历史 5 列行与新高 6 列行共存无害；但 header 的 cols 声明必须同步，否则下一个拿 header 对账的人会被骗
 - 「字典序陷阱是矩阵的常驻居民」：t199 落在 #76 而非 #90（'1'<'9'）——与 Task 153 修正的「t152 位 #74 非 #88」同根：SUITES 排序后 t100/t15x/t19x 全在 t85-t99 之前。位次问题靠跑块看输出自证，不靠心算
 - 遗留（下轮候选）：抖动账本首次可回溯后的首个观察窗口（若再现抖动，套名直接读 log 第 6 列）；digest failed 行的行内 Retry（真机评估）；Retry 点击后 toast focus 手感（真机）；workspace item 呼吸动画（真机）；find 三维持久化（真机）；favorites 拖拽排序（真机）；undo 手感参数（真机）；runner wall-time 剖面（qa64 86s 一致带，让位）；世界卫生观察账本（verdict 列上线后的第一天）；EMPIAR 真数据回归（重，让位）；用户真机项
+
+---
+Task ID: 155
+Agent: main (cron window 2026-09-12 21:30:54 +08:00, trace …202609122136)
+Task: 例行七条——开局核对 + QA 判稳 → 选题（交接真机项重估 → favorites 拖拽排序）→ 实现 + t155 探针（布局反馈循环一折）→ 受影响面回归 → 全矩阵 → 交接闭环。本轮交付「收藏的顺序听用户的」：favorites 行可拖拽重排（Alt+←/→ 键盘孪生）——最后一次显式排序胜出并持久化，chip 的点击添加合同原样幸存
+
+Work Log:
+- 【开局核对】worklog 尾部实际为 Task 154（4f68351 == origin/main，树净）；BUILD_ID _Mm1-xYCqs5NYULVU0nM- 匹配；冷启动 2s READY + 三件套（qa63/qa00/t153@75——verdict 列 PASS 在案）全绿 → 稳定
+- 【选题】Task 154 交接全真机项 → headless 重估：favorites 拖拽排序（反复出现的老候选）用 pointer 事件流 headless 完全可验证；t133 合同考古先行（E4 点的是 catalog star 非 chip；「DOM 序=storage 序」合同重排可保持）→ 定案
+- 【实现·palette】FavDragState 独立拖拽族（绝不共享 dragRef——重排永远不能掉出 job，drag-to-create 永远不被重排劫持）+ 5px 阈值（未过阈值 = click，添加合同原样）+ suppressFavClickRef（真拖后浏览器合成的 click 被吞）+ reorderFavs/moveFav 事件路径（先算 next 再 writeFavs 再 set——StrictMode 双调 updater 会双写 storage，Task 13 #13 教义对 updater 的再推导：updater 必须纯）+ same-slot 落点零剧场（拖回原位 caret 不亮——无变化不假装会变）+ 键盘孪生 Alt+←/→（排序不是指针特权）+ amber 插入指示
+- 【t155 探针·一折（本轮主角：布局反馈循环）】34 断言 ×2 全绿：S keeper+seed；X 七 oracle；B 真实 pointer 流拖 extract 到行首——**首版 caret 是 2px flex item，出现即把 chip 挤开 2px，pointer 恰落进 caret 旁的 gap → elementFromPoint 失手 → caret 消失 → chip 弹回 → 又命中 → 循环闪烁**——逐步拖动诊断（frac 0.4-0.9 亮、1.0 灭）+ 静止 elementFromPoint 取证破案；**修复双管齐下：caret 改 inset box-shadow（占位为零——指针看到的几何就是落点看到的几何）+ 行内 gap 命中保持上一 hint（chip 之间的缝也是位置信号）**；C reload 幸存；D click 合同幸存（真加 job，id-diff 清理）；E 键盘孪生对称 + 边缘 no-op；F 行外放下取消（无重排、无 caret、**无 job**——fav 拖不是 drag-to-create）；G 屏摄；Z 0 console + roster 25==25
+- 【杂项】构建一折：Turbopack 拉 fonts.gstatic.com 瞬时网络失败（BUILD_ID 消失）——重试即愈（缓存命中），非代码问题；探针二折：D 相 diff 用 seededIds 捞到基础 job——改 before/after id 集合差；oracle 二折：sameSlot regex 考古旧形态——源码演进后探针跟随
+- 【收尾】eslint 0、tsc src 0；构建 BUILD_ID S7VX8FGVeGZVZ2Kyhx643（cat 验证）；受影响面 t133(55)/t127/t128(49-50)/t155(76)/qa63/qa00 全绿；全矩阵 90 套（t155 auto-include 位 #76）分 10 块 0 失败；块峰 203MB 零阈值重启；t152 191s 仍最慢；verdict 列全程 PASS 在案（上轮交付首次全程服务）；worklog + commit + push + 环境清理
+
+Stage Summary:
+- 「指示物不能改变它所指示的几何」：2px 的 caret 是flex item，它一出现就把行挤开，把 pointer 脚下的 chip 推走——命中它的手势亲手杀死了它。inset shadow 占位为零：指针看到的几何与落点看到的几何永远相同。凡是「出现即改变布局」的指示器都有这个自毁循环， occupying-zero 是唯一解
+- 「chip 之间的缝也是位置」：gap 命中不撤 hint——pointer 在两 chip 之间仍然是明确的插入信号。失手（行外）才撤销；缝里失手不是失手，是信号被夹在中间
+- 「一个指针手势只有一个主人」：fav 重排与 drag-to-create 各持各的 ref、各走各的生命周期——重排永远不能掉出 job，拖建永远不能被重排劫持。共享窗口级 pointer 流的两个系统必须互斥到底，5px 阈值是它们各自与 click 的边界
+- 「updater 必须纯」的再推导：StrictMode 双调 updater——updater 里写 storage 就是双写。事件路径先算后写（persist-then-set）不是风格偏好，是 Task 13 #13 在函数式更新上的延伸
+- 「键盘孪生让特权不特权」：Alt+←/→ 与拖拽同一 reorder 路径——a11y 不是补丁是对称
+- 遗留（下轮候选）：favorites 重排的触屏长按手势（headless 难验真机手感，让位真机）；digest failed 行的行内 Retry（真机评估）；workspace item 呼吸动画（真机）；find 三维持久化（真机）；undo 手感参数（真机）；runner wall-time 剖面（让位）；世界卫生观察账本（verdict 列第二个全程零抖动日）；EMPIAR 真数据回归（重，让位）；用户真机项
