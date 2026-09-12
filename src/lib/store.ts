@@ -10,6 +10,7 @@ import { toast, type ToastActionElement } from "@/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
 import { CARD_W, CARD_H, WORLD_MIN, WORLD_MAX, ZOOM_MAX, ZOOM_MIN, jobType, portsCompatible } from "./workflow";
 import { autoLayout } from "./layout";
+import { formatElapsed } from "./elapsed";
 import type {
   CustomTemplatePayload,
   CustomTemplateSummary,
@@ -811,6 +812,38 @@ function clamp(v: number, min: number, max: number) {
 
 /** One pollTick at a time (see the guard inside pollTick). */
 let pollInFlight = false;
+
+/** Task 145 — the fact suffix for completion announcements: how long the
+ *  job ran before it finished (or died). The announcement is the moment
+ *  the elapsed fact becomes final — the same formatElapsed dialect the
+ *  card, footer, roster and tab already speak, now on the toast. A job
+ *  with no startedAt (the never-engine-backed fixture shape) gets NO
+ *  suffix: formatElapsed would honestly clamp NaN to "0s", but "ran for
+ *  0s" is a lie of precision — the honest form of "unknown" is silence
+ *  (无起点无读数, the t142 doctrine, now at announcement level). Clock
+ *  skew (startedAt in the future) reads as silence too, never backwards. */
+const announceElapsed = (job: JobDTO): string => {
+  if (!job.startedAt) return "";
+  const ms = Date.now() - new Date(job.startedAt).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return "";
+  return ` · ${formatElapsed(ms)}`;
+};
+
+/** Task 145 — the announcement's one-tap follow-up: jump straight into
+ *  the finished job's inspector. The toast is transient; the action is
+ *  the bridge from hearing the news to reading the results. */
+const announceViewAction = (get: () => WorkflowState, jobId: string, name: string): ToastActionElement =>
+  React.createElement(
+    ToastAction,
+    {
+      altText: `Open ${name}'s results`,
+      onClick: () => {
+        get().setView("canvas");
+        get().inspect(jobId);
+      },
+    },
+    "View"
+  ) as unknown as ToastActionElement;
 
 export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   jobs: [],
@@ -1984,14 +2017,18 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         }
         if (job.status === "completed") {
           toast({
-            title: `${job.name} completed`,
+            title: `${job.name} completed${announceElapsed(job)}`,
             description: job.result ?? undefined,
+            action: announceViewAction(get, job.id, job.name),
+            duration: 9_000, // news expires — the state itself lives in the chrome census (card, footer, tab)
           });
         } else if (job.status === "failed") {
           toast({
-            title: `${job.name} failed`,
+            title: `${job.name} failed${announceElapsed(job)}`,
             description: job.result ?? undefined,
             variant: "destructive",
+            action: announceViewAction(get, job.id, job.name),
+            duration: 9_000, // same expiry; the rose alarm lives on the card and the favicon
           });
         }
       }

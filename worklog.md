@@ -4274,3 +4274,25 @@ Stage Summary:
 - 「召回不能治叠增，删除权要四重上锁」：召回郊区会和它替代的世界一样高——叠增的唯一 cure 是删除。删除权的半径写在签名里：精确标签+数字下标（骨架豁免）+从未运行+未链接，标签表从产品源码提取，400 上限把签名 bug 变成响亮中止。宽恕没有半径就是失明，删除没有签名就是赌博
 - 「世界的起跑线要主动守」：21 卡不是历史数字是合同——每次 FATAL 都在偷偷改写它。hygiene 每套前跑一遍，把起跑线从「希望」变成「不变量」
 - 遗留（下轮候选）：KPI 折叠的持久化讨论（store 短暂 vs localStorage——真机反馈再评估，注意 #13 useMemo 教训）；find 三维持久化（真机）；favorites 拖拽排序（真机）；预览卡端口点/边高亮（真机）；建议连线手感（真机）；undo 手感参数（真机）；runner wall-time 剖面（qa64 86s——reach 加固 +3s 属预期，若再涨开剖面）；世界卫生观察账本（RESIDUE 审计每套前自动跑，观察叠增是否绝迹、签名命中率是否稳定）；EMPIAR 真数据回归（重，让位）；用户真机项；诊断签名命中率观察（真机）
+
+---
+Task ID: 145
+Agent: main (cron window 2026-09-12 13:30:45 +08:00, trace …202609121336)
+Task: 例行七条——开局核对 + QA 判稳 → 选题开发（完成播报说事实方言）→ 探针定位器考古 → 回归 → 交接闭环。本轮交付「播报说事实方言」：完成/失败 toast 带 elapsed 事实 + View 直达桥 + 诚实静默 + 新闻过期
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部实际为 Task 144（2039955 == origin/main，树净）；BUILD_ID UlBGKYz0NiUriFEUHDfht 匹配；冷启动 2s READY + 三件套（qa63/qa00/t144 49）全绿 → 稳定；顺带核实 cron 文本反复引用的 Task 13 遗留清单（#5 fs/browse、#7 chart 同步读、#8 BFS、#13 useMemo localStorage）——worklog 考古证实已在中途各轮实质关闭（fs/browse 建成+审计、Task 100 显式写、resolution 路由 cachedFileCompute），纯陈旧引用
+- 【选题】Task 144 交接 headless 候选薄 → 侦察发现 pollTick 的转变播报（running→completed/failed）是 chrome 方言弧线（卡片 t141→footer t142→tab t143）从未触及的最后一面：toast 只报名字不说事实、无后续动作 → 定案四件：elapsed 事实后缀 + View 直达桥 + 无起点诚实静默 + 新闻 9s 过期
+- 【实现·store】announceElapsed（formatElapsed 正典、无 startedAt 返回空串——NaN 会被 formatElapsed 诚实钳到 "0s" 但「跑了 0s」是精确的谎言，未知的诚实形式是沉默；时钟倒转同样沉默）+ announceViewAction（ToastAction 先例形态，setView("canvas") + inspect(id)）+ duration 9_000（import-undo 12s 先例的同胞——状态本身活在 chrome census 里，不靠 toast 永驻）
+- 【t145 探针】七相 28 断言两跑全绿：S 四 runner（Alpha 65s/Beta 42s/Gamma 30s 全在 120s 宽限窗 + Mute）；X formatElapsed 源码 oracle（NaN 钳位正是静默的理由）；B Alpha 完成（dashboard 侧点火验证全局渲染，标题 "· 1m 10s" 墙钟对表 ∈[65..85]、result 描述、View 在场）；C View 桥全验证（dashboard → canvas 视图切换 + inspector 开在 Alpha）；D Beta 无 result（textContent 逐字 = 标题+View，零伪造描述）；E Gamma 失败（destructive variant + 事实）；F Mute 原子 stamp（failed + startedAt 同拍抽走）→ 标题逐字 "T145 Mute failedView" 零 "· 0s" 谎言；G 屏摄；Z log-404 半径容忍（t142 范式）+ roster 还原
+- 【探针考古·三折】①S 相首版钉 Mute startedAt=null 入场——被 reconcile 首个 GET 就诚实猎杀（ageMs=Infinity），浏览器首轮 poll 看到的已是 failed、转变从未在客户端发生——改为带起点入场 + 原子 stamp 翻转；②B 相 8s 无 toast——五个 diag 脚本层层排除（活页 dump viewport → API 可见性 → use-toast LIMIT → 编译产物 → 插桩 console.log）最终定位：**Radix toast 的 li 不带 role="status" 也不带 [data-title]**——探针定位器永不命中而特性一直工作（插桩证明 "…completed · 9s…View" 全要素在场）；③定位器改 `ol > li[data-state="open"]` + textContent 前缀解析后全绿——「读回一个被系统管理的 DOM，必须从系统实际渲染的形态读，不是从规范想象的形态读」
+- 【插桩的裁决价值】pollTick 的 catch 静默吞掉 announce 循环的任何 throw（set 在前循环在后——状态照常流动、toast 无声死亡、console 零痕迹）——若非临时 console.log 插桩，「特性坏了」与「探针瞎了」将无法分辨；插桩构建 5 分钟换来裁决支点（t141 对照构建教义的运行时版）
+- 【收尾】eslint 0（3 项既知噪音域不变）、tsc src 0；构建 BUILD_ID g5bzqUnZ3pNBZ9OYBa03u（首build OOM 天气一次，复跑即愈）；t145(28)×2、受影响面 qa63/qa00/t144(49)/t142(37)/t143(37) 全绿；全矩阵 81 套（t145 auto-include 位 #67，wall 11s）分 9 块一次全绿——Task 144 残渣治愈后矩阵首次零抖动一天；块峰 202MB 零阈值重启；五个诊断脚本归档 diag-archive；worklog + commit + push + 环境清理
+
+Stage Summary:
+- 「播报是事实成为事实的那一刻」：完成/失败的 toast 现在与卡片、footer、roster、标签页说同一种 formatElapsed 方言——elapsed 在宣告定格的瞬间读出，墙钟对表（65s 种子 → "1m 10s" 含 poll 延迟）。chrome 方言弧线至此覆盖了它最后一个表面
+- 「未知的诚实形式是沉默」：无 startedAt 的 runner 完成/失败，播报不带任何时间碎片——formatElapsed 会把 NaN 诚实钳成 "0s"，但「跑了 0s」是精确的谎言。这个守卫不在 formatter 里（formatter 只管格式），在语义层（announceElapsed 先问「起点存在吗」）——格式正确不等于读数诚实
+- 「新闻会过期，状态不会」：播报 9s 自动消散（import-undo 12s 先例的同胞），因为完成状态本身活在 chrome 的每一层（卡片环、footer 计数、标签页、favicon 玫瑰点）——toast 是耳语不是档案
+- 「探针的定位器必须考古真实 DOM」：Radix toast 的 li 既无 role="status" 也无 data-title——规范的想象与渲染的事实之间隔着一行版本号。五个 diag 的排除链（活页 dump → API → 模块机制 → 编译产物 → 插桩）每次收窄一层，最后插桩裁决：产品无罪、探针瞎了。「假红比失败更贵」的 runtime 版
+- 「catch 静默区需要临时仪器」：pollTick 的 catch 吞掉 announce 循环的一切 throw——状态照常流动、toast 无声死亡、console 零痕迹，观测者无法从外部分辨「特性坏了」与「根本没执行」。插桩 console.log 是这类静默区的唯一探照灯
+- 遗留（下轮候选）：播报的批量完成聚合（多 job 同拍完成时 toast 雪崩——TOAST_LIMIT=1 时互相顶替，真机观察是否需要 digest 摘要）；auto-started 播报的上游名字（"Class2D finished — Picking started"——需 lineage 反查，边际评估）；KPI 折叠持久化（真机）；find 三维持久化（真机）；favorites 拖拽排序（真机）；undo 手感参数（真机）；runner wall-time 剖面（qa64 88s——reach +3s 预期内，若再涨开剖面）；世界卫生观察账本（残渣审计后第二天：矩阵连续两轮零抖动，观察签名命中率）；EMPIAR 真数据回归（重，让位）；用户真机项
