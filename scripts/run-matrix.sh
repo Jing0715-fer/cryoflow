@@ -118,7 +118,7 @@ echo "matrix: $TOTAL suites, serial (running $FROM_IDX..$TO_IDX)"
 #     restart inline. The failure cascade stays bounded to one suite
 #     instead of everything after a mid-matrix death.
 #   Telemetry — per-suite RSS + wall-time are appended to
-#     .next/matrix-memory.log (cols: time,suite,rss,restarted,wall) and
+#     .next/matrix-memory.log (cols: time,suite,rss,restarted,wall,verdict) and
 #     the chunk peak + slowest suite are printed at the end: future OOM
 #     and slow-suite questions get data, not folklore.
 FRESH_SERVER="${FRESH_SERVER:-1}"
@@ -151,7 +151,7 @@ if [ "$FRESH_SERVER" = "1" ]; then
   fresh_server || true
 fi
 mkdir -p .next
-echo "# $(date '+%F %T') chunk $FROM_IDX..$TO_IDX/$TOTAL fresh=$FRESH_SERVER thr=${RSS_RESTART_MB}MB cols=time,suite,rss,restarted,wall" >> "$MEMLOG"
+echo "# $(date '+%F %T') chunk $FROM_IDX..$TO_IDX/$TOTAL fresh=$FRESH_SERVER thr=${RSS_RESTART_MB}MB cols=time,suite,rss,restarted,wall,verdict" >> "$MEMLOG"
 FAILS=()
 N=0
 PEAK=0
@@ -201,13 +201,24 @@ for s in "${SUITES[@]}"; do
   agent-browser close --all >/dev/null 2>&1 || true
   suffix=""
   [ "$restarted" = "yes" ] && suffix=", restarted"
-  echo "$gate_ts,$name,${rss}MB,$restarted,${wall}s" >> "$MEMLOG"
+  # Task 154 — the verdict lands IN the row, before it is written: Task
+  # 153's 21..30 chunk reported "1 failure" whose suite name could not be
+  # recovered afterwards (the telemetry row was printed BEFORE the
+  # PASS/FAIL branch ran, and the branch never fed the log). The row now
+  # ends with the same verdict the console shows — a future "which suite
+  # flapped?" question gets an answer, not an excavation.
   if echo "$out" | grep -qE "ALL PASS|GREEN|SMOKE GREEN|PROBE OK|PAPER PROBE"; then
+    verdict="PASS"
+  else
+    verdict="FAIL"
+    FAILS+=("$name")
+  fi
+  echo "$gate_ts,$name,${rss}MB,$restarted,${wall}s,$verdict" >> "$MEMLOG"
+  if [ "$verdict" = "PASS" ]; then
     echo "[$N/$TOTAL] PASS $name (rss ${rss}MB, wall ${wall}s${suffix})"
   else
     echo "[$N/$TOTAL] FAIL $name (rss ${rss}MB, wall ${wall}s${suffix})"
     echo "$out" | tail -6
-    FAILS+=("$name")
   fi
 done
 echo "=================================="

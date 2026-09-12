@@ -4470,3 +4470,22 @@ Stage Summary:
 - 「数据未到，UI 未生」：store 初值直接读 localStorage 的 SSR 安全性不是碰运气——PipelineKpi 在 jobs 加载前渲染 null，而 jobs 必然在 client useEffect 之后到位，hydration pass 与 SSR HTML 里都没有 KPI bar。偏好种子天然免疫 mismatch 的结构性理由值得写进注释，下一个读代码的人不该重新推导一遍
 - 抖动账本：连续多天零抖动后本轮 21-30 块 1 次单套抖动（三次重跑全绿）——telemetry 加 PASS/FAIL 列的候选再次浮出（失败套名不可回溯是账本的盲区）
 - 遗留（下轮候选）：telemetry 记 PASS/FAIL 列（抖动账本盲区补全——本轮亲历）；digest failed 行的行内 Retry（真机评估）；Retry 点击后 toast focus 手感（真机）；workspace item 呼吸动画（真机）；find 三维持久化（真机）；favorites 拖拽排序（真机）；undo 手感参数（真机）；runner wall-time 剖面（qa64 88s 一致带，让位）；世界卫生观察账本（零抖动记录中断一次：单套抖动 ×1）；EMPIAR 真数据回归（重，让位）；用户真机项
+
+---
+Task ID: 154
+Agent: main (cron window 2026-09-12 21:15:53 +08:00, trace …202609122125)
+Task: 例行七条——开局核对 + QA 判稳 → 选题（上轮亲历的账本盲区）→ runner telemetry 加 verdict 列 → 故意失败套端到端验证 → 抽块回归 → 交接闭环。本轮交付「抖动留名」：telemetry 每行以 PASS/FAIL 结尾——下回「哪套抖了」的问题得到的是答案，不再是考古
+
+Work Log:
+- 【开局核对】worklog 尾部实际为 Task 153（696ec16 == origin/main，树净）；BUILD_ID _Mm1-xYCqs5NYULVU0nM- 匹配（cat 验证）；冷启动 2s READY + 三件套（qa63/qa00/t153@75 9s）全绿 → 稳定
+- 【选题】Task 153 交接首选「telemetry 记 PASS/FAIL 列」——上轮 21-30 块 1 failure 后失败套名不可回溯（telemetry 行先写、判定分支后跑且不喂 log），账本盲区亲历在案；消费者考古：rg 全局仅 runner 自身写入，零脚本读者 → 列扩展零破坏面
+- 【实现·run-matrix.sh 三处】verdict 判定从「写行之后」移到「写行之前」（PASS/FAIL 分支先算、FAILS+= 保持原位语义、行尾追加 $verdict）；chunk header cols 声明同步 6 列；头注 + 判定点注释写明缘由（Task 153 的不可回溯案例）；FAIL 分支的 tail -6 输出保持不变
+- 【验证·三链路】bash -n 语法过；PASS 列：t153 单套 log 行 `...,10s,PASS`；FAIL 列：**临时必败套 t199-e2e.mjs**（exit 1，auto-include glob 捕获）→ 字典序陷阱再次咬人（t199 排在 #76 不是 #90——'1'<'9'，t15x 与 t85-t99 之间）→ 76..76 跑出 `...,0s,FAIL` + 控制台 FAIL + FAILED 列表 + TOTAL 1 failures 全链一致 → 删套还原 89；还原验证：qa00 单套 + 1..10 块（qa00-qa67 十套）+ t144 单套全 PASS 记录，verdict 列逐行在案
+- 【收尾】scripts 域改动无需重建（BUILD_ID 不变）；抽块回归 0 失败（qa64 86s 一致带）；块峰 198MB 零阈值重启；worklog + commit + push + 环境清理
+
+Stage Summary:
+- 「抖动要留名」：telemetry 的行从「跑完就写」改为「判定后写」——一行之差，账本从「知道有一次」升级为「知道是谁」。Task 153 的 21-30 块盲区（1 failure 三次重跑全绿却永远不知道哪套抖了）是这条列存在的全部理由：观察账本的每个数字都要能回答「具体是谁」的追问
+- 「验证基础设施要用基础设施自己的语言」：runner 的 verdict 列验证不写 playwright 探针——造一个必败套让 runner 亲自记录 FAIL，再删掉。基础设施轮的探针就是它的产物本身（Task 122 卫生学同款先例）；临时套 t199 的生灭一次演示了 auto-include 的双面：忘加清单不可能，字典序插入位次也永远要考古
+- 「零读者不等于零责任」：列扩展前先考古消费者（rg 全局仅 runner 自写）——零读者意味着零破坏面，也意味着历史 5 列行与新高 6 列行共存无害；但 header 的 cols 声明必须同步，否则下一个拿 header 对账的人会被骗
+- 「字典序陷阱是矩阵的常驻居民」：t199 落在 #76 而非 #90（'1'<'9'）——与 Task 153 修正的「t152 位 #74 非 #88」同根：SUITES 排序后 t100/t15x/t19x 全在 t85-t99 之前。位次问题靠跑块看输出自证，不靠心算
+- 遗留（下轮候选）：抖动账本首次可回溯后的首个观察窗口（若再现抖动，套名直接读 log 第 6 列）；digest failed 行的行内 Retry（真机评估）；Retry 点击后 toast focus 手感（真机）；workspace item 呼吸动画（真机）；find 三维持久化（真机）；favorites 拖拽排序（真机）；undo 手感参数（真机）；runner wall-time 剖面（qa64 86s 一致带，让位）；世界卫生观察账本（verdict 列上线后的第一天）；EMPIAR 真数据回归（重，让位）；用户真机项
