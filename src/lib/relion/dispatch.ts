@@ -44,6 +44,13 @@ export interface StartOutcome {
   /** Present when the job's process is already alive — nothing was started.
    * The route maps this to HTTP 409 instead of failing the job. */
   busy?: string;
+  /** WHICH busy case fired — the client renders them differently: a duplicate
+   * click ("inflight") stays SILENT (the first start's own toast is about to
+   * land; saying anything here would steal its slot under TOAST_LIMIT=1),
+   * while a live process ("live") is a healthy state that deserves a neutral
+   * heads-up, not an alarm. Without this marker both cases wore the same
+   * destructive "something went wrong" face — the alarm lied twice over. */
+  busyKind?: "inflight" | "live";
 }
 
 /**
@@ -126,7 +133,7 @@ async function resolveLinkRoot(job: Job): Promise<Job> {
 export async function startJob(job: Job): Promise<StartOutcome> {
   // ---- in-flight guard (synchronous — closes the double-spawn race) ----
   if (starting.has(job.id)) {
-    return { job, busy: "a start for this job is already in flight" };
+    return { job, busy: "a start for this job is already in flight", busyKind: "inflight" };
   }
   starting.add(job.id);
   try {
@@ -137,7 +144,7 @@ export async function startJob(job: Job): Promise<StartOutcome> {
     // workdir corrupt checkpoints and OOM this 4GB box.
     const busy = isRunAlive(job.id);
     if (busy) {
-      return { job, busy };
+      return { job, busy, busyKind: "live" };
     }
 
     // Build the FULL upstream lineage (BFS through edges, direct first) —

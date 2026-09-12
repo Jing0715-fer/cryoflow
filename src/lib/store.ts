@@ -1854,10 +1854,45 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       /* flush failure is non-fatal — the run uses the last saved params */
     }
     try {
-      const data = await api<{ job: JobDTO; error?: string; waiting?: string }>(`/api/jobs/${id}/run`, {
-        method: "POST",
-      });
-      set({ jobs: get().jobs.map((j) => (j.id === id ? data.job : j)) });
+      // local fetch instead of api(): the 409 body carries busyKind, which
+      // api() would flatten into a bare Error message — and the whole point
+      // is that the two busy cases must NOT share one face.
+      const res = await fetch(`/api/jobs/${id}/run`, { method: "POST" });
+      const data = (await res.json().catch(() => ({}))) as {
+        job?: JobDTO;
+        error?: string;
+        waiting?: string;
+        busyKind?: "inflight" | "live";
+      };
+      if (data.job) {
+        const reported = data.job;
+        set({ jobs: get().jobs.map((j) => (j.id === id ? reported : j)) });
+      }
+      if (!res.ok) {
+        if (res.status === 409 && data.busyKind === "inflight") {
+          // a duplicate click racing the FIRST start — that request's own
+          // toast ("Job started" / waiting / failure) is already in the air
+          // or about to land; saying anything here would STEAL its slot
+          // under TOAST_LIMIT=1. The duplicate's silence is the courtesy:
+          // the job's state lives on the card either way.
+          return false;
+        }
+        if (res.status === 409 && data.busyKind === "live") {
+          // a live process is a HEALTHY state — inform, don't alarm. (The
+          // old destructive face punished the user for a job that was
+          // running perfectly well.)
+          toast({
+            title: "Already running",
+            description:
+              data.error ?? "A process for this job is alive — nothing was started again.",
+          });
+          return false;
+        }
+        // every other refusal (400 linked copy, 404, 500) is a REAL one —
+        // the alarm stays where it belongs
+        throw new Error(data?.error ?? `Request failed (${res.status})`);
+      }
+      const started = data.job;
       if (data.waiting) {
         // job went PENDING — an upstream job failed or is still running;
         // not an error, the result line explains what to fix/re-run. It
@@ -1865,7 +1900,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         toast({
           title: "Job waiting as pending",
           description:
-            (data.job.result ?? "Waiting for its upstream job to produce outputs.") +
+            (started?.result ?? "Waiting for its upstream job to produce outputs.") +
             " It starts automatically once ready.",
         });
         // show the waiting reason where the user is looking
@@ -1881,7 +1916,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         });
         return false;
       }
-      toast({ title: "Job started", description: `${data.job.name} is now running` });
+      toast({ title: "Job started", description: `${started?.name ?? "Job"} is now running` });
       // CryoSPARC-style: submitting a job opens its inspector page
       set({ inspectId: id, selectedId: null, selectedIds: [] });
       return true;

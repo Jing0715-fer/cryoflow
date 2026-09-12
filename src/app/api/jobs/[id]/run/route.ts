@@ -37,11 +37,19 @@ export async function POST(_request: NextRequest, context: RouteContext) {
       );
     }
 
-    const { job, error, busy, waiting } = await startJob(existing);
+    const { job, error, busy, waiting, busyKind } = await startJob(existing);
 
     if (busy) {
-      // the job is already running — do NOT fail it, just refuse the spawn
-      return NextResponse.json({ job: toJobDTO(job), error: busy }, { status: 409 });
+      // the job is already running — do NOT fail it, just refuse the spawn.
+      // busyKind tells the client WHICH refusal this is: "inflight" (a
+      // duplicate click racing the first start — the client stays silent so
+      // the first start's own toast keeps the slot) vs "live" (a real live
+      // process — the client gives a neutral heads-up). Both used to wear a
+      // destructive "something went wrong" face; neither is an accident.
+      return NextResponse.json(
+        { job: toJobDTO(job), error: busy, ...(busyKind ? { busyKind } : {}) },
+        { status: 409 }
+      );
     }
 
     return NextResponse.json({

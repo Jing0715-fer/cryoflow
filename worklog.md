@@ -4427,3 +4427,25 @@ Stage Summary:
 - 「类型放宽的正确姿势是承认既存事实」：toaster 本来就自渲染 {action}，Root 的 spread 只是类型上顺带——把 action 解构出 spread 不是新设计，是让类型追上运行时。ReactElement→ReactNode 的放宽点选在消费端（toast() 调用方），UI 库文件的改动带着为什么的注释
 - 「合同的灵魂与合同的字面」：t145 的逐字断言死了（View 后多了 Retry），但它的灵魂（start-less job 的时间静默——无 · 0s 谎言）完好。修历史探针时先辨认灵魂再改字面：灵魂不动的，字面跟随产品演进；灵魂被动的，才是真回归
 - 遗留（下轮候选）：digest failed 行的行内 Retry（真机评估——摘要是门厅的裁决要不要为失败破例）；Retry 点击的二次防抖（连点两次 Retry → 双 spawn？starting 集合已守卫——真机连点验证手感）；workspace item 点的呼吸动画（favicon 同律保持静态，真机再评估）；KPI 折叠持久化（真机）；find 三维持久化（真机）；favorites 拖拽排序（真机）；undo 手感参数（真机）；runner wall-time 剖面（qa64 83s 一致域，让位）；世界卫生观察账本（连续第八天零抖动）；EMPIAR 真数据回归（重，让位）；用户真机项
+
+---
+Task ID: 152
+Agent: main (cron window 2026-09-12 18:15:50 +08:00, trace …202609121821)
+Task: 例行七条——开局核对 + QA 判稳 → 选题开发（409 busy 的两张脸：复击静默、运行不是事故）→ 探针四折（aria-hidden 失明 / 连接串行 / 窗口宽度 / 谓词极性）→ 受影响面回归 → 全矩阵 → 交接闭环。本轮交付「复击不夺槽，运行不是事故」：连点 Retry 不再让红色谎话顶掉成功新闻，活着的进程不再被涂成事故色
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部实际为 Task 151（dba19af == origin/main，树净）；BUILD_ID 7DY2QBtWdua5SeYykPJGT 匹配；冷启动 1s READY + 三件套（qa63/qa00/t151 32）全绿 → 稳定
+- 【选题 + 侦察先行】Task 151 交接「Retry 点击的二次防抖（starting 集合已守卫——真机连点验证手感）」→ 侦察发现比防抖更深的一层：api() 对非 2xx 直接 throw——409 busy 落进 catch → errToast destructive「Something went wrong」——TOAST_LIMIT=1 下复击的红色顶掉第一次的「Job started」（任务明明在跑，用户最后看到红色）；live（isRunAlive pid 存活）也被涂成事故色。警报说了两次谎 → 定案「复击不夺槽，运行不是事故」
+- 【实现·busyKind 两张脸】StartOutcome 带 busyKind: "inflight" | "live"（服务器早就区分两个案件，只是从没把名字说出口）；/run 路由 409 body 透传；runJob 换本地 fetch（api() 会把 busyKind 压扁成裸 Error message）：inflight → 静默 return（第一次点击的 toast 说完了这个故事，状态活在卡片呼吸环上）；live → 中性「Already running」+ pid 点名；非 busy 错误 throw 原样——真拒绝（linked copy 400、诚实引擎失败）的警报留在 belongs 的地方；tsc 一折：data.job optional 化后两处 TS18048 → started 局部捕获
+- 【t152 探针】八相 44 断言 ×2 全绿：S keeper；X 8 oracle（StartOutcome.busyKind + 两处 return + 路由 spread + 客户端三张脸 + 诚实失败脸不变）；B Node 侧并发对（undici 双连接）+ **120 层 lineage 链撑宽窗口**（lineageFor 逐层 BFS = 真实路径时序，非 mock）→ 恰 {200, 409} + body busyKind==="inflight" + 逐字 in-flight 消息；C **伪造 engine-state {done:false, pid:活 sleep 进程}**（mtime 破缓存）→ 真 Retry → 中性「Already running」（非 destructive + pid 点名 + job 留在 failed + 无 Job started 谎言）+ 屏摄；D 探针 Node racer POST + UI click——**跨必然并发的两条 TCP 连接**撞窗（窗口 ≈268ms 一发命中）→ 客户端静默（无 theft 无 alarm 无 Job started）+ racer 独自启动；D2 真 UI 双击手感（无论 409 静默或 2×200 合法 restart：无 destructive + Job started 幸存 + inspector 开）；E 坏源 import 诚实失败 → destructive「Real engine refused to start」原样；Z 半径升级（/run 409 纳入半径 + 泛型回声白名单 404→409 + 对账 3<=3）+ roster 还原（22==22）
+- 【探针伤情·四折】①D 首版双击 miss 后成功路径开的 inspector dialog 未关 → **Radix modal 给背景（含 toast portal）设 aria-hidden → getByRole 对 toast 失明 → evaluate 30s 超时**——每次 attempt 前显式 Esc；②页面同 tick 双 fetch 被 **HTTP/1.1 keep-alive 串行化**（复用温暖连接，第二个请求等第一个响应）→「同 tick ≠ 并发到达」——Node 侧 racer 才是必然的第二条 TCP 连接；③40 层链窗口（~10-30ms）窄于 playwright click 协议延迟（20-50ms）三连 miss → 120 层（≈240 次逐层查询）窗口 ≈219-268ms 稳定命中；④Z 相 **filter(tol) 谓词极性反转**——t151 的 tol 实为「不可容忍」谓词，名字叫 tol 的函数撒了谎；照搬名字写了「可容忍」谓词 + 未取反的 filter → 容忍行反被拦（埋点抓到 tol(L)=true 却在 intolerable 里才破案）；⑤浏览器对 409 也打泛型 console error → 回声白名单随半径扩到 404+409
+- 【收尾】eslint 0、tsc src 0；构建 BUILD_ID Hmkt23cmeZg30Ao_h6Tx2（cat 验证后落笔）；t152(44)×2、受影响面 t145(28)/t146(47)/t147(41)/t148(23)/t149(57)/t150(41)/t151(32)/qa63/qa00 全绿；全矩阵 88 套（t152 auto-include，位 #88）分 10 块 0 失败；块峰 200MB 零阈值重启（Task 122 卫生学）；t152 192s 为全场最慢（120 链构建 + attempt 窗口）；qa64 83s 一致域；worklog + commit + push + 环境清理
+
+Stage Summary:
+- 「警报的颜色是公共财产」：409 busy 的两个案件都穿着 destructive 的脸——复击的红色盖住成功（用户最后看到的是谎话），健康的运行被涂成事故（pid 活着不是罪）。警报色是稀缺资源：真正的失败（诚实引擎错误、linked copy 400）继续响亮，其余一切降级为信息或静默
+- 「复击的静默是最高的礼貌」：TOAST_LIMIT=1 的世界里第二条新闻必然顶掉第一条——复击案件里最正确的发言是不发言：第一次点击的 toast 说完了这个故事，job 的状态活在卡片 teal 呼吸环上。沉默不是信息缺失，是不夺槽的纪律
+- 「类型追认运行时」：startJob 的同步守卫早就区分了两个 busy 案件，路由早就把 busy 字符串带到客户端——差的只是一个名字。busyKind 不是新设计，是把已存在的区分说出口；客户端的三张脸（静默/中性/警报）是这个名字的三个后果
+- 「窗口要造出来，不是等出来」：120 层 lineage 链把 startJob 的 in-flight 窗口从 ~3ms 撑到 ~260ms——用产品的真实 BFS 时序（逐层查询）造窗口，不是 mock 不是 sleep。「探针的前提写成显式步骤」的工程化版本：前提不够宽时，把世界建宽
+- 「跨连接才叫并发」：页面同 tick 双 fetch 会被 HTTP/1.1 keep-alive 串行化——同一连接上第二个请求永远排在第一个响应之后。「并发」要构造在连接层（Node racer vs 浏览器 = 必然两条 TCP 连接），不是 tick 层
+- 「谓词的极性」：t151 的 tol 实为「不可容忍」谓词——名字叫 tol 的函数撒了谎；照搬名字 + 未取反的 filter = 容忍行反被拦，埋点（tol(L)=true 却在 intolerable）才破案。复用合同时先验证谓词的极性——名字会撒谎，埋点不会
+- 遗留（下轮候选）：digest failed 行的行内 Retry（真机评估——摘要是门厅的裁决要不要为失败破例）；Retry 点击后 toast 的 focus 停留手感（真机）；workspace item 点的呼吸动画（favicon 同律保持静态，真机再评估）；KPI 折叠持久化（真机）；find 三维持久化（真机）；favorites 拖拽排序（真机）；undo 手感参数（真机）；runner wall-time 剖面（qa64 83s 一致域，继续让位）；世界卫生观察账本（矩阵连续第九天零抖动，块峰 187-200MB 全部零阈值）；EMPIAR 真数据回归（重，让位）；用户真机项
