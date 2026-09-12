@@ -2004,6 +2004,23 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       // announce transitions running → completed / failed, and pending →
       // running (the AUTO-START engine kicked a downstream job once its
       // upstream inputs landed — nobody clicked Run for this)
+      //
+      // Task 146 — the avalanche cure. TOAST_LIMIT is 1, so this sweep's
+      // synchronous toast loop used to silently swallow every finisher
+      // but the LAST one whenever several became final in the same tick:
+      // N facts landed, N-1 were never spoken. The sweep now collects
+      // first and announces after — auto-started notices go out first
+      // (light news; the teal breathing ring already carries the state),
+      // then either a single finisher keeps its FULL announcement (fact
+      // title + result + View bridge, the t145 contract verbatim) or one
+      // digest toast speaks for the whole batch: title in the census
+      // dialect (the glance layer says COUNTS), one roster line per
+      // finisher in the very form its swallowed announcement would have
+      // had (the reading layer says TIME), destructive whenever the
+      // batch carries any failure (alarm outranks alive — the favicon
+      // doctrine). A digest carries no View bridge: it is a summary,
+      // not a door — each job's results stay one click away on its card.
+      const finished: Array<{ job: JobDTO; kind: "completed" | "failed" }> = [];
       for (const job of merged) {
         const before = prev.find((p) => p.id === job.id);
         if (before?.status !== "running") {
@@ -2015,14 +2032,21 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
           }
           continue;
         }
-        if (job.status === "completed") {
+        if (job.status === "completed" || job.status === "failed") {
+          finished.push({ job, kind: job.status });
+        }
+      }
+      const [solo, ...rest] = finished;
+      if (solo && rest.length === 0) {
+        const { job, kind } = solo;
+        if (kind === "completed") {
           toast({
             title: `${job.name} completed${announceElapsed(job)}`,
             description: job.result ?? undefined,
             action: announceViewAction(get, job.id, job.name),
             duration: 9_000, // news expires — the state itself lives in the chrome census (card, footer, tab)
           });
-        } else if (job.status === "failed") {
+        } else {
           toast({
             title: `${job.name} failed${announceElapsed(job)}`,
             description: job.result ?? undefined,
@@ -2031,6 +2055,30 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
             duration: 9_000, // same expiry; the rose alarm lives on the card and the favicon
           });
         }
+      } else if (rest.length > 0) {
+        const completedN = finished.filter((f) => f.kind === "completed").length;
+        const failedN = finished.length - completedN;
+        const parts: string[] = [];
+        if (completedN) parts.push(`${completedN} completed`);
+        if (failedN) parts.push(`${failedN} failed`);
+        // the roster cap: a roll call must be finishable — beyond 8 lines
+        // the digest counts the remainder instead of reciting it
+        const ROSTER_CAP = 8;
+        const lines = finished.map(({ job, kind }) => `${job.name} ${kind}${announceElapsed(job)}`);
+        const shown = lines.slice(0, ROSTER_CAP);
+        if (lines.length > ROSTER_CAP) shown.push(`… and ${lines.length - ROSTER_CAP} more`);
+        toast({
+          title: parts.join(" · "),
+          description: React.createElement(
+            React.Fragment,
+            null,
+            shown.map((line, i) =>
+              React.createElement("span", { key: i, className: "block" }, line),
+            ),
+          ),
+          variant: failedN ? "destructive" : undefined,
+          duration: 9_000, // same expiry — the roster itself lives in the chrome census
+        });
       }
     } catch {
       // polling errors are transient — keep the interval alive

@@ -4296,3 +4296,27 @@ Stage Summary:
 - 「探针的定位器必须考古真实 DOM」：Radix toast 的 li 既无 role="status" 也无 data-title——规范的想象与渲染的事实之间隔着一行版本号。五个 diag 的排除链（活页 dump → API → 模块机制 → 编译产物 → 插桩）每次收窄一层，最后插桩裁决：产品无罪、探针瞎了。「假红比失败更贵」的 runtime 版
 - 「catch 静默区需要临时仪器」：pollTick 的 catch 吞掉 announce 循环的一切 throw——状态照常流动、toast 无声死亡、console 零痕迹，观测者无法从外部分辨「特性坏了」与「根本没执行」。插桩 console.log 是这类静默区的唯一探照灯
 - 遗留（下轮候选）：播报的批量完成聚合（多 job 同拍完成时 toast 雪崩——TOAST_LIMIT=1 时互相顶替，真机观察是否需要 digest 摘要）；auto-started 播报的上游名字（"Class2D finished — Picking started"——需 lineage 反查，边际评估）；KPI 折叠持久化（真机）；find 三维持久化（真机）；favorites 拖拽排序（真机）；undo 手感参数（真机）；runner wall-time 剖面（qa64 88s——reach +3s 预期内，若再涨开剖面）；世界卫生观察账本（残渣审计后第二天：矩阵连续两轮零抖动，观察签名命中率）；EMPIAR 真数据回归（重，让位）；用户真机项
+
+---
+Task ID: 146
+Agent: main (cron window 2026-09-12 14:45:46 +08:00, trace …202609121445)
+Task: 例行七条——开局核对 + QA 判稳 → 选题开发（批量完成 digest 聚合）→ 探针原子翻转技术 → 回归 → 交接闭环。本轮交付「一次说话，说全部」：TOAST_LIMIT=1 世界里的雪崩 cure——同拍 N 个完成从「N-1 个事实被静默吞掉」到一条 digest 点名册
+
+Work Log:
+- 【开局核对 + QA】worklog 尾部实际为 Task 145（4504287 == origin/main，树净）——续接摘要仍停在 Task 135，05:00-13:30 窗口已闭环为 Task 139-145，以 worklog 为准；BUILD_ID g5bzqUnZ3pNBZ9OYBa03u 匹配；冷启动 2s READY + 三件套（qa63/qa00/t145 28）全绿 → 稳定
+- 【选题】Task 145 交接第一条「播报的批量完成聚合（多 job 同拍完成时 toast 雪崩——TOAST_LIMIT=1 时互相顶替）」→ 侦察证实雪崩比交接描述更糟：pollTick 的 announce 是同步循环逐个 toast()，同拍 N 个完成时前 N-1 个在同一毫秒内被顶替——不是「被下一个盖过」而是**从未渲染、从未被看见**；N 个事实落地，N-1 个从未被说出 → 定案 digest 聚合
+- 【实现·pollTick 收集先行播报在后】announce 循环改为两阶段：finished 数组收集（completed/failed 各带 kind），auto-started 轻新闻照旧先出（teal 呼吸环已携带状态，丢它不痛）；单 finisher → 完整 t145 合同逐字保留（fact title + result 描述 + View 桥 + 9s）；多 finisher → digest toast：title census 方言（completedN>0 则 "N completed"、failedN>0 则 "N failed"，" · " 连接——footer/tab 已在说的同一方言，一瞥层说计数）；名单行 = 被吞 toast 的 title 逐字（`${name} ${kind}${announceElapsed}`——读数层说时间，t145 的静默教义随行携带：无 startedAt 的行无时间碎片）；8 行上限 + "… and N more" 尾行；含 failed → destructive（警报压倒活着——favicon 教义的名单版）；无 View 桥（digest 是摘要不是门）；9s 过期同批
+- 【t146 探针】七相 47 断言 ×2 全绿：S 种 Solo+Keeper（keeper 全程 running 保住 1.2s poll 节奏）；B 单完成合同锚（title fact + elapsed 对表 [65..90] + result + View——t145 合同在重构后逐字幸存）；C 原子翻 2 → digest "2 completed"（title 开头 + 名单 2 行逐字 + 行 elapsed 对表 [38..60] + 无 View + 非 destructive）；D 事务翻 2c+1f → "2 completed · 1 failed"（destructive + failed 行自带事实）；E 翻 10 → "10 completed"（9 span：8 行 + "… and 2 more"）；F 后续单条顶掉 digest（TOAST_LIMIT=1 新闻流活着）；G 屏摄；Z /log-404 半径容忍 + roster 还原（21==21）
+- 【探针原子性武器】bulk 翻转用 prisma updateMany 单 SQL（C/E 相）/ $transaction（D 相混合 data）——poll GET 要么见全旧要么见全新，永不见半翻中间态（半翻会把一个 digest 劈成两条播报，探针假红且无产品嫌疑）
+- 【探针伤情·转变播报的前提】首跑 C 相假红：B 相翻转 Solo 后世界无 runner → poll 落入 idle 6s 节奏 → C 相 POST+stamp 后立即翻转，下一 tick 直接见 completed（before=undefined → 无转变无播报）——产品完全正确（播报转变不是状态），探针违反了隐含前提「客户端先见过 running」。修复 = keeper runner（世界永有 runner，poll 锁 1.2s）+ 每相 seed 后 sleep 1600ms（一个 poll 周期必见 running）——「探针的前提要写成显式步骤，不是隐含运气」
+- 【收尾】eslint 0、tsc src 0；构建 BUILD_ID Wa5TTpyKjKex6ZVprSnzN；t146(47)×2、受影响面 t145(28)/qa63/qa00 全绿；全矩阵 82 套（t146 auto-include 位 #68，wall 15s）分 10 块（9×9+1）0 失败；块峰 206MB 零阈值重启（Task 122 卫生学）；qa64 85s 一致域；worklog + commit + push + 环境清理
+
+Stage Summary:
+- 「N 个事实落地，N-1 个从未被说出」：TOAST_LIMIT=1 + 同步循环 = 幸存者通吃——雪崩的 cure 不是提高 limit（屏幕堆 N 条 toast 是新的噪音灾难）而是聚合（一条 digest 说全部）。降噪的最高形式不是少说，是合并同类项
+- 「一个 toast 两个粒度」：digest title 是 census（"2 completed · 1 failed"，计数方言），名单行是读数（每行 name+kind+elapsed，t145 事实方言逐字）——「一瞥层说计数，读数层说时间」的分层律从 chrome 表面之间（footer vs tab）进入了单个 toast 内部
+- 「digest 是摘要不是门」：单条 toast 带 View 桥（一个目的地配一扇门），digest 无桥——多目的地没有单一的门；名单本身就是信息，每个结果在它的卡上一步之遥。强行给 digest 配桥只能武断选一个 finisher，其余被暗中降权
+- 「警报压倒活着」的名单版：混合 digest 整条 destructive——名单里的 "failed" 字样是事实，玫瑰边框是警报；全 completed 的 digest 保持中性。警报色不是给失败者的装饰，是给观察者的信号
+- 「点名册要念得完」：8 行上限 + "… and N more"——超过上限从念名字退到数人数。念不完的名单和没有名单一样淹没听众；计数是诚实的降级，截断不是
+- 「转变播报对探针隐含前提」：播报转变非状态（产品合同）⇒ 翻转前客户端必须见过 running（探针前提）——idle 世界 6s poll 节奏下 seed 后立即翻转会让转变从未被观察（产品正确、探针假红）。keeper runner + 每 phase 一个 poll 周期的等待把前提写成显式步骤
+- 「updateMany 是探针的原子性武器」：单 SQL / $transaction 让 bulk 翻转原子落地——中间态的观察窗被 SQL 语义关闭，与「原子 stamp（t145 Mute）」同族但面向 N 个演员
+- 遗留（下轮候选）：auto-started 多条同拍的雪崩（本轮聚焦完成聚合——auto-started 轻新闻被 digest 顶掉可接受，真机抱怨再评估）；digest 的 result 细节（名单不带 result——聚合的代价是细节退场，真机评估是否要展开交互）；KPI 折叠持久化（真机）；find 三维持久化（真机）；favorites 拖拽排序（真机）；undo 手感参数（真机）；runner wall-time 剖面（qa64 85s 一致域，继续让位）；世界卫生观察账本（矩阵连续第三天零抖动，残渣审计静默）；EMPIAR 真数据回归（重，让位）；用户真机项
