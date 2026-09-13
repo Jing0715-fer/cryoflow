@@ -26,14 +26,27 @@ type SheetContentProps = React.ComponentProps<typeof SheetContent>
  * no teleport. Otherwise it springs back in 220ms.
  *
  * Task 173 — the invitation and the echo. A gesture nobody can see is
- * a gesture nobody finds: a static grabber (top-center pill, seated in
- * the header's own padding band — zero layout, zero hit-area change)
+ * a gesture nobody finds: a grabber (top-center pill, seated in the
+ * header's own padding band — zero layout, zero hit-area change)
  * says "this surface moves", and a left-edge shade whose opacity rides
  * the SAME dragged distance (--swipe-progress, written straight to the
  * node beside the transform) is the finger's live echo. Both spans are
  * decorative (aria-hidden, pointer-events-none) — they invite, they
  * never intercept. On spring-back the shade fades out over the same
  * 220ms the sheet takes to return, so nothing snaps.
+ *
+ * Task 175 — the invitation learned to MOVE, and the echo learned to
+ * be SEEN. The grabber now plays a one-shot nudge on every mount
+ * (.swipe-grabber-hint in globals.css: 7px toward the way out, 0.55s
+ * after the entrance settles, silenced by prefers-reduced-motion; the
+ * keyframes ride `transform`, which composes with the centering
+ * `translate:` property Tailwind v4 emits, so the pill stays centered
+ * mid-nudge). And the echo's shade stopped being hardcoded black —
+ * rgba(0,0,0,0.16) over a dark card measured Δ0 pixels: invisible
+ * exactly where a dark-theme user needs it. It now rides the
+ * FOREGROUND token via color-mix: near-black at 16% in light (the
+ * original look, unchanged), near-white at 16% in dark — the same
+ * "darker/denser than the card" signal, whatever the ink color is.
  */
 export function SwipeSheetContent({
   onDismiss,
@@ -146,22 +159,28 @@ export function SwipeSheetContent({
     >
       {/* Task 173 — the invitation: seated in the header's p-4 padding
           band (6–10px; the name input starts at 16px), it overlaps no
-          interactive control and intercepts no pointer. */}
+          interactive control and intercepts no pointer. Task 175 — the
+          hint class gives it a one-shot nudge per mount (see
+          globals.css for the gates). */}
       <span
         aria-hidden="true"
         data-swipe-grabber=""
-        className="pointer-events-none absolute left-1/2 top-1.5 z-10 h-1 w-9 -translate-x-1/2 rounded-full bg-foreground/25"
+        className="swipe-grabber-hint pointer-events-none absolute left-1/2 top-1.5 z-10 h-1 w-9 -translate-x-1/2 rounded-full bg-foreground/25"
       />
       {/* the echo: opacity is driven by --swipe-progress on the root —
           the shade enters from the LEFT edge (the direction the drag
-          comes from as the sheet travels right). */}
+          comes from as the sheet travels right). Task 175 — the shade
+          color rides var(--foreground) through color-mix instead of a
+          hardcoded rgba(0,0,0,0.16) that measured Δ0 pixels on a dark
+          card: ink-tinted in both themes, invisible in neither. */}
       <span
         aria-hidden="true"
         data-swipe-edge-cue=""
         className="pointer-events-none absolute inset-y-0 left-0 z-[5] w-6"
         style={{
           opacity: "var(--swipe-progress, 0)",
-          background: "linear-gradient(to right, rgba(0,0,0,0.16), transparent)",
+          background:
+            "linear-gradient(to right, color-mix(in oklab, var(--foreground) 16%, transparent), transparent)",
         }}
       />
       {children}

@@ -74,8 +74,8 @@ console.log("== X: source oracles ==");
        swipeSrc.includes('cue.style.transition = "opacity 220ms'),
     "X8 spring-back resets the echo over the same 220ms the sheet returns in");
   must(swipeSrc.includes('opacity: "var(--swipe-progress, 0)"') &&
-       swipeSrc.includes("linear-gradient(to right, rgba(0,0,0,0.16), transparent)"),
-    "X9 the shade is var-driven and enters from the LEFT edge (the travel direction)");
+       swipeSrc.includes("linear-gradient(to right, color-mix(in oklab, var(--foreground) 16%, transparent), transparent)"),
+    "X9 the shade is var-driven and enters from the LEFT edge (the travel direction); Task 175: the ink rides the foreground token (was hardcoded black — Δ0 pixels on a dark card)");
   must(swipeSrc.includes("top-1.5") && swipeSrc.includes("h-1 w-9"),
     "X10 the grabber sits in the header's padding band (top-1.5, 4×36 painted)");
 }

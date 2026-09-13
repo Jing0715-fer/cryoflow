@@ -39,6 +39,16 @@
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
+  /* Task 175 — this mapping was MISSING since the shadcn v4 migration:
+     `text-destructive-foreground` generated NO rule (the class existed,
+     the theme token did not — the same silent-generation family as the
+     toast swipe lesson), so every destructive surface's label rode on
+     INHERITED --foreground by accident: near-black on red in light
+     (2.9:1), near-white on bright red in dark (2.4:1). The diag caught
+     it by reading the title's computed color: lab(17.6) — body ink,
+     not the token. One line here re-animates the class everywhere it
+     is used (toast variant, ToastAction hover, four delete buttons). */
+  --color-destructive-foreground: var(--destructive-foreground);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -115,7 +125,12 @@
   --muted-foreground: oklch(0.685 0.016 230);
   --accent: oklch(0.3 0.04 190);
   --accent-foreground: oklch(0.82 0.09 184);
-  --destructive: oklch(0.704 0.191 22.216);
+  /* Task 175 — dark used a BRIGHTER red (red-400, oklch 0.704), which
+     collapsed every destructive label once text-destructive-foreground
+     actually applied: near-white on red-400 = ~2.7:1. Unified with the
+     light token (red-600 territory): white ink = ~4.5:1, the X's
+     red-200 = ~3.3:1, and the family reads as ONE red in both themes. */
+  --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0.005 200);
   --border: oklch(1 0 0 / 12%);
   --input: oklch(1 0 0 / 16%);
@@ -1269,6 +1284,34 @@
 [data-panel-sheet] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="hidden"]),
 [data-panel-sheet] select {
   min-height: 2.5rem;
+}
+
+/* Task 175 — the grabber's first-open nudge. The pill has been static
+   since Task 173; a static affordance invites nobody. On every sheet
+   mount (Radix unmounts the content on close, so each open is a fresh
+   mount = exactly ONE nudge per visit, never looping mid-visit) the
+   grabber drifts 7px toward the swipe direction — the way out — with a
+   tiny counter-bounce, then rests. GATES: ① delayed 0.55s so it starts
+   as the sheet's entrance settles, never fighting the slide-in; ② the
+   keyframes ride `transform`, which COMPOSES with the centering
+   `-translate-x-1/2` (Tailwind v4 emits the native `translate:`
+   property — individual properties apply before transform), so the
+   pill stays centered mid-nudge (t175 measures it live); ③ reduced
+   motion silences it entirely; ④ the span is aria-hidden +
+   pointer-events-none, a 36×4 pill nudging 7px steals focus from
+   nothing. */
+@keyframes swipe-grabber-nudge {
+  0%, 100% { transform: translateX(0); }
+  45% { transform: translateX(7px); }
+  72% { transform: translateX(-2px); }
+}
+.swipe-grabber-hint {
+  animation: swipe-grabber-nudge 1.05s cubic-bezier(0.34, 1.2, 0.48, 1) 0.55s 1 both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .swipe-grabber-hint {
+    animation: none;
+  }
 }
 
 /* Task 174 — the toast's drag-follow, hand-written because Tailwind v4

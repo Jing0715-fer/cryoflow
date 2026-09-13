@@ -1209,9 +1209,19 @@ export function WorkflowCanvas() {
         ZOOM_MIN,
         1
       );
+      // Task 175 — when the ZOOM floor bites (the world is wider/taller
+      // than the view can contain even at ZOOM_MIN), centering CROPS BOTH
+      // edges: the fit put the leftmost column at screen x=215 — under
+      // the palette rail and clipped by the section's overflow-hidden.
+      // t170's C5b found the first recorded job unclickable there, and a
+      // first-load user just finds cards MISSING. Anchor the origin
+      // corner instead (the 96px budget split into a 48px pad): when the
+      // content fits, centering still wins (its pad ≥ 48 by definition);
+      // when the floor hides the far sides, the near corner stays
+      // reachable — panning can always get to what the floor cropped.
       setViewport({
-        x: (viewW - bw * zoom) / 2 - minX * zoom,
-        y: (viewH - bh * zoom) / 2 - minY * zoom,
+        x: Math.max(48, (viewW - bw * zoom) / 2) - minX * zoom,
+        y: Math.max(48, (viewH - bh * zoom) / 2) - minY * zoom,
         zoom: +zoom.toFixed(3),
       });
     },

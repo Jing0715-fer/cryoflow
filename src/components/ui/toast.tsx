@@ -32,6 +32,11 @@ const toastVariants = cva(
         default: "border bg-background text-foreground",
         destructive:
           "destructive group border-destructive bg-destructive text-destructive-foreground",
+        // Task 175 note: `text-destructive-foreground` was a DEAD class
+        // until the @theme mapping landed this round (see globals.css) —
+        // the label inherited --foreground and read 2.9:1 in light /
+        // 2.4:1 in dark. The mapping + the dark token unification are
+        // the fix; the variant itself needed no class change.
       },
     },
     defaultVariants: {
@@ -96,7 +101,12 @@ const ToastClose = React.forwardRef<
       //    painted pixel; the slop rides the toast body's top-right
       //    corner (text ends well left of it) and the viewport's p-4
       //    padding band above/right, covering nothing interactive.
-      "absolute right-1 top-1 rounded-md p-1 text-foreground/50 opacity-0 transition-opacity hover:text-foreground focus:opacity-100 focus:outline-none focus:ring-1 group-hover:opacity-100 hover-none:opacity-100 before:absolute before:-inset-2.5 before:content-[''] group-[.destructive]:text-red-300 group-[.destructive]:hover:text-red-50 group-[.destructive]:focus:ring-red-400 group-[.destructive]:focus:ring-offset-red-600",
+      // ③ Task 175 — the destructive X. text-red-300 on the destructive
+      //    bg measured 2.49:1 in light and 1.50:1 in dark (the dark token
+      //    was a BRIGHTER red — red ink on brighter red). red-200 keeps
+      //    the tint language and clears the 3:1 UI bar in both themes
+      //    (~3.3:1) now that the surface is one red in both themes.
+      "absolute right-1 top-1 rounded-md p-1 text-foreground/50 opacity-0 transition-opacity hover:text-foreground focus:opacity-100 focus:outline-none focus:ring-1 group-hover:opacity-100 hover-none:opacity-100 before:absolute before:-inset-2.5 before:content-[''] group-[.destructive]:text-red-200 group-[.destructive]:hover:text-red-50 group-[.destructive]:focus:ring-red-400 group-[.destructive]:focus:ring-offset-red-600",
       className
     )}
     toast-close=""
@@ -125,7 +135,11 @@ const ToastDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <ToastPrimitives.Description
     ref={ref}
-    className={cn("text-sm opacity-90", className)}
+    // group-[.destructive]:opacity-100 (Task 175): the template's 90%
+    // opacity blends the ink toward the red bg and the description lands
+    // at ~4.3:1 — under the 4.5 bar for small text. Full opacity on the
+    // destructive surface measures ~4.55:1; other variants keep 90.
+    className={cn("text-sm opacity-90 group-[.destructive]:opacity-100", className)}
     {...props}
   />
 ))
