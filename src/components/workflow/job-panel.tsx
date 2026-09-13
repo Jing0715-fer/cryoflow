@@ -91,6 +91,52 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { cn } from "@/lib/utils";
 
 /* ------------------------------------------------------------------ */
+/* Panel tab — the reading position (Task 162, stay-put family)         */
+/*                                                                      */
+/* Task 157 restored WHICH JOB's panel is open across a reload; this    */
+/* restores WHICH PAGE of it you were reading. Not a filter (switching  */
+/* tabs hides nothing — the other sections are one click away) and no   */
+/* lens (it changes no semantics), so it is pure POSITION: the fourth    */
+/* member of the session-position family after selectedId (t157),       */
+/* activeWorkspaceId (t159) and leftRailTab (t160).                     */
+/*                                                                      */
+/* Trust gate = the WHITELIST itself (t160's mirror idiom): the tab     */
+/* space is a finite set this component renders {io, params, results,   */
+/* log}, so the seed is honest only if it names one of them; hand-edited */
+/* garbage, "", null all resolve to "io" — the honest unknown is the    */
+/* tab the panel always booted on.                                      */
+/*                                                                      */
+/* Hydration idiom = lazy useState (t156's, not t160's boot effect):    */
+/* PanelBody only mounts once a job resolves, and jobs load in a client */
+/* effect — the component is never in the SSR HTML ("data not arrived,  */
+/* UI not born"), so a lazy hydrate cannot fight the server pass.       */
+/* Boot writes NOTHING: hydrate reads, only the gestures below write.   */
+/* ------------------------------------------------------------------ */
+
+const PANEL_TAB_KEY = "cryoflow.panelTab.v1";
+const PANEL_TABS = ["io", "params", "results", "log"] as const;
+type PanelTab = (typeof PANEL_TABS)[number];
+
+function hydratePanelTab(): PanelTab {
+  if (typeof window === "undefined") return "io";
+  try {
+    const raw = window.localStorage.getItem(PANEL_TAB_KEY)?.trim();
+    return (PANEL_TABS as readonly string[]).includes(raw ?? "") ? (raw as PanelTab) : "io";
+  } catch {
+    return "io"; // private mode / quota — the honest default
+  }
+}
+
+function persistPanelTab(tab: string) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(PANEL_TAB_KEY, tab);
+  } catch {
+    /* private mode / quota — the tab stays in-RAM */
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /* Empty state (transient — the panel is only mounted when a job is     */
 /* selected; this covers the deleted-job window)                        */
 /* ------------------------------------------------------------------ */
@@ -1072,7 +1118,9 @@ function PanelBody({ job }: { job: JobDTO }) {
 
   const [name, setName] = React.useState(job.name);
   const [runPending, setRunPending] = React.useState(false);
-  const [tab, setTab] = React.useState("io");
+  // lazy hydrate (see the Task 162 block above): the panel mounts client-side
+  // only, so the seed can be read at mount without touching the SSR pass
+  const [tab, setTab] = React.useState<PanelTab>(hydratePanelTab);
   // the class the palette asked to open (cleared by ParamsTab/gallery)
   const [focusCls, setFocusCls] = React.useState<number | null>(null);
 
@@ -1081,6 +1129,9 @@ function PanelBody({ job }: { job: JobDTO }) {
   // the job and mounts this panel in the same commit.
   React.useEffect(() => {
     if (pendingClassFocus?.jobId !== job.id) return;
+    // the palette jump is a gesture — it relocates the reading position,
+    // so the echo follows (same reasoning as t159's linkJobTo follow)
+    persistPanelTab("params");
     setTab("params");
     setFocusCls(pendingClassFocus.cls);
     consumeClassFocus();
@@ -1241,7 +1292,11 @@ function PanelBody({ job }: { job: JobDTO }) {
             variant="ghost"
             size="icon"
             className="size-8 shrink-0 text-muted-foreground hover:text-foreground"
-            onClick={() => setTab("log")}
+            onClick={() => {
+              // the log button is a gesture too — echo it
+              persistPanelTab("log");
+              setTab("log");
+            }}
             aria-label={`View engine log for ${job.name}`}
             title="View engine log"
           >
@@ -1324,7 +1379,16 @@ function PanelBody({ job }: { job: JobDTO }) {
       {/* Body tabs: I/O | Params | Results | Log */}
       <Tabs
         value={tab}
-        onValueChange={setTab}
+        onValueChange={(t) => {
+          // Task 162 — the funnel: Radix routes mouse clicks AND keyboard
+          // arrow navigation through this one handler; persist-then-set
+          // keeps storage an echo of what the user just saw. The whitelist
+          // gate mirrors the hydrate gate — Radix only emits rendered
+          // trigger values, and the gate keeps that promise checked.
+          if (!(PANEL_TABS as readonly string[]).includes(t)) return;
+          persistPanelTab(t);
+          setTab(t as PanelTab);
+        }}
         className="flex min-h-0 flex-1 flex-col gap-0"
       >
         <div className="shrink-0 border-b px-2 py-1.5">

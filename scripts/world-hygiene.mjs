@@ -186,6 +186,53 @@ const PATCH = async (job, x, y) => {
   console.log(orphans.length ? `` : `extent: 0 orphans (world bbox coherent)`);
 }
 
+// ---------- audit 1c: EXTENT-FIT (Task 162) — the frame invariant ----------
+// EXTENT and NN recall singletons and pairs; Task 162 met their CHAIN form:
+// four conspiring outliers at x 3880→5940, every NN gap an innocent 300–
+// 1160px, the whole chain bridged to the main world by ONE 1480px link —
+// every existing audit blind, while the boot fit clamped at ZOOM_MIN and
+// the far row (QA Class Select at 5940) slid past the 1600px viewport where
+// every click no-ops (qa59's ten-iteration clicked@1679 loop, world one job
+// lighter than the passing round — the fit is world-composition-sensitive).
+// The invariant that actually matters is the PRODUCT's: the world must
+// frame at zoom >= ZOOM_MIN (canvas.tsx frameBounds clamps there; content
+// beyond spills off-screen). Recall farthest-from-centroid first, re-check
+// each pass — a chain dissolves one link per pass. ZOOM_MIN is read from
+// the product source (t138 doctrine — the product's numbers are the only
+// numbers). Recall lands BELOW the pack across its own x-span, so recall
+// SHRINKS the dominant axis instead of feeding the rightward edge the old
+// destination marched (the old baseX 2680 target is how the edge crept).
+{
+  const CANVAS_W = 1220, CANVAS_H = 800; // xl viewport 1600 − 380 rail / 900 − header+KPI
+  const fitZoom = (list) => {
+    const b = bboxOf(list);
+    return Math.min(CANVAS_W / (b.maxX - b.minX + 96), CANVAS_H / (b.maxY - b.minY + 96), 1);
+  };
+  const zm = Number(
+    readFileSync("/home/z/my-project/src/lib/workflow.ts", "utf8").match(/ZOOM_MIN\s*=\s*([\d.]+)/)?.[1] ?? 0.25
+  );
+  let fitPasses = 0;
+  while (fitZoom(j) < zm && fitPasses < 12) {
+    const cx = j.reduce((s, o) => s + o.x, 0) / j.length;
+    const cy = j.reduce((s, o) => s + o.y, 0) / j.length;
+    let far = null, fd = -1;
+    for (const o of j) {
+      const d = Math.hypot(o.x - cx, o.y - cy);
+      if (d > fd) { fd = d; far = o; }
+    }
+    const restB = bboxOf(j.filter((o) => o !== far));
+    let x = 0, y = 0, found = false;
+    for (let tries = 0; tries < 40 && !found; tries++) {
+      x = restB.minX + 60 + (tries % 6) * 300;
+      y = restB.maxY + 80 + Math.floor(tries / 6) * 150;
+      found = !taken(x, y, new Set([far.id]));
+    }
+    if (found) { await PATCH(far, x, y); fitPasses++; }
+    else { console.log(`extent-fit: SKIPPED ${far.name} — no free slot`); break; }
+  }
+  if (fitPasses > 0) console.log(`extent-fit: recalled ${fitPasses} far cards — world frames again at zoom >= ${zm}`);
+}
+
 // ---------- audit 2: overlap (Task 136, now occupancy-aware) ----------
 const overlapping = new Set();
 for (let i = 0; i < j.length; i++)

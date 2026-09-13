@@ -4641,3 +4641,27 @@ Stage Summary:
 - 「第二层真相藏在第一层修复的灰烬里」：entry 修复后失败链仍挂——暴露出 qa67/qa68 对 mrcs 的第二重依赖。修复的验收不是「我修的东西过了」而是「原始失败场景整链过了」；相邻跑（qa59→qa67→qa68）正是 Task 160 失败的原样复现，比任何单套回归都诚实
 - 「Node 的 ascii 是 7bit 的」：toString("ascii") 掩码高位字节——PNG magic 这类二进制断言必须字节比较。探针断言二进制时别信字符编码
 - 遗留（下轮候选）：favorites 重排触屏长按手势（真机）；digest failed 行内 Retry（toast 双门已在，t146 边界敏感——维持不动判决）；undo 手感参数（真机）；runner wall-time 剖面（qa64 85s 一致带，让位）；世界卫生观察账本（verdict 列观察：本轮 0 抖动 0 环境性失败，纯 pre-existing 病灶一轮清）；EMPIAR 真数据回归（重，让位）；用户真机项
+
+---
+Task ID: 162
+Agent: main (cron window 2026-09-13 07:16:05 +08:00, trace …202609130717)
+Task: 例行七条——开局核对 + QA 判稳 → 选题（会话位置家族第四成员：panel 的阅读位置）→ 实现 + t162 探针（×3）→ **途中两个大案：a11y 层级缺陷（arrow-walk 劫持 tab 导航）+ 世界漂移灾变（链式孤儿击穿 boot-fit）** → 全矩阵 97 套 → 交接闭环。本轮交付「你闭眼时读到面板哪一页，睁眼时原样在那页」——外加把「谁拥有焦点谁拥有方向键」写进了键盘层
+
+Work Log:
+- 【开局核对】worklog 尾部实际为 Task 161（4ae3537 == origin/main，树净）；BUILD_ID B0fKKTEb 匹配（161 纯 scripts 域）；冷启动 2s READY + 世界 28 jobs 健在 + 三件套（qa63/qa00/t161）全绿 → 稳定
+- 【选题】Task 161 交接全真机/让位项 → 侦察：viewport 记忆的 sessionStorage 是 Task 99 深思熟虑的合同（相机是 per-tab 位置，跨 tab 泄漏才是 bug）不动；job-panel.tsx 外层 Tabs useState("io")——面板每次 remount 被扔回 I/O 页。合同审定：非过滤器（切换不藏东西）、非镜头，纯位置——「你在读面板哪一页」，与 selectedId（面板为谁开）/activeWorkspaceId/leftRailTab 同族，三部曲之后自然第四员。job-inspector modal 的 tab 有 status 感知自动跳转（tabTouchedForRef：running/failed→log）——**检查是事件不是位置**，搁置有据
+- 【实现·job-panel.tsx + page.tsx】① PANEL_TAB_KEY + PANEL_TABS 白名单 {io,params,results,log} + hydrate（trim+白名单门，t160 镜像）+ persistPanelTab ② **惰性 useState(hydratePanelTab)**——PanelBody 只在 job 解析后挂载（jobs 走 client effect，SSR HTML 里没有它，「数据未到 UI 未生」的 t156 成语而非 t160 的 boot-effect 成语）③ 受控 Tabs 的 onValueChange **包漏斗 + 白名单门**（Radix 鼠标+键盘同路；persist-then-set）④ 两处手势 echo：palette 深链 setTab("params") 与 log 按钮（t159 linkJobTo 同理——手势迁移阅读位置，回声跟随）
+- 【a11y 大案·arrow-walk 劫持】t162-D1 取证：聚焦 Results trigger 按 ArrowRight——焦点跌落 body、selectedId 被换、面板重挂。破案：**page.tsx 的 Task 103 arrow-walk 只豁免 listbox，不豁免聚焦的 tablist**——全局键盘层劫持了组件焦点语义。修复：arrow 分支加 `target.closest('[role=tablist]')` 让路（与文件内「modal owns the key」教义同源）——**拥有焦点的组件拥有方向键**。修复后 Radix roving focus 完全复活（Log 激活+焦点随行+storage 回声）
+- 【t162 探针·37 断言 ×3 全绿】S 幂等种子（created/reused 计数——不变量而非绝对值）；X 十 oracle（key/白名单/惰性成语/漏斗门+persist-then-set/双手势 echo/Task 162 锚）；B 新世界零写+开面板不是 tab 手势（诚实 io、storage 仍空）；C **CORE：点 Results→回声→reload→面板重开（t157 种子）且阅读位置幸存**；D 键盘 ArrowRight 过同一漏斗+log 按钮手势+跨 job carry（remount 重 hydrate 全局位置）；E 种子诚实三连（nonsense 诚实落 io 且不改写陈种子/""=诚实未知/" results " trim 过门）；G 屏摄；Z 严格 console+roster 收支平衡
+- 【bisect 事故与真相】t102 在矩阵中 React #418（hydration 文本不匹配）→ stash 二分「通过」→ 恢复后「又通过」→ **bundle 取证戳穿：.next 里根本没有 panelTab 代码——bisect 链的 && 在 stash pop 失败处断裂，bisect3 的 build 从未执行，server 一直在跑暂存版旧构建**。真重建（7HWcQNnJ4）后 t102 全绿——#418 定性为**负载竞速抖动**（React 19 hydration 与 store load() 在机器高载下竞速，Task 160 的 qa59/t143 单套抖动同族），非确定性回归。疤痕：bisect 的每一步都要用 bundle 证据验证「测的真是你以为的代码」
+- 【世界漂移灾变】qa59 十连 clicked@1679（视口仅 1600）→ **世界坐标数轮累积漂移至 x=6200**（QA Sel Alpha 5040/Auto-pick 5640/Class Select 5940——历史 relocate 的右缘足迹），fit 触底 ZOOM_MIN=0.25 装不下，远端行溢出视口。**四卡链式互证骗过全部现有审计**（EXTENT 互相在 rest-bbox 内、NN 间隙 300-1160 全 < 1600、链尾经 1480px 桥挂主世界）——Task 140 的两卡互证盲区的链式形态。**修复：world-hygiene 加 EXTENT-FIT 审计**——产品帧不变量（世界必须能被 ZOOM_MIN 装下，ZOOM_MIN 从产品源码提取），距质心最远者逐轮召回直至合框；召回目的地改为 pack 下方横跨其 x 域（**旧目的地 baseX 2680 正是右缘漂移的喂养者**）。召回 3 卡后 bbox 4140×2188、fit 0.29 合框
+- 【回归 + 全矩阵】受影响面十套全绿（t103 arrow-walk 正主/qa58/qa59/qa66/qa80/t155/t160/t157/qa63/qa00）；**全矩阵 97 套（t162 auto-include）10 块 0 失败**——途中 qa59/qa62 两起失败皆世界漂移所致（qa62 的 dim 断言同根因），EXTENT-FIT 落地后同愈；t152 192s 仍最慢；块峰 203MB 零阈值重启；telemetry verdict 97×PASS
+- 【收尾】qa60-seeder 重建 Live（qa62 中段拆除，28 jobs 交付）；探针工程质量补课：must 立即抛出（延迟执行让失败运行的 Z 相删除污染取证现场）、种子 created/reused 不变量、relocate 后 reload 消除 poller 竞速、关键断言带实际值取证；worklog + commit + push + 环境清理
+
+Stage Summary:
+- 「拥有焦点的组件拥有方向键」：全局键盘层与组件焦点语义的层级冲突是 a11y 缺陷——用户聚焦 tab trigger 按方向键，面板内容却跳到别的 job（上下文突变）。豁免清单（input/textarea→listbox→tablist）的每次扩展都源于一次真实取证；t162 的 D1 取证（焦点跌落 body+selectedId 被换）是三层机制的同时显影
+- 「bisect 的每一步都要验证测的是你以为的代码」：stash 链的 && 在 pop 失败处静默断裂，两轮「二分」测的都是旧构建——**bundle grep 是唯一诚实的证人**（.next 里没有 panelTab 代码这一行输出抵得上四次「绿」）。#418 的最终定性（负载竞速抖动）依赖这条教训：没有 bundle 证据的通过不算数
+- 「探针的 must 必须当场死」：延迟 exit 让失败运行继续执行 Z 相删除——取证现场被清理、世界被半途状态污染、下一轮的断言在残骸上误报。立即 throw 不是风格是证据保全；同理：种子计数用 created/reused 不变量、关键断言带实际值、relocate 后 reload 消除 poller 竞速——探针工程的三件护甲
+- 「世界的漂移是链式的，审计必须是帧级的」：EXTENT 防单孤儿、NN 防两卡互证、RESIDUE 防无名堆积——链式漂移（每环间隙无辜、整链搬运世界右缘）骗过全部点态审计。产品自己的不变量（世界必须被 ZOOM_MIN 装下）才是终点判据——审计的终点不是「没有孤儿」而是「世界可帧」。召回目的地与召回本身同样重要：往右缘召回就是喂养右缘
+- 「会话位置第四成员落位」：selectedId（看哪张卡）→ activeWorkspaceId（站哪块画布）→ leftRailTab（用哪个面板）→ panelTab（读哪一页）——「你闭眼时在哪」的完整拼图。信任门的镜像成语（有限集合=白名单本身）与水合成语的选型（SSR 渲染面=boot effect，client-only=惰性初值）均直接复用前作——家族越完整，新成员越便宜
+- 遗留（下轮候选）：note spotlight 的 dim 半径审计（qa62 的 0.15 dim 断言依赖卡邻域，值得一次像 EXTENT-FIT 一样的不变量化）；job-inspector modal 的 tab 是否属于位置家族（tabTouchedForRef 的 status 感知自动跳转是事件语义，本轮搁置有据）；undo 手感参数（真机）；runner wall-time 剖面（让位）；世界卫生观察账本（verdict 列：本轮 2 起真失败皆世界漂移、EXTENT-FIT 后归零）；EMPIAR 真数据回归（重，让位）；用户真机项

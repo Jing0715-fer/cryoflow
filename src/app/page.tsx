@@ -380,6 +380,14 @@ export default function Home() {
         // selection instead of replacing it. Radix Select's listbox is
         // arrow-driven too — an open one owns the keys before we do.
         if (document.querySelector('[role="listbox"]')) return;
+        // so is a FOCUSED TAB STRIP (Task 162): a tab trigger with focus
+        // owns the arrows for Radix roving focus — t162's D1 forensics
+        // caught the walk stealing ArrowRight from the panel's Results
+        // trigger, stepping the canvas selection instead and remounting
+        // the panel under the user's feet. Same layering rule as the
+        // listbox guard above: the component that owns focus owns the key.
+        const tgt = e.target;
+        if (tgt instanceof HTMLElement && tgt.closest('[role="tablist"]')) return;
         e.preventDefault();
         const dir =
           k === "ArrowLeft" ? { x: -1, y: 0 } :

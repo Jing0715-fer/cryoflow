@@ -307,6 +307,7 @@ must(
 console.log("Phase Z — cleanup");
 await p.evaluate(([k1, k2]) => { localStorage.removeItem(k1); localStorage.removeItem(k2); }, [KEY, KEY_V1]);
 await sleep(300);
+if (consoleA.length) console.log("TAB-A ERRORS:", JSON.stringify(consoleA));
 must(consoleA.length === 0, `Z1 tab A console clean (got ${consoleA.length})`);
 must(consoleB.length === 0, `Z2 tab B console clean (got ${consoleB.length})`);
 
