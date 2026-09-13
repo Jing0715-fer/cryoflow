@@ -85,7 +85,18 @@ const ToastClose = React.forwardRef<
   <ToastPrimitives.Close
     ref={ref}
     className={cn(
-      "absolute right-1 top-1 rounded-md p-1 text-foreground/50 opacity-0 transition-opacity hover:text-foreground focus:opacity-100 focus:outline-none focus:ring-1 group-hover:opacity-100 group-[.destructive]:text-red-300 group-[.destructive]:hover:text-red-50 group-[.destructive]:focus:ring-red-400 group-[.destructive]:focus:ring-offset-red-600",
+      // Task 174 — the toast's touch exit. Two grains from the diag:
+      // ① opacity-0 + group-hover kept the close FOREVER INVISIBLE on
+      //    touch (no hover, no focus — pointer-events were live but the
+      //    affordance was a ghost); hover-none: reveals it there, the
+      //    same input-modality contract the rest of the app already
+      //    speaks (sidebar, project rows, gallery tiles).
+      // ② the painted target was 24×24 (p-1 + 16px X) — the ::before
+      //    hit-slop grows the TAPPABLE area to 44×44 without moving a
+      //    painted pixel; the slop rides the toast body's top-right
+      //    corner (text ends well left of it) and the viewport's p-4
+      //    padding band above/right, covering nothing interactive.
+      "absolute right-1 top-1 rounded-md p-1 text-foreground/50 opacity-0 transition-opacity hover:text-foreground focus:opacity-100 focus:outline-none focus:ring-1 group-hover:opacity-100 hover-none:opacity-100 before:absolute before:-inset-2.5 before:content-[''] group-[.destructive]:text-red-300 group-[.destructive]:hover:text-red-50 group-[.destructive]:focus:ring-red-400 group-[.destructive]:focus:ring-offset-red-600",
       className
     )}
     toast-close=""

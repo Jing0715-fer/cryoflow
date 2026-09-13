@@ -4943,3 +4943,26 @@ Stage Summary:
 - 「后台跑矩阵是险情制造机」：误起的 --list 实例、互踩的双发、被 reaper 收割的 chunk-start——前台分块（每块 < 10min 工具上限）每步可见、每块可验；快的不是后台，是可恢复的前台
 - 世界卫生观察账本（verdict 列）：全矩阵 108/108 零失败零抖动（qa75 三连绿）；0 环境性失败；八审全零；灾难恢复后世界正典构成精确复现
 - 遗留（下轮候选）：grabber 的 first-open 一次性动效提示（现静态常驻——若做，须过 prefers-reduced-motion 与「不抢焦点」两关）；320px 以下（280px 折叠屏折内态）未验——320 是当前声称的最小服务面，若产品要下探需新一轮极限验收；swipe 回声的暗色主题对比度实测（当前 rgba 0.16 在暗卡上理论可见，未逐主题拍照）；undo 手感参数（真机）；runner wall-time 剖面（t152 191s 连续最慢证回，让位）；EMPIAR 真数据回归（重，让位）；用户真机项（三级阶梯+长按+swipe+grabber 可真机验收）
+
+---
+## Task 174 (2026-09-14, cron 01:46 窗口 trace …202609140154)
+
+**主题：toast 赢得它的手指（the toast earns its finger，触屏工艺第五轮——四个触屏轮次从未访问过的最高频 surface）。diag 实锤三粒沙并全修：①ToastClose 在触屏上永隐（opacity-0+group-hover，无 hover 无 focus——热区还只有 24×24）；②Radix swipe 状态机活着而 toast 纹丝不动（Tailwind v4 从未生成 translate-x-[var(--radix-toast-swipe-move-x)]，构建 CSS 零条 swipe 规则）；③退场方向死板 right（toast 在 <sm: 从顶边入场，上滑才是归途）。t174 探针 29 断言 ×3 全绿；全矩阵 109 套零失败零抖动（qa75 四连绿）。**
+
+- 【开局】worklog 尾部 = Task 173/47ed3a3（cron Task 13 文本第十九次过时）。HEAD==origin/main 树净、BUILD_ID wdxN_kwG、PORT FREE；冷启动即 200；三件套 qa63/qa00/t173 全绿判稳；agent-browser 巡检 console 零错。favorites 长按/Sheet swipe/grabber/320px 极限验收核实均为 162–173 轮已兑现——交接候选收窄为 Task 173 三条。
+- 【选题侦查】触屏工艺的未访面盘点 → toast（TOAST_LIMIT=1、9 组件 21+ 派发点、Task 151 双桥都在它上面）。diag-toast.mjs（export PNG 路径触发，副作用零）三沙实锤：①close computedOpacity=0@390px、rect 24×24；②data-swipe=move 活、--radix-toast-swipe-move-x 跟随（15→130px）、computed transform=none；③纵向拖 140px data-swipe=null（方向合同死板）；④close 点击后 li 以 closed 态残留（TOAST_REMOVE_DELAY=1_000_000 模板行为，视觉无碍——维持不动）。
+- 【实现·三层】①toast.tsx ToastClose：hover-none:opacity-100（项目输入模态变体，sidebar/project rows/gallery tiles 8+ 处既有惯例）+ before:-inset-2.5 hit-slop（24+20=44，绘制像素零移动；slop 骑 toast 右上角与 viewport p-4 带，不遮任何可交互物）。②globals.css 手写拖拽跟随三态规则（li[data-swipe=move] translate3d 双轴 var + transition:none——Radix 只推进方向所属轴，另一轴恒 0；cancel 复位靠 base transition-all 弹回；end 保持释放偏移让退场从指下起航）——注释把「Tailwind 为何没生成」写进源码。③toaster.tsx useToastSwipeDirection：<640 = "up"（顶部入场从哪来回哪去），≥640 = "right"（角落 toast 的 Radix 默认）——断点取 viewport placement 自己的 sm:640 而非 useIsMobile 的 768：640–767 之间 toast 坐在 bottom-right，必须仍右滑。
+- 【探针三课（第二层真相三连）】①**Radix 1.2.14 的 toast li 没有 data-radix-toast-impl 属性**（只有 data-state/data-swipe/data-swipe-direction）——首版探针的「TOAST NEVER APPEARED」是选择器假阴性；MutationObserver 高频观测揭穿：toast t+1.5s 正常出现、t+6.5s 5s-duration 正常到期。正确选择器 li[data-swipe-direction][data-state=open]。②**模拟触屏模态的真闸是设备描述符**：playwright emulateMedia({features}) 1.62 静默无效（matchMedia 仍 false），CDP setEmulatedMedia 的 features 只认 prefers-* 家族（hover/pointer 不在射程）——iPhone 13 描述符的 isMobile+hasTouch 启用 Chromium 真设备模拟，hover:none/pointer:coarse 翻真且 resize 保持；globals.css 里「headless QA browser also matches」的旧注释对默认 launch 是错的。M 相整个跑在 iPhone-13 context 里。③**export 触发钮在 390 视口外**（zoom 簇 x≈419>390，click 空触发无 busy 无 toast）——触发须宽视口，观测可窄视口：toast viewport 是全局 fixed，placement 随 CSS 断点跟手 resize。
+- 【t174 探针·29 断言 ×3 全绿】S 基线；X9 源码 oracle（hover-none 字面量/hit-slop -inset-2.5/诊断两粒沙注记在场/方向 hook/640 断点+「非 768」/Provider 接线/双轴 var 规则/cancel+end 规则/「为何手写」教义注记）；M11 移动相（M0 模态真值 hover:none=true+coarse=true/iPhone context、M2 常显活体 opacity 1（修复前 0）、M3 可点 44×44 而绘制 24×24、M4 方向 up、M5/M6 拖拽跟随活体 translateY -60→-110px（修复前 none）、M7 超阈退场 Radix 直卸载、M8/M9 短拖（delta×2<50）弹回复位、M10 close 桥、M11 console 合同卫生）；D5 桌面相（hover 惯例保持 opacity 0/方向 right/右滑跟随 +90px+退场/纵向拖被忽略——方向合同的两面各活体一次）；Z 名册恒等。
+- 【回归 + 全矩阵 109 套零失败】受影响面 qa63/qa00/t173/t171 全绿。全矩阵 10 块前台串行（t174 auto-include #95，61s PASS）；**109/109** 零失败零抖动；qa75 位 #16 四连绿（抖动账本第四次观察通过）；块峰 203MB（qa81）远低 1200MB 阈值；t152 191s 仍最慢（一致带）。
+- 【世界收尾】矩阵诚实消耗 Live 行 → qa60-seed-fsc 重建 → **26 jobs（16c/8i/1f/1r 正典构成精确复现）**；卫生八审全零 + domain-sweep 0/0/0；agent-browser 巡检 console 零错；playwright 定妆照一张（iPhone 390 视口 toast mid-drag：跟随 55px、画布从指下露出）。
+- 【收尾】worklog + commit + push + 环境清理（杀 server 先 ss 查真实 PID、agent-browser close --all、diag 脚本归档 scripts/ 留档）。
+
+Stage Summary:
+- 「没出事的日子不等于看过的面」：四轮触屏工艺（t171 Sheet 验收、t172 普查+t.hit-slop、t173 极限视口+grabber、favorites 长按）从未看过 toast——它带着全 app 最高的信息密度（任务完成/失败/undo 桥）和一个永隐的退场钮活到现在。采样完备性由「数过的面」决定；「稳定」只是「还没看」的另一种写法
+- 「Tailwind 的生成失败是静默的——类名在场≠规则存在」：data-[swipe=move]:translate-x-[var(--radix-…)] 三态类写得整整齐齐，构建 CSS 里零条 swipe 规则（var 包 -- 的 arbitrary 值不 emit、不报错）。t172「钉解析像素」教义在 CSS 生成层的变奏：合同的单位是 stylesheet 里真实存在的规则，不是源码里写过的类名。手写规则 + 注释 + 探针的 X oracle（globals 字面量）与 M6 活体（translateY 实测）三重钉住
+- 「输入模态的模拟要找到能翻转 media 的总闸」：emulateMedia({features}) 无声失败、CDP 只认 prefers-*——hover/pointer 的真闸是设备描述符的 isMobile+hasTouch（Chromium 设备模拟），viewport 数值不构成触屏。探针里「模拟手机」= media 语义的手机；否则 hover-none: 变体这类按模态编程的 CSS 永远验不到
+- 「手势方向跟着入场方向走，参数从布局常量推导」：placement 用 sm:640，手势方向就必须用 640——抄 useIsMobile 的 768 会把 640–767 一整段设备的手势指错方向。手势合同的参数不是通用常量，是它所服务布局的常量
+- 「Radix 的 built-in 是状态机不是视觉」：swipe 状态机、move 变量、dismiss 合同全是 Radix 的，唯独视觉跟随断在 Tailwind 生成层——诊断把「链上谁的部分坏了」拆到层，差点自己写 SwipeToastContent 重造 Radix 已有的全部
+- 世界卫生观察账本（verdict 列）：全矩阵 109/109 零失败零抖动（qa75 四连绿）；0 环境性失败；八审全零；正典构成灾难后第二次精确复现
+- 遗留（下轮候选）：toast destructive variant 的触屏常显对比度（红底上红 X 的可见性——本轮只验了 default variant 的常显）；grabber 的 first-open 一次性动效（Task 173 候选①，须过 prefers-reduced-motion 与「不抢焦点」两关）；swipe 回声的暗色主题对比度实测（Task 173 候选③）；undo 手感参数（真机）；runner wall-time 剖面（t152 191s 一致带，让位）；EMPIAR 真数据回归（重，让位）；用户真机项（三级阶梯+长按+swipe+grabber+本轮 toast 手势可真机验收）

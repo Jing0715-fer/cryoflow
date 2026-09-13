@@ -1270,3 +1270,27 @@
 [data-panel-sheet] select {
   min-height: 2.5rem;
 }
+
+/* Task 174 — the toast's drag-follow, hand-written because Tailwind v4
+   never emitted the translate-x-[var(--radix-toast-swipe-move-x)]
+   candidates from ui/toast.tsx (arbitrary values wrapping a var with a
+   leading -- fail to generate — diag-csscheck2 found ZERO rules whose
+   selector mentions swipe): Radix's swipe state machine ran, the move
+   variable tracked the finger, and the toast stood perfectly still.
+   These rules ARE the follow layer. Radix advances only the axis the
+   Provider's swipeDirection names (x for right, y for up); the other
+   variable stays 0. move: track the finger with no transition (the
+   pointer is the clock); cancel: the base transition-all springs it
+   home; end: hold the release offset so the exit starts from under the
+   finger. Scoped to li[data-swipe] — an attribute only Radix's toast
+   ever paints. */
+li[data-swipe="move"] {
+  transform: translate3d(var(--radix-toast-swipe-move-x, 0px), var(--radix-toast-swipe-move-y, 0px), 0);
+  transition: none;
+}
+li[data-swipe="cancel"] {
+  transform: translate3d(0, 0, 0);
+}
+li[data-swipe="end"] {
+  transform: translate3d(var(--radix-toast-swipe-end-x, 0px), var(--radix-toast-swipe-end-y, 0px), 0);
+}
