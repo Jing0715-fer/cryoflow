@@ -526,9 +526,14 @@ interface WorkflowState {
    *  able and keeps localStorage free of yet another key. */
   minimapOpen: boolean;
   setMinimapOpen: (open: boolean) => void;
-  /** Note spotlight (Task 75) — when true, canvas cards WITHOUT a human
-   *  judgment dim toward the background so the scientist's annotations
-   *  (job notes, Task 73; class notes, Task 80/83) jump out at a glance.
+  /** Note spotlight (Task 75; three-tier stage since Task 164) — when
+   *  true, canvas cards WITHOUT a human judgment recede so the
+   *  scientist's annotations (job notes, Task 73; class notes,
+   *  Task 80/83) jump out at a glance. The recession is tiered: cards
+   *  ONE edge away from a judged card hold a lighter context tier (the
+   *  pipeline that fed — or was fed by — the judged work stays
+   *  readable), everything beyond that 1-hop radius takes the deep
+   *  dim; wires touching a judged card keep full ink (edges-layer).
    *  "Judgment" = hasJudgment in lib/class-notes.ts — the same predicate
    *  the header chip count and the dashboard Noted filter read. In-memory
    *  only, like the selection: the spotlight is
@@ -879,6 +884,7 @@ function jobEquals(a: JobDTO, b: JobDTO): boolean {
     a.duration === b.duration &&
     a.startedAt === b.startedAt &&
     a.updatedAt === b.updatedAt &&
+    a.note === b.note && // Task 164: judged-ness flows from this field — the header count, the lens tiers and the dashboard chip all read it; a poll that swallowed a note change would freeze all three (updatedAt happens to bump on every PATCH today, but the equality predicate must not DEPEND on that courtesy)
     a.engine === b.engine &&
     a.hasLog === b.hasLog &&
     (a.workspaceId ?? null) === (b.workspaceId ?? null) &&

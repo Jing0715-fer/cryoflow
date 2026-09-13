@@ -4690,3 +4690,30 @@ Stage Summary:
 - 「沙箱禁令整行预扫描」：含禁令符号（ln -s 等）的复合命令整体不执行——同行的 kill 也殉葬；致命操作（杀进程）永远独立成行。脚本文件不受拦。
 - 探针工程第四甲：世界 28 job 都是「未知 id」——added-job 识别 diff tap 前名册集，不 diff 种子集；合成事件分发器对 window 目标要走专道。
 - 遗留（下轮候选）：note spotlight 的 dim 半径审计（延续候选）；job-inspector modal tab 的位置家族定性（搁置有据）；undo 手感参数（真机）；runner wall-time 剖面（让位）；世界卫生观察账本（本轮 verdict：3 起失败=1 病灶+2 抖动，全部重跑治愈，世界漂移病灶 0）；EMPIAR 真数据回归（重，让位）；用户真机项（favorites 长按已可真机验收：450ms 提升+光晕充能）。
+
+---
+## Task 164 (2026-09-13, cron 11:46 窗口 trace …202609131146) — 进行中
+
+**主题：note spotlight 上下文半径（交接候选①兑现）——把 Task 163 遗留的「dim 半径」从审计词变成真产品概念：三级 spotlight（judged → context 1-hop → peripheral）+ 边线故事法则。**
+
+- 【开局】worklog 尾部 = Task 163/29e4b17（摘要第九次过时）。HEAD==origin/main 树净、BUILD_ID vdkW、PORT FREE。**本时段收割器在工具调用间隙无声带走 setsid server**（Task 163 已知模式再现）——watchdog（nohup detached）+ start-prod.sh 稳定组合照旧；世界 28 jobs；三件套（qa63/qa00/t163）全绿判稳。
+- 【候选侦查】①「note spotlight 的 dim 半径审计」经源码核实：qa62 的 0.15 是 compare dialog 行级 hover-dim，其指针敏感性已被 Task 163 指针泊车实质修复；spotlight dim 本体是二值 flood（0.28+grayscale 0.75），无半径概念可审计化——候选按原样不成立。② 三表面一致性（header 计数/dashboard chip/canvas lens）已由 hasJudgment 单谓词+t86/qa82/qa83 覆盖，无需重建。**转性为功能实现**：把「半径」做成真的。
+- 【QA 侦察的收获·真缺陷】**edges 层在 lens 下完全盲**：edges-layer 的 dim 只响应 selection（`dimmed = selectedId != null && !touchesSelected`），spotlight 开启时 24 张暗卡之间满亮度边线穿行——响亮的线穿过变暗的世界。这个缺口恰好是「半径」一词的正确用武之地：光应该从被评卡辐射出去。
+- 【实现·四点】①globals.css：`.note-spotlight-context`（opacity 0.62/grayscale 0.35，介于满墨与深暗之间）+ print 块双 class 豁免 + 注释块重写为三级舞台文档；②canvas.tsx：judgedIds（hasJudgment 全量）+ contextIds（lens 开时全边扫描、双向邻接、**半径严格 1-hop**——2-hop 卡吃深暗）；③job-card.tsx：spotlightContext prop + data-spotlight-context 探针 attr + class 门控在 !dimmed（deep 永远赢合成）；④edges-layer.tsx：judgedIds prop + 故事法则（触被评卡满墨=「it IS the story」，其余随卡退场 0.32）与 selection dim 取并集；store 合同注释同步。
+- 【途中加固·jobEquals 补 note 字段】探针首败追出：pollTick 的 jobEquals 不比较 note——今天靠 PATCH 必 bump updatedAt 兜底，但等值谓词漏字段是雷（未来原地写 note 的 writer 会让 header 计数/lens/dashboard chip 三表面同时冻结）。补 `a.note === b.note` + 注释。
+- 【t164 探针·36 断言 ×3 全绿】S 活图计算期望层级（mid-graph 种子：入度+出度≥2、含可见 2-hop 节点做半径 oracle；跨界边两端点必须可见否则污染邻居集）；X 11 源码 oracle；B lens OFF 基线（零 attr/零 class/边全 1）；C CORE：精确分区（2 context + 24 deep + 1 judged = 27 全覆盖互斥）+ 期望集恰等图 1-hop + **RADIUS oracle（2-hop 吃深暗绝不 context）** + 故事线（触判卡 2 条 opacity 1、其余 0.32）+ header 计数仍 judged-only 且 1 noted 时 chip 解禁；D find 合成（真合同：搜索不豁免判词——match 保持深暗+amber ring，miss 全部折入深暗含 context 卡，Esc 恢复层级）；E lens OFF 全退场；F print 媒体仿真双 class 满墨+transition none；Z finally 清理（note 移除/roster 28/严格 console 零错）。
+- 【探针工程四课】①try 内 `let J` 遮蔽模块级 hoist 会让 finally 清理空转（note 残留污染 qa82/83 基线）——hoist 后 try 内不得重声明；②非 must 异常（fetch/eval/ReferenceError）必须落 `failed` 否则 verdict 伪装 ALL PASS（uncaught 在 finally 判定后才爆）；③page.evaluate 不序列化 Set（跨界变 {}，.has 当场炸）；④poll 驱动的表面（header 计数 1.2s/6s 节拍）读 eventually——固定 sleep 撞相位，poll-until-deadline 才诚实；⑤`new Map(edgeObjects)` 非 entry 直接 TypeError——建 Map 必须显式 `.map(e => [e.id, e])`。
+- 【视觉核验】真机（agent-browser）25% 全景三层深度可分辨：judged 满墨+琥珀 note 条纹、context 中间层、peripheral 深暗、2 条故事线辐射——「光从被评卡辐射」读得出。
+- 【世界注意】QA Refine Live 于本轮中途 running→failed（世界自身生命周期/reconcile 诚实失败，与实现无关）——矩阵后 qa60-seeder 重建交付。
+- 【qa75 合同升级·第二层真相】矩阵块2首跑 qa75 四断言连挂（A5/A6/B7/C1）——**探针合同「所有未评卡一律 0.28」被三级舞台合法取代**。升级而非回滚：dim-target 的期望变拓扑相关（/api/edges 活图计算 1-hop→context 0.62，否则 deep 0.28），styleOf 补 ctx 字段，waitForFunction 参数化 wantOpacity，C1 按 wantCtx 选 class。升级后 ALL PASS。**同族排查**：t134/t135/t140 的 dim 断言全部源自 find 子句（spotlight 不开启、context class 不出现）、qa83 C4 的 ≥1 深暗在 2 判卡拓扑下恒真——qa75 是唯一受影响者，逐一取证后放行。
+- 【回归 + 全矩阵 99 套 0 失败】受影响面：qa82/qa83/t86（note 家族）+ qa66 print 腿 + qa63/qa00 + t163/t162 全绿。全矩阵 10 块（块2 重跑消化 qa75 升级），t164 auto-include #85（191MB/8s/PASS）；t152 191s 仍最慢；块峰 207MB 零阈值重启；telemetry verdict 全 PASS。
+- 【世界收尾】QA Refine Live 于矩阵中段被拆（qa60-seeder 重建，新 id running 42%）；**qa61 Host 双胞胎泄漏**（两行同名 completed——qa61 按 id 自清理，两具皆历史泄漏，residue 审计盲区：fixture 名不匹配 `^label \d+$` 自动名模式）——删旧留新复位 28（17c/9i/1f/1r 与开轮构成完全一致）；卫生审计 0/0/0。
+- 【收尾】worklog + commit + push + 环境清理（杀 server 先 ss 查 PID、agent-browser close --all、watchdog 已停）。
+
+Stage Summary:
+- 「光应该从被评卡辐射出去」：旧 lens 保住了被评的岛却抹掉了岛在管线里的位置——满亮度的边线穿过变暗的世界，响亮得刺耳。三级舞台（judged 满墨 / context 0.62 / peripheral 0.28）+ 边线故事法则（触判卡满墨，其余随卡退场）让层级边界自己画出被评子图的轮廓；半径严格 1-hop，2-hop 吃深暗——t164 的 RADIUS oracle 把「半径」二字钉成源码级不变量。候选侦查的教训：交接词「dim 半径审计」经核实无半径可审计化（qa62 的 0.15 是另一-feature 且已被指针泊车修复），正确的动作是把比喻变成产品概念
+- 「等值谓词漏字段是未来的雷」：jobEquals 不比较 note——今天靠 PATCH 必 bump updatedAt 兜底，但这份安全是别人给的礼貌不是自己的合同；一个未来原地写 note 的 writer 会让 header 计数/lens 层级/dashboard chip 三表面同时冻结。一行 `a.note === b.note` 买断整族风险
+- 「探针合同跟产品演化走」：qa75 的二值 dim 期望不是 bug 是历史——三级舞台落地后它的合同过时了。升级探针（拓扑相关期望）而非回滚产品，与 Task 161 的条件 pop 同一哲学：审计的判据是现实
+- 「finally 里的铁律」：hoist 的清理句柄不得被 try 内重声明遮蔽（J 遮蔽=note 残留=毒化 qa82/83 基线）；非 must 异常必须落 failed（否则 verdict 伪装 ALL PASS）；page.evaluate 不序列化 Set；poll 驱动的表面读 eventually 不读固定 sleep——四课全部来自本轮实战
+- 「世界卫生的新盲区形状」：qa61 Host 双胞胎——fixture 命名（"qa61 Host"）不在 residue 的 `^label \d+$` 自动名模式内，双泄漏静默存活。世界复位 28 与开轮构成完全一致交付
+- 遗留（下轮候选）：residue 审计的 fixture 名盲区（建白名单或按「非活性 fixture 名册」审计——qa61 Host 族）；compare dialog hover-dim 与 spotlight 的视觉语法统一评估（两处 dim 同为退场语义但参数不同 0.15 vs 0.28）；undo 手感参数（真机）；runner wall-time 剖面（让位）；世界卫生观察账本（本轮 verdict：qa75 为合同升级非回归、qa61 Host 为世界残留非代码缺陷、0 抖动）；EMPIAR 真数据回归（重，让位）；用户真机项（favorites 长按 + spotlight 三级层均可真机验收）

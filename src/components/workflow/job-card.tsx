@@ -534,8 +534,19 @@ interface JobCardProps {
    *  canvas turns this on for cards WITHOUT a human judgment (job note OR
    *  class notes, via hasJudgment) while the lens is active; the card
    *  recedes (opacity + desaturation) so annotated cards pop. Print
-   *  ignores it entirely. */
+   *  ignores it entirely.
+   *  Task 164 — the lens is a three-tier stage: a card ONE edge away
+   *  from a judged card gets the CONTEXT tier (a lighter recession) so
+   *  the pipeline that fed — or was fed by — the judged work stays
+   *  readable; only cards beyond that 1-hop radius carry the deep dim.
+   *  The two props never co-occur: the canvas computes the tier and a
+   *  deep-dim (find lens non-match, peripheral) always wins, so the
+   *  card just renders whichever class it is told. */
   dimmed?: boolean;
+  /** The card sits in the spotlight's context radius (1 hop from a
+   *  judged card, itself unjudged, not deep-dimmed by the other lens).
+   *  Renders the lighter .note-spotlight-context recession. */
+  spotlightContext?: boolean;
   /** This card is part of the current selection (multi-select aware). */
   selected: boolean;
   /** The PRIMARY selection — full-strength ring; the edit panel + F focus
@@ -823,6 +834,7 @@ function JobCardPreview({
 export const JobCard = React.memo(function JobCard({
   job,
   dimmed,
+  spotlightContext,
   selected,
   primary,
   bandMatch,
@@ -1308,7 +1320,12 @@ export const JobCard = React.memo(function JobCard({
       <div
         data-job={job.id}
         data-find-match={findMatch ? "true" : undefined}
-        className={cn("absolute", dimmed && "note-spotlight-dim")}
+        data-spotlight-context={spotlightContext && !dimmed ? "true" : undefined}
+        className={cn(
+          "absolute",
+          dimmed && "note-spotlight-dim",
+          !dimmed && spotlightContext && "note-spotlight-context"
+        )}
         style={{
           left: job.x,
           top: job.y,

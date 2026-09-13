@@ -1323,6 +1323,30 @@ export function WorkflowCanvas() {
   // the lens claims to spotlight "noted" work.
   const noteSpotlight = useWorkflowStore((s) => s.noteSpotlight);
   const allEdges = useWorkflowStore((s) => s.edges);
+  // Task 164 — the context radius. The lens used to be a binary flood:
+  // every unjudged card sank to the same deep dim, which kept the judged
+  // islands but erased WHERE they sit in the pipeline. Now the unjudged
+  // cards ONE edge away from a judged card (either direction — the work
+  // that fed it AND the work it fed) hold an intermediate tier, and only
+  // the remainder carries the deep dim; the tier boundary itself draws
+  // the judged subgraph's outline. computed over ALL edges + ALL jobs
+  // (not the workspace slice) so judgment flows through the whole
+  // pipeline graph; the canvas only renders this workspace's cards.
+  const judgedIds = React.useMemo(
+    () => new Set(allJobs.filter((j) => hasJudgment(j)).map((j) => j.id)),
+    [allJobs]
+  );
+  const contextIds = React.useMemo(() => {
+    const ctx = new Set<string>();
+    if (!noteSpotlight) return ctx;
+    for (const e of allEdges) {
+      const fromJ = judgedIds.has(e.fromJobId);
+      const toJ = judgedIds.has(e.toJobId);
+      if (fromJ && !toJ) ctx.add(e.toJobId);
+      if (toJ && !fromJ) ctx.add(e.fromJobId);
+    }
+    return ctx;
+  }, [noteSpotlight, allEdges, judgedIds]);
   const completedIds = React.useMemo(
     () => new Set(allJobs.filter((j) => j.status === "completed").map((j) => j.id)),
     [allJobs]
@@ -1878,16 +1902,17 @@ export function WorkflowCanvas() {
             // properties inherit downward to this div's print rules)
           }}
         >
-          <EdgesLayer edges={edges} jobs={jobs} />
+          <EdgesLayer edges={edges} jobs={jobs} judgedIds={noteSpotlight ? judgedIds : null} />
           <LiveWire rootRef={rootRef} jobs={jobs} />
           {jobs.map((job) => (
             <JobCard
               key={job.id}
               job={job}
               dimmed={
-                (noteSpotlight && !hasJudgment(job)) ||
+                (noteSpotlight && !hasJudgment(job) && !contextIds.has(job.id)) ||
                 (findLens && !findMatchIds!.has(job.id))
               }
+              spotlightContext={noteSpotlight && !hasJudgment(job) && contextIds.has(job.id)}
               findMatch={findLens && findMatchIds!.has(job.id)}
               selected={selectedIds.includes(job.id)}
               primary={selectedId === job.id}

@@ -48,6 +48,21 @@ await api(`/api/jobs/${notedA.id}`, { note: "" });
 await api(`/api/jobs/${notedB.id}`, { note: "" });
 await api(`/api/jobs/${notedA.id}`, { note: "GOLDENMARKER1 picked for refine3d" });
 await api(`/api/jobs/${notedB.id}`, { note: "ABINITIOMARKER2 redo budget spent" });
+
+// Task 164 — the dim target's honest expectation is TOPOLOGY-dependent:
+// one edge away from a judged card holds the CONTEXT tier (0.62), only
+// cards beyond the 1-hop radius take the deep dim (0.28). Compute the
+// tier from the live graph instead of asserting the old binary flood.
+const edges164 = (await api("/api/edges")).json.edges ?? [];
+const judged164 = new Set([notedA.id, notedB.id]);
+const adjacent164 = edges164.some(
+  (e) =>
+    (judged164.has(e.fromJobId) && e.toJobId === dimTarget.id) ||
+    (judged164.has(e.toJobId) && e.fromJobId === dimTarget.id),
+);
+const wantOpacity = adjacent164 ? "0.62" : "0.28";
+const wantCtx = adjacent164;
+console.log(`dimTarget tier: ${adjacent164 ? "context 0.62" : "deep 0.28"} (1-hop from judged: ${adjacent164})`);
 // The print phase (C4) asserts the dim target's NAME on paper. Two
 // problems with the world-given name: it can wrap inside the card and
 // pdftotext scatters the wrapped tokens across neighboring columns, and
@@ -75,7 +90,13 @@ const styleOf = async (sel) =>
     const el = document.querySelector(s);
     if (!el) return null;
     const cs = getComputedStyle(el);
-    return { opacity: cs.opacity, dim: el.classList.contains("note-spotlight-dim") };
+    return {
+      opacity: cs.opacity,
+      dim: el.classList.contains("note-spotlight-dim"),
+      // Task 164 — the lens is a three-tier stage: 1-hop from a judged
+      // card holds the lighter CONTEXT tier, not the deep dim
+      ctx: el.classList.contains("note-spotlight-context"),
+    };
   }, sel);
 
 await p.goto(BASE, { waitUntil: "networkidle" });
@@ -98,18 +119,20 @@ console.log("Phase A — lens mechanics");
   // sample-by-polling beats sampling-by-sleep (0.29187 ≠ 0.28 taught us)
   await p
     .waitForFunction(
-      (sel) => {
+      (sel, want) => {
         const el = document.querySelector(sel);
-        return el && getComputedStyle(el).opacity === "0.28";
+        return el && getComputedStyle(el).opacity === want;
       },
       jobSel(dimTarget.id),
+      wantOpacity,
       { timeout: 3000 },
     )
     .catch(() => {});
   const dim = await styleOf(jobSel(dimTarget.id));
   const lit = await styleOf(jobSel(notedA.id));
-  must(dim?.dim === true, "A5 dim-target carries the spotlight class");
-  must(dim?.opacity === "0.28", `A6 dim-target opacity 0.28 (got ${dim?.opacity})`);
+  must(wantCtx ? dim?.ctx === true : dim?.dim === true,
+    `A5 dim-target carries its topology-correct spotlight class (${wantCtx ? "context" : "deep"})`);
+  must(dim?.opacity === wantOpacity, `A6 dim-target opacity ${wantOpacity} (got ${dim?.opacity})`);
   must(lit?.dim === false && lit?.opacity === "1", "A7 noted card stays at full strength");
 
   // N key toggles the lens both ways (canvas focus, no input involved)
@@ -169,7 +192,7 @@ console.log("Phase B — palette: Notes group + text search + jump");
   await sleep(500);
   must(await p.locator('[role="dialog"]').count() === 0, "B5 palette closes after selection");
   must((await p.locator(CHIP).getAttribute("aria-pressed")) === "true", "B6 palette item turned the lens on");
-  must((await styleOf(jobSel(dimTarget.id))).opacity === "0.28", "B7 canvas dimmed again via palette path");
+  must((await styleOf(jobSel(dimTarget.id))).opacity === wantOpacity, "B7 canvas dimmed again via palette path");
 
   // Enter on a noted row jumps: completed job → results inspector
   await p.keyboard.press("Control+k");
@@ -228,7 +251,8 @@ console.log("Phase C — print: the lens never dims the paper");
   await sleep(200);
   const dimPrint = await styleOf(jobSel(dimTarget.id));
   const litPrint = await styleOf(jobSel(notedA.id));
-  must(dimPrint?.dim === true, "C1 class persists in print tree (override, not class removal)");
+  must(wantCtx ? dimPrint?.ctx === true : dimPrint?.dim === true,
+    "C1 class persists in print tree (override, not class removal)");
   must(dimPrint?.opacity === "1", `C2 dimmed card prints at opacity 1 (got ${dimPrint?.opacity})`);
   must(litPrint?.opacity === "1", "C3 noted card prints at opacity 1");
 

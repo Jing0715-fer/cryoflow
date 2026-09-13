@@ -475,11 +475,26 @@
 }
 
 /* ============================================================
-   Note spotlight (Task 75) — "which jobs carry a human judgment?"
-   When the spotlight lens is ON, cards WITHOUT a note sink toward
-   the background (opacity + desaturation, same visual grammar as
-   the selection-dimming in edges-layer) while noted cards stay at
-   full strength. The dim lives on the positioned root ([data-job])
+   Note spotlight (Task 75; context radius added in Task 164) —
+   "which jobs carry a human judgment?" The lens is a THREE-TIER
+   stage, not a binary flood:
+
+     judged      full ink   — cards with a note / class notes
+     context     0.62/0.35  — cards ONE edge away from a judged card
+                            (the pipeline that fed, or was fed by,
+                            the judged work — present but receded)
+     peripheral  0.28/0.75  — everything else sinks toward the
+                            background (same visual grammar as the
+                            selection-dimming in edges-layer)
+
+   Without the context tier the lens kept the judged islands but
+   erased WHERE they sit in the pipeline — a lit card with no lit
+   neighbors reads as context-free. One hop is the whole radius:
+   a card two edges out carries the DEEP dim, so the tier boundary
+   itself draws the judged subgraph's outline. Edges follow the
+   same law in edges-layer: a wire touching a judged card stays at
+   full ink (it IS the story), wires between receding cards recede
+   with them. The dim lives on the positioned root ([data-job])
    so the whole card — body, badge, ports — recedes as one unit.
    The paper is exempt: an archival printout must render every job
    at full ink regardless of the lens (print block below).
@@ -487,6 +502,14 @@
 .note-spotlight-dim {
   opacity: 0.28;
   filter: grayscale(0.75);
+  transition:
+    opacity 200ms ease,
+    filter 200ms ease;
+}
+
+.note-spotlight-context {
+  opacity: 0.62;
+  filter: grayscale(0.35);
   transition:
     opacity 200ms ease,
     filter 200ms ease;
@@ -590,7 +613,8 @@
      load-bearing: media emulation re-targets opacity (0.28 → 1) and the
      screen transition would otherwise animate the print tree, landing
      mid-flight values in PDF renders. Paper snaps; only screens glide. */
-  .note-spotlight-dim {
+  .note-spotlight-dim,
+  .note-spotlight-context {
     opacity: 1 !important;
     filter: none !important;
     transition: none !important;

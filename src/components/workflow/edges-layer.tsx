@@ -70,9 +70,19 @@ function contentBox(jobs: JobDTO[]) {
 export const EdgesLayer = React.memo(function EdgesLayer({
   edges,
   jobs,
+  judgedIds,
 }: {
   edges: EdgeDTO[];
   jobs: JobDTO[];
+  /** Task 164 — the note spotlight's story law, for wires. While the
+   *  lens is ON the canvas passes the judged-id set (null when OFF):
+   *  a wire TOUCHING a judged card stays at full ink — it IS the story
+   *  of the judged work, the same reason its other endpoint holds the
+   *  context tier — while wires between receding cards recede with
+   *  them (the exact grammar the selection dim already uses). Without
+   *  this the lens dimmed 24 cards and left every wire between them
+   *  at full strength — loud threads through a darkened world. */
+  judgedIds?: Set<string> | null;
 }) {
   const [hoveredId, setHoveredId] = React.useState<string | null>(null);
   const removeEdge = useWorkflowStore((s) => s.removeEdge);
@@ -149,8 +159,13 @@ export const EdgesLayer = React.memo(function EdgesLayer({
           selectedId != null && (from.id === selectedId || to.id === selectedId);
         const hovered = hoveredId === edge.id;
         // when a card is selected, unrelated wires recede — the eye follows
-        // the selected job's data flow
-        const dimmed = selectedId != null && !touchesSelected;
+        // the selected job's data flow. Task 164: the note spotlight asks
+        // the same of every wire that does not touch a JUDGED card —
+        // full ink is reserved for the story radiating from the judged
+        // work; the union means selection and lens dim independently.
+        const touchesJudged = judgedIds != null && (judgedIds.has(from.id) || judgedIds.has(to.id));
+        const dimmed =
+          (selectedId != null && !touchesSelected) || (judgedIds != null && !touchesJudged);
 
         const gradId = running || primed ? `url(#edge-grad-${edge.id})` : null;
         const stroke = running
