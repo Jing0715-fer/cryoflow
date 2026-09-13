@@ -24,6 +24,16 @@ type SheetContentProps = React.ComponentProps<typeof SheetContent>
  * keyframes animate from the element's CURRENT computed style
  * (implicit-from), so the sheet flies out from under the finger with
  * no teleport. Otherwise it springs back in 220ms.
+ *
+ * Task 173 — the invitation and the echo. A gesture nobody can see is
+ * a gesture nobody finds: a static grabber (top-center pill, seated in
+ * the header's own padding band — zero layout, zero hit-area change)
+ * says "this surface moves", and a left-edge shade whose opacity rides
+ * the SAME dragged distance (--swipe-progress, written straight to the
+ * node beside the transform) is the finger's live echo. Both spans are
+ * decorative (aria-hidden, pointer-events-none) — they invite, they
+ * never intercept. On spring-back the shade fades out over the same
+ * 220ms the sheet takes to return, so nothing snaps.
  */
 export function SwipeSheetContent({
   onDismiss,
@@ -80,6 +90,9 @@ export function SwipeSheetContent({
     const w = el.getBoundingClientRect().width || 390
     const capped = Math.min(Math.max(dx, 0), w * 0.92)
     el.style.transform = `translateX(${capped}px)`
+    // the echo: drag distance → shade opacity, one CSS var write beside
+    // the transform write (same ref, still zero re-renders)
+    el.style.setProperty("--swipe-progress", String(Math.min(capped / w, 1)))
     const dt = e.timeStamp - g.lastT
     if (dt > 0) g.v = (e.clientX - g.lastX) / dt
     g.lastX = e.clientX
@@ -101,6 +114,18 @@ export function SwipeSheetContent({
     } else {
       el.style.transition = "transform 220ms cubic-bezier(0.32, 0.72, 0, 1)"
       el.style.transform = ""
+      // fade the echo over the same 220ms the sheet takes to return.
+      // Drive the ROOT VAR only — wiping the cue's own inline opacity
+      // would erase the React-installed var() expression with it and
+      // strand the shade at computed 1 (caught live by t173's M10b).
+      const cue = el.querySelector<HTMLElement>("[data-swipe-edge-cue]")
+      if (cue) {
+        cue.style.transition = "opacity 220ms cubic-bezier(0.32, 0.72, 0, 1)"
+        el.style.setProperty("--swipe-progress", "0")
+        window.setTimeout(() => {
+          cue.style.transition = ""
+        }, 240)
+      }
       window.setTimeout(() => {
         el.style.transition = ""
       }, 240)
@@ -119,6 +144,26 @@ export function SwipeSheetContent({
       onPointerCancel={endGesture}
       {...props}
     >
+      {/* Task 173 — the invitation: seated in the header's p-4 padding
+          band (6–10px; the name input starts at 16px), it overlaps no
+          interactive control and intercepts no pointer. */}
+      <span
+        aria-hidden="true"
+        data-swipe-grabber=""
+        className="pointer-events-none absolute left-1/2 top-1.5 z-10 h-1 w-9 -translate-x-1/2 rounded-full bg-foreground/25"
+      />
+      {/* the echo: opacity is driven by --swipe-progress on the root —
+          the shade enters from the LEFT edge (the direction the drag
+          comes from as the sheet travels right). */}
+      <span
+        aria-hidden="true"
+        data-swipe-edge-cue=""
+        className="pointer-events-none absolute inset-y-0 left-0 z-[5] w-6"
+        style={{
+          opacity: "var(--swipe-progress, 0)",
+          background: "linear-gradient(to right, rgba(0,0,0,0.16), transparent)",
+        }}
+      />
       {children}
     </SheetContent>
   )

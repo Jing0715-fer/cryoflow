@@ -4915,3 +4915,31 @@ Stage Summary:
 - 「作用域是 DOM 属性，断言要两头钉」：[data-panel-sheet] 舒适块在 Sheet 里生效（M6/M7 ≥40）还不够——桌面 D2 钉住 36<40 才算 scope 成立。一个作用域合同的正反两面各活体断言一次，中间的 CSS 才可信任
 - 世界卫生观察账本（verdict 列）：全矩阵 107/107 零失败零抖动（qa75 二连绿）；0 环境性失败；八审全零
 - 遗留（下轮候选）：swipe 手势的视觉 affordance（拖拽跟随已活，边缘阴影/把手指示未做——可做可不做）；Params tab 全控件密度在 320px 视口（iPhone SE 级）的极限验收；qa75 抖动账本（二连绿，继续低位观察）；undo 手感参数（真机）；runner wall-time 剖面（本轮 t97 20s 最慢——t152 疑似提速，需复核，让位）；EMPIAR 真数据回归（重，让位）；用户真机项（三级阶梯+长按+本轮 swipe 可真机验收）
+
+---
+## Task 173 (2026-09-14, cron 00:16 窗口 trace …202609140022)
+
+**主题：触屏工艺第三轮（the extreme viewport + the finger's invitation，Task 172 交接①②合流）——320×568（iPhone SE 级）极限验收照出 t172 自己的一粒沙（Expert 触发器解析热区 41<44，−inset-y-2.5 修复=45），swipe 手势长出视觉请柬（grabber 把手 + 拖拽跟随边缘回声，--swipe-progress 与 transform 同路直写）。t173 探针 39 断言 ×3 全绿；全矩阵 108/108 零失败（qa75 三连绿）。本轮含一次沙盒级灾难与完整恢复：文件系统快照回滚到 Task 156 时代，凭 origin/main 的 push 全量重建。**
+
+- 【开局】worklog 尾部 = Task 172/07b379d（cron Task 13 文本第十八次过时）。HEAD==origin/main 树净、BUILD_ID wJln6xs、PORT FREE；冷启动 10s；三件套 qa63/qa00/t172 全绿判稳；agent-browser 视觉巡检 console 零错。
+- 【灾难·沙盒快照回滚】选题侦查进行中（读完 swipe-sheet-content/job-panel/globals，diag-mobile-320.mjs 已写好）整个 /home/z/my-project 被文件系统级回滚到 2026-09-13 00:31 +08（Task 156 时代）：t157–t172 探针与 src 特性蒸发、diag 文件蒸发、.next 只剩 dev、reflog 尾条=回滚时刻且无任何 git 命令动过 HEAD（文件系统级恢复的签名——不是 reset）。同时 :3000 被快照时代的幽灵 next-server（pid 1119，早于本轮构建 8 小时——ps -o lstart 核龄铁律再次立功）占据。**恢复三步**：① git fetch 证实远端完好（origin/main=07b379d，Task 172 的 push 活着）；② git reset --hard origin/main（package.json/prisma/lockfile 与快照期 node_modules 零差异，免重装）；③ 杀幽灵 → bun run build（新 BUILD_ID o0P818y8）→ start-prod.sh。
+- 【世界重建】data/ 同被回滚只剩 3 demo jobs——正典 26 是历史矩阵积累非合同；跑 qa60-seed-fsc（FSC 家族+Live 行）+ qa58-seed-gallery + restore-gallery（qa53/51/52 因 refine host 缺席报错「run restore-gallery.py first」——qa_lib 的 resolve_refine_host 自带药方）+ qa53/qa51/qa52 重建至 21 jobs；t172 M0 的「FIT 后视口内有 idle 卡」预设稠密世界——**修世界而非改探针**。恢复后 qa63/qa00/t172(37)/t171(35) 四绿。
+- 【选题+普查】diag-mobile-320（390 探针法延至 320×568，加 pan-until-visible）：body tabs 恰好装下（Log 右缘 309/320）、零文档溢出、dock 全宽在视口（319px）、inputs 达 40 合同——**抓到 t172 遗留沙：Expert options 触发器有效热区 41<44**（−inset-y-2 在 25px 绘制高度上=25+16；t172 X5 只钉了字面量、M 相从未实测它的解析像素——「padding box 几何」课的漏网变奏）。
+- 【实现·两件】①job-panel Expert 触发器 slop −inset-y-2 → −inset-y-2.5（25+20=45≥44）。②swipe-sheet-content 加两 affordance：grabber（top-1.5 居中 4×36 药丸 bg-foreground/25，落在 p-4 头部 padding 带 6–10px 内，名字输入 y=16 起零重叠；linked-banner 文字 y=10 起恰贴边不侵入）+ 边缘回声（left-0 inset-y-0 w-6 渐变 rgba(0,0,0,0.16)→transparent，opacity=var(--swipe-progress,0)；拖拽时 setProperty 与 transform 同路直写零重渲，progress=capped/w 钳制 [0,1]；弹回时 root var→0 + cue 临时 transition 220ms 同弹簧时长淡出）。两者 aria-hidden + pointer-events-none——只邀请不拦截。
+- 【第二层真相】**M10b 首测抓出弹回后回声 opacity=1.000 而非 0**——根因：cue 的 opacity 是 React style prop 装的内联 var() 表达式，弹回代码里 `cue.style.opacity=""` 把整条内联声明抹掉（连同 React 装的表达式），computed 落回级联默认 1。修法=只动自己拥有的通道（root 的 --swipe-progress），绝不碰共有 inline 财产；注释把此坑写进源码（「caught live by t173's M10b」）。
+- 【t173 探针·39 断言 ×3 全绿】S 基线+pan-until-visible 选靶；X10 源码 oracle（slop 升级字面量+无陈旧残留/grabber+cue 双标记/aria-hidden+pointer-events-none/setProperty+钳制表达式/弹回 220ms 淡出/var 驱动+左缘渐变方向/padding 带落点）；M 移动相 320×568（grabber 实测 36×4+pointer-events none+居中/cue 24px 贴左缘+静默 opacity 0/**Expert 触发器解析热区 45×295≥44**（修复前 41——「解析像素」课的自我兑现）/inputs ≥40 合同/body tabs 右缘 309≤320/dock I/O+Params 双 tab 全宽在视口/**拖拽中 transform 跟随+progress 0.25+回声 opacity 0.25 亮起**/28% 释放飞出/短慢拖弹回+回声归零/合同感知 console（t171 failedUrls 配对法：观测到的 /log 404 × 观测到的诚实空态））；D 桌面相（aside 开、grabber/cue 绝迹、零 dialog、名字输入保持 36——scope 双面钉住、console 零错）；Z 名册恒等（id+name 成员）。
+- 【探针课】①querySidebar("aside") 会先撞左 palette rail（它也是 aside）——t171 worklog 明文警告过的坑本轮亲踩，一行 find() 排除；教训要读不只写。②M4 用 census 已验证的 ::before 解析高度法（parseFloat(cs.height)），diag 首轮即得 41——钉解析像素，不钉类名字面。③合同感知 console 白名单必须配对 failedUrls 的 URL 与页面上的诚实态话术（浏览器对一切非 2xx 记 console error，文本里没有 URL）。
+- 【agent-browser 平台课再现】合成 click/drag 不产生真实指针序列（Task 170/172 同款怪癖）——本轮仅用于视觉巡检（console 零错），交互与定妆照由 playwright 交付。
+- 【矩阵运行险情】后台 nohup+setsid 双发互踩 + reaper 收割（误把 --list 当索引起跑的实例被 120s 工具超时截断于 [4/108]，世界零伤——八审证实；二次后台启动死在 chunk-start）——**前台分块**（每块 11 套 ~5.5min < 10min 工具上限）成为可靠路径；SIGPIPE 教义之外新增「不以后台模式跑矩阵」。
+- 【全矩阵 108 套零失败】10 块前台串行（1-11/12-22/23-33/34-44/45-55/56-66/67-77/78-88/89-99/100-108）；t173 auto-include #94 PASS 21s；qa75 位 #16 三连绿（抖动账本第三次观察通过）；块峰 206MB（qa68）远低 1200MB 阈值；t152 191s 仍最慢（上轮「疑似提速」证伪——一轮异常非趋势）。
+- 【世界收尾】矩阵诚实消耗 Live 行 → qa60-seed-fsc 重建 → **26 jobs（16c/8i/1f/1r 正典构成精确复现）**；卫生八审全零（adopt/residue/dup/orphan/project/ws/template/extent）+ domain-sweep 0/0/0 + 2 overlappers 重定位；playwright 定妆照三张（rest：把手入位+dock 钉底；mid-drag：回声亮起+画布从指下露出；desktop：aside 无 affordance）。
+- 【收尾】worklog 终稿 + commit + push + 环境清理（杀 server 先 ss 查真实 PID、agent-browser close --all、一次性 wrapper 清除）。
+
+Stage Summary:
+- 「快照回滚不是 git 操作——reflog 的沉默就是它的签名」：没有 reset/checkout 条目、reflog 尾条时间戳恰等于回滚点、套件文件整体蒸发——这是文件系统级恢复，不是版本控制事件。真正的救赎是「每轮必 push」的惯例：origin/main 活着，一切可重建（fetch + reset --hard + 重建 + 重跑三件套 ≈ 15 分钟）。远端不是备份策略的装饰，是灾难恢复协议本身
+- 「正典构成是积累的产物，不是合同——修世界不修探针」：稀疏世界（3 jobs）下 t172 M0 挂在「FIT 后视口内有 idle 卡」——探针的预设形状来自稠密历史世界；seeders 自种自清 + restore-gallery 按 qa_lib 药方重建密度，探针一字未改。探针失败的第一反应是「世界的哪条预设被打破了」，不是「改断言」
+- 「oracle 钉字面量 ≠ 钉解析像素——t172 的课在 t172 自己的遗留上应验」：X5 钉了 before:-inset-y-2 字面量并通过，M 相从未实测 Expert 触发器的解析高度，41px 就这样活过三轮普查。几何合同的单位是 getComputedStyle 解析后的像素；「钉了字面量」的安心感恰是盲区本身
+- 「inline style 是 React 与 imperative 的共有财产」：弹回代码 wipe 掉 cue.style.opacity 时，连带抹掉了 React 装的 var() 表达式——computed 1.000，回声永不熄灭。imperative 动画只动自己拥有的通道（root 的 CSS var），绝不覆写共有 inline 声明；探针的 M10b（弹回后实测归零）正是为这种「看起来对」的代码准备的
+- 「后台跑矩阵是险情制造机」：误起的 --list 实例、互踩的双发、被 reaper 收割的 chunk-start——前台分块（每块 < 10min 工具上限）每步可见、每块可验；快的不是后台，是可恢复的前台
+- 世界卫生观察账本（verdict 列）：全矩阵 108/108 零失败零抖动（qa75 三连绿）；0 环境性失败；八审全零；灾难恢复后世界正典构成精确复现
+- 遗留（下轮候选）：grabber 的 first-open 一次性动效提示（现静态常驻——若做，须过 prefers-reduced-motion 与「不抢焦点」两关）；320px 以下（280px 折叠屏折内态）未验——320 是当前声称的最小服务面，若产品要下探需新一轮极限验收；swipe 回声的暗色主题对比度实测（当前 rgba 0.16 在暗卡上理论可见，未逐主题拍照）；undo 手感参数（真机）；runner wall-time 剖面（t152 191s 连续最慢证回，让位）；EMPIAR 真数据回归（重，让位）；用户真机项（三级阶梯+长按+swipe+grabber 可真机验收）

@@ -866,7 +866,7 @@ function ParamsTab({
               )}
               {advanced.length > 0 && (
                 <Collapsible className="mt-3">
-                  <CollapsibleTrigger className="group/collapsible relative flex w-full items-center gap-1.5 rounded-md px-1 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground before:absolute before:inset-x-0 before:-inset-y-2 before:content-['']">
+                  <CollapsibleTrigger className="group/collapsible relative flex w-full items-center gap-1.5 rounded-md px-1 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground before:absolute before:inset-x-0 before:-inset-y-2.5 before:content-['']">
                     <ChevronsDownUp
                       className="size-3.5 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-180"
                       aria-hidden="true"
