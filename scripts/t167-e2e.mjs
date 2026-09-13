@@ -60,6 +60,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { parseHygieneTables, isPrefixFamily } from "./lib/hygiene-tables.mjs";
 const run = promisify(execFile);
 
 const BASE = "http://localhost:3000";
@@ -111,10 +112,17 @@ const jobTypes = (() => {
   return s;
 })();
 
-// signature semantics mirrored from world-hygiene.mjs — X-phase oracles
-// assert the mirror agrees with the real table before trusting it here
-const explicitSigs = [/^qa61 Host$/, /^QA Esc Import$/, /^TL /, /^Deep /];
-const prefixSigs = [/^T\d+ /, /^t\d+ /];
+// THE table, parsed live from world-hygiene.mjs (Task 169 — the hand mirror
+// that used to live here is GONE: a copied table goes stale the moment the
+// real one evolves, and a stale classifier false-alarms NO-SIGNATURE on a
+// new owner's seeds; this file even carried the real parse and the copy in
+// the same scope — two readings of one truth waiting to disagree). The
+// scanner now classifies with the audit's own regexes; prefix-vs-explicit
+// is DERIVED from behavior (isPrefixFamily), not copied from a kind field
+// the real table does not carry.
+const HYGIENE_TABLES = parseHygieneTables(hygieneSrc);
+const explicitSigs = HYGIENE_TABLES.fixture.filter((e) => !isPrefixFamily(e)).map((e) => e.re);
+const prefixSigs = HYGIENE_TABLES.fixture.filter((e) => isPrefixFamily(e)).map((e) => e.re);
 const canonicalPrefix = /^QA /; // the world builders' rows — what the world IS
 // documented exception: deliberately outside the net (owner cleans by id;
 // a crash leak is accepted so keep-newest stays state-observable)
@@ -242,20 +250,23 @@ try {
 
   // ---------------- X: source oracles ------------------------------------
   console.log("== X: source oracles ==");
-  // signature table: every entry carries owner + why
-  const entries = [...hygieneSrc.matchAll(/\{ re: (\/[^/]+\/[a-z]*), owner: "([^"]*)", why: "([^"]*)" \}/g)];
-  must(entries.length >= 5, `signature table parsed with owner+why on every entry (${entries.length} entries)`);
-  for (const [, re, owner, why] of entries)
-    must(owner.length > 3 && why.length > 3, `signature ${re} carries owner ("${owner}") + why`);
+  // signature table: every entry carries owner + why (the 165 entry
+  // contract — "verify before adding, the audit deletes what you list").
+  // The entries come from the SHARED parser (Task 169) — the same parse
+  // the classifier above consumed: one source, one reading. Floor 6 =
+  // today's known mass; the member pins below are the real teeth.
+  const entries = HYGIENE_TABLES.fixture;
+  must(entries.length >= 6, `fixture signature table parsed with owner+why on every entry (${entries.length} entries, floor 6)`);
+  for (const e of entries)
+    must(e.owner.length > 3 && e.why.length > 3, `signature ${e.literal} carries owner ("${e.owner}") + why`);
   // the TL + Deep entries — the scan's first-contact findings, pinned forever
-  must(entries.some((e) => e[1] === "/^TL /"), 'the /^TL / signature exists (the scan\'s own first contact: 12 rows were blind to the net)');
-  must(entries.some((e) => e[1] === "/^Deep /"), 'the /^Deep / signature exists (second contact: t126\'s deep-link fixtures were equally blind)');
-  // canonical guard: no signature may match a canonical world name
-  const reSources = entries.map((e) => e[1]);
+  must(entries.some((e) => e.literal === "/^TL /"), 'the /^TL / signature exists (the scan\'s own first contact: 12 rows were blind to the net)');
+  must(entries.some((e) => e.literal === "/^Deep /"), 'the /^Deep / signature exists (second contact: t126\'s deep-link fixtures were equally blind)');
+  // canonical guard: no signature may match a canonical world name —
+  // evaluated over the COMPILED parsed regexes (the audit's own teeth)
   const canonicalSample = ["QA Class Select", "QA Post 300", "QA Refine Live", "QA Class2D Source", "QA Sel Alpha"];
   for (const c of canonicalSample) {
-    // the real table's match — mirror the audit's own test
-    const hit = reSources.find((rs) => { try { return new RegExp(rs.slice(1, rs.lastIndexOf("/")), rs.slice(rs.lastIndexOf("/") + 1)).test(c); } catch { return false; } });
+    const hit = entries.find((e) => e.re.test(c));
     must(hit == null, `canonical guard: no signature matches canonical "${c}"`);
   }
 

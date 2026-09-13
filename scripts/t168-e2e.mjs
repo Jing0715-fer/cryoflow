@@ -42,6 +42,7 @@
 import { readFileSync, readdirSync } from "fs";
 import { execSync } from "child_process";
 import { join } from "path";
+import { parseHygieneTables } from "./lib/hygiene-tables.mjs";
 
 const ROOT = "/home/z/my-project";
 const SCRIPTS = `${ROOT}/scripts`;
@@ -265,20 +266,17 @@ console.log("== G: the guard ==");
 // ============ W: the sibling-domain static scan (t167 re-aimed) ===========
 console.log("== W: sibling-domain static scan ==");
 {
-  // the workspace/project/template signature semantics mirrored from
-  // world-hygiene.mjs — X1–X4 assert the mirror agrees with the real table
-  const sigs = [
-    { dom: "all", re: /^T\d+ /, kind: "prefix" },
-    { dom: "all", re: /^t\d+ /, kind: "prefix" },
-    { dom: "project", re: /^TL\d+ /, kind: "explicit" },
-    { dom: "workspace", re: /^TL\d+ /, kind: "explicit" },
-    { dom: "workspace", re: /^Deep /, kind: "explicit" },
-    { dom: "workspace", re: /^QA Overflow$/, kind: "explicit" },
-    { dom: "template", re: /^Tuned 2D branch/, kind: "explicit" },
-    { dom: "template", re: /^Preprocess trio/, kind: "explicit" },
-    // the W-scan's own first contact: the sleeping Task-30 artifact
-    { dom: "project", re: /^QA MultiSelect$/, kind: "explicit" },
-  ];
+  // the workspace/project/template signature semantics come from the SHARED
+  // parser (Task 169): the classifier consumes the audit's own regexes. The
+  // hand mirror that used to live here went stale the moment the real table
+  // evolved — a new owner's seeds would false-alarm NO-SIGNATURE while all
+  // X oracles stayed green (the mirror never saw the 7th entry). Each row is
+  // classified against ITS OWN domain's parsed table: the T/t prefix
+  // families appear in every domain table, which is exactly what the old
+  // dom:"all" tags hand-copied.
+  const HYGIENE_TABLES = parseHygieneTables(hyg);
+  const domainTable = (dom) =>
+    dom === "project" ? HYGIENE_TABLES.project : dom === "workspace" ? HYGIENE_TABLES.ws : HYGIENE_TABLES.tpl;
   const canonical = [
     { dom: "project", re: /^β-Galactosidase/ },
     { dom: "workspace", re: /^Main$/ },
@@ -286,7 +284,7 @@ console.log("== W: sibling-domain static scan ==");
   ];
   const classifyDomain = (name, dom, ownNum) => {
     if (ownNum != null && new RegExp(`^[Tt]${ownNum} `).test(name)) return "self-prefix";
-    if (sigs.some((s) => (s.dom === "all" || s.dom === dom) && s.re.test(name))) return "explicit-sig";
+    if (domainTable(dom).some((s) => s.re.test(name))) return "explicit-sig";
     if (canonical.some((s) => s.dom === dom && s.re.test(name))) return "canonical";
     return "NO-SIGNATURE";
   };

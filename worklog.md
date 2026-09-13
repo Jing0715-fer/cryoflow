@@ -4815,3 +4815,26 @@ Stage Summary:
 - 「绝对数断言是脆断言」：世界 26→25 的漂移是特性（每轮构成漂移），S 阶段 hardcode 26 在矩阵中段必然炸。基线快照 + 退出双向 diff 才是合同；成员按名断言（正典三工作空间在），计数只作信息。t165/t167 都是对的，t168 学的是同一条的第几次变奏
 - 世界卫生观察账本（verdict 列）：全矩阵 0 抖动 0 环境性失败；t168 矩阵失败=探针脆断言（修复后治愈，非回归非抖动）；W 扫描器首战战果=QA MultiSelect 沉睡层（非代码缺陷）
 - 遗留（下轮候选）：签名表与探针镜像表的单一真相源（t167/t168 现靠 X oracle 断言镜像一致——可让探针直接解析 world-hygiene.mjs 的真表字面量，一次解析三域共用）；hygiene 的 zero-roster 形状断言补强（extent-fit 守卫已加，residue/dup/orphan 对空名册天然安全——可在 t168 加一条 D 阶段空世界演练钉住）；undo 手感参数（真机）；runner wall-time 剖面（让位）；EMPIAR 真数据回归（重，让位）；用户真机项（三级阶梯+长按可真机验收）
+
+---
+## Task 169 (2026-09-13, cron 18:16 窗口 trace …202609131817)
+
+**主题：签名表单一真相源（Task 168 交接候选①兑现）——scripts/lib/hygiene-tables.mjs 共享解析器落地，t167/t168 手抄镜像退役，t169 新探针 48 断言钉合同。**
+
+- 【开局】worklog 尾部 = Task 168/d7f9f95（cron Task 13 文本第十四次过时；续接摘要所称 Task 161 亦过时——摘要连续过时）。HEAD==origin/main 树净、BUILD_ID EwuEnKl、PORT FREE；watchdog 冷启动 1s 内起；世界 26 jobs（16c/8i/1f/1r）；三件套 qa63/qa00/t168 全绿判稳；agent-browser 视觉 QA console 零错、25 卡+16 线+minimap 正常。
+- 【候选侦查】①「签名表单一真相源」核实成立且比交接词更烈：t167 同文件两个真相源（X 阶段 L246 全局正则活解析真表 vs L116 分类器手抄 explicitSigs/prefixSigs 四+二条）——真表加第 7 条时 X 看得见、分类器看不见，新 owner 的种子被误判 NO-SIGNATURE 假警报；t168 W 阶段手抄三域 sigs 9 条 + dom 标签。X oracle 只钉「选中成员存在」从不钉「镜像==真表」。
+- 【实现·四件】①scripts/lib/hygiene-tables.mjs：parseHygieneTables(hygieneSrc) 活解析四表（fixture/project/ws/tpl 条目 {literal,source,flags,re,owner,why}）+ canonicalProject 常量；strict 合同（表缺失/条目缺 owner+why/re 非字面量/零条目表 → 大声 throw）；isPrefixFamily 行为推导（re.test("T169 Sample")||re.test("t169 Sample")，非手抄 kind 字段）。②t167 换血：import 解析器、镜像数组删除（explicitSigs/prefixSigs 改为解析表过滤派生）、X 阶段改吃 HYGIENE_TABLES.fixture（floor 5→6，canonical guard 跑编译后 re）——断言 58→45：少的 13 条是原全局正则误吸的三张域表 owner+why（Task 168 加域表时被兼管），归位 t168 X1–X4/t169。③t168 换血：W 阶段 dom:"all" 手抄表删除，classifyDomain 按 dom 取解析表（T/t 族每域表各自携带=旧 dom:"all" 标签的手抄语义）。④t169-e2e.mjs 新探针。
+- 【t169 探针·48 断言 ×3 全绿】S 基线+活解析；X 解析器合同（四表 floor 6/4/5/4、19 条 owner+why 全查、canonicalProject 精确、七成员按字面量钉死、prefix 族行为推导恰 T/t 二条）；B CORE 穿解析表演练（drill 名从解析 re 推导：锚条目 re.test(drillName) 断言→种 "T169 Drill Anchor"/"T169 dest"/"T169 branch" → hygiene fixture-orphan 1/1+ws-orphan 1/1+template-orphan 1/1+账本行 project 0·ws 1·tpl 1；对照 "169nosig stray" 前缀无签名解析表必须不碰→owner 按 id 删；project 域演练刻意不复制——t168 C1 拥有 faceshift 窗口）；C 全活世界 canonical 保险（19 条解析 re × 26 行名册 + canonical 四名 → 零命中）；D 解析器执法四连（缺 why/表改名/re 计算值/空表 → 各自 throw）+ 零名册守卫源码钉 + MIRROR-FREE oracle（t167 无 explicitSigs = [ / t168 无 sigs = [ 幸存副本、双扫描器消费 parseHygieneTables）；Z 名册恒等。
+- 【回归 6/6 全绿】t165(25)/t166(31)/qa61/qa62/qa77/t126(40)。
+- 【矩阵·104 套 0 失败】10 块（块界 1-12/13-22/…/93-104），t169 auto-include #90（192MB/0s/PASS）；块峰 208MB（t157）远低 1200MB 阈值、全程 restarted=no（telemetry 破译：上轮「零阈值重启」实为块间杀 server+块首矩阵自起，thr 从未触发——本轮照抄）；t152 191s 仍最慢；telemetry verdict 全 PASS。
+- 【世界收尾】矩阵中段 Live 被诚实消耗（25 jobs/0 running）→ qa60-seed-fsc.py 重建 → 26 jobs（16c/8i/1f/1r 与开轮构成一致）；卫生八审全零（adopt/residue/dup/orphan + project/ws/tpl 三域 + extent）；agent-browser 视觉巡检 console 零错、QA Refine Live 42% chip 回归、25 卡+minimap FIT 正常。
+- 【收尾】worklog + commit + push + 环境清理（杀 server 先 ss 查 PID、agent-browser close --all）。
+
+Stage Summary:
+- 「镜像即第二真相源」：t167 曾在同一作用域里同时携带真表的全局正则解析和分类器的手抄副本——两个真相源等着分歧的那天（真表加第 7 条、分类器看不见、新 owner 的种子被误判 NO-SIGNATURE，而所有「镜像一致」oracle 依旧全绿，因为它们只钉成员存在从不钉镜像相等）。t166 的教义（活着的字面量是第二个真相源）在探针域的形状就是幸存的镜像数组；MIRROR-FREE oracle 把「解析器是唯一读法」钉成断言
+- 「行为的推导优于抄来的标签」：真表不携带 prefix/explicit kind 字段——t168 的 dom:"all" 是手抄的、t167 的两数组切分也是手抄的。isPrefixFamily 用行为推导（re.test(T/t 样本)）让新前缀族条目（比如未来的 /^TW\d+ /）零镜像编辑自动归类——「反演必须知道正演」的探针域变奏：分类器必须消费审计自己的牙
+- 「解析即合同」：parseHygieneTables 的每个 throw 都是表的合同（表必须存在、条目必须带 owner+why、re 必须是字面量、表不得为空）——表一旦写成计算值或丢失字段，解析器当场大声死掉而不是静默误读。审计的表从「注释里的承诺」升级成「解析器执法的结构」；t169 的 D 阶段四连变异演练（缺 why/改名/计算 re/空表各自 throw）证明执法器自己也在执法
+- 「演练名从被测物推导」：B 阶段的 drill 名不是写死的字符串——先断言解析出的锚条目 re.test(drillName)，再种、再跑、再看审计扫走。被测表若演化（改前缀形状），演练自动跟随；写死的演练名会在表演化那天变成自己曾经批判的手抄镜像。project 域演练刻意不复制：t168 C1 拥有 faceshift 窗口，复制它不买新真相只添全矩阵最险的窗口
+- 「断言的职责切分」：t167 从 58 降到 45 断言——少的 13 条是原全局正则误吸的三张域表 owner+why（Task 168 加域表时被 t167 兼管的意外射程）。现在 t167 钉 fixture 表、t168 X1–X4 钉三域成员、t169 钉全表+解析器——每张表恰好一个主钉者，交叉钉存在的（成员 pin）是敏感性牙不是所有权
+- 世界卫生观察账本（verdict 列）：全矩阵 0 抖动 0 环境性失败；Live 被矩阵诚实消耗后 qa60 重建复原；卫生八审全零
+- 遗留（下轮候选）：workspace/project 域孤儿审计的探针侧演练名册（t169 的 B 刻意不含 project 域——若未来要补，须选正典形状种子名避开 job 域网，t168 教义）；hygiene 源里 residue/dup 两审计的语义表（label 模式与 dup 策略）尚无解析器入口（当前只有四张签名表——若未来审计继续增生可考虑 audit registry 化）；undo 手感参数（真机）；runner wall-time 剖面（t152 191s 连续四轮最慢，让位）；EMPIAR 真数据回归（重，让位）；用户真机项（三级阶梯+长按可真机验收）
