@@ -402,6 +402,16 @@ async function phaseA() {
   }, "4 curves")), "overlay draws 4 curves");
 
   // ---- baseline: every curve full opacity ----
+  // SCAR (t163 round): the REAL mouse rests wherever the last CDP click
+  // left it — the centered dialog can open UNDER that resting point, and
+  // a rest on a row IS a live hover (React's onMouseEnter fired on the
+  // overlay's render): the baseline read then sees the hovered row lit
+  // and every OTHER curve dimmed to 0.15. The world's card positions
+  // drift every round (hygiene relocations, seeded neighbors), so the
+  // rest point drifts in and out of the dialog — park the pointer in a
+  // dead corner before reading any rest-state.
+  sh(`${AB} mouse move 4 4`);
+  await sleep(400);
   let ops = await curveOps();
   must(ops && ops.length === 4, `4 curve paths probed (got ${ops?.length})`);
   for (const name of COMPLETED) {

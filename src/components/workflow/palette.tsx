@@ -35,7 +35,22 @@ interface PaletteDragState {
  *  must never share a ref — reordering a chip must never be able to
  *  drop a job onto the canvas, and vice versa. The 5px threshold is the
  *  same law as everywhere else: a pointer that never really moved is a
- *  click, and the chip's add contract survives untouched. */
+ *  click, and the chip's add contract survives untouched.
+ *
+ *  Task 163 — the touch twin of that threshold is a LONG PRESS, not a
+ *  distance: on a touchscreen the 5px window is unwinnable — the browser
+ *  claims any finger wiggle for the sidebar's pan (pointercancel fires
+ *  before the threshold can) and a chip-sized touch target is squarely
+ *  inside the scroll surface, so touch-action:none on the chip is not an
+ *  option either (it would deaden the scroll for EVERY swipe that starts
+ *  on the row). The touch-native contract instead: hold ~450ms with less
+ *  than FAV_TOUCH_SLOP_PX of drift and the chip LIFTS (the arm timer);
+ *  drift past the slop first and the arm dies silently — the gesture was
+ *  a scroll, and the sidebar scrolls; release early and it was a tap —
+ *  the add contract fires. After the lift the gesture needs a veto the
+ *  pan never gets: a non-passive touchmove listener preventDefaults any
+ *  scroll while a lift is active (passive listeners cannot veto — the
+ *  browser would start the pan and fire pointercancel mid-reorder). */
 interface FavDragState {
   type: string;
   pointerId: number;
@@ -43,10 +58,24 @@ interface FavDragState {
   startY: number;
   fromIndex: number;
   active: boolean;
+  /** Task 163 — touch gesture bookkeeping. `touch` marks the pointer
+   *  family (mouse drags stay threshold-driven); `liftTimer` is the
+   *  pending long-press, cleared on move-past-slop / early release /
+   *  pointercancel / unmount — a timer that outlives its gesture would
+   *  lift a chip the finger already left. */
+  touch: boolean;
+  liftTimer: number | null;
 }
 
 const RECENT_KEY = "cryoflow-recent-types";
 const RECENT_MAX = 6;
+
+/** Task 163 — touch reorder tuning. 450ms sits between the platform
+ *  defaults (Android ~400, iOS ~500) so neither feels alien; the 10px
+ *  slop is a finger's resting wobble (a mouse has none — that is why
+ *  the threshold family and the hold family are separate constants). */
+const FAV_LONG_PRESS_MS = 450;
+const FAV_TOUCH_SLOP_PX = 10;
 
 /** Task 133 — starred job types. Recents answer "what did I just use?",
  * favorites answer "what do I keep coming back to?" — a deliberate,
@@ -114,6 +143,13 @@ function pushRecent(type: string): void {
  * the add contract intact, the reorder drag lives in its own pointer
  * family (never drag-to-create's), and the amber caret only appears
  * where a drop would actually change the order.
+ *
+ * Task 163 — the touch twin: long-press (~450ms, ≤10px drift) lifts a
+ * chip into the same reorder drag the mouse threshold reaches; drift
+ * past the slop is a scroll (the sidebar pans natively), an early
+ * release is a tap (the add fires), and the post-lift drag vetoes the
+ * pan through a native non-passive touchmove. One gesture grammar per
+ * pointer family, one shared drop machinery underneath both.
  */
 export function JobPalette({ onAdded }: { onAdded?: () => void }) {
   const addJob = useWorkflowStore((s) => s.addJob);
@@ -134,11 +170,27 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
   const favDragRef = React.useRef<FavDragState | null>(null);
   // a drag that ended over the chip it started on must swallow the click
   // the browser still synthesizes — the pointer moved >5px, so it was a
-  // reorder gesture, not an add
+  // reorder gesture, not an add. Task 163: a touch LIFT sets it too (a
+  // long-press is a reorder claim, never an add — even a release with no
+  // move must not fire the chip), and every fresh pointerdown resets the
+  // flag so a lift that never synthesizes a click cannot leave a stale
+  // suppressor behind to eat the NEXT genuine tap.
   const suppressFavClickRef = React.useRef(false);
   const [favDragType, setFavDragType] = React.useState<string | null>(null);
+  // Task 163 — the chip currently HOLDING under a touch (pre-lift). The
+  // arming halo animates on it so the hold has a visible charge-up; the
+  // state is separate from favDragType because arming is not yet a drag.
+  const [favArmingType, setFavArmingType] = React.useState<string | null>(null);
+  // which pointer family owns the current drag — the mouse fade (the
+  // original dims, the caret is the truth) and the touch lift (the chip
+  // RISES) are mutually exclusive looks, not stacked ones
+  const [favDragViaTouch, setFavDragViaTouch] = React.useState(false);
   // insertion caret: "the dropped chip would become index k" (0..len)
   const [favDropHint, setFavDropHint] = React.useState<number | null>(null);
+  // Task 163 — the favorites row element: home of the non-passive
+  // touchmove veto (React's synthetic touchmove is passive at the root
+  // since React 17 — a veto must be a native listener).
+  const favsRowRef = React.useRef<HTMLDivElement>(null);
   const ghostRef = React.useRef<HTMLDivElement>(null);
   const onAddedRef = React.useRef(onAdded);
   const searchRef = React.useRef<HTMLInputElement>(null);
@@ -280,11 +332,20 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
   /** Task 155 — a favorite chip's pointerdown ARMS a reorder (never
    *  activates it): the 5px threshold decides drag-vs-click, and an
    *  un-armed pointerup lets the browser's click deliver the chip's add
-   *  contract unchanged. */
+   *  contract unchanged. Task 163 — on TOUCH the threshold is unwinnable
+   *  (the pan claims the first wiggle), so the arm is a long-press
+   *  instead: hold past FAV_LONG_PRESS_MS within FAV_TOUCH_SLOP_PX and
+   *  the effect's timer lifts the chip into the same fd.active state the
+   *  mouse threshold would have reached — the drop machinery downstream
+   *  is shared, only the ACTIVATION is per-pointer-family. The stale
+   *  suppressor from a previous lift is reset here: a lift whose click
+   *  never synthesized must not eat the next genuine tap. */
   const handleFavChipPointerDown = (e: React.PointerEvent<HTMLButtonElement>, type: string) => {
     if (e.button !== 0) return;
     const fromIndex = favs.indexOf(type);
     if (fromIndex < 0) return;
+    suppressFavClickRef.current = false;
+    const touch = e.pointerType === "touch";
     favDragRef.current = {
       type,
       pointerId: e.pointerId,
@@ -292,7 +353,30 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
       startY: e.clientY,
       fromIndex,
       active: false,
+      touch,
+      liftTimer: null,
     };
+    if (!touch) return;
+    setFavArmingType(type);
+    favDragRef.current.liftTimer = window.setTimeout(() => {
+      const fd = favDragRef.current;
+      // the timer only lifts ITS OWN gesture: a second press on another
+      // chip replaced the ref while this hold was pending
+      if (!fd || fd.type !== type || fd.pointerId !== e.pointerId || fd.active) return;
+      fd.active = true;
+      setFavArmingType(null);
+      setFavDragViaTouch(true);
+      setFavDragType(type);
+      // the lift IS the reorder claim: whatever click the browser may
+      // synthesize from this touch is a reorder's tail, never an add —
+      // even a release with no movement stays a cancelled reorder
+      suppressFavClickRef.current = true;
+      try {
+        navigator.vibrate?.(15);
+      } catch {
+        // haptics are a progressive enhancement — desktop silently skips
+      }
+    }, FAV_LONG_PRESS_MS);
   };
 
   React.useEffect(() => {
@@ -318,8 +402,14 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
       return null;
     };
     const cleanupFavDrag = () => {
+      // Task 163 — a pending long-press must die with its gesture: a
+      // timer that outlives the pointer would lift a chip the finger
+      // already left (the lift-what-the-finger-left class of bug)
+      if (favDragRef.current?.liftTimer != null) clearTimeout(favDragRef.current.liftTimer);
       favDragRef.current = null;
       setFavDragType(null);
+      setFavArmingType(null);
+      setFavDragViaTouch(false);
       setFavDropHint(null);
     };
     const onMove = (e: PointerEvent) => {
@@ -385,8 +475,24 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
       const fd = favDragRef.current;
       if (!fd || e.pointerId !== fd.pointerId) return;
       if (!fd.active) {
-        if (Math.hypot(e.clientX - fd.startX, e.clientY - fd.startY) < 5) return;
+        // Task 163 — TOUCH: pre-lift movement is scroll intent. Past the
+        // slop the arm dies (timer cleared, arming halo removed, ref
+        // dropped) and the gesture reverts to an ordinary tap — the
+        // sidebar's native pan (touch-action stays pan-y pre-lift) does
+        // the scrolling and the pointercancel that follows is a no-op on
+        // the empty ref. The mouse keeps the 5px threshold: a mouse has
+        // no pan rival, drift IS drag intent there.
+        const dist = Math.hypot(e.clientX - fd.startX, e.clientY - fd.startY);
+        if (fd.touch) {
+          if (dist < FAV_TOUCH_SLOP_PX) return;
+          if (fd.liftTimer != null) clearTimeout(fd.liftTimer);
+          setFavArmingType(null);
+          favDragRef.current = null;
+          return;
+        }
+        if (dist < 5) return;
         fd.active = true;
+        setFavDragViaTouch(false);
         setFavDragType(fd.type);
       }
       if (fd.active) {
@@ -404,11 +510,26 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
     window.addEventListener("pointermove", onFavMove);
     window.addEventListener("pointerup", onUp);
     window.addEventListener("pointercancel", onCancel);
+    // Task 163 — the post-lift veto: while a touch lift is active every
+    // touchmove is preventDefault'd so the sidebar's pan never starts (a
+    // started pan would pointercancel the drag mid-reorder). React 17+
+    // attaches synthetic touchmove PASSIVELY at the root — a passive
+    // listener cannot veto, so this one is native + { passive: false }.
+    // Pre-lift the handler is touch-transparent: scroll stays native.
+    const favTouchVeto = (e: TouchEvent) => {
+      if (favDragRef.current?.active) e.preventDefault();
+    };
+    const row = favsRowRef.current;
+    row?.addEventListener("touchmove", favTouchVeto, { passive: false });
     return () => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointermove", onFavMove);
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onCancel);
+      row?.removeEventListener("touchmove", favTouchVeto);
+      // unmount with a hold pending: the timer must not fire on a dead
+      // component's state
+      if (favDragRef.current?.liftTimer != null) clearTimeout(favDragRef.current.liftTimer);
     };
   }, [reorderFavs]);
 
@@ -524,9 +645,32 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
               {favSpecs.length}
             </span>
           </div>
-          <div className="flex flex-wrap items-center gap-1.5" data-testid="palette-favs-row">
+          {/* Task 163 — touch-none lands ONLY while a lift is active: a
+              retroactive gesture start is already vetoed by the native
+              non-passive touchmove listener; the class closes the window
+              where a browser re-consults touch-action mid-gesture. Outside
+              a lift the row keeps default touch-action — swipes on the
+              chips scroll the sidebar exactly as before. */}
+          <div
+            ref={favsRowRef}
+            className={cn(
+              "flex flex-wrap items-center gap-1.5",
+              favDragType && "touch-none"
+            )}
+            data-testid="palette-favs-row"
+            data-fav-lift-active={favDragType ? "true" : undefined}
+          >
             {favSpecs.map((t, i) => {
               const dragging = favDragType === t.key;
+              // Task 163 — a touch lift is the OPPOSITE look of a mouse
+              // drag: the mouse family fades the original (the caret is
+              // the truth, the chip is a stain), while a lifted finger
+              // needs the chip to READ as picked up — it rises, thickens
+              // its ring, deepens its shadow. The looks are mutually
+              // exclusive through favDragViaTouch, and the data attrs stay
+              // separate so the probe can tell the families apart.
+              const lifting = dragging && favDragViaTouch;
+              const arming = favArmingType === t.key;
               // Task 155's insertion caret is an INSET SHADOW on the target
               // chip, not a flex item: a real element shoved the row sideways
               // when it appeared, which moved the chip from under the pointer
@@ -555,14 +699,19 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
                   }}
                   data-fav-chip=""
                   data-fav-chip-index={i}
-                  data-fav-dragging={dragging ? "true" : undefined}
+                  data-fav-dragging={dragging && !favDragViaTouch ? "true" : undefined}
+                  data-fav-lifted={lifting ? "true" : undefined}
+                  data-fav-arming={arming ? "true" : undefined}
                   data-fav-caret={caretSide ?? undefined}
-                  title={`Add ${t.label} at the viewport center — drag to reorder (Alt+←/→)`}
+                  title={`Add ${t.label} at the viewport center — drag / touch long-press to reorder (Alt+←/→)`}
                   data-testid={`palette-fav-chip-${t.key}`}
                   className={cn(
                     "flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-card py-1 pl-1.5 pr-2.5 text-[11px] font-medium shadow-sm transition-all hover:-translate-y-px hover:shadow active:translate-y-0",
                     "hover:border-amber-500/50 hover:ring-1 hover:ring-amber-500/25",
-                    dragging && "opacity-40 translate-y-0 scale-[0.98] shadow-none",
+                    dragging && !favDragViaTouch && "opacity-40 translate-y-0 scale-[0.98] shadow-none",
+                    lifting &&
+                      "opacity-100 -translate-y-0.5 scale-[1.06] border-amber-500/70 ring-2 ring-amber-500/50 shadow-lg shadow-amber-500/25 relative z-10",
+                    arming && "fav-chip-arming scale-[1.02]",
                     caretSide === "before" &&
                       "shadow-[inset_3px_0_0_0_#f59e0b,0_0_0_1px_rgba(245,158,11,0.45)]",
                     caretSide === "after" &&

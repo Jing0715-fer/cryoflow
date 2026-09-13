@@ -493,6 +493,47 @@
 }
 
 /* ============================================================
+   Favorite chip — touch long-press arming (Task 163)
+   A touch reorder starts with a ~450ms hold. A hold with no
+   feedback reads as a DEAD tap — the user cannot tell whether
+   the gesture registered, so the chip visibly CHARGES while the
+   arm timer runs: a ring of amber light grows from the chip's
+   edge outward (box-shadow spread 0 → 5px) across exactly the
+   hold duration. The animation is LINEAR and its duration is
+   kept in lockstep with FAV_LONG_PRESS_MS in palette.tsx (both
+   450ms) — at the moment the timer lifts the chip, the halo has
+   just completed: the charge READS as the cause of the lift.
+   The scale ramp (1 → 1.02) rides on the same clock via the
+   transition on the chip's own transform (Tailwind scale-[1.02]
+   applies instantly — the class gate IS the ramp start).
+   motion-safe only: a continuous expanding ring is motion the
+   reduced-motion user opted out of; they get the same timing
+   through the platform's long-press without the light show.
+   ============================================================ */
+@keyframes fav-arm-halo {
+  from {
+    box-shadow:
+      0 0 0 0 rgba(245, 158, 11, 0),
+      0 0 0 0 rgba(245, 158, 11, 0);
+  }
+  70% {
+    box-shadow:
+      0 0 0 3px rgba(245, 158, 11, 0.28),
+      0 0 0 1px rgba(245, 158, 11, 0.35);
+  }
+  to {
+    box-shadow:
+      0 0 0 5px rgba(245, 158, 11, 0.4),
+      0 0 0 2px rgba(245, 158, 11, 0.5);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .fav-chip-arming {
+    animation: fav-arm-halo 450ms linear infinite;
+  }
+}
+
+/* ============================================================
    Print — CryoFlow on paper (Task 65)
    The app defaults to a dark UI; printing that wastes toner and
    browsers strip dark backgrounds anyway, leaving white-on-white

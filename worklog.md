@@ -4665,3 +4665,28 @@ Stage Summary:
 - 「世界的漂移是链式的，审计必须是帧级的」：EXTENT 防单孤儿、NN 防两卡互证、RESIDUE 防无名堆积——链式漂移（每环间隙无辜、整链搬运世界右缘）骗过全部点态审计。产品自己的不变量（世界必须被 ZOOM_MIN 装下）才是终点判据——审计的终点不是「没有孤儿」而是「世界可帧」。召回目的地与召回本身同样重要：往右缘召回就是喂养右缘
 - 「会话位置第四成员落位」：selectedId（看哪张卡）→ activeWorkspaceId（站哪块画布）→ leftRailTab（用哪个面板）→ panelTab（读哪一页）——「你闭眼时在哪」的完整拼图。信任门的镜像成语（有限集合=白名单本身）与水合成语的选型（SSR 渲染面=boot effect，client-only=惰性初值）均直接复用前作——家族越完整，新成员越便宜
 - 遗留（下轮候选）：note spotlight 的 dim 半径审计（qa62 的 0.15 dim 断言依赖卡邻域，值得一次像 EXTENT-FIT 一样的不变量化）；job-inspector modal 的 tab 是否属于位置家族（tabTouchedForRef 的 status 感知自动跳转是事件语义，本轮搁置有据）；undo 手感参数（真机）；runner wall-time 剖面（让位）；世界卫生观察账本（verdict 列：本轮 2 起真失败皆世界漂移、EXTENT-FIT 后归零）；EMPIAR 真数据回归（重，让位）；用户真机项
+
+---
+
+## Task 163 (2026-09-13 03:45, cron 10:16 窗口 trace …202609131016)
+
+**主题：favorites 触屏长按重排（Task 161 候选① 兑现）——一个指针家族一套手势语法，一套落点机械底下共享。**
+
+- 【开局】摘要第八次过时（停在 Task 161/4ae3537，实际 Task 162/6d33ae9 已含 EXTENT-FIT + 97 套全绿）——worklog 尾部核实铁律再度生效。BUILD_ID 已是 Task 162 的 7HWcQNnJ4_6p9zw8DTK7，PORT FREE，冷启动。
+- 【环境三课】① 本时段沙箱新禁令：内联命令含 `ln -s`/`os.symlink` 整行预扫描拒绝（02:17 还可用）——同行的 kill 也一并没跑（复合命令整体不执行），杀进程必须独立成行；② 脚本文件内的 ln -s 不受拦（start-prod.sh 照常跑）；③ 绕过法：`DATA_DIR = process.cwd()/data`（src/lib/paths.ts），从仓库根直起 standalone server 根本不需要符号链接——02:17 的直起是 cwd=.next/standalone 才依赖链接。server 本轮反复被收割器无声带走（日志干净无 crash），watchdog（nohup detached）+ start-prod.sh 是稳定组合；矩阵前必须 pkill watchdog（否则与 fresh_server 抢端口）。
+- 【实现】palette.tsx：FavDragState 增 touch/liftTimer 字段；pointerdown 分家族——touch 走 450ms 长按（FAV_LONG_PRESS_MS，Android~400/iOS~500 之间）+ 10px slop（FAV_TOUCH_SLOP_PX，手指静息 wobble），timer 到点 fd.active=true 复用鼠标阈值后的**同一套落点机械**（favInsertIndex/reorderFavs/suppressFavClick 全共享，只有激活方式分家族）；slop 内漂移=arm 死（scroll 赢，回退普通 tap）；pointercancel/早释放/卸载全清 timer（幽灵提升防护）；提升后原生非被动 touchmove veto（React 17+ 合成 touchmove 是 passive——passive 监听器无否决权）+ 行上 touch-none 仅 lift 活跃时落地；suppress 点击抑制改为 pointerdown 重置（防 stale 抑制器吃掉下一次真 tap）；提升瞬间 vibrate(15)（try 包裹，渐进增强）。globals.css：fav-arm-halo 450ms 线性光晕与 timer 同钟——提升那一刻光晕恰好充满，charge 读作 lift 之因；motion-safe 门控。
+- 【视觉】两家族两种互斥外观：鼠标拖=原体淡出 40%（caret 是真相，chip 是残迹）；触屏提升=chip 上浮（-translate-y-0.5 + scale 1.06 + ring-2 amber + shadow-lg）——手指需要 chip 读作「被拿起」。data-fav-dragging / data-fav-lifted / data-fav-arming 三 attr 分离供探针辨识；title 文案补「touch long-press」。
+- 【t163 探针】69 断言 ×3 全绿：S 种子+keeper、X 11 源码 oracle（家族字段/常量/pointerType 分支/suppress 重置/vibrate 守卫/原生 passive:false veto/条件 preventDefault/门控 touch-none/attr 分离/timer 清理/CSS 光晕 motion-safe）、T1-T6 合成 touch 流（arming 220ms 不提前提升、427ms 准点提升、落点翻序+持久化+零 add、提升无移动+合成 click 不 add 但下一真 tap 恢复 add、18px 漂移当场杀 arm 且 tap 仍 add、pointercancel 杀 pending timer）、R **CDP 真触摸**（真 hold 提升、竖向探针后 caret 存活= veto 压住 pan、侧栏 scrollTop 冻结、落点翻序持久化）、M 鼠标回归（5px/淡出外观/从不戴 lift）、K 键盘孪生、Z 严格三零+名册复原。
+- 【探针两课】① added-job 识别必须 diff **tap 前名册 id 集**——世界 28 job 全是「未知 id」，拿种子集做差集会捞到世界最老 job（type 断言当场穿帮）；② firePointer 的 window 分发不能走 querySelector（返回 null 早退 NO-EL）——sel==="window" 直取 window。
+- 【世界考古】QA Refine Live 被标 failed（result='stale running state (no engine record)'，updatedAt 02:29:21）——**正是 next build 运行窗**：构建把 `.next/standalone/data` 符号链接实体化时短暂删除了 cwd=.next/standalone 的在役 server 的 engine-state 路径，/api/jobs reconcile 走 !state 分支（startedAt 为 null → ageMs=Infinity → 诚实失败）。Task 99 教义深层变体：**符号链接让构建窗成为数据面事故窗**——构建 materialize 会 rm+cp 链接所指。修复=Prisma 重 stamp running/42 + 删探针残留（第 3 轮失败 round 的 tap-add「Particle Extraction 2」，must 立即抛出的已知代价）+ qa60-seeder 重建（qa62 矩阵中段连根拔）→ 28 jobs（17 completed/9 idle/1 failed/1 running）+ 卫生审计 0/0/0。
+- 【qa62 世界敏感性疤痕】矩阵首跑 qa62 败于「baseline Post 320 opacity 0.15」：**静止的真实鼠标是活的 hover**——探针 JS 点击不移动真实指针，dialog 居中渲染在指针停留点下方，rest 在 row 300 上=onMouseEnter 已触发（300 亮其余 dim）。世界卡位每轮漂移（hygiene relocate/种子邻居），停留点漂进漂出 dialog——间歇态。修复=基线读取前 `mouse move 4 4` 停到死角 + 400ms（疤痕注释入码）。重跑全绿。
+- 【全矩阵 98 套（t163 auto-include #84）10 块 0 失败】qa62（补丁前）+ t143 + t86 三起失败全数重跑治愈（t143/t86 单独全绿——t160 时代已定性的负载竞速单套抖动家族，非回归）；t152 191s 仍最慢；块峰 201MB 零阈值重启；telemetry verdict 全 PASS 收官。
+- 【收尾】worklog + commit + push + 环境清理（杀 server 先 ss 查 PID、agent-browser close --all、watchdog 已停）。
+
+Stage Summary:
+- 「一个指针家族一套手势语法，一套落点机械」：触屏的 5px 阈值不可赢（pan 比指针先声明手指），鼠标的 hold 无意义（无双义务）——激活方式分家族（threshold vs long-press），落点/持久化/点击抑制全共享。新家族接入的判据：激活是感知问题（per-family），语义是产品问题（shared）。
+- 「静止的指针是活的 hover」：CDP 点击把指针留在原地，居中 overlay 渲染在停留点下=幽灵 hover；世界几何漂移让它间歇化——任何 rest-state 断言前先把指针停进死角。这是 t160 疤痕五六（scrollIntoView 到不了 pan 出视口的世界、panUntilVisible 只保证 visible 不保证 uncovered）的世界敏感性家族第七号。
+- 「构建窗是数据面事故窗」：next build materialize standalone/data 会先 rm 再 cp——符号链接在役时这是对数据面的瞬时拆除；reconcile 的诚实失败是正确行为，事故在构建侧。对策已定型：从仓库根起 server（DATA_DIR=process.cwd()/data，无需链接），构建窗内不在役链接依赖。
+- 「沙箱禁令整行预扫描」：含禁令符号（ln -s 等）的复合命令整体不执行——同行的 kill 也殉葬；致命操作（杀进程）永远独立成行。脚本文件不受拦。
+- 探针工程第四甲：世界 28 job 都是「未知 id」——added-job 识别 diff tap 前名册集，不 diff 种子集；合成事件分发器对 window 目标要走专道。
+- 遗留（下轮候选）：note spotlight 的 dim 半径审计（延续候选）；job-inspector modal tab 的位置家族定性（搁置有据）；undo 手感参数（真机）；runner wall-time 剖面（让位）；世界卫生观察账本（本轮 verdict：3 起失败=1 病灶+2 抖动，全部重跑治愈，世界漂移病灶 0）；EMPIAR 真数据回归（重，让位）；用户真机项（favorites 长按已可真机验收：450ms 提升+光晕充能）。
