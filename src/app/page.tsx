@@ -34,6 +34,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { SwipeSheetContent } from "@/components/workflow/swipe-sheet-content";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // ---------------------------------------------------------------------------
@@ -654,7 +655,15 @@ export default function Home() {
           if (!open) select(null);
         }}
       >
-        <SheetContent side="right" className="w-full gap-0 p-0 sm:max-w-md">
+        {/* Task 172: SwipeSheetContent — the sheet leaves by finger too:
+            flick it right past 28% (or a fast short flick) and it flies
+            out from under the pointer; otherwise it springs back. Every
+            other exit path still routes through onOpenChange → select(null). */}
+        <SwipeSheetContent
+          side="right"
+          onDismiss={() => select(null)}
+          className="w-full gap-0 p-0 sm:max-w-md"
+        >
           <SheetHeader className="sr-only">
             <SheetTitle>Job details</SheetTitle>
             <SheetDescription>
@@ -662,7 +671,7 @@ export default function Home() {
             </SheetDescription>
           </SheetHeader>
           <JobPanel />
-        </SheetContent>
+        </SwipeSheetContent>
       </Sheet>
 
       {/* Keyboard-delete confirmation (the context menu + job panel use the

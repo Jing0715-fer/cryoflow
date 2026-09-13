@@ -866,7 +866,7 @@ function ParamsTab({
               )}
               {advanced.length > 0 && (
                 <Collapsible className="mt-3">
-                  <CollapsibleTrigger className="group/collapsible flex w-full items-center gap-1.5 rounded-md px-1 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground">
+                  <CollapsibleTrigger className="group/collapsible relative flex w-full items-center gap-1.5 rounded-md px-1 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground before:absolute before:inset-x-0 before:-inset-y-2 before:content-['']">
                     <ChevronsDownUp
                       className="size-3.5 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-180"
                       aria-hidden="true"
@@ -1241,7 +1241,7 @@ function PanelBody({ job }: { job: JobDTO }) {
           <Button
             variant="ghost"
             size="icon"
-            className="size-8 shrink-0 text-muted-foreground hover:text-foreground"
+            className="relative size-8 shrink-0 text-muted-foreground hover:text-foreground before:absolute before:-inset-1.5 before:rounded-md before:content-['']"
             onClick={() => select(null)}
             aria-label="Close job panel"
             title="Close panel (Esc)"
@@ -1286,7 +1286,7 @@ function PanelBody({ job }: { job: JobDTO }) {
           <Button
             variant="ghost"
             size="icon"
-            className="size-8 shrink-0 text-muted-foreground hover:text-foreground"
+            className="relative size-8 shrink-0 text-muted-foreground hover:text-foreground before:absolute before:-inset-1.5 before:rounded-md before:content-['']"
             onClick={() => void resetJob(job.id)}
             disabled={job.status === "running"}
             aria-label={`Reset ${job.name} to idle`}
@@ -1297,7 +1297,7 @@ function PanelBody({ job }: { job: JobDTO }) {
           <Button
             variant="ghost"
             size="icon"
-            className="size-8 shrink-0 text-muted-foreground hover:text-foreground"
+            className="relative size-8 shrink-0 text-muted-foreground hover:text-foreground before:absolute before:-inset-1.5 before:rounded-md before:content-['']"
             onClick={() => {
               // the log button is a gesture too — echo it
               persistPanelTab("log");
@@ -1313,7 +1313,7 @@ function PanelBody({ job }: { job: JobDTO }) {
               <Button
                 variant="ghost"
                 size="icon"
-                className="size-8 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                className="relative size-8 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive before:absolute before:-inset-1.5 before:rounded-md before:content-['']"
                 aria-label={`Delete ${job.name}`}
                 title="Delete job"
               >

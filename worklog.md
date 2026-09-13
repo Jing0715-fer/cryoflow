@@ -4891,3 +4891,27 @@ Stage Summary:
 - 「失败分类的验收标准是位链复现」：qa75 #16 挂一次，单跑全绿不算数——重跑它的位次链（同 chunk fresh server + 前驱套件 qa69/70/72/73）全绿才算治愈或排除；位链也绿 → 非确定性抖动入观察账本，不改代码不追凶。矩阵位失败的第一反应不是修产品，是复现失败场景本身
 - 世界卫生观察账本（verdict 列）：全矩阵 1 抖动（qa75 #16 一次性，位链+单跑 ×4 全绿，Note 透镜域与本轮改动零交集）、0 环境性失败；t171 与其余 104 套全绿；八审全零
 - 遗留（下轮候选）：qa75 抖动根因的低位观察（账本继续积累，连续两抖再立案）；mobile viewport 的 Params tab 表单密度（t171 只验了无溢出+dock 常驻，控件触屏热区的全量验收未做）；Sheet 关闭手势（swipe-to-dismiss）缺失（现仅 Esc/点外/X 三路）；undo 手感参数（真机）；runner wall-time 剖面（t152 193s 连续七轮最慢，让位）；EMPIAR 真数据回归（重，让位）；用户真机项（三级阶梯+长按可真机验收）
+
+---
+## Task 172 (2026-09-13, cron 23:16 窗口 trace …202609132316)
+
+**主题：触屏工艺第二轮（the touch census + the finger exit，Task 171 交接候选②③合流）——Params tab 触屏普查 17/18 控件欠账 44px，组件层 hit-slop 三兄弟（TabsTrigger 垂直 slop / Sheet 自带 Close −inset-3.5 / 动作行图标钮 slop）+ [data-panel-sheet] 作用域舒适块 + SwipeSheetContent 指纹退场（28% 宽或快弹即飞出，Radix 隐式 from 从指下走，无传送门）。t172 探针 37 断言 ×3 全绿；全矩阵 107/107 零失败（qa75 位 #16 本轮绿——抖动账本第二次观察通过）。**
+
+- 【开局】worklog 尾部 = Task 171/8124a0b（cron Task 13 文本第十七次过时）。HEAD==origin/main 树净、BUILD_ID SlCMgdBtmB9gUYa1CO9TT、PORT FREE；watchdog+start-prod 冷启动 2s；世界 26 jobs（16c/8i/1f/1r）；三件套 qa63/qa00/t171 全绿判稳。
+- 【触屏普查】diag-mobile-params.mjs：390×844 开 idle 卡 Sheet → Params tab → 18 个可见可交互控件全量测 painted ∪ ::before slop——**17 个有效热区 <44px**：主 tab 92×24、子 tab（Motion/Compute）24 高、动作行 5 图标钮 32×32、Expert options 触发器 365×25、number 输入 ×3 32 高、名字输入 36 高、**Sheet 自带 Close 16×16（全 app 最小靶，却是 Sheet 的主退场 affordance）**；唯一达标者 = Task 171 的 CopyButton。普查方法学：el.type 读的是 property（缺省 "text"）而 CSS 属性选择器匹配 attribute——「看得到 type」和「选择器够得着 type」是两条路（本轮在 M6 上亲证）。
+- 【实现·三层】①组件层 hit-slop：ui/tabs.tsx TabsTrigger 垂直 slop（横向会骑到相邻 tab 头上——triggers 无缝拼接；纵向吃进非交互 padding）；ui/sheet.tsx 自带 Close −inset-3.5（16→44，右上角有地）；job-panel 动作行四 size-8 图标钮 + hpc-sbatch-dialog compact 触发器 −inset-1.5（32→44）；Expert options 触发器纵向 −inset-y-2。②作用域层：globals.css `[data-panel-sheet]` 排除法选择器（input 非 checkbox/radio/range/hidden + select）min-height 2.5rem——桌面 aside 指标分毫不动（D2 活体钉住 scope）。③手势层：swipe-sheet-content.tsx SwipeSheetContent——pointer events 统一驱动（探针可 mouse 拖）、touch-pan-y 保真触屏纵向滚动原生、意图门（dx>14 ∧ |dx|>1.35|dy|）保护点击与滚动、input/textarea/select 上不启手势、拖拽经 ref 直写 transform（面板子树零重渲/每 move）、松手 28% 宽或快弹（v>0.55px/ms）即保持 transform 调 onDismiss——Radix 退场 keyframes 隐式 from=当前计算样式，Sheet 从指下飞出无传送；否则 220ms 弹回。onDismiss=select(null)，与 Esc/点外/X 同一真相。
+- 【第二层真相×2】①**border box ≠ padding box**：首测 tab slop eff=42 非 44——TabsTrigger 带 1px 透明边框，绝对定位 pseudo 的 insets 相对 **padding box（24−2=22px）**解析，22+2×10=42；修法 slop ±12 → 46 清线。几何合同要按盒模型算，不能按直觉算。②**attribute ≠ property**：名字输入 JSX 无显式 type，`input[type="text"]` 选择器不命中（普查读 property 得 "text" 是另一条路）；修法=排除法选择器，语义反而更诚实（「除了不该加高的都加高」）。
+- 【t172 探针·37 断言 ×3 全绿】S 基线；X13 源码 oracle（三 slop 字面量+注释在场/意图门/28%+0.55 阈值/表单守卫/capture+直写 DOM/作用域选择器/挂载点/onDismiss=select(null)）；M 移动相（Sheet 携 data-panel-sheet/主 tab eff 46/动作行+sbatch+Sheet X 全部 ≥44×44/名字与 number 输入 ≥40/dock Params 常驻/**拖 28% 即飞出**/无 dialog 残留/短慢拖弹回/dock 弹回后无恙/合同感知 console 零错）；D 桌面相（aside 开、无 sheet、**名字输入保持 36<40——scope 活体成立**、零 console 错）；Z 名册恒等（手势不留渣）。
+- 【agent-browser 平台课（Task 170 怪癖再现）】agent-browser 的合成 click 与 drag 命令都不产生卡片 pointerup 处理器所需的真实指针序列——点卡开 Sheet 在 agent-browser 下沉默失败而 playwright 同路径全绿；产品无恙（t171/t172 双探针 + 本轮 drag 尝试均证），视觉记录改由 playwright 交付。巡检本体照做：desktop pass console 零错、canvas/卡片快照正常。
+- 【回归 + 全矩阵 107 套零失败】受影响面：t171(35)/t170(73)/qa63/qa00/t165(25)/qa75 全绿。全矩阵 10 块（t172 auto-include #93，19s PASS）；**107/107 全零**——qa75 位 #16 本轮 PASS（上轮抖动未复发，账本第二次观察绿）；块峰 196MB（t99）远低 1200MB 阈值。
+- 【世界收尾】矩阵诚实消耗 Live 行（25 jobs/0 running）→ qa60-seed-fsc.py 重建 → 26 jobs（16c/8i/1f/1r 正典构成）；卫生八审全零 + domain-sweep 0/0/0；agent-browser 视觉巡检 console 零错；playwright 定妆照（Sheet 全形态：slop 不可见绘制零变化 + dock 钉底）。
+- 【收尾】worklog + commit + push + 环境清理（杀 server 先 ss 查 PID、agent-browser close --all、watchdog 已停）。
+
+Stage Summary:
+- 「触屏债是普查出来的，不是猜出来的」：Task 171 验收了 dock 一粒沙，普查一开才发现 tab 24px、图标钮 32×32、Sheet X 16×16——17/18 欠账。「未验收的交付面是债」的下一句是「验收的采样密度决定还债的精度」：单点验收给你一个修复，全量普查给你一张账单
+- 「hit-slop 的几何要按盒模型算」：42 不是 44 的笔误——1px 透明边框把 pseudo 的包含块从 border box 换成 padding box，22+20=42。断言写 ≥44 而实现写 ±10 就会在这种地方静默欠 2px；合同的单位是解析后的像素，不是类名字面上的数字
+- 「手势的门是意图，不是按钮」：dx>14 ∧ 1.35×纵向漂移才起拖、表单字段不启、touch-pan-y 让纵向滚动原生——三条门加起来，横向退场才不与滚动/点击/选字打架。指纹交互的每一条阈值都是与浏览器原生手势的条约，写进源码也要写进探针
+- 「退场的连续性靠动画的隐式 from」：拖到 300px 松手，若清 transform 再关，Sheet 先传送回原位再滑出——反向跳变。保持 transform 直接关，Radix 退场 keyframes 的隐式 from = 当前计算样式，动画从指下接棒。「谁接管样式」的交接语义（inline → keyframes）就是连续性本身
+- 「作用域是 DOM 属性，断言要两头钉」：[data-panel-sheet] 舒适块在 Sheet 里生效（M6/M7 ≥40）还不够——桌面 D2 钉住 36<40 才算 scope 成立。一个作用域合同的正反两面各活体断言一次，中间的 CSS 才可信任
+- 世界卫生观察账本（verdict 列）：全矩阵 107/107 零失败零抖动（qa75 二连绿）；0 环境性失败；八审全零
+- 遗留（下轮候选）：swipe 手势的视觉 affordance（拖拽跟随已活，边缘阴影/把手指示未做——可做可不做）；Params tab 全控件密度在 320px 视口（iPhone SE 级）的极限验收；qa75 抖动账本（二连绿，继续低位观察）；undo 手感参数（真机）；runner wall-time 剖面（本轮 t97 20s 最慢——t152 疑似提速，需复核，让位）；EMPIAR 真数据回归（重，让位）；用户真机项（三级阶梯+长按+本轮 swipe 可真机验收）

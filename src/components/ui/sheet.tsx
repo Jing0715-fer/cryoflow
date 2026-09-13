@@ -72,7 +72,11 @@ function SheetContent({
         {...props}
       >
         {children}
-        <SheetPrimitive.Close className="ring-offset-background focus:ring-ring data-[state=open]:bg-secondary absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none">
+        {/* Task 172: the painted X is 16×16 — the smallest target in the
+            whole app and the sheet's PRIMARY exit affordance. The hit-slop
+            grows it to 44×44 (top-right corner has room: right-4 + 14px
+            slop stays inside the viewport) without repainting a pixel. */}
+        <SheetPrimitive.Close className="ring-offset-background focus:ring-ring data-[state=open]:bg-secondary relative before:absolute before:-inset-3.5 before:content-[''] absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none">
           <XIcon className="size-4" />
           <span className="sr-only">Close</span>
         </SheetPrimitive.Close>

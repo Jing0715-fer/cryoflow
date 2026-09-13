@@ -96,7 +96,11 @@ export function HpcSbatchDialog({ jobId, compact = false }: { jobId: string; com
         <Button
           variant={compact ? "ghost" : "outline"}
           size={compact ? "icon" : "sm"}
-          className={compact ? "size-8 shrink-0 text-muted-foreground hover:text-foreground" : undefined}
+          className={compact
+            // Task 172: hit-slop — the compact trigger is 32×32 painted;
+            // the slop grows the tappable area to 44×44 without repaint
+            ? "relative size-8 shrink-0 text-muted-foreground hover:text-foreground before:absolute before:-inset-1.5 before:rounded-md before:content-['']"
+            : undefined}
           aria-label="Generate Slurm sbatch script for this job"
           title="HPC / Slurm submission script (dry-run)"
         >

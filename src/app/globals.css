@@ -1258,3 +1258,15 @@
     transition: none !important;
   }
 }
+
+/* Task 172 — touch comfort inside the mobile panel Sheet. The JobPanel's
+   form controls were built to the DESKTOP panel's density (h-8/h-9
+   inputs ≈ 32–36px tall); a finger needs taller targets. Scoped to the
+   sheet via [data-panel-sheet] so the desktop panel keeps its exact
+   metrics — the sheet is the only surface a touch user can reach (the
+   desktop aside exists only ≥1280px). min-height (not height) so the
+   utilities keep governing when they are already taller. */
+[data-panel-sheet] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="hidden"]),
+[data-panel-sheet] select {
+  min-height: 2.5rem;
+}
