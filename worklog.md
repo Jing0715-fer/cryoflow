@@ -4692,7 +4692,7 @@ Stage Summary:
 - 遗留（下轮候选）：note spotlight 的 dim 半径审计（延续候选）；job-inspector modal tab 的位置家族定性（搁置有据）；undo 手感参数（真机）；runner wall-time 剖面（让位）；世界卫生观察账本（本轮 verdict：3 起失败=1 病灶+2 抖动，全部重跑治愈，世界漂移病灶 0）；EMPIAR 真数据回归（重，让位）；用户真机项（favorites 长按已可真机验收：450ms 提升+光晕充能）。
 
 ---
-## Task 164 (2026-09-13, cron 11:46 窗口 trace …202609131146) — 进行中
+## Task 164 (2026-09-13, cron 11:46 窗口 trace …202609131146)
 
 **主题：note spotlight 上下文半径（交接候选①兑现）——把 Task 163 遗留的「dim 半径」从审计词变成真产品概念：三级 spotlight（judged → context 1-hop → peripheral）+ 边线故事法则。**
 
@@ -4743,7 +4743,7 @@ Stage Summary:
 - 遗留（下轮候选）：compare dialog hover-dim 与 spotlight 的视觉语法统一评估（两处退场语义参数不同 0.15 vs 0.28/0.32/0.62——可考虑 token 化 dim 阶梯）；FIXTURE 签名表的自动化验证（新 t-suite 若开始泄漏 TNNN 行，签名已覆盖；但「owner 是否真按 id 删」无静态断言——可加一个扫描探针）；undo 手感参数（真机）；runner wall-time 剖面（让位）；世界卫生观察账本（本轮 verdict：全零，无抖动无环境性失败）；EMPIAR 真数据回归（重，让位）；用户真机项
 
 ---
-## Task 166 (2026-09-13, cron 14:01 窗口 trace …202609131405) — 进行中
+## Task 166 (2026-09-13, cron 14:01 窗口 trace …202609131405)
 
 **主题：recession ladder（退场阶梯）token 化（Task 165 交接候选①兑现）——五个深度的「非故事」语义一名一值：ghost 0.06 / whisper 0.15 / recede 0.28 / wire 0.32 / murmur 0.62 + 双灰度同伴。**
 
@@ -4840,7 +4840,7 @@ Stage Summary:
 - 遗留（下轮候选）：workspace/project 域孤儿审计的探针侧演练名册（t169 的 B 刻意不含 project 域——若未来要补，须选正典形状种子名避开 job 域网，t168 教义）；hygiene 源里 residue/dup 两审计的语义表（label 模式与 dup 策略）尚无解析器入口（当前只有四张签名表——若未来审计继续增生可考虑 audit registry 化）；undo 手感参数（真机）；runner wall-time 剖面（t152 191s 连续四轮最慢，让位）；EMPIAR 真数据回归（重，让位）；用户真机项（三级阶梯+长按可真机验收）
 
 ---
-## Task 170 (2026-09-13, cron 19:16 窗口 trace …202609131916) — 进行中
+## Task 170 (2026-09-13, cron 19:16 窗口 trace …202609131916)
 
 **主题：未跑先知（the command line before the run）——COMMAND_TEMPLATES 32 类型正典表从 server-only engine.ts 提为 client-safe 模块；新只读路由 GET /api/jobs/[id]/command 以 launch 契约三态应答（native 引擎原生 / 真实 argv / 诚实拒绝）；inspector Command line 区与 JobPanel 面板级 dock 双面消费同一真相。**
 
@@ -4868,3 +4868,26 @@ Stage Summary:
 - 「绝对状态断言在矩阵中段必然脆」：t170 首轮矩阵 Z 挂于 Live 行 running→failed 的诚实翻转——t168 的「绝对数是脆断言」教义在状态维的变奏；成员恒等（id+name）才是 Z 的合同，状态另有专钉（t146 家族）
 - 世界卫生观察账本（verdict 列）：首轮矩阵两失败=探针盲区非回归非抖动（t167 提取器词汇表射程 + t170 状态脆断言，均当场治愈）；二轮 0 抖动 0 环境性失败；SIGPIPE 截断管道再犯一次（--list | head 杀矩阵于 [3/105]，世界零伤——八审全零证实）
 - 遗留（下轮候选）：tier-2（真实 argv）在工具链回归的沙盒里的活体演示（现由源码 oracle + 环境免疫断言覆盖——若未来重建 relion-build 可加一条「argv 与 outputs.cmd 同构」断言）；shellJoin 的引号方言 vs RELION 自己的打印方言（现仅空格/引号触发——真实世界的 RELION 路径无空格，维持最小实现）；JobPanel dock 在 mobile Sheet 形态的可达性（SheetContent 全宽渲染同一 JobPanel，dock 随行——未单独验收）；undo 手感参数（真机）；runner wall-time 剖面（t152 193s 连续六轮最慢，让位）；EMPIAR 真数据回归（重，让位）；用户真机项（三级阶梯+长按可真机验收）
+
+---
+## Task 171 (2026-09-13, cron 21:46 窗口 trace …202609132146)
+
+**主题：Sheet 验收日（the Sheet earns its acceptance，Task 170 交接候选「JobPanel dock 在 mobile Sheet 形态的可达性——未单独验收」兑现）——390×844 触屏实测全过，顺手修掉验收照出的两粒沙：CopyButton 触屏热区 34×28→有效 50×44（hit-slop，视觉零移动），桌面 aside 在 xl 以下从 CSS 隐藏改为挂载门控（隐身面板树与重复 command fetch 绝迹）。t171 探针 35 断言 ×3 全绿。**
+
+- 【开局】worklog 尾部 = Task 170/f0fab56（续接摘要所称 Task 161 第十六次过时）。HEAD==origin/main 树净、BUILD_ID yc9WOkfoKWmQV6h8D83G5（Task 170 构建）、PORT FREE；watchdog+start-prod 冷启动 2s；世界 26 jobs（16c/8i/1f/1r）；三件套 qa63/qa00/t170 全绿判稳。
+- 【验收即侦查】探索探针 diag-mobile-dock.mjs 三课：①FIT（minimap）后 390px 视口只装得下 12/25 卡（25% 最小缩放钳制，宽工作流两端必然出界）——「点视口内的卡」是方法学的一部分不是妥协（真用户平移画布，探针挑平移会露出的卡）；②初版测量抓到全文档第一个 dock——隐藏 aside 里的幽灵实例（rect 全零），测 Sheet 内几何必须 scope 到 `[role=dialog]`；③验收本体全过：Sheet 开、dock 入 dialog、389×179 钉底、无文档横向溢出、pre-wrap+break-all 断行无 x 滚动、copy 精确交出所示 195 字符、console 零错。
+- 【两粒沙】①copy 按钮 34×28px 低于 44×44 触屏惯例——修法=::before hit-slop（`before:-inset-2`），可点面积 50×44 而绘制面积一动不动；两个消费方（inspector recorded 块/panel dock/日志工具行）都把按钮放在非交互 `<pre>` 旁，slop 不遮任何可交互物。②xl 以下桌面 aside（`hidden xl:flex`）照样**挂载**整棵 JobPanel 树——第二次 command fetch + 每次-store-变更的双重重渲染，全部隐身进行；修法=挂载门控 `(!mounted || isXl)`，`!mounted` 保桌面冷载诚实（selectedId 有 Task 157 localStorage 种子，首帧即可非空，而 isXl 要等 effect 才翻真——无此守卫桌面首帧面板会迟一拍弹出）。
+- 【t171 探针·35 断言 ×3 全绿】S 基线+双靶（idle→面板/completed→inspector）；X7 源码 oracle（hit-slop 三件套+`h-7` 视觉不变+44×44 注记在场/aside 门控字面量/Sheet 携带同一 `<JobPanel />`/dock 断行+钉底类原封/inspect 置 null 的派发合同）；M 移动相（FIT→视口内 idle 卡→touchscreen.tap→Sheet 开+tablist 在/dock 入 dialog/实高在视口/dock 宽=Sheet 宽/零文档溢出/**四 tab 全程 dock 在场**（面板级合同的移动版）/copy 有效热区 pseudo 50×44 而绘制 ≤40/copy 精确/**全文档恰一个 command-preview-panel**（单挂载合同活体）/completed 卡 tap→inspector 而 Sheet 不随行（M12 派发）/Overview tab 后 command-recorded 在（t170 C6 教训照抄）/console 合同感知卫生）；D 桌面相（idle 点击开 aside 而非 dialog——**含 dock 的那块 aside**（querySelector("aside") 会先撞左 rail 空转过）/dock 在视口/copy 精确/console 零）；Z 名册恒等。
+- 【探针三课】①桌面点卡被左 palette rail（w-72=288px）拦截——FIT 后卡心落在 rail 下方，「可见」不等于「可点」，D 阶段选卡要求左缘 ≥300px + mouse.click 坐标点击；②console 卫生要**合同感知**：浏览器对一切非 2xx fetch 记 console error——面板 LogTab 对从未跑过的 idle job fetch `/log` 得 404 是设计合同（"engine-native or simulated jobs log nothing"），诚实空态话术是面板方言「No log available (job has not run yet).」而 inspector 方言是「No engine log」——白名单必须把观测到的 404 与观测到的诚实态配对（M6b 在 Sheet Log tab 腿当场断言），其余 console 错误照旧零容忍；③诚实态住在 tab 里，Radix 卸载非活动 tab——站着 Overview 读 Log tab 的诚实态永远是 MISSING。
+- 【回归 + 全矩阵 106 套】受影响面：t170(73)/qa63/qa00/t165(25)/qa61 全绿。全矩阵 10 块（t171 auto-include #92，21s PASS）；**105/106**——qa75 在 #16 挂一次（S 尾段全过、A/B 段中部 2 断言），**位链复现（12–16 同 fresh server）+ 单跑 ×4 全部全绿**→分类=非确定性抖动 ×1，非回归非本轮改动（qa75=Note 透镜域，与 dock/aside 零交集）；块峰 212MB（qa68）远低 1200MB 阈值。
+- 【世界收尾】卫生八审全零 + domain-sweep 0/0/0；世界 26 jobs（16c/8i/1f/1r）正典构成无损，Live 完好；agent-browser 视觉巡检 console 零错、面板 dock+hit-slop 拷贝钮/inspector/spotlight 死透镜 chip 全部在位；顺手翻正 Task 164/166/170 三条陈旧「进行中」头部（条目内容早已收尾、commit 在案）。
+- 【收尾】worklog + commit + push + 环境清理（杀 server 先 ss 查 PID、agent-browser close --all、watchdog 已停）。
+
+Stage Summary:
+- 「未验收的交付面是交接给下一轮的债」：Task 170 的 dock 在桌面 aside 里千锤百炼，而它在 Sheet 形态的观众（触屏用户）从未被任何探针看过——「同一组件」不等于「同一体验」，断点换的是表面而不是合同。验收日一轮就把两粒沙照了出来：触屏热区与隐身双挂载，都是只有真浏览器 × 真视口才肯现形的真相
+- 「hit-slop 是触屏与桌面的和约」：绘制面积属于桌面美学（紧凑 34×28），可点面积属于触屏公约（≥44×44）——::before 负 inset 让两者解耦，slop 骑在相邻非交互 pre 上，不遮任何可交互物。测它要读 getComputedStyle(btn,"::before") 的解析宽高（伪元素不进 boundingClientRect）
+- 「CSS 隐藏不是卸载」：`hidden xl:flex` 只是不画，React 树照挂、fetch 照发、store 订阅照收——隐身的第二个面板是性能账上的隐形房客。但挂载门控有代价面：isXl 在 effect 才翻真，而 selectedId 有 localStorage 种子——`(!mounted || isXl)` 的 `!mounted` 就是桌面首帧的诚实守卫，去掉它换来的干净要在桌面上赔回一帧闪烁
+- 「console 零错要合同感知，否则审计逼良为娼」：浏览器对一切非 2xx 记 error，而「无日志 job 的 /log 404」是设计的诚实话术——不配对豁免的零错断言会逼着人把 404 改成 200 空体，毁掉 API 的诚实语义。正确的形状是：白名单=观测到的合同性 404 × 观测到的诚实态渲染，且诚实态话术分表面方言（面板「No log available」≠inspector「No engine log」）
+- 「失败分类的验收标准是位链复现」：qa75 #16 挂一次，单跑全绿不算数——重跑它的位次链（同 chunk fresh server + 前驱套件 qa69/70/72/73）全绿才算治愈或排除；位链也绿 → 非确定性抖动入观察账本，不改代码不追凶。矩阵位失败的第一反应不是修产品，是复现失败场景本身
+- 世界卫生观察账本（verdict 列）：全矩阵 1 抖动（qa75 #16 一次性，位链+单跑 ×4 全绿，Note 透镜域与本轮改动零交集）、0 环境性失败；t171 与其余 104 套全绿；八审全零
+- 遗留（下轮候选）：qa75 抖动根因的低位观察（账本继续积累，连续两抖再立案）；mobile viewport 的 Params tab 表单密度（t171 只验了无溢出+dock 常驻，控件触屏热区的全量验收未做）；Sheet 关闭手势（swipe-to-dismiss）缺失（现仅 Esc/点外/X 三路）；undo 手感参数（真机）；runner wall-time 剖面（t152 193s 连续七轮最慢，让位）；EMPIAR 真数据回归（重，让位）；用户真机项（三级阶梯+长按可真机验收）

@@ -591,8 +591,17 @@ export default function Home() {
 
           <WorkflowCanvas />
 
-          {/* Desktop job panel — only mounted while a job is selected */}
-          {selectedId != null && allSelectedIds.length <= 1 && (
+          {/* Desktop job panel — only mounted while a job is selected.
+              Task 171: the mount (not just the CSS) is gated on isXl —
+              below xl the Sheet owns the panel, and the CSS-hidden aside
+              still rendered the WHOLE JobPanel tree (a second command
+              fetch + a second live panel re-rendering on every store
+              tick, invisible). `!mounted` keeps the desktop cold-load
+              frame honest: isXl corrects in an effect, and the persisted
+              selection seed (Task 157) can make selectedId non-null at
+              first paint — without the guard the aside would pop in a
+              frame late on desktop. */}
+          {selectedId != null && allSelectedIds.length <= 1 && (!mounted || isXl) && (
             <aside className="no-print hidden w-[380px] shrink-0 animate-in border-l bg-card duration-200 slide-in-from-right-4 xl:flex xl:flex-col">
               <JobPanel />
             </aside>

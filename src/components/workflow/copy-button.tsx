@@ -7,6 +7,12 @@ import { Button } from "@/components/ui/button";
  * so the JobPanel's command preview speaks the same dialect): click,
  * write, flip to "Copied" for 1.4 s, flip back. Label optional — the
  * icon alone is the compact form.
+ *
+ * Task 171: the compact form measured 34×28 px in the mobile Sheet —
+ * under the 44×44 touch-target convention. The ::before hit-slop grows
+ * the TAPPABLE area to ~50×44 without moving a pixel of the visual
+ * button (the slop rides over the adjacent non-interactive <pre> in
+ * every consumer, so nothing interactive is shadowed).
  */
 export function CopyButton({ text, label }: { text: string; label?: string }) {
   const [copied, setCopied] = React.useState(false);
@@ -14,7 +20,7 @@ export function CopyButton({ text, label }: { text: string; label?: string }) {
     <Button
       variant="ghost"
       size="sm"
-      className="h-7 gap-1.5 px-2 text-[11px]"
+      className="relative h-7 gap-1.5 px-2 text-[11px] before:absolute before:-inset-2 before:rounded-md before:content-['']"
       onClick={() => {
         void navigator.clipboard.writeText(text).then(() => {
           setCopied(true);
