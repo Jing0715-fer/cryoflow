@@ -202,11 +202,23 @@ const suiteFiles = readdirSync(SCRIPTS)
   .filter((f) => /^(t\d+.*(e2e|shot)\.mjs|qa[0-9a-z-]+\.(py|mjs))$/.test(f))
   .sort();
 
+// A suite with zero WRITE verbs cannot seed a row — its string literals are
+// vocabulary (job-TYPE name lists, flag tables), not roster candidates.
+// First contact: t170-e2e.mjs, a GET-only launch-contract probe whose
+// CLI_TYPES set ("motioncorr", "ctffind", …) and native-type loop
+// ("import", "manualpick", …) masquerade as ("name", "type") array seeds —
+// the sixth masquerader family, and the first one solved by SKIPPING the
+// file rather than excluding a context token: the gate fails OPEN toward
+// scanning (any write-verb match keeps the file in scope), so an exotic
+// mutation path can only over-include, never blind-spot.
+const WRITES = /\bPOST\b|method:\s*["'](?:POST|PUT|PATCH)["']|\.post\(|-X POST|INSERT INTO|\.create\(|\.update\(|\.delete\(|saveJob\(|seedJob\(|registerEngine/i;
+
 const scan = () => {
   const rows = [];
   for (const f of suiteFiles) {
     if (f === "t167-e2e.mjs") continue; // the scanner does not classify its own drill payloads
     const src = readFileSync(join(SCRIPTS, f), "utf8");
+    if (!WRITES.test(src)) continue; // write-less suites seed nothing (their literals are type vocabulary)
     const ownNum = parseInt((f.match(/^(?:t|qa)(\d+)/i) ?? [])[1] ?? "NaN", 10);
     for (const [name] of extractSeeds(src))
       rows.push({ file: f, ownNum: Number.isNaN(ownNum) ? null : ownNum, name, verdict: classify(name, Number.isNaN(ownNum) ? null : ownNum) });

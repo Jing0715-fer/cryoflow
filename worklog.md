@@ -4838,3 +4838,33 @@ Stage Summary:
 - 「断言的职责切分」：t167 从 58 降到 45 断言——少的 13 条是原全局正则误吸的三张域表 owner+why（Task 168 加域表时被 t167 兼管的意外射程）。现在 t167 钉 fixture 表、t168 X1–X4 钉三域成员、t169 钉全表+解析器——每张表恰好一个主钉者，交叉钉存在的（成员 pin）是敏感性牙不是所有权
 - 世界卫生观察账本（verdict 列）：全矩阵 0 抖动 0 环境性失败；Live 被矩阵诚实消耗后 qa60 重建复原；卫生八审全零
 - 遗留（下轮候选）：workspace/project 域孤儿审计的探针侧演练名册（t169 的 B 刻意不含 project 域——若未来要补，须选正典形状种子名避开 job 域网，t168 教义）；hygiene 源里 residue/dup 两审计的语义表（label 模式与 dup 策略）尚无解析器入口（当前只有四张签名表——若未来审计继续增生可考虑 audit registry 化）；undo 手感参数（真机）；runner wall-time 剖面（t152 191s 连续四轮最慢，让位）；EMPIAR 真数据回归（重，让位）；用户真机项（三级阶梯+长按可真机验收）
+
+---
+## Task 170 (2026-09-13, cron 19:16 窗口 trace …202609131916) — 进行中
+
+**主题：未跑先知（the command line before the run）——COMMAND_TEMPLATES 32 类型正典表从 server-only engine.ts 提为 client-safe 模块；新只读路由 GET /api/jobs/[id]/command 以 launch 契约三态应答（native 引擎原生 / 真实 argv / 诚实拒绝）；inspector Command line 区与 JobPanel 面板级 dock 双面消费同一真相。**
+
+- 【开局】worklog 尾部 = Task 169/f17b118（续接摘要所称 Task 161 第十五次过时）。HEAD==origin/main 树净、BUILD_ID EwuEnKl、PORT FREE；watchdog 冷启动 8s；世界 26 jobs（16c/8i/1f/1r）；三件套 qa63/qa00/t169 全绿判稳；agent-browser 视觉 QA console 零错 25 卡。
+- 【环境真相】/home/z/relion-build 工具链整体消失（沙盒重置）——data/relion-snapshot.json 诚实记录 found=false；矩阵与种子器不受影响（qa60 直接种库）；拒绝以假二进制污染世界，tier-3（诚实拒绝）恰好是引擎 runRealJob 同款话术，行为正确且可活体验证；tier-2（真实 argv）以源码 oracle 钉接线、探针断言环境免疫（argv XOR error 双世界两可）。
+- 【选题】COMMAND_TEMPLATES 零消费者（注释写 "for reference/UI" 却从未被 UI 吃过）+ 未跑 job 的 inspector 命令区整个缺席（data?.cmd ? … : null）→ 「命令行在第一次 launch 之前就该可见」。
+- 【实现·四件】①src/lib/relion/command-templates.ts 新建（表 + ENGINE_NATIVE_TYPES 六原生类型集合，client-safe）；engine.ts 改 re-export（出现恰一次）+ workdirFor 导出；②GET /api/jobs/[id]/command 只读路由：tier1 native→模板 engine-native 原文 / tier2 resolveInputs 过→buildArgv 真实 argv + shellJoin / tier3 missing|wait|RELION 未检出→引擎自己的可执行话术 + 模板垫底；READ-ONLY 合同：无 mkdir/spawn/写入（探针注释剥离扫描钉死）；③inspector：CopyButton 提取共享（copy-button.tsx）、recorded 块加 data-canvas-ui + hint、新增 CommandPreviewSection（data.cmd 缺席时渲染）；④JobPanel 面板级 dock（CommandPreviewCompact + useCommandPreview）——idle 卡点击落点是 JobPanel 不是 inspector（card onClick: idle→select/非idle→inspect），预览的受众在面板不在弹窗；dock 常驻所有 tab 之下（命令概括 io+params+图，不随 params tab 消失）。
+- 【探针三课】①t166 教义亲自再犯：路由注释里写着被禁词本身（"no mkdirSync, no spawn"）打穿 X9 banned-word 扫描——修法=注释剥离后扫代码（stripComments + 非空洞守卫 buildArgv(ctx) 在场）；②idle 卡的成功判据不是 dialog 而是 panel（openCard/openInspector 分家，C1 的「did a dialog appear」是错误的成功谓词）；③inspector 对 completed job 自动开 RESULTS tab——Command line 区在 Overview，探针必须先点 tab。
+- 【UI 放置课】dock 先放 params tab 内（Radix Tabs 卸载非活动内容 + 面板默认停 io tab → C1b 永挂）→ 挪面板级常驻；两份拷贝（params 内 + 面板级）渲染重复 → 留面板级一份；CommandPreviewCompact 的 dirty 参数沿途退役（无调用方传入）。
+- 【剪贴板课】navigator.clipboard 的 JS shim 在现代 Chromium 不可靠（defineProperty 覆盖不生效）→ context 授予 clipboard-read/write 权限用真 readText 断言（测平台不测 shim）。
+- 【SIGPIPE 教义亲身再犯】`run-matrix.sh --list | head -5` 截断管道把矩阵 SIGPIPE 杀在 [3/105]——Task 168 的教训原样重演；世界零伤（qa00 只读/qa58 条件 pop 自护/qa59 死在读相）——八审全零后 qa60 重建 Live 复原 26；矩阵重跑改为后台+日志文件无截断。
+- 【agent-browser 观察】持久 profile 会话内 synthetic .click() 后 aside 不现（原生 click 报 palette nav 覆盖画布点位）——playwright 同机制全绿；视觉核验改用 playwright 一发直拍（dock 特写 + 全面板：标题/caption/琥珀 blocker/暗台模板+复制按钮全部在位）。
+- 【t170 探针·73 断言 ×3 全绿】S 相对基线+三靶选择（native/recorded/preview——preview 靶限定画布默认工作空间 first-by-order，fresh 页面 localStorage 空回落首序）；X21 源码 oracle（表搬家无副本/engine re-export 恰一次/路由只读注释剥离扫描/native 集合共享/双面消费同一路由/recorded hint 钉死）；B 活路由（native=true 模板方言/workdir 形状/argv XOR error 环境免疫/模板恒随行/**无 mkdir 副作用：预览前 workdir 不在、调用后仍不在 + 项目根 listing 恒等**/未知 id 404）；C 浏览器（面板 dock==路由真相无第三方言/blocker 当且仅当拒绝/真剪贴板 Copy 交出所示文本/recorded 块==实际跑过的 argv/console 零错）；Z 名册恒等。
+
+- 【回归 + 全矩阵 105 套两轮】首轮 103/105：t167 挂（其提取器把 t170 探针的类型词汇数组误判为无签名种子名——CLI_TYPES 集合与 native 循环的 ("motioncorr","ctffind")/("import","manualpick") 对恰合 ("name","type") 形态）+ t170 在矩阵位次 #91 挂（Z 状态含签名被 Live 行诚实翻转打穿 + C4 被 busy 世界的 toast 抢点）。修复三件：t167 提取器加「零写动词文件不可播种」门（WRITES 正则 fail-open 朝扫描方向——第六个伪装者家族，第一个用跳过整文件而非排除上下文 token 解的）；t170 的 Z 改 id+name 成员恒等（t168 教义：状态是世界的呼吸， Live 行 running→failed 是引擎诚实收割 process-less run）；C4 三次重试环（断言的是方言不是某一次幸运点击）。二轮 **105/105 零失败**，块峰 232MB 远低 1200MB 阈值；t152 193s 仍最慢；t167 45 断言/t170 73 断言双双回到全绿。
+- 【世界收尾】矩阵后 qa60-seed-fsc.py 重建 QA Refine Live → 26 jobs（16c/8i/1f/1r 与开轮构成一致）；卫生八审全零（adopt/residue/dup/orphan + project/ws/tpl 三域 + extent）。
+- 【收尾】worklog + commit + push + 环境清理（杀 server 先 ss 查 PID、agent-browser close --all）。
+
+Stage Summary:
+- 「注释不是断言的豁免区」：X9 banned-word 扫描被路由自己的 docstring（"no mkdirSync, no spawn"）打穿——t166 的「oracle 断言 X 绝迹时先扫自己的注释」在探针域的镜像形状：被测物的注释引用禁词词汇表时，扫描必须剥离注释后扫代码，且须带非空洞守卫（buildArgv(ctx) 在场）证明剥完还扫到了东西
+- 「预览的受众决定预览的家」：inspector 弹窗是 non-idle 卡的特权（card onClick: idle→select→JobPanel / 非 idle→inspect），而「这个 job 会跑什么」最值钱的时刻恰是未跑时——feature 的第二主场（JobPanel 面板级 dock）不是锦上添花，是预览真正被看到的地方；dock 常驻所有 tab 之下（命令概括 io+params+图，不随单个 tab 消失），两份拷贝渲染重复即删
+- 「只读是一个可断言的合同」：预览路由的信任不靠评审者的眼睛——探针剥离注释扫禁词（mkdirSync/spawn/写入/prisma 变更四个方向），B9/B10 用真实文件系统断言「预览不创建它命名的 workdir + 项目根 listing 恒等」；一个会弄脏磁盘的预览是有 UI 脸的泄漏
+- 「环境的真相用诚实话术回答」：RELION 工具链消失（沙盒重置）后，快照 found=false、路由 tier-3 用引擎 runRealJob 同款拒绝话术应答、面板顶部横幅同声——拒绝以假二进制换取「tier-2 的活体演示」，探针改用环境免疫断言（argv XOR error 两世界两可）钉住合同；测试的职责是验证契约在任意环境下诚实，不是验证本沙盒此刻的配置
+- 「扫描器的射程要跟着词汇表走」：t167 的第六个伪装者家族是类型词汇（type 名数组）——它与种子名的区别不是上下文 token 而是文件能否写；零写动词文件不可能泄漏一行，跳过它 fail-open（写动词在场的文件照扫）——比逐个加排除 token 更接近合同的语义（合同的义务主体是「种了瞬态行的 owner」，无种即无义务）
+- 「绝对状态断言在矩阵中段必然脆」：t170 首轮矩阵 Z 挂于 Live 行 running→failed 的诚实翻转——t168 的「绝对数是脆断言」教义在状态维的变奏；成员恒等（id+name）才是 Z 的合同，状态另有专钉（t146 家族）
+- 世界卫生观察账本（verdict 列）：首轮矩阵两失败=探针盲区非回归非抖动（t167 提取器词汇表射程 + t170 状态脆断言，均当场治愈）；二轮 0 抖动 0 环境性失败；SIGPIPE 截断管道再犯一次（--list | head 杀矩阵于 [3/105]，世界零伤——八审全零证实）
+- 遗留（下轮候选）：tier-2（真实 argv）在工具链回归的沙盒里的活体演示（现由源码 oracle + 环境免疫断言覆盖——若未来重建 relion-build 可加一条「argv 与 outputs.cmd 同构」断言）；shellJoin 的引号方言 vs RELION 自己的打印方言（现仅空格/引号触发——真实世界的 RELION 路径无空格，维持最小实现）；JobPanel dock 在 mobile Sheet 形态的可达性（SheetContent 全宽渲染同一 JobPanel，dock 随行——未单独验收）；undo 手感参数（真机）；runner wall-time 剖面（t152 193s 连续六轮最慢，让位）；EMPIAR 真数据回归（重，让位）；用户真机项（三级阶梯+长按可真机验收）

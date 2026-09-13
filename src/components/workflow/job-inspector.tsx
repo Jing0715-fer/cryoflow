@@ -82,6 +82,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { diagnoseLines, diagnoseLog, type LogFinding } from "@/lib/log-diagnosis";
 import { fmtAgo, fmtClock, fmtDuration } from "@/lib/duration";
 import { jobType } from "@/lib/workflow";
+import { COMMAND_TEMPLATES } from "@/lib/relion/command-templates";
+import { CopyButton } from "./copy-button";
 import { useWorkflowStore } from "@/lib/store";
 import type { EdgeDTO, JobDTO } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -163,26 +165,8 @@ function useElapsed(startedAt: string | null, active: boolean): number {
   return Math.max(0, now - new Date(startedAt).getTime());
 }
 
-function CopyButton({ text, label }: { text: string; label?: string }) {
-  const [copied, setCopied] = React.useState(false);
-  return (
-    <Button
-      variant="ghost"
-      size="sm"
-      className="h-7 gap-1.5 px-2 text-[11px]"
-      onClick={() => {
-        void navigator.clipboard.writeText(text).then(() => {
-          setCopied(true);
-          setTimeout(() => setCopied(false), 1400);
-        });
-      }}
-      aria-label={label ?? "Copy"}
-    >
-      {copied ? <Check className="size-3.5 text-emerald-600" /> : <Copy className="size-3.5" />}
-      {label ? <span>{copied ? "Copied" : label}</span> : null}
-    </Button>
-  );
-}
+/* CopyButton moved to ./copy-button (Task 170) — the JobPanel's command
+   preview shares the exact same clipboard dialect instead of forking it. */
 
 /* ------------------------------------------------------------------ */
 /* Log console                                                         */
@@ -1425,13 +1409,14 @@ function OverviewTab({
         ) : null}
       </div>
       {data?.cmd ? (
-        <Section icon={Terminal} title="Command line">
+        <Section icon={Terminal} title="Command line" hint="recorded at launch">
           {/* data-log-console: the same dark-console print re-ink as the Log
               tab (globals.css Task 114) — zinc-300 mono on unprinted
               bg-zinc-950 would vanish on paper */}
           <div
             data-log-console=""
             data-print-atomic=""
+            data-canvas-ui="command-recorded"
             className="flex items-start gap-2 rounded-lg border bg-zinc-950 p-3 dark:bg-zinc-900"
           >
             <pre className="m-0 min-w-0 flex-1 overflow-x-auto whitespace-pre-wrap break-all font-mono text-[10.5px] leading-relaxed text-zinc-300">
@@ -1440,8 +1425,117 @@ function OverviewTab({
             <CopyButton text={data.cmd} />
           </div>
         </Section>
-      ) : null}
+      ) : (
+        <CommandPreviewSection job={job} />
+      )}
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Command preview — the launch contract before the first launch        */
+/* ------------------------------------------------------------------ */
+
+/** Shape of GET /api/jobs/[id]/command — the tiers arrive as mutually
+ *  exclusive fields (native | command | missing | error), with the
+ *  template always riding along as the fallback contract. */
+interface CommandPreviewResponse {
+  native?: boolean;
+  argv?: string[];
+  command?: string;
+  missing?: string;
+  wait?: string;
+  error?: string;
+  template?: string | null;
+}
+
+/**
+ * Task 170 — the command line before the run. A never-run job's inspector
+ * used to render NOTHING where a run job shows its recorded argv: the most
+ * common question an idle card begs ("what will launching this actually
+ * run?") had no answer anywhere. Three honest tiers, best-truth-first:
+ *
+ *   1. INSTANT: the canonical template (client-safe constant — the same
+ *      table buildArgv's shapes were extracted from) renders on the first
+ *      frame with zero latency. Honest by construction: it cannot lie
+ *      about paths because it shows placeholders.
+ *   2. UPGRADED: the read-only preview route (/api/jobs/[id]/command)
+ *      returns the REAL argv — same builder the launch and the sbatch
+ *      dry-run use — and the block swaps the template for it once fetched.
+ *   3. HONEST REFUSAL: missing/waiting inputs, RELION undetected or a
+ *      builder error render the ENGINE's own actionable message (the same
+ *      dialect a launch failure speaks) above the template console — the
+ *      contract stays visible even when the instance cannot exist yet.
+ *
+ * Engine-native types (import/select/…) show the template's
+ * "engine-native: …" description verbatim — there is no argv to render,
+ * and pretending otherwise would be the dishonest kind of preview.
+ */
+function CommandPreviewSection({ job }: { job: JobDTO }) {
+  const template =
+    COMMAND_TEMPLATES[job.type] ??
+    "engine-native: this job type carries no canonical template";
+  const [preview, setPreview] = React.useState<CommandPreviewResponse | null>(null);
+
+  React.useEffect(() => {
+    const ctl = new AbortController();
+    setPreview(null); // switching jobs resets the stale preview immediately
+    fetch(`/api/jobs/${job.id}/command`, { signal: ctl.signal })
+      .then((r) => (r.ok ? (r.json() as Promise<CommandPreviewResponse>) : null))
+      .then((d) => {
+        if (!ctl.signal.aborted) setPreview(d);
+      })
+      .catch(() => {
+        /* aborted or network hiccup — the template default stands */
+      });
+    return () => ctl.abort();
+  }, [job.id]);
+
+  // the best truth available right now: a fetched argv command upgrades
+  // the template the moment it lands; until then the template IS the
+  // honest answer (placeholders, not invented paths)
+  const shown = preview?.command ?? template;
+  const isRealArgv = preview?.command != null;
+  const isNative = preview?.native === true;
+  const blocker = preview?.missing ?? preview?.error ?? null;
+
+  const hint = isRealArgv
+    ? "preview — identical builder to the launch"
+    : isNative
+      ? "engine-native — no CLI argv"
+      : preview === null
+        ? "reading the launch contract…"
+        : blocker
+          ? "not launched yet — template below"
+          : "not launched yet";
+
+  return (
+    <Section icon={Terminal} title="Command line" hint={hint}>
+      {blocker ? (
+        <p
+          data-canvas-ui="command-blocker"
+          className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] leading-relaxed text-amber-700 dark:text-amber-300"
+        >
+          {blocker}
+        </p>
+      ) : null}
+      {/* the same dark-console print re-ink as the recorded block — a
+          preview that vanishes on paper is a half-truth on paper */}
+      <div
+        data-log-console=""
+        data-print-atomic=""
+        data-canvas-ui="command-preview"
+        className="flex items-start gap-2 rounded-lg border bg-zinc-950 p-3 dark:bg-zinc-900"
+      >
+        <pre
+          data-canvas-ui="command-preview-text"
+          className="m-0 min-w-0 flex-1 overflow-x-auto whitespace-pre-wrap break-all font-mono text-[10.5px] leading-relaxed text-zinc-300"
+        >
+          {shown}
+        </pre>
+        <CopyButton text={shown} />
+      </div>
+    </Section>
   );
 }
 

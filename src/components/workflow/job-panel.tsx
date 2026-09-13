@@ -39,7 +39,9 @@ import {
 } from "lucide-react";
 import { PORT_COLORS, coerceParam, jobType, portsCompatible, tabsFor } from "@/lib/workflow";
 import { registerParamFlusher, useWorkflowStore } from "@/lib/store";
+import { COMMAND_TEMPLATES } from "@/lib/relion/command-templates";
 import { ClassGallery } from "./class-gallery";
+import { CopyButton } from "./copy-button";
 import type {
   EdgeDTO,
   JobDTO,
@@ -894,6 +896,10 @@ function ParamsTab({
         );
       })}
 
+      {/* Task 170's live block lives panel-wide (below the body tabs) —
+          the command summarizes io + params + the graph, not just this
+          tab's content, so it must not vanish with the params tab. */}
+
       {/* Auto-save status bar (parameters persist themselves — no manual
           Save button to forget; Reset reverts to the last saved values) */}
       <div className="shrink-0 border-t bg-card">
@@ -1430,6 +1436,15 @@ function PanelBody({ job }: { job: JobDTO }) {
           <LogTab job={job} />
         </TabsContent>
       </Tabs>
+
+      {/* Task 170 — the launch contract, panel-wide: visible on every tab
+          (the command summarizes io + params + the graph, not just one
+          tab's content). The params tab is where an idle job's user SHAPE
+          it, but the preview belongs to the whole panel. Template
+          instantly, the read-only route's real argv when it lands, the
+          engine's own refusal when inputs can't resolve yet. Reflects
+          the SAVED parameters (autosave makes the drift transient). */}
+      <CommandPreviewCompact job={job} />
     </div>
   );
 }
@@ -1445,4 +1460,107 @@ export function JobPanel() {
 
   if (!job) return <PanelEmpty />;
   return <PanelBody key={job.id} job={job} />;
+}
+
+/* ------------------------------------------------------------------ */
+/* Command preview (Task 170) — the launch contract in the params tab   */
+/* ------------------------------------------------------------------ */
+
+/** Shape of GET /api/jobs/[id]/command — same contract the inspector's
+ *  preview section consumes; the two surfaces render different chrome
+ *  over the SAME truth (there is no second dialect to drift). */
+interface CommandPreviewResponse {
+  native?: boolean;
+  argv?: string[];
+  command?: string;
+  missing?: string;
+  wait?: string;
+  error?: string;
+  template?: string | null;
+}
+
+/** One fetch per job id, aborted on switch/unmount — shared shape with
+ *  the inspector's preview (kept as a local hook: the two surfaces also
+ *  differ in lifecycle, panel selection vs dialog mount). */
+function useCommandPreview(jobId: string): CommandPreviewResponse | null {
+  const [preview, setPreview] = React.useState<CommandPreviewResponse | null>(null);
+  React.useEffect(() => {
+    const ctl = new AbortController();
+    setPreview(null);
+    fetch(`/api/jobs/${jobId}/command`, { signal: ctl.signal })
+      .then((r) => (r.ok ? (r.json() as Promise<CommandPreviewResponse>) : null))
+      .then((d) => {
+        if (!ctl.signal.aborted) setPreview(d);
+      })
+      .catch(() => {
+        /* aborted or network hiccup — the template default stands */
+      });
+    return () => ctl.abort();
+  }, [jobId]);
+  return preview;
+}
+
+/**
+ * The compact preview: caption + dark console + copy, sized for the
+ * panel column. Best-truth-first — the template (client-safe constant)
+ * shows instantly; the route's rendered argv replaces it; the engine's
+ * own missing/wait/error message rides above as the honest blocker.
+ * The contract shown is the SAVED one (autosave makes any in-form drift
+ * transient — the route reads the persisted job row).
+ */
+function CommandPreviewCompact({ job }: { job: JobDTO }) {
+  const template =
+    COMMAND_TEMPLATES[job.type] ??
+    "engine-native: this job type carries no canonical template";
+  const preview = useCommandPreview(job.id);
+
+  const shown = preview?.command ?? template;
+  const isRealArgv = preview?.command != null;
+  const blocker = preview?.missing ?? preview?.error ?? null;
+
+  const caption = isRealArgv
+    ? "preview — identical builder to the launch"
+    : preview === null
+      ? "reading the launch contract…"
+      : blocker
+        ? "not launched yet — the shape it will run:"
+        : "not launched yet";
+
+  return (
+    <div
+      data-canvas-ui="command-preview-panel"
+      className="shrink-0 space-y-1.5 border-t bg-muted/30 px-3 py-2.5"
+    >
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Command preview
+        </p>
+        <p className="truncate text-[10px] text-muted-foreground">
+          {caption}
+        </p>
+      </div>
+      {blocker ? (
+        <p
+          data-canvas-ui="command-blocker"
+          className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[10.5px] leading-relaxed text-amber-700 dark:text-amber-300"
+        >
+          {blocker}
+        </p>
+      ) : null}
+      <div
+        data-log-console=""
+        data-print-atomic=""
+        data-canvas-ui="command-preview"
+        className="flex items-start gap-2 rounded-md border bg-zinc-950 p-2 dark:bg-zinc-900"
+      >
+        <pre
+          data-canvas-ui="command-preview-text"
+          className="m-0 min-w-0 flex-1 overflow-x-auto whitespace-pre-wrap break-all font-mono text-[10px] leading-relaxed text-zinc-300"
+        >
+          {shown}
+        </pre>
+        <CopyButton text={shown} />
+      </div>
+    </div>
+  );
 }
