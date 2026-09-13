@@ -4717,3 +4717,27 @@ Stage Summary:
 - 「finally 里的铁律」：hoist 的清理句柄不得被 try 内重声明遮蔽（J 遮蔽=note 残留=毒化 qa82/83 基线）；非 must 异常必须落 failed（否则 verdict 伪装 ALL PASS）；page.evaluate 不序列化 Set；poll 驱动的表面读 eventually 不读固定 sleep——四课全部来自本轮实战
 - 「世界卫生的新盲区形状」：qa61 Host 双胞胎——fixture 命名（"qa61 Host"）不在 residue 的 `^label \d+$` 自动名模式内，双泄漏静默存活。世界复位 28 与开轮构成完全一致交付
 - 遗留（下轮候选）：residue 审计的 fixture 名盲区（建白名单或按「非活性 fixture 名册」审计——qa61 Host 族）；compare dialog hover-dim 与 spotlight 的视觉语法统一评估（两处 dim 同为退场语义但参数不同 0.15 vs 0.28）；undo 手感参数（真机）；runner wall-time 剖面（让位）；世界卫生观察账本（本轮 verdict：qa75 为合同升级非回归、qa61 Host 为世界残留非代码缺陷、0 抖动）；EMPIAR 真数据回归（重，让位）；用户真机项（favorites 长按 + spotlight 三级层均可真机验收）
+
+---
+## Task 165 (2026-09-13, cron 13:01 窗口 trace …202609131308)
+
+**主题：world-hygiene FIXTURE 双审计（Task 164 交接候选①兑现）——把 qa61 Host 双胞胎暴露的 fixture 名盲区钉成两个永久审计：FIXTURE-DUP（同名即泄漏）+ FIXTURE-ORPHAN（签名残留）。**
+
+- 【开局】worklog 尾部 = Task 164/d12e633（cron Task 13 文本第十次过时）。HEAD==origin/main 树净、BUILD_ID kClIpWI、PORT FREE；watchdog 冷启动；世界 28 jobs；三件套（qa63/qa00/t164）全绿判稳。
+- 【QA 侦察】agent-browser 画布「卡片挤顶、下方大片空白」一度疑似 fit bug——取证三连（世界 bbox 3440×2308、清 sessionStorage 重载复现、屏幕↔世界换算 scale 恰 0.25）定性为**世界固有形态**（relocate 尾巴在底部 + EXTENT-FIT 合框 clamp），非回归；顺带发现 agent-browser 持久 profile 会跨轮恢复上轮手动 viewport（位置家族按合同工作，QA 时须清会话存储）。
+- 【实现·world-hygiene.mjs 两审计】①FIXTURE-DUP（audit 0.6）：同名 ≥2 即泄漏（套件按名种按 id 清；崩溃留一具、下次同 suite 再造一具=双胞胎）——留最新删较旧（刚崩溃那具可能还被盘上工件指着），边级联；②FIXTURE-ORPHAN（audit 0.7）：显式手工白名单签名（/^qa61 Host$/、/^QA Esc Import$/、/^T\d+ /、/^t\d+ /，各带 owner+why 注释），套件间窗口命中即清除；**「QA」单前缀刻意不作签名**——常驻世界的 QA 管线行是探针造的但属正典（世界就是它们构成的）；400 cap 大声中止双审计继承 residue 合同；header 文档从「three audits」改为逐审计档案。
+- 【首战即果】净世界首跑：fixture-orphan **2/2 删除**——上轮「留一具 qa61 Host 当正典」的判断被审计推翻（qa61 的 docstring 自证 36 株泄漏史：两行都是泄漏，都是 qa61 退出即删的瞬态）；连带 QA Class Select 失邻成孤儿被召回（3580,160）。世界从 28 → 26 = 无泄漏正典新常态。
+- 【教义确认·双目的地并存】extent/NN 召回仍走右缘（baseX 2680），EXTENT-FIT（1c）走 pack 下方——设计如此：普通孤儿右缘落位、破坏合框者由 1c 下方自纠；本轮边界情况未触发 1c。
+- 【输出层有损显示教训】`labels[m[1]]` 在 Bash/python repr 显示层被剥成 `labels[1]]`（与上轮 `0.15`→`n` 同族掩码）——取证必须信码点转储（ord 序列）与 node 行为，不信显示字符串。
+- 【t165 探针·25 断言 ×3 全绿】纯 API 域（t161 家族，无浏览器）：S 基线名册快照；X 11 oracle（签名表/keep-newest 策略/400 cap×3/矩阵接线/正典守卫）；B 净世界 0/0（扫净地板的清道夫才是好清道夫）；C CORE：种 2×qa61 Host + T165 Anchor + t165 beta + **非签名重名对 2×165 Twin** → 子进程跑 hygiene → **审计组合语义**（dup 2/2 + orphan 3/3：dup 留下的新 twin 仍中签名、同轮被 orphan 扫走——「套件间哪怕一具也是泄漏」），keep-newest 只能在非签名名上状态级观测（幸存 165 Twin = 较新 id）+ 正典行 id+名全保 + roster==基线+1；D 稳定性二轮 0/0（非签名单例不是泄漏——dup 需成对、orphan 需签名）；Z finally 用合同自己的 DELETE 清场 + 名册严格复原。
+- 【探针两课】①正则字面量匹配含斜杠的源码模式是分隔符地狱（`/\/\^QA\//` 少一个闭界符吞掉后续实参）——源码包含断言改用纯字符串 includes；②**空洞通过（vacuous pass）**：POST 响应是 `{job:{...}}` 信封，探针把信封当行用 → 每个 `.id` undefined → 每个 `=== seedId` 断言恒真——断言操作数必须是真行（t163 unknown-ids 家族），修法=seed helper 解包 `j.job ?? j` + 注释钉死。
+- 【回归 + 全矩阵 100 套 0 失败】受影响面：qa61（宿主本主）/qa60/qa62/qa58/t161/t164 全绿；全矩阵 10 块（t165 auto-include #86，195MB/PASS）；t152 193s 仍最慢；块峰 202MB 零阈值重启。
+- 【世界收尾】矩阵后 qa60-seeder 重建 Live → **26 jobs（16c/8i/1f/1r）= 无泄漏正典首次完整交付**（历史 28 中有两具是泄漏）；卫生五审（adopt/residue/dup/orphan/extent+NN+FIT）全零。
+- 【收尾】worklog + commit + push + 环境清理（杀 server 先 ss 查 PID、agent-browser close --all、watchdog 已停）。
+
+Stage Summary:
+- 「泄漏的名字是语义的，所以审计必须是白名单的」：residue 的 `^label N$` 抓自动名，fixture 名（"qa61 Host"）永远不在其射程——FIXTURE-ORPHAN 的签名表逐条手工注主（owner+why），加条目的合同是「owner 退出清理按 id 删这些名，加前先验证」；正典守卫（无裸 /^QA/ 签名）是审计不吞世界的保险丝。双审计分工：DUP 抓通用不变量（世界正典行按构造唯一——套件按名选靶，第二个「QA Post 300」让每次按名选靶变掷硬币），ORPHAN 抓显式合同
+- 「审计的组合语义要先于断言想清」：dup 留新的、orphan 扫签名——两者同轮复合后，签名名的 keep-newest 在终态不可观测（幸存者必被扫）；探针的解法是造非签名重名对（165 Twin）让 keep-newest 活到终态。断言模型与被测系统的复合行为不一致时，先改模型不是改产品
+- 「空洞通过比失败更危险」：undefined === undefined 恒真——信封形状不匹配让五条 id 断言全部空转，探针「全绿」但什么都没验。操作数必须是解包后的真值；判定一条断言是否活着，看它失败时会不会响
+- 「上轮的判断要接受这轮的审计」：Task 164 世界收尾时「删旧留新、留一具当正典」的判断，本轮被 FIXTURE-ORPHAN 首战推翻——两具都是 qa61 的瞬态（其 docstring 的 36 株史自证）。审计落地后它自己重审了审计者的过去，这正是世界卫生账本该有的样子
+- 遗留（下轮候选）：compare dialog hover-dim 与 spotlight 的视觉语法统一评估（两处退场语义参数不同 0.15 vs 0.28/0.32/0.62——可考虑 token 化 dim 阶梯）；FIXTURE 签名表的自动化验证（新 t-suite 若开始泄漏 TNNN 行，签名已覆盖；但「owner 是否真按 id 删」无静态断言——可加一个扫描探针）；undo 手感参数（真机）；runner wall-time 剖面（让位）；世界卫生观察账本（本轮 verdict：全零，无抖动无环境性失败）；EMPIAR 真数据回归（重，让位）；用户真机项

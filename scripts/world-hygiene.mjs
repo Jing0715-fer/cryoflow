@@ -1,4 +1,4 @@
-// world-hygiene — probe-domain public infrastructure, three audits:
+// world-hygiene — probe-domain public infrastructure, the audits:
 //
 //   ADOPT   (Task 137) — legacy rows with workspaceId NULL render NOWHERE
 //     on the canvas (the active-workspace filter is non-null whenever any
@@ -44,9 +44,35 @@
 //     doctrine — the product's word table is the only word table); a
 //     per-run cap of 400 turns a signature bug into a loud abort instead
 //     of a blind mass deletion.
+//   FIXTURE-DUP (Task 165) — the same NAME twice is always a leak. Suites
+//     seed fixtures by name and delete them BY ID at exit; a crashed run
+//     leaves its copy, and the next run of the same suite creates a
+//     SECOND — the qa61 Host twins (both completed, both unreferenced,
+//     invisible to RESIDUE because a fixture name is never "<label> N")
+//     sat in the roster for rounds before anyone noticed. The world's
+//     canonical rows are unique by construction (suites pick targets by
+//     name — a second "QA Post 300" would make every name-based pick a
+//     coin toss), so the invariant is safe: keep the NEWEST copy (a just-
+//     crashed run's row may be the one disk artifacts still point at),
+//     delete the older ones, edges cascade.
+//   FIXTURE-ORPHAN (Task 165) — the second blind spot, same incident:
+//     probe-created rows whose names are fixture signatures but which no
+//     suite deleted at exit (the owner FATALed before its cleanup phase).
+//     RESIDUE cannot see them — a fixture name is semantic ("qa61 Host",
+//     "T140 Anchor"), not the auto-name form. The signatures here are
+//     EXPLICIT and WHITE-LISTED BY HAND: only names whose OWNING suite
+//     deletes them at exit may appear (the standing world's QA-pipeline
+//     rows are probe-CREATED but canonical — they are what the world is
+//     made of, so "QA" alone is deliberately NOT a signature). The matrix
+//     runs this script BEFORE every suite, so a leaked fixture is swept
+//     before the next suite's first assertion — the between-suites window
+//     is exactly the between-rounds contract. Same 400 cap, same loud
+//     abort.
 //
 // Cards are MOVED, never deleted — EXCEPT residue rows under the Task 144
-// signature above. Edges survive a move (and cascade away with a deleted
+// signature above and fixture rows under Task 165's two signatures (a
+// leaked fixture is not a world feature; the world's own QA-pipeline rows
+// predate both audits and match neither). Edges survive a move (and cascade away with a deleted
 // residue row: Edge.fromJob/toJob are onDelete: Cascade). Destination
 // slots are occupancy-aware: a slot is only used if no CURRENT job
 // rectangle sits on it (relocations must not manufacture the next
@@ -117,6 +143,72 @@ const taken = (x, y, ignore = new Set()) =>
     }
   } else {
     console.log("residue: skipped (no label table extracted from workflow.ts)");
+  }
+}
+
+// ---------- audit 0.6: fixture-dup (Task 165 — same name twice is a leak) ----------
+{
+  const byName = new Map();
+  for (const o of j) {
+    if (!o.name) continue;
+    if (!byName.has(o.name)) byName.set(o.name, []);
+    byName.get(o.name).push(o);
+  }
+  const dups = [];
+  for (const [, group] of byName) {
+    if (group.length < 2) continue;
+    group.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)); // newest first
+    dups.push(...group.slice(1)); // keep the newest, leak the rest
+  }
+  if (dups.length > 400) {
+    console.log(`FIXTURE-DUP ABORT: ${dups.length} matches exceed the 400 cap — signature bug, not cleanup`);
+  } else if (dups.length > 0) {
+    let dead = 0;
+    for (const o of dups) {
+      const r = await fetch(`${BASE}/api/jobs/${o.id}`, { method: "DELETE" });
+      if (r.ok) { o._dead = true; dead++; }
+      else console.log(`DELETE FAILED fixture-dup "${o.name}" (${o.id}) (HTTP ${r.status})`);
+    }
+    for (let i = j.length - 1; i >= 0; i--) if (j[i]._dead) j.splice(i, 1);
+    console.log(`fixture-dup: ${dead}/${dups.length} older duplicate rows deleted (kept the newest of each name)`);
+  } else {
+    console.log("fixture-dup: 0 (every roster name is unique)");
+  }
+}
+
+// ---------- audit 0.7: fixture-orphan (Task 165 — semantic fixtures that outlived their run) ----------
+{
+  // EXPLICIT hand-listed signatures: names whose OWNING suite deletes them
+  // at exit. A row matching one between suites is a crashed run's leftover.
+  // The standing world's QA-pipeline rows are probe-created but CANONICAL —
+  // they are what the world is made of, so "QA" alone is deliberately NOT
+  // here. New entry contract: the owner's exit cleanup deletes rows of this
+  // name BY ID (verify before adding — the audit deletes what you list).
+  const FIXTURE_SIGNATURES = [
+    { re: /^qa61 Host$/, owner: "qa61-e2e.mjs", why: "transient host, deleted at exit (its own history: 36 strays)" },
+    { re: /^QA Esc Import$/, owner: "qa61-e2e.mjs", why: "narrow-sheet prop, deleted at exit" },
+    { re: /^T\d+ /, owner: "t-suite anchors (t96/t140/t148/t149/…)", why: "every t-suite's Z phase restores the roster" },
+    { re: /^t\d+ /, owner: "t-suite lowercase fixtures (t95-t98)", why: "same self-cleanup contract" },
+  ];
+  const fixtureHits = [];
+  for (const o of j) {
+    const sig = FIXTURE_SIGNATURES.find((s) => s.re.test(o.name ?? ""));
+    if (sig) fixtureHits.push({ o, sig });
+  }
+  if (fixtureHits.length > 400) {
+    console.log(`FIXTURE-ORPHAN ABORT: ${fixtureHits.length} matches exceed the 400 cap — signature bug, not cleanup`);
+  } else if (fixtureHits.length > 0) {
+    let dead = 0;
+    for (const { o, sig } of fixtureHits) {
+      const r = await fetch(`${BASE}/api/jobs/${o.id}`, { method: "DELETE" });
+      if (r.ok) { o._dead = true; dead++; }
+      else console.log(`DELETE FAILED fixture-orphan "${o.name}" (${o.id}) (HTTP ${r.status})`);
+    }
+    for (let i = j.length - 1; i >= 0; i--) if (j[i]._dead) j.splice(i, 1);
+    const sample = fixtureHits.slice(0, 3).map((h) => `"${h.o.name}" (${h.sig.owner})`).join(", ");
+    console.log(`fixture-orphan: ${dead}/${fixtureHits.length} outlived fixture rows deleted — ${sample}${fixtureHits.length > 3 ? " …" : ""}`);
+  } else {
+    console.log("fixture-orphan: 0 (no fixture-signature rows in the roster)");
   }
 }
 
