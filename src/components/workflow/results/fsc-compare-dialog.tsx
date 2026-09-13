@@ -795,6 +795,13 @@ export function FscCompareDialog({
                     .map(([id, c], i) => {
                       const idx = index?.findIndex((e) => e.jobId === id) ?? i;
                       const pal = PALETTE[idx % PALETTE.length];
+                      // Task 166 — the recession rides the ladder's whisper
+                      // rung through inline style: an SVG presentation
+                      // attribute (strokeOpacity=) cannot consume var(),
+                      // recharts forwards `style` to the curve path, and
+                      // the inline style beats the attribute. Same depth
+                      // the minimap chips recess to under a focus lens —
+                      // one semantic, one value.
                       return (
                         <Line
                           key={id}
@@ -803,7 +810,11 @@ export function FscCompareDialog({
                           name={index?.find((e) => e.jobId === id)?.name ?? id}
                           stroke={pal.stroke}
                           strokeWidth={highlightId === id ? 3 : 2}
-                          strokeOpacity={highlightId == null || highlightId === id ? 1 : 0.15}
+                          style={
+                            highlightId == null || highlightId === id
+                              ? undefined
+                              : { strokeOpacity: "var(--dim-whisper)" }
+                          }
                           dot={false}
                           activeDot={{ r: 4, fill: pal.stroke }}
                           connectNulls

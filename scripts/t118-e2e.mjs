@@ -18,12 +18,13 @@
 //           = content + MM_PAD exactly; node-only invariant: navigating
 //           inside nodes mode leaves the box UNCHANGED
 // Phase B — sel focus: shift-click A+B → sel enabled → sel box = sel
-//           bbox + pad (C,D excluded); dim contracts (dots 0.13 +
-//           data-mm-dim, edges 0.06 vs 0.25 by endpoint); live re-frame
+//           bbox + pad (C,D excluded); dim contracts (dots whisper 0.15
+//           via .mm-chip-dim + data-mm-dim, edges ghost 0.06 vs base 0.25
+//           by endpoint — Task 166 ladder); live re-frame
 //           on deselect; empty selection → fit fallback + button disable
 // Phase C — M toggle regression: minimap hides/shows with header intact
 // Phase F — static contract: MM_MODES table, aria-pressed, header
-//           pointerdown stopPropagation, dim opacity constants,
+//           pointerdown stopPropagation, ladder class wiring,
 //           transition-opacity, no localStorage, sel fallback, matrix
 //           glob auto-includes t118
 // Phase Z — cleanup (edges + jobs deleted), console clean
@@ -146,6 +147,9 @@ const mapLines = async () =>
       x1: Number(l.getAttribute("x1")), y1: Number(l.getAttribute("y1")),
       x2: Number(l.getAttribute("x2")), y2: Number(l.getAttribute("y2")),
       op: l.getAttribute("opacity"),
+      // Task 166 — the dim rides the .mm-edge-dim class (ladder's ghost
+      // rung); the attribute stays 0.25, computed style resolves the token
+      cso: getComputedStyle(l).opacity,
     }));
   });
 /** expected fit-mode world box (ports the component formula): content ∪ viewport, padded */
@@ -340,21 +344,33 @@ try {
   must(boxMatches(gSel, selBox),
     `B3 sel box = selection bbox + pad (C,D excluded) — ${boxDump(gSel, selBox)}`);
   must(gSel.ww < contentBox.ww - 800, "B4 sel framing is much tighter than the content framing");
-  // dim contracts
+  // dim contracts. Task 166: the chip dim moved from the opacity attribute
+  // to the .mm-chip-dim class (the ladder's --dim-whisper rung — 0.13 vs
+  // the compare curves' 0.15 was drift, now unified at 0.15). Status ink
+  // (idle 0.55 / active 0.9) stays attribute-borne; the dim is read from
+  // computed style, which resolves the token.
   const dimOf = async (id) =>
     p.evaluate((jid) => {
       const el = document.querySelector(`[data-canvas-ui="minimap-dot"][data-job-id="${jid}"]`);
-      return el ? { dim: el.getAttribute("data-mm-dim"), op: el.getAttribute("opacity") } : null;
+      return el
+        ? {
+            dim: el.getAttribute("data-mm-dim"),
+            op: el.getAttribute("opacity"),
+            cso: getComputedStyle(el).opacity,
+          }
+        : null;
     }, id);
   const dA = await dimOf(A.id), dB = await dimOf(B.id), dC = await dimOf(C.id), dD = await dimOf(D.id);
-  must(dA && dA.dim === null && dA.op === "0.55", "B5 selected A keeps idle opacity, no dim flag");
+  must(dA && dA.dim === null && dA.op === "0.55" && dA.cso === "0.55", "B5 selected A keeps idle opacity, no dim flag");
   must(dB && dB.dim === null, "B6 selected B not dimmed");
-  must(dC && dC.dim === "1" && dC.op === "0.13", "B7 unselected C dims to 0.13 with data-mm-dim");
-  must(dD && dD.dim === "1" && dD.op === "0.13", "B8 unselected D dims to 0.13");
-  // edge dim contract: A→B keeps 0.25 (selected endpoint), C→D dims to 0.06
+  must(dC && dC.dim === "1" && dC.cso === "0.15", "B7 unselected C dims to the whisper rung (0.15) with data-mm-dim");
+  must(dD && dD.dim === "1" && dD.cso === "0.15", "B8 unselected D dims to the whisper rung (0.15)");
+  // edge dim contract: A→B keeps 0.25 (selected endpoint), C→D dims to
+  // the ghost rung (0.06 via .mm-edge-dim; the ATTRIBUTE stays 0.25 —
+  // the class carries the recession, computed style resolves it)
   const edgeOps = await mapLines();
-  must(edgeOps.some((l) => isAB(l) && l.op === "0.25"), "B9 edge A→B keeps full opacity (selected endpoint)");
-  must(edgeOps.some((l) => isCD(l) && l.op === "0.06"), "B10 edge C→D dims to 0.06 (no selected endpoint)");
+  must(edgeOps.some((l) => isAB(l) && l.op === "0.25" && l.cso === "0.25"), "B9 edge A→B keeps full opacity (selected endpoint)");
+  must(edgeOps.some((l) => isCD(l) && l.op === "0.25" && l.cso === "0.06"), "B10 edge C→D dims to the ghost rung (0.06, no selected endpoint)");
 
   // live re-frame: deselect A → the box snaps to B alone
   await shiftClickCard(A.id);
@@ -371,7 +387,7 @@ try {
     "B12b pressed state follows the effective mode (fit on, sel off)");
   must(await p.locator('[data-mm-btn="sel"]').isDisabled(), "B13 sel button re-disables");
   const dC2 = await dimOf(C.id);
-  must(dC2 && dC2.dim === null && dC2.op === "0.55", "B14 dimming clears with the mode");
+  must(dC2 && dC2.dim === null && dC2.op === "0.55" && dC2.cso === "0.55", "B14 dimming clears with the mode");
 
   /* ---------------- Phase C: M toggle regression ---------------- */
   console.log("Phase C — M toggle still owns the whole minimap");
@@ -395,8 +411,8 @@ try {
   must(/data-mm-mode=\{effMode\}/.test(mmSrc), "F4 container advertises the effective mode");
   must(/data-mm-dim=\{dimmed \|\| findDim \? "1" : undefined\}/.test(mmSrc),
     "F5 dim flag contract on chips (sel focus OR find dim — Task 136)");
-  must(/opacity=\{dimmed \|\| findDim \? 0\.13 : /.test(mmSrc) && /opacity=\{dim \? 0\.06 : 0\.25\}/.test(mmSrc),
-    "F6 dim opacity constants (chips 0.13, edges 0.06/0.25)");
+  must(/opacity=\{j\.status === "idle" \? 0\.55 : 0\.9\}/.test(mmSrc) && /mm-chip-dim/.test(mmSrc) && /mm-edge-dim/.test(mmSrc) && /opacity=\{0\.25\}/.test(mmSrc),
+    "F6 recession rides the ladder classes (chips whisper, edges ghost; status ink attribute-borne)");
   must(/transition-opacity duration-300/.test(mmSrc), "F7 dimming eases via transition");
   must(!/localStorage/.test(mmSrc), "F8 minimap still touches no storage");
   must(/mode === "sel" && selIds\.size === 0 \? "fit" : mode/.test(mmSrc),

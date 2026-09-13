@@ -163,6 +163,9 @@ export const EdgesLayer = React.memo(function EdgesLayer({
         // the same of every wire that does not touch a JUDGED card —
         // full ink is reserved for the story radiating from the judged
         // work; the union means selection and lens dim independently.
+        // Task 166: the recession value is the ladder's --dim-wire rung
+        // (a 2px stroke dies at the cards' 0.28 on the dark canvas —
+        // wires keep one notch more ink than the cards they connect).
         const touchesJudged = judgedIds != null && (judgedIds.has(from.id) || judgedIds.has(to.id));
         const dimmed =
           (selectedId != null && !touchesSelected) || (judgedIds != null && !touchesJudged);
@@ -189,7 +192,7 @@ export const EdgesLayer = React.memo(function EdgesLayer({
             key={edge.id}
             data-edge-id={edge.id}
             style={{
-              opacity: dimmed ? 0.32 : 1,
+              opacity: dimmed ? "var(--dim-wire)" : 1,
               transition: "opacity 220ms ease",
             }}
           >

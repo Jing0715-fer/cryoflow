@@ -26,7 +26,8 @@
  *
  * Task 136 — the find lens reaches the map: with the Ctrl+F bar open,
  * matching chips gain an amber stroke and non-matches dim (the same
- * 0.13 the sel focus uses), so scattered matches read at a glance even
+ * whisper rung the sel focus uses — see the Task 166 ladder), so
+ * scattered matches read at a glance even
  * when they span several viewports. Third consumer of the SAME
  * jobMatchesFind predicate — the count, the card rings, and these dots
  * can never disagree about what a match is.
@@ -168,7 +169,7 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
   // the bar counts with and the canvas rings with now also marks matches
   // here (third consumer). Matches keep their status fill and gain an
   // amber stroke (the canvas find ring's hue); non-matches dim with the
-  // SAME 0.13 the sel focus uses — but only when the lens has ≥1 hit,
+  // SAME whisper rung the sel focus uses — but only when the lens has ≥1 hit,
   // and never on top of sel focus (selection is the stronger intent,
   // same priority the card rings obey). Hooks live ABOVE the empty-jobs
   // early return — rules-of-hooks has no exceptions for "map not drawn".
@@ -394,8 +395,11 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
                 y2={b.y + CARD_H / 2}
                 stroke="currentColor"
                 strokeWidth={Math.max(6, Math.min(18, world.w / 120))}
-                opacity={dim ? 0.06 : 0.25}
-                className="text-muted-foreground"
+                // Task 166 — the dim rides the ladder's --dim-ghost rung via
+                // the .mm-edge-dim class (an SVG presentation attribute
+                // cannot consume var()); the base ink stays attribute-borne.
+                opacity={0.25}
+                className={cn("text-muted-foreground", dim && "mm-edge-dim")}
                 // Task 139 — the map's wires are pure decoration (the canvas
                 // wires carry the click-to-delete affordance, these don't):
                 // a wire crossing a chip's projected center must never steal
@@ -436,9 +440,18 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
                 height={CARD_H}
                 rx={26}
                 fill={STATUS_FILL[j.status] ?? STATUS_FILL.idle}
-                opacity={dimmed || findDim ? 0.13 : j.status === "idle" ? 0.55 : 0.9}
+                // Task 166 — status ink stays attribute-borne (idle 0.55 /
+                // active 0.9); the recession moved to the .mm-chip-dim class
+                // consuming the ladder's --dim-whisper rung (the map's old
+                // ad-hoc chip depth and the compare curves' whisper differed
+                // by a hair — drift, not design; one semantic, one value).
+                // Presentation attributes rank below every CSS rule, so the
+                // class overrides the attribute without !important, and door
+                // chips never co-occur with the dim.
+                opacity={j.status === "idle" ? 0.55 : 0.9}
                 className={cn(
                   "transition-opacity duration-300",
+                  (dimmed || findDim) && "mm-chip-dim",
                   // Task 137/139 — a door chip brightens on hover to say so
                   // (stroke stays primary/amber, fill stays the world's —
                   // the lens never repaints the world's colors)

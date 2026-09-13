@@ -4741,3 +4741,28 @@ Stage Summary:
 - 「空洞通过比失败更危险」：undefined === undefined 恒真——信封形状不匹配让五条 id 断言全部空转，探针「全绿」但什么都没验。操作数必须是解包后的真值；判定一条断言是否活着，看它失败时会不会响
 - 「上轮的判断要接受这轮的审计」：Task 164 世界收尾时「删旧留新、留一具当正典」的判断，本轮被 FIXTURE-ORPHAN 首战推翻——两具都是 qa61 的瞬态（其 docstring 的 36 株史自证）。审计落地后它自己重审了审计者的过去，这正是世界卫生账本该有的样子
 - 遗留（下轮候选）：compare dialog hover-dim 与 spotlight 的视觉语法统一评估（两处退场语义参数不同 0.15 vs 0.28/0.32/0.62——可考虑 token 化 dim 阶梯）；FIXTURE 签名表的自动化验证（新 t-suite 若开始泄漏 TNNN 行，签名已覆盖；但「owner 是否真按 id 删」无静态断言——可加一个扫描探针）；undo 手感参数（真机）；runner wall-time 剖面（让位）；世界卫生观察账本（本轮 verdict：全零，无抖动无环境性失败）；EMPIAR 真数据回归（重，让位）；用户真机项
+
+---
+## Task 166 (2026-09-13, cron 14:01 窗口 trace …202609131405) — 进行中
+
+**主题：recession ladder（退场阶梯）token 化（Task 165 交接候选①兑现）——五个深度的「非故事」语义一名一值：ghost 0.06 / whisper 0.15 / recede 0.28 / wire 0.32 / murmur 0.62 + 双灰度同伴。**
+
+- 【开局】worklog 尾部 = Task 165/a59dad2（cron Task 13 文本第十一次过时）。HEAD==origin/main 树净、BUILD_ID kClIpWI、PORT FREE；watchdog 冷启动；世界 26 jobs；三件套（qa63/qa00/t165）全绿判稳。
+- 【候选侦查】①「compare dialog hover-dim 与 spotlight 视觉语法统一」经源码全景扫描定性成立：退场语义的值散落五处——0.15（compare 曲线 fsc-compare-dialog:806）、0.13（minimap chip）、0.28（spotlight deep）、0.32（退场线）、0.62（spotlight context）——0.13 与 0.15 是同一语义（far backstage）的偶然漂移。②FIXTURE 签名表自动化验证（候选②留作下轮）。
+- 【实现·五处】①globals.css：:root 五 token+双灰度+教义注释块（阶梯即语法表）；spotlight 双类改吃 var()；新增 .mm-chip-dim/.mm-edge-dim 类（SVG 表现属性不能吃 var()→类承运；表现属性级联低于一切 CSS 规则→无需 !important；door 与 dim 永不同现→hover:opacity-100 无冲突）；②edges-layer：inline style 吃 var(--dim-wire)（线在暗底 0.28 会死，保持比卡多一档）；③fsc-compare-dialog：strokeOpacity 改走 style（recharts 2.15 透传 style 到曲线 path，SVGElementPropKeys 含 style 已验证）；④minimap：状态墨留 attribute（0.55/0.9），退场走类；⑤值统一：minimap 0.13→0.15（whisper）。
+- 【t166 探针·31 断言 ×3 全绿】S 活图分区+种子；X 13 源码 oracle（token 恰定义一次/双类吃 token/edges style 吃 token/dialog style 吃 token/minimap 类门控/状态墨 attribute 承运/**旧散落字面量已绝迹**（消费者文件内不得再见 0.13/0.32/0.15——活着的字面量是第二个真相源）/阶梯教义注释在位）；B lens OFF 全墨；C CORE：25 卡逐一 computed opacity 对齐活图期望分区（judged 1/murmur 0.62/recede 0.28）+线故事律（1/0.32）+spotlight 不拥有 minimap（各 lens 各治其台）；D minimap 状态墨 attribute==computed；E lens OFF 全复原；Z finally 清 note+严格 console 零错。
+- 【探针三课】①t166 自伤：oracle 断言「旧字面量绝迹」会被自己写的历史注释打穿——minimap 内 Task 136 时代注释含 0.13，改写注释消字面量（含 CSS 注释同理）；②page.evaluate 不序列化 Set（t164 教义第三课再度兑现——Set 在页内建、跨界变 {}）；③X 相 must 立即死保全证据（首跑字面量残留当场定位两行注释）。
+- 【构建窗世界注意】两次 next build 各把 QA Refine Live 诚实失败（stale running state——Task 163 教义：构建窗=数据面事故窗）；每次构建后 python3 scripts/qa60-seed-fsc.py 重建 Live→26 jobs（16c/8i/1f/1r）复原。
+- 【受影响面回归全绿】t118（69 断言，升级：dimOf/mapLines 加 cso 读 computed、B7/B8/B10 改 whisper/ghost 断言、F6 源码 oracle 换类接线断言）/t136（31，C5c 改 0.15 computed）/t164（38，X oracle 改 token 接线、3 处 style.opacity 改 computed）/qa62（compare 曲线 computed 值不变，免疫）/qa75/t134/t135/t140/qa82/qa83/t86/qa63/qa00 全绿。
+- 【视觉核验】agent-browser 真机：1 noted 点亮、25% 全景判卡 ring+邻域中间层+深暗场可辨、100% recede 卡正确退场；note 已清、会话已关。
+- 【矩阵·段中事故即第二层真相】全矩阵 101 套（t166 auto-include #87，205MB/5s/PASS）10 块 0 失败；块 3 首两跑 t105 A2 连挂同断言（got 7346,525 want 7346,579——Y 恰差 54 世界像素，X 精确）——诊断脚本取证：elementFromPoint=svg 本体（无 chip 抢点）、无 job 近点、组件 CTM 换算与探针换算的系统差=**preserveAspectRatio 信箱条**。定性：viewBox 纵横比越过 MM_MIN/MAX_H 夹逼边界→SVG 信箱化（xMidYMid meet 居中带+均匀缩放），探针 worldToClient 按全元素线性映射无视信箱——t105/t106/t125 三探针携带 Task 105 时代的同族潜伏盲区 60+ 轮，全靠世界纵横比恰好躲开夹逼存活；Task 140 轮已在 t118 学过此课（其注释明言「Task 140 world repairs changed the bbox shape and exposed it」）但未回植同族。Task 165 交付的 26-job 无泄漏正典世界（fixture 删除使 bbox 变宽）让纵横比越界引爆。修复=三探针换算函数统一信箱感知（scale=min + 居中偏移，t118 版照搬）；修复后 t105(45)/t106(46)/t125(48) 独立全绿，块 3 重跑全绿。产品行为自始正确（点哪个像素居中哪个像素的世界点），错的一直是探针的像素标注。
+- 【世界收尾】矩阵后 qa60-seeder 重建 Live → 26 jobs（16c/8i/1f/1r 与开轮构成一致）；卫生五审（adopt/residue/dup/orphan/extent）全零。
+- 【收尾】worklog + commit + push + 环境清理（杀 server 先 ss 查 PID、agent-browser close --all、watchdog 已停）。
+
+Stage Summary:
+- 「同一语义一个值」：0.13 与 0.15 是同一「far backstage」在两个台的偶然漂移——阶梯把它们钉成 whisper。加新退场面=选一档，不是发明一个 hex。五个 rung 各有名（ghost/whisper/recede/wire/murmur）各有存在的理由（线在暗底 0.28 会死所以比卡高一档；装饰线在 focus 下该消失所以是 ghost）
+- 「SVG 表现属性不能吃 var()」三条出路：inline style（edges-layer/compare 曲线，recharts 2.15 透传 style 已验）、CSS 类（minimap，表现属性级联天然最低故类胜无需 !important；door 与 dim 永不同现故 hover 不打架）、保持字面量+探针钉合同（弃用——字面量活着就是第二个真相源）
+- 「oracle 断言 X 绝迹时先扫自己的注释」：历史注释里的旧值会打穿「字面量已死」断言——含 CSS 注释同理；新注释改称语义名（whisper rung）不引数字
+- 「探针的几何换算必须知道投影」：t105/t106/t125 的信箱盲区 60+ 轮靠世界形状巧合存活——「反演必须知道正演的投影」（t118 注释原文），而学到课的那一轮没有回植同族。横向修复时 grep 同函数名的所有副本是合同；世界形状（bbox 纵横比）是探针几何的隐藏参数，fixture 删除/卫生召回都可能越过某个夹逼边界引爆潜伏盲区
+- 世界卫生观察账本（verdict 列）：块 3 两起 t105 失败=探针盲区非回归非抖动（诊断定案后修复治愈）；全矩阵 0 抖动 0 环境性失败；两次构建窗各拆 Live 一次（qa60-seeder 常规重建）
+- 遗留（下轮候选）：FIXTURE 签名表自动化验证（Task 165 候选②，留）；undo 手感参数（真机）；runner wall-time 剖面（让位）；EMPIAR 真数据回归（重，让位）；用户真机项（三级阶梯+长按均可真机验收）

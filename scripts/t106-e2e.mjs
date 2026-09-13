@@ -89,10 +89,18 @@ const mapGeo = async () =>
     const r = svg.getBoundingClientRect();
     return { wx: vb[0], wy: vb[1], ww: vb[2], wh: vb[3], x: r.x, y: r.y, w: r.width, h: r.height };
   });
-const worldToClient = (g, wx, wy) => ({
-  x: g.x + ((wx - g.wx) / g.ww) * g.w,
-  y: g.y + ((wy - g.wy) / g.wh) * g.h,
-});
+// LETTERBOX-AWARE (the t118 lesson): preserveAspectRatio xMidYMid gives a
+// clamped map centered bands + uniform scale — the linear map only passed
+// while the world's aspect dodged the height clamp
+const worldToClient = (g, wx, wy) => {
+  const s = Math.min(g.w / g.ww, g.h / g.wh);
+  const ox = (g.w - g.ww * s) / 2;
+  const oy = (g.h - g.wh * s) / 2;
+  return {
+    x: g.x + ox + (wx - g.wx) * s,
+    y: g.y + oy + (wy - g.wy) * s,
+  };
+};
 /** Real card drag: pointer down at the card's screen center, move by
  *  (dx,dy) SCREEN px, up. Caller sleeps past the PATCH before reading. */
 const dragCard = async (id, dx, dy) => {

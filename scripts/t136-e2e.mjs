@@ -2,7 +2,8 @@
 //
 //   reach    — with the Ctrl+F bar open, matching minimap chips gain an
 //              amber stroke (the canvas find ring's hue) while non-
-//              matches dim with the SAME 0.13 the sel focus uses —
+//              matches dim with the SAME whisper rung the sel focus uses
+//              (0.15 since the Task 166 ladder; formerly 0.13) —
 //              scattered matches read at a glance across viewports
 //   one-match— bar count, canvas card rings, and these dots all derive
 //              from the SAME exported jobMatchesFind predicate; the UI
@@ -18,7 +19,7 @@
 // Phase B — the bare map: no find markers, no dims (fit mode).
 // Phase C — Ctrl+F "T136": 6 matches on the bar, EXACTLY the six seeds
 //           carry data-mm-find, their stroke is #f59e0b, a sampled
-//           non-match is dimmed at 0.13.
+//           non-match is dimmed at the whisper rung (0.15, computed).
 // Phase D — the Running chip: the map's amber set follows the API oracle
 //           (T136 ∩ running ∩ rendered) — the third consumer keeps step.
 // Phase E — Esc closes the bar: map returns to bare (no find, no dims).
@@ -210,8 +211,12 @@ async function main() {
   must(!!nonMatchId, "C5 a non-match exists to sample");
   const nonDim = await mmDot(nonMatchId).evaluate((el) => el.getAttribute("data-mm-dim"));
   must(nonDim === "1", "C5b the sampled non-match is dim-marked");
-  const nonOpacity = await mmDot(nonMatchId).evaluate((el) => parseFloat(el.getAttribute("opacity")));
-  must(nonOpacity === 0.13, "C5c the non-match dims at the sel-focus value (0.13)");
+  // Task 166 — the dim rides the .mm-chip-dim class now, so the value is
+  // read from computed style (which resolves the ladder's --dim-whisper
+  // token): 0.15, the SAME rung the compare dialog's non-highlighted
+  // curves recess to (0.13 vs 0.15 was drift between identical semantics)
+  const nonOpacity = await mmDot(nonMatchId).evaluate((el) => parseFloat(getComputedStyle(el).opacity));
+  must(nonOpacity === 0.15, "C5c the non-match dims at the whisper rung (0.15 — unified with the compare curves)");
   const cardRing = await p
     .locator(`[data-job="${seedIds["T136 Gamma"]}"]`)
     .evaluate((el) => el.getAttribute("data-find-match"));

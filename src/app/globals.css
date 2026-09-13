@@ -499,20 +499,83 @@
    The paper is exempt: an archival printout must render every job
    at full ink regardless of the lens (print block below).
    ============================================================ */
+
+/* ============================================================
+   THE RECESSION LADDER (Task 166) — five named depths of "not
+   the story". Every surface that dims content to push it backstage
+   pulls its number from ONE of these tokens; a surface earns its
+   depth from what it IS, never from where it happens to render.
+   Before the ladder the depths were scattered literals — 0.13 on
+   minimap chips and 0.15 on compare curves (the SAME semantic,
+   "far backstage", drifting apart by accident), 0.28 spotlight,
+   0.32 wires each tuned in place with no way to see the grammar
+   they composed. The ladder IS the grammar:
+
+     ghost    0.06  erased — decorative minimap wires under a
+                    focus lens (they are pure clutter on the
+                    small stage; nothing needs to read them)
+     whisper  0.15  far backstage — non-highlighted compare
+                    curves, minimap chips outside the current
+                    lens: present, unnamed, ignorable
+     recede   0.28  peripheral — spotlight deep / find-miss cards
+                    (a full CARD at 0.28 stays legible)
+     wire     0.32  receding wires — a 2px stroke at 0.28 dies
+                    against the dark canvas, so wires keep one
+                    notch more ink than the cards they connect
+     murmur   0.62  context — spotlight 1-hop tier: clearly
+                    present, clearly not the story
+
+   The two grayscale companions ride WITH the card tiers (cards
+   desaturate as they recede; strokes and chips are single-color
+   and have nothing to desaturate). Print re-targets opacity to 1
+   via the block below — tokens make that override shape-stable.
+   Adding a dimmed surface = picking a rung, not inventing a hex.
+   ============================================================ */
+:root {
+  --dim-ghost: 0.06;
+  --dim-whisper: 0.15;
+  --dim-recede: 0.28;
+  --dim-wire: 0.32;
+  --dim-murmur: 0.62;
+  --dim-gray-deep: 0.75;
+  --dim-gray-soft: 0.35;
+}
+
 .note-spotlight-dim {
-  opacity: 0.28;
-  filter: grayscale(0.75);
+  opacity: var(--dim-recede);
+  filter: grayscale(var(--dim-gray-deep));
   transition:
     opacity 200ms ease,
     filter 200ms ease;
 }
 
 .note-spotlight-context {
-  opacity: 0.62;
-  filter: grayscale(0.35);
+  opacity: var(--dim-murmur);
+  filter: grayscale(var(--dim-gray-soft));
   transition:
     opacity 200ms ease,
     filter 200ms ease;
+}
+
+/* Minimap recession (Task 166 joins the ladder): the map's chips
+   and wires dim under the sel-focus / find lenses. The dim rides a
+   CLASS here, not the SVG opacity attribute — presentation
+   attributes cannot consume var(), and a class overrides the
+   status-ink attribute cleanly (idle 0.55 / active 0.9 stay
+   attribute-borne, so t118's attribute contract survives). The
+   chips sit at whisper (they are the SAME "far backstage" semantic
+   as the compare dialog's curves — 0.13 vs 0.15 was drift, not
+   design); the wires are ghost (decoration, nothing to read).
+   The door chips (findHit / selDoor) never co-occur with the dim,
+   so hover:opacity-100 never fights this class — and no !important
+   is needed: an SVG presentation attribute ranks BELOW every CSS
+   rule in the cascade, so the class wins by ordinary ordering. */
+.mm-chip-dim {
+  opacity: var(--dim-whisper);
+}
+
+.mm-edge-dim {
+  opacity: var(--dim-ghost);
 }
 
 /* ============================================================

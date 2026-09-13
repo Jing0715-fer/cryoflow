@@ -48,7 +48,14 @@ try {
     const r = svg.getBoundingClientRect();
     return { wx: vb[0], wy: vb[1], ww: vb[2], wh: vb[3], x: r.x, y: r.y, w: r.width, h: r.height };
   });
-  const w2c = (wx, wy) => ({ x: g.x + ((wx - g.wx) / g.ww) * g.w, y: g.y + ((wy - g.wy) / g.wh) * g.h });
+  // LETTERBOX-AWARE (the t118 lesson): preserveAspectRatio xMidYMid gives a
+  // clamped map centered bands + uniform scale — inversion must know it
+  const w2c = (wx, wy) => {
+    const s = Math.min(g.w / g.ww, g.h / g.wh);
+    const ox = (g.w - g.ww * s) / 2;
+    const oy = (g.h - g.wh * s) / 2;
+    return { x: g.x + ox + (wx - g.wx) * s, y: g.y + oy + (wy - g.wy) * s };
+  };
   const home = w2c(X0 + 160, Y0 + 130);
   await p.mouse.click(home.x, home.y);
   await sleep(700);

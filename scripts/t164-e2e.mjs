@@ -146,8 +146,14 @@ try {
 
   // ---------------- X: source oracles ----------------
   console.log("== X: source oracles ==");
-  must(/\.note-spotlight-context\s*\{[^}]*opacity:\s*0\.62/.test(css), "CSS: context tier at opacity 0.62");
-  must(/\.note-spotlight-context\s*\{[^}]*grayscale\(0\.35\)/.test(css), "CSS: context tier desaturates to 0.35 (lighter than deep 0.75)");
+  must(/\.note-spotlight-context\s*\{[^}]*opacity:\s*var\(--dim-murmur\)/.test(css),
+    "CSS: context tier rides the ladder's --dim-murmur rung (0.62, Task 166)");
+  must(/\.note-spotlight-context\s*\{[^}]*grayscale\(var\(--dim-gray-soft\)\)/.test(css),
+    "CSS: context tier desaturates via --dim-gray-soft (lighter than deep's --dim-gray-deep)");
+  must(/--dim-recede:\s*0\.28/.test(css) && /--dim-wire:\s*0\.32/.test(css) && /--dim-whisper:\s*0\.15/.test(css) && /--dim-ghost:\s*0\.06/.test(css),
+    "CSS: the ladder defines recede/wire/whisper/ghost in one place (Task 166)");
+  must(/\.note-spotlight-dim\s*\{[^}]*opacity:\s*var\(--dim-recede\)/.test(css),
+    "CSS: the deep tier rides --dim-recede");
   must(/\.note-spotlight-dim,\s*\n\s*\.note-spotlight-context\s*\{[^}]*opacity:\s*1 !important/.test(css),
     "CSS: print block exempts BOTH tiers (paper never dims)");
   must(cardSrc.includes('data-spotlight-context='), "card: context exposes a probe-visible data attribute");
@@ -171,7 +177,7 @@ try {
   const off = await page.evaluate(() => ({
     ctx: [...document.querySelectorAll('[data-spotlight-context="true"]')].length,
     dim: [...document.querySelectorAll(".note-spotlight-dim")].length,
-    edges: [...document.querySelectorAll("g[data-edge-id]")].map((g) => g.style.opacity),
+    edges: [...document.querySelectorAll("g[data-edge-id]")].map((g) => getComputedStyle(g).opacity),
   }));
   must(off.ctx === 0 && off.dim === 0, `lens OFF: zero context attrs, zero deep dims (${off.ctx}/${off.dim})`);
   must(off.edges.every((o) => o === "1"), `lens OFF: every wire at full ink (${off.edges.length} edges)`);
@@ -185,7 +191,7 @@ try {
     ctx: [...document.querySelectorAll('[data-spotlight-context="true"]')].map((el) => el.getAttribute("data-job")),
     dim: [...document.querySelectorAll(".note-spotlight-dim")].map((el) => el.getAttribute("data-job")),
     edges: [...document.querySelectorAll("g[data-edge-id]")].map((g) => ({
-      id: g.getAttribute("data-edge-id"), o: g.style.opacity,
+      id: g.getAttribute("data-edge-id"), o: getComputedStyle(g).opacity,
     })),
   }));
   const onSet = new Set(on.ctx);
@@ -260,7 +266,7 @@ try {
   const off2 = await page.evaluate(() => ({
     ctx: [...document.querySelectorAll('[data-spotlight-context="true"]')].length,
     dim: [...document.querySelectorAll(".note-spotlight-dim")].length,
-    edges: [...document.querySelectorAll("g[data-edge-id]")].map((g) => g.style.opacity),
+    edges: [...document.querySelectorAll("g[data-edge-id]")].map((g) => getComputedStyle(g).opacity),
   }));
   must(off2.ctx === 0 && off2.dim === 0, "lens OFF: tiers fully retire");
   must(off2.edges.every((o) => o === "1"), "lens OFF: wires back to full ink");
