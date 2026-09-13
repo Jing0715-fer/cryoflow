@@ -1,6 +1,8 @@
 // t123-shot — visual acceptance for the pipeline timeline (Task 123).
 // Seeds the same engine-stamped windows as the e2e probe, screenshots the
 // dashboard timeline on screen and on simulated paper, then cleans up.
+// Fixture contract (Task 167): "TL " seeds covered by hygiene's /^TL /
+// signature (crash safety net) — this owner deletes them BY ID at exit.
 import { execSync } from "node:child_process";
 import { chromium } from "playwright";
 

@@ -1,6 +1,9 @@
 // t123 — Task 123: the pipeline timeline — the session story as a third
 // analytics view.
 //
+// Fixture contract (Task 167): the "TL "-prefixed seeds below are covered by
+// world-hygiene's FIXTURE-ORPHAN /^TL / signature (crash safety net) — this
+// owner deletes them BY ID at exit.
 // The dashboard's PipelineAnalytics answered "how healthy" (particle flow
 // funnel) and "how good" (resolution ladder) but never "when did what run".
 // The honest run window comes from the ENGINE's own stamps: startedAt is

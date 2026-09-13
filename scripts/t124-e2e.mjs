@@ -1,6 +1,9 @@
 // t124 — Task 124: reveal arrivals — one click from a dashboard timeline row
 // (or ladder chip) lands on the job in the canvas, centered and pulsing.
 //
+// Fixture contract (Task 167): the "TL "-prefixed seeds below are covered by
+// world-hygiene's FIXTURE-ORPHAN /^TL / signature (crash safety net) — this
+// owner deletes them BY ID at exit.
 // Task 123 built the session timeline but left its rows inert — the story
 // was readable, the jobs were unreachable. The reveal semantic is NOT the
 // dashboard's existing deep-link "open" dialect (idle→select /

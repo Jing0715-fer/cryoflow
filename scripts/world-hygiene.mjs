@@ -189,6 +189,13 @@ const taken = (x, y, ignore = new Set()) =>
     { re: /^QA Esc Import$/, owner: "qa61-e2e.mjs", why: "narrow-sheet prop, deleted at exit" },
     { re: /^T\d+ /, owner: "t-suite anchors (t96/t140/t148/t149/…)", why: "every t-suite's Z phase restores the roster" },
     { re: /^t\d+ /, owner: "t-suite lowercase fixtures (t95-t98)", why: "same self-cleanup contract" },
+    // Task 167: the static scan (t167-e2e.mjs) found twelve seeded job rows
+    // ("TL Import" family, "TL Nav A/B", "TL Shot A/B") whose prefix PREDATES
+    // the T-anchor convention — /^T\d+ / needs a digit after the T, so a
+    // crashed t123/t124 run would leak them permanently, invisible to this
+    // audit. Owners delete by id at exit (verified in all four files).
+    { re: /^TL /, owner: "t123-e2e/shot + t124-e2e/shot", why: "lens/timeline canvas fixtures predating the T-anchor convention; owners delete by id at exit" },
+    { re: /^Deep /, owner: "t126-e2e.mjs", why: "deep-link scoping fixtures predating the T-anchor convention; owner deletes by id at exit" },
   ];
   const fixtureHits = [];
   for (const o of j) {

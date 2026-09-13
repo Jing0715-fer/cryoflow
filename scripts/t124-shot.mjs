@@ -1,6 +1,8 @@
 // t124-shot — visual acceptance for the reveal arrival (Task 124).
 // Clicks a timeline row and captures the canvas mid-flash (screen + a zoom
 // of the card), then cleans up.
+// Fixture contract (Task 167): "TL " seeds covered by hygiene's /^TL /
+// signature (crash safety net) — this owner deletes them BY ID at exit.
 import { execSync } from "node:child_process";
 import { chromium } from "playwright";
 const BASE = "http://localhost:3000";

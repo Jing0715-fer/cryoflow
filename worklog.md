@@ -4766,3 +4766,27 @@ Stage Summary:
 - 「探针的几何换算必须知道投影」：t105/t106/t125 的信箱盲区 60+ 轮靠世界形状巧合存活——「反演必须知道正演的投影」（t118 注释原文），而学到课的那一轮没有回植同族。横向修复时 grep 同函数名的所有副本是合同；世界形状（bbox 纵横比）是探针几何的隐藏参数，fixture 删除/卫生召回都可能越过某个夹逼边界引爆潜伏盲区
 - 世界卫生观察账本（verdict 列）：块 3 两起 t105 失败=探针盲区非回归非抖动（诊断定案后修复治愈）；全矩阵 0 抖动 0 环境性失败；两次构建窗各拆 Live 一次（qa60-seeder 常规重建）
 - 遗留（下轮候选）：FIXTURE 签名表自动化验证（Task 165 候选②，留）；undo 手感参数（真机）；runner wall-time 剖面（让位）；EMPIAR 真数据回归（重，让位）；用户真机项（三级阶梯+长按均可真机验收）
+
+---
+## Task 167 (2026-09-13, cron 15:31 窗口 trace …202609131539)
+
+**主题：FIXTURE 签名表自动化验证（Task 165 候选②兑现，交接两次）——「owner 是否真按 id 删」从承诺变成静态合同；扫描器首战即抓到 16 个已在役的崩溃泄漏盲区名（TL 家族 12 + Deep 家族 4）。**
+
+- 【开局】worklog 尾部 = Task 166/24ce5ee（cron Task 13 文本第十二次过时）。HEAD==origin/main 树净、BUILD_ID EwuEnKl、PORT FREE；watchdog 冷启动 1s 内起；世界 26 jobs（16c/8i/1f/1r）；三件套 qa63/qa00/t166 全绿判稳；agent-browser 视觉 QA console 零错、25 卡+35 线+minimap 正常。
+- 【候选侦查】交接①「FIXTURE 签名表自动化验证」源码核实成立：Task 165 的签名表写着「owner 退出清理按 id 删这些名（加前先验证）」，但整份合同无一行断言。侦察脚本（t167-recon，后折叠进探针）对全部 suite 源码做种子名提取+分类，**两批真盲区实锤**：①TL 家族 12 种名（t123-e2e/shot 各 6、t124-e2e/shot 各 3：「TL Import」「TL MotionCorr」「TL CtfFind」「TL Extract」「TL Class2d」「TL Select」「TL Nav A/B」「TL Shot A/B」）——TL 前缀早于 T 锚定法，/^T\d+ / 要求 T 后跟数字，崩溃即永久泄漏 FIXTURE-ORPHAN 全盲；②Deep 家族 4 种名（t126-e2e 的 mkJob("Deep Home Idle"/"Deep Ws2 Idle"/"Deep Ws2 Done"/"Deep Cross Done")）——同族第二接触。
+- 【实现·三件】①world-hygiene.mjs 签名表 +2 条目（/^TL / owner t123-e2e/shot+t124-e2e/shot、/^Deep / owner t126-e2e.mjs，各带 owner+why+教义注释；owner 按 id 清理已在四个文件逐一验证后才入表——165 的入表合同）；②五个 owner 文件 docstring 合同注记（t123-e2e/t123-shot/t124-e2e/t124-shot/t126）；③t167-e2e.mjs 探针：自带提取器（五种形态：数组种子/JS 对象 near POST/对象 type+name 对/Python "name" 对/qa60 SPECS 元组形），六类判定（self-prefix 自编号/explicit-sig/canonical 世界建造者/exception 文档化/NO-SIGNATURE 盲区/OTHER-SUITE-PREFIX 跨套件污染）。
+- 【提取器校准五课（首跑实战打出）】①localStorage favorites 数组伪装种子（["motioncorr","ctffind"] 是收藏列表不是种子对，t133/t155/t163 假阳性）——±250 窗口 localStorage/setItem 排除；②mock API 响应伪装（qa42/qa45 的 JSON.stringify({jobs:[…]}) route 拦截载荷永不落库）——**JSON.stringify 刻意不进排除表**：PATCH 改名体 JSON.stringify({name:"QA Esc Import"}) 是真行变异恰是签名表的靶，排除按信封形状（\bjobs:\s*\[ 键）与 mock 词，不按 API 名；③Playwright locator 伪装（t152 的 getByRole("button",{name:"Retry"})）；④workspace/project 域名不是 job 行（TL124 shot/Tuned 2D branch 是工作空间/模板）——扫描器射程=job 名册，workspace 孤儿审计记为后续候选；⑤扫描器不扫自己（drill 载荷自持，"T167 Crash Drill" 由 hygiene 的网兜底——B 演练亲自证明）。
+- 【合同语义分支】owner-deletes-by-id 只约束**瞬态种子员**（提取种子含非正典名的 33 套）；世界建造者（qa60 全正典 10 名）与清道夫（qa62 的「种子」是它要清的名表=SPECS 镜像）由 canonical guard 守护而非退出清理；shot 套件的线性扫除循环（for..of DELETE）是合法 wiring 形态（与 cleanup()/void cleanup()/Phase Z/finally 并列）；删除手段两形态并列（API DELETE/curl 与 prisma purge，t146 先例是最强形态）。
+- 【t167 探针·45 断言 ×3 全绿】S 基线名册快照；X 源码 oracle（签名表逐条 owner+why/TL+Deep 钉死/canonical guard 五正典名反测/矩阵 hygiene 接线/400 cap 三审计/145 字面量分类**零 NO-SIGNATURE 零 OTHER-SUITE-PREFIX**/五向已知成员钉住（T145 Alpha/TL Import/Deep Home Idle/QA Esc Import/165 Twin）/分类器敏感性三连/165 Twin 异常文档在位/33 瞬态套件 owner 合同零 GAP）；B 崩溃演练（T167 Crash Drill 种下→hygiene 孤儿 1/1 扫走→名册复位——网在运行时是真的）；C 对照演练（167nosig anchor 种下→hygiene 放行 0→owner 按 id 删——静态扫描为何承重，亲手闭环）；Z 名册恒等（unknown-ids 双向 diff）。
+- 【敏感性测试自己的课】首版用 "t167 Stealth"+null 号段判 NO-SIGNATURE——写错了：^t\d+ / 全局覆盖小写家族，任何 t 前缀泄漏（哪怕跨号）都被网住，网只漏无前缀名。断言语义跟着现实改（"stray anchor" 才是网真漏的形状），并把「跨号仍被扫」钉成显式断言。
+- 【回归 + 全矩阵 102 套 0 失败】受影响面：t165(25)/t123(51)/t124(32)/t126(40) 全绿；无自源断言排查（五文件零 readFileSync 自读）。全矩阵 10 块（t167 auto-include #88，193MB/0s PASS——纯静态扫描器极快）；t152 193s 仍最慢；块峰 207MB 零阈值重启。
+- 【世界收尾】qa60-seeder 重建 Live → 26 jobs（16c/8i/1f/1r 与开轮构成一致）；卫生五审（adopt/residue/dup/orphan/extent）全零。
+- 【收尾】worklog + commit + push + 环境清理（杀 server 先 ss 查 PID、agent-browser close --all、watchdog 已停）。
+
+Stage Summary:
+- 「审计的合同也要有审计」：Task 165 的签名表把「owner 按 id 删」写进注释，但注释不是断言——一个未来 t-suite 种下 "my anchor" 就会永久泄漏且五审全绿。扫描探针把承诺变成合同，首战就抓到 16 个已在役的盲区名：合同落地的那一刻才发现，签名表的射程从未覆盖过 T 锚定法之前的历史层
+- 「前缀的历史层积」：TL/Deep 是命名约定定型之前的层——正则 /^T\d+ / 只认数字，历史名静默漏网。+2 条目收编历史层之后，新 suite 的自编号前缀合同从此有扫描器守着：种什么名、谁来删、崩了谁兜，三问都有答案
+- 「排除表的每个 token 都是语义决定」：JSON.stringify 进不进排除表差点误伤——mock 信封和 PATCH 改名体同用 stringify，前者永不落库后者正是签名表的靶。排除按信封形状（jobs:[ 键）不按 API 名；同族教训：qa62 的「种子」是它要清的名表，owner 合同的适用域必须先想清（瞬态种子员 33 套，世界建造者与清道夫由 canonical guard 守护）
+- 「空转的扫描器比没有更危险」：≥50 字面量下限 + 五向已知成员钉住 + 分类器敏感性三连 + B/C 运行时演练——四重防空洞。t165 的空洞通过教义（undefined===undefined 恒真）在本轮的形状是「分类器永不开火」：145 字面量与 33 瞬态套件的下限断言让扫描器没有沉默的空间
+- 世界卫生观察账本（verdict 列）：全矩阵 0 抖动 0 环境性失败；t167 的 B/C 演练在世界里种删各一具后名册恒等复位；卫生五审全零
+- 遗留（下轮候选）：workspace/project 域孤儿审计（TL124 shot 等工作空间种子崩溃泄漏无网——FIXTURE-ORPHAN 只扫 job 名册，工作空间/项目/模板域无对应审计）；签名表与探针镜像表的单一真相源（现靠 X oracle 断言镜像一致，可让探针直接 import/解析真表）；undo 手感参数（真机）；runner wall-time 剖面（让位）；EMPIAR 真数据回归（重，让位）；用户真机项（三级阶梯+长按可真机验收）

@@ -4,6 +4,10 @@
 // repair + the open dialect (idle → select+focus centered arrival with the
 // arrival flash; submitted → results inspector).
 //
+// Fixture contract (Task 167): the "Deep "-prefixed seeds below are covered
+// by world-hygiene's FIXTURE-ORPHAN /^Deep / signature (crash safety net) —
+// this owner deletes them BY ID at exit.
+//
 // Before this task the three dashboard cards each inlined their own copy of
 // the dialect, and NONE of them centered the canvas on the idle path — a
 // card outside the viewport "arrived" invisibly. Worse, the cross-project
