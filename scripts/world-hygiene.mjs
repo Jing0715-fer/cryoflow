@@ -219,6 +219,137 @@ const taken = (x, y, ignore = new Set()) =>
   }
 }
 
+// ---------- audit 0.75: project-orphan (Task 168 — the cross-project leak) ----------
+// The THREE sibling domains of the job roster had zero coverage: suites that
+// seed workspaces, projects and templates exit-clean by id, but a crashed
+// run leaves them permanently. The PROJECT domain is the loudest: POST
+// /api/projects SETS THE NEW PROJECT ACTIVE (registerProject makeActive=true),
+// so a crashed cross-project suite (t126 "TL126 cross") leaves the whole
+// world FACESHIFTED onto a test canvas — every job-domain audit above keeps
+// scanning a roster the user can no longer see, and the leaked project's
+// workspaces are invisible to the workspace audit below (PATCH/DELETE only
+// reach the ACTIVE project). ORDER IS THE CONTRACT: this audit runs FIRST —
+// deleting the leak heals the active pointer (getActiveProject falls back
+// to first-by-createdAt = the canonical demo, seeded 2026-09-12), so the
+// workspace and template audits underneath always scan the RIGHT project.
+// Deletion cascades the leak's workspaces/jobs/templates wholesale; the
+// API's own guard (cannot delete the LAST project) is the second fence
+// behind the canonical guard.
+const HYGIENE_COUNTS = { project: 0, ws: 0, tpl: 0 };
+{
+  const CANONICAL_PROJECT = "β-Galactosidase Tutorial (demo)";
+  const PROJECT_SIGNATURES = [
+    { re: /^T\d+ /, owner: "t-suite cross-project anchors", why: "every t-suite's Z phase restores all three domains" },
+    { re: /^t\d+ /, owner: "t-suite lowercase cross-project fixtures", why: "same self-cleanup contract" },
+    // Task 167's scan found the job-domain TL blind spot; the PROJECT-domain
+    // member is t126's "TL126 cross" (TL + digits, no space — /^TL / above
+    // needs the space, so the project shape needs its own regex).
+    { re: /^TL\d+ /, owner: "t126-e2e.mjs", why: "cross-project scoping fixture; owner deletes the project by id at exit" },
+    // Task 168: the W-scan's first contact — qa-multiselect-fixture.py is a
+    // SLEEPING artifact (Task 30 era, zero consumers) whose idempotent
+    // ensure POSTs the project AND /api/projects/switch (faceshift hazard,
+    // no exit cleanup). If anyone ever runs it, this is its only net.
+    { re: /^QA MultiSelect$/, owner: "qa-multiselect-fixture.py", why: "sleeping Task-30 fixture: idempotent ensure, no exit cleanup, and its projects/switch call faceshifts the active pointer" },
+  ];
+  const projects = (await (await fetch(BASE + "/api/projects")).json()).projects ?? [];
+  const projHits = projects.filter(
+    (p) => p.name !== CANONICAL_PROJECT && PROJECT_SIGNATURES.some((s) => s.re.test(p.name ?? ""))
+  );
+  if (projHits.length > 50) {
+    console.log(`PROJECT-ORPHAN ABORT: ${projHits.length} matches exceed the 50 cap — signature bug, not cleanup`);
+  } else if (projHits.length > 0) {
+    let dead = 0;
+    for (const p of projHits) {
+      const r = await fetch(`${BASE}/api/projects/${p.id}`, { method: "DELETE" });
+      if (r.ok) dead++;
+      else console.log(`DELETE FAILED project-orphan "${p.name}" (${p.id}) (HTTP ${r.status})`);
+    }
+    const sample = projHits.slice(0, 3).map((h) => `"${h.name}"`).join(", ");
+    console.log(`project-orphan: ${dead}/${projHits.length} leaked project(s) deleted with their canvases — ${sample}`);
+    // the roster snapshot predates the deletion — if a deleted leak WAS the
+    // active project, the heal swapped the world back to the canonical
+    // roster behind our backs: re-read so every audit below scans the
+    // RIGHT rows (first contact: a faceshifted empty roster made far=null
+    // explode in extent-fit — the zero-roster invariant never tested before)
+    if (dead > 0) {
+      const fresh = (await (await fetch(BASE + "/api/jobs")).json()).jobs ?? [];
+      j.length = 0;
+      j.push(...fresh);
+    }
+  } else {
+    console.log("project-orphan: 0 (single canonical project)");
+  }
+  HYGIENE_COUNTS.project = projHits.length;
+}
+
+// ---------- audit 0.8: ws-orphan (Task 168 — the sibling-domain sweep) ----------
+// Workspace rows seeded by suites (t100 "t100 Second", t127/t128/t129
+// "T12x dest", qa77 "QA Overflow", t126 "TL126 deep") exit-clean by id;
+// a crashed run leaves them in the sidebar forever. Deletion is SAFE by
+// API contract: DELETE moves the workspace's jobs to the project's default
+// workspace first ("nothing is ever lost"), and the default itself cannot
+// be deleted. Canonical guard: "Main" is the world's canvas, and
+// "QA WS Breathe"/"QA WS Pos Two" are t158/t159's ensure-by-name standing
+// workspaces — probes created them, the world IS them (the fixture-orphan
+// canonical-guard doctrine, sibling domain).
+{
+  const WS_SIGNATURES = [
+    { re: /^T\d+ /, owner: "t-suite workspace anchors", why: "every t-suite's Z phase deletes its workspaces by id" },
+    { re: /^t\d+ /, owner: "t-suite lowercase workspace fixtures", why: "same self-cleanup contract" },
+    { re: /^TL\d+ /, owner: "t126-e2e.mjs", why: "deep-link workspace fixtures; owner deletes by id at exit" },
+    { re: /^Deep /, owner: "t126-e2e.mjs", why: "same generation as the job-domain Deep family" },
+    { re: /^QA Overflow$/, owner: "qa77-e2e.mjs", why: "transient overflow workspace, deleted at exit" },
+  ];
+  const wsList = (await (await fetch(BASE + "/api/workspaces")).json()).workspaces ?? [];
+  const wsHits = wsList.filter((w) => WS_SIGNATURES.some((s) => s.re.test(w.name ?? "")));
+  if (wsHits.length > 50) {
+    console.log(`WS-ORPHAN ABORT: ${wsHits.length} matches exceed the 50 cap — signature bug, not cleanup`);
+  } else if (wsHits.length > 0) {
+    let dead = 0;
+    for (const w of wsHits) {
+      const r = await fetch(`${BASE}/api/workspaces/${w.id}`, { method: "DELETE" });
+      if (r.ok) dead++;
+      else console.log(`DELETE FAILED ws-orphan "${w.name}" (${w.id}) (HTTP ${r.status})`);
+    }
+    const sample = wsHits.slice(0, 3).map((h) => `"${h.name}"`).join(", ");
+    console.log(`ws-orphan: ${dead}/${wsHits.length} outlived workspaces deleted (jobs moved to the default canvas) — ${sample}`);
+  } else {
+    console.log("ws-orphan: 0 (no signature workspaces outside the canonical trio)");
+  }
+  HYGIENE_COUNTS.ws = wsHits.length;
+}
+
+// ---------- audit 0.9: template-orphan (Task 168 — the shelf sweep) ----------
+// CustomTemplate rows ("Tuned 2D branch"/"Preprocess trio" — t127-shot;
+// "T129 template" — t129) live on the templates shelf; a crashed run's
+// leftover silently haunts every later shelf shot. Project-scoped via the
+// active project (the API only reaches those — same reach as ws-orphan).
+{
+  const TPL_SIGNATURES = [
+    { re: /^T\d+ /, owner: "t-suite template anchors", why: "every t-suite's Z phase sweeps its templates" },
+    { re: /^t\d+ /, owner: "t-suite lowercase template fixtures", why: "same self-cleanup contract" },
+    { re: /^Tuned 2D branch/, owner: "t127-shot.mjs", why: "seeded shelf row, swept by prefix at exit" },
+    { re: /^Preprocess trio/, owner: "t127-shot.mjs", why: "UI-saved shelf row, swept by prefix at exit" },
+  ];
+  const tpls = (await (await fetch(BASE + "/api/custom-template")).json()).templates ?? [];
+  const tplHits = tpls.filter((t) => TPL_SIGNATURES.some((s) => s.re.test(t.name ?? "")));
+  if (tplHits.length > 50) {
+    console.log(`TEMPLATE-ORPHAN ABORT: ${tplHits.length} matches exceed the 50 cap — signature bug, not cleanup`);
+  } else if (tplHits.length > 0) {
+    let dead = 0;
+    for (const t of tplHits) {
+      const r = await fetch(`${BASE}/api/custom-template?id=${encodeURIComponent(t.id)}`, { method: "DELETE" });
+      if (r.ok) dead++;
+      else console.log(`DELETE FAILED template-orphan "${t.name}" (${t.id}) (HTTP ${r.status})`);
+    }
+    const sample = tplHits.slice(0, 3).map((h) => `"${h.name}"`).join(", ");
+    console.log(`template-orphan: ${dead}/${tplHits.length} outlived templates swept from the shelf — ${sample}`);
+  } else {
+    console.log("template-orphan: 0 (shelf clean)");
+  }
+  HYGIENE_COUNTS.tpl = tplHits.length;
+}
+
 // ---------- audit 1: extent (orphan recall) ----------
 const bboxOf = (list) => ({
   minX: Math.min(...list.map((o) => o.x)),
@@ -311,7 +442,11 @@ const PATCH = async (job, x, y) => {
     readFileSync("/home/z/my-project/src/lib/workflow.ts", "utf8").match(/ZOOM_MIN\s*=\s*([\d.]+)/)?.[1] ?? 0.25
   );
   let fitPasses = 0;
-  while (fitZoom(j) < zm && fitPasses < 12) {
+  // j.length > 0: an EMPTY active roster (the faceshift window a crashed
+  // cross-project suite can leave behind) has no coherent bbox — far would
+  // be null and the loop would explode on far.id (first contact: Task 168's
+  // own C1 drill). No rows → nothing to recall.
+  while (j.length > 0 && fitZoom(j) < zm && fitPasses < 12) {
     const cx = j.reduce((s, o) => s + o.x, 0) / j.length;
     const cy = j.reduce((s, o) => s + o.y, 0) / j.length;
     let far = null, fd = -1;
@@ -359,3 +494,6 @@ for (const id of overlapping) {
   if (!placed) console.log(`SKIPPED ${job.name} — overlap grid exhausted`);
 }
 console.log(`\n${orphans.length} orphans recalled, ${overlapping.size} overlappers relocated`);
+// Task 168: the sibling-domain ledger on one line — a run's three-domain
+// sweep is readable at a glance in matrix logs (0 0 0 = the canonical world)
+console.log(`domain-sweep: project ${HYGIENE_COUNTS.project} · workspace ${HYGIENE_COUNTS.ws} · template ${HYGIENE_COUNTS.tpl}`);

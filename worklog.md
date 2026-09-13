@@ -4790,3 +4790,28 @@ Stage Summary:
 - 「空转的扫描器比没有更危险」：≥50 字面量下限 + 五向已知成员钉住 + 分类器敏感性三连 + B/C 运行时演练——四重防空洞。t165 的空洞通过教义（undefined===undefined 恒真）在本轮的形状是「分类器永不开火」：145 字面量与 33 瞬态套件的下限断言让扫描器没有沉默的空间
 - 世界卫生观察账本（verdict 列）：全矩阵 0 抖动 0 环境性失败；t167 的 B/C 演练在世界里种删各一具后名册恒等复位；卫生五审全零
 - 遗留（下轮候选）：workspace/project 域孤儿审计（TL124 shot 等工作空间种子崩溃泄漏无网——FIXTURE-ORPHAN 只扫 job 名册，工作空间/项目/模板域无对应审计）；签名表与探针镜像表的单一真相源（现靠 X oracle 断言镜像一致，可让探针直接 import/解析真表）；undo 手感参数（真机）；runner wall-time 剖面（让位）；EMPIAR 真数据回归（重，让位）；用户真机项（三级阶梯+长按可真机验收）
+
+---
+## Task 168 (2026-09-13, cron 17:01 窗口 trace …202609131709)
+
+**主题：域清扫（THE DOMAIN SWEEP，Task 167 交接候选①兑现）——job 名册之外的三个兄弟域（project/workspace/template）从零覆盖到三审 + 账本行；W 扫描器首战抓到沉睡考古层的 faceshift 无网项目。**
+
+- 【开局】worklog 尾部 = Task 167/e4ddce6（cron Task 13 文本第十三次过时）。HEAD==origin/main 树净、BUILD_ID EwuEnKl、PORT FREE；watchdog 冷启动 1s 内起；世界 26 jobs（16c/8i/1f/1r）；三件套 qa63/qa00/t167 全绿判稳。
+- 【候选侦查】①「workspace/project 域孤儿审计」核实成立且比交接词预想的更烈：POST /api/projects 会 set ACTIVE（registerProject makeActive=true）——t126 崩溃泄漏 "TL126 cross" 不只是泄漏，是把整个世界换脸到测试画布；且 DELETE workspace 的 API 只触活动项目，faceshift 窗口内泄漏项目的工作空间对 job 域审计完全不可见。②审计顺序即合同：project 审计必须先跑（删泄漏 → getActiveProject fallback first-by-createdAt 自愈回正典 → 下面的 ws/tpl 审计才扫到正典行）。
+- 【实现·world-hygiene 四件】①audit 0.75 PROJECT-ORPHAN：显式正典守卫（β-Gal 名单）+ 签名表（/^T\d+ /、/^t\d+ /、/^TL\d+ /、QA MultiSelect——战果见下）+ 50 cap + 级联删（API 不能删最后一个项目是第二道栏）；②audit 0.8 WS-ORPHAN：正典三守卫（Main / QA WS Breathe / QA WS Pos Two——t158/t159 的 ensure-by-name 常驻形态，canonical-guard 教义兄弟域版）+ 签名表（T/t/TL\d+/Deep/QA Overflow 显式）+ 删除安全（API 合同「jobs 先移默认画布，nothing is ever lost」）；③audit 0.9 TEMPLATE-ORPHAN：签名表（T/t/Tuned 2D branch/Preprocess trio——t127-shot 前缀扫除合同）；④domain-sweep 账本行：`project N · workspace N · template N` 一行读全轮三域清扫（矩阵日志可观测性）。
+- 【W 扫描器首战即果】t168 的 W 阶段（t167 提取器转瞄三域）把 "QA MultiSelect" 分类为 NO-SIGNATURE——追查实锤：qa-multiselect-fixture.py 是 Task 30 时代沉睡遗物，**零消费者**（无套件调用、矩阵不含），幂等 ensure 项目 + POST /api/projects/switch（faceshift 无疑）+ 无退出清理——任何人跑它一次，世界换脸且无网。签名表收编（owner+why 注记「sleeping artifact…its only net」）。TL/Deep 之后扫描器的第三个真盲区，形状是「沉睡层」而非「崩溃泄漏」。
+- 【第二层真相×3】①**C1 演练炸出 hygiene 潜伏零名册崩溃**：faceshifted 空名册（活动=泄漏项目）让 extent-fit 的 far=null 炸（j=[] → bboxOf=Infinity → fitZoom 为负 → 进循环）——零名册不变量 166 轮从未被测。修复双保险：project-orphan 删除后原地刷新名册（heal 换了世界，快照已过期——后续审计必须扫正典行）+ extent-fit 加 j.length>0 守卫。②**探针演练的跨域签名碰撞**：C2 的 "T168 ws job" 被 job 域 fixture-orphan（audit 0.7 先于 0.8）当 T 前缀瞬态删了——签名表射程按域，跨域同名会吃掉自己演练的对象；演练 job 改 QA 前缀（正典形状，job 域网不扫）。③**矩阵中段 t168 脆断言**：单独 ×3 全绿、矩阵 #89 挂——S 阶段硬编码 26，而 88 套跑完后世界漂到 25。修复=相对断言（基线快照 + Z 双向 diff 承重，正典成员按名断言，绝对数只作信息）——t163 教义「世界漂移是特性」的基线断言版。
+- 【SIGPIPE 教训·审计救了审计者】修脆断言时的 head 截断重放让进程死在 C1 faceshift 窗口——T168 cross 泄漏 + 世界留在换脸态（0 jobs 空壳活动项目）。下一轮探针的 B 阶段 hygiene 自动删掉残留并 heal 回正典：**审计自己接住了审计者探针的坠落**。faceshift 演练的终极网就是被测审计本身（finally 覆盖不了 SIGPIPE/SIGKILL）。
+- 【t168 探针·58 断言 ×3 全绿】S 三域基线（相对合同）；X 13 源码 oracle（三签名表/正典守卫/ORDER 合同 0.75→0.8→0.9/三重 50 cap/账本行/矩阵接线）；B 净世界 0/0/0；C CORE 三域演练各证一条 API 真相（C1 项目：POST set active → 审计删 → 活动指针自愈回正典 + 级联灭画布；C2 工作空间：删除不丢行——seeded job 幸存被收养进 Main；C3 模板：货架清扫）；G 正典守卫（三工作空间+正典项目+roster baseline+1 幸存）；W 静态扫描（36 字面量下限 12/七个已知成员钉住/零 NO-SIGNATURE 零 OTHER-SUITE-PREFIX/t167 自我排除教义继承）；D 二轮 0/0/0；Z 三域名册恒等（unknown-id 双向 diff）。探针三课：①同窗双路径的域判定取最近不取先到（t126 的 TL126 cross 卡在 projects 与 workspaces 两调用之间）；②小写 post( helper 也要听（t127-shot 的 POST 检查大小写敏感首败）；③扫描器不扫自己（t167/t168 双排除）。
+- 【回归 + 全矩阵 103 套 0 失败】受影响面：t165(25)/t167(58——其扫描器活着把 t168 当第 34 个瞬态套件动态分类，45→58 断言全绿)/t126(40 跨项目 owner)/qa61 全绿。全矩阵 10 块（t168 auto-include #89，块 9 重跑消化脆断言修复）；t152 192s 仍最慢；块峰 201MB 零阈值重启；telemetry verdict 全 PASS。
+- 【世界收尾】矩阵后 qa60-seed-fsc.py 重建 QA Refine Live → 26 jobs（16c/8i/1f/1r 与开轮构成一致）；**八审全零**（adopt/residue/dup/orphan + 新三域 project/ws/tpl + extent 系）；agent-browser 视觉巡检 console 零错、25 卡 + minimap + Workspaces 3 正常。
+- 【收尾】worklog + commit + push + 环境清理（杀 server 先 ss 查 PID、agent-browser close --all、watchdog 已停）。
+
+Stage Summary:
+- 「兄弟域不是小域」：project 域的泄漏比 job 域烈一个量级——faceshift（POST set active）让泄漏项目内的一切对活动项目审计不可见，世界对用户整个消失。ORDER 是合同：先删泄漏让活动指针自愈，下面的审计才扫得到正典；顺序错一审，三审全瞎
+- 「审计的射程按域」：签名表同名跨域会互相吃——"T168 ws job" 撞 job 域 /^T\d+ / 被 0.7 先删，演练对象当场消失。签名是「域 × 模式」的积，不是一张大表；探针演练跨域行为时，种子名必须选正典形状（QA 前缀）避开其他域的网
+- 「零名册是审计自己的盲区」：166 轮 extent-fit 从未见过空名册——世界永远非空掩盖了 j=[] 的 far=null 崩溃。faceshift 演练第一次把「活动名册为空」变成真实运行时场景，潜伏不变量当场引爆。审计要扫的世界形状由最坏演练定义，不由平均世界定义
+- 「head 截断的调试重放会杀死 faceshift 窗口里的进程」：SIGPIPE 不走 finally——世界留在换脸态 + 泄漏。本轮审计在下一轮探针的 B 阶段自动清了残局：审计是自己的网，也是审计者的网。调试截断类操作（head/tail -n）对含世界变异窗口的探针永远危险
+- 「绝对数断言是脆断言」：世界 26→25 的漂移是特性（每轮构成漂移），S 阶段 hardcode 26 在矩阵中段必然炸。基线快照 + 退出双向 diff 才是合同；成员按名断言（正典三工作空间在），计数只作信息。t165/t167 都是对的，t168 学的是同一条的第几次变奏
+- 世界卫生观察账本（verdict 列）：全矩阵 0 抖动 0 环境性失败；t168 矩阵失败=探针脆断言（修复后治愈，非回归非抖动）；W 扫描器首战战果=QA MultiSelect 沉睡层（非代码缺陷）
+- 遗留（下轮候选）：签名表与探针镜像表的单一真相源（t167/t168 现靠 X oracle 断言镜像一致——可让探针直接解析 world-hygiene.mjs 的真表字面量，一次解析三域共用）；hygiene 的 zero-roster 形状断言补强（extent-fit 守卫已加，residue/dup/orphan 对空名册天然安全——可在 t168 加一条 D 阶段空世界演练钉住）；undo 手感参数（真机）；runner wall-time 剖面（让位）；EMPIAR 真数据回归（重，让位）；用户真机项（三级阶梯+长按可真机验收）
