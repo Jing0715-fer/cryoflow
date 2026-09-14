@@ -22,6 +22,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Copy, Loader2, Server, Check } from "lucide-react" ;
 import { cn } from "@/lib/utils";
+import { HpcProfilesEditor } from "./hpc-profiles-editor";
 
 interface ProfileBrief {
   id: string; name: string; partition: string; gpuModel: string; gpusPerNode: number; host: string | null;
@@ -51,6 +52,9 @@ export function HpcSbatchDialog({ jobId, compact = false }: { jobId: string; com
   const [data, setData] = React.useState<SbatchResponse | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [copied, setCopied] = React.useState(false);
+  // Bumped by the profiles editor after a save — the registry may have
+  // renamed, gained, or lost profiles while this dialog stayed open.
+  const [profilesVersion, setProfilesVersion] = React.useState(0);
 
   React.useEffect(() => {
     if (!open) return;
@@ -62,11 +66,16 @@ export function HpcSbatchDialog({ jobId, compact = false }: { jobId: string; com
         const list: ProfileBrief[] = d.profiles;
         const gpu = list.filter((p) => p.id !== "local-workstation");
         setProfiles(gpu.length ? gpu : list);
-        setProfileId((prev) => prev || (gpu[0]?.id ?? list[0]?.id ?? ""));
+        setProfileId((prev) => {
+          // Keep the selection only if the saved registry still has it —
+          // a renamed id is still the same profile, a deleted one is not.
+          if (prev && list.some((p) => p.id === prev)) return prev;
+          return gpu[0]?.id ?? list[0]?.id ?? "";
+        });
       })
       .catch(() => {});
     return () => { alive = false; };
-  }, [open]);
+  }, [open, profilesVersion]);
 
   React.useEffect(() => {
     if (!open || !profileId) return;
@@ -137,6 +146,10 @@ export function HpcSbatchDialog({ jobId, compact = false }: { jobId: string; com
               ))}
             </SelectContent>
           </Select>
+          <HpcProfilesEditor
+            activeId={profileId}
+            onChanged={() => setProfilesVersion((v) => v + 1)}
+          />
           {data?.strategy ? (
             <Badge variant="outline" className={cn("border text-[10px]", MODE_COLOR[data.strategy.mode] ?? "")}>
               {data.strategy.mode}

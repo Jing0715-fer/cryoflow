@@ -5199,3 +5199,25 @@ Stage Summary:
 - 「环境墙是合同测试的礼物」：MotionCor2 缺失把 B9 的失败文案变成了决定性证据——错误文本的**变化**本身就是解析成功的证词。断言要找「状态改变的观测点」，不硬闯环境墙
 - 世界卫生观察账本（verdict 列）：本轮无全矩阵（合同收编轮，183 判例=定向回归）；回归 qa00/qa63/t181/qa58 + t184 ×3 全绿；八审全零 + 1 orphan 自动回收；symlink/state 字节/fixture 三重恢复证明在案
 - 遗留（下轮候选）：runner wall-time 剖面（让位多轮）；grabber nudge/undo 手感参数（真机盲区依旧）；dialog 深色主题定妆照（第五度让位）；script RELION-present 分支（沙箱受限判决维持）；EMPIAR 真数据回归（让位）；hpc-profiles.json 持久化面的 UI 编辑器（POST 校验器已在位，无 UI 消费者）；[boot-race] 插桩长期价值持续（未来任何 stale running state 都带现场快照）
+
+## Task 185 (2026-09-14, cron 22:31 窗口 trace …202609142241)
+
+**主题：管理面收编轮——the registry earns its management face。Task 184 遗留首选项兑现：HPC profile registry 的 POST 校验器自诞生起完整在位（shape-guard 每字段、数值钳位、未知字段丢弃、≤8 套、localRoot 服务器钉死），却零 UI 消费——registry 唯一的脸是 sbatch dialog 的只读 Select，改配置意味着手写 hpc-profiles.json 并祈祷 shape-guard 饶恕。Task 185 把管理环接拢：HpcProfilesEditor（左列清单 rail + 分组表单 + Add/Duplicate/两步 Delete + Save to server）挂进 sbatch dialog 工具栏；编辑器对合同诚实——localRoot 只读带锁（Task 184「一个目录一个名字」的可见形态）、数值输入携带服务器的 min/max、保存后从 RESPONSE 重渲染（服务器留了什么就显示什么，绝不显示发出去的）、脏态琥珀点 + 「Saved — server view shown」回执、≥1 profile 下限（服务器对空 registry 400）、id 客户端去重（服务器不查重，客户端必须兜住）；sbatch dialog 以 profilesVersion 在每次保存后重读 registry，且仅当保存后的 registry 仍含当前选择时才保留它（删掉的选择不悬空）。**
+
+- 【开局】worklog 尾部=Task 184/d5bdbd4（cron「Task 13」文本第卅一次过时）。树净、上窗口杀净 server → start-prod.sh 冷启动 3s；三件套 qa00/qa63/t181 全绿判稳；巡检 console 零错。
+- 【实现·两文件】①新建 `hpc-profiles-editor.tsx`（~560 行）：rail（名称+GPU 徽章四色映射+host 行+activeId 左缘条+sbatch 提交中徽章）+ 五分组表单（Identity/Connection/Resources/Cluster paths/Environment prep，每字段 hint 写合同）+ Add（本地态先行，Save 才 POST）+ Duplicate（插位于源之后）+ 两步 Delete（3s 超时回退）+ envLines textarea（行计数 N/12，保存滤空行）。②sbatch dialog：Settings2 触发器（32×32 hit-slop，Task 172 手法；永不 display-hidden，Task 179 教义）插入 Select 之后；profiles fetch 挂 profilesVersion 依赖；profileId 有效性回退（prev 仍在保留，否则首个 GPU profile）。
+- 【探针 t185·55 断言 ×3 全绿】S6（roster 26、内置三套、无 hpc-profiles.json、门作业=最左 idle）+ X13 源 oracle（POST 消费、RESPONSE 重渲染、localRoot 只读、id 去重、8 套帽、两步删、profilesVersion、触发器不隐藏、钳位入表单）+ B12 活线（rename→GET 反映、敌意 localRoot 被钉回 data/relion、999999/-3/500/100000/0 全被钳到 43200/1/64/512/1、evilUnknownField 丢弃、9 进 8 出、空 registry 400、非数组 400）+ M5（390 触发器可见可点、rail+form 齐备、零横向溢出）+ D13（UI 全环：改名→脏点→保存→flash→Select 携新名→Add 仅本地→Save 落 4→两步删→落 3→localRoot 只读实读）+ Z6（hpc-profiles.json 删除还原正典、GET 回内置三套、roster 26、零 5xx/404、console 净）。
+- 【第二层真相·三连】①**探针崩溃把世界留在脏态**：首跑 D7 strict-mode 撞名崩溃（footer「Close」与 Radix 自带 X 同 accessible name），崩在 Z 之前→改名 registry 滞留磁盘→次跑 S2 读到脏名字、D4 的 fill 落在已同值字段、D6 的 !== firstName 前提被污染——产品无恙，探针缺自愈。修复=S 相自愈（残留文件删除+日志，t182 S 相教义第二度）+ Escape 代点击（嵌套 dialog 最内层消费）。②**3x 放大把门卡推出屏**：zoom 锚点居中，(150,420) 的 import 卡 x=-96 半出屏，playwright 拒点 off-viewport——qa66 教义（默认 pan 直接点卡心）胜过 t178 的 zoom 先行；两条教义的适用边界写进探针注释。③**工具边界再次收割后台链**：`build && restart &` 整链后台化+只等 12s——build 被工具边界无声击杀（日志停在 Creating…，进程消失，BUILD_ID 空缺），而 12s 后的探针撞上旧 server 供陈旧 chunk 的 5xx 窗口（Task 183 教义变体：build 删 .next/standalone 的窗口里 data 视野有 CRYOFLOW_DATA_DIR 保护、chunk 服务本来就伤）——前台串行重跑 95s 完成（Task 180「setsid 都被收割，前台是唯一可靠」第七度验证）。
+- 【样式打磨】定妆照两轮：首轮暴露 name 输入过窄（"Local work!" 截断）+ 表单 52vh 截断感——grid-cols-2→cols-5（name 3/id 2）、52vh→56vh（rail 与 form 同步）；终照 name 全显、Resources 两行可见、滚动可达 Cluster paths/Environment prep。GPU 四色徽章（A100 紫/H100 青/V100 琥珀/RTX4090 青〉、合同描述内嵌 localRoot code chip、footer 脏点/回执双态、Delete 红系 hover——细节到位。
+- 【回归】qa00 GREEN、qa63 SMOKE GREEN（console 0）、qa58 全相绿、t184 33 断言全绿（HPC 合同面无回归；t184 的 Z3「GET 从不写 hpc-profiles.json」在 t185 的 Z 还原后依然成立）。矩阵 118→119 套（t185 auto-include，glob 发现无需手改清单）。
+- 【世界收尾】正典 26（16c/8i/1f/1r、Live 行 42% wire 存活）；hpc-profiles.json 已删还原默认世界；定妆照 t185-sbatch-dialog.png + t185-editor.png 归档 scripts/shots-t185/；巡检 console 零错。
+- 【收尾】worklog（本条）+ commit + push + 环境清理（杀 server 先 ss 查真实 PID、agent-browser close --all）。
+
+Stage Summary:
+- 「校验器没有 UI 消费者，就只是一段没人违反的法律」：POST 路由的 shape-guard 完整活了六个 Task，registry 的用户却在手写 JSON——功能闭环的最后一里永远是那扇看得见的门。管理面挂在使用现场（sbatch 工具栏）而非远处的设置页，是「门出现在需要出现的地方」
+- 「编辑器对服务器诚实，就是让用户看见合同」：localRoot 只读带锁（服务器的名字服务器定）、数值输入携带服务器的钳位、保存后从 RESPONSE 重渲染——UI 显示「服务器留了什么」而非「你发了什么」，是 toFractionFrame「边界归一化」教义在表单面的重演：真值只在一边
+- 「Add 是本地态、Save 才是合同」：增删改全部先落本地工作副本，一次 POST 整体提交——原子保存让「半提交的世界」无从产生；副作用是探针断言必须区分「点了 Add」与「点了 Save」两个时刻（D8 的存在就是这道伤疤的纪念碑）
+- 「探针崩溃的遗产是脏世界」：崩在 Z 之前的探针把改名 registry 留在盘上，下一跑的 S 基线、D 断言前提全被污染——自愈不是可选装饰，是探针作为「世界公民」的义务（t182 S 相教义第二度落地）；同样地，断言的定位器要与 Radix 内建件对表 accessible name（Close 双雄）
+- 「后台链死在工具边界，前台是唯一的岸」：`build && restart &` + 12s 等待 = build 被无声击杀 + 探针撞 5xx 窗口——Task 180 setsid 教义第七度、Task 183 build 窗口面孔的 chunk 变体。95s 的前台等待不可省略，省下的都是债
+- 世界卫生观察账本（verdict 列）：本轮无全矩阵（管理面轮，183/184 判例=定向回归）；回归 qa00/qa63/qa58/t184 + t185 ×3 全绿；八审账本延续（无新增孤儿）；正典 26 精确保持
+- 遗留（下轮候选）：hpc simulate 路由的 UI 消费者（queue 模拟可视化，第三度让位）；grabber nudge/undo 手感参数（真机盲区依旧）；dialog 深色主题定妆照（第六度让位）；script RELION-present 分支（沙箱受限判决维持）；EMPIAR 真数据回归（让位）；runner wall-time 剖面（让位）；#7 chart 路由全量同步读（guinier/resolution/angdist 热路径，cron 清单在案）
