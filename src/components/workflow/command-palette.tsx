@@ -45,6 +45,7 @@ import {
   Wand2,
   Waves,
   Workflow,
+  FileTerminal,
 } from "lucide-react";
 import {
   CommandDialog,
@@ -74,6 +75,7 @@ import {
   workflowFileName,
 } from "@/lib/workflow-io";
 import { TypeIcon } from "./icons";
+import { PipelineScriptDialog } from "./pipeline-script-dialog";
 
 const OPEN_EVENT = "cryoflow:open-palette";
 
@@ -94,6 +96,10 @@ const CHART_ICONS: Record<
 
 export function CommandPalette() {
   const [open, setOpen] = React.useState(false);
+  // Task 179: the replay-script dialog is a palette-owned export surface —
+  // selecting the row closes the palette first, then opens the dialog (the
+  // exportJson/native-picker pattern: one modal at a time, no nesting).
+  const [pipelineOpen, setPipelineOpen] = React.useState(false);
   const { resolvedTheme, setTheme } = useTheme();
 
   const jobs = useWorkflowStore((s) => s.jobs);
@@ -426,6 +432,7 @@ export function CommandPalette() {
   };
 
   return (
+    <>
     <CommandDialog
       open={open}
       onOpenChange={setOpen}
@@ -849,6 +856,22 @@ export function CommandPalette() {
             </span>
           </CommandItem>
           <CommandItem
+            value="export pipeline shell script replay relion commands dependency order download"
+            onSelect={() => {
+              close(); // the dialog is the next modal — drop the palette first
+              setPipelineOpen(true);
+            }}
+            className="gap-2.5"
+          >
+            <FileTerminal className="size-4 shrink-0" />
+            <span className="flex-1 text-sm">
+              Export pipeline as shell script
+              <span className="ml-1.5 text-[10px] text-muted-foreground">
+                dependency-ordered relion replay · all workspaces · preview before download
+              </span>
+            </span>
+          </CommandItem>
+          <CommandItem
             value="import workflow json file load graph"
             onSelect={importJson}
             className="gap-2.5"
@@ -888,6 +911,11 @@ export function CommandPalette() {
         </CommandGroup>
       </CommandList>
     </CommandDialog>
+    {/* Task 179: palette-owned export surface — the pipeline replay script.
+        Mounted here so the row's close-then-open handshake keeps one modal
+        alive at a time. */}
+    <PipelineScriptDialog open={pipelineOpen} onOpenChange={setPipelineOpen} />
+    </>
   );
 }
 
@@ -897,7 +925,7 @@ export function CommandPaletteTrigger() {
     <button
       type="button"
       onClick={() => window.dispatchEvent(new CustomEvent(OPEN_EVENT))}
-      className="flex h-8 items-center gap-1 rounded-md border bg-muted/40 px-2 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground"
+      className="flex h-8 items-center gap-1 rounded-md border bg-muted/40 px-2 max-sm:px-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground"
       aria-label="Open command palette (Ctrl+K)"
       title="Command palette — Ctrl/⌘ + K"
     >

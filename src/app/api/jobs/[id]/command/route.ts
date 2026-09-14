@@ -12,20 +12,14 @@ import {
   COMMAND_TEMPLATES,
   ENGINE_NATIVE_TYPES,
 } from "@/lib/relion/command-templates";
+// Task 179: shellJoin moved to pipeline-script.ts — one quoting
+// implementation, two consumers (this preview and the project replay
+// script). Same rule, same behavior, single source of truth.
+import { shellJoin } from "@/lib/relion/pipeline-script";
 
 export const dynamic = "force-dynamic";
 
 type RouteContext = { params: Promise<{ id: string }> };
-
-/** POSIX single-quote join — the copy-paste string the inspector's
- *  preview Copy button hands the user. Only args that NEED quoting get
- *  quoted (RELION paths in this world are space-free; a space-bearing
- *  path must not silently break a pasted command). */
-function shellJoin(argv: string[]): string {
-  return argv
-    .map((a) => (/[\s'"\\$`]/.test(a) ? `'${a.replaceAll("'", `'\\''`)}'` : a))
-    .join(" ");
-}
 
 /**
  * GET /api/jobs/[id]/command — the launch contract, read-only.

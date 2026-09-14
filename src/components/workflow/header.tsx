@@ -807,9 +807,16 @@ export function Header() {
         <div className="hidden sm:block">
           <RelionStatusChip />
         </div>
-        <div className="hidden md:block">
-          <CommandPaletteTrigger />
-        </div>
+        {/* Task 179: the palette (and with it the whole export family —
+            PNG, JSON, the pipeline replay script) was unreachable on
+            touch: Ctrl+K needs a keyboard and this chip used to hide
+            below md — the export family had NO mobile entry at all.
+            Always visible now; below sm it renders icon-only (the K span
+            is already sm:inline) with tightened padding. The width came
+            out of the lowest-value chrome on the strip: the GitHub link
+            button, which is decoration next to a command surface. The
+            280 fold still fits — measured, not guessed. */}
+        <CommandPaletteTrigger />
         <Button
           variant="ghost"
           size="icon"
@@ -826,7 +833,7 @@ export function Header() {
           variant="ghost"
           size="icon"
           asChild
-          className="text-muted-foreground hover:text-foreground"
+          className="max-sm:hidden text-muted-foreground hover:text-foreground"
         >
           <a
             href="https://github.com/Jing0715-fer/cryoflow"
