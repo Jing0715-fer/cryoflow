@@ -127,8 +127,8 @@ must(
   "X3 ONE csv string feeds both the clipboard and the download"
 );
 must(
-  simSrc.includes("data-csv={lastCsv ?? undefined}"),
-  "X4 the data-csv observation attribute carries the SAME string (no second derivation)"
+  /data-csv=\{lastCsv \?\? undefined\}\s*\n\s*data-md=\{lastMd \?\? undefined\}/.test(simSrc),
+  "X4 the export bytes ride the ALWAYS-ATTACHED comparison div (t191 carrier doctrine, both formats)"
 );
 must(
   simSrc.includes("catch {\n        // clipboard denied"),
@@ -136,8 +136,8 @@ must(
 );
 must(simSrc.includes("setExportNote(null);\n    setLastCsv(null);"), "X6 a re-compare retires the previous export");
 must(
-  simSrc.includes('disabled={!sweep.length}') && (simSrc.match(/disabled={!sweep.length}/g) ?? []).length === 2,
-  "X7 both export buttons refuse an empty race"
+  simSrc.includes('disabled={!sweep.length}') && (simSrc.match(/disabled={!sweep.length}/g) ?? []).length === 4,
+  "X7 all four export buttons refuse an empty race"
 );
 must(
   simSrc.includes('aria-label="Copy comparison as CSV"') && simSrc.includes('aria-label="Download comparison as CSV"'),
@@ -184,7 +184,7 @@ if (bPanel) {
     /Copied|Downloaded/.test(note),
     `B3 the export speaks (${note.trim().slice(0, 60)})`
   );
-  const csv = (await status.getAttribute("data-csv").catch(() => null)) ?? "";
+  const csv = (await bpage.locator('[aria-label="Profile comparison"]').getAttribute("data-csv").catch(() => null)) ?? "";
   must(csv.length > 0, `B4 data-csv carries the exported bytes (${csv.length} chars)`);
 
   // parse the CSV and compare against the WIRE (probe re-posts itself)

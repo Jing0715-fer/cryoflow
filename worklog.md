@@ -5395,3 +5395,25 @@ Stage Summary:
 - 「主图不点名，断言全白搭」：viewer 打开哪个地图由输出排序决定——探针要么点名主图（Enlarge orthovol），要么把断言写成对主图无假设的形状。流动的世界里，合同要写在流动的名词上
 - 世界卫生观察账本（verdict 列）：本轮无全矩阵（仪器轮，183 判例=定向回归覆盖 viewer 邻域 9 套）；t193 ×3 + 回归 9/9 全绿；正典 26 精确保持；矩阵 127 套在册
 - 遗留（下轮候选）：剖面导出进报告管线的下一里（CSV→Markdown/PDF 摘要，与 sweep 导出会师——overlay 地形进报告的图注雏形已在 <title> 里）；Mol* 深色控制 chip 群对比度微调（下轮样式细节候选）；grabber nudge/undo 手感参数（真机盲区依旧）；script RELION-present 分支（沙箱受限判决维持）；EMPIAR 真数据回归（让位）；runner wall-time 剖面（让位）
+
+## Task 194 (2026-09-15, cron 03:50 窗口 trace …202609150350)
+
+**主题：sweep 对比赢得报告——CSV 的 Markdown 孪生兄弟。机器读 raw minutes 的 CSV 之外，人类需要一段能直接转述的结论。Task 194 给 sweep 对比装上第三、四扇门（Copy/Download Report）：`buildSweepReport` 一位父亲（从 race rows 推导，绝不解析自己的 CSV——parse-of-parse 是等待漂移的第二推导），产出 verdict（胜者加粗、领先幅度、GPU-hours 成本）+ GFM 管道表格（人类单位 1h 03m / %，胜者 makespan 加粗）+ 失败者名单（报告丢掉一个参赛者就是说谎）+ 成本 caveat。mdCell 是 csvCell 的 GFM 孪生（CSV 需要的是 RFC 4180，表格需要的是管道转义——每种语法得到它最容易说谎的那种转义）。顺手把 t188 遗留的载体债还了：导出字节从 4 秒自毁的 note 搬到对比块常驻 div（t191 载体教义归位），data-csv 与 data-md 同驻，退位在任何观察速度下可证。t194 33 断言 ×3 全绿；t188 oracle 同步后 31 断言 ×3 全绿；qa58/qa42 + 三件套全绿；矩阵 127→128。**
+
+- 【开局】worklog 尾部=Task 193/34ec535（cron「Task 13」文本第四十次过时；内嵌摘要停.Task 188 第 9 度过时——03:16 窗口的 Task 193 才是最新）。时间戳铁律：UTC 19:50=+08 03:50，trace …0350 一致。树净、冷启动、三件套全绿判稳、agent-browser 巡检 console 零错。
+- 【recital 全面核销】开局核对 Task 13 遗留清单：#7 chart 路由全量同步读——guinier/resolution/angdist/ctf 四路由已全面走 cachedFileCompute（statcache）；#8 particles BFS N+1——已批量化（每深度一层 edge 查询 + 一次 job 批查）；#5 fs/browse——isLocalRequest + 403 守卫在位。加上此前已核销的 Topaz wrapper（t191）与 3D 体积截面（t189–193 整套仪器），recital 清单全部陈旧——「清单只在她被核对的时刻才可信」。
+- 【实现·单文件四刀】hpc-queue-sim.tsx：①mdCell（管道转义+换行拍平）与 buildSweepReport（verdict 三分支：有差距/无差距/全灭；失败名单；caveat 脚注）；②lastMd 状态 + exportMd（与 exportCsv 同一条回退链：copy 先行、拒绝则落文件且回执注明 "(clipboard unavailable)"）；③compare() 退位三元组 setLastMd(null) 与 setLastCsv(null) 并列——一次退位、两种格式；④UI 四扇门（CSV×2 + Report×2，aria-label 各自实名，disabled={!sweep.length} ×4）+ 载体升级：data-csv/data-md 同驻对比块常驻 div。
+- 【探针 t194·33 断言 ×3 全绿】S3 正典 26 + trio registry + 双 racer 在册；X8 源 oracle（ONE builder、mdCell 转义、无 parse-of-parse、常驻载体、退位、四门实名、失败教义进散文、胜者加粗）；B17 活线（block 渲染→copy→回执→data-md 850 字节、verdict 加粗胜者+margin、表格 2 行、唯一加粗在 H100、makespan/util/gpu-hours 逐一等于 wire、下载回执报名 .md、re-compare 双格式退位（data-md 与 data-csv 同时离开载体）、CSV 门重新武装）；Z5 只读（roster 26 恒等、console 净、无 5xx/404）。
+- 【第二层真相·二】①**JSX 属性一行一条，oracle 必须空白容忍**：X4 首跑挂——源码里 data-csv/data-md 各占一行（JSX 惯例），oracle 找单行串；`\s*\n\s*` 正则修平。「断言文件的形态要跟源码的形态说同一种方言」。②**表格列索引要数竖线**：split("|") 后 [0] 是首竖线前的空串——# 在 [1]、status 在 [6]、makespan 在 [7]、gpu-hours 在 [10]；写探针先画列位图再下手，别信直觉的 [6]/[8]/[12]。
+- 【回归】t188 oracle 三处同步（X4 载体形态、B4 载体定位器 note→comparison div、X7 计数 2→4——「前浪 oracle 跟后浪源码走」第 4 度）后 31 断言 ×3 全绿；导出邻域 qa58（ALL PHASES GREEN）+ qa42（exit 0）+ 三件套 qa00/qa63/t181 全绿。矩阵 89 t1xx + 39 listed = 128 套在册（t194 auto-include）。183 判例：单组件轮定向回归收案，无全矩阵。
+- 【世界收尾】正典 26 精确保持（Z 相只读证明）；定妆照归档 scripts/shots-t194/：t194-report-doors-2x.png（四扇门一排 + .md 回执）+ sample-report.md（data-md 真字节 850B——verdict「**Slurm H100 hub (2×8 GPU, burst queue)** wins with a 12m makespan — 37% faster…」文档级成色）；t194-shots/t194-dump-md 双脚本留档可复跑。
+- 【收尾】worklog（本条）+ commit + push + 环境清理（杀 server 先 ss 查真实 PID、agent-browser close）。
+
+Stage Summary:
+- 「机器的 CSV 和人类的报告是同一场比赛的两个译本」：同一个 rows 父亲，两种语法——CSV 说 raw minutes 给电子表格，Markdown 说 1h 03m 和「37% faster」给人。翻译的正确方向是从事实到受众，绝不是从一种导出格式解析成另一种（parse-of-parse 是漂移的温床）
+- 「每种语法得到它最容易说谎的那种转义」：csvCell 防逗号/引号/换行（RFC 4180），mdCell 防管道/换行（GFM）——H100 显示名里的逗号定罪过 naive 解析器，将来某个名字里的管道就会定罪 naive 的 Markdown 表格。转义不是装饰，是语法自己咬人的地方
+- 「字节该住在常驻的屋檐下」：t188 把 data-csv 搭在 4 秒自毁的回执 note 上——当时的探针在窗口内采样所以没露馅；t191 的教义（载体必须常驻、退位在任何观察速度可证）回迁到 hpc 面还了这笔债。债不会被探针的宽容取消，只会被下一个更快的观察者揭发
+- 「一次退位，两种格式」：re-compare 退休的是「上一场比赛的导出」这个概念——CSV 与 Report 一起走，绝不允许新比赛开始后旧报告还挂着 stale 数字。 retire-the-concept, not-the-instance
+- 「清单只在她被核对的时刻才可信」：Task 13 的 recital 六项里 #5/#7/#8/Topaz/3D 截面已全部在历轮悄然修复——本轮开局逐一 grep 核销。清单是地图不是领土；每轮开局用代码重新测绘，别信任何一张旧图
+- 世界卫生观察账本（verdict 列）：本轮无全矩阵（单组件轮，183 判例=定向回归覆盖导出面 6 套×3）；t194 ×3 + t188 ×3 + qa58/qa42 + 三件套全绿；正典 26 精确保持；矩阵 128 套在册
+- 遗留（下轮候选）：报告管线的下一里——地图剖面板（t191 的 buildProfileCsv）与 sweep 报告会师成单一 per-job QC 摘要（Markdown/PDF）；Mol* 深色控制 chip 群对比度微调（下轮样式细节候选）；grabber nudge/undo 手感参数（真机盲区依旧）；script RELION-present 分支（沙箱受限判决维持）；EMPIAR 真数据回归（让位）；runner wall-time 剖面（让位）

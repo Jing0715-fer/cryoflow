@@ -129,6 +129,101 @@ const buildSweepCsv = (rows: SweepRow[], bestId: string | null): string =>
 const sweepCsvFilename = (): string =>
   `hpc-sweep-${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}.csv`;
 
+/**
+ * Markdown cell — the pipe table's quoting rule (t194). A `|` inside a
+ * cell would end the column early and a newline would end the row, so
+ * escape the pipe and flatten the newline: the mdCell twin of csvCell
+ * (the CSV needed RFC 4180, the table needs GFM — each grammar gets the
+ * escaping IT lies about).
+ */
+const mdCell = (v: string | number | boolean | undefined | null): string =>
+  String(v ?? "").replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
+
+const sweepReportFilename = (): string =>
+  `hpc-sweep-report-${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}.md`;
+
+/**
+ * The sweep's exit into prose (t194): the Markdown HUMAN twin of the
+ * machine CSV. Same father — the sweep rows — but a different grammar:
+ * the CSV speaks raw minutes and snake_case for spreadsheets; the
+ * report speaks verdict, table and failures for people. ONE builder
+ * feeds clipboard + download + the data-md carrier, and it derives
+ * from the rows, NEVER from the CSV string — parsing your own export
+ * to write a summary is a second derivation waiting to drift.
+ */
+const buildSweepReport = (rows: SweepRow[], bestId: string | null): string => {
+  const ok = rows.filter((r) => r.r);
+  const failed = rows.filter((r) => !r.r);
+  const best = ok.find((r) => r.p.id === bestId) ?? null;
+  const worst = ok.reduce<SweepRow | null>(
+    (w, r) => (!w || r.r!.makespanMin > w.r!.makespanMin ? r : w),
+    null,
+  );
+  const lines: string[] = [];
+  lines.push("# HPC sweep — cluster profile comparison", "");
+  lines.push(
+    `Generated ${new Date().toISOString().replace("T", " ").slice(0, 16)} UTC · CryoFlow queue simulation`,
+    "",
+  );
+  // The verdict — one sentence a human can act on, margins included.
+  if (best?.r && worst?.r && worst.r.makespanMin > best.r.makespanMin) {
+    const margin = Math.max(0, Math.round((1 - best.r.makespanMin / worst.r.makespanMin) * 100));
+    lines.push(
+      `${ok.length} of ${rows.length} profiles simulated on the same workflow graph. ` +
+      `**${best.p.name}** wins with a ${fmtMin(best.r.makespanMin)} makespan — ` +
+      `${margin}% faster than the slowest contestant (${fmtMin(worst.r.makespanMin)}) — ` +
+      `at a cost of ${(Math.round(best.r.totalGpuHours * 10) / 10).toFixed(1)} GPU-hours.`,
+    );
+  } else if (best?.r) {
+    lines.push(
+      `${ok.length} of ${rows.length} profiles simulated on the same workflow graph. ` +
+      `**${best.p.name}** wins with a ${fmtMin(best.r.makespanMin)} makespan at a cost of ` +
+      `${(Math.round(best.r.totalGpuHours * 10) / 10).toFixed(1)} GPU-hours.`,
+    );
+  } else {
+    lines.push(`${rows.length} profiles entered the race; none finished — see the failures below.`);
+  }
+  lines.push("");
+  // The race table — human units (1h 03m, %), winner's makespan bold.
+  lines.push("| # | Profile | GPU | Shape | Speedup | Status | Makespan | Utilization | Avg wait | GPU-hours |");
+  lines.push("|--:|---------|-----|-------|--------:|--------|---------:|------------:|---------:|----------:|");
+  rows.forEach((row, i) => {
+    lines.push(
+      [
+        String(i + 1),
+        row.p.name,
+        row.p.gpuModel,
+        `${row.p.nodes}×${row.p.gpusPerNode}`,
+        `×${row.p.gpuSpeedup}`,
+        row.r ? "ok" : "error",
+        row.r
+          ? row.p.id === bestId
+            ? `**${fmtMin(row.r.makespanMin)}**`
+            : fmtMin(row.r.makespanMin)
+          : "—",
+        row.r ? `${Math.round(row.r.gpuUtilization * 100)}%` : "—",
+        row.r ? fmtMin(row.r.avgWaitMin) : "—",
+        row.r ? `${(Math.round(row.r.totalGpuHours * 10) / 10).toFixed(1)}` : "—",
+      ]
+        .map(mdCell)
+        .map((c) => `| ${c} `)
+        .join("") + "|",
+    );
+  });
+  // Failed profiles stay visible — a report that drops a contestant lies.
+  if (failed.length > 0) {
+    lines.push("");
+    lines.push("Failed profiles (kept visible, never silently dropped):", "");
+    for (const f of failed) lines.push(`- ${f.p.name} — ${f.err ?? "unavailable"}`);
+  }
+  lines.push("");
+  lines.push(
+    "> GPU-hours ≈ cost proxy — the fastest cluster is not always the cheapest. " +
+    "The machine twin of this report is the CSV export (raw minutes, snake_case).",
+  );
+  return lines.join("\n") + "\n";
+};
+
 // Blob download lives in @/lib/download (t191 collected the private twins —
 // two consumers deriving the anchor dance independently is two chances to fork).
 
@@ -187,11 +282,15 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
   const [clamped, setClamped] = React.useState(false);
   const [sweep, setSweep] = React.useState<SweepRow[] | null>(null);
   const [sweeping, setSweeping] = React.useState(false);
-  // Sweep export (t188): the note is the user-facing receipt; lastCsv is
-  // the exact string handed to clipboard/download (the probe's
-  // observation boundary — one source, no second derivation).
+  // Sweep export (t188 CSV + t194 Markdown report): the note is the
+  // user-facing receipt; lastCsv/lastMd are the exact strings handed to
+  // clipboard/download (the probe's observation boundary — one source
+  // per format, no second derivation). The bytes ride the comparison
+  // block's ALWAYS-ATTACHED header div (t191's carrier doctrine), not
+  // the 4-second note.
   const [exportNote, setExportNote] = React.useState<string | null>(null);
   const [lastCsv, setLastCsv] = React.useState<string | null>(null);
+  const [lastMd, setLastMd] = React.useState<string | null>(null);
   const noteTimer = React.useRef<number | null>(null);
   const [params, setParams] = React.useState<SimParams>({
     clusterGpus: 8, nodes: 4, arrayConcurrency: 8, gpuSpeedup: 25,
@@ -255,6 +354,7 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
     // survive into a report.
     setExportNote(null);
     setLastCsv(null);
+    setLastMd(null);
     try {
       const d = (await fetch("/api/hpc/profiles").then((r) => r.json())) as { profiles?: SweepProfile[] };
       const gpuProfiles = (d.profiles ?? []).filter((p) => p.gpusPerNode >= 1);
@@ -313,6 +413,27 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
     }
     const fname = sweepCsvFilename();
     downloadText(fname, csv);
+    flashNote(`Downloaded ${fname}${mode === "copy" ? " (clipboard unavailable)" : ""}`);
+  };
+
+  // The report export (t194): the Markdown twin walks the SAME fallback
+  // chain as the CSV — copy first, and when the clipboard is denied the
+  // download is the honest second door, with the receipt saying so.
+  const exportMd = async (mode: "copy" | "download") => {
+    if (!sweep?.length) return;
+    const md = buildSweepReport(sweep, bestRow?.p.id ?? null);
+    setLastMd(md);
+    if (mode === "copy") {
+      try {
+        await navigator.clipboard.writeText(md);
+        flashNote(`Copied the sweep report (${sweep.length} profile${sweep.length === 1 ? "" : "s"}) to the clipboard`);
+        return;
+      } catch {
+        // clipboard denied — the download is the honest fallback
+      }
+    }
+    const fname = sweepReportFilename();
+    downloadText(fname, md);
     flashNote(`Downloaded ${fname}${mode === "copy" ? " (clipboard unavailable)" : ""}`);
   };
 
@@ -550,6 +671,8 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
             <div
               className="space-y-1.5 rounded-md border bg-muted/20 p-3"
               aria-label="Profile comparison"
+              data-csv={lastCsv ?? undefined}
+              data-md={lastMd ?? undefined}
             >
               <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-medium">
                 <Layers className="size-3.5 text-primary" aria-hidden="true" />
@@ -584,6 +707,30 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
                 >
                   <Download className="size-3" aria-hidden="true" />
                   CSV
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 gap-1 px-1.5 text-[10px]"
+                  disabled={!sweep.length}
+                  onClick={() => void exportMd("copy")}
+                  aria-label="Copy comparison as Markdown"
+                  title="Copy the race as a Markdown report (verdict, table, failures) — falls back to a download when the clipboard is denied"
+                >
+                  <Copy className="size-3" aria-hidden="true" />
+                  Report
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 gap-1 px-1.5 text-[10px]"
+                  disabled={!sweep.length}
+                  onClick={() => void exportMd("download")}
+                  aria-label="Download comparison as Markdown"
+                  title="Save the race as hpc-sweep-report-<timestamp>.md — the same bytes the copy path puts on the clipboard"
+                >
+                  <Download className="size-3" aria-hidden="true" />
+                  Report
                 </Button>
               </div>
               {sweep.length === 0 ? (
