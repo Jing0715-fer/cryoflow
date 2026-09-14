@@ -4253,6 +4253,14 @@ export async function reconcileRealJobs(jobs: Job[]): Promise<Job[]> {
       // DB to running seconds before the record lands) or a stale legacy
       // running state (retired simulation engine / crashed before spawn).
       // Recent → keep running; older → honest failure.
+      // [boot-race] Task 183: the Live row flipped here twice after
+      // build→restart cycles while its record SAT in engine-state.json
+      // (pid 1, /proc/1 always alive). This dump convicts the branch
+      // inputs at flip time: keys tells whether readRuns() saw the file's
+      // 19 records or an empty/missing parse (standalone snapshot theory).
+      console.error(
+        `[boot-race] no-engine-record flip: job=${job.id} name="${job.name}" keys=${Object.keys(runs).length} fileExists=${existsSync(STATE_FILE)} fileSize=${existsSync(STATE_FILE) ? statSync(STATE_FILE).size : -1} startedAt=${job.startedAt?.toISOString() ?? "null"} at=${new Date().toISOString()} pid=${process.pid}`
+      );
       const ageMs = job.startedAt
         ? Date.now() - new Date(job.startedAt).getTime()
         : Infinity;

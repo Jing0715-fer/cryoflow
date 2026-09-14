@@ -13,5 +13,21 @@ import path from "path";
 /** Repository root (cwd of the Next.js dev server process). */
 export const PROJECT_ROOT = process.cwd();
 
-/** Persistent app data directory (<repo>/data). */
-export const DATA_DIR = path.join(PROJECT_ROOT, "data");
+/**
+ * Persistent app data directory.
+ *
+ * CRYOFLOW_DATA_DIR (Task 183): an ABSOLUTE override that decouples the
+ * running server from its cwd. The standalone server chdirs into
+ * .next/standalone at boot, so DATA_DIR resolves through
+ * .next/standalone/data — a symlink start-prod.sh repairs — and EVERY
+ * `next build` DELETES .next/standalone for its first seconds, taking the
+ * cwd and the symlink with it. The convicted boot-race (instrumented
+ * 2026-09-14): a polling client's reconcile during that window read
+ * fileExists=false → readRuns()={ } → every running row flipped to
+ * "stale running state (no engine record)". With the override, the
+ * server's file view survives any build. Without it (user machines, dev)
+ * the cwd default behaves exactly as before.
+ */
+export const DATA_DIR = process.env.CRYOFLOW_DATA_DIR
+  ? process.env.CRYOFLOW_DATA_DIR
+  : path.join(PROJECT_ROOT, "data");

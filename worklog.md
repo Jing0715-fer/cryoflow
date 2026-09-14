@@ -5156,3 +5156,24 @@ Stage Summary:
 - 「矩阵中途的世界不属于任何单一套件」第五度：t157/158/159 的 fixture 是矩阵时代的合法居民——census 断言套件在矩阵窗口外独跑前必须先重建世界；qa60 的 --clean 是删除语义不是重建语义，读 Usage 行要读到第三行
 - 世界卫生观察账本（verdict 列）：全矩阵 117 套完成（84 首跑绿 + t168 源签名修复位内绿 + 97-117 二段全绿含 t182 槽位）；qa75 连绿延续；0 环境性抖动（Live 行翻转与 mid-matrix fixture 均为已知模式非抖动）；八审全零；正典构成精确复现
 - 遗留（下轮候选）：Live 行 boot 竞速根因考古（相关性 build→restart 2/2，机制未定罪——instrumentation 日志沉默，需一次带插桩的定向复现）；grabber nudge/undo 手感参数（真机，盲区依旧）；dialog 深色主题定妆照（第三度让位）；script RELION-present 分支（沙箱受限判决维持）；runner wall-time 剖面（让位）；EMPIAR 真数据回归（让位）；克隆的 note-only 携带在 scratch fixture 有 0 note 的世界里由 diag 佐证（restore 流程的 notes 大户是真机事项）
+
+## Task 183 (2026-09-14, cron 21:31 窗口 trace …202609142141)
+
+**主题：定罪轮——the boot race confesses。上轮交接的 Live 行 boot 竞速（相关性 build→restart 2/2 未定罪）本轮插桩定罪+根因修复：**standalone server 启动即 `chdir(__dirname)`，DATA_DIR 解析穿 `.next/standalone/data` symlink——而每一次 `next build` 的前几秒会整体删除 `.next/standalone`（cwd 与 symlink 一起消失）——轮询中的 server 在那个窗口 reconcile 时 `statSync` 抛错 → `readRuns()={}` → 一切 running 行被判「stale running state (no engine record)」翻转**。修复=`CRYOFLOW_DATA_DIR` 绝对路径环境变量（paths.ts 回退链：env → cwd/data，用户机器与 dev 行为不变；start-prod.sh 与诊断 boot 脚本双导出）。决定性验证：修复版 server + 轮询浏览器在场跑 94s build → 行稳 `running 42`、插桩零命中。附带修复两 boot 脚本的 pkill 盲区（`bun server.js` 不匹配旧模式 → EADDRINUSE 陈旧 server 继续服役——Task 86「陈旧 server 供陈旧 build」的新装重现）。**
+
+- 【开局】worklog 尾部=Task 182/ab26a8d（cron Task 13 文本第廿九次过时）。HEAD==origin/main 树净、冷启动 3s、正典 26 存活（无 build 冷启动不翻转——相关性第五度成立）；三件套 qa00/qa63/t181 全绿；巡检 console 零错。
+- 【插桩】reconcileRealJobs 的 `!state` 分支加 `[boot-race]` 诊断 dump（job/keys/fileExists/fileSize/startedAt/pid——keys 告发 readRuns 看到空 map 还是真记录；注释写明定罪动机）。engine.ts 唯一翻转点（全库 grep 实证）。
+- 【定向复现·三幕】①cycle B1（build→restart，旧 server 在 build 期间存活+浏览器轮询）：翻转复现且**插桩零命中**→翻转不是新 server 干的；state 文件 mtime=build 中段（qa60 签名记录 re-stamp）→第二谜题。②法证反转：我查的 Live 记录 key 是**上窗口陈旧行 id**（cmu1675w 已在 21:28 qa60 重建时被 cmu1a3ifj 顶替）——「记录 GONE」是法证读错了对象，真记录 pid:1 恒活在文件里。③监视器实验（prisma 每秒轮询版）被 shell 引号打碎（Rule 9 反例：临时内联代码的引用地狱）→ 落 boot-race-forensic.mjs 文件版 → **build 窗口行被翻而文件 mtime 纹丝不动** → 排除「写路径」，指向「读路径分歧」→ 查出真凶：**本窗口的 server 是实验脚本 boot 的（cwd=.next/standalone）**，而 `.next/standalone/server.js` 第 6 行 `process.chdir(__dirname)` 铁证——生产 server 同样 chdir → 同样经 symlink 读 → build 删 standalone 时读数 ENOENT。**插桩在 13:50:47（build+5s）拿获现行：`keys=0 fileExists=false pid=5450`。**
+- 【修复·三处】①paths.ts：`DATA_DIR = process.env.CRYOFLOW_DATA_DIR ?? cwd/data`（合同注释写明定罪链）；②start-prod.sh 与 boot-race-exp.sh 导出绝对路径——build 从此打不断在跑 server 的文件视野；③两 boot 脚本 pkill 补 `bun server.js` 模式（实验脚本首跑 EADDRINUSE 暴露：旧模式杀不掉 `bun server.js` cmdline，fuser 也没接管端口——陈旧 server 带着旧 build 继续答 200）。
+- 【决定性验证】修复版 server（env 在身验证过 /proc/environ）+ 轮询浏览器在场跑 94s build → **行稳 running 42、[boot-race] 零命中**；换真实 start-prod.sh 重启（pid 9146，cwd=standalone 被删也无恙——这正是修复的意义）。回归 qa00/qa63/qa58/qa60 全绿（qa60 的 Z 相 `--clean` 按合同删除 Live 行=已知世界消耗，随后 qa60-seed 无 flag 重建）；t181 23 断言 ✓、t182 76 断言 ✓（t182 的 S 相自愈从此应永久闲置——它的触发签名被根因消灭）。
+- 【插桩留档】[boot-race] console.error 留在 engine.ts（零成本，只在未来真异常时发声——spawn 竞速窗口或新伤）；boot-race-exp.sh（带环境变量+正确 pkill 的诊断 boot）与 boot-race-forensic.mjs（文件+行双读法证）归档 scripts/；broken 的 watch 版删除。定妆照 t183-patrol.png 归档 shots-t182/。
+- 【收尾】worklog（本条）+ commit + push + 环境清理（杀 server 先 ss 查 PID、agent-browser close --all）。
+
+Stage Summary:
+- 「相关性会指认嫌疑人，插桩才递刀」：build→restart 2/2 的相关性对了凶手错了现场——真凶是 build+轮询的交集，重启只是验尸时间。一行 fileExists=false 的 dump 抵得过三次盲猜重启
+- 「cwd 是部署的隐形合同」：`process.chdir(__dirname)` 让「DATA_DIR=cwd/data」从显式约定变成随构建目录生灭的浮萍。凡是「启动目录=数据目录」的隐式耦合，都欠一条绝对路径的显式逃生口
+- 「法证读数要核对对象身份」：我拿上窗口的行 id 查记录、得出「记录 GONE」的假象——世界会换 id（qa60 重建），法证脚本必须按名字/不变量定位而非记忆中的 id
+- 「EADDRINUSE 是最诚实的失败」：新 server 绑不上端口时旧 server 继续答 200——「boot 200」不等于「新 build 上线」。pkill 模式要与真实 cmdline 对表（`bun server.js` ≠ `standalone/server.js`），Task 86 教义的新装重现
+- 「矩阵中途的套件自带播种机」：qa63 S 相自播种（Task 86 教义）、qa60 Z 相自清扫（删 Live 行）——回归链的顺序敏感性与矩阵同源：census 断言套件排在 qa60 之后就要先重建世界
+- 世界卫生观察账本（verdict 列）：本轮无矩阵（定罪轮）；回归 qa00/qa63/qa58/qa60/t181/t182 全绿；正典 26 精确复原（qa60 重建后）；八审 domain-sweep 0/0/0；boot 竞速从「环境之谜」销案为「已定罪已修复」
+- 遗留（下轮候选）：grabber nudge/undo 手感参数（真机盲区依旧）；dialog 深色主题定妆照（第四度让位）；script RELION-present 分支（沙箱受限判决维持）；runner wall-time 剖面（让位）；EMPIAR 真数据回归（让位）；fs/browse 的 PROJECT_ROOT 同款 cwd 耦合（request-scoped 无持久伤，让位）；[boot-race] 插桩的长期价值：未来任何「stale running state」都将自带现场快照

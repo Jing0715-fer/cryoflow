@@ -11,6 +11,7 @@
 cd /home/z/my-project
 pkill -f "standalone/server.js" 2>/dev/null
 pkill -f "next start" 2>/dev/null
+pkill -f "bun server.js" 2>/dev/null
 pkill -f "next-server" 2>/dev/null
 # belt-and-braces: anything still listening on :3000 must die — a rebuild
 # is only "live" if THIS script's instance is the one serving it
@@ -49,6 +50,8 @@ if [ "$HAVE" != "$WANT" ]; then
   fi
 fi
 sleep 1
+# Task 183: absolute DATA_DIR — builds delete .next/standalone (the cwd)
+export CRYOFLOW_DATA_DIR=/home/z/my-project/data
 export NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--max-old-space-size=896"
 setsid bun run start >/dev/null 2>&1 < /dev/null &
 exit 0
