@@ -5309,3 +5309,25 @@ Stage Summary:
 - 「轴切换先退位再取新」：地形是轴的函数——切轴的瞬间旧地形必须消失（哪怕是空的）也不得逗留，否则用户会对着 Y 轴的山调 Z 轴的平面。与 toFractionFrame「边界归一化」、re-compare「退位诏」同族：陈旧的状态最大的危险是过期却看起来正确
 - 世界卫生观察账本（verdict 列）：本轮无全矩阵（仪器轮，183 判例=定向回归覆盖 statcache 全消费者邻域）；回归 qa00/qa63/qa58/qa42/qa67/qa51/qa55/qa62/qa69/t181 + t189 ×3 全绿；正典 26 精确保持
 - 遗留（下轮候选）：Topaz wrapper（新功能方向，crRecital 唯一幸存项）；dialog 深色主题定妆照（第九度让位——须 html.dark class 切换）；profile 的拖动擦洗（click-to-jump 已在，drag-scrub 待加）；剖面多轴并排视图（三轴地形一屏）；grabber nudge/undo 手感参数（真机盲区依旧）；script RELION-present 分支（沙箱受限判决维持）；EMPIAR 真数据回归（让位）；runner wall-time 剖面（让位）；#7 已验尸清除不再列
+
+## Task 190 (2026-09-15, cron 00:46 窗口 trace …202609150054)
+
+**主题：擦洗与俯瞰轮——the landscape becomes a scrub bar。Task 189 交接首选项兑现的两步深化：①drag-scrub——地形条带从「点击跳转」升级为「按住拖动」：pointer-down 跳转、pointer-move 带捕获拖洗平面（touch-none/select-none 防手势劫持），applySliceIntent 的 pump 合并泵让快速拖洗提交最新位置而非路径上每个像素；②XYZ 俯瞰——条带脚注的 XYZ chip 展开两条幽灵行（另两轴的地形，灰阶 h-4 俯视），幽灵条点击=一次 intent 同时换轴+跳位，字母 chip=仅换轴；幽灵与主条带共享 per-axis 缓存：展开只取从未测过的轴（活动轴零重取）、幽灵转正即时渲染、收起再展开零新调用。t190 29 断言 ×3 全绿（拖到 60% 落 60%、playhead cx 跟手、幽灵领养 Y+40% 一次 intent、D8 展开不重取活动轴、D12 重展开缓存喂零调用）。**
+
+- 【开局】worklog 尾部=Task 189/447f745（cron「Task 13」文本第卅六次过时）。树净、冷启动；三件套 qa00/qa63/t181 全绿判稳；巡检双视图 console 双零错。
+- 【实现·单文件】molstar-embed.tsx：①scrubbing ref + posFromEvent + onLandscapePointerDown/Move/Up（setPointerCapture 捕获，releasePointerCapture 释放，try/catch 包裹 detached 场景）；②showAllAxes + ghostMap 态 + 幽灵 effect（读 profileCache 命中即用、未命中 fetch 补、alive 守卫）；③jumpToGhost（一次 intent 携 axis+pos）；④条带 svg 换 pointer handlers + aria-label 教学文案（"drag to scrub the plane"）+ <title> 同步；⑤脚注行加 XYZ chip（aria-pressed，激活青底）+ 幽灵区（有图：字母 chip+灰阶 svg；无图：animate-pulse 骨架行，"a ghost that cannot load stays a quiet skeleton — never blocks the active axis"）。
+- 【探针 t190·29 断言 ×3 全绿】S3（roster 26、宿主在册、幂等种图）+ X10 源 oracle（捕获/仅拖时 scrub/touch-none/教学文案/XYZ chip/单 intent 领养/幽灵命名/骨架不撒谎/缓存共享/双门设计：字母=换轴、条=换轴+跳位）+ D10 活线（拖 30%→60% 落 "plane 60%"、playhead cx=60、展开双幽灵、**D8 展开不重取活动轴**（URL 计数）、幽灵 Y@40% 一次 intent 换轴+落位、收起退役、**D12 重展开零新调用**、Escape）+ Z3 只读。
+- 【第二层真相·租界案】**t189 的 B10 曾把别人的租界当常驻真值**：本轮回放 qa51→qa52 时序后 t189 首挂 B10（STAR→400 期待 404）——法证发现 refine3d workdir 的 report 文件（postprocess.star/model stars）是 qa51/qa52 seeder 的流动租户，其 e2e 收尾按 Task 161 清理半径收走；「断言不得依赖别人租界的内容」。修复=B10 改探针自带租户（自写 t189-nonmap.txt→断 400→Z0 相收走+验证），同族又一案：fixture 的生死由它的 seeder 决定。连带 t189 X9 oracle 同步 t190 的 pointer 真相（jumpToProfilePos 已被 scrubbing handlers 取代——前浪的 oracle 要跟着后浪的源码走）。
+- 【世界态漂移案】qa52 首挂「want 6 embedded PNGs got 5」——第 6 张是 topaz 曲线（Task 53），其 training 文件被早前 qa53 的清理半径收走后无人补种（矩阵排序 qa52<qa53 + restore-gallery 常驻链才是其主人；本窗口手动顺序 qa58→qa52 恰好绕开矩阵的编舞）。qa53-seed-topaz.py 补种后 qa52 ALL PHASES GREEN——非产品回归，是手动回归顺序漏掉了矩阵排序隐含的世界前提；已记入交接（qa52 依赖 topaz 种子常驻）。
+- 【回归】t189 ×3（42 断言，含新 B10/Z0）、t190 ×3、qa51/qa52/qa55/qa58/qa62/qa69（chart 面）、qa42（viewer 书签链 exit 0）、qa67（正交面板）、qa00/qa63/t181——**全部在 t190 重建后的构建上重跑**。矩阵 123→124 套（t190 auto-include）。
+- 【世界收尾】正典 26（16c/8i/1f/1r、Live 行存活）；探针只读+自带租户已清；定妆照两张（t190-scrub-xyz.png——62% 山坡上的 playhead+XYZ chip 激活+X/Y 灰阶幽灵行；t190-viewer.png 全景）归档 scripts/shots-t190/。
+- 【收尾】worklog（本条）+ commit + push + 环境清理（杀 server 先 ss 查真实 PID）。
+
+Stage Summary:
+- 「拖洗的合同是提交最新，不是提交每次」：pump 合并泵让 pointer-move 的几十个 intent 收敛为「in-flight 完成后重读快照」——快速拖洗的落点永远是你松手的位置，不是路径的均值。仪器跟手的秘诀不在事件频率，在提交语义
+- 「俯瞰是领养的橱窗」：幽灵行把「换轴」从按钮升级成「看见另一轴的地形再决定」——点击即领养（一次 intent 换轴+落位），字母 chip 保留纯换轴的窄门。缓存共享让橱窗免费：幽灵转正零延迟，收起再展开零调用
+- 「断言不得依赖别人租界的内容」：t189 B10 的 404 不是产品 bug，是 qa51/52 清理半径的正常呼吸——把断言迁到探针自带的租户文件上（自写自清，Task 161 半径协议），时序无论如何编排都不再漂
+- 「手动顺序会漏掉矩阵编舞的世界前提」：qa52 的第 6 张 PNG 依赖 topaz 种子常驻，而这前提由矩阵排序（qa52<qa53）与 restore-gallery 链共同维持——脱离编舞的 solo 回归要自己补种。世界态漂移不是回归，是 choreography 的隐形合同
+- 「前浪的 oracle 要跟着后浪的源码走」：t190 把点击升级成拖洗的同一天，t189 的 X9 就过时了——探针是活文档，oracle 字符串锚在实现细节上时，实现演化的波及面必须当轮清偿
+- 世界卫生观察账本（verdict 列）：本轮无全矩阵（仪器深化轮，183 判例=定向回归）；回归 qa00/qa63/qa58/qa42/qa67/qa51/qa52/qa55/qa62/qa69/t181/t189/t190 全绿（重建后重跑）；正典 26 精确保持；qa52 世界前提已补种并记录
+- 遗留（下轮候选）：Topaz wrapper（recital 唯一幸存新功能方向）；dialog 深色主题定妆照（第九度让位——须 html.dark class 切换）；剖面 playhead 的键盘可达性（arrow keys 微调平面）；grabber nudge/undo 手感参数（真机盲区依旧）；script RELION-present 分支（沙箱受限判决维持）；EMPIAR 真数据回归（让位）；runner wall-time 剖面（让位）

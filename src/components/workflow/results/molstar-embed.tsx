@@ -2324,6 +2324,11 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
   const [profile, setProfile] = useState<SliceProfile | null>(null);
   const [profileErr, setProfileErr] = useState(false);
   const profileCache = useRef(new Map<string, SliceProfile>());
+  // All-axes overviews (t190): the two ghost landscapes under the main
+  // strip. They share the per-axis cache — a ghost that later becomes the
+  // active axis renders instantly, no refetch.
+  const [showAllAxes, setShowAllAxes] = useState(false);
+  const [ghostMap, setGhostMap] = useState<Partial<Record<"x" | "y" | "z", SliceProfile>>>({});
   useEffect(() => {
     if (!sliceOn || !jobId || !path) return;
     const ax = sliceAxis.toLowerCase();
@@ -2359,6 +2364,40 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
       alive = false;
     };
   }, [sliceOn, sliceAxis, jobId, path]);
+
+  // Ghost landscapes: fetched once per axis when the XYZ toggle is on.
+  useEffect(() => {
+    if (!sliceOn || !showAllAxes || !jobId || !path) return;
+    const active = sliceAxis.toLowerCase() as "x" | "y" | "z";
+    const others = (["x", "y", "z"] as const).filter((a) => a !== active);
+    let alive = true;
+    for (const ax of others) {
+      const hit = profileCache.current.get(ax);
+      if (hit) {
+        setGhostMap((g) => (g[ax] ? g : { ...g, [ax]: hit }));
+        continue;
+      }
+      fetch(`/api/jobs/${jobId}/map-profile?path=${encodeURIComponent(path)}&axis=${ax}`)
+        .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+        .then((d) => {
+          if (!alive || !Array.isArray(d?.bins) || d.bins.length === 0) return;
+          const entry: SliceProfile = {
+            bins: d.bins as number[],
+            min: Number(d.stats?.min ?? 0),
+            max: Number(d.stats?.max ?? 1),
+            native: Number(d.native ?? d.bins.length),
+          };
+          profileCache.current.set(ax, entry);
+          setGhostMap((g) => ({ ...g, [ax]: entry }));
+        })
+        .catch(() => {
+          /* a ghost that cannot load stays a quiet skeleton — never blocks the active axis */
+        });
+    }
+    return () => {
+      alive = false;
+    };
+  }, [sliceOn, showAllAxes, sliceAxis, jobId, path]);
 
   /** build/update the slice node from the latest intent snapshot.
    *
@@ -2529,11 +2568,36 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
   const sliceIntentRef = useRef(applySliceIntent);
   sliceIntentRef.current = applySliceIntent;
 
-  /** click on the density landscape → the plane jumps there (t189). */
-  const jumpToProfilePos = (e: React.MouseEvent<SVGSVGElement>) => {
+  /**
+   * The landscape is a scrub bar (t190): pointer-down jumps, pointer-move
+   * DRAGS the plane through the mountains with capture — the intent
+   * applier's pump coalesces in-flight commits so a fast scrub commits
+   * the latest position, not every pixel of the path.
+   */
+  const scrubbing = useRef(false);
+  const posFromEvent = (e: React.PointerEvent<SVGSVGElement>): number => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    return Math.min(1, Math.max(0, (e.clientX - rect.left) / Math.max(1, rect.width)));
+  };
+  const onLandscapePointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
+    scrubbing.current = true;
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* detached */ }
+    applySliceIntent({ pos: Math.round(posFromEvent(e) * 100) / 100 });
+  };
+  const onLandscapePointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (!scrubbing.current) return;
+    applySliceIntent({ pos: Math.round(posFromEvent(e) * 100) / 100 });
+  };
+  const onLandscapePointerUp = (e: React.PointerEvent<SVGSVGElement>) => {
+    scrubbing.current = false;
+    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* already gone */ }
+  };
+
+  /** ghost click = adopt that axis AND jump to the clicked position, one intent. */
+  const jumpToGhost = (axis: "x" | "y" | "z") => (e: React.PointerEvent<SVGSVGElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const frac = Math.min(1, Math.max(0, (e.clientX - rect.left) / Math.max(1, rect.width)));
-    applySliceIntent({ pos: Math.round(frac * 100) / 100 });
+    applySliceIntent({ axis: axis.toUpperCase() as SliceAxis, pos: Math.round(frac * 100) / 100 });
   };
   useEffect(() => {
     const onOrtho = (e: Event) => {
@@ -3174,12 +3238,15 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                     <svg
                       viewBox="0 0 100 30"
                       preserveAspectRatio="none"
-                      className="block h-9 w-full cursor-crosshair rounded bg-background/40"
+                      className="block h-9 w-full cursor-crosshair touch-none select-none rounded bg-background/40"
                       role="img"
-                      aria-label={`Density profile along the ${sliceAxis} axis — click to move the plane`}
-                      onClick={jumpToProfilePos}
+                      aria-label={`Density profile along the ${sliceAxis} axis — drag to scrub the plane`}
+                      onPointerDown={onLandscapePointerDown}
+                      onPointerMove={onLandscapePointerMove}
+                      onPointerUp={onLandscapePointerUp}
+                      onPointerCancel={onLandscapePointerUp}
                     >
-                      <title>Mean density per plane along the slice axis — click to jump the plane there</title>
+                      <title>Mean density per plane along the slice axis — drag to scrub, click to jump</title>
                       {(() => {
                         const n = profile.bins.length;
                         const span = profile.max - profile.min || 1;
@@ -3216,13 +3283,93 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                         );
                       })()}
                     </svg>
-                    <div className="flex items-center justify-between pt-1 text-[9px] font-mono tabular-nums text-muted-foreground">
+                    <div className="flex items-center justify-between gap-2 pt-1 text-[9px] font-mono tabular-nums text-muted-foreground">
                       <span>
                         mean ρ along {sliceAxis} · {profile.bins.length} bins
                         {profile.native !== profile.bins.length ? ` (pooled from ${profile.native})` : ""}
                       </span>
+                      <button
+                        type="button"
+                        onClick={() => setShowAllAxes((v) => !v)}
+                        aria-pressed={showAllAxes}
+                        aria-label="Toggle all-axis landscapes"
+                        title="Show the density landscape of ALL three axes — click a ghost row to adopt that axis and jump there"
+                        className={
+                          "rounded-full px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-wide transition-colors " +
+                          (showAllAxes
+                            ? "bg-cyan-600 text-white"
+                            : "bg-muted text-muted-foreground hover:bg-cyan-600/15 hover:text-cyan-700 dark:hover:text-cyan-300")
+                        }
+                      >
+                        XYZ
+                      </button>
                       <span>plane {Math.round(slicePos * 100)}%</span>
                     </div>
+                    {showAllAxes ? (
+                      <div className="space-y-1 border-t border-cyan-600/15 pt-1.5">
+                        {(["x", "y", "z"] as const)
+                          .filter((ax) => ax !== sliceAxis.toLowerCase())
+                          .map((ax) => {
+                            const sp = ghostMap[ax];
+                            return sp ? (
+                              <div key={ax} className="flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => applySliceIntent({ axis: ax.toUpperCase() as SliceAxis })}
+                                  aria-label={`Adopt the ${ax.toUpperCase()} axis`}
+                                  title={`Make ${ax.toUpperCase()} the active axis`}
+                                  className="w-3.5 shrink-0 rounded bg-muted py-px font-mono text-[8px] font-bold text-muted-foreground transition-colors hover:bg-cyan-600/15 hover:text-cyan-700 dark:hover:text-cyan-300"
+                                >
+                                  {ax.toUpperCase()}
+                                </button>
+                                <svg
+                                  viewBox="0 0 100 10"
+                                  preserveAspectRatio="none"
+                                  className="block h-4 min-w-0 flex-1 cursor-crosshair touch-none select-none rounded bg-background/25 opacity-80 transition-opacity hover:opacity-100"
+                                  role="img"
+                                  aria-label={`Ghost landscape of the ${ax.toUpperCase()} axis — click to adopt it and jump there`}
+                                  onPointerDown={jumpToGhost(ax)}
+                                >
+                                  <title>The {ax.toUpperCase()} axis' density landscape — click to inspect it</title>
+                                  {(() => {
+                                    const n = sp.bins.length;
+                                    const span = sp.max - sp.min || 1;
+                                    const pts = sp.bins
+                                      .map(
+                                        (v, i) =>
+                                          `${((i / Math.max(1, n - 1)) * 100).toFixed(2)},${(9.4 - ((v - sp.min) / span) * 7.4).toFixed(2)}`
+                                      )
+                                      .join(" ");
+                                    return (
+                                      <>
+                                        <polygon points={`0,10 ${pts} 100,10`} fill="rgba(100,116,139,0.18)" />
+                                        <polyline
+                                          points={pts}
+                                          fill="none"
+                                          stroke="#64748b"
+                                          strokeWidth="1"
+                                          vectorEffect="non-scaling-stroke"
+                                          strokeLinejoin="round"
+                                        />
+                                      </>
+                                    );
+                                  })()}
+                                </svg>
+                              </div>
+                            ) : (
+                              <div key={ax} className="flex items-center gap-1.5">
+                                <span className="w-3.5 shrink-0 text-center font-mono text-[8px] font-bold text-muted-foreground/50">
+                                  {ax.toUpperCase()}
+                                </span>
+                                <div
+                                  className="h-4 min-w-0 flex-1 animate-pulse rounded bg-muted/50"
+                                  aria-label={`Measuring the ${ax.toUpperCase()} axis landscape`}
+                                />
+                              </div>
+                            );
+                          })}
+                      </div>
+                    ) : null}
                   </div>
                 ) : profileErr ? (
                   <p className="text-[9.5px] italic text-muted-foreground">density profile unavailable for this map</p>

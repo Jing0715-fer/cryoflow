@@ -23,7 +23,7 @@
  * renders → playhead at 50% → click at 25% → slider follows → axis
  * switch refetches. Z proves read-only (roster identity, console clean).
  */
-import { readFileSync, existsSync } from "fs";
+import { readFileSync, writeFileSync, unlinkSync, existsSync } from "fs";
 import http from "http";
 import path from "path";
 import { execSync } from "node:child_process";
@@ -108,8 +108,8 @@ must(
   "X8 one fetch per (map, axis) per session — the landscape is not refetched on every scrub"
 );
 must(
-  embSrc.includes("jumpToProfilePos") && embSrc.includes("applySliceIntent({ pos:"),
-  "X9 clicking the landscape jumps the plane (the strip is a control, not a picture)"
+  embSrc.includes("onLandscapePointerDown") && embSrc.includes("applySliceIntent({ pos:"),
+  "X9 the landscape drives the plane (pointer handlers apply the position — t190 upgraded the click to a scrub bar)"
 );
 must(
   embSrc.includes("Density profile along the ${sliceAxis} axis"),
@@ -160,8 +160,19 @@ must(
 );
 const bad = await getProfile(host.id, "axis=q&path=" + encodeURIComponent(VOL));
 must(bad.status === 400, `B9 an unknown axis is a contract error (${bad.status})`);
-const nonmap = await getProfile(host.id, "axis=z&path=" + encodeURIComponent("postprocess.star"));
-must(nonmap.status === 400, `B10 a STAR file is not a landscape (${nonmap.status})`);
+const nonmapJob = jobs0.find((j) => j.name === "QA Post-process" && j.status === "completed");
+let nonmapStatus = 0;
+try {
+  // The file is probe-owned (Task 161: cleanup radius = seed radius) —
+  // the refine workdir is a shared tenancy whose report files come and
+  // go with qa51/qa52's cleanup, so the not-a-map assertion brings its
+  // own tenant instead of gambling on someone else's.
+  const workdir = JSON.parse(readFileSync("data/engine-state.json", "utf8"))[host.id]?.workdir;
+  writeFileSync(path.join(workdir, "t189-nonmap.txt"), "definitely not a map\n");
+  const nonmap = await getProfile(host.id, "axis=z&path=" + encodeURIComponent("t189-nonmap.txt"));
+  nonmapStatus = nonmap.status;
+} catch { /* fallthrough — the assert below reports the miss */ }
+must(nonmapStatus === 400, `B10 an EXISTING non-map file is a 400, not a crash (${nonmapStatus}; probe-owned tenant file)`);
 const esc = await getProfile(host.id, "axis=z&path=" + encodeURIComponent("../../engine-state.json"));
 must(esc.status >= 400 && esc.status < 500, `B11 containment holds against escape (${esc.status})`);
 // Host pinning needs a RAW socket request: fetch's Host header is
@@ -305,6 +316,16 @@ await browser.close();
 
 /* ================= Z — read-only proof ================= */
 section("Z: the world was only read");
+try {
+  const workdir = JSON.parse(readFileSync("data/engine-state.json", "utf8"))[host.id]?.workdir;
+  if (workdir && existsSync(path.join(workdir, "t189-nonmap.txt"))) {
+    unlinkSync(path.join(workdir, "t189-nonmap.txt"));
+  }
+} catch { /* nothing to clean */ }
+must(
+  !existsSync(path.join(JSON.parse(readFileSync("data/engine-state.json", "utf8"))[host.id]?.workdir ?? "/nonexistent", "t189-nonmap.txt")),
+  "Z0 the probe-owned tenant file is gone (cleanup radius honored)"
+);
 const afterList = (await (await fetch(BASE + "/api/jobs")).json()).jobs ?? [];
 must(afterList.length === jobs0.length, `Z1 roster size unchanged (${afterList.length})`);
 const afterIds = new Set(afterList.map((j) => j.id));
