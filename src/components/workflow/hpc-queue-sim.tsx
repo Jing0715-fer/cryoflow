@@ -43,6 +43,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Copy, Download, GanttChart, Layers, Loader2, Play, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { downloadText } from "@/lib/download";
 import { jobType } from "@/lib/workflow";
 import { MODEL_BADGE } from "./hpc-profiles-editor";
 
@@ -128,17 +129,8 @@ const buildSweepCsv = (rows: SweepRow[], bestId: string | null): string =>
 const sweepCsvFilename = (): string =>
   `hpc-sweep-${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}.csv`;
 
-/** Blob download — the clipboard's honest fallback (and the explicit path). */
-const downloadText = (name: string, text: string): void => {
-  const url = URL.createObjectURL(new Blob([text], { type: "text/csv;charset=utf-8" }));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = name;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-};
+// Blob download lives in @/lib/download (t191 collected the private twins —
+// two consumers deriving the anchor dance independently is two chances to fork).
 
 /** Per-type bar triplets — same badge language as the sibling HPC panels. */
 const TYPE_COLOR: Record<string, string> = {

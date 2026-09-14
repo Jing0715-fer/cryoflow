@@ -5331,3 +5331,24 @@ Stage Summary:
 - 「前浪的 oracle 要跟着后浪的源码走」：t190 把点击升级成拖洗的同一天，t189 的 X9 就过时了——探针是活文档，oracle 字符串锚在实现细节上时，实现演化的波及面必须当轮清偿
 - 世界卫生观察账本（verdict 列）：本轮无全矩阵（仪器深化轮，183 判例=定向回归）；回归 qa00/qa63/qa58/qa42/qa67/qa51/qa52/qa55/qa62/qa69/t181/t189/t190 全绿（重建后重跑）；正典 26 精确保持；qa52 世界前提已补种并记录
 - 遗留（下轮候选）：Topaz wrapper（recital 唯一幸存新功能方向）；dialog 深色主题定妆照（第九度让位——须 html.dark class 切换）；剖面 playhead 的键盘可达性（arrow keys 微调平面）；grabber nudge/undo 手感参数（真机盲区依旧）；script RELION-present 分支（沙箱受限判决维持）；EMPIAR 真数据回归（让位）；runner wall-time 剖面（让位）
+
+## Task 191 (2026-09-15, cron 01:31 窗口 trace …202609150131)
+
+**主题：仪器学会说话与离开——the instrument learns to speak and to leave。开局三件套+巡检全绿判稳后验尸 recital：Topaz wrapper 竟是误列（spec 286a288 + topaz-training 路由 + qa53 探针早已全链在案），真实增量定为 Task 191 两步：①键盘擦洗——landscape 条带从 pointer 专属升级为真 ARIA slider（tabIndex=0 + role=slider + aria-valuenow/valuetext，←/→ 1%、Shift 5%、Home/End 到端），幽灵行同得键盘双门（Enter/Space 原位领养、箭头领养+微调、Home/End 领养+跳端——每个键都做其指针孪生所做的事）；②剖面 CSV 导出——ONE builder（buildProfileCsv：axis,bin_index,plane_fraction,mean_density 四列 snake_case，行数=地形 bins 数）喂剪贴板+下载+data-csv 观察属性（t188 合同移植到仪器），新地形退位旧导出、拖洗永不退位（CSV 是地形的函数不是 playhead 的）。顺手收编 downloadText 私有双胞胎（hpc-queue-sim + pipeline-analytics）入 @/lib/download——第三消费者不再自造。t191 40 断言 ×3 全绿；回归 9/9 全绿；矩阵 124→125（t191 auto-include）。**
+
+- 【开局】worklog 尾部=Task 190/049b675（cron「Task 13」文本第卅七次过时）。树净、冷启动；三件套 qa00/qa63/t181 全绿判稳；巡检 Dashboard+Workflow console 双零错。Topaz wrapper 验尸：grep 即见 topaztrain spec、/topaz-training 路由、parseTopazTraining、qa53-seed-topaz.py——recital 幸存项实为误列，销账。
+- 【实现·四文件】①新 src/lib/download.ts：downloadText(filename, text, mime=csv)（append→click→remove→延时 revoke，Firefox 需先挂载、Chrome 即时 revoke 会截断下载）；②hpc-queue-sim.tsx + pipeline-analytics.tsx：私有孪生删除改 import（注释留迁移碑）；③molstar-embed.tsx：模块级 PROFILE_CSV_HEADER + buildProfileCsv（受控值域无需 RFC 4180、plain join）+ profileCsvFilename；组件内 exportProfileCsv（copy 先行、拒绝落下载、回执说降级）+ 退位 effect（[profile] 恒等变化即双清）+ noteTimer 清理；主条带 SVG 加 tabIndex/role=slider/aria-valuemin-max-now-valuetext/onKeyDown + focus-visible ring；幽灵 SVG 加 role=button/Enter/Space/箭头/Home/End；footer 右组新增 Copy CSV/Download CSV 双 ghost 钮（size-2.5 图标 + disabled={!profile}）；data-csv 骑在常驻 data-csv-carrier="profile" 按钮组上（**不骑 4s note**）；回执 role="status" 只做人类可读。
+- 【探针 t191·40 断言 ×3 全绿】S3 + X14 源 oracle（键盘合同/ARIA 说话/focus ring/幽灵键盘/CSV 四列合同/单 builder 单调用点/**常驻载体**/降级回执/退位 effect/双胞胎收编/anchor 舞步全挂/CSV 不读 slicePos）+ D19 活线（50→51→56→Home 0→End 100、playhead cx 跟键、aria-valuetext 说话、D11b 未导出时载体无属性、导出后 32 行==footer 32 bins、下载回执不道歉、**D15 拖洗 ArrowLeft+ArrowRight 后载体字节恒等**、**D17 换轴后载体属性被摘**、D18 重导出 x 行）+ Z3 只读。
+- 【第二层真相·四】①**回执易逝观察属性必须常驻**：D15 首跑与三跑 flaky——法证时间戳定案（t0 采样实际 +2471ms，timer 恰在 +4000ms 到期）——产品 4s 生命周期精确按设计，是探针在 Mol* 动画页上的 Playwright 往返（每次 1–2.5s）跑不赢计时器；修法=data-csv 从 note 搬到常驻按钮组，退位=属性摘除，时序无关、任何观察速度皆可断言。②**样本要带时间戳，标签会撒谎**：「t+200ms」实为 +7980ms——Playwright 快照的多次往返让标签与真实时间彻底脱钩，法证必须打 Date.now。③**法证过滤先自证**：首轮埋点 forensics 的 console 过滤器（olstar|slice|profile）恰好漏掉「RETIREMENT effect fired」（不含这些词）——差点把「无人开火」误判为结论；过滤器要覆盖被 hunting 的字符串本身。④**探针不得硬编码世界**：D13 首跑 32 行 vs 硬编码 64——UI 打开的是 half1（32³→32 bins）而非 orthovol（64³），诚实合同是「行数==footer 告知的 bins 数」，不是某张地图的巧合（64-bin/argmax-48 oracle 本就是 t189 B 相 wire 的租界）。
+- 【回归】改动邻域 9/9 全绿：t188(31)/t189(42)/t190(29)/qa67(27)/qa42(exit 0)/qa58(exit 0) + 三件套 qa00/qa63/t181——全部在 t191 重建后的构建上重跑。矩阵 124→125（t191 auto-include glob 命中）。
+- 【世界收尾】正典 26 精确保持（探针 Z 相只读证明）；定妆照两张归档 scripts/shots-t191/（t191-keyboard-export.png——地形+playhead 54%+双导出钮+翡翠降级回执；t191-ghosts.png——XYZ 激活+X/Y 灰阶幽灵行）；t191-forensics.mjs 留档（时间戳法证方法）。
+- 【收尾】worklog（本条）+ commit + push + 环境清理（杀 server 先 ss 查真实 PID）。
+
+Stage Summary:
+- 「观察属性不骑易逝的 note」：回执的 4 秒生命是给人看的，机器观察的字节必须住在常驻载体上——观察者的速度不可控（Mol* 页面上一次 getAttribute 可以走 2.5 秒），把「退位」钉在属性的有无上，断言才与时序解耦。易逝 UI 与稳定观察边界分家，是 t188「data-csv 即剪贴板」教义在慢页面上的必要进化
+- 「样本标签会撒谎，时间戳不会」：法证时先给每个样本打 Date.now——「t+200ms」可以是真实的 +7980ms；不测真实流逝时间，计时器、竞态、生命周期的推理全是空中楼阁
+- 「法证过滤器要先自己过一遍被 hunting 的字符串」：console 过滤器漏掉「RETIREMENT effect fired」的那一轮，差点得出「无人开火」的错误清白——猎人的网要先验证能网住猎物
+- 「探针的世界假设要换成被测系统自己的话」：CSV 行数合同的正确写法是「等于 footer 告知的 bins 数」——硬编码 64 是把 t189 的 wire 租界误当 UI 恒真；地图是流动的（half1 32³ / orthovol 64³），合同必须对流动免疫
+- 「两个独立推导的下载函数注定分叉」：downloadText 双胞胎收编进 @/lib/download——anchor 挂载（Firefox）、延时 revoke（Chrome）这些浏览器怪癖的知识只该存在一份
+- 世界卫生观察账本（verdict 列）：本轮无全矩阵（仪器轮，183 判例=定向回归覆盖 viewer+导出面邻域 9 套）；t191 ×3 + 回归 9/9 全绿；正典 26 精确保持；Topaz wrapper recital 误列已验尸销账
+- 遗留（下轮候选）：dialog 深色主题定妆照（第九度让位——须 html.dark class 切换而非 emulateMedia）；剖面导出进报告管线的下一里（CSV→Markdown/PDF 摘要，与 sweep 导出会师）；grabber nudge/undo 手感参数（真机盲区依旧）；script RELION-present 分支（沙箱受限判决维持）；EMPIAR 真数据回归（让位）；runner wall-time 剖面（让位）；profile 面板多图对比（两张地图的地形并排 diff）

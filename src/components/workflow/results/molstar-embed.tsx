@@ -31,6 +31,7 @@ import { useWorkflowStore } from "@/lib/store";
 import { fmtBytes } from "@/lib/canvas-export";
 import { encodeGifFrames } from "@/lib/gif-export";
 import { canCopyImageToClipboard, copyViewerPng, downloadViewerBlob, drawFigureFooter, exportViewerPng, figureFooterHeightPx, figureTitleMeta, viewerFileSlug, viewerFileTimestamp } from "@/lib/viewer-export";
+import { downloadText } from "@/lib/download";
 import { MrcImage } from "./mrc-image";
 import "molstar/build/viewer/molstar.css";
 
@@ -185,6 +186,32 @@ const FACE_EDGES: [number, number][][][] = [
   // Z: hi face 4-5-6-7 · lo face 0-1-2-3
   [[[4, 5], [5, 6], [6, 7], [7, 4]], [[0, 1], [1, 2], [2, 3], [3, 0]]],
 ];
+
+/* ------------------------------------------------------------------ */
+/* Profile CSV export (t191) — the instrument's numbers can leave      */
+/* ------------------------------------------------------------------ */
+
+const PROFILE_CSV_HEADER = "axis,bin_index,plane_fraction,mean_density";
+
+/**
+ * ONE builder for BOTH export paths (clipboard + download) and the
+ * data-csv observation attribute — the landscape leaves through a single
+ * door, so the exported bytes are never a second derivation (t188's
+ * contract ported to the instrument). Values are controlled (axis enum,
+ * integers, fixed-point fractions, finite floats): no cell can ever need
+ * RFC 4180 quoting, so rows are plain joins. The CSV is a function of
+ * the LANDSCAPE, not the playhead — scrubbing never retires it.
+ */
+const buildProfileCsv = (bins: number[], axis: string): string =>
+  [
+    PROFILE_CSV_HEADER,
+    ...bins.map((v, i, arr) =>
+      [axis, i, (i / Math.max(1, arr.length - 1)).toFixed(4), v].join(",")
+    ),
+  ].join("\n");
+
+const profileCsvFilename = (axis: string): string =>
+  `map-profile-${axis}-${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}.csv`;
 
 export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -2399,6 +2426,49 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
     };
   }, [sliceOn, showAllAxes, sliceAxis, jobId, path]);
 
+  /* ---- profile export state (t191): the landscape's numbers can leave ----
+   * ONE builder feeds clipboard + download + the data-csv observation
+   * attribute; a NEW landscape (axis switch, refetch, first arrival)
+   * retires the previous export — stale numbers must not survive into a
+   * report. The CSV is a function of the landscape, not the playhead, so
+   * scrubbing never retires it. */
+  const [profileExportNote, setProfileExportNote] = useState<string | null>(null);
+  const [lastProfileCsv, setLastProfileCsv] = useState<string | null>(null);
+  const profileNoteTimer = useRef<number | null>(null);
+  useEffect(() => {
+    setLastProfileCsv(null);
+    setProfileExportNote(null);
+  }, [profile]);
+  useEffect(() => {
+    return () => {
+      if (profileNoteTimer.current) window.clearTimeout(profileNoteTimer.current);
+    };
+  }, []);
+  const flashProfileNote = (text: string) => {
+    setProfileExportNote(text);
+    if (profileNoteTimer.current) window.clearTimeout(profileNoteTimer.current);
+    profileNoteTimer.current = window.setTimeout(() => setProfileExportNote(null), 4000);
+  };
+  const exportProfileCsv = async (mode: "copy" | "download") => {
+    if (!profile) return;
+    const axis = sliceAxis.toLowerCase();
+    const csv = buildProfileCsv(profile.bins, axis);
+    setLastProfileCsv(csv);
+    if (mode === "copy") {
+      try {
+        await navigator.clipboard.writeText(csv);
+        flashProfileNote(`Copied ${profile.bins.length} bins to the clipboard`);
+        return;
+      } catch {
+        // clipboard denied (headless, permissions, insecure context) —
+        // the download is the honest fallback, and the receipt says so
+      }
+    }
+    const fname = profileCsvFilename(axis);
+    downloadText(fname, csv);
+    flashProfileNote(`Downloaded ${fname}${mode === "copy" ? " (clipboard unavailable)" : ""}`);
+  };
+
   /** build/update the slice node from the latest intent snapshot.
    *
    * Two mol* 5.11 quirks verified live against this exact map (EMPIAR-10017
@@ -2591,6 +2661,54 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
   const onLandscapePointerUp = (e: React.PointerEvent<SVGSVGElement>) => {
     scrubbing.current = false;
     try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* already gone */ }
+  };
+
+  /**
+   * Keyboard scrubbing (t191): the strip is a real slider, not just a
+   * picture of one — ←/→ nudge 1%, Shift+←/→ nudge 5%, Home/End jump to
+   * the ends. Positions come from sliceStateRef (updated synchronously by
+   * the intent applier), so key-repeat accumulates correctly even before
+   * React re-renders, and the pump's coalescing commits a repeat burst by
+   * its latest position — the keyboard gets the same semantics as the drag.
+   */
+  const nudgePlane = (delta: number) => {
+    const cur = sliceStateRef.current.pos;
+    applySliceIntent({ pos: Math.min(1, Math.max(0, Math.round((cur + delta) * 100) / 100)) });
+  };
+  const onLandscapeKeyDown = (e: React.KeyboardEvent<SVGSVGElement>) => {
+    const step = e.shiftKey ? 0.05 : 0.01;
+    switch (e.key) {
+      case "ArrowLeft": e.preventDefault(); nudgePlane(-step); break;
+      case "ArrowRight": e.preventDefault(); nudgePlane(step); break;
+      case "Home": e.preventDefault(); applySliceIntent({ pos: 0 }); break;
+      case "End": e.preventDefault(); applySliceIntent({ pos: 1 }); break;
+    }
+  };
+  /**
+   * Ghost keyboard (t191): the pointer's two doors, keyed — Enter/Space
+   * adopt the axis in place (the letter chip's door), arrows adopt AND
+   * nudge, Home/End adopt AND jump (the strip's door). A focused ghost
+   * never surprises: every key does exactly what its pointer twin does.
+   */
+  const onGhostKeyDown = (ax: "x" | "y" | "z") => (e: React.KeyboardEvent<SVGSVGElement>) => {
+    const adopt = (pos?: number) => {
+      e.preventDefault();
+      applySliceIntent(
+        pos === undefined
+          ? { axis: ax.toUpperCase() as SliceAxis }
+          : { axis: ax.toUpperCase() as SliceAxis, pos }
+      );
+    };
+    const step = e.shiftKey ? 0.05 : 0.01;
+    const cur = Math.round(sliceStateRef.current.pos * 100) / 100;
+    switch (e.key) {
+      case "Enter":
+      case " ": adopt(); break;
+      case "ArrowLeft": adopt(Math.max(0, Math.round((cur - step) * 100) / 100)); break;
+      case "ArrowRight": adopt(Math.min(1, Math.round((cur + step) * 100) / 100)); break;
+      case "Home": adopt(0); break;
+      case "End": adopt(1); break;
+    }
   };
 
   /** ghost click = adopt that axis AND jump to the clicked position, one intent. */
@@ -3238,15 +3356,22 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                     <svg
                       viewBox="0 0 100 30"
                       preserveAspectRatio="none"
-                      className="block h-9 w-full cursor-crosshair touch-none select-none rounded bg-background/40"
-                      role="img"
-                      aria-label={`Density profile along the ${sliceAxis} axis — drag to scrub the plane`}
+                      className="block h-9 w-full cursor-crosshair touch-none select-none rounded bg-background/40 outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/70"
+                      role="slider"
+                      aria-label={`Density profile along the ${sliceAxis} axis — drag to scrub the plane, arrow keys to nudge, Home/End for the ends`}
+                      aria-orientation="horizontal"
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-valuenow={Math.round(slicePos * 100)}
+                      aria-valuetext={`plane ${Math.round(slicePos * 100)}%`}
+                      tabIndex={0}
                       onPointerDown={onLandscapePointerDown}
                       onPointerMove={onLandscapePointerMove}
                       onPointerUp={onLandscapePointerUp}
                       onPointerCancel={onLandscapePointerUp}
+                      onKeyDown={onLandscapeKeyDown}
                     >
-                      <title>Mean density per plane along the slice axis — drag to scrub, click to jump</title>
+                      <title>Mean density per plane along the slice axis — drag to scrub, arrow keys to nudge, Home/End for the ends</title>
                       {(() => {
                         const n = profile.bins.length;
                         const span = profile.max - profile.min || 1;
@@ -3284,26 +3409,59 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                       })()}
                     </svg>
                     <div className="flex items-center justify-between gap-2 pt-1 text-[9px] font-mono tabular-nums text-muted-foreground">
-                      <span>
+                      <span className="shrink-0">
                         mean ρ along {sliceAxis} · {profile.bins.length} bins
                         {profile.native !== profile.bins.length ? ` (pooled from ${profile.native})` : ""}
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => setShowAllAxes((v) => !v)}
-                        aria-pressed={showAllAxes}
-                        aria-label="Toggle all-axis landscapes"
-                        title="Show the density landscape of ALL three axes — click a ghost row to adopt that axis and jump there"
-                        className={
-                          "rounded-full px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-wide transition-colors " +
-                          (showAllAxes
-                            ? "bg-cyan-600 text-white"
-                            : "bg-muted text-muted-foreground hover:bg-cyan-600/15 hover:text-cyan-700 dark:hover:text-cyan-300")
-                        }
+                      <div
+                        className="flex min-w-0 items-center gap-1.5"
+                        data-csv-carrier="profile"
+                        data-csv={lastProfileCsv ?? undefined}
                       >
-                        XYZ
-                      </button>
-                      <span>plane {Math.round(slicePos * 100)}%</span>
+                        {/* t191 export — the landscape's numbers can leave; ONE
+                            builder feeds both doors and the data-csv observation
+                            attribute. The attribute rides this ALWAYS-ATTACHED
+                            group, not the 4-second note: retirement is observable
+                            at any observer speed (attr removed = retired). */}
+                        <button
+                          type="button"
+                          onClick={() => void exportProfileCsv("copy")}
+                          disabled={!profile}
+                          aria-label="Copy profile as CSV"
+                          title="Copy the density landscape (one row per bin) to the clipboard as CSV — falls back to a download when the clipboard is denied"
+                          className="flex items-center gap-0.5 rounded-full bg-muted px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-wide text-muted-foreground transition-colors hover:bg-cyan-600/15 hover:text-cyan-700 dark:hover:text-cyan-300 disabled:pointer-events-none disabled:opacity-40"
+                        >
+                          <ClipboardCopy className="size-2.5" aria-hidden="true" />
+                          Copy CSV
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void exportProfileCsv("download")}
+                          disabled={!profile}
+                          aria-label="Download profile as CSV"
+                          title="Save the density landscape as map-profile-<axis>-<stamp>.csv — same bytes as the clipboard copy"
+                          className="flex items-center gap-0.5 rounded-full bg-muted px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-wide text-muted-foreground transition-colors hover:bg-cyan-600/15 hover:text-cyan-700 dark:hover:text-cyan-300 disabled:pointer-events-none disabled:opacity-40"
+                        >
+                          <Download className="size-2.5" aria-hidden="true" />
+                          Download CSV
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowAllAxes((v) => !v)}
+                          aria-pressed={showAllAxes}
+                          aria-label="Toggle all-axis landscapes"
+                          title="Show the density landscape of ALL three axes — click a ghost row to adopt that axis and jump there"
+                          className={
+                            "rounded-full px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-wide transition-colors " +
+                            (showAllAxes
+                              ? "bg-cyan-600 text-white"
+                              : "bg-muted text-muted-foreground hover:bg-cyan-600/15 hover:text-cyan-700 dark:hover:text-cyan-300")
+                          }
+                        >
+                          XYZ
+                        </button>
+                        <span>plane {Math.round(slicePos * 100)}%</span>
+                      </div>
                     </div>
                     {showAllAxes ? (
                       <div className="space-y-1 border-t border-cyan-600/15 pt-1.5">
@@ -3325,12 +3483,14 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                                 <svg
                                   viewBox="0 0 100 10"
                                   preserveAspectRatio="none"
-                                  className="block h-4 min-w-0 flex-1 cursor-crosshair touch-none select-none rounded bg-background/25 opacity-80 transition-opacity hover:opacity-100"
-                                  role="img"
-                                  aria-label={`Ghost landscape of the ${ax.toUpperCase()} axis — click to adopt it and jump there`}
+                                  className="block h-4 min-w-0 flex-1 cursor-crosshair touch-none select-none rounded bg-background/25 opacity-80 outline-none transition-opacity hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-slate-400/70"
+                                  role="button"
+                                  aria-label={`Ghost landscape of the ${ax.toUpperCase()} axis — click to adopt it and jump there, Enter to adopt in place, arrow keys to adopt and nudge`}
+                                  tabIndex={0}
                                   onPointerDown={jumpToGhost(ax)}
+                                  onKeyDown={onGhostKeyDown(ax)}
                                 >
-                                  <title>The {ax.toUpperCase()} axis' density landscape — click to inspect it</title>
+                                  <title>The {ax.toUpperCase()} axis' density landscape — click to inspect it, Enter to adopt it</title>
                                   {(() => {
                                     const n = sp.bins.length;
                                     const span = sp.max - sp.min || 1;
@@ -3368,6 +3528,15 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                               </div>
                             );
                           })}
+                      </div>
+                    ) : null}
+                    {profileExportNote ? (
+                      <div
+                        role="status"
+                        aria-label="Profile export status"
+                        className="pt-0.5 font-mono text-[9.5px] tabular-nums text-emerald-600 dark:text-emerald-400"
+                      >
+                        {profileExportNote}
                       </div>
                     ) : null}
                   </div>

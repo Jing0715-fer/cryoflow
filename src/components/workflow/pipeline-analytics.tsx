@@ -40,6 +40,7 @@ import { useWorkflowStore } from "@/lib/store";
 import { toast } from "@/hooks/use-toast";
 import { TypeIcon } from "./icons";
 import { cn } from "@/lib/utils";
+import { downloadText } from "@/lib/download";
 
 /* ------------------------------------------------------------------ */
 /* Particle-flow parsing                                               */
@@ -200,15 +201,7 @@ function csvCell(v: unknown): string {
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
-function downloadText(filename: string, text: string, mime: string): void {
-  const url = URL.createObjectURL(new Blob([text], { type: mime }));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  // revoke on the next tick — Chrome ignores an immediate revoke
-  setTimeout(() => URL.revokeObjectURL(url), 0);
-}
+// downloadText lives in @/lib/download (t191 collected the private twins).
 
 /* ------------------------------------------------------------------ */
 /* Component                                                           */
