@@ -5099,9 +5099,9 @@ Stage Summary:
 - 【实现·七处】①新建 src/lib/graph-cycle.ts：findCycle（迭代式三色 DFS——递归版在 MAX_JOBS=500 深批上会爆栈；roots 按 nodes 序、adjacency 按边序→同一批次永远产出同一个首环，确定性合同）+ formatCyclePath（"A → B → A" 首尾重复即闭环）；悬空端点忽略（沿用 script 的 dangling 规则）。②workflow-io parseWorkflowJson 环预校验（client 即时反馈零往返，文件自带名字入错误行）。③import 路由 parseBody 环守卫（自环规则原样保留——环守卫坐在它旁边，不在它上面）。④template-io 新增 templateCycleError（edges ?? [] 容错——apply 直接 JSON.parse 存储行，pre-guard 行可能没这字段，TypeError 会把 apply 500 掉）+ validateTemplatePayload 内接线（save POST 与客户端解析器同享=一次接线两扇门）。⑤custom-template PUT apply 重查（防御 pre-guard 存储行；判决：环**不**静默跳边——丢一边应用的就是被篡改的形状还冒充用户的，拒绝点名）。⑥edges 路由本地 DFS 退役改委托共享检测器；**nodes 必须并入 from/to 本身**——孤立对在 adjacency 键里不存在，悬空端点规则会把它静默跳过（恰好在新边成环时假阴性）。⑦pipeline-template 判决注释入码（出厂常量 acyclic by construction，不设防=不给可信数据上死分支——过度工程关）。
 - 【探针】t180-e2e.mjs 41 断言 ×3 全绿：S3 基线+目录见证；X10 oracle（导出面/三色簿记/client+import 双 import 行/自环规则存活/校验器真调用（剥注释后 regex）/edges 容错/apply 400/委托后旧 DFS 双模式消亡/判决注释）；B15 live（双 motioncorr 二环 400 点名「MC Alpha → MC Beta → MC Alpha」、**菱形对照 201 四卡四边**（守卫不过度拒绝共享形）、自环保留自有消息、双 scratch job 正向边 201+反向边 400「Would create a cycle」、模板 save 400 点名（type 方言「motioncorr → motioncorr → motioncorr」——形状只有类型没有名字）+ 对照 save 201 + apply 201 + 删除还原，清理全部走 DELETE /api/jobs/[id] 级联）；M3 390 视口 cyclic 文件→destructive toast 点名+预览 dialog 不开（entries=0 零 POST）；D5 1440 同款+**有效文件对照**（dialog 照开=UI 层不过度拒绝）+Escape；Z4 roster 恒等+目录见证恒等+浏览器零 5xx/404。首跑唯一失败=探针自己读错合同（import 成功是 201 我断言 200）——修探针不修产品。
 - 【回归 + 巡检】受影响面 t96(26)/t97(40)/qa75 全绿；agent-browser 巡检 canvas 渲染正常 console 零错；定妆照两张（t180-toast.png：destructive toast 白墨红底点名环；t180-patrol-canvas.png）归档 scripts/。footer「25 jobs」对账=workspace 域内计数（26 全典中一卡在第二 workspace），既有显示语义非伤。
-- 【矩阵】115 套（t180 auto-include）10 块 detached 驱动（scripts/matrix-driver-t180.sh，逐块 FRESH_SERVER）——进行时【待补 verdict】。
-- 【世界收尾】矩阵诚实消耗后 qa60-seed-fsc 重建 → 26 jobs（16c/8i/1f/1r 正典构成）；卫生八审 + domain-sweep；【待补】。
-- 【收尾】worklog 终稿 + commit + push + 环境清理。【待补】。
+- 【矩阵】115 套（t180 auto-include）10 块前台逐块完成：111 首跑绿；chunk 9 t177/t178/t179/t180 四连挂 S 基线 = **矩阵诚实消耗 Live 行**（Task 177/178/179 同款，第三度验证）→ qa60-seed-fsc 重建 → 四套单跑复绿（53/36/70/41 断言）→ **原位 98-101 复跑全绿**位链闭环。qa75 位 #16 第九连绿；块峰 209MB（t158）远低 1200MB 阈值；t152 193s 一致最慢带。**插曲·detached 驱动器阵亡**：本沙箱本会话把 setsid 驱动器+其子树整棵清算（首启 chunk1 头两行后全灭、server 同殁、无 OOM 痕迹）——本会话惯例回归「逐块前台」（每次 bash 调用 ≤600s 恰容一块），matrix-driver-t180.sh 已删防误用。
+- 【世界收尾】矩阵诚实消耗后 qa60-seed-fsc 重建 → **26 jobs（16c/8i/1f/1r 正典构成精确复现，running 行存活）**；卫生八审全零 + domain-sweep 0/0/0；agent-browser 巡检渲染正常 console 零错；定妆照两张（t180-toast.png：destructive toast 白墨红底点名环「MC Alpha → MC Beta → MC Alpha」；t180-patrol-canvas.png）归档 scripts/。
+- 【收尾】worklog 终稿（本条）+ commit + push + 环境清理（杀 server 先 ss 查真实 PID、agent-browser close --all、matrix-driver-t180.sh 删除——detached 模式本会话不可活，教训入矩阵插曲）。17:16 窗口接手收尾段（trace …202609141723，Task 13 文本第廿六次过时）。
 
 Stage Summary:
 - 「一致的规则必须住在唯一的实现里，而不是每个门口各抄一份」：环检查在 canvas 和 edges API 活了多个版本，批量门却从未继承——因为规则住在消费方（路由）而不是被共享的层。graph-cycle.ts 让规则有了住址；五扇门 import 一行即得。迁移旧实现时的新知：**增量门（edges API）与批量门（import）对「节点集合」的语义不同**——增量门的孤立对不在 adjacency 键里，共享检测器的悬空端点规则恰好在这种时候假阴性，节点集必须显式并入 from/to
@@ -5109,5 +5109,5 @@ Stage Summary:
 - 「环的正确处置是拒绝点名，不是静默修补」：apply 遇环可以学 ports drift 的先例（跳过坏边，land the rest）——但丢掉一条边应用出来的形状已经被篡改，还冒充用户保存的那个。静默容错的合身场景是「可独立失效的部件」，不是「整体形状」；后者只能拒绝+点名
 - 「对照用例是守卫合同的一半」：菱形（0→1,0→2,1→3,2→3）证明守卫不过度拒绝；有效文件在 UI 层照常开 dialog 证明 client 预校验同不过度。一个只有「拒坏」断言的守卫探针，等于只测了 ND 陈述式的前半句
 - 「footer 数字与 API 数字对账是巡检的一部分」：canvas footer「25 jobs」vs API 26——差集是 workspace 作用域（一卡在第二 workspace），既有语义非伤；不对账的巡检会把显示语义当回归，或把回归当显示语义
-- 世界卫生观察账本（verdict 列）：【矩阵进行时】
+- 世界卫生观察账本（verdict 列）：全矩阵 115 套完成（111 首跑绿；t177/t178/t179/t180 世界消耗位链闭环）；qa75 九连绿；0 环境性抖动；八审全零；正典构成精确复现
 - 遗留（下轮候选）：grabber nudge/undo 手感参数（真机，盲区依旧）；dialog 深色主题定妆照；script RELION-present 分支（沙箱受限判决维持）；runner wall-time 剖面（让位）；EMPIAR 真数据回归（让位）；用户真机项（三级阶梯+长按+swipe+grabber+toast+nudge+fold+palette 入口+dialog 可真机验收）
