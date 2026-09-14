@@ -5501,3 +5501,24 @@ Stage Summary:
 - 「两张表共用行前缀时，先切节再找行」：列位图教训的节轴版——探针的定位器要跟文档的节结构说同一种方言。行前缀是语法，节标题才是语义；在语法层找不到的区分，去语义层找
 - 世界卫生观察账本（verdict 列）：本轮无全矩阵（单仪器轮，183 判例=定向回归覆盖 viewer+导出面+会话报告 14 套）；t198 ×3 + 回归 14/14 全绿（重建后重跑）；正典 26 精确保持；矩阵 132 套在册
 - 遗留（下轮候选）：Mol* 深色控制 chip 群对比度微调（样式细节候选，连续五轮让位——本轮又让位了）；FSC 曲线进仪器下一里（r(fraction) 连续滑窗曲线 vs 四分带的离散版——真 FSC 需要球壳采样，报告已诚实标注 shape-agreement）；grabber nudge/undo 手感参数（真机盲区依旧）；script RELION-present 分支（沙箱受限判决维持）；EMPIAR 真数据回归（让位）；runner wall-time 剖面（让位）
+
+## Task 199 (2026-09-15, cron 07:32 窗口 trace …202609150734)
+
+**主题：Mol* 的控件学会房间的调色板——the fifth-time-deferred style detail。t192 教会画布跟随房间（renderer background 骑 app token），但 Mol* 自带控件仍穿硬编码浅色皮肤：#eeece7 纸底、#9c835f 焦糖图标、#ae5d04 锈橙 hover——半透明灰方块（皮肤@35% opacity 糊在深画布上）配焦糖鬼影，可辨但脏（连续五轮让位）。t199 在 `.dark .msp-plugin` 作用域下重铺可见控件的皮肤（竖排 viewport 按钮栈、其面板、toast、任务条、help 气泡），每个值饮 app token 变量——token 未来调音，Mol* 皮肤免费跟随；浅色从未看见其中任何一条。t199 18 断言 ×3 全绿（对比度 1.12:1 → 5.16:1）；回归 t192/qa00/qa63/t181/qa67 全绿；矩阵 132→133。**
+
+- 【开局】worklog 尾部=Task 198/e490532（cron「Task 13」文本第卅五次过时）。树净、冷启动；三件套全绿判稳；巡检双视图 console 双零错。
+- 【实现·单文件一块】globals.css 追加 Mol* dark skin 块（~130 行）：`.dark .msp-plugin` 作用域 + `--msp-*` 自定义属性桥（--msp-btn-bg=var(--secondary)、--msp-panel-bg=var(--popover)、--msp-accent=var(--accent-foreground)……皮肤喝 app 的变量而非快照）；覆盖族=竖排栈（button[class] + .msp-btn，opacity 1 复位 35% 暗淡）+ hover/disabled 语义（锈橙→app 青、焦糖→app 灰）+ 面板/控制行/表单件 + toast + background-tasks 条 + help 气泡。三纪律写进注释：①SCOPE——一切在 .dark 下（修复的边界即它的野心）；②TOKENS not snapshots；③SPECIFICITY as the tool——选择器保持 Mol* 原形加前缀，级联靠特异性而非 bundle 顺序。
+- 【探针 t199·18 断言 ×3 全绿】S1 + X7 源 oracle（覆盖块在册、55 选择器全部 .dark 作用域（浅色免疫是形状不是运气）、规则体零浅色 hex（注释里记载的旧色是教材不是代码——断言剥注释后测）、四 token 在册、竖排栈+opacity 复位、hover/disabled 语义、toast/task-bar/help 全宿）+ D7 活线（1×1 canvas 色彩解析器——唯一会说 lab/oklch 并答 sRGB 字节的译者（t192 配方）：按钮底==--secondary 字节逐位、图标色==--muted-foreground 字节（焦糖鬼影死了）、opacity==1、WCAG 对比度 5.16:1 > 旧泥 1.12:1 且过 3:1 图标线、btn-block 面板钮同 token 同复位、浅色房间 btn-link 回 Mol* 原生透明、btn-block 回 Mol* 原生纸底）+ Z2 只读。
+- 【第二层真相·三】①**内联样式是特异性无穷的终审，!important 是 CSS 里唯一的反杀**：D3 首跑挂——`button[class]` (0,4,1) 仍压不过，诊断枚举揭出 Mol* React 组件给 toggle 按钮写 `style="background: transparent"` **内联**——任何选择器都输给内联；皮肤块在背景上用 !important（作用域仍限 .dark 栈内、浅色不见——「例外要清点它覆盖的一切」（t197 打印例外纪律））。②**特异性平局是跨 chunk 的赌注（t197 教义第 2 度）**：Mol* 的 transparent 规则带 `fieldset[disabled] .msp-plugin .msp-btn-link` 变体 (0,3,1)，与我的 `.msp-viewport-controls-buttons button` (0,3,1) 平局——平局掷给 chunk 加载顺序，组件级 molstar.css chunk 后注入获胜，浅色皮肤无声赢回。解法同 t197：把赌注变成对方读不懂的东西——`button[class]` 提到 (0,4,1)、`.msp-btn-link.msp-btn-link` 双类提到 (0,3,0)。「级联的赌注要用不可平局的特异性结算」。③**grep 截断会伪造第二条规则**：早先 grep molstar.css 见 `.msp-btn{background:#eeece7;opacity:.35}` 以为是第二条无条件规则，实测那是一长串 `fieldset[disabled]` 变体链的**尾部**——浅色 enabled 态的原生值一直是 #f3f2ee op 1（诊断首跑的 0.35 是 disabled 世界态）。D7b 断言因此写成集合断言（#f3f2ee 或 #eeece7，但绝不是 app 深色 token）——「期望值要先问清世界的状态」。
+- 【回归·全绿（重建后构建）】t192(14——深色画布断言零感知：覆盖块只碰控件不碰 renderer 背景)/qa00/qa63/t181/qa67(27)。矩阵 132→133（t199 auto-include）。
+- 【世界收尾】定妆照归档 scripts/shots-t199/：**t199-before-after-controls.png（控件列放大对照——左：灰糊底+焦糖鬼影；右：深灰蓝 chip+浅灰图标+hairline 边）**+ t199-dark-viewer-2x.png 全景（琥珀密度浮在同色深场、竖排控件与 app 一体）+ t199-light-viewer-2x.png（浅色分毫未动的证明）+ 前后单列放大照各一；诊断脚本（临时）删除。
+- 【收尾】worklog（本条）+ commit + push + 环境清理（杀 server 先 ss 查真实 PID、杀 watchdog、agent-browser close）。
+
+Stage Summary:
+- 「画布跟房间，控件也该跟」：t192 让 Mol* 的 WebGL 画布喝 app token，t199 让它的 DOM 控件喝同一套——第三方嵌入物的「主题一致性」不是换个背景就完事，它的每一块自绘皮肤都要过一遍「这个颜色是谁的」的审计。五轮让位的样式债，利息是五轮深色截图里那一列脏灰
+- 「内联样式是特异性的天花板，!important 是唯一的地下室」：Mol* 的 React 组件把 `background: transparent` 写在元素上——选择器军备竞赛到此为止，级联的规则在这里全部跪下。覆盖第三方硬编码时 !important 不是恶，是无视作用域的正当防卫——但每一处都要注释说清它反杀的是什么、为什么浅色不会看见它
+- 「特异性平局 = 把决定权交给 chunk 加载顺序」：molstar.css 是组件级 import，注入顺序永远在全局样式之后——任何平局都是对方的胜利。跨 chunk 的样式战争里没有「应该」，只有「谁后加载」；把每条关键覆盖提到不可平局（button[class]、双类 A.A），赌注才会变成确定性（t197 minifier 折叠的第 2 度，同一个哲学：优化器/打包器替你做的决定，都要变成你读不懂它也改不了的形态）
+- 「grep 的行首会撒谎，选择器链的尾部是真话」：`.msp-btn{background:#eeece7;opacity:.35}` 不是一条独立规则——它是 `fieldset[disabled] .msp-plugin .msp-btn` 变体链的尾巴。压缩文件的 grep 侦查要先看选择器全文再定罪，否则你会给一个不存在的「第二条规则」写断言，然后看着它「被修复」而真相只是世界的状态变了
+- 「对比度数字是样式轮的测试断言」：样式修复最怕「看起来好了」——5.16:1 vs 1.12:1 的 WCAG 数字、背景==token 字节的逐位相等、浅色==原生字节的逐位相等，让「好了」变成可复跑的物证。审美可以说服人，字节只能被验证
+- 世界卫生观察账本（verdict 列）：本轮无全矩阵（样式轮，183 判例=定向回归覆盖深色+巡检 6 套）；t199 ×3 + 回归 5/5 全绿（重建后重跑）；正典 26 精确保持；矩阵 133 套在册
+- 遗留（下轮候选）：FSC 曲线进仪器（r(fraction) 连续滑窗曲线——四分带的连续化，真 FSC 需球壳采样、报告已诚实标注 shape-agreement）；竖排控件 hover 态的视觉验证（探针断言了 hover 规则在册，hover 瞬态的像素验证留待真机）；grabber nudge/undo 手感参数（真机盲区依旧）；script RELION-present 分支（沙箱受限判决维持）；EMPIAR 真数据回归（让位）；runner wall-time 剖面（让位）

@@ -1474,3 +1474,185 @@ li[data-swipe="end"] {
     overflow: visible !important;
   }
 }
+
+/* ------------------------------------------------------------------ */
+/* Mol* dark skin (t199) — the fifth-time-deferred style detail.       */
+/*                                                                     */
+/* Mol* ships a HARDCODED light skin: #eeece7/#f3f2ee paper buttons,   */
+/* #9c835f caramel icons, #ae5d04 rust hovers. t192 taught the canvas  */
+/* to follow the room (renderer background rides the app token), but   */
+/* Mol*'s OWN controls kept the light skin — half-transparent grey     */
+/* squares (the skin at 35% opacity over a dark canvas) with caramel   */
+/* icons: legible, but muddy, and the rust hover is nowhere near the   */
+/* app's palette. This block re-skins ONLY the controls that are       */
+/* visible in this viewer (layout: showControls=false — the left       */
+/* tree is gone): the vertical viewport button stack, the panels       */
+/* they open, toasts, the background-task bar and the help bubbles.    */
+/*                                                                     */
+/* Three disciplines:                                                  */
+/*  1. SCOPE — every rule lives under `.dark .msp-plugin`; light mode  */
+/*     never sees any of it (the fix's boundary is its ambition).      */
+/*  2. TOKENS, not snapshots — every color drinks an app variable,     */
+/*     so a future token retune re-skins Mol* for free.                */
+/*  3. SPECIFICITY as the tool, not import order — each selector       */
+/*     keeps Mol*'s own shape with `.dark .msp-plugin` prefixed, so    */
+/*     the cascade wins on specificity alone (bundle order between     */
+/*     the component-level molstar.css import and this file is not     */
+/*     a contract we can rely on).                                     */
+/* ------------------------------------------------------------------ */
+.dark .msp-plugin {
+  --msp-btn-bg: var(--secondary);              /* the app's chip grey      */
+  --msp-btn-bg-hover: var(--accent);           /* hover: the app's teal tint */
+  --msp-btn-ink: var(--secondary-foreground);
+  --msp-btn-ink-dim: var(--muted-foreground);
+  --msp-panel-bg: var(--popover);
+  --msp-row-bg: var(--card);
+  --msp-accent: var(--accent-foreground);      /* the app's bright cyan    */
+  --msp-edge: var(--border);
+}
+
+/* the vertical viewport stack: solid dark chips, full opacity (Mol*
+   dims them to 35% — over a light canvas that reads "quiet", over the
+   dark canvas it read "broken"); a hairline edge keeps the squares
+   legible against the map behind them */
+.dark .msp-plugin .msp-viewport-controls-buttons .msp-btn {
+  background: var(--msp-btn-bg);
+  opacity: 1;
+  color: var(--msp-btn-ink-dim);
+  border: 1px solid var(--msp-edge);
+  border-radius: 6px;
+}
+/* !important is load-bearing on the background: Mol*'s React components
+ * put `style="background: transparent"` INLINE on the toggle buttons —
+ * inline style outranks EVERY selector, and !important is the only CSS
+ * that fights back (the print exception's discipline: exceptions get
+ * an explicit, scoped justification). Light mode never sees it. */
+.dark .msp-plugin .msp-viewport-controls-buttons button[class] {
+  background: var(--msp-btn-bg) !important;
+  opacity: 1;
+  border: 1px solid var(--msp-edge);
+  border-radius: 6px;
+}
+.dark .msp-plugin .msp-viewport-controls-buttons .msp-btn-link,
+.dark .msp-plugin .msp-viewport-controls-buttons .msp-btn-link:active,
+.dark .msp-plugin .msp-viewport-controls-buttons .msp-btn-link:focus,
+.dark .msp-plugin .msp-viewport-controls-buttons .msp-btn-link-toggle-off,
+.dark .msp-plugin .msp-viewport-controls-buttons .msp-btn-link-toggle-on {
+  color: var(--msp-btn-ink-dim);
+}
+.dark .msp-plugin .msp-viewport-controls-buttons .msp-btn-link:hover,
+.dark .msp-plugin .msp-viewport-controls-buttons .msp-btn-link:focus {
+  color: var(--msp-accent);
+  background: var(--msp-btn-bg-hover);
+  border-radius: 6px;
+}
+/* the panel a control opens — popover paper, hairline edge */
+.dark .msp-plugin .msp-viewport-controls-panel {
+  background: var(--msp-panel-bg);
+  border: 1px solid var(--msp-edge);
+  border-radius: 8px;
+}
+.dark .msp-plugin .msp-viewport-controls-panel .msp-control-row,
+.dark .msp-plugin .msp-viewport-controls-panel .msp-control-group-header,
+.dark .msp-plugin .msp-viewport-controls-panel .msp-control-current {
+  background: var(--msp-row-bg);
+}
+/* icon buttons everywhere else (toasts, panels): Mol*'s rust hover
+   becomes the app's cyan, the caramel disabled ink becomes the app's
+   dim grey — the same semantics, the room's palette */
+.dark .msp-plugin .msp-btn-icon:hover,
+.dark .msp-plugin .msp-btn-icon-small:hover {
+  color: var(--msp-accent);
+  background-color: var(--msp-btn-bg-hover);
+  outline-color: var(--msp-edge);
+}
+.dark .msp-plugin .msp-btn-icon.msp-btn-icon[disabled],
+.dark .msp-plugin .msp-btn-icon-small.msp-btn-icon-small[disabled] {
+  color: var(--msp-btn-ink-dim);
+  opacity: 0.45;
+}
+/* The double-class form (A.A) is load-bearing here:
+ * .msp-btn-link.msp-btn-link keeps this rule one specificity step ahead
+ * of Mol*'s own `.msp-plugin .msp-btn-link { color:#332b1f }` at
+ * (0,2,0) — same un-tieable-specificity discipline as above. */
+.dark .msp-plugin .msp-btn-link.msp-btn-link,
+.dark .msp-plugin .msp-btn-link.msp-btn-link:active,
+.dark .msp-plugin .msp-btn-link.msp-btn-link:focus {
+  color: var(--msp-btn-ink);
+}
+.dark .msp-plugin .msp-btn-link.msp-btn-link:hover,
+.dark .msp-plugin .msp-btn-link-toggle-on.msp-btn-link:hover,
+.dark .msp-plugin .msp-btn-link-toggle-off.msp-btn-link:hover {
+  color: var(--msp-accent);
+}
+/* control rows / labels / group headers (inside opened panels) */
+.dark .msp-plugin .msp-control-row,
+.dark .msp-plugin .msp-control-current,
+.dark .msp-plugin .msp-control-group-header,
+.dark .msp-plugin .msp-control-group-header>button,
+.dark .msp-plugin .msp-control-group-header div,
+.dark .msp-plugin .msp-control-group-header>span {
+  background: var(--msp-row-bg);
+  color: var(--msp-btn-ink);
+}
+.dark .msp-plugin .msp-control-group-footer {
+  background: var(--msp-panel-bg);
+}
+.dark .msp-plugin .msp-control-button-label {
+  color: var(--msp-btn-ink);
+}
+/* form controls inside panels */
+.dark .msp-plugin .msp-form-control,
+.dark .msp-plugin .msp-control-row select,
+.dark .msp-plugin .msp-control-row input[type="text"],
+.dark .msp-plugin .msp-control-row button,
+.dark .msp-plugin .msp-btn-action,
+.dark .msp-plugin .msp-btn-action:active,
+.dark .msp-plugin .msp-btn-action:focus {
+  background: var(--msp-row-bg);
+  color: var(--msp-btn-ink);
+  border-color: var(--msp-edge);
+}
+.dark .msp-plugin .msp-btn-action:hover {
+  color: var(--msp-accent);
+}
+.dark .msp-plugin .msp-control-row textarea,
+.dark .msp-plugin .msp-text-area-wrapper textarea {
+  background: var(--msp-row-bg);
+  color: var(--msp-btn-ink);
+  border-color: var(--msp-edge);
+}
+/* toasts (top-left notifications) */
+.dark .msp-plugin .msp-toast-container .msp-toast-entry {
+  background: var(--msp-panel-bg);
+  color: var(--msp-btn-ink);
+  border-color: var(--msp-edge);
+}
+.dark .msp-plugin .msp-toast-container .msp-toast-entry .msp-toast-title {
+  background: var(--msp-row-bg);
+  color: var(--msp-btn-ink);
+}
+.dark .msp-plugin .msp-toast-container .msp-toast-entry .msp-toast-message a {
+  color: var(--msp-accent);
+}
+.dark .msp-plugin .msp-toast-container .msp-toast-entry .msp-toast-message a:hover {
+  color: var(--msp-accent);
+}
+/* background-task bar (bottom-left progress pills) */
+.dark .msp-plugin .msp-background-tasks .msp-task-state>div,
+.dark .msp-plugin .msp-background-tasks .msp-task-state>div>div {
+  background: var(--msp-panel-bg);
+  color: var(--msp-btn-ink);
+}
+/* help bubbles (the "?" buttons' tooltips) */
+.dark .msp-plugin .msp-help:hover span {
+  background: var(--msp-row-bg);
+}
+.dark .msp-plugin .msp-help-text,
+.dark .msp-plugin .msp-help-row {
+  background: var(--msp-row-bg);
+}
+.dark .msp-plugin .msp-help-text>div,
+.dark .msp-plugin .msp-help-text>p {
+  color: var(--msp-btn-ink);
+}
