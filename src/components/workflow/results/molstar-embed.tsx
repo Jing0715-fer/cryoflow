@@ -2413,6 +2413,10 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
   // session (the map does not change while watched); an axis switch
   // retires the old landscape immediately so the strip never shows the
   // wrong axis' mountains. Clicking the landscape jumps the plane.
+  // t193: the cache key is MAP-QUALIFIED (path|axis) — the comment always
+  // claimed (map, axis) semantics but the key was the bare axis, so an
+  // overlay profile would have collided with the main map's terrain.
+  // The contract and the key now agree; warm sessions remap for free.
   interface SliceProfile {
     bins: number[];
     min: number;
@@ -2430,7 +2434,8 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
   useEffect(() => {
     if (!sliceOn || !jobId || !path) return;
     const ax = sliceAxis.toLowerCase();
-    const hit = profileCache.current.get(ax);
+    const ck = `${path}|${ax}`;
+    const hit = profileCache.current.get(ck);
     if (hit) {
       setProfile(hit);
       setProfileErr(false);
@@ -2449,7 +2454,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
           max: Number(d.stats?.max ?? 1),
           native: Number(d.native ?? d.bins.length),
         };
-        profileCache.current.set(ax, entry);
+        profileCache.current.set(ck, entry);
         setProfile(entry);
       })
       .catch(() => {
@@ -2470,7 +2475,8 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
     const others = (["x", "y", "z"] as const).filter((a) => a !== active);
     let alive = true;
     for (const ax of others) {
-      const hit = profileCache.current.get(ax);
+      const ck = `${path}|${ax}`;
+      const hit = profileCache.current.get(ck);
       if (hit) {
         setGhostMap((g) => (g[ax] ? g : { ...g, [ax]: hit }));
         continue;
@@ -2485,7 +2491,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
             max: Number(d.stats?.max ?? 1),
             native: Number(d.native ?? d.bins.length),
           };
-          profileCache.current.set(ax, entry);
+          profileCache.current.set(ck, entry);
           setGhostMap((g) => ({ ...g, [ax]: entry }));
         })
         .catch(() => {
@@ -2497,12 +2503,69 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
     };
   }, [sliceOn, showAllAxes, sliceAxis, jobId, path]);
 
+  // ---- overlay terrains (t193): comparison maps earn their own landscape --
+  // Each overlay map draws its own mean-density line under the main strip,
+  // color-matched to its Layers swatch — the half-map disagreement that QC
+  // cares about becomes VISIBLE: where the terrains agree the density is
+  // real, where they part ways is where the noise lives. The slice PLANE is
+  // shared by design (one plane cuts every map); terrains align on the same
+  // 0–100 fraction scale, so maps of different box sizes (64³ main vs 32³
+  // half-maps) align by fraction, never by bin index. Each line SELF-SCALES
+  // to its own map's stats — the shape is the signal, not the absolute ρ
+  // (a masked map lives at different ρ than an unmasked one). The rows are
+  // read-only instruments: the main strip keeps every interaction.
+  const [overlayProfiles, setOverlayProfiles] = useState<Record<string, SliceProfile | null>>({});
+  const overlayPathsKey = overlays.map((o) => o.path).join("\u0000");
+  useEffect(() => {
+    if (!sliceOn || !jobId || !overlayPathsKey) return;
+    const ax = sliceAxis.toLowerCase();
+    const wanted = overlayPathsKey.split("\u0000");
+    // retire first: an axis switch or a removed overlay must not leave a
+    // stale terrain on the wall (t189's retirement doctrine, map dimension)
+    setOverlayProfiles(() => {
+      const next: Record<string, SliceProfile | null> = {};
+      for (const p of wanted) next[p] = null;
+      return next;
+    });
+    let alive = true;
+    for (const op of wanted) {
+      const ck = `${op}|${ax}`;
+      const hit = profileCache.current.get(ck);
+      if (hit) {
+        setOverlayProfiles((s) => ({ ...s, [op]: hit }));
+        continue;
+      }
+      fetch(`/api/jobs/${jobId}/map-profile?path=${encodeURIComponent(op)}&axis=${ax}`)
+        .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+        .then((d) => {
+          if (!alive || !Array.isArray(d?.bins) || d.bins.length === 0) return;
+          const entry: SliceProfile = {
+            bins: d.bins as number[],
+            min: Number(d.stats?.min ?? 0),
+            max: Number(d.stats?.max ?? 1),
+            native: Number(d.native ?? d.bins.length),
+          };
+          profileCache.current.set(ck, entry);
+          // "op in s" — a row removed mid-flight never resurrects
+          setOverlayProfiles((s) => (op in s ? { ...s, [op]: entry } : s));
+        })
+        .catch(() => {
+          /* an overlay whose terrain cannot load stays absent — never blocks the main strip */
+        });
+    }
+    return () => {
+      alive = false;
+    };
+  }, [sliceOn, sliceAxis, jobId, overlayPathsKey]);
+
   /* ---- profile export state (t191): the landscape's numbers can leave ----
    * ONE builder feeds clipboard + download + the data-csv observation
    * attribute; a NEW landscape (axis switch, refetch, first arrival)
    * retires the previous export — stale numbers must not survive into a
    * report. The CSV is a function of the landscape, not the playhead, so
-   * scrubbing never retires it. */
+   * scrubbing never retires it. t193: the export stays the MAIN map's
+   * landscape — overlay terrains are visual instruments, and the report
+   * contract (rows == the footer's bins count) does not grow rows. */
   const [profileExportNote, setProfileExportNote] = useState<string | null>(null);
   const [lastProfileCsv, setLastProfileCsv] = useState<string | null>(null);
   const profileNoteTimer = useRef<number | null>(null);
@@ -3479,6 +3542,54 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                         );
                       })()}
                     </svg>
+                    {/* overlay terrains (t193): one thin self-scaled line per
+                        comparison map, color-matched to its Layers swatch.
+                        Read-only — the main strip above keeps every
+                        interaction; these rows answer "does the half-map
+                        agree with the full map on THIS axis?" at a glance. */}
+                    {overlays.map((o) => {
+                      const op = overlayProfiles[o.path];
+                      if (!op || op.bins.length === 0) return null;
+                      const n = op.bins.length;
+                      const span = op.max - op.min || 1;
+                      const pts = op.bins
+                        .map(
+                          (v, i) =>
+                            `${((i / Math.max(1, n - 1)) * 100).toFixed(2)},${(9.4 - ((v - op.min) / span) * 8.2).toFixed(2)}`
+                        )
+                        .join(" ");
+                      return (
+                        <div key={o.path} className="flex items-center gap-1.5 pt-0.5">
+                          <span
+                            aria-hidden="true"
+                            className="size-1.5 shrink-0 rounded-full ring-1 ring-black/15"
+                            style={{ backgroundColor: o.color }}
+                          />
+                          <svg
+                            viewBox="0 0 100 12"
+                            preserveAspectRatio="none"
+                            className="block h-3 min-w-0 flex-1 select-none rounded bg-background/25"
+                            role="img"
+                            aria-label={`Density landscape of overlay ${o.name} along the ${sliceAxis} axis — self-scaled, read-only`}
+                            data-overlay-terrain={o.path}
+                          >
+                            <title>
+                              {o.name} — mean ρ along {sliceAxis} ({n} bins, self-scaled). Where this line
+                              disagrees with the main landscape, the maps disagree.
+                            </title>
+                            <polyline
+                              points={pts}
+                              fill="none"
+                              stroke={o.color}
+                              strokeWidth="1"
+                              vectorEffect="non-scaling-stroke"
+                              strokeLinejoin="round"
+                              opacity="0.9"
+                            />
+                          </svg>
+                        </div>
+                      );
+                    })}
                     <div className="flex items-center justify-between gap-2 pt-1 text-[9px] font-mono tabular-nums text-muted-foreground">
                       <span className="shrink-0">
                         mean ρ along {sliceAxis} · {profile.bins.length} bins

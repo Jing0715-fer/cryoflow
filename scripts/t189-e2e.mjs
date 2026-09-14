@@ -116,8 +116,8 @@ must(
   "X10 the strip names its axis (an instrument labels what it measures)"
 );
 must(
-  embSrc.includes("setProfile(null);") && embSrc.includes("const hit = profileCache.current.get(ax);"),
-  "X11 an axis switch retires the old landscape before refetching (never the wrong axis' mountains)"
+  embSrc.includes("setProfile(null);") && embSrc.includes("const hit = profileCache.current.get(ck);"),
+  "X11 an axis switch retires the old landscape before refetching (never the wrong axis' mountains; t193 made the cache key map-qualified — path|axis — so overlay terrains can share the cache)"
 );
 
 /* ================= B — live wire ================= */

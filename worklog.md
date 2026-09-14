@@ -5374,3 +5374,24 @@ Stage Summary:
 - 「九轮让位的事项，正确姿势可能一直都在」：深色定妆照九度让位的理由是 emulateMedia 对 class 制深色无效——而 header 的真实开关按钮从第一天就在那里。侦察先于发明：先找系统自己的门，再造新钥匙
 - 世界卫生观察账本（verdict 列）：本轮无全矩阵（样式修复轮，183 判例=定向回归覆盖 viewer+导出面 9 套）；t192 ×3 + 回归 9/9 全绿；正典 26 精确保持；矩阵 126 套在册
 - 遗留（下轮候选）：剖面导出进报告管线的下一里（CSV→Markdown/PDF 摘要，与 sweep 导出会师）；profile 面板多图对比（两张地图的地形并排 diff）；Mol* 右侧控制 chip 群在深色下的对比度微调（现灰色可辨但非最优——下轮样式细节候选）；grabber nudge/undo 手感参数（真机盲区依旧）；script RELION-present 分支（沙箱受限判决维持）；EMPIAR 真数据回归（让位）；runner wall-time 剖面（让位）
+
+## Task 193 (2026-09-15, cron 03:16 窗口 trace …202609150316)
+
+**主题：双地形对比——the overlay earns its own landscape。半地图对照是 cryo-EM QC 的命根子：两张半地图在哪里一致，密度就是真的；在哪里分道扬镳，哪里就是噪声。Task 193 让每张比较地图（half/masked/class）在主切片地形下方画出自己的平均密度线，颜色与 Layers 色板同源，同一 0–100 分数轴对齐（64³ 主图与 32³ 半图按分数对齐、绝不按 bin 序号），每条线自缩放（形状是信号，不是绝对 ρ）；行是只读仪器（role=img），主条带保留全部交互。顺手修正潜伏 bug：profileCache 注释声称 (map, axis) 键、实现却只按裸 axis 键控——多地图缓存碰撞只是时间问题；t193 把键改为 `path|axis`，契约与实现终于一致。t193 29 断言 ×3 全绿；回归 9/9 全绿（含 t189 X11 oracle 同步）；矩阵 126→127。**
+
+- 【开局】worklog 尾部=Task 192/5da2bb6（cron「Task 13」文本第卅九次过时）。树净、冷启动；三件套 qa00/qa63/t181 全绿判稳；巡检双视图 console 双零错。
+- 【实现·单文件四刀】molstar-embed.tsx：①profileCache 键 `ax`→`${path}|${ax}`（六处 get/set 全部 map 限定——注释说了三天的 (map, axis) 语义落地的第 194 天）；②overlayProfiles 状态 + 专职 effect：键控 overlayPathsKey（\u0000 连接——透明度拖动只改 overlays 身份、从不触发重取），先退位后取新（t189 退位教义的地图像度），命中缓存零调用，"op in s" 守卫让中途移除的行永不还魂；③渲染：主 svg 之下、脚注之上，每 overlay 一行——色点（getComputedStyle 级与线同色）+ h-3 细线 svg（role=img + aria-label 报轴 + data-overlay-terrain=path + <title> 教学「这条线与主地形分叉处=两张图不一致」）；④CSV 出口合同注释钉死：导出仍是主图地形（行数==footer bins 数的契约不增行），overlay 地形是视觉仪器。
+- 【探针 t193·29 断言 ×3 全绿】S3（正典 26、qa67 seeder、orthovol+双 half 在册）+ W3（wire 对 overlay path 一视同仁：64 bins vs 32 bins——分数对齐的物证）+ X8（六处 ck 键、pathsKey effect、退位先行、色板同源 stroke、role=img 只读、CSV 主图合同、op-in 守卫）+ D13 活线（正交主图确定性打开→Layers 领养 half1→地形线现身、stroke==色板色、轴切换双图重取（2 calls）→回 Z 双缓存零调用→移除即线亡）+ Z2 只读。
+- 【第二层真相·四】①**探针要跟守卫说同一种语言**：map-profile 对无 fetch 元数据的请求默认拒绝（#5 教义），node fetch 裸调 W1/W2 双双 403——探针补 `sec-fetch-site: same-origin`（t189 的 H 头老配方）；「curl 不是浏览器，别指望敏感面认它」。②**overlay 会话是持久租界**：失败的 run 把 half1 写进 overlay-session，重开 viewer 自动恢复——上一轮的遗产会毒害下一轮的世界假设；探针开局自愈（开 Layers→清光 Remove overlay→再开始断言），qa67-seeder「探针自带世界态」教义的 UI 版。③**主图不点名，断言全白搭**：viewer 默认打开哪个 map 取决于输出排序（t191 D13 的教训原样重演）——主图恰好是 half1 时「把 half1 加为 overlay」是句胡话；探针改 `Enlarge orthovol` 点名主图（results-view 的 aria-label 本就带 label）。④**MultiEdit 非原子（第 N 度）**：三连编辑因第三段 old_str 失配整体报错，实际前两段已落盘、且重复应用产生双注释——逐一 grep 核实+单独 Edit 修复；「报错信息说 no replacement，文件说谎要不了一个保证」。
+- 【回归】viewer 邻域 9/9 全绿：t189(42，X11 oracle 同步 t193 的 map 限定键——前浪 oracle 跟后浪源码走的第二案)/t190(29)/t191(40)/t192(14)/qa67(27)/qa42(exit 0) + 三件套 qa00/qa63/t181。矩阵 126→127（t193 auto-include）。
+- 【世界收尾】正典 26 精确保持（Z 相只读证明）；定妆照两张归档 scripts/shots-t193/（1x 全景 + **2x 主图**：blob 山脊主地形+half1 细线同轴、Layers chip 计 1、色点与线同色）；t193-shots.mjs 自清理（拍完撤 overlay，世界还原）。
+- 【收尾】worklog（本条）+ commit + push + 环境清理（杀 server 先 ss 查真实 PID、agent-browser close）。
+
+Stage Summary:
+- 「半地图的分叉处就是噪声的地址」：两张半地图的地形线在同一分数轴上并排——一致的山脊是真信号，分叉的坡地要怀疑。QC 问题从「打开两个文件肉眼比」变成「看一眼两条线的距离」，这是仪器该做的事
+- 「注释声称的键控，实现必须兑现」：profileCache 的注释三天都写着 (map, axis)，键却是裸 axis——第一个多地图消费者到来的那天就是缓存串台之日。契约与实现的偏差在第二个消费者出现前是免费的，出现后是致命的
+- 「探针与守卫说同一种语言」：安全守卫按设计拒绝无元数据的请求，探针就得带上 sec-fetch-site——断言失败先问「我的请求在浏览器眼里算什么」，再问产品为什么拒绝
+- 「持久租界毒害世界假设」：overlay-session 让上一轮的领养活到这一轮——任何依赖「初始无 overlay」的断言都必须先自愈。世界态的清理半径协议（Task 161）现在有了 UI 版
+- 「主图不点名，断言全白搭」：viewer 打开哪个地图由输出排序决定——探针要么点名主图（Enlarge orthovol），要么把断言写成对主图无假设的形状。流动的世界里，合同要写在流动的名词上
+- 世界卫生观察账本（verdict 列）：本轮无全矩阵（仪器轮，183 判例=定向回归覆盖 viewer 邻域 9 套）；t193 ×3 + 回归 9/9 全绿；正典 26 精确保持；矩阵 127 套在册
+- 遗留（下轮候选）：剖面导出进报告管线的下一里（CSV→Markdown/PDF 摘要，与 sweep 导出会师——overlay 地形进报告的图注雏形已在 <title> 里）；Mol* 深色控制 chip 群对比度微调（下轮样式细节候选）；grabber nudge/undo 手感参数（真机盲区依旧）；script RELION-present 分支（沙箱受限判决维持）；EMPIAR 真数据回归（让位）；runner wall-time 剖面（让位）
