@@ -5016,9 +5016,9 @@ Stage Summary:
 - 世界卫生观察账本（verdict 列）：全矩阵 111/111 零失败零抖动（qa75 六连绿）；2 起环境性抖动（qa61/t87）单跑复绿原位治愈；1 起 #418 陈旧构建产物根因判别为构建/编辑竞态；正典构成精确复现
 - 遗留（下轮候选）：destructive token 统一后其余 destructive 面（按钮/徽章/alert 边框）的暗色一致性抽查（理论同色，未逐面拍照）；grabber nudge 的真机手感（agent-browser 合成事件盲区依旧，须真机）；undo 手感参数（真机）；inspector 标题行 269px 下截断到「Q…」的观感（badge 与标题争宽，功能无损）；320–280 中间带的 tab 栏余量复查（224/269 有 45px 余量，健康）；runner wall-time 剖面（t152 191s 一致带，让位）；EMPIAR 真数据回归（重，让位）；用户真机项（三级阶梯+长按+swipe+grabber+toast 手势+nudge+本轮 fold 态可真机验收）
 
-## Task 177 (2026-09-14, cron 09:01 窗口 trace …202609140901)
+## Task 177 (2026-09-14, cron 09:01 窗口 trace …202609140901，终稿补于 10:46 窗口)
 
-**主题：destructive token 统一后的逐面拍照审查（Task 176 交接候选①）+ inspector 标题 269px 截断观感（候选④）——「token 停战」轮：普查抓出六粒沙，全修 + t177 探针 53 断言 ×3 全绿（进行中，矩阵后补终局）。**
+**主题：destructive token 统一后的逐面拍照审查（Task 176 交接候选①）+ inspector 标题 269px 截断观感（候选④）——「token 停战」轮：普查抓出六粒沙，全修 + t177 探针 53 断言。矩阵补跑揭出第二层真相：placeCard 的世界坐标数学与 canvas 渲染脱节（~991 世界单位漂移），同列卡对的 band 竖条几何撞上 start 候选死区——三处修后 53 断言 ×3 全绿；全矩阵 112/112（t177 世界重建后原位 #98 复绿，qa75 七连绿）。**
 
 - 【开局】worklog 尾部 = Task 176/1985dae（cron Task 13 文本第廿二次过时）。HEAD==origin/main 树净、BUILD_ID vZGHXyIwMm2GzvAQYiMnU、PORT FREE。冷启动撞两条新环境律：**沙箱禁 `ln -s`**（"Creating symbolic links is not allowed"——整条命令串被包装层拒绝）+ **nohup&/disown 活不过工具调用边界**（须 setsid）。start-prod.sh 的无条件 rm+ln 是地雷：run-matrix 每个 chunk 的 fresh_server() 都调它，rm 掉 01:02 的好 data 链接后 ln 必败 → server 瞎眼（Task 99 静默分叉复现）。修复=守卫式链接（readlink 比对，正则跳过，缺且拒则 FATAL exit 3）。
 - 【普查】Task 175 只统一了 token 本体，面未拍照。grep + 源码逐面读出六粒沙：①三处硬编码 `bg-rose-600 text-white` 确认钮（page.tsx 单删+批删、canvas.tsx 多删——rose 不是 token red，无暗色适配，与 toast 和 B 家族对话确认钮三个红并存）；②button.tsx/badge.tsx destructive 变体 `text-white` + `dark:bg-destructive/60`——暗色 60% α 洗白红在 toast 全α红旁边读作 DISABLED；③job-inspector 失败卡图标 text-rose-600 无 dark 变体（暗底暗红图标，兄弟文本全是 rose-300/400）；④269px 下 inspector 标题被 StatusBadge 挤成「Q…」；⑤job-card 自带单删 confirm 是杂合体（token bg + 硬编码 text-white 无 ring）——grep rose 和 grep variant 双双漏网，接线时才现形；⑥alert.tsx destructive 变体零消费者（审计后无面可拍，原样保留）。
@@ -5026,3 +5026,20 @@ Stage Summary:
 - 【探针教义·五课】①**「关 sheet 即 select(null)」**——sheet onOpenChange 关闭必清选中，触屏上「选中后按 Delete」单删路径不可达；探针改走 Shift+拖带选两卡 → Delete → 批删 confirm（顺带测 page.tsx 批删面）。②**「放置 B 会拖走 A」**——placeCard 以世界平移定位，A 的预放置坐标是陈旧的；band 矩形须放置后重读。band 起点必须取两卡包围盒左上外（span 内的起点漏掉左卡，落在卡上则变成拖卡）。③**「25% 地板 + 55% 缩放下卡体被走廊吃尽」**——卡片 55px 宽时 16px hover 走廊网盖住几乎全卡，左键右键都被边线截走；正解=先点工具栏 Zoom in 三档（真用户路径）。④**「palette 栏盖住画布左三分之一」**——scrollIntoView 会把卡停进 rail 底下（卡上压着 palette 分类按钮）；放置目标必须在自由区 (720,450)，placer 起手点须自适应视口且强制 canvas 视口内（固定 x=140 在桌面正好落在 rail 里，平移静默无效）。⑤**「探针谓词要认得自己的成功形状」**——MEASURE 成功对象只带 action 键，轮询判 m?.dlg 永假：对话框明明开着（bodyKids 实证 alertdialog:open）轮询十拍全空。一条 `m && (m.action || m.dlg)` 了结。另：Radix 菜单项点击要 move→250ms→down→120ms→up 的真实节奏（零间隔连发 pointerenter 追踪不咬）；inspector 关闭后 600ms 内 placer 拖拽会被退场动画吞掉，三层重试。
 - 【t177 探针】53 断言 ×3 全绿：S4 基线；X13 源码 oracle（rose-600 清零/家族串计数/变体串无 text-white 无 /60（注释豁免的变体串提取）/身份行 wrap/title attr/dark 图标/Task 175 单值守护）；M 280×653（长名标题 126px 不截断+徽章让位、带选两卡→批删 confirm LIGHT 4.57:1、198×40 尺寸、Cancel 无痕、DARK 同红 rgb(231,0,11) 4.57:1、console 净）；D 1440（≥sm 徽章同行不 wrap、右键→单删 confirm LIGHT/DARK 4.57:1 同红、带选→批删面与移动相同红、roster 恒等——Cancel/Keep job 全程未删）。
 - 【拍照】scripts/shots-t177/：confirm-light/dark.png（truce 后的全α token 红确认钮双主题）、title-280.png（「QA Refine Live」完整可读+徽章独占一行）。
+- 【中断与接手】09:01 执行者完成探针+拍照后被中断（无矩阵/无 worklog 终稿/无 push），cron 机制 10:41 把现场自动提交为 10fa8b6（标题「624bee60-…-cron」非 feat 格式）。10:46 窗口接手：开局核实 worklog 尾部=Task 177 进行时（第廿三次 Task 13 文本过时）→ 判定本轮主线=补完 Task 177 闭环。
+- 【第二层真相·D12 稳定挂】接手判稳三件套 qa63/qa00 绿、t177 连挂 3 次 D12「the BULK face opens」——实测弹的是单删框「Delete QA Post 300?」而非批量框。diag-t177-band.mjs 逐步解剖（无 preamble 版 band 成功 → D1-D10 序列复刻版仍成功 → 排除前置污染）→ 给探针 bandSelectTwo 加 T177_DEBUG 埋点复跑，真相三层剥开：①**placeCard 的世界坐标数学脱节**——旧数学用 API 的 job 世界坐标 × 视口矩阵算 pan delta，但 canvas 渲染的是 store 的布局（实测漂移 ~991 世界单位），放置落点完全不可预测；②**pan 是全局平移，永远改不了卡对的相对位置**——世界里 idle 与 compLong 同列（x 都是 150），place B 的 pan 必然把 A 拖到 B 的目标 x 上（实测 A、B 同 x=1202.9，A 贴顶 y=103.9）→ band 竖条几何；③**start 候选死区**——A 上方的候选 1-4 全被 canvas 顶部 chrome 拒绝（y=55.9/25.9 落 sticky 头），第 5 候选 (minx-18, miny+90) 落两卡之间 → band 从中间向下罩不住上方的 A → 恰好单选 B；④**ringSel 死读数掩盖一切**——旧读法 `[data-job]` 外层 wrapper 的 className.includes("ring-2") 永远 false（ring 类在内层卡体），D11 合同 `!!band` 只验手势链路没断、不验选择成功——选择失败信号被吞。上轮 ×3 全绿与此轮连挂的分歧=世界渲染布局的列排布变化（同列→必挂）。
+- 【修复·三处（修探针不修产品——band 相交语义本身是对的）】①makePlacer 改**渲染位 delta**：place 前读卡的当前渲染中心，delta=target−rendered，pan 是全局平移所以精确 by construction——不再信 API 世界坐标；②bandSelectTwo 开头读 A0/B0 渲染中心算 relY，B 的目标 y=ty+relY——**place B 的 pan 纯水平（dy=0）**，A 不再被纵向拖到贴顶，start 候选 1 直接命中；同列场景 band 竖条罩同列两卡同样合法（band 读最终渲染矩形）；③ringSel 换**真实选中签名**（内层卡体的 ring-primary——primary /60、成员 /30），M3a/D11 合同从「手势链路存在」升级为「realSel 恰好 2 张」。
+- 【探针验证】t177 ×3 全绿（M 相 A 精确落 (90,300)、selected 2/2、批量框「Delete 2 jobs?」；D 相 A (600,350) 精确、start 候选 1 即中、2/2）；qa63/qa00 回归绿。
+- 【矩阵·112 套 10 块前台】t177 auto-include 后总数 112（Task 176 的 111+t177）；块 1-8/10 首跑全绿；块 9 t177 位挂 S2「a long-named running job exists (undefined)」——**矩阵诚实消耗 Live 行**（惯例已知：修世界不修探针）→ qa60-seed-fsc 重建 → t177 单跑复绿 → **原位 #98 复跑 PASS（41s）**位链闭环。qa75 位 #16 七连绿；块峰 214MB（t159）远低 1200MB 阈值；t152 191s 一致最慢带。
+- 【世界收尾】qa60-seed-fsc 重建 → **26 jobs（16c/8i/1f/1r 正典构成精确复现）**；卫生八审全零 + domain-sweep 0/0/0；agent-browser 巡检渲染正常 console 零错。
+- 【收尾】worklog 终稿（本条）+ commit + push + 环境清理（杀 server 先 ss 查真实 PID、agent-browser close --all、diag-t177-band.mjs 归档 scripts/ 留档）。
+
+Stage Summary:
+- 「探针的数学要用被测系统自己的坐标系」：placeCard 拿 API 世界坐标乘视口矩阵，而 canvas 渲染 store 的布局——两套坐标漂移 ~991 世界单位，delta 从根上就是错的。t170/t176 的「定位必须计算出来」教义缺了下半句：**计算的输入也必须来自被测系统的实时观测**（渲染中心），不是另一份「应该一致」的数据副本
+- 「全局平移改不了相对位置——几何约束要顺着变换的守恒量设计」：pan 守恒卡对相对位置，同列卡对怎么 pan 都同列；place B 的目标 y 取 ty+relY（relY=渲染相对量）让第二次 pan 纯水平，A 从此不纵向漂移。跟变换的守恒量对抗必输，顺着守恒量设计零成本
+- 「死读数是探针的麻醉剂」：ringSel 读外层 wrapper 永远 0，而 D11 合同只验 `!!band`——选择失败被「ok」吞了三轮。断言读的属性必须是**真实状态的签名**（内层 ring-primary），且合同要断言状态本身（realSel==2），不是链路没断
+- 「候选 fallback 自己可以是坏几何」：start 候选 5 (minx−18, miny+90) 在卡下方启动向下拖的 band——它存在的意义是「上方被挡时的备胎」，但它罩不住上方本来就是要选的卡。fallback 的合同也要审：它退到的位置是否还能完成原任务
+- 「矩阵失败先分「世界被诚实消耗」还是「探针伤」」：块 9 t177 挂 S2（running job undefined）是矩阵诚实地跑完了 Live 行——seeders 自种自清的镜像面：**消费者要面对种子被跑光的世界**。位链教义全流程（单跑复现→判因→修世界→原位复绿）第二轮应用
+- 环境律新增：cron 机制会把中断现场自动提交（标题「<uuid>-cron」格式）——接手时先 `git show <sha> --stat` 识别它，worklog「进行中」条目+自动提交=上一窗口的完整现场，直接续跑即可
+- 世界卫生观察账本（verdict 列）：全矩阵 112/112 零失败零抖动（qa75 七连绿；t177 一败为世界消耗非抖动，重建后原位复绿）；0 环境性失败；八审全零；正典构成精确复现
+- 遗留（下轮候选）：grabber nudge 的真机手感（agent-browser 合成事件盲区依旧，须真机）；undo 手感参数（真机）；320–280 中间带 tab 栏余量复查（健康，低优）；runner wall-time 剖面（t152 191s 一致带，让位）；EMPIAR 真数据回归（重，让位）；用户真机项（三级阶梯+长按+swipe+grabber+toast 手势+nudge+fold 态可真机验收）

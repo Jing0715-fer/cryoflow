@@ -138,20 +138,23 @@ console.log("== X: source oracles ==");
     "X13 Task 175 guard: ONE destructive value, light and .dark identical");
 }
 
-/* shared: place a card so its CENTER sits at (tx,ty) (computed pan) */
+/* shared: place a card so its CENTER sits at (tx,ty) (computed pan).
+   Task 177 second-truth: the OLD math read the job's world (x,y) from the
+   API and multiplied by the live viewport matrix — but the canvas renders
+   the STORE's layout, which has drifted from the API coords (measured:
+   ~991 world units apart). The delta was wrong, the card landed wherever,
+   and the band's start candidates died on the canvas top chrome. The pan
+   is a GLOBAL translate — the only honest input is the card's CURRENT
+   RENDERED center; delta = target − rendered is exact by construction. */
 function makePlacer(page, list) {
   return async function placeCard(id, tx, ty) {
-    const job = list.find((j) => j.id === id);
-    const vp = await page.evaluate(() => {
-      const w = document.querySelector('[data-canvas="workspace"]');
-      const t = getComputedStyle(w).transform;
-      const m = new DOMMatrixReadOnly(t === "none" ? "" : t);
-      return { x: m.e, y: m.f, z: m.a };
-    });
-    const wx = job?.x ?? 0, wy = job?.y ?? 0;
-    const d = await page.evaluate(({ vpx, vpy, vpz, wx, wy, tx, ty }) => ({
-      dx: tx - (wx * vpz + vpx), dy: ty - (wy * vpz + vpy),
-    }), { vpx: vp.x, vpy: vp.y, vpz: vp.z, wx, wy, tx, ty });
+    const cur = await page.evaluate((want) => {
+      const c = [...document.querySelectorAll("[data-job]")].find((el) => el.getAttribute("data-job") === want);
+      const r = c?.getBoundingClientRect();
+      return r ? { x: r.x + r.width / 2, y: r.y + r.height / 2 } : null;
+    }, id);
+    if (!cur) return null;
+    const d = { dx: tx - cur.x, dy: ty - cur.y };
     /* adaptive start points: proportional to the viewport (the fixed
        140/60-column list put the desktop drag INSIDE the palette rail —
        x=140 < rail width 279 — and the "pan" silently did nothing), and
@@ -246,8 +249,33 @@ const identityRow = () => page.evaluate(() => {
    starts OUTSIDE the pair's bounding box (up-left) — a start inside the
    span would miss the left card or grab a card and drag it instead. */
 async function bandSelectTwo(pageRef, placeFn, idA, idB, maxX, txA = 90, txB = 205, ty = 300) {
-  await placeFn(idA, txA, ty);
-  const b = await placeFn(idB, txB, ty);
+  const dbg = (msg, obj) => { if (process.env.T177_DEBUG) console.log(`    [band] ${msg} ${obj ?? ""}`); };
+  /* Task 177 second-truth #2: a pan can NEVER change the pair's relative
+     position — when the two jobs sit in the same world column (measured:
+     idle & compLong both at x=150), placing B at a different target x
+     drags A onto B's target x, stacking them vertically. Fight the
+     geometry, not the pan: keep the pair's rendered relY and give B a
+     target y of ty+relY so its placement pan is purely horizontal
+     (dy=0 — A never moves vertically again, never gets pinned to the
+     canvas top chrome, and the start candidates stay alive). The band
+     reads FINAL rendered rects, so a vertical band over a stacked pair
+     is just as legal as a horizontal one over a spread pair. */
+  const a0 = await pageRef.evaluate((want) => {
+    const c = [...document.querySelectorAll("[data-job]")].find((el) => el.getAttribute("data-job") === want);
+    const r = c?.getBoundingClientRect();
+    return r ? { x: r.x + r.width / 2, y: r.y + r.height / 2 } : null;
+  }, idA);
+  const b0 = await pageRef.evaluate((want) => {
+    const c = [...document.querySelectorAll("[data-job]")].find((el) => el.getAttribute("data-job") === want);
+    const r = c?.getBoundingClientRect();
+    return r ? { x: r.x + r.width / 2, y: r.y + r.height / 2 } : null;
+  }, idB);
+  const relY = a0 && b0 ? b0.y - a0.y : 0;
+  dbg("initial centers", `A=${JSON.stringify(a0)} B=${JSON.stringify(b0)} relY=${relY.toFixed(0)}`);
+  const aP = await placeFn(idA, txA, ty);
+  dbg("A placed", JSON.stringify(aP));
+  const b = await placeFn(idB, txB, ty + relY);
+  dbg("B placed", JSON.stringify(b));
   if (!b?.inVp) return null;
   const rect = async (want) => pageRef.evaluate((want) => {
     const c = [...document.querySelectorAll("[data-job]")].find((el) => el.getAttribute("data-job") === want);
@@ -256,6 +284,7 @@ async function bandSelectTwo(pageRef, placeFn, idA, idB, maxX, txA = 90, txB = 2
       inVp: r.top >= 0 && r.bottom <= innerHeight && r.left >= 0 && r.right <= innerWidth } : null;
   }, want);
   const a = await rect(idA);
+  dbg("A re-read", JSON.stringify(a));
   if (!a?.inVp) return null;
   const minx = Math.min(a.x, b.x), maxx = Math.max(a.x, b.x);
   const miny = Math.min(a.y, b.y), maxy = Math.max(a.y, b.y);
@@ -267,6 +296,7 @@ async function bandSelectTwo(pageRef, placeFn, idA, idB, maxX, txA = 90, txB = 2
       const el = document.elementFromPoint(sx, sy);
       return !!el && !!el.closest('[data-canvas="viewport"]') && !el.closest("[data-job]") && !el.closest("button");
     }, [sx, sy]);
+    dbg("start candidate", `[${sx},${sy}] ok=${JSON.stringify(ok)}`);
     if (ok) { start = [sx, sy]; break; }
   }
   if (!start) return null;
@@ -274,12 +304,22 @@ async function bandSelectTwo(pageRef, placeFn, idA, idB, maxX, txA = 90, txB = 2
   await pageRef.mouse.move(start[0], start[1]);
   await pageRef.mouse.down();
   await pageRef.mouse.move(Math.min(maxx + 16, maxX), maxy + 40, { steps: 10 });
+  const midOverlay = await pageRef.evaluate(() => !!document.querySelector("[data-band-overlay], [class*='border-dashed']"));
+  dbg("mid-drag band overlay present", midOverlay);
   await pageRef.mouse.up();
   await pageRef.keyboard.up("Shift");
   await sleep(800);
   const ringSel = await pageRef.evaluate(() =>
     [...document.querySelectorAll("[data-job]")].filter((c) => (c.className || "").includes("ring-2")).length);
-  return { a, b, ringSel };
+  /* real selection signature: the inner card body carries ring-primary
+     (primary: ring-primary/60, member: ring-primary/30) — the outer
+     [data-job] wrapper never does, which is why the legacy count reads 0 */
+  const realSel = await pageRef.evaluate(() =>
+    [...document.querySelectorAll("[data-job]")]
+      .filter((c) => c.querySelector("[class*='ring-primary']"))
+      .map((c) => c.getAttribute("data-job")));
+  dbg("real selected ids", JSON.stringify(realSel));
+  return { a, b, ringSel, realSel };
 }
 async function openBulkByDeleteKey() {
   await page.keyboard.press("Delete");
@@ -302,7 +342,7 @@ async function cancelConfirmOn(pageRef, label = "Cancel") {
 let lightM = null;
 {
   const band = await bandSelectTwo(page, placeCard, idle.id, compLong.id, 280);
-  must(!!band, `M3a the rubber band swept both placed cards (shift+drag; ring-selected ${band?.ringSel ?? "?"})`);
+  must(!!band && (band.realSel?.length ?? 0) === 2, `M3a the rubber band swept both placed cards (shift+drag; selected ${band?.realSel?.length ?? 0}/2)`);
   const title = await openBulkByDeleteKey();
   must(title !== null, `M3b the BULK confirm opens at 280 via Delete key (title “${title}”)`);
   lightM = await page.evaluate(MEASURE);
@@ -528,7 +568,7 @@ let dSingleLight = null;
 /* bulk face at desktop: the SAME placed-band dance as the fold band */
 {
   const band = await bandSelectTwo(dpage, dPlace, idle.id, compLong.id, 1440, 600, 850, 350);
-  must(!!band, `D11 the desktop band selected the placed pair (ring-selected ${band?.ringSel ?? "?"})`);
+  must(!!band && (band.realSel?.length ?? 0) === 2, `D11 the desktop band selected the placed pair (selected ${band?.realSel?.length ?? 0}/2)`);
   if (band) {
     await dpage.keyboard.press("Delete");
     await sleep(900);
