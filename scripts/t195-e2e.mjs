@@ -148,7 +148,13 @@ while ((await page.locator('button[aria-label^="Remove overlay"]').count()) > 0)
   await page.locator('button[aria-label^="Remove overlay"]').first().click();
   await sleep(900);
 }
-await page.keyboard.press("Escape");
+// CONDITIONAL Escape (t196's doctrine, synced here): removing overlays
+// can auto-close the popover — an Escape with nothing open closes the
+// VIEWER dialog instead, and the toggle button vanishes (this probe's
+// intermittent first-batch flake, twice observed in t198's window)
+if (await page.locator('[data-testid^="map-choice-"]').first().isVisible().catch(() => false)) {
+  await page.keyboard.press("Escape");
+}
 await sleep(600);
 
 await page.locator('button[aria-label="Toggle cross-section plane"]').click();

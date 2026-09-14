@@ -39,11 +39,13 @@ import { downloadText } from "@/lib/download";
 import {
   agreementVerdict,
   buildProfileReport,
+  localAgreement,
   pairwiseAgreement,
   pearson,
   pctAt,
   profileReportFilename,
   resampleByFraction,
+  weakestBand,
   type ReportOverlay,
 } from "@/lib/qc-report";
 import { MrcImage } from "./mrc-image";
@@ -3659,6 +3661,43 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                         </div>
                       );
                     })}
+                    {/* t198: the divergence earns an ADDRESS — one chip per
+                        comparison map naming its WEAKEST quarter band (the
+                        shared fraction scale cut into four, each correlated
+                        independently). The global r can hide a band-local
+                        betrayal; this chip is the street number of the
+                        noise. Live-computed, nothing exported, nothing to
+                        retire — and it simply does not exist when no
+                        comparison map is speaking. */}
+                    {(() => {
+                      if (!profile) return null;
+                      const spokenLocal = overlays
+                        .map((o) => ({ name: o.name, bins: overlayProfiles[o.path]?.bins ?? [] }))
+                        .filter((o) => o.bins.length > 0);
+                      if (spokenLocal.length === 0) return null;
+                      return (
+                        <div
+                          className="flex flex-wrap items-center gap-1 pt-0.5"
+                          data-local-row="1"
+                          aria-label="Local shape agreement — the weakest quarter of each comparison map"
+                        >
+                          {spokenLocal.map((o) => {
+                            const w = weakestBand(localAgreement(profile.bins, o.bins));
+                            if (!w) return null;
+                            return (
+                              <span
+                                key={o.name}
+                                data-local-chip={o.name}
+                                title={`Local shape agreement for ${o.name}: the shared fraction scale cut into four quarters, each correlated independently. The global r can hide a localized betrayal — the weakest quarter is the address to inspect.`}
+                                className="rounded-full bg-muted px-1.5 py-0.5 font-mono text-[8.5px] tabular-nums text-muted-foreground"
+                              >
+                                {o.name} · weakest {w.label} · r {w.r.toFixed(2)} · {agreementVerdict(w.r)}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
                     {/* t196: the gold-standard number lives on the wall too —
                         one chip per PAIR of adopted terrains (half1 vs half2
                         is the FSC question: two independent reconstructions,

@@ -202,6 +202,56 @@ export const pairwiseAgreement = (overlays: ReportOverlay[]): { a: string; b: st
   return out;
 };
 
+/* ---- Local agreement (t198): the divergence earns an ADDRESS. ---- */
+
+/** The four nominal quarter bands of the shared 0–100% fraction scale.
+ *  Equal-COUNT cuts of the shared grid, so the labels are the bands'
+ *  nominal fraction ranges (off by at most one plane when the count
+ *  does not divide by four). */
+export const QUARTER_LABELS = ["Q1 (0–25%)", "Q2 (25–50%)", "Q3 (50–75%)", "Q4 (75–100%)"];
+
+export interface LocalBand { label: string; r: number }
+
+/** LOCAL shape agreement: the shared fraction axis cut into four
+ *  equal-count bands, each correlated independently. A global r can
+ *  hide a localized betrayal — a map can agree over most of the depth
+ *  and part ways in a single band (a mask edge, a noise shelf). The
+ *  weakest band is the ADDRESS of the disagreement: t193's doctrine
+ *  ("where the lines part ways lives the noise") now comes with a
+ *  street number. Both sides are resampled to the finer grid — the
+ *  same ruler pairwiseAgreement drinks from — and every band is judged
+ *  on its OWN variance, so a band with no shape says NaN ("—") instead
+ *  of inventing a correlation. ONE father: the report table and the
+ *  wall's weakest-quarter chips both drink from this cup. */
+export const localAgreement = (mainBins: number[], overlayBins: number[]): LocalBand[] => {
+  const n = Math.max(mainBins.length, overlayBins.length);
+  if (n < 4) return []; // four bands need at least four planes to exist
+  const a = resampleByFraction(mainBins, n);
+  const b = resampleByFraction(overlayBins, n);
+  const out: LocalBand[] = [];
+  for (let k = 0; k < 4; k++) {
+    // equal-count cuts [floor(k*n/4), floor((k+1)*n/4)) — disjoint,
+    // exhaustive, no shared boundary plane between neighbours
+    const lo = Math.floor((k * n) / 4);
+    const hi = Math.floor(((k + 1) * n) / 4);
+    out.push({ label: QUARTER_LABELS[k], r: pearson(a.slice(lo, hi), b.slice(lo, hi)) });
+  }
+  return out;
+};
+
+/** The weakest band by r — the address to inspect. NaN bands (flat, or
+ *  too short to have shape) are not ranked; when every band is flat
+ *  there IS no weakest and the caller says so instead of inventing
+ *  one (the flat-map doctrine, local). */
+export const weakestBand = (bands: LocalBand[]): LocalBand | null => {
+  let w: LocalBand | null = null;
+  for (const b of bands) {
+    if (!Number.isFinite(b.r)) continue;
+    if (!w || b.r < w.r) w = b;
+  }
+  return w;
+};
+
 /**
  * ONE builder for the map's QC summary (t195): clipboard, download and
  * the data-md carrier all drink from this single cup, and it derives
@@ -252,6 +302,26 @@ export const buildProfileReport = (opts: {
     }
     lines.push("");
     lines.push("Where a comparison line follows the main landscape, the density is consistent between maps; where it parts ways lives noise or masking. Agreement r is the Pearson correlation on the shared 0–100% fraction scale — each terrain self-scaled to its own map's stats (the shape is the signal, not absolute ρ).");
+    // t198: the LOCAL agreement table — a global r can hide a band-local
+    // betrayal, so each quarter of the fraction scale is correlated
+    // independently and the weakest quarter names the ADDRESS to inspect.
+    if (overlays.length > 0) {
+      lines.push("");
+      lines.push("### Local agreement");
+      lines.push("");
+      lines.push(`| Map | ${QUARTER_LABELS.join(" | ")} | Weakest |`);
+      lines.push("| --- | --- | --- | --- | --- | --- |");
+      for (const o of overlays) {
+        const bands = localAgreement(bins, o.bins);
+        const w = weakestBand(bands);
+        const cell = (b: LocalBand | undefined) => (b && Number.isFinite(b.r) ? b.r.toFixed(2) : "—");
+        lines.push(
+          `| ${mdCell(o.name)} | ${cell(bands[0])} | ${cell(bands[1])} | ${cell(bands[2])} | ${cell(bands[3])} | ${w ? `${w.label} (${w.r.toFixed(2)})` : "flat — no local shape"} |`
+        );
+      }
+      lines.push("");
+      lines.push("A global r can hide a localized betrayal — a map can agree over most of the depth and part ways in a single band (a mask edge, a noise shelf). Each quarter of the shared fraction scale is correlated independently, and the weakest quarter is the address to inspect; where the half-maps disagree with each other in one band only, suspect that band, not the reconstruction.");
+    }
     if (overlays.length > 1) {
       lines.push("");
       lines.push("### Pairwise agreement");

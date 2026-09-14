@@ -5480,3 +5480,24 @@ Stage Summary:
 - 「探针的断言要与被测规则互为实现」：walk 的期望不是硬编码的job 名——探针用 API 独立重演同一条规则，两个实现逐字节对表。规则改了，两个实现一起漂移才叫回归；只改一个而断言仍绿，那是断言在陪葬
 - 世界卫生观察账本（verdict 列）：本轮无全矩阵（单仪器轮，183 判例=定向回归覆盖 viewer+导出面+会话报告 14 套）；t197 ×3 + 回归 14/14 全绿（终版构建重跑）；正典 26 精确保持；矩阵 131 套在册
 - 遗留（下轮候选）：FSC 曲线本身进仪器（r(fraction) 按带分辨率分桶——真 FSC 需要球壳采样，当前是 2D 投影地形相关，报告已诚实标注 shape-agreement）；Mol* 深色控制 chip 群对比度微调（样式细节候选，连续四轮让位）；profile 面板多图对比进 r 矩阵扩展（三图两两已在 t196，进面板可视化）；grabber nudge/undo 手感参数（真机盲区依旧）；script RELION-present 分支（沙箱受限判决维持）；EMPIAR 真数据回归（让位）；runner wall-time 剖面（让位）
+
+## Task 198 (2026-09-15, cron 07:02 窗口 trace …202609150702)
+
+**主题：分叉赢得地址——the divergence earns an address。全局 r 会藏住局部的背叛：一张对比图可以在大部分深度上一致、却在一段带子里分道扬镳（mask 边缘、噪声台阶）。t193 让分叉可见（两条地形线并排），t195/t196 让它可数（总分 r、pairwise r），t198 让它可定位：`localAgreement` 把共享分数轴切成四个等数带（Q1–Q4），每带独立算 Pearson（各带只对自己的方差负责，平带说 NaN 而非编数）——「### Local agreement」表进报告（Map | Q1..Q4 | Weakest，Weakest 列点名最弱带地址），墙上每张对比图一枚 weakest-quarter chip（data-local-row，现场算、无导出、无退位、无图不撒谎）。t198 34 断言 ×3 全绿；回归 14 套全绿零 oracle 同步（Local 节插位设计让前浪天然免疫）；顺手修 t195 探针的无条件 Escape 残留（t196 教义回迁）；矩阵 131→132。**
+
+- 【开局】worklog 尾部=Task 197/94f5fbe（cron「Task 13」文本第卌四次过时；内嵌摘要「05:31 零动作」第 11 度过时——05:31 窗口实际完成了 Task 197 报告会师终局）。树净、冷启动（watchdog 配方一次稳住）；三件套 qa00/qa63/t181 全绿判稳；agent-browser 巡检双视图 console 双零错。
+- 【实现·两文件三刀】①src/lib/qc-report.ts：localAgreement（等数切法 [floor(k*n/4), floor((k+1)*n/4))——不相交、不遗漏、邻带不共享边界平面；两边重采样到更细网格——pairwiseAgreement 同一把尺；n<4 诚实返空——四条带至少要四个平面才存在）+ weakestBand（NaN 带不参与排名，全平返 null——不发明地址）+ QUARTER_LABELS（四段标签一份词汇表）；buildProfileReport 在 vs-main 散文之后、pairwise 之前插「### Local agreement」节（六列表 + 「global r can hide a localized betrayal」散文教义）；②molstar-embed.tsx：import 加 localAgreement/weakestBand；墙上地形行与 pairwise 行之间插 data-local-row IIFE（每图一枚 chip：`<name> · weakest QX (a–b%) · r R · verdict`，title 教「the address to inspect」；spoken<1 或 !profile 返 null——没有图就不撒谎）。ONE father 两处调用：报告表与墙 chip 共饮 localAgreement（t196 模式重演）。
+- 【探针 t198·34 断言 ×3 全绿】S3（seeder、orthovol+双 half 在册）+ W2（探针自己的 local oracle：独立重演等数切法+每带 pearson——half1 weakest Q3 (50–75%) -0.94、half2 weakest Q1 (0–25%) 0.26）+ X8 源 oracle（ONE father、等数切法在册、节序 Local<pairwise、墙行可寻址、教义两宿、weakestBand NaN 纪律、最短守卫、QUARTER_LABELS 一份词汇）+ D19 活线（自愈后无 local row、领养即 chip==oracle 逐位、报告四格 r==oracle、Weakest 列==oracle 地址、half2 领养加第二枚 chip 不扰动 pairwise、重导出双节齐说、移除溶解 chip 但邻居 chip 幸存（per-map 不是 per-pair）、报告丢 pairwise 节保 Local 节、空集墙上无 row（退位合同覆盖空集））+ Z2 只读（roster 26 恒等、console 净）。
+- 【第二层真相·二】①**节位图要先画再下手（列位图教训的节轴版）**：D7/D8 首跑挂——vs-main 表与 Local 表的行首格式相同（都以 `| run_it020_half` 开头），`startsWith` 找行命中了 vs-main 的行（[2]="32" 是 Bins 列）；D15 数行数也把三张表混为一谈。修法=先切「### Local agreement」到「### Pairwise agreement」之间的节，再在节内找行。t194 的「先画列位图」判例升维：两张表共用行前缀时，定位必须先切节。②**前浪探针自身 bug 的间歇 flake（第 3 度观察）**：t195 回归首两跑同处挂（Toggle 按钮超时）——它的自愈段末尾还是无条件 Escape（t196 发现并修过的「无条件炮弹」，t195 当时没同步）；当「Remove 清光后 popover 自动关」时 Escape 关掉整个 viewer。条件化修复（map-choice 可见才按）后 t195 复绿——间歇 flake 的根因往往不在被测系统，在前浪探针按键的时序假设（t196 判例原样重演在自己人身上）。
+- 【回归·14 套全绿（重建后构建重跑）】t196(29)/t197(50)/t195(40，探针修复后)/t193(29)/t191(40)/t190(29)/t189(42)/t192(14)/qa67(27)/qa58(GREEN)/qa42(exit 0) + 三件套 qa00/qa63/t181 复绿。**本轮零前浪 oracle 同步**：Local 节插在 `if (overlays.length > 1)` 之前（不是 pairwise 节之后），t196 X3 的 `{0,300}` 距离窗原样成立——插入点的选择本身就是对前浪断言的尊重。矩阵 131→132（t198 auto-include）。
+- 【世界收尾】正典 26 精确保持（Z 相只读证明）；定妆照归档 scripts/shots-t198/：t198-panel-2x.png（双地形线+两枚 weakest chip+pairwise chip+四门两行+翡翠降级回执的活照）+ t198-viewer-2x.png 全景 + **sample-local-report.md（载体真字节 2015B——文档级成色自证教义：half1 总分 r 仅 -0.25 被 0.32/0.82/0.68 稀释，Local 表揭穿 Q3 (50–75%) 低至 -0.94；half2 总分 0.99 agrees 而 Q1 最弱 0.26——「全局 r 藏住局部背叛」的活案例）**；t198-shots.mjs 留档（自愈+归还要齐全）。
+- 【收尾】worklog（本条）+ commit + push + 环境清理（杀 server 先 ss 查真实 PID、杀 watchdog、agent-browser close）。
+
+Stage Summary:
+- 「总分 r 是均值，背叛是地址」：half1 的全局 r=-0.25 看起来只是「分道扬镳」，Local 表告诉你它其实是 0.32/0.82/-0.94/0.68——背叛集中在 Q3 一条带里，其余三带都是朋友。QC 的下一个动作从「这张图不可信」变成「去看 50–75% 深度那段」——仪器把怀疑收窄到了地址
+- 「等数切法是四条带的诚实分家」：[floor(k*n/4), floor((k+1)*n/4)) 不相交、不遗漏、邻带不共享平面——共享边界平面会把一个平面算两次，相关性就撒一次小谎。切法的每一条性质都值得一行注释，因为它们都会被未来的对称性打破
+- 「每带只对自己的方差负责」：带内平线没有形状——NaN，单元格说「—」，weakestBand 拒绝给它排名。局部化不能变成局部的编数；平带诚实说「这里没有形状可比」，正如总 r 对平线说 flat
+- 「插入点是对前浪断言的尊重」：Local 节放在 vs-main 散文之后、pairwise 的 if 之前——同一份报告里节序（per-map local → per-pair global）自然成章，而 t196 的距离窗 oracle 原样成立。改动落点先看它压着谁的断言，这是「前浪 oracle 跟后浪源码走」的反向实践：让后浪不必摇醒前浪
+- 「两张表共用行前缀时，先切节再找行」：列位图教训的节轴版——探针的定位器要跟文档的节结构说同一种方言。行前缀是语法，节标题才是语义；在语法层找不到的区分，去语义层找
+- 世界卫生观察账本（verdict 列）：本轮无全矩阵（单仪器轮，183 判例=定向回归覆盖 viewer+导出面+会话报告 14 套）；t198 ×3 + 回归 14/14 全绿（重建后重跑）；正典 26 精确保持；矩阵 132 套在册
+- 遗留（下轮候选）：Mol* 深色控制 chip 群对比度微调（样式细节候选，连续五轮让位——本轮又让位了）；FSC 曲线进仪器下一里（r(fraction) 连续滑窗曲线 vs 四分带的离散版——真 FSC 需要球壳采样，报告已诚实标注 shape-agreement）；grabber nudge/undo 手感参数（真机盲区依旧）；script RELION-present 分支（沙箱受限判决维持）；EMPIAR 真数据回归（让位）；runner wall-time 剖面（让位）
