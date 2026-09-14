@@ -28,6 +28,11 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import path from "path";
 import type { EngineJobRef, UpstreamRef } from "../relion/engine";
 import { buildArgv, resolveInputs } from "../relion/engine";
+// Task 184: the data-dir contract is paths.ts's to own — this module once
+// re-derived DATA_DIR (and every default localRoot) from process.cwd(),
+// ignoring the CRYOFLOW_DATA_DIR override the run engine honors. One
+// directory gets one name.
+import { DATA_DIR, RELION_DIR } from "@/lib/paths";
 
 /* ------------------------------------------------------------------ */
 /* Cluster profiles                                                    */
@@ -62,7 +67,6 @@ export interface SlurmProfile {
   gpuSpeedup: number;
 }
 
-const DATA_DIR = path.join(process.cwd(), "data");
 const PROFILE_FILE = path.join(DATA_DIR, "hpc-profiles.json");
 
 export function defaultProfiles(): SlurmProfile[] {
@@ -80,7 +84,7 @@ export function defaultProfiles(): SlurmProfile[] {
       gpuModel: "RTX4090",
       relionHome: "",
       dataRoot: "",
-      localRoot: path.join(process.cwd(), "data", "relion"),
+      localRoot: RELION_DIR,
       envLines: [],
       ctffind: null,
       arrayConcurrency: 1,
@@ -99,7 +103,7 @@ export function defaultProfiles(): SlurmProfile[] {
       gpuModel: "A100",
       relionHome: "/opt/relion/5.0.1",
       dataRoot: "/lustre/project/cryoflow",
-      localRoot: path.join(process.cwd(), "data", "relion"),
+      localRoot: RELION_DIR,
       envLines: [
         "module purge",
         "module load relion/5.0.1 cuda/12.2",
@@ -123,7 +127,7 @@ export function defaultProfiles(): SlurmProfile[] {
       gpuModel: "H100",
       relionHome: "/shared/relion/5.0.1",
       dataRoot: "/nfs/project/cryoflow",
-      localRoot: path.join(process.cwd(), "data", "relion"),
+      localRoot: RELION_DIR,
       envLines: [
         "module load singularity",
         "singularity exec --bind /nfs relion_5.0.1_cuda.sif bash -c 'module load cuda'",

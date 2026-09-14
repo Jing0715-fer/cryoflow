@@ -5,7 +5,7 @@ import { findEffectiveJob } from "@/lib/link";
 import { getRun } from "@/lib/relion/engine";
 import { cachedFileCompute } from "@/lib/relion/statcache";
 import { readMrcHeader } from "@/lib/mrc";
-import { DATA_DIR } from "@/lib/paths";
+import { RELION_DIR } from "@/lib/paths";
 
 export const dynamic = "force-dynamic";
 
@@ -90,7 +90,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
     // 3. computed from job.type + job.id (dispatched jobs whose record was
     //    persisted to disk; manual runs also land here as a fallback)
     const url = new URL(request.url);
-    const relionRoot = path.join(DATA_DIR, "relion");
+    // Task 184: the containment boundary and the fallback join both speak the
+    // single RELION_DIR name — no private (DATA_DIR, "relion") re-derivations.
+    const relionRoot = RELION_DIR;
     let workdir: string;
     const override = url.searchParams.get("workdir");
     if (override) {
@@ -107,7 +109,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     } else {
       workdir =
         run?.workdir ??
-        path.join(DATA_DIR, "relion", job.projectId, `${job.type}_${job.id.slice(-8)}`);
+        path.join(RELION_DIR, job.projectId, `${job.type}_${job.id.slice(-8)}`);
     }
     if (!existsSync(workdir)) {
       return NextResponse.json({ classes: [], total: 0, iteration: null });

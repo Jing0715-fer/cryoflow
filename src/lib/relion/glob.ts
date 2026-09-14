@@ -99,6 +99,11 @@ export function expandPattern(
     if (/^[A-Za-z]:$/.test(base)) base += "/";
     else if (posix.startsWith("/") && !base.startsWith("/")) base = "/" + base;
   }
+  // Task 184 anchor audit: this process.cwd() is the ONLY one left outside
+  // paths.ts, and it is a DIFFERENT contract from DATA_DIR — it anchors
+  // RELATIVE user-typed import patterns ("movies/*.mrcs") against the
+  // directory the server was launched from, request-scoped, never persisted.
+  // The data-dir contract (DATA_DIR / RELION_DIR) owns every persistent path.
   const baseDir = path.resolve(base === "" ? process.cwd() : base);
   try {
     if (!statSync(baseDir).isDirectory()) {

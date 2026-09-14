@@ -34,7 +34,7 @@ import {
 import path from "path";
 import type { Job } from "@prisma/client";
 import { db } from "@/lib/db";
-import { DATA_DIR } from "@/lib/paths";
+import { DATA_DIR, RELION_DIR } from "@/lib/paths";
 import { detectRelion } from "./system";
 import { MIC_RE, expandPattern, hasWildcard, userPathToHost } from "./glob";
 import { writePathrefMarker } from "./pathref";
@@ -69,7 +69,8 @@ import {
 /* ------------------------------------------------------------------ */
 
 const STATE_FILE = path.join(DATA_DIR, "engine-state.json");
-const RELION_ROOT = path.join(DATA_DIR, "relion");
+// Task 184: RELION_DIR (paths.ts) is the single name for the workdir root.
+// This private join was the seed every other cwd-coupled copy imitated.
 /** Sandbox-only demo source (EMPIAR seed); user machines use the import
  * job's micrographsPath param (folder / wildcard pattern / file list) instead. */
 const EMPIAR_DIR = "/home/z/empiar-10017/micrographs";
@@ -157,6 +158,7 @@ export function readRuns(): Record<string, RunRecord> {
     const parsed = JSON.parse(readFileSync(STATE_FILE, "utf8"));
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
       const value = parsed as Record<string, RunRecord>;
+      healFossilSpellings(value);
       runsCache = { mtime: st.mtimeMs, size: st.size, value };
       return value;
     }
@@ -165,6 +167,39 @@ export function readRuns(): Record<string, RunRecord> {
     runsCache = null;
   }
   return {};
+}
+
+/**
+ * Task 184: records written by pre-183/184 servers spell workdir, logFile,
+ * errFile and every outputs entry through the standalone tree
+ * ("<cwd>/.next/standalone/data/…") — a fossil name that dies in every
+ * `next build` window (the boot-race's face at record granularity) and
+ * resolves only while the start-prod.sh symlink ritual holds. readRuns is
+ * the SINGLE read boundary: heal each fossil to the DATA_DIR contract name
+ * once per parse. Disk keeps its history; every consumer — resolveInputs'
+ * existsSync, the classes boundary, the outputs walker — sees one name.
+ * When CRYOFLOW_DATA_DIR is unset the rewrite is a no-op spelling change
+ * (the marker IS the current cwd/data), so user machines are unaffected.
+ */
+const FOSSIL_DATA_RE = /^.*\/\.next\/standalone\/data\//;
+function healFossilSpellings(value: Record<string, RunRecord>): void {
+  for (const rec of Object.values(value)) {
+    if (!rec || typeof rec !== "object") continue;
+    for (const key of ["workdir", "logFile", "errFile"] as const) {
+      const v = rec[key];
+      if (typeof v === "string" && v.includes("/.next/standalone/data/")) {
+        rec[key] = v.replace(FOSSIL_DATA_RE, DATA_DIR + "/");
+      }
+    }
+    if (rec.outputs && typeof rec.outputs === "object") {
+      for (const k of Object.keys(rec.outputs)) {
+        const v = rec.outputs[k];
+        if (typeof v === "string" && v.includes("/.next/standalone/data/")) {
+          rec.outputs[k] = v.replace(FOSSIL_DATA_RE, DATA_DIR + "/");
+        }
+      }
+    }
+  }
 }
 
 let runsCache: { mtime: number; size: number; value: Record<string, RunRecord> } | null = null;
@@ -495,7 +530,7 @@ export function relionEnv(binDir: string): NodeJS.ProcessEnv {
 }
 
 export function workdirFor(job: EngineJobRef): string {
-  return path.join(RELION_ROOT, job.projectId, `${job.type}_${job.id.slice(-8)}`);
+  return path.join(RELION_DIR, job.projectId, `${job.type}_${job.id.slice(-8)}`);
 }
 
 /**
@@ -506,7 +541,7 @@ export function workdirFor(job: EngineJobRef): string {
  * resolves when CWD is this directory.
  */
 function projectDirFor(job: EngineJobRef): string {
-  return path.join(RELION_ROOT, job.projectId);
+  return path.join(RELION_DIR, job.projectId);
 }
 
 /* ------------------------------------------------------------------ */

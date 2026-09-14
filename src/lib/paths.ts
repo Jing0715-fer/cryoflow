@@ -31,3 +31,18 @@ export const PROJECT_ROOT = process.cwd();
 export const DATA_DIR = process.env.CRYOFLOW_DATA_DIR
   ? process.env.CRYOFLOW_DATA_DIR
   : path.join(PROJECT_ROOT, "data");
+
+/**
+ * RELION job workdir root — THE single name for <DATA_DIR>/relion.
+ *
+ * Task 184: the HPC layer used to re-derive its own copies of DATA_DIR and
+ * the relion root from process.cwd() (slurm.ts, sbatch route), ignoring the
+ * CRYOFLOW_DATA_DIR override the run engine honors — caught red-handed:
+ * GET /api/hpc/profiles answered localRoot=".next/standalone/data/relion"
+ * on a server whose env carried CRYOFLOW_DATA_DIR=/home/z/my-project/data.
+ * Two names for one directory coincide only while the start-prod.sh symlink
+ * ritual holds; the override must be honored by EVERY consumer or by none.
+ * From here on the literal join(DATA_DIR, "relion") lives ONLY in this
+ * file — every workdir consumer imports RELION_DIR.
+ */
+export const RELION_DIR = path.join(DATA_DIR, "relion");

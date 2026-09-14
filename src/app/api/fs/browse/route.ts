@@ -80,6 +80,10 @@ function quickJumps(): { label: string; path: string }[] {
     const p = path.join(home, sub);
     if (existsSync(p)) jumps.push({ label: sub, path: p });
   }
+  // Task 184 anchor audit: PROJECT_ROOT (cwd) here is a request-scoped
+  // convenience — the "Project" quick-jump label — never a persisted path.
+  // It is one of the two documented cwd anchors (the other: glob.ts relative
+  // pattern base); the data-dir contract (DATA_DIR/RELION_DIR) owns the rest.
   jumps.push({ label: "Project", path: PROJECT_ROOT });
   return jumps;
 }

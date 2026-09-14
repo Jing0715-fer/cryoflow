@@ -5177,3 +5177,25 @@ Stage Summary:
 - 「矩阵中途的套件自带播种机」：qa63 S 相自播种（Task 86 教义）、qa60 Z 相自清扫（删 Live 行）——回归链的顺序敏感性与矩阵同源：census 断言套件排在 qa60 之后就要先重建世界
 - 世界卫生观察账本（verdict 列）：本轮无矩阵（定罪轮）；回归 qa00/qa63/qa58/qa60/t181/t182 全绿；正典 26 精确复原（qa60 重建后）；八审 domain-sweep 0/0/0；boot 竞速从「环境之谜」销案为「已定罪已修复」
 - 遗留（下轮候选）：grabber nudge/undo 手感参数（真机盲区依旧）；dialog 深色主题定妆照（第四度让位）；script RELION-present 分支（沙箱受限判决维持）；runner wall-time 剖面（让位）；EMPIAR 真数据回归（让位）；fs/browse 的 PROJECT_ROOT 同款 cwd 耦合（request-scoped 无持久伤，让位）；[boot-race] 插桩的长期价值：未来任何「stale running state」都将自带现场快照
+
+## Task 184 (2026-09-14, cron 21:01 窗口 trace …202609142101)
+
+**主题：合同收编轮——one directory gets one name。Task 183 遗留的「fs/browse 同款 cwd 耦合」实锤定罪并全库收编：HPC 层（slurm.ts 私有 DATA_DIR + 三个 default profile 的 localRoot + sbatch 路由的 localWorkdir）无视运行引擎已遵循的 CRYOFLOW_DATA_DIR——择题时当场人赃并获：server /proc/environ 带 CRYOFLOW_DATA_DIR=/home/z/my-project/data，GET /api/hpc/profiles 却答 localRoot="/home/z/my-project/.next/standalone/data/relion"（两个名字指一个目录，全靠 start-prod.sh 的 symlink 仪式续命）。修复=paths.ts 导出 RELION_DIR（join(DATA_DIR,"relion") 字面量从此全库唯一）+ slurm/sbatch/engine/classes 五处收编 + 两个 request-scoped cwd 锚点（glob.ts 相对 pattern 基准、fs/browse「Project」快跳）注释立契。第二层真相：engine-state.json 里 pre-183 服务器写下的运行记录把 workdir/logFile/outputs 拼成 standalone 僵尸拼写——每个 build 窗口死一次、全靠 symlink 还魂——修复=readRuns 解析边界一次性治愈（healFossilSpellings：磁盘保留历史，消费者只见一个名字）。t184 探针 33 断言 ×3 全绿（含 t177 教义的私人舞台：注入僵尸拼写 star 字段 + 藏起 symlink——pre-184 答「Waiting for upstream output」，治愈版穿过合同名字继续解析）。**
+
+- 【开局】worklog 尾部=Task 183/dc0e21e（cron Task 13 文本第卅次过时）。HEAD==origin/main 树净、server 未跑（21:31 窗口收尾杀净）→ 冷启动 3s；三件套 qa00/qa63/t181 全绿判稳；巡检 console 零错。
+- 【定罪】paths.ts 全库 cwd 审计：engine 走 paths.DATA_DIR ✓，但 slurm.ts:65 私有 DATA_DIR=cwd/data、三处 localRoot=cwd/data/relion、sbatch 路由 localWorkdir=cwd/data/relion/…——全是 env 盲。curl /api/hpc/profiles 实锤三 profile 的 localRoot 全是 .next/standalone 拼写。
+- 【修复·两层】①路由层：paths.ts 增 RELION_DIR 单一名字（docstring 记载人赃）；slurm.ts 删私有 DATA_DIR 改 import、三 profile localRoot: RELION_DIR、PROFILE_FILE 走合同 DATA_DIR；sbatch localWorkdir=join(RELION_DIR,…)；engine.ts 删私有 RELION_ROOT（它是「种子」）；classes 路由边界+回退双改 RELION_DIR；glob.ts/fs/browse 两锚点注释（request-scoped、从不持久化）。②数据层：readRuns 解析后缓存前过 healFossilSpellings（workdir/logFile/errFile + outputs 全字段，/.next/standalone/data/ 标记重写为 DATA_DIR 前缀——CRYOFLOW_DATA_DIR 未设时是无害拼写归一），mtime 缓存使成本=每次文件变更一次。
+- 【探针·三层】S4+X11+B13+Z5=33 断言。X 相：注释剥离后全 src 树 process.cwd() 恰 2（paths.ts 定义+glob.ts 锚点）、join(DATA_DIR,"relion") 字面量恰 1（paths.ts）、五处收编 oracle、锚点注释在位。B 相：三 profile localRoot===server env 真值（僵尸串绝迹）、classes 边界拒 /etc 且报文点名 data/relion、**私人舞台**（snapshot engine-state → 经 /api/edges 找到 MotionCorr 的 import 供体 → 注入僵尸拼写 micrographs_star 字段 + 真文件落合同拼写路径 → 藏 symlink → dry-run：pre-184 会答 Waiting for upstream output，治愈版穿过解析撞上沙箱无 MotionCor2 二进制的诚实墙——断言钉在解析边界而非脚本全量）→ finally 恢复 symlink + state 字节等同 + fixture 删除。Z 相：roster 26 恒等、hpc-profiles.json 从未被 GET 写出、无 t184 残留、无 5xx/404。
+- 【探针自身的两课】①**注释剥离器不是解析器**：首版贪婪剥 /*…*/ 与 //…——glob.ts 的 "//wsl.localhost" 字符串字面量与正则字面量里的星号伪造注释起点，把 process.cwd() 锚点连同代码一起吃掉，oracle 说谎（cwd 计数 1 而非 2）→ 改行首锚定 + 空白前缀保守剥离，字符串永远赢过剥离器启发式。②**resolveInputs 读的是上游供体的 record.outputs**：首版把 star 注进 motioncorr 记录（B7 首跑假挂）——经 edges API 定位真正的 import 供体再注入，舞台不猜 lineage。
+- 【回归】qa00 sentinel 绿、qa63 SMOKE 绿（console 0）、t181 23 断言绿、qa58 全相绿（classes/gallery 读路径）——治愈层与合同收编的受影响面全绿；t184 ×3 全绿。qa60 未跑（Live 行合同未触碰；183 判例=定向回归替代全矩阵）。
+- 【世界收尾】正典 26（16c/8i/1f/1r、Live 行 42% wire 存活）；hygiene 八审全零 + domain-sweep 0/0/0（1 个 orphan 卡坐标自动回收=QA Class Select 归位）；agent-browser 巡检 console 零错；定妆照 t184-patrol-canvas.png 归档 shots-t184/。矩阵 117→118 套（t184 auto-include，下轮矩阵窗口生效）。
+- 【收尾】worklog（本条）+ commit + push + 环境清理（杀 server 先 ss 查真实 PID、agent-browser close --all）。
+
+Stage Summary:
+- 「一个目录只配一个名字」：数据目录合同的最终形态不是「引擎遵循 env」，而是**字面量只出现在一处**（paths.ts 的 join(DATA_DIR,"relion")），其余五处 import 名字。凡是会被两个模块独立推导的路径，注定在第三个模块手里分叉
+- 「僵尸拼写活在持久层里」：路由修完不等于合同闭环——pre-183 服务器写下的 engine-state 记录把旧名字冻进磁盘，symlink 仪式一断就 ENOENT。治愈的位置必须在**单一读边界**（readRuns 解析后缓存前），磁盘保留历史、消费者只见现名——和 toFractionFrame 同一条教义：边界归一化一处修五处
+- 「字符串永远赢过剥离器启发式」：注释剥离 oracle 的第一次说谎来自 glob.ts 字符串里的 "//wsl.localhost"——伪注释起点吃掉真代码。保守剥离（行首锚定+空白前缀）比聪明的正则更可信；oracle 说谎时先怀疑自己的手术刀
+- 「舞台要先读合同再搭」：私人舞台首版把 star 注错记录（供体是上游 import 而非 motioncorr 本尊）——resolveInputs 的供体扫描读 runs[up.id].outputs。经 edges API 定位供体=舞台不猜 lineage；断言钉在解析边界（错误文案从 Waiting for upstream output 变为 binary 通知）而非脚本全量——沙箱没有 RELION 二进制，诚实的墙在合同边界之后
+- 「环境墙是合同测试的礼物」：MotionCor2 缺失把 B9 的失败文案变成了决定性证据——错误文本的**变化**本身就是解析成功的证词。断言要找「状态改变的观测点」，不硬闯环境墙
+- 世界卫生观察账本（verdict 列）：本轮无全矩阵（合同收编轮，183 判例=定向回归）；回归 qa00/qa63/t181/qa58 + t184 ×3 全绿；八审全零 + 1 orphan 自动回收；symlink/state 字节/fixture 三重恢复证明在案
+- 遗留（下轮候选）：runner wall-time 剖面（让位多轮）；grabber nudge/undo 手感参数（真机盲区依旧）；dialog 深色主题定妆照（第五度让位）；script RELION-present 分支（沙箱受限判决维持）；EMPIAR 真数据回归（让位）；hpc-profiles.json 持久化面的 UI 编辑器（POST 校验器已在位，无 UI 消费者）；[boot-race] 插桩长期价值持续（未来任何 stale running state 都带现场快照）

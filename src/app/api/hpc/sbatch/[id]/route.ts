@@ -5,6 +5,10 @@ import { db } from "@/lib/db";
 import { lineageFor } from "@/lib/relion/dispatch";
 import { readRuns } from "@/lib/relion/engine";
 import { buildSbatchForJob, loadProfiles, type EngineJobLike } from "@/lib/hpc/slurm";
+// Task 184: workdir paths resolve through the data-dir contract (paths.ts),
+// not the server cwd — the sbatch script must name the same workdir the
+// engine uses, wherever CRYOFLOW_DATA_DIR points it.
+import { RELION_DIR } from "@/lib/paths";
 
 export const dynamic = "force-dynamic";
 
@@ -54,7 +58,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       }
     }
 
-    const localWorkdir = path.join(process.cwd(), "data", "relion", job.projectId, `${job.type}_${job.id.slice(-8)}`);
+    const localWorkdir = path.join(RELION_DIR, job.projectId, `${job.type}_${job.id.slice(-8)}`);
     const clusterWorkdir = profile.dataRoot
       ? `${profile.dataRoot.replace(/\/$/, "")}/${job.projectId}/${job.type}_${job.id.slice(-8)}`
       : localWorkdir;
