@@ -5244,3 +5244,25 @@ Stage Summary:
 - 「echo 往返是预填的指纹」：门控后的控件读不到——但服务器的回答携带 POST body 的回声，echo=4（默认 8）即预填存在的决定性证据；「Server view shown」不只是诚实 UI，还是探针的观测点
 - 世界卫生观察账本（verdict 列）：本轮无全矩阵（调度器收编轮，183/184/185 判例=定向回归）；回归 qa00/qa63/qa58/t184/t185 + t186 ×3 全绿；探针只读证明在案；正典 26 精确保持
 - 遗留（下轮候选）：hpc simulate 的 per-profile sweep 对比视图（一次跑三套 profile 并排 makespan/util，本轮只做单簇形态）；grabber nudge/undo 手感参数（真机盲区依旧）；dialog 深色主题定妆照（第七度让位）；script RELION-present 分支（沙箱受限判决维持）；EMPIAR 真数据回归（让位）；runner wall-time 剖面（让位）；#7 chart 路由全量同步读（guinier/resolution/angdist 热路径，cron 清单在案）
+
+## Task 187 (2026-09-14, cron 23:46 窗口 trace …202609142348)
+
+**主题：对比环收拢轮——the sweep closes the loop。Task 186 交接首选项兑现：单簇形态的 queue sim 只回答「这套硬件跑多久」，本轮的 Compare profiles 回答「哪套硬件该买」——同图、每个 GPU profile 用它自己声明的形状参赛（pool = nodes × GPUs/node、自家 array 节流、自家速度倍率，从不借表单的数字），逐 profile 串行 POST（无请求风暴）、渐进渲染（行像赛马一样逐一落地）、单行失败隔离；最快者戴冠（emerald 环 + Trophy + fastest 徽章），相对条按最慢者归一；点行即采纳（adopt）——形状落进表单（gpusTouched 立契：预填永不踩踏显式采纳）并经 run({override}) 重跑甘特，compare → adopt → inspect 一环收拢。MODEL_BADGE 从 editor 导出（一个定义、一种视觉语言）。默认 registry 诚实成赛：gpu-cluster 4×4=16 池 %16 ×25 vs h100-hub 2×8=16 池 %32 ×40——同池不同档，H100 12m 击败 A100 19m 且 GPU-hours 1.8h ≤ 2.3h。t187 34 断言 ×3 全绿。**
+
+- 【开局】worklog 尾部=Task 186/a225694（cron「Task 13」文本第卅三次过时）。树净、上窗口杀净 server → start-prod.sh 冷启动 3s；三件套 qa00/qa63/t181 全绿判稳；巡检 console 零错。
+- 【实现·两文件】①hpc-queue-sim.tsx：SweepProfile/SweepRow 类型、compare()（filter gpusPerNode≥1 → 循环 POST 自家形状 → setSweep([...rows]) 渐进）、adopt()（gpusTouched 置真 + run({clusterGpus: p.gpusPerNode*p.nodes, arrayConcurrency, gpuSpeedup})）、run() 升级带 override 参数（采纳后立即重跑免 setState 竞态）、okRows/bestRow(min reduce)/worstMakespan 三件套、头部 Compare/Re-compare 按钮（sweeping 态 Loader2）、对比块（aria-label="Profile comparison"：头行 Layers + 「same graph, each profile's own declared shape」+ N/M simulated 计数；行=Badge(四色 GPU 型号) + 名字截断 + 形状串 + fastest 冠 + 四指标（makespan 加粗 w-14 / util / wait / GPU-hours）+ 相对条（h-1 轨道，胜者 emerald-500/70 余者 slate-400/50，2% 下限）；脚注「GPU-hours ≈ cost proxy — the fastest cluster is not always the cheapest. Click a row to adopt…」；空态「No GPU profiles to race」。②hpc-profiles-editor.tsx：MODEL_BADGE 导出（注释立契 t187 共享）。
+- 【探针 t187·34 断言 ×3 全绿】S4（roster 26、门卡、trio registry、2 GPU profiles）+ X8（Compare 触发器、≥1 过滤、自家形状推导、自家节流/倍率、渐进渲染、min-reduce 冠、adopt 守卫 + override、MODEL_BADGE 单定义）+ B6（A100/H100 形状 echo 完整、同池 H100 ≤ A100 makespan 12m≤19m、GPU-hours 1.8≤2.3、**依赖 oracle 在 sweep 形状下依旧 16 边 0 违规**、16 池峰值 16 不超额）+ D11 UI 全环（Run 30m → Compare → 对比块 → 2/2 simulated → 恰一冠 → H100 行 ≤ A100 行 → 点 A100 行采纳 → GPUs=16 → KPI 重跑 30m→19m → Escape）+ Z5（roster 恒等、registry 从未写、零 5xx/404、console 净）。
+- 【探针自身一课】**sweep 渲染后 aria 前缀定位器从 1 匹配变 3**：对比行指标也带 `aria-label="Makespan Xm"`，`[aria-label^="Makespan"]` 严格模式违规→NaN——定位器必须圈定容器（`[aria-label="Simulation KPIs"] [aria-label^="Makespan"]`）；a11y 标签越丰富，前缀定位越要带姓氏（容器限定）。
+- 【样式细节】胜者行 emerald-500/40 环 + emerald-500/[0.06] 底 + Trophy size-3 + uppercase tracking-wide 的 fastest 徽章；相对条胜者 emerald/余者 slate 的双色语义；形状串 9.5px tabular（16 GPUs · ×25 · %16）；不可用行 opacity-60 + cursor-not-allowed + err 玫瑰斜体；行 title 写采纳语义（Adopt this shape (16 GPUs · ×25) and re-run the schedule above）。
+- 【回归】qa00 GREEN、qa63 SMOKE GREEN、qa58 全相绿、t184 33 断言、t185 55 断言、t186 47 断言全绿（直系前身单簇面无回归——Compare 按钮加入后 Run/echo/钳位行为不变）。矩阵 120→121 套（t187 auto-include）。
+- 【世界收尾】正典 26（16c/8i/1f/1r、Live 行存活）；探针只读（Z 相证明 registry 未写）；定妆照三张（t187-comparison.png、t187-adopted.png、t187-crown.png——H100 行 emerald 环 + FASTEST + 12m vs A100 19m、相对条成比例）归档 scripts/shots-t187/；巡检 console 零错。
+- 【收尾】worklog（本条）+ commit + push + 环境清理（杀 server 先 ss 查真实 PID）。
+
+Stage Summary:
+- 「对比的诚实在于参数的出身」：sweep 行的池/节流/倍率全部来自 profile 自家声明——借表单数字的对比是伪对比。registry（185）→ 模拟（186）→ 对比（187），HPC 面的合同链就此闭环：每环消费上一环的真值
+- 「采纳是所有权的转移」：点行的瞬间形状归用户所有（gpusTouched 立契），预填从此退位——显式选择压倒派生默认，是 Task 185「用户键入的值赢过预填」的同一条教义在采纳动作上的重演
+- 「赛马要渐进渲染」：串行 POST + 逐行落地 = 探针可断言的中间态 + 用户可见的节奏感；一次性 setAll 的对比表把「竞赛」变成了「报表」
+- 「前缀定位器要带姓氏」：UI 越富 aria 越密，`[aria-label^=...]` 的匹配面随特性生长——严格模式违规是探针的福报（NaN 比错值诚实）；圈定容器是定位器的姓氏
+- 「同池不同档才是干净的实验」：默认两套 profile 恰好同为 16 GPU 池——倍率与节流的单变量对比不用搭台，世界自备；探针断言钉在这个天然实验上（H100 12m ≤ A100 19m、GPU-hours 1.8 ≤ 2.3）
+- 世界卫生观察账本（verdict 列）：本轮无全矩阵（对比环轮，183/184/185/186 判例=定向回归）；回归 qa00/qa63/qa58/t184/t185/t186 + t187 ×3 全绿；探针只读证明在案；正典 26 精确保持
+- 遗留（下轮候选）：sweep 结果的 CSV/剪贴板导出（对比表进报告的一里）；grabber nudge/undo 手感参数（真机盲区依旧）；dialog 深色主题定妆照（第八度让位）；script RELION-present 分支（沙箱受限判决维持）；EMPIAR 真数据回归（让位）；runner wall-time 剖面（让位）；#7 chart 路由全量同步读（guinier/resolution/angdist 热路径，cron 清单在案）

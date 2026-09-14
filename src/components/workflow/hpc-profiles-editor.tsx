@@ -78,7 +78,9 @@ const CLAMP = {
 const MAX_PROFILES = 8;
 const MAX_ENV_LINES = 12;
 
-const MODEL_BADGE: Record<string, string> = {
+/* Shared with the queue-sim sweep rows — one definition, one visual
+ * language for GPU model badges across the HPC surface (t187). */
+export const MODEL_BADGE: Record<string, string> = {
   A100: "bg-violet-500/10 text-violet-700 dark:text-violet-300 border-violet-500/30",
   H100: "bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border-cyan-500/30",
   V100: "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30",

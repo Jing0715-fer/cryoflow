@@ -20,13 +20,22 @@
  *   sacct --start output rather than a shard dump.
  * - Durations are project-wide and live: extracted micrograph/particle
  *   counts and measured run durations from engine-state feed the model.
+ * - "Compare profiles" (t187): the sweep answers "same graph, different
+ *   hardware class" — every GPU profile is simulated with ITS OWN
+ *   declared shape (nodes × GPUs/node = the pool, its own array
+ *   throttle, its own speed multiplier), never the form's numbers. The
+ *   fastest profile wears the crown; clicking a row ADOPTS its shape
+ *   into the form and re-runs the single Gantt (compare → adopt →
+ *   inspect, one loop).
  */
 
 import * as React from "react";
 import { Button } from "@/components/ui/button";
-import { GanttChart, Loader2, Play } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { GanttChart, Layers, Loader2, Play, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { jobType } from "@/lib/workflow";
+import { MODEL_BADGE } from "./hpc-profiles-editor";
 
 interface SimBar {
   key: string; type: string; slurmId: string;
@@ -49,6 +58,17 @@ interface SimResponse {
   error?: string;
 }
 interface SimParams { clusterGpus: number; nodes: number; arrayConcurrency: number; gpuSpeedup: number }
+
+/** The brief a sweep row needs — every field comes from the profile. */
+interface SweepProfile {
+  id: string; name: string; gpuModel: string;
+  gpusPerNode: number; nodes: number; arrayConcurrency: number; gpuSpeedup: number;
+}
+interface SweepRow {
+  p: SweepProfile;
+  r?: { makespanMin: number; gpuUtilization: number; avgWaitMin: number; totalGpuHours: number };
+  err?: string;
+}
 
 /** Per-type bar triplets — same badge language as the sibling HPC panels. */
 const TYPE_COLOR: Record<string, string> = {
@@ -103,6 +123,8 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [clamped, setClamped] = React.useState(false);
+  const [sweep, setSweep] = React.useState<SweepRow[] | null>(null);
+  const [sweeping, setSweeping] = React.useState(false);
   const [params, setParams] = React.useState<SimParams>({
     clusterGpus: 8, nodes: 4, arrayConcurrency: 8, gpuSpeedup: 25,
   });
@@ -115,11 +137,11 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
     setParams((p) => ({ ...p, clusterGpus: Math.min(64, gpusPerNode) }));
   }, [gpusPerNode]);
 
-  const run = async () => {
+  const run = async (override?: Partial<SimParams>) => {
     setLoading(true);
     setError(null);
     setOpen(true);
-    const sent: SimParams = { ...params };
+    const sent: SimParams = { ...params, ...override };
     try {
       const r = await fetch("/api/hpc/simulate", {
         method: "POST",
@@ -153,6 +175,61 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
     }
   };
 
+  // The sweep: every GPU profile races with its OWN declared shape —
+  // pool = nodes × GPUs/node, its own throttle, its own multiplier.
+  // Sequential posts (no request storm), progressive rendering (rows
+  // land one by one like a race), isolated per-profile failures.
+  const compare = async () => {
+    setSweeping(true);
+    setError(null);
+    setOpen(true);
+    try {
+      const d = (await fetch("/api/hpc/profiles").then((r) => r.json())) as { profiles?: SweepProfile[] };
+      const gpuProfiles = (d.profiles ?? []).filter((p) => p.gpusPerNode >= 1);
+      const rows: SweepRow[] = [];
+      setSweep([]);
+      for (const p of gpuProfiles) {
+        try {
+          const res = await fetch("/api/hpc/simulate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              clusterGpus: p.gpusPerNode * p.nodes,
+              arrayConcurrency: p.arrayConcurrency,
+              gpuSpeedup: p.gpuSpeedup,
+            }),
+          });
+          const j = (await res.json()) as SimResponse;
+          rows.push(
+            res.ok
+              ? { p, r: { makespanMin: j.makespanMin, gpuUtilization: j.gpuUtilization, avgWaitMin: j.avgWaitMin, totalGpuHours: j.totalGpuHours } }
+              : { p, err: j?.error ?? `HTTP ${res.status}` },
+          );
+        } catch {
+          rows.push({ p, err: "Request failed" });
+        }
+        setSweep([...rows]);
+      }
+    } catch {
+      setSweep([]);
+    } finally {
+      setSweeping(false);
+    }
+  };
+
+  // Adopt a sweep row: its declared shape becomes the form's shape (and
+  // the user's — the prefill must never stomp an explicit adoption),
+  // then the single Gantt re-runs so compare → adopt → inspect is one loop.
+  const adopt = (row: SweepRow) => {
+    if (!row.r) return;
+    gpusTouched.current = true;
+    void run({
+      clusterGpus: row.p.gpusPerNode * row.p.nodes,
+      arrayConcurrency: row.p.arrayConcurrency,
+      gpuSpeedup: row.p.gpuSpeedup,
+    });
+  };
+
   // One row per job (first-appearance order = scheduling order), array
   // shards grouped as segments on the shared row.
   const rows = React.useMemo(() => {
@@ -173,6 +250,14 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
   const pendingEpisodes = sim?.events?.filter((e) => e.state === "PENDING").length ?? 0;
   const makespan = sim?.makespanMin ?? 0;
 
+  // Sweep verdicts: fastest wears the crown, bars scale to the slowest.
+  const okRows = sweep?.filter((r) => r.r) ?? [];
+  const bestRow = okRows.reduce<SweepRow | null>(
+    (w, r) => (!w || r.r!.makespanMin < w.r!.makespanMin ? r : w),
+    null,
+  );
+  const worstMakespan = Math.max(0, ...okRows.map((r) => r.r!.makespanMin));
+
   return (
     <section
       aria-label="Queue simulation"
@@ -186,6 +271,19 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
           real graph, real edges, real measured durations
         </span>
         <div className="flex-1" />
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => void compare()}
+          disabled={sweeping}
+          aria-label="Compare cluster profiles"
+          title="Simulate every GPU profile with its own declared shape (nodes × GPUs/node × throttle × speedup)"
+        >
+          {sweeping
+            ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+            : <Layers className="size-3.5" aria-hidden="true" />}
+          {sweep ? "Re-compare" : "Compare"}
+        </Button>
         <Button
           size="sm"
           variant="outline"
@@ -347,6 +445,108 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
                 </p>
               ) : null}
             </>
+          ) : null}
+
+          {sweep ? (
+            <div
+              className="space-y-1.5 rounded-md border bg-muted/20 p-3"
+              aria-label="Profile comparison"
+            >
+              <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-medium">
+                <Layers className="size-3.5 text-primary" aria-hidden="true" />
+                Profile comparison
+                <span className="text-[10px] font-normal text-muted-foreground">
+                  — same graph, each profile&apos;s own declared shape
+                </span>
+                <div className="flex-1" />
+                <span className="text-[9.5px] tabular-nums text-muted-foreground">
+                  {okRows.length}/{sweep.length} simulated
+                </span>
+              </div>
+              {sweep.length === 0 ? (
+                <p className="text-[10.5px] italic text-muted-foreground">
+                  No GPU profiles to race — give a profile at least one GPU per node.
+                </p>
+              ) : (
+                sweep.map((row) => {
+                  const gpus = row.p.gpusPerNode * row.p.nodes;
+                  const isBest = !!row.r && bestRow?.p.id === row.p.id;
+                  return (
+                    <button
+                      key={row.p.id}
+                      type="button"
+                      onClick={() => adopt(row)}
+                      disabled={!row.r}
+                      className={cn(
+                        "block w-full rounded-md border px-2.5 py-2 text-left transition-colors",
+                        row.r ? "cursor-pointer hover:bg-muted/50" : "cursor-not-allowed opacity-60",
+                        isBest ? "border-emerald-500/40 bg-emerald-500/[0.06]" : "border-border/60",
+                      )}
+                      title={
+                        row.r
+                          ? `Adopt this shape (${gpus} GPUs · ×${row.p.gpuSpeedup}) and re-run the schedule above`
+                          : (row.err ?? "unavailable")
+                      }
+                      aria-label={`Adopt ${row.p.name}${row.r ? ` — ${fmtMin(row.r.makespanMin)} makespan` : " — unavailable"}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          variant="outline"
+                          className={cn("shrink-0 border px-1 py-0 text-[9px]", MODEL_BADGE[row.p.gpuModel] ?? "")}
+                        >
+                          {row.p.gpuModel}
+                        </Badge>
+                        <span className="min-w-0 flex-1 truncate text-[11px] font-medium">{row.p.name}</span>
+                        <span className="hidden shrink-0 text-[9.5px] tabular-nums text-muted-foreground sm:inline">
+                          {gpus} GPUs · ×{row.p.gpuSpeedup} · %{row.p.arrayConcurrency}
+                        </span>
+                        {isBest ? (
+                          <span className="flex shrink-0 items-center gap-0.5 text-[9px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
+                            <Trophy className="size-3" aria-hidden="true" />
+                            fastest
+                          </span>
+                        ) : null}
+                        {row.err ? (
+                          <span className="shrink-0 text-[9.5px] italic text-rose-600 dark:text-rose-400">{row.err}</span>
+                        ) : null}
+                        {row.r ? (
+                          <span className="flex shrink-0 items-baseline gap-2 tabular-nums">
+                            <span className="w-14 text-right text-xs font-semibold" aria-label={`Makespan ${fmtMin(row.r.makespanMin)}`}>
+                              {fmtMin(row.r.makespanMin)}
+                            </span>
+                            <span className="w-9 text-right text-[10px] text-muted-foreground">
+                              {Math.round(row.r.gpuUtilization * 100)}%
+                            </span>
+                            <span className="w-10 text-right text-[10px] text-muted-foreground">
+                              {fmtMin(row.r.avgWaitMin)}
+                            </span>
+                            <span className="w-10 text-right text-[10px] text-muted-foreground">
+                              {(Math.round(row.r.totalGpuHours * 10) / 10).toFixed(1)}h
+                            </span>
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="relative mt-1.5 h-1 overflow-hidden rounded bg-muted">
+                        {row.r ? (
+                          <div
+                            className={cn(
+                              "absolute inset-y-0 left-0 rounded",
+                              isBest ? "bg-emerald-500/70" : "bg-slate-400/50",
+                            )}
+                            style={{ width: `${worstMakespan > 0 ? Math.max(2, (row.r.makespanMin / worstMakespan) * 100) : 2}%` }}
+                            aria-hidden="true"
+                          />
+                        ) : null}
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+              <p className="text-[9.5px] leading-relaxed text-muted-foreground">
+                GPU-hours ≈ cost proxy — the fastest cluster is not always the cheapest.
+                Click a row to adopt its shape and re-run the schedule above.
+              </p>
+            </div>
           ) : null}
         </>
       ) : null}
