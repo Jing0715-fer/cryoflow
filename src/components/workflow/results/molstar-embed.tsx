@@ -269,6 +269,29 @@ const pctAt = (bins: number[], i: number): string =>
 /** one adopted comparison terrain the report can speak about */
 interface ReportOverlay { name: string; bins: number[] }
 
+/** Every PAIR of comparison terrains, correlated on the shared fraction
+ *  scale with both resampled to the FINER of the two grids (the finer
+ *  ruler preserves more shape; t195's fraction doctrine, pairwise).
+ *  half1 vs half2 is THE cryo-EM QC pair: two independent reconstructions
+ *  built from disjoint halves of the data — where they agree the density
+ *  is real, which is exactly the question FSC asks. Overlay-vs-main says
+ *  "does this map follow the reconstruction"; pairwise says "do the
+ *  halves corroborate each other". */
+const pairwiseAgreement = (overlays: ReportOverlay[]): { a: string; b: string; r: number }[] => {
+  const out: { a: string; b: string; r: number }[] = [];
+  for (let i = 0; i < overlays.length; i++) {
+    for (let j = i + 1; j < overlays.length; j++) {
+      const n = Math.max(overlays[i].bins.length, overlays[j].bins.length);
+      out.push({
+        a: overlays[i].name,
+        b: overlays[j].name,
+        r: pearson(resampleByFraction(overlays[i].bins, n), resampleByFraction(overlays[j].bins, n)),
+      });
+    }
+  }
+  return out;
+};
+
 /**
  * ONE builder for the map's QC summary (t195): clipboard, download and
  * the data-md carrier all drink from this single cup, and it derives
@@ -319,6 +342,18 @@ const buildProfileReport = (opts: {
     }
     lines.push("");
     lines.push("Where a comparison line follows the main landscape, the density is consistent between maps; where it parts ways lives noise or masking. Agreement r is the Pearson correlation on the shared 0–100% fraction scale — each terrain self-scaled to its own map's stats (the shape is the signal, not absolute ρ).");
+    if (overlays.length > 1) {
+      lines.push("");
+      lines.push("### Pairwise agreement");
+      lines.push("");
+      lines.push("| Map A | Map B | Agreement r | Verdict |");
+      lines.push("| --- | --- | --- | --- |");
+      for (const p of pairwiseAgreement(overlays)) {
+        lines.push(`| ${mdCell(p.a)} | ${mdCell(p.b)} | ${Number.isNaN(p.r) ? "—" : p.r.toFixed(2)} | ${agreementVerdict(p.r)} |`);
+      }
+      lines.push("");
+      lines.push("Two half-maps come from disjoint halves of the data — where they agree with EACH OTHER, the density is real (this is the question FSC asks). Maps that follow the main landscape but not each other deserve a second look.");
+    }
   } else {
     lines.push("None adopted yet — adopt half-maps or masked variants through Layers and they appear here. Where their lines follow the main landscape the density is real; where they part ways lives the noise.");
   }
@@ -3765,6 +3800,34 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                         </div>
                       );
                     })}
+                    {/* t196: the gold-standard number lives on the wall too —
+                        one chip per PAIR of adopted terrains (half1 vs half2
+                        is the FSC question: two independent reconstructions,
+                        where they agree the density is real). Live-computed,
+                        nothing exported, nothing to retire. */}
+                    {(() => {
+                      const spokenOverlays = overlays
+                        .map((o) => ({ name: o.name, bins: overlayProfiles[o.path]?.bins ?? [] }))
+                        .filter((o) => o.bins.length > 0);
+                      if (spokenOverlays.length < 2) return null;
+                      return (
+                        <div
+                          className="flex flex-wrap items-center gap-1 pt-0.5"
+                          data-pairwise-row="1"
+                          aria-label="Pairwise shape agreement between adopted comparison maps"
+                        >
+                          {pairwiseAgreement(spokenOverlays).map((p) => (
+                            <span
+                              key={`${p.a}|${p.b}`}
+                              title={`Shape agreement between ${p.a} and ${p.b}: Pearson r on the shared fraction scale. Two half-maps come from disjoint halves of the data — where they agree, the density is real (the question FSC asks).`}
+                              className="rounded-full bg-muted px-1.5 py-0.5 font-mono text-[8.5px] tabular-nums text-muted-foreground"
+                            >
+                              {p.a} ↔ {p.b} · r {Number.isNaN(p.r) ? "—" : p.r.toFixed(2)} · {agreementVerdict(p.r)}
+                            </span>
+                          ))}
+                        </div>
+                      );
+                    })()}
                     <div className="flex items-center justify-between gap-2 pt-1 text-[9px] font-mono tabular-nums text-muted-foreground">
                       <span className="shrink-0">
                         mean ρ along {sliceAxis} · {profile.bins.length} bins

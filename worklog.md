@@ -5438,3 +5438,24 @@ Stage Summary:
 - 「前浪的 oracle 第 6、7 度跟后浪的源码走」：t191 的 buildProfileCsv 计数、t194 的 mdCell 转义现场，同窗被 t195 的实现演化过时——探针是活文档，锚在实现细节上的 oracle 必须当轮清偿
 - 世界卫生观察账本（verdict 列）：本轮无全矩阵（单仪器轮，183 判例=定向回归覆盖 viewer+导出面 14 套）；t195 ×3 + 回归 14/14 全绿（重建后重跑）；正典 26 精确保持；矩阵 129 套在册
 - 遗留（下轮候选）：报告会师的下一里——sweep 报告与 QC 摘要拼成单一 per-job 报告页（Markdown→PDF，打印样式已有 Print this view 底子）；Mol* 深色控制 chip 群对比度微调（样式细节候选）；profile 面板多图对比进 r 矩阵（三张 half-map 两两相关）；grabber nudge/undo 手感参数（真机盲区依旧）；script RELION-present 分支（沙箱受限判决维持）；EMPIAR 真数据回归（让位）；runner wall-time 剖面（让位）
+
+## Task 196 (2026-09-15, cron 04:46 窗口 trace …202609150446)
+
+**主题：金标准对儿赢得它的数——half1↔half2 的 pairwise r 矩阵。两张半图来自数据不相交的两半，它们「彼此」一致处密度才为真——这正是 FSC 在问的问题。t195 的报告只说各 overlay vs 主图；t196 补全矩阵：①报告——2+ 张对比地形在案时出现「### Pairwise agreement」表（Map A | Map B | r | Verdict），双方重采样到两张网格中更细的那张（细尺保留更多形状；t195 fraction 教义的 pairwise 化）；②墙上——overlay 地形行下现场算出 pairwise chip 行（`run_it020_half1 ↔ run_it020_half2 · r -0.28 · diverges`），金标准数字不导出也看得见，无导出便无退位。t196 29 断言 ×7 跑全绿（含故意残留世界复跑）；回归 12 套全绿；矩阵 129→130。**
+
+- 【开局】worklog 尾部=Task 195/c04ca7a（cron「Task 13」文本第卌二次过时）。树净、冷启动；三件套 qa00/qa63/t181 全绿判稳；巡检双视图 console 双零错。
+- 【实现·单文件三刀】molstar-embed.tsx：①模块级 pairwiseAgreement（i<j 全对、n=max(len_a,len_b) 细尺重采样双方、pearson 算 r——报告与墙共饮这一位父亲，定义恰一次、调用恰两处）；②buildProfileReport 在 overlays.length>1 分支追加第二表 + FSC 散文（「跟主图一致但彼此不一致的图值得再看一眼」）；③墙上 IIFE chip 行（data-pairwise-row + aria-label + 教学 title，spoken<2 返 null——没有 pair 就不撒 pair 的谎）。
+- 【探针 t196·29 断言 ×7 跑全绿】S3 + W1（三地形 wire 喂探针自己的 pearson oracle：half1~half2=-0.28 / main~half1=-0.25 / main~half2=0.99）+ X6（ONE helper、细尺 max 重采样、>1 守卫、墙行可寻址、FSC 教学双宿、现场算无退位）+ D17 活线（1 overlay：无 pairwise 行无 pairwise 节——没有 pair 不撒谎；领养 half2 即退位已武装报告；墙 chip r==wire 逐位；再导出双节齐说、vs-main 两行 r==wire、pairwise 行四列 r==wire；移除 half2 墙 chip 消失、报告退位、再导出 pairwise 节退场；D17 世界归还无 overlay 残留）+ Z2 只读。
+- 【第二层真相·三】①**Escape 是无条件炮弹**：自愈循环里移除 overlay 可能顺手关掉 popover——此时再按 Escape 关的是整个 viewer dialog，Toggle 按钮从世界消失（首批 run 间歇 crash 的根因；世界态在 run 间接力让 flake 时有时无）。修法=条件化 Escape（仅当 popover 确实可见时才按）+ 探针收尾世界归还（不把租界留给下一跑）。「键盘事件不看目标先看满不满」。②**列位图教训第 2 度自伤**：D12 首跑挂——pairwise 表四列、r 在 split[3]，我按 vs-main 五列习惯去 [4] 拿；t194 的「先画列位图」判例原样重演在我自己身上。③**shots 脚本也要走完整的世界开门顺序**：报告门住在剖面板里、面板只在 slice on 时渲染——shots 首跑直接找 Copy Report 按钮 30s 超时，漏的是「Toggle cross-section plane」这扇门。
+- 【回归·12 套全绿（重建后构建）】t195(40)/t193(29)/t191(40)/t190(29)/t189(42)/t192(14)/qa67(27)/qa42(exit 0)/qa58(exit 0) + 三件套 qa00/qa63/t181 复绿。本轮零 oracle 同步（t195 的源 oracle 与单 overlay 活线对 pairwise 无感知——「>1 才出现」的守卫让前浪断言天然免疫）。矩阵 129→130（t196 auto-include；显式 40 + 盘上 91 t1xx）。
+- 【世界收尾】正典 26 精确保持（Z 相只读证明）；定妆照归档 scripts/shots-t196/：t196-panel-2x.png（双 overlay 地形线青紫各一 + 金标准 chip 上墙 + 四门两行 + 翡翠回执）+ t196-viewer-2x.png 全景 + sample-pair-report.md（载体真字节 1356B——双节齐说：half2 r=0.99 agrees vs half1 -0.25 diverges、pairwise -0.28 diverges，散文教的「值得再看一眼」案例自证在案）；t196-pair-2x.png（探针 DSF1 照）；t196-shots.mjs 留档（自愈+归还要齐全）。
+- 【收尾】worklog（本条）+ commit + push + 环境清理（杀 server 先 ss 查真实 PID）。
+
+Stage Summary:
+- 「半图彼此一致处，密度才为真」：overlay-vs-main 回答「这张图跟从重建吗」，pairwise 回答「两半互证吗」——FSC 的问题从此有了墙上的数和报告里的表。QC 仪器递进的下一格：让金标准对比不需要打开两个文件，只需要看一枚 chip
+- 「细尺保留更多形状」：pairwise 重采样双方到 max(len) 的更细网格——分数对齐教义的对内推广；64³ 与 32³ 的对话规则（绝不按 bin 序号）现在也管 32³ 与 32³ 之间的对话
+- 「Escape 是无条件炮弹，popover 的开合才是瞄准镜」：键盘事件的处理必须先看「现在开着什么」再扣扳机——条件化 Escape + 世界归还让探针在干净与残留两种世界里都站稳。间歇 flake 的根因往往不在被测系统，在探针自己按键的时序假设
+- 「列位图要先画再下手（第 2 度）」：四列表格的 r 在 split[3]、五列在 [4]——上轮的教训这轮轮到自己身上，判例的价值在于它总会再赢一次
+- 「报告的门住在面板里，面板住在 slice on 里」：任何 UI 探针/shots 脚本的世界开门顺序必须走完整条依赖链（开 viewer → 开 slice → 面板渲染 → 门可用），跳门就会被 30s 超时教育
+- 世界卫生观察账本（verdict 列）：本轮无全矩阵（单仪器轮，183 判例=定向回归覆盖 viewer 邻域 12 套）；t196 ×7 + 回归 12/12 全绿（重建后重跑）；正典 26 精确保持；矩阵 130 套在册
+- 遗留（下轮候选）：报告会师终局——sweep 报告 + QC 摘要拼成单一 per-job 报告页（Markdown→PDF）；Mol* 深色控制 chip 群对比度微调（样式细节候选，连续三轮让位）；FSC 曲线本身进仪器（r(fraction) 按带分辨率分桶——真 FSC 需要球壳采样，当前是 2D 投影地形的相关，报告已诚实标注 shape-agreement 而非 resolution）；grabber nudge/undo 手感参数（真机盲区依旧）；script RELION-present 分支（沙箱受限判决维持）；EMPIAR 真数据回归（让位）；runner wall-time 剖面（让位）
