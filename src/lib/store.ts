@@ -602,6 +602,11 @@ interface WorkflowState {
   createProject: (input: { name: string; mode: string }) => Promise<boolean>;
   renameProject: (id: string, name: string) => Promise<boolean>;
   deleteProject: (id: string) => Promise<boolean>;
+  /** POST /api/projects/[id]/duplicate — clone as a RERUN-READY TEMPLATE:
+   *  params/notes/coordinates/wiring carried, statuses reset to idle,
+   *  soft links severed, active pointer untouched. Full load() after, so
+   *  the card wall + KPIs move in the same frame as the toast. */
+  duplicateProject: (id: string) => Promise<boolean>;
   /** Re-fetch the workspace list of the ACTIVE project (keeps the current
    *  selection when it still exists; otherwise falls back to the first). */
   refreshWorkspaces: () => Promise<void>;
@@ -1476,6 +1481,25 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       return true;
     } catch (err) {
       errToast(err instanceof Error ? err.message : "Failed to delete project");
+      return false;
+    }
+  },
+
+  duplicateProject: async (id) => {
+    try {
+      const res = await api<{
+        ok: boolean;
+        project: { id: string; name: string };
+        counts: { workspaces: number; jobs: number; edges: number };
+      }>(`/api/projects/${id}/duplicate`, { method: "POST" });
+      await get().load();
+      toast({
+        title: "Project duplicated",
+        description: `${res.project.name} · ${res.counts.jobs} jobs, ${res.counts.edges} edges (reset to idle)`,
+      });
+      return true;
+    } catch (err) {
+      errToast(err instanceof Error ? err.message : "Failed to duplicate project");
       return false;
     }
   },

@@ -23,6 +23,7 @@ import {
   Clock,
   FolderGit2,
   FolderInput,
+  CopyPlus,
   Layers,
   LayoutDashboard,
   Loader2,
@@ -343,6 +344,8 @@ function DashboardProjectCard({
   onlyProject,
   onOpen,
   onRequestDelete,
+  onRequestDuplicate,
+  duplicating,
 }: {
   project: ProjectCard;
   isActive: boolean;
@@ -350,6 +353,8 @@ function DashboardProjectCard({
   onlyProject: boolean;
   onOpen: () => void;
   onRequestDelete: () => void;
+  onRequestDuplicate: () => void;
+  duplicating: boolean;
 }) {
   const renameProject = useWorkflowStore((s) => s.renameProject);
   const allProjects = useWorkflowStore((s) => s.projects);
@@ -578,6 +583,21 @@ function DashboardProjectCard({
               title="Rename project"
             >
               <Pencil className="size-3.5" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              className="size-8 text-muted-foreground hover:text-foreground"
+              onClick={onRequestDuplicate}
+              disabled={duplicating}
+              aria-label={`Duplicate ${project.name}`}
+              title="Duplicate project — a rerun-ready copy (statuses reset to idle)"
+            >
+              {duplicating ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <CopyPlus className="size-3.5" />
+              )}
             </Button>
             <Button
               variant="outline"
@@ -1878,6 +1898,15 @@ export function ProjectDashboard() {
   };
 
   const deleteProject = useWorkflowStore((s) => s.deleteProject);
+  const duplicateProject = useWorkflowStore((s) => s.duplicateProject);
+  const [duplicatingId, setDuplicatingId] = React.useState<string | null>(null);
+
+  const requestDuplicate = async (id: string) => {
+    if (duplicatingId) return;
+    setDuplicatingId(id);
+    await duplicateProject(id);
+    setDuplicatingId(null);
+  };
 
   const activeId = project?.id ?? null;
   const onlyProject = projectsRaw.length <= 1;
@@ -2328,6 +2357,8 @@ export function ProjectDashboard() {
                   onlyProject={onlyProject}
                   onOpen={() => openProject(p)}
                   onRequestDelete={() => setDeleteTarget(p)}
+                  onRequestDuplicate={() => void requestDuplicate(p.id)}
+                  duplicating={duplicatingId !== null}
                 />
               ))}
             </div>

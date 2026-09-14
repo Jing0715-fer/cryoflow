@@ -5133,3 +5133,26 @@ Stage Summary:
 - 「回滚吃掉的名单要诚实重建」：正典 26 的 5 名缺席者名字只能从 1280px 定妆照尽力辨认（MotionCorr 002/Set Rate 可读，三个 Staging 名是诚实推测）——worklog 记录推测边界，不冒充精确考古。世界的 census（16c/8i/1f/1r）是合同，名字的拼写不是
 - 世界卫生观察账本（verdict 列）：全矩阵 116 套完成（108 首跑绿；t175 修复位内绿；chunk 9 五连消耗位链闭环第四度）；qa75 十连绿；0 环境性抖动（qa45 目录缺失属灾备遗留非抖动）；八审全零；正典构成精确复现；世界坐标污染（调试 PATCH + 舞台残留）全部清算归位
 - 遗留（下轮候选）：grabber nudge/undo 手感参数（真机，盲区依旧）；digest failed 行内 Retry（t146 合同敏感区维持不动判决）；dialog 深色主题定妆照（Task 180 交接项未动，让位于本轮灾备）；script RELION-present 分支（沙箱受限判决维持）；runner wall-time 剖面（让位）；EMPIAR 真数据回归（让位）；世界卫生观察账本继续积累（本轮 +1 观察日：灾备重建后全矩阵绿，世界可从种子链完整再生）；用户真机项（三级阶梯+长按+swipe+grabber+toast+nudge+fold+palette 入口+dialog 可真机验收）
+
+## Task 182 (2026-09-14, cron 20:16 窗口 trace …202609142016)
+
+**主题：功能轮——the pipeline earns its second run。POST /api/projects/[id]/duplicate（rerun-ready template：params/note/坐标/duration/workspace 结构/边接线全携带，status→idle/progress→0/startedAt/result→null 重置，软链切断，active 指针不瞬移，源项目 byte-for-byte 不动）+ 项目卡 CopyPlus 三档按钮行 + store 接线（POST→全量 load()→toast 带 wire 真值计数）。实现途中擒获一个真产品伤：**边真相是 DB 表+文件 sidecar 的合并视图，克隆只拷 DB 表=15/16 的管线还自称完整**（13 条端口注解边按 id 配对 + 1 条 half2 纯文件边——DB 表的形状装不下同对第二条 half 边）——修=克隆 DB 边显式铸 uuid + edgeMap 让注解边复用克隆边 id（合并视图按 id 配对）+ sidecar 写失败补偿删除防半克隆。t182 探针 76 断言 ×3 全绿；全矩阵 117 套完成（t182 auto-include 槽位绿）；附带记载 Live 行 boot 竞速（间歇性，签名+探针自愈）。**
+
+- 【开局】worklog 尾部=Task 181/9e67a23（cron Task 13 文本第廿八次过时）。HEAD==origin/main 树净、正典 26 存活、冷启动 3s；三件套 qa00/qa63/t181 全绿判稳；agent-browser 巡检 console 零错（feed 42% 真值渲染=Task 181 修复可见成果）。
+- 【选题·侦查避免重复造轮】rename/delete UI 已有（卡片行+confirm dialog）、auto-arrange 已有（canvas tidy）、find bar 已有（Task 134）、palette 已富（跳转+导出家族）——**项目克隆不存在**（只有一条「重名允许」注释）。教学流水线跑完一键复制成新项目做第二次筛选/分支探索=真实 cryo-EM 工作流刚需。
+- 【实现·三层】①route：合同四条款写入 docstring（CARRIES：name「 copy」碰撞编号 ≤80 钳位/type/params/note/坐标/duration/workspace 名+序/边接线；RESETS：idle/0/null——「声称 completed 的克隆是在声称从未发生的 run」；SEVERS：linkedJobId 软链是同项目镜像语义，跨项目 link 未定义行为；META：mode 复制、registerProject(…,false) active 不瞬移）+ $transaction 一体克隆（无半克隆）。②store：duplicateProject 同 createProject 范式（POST→load()→toast 描述带 counts 真值）。③卡片：CopyPlus 按钮插 Rename/Delete 之间（350px 卡宽量定三图标 100px 无挤压、hover-none 触屏可达、duplicating 时 Loader2 旋转、last-project 守卫只钳 Delete 不钳 Duplicate——克隆是加法）。
+- 【第二层真相·三连】①**sidecar 文件边**：首跑 B27 挂（16 vs 15）——GET /api/edges 的 wire=15 DB+14 sidecar（13 条同 id 注解 + 1 条 half2 file-only：refine3d 双半图两根线，DB Edge 表一对 (from,to) 只能一行）；edgesWithPorts 合并语义=DB pair 被 sidecar pair 覆盖 + 按 id 配对端口。首版克隆补丁（全量 fresh-uuid 拷 sidecar）会把 13 条注解边复制成 29 条假线——**克隆 DB 边必须显式铸 uuid 并让注解边复用该 id**，file-only 边才领新 id；sidecar 写失败→补偿删除已提交 DB 克隆（prisma tx 管不了文件写，跨介质事务的税）。counts.edges 上报 wire 真值 16。②**t168 W9 静态扫描**：卫生探针扫的是源码不是世界——所有套件的种子名必须自签名（tNNN 前缀），「scratch main/ws2」两个工作区名裸奔→改名「t182 scratch main/ws2」。③**D6 子串碰撞**：「…copy 2」是「…copy 26 jobs」的子串——hasText 定位点到另一张卡；改 getByText exact+filter({has}) 精确卡定位（探针伤非产品伤）。
+- 【Live 行 boot 竞速】三次重启两次翻转（failed+「stale running state (no engine record)」而记录在文件 pid:1 恒活）——间歇性，无 build 的重启不翻转（相关性未定罪，根因考古让位）；行在一切后续 GET 下稳定。处置：t182 S 相签名检测（exact result 文本）→prisma 直写恢复→大字日志→重断言；qa60-seed-fsc 语义澄清：**无 flag=重建（含 Live 行），--clean=删 Live 行**（本轮误用 --clean 后无 flag 复原）。
+- 【操作顺序违规自食】矩阵 chunk 8 后中途独跑改名版 t182→撞上 mid-matrix 世界（t157/158/159 的常驻 fixture：QA Sel Alpha/Beta、QA Breathe Runner、QA WSPos Hollow/Ridgeline 五卡+两工作区是矩阵时代合法居民）→census 断言全歪。教义第五度验证：**矩阵中途的世界不属于任何单一套件**——qa60 无 flag 重建+手工清 5 fixture+2 工作区→正典 26 复原→chunks 9-10 含 t182 槽位全绿。
+- 【矩阵·117 套 10 块前台】chunks 1-7（84 套）全绿首跑；chunk 8 t168 挂 W9（源签名合同非世界污染）→探针改名→独跑绿→位内 #90 复跑绿；chunks 9-10（91-117）0 失败（词典序 t182<t99 故 t182 槽位在 chunk 10 前段）。qa75 连绿延续；块峰 207MB（qa82）远低 1200MB；t152 192s 一致最慢带。
+- 【世界收尾】正典 26（16c/8i/1f/1r、Live 42% wire 存活）+ Main/QA Bench 双区；卫生八审零 + domain-sweep 0/0/0；agent-browser 巡检：a11y 树三按钮行（Rename/Duplicate/Delete-disabled-last-project）、toast 实拍「Project duplicated · 26 jobs, 16 edges (reset to idle)」、KPI 带 2 projects/52 jobs 实时跳动、克隆卡 0/26 · 0% DOM 实读；克隆删除后 sidecar 回落 14（DELETE 路由 projectId 清扫自证）；定妆照两张（t182-toast-kpi.png、t182-patrol-cards.png）归档 scripts/shots-t182/。
+- 【收尾】worklog（本条）+ commit + push + 环境清理（杀 server 先 ss 查真实 PID、agent-browser close --all、diag-t182-scratch.mjs 归档留档）。
+
+Stage Summary:
+- 「真相住在合并视图里的那天，单表拷贝就成了撒谎」：边的 wire 真相=DB 表∪文件 sidecar（pair 覆盖+id 配对端口），克隆只对齐一张表就得到 15/16 的管线还自称完整。跨表配对的钥匙是显式 id——cuid 默认值在需要跨介质配对的那一刻就是 bug
+- 「补偿动作是跨介质事务的税」：prisma $transaction 管不了文件写——sidecar 失败时已提交的 DB 克隆必须被主动删除，否则「无半克隆」的合同被自己的实现背叛。先快照、后提交、再旁路写、失败回滚，四步都不能少
+- 「子串匹配在编号世界里必翻车」："copy 2" ⊂ "copy 26 jobs"——凡名字会自动编号的领域，定位一律 exact-text（getByText exact + filter({has})），includes 是给不会生长的字符串用的
+- 「种子名是卫生合同的字节」：t168 的 W9 扫描源码而非世界——签名（tNNN 前缀）把「这个种子归哪个套件所有」写在字面上；裸奔名字在被扫描时才是伤，但合同要求写对名字而非事后追认
+- 「矩阵中途的世界不属于任何单一套件」第五度：t157/158/159 的 fixture 是矩阵时代的合法居民——census 断言套件在矩阵窗口外独跑前必须先重建世界；qa60 的 --clean 是删除语义不是重建语义，读 Usage 行要读到第三行
+- 世界卫生观察账本（verdict 列）：全矩阵 117 套完成（84 首跑绿 + t168 源签名修复位内绿 + 97-117 二段全绿含 t182 槽位）；qa75 连绿延续；0 环境性抖动（Live 行翻转与 mid-matrix fixture 均为已知模式非抖动）；八审全零；正典构成精确复现
+- 遗留（下轮候选）：Live 行 boot 竞速根因考古（相关性 build→restart 2/2，机制未定罪——instrumentation 日志沉默，需一次带插桩的定向复现）；grabber nudge/undo 手感参数（真机，盲区依旧）；dialog 深色主题定妆照（第三度让位）；script RELION-present 分支（沙箱受限判决维持）；runner wall-time 剖面（让位）；EMPIAR 真数据回归（让位）；克隆的 note-only 携带在 scratch fixture 有 0 note 的世界里由 diag 佐证（restore 流程的 notes 大户是真机事项）
