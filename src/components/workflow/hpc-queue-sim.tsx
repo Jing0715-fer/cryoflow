@@ -27,12 +27,21 @@
  *   fastest profile wears the crown; clicking a row ADOPTS its shape
  *   into the form and re-runs the single Gantt (compare → adopt →
  *   inspect, one loop).
+ * - "Sweep export" (t188): the comparison table leaves the dialog —
+ *   Copy CSV puts the race on the clipboard, Download CSV saves it as
+ *   hpc-sweep-<stamp>.csv (and is the fallback when the clipboard is
+ *   denied). ONE builder feeds BOTH paths and the data-csv observation
+ *   attribute — the exported bytes are never a second derivation. The
+ *   CSV is machine-readable (raw minutes, not "1h 03m"), one row per
+ *   profile in race order, failures included with status=error; a
+ *   re-compare retires the previous export so stale numbers cannot
+ *   sneak into a report.
  */
 
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { GanttChart, Layers, Loader2, Play, Trophy } from "lucide-react";
+import { Copy, Download, GanttChart, Layers, Loader2, Play, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { jobType } from "@/lib/workflow";
 import { MODEL_BADGE } from "./hpc-profiles-editor";
@@ -69,6 +78,67 @@ interface SweepRow {
   r?: { makespanMin: number; gpuUtilization: number; avgWaitMin: number; totalGpuHours: number };
   err?: string;
 }
+
+/**
+ * The sweep's exit into reports (t188): a CSV contract that reads like
+ * sacct output — snake_case headers, raw minutes (machine-readable, NOT
+ * the "1h 03m" display format), utilization as a percent number, one
+ * row per profile in race order, failed profiles present with
+ * status=error so a report never silently drops a contestant.
+ */
+const SWEEP_CSV_HEADER =
+  "profile,gpu_model,nodes,gpus_per_node,gpus,array_conc,speedup,status,fastest,makespan_min,gpu_util_pct,avg_wait_min,gpu_hours,error";
+
+/** RFC 4180 cell: quote what needs quoting, double embedded quotes. */
+const csvCell = (v: string | number | boolean | undefined | null): string => {
+  const s = v === undefined || v === null ? "" : String(v);
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+};
+
+/**
+ * ONE builder for BOTH export paths (clipboard + download) — the same
+ * string that goes to the clipboard is what lands in the file. values
+ * come from the sweep rows (the RESPONSE echo), never from the DOM.
+ */
+const buildSweepCsv = (rows: SweepRow[], bestId: string | null): string =>
+  [
+    SWEEP_CSV_HEADER,
+    ...rows.map((row) =>
+      [
+        row.p.name,
+        row.p.gpuModel,
+        row.p.nodes,
+        row.p.gpusPerNode,
+        row.p.gpusPerNode * row.p.nodes,
+        row.p.arrayConcurrency,
+        row.p.gpuSpeedup,
+        row.r ? "ok" : "error",
+        !!row.r && row.p.id === bestId,
+        row.r?.makespanMin ?? "",
+        row.r ? Math.round(row.r.gpuUtilization * 1000) / 10 : "",
+        row.r?.avgWaitMin ?? "",
+        row.r ? Math.round(row.r.totalGpuHours * 10) / 10 : "",
+        row.err ?? "",
+      ]
+        .map(csvCell)
+        .join(","),
+    ),
+  ].join("\n");
+
+const sweepCsvFilename = (): string =>
+  `hpc-sweep-${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}.csv`;
+
+/** Blob download — the clipboard's honest fallback (and the explicit path). */
+const downloadText = (name: string, text: string): void => {
+  const url = URL.createObjectURL(new Blob([text], { type: "text/csv;charset=utf-8" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
 
 /** Per-type bar triplets — same badge language as the sibling HPC panels. */
 const TYPE_COLOR: Record<string, string> = {
@@ -125,6 +195,12 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
   const [clamped, setClamped] = React.useState(false);
   const [sweep, setSweep] = React.useState<SweepRow[] | null>(null);
   const [sweeping, setSweeping] = React.useState(false);
+  // Sweep export (t188): the note is the user-facing receipt; lastCsv is
+  // the exact string handed to clipboard/download (the probe's
+  // observation boundary — one source, no second derivation).
+  const [exportNote, setExportNote] = React.useState<string | null>(null);
+  const [lastCsv, setLastCsv] = React.useState<string | null>(null);
+  const noteTimer = React.useRef<number | null>(null);
   const [params, setParams] = React.useState<SimParams>({
     clusterGpus: 8, nodes: 4, arrayConcurrency: 8, gpuSpeedup: 25,
   });
@@ -183,6 +259,10 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
     setSweeping(true);
     setError(null);
     setOpen(true);
+    // A new race retires the previous export — stale numbers must not
+    // survive into a report.
+    setExportNote(null);
+    setLastCsv(null);
     try {
       const d = (await fetch("/api/hpc/profiles").then((r) => r.json())) as { profiles?: SweepProfile[] };
       const gpuProfiles = (d.profiles ?? []).filter((p) => p.gpusPerNode >= 1);
@@ -215,6 +295,33 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
     } finally {
       setSweeping(false);
     }
+  };
+
+  // Export the sweep: copy to clipboard, falling back to a download when
+  // the clipboard is denied (headless, permissions, insecure context).
+  // The CSV is built ONCE — clipboard, file and the data-csv observation
+  // attribute all receive the same string.
+  const flashNote = (text: string) => {
+    setExportNote(text);
+    if (noteTimer.current) window.clearTimeout(noteTimer.current);
+    noteTimer.current = window.setTimeout(() => setExportNote(null), 4000);
+  };
+  const exportCsv = async (mode: "copy" | "download") => {
+    if (!sweep?.length) return;
+    const csv = buildSweepCsv(sweep, bestRow?.p.id ?? null);
+    setLastCsv(csv);
+    if (mode === "copy") {
+      try {
+        await navigator.clipboard.writeText(csv);
+        flashNote(`Copied ${sweep.length} profile row${sweep.length === 1 ? "" : "s"} to the clipboard`);
+        return;
+      } catch {
+        // clipboard denied — the download is the honest fallback
+      }
+    }
+    const fname = sweepCsvFilename();
+    downloadText(fname, csv);
+    flashNote(`Downloaded ${fname}${mode === "copy" ? " (clipboard unavailable)" : ""}`);
   };
 
   // Adopt a sweep row: its declared shape becomes the form's shape (and
@@ -462,6 +569,30 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
                 <span className="text-[9.5px] tabular-nums text-muted-foreground">
                   {okRows.length}/{sweep.length} simulated
                 </span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 gap-1 px-1.5 text-[10px]"
+                  disabled={!sweep.length}
+                  onClick={() => void exportCsv("copy")}
+                  aria-label="Copy comparison as CSV"
+                  title="Copy the race as CSV (raw minutes, machine-readable) — falls back to a download when the clipboard is denied"
+                >
+                  <Copy className="size-3" aria-hidden="true" />
+                  CSV
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 gap-1 px-1.5 text-[10px]"
+                  disabled={!sweep.length}
+                  onClick={() => void exportCsv("download")}
+                  aria-label="Download comparison as CSV"
+                  title="Save the race as hpc-sweep-<timestamp>.csv — the same bytes the copy path puts on the clipboard"
+                >
+                  <Download className="size-3" aria-hidden="true" />
+                  CSV
+                </Button>
               </div>
               {sweep.length === 0 ? (
                 <p className="text-[10.5px] italic text-muted-foreground">
@@ -546,6 +677,16 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
                 GPU-hours ≈ cost proxy — the fastest cluster is not always the cheapest.
                 Click a row to adopt its shape and re-run the schedule above.
               </p>
+              {exportNote ? (
+                <p
+                  className="text-[9.5px] font-medium text-emerald-600 dark:text-emerald-400"
+                  role="status"
+                  aria-label="Export status"
+                  data-csv={lastCsv ?? undefined}
+                >
+                  {exportNote}
+                </p>
+              ) : null}
             </div>
           ) : null}
         </>

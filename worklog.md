@@ -5266,3 +5266,25 @@ Stage Summary:
 - 「同池不同档才是干净的实验」：默认两套 profile 恰好同为 16 GPU 池——倍率与节流的单变量对比不用搭台，世界自备；探针断言钉在这个天然实验上（H100 12m ≤ A100 19m、GPU-hours 1.8 ≤ 2.3）
 - 世界卫生观察账本（verdict 列）：本轮无全矩阵（对比环轮，183/184/185/186 判例=定向回归）；回归 qa00/qa63/qa58/t184/t185/t186 + t187 ×3 全绿；探针只读证明在案；正典 26 精确保持
 - 遗留（下轮候选）：sweep 结果的 CSV/剪贴板导出（对比表进报告的一里）；grabber nudge/undo 手感参数（真机盲区依旧）；dialog 深色主题定妆照（第八度让位）；script RELION-present 分支（沙箱受限判决维持）；EMPIAR 真数据回归（让位）；runner wall-time 剖面（让位）；#7 chart 路由全量同步读（guinier/resolution/angdist 热路径，cron 清单在案）
+
+## Task 188 (2026-09-15, cron 00:01 窗口 trace …202609150001)
+
+**主题：导出环收拢轮——the sweep earns its exit into reports。Task 187 交接首选项兑现：对比环把「哪套硬件该买」的答案画在对话框里，但表格出不去——报告、邮件、组会幻灯都拿不到那两行数字。Task 188 给 sweep 装上出口：Copy CSV 把赛果放上剪贴板，Download CSV 存为 hpc-sweep-<stamp>.csv（并在剪贴板被拒时成为诚实回退——headless、权限、非安全上下文都躲不开它）。合同的三个条款：①ONE builder 同时喂剪贴板、下载、data-csv 观察边界——导出的字节永不是第二次推导，断言 data-csv 就是断言剪贴板/文件拿到的东西；②CSV 是机器可读的（裸分钟而非「1h 03m」显示格式、snake_case 表头、utilization 为百分数、失败行以 status=error 在场——报告永不静默丢掉一个参赛者）；③re-compare 退位上一次导出——陈旧数字不得潜入报告。t188 31 断言 ×3 全绿，B10–B12 把 CSV 数值与 wire 真值逐项对账（探针自己重 POST 两形状再比对：A100 19≈19、H100 12≈12、util 百分标度、GPU-hours 一位小数）。**
+
+- 【开局】worklog 尾部=Task 187/0398bde（cron「Task 13」文本第卅四次过时；内嵌摘要仍停在 Task 181——摘要过时第六度）。树净、上窗口杀净 server → start-prod.sh 冷启动 6s；三件套 qa00/qa63/t181 全绿判稳；巡检 Dashboard+Workflow console 双零错。
+- 【实现·单文件】hpc-queue-sim.tsx：SWEEP_CSV_HEADER（14 列合同：profile/gpu_model/nodes/gpus_per_node/gpus/array_conc/speedup/status/fastest/makespan_min/gpu_util_pct/avg_wait_min/gpu_hours/error）+ csvCell（RFC 4180：含逗号/引号/换行即加引号、内嵌引号翻倍）+ buildSweepCsv（race 序一 profile 一行，fastest 布尔列钉在 min-makespan 冠军，数值全部来自 sweep 行=RESPONSE echo，从不来自 DOM）+ sweepCsvFilename（ISO 时间戳）+ downloadText（Blob+anchor+revoke）。组件侧 exportCsv(mode)（copy 先行、clipboard 拒绝落 download 并在回执里说明 "(clipboard unavailable)"）+ flashNote 4s 自清 + exportNote/lastCsv 双态（lastCsv 即 data-csv 的唯一来源）。UI：对比块头部两枚 ghost 按钮（Copy/Download + CSV 标签、`disabled={!sweep.length}` 拒绝空赛）、脚注下翡翠回执行 role="status" aria-label="Export status" 携 data-csv。
+- 【探针 t188·31 断言 ×3 全绿】S3（roster 26、trio registry、两赛马在场）+ X8 源 oracle（14 列合同、RFC 4180 转义、单源喂双路、data-csv 同串、catch 落 fallback、re-compare 退位、双按钮拒空赛、双门有姓名）+ B15 活线（copy 按钮竞后使能、**headless 剪贴板真被拒→回退真活了一命**「Downloaded hpc-sweep-…(clipboard unavailable)」、data-csv 300 字节在场、14 列表头、header+2 数据行、双赛马在册、status=ok ×2、恰一 fastest 旗钉在真胜者、**CSV≈wire 三连对账**、CSV 自身讲诚实赛 H100 12≤A100 19、下载回执报文件名、re-compare 退位可见）+ Z5 只读证明（roster 恒等、registry 未写、零 5xx/404、console 净）。
+- 【第二层真相·双】①**探针的 naive 解析器被产品的正确转义定罪**：首跑 B7–B9 三连挂——H100 显示名 `Slurm H100 hub (2×8 GPU, burst queue)` 含逗号，csvCell 按 RFC 4180 加引号没错，但探针 split(",") 天真拆列把 H100 行整体错位。这正是「注释剥离器不是解析器」的同族教训：**写入端转义多正确，读取端就必须同等地 RFC 4180 感知**——naive parser 在第一个逗号处说谎。修复=探针写状态机解析器（inQ/双引号翻倍/行尾收编）。②**emulateMedia 的假深色照**：`page.emulateMedia({colorScheme:"dark"})` 拍出的 dark 版与 light 版逐字节相同（cmp 证实）——本 app 深色是 class 制（html.dark），媒体查询模拟对它无效。假照删除，dialog 深色定妆照第八度让位（将来须切 class 而非 emulateMedia）。
+- 【矩阵插曲】全矩阵 bash run-matrix.sh 122 套（t188 auto-include 生效，121→122）跑至 [22/122] 全 PASS（qa00…qa81 含 fresh restart 卫生）后 10 分钟工具超时被杀——按 183 判例改定向回归收案：qa00/qa63/qa58 ALL PHASES GREEN/t181(23)/t184(33)/t185(55)/t186(47)/t187(34) 全绿 + t188 ×3。矩阵残段无孤儿进程（pgrep 双查）。教训备忘：**run-matrix.sh 是 bash 脚本，node 调它只会得到 SyntaxError: Invalid or unexpected token**（本次亲自踩中，exit 1 于 53ms）。
+- 【样式细节】导出按钮 h-6 紧凑 ghost、title 写明 fallback 语义与「same bytes」契约；回执行翡翠色 9.5px 与脚注灰分层；定妆照三张（t188-export.png 全景、t188-dialog.png 面板位、t188-comparison-receipt.png 2x 放大——按钮双联+FASTEST 冠+「Downloaded hpc-sweep-2026-09-14T16-27-22.csv」翡翠回执全清晰）归档 scripts/shots-t188/。
+- 【世界收尾】正典 26（16c/8i/1f/1r、Live 行存活）；探针只读（Z 相证明 registry 文件从未写、roster 恒等）；巡检 console 零错后无 agent-browser 残留。
+- 【收尾】worklog（本条）+ commit + push + 环境清理（杀 server 先 ss 查真实 PID）。
+
+Stage Summary:
+- 「导出的字节只能有一个父亲」：剪贴板、下载文件、data-csv 观察边界吃的是同一个 buildSweepCsv 的返回值——凡是会被两条路径独立推导的字符串，注定在第三条路径上分叉（Task 184「一个目录一个名字」的字面量教义在数据面上的重演）。断言钉在 data-csv 上等于钉在剪贴板上，因为它们本就是同一块内存
+- 「CSV 是给机器读的，显示格式是给人看的」：fmtMin 的「1h 03m」留在 DOM，裸分钟进 CSV——报告工具要的是可 sum/可 diff 的数字，不是好看的字符串。utilization 给百分数、GPU-hours 一位小数、失败行以 status=error 在场：报表不静默丢参赛者，是对比的诚实延伸
+- 「回退不是异常处理，是第二扇门」：headless 剪贴板真被拒的那一次，Download fallback 真活了一命——回执里 "(clipboard unavailable)" 把降级说出口，用户永远知道自己的数字走了哪条路。探针 B3 记录的正是这第一次真实降级
+- 「写入端转义多正确，读取端就得多严格」：csvCell 的引号救了含逗号的 H100 名字，却把天真 split 的探针送上错位的断头台——naive parser 在第一个逗号处说谎（与注释剥离器同族第二案）。解的法则是双向的：RFC 4180 感知解析器是消费 CSV 的入场券
+- 「re-compare 是导出的退位诏」：新赛开跑的瞬间旧回执与旧 CSV 同时消失——陈旧数字最大的危险不是错误，是过期却看起来正确；导出的生命周期必须等于产生它的那次赛跑
+- 世界卫生观察账本（verdict 列）：本轮无全矩阵（导出轮，183 判例=定向回归，残段 [1..22] PASS 在案）；回归 qa00/qa63/qa58/t181/t184/t185/t186/t187 + t188 ×3 全绿；探针只读证明在案；正典 26 精确保持
+- 遗留（下轮候选）：#7 chart 路由全量同步读（guinier/resolution/angdist 热路径，cron 清单三度在案——下轮性能修复首选）；#5 fs/browse 无鉴权；3D viewer 体积截面工具；Topaz wrapper；grabber nudge/undo 手感参数（真机盲区依旧）；dialog 深色主题定妆照（第八度让位——须 html.dark class 切换而非 emulateMedia）；script RELION-present 分支（沙箱受限判决维持）；EMPIAR 真数据回归（让位）；runner wall-time 剖面（让位）；sweep 导出进报告管线的下一里（CSV→Markdown/PDF 摘要）
