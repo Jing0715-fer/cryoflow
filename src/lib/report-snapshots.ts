@@ -552,6 +552,134 @@ export function ctfTableMarkdown(micrographs: CtfSnapshotMicrograph[]): string |
 }
 
 /* ------------------------------------------------------------------ */
+/* Motion drift — per-micrograph accumulated motion (MotionCorr)       */
+/* ------------------------------------------------------------------ */
+
+export interface MotionSnapshotMicrograph {
+  name: string;
+  /** total accumulated drift, Å */
+  total: number;
+  /** early-frames component, Å */
+  early: number;
+  /** late-frames component, Å */
+  late: number;
+}
+
+/** Motion drift snapshot — horizontal stacked bars sorted by total drift
+ *  (worst on top): teal = early component (stage settling), amber = late
+ *  component (kept drifting). The mean line splits the pack from the
+ *  outliers; the worst bar carries its name so the offender is named in
+ *  the report itself. Fail-soft: needs ≥3 usable rows. */
+export function buildMotionDriftSvg(input: {
+  title: string;
+  micrographs: MotionSnapshotMicrograph[];
+}): { svg: string; width: number; height: number } | null {
+  const rows = input.micrographs
+    .filter((m) => Number.isFinite(m.total) && m.total >= 0)
+    .sort((a, b) => b.total - a.total);
+  if (rows.length < 3) return null;
+
+  // report-safe sampling: worst-first order ALWAYS keeps the offender;
+  // long catalogues thin out beyond 20 bars but keep the last row
+  let bars = rows;
+  if (rows.length > 20) {
+    const k = Math.ceil(rows.length / 20);
+    bars = rows.filter((p, i) => i % k === 0 || i === rows.length - 1);
+  }
+
+  const W = 640;
+  const barH = 14;
+  const gap = 6;
+  const M = { t: 46, b: 36, l: 150, r: 18 };
+  const H = Math.min(M.t + M.b + bars.length * (barH + gap) + 8, 560);
+  const pw = W - M.l - M.r;
+  const title = input.title.length > 52 ? input.title.slice(0, 51) + "…" : input.title;
+  const maxTotal = Math.max(...bars.map((p) => p.total), 1e-6);
+  const mean = rows.reduce((a, p) => a + p.total, 0) / rows.length;
+  const fx = (v: number) => Math.round(v * 100) / 100;
+  const px = (v: number) => M.l + (v / maxTotal) * pw;
+
+  const parts: string[] = [];
+  parts.push(`<rect width="${W}" height="${H}" fill="#ffffff"/>`);
+  parts.push(
+    `<text x="54" y="17" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="600" fill="${C.text}">${esc(title)} — accumulated motion</text>`
+  );
+  parts.push(
+    `<text x="54" y="32" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10" fill="${C.faint}">${rows.length} micrographs · sorted by total drift · teal = early · amber = late · dashed = mean ${mean.toFixed(1)} Å</text>`
+  );
+
+  // x grid + ticks
+  for (const v of niceTicks(0, maxTotal, 5)) {
+    if (v === 0) continue;
+    parts.push(
+      `<line x1="${fx(px(v))}" y1="${M.t}" x2="${fx(px(v))}" y2="${M.t + bars.length * (barH + gap) - gap}" stroke="${C.gridSoft}" stroke-width="1"/>`
+    );
+    parts.push(
+      `<text x="${fx(px(v))}" y="${M.t + bars.length * (barH + gap) - gap + 13}" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="9.5" fill="${C.muted}">${v.toFixed(0)}</text>`
+    );
+  }
+
+  bars.forEach((p, i) => {
+    const y = M.t + i * (barH + gap);
+    const early = Math.max(0, Math.min(p.early, p.total));
+    const late = Math.max(0, p.total - early);
+    const label = p.name.length > 24 ? p.name.slice(0, 23) + "…" : p.name;
+    parts.push(
+      `<text x="${M.l - 6}" y="${fx(y + barH / 2 + 3)}" text-anchor="end" font-family="ui-sans-serif, system-ui, sans-serif" font-size="9" fill="${i === 0 ? C.amber : C.muted}">${esc(label)}</text>`
+    );
+    parts.push(
+      `<rect x="${M.l}" y="${y}" width="${fx(px(early) - M.l)}" height="${barH}" fill="${C.teal}" fill-opacity="0.85"/>`
+    );
+    if (late > 0) {
+      parts.push(
+        `<rect x="${fx(px(early))}" y="${y}" width="${fx(px(late) - M.l)}" height="${barH}" fill="${C.amber}" fill-opacity="0.85"/>`
+      );
+    }
+    if (i === 0) {
+      parts.push(
+        `<text x="${fx(px(p.total) + 5)}" y="${fx(y + barH / 2 + 3)}" font-family="ui-sans-serif, system-ui, sans-serif" font-size="9" font-weight="600" fill="${C.amber}">${p.total.toFixed(1)} Å — worst</text>`
+      );
+    }
+  });
+
+  // mean reference line
+  parts.push(
+    `<line x1="${fx(px(mean))}" y1="${M.t - 4}" x2="${fx(px(mean))}" y2="${M.t + bars.length * (barH + gap) - gap + 4}" stroke="${C.zinc}" stroke-width="1.2" stroke-dasharray="4 3" opacity="0.8"/>`
+  );
+  parts.push(
+    `<text x="${M.l}" y="${H - 6}" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10" fill="${C.muted}">accumulated drift (Å)</text>`
+  );
+
+  return {
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${parts.join("")}</svg>`,
+    width: W,
+    height: H,
+  };
+}
+
+/** Markdown table for per-micrograph motion; long lists are sampled to
+ *  ~24 rows (always keeping the first and the last), worst-first. */
+export function motionTableMarkdown(micrographs: MotionSnapshotMicrograph[]): string | null {
+  const rows = micrographs
+    .filter((m) => Number.isFinite(m.total) && m.total >= 0)
+    .sort((a, b) => b.total - a.total);
+  if (rows.length === 0) return null;
+  let sample = rows;
+  if (rows.length > 24) {
+    const k = Math.ceil(rows.length / 24);
+    sample = rows.filter((p, i) => i % k === 0 || i === rows.length - 1);
+  }
+  const lines = sample.map((m) => {
+    const early = Number.isFinite(m.early) ? m.early.toFixed(1) : "—";
+    const late = Number.isFinite(m.late) ? m.late.toFixed(1) : "—";
+    return `| ${m.name} | ${m.total.toFixed(1)} | ${early} | ${late} |`;
+  });
+  return ["| Micrograph | Total (Å) | Early (Å) | Late (Å) |", "| --- | ---: | ---: | ---: |", ...lines].join(
+    "\n"
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Angular distribution — polar sector heatmap                         */
 /* ------------------------------------------------------------------ */
 

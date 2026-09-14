@@ -99,6 +99,7 @@ import { JobResults } from "./results/results-view";
 import { ResolutionChart } from "./results/resolution-chart";
 import { FscChart } from "./results/fsc-chart";
 import { CtfQualityChart } from "./results/ctf-quality-chart";
+import { MotionDriftChart } from "./results/motion-drift-chart";
 import { ClassDistributionChart } from "./results/class-distribution-chart";
 import { AngularDistributionChart } from "./results/angular-distribution-chart";
 import { CryoSparcAnglePanel } from "./results/cryosparc-angle-panel";
@@ -1325,6 +1326,7 @@ function OverviewTab({
   const isOrientationType = /symexpand|rebalance/i.test(job.type);
   const isClassifyType = /class2d|class3d/i.test(job.type);
   const isCtfType = /ctffind|ctf/i.test(job.type);
+  const isMotionType = /^motioncorr$/i.test(job.type);
   const hasIterated = (job.status === "running" || job.status === "completed" || job.status === "failed") &&
     (job.progress > 4 || job.status !== "running");
   return (
@@ -1378,6 +1380,12 @@ function OverviewTab({
       {/* CTF estimation gets a per-micrograph fit quality panel. */}
       {isCtfType && job.status !== "idle" ? (
         <CtfQualityChart jobId={job.id} />
+      ) : null}
+      {/* MotionCorr gets the per-micrograph accumulated-motion panel
+          (stacked early/late bars, worst-first; self-hides until the job
+          carries a corrected_micrographs.star catalogue). */}
+      {isMotionType && job.status !== "idle" ? (
+        <MotionDriftChart jobId={job.id} />
       ) : null}
       {/* Topaz training gets its per-epoch loss curve (self-hides until the
           run log carries recognizable topaz progress). */}

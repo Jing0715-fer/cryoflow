@@ -282,9 +282,11 @@ const phaseS = async () => {
   const p = J(paletteProbe);
   must(p.exportGroup === true, "Export chart data group present");
   must(p.copyGroup === true, "Copy chart data group present (Task 113)");
-  must(p.copyRowCount === 6, `copy group carries six rows (got ${p.copyRowCount})`);
+  // Task 178: motion joins the export registry — the palette's chart groups
+  // map CHART_EXPORT_TARGETS directly, so the copy group grows 6 → 7 rows
+  must(p.copyRowCount === 7, `copy group carries seven rows (motion joined at Task 178; got ${p.copyRowCount})`);
   must(p.copySuffixes.every(Boolean), "every copy row carries the tsv · clipboard suffix");
-  must(p.copyIds.length === 6 && p.copyIds.every(id => /^palette-chart-copy-(fsc|guinier|resolution|ctf|topaz|angdist)$/.test(id)),
+  must(p.copyIds.length === 7 && p.copyIds.every(id => /^palette-chart-copy-(fsc|guinier|resolution|ctf|motion|topaz|angdist)$/.test(id)),
     `copy rows carry per-chart probe testids (got ${p.copyIds.join(",")})`);
   await closePalette();
   step("PHASE S GREEN");

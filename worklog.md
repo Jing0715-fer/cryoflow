@@ -5043,3 +5043,26 @@ Stage Summary:
 - 环境律新增：cron 机制会把中断现场自动提交（标题「<uuid>-cron」格式）——接手时先 `git show <sha> --stat` 识别它，worklog「进行中」条目+自动提交=上一窗口的完整现场，直接续跑即可
 - 世界卫生观察账本（verdict 列）：全矩阵 112/112 零失败零抖动（qa75 七连绿；t177 一败为世界消耗非抖动，重建后原位复绿）；0 环境性失败；八审全零；正典构成精确复现
 - 遗留（下轮候选）：grabber nudge 的真机手感（agent-browser 合成事件盲区依旧，须真机）；undo 手感参数（真机）；320–280 中间带 tab 栏余量复查（健康，低优）；runner wall-time 剖面（t152 191s 一致带，让位）；EMPIAR 真数据回归（重，让位）；用户真机项（三级阶梯+长按+swipe+grabber+toast 手势+nudge+fold 态可真机验收）
+
+## Task 178 (2026-09-14, cron 12:01 窗口 trace …202609141211)
+
+**主题：功能轮——MotionCorr 赢得它的运动图（the drift earns its chart）。修正典里 26 个 job 的第一站 MotionCorr 从未有过 per-micrograph 运动视图：corrected_micrographs.star 里的 _rlnAccumulatedMotionTotal/Early/Late（Å）三列无人读过。本轮全链新功能：/api/jobs/[id]/motion（block-aware STAR 解析）+ MotionDriftChart（early/late 堆叠横条、worst-first、mean+2σ 离群徽章+明细表）+ report snapshot（buildMotionDriftSvg + motionTableMarkdown）+ palette copy/export 组自动扩容。t178 探针 36 断言 ×3 全绿；全矩阵 113 套完成（108 首跑绿 + 3 处位链修复全闭环）。附带擒获一个真实产品伤：minimap 跳位吞点击。**
+
+- 【开局】worklog 尾部 = Task 177/66ff7a7 全绿闭环。HEAD==origin/main 树净、BUILD_ID rLridzv…、PORT FREE；冷启动 8s；三件套 qa63/qa00/t177 全绿判稳。交接候选核实：grabber nudge/undo 手感须真机（agent-browser 合成事件盲区）、320-280 中间带健康低优——触屏工艺已连做六轮，本轮按惯例⑤转功能面。侦查确认 3D 截面工具（mol-viewer Slice）与 Topaz wrapper（API+chart）历轮已做；results 面 16 组件盘点发现 **motion 运动数据零消费**（grep motion/drift 全库零命中）——选它。
+- 【实现·五处】①`/api/jobs/[id]/motion`：读 workdir 的 corrected_micrographs.star，block-aware 解析（ctf 端点的 freeze-on-first-row 规则——optics block 的行永不泄漏进数据 loop），三列 accumulated motion + worst/mean summary，cachedFileCompute 包裹；②MotionDriftChart：recharts 竖排堆叠横条（teal=early 阶段性沉降 / amber=late 束致漂移——两种成分对应两种处置：切头帧 vs 剂量加权，颜色分裂让诊断先于表格），worst-first 排序（离群者是第一眼所见），mean+2σ 离群徽章（用本 run 自己的尺度），明细表 worst-first；③chart-rows：motionRows + CHART_EXPORT_TARGETS 注册（palette copy/export 组 6→7 行自动继承）；④report-snapshots：buildMotionDriftSvg（worst-first 横条快照，offender 带名）+ motionTableMarkdown（采样 ≤24 行保首尾）+ results-view 的 motionSection（honest-arrival 合同：fetch 空则无 section）；⑤job-inspector OverviewTab 挂载（isMotionType=/^motioncorr$/i，与 CTF/Guinier/FSC 同惯例：chart 只在桌面 inspector）。
+- 【探针三课】①**completed job 的 inspector 默认 tab 是 results 不是 overview**（2206 行 setTab 逻辑）——chart 在 OverviewTab，探针须真实点击 tab；**Radix trigger 吃真实指针事件，evaluate 的 el.click() 永不翻 tab**（t176 教义第二次应验）。②**移动端 sheet 的 Results tab 是 JobResults（report 视图）**——motion panel 按惯例只在桌面 inspector，M 相把「panel 在 sheet 缺席」钉为诚实合同而非假装它该在。③**self-seed 模式**：探针把 mock catalogue 写进 QA MotionCorr workdir（engine-state 读 workdir），「文件已存在则不动」（不拥有不碰），finally 兜底清理——消费者不依赖偶然（Task 87 教义的 fixture 版）。
+- 【第二层真相·t87 连锁】矩阵块 4 t111 挂「copy group carries six rows (got 7)」——**motion 注册进 CHART_EXPORT_TARGETS 是全局表**，palette 的 copy 组直接 map 它，6→7 行是产品正确行为 → 更新 t111 合同（原位 #37 复绿）。块 9 t177/t178 挂 S 基线——Live 行被矩阵诚实消耗 → qa60 重建 → 双双单跑复绿 + 原位 98/99 复绿。块 10 t87 挂「minimap subtree intercepts pointer events」——**真产品伤**：单选第一张卡 → 380px JobPanel aside 弹出（Task 157 设计）→ canvas section 右缘 1600→1220 → minimap（bottom-3 right-3 随 section）跳位 380px **静默盖住第二张卡** → Shift-click 被吞（诊断 dump 铁证：minimap 从 [1382..1588] 跳到 [1002..1208]，B 卡中心 1016,700 落入 hitChain=P[MM]）。真实用户同样被吞。
+- 【产品+探针双修】产品：minimap 头部装饰标签「map」p 加 pointer-events-none（纯装饰不参与交互，本例 B 与头部条重叠；地图本体的拦截是导航本职）。探针：t87 的 panUntilVisible 长出 **covered 判据**（卡中心在 minimap 盒内=不可见，继续 pan）+ pan delta clamp 900/420→1500/800、循环 8→12；pickFirst/pickSecond 全走 **safeClick**（click 前最后一刻 elementFromPoint 实测，被拦则 re-pan 重试——pan 判定与 click 之间世界仍会变）。
+- **「探针自己的 NaN」**：covered 判据首版写 `b.x + b.w / 2`——**DOMRect 的字段是 width，`b.w` 是 undefined** → NaN 比较恒 false → 防线睡了三轮假绿（safeclick 循环 5 次全过但 click 仍挂）。dbg 分量 dump（c1..c4 布尔）钉死 `b.w=undefined`。教训入源码注释：**「b 是 DOMRect：width/height，不是 w/h——`b.w` 是 undefined，NaN 比较静默把整个检查按在 false 上，这正是防线在初稿里睡死的方式」**。修正后 t87 ALL PASS（35 断言）。
+- 【验证】t178 ×3 全绿（36 断言：S3/X11/M4/D7/R5/Z4）；t111/t87 原位复绿；产品修复重建后 t87+t178 双绿；qa63/qa00 回归绿；agent-browser 巡检 console 零错。
+- 【矩阵·113 套 10 块】t178 auto-include（113=112+1）；qa75 位 #16 **八连绿**；块峰 208MB（qa69）远低 1200MB 阈值；t152 191s 一致最慢带。矩阵诚实消耗 → qa60 重建 → **26 jobs（16c/8i/1f/1r 正典构成精确复现）**；卫生八审全零 + domain-sweep 0/0/0。
+- 【收尾】worklog（本条）+ commit + push + 环境清理（杀 server 先 ss 查真实 PID、agent-browser close --all、diag 脚本归档 scripts/ 留档）。
+
+Stage Summary:
+- 「全局注册表的涟漪」：CHART_EXPORT_TARGETS 加一行，palette copy 组、export 组、报告管线全部自动继承——设计的复利；但 t111 的「six rows」合同也躺在涟漪里。改共享注册表时，grep 消费方只是第一步，**每张写着具体行数的探针合同都是消费方**
+- 「单选面板是布局地震的震源」：380px aside 弹出 → section 变窄 → 一切 bottom-right 锚定的浮层随动。minimap 跳位 380px 盖住用户的下一目标——每个「随容器锚定」的浮层都要回答「容器缩窄时我盖住了谁」
+- 「pan 判定与 click 之间，世界继续转」：panUntilVisible 判定可见 → JobPanel mount → minimap 跳位 → click 被拦——判定与动作之间的时间窗是世界变化的窗口。最后防线必须贴着动作（safeClick 的 elementFromPoint 实测在 click 前一刻）
+- 「NaN 是布尔合同的安眠药」：`b.w`（undefined）参与算术得 NaN，NaN 的任何比较都是 false，`covered` 永远 false——防线**静默失效**而非报错。dbg 分量 dump（c1..c4）是破案手段；**新写的守卫要喂一个「必真」的用例验它能真**，不能只验它不误报
+- 「消费者不依赖偶然」的 fixture 版：self-seed 进 workdir + 「已存在则不拥有」+ finally 兜底——探针与世界的数据边界写进行为里，不写在注释里
+- 世界卫生观察账本（verdict 列）：全矩阵 113 套完成（108 首跑绿；t111 合同升级、t177/t178 世界消耗、t87 minimap 伤——三处位链修复全闭环）；qa75 八连绿；0 环境性抖动；八审全零；正典构成精确复现
+- 遗留（下轮候选）：minimap 本体盖卡的完整方案（头部 P 已修，本体拦截是导航本职——若做「选中卡让位」须过过度工程关）；motion chart 的 sheet 端（移动端 Results tab 无 chart 面板——全 chart 家族的既有惯例，若做是产品决策非修补）；grabber nudge/undo 手感参数（真机）；runner wall-time 剖面（t152 191s 一致带，让位）；EMPIAR 真数据回归（重，让位）；用户真机项（三级阶梯+长按+swipe+grabber+toast+nudge+fold+本轮 motion 图可真机验收）

@@ -120,14 +120,62 @@ const ids = { a: jobA.id, b: jobB.id, sel2d: (await listJobs()).find((j) => j.na
 // VERIFIED-EMPTY canvas point — a drag started on a card would move the
 // job) until the target sits inside the viewport. Bounded, self-healing.
 const panUntilVisible = async (id) => {
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < 12; i++) {
     const r = await p.evaluate((jobId) => {
       const el = document.querySelector(`[data-job="${jobId}"]`);
       if (!el) return null;
       const b = el.getBoundingClientRect();
-      return { x: b.x, y: b.y, w: b.width, h: b.height, vw: innerWidth, vh: innerHeight };
+      // Task 178: "visible" must mean NOT COVERED — the minimap sits at
+      // bottom-right (lg:block) and silently intercepts clicks on cards
+      // parked under it (the world's growth parks them there). Treat a
+      // card whose CENTER lands inside the minimap box as not-yet-visible.
+      const mm = document.querySelector('[data-canvas-ui="minimap"]');
+      let covered = false;
+      if (mm) {
+        const m = mm.getBoundingClientRect();
+        const cs = getComputedStyle(mm);
+        // b is a DOMRect: width/height (NOT w/h — a `b.w` is undefined and
+        // NaN-comparisons silently floor the whole check to false, which is
+        // exactly how this guard slept through its own first draft)
+        covered = cs.display !== "none" &&
+          b.x + b.width / 2 >= m.left && b.x + b.width / 2 <= m.right &&
+          b.y + b.height / 2 >= m.top && b.y + b.height / 2 <= m.bottom;
+      }
+      const w = document.querySelector('[data-canvas="workspace"]');
+      const t = getComputedStyle(w).transform;
+      const m = new DOMMatrixReadOnly(t === "none" ? "" : t);
+      const mmR = mm?.getBoundingClientRect();
+      const dbg = mm ? (() => {
+        const cs2 = getComputedStyle(mm);
+        const mm2 = mm.getBoundingClientRect();
+        const cxv = b.x + b.width / 2, cyv = b.y + b.height / 2;
+        return {
+          display: cs2.display,
+          cx: Math.round(cxv * 10) / 10, cy: Math.round(cyv * 10) / 10,
+          mleft: mm2.left, mright: mm2.right, mtop: mm2.top, mbottom: mm2.bottom,
+          c1: cxv >= mm2.left, c2: cxv <= mm2.right, c3: cyv >= mm2.top, c4: cyv <= mm2.bottom,
+        };
+      })() : "no-mm";
+      return { x: b.x, y: b.y, w: b.width, h: b.height, vw: innerWidth, vh: innerHeight, covered,
+        mm: mmR ? `${Math.round(mmR.left)}..${Math.round(mmR.right)}x${Math.round(mmR.top)}..${Math.round(mmR.bottom)}` : null,
+        hit: (() => { const h = document.elementFromPoint(b.x + b.width / 2, b.y + b.height / 2); return h ? (h.tagName + (h.closest('[data-canvas-ui="minimap"]') ? "[MM]" : "") + (h.closest(`[data-job]`) ? "[JOB]" : "")) : "null"; })(),
+        dbg,
+        zoom: m.a };
     }, id).catch(() => null);
+    if (process.env.T87_DEBUG) console.log(`    [pan ${id.slice(-6)} #${i}] ${JSON.stringify(r)}`);
     if (r == null) return; // not in DOM — the click fails loudly on its own
+    if (r.covered) {
+      // nudge the world so the card steps OUT of the minimap box: the
+      // card must move LEFT+UP on screen, and the content follows the
+      // hand — drag the mouse left+up (toward the viewport center's
+      // upper side, away from the bottom-right minimap)
+      await p.mouse.move(r.vw / 2, r.vh / 2);
+      await p.mouse.down();
+      await p.mouse.move(r.vw / 2 - 260, r.vh / 2 - 200, { steps: 6 });
+      await p.mouse.up();
+      await sleep(350);
+      continue;
+    }
     if (r.w > 0 && r.x >= 4 && r.y >= 110 && r.x + r.w <= r.vw - 4 && r.y + r.h <= r.vh - 110) return;
     const dx = Math.round(r.vw / 2 - (r.x + r.w / 2));
     const dy = Math.round(r.vh / 2 - (r.y + r.h / 2));
@@ -147,19 +195,76 @@ const panUntilVisible = async (id) => {
     const cy = Math.round(origin.y);
     await p.mouse.move(cx, cy);
     await p.mouse.down();
-    await p.mouse.move(cx + Math.max(-900, Math.min(900, dx)), cy + Math.max(-420, Math.min(420, dy)), { steps: 8 });
+    await p.mouse.move(cx + Math.max(-1500, Math.min(1500, dx)), cy + Math.max(-800, Math.min(800, dy)), { steps: 8 });
     await p.mouse.up();
     await sleep(350);
   }
 };
+/* Task 178 second-truth: between panUntilVisible's verdict and the click,
+   the world can SHIFT under the cursor — selecting the FIRST card mounts
+   the 380px JobPanel aside, the canvas section narrows, and the minimap
+   (bottom-3 right-3 of the section) JUMPS 380px left, silently landing on
+   the second card. A real user's Shift-click gets eaten exactly the same
+   way. So every click re-checks reality at the last moment: if the card's
+   center is no longer the topmost hit, nudge the world (content follows
+   the hand — drag left+up moves the card left+up, out of the map) and
+   retry; only then commit the click. */
+const safeClick = async (id, opts) => {
+  for (let i = 0; i < 5; i++) {
+    const blocked = await p.evaluate((jobId) => {
+      const el = document.querySelector(`[data-job="${jobId}"]`);
+      if (!el) return true;
+      const b = el.getBoundingClientRect();
+      if (b.width === 0) return true;
+      const hit = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
+      return !hit || !hit.closest(`[data-job="${jobId}"]`);
+    }, id);
+    if (!blocked) break;
+    if (process.env.T87_DEBUG) console.log(`    [safeclick ${id.slice(-6)} #${i}] intercepted — re-panning`);
+    await panUntilVisible(id);
+  }
+  await p.locator(`[data-job="${id}"]`).first().click(opts);
+  await sleep(350);
+};
 const pickFirst = async (id) => {
   await panUntilVisible(id);
-  await p.locator(`[data-job="${id}"]`).first().click();
-  await sleep(350);
+  if (process.env.T87_DEBUG) await dumpClickTarget(id, "pickFirst");
+  await safeClick(id);
+};
+const dumpClickTarget = async (id, tag) => {
+  const geo = await p.evaluate((jobId) => {
+    const el = document.querySelector(`[data-job="${jobId}"]`);
+    if (!el) return { none: true };
+    const b = el.getBoundingClientRect();
+    const cx = b.left + b.width / 2, cy = b.top + b.height / 2;
+    const hit = document.elementFromPoint(cx, cy);
+    const chain = [];
+    let cur = hit;
+    while (cur && chain.length < 6) {
+      chain.push(`${cur.tagName}${cur.getAttribute?.("data-job") ? "[job]" : ""}${cur.getAttribute?.("data-canvas-ui") ? "[ui=" + cur.getAttribute("data-canvas-ui") + "]" : ""}`);
+      cur = cur.parentElement;
+    }
+    const mm = document.querySelector('[data-canvas-ui="minimap"]');
+    const m = mm?.getBoundingClientRect();
+    const op = mm?.offsetParent;
+    const opr = op?.getBoundingClientRect();
+    const sec = document.querySelector('[data-canvas="viewport"]');
+    const secr = sec?.getBoundingClientRect();
+    return {
+      card: { x: Math.round(b.left), y: Math.round(b.top), w: Math.round(b.width), h: Math.round(b.height) },
+      center: `${Math.round(cx)},${Math.round(cy)}`,
+      minimap: m ? `${Math.round(m.left)}..${Math.round(m.right)}x${Math.round(m.top)}..${Math.round(m.bottom)}` : null,
+      offsetParent: op ? `${op.tagName}[${(op.getAttribute("data-canvas") ?? op.className ?? "").toString().slice(0, 30)}] ${opr ? Math.round(opr.width) + "w right=" + Math.round(opr.right) : ""}` : "null",
+      section: secr ? `w=${Math.round(secr.width)} right=${Math.round(secr.right)}` : null,
+      hitChain: chain,
+    };
+  }, id);
+  console.log(`    [${tag} target] ${JSON.stringify(geo)}`);
 };
 const pickSecond = async (id) => {
   await panUntilVisible(id);
-  await p.locator(`[data-job="${id}"]`).first().click({ modifiers: ["Shift"] });
+  if (process.env.T87_DEBUG) await dumpClickTarget(id, "pickSecond");
+  await safeClick(id, { modifiers: ["Shift"] });
   await sleep(350);
 };
 
@@ -178,6 +283,29 @@ const tb = await p.evaluate(() => {
 must(tb.present, "A1 selection toolbar appears for the pair");
 must(tb.label.includes(", compare,"), `A2 toolbar aria-label advertises compare (${tb.label})`);
 must(tb.compare, "A3 Compare button present for same-type pair");
+if (process.env.T87_DEBUG) {
+  const geo = await p.evaluate(() => {
+    const r = (el) => {
+      if (!el) return null;
+      const b = el.getBoundingClientRect();
+      return { x: Math.round(b.left), y: Math.round(b.top), w: Math.round(b.width), h: Math.round(b.height) };
+    };
+    const cmp = document.querySelector('[data-testid="toolbar-compare-params"]');
+    let intercept = null;
+    if (cmp) {
+      const b = cmp.getBoundingClientRect();
+      const el = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
+      intercept = el ? `${el.tagName}.${(typeof el.className === "string" ? el.className : "").split(" ").slice(0, 3).join(".")} inMinimap=${!!el.closest('[data-canvas-ui="minimap"]')} inToolbar=${!!el.closest('[data-canvas-ui="selection-toolbar"]')}` : "null";
+    }
+    return {
+      toolbar: r(document.querySelector('[data-canvas-ui="selection-toolbar"]')),
+      minimap: r(document.querySelector('[data-canvas-ui="minimap"]')),
+      compare: r(cmp),
+      intercept,
+    };
+  });
+  console.log(`    [t87-geo] ${JSON.stringify(geo)}`);
+}
 await p.locator('[data-testid="toolbar-compare-params"]').click();
 await p.waitForSelector('[data-testid="params-diff-dialog"]');
 await sleep(300);

@@ -44,15 +44,18 @@ import {
   buildAngdistHeatmapSvg,
   buildCtfScatterSvg,
   buildGuinierSvg,
+  buildMotionDriftSvg,
   buildResolutionSvg,
   ctfTableMarkdown,
   guinierTableMarkdown,
+  motionTableMarkdown,
   resolutionTableMarkdown,
   svgToPngDataUrl,
   buildTopazSvg,
   topazTableMarkdown,
   type AngDistSnapshot,
   type CtfSnapshotMicrograph,
+  type MotionSnapshotMicrograph,
   type TopazSnapshotEpoch,
 } from "@/lib/report-snapshots";
 import type { JobDTO } from "@/lib/types";
@@ -216,9 +219,10 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
         fsc: FscBody | null;
         res: { current: number | null; best: number | null; points: { iteration: number; resolution: number }[] } | null;
         ctf: { micrographs: CtfSnapshotMicrograph[]; summary: { count: number; meanDefocus: number; maxAstigmatism: number; meanFom: number; worstResolution: number } | null } | null;
+        motion: { micrographs: MotionSnapshotMicrograph[]; summary: { count: number; meanTotal: number; maxTotal: number; worstName: string | null; meanEarly: number; meanLate: number } | null } | null;
         ang: AngDistSnapshot | null;
         topaz: { epochs: TopazSnapshotEpoch[]; source: string | null } | null;
-      } = { fsc: null, res: null, ctf: null, ang: null, topaz: null };
+      } = { fsc: null, res: null, ctf: null, motion: null, ang: null, topaz: null };
       await Promise.all([
         fetch(`/api/jobs/${job.id}/fsc`, { cache: "no-store" })
           .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
@@ -247,9 +251,22 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
             }
           )
           .catch(() => {}),
-        // CTF fit quality (CtfFind-style micrographs_ctf.star) + orientation
+        // CTF fit quality (CtfFind-style micrographs_ctf.star) + motion drift
+        // (MotionCorr-style corrected_micrographs.star) + orientation
         // distribution (refine/class data star) — same honest-arrival
         // contract: an empty or failed fetch simply is not a section.
+        fetch(`/api/jobs/${job.id}/motion`, { cache: "no-store" })
+          .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+          .then(
+            (d: {
+              micrographs?: MotionSnapshotMicrograph[];
+              summary?: { count: number; meanTotal: number; maxTotal: number; worstName: string | null; meanEarly: number; meanLate: number } | null;
+            }) => {
+              if ((d.micrographs ?? []).length > 0)
+                found.motion = { micrographs: d.micrographs!, summary: d.summary ?? null };
+            }
+          )
+          .catch(() => {}),
         fetch(`/api/jobs/${job.id}/ctf`, { cache: "no-store" })
           .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
           .then(
@@ -410,6 +427,28 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
         ctfSection = block;
       }
 
+      // Motion drift — per-micrograph accumulated motion (MotionCorr)
+      let motionSection: string[] | null = null;
+      const motion = found.motion;
+      if (motion && motion.micrographs.length >= 3) {
+        const block: string[] = ["## Accumulated motion", ""];
+        const s = motion.summary;
+        if (s)
+          block.push(
+            `${s.count} micrographs — mean drift **${s.meanTotal.toFixed(1)} Å** (early ${s.meanEarly.toFixed(1)} / late ${s.meanLate.toFixed(1)})${s.worstName ? `, worst **${s.worstName}** at **${s.maxTotal.toFixed(1)} Å**` : ""}. Bars sort worst-first: teal = early frames (stage settling), amber = late frames (beam-induced).`,
+            ""
+          );
+        const table = motionTableMarkdown(motion.micrographs);
+        if (table) block.push(table, "");
+        const png = await snapshot(buildMotionDriftSvg({ title: job.name, micrographs: motion.micrographs }));
+        if (png) {
+          block.push(`![Accumulated motion for ${job.name}](${png})`, "");
+        } else {
+          block.push("_Motion snapshot unavailable in this browser — the table above is the full data._", "");
+        }
+        motionSection = block;
+      }
+
       // Angular distribution — orientation coverage from the final data star
       let angSection: string[] | null = null;
       const ang = found.ang;
@@ -472,6 +511,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
         ...(fscSection ? [{ title: "FSC curve", slug: "fsc-curve" }] : []),
         ...(guinierSection ? [{ title: "Guinier plot", slug: "guinier-plot" }] : []),
         ...(ctfSection ? [{ title: "CTF fit quality", slug: "ctf-fit-quality" }] : []),
+        ...(motionSection ? [{ title: "Accumulated motion", slug: "accumulated-motion" }] : []),
         ...(angSection ? [{ title: "Angular distribution", slug: "angular-distribution" }] : []),
         ...(topazSection ? [{ title: "Topaz training", slug: "topaz-training" }] : []),
         { title: "Outputs on disk", slug: "outputs-on-disk" },
@@ -512,6 +552,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
         ...(fscSection ?? []),
         ...(guinierSection ?? []),
         ...(ctfSection ?? []),
+        ...(motionSection ?? []),
         ...(angSection ?? []),
         ...(topazSection ?? []),
         "## Outputs on disk",

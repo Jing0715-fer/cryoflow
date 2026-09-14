@@ -331,7 +331,7 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
           propagation so the container's navigate-on-pointerdown never
           hijacks a mode click */}
       <div className="flex items-center justify-between gap-1 px-0.5 pb-0.5">
-        <p className="text-[9px] font-medium uppercase tracking-widest text-muted-foreground/70">
+        <p className="pointer-events-none text-[9px] font-medium uppercase tracking-widest text-muted-foreground/70">
           map
         </p>
         <div

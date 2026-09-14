@@ -191,6 +191,50 @@ export function ctfRows(data: CtfResponse | null | undefined): CsvRow[] {
   }));
 }
 
+/* ---------------- Motion drift (MotionCorr) ---------------- */
+
+export interface MotionMicrograph {
+  name: string;
+  relPath: string;
+  /** total accumulated drift over the whole movie, Å */
+  total: number;
+  /** early-frames component, Å */
+  early: number;
+  /** late-frames component, Å */
+  late: number;
+}
+
+export interface MotionSummary {
+  count: number;
+  meanTotal: number;
+  maxTotal: number;
+  worstName: string | null;
+  meanEarly: number;
+  meanLate: number;
+}
+
+export interface MotionResponse {
+  jobId?: string;
+  sourceFile: string | null;
+  micrographs: MotionMicrograph[];
+  summary: MotionSummary | null;
+}
+
+export function motionRenderable(micrographCount: number): boolean {
+  return micrographCount > 0;
+}
+
+export function motionRows(data: MotionResponse | null | undefined): CsvRow[] {
+  const micrographs = data?.micrographs ?? [];
+  if (!motionRenderable(micrographs.length)) return [];
+  return micrographs.map((m) => ({
+    micrograph: m.name,
+    "total drift (A)": m.total,
+    "early drift (A)": m.early,
+    "late drift (A)": m.late,
+  }));
+}
+
 /* ---------------- Topaz training ---------------- */
 
 export interface TopazEpochDTO {
@@ -313,6 +357,12 @@ export const CHART_EXPORT_TARGETS: ChartExportTarget[] = [
     label: "CTF fit quality",
     endpoint: (id) => `/api/jobs/${id}/ctf`,
     rows: (d) => ctfRows(d as CtfResponse),
+  },
+  {
+    key: "motion",
+    label: "Motion drift",
+    endpoint: (id) => `/api/jobs/${id}/motion`,
+    rows: (d) => motionRows(d as MotionResponse),
   },
   {
     key: "topaz",
