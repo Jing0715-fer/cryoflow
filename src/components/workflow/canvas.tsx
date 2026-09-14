@@ -2132,7 +2132,7 @@ export function WorkflowCanvas() {
         <Button
           variant="ghost"
           size="icon"
-          className={`size-7 ${minimapOpen ? "text-primary" : ""}`}
+          className={`size-7 max-lg:hidden ${minimapOpen ? "text-primary" : ""}`}
           onClick={() => setMinimapOpen(!minimapOpen)}
           aria-pressed={minimapOpen}
           aria-label="Toggle minimap"

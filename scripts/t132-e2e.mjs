@@ -265,7 +265,7 @@ async function main() {
 
   /* ---------------- Phase Z — console + cleanup ---------------- */
   step("--- Phase Z: console + cleanup ---");
-  must(pageErrors.length === 0, `Z1 zero page errors (${pageErrors.length})`);
+  must(pageErrors.length === 0, `Z1 zero page errors (${pageErrors.length}): ${pageErrors[0] ?? ""}`);
   const honest = consoleErrors.filter(
     (t) => !/favicon|404|sitemap|AbortError|ERR_ABORTED/i.test(t)
   );

@@ -554,7 +554,11 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
     <div className="flex h-full min-h-0 flex-col">
       {/* ---- header: title + search ---- */}
       <div className="shrink-0 space-y-2.5 p-3 pb-2">
-        <div className="flex items-center gap-2 px-1">
+        <div className="flex items-center gap-2 px-1 max-lg:pr-9">
+          {/* Task 176: below lg the palette is the SHEET, and the sheet's
+              built-in Close (absolute right-4) lands exactly on the count
+              badge once the viewport hits the fold band — the row reserves
+              the X's corner (pr-9). The desktop rail (≥lg) has no Close. */}
           <span
             className="flex size-6 items-center justify-center rounded-md bg-gradient-to-br from-primary/15 to-primary/5 ring-1 ring-inset ring-primary/20"
             aria-hidden="true"

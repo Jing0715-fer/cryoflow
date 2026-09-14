@@ -75,8 +75,18 @@ function SheetContent({
         {/* Task 172: the painted X is 16×16 — the smallest target in the
             whole app and the sheet's PRIMARY exit affordance. The hit-slop
             grows it to 44×44 (top-right corner has room: right-4 + 14px
-            slop stays inside the viewport) without repainting a pixel. */}
-        <SheetPrimitive.Close className="ring-offset-background focus:ring-ring data-[state=open]:bg-secondary relative before:absolute before:-inset-3.5 before:content-[''] absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none">
+            slop stays inside the viewport) without repainting a pixel.
+            Task 176: the stray `relative` that rode along with the slop
+            edit OUT-RANKED `absolute` in Tailwind v4's utility cascade
+            (.relative sorts after .absolute in the emitted CSS), so the
+            button computed position:relative — its top-4/right-4 became
+            relative OFFSETS on an in-flow box parked BELOW the content
+            (y=653 on a 653 viewport): the primary exit affordance was a
+            ghost — focusable, slop-fattened, and entirely off-screen —
+            on EVERY mobile width since Task 171, caught by the 280px
+            census. One word removed; `absolute` itself is the ::before
+            containing block, the slop needs no second position. */}
+        <SheetPrimitive.Close className="ring-offset-background focus:ring-ring data-[state=open]:bg-secondary before:absolute before:-inset-3.5 before:content-[''] absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none">
           <XIcon className="size-4" />
           <span className="sr-only">Close</span>
         </SheetPrimitive.Close>

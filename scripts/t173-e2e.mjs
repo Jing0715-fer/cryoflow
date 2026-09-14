@@ -103,6 +103,13 @@ await sleep(1500);
 const jobs = await (await fetch(BASE + "/api/jobs")).json();
 const list = Array.isArray(jobs) ? jobs : jobs.jobs ?? [];
 const idleIds = new Set(list.filter((j) => j.status === "idle").map((j) => j.id));
+// Task 176 lesson — the pan loop used to take ANY visible idle card, but
+// only the canonical idle IMPORT guarantees an Expert-options trigger on
+// its Params tab (the M4 world preset, hidden for fourteen rounds).
+// Prefer an idle Import; fall back to any idle card only if the world
+// has none.
+const preferredIds = new Set(list.filter((j) => j.status === "idle" && /import/i.test(`${j.type} ${j.name}`)).map((j) => j.id));
+const targetIds = preferredIds.size > 0 ? preferredIds : idleIds;
 must(list.length > 0, "M0a world non-empty");
 must(idleIds.size > 0, "M0b at least one idle job exists");
 
@@ -119,7 +126,7 @@ for (let attempt = 0; attempt < 8 && !card; attempt++) {
         cx: r.x + r.width / 2, cy: r.y + r.height / 2 };
     });
   });
-  card = cards.find((c) => idleIds.has(c.id || "") && c.inVp) || null;
+  card = cards.find((c) => targetIds.has(c.id || "") && c.inVp) || null;
   if (card) break;
   const px = 160 + (attempt % 3) * 30, py = 300 + (attempt % 2) * 40;
   await page.mouse.move(px, py);
@@ -128,7 +135,7 @@ for (let attempt = 0; attempt < 8 && !card; attempt++) {
   await page.mouse.up();
   await sleep(700);
 }
-must(!!card, "M0c an idle card is visible in-viewport after pan");
+must(!!card, "M0c an idle card is visible in-viewport after pan (idle Import preferred — the M4 Expert contract)");
 
 await page.touchscreen.tap(card.cx, card.cy);
 await sleep(1500);

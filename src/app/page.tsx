@@ -638,7 +638,7 @@ export default function Home() {
       <Sheet open={paletteOpen} onOpenChange={setPaletteOpen}>
         <SheetContent
           side="left"
-          className="w-72 gap-0 p-0 sm:max-w-xs"
+          className="w-72 max-w-full gap-0 p-0 sm:max-w-xs"
         >
           <SheetHeader className="sr-only">
             <SheetTitle>Job types</SheetTitle>

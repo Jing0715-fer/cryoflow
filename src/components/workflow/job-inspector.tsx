@@ -256,7 +256,9 @@ function LogLegend() {
     ["bg-rose-400", "error"],
   ];
   return (
-    <div className="flex shrink-0 items-center gap-2.5 border-t border-zinc-800 bg-zinc-900/60 px-3 py-1">
+    /* Task 176: the legend wraps below sm — the error chip measured 33px
+       past a 269px dialog (280 fold band); ≥sm never wraps. */
+    <div className="flex max-sm:flex-wrap shrink-0 items-center gap-2.5 border-t border-zinc-800 bg-zinc-900/60 px-3 py-1">
       <span className="text-[9px] font-medium uppercase tracking-wider text-zinc-600">legend</span>
       {items.map(([dot, label]) => (
         <span key={label} className="inline-flex items-center gap-1">
@@ -416,8 +418,13 @@ function LogConsole({
       className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950 shadow-inner"
     >
       {/* toolbar is screen chrome (search, follow/wrap, mode) — .no-print
-          keeps the paper report to the log text itself */}
-      <div className="no-print flex shrink-0 items-center gap-2 border-b border-zinc-800 bg-zinc-900/80 px-3 py-1.5">
+          keeps the paper report to the log text itself. Task 176: below
+          sm the row WRAPS instead of overflowing (the Tail/Full/Follow
+          cluster + search measured ~380px past a 269px dialog, clipped
+          by the console's overflow-hidden — the follow state was
+          unreachable on the fold band); ≥sm fits one line, wrap is
+          invisible there. */}
+      <div className="no-print flex flex-wrap shrink-0 items-center gap-2 border-b border-zinc-800 bg-zinc-900/80 px-3 py-1.5">
         <Terminal className="size-3.5 text-zinc-500" aria-hidden="true" />
         <span className="font-mono text-[11px] font-medium text-zinc-400">run.out</span>
         {running ? (
@@ -464,7 +471,7 @@ function LogConsole({
             log &gt; 8MB — clipped
           </span>
         ) : null}
-        <div className="ml-auto flex items-center gap-0.5">
+        <div className="ml-auto flex max-sm:flex-wrap items-center gap-0.5">
           {/* log search / filter */}
           <div className="relative mr-1">
             <Search className="pointer-events-none absolute left-2 top-1/2 size-3 -translate-y-1/2 text-zinc-600" aria-hidden="true" />
@@ -2276,25 +2283,31 @@ export function JobInspector() {
             <Tabs value={tab} onValueChange={(v) => { if (inspectId != null) tabTouchedForRef.current = inspectId; setLogJumpFull(false); setTab(v); }} className="flex min-h-0 flex-1 flex-col gap-0">
               {/* tab triggers are screen navigation — paper prints the ACTIVE
                   tab and the report masthead names it ("showing Results") */}
-              <div className="no-print shrink-0 border-b px-5 pt-2.5 sm:px-6">
-                <TabsList className="h-9 bg-muted/60 p-0.5">
-                  <TabsTrigger value="overview" className="h-8 gap-1.5 px-3 text-xs">
-                    <LayoutDashboard className="size-3.5" aria-hidden="true" />
+              {/* Task 176: below sm the bar compacts to survive the foldable
+                  band (280px): icons park (decorative, aria-hidden — the
+                  labels carry the meaning), padding/gap shave one step,
+                  the container drops to px-3, and the list itself can
+                  never outgrow its parent (max-w-full). Desktop ≥sm keeps
+                  the exact Task 114 bar — every change is max-sm-scoped. */}
+              <div className="no-print shrink-0 border-b px-3 pt-2.5 sm:px-6">
+                <TabsList className="h-9 max-w-full bg-muted/60 p-0.5">
+                  <TabsTrigger value="overview" className="h-8 gap-1.5 px-3 text-xs max-sm:gap-1 max-sm:px-1.5">
+                    <LayoutDashboard className="size-3.5 max-sm:hidden" aria-hidden="true" />
                     Overview
                   </TabsTrigger>
-                  <TabsTrigger value="log" className="h-8 gap-1.5 px-3 text-xs">
-                    <Terminal className="size-3.5" aria-hidden="true" />
+                  <TabsTrigger value="log" className="h-8 gap-1.5 px-3 text-xs max-sm:gap-1 max-sm:px-1.5">
+                    <Terminal className="size-3.5 max-sm:hidden" aria-hidden="true" />
                     Log
                     {job.status === "running" ? (
                       <span className="ml-0.5 size-1.5 rounded-full bg-rose-500" aria-label="live" />
                     ) : null}
                   </TabsTrigger>
-                  <TabsTrigger value="results" className="h-8 gap-1.5 px-3 text-xs">
-                    <BarChart3 className="size-3.5" aria-hidden="true" />
+                  <TabsTrigger value="results" className="h-8 gap-1.5 px-3 text-xs max-sm:gap-1 max-sm:px-1.5">
+                    <BarChart3 className="size-3.5 max-sm:hidden" aria-hidden="true" />
                     Results
                   </TabsTrigger>
-                  <TabsTrigger value="files" className="h-8 gap-1.5 px-3 text-xs">
-                    <FolderOpen className="size-3.5" aria-hidden="true" />
+                  <TabsTrigger value="files" className="h-8 gap-1.5 px-3 text-xs max-sm:gap-1 max-sm:px-1.5">
+                    <FolderOpen className="size-3.5 max-sm:hidden" aria-hidden="true" />
                     Files
                     {filesCount > 0 ? (
                       <span className="rounded-full bg-muted px-1.5 text-[9px] font-semibold tabular-nums text-muted-foreground">

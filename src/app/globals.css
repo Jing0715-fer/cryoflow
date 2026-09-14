@@ -209,6 +209,23 @@
   animation: edge-dash-flow 0.7s linear infinite;
 }
 
+/* Task 176 — the edge hover hit-corridor is MOUSE-ONLY. The invisible
+   16px corridor (edges-layer.tsx) exists so a mouse can hover a thin
+   wire; under (hover: none) it is dead weight with a bite: wherever a
+   corridor crosses a card face — dense at the fold band's 25% floor
+   zoom — the corridor took the pointerdown and the card's tap died.
+   The desktop value stays the pointer-events KEYWORD "stroke" (no TW
+   utility emits it), the touch value is none. */
+.edge-hit-path {
+  pointer-events: stroke;
+}
+
+@media (hover: none) {
+  .edge-hit-path {
+    pointer-events: none;
+  }
+}
+
 /* Rubber-band selection rectangle — marching ants (canvas.tsx) */
 @keyframes ants-march {
   to {

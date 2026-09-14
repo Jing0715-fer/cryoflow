@@ -242,7 +242,12 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
     <div
       data-canvas-ui="minimap"
       data-mm-mode={effMode}
-      className="no-print card-lift absolute bottom-3 right-3 z-30 touch-none select-none rounded-lg border bg-card/95 p-1.5 backdrop-blur [-webkit-touch-callout:none]"
+      /* Task 176: the map is a DESKTOP instrument. At the fold band its
+         192px frame covered 69% of the canvas width and sat under the
+         FAB — default-on there was a tap-landmine. Below lg it yields
+         (the zoom dock's toggle hides with it); ≥lg everything is as it
+         has been since Task 105. */
+      className="no-print card-lift absolute bottom-3 right-3 z-30 hidden touch-none select-none rounded-lg border bg-card/95 p-1.5 backdrop-blur [-webkit-touch-callout:none] lg:block"
       aria-label="Canvas minimap"
       onContextMenu={(e) => {
         // the canvas-wide Radix menu would otherwise open mid-drag when the

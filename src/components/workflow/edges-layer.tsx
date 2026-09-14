@@ -196,14 +196,23 @@ export const EdgesLayer = React.memo(function EdgesLayer({
               transition: "opacity 220ms ease",
             }}
           >
-            {/* invisible hit area for hover */}
+            {/* invisible hit area for hover. Task 176: mouse-ONLY — the
+                16px corridor crossing a card face STOLE that card's tap on
+                touch (the wire paints over the card at the fold band's 25%
+                floor zoom, and pointerdown never reached the card). Under
+                (hover: none) the corridor is dead: touch taps always reach
+                the card, desktop hover keeps its corridor. The project's
+                own input-modality idiom (toast's hover-none: — Task 174),
+                as a globals class because the desktop value must stay a
+                pointer-events KEYWORD ("stroke"), which no TW utility
+                emits. */}
             <path
               d={g.d}
               data-e="d"
               stroke="transparent"
               strokeWidth={16}
               fill="none"
-              style={{ pointerEvents: "stroke" }}
+              className="edge-hit-path"
               onPointerEnter={() => setHoveredId(edge.id)}
               onPointerLeave={() => setHoveredId((cur) => (cur === edge.id ? null : cur))}
             />
