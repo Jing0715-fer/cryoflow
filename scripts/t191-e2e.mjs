@@ -95,10 +95,10 @@ must(
   "X6 the CSV contract is snake_case 4 columns (machine-first)"
 );
 must(
-  (embSrc.match(/buildProfileCsv\b/g) || []).length === 2 &&
+  (embSrc.match(/buildProfileCsv\b/g) || []).length === 3 &&
   embSrc.includes('data-csv-carrier="profile"') &&
   embSrc.includes("data-csv={lastProfileCsv ?? undefined}"),
-  "X7 ONE builder feeds the data-csv attribute, which rides an ALWAYS-ATTACHED carrier (not the 4-second note)"
+  "X7 ONE builder feeds the data-csv attribute, which rides an ALWAYS-ATTACHED carrier (not the 4-second note) — count synced to 3: t195's report doc-comment names its CSV sibling (the front wave's oracle follows the back wave's source, 6th instance)"
 );
 must(
   embSrc.includes("(clipboard unavailable)"),

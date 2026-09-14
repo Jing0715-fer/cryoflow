@@ -44,6 +44,7 @@ import { Badge } from "@/components/ui/badge";
 import { Copy, Download, GanttChart, Layers, Loader2, Play, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { downloadText } from "@/lib/download";
+import { mdCell } from "@/lib/md";
 import { jobType } from "@/lib/workflow";
 import { MODEL_BADGE } from "./hpc-profiles-editor";
 
@@ -129,15 +130,9 @@ const buildSweepCsv = (rows: SweepRow[], bestId: string | null): string =>
 const sweepCsvFilename = (): string =>
   `hpc-sweep-${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}.csv`;
 
-/**
- * Markdown cell — the pipe table's quoting rule (t194). A `|` inside a
- * cell would end the column early and a newline would end the row, so
- * escape the pipe and flatten the newline: the mdCell twin of csvCell
- * (the CSV needed RFC 4180, the table needs GFM — each grammar gets the
- * escaping IT lies about).
- */
-const mdCell = (v: string | number | boolean | undefined | null): string =>
-  String(v ?? "").replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
+// mdCell (t194) moved to @/lib/md in t195 when the profile QC report
+// became the second consumer — pipe-escaping knowledge lives in ONE place
+// now (the downloadText precedent: twins fork, imports don't).
 
 const sweepReportFilename = (): string =>
   `hpc-sweep-report-${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}.md`;

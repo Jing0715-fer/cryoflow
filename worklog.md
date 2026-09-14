@@ -5417,3 +5417,24 @@ Stage Summary:
 - 「清单只在她被核对的时刻才可信」：Task 13 的 recital 六项里 #5/#7/#8/Topaz/3D 截面已全部在历轮悄然修复——本轮开局逐一 grep 核销。清单是地图不是领土；每轮开局用代码重新测绘，别信任何一张旧图
 - 世界卫生观察账本（verdict 列）：本轮无全矩阵（单组件轮，183 判例=定向回归覆盖导出面 6 套×3）；t194 ×3 + t188 ×3 + qa58/qa42 + 三件套全绿；正典 26 精确保持；矩阵 128 套在册
 - 遗留（下轮候选）：报告管线的下一里——地图剖面板（t191 的 buildProfileCsv）与 sweep 报告会师成单一 per-job QC 摘要（Markdown/PDF）；Mol* 深色控制 chip 群对比度微调（下轮样式细节候选）；grabber nudge/undo 手感参数（真机盲区依旧）；script RELION-present 分支（沙箱受限判决维持）；EMPIAR 真数据回归（让位）；runner wall-time 剖面（让位）
+
+## Task 195 (2026-09-15, cron 04:01 窗口 trace …202609150409)
+
+**主题：地形赢得报告——the landscape earns a human summary。Task 194 交接首选项兑现：报告家族的第三、四扇门开进 viewer 剖面板。`buildProfileReport` 一位父亲（与 buildProfileCsv 同吃 profile rows，绝不 parse-of-parse），产出一个人类能直接转述的 per-job QC 摘要：peak/trough/span 散文（peak 百分数与 wire argmax 逐位一致）、GFM 对比表——每张领养的 half-map 一行，Agreement r 是真数（Pearson 相关，按 0–100% 分数轴 fraction 重采样后计算，64³ 主图与 32³ 半图绝不按 bin 序号硬比）、verdict 阶梯（agrees/partial/diverges + 平线诚实说 flat）、诚实空态（None adopted 还教 Layers 这扇门）、pending 行（还在测量的图不猜）、溯源 caveat。mdCell 晋升 @/lib/md——第二消费者到来，双胞胎必须死（downloadText 判例）。**顺手修了探针逮到的真 bug：fetch effect 的 early return 让最后一个 overlay 被移除时 reset 被跳过——overlayProfiles 残留 stale 条目、报告退位 effect 不开火，说过已移除地图的摘要活着；空集也退位。t195 40 断言 ×3 全绿；回归 14 套全绿（含两处前浪 oracle 同步）；矩阵 128→129。**
+
+- 【开局】worklog 尾部=Task 194/3c987da（cron「Task 13」文本第卌一次过时）。树净、冷启动；三件套 qa00/qa63/t181 全绿判稳；agent-browser 巡检 Dashboard+Workflow console 双零错。
+- 【实现·四文件】①新 src/lib/md.ts：mdCell（GFM 管道转义+换行拍平）晋升共享，转义知识只活一份；②hpc-queue-sim.tsx：本地 mdCell 删除改 import（迁移碑注释留档）；③molstar-embed.tsx 模块级：resampleByFraction（fraction 线性插值——t193 的「分数对齐绝不 bin 序号」教义数字化）+ pearson（仿射不变——自缩放视觉合同与 r 计算天然一致；平线无形状→NaN，verdict 说 flat 而非编数）+ agreementVerdict 阶梯 + buildProfileReport（无时间戳——同一地形永远产出同一字节，文件名扛 stamp）+ profileReportFilename；组件内：lastProfileReport 态 + 退位 effect deps **[profile, overlayProfiles]**（报告说到什么，什么变就退位——地形到达/领养/移除/换轴全覆盖；slicePos 刻意不在依赖里）+ exportProfileReport（copy 先行、拒绝落下载 text/markdown、回执说降级）+ 四门齐（CSV×2 青色机器门 / Report×2 紫色人类门，FileText 图标）+ data-md 与 data-csv 同驻常驻载体 + 载体 flex-wrap（四 chip+XYZ+plane 不溢出）。
+- 【探针 t195·40 断言 ×3 全绿】S3（seeder 幂等、orthovol+双 half 在册）+ W2（wire 喂 r oracle 的双地图剖面）+ X12 源 oracle（ONE builder 定义恰一次、导出体零 ProfileCsv/slicePos、mdCell 三方在案、载体同居、退位依赖对、markdown mime、fraction 重采样在 pearson 前、verdict 阶梯、四门实名+disabled、flex-wrap、溯源 caveat）+ D20 活线（先验空载体、copy 说话、peak==wire argmax 76.2%、bins==footer、诚实空态、**拖洗不退位**、CSV 武装、**领养即退位**、再导出表格行 r==-0.25 与探针独立算的 wire pearson 逐位相等、verdict 走阶梯、**移除退报告不退 CSV（不对称 oracle）**、下载门不道歉）+ Z2 只读（roster 26 恒等、console 净）。
+- 【第二层真相·三】①**退位合同有个空集漏洞（探针逮到的真 bug）**：fetch effect 的 `if (!sliceOn || !jobId || !overlayPathsKey) return;` 让最后一个 overlay 移除时 reset 被跳过——overlayProfiles 保留 stale 条目、身份不变、[profile, overlayProfiles] 退位 effect 永不开火，「说过已移除地图的报告活过它自己的死亡」。修复=reset 提前、空集也产新身份（状态与墙永远一致）。退位合同要覆盖「最后一个」：空集也是集合。②**正则里的 `??` 会吃掉字面量**：X5 首跑挂——`??` 在正则里是「可选+懒惰」不是两个问号，匹配永远落空；探针改 slice 断言。「断言里的元字符要先过一遍自己的语法」。③**剪贴板被拒是常态不是意外（B3 判例重演）**：headless 里 Copy Report 真被拒→fallback 真落文件且回执真说 "(clipboard unavailable)"——D5 首跑只认 copy 世界，补上 fallback 世界（回执必须点名降级）才算诚实合同。
+- 【回归·14 套全绿】改动邻域：t193(29)/t191(40，X7 计数 2→3 同步——t195 的 builder 注释点名了 CSV 兄弟)/t190(29)/t189(42)/t192(14)/qa67(27)/qa42(exit 0) + hpc 导出面 t194(33，X2 同步——mdCell 晋升后转义实现住进 @/lib/md，hpc 改查 import)/t188(31)/qa58(GREEN) + 三件套 qa00/qa63/t181。**「前浪 oracle 跟后浪源码走」第 6、7 度同窗发生**。矩阵 128→129（t195 auto-include；显式 40 + auto 89）。
+- 【世界收尾】正典 26 精确保持（Z 相只读证明）；定妆照归档 scripts/shots-t195/：t195-panel-2x.png（山脊地形+half1 细线+playhead@50%+四门两行 flex-wrap+翡翠降级回执的活照）+ t195-viewer-2x.png 全景 + sample-qc-report.md（载体真字节 935B——「run_it020_half1 | 32 | 51.6% | -0.25 | diverges」文档级成色）+ t195-report-doors.png（探针 1x 照）；t195-shots.mjs 自清理（拍完撤 overlay，世界还原）。
+- 【收尾】worklog（本条）+ commit + push + 环境清理（杀 server 先 ss 查真实 PID）。
+
+Stage Summary:
+- 「机器的 CSV 和人类的报告是同一场比赛的两个译本」在地图仪器上重演：buildProfileCsv 说 raw bins 给电子表格，buildProfileReport 说「peak 在 76.2% 深度、half1 与主图分道扬镳（r=-0.25）」给人——同一位父亲（profile rows），两种语法，两种受众。报告不解析 CSV，正如翻译不转译翻译
+- 「Agreement r 是 QC 问题的定量回答」：t193 让分叉可见，t195 让分叉可数——Pearson 的仿射不变性使「自缩放的视觉合同」与「形状即信号」天然同一把尺；fraction 重采样让 64³ 与 32³ 在同一条深度轴上对话。verdict 阶梯（agrees/partial/diverges/flat）把数翻译回判决，平线诚实说自己无法比较
+- 「退位合同必须覆盖空集」：最后一个 overlay 的移除不是「无事发生」——stale 条目留在状态里，说它话的报告就活着。effect 的 early return 是退位合同的漏缝；把 reset 挪到 return 之前，状态与墙才永远一致。凡有「集合」语义的地方，「空」也是它的一个合法取值
+- 「凡被两个消费者独立推导的转义，注定在第三个消费者手里分叉」：mdCell 晋升 @/lib/md，双胞胎死于第二个消费者到来之日（downloadText 判例第 3 度兑现）。转义知识住一份，GFM 管道才咬不到人
+- 「前浪的 oracle 第 6、7 度跟后浪的源码走」：t191 的 buildProfileCsv 计数、t194 的 mdCell 转义现场，同窗被 t195 的实现演化过时——探针是活文档，锚在实现细节上的 oracle 必须当轮清偿
+- 世界卫生观察账本（verdict 列）：本轮无全矩阵（单仪器轮，183 判例=定向回归覆盖 viewer+导出面 14 套）；t195 ×3 + 回归 14/14 全绿（重建后重跑）；正典 26 精确保持；矩阵 129 套在册
+- 遗留（下轮候选）：报告会师的下一里——sweep 报告与 QC 摘要拼成单一 per-job 报告页（Markdown→PDF，打印样式已有 Print this view 底子）；Mol* 深色控制 chip 群对比度微调（样式细节候选）；profile 面板多图对比进 r 矩阵（三张 half-map 两两相关）；grabber nudge/undo 手感参数（真机盲区依旧）；script RELION-present 分支（沙箱受限判决维持）；EMPIAR 真数据回归（让位）；runner wall-time 剖面（让位）

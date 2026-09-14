@@ -16,7 +16,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { Axis3d, Bookmark, BoxSelect, Camera, Check, ClipboardCopy, Download, FileJson, FilePlus2, FolderOpen, FolderPlus, Layers, Loader2, Mountain, Orbit, Pencil, Plus, RefreshCcw, RotateCw, ScanLine, TriangleAlert, Upload, Video, X, ZoomIn } from "lucide-react";
+import { Axis3d, Bookmark, BoxSelect, Camera, Check, ClipboardCopy, Download, FileJson, FilePlus2, FileText, FolderOpen, FolderPlus, Layers, Loader2, Mountain, Orbit, Pencil, Plus, RefreshCcw, RotateCw, ScanLine, TriangleAlert, Upload, Video, X, ZoomIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -32,6 +32,7 @@ import { fmtBytes } from "@/lib/canvas-export";
 import { encodeGifFrames } from "@/lib/gif-export";
 import { canCopyImageToClipboard, copyViewerPng, downloadViewerBlob, drawFigureFooter, exportViewerPng, figureFooterHeightPx, figureTitleMeta, viewerFileSlug, viewerFileTimestamp } from "@/lib/viewer-export";
 import { downloadText } from "@/lib/download";
+import { mdCell } from "@/lib/md";
 import { MrcImage } from "./mrc-image";
 import { Color } from "molstar/lib/mol-util/color";
 import "molstar/build/viewer/molstar.css";
@@ -213,6 +214,125 @@ const buildProfileCsv = (bins: number[], axis: string): string =>
 
 const profileCsvFilename = (axis: string): string =>
   `map-profile-${axis}-${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}.csv`;
+
+/* ------------------------------------------------------------------ */
+/* Profile QC report (t195) — the landscape earns a human summary.     */
+/* The instrument's Markdown exit: same family as the sweep report     */
+/* (t194) — ONE builder, copy + download + carrier, no parse-of-parse. */
+/* ------------------------------------------------------------------ */
+
+/** Resample `bins` onto `n` evenly spaced FRACTION stations (0..1) with
+ *  linear interpolation — comparison terrains align on the shared fraction
+ *  scale, never on bin index (a 64³ main map and a 32³ half-map are two
+ *  different rulers over the same depth; t193's doctrine in numbers). */
+const resampleByFraction = (bins: number[], n: number): number[] => {
+  if (bins.length === 0) return [];
+  if (bins.length === 1) return Array.from({ length: n }, () => bins[0]);
+  const out: number[] = [];
+  for (let i = 0; i < n; i++) {
+    const t = (i / Math.max(1, n - 1)) * (bins.length - 1);
+    const lo = Math.floor(t);
+    const hi = Math.min(bins.length - 1, lo + 1);
+    out.push(bins[lo] + (bins[hi] - bins[lo]) * (t - lo));
+  }
+  return out;
+};
+
+/** Pearson correlation — the shape-agreement number r. Affine-invariant,
+ *  so self-scaling each terrain (the visual's own contract) changes
+ *  nothing: the shape is the signal, not absolute ρ. A flat line has no
+ *  shape — NaN, and the verdict says so instead of inventing a number. */
+const pearson = (a: number[], b: number[]): number => {
+  const n = Math.min(a.length, b.length);
+  if (n < 2) return NaN;
+  let sa = 0, sb = 0;
+  for (let i = 0; i < n; i++) { sa += a[i]; sb += b[i]; }
+  const ma = sa / n, mb = sb / n;
+  let cov = 0, va = 0, vb = 0;
+  for (let i = 0; i < n; i++) {
+    const da = a[i] - ma, db = b[i] - mb;
+    cov += da * db; va += da * da; vb += db * db;
+  }
+  if (va === 0 || vb === 0) return NaN;
+  return cov / Math.sqrt(va * vb);
+};
+
+const agreementVerdict = (r: number): string =>
+  Number.isNaN(r) ? "flat — no shape to compare"
+  : r >= 0.85 ? "agrees"
+  : r >= 0.5 ? "partial"
+  : "diverges";
+
+const pctAt = (bins: number[], i: number): string =>
+  `${((i / Math.max(1, bins.length - 1)) * 100).toFixed(1)}%`;
+
+/** one adopted comparison terrain the report can speak about */
+interface ReportOverlay { name: string; bins: number[] }
+
+/**
+ * ONE builder for the map's QC summary (t195): clipboard, download and
+ * the data-md carrier all drink from this single cup, and it derives
+ * from the profile ROWS exactly like buildProfileCsv does — it NEVER
+ * parses the CSV (parse-of-parse is a second derivation waiting to
+ * drift, t194's doctrine). The report is a function of the LANDSCAPE
+ * and the ADOPTED COMPARISON TERRAINS — never the playhead — so
+ * scrubbing never retires it, and the same landscape always yields the
+ * same bytes (no timestamps inside; the filename carries the stamp).
+ */
+const buildProfileReport = (opts: {
+  mapName: string;
+  jobId: string;
+  axis: string;
+  bins: number[];
+  overlays: ReportOverlay[];
+  pendingOverlays: number;
+}): string => {
+  const { mapName, jobId, axis, bins, overlays, pendingOverlays } = opts;
+  const n = bins.length;
+  let peak = 0, trough = 0;
+  for (let i = 1; i < n; i++) {
+    if (bins[i] > bins[peak]) peak = i;
+    if (bins[i] < bins[trough]) trough = i;
+  }
+  const max = bins[peak], min = bins[trough];
+  const span = max - min;
+  const lines: string[] = [];
+  lines.push(`## Map QC summary — ${mdCell(mapName)}`);
+  lines.push("");
+  lines.push(`Job \`${mdCell(jobId)}\` · mean-density landscape along **${axis.toUpperCase()}** (${n} bins).`);
+  lines.push("");
+  lines.push(`- **Peak** mean ρ at plane ${peak} (**${pctAt(bins, peak)}** of depth) — where the specimen's mass concentrates on this axis`);
+  lines.push(`- **Trough** at plane ${trough} (${pctAt(bins, trough)})`);
+  lines.push(`- **Span** across planes: ${span.toFixed(4)} (max ${max.toFixed(4)}, min ${min.toFixed(4)})`);
+  lines.push("");
+  lines.push(`### Comparison maps (${overlays.length})`);
+  lines.push("");
+  if (overlays.length > 0) {
+    lines.push("| Map | Bins | Peak at | Agreement r | Verdict |");
+    lines.push("| --- | --- | --- | --- | --- |");
+    for (const o of overlays) {
+      const r = pearson(resampleByFraction(o.bins, n), bins);
+      const pk = o.bins.reduce((bi, v, i, arr) => (v > arr[bi] ? i : bi), 0);
+      lines.push(
+        `| ${mdCell(o.name)} | ${o.bins.length} | ${pctAt(o.bins, pk)} | ${Number.isNaN(r) ? "—" : r.toFixed(2)} | ${agreementVerdict(r)} |`
+      );
+    }
+    lines.push("");
+    lines.push("Where a comparison line follows the main landscape, the density is consistent between maps; where it parts ways lives noise or masking. Agreement r is the Pearson correlation on the shared 0–100% fraction scale — each terrain self-scaled to its own map's stats (the shape is the signal, not absolute ρ).");
+  } else {
+    lines.push("None adopted yet — adopt half-maps or masked variants through Layers and they appear here. Where their lines follow the main landscape the density is real; where they part ways lives the noise.");
+  }
+  if (pendingOverlays > 0) {
+    lines.push("");
+    lines.push(`_${pendingOverlays} comparison map${pendingOverlays === 1 ? " is" : "s are"} still measuring — its landscape has not arrived, and this summary does not guess it._`);
+  }
+  lines.push("");
+  lines.push("_Exported from CryoFlow's slice instrument — the mean-density landscape is contour-independent and describes the whole map, not the current isosurface._");
+  return lines.join("\n");
+};
+
+const profileReportFilename = (axis: string): string =>
+  `map-qc-report-${axis}-${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}.md`;
 
 /** The viewport is a guest: it follows the room's theme. The Mol* canvas
  *  paints ITSELF — no computed-style audit can ever see its background, and
@@ -2517,16 +2637,20 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
   const [overlayProfiles, setOverlayProfiles] = useState<Record<string, SliceProfile | null>>({});
   const overlayPathsKey = overlays.map((o) => o.path).join("\u0000");
   useEffect(() => {
-    if (!sliceOn || !jobId || !overlayPathsKey) return;
-    const ax = sliceAxis.toLowerCase();
-    const wanted = overlayPathsKey.split("\u0000");
     // retire first: an axis switch or a removed overlay must not leave a
-    // stale terrain on the wall (t189's retirement doctrine, map dimension)
+    // stale terrain on the wall (t189's retirement doctrine, map dimension).
+    // t195: the reset also fires for the EMPTY set — the old early return
+    // skipped it, so overlayProfiles kept a removed map's terrain and the
+    // QC report's retirement effect never fired (a summary speaking a
+    // removed map survived its own removal).
+    const wanted = sliceOn && jobId && overlayPathsKey ? overlayPathsKey.split("\u0000") : [];
     setOverlayProfiles(() => {
       const next: Record<string, SliceProfile | null> = {};
       for (const p of wanted) next[p] = null;
       return next;
     });
+    if (!sliceOn || !jobId || wanted.length === 0) return;
+    const ax = sliceAxis.toLowerCase();
     let alive = true;
     for (const op of wanted) {
       const ck = `${op}|${ax}`;
@@ -2600,6 +2724,57 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
     }
     const fname = profileCsvFilename(axis);
     downloadText(fname, csv);
+    flashProfileNote(`Downloaded ${fname}${mode === "copy" ? " (clipboard unavailable)" : ""}`);
+  };
+
+  /* ---- QC report export (t195): the landscape earns a human summary ----
+   * ONE builder (buildProfileReport) feeds clipboard + download + the
+   * data-md carrier attribute, cohabiting with data-csv on this
+   * ALWAYS-ATTACHED group (t194's carrier doctrine). Retirement is a
+   * function of what the report SPEAKS: a new main landscape (profile)
+   * OR any change in the adopted comparison terrains (overlayProfiles —
+   * adoption, removal, arrival, axis refetch) makes the old summary
+   * stale, so the attribute is removed. Scrubbing (slicePos) is in
+   * neither dependency on purpose: the report describes the landscape,
+   * not the playhead. The CSV keeps its own narrower retirement — the
+   * CSV speaks the main map only, so overlay churn must not retire it. */
+  const [lastProfileReport, setLastProfileReport] = useState<string | null>(null);
+  useEffect(() => {
+    setLastProfileReport(null);
+  }, [profile, overlayProfiles]);
+  const exportProfileReport = async (mode: "copy" | "download") => {
+    if (!profile) return;
+    const axis = sliceAxis.toLowerCase();
+    // the report speaks every comparison map that HAS a terrain; adopted
+    // maps still measuring are counted honestly, never dropped silently
+    const spoken: ReportOverlay[] = [];
+    let pending = 0;
+    for (const o of overlays) {
+      const op = overlayProfiles[o.path];
+      if (op && op.bins.length > 0) spoken.push({ name: o.name, bins: op.bins });
+      else pending++;
+    }
+    const md = buildProfileReport({
+      mapName: name,
+      jobId,
+      axis,
+      bins: profile.bins,
+      overlays: spoken,
+      pendingOverlays: pending,
+    });
+    setLastProfileReport(md);
+    if (mode === "copy") {
+      try {
+        await navigator.clipboard.writeText(md);
+        flashProfileNote("Copied the QC summary to the clipboard");
+        return;
+      } catch {
+        // clipboard denied (headless, permissions, insecure context) —
+        // the download is the honest fallback, and the receipt says so
+      }
+    }
+    const fname = profileReportFilename(axis);
+    downloadText(fname, md, "text/markdown;charset=utf-8");
     flashProfileNote(`Downloaded ${fname}${mode === "copy" ? " (clipboard unavailable)" : ""}`);
   };
 
@@ -3596,9 +3771,10 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                         {profile.native !== profile.bins.length ? ` (pooled from ${profile.native})` : ""}
                       </span>
                       <div
-                        className="flex min-w-0 items-center gap-1.5"
+                        className="flex min-w-0 flex-wrap items-center justify-end gap-1.5"
                         data-csv-carrier="profile"
                         data-csv={lastProfileCsv ?? undefined}
+                        data-md={lastProfileReport ?? undefined}
                       >
                         {/* t191 export — the landscape's numbers can leave; ONE
                             builder feeds both doors and the data-csv observation
@@ -3626,6 +3802,32 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                         >
                           <Download className="size-2.5" aria-hidden="true" />
                           Download CSV
+                        </button>
+                        {/* t195 report doors — the landscape's HUMAN twin (t194's
+                            family). Violet accent marks the prose door against
+                            the CSV's cyan machine door; same ONE-builder,
+                            same carrier, same retirement honesty. */}
+                        <button
+                          type="button"
+                          onClick={() => void exportProfileReport("copy")}
+                          disabled={!profile}
+                          aria-label="Copy profile QC report"
+                          title="Copy a human-readable QC summary (peak, trough, comparison-map agreement) to the clipboard as Markdown — falls back to a download when the clipboard is denied"
+                          className="flex items-center gap-0.5 rounded-full bg-muted px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-wide text-muted-foreground transition-colors hover:bg-violet-600/15 hover:text-violet-700 dark:hover:text-violet-300 disabled:pointer-events-none disabled:opacity-40"
+                        >
+                          <FileText className="size-2.5" aria-hidden="true" />
+                          Copy Report
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void exportProfileReport("download")}
+                          disabled={!profile}
+                          aria-label="Download profile QC report"
+                          title="Save the QC summary as map-qc-report-<axis>-<stamp>.md — same bytes as the clipboard copy"
+                          className="flex items-center gap-0.5 rounded-full bg-muted px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-wide text-muted-foreground transition-colors hover:bg-violet-600/15 hover:text-violet-700 dark:hover:text-violet-300 disabled:pointer-events-none disabled:opacity-40"
+                        >
+                          <Download className="size-2.5" aria-hidden="true" />
+                          Download Report
                         </button>
                         <button
                           type="button"

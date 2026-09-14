@@ -87,14 +87,20 @@ must(
 /* ================= X — source oracles ================= */
 section("X: the report is written once");
 const simSrc = src("src/components/workflow/hpc-queue-sim.tsx");
+const mdLibSrc = src("src/lib/md.ts");
 
 must(
   simSrc.includes("const buildSweepReport = (rows: SweepRow[], bestId: string | null): string"),
   "X1 ONE Markdown builder from the sweep rows (the human twin has one father)"
 );
 must(
-  simSrc.includes('replace(/\\|/g, "\\\\|")') && simSrc.includes("mdCell"),
-  "X2 mdCell escapes GFM pipes (a pipe in a name cannot end the column early)"
+  // t195 promoted mdCell to @/lib/md (the second consumer arrived — the
+  // downloadText precedent); the escaping lives there now, hpc imports it
+  // (the front wave's oracle follows the back wave's source, 7th instance)
+  mdLibSrc.includes('replace(/\\|/g, "\\\\|")') &&
+  simSrc.includes('import { mdCell } from "@/lib/md"') &&
+  simSrc.includes("mdCell"),
+  "X2 mdCell escapes GFM pipes (a pipe in a name cannot end the column early) — implementation now lives in @/lib/md, hpc imports it (t195 promotion)"
 );
 must(
   simSrc.includes("buildSweepReport(sweep, bestRow?.p.id ?? null)") &&
