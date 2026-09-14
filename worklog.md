@@ -5352,3 +5352,25 @@ Stage Summary:
 - 「两个独立推导的下载函数注定分叉」：downloadText 双胞胎收编进 @/lib/download——anchor 挂载（Firefox）、延时 revoke（Chrome）这些浏览器怪癖的知识只该存在一份
 - 世界卫生观察账本（verdict 列）：本轮无全矩阵（仪器轮，183 判例=定向回归覆盖 viewer+导出面邻域 9 套）；t191 ×3 + 回归 9/9 全绿；正典 26 精确保持；Topaz wrapper recital 误列已验尸销账
 - 遗留（下轮候选）：dialog 深色主题定妆照（第九度让位——须 html.dark class 切换而非 emulateMedia）；剖面导出进报告管线的下一里（CSV→Markdown/PDF 摘要，与 sweep 导出会师）；grabber nudge/undo 手感参数（真机盲区依旧）；script RELION-present 分支（沙箱受限判决维持）；EMPIAR 真数据回归（让位）；runner wall-time 剖面（让位）；profile 面板多图对比（两张地图的地形并排 diff）
+
+## Task 192 (2026-09-15, cron 02:31 窗口 trace …202609150231)
+
+**主题：深色肖像终于拍成——the viewport is a guest, it follows the room。开局三件套+巡检全绿判稳后，把让位九轮的「dialog 深色主题定妆照」转正为 Task 192：程序化审计（亮块+低对比双启发式）走了 11 个深色表面零嫌疑，但目验在 Mol* 3D viewer 逮到审计盲区的真伤——画布自己画自己，computed-style 永远看不见，而 Mol* 出厂背景是近白矩形：深色 dialog 上一块刺眼的白伤。修复合同三条款：①深色模式下视口画 app 自己的背景（从计算样式活读，与 dialog 共享同一 token）；②浅色模式拿回我们动手前抢存的原生默认（浅色从未坏过，修复不越界）；③会话中途翻主题实时跟房（观察信号=html class 的 MutationObserver）。t192 14 断言 ×3 全绿；回归 9/9 全绿；矩阵 125→126（t192 auto-include）。**
+
+- 【开局】worklog 尾部=Task 191/b2d6621（cron「Task 13」文本第卅八次过时；**内嵌摘要第八度过时**——停在 Task 188/ec14389，而 189/190/191 三窗口均已收尾推送）。树净、冷启动；三件套 qa00/qa63/t181 全绿判稳；agent-browser 巡检 Dashboard+Workflow console 双零错（/workflow 404 属预期——单页应用视图靠状态切换）。
+- 【侦察】巡检捕获关键线索：header 有真实「Switch to dark theme」按钮（next-themes attribute="class"），九轮让位的正确姿势一直都在。写 t192-dark-recon ×2：程序化审计（亮块=有效背景亮度>0.82、低对比=文字对有效背景 contrast<2.2，含半透明层合成）走 canvas/dashboard/inspector/HPC sweep/palette/shortcuts/results-gallery/help-popover/palette-import/molstar-viewer 共 11 面——**10 面零嫌疑，深色底子整体健康**；唯 viewer 定妆照目验见白伤。审计盲区教义：Mol* 画布是 WebGL 自绘，DOM computed-style 审计结构性失明——**会画自己的表面必须目验**。
+- 【实现·单文件】molstar-embed.tsx 四刀：①nativeCanvasBgRef 在 plugin 创建瞬间抢存 Mol* 出厂背景（实测 {252,251,249}）——浅色回退的锚点，修复不得悄悄重定义浅色；②appViewportBg()：从 body 计算样式活读主题 token，经 **1×1 canvas 解析**成 sRGB 字节喂 Mol* Color（Tailwind 4 token 计算值是 lab() 不是 rgb()——正则在第一个 lab( 处就聋了）；③init 末按 html.dark 现场决定是否着色（深色开局开 viewer 不闪白）；④MutationObserver 盯 documentElement class 变化实时跟房，双向（深→浅还原生、浅→深上 token）。
+- 【探针 t192·14 断言 ×3 全绿】S3（app 自己的开关设 html.dark、强制浅色起步、**reload 后深色存活**=next-themes 持久化）+ A1（五面审计零嫌疑在册）+ V7（**__molstar 活读 renderer.backgroundColor：深色==app token 逐字节、亮度 0.071、JS 点浅色钮还原生 {252,251,249}、再点深色 token 回位**——双向实时跟房）+ Z2（roster 26 恒等、console 净）。
+- 【第二层真相·三】①**Tailwind 4 的 token 计算值是 lab()**：getComputedStyle 返回 `lab(5.61777 -1.22085 -4.25295)`，rgb 正则匹配失败→appViewportBg 返回 null→写入从未发生（V4/V5/V6 三连挂的根因）。1×1 canvas fillStyle 是唯一会说所有 CSS 色彩语法并答出 sRGB 字节的解析器——别自己写色彩空间转换，让浏览器做。②**resolvedTheme 没传到这棵子树**：MutationObserver 铁证 class 翻了、canvas 5 秒未变、插桩显示 follow effect 零开火（class 深色开局的两 fire 全来自 init 期抖动）——next-themes 的 context 拓扑在 viewer dialog 处失联。修法不纠结是谁的锅：**html 的 class 就是 class 制深色的渲染合同**，观察它=观察像素翻转的瞬间，与 toggle 住在哪棵树无关。③**被遮罩挡住的按钮仍可诚实地点**：全屏 viewer 的 overlay 让真鼠标够不到 header 主题钮，但 el.click() 不经命中测试、走完整的 React onClick→setTheme 链路——这是点一个被 occlude 的按钮的诚实姿势（探针 V6a 注明手段）。
+- 【回归】改动邻域 9/9 全绿：t189(42)/t190(29)/t191(40)/t188(31)/qa67(27)/qa42(exit 0) + 三件套 qa00/qa63/t181——全部在 t192 重建后的构建上重跑。矩阵 125→126（t192 auto-include glob 命中；python 数数在案 listed 40 + auto 86 = 126）。
+- 【世界收尾】正典 26 精确保持（探针 Z 相只读证明）；定妆照三联归档 scripts/shots-t192/：**t192-dark-viewer-BEFORE-fix.png（白伤照）→ t192-dark-viewer-2x.png（愈合：琥珀密度浮在同色深场、仪器面板+导出钮俱全）→ t192-light-viewer-2x.png（浅色分毫未动的证明）**，另有 9 张深色表面审计照+探针 DSF1 照；t192-dark-recon ×2 留档（审计器可复用）；临时 debug 脚本与误导性空照（template-presets 仅空画布可见，未拍成）删除。
+- 【收尾】worklog（本条）+ commit + push + 环境清理（杀 server 先 ss 查真实 PID）。
+
+Stage Summary:
+- 「会画自己的表面，computed-style 审计看不见」：Mol* 画布是 WebGL 自绘——11 面程序化审计零嫌疑、真伤却就在最大的那块矩形上。审计启发式（亮块/对比度）只能看见 DOM 承认的表面；canvas/视频/图片必须目验或像素采样。工具的边界要写进工具的使用说明
+- 「Tailwind 4 的 token 不再以 rgb() 出场」：getComputedStyle 的 lab() 定罪了 rgb 正则——1×1 canvas 是唯一通用解析器（fillStyle 吃下任何 CSS 语法、getImageData 答出 sRGB 字节）。色彩解析别手写，让浏览器做它已经做对的事
+- 「class 就是 class 制深色的渲染合同」：resolvedTheme 在 dialog 子树失联而 class 从不撒谎——观察合同本身（MutationObserver on html.class）而非合同的某个实现（某库的 context）。拓扑无关的信号才是可依赖的信号
+- 「修复不得悄悄重定义它没被请来修的东西」：浅色从未坏过——动手前抢存原生默认 {252,251,249}，浅色 toggle 原样奉还。修复的边界与它的野心一样重要；before/after/light 三联照就是这个合同的物证
+- 「九轮让位的事项，正确姿势可能一直都在」：深色定妆照九度让位的理由是 emulateMedia 对 class 制深色无效——而 header 的真实开关按钮从第一天就在那里。侦察先于发明：先找系统自己的门，再造新钥匙
+- 世界卫生观察账本（verdict 列）：本轮无全矩阵（样式修复轮，183 判例=定向回归覆盖 viewer+导出面 9 套）；t192 ×3 + 回归 9/9 全绿；正典 26 精确保持；矩阵 126 套在册
+- 遗留（下轮候选）：剖面导出进报告管线的下一里（CSV→Markdown/PDF 摘要，与 sweep 导出会师）；profile 面板多图对比（两张地图的地形并排 diff）；Mol* 右侧控制 chip 群在深色下的对比度微调（现灰色可辨但非最优——下轮样式细节候选）；grabber nudge/undo 手感参数（真机盲区依旧）；script RELION-present 分支（沙箱受限判决维持）；EMPIAR 真数据回归（让位）；runner wall-time 剖面（让位）

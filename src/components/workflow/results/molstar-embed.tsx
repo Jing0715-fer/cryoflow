@@ -33,6 +33,7 @@ import { encodeGifFrames } from "@/lib/gif-export";
 import { canCopyImageToClipboard, copyViewerPng, downloadViewerBlob, drawFigureFooter, exportViewerPng, figureFooterHeightPx, figureTitleMeta, viewerFileSlug, viewerFileTimestamp } from "@/lib/viewer-export";
 import { downloadText } from "@/lib/download";
 import { MrcImage } from "./mrc-image";
+import { Color } from "molstar/lib/mol-util/color";
 import "molstar/build/viewer/molstar.css";
 
 interface MolStarEmbedProps {
@@ -213,8 +214,42 @@ const buildProfileCsv = (bins: number[], axis: string): string =>
 const profileCsvFilename = (axis: string): string =>
   `map-profile-${axis}-${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}.csv`;
 
+/** The viewport is a guest: it follows the room's theme. The Mol* canvas
+ *  paints ITSELF — no computed-style audit can ever see its background, and
+ *  the stock background is a near-white rectangle: a wound on a dark dialog.
+ *  Contract: in dark mode the viewport paints the app's OWN background (read
+ *  live from the computed style, so it shares the dialog's exact token);
+ *  in light mode it gets back the native default captured before we ever
+ *  touched it — light mode was never broken, so the fix stays out of its
+ *  way. Returns null when the computed style is unreadable (SSR-ish edges)
+ *  and the caller skips the write rather than guessing a color. */
+function appViewportBg(): Color | null {
+  const css = getComputedStyle(document.body).backgroundColor;
+  if (!css || css === "none" || css === "transparent") return null;
+  // Tailwind 4 tokens compute to lab()/oklch() — NOT rgb() — so a regex on
+  // the computed string convicts nothing (found live: "lab(5.6 -1.2 -4.3)").
+  // A 1×1 canvas is the one resolver that speaks every CSS color grammar
+  // and answers in sRGB bytes; Mol*'s Color wants exactly those bytes.
+  try {
+    const c = document.createElement("canvas");
+    c.width = c.height = 1;
+    const ctx = c.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return null;
+    ctx.fillStyle = css;
+    ctx.fillRect(0, 0, 1, 1);
+    const d = ctx.getImageData(0, 0, 1, 1).data;
+    return Color.fromRgb(d[0], d[1], d[2]);
+  } catch {
+    return null; // unreadable room — skip the write rather than guess
+  }
+}
+
 export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  // Mol*'s stock canvas background, captured before our theme work ever
+  // touches it — light mode toggles get exactly this back (the dark fix
+  // must not silently redefine what light mode looks like)
+  const nativeCanvasBgRef = useRef<Color | null>(null);
   const [phase, setPhase] = useState<Phase>("loading");
   const [error, setError] = useState<string | null>(null);
   const [stage, setStage] = useState<LoadStage>("viewer");
@@ -319,6 +354,20 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
           return;
         }
         pluginRef.current = plugin;
+        // stash Mol*'s own canvas background BEFORE our theme work ever
+        // touches it — light mode gets it back verbatim on toggle; then
+        // follow the room we opened in (a viewer opened in the dark must
+        // not flash its stock white rectangle first)
+        try {
+          nativeCanvasBgRef.current =
+            plugin.canvas3d?.props?.renderer?.backgroundColor ?? null;
+        } catch {
+          nativeCanvasBgRef.current = null; // props peek is cosmetic
+        }
+        if (document.documentElement.classList.contains("dark")) {
+          const bg = appViewportBg();
+          if (bg) plugin.canvas3d?.setProps({ renderer: { backgroundColor: bg } });
+        }
         // QA affordance: let browser tooling poke the live plugin (read the
         // volume grid transform when verifying clip/slice plane math).
         (window as unknown as { __molstar?: unknown }).__molstar = plugin;
@@ -466,6 +515,28 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
       sliceRef.current = null;
     };
   }, [jobId, path, name]);
+
+  // live follow — when the room's look flips mid-session, re-paint the
+  // viewport so the canvas never fights it. The SIGNAL is a MutationObserver
+  // on <html>'s class, not next-themes' resolvedTheme: the class IS the
+  // render contract of class-based dark mode (found live: a toggle flipped
+  // the class while resolvedTheme never reached this subtree — whichever
+  // topology owns the toggle, the observer fires exactly when the pixels
+  // change). A no-op while the plugin hasn't materialized (init applies the
+  // current room itself, so there is no ordering gap).
+  useEffect(() => {
+    const apply = () => {
+      const c3d = pluginRef.current?.canvas3d;
+      if (!c3d) return;
+      const dark = document.documentElement.classList.contains("dark");
+      const target = dark ? appViewportBg() : nativeCanvasBgRef.current;
+      console.debug(`[viewport-theme] room flipped dark=${dark} native=${nativeCanvasBgRef.current ? "yes" : "null"}`);
+      if (target) c3d.setProps({ renderer: { backgroundColor: target } });
+    };
+    const obs = new MutationObserver(apply);
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    return () => obs.disconnect();
+  }, []);
 
   /* ---------------- contour updates (transform-state) --------------- */
 
