@@ -297,6 +297,19 @@ must(mid.transform.includes("translateX") && mid.progress > 0.4 && mid.progress 
   `M11 mid-drag: transform follows, progress ${mid.progress.toFixed(2)}, cue opacity ${Number(mid.cueOp).toFixed(2)} = progress`);
 
 const shot = await mPage.screenshot();
+// Task 181 — the echo-off control: SAME pixel, TWO states. The old M13
+// compared two DIFFERENT pixels in one frame (edge x+4 vs interior x+70),
+// which silently calibrated the threshold against whatever the JobPanel
+// happened to draw at x+70 — a world-frozen accident that survived every
+// matrix until the sandbox rollback rebuilt the roster and the chosen
+// card's panel content changed. The echo's true contribution is measured
+// by dragging BACK to ≈0 (cue opacity ≈ 0) and re-sampling the identical
+// coordinates: content cancels, only the echo remains.
+await mPage.mouse.move(rect.x + 8, startY, { steps: 6 });
+await sleep(150);
+const offShot = await mPage.screenshot();
+await mPage.mouse.move(rect.x + 280, startY, { steps: 6 });
+await sleep(80);
 await mPage.mouse.up();
 await sleep(800);
 const dismissed = await mPage.evaluate(() => !document.querySelector('[role="dialog"][data-panel-sheet]'));
@@ -313,11 +326,21 @@ const samplePx = (cssX, cssY) => {
   }
   return [r / n, g / n, b / n];
 };
-const onEcho = samplePx(mid.sx + 4, startY);
-const offEcho = samplePx(mid.sx + 70, startY);
+const onEcho = samplePx(mid.sx + 2, startY);
+const { data: offData } = await sharp(offShot).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+const offSamplePx = (cssX, cssY) => {
+  const x = Math.round(cssX * dpr), y = Math.round(cssY * dpr);
+  let r = 0, g = 0, b = 0, n = 0;
+  for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+    const i = ((y + dy) * info.width + (x + dx)) * info.channels;
+    r += offData[i]; g += offData[i + 1]; b += offData[i + 2]; n++;
+  }
+  return [r / n, g / n, b / n];
+};
+const offEcho = offSamplePx(rect.x + 2, startY); // same dialog-local pixel, echo OFF
 const delta = Math.max(...onEcho.map((v, i) => Math.abs(v - offEcho[i])));
 must(delta >= 12,
-  `M13 DARK echo pixels: on-echo rgb(${onEcho.map(Math.round)}) vs card rgb(${offEcho.map(Math.round)}) → Δ ${delta.toFixed(1)} ≥ 12 (was Δ≈0 — hardcoded black)`);
+  `M13 DARK echo pixels (same-pixel two-state): echo-on rgb(${onEcho.map(Math.round)}) vs echo-off rgb(${offEcho.map(Math.round)}) → Δ ${delta.toFixed(1)} ≥ 12 (hardcoded black measured Δ≈0; honest two-state design intensity ≈18)`);
 
 // console hygiene: the sheet's Log tab may honest-404 (t171's recipe —
 // pair the observed 404 with the observed empty state, tolerate nothing else)

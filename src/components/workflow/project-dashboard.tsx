@@ -1097,17 +1097,34 @@ function JobRow({ job, onOpen }: { job: JobDTO; onOpen: () => void }) {
 /** Shape of GET /api/activity/recent — the latest-touched jobs across ALL
  *  projects. This is the "where did I leave off" strip: a job you ran in
  *  another project this morning shows up here without hunting through the
- *  project grid. */
+ *  project grid.
+ *
+ *  WIRE SCALE: `progress` arrives on the app-wide 0–100 scale (the DB
+ *  column's scale — the same number the canvas chip and the inspector
+ *  header show). The feed's INTERNALS below are fraction-native (bar ×100,
+ *  pct ×100, restart threshold 0.05, trend threshold 0.005), so the wire
+ *  is normalized to 0–1 ONCE in toFractionFrame at the fetch boundary —
+ *  never inline at the render sites. Task 181's 4200% bug was this
+ *  boundary missing: the wire value flowed through untouched and every
+ *  ×100 label multiplied a percent into a four-digit one. */
 interface RecentJob {
   id: string;
   name: string;
   type: string;
   status: string;
+  /** INTERNAL: fraction 0–1 (see toFractionFrame). The wire is 0–100. */
   progress: number;
   updatedAt: string;
   projectId: string | null;
   projectName: string | null;
 }
+
+/** One wire→internal translation point: divide the 0–100 wire scale down
+ *  to the fraction the feed machinery speaks. Every fetch frame passes
+ *  through here before it touches state — a value that skips this maps to
+ *  "4200%" labels and a bar pinned at full width. */
+const toFractionFrame = (jobs: RecentJob[]): RecentJob[] =>
+  jobs.map((j) => ({ ...j, progress: j.progress / 100 }));
 
 /** Tiny progress-history sparkline for a running feed row — answers "is it
  *  actually moving or quietly stalled" at a glance, without opening the
@@ -1257,8 +1274,9 @@ function RecentActivityFeed({ activeProjectId }: { activeProjectId: string | nul
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
       .then((d: { jobs?: RecentJob[] }) => {
         if (alive) {
-          setRecent(Array.isArray(d.jobs) ? d.jobs : []);
-          absorb(Array.isArray(d.jobs) ? d.jobs : []);
+          const frame = toFractionFrame(Array.isArray(d.jobs) ? d.jobs : []);
+          setRecent(frame);
+          absorb(frame);
         }
       })
       .catch(() => {
@@ -1281,7 +1299,7 @@ function RecentActivityFeed({ activeProjectId }: { activeProjectId: string | nul
       fetch("/api/activity/recent?limit=8")
         .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
         .then((d: { jobs?: RecentJob[] }) => {
-          const arr = Array.isArray(d.jobs) ? d.jobs : [];
+          const arr = toFractionFrame(Array.isArray(d.jobs) ? d.jobs : []);
           setRecent(arr);
           absorb(arr);
         })

@@ -92,6 +92,32 @@ const roster = list.map((j) => `${j.id}|${j.name}`).sort();
 const running = list.find((j) => j.status === "running" && (j.name || "").length >= 10);
 const compLong = list.find((j) => j.status === "completed" && (j.name || "").length >= 10);
 const idle = list.find((j) => j.status === "idle");
+
+/* Task 181 — the band pair rehearses on a PRIVATE STAGE. placeCard only
+ * PANS THE VIEW (world coords are sacred), so the chosen pair's lattice
+ * neighbours rode rigidly along under the band forever after the sandbox
+ * rollback rebuilt the roster as a tidy lattice (measured: selected 4/2
+ * on desktop; the sweep can never isolate the pair by panning). The fix
+ * moves the two chosen jobs to an empty world region via the API before
+ * any geometry runs, and restores their original coords in the Z phase —
+ * the world reads back exactly as it was; the stage is private. */
+const STAGE = {
+  a: { x: idle.x, y: 1600 },
+  b: { x: idle.x + 400, y: 1600 },
+};
+const originalCoords = new Map();
+if (idle && compLong) {
+  for (const j of [idle, compLong]) originalCoords.set(j.id, { x: j.x, y: j.y });
+  await fetch(`${BASE}/api/jobs/${idle.id}`, {
+    method: "PATCH", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ x: STAGE.a.x, y: STAGE.a.y }),
+  });
+  await fetch(`${BASE}/api/jobs/${compLong.id}`, {
+    method: "PATCH", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ x: STAGE.b.x, y: STAGE.b.y }),
+  });
+  console.log("  stage: pair relocated to the empty region (coords restored at Z)");
+}
 must(list.length > 0, `S1 world alive (${list.length} jobs)`);
 must(!!running, `S2 a long-named running job exists (${running?.name})`);
 must(!!compLong, `S3 a long-named completed job exists (${compLong?.name})`);
@@ -147,33 +173,63 @@ console.log("== X: source oracles ==");
    is a GLOBAL translate — the only honest input is the card's CURRENT
    RENDERED center; delta = target − rendered is exact by construction. */
 function makePlacer(page, list) {
+  /* Task 181: multi-hop arrival. One background drag pans at most a
+   * viewport-span, so a card parked far from the current view (the private
+   * stage lives ~1400px away by design) could never be placed in one drag —
+   * measured: every candidate's drag end fell outside the 280px fold and
+   * the card never moved. Hop instead: drag, re-read, repeat until the
+   * center is within tolerance or 8 hops are spent. */
   return async function placeCard(id, tx, ty) {
-    const cur = await page.evaluate((want) => {
-      const c = [...document.querySelectorAll("[data-job]")].find((el) => el.getAttribute("data-job") === want);
-      const r = c?.getBoundingClientRect();
-      return r ? { x: r.x + r.width / 2, y: r.y + r.height / 2 } : null;
-    }, id);
-    if (!cur) return null;
-    const d = { dx: tx - cur.x, dy: ty - cur.y };
+    let last = null;
+    for (let hop = 0; hop < 8; hop++) {
+      const cur = await page.evaluate((want) => {
+        const c = [...document.querySelectorAll("[data-job]")].find((el) => el.getAttribute("data-job") === want);
+        const r = c?.getBoundingClientRect();
+        return r ? { x: r.x + r.width / 2, y: r.y + r.height / 2 } : null;
+      }, id);
+      if (!cur) return null;
+      last = cur;
+      const d = { dx: tx - cur.x, dy: ty - cur.y };
+      if (process.env.T177_DEBUG) console.log(`    [placer] ${id.slice(-6)} hop ${hop}: cur=${JSON.stringify(cur)} d=${JSON.stringify(d)}`);
+      if (Math.abs(d.dx) <= 6 && Math.abs(d.dy) <= 6) break; // arrived
     /* adaptive start points: proportional to the viewport (the fixed
        140/60-column list put the desktop drag INSIDE the palette rail —
        x=140 < rail width 279 — and the "pan" silently did nothing), and
-       every candidate must be ON the canvas viewport, off cards/buttons */
+       every candidate must be ON the canvas viewport, off cards buttons */
     const W = await page.evaluate(() => innerWidth), H = await page.evaluate(() => innerHeight);
+    /* Task 181: per-candidate ACHIEVABLE step — from (sx,sy) the drag can
+       only deliver the part of the delta that keeps the END in-viewport, so
+       each candidate contributes its clamped component and the probe takes
+       the candidate with the most progress. Monotone convergence: every hop
+       moves the max the viewport allows, so a far stage arrives in a few
+       hops instead of never (measured: 1400px away, zero candidates could
+       deliver the raw delta and the pair stood still for 8 hops). */
     const cands = [[0.5, 0.42], [0.5, 0.66], [0.28, 0.42], [0.72, 0.42], [0.5, 0.82], [0.3, 0.8]]
       .map(([fx, fy]) => [Math.round(W * fx), Math.round(H * fy)]);
+    let best = null, bestProgress = 0;
     for (const [sx, sy] of cands) {
+      if (sx < 8 || sx > W - 8 || sy < 8 || sy > H - 8) continue;
+      const availDx = d.dx > 0 ? Math.min(d.dx, W - 8 - sx) : Math.max(d.dx, 8 - sx);
+      const availDy = d.dy > 0 ? Math.min(d.dy, H - 8 - sy) : Math.max(d.dy, 8 - sy);
+      const progress = Math.abs(availDx) + Math.abs(availDy);
+      if (progress <= bestProgress) continue;
       const ok = await page.evaluate(([sx, sy]) => {
         const el = document.elementFromPoint(sx, sy);
         return !!el && !!el.closest('[data-canvas="viewport"]') && !el.closest("[data-job]") && !el.closest("button");
       }, [sx, sy]);
       if (!ok) continue;
+      best = [sx, sy, availDx, availDy];
+      bestProgress = progress;
+    }
+    if (best) {
+      const [sx, sy, ddx, ddy] = best;
+      if (process.env.T177_DEBUG) console.log(`    [placer]   drag (${sx},${sy})→(${Math.round(sx + ddx)},${Math.round(sy + ddy)})`);
       await page.mouse.move(sx, sy);
       await page.mouse.down();
-      await page.mouse.move(sx + d.dx, sy + d.dy, { steps: 8 });
+      await page.mouse.move(sx + ddx, sy + ddy, { steps: 8 });
       await page.mouse.up();
       await sleep(800);
-      break;
+    } else if (process.env.T177_DEBUG) console.log("    [placer]   no viable candidate this hop");
     }
     return page.evaluate((want) => {
       const c = [...document.querySelectorAll("[data-job]")].find((el) => el.getAttribute("data-job") === want);
@@ -260,32 +316,73 @@ async function bandSelectTwo(pageRef, placeFn, idA, idB, maxX, txA = 90, txB = 2
      canvas top chrome, and the start candidates stay alive). The band
      reads FINAL rendered rects, so a vertical band over a stacked pair
      is just as legal as a horizontal one over a spread pair. */
-  const a0 = await pageRef.evaluate((want) => {
-    const c = [...document.querySelectorAll("[data-job]")].find((el) => el.getAttribute("data-job") === want);
-    const r = c?.getBoundingClientRect();
-    return r ? { x: r.x + r.width / 2, y: r.y + r.height / 2 } : null;
-  }, idA);
-  const b0 = await pageRef.evaluate((want) => {
-    const c = [...document.querySelectorAll("[data-job]")].find((el) => el.getAttribute("data-job") === want);
-    const r = c?.getBoundingClientRect();
-    return r ? { x: r.x + r.width / 2, y: r.y + r.height / 2 } : null;
-  }, idB);
-  const relY = a0 && b0 ? b0.y - a0.y : 0;
-  dbg("initial centers", `A=${JSON.stringify(a0)} B=${JSON.stringify(b0)} relY=${relY.toFixed(0)}`);
-  const aP = await placeFn(idA, txA, ty);
-  dbg("A placed", JSON.stringify(aP));
-  const b = await placeFn(idB, txB, ty + relY);
-  dbg("B placed", JSON.stringify(b));
-  if (!b?.inVp) return null;
   const rect = async (want) => pageRef.evaluate((want) => {
     const c = [...document.querySelectorAll("[data-job]")].find((el) => el.getAttribute("data-job") === want);
     const r = c?.getBoundingClientRect();
-    return r ? { x: r.x + r.width / 2, y: r.y + r.height / 2,
+    return r ? { x: r.x + r.width / 2, y: r.y + r.height / 2, w: r.width, h: r.height,
       inVp: r.top >= 0 && r.bottom <= innerHeight && r.left >= 0 && r.right <= innerWidth } : null;
   }, want);
-  const a = await rect(idA);
-  dbg("A re-read", JSON.stringify(a));
-  if (!a?.inVp) return null;
+  const a0 = await rect(idA);
+  const b0 = await rect(idB);
+  const relY = a0 && b0 ? b0.y - a0.y : 0;
+  dbg("initial centers", `A=${JSON.stringify(a0)} B=${JSON.stringify(b0)} relY=${relY.toFixed(0)}`);
+  /* Task 181 — two mechanical guards against world-layout coupling. The
+   * rollback rebuilt the roster and the tidied lattice put strangers (a)
+   * under B's drag START and (b) inside the band's sweep — measured: the
+   * mousedown grabbed A instead of B (A ended at x=10, B never moved), and
+   * the desktop band swept 2 lattice neighbours (selected 4/2). Neither
+   * guard touches the contract: the band must still sweep EXACTLY the
+   * placed pair — the guards only clear the stage the contract plays on. */
+  let a = null, b = null, placed = false;
+  for (let attempt = 0; attempt < 5 && !placed; attempt++) {
+    const tyTry = ty - attempt * 110;
+    await placeFn(idA, txA, tyTry);
+    const aMid = await rect(idA);
+    const bMid = await rect(idB);
+    // guard 1 — grab-interception: B's placement drag starts at B's CURRENT
+    // center; if A's placed RECT covers that point the mousedown grabs A.
+    // RECT containment, not center distance: the pair's spacing is fixed in
+    // world coords, so panning moves both together and a center-distance
+    // threshold can never be satisfied by re-seating (measured: 65px apart
+    // at zoom 0.25 with ~35px cards — no overlap, no interception risk).
+    const covers = (big, pt) => big && pt && Math.abs(pt.x - big.x) < big.w / 2 + 8 && Math.abs(pt.y - big.y) < big.h / 2 + 8;
+    if (covers(aMid, bMid) || covers(bMid, aMid)) {
+      dbg("guard1 re-seat (rect covers the other's center)", JSON.stringify({ aMid, bMid }));
+      continue;
+    }
+    b = await placeFn(idB, txB, tyTry + relY);
+    if (!b?.inVp) { dbg("B off-viewport", JSON.stringify(b)); continue; }
+    a = await rect(idA);
+    if (!a?.inVp) { dbg("A off-viewport", JSON.stringify(a)); continue; }
+    // guard 2 — band exclusivity: no third card may intersect the sweep
+    // rect; push the world down 240px (background pan) and retry.
+    const bandRect = {
+      minx: Math.min(a.x, b.x) - 20, maxx: Math.max(a.x, b.x) + 20,
+      miny: Math.min(a.y, b.y) - 54, maxy: Math.max(a.y, b.y) + 44,
+    };
+    const others = await pageRef.evaluate(({ bandRect, pairIds }) =>
+      [...document.querySelectorAll("[data-job]")].filter((el) => {
+        if (pairIds.includes(el.getAttribute("data-job"))) return false;
+        const r = el.getBoundingClientRect();
+        return r.right > bandRect.minx && r.left < bandRect.maxx &&
+               r.bottom > bandRect.miny && r.top < bandRect.maxy;
+      }).length, { bandRect, pairIds: [idA, idB] });
+    dbg(`attempt ${attempt}: others inside band`, others);
+    if (others === 0) { placed = true; break; }
+    const W = await pageRef.evaluate(() => innerWidth), H = await pageRef.evaluate(() => innerHeight);
+    const px = Math.round(W * 0.5), py = Math.round(H * 0.42);
+    const clearAt = await pageRef.evaluate(([px, py]) => {
+      const el = document.elementFromPoint(px, py);
+      return !!el && !!el.closest('[data-canvas="viewport"]') && !el.closest("[data-job]") && !el.closest("button");
+    }, [px, py]);
+    if (!clearAt) continue;
+    await pageRef.mouse.move(px, py);
+    await pageRef.mouse.down();
+    await pageRef.mouse.move(px, py + 240, { steps: 8 });
+    await pageRef.mouse.up();
+    await sleep(700);
+  }
+  if (!placed || !a?.inVp || !b?.inVp) return null;
   const minx = Math.min(a.x, b.x), maxx = Math.max(a.x, b.x);
   const miny = Math.min(a.y, b.y), maxy = Math.max(a.y, b.y);
   let start = null;
@@ -587,9 +684,18 @@ let dSingleLight = null;
 }
 await dpage.close();
 
-/* ============ Z: roster identity ============ */
+/* ============ Z: roster identity + stage teardown ============ */
 console.log("== Z: roster identity ==");
 {
+  // the private stage folds first: original coords go back BEFORE the
+  // roster snapshot comparison, so identity is asserted on the REAL world
+  for (const [id, xy] of originalCoords) {
+    await fetch(`${BASE}/api/jobs/${id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(xy),
+    });
+  }
+  if (originalCoords.size > 0) console.log("  stage: pair coords restored");
   const after = await (await fetch(BASE + "/api/jobs")).json();
   const afterList = Array.isArray(after) ? after : after.jobs ?? [];
   const afterRoster = afterList.map((j) => `${j.id}|${j.name}`).sort();

@@ -13,6 +13,16 @@ export const dynamic = "force-dynamic";
  * params/results blobs) keeps the read cheap even as the job table grows.
  * `progress` rides along for free (one Float column) so the feed can draw
  * live bars for running jobs without a second request.
+ *
+ * SCALE CONTRACT: progress is the DB column's app-wide 0–100 scale — the
+ * same number every other progress-bearing surface shows (canvas chips,
+ * inspector header, JobRow). Consumers must not re-scale it; the feed's
+ * fraction-native internals normalize once at the fetch boundary (the
+ * dashboard's toFractionFrame). The 4200% lesson (Task 181): a percent
+ * label that multiplies a 0–100 value by 100 renders confidently and
+ * wrongly — and the probe missed it because it fed a mocked 42% FRACTION
+ * instead of the wire's real scale. A mocked contract is not the wire's
+ * contract.
  */
 export async function GET(request: NextRequest) {
   try {
