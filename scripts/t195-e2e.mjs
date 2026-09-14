@@ -43,6 +43,7 @@ const section = (t) => console.log(`\n== ${t} ==`);
 const SRC = readFileSync("src/components/workflow/results/molstar-embed.tsx", "utf8");
 const HPCS = readFileSync("src/components/workflow/hpc-queue-sim.tsx", "utf8");
 const MDLIB = readFileSync("src/lib/md.ts", "utf8");
+const QCLIB = readFileSync("src/lib/qc-report.ts", "utf8");
 const roster0 = (await (await fetch(BASE + "/api/jobs")).json()).jobs ?? [];
 // the map-profile surface denies metadata-less requests by design —
 // the probe speaks browser, not curl (t193's H header)
@@ -96,19 +97,19 @@ const wireR = pearson(resample(halfWire.bins, mainWire.bins.length), mainWire.bi
 
 /* ============ X: source oracles ============ */
 section("X: the source tells the truth");
-must((SRC.match(/const buildProfileReport/g) || []).length === 1, "X1 ONE builder — buildProfileReport defined exactly once");
+must((QCLIB.match(/const buildProfileReport/g) || []).length === 1 && !SRC.includes("const buildProfileReport"), "X1 ONE builder — buildProfileReport defined exactly once (in @/lib/qc-report since t197; the viewer imports it)");
 const repBody = slice(SRC, "const exportProfileReport", "const commitSlice");
 must(repBody.length > 0 && !repBody.includes("ProfileCsv"), "X2 the report export NEVER touches the CSV (no parse-of-parse in the function body)");
 must(!repBody.includes("slicePos"), "X3 the report is a function of the LANDSCAPE, not the playhead (no slicePos in the export)");
-must(MDLIB.includes("export const mdCell") && HPCS.includes('import { mdCell } from "@/lib/md"') && SRC.includes('import { mdCell } from "@/lib/md"') && !/^const mdCell/m.test(HPCS), "X4 mdCell promoted to @/lib/md — hpc and viewer both import it, the twin is dead");
+must(MDLIB.includes("export const mdCell") && HPCS.includes('import { mdCell } from "@/lib/md"') && QCLIB.includes('import { mdCell } from "@/lib/md"') && !/^const mdCell/m.test(HPCS) && !/^const mdCell/m.test(QCLIB), "X4 mdCell promoted to @/lib/md — hpc and qc-report both import it, the twin is dead (the viewer dropped its import when the builder moved, t197)");
 must((() => { const t = slice(SRC, 'data-csv-carrier="profile"', ">\n"); return t.includes("data-csv={lastProfileCsv ?? undefined}") && t.includes("data-md={lastProfileReport ?? undefined}"); })(), "X5 data-md cohabits with data-csv on the ALWAYS-ATTACHED carrier (t194 doctrine)");
 must(SRC.includes("setLastProfileReport(null);") && SRC.includes("}, [profile, overlayProfiles]);"), "X6 retirement deps are [profile, overlayProfiles] — the report retires when anything it SPEAKS changes");
 must(repBody.includes('downloadText(fname, md, "text/markdown;charset=utf-8")'), "X7 the fallback download speaks markdown mime (same bytes as the clipboard)");
-must(SRC.includes("pearson(resampleByFraction("), "X8 r is computed on FRACTION-resampled terrains (never bin index)");
-must(SRC.includes("r >= 0.85") && SRC.includes("r >= 0.5") && SRC.includes("flat — no shape to compare"), "X9 the verdict ladder is honest (agrees/partial/diverges + flat says it cannot compare)");
+must(QCLIB.includes("pearson(resampleByFraction("), "X8 r is computed on FRACTION-resampled terrains (never bin index) — the math lives in @/lib/qc-report since t197");
+must(QCLIB.includes("r >= 0.85") && QCLIB.includes("r >= 0.5") && QCLIB.includes("flat — no shape to compare"), "X9 the verdict ladder is honest (agrees/partial/diverges + flat says it cannot compare) — in @/lib/qc-report since t197");
 must(SRC.includes('aria-label="Copy profile QC report"') && SRC.includes('aria-label="Download profile QC report"') && (SRC.match(/disabled=\{!profile\}/g) || []).length >= 4, "X10 both report doors named, all four doors disabled without a landscape");
 must(/flex min-w-0 flex-wrap items-center justify-end gap-1\.5"\s*\n\s*data-csv-carrier="profile"/.test(SRC), "X11 the carrier wraps gracefully (flex-wrap) — four chips + XYZ + plane readout cannot overflow the panel");
-must(SRC.includes("_Exported from CryoFlow's slice instrument"), "X12 the report carries its own provenance caveat (contour-independent, whole-map)");
+must(QCLIB.includes("_Exported from CryoFlow's slice instrument"), "X12 the report carries its own provenance caveat (contour-independent, whole-map) — in @/lib/qc-report since t197");
 
 /* ============ D: the live loop ============ */
 section("D: the report, live");

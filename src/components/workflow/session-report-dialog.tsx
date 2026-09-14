@@ -1,0 +1,314 @@
+"use client";
+
+/**
+ * CryoFlow — the session QC report (t197): the page where the report
+ * families meet under one cover.
+ *
+ * Three families speak here, each in its OWN voice and its own provenance:
+ *   • the pipeline glance — live from the workflow store (cheap, always
+ *     current);
+ *   • the map QC section — buildProfileReport's output bound VERBATIM,
+ *     measured WITHOUT the viewer: the session's latest succeeded job
+ *     with 3D maps is profiled through the same map-profile API the
+ *     slice instrument drinks from, so the job-level report answers the
+ *     FSC question (do the halves corroborate each other?) even for
+ *     people who never opened a single map;
+ *   • the scheduling sweep annex — the store's lastSweep bound VERBATIM
+ *     through buildSweepReport, exactly the bytes the HPC panel exports.
+ *
+ * The binding father (buildSessionReport) never parses the families'
+ * outputs — the session report does not re-translate the families'
+ * translations, it binds them.
+ *
+ * Contracts carried over from the family's earlier rounds:
+ * - ONE md string feeds clipboard + download + the data-md carrier (no
+ *   parse-of-parse, t194); the carrier is ALWAYS attached (t191).
+ * - Copy falls back to a download when the clipboard is denied, and the
+ *   receipt SAYS so — honesty covers both worlds (t188 B3 / t195 D5).
+ * - No timestamps in the bytes — the same session state yields the same
+ *   document; the filename carries the stamp (t195's doctrine).
+ * - Every family with nothing to say gets an honest empty state that
+ *   teaches where its numbers come from (t195's empty doctrine).
+ * - The report is the ONE dialog that IS a document: while it is open,
+ *   body[data-report-print] flips the print contract from "dialogs step
+ *   aside" (Task 70) to "only the report prints" — Markdown→PDF is the
+ *   whole point of a report page.
+ */
+
+import * as React from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Copy, Download, FileDown, Printer } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { downloadText } from "@/lib/download";
+import {
+  buildProfileReport,
+  buildSessionReport,
+  buildSweepReport,
+  sessionReportFilename,
+  type ReportOverlay,
+} from "@/lib/qc-report";
+import { useWorkflowStore } from "@/lib/store";
+
+/** one candidate's 3D-map set (paths relative to the job's workdir) */
+interface MapBrief {
+  jobId: string;
+  main: { path: string; name: string };
+  overlays: { path: string; name: string }[];
+}
+
+interface OutputsResponse {
+  files?: { path: string; name: string; kind: string; dims?: [number, number, number]; label?: string }[];
+}
+interface ProfileResponse {
+  bins?: number[];
+  error?: string;
+}
+
+/** Full-map variants lead the report; halves and masked maps compare. */
+const MAIN_MAP_RE = /half0|postprocess\.mrc$/i;
+
+/** The session's latest succeeded job with 3D maps, as a MapBrief.
+ *  Candidates walk newest-first (cap 8 outputs probes) and the FIRST job
+ *  owning at least one true volume (kind mrc + 3 dims — stacks have no
+ *  dims, masks and classes are volumes too) wins. */
+async function findMapBrief(jobIds: string[], signal: AbortSignal): Promise<MapBrief | null> {
+  for (const jobId of jobIds.slice(0, 8)) {
+    if (signal.aborted) return null;
+    try {
+      const d = (await fetch(`/api/jobs/${jobId}/outputs`, { signal }).then((r) => r.json())) as OutputsResponse;
+      const volumes = (d.files ?? []).filter(
+        (f) => f.kind === "mrc" && Array.isArray(f.dims) && f.dims.length === 3,
+      );
+      if (volumes.length === 0) continue;
+      const sorted = [...volumes].sort(
+        (a, b) => Number(MAIN_MAP_RE.test(b.name)) - Number(MAIN_MAP_RE.test(a.name)),
+      );
+      const brief: MapBrief = {
+        jobId,
+        main: { path: sorted[0].path, name: sorted[0].label ?? sorted[0].name },
+        overlays: sorted.slice(1, 3).map((f) => ({ path: f.path, name: f.label ?? f.name })),
+      };
+      return brief;
+    } catch {
+      if (signal.aborted) return null;
+      // this candidate's outputs are unreadable — the next one may speak
+    }
+  }
+  return null;
+}
+
+/** Profile the brief's maps on the shared Z axis and hand the family
+ *  builder exactly what it would have received from the viewer: the
+ *  main landscape plus adopted comparison terrains. */
+async function measureMapQc(
+  brief: MapBrief,
+  signal: AbortSignal,
+): Promise<{ jobId: string; report: string }> {
+  const paths = [brief.main.path, ...brief.overlays.map((o) => o.path)];
+  const fetched = await Promise.all(
+    paths.map(async (p) => {
+      const d = (await fetch(
+        `/api/jobs/${brief.jobId}/map-profile?path=${encodeURIComponent(p)}&axis=z`,
+        { signal },
+      ).then((r) => r.json())) as ProfileResponse;
+      if (!Array.isArray(d.bins) || d.bins.length === 0) throw new Error("no landscape");
+      return d.bins;
+    }),
+  );
+  const overlays: ReportOverlay[] = brief.overlays.map((o, i) => ({ name: o.name, bins: fetched[i + 1] }));
+  const report = buildProfileReport({
+    mapName: brief.main.name,
+    jobId: brief.jobId,
+    axis: "z",
+    bins: fetched[0],
+    overlays,
+    pendingOverlays: 0,
+  });
+  return { jobId: brief.jobId, report };
+}
+
+export default function SessionReportDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+}) {
+  const project = useWorkflowStore((s) => s.project);
+  const jobs = useWorkflowStore((s) => s.jobs);
+  const lastSweep = useWorkflowStore((s) => s.lastSweep);
+
+  const [mapQc, setMapQc] = React.useState<{ jobId: string; report: string } | null>(null);
+  const [mapPending, setMapPending] = React.useState(false);
+  const [mapError, setMapError] = React.useState(false);
+  const [note, setNote] = React.useState<string | null>(null);
+  const noteTimer = React.useRef<number | null>(null);
+
+  const flashNote = (text: string) => {
+    setNote(text);
+    if (noteTimer.current) window.clearTimeout(noteTimer.current);
+    noteTimer.current = window.setTimeout(() => setNote(null), 4000);
+  };
+
+  // The report is the one dialog that IS a document: while open, the body
+  // carries the print-exception flag — Task 70's "dialogs step aside on
+  // paper" contract is scoped away for exactly this dialog, and cleaned
+  // up on close/unmount so no other printout inherits the flag.
+  React.useEffect(() => {
+    if (open) document.body.setAttribute("data-report-print", "");
+    else document.body.removeAttribute("data-report-print");
+    return () => document.body.removeAttribute("data-report-print");
+  }, [open]);
+
+  // Map QC is measured ONCE per open (a snapshot of the session's maps):
+  // the walk + profiles are the expensive part, statcache makes repeats
+  // cheap but the assembly is still async — the section says so while it
+  // works (the pending doctrine: the summary does not guess).
+  React.useEffect(() => {
+    if (!open) return;
+    const ctrl = new AbortController();
+    setMapQc(null);
+    setMapError(false);
+    setMapPending(true);
+    (async () => {
+      const doneIds = useWorkflowStore
+        .getState()
+        .jobs.filter((j) => j.status === "completed")
+        .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1))
+        .map((j) => j.id);
+      const brief = await findMapBrief(doneIds, ctrl.signal);
+      if (ctrl.signal.aborted) return;
+      if (!brief) {
+        setMapPending(false);
+        return; // honest empty state — no job here owns a volume
+      }
+      try {
+        const qc = await measureMapQc(brief, ctrl.signal);
+        if (ctrl.signal.aborted) return;
+        setMapQc(qc);
+        setMapPending(false);
+      } catch {
+        if (ctrl.signal.aborted) return;
+        setMapError(true);
+        setMapPending(false);
+      }
+    })();
+    return () => ctrl.abort();
+  }, [open]);
+
+  const pipeline = React.useMemo(() => {
+    const succeeded = jobs.filter((j) => j.status === "completed").length;
+    const running = jobs.filter((j) => j.status === "running").length;
+    const failed = jobs.filter((j) => j.status === "failed").length;
+    return { total: jobs.length, succeeded, running, failed, waiting: jobs.length - succeeded - running - failed };
+  }, [jobs]);
+
+  const md = React.useMemo(
+    () =>
+      buildSessionReport({
+        projectName: project?.name ?? null,
+        pipeline,
+        mapQc,
+        mapPending,
+        mapError,
+        sweep: lastSweep ? buildSweepReport(lastSweep.rows, lastSweep.bestId) : null,
+      }),
+    [project?.name, pipeline, mapQc, mapPending, mapError, lastSweep],
+  );
+
+  const exportMd = async (mode: "copy" | "download") => {
+    if (mode === "copy") {
+      try {
+        await navigator.clipboard.writeText(md);
+        flashNote("Copied the session QC report to the clipboard");
+        return;
+      } catch {
+        // clipboard denied — the download is the honest fallback, and the
+        // receipt names the degradation (the report speaks both worlds)
+        downloadText(sessionReportFilename(), md, "text/markdown;charset=utf-8");
+        flashNote("Downloaded session-qc-report-….md (clipboard unavailable)");
+        return;
+      }
+    }
+    downloadText(sessionReportFilename(), md, "text/markdown;charset=utf-8");
+    flashNote("Downloaded session-qc-report-….md");
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        data-report-doc
+        data-md={md}
+        className="max-w-4xl sm:max-w-4xl"
+        aria-label="Session QC report"
+      >
+        <DialogHeader className="no-print">
+          <DialogTitle className="flex items-center gap-2 text-sm">
+            <FileDown className="h-4 w-4 text-violet-600" aria-hidden="true" />
+            Session QC report
+          </DialogTitle>
+          <DialogDescription className="text-[11px]">
+            The report families meet: pipeline glance · map QC (measured, not viewed) · the sweep verdict, bound verbatim.
+          </DialogDescription>
+        </DialogHeader>
+
+        {/* the doors — copy / download speak Markdown, print speaks paper */}
+        <div className="no-print flex flex-wrap items-center justify-end gap-1.5" data-report-doors>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 gap-1.5 text-violet-600 hover:bg-violet-600/15 hover:text-violet-600"
+            aria-label="Copy session report"
+            onClick={() => exportMd("copy")}
+          >
+            <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+            Copy report
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 gap-1.5 text-violet-600 hover:bg-violet-600/15 hover:text-violet-600"
+            aria-label="Download session report"
+            onClick={() => exportMd("download")}
+          >
+            <Download className="h-3.5 w-3.5" aria-hidden="true" />
+            Download report
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 gap-1.5 text-violet-600 hover:bg-violet-600/15 hover:text-violet-600"
+            aria-label="Print session report"
+            title="Print / save as PDF — the paper contract prints exactly this document"
+            onClick={() => window.print()}
+          >
+            <Printer className="h-3.5 w-3.5" aria-hidden="true" />
+            Print
+          </Button>
+        </div>
+
+        {note && (
+          <p
+            className="no-print rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[11px] text-emerald-700 dark:text-emerald-300"
+            role="status"
+          >
+            {note}
+          </p>
+        )}
+
+        {/* the document itself — the families' bytes, rendered */}
+        <div className="report-doc max-h-[62vh] overflow-y-auto pr-1" data-report-body>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{md}</ReactMarkdown>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}

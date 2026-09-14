@@ -32,7 +32,20 @@ import { fmtBytes } from "@/lib/canvas-export";
 import { encodeGifFrames } from "@/lib/gif-export";
 import { canCopyImageToClipboard, copyViewerPng, downloadViewerBlob, drawFigureFooter, exportViewerPng, figureFooterHeightPx, figureTitleMeta, viewerFileSlug, viewerFileTimestamp } from "@/lib/viewer-export";
 import { downloadText } from "@/lib/download";
-import { mdCell } from "@/lib/md";
+// t197: the profile QC report family moved to @/lib/qc-report — the session
+// QC report is its second consumer, and the lib is the one honest home
+// (mdCell precedent: twins fork, imports don't; importing this component
+// from the report page would drag Mol* into a document's chunk).
+import {
+  agreementVerdict,
+  buildProfileReport,
+  pairwiseAgreement,
+  pearson,
+  pctAt,
+  profileReportFilename,
+  resampleByFraction,
+  type ReportOverlay,
+} from "@/lib/qc-report";
 import { MrcImage } from "./mrc-image";
 import { Color } from "molstar/lib/mol-util/color";
 import "molstar/build/viewer/molstar.css";
@@ -214,160 +227,6 @@ const buildProfileCsv = (bins: number[], axis: string): string =>
 
 const profileCsvFilename = (axis: string): string =>
   `map-profile-${axis}-${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}.csv`;
-
-/* ------------------------------------------------------------------ */
-/* Profile QC report (t195) — the landscape earns a human summary.     */
-/* The instrument's Markdown exit: same family as the sweep report     */
-/* (t194) — ONE builder, copy + download + carrier, no parse-of-parse. */
-/* ------------------------------------------------------------------ */
-
-/** Resample `bins` onto `n` evenly spaced FRACTION stations (0..1) with
- *  linear interpolation — comparison terrains align on the shared fraction
- *  scale, never on bin index (a 64³ main map and a 32³ half-map are two
- *  different rulers over the same depth; t193's doctrine in numbers). */
-const resampleByFraction = (bins: number[], n: number): number[] => {
-  if (bins.length === 0) return [];
-  if (bins.length === 1) return Array.from({ length: n }, () => bins[0]);
-  const out: number[] = [];
-  for (let i = 0; i < n; i++) {
-    const t = (i / Math.max(1, n - 1)) * (bins.length - 1);
-    const lo = Math.floor(t);
-    const hi = Math.min(bins.length - 1, lo + 1);
-    out.push(bins[lo] + (bins[hi] - bins[lo]) * (t - lo));
-  }
-  return out;
-};
-
-/** Pearson correlation — the shape-agreement number r. Affine-invariant,
- *  so self-scaling each terrain (the visual's own contract) changes
- *  nothing: the shape is the signal, not absolute ρ. A flat line has no
- *  shape — NaN, and the verdict says so instead of inventing a number. */
-const pearson = (a: number[], b: number[]): number => {
-  const n = Math.min(a.length, b.length);
-  if (n < 2) return NaN;
-  let sa = 0, sb = 0;
-  for (let i = 0; i < n; i++) { sa += a[i]; sb += b[i]; }
-  const ma = sa / n, mb = sb / n;
-  let cov = 0, va = 0, vb = 0;
-  for (let i = 0; i < n; i++) {
-    const da = a[i] - ma, db = b[i] - mb;
-    cov += da * db; va += da * da; vb += db * db;
-  }
-  if (va === 0 || vb === 0) return NaN;
-  return cov / Math.sqrt(va * vb);
-};
-
-const agreementVerdict = (r: number): string =>
-  Number.isNaN(r) ? "flat — no shape to compare"
-  : r >= 0.85 ? "agrees"
-  : r >= 0.5 ? "partial"
-  : "diverges";
-
-const pctAt = (bins: number[], i: number): string =>
-  `${((i / Math.max(1, bins.length - 1)) * 100).toFixed(1)}%`;
-
-/** one adopted comparison terrain the report can speak about */
-interface ReportOverlay { name: string; bins: number[] }
-
-/** Every PAIR of comparison terrains, correlated on the shared fraction
- *  scale with both resampled to the FINER of the two grids (the finer
- *  ruler preserves more shape; t195's fraction doctrine, pairwise).
- *  half1 vs half2 is THE cryo-EM QC pair: two independent reconstructions
- *  built from disjoint halves of the data — where they agree the density
- *  is real, which is exactly the question FSC asks. Overlay-vs-main says
- *  "does this map follow the reconstruction"; pairwise says "do the
- *  halves corroborate each other". */
-const pairwiseAgreement = (overlays: ReportOverlay[]): { a: string; b: string; r: number }[] => {
-  const out: { a: string; b: string; r: number }[] = [];
-  for (let i = 0; i < overlays.length; i++) {
-    for (let j = i + 1; j < overlays.length; j++) {
-      const n = Math.max(overlays[i].bins.length, overlays[j].bins.length);
-      out.push({
-        a: overlays[i].name,
-        b: overlays[j].name,
-        r: pearson(resampleByFraction(overlays[i].bins, n), resampleByFraction(overlays[j].bins, n)),
-      });
-    }
-  }
-  return out;
-};
-
-/**
- * ONE builder for the map's QC summary (t195): clipboard, download and
- * the data-md carrier all drink from this single cup, and it derives
- * from the profile ROWS exactly like buildProfileCsv does — it NEVER
- * parses the CSV (parse-of-parse is a second derivation waiting to
- * drift, t194's doctrine). The report is a function of the LANDSCAPE
- * and the ADOPTED COMPARISON TERRAINS — never the playhead — so
- * scrubbing never retires it, and the same landscape always yields the
- * same bytes (no timestamps inside; the filename carries the stamp).
- */
-const buildProfileReport = (opts: {
-  mapName: string;
-  jobId: string;
-  axis: string;
-  bins: number[];
-  overlays: ReportOverlay[];
-  pendingOverlays: number;
-}): string => {
-  const { mapName, jobId, axis, bins, overlays, pendingOverlays } = opts;
-  const n = bins.length;
-  let peak = 0, trough = 0;
-  for (let i = 1; i < n; i++) {
-    if (bins[i] > bins[peak]) peak = i;
-    if (bins[i] < bins[trough]) trough = i;
-  }
-  const max = bins[peak], min = bins[trough];
-  const span = max - min;
-  const lines: string[] = [];
-  lines.push(`## Map QC summary — ${mdCell(mapName)}`);
-  lines.push("");
-  lines.push(`Job \`${mdCell(jobId)}\` · mean-density landscape along **${axis.toUpperCase()}** (${n} bins).`);
-  lines.push("");
-  lines.push(`- **Peak** mean ρ at plane ${peak} (**${pctAt(bins, peak)}** of depth) — where the specimen's mass concentrates on this axis`);
-  lines.push(`- **Trough** at plane ${trough} (${pctAt(bins, trough)})`);
-  lines.push(`- **Span** across planes: ${span.toFixed(4)} (max ${max.toFixed(4)}, min ${min.toFixed(4)})`);
-  lines.push("");
-  lines.push(`### Comparison maps (${overlays.length})`);
-  lines.push("");
-  if (overlays.length > 0) {
-    lines.push("| Map | Bins | Peak at | Agreement r | Verdict |");
-    lines.push("| --- | --- | --- | --- | --- |");
-    for (const o of overlays) {
-      const r = pearson(resampleByFraction(o.bins, n), bins);
-      const pk = o.bins.reduce((bi, v, i, arr) => (v > arr[bi] ? i : bi), 0);
-      lines.push(
-        `| ${mdCell(o.name)} | ${o.bins.length} | ${pctAt(o.bins, pk)} | ${Number.isNaN(r) ? "—" : r.toFixed(2)} | ${agreementVerdict(r)} |`
-      );
-    }
-    lines.push("");
-    lines.push("Where a comparison line follows the main landscape, the density is consistent between maps; where it parts ways lives noise or masking. Agreement r is the Pearson correlation on the shared 0–100% fraction scale — each terrain self-scaled to its own map's stats (the shape is the signal, not absolute ρ).");
-    if (overlays.length > 1) {
-      lines.push("");
-      lines.push("### Pairwise agreement");
-      lines.push("");
-      lines.push("| Map A | Map B | Agreement r | Verdict |");
-      lines.push("| --- | --- | --- | --- |");
-      for (const p of pairwiseAgreement(overlays)) {
-        lines.push(`| ${mdCell(p.a)} | ${mdCell(p.b)} | ${Number.isNaN(p.r) ? "—" : p.r.toFixed(2)} | ${agreementVerdict(p.r)} |`);
-      }
-      lines.push("");
-      lines.push("Two half-maps come from disjoint halves of the data — where they agree with EACH OTHER, the density is real (this is the question FSC asks). Maps that follow the main landscape but not each other deserve a second look.");
-    }
-  } else {
-    lines.push("None adopted yet — adopt half-maps or masked variants through Layers and they appear here. Where their lines follow the main landscape the density is real; where they part ways lives the noise.");
-  }
-  if (pendingOverlays > 0) {
-    lines.push("");
-    lines.push(`_${pendingOverlays} comparison map${pendingOverlays === 1 ? " is" : "s are"} still measuring — its landscape has not arrived, and this summary does not guess it._`);
-  }
-  lines.push("");
-  lines.push("_Exported from CryoFlow's slice instrument — the mean-density landscape is contour-independent and describes the whole map, not the current isosurface._");
-  return lines.join("\n");
-};
-
-const profileReportFilename = (axis: string): string =>
-  `map-qc-report-${axis}-${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}.md`;
 
 /** The viewport is a guest: it follows the room's theme. The Mol* canvas
  *  paints ITSELF — no computed-style audit can ever see its background, and

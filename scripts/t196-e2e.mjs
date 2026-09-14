@@ -41,6 +41,10 @@ const must = (cond, label) => {
 const section = (t) => console.log(`\n== ${t} ==`);
 
 const SRC = readFileSync("src/components/workflow/results/molstar-embed.tsx", "utf8");
+// t197: the pairwise helper + the report prose moved to @/lib/qc-report
+// (the session QC report is the second consumer) — the front wave's
+// oracle follows the back wave's source, again
+const QCLIB = readFileSync("src/lib/qc-report.ts", "utf8");
 const roster0 = (await (await fetch(BASE + "/api/jobs")).json()).jobs ?? [];
 const H = { "sec-fetch-site": "same-origin" };
 
@@ -86,11 +90,11 @@ console.log(`  (oracles: half1~half2 r=${rHalfHalf}, main~half1 r=${rMainHalf1},
 
 /* ============ X: source oracles ============ */
 section("X: the source tells the truth");
-must((SRC.match(/const pairwiseAgreement/g) || []).length === 1 && (SRC.match(/pairwiseAgreement\(/g) || []).length >= 2, "X1 ONE pairwise helper — the report AND the wall both drink from it (definition + 2 call sites)");
-must(/const pairwiseAgreement[\s\S]{0,600}Math\.max\(overlays\[i\]\.bins\.length, overlays\[j\]\.bins\.length\)/.test(SRC), "X2 pairs resample to the FINER of the two grids (the finer ruler preserves more shape)");
-must(/if \(overlays\.length > 1\) \{[\s\S]{0,300}### Pairwise agreement/.test(SRC), "X3 the pairwise table exists only when 2+ terrains are adopted (no empty-table lie)");
+must((QCLIB.match(/const pairwiseAgreement/g) || []).length === 1 && (QCLIB.match(/pairwiseAgreement\(/g) || []).length >= 1 && SRC.includes("pairwiseAgreement"), "X1 ONE pairwise helper — the report AND the wall both drink from it (definition in @/lib/qc-report since t197, call sites in the lib + the wall)");
+must(/const pairwiseAgreement[\s\S]{0,600}Math\.max\(overlays\[i\]\.bins\.length, overlays\[j\]\.bins\.length\)/.test(QCLIB), "X2 pairs resample to the FINER of the two grids (the finer ruler preserves more shape) — in @/lib/qc-report since t197");
+must(/if \(overlays\.length > 1\) \{[\s\S]{0,300}### Pairwise agreement/.test(QCLIB), "X3 the pairwise table exists only when 2+ terrains are adopted (no empty-table lie) — in @/lib/qc-report since t197");
 must(SRC.includes('data-pairwise-row="1"') && SRC.includes('aria-label="Pairwise shape agreement between adopted comparison maps"'), "X4 the wall speaks pairs through a labeled, probe-findable row");
-must(SRC.includes("the question FSC asks") && SRC.split("the question FSC asks").length >= 3, "X5 the FSC teaching lives on BOTH the wall (title) and the report (prose)");
+must(SRC.includes("the question FSC asks") && QCLIB.includes("the question FSC asks"), "X5 the FSC teaching lives on BOTH the wall (title) and the report (prose, in @/lib/qc-report since t197)");
 must(/nothing exported, nothing to retire/.test(SRC), "X6 the wall chip is live-computed — nothing exported, nothing to retire");
 
 /* ============ D: the live loop ============ */

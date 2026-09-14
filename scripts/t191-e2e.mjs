@@ -69,6 +69,10 @@ try {
 /* ================= X — source oracles ================= */
 section("X: the instrument speaks and leaves, written once");
 const embSrc = src("src/components/workflow/results/molstar-embed.tsx");
+// t197: the report family moved to @/lib/qc-report — its doc-comment's
+// mention of the CSV sibling moved with it (the front wave's oracle
+// follows the back wave's source, 8th instance)
+const qcLibSrc = src("src/lib/qc-report.ts");
 
 must(
   embSrc.includes('role="slider"') && embSrc.includes("tabIndex={0}"),
@@ -95,10 +99,11 @@ must(
   "X6 the CSV contract is snake_case 4 columns (machine-first)"
 );
 must(
-  (embSrc.match(/buildProfileCsv\b/g) || []).length === 3 &&
+  (embSrc.match(/buildProfileCsv\b/g) || []).length === 2 &&
+  qcLibSrc.includes("buildProfileCsv") &&
   embSrc.includes('data-csv-carrier="profile"') &&
   embSrc.includes("data-csv={lastProfileCsv ?? undefined}"),
-  "X7 ONE builder feeds the data-csv attribute, which rides an ALWAYS-ATTACHED carrier (not the 4-second note) — count synced to 3: t195's report doc-comment names its CSV sibling (the front wave's oracle follows the back wave's source, 6th instance)"
+  "X7 ONE builder feeds the data-csv attribute, which rides an ALWAYS-ATTACHED carrier (not the 4-second note) — count synced across the family: def + call in the viewer, the report's doc-comment in @/lib/qc-report (t197 promotion, 8th instance)"
 );
 must(
   embSrc.includes("(clipboard unavailable)"),

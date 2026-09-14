@@ -46,6 +46,18 @@ import { cn } from "@/lib/utils";
 import { downloadText } from "@/lib/download";
 import { mdCell } from "@/lib/md";
 import { jobType } from "@/lib/workflow";
+import { useWorkflowStore } from "@/lib/store";
+// t197: the sweep report family moved to @/lib/qc-report — the session QC
+// report is its second consumer, and the lib is the one honest home
+// (mdCell precedent: twins fork, imports don't). This panel keeps the
+// MACHINE twin (buildSweepCsv) — its consumer count hasn't arrived.
+import {
+  buildSweepReport,
+  fmtMin,
+  sweepReportFilename,
+  type SweepProfile,
+  type SweepRow,
+} from "@/lib/qc-report";
 import { MODEL_BADGE } from "./hpc-profiles-editor";
 
 interface SimBar {
@@ -70,16 +82,8 @@ interface SimResponse {
 }
 interface SimParams { clusterGpus: number; nodes: number; arrayConcurrency: number; gpuSpeedup: number }
 
-/** The brief a sweep row needs — every field comes from the profile. */
-interface SweepProfile {
-  id: string; name: string; gpuModel: string;
-  gpusPerNode: number; nodes: number; arrayConcurrency: number; gpuSpeedup: number;
-}
-interface SweepRow {
-  p: SweepProfile;
-  r?: { makespanMin: number; gpuUtilization: number; avgWaitMin: number; totalGpuHours: number };
-  err?: string;
-}
+/* SweepProfile / SweepRow / buildSweepReport / sweepReportFilename / fmtMin
+ * moved to @/lib/qc-report in t197 (second consumer arrived). */
 
 /**
  * The sweep's exit into reports (t188): a CSV contract that reads like
@@ -134,91 +138,6 @@ const sweepCsvFilename = (): string =>
 // became the second consumer — pipe-escaping knowledge lives in ONE place
 // now (the downloadText precedent: twins fork, imports don't).
 
-const sweepReportFilename = (): string =>
-  `hpc-sweep-report-${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}.md`;
-
-/**
- * The sweep's exit into prose (t194): the Markdown HUMAN twin of the
- * machine CSV. Same father — the sweep rows — but a different grammar:
- * the CSV speaks raw minutes and snake_case for spreadsheets; the
- * report speaks verdict, table and failures for people. ONE builder
- * feeds clipboard + download + the data-md carrier, and it derives
- * from the rows, NEVER from the CSV string — parsing your own export
- * to write a summary is a second derivation waiting to drift.
- */
-const buildSweepReport = (rows: SweepRow[], bestId: string | null): string => {
-  const ok = rows.filter((r) => r.r);
-  const failed = rows.filter((r) => !r.r);
-  const best = ok.find((r) => r.p.id === bestId) ?? null;
-  const worst = ok.reduce<SweepRow | null>(
-    (w, r) => (!w || r.r!.makespanMin > w.r!.makespanMin ? r : w),
-    null,
-  );
-  const lines: string[] = [];
-  lines.push("# HPC sweep — cluster profile comparison", "");
-  lines.push(
-    `Generated ${new Date().toISOString().replace("T", " ").slice(0, 16)} UTC · CryoFlow queue simulation`,
-    "",
-  );
-  // The verdict — one sentence a human can act on, margins included.
-  if (best?.r && worst?.r && worst.r.makespanMin > best.r.makespanMin) {
-    const margin = Math.max(0, Math.round((1 - best.r.makespanMin / worst.r.makespanMin) * 100));
-    lines.push(
-      `${ok.length} of ${rows.length} profiles simulated on the same workflow graph. ` +
-      `**${best.p.name}** wins with a ${fmtMin(best.r.makespanMin)} makespan — ` +
-      `${margin}% faster than the slowest contestant (${fmtMin(worst.r.makespanMin)}) — ` +
-      `at a cost of ${(Math.round(best.r.totalGpuHours * 10) / 10).toFixed(1)} GPU-hours.`,
-    );
-  } else if (best?.r) {
-    lines.push(
-      `${ok.length} of ${rows.length} profiles simulated on the same workflow graph. ` +
-      `**${best.p.name}** wins with a ${fmtMin(best.r.makespanMin)} makespan at a cost of ` +
-      `${(Math.round(best.r.totalGpuHours * 10) / 10).toFixed(1)} GPU-hours.`,
-    );
-  } else {
-    lines.push(`${rows.length} profiles entered the race; none finished — see the failures below.`);
-  }
-  lines.push("");
-  // The race table — human units (1h 03m, %), winner's makespan bold.
-  lines.push("| # | Profile | GPU | Shape | Speedup | Status | Makespan | Utilization | Avg wait | GPU-hours |");
-  lines.push("|--:|---------|-----|-------|--------:|--------|---------:|------------:|---------:|----------:|");
-  rows.forEach((row, i) => {
-    lines.push(
-      [
-        String(i + 1),
-        row.p.name,
-        row.p.gpuModel,
-        `${row.p.nodes}×${row.p.gpusPerNode}`,
-        `×${row.p.gpuSpeedup}`,
-        row.r ? "ok" : "error",
-        row.r
-          ? row.p.id === bestId
-            ? `**${fmtMin(row.r.makespanMin)}**`
-            : fmtMin(row.r.makespanMin)
-          : "—",
-        row.r ? `${Math.round(row.r.gpuUtilization * 100)}%` : "—",
-        row.r ? fmtMin(row.r.avgWaitMin) : "—",
-        row.r ? `${(Math.round(row.r.totalGpuHours * 10) / 10).toFixed(1)}` : "—",
-      ]
-        .map(mdCell)
-        .map((c) => `| ${c} `)
-        .join("") + "|",
-    );
-  });
-  // Failed profiles stay visible — a report that drops a contestant lies.
-  if (failed.length > 0) {
-    lines.push("");
-    lines.push("Failed profiles (kept visible, never silently dropped):", "");
-    for (const f of failed) lines.push(`- ${f.p.name} — ${f.err ?? "unavailable"}`);
-  }
-  lines.push("");
-  lines.push(
-    "> GPU-hours ≈ cost proxy — the fastest cluster is not always the cheapest. " +
-    "The machine twin of this report is the CSV export (raw minutes, snake_case).",
-  );
-  return lines.join("\n") + "\n";
-};
-
 // Blob download lives in @/lib/download (t191 collected the private twins —
 // two consumers deriving the anchor dance independently is two chances to fork).
 
@@ -236,12 +155,6 @@ const TYPE_COLOR: Record<string, string> = {
   maskcreate: "bg-green-500/25 border-green-500/40 text-green-700 dark:text-green-300",
 };
 const FALLBACK_COLOR = "bg-slate-500/25 border-slate-500/40 text-slate-700 dark:text-slate-300";
-
-const fmtMin = (m: number): string => {
-  if (!Number.isFinite(m) || m < 0) return "—";
-  if (m >= 60) return `${Math.floor(m / 60)}h ${String(Math.round(m % 60)).padStart(2, "0")}m`;
-  return m >= 10 ? `${Math.round(m)}m` : `${(Math.round(m * 10) / 10).toFixed(1)}m`;
-};
 
 /** One compact labelled numeric input (server clamp ranges as min/max). */
 function NumField(props: {
@@ -350,10 +263,10 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
     setExportNote(null);
     setLastCsv(null);
     setLastMd(null);
+    const rows: SweepRow[] = [];
     try {
       const d = (await fetch("/api/hpc/profiles").then((r) => r.json())) as { profiles?: SweepProfile[] };
       const gpuProfiles = (d.profiles ?? []).filter((p) => p.gpusPerNode >= 1);
-      const rows: SweepRow[] = [];
       setSweep([]);
       for (const p of gpuProfiles) {
         try {
@@ -377,6 +290,18 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
         }
         setSweep([...rows]);
       }
+      // t197: the race's final rows land in the store — the session QC
+      // report binds them verbatim. One slot, wholesale replacement: a
+      // new race is the death of the previous one's annex (the same rule
+      // the local export carriers obey, now at session scope). A race
+      // that never started (profiles fetch refused) writes NOTHING —
+      // the previous annex survives, because no new race happened.
+      const okRows = rows.filter((r) => r.r);
+      const bestId = okRows.reduce<SweepRow | null>(
+        (w, r) => (!w || r.r!.makespanMin < w.r!.makespanMin ? r : w),
+        null,
+      )?.p.id ?? null;
+      useWorkflowStore.getState().setLastSweep({ rows, bestId });
     } catch {
       setSweep([]);
     } finally {

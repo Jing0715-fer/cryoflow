@@ -1,12 +1,14 @@
 "use client";
 
 import * as React from "react";
+import nextDynamic from "next/dynamic";
 import {
   Boxes,
   Check,
   CheckCircle2,
   CircleAlert,
   CircleCheck,
+  FileText,
   Github,
   Layers,
   LayoutDashboard,
@@ -25,6 +27,10 @@ import { hasJudgment } from "@/lib/class-notes";
 import { ThemeToggle } from "./theme-toggle";
 import { HelpPopover } from "./help-popover";
 import { CommandPaletteTrigger } from "./command-palette";
+// t197: the session QC report is code-split (react-markdown + remark-gfm
+// ride their own chunk) — the app shell never pays for the document
+// renderer until the report is opened for the first time.
+const SessionReportDialog = nextDynamic(() => import("./session-report-dialog"), { ssr: false });
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -739,6 +745,10 @@ function NoteSpotlightChip() {
 
 export function Header() {
   const jobs = useWorkflowStore((s) => s.jobs);
+  // t197 — the session QC report's door lives beside "Print this view":
+  // both are document-level actions on the session, so both live in the
+  // document-level corner of the chrome.
+  const [reportOpen, setReportOpen] = React.useState(false);
 
   const total = jobs.length;
   const running = jobs.filter((j) => j.status === "running").length;
@@ -821,6 +831,16 @@ export function Header() {
           variant="ghost"
           size="icon"
           className="text-muted-foreground hover:text-foreground"
+          onClick={() => setReportOpen(true)}
+          aria-label="Session QC report"
+          title="Session QC report — pipeline glance, map QC and the sweep verdict bound into one printable document"
+        >
+          <FileText className="size-4" aria-hidden="true" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-muted-foreground hover:text-foreground"
           onClick={() => window.print()}
           aria-label="Print this view"
           title="Print / save as PDF — the paper stylesheet forces a light palette and hides interactive chrome"
@@ -845,6 +865,7 @@ export function Header() {
           </a>
         </Button>
       </div>
+      <SessionReportDialog open={reportOpen} onOpenChange={setReportOpen} />
     </header>
   );
 }

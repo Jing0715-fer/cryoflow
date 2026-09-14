@@ -88,10 +88,17 @@ must(
 section("X: the report is written once");
 const simSrc = src("src/components/workflow/hpc-queue-sim.tsx");
 const mdLibSrc = src("src/lib/md.ts");
+const qcLibSrc = src("src/lib/qc-report.ts");
 
 must(
-  simSrc.includes("const buildSweepReport = (rows: SweepRow[], bestId: string | null): string"),
-  "X1 ONE Markdown builder from the sweep rows (the human twin has one father)"
+  // t197 promoted the sweep report family to @/lib/qc-report (the session
+  // QC report is its second consumer — mdCell precedent); the builder
+  // lives there now, hpc imports it (the front wave's oracle follows the
+  // back wave's source, 8th instance)
+  qcLibSrc.includes("export const buildSweepReport = (rows: SweepRow[], bestId: string | null): string") &&
+  simSrc.includes('buildSweepReport,') &&
+  simSrc.includes('from "@/lib/qc-report"'),
+  "X1 ONE Markdown builder from the sweep rows (the human twin has one father — it lives in @/lib/qc-report since t197)"
 );
 must(
   // t195 promoted mdCell to @/lib/md (the second consumer arrived — the
@@ -126,8 +133,8 @@ must(
   "X7 all four export doors refuse an empty race"
 );
 must(
-  simSrc.includes("never silently dropped") && simSrc.includes("**${best.p.name}**"),
-  "X8 the failure doctrine carries into prose and the winner gets bolded"
+  qcLibSrc.includes("never silently dropped") && qcLibSrc.includes("**${best.p.name}**"),
+  "X8 the failure doctrine carries into prose and the winner gets bolded (the prose lives in @/lib/qc-report since t197)"
 );
 
 /* ================= B — live wire through the UI ================= */

@@ -25,6 +25,7 @@ import type {
 } from "./types";
 import type { ImportFailure, ImportPreviewEntry } from "./workflow-io";
 import type { TemplateSuggestion } from "./template-suggest";
+import type { SessionSweepState } from "./qc-report";
 import { suggestTemplateConnections } from "./template-suggest";
 import {
   buildTemplateBundle,
@@ -468,6 +469,13 @@ interface WorkflowState {
    *  class) and clears it — never observed twice. */
   pendingClassFocus: { jobId: string; cls: number } | null;
   requestClassFocus: (jobId: string, cls: number) => void;
+  /** The session's LAST HPC sweep (t197): the session QC report binds it
+   *  verbatim. One slot — a finished race replaces the previous one
+   *  wholesale; a race that never started writes nothing. In-memory by
+   *  design: a race is session state, a reload is a new session, and the
+   *  report's empty state says exactly that. */
+  lastSweep: SessionSweepState | null;
+  setLastSweep: (s: SessionSweepState | null) => void;
   consumeClassFocus: () => void;
   /** SPA template presets dialog open (triggered from the canvas empty
    *  state, the command palette or the help popover — mounted once). */
@@ -1111,6 +1119,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   layoutEpoch: 0,
   focusJobId: null,
   pendingClassFocus: null,
+  lastSweep: null,
   focusEpoch: 0,
   templatePresetsOpen: false,
   templateSuggestions: null,
@@ -2910,6 +2919,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   setDragActive: (active) => set({ dragActive: active }),
   setPaletteDrag: (type) => set({ paletteDrag: type }),
   requestClassFocus: (jobId, cls) => set({ pendingClassFocus: { jobId, cls } }),
+  setLastSweep: (s) => set({ lastSweep: s }),
   consumeClassFocus: () => set({ pendingClassFocus: null }),
   setTemplatePresetsOpen: (open) => set({ templatePresetsOpen: open }),
 
