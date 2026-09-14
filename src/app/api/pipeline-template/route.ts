@@ -128,7 +128,12 @@ function applyOverrides(
 
 /** Explicit port wiring for the chain — [fromType, fromPort, toType, toPort].
  *  Validated against the specs at request time (a spec change that breaks a
- *  pair fails the whole template loudly instead of half-wiring). */
+ *  pair fails the whole template loudly instead of half-wiring).
+ *  Cycle-audit verdict (Task 180): this constant is SHIP-CURATED data, not
+ *  user input — a straight chain, acyclic by construction. The shared
+ *  detector guards the doors that carry user-influenced edge lists
+ *  (workflow-import, custom-template save/apply); this file stays trusted
+ *  and unguarded on purpose (no dead branches on trusted data). */
 const TEMPLATE_EDGES: [string, string, string, string][] = [
   ["import", "micrographs", "motioncorr", "movies"],
   ["motioncorr", "micrographs", "ctffind", "micrographs"],

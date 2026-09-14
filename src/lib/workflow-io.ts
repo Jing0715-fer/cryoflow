@@ -16,6 +16,7 @@
  */
 
 import type { EdgeDTO, JobDTO, ParamValue } from "./types";
+import { findCycle, formatCyclePath } from "./graph-cycle";
 import { JOB_TYPES, jobType } from "./workflow";
 
 export const WORKFLOW_FORMAT = "cryoflow-workflow";
@@ -250,6 +251,20 @@ export function parseWorkflowJson(text: string): ParsedImport {
       }
       edges.push({ from, to, fromPort, toPort });
     }
+  }
+  // Cycle pre-validation (Task 180): the server rejects cyclic batches too
+  // (same shared detector), but failing HERE gives instant feedback without
+  // a round-trip — the file's own names ride along in the error.
+  const cycle = findCycle(
+    jobs.map((_, i) => String(i)),
+    edges.map((e) => ({ from: String(e.from), to: String(e.to) }))
+  );
+  if (cycle) {
+    const nameOf = (k: string) => {
+      const j = jobs[Number(k)];
+      return j?.name || j?.type || `#${Number(k) + 1}`;
+    };
+    return { ok: false, error: `Edges form a cycle: ${formatCyclePath(cycle, nameOf)}` };
   }
   return {
     ok: true,

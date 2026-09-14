@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { ensureActiveProject, ensureDefaultWorkspace, toJobDTO } from "@/lib/seed";
 import { defaultParams, jobType } from "@/lib/workflow";
 import { persistPortEdge, portsValid } from "@/lib/edge-ports";
+import { findCycle, formatCyclePath } from "@/lib/graph-cycle";
 import { normalizeTypeId } from "@/lib/workflow-io";
 import type { EdgeDTO, JobDTO, ParamValue } from "@/lib/types";
 
@@ -130,6 +131,25 @@ function parseBody(
       }
       edges.push({ from, to, fromPort, toPort });
     }
+  }
+  // Cycle guard (Task 180): the canvas and POST /api/edges prevent cycles,
+  // but THIS door used to skip the check — a hand-edited JSON could land a
+  // dependency loop (A → B → A: neither job can ever run) the script's
+  // appendix would only narrate. One shared detector, every batch door.
+  const cycle = findCycle(
+    jobs.map((_, i) => String(i)),
+    edges.map((e) => ({ from: String(e.from), to: String(e.to) }))
+  );
+  if (cycle) {
+    const nameOf = (k: string) => {
+      const j = jobs[Number(k)];
+      return j?.name ?? j?.type ?? `#${Number(k) + 1}`;
+    };
+    return {
+      jobs: [],
+      edges: [],
+      error: `Edges form a cycle: ${formatCyclePath(cycle, nameOf)}`,
+    };
   }
   return { jobs, edges };
 }

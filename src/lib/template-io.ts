@@ -33,6 +33,7 @@ import type {
   CustomTemplateJob,
   CustomTemplatePayload,
 } from "./types";
+import { findCycle, formatCyclePath } from "./graph-cycle";
 import { jobType } from "./workflow";
 
 export const TEMPLATE_FORMAT = "cryoflow-template";
@@ -137,7 +138,37 @@ export function validateTemplatePayload(
     });
   }
 
+  // Cycle guard (Task 180) — rides in the SHARED validator, so the save
+  // POST and every client-side pre-parser enforce it identically.
+  const cycleErr = templateCycleError({ jobs, edges });
+  if (cycleErr) return { error: cycleErr };
+
   return { payload: { jobs, edges } };
+}
+
+/**
+ * THE cycle line for template payloads (Task 180) — save and apply share
+ * it. The canvas prevents interactive cycles and the workflow-import door
+ * rejects cyclic batches; the template shelf is a THIRD way edges could
+ * land (save accepts a client payload, apply re-creates it in a fresh
+ * workspace), so it carries the same shared detector. Returns the human
+ * error ("Template edges form a cycle: A → B → A") or null when acyclic.
+ */
+export function templateCycleError(payload: {
+  jobs: Array<{ type: string }>;
+  edges?: Array<{ from: number; to: number }>;
+}): string | null {
+  // edges is optional by contract: the apply route re-parses STORED rows
+  // directly (JSON.parse, not the validator) — a pre-guard row could be
+  // missing the field entirely, and a TypeError here would 500 the apply
+  const edges = payload.edges ?? [];
+  const cycle = findCycle(
+    payload.jobs.map((_, i) => String(i)),
+    edges.map((e) => ({ from: String(e.from), to: String(e.to) }))
+  );
+  if (!cycle) return null;
+  const nameOf = (k: string) => payload.jobs[Number(k)]?.type ?? `#${Number(k) + 1}`;
+  return `Template edges form a cycle: ${formatCyclePath(cycle, nameOf)}`;
 }
 
 /** Task 130 — the export-ALL container: one file, every template. */

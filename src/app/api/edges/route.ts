@@ -7,6 +7,7 @@ import {
   persistPortEdge,
   portsValid,
 } from "@/lib/edge-ports";
+import { findCycle } from "@/lib/graph-cycle";
 import { defaultPorts } from "@/lib/workflow";
 
 export const dynamic = "force-dynamic";
@@ -27,20 +28,23 @@ export async function GET() {
 }
 
 /**
- * Would adding from→to close a cycle? DFS over the union of DB + file edges.
+ * Would adding from→to close a cycle? DFS over the union of DB + file
+ * edges — now delegated to the SHARED detector (Task 180): the batch
+ * doors (workflow-import, custom-template save/apply) run the same one
+ * implementation, so the doors cannot drift. Node set must union in
+ * `from`/`to` themselves — an isolated pair carries no adjacency entries
+ * and would otherwise be silently skipped by the dangling-endpoint rule
+ * (a false negative exactly when the new edge closes the loop).
  */
 async function createsCycle(from: string, to: string): Promise<boolean> {
   const adj = await allAdjacency();
-  const visited = new Set<string>();
-  const stack = [to];
-  while (stack.length > 0) {
-    const node = stack.pop() as string;
-    if (node === from) return true;
-    if (visited.has(node)) continue;
-    visited.add(node);
-    for (const next of adj.get(node) ?? []) stack.push(next);
-  }
-  return false;
+  const nodes = new Set(adj.keys());
+  nodes.add(from);
+  nodes.add(to);
+  const pairs: { from: string; to: string }[] = [];
+  for (const [f, ts] of adj) for (const t of ts) pairs.push({ from: f, to: t });
+  pairs.push({ from, to });
+  return findCycle([...nodes], pairs) !== null;
 }
 
 /**

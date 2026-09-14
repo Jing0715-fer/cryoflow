@@ -5,6 +5,7 @@ import { jobType } from "@/lib/workflow";
 import { persistPortEdge, portsValid } from "@/lib/edge-ports";
 import {
   MAX_TEMPLATE_PAYLOAD_BYTES,
+  templateCycleError,
   validateTemplatePayload,
 } from "@/lib/template-io";
 import type {
@@ -324,6 +325,16 @@ export async function PUT(request: NextRequest) {
     }
     if (!Array.isArray(payload.jobs) || payload.jobs.length === 0) {
       return NextResponse.json({ error: "Template has no jobs" }, { status: 500 });
+    }
+    // Cycle re-check at apply (Task 180): rows saved BEFORE the save-side
+    // guard shipped can still carry a cycle, and the ports re-check below
+    // already treats the shelf as untrusted ("spec drift re-checked") —
+    // cycles get the same treatment, except a cycle is NOT silently
+    // skipped (dropping one edge would apply a mutated shape and call it
+    // the user's): the apply is refused, the cycle named.
+    const cycleErr = templateCycleError(payload);
+    if (cycleErr) {
+      return NextResponse.json({ error: cycleErr }, { status: 400 });
     }
 
     // ---- workspace resolution (mirrors the SPA scaffold's healing) ------
