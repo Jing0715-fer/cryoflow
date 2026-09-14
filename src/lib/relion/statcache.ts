@@ -39,10 +39,10 @@ const store = new Map<string, CacheSlot>();
  * routes), and keying on the path alone would serve consumer A's parsed
  * shape to consumer B.
  */
-export function cachedFileCompute<T>(
+export function cachedCompute<T>(
   file: string,
   computeId: string,
-  compute: (text: string) => T
+  compute: () => T
 ): T | null {
   if (!existsSync(file)) return null;
   const st = statSync(file);
@@ -55,11 +55,26 @@ export function cachedFileCompute<T>(
     store.set(slot, hit);
     return hit.value as T;
   }
-  const value = compute(readFileSync(file, "utf8"));
+  const value = compute();
   if (store.size >= MAX_ENTRIES && !store.has(slot)) {
     const oldest = store.keys().next().value;
     if (oldest !== undefined) store.delete(oldest);
   }
   store.set(slot, { key, value });
   return value;
+}
+
+/**
+ * Text twin of cachedCompute: the READ strategy (utf8 whole-file) belongs
+ * to this wrapper, the invalidation (size+mtime keyed LRU) belongs to
+ * cachedCompute. Binary/large-file consumers (map-profile's plane-wise
+ * scan — a 1.4 GB map must never ride through readFileSync) call
+ * cachedCompute directly with their own bounded I/O.
+ */
+export function cachedFileCompute<T>(
+  file: string,
+  computeId: string,
+  compute: (text: string) => T
+): T | null {
+  return cachedCompute(file, computeId, () => compute(readFileSync(file, "utf8")));
 }

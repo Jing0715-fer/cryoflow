@@ -2310,6 +2310,56 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
   const sliceStateRef = useRef({ on: false, axis: "Z" as SliceAxis, pos: 0.5, sigma: 2, sign: 1 as 1 | -1 });
   const slicePending = useRef(false);
 
+  // Density landscape along the slice axis (t189) — mean density per
+  // plane, served by /map-profile. One fetch per (map, axis) per viewer
+  // session (the map does not change while watched); an axis switch
+  // retires the old landscape immediately so the strip never shows the
+  // wrong axis' mountains. Clicking the landscape jumps the plane.
+  interface SliceProfile {
+    bins: number[];
+    min: number;
+    max: number;
+    native: number;
+  }
+  const [profile, setProfile] = useState<SliceProfile | null>(null);
+  const [profileErr, setProfileErr] = useState(false);
+  const profileCache = useRef(new Map<string, SliceProfile>());
+  useEffect(() => {
+    if (!sliceOn || !jobId || !path) return;
+    const ax = sliceAxis.toLowerCase();
+    const hit = profileCache.current.get(ax);
+    if (hit) {
+      setProfile(hit);
+      setProfileErr(false);
+      return;
+    }
+    let alive = true;
+    setProfile(null);
+    setProfileErr(false);
+    fetch(`/api/jobs/${jobId}/map-profile?path=${encodeURIComponent(path)}&axis=${ax}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((d) => {
+        if (!alive || !Array.isArray(d?.bins) || d.bins.length === 0) return;
+        const entry: SliceProfile = {
+          bins: d.bins as number[],
+          min: Number(d.stats?.min ?? 0),
+          max: Number(d.stats?.max ?? 1),
+          native: Number(d.native ?? d.bins.length),
+        };
+        profileCache.current.set(ax, entry);
+        setProfile(entry);
+      })
+      .catch(() => {
+        if (alive) {
+          setProfile(null);
+          setProfileErr(true);
+        }
+      });
+    return () => {
+      alive = false;
+    };
+  }, [sliceOn, sliceAxis, jobId, path]);
+
   /** build/update the slice node from the latest intent snapshot.
    *
    * Two mol* 5.11 quirks verified live against this exact map (EMPIAR-10017
@@ -2478,6 +2528,13 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
   // first-render applySliceIntent and with it a stale sigma/sign).
   const sliceIntentRef = useRef(applySliceIntent);
   sliceIntentRef.current = applySliceIntent;
+
+  /** click on the density landscape → the plane jumps there (t189). */
+  const jumpToProfilePos = (e: React.MouseEvent<SVGSVGElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const frac = Math.min(1, Math.max(0, (e.clientX - rect.left) / Math.max(1, rect.width)));
+    applySliceIntent({ pos: Math.round(frac * 100) / 100 });
+  };
   useEffect(() => {
     const onOrtho = (e: Event) => {
       const d = (e as CustomEvent<{ axis?: string; pos?: number }>).detail;
@@ -3075,9 +3132,10 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
               aria-label="Isosurface contour level in sigma"
               className="mt-2.5"
             />
-            {/* cross-section row — axis pick + plane position (only when on) */}
+            {/* cross-section panel — controls row + density landscape (t189) */}
             {sliceOn && (
-              <div className="mt-2.5 flex items-center gap-2 rounded-lg border border-cyan-600/25 bg-cyan-600/5 px-2.5 py-2">
+              <div className="mt-2.5 space-y-1.5 rounded-lg border border-cyan-600/25 bg-cyan-600/5 px-2.5 py-2">
+                <div className="flex items-center gap-2">
                 <ScanLine className="size-3.5 shrink-0 text-cyan-600" aria-hidden="true" />
                 <div className="flex items-center gap-0.5" role="group" aria-label="Cross-section axis">
                   {(["X", "Y", "Z"] as SliceAxis[]).map((ax) => (
@@ -3110,6 +3168,67 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                 <span className="w-9 shrink-0 text-right font-mono text-[10px] tabular-nums text-muted-foreground">
                   {Math.round(slicePos * 100)}%
                 </span>
+                </div>
+                {profile ? (
+                  <div className="border-t border-cyan-600/20 pt-1.5">
+                    <svg
+                      viewBox="0 0 100 30"
+                      preserveAspectRatio="none"
+                      className="block h-9 w-full cursor-crosshair rounded bg-background/40"
+                      role="img"
+                      aria-label={`Density profile along the ${sliceAxis} axis — click to move the plane`}
+                      onClick={jumpToProfilePos}
+                    >
+                      <title>Mean density per plane along the slice axis — click to jump the plane there</title>
+                      {(() => {
+                        const n = profile.bins.length;
+                        const span = profile.max - profile.min || 1;
+                        const pts = profile.bins.map(
+                          (v, i) =>
+                            `${((i / Math.max(1, n - 1)) * 100).toFixed(2)},${(29.2 - ((v - profile.min) / span) * 26.4).toFixed(2)}`
+                        );
+                        const py = profile.bins[Math.min(n - 1, Math.round(slicePos * (n - 1)))];
+                        const playY = 29.2 - ((py - profile.min) / span) * 26.4;
+                        return (
+                          <>
+                            <polygon points={`0,30 ${pts.join(" ")} 100,30`} fill="rgba(8,145,178,0.14)" />
+                            <polyline
+                              points={pts.join(" ")}
+                              fill="none"
+                              stroke="#0891b2"
+                              strokeWidth="1.25"
+                              vectorEffect="non-scaling-stroke"
+                              strokeLinejoin="round"
+                            />
+                            <line
+                              x1={slicePos * 100}
+                              x2={slicePos * 100}
+                              y1="1"
+                              y2="30"
+                              stroke="currentColor"
+                              strokeWidth="1"
+                              vectorEffect="non-scaling-stroke"
+                              className="text-cyan-700/60 dark:text-cyan-300/60"
+                            />
+                            <circle cx={slicePos * 100} cy={playY} r="1.7" fill="#0891b2" opacity="0.35" />
+                            <circle cx={slicePos * 100} cy={playY} r="0.8" fill="#22d3ee" />
+                          </>
+                        );
+                      })()}
+                    </svg>
+                    <div className="flex items-center justify-between pt-1 text-[9px] font-mono tabular-nums text-muted-foreground">
+                      <span>
+                        mean ρ along {sliceAxis} · {profile.bins.length} bins
+                        {profile.native !== profile.bins.length ? ` (pooled from ${profile.native})` : ""}
+                      </span>
+                      <span>plane {Math.round(slicePos * 100)}%</span>
+                    </div>
+                  </div>
+                ) : profileErr ? (
+                  <p className="text-[9.5px] italic text-muted-foreground">density profile unavailable for this map</p>
+                ) : (
+                  <p className="text-[9.5px] italic text-muted-foreground/70">measuring the density landscape…</p>
+                )}
               </div>
             )}
             {/* clip rows — one slider per axis + side flip (only when on) */}

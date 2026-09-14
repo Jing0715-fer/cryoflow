@@ -120,6 +120,118 @@ export function readMrcSlice(file: string, z: number, header?: MrcHeader): Float
 }
 
 /* ------------------------------------------------------------------ */
+/* Axis density profiles (t189 — the cross-section's instrument)        */
+/* ------------------------------------------------------------------ */
+
+/** caps for the profile scan: ≤ MAX_PROFILE_PLANES planes visited, */
+/** ≤ MAX_PROFILE_SAMPLES_PER_PLANE voxels sampled inside each plane    */
+const MAX_PROFILE_PLANES = 320;
+const MAX_PROFILE_SAMPLES_PER_PLANE = 49_152;
+
+export interface MrcAxisProfiles {
+  /** mean density per sampled column (length ≤ ceil(nx / sx)) */
+  x: number[];
+  /** mean density per sampled row (length ≤ ceil(ny / sy)) */
+  y: number[];
+  /** mean density per visited plane (length = ceil(nz / sz)) */
+  z: number[];
+  /** planes actually visited (z profile's ground truth) */
+  planes: number;
+  /** total voxels sampled (bounded work's receipt) */
+  samples: number;
+}
+
+/**
+ * Mean density per plane along EVERY axis in one bounded pass — the
+ * density landscape the cross-section slider scrubs through.
+ *
+ * I/O is PLANE-WISE (readSync per z section, one plane buffer alive at a
+ * time): a 700³ float32 map is ~1.4 GB and whole-file reads OOM'd this
+ * server once already (the outputs/file raw-format comment). Work is
+ * additionally STRIDED so the scan cost is bounded regardless of map
+ * size — ≤320 planes × ≤48K voxels ≈ 15M voxel samples worst case,
+ * statistically identical for a landscape sparkline. Caller caches via
+ * statcache's cachedCompute (the scan must run once per map version,
+ * not once per poll).
+ */
+export function readMrcAxisProfiles(file: string, header?: MrcHeader): MrcAxisProfiles | null {
+  const h = header ?? readMrcHeader(file);
+  if (!h) return null;
+  const sz = Math.max(1, Math.ceil(h.nz / MAX_PROFILE_PLANES));
+  const sxy = Math.max(1, Math.round(Math.sqrt((h.nx * h.ny) / MAX_PROFILE_SAMPLES_PER_PLANE)));
+  const xCount = Math.ceil(h.nx / sxy);
+  const yCount = Math.ceil(h.ny / sxy);
+  const zCount = Math.ceil(h.nz / sz);
+  const xSum = new Float64Array(xCount);
+  const ySum = new Float64Array(yCount);
+  const zSum = new Float64Array(zCount);
+  const xN = new Float64Array(xCount);
+  const yN = new Float64Array(yCount);
+  const zN = new Float64Array(zCount);
+  const count = h.nx * h.ny;
+  const nbytes = count * h.bytesPerVoxel;
+  let fd: number;
+  try {
+    fd = openSync(file, "r");
+  } catch {
+    return null;
+  }
+  try {
+    const raw = Buffer.alloc(nbytes);
+    let samples = 0;
+    let planes = 0;
+    for (let zi = 0; zi < h.nz; zi += sz) {
+      const offset = 1024 + h.nsymbt + zi * nbytes;
+      const got = readSync(fd, raw, 0, nbytes, offset);
+      if (got < nbytes) break;
+      const k = Math.floor(zi / sz);
+      planes++;
+      for (let yi = 0; yi < h.ny; yi += sxy) {
+        for (let xi = 0; xi < h.nx; xi += sxy) {
+          const vi = yi * h.nx + xi;
+          let v: number;
+          switch (h.mode) {
+            case 0: v = raw.readInt8(vi); break;
+            case 1: v = raw.readInt16LE(vi * 2); break;
+            case 6: v = raw.readUInt16LE(vi * 2); break;
+            default: v = raw.readFloatLE(vi * 4); break;
+          }
+          if (!Number.isFinite(v)) continue;
+          const xk = Math.floor(xi / sxy);
+          const yk = Math.floor(yi / sxy);
+          xSum[xk] += v; xN[xk]++;
+          ySum[yk] += v; yN[yk]++;
+          zSum[k] += v; zN[k]++;
+          samples++;
+        }
+      }
+    }
+    const means = (sum: Float64Array, n: Float64Array): number[] =>
+      Array.from(sum, (s, i) => (n[i] > 0 ? s / n[i] : 0));
+    return { x: means(xSum, xN), y: means(ySum, yN), z: means(zSum, zN), planes, samples };
+  } catch {
+    return null;
+  } finally {
+    closeSync(fd);
+  }
+}
+
+/** average-pool a profile to ≤ maxBins entries (the sparkline's wire size). */
+export function poolProfile(src: number[], maxBins = 160): number[] {
+  if (src.length <= maxBins) return src;
+  const out: number[] = [];
+  const per = src.length / maxBins;
+  for (let b = 0; b < maxBins; b++) {
+    const a = Math.floor(b * per);
+    const z = Math.max(a + 1, Math.floor((b + 1) * per));
+    let s = 0;
+    for (let i = a; i < z; i++) s += src[i];
+    out.push(s / (z - a));
+  }
+  return out;
+}
+
+/* ------------------------------------------------------------------ */
 /* Grayscale rendering helpers                                         */
 /* ------------------------------------------------------------------ */
 

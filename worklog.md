@@ -5288,3 +5288,24 @@ Stage Summary:
 - 「re-compare 是导出的退位诏」：新赛开跑的瞬间旧回执与旧 CSV 同时消失——陈旧数字最大的危险不是错误，是过期却看起来正确；导出的生命周期必须等于产生它的那次赛跑
 - 世界卫生观察账本（verdict 列）：本轮无全矩阵（导出轮，183 判例=定向回归，残段 [1..22] PASS 在案）；回归 qa00/qa63/qa58/t181/t184/t185/t186/t187 + t188 ×3 全绿；探针只读证明在案；正典 26 精确保持
 - 遗留（下轮候选）：#7 chart 路由全量同步读（guinier/resolution/angdist 热路径，cron 清单三度在案——下轮性能修复首选）；#5 fs/browse 无鉴权；3D viewer 体积截面工具；Topaz wrapper；grabber nudge/undo 手感参数（真机盲区依旧）；dialog 深色主题定妆照（第八度让位——须 html.dark class 切换而非 emulateMedia）；script RELION-present 分支（沙箱受限判决维持）；EMPIAR 真数据回归（让位）；runner wall-time 剖面（让位）；sweep 导出进报告管线的下一里（CSV→Markdown/PDF 摘要）
+
+## Task 189 (2026-09-15, cron 00:31 窗口 trace …202609150031)
+
+**主题：截面仪器轮——the cross-section earns its instrument。开局三件套+巡检全绿判稳后清点 recital：#7 statcache（e941b14 已修，11 路由全消费零漏网）、#8 batched BFS、#13 助手外提、#5 isLocalRequest 守卫+补偿控制、#6/#14 统一 containment——Task 13 清单全军覆没（cron 模板第卅五次过时），「3D viewer 体积截面工具」本体亦已完备（Slice+Clip+正交面板双向事件+书签快照）。真正的增量定为 Task 189：把切片位置滑块从盲数字升级成仪器——GET /api/jobs/[id]/map-profile 沿切片轴扫描每平面的平均密度，Mol* 截面行下方渲染密度地形 sparkline：playhead 跟踪平面、点击地形跳转平面。仪器必须看得见被告知的山：qa67 seeder 在 (48,16,48) 种下 blob，z-landscape 的 argmax 必须落在 48——B3 首跑即中（argmax 48，种子 48）。**
+
+- 【开局】worklog 尾部=Task 188/ec14389（cron「Task 13」文本第卅五次过时；摘要过时第七度）。树净、上窗口杀净 server → start-prod.sh 冷启动；三件套 qa00/qa63/t181 全绿判稳；agent-browser 巡检 Dashboard+Workflow console 双零错。#7/#8/#13/#5/#6/#14 逐项 grep 验尸——recital 全部清零后转向新功能。
+- 【实现·四文件】①statcache.ts 泛化：cachedCompute（失效权：size+mtime 键控 LRU）+ cachedFileCompute 降级为其文本孪生（读策略归包装器）——一个缓存、两种读法，键格式不变、热缓存跨重构存活。②mrc.ts 加 readMrcAxisProfiles：分平面 readSync（一次一个 plane buffer，绝不 readFileSync 整图——700³≈1.4GB 曾 OOM 的旧伤在 outputs/file 注释里写着）+ 三轴步进采样（≤320 平面 × ≤48K 体素/平面，成本与地图大小无关，一次扫描同时产三轴剖面）+ poolProfile 均值池化 ≤160 bins。③新路由 map-profile/route.ts：与 outputs/file 同一条 containment 链（isLocalRequest→findEffectiveJob→resolveInsideJobWorkdir→pathref）+ axis 合同 400 + isMrcPath/readMrcHeader 双闸 + cachedCompute("map-profile:v1") + stats(min/max) 锚点。④molstar-embed.tsx：SliceProfile 态 + profileCache ref（每 (map,axis) 一次 fetch/会话）+ 轴切换先退位旧地形再取新 + jumpToProfilePos 点击跳面 + 面板重构（控件行+地形行双层）：SVG 山线（area 填充+描边+non-scaling-stroke）+ playhead 竖线+双圆点（大晕小芯）+ 「mean ρ along Z · N bins」/「plane N%」双读数 + <title> 原生 tooltip（React SVGProps 无 title 属性——tsc 定罪后改用 SVG title 子元素）。
+- 【探针 t189·41 断言 ×3 全绿】S3（roster 26、QA Refine3D 在册、qa67 seeder 自愈式种图、outputs 列表含 orthovol）+ X11 源 oracle（守卫/containment/缓存/平面读/步进帽/池化帽/会话缓存/点击跳轴/轴名标注/退位再取）+ B13 活线（64 bins 全有限、**blob oracle：z-argmax=48==种子**、地形有起伏 max>1.2×min、x/y 剖面同分辨率、x-argmax 44 靠向 blob 柱、扫描回执 64 平面 262144 样本=全晶格、**缓存确定性：二跑字节恒等**、坏轴 400、STAR 400、逃逸 400、**Host 钉死 403**、缺文件 404）+ D10 UI 全环（canvas→Results→Enlarge→View in 3D→Mol*→Slice→地形渲染→轴名 Z→playhead cx=50→点 25%→playhead cx=25→切 X 轴改名+重取→Escape）+ Z4 只读（roster 恒等、console 净）。
+- 【第二层真相·三】①**fetch 的 Host 是禁写头**：B12 首跑 200——undici 按 fetch 规范静默用 URL 覆写自定义 Host 头，「敌意 rebind」根本没上路；改 node:http 原生请求显式 Host 才是真模拟（403 到位）。教训：**安全探针要先证明攻击载荷真的离开发射架**。②**React SVGProps 无 title**：svg 的 title 属性在 TS 类型里不存在——SVG 的原生 tooltip 走 <title> 子元素（浏览器标准），第一性是查规范而不是硬塞属性。③**新路由必须重建**：map-profile 在旧 prod build 里 404——src 改动只有重建才进 prod（老教义在新路由上的复诵）。
+- 【回归】statcache 重构的消费者邻域全绿：qa00/qa63/t181/qa58（ALL PHASES GREEN）+ qa42（viewer 书签链 exit 0）+ qa67（正交面板 27 asserts）+ **qa51/qa55/qa62/qa69（guinier/resolution/angdist/fsc chart 面）全绿**。矩阵 122→123 套（t189 auto-include）。
+- 【世界收尾】正典 26（16c/8i/1f/1r、Live 行存活）；探针自身种图属 fixture 自愈契约（qa67 seeder 幂等，--clean 可撤）；定妆照两张（t189-landscape.png——轴按钮+地形山峰+playhead 停坡+双读数；t189-viewer.png 全景）归档 scripts/shots-t189/。
+- 【收尾】worklog（本条）+ commit + push + 环境清理（杀 server 先 ss 查真实 PID）。
+
+Stage Summary:
+- 「旋钮看见了山，才配叫仪器」：切片滑块从 0–1 的盲数字变成带地形的仪器——用户拖着 playhead 越过密度山脊时的手感，是「功能越做越多」的物质形态。断言钉在 seeder 告知的 blob 上（argmax==48）：仪器看得见被告知的山，才可信
+- 「失效权与读策略分家」：statcache 的本质是「值只在 (file,mtime) 变时重算」，不是「readFileSync utf8」——cachedCompute 把前者留下、把后者下放，文本/平面扫描两种读法共享同一个 LRU。凡是被两个消费者独立推导的读法，注定在第三个消费者手里分叉（Task 184 教义的缓存面重演）
+- 「扫描的成本必须有上界，且上界与数据大小无关」：≤320 平面 × ≤48K 样本的步进帽让 64³ 与 700³ 同价——大数据上的「一次全扫描」不是优化问题是生存问题（1.4GB OOM 的墓碑就在隔壁注释里）；statcache 让这个代价每地图版本只付一次
+- 「攻击载荷要先证明离开发射架」：B12 的 200 不是 Host 钉死失效，是 fetch 规范根本没让 Host 上飞机——undici 禁写头静默覆写。安全断言的 403 必须来自真实的恶意请求，node:http 显式 Host 才是诚实的 rebind 模拟
+- 「轴切换先退位再取新」：地形是轴的函数——切轴的瞬间旧地形必须消失（哪怕是空的）也不得逗留，否则用户会对着 Y 轴的山调 Z 轴的平面。与 toFractionFrame「边界归一化」、re-compare「退位诏」同族：陈旧的状态最大的危险是过期却看起来正确
+- 世界卫生观察账本（verdict 列）：本轮无全矩阵（仪器轮，183 判例=定向回归覆盖 statcache 全消费者邻域）；回归 qa00/qa63/qa58/qa42/qa67/qa51/qa55/qa62/qa69/t181 + t189 ×3 全绿；正典 26 精确保持
+- 遗留（下轮候选）：Topaz wrapper（新功能方向，crRecital 唯一幸存项）；dialog 深色主题定妆照（第九度让位——须 html.dark class 切换）；profile 的拖动擦洗（click-to-jump 已在，drag-scrub 待加）；剖面多轴并排视图（三轴地形一屏）；grabber nudge/undo 手感参数（真机盲区依旧）；script RELION-present 分支（沙箱受限判决维持）；EMPIAR 真数据回归（让位）；runner wall-time 剖面（让位）；#7 已验尸清除不再列
