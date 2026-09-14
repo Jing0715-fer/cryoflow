@@ -512,7 +512,10 @@ function JobCardMenu({
           <AlertDialogFooter>
             <AlertDialogCancel>Keep job</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive text-white hover:bg-destructive/90"
+              /* Task 177 token truce: this hybrid (token bg + hardcoded
+                 text-white, no ring) was the sixth face — same string as
+                 every other confirm now */
+              className="h-10 bg-destructive text-destructive-foreground hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40"
               onClick={() => void deleteJob(job.id)}
             >
               Delete

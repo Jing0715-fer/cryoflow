@@ -693,8 +693,12 @@ export default function Home() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
+            {/* Task 177: the token truce — this was the last hardcoded
+                rose-600 solid; every destructive confirm now rides the
+                unified --destructive (Task 175) so light AND dark show
+                the ONE red the toast already wears */}
             <AlertDialogAction
-              className="bg-rose-600 text-white hover:bg-rose-700 focus-visible:ring-rose-400"
+              className="h-10 bg-destructive text-destructive-foreground hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40"
               onClick={() => {
                 const id = confirmDeleteId;
                 setConfirmDeleteId(null);
@@ -727,7 +731,7 @@ export default function Home() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-rose-600 text-white hover:bg-rose-700 focus-visible:ring-rose-400"
+              className="h-10 bg-destructive text-destructive-foreground hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40"
               onClick={() => {
                 setConfirmBulkDelete(false);
                 void useWorkflowStore.getState().deleteSelected();

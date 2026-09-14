@@ -33,8 +33,21 @@ done
 # idempotent — do it here so the boot never depends on who ran the build.
 cp -r .next/static .next/standalone/.next/ 2>/dev/null || true
 cp -r public .next/standalone/ 2>/dev/null || true
-rm -rf .next/standalone/data
-ln -s /home/z/my-project/data .next/standalone/data
+# Task 177 lesson: the sandbox started REFUSING `ln -s` outright ("Creating
+# symbolic links is not allowed") — and this script runs on EVERY matrix
+# chunk via fresh_server(). The old unconditional rm+ln would delete the
+# good 01:02 symlink, fail to recreate it, and boot the server blind to
+# the live data tree (the Task 99 silent-divergence bug, resurfaced).
+# Guard: only touch the link when it is missing or points elsewhere.
+WANT=/home/z/my-project/data
+HAVE=$(readlink .next/standalone/data 2>/dev/null)
+if [ "$HAVE" != "$WANT" ]; then
+  rm -rf .next/standalone/data
+  if ! ln -s "$WANT" .next/standalone/data 2>/dev/null; then
+    echo "FATAL: symlink refused by sandbox and none pre-exists" >&2
+    exit 3
+  fi
+fi
 sleep 1
 export NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--max-old-space-size=896"
 setsid bun run start >/dev/null 2>&1 < /dev/null &

@@ -871,7 +871,7 @@ function ResultSummary({
   if (job.status === "failed") {
     return (
       <div className="flex items-start gap-3 rounded-lg border border-rose-600/30 bg-rose-600/5 p-3.5" data-print-atomic="">
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-rose-600/15 text-rose-600">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-rose-600/15 text-rose-600 dark:text-rose-400">
           <AlertTriangle className="size-4.5" aria-hidden="true" />
         </span>
         <div className="min-w-0">
@@ -1898,8 +1898,13 @@ function InspectorHeader({ job }: { job: JobDTO }) {
           <TypeIcon name={spec?.icon ?? "boxes"} className={cn("size-5", spec?.color.text)} aria-hidden="true" />
         </span>
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <h2 className="truncate text-base font-semibold leading-tight tracking-tight text-foreground">
+          {/* Task 177: below sm the badge steps ASIDE instead of squeezing
+              the title — flex-wrap lets a long name keep the whole line
+              ("QA Refine Live" read as "Q…" at the 269px fold width) while
+              short names still share the row exactly as before; ≥sm is
+              untouched. title attr gives the hover reveal back. */}
+          <div className="flex max-sm:flex-wrap items-center gap-2">
+            <h2 className="truncate text-base font-semibold leading-tight tracking-tight text-foreground" title={job.name}>
               {job.name}
             </h2>
             <StatusBadge status={job.status} />
