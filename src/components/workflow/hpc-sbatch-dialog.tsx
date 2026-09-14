@@ -23,6 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Copy, Loader2, Server, Check } from "lucide-react" ;
 import { cn } from "@/lib/utils";
 import { HpcProfilesEditor } from "./hpc-profiles-editor";
+import { HpcQueueSim } from "./hpc-queue-sim";
 
 interface ProfileBrief {
   id: string; name: string; partition: string; gpuModel: string; gpusPerNode: number; host: string | null;
@@ -192,6 +193,11 @@ export function HpcSbatchDialog({ jobId, compact = false }: { jobId: string; com
             ))}
           </div>
         ) : null}
+
+        {/* Task 186: the simulate route's face — whole-graph scheduling
+            projection (KPI band + Gantt), prefilled from the selected
+            profile's node shape. Project-wide by contract. */}
+        <HpcQueueSim gpusPerNode={profiles.find((p) => p.id === profileId)?.gpusPerNode} />
       </DialogContent>
     </Dialog>
   );

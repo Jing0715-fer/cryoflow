@@ -70,6 +70,12 @@ export async function POST(request: NextRequest) {
             minutes = Math.max(0.2, (realMin / micrographs) * (strategy.shards ? micrographs / strategy.shards : 1) / (strategy.gpus > 0 ? speedup : 1));
           }
         }
+      } else if (strategy.gpus > 0) {
+        // Modelled GPU minutes speak workstation-class time — scale them
+        // by the same speedup knob as measured runs. Speedup-deaf fallback
+        // made the ×500 knob a no-op for exactly the jobs users ask about
+        // (idle late-stage GPU jobs dominate the critical path — t186 B11).
+        minutes = Math.max(0.2, (strategy.minutes * 10) / speedup);
       }
       return {
         key: j.id,
@@ -92,8 +98,8 @@ export async function POST(request: NextRequest) {
       note:
         "Simulation: durations come from the REAL measured sandbox run times (GPU jobs scaled ×" +
         speedup +
-        " for " +
-        "cluster-class hardware), strategies from the GPU table, dependencies from the live graph edges " +
+        " for cluster-class hardware; modelled GPU minutes scale likewise when a job hasn't run yet), " +
+        "strategies from the GPU table, dependencies from the live graph edges " +
         "(afterok semantics). This mirrors what squeue/sacct would report on a real cluster.",
     });
   } catch (e) {

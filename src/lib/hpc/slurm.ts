@@ -480,8 +480,16 @@ export function simulateQueue(
   const placedCount = (key: string) => bars.filter((b) => b.key === key).length;
 
   while (guard++ < 10000) {
-    const runnable = queue.filter((j) => !doneAt.has(j.key) && !placedKeys.has(j.key) && j.deps.every((d) => doneAt.has(d)));
-    const inFlight = queue.filter((j) => !doneAt.has(j.key) && placedKeys.has(j.key));
+    // Dependency gating compares COMPLETION TIMES, not key presence —
+    // doneAt is written at PLACEMENT with the bar's future end, so
+    // `doneAt.has(d)` let a dependent start the moment its upstream was
+    // merely scheduled (t186's B12 caught MotionCorr starting at 0.2m
+    // while its import ran to 1.0m). afterok means: wait for the value.
+    const runnable = queue.filter(
+      (j) => !placedKeys.has(j.key) && j.deps.every((d) => (doneAt.get(d) ?? Infinity) <= t)
+    );
+    // In flight = placed but its last bar still ends in the future.
+    const inFlight = queue.filter((j) => placedKeys.has(j.key) && (doneAt.get(j.key) ?? Infinity) > t);
     if (runnable.length === 0 && inFlight.length === 0) break;
 
     let advanced = false;
