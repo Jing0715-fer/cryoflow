@@ -223,11 +223,11 @@ must(md && md.includes("The Δ winner column reads every peak against the winner
 const doorRows = page.locator("[data-report-body] tr[data-owner-door]");
 for (let i = 0; i < 40 && (await doorRows.count()) !== 2; i++) await sleep(500);
 const headCells = await page.locator("[data-report-body] table:has(tr[data-owner-door]) thead th").allTextContents();
-must(JSON.stringify(headCells) === JSON.stringify(["Job", "Main map", "Volumes", "Peak", "Δ winner", "Agreement r", "Weakest"]), `D6 the inventory's OWN head is the septet (${JSON.stringify(headCells)})`);
+must(JSON.stringify(headCells) === JSON.stringify(["Job", "Main map", "Volumes", "Peak", "Δ winner", "Agreement r", "Weakest", "Shape"]), `D6 the inventory's OWN head is the septet + the wire's Shape (t223: pictures live on the wire, bytes stay seven) (${JSON.stringify(headCells)})`);
 const cellsW = (await doorRows.nth(0).locator("td").allTextContents()).map((c) => c.trim());
 const cellsS = (await doorRows.nth(1).locator("td").allTextContents()).map((c) => c.trim());
-must(JSON.stringify(cellsW) === JSON.stringify([host.name, "orthovol", "4", peakH, "+0.0", rWinner, wWinner]), `D7 the rendered winner row == wire, cell for cell, r and band included (${JSON.stringify(cellsW)})`);
-must(JSON.stringify(cellsS) === JSON.stringify([second.name, "orthovol", "1", peakS, deltaS, rSecond, wSecond]), `D8 the rendered second row == wire, r and band included (${JSON.stringify(cellsS)})`);
+must(cellsW.length === 8 && cellsW[7] === "" && JSON.stringify(cellsW.slice(0, 7)) === JSON.stringify([host.name, "orthovol", "4", peakH, "+0.0", rWinner, wWinner]), `D7 the rendered winner row == wire, cell for cell, r and band included (${JSON.stringify(cellsW)}) — plus the wire's eighth cell, a PICTURE whose text is empty (t223)`);
+must(cellsS.length === 8 && cellsS[7] === "" && JSON.stringify(cellsS.slice(0, 7)) === JSON.stringify([second.name, "orthovol", "1", peakS, deltaS, rSecond, wSecond]), `D8 the rendered second row == wire, r and band included (${JSON.stringify(cellsS)}) — plus the empty picture cell (t223)`);
 
 // THE LENS: exactly one amber row, and it is the TAIL row
 for (let i = 0; i < 20 && (await page.locator("[data-report-body] tr[data-outlier]").count()) !== 1; i++) await sleep(500);

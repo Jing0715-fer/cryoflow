@@ -81,15 +81,15 @@ section("R: the inventory head, on the wire");
 await page.locator('button[aria-label="Session QC report"]').click();
 await sleep(2200);
 const headCells = await page.locator("[data-report-body] table:has(tr[data-owner-door]) thead th").allTextContents();
-must(JSON.stringify(headCells) === JSON.stringify(["Job", "Main map", "Volumes", "Peak", "Δ winner", "Agreement r", "Weakest"]),
-  `R1 the head is the septet (${JSON.stringify(headCells)})`);
+must(JSON.stringify(headCells) === JSON.stringify(["Job", "Main map", "Volumes", "Peak", "Δ winner", "Agreement r", "Weakest", "Shape"]),
+  `R1 the head is the septet (${JSON.stringify(headCells)}) — plus the wire's Shape, the picture column (t223: RENDERED, never written)`);
 const rows = await page.locator("[data-report-body] tr[data-owner-door]").count();
 must(rows >= 2, `R2 the roster speaks (${rows} owner rows)`);
 const rCells = (await page.locator("[data-report-body] tr[data-owner-door] td:nth-child(6)").allTextContents()).map((c) => c.trim());
 must(rCells.every((c) => c === "—" || /^-?\d+\.\d{2}$/.test(c)), `R3 every r cell is a number on the 2-decimal grid or — (${JSON.stringify(rCells)})`);
 must(rCells[0] === "1.00", `R4 the reference row speaks 1.00 — through the same path, no special case (${rCells[0]})`);
 must(rCells.slice(1).some((c) => c !== "1.00"), "R5 at least one tail owner does NOT follow the winner — the column has something to say in this world");
-const wCells = (await page.locator("[data-report-body] tr[data-owner-door] td:last-child").allTextContents()).map((c) => c.trim());
+const wCells = (await page.locator("[data-report-body] tr[data-owner-door] td:nth-child(7)").allTextContents()).map((c) => c.trim()); // t223: Weakest is column 7 — the wire's eighth cell is the picture
 must(wCells.every((c) => c === "\u2014" || /^Q\d \(-?\d+\.\d{2}\)$/.test(c)), `R6 every Weakest cell is a short band address or — (${JSON.stringify(wCells)})`);
 must(wCells[0] === "Q1 (1.00)", `R7 the reference row's thinnest quarter is perfect (${wCells[0]})`);
 

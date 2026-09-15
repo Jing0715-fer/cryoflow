@@ -355,6 +355,42 @@ export const weakestCellOf = (w: { label: string; r: number; from: number } | nu
   return `Q${q} (${w.r.toFixed(2)})`;
 };
 
+/** t223: the shape portrait — the roster's first PICTURE. The Agreement r
+ *  column compresses a landscape into one number; the portrait lets the
+ *  reader SEE the shape it was compressed from: the owner's main
+ *  landscape as a polyline in a W×H box. The normalization answers the
+ *  SAME question pearson answers — shape, not magnitude (each landscape
+ *  is max-normalized to the full box height; a 2× denser map with the
+ *  same geometry draws the same line, exactly as it correlates to 1.00).
+ *  The x axis rides the shared fraction scale (resampleByFraction,
+ *  t195's doctrine — two grids are two rulers over the same depth), so
+ *  an owner and the winner can be laid over each other honestly: the
+ *  caller draws both paths in one box and the separation (or the
+ *  coincidence) is visible without a single number. Fail-soft, the
+ *  family contract: null/empty in → null out; a flat field (max ≤ 0)
+ *  has no shape to draw → null — the cell says —, it never guesses.
+ *  The path lives in the LOGIC layer (twins fork, imports don't): the
+ *  dialog renders it, the probes can re-derive it, the paper's bytes
+ *  stay free of pictures (pictures live on the wire, not in markdown). */
+export const sparklinePath = (
+  bins: number[] | null | undefined,
+  w: number,
+  h: number,
+  stations = 48,
+): string | null => {
+  if (!bins || bins.length === 0) return null;
+  const pts = resampleByFraction(bins, Math.max(2, stations));
+  const max = Math.max(...pts);
+  if (!(max > 0)) return null;
+  return pts
+    .map((v, i) => {
+      const x = (i / (pts.length - 1)) * w;
+      const y = h - (v / max) * h;
+      return `${i === 0 ? "M" : "L"}${x.toFixed(2)} ${y.toFixed(2)}`;
+    })
+    .join(" ");
+};
+
 /** Every PAIR of comparison terrains, correlated on the shared fraction
  *  scale with both resampled to the FINER of the two grids (the finer
  *  ruler preserves more shape; t195's fraction doctrine, pairwise).

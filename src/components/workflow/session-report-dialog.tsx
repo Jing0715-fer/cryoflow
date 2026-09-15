@@ -62,6 +62,7 @@ import {
   localAgreement,
   sessionReportFilename,
   shapeAgreement,
+  sparklinePath,
   weakestBand,
   weakestCellOf,
   type ReportOverlay,
@@ -152,8 +153,53 @@ const InventoryTableContext = React.createContext(false);
  *  the table said "quartet" — a head you don't match is a head you
  *  don't own). t215: the Δ winner column joins too. t221: Agreement r
  *  joins. t222: Weakest joins — the key grows by design again, before
- *  any probe died (the t214 lesson as routine discipline, four times). */
+ *  any probe died (the t214 lesson as routine discipline, four times).
+ *  t223: the key does NOT grow this time — the Shape column is a
+ *  PICTURE, and pictures live on the wire, not in the paper's bytes
+ *  (the markdown stays the seven-column facts, the CSV stays
+ *  numbers-only); the key matches the PAPER, so the paper's own
+ *  head stays the septet. The wire's extra column is rendered,
+ *  never written. */
 const OWNER_HEAD = ["Job", "Main map", "Volumes", "Peak", "Δ winner", "Agreement r", "Weakest"];
+
+/** t223: the portrait column's wire grammar — the head word the wire
+ *  adds (never the markdown), the box the paths draw in, and the
+ *  station count both landscapes are resampled to (the shared fraction
+ *  scale, t195's doctrine; 48 stations is well past the eye's
+ *  resolution for a 96px line). */
+const SHAPE_HEAD = "Shape";
+const SPARK_W = 96;
+const SPARK_H = 26;
+const SPARK_STATIONS = 48;
+
+/** t223: the shape portrait — an inline SVG that lays the owner's
+ *  landscape (solid) over the winner's (dotted) in one box. Both paths
+ *  come from sparklinePath (the logic layer's own normalizer — shape,
+ *  not magnitude), so the picture and the r column answer the SAME
+ *  question: two coinciding lines is what r = 1.00 looks like; a
+ *  relocated peak is what a negative r looks like. The winner line is
+ *  the reference every row is read against — even the reference row's
+ *  own cell draws it (its self-portrait: both lines are the same
+ *  landscape, the picture's way of saying 1.00). aria-hidden: the row's
+ *  own label already speaks the portrait's verdict in words. */
+function ShapeSparkline({ bins, winnerBins }: { bins: number[]; winnerBins: number[] | null }) {
+  const d = sparklinePath(bins, SPARK_W, SPARK_H, SPARK_STATIONS);
+  const dw = sparklinePath(winnerBins, SPARK_W, SPARK_H, SPARK_STATIONS);
+  if (!d) return <span className="text-muted-foreground">—</span>;
+  return (
+    <svg
+      className="report-spark"
+      viewBox={`0 0 ${SPARK_W} ${SPARK_H}`}
+      width={SPARK_W}
+      height={SPARK_H}
+      aria-hidden="true"
+      focusable="false"
+    >
+      {dw ? <path className="report-spark-winner" d={dw} /> : null}
+      <path className="report-spark-owner" d={d} />
+    </svg>
+  );
+}
 
 /** Collect the rendered words of a hast node (cells carry plain text —
  *  the doors read what the reader reads, not the markdown source). */
@@ -297,7 +343,7 @@ export default function SessionReportDialog({
    *  outlier lens compute from it; both import their helpers from
    *  qc-report (twins fork, imports don't). */
   const [mapInventory, setMapInventory] = React.useState<
-    { jobId: string; jobName: string; mainName: string; volumeCount: number; peak: string | null; peakPct: number | null; shapeR: number | null; weakest: { label: string; r: number; from: number } | null }[] | null
+    { jobId: string; jobName: string; mainName: string; volumeCount: number; peak: string | null; peakPct: number | null; shapeR: number | null; weakest: { label: string; r: number; from: number } | null; bins: number[] | null }[] | null
   >(null);
   const [note, setNote] = React.useState<string | null>(null);
   const noteTimer = React.useRef<number | null>(null);
@@ -344,7 +390,7 @@ export default function SessionReportDialog({
       // the inventory is a fact of the WALK — it settles even when the
       // deep measurement below then refuses (partial truth over silence)
       setMapInventory(
-        owners.map((o) => ({ jobId: o.jobId, jobName: o.jobName, mainName: o.main.name, volumeCount: o.volumeCount, peak: null, peakPct: null, shapeR: null, weakest: null })),
+        owners.map((o) => ({ jobId: o.jobId, jobName: o.jobName, mainName: o.main.name, volumeCount: o.volumeCount, peak: null, peakPct: null, shapeR: null, weakest: null, bins: null })),
       );
       if (owners.length === 0) {
         setMapPending(false);
@@ -388,6 +434,10 @@ export default function SessionReportDialog({
                 // surface of the one well; a band that is flat or a grid
                 // too short to cut earns null and the cell says —).
                 weakest: weakestBand(localAgreement(winnerBins ?? [], heard.get(row.jobId)?.bins ?? [])),
+                // t223: the bins themselves are the FOURTH surface — the
+                // shape portrait draws the landscape the r column
+                // compressed. Same fetch, same well, no second father.
+                bins: heard.get(row.jobId)?.bins ?? null,
               }
             : row,
         ) ?? prev,
@@ -470,6 +520,22 @@ export default function SessionReportDialog({
         const cells = hastKids(node)
           .filter((c) => hastTag(c) === "td" || hastTag(c) === "th")
           .map(hastText);
+        // t223: the inventory head row — matched EVERY cell at once
+        // against OWNER_HEAD (a partial head cannot mint a Shape th) —
+        // earns the wire's eighth column HEAD. The th lives in the TR
+        // override because a th appended to the thead itself renders
+        // OUTSIDE the head row (the browser wraps the stray th in its
+        // own line — the first portrait frame caught the column head
+        // divorced from its table: the frame is a reviewer too). The
+        // picture is RENDERED here, never written into the markdown:
+        // the paper's bytes keep their seven-column facts.
+        if (
+          !inInventory &&
+          cells.length === OWNER_HEAD.length &&
+          OWNER_HEAD.every((h, i) => cells[i] === h)
+        ) {
+          return <tr {...rest}>{children}<th className="text-right">{SHAPE_HEAD}</th></tr>;
+        }
         const owner = mapInventory?.find(
           (o) => cells[0] === o.jobName && cells[1] === o.mainName && cells[2] === String(o.volumeCount),
         );
@@ -488,13 +554,24 @@ export default function SessionReportDialog({
         const isOutlier = rowIdx >= 0 && rowIdx === outlierRowIdx(mapInventory ?? []);
         const rQuote = owner.shapeR != null ? `, shape r ${owner.shapeR.toFixed(2)}` : "";
         const wQuote = owner.weakest ? `, thinnest ${weakestCellOf(owner.weakest)}` : "";
+        // t223: the aria speaks the picture's verdict in words — the SAME
+        // shapeR the r cell prints drives it (no second well): a portrait
+        // that follows says so, a divergent one names its own r. An
+        // unmeasured row says nothing extra (— is honest in the ear too).
+        const pQuote =
+          owner.bins && owner.shapeR != null
+            ? owner.shapeR >= 0.95
+              ? ", shape portrait follows the winner"
+              : `, shape portrait diverges (r ${owner.shapeR.toFixed(2)})`
+            : "";
+        const winnerBins = mapInventory?.[0]?.bins ?? null;
         return (
           <tr
             {...rest}
             data-owner-door={owner.jobId}
             data-outlier={isOutlier ? "1" : undefined}
             tabIndex={0}
-            aria-label={`Open ${owner.jobName}'s results — ${owner.mainName}, ${owner.volumeCount} ${owner.volumeCount === 1 ? "volume" : "volumes"}${owner.peak ? `, peak ${owner.peak}` : ""}${delta ? `, Δ ${delta} vs winner` : ""}${rQuote}${wQuote}`}
+            aria-label={`Open ${owner.jobName}'s results — ${owner.mainName}, ${owner.volumeCount} ${owner.volumeCount === 1 ? "volume" : "volumes"}${owner.peak ? `, peak ${owner.peak}` : ""}${delta ? `, Δ ${delta} vs winner` : ""}${rQuote}${wQuote}${pQuote}`}
             className={`cursor-pointer transition-colors hover:bg-violet-500/10 focus-visible:bg-violet-500/15 focus-visible:outline-none${isOutlier ? " bg-amber-500/[0.04]" : ""}`}
             style={isOutlier ? { boxShadow: "inset 3px 0 0 0 rgb(245 158 11)" } : undefined}
             onClick={() => pressOwner(owner)}
@@ -506,6 +583,17 @@ export default function SessionReportDialog({
             }}
           >
             {children}
+            {/* t223: the shape portrait — the wire's eighth cell, RENDERED
+                here and never written into the markdown (pictures live on
+                the wire; the paper's bytes keep their seven-column facts).
+                A row whose landscape never arrived keeps the honest dash. */}
+            <td data-shape-cell={owner.bins ? "spark" : "empty"} className="text-right align-middle">
+              {owner.bins ? (
+                <ShapeSparkline bins={owner.bins} winnerBins={winnerBins} />
+              ) : (
+                <span className="text-muted-foreground">—</span>
+              )}
+            </td>
           </tr>
         );
       },

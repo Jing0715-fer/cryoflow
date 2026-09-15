@@ -174,7 +174,7 @@ must(ariaH.includes(`peak ${peakH}`), `D8 the host door's aria quotes its peak (
 // collects every family's head. The quartet must be read from the ONE
 // table that carries the doors (has-scoped), never from the whole body.
 const headCells = await page.locator("[data-report-body] table:has(tr[data-owner-door]) thead th").allTextContents();
-must(JSON.stringify(headCells) === JSON.stringify(["Job", "Main map", "Volumes", "Peak", "Δ winner", "Agreement r", "Weakest"]), `D9 the inventory's OWN head is the septet (${JSON.stringify(headCells)})`);
+must(JSON.stringify(headCells) === JSON.stringify(["Job", "Main map", "Volumes", "Peak", "Δ winner", "Agreement r", "Weakest", "Shape"]), `D9 the inventory's OWN head is the septet + the wire's Shape (t223: the picture column is RENDERED on the wire, the paper's bytes stay seven) (${JSON.stringify(headCells)})`);
 
 // reopen — the statcache makes the peaks re-settle quickly (the walk and
 // the peaks re-run on every open; nothing is remembered across opens)

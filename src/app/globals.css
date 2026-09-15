@@ -1428,6 +1428,39 @@ li[data-swipe="end"] {
 }
 .report-doc hr { border: 0; border-top: 1px solid var(--border); margin: 0.8rem 0; }
 
+/* t223: the shape portrait — the roster's first picture. The wire's
+   eighth column draws each owner's landscape over the winner's; both
+   lines keep NEUTRAL ink (currentColor) so the picture cannot collide
+   with the semantic colors — amber is the outlier lens's word, violet
+   is the doors' hover, and a third color would be a second opinion.
+   The owner's line is the figure (strong, round joins — a landscape,
+   not a seismograph); the winner's is the reference every row is read
+   against (dotted, faint — present but never competing). The lines
+   meet or they don't: coincidence IS the picture of r = 1.00,
+   separation IS the picture of divergence. */
+.report-doc .report-spark {
+  display: block;
+  margin-left: auto;
+  overflow: visible;
+}
+.report-doc .report-spark-owner {
+  fill: none;
+  stroke: currentColor;
+  stroke-opacity: 0.82;
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.report-doc .report-spark-winner {
+  fill: none;
+  stroke: currentColor;
+  stroke-opacity: 0.3;
+  stroke-width: 1.1;
+  stroke-dasharray: 2 2.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
 /* The print exception. Task 70's contract: dialogs are screen state —
    Ctrl+P steps aside and the pipeline sheet prints. The session report
    is the ONE principled counter-case: it is not chrome over the page,
