@@ -530,7 +530,12 @@ export const buildSessionReport = (opts: {
   if (mapInventory && mapInventory.length > 0) {
     lines.push("### Session map inventory");
     lines.push("");
-    lines.push("Every job in this session that owns a true 3D volume, newest walk first. The deep profiles above ride the newest owner; this inventory keeps every other owner visible — no map hides below the fold (the t211 lesson: a walk that stops at the first winner leaves the rest of the world unseen).");
+    // t213: the roster's rows are doors. t210 taught the strip that a
+    // name on a bracket should never be a dead end; the same lesson now
+    // lives on the paper — on the report PAGE each row hands you to that
+    // job's results (openJob: workspace hops, then the inspector). The
+    // exported bytes stay plain Markdown — a door needs a page to open.
+    lines.push("Every job in this session that owns a true 3D volume, newest walk first. The deep profiles above ride the newest owner; this inventory keeps every other owner visible — no map hides below the fold (the t211 lesson: a walk that stops at the first winner leaves the rest of the world unseen). Each row is a door — press it and the page hands you to that job's results (the t210 lesson carried onto the report: a name on a roster should never be a dead end).");
     lines.push("");
     lines.push("| Job | Main map | Volumes |");
     lines.push("|-----|----------|---------|");

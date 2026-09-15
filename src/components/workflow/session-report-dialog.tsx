@@ -45,7 +45,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Copy, Download, FileDown, Printer } from "lucide-react";
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { type Components, type ExtraProps } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { downloadText } from "@/lib/download";
 import type { JobDTO } from "@/lib/types";
@@ -109,6 +109,53 @@ const MAP_BRIEF_CAP = 24;
  *  all at once); the id tiebreak keeps the order deterministic. */
 const byRecency = (a: JobDTO, b: JobDTO) =>
   a.updatedAt < b.updatedAt ? 1 : a.updatedAt > b.updatedAt ? -1 : a.id < b.id ? -1 : 1;
+
+/**
+ * t213 — the roster's rows are doors. t210 taught the strip that a name
+ * on a bracket should never be a dead end (a covered door is a lying
+ * door); t212 put every owner's NAME on the paper — but a name on a
+ * roster you cannot press is still a dead end. The inventory's rows now
+ * open the owner's results through openJob (the palette's own engine:
+ * workspace hops, landing repair, then the inspector for a non-idle
+ * job). The doors live ONLY on the screen: the exported bytes stay
+ * plain Markdown — a door needs a page to open — so the paper's
+ * contracts (t194 one-md, t212's byte pins) are untouched.
+ *
+ * Mechanics: the rendered document is one ReactMarkdown tree, so the
+ * doors ride a component override keyed on the ONE table whose head is
+ * exactly [Job, Main map, Volumes] — the Comparison table (Map | Bins |
+ * Peak at | Agreement r | Verdict) and any future family keep their
+ * plain rows. A context carries "this is the inventory" down from the
+ * table element; thead neutralizes it (a head row is a label, not a
+ * door); each body row is a door only when its rendered cells match a
+ * walk owner (jobName | mainName | volumeCount) — an unmatched row
+ * stays plain, because a door must promise what the paper says.
+ */
+const InventoryTableContext = React.createContext(false);
+
+/** The inventory table's exact head trio — the only door-carrying table
+ *  on the paper. Matched against the RENDERED head (hast), so markdown
+ *  cosmetics above or below can never turn another table into doors. */
+const OWNER_HEAD = ["Job", "Main map", "Volumes"];
+
+/** Collect the rendered words of a hast node (cells carry plain text —
+ *  the doors read what the reader reads, not the markdown source). */
+function hastText(n: unknown): string {
+  if (!n || typeof n !== "object") return "";
+  const e = n as { type?: string; value?: string; children?: unknown[] };
+  if (e.type === "text") return e.value ?? "";
+  return (e.children ?? []).map(hastText).join("");
+}
+
+/** hast shape helpers. The markdown pipeline interleaves whitespace TEXT
+ *  nodes BETWEEN and INSIDE a table's parts (table → text · thead · text
+ *  · tbody · text; thead's tr → text · th · text · th …) — a child must
+ *  be FOUND by tagName, never taken by position (t213 RUN=1's lesson:
+ *  children[0] of a table is a newline, not the head). */
+type HastEl = { tagName?: string; children?: unknown[] };
+const asHastEl = (n: unknown): HastEl | undefined => (n && typeof n === "object" ? (n as HastEl) : undefined);
+const hastKids = (n: unknown): unknown[] => asHastEl(n)?.children ?? [];
+const hastTag = (n: unknown): string | undefined => asHastEl(n)?.tagName;
 
 /** Walk the candidates and return EVERY volume owner, in walk order —
  *  owners[0] is the deep-report winner (the newest capable candidate
@@ -279,6 +326,85 @@ export default function SessionReportDialog({
     [project?.name, pipeline, mapQc, mapPending, mapError, mapInventory, lastSweep],
   );
 
+  // t213: pressing a door hands the reader to the owner's results. The
+  // engine is openJob — the SAME door the command palette uses (landing
+  // repair, workspace hops, then the inspector for a completed job) —
+  // and the paper closes: the results panel lives on the canvas, not
+  // under the dialog. The landing itself is the receipt.
+  const pressOwner = React.useCallback(
+    (owner: { jobId: string }) => {
+      void useWorkflowStore.getState().openJob(owner.jobId);
+      onOpenChange(false);
+    },
+    [onOpenChange],
+  );
+
+  // The rendered document's component overrides (t213): the ONE table
+  // whose head is exactly OWNER_HEAD carries doors on its body rows; the
+  // thead neutralizes the context (a head row is a label, not a door);
+  // every other table — the Comparison table, any future family — keeps
+  // its plain rows. Row→owner matching is on the RENDERED cells against
+  // the settled walk inventory; an unmatched row stays plain (a door
+  // must promise what the paper says). Keyboard pressable (Enter/Space)
+  // — a door that needs a mouse is half a door.
+  const mdComponents = React.useMemo<Components>(() => {
+    type TableProps = React.ComponentPropsWithoutRef<"table"> & ExtraProps;
+    type TheadProps = React.ComponentPropsWithoutRef<"thead"> & ExtraProps;
+    type TrProps = React.ComponentPropsWithoutRef<"tr"> & ExtraProps;
+    return {
+      table: ({ node, children, ...rest }: TableProps) => {
+        // find the head row by tagName — position lies (whitespace text
+        // nodes interleave every table part; see the hast helpers above)
+        const head = hastKids(node).find((c) => hastTag(c) === "thead");
+        const headRow = hastKids(head).find((c) => hastTag(c) === "tr");
+        const headTexts = hastKids(headRow)
+          .filter((c) => hastTag(c) === "th")
+          .map(hastText);
+        const isInventory =
+          headTexts.length === OWNER_HEAD.length && OWNER_HEAD.every((h, i) => headTexts[i] === h);
+        if (!isInventory) return <table {...rest}>{children}</table>;
+        return (
+          <InventoryTableContext.Provider value={true}>
+            <table {...rest}>{children}</table>
+          </InventoryTableContext.Provider>
+        );
+      },
+      thead: ({ node, children, ...rest }: TheadProps) => (
+        <InventoryTableContext.Provider value={false}>
+          <thead {...rest}>{children}</thead>
+        </InventoryTableContext.Provider>
+      ),
+      tr: ({ node, children, ...rest }: TrProps) => {
+        const inInventory = React.useContext(InventoryTableContext);
+        const cells = hastKids(node)
+          .filter((c) => hastTag(c) === "td" || hastTag(c) === "th")
+          .map(hastText);
+        const owner = mapInventory?.find(
+          (o) => cells[0] === o.jobName && cells[1] === o.mainName && cells[2] === String(o.volumeCount),
+        );
+        if (!inInventory || !owner) return <tr {...rest}>{children}</tr>;
+        return (
+          <tr
+            {...rest}
+            data-owner-door={owner.jobId}
+            tabIndex={0}
+            aria-label={`Open ${owner.jobName}'s results — ${owner.mainName}, ${owner.volumeCount} ${owner.volumeCount === 1 ? "volume" : "volumes"}`}
+            className="cursor-pointer transition-colors hover:bg-violet-500/10 focus-visible:bg-violet-500/15 focus-visible:outline-none"
+            onClick={() => pressOwner(owner)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                pressOwner(owner);
+              }
+            }}
+          >
+            {children}
+          </tr>
+        );
+      },
+    };
+  }, [mapInventory, pressOwner]);
+
   const exportMd = async (mode: "copy" | "download") => {
     if (mode === "copy") {
       try {
@@ -361,7 +487,7 @@ export default function SessionReportDialog({
 
         {/* the document itself — the families' bytes, rendered */}
         <div className="report-doc max-h-[62vh] overflow-y-auto pr-1" data-report-body>
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{md}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{md}</ReactMarkdown>
         </div>
       </DialogContent>
     </Dialog>
