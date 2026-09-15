@@ -166,8 +166,12 @@ const cellS = ((await doorRows.nth(1).locator("td").last().textContent()) ?? "")
 must(cellH === peakH && cellS === peakS, `D7 the rendered Peak cells == wire (host "${cellH}", second "${cellS}")`);
 const ariaH = (await doorRows.nth(0).getAttribute("aria-label")) ?? "";
 must(ariaH.includes(`peak ${peakH}`), `D8 the host door's aria quotes its peak ("${ariaH}")`);
-const headCells = await page.locator("[data-report-body] thead th").allTextContents();
-must(JSON.stringify(headCells) === JSON.stringify(["Job", "Main map", "Volumes", "Peak"]), `D9 the rendered head is the quartet (${JSON.stringify(headCells)})`);
+// RUN=1's lesson: the report body hosts FOUR tables (deep quartiles,
+// comparison, pairwise, inventory) — a bare "[data-report-body] thead th"
+// collects every family's head. The quartet must be read from the ONE
+// table that carries the doors (has-scoped), never from the whole body.
+const headCells = await page.locator("[data-report-body] table:has(tr[data-owner-door]) thead th").allTextContents();
+must(JSON.stringify(headCells) === JSON.stringify(["Job", "Main map", "Volumes", "Peak"]), `D9 the inventory's OWN head is the quartet (${JSON.stringify(headCells)})`);
 
 // reopen — the statcache makes the peaks re-settle quickly (the walk and
 // the peaks re-run on every open; nothing is remembered across opens)

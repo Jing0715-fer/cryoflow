@@ -134,10 +134,15 @@ const byRecency = (a: JobDTO, b: JobDTO) =>
  */
 const InventoryTableContext = React.createContext(false);
 
-/** The inventory table's exact head trio — the only door-carrying table
- *  on the paper. Matched against the RENDERED head (hast), so markdown
- *  cosmetics above or below can never turn another table into doors. */
-const OWNER_HEAD = ["Job", "Main map", "Volumes"];
+/** The inventory table's exact head quartet — the only door-carrying
+ *  table on the paper. Matched against the RENDERED head (hast), so
+ *  markdown cosmetics above or below can never turn another table into
+ *  doors. t214: the Peak column joins the key — the door key must grow
+ *  with the table it guards, or every door goes dark (the first t214
+ *  run found ALL doors gone because the key still said "trio" while
+ *  the table said "quartet" — a head you don't match is a head you
+ *  don't own). */
+const OWNER_HEAD = ["Job", "Main map", "Volumes", "Peak"];
 
 /** Collect the rendered words of a hast node (cells carry plain text —
  *  the doors read what the reader reads, not the markdown source). */

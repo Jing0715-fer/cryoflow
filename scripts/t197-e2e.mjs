@@ -196,7 +196,13 @@ must(md.includes(`Job \`${host.id}\``), "D7 the map section speaks the walk winn
 must(md.includes(`**${peakPct}** of depth`), `D8 the peak equals the wire's argmax (${peakPct})`);
 must(md.includes(`| ${rStr(rMain)} |`) && md.includes(`| ${rStr(rHalfPair)} |`), `D9 the agreement numbers equal the probe's pearson (vs-main ${rStr(rMain)}, pair ${rStr(rHalfPair)})`);
 must(md.includes("### Pairwise agreement"), "D10 two terrains ⇒ the pairwise section exists");
-must(!md.includes("still measuring") && !md.includes("None of this session's jobs has 3D maps"), "D11 no pending line, no empty-state line — the section speaks the measurement");
+// t214's lesson on this line: the inventory's teaching clause now says
+// "— means still measuring, never a guess" — a PERMANENT doctrine
+// sentence, not a state line. The loose substring "still measuring"
+// used to be a state marker; the state lines themselves are what D11
+// forbids, so they are pinned verbatim (map-pending, overlay-pending,
+// empty state).
+must(!md.includes("Still measuring this session's maps") && !md.includes("still measuring — its landscape has not arrived") && !md.includes("None of this session's jobs has 3D maps"), "D11 no state line, no empty-state line — the section speaks the measurement (the t214 doctrine clause is prose, not state; the three STATE lines are pinned verbatim)");
 must(md.includes("No sweep raced this session"), "D12 the sweep annex starts honest-empty (no race yet)");
 
 must((await page.locator("body").getAttribute("data-report-print")) === "", "D13 the print flag rides the body while the dialog is open");
