@@ -514,3 +514,25 @@ Stage Summary:
 - 「一分数两表面」：HERO_QUARTERS 一口井，网格线与刻度词两个表面；G3 把「同一父亲」钉成 wire 断言（label x === line x1 逐位）；「two surfaces one father」从变量声明层（t225 复用）升格到渲染数组层
 - 「指纹的系谱」：签名带 1208（t229）→ 刻度带 224（t230）——同一确定性墨迹学，四个滚动位置逐位重现；漂移考古从分类噪声进化到认领结构再进化到认领系谱
 - 遗留（下轮候选）：透镜纸面化（哲学门槛维持）；updatedAt 治理（大工程）；EMPIAR 真数据回归（让位）；CSV copy 路径（让位）；hero 签名的印刷档（print 时 0.62 墨是否加深——print 细节让位一次再评估）；portrait 缩略图的玻璃内刻度（hero 有刻度了，96 宽缩略图里 25/50/75 词放不下——半格刻度是否值得，成本/价值再评估）
+
+## Task 231 (2026-09-16, cron 07:32 窗口 trace …202609160736)
+
+- 【开局】四件套：尾部 = Task 230（63c305f）——本轮摘要零过时（上轮即本手所写，31 度防御首次无用武之地）；净场 → watchdog 拉起 pgrep 验活（18767）+ 首页 200。QA：qa00 GREEN + qa63 SMOKE GREEN + agent-browser console 零错。
+- 【立项】Task 230 遗留评审：**「印刷的档位」当选**——屏幕墨水（13 个透明度值）为背光屏调校，纸是另一种介质（无背光：0.14 网格会印成无物；吸墨：6px 的 0.5 签名会洇掉）。教义：**印刷继承层级，不继承数值**——全族加深、次序不变（speech ≥ data > address > reference > context 逐对保持）。候选「portrait 玻璃内刻度」否决：缩略图答 WHERE、hero 答 WHAT 的分工是教义，缩略图加网格稀释分工（标线已是缩略图的空间参照）；其余沉默候选维持。
+- 【实现】
+  - @media print 一单元 13 规则（墨水家族规则之后、t224 玻璃卫兵之前）：spark owner 0.82→1 / winner 0.3→0.6；mark owner 0.5→0.85 / winner 0.3→0.6；band 0.55→0.9 / zero 0.25→0.5；hero main 0.85→1 / overlay 0.4→0.7 / quarter 0.14→0.3 / mark 0.55→0.85、0.3→0.6；**签名 0.62→1 / 深度 0.5→0.85**（纸上最危的墨）——单调映射保持序：1(sig) > 0.85(depth) > 0.9(band)... 网格仍最淡
+  - 注释点名 note-spotlight 判例（transition:none 教训）：本族无 transition，纸即刻，无从 mid-flight——「paper snaps, and here there is nothing to snap FROM」
+  - e2e P 相 9 断言（page.emulateMedia print 仿真）+ Z2k：P0 屏幕档不受扰（sig 0.62/depth 0.5 基线在仿真前钉死）、P1 纸上言语加深（1/0.85）、P2 层级跨介质存活（1 > 0.85）、P3 地形加深 + 虚线身份存活（dash 3 3 仍在）、P4 语境存活（网格 0.3）、P5 地址按军衔加深（0.85 > 0.6）、P6 表格墨水同档（owner 1 + band 0.9——locTable 复用 D 相作用域）、P7 玻璃永不打印（t224 卫兵仿真下 re-pin）、**P8 仿真不是单行门**（回扫后 sig 0.62 复原）；Z2k 无绑世界纸档同在
+- 【事故与判例】P3 首跑 strict mode violation：hero 有 **2 条 overlay path**（E5 自己就断言 2）——裸 locator 违 strict，.first() 一修。崩溃照例跳过 T 清场（roster 22，twin 手工 DELETE 归家 21）。判例复验两则：「崩溃跳过清场是默认结局——重跑前必查 roster」；「**新探针的 locator 先数元素再 evaluate**——count 已被本文件断言过的多元素选择器，裸用必炸」。P6 误引 INV_TABLE 常量（不存在）+ band 是 line 非 rect——grep 现场后修正（引用前先扫现场判例的 e2e 版）。
+- 【e2e：t223-e2e 110→120】**120/0 ×3 全绿**。全家族回归绿：t210 151/0 + t215 44/0 + t213 35/0 + t214 29/0 + t219 29/0 + t212 30/0 + t218 21/0 + t221 14/0；roster 恒等 21。
+- 【watchdog 判例第 4 度】build 后验存活果然 WD_DEAD（18767 被收割）——杀旧 server（18786）→ start-prod → 重拉（19624）→ 双 pgrep 验活。判例已连续三窗应验，升级为**固定工序**：build 后第一步永远先 pgrep。
+- 【定妆照】t231-print-tier-2x（新工具 scripts/t231-print-frame.mjs 首拍）：print 仿真下整份报告脱壳成纯文档（t70 契约运作中）——主地形全墨、署名/深度刻度纸上可读、虚线身份保留、网格隐约在场；审稿通过。
+- 【漂移考古：零屏幕漂移的教义级证据】**t223 全部帧 + t219 逐字节 identical**——纸档是纯 print CSS，屏幕一根毛没动（比 P0 更强的实证：feature 对屏幕的不可见性由全帧指纹背书）；t210 ×3（695/1894/55487 @ 画布区）WebGL 惯犯具名 checkout；t212/t213/t214/t215（34–92 @ density 0.000 超稀疏 sliver，位置逐窗漂移）渲染真相提交。
+- 【世界卫生】全家族绿：t223 120/0 ×3 + t210 151/0 + t215 44/0 + t213 35/0 + t214 29/0 + t219 29/0 + t212 30/0 + t218 21/0 + t221 14/0；roster 恒等 21、twin 已归家（含崩溃遗留手工回收）。
+- 【收尾】worklog（本条）+ commit + push + 环境清理。
+
+Stage Summary:
+- 「印刷继承层级，不继承数值」：纸档 = 13 值单调加深 + 次序逐对存活——P2 钉死 1 > 0.85（名字仍比标尺响）、P3 钉死虚线身份、P4 钉死网格隐约在场；屏幕档与纸档从此是同一族墨水的两张底片，仿真往返（P8）证明两张底片互不覆盖
+- 「纸档不可见于屏幕」：零屏幕漂移 = 全帧指纹背书 feature 的介质纯度；print-only CSS 的审稿要用 print 仿真拍（t231-print-frame.mjs 入驻 scripts/）——「工具跟随介质」
+- 「固定工序再 +1」：build 后第一步 pgrep watchdog（连续三窗死亡后升格为工序，与「换 bundle 后验活」并列）；「重跑 e2e 前必查 roster」（崩溃跳清场第 2 度）
+- 遗留（下轮候选）：透镜纸面化（哲学门槛维持）；updatedAt 治理（大工程）；EMPIAR 真数据回归（让位）；CSV copy 路径（让位）；portrait 玻璃内刻度（本轮否决——分工教义，除非出现「缩略图需要深度语境」的真实阅读需求）；hero 纸档下的签名与地形全墨叠印可读性（纸上 7px 全墨字压 1.25 宽线——若未来真实打印发现叠印糊字，halo 禁令是否需要一个「纸上例外」的讨论）

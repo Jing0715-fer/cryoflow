@@ -1583,6 +1583,33 @@ li[data-swipe="end"] {
   fill: currentColor;
   fill-opacity: 0.5;
 }
+/* t231: the print tier — paper inherits the HIERARCHY, not the values.
+   The screen opacities were tuned for a backlit panel; paper is another
+   medium: no backlight (light values vanish — the 0.14 grid would print
+   as nothing), absorbent ink (small glyphs at 0.5 wash out). So every
+   ink in the report family deepens, and the ORDER survives pair for
+   pair: speech (labels 1) >= data (terrain/bars 1, 0.9) > address
+   (marks 0.85/0.6) > reference (winner/overlay/zero 0.7/0.6/0.5) >
+   context (grid 0.3). Same ink, deeper plate — names still speak
+   louder than the ruler (1 > 0.85), the ruler still outranks the grid.
+   No transitions exist on these rules (the note-spotlight lesson: a
+   transition would animate the print tree and land mid-flight values
+   in the PDF); paper snaps, and here there is nothing to snap FROM. */
+@media print {
+  .report-doc .report-spark-owner { stroke-opacity: 1; }
+  .report-doc .report-spark-winner { stroke-opacity: 0.6; }
+  .report-doc .report-spark-mark-owner { stroke-opacity: 0.85; }
+  .report-doc .report-spark-mark-winner { stroke-opacity: 0.6; }
+  .report-doc .report-band { stroke-opacity: 0.9; }
+  .report-doc .report-band-zero { stroke-opacity: 0.5; }
+  .report-doc .report-hero-main { stroke-opacity: 1; }
+  .report-doc .report-hero-overlay { stroke-opacity: 0.7; }
+  .report-doc .report-hero-quarter { stroke-opacity: 0.3; }
+  .report-doc .report-hero-mark-main { stroke-opacity: 0.85; }
+  .report-doc .report-hero-mark-overlay { stroke-opacity: 0.6; }
+  .report-doc .report-hero-label { fill-opacity: 1; }
+  .report-doc .report-hero-depth { fill-opacity: 0.85; }
+}
 
 /* t224: the magnifier — the same picture, twice drawn. The glass is
    born with the portrait (one wrap, two mounts of the same d bytes)

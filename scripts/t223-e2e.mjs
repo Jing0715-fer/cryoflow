@@ -515,6 +515,47 @@ const sigMaxY = Math.max(...sigYs.filter(Number.isFinite));
 must(depthRead.every((d) => d.ly === 77) && depthRead.every((d) => d.ly > sigMaxY + 40),
   `G5 the ruler never yields into the signature rows (labels y 77 below sig max y ${sigMaxY})`);
 
+/* ============ P: the print tier — paper inherits the hierarchy ============ */
+section("P: the print tier — same ink, deeper plate");
+// screen baseline first: the backlit values are the contract the paper
+// tier must NOT touch (emulation is a lens, not a rewrite)
+const sigScreen = await heroLabels.nth(0).evaluate((el) => getComputedStyle(el).fillOpacity);
+const depthScreen = await depthLabels.nth(0).evaluate((el) => getComputedStyle(el).fillOpacity);
+must(sigScreen === "0.62" && depthScreen === "0.5",
+  `P0 the screen tier stands untouched on screen (sig ${sigScreen}, depth ${depthScreen})`);
+await page.emulateMedia({ media: "print" });
+await sleep(120);
+const sigPrint = await heroLabels.nth(0).evaluate((el) => getComputedStyle(el).fillOpacity);
+const depthPrint = await depthLabels.nth(0).evaluate((el) => getComputedStyle(el).fillOpacity);
+must(sigPrint === "1" && depthPrint === "0.85",
+  `P1 paper deepens the speech (sig ${sigPrint}, depth ${depthPrint} — 6px glyphs at 0.5 would wash out)`);
+must(parseFloat(sigPrint) > parseFloat(depthPrint),
+  "P2 the hierarchy survives the medium: names still speak louder than the ruler (1 > 0.85)");
+const mainPrint = await heroSvg.locator("path.report-hero-main").evaluate((el) => getComputedStyle(el).strokeOpacity);
+const ovPrint = await heroSvg.locator("path.report-hero-overlay").first().evaluate((el) => getComputedStyle(el).strokeOpacity);
+const ovDash = await heroSvg.locator("path.report-hero-overlay").first().evaluate((el) => getComputedStyle(el).strokeDasharray);
+must(mainPrint === "1" && ovPrint === "0.7" && ovDash.includes("3"),
+  `P3 the terrain deepens, the dotted identity survives (main ${mainPrint}, overlay ${ovPrint} dash ${ovDash})`);
+const qPrint = await heroSvg.locator("line.report-hero-quarter").nth(0).evaluate((el) => getComputedStyle(el).strokeOpacity);
+must(qPrint === "0.3",
+  `P4 the context survives paper (grid ${qPrint} — 0.14 would print as nothing)`);
+const mmPrint = await heroSvg.locator("line.report-hero-mark-main").evaluate((el) => getComputedStyle(el).strokeOpacity);
+const moPrint = await heroSvg.locator("line.report-hero-mark-overlay").first().evaluate((el) => getComputedStyle(el).strokeOpacity);
+must(mmPrint === "0.85" && moPrint === "0.6",
+  `P5 the addresses deepen in rank (mark main ${mmPrint} > mark overlay ${moPrint})`);
+const sparkOwnerPrint = await page.locator(INV + " path.report-spark-owner").first().evaluate((el) => getComputedStyle(el).strokeOpacity);
+const bandPrint = await locTable.locator("svg.report-band-strip > line.report-band").first().evaluate((el) => getComputedStyle(el).strokeOpacity);
+must(sparkOwnerPrint === "1" && bandPrint === "0.9",
+  `P6 the tables' ink rides the same tier (owner ${sparkOwnerPrint}, band ${bandPrint})`);
+const zoomPrintDisplay = await page.locator(INV + " svg.report-spark-zoom").first().evaluate((el) => getComputedStyle(el).display);
+must(zoomPrintDisplay === "none",
+  "P7 the glass never prints (t224's guard re-pinned under emulation)");
+await page.emulateMedia({ media: "screen" });
+await sleep(120);
+const sigBack = await heroLabels.nth(0).evaluate((el) => getComputedStyle(el).fillOpacity);
+must(sigBack === "0.62",
+  "P8 emulation is not a one-way door (screen tier restored after print)");
+
 // the frame is a reviewer — scroll the hero into the dialog's viewport
 // (the body scrolls internally, the band frame's own lesson) and shoot
 // the doc with the figure at the top: hero + the summary head it
@@ -576,6 +617,12 @@ must((await page2.locator("[data-report-body] svg.report-hero-landscape text.rep
   "Z2i the untied world's hero signs itself too (three lines, three signatures)");
 must((await page2.locator("[data-report-body] svg.report-hero-landscape text.report-hero-depth").count()) === 3,
   "Z2j the untied world's ruler signs its ticks too (three depth labels at the same fixed addresses)");
+await page2.emulateMedia({ media: "print" });
+await sleep(120);
+const sigPrint2 = await page2.locator("[data-report-body] svg.report-hero-landscape text.report-hero-label").first().evaluate((el) => getComputedStyle(el).fillOpacity);
+await page2.emulateMedia({ media: "screen" });
+must(sigPrint2 === "1",
+  `Z2k the print tier rides the world too (untied signature on paper ${sigPrint2})`);
 must(rosterT.length === 21, "Z3 roster identity (21) after the whole dance");
 must(consoleErrors.length === 0 && consoleErrors2.length === 0,
   `Z4 console clean across both visits (${consoleErrors.length}/${consoleErrors2.length})`);
