@@ -173,6 +173,32 @@ const SWATCH_COLORS = [...OVERLAY_COLORS, "#60a5fa", "#e879f9", "#a3e635"];
 /** default surface opacity for overlays — the main map stays in front */
 const OVERLAY_ALPHA = 0.55;
 
+/** t210: lane packing — when bands multiply, every door stays pressable.
+ *  The strip's bracket rows (t203's locals, t208's pairs) assumed the
+ *  sandbox's one-pair world; a second map betraying in the SAME quarter
+ *  would paint directly over the first bracket, and a covered bracket is
+ *  a door that cannot be pressed — a lying door. Greedy first-fit
+ *  packing: each band rides the FIRST lane whose latest end <= its from
+ *  (touching bands share a lane — 0.25's end and 0.50's start are not an
+ *  overlap), a genuine collision earns the next lane up. Because every
+ *  band is a quarter of the shared fraction scale, at most four lanes
+ *  ever exist and the stack always fits the strip. Returns the lane
+ *  index per input band, in input order (callers sort by from first —
+ *  first-fit on a from-sorted list is the classic minimal-lane greedy). */
+const packLanes = (bands: Array<{ from: number; to: number }>): number[] => {
+  const laneEnds: number[] = [];
+  return bands.map(({ from, to }) => {
+    let lane = laneEnds.findIndex((end) => end <= from + 1e-9);
+    if (lane < 0) {
+      lane = laneEnds.length;
+      laneEnds.push(to);
+    } else {
+      laneEnds[lane] = Math.max(laneEnds[lane], to);
+    }
+    return lane;
+  });
+};
+
 /** one comparison volume layered over the main map */
 interface OverlayEntry {
   path: string;
@@ -3657,55 +3683,99 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                         // pairwise chip (t207's button). Fewer than two
                         // speaking overlays draw nothing — no pair, no
                         // territory, no lie.
-                        const bandBrackets = overlays
+                        // t210: the LANE doctrine — both rows assumed the
+                        // sandbox's one-pair world; a second map (or pair)
+                        // betraying in the SAME quarter would paint over
+                        // the first bracket and cover its door, and a
+                        // covered door is a lying door. Both rows now pack
+                        // lane by lane (packLanes, one algorithm, two
+                        // consumers): touching bands share a lane, truly
+                        // colliding bands split upward, and the pair stack
+                        // floats above however many local lanes exist.
+                        // t203's painter, t210's lanes: one bracket per
+                        // speaking overlay's weakest quarter — now PACKED
+                        // lane by lane (packLanes, sorted by from) so maps
+                        // betraying in the SAME quarter cannot paint over
+                        // each other's doors. Distinct quarters share the
+                        // bottom lane (the t203 geometry, byte for byte);
+                        // a collision earns a lane one step up. The local
+                        // stack grows UPWARD from 27.4, and the pair stack
+                        // (t208) floats above however many local lanes
+                        // exist.
+                        const localBanded = overlays
                           .map((o) => ({ o, op: overlayProfiles[o.path] }))
                           .flatMap(({ o, op }) => {
                             if (!op || op.bins.length === 0) return [];
                             const w = weakestBand(localAgreement(profile.bins, op.bins));
                             if (!w) return []; // flat verdict: no address, no territory
-                            const visiting = slicePos >= w.from && slicePos < w.to;
-                            const centre = Math.round(((w.from + w.to) / 2) * 100) / 100;
-                            return [
-                              <rect
-                                key={o.path}
-                                data-band-bracket={o.name}
-                                data-band-visiting={visiting ? "1" : "0"}
-                                x={(w.from * 100).toFixed(2)}
-                                y="27.4"
-                                width={((w.to - w.from) * 100).toFixed(2)}
-                                height="2.6"
-                                rx="0.4"
-                                fill={o.color}
-                                opacity={visiting ? "0.85" : "0.3"}
-                                className="cursor-pointer transition-opacity duration-150 hover:opacity-85"
-                                onPointerDown={(e) => {
-                                  e.stopPropagation();
-                                  applySliceIntent({ pos: centre });
-                                  flashProfileNote(`Plane moved to ${Math.round(centre * 100)}% — the centre of ${o.name}'s weakest quarter (${w.label})`);
-                                }}
-                              />,
-                            ];
+                            return [{ o, w }];
                           });
-                        // t208's painter: one bracket per PAIR of speaking
-                        // overlays whose weakest band exists — the identical
-                        // derivation the pairwise chips drink from (line for
-                        // line), rendered one row above the local brackets.
-                        const pairBrackets = pairwiseAgreement(
+                        const localOrder = [...localBanded].sort((a, b) => a.w.from - b.w.from || a.w.to - b.w.to);
+                        const localLanes = packLanes(localOrder.map(({ w }) => w));
+                        const localLaneOf = new Map(localOrder.map(({ o }, i) => [o.path, localLanes[i]]));
+                        const localLaneCount = localLanes.length > 0 ? Math.max(...localLanes) + 1 : 0;
+                        const bandBrackets = localBanded.map(({ o, w }) => {
+                          const lane = localLaneOf.get(o.path) ?? 0;
+                          const visiting = slicePos >= w.from && slicePos < w.to;
+                          const centre = Math.round(((w.from + w.to) / 2) * 100) / 100;
+                          return (
+                            <rect
+                              key={o.path}
+                              data-band-bracket={o.name}
+                              data-band-visiting={visiting ? "1" : "0"}
+                              data-band-lane={lane}
+                              x={(w.from * 100).toFixed(2)}
+                              y={(27.4 - lane * 3.0).toFixed(1)}
+                              width={((w.to - w.from) * 100).toFixed(2)}
+                              height="2.6"
+                              rx="0.4"
+                              fill={o.color}
+                              opacity={visiting ? "0.85" : "0.3"}
+                              className="cursor-pointer transition-opacity duration-150 hover:opacity-85"
+                              onPointerDown={(e) => {
+                                e.stopPropagation();
+                                applySliceIntent({ pos: centre });
+                                flashProfileNote(`Plane moved to ${Math.round(centre * 100)}% — the centre of ${o.name}'s weakest quarter (${w.label})`);
+                              }}
+                            />
+                          );
+                        });
+                        // t208's painter, t210's lanes: one bracket per
+                        // addressed PAIR of speaking overlays — the
+                        // identical derivation the pairwise chips drink
+                        // from (line for line), now PACKED lane by lane
+                        // (packLanes, sorted by from) so two pairs
+                        // betraying in the SAME quarter cannot paint over
+                        // each other's doors. The pair stack FLOATS above
+                        // the local stack — its bottom lane starts one step
+                        // above the topmost local lane; in the
+                        // one-local-lane world that is exactly t208's
+                        // y 24.4, byte for byte.
+                        const pairList = pairwiseAgreement(
                           overlays
                             .map((o) => ({ name: o.name, bins: overlayProfiles[o.path]?.bins ?? [] }))
                             .filter((o) => o.bins.length > 0)
-                        ).flatMap((p) => {
+                        );
+                        const pairBanded = pairList.flatMap((p) => {
                           if (!p.weakest) return []; // no address, no territory
-                          const pw = p.weakest;
+                          return [{ p, w: p.weakest }];
+                        });
+                        const pairOrder = [...pairBanded].sort((a, b) => a.w.from - b.w.from || a.w.to - b.w.to);
+                        const pairLanes = packLanes(pairOrder.map(({ w }) => w));
+                        const pairLaneOf = new Map(pairOrder.map(({ p }, i) => [p, pairLanes[i]]));
+                        const pairBaseY = 24.4 - (localLaneCount - 1) * 3.0;
+                        const pairBrackets = pairBanded.map(({ p, w: pw }) => {
+                          const lane = pairLaneOf.get(p) ?? 0;
                           const pcentre = Math.round(((pw.from + pw.to) / 2) * 100) / 100;
                           const pvisiting = slicePos >= pw.from && slicePos < pw.to;
-                          return [
+                          return (
                             <rect
                               key={`${p.a}|${p.b}`}
                               data-pair-bracket={`${p.a}|${p.b}`}
                               data-pair-visiting={pvisiting ? "1" : "0"}
+                              data-pair-lane={lane}
                               x={(pw.from * 100).toFixed(2)}
-                              y="24.4"
+                              y={(pairBaseY - lane * 3.0).toFixed(1)}
                               width={((pw.to - pw.from) * 100).toFixed(2)}
                               height="2.4"
                               rx="0.4"
@@ -3721,8 +3791,8 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                               <title>
                                 The thinnest corroboration between {p.a} and {p.b} ({pw.label}) — press to move the plane to the band's centre
                               </title>
-                            </rect>,
-                          ];
+                            </rect>
+                          );
                         });
                         return (
                           <>
@@ -4039,7 +4109,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                               <div className="flex items-start gap-1.5" data-legend-territory="pair">
                                 <span aria-hidden="true" className="mt-1 h-0.5 w-4 shrink-0 rounded-full bg-foreground/45" />
                                 <span>
-                                  each pair&apos;s thinnest corroboration — measured between the two maps as their own landscape, wearing neither&apos;s colour (neutral ink on its own row)
+                                  each pair&apos;s thinnest corroboration — measured between the two maps as their own landscape, wearing neither&apos;s colour (neutral ink, packed lane by lane so every door stays pressable)
                                 </span>
                               </div>
                             ) : null;
