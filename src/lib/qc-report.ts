@@ -223,6 +223,33 @@ export const deltaVsWinner = (rowPct: number | null, winnerPct: number | null): 
   return `${d < 0 ? "-" : "+"}${Math.abs(d).toFixed(1)}`;
 };
 
+/** t218: the roster speaks CSV — the five-column inventory as a machine
+ *  grid for spreadsheets and scripts. Same father as the paper: peak_pct
+ *  sits on the SAME 1-decimal grid the paper prints, and delta_winner is
+ *  deltaVsWinner ITSELF (the CSV never re-derives the deviation — twins
+ *  fork, imports don't). A pending peak speaks an empty cell: "still
+ *  measuring" in CSV grammar is blank, never a guess. Cells are quoted
+ *  only when they must be (RFC 4180 — names may carry commas). */
+export type InventoryCsvRow = {
+  jobName: string;
+  mainName: string;
+  volumeCount: number;
+  peak: string | null;
+  peakPct: number | null;
+};
+export const inventoryCsv = (rows: InventoryCsvRow[] | null): string | null => {
+  if (!rows || rows.length === 0) return null;
+  const winnerPct = rows[0]?.peakPct ?? null;
+  const quote = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+  const line = (parts: string[]) => parts.map(quote).join(",");
+  const body = rows.map((o) => {
+    const peak = o.peakPct != null ? o.peakPct.toFixed(1) : "";
+    const delta = deltaVsWinner(o.peakPct, winnerPct) ?? "";
+    return line([o.jobName, o.mainName, String(o.volumeCount), peak, delta]);
+  });
+  return [line(["job", "main_map", "volumes", "peak_pct", "delta_winner"]), ...body].join("\n");
+};
+
 /** t215: WHO is the outlier? The row whose |Δ| is strictly the largest
  *  AND strictly greater than zero — a tie for the crown is no crown
  *  (a contested superlative is a guess, and the lens never guesses),
@@ -645,3 +672,9 @@ export const buildSessionReport = (opts: {
 
 export const sessionReportFilename = (): string =>
   `session-qc-report-${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}.md`;
+
+/** t218: the CSV sibling of the report filename — same timestamp grammar,
+ *  a different extension (the roster's machine grid travels under its
+ *  own name, not the report's). */
+export const inventoryCsvFilename = (): string =>
+  `session-map-inventory-${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}.csv`;

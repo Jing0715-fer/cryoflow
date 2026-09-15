@@ -44,7 +44,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Copy, Download, FileDown, Printer } from "lucide-react";
+import { Copy, Download, FileDown, FileSpreadsheet, Printer } from "lucide-react";
 import ReactMarkdown, { type Components, type ExtraProps } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { downloadText } from "@/lib/download";
@@ -54,6 +54,8 @@ import {
   buildSessionReport,
   buildSweepReport,
   deltaVsWinner,
+  inventoryCsv,
+  inventoryCsvFilename,
   outlierRowIdx,
   peakPctNumOf,
   peakPctOf,
@@ -480,6 +482,18 @@ export default function SessionReportDialog({
     };
   }, [mapInventory, pressOwner]);
 
+  const exportCsv = () => {
+    const csv = inventoryCsv(mapInventory ?? null);
+    if (!csv) {
+      // the honest empty: no roster settled yet — the button says so,
+      // the note names the wait (a silent no-op is a lying door)
+      flashNote("The map inventory is still measuring — no CSV yet");
+      return;
+    }
+    downloadText(inventoryCsvFilename(), csv, "text/csv;charset=utf-8");
+    flashNote("Downloaded session-map-inventory-….csv");
+  };
+
   const exportMd = async (mode: "copy" | "download") => {
     if (mode === "copy") {
       try {
@@ -537,6 +551,17 @@ export default function SessionReportDialog({
           >
             <Download className="h-3.5 w-3.5" aria-hidden="true" />
             Download report
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 gap-1.5 text-emerald-600 hover:bg-emerald-600/15 hover:text-emerald-600"
+            aria-label="Download map inventory CSV"
+            title="The map inventory as a machine grid — job, main map, volumes, peak %, Δ winner (one row per owner, pending peaks blank)"
+            onClick={exportCsv}
+          >
+            <FileSpreadsheet className="h-3.5 w-3.5" aria-hidden="true" />
+            Download CSV
           </Button>
           <Button
             variant="ghost"
