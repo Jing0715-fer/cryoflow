@@ -71,6 +71,12 @@ SUITES=(
   scripts/t98-e2e.mjs
   scripts/t99-e2e.mjs
   scripts/t100-e2e.mjs
+  # t2xx: the auto-include glob only eats t1[0-9][0-9], so every t2xx
+  # suite MUST be appended here by hand (t202 found t200/t201 missing —
+  # three windows of matrix totals had drifted off the real list)
+  scripts/t200-e2e.mjs
+  scripts/t201-e2e.mjs
+  scripts/t202-e2e.mjs
   # Append each new task suite here AND nowhere else. Keep list sorted.
 )
 # Auto-include the newest t-suite so "forgot to add t10X" can't happen:

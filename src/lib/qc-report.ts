@@ -210,7 +210,14 @@ export const pairwiseAgreement = (overlays: ReportOverlay[]): { a: string; b: st
  *  does not divide by four). */
 export const QUARTER_LABELS = ["Q1 (0–25%)", "Q2 (25–50%)", "Q3 (50–75%)", "Q4 (75–100%)"];
 
-export interface LocalBand { label: string; r: number }
+/** One quarter band's verdict. `label` is the human vocabulary (the
+ *  report prints it verbatim); `from`/`to` are the band's ACTUAL extent
+ *  on the shared 0–100% fraction scale — the machine-readable address
+ *  the equal-count cut really produced (off by at most one plane from
+ *  the nominal label when the count does not divide by four). t202:
+ *  the wall's chip navigates by from/to and never parses the label —
+ *  the coordinate lives beside the vocabulary, not inside it. */
+export interface LocalBand { label: string; r: number; from: number; to: number }
 
 /** LOCAL shape agreement: the shared fraction axis cut into four
  *  equal-count bands, each correlated independently. A global r can
@@ -234,7 +241,13 @@ export const localAgreement = (mainBins: number[], overlayBins: number[]): Local
     // exhaustive, no shared boundary plane between neighbours
     const lo = Math.floor((k * n) / 4);
     const hi = Math.floor(((k + 1) * n) / 4);
-    out.push({ label: QUARTER_LABELS[k], r: pearson(a.slice(lo, hi), b.slice(lo, hi)) });
+    out.push({
+      label: QUARTER_LABELS[k],
+      r: pearson(a.slice(lo, hi), b.slice(lo, hi)),
+      // the band's true fraction extent: bin i covers [i/n, (i+1)/n)
+      from: lo / n,
+      to: hi / n,
+    });
   }
   return out;
 };

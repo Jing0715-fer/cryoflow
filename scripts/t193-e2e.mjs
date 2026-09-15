@@ -119,7 +119,12 @@ while ((await page.locator('button[aria-label^="Remove overlay"]').count()) > 0)
   healed++;
 }
 if (healed) console.log(`  (self-heal: removed ${healed} restored overlay${healed > 1 ? "s" : ""} from a previous session)`);
-await page.keyboard.press("Escape");
+// t202 sync: UNCONDITIONAL Escape is a blind shell (the t196 doctrine,
+// third front-wave instance) — the popover may have auto-closed a beat
+// after the last removal, and the blind Escape then closes the VIEWER.
+// Only fire when the popover is visible TWICE, 250ms apart.
+const popUpT193 = async () => await page.locator('[data-testid^="map-choice-"]').first().isVisible().catch(() => false);
+if (await popUpT193()) { await sleep(250); if (await popUpT193()) await page.keyboard.press("Escape"); }
 await sleep(600);
 
 await page.locator('button[aria-label="Toggle cross-section plane"]').click();

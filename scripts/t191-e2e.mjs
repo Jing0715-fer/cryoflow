@@ -87,7 +87,10 @@ must(
   "X3 the plane position is speakable (aria-valuenow + aria-valuetext)"
 );
 must(
-  embSrc.includes("focus-visible:ring-2 focus-visible:ring-cyan-500/70"),
+  // t202 sync: the ring drinks the theme token (--ring, solid) now — the
+  // census found cyan-500/70 at 1.70:1 in the light room, below the 3:1
+  // non-text floor; solid ring-ring is 3.07:1 light / 6.66:1 dark
+  embSrc.includes("focus-visible:ring-2 focus-visible:ring-ring"),
   "X4 focus is VISIBLE (keyboard users can see the instrument take the keys)"
 );
 must(

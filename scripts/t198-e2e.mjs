@@ -157,9 +157,12 @@ while ((await page.locator('button[aria-label^="Remove overlay"]').count()) > 0)
   await page.locator('button[aria-label^="Remove overlay"]').first().click();
   await sleep(900);
 }
-if (await page.locator('[data-testid^="map-choice-"]').first().isVisible().catch(() => false)) {
-  await page.keyboard.press("Escape");
-}
+// t202 sync (the t196 race, closed for the front wave too): the popover
+// can auto-close a beat after the last removal — an Escape that lands in
+// that gap hits the VIEWER and the toggle vanishes mid-probe. Only fire
+// when the popover is visible TWICE, 250ms apart.
+const popUpT198 = async () => await page.locator('[data-testid^="map-choice-"]').first().isVisible().catch(() => false);
+if (await popUpT198()) { await sleep(250); if (await popUpT198()) await page.keyboard.press("Escape"); }
 await sleep(600);
 must((await page.locator('div[data-local-row="1"]').count()) === 0, "D2 self-healed world: NO local row before any adoption (no map, no lie)");
 

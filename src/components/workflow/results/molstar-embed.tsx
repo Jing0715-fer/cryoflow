@@ -390,7 +390,12 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                 PluginBehaviors.Camera.CameraControls,
                 PluginBehaviors.State.SnapshotControls,
               ];
-              return kept.includes(b.behavior);
+              // Mol*'s .d.ts types the spec's behaviors as plain `Behavior`,
+              // but every entry the runtime hands us is a PluginBehavior
+              // carrying its concrete class in `.behavior` (t201's kept-list
+              // filter depends on it) — the cast documents the gap, changes
+              // nothing at runtime
+              return kept.includes((b as unknown as { behavior: (typeof kept)[number] }).behavior);
             }),
             layout: { initial: { isExpanded: false, showControls: false } },
           },
@@ -3592,7 +3597,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                     <svg
                       viewBox="0 0 100 30"
                       preserveAspectRatio="none"
-                      className="block h-9 w-full cursor-crosshair touch-none select-none rounded bg-background/40 outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/70"
+                      className="block h-9 w-full cursor-crosshair touch-none select-none rounded bg-background/40 outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       role="slider"
                       aria-label={`Density profile along the ${sliceAxis} axis — drag to scrub the plane, arrow keys to nudge, Home/End for the ends`}
                       aria-orientation="horizontal"
@@ -3715,6 +3720,17 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                           {spokenLocal.map((o) => {
                             const w = weakestBand(localAgreement(profile.bins, o.bins));
                             if (!w) return null;
+                            // t202: the address earns a DOOR — the chip is
+                            // now a real button. The band's from/to (the
+                            // lib's machine address, never a parse of the
+                            // label) centre the plane on the betrayal's
+                            // depth; the 2D ortho browser rides the same
+                            // intent event, so both rooms honour the jump.
+                            const centre = Math.round(((w.from + w.to) / 2) * 100) / 100;
+                            const jump = () => {
+                              applySliceIntent({ pos: centre });
+                              flashProfileNote(`Plane moved to ${Math.round(centre * 100)}% — the centre of ${o.name}'s weakest quarter (${w.label})`);
+                            };
                             // t200: the agreement earns a CONTOUR — the
                             // sliding-window r profile drawn as a sparkline
                             // INSIDE the chip, stations left to right,
@@ -3741,11 +3757,14 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                               cur.push(`${((k / Math.max(1, rp.rs.length - 1)) * 100).toFixed(2)},${(5 - r * 4.5).toFixed(2)}`);
                             });
                             return (
-                              <span
+                              <button
                                 key={o.name}
+                                type="button"
                                 data-local-chip={o.name}
-                                title={`Local shape agreement for ${o.name}: the shared fraction scale cut into four quarters, each correlated independently; the sparkline traces the sliding-window r across the depth — gaps are flat windows (no shape to correlate), dashed line = r 0, red shading = negative stations. The global r can hide a localized betrayal — the weakest quarter is the address to inspect.`}
-                                className="flex items-center gap-1.5 rounded-full bg-muted px-1.5 py-0.5 font-mono text-[8.5px] tabular-nums text-muted-foreground"
+                                onClick={jump}
+                                title={`Local shape agreement for ${o.name}: the shared fraction scale cut into four quarters, each correlated independently; the sparkline traces the sliding-window r across the depth — gaps are flat windows (no shape to correlate), dashed line = r 0, red shading = negative stations. The global r can hide a localized betrayal — the weakest quarter is the address to inspect. Click to move the plane to the centre of that quarter — the address is a door.`}
+                                aria-label={`Jump the plane to the centre of ${o.name}'s weakest quarter, ${w.label} — ${Math.round(centre * 100)}% on the ${sliceAxis} axis`}
+                                className="flex cursor-pointer items-center gap-1.5 rounded-full bg-muted px-1.5 py-0.5 font-mono text-[8.5px] tabular-nums text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]"
                               >
                                 <svg
                                   viewBox="0 0 100 10"
@@ -3784,7 +3803,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                                 <span>
                                   {o.name} · weakest {w.label} · r {w.r.toFixed(2)} · {agreementVerdict(w.r)}
                                 </span>
-                              </span>
+                              </button>
                             );
                           })}
                         </div>
