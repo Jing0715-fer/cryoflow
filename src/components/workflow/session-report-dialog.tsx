@@ -48,6 +48,7 @@ import { Copy, Download, FileDown, Printer } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { downloadText } from "@/lib/download";
+import type { JobDTO } from "@/lib/types";
 import {
   buildProfileReport,
   buildSessionReport,
@@ -75,12 +76,37 @@ interface ProfileResponse {
 /** Full-map variants lead the report; halves and masked maps compare. */
 const MAIN_MAP_RE = /half0|postprocess\.mrc$/i;
 
+/** Types that can ever own a true 3D volume (t211). The walk probes these
+ *  FIRST — an import/motioncorr/ctffind/extract candidate has never held a
+ *  map, and spending the probe budget on them is how the old walk lied:
+ *  its cap of 8 newest completed jobs landed exactly on the demo
+ *  pipeline's map-less upper half while a Refine3D four rows down owned
+ *  four volumes — and the report declared a world WITH maps to have none.
+ *  A lying instrument is the gravest sin; the walk now spends its budget
+ *  on plausible owners before it touches the never-volume tail. */
+const VOLUME_CAPABLE_RE = /refine3d|class3d|postprocess|multibody/i;
+
+/** The walk's probe budget. Volume-capable candidates ride the front of
+ *  the queue (see VOLUME_CAPABLE_RE), so the budget lands on real map
+ *  owners; 24 covers the demo world's whole roster well past three
+ *  times — the honest failure mode is "scanned them all, none speaks",
+ *  never "never asked". */
+const MAP_BRIEF_CAP = 24;
+
+/** Newest first — as a real three-way comparator. The old one-liner
+ *  `(a.updatedAt < b.updatedAt ? 1 : -1)` answers -1 on EQUAL stamps,
+ *  silently reversing same-instant jobs (a gallery restore writes them
+ *  all at once); the id tiebreak keeps the order deterministic. */
+const byRecency = (a: JobDTO, b: JobDTO) =>
+  a.updatedAt < b.updatedAt ? 1 : a.updatedAt > b.updatedAt ? -1 : a.id < b.id ? -1 : 1;
+
 /** The session's latest succeeded job with 3D maps, as a MapBrief.
- *  Candidates walk newest-first (cap 8 outputs probes) and the FIRST job
- *  owning at least one true volume (kind mrc + 3 dims — stacks have no
- *  dims, masks and classes are volumes too) wins. */
+ *  Candidates walk volume-capable-first, then recency (the t211 walk —
+ *  the queue is ordered by the caller) and the FIRST job owning at least
+ *  one true volume (kind mrc + 3 dims — stacks have no dims, masks and
+ *  classes are volumes too) wins. */
 async function findMapBrief(jobIds: string[], signal: AbortSignal): Promise<MapBrief | null> {
-  for (const jobId of jobIds.slice(0, 8)) {
+  for (const jobId of jobIds.slice(0, MAP_BRIEF_CAP)) {
     if (signal.aborted) return null;
     try {
       const d = (await fetch(`/api/jobs/${jobId}/outputs`, { signal }).then((r) => r.json())) as OutputsResponse;
@@ -179,11 +205,15 @@ export default function SessionReportDialog({
     setMapError(false);
     setMapPending(true);
     (async () => {
-      const doneIds = useWorkflowStore
-        .getState()
-        .jobs.filter((j) => j.status === "completed")
-        .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1))
-        .map((j) => j.id);
+      // t211 walk: volume-capable types first (each tier newest-first,
+      // deterministic under equal stamps), then the never-volume tail —
+      // the walk cannot end at a map-less upper half while a Refine3D
+      // waits below the fold.
+      const done = useWorkflowStore.getState().jobs.filter((j) => j.status === "completed");
+      const doneIds = [
+        ...done.filter((j) => VOLUME_CAPABLE_RE.test(j.type)).sort(byRecency),
+        ...done.filter((j) => !VOLUME_CAPABLE_RE.test(j.type)).sort(byRecency),
+      ].map((j) => j.id);
       const brief = await findMapBrief(doneIds, ctrl.signal);
       if (ctrl.signal.aborted) return;
       if (!brief) {
