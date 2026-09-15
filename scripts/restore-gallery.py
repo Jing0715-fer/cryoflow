@@ -96,6 +96,22 @@ def main():
         created[name] = create_job(jobs, name, jtype, x, y, workspace)
         created[name]["_result"] = result
 
+    # 3b. the β-Gal demo trio (t217: the L2 job-wipe drill caught them —
+    #     the skeleton only covered the QA family; the tutorial's own
+    #     three idle jobs lived only in accumulated DBs, so a rebuilt
+    #     roster topped out at 18, not 21). They stay IDLE with NO result:
+    #     no _result key means the flip section never touches them, and
+    #     NO engine-state registration (the historical trio was bare —
+    #     no run record, no workdir, no files).
+    demo_trio = [
+        ("Import Movies 1", "import", 16, 220),
+        ("Motion Correction 1", "motioncorr", 280, 220),
+        ("CTF Estimation 1", "ctffind", 544, 220),
+    ]
+    jobs = list_jobs()
+    for name, jtype, x, y in demo_trio:
+        created[name] = create_job(jobs, name, jtype, x, y, workspace)
+
     # 4. qa58 seeds the class2d→select2d pair + the class gallery fixtures
     r = subprocess.run([sys.executable, os.path.join(SCRIPTS, "qa58-seed-gallery.py")],
                        capture_output=True, text=True)
@@ -116,6 +132,8 @@ def main():
     sel2d = find_by_name("QA Class Select", jobs)
     J["QA Class Select"] = sel2d["id"] if sel2d else None
     wiring = [
+        ("Import Movies 1", "micrographs", "Motion Correction 1", "movies"),
+        ("Motion Correction 1", "micrographs", "CTF Estimation 1", "micrographs"),
         ("QA Import", "micrographs", "QA MotionCorr", "movies"),
         ("QA MotionCorr", "micrographs", "QA CtfFind", "micrographs"),
         ("QA CtfFind", "micrographs", "QA Auto-pick", "micrographs"),
@@ -153,7 +171,7 @@ Promise.all(spec.map(([id, result]) =>
 )).then(() => { console.log('flipped ' + spec.length); return p.$disconnect(); })
   .catch((e) => { console.error(e.message); process.exit(1); });
 """
-    spec = [[v["id"], v["_result"]] for v in created.values() if v["id"]]
+    spec = [[v["id"], v["_result"]] for v in created.values() if v["id"] and "_result" in v]
     r = subprocess.run(["node", "-e", flip, json.dumps(spec)],
                        cwd="/home/z/my-project", capture_output=True, text=True)
     if "flipped" not in r.stdout:

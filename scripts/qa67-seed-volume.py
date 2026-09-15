@@ -17,6 +17,13 @@ Volume design (64³, mode 2 float32, nsymbt=0):
 
 Usage: python3 scripts/qa67-seed-volume.py [--clean]
   --clean removes orthovol.mrc (idempotent reseed = overwrite).
+
+Host selection (QA_VOL_HOST env): by default the volume lands in the
+Class2D tail-tier host (qa58's job); QA_VOL_HOST="QA Refine3D" retargets
+the WINNER host (t204/t210's recipe — the inventory probes' food; their
+setup and restore-gallery section 9 both call this variant explicitly).
+The bare call and the QA_VOL_HOST variant write DIFFERENT hosts — a
+recipe that runs only one of them leaves the other host volumeless.
 """
 import json
 import math
