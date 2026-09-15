@@ -484,9 +484,15 @@ export const buildSessionReport = (opts: {
   mapQc: { jobId: string; report: string } | null;
   mapPending: boolean;
   mapError: boolean;
+  /** t212: every completed job that owns a true 3D volume, in walk order.
+   *  The deep profiles above speak only the newest owner — the inventory
+   *  is how the paper admits the rest of the session exists. Null when
+   *  the walk has not settled (pending/error); the section honest-absents
+   *  when the world owns no volumes at all. */
+  mapInventory: { jobId: string; jobName: string; mainName: string; volumeCount: number }[] | null;
   sweep: string | null;
 }): string => {
-  const { projectName, pipeline, mapQc, mapPending, mapError, sweep } = opts;
+  const { projectName, pipeline, mapQc, mapPending, mapError, mapInventory, sweep } = opts;
   const lines: string[] = [];
   lines.push("# CryoFlow session QC report");
   lines.push("");
@@ -521,6 +527,18 @@ export const buildSessionReport = (opts: {
     lines.push("None of this session's jobs has 3D maps yet — run a 3D reconstruction and its maps will be profiled here automatically (no viewer required).");
   }
   lines.push("");
+  if (mapInventory && mapInventory.length > 0) {
+    lines.push("### Session map inventory");
+    lines.push("");
+    lines.push("Every job in this session that owns a true 3D volume, newest walk first. The deep profiles above ride the newest owner; this inventory keeps every other owner visible — no map hides below the fold (the t211 lesson: a walk that stops at the first winner leaves the rest of the world unseen).");
+    lines.push("");
+    lines.push("| Job | Main map | Volumes |");
+    lines.push("|-----|----------|---------|");
+    for (const o of mapInventory) {
+      lines.push(`| ${mdCell(o.jobName)} | ${mdCell(o.mainName)} | ${o.volumeCount} |`);
+    }
+    lines.push("");
+  }
   lines.push("## Scheduling sweep");
   lines.push("");
   if (sweep) {

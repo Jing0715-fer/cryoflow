@@ -65,6 +65,16 @@ interface MapBrief {
   overlays: { path: string; name: string }[];
 }
 
+/** t212: one volume owner, as the walk records it. The SAME walk that
+ *  picks the deep-report winner now RECORDS every owner it passes —
+ *  the inventory costs zero extra outputs probes, and no map hides
+ *  below the fold (the t211 lesson, generalized: the old walk stopped
+ *  at the first winner and left the rest of the world unseen). */
+interface MapOwner extends MapBrief {
+  jobName: string;
+  volumeCount: number;
+}
+
 interface OutputsResponse {
   files?: { path: string; name: string; kind: string; dims?: [number, number, number]; label?: string }[];
 }
@@ -100,14 +110,14 @@ const MAP_BRIEF_CAP = 24;
 const byRecency = (a: JobDTO, b: JobDTO) =>
   a.updatedAt < b.updatedAt ? 1 : a.updatedAt > b.updatedAt ? -1 : a.id < b.id ? -1 : 1;
 
-/** The session's latest succeeded job with 3D maps, as a MapBrief.
- *  Candidates walk volume-capable-first, then recency (the t211 walk —
- *  the queue is ordered by the caller) and the FIRST job owning at least
- *  one true volume (kind mrc + 3 dims — stacks have no dims, masks and
- *  classes are volumes too) wins. */
-async function findMapBrief(jobIds: string[], signal: AbortSignal): Promise<MapBrief | null> {
+/** Walk the candidates and return EVERY volume owner, in walk order —
+ *  owners[0] is the deep-report winner (the newest capable candidate
+ *  that speaks), the rest ride the inventory. Unreadable candidates are
+ *  skipped (the next one may speak); the walk returns what it heard. */
+async function walkVolumeOwners(jobIds: string[], signal: AbortSignal): Promise<MapOwner[]> {
+  const owners: MapOwner[] = [];
   for (const jobId of jobIds.slice(0, MAP_BRIEF_CAP)) {
-    if (signal.aborted) return null;
+    if (signal.aborted) return owners;
     try {
       const d = (await fetch(`/api/jobs/${jobId}/outputs`, { signal }).then((r) => r.json())) as OutputsResponse;
       const volumes = (d.files ?? []).filter(
@@ -117,18 +127,20 @@ async function findMapBrief(jobIds: string[], signal: AbortSignal): Promise<MapB
       const sorted = [...volumes].sort(
         (a, b) => Number(MAIN_MAP_RE.test(b.name)) - Number(MAIN_MAP_RE.test(a.name)),
       );
-      const brief: MapBrief = {
+      const jobName = useWorkflowStore.getState().jobs.find((j) => j.id === jobId)?.name ?? jobId;
+      owners.push({
         jobId,
+        jobName,
         main: { path: sorted[0].path, name: sorted[0].label ?? sorted[0].name },
         overlays: sorted.slice(1, 3).map((f) => ({ path: f.path, name: f.label ?? f.name })),
-      };
-      return brief;
+        volumeCount: volumes.length,
+      });
     } catch {
-      if (signal.aborted) return null;
+      if (signal.aborted) return owners;
       // this candidate's outputs are unreadable — the next one may speak
     }
   }
-  return null;
+  return owners;
 }
 
 /** Profile the brief's maps on the shared Z axis and hand the family
@@ -175,6 +187,12 @@ export default function SessionReportDialog({
   const [mapQc, setMapQc] = React.useState<{ jobId: string; report: string } | null>(null);
   const [mapPending, setMapPending] = React.useState(false);
   const [mapError, setMapError] = React.useState(false);
+  /** t212: every volume owner in walk order, from the SAME walk that
+   *  picks the deep-report winner — settled before the measurement,
+   *  so the paper still lists the world even if a profile then fails. */
+  const [mapInventory, setMapInventory] = React.useState<
+    { jobId: string; jobName: string; mainName: string; volumeCount: number }[] | null
+  >(null);
   const [note, setNote] = React.useState<string | null>(null);
   const noteTimer = React.useRef<number | null>(null);
 
@@ -203,6 +221,7 @@ export default function SessionReportDialog({
     const ctrl = new AbortController();
     setMapQc(null);
     setMapError(false);
+    setMapInventory(null);
     setMapPending(true);
     (async () => {
       // t211 walk: volume-capable types first (each tier newest-first,
@@ -214,14 +233,19 @@ export default function SessionReportDialog({
         ...done.filter((j) => VOLUME_CAPABLE_RE.test(j.type)).sort(byRecency),
         ...done.filter((j) => !VOLUME_CAPABLE_RE.test(j.type)).sort(byRecency),
       ].map((j) => j.id);
-      const brief = await findMapBrief(doneIds, ctrl.signal);
+      const owners = await walkVolumeOwners(doneIds, ctrl.signal);
       if (ctrl.signal.aborted) return;
-      if (!brief) {
+      // the inventory is a fact of the WALK — it settles even when the
+      // deep measurement below then refuses (partial truth over silence)
+      setMapInventory(
+        owners.map((o) => ({ jobId: o.jobId, jobName: o.jobName, mainName: o.main.name, volumeCount: o.volumeCount })),
+      );
+      if (owners.length === 0) {
         setMapPending(false);
         return; // honest empty state — no job here owns a volume
       }
       try {
-        const qc = await measureMapQc(brief, ctrl.signal);
+        const qc = await measureMapQc(owners[0], ctrl.signal);
         if (ctrl.signal.aborted) return;
         setMapQc(qc);
         setMapPending(false);
@@ -249,9 +273,10 @@ export default function SessionReportDialog({
         mapQc,
         mapPending,
         mapError,
+        mapInventory,
         sweep: lastSweep ? buildSweepReport(lastSweep.rows, lastSweep.bestId) : null,
       }),
-    [project?.name, pipeline, mapQc, mapPending, mapError, lastSweep],
+    [project?.name, pipeline, mapQc, mapPending, mapError, mapInventory, lastSweep],
   );
 
   const exportMd = async (mode: "copy" | "download") => {

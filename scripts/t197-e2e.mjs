@@ -53,13 +53,22 @@ const roster0 = (await (await fetch(BASE + "/api/jobs")).json()).jobs ?? [];
 const H = { "sec-fetch-site": "same-origin" };
 
 /** the walk the dialog performs, spoken independently through the API:
- *  completed jobs, updatedAt desc, first with a true 3D volume. */
+ *  completed jobs, volume-capable types first (each tier recency-ordered,
+ *  three-way with an id tiebreak), budget 24 — the t212 sync of the
+ *  t211 walk (the old newest-8 replica drifted from the product's walk
+ *  after t211 rebuilt it; the two probes now speak the SAME walk). */
 async function expectedWalk() {
   const d = (await (await fetch(BASE + "/api/jobs", { headers: H })).json());
   const jobs = d.jobs ?? [];
-  const done = jobs.filter((j) => j.status === "completed")
-    .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
-  for (const j of done.slice(0, 8)) {
+  const VC = /refine3d|class3d|postprocess|multibody/i;
+  const rec = (a, b) =>
+    a.updatedAt < b.updatedAt ? 1 : a.updatedAt > b.updatedAt ? -1 : a.id < b.id ? -1 : 1;
+  const done = jobs.filter((j) => j.status === "completed");
+  const queue = [
+    ...done.filter((j) => VC.test(j.type)).sort(rec),
+    ...done.filter((j) => !VC.test(j.type)).sort(rec),
+  ].slice(0, 24);
+  for (const j of queue) {
     const dd = await (await fetch(`${BASE}/api/jobs/${j.id}/outputs`, { headers: H })).json();
     const vols = (dd.files ?? []).filter((f) => f.kind === "mrc" && Array.isArray(f.dims) && f.dims.length === 3);
     if (vols.length > 0) {
