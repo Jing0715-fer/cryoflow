@@ -1,21 +1,22 @@
-/* t206 e2e — the pairwise betrayal earns its ADDRESS too. t196 put the
- * pair's gold-standard r on the wall and in the report, t198 gave each
- * map's divergence an address (the weakest quarter), t205 taught the
- * report to print the address's coordinates; t206 extends the SAME
- * doctrine to the pair ITSELF: pairwiseAgreement also names the pair's
- * weakest quarter band (the equal-count cut, applied between the pair —
- * NOT against the main landscape), the report's Pairwise table grows a
- * trailing "Depth (fraction)" column (AFTER Verdict — A/B/r indices
- * unmoved, t196's D12 split[3] lesson), and the wall's pairwise chip
- * rides the same 2dp address. A pair too short to cut (n < 4) or flat
- * across every band earns no address — the honest dash answers.
+/* t207 e2e — the pair's address becomes a DOOR. t196 put the pair's r on
+ * the wall and in the report, t206 gave the pair its own weakest band
+ * (printed on chip and paper); t207 closes the pair's loop the same way
+ * t202 closed the local one: a pair that owns a weakest band is a BUTTON
+ * (press it and the plane lands on the band's centre — the chip/bracket
+ * door's own centre algorithm and receipt dialect); a pair WITHOUT an
+ * address stays a plain span (no address, no door, no lie). Visiting
+ * rides the same state as the local chip (ink rises when the plane is
+ * INSIDE the pair's band — text-foreground REPLACES, never joins), and
+ * the keyboard answers too (a real button: Enter jumps, no aria-hidden
+ * cowardice). t206's D24 locator is upgraded to the form-agnostic
+ * [data-pairwise-chip] (the front-wave oracle follows the world).
  *   S  setup — seeder, orthovol + BOTH half-maps (+ hygienic start)
- *   W  wire — band oracles + the PAIRWISE oracle (half1 x half2)
- *   X  source oracles — 5-column header, depth drinks from/to, the
- *      t197 X2 distance guard survives, the chip speaks the dialect
- *   D  live — export, cut the Pairwise section, byte-for-byte against
- *      the wire oracle; the wall chip carries the address; the Local
- *      table's own depth cells survive beside the new column
+ *   W  wire — band oracles + the PAIRWISE oracle + the door's centre
+ *   X  source oracles — the button door, the span's honesty, the
+ *      receipt dialect, the visiting ink REPLACES
+ *   D  live — press the door (plane lands on the pair's centre, receipt
+ *      byte-for-byte, visiting flips), the keyboard door, t206's tables
+ *      and chip survive in the same frame
  *   Z  read-only — roster identity, console clean
  * x3 runs required by house rules. */
 import { chromium } from "playwright";
@@ -25,7 +26,7 @@ import { execSync } from "node:child_process";
 
 const BASE = process.env.BASE ?? "http://localhost:3000";
 const RUN = Number(process.env.RUN ?? "1");
-const OUT = "scripts/shots-t206";
+const OUT = "scripts/shots-t207";
 mkdirSync(OUT, { recursive: true });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -112,6 +113,12 @@ must(!!w1 && !!w2 && w1.k === 2 && w2.k === 0, `W2 the oracle's addresses match 
 const wPair = weakestOf(half1W.bins, half2W.bins);
 must(!!wPair, `W3 the pair's own weakest band exists (Q${wPair.k + 1} r ${wPair.r.toFixed(2)})`);
 const rPairGlobal = pearson(resample(half1W.bins, Math.max(half1W.bins.length, half2W.bins.length)), resample(half2W.bins, Math.max(half1W.bins.length, half2W.bins.length)));
+// t207: the DOOR's arithmetic — the centre of the pair's band, rounded to
+// the same 2dp grid the chip/bracket doors use (ONE algorithm, three doors)
+const pairCentre = Math.round(((wPair.from + wPair.to) / 2) * 100) / 100;
+const pairPct = Math.round(pairCentre * 100);
+const pairReceipt = `Plane moved to ${pairPct}% — the centre of the thinnest corroboration between run_it020_half1 and run_it020_half2 (${QUARTERS[wPair.k]})`;
+console.log(`  (door: pair centre ${pairCentre} -> ${pairPct}%)`);
 // the DEPTH string: the strip's own 2dp dialect (from–to, en dash) —
 // the SAME numbers t204's bracket door jumps to
 const depthStr = (w) => `${w.from.toFixed(2)}–${w.to.toFixed(2)}`;
@@ -132,6 +139,11 @@ must(/const pairwiseAgreement[\s\S]{0,600}Math\.max\(overlays\[i\]\.bins\.length
 must(QCLIB.includes("the localAgreement cut") && QCLIB.includes("pair as its own two maps") && QCLIB.includes("equal-count cut as localAgreement"), "X10 the pairwise weakest is the localAgreement cut applied BETWEEN the pair (one algorithm, two inputs)");
 must((QCLIB.match(/### Pairwise agreement/g) || []).length === 1 && QCLIB.includes("where each pair's corroboration is thinnest"), "X11 the prose teaches the pairwise Depth column — where the corroboration is thinnest");
 must(SRC.includes("const pdepth = p.weakest ? ` · ${p.weakest.from.toFixed(2)}–${p.weakest.to.toFixed(2)}` : \"\";") && SRC.includes("thinnest corroboration sits between"), "X12 the wall chip rides the same address (2dp dialect + the title names the band)");
+must(SRC.includes("if (!pw || !pjump) {") && SRC.includes("data-pairwise-chip={`${p.a}|${p.b}`}"), "X13 t207: the pair WITHOUT an address stays a plain span — no address, no door, no lie (and both forms carry the probe-findable attribute)");
+must(SRC.includes("onClick={pjump}") && /return \(\s*<button[\s\S]{0,400}data-pairwise-chip/.test(SRC), "X14 the pair WITH an address is a real button — the door answers the hand AND the keyboard (no aria-hidden cowardice)");
+must(SRC.includes("const pcentre = pw ? Math.round(((pw.from + pw.to) / 2) * 100) / 100 : null;"), "X15 the door's centre is the chip/bracket door's own algorithm (Math.round(((from+to)/2)*100)/100) — one arithmetic, three doors");
+must(SRC.includes("the centre of the thinnest corroboration between ${p.a} and ${p.b} (${pw.label})"), "X16 the receipt speaks the pair's dialect (t202's receipt template, the pair's vocabulary)");
+must(SRC.includes("data-visiting={pvisiting ? \"1\" : undefined}") && SRC.includes("${pvisiting ? \"text-foreground\" : \"text-muted-foreground\"}"), "X17 visiting rides the pair's band and the ink REPLACES, never joins (t203's same-specificity discipline)");
 
 /* ============ D: live ============ */
 section("D: the paper, live");
@@ -264,6 +276,7 @@ for (let k = 0; k < 12; k++) {
   if (await page.locator('svg[role="slider"][aria-label^="Density profile along the"]').isVisible().catch(() => false)) { stripVisible = true; break; }
 }
 must(stripVisible, "D3strip the profile panel is open — the landscape strip speaks");
+const strip = page.locator('svg[role="slider"][aria-label^="Density profile along the"]');
 
 // adopt BOTH halves — the local row speaks, the report carries BOTH maps
 const adopt = async (title) => {
@@ -412,10 +425,51 @@ must(pairChipText.includes("run_it020_half1") && pairChipText.includes("run_it02
 must(pairChipText.includes(`r ${rPairGlobal.toFixed(2)}`), `D22 the wall chip's r == the wire oracle (${rPairGlobal.toFixed(2)})`);
 must(pairChipText.includes(` · ${dPair}`), `D23 the wall chip rides the pair's address in the 2dp dialect (${dPair})`);
 const pairChipTitle = await page.locator('div[data-pairwise-row="1"] [data-pairwise-chip]').first().getAttribute("title").catch(() => null);
-must(!!pairChipTitle && pairChipTitle.includes("thinnest corroboration sits between") && pairChipTitle.includes(QUARTERS[wPair.k]), "D24 the chip's title teaches the band (vocabulary AND coordinates — the locator follows the world: t207 turned the addressed chip into a BUTTON, both forms carry [data-pairwise-chip])");
+must(!!pairChipTitle && pairChipTitle.includes("thinnest corroboration sits between") && pairChipTitle.includes(QUARTERS[wPair.k]), "D24 the chip's title teaches the band (vocabulary AND coordinates — t206's locator follows the door's button form)");
+must((await page.locator('div[data-pairwise-row="1"] button[data-pairwise-chip]').count()) === 1, "D25 the addressed pair renders as a BUTTON (the door exists)");
+
+// THE PAIR'S DOOR, live: Home puts the plane at 0% (outside the pair's
+// band — resting chip), then ONE click lands the plane on the band's
+// CENTRE (not the clicked x, not the local bands' centres) and the
+// receipt names the pair. The receipt is the EPHEMERAL thing — read it
+// first and poll fast (t202's frozen-thread lesson).
+await strip.focus(); await sleep(300);
+await strip.press("Home"); await sleep(700);
+must(Number(await strip.getAttribute("aria-valuenow")) === 0, "D26 pre-state: Home put the plane at 0% (outside the pair's band)");
+const pairBtn = page.locator('button[data-pairwise-chip]');
+await pairBtn.click();
+let pairNow = -1, pairReceiptText = "";
+for (let k = 0; k < 16; k++) {
+  await sleep(250);
+  const st = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('[role="status"]')).map((n) => ({
+      label: n.getAttribute("aria-label"),
+      text: (n.textContent ?? "").slice(0, 160),
+    }))
+  );
+  pairReceiptText = st.find((s) => s.label === "Profile export status")?.text ?? "";
+  pairNow = Number(await strip.getAttribute("aria-valuenow"));
+  if (pairNow === pairPct && pairReceiptText.length > 0) break;
+}
+must(pairNow === pairPct, `D27 PRESS the pair's door: strip aria-valuenow == ${pairPct} (got ${pairNow}) — the plane lands on the pair's band centre`);
+must(pairReceiptText === pairReceipt, `D28 the receipt names the pair byte-for-byte (${pairReceiptText.slice(0, 90)})`);
+must((await pairBtn.getAttribute("data-visiting")) === "1", "D29 visiting rides the pair's band (the plane is INSIDE it — ink risen)");
+// the keyboard door: away (End), then Enter on the focused chip
+await strip.focus(); await strip.press("End"); await sleep(700);
+must(Number(await strip.getAttribute("aria-valuenow")) === 100, "D30 pre-keyboard: End put the plane at 100% (outside the band, ink at rest)");
+await pairBtn.focus(); await sleep(300);
+await pairBtn.press("Enter");
+let kbdNow = -1;
+for (let k = 0; k < 10; k++) {
+  await sleep(300);
+  kbdNow = Number(await strip.getAttribute("aria-valuenow"));
+  if (kbdNow === pairPct) break;
+}
+must(kbdNow === pairPct, `D31 the keyboard's door: Enter on the focused chip lands ${pairPct} (got ${kbdNow}) — the button answers both hands`);
+must((await pairBtn.getAttribute("data-visiting")) === "1", "D32 visiting follows the keyboard's jump too (one state, both inputs)");
 
 
-await page.screenshot({ path: `${OUT}/t206-pair-paper-2x.png` }).catch(() => {});
+await page.screenshot({ path: `${OUT}/t207-pair-door-2x.png` }).catch(() => {});
 
 /* ============ Z: read-only ============ */
 section("Z: the world read back");

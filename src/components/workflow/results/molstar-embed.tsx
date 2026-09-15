@@ -3887,14 +3887,48 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                             // prints (one address, two dialects, one father);
                             // a pair without an address stays silent about it.
                             const pdepth = p.weakest ? ` · ${p.weakest.from.toFixed(2)}–${p.weakest.to.toFixed(2)}` : "";
+                            // t207: the pair's address becomes a DOOR — a pair
+                            // that owns a weakest band is a button (press it and
+                            // the plane lands on the band's centre, the chip/
+                            // bracket door's own algorithm and receipt dialect);
+                            // a pair without an address stays a plain span (no
+                            // address, no door, no lie). Visiting rides the same
+                            // state as the local chip: when the plane is INSIDE
+                            // the pair's band the chip's ink rises — navigation
+                            // and reading are one state, not two instruments.
+                            const pw = p.weakest;
+                            const pcentre = pw ? Math.round(((pw.from + pw.to) / 2) * 100) / 100 : null;
+                            const pvisiting = !!pw && slicePos >= pw.from && slicePos < pw.to;
+                            const pjump = pw && pcentre !== null ? () => {
+                              applySliceIntent({ pos: pcentre });
+                              flashProfileNote(`Plane moved to ${Math.round(pcentre * 100)}% — the centre of the thinnest corroboration between ${p.a} and ${p.b} (${pw.label})`);
+                            } : null;
+                            const ptitle = `Shape agreement between ${p.a} and ${p.b}: Pearson r on the shared fraction scale. Two half-maps come from disjoint halves of the data — where they agree, the density is real (the question FSC asks).${pw ? ` Their thinnest corroboration sits between ${pw.from.toFixed(2)} and ${pw.to.toFixed(2)} of the depth (${pw.label}).` : ""}${pcentre !== null ? ` Click to move the plane to that band's centre.` : ""}`;
+                            if (!pw || !pjump) {
+                              return (
+                                <span
+                                  key={`${p.a}|${p.b}`}
+                                  title={ptitle}
+                                  className="rounded-full bg-muted px-1.5 py-0.5 font-mono text-[8.5px] tabular-nums text-muted-foreground"
+                                  data-pairwise-chip={`${p.a}|${p.b}`}
+                                >
+                                  {p.a} ↔ {p.b} · r {Number.isNaN(p.r) ? "—" : p.r.toFixed(2)} · {agreementVerdict(p.r)}{pdepth}
+                                </span>
+                              );
+                            }
                             return (
-                              <span
+                              <button
                                 key={`${p.a}|${p.b}`}
-                                title={`Shape agreement between ${p.a} and ${p.b}: Pearson r on the shared fraction scale. Two half-maps come from disjoint halves of the data — where they agree, the density is real (the question FSC asks).${p.weakest ? ` Their thinnest corroboration sits between ${p.weakest.from.toFixed(2)} and ${p.weakest.to.toFixed(2)} of the depth (${p.weakest.label}).` : ""}`}
-                                className="rounded-full bg-muted px-1.5 py-0.5 font-mono text-[8.5px] tabular-nums text-muted-foreground"
+                                type="button"
+                                data-pairwise-chip={`${p.a}|${p.b}`}
+                                onClick={pjump}
+                                title={ptitle}
+                                aria-label={`Jump the plane to the centre of the thinnest corroboration between ${p.a} and ${p.b}, ${pw.label} — ${Math.round(pcentre * 100)}% on the ${sliceAxis} axis`}
+                                data-visiting={pvisiting ? "1" : undefined}
+                                className={`flex cursor-pointer items-center gap-1.5 rounded-full bg-muted px-1.5 py-0.5 font-mono text-[8.5px] tabular-nums outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97] ${pvisiting ? "text-foreground" : "text-muted-foreground"}`}
                               >
                                 {p.a} ↔ {p.b} · r {Number.isNaN(p.r) ? "—" : p.r.toFixed(2)} · {agreementVerdict(p.r)}{pdepth}
-                              </span>
+                              </button>
                             );
                           })}
                         </div>
