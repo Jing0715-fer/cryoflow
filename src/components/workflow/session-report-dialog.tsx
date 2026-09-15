@@ -193,17 +193,54 @@ const SPARK_ZOOM = 3;
  *  two pictures could one day disagree). It folds until the eye asks —
  *  hover the cell (the mouse's lens) or keyboard-focus the row (the
  *  keyboard's lens); CSS owns the whole life cycle, no state, no
- *  listener, no render-layer father beyond the second mount. */
-function ShapeSparkline({ bins, winnerBins }: { bins: number[]; winnerBins: number[] | null }) {
+ *  listener, no render-layer father beyond the second mount.
+ *
+ *  t225: the address mark — the portrait earns its address. The Peak
+ *  column answers WHERE; the mark draws that answer INTO the picture:
+ *  one floor-to-ceiling hairline at the SAME pct the paper's word, the
+ *  Δ column and the amber lens already drink from (peakPctNumOf's
+ *  1-decimal grid, scaled onto the shared fraction axis) — never
+ *  re-derived from the drawn path, for a re-derived address would be a
+ *  second father and the mark could one day disagree with the word
+ *  (t202's lesson, now wearing ink). The winner's mark rides the same
+ *  rule and is paired with its drawn line: no reference line, no
+ *  reference mark. Coinciding marks are the picture of "peak unmoved"
+ *  (the address of 1.00); separated marks are the relocation made
+ *  visible at any glass size — the |Δ| as two hairlines. */
+function ShapeSparkline({
+  bins,
+  winnerBins,
+  peakPct,
+  winnerPct,
+}: {
+  bins: number[];
+  winnerBins: number[] | null;
+  peakPct: number | null;
+  winnerPct: number | null;
+}) {
   const d = sparklinePath(bins, SPARK_W, SPARK_H, SPARK_STATIONS);
   const dw = sparklinePath(winnerBins, SPARK_W, SPARK_H, SPARK_STATIONS);
   if (!d) return <span className="text-muted-foreground">—</span>;
+  // the address lives in the numbers: the mark's x is the paper's own
+  // Peak pct on the picture's fraction axis (clamped, fail-soft — a
+  // pct that never arrived draws no mark)
+  const markX = (pct: number | null) =>
+    pct == null ? null : Math.min(SPARK_W, Math.max(0, (pct / 100) * SPARK_W));
+  const xo = markX(peakPct);
+  const xw = dw ? markX(winnerPct) : null;
   // the ONE portrait — one React element, two mounts (element reuse is
-  // not a second father: the same d strings reach both glasses)
+  // not a second father: the same d strings AND the same marks reach
+  // both glasses)
   const portrait = (
     <>
       {dw ? <path className="report-spark-winner" d={dw} /> : null}
       <path className="report-spark-owner" d={d} />
+      {xw != null ? (
+        <line className="report-spark-mark-winner" x1={xw} x2={xw} y1={0} y2={SPARK_H} />
+      ) : null}
+      {xo != null ? (
+        <line className="report-spark-mark-owner" x1={xo} x2={xo} y1={0} y2={SPARK_H} />
+      ) : null}
     </>
   );
   return (
@@ -579,6 +616,9 @@ export default function SessionReportDialog({
         // row stays pressable, the promise stays exactly what it said.
         // t221: the aria also quotes the row's Agreement r (the SAME
         // number the paper's cell prints — no second well).
+        // t225: this same winnerPct is the address mark's father too —
+        // the pct the mark points at is THE pct the Δ lens drank from,
+        // one well, three surfaces (the word, the Δ, the hairline).
         const winnerPct = mapInventory?.[0]?.peakPct ?? null;
         const delta = deltaVsWinner(owner.peakPct, winnerPct);
         const rowIdx = mapInventory?.findIndex((o) => o.jobId === owner.jobId) ?? -1;
@@ -620,7 +660,7 @@ export default function SessionReportDialog({
                 A row whose landscape never arrived keeps the honest dash. */}
             <td data-shape-cell={owner.bins ? "spark" : "empty"} className="text-right align-middle">
               {owner.bins ? (
-                <ShapeSparkline bins={owner.bins} winnerBins={winnerBins} />
+                <ShapeSparkline bins={owner.bins} winnerBins={winnerBins} peakPct={owner.peakPct} winnerPct={winnerPct} />
               ) : (
                 <span className="text-muted-foreground">—</span>
               )}

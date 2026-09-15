@@ -212,6 +212,72 @@ const prevFolded = await page.evaluate((idx) => {
   return !!zoom && getComputedStyle(zoom).display === "none";
 }, kb ? kb.idx : 0);
 must(prevFolded, "K5 one glass follows the keyboard — the previous row's glass folded");
+
+/* ============ M: the address marks — the Peak number drawn INTO the picture ============ */
+section("M: the portrait earns its address");
+// the world resets the honest way — a fresh load, no dependence on
+// anyone's focus semantics (t224's recipe for crossing phases)
+await page.reload({ waitUntil: "domcontentloaded" });
+await sleep(2500);
+await page.locator('button[aria-label="Session QC report"]').click();
+await sleep(1800);
+for (let i = 0; i < 24 && (await page.locator("[data-report-body] tr[data-owner-door]").count()) !== 3; i++) await sleep(500);
+for (let i = 0; i < 24 && (await page.locator('[data-report-body] td[data-shape-cell="spark"]').count()) !== 3; i++) await sleep(500);
+const mRows = page.locator("[data-report-body] tr[data-owner-door]");
+must((await page.locator("[data-report-body] svg.report-spark > line.report-spark-mark-owner").count()) === 3,
+  "M1 every portrait carries its owner's address mark");
+must((await page.locator("[data-report-body] svg.report-spark > line.report-spark-mark-winner").count()) === 3,
+  "M2 every portrait carries the winner's address mark (the reference's own hairline)");
+// the address lives in the numbers: the mark's x IS the paper's Peak
+// pct — the same 1-decimal number the row's aria speaks — scaled onto
+// the picture's fraction axis; never re-derived from the drawn path
+const markXOf = (row, cls) => row.locator(`svg.report-spark > line.${cls}`).first().getAttribute("x1");
+const peakPctOfAria = async (row) => {
+  const label = await row.getAttribute("aria-label");
+  const m = label && label.match(/peak ([0-9.]+)%/);
+  return m ? parseFloat(m[1]) : null;
+};
+for (let i = 0; i < 3; i++) {
+  const r = mRows.nth(i);
+  const pct = await peakPctOfAria(r);
+  const x = parseFloat(await markXOf(r, "report-spark-mark-owner"));
+  must(pct != null && Number.isFinite(x) && Math.abs(x - (pct / 100) * 96) <= 1e-6,
+    `M3 row ${i}'s mark sits at the paper's Peak address (aria ${pct}% -> x ${x})`);
+}
+// the glass magnifies THE mark too — attr identity across the two mounts
+for (let i = 0; i < 3; i++) {
+  const r = mRows.nth(i);
+  const xi = await markXOf(r, "report-spark-mark-owner");
+  const xz = await r.locator("svg.report-spark-zoom > line.report-spark-mark-owner").first().getAttribute("x1");
+  must(xi != null && xi === xz, `M4 row ${i}: the glass's mark is THE mark (x1 ${xi} === zoom ${xz})`);
+}
+// tie-world geometry: the reference's two marks coincide (the address
+// of 1.00); the tied rows' marks coincide with each other (one
+// landscape, twice addressed) and separate from the winner's (the |Δ|
+// as two hairlines)
+const xRefO = await markXOf(mRows.nth(0), "report-spark-mark-owner");
+const xRefW = await markXOf(mRows.nth(0), "report-spark-mark-winner");
+must(xRefO != null && xRefO === xRefW,
+  `M5 the reference's two marks coincide — the address of 1.00 (${xRefO})`);
+const x1o = await markXOf(mRows.nth(1), "report-spark-mark-owner");
+const x2o = await markXOf(mRows.nth(2), "report-spark-mark-owner");
+must(x1o != null && x1o === x2o,
+  `M6 the tied rows' marks coincide — one landscape, twice addressed (${x1o})`);
+must(x1o != null && xRefW != null && Math.abs(parseFloat(x1o) - parseFloat(xRefW)) > 1e-6,
+  `M7 the tied mark separates from the winner's — the |Δ| as two hairlines (${x1o} vs ${xRefW})`);
+// the marks speak no words — the picture cell stays silent (t215 D7's
+// guard, re-verified live with the marks in the box)
+const mCellText = await mRows.nth(1).locator('td[data-shape-cell="spark"]').textContent();
+must(mCellText === "", "M8 the marks add no words — the picture cell stays silent");
+// the magnifier's mark earns its own frame — the two hairlines at 3x,
+// the relocation visible without reading a single number
+const mCell1 = mRows.nth(1).locator('td[data-shape-cell="spark"]');
+await page.locator("[data-report-body] table:has(tr[data-owner-door])").first().scrollIntoViewIfNeeded();
+await sleep(300);
+await mCell1.hover();
+await sleep(250);
+await page.locator("[data-report-doc]").first().screenshot({ path: "scripts/shots-t223/t223-spark-mark-2x.png", scale: "css" });
+
 await browser.close();
 
 /* ============ T: teardown — the twin goes home ============ */
@@ -244,6 +310,12 @@ must((await page2.locator("[data-report-body] blockquote").count()) === 0,
   "Z2 the tie note is gone with the tie — no note without a contested crown");
 must((await page2.locator("[data-report-body] svg.report-spark-zoom").count()) === 2,
   "Z2b the magnifier exists in the untied world too — born with every picture, tied or not");
+must((await page2.locator("[data-report-body] svg.report-spark > line.report-spark-mark-owner").count()) === 2,
+  "Z2c the untied world's portraits carry their addresses too");
+const xOut = parseFloat(await rows2.nth(1).locator("svg.report-spark > line.report-spark-mark-owner").getAttribute("x1"));
+const xWin = parseFloat(await rows2.nth(1).locator("svg.report-spark > line.report-spark-mark-winner").getAttribute("x1"));
+must(Number.isFinite(xOut) && Number.isFinite(xWin) && Math.abs(xOut - xWin) > 1e-6,
+  `Z2d the outlier's address separates from the winner's (${xOut} vs ${xWin}) — the relocation wears its hairline`);
 must(rosterT.length === 21, "Z3 roster identity (21) after the whole dance");
 must(consoleErrors.length === 0 && consoleErrors2.length === 0,
   `Z4 console clean across both visits (${consoleErrors.length}/${consoleErrors2.length})`);

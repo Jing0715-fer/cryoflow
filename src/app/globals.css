@@ -1461,6 +1461,28 @@ li[data-swipe="end"] {
   stroke-linecap: round;
 }
 
+/* t225: the address marks — the Peak column's answer drawn INTO the
+   picture. One ink (currentColor) at two opacities, the same grammar
+   the lines beneath them speak: the owner's hairline nearer, the
+   winner's dotted and faint (present but never competing). A mark is
+   an address, not a datum — 0.75 units wide, floor-to-ceiling, it
+   points at WHERE the landscape's crown sits, and where it does NOT.
+   No second rule for the glass: descendant selectors under the same
+   .report-doc roof reach both mounts. */
+.report-doc .report-spark-mark-owner,
+.report-doc .report-spark-mark-winner {
+  stroke: currentColor;
+  stroke-width: 0.75;
+  fill: none;
+}
+.report-doc .report-spark-mark-owner {
+  stroke-opacity: 0.5;
+}
+.report-doc .report-spark-mark-winner {
+  stroke-opacity: 0.3;
+  stroke-dasharray: 2 2.5;
+}
+
 /* t224: the magnifier — the same picture, twice drawn. The glass is
    born with the portrait (one wrap, two mounts of the same d bytes)
    and folds until the eye asks: hover the cell (the mouse's lens) or
