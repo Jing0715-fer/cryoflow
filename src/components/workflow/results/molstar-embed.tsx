@@ -44,6 +44,7 @@ import {
   pearson,
   pctAt,
   profileReportFilename,
+  rProfile,
   resampleByFraction,
   weakestBand,
   type ReportOverlay,
@@ -3672,7 +3673,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                     {(() => {
                       if (!profile) return null;
                       const spokenLocal = overlays
-                        .map((o) => ({ name: o.name, bins: overlayProfiles[o.path]?.bins ?? [] }))
+                        .map((o) => ({ name: o.name, bins: overlayProfiles[o.path]?.bins ?? [], color: o.color }))
                         .filter((o) => o.bins.length > 0);
                       if (spokenLocal.length === 0) return null;
                       return (
@@ -3684,14 +3685,75 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                           {spokenLocal.map((o) => {
                             const w = weakestBand(localAgreement(profile.bins, o.bins));
                             if (!w) return null;
+                            // t200: the agreement earns a CONTOUR — the
+                            // sliding-window r profile drawn as a sparkline
+                            // INSIDE the chip, stations left to right,
+                            // dashed line at r=0, negative stations shaded
+                            // (the betrayal's shape, not just its band)
+                            const rp = rProfile(profile.bins, o.bins);
+                            const stepW = 100 / Math.max(1, rp.rs.length);
+                            // A flat window says NaN — and the drawing keeps
+                            // the lib's promise: NaN stations are genuine
+                            // HOLES. The line is segmented into runs of
+                            // consecutive finite stations, so a flat stretch
+                            // shows as a real gap — never a zero, never a
+                            // bridge, and never invalid "x,NaN" bytes (SVG
+                            // silently drops the whole polyline at the
+                            // first one, truncating the contour mid-line).
+                            const runs: string[][] = [];
+                            let cur: string[] = [];
+                            rp.rs.forEach((r, k) => {
+                              if (!Number.isFinite(r)) {
+                                cur = [];
+                                return;
+                              }
+                              if (cur.length === 0) runs.push(cur);
+                              cur.push(`${((k / Math.max(1, rp.rs.length - 1)) * 100).toFixed(2)},${(5 - r * 4.5).toFixed(2)}`);
+                            });
                             return (
                               <span
                                 key={o.name}
                                 data-local-chip={o.name}
-                                title={`Local shape agreement for ${o.name}: the shared fraction scale cut into four quarters, each correlated independently. The global r can hide a localized betrayal — the weakest quarter is the address to inspect.`}
-                                className="rounded-full bg-muted px-1.5 py-0.5 font-mono text-[8.5px] tabular-nums text-muted-foreground"
+                                title={`Local shape agreement for ${o.name}: the shared fraction scale cut into four quarters, each correlated independently; the sparkline traces the sliding-window r across the depth — gaps are flat windows (no shape to correlate), dashed line = r 0, red shading = negative stations. The global r can hide a localized betrayal — the weakest quarter is the address to inspect.`}
+                                className="flex items-center gap-1.5 rounded-full bg-muted px-1.5 py-0.5 font-mono text-[8.5px] tabular-nums text-muted-foreground"
                               >
-                                {o.name} · weakest {w.label} · r {w.r.toFixed(2)} · {agreementVerdict(w.r)}
+                                <svg
+                                  viewBox="0 0 100 10"
+                                  preserveAspectRatio="none"
+                                  className="h-2.5 w-14 shrink-0"
+                                  role="img"
+                                  aria-label={`Sliding-window agreement profile of ${o.name} across the depth — dashed line at r 0, red shading marks negative stations, gaps mark flat windows`}
+                                  data-r-profile={o.name}
+                                >
+                                  <line x1="0" x2="100" y1="5" y2="5" stroke="currentColor" strokeWidth="0.5" strokeDasharray="3 3" opacity="0.55" />
+                                  {rp.rs.map((r, k) =>
+                                    r < 0 ? (
+                                      <rect
+                                        key={k}
+                                        x={k * stepW}
+                                        y={5}
+                                        width={stepW}
+                                        height={-r * 4.5}
+                                        fill="#f43f5e"
+                                        opacity="0.3"
+                                      />
+                                    ) : null
+                                  )}
+                                  {runs.map((pts, i) => (
+                                    <polyline
+                                      key={i}
+                                      points={pts.join(" ")}
+                                      fill="none"
+                                      stroke={o.color}
+                                      strokeWidth="1"
+                                      vectorEffect="non-scaling-stroke"
+                                      strokeLinejoin="round"
+                                    />
+                                  ))}
+                                </svg>
+                                <span>
+                                  {o.name} · weakest {w.label} · r {w.r.toFixed(2)} · {agreementVerdict(w.r)}
+                                </span>
                               </span>
                             );
                           })}

@@ -252,6 +252,39 @@ export const weakestBand = (bands: LocalBand[]): LocalBand | null => {
   return w;
 };
 
+/* ---- The r profile (t200): the agreement earns a CONTOUR. ---- */
+
+export interface RProfile { window: number; rs: number[] }
+
+/** CONTINUOUS local shape agreement: a sliding window (n/8 planes,
+ *  clamped to 4..16) walked across the shared fraction scale over
+ *  STATIONS evenly spaced by window CENTRE, correlated independently
+ *  at every stop. The quarter bands (localAgreement) give a betrayal
+ *  its BAND; the r profile gives it a CONTOUR — the sparkline on the
+ *  wall is this array drawn left to right, stations at k/(STEPS-1).
+ *  NaN stations (a flat window has no shape) are honest holes, never
+ *  zeros. ONE father: the wall's sparkline drinks from this cup — the
+ *  REPORT keeps the quarter table, because the contour is a visual
+ *  instrument and visual instruments don't enter reports (the t193
+ *  CSV-export doctrine's report chapter: overlay terrains are on the
+ *  wall, the numbers stay in the tables). */
+export const RPROFILE_STEPS = 24;
+
+export const rProfile = (mainBins: number[], overlayBins: number[]): RProfile => {
+  const n = Math.max(mainBins.length, overlayBins.length);
+  if (n < 4) return { window: 0, rs: [] };
+  const a = resampleByFraction(mainBins, n);
+  const b = resampleByFraction(overlayBins, n);
+  const w = Math.min(16, Math.max(4, Math.round(n / 8)));
+  const rs: number[] = [];
+  for (let k = 0; k < RPROFILE_STEPS; k++) {
+    const centre = Math.round((k / (RPROFILE_STEPS - 1)) * (n - 1));
+    const lo = Math.max(0, Math.min(n - w, centre - Math.floor(w / 2)));
+    rs.push(pearson(a.slice(lo, lo + w), b.slice(lo, lo + w)));
+  }
+  return { window: w, rs };
+};
+
 /**
  * ONE builder for the map's QC summary (t195): clipboard, download and
  * the data-md carrier all drink from this single cup, and it derives
