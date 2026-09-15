@@ -216,7 +216,10 @@ export const QUARTER_LABELS = ["Q1 (0–25%)", "Q2 (25–50%)", "Q3 (50–75%)",
  *  the equal-count cut really produced (off by at most one plane from
  *  the nominal label when the count does not divide by four). t202:
  *  the wall's chip navigates by from/to and never parses the label —
- *  the coordinate lives beside the vocabulary, not inside it. */
+ *  the coordinate lives beside the vocabulary, not inside it. t205:
+ *  the report prints the coordinate BESIDE the vocabulary too (the
+ *  Depth column) — the paper and the wall now quote the same address,
+ *  each in its own dialect (the table quotes it, nothing parses it). */
 export interface LocalBand { label: string; r: number; from: number; to: number }
 
 /** LOCAL shape agreement: the shared fraction axis cut into four
@@ -355,18 +358,23 @@ export const buildProfileReport = (opts: {
       lines.push("");
       lines.push("### Local agreement");
       lines.push("");
-      lines.push(`| Map | ${QUARTER_LABELS.join(" | ")} | Weakest |`);
-      lines.push("| --- | --- | --- | --- | --- | --- |");
+      lines.push(`| Map | ${QUARTER_LABELS.join(" | ")} | Weakest | Depth (fraction) |`);
+      lines.push("| --- | --- | --- | --- | --- | --- | --- |");
       for (const o of overlays) {
         const bands = localAgreement(bins, o.bins);
         const w = weakestBand(bands);
         const cell = (b: LocalBand | undefined) => (b && Number.isFinite(b.r) ? b.r.toFixed(2) : "—");
+        // t205: the coordinate beside the vocabulary — the Depth column
+        // quotes the band's ACTUAL from/to (the same numbers the wall's
+        // bracket door jumps to), in the strip's own 2dp dialect; a flat
+        // verdict has no address, so the cell stays honest ("—").
+        const depth = w ? `${w.from.toFixed(2)}–${w.to.toFixed(2)}` : "—";
         lines.push(
-          `| ${mdCell(o.name)} | ${cell(bands[0])} | ${cell(bands[1])} | ${cell(bands[2])} | ${cell(bands[3])} | ${w ? `${w.label} (${w.r.toFixed(2)})` : "flat — no local shape"} |`
+          `| ${mdCell(o.name)} | ${cell(bands[0])} | ${cell(bands[1])} | ${cell(bands[2])} | ${cell(bands[3])} | ${w ? `${w.label} (${w.r.toFixed(2)})` : "flat — no local shape"} | ${depth} |`
         );
       }
       lines.push("");
-      lines.push("A global r can hide a localized betrayal — a map can agree over most of the depth and part ways in a single band (a mask edge, a noise shelf). Each quarter of the shared fraction scale is correlated independently, and the weakest quarter is the address to inspect; where the half-maps disagree with each other in one band only, suspect that band, not the reconstruction.");
+      lines.push("A global r can hide a localized betrayal — a map can agree over most of the depth and part ways in a single band (a mask edge, a noise shelf). Each quarter of the shared fraction scale is correlated independently, and the weakest quarter is the address to inspect; the Depth column quotes that address as fractions (the same numbers the viewer's bracket door jumps to). Where the half-maps disagree with each other in one band only, suspect that band, not the reconstruction.");
     }
     if (overlays.length > 1) {
       lines.push("");
