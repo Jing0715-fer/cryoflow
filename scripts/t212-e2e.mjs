@@ -117,7 +117,7 @@ const peakPct2 = `${((peakIdx2 / Math.max(1, secondW.bins.length - 1)) * 100).to
 
 /* ============ X: source oracles ============ */
 section("X: the inventory, rebuilt in source");
-must(LIB.includes("mapInventory: { jobId: string; jobName: string; mainName: string; volumeCount: number; peak: string | null }[] | null;"), "X1 the inventory rides buildSessionReport's contract (typed, nullable while pending; each row's peak nullable while measuring — t214)");
+must(LIB.includes("mapInventory: { jobId: string; jobName: string; mainName: string; volumeCount: number; peak: string | null; peakPct: number | null }[] | null;"), "X1 the inventory rides buildSessionReport's contract (typed, nullable while pending; each row's peak AND its 1-decimal number nullable while measuring — t214 + t215)");
 must(LIB.includes("### Session map inventory"), "X2 the paper's inventory title lives in the ONE home for the families");
 must(LIB.includes("| Job | Main map | Volumes | Peak |"), "X3 the inventory table's head (four columns: who, what, how many, where the mass sits — t214)");
 must(LIB.includes("if (mapInventory && mapInventory.length > 0) {"), "X4 the honest absence — no volumes, no table, no lie");

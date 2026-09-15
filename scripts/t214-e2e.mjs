@@ -113,7 +113,7 @@ must(peakH !== peakS || true, `W4 the expected cells: host ${peakH}, second ${pe
 section("X: one truth, two surfaces — rebuilt in source");
 must(LIB.includes("export const peakIndexOf = (bins: number[]): number =>") && LIB.includes("export const peakPctOf = (bins: number[]): string => pctAt(bins, peakIndexOf(bins));"), "X1 the shared well — peakIndexOf/peakPctOf exported from the ONE home");
 must((LIB.match(/peakIndexOf\(bins\)/g) ?? []).length >= 2, "X2 buildProfileReport itself drinks the well (the deep report's Peak bullet shares the formula)");
-must(LIB.includes("volumeCount: number; peak: string | null }[] | null;"), "X3 the contract's per-row peak, nullable while measuring");
+must(LIB.includes("volumeCount: number; peak: string | null; peakPct: number | null }[] | null;"), "X3 the contract's per-row peak AND its 1-decimal number (t215's lens drinks the rounded cells, not the raw bins), both nullable while measuring");
 must(LIB.includes("| Job | Main map | Volumes | Peak |") && LIB.includes("|-----|----------|---------|------|"), "X4 the four-column head (who, what, how many, where the mass sits)");
 must(LIB.includes('${o.peak ?? "—"}'), "X5 the honest cell — — means still measuring, never a guess");
 must((DLG.match(/async function measureOwnerPeaks\(/g) ?? []).length === 1 && DLG.includes("peakPctOf(d.bins)"), "X6 measureOwnerPeaks defined once, quoting the SAME formula (peakPctOf)");
@@ -126,7 +126,7 @@ must((DLG.match(/async function measureOwnerPeaks\(/g) ?? []).length === 1 && DL
 }
 must(DLG.includes("if (ctrl.signal.aborted || heard.size === 0) return;"), "X8 the merge is abort-honest (a closed dialog fills nothing)");
 must(LIB.includes("The Peak column quotes each owner's main map exactly the way the deep report quotes the winner") && LIB.includes("— means still measuring, never a guess"), "X9 the paper teaches the column (same measure, same axis, no guesses)");
-must(DLG.includes("peak ${owner.peak}` : \"\"}`"), "X10 the door's promise grows the peak (a door says what its row says)");
+must(DLG.includes("peak ${owner.peak}` : \"\"}${delta ? `, Δ ${delta} vs winner` : \"\"}"), "X10 the door's promise grows the peak and the delta (t215: the aria quotes what the row says — peak AND Δ, both from the imported well)");
 
 /* ============ D: live — the roster speaks ============ */
 section("D: the roster, quoted");
@@ -161,8 +161,11 @@ for (let i = 0; i < 40; i++) {
   if (a.includes(`peak ${peakH}`)) break;
   await sleep(500);
 }
-const cellH = ((await doorRows.nth(0).locator("td").last().textContent()) ?? "").trim();
-const cellS = ((await doorRows.nth(1).locator("td").last().textContent()) ?? "").trim();
+// t215: the Δ winner column joined the table — the LAST td is now the
+// delta, the Peak cell is the 4th. Position is pinned by the HEAD, not
+// by "last" (last was only honest while the table had four columns).
+const cellH = ((await doorRows.nth(0).locator("td").nth(3).textContent()) ?? "").trim();
+const cellS = ((await doorRows.nth(1).locator("td").nth(3).textContent()) ?? "").trim();
 must(cellH === peakH && cellS === peakS, `D7 the rendered Peak cells == wire (host "${cellH}", second "${cellS}")`);
 const ariaH = (await doorRows.nth(0).getAttribute("aria-label")) ?? "";
 must(ariaH.includes(`peak ${peakH}`), `D8 the host door's aria quotes its peak ("${ariaH}")`);
@@ -171,7 +174,7 @@ must(ariaH.includes(`peak ${peakH}`), `D8 the host door's aria quotes its peak (
 // collects every family's head. The quartet must be read from the ONE
 // table that carries the doors (has-scoped), never from the whole body.
 const headCells = await page.locator("[data-report-body] table:has(tr[data-owner-door]) thead th").allTextContents();
-must(JSON.stringify(headCells) === JSON.stringify(["Job", "Main map", "Volumes", "Peak"]), `D9 the inventory's OWN head is the quartet (${JSON.stringify(headCells)})`);
+must(JSON.stringify(headCells) === JSON.stringify(["Job", "Main map", "Volumes", "Peak", "Δ winner"]), `D9 the inventory's OWN head is the quintet (${JSON.stringify(headCells)})`);
 
 // reopen — the statcache makes the peaks re-settle quickly (the walk and
 // the peaks re-run on every open; nothing is remembered across opens)

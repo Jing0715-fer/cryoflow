@@ -176,8 +176,16 @@ export const agreementVerdict = (r: number): string =>
   : r >= 0.5 ? "partial"
   : "diverges";
 
+/** t215: the NUMBER under the string. pctAt used to own this arithmetic
+ *  inline; the Δ winner column needs the position as a number, and a
+ *  parse-back of the formatted string would fork the well. One formula,
+ *  two surfaces: pctAt (the paper's words) and peakPctNumOf (the lens's
+ *  numbers) both drink here. */
+export const pctNumAt = (bins: number[], i: number): number =>
+  (i / Math.max(1, bins.length - 1)) * 100;
+
 export const pctAt = (bins: number[], i: number): string =>
-  `${((i / Math.max(1, bins.length - 1)) * 100).toFixed(1)}%`;
+  `${pctNumAt(bins, i).toFixed(1)}%`;
 
 /** The argmax over the raw landscape (strict >, first max wins — the
  *  exact loop buildProfileReport has always run). Exported so every
@@ -193,6 +201,54 @@ export const peakIndexOf = (bins: number[]): number => {
  *  inventory's Peak column both call this; t214: one truth, two
  *  surfaces — the roster is comparable, not just traversable). */
 export const peakPctOf = (bins: number[]): string => pctAt(bins, peakIndexOf(bins));
+
+/** t215: the same peak, as a NUMBER rounded to the paper's own 1-decimal
+ *  grid. Rounding happens HERE — before any subtraction — so a reader
+ *  recomputing Δ from the printed cells gets the printed delta (a delta
+ *  computed from unrounded positions could drift 0.1 off the paper's
+ *  own arithmetic; the cells are the well, not the raw bins). */
+export const peakPctNumOf = (bins: number[]): number =>
+  Number(pctNumAt(bins, peakIndexOf(bins)).toFixed(1));
+
+/** t215: the deviation lens. Each inventory row's peak read against the
+ *  winner's own — the reference row speaks +0.0, a null (row or
+ *  reference still measuring / refused) means the lens cannot speak
+ *  yet and the cell says — (the pending doctrine, per column). The
+ *  delta is derived from the ROUNDED cells, so the paper's arithmetic
+ *  is the reader's arithmetic. One definition; the dialog's door aria
+ *  and the amber outlier lens import it — twins fork, imports don't. */
+export const deltaVsWinner = (rowPct: number | null, winnerPct: number | null): string | null => {
+  if (rowPct == null || winnerPct == null) return null;
+  const d = Number((rowPct - winnerPct).toFixed(1));
+  return `${d < 0 ? "-" : "+"}${Math.abs(d).toFixed(1)}`;
+};
+
+/** t215: WHO is the outlier? The row whose |Δ| is strictly the largest
+ *  AND strictly greater than zero — a tie for the crown is no crown
+ *  (a contested superlative is a guess, and the lens never guesses),
+ *  and the winner's own +0.0 can never outshine itself. Returns the
+ *  row index, or -1 when the world is tied / unmeasured. Three-state
+ *  discipline: comparisons are >=/> with an epsilon, never a unary
+ *  (a<b?1:-1) — the t211 comparator lesson, lens edition. */
+export const outlierRowIdx = (rows: { peakPct: number | null }[]): number => {
+  const w = rows[0]?.peakPct ?? null;
+  if (w == null) return -1;
+  let best = -1;
+  let bestAbs = 0;
+  let unique = false;
+  rows.forEach((r, i) => {
+    if (r.peakPct == null) return;
+    const a = Math.abs(Number((r.peakPct - w).toFixed(1)));
+    if (a > bestAbs + 1e-9) {
+      best = i;
+      bestAbs = a;
+      unique = true;
+    } else if (Math.abs(a - bestAbs) <= 1e-9 && i !== best) {
+      unique = false;
+    }
+  });
+  return unique && bestAbs > 1e-9 ? best : -1;
+};
 
 /** Every PAIR of comparison terrains, correlated on the shared fraction
  *  scale with both resampled to the FINER of the two grids (the finer
@@ -504,7 +560,7 @@ export const buildSessionReport = (opts: {
    *  is how the paper admits the rest of the session exists. Null when
    *  the walk has not settled (pending/error); the section honest-absents
    *  when the world owns no volumes at all. */
-  mapInventory: { jobId: string; jobName: string; mainName: string; volumeCount: number; peak: string | null }[] | null;
+  mapInventory: { jobId: string; jobName: string; mainName: string; volumeCount: number; peak: string | null; peakPct: number | null }[] | null;
   sweep: string | null;
 }): string => {
   const { projectName, pipeline, mapQc, mapPending, mapError, mapInventory, sweep } = opts;
@@ -557,12 +613,21 @@ export const buildSessionReport = (opts: {
     // measuring or the profile refused: the pending doctrine, the cell
     // does not guess. The door clause (t213) and the fold clause (t212)
     // keep their exact bytes — front-wave probes pin them.
-    lines.push("Every job in this session that owns a true 3D volume, newest walk first. The deep profiles above ride the newest owner; this inventory keeps every other owner visible — no map hides below the fold (the t211 lesson: a walk that stops at the first winner leaves the rest of the world unseen). Each row is a door — press it and the page hands you to that job's results (the t210 lesson carried onto the report: a name on a roster should never be a dead end). The Peak column quotes each owner's main map exactly the way the deep report quotes the winner — where the mass concentrates along the shared axis, as a fraction of depth; — means still measuring, never a guess.");
+    // t215: the comparison becomes readable. The Δ winner column reads
+    // every peak against the winner's own (deltaVsWinner — the SAME
+    // helper the door aria quotes): the reference row speaks +0.0, its
+    // dash obeys the same law, and the lens never guesses. On the PAGE
+    // the row farthest from the winner wears the amber edge — a lens,
+    // not a verdict; the exported bytes keep the numbers and let the
+    // reader judge.
+    lines.push("Every job in this session that owns a true 3D volume, newest walk first. The deep profiles above ride the newest owner; this inventory keeps every other owner visible — no map hides below the fold (the t211 lesson: a walk that stops at the first winner leaves the rest of the world unseen). Each row is a door — press it and the page hands you to that job's results (the t210 lesson carried onto the report: a name on a roster should never be a dead end). The Peak column quotes each owner's main map exactly the way the deep report quotes the winner — where the mass concentrates along the shared axis, as a fraction of depth; — means still measuring, never a guess. The Δ winner column reads every peak against the winner's own — the reference row speaks +0.0, its dash obeys the same law, and the lens never guesses; on the page the row farthest from the winner wears the amber edge (a lens, not a verdict — the exported bytes keep the numbers and let the reader judge).");
     lines.push("");
-    lines.push("| Job | Main map | Volumes | Peak |");
-    lines.push("|-----|----------|---------|------|");
+    const winnerPct = mapInventory[0]?.peakPct ?? null;
+    lines.push("| Job | Main map | Volumes | Peak | Δ winner |");
+    lines.push("|-----|----------|---------|------|----------|");
     for (const o of mapInventory) {
-      lines.push(`| ${mdCell(o.jobName)} | ${mdCell(o.mainName)} | ${o.volumeCount} | ${o.peak ?? "—"} |`);
+      const delta = deltaVsWinner(o.peakPct, winnerPct);
+      lines.push(`| ${mdCell(o.jobName)} | ${mdCell(o.mainName)} | ${o.volumeCount} | ${o.peak ?? "—"} | ${delta ?? "—"} |`);
     }
     lines.push("");
   }

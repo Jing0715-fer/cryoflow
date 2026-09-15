@@ -53,6 +53,9 @@ import {
   buildProfileReport,
   buildSessionReport,
   buildSweepReport,
+  deltaVsWinner,
+  outlierRowIdx,
+  peakPctNumOf,
   peakPctOf,
   sessionReportFilename,
   type ReportOverlay,
@@ -134,15 +137,17 @@ const byRecency = (a: JobDTO, b: JobDTO) =>
  */
 const InventoryTableContext = React.createContext(false);
 
-/** The inventory table's exact head quartet — the only door-carrying
+/** The inventory table's exact head quintet — the only door-carrying
  *  table on the paper. Matched against the RENDERED head (hast), so
  *  markdown cosmetics above or below can never turn another table into
  *  doors. t214: the Peak column joins the key — the door key must grow
  *  with the table it guards, or every door goes dark (the first t214
  *  run found ALL doors gone because the key still said "trio" while
  *  the table said "quartet" — a head you don't match is a head you
- *  don't own). */
-const OWNER_HEAD = ["Job", "Main map", "Volumes", "Peak"];
+ *  don't own). t215: the Δ winner column joins too — the key grew by
+ *  DESIGN this time, before any probe died (the t214 lesson exercised
+ *  as routine discipline, not as an autopsy). */
+const OWNER_HEAD = ["Job", "Main map", "Volumes", "Peak", "Δ winner"];
 
 /** Collect the rendered words of a hast node (cells carry plain text —
  *  the doors read what the reader reads, not the markdown source). */
@@ -231,8 +236,11 @@ async function measureMapQc(
  *  one truth, two surfaces). An owner whose profile refuses simply keeps
  *  its "—" — the cell says still-measuring/refused, it never guesses
  *  (the pending doctrine, per row). */
-async function measureOwnerPeaks(owners: MapOwner[], signal: AbortSignal): Promise<Map<string, string>> {
-  const heard = new Map<string, string>();
+async function measureOwnerPeaks(
+  owners: MapOwner[],
+  signal: AbortSignal,
+): Promise<Map<string, { text: string; pct: number }>> {
+  const heard = new Map<string, { text: string; pct: number }>();
   await Promise.all(
     owners.map(async (o) => {
       try {
@@ -241,7 +249,11 @@ async function measureOwnerPeaks(owners: MapOwner[], signal: AbortSignal): Promi
           { signal },
         ).then((r) => r.json())) as ProfileResponse;
         if (!Array.isArray(d.bins) || d.bins.length === 0) return;
-        heard.set(o.jobId, peakPctOf(d.bins));
+        // t215: both surfaces of the ONE well — the text is the paper's
+        // word, the pct (rounded to the paper's own 1-decimal grid by
+        // peakPctNumOf) is what the Δ winner column and the amber lens
+        // compute from. A parse-back of the text would fork the well.
+        heard.set(o.jobId, { text: peakPctOf(d.bins), pct: peakPctNumOf(d.bins) });
       } catch {
         // this owner's profile refused (or the dialog closed) — its cell stays honest
       }
@@ -268,9 +280,13 @@ export default function SessionReportDialog({
    *  picks the deep-report winner — settled before the measurement,
    *  so the paper still lists the world even if a profile then fails.
    *  t214: each row gains a peak — null until that owner's main map
-   *  has been profiled (the cell says — , never a guess). */
+   *  has been profiled (the cell says — , never a guess).
+   *  t215: the row also carries the peak's NUMBER on the paper's own
+   *  1-decimal grid (peakPct) — the Δ winner column and the amber
+   *  outlier lens compute from it; both import their helpers from
+   *  qc-report (twins fork, imports don't). */
   const [mapInventory, setMapInventory] = React.useState<
-    { jobId: string; jobName: string; mainName: string; volumeCount: number; peak: string | null }[] | null
+    { jobId: string; jobName: string; mainName: string; volumeCount: number; peak: string | null; peakPct: number | null }[] | null
   >(null);
   const [note, setNote] = React.useState<string | null>(null);
   const noteTimer = React.useRef<number | null>(null);
@@ -317,7 +333,7 @@ export default function SessionReportDialog({
       // the inventory is a fact of the WALK — it settles even when the
       // deep measurement below then refuses (partial truth over silence)
       setMapInventory(
-        owners.map((o) => ({ jobId: o.jobId, jobName: o.jobName, mainName: o.main.name, volumeCount: o.volumeCount, peak: null })),
+        owners.map((o) => ({ jobId: o.jobId, jobName: o.jobName, mainName: o.main.name, volumeCount: o.volumeCount, peak: null, peakPct: null })),
       );
       if (owners.length === 0) {
         setMapPending(false);
@@ -342,7 +358,11 @@ export default function SessionReportDialog({
       const heard = await peaks;
       if (ctrl.signal.aborted || heard.size === 0) return;
       setMapInventory((prev) =>
-        prev?.map((row) => (heard.has(row.jobId) ? { ...row, peak: heard.get(row.jobId) ?? null } : row)) ?? prev,
+        prev?.map((row) =>
+          heard.has(row.jobId)
+            ? { ...row, peak: heard.get(row.jobId)?.text ?? null, peakPct: heard.get(row.jobId)?.pct ?? null }
+            : row,
+        ) ?? prev,
       );
     })();
     return () => ctrl.abort();
@@ -426,13 +446,25 @@ export default function SessionReportDialog({
           (o) => cells[0] === o.jobName && cells[1] === o.mainName && cells[2] === String(o.volumeCount),
         );
         if (!inInventory || !owner) return <tr {...rest}>{children}</tr>;
+        // t215: the deviation lens. The Δ aria quote comes from the SAME
+        // helper the paper's Δ cell uses (deltaVsWinner, imported — twins
+        // fork, imports don't); the amber edge marks the row whose |Δ|
+        // is strictly the unique maximum (outlierRowIdx, same import —
+        // in a tied world it crowns nobody). A lens, not a verdict: the
+        // row stays pressable, the promise stays exactly what it said.
+        const winnerPct = mapInventory?.[0]?.peakPct ?? null;
+        const delta = deltaVsWinner(owner.peakPct, winnerPct);
+        const rowIdx = mapInventory?.findIndex((o) => o.jobId === owner.jobId) ?? -1;
+        const isOutlier = rowIdx >= 0 && rowIdx === outlierRowIdx(mapInventory ?? []);
         return (
           <tr
             {...rest}
             data-owner-door={owner.jobId}
+            data-outlier={isOutlier ? "1" : undefined}
             tabIndex={0}
-            aria-label={`Open ${owner.jobName}'s results — ${owner.mainName}, ${owner.volumeCount} ${owner.volumeCount === 1 ? "volume" : "volumes"}${owner.peak ? `, peak ${owner.peak}` : ""}`}
-            className="cursor-pointer transition-colors hover:bg-violet-500/10 focus-visible:bg-violet-500/15 focus-visible:outline-none"
+            aria-label={`Open ${owner.jobName}'s results — ${owner.mainName}, ${owner.volumeCount} ${owner.volumeCount === 1 ? "volume" : "volumes"}${owner.peak ? `, peak ${owner.peak}` : ""}${delta ? `, Δ ${delta} vs winner` : ""}`}
+            className={`cursor-pointer transition-colors hover:bg-violet-500/10 focus-visible:bg-violet-500/15 focus-visible:outline-none${isOutlier ? " bg-amber-500/[0.04]" : ""}`}
+            style={isOutlier ? { boxShadow: "inset 3px 0 0 0 rgb(245 158 11)" } : undefined}
             onClick={() => pressOwner(owner)}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
