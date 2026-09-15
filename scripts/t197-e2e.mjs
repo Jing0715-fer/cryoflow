@@ -226,10 +226,26 @@ await page.keyboard.press("Escape");
 await sleep(500);
 must((await page.locator("body").getAttribute("data-report-print")) === null, "D18 close removes the print flag (the exception is scoped, not sticky)");
 
-// drive a REAL race (t194's recipe) and reopen — the annex binds verbatim
+// drive a REAL race (t194's recipe) and reopen — the annex binds verbatim.
+// t203 sync (the flake's second sighting, same line): the report dialog's
+// EXIT ANIMATION can eat the job-tile click, leaving nothing selected and
+// the sbatch button unborn — drain the dialog stack, then poll for the
+// button instead of betting on a fixed sleep
+for (let k = 0; k < 3; k++) {
+  if (!(await page.locator('[data-slot="dialog-overlay"][data-state="open"]').first().isVisible().catch(() => false))) break;
+  await page.keyboard.press("Escape");
+  await sleep(800);
+}
 const idleJob = jobsS.filter((j) => j.status === "idle").sort((a, b) => (a.x ?? 0) - (b.x ?? 0))[0];
 await page.locator(`[data-job="${idleJob.id}"]`).first().click({ timeout: 5000, force: true }).catch(() => {});
 await sleep(1300);
+let sbatchUp = false;
+for (let k = 0; k < 10 && !sbatchUp; k++) {
+  if ((await page.locator('button[aria-label="Generate Slurm sbatch script for this job"]').count()) > 0) { sbatchUp = true; break; }
+  // the tile click may have been swallowed — retry the selection
+  await page.locator(`[data-job="${idleJob.id}"]`).first().click({ timeout: 5000, force: true }).catch(() => {});
+  await sleep(1200);
+}
 await page.locator('button[aria-label="Generate Slurm sbatch script for this job"]').click();
 await sleep(1400);
 await page.locator('button[aria-label="Run queue simulation"]').click();

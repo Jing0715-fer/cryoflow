@@ -166,6 +166,39 @@ if (await popUpT198()) { await sleep(250); if (await popUpT198()) await page.key
 await sleep(600);
 must((await page.locator('div[data-local-row="1"]').count()) === 0, "D2 self-healed world: NO local row before any adoption (no map, no lie)");
 
+// t203 sync: the world can still shift under the probe (a broken entry
+// state or a slow auto-close race) — diagnose the toggle and RE-OPEN the
+// chain if the viewer is gone (the t202/t203 armor, front-wave edition)
+if ((await page.locator('button[aria-label="Toggle cross-section plane"]').count()) === 0) {
+  console.log("  (diag: toggle missing — draining the dialog stack and re-opening)");
+  for (let k = 0; k < 3; k++) {
+    if (!(await page.locator('[data-slot="dialog-overlay"][data-state="open"]').first().isVisible().catch(() => false))) break;
+    await page.keyboard.press("Escape");
+    await sleep(900);
+  }
+  await page.locator(`[data-job="${host.id}"]`).first().click({ force: true });
+  await sleep(1600);
+  await page.locator('[role="tab"]', { hasText: "Results" }).click().catch(() => {});
+  await sleep(1400);
+  const ot = page.locator('button[aria-label="Enlarge orthovol"]');
+  if (await ot.isVisible().catch(() => false)) await ot.click();
+  await sleep(1000);
+  await page.locator("button", { hasText: "View in 3D" }).click();
+  let v2 = false;
+  for (let k = 0; k < 30; k++) { await sleep(2000); if (await page.evaluate(() => !!window.__molstar?.canvas3d).catch(() => false)) { v2 = true; break; } }
+  must(v2, "D2b viewer re-opened after the world shifted");
+  await page.locator('button[aria-label^="Overlay maps"]').waitFor({ state: "visible", timeout: 30000 }).catch(() => {});
+  // the re-opened world may carry a server-side overlay session — heal it
+  await page.locator('button[aria-label^="Overlay maps"]').click();
+  await sleep(900);
+  while ((await page.locator('button[aria-label^="Remove overlay"]').count()) > 0) {
+    await page.locator('button[aria-label^="Remove overlay"]').first().click();
+    await sleep(900);
+  }
+  if (await popUpT198()) { await sleep(250); if (await popUpT198()) await page.keyboard.press("Escape"); }
+  await sleep(800);
+}
+
 await page.locator('button[aria-label="Toggle cross-section plane"]').click();
 let stripVisible = false;
 for (let k = 0; k < 12; k++) {

@@ -5587,3 +5587,23 @@ Stage Summary:
 - 「矩阵的 auto-include 要跟着计数器换代」：glob 吃 t1[0-9][0-9]，t2xx 静默缺席三窗——「忘记注册」的保险丝自己也有保险丝该管的边界。清单漂移的第一症状是总数对不上账，第二症状才是漏跑
 - 世界卫生观察账本（verdict 列）：本轮无全矩阵（单仪器轮，183 判例=定向回归覆盖 viewer+报告+主题 14 套）；t202 ×3 + 回归 14/14 全绿；正典 26 精确保持；矩阵显式清单 130→133+（t200/t201/t202 入册）
 - 遗留（下轮候选）：跳深后的「带内 r 读数」（chip 跳深后在该带中心高亮显示该带 r——导航与读数的闭环）；FSC 曲线的诚实 caveat 一行（r(fraction) 是 2D 投影地形相关，非球壳采样——报告已标注 shape-agreement）；grabber nudge/undo 手感参数（真机盲区依旧）；script RELION-present 分支（沙箱受限判决维持）；EMPIAR 真数据回归（让位）；runner wall-time 剖面（让位）
+
+## Task 203 (2026-09-15, cron 12:17 窗口 trace …202609151222)
+
+**主题：the band earns a territory——背叛的领地画上景观条。t198 给分叉一个地址（chip），t202 给地址一扇门（点击跳深），t203 闭合读数回路：① 景观条本身携带每张在册对比图的最弱带括号（data-band-bracket，骑 overlay 自己的颜色，aria-hidden 纯显示层）——背叛的疆域在**任何点击之前**就在深度轴上可见；② playhead 入境时括号点亮（opacity 0.3→0.85）+ 对应 chip 墨色升为 text-foreground（data-visiting）——「导航」与「读数」是同一个状态而非两件仪器；③ 平带裁决不画疆域（无地址即无谎言）。实现零 lib 改动（from/to 在 t202 已就位——同一父亲 localAgreement+weakestBand 的第三位消费者）；括号是纯显示（strip 的 pointer-down 本来就会 scrub 到点击处，t190 的门）。t203 27 断言 ×3 全绿；回归 15 套全绿 + t198/t197 前浪装甲升级；矩阵清单 t203 入册。**
+
+- 【开局】worklog 尾部=Task 202/8db46a9（HEAD==origin/main、树净——**本窗摘要首次未过时**，10:17→12:17 无中间窗口）。冷启动（setsid watchdog 一次稳住）；三件套全绿；巡检双视图 console 双零错。
+- 【实现·单文件两刀】① 景观条 SVG IIFE 内加 bandBrackets（flatMap：每张有 bins 的 overlay 算 weakestBand(localAgreement(...))，有地址才画 rect x=from*100 w=(to-from)*100 y=27.4 h=2.6 rx=0.4 fill=o.color opacity 随 visiting；`<g aria-hidden="true">` 包裹——语义归 chip，括号是视觉仪器）；② chip 加 visiting 态（`data-visiting` + 条件 className：**text-foreground 替换而非拼接** text-muted-foreground——同特异性 utility 按 stylesheet 序而非 class 序裁决，同时在场就是赌运气）。
+- 【探针 t203·27 断言 ×3 全绿】S2 seeder + W2（探针自己的 band oracle：half1 Q3 [50,75)% r -0.94、half2 Q1 [0,25)% r 0.26）+ X5 源 oracle（括号饮同一父亲、flat 不画疆域、aria-hidden 显示层、fill=o.color、visiting 半开区间 [from,to)、ink 替换非拼接）+ D13 活线（**D7 双态同帧**：Home 0% 时 half1 括号歇息 v=0 op=0.3 而 half2 点亮 v=1 op=0.85；D8-D9 half2 chip data-visiting + 墨色==--foreground 字节、half1==--muted-foreground；D11 visiting 对比度 census ≥4.5；**D12 门落进它点名的领地**：chip 跳 63% 后 half1 括号亮 half2 灭；D13 End 100% 无带 hosting——全员歇息、无 chip 冒领）+ Z3（roster 26、console 零错）。几何断言是**字符串逐位**（x="50.00" w="25.00"——组件写 (w.from*100).toFixed(2)，探针从 wire oracle 重演同一字符串）。
+- 【第二层真相·四】①**同一父亲免费喂第三张嘴**：括号的全部数据（from/to/color/weakest）都是 t198/t202 已有的——lib 零改动、报告字节不动、chip 文本逐字幸存。仪器的第 N 格常常不是新数据，是旧数据的第三种读法。②**同特异性 utility 的裁决权在 stylesheet 不在 class**：visiting 墨色若写成拼接（两个 text-* 同时在场），赢的是编译产物里的后到者——「条件样式要替换，不要叠罗汉」。③**前浪装甲的三度升级**：t198 的闸门挡住了 Escape 但世界仍可能带着坏状态进场（上窗残渣）——补 re-open 甲胄（清栈+重走全链）；t197 的 sbatch 按钮**二度同点 flake**（报告对话框退场动画吃掉 job 点击）——清栈+轮询+点击重试，t195 教义「两度即装甲」的执行。④**shots 也要走全链**（第 4 度）：清栈后只点 enlarge 不重选 job，View in 3D 按钮 30s 不现身——部分重入会撞上退场对话框的幽灵；全链重走即绿。
+- 【回归·15 套全绿】t190(29)/t191(40——strip 内部只被 circle[cx]/polyline 查询，括号免疫)/t202(43——**rest 读数先 disarm 再读**（visiting 态重新定价了 rest 普查：D10 跳回 63% 后 chip 常驻 visiting；D14/light D21 各加一步 scrub 出带来，房间标签继续诚实）)/t198(34，装甲后)/t200(28)/t195(40)/t196(29)/t193(29)/t197(50，装甲后)/t192(14)/t199(18)/t201(37)/t189(42) + 三件套 qa00/qa63/t181 + qa67(27)。产品侧零行为回归。
+- 【世界收尾】正典 26 精确保持（Z 相只读证明）；定妆照归档 scripts/shots-t203/：**t203-strip-half1-2x.png / t203-strip-half2-2x.png（一对对偶帧——青括号亮时紫括号歇、Home 一按立即易主，领地随 playhead 换手的活证）**+ t203-panel-jump-2x.png / t203-panel-home-2x.png（面板全景：括号+chip+地形+playhead 同框）+ t203-territory-2x/t203-viewer-2x（探针活照）；t203-shots.mjs 留档（API-staged 世界+全链重入+归还要齐全）。
+- 【收尾】worklog（本条）+ commit + push + 环境清理（杀 server 先 ss 查真实 PID、杀 watchdog、agent-browser close）。
+
+Stage Summary:
+- 「地址 → 门 → 领地」：t198 让背叛有名字，t202 让名字可点击，t203 让名字的疆土画在地图上——QC 仪器现在同时回答「哪里危险」（括号常驻）、「我在不在里面」（visiting 点亮）、「怎么去」（chip 一击）。三个问题原本要三次交互，现在一次注视+一次点击
+- 「旧数据的第三种读法」：括号的全部字段都住在 lib 里等了两个窗口——仪器的下一格往往不需要新数学，只需要把已有的真话画到已经有人在看的地方（景观条是全仪器注视时长最高的像素区）
+- 「替换，不要拼接」：条件样式的两条同特异性 utility 同场就是让编译器掷骰子——t197 minifier 教义、t199 chunk 顺序教义的同族：**任何「谁赢」的问题，答案都不能是「看顺序」**
+- 「两度即装甲」：t197 同点二度 flake 不再是观察而是工单——清栈、轮询、重试点击；t198 的 re-open 甲胄让「世界进场时就是坏的」也能自愈。前浪探针的健壮性是会累积的资产：本窗三处装甲全部来自前窗的伤痕
+- 世界卫生观察账本（verdict 列）：本轮无全矩阵（单仪器轮，183 判例=定向回归覆盖 strip+chip+报告 15 套）；t203 ×3 + 回归 15/15 全绿；正典 26 精确保持；矩阵显式清单 133→134（t203 入册）
+- 遗留（下轮候选）：括号可点（现在纯显示——点括号=scrub 到该 x，但「跳到带中心」的门只住 chip；括号中心小把手可作第二扇门）；报告 Local 表加 from/to 百分比列（词汇旁边印坐标——与 chip 的机器地址同源）；FSC 诚实 caveat（已标注 shape-agreement，可能已闭环）；grabber nudge/undo 手感参数（真机盲区依旧）；script RELION-present 分支（沙箱受限判决维持）；EMPIAR 真数据回归（让位）；runner wall-time 剖面（让位）

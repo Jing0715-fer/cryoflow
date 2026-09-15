@@ -3622,6 +3622,39 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                         );
                         const py = profile.bins[Math.min(n - 1, Math.round(slicePos * (n - 1)))];
                         const playY = 29.2 - ((py - profile.min) / span) * 26.4;
+                        // t203: the band earns a TERRITORY — each speaking
+                        // overlay's weakest quarter drawn as a thin bracket
+                        // on the landscape itself (the overlay's own colour),
+                        // so the betrayal's extent is visible BEFORE any
+                        // click and the playhead's presence inside it is
+                        // spoken by the brightening. Same lib father as the
+                        // chips (localAgreement + weakestBand); a flat
+                        // verdict draws nothing (no address, no territory).
+                        // Pointer-down anywhere on the strip already scrubs
+                        // to the clicked x (t190), so the bracket is pure
+                        // display — the chip remains the precise door.
+                        const bandBrackets = overlays
+                          .map((o) => ({ o, op: overlayProfiles[o.path] }))
+                          .flatMap(({ o, op }) => {
+                            if (!op || op.bins.length === 0) return [];
+                            const w = weakestBand(localAgreement(profile.bins, op.bins));
+                            if (!w) return []; // flat verdict: no address, no territory
+                            const visiting = slicePos >= w.from && slicePos < w.to;
+                            return [
+                              <rect
+                                key={o.path}
+                                data-band-bracket={o.name}
+                                data-band-visiting={visiting ? "1" : "0"}
+                                x={(w.from * 100).toFixed(2)}
+                                y="27.4"
+                                width={((w.to - w.from) * 100).toFixed(2)}
+                                height="2.6"
+                                rx="0.4"
+                                fill={o.color}
+                                opacity={visiting ? "0.85" : "0.3"}
+                              />,
+                            ];
+                          });
                         return (
                           <>
                             <polygon points={`0,30 ${pts.join(" ")} 100,30`} fill="rgba(8,145,178,0.14)" />
@@ -3633,6 +3666,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                               vectorEffect="non-scaling-stroke"
                               strokeLinejoin="round"
                             />
+                            <g aria-hidden="true">{bandBrackets}</g>
                             <line
                               x1={slicePos * 100}
                               x2={slicePos * 100}
@@ -3727,6 +3761,14 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                             // depth; the 2D ortho browser rides the same
                             // intent event, so both rooms honour the jump.
                             const centre = Math.round(((w.from + w.to) / 2) * 100) / 100;
+                            // t203: the reading loop closes — when the plane
+                            // sits INSIDE this band the chip says so (brighter
+                            // token ink + data-visiting), so navigation and
+                            // reading are one state, not two instruments.
+                            // text-foreground replaces (never joins) text-
+                            // muted-foreground — same-specificity utilities
+                            // resolve by stylesheet order, not class order.
+                            const visiting = slicePos >= w.from && slicePos < w.to;
                             const jump = () => {
                               applySliceIntent({ pos: centre });
                               flashProfileNote(`Plane moved to ${Math.round(centre * 100)}% — the centre of ${o.name}'s weakest quarter (${w.label})`);
@@ -3764,7 +3806,8 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                                 onClick={jump}
                                 title={`Local shape agreement for ${o.name}: the shared fraction scale cut into four quarters, each correlated independently; the sparkline traces the sliding-window r across the depth — gaps are flat windows (no shape to correlate), dashed line = r 0, red shading = negative stations. The global r can hide a localized betrayal — the weakest quarter is the address to inspect. Click to move the plane to the centre of that quarter — the address is a door.`}
                                 aria-label={`Jump the plane to the centre of ${o.name}'s weakest quarter, ${w.label} — ${Math.round(centre * 100)}% on the ${sliceAxis} axis`}
-                                className="flex cursor-pointer items-center gap-1.5 rounded-full bg-muted px-1.5 py-0.5 font-mono text-[8.5px] tabular-nums text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]"
+                                data-visiting={visiting ? "1" : undefined}
+                                className={`flex cursor-pointer items-center gap-1.5 rounded-full bg-muted px-1.5 py-0.5 font-mono text-[8.5px] tabular-nums outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97] ${visiting ? "text-foreground" : "text-muted-foreground"}`}
                               >
                                 <svg
                                   viewBox="0 0 100 10"

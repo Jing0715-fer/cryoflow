@@ -327,6 +327,11 @@ const contrast = (a, b) => (Math.max(relLum(a), relLum(b)) + 0.05) / (Math.min(r
 const cHovD = contrast(hovInkRgb, hovBgRgb); // hover pair (dark)
 must(cHovD >= 4.5, `D13 CENSUS dark: chip hover pair ${cHovD.toFixed(2)}:1 >= 4.5 (small-text floor)`);
 await page.mouse.move(10, 10); await sleep(350);
+// t203 sync: the chip now carries a VISITING state (plane inside its band
+// => text-foreground ink). The rest-pair census needs the chip actually
+// at rest — scrub the plane out of the band (End -> 100%, outside Q3)
+// before reading, otherwise the label lies about which pair it measured
+await strip.focus(); await sleep(250); await strip.press("End"); await sleep(600);
 const restInkD = await toRgb(await chip1.evaluate((el) => getComputedStyle(el).color));
 const restBgD = await toRgb(await chip1.evaluate((el) => getComputedStyle(el).backgroundColor));
 const cChipRestD = contrast(restInkD, restBgD);
@@ -404,7 +409,10 @@ for (let k = 0; k < 10; k++) {
 }
 must(chipLUp, "D20 the chip speaks in the light room too (overlay session persisted)");
 
-// light census: chip REST pair
+// light census: chip REST pair — disarm first (t203 sync): the remounted
+// plane defaults to 50%, INSIDE half1's Q3 band, which would light the
+// chip's visiting ink and mislabel this read
+await stripL.focus(); await sleep(250); await stripL.press("End"); await sleep(600);
 const restInkL = await toRgb(await chip1L.evaluate((el) => getComputedStyle(el).color));
 const restBgL = await toRgb(await chip1L.evaluate((el) => getComputedStyle(el).backgroundColor));
 const cChipRestL = contrast(restInkL, restBgL);
