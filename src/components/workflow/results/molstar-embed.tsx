@@ -3630,9 +3630,15 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                         // spoken by the brightening. Same lib father as the
                         // chips (localAgreement + weakestBand); a flat
                         // verdict draws nothing (no address, no territory).
-                        // Pointer-down anywhere on the strip already scrubs
-                        // to the clicked x (t190), so the bracket is pure
-                        // display — the chip remains the precise door.
+                        // t204: the territory opens its own DOOR — pressing
+                        // a bracket lands the plane on the band's CENTRE
+                        // (the chip's own jump, same receipt), never the
+                        // clicked x: a door is pressed, not scrubbed, so
+                        // stopPropagation keeps t190's scrub from firing —
+                        // the paint is the door, the rest of the strip
+                        // stays the scrub. The door answers only the hand:
+                        // the layer stays aria-hidden and unfocusable, the
+                        // chip remains the keyboard's door.
                         const bandBrackets = overlays
                           .map((o) => ({ o, op: overlayProfiles[o.path] }))
                           .flatMap(({ o, op }) => {
@@ -3640,6 +3646,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                             const w = weakestBand(localAgreement(profile.bins, op.bins));
                             if (!w) return []; // flat verdict: no address, no territory
                             const visiting = slicePos >= w.from && slicePos < w.to;
+                            const centre = Math.round(((w.from + w.to) / 2) * 100) / 100;
                             return [
                               <rect
                                 key={o.path}
@@ -3652,6 +3659,12 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                                 rx="0.4"
                                 fill={o.color}
                                 opacity={visiting ? "0.85" : "0.3"}
+                                className="cursor-pointer transition-opacity duration-150 hover:opacity-85"
+                                onPointerDown={(e) => {
+                                  e.stopPropagation();
+                                  applySliceIntent({ pos: centre });
+                                  flashProfileNote(`Plane moved to ${Math.round(centre * 100)}% — the centre of ${o.name}'s weakest quarter (${w.label})`);
+                                }}
                               />,
                             ];
                           });
