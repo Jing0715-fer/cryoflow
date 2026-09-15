@@ -239,6 +239,7 @@ export type InventoryCsvRow = {
   peak: string | null;
   peakPct: number | null;
   shapeR?: number | null;
+  weakest?: { label: string; r: number; from: number } | null;
 };
 export const inventoryCsv = (rows: InventoryCsvRow[] | null): string | null => {
   if (!rows || rows.length === 0) return null;
@@ -249,9 +250,10 @@ export const inventoryCsv = (rows: InventoryCsvRow[] | null): string | null => {
     const peak = o.peakPct != null ? o.peakPct.toFixed(1) : "";
     const delta = deltaVsWinner(o.peakPct, winnerPct) ?? "";
     const rCell = o.shapeR != null ? o.shapeR.toFixed(2) : "";
-    return line([o.jobName, o.mainName, String(o.volumeCount), peak, delta, rCell]);
+    const wCell = o.weakest ? weakestCellOf(o.weakest) : "";
+    return line([o.jobName, o.mainName, String(o.volumeCount), peak, delta, rCell, wCell]);
   });
-  return [line(["job", "main_map", "volumes", "peak_pct", "delta_winner", "shape_r"]), ...body].join("\n");
+  return [line(["job", "main_map", "volumes", "peak_pct", "delta_winner", "shape_r", "thinnest"]), ...body].join("\n");
 };
 
 /** The ONE scan both lenses read (t220: twins fork, imports don't —
@@ -331,6 +333,26 @@ export const shapeAgreement = (
   const n = Math.max(winnerBins.length, ownerBins.length);
   const r = pearson(resampleByFraction(winnerBins, n), resampleByFraction(ownerBins, n));
   return Number.isFinite(r) ? r : null;
+};
+
+/** t222: the weakest band, as the inventory's grid speaks it — the r
+ *  column's natural next question is WHERE the shape does not follow,
+ *  and the answer is the same quarter-band cut the deep report's Local
+ *  agreement table speaks (localAgreement + weakestBand, the family
+ *  machinery — composed here, never re-derived). One grammar for the
+ *  fact everywhere: a SHORT band name and the band's own r on the
+ *  2-decimal grid: Q2 (-0.62). The short name is NOT string surgery on
+ *  the label — the label is prose ("Q2 (25–50%)", the taught dialect);
+ *  the quarter INDEX comes from the band's own `from` coordinate (the
+ *  t202 lesson: the address lives in the numbers, never in a parsed
+ *  string — t210's X5 patrols this). Null (unmeasured,
+ *  flat everywhere, too short to cut) prints the honest dash. The
+ *  reference row rides the same path — its thinnest quarter is perfect,
+ *  and the cell says so: Q1 (1.00). */
+export const weakestCellOf = (w: { label: string; r: number; from: number } | null | undefined): string => {
+  if (!w || !Number.isFinite(w.r)) return "\u2014";
+  const q = Math.min(4, Math.max(1, Math.round(w.from * 4) + 1));
+  return `Q${q} (${w.r.toFixed(2)})`;
 };
 
 /** Every PAIR of comparison terrains, correlated on the shared fraction
@@ -645,7 +667,7 @@ export const buildSessionReport = (opts: {
    *  when the world owns no volumes at all. t221: each row also carries
    *  its Agreement r vs the winner (null until BOTH landscapes are in —
    *  the dialog computes it where the bins live; the paper cell says —). */
-  mapInventory: { jobId: string; jobName: string; mainName: string; volumeCount: number; peak: string | null; peakPct: number | null; shapeR?: number | null }[] | null;
+  mapInventory: { jobId: string; jobName: string; mainName: string; volumeCount: number; peak: string | null; peakPct: number | null; shapeR?: number | null; weakest?: { label: string; r: number; from: number } | null }[] | null;
   sweep: string | null;
 }): string => {
   const { projectName, pipeline, mapQc, mapPending, mapError, mapInventory, sweep } = opts;
@@ -705,7 +727,7 @@ export const buildSessionReport = (opts: {
     // the row farthest from the winner wears the amber edge — a lens,
     // not a verdict; the exported bytes keep the numbers and let the
     // reader judge.
-    lines.push("Every job in this session that owns a true 3D volume, newest walk first. The deep profiles above ride the newest owner; this inventory keeps every other owner visible — no map hides below the fold (the t211 lesson: a walk that stops at the first winner leaves the rest of the world unseen). Each row is a door — press it and the page hands you to that job's results (the t210 lesson carried onto the report: a name on a roster should never be a dead end). The Peak column quotes each owner's main map exactly the way the deep report quotes the winner — where the mass concentrates along the shared axis, as a fraction of depth; — means still measuring, never a guess. The Δ winner column reads every peak against the winner's own — the reference row speaks +0.0, its dash obeys the same law, and the lens never guesses; on the page the row farthest from the winner wears the amber edge (a lens, not a verdict — the exported bytes keep the numbers and let the reader judge). The Agreement r column gives every owner the winner's own comparison arithmetic — the same Pearson correlation on the shared 0–100% fraction scale, each owner's main landscape read against the winner's on the finer of the two grids; the reference row lands at 1.00 through the same path, and — means still measuring or a flat field, never a guess.");
+    lines.push("Every job in this session that owns a true 3D volume, newest walk first. The deep profiles above ride the newest owner; this inventory keeps every other owner visible — no map hides below the fold (the t211 lesson: a walk that stops at the first winner leaves the rest of the world unseen). Each row is a door — press it and the page hands you to that job's results (the t210 lesson carried onto the report: a name on a roster should never be a dead end). The Peak column quotes each owner's main map exactly the way the deep report quotes the winner — where the mass concentrates along the shared axis, as a fraction of depth; — means still measuring, never a guess. The Δ winner column reads every peak against the winner's own — the reference row speaks +0.0, its dash obeys the same law, and the lens never guesses; on the page the row farthest from the winner wears the amber edge (a lens, not a verdict — the exported bytes keep the numbers and let the reader judge). The Agreement r column gives every owner the winner's own comparison arithmetic — the same Pearson correlation on the shared 0–100% fraction scale, each owner's main landscape read against the winner's on the finer of the two grids; the reference row lands at 1.00 through the same path, and — means still measuring or a flat field, never a guess. The Weakest column answers the r column's next question — WHERE the shape does not follow: the same quarter-band cut the deep report's Local agreement table speaks, thinnest band first, Q1–Q4 with the band's own r; the reference row's thinnest quarter is perfect and the cell says so.");
     lines.push("");
     // t221: the roster speaks shape. The Agreement r column gives every
     // owner the winner's own comparison arithmetic — the SAME Pearson on
@@ -717,12 +739,12 @@ export const buildSessionReport = (opts: {
     // dialog computes it where the landscapes live); the CSV sibling
     // grows the same fact as shape_r — numbers travel, verdicts don't.
     const winnerPct = mapInventory[0]?.peakPct ?? null;
-    lines.push("| Job | Main map | Volumes | Peak | Δ winner | Agreement r |");
-    lines.push("|-----|----------|---------|------|----------|-------------|");
+    lines.push("| Job | Main map | Volumes | Peak | Δ winner | Agreement r | Weakest |");
+    lines.push("|-----|----------|---------|------|----------|-------------|---------|");
     for (const o of mapInventory) {
       const delta = deltaVsWinner(o.peakPct, winnerPct);
       const rCell = o.shapeR;
-      lines.push(`| ${mdCell(o.jobName)} | ${mdCell(o.mainName)} | ${o.volumeCount} | ${o.peak ?? "—"} | ${delta ?? "—"} | ${rCell != null ? rCell.toFixed(2) : "—"} |`);
+      lines.push(`| ${mdCell(o.jobName)} | ${mdCell(o.mainName)} | ${o.volumeCount} | ${o.peak ?? "—"} | ${delta ?? "—"} | ${rCell != null ? rCell.toFixed(2) : "—"} | ${weakestCellOf(o.weakest)} |`);
     }
     lines.push("");
     // t220: the lens explains its own silences. When the crown is

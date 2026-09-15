@@ -59,8 +59,11 @@ import {
   outlierRowIdx,
   peakPctNumOf,
   peakPctOf,
+  localAgreement,
   sessionReportFilename,
   shapeAgreement,
+  weakestBand,
+  weakestCellOf,
   type ReportOverlay,
 } from "@/lib/qc-report";
 import { useWorkflowStore } from "@/lib/store";
@@ -148,9 +151,9 @@ const InventoryTableContext = React.createContext(false);
  *  run found ALL doors gone because the key still said "trio" while
  *  the table said "quartet" — a head you don't match is a head you
  *  don't own). t215: the Δ winner column joins too. t221: Agreement r
- *  joins — the key grows by design again, before any probe died (the
- *  t214 lesson as routine discipline, three times now). */
-const OWNER_HEAD = ["Job", "Main map", "Volumes", "Peak", "Δ winner", "Agreement r"];
+ *  joins. t222: Weakest joins — the key grows by design again, before
+ *  any probe died (the t214 lesson as routine discipline, four times). */
+const OWNER_HEAD = ["Job", "Main map", "Volumes", "Peak", "Δ winner", "Agreement r", "Weakest"];
 
 /** Collect the rendered words of a hast node (cells carry plain text —
  *  the doors read what the reader reads, not the markdown source). */
@@ -294,7 +297,7 @@ export default function SessionReportDialog({
    *  outlier lens compute from it; both import their helpers from
    *  qc-report (twins fork, imports don't). */
   const [mapInventory, setMapInventory] = React.useState<
-    { jobId: string; jobName: string; mainName: string; volumeCount: number; peak: string | null; peakPct: number | null; shapeR: number | null }[] | null
+    { jobId: string; jobName: string; mainName: string; volumeCount: number; peak: string | null; peakPct: number | null; shapeR: number | null; weakest: { label: string; r: number; from: number } | null }[] | null
   >(null);
   const [note, setNote] = React.useState<string | null>(null);
   const noteTimer = React.useRef<number | null>(null);
@@ -341,7 +344,7 @@ export default function SessionReportDialog({
       // the inventory is a fact of the WALK — it settles even when the
       // deep measurement below then refuses (partial truth over silence)
       setMapInventory(
-        owners.map((o) => ({ jobId: o.jobId, jobName: o.jobName, mainName: o.main.name, volumeCount: o.volumeCount, peak: null, peakPct: null, shapeR: null })),
+        owners.map((o) => ({ jobId: o.jobId, jobName: o.jobName, mainName: o.main.name, volumeCount: o.volumeCount, peak: null, peakPct: null, shapeR: null, weakest: null })),
       );
       if (owners.length === 0) {
         setMapPending(false);
@@ -379,6 +382,12 @@ export default function SessionReportDialog({
                 peak: heard.get(row.jobId)?.text ?? null,
                 peakPct: heard.get(row.jobId)?.pct ?? null,
                 shapeR: shapeAgreement(winnerBins, heard.get(row.jobId)?.bins ?? null),
+                // t222: WHERE does the shape not follow? The same
+                // quarter-band cut the deep report speaks — weakest band
+                // of owner-vs-winner, from the SAME bins (the third
+                // surface of the one well; a band that is flat or a grid
+                // too short to cut earns null and the cell says —).
+                weakest: weakestBand(localAgreement(winnerBins ?? [], heard.get(row.jobId)?.bins ?? [])),
               }
             : row,
         ) ?? prev,
@@ -478,13 +487,14 @@ export default function SessionReportDialog({
         const rowIdx = mapInventory?.findIndex((o) => o.jobId === owner.jobId) ?? -1;
         const isOutlier = rowIdx >= 0 && rowIdx === outlierRowIdx(mapInventory ?? []);
         const rQuote = owner.shapeR != null ? `, shape r ${owner.shapeR.toFixed(2)}` : "";
+        const wQuote = owner.weakest ? `, thinnest ${weakestCellOf(owner.weakest)}` : "";
         return (
           <tr
             {...rest}
             data-owner-door={owner.jobId}
             data-outlier={isOutlier ? "1" : undefined}
             tabIndex={0}
-            aria-label={`Open ${owner.jobName}'s results — ${owner.mainName}, ${owner.volumeCount} ${owner.volumeCount === 1 ? "volume" : "volumes"}${owner.peak ? `, peak ${owner.peak}` : ""}${delta ? `, Δ ${delta} vs winner` : ""}${rQuote}`}
+            aria-label={`Open ${owner.jobName}'s results — ${owner.mainName}, ${owner.volumeCount} ${owner.volumeCount === 1 ? "volume" : "volumes"}${owner.peak ? `, peak ${owner.peak}` : ""}${delta ? `, Δ ${delta} vs winner` : ""}${rQuote}${wQuote}`}
             className={`cursor-pointer transition-colors hover:bg-violet-500/10 focus-visible:bg-violet-500/15 focus-visible:outline-none${isOutlier ? " bg-amber-500/[0.04]" : ""}`}
             style={isOutlier ? { boxShadow: "inset 3px 0 0 0 rgb(245 158 11)" } : undefined}
             onClick={() => pressOwner(owner)}

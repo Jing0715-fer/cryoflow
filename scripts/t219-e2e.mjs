@@ -120,13 +120,14 @@ must(noteCount === 1 && !!noteText && noteText.includes("QA Class2D Source") && 
 await page.locator("[data-report-body] blockquote").first().scrollIntoViewIfNeeded();
 await sleep(300);
 await page.locator("[data-report-doc]").first().screenshot({ path: "scripts/shots-t219/t219-tie-note-2x.png", scale: "css" });
-const paperRows = [...md.matchAll(/^\| (.+?) \| (.+?) \| (\d+) \| ([\d.]+%) \| ([+-][\d.]+) \| (-?[\d.]+) \|$/gm)].slice(0, 3);
+const paperRows = [...md.matchAll(/^\| (.+?) \| (.+?) \| (\d+) \| ([\d.]+%) \| ([+-][\d.]+) \| (-?[\d.]+) \| (Q\d \(-?\d+\.\d{2}\)|\u2014) \|$/gm)].slice(0, 3);
 must(paperRows.length === 3, `D3 the paper's inventory has three speakable rows (${paperRows.length})`);
 const deltas = paperRows.map((r) => r[5]);
 must(deltas[0] === "+0.0", "D4 the winner still reads against itself (+0.0)");
 must(deltas[1] === deltas[2] && deltas[1].startsWith("-"),
   `D5 the tied rows speak the SAME delta (${deltas[1]} / ${deltas[2]}) — one landscape, twice owned`);
 must(paperRows[1][6] === paperRows[2][6], `D5b the tied rows speak the SAME Agreement r (${paperRows[1][6]}) — one landscape, twice correlated`);
+must(paperRows[1][7] === paperRows[2][7], `D5c the tied rows speak the SAME thinnest band (${paperRows[1][7]}) — one landscape, twice addressed`);
 must(deltas[1] === `-${(peakH - peakT).toFixed(1)}` || Number(deltas[1]) === Number(((peakT - peakH).toFixed(1))),
   `D6 the tied delta is the paper's own arithmetic (${deltas[1]} = ${peakT} - ${peakH} on the depth ruler)`);
 
@@ -139,7 +140,7 @@ const { readFileSync: rf } = await import("node:fs");
 const csv = rf(await download.path(), "utf8");
 const csvRows = csv.trim().split("\n");
 must(csvRows.length === 4, `D7 the CSV speaks three data rows (${csvRows.length - 1})`);
-const paperToCsv = paperRows.map(([, j, m, v, p, d, r]) => [j, m, v, p.replace(/%$/, ""), d, r].map((c) => (/[",\n]/.test(c) ? `"${c}"` : c)).join(","));
+const paperToCsv = paperRows.map(([, j, m, v, p, d, r, w]) => [j, m, v, p.replace(/%$/, ""), d, r, w].map((c) => (/[",\n]/.test(c) ? `"${c}"` : c)).join(","));
 must(csvRows[1] === paperToCsv[0] && csvRows[2] === paperToCsv[1] && csvRows[3] === paperToCsv[2],
   "D8 the CSV == the paper, cell for cell, all three rows");
 

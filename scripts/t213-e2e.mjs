@@ -110,7 +110,7 @@ must(owners[1]?.job.id === second.id, "W3 the walk's SECOND owner is the tail-ti
 /* ============ X: source oracles ============ */
 section("X: the doors, rebuilt in source");
 must((DLG.match(/InventoryTableContext = React\.createContext/g) ?? []).length === 1, "X1 the door context is defined ONCE (module-level, default false)");
-must(DLG.includes('const OWNER_HEAD = ["Job", "Main map", "Volumes", "Peak", "Δ winner", "Agreement r"];'), "X2 the door key is the inventory table's exact head sextet (t214's Peak joined, t215's Δ winner joined, t221's Agreement r joins — the key grows by design, before any probe dies)");
+must(DLG.includes('const OWNER_HEAD = ["Job", "Main map", "Volumes", "Peak", "Δ winner", "Agreement r", "Weakest"];'), "X2 the door key is the inventory table's exact head septet (Peak, Δ winner, Agreement r, Weakest joined in turn — the key grows by design, before any probe dies)");
 must(DLG.includes("OWNER_HEAD.every"), "X3 the head is matched EVERY cell at once — partial heads cannot mint doors");
 must(/thead: \(\{ node, children, \.\.\.rest \}: TheadProps\) => \(\s*\n\s*<InventoryTableContext\.Provider value=\{false\}>/.test(DLG), "X4 the thead NEUTRALIZES the context — a head row is a label, not a door (and node is destructured out, never leaked to the DOM)");
 must(DLG.includes("!inInventory || !owner) return <tr"), "X5 the honest fallback — an unmatched row stays plain (a door must promise what the paper says)");

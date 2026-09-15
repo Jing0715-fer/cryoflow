@@ -154,6 +154,25 @@ const nGrid = Math.max(binsH.length, binsS.length);
 const rWinner = rStr(pearson(resample(binsH, nGrid), resample(binsH, nGrid)));
 const rSecond = rStr(pearson(resample(binsH, nGrid), resample(binsS, nGrid)));
 must(rWinner === "1.00", `W7 the winner's expected Agreement r is 1.00 (a landscape against itself, through the same path) — got ${rWinner}`);
+// t222: the probe's OWN weakest-band oracle — the family's quarter-cut
+// machinery (localAgreement + weakestBand), re-derived from the wire
+const weakestOf = (a, b) => {
+  const n = Math.max(a.length, b.length);
+  if (n < 4) return null;
+  const ra = resample(a, n), rb = resample(b, n);
+  let w = null;
+  for (let k = 0; k < 4; k++) {
+    const lo = Math.floor((k * n) / 4), hi = Math.floor(((k + 1) * n) / 4);
+    const r = pearson(ra.slice(lo, hi), rb.slice(lo, hi));
+    if (!Number.isFinite(r)) continue;
+    if (!w || r < w.r) w = { k, r };
+  }
+  return w ? `Q${w.k + 1} (${w.r.toFixed(2)})` : "\u2014";
+};
+const wWinner = weakestOf(binsH, binsH);
+const wSecond = weakestOf(binsH, binsS);
+must(wWinner === "Q1 (1.00)", `W9 the winner's thinnest quarter is perfect and the cell says so — got ${wWinner}`);
+must(wSecond !== wWinner, `W10 the second's thinnest band is NOT the reference's (${wSecond}) — a divergent shape has a real address`);
 must(rSecond !== "1.00", `W8 the second's expected Agreement r is NOT 1.00 (${rSecond}) — a divergent shape does not follow the winner`);
 
 /* ============ X: source oracles ============ */
@@ -162,7 +181,7 @@ must(LIB.includes("export const pctNumAt = (bins: number[], i: number): number =
 must(LIB.includes("export const peakPctNumOf = (bins: number[]): number =>\n  Number(pctNumAt(bins, peakIndexOf(bins)).toFixed(1));"), "X2 peakPctNumOf rounds on the paper's own 1-decimal grid BEFORE any subtraction — the printed cells are the well");
 must((LIB.match(/export const deltaVsWinner/g) ?? []).length === 1 && DLG.includes("deltaVsWinner,") && !DLG.includes("const deltaVsWinner"), "X3 deltaVsWinner defined ONCE in qc-report, IMPORTED by the dialog (twins fork, imports don't)");
 must((LIB.match(/export const outlierRowIdx/g) ?? []).length === 1 && DLG.includes("outlierRowIdx(mapInventory ?? [])") && !DLG.includes("const outlierRowIdx"), "X4 outlierRowIdx defined ONCE, imported — the dialog does not re-derive the crown");
-must(LIB.includes("| Job | Main map | Volumes | Peak | Δ winner | Agreement r |") && DLG.includes('const OWNER_HEAD = ["Job", "Main map", "Volumes", "Peak", "Δ winner", "Agreement r"];'), "X5 the table grew a sixth column and the KEY GREW WITH IT — by design this time, before any probe died (the t214 lesson as routine discipline, again)");
+must(LIB.includes("| Job | Main map | Volumes | Peak | Δ winner | Agreement r | Weakest |") && DLG.includes('const OWNER_HEAD = ["Job", "Main map", "Volumes", "Peak", "Δ winner", "Agreement r", "Weakest"];'), "X5 the table grew a seventh column and the KEY GREW WITH IT — by design this time, before any probe died (the t214 lesson as routine discipline, again and again)");
 must(LIB.includes("${o.peak ?? \"—\"} | ${delta ?? \"—\"} |"), "X6 the honest Δ cell — a dash obeys the same pending law, never a guess");
 must(LIB.includes("The Δ winner column reads every peak against the winner's own") && LIB.includes("the row farthest from the winner wears the amber edge (a lens, not a verdict"), "X7 the paper teaches the lens (reference row, dash law, amber edge — and the bytes keep the numbers)");
 {
@@ -204,11 +223,11 @@ must(md && md.includes("The Δ winner column reads every peak against the winner
 const doorRows = page.locator("[data-report-body] tr[data-owner-door]");
 for (let i = 0; i < 40 && (await doorRows.count()) !== 2; i++) await sleep(500);
 const headCells = await page.locator("[data-report-body] table:has(tr[data-owner-door]) thead th").allTextContents();
-must(JSON.stringify(headCells) === JSON.stringify(["Job", "Main map", "Volumes", "Peak", "Δ winner", "Agreement r"]), `D6 the inventory's OWN head is the sextet (${JSON.stringify(headCells)})`);
+must(JSON.stringify(headCells) === JSON.stringify(["Job", "Main map", "Volumes", "Peak", "Δ winner", "Agreement r", "Weakest"]), `D6 the inventory's OWN head is the septet (${JSON.stringify(headCells)})`);
 const cellsW = (await doorRows.nth(0).locator("td").allTextContents()).map((c) => c.trim());
 const cellsS = (await doorRows.nth(1).locator("td").allTextContents()).map((c) => c.trim());
-must(JSON.stringify(cellsW) === JSON.stringify([host.name, "orthovol", "4", peakH, "+0.0", rWinner]), `D7 the rendered winner row == wire, cell for cell, r included (${JSON.stringify(cellsW)})`);
-must(JSON.stringify(cellsS) === JSON.stringify([second.name, "orthovol", "1", peakS, deltaS, rSecond]), `D8 the rendered second row == wire, r included (${JSON.stringify(cellsS)})`);
+must(JSON.stringify(cellsW) === JSON.stringify([host.name, "orthovol", "4", peakH, "+0.0", rWinner, wWinner]), `D7 the rendered winner row == wire, cell for cell, r and band included (${JSON.stringify(cellsW)})`);
+must(JSON.stringify(cellsS) === JSON.stringify([second.name, "orthovol", "1", peakS, deltaS, rSecond, wSecond]), `D8 the rendered second row == wire, r and band included (${JSON.stringify(cellsS)})`);
 
 // THE LENS: exactly one amber row, and it is the TAIL row
 for (let i = 0; i < 20 && (await page.locator("[data-report-body] tr[data-outlier]").count()) !== 1; i++) await sleep(500);
@@ -220,6 +239,7 @@ must(!(await doorRows.nth(0).getAttribute("data-outlier")), "D11 the winner row 
 const ariaS = (await doorRows.nth(1).getAttribute("aria-label")) ?? "";
 must(ariaS.includes(`peak ${peakS}`) && ariaS.includes(`Δ ${deltaS} vs winner`), `D12 the tail door's aria quotes peak AND delta ("${ariaS}")`);
 must(ariaS.includes(`shape r ${rSecond}`), `D12b the tail door's aria quotes its Agreement r (${rSecond}) — the same number the paper's cell prints`);
+must(ariaS.includes(`thinnest ${wSecond}`), `D12c the tail door's aria names its thinnest band (${wSecond}) — WHERE the shape does not follow`);
 const ariaH = (await doorRows.nth(0).getAttribute("aria-label")) ?? "";
 must(ariaH.includes(`peak ${peakH}`) && ariaH.includes("Δ +0.0 vs winner"), `D13 the host door's aria quotes its zero delta honestly ("${ariaH}")`);
 
