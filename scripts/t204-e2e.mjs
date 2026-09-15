@@ -245,17 +245,26 @@ const pressBracket = async (br, fracX) => {
 };
 const clickedFrac = 0.15;
 await pressBracket(br2, clickedFrac);
+// t208's receipt armor backfitted (RUN sighting: the receipt's ~4s life
+// can be swallowed whole by a frozen main thread — all fast polls miss
+// it). The DOOR is idempotent: re-pressing the same x re-lands the same
+// centre and re-flashes the note — a missed receipt earns a bounded
+// re-press, not a failure (t195's bounded-click-retries doctrine).
 let doorNow = 0, receipt2 = "";
-for (let k = 0; k < 10; k++) {
-  await sleep(400);
-  doorNow = Number(await strip.getAttribute("aria-valuenow"));
-  const st = await page.evaluate(() =>
-    Array.from(document.querySelectorAll('[role="status"]')).map((n) => ({
-      label: n.getAttribute("aria-label"),
-      text: (n.textContent ?? "").slice(0, 140),
-    }))
-  );
-  receipt2 = st.find((s) => s.label === "Profile export status")?.text ?? "";
+for (let attempt = 0; attempt < 3; attempt++) {
+  if (attempt > 0) await pressBracket(br2, clickedFrac);
+  for (let k = 0; k < 10; k++) {
+    await sleep(400);
+    doorNow = Number(await strip.getAttribute("aria-valuenow"));
+    const st = await page.evaluate(() =>
+      Array.from(document.querySelectorAll('[role="status"]')).map((n) => ({
+        label: n.getAttribute("aria-label"),
+        text: (n.textContent ?? "").slice(0, 140),
+      }))
+    );
+    receipt2 = st.find((s) => s.label === "Profile export status")?.text ?? "";
+    if (receipt2.length > 0) break;
+  }
   if (receipt2.length > 0) break;
 }
 const want2 = Math.round(c2 * 100);
@@ -274,17 +283,22 @@ await strip.focus(); await sleep(200);
 await strip.press("End"); await sleep(700);
 const clickedFrac1 = 0.85;
 await pressBracket(br1, clickedFrac1);
+// the same receipt armor as D7/D8 (bounded re-press on a missed note)
 let door1Now = 0, receipt1 = "";
-for (let k = 0; k < 10; k++) {
-  await sleep(400);
-  door1Now = Number(await strip.getAttribute("aria-valuenow"));
-  const st = await page.evaluate(() =>
-    Array.from(document.querySelectorAll('[role="status"]')).map((n) => ({
-      label: n.getAttribute("aria-label"),
-      text: (n.textContent ?? "").slice(0, 140),
-    }))
-  );
-  receipt1 = st.find((s) => s.label === "Profile export status")?.text ?? "";
+for (let attempt = 0; attempt < 3; attempt++) {
+  if (attempt > 0) await pressBracket(br1, clickedFrac1);
+  for (let k = 0; k < 10; k++) {
+    await sleep(400);
+    door1Now = Number(await strip.getAttribute("aria-valuenow"));
+    const st = await page.evaluate(() =>
+      Array.from(document.querySelectorAll('[role="status"]')).map((n) => ({
+        label: n.getAttribute("aria-label"),
+        text: (n.textContent ?? "").slice(0, 140),
+      }))
+    );
+    receipt1 = st.find((s) => s.label === "Profile export status")?.text ?? "";
+    if (receipt1.length > 0) break;
+  }
   if (receipt1.length > 0) break;
 }
 const want1 = Math.round(c1 * 100);

@@ -1,22 +1,25 @@
-/* t207 e2e — the pair's address becomes a DOOR. t196 put the pair's r on
- * the wall and in the report, t206 gave the pair its own weakest band
- * (printed on chip and paper); t207 closes the pair's loop the same way
- * t202 closed the local one: a pair that owns a weakest band is a BUTTON
- * (press it and the plane lands on the band's centre — the chip/bracket
- * door's own centre algorithm and receipt dialect); a pair WITHOUT an
- * address stays a plain span (no address, no door, no lie). Visiting
- * rides the same state as the local chip (ink rises when the plane is
- * INSIDE the pair's band — text-foreground REPLACES, never joins), and
- * the keyboard answers too (a real button: Enter jumps, no aria-hidden
- * cowardice). t206's D24 locator is upgraded to the form-agnostic
- * [data-pairwise-chip] (the front-wave oracle follows the world).
+/* t208 e2e — the pair's TERRITORY joins the landscape. t203 drew the
+ * local weakest band on the strip, t204 made it a door, t206 gave each
+ * PAIR its own weakest band (chip + paper), t207 made the pair chip a
+ * door — but the pair's band was still INVISIBLE on the strip itself:
+ * pressing the pair door landed the plane on a territory the landscape
+ * never drew. t208 closes that asymmetry: each pair's thinnest
+ * corroboration band is drawn on its OWN row above the local brackets,
+ * in NEUTRAL ink (currentColor — corroboration belongs to the pair, not
+ * to either map's colour), with the same door doctrine (press → the
+ * plane lands on the band's centre, the receipt speaking the pair's
+ * vocabulary byte-for-byte) and the same visiting discipline (the ink
+ * rises when the plane is INSIDE the band). The layer stays aria-hidden
+ * — the keyboard's door remains the pairwise chip. Fewer than two
+ * speaking overlays draw nothing (no pair, no territory, no lie).
  *   S  setup — seeder, orthovol + BOTH half-maps (+ hygienic start)
  *   W  wire — band oracles + the PAIRWISE oracle + the door's centre
- *   X  source oracles — the button door, the span's honesty, the
- *      receipt dialect, the visiting ink REPLACES
- *   D  live — press the door (plane lands on the pair's centre, receipt
- *      byte-for-byte, visiting flips), the keyboard door, t206's tables
- *      and chip survive in the same frame
+ *   X  source oracles — t207's door set + the strip's pair painter
+ *      (neutral ink, the byte-identical receipt, the aria-hidden layer)
+ *   D  live — t207's full set re-green + the pair's territory: presence,
+ *      geometry, TWO rows ONE plane (pair vs local visiting disagree
+ *      truthfully), the bracket door pressed, the territory follows the
+ *      plane home
  *   Z  read-only — roster identity, console clean
  * x3 runs required by house rules. */
 import { chromium } from "playwright";
@@ -26,7 +29,7 @@ import { execSync } from "node:child_process";
 
 const BASE = process.env.BASE ?? "http://localhost:3000";
 const RUN = Number(process.env.RUN ?? "1");
-const OUT = "scripts/shots-t207";
+const OUT = "scripts/shots-t208";
 mkdirSync(OUT, { recursive: true });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -144,6 +147,11 @@ must(SRC.includes("onClick={pjump}") && /return \(\s*<button[\s\S]{0,400}data-pa
 must(SRC.includes("const pcentre = pw ? Math.round(((pw.from + pw.to) / 2) * 100) / 100 : null;"), "X15 the door's centre is the chip/bracket door's own algorithm (Math.round(((from+to)/2)*100)/100) — one arithmetic, three doors");
 must(SRC.includes("the centre of the thinnest corroboration between ${p.a} and ${p.b} (${pw.label})"), "X16 the receipt speaks the pair's dialect (t202's receipt template, the pair's vocabulary)");
 must(SRC.includes("data-visiting={pvisiting ? \"1\" : undefined}") && SRC.includes("${pvisiting ? \"text-foreground\" : \"text-muted-foreground\"}"), "X17 visiting rides the pair's band and the ink REPLACES, never joins (t203's same-specificity discipline)");
+// t208: the strip's pair painter — the territory the pair's door lands on
+must(SRC.includes("data-pair-bracket={`${p.a}|${p.b}`}") && SRC.includes('fill="currentColor"'), "X18 the strip draws the pair's territory in NEUTRAL ink — corroboration belongs to the pair, not to either map's colour");
+must((SRC.match(/the centre of the thinnest corroboration between \$\{p\.a\} and \$\{p\.b\} \(\$\{pw\.label\}\)/g) || []).length === 2, "X19 the receipt dialect is spoken by BOTH doors (chip t207 + bracket t208) — byte-identical, one vocabulary");
+must(SRC.includes("if (!p.weakest) return []; // no address, no territory") && SRC.includes("data-pair-visiting={pvisiting ? \"1\" : \"0\"}"), "X20 the pair bracket keeps the honest branch (a pair without an address draws nothing) and the visiting attribute always answers");
+must(SRC.includes('<g aria-hidden="true">{pairBrackets}</g>') && SRC.includes('<g aria-hidden="true">{bandBrackets}</g>'), "X21 the pair's territory lives in the aria-hidden layer — the hand's door only; the keyboard's door remains the pairwise chip (t204's discipline, t207's button)");
 
 /* ============ D: live ============ */
 section("D: the paper, live");
@@ -438,11 +446,12 @@ await strip.press("Home"); await sleep(700);
 must(Number(await strip.getAttribute("aria-valuenow")) === 0, "D26 pre-state: Home put the plane at 0% (outside the pair's band)");
 const pairBtn = page.locator('button[data-pairwise-chip]');
 await pairBtn.click();
-// t208's receipt armor backfitted (the family's sightings: t204's D8/D11,
-// t202's D7, t208's own D28, now here): a frozen main thread can swallow
-// the note's ~4s life whole — the door is IDEMPOTENT (re-pressing lands
-// the same centre and re-flashes the note), so a missed receipt earns a
-// bounded re-press, not a failure (t195's bounded-click-retries doctrine).
+// t202's lesson, hardened by RUN=2's sighting: the receipt lives ~4 wall-
+// time seconds and a frozen main thread can compress that to nothing —
+// all 16 fast polls can miss its entire life. The DOOR is idempotent
+// (pressing again re-lands the same centre and re-flashes the note), so
+// a missed receipt earns a bounded re-press, not a failure (t195's
+// bounded-click-retries doctrine, now for the receipt's sake).
 let pairNow = -1, pairReceiptText = "";
 for (let attempt = 0; attempt < 3; attempt++) {
   if (attempt > 0) { await pairBtn.click().catch(() => {}); }
@@ -477,8 +486,59 @@ for (let k = 0; k < 10; k++) {
 must(kbdNow === pairPct, `D31 the keyboard's door: Enter on the focused chip lands ${pairPct} (got ${kbdNow}) — the button answers both hands`);
 must((await pairBtn.getAttribute("data-visiting")) === "1", "D32 visiting follows the keyboard's jump too (one state, both inputs)");
 
+// ============ t208: the pair's TERRITORY, live ============
+// the plane currently sits at the pair's band centre (D31's Enter) — so
+// the pair's bracket must be VISITING, and so must half1's local bracket
+// (the pair's band IS half1's Q3): two rows, one plane, two truths.
+const pairRect = page.locator('svg[role="slider"] rect[data-pair-bracket="run_it020_half1|run_it020_half2"]');
+must((await pairRect.count()) === 1 && (await pairRect.isVisible().catch(() => false)), "D33 the pair's territory is ON the strip (one bracket for the one pair)");
+must((await pairRect.getAttribute("x")) === (wPair.from * 100).toFixed(2) && (await pairRect.getAttribute("width")) === ((wPair.to - wPair.from) * 100).toFixed(2), `D34 the territory's geometry == the wire oracle (x ${(await pairRect.getAttribute("x"))}, width ${(await pairRect.getAttribute("width"))})`);
+must((await pairRect.getAttribute("fill")) === "currentColor", "D35 the territory wears NEUTRAL ink — neither map's colour (the pair's, not half1's or half2's)");
+must((await pairRect.getAttribute("data-pair-visiting")) === "1", "D36 at the band's centre the pair's ink is RISEN (visiting rides the plane, not the click)");
+must((await page.locator('svg[role="slider"] rect[data-band-bracket="run_it020_half1"]').getAttribute("data-band-visiting")) === "1", "D37 the plane sits inside BOTH rows' bands (pair Q3 == half1's local Q3 — two truths, one plane)");
+must((await page.locator('svg[role="slider"] rect[data-band-bracket="run_it020_half2"]').getAttribute("data-band-visiting")) === "0", "D38 half2's local bracket rests (its Q1 is elsewhere) — the two rows disagree TRUTHFULLY about the same plane");
+// the bracket door answers the HAND: away first (End = 100%, outside),
+// then press the rect — the plane lands on the band's CENTRE and the
+// receipt speaks the pair's vocabulary byte-for-byte (read the receipt
+// FIRST — it is the ephemeral thing, t202's lesson)
+await strip.focus(); await strip.press("End"); await sleep(700);
+must(Number(await strip.getAttribute("aria-valuenow")) === 100 && (await pairRect.getAttribute("data-pair-visiting")) === "0", "D39 pre-door: End put the plane at 100% — the pair's ink is at rest again (the territory follows the plane)");
+await pairRect.click({ force: true, timeout: 8000 }).catch(() => {});
+// the same receipt armor as D27: a frozen thread can swallow the note's
+// whole life — the bracket door is idempotent too, so re-press and re-poll
+let brNow = -1, brReceipt = "";
+for (let attempt = 0; attempt < 3; attempt++) {
+  if (attempt > 0) { await pairRect.click({ force: true, timeout: 8000 }).catch(() => {}); }
+  for (let k = 0; k < 16; k++) {
+    await sleep(250);
+    const st = await page.evaluate(() =>
+      Array.from(document.querySelectorAll('[role="status"]')).map((n) => ({
+        label: n.getAttribute("aria-label"),
+        text: (n.textContent ?? "").slice(0, 160),
+      }))
+    );
+    brReceipt = st.find((s) => s.label === "Profile export status")?.text ?? "";
+    brNow = Number(await strip.getAttribute("aria-valuenow"));
+    if (brNow === pairPct && brReceipt.length > 0) break;
+  }
+  if (brNow === pairPct && brReceipt.length > 0) break;
+}
+must(brNow === pairPct, `D40 PRESS the territory itself: strip aria-valuenow == ${pairPct} (got ${brNow}) — the bracket is a door, not a scrub (t204's stopPropagation doctrine, now pair-shaped)`);
+must(brReceipt === pairReceipt, `D41 the bracket's receipt == the chip's receipt byte-for-byte (${brReceipt.slice(0, 90)})`);
+must((await pairRect.getAttribute("data-pair-visiting")) === "1", "D42 the pair's ink risen after its own door (visiting == the plane's address, not the pointer's)");
+// PORTRAIT: the plane parked on the pair's band centre by the bracket's
+// own door — the pair's row risen (neutral ink), half1's local row risen
+// (its own colour), half2's resting: one frame, three truths.
+await page.screenshot({ path: `${OUT}/t208-pair-territory-2x.png` }).catch(() => {});
+// the territory follows the plane HOME: keyboard away (the bracket layer
+// is aria-hidden — the strip itself is the keyboard's scrub), and the
+// resting ink must come back down
+await strip.focus(); await strip.press("Home"); await sleep(700);
+must(Number(await strip.getAttribute("aria-valuenow")) === 0 && (await pairRect.getAttribute("data-pair-visiting")) === "0", "D43 Home: the territory's ink rests (the bracket follows the plane home — no stuck ink)");
+must((await page.locator('svg[role="slider"] rect[data-band-bracket="run_it020_half2"]').getAttribute("data-band-visiting")) === "1", "D44 Home lands INSIDE half2's local Q1 — the local row answers where the pair's row cannot (its territory ends at 0.75)");
 
-await page.screenshot({ path: `${OUT}/t207-pair-door-2x.png` }).catch(() => {});
+
+await page.screenshot({ path: `${OUT}/t208-final-2x.png` }).catch(() => {});
 
 /* ============ Z: read-only ============ */
 section("Z: the world read back");

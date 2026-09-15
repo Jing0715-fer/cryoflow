@@ -3639,6 +3639,19 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                         // stays the scrub. The door answers only the hand:
                         // the layer stays aria-hidden and unfocusable, the
                         // chip remains the keyboard's door.
+                        // t208: the pair's TERRITORY joins the landscape —
+                        // each pair's thinnest corroboration band (t206's
+                        // pairwise weakest) drawn on its OWN row above the
+                        // local brackets, in NEUTRAL ink (currentColor —
+                        // corroboration belongs to the pair, not to either
+                        // map's colour). The same door doctrine as t204:
+                        // press it and the plane lands on the band's centre,
+                        // the receipt speaking the pair's vocabulary (t207's
+                        // chip template, byte for byte); the layer stays
+                        // aria-hidden and the keyboard's door remains the
+                        // pairwise chip (t207's button). Fewer than two
+                        // speaking overlays draw nothing — no pair, no
+                        // territory, no lie.
                         const bandBrackets = overlays
                           .map((o) => ({ o, op: overlayProfiles[o.path] }))
                           .flatMap(({ o, op }) => {
@@ -3668,6 +3681,44 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                               />,
                             ];
                           });
+                        // t208's painter: one bracket per PAIR of speaking
+                        // overlays whose weakest band exists — the identical
+                        // derivation the pairwise chips drink from (line for
+                        // line), rendered one row above the local brackets.
+                        const pairBrackets = pairwiseAgreement(
+                          overlays
+                            .map((o) => ({ name: o.name, bins: overlayProfiles[o.path]?.bins ?? [] }))
+                            .filter((o) => o.bins.length > 0)
+                        ).flatMap((p) => {
+                          if (!p.weakest) return []; // no address, no territory
+                          const pw = p.weakest;
+                          const pcentre = Math.round(((pw.from + pw.to) / 2) * 100) / 100;
+                          const pvisiting = slicePos >= pw.from && slicePos < pw.to;
+                          return [
+                            <rect
+                              key={`${p.a}|${p.b}`}
+                              data-pair-bracket={`${p.a}|${p.b}`}
+                              data-pair-visiting={pvisiting ? "1" : "0"}
+                              x={(pw.from * 100).toFixed(2)}
+                              y="24.4"
+                              width={((pw.to - pw.from) * 100).toFixed(2)}
+                              height="2.4"
+                              rx="0.4"
+                              fill="currentColor"
+                              opacity={pvisiting ? "0.85" : "0.3"}
+                              className="cursor-pointer transition-opacity duration-150 hover:opacity-85"
+                              onPointerDown={(e) => {
+                                e.stopPropagation();
+                                applySliceIntent({ pos: pcentre });
+                                flashProfileNote(`Plane moved to ${Math.round(pcentre * 100)}% — the centre of the thinnest corroboration between ${p.a} and ${p.b} (${pw.label})`);
+                              }}
+                            >
+                              <title>
+                                The thinnest corroboration between {p.a} and {p.b} ({pw.label}) — press to move the plane to the band's centre
+                              </title>
+                            </rect>,
+                          ];
+                        });
                         return (
                           <>
                             <polygon points={`0,30 ${pts.join(" ")} 100,30`} fill="rgba(8,145,178,0.14)" />
@@ -3680,6 +3731,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                               strokeLinejoin="round"
                             />
                             <g aria-hidden="true">{bandBrackets}</g>
+                            <g aria-hidden="true">{pairBrackets}</g>
                             <line
                               x1={slicePos * 100}
                               x2={slicePos * 100}

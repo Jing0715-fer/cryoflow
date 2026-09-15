@@ -236,7 +236,15 @@ must(v1AtHome === "0" && o1AtHome === "0.3" && v2AtHome === "1" && o2AtHome === 
 const chip1 = page.locator('[data-local-chip="run_it020_half1"]');
 const chip2 = page.locator('[data-local-chip="run_it020_half2"]');
 must((await chip1.getAttribute("data-visiting")) === null && (await chip2.getAttribute("data-visiting")) === "1", "D8 the chips answer: half1 at rest, half2 data-visiting");
-// the visiting ink is the foreground token — brighter than the rest ink
+// the visiting ink is the foreground token — brighter than the rest ink.
+// SECOND sighting of this flake (first: t207's window) earns the armor
+// (t204's D12 doctrine): the pointer rests where the half2 map-choice
+// click left it — if that lands on the local row, the chip's HOVER ink
+// (accent-foreground) pollutes the census. The finger's hover state IS
+// an input: move it to neutral ground first — visiting rides the PLANE
+// (state), never the pointer.
+await page.mouse.move(5, 5);
+await sleep(300);
 const fgTok = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--foreground").trim());
 const fgRgb = await toRgb(fgTok);
 const ink2 = await toRgb(await chip2.evaluate((el) => getComputedStyle(el).color));

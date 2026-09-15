@@ -256,23 +256,32 @@ must(nowBefore === 0, `D5 pre-state: Home put the plane at 0% (aria-valuenow ${n
 
 // THE DOOR: click the chip — the plane obeys the address
 await chip1.click();
+// t208's receipt armor backfitted (third sighting of the family: t204's
+// D8/D11, t208's D28, now here): a frozen main thread can swallow the
+// note's ~4s life whole — the chip door is IDEMPOTENT (re-clicking lands
+// the same centre and re-flashes the note), so a missed receipt earns a
+// bounded re-click, not a failure (t195's bounded-click-retries).
 let jumped = 0, receiptText = "";
-// t206's lesson in t202's frame: the receipt lives 4 SECONDS of WALL TIME,
-// but a busy Mol* thread can freeze the page past the probe's first poll —
-// the frozen timers then fire together and the receipt is gone by the next
-// beat. So: poll FAST and read the EPHEMERAL thing FIRST (receipt before
-// valuenow), because the plane's position survives while the receipt dies.
-for (let k = 0; k < 16; k++) {
-  await sleep(250);
-  const st = await page.evaluate(() =>
-    Array.from(document.querySelectorAll('[role="status"]')).map((n) => ({
-      label: n.getAttribute("aria-label"),
-      text: (n.textContent ?? "").slice(0, 120),
-    }))
-  );
-  receiptText = st.find((s) => s.label === "Profile export status")?.text ?? "";
-  jumped = Number(await strip.getAttribute("aria-valuenow"));
-  if (k === 0) console.log(`  (diag: ${st.length} role=status nodes: ${JSON.stringify(st)})`);
+for (let attempt = 0; attempt < 3; attempt++) {
+  if (attempt > 0) await chip1.click().catch(() => {});
+  // t206's lesson in t202's frame: the receipt lives 4 SECONDS of WALL TIME,
+  // but a busy Mol* thread can freeze the page past the probe's first poll —
+  // the frozen timers then fire together and the receipt is gone by the next
+  // beat. So: poll FAST and read the EPHEMERAL thing FIRST (receipt before
+  // valuenow), because the plane's position survives while the receipt dies.
+  for (let k = 0; k < 16; k++) {
+    await sleep(250);
+    const st = await page.evaluate(() =>
+      Array.from(document.querySelectorAll('[role="status"]')).map((n) => ({
+        label: n.getAttribute("aria-label"),
+        text: (n.textContent ?? "").slice(0, 120),
+      }))
+    );
+    receiptText = st.find((s) => s.label === "Profile export status")?.text ?? "";
+    jumped = Number(await strip.getAttribute("aria-valuenow"));
+    if (attempt === 0 && k === 0) console.log(`  (diag: ${st.length} role=status nodes: ${JSON.stringify(st)})`);
+    if (jumped === stripNow1 && receiptText.length > 0) break;
+  }
   if (jumped === stripNow1 && receiptText.length > 0) break;
 }
 must(jumped === stripNow1, `D6 CLICK the address: strip aria-valuenow == ${stripNow1} (got ${jumped}) — the plane sits at the betrayal's centre`);
