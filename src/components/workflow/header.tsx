@@ -26,7 +26,7 @@ import { useWorkflowStore, useActiveWorkspaceJobs } from "@/lib/store";
 import { hasJudgment } from "@/lib/class-notes";
 import { ThemeToggle } from "./theme-toggle";
 import { HelpPopover } from "./help-popover";
-import { CommandPaletteTrigger } from "./command-palette";
+import { CommandPaletteTrigger, SESSION_REPORT_EVENT } from "./command-palette";
 // t197: the session QC report is code-split (react-markdown + remark-gfm
 // ride their own chunk) — the app shell never pays for the document
 // renderer until the report is opened for the first time.
@@ -749,6 +749,15 @@ export function Header() {
   // both are document-level actions on the session, so both live in the
   // document-level corner of the chrome.
   const [reportOpen, setReportOpen] = React.useState(false);
+  // t221: the palette's report door — the palette dispatches, the owner
+  // listens (the OPEN_EVENT handshake, the reverse hop). The header owns
+  // the dialog; the palette only names the door, it never mounts a
+  // second report.
+  React.useEffect(() => {
+    const open = () => setReportOpen(true);
+    window.addEventListener(SESSION_REPORT_EVENT, open);
+    return () => window.removeEventListener(SESSION_REPORT_EVENT, open);
+  }, []);
 
   const total = jobs.length;
   const running = jobs.filter((j) => j.status === "running").length;

@@ -107,7 +107,7 @@ const csv = readFileSync(await download.path(), "utf8");
 must(!!csv, "D5 the download has bytes");
 
 const rows = csv.trim().split("\n");
-must(rows[0] === "job,main_map,volumes,peak_pct,delta_winner", "D6 the header is the machine grid");
+must(rows[0] === "job,main_map,volumes,peak_pct,delta_winner,shape_r", "D6 the header is the machine grid (t221: shape_r joins — the roster's r fact travels)");
 must(rows.length === 3, `D7 one row per owner, no more (${rows.length - 1})`);
 
 // wire-relative doctrine: the CSV is the PAPER's machine translation —
@@ -115,12 +115,12 @@ must(rows.length === 3, `D7 one row per owner, no more (${rows.length - 1})`);
 // and compared, never against a hard-coded yesterday.
 const md = await page.locator("[data-report-doc]").getAttribute("data-md");
 must(!!md, "D8 the rendered document's markdown is on the wire");
-const paperRows = [...md.matchAll(/^\| (.+?) \| (.+?) \| (\d+) \| ([\d.]+%) \| ([+-][\d.]+) \|$/gm)].slice(0, 2);
+const paperRows = [...md.matchAll(/^\| (.+?) \| (.+?) \| (\d+) \| ([\d.]+%) \| ([+-][\d.]+) \| (-?[\d.]+) \|$/gm)].slice(0, 2);
 must(paperRows.length === 2, `D9 the paper's inventory has two speakable rows (${paperRows.length})`);
-const paperToCsv = paperRows.map(([, j, m, v, p, d]) => [j, m, v, p.replace(/%$/, ""), d].map((c) => (/[",\n]/.test(c) ? `"${c}"` : c)).join(","));
+const paperToCsv = paperRows.map(([, j, m, v, p, d, r]) => [j, m, v, p.replace(/%$/, ""), d, r].map((c) => (/[",\n]/.test(c) ? `"${c}"` : c)).join(","));
 must(rows[1] === paperToCsv[0], `D10 the winner row == paper, cell for cell (${rows[1]})`);
 must(rows[2] === paperToCsv[1], `D11 the second row == paper, cell for cell (${rows[2]})`);
-must(paperToCsv[0].endsWith(",+0.0"), "D12 the reference row speaks +0.0 in BOTH grammars");
+must(paperToCsv[0].endsWith(",+0.0,1.00"), "D12 the reference row speaks +0.0 and self-r 1.00 in BOTH grammars");
 
 // the portrait: the doors row with the emerald CSV sibling + the five-column
 // inventory (the roster and its machine grid, one frame)

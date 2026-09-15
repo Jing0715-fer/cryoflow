@@ -26,6 +26,7 @@ import {
   Download,
   FileJson,
   FileSpreadsheet,
+  FileText,
   FileUp,
   GraduationCap,
   Keyboard,
@@ -78,6 +79,14 @@ import { TypeIcon } from "./icons";
 import { PipelineScriptDialog } from "./pipeline-script-dialog";
 
 const OPEN_EVENT = "cryoflow:open-palette";
+
+/** t221: the palette's report door — the palette dispatches, the header
+ *  (which owns the SessionReportDialog and its reportOpen state) listens.
+ *  Same decoupling as OPEN_EVENT, the reverse hop: the palette was the
+ *  last surface where the session report had no name — and a door that
+ *  exists only on the header strip is a door the keyboard cannot reach
+ *  (the t210 doctrine, palette edition). */
+export const SESSION_REPORT_EVENT = "cryoflow:open-session-report";
 
 /** Per-chart icon + accent for the Export group — the SAME icon the chart's
  *  own header carries, so a palette row is recognizably "that chart" before
@@ -892,6 +901,22 @@ export function CommandPalette() {
             <Moon className="size-4 shrink-0" />
             <span className="flex-1 text-sm">
               Switch to {resolvedTheme === "dark" ? "light" : "dark"} theme
+            </span>
+          </CommandItem>
+          <CommandItem
+            value="session qc report map inventory amber lens csv printable document"
+            onSelect={() => {
+              close(); // the report is the next modal — drop the palette first
+              window.dispatchEvent(new CustomEvent(SESSION_REPORT_EVENT));
+            }}
+            className="gap-2.5"
+          >
+            <FileText className="size-4 shrink-0 text-violet-600" />
+            <span className="flex-1 text-sm">
+              Open the session QC report
+              <span className="ml-1.5 text-[10px] text-muted-foreground">
+                pipeline glance · map inventory · sweep verdict, one printable paper
+              </span>
             </span>
           </CommandItem>
           <CommandItem

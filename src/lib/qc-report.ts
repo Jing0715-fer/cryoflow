@@ -223,11 +223,13 @@ export const deltaVsWinner = (rowPct: number | null, winnerPct: number | null): 
   return `${d < 0 ? "-" : "+"}${Math.abs(d).toFixed(1)}`;
 };
 
-/** t218: the roster speaks CSV — the five-column inventory as a machine
+/** t218: the roster speaks CSV — the inventory as a machine
  *  grid for spreadsheets and scripts. Same father as the paper: peak_pct
- *  sits on the SAME 1-decimal grid the paper prints, and delta_winner is
+ *  sits on the SAME 1-decimal grid the paper prints, delta_winner is
  *  deltaVsWinner ITSELF (the CSV never re-derives the deviation — twins
- *  fork, imports don't). A pending peak speaks an empty cell: "still
+ *  fork, imports don't), and t221's shape_r is the inventory's own
+ *  Agreement r number (2-decimal, the paper's grammar; blank while
+ *  unmeasured). A pending peak speaks an empty cell: "still
  *  measuring" in CSV grammar is blank, never a guess. Cells are quoted
  *  only when they must be (RFC 4180 — names may carry commas). */
 export type InventoryCsvRow = {
@@ -236,6 +238,7 @@ export type InventoryCsvRow = {
   volumeCount: number;
   peak: string | null;
   peakPct: number | null;
+  shapeR?: number | null;
 };
 export const inventoryCsv = (rows: InventoryCsvRow[] | null): string | null => {
   if (!rows || rows.length === 0) return null;
@@ -245,9 +248,10 @@ export const inventoryCsv = (rows: InventoryCsvRow[] | null): string | null => {
   const body = rows.map((o) => {
     const peak = o.peakPct != null ? o.peakPct.toFixed(1) : "";
     const delta = deltaVsWinner(o.peakPct, winnerPct) ?? "";
-    return line([o.jobName, o.mainName, String(o.volumeCount), peak, delta]);
+    const rCell = o.shapeR != null ? o.shapeR.toFixed(2) : "";
+    return line([o.jobName, o.mainName, String(o.volumeCount), peak, delta, rCell]);
   });
-  return [line(["job", "main_map", "volumes", "peak_pct", "delta_winner"]), ...body].join("\n");
+  return [line(["job", "main_map", "volumes", "peak_pct", "delta_winner", "shape_r"]), ...body].join("\n");
 };
 
 /** The ONE scan both lenses read (t220: twins fork, imports don't —
@@ -306,6 +310,27 @@ export const contestedCrown = (
 ): { abs: number; indices: number[] } | null => {
   const { abs, indices } = crownScan(rows);
   return indices.length > 1 ? { abs, indices } : null;
+};
+
+/** t221: shape agreement — the inventory gives every owner the winner's
+ *  own comparison arithmetic. The deep report speaks Agreement r for the
+ *  winner's maps (main vs its overlays, t195/t206); this helper speaks
+ *  the SAME statistic for an owner's main landscape against the WINNER's:
+ *  both resampled to the finer of the two grids on the shared fraction
+ *  scale (the finer ruler preserves more shape), one Pearson number.
+ *  Fail-soft, the family contract: a missing landscape, an empty one or
+ *  a flat field (zero variance → non-finite r) earns null — the cell
+ *  says —, it never guesses. The winner's own row rides the same path
+ *  (a landscape against itself) and lands at 1.00 the honest way: no
+ *  special case, no second father. */
+export const shapeAgreement = (
+  winnerBins: number[] | null | undefined,
+  ownerBins: number[] | null | undefined,
+): number | null => {
+  if (!winnerBins || !ownerBins || winnerBins.length === 0 || ownerBins.length === 0) return null;
+  const n = Math.max(winnerBins.length, ownerBins.length);
+  const r = pearson(resampleByFraction(winnerBins, n), resampleByFraction(ownerBins, n));
+  return Number.isFinite(r) ? r : null;
 };
 
 /** Every PAIR of comparison terrains, correlated on the shared fraction
@@ -617,8 +642,10 @@ export const buildSessionReport = (opts: {
    *  The deep profiles above speak only the newest owner — the inventory
    *  is how the paper admits the rest of the session exists. Null when
    *  the walk has not settled (pending/error); the section honest-absents
-   *  when the world owns no volumes at all. */
-  mapInventory: { jobId: string; jobName: string; mainName: string; volumeCount: number; peak: string | null; peakPct: number | null }[] | null;
+   *  when the world owns no volumes at all. t221: each row also carries
+   *  its Agreement r vs the winner (null until BOTH landscapes are in —
+   *  the dialog computes it where the bins live; the paper cell says —). */
+  mapInventory: { jobId: string; jobName: string; mainName: string; volumeCount: number; peak: string | null; peakPct: number | null; shapeR?: number | null }[] | null;
   sweep: string | null;
 }): string => {
   const { projectName, pipeline, mapQc, mapPending, mapError, mapInventory, sweep } = opts;
@@ -678,14 +705,24 @@ export const buildSessionReport = (opts: {
     // the row farthest from the winner wears the amber edge — a lens,
     // not a verdict; the exported bytes keep the numbers and let the
     // reader judge.
-    lines.push("Every job in this session that owns a true 3D volume, newest walk first. The deep profiles above ride the newest owner; this inventory keeps every other owner visible — no map hides below the fold (the t211 lesson: a walk that stops at the first winner leaves the rest of the world unseen). Each row is a door — press it and the page hands you to that job's results (the t210 lesson carried onto the report: a name on a roster should never be a dead end). The Peak column quotes each owner's main map exactly the way the deep report quotes the winner — where the mass concentrates along the shared axis, as a fraction of depth; — means still measuring, never a guess. The Δ winner column reads every peak against the winner's own — the reference row speaks +0.0, its dash obeys the same law, and the lens never guesses; on the page the row farthest from the winner wears the amber edge (a lens, not a verdict — the exported bytes keep the numbers and let the reader judge).");
+    lines.push("Every job in this session that owns a true 3D volume, newest walk first. The deep profiles above ride the newest owner; this inventory keeps every other owner visible — no map hides below the fold (the t211 lesson: a walk that stops at the first winner leaves the rest of the world unseen). Each row is a door — press it and the page hands you to that job's results (the t210 lesson carried onto the report: a name on a roster should never be a dead end). The Peak column quotes each owner's main map exactly the way the deep report quotes the winner — where the mass concentrates along the shared axis, as a fraction of depth; — means still measuring, never a guess. The Δ winner column reads every peak against the winner's own — the reference row speaks +0.0, its dash obeys the same law, and the lens never guesses; on the page the row farthest from the winner wears the amber edge (a lens, not a verdict — the exported bytes keep the numbers and let the reader judge). The Agreement r column gives every owner the winner's own comparison arithmetic — the same Pearson correlation on the shared 0–100% fraction scale, each owner's main landscape read against the winner's on the finer of the two grids; the reference row lands at 1.00 through the same path, and — means still measuring or a flat field, never a guess.");
     lines.push("");
+    // t221: the roster speaks shape. The Agreement r column gives every
+    // owner the winner's own comparison arithmetic — the SAME Pearson on
+    // the shared 0–100% fraction scale the deep report prints for the
+    // winner's maps (shapeAgreement, imported machinery: resample to the
+    // finer grid, one number; the winner's row lands at 1.00 through the
+    // same path, no special case). — means still measuring or a flat
+    // field; the cell never guesses. shapeR travels in the row (the
+    // dialog computes it where the landscapes live); the CSV sibling
+    // grows the same fact as shape_r — numbers travel, verdicts don't.
     const winnerPct = mapInventory[0]?.peakPct ?? null;
-    lines.push("| Job | Main map | Volumes | Peak | Δ winner |");
-    lines.push("|-----|----------|---------|------|----------|");
+    lines.push("| Job | Main map | Volumes | Peak | Δ winner | Agreement r |");
+    lines.push("|-----|----------|---------|------|----------|-------------|");
     for (const o of mapInventory) {
       const delta = deltaVsWinner(o.peakPct, winnerPct);
-      lines.push(`| ${mdCell(o.jobName)} | ${mdCell(o.mainName)} | ${o.volumeCount} | ${o.peak ?? "—"} | ${delta ?? "—"} |`);
+      const rCell = o.shapeR;
+      lines.push(`| ${mdCell(o.jobName)} | ${mdCell(o.mainName)} | ${o.volumeCount} | ${o.peak ?? "—"} | ${delta ?? "—"} | ${rCell != null ? rCell.toFixed(2) : "—"} |`);
     }
     lines.push("");
     // t220: the lens explains its own silences. When the crown is

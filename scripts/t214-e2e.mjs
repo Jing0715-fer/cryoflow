@@ -113,7 +113,7 @@ must(peakH !== peakS || true, `W4 the expected cells: host ${peakH}, second ${pe
 section("X: one truth, two surfaces — rebuilt in source");
 must(LIB.includes("export const peakIndexOf = (bins: number[]): number =>") && LIB.includes("export const peakPctOf = (bins: number[]): string => pctAt(bins, peakIndexOf(bins));"), "X1 the shared well — peakIndexOf/peakPctOf exported from the ONE home");
 must((LIB.match(/peakIndexOf\(bins\)/g) ?? []).length >= 2, "X2 buildProfileReport itself drinks the well (the deep report's Peak bullet shares the formula)");
-must(LIB.includes("volumeCount: number; peak: string | null; peakPct: number | null }[] | null;"), "X3 the contract's per-row peak AND its 1-decimal number (t215's lens drinks the rounded cells, not the raw bins), both nullable while measuring");
+must(LIB.includes("volumeCount: number; peak: string | null; peakPct: number | null; shapeR?: number | null }[] | null;"), "X3 the contract's per-row peak, its 1-decimal number (t215's lens drinks the rounded cells, not the raw bins) and t221's Agreement r (optional-nullable — the r never guesses), all nullable while measuring");
 must(LIB.includes("| Job | Main map | Volumes | Peak |") && LIB.includes("|-----|----------|---------|------|"), "X4 the four-column head (who, what, how many, where the mass sits)");
 must(LIB.includes('${o.peak ?? "—"}'), "X5 the honest cell — — means still measuring, never a guess");
 must((DLG.match(/async function measureOwnerPeaks\(/g) ?? []).length === 1 && DLG.includes("peakPctOf(d.bins)"), "X6 measureOwnerPeaks defined once, quoting the SAME formula (peakPctOf)");
@@ -174,7 +174,7 @@ must(ariaH.includes(`peak ${peakH}`), `D8 the host door's aria quotes its peak (
 // collects every family's head. The quartet must be read from the ONE
 // table that carries the doors (has-scoped), never from the whole body.
 const headCells = await page.locator("[data-report-body] table:has(tr[data-owner-door]) thead th").allTextContents();
-must(JSON.stringify(headCells) === JSON.stringify(["Job", "Main map", "Volumes", "Peak", "Δ winner"]), `D9 the inventory's OWN head is the quintet (${JSON.stringify(headCells)})`);
+must(JSON.stringify(headCells) === JSON.stringify(["Job", "Main map", "Volumes", "Peak", "Δ winner", "Agreement r"]), `D9 the inventory's OWN head is the sextet (${JSON.stringify(headCells)})`);
 
 // reopen — the statcache makes the peaks re-settle quickly (the walk and
 // the peaks re-run on every open; nothing is remembered across opens)

@@ -129,6 +129,32 @@ const dS = Number((num(peakS) - num(peakH)).toFixed(1));
 const deltaS = `${dS < 0 ? "-" : "+"}${Math.abs(dS).toFixed(1)}`;
 must(deltaW === "+0.0", "W5 the reference row's expected delta is +0.0 (the winner reads against itself)");
 must(dS < 0, `W6 the second's expected delta is NEGATIVE (${deltaS}) — its mass sits higher on the depth ruler`);
+// t221: the probe carries its OWN copy of the agreement arithmetic (the
+// family oracle pattern, t211's resample+pearson) — the expected Agreement
+// r is derived from the wire, never from the lib's code path
+const resample = (bins, n) => {
+  if (bins.length <= 1) return Array(n).fill(bins[0] ?? 0);
+  return Array.from({ length: n }, (_, i) => {
+    const t = (i / Math.max(1, n - 1)) * (bins.length - 1);
+    const lo = Math.floor(t), hi = Math.min(bins.length - 1, lo + 1);
+    return bins[lo] + (bins[hi] - bins[lo]) * (t - lo);
+  });
+};
+const pearson = (a, b) => {
+  const n = Math.min(a.length, b.length);
+  let sa = 0, sb = 0;
+  for (let i = 0; i < n; i++) { sa += a[i]; sb += b[i]; }
+  const ma = sa / n, mb = sb / n;
+  let cov = 0, va = 0, vb = 0;
+  for (let i = 0; i < n; i++) { const da = a[i] - ma, db = b[i] - mb; cov += da * db; va += da * da; vb += db * db; }
+  return va === 0 || vb === 0 ? NaN : cov / Math.sqrt(va * vb);
+};
+const rStr = (r) => (Number.isNaN(r) ? "—" : r.toFixed(2));
+const nGrid = Math.max(binsH.length, binsS.length);
+const rWinner = rStr(pearson(resample(binsH, nGrid), resample(binsH, nGrid)));
+const rSecond = rStr(pearson(resample(binsH, nGrid), resample(binsS, nGrid)));
+must(rWinner === "1.00", `W7 the winner's expected Agreement r is 1.00 (a landscape against itself, through the same path) — got ${rWinner}`);
+must(rSecond !== "1.00", `W8 the second's expected Agreement r is NOT 1.00 (${rSecond}) — a divergent shape does not follow the winner`);
 
 /* ============ X: source oracles ============ */
 section("X: one well, two surfaces, one lens — rebuilt in source");
@@ -136,7 +162,7 @@ must(LIB.includes("export const pctNumAt = (bins: number[], i: number): number =
 must(LIB.includes("export const peakPctNumOf = (bins: number[]): number =>\n  Number(pctNumAt(bins, peakIndexOf(bins)).toFixed(1));"), "X2 peakPctNumOf rounds on the paper's own 1-decimal grid BEFORE any subtraction — the printed cells are the well");
 must((LIB.match(/export const deltaVsWinner/g) ?? []).length === 1 && DLG.includes("deltaVsWinner,") && !DLG.includes("const deltaVsWinner"), "X3 deltaVsWinner defined ONCE in qc-report, IMPORTED by the dialog (twins fork, imports don't)");
 must((LIB.match(/export const outlierRowIdx/g) ?? []).length === 1 && DLG.includes("outlierRowIdx(mapInventory ?? [])") && !DLG.includes("const outlierRowIdx"), "X4 outlierRowIdx defined ONCE, imported — the dialog does not re-derive the crown");
-must(LIB.includes("| Job | Main map | Volumes | Peak | Δ winner |") && DLG.includes('const OWNER_HEAD = ["Job", "Main map", "Volumes", "Peak", "Δ winner"];'), "X5 the table grew a fifth column and the KEY GREW WITH IT — by design this time, before any probe died (the t214 lesson as routine discipline)");
+must(LIB.includes("| Job | Main map | Volumes | Peak | Δ winner | Agreement r |") && DLG.includes('const OWNER_HEAD = ["Job", "Main map", "Volumes", "Peak", "Δ winner", "Agreement r"];'), "X5 the table grew a sixth column and the KEY GREW WITH IT — by design this time, before any probe died (the t214 lesson as routine discipline, again)");
 must(LIB.includes("${o.peak ?? \"—\"} | ${delta ?? \"—\"} |"), "X6 the honest Δ cell — a dash obeys the same pending law, never a guess");
 must(LIB.includes("The Δ winner column reads every peak against the winner's own") && LIB.includes("the row farthest from the winner wears the amber edge (a lens, not a verdict"), "X7 the paper teaches the lens (reference row, dash law, amber edge — and the bytes keep the numbers)");
 {
@@ -178,11 +204,11 @@ must(md && md.includes("The Δ winner column reads every peak against the winner
 const doorRows = page.locator("[data-report-body] tr[data-owner-door]");
 for (let i = 0; i < 40 && (await doorRows.count()) !== 2; i++) await sleep(500);
 const headCells = await page.locator("[data-report-body] table:has(tr[data-owner-door]) thead th").allTextContents();
-must(JSON.stringify(headCells) === JSON.stringify(["Job", "Main map", "Volumes", "Peak", "Δ winner"]), `D6 the inventory's OWN head is the quintet (${JSON.stringify(headCells)})`);
+must(JSON.stringify(headCells) === JSON.stringify(["Job", "Main map", "Volumes", "Peak", "Δ winner", "Agreement r"]), `D6 the inventory's OWN head is the sextet (${JSON.stringify(headCells)})`);
 const cellsW = (await doorRows.nth(0).locator("td").allTextContents()).map((c) => c.trim());
 const cellsS = (await doorRows.nth(1).locator("td").allTextContents()).map((c) => c.trim());
-must(JSON.stringify(cellsW) === JSON.stringify([host.name, "orthovol", "4", peakH, "+0.0"]), `D7 the rendered winner row == wire, cell for cell (${JSON.stringify(cellsW)})`);
-must(JSON.stringify(cellsS) === JSON.stringify([second.name, "orthovol", "1", peakS, deltaS]), `D8 the rendered second row == wire (${JSON.stringify(cellsS)})`);
+must(JSON.stringify(cellsW) === JSON.stringify([host.name, "orthovol", "4", peakH, "+0.0", rWinner]), `D7 the rendered winner row == wire, cell for cell, r included (${JSON.stringify(cellsW)})`);
+must(JSON.stringify(cellsS) === JSON.stringify([second.name, "orthovol", "1", peakS, deltaS, rSecond]), `D8 the rendered second row == wire, r included (${JSON.stringify(cellsS)})`);
 
 // THE LENS: exactly one amber row, and it is the TAIL row
 for (let i = 0; i < 20 && (await page.locator("[data-report-body] tr[data-outlier]").count()) !== 1; i++) await sleep(500);
@@ -193,6 +219,7 @@ must(outlierId === second.id, "D10 the amber edge sits on the SECOND row — the
 must(!(await doorRows.nth(0).getAttribute("data-outlier")), "D11 the winner row is NOT the outlier (+0.0 can never outshine itself)");
 const ariaS = (await doorRows.nth(1).getAttribute("aria-label")) ?? "";
 must(ariaS.includes(`peak ${peakS}`) && ariaS.includes(`Δ ${deltaS} vs winner`), `D12 the tail door's aria quotes peak AND delta ("${ariaS}")`);
+must(ariaS.includes(`shape r ${rSecond}`), `D12b the tail door's aria quotes its Agreement r (${rSecond}) — the same number the paper's cell prints`);
 const ariaH = (await doorRows.nth(0).getAttribute("aria-label")) ?? "";
 must(ariaH.includes(`peak ${peakH}`) && ariaH.includes("Δ +0.0 vs winner"), `D13 the host door's aria quotes its zero delta honestly ("${ariaH}")`);
 
