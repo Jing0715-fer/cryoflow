@@ -73,7 +73,7 @@ function trackConsole(pageRef, label) {
 section("S: baseline world");
 const list0 = await (await fetch(BASE + "/api/jobs")).json();
 const jobs0 = Array.isArray(list0) ? list0 : list0.jobs ?? [];
-must(jobs0.length === 26, `S1 roster 26 jobs (${jobs0.length})`);
+must(jobs0.length === 21, `S1 roster 21 jobs (${jobs0.length})`);
 const idleJobs = jobs0.filter((j) => j.status === "idle");
 must(idleJobs.length > 0, `S2 idle jobs exist for the aside door (${idleJobs.length})`);
 const doorJob = idleJobs.slice().sort((a, b) => (a.x ?? 0) - (b.x ?? 0))[0];

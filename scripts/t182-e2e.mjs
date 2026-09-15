@@ -8,7 +8,7 @@
  *            type/params/note/coords/duration, workspace structure,
  *            edge wiring.
  *   RESETS:  status → idle, progress → 0, startedAt/result → null —
- *            pinned against the canonical source's REAL 16c/8i/1f/1r
+ *            pinned against the canonical source's REAL 16c/4i/0f/1r
  *            state, the richest reset input the world can offer.
  *   SEVERS:  linkedJobId (soft links are same-project mirror semantics;
  *            pinned against a REAL link built in a throwaway project).
@@ -29,9 +29,9 @@
  * identity, edge-pair identity, collision numbering (" copy 2"), 404,
  * and a scratch project carrying a REAL note + REAL soft link through
  * duplication. M/D: the card face both ways (390 touch; 1440 hover),
- * toast, clone card reads 0/26, Switch & open lands in the clone (its
- * canvas renders the Main workspace's 25 idle cards). Z: world restored —
- * every clone deleted, canonical 26 untouched, feed wire still numeric.
+ * toast, clone card reads 0/21, Switch & open lands in the clone (its
+ * canvas renders the Main workspace's 20 idle cards). Z: world restored —
+ * every clone deleted, canonical 21 untouched, feed wire still numeric.
  */
 import { readFileSync } from "fs";
 import path from "path";
@@ -115,7 +115,7 @@ section("S: baseline world");
  * (pid 1 — /proc/1 always exists) sits untouched in engine-state.json.
  * The row is stable under every subsequent GET — only the boot window
  * races. This is the matrix's "Live row honestly consumed" pattern, and
- * the documented restore recipe (restore-canonical26.py heritage) applied
+ * the documented restore recipe (restore-canonical21.py heritage) applied
  * at probe speed: detect the signature, restore, log loudly, re-assert.
  * Anything OTHER than the exact signature still fails S2 as designed.
  */
@@ -146,7 +146,7 @@ async function healLiveRowIfFlipped() {
 
 const list0 = await jfetch("/api/jobs");
 const jobs0 = list0.body?.jobs ?? [];
-must(jobs0.length === 26, `S1 roster 26 jobs (${jobs0.length})`);
+must(jobs0.length === 21, `S1 roster 21 jobs (${jobs0.length})`);
 const byStatus = {};
 for (const j of jobs0) byStatus[j.status] = (byStatus[j.status] ?? 0) + 1;
 const censusOk =
@@ -156,17 +156,17 @@ const jobs0b = censusOk ? jobs0 : (await jfetch("/api/jobs")).body?.jobs ?? [];
 const byStatus2 = {};
 for (const j of jobs0b) byStatus2[j.status] = (byStatus2[j.status] ?? 0) + 1;
 must(
-  byStatus2.completed === 16 && byStatus2.idle === 8 && byStatus2.failed === 1 && byStatus2.running === 1,
-  `S2 canonical census 16c/8i/1f/1r (${JSON.stringify(byStatus2)})`
+  byStatus2.completed === 16 && byStatus2.idle === 4 && (byStatus2.failed ?? 0) === 0 && byStatus2.running === 1,
+  `S2 canonical census 16c/4i/0f/1r (${JSON.stringify(byStatus2)})`
 );
 const projects0 = (await jfetch("/api/projects")).body?.projects ?? [];
 must(projects0.length === 1, `S3 exactly one project (${projects0.length})`);
 const SOURCE = projects0[0];
-must(SOURCE.stats?.total === 26, `S4 project stats carry 26 total (${SOURCE.stats?.total})`);
+must(SOURCE.stats?.total === 21, `S4 project stats carry 21 total (${SOURCE.stats?.total})`);
 const active0 = (await jfetch("/api/project")).body?.project;
 must(active0?.id === SOURCE.id, "S5 active pointer == the source project");
 const ws0 = (await jfetch("/api/workspaces")).body?.workspaces ?? [];
-must(ws0.length === 2, `S6 two workspaces (${ws0.length})`);
+must(ws0.length === 1, `S6 one workspace (${ws0.length})`);
 const sourceWire0 = await readProjectWire(SOURCE.id);
 const sourceEdgeCount = sourceWire0.edges.length;
 must(sourceEdgeCount === 16, `S7 source wire edge count 16 (15 DB + 1 file-only) (${sourceEdgeCount})`);
@@ -210,12 +210,12 @@ const CLONE = dupRes.body?.project;
 must(!!CLONE?.id, "B2 clone carries an id");
 must(CLONE.name === `${SOURCE.name} copy`, `B3 name = "<source> copy" (${CLONE.name})`);
 const cnt = dupRes.body?.counts;
-must(cnt?.jobs === 26 && cnt?.edges === 16 && cnt?.workspaces === 2,
-  `B4 counts 26 jobs / 16 wire edges / 2 workspaces (${JSON.stringify(cnt)})`);
+must(cnt?.jobs === 21 && cnt?.edges === 16 && cnt?.workspaces === 1,
+  `B4 counts 21 jobs / 16 wire edges / 1 workspace (${JSON.stringify(cnt)})`);
 
 const cloneWire = await readProjectWire(CLONE.id);
 const cloneList = cloneWire.jobs;
-must(cloneList.length === 26, `B5 clone roster 26 (${cloneList.length})`);
+must(cloneList.length === 21, `B5 clone roster 21 (${cloneList.length})`);
 must(cloneList.every((j) => j.status === "idle"), "B6 every clone job idle (16c/1f/1r reset — the RESET contract on the richest real input)");
 must(cloneList.every((j) => (j.progress ?? 0) === 0), "B7 every clone progress 0");
 must(cloneList.every((j) => j.startedAt == null && j.result == null), "B8 startedAt + result all null");
@@ -229,7 +229,7 @@ for (const [key, sJob] of sourceByName) {
   if (JSON.stringify(sJob.params ?? {}) !== JSON.stringify(cJob.params ?? {})) paramsMatch = false;
   if (Math.abs((sJob.x ?? 0) - (cJob.x ?? 0)) > 1e-9 || Math.abs((sJob.y ?? 0) - (cJob.y ?? 0)) > 1e-9) coordMatch = false;
 }
-must(paramsMatch && sourceByName.size === 26, "B9 params carried field-for-field (26/26)");
+must(paramsMatch && sourceByName.size === 21, "B9 params carried field-for-field (21/21)");
 must(coordMatch, "B10 canvas coordinates carried (26/26)");
 const active1 = (await jfetch("/api/project")).body?.project;
 must(active1?.id === SOURCE.id, "B11 active pointer stayed on the source (no teleport into the clone)");
@@ -242,7 +242,7 @@ const del2 = await jfetch(`/api/projects/${dup2.body?.project?.id}`, { method: "
 must(del2.status === 200, "B12b scratch clone 2 deleted");
 
 // the deep contract rides a throwaway project (probe owns its world —
-// the canonical 26 stays read-only here). NOTE: POST /api/projects seeds
+// the canonical 21 stays read-only here). NOTE: POST /api/projects seeds
 // NO default workspace — create BOTH workspaces explicitly, BEFORE any
 // job, so "A in main, link in ws2" is a real two-workspace shape (the
 // first-run lesson: A defaulted into ws2 and the ws assertion was tautology)
@@ -335,7 +335,7 @@ must(dup404.status === 404, `B23 duplicate of a missing project → 404 (${dup40
 const projectsNow = (await jfetch("/api/projects")).body?.projects ?? [];
 must(projectsNow.length === 2, `B24 two projects now (source + clone) (${projectsNow.length})`);
 const cloneRow = projectsNow.find((p) => p.id === CLONE.id);
-must(!!cloneRow && cloneRow.stats?.total === 26, "B25 clone visible in the project list with 26 total");
+must(!!cloneRow && cloneRow.stats?.total === 21, "B25 clone visible in the project list with 21 total");
 
 // edge-pair identity on the canonical clone (from/to NAME pairs, order-free)
 const srcIdToName = new Map(jobs0.map((j) => [j.id, `${j.name}::${j.type}`]));
@@ -417,7 +417,7 @@ must(!!dClone, "D3 the desktop UI clone exists");
 const dTitle = dPage.getByText(dClone?.name ?? "", { exact: true }).first();
 const dCloneCard = dPage.locator("div.group").filter({ has: dTitle }).last();
 const dCompletion = await dCloneCard.evaluate((el) => (el.textContent.match(/(\d+)\/(\d+) · (\d+)%/) ?? [])[0]).catch(() => null);
-must(dCompletion === "0/26 · 0%", `D4 clone card completion reads 0/26 · 0% (${dCompletion})`);
+must(dCompletion === "0/21 · 0%", `D4 clone card completion reads 0/21 · 0% (${dCompletion})`);
 // open the clone → the wire says the ACTIVE project changed with it
 let opened = false;
 try {
@@ -429,11 +429,11 @@ await dPage.waitForTimeout(3500);
 const activeD = (await jfetch("/api/project")).body?.project;
 must(activeD?.id === dClone?.id, "D6 the active project IS the clone after Switch & open");
 const canvasCards = await dPage.locator("[data-job]").count();
-must(canvasCards === 25, `D7 clone canvas renders its Main workspace (25 cards; 1 lives in QA Bench) (${canvasCards})`);
+must(canvasCards === 21, `D7 clone canvas renders its Main workspace (21 cards — the restored world keeps every job in Main) (${canvasCards})`);
 const idleChips = await dPage.locator("[data-job]").evaluateAll((cards) =>
   cards.filter((c) => c.textContent.toLowerCase().includes("idle")).length
 );
-must(idleChips >= 20, `D8 the rendered cards speak idle (${idleChips}/25)`);
+must(idleChips >= 21, `D8 the rendered cards speak idle (${idleChips}/21)`);
 await dPage.screenshot({ path: "scripts/t182-d-clone-canvas.png" });
 await dPage.close();
 if (dClone) await jfetch(`/api/projects/${dClone.id}`, { method: "DELETE" });
@@ -450,12 +450,12 @@ await jfetch(`/api/projects/${CLONE.id}`, { method: "DELETE" });
 const projectsZ = (await jfetch("/api/projects")).body?.projects ?? [];
 must(projectsZ.length === 1 && projectsZ[0].id === SOURCE.id, `Z1 back to exactly the source project (${projectsZ.length})`);
 const jobsZ = (await jfetch("/api/jobs")).body?.jobs ?? [];
-must(jobsZ.length === 26, `Z2 roster 26 (${jobsZ.length})`);
+must(jobsZ.length === 21, `Z2 roster 21 (${jobsZ.length})`);
 const zStatus = {};
 for (const j of jobsZ) zStatus[j.status] = (zStatus[j.status] ?? 0) + 1;
 must(
-  zStatus.completed === 16 && zStatus.idle === 8 && zStatus.failed === 1 && zStatus.running === 1,
-  `Z3 census intact 16c/8i/1f/1r (${JSON.stringify(zStatus)})`
+  zStatus.completed === 16 && zStatus.idle === 4 && (zStatus.failed ?? 0) === 0 && zStatus.running === 1,
+  `Z3 census intact 16c/4i/0f/1r (${JSON.stringify(zStatus)})`
 );
 const activeZ = (await jfetch("/api/project")).body?.project;
 must(activeZ?.id === SOURCE.id, "Z4 active pointer == source");

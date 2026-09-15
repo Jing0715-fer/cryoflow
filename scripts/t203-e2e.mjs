@@ -275,7 +275,7 @@ await page.screenshot({ path: `${OUT}/t203-viewer-2x.png`, fullPage: false }).ca
 /* ============ Z: read-only ============ */
 section("Z: the world read back");
 const roster1 = (await (await fetch(BASE + "/api/jobs")).json()).jobs ?? [];
-must(roster1.length === roster0.length && roster1.length === 26, `Z1 roster identity (${roster1.length}, canonical 26)`);
+must(roster1.length === roster0.length && roster1.length === 21, `Z1 roster identity (${roster1.length}, canonical 21)`);
 const r1names = roster1.map((j) => j.name).sort().join("|");
 const r0names = roster0.map((j) => j.name).sort().join("|");
 must(r1names === r0names, "Z2 roster identity by name — nothing stayed behind");

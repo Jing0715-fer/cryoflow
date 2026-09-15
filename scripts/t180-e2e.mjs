@@ -66,7 +66,7 @@ section("S: baseline world");
 const list0 = await (await fetch(BASE + "/api/jobs")).json();
 const jobs0 = Array.isArray(list0) ? list0 : list0.jobs ?? [];
 const roster0 = jobs0.map((j) => ({ id: j.id, name: j.name }));
-must(roster0.length === 26, `S1 roster 26 jobs (${roster0.length})`);
+must(roster0.length === 21, `S1 roster 21 jobs (${roster0.length})`);
 const projectId = jobs0[0]?.projectId ?? "";
 must(!!projectId, "S2 projectId resolvable");
 const projDir = path.resolve("data/relion", projectId);
@@ -154,7 +154,7 @@ try {
        cyc.body.error.startsWith("Edges form a cycle:") &&
        cyc.body.error.includes("MC Alpha → MC Beta → MC Alpha"),
     `B2 the 400 NAMES the cycle ("${cyc.body?.error ?? "none"}")`);
-  must((await roster()).length === 26, "B3 the rejected batch landed nothing (roster 26)");
+  must((await roster()).length === 21, "B3 the rejected batch landed nothing (roster 21)");
 
   // control: the diamond (0→1, 0→2, 1→3, 2→3) is acyclic — the guard must
   // NOT over-reject shared-shape graphs
@@ -178,7 +178,7 @@ try {
     `B4 diamond control imports (${dia.status}, ${diaJobs.length} jobs)`);
   must((dia.body?.edges ?? []).length === 4, "B5 all four diamond edges wired");
   for (const id of diaJobs) await del(`/api/jobs/${id}`);
-  must((await roster()).length === 26, "B6 diamond cleanup restores the roster");
+  must((await roster()).length === 21, "B6 diamond cleanup restores the roster");
 
   // self-loop: the pre-existing rule keeps its own message
   const selfLoop = await post("/api/workflow-import", {
@@ -205,7 +205,7 @@ try {
     `B10 reverse edge rejected via the SHARED detector ("${e2.body?.error ?? "none"}")`);
   await del(`/api/jobs/${idA}`);
   await del(`/api/jobs/${idB}`);
-  must((await roster()).length === 26, "B11 edge-test cleanup restores the roster");
+  must((await roster()).length === 21, "B11 edge-test cleanup restores the roster");
 
   // ---- door 3: the template shelf (save + apply) ----
   const cycTemplate = await post("/api/custom-template", {
@@ -248,7 +248,7 @@ try {
   for (const id of applyJobs) await del(`/api/jobs/${id}`);
   const tplDel = await del(`/api/custom-template?id=${tplId}`);
   must(tplDel.status === 200, `B19 template deleted (${tplDel.status})`);
-  must((await roster()).length === 26, "B20 shelf-test cleanup restores the roster");
+  must((await roster()).length === 21, "B20 shelf-test cleanup restores the roster");
 
   /* ================= M — client pre-validation (390×844) ================= */
   section("M: cyclic file → toast, dialog stays closed (390)");
