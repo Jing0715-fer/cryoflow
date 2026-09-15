@@ -16,7 +16,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { Axis3d, Bookmark, BoxSelect, Camera, Check, ClipboardCopy, Download, FileJson, FilePlus2, FileText, FolderOpen, FolderPlus, Layers, Loader2, Mountain, Orbit, Pencil, Plus, RefreshCcw, RotateCw, ScanLine, TriangleAlert, Upload, Video, X, ZoomIn } from "lucide-react";
+import { Axis3d, BookOpen, Bookmark, BoxSelect, Camera, Check, ClipboardCopy, Download, FileJson, FilePlus2, FileText, FolderOpen, FolderPlus, Layers, Loader2, Mountain, Orbit, Pencil, Plus, RefreshCcw, RotateCw, ScanLine, TriangleAlert, Upload, Video, X, ZoomIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -2482,6 +2482,11 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
   // strip. They share the per-axis cache — a ghost that later becomes the
   // active axis renders instantly, no refetch.
   const [showAllAxes, setShowAllAxes] = useState(false);
+  // t209: the dialect learns to introduce itself — the profile panel can
+  // TEACH its own vocabulary. Default closed: the instrument stays dense
+  // for the fluent, and the lesson is opt-in for the newcomer (teaching
+  // that forces itself open is a pop-up, not a legend).
+  const [legendOpen, setLegendOpen] = useState(false);
   const [ghostMap, setGhostMap] = useState<Partial<Record<"x" | "y" | "z", SliceProfile>>>({});
   useEffect(() => {
     if (!sliceOn || !jobId || !path) return;
@@ -3986,6 +3991,74 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                         </div>
                       );
                     })()}
+                    {/* t209: the legend — the panel teaches its own dialect.
+                        One opt-in block that names every territory the strip
+                        draws (the landscape, each map's betrayal in its own
+                        colour, the pair's neutral ink, the playhead), the
+                        equal-count knife that cuts the quarter bands, the
+                        doors doctrine (every chip and bracket answers the
+                        hand), and the paper's division of labour INCLUDING
+                        the honest absence: the Comparison table carries no
+                        Depth column because its address already lives in
+                        the Local table (a depth printed twice has two
+                        fathers). The swatches are the overlays' REAL colours
+                        (the same hex the strip's brackets wear), so the
+                        legend teaches with the instrument's own ink, never
+                        a paraphrase of it. */}
+                    {legendOpen && (
+                      <div
+                        id="profile-legend"
+                        data-profile-legend="1"
+                        className="rounded-md border border-amber-600/25 bg-amber-500/[0.06] px-2 py-1.5 text-[9px] font-mono leading-relaxed text-muted-foreground"
+                      >
+                        <div className="mb-1 flex items-center gap-1 text-[8.5px] font-bold tracking-wide text-amber-700 dark:text-amber-300">
+                          <BookOpen className="size-2.5" aria-hidden="true" />
+                          HOW TO READ THE ADDRESSES
+                        </div>
+                        <div className="space-y-0.5">
+                          <div className="flex items-start gap-1.5" data-legend-territory="landscape">
+                            <span aria-hidden="true" className="mt-1 h-0.5 w-4 shrink-0 rounded-full bg-foreground" />
+                            <span>
+                              the landscape — mean ρ per plane along {sliceAxis}, contour-independent (it describes the whole map, not the current isosurface)
+                            </span>
+                          </div>
+                          {overlays
+                            .map((o) => ({ name: o.name, color: o.color, bins: overlayProfiles[o.path]?.bins ?? [] }))
+                            .filter((o) => o.bins.length > 0)
+                            .map((o) => (
+                              <div key={o.name} className="flex items-start gap-1.5" data-legend-territory="overlay" data-legend-map={o.name}>
+                                <span aria-hidden="true" className="mt-1 h-0.5 w-4 shrink-0 rounded-full" style={{ background: o.color }} />
+                                <span>
+                                  {o.name}&apos;s weakest quarter — where that map betrays the shared landscape, drawn on the strip in its own colour
+                                </span>
+                              </div>
+                            ))}
+                          {(() => {
+                            const speaking = overlays.filter((o) => (overlayProfiles[o.path]?.bins ?? []).length > 0);
+                            return speaking.length >= 2 ? (
+                              <div className="flex items-start gap-1.5" data-legend-territory="pair">
+                                <span aria-hidden="true" className="mt-1 h-0.5 w-4 shrink-0 rounded-full bg-foreground/45" />
+                                <span>
+                                  each pair&apos;s thinnest corroboration — measured between the two maps as their own landscape, wearing neither&apos;s colour (neutral ink on its own row)
+                                </span>
+                              </div>
+                            ) : null;
+                          })()}
+                          <div className="flex items-start gap-1.5" data-legend-territory="playhead">
+                            <span aria-hidden="true" className="mt-0.5 h-2.5 w-0.5 shrink-0 rounded-full bg-foreground" />
+                            <span>
+                              the playhead — the plane you are looking at. Every chip and every bracket is a DOOR: press one and the plane lands on that band&apos;s centre (the keyboard presses the chips, the hand may press any paint)
+                            </span>
+                          </div>
+                          <div data-legend-knife="1" className="pt-0.5">
+                            Q1–Q4 cut the 0–100% depth scale by an EQUAL-COUNT KNIFE: each quarter holds the same number of measured planes, so a weak quarter names a real place, not a sparse one. A flat quarter earns no address — the honest dash answers.
+                          </div>
+                          <div data-legend-tables="1">
+                            the report&apos;s tables divide the labour — Comparison summarizes (one global r per map) · Local addresses (the weakest quarter, quoted as depth) · Pairwise corroborates (each pair as its own two maps). The Comparison table carries NO Depth column: its address already lives in the Local table — a depth printed twice has two fathers and drifts apart.
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     <div className="flex items-center justify-between gap-2 pt-1 text-[9px] font-mono tabular-nums text-muted-foreground">
                       <span className="shrink-0">
                         mean ρ along {sliceAxis} · {profile.bins.length} bins
@@ -4066,6 +4139,30 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                           XYZ
                         </button>
                         <span>plane {Math.round(slicePos * 100)}%</span>
+                        {/* t209: the legend's door — the teaching toggle.
+                            A real button (aria-expanded + aria-controls) so
+                            the keyboard opens the lesson too; amber marks
+                            the teaching door against the CSV's cyan and the
+                            report's violet. Open state fills amber so the
+                            reader always knows the lesson is showing. */}
+                        <button
+                          type="button"
+                          onClick={() => setLegendOpen((v) => !v)}
+                          aria-expanded={legendOpen}
+                          aria-controls="profile-legend"
+                          data-profile-legend-toggle="1"
+                          aria-label="How to read the addresses"
+                          title="Teach the depth dialect — what the strip's rows mean, what the equal-count cut is, why the Comparison table carries no Depth column"
+                          className={
+                            "flex items-center gap-0.5 rounded-full px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-wide transition-colors " +
+                            (legendOpen
+                              ? "bg-amber-600 text-white"
+                              : "bg-muted text-muted-foreground hover:bg-amber-600/15 hover:text-amber-700 dark:hover:text-amber-300")
+                          }
+                        >
+                          <BookOpen className="size-2.5" aria-hidden="true" />
+                          How to read
+                        </button>
                       </div>
                     </div>
                     {showAllAxes ? (

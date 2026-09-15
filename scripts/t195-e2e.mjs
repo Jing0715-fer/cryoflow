@@ -157,7 +157,41 @@ if (await page.locator('[data-testid^="map-choice-"]').first().isVisible().catch
 }
 await sleep(600);
 
-await page.locator('button[aria-label="Toggle cross-section plane"]').click();
+// Cold-session armor (t209's backfit — t196's shape, the two-sightings
+// rule finally reached this probe): a persisted overlay session makes
+// Mol* restore its MRCs BEFORE the toolbar buttons exist, and the
+// cross-section toggle can lag the viewer dialog by minutes (t209's RUN
+// sighting on a freshly restarted server). Give the toggle a long poll;
+// if it still hasn't shown, evict BOTH mirrors (the PUT contract +
+// localStorage — the ritual above already ran clean, the eviction is the
+// fresh start) and re-open the viewer.
+let toggleBtn = page.locator('button[aria-label="Toggle cross-section plane"]');
+let toggleUp = await toggleBtn.isVisible().catch(() => false);
+for (let k = 0; k < 30 && !toggleUp; k++) {
+  await sleep(2000);
+  toggleUp = await toggleBtn.isVisible().catch(() => false);
+}
+if (!toggleUp) {
+  await fetch(`${BASE}/api/jobs/${host.id}/overlay-session`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ entries: [], mode: "replace" }),
+  }).catch(() => {});
+  await page.evaluate((k) => localStorage.removeItem(`cryoflow.mol-overlays:${k}`), host.id).catch(() => {});
+  await page.reload({ waitUntil: "networkidle" });
+  await sleep(2200);
+  await page.locator(`[data-job="${host.id}"]`).first().click({ force: true });
+  await sleep(1600);
+  await page.locator('[role="tab"]', { hasText: "Results" }).click().catch(() => {});
+  await sleep(1400);
+  const ot = page.locator('button[aria-label="Enlarge orthovol"]');
+  if (await ot.isVisible().catch(() => false)) await ot.click();
+  await sleep(1000);
+  await page.locator("button", { hasText: "View in 3D" }).click();
+  for (let k = 0; k < 30; k++) { await sleep(2000); if (await page.evaluate(() => !!window.__molstar?.canvas3d).catch(() => false)) break; }
+  toggleBtn = page.locator('button[aria-label="Toggle cross-section plane"]');
+}
+await toggleBtn.click();
 let stripVisible = false, stripAxis = "?";
 for (let k = 0; k < 12; k++) {
   await sleep(1000);

@@ -413,6 +413,23 @@ export const buildProfileReport = (opts: {
       lines.push("");
       lines.push("Two half-maps come from disjoint halves of the data — where they agree with EACH OTHER, the density is real (this is the question FSC asks). Maps that follow the main landscape but not each other deserve a second look. The Depth column quotes where each pair's corroboration is thinnest — the same fractions the viewer's bracket doors jump to, measured between the pair itself.");
     }
+    // t209: the dialect learns to introduce itself — one section that
+    // teaches the whole depth dialect the report speaks (the fraction
+    // scale, the equal-count knife, the three tables' division of
+    // labour) AND answers the one question the tables cannot ask
+    // themselves: why the Comparison table carries no Depth column.
+    // Its address already lives one section down, in Local agreement —
+    // a depth printed twice has two fathers and drifts apart. The
+    // section rides the same overlays guard as the tables it teaches
+    // (no addresses, nothing to read, no lesson) and sits BEFORE the
+    // export footer, so the paper ends by teaching, then by naming
+    // its own provenance.
+    if (overlays.length > 0) {
+      lines.push("");
+      lines.push("### Reading the depth addresses");
+      lines.push("");
+      lines.push("Every depth in this report is a fraction of the map's thickness along the axis (0 = the front face, 1 = the back face), never an Å position — the landscape is mean density per plane, contour-independent, describing the whole map. The quarter bands are cut by an equal-count knife: each quarter holds the same number of measured planes, so a weak quarter names a real place, not a sparse one. The tables divide the labour — Comparison summarizes each map with one global r; Local addresses (the weakest quarter, quoted as depth); Pairwise corroborates (each pair measured as its own two maps). The Comparison table deliberately carries no Depth column: its address is already quoted in the Local agreement section below — a depth printed twice has two fathers and drifts apart. In the viewer, every one of these addresses is a door: press the chip or the bracket and the plane lands on the band's centre.");
+    }
   } else {
     lines.push("None adopted yet — adopt half-maps or masked variants through Layers and they appear here. Where their lines follow the main landscape the density is real; where they part ways lives the noise.");
   }

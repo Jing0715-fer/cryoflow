@@ -83,6 +83,7 @@ SUITES=(
   scripts/t206-e2e.mjs
   scripts/t207-e2e.mjs
   scripts/t208-e2e.mjs
+  scripts/t209-e2e.mjs
   # Append each new task suite here AND nowhere else. Keep list sorted.
 )
 # Auto-include the newest t-suite so "forgot to add t10X" can't happen:
