@@ -1574,6 +1574,15 @@ li[data-swipe="end"] {
   fill: currentColor;
   fill-opacity: 0.62;
 }
+/* t230: the depth labels — the grid's own speech. The aria's quarter
+   words drawn at their fixed addresses (120/240/360); one ink again,
+   opacity below the signatures — the names speak louder than the
+   ruler, and the ruler never moves for anyone. */
+.report-doc .report-hero-depth {
+  font-size: 6px;
+  fill: currentColor;
+  fill-opacity: 0.5;
+}
 
 /* t224: the magnifier — the same picture, twice drawn. The glass is
    born with the portrait (one wrap, two mounts of the same d bytes)

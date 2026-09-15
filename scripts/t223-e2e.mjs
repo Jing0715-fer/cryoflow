@@ -486,6 +486,35 @@ const yFar = parseFloat(await heroLabels.filter({ hasText: `${farOv.name} ${farO
 must(Number.isFinite(yMainSig) && yFar === yMainSig && yNear > yMainSig,
   `F7 the collision stacks deterministically (row0 y ${yMainSig}: ${segs[0].name} + ${farOv?.name}; row1 y ${yNear}: ${nearOv?.name})`);
 
+/* ============ G: the depth labels — the grid signs its ticks ============ */
+section("G: the depth labels — the ruler speaks, and never yields");
+// the same fixed fractions the grid lines stand at: 25/50/75 -> 120/240/360
+const depthLabels = heroSvg.locator("text.report-hero-depth");
+must((await depthLabels.count()) === 3,
+  "G1 exactly three depth labels (the ruler signs each of its ticks)");
+const depthRead = [];
+for (let i = 0; i < 3; i++) {
+  const txt = (await depthLabels.nth(i).textContent()) ?? "";
+  const pct = parseFloat((txt.match(/^([0-9.]+)%$/) ?? [])[1]);
+  const lx = parseFloat(await depthLabels.nth(i).getAttribute("x"));
+  const qx = parseFloat(await heroSvg.locator("line.report-hero-quarter").nth(i).getAttribute("x1"));
+  const ly = parseFloat(await depthLabels.nth(i).getAttribute("y"));
+  depthRead.push({ txt, pct, lx, qx, ly });
+}
+must(depthRead.every((d) => Number.isFinite(d.pct) && Math.abs(d.lx - (d.pct / 100) * 480) <= 1e-6),
+  `G2 each label sits at its fixed fraction's address (${depthRead.map((d) => `${d.txt}->x ${d.lx}`).join(", ")})`);
+must(depthRead.every((d) => Math.abs(d.lx - d.qx) <= 1e-6),
+  "G3 label and grid line share one address (two surfaces of the same fraction, one father)");
+must(depthRead.every((d) => d.txt === `${(d.pct)}%`) && heroAria.includes("25, 50 and 75% of depth"),
+  "G4 the labels speak the aria's own quarter numbers (25, 50, 75)");
+// the ruler does not yield: labels live in the bottom band, below every
+// signature row — speech dodges, the address system itself never moves
+const sigYs = [];
+for (let i = 0; i < 3; i++) sigYs.push(parseFloat(await heroLabels.nth(i).getAttribute("y")));
+const sigMaxY = Math.max(...sigYs.filter(Number.isFinite));
+must(depthRead.every((d) => d.ly === 77) && depthRead.every((d) => d.ly > sigMaxY + 40),
+  `G5 the ruler never yields into the signature rows (labels y 77 below sig max y ${sigMaxY})`);
+
 // the frame is a reviewer — scroll the hero into the dialog's viewport
 // (the body scrolls internally, the band frame's own lesson) and shoot
 // the doc with the figure at the top: hero + the summary head it
@@ -545,6 +574,8 @@ must((await page2.locator("[data-report-body] [data-hero-landscape]").count()) =
   "Z2h the hero survives the tie's end too — the terrain figure rides the world, not the tie");
 must((await page2.locator("[data-report-body] svg.report-hero-landscape text.report-hero-label").count()) === 3,
   "Z2i the untied world's hero signs itself too (three lines, three signatures)");
+must((await page2.locator("[data-report-body] svg.report-hero-landscape text.report-hero-depth").count()) === 3,
+  "Z2j the untied world's ruler signs its ticks too (three depth labels at the same fixed addresses)");
 must(rosterT.length === 21, "Z3 roster identity (21) after the whole dance");
 must(consoleErrors.length === 0 && consoleErrors2.length === 0,
   `Z4 console clean across both visits (${consoleErrors.length}/${consoleErrors2.length})`);

@@ -207,6 +207,10 @@ const SPARK_ZOOM = 3;
  *  (x = pct/100 × HERO_W) — the address scales, the well doesn't. */
 const HERO_W = 480;
 const HERO_H = 80;
+/** t230: the quarter fractions — the address system itself. The grid
+ *  lines AND their depth labels drink this one well: two surfaces of
+ *  the same numbers, never a retyped pair. */
+const HERO_QUARTERS = [0.25, 0.5, 0.75];
 
 /** t223: the shape portrait — an inline SVG that lays the owner's
  *  landscape (solid) over the winner's (dotted) in one box. Both paths
@@ -448,7 +452,7 @@ function HeroLandscape({
         aria-label={`Map QC hero landscape — ${quote}; the quarter grid marks 25, 50 and 75% of depth.`}
         focusable="false"
       >
-        {[0.25, 0.5, 0.75].map((f) => (
+        {HERO_QUARTERS.map((f) => (
           <line
             key={f}
             className="report-hero-quarter"
@@ -473,6 +477,25 @@ function HeroLandscape({
         {sigs.map((s, i) => (
           <text key={`sig·${i}`} className="report-hero-label" x={s.x} y={7 + s.row * 9} textAnchor="middle">
             {s.text}
+          </text>
+        ))}
+        {/* t230: the depth labels — the grid signs its own ticks. The
+            aria has spoken the quarters since t228 ("the quarter grid
+            marks 25, 50 and 75% of depth"); the picture now shows those
+            words at the same fixed addresses, drawn from the SAME
+            HERO_QUARTERS well as the lines (two surfaces, one father).
+            The ruler does not yield: signatures dodge (speech yields to
+            legibility), the address system itself never moves — data
+            near a tick is the data telling the truth. */}
+        {HERO_QUARTERS.map((f) => (
+          <text
+            key={`depth·${f}`}
+            className="report-hero-depth"
+            x={f * HERO_W}
+            y={HERO_H - 3}
+            textAnchor="middle"
+          >
+            {f * 100}%
           </text>
         ))}
       </svg>
