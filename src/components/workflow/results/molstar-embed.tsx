@@ -3881,15 +3881,22 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                           data-pairwise-row="1"
                           aria-label="Pairwise shape agreement between adopted comparison maps"
                         >
-                          {pairwiseAgreement(spokenOverlays).map((p) => (
-                            <span
-                              key={`${p.a}|${p.b}`}
-                              title={`Shape agreement between ${p.a} and ${p.b}: Pearson r on the shared fraction scale. Two half-maps come from disjoint halves of the data — where they agree, the density is real (the question FSC asks).`}
-                              className="rounded-full bg-muted px-1.5 py-0.5 font-mono text-[8.5px] tabular-nums text-muted-foreground"
-                            >
-                              {p.a} ↔ {p.b} · r {Number.isNaN(p.r) ? "—" : p.r.toFixed(2)} · {agreementVerdict(p.r)}
-                            </span>
-                          ))}
+                          {pairwiseAgreement(spokenOverlays).map((p) => {
+                            // t206: the pair's weakest band rides ON the chip —
+                            // the same 2dp dialect the report's Depth column
+                            // prints (one address, two dialects, one father);
+                            // a pair without an address stays silent about it.
+                            const pdepth = p.weakest ? ` · ${p.weakest.from.toFixed(2)}–${p.weakest.to.toFixed(2)}` : "";
+                            return (
+                              <span
+                                key={`${p.a}|${p.b}`}
+                                title={`Shape agreement between ${p.a} and ${p.b}: Pearson r on the shared fraction scale. Two half-maps come from disjoint halves of the data — where they agree, the density is real (the question FSC asks).${p.weakest ? ` Their thinnest corroboration sits between ${p.weakest.from.toFixed(2)} and ${p.weakest.to.toFixed(2)} of the depth (${p.weakest.label}).` : ""}`}
+                                className="rounded-full bg-muted px-1.5 py-0.5 font-mono text-[8.5px] tabular-nums text-muted-foreground"
+                              >
+                                {p.a} ↔ {p.b} · r {Number.isNaN(p.r) ? "—" : p.r.toFixed(2)} · {agreementVerdict(p.r)}{pdepth}
+                              </span>
+                            );
+                          })}
                         </div>
                       );
                     })()}

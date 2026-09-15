@@ -186,16 +186,36 @@ export const pctAt = (bins: number[], i: number): string =>
  *  built from disjoint halves of the data — where they agree the density
  *  is real, which is exactly the question FSC asks. Overlay-vs-main says
  *  "does this map follow the reconstruction"; pairwise says "do the
- *  halves corroborate each other". */
-export const pairwiseAgreement = (overlays: ReportOverlay[]): { a: string; b: string; r: number }[] => {
-  const out: { a: string; b: string; r: number }[] = [];
+ *  halves corroborate each other". t206: a global r can hide a localized
+ *  parting of ways — each pair also names its WEAKEST quarter band (the
+ *  same equal-count cut as localAgreement, applied between the pair),
+ *  so the report and the wall can print WHERE the corroboration is thin.
+ *  A pair too short to cut (n < 4) or flat across every band earns no
+ *  address: `weakest` stays absent and the honest dash answers. */
+export const pairwiseAgreement = (overlays: ReportOverlay[]): { a: string; b: string; r: number; weakest?: { label: string; r: number; from: number; to: number } }[] => {
+  const out: { a: string; b: string; r: number; weakest?: { label: string; r: number; from: number; to: number } }[] = [];
   for (let i = 0; i < overlays.length; i++) {
     for (let j = i + 1; j < overlays.length; j++) {
       const n = Math.max(overlays[i].bins.length, overlays[j].bins.length);
+      const a = resampleByFraction(overlays[i].bins, n);
+      const b = resampleByFraction(overlays[j].bins, n);
+      // t206: the pair's own weakest band — the localAgreement cut, the
+      // pair as its own two maps (NOT against the main landscape)
+      let weakest: { label: string; r: number; from: number; to: number } | undefined;
+      if (n >= 4) {
+        for (let k = 0; k < 4; k++) {
+          const lo = Math.floor((k * n) / 4);
+          const hi = Math.floor(((k + 1) * n) / 4);
+          const r = pearson(a.slice(lo, hi), b.slice(lo, hi));
+          if (!Number.isFinite(r)) continue;
+          if (!weakest || r < weakest.r) weakest = { label: QUARTER_LABELS[k], r, from: lo / n, to: hi / n };
+        }
+      }
       out.push({
         a: overlays[i].name,
         b: overlays[j].name,
-        r: pearson(resampleByFraction(overlays[i].bins, n), resampleByFraction(overlays[j].bins, n)),
+        r: pearson(a, b),
+        weakest,
       });
     }
   }
@@ -380,13 +400,18 @@ export const buildProfileReport = (opts: {
       lines.push("");
       lines.push("### Pairwise agreement");
       lines.push("");
-      lines.push("| Map A | Map B | Agreement r | Verdict |");
-      lines.push("| --- | --- | --- | --- |");
+      // t206: the Depth column rides AFTER Verdict, exactly as the Local
+      // table's own Depth column rides after Weakest — the pair's weakest
+      // band quoted as fractions (the strip's 2dp dialect); a pair too
+      // short to cut or flat across every band keeps the honest dash.
+      lines.push("| Map A | Map B | Agreement r | Verdict | Depth (fraction) |");
+      lines.push("| --- | --- | --- | --- | --- |");
       for (const p of pairwiseAgreement(overlays)) {
-        lines.push(`| ${mdCell(p.a)} | ${mdCell(p.b)} | ${Number.isNaN(p.r) ? "—" : p.r.toFixed(2)} | ${agreementVerdict(p.r)} |`);
+        const pdepth = p.weakest ? `${p.weakest.from.toFixed(2)}–${p.weakest.to.toFixed(2)}` : "—";
+        lines.push(`| ${mdCell(p.a)} | ${mdCell(p.b)} | ${Number.isNaN(p.r) ? "—" : p.r.toFixed(2)} | ${agreementVerdict(p.r)} | ${pdepth} |`);
       }
       lines.push("");
-      lines.push("Two half-maps come from disjoint halves of the data — where they agree with EACH OTHER, the density is real (this is the question FSC asks). Maps that follow the main landscape but not each other deserve a second look.");
+      lines.push("Two half-maps come from disjoint halves of the data — where they agree with EACH OTHER, the density is real (this is the question FSC asks). Maps that follow the main landscape but not each other deserve a second look. The Depth column quotes where each pair's corroboration is thinnest — the same fractions the viewer's bracket doors jump to, measured between the pair itself.");
     }
   } else {
     lines.push("None adopted yet — adopt half-maps or masked variants through Layers and they appear here. Where their lines follow the main landscape the density is real; where they part ways lives the noise.");
