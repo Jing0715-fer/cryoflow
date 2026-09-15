@@ -166,11 +166,14 @@ const OWNER_HEAD = ["Job", "Main map", "Volumes", "Peak", "Δ winner", "Agreemen
  *  adds (never the markdown), the box the paths draw in, and the
  *  station count both landscapes are resampled to (the shared fraction
  *  scale, t195's doctrine; 48 stations is well past the eye's
- *  resolution for a 96px line). */
+ *  resolution for a 96px line). t224 adds the glass factor: the
+ *  magnifier renders the SAME viewBox three times larger — coordinates
+ *  never change, only the glass does. */
 const SHAPE_HEAD = "Shape";
 const SPARK_W = 96;
 const SPARK_H = 26;
 const SPARK_STATIONS = 48;
+const SPARK_ZOOM = 3;
 
 /** t223: the shape portrait — an inline SVG that lays the owner's
  *  landscape (solid) over the winner's (dotted) in one box. Both paths
@@ -181,23 +184,51 @@ const SPARK_STATIONS = 48;
  *  the reference every row is read against — even the reference row's
  *  own cell draws it (its self-portrait: both lines are the same
  *  landscape, the picture's way of saying 1.00). aria-hidden: the row's
- *  own label already speaks the portrait's verdict in words. */
+ *  own label already speaks the portrait's verdict in words.
+ *
+ *  t224: the magnifier — the ONE portrait, mounted twice. The zoom is
+ *  the same d bytes, the same ink classes, the same viewBox, three
+ *  times the glass: a bigger window onto the SAME picture, never a
+ *  re-derivation (a re-derived zoom would be a second father, and the
+ *  two pictures could one day disagree). It folds until the eye asks —
+ *  hover the cell (the mouse's lens) or keyboard-focus the row (the
+ *  keyboard's lens); CSS owns the whole life cycle, no state, no
+ *  listener, no render-layer father beyond the second mount. */
 function ShapeSparkline({ bins, winnerBins }: { bins: number[]; winnerBins: number[] | null }) {
   const d = sparklinePath(bins, SPARK_W, SPARK_H, SPARK_STATIONS);
   const dw = sparklinePath(winnerBins, SPARK_W, SPARK_H, SPARK_STATIONS);
   if (!d) return <span className="text-muted-foreground">—</span>;
-  return (
-    <svg
-      className="report-spark"
-      viewBox={`0 0 ${SPARK_W} ${SPARK_H}`}
-      width={SPARK_W}
-      height={SPARK_H}
-      aria-hidden="true"
-      focusable="false"
-    >
+  // the ONE portrait — one React element, two mounts (element reuse is
+  // not a second father: the same d strings reach both glasses)
+  const portrait = (
+    <>
       {dw ? <path className="report-spark-winner" d={dw} /> : null}
       <path className="report-spark-owner" d={d} />
-    </svg>
+    </>
+  );
+  return (
+    <span className="report-spark-wrap">
+      <svg
+        className="report-spark"
+        viewBox={`0 0 ${SPARK_W} ${SPARK_H}`}
+        width={SPARK_W}
+        height={SPARK_H}
+        aria-hidden="true"
+        focusable="false"
+      >
+        {portrait}
+      </svg>
+      <svg
+        className="report-spark-zoom"
+        viewBox={`0 0 ${SPARK_W} ${SPARK_H}`}
+        width={SPARK_W * SPARK_ZOOM}
+        height={SPARK_H * SPARK_ZOOM}
+        aria-hidden="true"
+        focusable="false"
+      >
+        {portrait}
+      </svg>
+    </span>
   );
 }
 

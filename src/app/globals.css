@@ -1461,6 +1461,44 @@ li[data-swipe="end"] {
   stroke-linecap: round;
 }
 
+/* t224: the magnifier — the same picture, twice drawn. The glass is
+   born with the portrait (one wrap, two mounts of the same d bytes)
+   and folds until the eye asks: hover the cell (the mouse's lens) or
+   keyboard-focus the row (the keyboard's lens — focus-visible, not
+   click-focus: a pressed door has already left the roster for the
+   inspector, it does not need a glass on the way out). The ink inside
+   needs NO second rule — .report-spark-owner/winner are descendant
+   selectors, and the zoom's paths live under the same .report-doc
+   roof; one ink, two glasses, zero duplication. pointer-events:none —
+   a magnifier is for looking THROUGH, never for touching: the click
+   passes through the glass to the row's door. */
+.report-doc .report-spark-wrap {
+  display: block;
+  position: relative;
+}
+.report-doc .report-spark-zoom {
+  display: none;
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  overflow: visible;
+  padding: 10px 12px;
+  background: var(--popover);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.4);
+  pointer-events: none;
+  z-index: 30;
+}
+.report-doc td[data-shape-cell="spark"]:hover .report-spark-zoom,
+.report-doc tr[data-owner-door]:focus-visible .report-spark-zoom {
+  display: block;
+}
+/* a magnifier is screen state — paper gets the picture at its own size */
+@media print {
+  .report-doc .report-spark-zoom { display: none !important; }
+}
+
 /* The print exception. Task 70's contract: dialogs are screen state —
    Ctrl+P steps aside and the pipeline sheet prints. The session report
    is the ONE principled counter-case: it is not chrome over the page,
