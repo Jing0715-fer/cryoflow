@@ -347,10 +347,11 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
 
     const init = async () => {
       try {
-        const [{ createPluginUI }, { renderReact18 }, { DefaultPluginUISpec }] = await Promise.all([
+        const [{ createPluginUI }, { renderReact18 }, { DefaultPluginUISpec }, { PluginBehaviors }] = await Promise.all([
           import("molstar/lib/mol-plugin-ui"),
           import("molstar/lib/mol-plugin-ui/react18"),
           import("molstar/lib/mol-plugin-ui/spec"),
+          import("molstar/lib/mol-plugin/behavior"),
         ]);
         setStage("plugin");
 
@@ -362,6 +363,35 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
           render: renderReact18,
           spec: {
             ...DefaultPluginUISpec(),
+            // The structure-behaviors amputation. Every pointer move
+            // across the canvas funnels into Loci.normalize / Loci.isEmpty
+            // / BoundaryHelper.setFromLoci — and in the PRODUCTION bundle
+            // those read `StructureElement.Loci.is` off a PARTIAL module
+            // namespace (undefined in the compiled chunk), so every pick
+            // threw `TypeError: ... (reading 'is')` into the console
+            // (recon: scripts/diag-t201-console.mjs — open+settle 0
+            // errors, one pointer sweep across the canvas 11, a click +2;
+            // guarding normalize alone only pushed the throw downstream
+            // to isEmpty and setFromLoci — the same disease in more
+            // copies; whack-a-mole is not a fix). Mol*'s own source is
+            // fine; the disease lives in the bundler's module graph,
+            // where we don't operate. But the throwing pipeline belongs
+            // to BEHAVIORS that only ever served ATOMIC structure
+            // inspection — hover highlight, click select, residue focus,
+            // hover labels, structure custom props — and this viewer
+            // shows VOLUME MAPS: no atoms to highlight, no residues to
+            // focus, no labels to show. So the fix is configuration, not
+            // surgery: the spec keeps only the behaviors a volume map can
+            // use (camera controls, the axis helper, state snapshots) and
+            // the throwing observers are simply never registered.
+            behaviors: DefaultPluginUISpec().behaviors.filter((b) => {
+              const kept = [
+                PluginBehaviors.Camera.CameraAxisHelper,
+                PluginBehaviors.Camera.CameraControls,
+                PluginBehaviors.State.SnapshotControls,
+              ];
+              return kept.includes(b.behavior);
+            }),
             layout: { initial: { isExpanded: false, showControls: false } },
           },
         });

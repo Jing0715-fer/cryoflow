@@ -1656,3 +1656,65 @@ li[data-swipe="end"] {
 .dark .msp-plugin .msp-help-text>p {
   color: var(--msp-btn-ink);
 }
+
+/* ------------------------------------------------------------------ */
+/* Mol* control affordances (t201) — the hover state's day in court,   */
+/* the keyboard's ring, and Reset Zoom unburied.                       */
+/*                                                                     */
+/* Live recon evidence (scripts/diag-t201-hover.mjs):                  */
+/*  1. BURIED — the app's viewer toolbar (absolute right-3 top-3,      */
+/*     size-8 buttons => bottom edge at 44px) and Mol*'s viewport      */
+/*     stack (.msp-viewport-controls, absolute top 10px right 10px)    */
+/*     are both right-anchored rows at the same height: pixel-for-     */
+/*     pixel, the toolbar's LAST button ("Camera view bookmarks") has  */
+/*     ALWAYS painted over Mol*'s Reset Zoom — invisible and           */
+/*     unclickable, in BOTH rooms. A layout bug, not a theme one, so   */
+/*     the fix below is deliberately NOT scoped to .dark.              */
+/*  2. HOVER WAS DEAD ON EVERY VISIBLE STACK BUTTON — Mol* fights      */
+/*     with !important caramel hovers (.msp-btn-link-toggle-off:hover  */
+/*     { color:#dc9c56 !important }, the toggle-on sibling at          */
+/*     #ae5d04) on every button in the stack, AND writes               */
+/*     background:transparent INLINE on them, AND re-asserts           */
+/*     background-color:transparent on :hover from its chunk. So the   */
+/*     t199 hover rules above lost the INK (their !important beat our  */
+/*     plain declarations) and never moved the BACKGROUND (our         */
+/*     always-on !important base kept it at the rest colour). Hovering */
+/*     the stack did literally nothing but Mol*'s caramel flash.       */
+/*  3. NO KEYBOARD RING — outlines are silenced on Mol*'s controls     */
+/*     (computed outline-style: none), so a Tab through the stack was  */
+/*     invisible to a keyboard user.                                   */
+/* ------------------------------------------------------------------ */
+
+/* 1. unbury the stack: clear the toolbar row (its bottom edge at 44px)
+      plus a chip of breathing room. The double class keeps the rule
+      un-tieable against molstar.css's `.msp-viewport-controls` (0,1,0) —
+      component chunks inject later, so ties are the enemy's victory
+      (the t199 discipline, layout chapter). Light mode needs this too. */
+.msp-plugin .msp-viewport-controls.msp-viewport-controls {
+  top: 52px;
+}
+
+/* 2. the hover state's day in court. When BOTH sides carry !important
+   the cascade falls back to SPECIFICITY: this selector sits at (0,6,1)
+   (the :not() argument counts) and outranks Mol*'s caramel pair at
+   (0,3,0); against our own always-on base rule (0,4,1) the :hover
+   variant simply ranks above it. :not([disabled]) keeps the dim-grey
+   disabled semantics honest — a dead control must not light up under
+   a passing pointer. Values drink tokens; light mode never sees it. */
+.dark .msp-plugin .msp-viewport-controls-buttons button[class]:not([disabled]):hover {
+  color: var(--msp-accent) !important;
+  background: var(--msp-btn-bg-hover) !important;
+}
+/* pressed feedback: pure geometry, nothing contested — Mol* never sets
+   a transform on these buttons, so plain specificity suffices */
+.dark .msp-plugin .msp-viewport-controls-buttons button[class]:not([disabled]):active {
+  transform: scale(0.96);
+}
+/* 3. the keyboard's ring: :focus-visible matches keyboard focus only —
+   a mouse click still focuses quietly. !important is load-bearing (see
+   recon #3: Mol* silences outlines somewhere in its chunk and we will
+   not bet on which selector it was). Dark room only. */
+.dark .msp-plugin .msp-viewport-controls-buttons button[class]:focus-visible {
+  outline: 2px solid var(--msp-accent) !important;
+  outline-offset: 2px;
+}
