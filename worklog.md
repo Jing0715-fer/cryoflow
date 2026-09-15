@@ -445,3 +445,26 @@ Stage Summary:
 - 「第三张表、同一语法」：三重 context（inventory/comparison/local）发证-重置-入座模式固化；玻璃机制是公共设施（zoom 共享类零新规则）；QUARTER_LABELS 导入组合——纸面列名与 wire 签名同源，手抄从源头禁止
 - 「表格作画的红利清单」：t218 区域帧零漂移（作用域红利）、CSS 零新增玻璃规则（共享类红利）、逻辑层零改动（数据地基红利）——第二、三张表作画的边际成本持续下降
 - 遗留（下轮候选）：透镜纸面化（哲学门槛维持）；updatedAt 治理（大工程）；EMPIAR（让位）；CSV copy 路径（让位）；pairwise 画像（双子画，成本/价值再评估）；报告全景的画格节奏（四表三画之后，头部 prose 是否值得一张全景 thumb）
+
+## Task 228 (2026-09-16, cron 06:17 窗口 trace …202609160620)
+
+- 【开局】四件套：尾部 = Task 227（83844b6）——**续传摘要第 29 度过时**（只写到 Task 225/f9eb4bf，实际已前进 2 度）；净场（PORT 3000 FREE）→ watchdog 拉起 pgrep 验活 + 首页 200。QA：qa00 GREEN + qa63 SMOKE GREEN + agent-browser console 零错。事故插曲：凭记忆报 qa00/qa63 脚本名错（qa00-home-smoke.mjs 不存在），ls 改正为 qa00-data-view.mjs / qa63-smoke.mjs——**脚本名也以现场为准**。
+- 【重大核实判决：Task 13 recital 全清单化石】逐条核实现场：**#5 fs/browse 无鉴权 → 已修**（http-guard 两轮：Sec-Fetch-Site/Origin 同源 + Host pin 反 DNS-rebinding，isLocalRequest 护 fs/browse、outputs/file、map-profile）；**#6/#14 pathref 包含策略不一致 → 已修**（jobfile.ts resolveInsideJobWorkdir 统一策略：lexical 无 ".."、workdir 内、realpath 限于 data 树；三路由同链）；**#7 chart 全量同步读 → 已修**（guinier 6 处 / resolution 2 / angdist 2 cachedFileCompute/statcache mtime 缓存全覆盖）；**#8 particles BFS N+1 → 已修**（route.ts 注释在场：batched BFS 每深度一条边查询 + 一条 job 查询）；**#13 useMemo 内 localStorage 写 → 已修**（canvas/pipeline-kpi 无 useMemo 写，Task 153 chevron 事件处理器模式）；**3D 体积截面工具 → 已建**（t189 map-profile cross-section）；**Topaz wrapper → 已建**（jobs/[id]/topaz-training 路由）。**cron 文本背诵的「已知遗留」零条存活**——下轮起遗留清单以 worklog 尾部 Stage Summary 为唯一真源，Task 13 recital 正式退役。
+- 【立项】Task 227 遗留评审：pairwise 画像第 3 度否决（demo 世界 1 对，半对相关性已由 comparison 表两行间接可见）；**「报告全景的画格节奏」当选**——t227 自留首位候选，具体化为 **Map QC 段的 hero landscape**：报告主角地形的大幅可读画（480×80，portrait 的 5 倍），owner 实线 + overlays 虚线 + 各自纸面峰位标线 + 季度网格（25/50/75% 深度虚点竖线）——t225 标线教义 + t227 季度语法在一张大画上合流。逻辑层零新增（t226 的 mapQc.mainBins/overlays 同井随纸交付，re-fetch 即第二口井）。
+- 【立项教义：全景获得它的画格】四表三画都是缩略图——缩略图指得出峰在哪、读不出地形长什么样；hero 是缩略图玻璃承诺的那个大视图本身（no glass——hero IS the large view）。**无基线判例**：盒底边缘是 landscape 自身的 min 而非一个数——只给有地址的东西画线（深度分数有地址，Y 归一化没有），hero 不画底轴。挂载点 = `## Map QC` h2 的 exact-words 准入（t223 头部匹配法在标题尺度复用）：deep report 自己的「Map QC summary — <map>」永不铸第二张 hero；hero 渲染在 head 与 deep prose 之间（画先于它要介绍的章节）。figure 亲自说话（无行可代言）：aria 报名与峰位，全部喝同一口井（peakPctNumOf）。
+- 【实现】
+  - HeroLandscape 组件（ShapeSparkline/BandStrip 同族第三员）：sparklinePath(mainBins, 480, 80, 48) 同一 normalizer；markX 同一分数法（pct/100 × 480，clamp fail-soft 从不重推导）；drawn 过滤 fail-soft（画不出的 overlay 连名字一起退出 aria）；`<figure data-hero-landscape>` + role=img
+  - mdComponents 加 h2 override：hastText 精确匹配 MAP_QC_HEAD（"Map QC"）且 mapQc.mainBins 在场才挂 hero；mainName 从 mapInventory[0]（walk 的同一 winner 一口井）
+  - CSS 七规则（band 之后）：一墨多透明度层级——main 0.85 / overlay 0.4 虚 3 3 / quarter 0.14 虚点 1 3 / mark-main 0.55 / mark-overlay 0.3 虚 2 2.5；width:100% 响应式、打印随纸（无玻璃零 print guard）
+- 【e2e：t223-e2e 84→94】新 E 相 9 断言 + Z2h：E1 全纸恰一 hero（deep summary 头零准入）、E2 恰一 svg 零玻璃、**E3 主标线坐在纸面地址**（roster reference aria 的 76.2% → x 365.76 = pct/100×480 逐位）、E4 双 overlay 标线各坐其 Peak-at 地址（51.6→247.68、77.4→371.52）、E5 全家族入画（1 实 + 2 虚）、**E6 季度网格钉在 120/240/360**（固定分数的地址）、E7 aria 说出它画的地址（"76.2% of depth" + quarter grid）、E8 纸面字节纯（data-md 逐行含 "## Map QC"——画渲染在词周围从不写进词）；Z2h untied 世界 hero 同在（地形画随世界不随 tie）。**94/0 ×6 全绿**。
+- 【定妆照三幕】t223-hero-2x 首拍被折叠切顶（hero 只剩底部发线 sliver）→ 元素帧太紧（纯几何无上下文）→ **内部滚动 doc 帧**（先 mouse 移开关玻璃再 scrollIntoView）：hero 全幅 + summary 词 + comparison 缩略图同框——大画与缩略图的比例节奏入画，搬家（half1 峰在左 51.6% vs main 峰在右 76.2%）无需读数。画框审稿通过。判例：「**hero 类新块面元素的画框要滚动后拍——doc 帧锚在元素顶，切顶是默认结局**」。
+- 【漂移考古】×13 分类：t210 ×3 画布噪声惯犯具名 checkout；**t212/t214/t215 = hero 推折的机械位移**（roster 锚点内容下移 ~200px，文本/表格完好）、**t218/t219×2 = hero 结构性入画**（t218 帧顶直接见证 hero 全幅）、t213 1110 弱像素 = 折缘轻移、t223×5 = hero 入框/推挤故意新样貌——**全数随 feature 提交**（t226 判例：每窗重生成帧与其脏态永久化不如随 feature 收录）。
+- 【世界卫生】全家族绿：t223 94/0 ×6 + t210 151/0 + t215 44/0 + t213 35/0 + t214 29/0 + t219 29/0 + t212 30/0 + t218 21/0 + t221 14/0；roster 恒等 21、twin 已归家。
+- 【收尾】worklog（本条）+ commit + push + 环境清理。
+
+Stage Summary:
+- 「全景获得它的画格」：报告的五个几何面（portrait×2 表、band strip、hero）终于有尺度节奏——缩略图答 WHERE、hero 答 WHAT IT LOOKS LIKE；「玻璃追随眼睛」之后「眼睛走进章节开头」
+- 「地址律第三级缩放」：peakPct 的 1-decimal 网格三度入画（96 缩略图 ×3 玻璃 ×480 hero），x = pct/100 × W 公式不变——**地址随盒缩放，井从不缩放**（E3/E4 逐位钉死 365.76/247.68/371.52）
+- 「无基线判例」：只给有地址的东西画线——深度分数（25/50/75%）有地址故画网格，Y 归一化的盒底没有故不画轴；「画不说话」的下一句是「画不假装」
+- 「Task 13 recital 退役」：背诵清单零条存活——#5/#6/#7/#8/#13 全修、截面/Topaz 全建；**过时 recital 的终局形态不是「部分过时」而是「整条化石」**，下轮起以 worklog Stage Summary 为唯一遗留真源
+- 遗留（下轮候选）：透镜纸面化（哲学门槛维持）；updatedAt 治理（大工程）；EMPIAR 真数据回归（让位）；CSV copy 路径（让位）；hero 的章节词（hero 下的 summary prose 是否值得引用 hero 地址——成本/价值再评估）；Pipeline glance 的单元画格（succeeded/failed 计数的单位点阵——四整数要不要几何，低优先）

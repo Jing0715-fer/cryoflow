@@ -1512,6 +1512,61 @@ li[data-swipe="end"] {
   fill: none;
 }
 
+/* t228: the hero landscape — the Map QC section's one large figure.
+   The portraits' grammar at five times the reach: main solid, overlays
+   dotted (the winner line's own dash), the quarter grid dotted-sparse
+   (fixed addresses of depth, not data), each peak marked floor-to-
+   ceiling. One ink again — opacity is the hierarchy, color would be a
+   second opinion. The figure is a block: it owns the section's opening
+   line, and the tables below keep their thumbnail rhythm. Prints with
+   the page — no glass to guard, the hero IS the large view. */
+.report-doc .report-hero {
+  margin: 0.75rem 0 1rem;
+}
+.report-doc .report-hero-landscape {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.report-doc .report-hero-main {
+  fill: none;
+  stroke: currentColor;
+  stroke-opacity: 0.85;
+  stroke-width: 1.25;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.report-doc .report-hero-overlay {
+  fill: none;
+  stroke: currentColor;
+  stroke-opacity: 0.4;
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.report-doc .report-hero-quarter {
+  stroke: currentColor;
+  stroke-opacity: 0.14;
+  stroke-width: 0.75;
+  stroke-dasharray: 1 3;
+  fill: none;
+}
+.report-doc .report-hero-mark-main,
+.report-doc .report-hero-mark-overlay {
+  stroke: currentColor;
+  stroke-width: 1;
+  fill: none;
+}
+.report-doc .report-hero-mark-main {
+  stroke-opacity: 0.55;
+}
+.report-doc .report-hero-mark-overlay {
+  stroke-opacity: 0.3;
+  stroke-dasharray: 2 2.5;
+}
+
 /* t224: the magnifier — the same picture, twice drawn. The glass is
    born with the portrait (one wrap, two mounts of the same d bytes)
    and folds until the eye asks: hover the cell (the mouse's lens) or

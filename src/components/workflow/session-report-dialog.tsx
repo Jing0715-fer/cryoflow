@@ -181,6 +181,13 @@ const COMPARISON_HEAD = ["Map", "Bins", "Peak at", "Agreement r", "Verdict"];
 const LOCAL_HEAD = ["Map", ...QUARTER_LABELS, "Weakest", "Depth (fraction)"];
 const BANDS_HEAD = "Bands";
 
+/** t228: the Map QC section's own head word — the hero's admission
+ *  signature. EXACT match only: the deep report speaks
+ *  "Map QC summary — <map>" and must never mint a second hero (a
+ *  partial name cannot mint a figure — the t223 head-matching law at
+ *  heading scale). */
+const MAP_QC_HEAD = "Map QC";
+
 /** t223: the portrait column's wire grammar — the head word the wire
  *  adds (never the markdown), the box the paths draw in, and the
  *  station count both landscapes are resampled to (the shared fraction
@@ -193,6 +200,13 @@ const SPARK_W = 96;
 const SPARK_H = 26;
 const SPARK_STATIONS = 48;
 const SPARK_ZOOM = 3;
+
+/** t228: the hero's box — the portrait grammar at five times the reach
+ *  (480×80): big enough that the quarter grid and the marks can be
+ *  READ, not just pointed at. Coordinates keep the same fraction law
+ *  (x = pct/100 × HERO_W) — the address scales, the well doesn't. */
+const HERO_W = 480;
+const HERO_H = 80;
 
 /** t223: the shape portrait — an inline SVG that lays the owner's
  *  landscape (solid) over the winner's (dotted) in one box. Both paths
@@ -357,6 +371,86 @@ function BandStrip({ bands }: { bands: LocalBand[] }) {
         {strip}
       </svg>
     </span>
+  );
+}
+
+/** t228: the hero landscape — the Map QC section's one large figure.
+ *  Four tables speak portraits and strips at thumbnail scale; the hero
+ *  is the report's protagonist terrain made READABLE: the owner's main
+ *  landscape (solid) under its overlays (dotted), five times the
+ *  portrait box, the quarter grid drawn in (the Local agreement table's
+ *  own Q1–Q4 cuts — fixed fractions of depth, addresses with numbers)
+ *  and each landscape's paper peak marked. The marks speak the SAME
+ *  address law the portraits wear: peakPctNumOf's 1-decimal pct scaled
+ *  onto the hero's fraction axis, clamped and fail-soft, never
+ *  re-derived from the drawn path (the t225 doctrine at hero scale).
+ *  The terrain rides the SAME fetch the deep section was built from
+ *  (mapQc) — a re-fetch would be a second well. No glass: the hero IS
+ *  the large view the thumbnails' zoom promises. The figure speaks its
+ *  own words (a figure has no row to speak for it): names and addresses
+ *  from the same wells, nothing guessed. No baseline: the box's bottom
+ *  edge is the landscape's own minimum, not a number — only depth
+ *  fractions get lines, only depth fractions HAVE addresses. */
+function HeroLandscape({
+  mainBins,
+  overlays,
+  mainName,
+}: {
+  mainBins: number[];
+  overlays: { name: string; bins: number[] }[];
+  mainName: string | null;
+}) {
+  const d = sparklinePath(mainBins, HERO_W, HERO_H, SPARK_STATIONS);
+  if (!d) return null;
+  const markX = (pct: number | null) =>
+    pct == null ? null : Math.min(HERO_W, Math.max(0, (pct / 100) * HERO_W));
+  const mainPct = peakPctNumOf(mainBins);
+  const xMain = markX(mainPct);
+  const drawn = overlays
+    .map((o) => {
+      const dow = sparklinePath(o.bins, HERO_W, HERO_H, SPARK_STATIONS);
+      if (!dow) return null;
+      const pct = peakPctNumOf(o.bins);
+      return { name: o.name, d: dow, x: markX(pct), pct };
+    })
+    .filter((o): o is { name: string; d: string; x: number | null; pct: number | null } => o !== null);
+  const quote = [
+    `${mainName ?? "the main map"} peaks at ${mainPct}% of depth`,
+    ...drawn.map((o) => `${o.name} peaks at ${o.pct}% of depth`),
+  ].join("; ");
+  return (
+    <figure className="report-hero" data-hero-landscape="">
+      <svg
+        className="report-hero-landscape"
+        viewBox={`0 0 ${HERO_W} ${HERO_H}`}
+        role="img"
+        aria-label={`Map QC hero landscape — ${quote}; the quarter grid marks 25, 50 and 75% of depth.`}
+        focusable="false"
+      >
+        {[0.25, 0.5, 0.75].map((f) => (
+          <line
+            key={f}
+            className="report-hero-quarter"
+            x1={f * HERO_W}
+            x2={f * HERO_W}
+            y1={0}
+            y2={HERO_H}
+          />
+        ))}
+        {drawn.map((o, i) => (
+          <g key={`${o.name}·${i}`}>
+            <path className="report-hero-overlay" d={o.d} />
+            {o.x != null ? (
+              <line className="report-hero-mark-overlay" x1={o.x} x2={o.x} y1={0} y2={HERO_H} />
+            ) : null}
+          </g>
+        ))}
+        <path className="report-hero-main" d={d} />
+        {xMain != null ? (
+          <line className="report-hero-mark-main" x1={xMain} x2={xMain} y1={0} y2={HERO_H} />
+        ) : null}
+      </svg>
+    </figure>
   );
 }
 
@@ -664,7 +758,31 @@ export default function SessionReportDialog({
     type TableProps = React.ComponentPropsWithoutRef<"table"> & ExtraProps;
     type TheadProps = React.ComponentPropsWithoutRef<"thead"> & ExtraProps;
     type TrProps = React.ComponentPropsWithoutRef<"tr"> & ExtraProps;
+    type H2Props = React.ComponentPropsWithoutRef<"h2"> & ExtraProps;
     return {
+      // t228: the section head that admits the hero. The exact-words
+      // match is the bouncer — "Map QC" admits the report's one large
+      // landscape; the deep report's own "Map QC summary — <map>" head
+      // admits nothing (a partial name cannot mint a figure). The hero
+      // renders BETWEEN the head and the deep prose: the figure
+      // introduces the terrain the tables below detail. It drinks the
+      // SAME well measureMapQc delivered — no fetch, no second father —
+      // and the heading keeps its exact paper bytes (the figure is
+      // rendered around the words, never written into them).
+      h2: ({ node, children, ...rest }: H2Props) => {
+        const text = hastKids(node).map(hastText).join("");
+        if (text !== MAP_QC_HEAD || !mapQc?.mainBins) return <h2 {...rest}>{children}</h2>;
+        return (
+          <>
+            <h2 {...rest}>{children}</h2>
+            <HeroLandscape
+              mainBins={mapQc.mainBins}
+              overlays={mapQc.overlays}
+              mainName={mapInventory?.[0]?.mainName ?? null}
+            />
+          </>
+        );
+      },
       table: ({ node, children, ...rest }: TableProps) => {
         // find the head row by tagName — position lies (whitespace text
         // nodes interleave every table part; see the hast helpers above)

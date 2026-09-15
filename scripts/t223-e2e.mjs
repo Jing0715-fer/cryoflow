@@ -397,6 +397,59 @@ must(!!mdD && !mdD.includes("| Bands"),
 // the frame is a reviewer — the strip's glass earns its own portrait
 await page.locator("[data-report-doc]").first().screenshot({ path: "scripts/shots-t223/t223-band-strip-2x.png", scale: "css" });
 
+
+/* ============ E: the section earns its hero ============ */
+section("E: the hero landscape — the terrain made readable");
+// admitted by the section head's EXACT words: one hero on the paper —
+// the deep report's own "Map QC summary" head must mint nothing
+for (let i = 0; i < 24 && (await page.locator("[data-report-body] [data-hero-landscape]").count()) !== 1; i++) await sleep(500);
+must((await page.locator("[data-report-body] [data-hero-landscape]").count()) === 1,
+  "E1 exactly one hero landscape on the paper (the deep summary head admits nothing)");
+const heroSvg = page.locator("[data-report-body] [data-hero-landscape] svg.report-hero-landscape");
+must((await heroSvg.count()) === 1,
+  "E2 the hero is one svg with no glass inside it (the hero IS the large view the thumbnails promise)");
+// the address law at hero scale: the main mark sits at the reference
+// aria's own pct on the 480-wide fraction axis — the same well the
+// roster quotes, five times the reach
+const xHeroMain = parseFloat(await heroSvg.locator("line.report-hero-mark-main").getAttribute("x1"));
+must(Number.isFinite(xHeroMain) && Math.abs(xHeroMain - (mainPctC / 100) * 480) <= 1e-6,
+  `E3 the hero's main mark sits at the winner's paper address (${mainPctC}% -> x ${xHeroMain} on 480)`);
+// overlay marks: every comparison row's Peak-at pct has its hairline on
+// the hero — the family's addresses drawn once, large
+for (let i = 0; i < 2; i++) {
+  const peakTxt = (await cmpRows.nth(i).locator("td").nth(2).textContent()) ?? "";
+  const pct = parseFloat(peakTxt);
+  const x = parseFloat(await heroSvg.locator("line.report-hero-mark-overlay").nth(i).getAttribute("x1"));
+  must(Number.isFinite(pct) && Number.isFinite(x) && Math.abs(x - (pct / 100) * 480) <= 1e-6,
+    `E4 hero overlay mark ${i} sits at its paper Peak-at address (${peakTxt} -> x ${x})`);
+}
+must((await heroSvg.locator("path.report-hero-main").count()) === 1 &&
+     (await heroSvg.locator("path.report-hero-overlay").count()) === 2,
+  "E5 the hero draws the whole family (main solid + two overlays dotted)");
+// the quarter grid: fixed fractions of depth — addresses with numbers,
+// the Local agreement table's own cuts drawn into the protagonist terrain
+const quarterXs = [];
+for (let i = 0; i < 3; i++) quarterXs.push(parseFloat(await heroSvg.locator("line.report-hero-quarter").nth(i).getAttribute("x1")));
+must(quarterXs.length === 3 && quarterXs.every((x, i) => Math.abs(x - (i + 1) * 0.25 * 480) <= 1e-6),
+  `E6 the quarter grid stands at 25/50/75% of depth (${quarterXs.join(", ")})`);
+// the figure speaks its own words — the aria quotes the wells, never guesses
+const heroAria = (await heroSvg.getAttribute("aria-label")) ?? "";
+must(heroAria.includes(`${mainPctC}% of depth`) && heroAria.includes("quarter grid"),
+  `E7 the hero's aria speaks the addresses it drew ("${heroAria.slice(0, 80)}…")`);
+// the paper bytes stay pure: the section head keeps its exact words
+const mdE = await page.locator("[data-report-doc]").getAttribute("data-md");
+must(!!mdE && mdE.split("\n").includes("## Map QC"),
+  "E8 the section head keeps its exact paper words (the hero is rendered around them, never written)");
+// the frame is a reviewer — scroll the hero into the dialog's viewport
+// (the body scrolls internally, the band frame's own lesson) and shoot
+// the doc with the figure at the top: hero + the summary head it
+// introduces, the tables' thumbnails in the same frame for scale
+await page.mouse.move(8, 8);
+await sleep(250);
+await page.locator("[data-report-body] [data-hero-landscape]").first().scrollIntoViewIfNeeded();
+await sleep(300);
+await page.locator("[data-report-doc]").first().screenshot({ path: "scripts/shots-t223/t223-hero-2x.png", scale: "css" });
+
 await browser.close();
 
 /* ============ T: teardown — the twin goes home ============ */
@@ -442,6 +495,8 @@ must((await page2.locator('[data-report-body] table:has(th:text-is("Map A"))').l
   "Z2f the pairwise table stays five columns in the untied world");
 must((await page2.locator('[data-report-body] table:has(th:text-is("Q1 (0\u201325%)"))').locator("svg.report-band-strip").count()) === 2,
   "Z2g the strips survive the tie's end too (the local table keeps its bars)");
+must((await page2.locator("[data-report-body] [data-hero-landscape]").count()) === 1,
+  "Z2h the hero survives the tie's end too — the terrain figure rides the world, not the tie");
 must(rosterT.length === 21, "Z3 roster identity (21) after the whole dance");
 must(consoleErrors.length === 0 && consoleErrors2.length === 0,
   `Z4 console clean across both visits (${consoleErrors.length}/${consoleErrors2.length})`);
