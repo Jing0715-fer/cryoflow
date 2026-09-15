@@ -398,3 +398,28 @@ Stage Summary:
 - 「一井三表面，永不分歧」：peakPct 的词（Peak 列）、透镜的数（Δ/琥珀）、画里的发线——同一口井三个表面；M3 把「地址活在数字里」从判例升格为 wire 断言（aria 数字 × 0.96 = x1，逐位吻合）
 - 「复用是唯一的合法国」：第二口井被 build 拦截——立新声明前先扫现场；「同一画像两次挂载」免费延伸到线（M4 钉死 attr 同一）；全族探针零迁移（line 对 path-scoped 探针隐形 + 标线零言语）
 - 遗留（下轮候选）：透镜纸面化（哲学门槛维持）；updatedAt 治理（大工程）；EMPIAR（让位）；CSV copy 路径（让位）；Comparisons 表的画像化（winner 的 overlays 是否也值得画）；标线的数值 tooltip（发线旁的百分比小签，成本/价值再评估）
+
+## Task 226 (2026-09-16, cron 05:32 窗口 trace …202609160535)
+
+- 【开局】四件套：尾部 = Task 225（f9eb4bf）；净场（PORT 3000 FREE）→ watchdog 拉起后 **pgrep 验活**（上轮判例执行）+ 首页 200；build 覆盖 HEAD 由 t223 49/0 实证（M 相标线断言在场）。QA：qa00 GREEN + qa63 SMOKE GREEN + agent-browser console 零错。
+- 【立项】Task 225 遗留评审：**Comparisons 表的画像化** 当选（「winner 的 overlays 是否也值得画」——deep report 的 Map QC 段本就有 overlays bins（t195/t198/t206 地基），逻辑层数据零新增）；标线的数值 tooltip 否决（画不说话教义 + Peak 数字已在同一行纸上，第四表面无增益）。
+- 【立项教义：winner 自家族获得同一幅画】名册画像比较的是**跨 job**（owner vs winner）；Comparisons 画像比较的是 **winner 自己的输出家族**（main vs 姊妹 volume/half map）——half-map 一致性是 cryo-EM 的核心阅读，画像让「哪里分歧」不用读数即可见。同一 ShapeSparkline、同一墨、同一玻璃权利——第二张表，同一语法。
+- 【实现】
+  - **InventoryTableContext 模式复刻**：ComparisonTableContext——table override 按 COMPARISON_HEAD 签名（["Map","Bins","Peak at","Agreement r","Verdict"]，逐格全匹配，t223 的法）发证；thead override 双 Provider 重置；tr override 凭 inComparison 入座
+  - measureMapQc 返回值扩张：mainBins + overlays（name+bins）随 report 同行——**同一口井随纸交付，画从不重新 fetching**（re-fetch 会是第二口井）
+  - tr override 新两分支：comparison head 行追加 Shape th；comparison body 行（inComparison && 5 格 && cells[1] 纯数字——pairwise 行的第二格是地图名，context 是门卫、数字守卫是保险）追加画像格：overlay 实线 over main 虚线 + 标线喝 peakPctNumOf（Peak at 列自己的数字——一井三表面跨表成立）
+  - COMPARISON_HEAD 常量入对话框（OWNER_HEAD 同例镜像纸面）；deps 增 mapQc
+  - CSS 零改动：同一 data-shape-cell="spark" 手柄 + 同一类族——hover 玻璃、print guard、后代选择器墨水全部免费继承
+- 【事故与判例 ×2】
+  - **MultiEdit 假原子性两度应验**：第一次调用报「No replacement performed」但大编辑实际生效（deps old_str 缩进失配触发整体报错），补投造成重复分支块；第二次同款（INV 注释块重复）。修正 = python 行号手术 + count 断言验尸。判例：「**MultiEdit 报错后必须 git diff 验现场，不许信账面「全未生效」——原子性承诺失效时，重复插入是默认结局**」；「python 补丁的每个 replace 都 assert 期望出现次数」
+  - **显示层吞字符第 4 度**（本轮第 2 次）：`const [mapInventory` 在工具视图里显示为 `const apInventory`——grep -c / od / python repr 三方验尸确认文件真字节无恙，是传输/渲染层吞 `[m` 序列。deps 数组真身 `}, [mapInventory, pressOwner]);` 靠 grep 反推。判例：「**括号重灾行一律 grep -c 验真，不信任任何工具的回显**」
+- 【e2e：t223-e2e 49→64】作用域迁移：INV = `table:has(tr[data-owner-door])` ——报告现有四表（inventory/comparison/local/pairwise）两表作画，名册计数全部 scope 到有门的表（**作用域是关于所数何物的承诺**）；V2/V3/V4/H1/M1/M2/Z2b/Z2c + 4 处等待循环共 13 个定位器迁移（python 补丁、page/page2 分 needle、逐条 count 断言）。新 C 相 11 断言：C1 两 overlay 行、C2 head 长出第六列、C3 双画像、**C4 标线坐在纸面 Peak at 地址上**（51.6%→x 49.536、77.4%→74.304）、**C5 标线分离=纸面峰值差**（51.6 vs 76.2 主峰——mainPct 从名册 reference 行 aria 读，同一 winner 一口井）、C6 玻璃同权（hover 开恰一玻璃）、C7 玻璃 d 字节同一（零第二父亲跨表成立）、C8 画像零言语、**C9/C10 bouncer 实证**（local 表七列、pairwise 表五列原样）、C11 纸面字节五列不变；Z2e/Z2f untied 世界同守。**64/0 ×3 全绿**。
+- 【定妆照与漂移考古升级】t223-spark-cmp-2x：玻璃开在 half1 的 diverges 画像上——51.6% 实线峰与 76.2% 虚线峰两条发线 3 倍下清晰分离，half2（agrees, r=0.99）标线几乎重合；审稿通过。漂移 ×13 分类：t210 ×3 画布噪声具名 checkout；**t218 帧结构性入画**（comparisons 画像+标线在框内——故意新帧提交）；t212/t213/t214/t215 大帧 50K 强像素经裁片验尸 = 稀疏 sliver（50K/1252 行 ≈ 40px/行）非语义；**t223 三帧 sliver 确定性实验**：checkout 后重跑 e2e 强像素数逐位复现（14372/14465/7426）= 新 bundle 固有渲染态而非随机噪声，顶区 0 差、右缘无滚动条、语义内容逐像素同 → 按 t223 先例作为当前真相提交（每窗重生成帧与其脏态永久化不如随 feature 收录）；t219×2/t212/t213/t214/t215 恢复（下窗例行重漂再处置）。
+- 【世界卫生】全家族绿：t223 64/0 ×3 + t210 151/0 + t215 44/0 + t213 35/0 + t214 29/0 + t219 29/0 + t212 30/0 + t218 21/0 + t221 14/0 + qa00/qa63；roster 恒等 21、twin 已归家。
+- 【收尾】worklog（本条）+ commit + push + 环境清理。
+
+Stage Summary:
+- 「winner 自家族获得同一幅画」：名册画像答「谁跟 winner 不一样」，Comparisons 画像答「winner 自己家里哪里不一致」——half-map 分歧（mask 边、noise shelf）从数字升格为几何；r=-0.25 的 diverges 与 r=0.99 的 agrees 在同一列里自我陈述
+- 「作用域是关于所数何物的承诺」：第二张表作画的第一成本不是渲染是探针语义——13 个全局定位器迁移到 INV 作用域；C9/C10 把「bouncer 没放错人」钉成 wire 断言
+- 「工具账面不可信」三连：MultiEdit 假原子（报错≠未生效）、显示层吞 `[m`（视图≠字节）、批处理 replace 无断言（t215 判例的 e2e 版）——python count 断言补丁成为唯一可信通道
+- 遗留（下轮候选）：透镜纸面化（哲学门槛维持）；updatedAt 治理（大工程）；EMPIAR（让位）；CSV copy 路径（让位）；Local agreement 表的画像化（季度 r 的条形/热力表达——第三张表要不要作画，成本/价值再评估）；pairwise 画像（对儿 landscape 的双子画）

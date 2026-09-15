@@ -53,6 +53,14 @@ const section = (t) => console.log(`\n== ${t} ==`);
 const jobs = async () =>
   (await (await fetch(BASE + "/api/jobs", { headers: H })).json()).jobs ?? [];
 
+// t226: the inventory table's scope — the report now carries FOUR tables
+// (inventory, comparison maps, local agreement, pairwise) and TWO of them
+// draw pictures. The inventory's own counts must be scoped to the table
+// that owns the doors, or the comparisons' portraits would be counted in
+// them (a scope is a promise about WHAT is being counted).
+const INV = '[data-report-body] table:has(tr[data-owner-door])';
+
+
 /* ============ S: setup — the tied world (t219's recipe) ============ */
 section("S: the divergent world, then its TWIN");
 execSync('QA_VOL_HOST="QA Refine3D" python3 scripts/qa67-seed-volume.py', { stdio: "pipe" });
@@ -80,16 +88,16 @@ await sleep(1800);
 for (let i = 0; i < 24 && (await page.locator("[data-report-body] tr[data-owner-door]").count()) !== 3; i++) await sleep(500);
 // the sparks arrive with the merge (bins are the fourth surface) — wait
 // for all three cells to stop being honest dashes and start drawing
-for (let i = 0; i < 24 && (await page.locator('[data-report-body] td[data-shape-cell="spark"]').count()) !== 3; i++) await sleep(500);
+for (let i = 0; i < 24 && (await page.locator(INV + ' td[data-shape-cell="spark"]').count()) !== 3; i++) await sleep(500);
 
 const headCells = await page.locator("[data-report-body] table:has(tr[data-owner-door]) thead th").allTextContents();
 must(JSON.stringify(headCells) === JSON.stringify(["Job", "Main map", "Volumes", "Peak", "Δ winner", "Agreement r", "Weakest", "Shape"]),
   `V1 the wire's head is the septet + Shape (${JSON.stringify(headCells)})`);
-must((await page.locator('[data-report-body] td[data-shape-cell="spark"]').count()) === 3,
+must((await page.locator(INV + ' td[data-shape-cell="spark"]').count()) === 3,
   "V2 all three owner rows carry a spark cell");
-must((await page.locator("[data-report-body] svg.report-spark").count()) === 3,
+must((await page.locator(INV + " svg.report-spark").count()) === 3,
   "V3 each spark cell draws one inline SVG");
-must((await page.locator("[data-report-body] svg.report-spark > path.report-spark-winner").count()) === 3,
+must((await page.locator(INV + " svg.report-spark > path.report-spark-winner").count()) === 3,
   "V4 every portrait lays the winner's dotted reference beneath the owner's line (the inline picture's own paths)");
 
 const rows = page.locator("[data-report-body] tr[data-owner-door]");
@@ -135,7 +143,7 @@ const zoomSvg = (row) => row.locator("svg.report-spark-zoom");
 const zoomOwner = (row) => row.locator("svg.report-spark-zoom > path.report-spark-owner");
 const zoomWinner = (row) => row.locator("svg.report-spark-zoom > path.report-spark-winner");
 const visibleZooms = () => page.locator("[data-report-body] svg.report-spark-zoom:visible").count();
-must((await page.locator("[data-report-body] svg.report-spark-zoom").count()) === 3,
+must((await page.locator(INV + " svg.report-spark-zoom").count()) === 3,
   "H1 the magnifier is born with the picture — one glass per spark cell");
 must((await visibleZooms()) === 0,
   "H2 before any eye arrives, every glass is folded (0 visible)");
@@ -222,11 +230,11 @@ await sleep(2500);
 await page.locator('button[aria-label="Session QC report"]').click();
 await sleep(1800);
 for (let i = 0; i < 24 && (await page.locator("[data-report-body] tr[data-owner-door]").count()) !== 3; i++) await sleep(500);
-for (let i = 0; i < 24 && (await page.locator('[data-report-body] td[data-shape-cell="spark"]').count()) !== 3; i++) await sleep(500);
+for (let i = 0; i < 24 && (await page.locator(INV + ' td[data-shape-cell="spark"]').count()) !== 3; i++) await sleep(500);
 const mRows = page.locator("[data-report-body] tr[data-owner-door]");
-must((await page.locator("[data-report-body] svg.report-spark > line.report-spark-mark-owner").count()) === 3,
+must((await page.locator(INV + " svg.report-spark > line.report-spark-mark-owner").count()) === 3,
   "M1 every portrait carries its owner's address mark");
-must((await page.locator("[data-report-body] svg.report-spark > line.report-spark-mark-winner").count()) === 3,
+must((await page.locator(INV + " svg.report-spark > line.report-spark-mark-winner").count()) === 3,
   "M2 every portrait carries the winner's address mark (the reference's own hairline)");
 // the address lives in the numbers: the mark's x IS the paper's Peak
 // pct — the same 1-decimal number the row's aria speaks — scaled onto
@@ -278,6 +286,59 @@ await mCell1.hover();
 await sleep(250);
 await page.locator("[data-report-doc]").first().screenshot({ path: "scripts/shots-t223/t223-spark-mark-2x.png", scale: "css" });
 
+
+/* ============ C: the comparisons earn their picture ============ */
+section("C: the winner's own family draws the same portrait");
+// the comparisons table is found by its own head word — "Bins" lives in
+// no other table's head on this paper
+const cmpTable = page.locator('[data-report-body] table:has(th:text-is("Bins"))');
+const cmpRows = cmpTable.locator("tbody tr");
+for (let i = 0; i < 24 && (await cmpTable.locator('td[data-shape-cell="spark"]').count()) !== 2; i++) await sleep(500);
+must((await cmpRows.count()) === 2, `C1 the comparisons table speaks its two overlays (${await cmpRows.count()})`);
+must((await cmpTable.locator("thead th").count()) === 6,
+  "C2 the comparisons head grew the picture column on the wire (5 paper + Shape)");
+must((await cmpTable.locator("svg.report-spark").count()) === 2,
+  "C3 both comparison rows draw their inline portrait");
+// the marks sit at the paper's own addresses: the row's Peak-at cell says
+// the pct, the mark's x is that pct on the picture's fraction axis; and
+// the mark separation IS the paper's peak difference (main pct read from
+// the inventory's reference-row aria — the same winner, one well)
+const mainPctC = await peakPctOfAria(mRows.nth(0));
+for (let i = 0; i < 2; i++) {
+  const r = cmpRows.nth(i);
+  const peakTxt = (await r.locator("td").nth(2).textContent()) ?? "";
+  const pct = parseFloat(peakTxt);
+  const x = parseFloat(await r.locator("svg.report-spark > line.report-spark-mark-owner").getAttribute("x1"));
+  must(Number.isFinite(pct) && Number.isFinite(x) && Math.abs(x - (pct / 100) * 96) <= 1e-6,
+    `C4 comparison row ${i}'s mark sits at its paper Peak-at address (${peakTxt} -> x ${x})`);
+  const xw = parseFloat(await r.locator("svg.report-spark > line.report-spark-mark-winner").getAttribute("x1"));
+  must(Number.isFinite(xw) && Math.abs(Math.abs(x - xw) - (Math.abs(pct - mainPctC) / 100) * 96) <= 1e-6,
+    `C5 comparison row ${i}'s mark separation IS the paper's peak difference (${peakTxt} vs ${mainPctC}%)`);
+}
+// the comparison portrait earns the SAME glass — hover opens exactly one
+const cmpCell = cmpRows.nth(0).locator('td[data-shape-cell="spark"]');
+await cmpTable.scrollIntoViewIfNeeded();
+await sleep(300);
+await cmpCell.hover();
+await sleep(250);
+must((await visibleZooms()) === 1, "C6 hovering a comparison cell opens exactly one glass (the same right to magnify)");
+const dCmpIn = await cmpRows.nth(0).locator("svg.report-spark > path.report-spark-owner").getAttribute("d");
+const dCmpZoom = await cmpRows.nth(0).locator("svg.report-spark-zoom > path.report-spark-owner").getAttribute("d");
+must(!!dCmpIn && dCmpIn === dCmpZoom, "C7 the comparison glass magnifies THE picture (byte-identical d, no second father)");
+must((await cmpRows.nth(1).locator('td[data-shape-cell="spark"]').textContent()) === "",
+  "C8 the comparison pictures speak no words either (M8's guard, second table)");
+// the bouncer worked: the OTHER two deep tables keep their paper widths
+must((await page.locator('[data-report-body] table:has(th:text-is("Q1 (0\u201325%)"))').locator("thead th").count()) === 7,
+  "C9 the local-agreement table stays seven columns");
+must((await page.locator('[data-report-body] table:has(th:text-is("Map A"))').locator("thead th").count()) === 5,
+  "C10 the pairwise table stays five columns");
+const mdC = await page.locator("[data-report-doc]").getAttribute("data-md");
+must(!!mdC && mdC.includes("| Map | Bins | Peak at | Agreement r | Verdict |") &&
+     !mdC.includes("| Map | Bins | Peak at | Agreement r | Verdict | Shape |"),
+  "C11 the comparisons paper bytes stay five columns (the picture is rendered, never written)");
+// the frame is a reviewer — the comparison glass earns its own portrait
+await page.locator("[data-report-doc]").first().screenshot({ path: "scripts/shots-t223/t223-spark-cmp-2x.png", scale: "css" });
+
 await browser.close();
 
 /* ============ T: teardown — the twin goes home ============ */
@@ -300,7 +361,7 @@ await sleep(2500);
 await page2.locator('button[aria-label="Session QC report"]').click();
 await sleep(1800);
 for (let i = 0; i < 24 && (await page2.locator("[data-report-body] tr[data-owner-door]").count()) !== 2; i++) await sleep(500);
-for (let i = 0; i < 24 && (await page2.locator('[data-report-body] td[data-shape-cell="spark"]').count()) !== 2; i++) await sleep(500);
+for (let i = 0; i < 24 && (await page2.locator(INV + ' td[data-shape-cell="spark"]').count()) !== 2; i++) await sleep(500);
 const rows2 = page2.locator("[data-report-body] tr[data-owner-door]");
 const pOut = await rows2.nth(1).locator("svg.report-spark > path.report-spark-owner").getAttribute("d");
 const wRef = await rows2.nth(0).locator("svg.report-spark > path.report-spark-winner").getAttribute("d");
@@ -308,14 +369,19 @@ must(!!pOut && !!wRef && pOut !== wRef,
   "Z1 the untied world: the unique outlier's portrait still separates from the winner's (the lens survives)");
 must((await page2.locator("[data-report-body] blockquote").count()) === 0,
   "Z2 the tie note is gone with the tie — no note without a contested crown");
-must((await page2.locator("[data-report-body] svg.report-spark-zoom").count()) === 2,
+must((await page2.locator(INV + " svg.report-spark-zoom").count()) === 2,
   "Z2b the magnifier exists in the untied world too — born with every picture, tied or not");
-must((await page2.locator("[data-report-body] svg.report-spark > line.report-spark-mark-owner").count()) === 2,
+must((await page2.locator(INV + " svg.report-spark > line.report-spark-mark-owner").count()) === 2,
   "Z2c the untied world's portraits carry their addresses too");
 const xOut = parseFloat(await rows2.nth(1).locator("svg.report-spark > line.report-spark-mark-owner").getAttribute("x1"));
 const xWin = parseFloat(await rows2.nth(1).locator("svg.report-spark > line.report-spark-mark-winner").getAttribute("x1"));
 must(Number.isFinite(xOut) && Number.isFinite(xWin) && Math.abs(xOut - xWin) > 1e-6,
   `Z2d the outlier's address separates from the winner's (${xOut} vs ${xWin}) — the relocation wears its hairline`);
+const cmpTable2 = page2.locator('[data-report-body] table:has(th:text-is("Bins"))');
+must((await cmpTable2.locator("svg.report-spark").count()) === 2,
+  "Z2e the comparisons portraits survive the tie's end too (the deep section keeps its pictures)");
+must((await page2.locator('[data-report-body] table:has(th:text-is("Map A"))').locator("thead th").count()) === 5,
+  "Z2f the pairwise table stays five columns in the untied world");
 must(rosterT.length === 21, "Z3 roster identity (21) after the whole dance");
 must(consoleErrors.length === 0 && consoleErrors2.length === 0,
   `Z4 console clean across both visits (${consoleErrors.length}/${consoleErrors2.length})`);

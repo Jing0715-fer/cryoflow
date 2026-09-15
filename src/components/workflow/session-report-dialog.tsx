@@ -143,6 +143,7 @@ const byRecency = (a: JobDTO, b: JobDTO) =>
  * stays plain, because a door must promise what the paper says.
  */
 const InventoryTableContext = React.createContext(false);
+const ComparisonTableContext = React.createContext(false);
 
 /** The inventory table's exact head sextet — the only door-carrying
  *  table on the paper. Matched against the RENDERED head (hast), so
@@ -161,6 +162,12 @@ const InventoryTableContext = React.createContext(false);
  *  head stays the septet. The wire's extra column is rendered,
  *  never written. */
 const OWNER_HEAD = ["Job", "Main map", "Volumes", "Peak", "Δ winner", "Agreement r", "Weakest"];
+
+/** t226: the comparisons table's head — the paper speaks five columns
+ *  (Map, Bins, Peak at, Agreement r, Verdict); the wire adds the picture
+ *  column, the SAME portrait grammar the roster earned. Matched EVERY
+ *  cell at once — a partial head cannot mint a Shape th (t223's law). */
+const COMPARISON_HEAD = ["Map", "Bins", "Peak at", "Agreement r", "Verdict"];
 
 /** t223: the portrait column's wire grammar — the head word the wire
  *  adds (never the markdown), the box the paths draw in, and the
@@ -327,7 +334,12 @@ async function walkVolumeOwners(jobIds: string[], signal: AbortSignal): Promise<
 async function measureMapQc(
   brief: MapBrief,
   signal: AbortSignal,
-): Promise<{ jobId: string; report: string }> {
+): Promise<{
+  jobId: string;
+  report: string;
+  mainBins: number[];
+  overlays: { name: string; bins: number[] }[];
+}> {
   const paths = [brief.main.path, ...brief.overlays.map((o) => o.path)];
   const fetched = await Promise.all(
     paths.map(async (p) => {
@@ -348,7 +360,7 @@ async function measureMapQc(
     overlays,
     pendingOverlays: 0,
   });
-  return { jobId: brief.jobId, report };
+  return { jobId: brief.jobId, report, mainBins: fetched[0], overlays };
 }
 
 /** Profile each owner's MAIN map once and return its peak address AND
@@ -398,7 +410,15 @@ export default function SessionReportDialog({
   const jobs = useWorkflowStore((s) => s.jobs);
   const lastSweep = useWorkflowStore((s) => s.lastSweep);
 
-  const [mapQc, setMapQc] = React.useState<{ jobId: string; report: string } | null>(null);
+  const [mapQc, setMapQc] = React.useState<{
+    jobId: string;
+    report: string;
+    // t226: the well rides with the paper — the main landscape and the
+    // comparison terrains the deep section was built from, so the wire's
+    // pictures drink the SAME fetch (a re-fetch would be a second well)
+    mainBins: number[];
+    overlays: { name: string; bins: number[] }[];
+  } | null>(null);
   const [mapPending, setMapPending] = React.useState(false);
   const [mapError, setMapError] = React.useState(false);
   /** t212: every volume owner in walk order, from the SAME walk that
@@ -571,6 +591,18 @@ export default function SessionReportDialog({
           .map(hastText);
         const isInventory =
           headTexts.length === OWNER_HEAD.length && OWNER_HEAD.every((h, i) => headTexts[i] === h);
+        // t226: the comparisons table earns the same wire grammar — its
+        // head speaks COMPARISON_HEAD exactly, and its body rows carry
+        // the winner's own family portraits
+        const isComparison =
+          headTexts.length === COMPARISON_HEAD.length &&
+          COMPARISON_HEAD.every((h, i) => headTexts[i] === h);
+        if (isComparison)
+          return (
+            <ComparisonTableContext.Provider value={true}>
+              <table {...rest}>{children}</table>
+            </ComparisonTableContext.Provider>
+          );
         if (!isInventory) return <table {...rest}>{children}</table>;
         return (
           <InventoryTableContext.Provider value={true}>
@@ -580,11 +612,14 @@ export default function SessionReportDialog({
       },
       thead: ({ node, children, ...rest }: TheadProps) => (
         <InventoryTableContext.Provider value={false}>
-          <thead {...rest}>{children}</thead>
+          <ComparisonTableContext.Provider value={false}>
+            <thead {...rest}>{children}</thead>
+          </ComparisonTableContext.Provider>
         </InventoryTableContext.Provider>
       ),
       tr: ({ node, children, ...rest }: TrProps) => {
         const inInventory = React.useContext(InventoryTableContext);
+        const inComparison = React.useContext(ComparisonTableContext);
         const cells = hastKids(node)
           .filter((c) => hastTag(c) === "td" || hastTag(c) === "th")
           .map(hastText);
@@ -603,6 +638,53 @@ export default function SessionReportDialog({
           OWNER_HEAD.every((h, i) => cells[i] === h)
         ) {
           return <tr {...rest}>{children}<th className="text-right">{SHAPE_HEAD}</th></tr>;
+        }
+        // t226: the comparisons head row — matched EVERY cell at once
+        // against COMPARISON_HEAD — earns the wire's sixth column HEAD,
+        // the same grammar the roster speaks (a picture column rendered,
+        // never written into the paper's bytes).
+        if (
+          !inComparison &&
+          cells.length === COMPARISON_HEAD.length &&
+          COMPARISON_HEAD.every((h, i) => cells[i] === h)
+        ) {
+          return <tr {...rest}>{children}<th className="text-right">{SHAPE_HEAD}</th></tr>;
+        }
+        // t226: the comparison body row — the winner's own family (main
+        // vs each sibling volume) draws the same portrait the roster
+        // earned: overlay solid over main dotted, marks at each
+        // landscape's paper address (the Peak at column's own number,
+        // peakPctNumOf — one well, no second father). The pairwise
+        // table's rows also start with map names, but they live in a
+        // table whose head is NOT COMPARISON_HEAD — the context is the
+        // bouncer, the digits-guard is the belt-and-braces.
+        if (
+          inComparison &&
+          cells.length === COMPARISON_HEAD.length &&
+          /^\d+$/.test(cells[1] ?? "")
+        ) {
+          const ov = mapQc?.overlays.find((o) => o.name === cells[0]);
+          const cmpMain = mapQc?.mainBins ?? null;
+          return (
+            <tr {...rest}>
+              {children}
+              <td
+                data-shape-cell={ov?.bins ? "spark" : "empty"}
+                className="text-right align-middle"
+              >
+                {ov?.bins ? (
+                  <ShapeSparkline
+                    bins={ov.bins}
+                    winnerBins={cmpMain}
+                    peakPct={peakPctNumOf(ov.bins)}
+                    winnerPct={cmpMain ? peakPctNumOf(cmpMain) : null}
+                  />
+                ) : (
+                  <span className="text-muted-foreground">—</span>
+                )}
+              </td>
+            </tr>
+          );
         }
         const owner = mapInventory?.find(
           (o) => cells[0] === o.jobName && cells[1] === o.mainName && cells[2] === String(o.volumeCount),
@@ -669,7 +751,7 @@ export default function SessionReportDialog({
         );
       },
     };
-  }, [mapInventory, pressOwner]);
+  }, [mapInventory, mapQc, pressOwner]);
 
   const exportCsv = () => {
     const csv = inventoryCsv(mapInventory ?? null);
