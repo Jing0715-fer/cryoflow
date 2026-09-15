@@ -13,11 +13,15 @@
  *      outlier's profile (same landscape, read independently).
  *   D  dynamics — the inventory speaks three rows; the Δ column reads
  *      +0.0 / -X / -X (wire-relative, from the rendered markdown); and
- *      tr[data-outlier] count === 0 — THE TIE CROWNS NOBODY. The CSV
- *      door (t218) still speaks three rows, cell-for-cell with the paper.
+ *      tr[data-outlier] count === 0 — THE TIE CROWNS NOBODY. t220: the
+ *      paper EXPLAINS the silence — a tie footnote (from the SAME scan,
+ *      contestedCrown) names both contenders and the shared |Δ| in the
+ *      markdown source, so exports carry it too. The CSV door (t218)
+ *      still speaks three rows, cell-for-cell with the paper.
  *   T  teardown — DELETE /api/jobs/:id clears the run record and the row;
  *      the roster returns to 21; the outputs route refuses the dead id.
- *   Z  world hygiene — console clean.
+ *   Z  world hygiene — console clean; t220's negative branch: the untied
+ *      world speaks TWO rows, the amber edge returns, the note is gone.
  */
 import { execSync } from "node:child_process";
 import { readFileSync, mkdirSync } from "node:fs";
@@ -88,7 +92,34 @@ for (let i = 0; i < 24 && (await page.locator("[data-report-body] tr[data-owner-
 must((await page.locator("[data-report-body] tr[data-owner-door]").count()) === 3, "D1 the inventory speaks THREE door rows");
 must((await page.locator("[data-report-body] tr[data-outlier]").count()) === 0, "D2 THE TIE CROWNS NOBODY — zero amber rows (the tie branch, alive on the wire)");
 
+// t220: the lens explains its own silence — the paper's tie footnote.
+// The note lives in the MARKDOWN source (data-md), so the exported
+// bytes and the clipboard copy carry it too; the CSV stays numbers-only
+// (D7's row count pins that). The footnote is the SAME scan's verdict
+// (contestedCrown shares outlierRowIdx's walk), so its |Δ| is the
+// paper's own arithmetic, not a second opinion.
 const md = await page.locator("[data-report-doc]").getAttribute("data-md");
+const tieAbs = (peakH - peakT).toFixed(1);
+// order-agnostic: the inventory is newest-walk-first, and WHICH contender
+// leads the footnote is the walk's business, not the assertion's — the
+// note must name BOTH and the shared |Δ|, in either order
+const noteLine = (md || "").split("\n").find((l) => l.startsWith("> The outlier lens is silent here:"));
+must(!!noteLine && noteLine.includes("QA Class2D Source") && noteLine.includes("QA Class2D Twin") && noteLine.includes(`(${tieAbs} vs winner)`),
+  `D2b the paper's footnote names BOTH contenders and the shared |Δ| (${tieAbs})`);
+must(!!md && md.includes("a tie for the crown is no crown, so no row wears the amber edge"),
+  "D2c the footnote speaks the t219 doctrine verbatim");
+const noteCount = await page.locator("[data-report-body] blockquote").count();
+const noteText = noteCount > 0
+  ? await page.locator("[data-report-body] blockquote").first().textContent().catch(() => null)
+  : null;
+must(noteCount === 1 && !!noteText && noteText.includes("QA Class2D Source") && noteText.includes("QA Class2D Twin"),
+  `D2d the rendered note is ONE blockquote naming both contenders (count ${noteCount})`);
+// t220 portrait: the note deserves its own frame — the doc scrolled to
+// the inventory's footnote, the amber silence and its explanation together
+// (the top frame below the fold cannot show what the lens said)
+await page.locator("[data-report-body] blockquote").first().scrollIntoViewIfNeeded();
+await sleep(300);
+await page.locator("[data-report-doc]").first().screenshot({ path: "scripts/shots-t219/t219-tie-note-2x.png", scale: "css" });
 const paperRows = [...md.matchAll(/^\| (.+?) \| (.+?) \| (\d+) \| ([\d.]+%) \| ([+-][\d.]+) \|$/gm)].slice(0, 3);
 must(paperRows.length === 3, `D3 the paper's inventory has three speakable rows (${paperRows.length})`);
 const deltas = paperRows.map((r) => r[5]);
@@ -131,6 +162,27 @@ must(!state[twinId], "T4 the run record left with the job (clearRunRecord, alive
 /* ============ Z: world hygiene ============ */
 section("Z: the world after");
 must((await jobs()).length === 21, "Z1 roster identity (21) after the whole dance");
+
+// t220: the negative branch on the wire — in the untied world the tie
+// note is NEVER born (the amber edge already speaks), and with the twin
+// gone the unique outlier wears it again. The lens explains only ITS
+// silences, not every table.
+const browser2 = await chromium.launch();
+const page2 = await browser2.newPage({ viewport: { width: 1440, height: 900 } });
+const consoleErrors2 = [];
+page2.on("console", (m) => { if (m.type() === "error") consoleErrors2.push(m.text()); });
+page2.on("pageerror", (e) => consoleErrors2.push(String(e)));
+await page2.goto(BASE, { waitUntil: "domcontentloaded" });
+await sleep(2500);
+await page2.locator('button[aria-label="Session QC report"]').click();
+await sleep(1800);
+for (let i = 0; i < 24 && (await page2.locator("[data-report-body] tr[data-owner-door]").count()) !== 2; i++) await sleep(500);
+for (let i = 0; i < 16 && (await page2.locator("[data-report-body] tr[data-outlier]").count()) !== 1; i++) await sleep(500);
+must((await page2.locator("[data-report-body] tr[data-owner-door]").count()) === 2, "Z2 the untied world's inventory speaks TWO rows (winner + outlier)");
+must((await page2.locator("[data-report-body] tr[data-outlier]").count()) === 1, "Z3 the unique outlier wears the amber edge again");
+must((await page2.locator("[data-report-body] blockquote").count()) === 0, "Z4 the tie note is gone with the tie — no note without a contested crown");
+must(consoleErrors2.length === 0, `Z5 console clean on the second visit (${consoleErrors2.length})`);
+await browser2.close();
 
 console.log(`\n== RESULT ==\npass ${pass} / fail ${fail}`);
 if (fail) { fails.forEach((f) => console.log(`  - ${f}`)); process.exit(1); }

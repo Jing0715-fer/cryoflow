@@ -250,31 +250,62 @@ export const inventoryCsv = (rows: InventoryCsvRow[] | null): string | null => {
   return [line(["job", "main_map", "volumes", "peak_pct", "delta_winner"]), ...body].join("\n");
 };
 
-/** t215: WHO is the outlier? The row whose |Δ| is strictly the largest
- *  AND strictly greater than zero — a tie for the crown is no crown
- *  (a contested superlative is a guess, and the lens never guesses),
- *  and the winner's own +0.0 can never outshine itself. Returns the
- *  row index, or -1 when the world is tied / unmeasured. Three-state
- *  discipline: comparisons are >=/> with an epsilon, never a unary
- *  (a<b?1:-1) — the t211 comparator lesson, lens edition. */
-export const outlierRowIdx = (rows: { peakPct: number | null }[]): number => {
+/** The ONE scan both lenses read (t220: twins fork, imports don't —
+ *  a second scan is a second father for the verdict, and the two lenses
+ *  must never disagree about who led the field). Walks the rows once,
+ *  tracking the strictly-largest |Δ| on the 1-decimal grid with the
+ *  epsilon discipline (t215: comparisons, never a unary comparator),
+ *  and collects EVERY row that shares it. The winner's own +0.0 can
+ *  never lead (a > 1e-9 gate); unmeasured rows are invisible to the
+ *  scan (— stays —). abs is the shared magnitude on the same grid. */
+type CrownScan = { abs: number; indices: number[] };
+const crownScan = (rows: { peakPct: number | null }[]): CrownScan => {
   const w = rows[0]?.peakPct ?? null;
-  if (w == null) return -1;
-  let best = -1;
+  if (w == null) return { abs: 0, indices: [] };
   let bestAbs = 0;
-  let unique = false;
+  let indices: number[] = [];
   rows.forEach((r, i) => {
     if (r.peakPct == null) return;
     const a = Math.abs(Number((r.peakPct - w).toFixed(1)));
     if (a > bestAbs + 1e-9) {
-      best = i;
       bestAbs = a;
-      unique = true;
-    } else if (Math.abs(a - bestAbs) <= 1e-9 && i !== best) {
-      unique = false;
+      indices = [i];
+    } else if (Math.abs(a - bestAbs) <= 1e-9 && a > 1e-9) {
+      indices.push(i);
     }
   });
-  return unique && bestAbs > 1e-9 ? best : -1;
+  return { abs: bestAbs, indices };
+};
+
+/** t215: WHO is the outlier? The row whose |Δ| is strictly the largest
+ *  AND strictly greater than zero — a tie for the crown is no crown
+ *  (a contested superlative is a guess, and the lens never guesses).
+ *  Returns the row index, or -1 when the world is tied / unmeasured.
+ *  t220: the scan is SHARED with contestedCrown — one walk of the rows
+ *  feeds both lenses, so the amber edge and the paper's tie note can
+ *  never be two opinions. */
+export const outlierRowIdx = (rows: { peakPct: number | null }[]): number => {
+  const { abs, indices } = crownScan(rows);
+  return indices.length === 1 && abs > 1e-9 ? indices[0] : -1;
+};
+
+/** t220: silence has TWO meanings, and a lens that cannot tell them
+ *  apart leaves the reader guessing. When every measured row agrees
+ *  with the winner, zero amber is the truth and needs no footnote; but
+ *  when two or more rows SHARE the strictly-largest |Δ| — the same map
+ *  imported twice under two names, a duplicated job, two fathers of one
+ *  shape — outlierRowIdx returns -1 and the reader sees an unexplained
+ *  absence. contestedCrown speaks that case: it returns the shared
+ *  magnitude and the indices of every row tied for the crown, so the
+ *  paper can NAME the standoff instead of leaving silence. Returns null
+ *  when the world has a unique outlier (the amber edge already speaks)
+ *  or no divergence at all (nothing to explain). Same scan, same grid,
+ *  same epsilon — a sibling lens, not a second opinion. */
+export const contestedCrown = (
+  rows: { peakPct: number | null }[],
+): { abs: number; indices: number[] } | null => {
+  const { abs, indices } = crownScan(rows);
+  return indices.length > 1 ? { abs, indices } : null;
 };
 
 /** Every PAIR of comparison terrains, correlated on the shared fraction
@@ -657,6 +688,30 @@ export const buildSessionReport = (opts: {
       lines.push(`| ${mdCell(o.jobName)} | ${mdCell(o.mainName)} | ${o.volumeCount} | ${o.peak ?? "—"} | ${delta ?? "—"} |`);
     }
     lines.push("");
+    // t220: the lens explains its own silences. When the crown is
+    // contested (contestedCrown — the SAME scan the amber edge reads,
+    // so the page and the paper can never disagree) the zero-amber
+    // table gets a footnote naming every contender and the shared |Δ|.
+    // The note lives in the MARKDOWN — the exported bytes and the
+    // clipboard copy carry the explanation, not just the page (the
+    // t218 CSV stays numbers-only: the roster's machine grid speaks
+    // facts, the lens's verdicts travel with the paper). In a world
+    // with a unique outlier or no divergence this line is never born —
+    // front-wave probes' paper bytes are untouched.
+    const crown = contestedCrown(mapInventory);
+    if (crown) {
+      const andList = (names: string[]): string =>
+        names.length <= 1
+          ? names.join("")
+          : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+      const contenders = crown.indices
+        .map((i) => mapInventory[i]?.jobName)
+        .filter((n): n is string => !!n);
+      lines.push(
+        `> The outlier lens is silent here: ${andList(contenders)} tie for the largest |Δ| (${crown.abs.toFixed(1)} vs winner) — a tie for the crown is no crown, so no row wears the amber edge.`,
+      );
+      lines.push("");
+    }
   }
   lines.push("## Scheduling sweep");
   lines.push("");

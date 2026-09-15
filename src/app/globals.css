@@ -1388,11 +1388,19 @@ li[data-swipe="end"] {
 .report-doc p { margin: 0.4rem 0; }
 .report-doc ul { margin: 0.4rem 0; padding-left: 1.1rem; list-style: disc; }
 .report-doc li { margin: 0.15rem 0; }
+/* t220: the tie footnote — the lens explains its own silence. The
+   report's only blockquote is a lens annotation, so the note wears the
+   lens color: amber edge and a faint amber wash, rounded on the open
+   side, text kept at full foreground for contrast (amber TEXT on a
+   dark canvas is a squint — the color lives in the frame, not the
+   words). */
 .report-doc blockquote {
-  margin: 0.5rem 0;
-  padding: 0.25rem 0.6rem;
-  border-left: 3px solid var(--border);
-  color: var(--muted-foreground);
+  margin: 0.6rem 0;
+  padding: 0.45rem 0.7rem;
+  border-left: 3px solid rgb(245 158 11 / 0.6);
+  background: rgb(245 158 11 / 0.06);
+  border-radius: 0 6px 6px 0;
+  color: var(--foreground);
 }
 .report-doc code {
   font-family: var(--font-mono, ui-monospace, monospace);
