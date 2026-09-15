@@ -63,8 +63,16 @@ const MAIN_MAP_RE = /half0|postprocess\.mrc$/i;
 
 /* ============ S: setup — the divergent world ============ */
 section("S: the world, with a DIVERGENT second owner (no bumps, file name never moves)");
+// t216: the world must be rebuildable from the probe's OWN setup — no
+// reliance on accumulated state (data/ is not in git; a sandbox rollback
+// wiped the winner's orthovol + masked and 4 assertions died on sight).
+// The full recipe (t210's, inherited): winner orthovol -> outlier orthovol
+// -> halves -> masked -> the DIVERGENT overwrite LAST (it re-shapes the
+// outlier's orthovol, so nothing may re-seed that file afterwards).
+execSync('QA_VOL_HOST="QA Refine3D" python3 scripts/qa67-seed-volume.py', { stdio: "pipe" });
 execSync("python3 scripts/qa67-seed-volume.py", { stdio: "pipe" });
 execSync("python3 scripts/seed-refine-halves.py", { stdio: "pipe" });
+execSync("python3 scripts/seed-masked.py", { stdio: "pipe" });
 const outlierReceipt = execSync("python3 scripts/seed-outlier.py", { encoding: "utf8" });
 must(outlierReceipt.includes("DIVERGENT"), "S1 the outlier seeder ran and said so (idempotent overwrite, after qa67)");
 const rosterS = await jobs();

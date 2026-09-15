@@ -181,6 +181,27 @@ Promise.all(spec.map(([id, result]) =>
         if r.returncode != 0:
             sys.exit(1)
 
+    # 9. the volume-family recipe (t210's, inherited by t214/t215): the
+    #    winner host needs its OWN orthovol (QA_VOL_HOST variant of qa67 —
+    #    the bare call above only feeds the Class2D tail host), its half
+    #    pair and its masked sibling. data/ is not in git, so a sandbox
+    #    rollback wipes all four and the inventory probes starve (t216:
+    #    restore must REPRODUCE the world the probes assume, not rely on
+    #    accumulated state). seed-outlier stays OUT on purpose — the
+    #    divergent shape is each probe's own setup duty; restore builds
+    #    the NEUTRAL world.
+    env_winner = dict(os.environ, QA_VOL_HOST="QA Refine3D")
+    for argv, env in ((["qa67-seed-volume.py"], env_winner),
+                      (["seed-refine-halves.py"], None),
+                      (["seed-masked.py"], None)):
+        r = subprocess.run([sys.executable] + [os.path.join(SCRIPTS, a) for a in argv],
+                           capture_output=True, text=True, env=env)
+        tail = (r.stdout.strip().splitlines() or [""])[-1]
+        label = ("QA_VOL_HOST=QA Refine3D " if env else "") + argv[0]
+        print(f"{label}: {'ok — ' + tail if r.returncode == 0 else 'FAILED — ' + r.stderr.strip()[:200]}")
+        if r.returncode != 0:
+            sys.exit(1)
+
     jobs = list_jobs()
     proj_jobs = [j for j in jobs if j.get("projectId") == project]
     print(f"\nroster: {len(proj_jobs)} jobs in the active project "
