@@ -414,6 +414,27 @@ function HeroLandscape({
       return { name: o.name, d: dow, x: markX(pct), pct };
     })
     .filter((o): o is { name: string; d: string; x: number | null; pct: number | null } => o !== null);
+  // t229: the signatures — the figure's speech made visible. A table row
+  // speaks for its portrait; the hero has no row, so each addressed line
+  // signs itself at its mark address with the words the aria quotes (name
+  // and pct, the same wells, never retyped). No address, no signature —
+  // only things with addresses get lines, and only lines with addresses
+  // get signatures. Nearby addresses stack deterministically: the address
+  // never moves, the signature's row does (an edge address keeps its mark
+  // at the exact fraction and its signature just inside the canvas).
+  const CHAR_W = 3.7;
+  const sigs: { text: string; x: number; row: number }[] = [];
+  const sign = (name: string, pct: number | null, x: number | null) => {
+    if (x == null || pct == null) return;
+    const text = `${name} ${pct}%`;
+    const half = (text.length * CHAR_W) / 2;
+    const cx = Math.min(HERO_W - half - 1, Math.max(half + 1, x));
+    let row = 0;
+    while (sigs.some((s) => s.row === row && Math.abs(s.x - cx) < half + (s.text.length * CHAR_W) / 2 + 2)) row++;
+    sigs.push({ text, x: cx, row });
+  };
+  sign(mainName ?? "the main map", mainPct, xMain);
+  drawn.forEach((o) => sign(o.name, o.pct, o.x));
   const quote = [
     `${mainName ?? "the main map"} peaks at ${mainPct}% of depth`,
     ...drawn.map((o) => `${o.name} peaks at ${o.pct}% of depth`),
@@ -449,6 +470,11 @@ function HeroLandscape({
         {xMain != null ? (
           <line className="report-hero-mark-main" x1={xMain} x2={xMain} y1={0} y2={HERO_H} />
         ) : null}
+        {sigs.map((s, i) => (
+          <text key={`sig·${i}`} className="report-hero-label" x={s.x} y={7 + s.row * 9} textAnchor="middle">
+            {s.text}
+          </text>
+        ))}
       </svg>
     </figure>
   );

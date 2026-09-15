@@ -440,6 +440,52 @@ must(heroAria.includes(`${mainPctC}% of depth`) && heroAria.includes("quarter gr
 const mdE = await page.locator("[data-report-doc]").getAttribute("data-md");
 must(!!mdE && mdE.split("\n").includes("## Map QC"),
   "E8 the section head keeps its exact paper words (the hero is rendered around them, never written)");
+
+/* ============ F: the signatures — the hero signs itself ============ */
+section("F: the signatures — names at addresses, rows for collisions");
+// the wells the signatures must agree with: the aria's own quote, parsed
+// into name/pct pairs — the labels are that speech drawn, never retyped.
+// The figure's prefix ("Map QC hero landscape — ...") is speech furniture,
+// not a name: slice past the em-dash before parsing (the \u2014 escape
+// keeps the dash un-typed — the t227 heredoc lesson)
+const dashAt = heroAria.indexOf("\u2014");
+const quoteStr = dashAt >= 0 ? heroAria.slice(dashAt + 1) : heroAria;
+const segs = [];
+const segRe = /([^;]+?) peaks at ([0-9.]+)% of depth/g;
+let sm;
+while ((sm = segRe.exec(quoteStr))) segs.push({ name: sm[1].trim(), pct: parseFloat(sm[2]) });
+must(segs.length === 3, `F1 the aria quotes the family (${segs.length} segments: main + two overlays)`);
+const heroLabels = heroSvg.locator("text.report-hero-label");
+must((await heroLabels.count()) === 3,
+  "F2 exactly one signature per addressed line (three lines, three signatures)");
+let sigOk = true;
+for (let i = 0; i < 3; i++) {
+  const txt = (await heroLabels.nth(i).textContent()) ?? "";
+  const mm = txt.match(/^(.*) ([0-9.]+)%$/);
+  const seg = mm ? segs.find((s) => s.name === mm[1] && Math.abs(s.pct - parseFloat(mm[2])) <= 1e-9) : null;
+  if (!seg) { sigOk = false; break; }
+}
+must(sigOk, "F3 every signature speaks the aria's own words (name + pct from the same wells)");
+for (let i = 0; i < 3; i++) {
+  const txt = (await heroLabels.nth(i).textContent()) ?? "";
+  const pct = parseFloat((txt.match(/ ([0-9.]+)%$/) ?? [])[1]);
+  const lx = parseFloat(await heroLabels.nth(i).getAttribute("x"));
+  must(Number.isFinite(pct) && Number.isFinite(lx) && Math.abs(lx - (pct / 100) * 480) <= 1e-6,
+    `F4 signature ${i} rides its mark's address (${pct}% -> x ${lx})`);
+}
+must(Number.isFinite(segs[0]?.pct) && Math.abs(segs[0].pct - mainPctC) <= 1e-9,
+  `F5 the hero's quote and the roster's quote agree on the winner's peak (${segs[0]?.pct} vs ${mainPctC})`);
+// collision discipline: the winner and the overlay whose peak sits within
+// 40px share no row — the address never moves, the signature's row does
+const yMainSig = parseFloat(await heroLabels.filter({ hasText: `${segs[0].name} ${segs[0].pct}%` }).getAttribute("y"));
+const nearOv = segs.slice(1).find((s) => Math.abs((s.pct / 100) * 480 - (segs[0].pct / 100) * 480) <= 40);
+const farOv = segs.slice(1).find((s) => s !== nearOv);
+must(!!nearOv && !!farOv, "F6 the demo world holds one colliding pair (winner + near-peak overlay)");
+const yNear = parseFloat(await heroLabels.filter({ hasText: `${nearOv.name} ${nearOv.pct}%` }).getAttribute("y"));
+const yFar = parseFloat(await heroLabels.filter({ hasText: `${farOv.name} ${farOv.pct}%` }).getAttribute("y"));
+must(Number.isFinite(yMainSig) && yFar === yMainSig && yNear > yMainSig,
+  `F7 the collision stacks deterministically (row0 y ${yMainSig}: ${segs[0].name} + ${farOv?.name}; row1 y ${yNear}: ${nearOv?.name})`);
+
 // the frame is a reviewer — scroll the hero into the dialog's viewport
 // (the body scrolls internally, the band frame's own lesson) and shoot
 // the doc with the figure at the top: hero + the summary head it
@@ -497,6 +543,8 @@ must((await page2.locator('[data-report-body] table:has(th:text-is("Q1 (0\u20132
   "Z2g the strips survive the tie's end too (the local table keeps its bars)");
 must((await page2.locator("[data-report-body] [data-hero-landscape]").count()) === 1,
   "Z2h the hero survives the tie's end too — the terrain figure rides the world, not the tie");
+must((await page2.locator("[data-report-body] svg.report-hero-landscape text.report-hero-label").count()) === 3,
+  "Z2i the untied world's hero signs itself too (three lines, three signatures)");
 must(rosterT.length === 21, "Z3 roster identity (21) after the whole dance");
 must(consoleErrors.length === 0 && consoleErrors2.length === 0,
   `Z4 console clean across both visits (${consoleErrors.length}/${consoleErrors2.length})`);

@@ -468,3 +468,26 @@ Stage Summary:
 - 「无基线判例」：只给有地址的东西画线——深度分数（25/50/75%）有地址故画网格，Y 归一化的盒底没有故不画轴；「画不说话」的下一句是「画不假装」
 - 「Task 13 recital 退役」：背诵清单零条存活——#5/#6/#7/#8/#13 全修、截面/Topaz 全建；**过时 recital 的终局形态不是「部分过时」而是「整条化石」**，下轮起以 worklog Stage Summary 为唯一遗留真源
 - 遗留（下轮候选）：透镜纸面化（哲学门槛维持）；updatedAt 治理（大工程）；EMPIAR 真数据回归（让位）；CSV copy 路径（让位）；hero 的章节词（hero 下的 summary prose 是否值得引用 hero 地址——成本/价值再评估）；Pipeline glance 的单元画格（succeeded/failed 计数的单位点阵——四整数要不要几何，低优先）
+
+## Task 229 (2026-09-16, cron 06:47 窗口 trace …202609160651)
+
+- 【开局】四件套：尾部 = Task 228（bb8487a）——**续传摘要第 30 度过时**（只写到 Task 225/f9eb4bf，实际已前进 3 度：226/227/228 均已交付）；净场（PORT 3000 FREE、watchdog 0）→ watchdog 拉起 pgrep 验活（PID 13567）+ 首页 200。QA：qa00 GREEN + qa63 SMOKE GREEN；console 零错随 e2e Z4 双世界验证。
+- 【立项】Task 228 遗留评审：hero 的章节词（prose 引地址）→ 哲学门槛维持让位；Pipeline 点阵 → 低优先维持；**「hero 签名入画」当选**——t228 教义「a figure has no row to speak for it」的半句已兑现（aria 说话），但那是机器的话：画布上三条线匿名，肉眼分不出哪条虚线属于哪个 overlay。名册/比较画像有行代言，hero 没有行——**无行的画自己署名**：每条有地址的线在标线地址处签下 aria 引用的同一句话（name + pct%，同一口井，绝不手抄）。
+- 【实现】
+  - HeroLandscape 加 sigs：sign(name, pct, x) 三卫兵（无地址不署名——「只给有地址的东西画线」的下一句「只给有地址的线署名」；edge clamp 让签名留在画布内而标线守住精确分数——地址不动，签名挪）；行叠确定算法：CHAR_W 3.7 估半宽、|xA−xB| < halfA+halfB+2 即跌一行（row 0 y=7、pitch 9）；main 先签（主角守 row 0），overlays 按序
+  - `<text class="report-hero-label" textAnchor="middle">` 渲染在 mark-main 之后——零言语教义的 hero 版修正案：画不假装（无基线判例原封），但无行的画必须自报家门
+  - CSS 一墨规则：font-size 7px + fill currentColor + fill-opacity 0.62——无 halo 无第二墨，透明度就是整个层级
+- 【e2e：t223-e2e 94→104】新 F 相 9 断言 + Z2i：F1 aria quote 解析恰 3 段、F2 三线三签名、F3 签名词句来自 aria 同井（名字+pct 配对）、**F4 ×3 每签名骑标线地址逐位**（76.2→365.76、51.6→247.68、77.4→371.52）、F5 hero 与名册同颂 winner 峰（76.2=76.2）、F6 demo 世界恰一对碰撞（77.4 距 76.2 仅 5.76px）、**F7 行叠纪律逐位**（row0 y=7: orthovol + run_it020_half1；row1 y=16: run_it020_half2——地址从未移动）；Z2i 无绑世界三签名同在。**104/0 ×3 全绿**。
+- 【事故与判例 ×2】
+  - **首跑 F3 失败 + F7 30s 崩溃**：aria 前缀 `Map QC hero landscape —` 被 `[^;]+?` 贪进第一个名字，segs[0].name 变整段前缀而非 orthovol，hasText 扑空超时——崩溃还跳过了 T 清场（twin 遗留 roster 22，手工 DELETE 归家 21）。修正 = `\u2014` 转义 slice 过 em-dash 再解析（转义避手抄——t227 heredoc 判例的 e2e 版）。判例：「**aria/quote 解析先剥说话家具（前缀/标点），家具不是名字；长串 hasText 前先断言其唯一性，30s 超时是扑空的丧钟**」
+  - **watchdog 静默死亡第 2 度 + 元凶画像收紧**：换 bundle 杀 server 后 watchdog（13567）拉起一次即消失，server 二度坠机——本箱 4GB、build（896 heap）刚跑完，**kernel OOM 收割不挑进程**（87 kills 在案）。判例升级：「**build 之后必须重验 watchdog 存活——拉起命令成功 ≠ 活着，build 刚结束的窗口尤其如此**」
+- 【定妆照】t223-hero-2x 重拍：row0 两签名（orthovol 76.2% 右 + run_it020_half1 51.6% 左）与 row1 一签名（run_it020_half2 77.4%）行叠肉眼可辨；长名 21 字符不裁边（clamp 纪律）；0.62 墨在地形线上方可读。审稿通过。
+- 【漂移考古】PIL 强像素分类（t229-drift.py 首秀，pathspec 传参失配一修）：**t223-hero 与 t218-csv-door 各 1208 强像素、同带（x 391–744 × 27px）逐位同数** = 签名带的确定性指纹（两帧都含 hero），随 feature 提交；t212/t214/t215（59–100 @ density 0.000）超稀疏 sliver + t213（1435 @ 0.008）折缘轻移 = 渲染真相按 t226 判例随 feature 提交；t210-final/lanes 字节级同（mtime 噪声）+ t210-legend-open（2316 @ 画布区）WebGL 惯犯具名 checkout。
+- 【世界卫生】全家族绿：t223 104/0 ×3 + t210 151/0 + t215 44/0 + t213 35/0 + t214 29/0 + t219 29/0 + t212 30/0 + t218 21/0 + t221 14/0；roster 恒等 21、twin 已归家（含一次崩溃遗留手工回收）。
+- 【收尾】worklog（本条）+ commit + push + 环境清理。
+
+Stage Summary:
+- 「无行的画自己署名」：报告五个几何面的最后一层匿名揭去——portrait 有行代言、band 有列代言、hero 无行可借，aria 的机器话转成肉眼话；「画不假装」的下一句是「画自报家门」
+- 「地址不动，签名挪」：edge clamp 与行叠都是言语让位给几何——标线永远坐在精确分数上，签名负责可读；F4 ×3 + F7 逐位钉死（365.76/247.68/371.52；y=7/y=7/y=16）
+- 「签名带指纹」：两帧 1208 强像素逐位同数 = 签名的确定性指纹，漂移考古从「分类噪声」进化到「认领结构」；t229-drift.py 入驻 scripts/ 成为常规考古工具
+- 遗留（下轮候选）：透镜纸面化（哲学门槛维持）；updatedAt 治理（大工程）；EMPIAR 真数据回归（让位）；CSV copy 路径（让位）；hero 签名的印刷档（print 时 0.62 墨是否需要加深——打印样式细节）；Quarter 网格的深度标签（25/50/75 词是否入画——第二个「自报家门」候选）

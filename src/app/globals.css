@@ -1566,6 +1566,14 @@ li[data-swipe="end"] {
   stroke-opacity: 0.3;
   stroke-dasharray: 2 2.5;
 }
+/* t229: the signature — the hero's speech made visible. The name and
+   the pct at the mark's address, ink at reading strength over the
+   terrain; no halo, no second ink — opacity is the whole hierarchy. */
+.report-doc .report-hero-label {
+  font-size: 7px;
+  fill: currentColor;
+  fill-opacity: 0.62;
+}
 
 /* t224: the magnifier — the same picture, twice drawn. The glass is
    born with the portrait (one wrap, two mounts of the same d bytes)
