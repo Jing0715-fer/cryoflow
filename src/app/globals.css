@@ -1483,6 +1483,35 @@ li[data-swipe="end"] {
   stroke-dasharray: 2 2.5;
 }
 
+/* t227: the band strip — the Local agreement table's four quarters as
+   bars. One ink at one opacity: the bar's GEOMETRY speaks (length is
+   the printed r, direction is the verdict — above the midline agrees,
+   below betrays); color would be a second opinion. The zero hairline
+   is the reference every bar reads against (dotted and faint — the
+   same grammar as the winner's reference line). Bars are 3 units wide
+   with butt caps — bands, not strokes. The strip lives in the same
+   housing as the portraits (report-spark-wrap) and its zoom wears the
+   shared report-spark-zoom class: hover, print guard and one-glass-
+   at-a-time inherit for free. */
+.report-doc .report-band-strip {
+  display: block;
+  margin-left: auto;
+  overflow: visible;
+}
+.report-doc .report-band {
+  stroke: currentColor;
+  stroke-opacity: 0.55;
+  stroke-width: 3;
+  fill: none;
+}
+.report-doc .report-band-zero {
+  stroke: currentColor;
+  stroke-opacity: 0.25;
+  stroke-width: 0.5;
+  stroke-dasharray: 2 2.5;
+  fill: none;
+}
+
 /* t224: the magnifier — the same picture, twice drawn. The glass is
    born with the portrait (one wrap, two mounts of the same d bytes)
    and folds until the eye asks: hover the cell (the mouse's lens) or

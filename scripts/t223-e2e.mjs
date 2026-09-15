@@ -328,8 +328,8 @@ must(!!dCmpIn && dCmpIn === dCmpZoom, "C7 the comparison glass magnifies THE pic
 must((await cmpRows.nth(1).locator('td[data-shape-cell="spark"]').textContent()) === "",
   "C8 the comparison pictures speak no words either (M8's guard, second table)");
 // the bouncer worked: the OTHER two deep tables keep their paper widths
-must((await page.locator('[data-report-body] table:has(th:text-is("Q1 (0\u201325%)"))').locator("thead th").count()) === 7,
-  "C9 the local-agreement table stays seven columns");
+must((await page.locator('[data-report-body] table:has(th:text-is("Q1 (0\u201325%)"))').locator("thead th").count()) === 8,
+  "C9 the local-agreement head grows to eight too (7 paper + Bands, t227)");
 must((await page.locator('[data-report-body] table:has(th:text-is("Map A"))').locator("thead th").count()) === 5,
   "C10 the pairwise table stays five columns");
 const mdC = await page.locator("[data-report-doc]").getAttribute("data-md");
@@ -338,6 +338,64 @@ must(!!mdC && mdC.includes("| Map | Bins | Peak at | Agreement r | Verdict |") &
   "C11 the comparisons paper bytes stay five columns (the picture is rendered, never written)");
 // the frame is a reviewer — the comparison glass earns its own portrait
 await page.locator("[data-report-doc]").first().screenshot({ path: "scripts/shots-t223/t223-spark-cmp-2x.png", scale: "css" });
+
+
+/* ============ D: the local agreement earns its strip ============ */
+section("D: four quarters, four bars");
+const locTable = page.locator('[data-report-body] table:has(th:text-is("Q1 (0\u201325%)"))');
+const locRows = locTable.locator("tbody tr");
+for (let i = 0; i < 24 && (await locTable.locator('td[data-shape-cell="spark"]').count()) !== 2; i++) await sleep(500);
+must((await locRows.count()) === 2, `D1 the local table speaks its two overlays (${await locRows.count()})`);
+must((await locTable.locator("thead th").count()) === 8,
+  "D2 the local head grew the Bands column on the wire (7 paper + Bands)");
+must((await locTable.locator("svg.report-band-strip").count()) === 2,
+  "D3 both local rows draw their strip");
+// each bar IS the paper's quarter: the Q cell's printed r (the 2dp grid,
+// the same rounding the paper prints) sets the bar's length and sign —
+// rising above the midline for agreement, dipping below for a betrayal;
+// the k-th bar sits at the k-th quarter's center (the address lives in
+// the numbers)
+for (let i = 0; i < 2; i++) {
+  const r = locRows.nth(i);
+  for (let k = 0; k < 4; k++) {
+    const qTxt = (await r.locator("td").nth(k + 1).textContent()) ?? "";
+    const q = parseFloat(qTxt);
+    const bar = r.locator("svg.report-band-strip > line.report-band").nth(k);
+    const y1 = parseFloat(await bar.getAttribute("y1"));
+    const y2 = parseFloat(await bar.getAttribute("y2"));
+    const x = parseFloat(await bar.getAttribute("x1"));
+    const expectedY2 = 13 - q * 11;
+    const expectedX = k * 24 + 12;
+    must(Number.isFinite(q) && Number.isFinite(y2) &&
+         Math.abs(y2 - expectedY2) <= 1e-6 && Math.abs(y1 - 13) <= 1e-6 &&
+         Math.abs(x - expectedX) <= 1e-6 && (q < 0 ? y2 > 13 : true),
+      `D4 row ${i} Q${k + 1}: the bar sits at the paper's printed r (${qTxt} -> y2 ${y2} at x ${x})`);
+  }
+}
+must((await locTable.locator("svg.report-band-strip > line.report-band-zero").count()) === 2,
+  "D5 every strip carries the zero reference (the midline the bars read against)");
+// the glass magnifies the strip too — same right, same mechanism, free
+const locCell = locRows.nth(0).locator('td[data-shape-cell="spark"]');
+await locTable.scrollIntoViewIfNeeded();
+await sleep(300);
+await locCell.hover();
+await sleep(250);
+must((await visibleZooms()) === 1, "D6 hovering a local cell opens exactly one glass");
+const zLocIn = await locRows.nth(0).locator("svg.report-band-strip > line.report-band").first().getAttribute("y2");
+const zLocZoom = await locRows.nth(0).locator("svg.report-spark-zoom > line.report-band").first().getAttribute("y2");
+must(!!zLocIn && zLocIn === zLocZoom, `D7 the strip's glass magnifies THE bars (y2 ${zLocIn} === zoom ${zLocZoom})`);
+must((await locRows.nth(1).locator('td[data-shape-cell="spark"]').textContent()) === "",
+  "D8 the strips speak no words either (M8's guard, third table)");
+// the bouncer holds across all four tables
+must((await page.locator(INV + " thead th").count()) === 8, "D9 the inventory head stays eight columns");
+must((await cmpTable.locator("thead th").count()) === 6, "D10 the comparisons head stays six columns");
+must((await page.locator('[data-report-body] table:has(th:text-is("Map A"))').locator("thead th").count()) === 5,
+  "D11 the pairwise head stays five columns");
+const mdD = await page.locator("[data-report-doc]").getAttribute("data-md");
+must(!!mdD && !mdD.includes("| Bands"),
+  "D12 the local paper bytes stay seven columns (the strip is rendered, never written)");
+// the frame is a reviewer — the strip's glass earns its own portrait
+await page.locator("[data-report-doc]").first().screenshot({ path: "scripts/shots-t223/t223-band-strip-2x.png", scale: "css" });
 
 await browser.close();
 
@@ -382,6 +440,8 @@ must((await cmpTable2.locator("svg.report-spark").count()) === 2,
   "Z2e the comparisons portraits survive the tie's end too (the deep section keeps its pictures)");
 must((await page2.locator('[data-report-body] table:has(th:text-is("Map A"))').locator("thead th").count()) === 5,
   "Z2f the pairwise table stays five columns in the untied world");
+must((await page2.locator('[data-report-body] table:has(th:text-is("Q1 (0\u201325%)"))').locator("svg.report-band-strip").count()) === 2,
+  "Z2g the strips survive the tie's end too (the local table keeps its bars)");
 must(rosterT.length === 21, "Z3 roster identity (21) after the whole dance");
 must(consoleErrors.length === 0 && consoleErrors2.length === 0,
   `Z4 console clean across both visits (${consoleErrors.length}/${consoleErrors2.length})`);

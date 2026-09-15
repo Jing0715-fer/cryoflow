@@ -423,3 +423,25 @@ Stage Summary:
 - 「作用域是关于所数何物的承诺」：第二张表作画的第一成本不是渲染是探针语义——13 个全局定位器迁移到 INV 作用域；C9/C10 把「bouncer 没放错人」钉成 wire 断言
 - 「工具账面不可信」三连：MultiEdit 假原子（报错≠未生效）、显示层吞 `[m`（视图≠字节）、批处理 replace 无断言（t215 判例的 e2e 版）——python count 断言补丁成为唯一可信通道
 - 遗留（下轮候选）：透镜纸面化（哲学门槛维持）；updatedAt 治理（大工程）；EMPIAR（让位）；CSV copy 路径（让位）；Local agreement 表的画像化（季度 r 的条形/热力表达——第三张表要不要作画，成本/价值再评估）；pairwise 画像（对儿 landscape 的双子画）
+
+## Task 227 (2026-09-16, cron 06:02 窗口 trace …202609160602)
+
+- 【开局】四件套：尾部 = Task 226（207821b）；净场 → watchdog 验活 + 首页 200；build 覆盖 HEAD 由 t223 64/0 实证（C 相断言在场）。QA：qa00 GREEN + qa63 SMOKE GREEN + agent-browser console 零错。
+- 【立项】Task 226 遗留评审：**Local agreement 表的画像化（BandStrip）** 当选——「第三张表要不要作画」的答案：季度 r 是报告里最后一批「只有数字没有几何」的比较数据；pairwise 画像否决（两 overlay 的双子画信息量低，demo 世界仅 1 对）。逻辑层零新增：localAgreement/weakestBand/LocalBand 早已导出（t198/t205/t206/t222 地基）。
+- 【立项教义：背叛垂到零线之下】四个季度的 r 值 = 每根 bar 的长度（|r|×11）与方向（同意升起、背叛下沉）；零虚线是所有 bar 的参考线（winner 参考线同语法：dotted、faint）。**bar 喝纸面打印的 2dp 值**（Number(r.toFixed(2))——与 Peak 标线喝 1dp 网格同理：画是打印词的画，一井一打印网格）；第 k 根 bar 坐第 k 季度中心（x=k·24+12——地址活在数字里）。一墨一透明度（0.55）——长度与方向说话，颜色会是第二意见；bar 用 butt cap——是 band 不是 stroke。
+- 【实现】
+  - BandStrip 组件（ShapeSparkline 同族）：96×26 同盒语法、strip 元素树两次挂载（同一 bars 到两片玻璃）、fail-soft（非有限 band 无 bar、全空格中破折号）；zoom 穿 **report-spark-zoom 共享类**——hover/print guard/一次一片玻璃全部免费继承（玻璃机制是公共设施，不因画像种类分家）
+  - LOCAL_HEAD = ["Map", ...QUARTER_LABELS, "Weakest", "Depth (fraction)"]——**季度词从逻辑层 IMPORT 组合，绝不手抄**（en-dash 手抄是吞字符事故的温床；twins fork, imports don't）
+  - LocalTableContext 第三发证：table override 三签名、thead 三 Provider、tr override inLocal 入座；body 分支 bands = localAgreement(mapQc.mainBins, ov.bins)——与纸面表格同函数同 bins（t222 的 Weakest 列早走过这条路：同机器的重算不是第二父亲）
+  - CSS：report-band-strip/report-band/report-band-zero 三规则；BANDS_HEAD = "Bands"（与 Shape 分名——bar 不是 landscape，几何种类必须诚实）
+- 【e2e：t223-e2e 64→84】C9 迁移（local head 7→8）；新 D 相 18 断言：D1-D3 双行双条带、**D4 八连发**（每 bar 坐纸面打印 r：0.32→y2 9.48 升、**-0.94→23.34 沉**、1.00→y2 2 顶格—— betrayals hang below the line, verbatim）、D5 零参考线 ×2、D6 玻璃同权、D7 放大同一 bars（y2 9.48 === zoom 9.48）、D8 静默、D9-D11 四表 bouncer（inventory 8/comparisons 6/pairwise 5）、D12 纸面字节七列不变；Z2g untied 世界条带同在。**84/0 ×3 全绿**。
+- 【事故与判例】转义双噬：python 补丁 heredoc 里 `\\\\u2013` 落进 JS 成字面 `\u2013`，D1 定位器扑空（0 行），D4 的 textContent 30s 超时炸 suite——修正 = 单反斜杠 + grep 清点。判例：「**python 写 JS unicode 转义时，heredoc 层数 = 反斜杠层数的陷阱——补丁落地后 grep 反斜杠计数**」；Edit 工具误删 hastText 声明行（old_str 含函数头、new_str 未含）——同轮发现同轮修复，判例：「**替换注释锚点时确认函数头是否在 old_str 里**」。
+- 【定妆照】t223-band-strip-2x：玻璃开在 half1 的条带上——三根升 bar 与一根**垂过零线的背叛 bar**（Q3 -0.94）在 3 倍下同框；half2 四根近顶格的同意条对照；画框审稿通过（local 表 Q 头因 Bands 列挤压折行——视觉可读，hast 文本不受扰，D 相照常命中）。漂移例行：t210 ×3 画布噪声 + t212/t213/t214/t215/t219×2 确定性 sliver 恢复；t223 四帧随窗重生成按 t226 判例作为当前真相提交；**t218 帧逐字节未变**（区域帧不含 local 表——作用域判例的红利）。
+- 【世界卫生】全家族绿：t223 84/0 ×3 + t210 151/0 + t215 44/0 + t213 35/0 + t214 29/0 + t219 29/0 + t212 30/0 + t218 21/0 + t221 14/0 + qa00/qa63；roster 恒等 21、twin 已归家。
+- 【收尾】worklog（本条）+ commit + push + 环境清理。
+
+Stage Summary:
+- 「背叛垂到零线之下」：Local agreement 的四个季度数字第一次有了几何——bar 的方向就是判词（升起=同意、下沉=背叛），-0.94 的 Q3 不再是表里的一个负号而是一根穿透零线的竖条；纸面 2dp 网格 = 条带的打印网格，D4 八连发逐位钉死
+- 「第三张表、同一语法」：三重 context（inventory/comparison/local）发证-重置-入座模式固化；玻璃机制是公共设施（zoom 共享类零新规则）；QUARTER_LABELS 导入组合——纸面列名与 wire 签名同源，手抄从源头禁止
+- 「表格作画的红利清单」：t218 区域帧零漂移（作用域红利）、CSS 零新增玻璃规则（共享类红利）、逻辑层零改动（数据地基红利）——第二、三张表作画的边际成本持续下降
+- 遗留（下轮候选）：透镜纸面化（哲学门槛维持）；updatedAt 治理（大工程）；EMPIAR（让位）；CSV copy 路径（让位）；pairwise 画像（双子画，成本/价值再评估）；报告全景的画格节奏（四表三画之后，头部 prose 是否值得一张全景 thumb）

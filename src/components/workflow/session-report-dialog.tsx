@@ -57,6 +57,7 @@ import {
   inventoryCsv,
   inventoryCsvFilename,
   outlierRowIdx,
+  QUARTER_LABELS,
   peakPctNumOf,
   peakPctOf,
   localAgreement,
@@ -65,6 +66,7 @@ import {
   sparklinePath,
   weakestBand,
   weakestCellOf,
+  type LocalBand,
   type ReportOverlay,
 } from "@/lib/qc-report";
 import { useWorkflowStore } from "@/lib/store";
@@ -144,6 +146,7 @@ const byRecency = (a: JobDTO, b: JobDTO) =>
  */
 const InventoryTableContext = React.createContext(false);
 const ComparisonTableContext = React.createContext(false);
+const LocalTableContext = React.createContext(false);
 
 /** The inventory table's exact head sextet — the only door-carrying
  *  table on the paper. Matched against the RENDERED head (hast), so
@@ -168,6 +171,15 @@ const OWNER_HEAD = ["Job", "Main map", "Volumes", "Peak", "Δ winner", "Agreemen
  *  column, the SAME portrait grammar the roster earned. Matched EVERY
  *  cell at once — a partial head cannot mint a Shape th (t223's law). */
 const COMPARISON_HEAD = ["Map", "Bins", "Peak at", "Agreement r", "Verdict"];
+
+/** t227: the Local agreement table's head — the paper speaks seven
+ *  columns (Map, the four QUARTER_LABELS the logic layer itself names,
+ *  Weakest, Depth); the wire adds the band strip, the four quarter bars
+ *  the printed r values already describe. The quarter words are IMPORTED,
+ *  never retyped — twins fork, imports don't. Matched EVERY cell at
+ *  once — a partial head cannot mint a Bands th. */
+const LOCAL_HEAD = ["Map", ...QUARTER_LABELS, "Weakest", "Depth (fraction)"];
+const BANDS_HEAD = "Bands";
 
 /** t223: the portrait column's wire grammar — the head word the wire
  *  adds (never the markdown), the box the paths draw in, and the
@@ -271,6 +283,78 @@ function ShapeSparkline({
         focusable="false"
       >
         {portrait}
+      </svg>
+    </span>
+  );
+}
+
+/** t227: the band strip — the Local agreement table's four quarters as
+ *  geometry. The paper's r column already speaks each quarter's number;
+ *  the strip DRAWS that number: one bar per quarter, rising above the
+ *  midline for agreement, dipping below for a betrayal — length |r| × 11
+ *  on the printed 2dp grid (the SAME rounding the paper's cell prints,
+ *  never the raw correlation — the bar is the picture of the printed
+ *  word, one well). A bar that cannot speak (a flat band, a grid too
+ *  short to cut) draws nothing; a strip with nothing to draw keeps the
+ *  honest dash. The zero hairline is the reference every bar reads
+ *  against. Bars are addresses, not decorations: the k-th bar sits at
+ *  the k-th quarter's center (x = k·24 + 12 — the address lives in the
+ *  numbers). The ONE strip, mounted twice: the same bars reach both
+ *  glasses (element reuse is not a second father).
+ *  t226's glass rights carry over untouched: the zoom wears the shared
+ *  report-spark-zoom class, so hover/print/one-at-a-time are free. */
+function BandStrip({ bands }: { bands: LocalBand[] }) {
+  const BAR_H = 11;
+  const bars = bands.map((b, k) => {
+    if (!b || !Number.isFinite(b.r)) return null;
+    const r = Math.min(1, Math.max(-1, Number(b.r.toFixed(2))));
+    return {
+      x: k * 24 + 12,
+      y2: 13 - r * BAR_H,
+    };
+  });
+  if (bars.every((bar) => bar === null)) return <span className="text-muted-foreground">—</span>;
+  // the ONE strip — one element tree, two mounts (the same bars reach
+  // both glasses)
+  const strip = (
+    <>
+      <line className="report-band-zero" x1={0} x2={SPARK_W} y1={13} y2={13} />
+      {bars.map(
+        (bar, k) =>
+          bar ? (
+            <line
+              key={k}
+              className="report-band"
+              x1={bar.x}
+              x2={bar.x}
+              y1={13}
+              y2={bar.y2}
+            />
+          ) : null,
+      )}
+    </>
+  );
+  return (
+    <span className="report-spark-wrap">
+      <svg
+        className="report-band-strip"
+        viewBox={`0 0 ${SPARK_W} ${SPARK_H}`}
+        width={SPARK_W}
+        height={SPARK_H}
+        aria-hidden="true"
+        focusable="false"
+      >
+        {strip}
+      </svg>
+      <svg
+        className="report-spark-zoom"
+        viewBox={`0 0 ${SPARK_W} ${SPARK_H}`}
+        width={SPARK_W * SPARK_ZOOM}
+        height={SPARK_H * SPARK_ZOOM}
+        aria-hidden="true"
+        focusable="false"
+      >
+        {strip}
       </svg>
     </span>
   );
@@ -603,6 +687,17 @@ export default function SessionReportDialog({
               <table {...rest}>{children}</table>
             </ComparisonTableContext.Provider>
           );
+        // t227: the Local agreement table earns the same wire grammar —
+        // its head speaks LOCAL_HEAD exactly (the quarter words imported
+        // from the logic layer), and its body rows carry the strips
+        const isLocal =
+          headTexts.length === LOCAL_HEAD.length && LOCAL_HEAD.every((h, i) => headTexts[i] === h);
+        if (isLocal)
+          return (
+            <LocalTableContext.Provider value={true}>
+              <table {...rest}>{children}</table>
+            </LocalTableContext.Provider>
+          );
         if (!isInventory) return <table {...rest}>{children}</table>;
         return (
           <InventoryTableContext.Provider value={true}>
@@ -613,13 +708,16 @@ export default function SessionReportDialog({
       thead: ({ node, children, ...rest }: TheadProps) => (
         <InventoryTableContext.Provider value={false}>
           <ComparisonTableContext.Provider value={false}>
-            <thead {...rest}>{children}</thead>
+            <LocalTableContext.Provider value={false}>
+              <thead {...rest}>{children}</thead>
+            </LocalTableContext.Provider>
           </ComparisonTableContext.Provider>
         </InventoryTableContext.Provider>
       ),
       tr: ({ node, children, ...rest }: TrProps) => {
         const inInventory = React.useContext(InventoryTableContext);
         const inComparison = React.useContext(ComparisonTableContext);
+        const inLocal = React.useContext(LocalTableContext);
         const cells = hastKids(node)
           .filter((c) => hastTag(c) === "td" || hastTag(c) === "th")
           .map(hastText);
@@ -650,6 +748,16 @@ export default function SessionReportDialog({
         ) {
           return <tr {...rest}>{children}<th className="text-right">{SHAPE_HEAD}</th></tr>;
         }
+        // t227: the local head row — matched EVERY cell at once against
+        // LOCAL_HEAD — earns the wire's eighth column HEAD (the paper's
+        // seven + Bands, rendered here, never written into the bytes).
+        if (
+          !inLocal &&
+          cells.length === LOCAL_HEAD.length &&
+          LOCAL_HEAD.every((h, i) => cells[i] === h)
+        ) {
+          return <tr {...rest}>{children}<th className="text-right">{BANDS_HEAD}</th></tr>;
+        }
         // t226: the comparison body row — the winner's own family (main
         // vs each sibling volume) draws the same portrait the roster
         // earned: overlay solid over main dotted, marks at each
@@ -679,6 +787,32 @@ export default function SessionReportDialog({
                     peakPct={peakPctNumOf(ov.bins)}
                     winnerPct={cmpMain ? peakPctNumOf(cmpMain) : null}
                   />
+                ) : (
+                  <span className="text-muted-foreground">—</span>
+                )}
+              </td>
+            </tr>
+          );
+        }
+        // t227: the local body row — the four quarter bars the paper's
+        // r cells already describe. The bands come from the SAME
+        // localAgreement the paper's table drank from, on the SAME bins
+        // measureMapQc delivered (one well; a re-computation through the
+        // same machinery is the same number, not a second father — the
+        // inventory's Weakest column has ridden this path since t222).
+        if (inLocal && cells.length === LOCAL_HEAD.length) {
+          const ov = mapQc?.overlays.find((o) => o.name === cells[0]);
+          const cmpMain = mapQc?.mainBins ?? null;
+          const bands = ov?.bins && cmpMain ? localAgreement(cmpMain, ov.bins) : null;
+          return (
+            <tr {...rest}>
+              {children}
+              <td
+                data-shape-cell={bands ? "spark" : "empty"}
+                className="text-right align-middle"
+              >
+                {bands ? (
+                  <BandStrip bands={bands} />
                 ) : (
                   <span className="text-muted-foreground">—</span>
                 )}
