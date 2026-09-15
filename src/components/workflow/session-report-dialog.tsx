@@ -53,6 +53,7 @@ import {
   buildProfileReport,
   buildSessionReport,
   buildSweepReport,
+  peakPctOf,
   sessionReportFilename,
   type ReportOverlay,
 } from "@/lib/qc-report";
@@ -220,6 +221,30 @@ async function measureMapQc(
   return { jobId: brief.jobId, report };
 }
 
+/** Profile each owner's MAIN map once and return its peak address — the
+ *  same API the deep report drinks from, the same formula (peakPctOf:
+ *  one truth, two surfaces). An owner whose profile refuses simply keeps
+ *  its "—" — the cell says still-measuring/refused, it never guesses
+ *  (the pending doctrine, per row). */
+async function measureOwnerPeaks(owners: MapOwner[], signal: AbortSignal): Promise<Map<string, string>> {
+  const heard = new Map<string, string>();
+  await Promise.all(
+    owners.map(async (o) => {
+      try {
+        const d = (await fetch(
+          `/api/jobs/${o.jobId}/map-profile?path=${encodeURIComponent(o.main.path)}&axis=z`,
+          { signal },
+        ).then((r) => r.json())) as ProfileResponse;
+        if (!Array.isArray(d.bins) || d.bins.length === 0) return;
+        heard.set(o.jobId, peakPctOf(d.bins));
+      } catch {
+        // this owner's profile refused (or the dialog closed) — its cell stays honest
+      }
+    }),
+  );
+  return heard;
+}
+
 export default function SessionReportDialog({
   open,
   onOpenChange,
@@ -236,9 +261,11 @@ export default function SessionReportDialog({
   const [mapError, setMapError] = React.useState(false);
   /** t212: every volume owner in walk order, from the SAME walk that
    *  picks the deep-report winner — settled before the measurement,
-   *  so the paper still lists the world even if a profile then fails. */
+   *  so the paper still lists the world even if a profile then fails.
+   *  t214: each row gains a peak — null until that owner's main map
+   *  has been profiled (the cell says — , never a guess). */
   const [mapInventory, setMapInventory] = React.useState<
-    { jobId: string; jobName: string; mainName: string; volumeCount: number }[] | null
+    { jobId: string; jobName: string; mainName: string; volumeCount: number; peak: string | null }[] | null
   >(null);
   const [note, setNote] = React.useState<string | null>(null);
   const noteTimer = React.useRef<number | null>(null);
@@ -285,12 +312,16 @@ export default function SessionReportDialog({
       // the inventory is a fact of the WALK — it settles even when the
       // deep measurement below then refuses (partial truth over silence)
       setMapInventory(
-        owners.map((o) => ({ jobId: o.jobId, jobName: o.jobName, mainName: o.main.name, volumeCount: o.volumeCount })),
+        owners.map((o) => ({ jobId: o.jobId, jobName: o.jobName, mainName: o.main.name, volumeCount: o.volumeCount, peak: null })),
       );
       if (owners.length === 0) {
         setMapPending(false);
         return; // honest empty state — no job here owns a volume
       }
+      // t214: the peaks ride ALONGSIDE the deep measurement — each
+      // owner's main map is profiled once and fills its cell when heard;
+      // the paper never waits for a number it can already admit it lacks.
+      const peaks = measureOwnerPeaks(owners, ctrl.signal);
       try {
         const qc = await measureMapQc(owners[0], ctrl.signal);
         if (ctrl.signal.aborted) return;
@@ -301,6 +332,13 @@ export default function SessionReportDialog({
         setMapError(true);
         setMapPending(false);
       }
+      // the peaks merge after the deep section settles — partial truth
+      // first, numbers when they arrive (— is honest, a guess is not)
+      const heard = await peaks;
+      if (ctrl.signal.aborted || heard.size === 0) return;
+      setMapInventory((prev) =>
+        prev?.map((row) => (heard.has(row.jobId) ? { ...row, peak: heard.get(row.jobId) ?? null } : row)) ?? prev,
+      );
     })();
     return () => ctrl.abort();
   }, [open]);
@@ -388,7 +426,7 @@ export default function SessionReportDialog({
             {...rest}
             data-owner-door={owner.jobId}
             tabIndex={0}
-            aria-label={`Open ${owner.jobName}'s results — ${owner.mainName}, ${owner.volumeCount} ${owner.volumeCount === 1 ? "volume" : "volumes"}`}
+            aria-label={`Open ${owner.jobName}'s results — ${owner.mainName}, ${owner.volumeCount} ${owner.volumeCount === 1 ? "volume" : "volumes"}${owner.peak ? `, peak ${owner.peak}` : ""}`}
             className="cursor-pointer transition-colors hover:bg-violet-500/10 focus-visible:bg-violet-500/15 focus-visible:outline-none"
             onClick={() => pressOwner(owner)}
             onKeyDown={(e) => {

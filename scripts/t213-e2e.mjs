@@ -110,7 +110,7 @@ must(owners[1]?.job.id === second.id, "W3 the walk's SECOND owner is the tail-ti
 /* ============ X: source oracles ============ */
 section("X: the doors, rebuilt in source");
 must((DLG.match(/InventoryTableContext = React\.createContext/g) ?? []).length === 1, "X1 the door context is defined ONCE (module-level, default false)");
-must(DLG.includes('const OWNER_HEAD = ["Job", "Main map", "Volumes"];'), "X2 the door key is the inventory table's exact head trio");
+must(DLG.includes('const OWNER_HEAD = ["Job", "Main map", "Volumes", "Peak"];'), "X2 the door key is the inventory table's exact head quartet (t214's Peak column joins the key)");
 must(DLG.includes("OWNER_HEAD.every"), "X3 the head is matched EVERY cell at once — partial heads cannot mint doors");
 must(/thead: \(\{ node, children, \.\.\.rest \}: TheadProps\) => \(\s*\n\s*<InventoryTableContext\.Provider value=\{false\}>/.test(DLG), "X4 the thead NEUTRALIZES the context — a head row is a label, not a door (and node is destructured out, never leaked to the DOM)");
 must(DLG.includes("!inInventory || !owner) return <tr"), "X5 the honest fallback — an unmatched row stays plain (a door must promise what the paper says)");
@@ -175,11 +175,18 @@ must(await waitDoors(2), "D2 the rendered inventory carries TWO doors (body rows
 
 const ids = [await doors.nth(0).getAttribute("data-owner-door"), await doors.nth(1).getAttribute("data-owner-door")];
 must(ids[0] === host.id && ids[1] === second.id, "D3 the doors walk in WALK ORDER — capable host first, tail-tier second");
+// the doors' aria promises now include the peak (t214) — wait for the
+// peaks to merge before reading the doors' words
+for (let i = 0; i < 40; i++) {
+  const a = (await doors.nth(0).getAttribute("aria-label").catch(() => "")) ?? "";
+  if (a.includes("peak ")) break;
+  await sleep(500);
+}
 const aria0 = (await doors.nth(0).getAttribute("aria-label")) ?? "";
 const aria1 = (await doors.nth(1).getAttribute("aria-label")) ?? "";
-must(aria0.includes("QA Refine3D") && aria0.includes("orthovol") && aria0.includes("4 volumes"), `D5 the host door SAYS its promise ("${aria0}")`);
-must(aria1.includes("QA Class2D Source") && aria1.includes("1 volume") && !aria1.includes("1 volumes"), `D6 the tail-tier door SAYS its promise, singular volume honest ("${aria1}")`);
-must(((md ?? "").match(/\| QA Refine3D \| orthovol \| 4 \|/) ?? []).length === 1 && (md ?? "").includes("| QA Class2D Source | orthovol | 1 |"), "D12 the exported bytes keep their t212 pins — the paper is untouched by the doors");
+must(/Open QA Refine3D's results — orthovol, 4 volumes, peak \d+\.\d%/.test(aria0), `D5 the host door SAYS its promise, peak included ("${aria0}")`);
+must(/Open QA Class2D Source's results — orthovol, 1 volume, peak \d+\.\d%/.test(aria1), `D6 the tail-tier door SAYS its promise, singular volume honest, peak included ("${aria1}")`);
+must((md ?? []).length > 0 && (md ?? "").includes("| Job | Main map | Volumes | Peak |") && (md ?? "").includes("| QA Class2D Source | orthovol | 1 |"), "D12 the exported bytes keep the t214 head and the row stems — the doors changed nothing on paper");
 must((md ?? "").includes("Each row is a door"), "D13 the carrier teaches the doors");
 
 // D7: press the TAIL-TIER door — the tier doctrine made travelable

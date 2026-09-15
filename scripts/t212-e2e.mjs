@@ -108,12 +108,18 @@ const mainW = await prof(owners[0].mainPath);
 must(!!mainW?.bins?.length, `W4 profiles on the wire (main ${mainW?.bins?.length} bins)`);
 const peakIdx = mainW.bins.reduce((bi, v, i, arr) => (v > arr[bi] ? i : bi), 0);
 const peakPct = `${((peakIdx / Math.max(1, mainW.bins.length - 1)) * 100).toFixed(1)}%`;
+const profFor = async (id, p) =>
+  (await (await fetch(`${BASE}/api/jobs/${id}/map-profile?path=${encodeURIComponent(p)}&axis=z`, { headers: H })).json());
+const secondW = await profFor(second.id, owners[1].mainPath);
+must(!!secondW?.bins?.length, `W5 the second owner's profile on the wire (its peak cell drinks the same well, ${secondW?.bins?.length} bins)`);
+const peakIdx2 = secondW.bins.reduce((bi, v, i, arr) => (v > arr[bi] ? i : bi), 0);
+const peakPct2 = `${((peakIdx2 / Math.max(1, secondW.bins.length - 1)) * 100).toFixed(1)}%`;
 
 /* ============ X: source oracles ============ */
 section("X: the inventory, rebuilt in source");
-must(LIB.includes("mapInventory: { jobId: string; jobName: string; mainName: string; volumeCount: number }[] | null;"), "X1 the inventory rides buildSessionReport's contract (typed, nullable while pending)");
+must(LIB.includes("mapInventory: { jobId: string; jobName: string; mainName: string; volumeCount: number; peak: string | null }[] | null;"), "X1 the inventory rides buildSessionReport's contract (typed, nullable while pending; each row's peak nullable while measuring — t214)");
 must(LIB.includes("### Session map inventory"), "X2 the paper's inventory title lives in the ONE home for the families");
-must(LIB.includes("| Job | Main map | Volumes |"), "X3 the inventory table's head (three columns: who, what, how many)");
+must(LIB.includes("| Job | Main map | Volumes | Peak |"), "X3 the inventory table's head (four columns: who, what, how many, where the mass sits — t214)");
 must(LIB.includes("if (mapInventory && mapInventory.length > 0) {"), "X4 the honest absence — no volumes, no table, no lie");
 must(DLG.includes("async function walkVolumeOwners(") && !DLG.includes("findMapBrief"), "X5 the walk's new name, and no twin of the old one survives");
 {
@@ -149,9 +155,19 @@ for (let i = 0; i < 60 && !md; i++) {
   else await sleep(500);
 }
 must(!!md, "D3 the map section settles on the carrier (still-measuring never lingers)");
+// t214: the peaks fill in AFTER the deep section — wait for BOTH cells
+let mdp = null;
+for (let i = 0; i < 60 && !mdp; i++) {
+  const v = await carrier.getAttribute("data-md").catch(() => null);
+  if (v && v.includes(`| ${peakPct} |`) && v.includes(`| ${peakPct2} |`)) mdp = v;
+  else await sleep(500);
+}
+mdp = mdp ?? md;
+must(mdp && mdp.includes(`| ${peakPct} |`) && mdp.includes(`| ${peakPct2} |`), "D3b the PEAK cells settle on the carrier (— never lingers when the wire speaks)");
+md = mdp;
 must(md && md.includes("### Session map inventory"), "D4 THE INVENTORY SPEAKS — the paper admits the rest of the session exists");
-must(md && md.includes(`| ${host.name} | orthovol | 4 |`), "D5 the host's row: name, main map, all four volumes");
-must(md && md.includes(`| ${second.name} | orthovol | 1 |`), "D6 the second owner's row: name, main map, its single volume");
+must(md && md.includes(`| ${host.name} | orthovol | 4 | ${peakPct} |`), `D5 the host's row: name, main map, all four volumes, its peak (${peakPct})`);
+must(md && md.includes(`| ${second.name} | orthovol | 1 | ${peakPct2} |`), `D6 the second owner's row: name, main map, its single volume, its peak (${peakPct2})`);
 must(md && md.indexOf(`| ${host.name} |`) < md.indexOf(`| ${second.name} |`), "D7 the rows walk in WALK ORDER — capable tier first, tail tier second");
 must(md && md.indexOf("## Map QC") < md.indexOf("### Session map inventory") && md.indexOf("### Session map inventory") < md.indexOf("## Scheduling sweep"), "D8 the inventory sits between the deep profiles and the sweep annex");
 must(md && md.includes(`Job \`${host.id}\``), "D9 the deep profiles still ride the walk's first owner");

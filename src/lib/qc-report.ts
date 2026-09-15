@@ -179,6 +179,21 @@ export const agreementVerdict = (r: number): string =>
 export const pctAt = (bins: number[], i: number): string =>
   `${((i / Math.max(1, bins.length - 1)) * 100).toFixed(1)}%`;
 
+/** The argmax over the raw landscape (strict >, first max wins — the
+ *  exact loop buildProfileReport has always run). Exported so every
+ *  surface that quotes a peak drinks from the SAME well. */
+export const peakIndexOf = (bins: number[]): number => {
+  let peak = 0;
+  for (let i = 1; i < bins.length; i++) if (bins[i] > bins[peak]) peak = i;
+  return peak;
+};
+
+/** The peak's address, quoted as a fraction of depth — ONE formula for
+ *  "where the mass concentrates" (the deep report's Peak bullet and the
+ *  inventory's Peak column both call this; t214: one truth, two
+ *  surfaces — the roster is comparable, not just traversable). */
+export const peakPctOf = (bins: number[]): string => pctAt(bins, peakIndexOf(bins));
+
 /** Every PAIR of comparison terrains, correlated on the shared fraction
  *  scale with both resampled to the FINER of the two grids (the finer
  *  ruler preserves more shape; t195's fraction doctrine, pairwise).
@@ -341,9 +356,9 @@ export const buildProfileReport = (opts: {
 }): string => {
   const { mapName, jobId, axis, bins, overlays, pendingOverlays } = opts;
   const n = bins.length;
-  let peak = 0, trough = 0;
+  const peak = peakIndexOf(bins);
+  let trough = 0;
   for (let i = 1; i < n; i++) {
-    if (bins[i] > bins[peak]) peak = i;
     if (bins[i] < bins[trough]) trough = i;
   }
   const max = bins[peak], min = bins[trough];
@@ -489,7 +504,7 @@ export const buildSessionReport = (opts: {
    *  is how the paper admits the rest of the session exists. Null when
    *  the walk has not settled (pending/error); the section honest-absents
    *  when the world owns no volumes at all. */
-  mapInventory: { jobId: string; jobName: string; mainName: string; volumeCount: number }[] | null;
+  mapInventory: { jobId: string; jobName: string; mainName: string; volumeCount: number; peak: string | null }[] | null;
   sweep: string | null;
 }): string => {
   const { projectName, pipeline, mapQc, mapPending, mapError, mapInventory, sweep } = opts;
@@ -535,12 +550,19 @@ export const buildSessionReport = (opts: {
     // lives on the paper — on the report PAGE each row hands you to that
     // job's results (openJob: workspace hops, then the inspector). The
     // exported bytes stay plain Markdown — a door needs a page to open.
-    lines.push("Every job in this session that owns a true 3D volume, newest walk first. The deep profiles above ride the newest owner; this inventory keeps every other owner visible — no map hides below the fold (the t211 lesson: a walk that stops at the first winner leaves the rest of the world unseen). Each row is a door — press it and the page hands you to that job's results (the t210 lesson carried onto the report: a name on a roster should never be a dead end).");
+    // t214: the roster speaks its numbers. The Peak column quotes each
+    // owner's main map EXACTLY the way the deep report quotes the winner
+    // (pctAt on the raw landscape, the same code path) — the inventory is
+    // comparable, not just traversable (t213's doors). "—" means still
+    // measuring or the profile refused: the pending doctrine, the cell
+    // does not guess. The door clause (t213) and the fold clause (t212)
+    // keep their exact bytes — front-wave probes pin them.
+    lines.push("Every job in this session that owns a true 3D volume, newest walk first. The deep profiles above ride the newest owner; this inventory keeps every other owner visible — no map hides below the fold (the t211 lesson: a walk that stops at the first winner leaves the rest of the world unseen). Each row is a door — press it and the page hands you to that job's results (the t210 lesson carried onto the report: a name on a roster should never be a dead end). The Peak column quotes each owner's main map exactly the way the deep report quotes the winner — where the mass concentrates along the shared axis, as a fraction of depth; — means still measuring, never a guess.");
     lines.push("");
-    lines.push("| Job | Main map | Volumes |");
-    lines.push("|-----|----------|---------|");
+    lines.push("| Job | Main map | Volumes | Peak |");
+    lines.push("|-----|----------|---------|------|");
     for (const o of mapInventory) {
-      lines.push(`| ${mdCell(o.jobName)} | ${mdCell(o.mainName)} | ${o.volumeCount} |`);
+      lines.push(`| ${mdCell(o.jobName)} | ${mdCell(o.mainName)} | ${o.volumeCount} | ${o.peak ?? "—"} |`);
     }
     lines.push("");
   }
