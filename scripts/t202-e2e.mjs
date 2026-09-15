@@ -257,12 +257,13 @@ must(nowBefore === 0, `D5 pre-state: Home put the plane at 0% (aria-valuenow ${n
 // THE DOOR: click the chip — the plane obeys the address
 await chip1.click();
 let jumped = 0, receiptText = "";
-for (let k = 0; k < 10; k++) {
-  await sleep(400);
-  jumped = Number(await strip.getAttribute("aria-valuenow"));
-  // evaluate-based read: the strict locator would throw instantly on any
-  // duplicate role=status in either dialog, and the catch would eat the
-  // evidence — dump the WHOLE status population instead
+// t206's lesson in t202's frame: the receipt lives 4 SECONDS of WALL TIME,
+// but a busy Mol* thread can freeze the page past the probe's first poll —
+// the frozen timers then fire together and the receipt is gone by the next
+// beat. So: poll FAST and read the EPHEMERAL thing FIRST (receipt before
+// valuenow), because the plane's position survives while the receipt dies.
+for (let k = 0; k < 16; k++) {
+  await sleep(250);
   const st = await page.evaluate(() =>
     Array.from(document.querySelectorAll('[role="status"]')).map((n) => ({
       label: n.getAttribute("aria-label"),
@@ -270,6 +271,7 @@ for (let k = 0; k < 10; k++) {
     }))
   );
   receiptText = st.find((s) => s.label === "Profile export status")?.text ?? "";
+  jumped = Number(await strip.getAttribute("aria-valuenow"));
   if (k === 0) console.log(`  (diag: ${st.length} role=status nodes: ${JSON.stringify(st)})`);
   if (jumped === stripNow1 && receiptText.length > 0) break;
 }

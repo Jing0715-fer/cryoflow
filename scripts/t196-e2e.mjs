@@ -139,7 +139,53 @@ if (await page.locator('[data-testid^="map-choice-"]').first().isVisible().catch
 }
 await sleep(600);
 
-await page.locator('button[aria-label="Toggle cross-section plane"]').click();
+// Cold-session armor (t206's doctrine, backfitted per the two-sightings
+// rule): a persisted overlay session makes Mol* restore its MRCs BEFORE
+// the toolbar buttons exist, and t206's runs left two half-maps in the
+// mirror — the cross-section toggle can lag the viewer dialog by minutes.
+// Give the toggle a long poll; if it still hasn't shown, evict BOTH
+// mirrors (the PUT contract + localStorage) and re-open the viewer.
+let toggleBtn = page.locator('button[aria-label="Toggle cross-section plane"]');
+let toggleUp = await toggleBtn.isVisible().catch(() => false);
+for (let k = 0; k < 30 && !toggleUp; k++) {
+  await sleep(2000);
+  toggleUp = await toggleBtn.isVisible().catch(() => false);
+}
+if (!toggleUp) {
+  const hostId = (await (await fetch(BASE + "/api/jobs")).json()).jobs.find((j) => j.name === "QA Refine3D")?.id;
+  if (hostId) {
+    await fetch(`${BASE}/api/jobs/${hostId}/overlay-session`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ entries: [], mode: "replace" }),
+    }).catch(() => {});
+    await page.evaluate((k) => localStorage.removeItem(`cryoflow.mol-overlays:${k}`), hostId).catch(() => {});
+  }
+  await page.reload({ waitUntil: "networkidle" });
+  await sleep(2200);
+  await page.locator(`[data-job="${hostId}"]`).first().click({ force: true });
+  await sleep(1600);
+  await page.locator('[role="tab"]', { hasText: "Results" }).click().catch(() => {});
+  await sleep(1400);
+  const ot = page.locator('button[aria-label="Enlarge orthovol"]');
+  if (await ot.isVisible().catch(() => false)) await ot.click();
+  await sleep(1000);
+  await page.locator("button", { hasText: "View in 3D" }).click();
+  for (let k = 0; k < 30; k++) { await sleep(2000); if (await page.evaluate(() => !!window.__molstar?.canvas3d).catch(() => false)) break; }
+  await page.locator('button[aria-label^="Overlay maps"]').waitFor({ state: "visible", timeout: 60000 }).catch(() => {});
+  await page.locator('button[aria-label^="Overlay maps"]').click();
+  await sleep(900);
+  while ((await page.locator('button[aria-label^="Remove overlay"]').count()) > 0) {
+    await page.locator('button[aria-label^="Remove overlay"]').first().click();
+    await sleep(900);
+  }
+  if (await page.locator('[data-testid^="map-choice-"]').first().isVisible().catch(() => false)) {
+    await page.keyboard.press("Escape");
+  }
+  await sleep(600);
+  toggleBtn = page.locator('button[aria-label="Toggle cross-section plane"]');
+}
+await toggleBtn.click();
 let stripVisible = false;
 for (let k = 0; k < 12; k++) {
   await sleep(1000);

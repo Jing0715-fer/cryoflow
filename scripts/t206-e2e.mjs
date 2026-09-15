@@ -129,7 +129,7 @@ must(QCLIB.includes("t205") && QCLIB.includes("the paper and the wall now quote 
 must(QCLIB.includes("| Map A | Map B | Agreement r | Verdict | Depth (fraction) |") && QCLIB.includes("| --- | --- | --- | --- | --- |"), "X7 the Pairwise table carries FIVE columns — Depth rides AFTER Verdict (t196's A/B/r indices unmoved)");
 must(QCLIB.includes('const pdepth = p.weakest ? `${p.weakest.from.toFixed(2)}–${p.weakest.to.toFixed(2)}` : "—";'), "X8 the pairwise depth cell drinks weakest.from/to directly — a pair without an address keeps the honest dash");
 must(/const pairwiseAgreement[\s\S]{0,600}Math\.max\(overlays\[i\]\.bins\.length, overlays\[j\]\.bins\.length\)/.test(QCLIB), "X9 t197's X2 distance guard SURVIVED the t206 edit (resample-to-finer stays near the definition)");
-must(QCLIB.includes("the pair as its own two maps") && QCLIB.includes("equal-count cut as localAgreement"), "X10 the pairwise weakest is the localAgreement cut applied BETWEEN the pair (one algorithm, two inputs)");
+must(QCLIB.includes("the localAgreement cut") && QCLIB.includes("pair as its own two maps") && QCLIB.includes("equal-count cut as localAgreement"), "X10 the pairwise weakest is the localAgreement cut applied BETWEEN the pair (one algorithm, two inputs)");
 must((QCLIB.match(/### Pairwise agreement/g) || []).length === 1 && QCLIB.includes("where each pair's corroboration is thinnest"), "X11 the prose teaches the pairwise Depth column — where the corroboration is thinnest");
 must(SRC.includes("const pdepth = p.weakest ? ` · ${p.weakest.from.toFixed(2)}–${p.weakest.to.toFixed(2)}` : \"\";") && SRC.includes("thinnest corroboration sits between"), "X12 the wall chip rides the same address (2dp dialect + the title names the band)");
 

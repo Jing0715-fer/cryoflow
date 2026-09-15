@@ -5650,3 +5650,26 @@ Stage Summary:
 - 「reflog 保险柜」：跨窗断裂（本地/远程分叉、reset --hard、构建蒸发、世界清零）没有丢一件工作——git 的「丢弃」是暂存，reflog 是传承；上会话的 in-flight（实现+探针+dbg）经 checkout 逐件复活后一枪跑绿
 - 世界卫生观察账本（verdict 列）：本轮无全矩阵（单仪器轮，183+ 判例=定向回归覆盖报告+strip+chip+门 8 套）；t205 ×3 + 回归 8/8 全绿；roster 恒等 21；矩阵显式清单 135→136（t205 入册）
 - 遗留（下轮候选）：grabber nudge/undo 手感参数（真机盲区依旧）；script RELION-present 分支（沙箱受限判决维持）；EMPIAR 真数据回归（让位）；runner wall-time 剖面（让位）；qa77 孤儿 job 测试 21 基线复核（让位）；map-profile 服务端 statcache 已在（热路径无忧）但 profile effect 每采纳全量重取可做增量（低优先）；报告 Pairwise 表是否也配地址列（t205 教义的自然延伸）
+
+## Task 206 (2026-09-15, cron 17:02/17:47 窗口 trace …202609151706/…1747)
+
+**主题：the pairwise betrayal earns its ADDRESS too——配对背叛也领到地址。t196 让 pairwise 的金标准 r 住上墙和纸，t198 给每张图的分歧地址（最弱 quarter），t205 教报告印地址坐标；t206 把同一教义推到配对本身：pairwiseAgreement 每对也命名自己的最弱 quarter band（equal-count 切分用在 pair 之间——不是对照 main 景观），报告 Pairwise 表长出尾列「Depth (fraction)」（Verdict 之后——A/B/r 索引原位不动，t196 的 D12 split[3] 教义），墙上的 pairwise chip 骑同一 2dp 地址。切不动的 pair（n<4）或全平带没有地址——诚实的破折号回答。本窗从上会话遗产接手（3988649 amend 提交含实现+431 行探针+定妆照，worklog/push/RUN×3 全缺）：X10 断言一修 + 前浪装甲两处回植（t196 冷会话、t202 回执易逝），t206 54 断言 ×3 全绿；回归 8 套全绿；矩阵 136→137（t206 入册）。**
+
+- 【开局·遗产判态】worklog 尾部=Task 205；HEAD=3988649（另一窗口的 amend 提交：t205 提交 + t206 in-flight 合体，未推送）；`.next/BUILD_ID` 蒸发但 next-server 仍以内存态服务——**实现不在运行构建里**，探针若直接跑测的是旧行为。处置：杀 server → **前台重建**（上窗判例：build 也要前台跑）→ start-prod 冷启动。世界第四次清零（roster 3）——restore-gallery 首跑遇播种途中 400（竞态）、二跑幂等全绿（21 jobs）。
+- 【实现·上会话遗产（本轮只验证未改动）】①lib：pairwiseAgreement 返回值加 `weakest?`——`if (n >= 4)` 对 pair 双方 resample 后做四分 equal-count 切分取最弱 r（注释自证：「the localAgreement cut, the pair as its own two maps (NOT against the main landscape)」）；②报告：Pairwise 表头加 `| Depth (fraction) |` + 5 列分隔行，每行 `${p.weakest.from.toFixed(2)}–${p.weakest.to.toFixed(2)}` 或「—」；③墙：pairwise chip 文本追加 ` · from–to`、title 教「Their thinnest corroboration sits between X and Y of the depth (Q3 (50–75%))」。
+- 【X10 一修·断言的排版学】上会话探针 53/1——唯 X10 失败：「the pairwise weakest is the localAgreement cut applied BETWEEN the pair」。根因：断言检查连续子串 `the pair as its own two maps`，而 lib 注释**跨行**（`...the localAgreement cut, the
+      // pair as its own two maps...`）——语义在、字节不连续。修探针不断言排版：三个稳定子串（`the localAgreement cut` + `pair as its own two maps` + `equal-count cut as localAgreement`），语义合同不变、排版免疫。54/0。
+- 【探针 t206·54 断言 ×3 全绿】S（seeder + S3 卫生起点——t205 装甲全量传承）+ W（band oracle + **pairwise oracle**：half1×half2 的 pair 内四分切分）+ X12 源 oracle（5 列表头、depth 直饮 from/to、t197 的 X2 距离守卫幸存、chip 方言、prose 教列名）+ D25 活线（D14 Pairwise 表头 5 列、D15 每行 7 段、D16 pair 命名原位、**D17 pair 全局 r == wire oracle at split[3]**（-0.28——t196 的 D12 教义受尊）、D18 Verdict 词汇幸存、**D19 pair 深度格逐字节 0.50–0.75**、D21-D24 墙 chip 双名 + r + 地址 + title 教带）+ **D5-D13 全部 t205 断言原位重绿**（Local 表的深度格在新列旁幸存——同帧双表双地址）+ Z3（roster 恒等 21、console 零错）。
+- 【前浪装甲两处回植·判例的利息】①**t196 冷会话甲**：老探针的 Toggle cross-section 按钮 30s 超时崩——t206 的运行把两个 half map 留在镜像里，Mol* 恢复 MRC 期间工具栏按钮集体迟到（t205 dbg2 教义）。回植：60s 长轮询 + 缺席则 PUT 双镜像清空 + reload + 重走全链。②**t202 回执易逝甲**：D7 回执文本空但 D6 平面落位——**主线程冻结压缩回执的 4 秒寿命**（冻结的 timer 积压后一次性到期），探针 400ms 首拍错过 set 时刻、下一拍已清空。修：轮询加密至 250ms×16 且**先读易逝品**（回执先于 valuenow——平面的位置会幸存，回执会死）。「先读会死的那个」是 t201 输入模态教义的时序版本。
+- 【第二层真相·五】①**一个算法、两种输入**：localAgreement 把 main-vs-overlay 切四分，pairwiseAgreement 把 overlay-vs-overlay 切四分——同一把 equal-count 刀，不同的两块肉；地址的语义（「佐证最薄处」）随输入自然分化（墙问「哪里危险」，pair 问「谁不信谁」）。②**索引的和平共处**：Local 表 Depth 骑在 Weakest 后、Pairwise 表 Depth 骑在 Verdict 后——两表的前浪格索引全部原位不动；新列永远做**尾巴**，从不插队（t198 的 `>=7` 守卫、t196 的 split[3] 都因这个纪律免费幸存）。③**amend 是双刃**：上会话把 t206 遗产 amend 进 t205 提交（3988649）——历史线性了，但「哪个提交干了什么」的档案模糊了；worklog 是真正的档案，commit message 只是索引。④**世界的重置频率在上升**（第四次）：restore-gallery 的幂等二跑是常态操作而非异常处理——探针的 seeder 幂等性是抵挡世界重置的唯一堤坝。⑤**断言排版免疫**：源 oracle 查子串时，注释的换行是合法的——语义合同用「稳定子串集」表达，不用「单一长串」表达；排版是作者的自由，语义才是合同。
+- 【回归·8 套全绿】t196(29，装甲后)/t198(34)/t202(43，装甲后)/t203(27)/t204(30)/t205(36)/qa00(sentinel)/qa63(smoke)/t181(23) + t206 ×3 自身。产品侧零行为回归——pair 地址是加法（返回值新字段 + 尾列 + chip 后缀），A/B/r/Verdict/词汇/Local 表全免疫。
+- 【世界收尾】定妆照 scripts/shots-t206/t206-pair-paper-2x.png（上会话遗留，Pairwise 表 5 列 + 深度格）；矩阵 t206 入册（136→137）。
+- 【收尾】worklog（本条）+ commit + push + 环境清理（杀 server 先 ss 查真实 PID、杀 watchdog、agent-browser close）。
+
+Stage Summary:
+- 「佐证的最薄处有了坐标」：pairwise 的 r 说「这对图彼此佐证多深」，Depth 列说「佐证在哪里最薄」——纸与墙同帧引用同一地址（2dp 方言），FSC 的问题（「密度是真的吗」）现在有了自己的显微镜位
+- 「新列永远做尾巴」：两表两列（Local/Pairwise）都骑在最后一格——前浪索引零移动的纪律让每一次表格进化都成为纯加法；插队的列省下的空间，要用全体探针的索引重写来偿还
+- 「先读会死的那个」：回执 4 秒、平面永恒——轮询顺序是时序学的表达；冻结的主线程把 setTimeout 变成不可预测的批量清算，探针唯一能做的就是给易逝品最高读取优先级 + 最密采样
+- 「断言不审判排版」：注释跨行是作者的合法自由，连续长串子串是脆断言——稳定子串集（三个短词）表达同一语义合同；源 oracle 的对像是「产品说的与做的一致」，不是「产品按某个换行习惯写注释」
+- 世界卫生观察账本（verdict 列）：本轮无全矩阵（单仪器轮，定向回归覆盖 pairwise+report+strip+chip 8 套）；t206 ×3 + 回归 8/8 全绿；roster 恒等 21（第四次重置后幂等重建）；矩阵显式清单 136→137（t206 入册）
+- 遗留（下轮候选）：grabber nudge/undo 手感参数（真机盲区依旧）；script RELION-present 分支（沙箱受限判决维持）；EMPIAR 真数据回归（让位）；runner wall-time 剖面（让位）；qa77 孤儿 job 测试 21 基线复核（让位）；pair 地址的可点化（pair chip 加门——跳到 pair 内最弱带中心？viewer 需要新语义，存疑）；报告三表（Local/Pairwise/Global）的统一深度方言文档页
