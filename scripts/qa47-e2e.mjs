@@ -101,8 +101,14 @@ const phaseA = async () => {
     throw new Error(`clickable KPI cards missing: ${JSON.stringify(band)}`);
   if (band.Projects.tag !== "BUTTON" || band.Running.tag !== "BUTTON" || band.Completed.tag !== "BUTTON")
     throw new Error("Projects/Running/Completed must be buttons");
-  if (band["Total jobs"]?.tag === "BUTTON" || band["Active engine"]?.tag === "BUTTON")
-    throw new Error("Total jobs / engine must stay plain divs");
+  if (band["Total jobs"]?.tag === "BUTTON")
+    throw new Error("Total jobs must stay a plain div");
+  // t243 contract evolution: Active engine USED to be a plain div; since the
+  // dashboard guidance popover it is a real button when RELION is not found
+  // (this suite runs in the demo world — always not-found). On a host WITH
+  // relion the card legitimately reverts to a div (guidance has no audience).
+  if (band["Active engine"]?.tag !== "BUTTON")
+    throw new Error("Active engine must be a guidance button when RELION is not found (t243)");
   if (band.Running.pressed !== "false" || band.Completed.pressed !== "false")
     throw new Error("initial aria-pressed must be false");
 
@@ -200,7 +206,11 @@ const phaseB = async () => {
   if (!probes || !probes.completion)
     throw new Error("canvas pipeline-kpi completion button missing");
   for (const t of probes.buttons) {
-    if (!/click to open/i.test(t)) throw new Error(`clickable KPI lacks affordance title: ${t}`);
+    // contract evolved (found during t243's regression): Task 144 added the
+    // explicit fold affordance long after this suite was written — the
+    // collapse chevron honestly announces its verb (Expand/Collapse), it is
+    // a fold, not a drill-down. Both verbs pass the announcement contract.
+    if (!/click to open|expand|collapse/i.test(t)) throw new Error(`clickable KPI lacks affordance title: ${t}`);
   }
 
   // click completion → dashboard view

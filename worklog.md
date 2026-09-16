@@ -782,3 +782,29 @@ Stage Summary:
 - 「band 借滚动在 popover」：whitespace-pre 保住 composer 的列对齐意图，overflow-x-auto 让宽 B) 行向自己的 band 借滚动——t238 律跨出文档域，popconter 盒零溢出成 wire 断言
 - 「套件命名的编号核验」：新套件先核号再落名（本窗覆盖了 Task 84 的 qa84，恢复 + 改名 t242 各一步都不能少）；新世代套件一律 tXXX 任务号
 - 遗留（下轮候选）：dashboard「ACTIVE ENGINE: RELION not detected」KPI 卡的点击透导（同一 guidance 的 dashboard 姊妹页——点击 KPI 卡打开同一 popover 或跳转，低优先）；map-profile 的 FSC 帧在场时 inspector Report 组的锚点化（等真实满档）；透镜纸面化（哲学门槛维持）；updatedAt 治理（大工程）；EMPIAR 真数据回归（让位）；hero 纸档叠印可读性（维持）；shortcuts report 组记载 Download HTML 门（维持低优先）
+
+## Task 243 (2026-09-16, cron 13:17 窗口 trace cron-agent-loop-202609161317)
+
+- 【开局】四件套：尾部 = Task 242（520f691，指南不得漂移于探测）零过时（续传摘要世系只到 239——第七度过时实证，worklog 尾部唯一真源律继续应验）；净场 → watchdog 拉起验活 + 200 + roster 21。QA：qa00 GREEN + qa63 SMOKE GREEN + agent-browser errors/console 双空 + 画布 20 jobs。无 bug。
+- 【立项】Task 242 遗留首选当选：**dashboard「Active engine」KPI 卡的 guidance 姊妹页**。开局探针先问工件：快照里没有「ACTIVE ENGINE」字样——代码实证真身 label 是「Active engine」（出题者的井判例在开局探针上又应验）；且它是五张 KPI 卡里唯一没有 onClick 的死卡。语义想清楚：**指南跟着问题走**——「为什么没检测到」的疑问诞生在读者看见死卡的地方，guidance 该在疑问处开口；t242 的 header popover 是第二嘴、dashboard 卡 popover 是**第三嘴，同一口井**（API hint 字节）。关键设计约束：hint 尾行承诺「then press Re-detect」——**承诺不许指向够不着的门**，故 Re-detect affordance 必须随行（EngineReDetectRow 与 header 共用同一 store 动作，dashboard 触发的探测实时更新 header chip——一个环境一个真相）。
+- 【实现】
+  - 新文件 src/components/workflow/engine-guidance.tsx：EngineHintBlock（amber 块 + data-engine-hint + A/B 行 whitespace-pre font-mono + band 借滚 overflow-x-auto）+ EngineReDetectRow（checked 时间 + Re-detect 钮）——header 与 dashboard 的共享嘴，DOM 字节与 t242 原实现逐一相同
+  - header.tsx 重构用共享组件（零接线变化；RelionStatusChip 闲置的 refreshSystem/systemRefreshing hooks 移除）
+  - project-dashboard.tsx：KpiCard 改 React.forwardRef（PopoverAnchor asChild 需要 ref 落到真 DOM）+ 新增 corner 覆写 prop（Info 图标替 drill-down chevron——「info 不是 go」的动词区分）+ 新增 ariaExpanded prop（开 popover 的按钮报 aria-expanded + aria-haspopup="dialog"，不报 aria-pressed——开合状态不是按压状态）；Active engine 卡在 not-found 时变真按钮 + Popover（open 状态受控 + onOpenChange，Esc/外点关闭免费获得）
+  - qa47 契约演进：engine 卡 div→button（demo 世界恒 not-found 故恒 button；有 RELION 的 host 上合法回退 div——guidance 没有观众）
+- 【e2e：新 t243-e2e.mjs（编号核验后落名）】23 断言 ×3 全绿：A 相井真相（found:false + hint 尾行承诺 Re-detect）+ B 相姐妹页（卡是真按钮 + 同一承诺 title / haspopup=dialog + expanded 翻转 / 无 aria-pressed / Info 角标 / **镜像律第三案：dashboard popover 行 === API hint 行逐字节同序** / mono ×2 / amber tint / band 借滚（scrollWidth 626 > clientWidth 350）+ band 永不溢出 popover 盒 / **Re-detect 门在场（承诺可达）** / checked 产地行 / Esc 关 + aria-expanded 归位 / 重开（状态开合不是一次性））+ C 相定妆照 + D 相 console 0。
+- 【事故与判例】①**镜像标题的选择器井**：title 选择器命中两元素——header chip 与 dashboard 卡共用同一句承诺 title（镜像的副作用正是镜像本身）；修：KPI 卡独有的 group/kpi 类锚定。②**qa47 旧伤现形**：canvas KPI 契约「每钮必含 click to open」撞上 Task 144（2039955）后入列的折叠钮「Collapse pipeline summary」——qa47 近期从未入回归清单，契约停在 KPI drill-down 时代；演进：Expand/Collapse 动词同样诚实宣告点击后果（fold 不是 drill-down，两动词过闸）。**非本窗伤的考古链**：git log -S 定位折叠钮出生 commit + worklog 全文无 qa47 记录——修契约而非回滚产品。
+- 【定妆照】**shots-qa84/t243-engine-guidance-dashboard-2x**：Active engine 卡（Info 角标 whisper）+ popover（amber「RELION not detected」标题行 + 四事实行 + A/B mono 列对齐 + Re-detect 门 + checked 产地行）同框——「指南住在疑问处」的第一帧；宽 A) 行右缘借滚在帧里可见（band 律的活体证据）。
+- 【build 与终审】OOM 箱 build → 磁盘 chunk grep engine-guidance-dashboard = 1 → Task 86 配方双杀（pkill standalone/server.js + bun server.js + watchdog + fuser 3000）→ watchdog 复活 + 200 → **在线 chunk 终审**（dashboard 懒加载不在主页 HTML 的 11 chunks 里——直接终审目标 chunk 的在线字节，HTTP 200 + 命中 1）。
+- 【全家族回归】qa00 GREEN + qa63 SMOKE GREEN + qa47 ALL GREEN（契约演进后）+ qa49/50/51 + qa55/57/58 + qa84 ALL PASS + t210 151/0 + t212 30/0 + t213 35/0 + t214 29/0 + t215 44/0 + t218 29/0 + t219 29/0 + t221 14/0 + t223 155/0 + t241 14/0 + **t242 GREEN（header 重构后镜像律逐字节自证——DOM 未动一字）** + t243 23/0 ×3；roster 恒等 21。
+- 【漂移考古】t223-hero 13764 px @ max 139 = strip scrollLeft 诚实漂移（t241 判例同区同族；**帧高 896×714 钉住未破**——t239 的帧卫生钉持续生效）；t240-compass-glow 31057 px @ max 3 = 亚感知抗锯齿噪声（t240 自己的判例：max ≤6 不定罪）；t212/t215 233k px @ max 122 裁片对照文本逐字相同 = 运行中任务的 live spinner 角度差 + 内容 1-2px settle 落位（诚实活态）；t213/214/219 相对时间词随批；**t210 ×3 WebGL 惯犯具名 checkout（家族多数判例）**。
+- 【世界卫生】全家族绿 + roster 恒等 21、twin 已归家、tmp 裁片已清。
+- 【收尾】worklog（本条）+ commit/push + 环境清理（Task 86 配方双杀 + port FREE 验证）。
+
+Stage Summary:
+- 「指南跟着问题走」：第三嘴同井——dashboard 的 Active engine 死卡变成 guidance 的活口，疑问诞生的地方就是指南开口的地方；镜像律（渲染非空行序列 === API hint 字节）第三案入册，两嘴结构上不可能漂移
+- 「承诺不许指向够不着的门」：hint 尾行承诺 press Re-detect，Re-detect 钮就随行在每一嘴里（共享 EngineReDetectRow、同一 store 动作）——guidance 的闭合律从「文案提到」升级为「affordance 在场」
+- 「开合不是按压」：开 popover 的按钮报 aria-expanded + aria-haspopup=dialog，不报 aria-pressed——语义精度；corner 覆写 prop 让 Info 与 chevron 各说各的动词（info 不是 go）
+- 「镜像的副作用是镜像本身」：两嘴共用同一句承诺 title，选择器单靠 title 撞双元素——mirror law 连选择器层面都要留痕（group/kpi 类锚定）
+- 「契约的考古链」：qa47 旧伤非本窗伤——git log -S + worklog 全文反查证明契约停在 Task 144 之前；修契约（fold 动词过闸）而非回滚产品
+- 遗留（下轮候选）：map-profile 的 FSC 帧在场时 inspector Report 组的锚点化（等真实满档）；透镜纸面化（哲学门槛维持）；updatedAt 治理（大工程）；EMPIAR 真数据回归（让位）；hero 纸档叠印可读性（维持）；shortcuts report 组记载 Download HTML 门（维持低优先）；engine guidance 若在 found 世界也有可说的事实（多 install 切换指引）可开第四嘴（低优先）

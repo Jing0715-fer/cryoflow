@@ -40,6 +40,7 @@ import {
   Workflow,
   Filter,
   Mountain,
+  Info,
   X,
 } from "lucide-react";
 import { useWorkflowStore } from "@/lib/store";
@@ -47,6 +48,8 @@ import { parseClassNotes, hasJudgment } from "@/lib/class-notes";
 import { withLiveStats } from "@/lib/live-stats";
 import { PENDING_VIEW_KEY } from "@/lib/view-link";
 import { KpiSparkline } from "./kpi-sparkline";
+import { EngineHintBlock, EngineReDetectRow } from "./engine-guidance";
+import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 import type { JobDTO, ProjectSummaryDTO } from "@/lib/types";
 import { jobType } from "@/lib/workflow";
 import { TypeIcon } from "./icons";
@@ -190,36 +193,52 @@ const STATUS_DOT: Record<string, string> = {
 /* KPI band                                                             */
 /* ------------------------------------------------------------------ */
 
-function KpiCard({
-  icon,
-  value,
-  label,
-  sub,
-  tone,
-  spark,
-  onClick,
-  pressed,
-  hint,
-  kbd,
-}: {
-  icon: React.ReactNode;
-  value: React.ReactNode;
-  label: string;
-  sub?: string;
-  tone: string;
-  /** optional 14-day trend sparkline — inherits the card tone (currentColor) */
-  spark?: React.ReactNode;
-  /** when present the whole card drills down into the grid — rendered as a
-   *  real button so keyboard users get the same affordance for free */
-  onClick?: () => void;
-  /** active filter state for clickable cards (aria-pressed) */
-  pressed?: boolean;
-  /** one-line hint under the label — what clicking will do */
-  hint?: string;
-  /** dashboard drill-down shortcut digit — corner badge replaces the hover
-   *  chevron and wires aria-keyshortcuts on the button */
-  kbd?: string;
-}) {
+const KpiCard = React.forwardRef<
+  HTMLDivElement,
+  {
+    icon: React.ReactNode;
+    value: React.ReactNode;
+    label: string;
+    sub?: string;
+    tone: string;
+    /** optional 14-day trend sparkline — inherits the card tone (currentColor) */
+    spark?: React.ReactNode;
+    /** when present the whole card drills down into the grid — rendered as a
+     *  real button so keyboard users get the same affordance for free */
+    onClick?: () => void;
+    /** active filter state for clickable cards (aria-pressed) */
+    pressed?: boolean;
+    /** one-line hint under the label — what clicking will do */
+    hint?: string;
+    /** dashboard drill-down shortcut digit — corner badge replaces the hover
+     *  chevron and wires aria-keyshortcuts on the button */
+    kbd?: string;
+    /** corner affordance override — replaces the default hover chevron for
+     *  cards whose click opens something other than a grid filter (t243:
+     *  the engine card's guidance popover whispers "info", not "go") */
+    corner?: React.ReactNode;
+    /** when present the card OPENS A POPOVER (t243) — aria-expanded +
+     *  aria-haspopup="dialog" replace the filter toggle's aria-pressed
+     *  (an opening button announces state change, not pressed-ness) */
+    ariaExpanded?: boolean;
+  }
+>(function KpiCard(
+  {
+    icon,
+    value,
+    label,
+    sub,
+    tone,
+    spark,
+    onClick,
+    pressed,
+    hint,
+    kbd,
+    corner,
+    ariaExpanded,
+  },
+  ref
+) {
   const interactive = typeof onClick === "function";
   const body = (
     <>
@@ -275,6 +294,15 @@ function KpiCard({
           >
             {kbd}
           </kbd>
+        ) : corner ? (
+          // corner override (t243): same whisper dynamics as the chevron
+          // (hover-only brightening), different verb — the icon decides
+          <span
+            className="no-print pointer-events-none absolute right-1.5 top-1.5 flex size-3 items-center justify-center text-muted-foreground/0 transition-colors motion-reduce:transition-none group-hover/kpi:text-muted-foreground/60"
+            aria-hidden="true"
+          >
+            {corner}
+          </span>
         ) : (
           <ChevronRight
             className="no-print pointer-events-none absolute right-1.5 top-1.5 size-3 text-muted-foreground/0 transition-colors motion-reduce:transition-none group-hover/kpi:text-muted-foreground/60"
@@ -306,12 +334,15 @@ function KpiCard({
       : "border-border"
   );
 
-  if (!interactive) return <div className={shell}>{body}</div>;
+  if (!interactive) return <div ref={ref} className={shell}>{body}</div>;
   return (
     <button
+      ref={ref as React.Ref<HTMLButtonElement>}
       type="button"
       onClick={onClick}
-      aria-pressed={Boolean(pressed)}
+      aria-pressed={ariaExpanded === undefined ? Boolean(pressed) : undefined}
+      aria-expanded={ariaExpanded === undefined ? undefined : ariaExpanded}
+      aria-haspopup={ariaExpanded === undefined ? undefined : "dialog"}
       aria-keyshortcuts={kbd}
       title={hint ?? "Filter the project grid below"}
       className={cn(shell, "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-1")}
@@ -319,7 +350,7 @@ function KpiCard({
       {body}
     </button>
   );
-}
+});
 
 /** Shape of GET /api/activity — the KPI sparkline feed. */
 interface ActivityFeed {
@@ -1873,6 +1904,10 @@ export function ProjectDashboard() {
   const [gridFilter, setGridFilter] = React.useState<GridFilter>("all");
   const gridRef = React.useRef<HTMLDivElement | null>(null);
   const [gridFlash, setGridFlash] = React.useState(false);
+  // t243: the Active engine card's guidance popover — the dashboard sister
+  // page of the header chip's popover (t242). Same well (the API's hint
+  // bytes), a third mouth, and the Re-detect affordance riding along.
+  const [engineGuideOpen, setEngineGuideOpen] = React.useState(false);
   // grid sort — initialized from persisted choice on mount (localStorage
   // read stays out of render per #13 discipline: state init via lazy
   // initializer is fine, it's not a side effect, but storage may not exist
@@ -2226,19 +2261,52 @@ export function ProjectDashboard() {
                 : "Show only projects with completed jobs — or press 3"
             }
           />
-          <KpiCard
-            icon={<Snowflake className="size-5" />}
-            value={system?.found ? (system.version ?? "RELION") : "—"}
-            label="Active engine"
-            sub={
-              system?.found
-                ? system.execution === "wsl"
-                  ? `WSL bridge${system.wsl.distro ? ` · ${system.wsl.distro}` : ""}${(system.installs.length ?? 0) > 1 ? ` · +${system.installs.length - 1} install(s)` : ""}`
-                  : `real RELION runs${(system.installs.length ?? 0) > 1 ? ` · +${system.installs.length - 1} install(s)` : ""}`
-                : "RELION not detected"
-            }
-            tone="bg-primary/10 text-primary ring-primary/25"
-          />
+          {system && !system.found ? (
+            <Popover open={engineGuideOpen} onOpenChange={setEngineGuideOpen}>
+              <PopoverAnchor asChild>
+                <KpiCard
+                  icon={<Snowflake className="size-5" />}
+                  value={"—"}
+                  label="Active engine"
+                  sub="RELION not detected"
+                  tone="bg-primary/10 text-primary ring-primary/25"
+                  corner={<Info className="size-3" />}
+                  onClick={() => setEngineGuideOpen((v) => !v)}
+                  ariaExpanded={engineGuideOpen}
+                  hint="RELION not detected on this host — click for guidance"
+                />
+              </PopoverAnchor>
+              {system.hint && (
+                <PopoverContent align="end" className="w-96" data-engine-guidance-dashboard>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <CircleAlert
+                        className="size-4 text-amber-600 dark:text-amber-400"
+                        aria-hidden="true"
+                      />
+                      <p className="text-sm font-semibold">RELION not detected</p>
+                    </div>
+                    <EngineHintBlock hint={system.hint} />
+                    <EngineReDetectRow />
+                  </div>
+                </PopoverContent>
+              )}
+            </Popover>
+          ) : (
+            <KpiCard
+              icon={<Snowflake className="size-5" />}
+              value={system?.found ? (system.version ?? "RELION") : "—"}
+              label="Active engine"
+              sub={
+                system?.found
+                  ? system.execution === "wsl"
+                    ? `WSL bridge${system.wsl.distro ? ` · ${system.wsl.distro}` : ""}${(system.installs.length ?? 0) > 1 ? ` · +${system.installs.length - 1} install(s)` : ""}`
+                    : `real RELION runs${(system.installs.length ?? 0) > 1 ? ` · +${system.installs.length - 1} install(s)` : ""}`
+                  : "RELION not detected"
+              }
+              tone="bg-primary/10 text-primary ring-primary/25"
+            />
+          )}
         </div>
 
         {/* cross-project recent activity — the "where did I leave off" strip */}

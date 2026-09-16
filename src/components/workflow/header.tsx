@@ -27,6 +27,7 @@ import { hasJudgment } from "@/lib/class-notes";
 import { ThemeToggle } from "./theme-toggle";
 import { HelpPopover } from "./help-popover";
 import { CommandPaletteTrigger, SESSION_REPORT_EVENT } from "./command-palette";
+import { EngineHintBlock, EngineReDetectRow } from "./engine-guidance";
 // t197: the session QC report is code-split (react-markdown + remark-gfm
 // ride their own chunk) — the app shell never pays for the document
 // renderer until the report is opened for the first time.
@@ -280,8 +281,6 @@ function BinaryRow({ name, present }: { name: string; present: boolean }) {
 
 function RelionStatusChip() {
   const system = useWorkflowStore((s) => s.system);
-  const refreshSystem = useWorkflowStore((s) => s.refreshSystem);
-  const systemRefreshing = useWorkflowStore((s) => s.systemRefreshing);
 
   const found = system?.found ?? false;
   const viaWsl = (system?.source ?? "").startsWith("WSL");
@@ -446,27 +445,7 @@ function RelionStatusChip() {
               </p>
             )}
           </div>
-          {!found && system?.hint && (
-            <div
-              className="space-y-0.5 overflow-x-auto rounded-md bg-amber-500/10 px-2 py-1.5"
-              data-engine-hint
-              aria-label="RELION discovery guidance"
-            >
-              {system.hint.split("\n").map((line, i) => (
-                <p
-                  key={i}
-                  className={cn(
-                    "text-[10px] leading-relaxed",
-                    /^[AB]\)/.test(line.trim())
-                      ? "whitespace-pre font-mono text-foreground/80"
-                      : "text-muted-foreground"
-                  )}
-                >
-                  {line}
-                </p>
-              ))}
-            </div>
-          )}
+          {!found && system?.hint && <EngineHintBlock hint={system.hint} />}
           <InstallSwitcher />
           <div>
             <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -488,32 +467,7 @@ function RelionStatusChip() {
               ))}
             </div>
           </div>
-          <div className="flex items-center justify-between gap-2">
-            <p
-              className="text-[10px] text-muted-foreground/70"
-              title={
-                fromCache
-                  ? "The saved detection answered instantly — a background probe is re-verifying right now"
-                  : undefined
-              }
-            >
-              checked {system ? new Date(system.checkedAt).toLocaleTimeString() : "—"}
-              {fromCache ? " · saved, re-checking…" : ""}
-            </p>
-            <button
-              type="button"
-              onClick={() => void refreshSystem()}
-              disabled={systemRefreshing}
-              className="flex items-center gap-1.5 rounded-md border bg-card px-2 py-1 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground disabled:opacity-60"
-              title="Re-run the RELION/WSL environment probe (bypasses the 60s cache)"
-            >
-              <RefreshCw
-                className={cn("size-3", systemRefreshing && "animate-spin")}
-                aria-hidden="true"
-              />
-              {systemRefreshing ? "detecting…" : "Re-detect"}
-            </button>
-          </div>
+          <EngineReDetectRow />
         </div>
       </PopoverContent>
     </Popover>
