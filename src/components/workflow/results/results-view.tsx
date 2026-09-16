@@ -83,6 +83,17 @@ interface OutputFile {
   dims?: [number, number, number];
   label?: string;
   rows?: number;
+  /** map header summary for 3D volumes — origin inside its parent, voxel
+   *  spacing, density stats (server mirrors the MrcHeader read it already
+   *  did; stacks don't carry one) */
+  map?: {
+    origin: [number, number, number];
+    pixel: number;
+    dmin: number;
+    dmax: number;
+    dmean: number;
+    rms: number;
+  };
 }
 
 interface OutputsResponse {
@@ -104,6 +115,32 @@ function formatBytes(n: number): string {
 
 function fileUrl(jobId: string, file: OutputFile, extra: string): string {
   return `/api/jobs/${jobId}/outputs/file?path=${encodeURIComponent(file.path)}${extra}`;
+}
+
+/** Density numbers live in wildly different ranges (raw detector counts
+ *  vs normalized float maps); one decimal rule keeps the badges honest
+ *  without a unit per row. */
+function formatStat(v: number): string {
+  if (!Number.isFinite(v)) return "—";
+  const abs = Math.abs(v);
+  if (abs !== 0 && (abs >= 10_000 || abs < 0.001)) return v.toExponential(2);
+  if (abs >= 100) return v.toFixed(0);
+  if (abs >= 10) return v.toFixed(1);
+  return v.toFixed(3).replace(/\.?0+$/, "");
+}
+
+/** Where did an Import Map's file come from? The mapPath parameter tells
+ *  the story: a crop sent from the 3D viewer lives in a parent job's
+ *  SubVolumes/ folder (t255's send-to-new-job writes there), anything
+ *  else is a standalone pick from the file browser. */
+function mapSourceNote(mapPath: string): { kind: "crop" | "standalone"; label: string } {
+  const norm = mapPath.replace(/\\/g, "/");
+  const idx = norm.toLowerCase().lastIndexOf("/subvolumes/");
+  if (idx >= 0) {
+    const parentDir = norm.slice(0, idx).split("/").filter(Boolean).pop();
+    return { kind: "crop", label: parentDir || "the parent job" };
+  }
+  return { kind: "standalone", label: norm.split("/").filter(Boolean).pop() || mapPath };
 }
 
 /* ------------------------------------------------------------------ */
@@ -770,6 +807,15 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
         </div>
       </div>
 
+      {/* Import Map identity card — the map's own story (t256): size and
+          spacing from the header, the density statistics the header
+          records, and where this grid sits inside its parent when it's a
+          sub-volume crop. The gallery below shows what the map LOOKS
+          like; this card says what the map IS. */}
+      {job.type === "mapimport" && mrcFiles[0]?.map && mrcFiles[0]?.dims && (
+        <MapIdentityCard job={job} file={mrcFiles[0]} />
+      )}
+
       {/* FSC curve (live: half-map FSC while refining, masked FSC after postprocess) */}
       <FscChart jobId={job.id} running={job.status === "running"} projectId={job.projectId} />
 
@@ -1019,6 +1065,103 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
         restoreFocusRef={molFocusRef}
       />
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Import Map identity card                                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The Import Map job's identity card (t256). Everything on it is read
+ * from the map's own header (the outputs route mirrors MrcHeader — no
+ * extra I/O) plus the mapPath parameter the job was configured with:
+ *
+ *  - the grid size and voxel spacing (dims + cella/nz),
+ *  - the density statistics the header records (min/max/mean/σ),
+ *  - the sub-volume anchor (start fields) — non-zero means this map was
+ *    CUT from a parent (readMrcSubvolume writes parent start + box
+ *    offset), and the crop's SubVolumes path names that parent,
+ *  - or the honest "standalone" note when the map came from Browse.
+ *
+ * The Maps gallery answers "what does it look like"; this card answers
+ * "what is it, and where did it come from" — the box-subregion chain
+ * (crop → import → focused refinement) reads legibly on the card alone.
+ */
+function MapIdentityCard({ job, file }: { job: JobDTO; file: OutputFile }) {
+  const map = file.map;
+  const dims = file.dims;
+  if (!map || !dims) return null;
+
+  const mapPath = String(job.params?.mapPath ?? "");
+  const source = mapPath ? mapSourceNote(mapPath) : null;
+  const anchored = !map.origin.every((v) => v === 0);
+
+  return (
+    <section
+      aria-label="Imported map"
+      data-canvas-ui="map-identity"
+      className="rounded-lg border border-teal-600/30 bg-teal-600/[0.04] p-3"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <h4 className="flex items-center gap-1.5 text-xs font-semibold text-foreground/80">
+          <Box className="h-3.5 w-3.5 shrink-0 text-teal-600" aria-hidden="true" />
+          Imported map
+        </h4>
+        <span className="truncate font-mono text-[11px] text-muted-foreground" title={file.name}>
+          {file.name}
+        </span>
+      </div>
+
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        <span className="rounded-full border border-teal-600/25 bg-teal-600/10 px-2 py-0.5 text-[10px] font-semibold text-teal-700 dark:text-teal-300">
+          {dims.join(" × ")} vox
+        </span>
+        {map.pixel > 0 && (
+          <span className="rounded-full border border-teal-600/25 bg-teal-600/10 px-2 py-0.5 text-[10px] font-semibold text-teal-700 dark:text-teal-300">
+            {map.pixel.toFixed(2)} Å / voxel
+          </span>
+        )}
+        <span className="rounded-full border border-border bg-muted/60 px-2 py-0.5 text-[10px] text-muted-foreground">
+          min {formatStat(map.dmin)}
+        </span>
+        <span className="rounded-full border border-border bg-muted/60 px-2 py-0.5 text-[10px] text-muted-foreground">
+          max {formatStat(map.dmax)}
+        </span>
+        <span className="rounded-full border border-border bg-muted/60 px-2 py-0.5 text-[10px] text-muted-foreground">
+          mean {formatStat(map.dmean)}
+        </span>
+        {map.rms > 0 && (
+          <span className="rounded-full border border-border bg-muted/60 px-2 py-0.5 text-[10px] text-muted-foreground">
+            σ {formatStat(map.rms)}
+          </span>
+        )}
+      </div>
+
+      <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+        {anchored && source?.kind === "crop" ? (
+          <>
+            Sub-volume anchor at{" "}
+            <span className="font-mono text-foreground/80">({map.origin.join(", ")})</span> voxels
+            in the parent map — crop of{" "}
+            <span className="font-mono text-foreground/80" title={mapPath}>
+              {source.label}
+            </span>
+            , sent from the 3D viewer.
+          </>
+        ) : !anchored && source?.kind === "crop" ? (
+          <>
+            Crop of{" "}
+            <span className="font-mono text-foreground/80" title={mapPath}>
+              {source.label}
+            </span>{" "}
+            — anchored at the parent&apos;s origin.
+          </>
+        ) : (
+          <>Standalone map — picked from the file browser, no parent offset.</>
+        )}
+      </p>
+    </section>
   );
 }
 

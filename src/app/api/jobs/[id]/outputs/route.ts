@@ -32,6 +32,20 @@ export interface OutputFile {
   label?: string;
   /** parsed row count for STAR files (small files only) */
   rows?: number;
+  /** map header summary for 3D volumes — the identity-card data. `dims`
+   *  carries the grid size; this carries where the map sits inside its
+   *  parent (origin), its voxel spacing, and the density statistics the
+   *  header records. Stacks (.mrcs) don't get one; additive, consumers
+   *  may ignore it. */
+  map?: {
+    origin: [number, number, number];
+    /** Å per voxel (cella[2]/nz) — 0 when the header doesn't say */
+    pixel: number;
+    dmin: number;
+    dmax: number;
+    dmean: number;
+    rms: number;
+  };
 }
 
 const MRC_EXT = [".mrc", ".mrcs", ".map", ".ccp4", ".ctf"];
@@ -112,17 +126,25 @@ function walkWorkdir(workdir: string): { files: OutputFile[]; truncated: boolean
       const childAbs = path.join(dir, entry.name);
       if (entry.isDirectory()) {
         visit(childAbs, childRel, depth + 1);
-      } else if (entry.isFile()) {
+      } else if (entry.isFile() || entry.isSymbolicLink()) {
         if (files.length >= 300) {
           truncated = true;
           return;
         }
-        let size = 0;
+        let st;
         try {
-          size = statSync(childAbs).size;
+          st = statSync(childAbs); // follows symlinks
         } catch {
-          continue;
+          continue; // dead link or vanished file — the listing moves on
         }
+        // A symlinked DIRECTORY is not followed (loop safety; the walk
+        // stays inside the workdir it was given). A symlinked FILE is
+        // listed like any file — the mapimport handler links the imported
+        // map into its own workdir (one copy on disk), and the Results
+        // view must see the job's own map (t256: the identity card reads
+        // the same listing).
+        if (st.isDirectory()) continue;
+        const size = st.size;
         const kind = classify(entry.name);
         const file: OutputFile = { path: childRel, name: entry.name, kind, size };
         if (kind === "mrc") {
@@ -131,6 +153,16 @@ function walkWorkdir(workdir: string): { files: OutputFile[]; truncated: boolean
             file.slices = hdr.nz;
             if (!entry.name.toLowerCase().endsWith(".mrcs")) {
               file.dims = [hdr.nx, hdr.ny, hdr.nz];
+              // identity-card fields ride the header read we already did —
+              // zero extra I/O (t256)
+              file.map = {
+                origin: hdr.start,
+                pixel: hdr.cella[2] > 0 && hdr.nz > 0 ? hdr.cella[2] / hdr.nz : 0,
+                dmin: hdr.dmin,
+                dmax: hdr.dmax,
+                dmean: hdr.dmean,
+                rms: hdr.rms,
+              };
             }
             file.label = friendlyLabel(entry.name, childRel);
           }

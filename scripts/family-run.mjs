@@ -12,7 +12,7 @@
 //        solo FAIL  → REAL-FAIL (a verdict, needs a human)
 //   3. EXIT CODE — 0 iff zero REAL-FAILs (SOLO-RECOVERY is honest but not a blocker).
 //
-// The FAMILY roster is an audited membership list (32 suites as of Task 254) —
+// The FAMILY roster is an audited membership list (34 suites as of Task 256) —
 // it is written here EXPLICITLY, not discovered by glob: diag-*/probe scripts and
 // one-off hearings are not family. When a new suite joins the family, add it here.
 //
@@ -75,6 +75,7 @@ const FAMILY = [
   "t253-e2e.mjs",
   "t254-subvolume-export.mjs",
   "t255-send-to-job.mjs",
+  "t256-map-card.mjs", // the Import Map identity card
 ];
 
 // ---- CLI -------------------------------------------------------------------

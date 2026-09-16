@@ -33,8 +33,17 @@ export interface MrcHeader {
   /** cell length in Å per axis (header floats at 40/44/48) — voxel spacing
    *  is cella[axis] / n[axis]; additive field, consumers may ignore it */
   cella: [number, number, number];
+  /** start fields (header ints at 16/20/24) — the voxel offset of this grid
+   *  inside its parent map. All zero for a standalone map; non-zero for a
+   *  sub-volume crop, whose header answers "where do I sit in the map I
+   *  was cut from" (readMrcSubvolume writes parent start + box offset). */
+  start: [number, number, number];
   dmin: number;
   dmax: number;
+  /** header word at 84 — mean density as written by the producer */
+  dmean: number;
+  /** MRC2014 RMS at word 216 — 0 when the producer didn't write it */
+  rms: number;
 }
 
 /** Read + validate the 1024-byte MRC2014 header. Returns null when not a map we can read. */
@@ -68,8 +77,11 @@ export function readMrcHeader(file: string): MrcHeader | null {
       nx, ny, nz, mode, nsymbt,
       bytesPerVoxel: bpp,
       cella: [buf.readFloatLE(40), buf.readFloatLE(44), buf.readFloatLE(48)],
+      start: [buf.readInt32LE(16), buf.readInt32LE(20), buf.readInt32LE(24)],
       dmin: buf.readFloatLE(76),
       dmax: buf.readFloatLE(80),
+      dmean: buf.readFloatLE(84),
+      rms: buf.readFloatLE(216),
     };
   } catch {
     return null;
