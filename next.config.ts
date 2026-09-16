@@ -6,6 +6,12 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  // ssh2 (t261-remote's transport) is a Node-only lib whose dynamic
+  // requires Turbopack cannot place into ESM chunks ("non-ecmascript
+  // placeable asset" on lib/protocol/crypto.js) — keep it OUT of the
+  // bundle: the standalone server requires it from node_modules at
+  // runtime, which is exactly where it lives.
+  serverExternalPackages: ["ssh2"],
   reactStrictMode: false,
   experimental: {
     // 4GB box shared with a Chrome QA session — the default (6 GiB) lets the
