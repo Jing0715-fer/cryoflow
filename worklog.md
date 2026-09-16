@@ -1112,3 +1112,25 @@ Stage Summary:
 - 「断言要看向组件所在的面」：completed job 默认开 Results tab，卡片住在 Overview——组件没错、选择器没错、是测试的眼睛看错了面板；负向断言（0 命中）尤其要先证明「看向了正确的地方」，否则平凡绿冒充覆盖
 - 「解析的三态诚实」：无 --ref → 卡不存在（没有故事可讲）；路径在而 provider 未跑 → 路径行 + unresolved 文案（故事的一半）；解析成 → 全身份（完整故事）——UI 的每一格空白都要有存在的理由
 - 遗留（下轮候选）：应用元数据路由的门（/system、/hpc/profiles、/projects——低敏感挂账）；mapimport/reference 预览卡的「View in 3D」直达（现在要经芯片跳转再切 Results）；updatedAt 治理（大工程）；家族跑批 --report JSON + 分批一等公民化；watchdog 与 family-run 共生；EMPIAR 真数据回归（让位）
+
+## Task 258 (2026-09-17, cron 01:18 窗口 trace cron-agent-loop-202609170118)
+
+- 【开局】四件套：尾部 = Task 257（72ccaac，reference 戴上它的脸）零过时（**续传摘要第十七度过时**——摘要称世系止于 251 且预期 HEAD = d89cc7b，实际 252/253/254/255/256/257 均已交付、HEAD = 72ccaac；worklog 尾部 + git log 唯一真源律再应验）；净场核查 PORT 3000 FREE + 无 watchdog → watchdog 拉起验活 200。QA：qa00 GREEN + qa63 SMOKE GREEN + t251/t252/t256/t257 四哨兵 ALL PASS + agent-browser errors/console 双空。无 bug。
+- 【巡检与立项】Task 257 遗留首选当选：**「View in 3D 直达」**——box 子区工作流第八环：t256 身份证卡与 t257 参考卡都是「故事」，要看真身得绕 gallery tile → image dialog → View in 3D（供给侧三跳）或 chip → inspector → Results → gallery → …（消费侧更惨）。立项 = 两张卡各长一个 View in 3D 按钮：**从「知道它是什么」到「看见它」一步直达**。
+- 【勘察四件】① MolViewer 接口：job + path（**job workdir 相对路径**）+ name + open/onOpenChange + restoreFocusRef——完全自包含的 dialog；② results-view 已有共享 MolViewer 实例（gallery 的 View in 3D 走 setMolFile）——身份证卡就在同一棵树里，**传回调即可零新增挂载**；③ ReferenceMapCard 在 job-inspector 树（results-view 之外），但 resolved 时手里有 provider JobDTO（store jobs）+ provider-relative file.path——**自治挂 MolViewer 恰好对口**；④ od 取证判例再应用：mol-viewer.tsx line 99 的 max-w-[min(1500px,94vw)] 被三个读取工具一致显示为「语法错误」，od 字节级证明文件完好——**传输层吞字节 ≠ 文件损坏**，不修不存在的 bug。
+- 【实现① t256 卡（results-view.tsx）】MapIdentityCard 加 onView3D?: (f: OutputFile) => void prop；来源行下加 action row：outline-teal 次级按钮（h-7 text-[11px] + Box 图标 + data-testid="map-card-view-3d"）+ 一句「open this map in the Mol* viewer」白话注解；调用点传 onView3D={setMolFile}——**一个 dialog 实例，两个触发源**（gallery 的实底按钮与卡的描边按钮讲同一种 teal 语言但分 nesting 层级）。
+- 【实现② t257 卡（reference-map-card.tsx）】自治挂 MolViewer：viewOpen state + cardRef（section tabIndex=-1 + outline-none）；**viewable = provider && resolved && map && dims 四重门**——没有解析出可看的图就没有按钮（诚实缺席）； MolViewer job={provider} path={resolved.file.path}——消费侧打开的是 **provider 的 job + provider 相对路径**（MolViewer 的 fileUrl 契约原文对口）；restoreFocusRef={cardRef}——焦点 park 回卡片本身。
+- 【工艺细节：mount 即预热】ReferenceMapCard 的 MolViewer 在 resolved 成立时就挂载（open=false）——**卡片确认有一张可看的图 = MolViewer 注释定义的 3D intent 时刻**：molstar 2MB chunk 在用户读卡的间隙编译，点击时零首编译成本；与「页面加载就预热」的 OOM 风险划清界限（注释自载）。
+- 【e2e：t258-view-in-3d.mjs】**39 断言 ×4 ALL PASS**（首跑 33/35 后修 selector）：A 相 demo 真相（200 + roster 21 + orthovol 在盘）；B 相台账 11 断言（两卡按钮 + 两种接线策略 + viewable 门 + provider path 对口 + focus park 目标 + 预热注释）；C 相活体 26 断言——subvolume-job 201 → native completed → **t256 卡按钮 → Mol* dialog 打开 + dialog 点名裁片 + canvas 活体 + Esc 关闭 + focus park 回 Maps gallery（aria-label 实证）** → probe refine3d 种子（qa60 判例）+ edge 接线 → **t257 卡按钮 → 自己的 Mol* dialog + 同一张裁片从消费侧打开 + canvas 活体 + Esc + focus park 回卡片本身**；D 相 console 0。try/finally 清场 + 启动自愈（t255/t256/t257 判例），roster 恒等 21。
+- 【事故与判例】**dialog 选址律**：Radix Dialog 全部 portal 到 body——页面上有多个 dialog 时 `[role="dialog"]` 的 .first() 是 DOM 顺序第一个（job inspector 自己的 dialog），不是刚打开的那个；Mol* canvas 20s 等不来的真因是**等错了 dialog**。修 = .last()（后 portal 者为 viewer）。这是 t257「断言要看向组件所在的面」判例的 dialog 版：**断言要先证明看向的是刚打开的那一层**。
+- 【定妆照】**t258-map-card-view3d-2x.png**（身份证卡的 View in 3D → 裁片 isosurface + contour 2.00σ + Orthogonal slices strip，dialog title = orthovol_crop_16-48_16-48_16-48.mrc）+ **t258-reference-view3d-2x.png**（消费侧同张裁片从 reference 卡打开，footer 22 jobs · 18 edges = probe 在册）。「one geometry, many doors」：同一张地图，下载、入链、身份证、消费预览、3D 直达五条路全通。
+- 【全家族回归】family-run 五批前台（t256 判例）：qa 批 pass 10 · wall 408.9s ｜ t21 批 pass 7 · wall 193.8s ｜ t22 批 pass 2 · wall 66.6s ｜ t24 批 pass 9 · wall 124.2s ｜ t25 批 pass 8 · wall 431.7s——**合计 pass 36 · solo-recovery 0 · real-fail 0 · wall ~1225s**，roster 全程恒等 21；**t258 收编花名册 35→36**（--filter 亲跑 PASS 50.9s 验收）。
+- 【收尾】worklog（本条）+ commit/push + 环境清理（Task 86 配方双杀 + port FREE 验证）。
+
+Stage Summary:
+- **「回程一步直达」**：t251 读环 → t252 写门 → t253 视口联动 → t254 导出 → t255 入链 → t256 卡片有脸 → t257 消费侧认脸 → **t258 认脸之后一键看真身**——box 子区工作流第八环闭环；裁片故事链上的每一张卡（供给侧身份证、消费侧参考）现在都通向 3D 本体，「one geometry, many doors」——下载、入链、身份、预览、3D 五条路同源于一个 keptFractions/一份 outputs 数据面
+- 「共享实例与自治实例的分野」：同树（results-view）传回调零新增挂载；异树（job-inspector）自治挂载对口 provider 契约——两种接线都指向同一个 MolViewer 组件，判据是「dialog 实例住哪棵树最近」；消灭的不是重复而是绕路
+- 「viewable 四重门」：provider && resolved && map && dims 全真才有按钮——解析未中/上游未跑时卡片还是「路径 + unresolved 诚实缺席」，绝不给一个点了白点的按钮；**按钮是承诺，承诺只在能兑现时出现**
+- 「mount 即预热的时机律」：MolViewer 挂载（closed）在 resolved 成立时而非卡片渲染时——「卡片确认有可看的图」才是 3D intent；预热的价值是「读卡间隙编译 chunk」，超前的预热是别人的 OOM
+- 「dialog 选址律」：多 dialog 页面里 [role=dialog].first() 是 DOM 顺序最先挂载的 inspector——**后 portal 者才是刚打开的**；与 t257「断言要看向组件所在的面」合璧：选址错层的断言不是失败是误导，canvas 等不来的排查第一问是「我在等哪一层」
+- 遗留（下轮候选）：应用元数据路由的门（/system、/hpc/profiles、/projects——低敏感挂账）；updatedAt 治理（大工程）；家族跑批 --report JSON + 分批一等公民化；watchdog 与 family-run 共生；EMPIAR 真数据回归（让位）；3D viewer 直达后的下一步候选：identity/reference 卡上加「打开时带裁剪状态」（从卡直达 clip 到锚点盒的视口——t253 的语言与 t258 的门合流）

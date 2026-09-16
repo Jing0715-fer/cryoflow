@@ -813,9 +813,12 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
           spacing from the header, the density statistics the header
           records, and where this grid sits inside its parent when it's a
           sub-volume crop. The gallery below shows what the map LOOKS
-          like; this card says what the map IS. */}
+          like; this card says what the map IS. t258 closes the loop the
+          other way too: the card's "View in 3D" jumps straight into the
+          Mol* viewer — no detour through the gallery tile → image dialog
+          → "View in 3D" relay. */}
       {job.type === "mapimport" && mrcFiles[0]?.map && mrcFiles[0]?.dims && (
-        <MapIdentityCard job={job} file={mrcFiles[0]} />
+        <MapIdentityCard job={job} file={mrcFiles[0]} onView3D={setMolFile} />
       )}
 
       {/* FSC curve (live: half-map FSC while refining, masked FSC after postprocess) */}
@@ -1090,7 +1093,18 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
  * "what is it, and where did it come from" — the box-subregion chain
  * (crop → import → focused refinement) reads legibly on the card alone.
  */
-function MapIdentityCard({ job, file }: { job: JobDTO; file: OutputFile }) {
+function MapIdentityCard({
+  job,
+  file,
+  onView3D,
+}: {
+  job: JobDTO;
+  file: OutputFile;
+  /** t258 — opens the shared Mol* viewer dialog on this map. The dialog
+   *  instance lives at the results-view level (the gallery's "View in 3D"
+   *  uses the same one); the card just aims it. */
+  onView3D?: (f: OutputFile) => void;
+}) {
   const map = file.map;
   const dims = file.dims;
   if (!map || !dims) return null;
@@ -1163,6 +1177,27 @@ function MapIdentityCard({ job, file }: { job: JobDTO; file: OutputFile }) {
           <>Standalone map — picked from the file browser, no parent offset.</>
         )}
       </p>
+
+      {/* t258 — the identity card's own way back into the 3D viewer: one
+          click from "what is it" to "look at it", parked on the same
+          shared Mol* dialog the gallery uses. Outline styling (not the
+          gallery tile's solid teal) — this is a secondary action INSIDE a
+          card, one nesting level down. */}
+      {onView3D && (
+        <div className="mt-2.5 flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            data-testid="map-card-view-3d"
+            className="h-7 gap-1.5 border-teal-600/40 px-2.5 text-[11px] text-teal-700 hover:bg-teal-600/10 hover:text-teal-800 dark:text-teal-300 dark:hover:text-teal-200"
+            onClick={() => onView3D(file)}
+          >
+            <Box className="h-3.5 w-3.5" aria-hidden="true" />
+            View in 3D
+          </Button>
+          <span className="text-[10px] text-muted-foreground">open this map in the Mol* viewer</span>
+        </div>
+      )}
     </section>
   );
 }

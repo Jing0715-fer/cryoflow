@@ -77,6 +77,7 @@ const FAMILY = [
   "t255-send-to-job.mjs",
   "t256-map-card.mjs", // the Import Map identity card
   "t257-reference-card.mjs", // the consumer-side reference card (Task 257)
+  "t258-view-in-3d.mjs", // the cards' View in 3D buttons (Task 258)
 ];
 
 // ---- CLI -------------------------------------------------------------------

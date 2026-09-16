@@ -31,6 +31,7 @@ import { useWorkflowStore } from "@/lib/store";
 import { jobType } from "@/lib/workflow";
 import type { JobDTO } from "@/lib/types";
 import { TypeIcon } from "./icons";
+import { MolViewer } from "./results/mol-viewer";
 import { formatStat, mapSourceNote } from "./results/results-view";
 
 /** Minimal slice of the outputs listing the card needs. */
@@ -76,6 +77,12 @@ export function ReferenceMapCard({ job, refPath }: { job: JobDTO; refPath: strin
     file: RefFile;
   } | null>(null);
   const [searched, setSearched] = React.useState(false);
+  // t258 — the card's own Mol* dialog. It mounts (closed) as soon as the
+  // card has a resolved, viewable map: that moment is the 3D intent the
+  // pre-warm in MolViewer wants, and it lets the button flip open the
+  // dialog with zero first-click compilation cost.
+  const [viewOpen, setViewOpen] = React.useState(false);
+  const cardRef = React.useRef<HTMLElement | null>(null);
 
   const candidateIds = React.useMemo(
     () =>
@@ -136,6 +143,7 @@ export function ReferenceMapCard({ job, refPath }: { job: JobDTO; refPath: strin
   const map = resolved?.file.map;
   const dims = resolved?.file.dims;
   const anchored = map ? !map.origin.every((v) => v === 0) : false;
+  const viewable = Boolean(provider && resolved && map && dims);
 
   // provenance: an Import Map speaks through its mapPath param (the same
   // parser the t256 identity card uses); a model job speaks through what
@@ -169,10 +177,12 @@ export function ReferenceMapCard({ job, refPath }: { job: JobDTO; refPath: strin
 
   return (
     <section
+      ref={cardRef}
       aria-label="Reference map"
       data-canvas-ui="reference-map"
       data-print-atomic=""
-      className="rounded-xl border border-teal-600/30 bg-teal-600/[0.04] p-4"
+      tabIndex={-1}
+      className="rounded-xl border border-teal-600/30 bg-teal-600/[0.04] p-4 outline-none"
     >
       <div className="flex items-center justify-between gap-2">
         <h4 className="flex items-center gap-1.5 text-xs font-semibold text-foreground/80">
@@ -239,6 +249,28 @@ export function ReferenceMapCard({ job, refPath }: { job: JobDTO; refPath: strin
             ) : null}
             {provenance}
           </p>
+
+          {/* t258 — one click from "what am I eating" to "show me": the
+              resolved provider's map opens in the card's own Mol* dialog
+              (the provider job object is right here in the store). Same
+              outline-teal secondary-action styling as the t256 card's
+              button — the two cards speak one visual language. */}
+          {viewable && (
+            <div className="mt-2.5 flex items-center gap-2">
+              <button
+                type="button"
+                data-testid="reference-view-3d"
+                onClick={() => setViewOpen(true)}
+                className="inline-flex h-7 items-center gap-1.5 rounded-md border border-teal-600/40 px-2.5 text-[11px] font-medium text-teal-700 transition-colors hover:bg-teal-600/10 hover:text-teal-800 dark:text-teal-300 dark:hover:text-teal-200"
+              >
+                <Box className="h-3.5 w-3.5" aria-hidden="true" />
+                View in 3D
+              </button>
+              <span className="text-[10px] text-muted-foreground">
+                open the reference in the Mol* viewer
+              </span>
+            </div>
+          )}
         </>
       ) : (
         <p className="mt-2 truncate font-mono text-[11px] text-muted-foreground" title={refPath}>
@@ -249,6 +281,23 @@ export function ReferenceMapCard({ job, refPath }: { job: JobDTO; refPath: strin
             </span>
           ) : null}
         </p>
+      )}
+
+      {/* t258 — the card's own viewer dialog. Mounted (closed) once the
+          reference is resolvable to a viewable map, so MolViewer's mount-
+          time pre-warm compiles the molstar chunk while the user reads the
+          card, not while they wait. restoreFocus parks on the card itself:
+          the button that opened it lives here, and the inspector's
+          focus-outside guard needs a home for focus on close. */}
+      {viewable && provider && resolved && (
+        <MolViewer
+          job={provider}
+          path={resolved.file.path}
+          name={resolved.file.name}
+          open={viewOpen}
+          onOpenChange={(o) => !o && setViewOpen(false)}
+          restoreFocusRef={cardRef}
+        />
       )}
     </section>
   );
