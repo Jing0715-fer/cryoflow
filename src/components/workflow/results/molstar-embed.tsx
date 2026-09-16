@@ -3173,6 +3173,60 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
     );
   };
 
+  /* ---------------- sub-volume export (t254) ---------------- */
+
+  // The kept box, written out: the crop the clip planes visualize becomes
+  // a standalone .mrc download (the RELION box-subregion workflow). The
+  // clip's invert side resolves HERE — the API speaks plain geometry
+  // ([lo, hi] fractions per axis), so export and wireframe always tell
+  // the same story from one state source (clipStateRef).
+  const keptFractions = (): [number, number][] => {
+    const st = clipStateRef.current;
+    // an unclipped axis (frac 1) carries NO plane even when inverted —
+    // commitClip leaves it out entirely, so the scene keeps the full
+    // extent, and the export must tell the scene's truth (t254 lesson:
+    // the naive [v, 1] collapse made the label claim a 1-voxel axis the
+    // scene never cropped)
+    const per = (v: number): [number, number] =>
+      v >= 0.999 ? [0, 1] : st.invert ? [v, 1] : [0, v];
+    return [per(st.x), per(st.y), per(st.z)];
+  };
+
+  const exportSubvolume = () => {
+    if (!clipStateRef.current.on) return;
+    const [[x0, x1], [y0, y1], [z0, z1]] = keptFractions();
+    const qs = new URLSearchParams({
+      path,
+      x0: String(x0),
+      x1: String(x1),
+      y0: String(y0),
+      y1: String(y1),
+      z0: String(z0),
+      z1: String(z1),
+    });
+    // native download (the route answers Content-Disposition: attachment)
+    const a = document.createElement("a");
+    a.href = `/api/jobs/${jobId}/outputs/subvolume?${qs.toString()}`;
+    a.rel = "noopener";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
+
+  // the export's voxel dims, computed EXACTLY as the server converts the
+  // fractions (floor/ceil) — the label never lies about the file size
+  const exportDims = (): [number, number, number] | null => {
+    const box = clipBox();
+    if (!box) return null;
+    const [[x0, x1], [y0, y1], [z0, z1]] = keptFractions();
+    const d = box.dims;
+    return [
+      Math.max(1, Math.ceil(x1 * d[0]) - Math.floor(x0 * d[0])),
+      Math.max(1, Math.ceil(y1 * d[1]) - Math.floor(y0 * d[1])),
+      Math.max(1, Math.ceil(z1 * d[2]) - Math.floor(z0 * d[2])),
+    ];
+  };
+
   /* ---------------- clip region wireframe (SVG overlay) --------------- */
 
   // The clip planes live in the isosurface's shader props — invisible them-
@@ -3481,8 +3535,8 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
 
       {/* contour control bar */}
       {phase === "ready" && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex justify-center p-3">
-          <div className="pointer-events-auto w-full max-w-lg rounded-2xl border bg-card/90 px-4 py-3 shadow-lg backdrop-blur-md">
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-end justify-center p-3">
+          <div className="pointer-events-auto max-h-[calc(100%-1.5rem)] w-full max-w-lg overflow-y-auto rounded-2xl border bg-card/90 px-4 py-3 shadow-lg backdrop-blur-md">
             <div className="flex flex-wrap items-center gap-2">
               <Mountain className="size-3.5 shrink-0 text-teal-600" aria-hidden="true" />
               <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -4368,6 +4422,28 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                     </span>
                   </div>
                 ))}
+                {/* t254 — the crop, written out: the kept box downloads as a
+                    standalone .mrc (the RELION box-subregion workflow). The
+                    dims label is the server's own floor/ceil conversion, so
+                    the file is exactly what the button says it is. */}
+                {(() => {
+                  const dims = exportDims();
+                  return (
+                    <button
+                      type="button"
+                      onClick={exportSubvolume}
+                      disabled={!dims}
+                      title="Download the kept box as a standalone MRC map — the RELION box-subregion workflow (crop a region of interest for focused processing)"
+                      className="flex w-full items-center justify-center gap-1.5 rounded-md border border-violet-600/40 bg-violet-600/15 px-2 py-1 text-[10.5px] font-semibold text-violet-700 transition-colors hover:bg-violet-600/25 hover:text-violet-800 dark:text-violet-300 dark:hover:text-violet-200 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <Download className="h-3 w-3 shrink-0" aria-hidden="true" />
+                      <span>export sub-volume</span>
+                      <span className="font-mono text-[9.5px] font-normal tabular-nums opacity-80">
+                        {dims ? `${dims[0]}×${dims[1]}×${dims[2]} vox` : "…"}
+                      </span>
+                    </button>
+                  );
+                })()}
                 <div className="flex items-center justify-between gap-2 pt-0.5">
                   <button
                     type="button"

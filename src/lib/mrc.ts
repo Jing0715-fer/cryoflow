@@ -510,6 +510,182 @@ export async function renderMrcOrthoPng(
   return grayToPng(stretchToGray(small.values), small.width, small.height);
 }
 
+/* ------------------------------------------------------------------ */
+/* Sub-volume export (t254 — the clip box learns to write .mrc)         */
+/* ------------------------------------------------------------------ */
+
+/** hard cap on the exported sub-volume's DATA bytes — the crop is built
+ *  in memory (bounded by design, unlike the raw file stream) so the cap
+ *  is what keeps a "select everything" box from OOM-ing the 4 GB host */
+const MAX_SUBVOLUME_BYTES = 256 * 1024 * 1024;
+
+/** half-open voxel ranges [lo, hi) along each axis of the parent map */
+export interface MrcSubvolumeBox {
+  ix0: number; ix1: number;
+  iy0: number; iy1: number;
+  iz0: number; iz1: number;
+}
+
+export type MrcSubvolumeResult =
+  | {
+      ok: true;
+      /** the complete .mrc file bytes — fresh 1024-byte header + cropped voxels */
+      bytes: Buffer;
+      dims: [number, number, number];
+      /** voxel offset of the crop inside the PARENT (goes into the sub
+       *  header's start fields, so ChimeraX/RELION place the crop back
+       *  where it came from) */
+      origin: [number, number, number];
+      dmin: number; dmax: number; dmean: number; rms: number;
+    }
+  | { ok: false; error: string; status: number };
+
+/**
+ * Crop a box out of an MRC map and emit a standalone .mrc file's bytes.
+ *
+ * The RELION box-subregion workflow: a region of interest picked in the
+ * 3D viewer (the ChimeraX-style clip) becomes its own map for focused
+ * processing. Voxel values are copied bit-faithful (mode preserved); the
+ * new header is fresh and classic — dims from the box, start fields
+ * recording WHERE in the parent the crop lives (parent start + box
+ * offset), cella lengths rescaled to the crop's share of the parent grid
+ * so voxel spacing survives, angles/mapc-mapr-maps carried over, and
+ * dmin/dmax/dmean/RMS recomputed from the actual cropped voxels (the
+ * parent's stats lie for a sub-region).
+ *
+ * I/O is SECTION-WISE: one parent z-section (nx·ny·bpp) in memory at a
+ * time — the outputs/file OOM doctrine; the output buffer itself is the
+ * only large allocation and is capped by MAX_SUBVOLUME_BYTES.
+ */
+export function readMrcSubvolume(file: string, box: MrcSubvolumeBox): MrcSubvolumeResult {
+  let fd: number;
+  try {
+    fd = openSync(file, "r");
+  } catch {
+    return { ok: false, error: "Map file is not readable", status: 404 };
+  }
+  try {
+    const head = Buffer.alloc(1024);
+    if (readSync(fd, head, 0, 1024, 0) < 1024) {
+      return { ok: false, error: "Map file is too small for an MRC header", status: 400 };
+    }
+    const nx = head.readInt32LE(0);
+    const ny = head.readInt32LE(4);
+    const nz = head.readInt32LE(8);
+    const mode = head.readInt32LE(12);
+    const nsymbt = head.readInt32LE(92);
+    const bpp = MODE_BYTES[mode];
+    if (
+      !Number.isFinite(nx) || nx <= 0 || ny <= 0 || nz <= 0 ||
+      nx > 65536 || ny > 65536 || nz > 1_000_000 ||
+      nsymbt < 0 || nsymbt > 16_000_000 || bpp === undefined
+    ) {
+      return { ok: false, error: "Map header is not a supported MRC volume", status: 400 };
+    }
+
+    // clamp the box into the grid, half-open
+    const clamp = (v: number, n: number) => Math.max(0, Math.min(n, Math.trunc(v)));
+    const ix0 = clamp(box.ix0, nx), ix1 = clamp(box.ix1, nx);
+    const iy0 = clamp(box.iy0, ny), iy1 = clamp(box.iy1, ny);
+    const iz0 = clamp(box.iz0, nz), iz1 = clamp(box.iz1, nz);
+    const sx = ix1 - ix0, sy = iy1 - iy0, sz = iz1 - iz0;
+    if (sx <= 0 || sy <= 0 || sz <= 0) {
+      return { ok: false, error: "Crop box is empty along at least one axis", status: 400 };
+    }
+    if (sx * sy * sz * bpp > MAX_SUBVOLUME_BYTES) {
+      return {
+        ok: false,
+        error: `Sub-volume crop exceeds the export cap (${Math.round(MAX_SUBVOLUME_BYTES / 1024 / 1024)} MB of voxel data)`,
+        status: 400,
+      };
+    }
+
+    // parent fields the sub header continues (start + grid spacing)
+    const pStart = [head.readInt32LE(16), head.readInt32LE(20), head.readInt32LE(24)] as const;
+    const pmx = Math.max(1, head.readInt32LE(28));
+    const pmy = Math.max(1, head.readInt32LE(32));
+    const pmz = Math.max(1, head.readInt32LE(36));
+    const cella = [head.readFloatLE(40), head.readFloatLE(44), head.readFloatLE(48)];
+    const cellb = [head.readFloatLE(52), head.readFloatLE(56), head.readFloatLE(60)];
+
+    const rowBytes = sx * bpp;
+    const outRowBytes = rowBytes;
+    const sectionBytes = nx * ny * bpp;
+    const data = Buffer.alloc(sx * sy * sz * bpp);
+    const section = Buffer.alloc(sectionBytes);
+    const dataStart = 1024 + nsymbt;
+
+    let min = Infinity, max = -Infinity;
+    let sum = 0, sumSq = 0;
+    let count = 0;
+
+    for (let zk = 0; zk < sz; zk++) {
+      const zSrc = iz0 + zk;
+      const got = readSync(fd, section, 0, sectionBytes, dataStart + zSrc * sectionBytes);
+      if (got < sectionBytes) {
+        return { ok: false, error: "Map file is truncated (section read failed)", status: 400 };
+      }
+      for (let yk = 0; yk < sy; yk++) {
+        const ySrc = iy0 + yk;
+        const srcOff = (ySrc * nx + ix0) * bpp;
+        section.copy(data, (zk * sy + yk) * outRowBytes, srcOff, srcOff + rowBytes);
+        // stats over the copied voxels — the crop's own truth
+        for (let xk = 0; xk < sx; xk++) {
+          const v = decodeVoxel(section, srcOff + xk * bpp, mode);
+          if (!Number.isFinite(v)) continue;
+          if (v < min) min = v;
+          if (v > max) max = v;
+          sum += v;
+          sumSq += v * v;
+          count++;
+        }
+      }
+    }
+
+    const mean = count > 0 ? sum / count : 0;
+    const variance = count > 0 ? Math.max(0, sumSq / count - mean * mean) : 0;
+
+    // fresh classic header — every field position explicit (the seeder's
+    // auditable layout, now on the writing side too)
+    const out = Buffer.alloc(1024);
+    const i32 = (off: number, v: number) => out.writeInt32LE(v | 0, off);
+    const f32 = (off: number, v: number) => out.writeFloatLE(v, off);
+    i32(0, sx); i32(4, sy); i32(8, sz);
+    i32(12, mode);
+    i32(16, pStart[0] + ix0); i32(20, pStart[1] + iy0); i32(24, pStart[2] + iz0);
+    i32(28, sx); i32(32, sy); i32(36, sz);
+    f32(40, cella[0] * (sx / pmx));
+    f32(44, cella[1] * (sy / pmy));
+    f32(48, cella[2] * (sz / pmz));
+    f32(52, cellb[0]); f32(56, cellb[1]); f32(60, cellb[2]);
+    i32(64, head.readInt32LE(64)); i32(68, head.readInt32LE(68)); i32(72, head.readInt32LE(72));
+    f32(76, count > 0 ? min : 0);
+    f32(80, count > 0 ? max : 0);
+    f32(84, mean);
+    i32(88, 1); // ispg — a volume, not a stack
+    i32(92, 0); // nsymbt — fresh clean header, extended symbols dropped
+    out.write("MAP ", 208, "ascii");
+    out.writeInt32LE(16777214, 212); // little-endian float machine stamp
+    f32(216, Math.sqrt(variance)); // RMS
+    i32(220, 0); // nlabl
+
+    return {
+      ok: true,
+      bytes: Buffer.concat([out, data]),
+      dims: [sx, sy, sz],
+      origin: [ix0, iy0, iz0],
+      dmin: count > 0 ? min : 0,
+      dmax: count > 0 ? max : 0,
+      dmean: mean,
+      rms: Math.sqrt(variance),
+    };
+  } catch {
+    return { ok: false, error: "Sub-volume crop failed while reading the map", status: 400 };
+  } finally {
+    closeSync(fd);
+  }
+}
+
 /** MRC-format extensions (ctffind .ctf diagnostics are classic MRC too) */
 export function mrcExtensions(): string[] {
   return [".mrc", ".mrcs", ".map", ".ccp4", ".ctf"];

@@ -152,7 +152,12 @@ function OrthoTile({
   let clipOverlay: React.ReactNode = null;
   let clippedAway = false;
   if (clip?.on) {
-    const kept = (v: number): [number, number] => (clip.invert ? [v, 1] : [0, v]);
+    // an unclipped axis (frac 1) carries NO plane even when inverted —
+    // commitClip leaves it out entirely, so the scene keeps the full
+    // extent and the tiles must tell the scene's truth (t254: the naive
+    // [v, 1] collapse made an unclipped axis look fully cropped)
+    const kept = (v: number): [number, number] =>
+      v >= 0.999 ? [0, 1] : clip.invert ? [v, 1] : [0, v];
     const [n0, n1] = kept(clip[spec.axis]);
     const survives = pos >= n0 - 1e-9 && pos <= n1 + 1e-9;
     clippedAway = !survives;

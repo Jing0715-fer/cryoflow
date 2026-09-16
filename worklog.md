@@ -1014,3 +1014,25 @@ Stage Summary:
 - 「键盘驱动的确定性」：滑杆测试的 Home+ArrowRight 步进优于 track 点击（无 boundingBox 几何、无滚动竞态）——输入的确定性是断言确定性的前提
 - 「clipped 徽章的诚实」：被裁面不假装显示（减淡 + 徽章），存续面不省略裁剪（外框 + 读数）——视图状态的可视证词要区分「还在的」与「被去掉的」
 - 遗留（下轮候选）：应用元数据路由的门（/system、/hpc/profiles、/projects——低敏感挂账）；updatedAt 治理（大工程）；透镜纸面化（哲学门槛维持）；EMPIAR 真数据回归（让位）；家族跑批 --report JSON；watchdog 与 family-run 共生；3D viewer 的新方向候选：slice 密度面与 clip 盒的合成导出（把「裁剪后的体积」导出为子体积 .mrc——RELION 的 box 子区工作流）
+
+## Task 254 (2026-09-16, cron 20:02 窗口 trace cron-agent-loop-202609162006)
+
+- 【开局】四件套：尾部 = Task 253（4ab40a3，clip 学会说 2D 的话）零过时（**续传摘要第十三度过时**——摘要称世系止于 251，实际 252/253 已交付；过时律再应验，worklog 尾部 + git log 是唯一真源）；净场核查 PORT 3000 FREE → watchdog 拉起验活 200。QA：qa00 GREEN + qa63 SMOKE GREEN + t251/t252/t253 三哨兵 PASS + agent-browser errors/console 双空。无 bug。
+- 【巡检与立项】Task 253 遗留首选当选：**「子体积导出」**——recital 点名的 3D viewer 下一方向，RELION box 子区工作流（感兴趣区裁成独立 map 做 focused processing），t253 clip 工具的产品级续章。勘察四件：readMrcOrthoSlice/mrc.ts 读取库完备（mode 0/1/2/6 + nsymbt + 逐面 pread OOM 教义）；clip 状态语义 `{on,x,y,z,invert}` frac 1 = 不裁；kept = `invert ? [frac,1] : [0,frac]`（map-ortho-panel 实证）；outputs/file 路由的 isLocalRequest + findEffectiveJob → getRun → resolveInsideJobWorkdir + pathref 三段式先例。
+- 【实现① lib readMrcSubvolume】mrc.ts 新增：分数→体素在路由层（floor/ceil 保非退化区间非空），lib 收半开体素区间 [lo,hi)。**逐 z-section pread**（一次一面在内存，OOM 教义）；行级 Buffer.copy 位忠实拷贝（mode 保留）；**新头连续性**：start' = parent start + box offset（ChimeraX/RELION 把裁片放回原位的锚）、cella 按 nx'/mx 重标度（体素间距存活）、angles/mapc-mapr-maps 沿袭、dmin/dmax/dmean/RMS 从裁区实算（parent 的统计对子区说谎）、MAP magic + LE machine stamp、nsymbt=0 干净头；**256MB 输出帽**。构建前 tsc 单文件转译 + 17 断言 lib smoke 全绿（省 OOM build 循环——含体素连续性/start 场连续性/cella 重标度/空盒 400/clamp/缺文件 404）。
+- 【实现② 路由】GET /api/jobs/[id]/outputs/subvolume：isLocalRequest 门（t251 读环 16→17 面，per-route 教义注释）；findEffectiveJob → getRun → resolveInsideJobWorkdir + readPathrefTarget（与 file 同款逃逸舱——导入 map 同样可裁）；isMrcPath 门；分数校验契约消息（「Box fractions must satisfy 0 ≤ lo < hi ≤ 1 on every axis」）；Content-Disposition 文件名带体素盒（orthovol_crop_16-48_16-48_16-48.mrc）。
+- 【实现③ UI】molstar-embed clip 面板新导出按钮：keptFractions() 在客户端解析 invert（API 讲纯几何——职责分离）；exportDims() 用与服务端相同的 floor/ceil 换算——**标签永不谎报文件尺寸**（活体 64×64×64 → 64×64×13 → flip 后 64×64×52）；Download 图标 + 紫罗兰 clip 自家色；temp `<a>` click 原生下载。
+- 【工具显示层伪影判例】sed/grep/Read 三路一致显示 line 3200 为 `const overAxis, setHoverAxis]`（缺 `[` 的语法错误）——Edit 修复却报「old_str 不存在」，**od 字节真相：文件完好**（`[h` 两字符被工具输出传输层吞掉，`[g` 的 grabAxis 行完好）；「构建后提交前损坏」的推断被 od 证伪——当一行「看起来语法不可能」时，字节级检查是仲裁者，不要急于修复不存在的 bug。
+- 【e2e：新 t254-subvolume-export.mjs】**41 断言 ×3 ALL PASS**：A 相 demo 真相（200 + roster 21 + 宿主 workdir）；B 相台账（路由门 + 包含 + pathref + floor/ceil + lib 帽 + start 连续性 + embed kept/导出/floor-ceil 标签全在源）；C 相**门四态**（bare/cross/rebind-curl 403；same-origin → 400 契约消息 = 开门证明）；D 相契约 + 包含（traversal 400 Invalid path、自种哑文件 qa-notes.txt 的 MRC-only 400 与包含层 404 分账、缺分数/退化/倒置/越界 400、缺图 404）；E 相**字节级正确性**（页面内 fetch 两个裁盒——32³ 与 64×32×32——**逐体素位等于 parent 映射位** + start 场 + dmin/dmax 实算 + Content-Disposition 盒名）；F 相 UI（Clip ON → 键盘 Z 20% → 标签 64×64×13 → flip 64×64×52 → click → **Playwright download 事件**捕 URL 分数 + 存盘 + 头 dims 64×64×13 + 53248 体素全对）；G 相 console 0。定妆照 t254-subvolume-export-2x.png。
+- 【事故与判例：t253 REAL-FAIL 的破案】家族批内 t253 FAIL + solo 复跑 FAIL——**真回归**，且是本窗交付揪出的既有几何脆弱：clip-off 点击被 dialog header 描述段 `<p>` 拦截。取证链：几何诊断脚本量出 canvas wrapper 塌缩 38px（strip shrink-0 展开 560px + 92vh dialog）→ contour 卡片（clip ON 时 3 滑杆 + flip 行 + **新导出行 26px** + σ 行 ≈210px）绝对定位 bottom-anchored **向上溢出 canvas wrapper** → 顶行（含 Clip toggle）戳进 header 描述带区 → hit-test 被拦截。今晨旧 build 无导出行矮 26px——**靠 26px 运气通过**；t254 从不关 clip 所以自己全绿。两步修复：①卡片 `max-h + overflow-y-auto`（但 % max-h 对 auto 高父级无效——判例）；②wrapper `inset-x-0 bottom-0` → `inset-0 + items-end`（底锚视觉不变，获得确定高度让 max-h 生效）——**卡片永不越出 canvas wrapper** 成为结构性保证（任何视口高度都成立）。修后 t253 ALL PASS + t254 ALL PASS。
+- 【全家族回归】family-run.mjs 一条命令：**FAMILY VERDICT pass 32 · solo-recovery 0 · real-fail 0 · wall 1067.8s**（首跑 t253 REAL-FAIL 破案修复后重跑全绿；t254 内联 PASS）；**t254 收编花名册 31→32**（runner --filter 亲跑 PASS 125.3s 验收）；roster 恒等 21。
+- 【收尾】worklog（本条）+ commit/push + 环境清理（Task 86 配方双杀 + port FREE 验证）。
+
+Stage Summary:
+- **「clip 盒长出了身体」**：t251 读环 → t252 写门 → t253 视口联动 → t254 导出落地——裁剪从「视觉语言」变成「数据工件」，RELION box 子区工作流闭环；硬化的环与产品的轮在同一条链上
+- 「导出头的连续性」：子体积不是新图——start 场记录 parent 原点偏移、cella 重标度、dmin/dmax 从裁区实算——「文件头要回答它从哪里来」；ChimeraX/RELION 拿到裁片能放回原位，统计不说谎
+- 「floor/ceil 的非退化保证」：分数→体素用 floor(lo·n)/ceil(hi·n)——任何 lo<hi 的非退化区间至少一 voxel；UI 的 dims 标签用同一换算——**标签与文件逐位一致**，「按钮说多少就是多少」
+- 「26px 的运气不是设计」：既有布局（shrink-0 strip + 92vh dialog + 绝对定位卡片）在新内容加入前靠 26px 余量侥幸成立——**回归测试的责任是让运气的余量显形**；修法不是删掉新增内容而是把「永不越出」变成结构性保证（max-h + 确定高度的父级）
+- 「% max-h 需要确定高度的父级」：max-h-[calc(100%-X)] 对 auto 高度的绝对定位父级静默无效——CSS 约束链上任何一环不确定，整链作废；wrapper inset-0 + items-end 与 inset-x-0 bottom-0 视觉等价但约束成立
+- 「od 是仲裁者」：三个读取工具一致显示的「语法错误」可以是传输层伪影（`[h` 被吞）——修复不存在的 bug 之前先做字节级取证；工具输出的一致≠文件内容的真相
+- 遗留（下轮候选）：应用元数据路由的门（/system、/hpc/profiles、/projects——低敏感挂账）；updatedAt 治理（大工程）；透镜纸面化（哲学门槛维持）；EMPIAR 真数据回归（让位）；家族跑批 --report JSON；watchdog 与 family-run 共生；子体积导出的后续：裁片直接「send to new job」（导出的 .mrc 一键成为 Import/Refine 工作流的输入——box 子区到 focused refinement 的全链路）
