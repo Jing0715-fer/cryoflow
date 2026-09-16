@@ -119,8 +119,9 @@ function fileUrl(jobId: string, file: OutputFile, extra: string): string {
 
 /** Density numbers live in wildly different ranges (raw detector counts
  *  vs normalized float maps); one decimal rule keeps the badges honest
- *  without a unit per row. */
-function formatStat(v: number): string {
+ *  without a unit per row. (Shared with the inspector's reference card —
+ *  t257 — so both badges speak the same number language.) */
+export function formatStat(v: number): string {
   if (!Number.isFinite(v)) return "—";
   const abs = Math.abs(v);
   if (abs !== 0 && (abs >= 10_000 || abs < 0.001)) return v.toExponential(2);
@@ -132,8 +133,9 @@ function formatStat(v: number): string {
 /** Where did an Import Map's file come from? The mapPath parameter tells
  *  the story: a crop sent from the 3D viewer lives in a parent job's
  *  SubVolumes/ folder (t255's send-to-new-job writes there), anything
- *  else is a standalone pick from the file browser. */
-function mapSourceNote(mapPath: string): { kind: "crop" | "standalone"; label: string } {
+ *  else is a standalone pick from the file browser. (Shared with the
+ *  inspector's reference card — t257 — one source, both cards agree.) */
+export function mapSourceNote(mapPath: string): { kind: "crop" | "standalone"; label: string } {
   const norm = mapPath.replace(/\\/g, "/");
   const idx = norm.toLowerCase().lastIndexOf("/subvolumes/");
   if (idx >= 0) {

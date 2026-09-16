@@ -95,6 +95,7 @@ import { useNow } from "@/lib/use-now";
 // roster's row-level Compare is the same component, only the trigger's
 // dialect differs (labeled here, icon + hover-reveal there)
 import { SiblingComparePicker } from "./sibling-compare-picker";
+import { ReferenceMapCard } from "./reference-map-card";
 import { JobResults } from "./results/results-view";
 import { ResolutionChart } from "./results/resolution-chart";
 import { FscChart } from "./results/fsc-chart";
@@ -1400,6 +1401,16 @@ function OverviewTab({
       <Section icon={LayoutDashboard} title="Key parameters" hint={`${Object.keys(job.params ?? {}).length} total`}>
         <ParamsGrid job={job} />
       </Section>
+      {/* Task 257 — the reference wears its face: class3d/refine3d show
+          WHAT map they eat (identity card read from the provider's own
+          outputs) and WHERE it came from. Self-hides without a --ref
+          input (fixture jobs, particles-only previews). */}
+      {/^(class3d|refine3d)$/i.test(job.type) ? (
+        <ReferenceMapCard
+          job={job}
+          refPath={data?.inputs?.find((i) => i.flag === "--ref")?.path ?? null}
+        />
+      ) : null}
       <div className="grid gap-6 lg:grid-cols-2">
         {data?.inputs && data.inputs.length > 0 ? (
           <Section icon={ArrowRight} title="Inputs consumed">

@@ -76,6 +76,7 @@ const FAMILY = [
   "t254-subvolume-export.mjs",
   "t255-send-to-job.mjs",
   "t256-map-card.mjs", // the Import Map identity card
+  "t257-reference-card.mjs", // the consumer-side reference card (Task 257)
 ];
 
 // ---- CLI -------------------------------------------------------------------
