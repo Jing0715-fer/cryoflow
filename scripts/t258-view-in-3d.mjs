@@ -102,19 +102,19 @@ try {
 
   const resultsSrc = src("src/components/workflow/results/results-view.tsx");
   must(
-    resultsSrc.includes("onView3D?: (f: OutputFile) => void;"),
-    "the t256 identity card takes an onView3D callback"
+    resultsSrc.includes("onView3D?: (t: MolViewerTarget) => void;"),
+    "the t256 identity card takes an onView3D callback (a full viewer target — t260 lets it aim the parent map too)"
   );
   must(
-    resultsSrc.includes('<MapIdentityCard job={job} file={mrcFiles[0]} onView3D={setMolFile} />'),
-    "the wiring aims the SHARED Mol* dialog at the card's map (one instance, two triggers)"
+    resultsSrc.includes('<MapIdentityCard job={job} file={mrcFiles[0]} onView3D={setMolTarget} />'),
+    "the wiring aims the SHARED Mol* dialog at the card's map (one instance, many triggers)"
   );
   must(
     resultsSrc.includes('data-testid="map-card-view-3d"'),
     "the identity card's button carries its test hook"
   );
   must(
-    resultsSrc.includes("onClick={() => onView3D(file)}"),
+    resultsSrc.includes("onClick={() => onView3D({ job, path: file.path, name: file.name })}"),
     "the identity card's button passes ITS OWN file (the map, not a neighbor's)"
   );
 
@@ -124,7 +124,7 @@ try {
     "the reference card's button carries its test hook"
   );
   must(
-    cardSrc.includes('import { MolViewer } from "./results/mol-viewer";'),
+    cardSrc.includes('import { MolViewer, type MolViewerTarget } from "./results/mol-viewer";'),
     "the reference card mounts the real MolViewer dialog"
   );
   must(
@@ -132,16 +132,17 @@ try {
     "the button gates on a RESOLVED, viewable map (no story, no button)"
   );
   must(
-    cardSrc.includes("job={provider}") && cardSrc.includes("path={resolved.file.path}"),
-    "the card's dialog opens the PROVIDER's job + the provider-relative path"
+    cardSrc.includes("job={viewTarget?.job ?? provider}") &&
+      cardSrc.includes("path={viewTarget?.path ?? resolved.file.path}"),
+    "the card's dialog opens the PROVIDER's job + the provider-relative path (t260's parent door can re-aim it)"
   );
   must(
     cardSrc.includes("restoreFocusRef={cardRef}"),
     "the card's dialog parks focus back on the card itself"
   );
   must(
-    cardSrc.includes("const [viewOpen, setViewOpen] = React.useState(false);"),
-    "the card owns its dialog state"
+    cardSrc.includes("const [viewTarget, setViewTarget] = React.useState<MolViewerTarget | null>(null);"),
+    "the card owns its dialog state (a full viewer target since t260)"
   );
   must(
     cardSrc.includes("pre-warm compiles the molstar chunk"),
@@ -194,8 +195,9 @@ try {
   const viewBtn = identityCard.locator('[data-testid="map-card-view-3d"]');
   must(await viewBtn.isVisible().catch(() => false), "the identity card's View in 3D button is there");
   must(
-    ((await identityCard.innerText()) ?? "").includes("open this map in the Mol* viewer"),
-    "the button speaks its intent in plain words"
+    ((await identityCard.innerText()) ?? "").includes("open this map in the Mol* viewer") ||
+      ((await identityCard.innerText()) ?? "").includes("clipped to this crop's box"),
+    "the button speaks its intent in plain words (t260: the note names the parent when it resolves)"
   );
 
   const dialogsBefore = await page.locator('[role="dialog"]').count();

@@ -41,6 +41,11 @@ export interface OrthoClipState {
   y: number;
   z: number;
   invert: boolean;
+  /** t260 — the anchored box ([lo,hi] fractions per axis) when the clip is
+   *  in box mode (the "show in parent" door). When present it OWNS the
+   *  geometry: the tiles speak its kept intervals directly, because the
+   *  slider language cannot represent a two-sided cut. */
+  box?: { lo: [number, number, number]; hi: [number, number, number] } | null;
   /** bumps on every embed-side clip intent — the tiles' flash trigger */
   nonce: number;
 }
@@ -155,10 +160,17 @@ function OrthoTile({
     // an unclipped axis (frac 1) carries NO plane even when inverted —
     // commitClip leaves it out entirely, so the scene keeps the full
     // extent and the tiles must tell the scene's truth (t254: the naive
-    // [v, 1] collapse made an unclipped axis look fully cropped)
-    const kept = (v: number): [number, number] =>
-      v >= 0.999 ? [0, 1] : clip.invert ? [v, 1] : [0, v];
-    const [n0, n1] = kept(clip[spec.axis]);
+    // [v, 1] collapse made an unclipped axis look fully cropped).
+    // t260 — the anchored box owns the geometry when present: its [lo,hi]
+    // per axis IS the kept interval, and a two-sided cut (X 25–75%) is
+    // unrepresentable in the slider language the fallback speaks.
+    const AX: Record<string, 0 | 1 | 2> = { x: 0, y: 1, z: 2 };
+    const kept = (ax: "x" | "y" | "z"): [number, number] => {
+      if (clip.box) return [clip.box.lo[AX[ax]], clip.box.hi[AX[ax]]];
+      const v = clip[ax];
+      return v >= 0.999 ? [0, 1] : clip.invert ? [v, 1] : [0, v];
+    };
+    const [n0, n1] = kept(spec.axis);
     const survives = pos >= n0 - 1e-9 && pos <= n1 + 1e-9;
     clippedAway = !survives;
     if (!survives) {
@@ -173,8 +185,8 @@ function OrthoTile({
         </div>
       );
     } else {
-      const [h0, h1] = kept(clip[spec.hAxis]);
-      const [v0, v1] = kept(clip[spec.vAxis]);
+      const [h0, h1] = kept(spec.hAxis);
+      const [v0, v1] = kept(spec.vAxis);
       const pct = (v: number) => `${(v * 100).toFixed(1)}%`;
       clipOverlay = (
         <div
@@ -330,6 +342,7 @@ export function MapOrthoPanel({
         y: typeof d.y === "number" ? d.y : prev?.y ?? 1,
         z: typeof d.z === "number" ? d.z : prev?.z ?? 1,
         invert: !!d.invert,
+        box: d.box ?? null,
         nonce: clipNonce.current,
       }));
     };

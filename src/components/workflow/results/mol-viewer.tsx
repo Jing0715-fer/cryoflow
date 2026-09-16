@@ -65,6 +65,28 @@ function warmMolstar(): void {
   }
 }
 
+/**
+ * A clip box expressed in the opened map's own voxel frame — what the
+ * t260 "show in parent" door speaks: the crop's header records its anchor
+ * (start fields) and its dims record the box size, both in parent voxels.
+ * MolStarEmbed converts to clip fractions once the volume's grid is known.
+ */
+export interface MolClipBox {
+  start: [number, number, number];
+  size: [number, number, number];
+}
+
+/** Where the viewer should open: which job owns the map, which file, and
+ *  (t260) whether the clip planes start anchored on a sub-volume box. The
+ *  results-view's shared dialog and the reference card's own dialog both
+ *  speak this shape — one target language, many doors. */
+export interface MolViewerTarget {
+  job: JobDTO;
+  path: string;
+  name: string;
+  box?: MolClipBox | null;
+}
+
 interface MolViewerProps {
   job: JobDTO;
   /** map path relative to the job workdir */
@@ -79,9 +101,14 @@ interface MolViewerProps {
    *  without a park target focus orphans onto <body> and the inspector's
    *  focus-outside guard dismisses the whole modal chain. */
   restoreFocusRef?: React.RefObject<HTMLElement | null>;
+  /** t260 — open the viewer with the clip planes ALREADY anchored on this
+   *  voxel box (fractions are derived from the loaded grid's dims). Absent
+   *  or null = the classic unclipped opening. Applied once per mount; the
+   *  dialog remounts the embed on every open, so each open re-anchors. */
+  initialClipBox?: MolClipBox | null;
 }
 
-export function MolViewer({ job, path, name, open, onOpenChange, restoreFocusRef }: MolViewerProps) {
+export function MolViewer({ job, path, name, open, onOpenChange, restoreFocusRef, initialClipBox }: MolViewerProps) {
   // pre-warm the molstar chunk on 3D intent (this component mounting), NOT
   // on page load — see warmMolstar's doc comment
   useEffect(() => {
@@ -120,7 +147,9 @@ export function MolViewer({ job, path, name, open, onOpenChange, restoreFocusRef
         </DialogHeader>
         <div className="flex min-h-0 w-full flex-1 flex-col gap-2 px-6 pb-6">
           <div className="min-h-0 w-full flex-1">
-            {open && <MolStarEmbed jobId={job.id} path={path} name={name} />}
+            {open && (
+              <MolStarEmbed jobId={job.id} path={path} name={name} initialClipBox={initialClipBox ?? null} />
+            )}
           </div>
           {/* orthogonal 2D slice browser — collapses to a one-line strip;
               hidden for .mrcs stacks (their ortho planes are in-image axes) */}

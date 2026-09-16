@@ -16,6 +16,7 @@ import {
   Box,
   Check,
   Copy,
+  Crop,
   ExternalLink,
   FileDown,
   FileText,
@@ -64,7 +65,8 @@ import type { JobDTO } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { FscChart } from "./fsc-chart";
 import { MrcImage } from "./mrc-image";
-import { MolViewer } from "./mol-viewer";
+import { MolViewer, type MolViewerTarget } from "./mol-viewer";
+import { useAnchorParent } from "./anchor-parent";
 import { StarTable } from "./star-table";
 
 /* ------------------------------------------------------------------ */
@@ -157,7 +159,11 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
   const [imageFile, setImageFile] = useState<OutputFile | null>(null);
   const [starFile, setStarFile] = useState<OutputFile | null>(null);
   const [textFile, setTextFile] = useState<OutputFile | null>(null);
-  const [molFile, setMolFile] = useState<OutputFile | null>(null);
+  /** t260 — the shared Mol* dialog opens on a TARGET (job + file + optional
+   *  anchored clip box), not just a file of THIS job: the identity card's
+   *  "show in parent" door aims it at the PARENT's map with the clip planes
+   *  pre-anchored on the crop's box. One dialog, many doors, one language. */
+  const [molTarget, setMolTarget] = useState<MolViewerTarget | null>(null);
   const [copied, setCopied] = useState(false);
 
   const load = useCallback(async () => {
@@ -816,9 +822,11 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
           like; this card says what the map IS. t258 closes the loop the
           other way too: the card's "View in 3D" jumps straight into the
           Mol* viewer — no detour through the gallery tile → image dialog
-          → "View in 3D" relay. */}
+          → "View in 3D" relay. t260 adds the door the story always
+          implied: "show in parent" opens the PARENT's map with the clip
+          planes anchored on the crop's own box. */}
       {job.type === "mapimport" && mrcFiles[0]?.map && mrcFiles[0]?.dims && (
-        <MapIdentityCard job={job} file={mrcFiles[0]} onView3D={setMolFile} />
+        <MapIdentityCard job={job} file={mrcFiles[0]} onView3D={setMolTarget} />
       )}
 
       {/* FSC curve (live: half-map FSC while refining, masked FSC after postprocess) */}
@@ -1000,7 +1008,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
                         size="sm"
                         className="h-8 gap-1.5 bg-teal-600 text-white hover:bg-teal-700"
                         onClick={() => {
-                          setMolFile(imageFile);
+                          setMolTarget({ job, path: imageFile.path, name: imageFile.label ?? imageFile.name });
                           setImageFile(null);
                         }}
                       >
@@ -1060,14 +1068,16 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
         </DialogContent>
       </Dialog>
 
-      {/* Mol* 3D viewer dialog */}
+      {/* Mol* 3D viewer dialog — opens on whatever target the doors aim
+          it at (this job's files, or the parent map through the card) */}
       <MolViewer
-        job={job}
-        path={molFile?.path ?? ""}
-        name={molFile?.label ?? molFile?.name ?? ""}
-        open={molFile !== null}
-        onOpenChange={(o) => !o && setMolFile(null)}
+        job={molTarget?.job ?? job}
+        path={molTarget?.path ?? ""}
+        name={molTarget?.name ?? ""}
+        open={molTarget !== null}
+        onOpenChange={(o) => !o && setMolTarget(null)}
         restoreFocusRef={molFocusRef}
+        initialClipBox={molTarget?.box ?? null}
       />
     </div>
   );
@@ -1100,18 +1110,31 @@ function MapIdentityCard({
 }: {
   job: JobDTO;
   file: OutputFile;
-  /** t258 — opens the shared Mol* viewer dialog on this map. The dialog
-   *  instance lives at the results-view level (the gallery's "View in 3D"
-   *  uses the same one); the card just aims it. */
-  onView3D?: (f: OutputFile) => void;
+  /** t258/t260 — opens the results-view's SHARED Mol* dialog on a target.
+   *  The dialog instance lives at the results-view level (the gallery's
+   *  "View in 3D" uses the same one); the card just aims it — at its own
+   *  map, or (t260) at the PARENT's map with the clip planes anchored on
+   *  this crop's box. */
+  onView3D?: (t: MolViewerTarget) => void;
 }) {
   const map = file.map;
   const dims = file.dims;
-  if (!map || !dims) return null;
-
   const mapPath = String(job.params?.mapPath ?? "");
-  const source = mapPath ? mapSourceNote(mapPath) : null;
-  const anchored = !map.origin.every((v) => v === 0);
+  const source = map && mapPath ? mapSourceNote(mapPath) : null;
+  const anchored = map ? !map.origin.every((v) => v === 0) : false;
+
+  // t260 — resolve the parent while the card reads as a crop: the graph
+  // edges into this job name the candidates, the geometric check (parent
+  // grid holds origin+dims) picks the map. Hooks order: the resolver runs
+  // BEFORE any early return, silent (null job id) when the crop story
+  // isn't there — the door appears only when the story is verifiable.
+  const anchorBox =
+    map && dims && anchored && source?.kind === "crop"
+      ? { start: [...map.origin] as [number, number, number], size: [...dims] as [number, number, number] }
+      : null;
+  const parent = useAnchorParent(anchorBox ? job.id : null, anchorBox);
+
+  if (!map || !dims) return null;
 
   return (
     <section
@@ -1178,24 +1201,53 @@ function MapIdentityCard({
         )}
       </p>
 
-      {/* t258 — the identity card's own way back into the 3D viewer: one
-          click from "what is it" to "look at it", parked on the same
-          shared Mol* dialog the gallery uses. Outline styling (not the
-          gallery tile's solid teal) — this is a secondary action INSIDE a
-          card, one nesting level down. */}
-      {onView3D && (
-        <div className="mt-2.5 flex items-center gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            data-testid="map-card-view-3d"
-            className="h-7 gap-1.5 border-teal-600/40 px-2.5 text-[11px] text-teal-700 hover:bg-teal-600/10 hover:text-teal-800 dark:text-teal-300 dark:hover:text-teal-200"
-            onClick={() => onView3D(file)}
-          >
-            <Box className="h-3.5 w-3.5" aria-hidden="true" />
-            View in 3D
-          </Button>
-          <span className="text-[10px] text-muted-foreground">open this map in the Mol* viewer</span>
+      {/* t258/t260 — the identity card's doors into the 3D viewer: "View
+          in 3D" opens the crop itself (shared dialog, gallery park);
+          "Show in parent" opens the PARENT's map with the clip planes
+          anchored on this crop's box — the card's story, finally walked
+          backwards to its origin. Outline styling (not the gallery tile's
+          solid teal) — these are secondary actions INSIDE a card, one
+          nesting level down; violet speaks the clip's own colour. */}
+      {(onView3D || parent) && (
+        <div className="mt-2.5 flex flex-wrap items-center gap-2">
+          {onView3D && (
+            <Button
+              size="sm"
+              variant="outline"
+              data-testid="map-card-view-3d"
+              className="h-7 gap-1.5 border-teal-600/40 px-2.5 text-[11px] text-teal-700 hover:bg-teal-600/10 hover:text-teal-800 dark:text-teal-300 dark:hover:text-teal-200"
+              onClick={() => onView3D({ job, path: file.path, name: file.name })}
+            >
+              <Box className="h-3.5 w-3.5" aria-hidden="true" />
+              View in 3D
+            </Button>
+          )}
+          {onView3D && parent && (
+            <Button
+              size="sm"
+              variant="outline"
+              data-testid="map-card-show-parent"
+              className="h-7 gap-1.5 border-violet-600/40 px-2.5 text-[11px] text-violet-700 hover:bg-violet-600/10 hover:text-violet-800 dark:text-violet-300 dark:hover:text-violet-200"
+              onClick={() =>
+                onView3D({
+                  job: parent.job,
+                  path: parent.file.path,
+                  name: parent.file.name,
+                  box: anchorBox,
+                })
+              }
+            >
+              <Crop className="h-3.5 w-3.5" aria-hidden="true" />
+              Show in parent
+            </Button>
+          )}
+          <span className="text-[10px] text-muted-foreground">
+            {onView3D && parent
+              ? "open the parent map, clipped to this crop's box"
+              : parent
+                ? "the parent map is one click away"
+                : "open this map in the Mol* viewer"}
+          </span>
         </div>
       )}
     </section>

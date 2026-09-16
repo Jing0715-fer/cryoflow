@@ -26,12 +26,13 @@
  */
 
 import * as React from "react";
-import { Box, CornerDownRight } from "lucide-react";
+import { Box, CornerDownRight, Crop } from "lucide-react";
 import { useWorkflowStore } from "@/lib/store";
 import { jobType } from "@/lib/workflow";
 import type { JobDTO } from "@/lib/types";
 import { TypeIcon } from "./icons";
-import { MolViewer } from "./results/mol-viewer";
+import { MolViewer, type MolViewerTarget } from "./results/mol-viewer";
+import { useAnchorParent } from "./results/anchor-parent";
 import { formatStat, mapSourceNote } from "./results/results-view";
 
 /** Minimal slice of the outputs listing the card needs. */
@@ -80,8 +81,11 @@ export function ReferenceMapCard({ job, refPath }: { job: JobDTO; refPath: strin
   // t258 — the card's own Mol* dialog. It mounts (closed) as soon as the
   // card has a resolved, viewable map: that moment is the 3D intent the
   // pre-warm in MolViewer wants, and it lets the button flip open the
-  // dialog with zero first-click compilation cost.
-  const [viewOpen, setViewOpen] = React.useState(false);
+  // dialog with zero first-click compilation cost. t260 — the dialog
+  // opens on a TARGET (which job's map + optional anchored clip box), so
+  // "show in parent" can aim it at the PARENT's map through the same
+  // instance.
+  const [viewTarget, setViewTarget] = React.useState<MolViewerTarget | null>(null);
   const cardRef = React.useRef<HTMLElement | null>(null);
 
   const candidateIds = React.useMemo(
@@ -137,13 +141,32 @@ export function ReferenceMapCard({ job, refPath }: { job: JobDTO; refPath: strin
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [job.id, refPath, candidateKey]);
 
-  if (!refPath) return null;
-
   const provider = resolved ? jobs.find((j) => j.id === resolved.providerId) : undefined;
   const map = resolved?.file.map;
   const dims = resolved?.file.dims;
   const anchored = map ? !map.origin.every((v) => v === 0) : false;
   const viewable = Boolean(provider && resolved && map && dims);
+
+  // t260 — the reference came from a crop: resolve the crop's PARENT (the
+  // provider's own incoming edges + the geometric box check) so the card
+  // can offer "show in parent" — the reference story walked back to its
+  // origin. Hooks order: the resolver runs BEFORE any early return, silent
+  // (null ids) when the crop story isn't there (standalone imports,
+  // model-job providers, no --ref at all).
+  const parentOfCrop = useAnchorParent(
+    provider && provider.type === "mapimport" && anchored && map && dims
+      ? provider.id
+      : null,
+    map && dims && anchored
+      ? { start: [...map.origin] as [number, number, number], size: [...dims] as [number, number, number] }
+      : null
+  );
+  const cropBox: MolViewerTarget["box"] =
+    map && dims && anchored
+      ? { start: [...map.origin] as [number, number, number], size: [...dims] as [number, number, number] }
+      : null;
+
+  if (!refPath) return null;
 
   // provenance: an Import Map speaks through its mapPath param (the same
   // parser the t256 identity card uses); a model job speaks through what
@@ -250,24 +273,46 @@ export function ReferenceMapCard({ job, refPath }: { job: JobDTO; refPath: strin
             {provenance}
           </p>
 
-          {/* t258 — one click from "what am I eating" to "show me": the
-              resolved provider's map opens in the card's own Mol* dialog
-              (the provider job object is right here in the store). Same
-              outline-teal secondary-action styling as the t256 card's
-              button — the two cards speak one visual language. */}
+          {/* t258/t260 — the doors: "View in 3D" opens the reference itself;
+              "Show in parent" (crop references only) opens the PARENT's
+              map with the clip planes anchored on the reference's box.
+              Same outline-teal secondary-action language as the t256 card;
+              the parent door speaks violet — the clip's own colour. */}
           {viewable && (
-            <div className="mt-2.5 flex items-center gap-2">
+            <div className="mt-2.5 flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 data-testid="reference-view-3d"
-                onClick={() => setViewOpen(true)}
+                onClick={() =>
+                  setViewTarget({ job: provider!, path: resolved!.file.path, name: resolved!.file.name })
+                }
                 className="inline-flex h-7 items-center gap-1.5 rounded-md border border-teal-600/40 px-2.5 text-[11px] font-medium text-teal-700 transition-colors hover:bg-teal-600/10 hover:text-teal-800 dark:text-teal-300 dark:hover:text-teal-200"
               >
                 <Box className="h-3.5 w-3.5" aria-hidden="true" />
                 View in 3D
               </button>
+              {parentOfCrop && (
+                <button
+                  type="button"
+                  data-testid="reference-show-parent"
+                  onClick={() =>
+                    setViewTarget({
+                      job: parentOfCrop.job,
+                      path: parentOfCrop.file.path,
+                      name: parentOfCrop.file.name,
+                      box: cropBox,
+                    })
+                  }
+                  className="inline-flex h-7 items-center gap-1.5 rounded-md border border-violet-600/40 px-2.5 text-[11px] font-medium text-violet-700 transition-colors hover:bg-violet-600/10 hover:text-violet-800 dark:text-violet-300 dark:hover:text-violet-200"
+                >
+                  <Crop className="h-3.5 w-3.5" aria-hidden="true" />
+                  Show in parent
+                </button>
+              )}
               <span className="text-[10px] text-muted-foreground">
-                open the reference in the Mol* viewer
+                {parentOfCrop
+                  ? "open the parent map, clipped to this crop's box"
+                  : "open the reference in the Mol* viewer"}
               </span>
             </div>
           )}
@@ -283,20 +328,23 @@ export function ReferenceMapCard({ job, refPath }: { job: JobDTO; refPath: strin
         </p>
       )}
 
-      {/* t258 — the card's own viewer dialog. Mounted (closed) once the
+      {/* t258/t260 — the card's own viewer dialog. Mounted (closed) once the
           reference is resolvable to a viewable map, so MolViewer's mount-
           time pre-warm compiles the molstar chunk while the user reads the
-          card, not while they wait. restoreFocus parks on the card itself:
-          the button that opened it lives here, and the inspector's
-          focus-outside guard needs a home for focus on close. */}
+          card, not while they wait. The dialog opens on the current TARGET
+          (the reference, or the parent map through the show-in-parent
+          door); restoreFocus parks on the card itself: the buttons that
+          opened it live here, and the inspector's focus-outside guard
+          needs a home for focus on close. */}
       {viewable && provider && resolved && (
         <MolViewer
-          job={provider}
-          path={resolved.file.path}
-          name={resolved.file.name}
-          open={viewOpen}
-          onOpenChange={(o) => !o && setViewOpen(false)}
+          job={viewTarget?.job ?? provider}
+          path={viewTarget?.path ?? resolved.file.path}
+          name={viewTarget?.name ?? resolved.file.name}
+          open={viewTarget !== null}
+          onOpenChange={(o) => !o && setViewTarget(null)}
           restoreFocusRef={cardRef}
+          initialClipBox={viewTarget?.box ?? null}
         />
       )}
     </section>

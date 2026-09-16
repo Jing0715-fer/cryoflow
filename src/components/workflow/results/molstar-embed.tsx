@@ -57,6 +57,12 @@ interface MolStarEmbedProps {
   jobId: string;
   path: string;
   name: string;
+  /** t260 — open with the clip planes anchored on this voxel box (the
+   *  "show in parent" door speaks the crop's header language: start fields
+   *  + dims, both in the parent's voxel frame). Type-only import — the
+   *  mol-viewer module loads THIS module dynamically, so a runtime import
+   *  would tie the lazy chunk back to its loader. */
+  initialClipBox?: import("./mol-viewer").MolClipBox | null;
 }
 
 interface GridStats {
@@ -287,7 +293,7 @@ function appViewportBg(): Color | null {
   }
 }
 
-export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
+export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolStarEmbedProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   // Mol*'s stock canvas background, captured before our theme work ever
   // touches it — light mode toggles get exactly this back (the dark fix
@@ -498,6 +504,13 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
         VolumeReprRef.current = VolumeRepresentation3D;
         IsoValueRef.current = Volume.IsoValue;
         GridRef.current = Grid;
+
+        // the dialog can close while the map is in flight — the cleanup
+        // nulled `plugin` (and everything else); touching it here threw
+        // "Cannot read properties of null (reading 'build')" into the
+        // console as a failed init (observed live: Esc during the fetch).
+        // Disposed means gone: leave silently, there is nothing to build.
+        if (disposed) return;
 
         setStage("scene");
         const b = plugin.build();
@@ -1206,7 +1219,16 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
     sigma: number;
     sign: 1 | -1;
     slice: { on: boolean; axis: SliceAxis; pos: number };
-    clip: { on: boolean; x: number; y: number; z: number; invert: boolean };
+    clip: {
+      on: boolean;
+      x: number;
+      y: number;
+      z: number;
+      invert: boolean;
+      /** t260 — the anchored box rides along when the view was saved in
+       *  box mode; absent (old bookmarks) restores in slider language */
+      box?: { lo: [number, number, number]; hi: [number, number, number] } | null;
+    };
   };
   type CamBookmark = { id: string; name: string; ts: number; thumb?: string; snapshot: Record<string, unknown>; view?: BookmarkView };
   const [bookmarks, setBookmarks] = useState<CamBookmark[]>([]);
@@ -1421,7 +1443,14 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
     sigma: Math.round(sigmaRef.current * 100) / 100,
     sign: signRef.current,
     slice: { on: sliceStateRef.current.on, axis: sliceStateRef.current.axis, pos: sliceStateRef.current.pos },
-    clip: { on: clipStateRef.current.on, x: clipStateRef.current.x, y: clipStateRef.current.y, z: clipStateRef.current.z, invert: clipStateRef.current.invert },
+    clip: {
+      on: clipStateRef.current.on,
+      x: clipStateRef.current.x,
+      y: clipStateRef.current.y,
+      z: clipStateRef.current.z,
+      invert: clipStateRef.current.invert,
+      box: clipStateRef.current.box,
+    },
   });
 
   /** gentle duplicate-name guard — saving/renaming to a name another view
@@ -1513,11 +1542,14 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
       )}
       {v.clip.on && (
         <span className="rounded bg-amber-600/10 px-1 py-px font-mono text-[8px] font-medium tabular-nums text-amber-700 dark:text-amber-400">
-          clip
-          {(["x", "y", "z"] as const)
-            .filter((ax) => v.clip[ax] < 0.999)
-            .map((ax) => ` ${ax.toUpperCase()} ${Math.round(v.clip[ax] * 100)}%`)
-            .join("")}
+          {v.clip.box
+            ? // t260 — an anchored box isn't slider-speakable; the chip says
+              // "box" and lets the restored panel's readout carry the numbers
+              "clip box"
+            : `clip${(["x", "y", "z"] as const)
+                .filter((ax) => v.clip[ax] < 0.999)
+                .map((ax) => ` ${ax.toUpperCase()} ${Math.round(v.clip[ax] * 100)}%`)
+                .join("")}${v.clip.invert ? " · flip" : ""}`}
         </span>
       )}
     </span>
@@ -1537,7 +1569,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
       if (Math.abs(sigmaRef.current - v.sigma) > 1e-6) setSigma(Math.min(10, Math.max(0.05, v.sigma)));
       if (signRef.current !== v.sign) setSign(v.sign);
       applySliceIntent({ on: v.slice.on, axis: v.slice.axis, pos: v.slice.pos });
-      applyClipIntent({ on: v.clip.on, x: v.clip.x, y: v.clip.y, z: v.clip.z, invert: v.clip.invert });
+      applyClipIntent({ on: v.clip.on, x: v.clip.x, y: v.clip.y, z: v.clip.z, invert: v.clip.invert, box: v.clip.box ?? null });
     }
   };
 
@@ -3026,7 +3058,24 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
   const [clipY, setClipY] = useState(1);
   const [clipZ, setClipZ] = useState(1);
   const [clipInvert, setClipInvert] = useState(false);
-  const clipStateRef = useRef({ on: false, x: 1, y: 1, z: 1, invert: false });
+  /** t260 — a GENERAL anchored box ([lo,hi] fractions per axis), spoken by
+   *  the "show in parent" door. The slider language {x,y,z,invert} can only
+   *  cut ONE side per axis (kept = [0,frac] or [frac,1] with a GLOBAL
+   *  flip); a crop cut off both sides (e.g. X 25–75%) is unrepresentable
+   *  there. When `box` is set it OWNS the geometry: commitClip builds up to
+   *  two planes per axis (Mol* planes carry their own invert flag), the
+   *  sliders stand down (the panel shows the box readout instead), the
+   *  export/send buttons read it through keptFractions, and ANY slider/
+   *  toggle/reset intent clears it back to the slider language. */
+  type ClipBoxState = { lo: [number, number, number]; hi: [number, number, number] };
+  const clipStateRef = useRef<{
+    on: boolean;
+    x: number;
+    y: number;
+    z: number;
+    invert: boolean;
+    box: ClipBoxState | null;
+  }>({ on: false, x: 1, y: 1, z: 1, invert: false, box: null });
   const clipPending = useRef(false);
 
   /** cartesian box origin + extents (+ basis columns & grid dims) of the
@@ -3079,8 +3128,26 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
     const st = clipStateRef.current;
 
     const box = st.on ? clipBox() : null;
-    // identity 4×4 rotation container (mol* wants rotation as axis+angle)
-    const plane = (axisIdx: 0 | 1 | 2, frac: number) => {
+    // Mol* planes take their normal from the rotation applied to the
+    // geometry's default +Y — an angle-0 rotation leaves EVERY plane
+    // Y-normal, which (probe-clip-side verdict, Task 260) turns the whole
+    // slider language into one fixed Y half-space cut that ignores frac
+    // entirely: z 0.02, 0.5 and 0.98 all kept the same 395 px. These
+    // per-axis rotations point the normal along the axis (the same
+    // axis+angle recipe molstar's own MVS clip helper uses), so a plane at
+    // frac with invert=false keeps [0, frac] — exactly what the wireframe,
+    // the 2D tiles and the export have been saying all along.
+    const PLANE_ROTATION: Record<0 | 1 | 2, { axis: [number, number, number]; angle: number }> = {
+      0: { axis: [0, 0, -1], angle: 90 }, // normal +X
+      1: { axis: [1, 0, 0], angle: 0 }, // normal +Y (already the default)
+      2: { axis: [1, 0, 0], angle: 90 }, // normal +Z
+    };
+    // `inv` is PER-PLANE: the slider language shares the global flip, but a
+    // general box needs opposite directions on the same axis (the lo plane
+    // keeps the + side, the hi plane keeps the − side) — Mol* planes carry
+    // their own invert, so one builder serves both languages.
+    const plane = (axisIdx: 0 | 1 | 2, frac: number, inv: boolean) => {
+      const rot = PLANE_ROTATION[axisIdx];
       const axisVec: [number, number, number] =
         axisIdx === 0 ? [1, 0, 0] : axisIdx === 1 ? [0, 1, 0] : [0, 0, 1];
       const pos: [number, number, number] = [0, 0, 0];
@@ -3092,9 +3159,9 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
       }
       return {
         type: "plane",
-        invert: st.invert,
+        invert: inv,
         position: pos,
-        rotation: { axis: axisVec, angle: 0 },
+        rotation: { axis: rot.axis, angle: rot.angle },
         scale: [1, 1, 1] as [number, number, number],
         transform: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1] as number[],
       };
@@ -3102,14 +3169,30 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
 
     const objects = !st.on || !box
       ? []
-      : ([
-          [0, st.x],
-          [1, st.y],
-          [2, st.z],
-        ] as const)
+      : st.box
+        ? // anchored-box language: two opposing planes per cut axis. With
+          // the normals pointing along +axis, invert=false keeps the − side
+          // ([0, hi]) and invert=true keeps the + side ([lo, 1]) — their
+          // intersection IS the box.
+          ([
+            [0, st.box.lo[0], st.box.hi[0]],
+            [1, st.box.lo[1], st.box.hi[1]],
+            [2, st.box.lo[2], st.box.hi[2]],
+          ] as const)
+            .flatMap(([axisIdx, lo, hi]) => {
+              const planes: ReturnType<typeof plane>[] = [];
+              if (lo > 0.001) planes.push(plane(axisIdx as 0 | 1 | 2, lo, true));
+              if (hi < 0.999) planes.push(plane(axisIdx as 0 | 1 | 2, hi, false));
+              return planes;
+            })
+        : ([
+            [0, st.x],
+            [1, st.y],
+            [2, st.z],
+          ] as const)
           // frac 1 ≡ no clip on this axis — leave the plane out entirely
           .filter(([, f]) => f < 0.999)
-          .map(([axisIdx, f]) => plane(axisIdx as 0 | 1 | 2, f));
+          .map(([axisIdx, f]) => plane(axisIdx as 0 | 1 | 2, f, st.invert));
 
     await plugin
       .build()
@@ -3138,7 +3221,8 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
         const now = clipStateRef.current;
         if (
           now.on === seen.on && now.invert === seen.invert &&
-          now.x === seen.x && now.y === seen.y && now.z === seen.z
+          now.x === seen.x && now.y === seen.y && now.z === seen.z &&
+          now.box === seen.box
         ) break;
       }
     } catch (err) {
@@ -3148,8 +3232,26 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
     }
   };
 
-  const applyClipIntent = (patch: Partial<{ on: boolean; x: number; y: number; z: number; invert: boolean }>) => {
-    clipStateRef.current = { ...clipStateRef.current, ...patch };
+  const applyClipIntent = (
+    patch: Partial<{
+      on: boolean;
+      x: number;
+      y: number;
+      z: number;
+      invert: boolean;
+      box: ClipBoxState | null;
+    }>
+  ) => {
+    // box semantics: ANY intent without an explicit box leaves the slider
+    // language in charge — sliders, toggle, flip and reset all dissolve the
+    // anchored box (a first drag converts the read-only anchor into live
+    // slider geometry); only a bookmark restore or applyClipBoxIntent
+    // carries one
+    clipStateRef.current = {
+      ...clipStateRef.current,
+      ...patch,
+      box: patch.box !== undefined ? patch.box : null,
+    };
     if (patch.on !== undefined) setClipOn(patch.on);
     if (patch.invert !== undefined) setClipInvert(patch.invert);
     if (patch.x !== undefined) setClipX(patch.x);
@@ -3168,10 +3270,53 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
           y: clipStateRef.current.y,
           z: clipStateRef.current.z,
           invert: clipStateRef.current.invert,
+          box: clipStateRef.current.box,
         },
       })
     );
   };
+
+  /** t260 — anchor the clip on a GENERAL box ([lo,hi] fractions per axis).
+   *  The sliders stand down (their states park at 1 = uncut); the panel
+   *  shows the box readout, the wireframe draws the box, the 2D tiles speak
+   *  its kept intervals and the export/send buttons read keptFractions. */
+  const applyClipBoxIntent = (lo: [number, number, number], hi: [number, number, number]) => {
+    applyClipIntent({
+      on: true,
+      x: 1,
+      y: 1,
+      z: 1,
+      invert: false,
+      box: { lo: [...lo], hi: [...hi] },
+    });
+  };
+
+  // t260 — the "show in parent" door's opening statement: once the volume
+  // is loaded and ready (and only then — the fractions need the grid's real
+  // dims), anchor the clip on the box the card handed in. Once per mount;
+  // the dialog remounts the embed on every open, so each open re-anchors
+  // while a plain "View in 3D" (no box) opens untouched.
+  const initialBoxDone = useRef(false);
+  useEffect(() => {
+    if (phase !== "ready" || initialBoxDone.current || !initialClipBox) return;
+    const cb = clipBox();
+    if (!cb || cb.dims.length !== 3) return;
+    const d = cb.dims;
+    const clamp = (v: number) => Math.min(1, Math.max(0, v));
+    const lo = [0, 1, 2].map((i) => clamp(initialClipBox.start[i] / d[i])) as [number, number, number];
+    const hi = [0, 1, 2].map((i) =>
+      clamp((initialClipBox.start[i] + initialClipBox.size[i]) / d[i])
+    ) as [number, number, number];
+    // a zero-area axis (start ≥ dims — a stale/foreign header) anchors to
+    // nothing: skip the door's box instead of clipping the map away
+    if (lo.every((l, i) => l < hi[i] - 1e-6)) {
+      initialBoxDone.current = true;
+      applyClipBoxIntent(lo, hi);
+    }
+    // clipBox/applyClipBoxIntent are stable component closures; the guard
+    // refs make the effect idempotent regardless of render churn
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, initialClipBox]);
 
   /* ---------------- sub-volume export (t254) ---------------- */
 
@@ -3182,6 +3327,10 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
   // the same story from one state source (clipStateRef).
   const keptFractions = (): [number, number][] => {
     const st = clipStateRef.current;
+    // t260 — the anchored box speaks its own intervals directly: the export
+    // of a parent opened on a crop's box re-materializes EXACTLY that crop
+    // (same geometry, same numbers the header carries)
+    if (st.box) return [[st.box.lo[0], st.box.hi[0]], [st.box.lo[1], st.box.hi[1]], [st.box.lo[2], st.box.hi[2]]];
     // an unclipped axis (frac 1) carries NO plane even when inverted —
     // commitClip leaves it out entirely, so the scene keeps the full
     // extent, and the export must tell the scene's truth (t254 lesson:
@@ -3306,13 +3455,22 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
       return;
     }
     const st = clipStateRef.current;
-    const fracs = [st.x, st.y, st.z];
+    // t260 — the anchored box draws its own kept region (voxel corners);
+    // the slider language derives corners from fracs + the global flip
     const lo: number[] = [];
     const hi: number[] = [];
-    for (let i = 0; i < 3; i++) {
-      const fd = fracs[i] * box.dims[i];
-      lo.push(st.invert ? fd : 0);
-      hi.push(st.invert ? box.dims[i] : fd);
+    if (st.box) {
+      for (let i = 0; i < 3; i++) {
+        lo.push(st.box.lo[i] * box.dims[i]);
+        hi.push(st.box.hi[i] * box.dims[i]);
+      }
+    } else {
+      const fracs = [st.x, st.y, st.z];
+      for (let i = 0; i < 3; i++) {
+        const fd = fracs[i] * box.dims[i];
+        lo.push(st.invert ? fd : 0);
+        hi.push(st.invert ? box.dims[i] : fd);
+      }
     }
     // 8 corners of the KEPT region in world space (voxel units × basis cols)
     const corner = (a: number, b: number, c: number): [number, number, number] => [
@@ -3354,8 +3512,21 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
 
     // movable faces + drag geometry — the kept box's face lying ON each clip
     // plane is the grab target; dragging it in screen space maps onto the
-    // axis direction through the same projection (direct manipulation)
+    // axis direction through the same projection (direct manipulation).
+    // t260 — the anchored box is READ-ONLY (a face drag would have to pick
+    // one side of a possibly two-sided cut, and the slider language cannot
+    // hold the other): the faces stand down, the box speaks through the
+    // panel readout until a slider intent takes the geometry back.
     for (let i = 0; i < 3; i++) {
+      const face = facePathRefs.current[i];
+      const hit = hitPathRefs.current[i];
+      const dot = dotRefs.current[i];
+      if (st.box) {
+        if (face) face.setAttribute("d", "");
+        if (hit) hit.setAttribute("d", "");
+        if (dot) dot.setAttribute("r", "0");
+        continue;
+      }
       let fd = "";
       let cxSum = 0;
       let cySum = 0;
@@ -3367,11 +3538,8 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
         cySum += sy[a] + sy[b];
         n += 2;
       }
-      const face = facePathRefs.current[i];
       if (face) face.setAttribute("d", fd);
-      const hit = hitPathRefs.current[i];
       if (hit) hit.setAttribute("d", fd);
-      const dot = dotRefs.current[i];
       if (dot) {
         // centroid of the projected face corners; hidden while the face is
         // degenerate (edges dropped behind the camera)
@@ -3404,7 +3572,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
       const len2 = dx * dx + dy * dy;
       return len2 > 25 ? { dx, dy, len2 } : null; // <5 px span → not draggable
     };
-    dragGeomRef.current = clipStateRef.current.on
+    dragGeomRef.current = clipStateRef.current.on && !clipStateRef.current.box
       ? [axisDir(0), axisDir(1), axisDir(2)]
       : null;
   };
@@ -4424,15 +4592,53 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                 )}
               </div>
             )}
-            {/* clip rows — one slider per axis + side flip (only when on) */}
+            {/* clip rows — one slider per axis + side flip (only when on).
+                t260 — when an anchored box owns the geometry the sliders
+                stand down: a readout carries the numbers (the slider
+                language cannot hold a two-sided cut) and a release button
+                hands the geometry back honestly. */}
             {clipOn && (
               <div className="mt-2.5 space-y-1.5 rounded-lg border border-violet-600/25 bg-violet-600/5 px-2.5 py-2">
-                {(
-                  [
-                    ["X", clipX, (v: number) => applyClipIntent({ x: v })] as const,
-                    ["Y", clipY, (v: number) => applyClipIntent({ y: v })] as const,
-                    ["Z", clipZ, (v: number) => applyClipIntent({ z: v })] as const,
-                  ] as const
+                {clipStateRef.current.box ? (
+                  <div data-testid="clip-box-readout" className="space-y-1">
+                    <p className="flex items-center gap-1 text-[10px] font-semibold text-violet-700 dark:text-violet-300">
+                      <BoxSelect className="h-3 w-3 shrink-0" aria-hidden="true" />
+                      anchored to the crop&apos;s box
+                    </p>
+                    {(
+                      [
+                        ["X", clipStateRef.current.box.lo[0], clipStateRef.current.box.hi[0]],
+                        ["Y", clipStateRef.current.box.lo[1], clipStateRef.current.box.hi[1]],
+                        ["Z", clipStateRef.current.box.lo[2], clipStateRef.current.box.hi[2]],
+                      ] as const
+                    ).map(([ax, lo, hi]) => (
+                      <div key={ax} className="flex items-center justify-between gap-2">
+                        <span className="w-4 shrink-0 rounded bg-violet-600/90 px-1 py-0.5 text-center font-mono text-[10px] font-bold text-white">
+                          {ax}
+                        </span>
+                        <span className="flex-1 font-mono text-[10px] tabular-nums text-muted-foreground">
+                          {lo <= 0.001 && hi >= 0.999
+                            ? "full extent"
+                            : `${Math.round(lo * 100)}–${Math.round(hi * 100)}% kept`}
+                        </span>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      data-testid="clip-box-release"
+                      onClick={() => applyClipIntent({ on: false })}
+                      title="Release the anchored box — the clip planes come off and the full map returns"
+                      className="w-full rounded-md border border-violet-600/30 bg-background/60 px-2 py-1 text-[10px] font-medium text-violet-700 transition-colors hover:bg-violet-600/15 hover:text-violet-800 dark:text-violet-300 dark:hover:text-violet-200"
+                    >
+                      release the anchored box
+                    </button>
+                  </div>
+                ) : (
+                ([
+                  ["X", clipX, (v: number) => applyClipIntent({ x: v })] as const,
+                  ["Y", clipY, (v: number) => applyClipIntent({ y: v })] as const,
+                  ["Z", clipZ, (v: number) => applyClipIntent({ z: v })] as const,
+                ] as const
                 ).map(([ax, val, set]) => (
                   <div key={ax} className="flex items-center gap-2">
                     <button
@@ -4457,7 +4663,8 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                       {val >= 0.999 ? "—" : `${Math.round(val * 100)}%`}
                     </span>
                   </div>
-                ))}
+                ))
+                )}
                 {/* t254 — the crop, written out: the kept box downloads as a
                     standalone .mrc (the RELION box-subregion workflow). The
                     dims label is the server's own floor/ceil conversion, so
@@ -4521,6 +4728,9 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                     {clipSendNote.text}
                   </p>
                 )}
+                {/* flip/reset speak the slider language — in box mode the
+                    readout's own release button is the honest control */}
+                {!clipStateRef.current.box && (
                 <div className="flex items-center justify-between gap-2 pt-0.5">
                   <button
                     type="button"
@@ -4548,6 +4758,7 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                     reset all
                   </button>
                 </div>
+                )}
               </div>
             )}
             <div className="mt-1 flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
@@ -4557,9 +4768,11 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                   ? "inverted map detected — contouring the negative side"
                   : sliceOn
                     ? "cross-section shares the contour level — drag the slider to sweep the box"
-                    : clipOn
-                      ? "clip crops into the box — drag the highlighted faces or the X/Y/Z sliders; flip side crops the other half"
-                      : "drag rotate · scroll zoom · right-drag pan"}
+                    : clipStateRef.current.box
+                      ? "viewing the anchored box — release it to edit the clip planes"
+                      : clipOn
+                        ? "clip crops into the box — drag the highlighted faces or the X/Y/Z sliders; flip side crops the other half"
+                        : "drag rotate · scroll zoom · right-drag pan"}
               </span>
               <span className="font-mono">{SIGMA_MAX}σ</span>
             </div>
