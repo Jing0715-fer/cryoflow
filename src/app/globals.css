@@ -1701,7 +1701,25 @@ li[data-swipe="end"] {
   .report-doc .report-hero-quarter { stroke-opacity: 0.3; }
   .report-doc .report-hero-mark-main { stroke-opacity: 0.85; }
   .report-doc .report-hero-mark-overlay { stroke-opacity: 0.6; }
-  .report-doc .report-hero-label { fill-opacity: 1; }
+  /* t249: THE PAPER EXCEPTION — the halo ban's first lawful breach. The
+     ban (t229: "no halo, no second ink — opacity is the whole hierarchy")
+     was written for the backlit screen, where the signature's 0.62 ink
+     reads as quiet negative space against deeper terrain. Paper erased
+     that difference: the print tier deepens EVERY ink to the same plate,
+     so a 7px full-ink signature fuses with the full-ink 1.25 line it
+     sits on — "orthovol" melted into its own peak (probe verdict,
+     42 stroke samples inside one signature's bbox). The fix is the
+     lightest lawful breach: a stroke of PAPER painted UNDER the fill
+     (paint-order: stroke), so the terrain yields around the glyphs —
+     the line breaks, the word survives, the ink budget never grows.
+     On screen the ban stands: no stroke there (asserted by t249-e2e). */
+  .report-doc .report-hero-label {
+    fill-opacity: 1;
+    paint-order: stroke;
+    stroke: var(--background);
+    stroke-width: 1.5px;
+    stroke-linejoin: round;
+  }
   .report-doc .report-hero-depth { fill-opacity: 0.85; }
 }
 

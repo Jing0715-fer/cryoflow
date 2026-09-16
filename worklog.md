@@ -918,3 +918,24 @@ Stage Summary:
 - 「focus 不是 click」：键盘路径断言用 focus() 不用 click()——click 触发 chip 的 add 契约会污染 roster；测键盘层要走键盘层的门
 - 「空串假绿井」：探针读不到预期文本时（图标 span 先于 label），空串进恒等比较 = 断言哑弹；锚定不变真值（data-testid 的类型 key）而非 DOM 位置——假绿比 FAIL 更危险，它穿着绿衣说谎
 - 遗留（下轮候选）：run report（results-view）export 门的 H/M 姊妹案（**键盘域边界设计前置**：inspector 是非模态侧栏，H/M 与 session report 的 window listener 冲突 + canvas 视线惊吓问题，需先定义「键盘域的边界」再动手）；map-profile FSC 满档锚点化（等真实满档）；透镜纸面化（哲学门槛维持）；updatedAt 治理（大工程）；EMPIAR 真数据回归（让位）；hero 纸档叠印可读性（维持）；Task 13 的 #5 fs/browse 鉴权 / #6/#14 pathref 包含策略 / #7 chart 全量同步读 / #8 particles N+1（性能与健壮性四件，皆低优先挂账）
+
+## Task 249 (2026-09-16, cron 16:32 窗口 trace cron-agent-loop-202609161637)
+
+- 【开局】四件套：尾部 = Task 248（cdd83c4，散键归档）零过时；净场 → watchdog 拉起验活 200 + roster 21。QA：qa00 GREEN + qa63 SMOKE GREEN + t248 哨兵 PASS + agent-browser errors/console 双空。无 bug。
+- 【巡检与立项】三项勘察连环：①**Task 13 recital #7 销账**——guinier/resolution/angdist 三 chart 路由工件实证已全部上 cachedFileCompute（statcache.ts 的 mtime-keyed 缓存，注释自载修复史「each poll used to re-read + re-parse...」）——recital 陈旧判例第三案；②**#8 同款销账**——particles 路由的 BFS 已是 batched（「ONE edge query per depth level + ONE job query for all discovered ids」注释自载 N+1 修复）——第四案；Task 13 性能四件仅剩 #5/#6/#14 两件真遗留且皆低优先；③run report H/M 姊妹案域边界审查：canvas 键盘层 M 已被世界地图占用（姊妹案的 M 撞车实锤）+ inspector 是非模态侧栏（域边界不清晰，canvas 上按 H 触发侧栏导出 = 视线惊吓）——**诚实缺席判定：非模态域不收单键**（模态 dialog 的边界是键盘域的天然许可证），记档销账。最终当选：**「纸上证据庭」**——hero 叠印悬案（八窗「维持，依赖真实打印证据」）用 playwright print 仿真 + page.pdf() 制造真实证据，把哲学讨论变像素事实。
+- 【证据庭审理（探针 t249-probe.mjs）】demo hero 三签名全部压线：orthovol 76.2% 签名 bbox 内 42 个 stroke 采样（main 23 + overlay 19——重度交叠）、half1 35、half2 7；print tier 层级复核：label 1 / depth 0.85 / main 1 / overlay 0.7——**签名与地形同板全墨（1:1）**，悬案担心的糊字场景坐实（裁片判读：orthovol 的字形与峰弧融成一团）。
+- 【判决与实现】**「纸上 halo 例外」开启**——t229 halo 禁令（no halo, no second ink — opacity is the whole hierarchy）的第一次合法破例，且只破在纸上：globals.css print tier 给 .report-hero-label 加 `paint-order: stroke + stroke: var(--background) + stroke-width: 1.5px`——纸色描边画在 fill 之下（SVG 原生技法），地形线在字形周围让位断开，**墨量预算零增长**（halo 是纸色不是新墨）。屏幕侧禁令维持（0.62 浅墨对深地形是层级律在工作——backlit 的恩惠，t231 屏幕判断依旧成立）。CSS 注释全录审判过程。
+- 【e2e：新 t249-e2e.mjs（编号核验：t249 空闲）】**14 断言 ×3 ALL PASS**：A 相 demo 真相（200 + roster 21）；B 相证据（hero 在场 + 3 签名 + **交叠量化活体断言**（3/3 签名压线 42/35/7——证据的证词在测试里活体复现））；C 相判决（SCREEN：stroke none + ink 0.62——**禁令站岗**；PRINT：paint-order stroke + stroke rgb(255,255,255) + fill 1——**例外 riding**；t231 阶梯逐档复核未动）；D 相卷宗（print 媒体 hero 裁片 + **真实 PDF 卷宗** page.pdf A4）；E 相 console 0。
+- 【事故与判例】①**quarter 的元素井**：ladder 断言用 path.report-hero-quarter 零命中——quarter 网格画的是 `<line>`（探针数据 x1=120/240/360 早证）；选择器要说元素自己的真话。②halo 效果的裁片对照法：治愈前后两张 2x 裁片逐字对比（前：字形融进峰弧；后：字形独立、弧线让位）——「可读性」判决必须落像素证据，不落形容词。
+- 【定妆照与卷宗】**shots-qa84/t249-paper-verdict-hero-2x**（halo 治愈后的纸档 hero）+ **t249-paper-verdict.pdf**（真实纸档管线产物——八窗悬案的卷宗归档）。
+- 【全家族回归】qa00 GREEN + qa63 SMOKE GREEN + qa47/49/50/51/55/57/58 exit 0 + qa84 ALL PASS + t210 151/0 + t212 30/0 + t213 35/0 + t214 29/0 + t215 44/0 + t218 29/0 + t219 29/0 + t221 14/0 + t223 155/0 + t241 14/0 + t242 GREEN + t243 ALL PASS + t244 ALL PASS + t245 ALL PASS + t246 ALL PASS + t247 ALL PASS + t248 ALL PASS + **t249 14/0 ×3**；roster 恒等 21。
+- 【世界卫生】全家族绿 + roster 恒等 21、探针保留（证据庭的程序档案）、无 tmp 残留。
+- 【收尾】worklog（本条）+ commit/push + 环境清理（Task 86 配方双杀 + port FREE 验证）。
+
+Stage Summary:
+- 「纸上证据庭」：悬案的审判程序——「依赖真实打印证据」的八窗悬案不再等证据，playwright print 仿真 + page.pdf() 就是打印管线本身；交叠量化（签名 bbox 内 stroke 采样数）把「可读性」从形容词变数字，判决落像素裁片不落感觉
+- 「纸上 halo 例外」：t229 禁令的第一次合法破例——屏幕侧 0.62 浅墨分层成立（禁令站岗），纸上全墨同板融合（例外 riding）；修法是 paint-order: stroke 的纸色描边——最轻的破例（地形让位而非墨量增长），且空间上只活在 @media print
+- 「recital 的对账纪律」：#7（statcache）/ #8（batched BFS）双销账——注释自载修复史是销账的关键证据（修复当时的任务在注释里留了名字，recital 没收到通知）；Task 13 性能四件仅剩 #5/#6/#14
+- 「非模态域不收单键」：run report H/M 姊妹案的审查结论——模态 dialog 的边界是键盘域的天然许可证（Esc 可剥、注意力被捕获），非模态侧栏没有边界（canvas M 已占 + 视线惊吓）；诚实缺席优于惊吓在场（t247 歧义键律的域维度姊妹案）
+- 「探针即程序档案」：t249-probe.mjs 保留在 scripts/——证据庭的审理程序（交叠采样方法 + print tier 复核）可复审；判决可追溯的才算审过
+- 遗留（下轮候选）：#5 fs/browse 鉴权（单用户本地应用低优先）；#6/#14 pathref 包含策略（低优先）；map-profile FSC 满档锚点化（等真实满档）；透镜纸面化（哲学门槛维持）；updatedAt 治理（大工程）；EMPIAR 真数据回归（让位）；depth 标签的纸上观察（halo 已顺带保护 mark 穿字场景——若未来真实打印发现 depth 6px 字压 quarter 网格糊字，同款例外可延申）；run family 批跑基建（qa49 批量瞬态复现两次——串行化+失败 solo 复跑的家族跑批脚本）
