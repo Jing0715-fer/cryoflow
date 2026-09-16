@@ -42,6 +42,11 @@
  *      follows the reader; the TAIL LAW (the last section can never
  *      reach the line — at the bottom the reader IS there); P9 the map
  *      never prints; Z2l the untied world carries its own map.
+ *   X  the echo (t237) — the portable HTML export: one self-contained
+ *      document (no script, no network), the contents page paired by
+ *      INDEX with the body headings (the same well, the same law),
+ *      deterministic bytes (t195's law in the new medium), the receipt
+ *      names the portable medium.
  * Run: node scripts/t223-e2e.mjs   (server on :3000)
  */
 import { execSync } from "node:child_process";
@@ -675,6 +680,39 @@ await page.emulateMedia({ media: "screen" });
 await sleep(120);
 must(navPrintDisplay === "none",
   `P9 the map never prints (compass display ${navPrintDisplay} on paper — the page order IS the paper's map)`);
+
+/* ============ X: the echo — the report as a portable document ============ */
+section("X: the portable HTML echo (t237)");
+const [dlEcho] = await Promise.all([
+  page.waitForEvent("download", { timeout: 10000 }),
+  page.locator('button[aria-label="Download portable HTML report"]').click(),
+]);
+must(/^session-qc-report-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}\.html$/.test(dlEcho.suggestedFilename()),
+  `X1 the echo travels under the report's own name (${dlEcho.suggestedFilename()})`);
+const echo = readFileSync(await dlEcho.path(), "utf8");
+must(echo.startsWith("<!DOCTYPE html>"),
+  "X2 the echo is a document (doctype first)");
+must(!/<script/i.test(echo),
+  "X3 a document, not an app (zero script — what works without JS is all that is needed)");
+must(!/<link|@import|src="http/i.test(echo),
+  "X4 self-contained (no external references — it reads anywhere, offline)");
+const echoHrefs = [...echo.matchAll(/href="#s(\d+)"/g)].map((m) => Number(m[1]));
+const echoIds = new Set([...echo.matchAll(/id="s(\d+)"/g)].map((m) => Number(m[1])));
+must(echoHrefs.length === 9 && echoHrefs.every((n, i) => n === i) && echoHrefs.every((n) => echoIds.has(n)),
+  `X5 the contents pairs by index — ${echoHrefs.length} links, sequential, every one lands (zero injection, t234's law in the echo)`);
+const echoHeadTexts = [...echo.matchAll(/<h[23] id="s\d+">([^<]*)<\/h[23]>/g)].map((m) => m[1]);
+const echoTocTexts = [...echo.matchAll(/<li><a[^>]*href="#s\d+">([^<]*)<\/a><\/li>/g)].map((m) => m[1]);
+must(echoTocTexts.length === echoHeadTexts.length && echoTocTexts.every((t, i) => t === echoHeadTexts[i]),
+  "X6 the echo's two mouths agree word-for-word (W3's law travels with the document)");
+const [dlEcho2] = await Promise.all([
+  page.waitForEvent("download", { timeout: 10000 }),
+  page.locator('button[aria-label="Download portable HTML report"]').click(),
+]);
+const echo2 = readFileSync(await dlEcho2.path(), "utf8");
+must(echo === echo2,
+  "X7 deterministic bytes — same session state, same document (t195's law in the new medium)");
+must((await page.locator("[data-report-doc] p[role=status]").textContent())?.includes(".html"),
+  "X8 the receipt names the portable medium (the door says what it opened)");
 
 // the frame is a reviewer — scroll the hero into the dialog's viewport
 // (the body scrolls internally, the band frame's own lesson) and shoot

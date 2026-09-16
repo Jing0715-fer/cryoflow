@@ -828,3 +828,9 @@ export const sessionReportFilename = (): string =>
  *  own name, not the report's). */
 export const inventoryCsvFilename = (): string =>
   `session-map-inventory-${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}.csv`;
+
+/** t237: the portable-HTML sibling of the report filename — the echo
+ *  (buildSessionReportHtml) travels under the report's own name with a
+ *  .html dress; same timestamp grammar as its md/CSV siblings. */
+export const sessionReportHtmlFilename = (): string =>
+  `session-qc-report-${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}.html`;

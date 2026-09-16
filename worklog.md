@@ -641,3 +641,27 @@ Stage Summary:
 - 「契约快照跟上现实」：qa70 的「五组」是 Task 70 的真话、t236 的六组是现在的真话——快照断言（exactly N）在结构演进时必须随行更新，否则断言保护的是历史而非现状
 - 「相对时间词是考古的永久噪声源」：dashboard/inspector 帧里的 "Xh Ym ago" 每分钟都在写新墨——此类帧的强像素先裁片找时间词再定渲染真伪；时间词是数据世界的诚实变化
 - 遗留（下轮候选）：透镜纸面化（哲学门槛维持）；updatedAt 治理（大工程）；EMPIAR 真数据回归（让位）；hero 纸档叠印可读性（维持）；shortcuts dialog 的分组搜索提示（filter 计数 32 已含报告组——搜索词命中组标签的 UX 是否要高亮命中组，低优先）；help popover 与 shortcuts dialog 的报告组同步（popover 已不持副本——SHORTCUT_GROUPS 单一真源自动生效，无需动作）
+
+## Task 237 (2026-09-16, cron 09:32 窗口 trace …202609160938)
+
+- 【开局】四件套：尾部 = Task 236（1d711e3，键盘层入册）零过时（续传摘要世系只到 234——第三度实证「以 worklog 尾部为准」）；净场 → watchdog 拉起验活 + 200。QA：qa00 GREEN + qa63 SMOKE GREEN + agent-browser errors/console 双空 + 首页目检健康（20 jobs / 16 edges 渲染完整）。
+- 【背诵清单全线过时——本窗最重要的情报】cron 文本里的 Task 13 遗留（#5/#6/#14/#7/#8/#13）与两大功能候选经逐项核验**全部愈合**：#5 fs/browse 已有 isLocalRequest 守卫 + http-guard.ts 完整威胁模型文档（drive-by/DNS-rebinding 残余风险都写明）；#8 particles BFS 已是批量 BFS（每深度一层一条边查询 + 一次 job 查询，注释自证旧的 N+1）；#13 job-card 的 trackEtaBaseline 注释自证「函数因旧 estimateEta 在 useMemo 内写存储而生」；#7 outputs 路由 star 预读 ≤2MB + starBudget 封顶、file 路由显式 STREAMED（1.4GB 体积注释在案）；#6/#14 pathref 三消费点共用单库、readPathrefTarget 绝对路径白名单 + statSync 常规文件校验。Topaz wrapper 也已存在（topaztrain + topaz-training.ts + 图表）。3D viewer 切片/裁剪早已落地（sliceState/clipState/存视图携带）。**项目已长出自己的背诵之外**——下窗起背诵清单作废，遗留以 worklog 尾部 Stage Summary 为唯一真源。
+- 【立项】产品线真缺口：**「文档的回声」**——session report 已会说三种介质（屏幕渲染 + 罗盘 / 纸 / md+CSV 字节），但 md 下载是惰性字节：同事收到 session-qc-report-….md 没有样式没有目录没有结构，需要工具才能读好。缺的介质 = **standalone HTML 导出**：任何浏览器打开即读、Contents 目录随文档旅行、打印就绪、零 JS、零网络、自包含。教义四条：**同一口井**（reportTocOf 从 dialog 迁往 lib/report-html.ts——活罗盘与回声同一杯水）；**索引配对零注入**（TOC href 与正文 id 同一遍过滤同一下标铸出，无 slug 无查找表）；**文档不是应用**（零 script、零外链，无 JS 可用的就是全部）；**无时间戳字节**（t195 律在新介质延续——X7 钉死两次导出字节恒等）。
+- 【实现】
+  - `src/lib/report-html.ts`（新）：reportTocOf 原样迁入（dialog 导入回喝——单井）；buildSessionReportHtml(md) 一遍扫描铸两嘴：h1 下生 Contents 药丸页（h3 sub 小号）、标题 id=s<i> 与 TOC href 按同一下标配对；闭子集转换器（h1/h2/h3、单层 bullet、GFM 表含 --: 对齐类、blockquote、整行 _em_、行内 **bold**/*em*/*code*、mdCell \| 反转义、围栏剥离——首尾 \| 是围栏不是格界）；自包含 CSS（纸优先白底、系统字体、violet 家族、zebra 表、@media print 避页断）；确定性输出（无钟无随机）
+  - `qc-report.ts`：sessionReportHtmlFilename() 兄弟入列（同一时间戳语法）
+  - dialog：本地 reportTocOf 定义移除（注释留址）、Globe「Download HTML」violet 门入列（md 下载与 CSV 组之间）、exportHtml + flashNote 回执「— a portable document: opens in any browser」
+- 【e2e：t223-e2e 133→141】新 **X 相 8 断言**：X1 文件名语法（session-qc-report-<stamp>.html）、X2 doctype 头、X3 零 script（文档不是应用）、X4 零外链（离线可读）、X5 Contents 索引配对（9 链接顺序井然、条条有着落——零注入律在回声里）、X6 两嘴逐词一致（W3 律随行）、X7 两次导出字节恒等（t195 律在新介质）、X8 回执点名便携介质。**141/0 ×3 全绿**。全家族回归绿：t210 151/0 + t215 44/0 + t213 35/0 + t214 29/0 + t219 29/0 + t212 30/0 + t218 29/0 + t221 14/0；roster 恒等 21。
+- 【事故与判例】①**build 后 server 仍握旧 bundle**（PID 未换、.next 被换下）——t223 首跑 V 相雪崩（对话框还是旧世界）；处置：杀 server 让 watchdog 重拉（12546）后全绿；判例：**「build 的下一步不是跑测试，是确认 server 喝的是新 bundle」**（pgrep 看 PID 起点晚于 BUILD_ID mtime）。②X1/X6 首跑双双败于**测试自己的第二口井**：文件名正则漏 ISO 的 T、sub chip 正则写 `(?:sub )?` 咬不住无空格的 class——工件无谎，出题者的正则有谎；W4 判例（肉眼数数/手写期望不可靠）再添两案。③闭子集转换器首版漏 Contents 拼接（tocHtml 算好未入返回体——TDZ 后上移）与围栏格界、行内 *em*：**sanity 先行挡下三处**，lamps-before-wires。
+- 【定妆照】**t237-echo-travels-2x**（file:// 打开导出件——应用不在场，文档独自站立：标题 + Contents 药丸 + styled 表格 zebra 行）+ **t237-echo-anchor-2x**（点 #s8 锚点后文档自滚至尾章——无 spy 无 JS，锚点即导航；inventory 七列表 + crown blockquote violet 左缘 + 斜体落款）；t223 六帧随 e2e 重摄（门带 6 钮）。新工具 scripts/t237-report-html-frame.mjs（export → file:// → 两帧 → 临时件删除 + twin DELETE 归家）。
+- 【漂移考古】**门带 (84,93)-(514,108) 跨 t215/t218/t219/t223**（~2085 strong px、density 0.30）= Download HTML 入列的结构性入画，裁片确证 violet Globe 在 md 组与 CSV 组之间；t223-hero **SIZE CHANGE 896×714→896×756** = 门带在窄对话框换行 +42px（flex-wrap 设计内行为）；t215-lens 7581 大框 = 对话框增高垂直位移 + 运行任务进度条诚实漂移——全部随 feature 提交，t210 惯犯安静版具名 checkout。
+- 【世界卫生】全家族绿 + roster 恒等 21、twin 已归家（帧脚本自带 DELETE）。
+- 【收尾】worklog（本条）+ commit/push + 环境清理。
+
+Stage Summary:
+- 「文档的回声」：报告的第四介质——md 惰性字节升格为便携文档（styled 表格 + 随行目录 + 打印就绪），应用外 file:// 打开即读；X 相 8 断言把「自包含/零脚本/索引配对/字节恒等」钉成 wire 契约；「one well, many mouths」从两嘴（正文/罗盘）扩到四嘴（正文/罗盘/回声目录/回声正文）
+- 「同一杯水」：reportTocOf 迁居 lib/report-html.ts——活罗盘与回声从同一函数喝水；dialog 不再私藏解析器（单井律的结构兑现）
+- 「背诵清单作废」：Task 13 遗留 + 两大功能候选经实证全部愈合/落地——worklog 尾部 Stage Summary 是唯一真源；「项目长出背诵之外」是项目健康的证据
+- 「build 之后看 bundle」：server 存活不等于喝新 bundle——PID 起点晚于 BUILD_ID 才算数；否则测试打的是旧世界（V 相雪崩的教训）
+- 「sanity 先于 wire」：闭子集转换器的围栏/拼接/斜体三处缺口被 bun sanity 在进 e2e 前挡下——灯先于线
+- 遗留（下轮候选）：回声的 Contents 在纸上的形制（打印时目录页是否要页码——依赖真实打印证据，维持让位）；shortcuts dialog 的 report 组是否记载 Download HTML 门（键盘层文档的第五行——低优先，门本身无快捷键）；透镜纸面化（哲学门槛维持）；updatedAt 治理（大工程）；EMPIAR 真数据回归（让位）；hero 纸档叠印可读性（维持）；echo 转换器的 GFM 对齐 `:--:`（center——子集未现不造）

@@ -44,10 +44,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Copy, Download, FileDown, FileSpreadsheet, Printer } from "lucide-react";
+import { Copy, Download, FileDown, FileSpreadsheet, Globe, Printer } from "lucide-react";
 import ReactMarkdown, { type Components, type ExtraProps } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { copyOrFallback, downloadText } from "@/lib/download";
+import { buildSessionReportHtml, reportTocOf } from "@/lib/report-html";
 import type { JobDTO } from "@/lib/types";
 import {
   buildProfileReport,
@@ -56,6 +57,7 @@ import {
   deltaVsWinner,
   inventoryCsv,
   inventoryCsvFilename,
+  sessionReportHtmlFilename,
   outlierRowIdx,
   QUARTER_LABELS,
   peakPctNumOf,
@@ -212,34 +214,18 @@ const HERO_H = 80;
  *  the same numbers, never a retyped pair. */
 const HERO_QUARTERS = [0.25, 0.5, 0.75];
 
-/** t234: the report's compass — a TOC that drinks the md's own well.
- *  A document this long inside a 62vh scroller deserves a map, and the
- *  map must be the md's SECOND surface (the HERO_QUARTERS law again:
+/** t234→t237: the report's compass — a TOC that drinks the md's own
+ *  well. A document this long inside a 62vh scroller deserves a map, and
+ *  the map must be the md's SECOND surface (the HERO_QUARTERS law again:
  *  two surfaces, one father) — the chips are PARSED from the same bytes
  *  the body renders, never a retyped section list that could one day
- *  disagree with the paper. Only ATX `##`/`###` speak (the h1 is the
- *  document's own name, not a destination); inline markers a cell
- *  could carry (mdCell's pipe escape, bold, code) are unworn so the
- *  chip says what the rendered heading says. Order is the document's
- *  order — the compass pairs with the DOM headings by INDEX, the same
- *  well flowing through two mouths in the same sequence. */
-interface ReportTocItem {
-  level: 2 | 3;
-  text: string;
-}
-const reportTocOf = (md: string): ReportTocItem[] =>
-  md
-    .split("\n")
-    .filter((line) => /^#{2,3} \S/.test(line))
-    .map((line) => ({
-      level: line.startsWith("### ") ? 3 : 2,
-      text: line
-        .replace(/^#{2,3} /, "")
-        .replace(/\\\|/g, "|")
-        .replace(/\*\*/g, "")
-        .replace(/`/g, "")
-        .trim(),
-    }));
+ *  disagree with the paper. The parser itself now lives in
+ *  lib/report-html.ts (t237): the live compass AND the portable HTML
+ *  echo drink the same well from the same cup — one parse, many mouths.
+ *  Only ATX `##`/`###` speak (the h1 is the document's own name, not a
+ *  destination); inline markers a cell could carry are unworn so the
+ *  chip says what the rendered heading says; order is the document's
+ *  order — the compass pairs with the DOM headings by INDEX. */
 
 /** t223: the shape portrait — an inline SVG that lays the owner's
  *  landscape (solid) over the winner's (dotted) in one box. Both paths
@@ -1229,6 +1215,20 @@ export default function SessionReportDialog({
     flashNote("Downloaded session-qc-report-….md");
   };
 
+  /** t237: the portable echo — the SAME md bytes rendered as one
+   *  self-contained HTML document (styled tables, an index-paired
+   *  contents page, print CSS, zero script, zero network). The md
+   *  download is inert bytes; the echo opens in any browser and reads
+   *  like the report reads here. One well, one more mouth. */
+  const exportHtml = () => {
+    downloadText(
+      sessionReportHtmlFilename(),
+      buildSessionReportHtml(md),
+      "text/html;charset=utf-8",
+    );
+    flashNote("Downloaded session-qc-report-….html — a portable document: opens in any browser");
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -1268,6 +1268,17 @@ export default function SessionReportDialog({
           >
             <Download className="h-3.5 w-3.5" aria-hidden="true" />
             Download report
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 gap-1.5 text-violet-600 hover:bg-violet-600/15 hover:text-violet-600"
+            aria-label="Download portable HTML report"
+            title="A standalone HTML document — styled tables, a contents page, print-ready; no app, no script, no network needed to read it"
+            onClick={exportHtml}
+          >
+            <Globe className="h-3.5 w-3.5" aria-hidden="true" />
+            Download HTML
           </Button>
           <Button
             variant="ghost"
