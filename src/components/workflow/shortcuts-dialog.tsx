@@ -17,6 +17,17 @@
  * The dialog is a Radix modal: the global "?" handler won't retrigger
  * while it's open (dialog[data-state=open] guard), Esc peels exactly one
  * layer, and the print stylesheet already hides it on paper (Task 70).
+ *
+ * Task 246 — the exemption doc lives WHERE THE QUESTION IS ASKED. Every
+ * header door is indexed in the palette (t245's law), so the reader who
+ * fails to find a door in ⌘K forms the question right at the Global
+ * group's ⌘K row — and the "Not in ⌘K — and why" group sits directly
+ * beneath it to answer. The two exemptions are honest, not oversights:
+ * each row carries the door's own keyboard path plus the reason it stays
+ * out of the index. The data is ONE WELL (src/lib/palette-exemptions.json)
+ * with two mouths: this dialog renders the reason strings VERBATIM, and
+ * t245-e2e reads the same bytes as its EXEMPT_RULES — the contract and
+ * the documentation are structurally unable to drift apart.
  */
 
 import * as React from "react";
@@ -30,6 +41,7 @@ import {
 } from "@/components/ui/dialog";
 import { useWorkflowStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
+import exemptions from "@/lib/palette-exemptions.json";
 
 interface ShortcutRow {
   /** key chips — split on spaces into individual <kbd>s */
@@ -48,6 +60,8 @@ interface ShortcutGroup {
   rows: ShortcutRow[];
 }
 
+const exemptDoors = exemptions.exemptDoors;
+
 export const SHORTCUT_GROUPS: ShortcutGroup[] = [
   {
     id: "global",
@@ -59,6 +73,19 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: "Esc", text: "Peel one layer — cancel wire, collapse selection, close panel" },
       { keys: "⌘/Ctrl P", text: "Print the pipeline as a clean paper sheet" },
     ],
+  },
+  {
+    // The doc follows the question: the Global group's ⌘K row just told the
+    // reader "the palette is the index" — this group answers "what is NOT
+    // in it, and why". Rows are composed FROM the exemption well, so the
+    // contract (t245) and this documentation share one source of truth.
+    id: "not-in-palette",
+    label: "Not in ⌘K — and why",
+    hint: `Every header door is indexed in the command palette (⌘K). ${exemptDoors.length} honest exemption${exemptDoors.length === 1 ? "" : "s"} — each with its reason:`,
+    rows: exemptDoors.map((d) => ({
+      keys: d.keys,
+      text: `${d.door} — ${d.reason}`,
+    })),
   },
   {
     id: "canvas",

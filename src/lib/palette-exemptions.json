@@ -1,0 +1,19 @@
+{
+  "$comment": "The palette exemption well — one well, two mouths (Task 246). Every interactive door on the header strip is indexed in the command palette, except these honestly exempt doors. This file is the SINGLE SOURCE OF TRUTH for both mouths: (1) the product — the shortcuts dialog renders the 'Not in ⌘K — and why' group FROM these bytes, right after the Global group whose ⌘K row gives birth to the question; (2) the contract — t245-e2e reads the same bytes to run the index-completeness law (every header door must match a coverage rule or one of these exemptions; a new door matching nothing FAILS, a stale rule matching nothing FAILS). The 'match' fields are anchors into the header doors' own title/aria-label attributes; 'door' is the clean display name; 'reason' is the honest why, rendered verbatim in the shortcuts dialog.",
+  "exemptDoors": [
+    {
+      "name": "palette trigger",
+      "door": "Open command palette (Ctrl+K)",
+      "match": "^Open command palette \\(Ctrl\\+K\\)$",
+      "keys": "⌘/Ctrl K",
+      "reason": "Self-referential — the palette IS the index; Ctrl+K is its own keyboard path."
+    },
+    {
+      "name": "print",
+      "door": "Print this view",
+      "match": "^Print this view$",
+      "keys": "⌘/Ctrl P",
+      "reason": "The platform keyboard already owns this verb — the header button calls the same window.print()."
+    }
+  ]
+}

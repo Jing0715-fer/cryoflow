@@ -853,3 +853,24 @@ Stage Summary:
 - 「innerText 读介质的话语」：uppercase 类让提示词以 "SWITCH PROJECT" 渲染，innerText 诚实转述渲染后的话——匹配要按不变的真值（项目名）而不是会变表现的提示词
 - 「recital 的遗留要对工件核实」第二案：Topaz wrapper 早已实现、#13 localStorage 写早已修——Task 13 清单本身在陈旧，每窗立项前先问工件
 - 遗留（下轮候选）：**palette 豁免清单的产品化**（exempt 理由串可入 shortcuts report 的「为什么这扇门不在 ⌘K 里」组——文档跟着疑问走，低优先）；map-profile FSC 满档锚点化（等真实满档）；透镜纸面化（哲学门槛维持）；updatedAt 治理（大工程）；EMPIAR 真数据回归（让位）；hero 纸档叠印可读性（维持）；shortcuts report 组记载 Download HTML 门（维持低优先）；Task 13 的 #5 fs/browse 鉴权 / #6/#14 pathref 包含策略 / #7 chart 全量同步读 / #8 particles N+1（性能与健壮性四件，皆低优先挂账）
+
+## Task 246 (2026-09-16, cron 15:17 窗口 trace cron-agent-loop-202609161517)
+
+- 【开局】四件套：尾部 = Task 245（22fc3fa，索引完整性律 wire 化）零过时——**续传摘要第九度过时实证**：摘要世系止于 243 且称 13:47/14:32 两窗 summary-only，worklog 与 git log 实证 Task 244（6687c1d）与 Task 245（22fc3fa）均已交付已 push；worklog 尾部 + git log 唯一真源律继续应验。净场（PORT 3000 FREE + 无残留进程）→ watchdog 拉起验活 200 + roster 21。QA：qa00 GREEN + qa63 SMOKE GREEN + agent-browser errors/console 双空 + 画布 20 jobs。无 bug。本窗为本会话首个真正执行 cron 七条的窗（前两窗积压经摘要请求挤占）。
+- 【巡检与立项】Task 245 遗留首选当选：**palette 豁免清单的产品化**——「文档跟着疑问走」。教义推演：t245 的律是「每扇 header 门都在 ⌘K 索引里（除两扇诚实豁免）」，但豁免的理由串只活在测试套件里——读者在 ⌘K 里找不到 print 门时，疑问诞生的位置是 shortcuts report 的 ⌘K 行（Global 组），产品里却无处作答。设计：shortcuts dialog 新组 **「Not in ⌘K — and why」**，紧跟 Global 组之后（答案贴着疑问的诞生地）；行方言完全复用（门名 — 理由在左、键盘 chips 在右）——**豁免行的 chips 恰好承载豁免的核心证据**（print 行的 ⌘/Ctrl P chips 就是「平台已接管此动词」的活体证词）。
+- 【实现】**强镜像同井**：新文件 `src/lib/palette-exemptions.json`（豁免数据唯一真源：name/door/match/keys/reason 五字段，$comment 记井的说明——井的文档住在井里）；**井的两嘴**：①产品嘴——shortcuts-dialog.tsx 的 SHORTCUT_GROUPS 从 JSON 渲染新组（hint 动态派生 `2 honest exemptions` 计数——豁免数变了措辞自己跟上，rows 组合 `${door} — ${reason}` 逐字）；②契约嘴——t245-e2e.mjs 的 EXEMPT_RULES 手写数组删除，改为 readFileSync 同一 JSON `new RegExp(match)`（契约与文档结构上不可能漂移）。文件头注释记入 Task 246 律宣言。
+- 【build 与在线 chunk 终审】OOM 箱 rebuild（NODE_OPTIONS=896）→ Task 86 双杀 + PORT 3000 FREE → watchdog 复活 200 → 在线 chunk 终审升级案：两 chunk 分片命中——**chunk 8401d216be18760f.js = 组件真身**（组 label "Not in ⌘K — and why" + hint 模板 "Every header door"/"honest exemption" 全在线）、**chunk 816d360636c16f05.js = JSON 数据模块**（reason 字节 "Self-referential"/"window.print()" 在线 + $comment 注释随 bundle 进字节——约 600B 增重，接受，井的文档完整性优先）；首验 "honest exemptions" 零命中是 minifier 拆模板串（"honest exemption" 与 "s" 分离）+ 首验 chunk 选错（JSON 模块撞同名 marker）——分片形态分步重验澄清。
+- 【e2e：新 t246-e2e.mjs（编号核验：t246 空闲）】**28 断言 ×3 ALL PASS**：A 相 demo 真相（200 + roster 21）；B 相文档本体（? 开 dialog → 组序 Global → **Not in ⌘K — and why**（aria-label 原串定位，绕开 uppercase 渲染井）→ hint 计数派生自井 + 律先行 → **镜像律：JSON 每条豁免在 dialog 行逐字出现**（door 净名 + reason 全文 + em-dash 分隔 + 键盘 chips 序列 === JSON keys split）→ **同井锚活门：JSON match 正则对活 header 门 title 各命中恰一门**（同一数据既写文档又锚真门））；C 相 filter & peel（"print" 只剩 print 行、"palette" 只剩 palette 行——filter 读行不读组、"zzzq" 诚实空态、Esc 剥层、重开无残留 filter——dialog 自己的 stale-filter 律）；D 相 console 0 + 定妆照。
+- 【事故与判例】①**组 label 的 p 井**：探针 `p.first()` 命中组 label 的 p（label 也是 `<p>` 元素），hint 是第二个 p——组结构固定「label p → hint p → dl」，nth(1) 修（首跑 2 FAIL 皆此一井）。②standalone 井重踩警戒：改源码后 t246 首跑组不在场——watchdog 跑的是 build 后 standalone，产品改动必经 OOM rebuild + 双杀 + 复活才进在线字节（固定工序第四次执行）。
+- 【定妆照】**shots-qa84/t246-not-in-palette-2x**：Keyboard shortcuts report 全景——Global 组（⌘K 行，疑问诞生地）→ NOT IN ⌘K — AND WHY（hint 律 + 2 豁免行逐字理由 + 键盘 chips）→ Canvas 组（current view ring）同框；filter 计数诚实更新 34（32+2）。「豁免是诚实的，不是疏漏」的第一帧。
+- 【全家族回归】qa00 GREEN + qa63 SMOKE GREEN + qa47/50/51/55/57/58 exit 0 + qa84 ALL PASS + qa49 批量瞬态单跑 ALL PASS（Task 244 家族判例：连续套件资源竞争）+ t210 151/0 + t212 30/0 + t213 35/0 + t214 29/0 + t215 44/0 + t218 29/0 + t219 29/0 + t221 14/0 + t223 155/0 + t241 14/0 + t242 GREEN + t243 ALL PASS + t244 ALL PASS + **t245 ALL PASS（换井后契约自证）** + **t246 28/0 ×3**；roster 恒等 21。
+- 【世界卫生】全家族绿 + roster 恒等 21、无探针残留、tmp 裁片已清（/tmp/t246-chunk*.js 待删）。
+- 【收尾】worklog（本条）+ commit/push + 环境清理（Task 86 配方双杀 + port FREE 验证）。
+
+Stage Summary:
+- 「文档跟着疑问走」第二案：t243 让 guidance 住在疑问处（Active engine 死卡），t246 让豁免文档住在疑问处（Global 组的 ⌘K 行）——产品的每一句律法说明都应该在读者形成疑问的位置开口，而不是藏在测试套件里
+- 「一井两嘴的强镜像」：palette-exemptions.json 是唯一真源，产品渲染与契约测试同读一井——镜像律从「运行时渲染 === API 字节」扩展到「构建期两嘴 === 同一数据文件」，漂移在结构上不可能
+- 「豁免行的 chips 是豁免的证词」：print 行的 ⌘/Ctrl P chips 不只是快捷键提示，它们就是「平台已接管此动词」的活体证据——行方言复用的同时语义自动升级
+- 「hint 从井派生计数」：`2 honest exemptions` 的 2 来自 JSON 长度——数据变文档跟着变，措辞不许手写死
+- 「在线 chunk 终审的分片形态」：import 的 JSON 与消费它的组件可落不同 chunk——终审要按 chunk 分工验符号（组件 chunk 验 label/hint 模板、数据 chunk 验 reason 字节），单 chunk 单符号的旧判例不够用了
+- 遗留（下轮候选）：map-profile FSC 满档锚点化（等真实满档）；透镜纸面化（哲学门槛维持）；updatedAt 治理（大工程）；EMPIAR 真数据回归（让位）；hero 纸档叠印可读性（维持）；shortcuts report 组记载 Download HTML 门（维持低优先——与本窗新组相邻的下一个「索引完整性」候选）；Task 13 的 #5 fs/browse 鉴权 / #6/#14 pathref 包含策略 / #7 chart 全量同步读 / #8 particles N+1（性能与健壮性四件，皆低优先挂账）

@@ -26,7 +26,7 @@
 // Run: node scripts/t245-e2e.mjs   (server on :3000)
 import { chromium } from "playwright";
 import { execSync } from "node:child_process";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, readFileSync } from "node:fs";
 
 const BASE = "http://localhost:3000";
 const SHOTS = "/home/z/my-project/scripts/shots-qa84";
@@ -66,12 +66,14 @@ const DOOR_RULES = [
   { name: "theme toggle", re: /^Switch to (light|dark) theme$/, kind: "row", rowRe: /Switch to (light|dark) theme/ },
   { name: "github", re: /^CryoFlow on GitHub \(opens in a new tab\)$/, kind: "row", rowRe: /Open CryoFlow on GitHub/ },
 ];
-const EXEMPT_RULES = [
-  { name: "palette trigger", re: /^Open command palette \(Ctrl\+K\)$/,
-    reason: "self-referential — the palette IS the index; Ctrl+K is its own keyboard path" },
-  { name: "print", re: /^Print this view$/,
-    reason: "the verb already has a platform-native keyboard path (browser Ctrl+P/⌘P); the header button calls the same window.print()" },
-];
+const EXEMPT_RULES =
+  // Task 246 moved the exemption well into the product: these rules ARE
+  // src/lib/palette-exemptions.json — the same bytes the shortcuts dialog's
+  // "Not in ⌘K — and why" group renders verbatim (t246-e2e asserts that
+  // mirror). One well, two mouths: contract and documentation cannot drift.
+  JSON.parse(
+    readFileSync(new URL("../src/lib/palette-exemptions.json", import.meta.url), "utf8"),
+  ).exemptDoors.map((d) => ({ name: d.name, re: new RegExp(d.match), reason: d.reason }));
 
 // ---- Phase B: the law ---------------------------------------------------------
 console.log("== PHASE B: the index-completeness law ==");
