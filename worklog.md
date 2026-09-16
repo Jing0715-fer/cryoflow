@@ -995,3 +995,22 @@ Stage Summary:
 - 「姊妹门证明」：开门态的验证可以不点燃真实副作用——同一 isLocalRequest 对在姊妹路由上已证开门，第四枚门共享同一实现；测试的代价预算要花在刀刃上（403 三态才是每门必验的）
 - 「方法级免疫」：PUT/PATCH/DELETE 的 CSRF 免疫是 spec 给的（表单/no-cors 不可达 + 预检零 handler）——诚实缺席和含糊缺席的区别在于缺席理由是否被写下来（http-guard 判例链的第三次应用）
 - 遗留（下轮候选）：/system、/hpc/profiles、/projects 等应用元数据读路由的门（低敏感挂账——读环已含高敏感面）；3D viewer 体积截面工具（recital 点名的新功能方向，硬化弧已闭环可转产品）；Topaz wrapper（同上）；map-profile FSC 满档锚点化（等真实满档）；updatedAt 治理（大工程）；家族跑批 --report JSON；watchdog 与 family-run 共生
+
+## Task 253 (2026-09-16, cron 19:17 窗口 trace cron-agent-loop-202609161918)
+
+- 【开局】四件套：尾部 = Task 252（ed75449，写门关闭）零过时；净场核查 → watchdog 拉起验活 200。QA：qa00 GREEN + qa63 SMOKE GREEN + t252 哨兵 PASS + agent-browser errors 双空。无 bug。
+- 【巡检与立项】硬化弧闭环后按 standing orders 转产品——recital 点名两 feature 方向逐件实证：**「3D viewer 体积截面工具」已全面建成**（molstar-embed 携 Slice 密度像平面（轴选择 + scrub + 密度山景 t189-210 谱系）+ ChimeraX 式 box Clip（三轴滑杆 + flip side + 相机投影线框 + 可拖面）+ 双向 2D 联动（CustomEvents，⌖ 镜像 + slice-state 回声））——recital 陈旧第六案；**「Topaz wrapper」已建成**（picking method 三选含 Topaz + 独立参数 tab（topazNrParticles/threshold/diameter/downscale/workers）+ topaz-training 路由与 lib）——第七案。**recital 至此零活项**。立项 = 「recital 退休审计 + 补上 clip 的 2D 缺席」：box clip 只活在 3D 场景，ortho 2D 瓦片对裁剪一无所知（继续显示全盒）——把 t251/252 的「环」精神带进视口联动。
+- 【实现：clip-state 第三回声】embed 侧 applyClipIntent 派发 cryoflow:clip-state（on/x/y/z/invert，与 slice-state 同教义：intent applier 单点派发）；panel 侧新监听器收态（nonce 递增）传入三瓦片。**瓦片几何渲染器真相**：读 readMrcOrthoSlice 实证——z 瓦片横轴 X 纵轴 Y、y 瓦片横 X 纵 Z、x 瓦片横 Y 纵 Z，且全平面「轴 0 = 顶行左列」——kept 区间映射到叠层**无需翻转**（top=a%, height=(b−a)%）。存续面画紫罗兰 kept 外框（clip 自家色）+ nonce 闪光；被裁面（法轴 pos 出 kept 区间）戴「clipped」小徽章 + 图像减淡 45%——「每块瓦片讲自己那片故事」。
+- 【e2e：新 t253-e2e.mjs】**20 断言 ×3 ALL PASS**：A 相 demo 真相（200 + roster 21 + 种子宿主在册）；B 相**recital 台账**（Topaz 参数与训练 lib/route 在源、slice/clip intent 与 t253 回声在源、t251/252 门在盘、statcache 与 batched BFS 在源——六个「已建成」一次钉死）；C 相**活体联动**（种子体积世界 → View in 3D → 展开 ortho strip → Clip ON → **键盘驱动 Z 滑杆**（Home 到 min 0.02 + ArrowRight ×18 步进 0.01——无视口几何歧义）→ XY 瓦片（法轴 Z）戴徽章 + XZ/YZ 瓦片画 Z 0–20% 保持带 → Z 回 80% 徽章清 + 带重说 → Clip OFF 全静默）；D 相 console 0。
+- 【事故与判例】①**Radix thumb 非 button**：`button[role="slider"]` 零命中——Radix Slider Thumb 是 span[role=slider]；选择器要说元素自己的真话（t249 quarter-line 判例的再应用）。②**track 点击假动作**：thumb 的 boundingBox 是把手不是轨道，20% 点在把手宽度上（valuenow 恒 1 假动作）；改键盘驱动（Home+ArrowRight）——「确定性输入优于几何猜测」。③**aria 尾巴**：kept 外框的 aria-label 以「on this plane」结尾，前缀匹配 ^ 才命中——断言写完后要跟渲染串对账。
+- 【定妆照】**shots-qa84/t253-clip-speaks-2d-2x.png**：XY 瓦片紫徽章 + 减淡，XZ/YZ 顶部紫色保持带——「3D 的裁剪，2D 的证词」一屏讲完。
+- 【全家族回归】family-run.mjs 一条命令：**FAMILY VERDICT pass 31 · solo-recovery 0 · real-fail 0 · wall 941.5s**（t253 内联 126.1s PASS——Mol* 重套件入编）；**t253 收编花名册 30→31**（runner --filter 亲跑 PASS 127.9s 验收）；roster 恒等 21。
+- 【收尾】worklog（本条）+ commit/push + 环境清理（Task 86 配方双杀 + port FREE 验证）。
+
+Stage Summary:
+- **「recital 退休」**：cron 文本背诵的全部条目——#5/#6/#7/#8/#13/#14（t251/t252/t249 销账钉死）+「3D 截面工具」「Topaz wrapper」（本窗实证建成）——零活项；recital 的背诵历史使命终结，下窗开局只读 worklog 尾部与 git log
+- 「clip 的 2D 缺席」：3D 场景的裁剪与 2D 瓦片的全盒显示并存 = 同一事实两个说法——联动环补上第三回声（⌖ 上行、slice-state 下行、clip-state 下行）后，视口里的每个面板讲同一个故事；「越做越细」的实质是消灭沉默的旁观者
+- 「渲染器真相的叠层」：2D 叠层几何必须从渲染器源码取证（readMrcOrthoSlice 的轴到行列映射），不从惯例假设（「MRC 原点在下」的惯例在这里不成立——axis 0 就是顶行）——假设翻转方向就会画出说谎的框
+- 「键盘驱动的确定性」：滑杆测试的 Home+ArrowRight 步进优于 track 点击（无 boundingBox 几何、无滚动竞态）——输入的确定性是断言确定性的前提
+- 「clipped 徽章的诚实」：被裁面不假装显示（减淡 + 徽章），存续面不省略裁剪（外框 + 读数）——视图状态的可视证词要区分「还在的」与「被去掉的」
+- 遗留（下轮候选）：应用元数据路由的门（/system、/hpc/profiles、/projects——低敏感挂账）；updatedAt 治理（大工程）；透镜纸面化（哲学门槛维持）；EMPIAR 真数据回归（让位）；家族跑批 --report JSON；watchdog 与 family-run 共生；3D viewer 的新方向候选：slice 密度面与 clip 盒的合成导出（把「裁剪后的体积」导出为子体积 .mrc——RELION 的 box 子区工作流）

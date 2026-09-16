@@ -12,7 +12,7 @@
 //        solo FAIL  → REAL-FAIL (a verdict, needs a human)
 //   3. EXIT CODE — 0 iff zero REAL-FAILs (SOLO-RECOVERY is honest but not a blocker).
 //
-// The FAMILY roster is an audited membership list (30 suites as of Task 252) —
+// The FAMILY roster is an audited membership list (31 suites as of Task 253) —
 // it is written here EXPLICITLY, not discovered by glob: diag-*/probe scripts and
 // one-off hearings are not family. When a new suite joins the family, add it here.
 //
@@ -72,6 +72,7 @@ const FAMILY = [
   "t249-e2e.mjs",
   "t251-hardening-gates.mjs",
   "t252-write-gates.mjs",
+  "t253-e2e.mjs",
 ];
 
 // ---- CLI -------------------------------------------------------------------

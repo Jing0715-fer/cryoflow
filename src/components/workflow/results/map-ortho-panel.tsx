@@ -31,6 +31,19 @@ import { cn } from "@/lib/utils";
 /** event names for the two-way 3D↔2D linkage — see molstar-embed.tsx */
 export const ORTHO_SLICE_EVENT = "cryoflow:ortho-slice";
 export const ORTHO_SLICE_STATE_EVENT = "cryoflow:slice-state";
+/** 3D → 2D clip echo (t253): the box-clip state, so tiles can speak it */
+export const ORTHO_CLIP_STATE_EVENT = "cryoflow:clip-state";
+
+/** the clip state the tiles need, as the embed's clipStateRef carries it */
+export interface OrthoClipState {
+  on: boolean;
+  x: number;
+  y: number;
+  z: number;
+  invert: boolean;
+  /** bumps on every embed-side clip intent — the tiles' flash trigger */
+  nonce: number;
+}
 
 interface TileSpec {
   /** plane's normal (movement) axis — also the API's `axis` param */
@@ -39,6 +52,11 @@ interface TileSpec {
   axisLabel: "X" | "Y" | "Z";
   /** human plane name: the two axes the image spans */
   plane: string;
+  /** image HORIZONTAL axis (left→right = fraction 0→1) — readMrcOrthoSlice */
+  hAxis: "x" | "y" | "z";
+  /** image VERTICAL axis (top→bottom = fraction 0→1 — axis 0 is the top
+   *  row in every plane this renderer builds, no flip needed) */
+  vAxis: "x" | "y" | "z";
   /** axis-accurate color chip (matches the app's accent roles) */
   accent: string;
   dot: string;
@@ -46,9 +64,9 @@ interface TileSpec {
 }
 
 const TILES: TileSpec[] = [
-  { axis: "z", axisLabel: "Z", plane: "XY plane", accent: "hover:border-teal-600/50", dot: "bg-teal-500", text: "text-teal-600" },
-  { axis: "y", axisLabel: "Y", plane: "XZ plane", accent: "hover:border-violet-600/50", dot: "bg-violet-500", text: "text-violet-600" },
-  { axis: "x", axisLabel: "X", plane: "YZ plane", accent: "hover:border-amber-600/50", dot: "bg-amber-500", text: "text-amber-600" },
+  { axis: "z", axisLabel: "Z", plane: "XY plane", hAxis: "x", vAxis: "y", accent: "hover:border-teal-600/50", dot: "bg-teal-500", text: "text-teal-600" },
+  { axis: "y", axisLabel: "Y", plane: "XZ plane", hAxis: "x", vAxis: "z", accent: "hover:border-violet-600/50", dot: "bg-violet-500", text: "text-violet-600" },
+  { axis: "x", axisLabel: "X", plane: "YZ plane", hAxis: "y", vAxis: "z", accent: "hover:border-amber-600/50", dot: "bg-amber-500", text: "text-amber-600" },
 ];
 
 /** debounce window for turning slider drags into render requests (ms) */
@@ -62,6 +80,7 @@ function OrthoTile({
   spec,
   dim,
   follow,
+  clip,
 }: {
   jobId: string;
   path: string;
@@ -70,6 +89,8 @@ function OrthoTile({
   dim?: number;
   /** latest position driven by the 3D scene (nonce bumps per event) */
   follow?: { pos: number; nonce: number };
+  /** latest box-clip state driven by the 3D scene (t253) */
+  clip?: OrthoClipState | null;
 }) {
   // pos follows the slider immediately (readout + sync use the live value);
   // the <img> chases it on a debounce so a drag floods neither the server
@@ -108,6 +129,67 @@ function OrthoTile({
     const t = setTimeout(() => setFlash(false), FOLLOW_FLASH_MS);
     return () => clearTimeout(t);
   }, [flash]);
+
+  // t253 — the clip's tile overlay. The clip box lives in 3D; each 2D tile
+  // speaks its slice of the story: the kept region's cross-section drawn as
+  // a violet outline (the clip's own colour) when the viewed plane survives
+  // the crop, and a quiet "plane clipped" badge when the crop removed this
+  // plane's row of the box entirely. Same renderer math as the image:
+  // readMrcOrthoSlice puts axis 0 at the top row and the left column, so
+  // the kept interval maps onto the overlay with NO flip.
+  const [clipNonceSeen, setClipNonceSeen] = useState<number | null>(clip?.nonce ?? null);
+  const [clipLit, setClipLit] = useState(false);
+  if (clip && clipNonceSeen !== clip.nonce) {
+    setClipNonceSeen(clip.nonce);
+    setClipLit(true);
+  }
+  useEffect(() => {
+    if (!clipLit) return;
+    const t = setTimeout(() => setClipLit(false), FOLLOW_FLASH_MS);
+    return () => clearTimeout(t);
+  }, [clipLit]);
+
+  let clipOverlay: React.ReactNode = null;
+  let clippedAway = false;
+  if (clip?.on) {
+    const kept = (v: number): [number, number] => (clip.invert ? [v, 1] : [0, v]);
+    const [n0, n1] = kept(clip[spec.axis]);
+    const survives = pos >= n0 - 1e-9 && pos <= n1 + 1e-9;
+    clippedAway = !survives;
+    if (!survives) {
+      clipOverlay = (
+        <div
+          className="pointer-events-none absolute inset-0 flex items-start justify-end rounded-sm bg-background/55 p-1"
+          title={`Clip removed this plane: kept ${spec.axisLabel} ${Math.round(n0 * 100)}–${Math.round(n1 * 100)}%`}
+        >
+          <span className="rounded bg-violet-600/90 px-1 py-0.5 text-[9px] font-semibold text-white">
+            clipped
+          </span>
+        </div>
+      );
+    } else {
+      const [h0, h1] = kept(clip[spec.hAxis]);
+      const [v0, v1] = kept(clip[spec.vAxis]);
+      const pct = (v: number) => `${(v * 100).toFixed(1)}%`;
+      clipOverlay = (
+        <div
+          className={cn(
+            "pointer-events-none absolute border-2 border-violet-500/80 transition-shadow duration-300",
+            clipLit && "shadow-[0_0_0_3px_rgba(139,92,246,0.35)]"
+          )}
+          style={{
+            left: pct(h0),
+            width: pct(h1 - h0),
+            top: pct(v0),
+            height: pct(v1 - v0),
+          }}
+          title={`Kept region on this plane — ${spec.hAxis.toUpperCase()} ${Math.round(h0 * 100)}–${Math.round(h1 * 100)}%, ${spec.vAxis.toUpperCase()} ${Math.round(v0 * 100)}–${Math.round(v1 * 100)}%`}
+          role="img"
+          aria-label={`Clip keeps ${spec.hAxis.toUpperCase()} ${Math.round(h0 * 100)} to ${Math.round(h1 * 100)} percent, ${spec.vAxis.toUpperCase()} ${Math.round(v0 * 100)} to ${Math.round(v1 * 100)} percent on this plane`}
+        />
+      );
+    }
+  }
 
   const src = `/api/jobs/${jobId}/outputs/file?path=${encodeURIComponent(path)}&format=png&axis=${spec.axis}&pos=${rendered.toFixed(3)}`;
 
@@ -151,11 +233,14 @@ function OrthoTile({
           <Crosshair className="size-3.5" aria-hidden="true" />
         </button>
       </div>
-      <MrcImage
-        src={src}
-        alt={`${spec.plane} at ${readout}`}
-        className="aspect-square"
-      />
+      <div className="relative aspect-square">
+        <MrcImage
+          src={src}
+          alt={`${spec.plane} at ${readout}`}
+          className={cn("h-full w-full transition-opacity duration-300", clippedAway && "opacity-45")}
+        />
+        {clipOverlay}
+      </div>
       <Slider
         value={[pos]}
         min={0}
@@ -224,6 +309,29 @@ export function MapOrthoPanel({
     return () => window.removeEventListener(ORTHO_SLICE_STATE_EVENT, onSliceState);
   }, []);
 
+  // 3D → 2D (t253): the embed's box-clip moved — the tiles speak its state
+  // (kept-region outline on surviving planes, a "clipped" badge on removed
+  // ones). The nonce rides the detail; tiles flash on the bump.
+  const clipNonce = useRef(0);
+  const [clip, setClip] = useState<OrthoClipState | null>(null);
+  useEffect(() => {
+    const onClipState = (e: Event) => {
+      const d = (e as CustomEvent<Partial<OrthoClipState>>).detail;
+      if (!d || typeof d !== "object") return;
+      clipNonce.current += 1;
+      setClip((prev) => ({
+        on: !!d.on,
+        x: typeof d.x === "number" ? d.x : prev?.x ?? 1,
+        y: typeof d.y === "number" ? d.y : prev?.y ?? 1,
+        z: typeof d.z === "number" ? d.z : prev?.z ?? 1,
+        invert: !!d.invert,
+        nonce: clipNonce.current,
+      }));
+    };
+    window.addEventListener(ORTHO_CLIP_STATE_EVENT, onClipState);
+    return () => window.removeEventListener(ORTHO_CLIP_STATE_EVENT, onClipState);
+  }, []);
+
   if (isStack) return null;
 
   const dimFor = (axis: "x" | "y" | "z") =>
@@ -264,6 +372,7 @@ export function MapOrthoPanel({
               spec={t}
               dim={dimFor(t.axis)}
               follow={follow[t.axis]}
+              clip={clip}
             />
           ))}
         </div>

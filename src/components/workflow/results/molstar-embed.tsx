@@ -26,7 +26,7 @@ import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { PENDING_VIEW_KEY } from "@/lib/view-link";
-import { ORTHO_SLICE_EVENT, ORTHO_SLICE_STATE_EVENT } from "./map-ortho-panel";
+import { ORTHO_SLICE_EVENT, ORTHO_SLICE_STATE_EVENT, ORTHO_CLIP_STATE_EVENT } from "./map-ortho-panel";
 import { useWorkflowStore } from "@/lib/store";
 import { fmtBytes } from "@/lib/canvas-export";
 import { encodeGifFrames } from "@/lib/gif-export";
@@ -3156,6 +3156,21 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
     if (patch.y !== undefined) setClipY(patch.y);
     if (patch.z !== undefined) setClipZ(patch.z);
     void pumpClip();
+    // 3D → 2D echo (t253): the ortho tiles speak the clip's state — a kept-
+    // region outline on surviving planes, a "clipped" badge on removed ones
+    // (map-ortho-panel draws it; the wireframe overlay here stays the 3D
+    // scene's own speaker)
+    window.dispatchEvent(
+      new CustomEvent(ORTHO_CLIP_STATE_EVENT, {
+        detail: {
+          on: clipStateRef.current.on,
+          x: clipStateRef.current.x,
+          y: clipStateRef.current.y,
+          z: clipStateRef.current.z,
+          invert: clipStateRef.current.invert,
+        },
+      })
+    );
   };
 
   /* ---------------- clip region wireframe (SVG overlay) --------------- */
