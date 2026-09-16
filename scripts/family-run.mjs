@@ -80,6 +80,7 @@ const FAMILY = [
   "t258-view-in-3d.mjs", // the cards' View in 3D buttons (Task 258)
   "t259-metadata-gates.mjs", // the application-metadata door (Task 259)
   "t260-clip-from-card.mjs", // the cards' Show-in-parent anchored-clip doors (Task 260)
+  "t261-remote-connections.mjs", // the remote-cluster registry: doors + test route + live probe (Task 261)
 ];
 
 // ---- CLI -------------------------------------------------------------------

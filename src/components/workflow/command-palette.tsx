@@ -42,6 +42,7 @@ import {
   LayoutDashboard,
   Maximize2,
   Moon,
+  Network,
   Play,
   Radar,
   RadioTower,
@@ -71,6 +72,7 @@ import {
 } from "@/components/ui/command";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
+import { REMOTE_CLUSTERS_OPEN_EVENT } from "./remote-cluster-dialog";
 import { useWorkflowStore } from "@/lib/store";
 import { stageWorkflowFiles } from "@/lib/import-stage";
 import { hasJudgment, parseClassNotes } from "@/lib/class-notes";
@@ -1034,6 +1036,27 @@ export function CommandPalette() {
               Open CryoFlow on GitHub
               <span className="ml-1.5 text-[10px] text-muted-foreground">
                 source · issues — opens a new tab
+              </span>
+            </span>
+          </CommandItem>
+          {/* t261 — the remote-clusters door joins the index: the parallel
+              window's header button arrived without a palette verb, and
+              t245's inventory law caught it (13 doors, one unmapped). The
+              handshake is a custom event — the palette can't reach the
+              header button's state, and the button owns its dialog. */}
+          <CommandItem
+            value="remote clusters ssh connections probe relion modules dispatch jobs"
+            onSelect={() => {
+              close();
+              window.dispatchEvent(new CustomEvent(REMOTE_CLUSTERS_OPEN_EVENT));
+            }}
+            className="gap-2.5"
+          >
+            <Network className="size-4 shrink-0 text-muted-foreground" />
+            <span className="flex-1 text-sm">
+              Manage remote clusters
+              <span className="ml-1.5 text-[10px] text-muted-foreground">
+                SSH connections · probe relion modules · dispatch jobs
               </span>
             </span>
           </CommandItem>

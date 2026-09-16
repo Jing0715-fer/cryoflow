@@ -53,6 +53,12 @@ import type {
 
 export const REMOTE_ACTIVE_KEY = "cryoflow.remote.active";
 
+/** t261 — the command palette opens this dialog through a custom event:
+ *  the palette can't reach the header button's state (it lives way down
+ *  the tree), and the t245 inventory law requires the door's VERB in ⌘K —
+ *  so the row dispatches and this component answers. */
+export const REMOTE_CLUSTERS_OPEN_EVENT = "cryoflow:open-remote-clusters";
+
 export function readActiveRemoteConnectionId(): string {
   if (typeof window === "undefined") return "";
   try {
@@ -1098,6 +1104,13 @@ export function RemoteClusterButton() {
     const active = connections.find((c) => c.id === readActiveRemoteConnectionId());
     setHealthy(active?.lastProbe?.ok === true);
   }, [connections]);
+
+  // the palette's row → this dialog (the handshake, see the event's note)
+  React.useEffect(() => {
+    const openit = () => setOpen(true);
+    window.addEventListener(REMOTE_CLUSTERS_OPEN_EVENT, openit);
+    return () => window.removeEventListener(REMOTE_CLUSTERS_OPEN_EVENT, openit);
+  }, []);
 
   return (
     <>

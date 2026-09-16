@@ -1183,3 +1183,24 @@ Stage Summary:
 - 遗留（下轮候选）：元数据门第二梯队（/api/jobs GET、/api/edges、/api/workspaces、/activity——同型成本评估）；「release 后保留盒记忆」或「从 parent 视图直接 send-to-job」的合流快捷方式；crop-of-crop 链的 grandparent 视图（chain-safety 门现在诚实缺席，跨代锚点需要坐标换算层）；molstar-embed 存量 tsc 噪音（pcentre possibly-null，aria-label 层无崩溃风险）；updatedAt 治理（大工程）；家族跑批 --report JSON；watchdog 与 family-run 共生；EMPIAR 真数据回归（让位）
 
 - 【尾声：合并树的井】rebase 时撞上并行窗口的 5b737b3（SSH remote dispatch 大特性，无文件重叠干净落位）——但合并树首次 OOM rebuild 失败：Turbopack 无法把 ssh2 的动态 require 放进 ESM chunk（「non-ecmascript placeable asset」）。修复 = next.config 加 serverExternalPackages: ["ssh2"]（Node-only 传输层留在 node_modules 由 standalone 运行时 require）；重建后 t258 哨兵 ALL PASS + roster 21，config 修复与 package-lock.json 分别入账（HEAD 67382ce → 9c63ef7）。「并行窗的世界线合流要以 rebuild 为准——push 干净不等于合并树能烧」
+
+## Task 261 (2026-09-17, cron 04:48 窗口 trace cron-agent-loop-202609170449)
+
+- 【开局】四件套：尾部 = Task 260（3aad937，Show-in-parent 门）——**首次零过时**（HEAD = 远端 = 摘要 = worklog，实证刷新即确认）；cron 模板「Task 13」过时案第 N 次（照例只认 worklog 尾部）。净场 PORT FREE → watchdog 拉起 200 + roster 21。
+- 【巡检与立项】 standing orders 转产品时撞上真正的工作重点：**并行窗（5b737b3）的 SSH remote dispatch 大特性（5,613 行）从未在本 pod QA 过，且花名册 39 套件零覆盖**。安全审查三问：新路由有无门、被改路由的门是否保留、密码怎么存。结果：POST/PATCH/DELETE 全带 isLocalRequest 门 ✓、run/stop/log 门保留 ✓、注册表 0600 + DTO 剥密 ✓、ssh 层有 shellSingleQuote ✓——**但 GET /api/remote/connections 无门**（剥密后的列表仍然点名集群 hosts + usernames + auth 方法——t259 给 /api/hpc/profiles 定罪的同一类），且 **dialog 的 Test 按钮调用的 POST .../connections/[id]/test 路由不存在**（404，save→test→probe 核心回路在 UI 层是死的）。
+- 【修复① GET 门】剥密不等于低敏：DNS-rebinding 页读到「用户的算力在哪」先于任何写尝试；补 isLocalRequest（同源 UI 按定义通过）。ripple 盘点：scripts/ 零引用（趁新特性还没被脚本生态记住前上门，成本最低时刻）。
+- 【修复② test 路由】新建 [id]/test/route.ts：门 + getConnection 404 + probeConnection（SSH 登录 → uname/module 系统/relion 模块/homes/mpirun/ctffind/Slurm/GPU 清单）+ **lastProbe 落库**（patchConnection 透传，run dialog 预选模块的依据）+ 诚实降级（probe 失败回 ok:false + 首行错误，不是 500）。
+- 【实现③ feature 入编 t261】新 e2e **t261-remote-connections.mjs，45 断言 ×3 ALL PASS**：A 相 demo 真相（200 + roster 21 + mock cluster :3022 应答——自愈启动，launch.sh 孤儿进程配方）；B 相台账 9 断言（GET 门在源、test 路由门+probe+落库、0600 双保险、DTO 剥密、secret keep/clear 语义、ssh 引用纪律、mock rig 在库）；C 相门矩阵 12 断言（GET/POST × bare/cross/rebind-curl → 403、PATCH/DELETE bare → 门先于 404、same-origin GET 200 / 空 POST 400 route-speak、**no-cors text/plain 杀验 + 注册表字节等同**）；D 相活体 15 断言（创建 → 剥密 DTO → probe 拿到 mock 集群真实清单（relion/5.0.1、5.0-beta、4.4.1 + envmodules）→ lastProbe 持久化 → rename/密钥 keep/密钥 clear → 不存在 id 的 test 404 → **dialog 从 header 打开并列出活连接**（定妆照）→ DELETE → 再删 404）；E 相 console 0。
+- 【事故与判例】①**page.evaluate 的 fetch 是 same-origin**——no-cors 杀验首跑从页面发出，门正确放行、攻击行真实写进注册表（"2 saved" 实锤；t259 的配方是 node 端伪造跨站元数据——浏览器无法伪造 sec-fetch-site，node 可以）；测试的攻击面要按「谁在发」选址，页面内 fetch 永远是自家门童。②**故意 404 走页面 fetch 会污染 console 判决**——Chrome 把资源 404 记为 console error；期望 404 的探针全部改 node 侧发。③**自愈清扫扫出上跑的攻击残骸**——finally 清单按形状匹配（evil.example/attacker/qa-t261-* 前缀），本跑 sweep 了首跑误建的 conn 行。④**t245 的门清单是活法律**——并行窗给 header 加按钮没更新 t245（12→13 + 无 palette 行），t24 批 real-fail 抓住；修复 = palette 补「Manage remote clusters」行（CustomEvent 握手：palette 够不着 header 按钮的状态）+ t245 台账收编 13 门。
+- 【样式】dialog 从 header 的 Network 按钮进入（健康绿点 = 活连接 lastProbe.ok）；palette 行 Network 图标 + 副标「SSH connections · probe relion modules · dispatch jobs」；palette 行与 dialog 的握手事件常量随门入源。
+- 【定妆照】**shots-qa/t261-remote-dialog-2x.png**（Remote clusters dialog 列出活连接）。
+- 【全家族回归】六批前台（palette 变更晚于 qa/t21/t22 首跑，全部重跑）：qa 10 · 409.0s ｜ t21 7 · 194.9s ｜ t22 2 · 65.2s ｜ t24 9 · 124.4s ｜ t25 9 · 462.0s ｜ t26 2 · 111.7s——**合计 pass 39 · solo 0 · real-fail 0 · wall ~1367s**；t261 收编花名册 38→39（--filter 亲跑 PASS 12.3s）；roster 恒等 21。
+- 【收尾】worklog（本条）+ commit/push + 环境清理（Task 86 双杀 + mock cluster 击杀 + port FREE 验证）。
+
+Stage Summary:
+- **「新特性入编的三堂课」**：并行窗的 5,613 行落地即欠三笔账——GET 无门（t259 类）、test 路由 404（UI 回路断裂）、零测试覆盖（t261 补齐）；「审查新写入面」优先于「发明新需求」，门审计三问（有无门/门保留/密钥处理）是可复用的开场清单
+- 「剥密 ≠ 低敏」：hasPassword 布尔化的列表仍然回答「算力在哪、以谁的身份」——元数据门的定罪看语义不看字段名；t259 的判例在并行窗的新表面原样重演
+- 「测试的攻击面按发送者选址」：页面内 fetch = same-origin（门放行是门在工作）；node 伪造跨站元数据才是攻击者视角（浏览器不能伪造 sec-fetch-site，node 能）——t259 判例的第二次应用，这次是亲身踩坑
+- 「palette 是门的索引」：header 上的每个可交互元素要么有 ⌘K 行要么有豁免理由——并行窗的按钮没入索引，t245 的活法律第一时间点名；CustomEvent 握手让 palette 与深层组件解耦
+- 「自愈清扫按形状不按 id」：测试知道自己可能留下什么形状（自己的 id 前缀 + 攻击探针的 host/username），清扫清单按形状匹配——上跑的残骸在本跑的 finally 里清零
+- 遗留（下轮候选）：remote dispatch 的端到端（mock cluster 上真跑一个 job：staging → dispatch → poll → sync-back——test-client 只验了传输层，remote-run.ts 的 1,261 行仍是暗区）；/api/jobs GET 的第二梯队门（ripple = 全部 e2e 的 node 侧 roster fetch，成本评估后挂账）；molstar-embed 存量 tsc 噪音（pcentre）；updatedAt 治理；家族跑批 --report JSON；EMPIAR 真数据回归（让位）

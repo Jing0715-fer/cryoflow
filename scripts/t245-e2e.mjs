@@ -65,6 +65,8 @@ const DOOR_RULES = [
   { name: "help", re: /^Help — how to use the workflow canvas$/, kind: "row", rowRe: /Keyboard shortcuts/ },
   { name: "theme toggle", re: /^Switch to (light|dark) theme$/, kind: "row", rowRe: /Switch to (light|dark) theme/ },
   { name: "github", re: /^CryoFlow on GitHub \(opens in a new tab\)$/, kind: "row", rowRe: /Open CryoFlow on GitHub/ },
+  { name: "remote clusters", re: /^Remote clusters \(SSH\)$/, kind: "row", rowRe: /Manage remote clusters/,
+    note: "t261 — the parallel window's door joins the index through a palette row (a custom-event handshake opens its dialog)" },
 ];
 const EXEMPT_RULES =
   // Task 246 moved the exemption well into the product: these rules ARE
@@ -98,7 +100,7 @@ const doors = await page.evaluate(() => {
     title: el.getAttribute("title") || "",
   }));
 });
-must(doors.length === 12, `header door inventory pinned at 12 interactive elements (got ${doors.length})`);
+must(doors.length === 13, `header door inventory pinned at 13 interactive elements (got ${doors.length})`);
 
 // match every door against exactly one rule; flag unmapped doors.
 const doorNames = doors.map((d) => d.label);

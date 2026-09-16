@@ -14,8 +14,18 @@ export const dynamic = "force-dynamic";
  * the response carries hasPassword/hasPassphrase booleans only).
  * POST — create or replace a connection by id (upsert). Accepts a secret
  * field: non-empty string = store, empty string = CLEAR, absent = keep.
+ *
+ * The t260 review: even stripped, the list NAMES the cluster targets —
+ * hosts, usernames, auth methods — exactly the class t259 gated on
+ * /api/hpc/profiles (sbatch submission targets are not low-sensitivity).
+ * A DNS-rebinding page reading the registry learns where the user's
+ * compute lives before it ever tries a write. Same-origin UI passes the
+ * Fetch-Metadata door by definition; drive-by readers die at 403.
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
+  if (!isLocalRequest(request)) {
+    return NextResponse.json({ error: "Cross-site access is not allowed" }, { status: 403 });
+  }
   return NextResponse.json({ connections: loadConnections().map(toConnectionDTO) });
 }
 
