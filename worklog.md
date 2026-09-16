@@ -730,3 +730,30 @@ Stage Summary:
 - 「重启动舞」：同一节重跳必须复亮（none→reflow→empty，paint-only）；W10d 把它钉成 wire 断言
 - 「扫描面井」：bundle 终审要扫对介质——CSS 改动查 CSS chunk；t239 的 echo 光帧被怀疑时态 jitter，零阈值考古还它清白（max delta 6 亚感知微噪声）
 - 遗留（下轮候选）：echo Contents 纸上形制（页码——依赖真实打印证据，维持让位）；透镜纸面化（哲学门槛维持）；updatedAt 治理（大工程）；EMPIAR 真数据回归（让位）；hero 纸档叠印可读性（维持）；shortcuts report 组记载 Download HTML 门（维持低优先）；报告家族连做七窗——下窗宜回产品其他面巡检真缺口（dashboard/inspector/viewer/gallery），家族候选让位
+
+## Task 241 (2026-09-16, cron 11:47 窗口 trace …202609161153)
+
+- 【开局】四件套：尾部 = Task 240（ef80f24，本手上窗所写）零过时；净场 → watchdog 拉起验活 + 200 + roster 21。QA：qa00 GREEN + qa63 SMOKE GREEN + agent-browser errors 空 + 画布 20 jobs + dashboard 目检健康。无 bug。
+- 【立项】按 Task 240 收尾建议回产品其他面巡检（报告家族连做七窗）：dashboard（KPI/recent activity/spotlight 全链健康）、inspector（FSC 四门 + STAR 表 + compare 富检）逐一过堂后锁定真缺口——**run report（per-job 档案）仍只有惰性 md**：t237 给 session report 造了便携回声，inspector 的 "Export run report" 家族没跟上；且 profile md 自带导航系统（Contents + slug 锚点 + back-link）却只在 GitHub/VS Code 等 md 渲染器里活。同事收到 cryoflow-report-*.md 的处境与 t237 立案时一字不差。
+- 【教义】**「回声尊重字节」**：session md 无目录 → 回声铸 index 配对目录；profile md **自带** Contents/锚点/回链 → 回声逐字尊重、不重铸一个词（序号链接变真锚、锚点行折叠进标题 id、回链成真链接）——两种回声同一 DOC_CSS、两种目录哲学各按其 md 的本相。「折叠」的诚实性：锚点的意图（该节在此 slug 可链接）被 id 骑上 h2 完整保留，且 **:target 着陆光免费生效**（t239 的 CSS 规则天然匹配 slug id）。方言扩展四件：hr、#-锚点链接（仅 #——http 落回转义文本，回声永不猜、永不长外链）、data-URI 图（图表快照住在字节里——自包含律无恙）、有序列表。t195 律的边界澄清：转换器无钟（同一 md → 同一 HTML），md 的 "Generated on" 时钟行是 md 介质的产地（qa57 钉住的契约），不是转换器的业务。
+- 【实现】
+  - lib/report-html.ts：buildProfileReportHtml（兄弟函数共享 esc/inlineHtml/tableHtml/DOC_CSS）；inlineHtml 添 #-链接规则（code 先行保护）；DOC_CSS 添 ol/hr/figure.shot 样式
+  - results-view.tsx：exportReport 重构为 buildRunReportMd（采集井）+ 双门（md 门原措辞原契约；HTML 门 Globe 图标 violet、aria-label "Export run report as HTML"、回执 "Portable report downloaded"）；共享 reportBusy
+- 【sanity 先于 wire】scripts/t241-sanity.mjs（bun）：合成满档方言档案 + 四陷阱——首跑全绿（方言完备/陷阱守得住（http 图与 http 链接都落回文本）/确定性）
+- 【e2e】
+  - qa49 A 相扩：HTML 门探针 + 点击 + 回执 + **镜像律断言**（html h2/链接/图 与 md 计数恒等、零死链（每 href="#x" 有 id="x"）、着陆规则在字节、无裸 md 语法）——ALL PHASES GREEN
+  - 新 scripts/t241-run-echo.mjs（playwright）：QA Post 385（数据世界最富档：FSC=1）线上走双门 → **14/0 全绿**（doctype/零脚本/零外链/标题自 h1/着陆规则随行/**图随字节旅行**（1 figure）/零死链/roster 21/console 0）
+  - 事故与判例：①断言第一版假设满档（headingIds>=3/dataImg 必有）败于瘦身档（QA Refine3D md 699B 无目录无图）——**契约是忠实不是快照**：改镜像律后 job 无关、满档瘦档皆判；②eval 桥的 \n 转义井（qa57 判例）本窗踩第二遍——镜像计数要喂反转义后的 md；③节点选择器井：[data-job-id] 外壳点击不开 inspector，qa49 的 [role=button] 选择器才是真身。
+- 【数据世界勘察】全 demo 档案皆瘦身档（guinier 全 0、progress 全 0、最富 Post 385=4 节<5 无目录）——**着陆光帧诚实让位**（机制已由 sanity 满档合成验证 + 瘦身档无锚可点）；t241 两帧 = 回声独行 + **家族首张嵌图帧**（figure.shot 紫缘圆角 + FSC 曲线 + 3.85 Å 注记——session 回声携数字，run 回声连图一起携）。
+- 【定妆照】t241-run-echo-travels-2x（档案独行：标题 + 字段表 + Summary/Resolution 粗体值 + FSC 表右对齐）+ t241-run-echo-figure-2x（图在字节里：milestone 表 + 嵌图 + Outputs + 斜体产地行）。
+- 【全家族回归】qa49/50/51 ALL GREEN + qa55/57/58 GREEN（**重构后 md 字节不变**——qa57 深断言自证）+ t223 155/0 + t210 151 + t215 44 + t213 35 + t214 29 + t219 29 + t212 30 + t218 29 + t221 14 全 0 fail；roster 恒等 21。
+- 【漂移考古】t218/t219/t240 = 4px 边缘噪声（强 0）；t223-hero = strip 跟随滚位的诚实状态漂移（y146–150 4px 带——hero 钉了 scrollTop 没钉 strip scrollLeft，t235 follow 的合法遗产）；t212/215 = recent activity 时间词（3.4k strong @ y1350，t236 判例同区同量级）；t210 ×3 WebGL 惯犯具名 checkout。
+- 【世界卫生】全家族绿 + roster 恒等 21、tmp echo 已清、只读窗无 twin。
+- 【收尾】worklog（本条）+ commit/push + 环境清理。
+
+Stage Summary:
+- 「回声尊重字节」：第二种回声的目录哲学——md 自带导航就逐字尊重（链接成真锚、锚点折叠进标题、回链成真链接），md 没有才铸造（session 的 index 配对）；两种回声同一杯 CSS，着陆光免费跨介质
+- 「契约是忠实不是快照」：镜像律断言（md 与 html 的节/链/图计数恒等 + 零死链）job 无关——瘦档满档皆判；断言假设档案的丰满度就是出题者的第二口井
+- 「一井两嘴」：run dossier 的 md 与 HTML 门共享一个采集器（buildRunReportMd），md 字节是井、两种介质是嘴——重构后 qa57 证明 md 字节一字未变
+- 「方言的四件扩展」：hr/#-链接/data-URI 图/有序列表入闭子集——扩展由真实发射者定义（profile 家族说什么方言，转换器就学什么），http 落回文本的陷阱守门
+- 遗留（下轮候选）：run 回声的着陆光帧（等真实满档档案——数据世界长出 5+ 节的 job 那天）；run 回声窄门核查（t238 的 640px 门随 DOC_CSS 自动生效，但 7 列表不存在于 run 档案——band 表现未验，低优先）；透镜纸面化（维持）；updatedAt 治理（大工程）；EMPIAR 真数据回归（让位）；hero 纸档叠印可读性（维持）；shortcuts report 组记载 Download HTML 门（维持低优先）

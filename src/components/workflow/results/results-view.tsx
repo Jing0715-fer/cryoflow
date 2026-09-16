@@ -20,6 +20,7 @@ import {
   FileDown,
   FileText,
   FolderOpen,
+  Globe,
   Layers,
   Loader2,
   RefreshCw,
@@ -39,6 +40,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/hooks/use-toast";
 import { buildFscSvg, fscMilestones, fscNyquist, fscTableMarkdown } from "@/lib/fsc-snapshot";
+import { buildProfileReportHtml } from "@/lib/report-html";
 import {
   angdistSummaryMarkdown,
   buildAngdistHeatmapSvg,
@@ -194,8 +196,11 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
    *  table plus a self-drawn curve snapshot (PNG data URL, 2× rasterized
    *  from a standalone SVG — never scraped from the class-styled DOM
    *  chart); both degrade to nothing when the data or the browser says no. */
-  const exportReport = useCallback(async () => {
-    setReportBusy(true);
+  const buildRunReportMd = useCallback(async (): Promise<{
+    md: string;
+    chartBits: string[];
+    slug: string;
+  } | null> => {
     try {
       interface FscBody {
         source: "postprocess" | "model" | null;
@@ -585,16 +590,6 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
         })
         .join("\n");
 
-      const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      // id suffix keeps same-named jobs' reports distinguishable in Downloads
-      a.download = `cryoflow-report-${slug}-${job.id.slice(-6)}.md`;
-      a.click();
-      URL.revokeObjectURL(url);
-      // toast names what the report actually carries — the FSC phrase stays
-      // first so the long-standing assertion-friendly wording survives
       const chartBits = [
         fscSection ? "FSC table & curve snapshot" : null,
         progressSection ? "resolution progress chart" : null,
@@ -603,11 +598,46 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
         angSection ? "orientation distribution map" : null,
         topazSection ? "Topaz training curves" : null,
       ].filter(Boolean) as string[];
+      return { md, chartBits, slug };
+    } catch {
+      return null;
+    }
+  }, [job, data, mrcFiles, starFiles]);
+
+  // t241: the run dossier's two doors share ONE builder — the md bytes
+  // are the well, the two media are the mouths. The md door is the lab
+  // notebook's paste source; the HTML door is the portable echo (the
+  // same bytes dressed as a standalone document — t237's law for the
+  // per-job family). One busy state guards both: while either medium is
+  // being collected, both doors rest.
+  const downloadBytes = (content: string, name: string, mime: string) => {
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportReport = useCallback(async () => {
+    setReportBusy(true);
+    try {
+      const built = await buildRunReportMd();
+      if (!built) throw new Error("collect failed");
+      downloadBytes(
+        built.md,
+        // id suffix keeps same-named jobs' reports distinguishable in Downloads
+        `cryoflow-report-${built.slug}-${job.id.slice(-6)}.md`,
+        "text/markdown;charset=utf-8",
+      );
+      // toast names what the report actually carries — the FSC phrase stays
+      // first so the long-standing assertion-friendly wording survives
       toast({
         title: "Run report downloaded",
         description:
-          chartBits.length > 0
-            ? `Markdown + ${chartBits.join(" + ")} — paste straight into lab notes or an issue.`
+          built.chartBits.length > 0
+            ? `Markdown + ${built.chartBits.join(" + ")} — paste straight into lab notes or an issue.`
             : "Markdown — paste straight into lab notes or an issue.",
       });
     } catch {
@@ -615,7 +645,29 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
     } finally {
       setReportBusy(false);
     }
-  }, [job, data, mrcFiles, starFiles]);
+  }, [buildRunReportMd, job]);
+
+  const exportReportHtml = useCallback(async () => {
+    setReportBusy(true);
+    try {
+      const built = await buildRunReportMd();
+      if (!built) throw new Error("collect failed");
+      downloadBytes(
+        buildProfileReportHtml(built.md),
+        `cryoflow-report-${built.slug}-${job.id.slice(-6)}.html`,
+        "text/html;charset=utf-8",
+      );
+      toast({
+        title: "Portable report downloaded",
+        description:
+          "Self-contained HTML — opens in any browser with its contents and figures, no app needed.",
+      });
+    } catch {
+      toast({ title: "Report export failed", variant: "destructive" });
+    } finally {
+      setReportBusy(false);
+    }
+  }, [buildRunReportMd, job]);
 
   /* ---------------- render ---------------- */
 
@@ -691,6 +743,19 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
           >
             <FileDown className={cn("h-3.5 w-3.5", reportBusy && "animate-pulse motion-reduce:animate-none")} aria-hidden="true" />
             Report
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => void exportReportHtml()}
+            disabled={reportBusy}
+            aria-busy={reportBusy}
+            className="h-7 gap-1.5 px-2 text-[11px]"
+            aria-label="Export run report as HTML"
+            title="Download the same report as a self-contained HTML document — opens in any browser with contents and figures, no app needed"
+          >
+            <Globe className={cn("h-3.5 w-3.5", reportBusy && "animate-pulse motion-reduce:animate-none")} aria-hidden="true" />
+            HTML
           </Button>
           <Button
             variant="ghost"

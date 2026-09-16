@@ -71,9 +71,13 @@ const esc = (s: string): string =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 /** Inline voice for the closed subset: code spans first (protected from
- *  the bold scan), then bold, then full-line emphasis is the caller's
- *  paragraph-level concern. Input arrives RAW (unescaped) — we escape
- *  the prose around the markers so nothing forges markup. */
+ *  the bold scan), then same-document links, then bold, then full-line
+ *  emphasis is the caller's paragraph-level concern. Input arrives RAW
+ *  (unescaped) — we escape the prose around the markers so nothing
+ *  forges markup. Links are #-ANCHORS ONLY (the profile family's
+ *  contents/back-link); an http target would forge an external
+ *  reference and falls through as escaped text — the echo never
+ *  guesses, and the document never grows a network dependency. */
 const inlineHtml = (raw: string): string => {
   // split on code spans first — their content must not grow markup
   const parts = raw.split(/(`[^`]+`)/g);
@@ -88,6 +92,7 @@ const inlineHtml = (raw: string): string => {
       // emphasis (the sweep's empty state says *Compare profiles*).
       return esc(part)
         .replace(/\\\|/g, "|")
+        .replace(/\[([^\]]+)\]\(#([a-z0-9-]+)\)/g, '<a href="#$2">$1</a>')
         .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
         .replace(/\*([^*\s][^*]*)\*/g, "<em>$1</em>");
     })
@@ -198,6 +203,16 @@ nav.toc a { display:inline-block; font-size:0.78rem; color:var(--ink); text-deco
 nav.toc a:hover { color:var(--vio); border-color:var(--vio); }
 nav.toc a.sub { font-size:0.72rem; opacity:0.85; }
 a { color:var(--vio); }
+/* the run dossier's dialect (t241): its own contents survives verbatim
+ * (an ordered list of real links), the chart snapshots travel INSIDE
+ * the bytes (data URIs — self-contained, no network), and the rules
+ * between sections get a hairline of their own. */
+ol { margin:0.45rem 0; padding-left:1.2rem; }
+ol li { margin:0.15rem 0; }
+hr { border:none; border-top:1px solid var(--line); margin:1.5rem 0; }
+figure.shot { margin:0.7rem 0; }
+figure.shot img { max-width:100%; height:auto; display:block;
+  border:1px solid var(--line); border-radius:8px; }
 /* The landing light (t239): the contents' doors worked, but arrival was
  * silent — the reader lands WHERE? A wash announces the section the link
  * pointed at, then DISSOLVES. The echo has no spy (zero script), so a
@@ -333,6 +348,154 @@ export const buildSessionReportHtml = (
     "<article>",
     body.join("\n"),
     opts.note ? `<footer class="docnote">${esc(opts.note)}</footer>` : "",
+    "</article>",
+    "</body>",
+    "</html>",
+    "",
+  ].join("\n");
+};
+
+/**
+ * The run report's echo (t241): the per-job dossier's md bytes dressed
+ * as a standalone document. The session echo injects its own contents
+ * page because the session md has none; the run md ALREADY carries its
+ * navigation — a bold Contents line, numbered links, slug anchors
+ * before every section, a back-link footer — so this echo HONORS those
+ * bytes verbatim instead of re-authoring them: the numbered links and
+ * the back-link become real anchors, and each section's invisible
+ * anchor line FOLDS into its heading (the slug rides the h2 itself, so
+ * :target — the landing light t239 hung in DOC_CSS — fires on the
+ * heading the reader asked for). An anchor whose next block is not a
+ * heading (the Contents target) is emitted verbatim — its purpose, a
+ * linkable address, survives exactly.
+ *
+ * The dialect is the profile family's own: everything the closed
+ * subset speaks, plus horizontal rules, ordered lists, same-document
+ * links, and data-URI images — the chart snapshots travel INSIDE the
+ * bytes, self-contained, no network. Anything else still falls through
+ * as honestly-escaped text; an image whose src is not a data URI is
+ * prose, not a picture (the echo never guesses, and never grows an
+ * external reference). Deterministic like its sibling: same md in,
+ * same bytes out — the md's own "Generated on" clock line is the md
+ * medium's provenance (pinned by qa57), not this converter's business.
+ */
+export const buildProfileReportHtml = (md: string, opts: { title?: string } = {}): string => {
+  const lines = md.split("\n");
+  let docTitle = opts.title ?? "CryoFlow run report";
+  let pendingAnchor: string | null = null;
+  const body: string[] = [];
+
+  // an anchor stashed by the previous line, waiting for its heading —
+  // if the next block is not a heading, it goes out verbatim first
+  const flushAnchor = (): string => {
+    if (pendingAnchor == null) return "";
+    const a = `<a id="${pendingAnchor}" name="${pendingAnchor}"></a>`;
+    pendingAnchor = null;
+    return a;
+  };
+
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+
+    if (line.trim() === "") {
+      i++;
+      continue;
+    }
+
+    // the family's invisible anchor lines — fold or pass through
+    const am = /^<a id="([a-z0-9-]+)" name="[a-z0-9-]+"><\/a>$/.exec(line.trim());
+    if (am) {
+      pendingAnchor = am[1];
+      i++;
+      continue;
+    }
+
+    if (/^#{1,3} \S/.test(line)) {
+      const level = line.startsWith("### ") ? 3 : line.startsWith("## ") ? 2 : 1;
+      const text = line.replace(/^#{1,3} /, "");
+      const id = pendingAnchor;
+      pendingAnchor = null;
+      const attrs = id ? ` id="${id}"` : "";
+      if (level === 1) {
+        docTitle = opts.title ?? text.trim();
+        body.push(`<h1>${inlineHtml(text)}</h1>`);
+      } else {
+        body.push(`<h${level}${attrs}>${inlineHtml(text)}</h${level}>`);
+      }
+      i++;
+      continue;
+    }
+
+    if (line.trim() === "---") {
+      body.push(`${flushAnchor()}<hr>`);
+      i++;
+      continue;
+    }
+
+    if (line.startsWith("|") && i + 1 < lines.length && /^\|[\s:-]+\|/.test(lines[i + 1])) {
+      const t = tableHtml(lines, i);
+      body.push(`${flushAnchor()}${t.html}`);
+      i = t.next;
+      continue;
+    }
+
+    // the chart snapshots — data URIs only; anything else is prose
+    const im = /^!\[([^\]]*)\]\((data:image\/png;base64,[A-Za-z0-9+/=]+)\)$/.exec(line.trim());
+    if (im) {
+      body.push(`${flushAnchor()}<figure class="shot"><img src="${im[2]}" alt="${esc(im[1])}"></figure>`);
+      i++;
+      continue;
+    }
+
+    if (/^\d+\.\s+\S/.test(line)) {
+      const items: string[] = [];
+      while (i < lines.length && /^\d+\.\s+\S/.test(lines[i])) {
+        items.push(`<li>${inlineHtml(lines[i].replace(/^\d+\.\s+/, ""))}</li>`);
+        i++;
+      }
+      body.push(`${flushAnchor()}<ol>${items.join("")}</ol>`);
+      continue;
+    }
+
+    if (/^-\s+\S/.test(line)) {
+      const items: string[] = [];
+      while (i < lines.length && /^-\s+\S/.test(lines[i])) {
+        items.push(`<li>${inlineHtml(lines[i].replace(/^-\s+/, ""))}</li>`);
+        i++;
+      }
+      body.push(`${flushAnchor()}<ul>${items.join("")}</ul>`);
+      continue;
+    }
+
+    if (line.startsWith("> ")) {
+      const quotes: string[] = [];
+      while (i < lines.length && lines[i].startsWith("> ")) {
+        quotes.push(inlineHtml(lines[i].replace(/^> /, "")));
+        i++;
+      }
+      body.push(`${flushAnchor()}<blockquote><p>${quotes.join("</p><p>")}</p></blockquote>`);
+      continue;
+    }
+
+    const italic = /^_.+_$/.test(line.trim());
+    const text = italic ? line.trim().slice(1, -1) : line;
+    body.push(`<p>${flushAnchor()}${italic ? `<em>${inlineHtml(text)}</em>` : inlineHtml(text)}</p>`);
+    i++;
+  }
+
+  return [
+    "<!DOCTYPE html>",
+    '<html lang="en">',
+    "<head>",
+    '<meta charset="utf-8">',
+    '<meta name="viewport" content="width=device-width, initial-scale=1">',
+    `<title>${esc(docTitle)}</title>`,
+    `<style>${DOC_CSS}</style>`,
+    "</head>",
+    "<body>",
+    "<article>",
+    body.join("\n"),
     "</article>",
     "</body>",
     "</html>",

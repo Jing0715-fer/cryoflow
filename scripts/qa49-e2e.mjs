@@ -128,6 +128,10 @@ const phaseA = async () => {
     return b.text();
   })()`));
   step(`  md head: ${text.slice(0, 160)}`);
+  // the eval bridge escapes: \n for newlines AND \" for quotes (qa57's lesson)
+  let md = text;
+  if (md.includes("\\n") && !md.includes("\n")) md = md.replace(/\\n/g, "\n");
+  md = md.replace(/\\"/g, '"');
   if (text.includes("# CryoFlow run report")) {
     if (!text.includes("QA Refine3D")) throw new Error("report missing job name");
     if (!text.includes("## Resolution") || !text.includes("## Outputs on disk"))
@@ -135,6 +139,67 @@ const phaseA = async () => {
     step("  content assertions: PASS (promise resolved)");
   } else {
     step("  content assertions: SKIPPED (eval did not resolve the promise — size check only)");
+  }
+
+  // t241: the run dossier's SECOND mouth — the portable echo. The same
+  // collected bytes dressed as a standalone document: doctype first,
+  // zero script, zero external refs, the contents' links paired with
+  // real heading ids, the landing-light rule riding the shared CSS,
+  // the chart snapshots carried as data URIs (inside the bytes).
+  const htmlBtnProbe = J(`(() => {
+    const b = [...document.querySelectorAll('button')].find(x => x.getAttribute('aria-label') === 'Export run report as HTML');
+    return { btn: !!b, title: b?.getAttribute('title')?.slice(0, 60) ?? null };
+  })()`);
+  step(`  html door probe: ${JSON.stringify(htmlBtnProbe)}`);
+  if (!htmlBtnProbe.btn) throw new Error("HTML door missing");
+  const clk2 = unq(evalJs(`(() => {
+    const b = [...document.querySelectorAll('button')].find(x => x.getAttribute('aria-label') === 'Export run report as HTML');
+    if (!b) return 'NO-BTN';
+    b.click(); return 'clicked';
+  })()`));
+  step(`  html door click: ${clk2}`);
+  if (clk2 !== "clicked") throw new Error(clk2);
+  await sleep(3500);
+  const toasts2 = unq(evalJs(`(window.__qaToasts||[]).map(t=>t.text).join(' | ') || 'NONE'`));
+  const blobs2 = J(`({ n: (window.__qaBlobs||[]).length, sizes: (window.__qaBlobs||[]).map(b => b.size) })`);
+  step(`  toasts now: ${toasts2}`);
+  step(`  blobs now: ${JSON.stringify(blobs2)}`);
+  if (!/Portable report downloaded/i.test(toasts2)) throw new Error(`html toast missing: ${toasts2}`);
+  if (blobs2.n < 2 || (blobs2.sizes[1] ?? 0) < 500) throw new Error(`html blob not captured: ${JSON.stringify(blobs2)}`);
+  const htmlOut = unq(evalJs(`(async () => {
+    const b = (window.__qaBlobs||[])[1];
+    if (!b) return 'NO-BLOB';
+    return b.text();
+  })()`));
+  if (htmlOut.startsWith("<!DOCTYPE html>")) {
+    // the MIRROR LAW — the echo is a faithful dress of whatever md it
+    // drank: every section, every #-link, every image, and every link
+    // resolves to a real id (slim dossier or full dossier alike — the
+    // contract is fidelity, not a particular job's section count)
+    const mdH2 = (md.match(/^## /gm) || []).length;
+    const htmlH2 = (htmlOut.match(/<h2/g) || []).length;
+    const mdLinks = (md.match(/\]\(#([a-z0-9-]+)\)/g) || []).length;
+    const htmlLinks = (htmlOut.match(/<a href="#/g) || []).length;
+    const deadLinks = [...htmlOut.matchAll(/href="#([a-z0-9-]+)"/g)]
+      .filter((m) => !htmlOut.includes(`id="${m[1]}"`)).length;
+    const mdImgs = (md.match(/^!\[/gm) || []).length;
+    const htmlImgs = (htmlOut.match(/<figure class="shot">/g) || []).length;
+    const checks = {
+      doctype: htmlOut.startsWith("<!DOCTYPE html>"),
+      noScript: !/<script/i.test(htmlOut),
+      noExternal: !/<link|@import|src="http/i.test(htmlOut),
+      mirrorH2: htmlH2 === mdH2,
+      mirrorLinks: htmlLinks === mdLinks,
+      noDeadLinks: deadLinks === 0,
+      mirrorImgs: htmlImgs === mdImgs,
+      landingRule: htmlOut.includes("h2:target, h3:target { animation: echo-glow"),
+      noRawMdLinks: !/\]\(#/.test(htmlOut),
+    };
+    step(`  echo checks (md h2=${mdH2} links=${mdLinks} imgs=${mdImgs}): ${JSON.stringify(checks)}`);
+    for (const [k, v] of Object.entries(checks)) if (!v) throw new Error(`echo check failed: ${k}`);
+    step("  echo byte assertions: PASS (mirror law holds)");
+  } else {
+    step("  echo byte assertions: SKIPPED (eval did not resolve the promise)");
   }
   sh(`${AB} screenshot /home/z/my-project/agent-ctx/qa49-report.png`);
 };
