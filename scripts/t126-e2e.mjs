@@ -40,6 +40,10 @@ import { execSync } from "node:child_process";
 import { chromium } from "playwright";
 
 const BASE = "http://localhost:3000";
+// t259 — projects routes sit behind the metadata door; node fetch carries
+// no Fetch Metadata, so the cleanup calls speak "same-origin" exactly as
+// a browser would (the t251 doctrine).
+const SH = { "sec-fetch-site": "same-origin" };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 let PASS = 0;
@@ -61,7 +65,7 @@ async function cleanup() {
     try {
       await fetch(`${BASE}/api/projects/switch`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "sec-fetch-site": "same-origin", "Content-Type": "application/json" },
         body: JSON.stringify({ id: origPid }),
       });
     } catch {}
@@ -73,7 +77,7 @@ async function cleanup() {
     try { await fetch(`${BASE}/api/workspaces/${id}`, { method: "DELETE" }); } catch {}
   }
   if (crossPid) {
-    try { await fetch(`${BASE}/api/projects/${crossPid}`, { method: "DELETE" }); } catch {}
+    try { await fetch(`${BASE}/api/projects/${crossPid}`, { method: "DELETE", headers: SH }); } catch {}
   }
 }
 const must = (cond, label) => {

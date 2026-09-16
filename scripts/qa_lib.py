@@ -24,10 +24,18 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 
 def api(path, method="GET", body=None):
+    # t259 — the metadata-door routes (projects family, profiles, system)
+    # check Fetch Metadata / Origin; python urllib carries neither by
+    # default. Speak "same-origin" exactly as the app's own browser calls
+    # do (the t251 doctrine: QA clients send the headers the door checks).
     req = urllib.request.Request(
         BASE + path,
         method=method,
-        headers={"Content-Type": "application/json"},
+        headers={
+            "sec-fetch-site": "same-origin",
+            "Origin": BASE,
+            "Content-Type": "application/json",
+        },
         data=json.dumps(body).encode() if body is not None else None,
     )
     with urllib.request.urlopen(req, timeout=30) as r:

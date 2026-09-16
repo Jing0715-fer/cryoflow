@@ -78,6 +78,7 @@ const FAMILY = [
   "t256-map-card.mjs", // the Import Map identity card
   "t257-reference-card.mjs", // the consumer-side reference card (Task 257)
   "t258-view-in-3d.mjs", // the cards' View in 3D buttons (Task 258)
+  "t259-metadata-gates.mjs", // the application-metadata door (Task 259)
 ];
 
 // ---- CLI -------------------------------------------------------------------

@@ -38,7 +38,7 @@ await sleep(500);
 
 // ---- Phase A: API truth ---------------------------------------------------
 console.log("== PHASE A: API hint ==");
-const sys = await (await fetch(`${BASE}/api/system?force=1`)).json();
+const sys = await (await fetch(`${BASE}/api/system?force=1`, { headers: { "sec-fetch-site": "same-origin" } })).json();
 must(sys.found === false, "engine not found (demo host truth)");
 must(typeof sys.hint === "string" && sys.hint.length > 40, "hint present and substantial");
 const hint = sys.hint ?? "";
@@ -52,7 +52,7 @@ must(hint.includes("B) point RELION_HOME at it"), "remedy B");
 must(hint.includes("then press Re-detect — no restart needed"), "closing names Re-detect, no restart");
 const dup = (hint.match(/\/home\/z\/relion-install\/bin/g) || []).length;
 must(dup === 1, `known-path list deduped (${dup} occurrence of the sandbox target)`);
-const fresh = await (await fetch(`${BASE}/api/system?force=1`)).json();
+const fresh = await (await fetch(`${BASE}/api/system?force=1`, { headers: { "sec-fetch-site": "same-origin" } })).json();
 must(fresh.hint === hint, "two probes → identical guidance except the clock (bytes stable)");
 
 // ---- Phase B: popover truth ------------------------------------------------

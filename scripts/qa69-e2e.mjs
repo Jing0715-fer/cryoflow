@@ -34,7 +34,9 @@ const B = "http://localhost:3000";
 // Task 85: DB resets stranded this anchor — resolve the living project at
 // runtime (env override keeps the old escape hatch)
 const PROJECT = process.env.QA_PROJECT
-  ?? (await (await fetch(`${B}/api/projects`)).json()).projects[0].id;
+  // t259 — the projects GET sits behind the metadata door; speak
+  // "same-origin" the way a browser would (t251 doctrine).
+  ?? (await (await fetch(`${B}/api/projects`, { headers: { "sec-fetch-site": "same-origin" } })).json()).projects[0].id;
 const CARD2D = "QA Class2D Source";
 const HOST_JOB = "QA Post 320";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -291,7 +293,7 @@ for (let i = 0; i < 5; i++) {
 // FSC-bearing jobs into the living instance (qa60's four + the qa50/51-
 // foddered skeleton pair), and future fodder growth should widen the
 // dialog, not break this suite — read the index, assert the dialog agrees
-const WANT_ROWS = await fetch(`${B}/api/projects/${PROJECT}/fsc-index`)
+const WANT_ROWS = await fetch(`${B}/api/projects/${PROJECT}/fsc-index`, { headers: { "sec-fetch-site": "same-origin" } })
   .then((r) => r.json()).then((d) => (d.jobs ?? []).length)
   .catch(() => 0);
 must(WANT_ROWS >= 5, `fsc-index reachable for row expectation (got ${WANT_ROWS})`);

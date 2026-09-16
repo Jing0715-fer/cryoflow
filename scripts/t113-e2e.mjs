@@ -64,7 +64,9 @@ const pdfPages = (path) =>
 const errClear = () => sh(`${AB} errors --clear >/dev/null 2>&1 || true`);
 
 async function findJob(namePart) {
-  const { projects } = await (await fetch(`${B}/api/projects`)).json();
+  // t259 — the projects GET now sits behind the metadata door: speak
+  // "same-origin" the way a browser would (t251 doctrine).
+  const { projects } = await (await fetch(`${B}/api/projects`, { headers: { "sec-fetch-site": "same-origin" } })).json();
   for (const p of projects) {
     const { jobs } = await (await fetch(`${B}/api/jobs?projectId=${p.id}`)).json();
     const hit = jobs.find((x) => x.name.includes(namePart));

@@ -99,7 +99,7 @@ async function jobIdsByName() {
 const PALETTE6 = ["#14b8a6", "#f59e0b", "#8b5cf6", "#f43f5e", "#0ea5e9", "#84cc16"];
 async function paletteByJob() {
   const pid = await resolveProject();
-  const res = await fetch(`${B}/api/projects/${pid}/fsc-index`);
+  const res = await fetch(`${B}/api/projects/${pid}/fsc-index`, { headers: { "sec-fetch-site": "same-origin" } });
   const body = await res.json();
   const map = {};
   (body.jobs ?? []).forEach((j, i) => { map[j.jobId] = PALETTE6[i % PALETTE6.length]; });

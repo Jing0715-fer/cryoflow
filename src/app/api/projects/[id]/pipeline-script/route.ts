@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { buildPipelineScript } from "@/lib/relion/pipeline-script";
+import { isLocalRequest } from "@/lib/http-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +25,18 @@ type RouteContext = { params: Promise<{ id: string }> };
  * t170 pinned the per-job route (comment-stripped code scan + dir-listing
  * identity across calls).
  */
-export async function GET(_request: Request, context: RouteContext) {
+export async function GET(request: Request, context: RouteContext) {
+  // t259 — the metadata door: the script enumerates EVERY job's argv,
+  // workdir and inputs — the single most complete map of the project's
+  // computation (paths included). Same door pair as the read routes
+  // (http-guard); this handler takes a bare `Request`, which is exactly
+  // why the guard's parameter is the widest request shape.
+  if (!isLocalRequest(request)) {
+    return NextResponse.json(
+      { error: "Cross-site access to the pipeline script is not allowed" },
+      { status: 403 }
+    );
+  }
   try {
     const { id } = await context.params;
     const result = await buildPipelineScript(id);

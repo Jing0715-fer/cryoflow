@@ -1,17 +1,38 @@
 import { NextRequest, NextResponse } from "next/server";
 import { loadProfiles, saveProfiles, defaultProfiles, type SlurmProfile } from "@/lib/hpc/slurm";
+import { isLocalRequest } from "@/lib/http-guard";
 
 export const dynamic = "force-dynamic";
 
 /**
  * GET /api/hpc/profiles — cluster profile registry (defaults + persisted).
  * POST — replace the registry (validated, sanitized).
+ *
+ * t259 — the metadata door, and the highest-value one: the registry names
+ * the SUBMISSION TARGETS (ssh hosts, accounts, filesystem roots). A
+ * rebound READ hands that map to an attacker page; a cross-site no-cors
+ * WRITE can retarget every future sbatch (the t252 ledger class stops
+ * form-borne CSRF — a fetch can POST text/plain JSON that request.json()
+ * parses fine). isLocalRequest closes both carriers; the same-origin UI
+ * always passes.
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
+  if (!isLocalRequest(request)) {
+    return NextResponse.json(
+      { error: "Cross-site access to the profile registry is not allowed" },
+      { status: 403 }
+    );
+  }
   return NextResponse.json({ profiles: loadProfiles() });
 }
 
 export async function POST(request: NextRequest) {
+  if (!isLocalRequest(request)) {
+    return NextResponse.json(
+      { error: "Cross-site writes to the profile registry are not allowed" },
+      { status: 403 }
+    );
+  }
   try {
     const body = (await request.json().catch(() => ({}))) as { profiles?: unknown };
     if (!Array.isArray(body.profiles)) {

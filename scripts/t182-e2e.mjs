@@ -65,7 +65,13 @@ function section(name) {
 }
 
 const jfetch = async (url, opts) => {
-  const r = await fetch(BASE + url, opts);
+  // t259 — speak "same-origin" the way a browser does: the metadata-door
+  // routes (projects family, profiles) check Fetch Metadata, and node
+  // fetch carries none by default. Routes that don't check are unharmed.
+  const r = await fetch(BASE + url, {
+    ...opts,
+    headers: { "sec-fetch-site": "same-origin", ...(opts?.headers ?? {}) },
+  });
   let body = null;
   try { body = await r.json(); } catch { /* empty body is legal */ }
   return { status: r.status, body };

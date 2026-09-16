@@ -39,7 +39,7 @@ await sleep(500);
 
 // ---- Phase A: API truth (the well) ----------------------------------------
 console.log("== PHASE A: API truth (the well) ==");
-const sys = await (await fetch(`${BASE}/api/system?force=1`)).json();
+const sys = await (await fetch(`${BASE}/api/system?force=1`, { headers: { "sec-fetch-site": "same-origin" } })).json();
 must(sys.found === false, "engine not found (demo host truth)");
 const hint = typeof sys.hint === "string" ? sys.hint : "";
 must(hint.length > 40, "the well exists (hint substantial)");

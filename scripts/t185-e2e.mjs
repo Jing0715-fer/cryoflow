@@ -42,6 +42,11 @@ import path from "path";
 import { chromium } from "playwright";
 
 const BASE = process.env.BASE ?? "http://localhost:3000";
+// t259 — the profiles route now sits behind the metadata door; node fetch
+// carries no Fetch Metadata, so every call below speaks "same-origin"
+// exactly as a browser would (the t251 doctrine: QA scripts send the
+// headers the door checks).
+const SH = { "sec-fetch-site": "same-origin" };
 const REPO = process.cwd();
 const DATA_DIR = process.env.CRYOFLOW_DATA_DIR ?? path.join(REPO, "data");
 const PROFILE_FILE = path.join(DATA_DIR, "hpc-profiles.json");
@@ -89,7 +94,7 @@ const list0 = await (await fetch(BASE + "/api/jobs")).json();
 const jobs0 = Array.isArray(list0) ? list0 : list0.jobs ?? [];
 must(jobs0.length === 21, `S1 roster 21 jobs (${jobs0.length})`);
 
-const profilesRaw = (await (await fetch(BASE + "/api/hpc/profiles")).json()).profiles ?? [];
+const profilesRaw = (await (await fetch(BASE + "/api/hpc/profiles", { headers: SH })).json()).profiles ?? [];
 must(profilesRaw.length === 3, `S2 registry is the built-in trio (${profilesRaw.length})`);
 must(
   profilesRaw.some((p) => p.id === "local-workstation") &&
@@ -104,7 +109,7 @@ if (existsSync(PROFILE_FILE)) {
   rmSync(PROFILE_FILE);
   console.log("  heal: residue hpc-profiles.json from a crashed run deleted");
 }
-const profiles0 = (await (await fetch(BASE + "/api/hpc/profiles")).json()).profiles ?? [];
+const profiles0 = (await (await fetch(BASE + "/api/hpc/profiles", { headers: SH })).json()).profiles ?? [];
 must(!existsSync(PROFILE_FILE), "S4 canonical default world — no hpc-profiles.json persisted");
 
 const idleJobs = jobs0.filter((j) => j.status === "idle");
@@ -176,11 +181,11 @@ const renamed = profiles0.map((p) =>
 );
 const post1 = await fetch(BASE + "/api/hpc/profiles", {
   method: "POST",
-  headers: { "Content-Type": "application/json" },
+  headers: { "sec-fetch-site": "same-origin", "Content-Type": "application/json" },
   body: JSON.stringify({ profiles: renamed }),
 });
 must(post1.ok, "B1 rename POST accepted");
-const after1 = (await (await fetch(BASE + "/api/hpc/profiles")).json()).profiles ?? [];
+const after1 = (await (await fetch(BASE + "/api/hpc/profiles", { headers: SH })).json()).profiles ?? [];
 must(
   after1.find((p) => p.id === "slurm-gpu-cluster")?.name === "t185 Renamed Cluster",
   "B2 GET reflects the rename (the file now persists)"
@@ -196,7 +201,7 @@ const hostile = {
 };
 const post2 = await fetch(BASE + "/api/hpc/profiles", {
   method: "POST",
-  headers: { "Content-Type": "application/json" },
+  headers: { "sec-fetch-site": "same-origin", "Content-Type": "application/json" },
   body: JSON.stringify({ profiles: [...profiles0, hostile] }),
 });
 const body2 = await post2.json();
@@ -221,7 +226,7 @@ const clamped = {
 };
 const post3 = await fetch(BASE + "/api/hpc/profiles", {
   method: "POST",
-  headers: { "Content-Type": "application/json" },
+  headers: { "sec-fetch-site": "same-origin", "Content-Type": "application/json" },
   body: JSON.stringify({ profiles: [...profiles0, clamped] }),
 });
 const body3 = await post3.json();
@@ -248,7 +253,7 @@ const nine = [
 ];
 const post4 = await fetch(BASE + "/api/hpc/profiles", {
   method: "POST",
-  headers: { "Content-Type": "application/json" },
+  headers: { "sec-fetch-site": "same-origin", "Content-Type": "application/json" },
   body: JSON.stringify({ profiles: nine }),
 });
 const body4 = await post4.json();
@@ -257,13 +262,13 @@ must(post4.ok && (body4.profiles ?? []).length === 8, `B9 nine in, eight kept ($
 // B10 the refusals
 const post5 = await fetch(BASE + "/api/hpc/profiles", {
   method: "POST",
-  headers: { "Content-Type": "application/json" },
+  headers: { "sec-fetch-site": "same-origin", "Content-Type": "application/json" },
   body: JSON.stringify({ profiles: [] }),
 });
 must(post5.status === 400, "B10 an empty registry is refused (400)");
 const post6 = await fetch(BASE + "/api/hpc/profiles", {
   method: "POST",
-  headers: { "Content-Type": "application/json" },
+  headers: { "sec-fetch-site": "same-origin", "Content-Type": "application/json" },
   body: JSON.stringify({ profiles: "garbage" }),
 });
 must(post6.status === 400, "B11 a non-array body is refused (400)");
@@ -271,7 +276,7 @@ must(post6.status === 400, "B11 a non-array body is refused (400)");
 // restore the renamed trio (D phase expects the UI's own state)
 const postR = await fetch(BASE + "/api/hpc/profiles", {
   method: "POST",
-  headers: { "Content-Type": "application/json" },
+  headers: { "sec-fetch-site": "same-origin", "Content-Type": "application/json" },
   body: JSON.stringify({ profiles: renamed }),
 });
 must(postR.ok, "B12 registry restored to the renamed trio for the UI phases");
@@ -362,7 +367,7 @@ if (dPanel) {
   must(await nameInput.count() > 0, "D3 the editor form is mounted");
 
   // rename the FIRST profile (local-workstation) through the form
-  const before = (await (await fetch(BASE + "/api/hpc/profiles")).json()).profiles ?? [];
+  const before = (await (await fetch(BASE + "/api/hpc/profiles", { headers: SH })).json()).profiles ?? [];
   const firstName = before[0].name;
   await nameInput.first().fill("t185 Local Box");
   await sleep(500); // the marker is React state — give the render a beat
@@ -372,7 +377,7 @@ if (dPanel) {
   await sleep(1200);
   const flash = await dpage.getByText("Saved — server view shown").isVisible().catch(() => false);
   must(flash, "D5 the saved flash names the server's view");
-  const afterRename = (await (await fetch(BASE + "/api/hpc/profiles")).json()).profiles ?? [];
+  const afterRename = (await (await fetch(BASE + "/api/hpc/profiles", { headers: SH })).json()).profiles ?? [];
   must(
     afterRename[0]?.name === "t185 Local Box" && afterRename[0]?.name !== firstName,
     `D6 the registry reflects the UI rename (“${afterRename[0]?.name}”)`
@@ -393,11 +398,11 @@ if (dPanel) {
   await sleep(1300);
   await dpage.getByRole("button", { name: "Add", exact: true }).click();
   await sleep(600);
-  const beforeSave = (await (await fetch(BASE + "/api/hpc/profiles")).json()).profiles ?? [];
+  const beforeSave = (await (await fetch(BASE + "/api/hpc/profiles", { headers: SH })).json()).profiles ?? [];
   must(beforeSave.length === 3, `D8 Add alone stays local — the server is untouched (${beforeSave.length})`);
   await dpage.getByRole("button", { name: "Save to server" }).click();
   await sleep(1200);
-  const afterAdd = (await (await fetch(BASE + "/api/hpc/profiles")).json()).profiles ?? [];
+  const afterAdd = (await (await fetch(BASE + "/api/hpc/profiles", { headers: SH })).json()).profiles ?? [];
   must(afterAdd.length === 4, `D9 Save posts the new profile to the server (${afterAdd.length})`);
   must(
     afterAdd.some((p) => p.id === "custom-1"),
@@ -417,7 +422,7 @@ if (dPanel) {
   await sleep(600);
   await dpage.getByRole("button", { name: "Save to server" }).click();
   await sleep(1200);
-  const afterDelete = (await (await fetch(BASE + "/api/hpc/profiles")).json()).profiles ?? [];
+  const afterDelete = (await (await fetch(BASE + "/api/hpc/profiles", { headers: SH })).json()).profiles ?? [];
   must(
     afterDelete.length === 3 && !afterDelete.some((p) => p.id === "custom-1"),
     `D12 the two-step delete lands on the server (${afterDelete.length})`
@@ -443,7 +448,7 @@ section("Z: the canonical default world returns");
 // semantics with S2/S3)
 if (existsSync(PROFILE_FILE)) rmSync(PROFILE_FILE);
 must(!existsSync(PROFILE_FILE), "Z1 hpc-profiles.json removed — the default world is restored");
-const finalProfiles = (await (await fetch(BASE + "/api/hpc/profiles")).json()).profiles ?? [];
+const finalProfiles = (await (await fetch(BASE + "/api/hpc/profiles", { headers: SH })).json()).profiles ?? [];
 must(
   finalProfiles.length === 3 &&
     finalProfiles.some((p) => p.id === "slurm-gpu-cluster" && p.name.includes("4×A100")),

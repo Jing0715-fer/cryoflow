@@ -23,10 +23,16 @@
  * drive-by door without breaking any user flow.
  */
 
-import type { NextRequest } from "next/server";
+/**
+ * t259 — the guard's parameter type is the WIDEST request shape (a plain
+ * Request): the guard only reads `request.headers`, NextRequest callers
+ * pass structurally, and route handlers that destructure a bare `Request`
+ * (e.g. the pipeline-script route) fit too. Narrow types would force a
+ * cast at every door.
+ */
 import os from "os";
 
-export function isSameOriginRequest(request: NextRequest): boolean {
+export function isSameOriginRequest(request: Request): boolean {
   const site = request.headers.get("sec-fetch-site");
   if (site === "same-origin" || site === "none") return true;
 
@@ -100,7 +106,7 @@ const OWN_HOSTNAMES: Set<string> = (() => {
 })();
 
 /** Host-header pin: true when the request's Host names THIS machine. */
-export function isAllowedHost(request: NextRequest): boolean {
+export function isAllowedHost(request: Request): boolean {
   const host = request.headers.get("host");
   if (!host) return false;
   // strip the port ("localhost:3000") / bracketed IPv6 zone ("[::1]:3000")
@@ -115,6 +121,6 @@ export function isAllowedHost(request: NextRequest): boolean {
  * file bytes): fetch-metadata same-origin first (cheap door slam for
  * drive-bys), then Host pinning (rebinding backstop).
  */
-export function isLocalRequest(request: NextRequest): boolean {
+export function isLocalRequest(request: Request): boolean {
   return isSameOriginRequest(request) && isAllowedHost(request);
 }

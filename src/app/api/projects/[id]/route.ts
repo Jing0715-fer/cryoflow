@@ -4,6 +4,7 @@ import { toProjectDTO } from "@/lib/seed";
 import { getProjectMeta, removeProjectMeta } from "@/lib/projects";
 import { readFileEdges, removeFileEdge } from "@/lib/edge-ports";
 import { isRunAlive, stopRun } from "@/lib/relion/engine";
+import { isLocalRequest } from "@/lib/http-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -11,8 +12,21 @@ type RouteContext = { params: Promise<{ id: string }> };
 
 /**
  * PATCH /api/projects/[id] — body: { name } (1–80 chars) → rename.
+ * DELETE /api/projects/[id] — stop its live runs, remove edges, delete.
+ *
+ * t259 — the metadata door: both handlers are blind STATE CHANGES
+ * (rename — a `.catch`-tolerant JSON parse a cross-site no-cors fetch
+ * can drive; delete — a cascading teardown of runs, edges and rows). The
+ * t252 ledger class stops form-borne CSRF, not fetch-borne; a rebound
+ * page passes the origin check entirely. isLocalRequest closes both.
  */
 export async function PATCH(request: NextRequest, context: RouteContext) {
+  if (!isLocalRequest(request)) {
+    return NextResponse.json(
+      { error: "Cross-site writes to projects are not allowed" },
+      { status: 403 }
+    );
+  }
   try {
     const { id } = await context.params;
     const body = (await request.json().catch(() => ({}))) as { name?: unknown };
@@ -53,7 +67,13 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
  * NOTE: RELION run records in data/engine-state.json are intentionally left
  * untouched (main agent owns the engine state lifecycle).
  */
-export async function DELETE(_request: NextRequest, context: RouteContext) {
+export async function DELETE(request: NextRequest, context: RouteContext) {
+  if (!isLocalRequest(request)) {
+    return NextResponse.json(
+      { error: "Cross-site project deletion is not allowed" },
+      { status: 403 }
+    );
+  }
   try {
     const { id } = await context.params;
 

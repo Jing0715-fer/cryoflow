@@ -1134,3 +1134,26 @@ Stage Summary:
 - 「mount 即预热的时机律」：MolViewer 挂载（closed）在 resolved 成立时而非卡片渲染时——「卡片确认有可看的图」才是 3D intent；预热的价值是「读卡间隙编译 chunk」，超前的预热是别人的 OOM
 - 「dialog 选址律」：多 dialog 页面里 [role=dialog].first() 是 DOM 顺序最先挂载的 inspector——**后 portal 者才是刚打开的**；与 t257「断言要看向组件所在的面」合璧：选址错层的断言不是失败是误导，canvas 等不来的排查第一问是「我在等哪一层」
 - 遗留（下轮候选）：应用元数据路由的门（/system、/hpc/profiles、/projects——低敏感挂账）；updatedAt 治理（大工程）；家族跑批 --report JSON + 分批一等公民化；watchdog 与 family-run 共生；EMPIAR 真数据回归（让位）；3D viewer 直达后的下一步候选：identity/reference 卡上加「打开时带裁剪状态」（从卡直达 clip 到锚点盒的视口——t253 的语言与 t258 的门合流）
+
+## Task 259 (2026-09-17, cron 01:48 窗口 trace cron-agent-loop-202609170156)
+
+- 【开局】四件套：尾部 = Task 258（c333cdc，回程一步直达）零过时（本窗是上窗交付后的紧邻窗口，续传摘要本窗未出现——worklog 尾部 + git log 唯一真源律照常执行）；净场核查 PORT 3000 FREE + 无 watchdog → watchdog 拉起验活 200。QA：qa00 GREEN + qa63 SMOKE GREEN + t251/t258 哨兵 ALL PASS + agent-browser errors/console 双空。无 bug。
+- 【巡检与立项】Task 258 遗留首选当选：**「应用元数据路由的门」**——t251 挂账的最后一段（/system、/hpc/profiles、/projects「低敏感」多年未挂）。勘察即翻案：全 API 面盘点发现 **32 个无门路由**，且其中藏着真风险——本窗立项 = 元数据门 + **t252 ledger 类的残余缺口封堵**。
+- 【威胁模型翻案】①「低敏感」的再审视：GET /api/hpc/profiles 泄露的是 **sbatch 提交目标**（ssh host/account/文件系统根）——rebinding 页的侦察地图；GET /api/projects 泄露全项目清单与 job 普查。②**t252 ledger 类的盲区**：严格 request.json() 挡的是 form 载体 CSRF（form 发不了 JSON），但 **no-cors fetch 能发 text/plain 的合法 JSON body**——request.json() 不看 Content-Type，blind 写（改 profiles 注册表 = 改写每一次 sbatch 的目的地）畅通。「forms cannot send JSON」防住了 form 没防住 fetch。
+- 【实现① guard 签名放宽】http-guard 三函数 NextRequest → **Request**（守卫只读 headers——最宽类型让 pipeline-script 路由的裸 Request 免 cast；additive 向后兼容）。
+- 【实现② 8 文件挂门】/api/system GET、/api/system/select POST、/api/hpc/profiles GET+POST、/api/projects GET+POST、/api/projects/switch POST、/api/projects/[id] PATCH+DELETE（_request 改名 request）、/api/projects/[id]/fsc-index GET、/api/projects/[id]/pipeline-script GET（裸 Request 面）；duplicate 的 t252 门原样健在（grep 盘点的 NO-GUARD 清单准确）。每门 per-route 教义注释（t251 判例：为什么挂、挡哪个载体、谁不受影响——「same-origin UI calls always pass」逐门在案）。
+- 【实现③ 测试生态适配（最小 diff 原则）】挂门会 403 无 metadata 的裸 node fetch/urllib——盘点 87 个脚本 239 处写调用后**放弃全量改造**（成本淹没收益），只改三面依赖者：t185（SH 常量 + 15 处）、t182（**jfetch helper 单点注入**）、t126/t113/qa62/qa69（逐处）、t242-245（sed 批量）、**qa_lib.py api()（python 侧单点——五个 qa50 系 seed 的共同出口，加 sec-fetch-site + Origin 双头）**。t197 的 H 常量早已就绪零改。
+- 【工艺事故①：replace_all 的重复键】t185 的 POST 批量替换造出 `{ headers: SH, headers: {...} }` 重复键——JS 字面量后者覆盖前者，same-origin 头静默丢失；发现后改为显式合并 `{ "sec-fetch-site": ..., "Content-Type": ... }`。「批量替换后的第一件事是 grep 验证键不重复」。
+- 【e2e：t259-metadata-gates.mjs】**63 断言 ×4 ALL PASS**（首跑 61/63）：A 相 demo 真相；B 相台账（guard 放宽 + 9 门文件逐个 wiring + t252 门不漂移 + 测试适配两件）；C 相**门矩阵 8 面 × 4 态**（bare 403 / cross 403 / **rebind curl 伪造 Host 403** / same-origin 200 或 400 route-speak——「route speaks, never 403」）；C2 相 **no-cors 击杀**（text/plain JSON + cross-site metadata 的 profiles POST → 403 + 门后注册表**逐字节未变**——blind 写死于门口的实证）；D 相 UI 活体（canvas 20 卡 + header 项目名——同源数据流穿新门无恙）；E 相 console 0。防御性 sweep + roster 21 恒等。
+- 【事故②：curl 的 405 陷阱】rebind POST 探针首跑 405——curlStatus 没发 `-X POST`，`data:` 伪头成了 GET → 405 在门之前就答了。「探针要先到达被测层——405 不是门坏是探针没敲门」。
+- 【事故③：grep 清单的盲区】家族 qa 批 5 real-fail（qa50/51/55/57/58）——我 grep 的调用点清单漏了 **python seed 脚本链**（e2e mjs 干净但它们的 seed 子进程经 qa_lib.py 裸 urllib）。qa_lib 单点修复后四连复跑全绿。「挂门的波及面要按 CLIENT 类型盘点（node fetch / urllib / curl），不是按文件名 grep」。
+- 【全家族回归】family-run 五批前台：qa 批 pass 10 · wall 404.9s ｜ t21 批 pass 7 · wall 195.2s ｜ t22 批 pass 2 · wall 66.7s ｜ t24 批 pass 9 · wall 124.4s ｜ t25 批 pass 9 · wall 428.7s——**合计 pass 37 · solo-recovery 0 · real-fail 0 · wall ~1220s**（首跑 qa 批 5 real-fail 破案修复后重跑全绿）；**t259 收编花名册 36→37**（--filter 亲跑 PASS 10.0s 验收）；roster 恒等 21。
+- 【收尾】worklog（本条）+ commit/push + 环境清理（Task 86 配方双杀 + port FREE 验证）。
+
+Stage Summary:
+- **「门环合拢」**：t251 的 16 面 job 数据环 → t252 写门 → t254/255 子体积门 → **t259 元数据门**——API 攻击面按敏感性分层的防护体系收官；「低敏感」挂账以威胁模型翻案的方式清偿（sbatch 目标不是低敏感，fetch 载体的 blind 写不是已防）
+- 「ledger 类的盲区」：request.json() 是解析器不是防火墙——它挡 Content-Type 不合规的 form，挡不住 text/plain 里的合法 JSON；**解析层的偶然防线不能冒充访问控制**，写路由的门必须是显式的
+- 「单点出口是测试生态的门」：t182 jfetch 与 qa_lib api() 两个 helper 各自一处注入 same-origin 元数据——87 脚本的全量改写被两个单点消解；**测试代码与应用代码一样受益于出口收敛**
+- 「探针的三问」：405 不是 403（curl 忘了 -X POST——探针没到达被测层）；403 可能是探针自己没带票（bare fetch）；绿可能来自没走到的分支（多行调用首行 grep）——**安全测试的每个数字都要回答「这是谁的响应」**
+- 「门改动的波及盘点按 client 类型」：node fetch / python urllib / curl 三类客户端各自需要适配——按文件名 grep 会漏掉子进程链（e2e 的 seed python）；家族回归是唯一可靠的波及面探测器
+- 遗留（下轮候选）：元数据门第二梯队（/api/jobs GET、/api/edges、/api/workspaces、/api/activity——同型改造成本评估后再挂）；3 个 roster 外维护工具的 python 出口（qa-multiselect-fixture / restore-sandbox-b / seed-outlier）补 Origin；updatedAt 治理（大工程）；家族跑批 --report JSON；watchdog 与 family-run 共生；EMPIAR 真数据回归（让位）

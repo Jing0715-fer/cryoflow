@@ -3,6 +3,7 @@ import { existsSync, readdirSync } from "fs";
 import { db } from "@/lib/db";
 import { findEffectiveJob } from "@/lib/link";
 import { getRun } from "@/lib/relion/engine";
+import { isLocalRequest } from "@/lib/http-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -47,7 +48,18 @@ export interface FscIndexResponse {
  * row wins and later mirrors are skipped (the dialog is about distinct
  * curves, not aliases).
  */
-export async function GET(_request: NextRequest, context: RouteContext) {
+export async function GET(request: NextRequest, context: RouteContext) {
+  // t259 — the metadata door: this index enumerates a project's FSC
+  // artifacts and their job lineage — a rebound page's map of WHAT IS
+  // WORTH STEALING. Same door pair as the read routes (http-guard):
+  // Fetch Metadata for the cross-site fetch, Host pinning for the
+  // rebound one. Same-origin UI calls always pass.
+  if (!isLocalRequest(request)) {
+    return NextResponse.json(
+      { error: "Cross-site access to the FSC index is not allowed" },
+      { status: 403 }
+    );
+  }
   try {
     const { id } = await context.params;
     const project = await db.project.findUnique({ where: { id } });

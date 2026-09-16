@@ -42,7 +42,7 @@ await sleep(500);
 
 // ---- Phase A: demo world identity ------------------------------------------
 console.log("== PHASE A: demo world identity ==");
-const sys = await (await fetch(`${BASE}/api/system`)).json();
+const sys = await (await fetch(`${BASE}/api/system`, { headers: { "sec-fetch-site": "same-origin" } })).json();
 must(sys.found === false, "real API: engine not found (demo host truth)");
 const jobs = await (await fetch(`${BASE}/api/jobs`)).json();
 must((jobs.jobs ?? []).length === 21, `roster identity 21 (got ${(jobs.jobs ?? []).length})`);
