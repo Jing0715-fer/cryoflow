@@ -1385,6 +1385,76 @@ li[data-swipe="end"] {
   font-weight: 650;
   margin: 0.8rem 0 0.3rem;
 }
+/* t234: the headings pay the compass's rent — scroll-margin-top equals
+   the sticky strip's own height plus breathing room, so a jump lands
+   the target BELOW the map (never hidden under it). The compass is a
+   screen organ: .no-print retires it on paper, where the page order IS
+   the map. */
+.report-doc h2,
+.report-doc h3 {
+  scroll-margin-top: 52px;
+}
+/* t234: the report's compass — the md's second surface. The chips are
+   parsed from the same bytes the body renders (reportTocOf), so the
+   map and the document can never disagree: two surfaces, one father.
+   Form: a sticky strip inside the 62vh scroller — the map stays in
+   hand however deep the reader goes. Its background is OPAQUE
+   (var(--background), not translucent) — a map you can see the road
+   through is a map that lies. Horizontal scroll when the sections
+   overflow (never wrap: a map keeps its order in one line). */
+.report-doc .report-compass {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  overflow-x: auto;
+  padding: 6px 8px;
+  margin: 0 0 0.5rem;
+  background: var(--background);
+  border-bottom: 1px solid var(--border);
+  scrollbar-width: none;
+}
+.report-doc .report-compass::-webkit-scrollbar { display: none; }
+/* the chips: quiet zinc pills — the map whispers so the document can
+   talk; the sub (###) chips run one step smaller and quieter, the
+   hierarchy of the outline preserved inside the strip itself */
+.report-doc .report-compass-chip {
+  flex: none;
+  font-size: 11px;
+  line-height: 1;
+  padding: 5px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--muted-foreground);
+  white-space: nowrap;
+  transition: color 0.15s, border-color 0.15s, background-color 0.15s;
+}
+.report-doc .report-compass-chip:hover {
+  color: var(--foreground);
+  border-color: rgb(124 58 237 / 0.45);
+}
+.report-doc .report-compass-chip:focus-visible {
+  outline: 2px solid rgb(124 58 237 / 0.5);
+  outline-offset: 1px;
+}
+.report-doc .report-compass-sub {
+  font-size: 10px;
+  padding: 4px 8px;
+  opacity: 0.85;
+}
+/* the needle: where the reader IS. The violet family is the report's
+   own accent (the doors wear it), and the underline is the strip's
+   only raised ink — a map marks your position, it doesn't shout. */
+.report-doc .report-compass-here,
+.report-doc .report-compass-here:hover {
+  color: #7c3aed;
+  border-color: rgb(124 58 237 / 0.5);
+  background: rgb(124 58 237 / 0.08);
+  box-shadow: inset 0 -2px 0 rgb(124 58 237 / 0.55);
+}
 .report-doc p { margin: 0.4rem 0; }
 .report-doc ul { margin: 0.4rem 0; padding-left: 1.1rem; list-style: disc; }
 .report-doc li { margin: 0.15rem 0; }

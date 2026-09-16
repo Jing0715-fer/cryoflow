@@ -577,3 +577,27 @@ Stage Summary:
 - 「caller 拥有措辞、阶梯拥有机制」：收据字符串留在调用点（C3/C5/C8 的子串断言逐字依赖），字节与控制流进阶梯——机制与语义的边界落在函数签名上
 - 「md 门的首个字节断言」：存在最久的门直到今天才被 wire 证明——C7（clipboard === data-md 逐位）把「复制的就是渲染的」从善意推定升格为实证；覆盖缺口不分老幼，只分有没有被证明过
 - 遗留（下轮候选）：透镜纸面化（哲学门槛维持）；updatedAt 治理（大工程）；EMPIAR 真数据回归（让位）；hero 纸档叠印可读性（维持，依赖真实打印证据）；export 家族下一位成员（Copy JSON？——需求未现，维持「未现不造」纪律）
+
+## Task 234 (2026-09-16, cron 08:32 窗口 trace …202609160832)
+
+- 【开局】四件套：尾部 = Task 233（7cf93ef）——**续传摘要第 31 度过时**（只写到 Task 231/68b6a2a，实际已前进 2 度：232 水合钟修复+CSV copy 门、233 copyOrFallback 阶梯均已交付）；净场 → watchdog 拉起后**三度秒死**（27502/27582/28799——本窗进程收割凶猛，与既往窗「拉起即活」不同），server 自身全程 200 健康：**不再烧窗于复活保险丝，server 巡检代替 watchdog 存活**（QA 可用性优先）。QA：qa00 GREEN + qa63 SMOKE GREEN + agent-browser console 零错。
+- 【立项】Task 233 遗留评审：五个候选全部维持让位（透镜纸面化哲学门槛/updatedAt 大工程/EMPIAR 让位/叠印依赖真实打印/Copy JSON 需求未现不造）。屏幕侧真实缺口当选：**「报告的地图」**——62vh 滚动容器里的长文档（4 个 h2 + 5 个 h3），翻找全靠手滚，文档这么长值得一个指南针。教义三条：**「目录是 md 的第二个表面」**（t230 HERO_QUARTERS 的 two surfaces one father 在文档层重演——chips 从 md 字节解析，绝不重抄章节名）；**「地图是屏幕器官」**（no-print——纸的页序天然即地图，t70 契约打印的仍是文档本身）；**「地图不假装」**（pending/error 世界章节集诚实缩水，井自己会说话）。
+- 【实现】
+  - `reportTocOf(md)` 模块纯函数：解析 ATX `##`/`###` 行（h1 是文档自己的名字不是目的地）、剥 mdCell 管道转义/`**`/反引号——chip 说的就是渲染标题说的
+  - 配对律按 INDEX：`querySelectorAll("h2,h3")` 与 toc 数组按序一一对应（同一口井流过两张嘴、同一序列）——零 id 注入、零rehype-slug 依赖
+  - sticky chips 条入 data-report-body 首位（`data-report-toc` nav + aria-label "Report sections"）：实底背景（透底色的地图是说谎的地图）、水平滚动不换行（地图保持一行）、h3 sub chip 小一号+0.85 透明度（大纲层级在条内自存）、active violet 同族 + inset 2px 指示条（地图标注位置不喊叫）、focus-visible 环
+  - spy：viewport-rect 几何（不用 offsetTop——对话框的 offsetParent 链不进数学）、rAF 节流、罗盘线 88px；**尾部定律**——滚到底强制 active=最后章（尾章永远到不了线：下面纸不够）
+  - 跳转：scrollIntoView smooth + `scroll-margin-top: 52px`（标题给 sticky 条交房租——目标落在地图下方，永不藏在下面）
+- 【e2e：t223-e2e 120→130】新 W 相 8 断言 + P9 + Z2l：W1a/W1b 恰一 + sticky、**W2 chip 数 === 标题数 === 9**（同父亲）、**W3 九对词逐位**（same well, two mouths）、W4 五个 sub chip（### 层级形制）、**W5 跳转落点 52px**（scroll-margin 交租实证）、W6 needle 跟随（aria-current on chip 2）、**W7 尾部定律**（滚到底 needle 指最后 chip——尾章到不了线，读者已在其中）、P9 纸不打印地图（仿真下 display none）、Z2l 无绑世界 9 chips 同配对。**130/0 ×3 全绿**。全家族回归绿：t210 151/0 + t215 44/0 + t213 35/0 + t214 29/0 + t219 29/0 + t212 30/0 + t218 29/0 + t221 14/0；roster 恒等 21。
+- 【事故与判例】①**W4 首跑失败：sub chip 数 5 非 6**——「Map QC summary — orthovol」是 h2（嵌入报告的深报告标题）不是 h3，出题时手数错；判例：**嵌套文档的标题层级以解析为准，肉眼数数是出题者的第二口井**。②watchdog 三度秒死（见开局）——判例：「保险丝死了但电路活着时，QA 主线不等保险丝复活；巡检代替祈祷」。③尾部定律是**目检发现的实现缺口**（点击尾章 target 停在 235px、needle 落在倒数第二）——先目检后出题，断言 W7 因此才成立。
+- 【定妆照】t234-compass-2x（首屏：地图与领土同框——compass 条 + 文档开头 + hero 同帧）+ **t234-compass-jump-2x**（使用中：点击尾章后 needle 骑到最后 chip、Scheduling sweep 落在地图下方）；t223-hero-2x 随 e2e 重摄（compass sticky 入画顶部）。新工具 scripts/t234-compass-frame.mjs（拍两张：opening + jump）。首拍两帧撞车（hero 未滚即可见 scrollIntoViewIfNeeded 空转）——**一帧一话**判例：跳转帧补上「使用中的罗盘」。
+- 【漂移考古】violet 行分布取证：t212 帧 HEAD 16 行 violet → WORKDIR 22 行（+6 = active chip 紫色）——447k 强像素确证为 **compass 入画的结构性位移**（t212/t214/t215 整页 0.166-0.191 + t218/t219/t223 系 9317-61486，全部随 feature 提交）；t213 386@0.001 超稀疏 sliver 渲染真相提交；t210-final/legend-open identical（mtime 噪声）+ t210-lanes（37357@画布区）WebGL 惯犯具名 checkout。
+- 【世界卫生】全家族绿 + roster 恒等 21、twin 已归家（每次出帧脚本自带 DELETE）。
+- 【收尾】worklog（本条）+ commit + push + 环境清理。
+
+Stage Summary:
+- 「目录是 md 的第二个表面」：two surfaces one father 从常量层（t225）与渲染数组层（t230）升格到**文档层**——TOC 与正文喝同一口 md 井，W2/W3 把配对钉成 wire 断言（chip 数 === 标题数、九对词逐位）；「two surfaces one father」的第三级形态
+- 「尾章到不了线」：sticky 导航的固有几何缺口（下面纸不够）——尾部定律补上「滚到底 = 读者在最后章」；W7 钉死。目检先于出题（W7 的存在本身来自目检发现）
+- 「地图是屏幕器官」：P9 纸不打印地图——纸的页序天然即地图，屏幕的导航与纸的页码各管各的介质；no-print 名册再添一员
+- 「索引配对零注入」：不用 id、不用 rehype-slug——解析序与 DOM 序按 index 配对（同一口井的同一序列）；结构决定配对，不靠锚点
+- 遗留（下轮候选）：透镜纸面化（哲学门槛维持）；updatedAt 治理（大工程）；EMPIAR 真数据回归（让位）；hero 纸档叠印可读性（维持，依赖真实打印证据）；compass 的键盘化（chips 已 focus-visible 但无方向键导航——Tab 逐个到达已可用，方向键是否值得，成本/价值再评估）；compass 的滚动收缩形制（滚深后 chips 条收窄成单行进度尺——纯样式候选，低优先）

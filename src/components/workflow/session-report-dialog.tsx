@@ -212,6 +212,35 @@ const HERO_H = 80;
  *  the same numbers, never a retyped pair. */
 const HERO_QUARTERS = [0.25, 0.5, 0.75];
 
+/** t234: the report's compass — a TOC that drinks the md's own well.
+ *  A document this long inside a 62vh scroller deserves a map, and the
+ *  map must be the md's SECOND surface (the HERO_QUARTERS law again:
+ *  two surfaces, one father) — the chips are PARSED from the same bytes
+ *  the body renders, never a retyped section list that could one day
+ *  disagree with the paper. Only ATX `##`/`###` speak (the h1 is the
+ *  document's own name, not a destination); inline markers a cell
+ *  could carry (mdCell's pipe escape, bold, code) are unworn so the
+ *  chip says what the rendered heading says. Order is the document's
+ *  order — the compass pairs with the DOM headings by INDEX, the same
+ *  well flowing through two mouths in the same sequence. */
+interface ReportTocItem {
+  level: 2 | 3;
+  text: string;
+}
+const reportTocOf = (md: string): ReportTocItem[] =>
+  md
+    .split("\n")
+    .filter((line) => /^#{2,3} \S/.test(line))
+    .map((line) => ({
+      level: line.startsWith("### ") ? 3 : 2,
+      text: line
+        .replace(/^#{2,3} /, "")
+        .replace(/\\\|/g, "|")
+        .replace(/\*\*/g, "")
+        .replace(/`/g, "")
+        .trim(),
+    }));
+
 /** t223: the shape portrait — an inline SVG that lays the owner's
  *  landscape (solid) over the winner's (dotted) in one box. Both paths
  *  come from sparklinePath (the logic layer's own normalizer — shape,
@@ -782,6 +811,59 @@ export default function SessionReportDialog({
     [project?.name, pipeline, mapQc, mapPending, mapError, mapInventory, lastSweep],
   );
 
+  // t234: the compass and its needle. `toc` is the md's second surface
+  // (parsed, never retyped — see reportTocOf); `activeToc` is the spy's
+  // verdict on WHERE the reader is: the LAST heading whose top sits at
+  // or above the compass line (88px of container-local geometry —
+  // viewport rects, not offsetTop, so the dialog's offsetParent chain
+  // never enters the math). rAF-throttled: the spy reads at paint
+  // speed, never twice per frame. The effect re-pairs whenever the
+  // document opens or its bytes change — the compass follows the well.
+  const toc = React.useMemo(() => reportTocOf(md), [md]);
+  const bodyRef = React.useRef<HTMLDivElement | null>(null);
+  const [activeToc, setActiveToc] = React.useState(0);
+  React.useEffect(() => {
+    const el = bodyRef.current;
+    if (!el || !open) return;
+    const heads = Array.from(el.querySelectorAll<HTMLElement>("h2, h3"));
+    if (heads.length === 0) return;
+    let raf = 0;
+    const read = () => {
+      raf = 0;
+      const cTop = el.getBoundingClientRect().top;
+      let active = 0;
+      for (let i = 0; i < heads.length; i++) {
+        if (heads[i].getBoundingClientRect().top - cTop <= 88) active = i;
+        else break;
+      }
+      // the tail law: the document's LAST section can never reach the
+      // compass line (there is not enough paper below it to push it up)
+      // — when the scroller hits the bottom, the reader IS in the last
+      // section, and the needle says so.
+      if (el.scrollTop + el.clientHeight >= el.scrollHeight - 4) active = heads.length - 1;
+      setActiveToc(active);
+    };
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(read);
+    };
+    read();
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      el.removeEventListener("scroll", onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [open, md]);
+
+  // the compass's jump — scrollIntoView honors the headings'
+  // scroll-margin-top (the sticky strip's height, paid in CSS), so the
+  // target lands BELOW the map, never under it.
+  const jumpToToc = React.useCallback((i: number) => {
+    const el = bodyRef.current;
+    if (!el) return;
+    const target = el.querySelectorAll<HTMLElement>("h2, h3")[i];
+    target?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
+
   // t213: pressing a door hands the reader to the owner's results. The
   // engine is openJob — the SAME door the command palette uses (landing
   // repair, workspace hops, then the inspector for a completed job) —
@@ -1189,8 +1271,30 @@ export default function SessionReportDialog({
           </p>
         )}
 
-        {/* the document itself — the families' bytes, rendered */}
-        <div className="report-doc max-h-[62vh] overflow-y-auto pr-1" data-report-body>
+        {/* the document itself — the families' bytes, rendered. The
+            compass rides on top (sticky): the md's second surface, a
+            map for a 62vh scroller, and a screen organ — paper keeps
+            its own page order, so the map carries .no-print. */}
+        <div className="report-doc max-h-[62vh] overflow-y-auto pr-1" data-report-body ref={bodyRef}>
+          {toc.length > 0 && (
+            <nav className="report-compass no-print" data-report-toc aria-label="Report sections">
+              {toc.map((t, i) => (
+                <button
+                  key={`${t.level}·${t.text}`}
+                  type="button"
+                  className={
+                    "report-compass-chip" +
+                    (t.level === 3 ? " report-compass-sub" : "") +
+                    (i === activeToc ? " report-compass-here" : "")
+                  }
+                  aria-current={i === activeToc ? "true" : undefined}
+                  onClick={() => jumpToToc(i)}
+                >
+                  {t.text}
+                </button>
+              ))}
+            </nav>
+          )}
           <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{md}</ReactMarkdown>
         </div>
       </DialogContent>

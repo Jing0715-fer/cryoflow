@@ -32,6 +32,16 @@
  *      from the winner's (a picture is a lens, and the lens survives
  *      the tie's end); the magnifier exists there too; console clean
  *      across both visits.
+ *   (t225-t233 grew M/C/D/E/F/G/P and the Z2* family: the addresses,
+ *    the quarters, the hero's signatures and depth labels, the print
+ *    tier, the CSV's second mouth.)
+ *   W  the compass (t234) — the md's second surface: chips parsed from
+ *      the SAME bytes the body renders (two surfaces, one father at the
+ *      document layer), paired digit for digit by index; the jump lands
+ *      BELOW the map (scroll-margin pays the strip's rent); the needle
+ *      follows the reader; the TAIL LAW (the last section can never
+ *      reach the line — at the bottom the reader IS there); P9 the map
+ *      never prints; Z2l the untied world carries its own map.
  * Run: node scripts/t223-e2e.mjs   (server on :3000)
  */
 import { execSync } from "node:child_process";
@@ -515,6 +525,78 @@ const sigMaxY = Math.max(...sigYs.filter(Number.isFinite));
 must(depthRead.every((d) => d.ly === 77) && depthRead.every((d) => d.ly > sigMaxY + 40),
   `G5 the ruler never yields into the signature rows (labels y 77 below sig max y ${sigMaxY})`);
 
+/* ============ W: the compass — the md's second surface ============ */
+// t234: the report's map. The TOC chips are PARSED from the same md
+// bytes the body renders (reportTocOf) — two surfaces, one father, the
+// HERO_QUARTERS law at the document layer. The pairings are proven by
+// INDEX: chip i must speak exactly what heading i speaks.
+section("W: the compass — the md's second surface");
+const nav = page.locator("[data-report-toc]");
+must((await nav.count()) === 1, "W1a the compass exists (a 62vh document deserves a map)");
+const navPos = await nav.evaluate((el) => getComputedStyle(el).position);
+must(navPos === "sticky", `W1b the map rides on top (position ${navPos})`);
+const chips = nav.locator(".report-compass-chip");
+const headEls = page.locator("[data-report-body] h2, [data-report-body] h3");
+const chipN = await chips.count();
+const headN = await headEls.count();
+must(chipN === headN && chipN === 9,
+  `W2 the compass and the document agree on the section count (${chipN} chips vs ${headN} headings)`);
+let chipMismatch = null;
+for (let i = 0; i < chipN; i++) {
+  const c = ((await chips.nth(i).textContent()) ?? "").trim();
+  const h = ((await headEls.nth(i).textContent()) ?? "").trim();
+  if (c !== h) { chipMismatch = `#${i} chip "${c}" vs head "${h}"`; break; }
+}
+must(!chipMismatch,
+  `W3 every chip speaks its heading's own words, digit for digit (${chipN} pairs — same well, two mouths)`);
+const subN = await nav.locator(".report-compass-sub").count();
+must(subN === 5,
+  `W4 the outline's hierarchy survives inside the strip (${subN} sub chips — the ### level runs smaller)`);
+// the jump: click a MIDDLE section (the tail can never reach the line —
+// not enough paper below it; the middle CAN, and must land below the map)
+await chips.nth(2).click();
+let landed = null;
+for (let i = 0; i < 20; i++) {
+  await sleep(250);
+  landed = await page.evaluate(() => {
+    const body = document.querySelector("[data-report-body]");
+    const nav2 = document.querySelector("[data-report-toc]");
+    const here = nav2.querySelector(".report-compass-here");
+    const heads2 = body.querySelectorAll("h2, h3");
+    const cTop = body.getBoundingClientRect().top;
+    const tTop = heads2[2].getBoundingClientRect().top - cTop;
+    const hereIdx = Array.from(nav2.querySelectorAll(".report-compass-chip")).indexOf(here);
+    return { tTop, hereIdx, atBottom: body.scrollTop + body.clientHeight >= body.scrollHeight - 4 };
+  });
+  if (landed.tTop >= 40 && landed.tTop < 140 && landed.hereIdx === 2) break;
+}
+must(landed && landed.tTop >= 40 && landed.tTop < 140,
+  `W5 the jump lands the target BELOW the map (head top ${Math.round(landed?.tTop)}px — scroll-margin pays the strip's rent)`);
+must(landed && landed.hereIdx === 2,
+  `W6 the needle follows the reader (aria-current on chip ${landed?.hereIdx} after the jump)`);
+// the tail law: scroll to the very bottom — the LAST section can never
+// reach the compass line, and the needle must say so anyway
+await page.evaluate(() => {
+  const body = document.querySelector("[data-report-body]");
+  body.scrollTop = body.scrollHeight;
+});
+let tailIdx = -1;
+for (let i = 0; i < 16; i++) {
+  await sleep(250);
+  tailIdx = await page.evaluate(() => {
+    const nav2 = document.querySelector("[data-report-toc]");
+    return Array.from(nav2.querySelectorAll(".report-compass-chip")).indexOf(nav2.querySelector(".report-compass-here"));
+  });
+  if (tailIdx === chipN - 1) break;
+}
+must(tailIdx === chipN - 1,
+  `W7 the tail law: at the bottom the needle points at the LAST chip (${tailIdx} of ${chipN - 1} — the last section never reaches the line, the reader is there anyway)`);
+await page.evaluate(() => {
+  const body = document.querySelector("[data-report-body]");
+  body.scrollTop = 0;
+});
+await sleep(400);
+
 /* ============ P: the print tier — paper inherits the hierarchy ============ */
 section("P: the print tier — same ink, deeper plate");
 // screen baseline first: the backlit values are the contract the paper
@@ -555,6 +637,15 @@ await sleep(120);
 const sigBack = await heroLabels.nth(0).evaluate((el) => getComputedStyle(el).fillOpacity);
 must(sigBack === "0.62",
   "P8 emulation is not a one-way door (screen tier restored after print)");
+// the compass is a screen organ: paper keeps its own page order, the
+// map retires (the .no-print roster, now carrying the TOC too)
+await page.emulateMedia({ media: "print" });
+await sleep(120);
+const navPrintDisplay = await nav.evaluate((el) => getComputedStyle(el).display);
+await page.emulateMedia({ media: "screen" });
+await sleep(120);
+must(navPrintDisplay === "none",
+  `P9 the map never prints (compass display ${navPrintDisplay} on paper — the page order IS the paper's map)`);
 
 // the frame is a reviewer — scroll the hero into the dialog's viewport
 // (the body scrolls internally, the band frame's own lesson) and shoot
@@ -623,6 +714,21 @@ const sigPrint2 = await page2.locator("[data-report-body] svg.report-hero-landsc
 await page2.emulateMedia({ media: "screen" });
 must(sigPrint2 === "1",
   `Z2k the print tier rides the world too (untied signature on paper ${sigPrint2})`);
+// the compass rides the untied world too — same well, whatever the
+// bytes turn out to be (fewer overlays, fewer sections, same law)
+const nav2 = page2.locator("[data-report-toc]");
+const chips2 = nav2.locator(".report-compass-chip");
+const heads2 = page2.locator("[data-report-body] h2, [data-report-body] h3");
+const chips2N = await chips2.count();
+const heads2N = await heads2.count();
+let untiedPairOk = chips2N === heads2N;
+for (let i = 0; untiedPairOk && i < chips2N; i++) {
+  const c = ((await chips2.nth(i).textContent()) ?? "").trim();
+  const h = ((await heads2.nth(i).textContent()) ?? "").trim();
+  if (c !== h) untiedPairOk = false;
+}
+must(chips2N > 0 && untiedPairOk,
+  `Z2l the untied world carries its own map (${chips2N} chips paired digit for digit with ${heads2N} headings)`);
 must(rosterT.length === 21, "Z3 roster identity (21) after the whole dance");
 must(consoleErrors.length === 0 && consoleErrors2.length === 0,
   `Z4 console clean across both visits (${consoleErrors.length}/${consoleErrors2.length})`);
