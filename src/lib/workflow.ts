@@ -294,6 +294,34 @@ export const JOB_TYPES: JobTypeSpec[] = [
     }
   ),
 
+  /* ---------------- Import Map -------------------------------------- */
+  spec(
+    "mapimport",
+    "Import Map",
+    "Box",
+    "teal",
+    "Import a 3D map (.mrc) as a reference for classification or refinement — RELION's import-map workflow, and the landing pad for sub-volume crops sent from the 3D viewer (the box-subregion chain: crop → focused processing).",
+    500,
+    [
+      pth("mapPath", "Map file (.mrc)", {
+        hint: "Pick the map to import — a standalone .mrc volume, or a sub-volume crop that lives in another job's SubVolumes folder (the 3D viewer's send-to-new-job writes there).",
+        tab: "Map",
+        filePick: true,
+      }),
+    ],
+    "map imported",
+    "core",
+    {
+      category: "import",
+      tabs: ["Map"],
+      // the port says what the crop IS derived from (a refined map), not
+      // what the job consumes at run time — the map arrives via the
+      // mapPath param, engine-native, no resolveInputs gate in the way
+      inputs: [inp("map", L.mapIn, ["volume"])],
+      outputs: [outp("model_mrc", "Reference map (.mrc)", "volume")],
+    }
+  ),
+
   /* ---------------- Motion ------------------------------------------ */
   spec(
     "motioncorr",

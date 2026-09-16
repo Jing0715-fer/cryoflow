@@ -7,7 +7,7 @@
  * so it survives Next.js dev-server hot reloads (the Prisma schema is frozen).
  *
  * Three job classes:
- *  - engine-native (import / manualpick / select): no RELION binary needed,
+ *  - engine-native (import / mapimport / manualpick / select): no RELION binary needed,
  *    writes RELION-5 style STAR files directly.
  *  - real CLI jobs: spawn relion_* binaries with faithful argv.
  *  - external jobs: honest failure when the external binary is absent.
@@ -18,6 +18,7 @@ import { execFile, execFileSync, spawn } from "child_process";
 import {
   appendFileSync,
   closeSync,
+  copyFileSync,
   existsSync,
   linkSync,
   mkdirSync,
@@ -35,6 +36,7 @@ import path from "path";
 import type { Job } from "@prisma/client";
 import { db } from "@/lib/db";
 import { DATA_DIR, RELION_DIR } from "@/lib/paths";
+import { readMrcHeader } from "@/lib/mrc";
 import { detectRelion } from "./system";
 import { MIC_RE, expandPattern, hasWildcard, userPathToHost } from "./glob";
 import { writePathrefMarker } from "./pathref";
@@ -849,12 +851,12 @@ const INPUTS: Record<string, InputReq[]> = {
     // 2D averages, and seeding a 3D refinement with them silently produced
     // garbage (observed live: refine3d exec'd with class2d's
     // run_unmasked_classes.mrcs as --ref while initialmodel was still running).
-    { key: "model_mrc", accepts: ["model_mrc", "classes_mrc"], from: ["initialmodel", "class3d"], label: "reference map (run InitialModel first)" },
+    { key: "model_mrc", accepts: ["model_mrc", "classes_mrc"], from: ["initialmodel", "class3d", "mapimport"], label: "reference map (run InitialModel first, or import a map)" },
   ],
   refine3d: [
     { key: "particles_star", accepts: ["particles_star"], from: ["extract", "select", "select2d", "class2d", "joinstar", "initialmodel", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
     // 3D reference only — never class2d's 2D averages (see class3d note)
-    { key: "model_mrc", accepts: ["model_mrc", "classes_mrc"], from: ["initialmodel", "class3d"], label: "reference map (run InitialModel first)" },
+    { key: "model_mrc", accepts: ["model_mrc", "classes_mrc"], from: ["initialmodel", "class3d", "mapimport"], label: "reference map (run InitialModel first, or import a map)" },
   ],
   multibody: [
     { key: "particles_star", accepts: ["particles_star"], from: ["extract", "select", "select2d", "class2d", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
@@ -1468,6 +1470,98 @@ async function runImportNative(job: EngineJobRef): Promise<NativeResult> {
     workdir,
     "engine-native: write micrographs.star (RELION 5 optics format)",
     { micrographs_star: starPath },
+    result,
+    logText
+  );
+  return { ok: true, result };
+}
+
+/**
+ * ImportMap: bring a standalone 3D map into the project as a reference —
+ * RELION's import-map workflow, and the landing pad for sub-volume crops
+ * (the 3D viewer's send-to-new-job materializes the crop into the parent
+ * job's SubVolumes/ folder and points a mapimport job at it; the crop then
+ * feeds class3d/refine3d reference inputs through the model_mrc output).
+ * Engine-native: no CLI to run — validate the map, link it into the job's
+ * own workdir (so the Files tab and outputs/file route serve it like any
+ * other output), and declare model_mrc for the downstream chain.
+ */
+async function runMapImportNative(job: EngineJobRef): Promise<NativeResult> {
+  const workdir = workdirFor(job);
+  mkdirSync(workdir, { recursive: true });
+
+  const raw = String(job.params.mapPath ?? "").trim();
+  if (!raw) {
+    return {
+      ok: false,
+      error:
+        "No map configured — pick a .mrc map in the params tab (Browse → Files), or send a sub-volume crop from the 3D viewer",
+    };
+  }
+  // user-pasted paths may be WSL-side; translate before statting (same
+  // courtesy the import job extends to micrographsPath)
+  let host = raw;
+  if (!existsSync(host)) {
+    const status = await detectRelion();
+    const bridge = bridgeFromStatus(status);
+    if (bridge) host = userPathToHost(raw, bridge.distro);
+  }
+  if (!existsSync(host) || !statSync(host).isFile()) {
+    return {
+      ok: false,
+      error: `Map file not accessible: ${raw} — re-pick it in the params tab (Browse → Files)`,
+    };
+  }
+  if (!/\.(mrc|map)$/i.test(path.basename(host))) {
+    return {
+      ok: false,
+      error: `Not a 3D map file (.mrc/.map): ${raw} — mapimport is for volumes, not movies or particle stacks (.mrcs)`,
+    };
+  }
+  const head = readMrcHeader(host);
+  if (!head) {
+    return {
+      ok: false,
+      error: `Map header is not a supported MRC volume: ${raw}`,
+    };
+  }
+
+  // link the map into the workdir under its own name (one copy on disk);
+  // fall back to a byte copy when the link isn't possible (exotic mounts)
+  const linked = path.join(workdir, path.basename(host));
+  let linkedOk = false;
+  try {
+    if (!existsSync(linked)) symlinkSync(host, linked);
+    linkedOk = existsSync(linked);
+  } catch {
+    linkedOk = false;
+  }
+  if (!linkedOk) {
+    try {
+      copyFileSync(host, linked);
+      linkedOk = true;
+    } catch {
+      linkedOk = false;
+    }
+  }
+  const outPath = linkedOk ? linked : host;
+
+  const pixel = head.cella[2] > 0 && head.nz > 0 ? head.cella[2] / head.nz : 0;
+  const dims = `${head.nx}×${head.ny}×${head.nz}`;
+  const result = `Map imported: ${path.basename(host)} (${dims} vox${pixel > 0 ? ` · pixel ${pixel.toFixed(2)} Å` : ""})`;
+  const logText = [
+    `CryoFlow engine-native map import ${new Date().toISOString()}`,
+    `source: ${host}`,
+    linkedOk ? "linked into the job workdir (one copy on disk)" : "referenced in place (link not possible)",
+    `output: ${outPath}`,
+    result,
+    "",
+  ].join("\n");
+  recordNativeRun(
+    job,
+    workdir,
+    "engine-native: import map reference (sub-volume crop workflow)",
+    { model_mrc: outPath },
     result,
     logText
   );
@@ -3707,6 +3801,10 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
   // ---- engine-native jobs -------------------------------------------
   if (job.type === "import") {
     const r = await runImportNative(job);
+    return r.ok ? { ok: true, native: true, result: r.result } : { ok: false, error: r.error };
+  }
+  if (job.type === "mapimport") {
+    const r = await runMapImportNative(job);
     return r.ok ? { ok: true, native: true, result: r.result } : { ok: false, error: r.error };
   }
   if (job.type === "manualpick") {

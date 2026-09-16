@@ -74,6 +74,7 @@ const FAMILY = [
   "t252-write-gates.mjs",
   "t253-e2e.mjs",
   "t254-subvolume-export.mjs",
+  "t255-send-to-job.mjs",
 ];
 
 // ---- CLI -------------------------------------------------------------------

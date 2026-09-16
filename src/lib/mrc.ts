@@ -30,6 +30,9 @@ export interface MrcHeader {
   /** extended header bytes (data starts at 1024 + nsymbt) */
   nsymbt: number;
   bytesPerVoxel: number;
+  /** cell length in Å per axis (header floats at 40/44/48) — voxel spacing
+   *  is cella[axis] / n[axis]; additive field, consumers may ignore it */
+  cella: [number, number, number];
   dmin: number;
   dmax: number;
 }
@@ -64,6 +67,7 @@ export function readMrcHeader(file: string): MrcHeader | null {
     return {
       nx, ny, nz, mode, nsymbt,
       bytesPerVoxel: bpp,
+      cella: [buf.readFloatLE(40), buf.readFloatLE(44), buf.readFloatLE(48)],
       dmin: buf.readFloatLE(76),
       dmax: buf.readFloatLE(80),
     };

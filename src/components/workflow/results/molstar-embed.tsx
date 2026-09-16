@@ -3227,6 +3227,42 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
     ];
   };
 
+  // t255 — the crop joins the pipeline: send the kept box to a NEW Import
+  // Map job. The server materializes the crop into the parent's SubVolumes/
+  // folder, creates the job and wires the edge parent→import; this side
+  // only speaks the same fractions the download speaks — one geometry, two
+  // destinations (a file in Downloads AND a citizen of the workflow graph).
+  const [clipSendNote, setClipSendNote] = useState<{ text: string; ok: boolean } | null>(null);
+  const [sendBusy, setSendBusy] = useState(false);
+  const sendNoteTimer = useRef<number | null>(null);
+  const flashSendNote = (text: string, ok: boolean) => {
+    setClipSendNote({ text, ok });
+    if (sendNoteTimer.current) window.clearTimeout(sendNoteTimer.current);
+    sendNoteTimer.current = window.setTimeout(() => setClipSendNote(null), 4200);
+  };
+  const sendSubvolumeToJob = async () => {
+    if (!clipStateRef.current.on || sendBusy) return;
+    setSendBusy(true);
+    try {
+      const [[x0, x1], [y0, y1], [z0, z1]] = keptFractions();
+      const res = await fetch(`/api/jobs/${jobId}/outputs/subvolume-job`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path, x0, x1, y0, y1, z0, z1 }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { job?: { name?: string }; error?: string };
+      if (!res.ok) {
+        flashSendNote(data.error ?? `Send failed (${res.status})`, false);
+        return;
+      }
+      flashSendNote(`Sent — Import Map job "${data.job?.name ?? ""}" created beside its parent`, true);
+    } catch (e) {
+      flashSendNote(`Send failed: ${String(e)}`, false);
+    } finally {
+      setSendBusy(false);
+    }
+  };
+
   /* ---------------- clip region wireframe (SVG overlay) --------------- */
 
   // The clip planes live in the isosurface's shader props — invisible them-
@@ -4444,6 +4480,47 @@ export default function MolStarEmbed({ jobId, path, name }: MolStarEmbedProps) {
                     </button>
                   );
                 })()}
+                {/* t255 — the crop joins the pipeline: the kept box becomes a
+                    real .mrc in the parent's SubVolumes/ folder AND a new
+                    Import Map job wired by an edge — crop → focused
+                    processing without leaving the viewer. */}
+                {(() => {
+                  const dims = exportDims();
+                  return (
+                    <button
+                      type="button"
+                      onClick={sendSubvolumeToJob}
+                      disabled={!dims || sendBusy}
+                      data-testid="clip-send-job"
+                      title="Send the kept box to a NEW Import Map job — the crop is materialized in this job's SubVolumes folder and wired into the workflow graph (box-subregion → focused refinement)"
+                      className="flex w-full items-center justify-center gap-1.5 rounded-md border border-violet-600/40 bg-background/60 px-2 py-1 text-[10.5px] font-semibold text-violet-700 transition-colors hover:bg-violet-600/25 hover:text-violet-800 dark:text-violet-300 dark:hover:text-violet-200 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {sendBusy ? (
+                        <Loader2 className="h-3 w-3 shrink-0 animate-spin" aria-hidden="true" />
+                      ) : (
+                        <FilePlus2 className="h-3 w-3 shrink-0" aria-hidden="true" />
+                      )}
+                      <span>{sendBusy ? "sending…" : "send to new job"}</span>
+                      <span className="font-mono text-[9.5px] font-normal tabular-nums opacity-80">
+                        {dims ? `→ Import Map` : "…"}
+                      </span>
+                    </button>
+                  );
+                })()}
+                {clipSendNote && (
+                  <p
+                    data-testid="clip-send-note"
+                    aria-live="polite"
+                    className={
+                      "rounded-md px-2 py-1 text-[10px] leading-snug " +
+                      (clipSendNote.ok
+                        ? "border border-emerald-600/30 bg-emerald-600/10 text-emerald-700 dark:text-emerald-300"
+                        : "border border-red-600/30 bg-red-600/10 text-red-700 dark:text-red-300")
+                    }
+                  >
+                    {clipSendNote.text}
+                  </p>
+                )}
                 <div className="flex items-center justify-between gap-2 pt-0.5">
                   <button
                     type="button"
