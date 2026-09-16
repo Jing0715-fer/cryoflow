@@ -1181,3 +1181,5 @@ Stage Summary:
 - 「angle: 0 的四元数陷阱」：Mol* 平面法向 = 旋转作用于默认 +Y——「把轴当 axis、角度随手 0」得到的是恒等旋转和一根永不指向轴的法向；修法抄自家 MVS helper（axis = cross(up, n)、angle = 夹角）；「库的示例代码是语义的权威文档」
 - 「hooks 顺序不是风格是正确性」：useAnchorParent 在 early return 之前、null 入参静默——条件性 hook 调用在组件形态变化时炸掉整棵树；两次起草两次自查纠正
 - 遗留（下轮候选）：元数据门第二梯队（/api/jobs GET、/api/edges、/api/workspaces、/activity——同型成本评估）；「release 后保留盒记忆」或「从 parent 视图直接 send-to-job」的合流快捷方式；crop-of-crop 链的 grandparent 视图（chain-safety 门现在诚实缺席，跨代锚点需要坐标换算层）；molstar-embed 存量 tsc 噪音（pcentre possibly-null，aria-label 层无崩溃风险）；updatedAt 治理（大工程）；家族跑批 --report JSON；watchdog 与 family-run 共生；EMPIAR 真数据回归（让位）
+
+- 【尾声：合并树的井】rebase 时撞上并行窗口的 5b737b3（SSH remote dispatch 大特性，无文件重叠干净落位）——但合并树首次 OOM rebuild 失败：Turbopack 无法把 ssh2 的动态 require 放进 ESM chunk（「non-ecmascript placeable asset」）。修复 = next.config 加 serverExternalPackages: ["ssh2"]（Node-only 传输层留在 node_modules 由 standalone 运行时 require）；重建后 t258 哨兵 ALL PASS + roster 21，config 修复与 package-lock.json 分别入账（HEAD 67382ce → 9c63ef7）。「并行窗的世界线合流要以 rebuild 为准——push 干净不等于合并树能烧」
