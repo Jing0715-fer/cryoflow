@@ -343,6 +343,69 @@ function candidateDirs(): NativeCandidate[] {
   return candidates;
 }
 
+/* ------------------------------------------------------------------ */
+/* Native not-found guidance                                           */
+/* ------------------------------------------------------------------ */
+
+/** Facts the native search produced, as the hint composer consumes them. */
+export interface NativeSearchFacts {
+  /** RELION_HOME env — null when unset; the raw value when set. */
+  relionHome: string | null;
+  /** null when relionHome is unset; else whether the dir exists on disk. */
+  relionHomeExists: boolean | null;
+  /** true when `which relion_refine` answered (a usable install would have been found). */
+  onPath: boolean;
+  /** The known locations actually probed, each with on-disk existence. */
+  knownDirs: { dir: string; exists: boolean }[];
+  /** Number of home-scan candidate dirs the scan matched (before validity). */
+  homeScanHits: number;
+}
+
+/**
+ * Compose the NATIVE not-found guidance — the native world's counterpart of
+ * the WSL probe's A/B/C note. Two-part structure, same doctrine:
+ *   1. what was searched (each line a fact the probe itself produced — the
+ *      guidance can never drift from the search because it is composed FROM
+ *      the search's own evidence),
+ *   2. what makes an install visible (A/B remedies + Re-detect, no restart).
+ * Pure and deterministic — t242-sanity pins structure + byte identity.
+ */
+export function composeNativeHint(f: NativeSearchFacts): string {
+  const lines: string[] = [];
+  lines.push("CryoFlow searched this host and found no usable RELION install:");
+  lines.push(
+    !f.relionHome
+      ? "· RELION_HOME — not set"
+      : f.relionHomeExists
+        ? `· RELION_HOME — set to ${f.relionHome}, but no relion_refine in it`
+        : `· RELION_HOME — set to ${f.relionHome}, but the directory does not exist`
+  );
+  lines.push("· PATH — no relion_refine on PATH");
+  if (f.knownDirs.length > 0) {
+    const existing = f.knownDirs.filter((d) => d.exists).map((d) => d.dir);
+    const missing = f.knownDirs.filter((d) => !d.exists).map((d) => d.dir);
+    if (existing.length > 0) {
+      lines.push(
+        `· Known locations — ${existing.join(", ")} (exist, no relion_refine)` +
+          (missing.length > 0 ? `; ${missing.join(", ")} (missing)` : "")
+      );
+    } else {
+      lines.push(`· Known locations — ${missing.join(", ")} (none exists)`);
+    }
+  }
+  lines.push(
+    f.homeScanHits > 0
+      ? `· Home scan — ${f.homeScanHits} *relion* bin dir(s) under ~, none holds relion_refine`
+      : "· Home scan — ~/*relion*/bin + one level into myproject|src|build|builds|code|dev|projects|tools|opt (nothing matched)"
+  );
+  lines.push("");
+  lines.push("To make an install visible, either:");
+  lines.push("A) put its bin on PATH:      export PATH=/path/to/relion/bin:$PATH");
+  lines.push("B) point RELION_HOME at it:  export RELION_HOME=/path/to/relion   (the install root that contains bin/)");
+  lines.push("then press Re-detect — no restart needed.");
+  return lines.join("\n");
+}
+
 /** A bin dir is valid when it exists and contains relion_refine (or _mpi). */
 function isValidBinDir(dir: string): boolean {
   try {
@@ -913,6 +976,24 @@ async function runProbe(): Promise<RelionStatus> {
     installs,
     selectedId: selected?.id ?? null,
     autoPicked,
+    // not-found remediation — composed FROM the search's own evidence so the
+    // guidance cannot drift from what was probed (null while found)
+    hint: found
+      ? null
+      : composeNativeHint({
+          relionHome: process.env.RELION_HOME ?? null,
+          relionHomeExists:
+            process.env.RELION_HOME ? existsSync(process.env.RELION_HOME) : null,
+          onPath: Boolean(onPath),
+          knownDirs: [
+            ...new Map(
+              nativeCandidates
+                .filter((c) => c.source === "known-path")
+                .map((c) => [c.dir, { dir: c.dir, exists: existsSync(c.dir) }])
+            ).values(),
+          ],
+          homeScanHits: nativeCandidates.filter((c) => c.source === "home scan").length,
+        }),
   };
 
   writeSnapshot(status);

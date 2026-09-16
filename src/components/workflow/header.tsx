@@ -446,6 +446,27 @@ function RelionStatusChip() {
               </p>
             )}
           </div>
+          {!found && system?.hint && (
+            <div
+              className="space-y-0.5 overflow-x-auto rounded-md bg-amber-500/10 px-2 py-1.5"
+              data-engine-hint
+              aria-label="RELION discovery guidance"
+            >
+              {system.hint.split("\n").map((line, i) => (
+                <p
+                  key={i}
+                  className={cn(
+                    "text-[10px] leading-relaxed",
+                    /^[AB]\)/.test(line.trim())
+                      ? "whitespace-pre font-mono text-foreground/80"
+                      : "text-muted-foreground"
+                  )}
+                >
+                  {line}
+                </p>
+              ))}
+            </div>
+          )}
           <InstallSwitcher />
           <div>
             <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">

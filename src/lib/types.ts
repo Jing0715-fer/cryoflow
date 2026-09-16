@@ -349,6 +349,17 @@ export interface SystemStatusClient {
    *  (data/relion-snapshot.json) without a fresh probe — the server is
    *  re-verifying in the background and the next poll flips it off. */
   fromCache?: boolean;
+  /**
+   * Native not-found guidance (null whenever an install IS found).
+   * The WSL world's not-found note has carried A/B/C remedies + the
+   * "searched automatically" list since its probe was written; the native
+   * world used to answer with dashes. This is its counterpart — composed
+   * at probe time from the SAME facts the search itself produced
+   * (RELION_HOME set?, PATH miss, which known dirs exist, home-scan hits),
+   * so the guidance can never drift from what was actually probed.
+   * Rendered in the engine popover under the status fields.
+   */
+  hint?: string | null;
 }
 
 /**

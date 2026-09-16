@@ -757,3 +757,28 @@ Stage Summary:
 - 「一井两嘴」：run dossier 的 md 与 HTML 门共享一个采集器（buildRunReportMd），md 字节是井、两种介质是嘴——重构后 qa57 证明 md 字节一字未变
 - 「方言的四件扩展」：hr/#-链接/data-URI 图/有序列表入闭子集——扩展由真实发射者定义（profile 家族说什么方言，转换器就学什么），http 落回文本的陷阱守门
 - 遗留（下轮候选）：run 回声的着陆光帧（等真实满档档案——数据世界长出 5+ 节的 job 那天）；run 回声窄门核查（t238 的 640px 门随 DOC_CSS 自动生效，但 7 列表不存在于 run 档案——band 表现未验，低优先）；透镜纸面化（维持）；updatedAt 治理（大工程）；EMPIAR 真数据回归（让位）；hero 纸档叠印可读性（维持）；shortcuts report 组记载 Download HTML 门（维持低优先）
+
+## Task 242 (2026-09-16, cron 12:32 窗口 trace …202609161232)
+
+- 【开局】四件套：尾部 = Task 241（9711ed9，回声尊重字节）零过时（续传摘要世系只到 239——第六度过时实证，worklog 尾部唯一真源律继续应验）；净场 → watchdog 拉起验活 + 200 + roster 21。QA：qa00 GREEN + qa63 SMOKE GREEN + agent-browser errors/console 双空 + 画布 20 jobs / 16 edges + dashboard 目检健康（KPI 卡 5 张 + Recent activity 诚实流动）。无 bug。
+- 【巡检与立项】按 Task 240/241 收尾指令**回产品其他面巡检**（报告家族连做八窗，本窗是产品面转折点）：dashboard（KPI/recent activity 健康）→ inspector（Results 四图 + rounds 过滤 + workdir footer + Report 组在场）→ Results 画廊（lightbox → View in 3D 入口确认，Mol*/ortho 家族已有 t210 151 断言 + t215 44 断言覆盖，不重复手巡）→ header 逐件过堂后锁定真缺口：**engine chip 的 title 承诺「click for guidance」，但 native not-found 态的 popover 主体全是破折号**——同一 popover 两个世界 guidance 质量不对称：WSL 世界的 note 有 A/B/C 三方补救 + 「Searched automatically」清单（probeWsl 铸），native 世界（每个没有 RELION 的 Linux/macOS host——demo 世界的永久态）只有一排破折号 + 一行 WSL 话术（对 Linux 用户还是噪声）。取证 /api/system：16 binary 全缺、note 只谈 WSL。
+- 【教义】**「指南不得漂移于探测」**——guidance 不许手写：composeNativeHint 从探测自己产出的证据 composing（RELION_HOME 设没设/目录在不在、PATH miss、哪些 known 目录存在、home scan 命中数），探测到什么就说什么，两者在结构上不可能分叉；诚实到「/usr/local/bin 存在但无 relion_refine」vs「其余 missing」的分级。WI 世界的 A/B/C 文体平移到 native 世界：A) PATH B) RELION_HOME + 「then press Re-detect — no restart needed」（闭合到 UI 已有的 affordance）。
+- 【实现】
+  - types.ts：SystemStatusClient 添 `hint?: string | null`（not-found 专属，found 即 null；snapshot 恢复路径 `{...snap.status, fromCache}` 自动让 hint 跨快照存活；API route 整体透传、store 整体消费——零接线成本）
+  - system.ts：导出纯函数 composeNativeHint（NativeSearchFacts 四事实 → 指南字节；纯确定性——同事实同字节）+ runProbe not-found 分支接线（known-path 清单 Map 去重——硬编码 /home/z/relion-install/bin 与 ~/relion-install/bin 在 home=/home/z 时同一物理目录，首跑实拍暴露 wart）
+  - header.tsx：popover fields 组后添 guidance 块（data-engine-hint + aria-label、amber tint 与「未检测到」的 chip 色一致——可行动的信息块区别于 WSL note 的中性 bg-muted/60）；A/B 行 whitespace-pre font-mono（composer 的列对齐意图在渲染中存活）；块级 overflow-x-auto（宽 B) 行向自己的 band 借滚动——t238 律在 popover 里）
+- 【sanity 先于 wire】scripts/t242-sanity.mjs（bun）：17 断言——四事实行恒在场、诚实分支（RELION_HOME 未设/设而空/设而目录不在、known 全缺/部分在/全在、home scan 0/N）、A/B+Re-detect 闭合、无 undefined/null 泄漏、无网络依赖、确定性（同事实字节恒等）。首跑 16/1——FAIL 是出题者的井：base facts 的 knownDirs 为空数组而 composer 守卫正确跳行（真实探测恒有 5 个 known dirs），修期望后 GREEN。
+- 【e2e：新 t242-e2e.mjs】21 断言 ×3 全绿：A 相 API 真相（not-found/hint 四事实行/A/B/闭合/known-path 去重 = 1 次出现/两探针字节恒等）+ B 相 popover 镜像（roster 21/chip aria-label 打开/data-engine-hint 一次/**popover 行 === API 行逐字节同序（两嘴一井）**/mono ×2/amber tint/**宽行借 band 滚动（scrollWidth 626 > clientWidth 350）**/band 永不溢出 popover 盒）+ C 相定妆照 + D 相 console 0。
+- 【事故与判例】①**镜像律首败于介质话语**：innerText 把每个块边界说成 \n\n 而 composer 字节是单 \n——两次修归一化后才悟：契约是非空行序列（空行分隔是表现不是内容），「W4 判例·出题者版」——出题者要读对渲染介质的话语。②**定妆照暴露溢出**：whitespace-pre 的 B) 行（~540px）越过 popover 右缘（384px）——craft 修法不是缩短字节而是 band 借滚动（t238 律复用），并补两条 wire 断言（sw > cw + band 右缘 ≤ popover 右缘）。③**覆盖旧套件事故**：编号勘察失误把新套件写成名 qa84-e2e.mjs（Task 84 的 roster 表格套件被覆盖）——git checkout 恢复原件后 mv 又把恢复件顶掉了我的新套件（两步互相踩）；最终重建 t242-e2e.mjs（新世代任务号惯例）+ 原 qa84 补跑 ALL PASS 自证清白。判例：**新套件命名先 `ls scripts/ | rg` 核号，新世代一律 tXXX**。④watchdog 秒死惯犯照旧（重拉即愈）。
+- 【定妆照】**shots-qa84/t242-engine-guidance-2x**：chip「RELION not found」+ popover「RELION not detected」+ 破折号字段 + WSL 中性 note + amber guidance 块（四事实行 + A/B mono 列对齐 + Re-detect 闭合）同框——「承诺兑现」的第一帧。
+- 【全家族回归】qa00 GREEN + qa63 SMOKE GREEN + qa49/50/51 ALL GREEN + qa55/57/58 GREEN + t210 151/0 + t212 30/0 + t213 35/0 + t214 29/0 + t215 44/0 + t218 29/0 + t219 29/0 + t221 14/0 + t223 155/0 + **原 qa84 ALL PASS**（事故自证）；roster 恒等 21。
+- 【漂移考古】t210 ×3 WebGL 惯犯（final/lanes/legend-open）具名随批；t212/213/214/215 相对时间词诚实漂移；t218/t219/t223 六帧 + t240-compass-glow = 回归重拍的亚感知噪声/时间词随批提交——本窗 feature 不触对话框世界（header popover 关闭态在所有帧里零像素），无结构性漂移。
+- 【世界卫生】全家族绿 + roster 恒等 21、只读窗无 twin、tmp 无残留。
+- 【收尾】worklog（本条）+ commit/push + 环境清理（Task 86 配方双杀 + port FREE 验证）。
+
+Stage Summary:
+- 「指南不得漂移于探测」：native not-found 的 guidance 从探测自己的证据 composing——RELION_HOME 设否/目录在否、PATH miss、known 目录存在性分级、home scan 命中数，每一行都是探测事实；「click for guidance」的承诺在两个世界同时兑现
+- 「两嘴一井的第三案」：popover 行与 API hint 逐行同序恒等（W3 律在 engine 域）；innerText 的块边界话语是出题者的必修课——契约是非空行序列
+- 「band 借滚动在 popover」：whitespace-pre 保住 composer 的列对齐意图，overflow-x-auto 让宽 B) 行向自己的 band 借滚动——t238 律跨出文档域，popconter 盒零溢出成 wire 断言
+- 「套件命名的编号核验」：新套件先核号再落名（本窗覆盖了 Task 84 的 qa84，恢复 + 改名 t242 各一步都不能少）；新世代套件一律 tXXX 任务号
+- 遗留（下轮候选）：dashboard「ACTIVE ENGINE: RELION not detected」KPI 卡的点击透导（同一 guidance 的 dashboard 姊妹页——点击 KPI 卡打开同一 popover 或跳转，低优先）；map-profile 的 FSC 帧在场时 inspector Report 组的锚点化（等真实满档）；透镜纸面化（哲学门槛维持）；updatedAt 治理（大工程）；EMPIAR 真数据回归（让位）；hero 纸档叠印可读性（维持）；shortcuts report 组记载 Download HTML 门（维持低优先）
