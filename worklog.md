@@ -832,3 +832,24 @@ Stage Summary:
 - 「Esc 剥一层」是产品的律，测试服从它：toast+popover 两层同活时单 Esc 不是 bug 是律法；测试要读对应用自己的 keyboard 层契约
 - 「recital 的遗留要对工件核实」：3D 体积截面已实现于早前任务——Task 13 recital 携带的遗留清单本身会陈旧，每窗立项前先问工件
 - 遗留（下轮候选）：调色板索引完整性律的 wire 化（header 门 ⊆ palette 行 + 诚实豁免清单——print 归 ⌘P、help 归 ?）；map-profile FSC 满档锚点化（等真实满档）；透镜纸面化（哲学门槛维持）；updatedAt 治理（大工程）；EMPIAR 真数据回归（让位）；hero 纸档叠印可读性（维持）；shortcuts report 组记载 Download HTML 门（维持低优先）
+
+## Task 245 (2026-09-16, cron 14:32 窗口 trace cron-agent-loop-202609161432)
+
+- 【开局】四件套：尾部 = Task 244（6687c1d，卡在两个世界都开口）零过时（续传摘要世系止于 243——第八度过时实证，worklog 尾部唯一真源律继续应验）；净场 → watchdog 拉起验活 + 200 + roster 21 + 井真相（found:false, hint 10 行）。QA：qa00 GREEN（真名 qa00-data-view.mjs——凭记忆转抄套件名再撞井）+ qa63 SMOKE GREEN + agent-browser errors/console 双空 + 画布 20 jobs。无 bug。
+- 【巡检与立项】Task 244 遗留首选当选：**「调色板索引完整性律的 wire 化」**——把 t244 的教义（存在的门必须在索引里）从一行代码升格为可执行契约。勘察：header 交互门件全清点 = **12 件**（project/workspace 两个 SelectTrigger、RELION chip、View 双 tab、spotlight、palette 触发钮、QC report、print、help、theme、GitHub link）；对照 palette 行清单发现**两个真缺口**：Projects 无索引行（Workspaces 有组而 Projects 没有——父组缺席）+ GitHub 门无索引行（Task 179 曾把它降格为「装饰」，但它是不折不扣的门且**没有平台级键盘路径**——不像 print 归 ⌘P）。Task 13 recital 老遗留工件核实：**Topaz wrapper 已实现**（topaz-training/route.ts——recital 又一陈旧项销账）、**#13 useMemo localStorage 已修**（job-card.tsx:197 的 effect 律注释在案）、#5 fs/browse 无鉴权仍真（单用户本地应用，低优先挂账）。
+- 【实现】command-palette.tsx：①新 **Projects 组**（父组在 Workspaces 之前——parent before child；行方言与 Workspaces 同构：FolderOpen 图标 + 项目名 + (active) 标记 + SWITCH PROJECT 提示；**同项目守卫**——点 active 行只安静关 palette 不发 POST，与 header ProjectSwitcher 的 `id === project.id` 守卫同一律法；切换走同一 `switchProject` store 动作——一井一 store 每嘴跟真）②**GitHub 行**入 Canvas & app 组尾（外部门殿后；window.open noopener noreferrer；「它挣得一行索引而非一纸豁免——没有平台键盘路径的门，诚实要求一行」）。文件头注释记入 Projects 家族 + Task 245 律宣言。
+- 【e2e：新 t245-e2e.mjs（编号核验）】**32 断言 ×3 ALL PASS**。契约以数据活在本子里：DOOR_RULES（10 条覆盖）+ EXEMPT_RULES（2 条豁免，各带理由串）——**新门不匹配任何规则 = FAIL（契约必须更新，不许静默漂移）；规则不匹配任何门 = 陈旧豁免 = FAIL**。A 相 demo 真相（found:false + roster 21 + 单项目）；B 相律本体（**从活 DOM 枚举 12 门钉住清单**（aria-label || title，非手抄清单）→ 每门恰配一规则 → 开 palette 收 95 行 → 逐规则断言行在场（活名断言：项目名从门的 title 属性读——SelectValue 会把 RELION badge 文字漏进 textContent，title 才是净名）+ 组序 Projects < Workspaces + **同项目守卫零 POST** + 安静关）；C 相合成双项目世界（网络边界按 **pathname 谓词**统治整个 project URL 家族——复数 /api/projects（GET 清单+POST switch）与单数 /api/project 恰好互斥）——两行 Projects 行、(active) 标记单点、点 B 行 → POST 一次 → header 触发钮重领衔 → 重开 palette 标记翻面；GitHub 行 → 真弹窗命中 repo URL（context 级路由养弹窗）；D 相双世界 console 0。
+- 【事故与判例】①**`^` 锚的全 URL 井（本窗最大一课）**：合成世界单数路由 `/^\/api\/project$/` 永不命中——playwright 对**完整 URL**（http://localhost:3000/api/project）跑正则，`^` 要求 URL 以 `/api/project` **开头**，而 URL 以 `http:` 开头！t244 的「统治整个 URL 家族」判例精化：**URL 家族住在 pathname 里，不住在原始字符串里**——修法为 pathname 谓词函数（`pathOf(u).startsWith("/api/projects")` / `=== "/api/project"`），互斥且序证。②**uppercase 的 innerText 井**：行提示 span 带 `uppercase` 类，innerText 返渲染后大写 "SWITCH PROJECT"——小写匹配零命中；修：按**项目名**匹配行而非提示词（innerText 读介质的话语，W4 判例家族又一案）。③首跑 3 FAIL（合成世界三连）皆出上两井——探针破案（in-page fetch 拦截 ✓ / 组头在场 ✓ / 单数路由 PASSTHROUGH ✗）后一改即绿。
+- 【定妆照】**shots-qa84/t245-palette-index-2x**：filtered palette（"project"）同框三真相——Projects 组（demo 行 + (active) + SWITCH PROJECT）+ Open project dashboard ⇧D + Open CryoFlow on GitHub——「索引完整性」的第一帧。
+- 【在线 chunk 终审】磁盘 chunk = d8b2f110a6f244df.js（rg 逐字复制）→ **HTTP 200 + "Open CryoFlow on GitHub" 命中 1 + "switch project" 命中 1**（首验的 "4041" 是畸形 URL 的 404 与计数 1 黏连——分步重验澄清；合成井词 "Spliceosome" 磁盘 chunk 零命中自证测试载荷不进产品字节）。
+- 【全家族回归】qa00 GREEN + qa63 SMOKE GREEN + qa47/qa49/50/51/qa55/57/58 exit 0 + qa84 ALL PASS + t210 151/0 + t212 30/0 + t213 35/0 + t214 29/0 + t215 44/0 + t218 29/0 + t219 29/0 + t221 14/0 + t223 155/0 + t241 14/0 + t242 GREEN + t243 ALL PASS + t244 ALL PASS + **t245 32/0 ×3**；roster 恒等 21。
+- 【世界卫生】全家族绿 + roster 恒等 21、探针已删、twin 已归家、tmp 无残留。
+- 【收尾】worklog（本条）+ commit/push + 环境清理（Task 86 配方双杀 + port FREE 验证）。
+
+Stage Summary:
+- 「索引完整性律 wire 化」：header 门 ⊆ palette 行从教义升格为**数据化契约**——DOOR_RULES 10 条 + EXEMPT_RULES 2 条（palette 触发钮自指、print 归 ⌘P），新门不配规则即 FAIL、规则不配门即陈旧即 FAIL；契约的牙齿是「不许静默漂移」
+- 「GitHub 挣得一行而非一纸豁免」：没有平台键盘路径的门必须入索引——print 有 ⌘P 所以豁免诚实，GitHub 没有所以豁免说谎；两门的分界线是「平台是否已把动词接进键盘」
+- 「URL 家族住在 pathname 里」：`^` 锚对完整 URL 永不命中（URL 以 http: 开头）——t244 判例精化为 pathname 谓词函数；合成世界统治家族的度量衡是 pathname 不是字符串
+- 「innerText 读介质的话语」：uppercase 类让提示词以 "SWITCH PROJECT" 渲染，innerText 诚实转述渲染后的话——匹配要按不变的真值（项目名）而不是会变表现的提示词
+- 「recital 的遗留要对工件核实」第二案：Topaz wrapper 早已实现、#13 localStorage 写早已修——Task 13 清单本身在陈旧，每窗立项前先问工件
+- 遗留（下轮候选）：**palette 豁免清单的产品化**（exempt 理由串可入 shortcuts report 的「为什么这扇门不在 ⌘K 里」组——文档跟着疑问走，低优先）；map-profile FSC 满档锚点化（等真实满档）；透镜纸面化（哲学门槛维持）；updatedAt 治理（大工程）；EMPIAR 真数据回归（让位）；hero 纸档叠印可读性（维持）；shortcuts report 组记载 Download HTML 门（维持低优先）；Task 13 的 #5 fs/browse 鉴权 / #6/#14 pathref 包含策略 / #7 chart 全量同步读 / #8 particles N+1（性能与健壮性四件，皆低优先挂账）

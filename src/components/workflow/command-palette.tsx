@@ -3,16 +3,24 @@
 /**
  * CryoFlow — ⌘K / Ctrl+K command palette (Linear/n8n-style).
  *
- * Three command families, all fuzzy-searchable:
+ * Command families, all fuzzy-searchable:
  *   • Jobs      — jump: idle → edit panel, submitted → results inspector
  *   • Run       — one-shot launch for idle jobs
  *   • Job types — add any catalog type onto the canvas
+ *   • Projects  — switch the active project (Task 245: the header's
+ *                 project SelectTrigger is a door, and a door the palette
+ *                 doesn't index is a door the keyboard cannot reach)
  *   • Canvas    — zoom to fit · reset view · tidy layout · theme toggle
  *   • Export    — chart CSV for the job you're looking at, no inspector
  *                 needed (Task 110; same rows, same filename, same toast)
  *   • Copy      — the same chart rows as clipboard TSV (Task 113; one
  *                 fetch-and-derive feeds both destinations, wording mirrors
  *                 the chart domain's copy buttons)
+ *
+ * Task 245 — the index-completeness law, wired: every interactive header
+ * door must have a palette row, except the honestly exempt (the palette's
+ * own trigger is self-referential; Print belongs to the browser's native
+ * ⌘P/Ctrl+P). The contract lives as data in scripts/t245-e2e.mjs.
  *
  * Opens with Ctrl+K (⌘K) or the header chip, which dispatches the
  * "cryoflow:open-palette" event (keeps the dialog owner decoupled).
@@ -48,6 +56,8 @@ import {
   Workflow,
   FileTerminal,
   RefreshCcw,
+  FolderOpen,
+  Github,
 } from "lucide-react";
 import {
   CommandDialog,
@@ -119,6 +129,13 @@ export function CommandPalette() {
   const workspaces = useWorkflowStore((s) => s.workspaces);
   const activeWorkspaceId = useWorkflowStore((s) => s.activeWorkspaceId);
   const switchWorkspace = useWorkflowStore((s) => s.switchWorkspace);
+  // Task 245 — the project family joins the index: the header's project
+  // SelectTrigger is a door (its Workspaces sibling was indexed long ago);
+  // the palette reads the SAME store list and calls the SAME switchProject
+  // the SelectTrigger does — one environment one truth, every mouth follows.
+  const projects = useWorkflowStore((s) => s.projects);
+  const project = useWorkflowStore((s) => s.project);
+  const switchProject = useWorkflowStore((s) => s.switchProject);
   const noteSpotlight = useWorkflowStore((s) => s.noteSpotlight);
   const toggleNoteSpotlight = useWorkflowStore((s) => s.toggleNoteSpotlight);
   // Task 134 — the palette can jump to ONE job; the find bar lenses ALL
@@ -679,6 +696,43 @@ export function CommandPalette() {
 
         <CommandSeparator />
 
+        {/* ---------------- projects (Task 245) ----------------
+            Parent before child: the project owns workspaces, so its group
+            sits above the Workspaces group. Same row dialect — name,
+            (active) marker, a right-aligned verb — and the SAME guard the
+            header's ProjectSwitcher enforces: switching to the active
+            project is a no-op that just closes (honest, not an error). */}
+        {projects.length > 0 && (
+          <CommandGroup heading="Projects">
+            {projects.map((p) => (
+              <CommandItem
+                key={`proj-${p.id}`}
+                value={`project ${p.name}`}
+                onSelect={() => {
+                  if (p.id === project?.id) {
+                    close(); // already there — the door closes quietly
+                    return;
+                  }
+                  void switchProject(p.id); // reloads jobs/workspaces, lands on the first workspace
+                  close();
+                }}
+                className="gap-2.5"
+              >
+                <FolderOpen className="size-4 shrink-0 text-primary" />
+                <span className="min-w-0 flex-1 truncate text-sm">
+                  {p.name}
+                  {p.id === project?.id && (
+                    <span className="ml-1.5 text-[10px] font-medium text-primary">(active)</span>
+                  )}
+                </span>
+                <span className="shrink-0 text-[10px] uppercase tracking-wide text-muted-foreground">
+                  switch project
+                </span>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        )}
+
         {/* ---------------- workspaces ---------------- */}
         {workspaces.length > 0 && (
           <CommandGroup heading="Workspaces">
@@ -962,6 +1016,26 @@ export function CommandPalette() {
               {view === "canvas" ? "Open project dashboard" : "Back to workflow canvas"}
             </span>
             <CommandShortcut>⇧D</CommandShortcut>
+          </CommandItem>
+          {/* Task 245 — the GitHub door joins the index: the header link is
+              a real door (Task 179 kept it as the width donor), but unlike
+              Print it has NO platform-native keyboard path — so honesty
+              puts a row here instead of an exemption. */}
+          <CommandItem
+            value="github source code repository issues open external link project page"
+            onSelect={() => {
+              close();
+              window.open("https://github.com/Jing0715-fer/cryoflow", "_blank", "noopener,noreferrer");
+            }}
+            className="gap-2.5"
+          >
+            <Github className="size-4 shrink-0 text-muted-foreground" />
+            <span className="flex-1 text-sm">
+              Open CryoFlow on GitHub
+              <span className="ml-1.5 text-[10px] text-muted-foreground">
+                source · issues — opens a new tab
+              </span>
+            </span>
           </CommandItem>
         </CommandGroup>
       </CommandList>
