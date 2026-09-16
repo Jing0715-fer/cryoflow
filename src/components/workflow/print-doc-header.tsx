@@ -14,6 +14,7 @@
  * element is screen-hidden and that its text reaches the printed PDF).
  */
 
+import { useEffect, useState } from "react";
 import { useWorkflowStore } from "@/lib/store";
 
 export function PrintDocHeader() {
@@ -46,13 +47,25 @@ export function PrintDocHeader() {
         .filter(Boolean)
         .join(" · ");
 
-  // rendered when the masthead mounts — i.e. moments before the print
-  // dialog opens reads the DOM, so "printed <date>" is honest to the minute
-  const printed = new Date().toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
+  // t232: the paper clock does NOT hydrate. `new Date()` during render
+  // baked the BUILD day into the static prerender, and any client that
+  // loads on a later day (the box runs UTC — the first build past UTC
+  // midnight exposed it) mismatched at hydration: React #418, text node.
+  // The date is a PRINT-time instrument — the print dialog reads the DOM
+  // when the user prints, long after mount — so it fills on mount from
+  // the client clock: the first render matches the server (empty), the
+  // printed line stays honest to the print day, the static HTML carries
+  // no clock at all.
+  const [printed, setPrinted] = useState("");
+  useEffect(() => {
+    setPrinted(
+      new Date().toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      }),
+    );
+  }, []);
 
   return (
     <header

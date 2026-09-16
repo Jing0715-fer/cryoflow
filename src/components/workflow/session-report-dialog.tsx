@@ -1054,13 +1054,31 @@ export default function SessionReportDialog({
     };
   }, [mapInventory, mapQc, pressOwner]);
 
-  const exportCsv = () => {
+  /* t232: the CSV's second mouth. The markdown speaks two doors (copy,
+     download) — the machine grid spoke only one. Copy is NOT a second
+     CSV builder: the same inventoryCsv bytes leave through the same
+     function, the same empty-state refusal ("still measuring" — a
+     silent no-op is a lying door), the same receipt grammar. Clipboard
+     denied = the download is the honest fallback, and the receipt
+     names the degradation (exportMd's own precedent, mirrored). */
+  const exportCsv = async (mode: "copy" | "download") => {
     const csv = inventoryCsv(mapInventory ?? null);
     if (!csv) {
       // the honest empty: no roster settled yet — the button says so,
       // the note names the wait (a silent no-op is a lying door)
       flashNote("The map inventory is still measuring — no CSV yet");
       return;
+    }
+    if (mode === "copy") {
+      try {
+        await navigator.clipboard.writeText(csv);
+        flashNote("Copied the map inventory grid to the clipboard");
+        return;
+      } catch {
+        downloadText(inventoryCsvFilename(), csv, "text/csv;charset=utf-8");
+        flashNote("Downloaded session-map-inventory-….csv (clipboard unavailable)");
+        return;
+      }
     }
     downloadText(inventoryCsvFilename(), csv, "text/csv;charset=utf-8");
     flashNote("Downloaded session-map-inventory-….csv");
@@ -1128,9 +1146,20 @@ export default function SessionReportDialog({
             variant="ghost"
             size="sm"
             className="h-7 gap-1.5 text-emerald-600 hover:bg-emerald-600/15 hover:text-emerald-600"
+            aria-label="Copy map inventory CSV"
+            title="The same machine grid, straight to the clipboard — the download door's twin, one well, two mouths"
+            onClick={() => exportCsv("copy")}
+          >
+            <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+            Copy CSV
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 gap-1.5 text-emerald-600 hover:bg-emerald-600/15 hover:text-emerald-600"
             aria-label="Download map inventory CSV"
             title="The map inventory as a machine grid — job, main map, volumes, peak %, Δ winner (one row per owner, pending peaks blank)"
-            onClick={exportCsv}
+            onClick={() => exportCsv("download")}
           >
             <FileSpreadsheet className="h-3.5 w-3.5" aria-hidden="true" />
             Download CSV

@@ -17,6 +17,7 @@
  * obscured content. Hidden on screen (`hidden`), print-only (`print:block`).
  */
 
+import { useEffect, useState } from "react";
 import { useWorkflowStore } from "@/lib/store";
 
 export function PrintDocFooter() {
@@ -32,11 +33,20 @@ export function PrintDocFooter() {
     ? `${workspaceName} · ${project?.name ?? "project"}`
     : (project?.name ?? "CryoFlow");
 
-  const printed = new Date().toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
+  // t232: the paper clock does NOT hydrate (the header's own comment —
+  // same bug, same cure): the date fills on mount from the client
+  // clock, the first render matches the server (empty), and the static
+  // prerender carries no clock at all.
+  const [printed, setPrinted] = useState("");
+  useEffect(() => {
+    setPrinted(
+      new Date().toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      }),
+    );
+  }, []);
 
   return (
     <footer

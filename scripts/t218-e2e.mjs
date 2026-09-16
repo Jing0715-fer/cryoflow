@@ -17,6 +17,10 @@
  *      row count == the inventory's, the winner's +0.0, the outlier's
  *      -26.2, peak cells == wire, one row per owner. A pending peak is a
  *      BLANK cell — still-measuring in CSV grammar is empty, not a guess.
+ *   C  t232 the copy door — the CSV's SECOND mouth: same inventoryCsv
+ *      well (clipboard bytes === download bytes, digit for digit), the
+ *      receipt names the copy; a denied clipboard degrades to the
+ *      download door and the receipt names the degradation.
  *   Z  world hygiene — roster identity, console clean.
  */
 import { execSync } from "node:child_process";
@@ -80,7 +84,11 @@ must(
 /* ============ D: the door, on the wire ============ */
 section("D: click the door, read the grid");
 const browser = await chromium.launch();
-const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+const context = await browser.newContext({
+  viewport: { width: 1440, height: 900 },
+  permissions: ["clipboard-read", "clipboard-write"],
+});
+const page = await context.newPage();
 const consoleErrors = [];
 page.on("console", (m) => { if (m.type() === "error") consoleErrors.push(m.text()); });
 page.on("pageerror", (e) => consoleErrors.push(String(e)));
@@ -122,13 +130,67 @@ must(rows[1] === paperToCsv[0], `D10 the winner row == paper, cell for cell (${r
 must(rows[2] === paperToCsv[1], `D11 the second row == paper, cell for cell (${rows[2]})`);
 must(paperToCsv[0].endsWith(",+0.0,1.00,Q1 (1.00)"), "D12 the reference row speaks +0.0, self-r 1.00 and its perfect thinnest quarter in BOTH grammars");
 
+/* ============ C: the copy door — one well, two mouths ============ */
+section("C: the copy door — same bytes, straight to the clipboard");
+const copyDoor = page.locator('button[aria-label="Copy map inventory CSV"]');
+must((await copyDoor.count()) === 1, "C1 the copy door exists, exactly one (the download door's twin)");
+await copyDoor.click();
+let clip = "";
+for (let i = 0; i < 10 && !clip; i++) {
+  await sleep(300);
+  clip = await page.evaluate(() => navigator.clipboard.readText().catch(() => ""));
+}
+must(clip === csv, `C2 the clipboard bytes === the download bytes, digit for digit (${clip.length} chars — two mouths, one well)`);
+let receipt = "";
+for (let i = 0; i < 10; i++) {
+  receipt = (await page.locator('[role="status"]').textContent().catch(() => "")) ?? "";
+  if (receipt.includes("Copied the map inventory grid")) break;
+  await sleep(300);
+}
+must(receipt.includes("Copied the map inventory grid"), `C3 the receipt names the copy ("${receipt}")`);
+
 // the portrait: the doors row with the emerald CSV sibling + the five-column
 // inventory (the roster and its machine grid, one frame)
 mkdirSync("scripts/shots-t218", { recursive: true });
 const dialog = page.locator("[data-report-doc]").first();
 await dialog.screenshot({ path: "scripts/shots-t218/t218-csv-door-2x.png", scale: "css" });
 
+if (consoleErrors.length) console.log("  console errors:", consoleErrors);
 must(consoleErrors.length === 0, `Z2 console clean (${consoleErrors.length})`);
+
+/* ============ C2: the denied world — the fallback names itself ============ */
+section("C2: the denied clipboard — the degradation speaks");
+const context2 = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+await context2.addInitScript(() => {
+  Object.defineProperty(navigator, "clipboard", {
+    value: { writeText: () => Promise.reject(new Error("denied by the test")) },
+    configurable: true,
+  });
+});
+const page2 = await context2.newPage();
+page2.on("console", (m) => { if (m.type() === "error") consoleErrors.push(m.text()); });
+page2.on("pageerror", (e) => consoleErrors.push(String(e)));
+await page2.goto(BASE, { waitUntil: "domcontentloaded" });
+await sleep(2500);
+await page2.locator('button[aria-label="Session QC report"]').click();
+await sleep(1800);
+const copyDoor2 = page2.locator('button[aria-label="Copy map inventory CSV"]');
+for (let i = 0; i < 20 && (await copyDoor2.count()) !== 1; i++) await sleep(500);
+const [download2] = await Promise.all([
+  page2.waitForEvent("download", { timeout: 10000 }),
+  copyDoor2.click(),
+]);
+must(/^session-map-inventory-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}\.csv$/.test(download2.suggestedFilename()),
+  `C4 the denied copy degrades to the download door (${download2.suggestedFilename()})`);
+let receipt2 = "";
+for (let i = 0; i < 10; i++) {
+  receipt2 = (await page2.locator('[role="status"]').textContent().catch(() => "")) ?? "";
+  if (receipt2.includes("clipboard unavailable")) break;
+  await sleep(300);
+}
+must(receipt2.includes("(clipboard unavailable)"), `C5 the receipt names the degradation ("${receipt2}")`);
+await context2.close();
+
 await browser.close();
 
 /* ============ Z: world hygiene ============ */

@@ -536,3 +536,24 @@ Stage Summary:
 - 「纸档不可见于屏幕」：零屏幕漂移 = 全帧指纹背书 feature 的介质纯度；print-only CSS 的审稿要用 print 仿真拍（t231-print-frame.mjs 入驻 scripts/）——「工具跟随介质」
 - 「固定工序再 +1」：build 后第一步 pgrep watchdog（连续三窗死亡后升格为工序，与「换 bundle 后验活」并列）；「重跑 e2e 前必查 roster」（崩溃跳清场第 2 度）
 - 遗留（下轮候选）：透镜纸面化（哲学门槛维持）；updatedAt 治理（大工程）；EMPIAR 真数据回归（让位）；CSV copy 路径（让位）；portrait 玻璃内刻度（本轮否决——分工教义，除非出现「缩略图需要深度语境」的真实阅读需求）；hero 纸档下的签名与地形全墨叠印可读性（纸上 7px 全墨字压 1.25 宽线——若未来真实打印发现叠印糊字，halo 禁令是否需要一个「纸上例外」的讨论）
+
+## Task 232 (2026-09-16, cron 07:47 窗口 trace …202609160753)
+
+- 【开局】四件套：尾部 = Task 231（68b6a2a）零过时；净场 → watchdog 验活（21482）+ 200。QA：qa00 GREEN + qa63 GREEN + agent-browser 干净。
+- 【立项】Task 231 遗留评审：**「CSV 的第二扇门——copy」当选**（让位 8 窗的老候选转正——「需求未现」的需求现已出现：copy/download 双门是 markdown 的已有形制，机器网格只有一扇门是形制缺口）；纸上叠印讨论维持（依赖真实打印证据）；portrait 玻璃刻度维持否决。教义：**复制与下载喝同一口井**——copy 不是第二个 CSV 生成器（重打字节必分叉），同一 inventoryCsv、同一空态拒绝、同一收据语法；clipboard 拒绝 = 降级为 download 且收据自报家门（exportMd 判例镜像）。
+- 【实现】
+  - exportCsv 改 mode 化（"copy" | "download"）：copy 分支 try clipboard.writeText → 收据 "Copied the map inventory grid to the clipboard"；catch → downloadText + 收据 "…(clipboard unavailable)"；download 分支原样
+  - Copy CSV 按钮入排（emerald 同族、Copy 图标、aria "Copy map inventory CSV"、title 点名 twin——one well, two mouths）
+  - t218-e2e 重构 context + clipboard-read/write 权限；C 相 5 断言 + C2 相 2 断言：C1 门恰一、**C2 剪贴板字节 === 下载字节逐位**（164 chars——两口井一个父亲）、C3 收据点名 copy、**C4 拒绝世界降级为 download**（init script 把 clipboard.writeText 换成 Promise.reject——拒绝的确定性注入）、C5 降级收据自报家门
+- 【重大事故与判决：React #418 水合文本错配（t232 无辜）】首跑 t218 Z2 console 1 错——三suite（t218/t223/t215）同报。取证三步：agent-browser errors 异常 → 自写 t232-diagnose.mjs 分相捕获（**裸加载即发生**，对话框未开——组件嫌疑排除）→ t232-diagnose2.mjs **SSR HTML vs 水合 DOM 文本差分**：SSR 静态 HTML 烘着 "Sep 15, 2026"、水合 DOM 是 "Sep 16, 2026"。**元凶 = print-doc-header/footer 在 render 期间调 new Date()**——「printed 日期」被静态预渲染烘进 HTML；本箱 UTC、本窗 build 恰跨 UTC 午夜（23:59 build / 00:01 完工），build 日 ≠ 客户端日，潜伏 bug 首次现形（此前窗 build 与客户端同日零暴露；t232 的 diff 无辜但由它的新 e2e 断言捕获——tripwire 制度的胜利）。修复 = **「纸上的钟不参与水合」**：useState("") + useEffect mount 后客户端填充——首渲染与 SSR 一致（空）、打印发生在 mount 后（钟 honest to the print day）、静态 HTML 不再携带任何钟。qa66 35 断言复核 GREEN（打印契约在 mount 填充模式下完好）。
+- 【判例】①「跨午夜 build 是 SSR 时钟 bug 的显影液」——render 期间的 new Date() 是潜伏水合雷，static prerender 烘钟 = 迟早 #418；②「诊断顺序：分相捕获定位时机 → SSR/DOM 文本差分定位元凶」——t232-diagnose.mjs/t232-diagnose2.mjs 入驻 scripts/ 成为水合考古工具；③「e2e 的 console-clean 断言是全局 tripwire」——三个 suite 同时报警才能区分「局部回归」与「全局回归」。
+- 【e2e：t218 21→28（26 断言 + 世界卫生）×3 全绿】t223 120/0 + t215 44/0（tripwire 复验清洁）+ qa66 35 GREEN + 全家族绿：t210 151/0 + t213 35/0 + t214 29/0 + t219 29/0 + t212 30/0 + t221 14/0；roster 恒等 21。
+- 【定妆照】t218-csv-door-2x 重摄：五门同排（Copy CSV 翡翠同族）+ 翡翠收据条同框；审稿通过。漂移考古：**t219/t223 八帧共享门排带指纹**（2052–2059 @ (245,93,630,108)——Copy CSV 入排把同行后续门右移的确定性墨迹）随 feature 提交；t212/t214/t215 的 7200 级右侧带 PIL 行列剖析 + 裁片亲眼验证 = **同一门排在各suite帧的不同 y 位置**（+ 0.005 密度散点渲染真相），收；t210 ×3（1/156/2316 @ 画布区）惯犯具名 checkout。
+- 【世界卫生】全家族绿 + roster 恒等 21。
+- 【收尾】worklog（本条）+ commit + push + 环境清理。
+
+Stage Summary:
+- 「复制与下载喝同一口井」：CSV 获得它的第二扇门——同一 inventoryCsv、同一空态拒绝、同一收据语法；C2 把「两口井一个父亲」钉成 wire 断言（clipboard bytes === download bytes 逐位）；降级世界 C4/C5 证明拒绝时的诚实（fallback 开火 + 收据自报家门）
+- 「纸上的钟不参与水合」：print-doc header/footer 的日期改 mount 后客户端填充——静态 HTML 不携带钟，水合永不与钟相遇；qa66 复核打印契约完好（打印发生在 mount 后，钟 honest to the print day）
+- 「跨午夜 build 显影 SSR 时钟雷」：潜伏 bug 的暴露条件 = build 日 ≠ 客户端日——此前 30+ 窗零暴露纯属运气（build 从未跨 UTC 午夜）；SSR/DOM 文本差分是这类雷的通用探测器
+- 遗留（下轮候选）：透镜纸面化（哲学门槛维持）；updatedAt 治理（大工程）；EMPIAR 真数据回归（让位）；hero 纸档叠印可读性（维持，依赖真实打印证据）；exportMd/exportCsv 的 mode 化统一（两个函数现在同构——合并成一个带 kind 参数的 export(kind, mode) 是纯粹的重构，成本/价值再评估）
