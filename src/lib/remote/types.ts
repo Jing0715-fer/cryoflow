@@ -146,4 +146,14 @@ export interface RemoteRunState {
   note?: string;
   /** Total bytes staged TO the cluster (inputs) — user feedback. */
   stagedBytes?: number;
+  /**
+   * Staging heartbeat (ms epoch) — touched every 10s by the background
+   * staging task while it is alive. The poll sweep reads it to tell
+   * "still uploading" from "task vanished without a trace" (a void-spawned
+   * task whose SSH exec hangs has no supervisor; without the beat the row
+   * waited out the 30min fallback). Absent on pre-heartbeat ledgers and
+   * records read after a restart before the first beat — those still fall
+   * back to the age window.
+   */
+  stagingBeat?: number;
 }

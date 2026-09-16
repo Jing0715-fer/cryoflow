@@ -40,7 +40,7 @@ import {
   writeFileSync,
 } from "fs";
 import path from "path";
-import type { Job } from "@prisma/client";
+import type { Job, Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { DATA_DIR, RELION_DIR } from "@/lib/paths";
 import {
@@ -461,6 +461,63 @@ function buildWrapperScript(args: {
 /* startRemoteJob                                                      */
 /* ------------------------------------------------------------------ */
 
+/** A staging heartbeat older than this means the upload task is gone. */
+const STAGING_BEAT_STALE_MS = 120_000;
+
+/**
+ * Staging heartbeat — the background staging task has no supervisor (it is
+ * void-spawned), so it touches the ledger every 10s while alive. The poll
+ * sweep reads the beat to distinguish "still uploading" from "the task
+ * vanished without a trace" (a hung SSH exec used to strand the row in
+ * pending until the 30min fallback). Returns a stop() that is idempotent.
+ */
+function startStagingBeat(jobId: string): () => void {
+  const beat = setInterval(() => {
+    updateRun(jobId, (rec) =>
+      rec.remote && rec.remote.phase === "staging" && !rec.done
+        ? { ...rec, remote: { ...rec.remote, stagingBeat: Date.now() } }
+        : null
+    );
+  }, 10_000);
+  beat.unref?.();
+  let stopped = false;
+  return () => {
+    if (stopped) return;
+    stopped = true;
+    clearInterval(beat);
+  };
+}
+
+/**
+ * A row flip that survives SQLITE_BUSY. The finalize write races every
+ * other engine write (the poll sweep, the transition sweep, a UI patch) —
+ * losing the race used to strand the row non-terminal FOREVER with the
+ * record already done (no self-heal path). Retry with backoff; if all
+ * attempts fail, the orphan sweep in reconcileRemoteJobs heals the row
+ * from the record truth on a later tick.
+ */
+async function updateJobWithRetry(
+  id: string,
+  data: Prisma.JobUpdateInput,
+  attempts = 3
+): Promise<Job | null> {
+  for (let i = 1; i <= attempts; i++) {
+    try {
+      return await db.job.update({ where: { id }, data });
+    } catch (e) {
+      if (i === attempts) {
+        console.error(
+          `remote-run: row flip failed ${attempts}x for ${id} — the orphan sweep will heal it:`,
+          e instanceof Error ? e.message : e
+        );
+        return null;
+      }
+      await new Promise((r) => setTimeout(r, 200 * i));
+    }
+  }
+  return null;
+}
+
 export async function startRemoteJob(args: {
   job: Job;
   upstream: UpstreamRef[];
@@ -494,20 +551,35 @@ export async function startRemoteJob(args: {
 
   // ---- liveness pre-check (precise, async — isRunAlive only guesses) ----
   const prev = getRun(job.id);
+  // marker for the anti-ghost re-check below: if a CONCURRENT dispatch
+  // lands a record while we await, its startedAt differs from the one we
+  // verified here (t262's ghost-dispatch finding, hardened t263).
+  const prevStartedAt = prev?.startedAt ?? null;
   if (prev?.remote && prev.done === false) {
-    const alive = await pollOneRemote(conn, prev);
-    if (alive === "alive" || alive === "unknown" || alive === "busy" || alive === "staging") {
-      return {
-        ok: false,
-        busy:
-          alive === "staging"
-            ? `inputs are still staging to ${conn.host} — the run starts by itself`
-            : `remote run still active on ${conn.host}${prev.remote.pid != null ? ` (cluster pid ${prev.remote.pid})` : ""}`,
-        busyKind: "live",
-        job,
-      };
+    // poll the PREVIOUS run's OWN connection — checking a record from
+    // cluster A against cluster B reads the wrong filesystem and would
+    // report a live run VANISHED (the ghost-dispatch door t262 caught:
+    // the record-side staging phase short-circuits first, but a RUNNING
+    // record must be witnessed on its own cluster, not the new target).
+    const prevConn =
+      prev.remote.connectionId === conn.id ? conn : getConnection(prev.remote.connectionId);
+    if (prevConn) {
+      const alive = await pollOneRemote(prevConn, prev);
+      if (alive === "alive" || alive === "unknown" || alive === "busy" || alive === "staging") {
+        return {
+          ok: false,
+          busy:
+            alive === "staging"
+              ? `inputs are still staging to ${prevConn.host} — the run starts by itself`
+              : `remote run still active on ${prev.remote.host}${prev.remote.pid != null ? ` (cluster pid ${prev.remote.pid})` : ""}`,
+          busyKind: "live",
+          job,
+        };
+      }
     }
-    // dead + finalized by the poll above? pollOneRemote only INSPECTS; the
+    // else: the previous connection is gone — the sweep already failed that
+    // row and the record can no longer be verified; safe to replace.
+    // Dead + finalized by the poll above? pollOneRemote only INSPECTS; the
     // sweep finalizes. A dead-but-unfinalized record is safe to replace.
   }
 
@@ -621,6 +693,28 @@ export async function startRemoteJob(args: {
     }
   }
 
+  // ---- anti-ghost re-check (the dispatch race, t263) ---------------------
+  // The pre-check above ran before several awaits (remote-root expansion).
+  // A CONCURRENT dispatch — the dialog vs the auto-start passthrough — may
+  // have landed a live record in that window; proceeding would clobber its
+  // record (upsertRun overwrites by jobId) and swallow its fresh
+  // "pending (staging)" row. Re-verify at the last serial point: any live
+  // remote record we did NOT verify ourselves means someone else is
+  // dispatching this job right now.
+  {
+    const inFlight = getRun(job.id);
+    if (inFlight?.remote && inFlight.done === false && inFlight.startedAt !== prevStartedAt) {
+      return {
+        ok: false,
+        busy: `a run for this job is already in flight on ${inFlight.remote.connectionName}${
+          inFlight.remote.phase === "staging" ? " (inputs still staging)" : ""
+        }`,
+        busyKind: "live",
+        job,
+      };
+    }
+  }
+
   // ---- build the record + DB state --------------------------------------
   const startedAtMs = Date.now();
   const pendingPatch = needsStaging
@@ -649,8 +743,14 @@ export async function startRemoteJob(args: {
   upsertRun(job.id, record);
 
   // ---- the actual work (staging + spawn) --------------------------------
+  // the heartbeat runs for the WHOLE task (staging phase only — the updateRun
+  // guard no-ops once the phase flips) and is stopped on both exits.
+  const stopBeat = startStagingBeat(job.id);
   const spawn = async (): Promise<void> => {
     try {
+      console.log(
+        `remote-run: task alive — staging ${uploads.length} input file(s) for "${job.name}" to ${conn.host} (module ${moduleName || "none"})`
+      );
       let stagedBytes = 0;
       for (const u of uploads) {
         stagedBytes += await stageFileTree(conn, u.local, u.remote);
@@ -756,10 +856,12 @@ export async function startRemoteJob(args: {
         where: { id: job.id },
         data: { status: "running", progress: 0, result: null, startedAt: new Date(startedAtMs) },
       });
+      stopBeat();
       console.log(
         `remote-run: ${job.type} "${job.name}" spawned on ${conn.name} (pid ${pid}, module ${moduleName || "none"})`
       );
     } catch (e) {
+      stopBeat();
       const msg = e instanceof Error ? e.message : String(e);
       // finalize the record (done=true) — a !done record would otherwise be
       // polled by the heal path forever with no pid and no exit file
@@ -774,12 +876,11 @@ export async function startRemoteJob(args: {
             }
           : null
       );
-      await db.job
-        .update({
-          where: { id: job.id },
-          data: { status: "failed", progress: 0, result: `remote run failed: ${msg}`.slice(0, 900) },
-        })
-        .catch(() => undefined);
+      await updateJobWithRetry(job.id, {
+        status: "failed",
+        progress: 0,
+        result: `remote run failed: ${msg}`.slice(0, 900),
+      });
       console.error(`remote-run: ${job.type} "${job.name}" failed to start:`, msg);
     }
   };
@@ -859,14 +960,101 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
   const runs = readRuns();
   const active: BatchEntry[] = [];
   const heal: BatchEntry[] = [];
+  const stagingEntries: BatchEntry[] = [];
+  const orphans: Array<{ job: Job; rec: RunRecord }> = [];
+  const out = [...jobs];
   for (const job of jobs) {
     const rec = runs[job.id];
-    if (!rec?.remote || rec.done) continue;
+    if (!rec?.remote) continue;
+    if (rec.done) {
+      // ORPHAN: the record finalized but the row never reached a terminal
+      // state — the finalize flip was swallowed (SQLITE_BUSY, a crash
+      // between record and row, t262 finding #2). The RECORD is the truth;
+      // re-apply it below (no SSH needed). The status guard keeps a live
+      // user re-run safe: only a non-terminal row may be healed.
+      if (job.status === "running" || job.status === "pending") orphans.push({ job, rec });
+      continue;
+    }
     const entry: BatchEntry = { job, rec, remote: rec.remote };
+    if (rec.remote.phase === "staging") {
+      // staging records are owned by their background task — an SSH
+      // alive-check would read no pid and report VANISHED for a HEALTHY
+      // upload (finalize-killing legitimate staging > 2min). They are
+      // judged ledger-side by the heartbeat windows below.
+      stagingEntries.push(entry);
+      continue;
+    }
     if (job.status === "running" || job.status === "pending") active.push(entry);
     else heal.push(entry);
   }
-  if (active.length === 0 && heal.length === 0) return jobs;
+
+  // ---- orphan heal (ledger-side, no SSH) --------------------------------
+  for (const { job, rec } of orphans) {
+    const result = rec.result ?? (rec.exitCode === 0 ? "REMOTE run completed" : "remote run failed");
+    const patch: Prisma.JobUpdateInput =
+      rec.exitCode === 0
+        ? {
+            status: "completed",
+            progress: 100,
+            result,
+            duration: Math.max(500, Date.now() - new Date(rec.startedAt).getTime()),
+          }
+        : { status: "failed", progress: 0, result };
+    // conditional flip — only a non-terminal row may be healed (a fresh
+    // dispatch that already re-owned the row must never be reverted)
+    const flipped = await db.job
+      .updateMany({ where: { id: job.id, status: { in: ["running", "pending"] } }, data: patch })
+      .catch(() => null);
+    if (flipped && flipped.count > 0) {
+      const healed = await db.job.findUnique({ where: { id: job.id } });
+      if (healed) replace(out, healed);
+      console.log(
+        `remote-run: healed orphan row for "${job.name}" (record said ${
+          rec.exitCode === 0 ? "completed" : `exit ${rec.exitCode}`
+        }, row was stuck ${job.status})`
+      );
+    }
+  }
+
+  // ---- staging heartbeat windows (ledger-side, no SSH) ------------------
+  // Two honest ways to be stale:
+  //  - heartbeat older than 2min  → the task vanished mid-flight (its
+  //    catch never ran — a hung SSH exec, or the process died quietly)
+  //  - no heartbeat at all + older than 30min → pre-heartbeat ledger or a
+  //    server restart before the first beat (the old fallback, kept)
+  for (const e of stagingEntries) {
+    if (e.job.status !== "pending" && e.job.status !== "idle") continue;
+    const ageMs = Date.now() - new Date(e.rec.startedAt).getTime();
+    const beatAge = e.remote.stagingBeat != null ? Date.now() - e.remote.stagingBeat : null;
+    const stale = beatAge != null ? beatAge > STAGING_BEAT_STALE_MS : ageMs > 30 * 60_000;
+    if (!stale) continue;
+    const msg =
+      "staging to the cluster was interrupted (the upload task vanished or the server restarted) — re-run to continue where it left off (uploaded files are skipped)";
+    const flipped = await db.job
+      .updateMany({
+        where: { id: e.job.id, status: { in: ["pending", "idle"] } },
+        data: { status: "failed", progress: 0, result: msg },
+      })
+      .catch(() => null);
+    if (flipped && flipped.count > 0) {
+      const healed = await db.job.findUnique({ where: { id: e.job.id } });
+      if (healed) replace(out, healed);
+      // finalize the record too so the liveness guard stops seeing a
+      // ghost staging run — but only if the task has not JUST flipped it
+      updateRun(e.job.id, (rec) =>
+        rec.remote && !rec.done && rec.remote.phase === "staging"
+          ? { ...rec, done: true, exitCode: -1, result: msg, remote: { ...rec.remote, note: "staging interrupted" } }
+          : null
+      );
+      console.log(
+        `remote-run: staging for "${e.job.name}" went stale (heartbeat ${
+          beatAge == null ? "absent" : `${Math.round(beatAge / 1000)}s old`
+        }) — row failed honestly`
+      );
+    }
+  }
+
+  if (active.length === 0 && heal.length === 0) return out;
 
   // group by connection
   const byConn = new Map<string, BatchEntry[]>();
@@ -876,7 +1064,6 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
     byConn.set(e.remote.connectionId, list);
   }
 
-  const out = [...jobs];
   for (const [connId, entries] of byConn) {
     const conn = getConnection(connId);
     if (!conn) {
@@ -887,7 +1074,7 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
           progress: 0,
           result: "the cluster connection for this run was deleted — re-add it and re-run",
         };
-        const updated = await db.job.update({ where: { id: e.job.id }, data: patch }).catch(() => null);
+        const updated = await updateJobWithRetry(e.job.id, patch);
         if (updated) replace(out, updated);
         updateRun(e.job.id, (rec) => (rec.remote ? { ...rec, done: true, exitCode: -1, result: patch.result } : null));
       }
@@ -961,7 +1148,7 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
                   : ""
               }`,
             };
-            const updated = await db.job.update({ where: { id: e.job.id }, data: patch }).catch(() => null);
+            const updated = await updateJobWithRetry(e.job.id, patch);
             updateRun(e.job.id, (rec) => (rec.remote ? { ...rec, done: true, exitCode: -1, result: patch.result } : null));
             if (updated) replace(out, updated);
           } else {
@@ -977,18 +1164,6 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
                   : null
             );
           }
-        }
-        // staging-phase records: the background spawn task owns them; a
-        // stuck staging record (>30min, no pid) fails honestly on the NEXT
-        // server boot via the same sweep — the task itself flips the DB.
-        if (e.remote.phase === "staging" && ageMs > 30 * 60_000 && e.job.status === "pending") {
-          const patch = {
-            status: "failed" as const,
-            progress: 0,
-            result: "staging to the cluster was interrupted (server restart?) — re-run to continue where it left off (uploaded files are skipped)",
-          };
-          const updated = await db.job.update({ where: { id: e.job.id }, data: patch }).catch(() => null);
-          if (updated) replace(out, updated);
         }
       }
     } finally {
@@ -1078,7 +1253,9 @@ async function finalizeRemoteRun(
           duration: Math.max(500, Date.now() - new Date(rec.startedAt).getTime()),
         }
       : { status: "failed" as const, progress: 0, result };
-  const updated = await db.job.update({ where: { id: job.id }, data: patch }).catch(() => null);
+  // SQLITE_BUSY-safe flip (t262 finding #2): a swallowed flip used to leave
+  // the row non-terminal forever — the orphan sweep now backs this up too.
+  const updated = await updateJobWithRetry(job.id, patch);
   if (updated && exitCode === 0) {
     // downstream auto-start — same cluster (the trigger's remote target
     // passes through so a remote pipeline stays remote)

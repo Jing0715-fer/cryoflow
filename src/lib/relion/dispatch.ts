@@ -15,6 +15,7 @@ import {
   type UpstreamRef,
   type WaitKind,
 } from "./engine";
+import { getConnection } from "@/lib/remote/connections";
 import { remoteEligible, startRemoteJob } from "@/lib/remote/remote-run";
 import type { RemoteRunTarget } from "@/lib/remote/types";
 
@@ -304,9 +305,22 @@ export async function autoStartPendingDownstream(triggerJobId: string): Promise<
     // target to the consumers it auto-starts — a remote pipeline stays remote
     // (each consumer's startJob re-resolves inputs; natives ignore the target
     // and run locally as always).
+    // GHOST-DISPATCH GUARD (t262 finding #3, hardened t263): the trigger's
+    // target is only inheritable while the connection still EXISTS. Run
+    // records outlive connections (old sessions, deleted clusters) — without
+    // this re-verification a stale record routes fresh children to a ghost
+    // cluster (dispatching someone's compute to the wrong machine).
     const triggerRec = getRun(triggerJobId);
+    const passthroughConn = triggerRec?.remote
+      ? getConnection(triggerRec.remote.connectionId)
+      : null;
+    if (triggerRec?.remote && !passthroughConn) {
+      console.warn(
+        `dispatch: remote passthrough dropped for "${trigger.name}" — connection ${triggerRec.remote.connectionName} no longer exists (downstream runs locally or fails honestly)`
+      );
+    }
     const remoteOpts: { remote?: RemoteRunTarget } =
-      triggerRec?.remote
+      triggerRec?.remote && passthroughConn
         ? {
             remote: {
               connectionId: triggerRec.remote.connectionId,
