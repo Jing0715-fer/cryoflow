@@ -36,6 +36,7 @@ import path from "path";
 import type { Job } from "@prisma/client";
 import { db } from "@/lib/db";
 import { DATA_DIR, RELION_DIR } from "@/lib/paths";
+import type { RemoteRunState } from "@/lib/remote/types";
 import { readMrcHeader } from "@/lib/mrc";
 import { detectRelion } from "./system";
 import { MIC_RE, expandPattern, hasWildcard, userPathToHost } from "./glob";
@@ -101,6 +102,11 @@ export interface RunRecord {
   done: boolean;
   exitCode: number | null;
   result?: string | null;
+  /** Present when the run executes on a REMOTE cluster over SSH — then
+   * pid/logFile/workdir have REMOTE meaning for liveness and the poll sweep
+   * is owned by lib/remote/remote-run.ts (reconcileRemoteJobs), not by the
+   * local pidAlive branch below. See docs/remote-relion.md. */
+  remote?: RemoteRunState;
 }
 
 export interface EngineJobRef {
@@ -333,6 +339,14 @@ export function isRunAlive(jobId: string): string | null {
     return `job is already running (pid ${child.pid})`;
   }
   const state = readRuns()[jobId];
+  // REMOTE records: the pid belongs to the CLUSTER, never to this machine —
+  // a local pidAlive check would query an unrelated local process. The
+  // remote poll sweep (reconcileRemoteJobs) flips `done` within a few
+  // seconds of the cluster-side exit; between polls the honest answer is
+  // "still active". startRemoteJob does a precise async check before spawn.
+  if (state && state.remote && state.done === false) {
+    return `remote run still active on ${state.remote.host}${state.remote.pid != null ? ` (cluster pid ${state.remote.pid})` : " (staging inputs)"}`;
+  }
   if (state && state.done === false && state.pid != null && pidAlive(state.pid)) {
     return `job is already running (pid ${state.pid})`;
   }
@@ -2316,7 +2330,10 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
         "--is_ctffind4",
         "--fast_search",
       ];
-      const ctffindExe = resolveCtffind(ctx.bridge);
+      // ctx.ctffindExe: execution-context override (the remote layer passes
+      // the CLUSTER-side ctffind; the sandbox default is host-local and
+      // meaningless on a remote node)
+      const ctffindExe = (ctx as BuildCtx & { ctffindExe?: string | null }).ctffindExe ?? resolveCtffind(ctx.bridge);
       if (ctffindExe) argv.push("--ctffind_exe", ctffindExe);
       return argv;
     }
@@ -3138,7 +3155,7 @@ function countStarRows(starPath: string): number {
  * After a CLI job exits 0: verify expected outputs exist, harvest output
  * paths and build the human result string.
  */
-function collectOutputs(type: string, workdir: string): { outputs: Record<string, string>; result: string } {
+export function collectOutputs(type: string, workdir: string): { outputs: Record<string, string>; result: string } {
   const outputs: Record<string, string> = {};
   let result = `REAL: ${type} exited 0`;
 
@@ -3533,6 +3550,23 @@ export function parseProgress(
   try {
     if (!existsSync(logFile)) return null;
     const tail = readTail(logFile, 4096);
+    return parseProgressText(type, tail, params);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Content-based progress parser — the remote layer's entry (log text arrives
+ * over SSH, not from a local file). Same heuristics as parseProgress.
+ */
+export function parseProgressText(
+  type: string,
+  tail: string,
+  params: Record<string, number | string | boolean>
+): number | null {
+  try {
+    if (!tail) return null;
     const totalIter = Number(params.iterations ?? 25);
     if (Number.isFinite(totalIter) && totalIter > 0) {
       const itMatches = [...tail.matchAll(/(?:^|\s)it\s*\[?\s*(\d+)/gi)].map((m) => parseInt(m[1], 10));
@@ -4410,6 +4444,14 @@ export async function reconcileRealJobs(jobs: Job[]): Promise<Job[]> {
           .catch(() => null);
         out.push(updated ?? { ...job, ...patch });
       }
+      continue;
+    }
+    // REMOTE records are owned by reconcileRemoteJobs (lib/remote/remote-run.ts):
+    // their pid is a CLUSTER pid — the local pidAlive below would probe an
+    // unrelated local process and could false-positive "alive" forever. Skip;
+    // the remote sweep polls the cluster over SSH and finalizes these.
+    if (state.remote) {
+      out.push(job);
       continue;
     }
     // Guard against the re-run race: the DB flips to "running" (new

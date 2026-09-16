@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# mock Lmod-style module tool for the CryoFlow mock cluster
+case "$1" in
+  load)
+    mod="$2"
+    case "$mod" in
+      relion/5.0.1|relion/4.4.1|relion/5.0-beta)
+        # real RELION is already on PATH via the server env; record the load
+        mkdir -p "$HOME/.lmod" && echo "$mod" > "$HOME/.lmod/loaded"
+        exit 0 ;;
+      cuda/*) exit 0 ;;
+      *) echo "Lmod has detected the following error: Unknown module: $mod" >&2; exit 1 ;;
+    esac ;;
+  avail|spider)
+    # stderr like real Lmod, plus stdout fallback lines — the app parses BOTH
+    {
+      echo "   relion/4.4.1    relion/5.0.1    relion/5.0-beta"
+    } >&2
+    exit 0 ;;
+  list)
+    [ -f "$HOME/.lmod/loaded" ] && { echo "Currently Loaded Modulefiles:"; echo "  1) $(cat "$HOME/.lmod/loaded")"; } || echo "No modules loaded"
+    exit 0 ;;
+  purge) rm -f "$HOME/.lmod/loaded" 2>/dev/null; exit 0 ;;
+  ""|-h|--help|help) echo "Modules based on Lua: Version 8.3 (mock)"; exit 0 ;;
+  *) echo "Unknown module command: $1" >&2; exit 1 ;;
+esac

@@ -32,6 +32,7 @@ import {
   Plus,
   RotateCcw,
   RefreshCw,
+  Server,
   SlidersHorizontal,
   Terminal,
   Trash2,
@@ -68,6 +69,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { HpcSbatchDialog } from "./hpc-sbatch-dialog";
+import { RemoteRunButton } from "./remote-run-button";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
@@ -173,6 +175,18 @@ function EngineBadge() {
       RELION
     </Badge>
   );
+}
+
+/* ------------------------------------------------------------------ */
+/* Remote staging bytes (info strip)                                    */
+/* ------------------------------------------------------------------ */
+
+/** " · 12.4 MB" for the staging phase line — "" when nothing staged yet. */
+function formatStagedBytes(bytes?: number): string {
+  if (bytes == null || !Number.isFinite(bytes) || bytes <= 0) return "";
+  if (bytes >= 1024 ** 3) return ` · ${(bytes / 1024 ** 3).toFixed(1)} GB`;
+  if (bytes >= 1024 ** 2) return ` · ${(bytes / 1024 ** 2).toFixed(1)} MB`;
+  return ` · ${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -1283,6 +1297,7 @@ function PanelBody({ job }: { job: JobDTO }) {
             <span className="flex-1 inline-flex">{runButton}</span>
           )}
           <HpcSbatchDialog jobId={job.id} compact />
+          <RemoteRunButton job={job} />
           <Button
             variant="ghost"
             size="icon"
@@ -1340,6 +1355,44 @@ function PanelBody({ job }: { job: JobDTO }) {
             </AlertDialogContent>
           </AlertDialog>
         </div>
+
+        {/* Remote execution strip — mirrors the run's cluster context
+            (connection + module + phase) while runRemote is attached to
+            the job. Compact by contract: the card chip carries the short
+            host, this is where the full story lives. */}
+        {job.runRemote ? (
+          <div
+            role="note"
+            title={`${job.runRemote.remoteWorkdir} — cluster workdir`}
+            className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-teal-500/25 bg-teal-500/[0.06] px-2 py-1.5 text-[11px] text-muted-foreground"
+          >
+            <Server className="size-3.5 shrink-0 text-teal-600 dark:text-teal-400" aria-hidden="true" />
+            <span className="font-medium text-foreground/90">
+              {job.runRemote.user}@{job.runRemote.host}
+            </span>
+            {job.runRemote.module ? (
+              <Badge
+                variant="outline"
+                className="h-4 px-1 font-mono text-[9.5px] font-normal text-foreground/80"
+              >
+                {job.runRemote.module}
+              </Badge>
+            ) : null}
+            <span className="min-w-0 truncate">
+              {job.runRemote.phase === "staging"
+                ? `Staging inputs to the cluster${formatStagedBytes(job.runRemote.stagedBytes)}…`
+                : `Running on the cluster${job.runRemote.pid ? ` · pid ${job.runRemote.pid}` : ""}`}
+            </span>
+          </div>
+        ) : null}
+        {job.runRemote?.note ? (
+          <p
+            role="note"
+            className="rounded-md bg-amber-500/10 px-2 py-1.5 text-[11px] leading-relaxed text-amber-700 dark:text-amber-300"
+          >
+            {job.runRemote.note}
+          </p>
+        ) : null}
 
         {relionBlocked && (
           <p

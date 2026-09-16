@@ -1,0 +1,94 @@
+#!/usr/bin/env python3
+"""Mock relion_refine for the CryoFlow mock cluster.
+
+Simulates a 2D/3D classification or refinement: prints RELION-style
+iteration lines (it [003] — feeds the progress parser), writes per-iteration
+run_it<NNN>_data.star + class averages, and the final run_classes.mrcs +
+run_model.star collectOutputs harvests.
+"""
+import os
+import struct
+import sys
+import time
+
+argv = sys.argv[1:]
+opts = {}
+i = 0
+while i < len(argv):
+    a = argv[i]
+    if a.startswith("--"):
+        opts[a[2:]] = argv[i + 1] if i + 1 < len(argv) else ""
+        i += 2
+    else:
+        i += 1
+
+outdir = opts.get("o", "./").rstrip("/").rstrip("/")
+if outdir.endswith("/run"):
+    outdir = outdir[: -len("/run")]
+os.makedirs(outdir, exist_ok=True)
+iters = int(opts.get("iter", opts.get("maxiter", "12")))
+ncls = int(opts.get("K", "3"))
+npart = int(opts.get("nt", "1500"))
+mode = opts.get("mode", "classify2d")
+
+print(f"cryoflow-mock refine: mode={mode} K={ncls} particles={npart} iters={iters}")
+
+
+def write_mrc(path, nx, ny, nz, seed):
+    """Minimal valid MRC (mode 2, float32) — enough for header readers."""
+    data = bytearray()
+    for k in range(nx * ny * nz):
+        v = ((seed * 1103515245 + k * 12345) % 1000) / 1000.0 - 0.5
+        data += struct.pack("<f", v)
+    header = bytearray(1024)
+    struct.pack_into("<3i", header, 0, nx, ny, nz)          # NX,NY,NZ
+    struct.pack_into("<i", header, 4, 2)                    # MODE float32
+    struct.pack_into("<3i", header, 12, 0, 0, 0)            # NXSTART, NYSTART, NZSTART
+    struct.pack_into("<3i", header, 20, nx, ny, nz)         # MX,MY,MZ sampling
+    struct.pack_into("<3f", header, 40, float(nx), float(ny), float(nz))  # CELLA
+    struct.pack_into("<3f", header, 56, 90.0, 90.0, 90.0)   # CELLB angles
+    struct.pack_into("<3i", header, 64, 1, 2, 3)            # AXISIDX (crystal)
+    struct.pack_into("<3f", header, 76, -0.5, 0.5, 0.0)     # DMIN, DMAX, DMEAN
+    struct.pack_into("<i", header, 88, nx * ny * nz)        # NXYZSTART? (unused) — actually ISPG below
+    struct.pack_into("<i", header, 92, 1)                   # ISPG
+    struct.pack_into("<i", header, 96, 0)                   # NSYMBT (no extended header)
+    struct.pack_into("<3i", header, 104, 0, 0, 0)           # ORIGIN (pixels)
+    struct.pack_into("<3f", header, 196, 0.0, 0.0, 0.0)     # ORIGIN (coords)
+    header[208:212] = b"MAP "                               # MAP magic
+    header[212:216] = b"\x44\x41\x00\x00"                   # MACHST little-endian
+    struct.pack_into("<f", header, 216, 1.0)                # RMS
+    struct.pack_into("<i", header, 220, 1)                  # NLABL
+    with open(path, "wb") as fh:
+        fh.write(header)
+        fh.write(bytes(data))
+
+
+for it in range(1, iters + 1):
+    time.sleep(0.9)
+    tag = f"it [{it:03d}]"
+    print(f" {tag}  :   R1=0.4{it % 9} R2=0.3{it % 8} fsc=0.{8 - (it % 4)} ll={-120 + it * 3}.{it % 10} avgmax=0.0{it % 30}")
+    sys.stdout.flush()
+    its = f"{it:03d}"
+    data_star = os.path.join(outdir, f"run_it{its}_data.star")
+    with open(data_star, "w") as fh:
+        fh.write("\ndata_\n\nloop_\n")
+        fh.write("_rlnImageName #1\n")
+        fh.write("_rlnClassNumber #2\n")
+        fh.write("_rlnAngleRot #3\n")
+        fh.write("_rlnAngleTilt #4\n")
+        fh.write("_rlnAnglePsi #5\n")
+        for p in range(min(npart, 40)):
+            cls = (p * 7 + it) % ncls + 1
+            fh.write(f"{p + 1:06d}@particles.mrcs\t{cls}\t{p * 13.0:.1f}\t{90.0 - p}.2\t{p * 3.0:.1f}\n")
+    for c in range(1, ncls + 1):
+        write_mrc(os.path.join(outdir, f"run_it{its}_class{c:03d}.mrc"), 64, 64, 1, c * 31 + it)
+
+# final artifacts collectOutputs looks for
+final_classes = os.path.join(outdir, "run_classes.mrcs")
+os.replace(os.path.join(outdir, f"run_it{iters:03d}_class001.mrc"), final_classes)
+final_data = os.path.join(outdir, "run_data.star")
+os.replace(os.path.join(outdir, f"run_it{iters:03d}_data.star"), final_data)
+with open(os.path.join(outdir, "run_model.star"), "w") as fh:
+    fh.write("\ndata_\n\n_rlnReferenceImage run_classes.mrcs\n_rlnEstimatedResolution 4.2\n")
+print(f"wrote {final_classes} + {final_data} after {iters} iterations")
+sys.exit(0)

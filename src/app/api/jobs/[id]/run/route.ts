@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { toJobDTO } from "@/lib/seed";
 import { startJob } from "@/lib/relion/dispatch";
 import { isLocalRequest } from "@/lib/http-guard";
+import { remoteInfoFor } from "@/lib/remote/remote-run";
+import type { RemoteRunTarget } from "@/lib/remote/types";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +15,11 @@ type RouteContext = { params: Promise<{ id: string }> };
  * engine (the only engine — the simulation was retired). Honest failures are
  * surfaced through the job result + an {error} field with HTTP 200.
  * A live process for this job → HTTP 409, nothing is spawned.
+ *
+ * Optional JSON body: { remote: { connectionId, module?, mode } } — runs the
+ * job on an SSH cluster instead (module load relion/<module>, see
+ * docs/remote-relion.md). Without a body (or without `remote`) the run is
+ * local, exactly as before.
  */
 export async function POST(request: NextRequest, context: RouteContext) {
   try {
@@ -47,7 +54,20 @@ export async function POST(request: NextRequest, context: RouteContext) {
       );
     }
 
-    const { job, error, busy, waiting, busyKind } = await startJob(existing);
+    // optional remote target ({ remote: {...} }); absent/invalid → local run
+    const body = (await request.json().catch(() => ({}))) as {
+      remote?: { connectionId?: unknown; module?: unknown; mode?: unknown };
+    };
+    let remote: RemoteRunTarget | undefined;
+    if (body?.remote && typeof body.remote === "object" && typeof body.remote.connectionId === "string" && body.remote.connectionId) {
+      remote = {
+        connectionId: body.remote.connectionId,
+        module: typeof body.remote.module === "string" && body.remote.module ? body.remote.module : null,
+        mode: body.remote.mode === "slurm" ? "slurm" : "direct",
+      };
+    }
+
+    const { job, error, busy, waiting, busyKind } = await startJob(existing, remote ? { remote } : {});
 
     if (busy) {
       // the job is already running — do NOT fail it, just refuse the spawn.
@@ -62,8 +82,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
       );
     }
 
+    const dto = toJobDTO(job);
+    const rinfo = remoteInfoFor(job.id);
+    if (rinfo) dto.runRemote = rinfo;
+
     return NextResponse.json({
-      job: toJobDTO(job),
+      job: dto,
       ...(error ? { error } : {}),
       ...(waiting ? { waiting } : {}),
     });

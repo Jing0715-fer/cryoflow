@@ -1,0 +1,27 @@
+#!/usr/bin/env python3
+"""Mock relion_preprocess (extract) — writes particles.star."""
+import os, sys
+argv = sys.argv[1:]
+opts = {}
+i = 0
+while i < len(argv):
+    a = argv[i]
+    if a.startswith("--"):
+        opts[a[2:]] = argv[i+1] if i+1 < len(argv) else ""
+        i += 2
+    else:
+        i += 1
+outdir = opts.get("part_dir", "./").rstrip("/")
+os.makedirs(outdir, exist_ok=True)
+n = 150
+print(f"cryoflow-mock extract: {n} particles extracted (box={opts.get('extract_size','128')})")
+out = os.path.join(outdir, "particles.star")
+with open(out, "w") as fh:
+    fh.write("\ndata_\n\nloop_\n")
+    fh.write("_rlnImageName #1\n")
+    fh.write("_rlnCoordinateX #2\n")
+    fh.write("_rlnCoordinateY #3\n")
+    for k in range(n):
+        fh.write(f"{k+1:06d}@particles.mrcs\t{100 + (k*7)%400}\t{120 + (k*13)%380}\n")
+print(f"wrote {out}")
+sys.exit(0)

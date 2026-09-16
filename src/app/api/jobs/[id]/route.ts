@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { toJobDTO } from "@/lib/seed";
+import { getRun } from "@/lib/relion/engine";
+import { remoteStopRun } from "@/lib/remote/remote-run";
 import { jobType } from "@/lib/workflow";
 import { clearRunRecord, stopRun, isRunAlive } from "@/lib/relion/engine";
 import { removeFileEdgesTouching } from "@/lib/edge-ports";
@@ -136,7 +138,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       // forever (and stacking with any later re-run → OOM).
       try {
         if (isRunAlive(id)) {
-          await stopRun(id);
+          // remote records: the pid is CLUSTER-side — stopRun would aim a
+          // local kill at an unrelated local process. Branch on the record.
+          const rec = getRun(id);
+          if (rec?.remote) await remoteStopRun(id);
+          else await stopRun(id);
         }
       } catch {
         /* best effort — the state file is advisory */
@@ -189,7 +195,9 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
     }
     try {
       if (isRunAlive(id)) {
-        await stopRun(id);
+        const rec = getRun(id);
+        if (rec?.remote) await remoteStopRun(id);
+        else await stopRun(id);
       }
       clearRunRecord(id);
     } catch {

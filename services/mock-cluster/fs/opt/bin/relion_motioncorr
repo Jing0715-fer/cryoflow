@@ -1,0 +1,60 @@
+#!/usr/bin/env python3
+"""Mock relion_motioncorr for the CryoFlow mock cluster.
+
+Reads --i <micrographs.star> (RELION 5 style movies or micrographs),
+simulates motion correction with per-micrograph log lines (progress) and
+writes <outdir>/corrected_micrographs.star.
+"""
+import os
+import sys
+import time
+
+argv = sys.argv[1:]
+opts = {}
+i = 0
+while i < len(argv):
+    a = argv[i]
+    if a.startswith("--"):
+        opts[a[2:]] = argv[i + 1] if i + 1 < len(argv) else ""
+        i += 2
+    else:
+        i += 1
+
+star_in = opts.get("i")
+outdir = opts.get("o", "./").rstrip("/")
+if not star_in or not os.path.exists(star_in):
+    print(f"ERROR: cannot read input star: {star_in}", file=sys.stderr)
+    sys.exit(1)
+
+mics = []
+with open(star_in) as fh:
+    for line in fh:
+        t = line.strip()
+        if not t or t.startswith("#") or t.startswith("loop_") or t.startswith("data_") or t.startswith("_rln"):
+            # keep rows: micrograph name may appear with other columns
+            if t.startswith("_rln") or not t:
+                continue
+            continue
+        cols = t.split()
+        if cols and (cols[0].endswith(".mrc") or cols[0].endswith(".mrcs") or cols[0].endswith(".tif") or "/" in cols[0]):
+            mics.append(cols[0])
+
+print(f"cryoflow-mock motioncorr: {len(mics)} micrograph(s) from {star_in}")
+for n, mic in enumerate(mics, 1):
+    time.sleep(0.8)
+    print(f"Micrograph {n}/{len(mics)}: {os.path.basename(mic)} — motion corrected (total drift 1.4 px)")
+    sys.stdout.flush()
+
+os.makedirs(outdir, exist_ok=True)
+out = os.path.join(outdir, "corrected_micrographs.star")
+with open(out, "w") as fh:
+    fh.write("\ndata_\n\nloop_\n")
+    fh.write("_rlnMicrographName #1\n")
+    fh.write("_rlnMicrographMetadata #2\n")
+    fh.write("_rlnAccumMotionTotal #3\n")
+    fh.write("_rlnAccumMotionEarly #4\n")
+    fh.write("_rlnAccumMotionLate #5\n")
+    for k, mic in enumerate(mics):
+        fh.write(f"{mic}\t{mic}.star\t{1.1 + 0.2 * (k % 4):.2f}\t{0.6 + 0.1 * (k % 3):.2f}\t{0.4 + 0.05 * (k % 5):.2f}\n")
+print(f"wrote {out}")
+sys.exit(0)

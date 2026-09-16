@@ -1,0 +1,12 @@
+{
+  "name": "cryoflow-mock-cluster",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Mock SSH cluster (login node) for testing CryoFlow's remote RELION feature — listens on :3022, user cryo/demo, fake Lmod module system, real bash exec.",
+  "type": "module",
+  "scripts": {
+    "dev": "bun --hot server.mjs",
+    "start": "bun server.mjs",
+    "test": "node test-client.mjs"
+  }
+}

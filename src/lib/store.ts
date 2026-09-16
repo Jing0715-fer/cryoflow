@@ -26,6 +26,7 @@ import type {
 import type { ImportFailure, ImportPreviewEntry } from "./workflow-io";
 import type { TemplateSuggestion } from "./template-suggest";
 import type { SessionSweepState } from "./qc-report";
+import type { RemoteRunTarget } from "@/lib/remote/types";
 import { suggestTemplateConnections } from "./template-suggest";
 import {
   buildTemplateBundle,
@@ -729,6 +730,11 @@ interface WorkflowState {
     opts?: { silent?: boolean }
   ) => Promise<{ ok: boolean; error?: string }>;
   runJob: (id: string) => Promise<boolean>;
+  /** POST /run with { remote } — dispatch the job to an SSH cluster
+   *  connection (module load relion/x, direct nohup run). Same response
+   *  dialect as runJob (409 busy kinds, waiting/staging, honest engine
+   *  errors) with cluster-flavored toasts. */
+  runJobRemote: (id: string, target: RemoteRunTarget) => Promise<boolean>;
   /** POST /stop — SIGTERM→SIGKILL the job's process tree; re-run resumes
    *  refine-family jobs from their checkpoint via RELION --continue. */
   stopJob: (id: string) => Promise<void>;
@@ -2149,6 +2155,93 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       return true;
     } catch (err) {
       errToast(err instanceof Error ? err.message : "Failed to run job");
+      return false;
+    }
+  },
+
+  runJobRemote: async (id, target) => {
+    // flush any pending (debounced) parameter edits FIRST — identical
+    // rationale to runJob: the cluster run must start with exactly what
+    // the user sees in the form
+    try {
+      await flushJobParams(id);
+    } catch {
+      /* flush failure is non-fatal — the run uses the last saved params */
+    }
+    try {
+      // local fetch instead of api(): the 409 body carries busyKind and the
+      // waiting/staging line — api() would flatten both into a bare Error
+      const res = await fetch(`/api/jobs/${id}/run`, {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ remote: target }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        job?: JobDTO;
+        error?: string;
+        waiting?: string;
+        busyKind?: "inflight" | "live";
+      };
+      if (data.job) {
+        const reported = data.job;
+        set({ jobs: get().jobs.map((j) => (j.id === id ? reported : j)) });
+      }
+      if (!res.ok) {
+        if (res.status === 409 && data.busyKind === "inflight") {
+          // duplicate click racing the FIRST dispatch — its own toast is
+          // already in the air; silence here is the courtesy (runJob idiom)
+          return false;
+        }
+        if (res.status === 409 && data.busyKind === "live") {
+          // a live process is a HEALTHY state — inform, don't alarm
+          toast({
+            title: "Already running",
+            description:
+              data.error ?? "A process for this job is alive — nothing was started again.",
+          });
+          return false;
+        }
+        throw new Error(data?.error ?? `Request failed (${res.status})`);
+      }
+      const started = data.job;
+      const info = started?.runRemote ?? null;
+      if (data.waiting) {
+        // job went PENDING on the cluster path — upstream inputs are being
+        // staged / an upstream job has not landed yet; it auto-starts the
+        // moment the inputs are in place, no re-click
+        toast({
+          title: "Sent to cluster",
+          description:
+            (started?.result ?? "Waiting for its upstream job to produce outputs.") +
+            " It starts automatically once inputs are staged.",
+        });
+        set({ inspectId: id, selectedId: null, selectedIds: [] });
+        return false;
+      }
+      if (data.error) {
+        // honest remote-engine refusal — surfaced via the job result too
+        toast({
+          title: "Cluster refused to start the job",
+          description: data.error,
+          variant: "destructive",
+        });
+        return false;
+      }
+      toast({
+        title: "Job sent to cluster",
+        description: info
+          ? `${started?.name ?? "Job"} → ${info.user}@${info.host}`
+          : `${started?.name ?? "Job"} sent to the cluster`,
+      });
+      // same landing as runJob: the inspector follows the job
+      set({ inspectId: id, selectedId: null, selectedIds: [] });
+      return true;
+    } catch (err) {
+      toast({
+        title: "Cluster refused to start the job",
+        description: err instanceof Error ? err.message : "Failed to run job on cluster",
+        variant: "destructive",
+      });
       return false;
     }
   },

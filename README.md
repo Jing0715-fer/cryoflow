@@ -12,12 +12,14 @@ CryoFlow lets you design cryo-EM processing pipelines the way you think about th
 
 - **Workflow canvas** — drag job cards anywhere, connect output ports to input ports with animated bezier edges, zoom 60–150 %, reset view
 - **10 RELION-style job types** across 7 groups: Import · Motion Correction · CTF Estimation · Particle Picking · Extraction · 2D/3D Classification · 3D Refinement · Post-Processing · Mask Creation
+- **Remote RELION over SSH** — run the UI locally, execute on your cluster: save SSH logins, probe `module avail` for relion versions, dispatch any job with a chosen `module load relion/<version>`, watch live progress + streaming logs, outputs sync back automatically ([docs](./docs/remote-relion.md))
+- **HPC / Slurm script generation** — per-job sbatch scripts (GPU strategies: array / multi-GPU / single / CPU) plus a queue simulator, submission-ready on a login node
 - **Parameter inspector** — per-type parameter schemas (numbers with units, enum selects), inline rename, save/reset, and a connections manager
 - **Live run simulation** — server-authoritative time-based progress (polling), status badges (`idle → running → completed`), shimmer progress bars, "Ready" hints for downstream jobs, deterministic pseudo-results
 - **Graph safety** — duplicate-edge (409) and cycle detection (DFS) on both client and server; cascade deletes
 - **Light-first theming** — next-themes with `class` strategy, zero hydration flash, full keyboard + ARIA support
 - **Responsive app shell** — desktop three-column, tablet two-column, mobile FAB + slide-in Sheets for palette and inspector, sticky footer with iOS safe-area insets
-- **Full REST API** — `/api/project`, `/api/jobs`, `/api/jobs/[id]`, `/api/jobs/[id]/run`, `/api/edges`, `/api/edges/[id]`
+- **Full REST API** — `/api/project`, `/api/jobs`, `/api/jobs/[id]`, `/api/jobs/[id]/run`, `/api/edges`, `/api/edges/[id]`, `/api/remote/connections`
 
 ## 🚀 Getting started
 
@@ -36,6 +38,21 @@ bun run dev        # http://localhost:3000
 ```
 
 A demo project — **β-Galactosidase Tutorial** (Import → Motion Correction → CTF) — is seeded automatically on first API call.
+
+### Run jobs on your cluster (SSH + module load)
+
+```bash
+bun run dev                                  # the UI stays on your laptop
+# → header · "Remote clusters (SSH)" · add host/user/key or password
+# → Test & probe — every relion/* module the cluster offers is listed
+# → select a job · "Run on cluster (SSH)" · pick the version · Send
+```
+
+Inputs stage to the cluster automatically, progress + logs stream back live,
+outputs sync into the local mirror when the run finishes — and a remote
+pipeline stays remote: downstream jobs inherit the same connection + module.
+No cluster at hand? Try the bundled mock login node
+(`services/mock-cluster`, see [docs/remote-relion.md](./docs/remote-relion.md)).
 
 ## 🧭 How to use
 

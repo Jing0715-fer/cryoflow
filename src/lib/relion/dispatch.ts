@@ -7,6 +7,7 @@
 import type { Job } from "@prisma/client";
 import { db } from "@/lib/db";
 import {
+  getRun,
   parseJobParams,
   runRealJob,
   isRunAlive,
@@ -14,6 +15,8 @@ import {
   type UpstreamRef,
   type WaitKind,
 } from "./engine";
+import { remoteEligible, startRemoteJob } from "@/lib/remote/remote-run";
+import type { RemoteRunTarget } from "@/lib/remote/types";
 
 /** Placeholder duration for real runs (the exit handler overwrites it). */
 const REAL_DURATION_HINT = 60_000;
@@ -129,8 +132,16 @@ async function resolveLinkRoot(job: Job): Promise<Job> {
  * Start (or restart) a job on the REAL RELION engine: fetch upstream jobs via
  * edges, mark running, then hand over to runRealJob (natives complete
  * synchronously; RELION spawns are tracked by the exit handler).
+ *
+ * opts.remote routes the run to an SSH CLUSTER instead (startRemoteJob):
+ * same graph, same argv builder, executed under `module load relion/<ver>`.
+ * Engine-native types ignore the remote target — they are local fs work and
+ * their outputs stage to the cluster when a downstream remote job needs them.
  */
-export async function startJob(job: Job): Promise<StartOutcome> {
+export async function startJob(
+  job: Job,
+  opts: { remote?: RemoteRunTarget } = {}
+): Promise<StartOutcome> {
   // ---- in-flight guard (synchronous — closes the double-spawn race) ----
   if (starting.has(job.id)) {
     return { job, busy: "a start for this job is already in flight", busyKind: "inflight" };
@@ -151,6 +162,39 @@ export async function startJob(job: Job): Promise<StartOutcome> {
     // RELION GUI semantics: a job wired e.g. InitialModel → Refine3D inherits
     // its particles.star from anywhere up the chain, not just direct parents.
     const upstream = await lineageFor(job.id);
+
+    // ---- REMOTE backend (SSH cluster, module load relion/<ver>) ----------
+    if (opts.remote && remoteEligible(job.type)) {
+      const r = await startRemoteJob({ job, upstream, target: opts.remote });
+      if (r.busy) {
+        return { job: r.job ?? job, busy: r.busy, busyKind: r.busyKind ?? "live" };
+      }
+      if (!r.ok) {
+        if (r.requestError) {
+          // request-shape problem (deleted connection, unsupported mode…) —
+          // the job row keeps its previous state; the toast carries the why
+          return { job, error: r.error };
+        }
+        if (r.waiting) {
+          const updated = await db.job.update({
+            where: { id: job.id },
+            data: { status: "pending", progress: 0, result: r.error },
+          });
+          return { job: updated, waiting: r.waiting };
+        }
+        const updated = await db.job.update({
+          where: { id: job.id },
+          data: { status: "failed", progress: 0, result: r.error ?? "remote run failed" },
+        });
+        return { job: updated, error: r.error };
+      }
+      // started on the cluster, or staging (pending until inputs land —
+      // the client's "waiting" toast explains exactly that)
+      return {
+        job: r.job ?? job,
+        ...(r.staging ? { waiting: "not-ready" as WaitKind } : {}),
+      };
+    }
 
     const startedAtMs = Date.now();
     let updated = await db.job.update({
@@ -256,6 +300,22 @@ export async function autoStartPendingDownstream(triggerJobId: string): Promise<
     const rows = await db.job.findMany({ where: { id: { in: order } } });
     const byId = new Map(rows.map((r) => [r.id, r]));
 
+    // REMOTE passthrough: a completed trigger that ran on a cluster hands its
+    // target to the consumers it auto-starts — a remote pipeline stays remote
+    // (each consumer's startJob re-resolves inputs; natives ignore the target
+    // and run locally as always).
+    const triggerRec = getRun(triggerJobId);
+    const remoteOpts: { remote?: RemoteRunTarget } =
+      triggerRec?.remote
+        ? {
+            remote: {
+              connectionId: triggerRec.remote.connectionId,
+              module: triggerRec.remote.module || null,
+              mode: triggerRec.remote.mode,
+            },
+          }
+        : {};
+
     let started = 0;
     for (const id of order) {
       const row = byId.get(id);
@@ -263,7 +323,7 @@ export async function autoStartPendingDownstream(triggerJobId: string): Promise<
       if (row.linkedJobId) continue; // links are read-only mirrors — never run
       if (row.status !== "pending") continue; // only jobs the user opted into
       if (liveRunCount() >= AUTO_START_MAX_LIVE) break; // stampede guard
-      const outcome = await startJob(row);
+      const outcome = await startJob(row, remoteOpts);
       if (!outcome.error && !outcome.waiting && !outcome.busy) started += 1;
     }
     if (started > 0) {

@@ -63,3 +63,6 @@ server.log
 3001.*
 qa44-*.png
 .qa-logs/
+
+# local demo micrographs (dev fixtures)
+/demo-mics/

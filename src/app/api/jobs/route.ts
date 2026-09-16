@@ -5,6 +5,7 @@ import { ensureActiveProject, ensureDefaultWorkspace, toJobDTO } from "@/lib/see
 import { defaultParams, jobType } from "@/lib/workflow";
 import { readRuns, reconcileRealJobs } from "@/lib/relion/engine";
 import { autoStartPendingDownstream } from "@/lib/relion/dispatch";
+import { reconcileRemoteJobs, remoteInfoFor } from "@/lib/remote/remote-run";
 import type { JobDTO } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -41,6 +42,7 @@ function projectLinks(jobs: JobDTO[], workspaces: Map<string, string>): void {
       job.startedAt = root.startedAt;
       job.engine = root.engine;
       job.hasLog = root.hasLog;
+      job.runRemote = root.runRemote;
       job.linkedName = root.name;
       job.linkedWorkspaceName =
         (root.workspaceId ? workspaces.get(root.workspaceId) : undefined) ?? "Main";
@@ -70,7 +72,12 @@ export async function GET() {
     });
     const workspaceNames = new Map(workspaces.map((w) => [w.id, w.name]));
 
-    const final = await reconcileRealJobs(jobs); // REAL engine (the only engine)
+    // REAL engine (the only engine). Local records first, then the remote
+    // sweep (SSH-cluster records — reconcileRealJobs deliberately skips
+    // them: their pids are cluster-side, and polling happens over SSH in
+    // one batched round trip per connection).
+    const localFinal = await reconcileRealJobs(jobs);
+    const final = await reconcileRemoteJobs(localFinal);
 
     // ---- transition sweep: completed → auto-start pending downstream -----
     // Fire-and-forget (never blocks the response); autoStartPendingDownstream
@@ -103,7 +110,9 @@ export async function GET() {
       const dto = toJobDTO(j);
       const state = runs[j.id];
       dto.engine = "relion";
-      dto.hasLog = state ? existsSync(state.logFile) : false;
+      // remote runs stream their logs over SSH — the log tab is always live
+      dto.hasLog = state ? state.remote != null || existsSync(state.logFile) : false;
+      dto.runRemote = remoteInfoFor(j.id);
       return dto;
     });
     projectLinks(jobsOut, workspaceNames);

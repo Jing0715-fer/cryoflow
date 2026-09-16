@@ -24,6 +24,7 @@ import { useWorkflowStore, useActiveWorkspaceJobs } from "@/lib/store";
 import { hasJudgment } from "@/lib/class-notes";
 import { ThemeToggle } from "./theme-toggle";
 import { HelpPopover } from "./help-popover";
+import { RemoteClusterButton } from "./remote-cluster-dialog";
 import { CommandPaletteTrigger, SESSION_REPORT_EVENT } from "./command-palette";
 import { EngineHintBlock, EngineReDetectRow, InstallSwitcher } from "./engine-guidance";
 // t197: the session QC report is code-split (react-markdown + remark-gfm
@@ -684,6 +685,9 @@ export function Header() {
         >
           <Printer className="size-4" aria-hidden="true" />
         </Button>
+        {/* Remote clusters (SSH) — the emerald dot is the active
+            connection's probe heartbeat */}
+        <RemoteClusterButton />
         <HelpPopover />
         <ThemeToggle />
         <Button

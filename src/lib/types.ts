@@ -28,6 +28,9 @@ export interface JobDTO {
   engine?: "relion";
   /** True when a real-run log file exists on disk (computed, not stored). */
   hasLog?: boolean;
+  /** Present while the job's latest run executes on a REMOTE SSH cluster
+   *  (connection, module, cluster workdir, phase …) — see lib/remote/types. */
+  runRemote?: import("./remote/types").RemoteRunInfo | null;
   /** Owning workspace id (server always assigns one; null = pre-migration). */
   workspaceId?: string | null;
   /** Soft link: non-null when this job MIRRORS another job's outputs.

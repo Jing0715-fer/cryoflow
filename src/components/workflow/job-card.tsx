@@ -13,6 +13,7 @@ import {
   MousePointerClick,
   Play,
   RotateCcw,
+  Server,
   SquarePen,
   StickyNote,
   Trash2,
@@ -244,6 +245,13 @@ export function useMounted(): boolean {
  *  server-side value would otherwise be frozen into the flight payload
  *  and become hydration arithmetic. The elapsed text is mounted-gated
  *  anyway, so nothing renders one beat early. */
+
+/** Host label for the remote-run chip — strips any scheme/port residue
+ *  so "https://login.hpc.org:22" renders as its identity, the hostname. */
+function remoteHostLabel(host: string): string {
+  const h = host.replace(/^https?:\/\//, "").split("/")[0].split(":")[0];
+  return h || host;
+}
 
 /* ------------------------------------------------------------------ */
 /* Right-click context menu (wraps the whole card)                     */
@@ -1494,12 +1502,26 @@ export const JobCard = React.memo(function JobCard({
               ) : null}
             </div>
 
-            {/* Row 2: status + type + link lineage */}
+            {/* Row 2: status + type + remote host + link lineage */}
             <div className="flex items-center gap-1.5">
               <StatusBadge status={job.status} />
               <span className="truncate text-[11px] text-muted-foreground">
                 {spec?.key ?? job.type}
               </span>
+              {job.runRemote && (job.status === "running" || job.status === "pending") ? (
+                // Remote-run chip: this job's process lives on an SSH
+                // cluster right now — the panel carries the full story
+                // (module, phase, pid), the card carries the where.
+                <span
+                  role="img"
+                  aria-label={`Running on cluster ${job.runRemote.user}@${job.runRemote.host}`}
+                  title={`${job.runRemote.user}@${job.runRemote.host} · ${job.runRemote.module || "no module"} · ${job.runRemote.remoteWorkdir}`}
+                  className="flex shrink-0 items-center gap-0.5 rounded border border-teal-500/40 bg-teal-500/10 px-1 text-[9px] font-semibold text-teal-600 dark:border-teal-500/40 dark:text-teal-300"
+                >
+                  <Server className="size-2.5 shrink-0" aria-hidden="true" />
+                  <span className="max-w-24 truncate">{remoteHostLabel(job.runRemote.host)}</span>
+                </span>
+              ) : null}
               {job.linkedJobId != null ? (
                 <span
                   className="ml-auto flex max-w-[46%] shrink-0 items-center gap-0.5 rounded border border-primary/30 bg-primary/10 px-1 text-[9px] font-semibold text-primary"
