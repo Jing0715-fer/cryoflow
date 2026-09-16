@@ -106,7 +106,7 @@ const inv = await p.evaluate(() => {
     title: (d.querySelector("[data-slot=dialog-title]") || {}).textContent || "",
   };
 });
-must(inv.sections === 5, `five context groups render (got ${inv.sections})`);
+must(inv.sections === 6, `six context groups render (got ${inv.sections} — t236 added the report group)`);
 must(/global/i.test(inv.labels.join("|")) && /gallery/i.test(inv.labels.join("|")),
   "groups span global → canvas → gallery contexts");
 must(inv.chips >= 20, `real row inventory (${inv.chips} key chips across all groups)`);

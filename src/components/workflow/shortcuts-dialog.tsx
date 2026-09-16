@@ -104,6 +104,16 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     ],
   },
   {
+    id: "report",
+    label: "Session QC report",
+    hint: "Inside the report dialog — the document has its own keyboard",
+    rows: [
+      { keys: "← →", text: "Walk the section chips — Enter jumps to that section (the strip slides along)" },
+      { keys: "Tab", text: "Walk the inventory rows — focus opens the magnifier glass, Enter opens that job's results" },
+      { keys: "⌘/Ctrl P", text: "Prints the report itself — the one dialog that becomes paper" },
+    ],
+  },
+  {
     id: "touch",
     label: "Touch & pointer",
     rows: [

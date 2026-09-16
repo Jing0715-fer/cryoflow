@@ -195,6 +195,23 @@ console.log("Phase C — shortcuts dialog: rows + you-are-here group");
   must((await canvasActive.count()) === 1,
     "C5 reopening from the canvas moves the highlight to the canvas group");
   must((await dashActive.count()) === 0, "C5b dashboard group released it");
+  // t236: the report's keyboard layer is DISCOVERABLE — the dialog is
+  // the single discoverable surface, so the report group must speak the
+  // three behaviors the dialog actually ships (chips walk, roster walk,
+  // the print exception). And it carries NO current-view highlight: the
+  // report is a dialog, not a view — "you are here" belongs to views.
+  must(
+    text.includes("Walk the section chips") &&
+      text.includes("Walk the inventory rows") &&
+      text.includes("Prints the report itself"),
+    "C6 the report group lists its keyboard layer (chips walk · roster walk · the print exception)",
+  );
+  const reportActive = dlg.locator('section[aria-label="Session QC report shortcuts"][data-current-view="true"]');
+  must((await reportActive.count()) === 0,
+    "C7 the report group never claims you-are-here (a dialog is not a view)");
+  const groupCount = await dlg.locator('section[aria-label$=" shortcuts"]').count();
+  must(groupCount === 6,
+    `C8 the dialog carries exactly six groups (${groupCount} — global · canvas · dashboard · gallery · report · touch)`);
   await p.keyboard.press("Escape");
   await p.waitForTimeout(300);
 }

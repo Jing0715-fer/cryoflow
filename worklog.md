@@ -621,3 +621,23 @@ Stage Summary:
 - 「一帧一话的边界」：follow 首拍与 jump 构图重复即重瞄——同一 resting state 只归一帧所有；follow 帧改说深中部的话（chip 吻右缘 + 左缘滑出）
 - 「结构入画的系谱」：t234 罗盘入画（整页位移）→ t235 罗盘跟随（22px strip 带）——同一器官的两代墨迹，各 suite 自己的滚动位置是驱动者；漂移考古的「认领结构」再下一城
 - 遗留（下轮候选）：透镜纸面化（哲学门槛维持）；updatedAt 治理（大工程）；EMPIAR 真数据回归（让位）；hero 纸档叠印可读性（维持，依赖真实打印证据）；compass 的滚动收缩形制（滚深后收窄成进度尺——纯样式候选，低优先维持）；follow 的 RTL 世界（scrollLeft 语义在 dir=rtl 下翻转——app 是 LTR，未现不造）
+
+## Task 236 (2026-09-16, cron 09:17 窗口 trace …202609160918)
+
+- 【开局】四件套：尾部 = Task 235（f07b415，本手上轮所写）零过时；净场 → watchdog 验活（2556）+ 200。QA：qa00 GREEN + qa63 SMOKE GREEN + agent-browser 干净。
+- 【立项】Task 235 遗留评审：透镜纸面化/updatedAt/EMPIAR/叠印维持；**compass 滚动收缩形制正式否决**——收缩 = 重新藏起非 active 章节名，与 t235 刚修完的「needle 失明」自相矛盾（教义内洽优先于形制花样）；RTL 未现不造。目检产品其他面（dashboard stat 卡点阵 = 装饰跳过、KpiSparkline/ProgressSparkline 已诚实降级）后锁定真实缺口：**「文档不假装——键盘层入册」**——shortcuts dialog 自称「the single discoverable surface」，但报告对话框的整个键盘层（t213 roster 门、t224 focus 玻璃、t235 方向键、t70 打印例外）零记载：功能存在而不可发现 = 文档在说谎（少说也是说谎）。
+- 【实现】
+  - SHORTCUT_GROUPS 新增 report 组（gallery 与 touch 之间——global/canvas/dashboard/gallery/report/touch 六组序）：hint「Inside the report dialog — the document has its own keyboard」+ 三行（←/→ 走 chips + Enter 跳转 + strip 随行；Tab 走 roster 行——focus 开玻璃、Enter 开门；⌘/Ctrl P 打印报告自身——唯一变纸的对话框）
+  - 无 scope 字段：「you are here」高亮属 view（canvas/dashboard），报告是对话框不是 view——C7 钉死
+- 【e2e：qa78 33→36】C6 报告组三行在场（chips walk · roster walk · 打印例外）、C7 报告组永不认领 you-are-here（对话框非 view）、C8 恰六组。**qa78 ALL PASS**。连带：**qa70 的「五组」契约是 Task 70 时代快照——更新为六组**（FATAL 型 must 中断连锁的教训：契约断言写成快照就得跟着现实走）；qa55/qa58 GREEN；t223 133/0 + t218 29/0 + 全家族绿（t210 151/0 + t215 44/0 + t213 35/0 + t214 29/0 + t219 29/0 + t212 30/0 + t221 14/0）；roster 恒等 21。watchdog build 后 WD_DEAD 第 10 度（固定工序）。
+- 【定妆照】t236-shortcuts-report-group-2x：SESSION QC REPORT 组完整入画（hint + 三行键位 + 六组序可见）、filter 计数 **29→32 shortcuts**（+3 行的计数实证）。首拍只见到 dialog 顶部（Global/Canvas）——scrollIntoView 报告组后重拍（一帧一话）。
+- 【漂移考古：相对时间词显影】t213 裁片实证「created 7h 41m ago」——t212/t213/t214/t215 的 38k-75k 强像素全部来自**相对时间的自然流动**（每窗必然、数据世界的诚实变化），t218/t219/t223 系近 identical（1–2 像素）；t210 ×3 画布微噪声（102–258 @ 0.001，惯犯安静版）具名 checkout；其余渲染真相随批提交。
+- 【世界卫生】全家族绿 + roster 恒等 21。
+- 【收尾】worklog（本条，先 worklog 后 commit——上轮顺序瑕疵已纠正）+ commit/push + 环境清理。
+
+Stage Summary:
+- 「文档不假装」的文档版：键盘层存在而 shortcuts dialog 不记载 = 文档少说也是说谎——report 组入册（三行），C6/C7/C8 把「可发现性」钉成 wire 断言；「the single discoverable surface」的称号从此名实相符
+- 「对话框不是 view」：scope 机制（you-are-here）属于 canvas/dashboard 两个 view——报告组永不认领（C7）；器官的类别决定它继承哪些行为
+- 「契约快照跟上现实」：qa70 的「五组」是 Task 70 的真话、t236 的六组是现在的真话——快照断言（exactly N）在结构演进时必须随行更新，否则断言保护的是历史而非现状
+- 「相对时间词是考古的永久噪声源」：dashboard/inspector 帧里的 "Xh Ym ago" 每分钟都在写新墨——此类帧的强像素先裁片找时间词再定渲染真伪；时间词是数据世界的诚实变化
+- 遗留（下轮候选）：透镜纸面化（哲学门槛维持）；updatedAt 治理（大工程）；EMPIAR 真数据回归（让位）；hero 纸档叠印可读性（维持）；shortcuts dialog 的分组搜索提示（filter 计数 32 已含报告组——搜索词命中组标签的 UX 是否要高亮命中组，低优先）；help popover 与 shortcuts dialog 的报告组同步（popover 已不持副本——SHORTCUT_GROUPS 单一真源自动生效，无需动作）
