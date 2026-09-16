@@ -30,6 +30,11 @@
  *    the page's lenses (hero landscape, spark portraits, doors that
  *    open job results) are screen organs of the app; the echo carries
  *    the document itself and lets the reader judge.
+ *  - THE LIGHT THAT LEAVES (t239): the contents' anchors announce the
+ *    landing with a violet wash that FADES — the echo has no spy to
+ *    keep a "you are here" claim true, so the mark must not outlive
+ *    the arrival (the app's compass can hold its needle because the
+ *    spy keeps it honest; a document alone can only congratulate).
  *
  * The converter speaks the report's CLOSED md subset — exactly what the
  * three families (buildSessionReport / buildProfileReport verbatim /
@@ -193,6 +198,23 @@ nav.toc a { display:inline-block; font-size:0.78rem; color:var(--ink); text-deco
 nav.toc a:hover { color:var(--vio); border-color:var(--vio); }
 nav.toc a.sub { font-size:0.72rem; opacity:0.85; }
 a { color:var(--vio); }
+/* The landing light (t239): the contents' doors worked, but arrival was
+ * silent — the reader lands WHERE? A wash announces the section the link
+ * pointed at, then DISSOLVES. The echo has no spy (zero script), so a
+ * persistent wash would keep claiming "you are here" after the reader
+ * has moved on — a lie by outliving its truth. An announcement that
+ * fades is honest at every instant. Paint-only properties: the light
+ * never moves the type (background-color, box-shadow, radius — no
+ * margin, no padding, no reflow). The app can hold its needle because
+ * a spy keeps it true; the document alone can only congratulate. */
+@keyframes echo-glow {
+  0% { background-color: rgba(124,58,237,0.14); border-radius: 8px; box-shadow: inset 0 0 0 1px rgba(124,58,237,0.24); }
+  100% { background-color: rgba(124,58,237,0); border-radius: 8px; box-shadow: inset 0 0 0 1px rgba(124,58,237,0); }
+}
+h2:target, h3:target { animation: echo-glow 2.6s ease-out forwards; }
+@media (prefers-reduced-motion: reduce) {
+  h2:target, h3:target { animation: none; }
+}
 footer.docnote { margin-top:2rem; padding-top:0.75rem; border-top:1px solid var(--line);
   color:var(--mut); font-size:0.78rem; font-style:italic; }
 @media print {
@@ -201,6 +223,7 @@ footer.docnote { margin-top:2rem; padding-top:0.75rem; border-top:1px solid var(
   h2 { break-after:avoid; } h3 { break-after:avoid; }
   table { break-inside:auto; } tr { break-inside:avoid; }
   nav.toc { border-color:#bbb; background:#fff; }
+  h2:target, h3:target { animation:none; }
 }
 /* The narrow door (t238): the echo travels — email to phone — and the
  * 7-column inventory is the document's centerpiece. The document never

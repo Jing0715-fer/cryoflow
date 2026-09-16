@@ -51,7 +51,11 @@
  *      sideways, a wide table scrolls its OWN band (display:block +
  *      overflow-x inside @media max-width:640px, bytes-level X9), and
  *      at desk size the door stays shut (a media query is a lens, not
- *      a rewrite — P0's law in the echo).
+ *      a rewrite — P0's law in the echo); X12-X16b the landing light
+ *      (t239): the :target wash that ANNOUNCES a contents jump and
+ *      then DISSOLVES — no spy, so no claim may outlive its truth
+ *      (X13 lit on arrival / X14 gone after / X15 one light at a
+ *      time / X16 paper prints no arrival / X16b reduced motion).
  * Run: node scripts/t223-e2e.mjs   (server on :3000)
  */
 import { execSync } from "node:child_process";
@@ -770,6 +774,54 @@ try {
   must(deskDisplay.display === "table" && !deskDisplay.docOverflow,
     `X11 the door is shut at desk size (widest table display ${deskDisplay.display}, no overflow — the media query is a lens, not a rewrite)`);
   await desk.close();
+
+  // the landing light (t239): the contents' doors worked, but arrival
+  // was silent — the reader lands WHERE? A :target wash announces the
+  // section the link pointed at, then DISSOLVES. The echo has no spy
+  // (zero script), so a persistent wash would keep claiming "you are
+  // here" after the reader moves on — a lie by outliving its truth.
+  // An announcement that fades is honest at every instant.
+  must(/h2:target, h3:target \{ animation: echo-glow/.test(echo) && echo.includes("@keyframes echo-glow"),
+    "X12 the landing light is in the bytes (:target keyframes — pure CSS, no script needed)");
+  const glow = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await glow.goto(`file://${process.cwd()}/${tmpEcho}`, { waitUntil: "domcontentloaded" });
+  await glow.waitForTimeout(600);
+  const bgOf = (loc) => loc.evaluate((el) => getComputedStyle(el).backgroundColor);
+  const TRANSPARENT = "rgba(0, 0, 0, 0)";
+  await glow.locator('a[href="#s1"]').click();
+  const lit = await bgOf(glow.locator('[id="s1"]'));
+  must(lit !== TRANSPARENT && lit.includes("124, 58, 237"),
+    `X13 the light is on at arrival (${lit} — the wash wears the family accent)`);
+  await glow.waitForTimeout(3100);
+  const faded = await bgOf(glow.locator('[id="s1"]'));
+  must(faded === TRANSPARENT,
+    `X14 the light leaves (${faded} — an announcement, not a state; no claim outlives the arrival)`);
+  await glow.locator('a[href="#s4"]').click();
+  const lit2 = await bgOf(glow.locator('[id="s4"]'));
+  const firstStill = await bgOf(glow.locator('[id="s1"]'));
+  must(lit2 !== TRANSPARENT && lit2.includes("124, 58, 237") && firstStill === TRANSPARENT,
+    `X15 one light at a time (the new door ${lit2}, the old door ${firstStill} — nothing stale remains)`);
+  await glow.emulateMedia({ media: "print" });
+  await glow.waitForTimeout(120);
+  const animPrint = await glow.locator('[id="s4"]').evaluate((el) => getComputedStyle(el).animationName);
+  await glow.emulateMedia({ media: "screen" });
+  await glow.waitForTimeout(120);
+  must(animPrint === "none",
+    `X16 paper prints no arrival (animation ${animPrint} on print — the light is a screen reading organ, P9's law in the echo)`);
+  await glow.emulateMedia({ reducedMotion: "reduce" });
+  await glow.waitForTimeout(120);
+  const animReduce = await glow.locator('[id="s4"]').evaluate((el) => getComputedStyle(el).animationName);
+  await glow.emulateMedia({ reducedMotion: "no-preference" });
+  await glow.waitForTimeout(120);
+  must(animReduce === "none",
+    `X16b reduced motion reads the same document without the light (animation ${animReduce} — the jump itself is the arrival)`);
+  // the frame — the light caught mid-glow: click the FIRST chip and
+  // shoot what the reader sees at arrival (the destination heading
+  // wears the wash at the viewport's top, its section content below)
+  await glow.locator('a[href="#s0"]').click();
+  await glow.waitForTimeout(350);
+  await glow.screenshot({ path: "scripts/shots-t223/t239-echo-glow-2x.png", scale: "css" });
+  await glow.close();
 } finally {
   unlinkSync(tmpEcho);
 }
@@ -777,7 +829,14 @@ try {
 // the frame is a reviewer — scroll the hero into the dialog's viewport
 // (the body scrolls internally, the band frame's own lesson) and shoot
 // the doc with the figure at the top: hero + the summary head it
-// introduces, the tables' thumbnails in the same frame for scale
+// introduces, the tables' thumbnails in the same frame for scale.
+// Frame hygiene (t239's archaeology): the export receipt is a 4s flash
+// and the band it adds is exactly the 42px t237 mis-attributed to a
+// doors-row wrap (both frames' doors stand one line — the receipt was
+// the delta all along). The hero frame pins the RESTING state: wait
+// for the flash to leave before shooting, so the frame's height stops
+// being a race against the note's timer.
+for (let i = 0; i < 20 && (await page.locator("[data-report-doc] p[role=status]").count()) > 0; i++) await sleep(300);
 await page.mouse.move(8, 8);
 await sleep(250);
 await page.locator("[data-report-body] [data-hero-landscape]").first().scrollIntoViewIfNeeded();

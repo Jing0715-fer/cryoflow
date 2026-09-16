@@ -685,3 +685,26 @@ Stage Summary:
 - 「证据先于断言、镜头先于代码」：探针先行（585 vs 390 的 blowout 实证 + before 帧亲眼过目）→ 实现一扇四行的门 → 断言落线——取证顺序本身是三窗教训的复利
 - 「误报的死法」：镜头脚本「坏了」的判决在 Edit 失败 + Read 原文后撤销——显示伪影不是文件真相；差点修理一个正确的工件，是本窗最贵的一课
 - 遗留（下轮候选）：:target 微光（echo 的纯 CSS needle——`h2:target/h3:target` violet 软底，「进过的门留标记」；滚动离场后标记滞留的语义诚实性需要自己的窗想清楚）；回声 Contents 纸上形制（页码——依赖真实打印证据，维持让位）；透镜纸面化（哲学门槛维持）；updatedAt 治理（大工程）；EMPIAR 真数据回归（让位）；hero 纸档叠印可读性（维持）；shortcuts report 组是否记载 Download HTML 门（维持低优先）
+
+## Task 239 (2026-09-16, cron 10:47 窗口 trace …202609161056)
+
+- 【开局】四件套：尾部 = Task 238（567adaf，便携文档的窄门）零过时（续传摘要世系只到 234——第五度过时实证）；净场 → watchdog 拉起验活 + 200。QA：qa00 GREEN + qa63 SMOKE GREEN（console 0 错）+ agent-browser errors/console 双空 + 首页目检健康（catalog 全卡在场、画布 20 jobs / 167 paths）。开局探针插曲：以 .react-flow__node 探画布得 nodes=0——应用根本不用 React Flow 默认类名，真身是 [data-job-id]（20 节点健在）；「出题者的第二口井」在开局探针上又应验一次，工件无谎。
+- 【立项】Task 238 遗留首选「:target 微光」当选：回声 Contents 锚点能跳（纯 CSS 门），但抵达是哑的——读者落在哪里？遗留担心的「滚动离场后标记滞留的语义诚实性」本窗想清楚并给出结构性答案：**fade-out 着陆灯**——紫晕宣告抵达、2.6s 后消散。教义：**回声没有 spy，所以不许有任何 claim 活过它的真值期**（应用的罗盘敢常驻 needle 是因为 spy 每刻校真；文档独自站立时只能祝贺、不能指位——「会消失的宣告在每个瞬间都诚实，常驻的光是等读者走开才生效的谎言」）。paint-only 属性（background-color/box-shadow/radius）——光永不移动文字、零 reflow。
+- 【实现】（src/lib/report-html.ts，导出 CSS 独占——应用对话框零触碰）
+  - DOC_CSS：`@keyframes echo-glow`（rgba(124,58,237,.14)+inset 环 → 全透明，radius 8px 在两帧内恒定——动画结束后属性回归、方形无形变）+ `h2:target, h3:target { animation: echo-glow 2.6s ease-out forwards }`；文件头教义清单添第五条 THE LIGHT THAT LEAVES
+  - 双守卫：`@media print { … h2:target,h3:target { animation:none } }`（纸印文档不印抵达——P9 律入回声）+ `@media (prefers-reduced-motion: reduce)`（跳转本身即抵达，光是不必要装饰）
+  - 复用判例：echo 已有 `h2,h3 { scroll-margin-top:0.75rem }`（t237 铸的落点呼吸间）——着陆灯正落在舒适位置
+- 【e2e：t223-e2e 145→151】X 相 +6：X12 光在字节里（keyframes + :target 规则同检）、X13 抵达即亮（实测 rgba(124,58,237,0.137)——紫晕穿家族色）、**X14 光会离开**（3.1s 后 rgba(0,0,0,0)——诚实性以设计.resolve）、X15 一次一盏（新门亮时旧门恒透明——无陈旧残留）、X16 纸上无抵达（print 下 animation none）、X16b 减动感读者读同一文档而无光。**151/0 ×3 全绿**（帧卫生钉后复 ×3）。全家族回归绿：t210 151/0 + t215 44/0 + t213 35/0 + t214 29/0 + t219 29/0 + t212 30/0 + t218 29/0 + t221 14/0；roster 恒等 21。
+- 【事故与判例】①**Task 86 判例本窗再执行**：build 后 pkill -f 'next-server|next start' 是静默空操作（bun standalone 进程两名字都不叫）——server 握旧 bundle 而 pgrep 还骗我说「server not yet up」；真凭实据是在线 chunk 里 grep echo-glow = 0 而磁盘 chunk = 1。按 start-prod.sh 配方（按 server.js 路径 + 端口双杀 + 验 port FREE）处置后 PID 20807 出生晚于 BUILD_ID、在线 chunk echo-glow ×2。②「build 后先验 bundle」判例升级：不只看 PID 起点，**在线 chunk 内容 grep 新符号才是终审**。③watchdog 第 N 度秒死（开局拉的那只在 pkill 后未复活）——惯犯形态照旧，重拉即愈。④X15 首跑败于我的第二口井：`h2#s4` 不存在（s4 是 h3 sub 章节）——层级假设未解析，W4 判例家族再添一案；改层级无关 `[id="sN"]` 后全绿（顺带：sed 转义把引号嵌套撞碎——Edit 工具救场，node --check 先于重跑）。
+- 【定妆照】**t239-echo-glow-2x**：点击首个 Contents 药丸后 350ms 抓拍——「Pipeline at a glance」标题戴紫晕着陆灯（0.137 alpha 中段）、章节内容同框、下一节 Map QC 在下；时态光的第一帧，句读=「门刚开、光正亮」。首拍后修正代码注释（原写「door and light 同框」——TOC 实际滚出画幅，注释必须服从实拍）。
+- 【漂移考古】**t223-hero 756→714（-42px）= t237 的 42px 误诊翻案**：裁片对照两帧，门带在两帧里都是一行——42px 全额是导出回执绿条（4s flash）的高度，t237 把它误记为「门带换行 flex-wrap」；本窗 X 相加长后回执在 hero 拍摄前自然过期，静息态 714 才是文档真身。处置：hero 拍摄前加「等回执退场」钉子（count 0 轮询），帧高从此脱离与 note 计时器的赛跑、钉死 896×714。t212/213/214/215 相对时间词渲染真值随批提交；t218/t219 字节级 identical 零漂移；t210 ×3 WebGL 惯犯具名 checkout。
+- 【世界卫生】全家族绿 + roster 恒等 21、twin 已归家（T 相自证）、tmp echo 已清（finally unlink）。
+- 【收尾】worklog（本条）+ commit/push + 环境清理（按 Task 86 配方杀 server：路径+端口双杀）。
+
+Stage Summary:
+- 「会离开的光」：回声的 :target 着陆灯——宣告抵达后 2.6s 消散；「没有 spy 的文档不许指位，只能祝贺」的教义把 t238 遗留的语义诚实性担忧变成了设计本身；X13/X14/X15 把「亮—散—一次一盏」钉成 wire 契约
+- 「纸与减动感双守卫」：光不进纸（P9 律入回声）、不进减动感世界（跳转即抵达）——每个屏幕器官入场时同时申报它的豁免名单
+- 「42px 翻案」：t237 的「门带换行」误诊被裁片对照纠正——真身是导出回执的 4s flash；hero 帧从此钉死静息态（帧高不再与时器赛跑）；漂移考古的误诊也能翻案，只要两帧都在手上
+- 「在线 chunk 终审」：bundle 新鲜度的最终审判不是 PID 也不是 BUILD_ID，是在线 chunk 里 grep 新符号——Task 86 判例的验证学升级
+- 「开局探针的第二口井」：.react-flow__node 是出题者的假设，[data-job-id] 才是工件真身——探针先问工件、别替工件报名字
+- 遗留（下轮候选）：:target 微光的姊妹页——应用对话框内 jumpToToc 是否也要一瞬着陆光（活罗盘有 spy 常驻 needle，再加光恐重叠——语义需自己的一窗想清楚）；回声 Contents 纸上形制（页码——依赖真实打印证据，维持让位）；透镜纸面化（哲学门槛维持）；updatedAt 治理（大工程）；EMPIAR 真数据回归（让位）；hero 纸档叠印可读性（维持）；shortcuts report 组记载 Download HTML 门（维持低优先）
