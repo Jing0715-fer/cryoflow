@@ -40,7 +40,27 @@ await page.waitForTimeout(1200);
 await page.locator("[data-report-doc]").first().screenshot({
   path: "scripts/shots-t223/t234-compass-jump-2x.png", scale: "css",
 });
-console.log("compass frames shot (opening + jump)");
+// t235: the compass FOLLOWING — a HAND scroll into the document's deep
+// middle (no click): the needle lands on a chip the map had scrolled
+// OUT of its own viewport, and the strip slides it back just enough
+// (nearest: the chip kisses the strip's right edge) — W8's eyeball
+// form. Deliberately NOT the tail (the jump frame already owns the
+// right-edge resting state): the deep middle is where following earns
+// its keep, the needle walking while the reader never touches the map.
+await page.evaluate(() => {
+  const body = document.querySelector("[data-report-body]");
+  body.scrollTop = 0;
+});
+await page.waitForTimeout(600);
+await page.evaluate(() => {
+  const body = document.querySelector("[data-report-body]");
+  body.scrollTop = body.scrollHeight * 0.72;
+});
+await page.waitForTimeout(1200);
+await page.locator("[data-report-doc]").first().screenshot({
+  path: "scripts/shots-t223/t235-compass-follow-2x.png", scale: "css",
+});
+console.log("compass frames shot (opening + jump + follow)");
 await browser.close();
 
 await fetch(`${BASE}/api/jobs/${twinId}`, { method: "DELETE", headers: H });

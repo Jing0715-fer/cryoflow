@@ -864,6 +864,48 @@ export default function SessionReportDialog({
     target?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
 
+  // t235: the map follows the needle. A nine-chip map overflows its
+  // strip on ordinary screens — and the spy's verdict can land on a
+  // chip the reader cannot SEE (the needle points at a section whose
+  // name scrolled out of the map's own viewport: a compass that hides
+  // its own reading). Whenever the needle moves, the strip slides just
+  // enough to bring that chip back — nearest, never centering, never
+  // animated: the map turns its own page, silently. The geometry is
+  // viewport-rect based (t234's law: the dialog's offsetParent chain
+  // never enters the math).
+  const navRef = React.useRef<HTMLElement | null>(null);
+  React.useEffect(() => {
+    const navEl = navRef.current;
+    if (!navEl) return;
+    const chip = navEl.querySelectorAll<HTMLElement>(".report-compass-chip")[activeToc];
+    if (!chip) return;
+    const nLeft = navEl.getBoundingClientRect().left;
+    const cLeft = chip.getBoundingClientRect().left;
+    const cRight = cLeft + chip.getBoundingClientRect().width;
+    const pad = 8;
+    const visL = cLeft - nLeft + navEl.scrollLeft;
+    const visR = cRight - nLeft + navEl.scrollLeft;
+    if (visL - pad < navEl.scrollLeft) navEl.scrollLeft = Math.max(0, visL - pad);
+    else if (visR + pad > navEl.scrollLeft + navEl.clientWidth)
+      navEl.scrollLeft = visR - navEl.clientWidth + pad;
+  }, [activeToc, toc]);
+
+  // t235: the keyboard's map walk — ArrowLeft/Right step the focus
+  // through the chips (wrapping); Tab still reaches the strip as a
+  // whole and leaves it in one stop. The map is navigable, not just
+  // clickable.
+  const onCompassKeyDown = React.useCallback((e: React.KeyboardEvent) => {
+    if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+    const navEl = navRef.current;
+    if (!navEl) return;
+    const chips = Array.from(navEl.querySelectorAll<HTMLElement>(".report-compass-chip"));
+    const idx = chips.indexOf(document.activeElement as HTMLElement);
+    if (idx === -1) return;
+    e.preventDefault();
+    const next = chips[(idx + (e.key === "ArrowRight" ? 1 : chips.length - 1)) % chips.length];
+    next?.focus();
+  }, []);
+
   // t213: pressing a door hands the reader to the owner's results. The
   // engine is openJob — the SAME door the command palette uses (landing
   // repair, workspace hops, then the inspector for a completed job) —
@@ -1277,7 +1319,13 @@ export default function SessionReportDialog({
             its own page order, so the map carries .no-print. */}
         <div className="report-doc max-h-[62vh] overflow-y-auto pr-1" data-report-body ref={bodyRef}>
           {toc.length > 0 && (
-            <nav className="report-compass no-print" data-report-toc aria-label="Report sections">
+            <nav
+              className="report-compass no-print"
+              data-report-toc
+              aria-label="Report sections"
+              ref={navRef}
+              onKeyDown={onCompassKeyDown}
+            >
               {toc.map((t, i) => (
                 <button
                   key={`${t.level}·${t.text}`}

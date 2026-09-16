@@ -591,6 +591,35 @@ for (let i = 0; i < 16; i++) {
 }
 must(tailIdx === chipN - 1,
   `W7 the tail law: at the bottom the needle points at the LAST chip (${tailIdx} of ${chipN - 1} — the last section never reaches the line, the reader is there anyway)`);
+// t235: the map follows the needle — while the needle rode to the tail,
+// the strip must have slid the last chip into ITS OWN viewport (before
+// t235 the spy could point at a chip the map had scrolled out of sight:
+// a compass that hides its own reading). Assert: the last chip is fully
+// visible inside the strip's scroll window.
+const follow = await page.evaluate(() => {
+  const nav2 = document.querySelector("[data-report-toc]");
+  const chip = nav2.querySelectorAll(".report-compass-chip")[nav2.querySelectorAll(".report-compass-chip").length - 1];
+  const nLeft = nav2.getBoundingClientRect().left;
+  const cLeft = chip.getBoundingClientRect().left;
+  return {
+    sl: nav2.scrollLeft,
+    fullyVisible: cLeft - nLeft >= -1 && cLeft + chip.getBoundingClientRect().width - nLeft <= nav2.clientWidth + 1,
+  };
+});
+must(follow.fullyVisible && follow.sl > 0,
+  `W8 the map follows the needle (strip slid to ${follow.sl}px — the last chip fully visible in the map's own viewport)`);
+// the keyboard's map walk: focus a chip, ArrowRight steps to the next,
+// ArrowLeft wraps back — Tab reaches the strip in one stop, arrows walk it
+await chips.nth(3).focus();
+await page.keyboard.press("ArrowRight");
+const walkR = await page.evaluate(() => document.activeElement?.textContent?.trim());
+await page.keyboard.press("ArrowLeft");
+await page.keyboard.press("ArrowLeft");
+const walkL = await page.evaluate(() => document.activeElement?.textContent?.trim());
+must(walkR === ((await chips.nth(4).textContent()) ?? "").trim(),
+  `W9a ArrowRight steps the focus to the next chip ("${walkR}")`);
+must(walkL === ((await chips.nth(2).textContent()) ?? "").trim(),
+  `W9b ArrowLeft steps back (wrapping) ("${walkL}")`);
 await page.evaluate(() => {
   const body = document.querySelector("[data-report-body]");
   body.scrollTop = 0;
