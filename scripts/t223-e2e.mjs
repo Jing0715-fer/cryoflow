@@ -46,11 +46,16 @@
  *      document (no script, no network), the contents page paired by
  *      INDEX with the body headings (the same well, the same law),
  *      deterministic bytes (t195's law in the new medium), the receipt
- *      names the portable medium.
+ *      names the portable medium; X9-X11 the narrow door (t238): the
+ *      echo meets the PHONE — the document column never scrolls
+ *      sideways, a wide table scrolls its OWN band (display:block +
+ *      overflow-x inside @media max-width:640px, bytes-level X9), and
+ *      at desk size the door stays shut (a media query is a lens, not
+ *      a rewrite — P0's law in the echo).
  * Run: node scripts/t223-e2e.mjs   (server on :3000)
  */
 import { execSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { chromium } from "playwright";
 
 const BASE = "http://localhost:3000";
@@ -713,6 +718,61 @@ must(echo === echo2,
   "X7 deterministic bytes — same session state, same document (t195's law in the new medium)");
 must((await page.locator("[data-report-doc] p[role=status]").textContent())?.includes(".html"),
   "X8 the receipt names the portable medium (the door says what it opened)");
+
+// the narrow door (t238): the echo travels — email to phone — and the
+// 7-column inventory is the document's centerpiece. The document never
+// asks the phone to scroll sideways; a wide table asks its OWN band to
+// scroll (display:block + overflow-x, the document-native escape — no
+// JS, no wrapper). Measured on the wire in the FULL measured world:
+// the twin is present, four tables stand, the inventory has 7 columns.
+must(echo.includes("@media (max-width:640px)") && /@media \(max-width:640px\) \{[\s\S]*?table \{ display:block; overflow-x:auto/.test(echo),
+  "X9 the narrow door is in the bytes (max-width:640px hands wide tables their own band)");
+const tmpEcho = "scripts/shots-t223/t238-echo-narrow-tmp.html";
+writeFileSync(tmpEcho, echo);
+try {
+  const phone = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await phone.goto(`file://${process.cwd()}/${tmpEcho}`, { waitUntil: "domcontentloaded" });
+  await phone.waitForTimeout(600);
+  const narrow = await phone.evaluate(() => {
+    const doc = document.documentElement;
+    const tables = [...document.querySelectorAll("table")];
+    const widest = tables
+      .map((t) => ({ cols: t.rows[0]?.cells.length ?? 0, scrollW: t.scrollWidth, clientW: t.clientWidth, display: getComputedStyle(t).display }))
+      .sort((a, b) => b.scrollW - a.scrollW)[0];
+    return { vw: window.innerWidth, docScrollW: doc.scrollWidth, docClientW: doc.clientWidth, tableCount: tables.length, widest };
+  });
+  must(narrow.docScrollW <= narrow.docClientW,
+    `X10 the phone's door holds — document column ${narrow.docScrollW}px at a ${narrow.vw}px viewport (never sideways)`);
+  must(narrow.widest.cols === 7 && narrow.widest.scrollW > narrow.widest.clientW && narrow.widest.display === "block",
+    `X10b the 7-column inventory scrolls its OWN band (${narrow.widest.scrollW}px inside ${narrow.widest.clientW}px, display ${narrow.widest.display})`);
+  // the portrait frame — the family's first: the phone reading the
+  // report, the inventory's OWN band scrolled to bring the tail columns
+  // in (the door in use — the document column stays put)
+  await phone.locator('a[href="#s7"]').click();
+  await phone.waitForTimeout(500);
+  await phone.evaluate(() => {
+    const t = [...document.querySelectorAll("table")].sort((a, b) => b.scrollWidth - a.scrollWidth)[0];
+    t.scrollIntoView({ block: "center" });
+    t.scrollLeft = 150;
+  });
+  await phone.waitForTimeout(300);
+  await phone.screenshot({ path: "scripts/shots-t223/t238-echo-narrow-2x.png", scale: "css" });
+  await phone.close();
+  // the door only opens at phone widths: at desk size the same
+  // document's tables stand untouched (display:table — P0's law)
+  const desk = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await desk.goto(`file://${process.cwd()}/${tmpEcho}`, { waitUntil: "domcontentloaded" });
+  await desk.waitForTimeout(600);
+  const deskDisplay = await desk.evaluate(() => {
+    const t = [...document.querySelectorAll("table")].sort((a, b) => b.scrollWidth - a.scrollWidth)[0];
+    return { display: getComputedStyle(t).display, docOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth };
+  });
+  must(deskDisplay.display === "table" && !deskDisplay.docOverflow,
+    `X11 the door is shut at desk size (widest table display ${deskDisplay.display}, no overflow — the media query is a lens, not a rewrite)`);
+  await desk.close();
+} finally {
+  unlinkSync(tmpEcho);
+}
 
 // the frame is a reviewer — scroll the hero into the dialog's viewport
 // (the body scrolls internally, the band frame's own lesson) and shoot

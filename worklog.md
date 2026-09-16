@@ -665,3 +665,23 @@ Stage Summary:
 - 「build 之后看 bundle」：server 存活不等于喝新 bundle——PID 起点晚于 BUILD_ID 才算数；否则测试打的是旧世界（V 相雪崩的教训）
 - 「sanity 先于 wire」：闭子集转换器的围栏/拼接/斜体三处缺口被 bun sanity 在进 e2e 前挡下——灯先于线
 - 遗留（下轮候选）：回声的 Contents 在纸上的形制（打印时目录页是否要页码——依赖真实打印证据，维持让位）；shortcuts dialog 的 report 组是否记载 Download HTML 门（键盘层文档的第五行——低优先，门本身无快捷键）；透镜纸面化（哲学门槛维持）；updatedAt 治理（大工程）；EMPIAR 真数据回归（让位）；hero 纸档叠印可读性（维持）；echo 转换器的 GFM 对齐 `:--:`（center——子集未现不造）
+
+## Task 238 (2026-09-16, cron 10:17 窗口 trace …202609161019)
+
+- 【开局】四件套：尾部 = Task 237（9dd743c，本手上轮所写）零过时（续传摘要只写到 234——第四度过时实证，worklog 尾部是唯一真源的律再获证实）；净场 → watchdog 拉起验活 + 200。QA：qa00 GREEN + qa63 SMOKE GREEN（console 0 错）+ agent-browser errors/console 双空 + 首页/dashboard 目检健康（20 jobs · 16 edges · 16/21 · QA Refine Live 42%；KPI 卡 5 张 + Recent activity 相对时间诚实流动）。
+- 【立项】Task 237 遗留七个候选全部维持让位。产品面巡检（dashboard、报告章节序、class notes——报告说数据的话不说用户注记的话，维持设计现状）后锁定真缺口：**「便携文档的窄门」**——回声会旅行（邮件→手机），但 echo CSS 有 viewport meta 而零窄屏形制；7 列 Session map inventory 是文档的 centerpiece，390px 视口下文档列被撑到 585px（探针实证：docScrollW 585 vs 390，Verdict 列裁出屏外——before 帧亲眼过目）。文档请求手机横滚 = 便携介质的破绽。
+- 【取证】scripts/t238-echo-narrow-probe.mjs（export → file:// 390×844 → 测量 + 帧）：docOverflows true + 最宽表 min-content 565px——证据先行，断言后写（目检先于出题）。
+- 【实现】DOC_CSS 一条窄门：`@media (max-width:640px){ article{padding:1.5rem .9rem 3rem} table{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch} }`——文档永不横滚；宽表向自己的 band 借滚动（document-native escape：无 JS、无 wrapper div——display:block 的匿名表格盒保住单元格语义）。门只在手机宽度开：桌面世界 display:table 纹丝不动（media query 是透镜不是重写——P0 律入回声）。
+- 【e2e：t223-e2e 141→145】X 相 +4：X9 门在字节里（media query + display:block 规则同检）、**X10 电话世界文档列恒等视口宽（390=390，永不横滚）**、X10b 7 列 inventory 的 band 自滚（559px 内容在 361px 带内、display block）、**X11 桌面世界门关着**（widest table display:table、零溢出——门只在手机开）。**145/0 ×3 全绿**（含定妆照三轮重拍共 6 跑皆绿）。全家族回归绿：t215 44/0 + t213 35/0 + t214 29/0 + t219 29/0 + t212 30/0 + t218 29/0 + t221 14/0 + t210 151/0（首跑 150/1 WebGL 惯犯瞬态，复跑即愈——final/lanes 字节级 identical、legend-open 468px 画布噪声，×3 具名 checkout）；roster 恒等 21。
+- 【事故与判例】①**「镜头脚本坏了」是误报**：rg/head 的 bash 输出把 `a[href=` 吞成 `aref=`（转义序列显示伪影）——Edit 失败后 Read 才见真身，文件无谎、是我的读数有谎；「目检先于出题」救了一个正确的文件免遭修理。判例：**bash 管道输出里的选择器失踪，先 Read 原文件再定罪**。②sanity 正则 `[^}]*` 咬不住跨规则的 `}`（article 规则先关）——出题者的正则有谎又一案，`[\s\S]*?` 修正（灯先于线，sanity 挡下）。③锚点两次瞄错（#s1→#s2→实为 **#s7**）：mapQc.report 深报告字节先于 inventory 入列——**W4 判例第三度应验：嵌套文档的章节序以解析为准，行号与肉眼都算不上数**。④首帧一话未达：#s7 落点只有表头 sliver——`scrollIntoView({block:"center"})` 后再 scrollLeft=150，表身与尾列同框。
+- 【定妆照】**t238-echo-narrow-2x——家族首张竖幅**（390×844）：手机读报告、7 列表 band 居中自滚、尾列（Δ winner / Agreement r / Weakest）入画、crown blockquote 同框、文档列不倒——「门在使用中」。before 帧的误导残件删除（证据活在探针 JSON 与对话取证里），probe 帧名改 landing。
+- 【漂移考古】本窗 feature 只改导出 CSS（应用对话框零触碰），故 t212/213/214（9–17px 超稀疏）/t215（0）重摄差全为渲染真相/mtime 噪声随批提交；t210 ×3 WebGL 惯犯具名 checkout；新探针脚本 + 漂移取证脚本（t238-drift-check.py，band 剖析配方入册）随行。
+- 【世界卫生】全家族绿 + roster 恒等 21、twin 归家（t223 T 相自证）、tmp echo 已清。
+- 【收尾】worklog（本条）+ commit/push + 环境清理。
+
+Stage Summary:
+- 「文档不问手机借横滚」：便携介质的几何契约——文档列（article）在任何视口宽度下 scrollWidth === clientWidth；宽度是表自己的事，它向自己的 band 借滚动（display:block + overflow-x，无 JS 无 wrapper——文档原生 escape）；X10 把 390=390 钉成 wire 断言
+- 「门只在手机开」：media query 是透镜不是重写——桌面世界 display:table 纹丝不动（X11）；P0 律（仿真不单向）在介质间重演：一个器官的窄屏形制不越界改写它的桌面真身
+- 「证据先于断言、镜头先于代码」：探针先行（585 vs 390 的 blowout 实证 + before 帧亲眼过目）→ 实现一扇四行的门 → 断言落线——取证顺序本身是三窗教训的复利
+- 「误报的死法」：镜头脚本「坏了」的判决在 Edit 失败 + Read 原文后撤销——显示伪影不是文件真相；差点修理一个正确的工件，是本窗最贵的一课
+- 遗留（下轮候选）：:target 微光（echo 的纯 CSS needle——`h2:target/h3:target` violet 软底，「进过的门留标记」；滚动离场后标记滞留的语义诚实性需要自己的窗想清楚）；回声 Contents 纸上形制（页码——依赖真实打印证据，维持让位）；透镜纸面化（哲学门槛维持）；updatedAt 治理（大工程）；EMPIAR 真数据回归（让位）；hero 纸档叠印可读性（维持）；shortcuts report 组是否记载 Download HTML 门（维持低优先）

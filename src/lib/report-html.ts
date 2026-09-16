@@ -202,6 +202,17 @@ footer.docnote { margin-top:2rem; padding-top:0.75rem; border-top:1px solid var(
   table { break-inside:auto; } tr { break-inside:avoid; }
   nav.toc { border-color:#bbb; background:#fff; }
 }
+/* The narrow door (t238): the echo travels — email to phone — and the
+ * 7-column inventory is the document's centerpiece. The document never
+ * asks the phone to scroll sideways; a wide table asks its OWN band to
+ * scroll instead (display:block + overflow-x — the document-native
+ * escape, no JS, no wrapper). The door opens only at phone widths:
+ * at desk size the tables stand untouched (a media query is a lens,
+ * not a rewrite — P0's law in the echo). */
+@media (max-width:640px) {
+  article { padding:1.5rem 0.9rem 3rem; }
+  table { display:block; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+}
 `;
 
 /**

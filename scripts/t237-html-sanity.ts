@@ -72,6 +72,10 @@ want(html.includes("|Δ|"), "blockquote's literal pipes survive");
 want(html.includes("<em>Still measuring"), "full-line emphasis");
 want(html.includes('class="r"'), "right-aligned column class present");
 want((html.match(/<th/g) ?? []).length > 0 && html.includes("<tbody>"), "table head+body split");
+// t238: the narrow door — the echo meets the phone without breaking
+want(html.includes("@media (max-width:640px)"), "narrow door present (max-width:640px media query)");
+want(/@media \(max-width:640px\) \{[\s\S]*?table \{ display:block; overflow-x:auto/.test(html),
+  "the narrow door hands wide tables their own scroll band");
 // determinism: same md → same bytes
 want(buildSessionReportHtml(sample) === html, "deterministic bytes (t195 law in the echo)");
 
