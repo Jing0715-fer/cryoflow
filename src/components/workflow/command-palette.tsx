@@ -47,6 +47,7 @@ import {
   Waves,
   Workflow,
   FileTerminal,
+  RefreshCcw,
 } from "lucide-react";
 import {
   CommandDialog,
@@ -440,6 +441,20 @@ export function CommandPalette() {
     close();
   };
 
+  // t244: the engine joins the action index. The guidance's closing line
+  // promises "then press Re-detect — no restart needed"; the palette row is
+  // that promise's keyboard-layer door — searchable where every other app
+  // action lives, with the toast as the receipt (the chip and the dashboard
+  // card update live when the probe returns — one environment, one truth).
+  const redetectEngine = () => {
+    close();
+    toast({
+      title: "Re-detecting RELION environment",
+      description: "The status chip and the dashboard card update when the probe returns.",
+    });
+    void useWorkflowStore.getState().refreshSystem();
+  };
+
   return (
     <>
     <CommandDialog
@@ -754,6 +769,21 @@ export function CommandPalette() {
         <CommandSeparator />
 
         {/* ---------------- canvas + app actions ---------------- */}
+        <CommandGroup heading="Engine">
+          <CommandItem
+            value="re-detect relion environment engine probe refresh discover install scan"
+            onSelect={redetectEngine}
+            className="gap-2.5"
+          >
+            <RefreshCcw className="size-4 shrink-0 text-teal-600" />
+            <span className="flex-1 text-sm">
+              Re-detect RELION environment
+              <span className="ml-1.5 text-[10px] text-muted-foreground">
+                re-run the probe after installing or moving RELION — no restart needed
+              </span>
+            </span>
+          </CommandItem>
+        </CommandGroup>
         <CommandGroup heading="Canvas & app">
           <CommandItem
             value="create standard spa pipeline template prewired workflow scaffold"

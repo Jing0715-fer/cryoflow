@@ -808,3 +808,27 @@ Stage Summary:
 - 「镜像的副作用是镜像本身」：两嘴共用同一句承诺 title，选择器单靠 title 撞双元素——mirror law 连选择器层面都要留痕（group/kpi 类锚定）
 - 「契约的考古链」：qa47 旧伤非本窗伤——git log -S + worklog 全文反查证明契约停在 Task 144 之前；修契约（fold 动词过闸）而非回滚产品
 - 遗留（下轮候选）：map-profile 的 FSC 帧在场时 inspector Report 组的锚点化（等真实满档）；透镜纸面化（哲学门槛维持）；updatedAt 治理（大工程）；EMPIAR 真数据回归（让位）；hero 纸档叠印可读性（维持）；shortcuts report 组记载 Download HTML 门（维持低优先）；engine guidance 若在 found 世界也有可说的事实（多 install 切换指引）可开第四嘴（低优先）
+
+## Task 244 (2026-09-16, cron 13:47 窗口 trace cron-agent-loop-202609161354)
+
+- 【开局】四件套：尾部 = Task 243（84fd8fa，本手上窗所写）零过时；净场 → watchdog 拉起验活 + 200 + roster 21。QA：qa00 GREEN + qa63 SMOKE GREEN + t243 哨兵 PASS + agent-browser errors/console 双空。无 bug。
+- 【巡检与立项】勘察开题：①Task 13 recital 的「3D viewer 体积截面工具」经工件实证**已被早前任务实现**（molstar-embed 有 ortho-slice 事件 + map-ortho-panel + 可动 clip face 数学——recital 陈旧遗留又一案，本窗记档销账）；②command palette 巡检发现动作索引的真实缺口：Re-detect 全应用无键盘/索引路径。立项 = **「引擎卡的两个世界都开口」**——Task 243 治了 not-found 世界的死卡，found 世界同病未治（RELION 5.0.0 仍坐在 div 里、切 install 必须去找 header 小 chip）；补上 found 世界的 details popover + 调色板 Engine 组（guidance 闭合承诺「press Re-detect」的键盘层门）。教义：**卡在两个世界都没有死态**；「存在的门必须在索引里」。
+- 【实现】
+  - InstallRow + InstallSwitcher 从 header.tsx 迁入 engine-guidance.tsx（引擎家族共享嘴之家，export；DOM 字节不变——t242 GREEN 自证）；header 删除原定义 + 清理闲置 icon imports（Server/Terminal 只剩 import 的惯犯）
+  - dashboard found 分支：Popover（data-engine-details-dashboard 标记）= 「RELION detected」标题行（emerald CircleCheck）+ InstallSwitcher + EngineReDetectRow；卡变真按钮（Info corner 同 not-found 世界的 whisper 动词、ariaExpanded 共用同一 state——两世界互斥 found XOR not-found，一个开关够）；title = `RELION {version} · {path} — click for engine details`（版本+路径领衔，切换后随 store 重领衔）
+  - command-palette.tsx：新 CommandGroup「Engine」+「Re-detect RELION environment」行（RefreshCcw teal）——onSelect = close + toast 回执 + refreshSystem()（force probe 签名 ?force=1）
+- 【e2e：新 t244-e2e.mjs（编号核验）】27 断言 ×4 全绿：A 相 demo 真相（真 API found:false + roster 21）+ B 相 **found 世界经路由拦截在网络边界替它开口**（合成井：2 native installs）——卡值 5.0.0 + title 领衔 + Info corner + popover 开（radiogroup 两行/预勾/选中项 disabled/另一项可切/Re-detect 门）+ **切 install 三嘴跟真**（toast 回执（page 级——Toaster portal 在 popover 盒外）/radio 翻勾/卡值翻 4.2.0/title 重领衔）+ 「Esc 剥一层」律（第一 Esc 剥 toast、第二剥 popover——应用自己的 shortcuts 律在测试里复活）+ C 相调色板（Ctrl+K 搜 re-detect → 行在场 → Enter 触发 force probe + 回执）+ D 相双世界 console 0。
+- 【事故与判例】①**playwright glob 的斜杠井**：`**/api/system*` 的 `*` 不跨 `/`——POST /api/system/select 漏拦落到真服务器 404（合成世界没统治自己的整个 URL 家族）；修：正则 /\/api\/system/。②**自溶解 locator**：卡 title 领衔版本号，切换后旧 locator 蒸发（断言 dissolve 于自己的断言）；修：title 后缀子串锚定（"click for engine details"）+ 切换后断言新 title 全文。③**「剥一层」的测试服从**：单 Esc 败因 = toast 与 popover 两层同活——应用律 Esc=剥一层，测试改两 Esc 而非改产品（产品是对的，出题者要读对应用自己的律）。④**chunk 名手抄井**：在线终审 URL 手抄 `…d3b.js`（真名 `…d3.js`）404——rg 输出逐字复制，不凭记忆转抄。⑤t241 批量跑崩（Node crash tail）单跑 ×2 全绿——连续套件的资源竞争瞬态，非代码伤。
+- 【定妆照】**shots-qa84/t244-engine-card-found-2x**：found 世界卡（4.2.0 已翻面 + Info corner）+ popover（RELION detected + DETECTED INSTALLS 双行：5.0.0 NATIVE MPI 待选 / 4.2.0 NATIVE 戴勾 teal + checked 钟 + Re-detect 门）——家族首张 found 世界帧，「一井多嘴、三嘴跟真」的活体证据。
+- 【全家族回归】qa00 GREEN + qa63 SMOKE GREEN + qa47/qa55 GREEN + qa49/50/51 + qa57/58 + qa84 ALL PASS + t210 151/0 + t212 30/0 + t213 35/0 + t214 29/0 + t215 44/0 + t218 29/0 + t219 29/0 + t221 14/0 + t223 155/0 + t241 14/0（批量崩后单跑 ×2 自证）+ **t242 GREEN（InstallSwitcher 迁移后 DOM 字节不变自证）** + t243 ALL PASS + t244 27/0 ×4；roster 恒等 21。
+- 【漂移考古】t243 帧 1746 px @ max 114 = **单带 CSS y424-431 = checked 活钟行**（帧的其余 963 行逐字节恒等）——引擎 popover 里的产地钟每跑必漂，诚实内容随批提交（t212/215 时间词判例同族）；t210 ×3 WebGL 惯犯具名 checkout；t212/213/214/219/223 家族 = spinner/时间词/strip 滚位诚实漂移随批。
+- 【世界卫生】全家族绿 + roster 恒等 21、tmp 裁片已清、twin 已归家。
+- 【收尾】worklog（本条）+ commit/push + 环境清理（Task 86 配方双杀 + port FREE 验证）。
+
+Stage Summary:
+- 「卡在两个世界都没有死态」：not-found 开 guidance（t243）、found 开 details+switcher（t244）——同一个 Info 动词、同一个 open state（两世界互斥）、同一张卡；引擎家族四嘴（header chip / dashboard not-found / dashboard found / palette Re-detect）一井一 store
+- 「合成世界要统治自己的 URL 家族」：playwright glob 的 `*` 不跨 `/`，路由拦截用正则——found 世界在真实宿主存在，demo 箱用网络边界的合成井替它开口，拦截不完备 = 合成世界漏风
+- 「断言不 dissolve 于自己的断言」：含版本号的 title 是会变的真值，锚定要选不变的后缀——locator 的稳定性是断言设计的一部分
+- 「Esc 剥一层」是产品的律，测试服从它：toast+popover 两层同活时单 Esc 不是 bug 是律法；测试要读对应用自己的 keyboard 层契约
+- 「recital 的遗留要对工件核实」：3D 体积截面已实现于早前任务——Task 13 recital 携带的遗留清单本身会陈旧，每窗立项前先问工件
+- 遗留（下轮候选）：调色板索引完整性律的 wire 化（header 门 ⊆ palette 行 + 诚实豁免清单——print 归 ⌘P、help 归 ?）；map-profile FSC 满档锚点化（等真实满档）；透镜纸面化（哲学门槛维持）；updatedAt 治理（大工程）；EMPIAR 真数据回归（让位）；hero 纸档叠印可读性（维持）；shortcuts report 组记载 Download HTML 门（维持低优先）

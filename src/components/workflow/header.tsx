@@ -15,10 +15,8 @@ import {
   Loader2,
   Printer,
   RefreshCw,
-  Server,
   Snowflake,
   StickyNote,
-  Terminal,
   Workflow,
   X,
 } from "lucide-react";
@@ -27,7 +25,7 @@ import { hasJudgment } from "@/lib/class-notes";
 import { ThemeToggle } from "./theme-toggle";
 import { HelpPopover } from "./help-popover";
 import { CommandPaletteTrigger, SESSION_REPORT_EVENT } from "./command-palette";
-import { EngineHintBlock, EngineReDetectRow } from "./engine-guidance";
+import { EngineHintBlock, EngineReDetectRow, InstallSwitcher } from "./engine-guidance";
 // t197: the session QC report is code-split (react-markdown + remark-gfm
 // ride their own chunk) — the app shell never pays for the document
 // renderer until the report is opened for the first time.
@@ -46,7 +44,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { RelionInstallClient } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 function StatChip({
@@ -114,150 +111,6 @@ function ProjectSwitcher() {
           ))}
         </SelectContent>
       </Select>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* RELION install switcher (multi-version)                             */
-/* ------------------------------------------------------------------ */
-
-function InstallRow({
-  install,
-  selected,
-  pending,
-  onSelect,
-}: {
-  install: RelionInstallClient;
-  selected: boolean;
-  pending: boolean;
-  onSelect: (id: string) => void;
-}) {
-  const isWsl = install.execution === "wsl";
-  return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={selected}
-      title={`${install.path}${install.distro ? ` · ${install.distro}` : ""}`}
-      disabled={pending || selected}
-      onClick={() => onSelect(install.id)}
-      className={cn(
-        "group flex w-full items-center gap-2 rounded-lg border px-2 py-1.5 text-left transition-colors",
-        selected
-          ? "border-teal-500/50 bg-teal-500/10"
-          : "border-border bg-card hover:bg-secondary/60",
-        pending && "opacity-70"
-      )}
-    >
-      {/* selected / switching indicator */}
-      <span
-        className={cn(
-          "flex size-4 shrink-0 items-center justify-center rounded-full border",
-          selected ? "border-teal-500 bg-teal-500" : "border-muted-foreground/40"
-        )}
-        aria-hidden="true"
-      >
-        {pending ? (
-          <Loader2 className="size-3 animate-spin text-teal-600 dark:text-teal-400" />
-        ) : (
-          selected && <Check className="size-3 text-white" />
-        )}
-      </span>
-      {/* version + mode */}
-      <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-1.5">
-          <span className="text-xs font-semibold tabular-nums">
-            RELION {install.version ?? "version ?"}
-          </span>
-          <Badge
-            variant="outline"
-            className={cn(
-              "h-4 shrink-0 px-1 text-[9px] font-semibold uppercase tracking-wide",
-              isWsl
-                ? "border-cyan-500/40 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400"
-                : "border-teal-500/40 bg-teal-500/10 text-teal-600 dark:text-teal-400"
-            )}
-          >
-            {isWsl ? `WSL · ${install.distro ?? "default"}` : "native"}
-          </Badge>
-          {install.mpiBinary && (
-            <Badge
-              variant="outline"
-              className="h-4 shrink-0 px-1 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground"
-              title="relion_refine_mpi present — MPI-capable install"
-            >
-              MPI
-            </Badge>
-          )}
-          {install.cached && (
-            <Badge
-              variant="outline"
-              className="h-4 shrink-0 border-amber-500/40 bg-amber-500/10 px-1 text-[9px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400"
-              title="Restored from the saved last detection — it could not be re-verified this round (e.g. WSL was cold). Re-detect re-verifies it."
-            >
-              saved
-            </Badge>
-          )}
-        </span>
-        <span className="mt-0.5 block truncate font-mono text-[10px] text-muted-foreground">
-          {install.path}
-        </span>
-        <span className="block text-[9px] text-muted-foreground/70">
-          via {install.source}
-          {install.ctffindPath ? " · ctffind ✓" : " · no ctffind"}
-        </span>
-      </span>
-      {isWsl ? (
-        <Terminal className="size-3.5 shrink-0 text-cyan-600/70 dark:text-cyan-400/70" aria-hidden="true" />
-      ) : (
-        <Server className="size-3.5 shrink-0 text-teal-600/70 dark:text-teal-400/70" aria-hidden="true" />
-      )}
-    </button>
-  );
-}
-
-function InstallSwitcher() {
-  const system = useWorkflowStore((s) => s.system);
-  const selectRelionInstall = useWorkflowStore((s) => s.selectRelionInstall);
-  const [pendingId, setPendingId] = React.useState<string | null>(null);
-
-  const installs = system?.installs ?? [];
-  if (installs.length === 0) return null;
-
-  const onSelect = async (id: string) => {
-    if (pendingId) return;
-    setPendingId(id);
-    try {
-      await selectRelionInstall(id);
-    } finally {
-      setPendingId(null);
-    }
-  };
-
-  return (
-    <div className="space-y-1.5">
-      <p className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-        <span>Detected installs</span>
-        <span className="font-normal normal-case tracking-normal text-muted-foreground/70">
-          {installs.length > 1
-            ? `${installs.length} versions — click to switch`
-            : system?.autoPicked
-              ? "auto-selected"
-              : "1 found"}
-        </span>
-      </p>
-      <div className="max-h-40 space-y-1 overflow-y-auto pr-0.5" role="radiogroup" aria-label="RELION installs">
-        {installs.map((install) => (
-          <InstallRow
-            key={install.id}
-            install={install}
-            selected={install.id === system?.selectedId}
-            pending={pendingId === install.id}
-            onSelect={(id) => void onSelect(id)}
-          />
-        ))}
-      </div>
     </div>
   );
 }

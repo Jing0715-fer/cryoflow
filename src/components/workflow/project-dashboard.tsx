@@ -48,7 +48,7 @@ import { parseClassNotes, hasJudgment } from "@/lib/class-notes";
 import { withLiveStats } from "@/lib/live-stats";
 import { PENDING_VIEW_KEY } from "@/lib/view-link";
 import { KpiSparkline } from "./kpi-sparkline";
-import { EngineHintBlock, EngineReDetectRow } from "./engine-guidance";
+import { EngineHintBlock, EngineReDetectRow, InstallSwitcher } from "./engine-guidance";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 import type { JobDTO, ProjectSummaryDTO } from "@/lib/types";
 import { jobType } from "@/lib/workflow";
@@ -1904,9 +1904,12 @@ export function ProjectDashboard() {
   const [gridFilter, setGridFilter] = React.useState<GridFilter>("all");
   const gridRef = React.useRef<HTMLDivElement | null>(null);
   const [gridFlash, setGridFlash] = React.useState(false);
-  // t243: the Active engine card's guidance popover — the dashboard sister
-  // page of the header chip's popover (t242). Same well (the API's hint
-  // bytes), a third mouth, and the Re-detect affordance riding along.
+  // t243/t244: the Active engine card's popover — the dashboard sister page
+  // of the header chip's popover. Not-found world: guidance (the API's hint
+  // bytes, third mouth) + Re-detect riding along. Found world: the
+  // InstallSwitcher (also a header import) + Re-detect — the card has NO
+  // dead state in either world. One open state: the two worlds are
+  // exclusive (found XOR not-found).
   const [engineGuideOpen, setEngineGuideOpen] = React.useState(false);
   // grid sort — initialized from persisted choice on mount (localStorage
   // read stays out of render per #13 discipline: state init via lazy
@@ -2292,18 +2295,46 @@ export function ProjectDashboard() {
                 </PopoverContent>
               )}
             </Popover>
+          ) : system?.found ? (
+            <Popover open={engineGuideOpen} onOpenChange={setEngineGuideOpen}>
+              <PopoverAnchor asChild>
+                <KpiCard
+                  icon={<Snowflake className="size-5" />}
+                  value={system.version ?? "RELION"}
+                  label="Active engine"
+                  sub={
+                    system.execution === "wsl"
+                      ? `WSL bridge${system.wsl.distro ? ` · ${system.wsl.distro}` : ""}${(system.installs.length ?? 0) > 1 ? ` · +${system.installs.length - 1} install(s)` : ""}`
+                      : `real RELION runs${(system.installs.length ?? 0) > 1 ? ` · +${system.installs.length - 1} install(s)` : ""}`
+                  }
+                  tone="bg-primary/10 text-primary ring-primary/25"
+                  corner={<Info className="size-3" />}
+                  onClick={() => setEngineGuideOpen((v) => !v)}
+                  ariaExpanded={engineGuideOpen}
+                  hint={`RELION ${system.version ?? ""} · ${system.path ?? ""} — click for engine details`}
+                />
+              </PopoverAnchor>
+              <PopoverContent align="end" className="w-96" data-engine-details-dashboard>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2
+                      className="size-4 text-emerald-600 dark:text-emerald-400"
+                      aria-hidden="true"
+                    />
+                    <p className="text-sm font-semibold">
+                      {system.execution === "wsl" ? "RELION detected (in WSL)" : "RELION detected"}
+                    </p>
+                  </div>
+                  <InstallSwitcher />
+                  <EngineReDetectRow />
+                </div>
+              </PopoverContent>
+            </Popover>
           ) : (
             <KpiCard
               icon={<Snowflake className="size-5" />}
-              value={system?.found ? (system.version ?? "RELION") : "—"}
+              value={"—"}
               label="Active engine"
-              sub={
-                system?.found
-                  ? system.execution === "wsl"
-                    ? `WSL bridge${system.wsl.distro ? ` · ${system.wsl.distro}` : ""}${(system.installs.length ?? 0) > 1 ? ` · +${system.installs.length - 1} install(s)` : ""}`
-                    : `real RELION runs${(system.installs.length ?? 0) > 1 ? ` · +${system.installs.length - 1} install(s)` : ""}`
-                  : "RELION not detected"
-              }
               tone="bg-primary/10 text-primary ring-primary/25"
             />
           )}
