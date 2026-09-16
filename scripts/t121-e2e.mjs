@@ -75,7 +75,9 @@ const sh = (cmd) => execSync(cmd, { encoding: "utf8", timeout: 180_000 }).trim()
 const api = async (path, method = "GET", body) => {
   const r = await fetch(BASE + path, {
     method,
-    headers: body ? { "Content-Type": "application/json" } : undefined,
+    // t251: job-data routes carry the same-origin door — the probe
+    // authenticates so it reaches the layer it exists to test.
+    headers: { "sec-fetch-site": "same-origin", ...(body ? { "Content-Type": "application/json" } : {}) },
     body: body ? JSON.stringify(body) : undefined,
   });
   return r;
@@ -194,7 +196,7 @@ const seedNoLog = async (name, x, y) => {
   const j = await makeJobRow(name, x, y);
   flipStatus(j.id, "failed", 0);
   seeded.push({ id: j.id, name: j.name, workdir: null });
-  const code = await fetch(`${BASE}/api/jobs/${j.id}/log?full=1`).then((r) => r.status).catch(() => 0);
+  const code = await fetch(`${BASE}/api/jobs/${j.id}/log?full=1`, { headers: { "sec-fetch-site": "same-origin" } }).then((r) => r.status).catch(() => 0);
   must(code === 404, `${name}: log route honestly 404s (got ${code})`);
   return { id: j.id, name: j.name };
 };

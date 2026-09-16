@@ -56,7 +56,9 @@ def api(path, method="GET", body=None):
     req = urllib.request.Request(
         BASE + path,
         method=method,
-        headers={"Content-Type": "application/json"},
+        # t251: job-data read routes carry the same-origin door — the seeder
+        # authenticates like any other local client (Origin names the host).
+        headers={"Content-Type": "application/json", "Origin": BASE},
         data=json.dumps(body).encode() if body else None,
     )
     with urllib.request.urlopen(req, timeout=30) as r:

@@ -210,7 +210,12 @@ const allMatch = serverRoot
   : prof1.every((p) => p.localRoot.endsWith("/data/relion"));
 must(allMatch, serverRoot ? `B2 every localRoot === ${serverRoot} (override honored)` : "B2 every localRoot ends at data/relion");
 
-const outside = await fetch(`${BASE}/api/jobs/${completedJobs[0].id}/classes?workdir=/etc`);
+// t251: the classes route now carries the same-origin door (t251 sibling
+// closure) — authenticate the probe so it still REACHES the containment
+// layer it exists to test (B3/B4 assert the workdir boundary, not the door).
+const outside = await fetch(`${BASE}/api/jobs/${completedJobs[0].id}/classes?workdir=/etc`, {
+  headers: { Origin: BASE },
+});
 must(outside.status === 400, `B3 classes workdir boundary rejects outside paths (status ${outside.status})`);
 const outsideMsg = await outside.json();
 must(

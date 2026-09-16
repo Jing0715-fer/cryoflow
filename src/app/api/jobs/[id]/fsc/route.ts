@@ -5,6 +5,7 @@ import { findEffectiveJob } from "@/lib/link";
 import { getRun } from "@/lib/relion/engine";
 import { cachedFileCompute } from "@/lib/relion/statcache";
 import { parseStar, findPair } from "@/lib/starfile";
+import { isLocalRequest } from "@/lib/http-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -177,8 +178,19 @@ function shellsFromPostprocessStar(text: string): {
  *
  * Empty shells (silent null-source) for 2D jobs — the FSC is a 3D concept.
  */
-export async function GET(_request: NextRequest, context: RouteContext) {
+export async function GET(request: NextRequest, context: RouteContext) {
   try {
+    // Hardening (t251, the #5 sibling closure): workdir-derived data —
+    // same drive-by door + Host pin pair as the outputs/file route
+    // (see http-guard for the threat model). Parsed or rendered, the
+    // bytes come from the job workdir — the door rides along.
+    if (!isLocalRequest(request)) {
+      return NextResponse.json(
+        { error: "Cross-site access to job data is not allowed" },
+        { status: 403 }
+      );
+    }
+
     const { id } = await context.params;
     const job = await findEffectiveJob(id); // resolves soft links to the original
     if (!job) {

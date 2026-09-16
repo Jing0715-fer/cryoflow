@@ -63,7 +63,7 @@ execSync("python3 scripts/seed-masked.py", { stdio: "pipe" });
 const jobs = (await (await fetch(BASE + "/api/jobs")).json()).jobs ?? [];
 const host = jobs.find((j) => j.name === "QA Refine3D");
 must(!!host, "S1 QA Refine3D in roster (seeder idempotent)");
-const outs = JSON.stringify(await (await fetch(`${BASE}/api/jobs/${host.id}/outputs`)).json());
+const outs = JSON.stringify(await (await fetch(`${BASE}/api/jobs/${host.id}/outputs`, { headers: H })).json());
 must(outs.includes("orthovol.mrc") && outs.includes("run_it020_half1.mrc") && outs.includes("run_it020_half2.mrc") && outs.includes("run_it020_masked.mrc"), "S2 orthovol + BOTH half-maps + the MASKED variant in outputs (t210's third speaker)");
 
 // S3: the probe starts HYGIENIC. The server overlay mirror follows the job

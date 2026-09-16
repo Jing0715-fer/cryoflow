@@ -5,6 +5,7 @@ import { findEffectiveJob } from "@/lib/link";
 import { getRun } from "@/lib/relion/engine";
 import { cachedFileCompute } from "@/lib/relion/statcache";
 import { summarizeOrientation } from "@/lib/relion/rebalance-core";
+import { isLocalRequest } from "@/lib/http-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -76,8 +77,19 @@ const TILT_BINS = 12;
  * (rot φ 0–360° × tilt θ 0–180°) of the latest refine/classify data star,
  * binned server-side into a polar 24×12 heatmap grid.
  */
-export async function GET(_request: NextRequest, context: RouteContext) {
+export async function GET(request: NextRequest, context: RouteContext) {
   try {
+    // Hardening (t251, the #5 sibling closure): workdir-derived data —
+    // same drive-by door + Host pin pair as the outputs/file route
+    // (see http-guard for the threat model). Parsed or rendered, the
+    // bytes come from the job workdir — the door rides along.
+    if (!isLocalRequest(request)) {
+      return NextResponse.json(
+        { error: "Cross-site access to job data is not allowed" },
+        { status: 403 }
+      );
+    }
+
     const { id } = await context.params;
     const job = await findEffectiveJob(id); // resolves soft links to the original
     if (!job) {

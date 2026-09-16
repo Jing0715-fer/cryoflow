@@ -74,7 +74,9 @@ const sh = (cmd) => execSync(cmd, { encoding: "utf8", timeout: 180_000 }).trim()
 const api = async (path, method = "GET", body) => {
   const r = await fetch(BASE + path, {
     method,
-    headers: body ? { "Content-Type": "application/json" } : undefined,
+    // t251: job-data routes carry the same-origin door — the probe
+    // authenticates so it reaches the layer it exists to test.
+    headers: { "sec-fetch-site": "same-origin", ...(body ? { "Content-Type": "application/json" } : {}) },
     body: body ? JSON.stringify(body) : undefined,
   });
   return r;

@@ -958,3 +958,22 @@ Stage Summary:
 - 「瞬态的两态分野」：资源态瞬态（solo 复跑恢复，SOLO-RECOVERY）vs 数据态污染（solo 也失败，需 seed 工具 --clean 清场）——REAL-FAIL 的归因要先问「前一个套件的尸体还在吗」；roster 恒等断言是数据污染的烟雾报警器
 - 「跑批的自举」：全家族回归 = 新工具的验收测试——一条命令 13.4 分钟替掉每窗手工 28 次串行 + 人工分辨瞬态；下窗 QA 直接 `node scripts/family-run.mjs`
 - 遗留（下轮候选）：#5 fs/browse 鉴权（低优先）；#6/#14 pathref 包含策略（低优先）；map-profile FSC 满档锚点化（等真实满档）；透镜纸面化（哲学门槛维持）；updatedAt 治理（大工程）；EMPIAR 真数据回归（让位）；家族跑批的 --report JSON 输出（供 worklog 直接引用的机器可读 verdict）；watchdog 与 family-run 的共生（runner 检测到 watchdog 缺席时自拉或告警）
+
+## Task 251 (2026-09-16, cron 18:02 窗口 trace cron-agent-loop-202609161812)
+
+- 【开局】四件套：尾部 = Task 250（6aa8df6，家族跑批判例的执行化）零过时（续传摘要第十二度过时——世系止于 247，实际 248/249/250 已交付）；净场核查 PORT 3000 FREE + 无 watchdog → watchdog 拉起验活 200。QA：qa00 GREEN + qa63 SMOKE GREEN + t249 哨兵 PASS + agent-browser errors/console 双空。无 bug。
+- 【勘察与立项】cron recital 每窗背诵的 Task 13 遗留逐件实证：**#5 已修**（fs/browse 带 isLocalRequest 同源门 + Host pin，注释自载「Hardening (#5, rounds 1+2)」——recital 陈旧判例第五案）；**#6/#14 已修**（file/star 两路由共用 resolveInsideJobWorkdir 统一包含策略，注释自载「Both holes are closed」）；**#13 已修**（全应用 localStorage 写全在事件处理器/helper，useMemo 内零写）。但勘察揪出**真缺口：守卫层的不一致**——outputs/star 是 file 的姊妹路由，同一份 .star 字节 file 路由 text 格式有门、star 路由解析后裸奔；普查 49 条 API 路由仅 3 条有门（fs/browse/map-profile/outputs/file），13 条 workdir 派生数据路由全裸。立项 = **「硬化收口」**：守卫扫荡 + 守门测试 + Task 13 recital 全销账。
+- 【实现：守卫扫荡 scripts/t251-guard-sweep.py】13 条路由（outputs/outputs/star/log/6charts/micrographs/classes/picks/particles）机械化补 isLocalRequest 门——幂等 sweep（已带门即跳过，首跑漏 star 本尊、幂等补齐自愈）；每门带 per-route 注释（「Parsed or rendered, the bytes come from the job workdir — the door rides along」）。**边界判定**：overlay-session/camera-bookmarks（用户自创注记，非磁盘派生）诚实缺席不扫；写路由（POST/JSON 体）不入本轮威胁面。
+- 【直连修复五件】sweep 爆炸半径普查（家族测试仅直连 /outputs ×5）：t210 补挂 H（H 头早已在文件里）、qa58 种子 helper 补 Origin、t184 B3 补 Origin（保到达包含层——它测的是 workdir 边界不是门）、t120/t121 api helper + 裸 fetch 补 sec-fetch-site（非家族但世界卫生不摔下人）。qa67 早带 Origin（file 门落地时的先例同款）。
+- 【e2e：新 t251-hardening-gates.mjs】**29 断言 ×3 ALL PASS**：A 相 demo 真相（200 + roster 21 + **主页世界 console-clean 前置断言**）；B 相**门环 16 面 × 4 态**（无 fetch metadata curl 式 → 403；cross-site Origin → 403；rebound Host（curl 伪造——undici 拒伪造 Host，curl 是对的探针）Origin 过源检查但 Host pin 定罪 → 403；same-origin → 门开路径应答）——**48 顿拒 + 16 开门**；C 相包含锋利（../ 词法 / 百分号编码 / 嵌套 / classes workdir 越界全 400 + 契约消息点名 data/relion）；D 相正当用户无伤（**应用自己页面内的同源 fetch 打遍 16 门零 403**——门不杀门内人）；E 相 console（pageerror 0 + 探针噪声有界——D 相故意 404 的资源日志与真实错误分账，主页世界在 A 相已净）。
+- 【build 与固定工序】OOM 箱 rebuild → Task 86 双杀 + PORT 3000 FREE → watchdog 复活 200。**API 路由无 client chunk 终审**（守卫字节在 server bundle 不在 static chunks——t247 判例是客户端组件特例）：活体探针即终审，首跑 12 姊妹裸 200（standalone 井旧字节实锤）→ rebuild 后 16 门全 403。
+- 【全家族回归】family-run.mjs 一条命令：**FAMILY VERDICT pass 28 · solo-recovery 0 · real-fail 0 · wall 790.9s**（qa49 26.6s 内联 PASS 守卫续效；qa58/t210 修复后 PASS）；**t251 收编花名册 28→29**（runner --filter t251 亲跑 PASS 8.9s 验收）；roster 恒等 21。
+- 【收尾】worklog（本条）+ commit/push + 环境清理（Task 86 配方双杀 + port FREE 验证）。
+
+Stage Summary:
+- **「Task 13 recital 全销账」**：七件遗留全部实证闭合——#5（isLocalRequest 三门）、#6/#14（resolveInsideJobWorkdir 统一）、#7（statcache）、#8（batched BFS）、#13（localStorage 写出 useMemo）——下窗 cron 文本再背诵 Task 13 时，worklog 即答「全部已修且守门测试在册」，审计成本归零；recital 的终点不是被背诵而是被测试钉死
+- 「守卫的不一致是真缺口」：#6 的「包含策略不一致」修在包含层，守卫层同样的不一致活着——同一份 star 字节一门有门一门裸奔，file 路由的门被姊妹裸门架空（drive-by 走 star 门读同样的数据）；姊妹路由的硬化必须成环，单点门是心理安慰
+- 「门环四态测试法」：每门 × 无 metadata / cross-site Origin / rebound Host / same-origin 四态——第三态（Origin 过但 Host pin 定罪）只有 curl 能伪造（undici 拒伪造 Host），探针工具的选择本身就是威胁模型的一部分；48 顿拒 + 16 开门 + 应用自己页面零伤 = 门只挡该挡的
+- 「幂等 sweep 的自愈」：首跑 ROUTES 漏了 star 本尊（要做的那件事漏在做的工具里），幂等设计让补跑只改缺的那件——机械化变换必须幂等，人肉清单必须被幂等原谅
+- 「console 噪声分账」：D 相故意探针的 404 资源日志与真实 console 错误分账（pageerror 0 + 非 resource 日志 0 + 噪声有界），主页世界在 A 相先净——断言要区分「故意的噪声」与「意外的噪声」，否则要么假绿要么冤枉
+- 遗留（下轮候选）：写路由的 CSRF 面（POST/JSON 体 + no-cors 表单的残余风险——本轮威胁面外，Next.js JSON 解析默认挡表单，值得一次专项审查）；/system、/hpc/profiles、/projects 等应用元数据路由的门（低敏感，挂账）；map-profile FSC 满档锚点化（等真实满档）；透镜纸面化（哲学门槛维持）；updatedAt 治理（大工程）；EMPIAR 真数据回归（让位）；家族跑批 --report JSON（机器可读 verdict）；watchdog 与 family-run 共生

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { findEffectiveJob } from "@/lib/link";
 import { getLogTail } from "@/lib/relion/engine";
+import { isLocalRequest } from "@/lib/http-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,17 @@ type RouteContext = { params: Promise<{ id: string }> };
  */
 export async function GET(request: NextRequest, context: RouteContext) {
   try {
+    // Hardening (t251, the #5 sibling closure): workdir-derived data —
+    // same drive-by door + Host pin pair as the outputs/file route
+    // (see http-guard for the threat model). Parsed or rendered, the
+    // bytes come from the job workdir — the door rides along.
+    if (!isLocalRequest(request)) {
+      return NextResponse.json(
+        { error: "Cross-site access to job data is not allowed" },
+        { status: 403 }
+      );
+    }
+
     const { id } = await context.params;
     // soft links: the log lives in the original job's run record
     const effective = (await findEffectiveJob(id)) ?? null;
