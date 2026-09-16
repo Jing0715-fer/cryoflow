@@ -47,7 +47,7 @@ import {
 import { Copy, Download, FileDown, FileSpreadsheet, Printer } from "lucide-react";
 import ReactMarkdown, { type Components, type ExtraProps } from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { downloadText } from "@/lib/download";
+import { copyOrFallback, downloadText } from "@/lib/download";
 import type { JobDTO } from "@/lib/types";
 import {
   buildProfileReport,
@@ -1058,9 +1058,10 @@ export default function SessionReportDialog({
      download) — the machine grid spoke only one. Copy is NOT a second
      CSV builder: the same inventoryCsv bytes leave through the same
      function, the same empty-state refusal ("still measuring" — a
-     silent no-op is a lying door), the same receipt grammar. Clipboard
-     denied = the download is the honest fallback, and the receipt
-     names the degradation (exportMd's own precedent, mirrored). */
+     silent no-op is a lying door), the same receipt grammar. The
+     clipboard-denied ladder is copyOrFallback's — t233 single-fathered
+     it; the empty-state guard stays HERE (it is the CSV's own truth,
+     not the ladder's). */
   const exportCsv = async (mode: "copy" | "download") => {
     const csv = inventoryCsv(mapInventory ?? null);
     if (!csv) {
@@ -1070,15 +1071,16 @@ export default function SessionReportDialog({
       return;
     }
     if (mode === "copy") {
-      try {
-        await navigator.clipboard.writeText(csv);
-        flashNote("Copied the map inventory grid to the clipboard");
-        return;
-      } catch {
-        downloadText(inventoryCsvFilename(), csv, "text/csv;charset=utf-8");
-        flashNote("Downloaded session-map-inventory-….csv (clipboard unavailable)");
-        return;
-      }
+      flashNote(
+        await copyOrFallback(
+          csv,
+          inventoryCsvFilename(),
+          "text/csv;charset=utf-8",
+          "Copied the map inventory grid to the clipboard",
+          "Downloaded session-map-inventory-….csv (clipboard unavailable)",
+        ),
+      );
+      return;
     }
     downloadText(inventoryCsvFilename(), csv, "text/csv;charset=utf-8");
     flashNote("Downloaded session-map-inventory-….csv");
@@ -1086,17 +1088,18 @@ export default function SessionReportDialog({
 
   const exportMd = async (mode: "copy" | "download") => {
     if (mode === "copy") {
-      try {
-        await navigator.clipboard.writeText(md);
-        flashNote("Copied the session QC report to the clipboard");
-        return;
-      } catch {
-        // clipboard denied — the download is the honest fallback, and the
-        // receipt names the degradation (the report speaks both worlds)
-        downloadText(sessionReportFilename(), md, "text/markdown;charset=utf-8");
-        flashNote("Downloaded session-qc-report-….md (clipboard unavailable)");
-        return;
-      }
+      // t233: the ladder's first customer — same mechanism as the CSV
+      // door now, one father for the whole copy-or-fallback dance
+      flashNote(
+        await copyOrFallback(
+          md,
+          sessionReportFilename(),
+          "text/markdown;charset=utf-8",
+          "Copied the session QC report to the clipboard",
+          "Downloaded session-qc-report-….md (clipboard unavailable)",
+        ),
+      );
+      return;
     }
     downloadText(sessionReportFilename(), md, "text/markdown;charset=utf-8");
     flashNote("Downloaded session-qc-report-….md");

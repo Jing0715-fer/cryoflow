@@ -149,6 +149,28 @@ for (let i = 0; i < 10; i++) {
 }
 must(receipt.includes("Copied the map inventory grid"), `C3 the receipt names the copy ("${receipt}")`);
 
+// t233: the md door rides the same ladder now — its FIRST bytes-level
+// assertion (the door has existed since the report's first days without
+// ever being clipboard-verified). The copied bytes must be exactly the
+// rendered document's own markdown (data-md — the paper's bytes, not a
+// retyped twin).
+const mdDoor = page.locator('button[aria-label="Copy session report"]');
+must((await mdDoor.count()) === 1, "C6 the md copy door exists, exactly one");
+await mdDoor.click();
+let clipMd = "";
+for (let i = 0; i < 12 && !clipMd; i++) {
+  await sleep(300);
+  clipMd = await page.evaluate(() => navigator.clipboard.readText().catch(() => ""));
+}
+must(clipMd === md, `C7 the md door's clipboard bytes === the rendered document's markdown, digit for digit (${clipMd.length} chars — data-md is the only father)`);
+let receiptMd = "";
+for (let i = 0; i < 10; i++) {
+  receiptMd = (await page.locator('[role="status"]').textContent().catch(() => "")) ?? "";
+  if (receiptMd.includes("Copied the session QC report")) break;
+  await sleep(300);
+}
+must(receiptMd.includes("Copied the session QC report"), `C8 the receipt names the report copy ("${receiptMd}")`);
+
 // the portrait: the doors row with the emerald CSV sibling + the five-column
 // inventory (the roster and its machine grid, one frame)
 mkdirSync("scripts/shots-t218", { recursive: true });

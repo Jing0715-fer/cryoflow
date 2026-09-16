@@ -557,3 +557,23 @@ Stage Summary:
 - 「纸上的钟不参与水合」：print-doc header/footer 的日期改 mount 后客户端填充——静态 HTML 不携带钟，水合永不与钟相遇；qa66 复核打印契约完好（打印发生在 mount 后，钟 honest to the print day）
 - 「跨午夜 build 显影 SSR 时钟雷」：潜伏 bug 的暴露条件 = build 日 ≠ 客户端日——此前 30+ 窗零暴露纯属运气（build 从未跨 UTC 午夜）；SSR/DOM 文本差分是这类雷的通用探测器
 - 遗留（下轮候选）：透镜纸面化（哲学门槛维持）；updatedAt 治理（大工程）；EMPIAR 真数据回归（让位）；hero 纸档叠印可读性（维持，依赖真实打印证据）；exportMd/exportCsv 的 mode 化统一（两个函数现在同构——合并成一个带 kind 参数的 export(kind, mode) 是纯粹的重构，成本/价值再评估）
+
+## Task 233 (2026-09-16, cron 08:17 窗口 trace …202609160817)
+
+- 【开局】四件套：尾部 = Task 232（492af85）零过时；净场 → watchdog 验活（25289）+ 200。QA：qa00 GREEN + qa63 GREEN + agent-browser 干净。
+- 【立项】Task 232 遗留评审：**「阶梯只有一个父亲」当选**——t232 手搓了两次同构阶梯（exportMd/exportCsv 的 try/catch 双胞胎），正是 Task 191 定律（两个消费者独立推导，第三个必分叉）禁止的形态；阶梯收编进 download.ts——copyOrFallback（try clipboard → copy 收据 / catch → downloadText + 降级收据，返回收据由 caller flash——**caller 拥有措辞、阶梯拥有机制**）。CSV 空态拒绝（still measuring）留在 exportCsv——那是 CSV 自己的真话，不是阶梯的。随行补真实覆盖缺口：**md copy 门自报告诞生起从未被剪贴板字节级断言**——C6/C7/C8 补上。
+- 【实现】
+  - src/lib/download.ts 加 copyOrFallback（紧挨它的 fallback downloadText——阶梯住在它父亲旁边）
+  - exportMd/exportCsv 改调 copyOrFallback；收据字符串逐字保留（C3/C5 的子串断言依赖）
+  - t218-e2e C 相 +3：C6 md 门恰一、**C7 clipboard bytes === data-md 逐位**（data-md 是纸的字节、唯一的父亲——md 门第一次被 wire 证明它复制的正是它渲染的）、C8 收据点名 report copy
+- 【e2e：t218 26→29 ×3 全绿】全家族回归绿：t223 120/0 + t215 44/0 + t213 35/0 + t214 29/0 + t219 29/0 + t212 30/0 + t210 151/0 + t221 14/0；roster 恒等 21。watchdog 判例第 6 度（build 后 WD_DEAD → 三连换 bundle 工序例行捕获）。
+- 【定妆照】t218-csv-door-2x 重摄：收据条从 CSV 版换成 md 版（C8 时序——Copy report 的收据入帧），891 强像素 @ 收据区裁片亲眼验证 = 阶梯统一后的时序性故意样貌，提交；t219/t223 ×2 identical 或 sliver 照例。
+- 【漂移考古】t210 ×3（2601/1136/55334 @ 画布区）WebGL 惯犯具名 checkout；t212/t213/t214/t215（42–160 @ density 0.000 超稀疏）渲染真相提交。
+- 【世界卫生】全家族绿 + roster 恒等 21、twin 已归家。
+- 【收尾】worklog（本条）+ commit + push + 环境清理。
+
+Stage Summary:
+- 「阶梯只有一个父亲」：copy-or-fallback 的 try/catch 舞步从此只有一个定义——download.ts 里 downloadText 与 copyOrFallback 并肩（降级机制与它的 fallback 同住）；第三个出口（无论 md/CSV/未来的任何格式）只有一个分叉点：收据的两句话
+- 「caller 拥有措辞、阶梯拥有机制」：收据字符串留在调用点（C3/C5/C8 的子串断言逐字依赖），字节与控制流进阶梯——机制与语义的边界落在函数签名上
+- 「md 门的首个字节断言」：存在最久的门直到今天才被 wire 证明——C7（clipboard === data-md 逐位）把「复制的就是渲染的」从善意推定升格为实证；覆盖缺口不分老幼，只分有没有被证明过
+- 遗留（下轮候选）：透镜纸面化（哲学门槛维持）；updatedAt 治理（大工程）；EMPIAR 真数据回归（让位）；hero 纸档叠印可读性（维持，依赖真实打印证据）；export 家族下一位成员（Copy JSON？——需求未现，维持「未现不造」纪律）

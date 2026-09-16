@@ -28,3 +28,29 @@ export function downloadText(
   // revoke on a later tick — an immediate revoke truncates the download
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+
+/**
+ * t233: the copy-or-fallback ladder — ONE father. Task 232 built this
+ * ladder twice by hand (the report's md door and its new CSV door were
+ * structurally identical try/catch twins); Task 191's own law says
+ * whatever two consumers derive independently, a third will fork. The
+ * ladder lives beside its fallback: try the clipboard, name the copy;
+ * on denial fall through to downloadText and name the degradation.
+ * Returns the receipt the caller should flash — the caller owns the
+ * wording, the ladder owns the MECHANISM.
+ */
+export async function copyOrFallback(
+  text: string,
+  filename: string,
+  mime: string,
+  copyReceipt: string,
+  fallbackReceipt: string
+): Promise<string> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return copyReceipt;
+  } catch {
+    downloadText(filename, text, mime);
+    return fallbackReceipt;
+  }
+}
