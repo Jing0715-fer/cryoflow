@@ -601,3 +601,23 @@ Stage Summary:
 - 「地图是屏幕器官」：P9 纸不打印地图——纸的页序天然即地图，屏幕的导航与纸的页码各管各的介质；no-print 名册再添一员
 - 「索引配对零注入」：不用 id、不用 rehype-slug——解析序与 DOM 序按 index 配对（同一口井的同一序列）；结构决定配对，不靠锚点
 - 遗留（下轮候选）：透镜纸面化（哲学门槛维持）；updatedAt 治理（大工程）；EMPIAR 真数据回归（让位）；hero 纸档叠印可读性（维持，依赖真实打印证据）；compass 的键盘化（chips 已 focus-visible 但无方向键导航——Tab 逐个到达已可用，方向键是否值得，成本/价值再评估）；compass 的滚动收缩形制（滚深后 chips 条收窄成单行进度尺——纯样式候选，低优先）
+
+## Task 235 (2026-09-16, cron 09:02 窗口 trace …202609160905)
+
+- 【开局】四件套：尾部 = Task 234（3eba6e8，本手上轮所写）**零过时**（续传摘要防御首次连续两窗无效——上轮即本手）；净场 → watchdog 拉起验活（31937）+ 200。QA：qa00 GREEN + qa63 SMOKE GREEN + agent-browser 干净。
+- 【立项】Task 234 遗留评审：四个维持让位（透镜纸面化/updatedAt/EMPIAR/叠印），compass 两个候选合并当选 **「needle 走到哪，地图跟到哪」+ 方向键**——t234 跳转帧暴露的真实缺口：9 chips 水平溢出后 spy 的判决可能落在地图自己视口外的 chip 上（**needle 失明：罗盘藏起自己的读数**）；上轮 jump 帧 strip 滑到尾纯属 playwright click 的自动滚，手动滚 doc 时 strip 不动。教义：**地图标注位置还不够——地图要自动翻到位置页**（nearest 贴边、不居中、不动画：地图翻自己的页，无声）；键盘行走让地图可导航而不只可点击（Tab 一站到达、方向键循环行走）。
+- 【实现】
+  - followToc：useEffect([activeToc, toc])，activeToc 每次移动把该 chip 拉回 strip 视口——viewport-rect 几何（cLeft - nLeft + scrollLeft 的内容坐标换算，t234 的「offsetParent 链不进数学」判例延续），pad 8、nearest 语义（左侧被裁贴左、右侧被裁贴右、完全可见不动）
+  - 方向键：nav onKeyDown，ArrowRight/Left 在 chips 间移 focus（含 wrap），preventDefault 接管容器默认滚动；focus 与 needle 分离（focus 不触发 spy，Enter 才跳）
+- 【e2e：t223-e2e 130→133】**W8 地图跟随**（尾部场景 strip 滑 340px、最后 chip 完全可见于地图自身视口）+ **W9a ArrowRight 下一个 / W9b ArrowLeft 回绕**。**133/0 ×3 全绿**。全家族回归绿：t210 151/0 + t215 44/0 + t213 35/0 + t214 29/0 + t219 29/0 + t212 30/0 + t218 29/0 + t221 14/0；roster 恒等 21。watchdog build 后 WD_DEAD 第 9 度（固定工序例行捕获，三连换 bundle）。
+- 【定妆照】t235-compass-follow-2x（**深中部手滚、零点击**：needle 骑到 Session map inventory、chip 吻 strip 右缘、Pipeline/Map QC 滑出左缘——读者全程没碰地图）；**一帧一话判例再执行**：首拍 follow 帧与 jump 帧构图重复（尾部终态同为贴最右），重瞄深中部——尾右贴边态归 jump 帧、中部跟随归 follow 帧；t234-jump/opening 本轮字节级 identical（点击终态与未触首屏不受扰——follow 只在 needle 移动时出手）。
+- 【漂移考古】**follow 的结构性入画**：t219 ×2 / t223 ×5 共享 doc 帧顶 22px strip 带（y 136–201、strong ~5000、各 suite 自己的滚动位置驱动 spy→follow 的 slideLeft）、t212/t214/t215 同带于整页帧——随 feature 提交；t213 338@0.376 微带渲染真相；t210 ×3 WebGL 惯犯 + identical 具名 checkout。
+- 【世界卫生】全家族绿 + roster 恒等 21、twin 已归家。
+- 【收尾】worklog（本条，单独 commit——代码 commit 先行一步的顺序瑕疵，下窗自警：worklog 先于 git add -A）+ push + 环境清理。
+
+Stage Summary:
+- 「地图跟随 needle」：罗盘的失明补全——needle 指到哪，strip 把那个 chip 带回自己的视口（nearest 贴边语义：只在需要时出手、出手恰好够）；W8 把「340px 的滑动 + 尾 chip 完全可见」钉成 wire 断言
+- 「地图可导航」：Tab 一站到达 + 方向键循环行走——focus 与 needle 分离（focus 是手、needle 是位置，Enter 才把两者合一）；键盘用户的地图从「可点击」升格为「可行走」
+- 「一帧一话的边界」：follow 首拍与 jump 构图重复即重瞄——同一 resting state 只归一帧所有；follow 帧改说深中部的话（chip 吻右缘 + 左缘滑出）
+- 「结构入画的系谱」：t234 罗盘入画（整页位移）→ t235 罗盘跟随（22px strip 带）——同一器官的两代墨迹，各 suite 自己的滚动位置是驱动者；漂移考古的「认领结构」再下一城
+- 遗留（下轮候选）：透镜纸面化（哲学门槛维持）；updatedAt 治理（大工程）；EMPIAR 真数据回归（让位）；hero 纸档叠印可读性（维持，依赖真实打印证据）；compass 的滚动收缩形制（滚深后收窄成进度尺——纯样式候选，低优先维持）；follow 的 RTL 世界（scrollLeft 语义在 dir=rtl 下翻转——app 是 LTR，未现不造）
