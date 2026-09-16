@@ -1259,6 +1259,42 @@ export default function SessionReportDialog({
     flashNote("Downloaded session-qc-report-….html — a portable document: opens in any browser");
   };
 
+  /* t247 — the doors answer to the KEYBOARD too. The shortcuts report
+   * documented ← → / Tab / ⌘P but never the export doors, while "how do
+   * I take this report with me" is asked exactly where those buttons
+   * sit. H and M are the two byte mouths (H = portable HTML, M = the
+   * Markdown); copy and CSV keep mouse-only paths — a keyboard layer
+   * must not ship an ambiguous key ("C" copies WHICH format?). The
+   * effect re-subscribes on every render on purpose: the closure is
+   * always fresh, so H/M always export the CURRENT md bytes, never a
+   * stale capture. Single keys only (no modifiers) and never while
+   * typing in a form field — the app's own law (Task 78's canvas hint). */
+  React.useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+      const t = e.target as HTMLElement | null;
+      if (
+        t &&
+        (t.tagName === "INPUT" ||
+          t.tagName === "TEXTAREA" ||
+          t.tagName === "SELECT" ||
+          t.isContentEditable)
+      )
+        return;
+      const k = e.key.toLowerCase();
+      if (k === "h") {
+        e.preventDefault();
+        exportHtml();
+      } else if (k === "m") {
+        e.preventDefault();
+        exportMd("download");
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -1294,21 +1330,34 @@ export default function SessionReportDialog({
             size="sm"
             className="h-7 gap-1.5 text-violet-600 hover:bg-violet-600/15 hover:text-violet-600"
             aria-label="Download session report"
+            title="The Markdown bytes — paste straight into lab notes or an issue · or press M"
             onClick={() => exportMd("download")}
           >
             <Download className="h-3.5 w-3.5" aria-hidden="true" />
             Download report
+            <kbd
+              className="no-print ml-0.5 rounded border bg-muted px-1 font-mono text-[9px] font-semibold text-muted-foreground"
+              aria-hidden="true"
+            >
+              M
+            </kbd>
           </Button>
           <Button
             variant="ghost"
             size="sm"
             className="h-7 gap-1.5 text-violet-600 hover:bg-violet-600/15 hover:text-violet-600"
             aria-label="Download portable HTML report"
-            title="A standalone HTML document — styled tables, a contents page, print-ready; no app, no script, no network needed to read it"
+            title="A standalone HTML document — styled tables, a contents page, print-ready; no app, no script, no network needed to read it · or press H"
             onClick={exportHtml}
           >
             <Globe className="h-3.5 w-3.5" aria-hidden="true" />
             Download HTML
+            <kbd
+              className="no-print ml-0.5 rounded border bg-muted px-1 font-mono text-[9px] font-semibold text-muted-foreground"
+              aria-hidden="true"
+            >
+              H
+            </kbd>
           </Button>
           <Button
             variant="ghost"

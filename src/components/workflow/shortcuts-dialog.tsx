@@ -137,6 +137,8 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     rows: [
       { keys: "← →", text: "Walk the section chips — Enter jumps to that section (the strip slides along)" },
       { keys: "Tab", text: "Walk the inventory rows — focus opens the magnifier glass, Enter opens that job's results" },
+      { keys: "M", text: "Download the Markdown — paste straight into lab notes or an issue" },
+      { keys: "H", text: "Download the portable HTML — a standalone document: styled tables, contents page, figures travel inside" },
       { keys: "⌘/Ctrl P", text: "Prints the report itself — the one dialog that becomes paper" },
     ],
   },

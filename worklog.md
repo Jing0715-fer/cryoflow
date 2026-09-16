@@ -874,3 +874,26 @@ Stage Summary:
 - 「hint 从井派生计数」：`2 honest exemptions` 的 2 来自 JSON 长度——数据变文档跟着变，措辞不许手写死
 - 「在线 chunk 终审的分片形态」：import 的 JSON 与消费它的组件可落不同 chunk——终审要按 chunk 分工验符号（组件 chunk 验 label/hint 模板、数据 chunk 验 reason 字节），单 chunk 单符号的旧判例不够用了
 - 遗留（下轮候选）：map-profile FSC 满档锚点化（等真实满档）；透镜纸面化（哲学门槛维持）；updatedAt 治理（大工程）；EMPIAR 真数据回归（让位）；hero 纸档叠印可读性（维持）；shortcuts report 组记载 Download HTML 门（维持低优先——与本窗新组相邻的下一个「索引完整性」候选）；Task 13 的 #5 fs/browse 鉴权 / #6/#14 pathref 包含策略 / #7 chart 全量同步读 / #8 particles N+1（性能与健壮性四件，皆低优先挂账）
+
+## Task 247 (2026-09-16, cron 15:47 窗口 trace cron-agent-loop-202609161547)
+
+- 【开局】四件套：尾部 = Task 246（93e201e，豁免文档住在疑问处）零过时；净场 → watchdog 拉起验活 200 + roster 21。QA：qa00 GREEN + qa63 SMOKE GREEN + t246 哨兵 PASS + agent-browser errors/console 双空。无 bug。
+- 【巡检与立项】Task 246 Stage Summary 点名候选当选：**shortcuts report 组记载 Download HTML 门**。勘察：session-report-dialog 的 footer 有五门（Copy report / Download report / Download HTML / Copy CSV / Download CSV）全鼠标-only；shortcuts report 组只记载了导航与 ⌘P——「the document has its own keyboard」的说法对自己的导出门不完整。教义推演：「怎么带走这个 report」的疑问诞生在 footer 按钮区，答案却只有鼠标。方案：**字节嘴上键盘**——H = Download HTML（便携文档旗舰）、M = Download report（Markdown）；**键盘层不许出歧义键**：copy 与 CSV 门保持鼠标-only（「C」复制哪个格式？歧义键等于说谎的门），诚实缺席优于含糊在场。
+- 【实现】
+  - session-report-dialog.tsx：无依赖数组 useEffect（open 时挂 window keydown）——**每渲染重挂是故意的：闭包永远新鲜，H/M 导出的永远是当前 md 字节，绝无 stale capture**；守卫三件套（无 modifier、isTypingTarget、e.preventDefault 只在命中时）；键嘴直接调用 exportHtml()/exportMd("download") 本尊——同一字节、同一 flashNote 回执，键盘嘴与鼠标嘴是同一扇门，无从漂移
+  - 按钮证词：Download report / Download HTML 按钮内加 no-print kbd 徽章（M/H）——「存在的键盘路径要在门的脸上说出来」；title 补「· or press M/H」；aria-label 不变（可及名干净，kbd aria-hidden）
+  - shortcuts-dialog.tsx report 组：新两行插在 ⌘P 之前——**轻到重排序律：字节嘴（M md < H html）在纸嘴（⌘P）之前**；hint「the document has its own keyboard」现在名副其实（37 shortcuts）
+- 【build 与在线 chunk 终审】OOM 箱 rebuild → Task 86 双杀 + PORT 3000 FREE → watchdog 复活 200 → 在线 chunk 终审：198d6a368bfe7ca6.js HTTP 200 + "or press H" ×1 + "or press M" ×1（按钮 title 字节在线——门脸上的证词进了产品字节）。
+- 【e2e：新 t247-e2e.mjs（编号核验：t247 空闲）】**21 断言 ×3 ALL PASS**：A 相 demo 真相（200 + roster 21）；B 相键盘嘴（header 门开 report → **H 触发真 download 事件**（suggestedFilename session-qc-report-*.html）+ 同一 emerald flashNote 回执 → **M 触发 .md 下载** + 同回执 → 按钮戴徽章（kbd H / kbd M）→ **C 静默守卫**（歧义 copy 动词无键盘嘴，按 C 零回执）→ Esc 剥层）；C 相文档（report 组 5 行、**轻到重序 ← → | Tab | M | H | ⌘/Ctrl P**、H 行与按钮 aria-label 互证（portable HTML 同名同门——文档与门钮两嘴一井）、纸行原位）；D 相 console 0 + 定妆照。
+- 【定妆照】**shots-qa84/t247-report-keys-2x**：report footer 门区全景——Copy report / Download report [M] / Download HTML [H] / Copy CSV / Download CSV / Print——**M/H 徽章只戴在有键盘嘴的门上**（无键盘嘴的门诚实裸脸——徽章的存在性本身就是契约）。
+- 【全家族回归】qa00 GREEN + qa63 SMOKE GREEN + qa47/49/50/51/55/57/58 exit 0 + qa84 ALL PASS + t210 151/0 + t212 30/0 + t213 35/0 + t214 29/0 + t215 44/0 + t218 29/0 + t219 29/0 + t221 14/0 + t223 155/0 + t241 14/0 + t242 GREEN + t243 ALL PASS + t244 ALL PASS + t245 ALL PASS + t246 ALL PASS + **t247 21/0 ×3**；roster 恒等 21。
+- 【世界卫生】全家族绿 + roster 恒等 21、无探针残留、无 tmp 残留。
+- 【收尾】worklog（本条）+ commit/push + 环境清理（Task 86 配方双杀 + port FREE 验证）。
+
+Stage Summary:
+- 「字节嘴上键盘」：H/M 单键直达导出门——键盘嘴调用鼠标嘴的本尊函数（同字节同回执），一个门两层入口、零漂移面；shortcuts report 组的「the document has its own keyboard」从半真变为全真
+- 「键盘层不许出歧义键」：copy 与 CSV 保持鼠标-only——「C 复制哪个格式？」的歧义比缺席更糟；诚实缺席优于含糊在场（豁免清单判例的键盘域姊妹案）
+- 「徽章的存在性是契约」：M/H kbd 徽章只戴在有键盘嘴的门上——有键的路要在门脸上说出来，没键的门不许装；徽章即文档，文档即按钮 title，title 即 aria-label 的旁证
+- 「闭包新鲜律」：无依赖数组 useEffect 每渲染重挂——键盘嘴导出的永远是当前 md 字节；键盘 handler 的 stale closure 是导出域特有的暗井（导出旧报告比不响应更危险）
+- 「轻到重排序」：shortcuts 组内字节嘴（md < html）在纸嘴前——带走一份文档的心智模型从最轻到最重：纯字节 → 便携文档 → 纸
+- 遗留（下轮候选）：run report（results-view）的 export 门同治（H/M 键盘嘴姊妹案——run report 无 shortcuts 组记载，需另立文档位置）；map-profile FSC 满档锚点化（等真实满档）；透镜纸面化（哲学门槛维持）；updatedAt 治理（大工程）；EMPIAR 真数据回归（让位）；hero 纸档叠印可读性（维持）；Task 13 的 #5 fs/browse 鉴权 / #6/#14 pathref 包含策略 / #7 chart 全量同步读 / #8 particles N+1（性能与健壮性四件，皆低优先挂账）
