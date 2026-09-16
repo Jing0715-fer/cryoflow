@@ -939,3 +939,22 @@ Stage Summary:
 - 「非模态域不收单键」：run report H/M 姊妹案的审查结论——模态 dialog 的边界是键盘域的天然许可证（Esc 可剥、注意力被捕获），非模态侧栏没有边界（canvas M 已占 + 视线惊吓）；诚实缺席优于惊吓在场（t247 歧义键律的域维度姊妹案）
 - 「探针即程序档案」：t249-probe.mjs 保留在 scripts/——证据庭的审理程序（交叠采样方法 + print tier 复核）可复审；判决可追溯的才算审过
 - 遗留（下轮候选）：#5 fs/browse 鉴权（单用户本地应用低优先）；#6/#14 pathref 包含策略（低优先）；map-profile FSC 满档锚点化（等真实满档）；透镜纸面化（哲学门槛维持）；updatedAt 治理（大工程）；EMPIAR 真数据回归（让位）；depth 标签的纸上观察（halo 已顺带保护 mark 穿字场景——若未来真实打印发现 depth 6px 字压 quarter 网格糊字，同款例外可延申）；run family 批跑基建（qa49 批量瞬态复现两次——串行化+失败 solo 复跑的家族跑批脚本）
+
+## Task 250 (2026-09-16, cron 17:02 窗口 trace cron-agent-loop-202609161706)
+
+- 【开局】四件套：尾部 = Task 249（a8447da，纸上证据庭）零过时（续传摘要第十一度过时——世系止于 247，实际 248/249 已交付，worklog 尾部 + git log 唯一真源律再应验）；净场核查 PORT 3000 FREE + 无 watchdog + 无 server → watchdog 拉起验活 200。QA：qa00 GREEN + qa63 SMOKE GREEN + t249 哨兵 PASS + agent-browser errors/console 双空。无 bug。
+- 【巡检与立项】Task 249 遗留首选当选：**run family 批跑基建**——qa49 批量瞬态两次复现，每窗家族回归 28 套件手工串行跑且失败时需人工区分瞬态与真回归；判例说「连续套件资源竞争致批量 FAIL、单跑 ALL PASS——回归须串行或单跑复验」——本窗把这条判例变成可执行的法律机器。家族花名册硬编码 28 套件（qa00-data-view、qa63-smoke、qa47/49/50/51/55/57/58、qa84、t210/212/213/214/215/218/219/221/223/241-run-echo/242/243/244/245/246/247/248/249）——显式名单不 glob（diag-*/probe 不是家族成员）。
+- 【实现：scripts/family-run.mjs】**串行律 + solo 复跑 + 三重环境守卫**：① spawnSync 逐套件串行（250s/套件天花板）；② FAIL → 4s 喘息 → solo 复跑一次：solo PASS = SOLO-RECOVERY（瞬态实锤）、solo FAIL = REAL-FAIL（需要人的判决）；③ 环境守卫三件套（OOM 适应律，第二次跑批血案后补）：**MEM GATE**（每套件前 MemAvailable < 500MB 等 15s×8 轮回落——在边缘上硬跑只会制造假 FAIL 并邀请 killer）、**SERVER GATE**（server 死等 watchdog 复活 3s×20 轮，server 不可用时 SKIPPED(SERVER) 不进 REAL-FAIL——对死 server 跑出来的不是判决是噪音）、**BREATH**（套件间 3s 让 chromium 退净堆回落）。verdict 四色：PASS 绿 / SOLO-RECOVERY 黄 / REAL-FAIL 红 / SKIPPED 黄；exit code = real-fail > 0 ? 1 : 0（SOLO-RECOVERY 诚实但不是 blocker）。`--filter substring`、`--list`、`--help`；自测钩子 FAMILY_DRILL=<suite>（指定套件首跑强制 FAIL 演习 solo 路径——drill 只 drill 首跑，solo 是真跑，终局 verdict 永远是真值）。
+- 【三次跑批实录（每次都教了一课）】**run-1（spawnSync 版，前台 600s 被杀）**：qa49 批量 FAIL 第三次被活捉（job node never appeared）→ solo 卡死 4 分钟 → **spawnSync pipe 陷阱实锤**：timeout SIGKILL 杀 node 子进程，但浏览器孙进程继承 stdio pipe 活着，pipe 不关 spawnSync 永远挂死——240s 天花板形同虚设。修：spawn 异步 + `detached: true`（子进程自成进程组）+ `process.kill(-pid, "SIGKILL")` 杀全树 + destroy stdio 流释放 pipe——天花板变成真的天花板。**run-2（spawn 版，后台）**：进程中途蒸发、日志只有 banner（缓冲未刷）——dmesg 实锤 **OOM 大屠杀**：next-server（2.7GB anon-rss）被 kernel 杀，watchdog 与 runner 一同阵亡；这也正是 qa49「批量 FAIL 单跑 PASS」的深层机制。修：环境守卫三件套。**run-3（守卫版，后台 nohup/setsid 朴素启动）**：**28/28 全 PASS · solo-recovery 0 · real-fail 0 · wall 801s**——qa49 本轮 27.2s 直接 PASS（守卫 + 呼吸消除了瞬态的生存条件），家族跑批首次全程无伤通过。
+- 【事故与判例】①**孤儿会话数据污染**：run-1 被 bash timeout 杀时孙进程孤儿化，孤儿 qa49 会话与后续跑批竞争 agent-browser daemon 串行锁；孤儿窗口期间 demo 世界被播入 `QA Class2D Twin`（t215 的 seed 世界）→ roster 21→22 → t249/t215 全线 FAIL——**数据态污染 solo 复跑也救不了**（与资源态瞬态的本质分野：资源态 solo 恢复，数据态要清场）。处置：seed-twin.py --clean（自带 DELETE 通道）删 Twin 恢复 roster 21，t249 + t215 复验回绿。杀跑批工具必须杀全树（Task 86 配方的 runner 版）。②**MultiEdit 非原子井**：多 edit 失败报「未应用」但部分 edit 实际落盘，二次提交造成守卫块重复声明（SyntaxError 级）——大改后必 `node --check` + rg 计数验证，不可信任「No replacement was performed」的表象。③**bash 后台链 && 井**：`A && B & disown` 的 & 作用域与 curl 失败断链让 setsid 静默未启——后台启动用朴素分步（`(setsid node ... &)` + pgrep 验活），不用 && 长链。
+- 【自举验证】**本窗全家族回归 = 跑批脚本自己跑自己要验的世界**：28 套件全绿即 t250 的终审（一石二鸟，家族回归从此一条命令）。哨兵复验：qa00/qa63/t249/t215 单跑皆绿。产品字节零改动（scripts/ only），无 chunk 终审需求。
+- 【全家族回归】run-3：**pass 28 · solo 0 · real-fail 0 · wall 801s**（含 qa00 1.1s → t249 7.4s 全序列，qa57 174.6s 最重）；roster 恒等 21；跑批零残留零污染。
+- 【收尾】worklog（本条）+ commit/push + 环境清理（agent-browser close + watchdog 杀 + Task 86 配方双杀 + port FREE 验证）。
+
+Stage Summary:
+- 「判例的 executability」：qa49 瞬态判例挂账两窗后升格为法律机器——「回归须串行或单跑复验」从口头律变成 family-run.mjs 的执行路径（serial + solo-retry + exit code 语义）；判例只有变成工具才算真正结案
+- 「pipe 陷阱」：spawnSync timeout 杀不掉继承 stdio 的浏览器孙进程，pipe 悬而不开 await 永挂——timeout 天花板要配进程组杀（detached + kill(-pid)）+ 流销毁才算真的天花板；「被杀」与「杀干净」是两件事
+- 「OOM 适应律」：4GB 箱上的跑批三重守卫——MEM GATE（低内存不硬跑）+ SERVER GATE（死 server 出不了判决，SKIPPED 与 REAL-FAIL 分家）+ BREATH（套件间喘息削峰）；OOM killer 无差别，跑批的自我修养是别把自己喂到它嘴边
+- 「瞬态的两态分野」：资源态瞬态（solo 复跑恢复，SOLO-RECOVERY）vs 数据态污染（solo 也失败，需 seed 工具 --clean 清场）——REAL-FAIL 的归因要先问「前一个套件的尸体还在吗」；roster 恒等断言是数据污染的烟雾报警器
+- 「跑批的自举」：全家族回归 = 新工具的验收测试——一条命令 13.4 分钟替掉每窗手工 28 次串行 + 人工分辨瞬态；下窗 QA 直接 `node scripts/family-run.mjs`
+- 遗留（下轮候选）：#5 fs/browse 鉴权（低优先）；#6/#14 pathref 包含策略（低优先）；map-profile FSC 满档锚点化（等真实满档）；透镜纸面化（哲学门槛维持）；updatedAt 治理（大工程）；EMPIAR 真数据回归（让位）；家族跑批的 --report JSON 输出（供 worklog 直接引用的机器可读 verdict）；watchdog 与 family-run 的共生（runner 检测到 watchdog 缺席时自拉或告警）
