@@ -897,3 +897,24 @@ Stage Summary:
 - 「闭包新鲜律」：无依赖数组 useEffect 每渲染重挂——键盘嘴导出的永远是当前 md 字节；键盘 handler 的 stale closure 是导出域特有的暗井（导出旧报告比不响应更危险）
 - 「轻到重排序」：shortcuts 组内字节嘴（md < html）在纸嘴前——带走一份文档的心智模型从最轻到最重：纯字节 → 便携文档 → 纸
 - 遗留（下轮候选）：run report（results-view）的 export 门同治（H/M 键盘嘴姊妹案——run report 无 shortcuts 组记载，需另立文档位置）；map-profile FSC 满档锚点化（等真实满档）；透镜纸面化（哲学门槛维持）；updatedAt 治理（大工程）；EMPIAR 真数据回归（让位）；hero 纸档叠印可读性（维持）；Task 13 的 #5 fs/browse 鉴权 / #6/#14 pathref 包含策略 / #7 chart 全量同步读 / #8 particles N+1（性能与健壮性四件，皆低优先挂账）
+
+## Task 248 (2026-09-16, cron 16:02 窗口 trace cron-agent-loop-202609161610)
+
+- 【开局】四件套：尾部 = Task 247（efb10ff，report 字节嘴上键盘）零过时；净场 → watchdog 拉起验活 200 + roster 21。QA：qa00 GREEN + qa63 SMOKE GREEN + t247 哨兵 PASS + agent-browser errors/console 双空。无 bug。
+- 【巡检与立项】Task 247 的「徽章存在性是契约」判例要求全应用键盘审计——**「存在的键盘路径必须在文档里」**（t245 门↔palette 律的键盘域镜像）。审计方法：rg 全应用 17 个含 keydown 的文件，逐 handler 抽键位对照 SHORTCUT_GROUPS；判读框架：①widget 级 Enter/Space/Esc（按钮/行/输入框的标准可及键）不是应用键盘层成员，不入文档；②主键盘域（global/canvas/dashboard/gallery/report）逐键核对全部诚实（⇧⌘Z 在 ⌘Z 分支内 shiftKey 判定、⌘F 在 find-bar、dashboard 1-6 带守卫、gallery NAV 键、report 五行 t247 刚归档）；③**真缺口两枚，皆在 add-job palette（JobPalette，canvas 域）**：`/` 聚焦 palette 搜索（window listener，catalog tab 活跃时活）与 Alt+←/→ 重排收藏 chips（代码注释自宣「the keyboard twin of the drag」）——**活键无行即漂移**。立项 = 散键归档。
+- 【实现】shortcuts-dialog.tsx canvas 组 15→17 行，注释记入审计方法与两键发现过程；**行座次跟着语义走**：`/` 行坐在 ⌘F find 旁（搜索族）、Alt+←→ 行坐在 ⌘D duplicate 旁（整理族）；行措辞对 palette 的真行为诚实（`/` 只聚焦过滤，Enter 不添加——「不说做不到的事」；Alt 行直接引用 palette 自己的「keyboard twin」方言）。
+- 【build 与固定工序】OOM 箱 rebuild → Task 86 双杀 + PORT 3000 FREE → watchdog 复活 200（t248 产品字节在 shortcuts chunk，无独立 marker 可验——t248-e2e D 相活体终审代行）。
+- 【e2e：新 t248-e2e.mjs（编号核验：t248 空闲）】**21 断言 ×3 ALL PASS**：A 相 demo 真相（200 + roster 21）；B 相 `/` 活体（按 / → activeElement = palette search → type "import" 过滤出 Import chip → **Esc 剥两层**（先清 query 再 blur——search 自己的 peel 律））；C 相 Alt+←/→ 活体（**context 级 localStorage 合成收藏世界**（cryoflow-fav-types 三键，context 蒸发箱自净，demo 箱零污染）→ 三 chips 渲染 → **focus 不 click**（click 是 chip 的 add 契约，键盘路径只要焦点）→ Alt+→ 翻序 → Alt+← 归位 → roster 仍 21（moveFav 只写 localStorage，零 addJob））；D 相文档（canvas 组 17 行、`/` 行座次 row[2] 与 Alt 行 row[10] 各归其位、两行措辞逐字、filter "palette" 三组同框（Global + Not-in-⌘K + Canvas current-view ring））；E 相 console 0 + 定妆照。
+- 【事故与判例】①**空串假绿井（本窗最大一课）**：chip 顺序探针读 `span.first().textContent()` 得空串（首个 span 是图标圆点）——更糟的是空串 === 空串让 swap 断言假绿（断言恒真 = 什么都没断言）；修：**按 chip 的 data-testid 锚定类型 key**（palette-fav-chip-{key} 是不变真值），三段断言（seed 序/翻序/归位）每段读具体 key 序列。教训：探针读到空串时，先用它断一次非空真值，再让它进比较逻辑——恒等比较里的空串是哑弹。②t248 无独立产品 marker（改的是 SHORTCUT_GROUPS 文档数据）——在线终审由 D 相活体断言代行（「文档的真值在渲染处验」）。
+- 【定妆照】**shots-qa84/t248-stray-keys-home-2x**：filter "palette" 三组同框——Global ⌘K 行 + NOT IN ⌘K — AND WHY（豁免文档）+ CANVAS（current-view ring + 新归档的 `/` 行）——palette 的键盘故事一屏讲完：入口（⌘K/`/`）、豁免（自指）、活键（聚焦搜索）。
+- 【全家族回归】qa00 GREEN + qa63 SMOKE GREEN + qa47/49/50/51/55/57/58 exit 0 + qa84 ALL PASS + t210 151/0 + t212 30/0 + t213 35/0 + t214 29/0 + t215 44/0 + t218 29/0 + t219 29/0 + t221 14/0 + t223 155/0 + t241 14/0 + t242 GREEN + t243 ALL PASS + t244 ALL PASS + t245 ALL PASS + t246 ALL PASS + t247 ALL PASS + **t248 21/0 ×3**；roster 恒等 21。
+- 【世界卫生】全家族绿 + roster 恒等 21、合成收藏世界随 context 蒸发、无探针残留、无 tmp 残留。
+- 【收尾】worklog（本条）+ commit/push + 环境清理（Task 86 配方双杀 + port FREE 验证）。
+
+Stage Summary:
+- 「键盘层完整性审计」：t245 门↔palette 律的键盘域镜像——rg 全应用 17 文件逐 handler 抽键对照 SHORTCUT_GROUPS，主域全诚实、widget 级键不入册、真缺口两枚（palette 域 `/` 与 Alt+←/→）——「存在的键盘路径必须在文档里」从判例升格为可执行的审计方法（本窗首跑，收获 2 缺口全数归档）
+- 「活键无行即漂移」：palette 自己的代码注释宣称 Alt+←/→ 是「keyboard twin of the drag」却无文档行——代码里的自我声明也要跟全局文档对账；行座次跟语义走（搜索族/整理族各归其位）
+- 「context 级合成世界」：favorites 世界的井在 localStorage（context.addInitScript 注入），context 关闭即蒸发——合成数据不碰 server、roster 恒等天然成立（对比 t244/t245 的网络边界拦截案：井在哪一层的判据是「数据住在哪」）
+- 「focus 不是 click」：键盘路径断言用 focus() 不用 click()——click 触发 chip 的 add 契约会污染 roster；测键盘层要走键盘层的门
+- 「空串假绿井」：探针读不到预期文本时（图标 span 先于 label），空串进恒等比较 = 断言哑弹；锚定不变真值（data-testid 的类型 key）而非 DOM 位置——假绿比 FAIL 更危险，它穿着绿衣说谎
+- 遗留（下轮候选）：run report（results-view）export 门的 H/M 姊妹案（**键盘域边界设计前置**：inspector 是非模态侧栏，H/M 与 session report 的 window listener 冲突 + canvas 视线惊吓问题，需先定义「键盘域的边界」再动手）；map-profile FSC 满档锚点化（等真实满档）；透镜纸面化（哲学门槛维持）；updatedAt 治理（大工程）；EMPIAR 真数据回归（让位）；hero 纸档叠印可读性（维持）；Task 13 的 #5 fs/browse 鉴权 / #6/#14 pathref 包含策略 / #7 chart 全量同步读 / #8 particles N+1（性能与健壮性四件，皆低优先挂账）

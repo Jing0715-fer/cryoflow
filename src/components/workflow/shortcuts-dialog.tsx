@@ -95,6 +95,14 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     rows: [
       { keys: "F", text: "Center the selected job in the viewport" },
       { keys: "⌘/Ctrl F", text: "Find jobs on canvas — matches ring amber, Enter cycles" },
+      // t248: two live keys the audit found undocumented — "/" focuses the
+      // add-job palette's search (window listener in palette.tsx, alive
+      // while the catalog tab is), Alt+arrows reorder favorite chips (the
+      // palette's own code comment calls it "the keyboard twin of the
+      // drag"). A live key with no row is a drift; both rows seat beside
+      // their semantic siblings (search beside find, reorder beside
+      // duplicate).
+      { keys: "/", text: "Focus the palette search — type to filter the job catalog" },
       { keys: "← → ↑ ↓", text: "Walk the graph — hop the anchor to the nearest card in that direction (⇧ extends)" },
       { keys: "0", text: "Reset pan & zoom (100 %)" },
       { keys: "1–9", text: "Jump to a bookmarked view — seats shown in the bookmarks panel" },
@@ -102,6 +110,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: "M", text: "Toggle the world-overview map (bottom-right)" },
       { keys: "⌘/Ctrl A", text: "Select every job in the workspace" },
       { keys: "⌘/Ctrl D", text: "Duplicate the selection (one job or a group)" },
+      { keys: "Alt ← →", text: "Reorder favorite chips — the keyboard twin of dragging them" },
       { keys: "⌘/Ctrl Z", text: "Undo the last canvas change — move, align, tidy or delete" },
       { keys: "⇧ ⌘/Ctrl Z · ⌘/Ctrl Y", text: "Redo an undone change" },
       { keys: "N", text: "Note spotlight — dim jobs without a note" },
