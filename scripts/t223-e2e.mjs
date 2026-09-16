@@ -41,7 +41,9 @@
  *      BELOW the map (scroll-margin pays the strip's rent); the needle
  *      follows the reader; the TAIL LAW (the last section can never
  *      reach the line — at the bottom the reader IS there); P9 the map
- *      never prints; Z2l the untied world carries its own map.
+ *      never prints; Z2l the untied world carries its own map; W10 the
+ *      app's own landing light (t240) — the asked section glows at the
+ *      click and dissolves (lit / leaves / one at a time / relight).
  *   X  the echo (t237) — the portable HTML export: one self-contained
  *      document (no script, no network), the contents page paired by
  *      INDEX with the body headings (the same well, the same law),
@@ -639,6 +641,63 @@ await page.evaluate(() => {
   body.scrollTop = 0;
 });
 await sleep(400);
+
+// t240: the app's own landing light — the asked section glows at the
+// click and dissolves. The needle is POSITION (the spy keeps it true);
+// the light is EVENT (which section the reader ASKED for, held through
+// the smooth flight while the spy swings through the intermediates).
+// Same family law as the echo's X13-X15, now in the app's own mouth.
+await chips.nth(4).click();
+await sleep(250);
+const litHead = await page.evaluate(() => {
+  const h = document.querySelector("[data-report-body] [data-landing]");
+  if (!h) return null;
+  return { tag: h.tagName, text: (h.textContent ?? "").slice(0, 40), bg: getComputedStyle(h).backgroundColor };
+});
+must(!!litHead && litHead.bg !== "rgba(0, 0, 0, 0)" && litHead.bg.includes("124, 58, 237"),
+  `W10a the asked section is lit at the click (${litHead ? `${litHead.tag} "${litHead.text}" ${litHead.bg}` : "no landing mark"})`);
+await sleep(3100);
+const leftHead = await page.evaluate(() => {
+  const h = document.querySelector("[data-report-body] [data-landing]");
+  const heads = [...document.querySelectorAll("[data-report-body] h2, [data-report-body] h3")];
+  const bg = heads.length ? getComputedStyle(heads[4]).backgroundColor : null;
+  return { markGone: !h, bg };
+});
+must(leftHead.markGone && leftHead.bg === "rgba(0, 0, 0, 0)",
+  `W10b the light leaves (mark ${leftHead.markGone ? "cleaned" : "STALE"}, bg ${leftHead.bg} — an announcement, not a state)`);
+await chips.nth(1).click();
+await sleep(250);
+const second = await page.evaluate(() => {
+  const lit = document.querySelector("[data-report-body] [data-landing]");
+  const heads = [...document.querySelectorAll("[data-report-body] h2, [data-report-body] h3")];
+  return {
+    litIdx: heads.indexOf(lit),
+    litBg: lit ? getComputedStyle(lit).backgroundColor : null,
+    oldBg: getComputedStyle(heads[4]).backgroundColor,
+  };
+});
+must(second.litIdx === 1 && second.litBg.includes("124, 58, 237") && second.oldBg === "rgba(0, 0, 0, 0)",
+  `W10c one light at a time (chip 1's head lit at ${second.litBg}, chip 4's head ${second.oldBg})`);
+await chips.nth(1).click();
+await sleep(250);
+const relit = await page.evaluate(() => {
+  const lit = document.querySelector("[data-report-body] [data-landing]");
+  return lit ? getComputedStyle(lit).backgroundColor : null;
+});
+must(!!relit && relit.includes("124, 58, 237"),
+  `W10d a re-jump to the SAME section relights (${relit} — the restart dance is paint-only)`);
+// the frame — the family's arrival language in the app's mouth: the
+// compass strip above, the destination heading wearing its wash below
+// (the needle and the light in one view — position and event)
+await chips.nth(4).click();
+await sleep(650);
+await page.mouse.move(8, 8);
+await page.locator("[data-report-doc]").first().screenshot({ path: "scripts/shots-t223/t240-compass-glow-2x.png", scale: "css" });
+await page.evaluate(() => {
+  const body = document.querySelector("[data-report-body]");
+  body.scrollTop = 0;
+});
+await sleep(3400);
 
 /* ============ P: the print tier — paper inherits the hierarchy ============ */
 section("P: the print tier — same ink, deeper plate");

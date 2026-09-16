@@ -843,11 +843,41 @@ export default function SessionReportDialog({
   // the compass's jump — scrollIntoView honors the headings'
   // scroll-margin-top (the sticky strip's height, paid in CSS), so the
   // target lands BELOW the map, never under it.
+  //
+  // t240: the app's own landing light — the arrival language the echo
+  // learned (t239) comes home. The needle is POSITION (persistent, the
+  // spy keeps it true); the light is EVENT (the asked section, lit at
+  // the click, dissolving after). The flight is smooth and the spy
+  // swings through the intermediate sections, so the light tells the
+  // reader WHICH section they asked for until the needle takes over at
+  // arrival. One light at a time; a re-jump to the same section
+  // relights it — the restart is paint-only, the type never moves.
+  const glowTimer = React.useRef<number | null>(null);
+  React.useEffect(
+    () => () => {
+      if (glowTimer.current) window.clearTimeout(glowTimer.current);
+    },
+    [],
+  );
   const jumpToToc = React.useCallback((i: number) => {
     const el = bodyRef.current;
     if (!el) return;
     const target = el.querySelectorAll<HTMLElement>("h2, h3")[i];
-    target?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (!target) return;
+    // one light at a time: any previous landing mark leaves first
+    el.querySelectorAll<HTMLElement>("[data-landing]").forEach((n) => delete n.dataset.landing);
+    target.dataset.landing = "1";
+    // the restart dance: a re-jump to the SAME heading must relight —
+    // none -> reflow -> empty forces the animation to run again
+    target.style.animation = "none";
+    void target.offsetWidth;
+    target.style.animation = "";
+    if (glowTimer.current) window.clearTimeout(glowTimer.current);
+    glowTimer.current = window.setTimeout(() => {
+      delete target.dataset.landing;
+      glowTimer.current = null;
+    }, 2700);
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
 
   // t235: the map follows the needle. A nine-chip map overflows its

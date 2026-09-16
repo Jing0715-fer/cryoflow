@@ -708,3 +708,25 @@ Stage Summary:
 - 「在线 chunk 终审」：bundle 新鲜度的最终审判不是 PID 也不是 BUILD_ID，是在线 chunk 里 grep 新符号——Task 86 判例的验证学升级
 - 「开局探针的第二口井」：.react-flow__node 是出题者的假设，[data-job-id] 才是工件真身——探针先问工件、别替工件报名字
 - 遗留（下轮候选）：:target 微光的姊妹页——应用对话框内 jumpToToc 是否也要一瞬着陆光（活罗盘有 spy 常驻 needle，再加光恐重叠——语义需自己的一窗想清楚）；回声 Contents 纸上形制（页码——依赖真实打印证据，维持让位）；透镜纸面化（哲学门槛维持）；updatedAt 治理（大工程）；EMPIAR 真数据回归（让位）；hero 纸档叠印可读性（维持）；shortcuts report 组记载 Download HTML 门（维持低优先）
+
+## Task 240 (2026-09-16, cron 11:32 窗口 trace …202609161132)
+
+- 【开局】四件套：尾部 = Task 239（a919fcf，本手上窗所写）零过时；净场 → watchdog 拉起验活 + 200 + roster 21。QA：qa00 GREEN + qa63 SMOKE GREEN（console 0 错）+ agent-browser errors 空 + 画布 20 jobs + dashboard 目检健康（KPI 卡在场、0 console 错）。无 bug。
+- 【立项】Task 239 遗留首选当选：**应用对话框自己的着陆光**——t239 把光的语义担忧留给本窗，本窗想清楚并给出分工答案：**needle 是位置（持久，spy 校真），光是事件（瞬态宣告，消散）**——两个器官零 claim 重叠，如同地图上的「你在这里」点与丢图钉时的脉冲动画。工程形态不同媒：echo 的光是纯 CSS（:target，无 JS 可用），应用的光是 data-landing 属性 + timer（jumpToToc 走 smooth scrollIntoView 无 hash）。**本窗独有的设计红利：平滑飞行途中 spy 挥针路过中间 chips（t235 的诚实跟随），光在点击瞬间点亮「你问的是这一节」、飞抵后消散交棒给 needle**——asked（事件）与 arrived（位置）分工干净，帧里同框各说各话。
+- 【实现】
+  - jumpToToc（dialog）：点击即 `dataset.landing="1"` + 重启动舞（`style.animation="none"` → reflow → `""`——同一节重跳也要复亮）+ 2.7s timer 清属性（比动画 2.6s 长一拍）；先清所有旧标记（一次一盏）；unmount 清 timer
+  - globals.css：`@keyframes report-landing`（rgba(124,58,237,.14)+inset 环 → 透明，与 echo-glow 同语言同呼吸）+ `.report-doc h2/h3[data-landing]` 规则 + reduced-motion/print 双守卫（纸不印抵达、减动感读者靠跳转本身）——插在 needle 规则之后（位置与事件在样式表里也相邻）
+  - React 重渲染安全性：heading vnode 从不携带 className/style，命令式 dataset/style 在 diff 中不被触碰
+- 【e2e：t223-e2e 151→155】W 相 +4：W10a 点击即亮（H3 "Local agreement" rgba(124,58,237,0.118)）、W10b 光会离开（3.1s 后标记清空 + bg 透明）、W10c 一次一盏（chip 1 亮时 chip 4 恒透明）、W10d 同节重跳复亮（重启动舞 paint-only）。**155/0 ×3 全绿**。全家族回归绿：t210 151/0 + t215 44/0 + t213 35/0 + t214 29/0 + t219 29/0 + t212 30/0 + t218 29/0 + t221 14/0；roster 恒等 21。
+- 【定妆照】**t240-compass-glow-2x——分工同框**：strip 上 "Local agreement" 药丸戴 needle 紫（位置）、正文同名标题戴着陆光（事件中段）——一帧双义「位置与事件」；这正是本窗语义拆分的视觉证明。
+- 【事故与判例】①**「在线 chunk 终审」的扫描面井**：换 bundle 后扫 JS chunks 得 report-landing=0——CSS 编译进 /chunks/*.css 而非 JS（disk 84cd699e=1 = served=1）；判例补全：**bundle 新鲜度终审要扫对介质——样式改动查 CSS chunk，逻辑改动查 JS chunk**。②watchdog 秒死再两度（惯犯照旧）。③t239-echo-glow 帧字节差 17 → 零阈值像素考古 19878 px @ max delta 6/765 = **亚感知抗锯齿微噪声**（我错怪时态 jitter——先用零阈值量过再定罪，「误报的死法」判例反向应验：怀疑之前先量化）。
+- 【漂移考古】t212/213/214/215 相对时间词 + t223 三帧亚感知微噪声（max delta ≤6）随批提交；t210 ×3 WebGL 惯犯具名 checkout。
+- 【世界卫生】全家族绿 + roster 恒等 21、tmp echo 已清、twin 已归家。
+- 【收尾】worklog（本条）+ commit/push + 环境清理（Task 86 配方双杀 + port FREE 验证）。
+
+Stage Summary:
+- 「位置与事件分家」：needle（持久位置，spy 校真）与 landing light（瞬态事件，消散）是两个器官不是两个重复——应用对话框的抵达语言补全，与 echo 的 :target 光构成同一家族的两副媒介嗓子（纯 CSS vs state+timer）
+- 「光在飞行中持名」：smooth scroll 的飞行期 spy 挥针过境，光钉住「你问的是这一节」直到抵达交棒——asked/arrived 的分工让两个瞬态指示同时诚实
+- 「重启动舞」：同一节重跳必须复亮（none→reflow→empty，paint-only）；W10d 把它钉成 wire 断言
+- 「扫描面井」：bundle 终审要扫对介质——CSS 改动查 CSS chunk；t239 的 echo 光帧被怀疑时态 jitter，零阈值考古还它清白（max delta 6 亚感知微噪声）
+- 遗留（下轮候选）：echo Contents 纸上形制（页码——依赖真实打印证据，维持让位）；透镜纸面化（哲学门槛维持）；updatedAt 治理（大工程）；EMPIAR 真数据回归（让位）；hero 纸档叠印可读性（维持）；shortcuts report 组记载 Download HTML 门（维持低优先）；报告家族连做七窗——下窗宜回产品其他面巡检真缺口（dashboard/inspector/viewer/gallery），家族候选让位

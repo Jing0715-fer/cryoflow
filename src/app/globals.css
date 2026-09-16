@@ -1455,6 +1455,30 @@ li[data-swipe="end"] {
   background: rgb(124 58 237 / 0.08);
   box-shadow: inset 0 -2px 0 rgb(124 58 237 / 0.55);
 }
+/* t240: the app's own landing light — the arrival language the echo
+   learned (t239) comes home. The division of labor is the design: the
+   NEEDLE is position (persistent, the spy keeps it true); the LIGHT is
+   event (the asked section, lit at the click, dissolving after). The
+   flight is smooth and the spy swings through the intermediate
+   sections, so the light holds the asked name until the needle takes
+   over at arrival. Paint-only properties: the light never moves the
+   type. Paper prints no arrival; reduced motion reads without it. */
+@keyframes report-landing {
+  0% { background-color: rgb(124 58 237 / 0.14); border-radius: 8px; box-shadow: inset 0 0 0 1px rgb(124 58 237 / 0.24); }
+  100% { background-color: rgb(124 58 237 / 0); border-radius: 8px; box-shadow: inset 0 0 0 1px rgb(124 58 237 / 0); }
+}
+.report-doc h2[data-landing],
+.report-doc h3[data-landing] {
+  animation: report-landing 2.6s ease-out forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .report-doc h2[data-landing],
+  .report-doc h3[data-landing] { animation: none; }
+}
+@media print {
+  .report-doc h2[data-landing],
+  .report-doc h3[data-landing] { animation: none; }
+}
 .report-doc p { margin: 0.4rem 0; }
 .report-doc ul { margin: 0.4rem 0; padding-left: 1.1rem; list-style: disc; }
 .report-doc li { margin: 0.15rem 0; }
