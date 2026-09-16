@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { toJobDTO } from "@/lib/seed";
 import { startJob } from "@/lib/relion/dispatch";
+import { isLocalRequest } from "@/lib/http-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -13,8 +14,17 @@ type RouteContext = { params: Promise<{ id: string }> };
  * surfaced through the job result + an {error} field with HTTP 200.
  * A live process for this job → HTTP 409, nothing is spawned.
  */
-export async function POST(_request: NextRequest, context: RouteContext) {
+export async function POST(request: NextRequest, context: RouteContext) {
   try {
+    // Write door (t252, the CSRF twin of the t251 read ring): this action
+    // needs NO parseable body — a cross-site HTML form can POST it blind.
+    // Same drive-by door + Host pin pair as the read routes (http-guard).
+    if (!isLocalRequest(request)) {
+      return NextResponse.json(
+        { error: "Cross-site job actions are not allowed" },
+        { status: 403 }
+      );
+    }
     const { id } = await context.params;
     const existing = await db.job.findUnique({ where: { id } });
     if (!existing) {

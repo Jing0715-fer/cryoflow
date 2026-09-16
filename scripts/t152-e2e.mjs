@@ -59,7 +59,9 @@ let liveProc = null;
 const api = async (path, method = "GET", body) =>
   fetch(BASE + path, {
     method,
-    headers: body ? { "Content-Type": "application/json" } : undefined,
+    // t252: action routes (run/stop/duplicate) carry the same-origin write
+    // door — the probe authenticates so it reaches the layer it tests.
+    headers: { "sec-fetch-site": "same-origin", ...(body ? { "Content-Type": "application/json" } : {}) },
     body: body ? JSON.stringify(body) : undefined,
   });
 

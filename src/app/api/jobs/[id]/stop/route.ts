@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { toJobDTO } from "@/lib/seed";
 import { stopRun, isRunAlive } from "@/lib/relion/engine";
+import { isLocalRequest } from "@/lib/http-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -15,8 +16,16 @@ type RouteContext = { params: Promise<{ id: string }> };
  * Stopped refine-family runs keep their checkpoints: the next POST /run
  * auto-resumes via RELION --continue.
  */
-export async function POST(_request: NextRequest, context: RouteContext) {
+export async function POST(request: NextRequest, context: RouteContext) {
   try {
+    // Write door (t252): bodyless action — form-firable blind cross-site.
+    // Same drive-by door + Host pin pair as the read routes (http-guard).
+    if (!isLocalRequest(request)) {
+      return NextResponse.json(
+        { error: "Cross-site job actions are not allowed" },
+        { status: 403 }
+      );
+    }
     const { id } = await context.params;
     const existing = await db.job.findUnique({ where: { id } });
     if (!existing) {

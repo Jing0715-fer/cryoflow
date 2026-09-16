@@ -1,9 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { toProjectDTO } from "@/lib/seed";
 import { registerProject } from "@/lib/projects";
 import { defaultParams, jobType } from "@/lib/workflow";
 import { startJob } from "@/lib/relion/dispatch";
+import { isLocalRequest } from "@/lib/http-guard";
 import type { Job } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -14,8 +15,18 @@ export const dynamic = "force-dynamic";
  * initialmodel → refine3d → maskcreate/postprocess) with engine 'relion'.
  * import + manualpick are engine-native and auto-run at seed time.
  */
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
+    // Write door (t252): the ONLY id-less action in the app — a cross-site
+    // form POST could seed an entire EMPIAR project (10 jobs, engine
+    // dispatches) with NOTHING to guess. Same drive-by door + Host pin
+    // pair as the read routes (http-guard).
+    if (!isLocalRequest(request)) {
+      return NextResponse.json(
+        { error: "Cross-site project actions are not allowed" },
+        { status: 403 }
+      );
+    }
     const project = await db.project.create({
       data: { name: "EMPIAR-10017 β-Galactosidase (REAL)" },
     });

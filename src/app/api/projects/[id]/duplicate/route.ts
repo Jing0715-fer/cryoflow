@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { toProjectDTO } from "@/lib/seed";
 import { getProjectMeta, registerProject } from "@/lib/projects";
 import { readFileEdges, upsertFileEdge } from "@/lib/edge-ports";
+import { isLocalRequest } from "@/lib/http-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -50,8 +51,17 @@ function buildCopyName(source: string, taken: Set<string>): string {
   return name;
 }
 
-export async function POST(_request: NextRequest, context: RouteContext) {
+export async function POST(request: NextRequest, context: RouteContext) {
   try {
+    // Write door (t252): bodyless action — a cross-site form POST could
+    // clone an entire project (disk + DB work) blind. Same drive-by door
+    // + Host pin pair as the read routes (http-guard).
+    if (!isLocalRequest(request)) {
+      return NextResponse.json(
+        { error: "Cross-site project actions are not allowed" },
+        { status: 403 }
+      );
+    }
     const { id } = await context.params;
 
     const source = await db.project.findUnique({ where: { id } });

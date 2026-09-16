@@ -977,3 +977,21 @@ Stage Summary:
 - 「幂等 sweep 的自愈」：首跑 ROUTES 漏了 star 本尊（要做的那件事漏在做的工具里），幂等设计让补跑只改缺的那件——机械化变换必须幂等，人肉清单必须被幂等原谅
 - 「console 噪声分账」：D 相故意探针的 404 资源日志与真实 console 错误分账（pageerror 0 + 非 resource 日志 0 + 噪声有界），主页世界在 A 相先净——断言要区分「故意的噪声」与「意外的噪声」，否则要么假绿要么冤枉
 - 遗留（下轮候选）：写路由的 CSRF 面（POST/JSON 体 + no-cors 表单的残余风险——本轮威胁面外，Next.js JSON 解析默认挡表单，值得一次专项审查）；/system、/hpc/profiles、/projects 等应用元数据路由的门（低敏感，挂账）；map-profile FSC 满档锚点化（等真实满档）；透镜纸面化（哲学门槛维持）；updatedAt 治理（大工程）；EMPIAR 真数据回归（让位）；家族跑批 --report JSON（机器可读 verdict）；watchdog 与 family-run 共生
+
+## Task 252 (2026-09-16, cron 18:47 窗口 trace cron-agent-loop-202609161847)
+
+- 【开局】四件套：尾部 = Task 251（d89cc7b，硬化收口）零过时；净场核查 → watchdog 拉起验活 200。QA：qa00 GREEN + qa63 SMOKE GREEN + **t251 哨兵 PASS** + agent-browser errors/console 双空。无 bug。
+- 【巡检与立项】Task 251 遗留首选当选：**写路由 CSRF 面**——读环已闭，写面是硬化弧的另一半。普查 30 个写处理器（POST×20/PUT×2/PATCH×4/DELETE×4）后按威胁模型三分成：①**无体 action POST**（run/stop/duplicate/empiar-seed）——无需可解析 JSON 体，跨站 HTML 表单可盲发（表单只讲 GET/POST、no-cors fetch 只讲 GET/POST/HEAD；表单发不了 JSON，JSON 体路由 urlencoded 必 400 自防御）——empiar-seed 最险：全应用唯一无 id action，整个 EMPIAR 项目（10 jobs + engine 派发）零猜测可播种——**四条上 isLocalRequest 写门**；②JSON 体 POST——表单体解析必败 400，空容忍解析器（.catch(()=>({})))后接显式校验（restore 拒「1–500 entries」、layout 拒「No valid updates」、switch 空 id → setActiveProject 返 false）——盲 POST 零状态变更，不上门只断言自防御活体；③PUT/PATCH/DELETE——**方法级免疫**（表单 no-cors 均不可达；CORS 模式需预检而全应用零 OPTIONS handler——spec 挡死），诚实缺席有理有据。
+- 【实现】四路由手植写门（run/stop/duplicate/empiar-seed，各带 per-route 注释：「this action needs NO parseable body — a cross-site HTML form can POST it blind」）；empiar-seed 顺手补 NextRequest import（原 POST() 无参）。**直连修复一件**：t152 api helper（唯一 node 级 POST /run 的脚本，非家族但卫生）补 sec-fetch-site。
+- 【e2e：新 t252-write-gates.mjs】**17 断言 ×3 ALL PASS**：A 相 demo 真相（200 + roster 21 + 主页 console-clean 前置）；B 相**写门四态**（run/stop/duplicate 假 id：裸 403 / cross Origin 403 / rebound Host 403（curl 伪造）/ same-origin → 404 路由应答；empiar-seed 三态 403——**开门态不点燃**（真播种世界），姊妹门证明代行）；C 相**自防御台账**（urlencoded 入 JSON 路由 400；restore/layout 空载荷 → 400 契约消息逐字——「比 no-op 更强：显式拒绝」）；D 相正当用户（应用自己页面同源 POST 假 id 全 404 路由应答零 403）；E 相 console（真实错误 0 + 探针噪声有界）。roster 全程恒等 21。
+- 【事故与判例】①**「无体容忍 = no-op」的假设井**：C 相首断言 restore/layout 空体 200 no-op——实际两路由显式 400 拒空载荷（契约消息自辩）——断言错在测试不在路由，改断言为实证契约（「读契约再写断言，不写想象的契约」）。②empiar-seed 的开门态不能点：真播种 + 自动跑会污染世界——「姊妹门证明」判例（同一 isLocalRequest 对在三个姊妹上已证开，不为一枚门点燃世界）。
+- 【全家族回归】family-run.mjs 一条命令：**FAMILY VERDICT pass 30 · solo-recovery 0 · real-fail 0 · wall 801.9s**（t251 5.8s + t252 4.8s 双新门环内联 PASS）；**t252 收编花名册 29→30**（runner --filter 亲跑 PASS 8.1s 验收）。
+- 【收尾】worklog（本条）+ commit/push + 环境清理（Task 86 配方双杀 + port FREE 验证）。
+
+Stage Summary:
+- 「写面的三分法」：CSRF 审查不是「全上门」——无体 action（表单可达）上门、JSON 体路由（内容型自防御）记台账、PUT/PATCH/DELETE（方法级免疫）诚实缺席——威胁模型定界比扫荡重要，30 个处理器里只有 4 个真正裸奔
+- 「empiar-seed：唯一无 id 的 action」：id-gated 路由有 cuid 不可猜的纵深，无 id action 连纵深都没有——它是写门的第一个顾客；「不可猜 id」从不是硬化理由，只是缓刑
+- 「显式拒绝优于静默 no-op」：restore/layout 对空载荷回 400 + 契约消息（「Body must be { jobs: [...] } with 1–500 entries」）——自防御的最佳形态不是容忍而是把无效输入挡回给调用者；测试要断言的是契约的真实形态
+- 「姊妹门证明」：开门态的验证可以不点燃真实副作用——同一 isLocalRequest 对在姊妹路由上已证开门，第四枚门共享同一实现；测试的代价预算要花在刀刃上（403 三态才是每门必验的）
+- 「方法级免疫」：PUT/PATCH/DELETE 的 CSRF 免疫是 spec 给的（表单/no-cors 不可达 + 预检零 handler）——诚实缺席和含糊缺席的区别在于缺席理由是否被写下来（http-guard 判例链的第三次应用）
+- 遗留（下轮候选）：/system、/hpc/profiles、/projects 等应用元数据读路由的门（低敏感挂账——读环已含高敏感面）；3D viewer 体积截面工具（recital 点名的新功能方向，硬化弧已闭环可转产品）；Topaz wrapper（同上）；map-profile FSC 满档锚点化（等真实满档）；updatedAt 治理（大工程）；家族跑批 --report JSON；watchdog 与 family-run 共生
