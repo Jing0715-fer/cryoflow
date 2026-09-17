@@ -467,10 +467,19 @@ function buildWrapperScript(args: {
 const STAGING_BEAT_STALE_MS = 120_000;
 
 /**
+ * Staging beat interval. 10s suits a real cluster (staging minutes, stale
+ * window 2min); a fast LOCAL rig stages in under one interval, so the beat
+ * would never land (t268's first run) — deployments and test rigs tune it
+ * with CF_STAGING_BEAT_MS without touching the ledger's stale math (any
+ * interval well under STAGING_BEAT_STALE_MS is safe).
+ */
+const STAGING_BEAT_MS = Math.max(500, Number(process.env.CF_STAGING_BEAT_MS) || 10_000);
+
+/**
  * Staging heartbeat — the background staging task has no supervisor (it is
- * void-spawned), so it touches the ledger every 10s while alive. The poll
- * sweep reads the beat to distinguish "still uploading" from "the task
- * vanished without a trace" (a hung SSH exec used to strand the row in
+ * void-spawned), so it touches the ledger every STAGING_BEAT_MS while alive.
+ * The poll sweep reads the beat to distinguish "still uploading" from "the
+ * task vanished without a trace" (a hung SSH exec used to strand the row in
  * pending until the 30min fallback). Returns a stop() that is idempotent.
  */
 function startStagingBeat(jobId: string): () => void {
@@ -480,7 +489,7 @@ function startStagingBeat(jobId: string): () => void {
         ? { ...rec, remote: { ...rec.remote, stagingBeat: Date.now() } }
         : null
     );
-  }, 10_000);
+  }, STAGING_BEAT_MS);
   beat.unref?.();
   let stopped = false;
   return () => {
@@ -607,6 +616,11 @@ export async function startRemoteJob(args: {
       patchConnection(conn.id, { lastProbe: probe });
       if (probe.ok) {
         conn = getConnection(conn.id) ?? conn; // re-read with the fresh truth
+        // t268: the ceremony's cost is part of the dispatch's latency —
+        // say it out loud (probe.durationMs rides the persisted record too).
+        console.log(
+          `remote-run: auto-probed ${conn.host}:${conn.port} in ${probe.durationMs ?? "?"}ms — the dispatch ran the ceremony itself (t267/t268)`
+        );
       } else {
         const why = probe.error?.split("\n")[0]?.trim() || "probe failed";
         return fail(

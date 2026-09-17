@@ -76,8 +76,19 @@ export function parseRelionModules(text: string): string[] {
  * Probe a connection: reachability, module system, relion modules and their
  * install roots, MPI/ctffind availability, Slurm, GPUs. Never throws — a
  * failed probe returns { ok: false, error } so the UI can render the reason.
+ *
+ * t268: the public entry wraps the inner probe with a wall-clock timer —
+ * `durationMs` rides every probe result (ok or failed), because the probe is
+ * load-bearing (t267: the dispatch runs it itself) and a slow cluster's
+ * dispatch latency should be VISIBLE (dialog, ledger) instead of just felt.
  */
 export async function probeConnection(c: RemoteConnection): Promise<RemoteProbe> {
+  const t0 = Date.now();
+  const probe = await probeConnectionInner(c);
+  return { ...probe, durationMs: Date.now() - t0 };
+}
+
+async function probeConnectionInner(c: RemoteConnection): Promise<RemoteProbe> {
   const base: RemoteProbe = {
     ok: false,
     checkedAt: new Date().toISOString(),

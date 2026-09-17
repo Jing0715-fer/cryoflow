@@ -87,6 +87,7 @@ const FAMILY = [
   "t265-remote-topaz-train.mjs", // the train→pick loop closed on the cluster: staged coordinate_files index, byte-identical model sync-back, twin pass-through (Task 265)
   "t266-topaz-training-curve.mjs", // the training curve's first living witness: gated route, wild-shape stub, dual-mount on Results, best-test dot (Task 266)
   "t267-probeless-dispatch.mjs", // a never-probed connection is probed BY the dispatch: auto-probe persists, honest refusal names the door (Task 267)
+  "t268-probe-cost-heartbeat.mjs", // the probe's cost becomes visible (durationMs on dot/card/log) + the staging heartbeat caught beating under a tunable interval (Task 268)
 ];
 
 // ---- CLI -------------------------------------------------------------------

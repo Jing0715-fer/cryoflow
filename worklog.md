@@ -1326,3 +1326,25 @@ Stage Summary:
 - 「src 首次 tsc 全清零」：flatMap 消灭类型谓词（11 处）、条件插值收窄三元蕴含（1 处）——「存量噪音不是噪音，是下一次真伤的藏身处」；台账漏记的 session-report-dialog 11 处由基线 stash 对照法揪出
 - 「摘要的世系认知永远落后」：续传摘要称「带裁剪状态打开」待做，实际 t260 已交付——worklog + git log 唯一真源律第 N 次应验，这次连「遗留清单」都要在树上核实
 - 遗留（下轮候选）：staging 心跳的活体推进断言（需 >10s 真实 staging）；自动 probe 的耗时预算上账（SSH 慢集群的派发延迟可见化）；updatedAt 治理；家族跑批 --report JSON；EMPIAR 真数据回归（让位）
+
+## Task 268 (2026-09-17, cron 14:03 窗口 trace 1a07549302235a99-cron-agent-loop-202609171403)
+
+- 【开局四件套】尾部 = Task 267（762c2d4，probeless 派发诚实化）零过时（连续三窗）。cron 模板「Task 13」过时案照例不认。净场 PORT FREE → watchdog 拉起 200 + roster 21·16。QA：qa00 GREEN + qa63 SMOKE GREEN + 哨兵 t267/t265/t258 ALL PASS + agent-browser 双空。无 bug。
+- 【巡检与立项】Task 267 遗留两条合流为一个主题：**remote 世界的可观测性**——①自动 probe 让 probe 成了每次派发延迟的一部分，但它的耗时不可见（慢集群的卡是「感觉」不是「看见」）；②staging 心跳（t263 加固）只有锻造台账（死心跳翻行），从未有「真 staging 期间心跳活着」的活体证人。立项 = probe.durationMs 上账三面 + t268 心跳活体套件。
+- 【实现① probe 耗时上账（wrapper 律）】probe.ts 把原函数重命名 probeConnectionInner，公开入口包一层 wall-clock 计时（`durationMs: Date.now() - t0`）——对外 API 签名不变，test 路由/自动 probe 两类调用点零改动，ok 与 failed 双路都带耗时。types.ts 加可选字段（pre-t268 的 lastProbe 记录天然缺省）。
+- 【实现② 三面可见化】①dialog 健康点 label：「reachable — last probe ok in 1.2s」（慢集群一眼可见）；②ProbeCard：耗时徽标（`data-probe-duration`，ms/s 自适应 + title 解释它与派发延迟的关系）骑在 checkedAt 旁边；③remote-run 自动 probe 的诚实日志带耗时（"auto-probed … in 175ms — the dispatch ran the ceremony itself"）。
+- 【实现③ 心跳间隔部署可调】startStagingBeat 的 10s 硬编码改 `CF_STAGING_BEAT_MS` 环境变量（默认 10_000，下限 500ms）——真集群 staging 以分钟计 10s 合理，快本地 rig 一个间隔内跑完 beat 永远落不了地；部署与测试 rig 各取所需，陈旧窗 120s 的台账数学不动（任意 << 120s 的间隔皆安全）。
+- 【实现④ stub 睡眠封顶】relion_run_motioncorr 的逐微图 `sleep(1.0)` 改 `min(1.0, 60/N)`——逐微图进度流的契约不变（小作业 ≤60 微图节奏原样），但大作业的运行总时长封顶 60s，500 微图不再把测试拖成超时（二跑 700 微图 = 700s 运行的真凶）。
+- 【e2e：t268-probe-cost-heartbeat.mjs，15 断言 ×2 ALL PASS】A 相 demo 真相；B 相台账 5 断言（类型字段 + wrapper 三件 + 健康点 label + data-probe-duration + 自动 probe 日志行）；C 相活体——**套件自管 server**（serverBoot：watchdog 先杀 → 双杀 → fuser → 以 CF_STAGING_BEAT_MS=3000 拉起，finally 还原默认 10s——「快 beat 是本套件的镜头，不是对世界的修改」）→ 500 微图真 import → 无探针连接 → 裸派发 motioncorr → **心跳首拍落地 → 轮询捕获推进（06:27:48 → 06:27:51，beat 只在 phase==='staging' 落值，推进即活体自证）** → 500 微图集群完成 → lastProbe.durationMs=299ms 落库 → dialog 双面（probe card 徽标 + 健康点 tooltip）→ D 相 console 0。
+- 【三跑判例（每跑一课）】①**首跑 3 FAIL：140 文件 staging <10s 跑完，beat 一次未落**——「活体断言的假设要先验证世界真的按假设运转」（t263 遗留原文「小上传竞速不过它」的本义，亲手撞上才算懂）；②**二跑 3 FAIL：beat1 落了但 beat2 stuck + 完成超时**——staging 跨了 1 个间隔但没跨 2 个（T_s∈[10,20)s），且 700 微图 × sleep(1.0) = 700s 运行是完成超时的真凶——「两个耦合的时长（staging 文件数 × stub 运行数）要分别治理」；③**证人要 poll 不要 sleep**：固定 sleep 11.5s 是在赌 staging 的时长，轮询 beat 推进（beat>beat1 且 phase 仍 staging）把赌注换成观测。
+- 【事故与灾后清理】家族回归连跑撞工具 600s 上限，被腰斩的 t25 批留下孤儿：t258 创建的 mapimport 作业「Sub-volume orthovol」没有走到 finally——roster 22 ≠ 21，后续 t22 批的恒等断言卡死 + solo-recovery 重跑再卡（两个 300s 工具超时的真凶）。清理 = 定位孤儿（qa60 的 QA Refine Live 是 roster 设计态成员，真正的入侵者是多出的 mapimport）→ DELETE + workdir 清扫 → roster 21 复原 → 逐批重跑。「腰斩的批次要按形状清场——上跑的孤儿不该让下跑的恒等说谎」（t261 判例的家族版）；工具超时上限要把批边界当单位，不把三批连跑当一次调用。
+- 【全家族回归】六批前台（逐批跑，批边界单独调用）：qa 批 pass 10 · 398.0s ｜ t21 批 pass 7 · 193.2s ｜ t22 批 pass 2 · 65.7s ｜ t24 批 pass 9 · 123.1s ｜ t25 批 pass 9 · 443.7s ｜ t26 批 pass 9 · 506.2s（t259–t268）——**合计 pass 46 · solo-recovery 0 · real-fail 0 · wall ~1730s**；t268 收编花名册 45→46（t26 批亲跑验收 121.8s）；roster 恒等 21。
+- 【定妆照】**shots-qa/t268-probe-cost-dialog.png**（probe card 耗时徽标 + 健康点 tooltip）+ **shots-qa/t268-heartbeat-motioncorr.png**（500 微图集群 motioncorr 完成卡）。
+- 【收尾】worklog（本条）+ commit/push + 环境清理（Task 86 双杀 + mock cluster 击杀 + port FREE 验证）。
+
+Stage Summary:
+- **「让延迟可见，让心跳有证人」**：probe 耗时（wrapper 律：公开入口包计时、内部函数改名、调用点零改动）从「感觉卡」变成「看见 175ms」；staging 心跳从「锻造台账」补上「活体推进」——06:27:48 → 06:27:51 的两拍是真 staging 自己的心跳
+- 「环境变量是部署与测试的和解」：CF_STAGING_BEAT_MS 让真集群（10s 合理）与快本地 rig（3s 才能 witnessing）各取所需——产品的一个旋钮换来测试的一双眼睛，陈旧窗数学不动
+- 「活体断言的三课」：假设先验证（staging 真的 >间隔吗）、耦合时长分别治理（staging 文件数与 stub 运行数）、证人 poll 不 sleep——三条都是把「想当然的时长」换成「观测到的推进」
+- 「腰斩批次的孤儿按形状清场」：t258 的 mapimport 孤儿让 roster 恒等说谎、让 solo-recovery 卡死——「上跑的残骸不该让下跑的断言说谎」判例的家族回归版；工具超时以批边界为单位
+- 遗留（下轮候选）：sync-back 的耗时上账（对称于 probe.durationMs，回同步也是派发延迟的一部分）；updatedAt 治理；家族跑批 --report JSON；EMPIAR 真数据回归（让位）

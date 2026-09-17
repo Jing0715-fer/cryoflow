@@ -51,8 +51,14 @@ with open(star_in) as fh:
                 mics.append(cols[0])
 
 print(f"cryoflow-mock motioncorr: {len(mics)} micrograph(s) via motioncor2 at {mc2}")
+# Per-micrograph pacing keeps the progress stream observable — but the
+# TOTAL sleep is capped at 60s so a large import tree (t268's 500-file
+# staging witness) cannot turn the run itself into a test timeout. Small
+# jobs (≤60 mics) keep the full 1s/mic cadence the engine's progress
+# parser was tuned against.
+pace = min(1.0, 60.0 / max(1, len(mics)))
 for n, mic in enumerate(mics, 1):
-    time.sleep(1.0)
+    time.sleep(pace)
     print(f"Micrograph {n}/{len(mics)}: {os.path.basename(mic)} — motion corrected (shift 2.4, 1.1 px)")
     sys.stdout.flush()
 

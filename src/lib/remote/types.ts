@@ -89,6 +89,14 @@ export interface RemoteProbe {
   gpus: string[];
   /** First error line when the probe could not complete. */
   error?: string;
+  /**
+   * t268 — wall-clock cost of the whole probe round-trip (ms). The probe is
+   * load-bearing (t267: the dispatch runs it itself), so its cost is part of
+   * the connection's honest story: the dialog shows it next to the check
+   * time, and a slow cluster's dispatch latency is visible instead of felt.
+   * Optional because lastProbe records saved before t268 lack it.
+   */
+  durationMs?: number;
 }
 
 /** Where + how a job should run on the cluster. */

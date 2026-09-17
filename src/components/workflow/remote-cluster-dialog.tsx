@@ -149,10 +149,13 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** Rail status dot: green = last probe ok, red = probed and failed, gray = never tested. */
+/** Rail status dot: green = last probe ok, red = probed and failed, gray = never tested.
+ *  t268 — the probe's wall-clock cost rides the label: a slow cluster's
+ *  reachability is a quality of the connection worth seeing at a glance. */
 function probeDot(c: RemoteConnectionDTO): { className: string; label: string } {
-  if (c.lastProbe?.ok) return { className: "bg-emerald-500", label: "reachable — last probe ok" };
-  if (c.lastProbe) return { className: "bg-rose-500", label: `last probe failed${c.lastProbe.error ? `: ${c.lastProbe.error}` : ""}` };
+  const secs = c.lastProbe?.durationMs != null ? ` in ${(c.lastProbe.durationMs / 1000).toFixed(1)}s` : "";
+  if (c.lastProbe?.ok) return { className: "bg-emerald-500", label: `reachable — last probe ok${secs}` };
+  if (c.lastProbe) return { className: "bg-rose-500", label: `last probe failed${secs}${c.lastProbe.error ? `: ${c.lastProbe.error}` : ""}` };
   return { className: "bg-slate-400 dark:bg-slate-500", label: "never tested" };
 }
 
@@ -205,6 +208,16 @@ function ProbeCard({
           </Badge>
         ) : null}
         <span className="ml-auto shrink-0 text-[10px] text-muted-foreground/80">
+          {probe.durationMs != null ? (
+            <span
+              className="mr-1.5 tabular-nums"
+              title="wall-clock cost of the probe round-trip — the dispatch itself probes an unprobed connection (t267), so this is part of its latency"
+              data-probe-duration=""
+            >
+              {probe.durationMs >= 1000 ? `${(probe.durationMs / 1000).toFixed(1)}s` : `${probe.durationMs}ms`}
+              {" · "}
+            </span>
+          ) : null}
           {new Date(probe.checkedAt).toLocaleString()}
         </span>
       </div>
