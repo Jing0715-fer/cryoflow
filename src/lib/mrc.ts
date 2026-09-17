@@ -495,6 +495,58 @@ export function readMrcOrthoSlice(
 }
 
 /**
+ * Read ONE voxel's density value (t281 — the density probe's backend).
+ *
+ * Fractional coordinates (0…1, the tiles' own pick/probe frame) resolve
+ * to the nearest voxel with the SAME rounding the plane renderer uses
+ * (round(p * (dim-1))), so the number shown under the cursor is the
+ * density of what the cursor is actually on. The read is a single
+ * `bytesPerVoxel` pread at the computed offset — no plane buffer, no
+ * section scan; hover-frequency polling stays free.
+ *
+ * MRC native layout: x fastest, then y, z slowest —
+ *   offset = 1024 + nsymbt + ((iz·ny + iy)·nx + ix) · bytesPerVoxel
+ * (the same layout every other reader in this file walks section-wise).
+ * Returns null for unreadable files / non-finite fractions — the probe
+ * chip just stays silent rather than showing a lie.
+ */
+export function readMrcVoxel(
+  file: string,
+  fx: number,
+  fy: number,
+  fz: number,
+  header?: MrcHeader
+): { value: number; ix: number; iy: number; iz: number } | null {
+  const h = header ?? readMrcHeader(file);
+  if (!h) return null;
+  if (h.nz < 1 || h.ny < 1 || h.nx < 1) return null;
+  if (![fx, fy, fz].every((v) => Number.isFinite(v))) return null;
+  const clamp = (v: number, dim: number) =>
+    Math.max(0, Math.min(Math.round(v * (dim - 1)), dim - 1));
+  const ix = clamp(fx, h.nx);
+  const iy = clamp(fy, h.ny);
+  const iz = clamp(fz, h.nz);
+  const offset =
+    1024 + h.nsymbt + ((iz * h.ny + iy) * h.nx + ix) * h.bytesPerVoxel;
+  const raw = Buffer.alloc(h.bytesPerVoxel);
+  let fd: number;
+  try {
+    fd = openSync(file, "r");
+  } catch {
+    return null;
+  }
+  try {
+    const got = readSync(fd, raw, 0, h.bytesPerVoxel, offset);
+    if (got < h.bytesPerVoxel) return null;
+    return { value: decodeVoxel(raw, 0, h.mode), ix, iy, iz };
+  } catch {
+    return null;
+  } finally {
+    closeSync(fd);
+  }
+}
+
+/**
  * Render one plane through a map as a grayscale PNG (≤384 px wide).
  * `axis` is the plane's NORMAL (movement) axis: "z" → native sections,
  * "x"/"y" → orthogonal reconstruction planes. `pos` ∈ 0…1 positions the

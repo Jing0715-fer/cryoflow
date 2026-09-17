@@ -1704,3 +1704,24 @@ Stage Summary:
 - 「缺席是诚实」：isoSigma null → chip 不渲染、footer 无 σ 段；书签无 focus → 行无 chip——猜的默认值是谎言，缺席渲染是三处一致的诚实律
 - 「防呆叫对了」：t280 进错批注释行，decade registry 的 coverage check 当窗抓住（t273 real-fail）——loud not silent 的设计本意；修复是登记 t28 批 + 断言随批数演进，家族台账八批全绿收官
 - 遗留（下轮候选）：updatedAt 治理（继续让位）；ortho 瓦片点击拾取与框选缩放的潜在手势冲突（未探测到但值得留心）；bookmark 缩略图上标注焦点交点位置（chip 已见，缩略图叠加是下一步）；产品功能候选：Topaz wrapper 深化
+
+## Task 281 (2026-09-18, cron 05:03 窗口 trace 1a07549302235a99-cron-agent-loop-202609180503)
+
+- 【开局四件套】尾部 = Task 280（7293bb1 已 push）零过时；origin/main..HEAD 空；净场发现 12 分钟前的 bun server 半死残骸（进程活着但 PORT 3000 未监听）——Task 86 双杀 + watchdog 拉起。开局探针 roster=1 虚惊：**探针配方错**——`/api/jobs` 历来返回 `{jobs: [...]}` 包裹结构（上次路由改动是早期 remote 窗口），`len(json)` 数的是 dict 的 key；修正 `["jobs"]` 后 21 恒等。「断言的错」在本窗开局就应验了一次。cron 模板「Task 13」照例不认（实际尾部已是 280）。
+- 【QA：九哨兵全绿 + 竞态双坑填平】qa68-legacy 26 断言 + qa68-e2e 19 断言 + qa00 + qa63 + t273 + t276 + t278 全 GREEN；**t280 首跑 1 FAIL**：导出按钮 `data-ortho-export-state` 停在 "busy"——竞态 = `a.click()` 触发 download 事件在 React `setState("ok")` commit 之前，套件 saveAs 后立即 getAttribute 跑赢了 commit（5 跑 2 败）。修复 = pollUntil 轮询等待 ok/idle（8s 窗），**t279 埋着同款断言同款移植**——同族坑一次填平，两套件修复后各三连 ALL PASS。agent-browser 活体目检 console 0 / errors 0 / 画布 21 jobs。
+- 【巡检与立项】Task 280 遗留池勘察：bookmark 缩略图叠加焦点交点需要 3D→2D 投影（成本高收益小，缩略图是 isosurface 屏幕快照无体素信息）；Topaz wrapper 已有 418 行训练曲线深化空间边际递减；**ortho 面板的能力清单核查**发现真缺席——`readout` 只有 slice 位置的 voxel index，**hover 像素密度值 readout 不存在**（医学影像查看器/RELION _display 的经典仪器：「这块是颗粒还是噪声」要的是数字不是眯眼）。立项 = Task 281「密度探针」。
+- 【实现① readMrcVoxel（mrc.ts）】分数坐标（0…1，瓦片 pick/probe 同款坐标系）→ 邻近体素（**与渲染器同一取整** round(p*(dim-1))——光标下的数字就是光标下的体素）；MRC 原生布局 x 最快 z 最慢 `offset = 1024 + nsymbt + ((iz·ny + iy)·nx + ix)·bytesPerVoxel`；**单 voxel pread**（bytesPerVoxel 字节）——无平面缓冲无 section 扫描，hover 频率轮询近乎免费（outputs/file OOM 教义的极致形态）；非有限分数返回 null——探针 chip 保持沉默而非说谎。
+- 【实现② format=value 路由分支（outputs/file/route.ts）】同 containment 链（isLocalRequest 守卫 → findEffectiveJob → workdir 词汇域 + realpath → pathref），payload 是数字不是字节；axis→(hAxis,vAxis) 映射用渲染器自己的 TileSpec 约定（z→(x,y)、y→(x,z)、x→(y,z)）；.mrcs 拒绝（stack 用 slice/montage 浏览）、非 MRC 拒绝；畸形分数 clamp 到 [0,1] 回退中心——200 而非爆炸。
+- 【实现③ 前端探针（map-ortho-panel.tsx）】**实线 sky 十字线**（PROBE_COLOR rgba(56,189,248,.8)——σ chip 的 cyan 家族；focus 线是虚线 accent 色——「我在看哪」与「光标在哪」两种仪器永不混色）；线全速跟随（本地几何零 I/O）、值 trailing 节流追赶（PROBE_THROTTLE_MS 140ms——**trailing 而非 leading-drop**：窗内 move 排期到窗关闭时发，停住的cursor必被探到最后位置而非 200ms 前的）；abort 防乱序（新 fetch 前 abort 旧的、leave/unmount 清场）；左下角 chip `value @ x,y,z`（1-based，与 "z 33/64" 同惯例；首 fetch 在途时只显地址——「还没有值」不能读成「值是 0」）。
+- 【t281-density-probe.mjs（41 断言 ×2 ALL PASS，t28 批内收编花名册 56→57）】A 相 demo 真相；B 相源码台账 19 断言（reader 布局、路由分支、守卫在前、实线 vs 虚线色语言、trailing、abort、1-based）；C 相 API 先行：**三轴一voxel一真理**（axis=z/y/x pos=.5 fx=.5 fy=.5 三条不同代码路径全部解析到 voxel (32,32,32) 且值逐位相等 0.8763…——映射正确性的最强活体证词）、corner clamp（(0,0,0)→voxel 0、(1,1,1)→voxel 63）、畸形分数回退中心 200、.star 404；C6-C10 UI 活体（qa67 64³ seed → Mol* 活 → ortho 展开）：hover 两条线 + chip 数字、线跟随 70%、leave 清场、再入重挂、**hover 不劫持 pick**（探针悬停后 click 仍让 XZ→0.75/YZ→0.25，focus 虚线幸存——t278 手势边界遗留的活体排查）、定妆照 t281-density-probe.png（chip `0.000 @ 17,48,33` 在 blob 外背景区——与中心 0.876 对照正是「particle or noise」的硬数字答案）。
+- 【断言的错，第九次应验（首跑 2 FAIL 全是套件）】①Playwright 鼠标坐标落设备像素——356px 框的 fx=0.25 序列化成 24.9%（box 原点带小数）；断言改 CSSOM 解析 + ±1.5% 容差（「CSSOM 串是序列化不是等式目标」第二课）；②consoleErrors 声明在 if(host) 块内 Z 相 ReferenceError——提升顶层。另心算陷阱一次：0.25×63=15.75→round=16→1-based 17，y=0.75×63=47.25→47→48（初写 49，套件首跑前自查修正）。
+- 【全家族回归（八批前台逐批——OOM 纪律第六窗）】qa 11 · 412.1s ｜ t21 7 · 197.5s ｜ t22 2 · 66.4s ｜ t24 9 · 124.3s ｜ t25 9 · 438.4s ｜ t26 10 · 548.8s ｜ t27 7 · 284.9s ｜ t28 2 · 71.6s（t280 + **t281 首战**）——**合计 pass 57 · solo-recovery 0 · real-fail 0 · wall 2143.9s**（--summary 机器拷贝）；coverage check 干净（57 套件八批各归属唯一）；roster 恒等 21；build 首试即过 + watchdog 复活；裸 tsc 0。
+- 【收尾】worklog（本条）+ commit/push + 环境清理（Task 86 双杀 + port FREE 验证）。
+
+Stage Summary:
+- **「光标下有了数字」**：ortho 面板的仪器清单补上密度探针——切片、crosshair、拾取、体素步进、导出、σ chip 之外，hover 读值是医学影像查看器与 RELION _display 的共同经典；「这块是颗粒还是噪声」从眯眼变成读数（0.000 背景 vs 0.876 颗粒中心，一眼的差距）
+- 「三条代码路径一个真相」：axis=z/y/x 对同一体素的三种解析全部落到 (32,32,32) 且值逐位相等——分数→体素的映射证明不靠断言靠结构：三轴同点同值是任何单一映射 bug 都无法伪造的证词
+- 「trailing 而非 leading」：节流的正确形状是「停住的 cursor 必被探到最后位置」——leading-drop 让光标停在节流窗内时 chip 永远落后 200ms；线全速（本地几何）、值追赶（trailing fetch），两速分离是 hover 仪器的正确物理
+- 「单 voxel pread 是 OOM 教义的极致」：从 raw 全文件流（t251 前）到 section-wise（map-profile）到单 voxel 4 字节——I/O 粒子随语义需求收缩到下限，hover 频率轮询在服务端近乎免费
+- 「探针与拾取的手势边界被活体排查」：t278 遗留的「点击拾取与框选缩放冲突」担忧落定——瓦片无拖拽手势，hover(move) 与 pick(click) 正交，套件 C9 亲证 hover 后 click 仍然拾取、focus 线幸存
+- 遗留（下轮候选）：updatedAt 治理（继续让位）；bookmark 缩略图叠加焦点交点（需 3D→2D 投影，成本收益再评估）；探针 chip 的 σ 相对值显示（value/σ 比值——等用户真正需要时再加）；产品功能候选：Topaz wrapper 深化、导出图叠加探针标记

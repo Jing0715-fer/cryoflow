@@ -111,6 +111,7 @@ const FAMILY = [
   "t278-ortho-crosshair.mjs", // the tri-planar focus point: crosshair lines mark where sibling planes cut, clicking an image picks the point, sliders step one voxel — and the résumé helper stops lying over gone rows (Task 278)
   "t279-ortho-export-focus.mjs", // the triptych leaves the app: one publishing-grid PNG of the three sections (crosshair + focus footer), and the focus point rides in every saved view — capture, restore, import check, server clamp (Task 279)
   "t280-ortho-sigma-chips.mjs", // σ walks over to the 2D side: the ortho panel's header chip + export footer carry the isosurface contour (pull on mount, push on change), and bookmark rows show WHERE the inspection happened (Task 280)
+  "t281-density-probe.mjs", // the density probe: hovering an ortho tile reads the voxel under the cursor (format=value, a single-voxel pread) — solid sky cursor lines, a corner chip speaking value @ x,y,z, three-axes-one-voxel mapping proof (Task 281)
 ];
 
 // ---- batches are first-class (t273) ----------------------------------------

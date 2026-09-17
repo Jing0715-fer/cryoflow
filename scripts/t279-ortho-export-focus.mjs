@@ -49,6 +49,21 @@ const must = (cond, label) => {
   if (!cond) fail++;
 };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// t280 lesson transplanted: a.click() fires the download event BEFORE the
+// React setState("ok") commits to the DOM — an immediate getAttribute can
+// still read "busy" (t280 lost this race 2 of 5 runs). Poll: busy must
+// RESOLVE to ok/idle, not be read atomically at saveAs-return time.
+async function pollUntil(fn, deadlineMs, intervalMs = 250) {
+  const end = Date.now() + deadlineMs;
+  let last;
+  while (Date.now() < end) {
+    last = await fn();
+    if (last) return last;
+    await sleep(intervalMs);
+  }
+  return last;
+}
 const near = (a, b, tol = 0.06) => typeof a === "number" && Math.abs(a - b) <= tol;
 
 const SH = {
@@ -180,7 +195,10 @@ try {
   must(h === 616, `the triptych carries label + footer strips (14+34+512+14+42, got ${h})`);
   must(/^ortho-.*-\d{6}\.png$/.test(download.suggestedFilename() ?? ""),
     `the filename is map-named and stamped ("${download.suggestedFilename()}")`);
-  const state = await page.locator('[data-canvas-ui="ortho-export"]').getAttribute("data-ortho-export-state");
+  const state = await pollUntil(async () => {
+    const s = await page.locator('[data-canvas-ui="ortho-export"]').getAttribute("data-ortho-export-state");
+    return s === "ok" || s === "idle" ? s : null;
+  }, 8000);
   must(state === "ok" || state === "idle", `the export button reported success (state "${state}")`);
 
   // C3 — saving a view freezes the focus into it (server-side truth)

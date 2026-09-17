@@ -28,6 +28,12 @@
  * (the two sibling planes move to the clicked fractions), the slider
  * steps one VOXEL when the grid is known (stepFrac), and a panel-level
  * toggle switches the crosshair off.
+ *
+ * t281 — the DENSITY PROBE: hovering a tile reads the density value under
+ * the cursor (`format=value` — a single-voxel server pread) with a solid
+ * sky cursor-crosshair distinct from the dashed focus lines; the value +
+ * 1-based voxel address sit in a corner chip. "Is this blob particle or
+ * noise" wants a number, not a squint.
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -126,6 +132,16 @@ const AXIS_COLOR: Record<"x" | "y" | "z", string> = {
 
 /** fraction 0..1 → CSS percentage (1 decimal, same math as the clip overlay) */
 const pct = (v: number) => `${(v * 100).toFixed(1)}%`;
+
+/** t281 — minimum gap between probe fetches (ms): mousemove fires at
+ *  pointer-event rate, the single-voxel pread is cheap but a flood of
+ *  them is still a flood; the crosshair line follows the cursor at full
+ *  rate and only the VALUE chases on this cadence */
+const PROBE_THROTTLE_MS = 140;
+/** t281 — the probe's hue (sky, the σ chip's cyan family): distinct from
+ *  the three focus accents so "where I am looking" (dashed, accent) and
+ *  "where my cursor is" (solid, sky) never share a colour language */
+const PROBE_COLOR = "rgba(56,189,248,0.8)";
 
 /** t279 — canvas colours for the exported triptych: the same axis accents
  *  as AXIS_COLOR (crosshair lines keep their on-screen hue) on a deep
@@ -233,6 +249,75 @@ function OrthoTile({
   const stepVoxel = (d: 1 | -1) =>
     setPos((p) => Math.min(1, Math.max(0, p + d * stepFrac)));
 
+  // t281 — the DENSITY PROBE: hovering the image reads the density value
+  // under the cursor (the classic instrument every medical-imaging viewer
+  // and RELION's _display carry — "is this blob particle or noise" wants
+  // a NUMBER, not a squint). The crosshair line tracks the cursor at full
+  // pointer rate (it is pure geometry, no I/O); the VALUE chases on a
+  // throttle against `format=value` — a single-voxel server pread, so
+  // even hover-frequency polling never touches a plane buffer. The fetch
+  // speaks the RENDERED position (the image on screen), not the slider's
+  // live one — the number must belong to the pixels it hovers over.
+  const [probe, setProbe] = useState<{
+    fx: number;
+    fy: number;
+    value: number | null;
+    voxel: { x: number; y: number; z: number } | null;
+  } | null>(null);
+  const probeAbort = useRef<AbortController | null>(null);
+  const lastProbeAt = useRef(0);
+  const probeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      // unmount — never let a dying tile's fetch land anywhere
+      probeAbort.current?.abort();
+      if (probeTimer.current) clearTimeout(probeTimer.current);
+    },
+    []
+  );
+  const fireProbe = (fx: number, fy: number) => {
+    probeAbort.current?.abort();
+    const ac = new AbortController();
+    probeAbort.current = ac;
+    const qs = `path=${encodeURIComponent(path)}&format=value&axis=${spec.axis}&pos=${rendered.toFixed(3)}&fx=${fx.toFixed(4)}&fy=${fy.toFixed(4)}`;
+    fetch(`/api/jobs/${jobId}/outputs/file?${qs}`, { signal: ac.signal })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { value?: unknown; voxel?: { x: number; y: number; z: number } } | null) => {
+        if (!d || typeof d.value !== "number" || !Number.isFinite(d.value)) return;
+        setProbe((p) => (p ? { ...p, value: d.value as number, voxel: d.voxel ?? null } : p));
+      })
+      .catch(() => {}); // aborted on leave/unmount — silence is correct
+  };
+  // TRAILING throttle: a move inside the window schedules the fetch for
+  // when it closes (instead of dropping it) — a cursor that STOPS always
+  // gets its final position probed, never the one 200 ms behind it
+  const moveProbe = (e: React.MouseEvent<HTMLDivElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    if (r.width <= 0 || r.height <= 0) return;
+    const fx = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+    const fy = Math.min(1, Math.max(0, (e.clientY - r.top) / r.height));
+    // the line is instant (local geometry); the value keeps whatever it
+    // had until the next fetch answers — the chip never flashes empty
+    setProbe((p) => (p ? { ...p, fx, fy } : { fx, fy, value: null, voxel: null }));
+    const now = Date.now();
+    const remaining = PROBE_THROTTLE_MS - (now - lastProbeAt.current);
+    if (probeTimer.current) clearTimeout(probeTimer.current);
+    if (remaining <= 0) {
+      lastProbeAt.current = now;
+      fireProbe(fx, fy);
+    } else {
+      probeTimer.current = setTimeout(() => {
+        lastProbeAt.current = Date.now();
+        fireProbe(fx, fy);
+      }, remaining);
+    }
+  };
+  const leaveProbe = () => {
+    if (probeTimer.current) clearTimeout(probeTimer.current);
+    probeAbort.current?.abort();
+    setProbe(null);
+  };
+
   // t253 — the clip's tile overlay. The clip box lives in 3D; each 2D tile
   // speaks its slice of the story: the kept region's cross-section drawn as
   // a violet outline (the clip's own colour) when the viewed plane survives
@@ -337,6 +422,19 @@ function OrthoTile({
 
   const src = `/api/jobs/${jobId}/outputs/file?path=${encodeURIComponent(path)}&format=png&axis=${spec.axis}&pos=${rendered.toFixed(3)}`;
 
+  // t281 — the probe's readout text: value first (the NUMBER the tool
+  // exists for), then the 1-based voxel address (same convention as the
+  // tile readout "z 33/64"). While the first fetch is in flight the
+  // address shows alone — "no value yet" must not read as "value 0".
+  const probeText =
+    probe === null
+      ? null
+      : probe.value === null
+        ? probe.voxel
+          ? `… @ ${probe.voxel.x + 1},${probe.voxel.y + 1},${probe.voxel.z + 1}`
+          : null
+        : `${probe.value.toFixed(3)}${probe.voxel ? ` @ ${probe.voxel.x + 1},${probe.voxel.y + 1},${probe.voxel.z + 1}` : ""}`;
+
   const syncTo3d = () => {
     window.dispatchEvent(
       new CustomEvent(ORTHO_SLICE_EVENT, { detail: { axis: spec.axis, pos } })
@@ -414,7 +512,9 @@ function OrthoTile({
       <div
         className="relative aspect-square cursor-crosshair"
         onClick={pickFocus}
-        title="Click to move the focus point — the sibling planes follow"
+        onMouseMove={moveProbe}
+        onMouseLeave={leaveProbe}
+        title="Hover reads the density at the cursor · click to move the focus point — the sibling planes follow"
       >
         <MrcImage
           src={src}
@@ -423,6 +523,33 @@ function OrthoTile({
         />
         {clipOverlay}
         {crossLines}
+        {probe && (
+          <>
+            {/* t281 — the cursor's own crosshair: SOLID sky lines (the focus
+                lines above are DASHED accent-coloured — the two instruments
+                never blur together) */}
+            <div
+              data-ortho-probe="h"
+              aria-hidden="true"
+              className="pointer-events-none absolute"
+              style={{ left: pct(probe.fx), top: 0, bottom: 0, width: 0, borderLeft: `1px solid ${PROBE_COLOR}` }}
+            />
+            <div
+              data-ortho-probe="v"
+              aria-hidden="true"
+              className="pointer-events-none absolute"
+              style={{ top: pct(probe.fy), left: 0, right: 0, height: 0, borderTop: `1px solid ${PROBE_COLOR}` }}
+            />
+            {probeText && (
+              <div
+                data-canvas-ui="ortho-probe-readout"
+                className="pointer-events-none absolute bottom-1 left-1 rounded border border-sky-500/30 bg-background/85 px-1.5 py-0.5 font-mono text-[9px] tabular-nums text-sky-300"
+              >
+                {probeText}
+              </div>
+            )}
+          </>
+        )}
       </div>
       <Slider
         value={[pos]}

@@ -7,7 +7,7 @@ import { getRun } from "@/lib/relion/engine";
 import { readPathrefTarget } from "@/lib/relion/pathref";
 import { resolveInsideJobWorkdir } from "@/lib/relion/jobfile";
 import { isLocalRequest } from "@/lib/http-guard";
-import { isMrcPath, renderMrcLargePng, renderMrcMontagePng, renderMrcOrthoPng, renderMrcSlicePng } from "@/lib/mrc";
+import { isMrcPath, readMrcVoxel, renderMrcLargePng, renderMrcMontagePng, renderMrcOrthoPng, renderMrcSlicePng } from "@/lib/mrc";
 
 export const dynamic = "force-dynamic";
 
@@ -122,6 +122,61 @@ export async function GET(request: NextRequest, context: RouteContext) {
       });
     }
 
+    // t281 — the density probe: ONE voxel's value under the cursor. Same
+    // containment chain as every other format (it runs after the workdir
+    // scoping + realpath + pathref resolution above), but unlike png/raw
+    // it serves a NUMBER, not bytes: the read is a single
+    // `bytesPerVoxel` pread (readMrcVoxel) — hover-frequency polling is
+    // effectively free, no plane buffer, no section scan.
+    //   fx/fy  — the in-plane fractions (the tile's hAxis/vAxis frame,
+    //            identical to what the pick handler computes)
+    //   pos    — the plane's position along `axis` (the movement axis)
+    // The axis→(hAxis,vAxis) mapping is the renderer's own (the tiles'
+    // TileSpec): z → (x,y), y → (x,z), x → (y,z).
+    if (format === "value") {
+      if (!isMrc) {
+        return NextResponse.json({ error: "Density probing is for MRC maps only" }, { status: 400 });
+      }
+      if (lower.endsWith(".mrcs")) {
+        return NextResponse.json(
+          { error: "Density probing is for 3D volumes — stacks browse images with slice/montage" },
+          { status: 400 }
+        );
+      }
+      const num = (k: string, fallback: number) => {
+        const raw = url.searchParams.get(k);
+        if (raw === null) return fallback;
+        const v = Number.parseFloat(raw);
+        return Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : fallback;
+      };
+      const axisParam = (url.searchParams.get("axis") ?? "z").toLowerCase();
+      const axis = axisParam === "x" || axisParam === "y" || axisParam === "z" ? axisParam : "z";
+      const pos = num("pos", 0.5);
+      const fx = num("fx", 0.5);
+      const fy = num("fy", 0.5);
+      // plane position + in-plane fractions → the volume fractions the
+      // reader speaks (fx rides hAxis, fy rides vAxis — the TileSpec map)
+      const vf =
+        axis === "z"
+          ? { fx, fy, fz: pos }
+          : axis === "y"
+            ? { fx, fy: pos, fz: fy }
+            : { fx: pos, fy: fx, fz: fy };
+      const hit = readMrcVoxel(abs, vf.fx, vf.fy, vf.fz);
+      if (!hit) {
+        return NextResponse.json({ error: "Could not read this map" }, { status: 400 });
+      }
+      return NextResponse.json(
+        {
+          jobId: job.id,
+          axis,
+          value: hit.value,
+          voxel: { x: hit.ix, y: hit.iy, z: hit.iz },
+        },
+        { headers: { "Cache-Control": "no-cache" } }
+      );
+    }
+
     if (format === "png") {
       if (!isMrc) {
         return NextResponse.json({ error: "PNG rendering is for MRC maps only" }, { status: 400 });
@@ -191,7 +246,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       });
     }
 
-    return NextResponse.json({ error: "Unknown format (expected png, raw or text)" }, { status: 400 });
+    return NextResponse.json({ error: "Unknown format (expected png, raw, value or text)" }, { status: 400 });
   } catch (error) {
     console.error("GET /api/jobs/[id]/outputs/file failed:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
