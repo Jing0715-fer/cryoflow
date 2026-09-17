@@ -343,6 +343,19 @@ function RunResumeCard({
   // the store is the truth the inspector can actually open — an entry
   // whose job is not in it renders as history, not as a doorway
   const jobs = useWorkflowStore((s) => s.jobs);
+  // t278 — the card-level helper adapts to the record shape the rows
+  // actually show: "click one to open" is a lie over a wall of gone rows.
+  // Pre-t272 DTO rows (exists undefined) are still openable doors on the
+  // canvas that owns them, so they count as live here.
+  const goneCount = resume.recent.filter((e) => e.exists === false).length;
+  const openCount = resume.recent.length - goneCount;
+  const helperVariant = goneCount === 0 ? "live" : openCount > 0 ? "mixed" : "history";
+  const helperText =
+    helperVariant === "live"
+      ? "Runs dispatched through this connection — click one to open its job's inspector; staging and sync-back times come from each run's time ledger."
+      : helperVariant === "mixed"
+        ? "Runs dispatched through this connection — click a live one to open its job's inspector; entries marked gone are deleted jobs the résumé keeps as history. Staging and sync-back times come from each run's time ledger."
+        : "Runs this connection once dispatched, kept as history — the jobs behind these entries are gone (deleted), so there is nothing left to open.";
   return (
     <div className="space-y-2 rounded-md border bg-muted/30 p-3" data-run-resume="">
       <div className="flex flex-wrap items-center gap-1.5">
@@ -461,9 +474,11 @@ function RunResumeCard({
           </div>
         );
       })}
-      <p className="text-[10px] leading-relaxed text-muted-foreground/80">
-        Runs dispatched through this connection — click one to open its job&apos;s inspector;
-        staging and sync-back times come from each run&apos;s time ledger.
+      <p
+        className="text-[10px] leading-relaxed text-muted-foreground/80"
+        data-resume-helper={helperVariant}
+      >
+        {helperText}
       </p>
     </div>
   );

@@ -20,10 +20,18 @@
  * Grid dimensions come from the outputs route (`dims`), so readouts show
  * real voxel indices ("z 33/64"), falling back to percentages if the
  * listing is unavailable.
+ *
+ * t278 — the three tiles share a tri-planar FOCUS POINT: each tile reports
+ * its position up; the panel feeds sibling positions back; every tile
+ * draws the other two planes as dashed crosshair lines (in the marked
+ * plane's accent — AXIS_COLOR), clicking an image PICKS a focus point
+ * (the two sibling planes move to the clicked fractions), the slider
+ * steps one VOXEL when the grid is known (stepFrac), and a panel-level
+ * toggle switches the crosshair off.
  */
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, Crosshair, ScanLine } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Crosshair, Focus, ScanLine } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { MrcImage } from "./mrc-image";
 import { cn } from "@/lib/utils";
@@ -79,6 +87,21 @@ const SCRUB_DEBOUNCE = 220;
 /** how long the tile flashes when the 3D scene drives it (ms) */
 const FOLLOW_FLASH_MS = 650;
 
+/**
+ * t278 — axis-accurate crosshair colours. Each crosshair line takes the
+ * accent of the sibling plane it MARKS (the line for axis x on the XY tile
+ * is amber — the YZ tile's colour — because it shows where that plane
+ * cuts). Same hue family as TILES' accent classes.
+ */
+const AXIS_COLOR: Record<"x" | "y" | "z", string> = {
+  x: "rgba(245,158,11,0.75)",
+  y: "rgba(139,92,246,0.75)",
+  z: "rgba(20,184,166,0.75)",
+};
+
+/** fraction 0..1 → CSS percentage (1 decimal, same math as the clip overlay) */
+const pct = (v: number) => `${(v * 100).toFixed(1)}%`;
+
 function OrthoTile({
   jobId,
   path,
@@ -86,6 +109,10 @@ function OrthoTile({
   dim,
   follow,
   clip,
+  siblings,
+  crosshairOn,
+  onPositionChange,
+  onPick,
 }: {
   jobId: string;
   path: string;
@@ -96,6 +123,16 @@ function OrthoTile({
   follow?: { pos: number; nonce: number };
   /** latest box-clip state driven by the 3D scene (t253) */
   clip?: OrthoClipState | null;
+  /** t278 — every axis' current position (the tri-planar focus point);
+   *  this tile draws the crosshair of the OTHER two axes on its image */
+  siblings: { x: number; y: number; z: number };
+  /** t278 — whether the crosshair lines are shown (panel-level toggle) */
+  crosshairOn: boolean;
+  /** t278 — report this tile's position upward so siblings can draw it */
+  onPositionChange?: (pos: number) => void;
+  /** t278 — clicking the image picks a focus point: the panel moves the
+   *  TWO sibling planes (hAxis/vAxis) to the clicked fractions */
+  onPick?: (hFrac: number, vFrac: number) => void;
 }) {
   // pos follows the slider immediately (readout + sync use the live value);
   // the <img> chases it on a debounce so a drag floods neither the server
@@ -135,6 +172,22 @@ function OrthoTile({
     return () => clearTimeout(t);
   }, [flash]);
 
+  // t278 — report the position upward (mount included) so the sibling
+  // tiles' crosshair lines always speak the truth. An effect, not the
+  // render body: the render-phase adoption above may also change pos,
+  // and only ONE upward report should ride each committed value.
+  useEffect(() => {
+    onPositionChange?.(pos);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pos]);
+
+  // t278 — voxel-true stepping: when the grid is known, one notch (slider
+  // step, arrow key, ‹ › button) is exactly ONE voxel; without dims the
+  // 1% fallback keeps the controls usable.
+  const stepFrac = dim && dim > 1 ? 1 / (dim - 1) : 0.01;
+  const stepVoxel = (d: 1 | -1) =>
+    setPos((p) => Math.min(1, Math.max(0, p + d * stepFrac)));
+
   // t253 — the clip's tile overlay. The clip box lives in 3D; each 2D tile
   // speaks its slice of the story: the kept region's cross-section drawn as
   // a violet outline (the clip's own colour) when the viewed plane survives
@@ -153,6 +206,36 @@ function OrthoTile({
     const t = setTimeout(() => setClipLit(false), FOLLOW_FLASH_MS);
     return () => clearTimeout(t);
   }, [clipLit]);
+
+  // t278 — the tri-planar crosshair. The tile's own position IS its plane;
+  // the OTHER two axes' positions are drawn as dashed lines in the marked
+  // plane's accent (see AXIS_COLOR): on the XY tile the vertical amber line
+  // shows where the YZ plane cuts, the horizontal violet one where the XZ
+  // plane cuts. Same renderer truth as the clip overlay (axis 0 = top row,
+  // left column — no flip). Clicking the image PICKS a focus point: the
+  // sibling planes move to the clicked fractions (the classic tri-planar
+  // navigation — RELION's _display / medical-imaging viewers).
+  const crossLines: React.ReactNode[] = [];
+  if (crosshairOn) {
+    for (const src of [spec.hAxis, spec.vAxis] as const) {
+      const vertical = src === spec.hAxis;
+      const at = siblings[src];
+      crossLines.push(
+        <div
+          key={src}
+          data-ortho-cross={src}
+          data-ortho-on={spec.axis}
+          aria-hidden="true"
+          className="pointer-events-none absolute"
+          style={
+            vertical
+              ? { left: pct(at), top: 0, bottom: 0, width: 0, borderLeft: `1px dashed ${AXIS_COLOR[src]}` }
+              : { top: pct(at), left: 0, right: 0, height: 0, borderTop: `1px dashed ${AXIS_COLOR[src]}` }
+          }
+        />
+      );
+    }
+  }
 
   let clipOverlay: React.ReactNode = null;
   let clippedAway = false;
@@ -187,7 +270,6 @@ function OrthoTile({
     } else {
       const [h0, h1] = kept(spec.hAxis);
       const [v0, v1] = kept(spec.vAxis);
-      const pct = (v: number) => `${(v * 100).toFixed(1)}%`;
       clipOverlay = (
         <div
           className={cn(
@@ -216,6 +298,17 @@ function OrthoTile({
     );
   };
 
+  /** t278 — click on the image: pick the focus point (fractional 0..1 in
+   *  the image's own frame — hAxis left→right, vAxis top→bottom). The
+   *  panel resolves which sibling planes move (hAxis/vAxis of THIS tile). */
+  const pickFocus = (e: React.MouseEvent<HTMLDivElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    if (r.width <= 0 || r.height <= 0) return;
+    const fx = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+    const fy = Math.min(1, Math.max(0, (e.clientY - r.top) / r.height));
+    onPick?.(fx, fy);
+  };
+
   const idx = Math.round(pos * Math.max(0, (dim ?? 0) - 1));
   const readout =
     dim && dim > 1
@@ -240,6 +333,29 @@ function OrthoTile({
         >
           {readout}
         </span>
+        {/* t278 — voxel-true stepping: ‹ › move exactly one notch (one voxel
+            when the grid is known); the slider's step and its arrow keys use
+            the same stepFrac */}
+        <button
+          type="button"
+          onClick={() => stepVoxel(-1)}
+          data-canvas-ui={`ortho-step-${spec.axis}-dec`}
+          aria-label={`Step the ${spec.plane} one voxel along ${spec.axisLabel} (toward the start)`}
+          title={`Step one voxel along ${spec.axisLabel} (↓${dim ? "1" : "1%"})`}
+          className="shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        >
+          <ChevronLeft className="size-3" aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          onClick={() => stepVoxel(1)}
+          data-canvas-ui={`ortho-step-${spec.axis}-inc`}
+          aria-label={`Step the ${spec.plane} one voxel along ${spec.axisLabel} (toward the end)`}
+          title={`Step one voxel along ${spec.axisLabel} (↑${dim ? "1" : "1%"})`}
+          className="shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        >
+          <ChevronRight className="size-3" aria-hidden="true" />
+        </button>
         <button
           type="button"
           onClick={syncTo3d}
@@ -250,19 +366,24 @@ function OrthoTile({
           <Crosshair className="size-3.5" aria-hidden="true" />
         </button>
       </div>
-      <div className="relative aspect-square">
+      <div
+        className="relative aspect-square cursor-crosshair"
+        onClick={pickFocus}
+        title="Click to move the focus point — the sibling planes follow"
+      >
         <MrcImage
           src={src}
           alt={`${spec.plane} at ${readout}`}
           className={cn("h-full w-full transition-opacity duration-300", clippedAway && "opacity-45")}
         />
         {clipOverlay}
+        {crossLines}
       </div>
       <Slider
         value={[pos]}
         min={0}
         max={1}
-        step={0.01}
+        step={stepFrac}
         onValueChange={(v) => setPos(v[0] ?? 0.5)}
         aria-label={`${spec.plane} position along ${spec.axisLabel}`}
         className="mt-1.5"
@@ -275,6 +396,14 @@ function OrthoTile({
  * Collapsible orthogonal-slice strip. Hidden entirely for .mrcs stacks —
  * their "ortho" planes are in-image axes, and stack browsing already has
  * the montage/large views.
+ *
+ * t278 — the three tiles now share a tri-planar FOCUS POINT: every tile
+ * reports its position up, the panel feeds the sibling positions back
+ * down, and each tile draws the other two planes as dashed crosshair
+ * lines (in the marked plane's accent). Clicking an image PICKS a focus
+ * point — the two sibling planes move to the clicked fractions. The
+ * panel header carries a crosshair on/off toggle (the 3D↔2D door and
+ * the clip echo are untouched).
  */
 export function MapOrthoPanel({
   jobId,
@@ -289,6 +418,14 @@ export function MapOrthoPanel({
   /** per-axis position driven by the 3D scene (nonce bumps per event) */
   const [follow, setFollow] = useState<Partial<Record<"x" | "y" | "z", { pos: number; nonce: number }>>>({});
   const followNonce = useRef(0);
+  /** t278 — the tri-planar focus point: each axis' current plane position */
+  const [positions, setPositions] = useState<{ x: number; y: number; z: number }>({
+    x: 0.5,
+    y: 0.5,
+    z: 0.5,
+  });
+  /** t278 — crosshair lines on/off (panel-level; default ON) */
+  const [crosshairOn, setCrosshairOn] = useState(true);
 
   const isStack = path.toLowerCase().endsWith(".mrcs");
 
@@ -312,7 +449,9 @@ export function MapOrthoPanel({
   }, [open, dims, isStack, jobId, path]);
 
   // 3D → 2D: the embed's cross-section UI (axis buttons, position slider,
-  // contour-adjacent controls) moved — the matching tile follows
+  // contour-adjacent controls) moved — the matching tile follows. t278 —
+  // the focus point rides along, so the crosshair never disagrees with
+  // the plane the 3D scene just drove.
   useEffect(() => {
     const onSliceState = (e: Event) => {
       const d = (e as CustomEvent<{ axis?: string; pos?: number }>).detail;
@@ -321,6 +460,7 @@ export function MapOrthoPanel({
       if (typeof d.pos !== "number" || !Number.isFinite(d.pos)) return;
       followNonce.current += 1;
       setFollow((prev) => ({ ...prev, [axis]: { pos: d.pos as number, nonce: followNonce.current } }));
+      setPositions((prev) => ({ ...prev, [axis]: d.pos as number }));
     };
     window.addEventListener(ORTHO_SLICE_STATE_EVENT, onSliceState);
     return () => window.removeEventListener(ORTHO_SLICE_STATE_EVENT, onSliceState);
@@ -355,31 +495,70 @@ export function MapOrthoPanel({
   const dimFor = (axis: "x" | "y" | "z") =>
     dims ? (axis === "x" ? dims[0] : axis === "y" ? dims[1] : dims[2]) : undefined;
 
+  /** t278 — a tile clicked its image: move the TWO sibling planes to the
+   *  clicked fractions (hAxis/vAxis of THAT tile). The fractions land in
+   *  BOTH channels: positions (the crosshair lines) and follow (the
+   *  adoption channel the 3D scene already drives — the sibling tiles
+   *  glide their own planes to the picked point, so pick = navigation,
+   *  not just annotation). */
+  const pickFocus = (hAxis: "x" | "y" | "z", vAxis: "x" | "y" | "z", hFrac: number, vFrac: number) => {
+    setPositions((prev) => ({ ...prev, [hAxis]: hFrac, [vAxis]: vFrac }));
+    followNonce.current += 1;
+    setFollow((prev) => ({
+      ...prev,
+      [hAxis]: { pos: hFrac, nonce: followNonce.current },
+      [vAxis]: { pos: vFrac, nonce: followNonce.current },
+    }));
+  };
+
   return (
     <section
       aria-label="Orthogonal slice browser"
       data-canvas-ui="ortho-panel"
       className="shrink-0 rounded-lg border border-border/80 bg-card/40"
     >
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        className="flex w-full items-center gap-2 px-3 py-2 text-left"
-      >
-        <ScanLine className="h-3.5 w-3.5 shrink-0 text-cyan-600" aria-hidden="true" />
-        <span className="text-xs font-semibold text-foreground/85">Orthogonal slices</span>
-        <span className="truncate text-[10px] text-muted-foreground">
-          2D sections through the box — scrub a plane, ⌖ to mirror it into the 3D view
-        </span>
-        <ChevronDown
+      <div className="flex w-full items-center gap-2 px-3 py-2">
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          className="flex flex-1 items-center gap-2 text-left"
+        >
+          <ScanLine className="h-3.5 w-3.5 shrink-0 text-cyan-600" aria-hidden="true" />
+          <span className="text-xs font-semibold text-foreground/85">Orthogonal slices</span>
+          <span className="truncate text-[10px] text-muted-foreground">
+            2D sections through the box — scrub a plane, ⌖ to mirror it into the 3D view
+          </span>
+          <ChevronDown
+            className={cn(
+              "ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200",
+              open && "rotate-180"
+            )}
+            aria-hidden="true"
+          />
+        </button>
+        {/* t278 — the tri-planar crosshair toggle. Sibling of the expand
+            button (never nested): the expand behaviour stays the same for
+            every existing locator while the crosshair gets its own switch. */}
+        <button
+          type="button"
+          onClick={() => setCrosshairOn((c) => !c)}
+          aria-pressed={crosshairOn}
+          data-canvas-ui="ortho-crosshair-toggle"
+          aria-label="Toggle the tri-planar crosshair"
+          title={
+            crosshairOn
+              ? "The dashed lines mark where the sibling planes cut — click an image to move the focus point"
+              : "Crosshair hidden — click to show where the sibling planes cut"
+          }
           className={cn(
-            "ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200",
-            open && "rotate-180"
+            "shrink-0 rounded p-1 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+            crosshairOn ? "text-cyan-600" : "text-muted-foreground"
           )}
-          aria-hidden="true"
-        />
-      </button>
+        >
+          <Focus className="h-3.5 w-3.5" aria-hidden="true" />
+        </button>
+      </div>
       {open && (
         <div className="grid grid-cols-1 gap-2 px-3 pb-3 sm:grid-cols-3">
           {TILES.map((t) => (
@@ -391,6 +570,12 @@ export function MapOrthoPanel({
               dim={dimFor(t.axis)}
               follow={follow[t.axis]}
               clip={clip}
+              siblings={positions}
+              crosshairOn={crosshairOn}
+              onPositionChange={(pos) =>
+                setPositions((prev) => (prev[t.axis] === pos ? prev : { ...prev, [t.axis]: pos }))
+              }
+              onPick={(hFrac, vFrac) => pickFocus(t.hAxis, t.vAxis, hFrac, vFrac)}
             />
           ))}
         </div>

@@ -108,6 +108,7 @@ const FAMILY = [
   "t272-cross-canvas-resume.mjs", // the cross-canvas loop closes: a second project's run renders as a history row that NAMES the canvas it lives on (per-entry existence), and deleting that project sweeps its records with it — no orphans (Task 272)
   "t273-family-report.mjs", // the runner tests itself: first-class batches (decade boundary), the merged JSON report, --summary/--reset, and the 600s-ceiling health guard (Task 273)
   "t276-empiar-fidelity.mjs", // real data speaks: EMPIAR-10017's real RELION 5.0.1 artifacts through our parsers (optics truth, FSC self-consistency, honest-zero cella) and the real bundle riding the product's import + manualpick VERBATIM (Task 276)
+  "t278-ortho-crosshair.mjs", // the tri-planar focus point: crosshair lines mark where sibling planes cut, clicking an image picks the point, sliders step one voxel — and the résumé helper stops lying over gone rows (Task 278)
 ];
 
 // ---- batches are first-class (t273) ----------------------------------------

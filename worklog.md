@@ -1645,3 +1645,27 @@ Stage Summary:
 - 「沉默的过滤器也会说谎」：显式列表报 skip、通配符报 skip、唯独 folder 分支吞掉——同一个 result 字符串里三种来源两种诚实度；t276 的真数据（mrc + coord 同目录）恰好是沉默误导的世界，papercut 从断言发现走进产品
 - 「era 文档的翻译是附节不是改写」：RESTORE.md 正文逐字保留（旧拓扑的历史真相），翻译表 + 进程模型更新以 Task 277 附节追加——档案区的东西连文档都保持可考古
 - 遗留（下轮候选）：exists=false 见证已终结；RESTORE.md 翻译已终结；updatedAt 治理（继续让位）；resume 卡片级 helper 文案的细粒度化（「click one to open its job's inspector」对 gone 行不适用——行级 tooltip 已精确，卡片级文案是通用引导，可考虑随选中连接的记录形态自适应）；产品功能候选：3D viewer 体积截面深化、Topaz wrapper 深化
+
+## Task 278 (2026-09-18, cron 01:18 窗口 trace 1a07549302235a99-cron-agent-loop-202609180118)
+
+- 【开局四件套】尾部 = Task 277（7623ccd）零过时；origin/main..HEAD 空（已 push）；净场良好（PORT 3000/3022 FREE，watchdog 拉起 200 + roster 21）。cron 模板「Task 13」照例不认；树上核实 Task 277 遗留两项均真未交付（resume helper 通用文案在 L464-467、updatedAt 仍最小实现、3D 截面无 crosshair 联动）。
+- 【QA】五哨兵全 GREEN：qa68 26 断言 + t273-family-report + t276-empiar-fidelity + qa00 + qa63；agent-browser 活体目检 console 0 / errors 0 / 画布 21 jobs。无 bug，基线稳定。
+- 【巡检与立项】Task 277 遗留两项合并立项：① **三平面正交查看器「焦点交点」深化**（惯例④⑤——三瓦片此前各刷各的，没有任何东西告诉你兄弟平面正切在你正看的那张图哪里；真三平面查看器的经典能力缺席）；② **resume 卡 helper 文案三态自适应**（Task 277 遗留原文：「click one to open its job's inspector」对 gone 行不适用——卡片级文案说谎）。updatedAt 治理继续让位。
+- 【实现① 三平面焦点交点（map-ortho-panel.tsx）】四件套一次交付：**crosshair 联动**——父面板持有 positions{x,y,z}，瓦片经 onPositionChange 上抛自身位置（effect 而非 render 体，一值一报），每瓦片按兄弟位置画两条虚线，线取**被标记平面的 accent 色**（AXIS_COLOR：XY 瓦片上竖琥珀线 = YZ 平面切在此列、横紫线 = XZ 平面切在此行；渲染器真值与 clip overlay 同源——axis 0 即顶行左列，无翻转）；**点击拾取**——图像容器 cursor-crosshair + onClick 按像素算分数坐标，pick 同时落两条通道（positions 供 crosshair 线 + follow adoption 通道驱动兄弟瓦片平面本体滑移——「pick = 导航而非仅注记」，复用 3D 场景已有的 nonce adoption 机制）；**体素级步进**——dim 已知时 stepFrac = 1/(dim-1)，slider step / 键盘箭头 / ‹ › 微按钮三者同一步长即 ±1 voxel（64³ 网格上两击 = 精确两体素），dim 未知回退 1% 保持可用；**面板级 toggle**——Focus 字形按钮（aria-pressed + data-canvas-ui 钩子，做 expand 按钮的兄弟绝不嵌套——既有定位器全部幸存）；3D→2D 的 slice-state 事件同步写入 positions（crosshair 永不与 3D 驱动的平面脱节）。
+- 【实现② resume helper 三态自适应（remote-cluster-dialog.tsx）】RunResumeCard 按 recent 行的 exists 形态计算 variant：goneCount===0 → "live"（原文案逐字保留）/ 有 gone 有可点 → "mixed"（「click a **live** one to open its job's inspector; entries marked gone are deleted jobs the résumé keeps as history」）/ 全 gone → "history"（「Runs this connection once dispatched, kept as history — …there is nothing left to open」）；pre-t272 的 undefined 行算可点（旧世界行仍是门）。`data-resume-helper={variant}` 是测试接缝。卡片文案不再对 gone 行说谎。
+- 【t278-ortho-crosshair.mjs（46 断言 ×2 ALL PASS，批内 ~100s 收编花名册 53→54）】A 相 demo 真相（200 + roster 21）；B 相源码台账 17 断言（AXIS_COLOR 三色、data-ortho-cross/on 双钩子、cursor-crosshair、1/(dim-1)、toggle、3D 驱动写入 positions、helper 三分支文本）；C 相活体（t253 配方 seed 64³ 体量世界 → Mol* 起活 → ortho 展开）：三瓦片各两条线、琥珀/紫 accent 逐色断言、竖/横方向断言、键盘驱动 y 线随动（50%→1.6%）、点击 XY 图像 (25%,75%) → XZ 滑至 ~0.75 / YZ 滑至 ~0.25 / 被拾瓦片自身平面守恒、toggle 灭 0 线 / 开 6 线、Home 后 readout "z 1/64" 两击后 "z 3/64"；D 相 helper 三态活体——**t277 注入配方轻量化**（无第二画布：POST 探针无关连接——路由是纯 upsert 不探测（树上核实）+ 手工注入 GLOBAL engine-state，真实 roster import job 的 record → exists=true、伪造死 id 的 record → exists=false，三轮 live/mixed/history 各配 page.reload 刷数据 + API 先证 DTO 再证 DOM）；finally 键级恢复 state 快照（快照里有则还原、没有则删除——不吞世界原有键）+ DELETE 连接；Z 相 roster 21 + 死 record 清零 + console 0。
+- 【断言的错，第七次应验（本窗 4 FAIL 全部一因产品一因断言）】首跑 4 FAIL：① pick 只写 positions 未驱动 follow——crosshair 线动了而兄弟平面纹丝不动（「注记不是导航」——产品真 bug，修复 = pick 复用 adoption 通道双写）；② Chrome CSSOM 把 style 属性序列化成 `rgba(245, 158, 11, 0.75)` 带空格，断言找无空格串——squash 去空白后匹配（DOM 观察的第九课：getAttribute 是 CSSOM 规范化后的串，不是你写的字面量）。
+- 【全家族回归（七批前台逐批——OOM 纪律第三窗）】qa 批 pass 11 · 412.1s ｜ t21 批 7 · 194.1s ｜ t22 批 2 · 65.9s ｜ t24 批 9 · 124.4s ｜ t25 批 9 · 498.9s ｜ t26 批 10 · 545.2s ｜ t27 批 6 · 230.7s（t270-t273 + t276 + **t278 首战**）——**合计 pass 54 · solo-recovery 0 · real-fail 0 · wall 2071.2s**（--summary 机器拷贝）；roster 恒等 21；两轮 build 均首试即过 + watchdog 复活；裸 tsc 0。
+- 【收尾】worklog（本条）+ commit/push + 环境清理（Task 86 双杀 + port FREE 验证）。
+
+Stage Summary:
+- **「正交查看器的最后一课是共享一个点」**：切片、clip、上下文回声、体素读数都在，但三张图互相不知道对方在哪——crosshair 联动 + 点击拾取把「三张并排的图」变成「一个体积的三个窗口」；这是 RELION _display 与医学影像查看器的共同经典，本窗补齐
+- 「pick = 导航而非仅注记」：首跑 4 FAIL 里最大的那个——crosshair 线随拾取移动而平面不动，是「画了线没有开车」；修复 = 拾取同时写 positions（线）与 follow（平面），一条通道是注记、两条才是导航
+- 「卡片文案的诚实度要跟随行的事实」：helper 三态是 t277 第三态的最后一英里——行级 tooltip 已精确，卡片级还在对 gone 行说「click one to open」；变体由 recent 的 exists 形态计算，文案与事实对齐
+- 「轻量注入配方的诞生」：t277 的 gone 见证需要第二画布真死一 job；t278 发现 helper 见证不需要——POST 连接是纯 upsert（不探测），record 可纯手造，exists 的分级只查 DB——「能注入的就不必真死」；三轮 reload 刷数据、键级快照恢复、套件自拆
+- 遗留（下轮候选）：updatedAt 治理（继续让位）；ortho 瓦片点击拾取与框选缩放的潜在手势冲突（未探测到但值得留心）；3D viewer 剩余深化方向：截面 PNG 一键导出、bookmark 里携带焦点交点；产品功能候选：Topaz wrapper 深化
+
+
+- 【开局四件套】尾部 = Task 277（7623ccd）零过时；origin/main..HEAD 空（已 push）；净场良好（PORT 3000/3022 FREE，watchdog 拉起 200 + roster 21）。cron 模板「Task 13」照例不认。
+- 【QA】qa68 26 断言 GREEN + t273-family-report + t276-empiar-fidelity + qa00 + qa63 五哨兵全 GREEN；agent-browser 活体目检 console 0 / errors 0 / 画布 21 jobs。无 bug。
+- 【立项】Task 277 遗留两项合并交付：① 三平面正交查看器「焦点交点」深化（crosshair 三瓦片联动 + 点击拾取 + 体素级步进——惯例④⑤）；② resume 卡 helper 文案随记录形态三态自适应（「click one to open」对 gone 行不适用——Task 277 遗留终结）。套件 scripts/t278-ortho-crosshair.mjs（B 相源码台账 + C 相 ortho 活体 + D 相 helper 三态轻量注入活体）。
