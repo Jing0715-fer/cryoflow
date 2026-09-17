@@ -26,6 +26,10 @@ CryoFlow lets you design cryo-EM processing pipelines the way you think about th
 ```bash
 # 1. Install dependencies
 bun install        # or npm install / pnpm install
+#                   re-run this after every git pull — the remote-RELION
+#                   feature added `ssh2`, and a stale node_modules fails
+#                   /api/remote/* with "Can't resolve 'ssh2'" (the server
+#                   prints this hint at boot too)
 
 # 2. Configure the database (SQLite, file-based)
 cp .env.example .env

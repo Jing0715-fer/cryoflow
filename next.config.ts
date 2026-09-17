@@ -1,4 +1,52 @@
+import { createRequire } from "module";
+import path from "path";
 import type { NextConfig } from "next";
+
+/* ---------------------------------------------------------------------- */
+/* Dependency guard (t274) — say the fix before the overlay does.         */
+/* ---------------------------------------------------------------------- */
+/* The remote-cluster feature added `ssh2` to package.json. A checkout
+ * whose node_modules predates that (git pull without a reinstall) compiles
+ * every page fine, then detonates on the FIRST /api/remote/* touch with
+ * Turbopack's "Module not found: Can't resolve 'ssh2'" — an overlay that
+ * names the package but not the remedy. Resolving the package HERE, at
+ * config-load time (dev AND build boot), lets the server print the remedy
+ * before the user ever reaches the overlay. Warn-only on purpose: without
+ * ssh2 the app is fully usable except the remote routes, so a hard exit
+ * would punish exactly the local-only users who don't need the dep.
+ *
+ * createRequire is anchored at <cwd>/package.json — the process root for
+ * `next dev`, `next build` and the standalone server alike — so it never
+ * accidentally resolves through Next's own node_modules. */
+const resolveFromRoot = createRequire(path.join(process.cwd(), "package.json")).resolve;
+const missingDeps = ["ssh2"].filter((dep) => {
+  try {
+    resolveFromRoot(dep);
+    return false;
+  } catch {
+    return true;
+  }
+});
+if (missingDeps.length > 0) {
+  console.warn(
+    [
+      "",
+      "--------------------------------------------------------------------------",
+      " CryoFlow: node_modules is out of date — missing " + missingDeps.join(", "),
+      "",
+      " This checkout gained dependencies your install does not have yet",
+      " (ssh2 is the SSH transport for the remote-RELION feature).",
+      " Fix, from the repo root:",
+      "",
+      "     npm install        # or: bun install / pnpm install",
+      "",
+      " Then restart the dev server. Until then, every /api/remote/* route",
+      " fails with \"Module not found: Can't resolve 'ssh2'\".",
+      "--------------------------------------------------------------------------",
+      "",
+    ].join("\n"),
+  );
+}
 
 const nextConfig: NextConfig = {
   output: "standalone",

@@ -129,6 +129,7 @@ where it was sent, and the data follows.
 | node reboot / hard kill | "interrupted remotely (no exit status)" — re-run resumes refine-family from checkpoints |
 | ssh drops mid-run | the job KEEPS RUNNING on the cluster; polling resumes when the connection returns |
 | outputs too big for caps | result line lists what stayed on the cluster and where |
+| local node_modules out of date | boot warning `node_modules is out of date — missing ssh2` + `/api/remote/*` fails with `Can't resolve 'ssh2'` — re-run `npm install` (or `bun install`) and restart |
 
 ## 6. Testing without a cluster: the mock cluster
 

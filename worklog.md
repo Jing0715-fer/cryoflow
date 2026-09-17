@@ -1,3 +1,123 @@
+# CryoFlow Worklog — Remote RELION over SSH
+
+Project: clone of github.com/Jing0715-fer/cryoflow at /home/z/cryoflow
+Goal: local web UI → SSH to cluster → module load relion/<ver> → run + live-monitor RELION remotely.
+
+Environment notes (sandbox):
+- cryoflow dev server runs on port 3000 (started with DATABASE_URL=file:../db/cryoflow.db
+  and CRYOFLOW_DATA_DIR=/home/z/cryoflow/data; global env DATABASE_URL points at
+  /home/z/my-project/db/custom.db and must be overridden).
+- DB: /home/z/cryoflow/db/cryoflow.db (schema pushed).
+- ssh2 + @types/ssh2 installed in cryoflow package.json.
+- Real RELION exists at /home/z/relion-build (used by mock cluster + local runs).
+
+---
+Task ID: 1
+Agent: main
+Task: Setup cryoflow dev environment
+
+Work Log:
+- Cloned repo to /home/z/cryoflow
+- bun install (916 pkgs), added ssh2@1.17.0 + @types/ssh2
+- Created .env / .env.example with DATABASE_URL="file:../db/cryoflow.db"
+- prisma db push + generate (had to override global DATABASE_URL env var)
+- Started dev server on :3000 (log: /tmp/cryoflow-dev.log), verified / and /api/jobs respond (seeded project present)
+
+Stage Summary:
+- cryoflow running; port 3000 belongs to cryoflow now (my-project server stopped)
+- API contract for the remote feature lives in src/lib/remote/types.ts (shared by UI + backend)
+
+---
+Task ID: 2-b
+Agent: mock-cluster-builder (general-purpose)
+Task: Build mock SSH cluster service (login-node emulator on :3022) for testing remote RELION
+
+Work Log:
+- Read worklog + src/lib/remote/types.ts for the API contract (probe fields: uname, moduleSystem, relionModules, …).
+- Created services/mock-cluster/: server.mjs (ssh2 Server, ESM, bun+node compatible), package.json (name cryoflow-mock-cluster; dev = "bun --hot server.mjs", start = "bun server.mjs"), README.md, test-client.mjs (ssh2-based test client — sandbox has NO ssh/sshpass), launch.sh.
+- fs skeleton: fs/home/cryo (.bashrc comment-only, .bash_profile), fs/opt/bin/module (verbatim spec script, chmod +x, shebang first line), fs/projects/.gitkeep. PATH translation in server: /projects/ and /home/cryo/ → <fs root>/… before spawn; spawn bash -c with cwd=FS_ROOT, HOME=fs/home/cryo, PATH=fs/opt/bin:/home/z/relion-build/bin:/home/z/relion-build/deps/mpich/bin:/usr/bin:/bin, detached:true.
+- Deviations from spec sketch (all verified necessary): (1) ssh2 v1.17 needs hostKeys ARRAY, not hostKey — used { hostKeys: [pem] }; (2) host key must be PKCS#1 PEM ("BEGIN RSA PRIVATE KEY"), ssh2 cannot parse PKCS#8 — regenerates if keys/host_key_rsa absent (2048-bit RSA, 0600); (3) env spread order fixed: ...process.env FIRST, then HOME/PATH (spec snippet would have let process.env clobber them); (4) /etc/profile unconditionally resets PATH, breaking the app's `bash -lc` — server exports CRYOFLOW_MOCK_PATH and fs/home/cryo/.bash_profile re-exports PATH from it (file still ends with `true`).
+- Lifecycle: exec+shell channels, stdout→channel / stderr→channel.stderr via pipe(end:false), exit status + close after drain (400ms grace if a grandchild holds the pipe), session 'signal' forwarded to running proc (SIG-prefixed or bare), stream close → SIGHUP direct child only (setsid/nohup grandchildren survive), per-session activeProc routing, try/catch everywhere + uncaughtException guard, [mock-cluster] logging of every exec, sftp intentionally unhandled (auto-refused).
+- Sandbox reaper: background processes still descendant of the tool shell at call end get killed (even setsid+nohup) — copied the dev-server.sh orphaning recipe into launch.sh (script exits right after setsid bun run <mode>, server re-parents to init and survives).
+- Verification (all green): started via bun run start → uname -a + module avail (stdout+stderr split, relion/4.4.1+5.0.1+5.0-beta), module load/list/purge, unknown module rc=1, module help, exit-code propagation (42), login-shell PATH/HOME checks, background job `setsid … & echo CRYOFLOW_PID:$!` → out.txt ("done") landed at fs/projects/cryoflow/t1/, signal forwarding (TERM), foreground cleanup on connection drop (SIGHUP, verified via pgrep), shell channel, sftp refused, wrong password rejected, 3 concurrent exec channels on one connection (~2s wall for two parallel sleep 2s), /tmp/mock-cluster.log clean. Full self-test suite: 15/15 PASS. Killed start-mode instance, restarted via dev script (bun --hot): hot reload verified live (old listener closed via Symbol.for guard, re-listened, no EADDRINUSE, tests still pass). Dev server LEFT RUNNING on 0.0.0.0:3022.
+- ENVIRONMENT GAP (not a mock defect): /home/z/relion-build does NOT exist in this sandbox (task/worklog assumed it does), so `command -v relion_refine` returns nothing. PATH wiring is correct — the moment the real RELION build appears at /home/z/relion-build (task 2-a?), relion_refine resolves with zero changes.
+
+Stage Summary:
+- Mock cluster at /home/z/cryoflow/services/mock-cluster/ — RUNNING now via `bun --hot` (pid: bun --hot server.mjs), log /tmp/mock-cluster.log.
+- Connect: host 127.0.0.1/localhost, port 3022, user cryo, password demo, authMethod password, remoteRoot /projects/cryoflow (translated to services/mock-cluster/fs/projects/cryoflow). module avail → relion/4.4.1, relion/5.0.1, relion/5.0-beta; `module load` records to ~/.lmod/loaded; background jobs + CRYOFLOW_PID:$! + signals work like a real login node; sftp refused.
+- Restart if needed: bash /home/z/cryoflow/services/mock-cluster/launch.sh [start|dev]; then wait ~2s in the same tool call; self-test: node test-client.mjs (15 steps).
+
+---
+Task ID: 2-a + 3-a
+Agent: main
+Task: Remote RELION backend — SSH layer, probe, remote-run engine, API routes, engine/dispatch integration
+
+Work Log:
+- src/lib/remote/types.ts — shared contract (RemoteConnection/DTO, RemoteProbe, RemoteRunTarget, RemoteRunInfo, RemoteRunState)
+- src/lib/remote/connections.ts — registry in data/remote-connections.json (0600, secrets never leave the server)
+- src/lib/remote/ssh.ts — ssh2 client pool: serialized per-connection exec queue, tryExec (declining), loginShellScript, remoteStat/remoteMkdir/remoteUpload/remoteDownload, connectionWorks
+- src/lib/remote/probe.ts — module system detect (lmod/envmodules), module avail/spider/whatis parsing, per-module relionHome/mpirun/ctffind resolution, slurm + GPU probe
+- src/lib/remote/remote-run.ts — startRemoteJob (input staging incl. STAR project-relative refs + absolute external refs + path rewriting, wrapper script w/ module load + setsid + exit-file capture, GPU/MPI adaptation), reconcileRemoteJobs (batched SSH poll per connection w/ 4s throttle + heal path), finalizeRemoteRun (sync-back with caps + STAR rewrite to-local + collectOutputs reuse + autoStart passthrough), remoteLogTail, remoteStopRun, remoteInfoFor
+- engine.ts surgical edits: RunRecord.remote field, isRunAlive remote guard, reconcileRealJobs remote skip, parseProgressText export, buildArgv ctffindExe ctx override, collectOutputs export
+- dispatch.ts: startJob(job, {remote}) branch (requestError vs waiting vs started/staging), autoStartPendingDownstream passes the trigger's remote target (remote chains stay remote)
+- Routes: /api/remote/connections (GET/POST), /[id] (PATCH/DELETE), /[id]/test (probe+persist); run route accepts {remote}; jobs GET reconciles remote + enriches DTO with runRemote; stop + log + PATCH/DELETE routes branch on remote records (no local-kill of cluster pids)
+- E2E on the mock cluster: import(local) → ctffind(remote): staging → running (cluster pid) → live progress (99%) → REMOTE[...] result, outputs synced to local mirror, outputs/log routes serve remote runs, stop kills the cluster session
+- CRITICAL FIND: ssh2 under BUN breaks channel EOF/end() (cat>file never terminates) and the 'close' event is unreliable — fixed with the head -c N self-terminating upload protocol + exit-event resolution + close-grace. Verified 300KB binary byte-identical.
+- Mock cluster fixes: EOF forwarding (sshd semantics) + uploaded .sh content path translation (sed post-write)
+
+Stage Summary:
+- Remote backend FULLY VERIFIED E2E against the mock cluster (probe, run, progress, sync-back, log, stop)
+- Mock RELION stubs added: fs/opt/bin/{relion_run_ctffind,relion_motioncorr,relion_refine,relion_preprocess} (python3, realistic STAR/MRC outputs + progress lines)
+- Remaining: UI browser verification, docs, git push
+
+---
+Task ID: 3-b
+Agent: remote-ui-builder (general-purpose, completed work but context-deadline hit before worklog)
+Task: Remote cluster UI — connection manager, run-on-cluster controls, remote badges
+
+Work Log:
+- src/components/workflow/remote-cluster-dialog.tsx (1123 lines) — connection list w/ status dots + active selection (localStorage "cryoflow.remote.active"), add/edit form (host/port/user/auth/remoteRoot/envLines/useSlurm/sync caps, secret keep/clear semantics), Test & probe → probe card (uname, moduleSystem badge, relion module chips clickable to set default, homes/mpi/ctffind, Slurm, GPUs), delete w/ two-step confirm, useRemoteConnections hook, RemoteClusterButton (header)
+- src/components/workflow/remote-run-button.tsx (261 lines) — compact Server-icon trigger + dialog (connection Select, module Select from lastProbe, summary line, empty state → manager), submits via store runJobRemote
+- store.ts — runJobRemote action modeled on runJob (flush params, POST {remote}, 409 busyKind dialect, waiting/staging toast "Sent to cluster", success toast with user@host, inspectId landing)
+- job-card.tsx — remote chip (Server glyph + short host, title=user@host·module·workdir) while running/pending; job-panel.tsx — remote strip + note
+- integration initially landed in job-panel.tsx; the main agent found the DESKTOP surface is job-inspector.tsx and ported the button + strip + formatStagedBytes there (Server icon import, toolbar placement after Re-run/Stop)
+
+Stage Summary:
+- All 6 deliverables exist; tsc + lint clean for the new files; browser-verified by main agent (dialog, probe chips, dispatch, running strip, result, log tab, zero console errors)
+
+---
+Task ID: 4
+Agent: main
+Task: E2E verification (mock cluster + agent-browser) and hardening fixes
+
+Work Log:
+- Full backend E2E against the mock cluster: probe (3 relion modules + homes), dispatch (staging→running), live progress (parseProgressText over SSH tail), completion (REMOTE[...] result + sync-back + outputs route), log streaming, stop (cluster session kill + record finalize)
+- Fixed: Bun+ssh2 channel EOF broken → head -c N self-terminating uploads, exit-event resolution, close-grace window; verified 300KB binary byte-identical
+- Fixed: stale/recycled cluster pid → .cf-pid records pid + /proc starttime (field 22), alive-check verifies both
+- Fixed: stop leaves !done record (SIGKILL'd wrapper can't write exit file) → stop route finalizes record + sweep heal path finalizes vanished records for non-running jobs
+- Fixed: relative (project-relative) STAR references now stage against the project root (RELION pipeliner convention)
+- Mock cluster: EOF forwarding (sshd semantics), uploaded .sh content path translation, RELION stubs (ctffind/motioncorr/refine/extract with realistic STAR/MRC + progress lines)
+- Dev-server battles (sandbox-only): OOM kills poisoned the Turbopack cache → wedged compiles; rm -rf .next + memory caps + browser-closed warmups fixed it; orphaning launcher at /tmp/cf-dev.sh
+- Browser verification (agent-browser): cluster manager (Mock Cluster listed, probe chips render), Run-on-cluster dialog (connection+module), Send → running strip "cryo@127.0.0.1:3022 · Running on the cluster · pid N", result "REMOTE[cryo@127.0.0.1 · relion/5.0.1]: CTF estimated for 6 micrographs", Log tab streams cluster output, 0 console errors; screenshots /tmp/ui-*.png
+
+Stage Summary:
+- Feature fully verified end-to-end; remaining: docs (done: docs/remote-relion.md + README), commit + push
+
+---
+Task ID: 5
+Agent: main
+Task: Docs, worklog, commit + push to GitHub
+
+Work Log:
+- docs/remote-relion.md (architecture, settings reference, security notes, failure catalog, mock cluster, roadmap) + README feature section + quick-start
+- .gitignore: /demo-mics/ (local fixtures); mock-cluster runtime state cleaned (fs/projects/cryoflow, keys/, .lmod)
+- Lint: all new files clean (remaining errors pre-existing in untouched files); tsc clean for all new/edited files
+- Rebased onto upstream main (t258/t259 security commits — isLocalRequest widened; no conflicts, re-verified tsc + live API after rebase)
+- Committed (41 files, +5613) and PUSHED to github.com/Jing0715-fer/cryoflow main: 82b6df8..5b737b3
+
+Stage Summary:
+- Feature shipped: remote RELION over SSH (module-load versioning, staging, live monitoring, sync-back, stop/resume, mock cluster for testing)
+- Live in preview: app :3000, mock cluster :3022 (cryo/demo), "Mock Cluster" connection preconfigured with probe data
 
 ## Task 207 (2026-09-15, 补档于 18:32 窗口——本条目为跨窗遗产修复)
 
@@ -1450,3 +1570,19 @@ Stage Summary:
 - 「嵌套世界要隔离」：自我引用的套件（t273 测 family-run）必须 FAMILY_REPORT 隔离共享可变状态——「测试不污染生产数据」在报告文件上的版本；真实报告的「不存在」就是隔离律的活体证人
 - 「fs 视图会延迟」：环境重建中 ls 报 No such file 而文件其实在——盘点要在重建完成后重做，结论只在两次独立读取一致时成立
 - 遗留（下轮候选）：exists=false 的 UI 活体见证；updatedAt 治理；EMPIAR 真数据回归（让位）；persist//relion-projects/ 的归属确认（环境层数据树，产品无引用，@source not 只是绕过不是回答）
+
+## Task 274 (2026-09-17, 用户报障窗口 — "Module not found: Can't resolve 'ssh2'")
+
+- 【报障与诊断】用户贴来 Turbopack overlay：`./src/lib/remote/ssh.ts:23:1 Module not found: Can't resolve 'ssh2'`（import trace → /api/remote/connections/route.ts，Next 16.1.3）。三步定音：①报错行号与 HEAD 逐行比对（fs/path/ssh2 三行 import 恰在 21/22/23 行）→ 用户跑的就是最新代码，不是旧 checkout；②GitHub 上 package.json（dependencies: ssh2 ^1.17.0、devDependencies: @types/ssh2）与两份 lockfile（bun.lock + package-lock.json）全部带 ssh2 → 清单健康；③错误是 RESOLUTION 失败（包不在 node_modules）而非打包失败（那会报 cpu-features 之类）→ 根因 = 用户本地 git pull 后未重装依赖——「能起 next dev 说明装过 next，但那次安装早于 remote 功能引入 ssh2」。
+- 【沙箱重建恢复（第二次，t273 同款遭遇）】/home/z/cryoflow 消失、/home/z/my-project 回退为陈旧脚手架（worklog 停在旧 Task 5 快照）。恢复沿用 t273 配方：origin/main 为真源——浅克隆后发现真源已前进到 d8d9f5c（t273：BATCHES 注册表 + family-report + socket.io-client 补声明），ff-only 合并；仓库落回规范位 /home/z/my-project（dev-server.sh 与全部 QA 脚本的硬编码路径所在）；两支 worklog 血统合流（沙箱旧 Task 1–5 + 仓库 Task 207+，单档案零丢失）；bun install 补齐 ssh2/socket.io-client；全局 DATABASE_URL 投毒（file:.../custom.db）在 db:push 与 dev 启动两处显式覆盖；mock cluster :3022 + dev :3000 看门狗配方拉起；Mock Cluster 连接重建 + 实探针落档（envmodules、3 个 relion 模块、externals、durationMs 177）。
+- 【t274 加固：让这类失败自报家门】①next.config.ts 依赖卫兵——createRequire 锚定 <cwd>/package.json，boot（dev+build）即 resolve ssh2，缺失则打印 12 行行动性警告（点名包名、给出 npm/bun/pnpm install 命令、预告 /api/remote/* 会炸）——overlay 只报包名不报药方，卫兵把药方说在 Next banner 之前；warn-only：无 ssh2 时除 remote 路由外全部可用，硬退会惩罚恰好只做本地的用户。②.env.example 补档——README 第 2 步 `cp .env.example .env` 自 Task 5 起就是空指针（.gitignore 的 `.env*` 把模板一起吞了 272 个任务无人发现），`!.env.example` 例外 + 带注释模板（DATABASE_URL 相对 prisma/ 解析 + CRYOFLOW_DATA_DIR 说明）。③bun.lock 补 socket.io-client 条目（t273 改了 package.json 但漏了 bun.lock 再生——frozen-lockfile 场景必炸）。④README Getting started 第 1 步加「每次 git pull 后重跑 install」注记；docs/remote-relion.md 失败目录新增 stale-node_modules 一行。
+- 【验证】卫兵双分支活体：stash node_modules/ssh2 → boot → 警告先于 ▲ Next.js banner 打印 → 恢复 → boot 零警告；/api/remote/connections 200（连接 + lastProbe 全量 DTO）；/ 200；agent-browser 双面（主页 + clusters dialog：「Mock Cluster — reachable — last probe ok in 0.2s」+ 三模块 chips 可点设默认）+ 页面/控制台 0 错误 + 桌面/移动双定妆照。
+- 【用户的本地修法（写给报障人）】`npm install`（或 `bun install`）→ 重启 dev server；fresh clone 则照 README 四步走——现在 .env.example 真的存在了。
+- 【收尾】worklog（本条）+ commit/push + 提醒用户轮换已在对话中明文暴露的 GitHub PAT。
+
+Stage Summary:
+- 「清单健康，安装过期」：报错行号 = HEAD 指纹 + 三份清单全带 ssh2 → 判定用户侧 pull 未重装；「resolution 失败 ≠ 打包失败」是这次诊断的分水岭
+- 「药方要说在 overlay 前面」：boot 时卫兵先于用户到达失败点——overlay 报包名，卫兵报修法；warn-only 尊重只做本地的用户
+- 「README 的第一步不能是空指针」：.env.example 被 `.env*` 吞掉 272 个任务无人发现——gitignore 例外语法与模板文件必须成对提交
+- 「沙箱重建第二次」：t273 的恢复配方（origin/main 为真源 + 规范位重装 + 脚本化拉起）本次复用即中——判例成文的价值；bun.lock 漏再生是 t273 的账单，本窗口代付
+- 遗留（下轮候选）：卫兵清单目前只有 ssh2——未来新增 serverExternal 级依赖时应扩卫兵数组而非另起炉灶；exists=false 的 UI 活体见证（t272 遗留）；EMPIAR 真数据回归（连续让位）
