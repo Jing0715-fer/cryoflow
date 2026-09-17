@@ -96,10 +96,19 @@ if train_mode:
     sys.stdout.flush()
 
     loss = 0.62
-    for epoch in range(1, 6):
+    for epoch in range(5):
         time.sleep(0.6)
         loss *= 0.72
-        print(f"Epoch {epoch}/5 — training loss {loss:.4f}, test loss {loss * 1.13:.4f}")
+        test = loss * 1.13
+        prec = min(0.91, 0.42 + epoch * 0.11)
+        rec = min(0.88, 0.55 + epoch * 0.07)
+        # the WILD topaz shape (what real topaz's train prints and the app's
+        # topaz-training parser reads): "## epoch N" tagged lines, key=value
+        # metrics, the held-out split on its own "## test" line. The invented
+        # one-line shape t265 first printed parses to ZERO points — the
+        # chart self-hides; a stub must speak the contract's dialect.
+        print(f"## epoch {epoch} training loss={loss:.4f} precision={prec:.3f} recall={rec:.3f}")
+        print(f"## test loss={test:.4f} precision={min(0.88, prec - 0.03):.3f} recall={min(0.85, rec - 0.02):.3f}")
         sys.stdout.flush()
 
     # the trained model: a small distinctive binary (the e2e asserts the

@@ -1284,3 +1284,25 @@ Stage Summary:
 - 「本地流的不变量在跨世界复用时会变成暗雷」：outDir 必存在的本地前提在 remote 预合成流里不成立，ENOENT 被 catch 吞成静默回落——**首跑的两 FAIL 是 e2e 的价值兑现**：不绿的时候它说的是真话
 - 「staging 计数是第一证人」：7 vs 8 之差比读 argv 更早收敛排查方向；「每一层都有自己的证人」判例再应用
 - 遗留（下轮候选）：staging 心跳的活体推进断言（需 >10s 真实 staging）；topaztrain 的 test-set loss 曲线可视化（training_plot 目前只是诊断面）；molstar-embed 存量 tsc 噪音；updatedAt 治理；家族跑批 --report JSON；EMPIAR 真数据回归（让位）
+
+## Task 266 (2026-09-17, cron 12:18 窗口 trace 1a07549302235a99-cron-agent-loop-202609171220)
+
+- 【开局四件套】尾部 = Task 265（1c08c50，train→pick 集群闭环）——**首次连续零过时**（本窗紧邻上窗，HEAD = 远端 = 摘要 = worklog）。cron 模板「Task 13」过时案照例不认。净场 PORT DOWN → watchdog 拉起 200 + roster 21·16。QA：qa00 GREEN + qa63 SMOKE GREEN + 哨兵 t265/t258 ALL PASS + agent-browser 双空。无 bug。
+- 【巡检与立项】Task 265 遗留首选「test-set loss 曲线可视化」撞上真相：**特性已存在**（parser 三形状/route/图表组件/inspector 挂载全链在树）——立项转为「让曲线第一次被真跑点亮」：qa53 只是往已有 workdir 里播种 fixture 文件，route 的 run.out 分支、Pass B 解析、图表本身从未被真跑验证过。勘察即抓两处真伤：**① route 无门**（t251 类 sibling 漏网——log/fsc 都有 isLocalRequest，topaz-training 的解析结果跨站可读）；**② t265 stub 的自造日志形状解析为 0 点**（numOf 要求 loss[:=]，stub 的裸空格 "loss 0.4464" 不匹配；且同行双 loss 会被 isTest 整行判给 test）——图表对每次 mock 训练自隐藏。
+- 【修复① 门】route 补 isLocalRequest 门 + 威胁模型注释（workdir-derived data——解析出的 epochs 泄露训练日志内容，门随数据走）。ripple 盘点：同源 UI（results-view 报告快照 + inspector 图表）按定义通过；scripts 零 HTTP 消费（qa53 是文件播种）——零波及。
+- 【修复② 野形状】stub 改说真 topaz 的「## epoch N」约定（parser docblock 的 in-the-wild 形状）：key=value 指标行 + test 拆独立行 + precision/recall 齐上（顺带点亮 P/R 视图）。「stub 必须说契约的方言——自造形状不是方言是噪音」（t262 stub 判例的语法版）。
+- 【修复③ 双挂载（本窗真 bug）】首跑取证链（dialog head + 页内 fetch 双探针）锁死：数据全绿（页内 fetch 200·5 epochs）而 section 不在 DOM → 图表只挂 **OverviewTab**，而智能默认让 **completed 作业落 Results** tab（Radix Tabs 卸载非活动页）——**训练曲线在完成作业上永远不可见，除非手动点 Overview**。修复 = results-view 双挂载（FscChart 判例：overview 1364 + results 833 同款双挂）——「图表要长在智能默认会落的地方，否则是装进锦盒的仪表盘」。
+- 【样式细节】best-test epoch 的 ReferenceDot（琥珀填充 + 白描边，FSC 图 0.143 交点的标记语言）——「徽章告诉你停在哪，圆点告诉你发生过什么，过拟合故事一眼可见」。直连条件子组件（非 fragment 包裹——t110 recharts 直子走查法则，t266 断言活体验证：恰一圆点）。
+- 【e2e：t266-topaz-training-curve.mjs，39 断言 ×2 ALL PASS】A 相 demo 真相；B 相台账 7 断言（route 门 + 威胁类注释 + stub 野形状 + 自造形状已死 + ReferenceDot + **results tab 双挂载**）；C 相活体全链——import → **探针（load-bearing，非仪式）** → LoG pick(集群) → topaztrain(集群) → run.out 回同步含五个野形状 epoch → route 内容（5 epochs 全携 train/test loss + P/R + 曲线下降 0.446→0.120 + source=run.out）→ **门矩阵**（bare/cross 403 + route-speak，node 侧发——t259 判例第四次应用）→ **inspector 图表**（Results tab 默认即见：SVG surface + 五 epoch 徽章 + final loss + best test + ↓N% + 恰一 best-test 圆点 + 双损失曲线）→ **P/R 切换**（同 surface 渲染）→ 定妆照；D 相 console 0；job 粒度清场 roster 21。
+- 【工艺判例】①**「数据在而 UI 不在」要双探针取证**——dialog head（哪个 inspector 开了）+ 页内 fetch（数据层是否到位）一次跑锁死 tab 层问题，「断言要落在失败的层」（t254 判例反用）；②**点击前 fresh goto**（t258 配方）——Phase C 一分钟的 API 期货让画布重渲染，陈旧 locator 的 force-click 被静默吞掉；③**probe 是 load-bearing 不是仪式**——t266 首跑省了 test 探针调用，externals 为 null → externalFor 回落本地 PATH → 本地口吻报错（诚实但误导）。
+- 【真发现（下窗候选）】**未探针连接的裸 API 派发产生误导性本地报错**：UI dialog 因模块列表来自 lastProbe 天然走不到，纯 API 面——修复方向 = remote 层对 lastProbe 缺席的派发给出点名「先 Test」的诚实错误（或 externalFor 报错文案按 probeless 分世界）。
+- 【全家族回归】六批前台：qa 批 pass 10 · 397.8s ｜ t21 批 pass 7 · 189.0s ｜ t22 批 pass 2 · 65.8s ｜ t24 批 pass 9 · 122.7s ｜ t25 批 pass 9 · 468.4s ｜ t26 批 pass 7 · 354.4s（t260–t266）——**合计 pass 44 · solo-recovery 0 · real-fail 0 · wall ~1598s**；t266 收编花名册 43→44（--filter 亲跑验收 26.8s）；roster 恒等 21。
+- 【定妆照】**shots-qa/t266-training-curve.png**（训练曲线在 Results tab 点亮：双损失 + best-test 圆点 + 徽章带）。
+- 【收尾】worklog（本条）+ commit/push + 环境清理（Task 86 双杀 + mock cluster 击杀 + port FREE 验证）。
+
+Stage Summary:
+- **「特性存在 ≠ 特性活着」**：全链组件在树、报告路径有 qa52/qa53 证人，但真跑路径零证人——两处真伤（无门 + 形状不通）和一处 UX 死角（双挂载）全在第一次真跑里现形；「e2e 的价值不在绿，在第一次让真数据走完全程」
+- 「stub 必须说契约的方言」：自造日志形状不是近似是对不上——parser 只认野形状，stub 改说真 topaz 的「## epoch」约定后整条链自然点亮（t262「stub 契约对齐真产物」的语法版）
+- 「图表要长在智能默认会落的地方」：Overview-only 挂载 × completed→Results 默认 = 永远错开；双挂载（FSC 判例）让曲线在完成的一刻就在眼前——「可发现性是 UI 的一部分」
+- 「取证要双探针」：node 侧绿 + 页侧空是另一种 bug——dialog head + 页内 fetch 一次跑分辨「哪层在说谎」，断言落在失败的那层
+- 遗留（下轮候选）：未探针连接的裸 API 派发诚实化（remote 层 probeless 分世界文案）；staging 心跳的活体推进断言；molstar-embed 存量 tsc 噪音；updatedAt 治理；家族跑批 --report JSON；EMPIAR 真数据回归（让位）

@@ -16,6 +16,7 @@ import {
   CartesianGrid,
   Line,
   LineChart,
+  ReferenceDot,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -99,6 +100,19 @@ export function TopazTrainingChart({
       .map((e) => e.testLoss)
       .filter((v): v is number => v != null);
     return vals.length ? Math.min(...vals) : null;
+  }, [data]);
+
+  // the epoch that earned the best test loss — marked on the curve with the
+  // same marker language the FSC chart uses for its 0.143 crossing (t266:
+  // a number in a badge tells you WHERE you ended; the dot shows WHERE it
+  // happened, which is the overfitting story at a glance)
+  const bestTestEpoch = useMemo(() => {
+    let best: { it: number; testLoss: number } | null = null;
+    for (const e of data?.epochs ?? []) {
+      if (e.testLoss == null) continue;
+      if (!best || e.testLoss < best.testLoss) best = { it: e.it, testLoss: e.testLoss };
+    }
+    return best;
   }, [data]);
 
   if (error && !data) return null; // silent — the chart is an enhancement
@@ -252,6 +266,20 @@ export function TopazTrainingChart({
               }
               contentStyle={{ fontSize: 11, borderRadius: 6, padding: "4px 8px" }}
             />
+            {/* best-test marker — direct conditional child (NOT fragment-wrapped:
+                recharts walks direct children; the t110-era law that guards
+                the six Lines above guards this dot too) */}
+            {mode === "loss" && bestTestEpoch ? (
+              <ReferenceDot
+                x={bestTestEpoch.it}
+                y={bestTestEpoch.testLoss}
+                r={5}
+                fill={AMBER}
+                stroke="#ffffff"
+                strokeWidth={1.5}
+                isFront
+              />
+            ) : null}
             {/* all six curves stay mounted; `hide` swaps the view — recharts
                 walks direct children, so a fragment-wrapped conditional
                 branch would silently drop the Lines (recharts 2.15 + React 19) */}

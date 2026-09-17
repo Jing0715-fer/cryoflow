@@ -64,6 +64,7 @@ import {
 import type { JobDTO } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { FscChart } from "./fsc-chart";
+import { TopazTrainingChart } from "./topaz-training-chart";
 import { MrcImage } from "./mrc-image";
 import { MolViewer, type MolViewerTarget } from "./mol-viewer";
 import { useAnchorParent } from "./anchor-parent";
@@ -831,6 +832,13 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
 
       {/* FSC curve (live: half-map FSC while refining, masked FSC after postprocess) */}
       <FscChart jobId={job.id} running={job.status === "running"} projectId={job.projectId} />
+
+      {/* Topaz training curve (t266): the Overview tab carries this chart
+          too, but the smart default lands a COMPLETED job on Results — an
+          Overview-only mount made the curve invisible exactly when it was
+          finished and most worth reading. Dual-mount like the FSC chart;
+          the component self-hides when the log has no epoch progress. */}
+      <TopazTrainingChart jobId={job.id} running={job.status === "running"} />
 
       {/* Maps & images gallery */}
       {mrcFiles.length > 0 && (

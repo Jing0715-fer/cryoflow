@@ -5,6 +5,7 @@ import { findEffectiveJob } from "@/lib/link";
 import { getRun } from "@/lib/relion/engine";
 import { cachedFileCompute } from "@/lib/relion/statcache";
 import { parseTopazTraining, type TopazEpoch } from "@/lib/relion/topaz-training";
+import { isLocalRequest } from "@/lib/http-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -23,8 +24,19 @@ type RouteContext = { params: Promise<{ id: string }> };
  *
  * Tolerant parser (see topaz-training.ts) — a log with no recognizable
  * progress returns [] and the chart self-hides.
+ *
+ * Hardening (t266, the t251-class sibling sweep): workdir-derived data —
+ * the same drive-by door + Host pin pair the log/fsc routes carry (see
+ * http-guard for the threat model). The parsed epochs LEAK the training
+ * log's contents cross-site; the door rides along.
  */
-export async function GET(_request: NextRequest, context: RouteContext) {
+export async function GET(request: NextRequest, context: RouteContext) {
+  if (!isLocalRequest(request)) {
+    return NextResponse.json(
+      { error: "Cross-site access to job data is not allowed" },
+      { status: 403 }
+    );
+  }
   try {
     const { id } = await context.params;
     const job = await findEffectiveJob(id); // resolves soft links to the original
