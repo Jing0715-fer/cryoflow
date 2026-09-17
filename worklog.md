@@ -1430,3 +1430,23 @@ Stage Summary:
 - 「守卫也是契约」：isLocalRequest 让裸 fetch 在 registry 面前吃闭门羹——套件的 SH 头不是装饰；「断言的假设要先验证世界按假设运转」的 API 守卫版
 - 「async 化是签名事件」：函数从 sync 变 async，类型、调用点、三路由、既有源码断言四处同步——「一个签名变更的半径要先画出来再动手」；t270 的 real-fail 是这半径的第一张账单
 - 遗留（下轮候选）：exists=false 的 UI 活体见证（需手工注入 record——正常流转已不可达，正是修复的意义）；家族跑批 --report JSON + 批次一等公民化（十年界分批仍手动）；updatedAt 治理；EMPIAR 真数据回归（让位）
+
+## Task 273 (2026-09-17, cron 19:18+20:18 双窗 trace 1a07549302235a99-cron-agent-loop-202609171921/2024)
+
+- 【开局即事故：环境重建撞脸】19:18 窗完成 Task 273 实现（family-run 批次一等公民化 + --report JSON）与 t273 套件两连 ALL PASS，家族回归跑到 t27 批时发现两案（嵌套报告污染 + roster 字面断言过期）。20:18 窗开局实证刷新撞上**环境重建现场**：本地 HEAD 被回滚到 83a5180（时间线 B 的 Task 262 快照，与 origin/main 分叉 1:1），工作区叠着陌生物（mini-services/relion-ws、persist/ 370M、relion-projects/ 2.9G「real-relion-验证项目」、tool-results/ root 700、qa-shots-17），server 500，roster 0。
+- 【取证与恢复（未盲动）】①git fetch 取证：**origin/main = a03a29f（Task 272）完好**——所有已交付工作在 GitHub 上是真值；②本地 worklog 未提交改动 = 时间线 B 的 Task 263/264 条目 + gitignore `/test` 锚定——**远程已是超集**（Task 263-272 十条目全在 + 锚定已整合），本地残骸可安全丢弃；③`git reset --hard origin/main` 归位；④工作树叠着旧时间线的 **untracked src 残骸 24 项**（fs/clone/picker/schedules、executor.ts、commands.ts、dto.ts——HEAD 里不存在却引 system.ts 的旧导出）→ `git clean -f src/` 清除；⑤package.json 缺 socket.io-client 声明而 executor.ts 引用它（t262 时代的历史遗留，旧 node_modules 有存货、环境重建后蒸发）→ npm install 补声明。
+- 【build 九试三课】环境重建后的第一次 OOM rebuild 连败：①Turbopack EACCES 读 root 的 tool-results/ → outputFileTracingExcludes 四目录排除；②panic 在 globals.css 的 PostCSS loader（"unexpected end of file" ×3）——dmesg 实锤 OOM（RSS 2.4GB 被杀），真凶 = **tailwind v4 自动内容检测扫全项目**，3.3GB 环境数据树撑爆 loader 内存 → globals.css 加 `@source not` 四行排除（首试括号语法错，「@source paths must be quoted」——v4 语法无括号）；③通过。「源代码自洽的树也会被环境残骸拖垮：构建的内存账单里有环境的份额」。
+- 【世界重建三件】DB 表消失（Prisma P2021）→ `prisma db push` 重建 schema；demo 态 0 jobs → restore-gallery.py 两跑复活（首跑只建 project，二跑 roster 21 满血——脚本自身的幂等分两步）；QA Refine3D workdir 无 seed → qa67-seed-volume 重播（t25 判例预防性执行）。qa00 GREEN + qa63 GREEN 复验。
+- 【Task 273 收尾（上窗实现经 fs 延迟效应幸存于工作树）】19:18 窗的 family-run.mjs 改动（+212 行）与 t273-family-report.mjs 在 reset 之后依然在磁盘上（环境 fs 视图延迟，ls 曾短暂失明报 No such file）——按现状补上窗发现的两案：①**FAMILY_REPORT 隔离律**：REPORT_FILE 支持环境变量覆盖，嵌套世界（套件内 spawn 的 family-run 子进程）读写自己的报告文件，外层积累永不被自家成员的 --reset 抹掉（活体案：t27 批的报告被 t273 自己 reset 成单条目）；②**roster 断言动态化**：C1 覆盖行断言从输出解析 declared/covered 对比，不写死「50 suites」（t273 收编瞬间它自己就挂在这行字面量上）。
+- 【e2e：t273-family-report.mjs，26 断言 ×2 ALL PASS】B 相 11 断言（BATCHES 注册表 + 未知批 exit 2 + 孤儿检查 + FAMILY_REPORT 覆盖 + merge 写盘 + runSuiteMs 三点记账 + attempts 词汇 + 550s 守卫 + --summary/--reset）；C 相活体 14——--batches 七批全覆盖零孤儿（动态 roster 断言）→ 未知批拒 + 列可用 → --reset 清 → 空 summary 诚实语 → **--batch t22 真跑**（报告键 t22：pass 2、per-suite verdict/attempts/ms、wallMs/ISO lastRun）→ --summary 说 t22+TOTAL → --filter qa00 并存两键（merge 非 clobber）→ **健康守卫活体**（伪造 580s wall → 重跑同键 → ⚠ 报 600s ceiling → 真跑覆盖假值自愈）；D 相 reset 不留垃圾；**真实报告全程零触碰（隔离律的活体自证：套件跑完 scripts/.family-report.json 仍不存在）**。
+- 【家族回归 + 顺手一修】七批 --batch 模式（逐批单独调用）：qa 10·398.9s ｜ t21 7·190.6s ｜ t22 2·65.6s ｜ t24 9·123.7s ｜ t25 9·472.8s ｜ t26 10·545.0s（t261 首挂 ENOENT——data/remote-connections.json 在全新沙盒不存在，产品层本有 existsSync 空态守卫，套件裸读是脆断言 → 容忍空态修复后批内全绿）｜ t27 4·177.8s——**合计 pass 51 · solo-recovery 0 · real-fail 0 · wall 1974.4s**；roster 恒等 21。
+- 【本轮的回报】`family-run --summary` 直接产出上面那段回归数据——worklog 的回归行第一次从机器报告拷贝而非终端手抄；下窗的七批回归 = 七条 --batch 命令 + 一条 --summary。
+- 【收尾】worklog（本条）+ commit/push + 环境清理（Task 86 双杀 + port FREE 验证）。
+
+Stage Summary:
+- **「批次一等公民 + 报告即真值」**：十年界分批从 agent 记忆变成 BATCHES 注册表（--batch/--batches + 覆盖检查 + 孤儿示警）；跑批 verdict 落 JSON（merge 非 clobber），--summary 机器可读——「批边界是工具超时的单位」判例从记忆变成守卫（550s 预警）
+- 「环境重建的取证律」：git fetch 先于一切判断——origin/main 是唯一真值，本地分叉按超集关系裁决（远程含全部内容 → 残骸可弃）；untracked 残骸让「干净的工作树」说谎（git status 干净但 src 里叠着 24 个旧文件）——「reset --hard 清不掉 untracked，构建失败先查谁在被编译」
+- 「构建的三层内存账单」：file tracing 扫目录（EACCES 即死）→ tailwind 内容检测扫大文件树（OOM 即死）→ turbopack 引擎本身——每层都有排除/隔离旋钮，「环境的残骸要有名字地被排除，而不是被假装不存在」
+- 「嵌套世界要隔离」：自我引用的套件（t273 测 family-run）必须 FAMILY_REPORT 隔离共享可变状态——「测试不污染生产数据」在报告文件上的版本；真实报告的「不存在」就是隔离律的活体证人
+- 「fs 视图会延迟」：环境重建中 ls 报 No such file 而文件其实在——盘点要在重建完成后重做，结论只在两次独立读取一致时成立
+- 遗留（下轮候选）：exists=false 的 UI 活体见证；updatedAt 治理；EMPIAR 真数据回归（让位）；persist//relion-projects/ 的归属确认（环境层数据树，产品无引用，@source not 只是绕过不是回答）

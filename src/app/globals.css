@@ -1,6 +1,19 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* t273 — the box's environment layer drops LARGE data trees into the repo
+   root (relion-projects/ 2.9G, persist/ 370M, tool-results/ — none of them
+   product code). Tailwind v4's automatic content detection scans the whole
+   project tree as candidate class sources; on a 4GB box that scan alone
+   OOM-kills the PostCSS loader mid-build ("evaluate_webpack_loader failed:
+   unexpected end of file" — three identical panics on 2026-09-17). Excluded
+   by name: the product's class sources live in src/ and that is where the
+   detector should look. */
+@source not "../../relion-projects";
+@source not "../../persist";
+@source not "../../mini-services";
+@source not "../../tool-results";
+
 @custom-variant dark (&:is(.dark *));
 
 /**

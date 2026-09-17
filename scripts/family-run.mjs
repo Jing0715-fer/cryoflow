@@ -19,7 +19,20 @@
 // Usage:
 //   node scripts/family-run.mjs                 # the whole family, serial
 //   node scripts/family-run.mjs --filter t249   # only suites whose name contains "t249"
-//   node scripts/family-run.mjs --list          # print the roster, run nothing
+//   node scripts/family-run.mjs --batch t27     # a FIRST-CLASS batch (the decade boundary)
+//   node scripts/family-run.mjs --batches       # list the batches + their members, run nothing
+//   node scripts/family-run.mjs --list          # print the roster (with batch tags), run nothing
+//   node scripts/family-run.mjs --summary       # print the family summary from the last reports, run nothing
+//   node scripts/family-run.mjs --reset         # delete the accumulated report file, run nothing
+//
+// t273 — batches are first-class: the decade boundary IS the batch boundary
+// (the t26 batch grew to 12 suites and HAD to be split — the 600s tool
+// ceiling is a batch boundary, a law that used to live only in the agent's
+// memory). Every run writes a machine-readable report
+// (scripts/.family-report.json), one entry per batch key, MERGED not
+// overwritten — after the seven foreground batches the file IS the family
+// truth, and --summary speaks it so the worklog never hand-copies numbers
+// again.
 //
 // Self-test hook (the runner testing its own retry law):
 //   FAMILY_DRILL=t249 node scripts/family-run.mjs --filter t249
@@ -32,7 +45,7 @@
 // Per-suite timeout: 240s (t223 carries 155 assertions; the slowest family member).
 
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
@@ -92,29 +105,46 @@ const FAMILY = [
   "t270-run-resume.mjs", // the connection's run résumé: the dialog aggregates total/completed/failed + the ≤3 newest ledgers — a stopped run speaks only its staged leg (Task 270)
   "t271-resume-jump.mjs", // the résumé becomes an index: a jumpable entry is a real button (name + ledger + hover arrow) that closes the dialog and opens that job's inspector; a deleted job's record leaves with it (Task 271)
   "t272-cross-canvas-resume.mjs", // the cross-canvas loop closes: a second project's run renders as a history row that NAMES the canvas it lives on (per-entry existence), and deleting that project sweeps its records with it — no orphans (Task 272)
+  "t273-family-report.mjs", // the runner tests itself: first-class batches (decade boundary), the merged JSON report, --summary/--reset, and the 600s-ceiling health guard (Task 273)
 ];
 
-// ---- CLI -------------------------------------------------------------------
-const args = process.argv.slice(2);
-const flagOf = (name) => {
-  const i = args.indexOf(name);
-  return i >= 0 ? args[i + 1] : null;
-};
-if (args.includes("--help") || args.includes("-h")) {
-  console.log(
-    "usage: node scripts/family-run.mjs [--filter <substring>] [--list]\n" +
-      "  FAMILY_DRILL=<suite>  drill the solo-retry path (first attempt of <suite> fails)",
-  );
-  process.exit(0);
-}
-const filter = flagOf("--filter");
-if (args.includes("--list")) {
-  console.log(`FAMILY ROSTER — ${FAMILY.length} suites (serial by law, solo-retry for the transient):`);
-  for (const s of FAMILY) console.log(`  ${s}`);
-  process.exit(0);
-}
+// ---- batches are first-class (t273) ----------------------------------------
+// The decade boundary is the batch boundary: qa sentinels, then the t-chronicle
+// split at every two-digit decade (t21x / t22x / t24x / …). A NEW DECADE
+// ("t28…") must be REGISTERED here — the coverage check in --batches names any
+// suite that fell through, so a forgotten registration is loud, not silent.
+const BATCHES = [
+  { name: "qa", match: /^qa/ },
+  { name: "t21", match: /^t21/ },
+  { name: "t22", match: /^t22/ },
+  { name: "t24", match: /^t24/ },
+  { name: "t25", match: /^t25/ },
+  { name: "t26", match: /^t26/ },
+  { name: "t27", match: /^t27/ },
+];
+const batchOf = (file) => BATCHES.find((b) => b.match.test(file))?.name ?? null;
 
-// ---- paint -----------------------------------------------------------------
+// The accumulated report (one JSON file, one entry per batch key, MERGED per
+// run). scripts/.family-report.json — a dotfile: scratch data, not a deliverable.
+// FAMILY_REPORT (t273's isolation law): the report path is overridable per
+// process. The runner tests itself — t273 spawns REAL family-run children —
+// and without an override the nested runs would read, merge into, and
+// --reset the OUTER run's accumulating report (observed live: the t27
+// family batch's report was wiped to a single entry by its own member's
+// reset). A nested world writes its own file; the outer truth stays whole.
+const REPORT_FILE = process.env.FAMILY_REPORT || path.join(SCRIPTS, ".family-report.json");
+const readReport = () => {
+  try {
+    const parsed = JSON.parse(readFileSync(REPORT_FILE, "utf8"));
+    return parsed && typeof parsed === "object" && parsed.batches ? parsed : { batches: {} };
+  } catch {
+    return { batches: {} };
+  }
+};
+const writeReport = (report) => writeFileSync(REPORT_FILE, `${JSON.stringify(report, null, 2)}\n`);
+
+// ---- paint (defined BEFORE the CLI reads it — the --batches/--summary
+// branches above the old location would have hit the temporal dead zone)
 const C = {
   green: (s) => `\x1b[32m${s}\x1b[0m`,
   yellow: (s) => `\x1b[33m${s}\x1b[0m`,
@@ -124,6 +154,88 @@ const C = {
 };
 const NO_COLOR = process.env.NO_COLOR || !process.stdout.isTTY;
 const paint = NO_COLOR ? { green: (s) => s, yellow: (s) => s, red: (s) => s, dim: (s) => s, bold: (s) => s } : C;
+
+// ---- CLI -------------------------------------------------------------------
+const args = process.argv.slice(2);
+const flagOf = (name) => {
+  const i = args.indexOf(name);
+  return i >= 0 ? args[i + 1] : null;
+};
+if (args.includes("--help") || args.includes("-h")) {
+  console.log(
+    "usage: node scripts/family-run.mjs [--filter <substring>] [--batch <name>] [--batches] [--list] [--summary] [--reset]\n" +
+      "  --batch <name>   run one first-class batch (qa / t21 / t22 / t24 / t25 / t26 / t27)\n" +
+      "  --batches        list the batches and their members (coverage-checked), run nothing\n" +
+      "  --summary        print the family summary from scripts/.family-report.json, run nothing\n" +
+      "  --reset          delete the accumulated report file, run nothing\n" +
+      "  FAMILY_DRILL=<suite>  drill the solo-retry path (first attempt of <suite> fails)",
+  );
+  process.exit(0);
+}
+const filter = flagOf("--filter");
+const batchArg = flagOf("--batch");
+
+// --batches — the batch registry, coverage-checked. A suite that matches NO
+// batch is an orphan: the roster grew, the batch registry did not — loud red,
+// not a silent skip.
+if (args.includes("--batches")) {
+  const orphans = FAMILY.filter((f) => batchOf(f) === null);
+  console.log(`FAMILY BATCHES — ${BATCHES.length} batches over ${FAMILY.length} suites (the decade boundary is the batch boundary):`);
+  for (const b of BATCHES) {
+    const members = FAMILY.filter((f) => batchOf(f) === b.name);
+    console.log(`  ${b.name.padEnd(4)} ${paint.dim(`${members.length} suite${members.length === 1 ? "" : "s"}`)}  ${members.join(", ")}`);
+  }
+  if (orphans.length) {
+    console.log(paint.red(`  ORPHANS — suites matching NO batch (register the decade in BATCHES): ${orphans.join(", ")}`));
+    process.exitCode = 2;
+  } else {
+    console.log(paint.green(`  coverage: every one of the ${FAMILY.length} suites belongs to exactly one batch`));
+  }
+  process.exit(process.exitCode ?? 0);
+}
+
+// --summary — the accumulated report, spoken. The worklog's regression lines
+// are machine-copyable from here on.
+if (args.includes("--summary")) {
+  const report = readReport();
+  const keys = Object.keys(report.batches);
+  if (!keys.length) {
+    console.log(paint.yellow("no family report yet — run a batch (--batch <name> / --filter <s>) and the report will accumulate here"));
+    process.exit(0);
+  }
+  const line = paint.dim("─".repeat(72));
+  console.log(`FAMILY REPORT — ${keys.length} batch${keys.length === 1 ? "" : "es"} on file (${REPORT_FILE.replace(ROOT + "/", "")}):`);
+  console.log(line);
+  let totPass = 0, totSolo = 0, totFail = 0, totWall = 0;
+  for (const k of keys) {
+    const b = report.batches[k];
+    totPass += b.pass; totSolo += b.soloRecovery; totFail += b.realFail; totWall += b.wallMs;
+    const flag = b.realFail > 0 ? paint.red("✗") : b.soloRecovery > 0 ? paint.yellow("↻") : paint.green("✓");
+    console.log(
+      `  ${flag} ${k.padEnd(12)} pass ${String(b.pass).padStart(2)}  solo ${b.soloRecovery}  real-fail ${b.realFail}` +
+        paint.dim(`  wall ${(b.wallMs / 1000).toFixed(1)}s  ${b.lastRun}`),
+    );
+  }
+  console.log(line);
+  console.log(
+    `  ${paint.bold("TOTAL")}          pass ${String(totPass).padStart(2)}  solo ${totSolo}  real-fail ${totFail}` +
+      paint.dim(`  wall ${(totWall / 1000).toFixed(1)}s`),
+  );
+  process.exit(totFail > 0 ? 1 : 0);
+}
+
+// --reset — scratch data, scratched.
+if (args.includes("--reset")) {
+  try { rmSync(REPORT_FILE, { force: true }); } catch { /* already gone */ }
+  console.log(`family report reset (${REPORT_FILE.replace(ROOT + "/", "")} removed)`);
+  process.exit(0);
+}
+
+if (args.includes("--list")) {
+  console.log(`FAMILY ROSTER — ${FAMILY.length} suites (serial by law, solo-retry for the transient):`);
+  for (const s of FAMILY) console.log(`  [${batchOf(s) ?? "??"}] ${s}`);
+  process.exit(0);
+}
 
 // ---- the law, executable ---------------------------------------------------
 const SUITE_TIMEOUT = 240_000;
@@ -232,20 +344,53 @@ const tail = (out, n = TAIL) =>
     .map((l) => `      │ ${l}`)
     .join("\n");
 
-const roster = filter ? FAMILY.filter((f) => f.includes(filter)) : FAMILY;
+// t273 — the roster is chosen by FIRST-CLASS BATCH or by substring, and the
+// report key records which world this run belongs to (a batch key replaces the
+// whole batch entry; an ad-hoc filter gets its own adhoc:<filter> key).
+let roster = null;
+let reportKey = "all";
+if (batchArg) {
+  const batch = BATCHES.find((b) => b.name === batchArg);
+  if (!batch) {
+    console.log(
+      paint.red(`no batch named "${batchArg}"`) +
+        paint.dim(` — the first-class batches are: ${BATCHES.map((b) => b.name).join(", ")} (--batches lists their members)`),
+    );
+    process.exit(2);
+  }
+  roster = FAMILY.filter((f) => batchOf(f) === batchArg);
+  reportKey = batchArg;
+} else if (filter) {
+  roster = FAMILY.filter((f) => f.includes(filter));
+  reportKey = `adhoc:${filter}`;
+}
+if (!roster) roster = FAMILY;
 if (roster.length === 0) {
   console.log(paint.red(`no family member matches --filter ${filter}`));
   process.exit(2);
 }
 
+// The batch health guard (t273): "the 600s tool ceiling is a batch boundary"
+// was agent memory — now it is the runner's memory. If THIS batch key's last
+// recorded wall time approached the ceiling, say so BEFORE burning the time.
+const priorBatch = readReport().batches[reportKey];
+if (priorBatch?.wallMs > 550_000) {
+  console.log(
+    paint.yellow(
+      `  ⚠ the "${reportKey}" batch last took ${(priorBatch.wallMs / 1000).toFixed(0)}s — close to the 600s tool ceiling. Consider splitting at the decade boundary.`,
+    ),
+  );
+}
+
 console.log(
   paint.bold(`\nFAMILY RUN — ${roster.length} suite${roster.length === 1 ? "" : "s"}`) +
-    paint.dim(` · serial by law · solo-retry for the transient · timeout ${SUITE_TIMEOUT / 1000}s`) +
+    paint.dim(` · batch "${reportKey}" · serial by law · solo-retry for the transient · timeout ${SUITE_TIMEOUT / 1000}s`) +
     (drill ? paint.yellow(` · DRILL=${drill} (first attempt of the drilled suite is forced to fail)`) : "") +
     "\n",
 );
 
 const verdicts = { PASS: [], "SOLO-RECOVERY": [], "REAL-FAIL": [], "SKIPPED(SERVER)": [] };
+const runSuiteMs = new Map(); // the deciding attempt's wall time, per suite (the report's ledger)
 const t0 = Date.now();
 
 for (const file of roster) {
@@ -268,6 +413,7 @@ for (const file of roster) {
 
   if (first.code === 0) {
     verdicts.PASS.push(file);
+    runSuiteMs.set(file, first.ms);
     console.log(
       `  ${paint.green("✓ PASS")}         ${file.padEnd(22)} ${paint.dim(secs(first.ms))}`,
     );
@@ -288,9 +434,11 @@ for (const file of roster) {
 
   if (solo.code === 0 && envOk) {
     verdicts["SOLO-RECOVERY"].push(file);
+    runSuiteMs.set(file, solo.ms);
     console.log(`  ${paint.yellow("↻ SOLO-RECOVERY")} ${file.padEnd(22)} ${paint.dim(`solo ${secs(solo.ms)} — the transient, caught in the act`)}`);
   } else {
     verdicts["REAL-FAIL"].push(file);
+    runSuiteMs.set(file, solo.ms || first.ms);
     console.log(paint.red(`  ✗ REAL-FAIL     ${file.padEnd(22)} solo ${secs(solo.ms)} — a verdict, needs a human`));
     if (first.out.trim()) console.log(paint.dim(`      first attempt:\n${tail(first.out)}`));
     if (solo.out.trim()) console.log(paint.dim(`      solo re-run:\n${tail(solo.out)}`));
@@ -312,5 +460,41 @@ console.log(
 if (soloRec.length) console.log(`  ${paint.yellow("transients heard:")} ${soloRec.join(", ")}`);
 if (realFail.length) console.log(`  ${paint.red("real failures:")} ${realFail.join(", ")}`);
 console.log(line);
+
+// ---- the report (t273) ------------------------------------------------------
+// One JSON entry per batch key, MERGED into the accumulated file — the seven
+// foreground batches build the family truth one batch at a time, and --summary
+// speaks it. attempts: 1 = first-try PASS, 2 = heard (solo recovery or real
+// fail), 0 = skipped (the box could not host a verdict).
+try {
+  const suites = roster.map((file) => {
+    const verdict =
+      (verdicts.PASS.includes(file) && "pass") ||
+      (verdicts["SOLO-RECOVERY"].includes(file) && "solo-recovery") ||
+      (verdicts["REAL-FAIL"].includes(file) && "real-fail") ||
+      (verdicts["SKIPPED(SERVER)"].includes(file) && "skipped-server") ||
+      "unknown";
+    const ms =
+      (verdicts.PASS.includes(file) && runSuiteMs.get(file)) ||
+      (verdicts["SOLO-RECOVERY"].includes(file) && runSuiteMs.get(file)) ||
+      (verdicts["REAL-FAIL"].includes(file) && runSuiteMs.get(file)) ||
+      0;
+    return { name: file, verdict, ms, attempts: verdict === "pass" ? 1 : verdict === "skipped-server" ? 0 : 2 };
+  });
+  const report = readReport();
+  report.batches[reportKey] = {
+    lastRun: new Date().toISOString(),
+    suites,
+    pass: PASS.length,
+    soloRecovery: soloRec.length,
+    realFail: realFail.length,
+    skippedServer: verdicts["SKIPPED(SERVER)"].length,
+    wallMs: Math.round((Date.now() - t0)),
+  };
+  writeReport(report);
+  console.log(paint.dim(`  report → ${REPORT_FILE.replace(ROOT + "/", "")} · key "${reportKey}" (--summary speaks the accumulated truth)`));
+} catch (e) {
+  console.log(paint.yellow(`  report write failed (${e.message}) — the verdict above still stands`));
+}
 
 process.exit(realFail.length > 0 ? 1 : 0);

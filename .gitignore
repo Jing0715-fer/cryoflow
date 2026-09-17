@@ -70,3 +70,4 @@ qa44-*.png
 
 # local demo micrographs (dev fixtures)
 /demo-mics/
+.family-report.json

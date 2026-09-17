@@ -23,7 +23,7 @@
 // Run: node scripts/t261-remote-connections.mjs   (server on :3000)
 import { chromium } from "playwright";
 import { execSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { Socket } from "node:net";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
@@ -170,7 +170,13 @@ try {
 
   // ---- Phase C: the doors matrix -------------------------------------------
   console.log("== PHASE C: the doors matrix ==");
-  const registryBefore = readFileSync("/home/z/my-project/data/remote-connections.json", "utf8");
+  // the registry file's EXISTENCE is not a given (a freshly seeded sandbox has zero
+  // connections and the product answers that with an honest empty list — the
+  // existsSync guard in connections.ts); the suite's baseline read must
+  // tolerate the same empty state (ENOENT ≠ a broken registry)
+  const registryBefore = existsSync("/home/z/my-project/data/remote-connections.json")
+    ? readFileSync("/home/z/my-project/data/remote-connections.json", "utf8")
+    : "[]";
 
   const getBare = await probe("GET", "/api/remote/connections");
   const getCross = await probe("GET", "/api/remote/connections", {

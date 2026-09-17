@@ -6,6 +6,15 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  // t273: the box's environment layer drops root-owned scratch dirs into the
+  // repo root (observed: tool-results/, mode 700 root:root) — the file
+  // tracer enumerates the project tree, hits EACCES, and the whole build
+  // dies with "Failed to write app endpoint /page". Excluded by name: the
+  // tracer never needs scratch data, and a directory the shell cannot even
+  // list must not be able to take the build hostage.
+  outputFileTracingExcludes: {
+    "*": ["tool-results/**", "persist/**", "relion-projects/**", "mini-services/**"],
+  },
   // ssh2 (t261-remote's transport) is a Node-only lib whose dynamic
   // requires Turbopack cannot place into ESM chunks ("non-ecmascript
   // placeable asset" on lib/protocol/crypto.js) — keep it OUT of the
