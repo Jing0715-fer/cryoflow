@@ -1368,3 +1368,24 @@ Stage Summary:
 - 「账本条目诞生在阶段结束处」：stagedMs 记在 spawn 交接、syncMs 记在 finalize——不补记不追认，记账点 = 阶段边界；与 DTO 透传到 UI 的完整链路一起，「每一层都说同一个故事」有了时间维度
 - 「工具上限的批边界律」第二次应验：腰斩 → 孤儿 → 按形状清扫 → 单独验收 → 整批重跑——流程已可预期地恢复
 - 遗留（下轮候选）：m+ss 以上时长的可视化打磨（>60s 的 staged 显示 2m05s，可加 tooltip 精确 ms）；updatedAt 治理；家族跑批 --report JSON；EMPIAR 真数据回归（让位）
+
+## Task 270 (2026-09-17, cron 16:18 窗口 trace 1a07549302235a99-cron-agent-loop-202609171620)
+
+- 【开局四件套】尾部 = Task 269（a0414d6，time ledger）零过时（连续五窗）。cron 模板「Task 13」过时案照例不认——**续传摘要再次落后两个身位**（称 Task 267/762c2d4，实际 268、269 已在 14:03 / 15:18 窗交付），真源律第 N 次应验。净场 PORT FREE → watchdog 拉起 200 + roster 21。QA：qa00 GREEN + qa63 SMOKE GREEN + 哨兵 t269/t258/t268 ALL PASS + agent-browser 双空；顺手清掉 t268 哨兵残留的 mock cluster 孤儿（`bun run start`→`bun server.mjs` @3022，父子双杀）。无 bug。
+- 【巡检与立项】remote 可观测性三部曲（probe t268 → heartbeat t268 → ledger t269）完结后的第四幕勘察：**connections dialog 对「集群替用户跑过什么」零可见**——运行记录散落在各 job 的 inspector 里，dialog 只有健康点 + probe 卡，没有 track record。立项 = **集群的简历（run résumé）**：单次运行的账本 → 集群级聚合；顺手兑现 t269 遗留①（账本 tooltip 精确 ms）。
+- 【实现① 聚合函数】remote-run.ts 加 `connectionRunResume(connectionId)`：遍历 readRuns()（mtime 缓存，聚合便宜），`rec.remote?.connectionId` 过滤，done/exitCode 分桶（completed / failed——stop 路由的 137 落 failed 桶），lastRunAt 取 startedAt 最大值，recent 按 startedAt 倒序切 ≤3。配套 `withRunResume(dto)`：total 0 时**整个字段省略**——「没有简历本身就是诚实的状态」（徽章语言：只有发生过的事才配徽章）。
+- 【实现② 每一层都说同一个故事（resume 版）】返回 connection body 的**全部三个路由**都带简历：GET 列表、POST 创建、PATCH 编辑——dialog 的 upsert 整行替换，任何一层返回裸 DTO 都会抹掉列表已显示的历史（「partial 写入也要讲同一个故事」）。helper 放 remote-run.ts 而非 connections.ts——后者被 remote-run import，放那边反向成环。
+- 【实现③ UI：RunResumeCard】dialog 右栏 probe 卡之下（probe = reachability，résumé = track record）：聚合徽标行（N runs · N completed 绿 · N stopped/failed 红 · last toLocaleString）+ recent 3 条（exit code 即色点：emerald/rose/amber-running + type mono + 账本 `staged X · synced Y · N files back`，formatLedgerMs 方言）+ 底注。**formatLedgerMs 从 job-inspector export**（t269 的私有方言提升为共享方言——一个账本语言遍布 remote 世界）。
+- 【实现④ t269 遗留①兑现】inspector 的 data-remote-ledger span tooltip 补精确值（`exact: staged Nms · synced Nms`）——「显示压缩（2m05s），hover 精确（125123ms）：精确数字永不超过一次 tooltip 的距离」。
+- 【e2e：t270-run-resume.mjs，34 断言 ×3 ALL PASS】A 相 demo 真相；B 相台账 7 断言（types + 聚合 + 零运行省略 + GET/POST/PATCH 三路 withRunResume + RunResumeCard 共享方言 + inspector 精确 tooltip）；C 相活体——六微图真 import → 无探针连接 → **C2 POST 响应无 resume 字段（零运行省略契约的活体证明）** → C3 run1 完成 → resume 落地（total 1 · completed 1 · recent[0] staged/synced/syncedFiles）→ C4 run2 完成 → total 2 + newest first（简历会生长）→ **C5 run3 stop 造 failed → 137 入 failed 桶（total 3 · completed 2 · failed 1）** → C6 dialog 徽标 + 3 条目渲染 → 定妆照；D 相 console 0。
+- 【两跑两课（断言的错，不是产品的错）】①首跑 FAIL「newest entry 说完整方言」——run3 是 stopped，sync 腿从未发生，账本诚实只说 staged：**断言的假设要先验证世界按假设运转（t268 判例的 résumé 版）**——stopped 条目改断言「只说 staged 腿（no sync, no lie）」，完整方言断言移到 completed 条目；②二跑 FAIL「file\(s\) back」正则写死——résumé 卡的方言是复数自适应（"3 files back"），照抄 inspector 静态文本害了自己；③定妆照首拍 résumé 卡在 60vh 滚动区下方缺席——scrollIntoViewIfNeeded 先入镜再拍。
+- 【全家族回归】六批前台（逐批调用）：qa 批 pass 10 · 395.8s ｜ t21 批 pass 7 · 193.1s ｜ t22 批 pass 2 · 65.8s ｜ t24 批 pass 9 · 122.5s ｜ t25 批 pass 9 · 438.6s ｜ t26 批 pass 10 · 531.2s（t260–t269）——**合计 pass 47 · solo-recovery 0 · real-fail 0 · wall ~1747s**；t270 收编花名册 47→48（收编验收 = 本窗三连跑，修复断言后两连 ALL PASS）；roster 恒等 21。
+- 【定妆照】**shots-qa/t270-run-resume.png**（RUN RÉSUMÉ 卡：3 runs / 2 completed / 1 stopped/failed 徽标 + 三条目——stopped 红点只说 staged，completed 绿点带 synced · files back）。
+- 【收尾】worklog（本条）+ commit/push + 环境清理（Task 86 双杀 + mock cluster 击杀 + port FREE 验证）。
+
+Stage Summary:
+- **「集群的简历」**：remote 可观测性第四幕——probe 耗时、心跳、单次账本之后，聚合层补齐：一个集群 track record（总数/成败/最近三次的账本）第一次有了自己的面孔；「徽章告诉你发生过什么」的聚合版——零运行的连接连卡都不渲染
+- 「每层同故事」的边界推进：GET/POST/PATCH 三路全带简历——「dialog 的 upsert 是整行替换，裸 DTO 就是历史的橡皮擦」；helper 的归属地选择（remote-run.ts）让依赖图保持单向
+- 「方言要共享不要复制」：formatLedgerMs export 一行改动，inspector 与 dialog 说同一语言——「两个地方说一种话，第三处就会说第三种」
+- 「stopped 的账本不撒谎」：stop 运行的 résumé 条目只有 staged 腿——sync 从未发生就不该被说出；断言先验证世界的假设（t268 判例）与复数方言的正则教训同场应验
+- 遗留（下轮候选）：简历的深度视图（点条目跳转对应 job 的 inspector——简历作为索引）；updatedAt 治理；家族跑批 --report JSON + 分批一等公民化（t270 已暴露 --filter 子串与批次命名的耦合）；EMPIAR 真数据回归（让位）

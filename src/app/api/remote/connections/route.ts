@@ -6,6 +6,7 @@ import {
   toConnectionDTO,
   upsertConnection,
 } from "@/lib/remote/connections";
+import { withRunResume } from "@/lib/remote/remote-run";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +27,13 @@ export async function GET(request: NextRequest) {
   if (!isLocalRequest(request)) {
     return NextResponse.json({ error: "Cross-site access is not allowed" }, { status: 403 });
   }
-  return NextResponse.json({ connections: loadConnections().map(toConnectionDTO) });
+  // t270 — each connection rides its run résumé (aggregate over the run
+  // records). Zero runs → the field is OMITTED: "no résumé" is the honest
+  // state and the UI renders no card for it (the badge language: only
+  // things that happened get badges).
+  return NextResponse.json({
+    connections: loadConnections().map((c) => withRunResume(toConnectionDTO(c))),
+  });
 }
 
 export async function POST(request: NextRequest) {
@@ -46,7 +53,9 @@ export async function POST(request: NextRequest) {
     }
     const conn = upsertConnection(body);
     dropConnection(conn.id); // a saved edit invalidates any live SSH session
-    return NextResponse.json({ connection: toConnectionDTO(conn) }, { status: 201 });
+    // t270 — same résumé contract as GET/PATCH: an edit must not erase the
+    // run history the dialog already shows.
+    return NextResponse.json({ connection: withRunResume(toConnectionDTO(conn)) }, { status: 201 });
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "connection save failed" },

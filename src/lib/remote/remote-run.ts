@@ -75,7 +75,9 @@ import {
   shSingleQuote,
 } from "./ssh";
 import type {
+  ConnectionRunResume,
   RemoteConnection,
+  RemoteConnectionDTO,
   RemoteRunInfo,
   RemoteRunState,
   RemoteRunTarget,
@@ -1528,4 +1530,54 @@ export function remoteInfoFor(jobId: string): RemoteRunInfo | null {
     ...(r.syncedBytes != null ? { syncedBytes: r.syncedBytes } : {}),
     ...(r.note ? { note: r.note } : {}),
   };
+}
+
+/**
+ * t270 — the connection's run résumé: one aggregation over the run records
+ * for the cluster manager's résumé card ("what has this cluster done for
+ * me"). A record counts when it IS a remote run dispatched through this
+ * connection; status derives from done/exitCode the same way the stop route
+ * writes them (137 = stopped by user → failed bucket). recent keeps the ≤3
+ * newest entries, newest first — the reading line under the summary.
+ * A connection with zero runs yields an all-zero resume (total 0) — the
+ * route omits the field entirely for that case, so "no résumé" stays honest.
+ */
+export function connectionRunResume(connectionId: string): ConnectionRunResume {
+  const resume: ConnectionRunResume = { total: 0, completed: 0, failed: 0, lastRunAt: null, recent: [] };
+  const runs = readRuns();
+  for (const rec of Object.values(runs)) {
+    if (rec.remote?.connectionId !== connectionId) continue;
+    resume.total += 1;
+    if (rec.done) {
+      if (rec.exitCode === 0) resume.completed += 1;
+      else resume.failed += 1;
+    }
+    if (!resume.lastRunAt || rec.startedAt > resume.lastRunAt) resume.lastRunAt = rec.startedAt;
+    const r = rec.remote;
+    resume.recent.push({
+      jobId: rec.jobId,
+      jobType: rec.type,
+      done: rec.done,
+      exitCode: rec.exitCode,
+      startedAt: rec.startedAt,
+      ...(r.stagedMs != null ? { stagedMs: r.stagedMs } : {}),
+      ...(r.syncMs != null ? { syncMs: r.syncMs } : {}),
+      ...(r.syncedFiles != null ? { syncedFiles: r.syncedFiles } : {}),
+      ...(r.syncedBytes != null ? { syncedBytes: r.syncedBytes } : {}),
+    });
+  }
+  resume.recent.sort((a, b) => (a.startedAt < b.startedAt ? 1 : a.startedAt > b.startedAt ? -1 : 0));
+  resume.recent = resume.recent.slice(0, 3);
+  return resume;
+}
+
+/**
+ * Project a connection DTO with its résumé attached (omitted at zero runs).
+ * Shared by every route that returns a connection body — the dialog upserts
+ * whole rows, so ANY layer returning a bare DTO would erase the history the
+ * list view already showed.
+ */
+export function withRunResume(dto: RemoteConnectionDTO): RemoteConnectionDTO {
+  const resume = connectionRunResume(dto.id);
+  return resume.total > 0 ? { ...dto, resume } : dto;
 }

@@ -42,10 +42,13 @@ import { Switch } from "@/components/ui/switch";
 import { Check, Loader2, Network, Plus, Server, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type {
+  ConnectionRunResume,
+  ConnectionRunResumeEntry,
   RemoteAuthMethod,
   RemoteConnectionDTO,
   RemoteProbe,
 } from "@/lib/remote/types";
+import { formatLedgerMs } from "./job-inspector";
 
 /* ------------------------------------------------------------------ */
 /* Active connection (localStorage)                                    */
@@ -298,6 +301,102 @@ function ProbeCard({
           No GPUs visible on the login node (compute nodes may still have them).
         </p>
       )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Run résumé card (t270 — what this cluster has done for the user)    */
+/* ------------------------------------------------------------------ */
+
+/** Status dot for one résumé entry: the exit code IS the color (the stop
+ *  route writes 137 for user-stopped runs, so rose covers both flavors). */
+function resumeDot(e: ConnectionRunResumeEntry): { className: string; label: string } {
+  if (!e.done) return { className: "bg-amber-500", label: "still running" };
+  if (e.exitCode === 0) return { className: "bg-emerald-500", label: "completed" };
+  return { className: "bg-rose-500", label: `failed (exit ${e.exitCode})` };
+}
+
+/** The cluster's résumé: an aggregate line + the ≤3 newest runs, each
+ *  speaking the time ledger's dialect (formatLedgerMs — the same language
+ *  the inspector's remote strip speaks). The tooltip carries the EXACT
+ *  milliseconds (t269's leftover: compact display, precise hover). */
+function RunResumeCard({ resume }: { resume: ConnectionRunResume }) {
+  return (
+    <div className="space-y-2 rounded-md border bg-muted/30 p-3" data-run-resume="">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <Badge variant="outline" className="text-[10px]" data-resume-total="">
+          {resume.total} run{resume.total === 1 ? "" : "s"}
+        </Badge>
+        {resume.completed > 0 ? (
+          <Badge
+            variant="outline"
+            className="border-emerald-500/40 bg-emerald-500/10 text-[10px] text-emerald-700 dark:text-emerald-300"
+            data-resume-completed=""
+          >
+            {resume.completed} completed
+          </Badge>
+        ) : null}
+        {resume.failed > 0 ? (
+          <Badge
+            variant="outline"
+            className="border-rose-500/40 bg-rose-500/10 text-[10px] text-rose-700 dark:text-rose-300"
+            data-resume-failed=""
+          >
+            {resume.failed} stopped/failed
+          </Badge>
+        ) : null}
+        {resume.lastRunAt ? (
+          <span className="ml-auto text-[10px] text-muted-foreground" data-resume-last="">
+            last {new Date(resume.lastRunAt).toLocaleString()}
+          </span>
+        ) : null}
+      </div>
+      {resume.recent.map((e) => {
+        const dot = resumeDot(e);
+        const ledger = [
+          e.stagedMs != null ? `staged ${formatLedgerMs(e.stagedMs)}` : "",
+          e.syncMs != null ? `synced ${formatLedgerMs(e.syncMs)}` : "",
+          e.syncedFiles != null
+            ? `${e.syncedFiles} file${e.syncedFiles === 1 ? "" : "s"} back`
+            : "",
+        ]
+          .filter(Boolean)
+          .join(" · ");
+        const exact = [
+          e.stagedMs != null ? `staged ${e.stagedMs}ms` : "",
+          e.syncMs != null ? `synced ${e.syncMs}ms` : "",
+          e.syncedFiles != null ? `${e.syncedFiles} file(s) pulled back` : "",
+        ]
+          .filter(Boolean)
+          .join(" · ");
+        return (
+          <div
+            key={e.jobId}
+            className="flex items-center gap-1.5 text-[10px]"
+            data-resume-entry={e.jobId}
+          >
+            <span
+              className={cn("size-1.5 shrink-0 rounded-full", dot.className)}
+              aria-hidden="true"
+              title={dot.label}
+            />
+            <span className="font-mono text-muted-foreground">{e.jobType}</span>
+            {ledger ? (
+              <span
+                className="ml-auto truncate font-mono tabular-nums text-muted-foreground"
+                title={`${exact} — from the run's time ledger`}
+              >
+                {ledger}
+              </span>
+            ) : null}
+          </div>
+        );
+      })}
+      <p className="text-[10px] leading-relaxed text-muted-foreground/80">
+        Runs dispatched through this connection — staging and sync-back times come from each
+        run&apos;s time ledger.
+      </p>
     </div>
   );
 }
@@ -792,6 +891,17 @@ function ConnectionEditor({
         >
           {testError}
         </p>
+      ) : null}
+
+      {/* Run résumé (t270) — what this cluster has DONE for the user. Lives
+          under the probe card: probe = reachability, résumé = track record.
+          Zero runs renders nothing (the badge language: only things that
+          happened get badges). */}
+      {!creating && connection?.resume ? (
+        <div className="space-y-2">
+          <SectionTitle>Run résumé</SectionTitle>
+          <RunResumeCard resume={connection.resume} />
+        </div>
       ) : null}
 
       {error ? (

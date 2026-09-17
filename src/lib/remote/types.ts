@@ -56,7 +56,38 @@ export type RemoteConnectionDTO = Omit<
   /** True when a secret is stored (so the UI can show "saved" vs "empty"). */
   hasPassword: boolean;
   hasPassphrase: boolean;
+  /**
+   * t270 — the connection's run résumé: what this cluster has DONE for the
+   * user, aggregated from the run records. Absent while nothing ever ran
+   * ("no résumé" is itself the honest state — the UI renders no card).
+   */
+  resume?: ConnectionRunResume;
 };
+
+/** One recent run in the résumé (newest first in the parent list). */
+export interface ConnectionRunResumeEntry {
+  jobId: string;
+  jobType: string;
+  done: boolean;
+  exitCode: number | null;
+  startedAt: string;
+  /** t269 ledger fragments — present when the run reached that stage. */
+  stagedMs?: number;
+  syncMs?: number;
+  syncedFiles?: number;
+  syncedBytes?: number;
+}
+
+/** Aggregate of every remote run dispatched through one connection. */
+export interface ConnectionRunResume {
+  total: number;
+  completed: number;
+  failed: number;
+  /** ISO time of the most recent run (any terminal state counts). */
+  lastRunAt: string | null;
+  /** ≤3 newest runs, newest first — the résumé's reading line. */
+  recent: ConnectionRunResumeEntry[];
+}
 
 /** What `module avail` / `module spider` revealed about a cluster. */
 export interface RemoteProbe {

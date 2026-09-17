@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isLocalRequest } from "@/lib/http-guard";
 import { dropConnection } from "@/lib/remote/ssh";
 import { deleteConnection, patchConnection, toConnectionDTO } from "@/lib/remote/connections";
+import { withRunResume } from "@/lib/remote/remote-run";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +24,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: "Connection not found" }, { status: 404 });
     }
     dropConnection(id);
-    return NextResponse.json({ connection: toConnectionDTO(conn) });
+    // t270 — the patch response carries the résumé too: the dialog's upsert
+    // replaces the whole row, and an edit must not erase the run history
+    // ("every layer tells the same story" applies to partial writes).
+    return NextResponse.json({ connection: withRunResume(toConnectionDTO(conn)) });
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "connection update failed" },

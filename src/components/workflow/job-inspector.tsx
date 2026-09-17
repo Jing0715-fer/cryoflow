@@ -97,8 +97,10 @@ function formatStagedBytes(bytes?: number): string {
 }
 
 /** t269 — the time ledger's dialect: wall-clock ms spoken the way the ETA
- *  chip speaks remaining time (compact, tabular, no zero-precision noise). */
-function formatLedgerMs(ms?: number): string {
+ *  chip speaks remaining time (compact, tabular, no zero-precision noise).
+ *  t270 — exported: the cluster manager's résumé card speaks the SAME
+ *  dialect (one ledger language across the whole remote world). */
+export function formatLedgerMs(ms?: number): string {
   if (ms == null || !Number.isFinite(ms) || ms < 0) return "";
   if (ms < 1000) return `${Math.round(ms)}ms`;
   const s = ms / 1000;
@@ -2099,7 +2101,12 @@ function InspectorHeader({ job }: { job: JobDTO }) {
           (job.runRemote.stagedMs != null || job.runRemote.syncMs != null) ? (
             <span
               data-remote-ledger=""
-              title="the run's time ledger — staging (upload) and sync-back (download) are the two waits the cluster adds around the compute itself"
+              title={
+                // t270 leftover from t269 — the display compacts (2m05s),
+                // the hover stays precise (125123ms): the exact number is
+                // one tooltip away, never lost to rounding
+                `exact: staged ${job.runRemote.stagedMs ?? "?"}ms · synced ${job.runRemote.syncMs ?? "?"}ms — the run's time ledger (staging = upload, sync-back = download)`
+              }
               className="min-w-0 truncate rounded border border-teal-600/20 bg-teal-500/[0.08] px-1.5 py-px font-mono text-[9.5px] tabular-nums text-teal-700 dark:text-teal-300"
             >
               staged {formatLedgerMs(job.runRemote.stagedMs) ?? "—"}
