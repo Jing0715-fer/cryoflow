@@ -52,6 +52,7 @@ import {
   parseProgressText,
   readRuns,
   resolveInputs,
+  synthesizeTrainingPicks,
   upsertRun,
   updateRun,
   workdirFor,
@@ -602,6 +603,31 @@ export async function startRemoteJob(args: {
   const remoteProjectRoot = `${remoteRoot.replace(/\/$/, "")}/${job.projectId}`;
   const remoteWorkdir = `${remoteProjectRoot}/${job.type}_${job.id.slice(-8)}`;
 
+  // ---- topaztrain: build the coordinate_files index HERE (t265) ----------
+  // --topaz_train_picks must be the data_coordinate_files INDEX star, and
+  // the engine's synthesis reads the resolved inputs from a DISK. At
+  // dispatch time those inputs are still LOCAL paths (the cluster hasn't
+  // seen them yet), so the index is synthesized now, into the job's local
+  // workdir, and stages below like any other input — its per-mic star
+  // references ride the same mirror mapping. buildArgv's cluster-side
+  // re-synthesis then degrades to a pass-through by design: its
+  // readFileSync of a cluster path cannot succeed, and the staged file is
+  // already index-format, exactly what RELION's trainTopaz reads.
+  const resolvedInputs: Record<string, string> = { ...resolved.inputs };
+  if (
+    job.type === "topaztrain" &&
+    resolvedInputs.train_picks &&
+    resolvedInputs.micrographs_star &&
+    existsSync(resolvedInputs.train_picks)
+  ) {
+    const synth = synthesizeTrainingPicks(
+      resolvedInputs.train_picks,
+      resolvedInputs.micrographs_star,
+      localWorkdir
+    );
+    if (synth !== resolvedInputs.train_picks) resolvedInputs.train_picks = synth;
+  }
+
   const remoteState: RemoteRunState = {
     connectionId: conn.id,
     connectionName: conn.name,
@@ -632,7 +658,7 @@ export async function startRemoteJob(args: {
 
   const uploads: Array<{ key: string; local: string; remote: string; external: boolean }> = [];
   let needsStaging = false;
-  for (const [key, localRaw] of Object.entries(resolved.inputs)) {
+  for (const [key, localRaw] of Object.entries(resolvedInputs)) {
     const local = localRaw.split(path.sep).join("/");
     const twin = upstreamRemoteTwins.get(local);
     if (twin) continue; // already on the cluster (upstream ran there)
@@ -766,7 +792,7 @@ export async function startRemoteJob(args: {
       const relionHome = relionHomeFromProbe;
       const binDir = relionHome ? `${relionHome.replace(/\/$/, "")}/bin` : "<RELION_BIN>";
       const inputs: Record<string, string> = {};
-      for (const [key, localRaw] of Object.entries(resolved.inputs)) {
+      for (const [key, localRaw] of Object.entries(resolvedInputs)) {
         const local = localRaw.split(path.sep).join("/");
         inputs[key] = upstreamRemoteTwins.get(local) ?? (uploads.find((u) => u.key === key)?.remote ?? local);
       }

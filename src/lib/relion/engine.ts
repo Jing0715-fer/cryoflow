@@ -1106,8 +1106,13 @@ function micrographNames(starPath: string): string[] {
  * stem against the input micrographs.star. A file that already carries
  * _rlnMicrographCoordinates passes through untouched. Returns the original
  * path on any parse hiccup (RELION then reports the real problem).
+ *
+ * Exported for the REMOTE layer (t265): a cluster dispatch must build this
+ * index BEFORE staging — the cluster can't synthesize it (the argv-builder's
+ * own re-synthesis degrades to a pass-through there, since a cluster path is
+ * not readable from the local disk). See remote-run.ts.
  */
-function synthesizeTrainingPicks(pickFile: string, micrographsStar: string, outDir: string): string {
+export function synthesizeTrainingPicks(pickFile: string, micrographsStar: string, outDir: string): string {
   try {
     const blocks = parseStarBlocks(readFileSync(pickFile, "utf8"));
     const loop = blocks.find((b) => b.lines.some((l) => l.trim() === "loop_"));
@@ -1201,6 +1206,12 @@ function synthesizeTrainingPicks(pickFile: string, micrographsStar: string, outD
       return pickFile; // unrecognized shape — let RELION explain
     }
 
+    // the caller's outDir is NOT guaranteed to exist — the LOCAL flow has
+    // the job workdir in place by argv-build time, but the REMOTE flow (t265)
+    // synthesizes BEFORE staging, into a workdir nothing has created yet.
+    // writeFileSync would ENOENT here and the catch below would silently
+    // hand RELION the raw flat star — the exact bug the t265 e2e caught.
+    mkdirSync(outDir, { recursive: true });
     const out = path.join(outDir, "training_picks.star");
     writeFileSync(
       out,

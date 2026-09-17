@@ -84,6 +84,7 @@ const FAMILY = [
   "t262-remote-run-e2e.mjs", // the remote ENGINE live: stage → dispatch → poll → sync-back → stop (Task 262)
   "t263-remote-hardening.mjs", // the three t262 audit findings, witnessed: heartbeat / orphan heal / ghost door (Task 263)
   "t264-remote-externals.mjs", // externals belong to the world they run in: probe inventories cluster motioncor2/topaz, cluster argvs carry cluster paths (Task 264)
+  "t265-remote-topaz-train.mjs", // the train→pick loop closed on the cluster: staged coordinate_files index, byte-identical model sync-back, twin pass-through (Task 265)
 ];
 
 // ---- CLI -------------------------------------------------------------------

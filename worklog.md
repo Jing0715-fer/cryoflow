@@ -1264,3 +1264,23 @@ Stage Summary:
 - 「文案也有世界」：同一类缺席，remote 文案点名集群与 probe、local 文案保留 EMPIAR/PATH 建议——诚实缺席要按读者的世界说话
 - 「断言三课」：端口语汇问 spec、路径断言引动态真值、拒绝层级先手动复现——三条都是把「想当然」换成「看一眼」的老判例新应用
 - 遗留（下轮候选）：remote 停止后 stub 进程的 job 粒度清理（pkill 模式粗于 job 粒度）；staging 心跳的活体推进断言（需 >10s 真实 staging）；topaztrain 集群链（stub 需产 topaz_model.sav——autopick Topaz 的 --topaz_model 输入位）；molstar-embed 存量 tsc 噪音；updatedAt 治理；家族跑批 --report JSON；EMPIAR 真数据回归（让位）
+
+## Task 265 (2026-09-17, cron 11:18 窗口 trace 1a07549302235a99-cron-agent-loop-202609171118)
+
+- 【开局四件套】尾部 = Task 264（738807f，externals world-aware）——续传摘要第二十二度过时（摘要称 Task 258/c333cdc；实际 259-264 均已交付）。cron 模板「Task 13」过时案照例不认。净场 PORT DOWN → watchdog 拉起 200 + roster 21·16 completed。QA：qa00 GREEN + qa63 SMOKE GREEN + 哨兵 t258/t263/t264 ALL PASS + agent-browser errors/console 双空。无 bug。
+- 【巡检与立项】Task 264 遗留首选当选：**topaztrain 集群链（train→pick 闭环）**——t264 让 Topaz 在集群上会「挑」但还不会「学」：topaztrain 的 --topaz_train_picks 必须是 data_coordinate_files 索引星表，而引擎的合成（synthesizeTrainingPicks）从磁盘读解析后的输入——集群 argv 构造时这些是集群路径，本地读不到 → 静默回落原始平表 → 真 RELION 会拿「没有微图可训练」而炸。暗区点亮 + 全引擎 picking 家族（LoG/Topaz/Topaz-train）集群化收官。
+- 【实现① rig 的 train 面】mock relion_autopick stub 增加 --topaz_train 模式：读坐标索引计条目 → 逐 epoch 进度行（loss 递减，真 RELION 的输出形态）→ 写 topaz_model.sav（独特字节，可断言 byte-identical）+ topaz_training_plot.png 诊断图。**顺带修 stub 的选项解析**：无值旗标（--topaz_train/--LoG）以前会吞掉紧随的旗标——改为 flag-aware（下一个 token 是 -- 开头即布尔）。
+- 【实现② remote 预合成】startRemoteJob 在 staging 计划前、用**本地真值**合成索引：resolvedInputs 克隆 + topaztrain 时 synthesizeTrainingPicks(train_picks, micrographs_star, localWorkdir) → 索引作为普通镜像输入上传，其引用的同级 per-mic star 经 refs 扫描走同一镜像映射（twin 已在集群的自动跳过）——「合成发生在文件可读的世界」；buildArgv 的集群侧重合成按设计退化为 pass-through。
+- 【首跑抓真 bug：outDir ENOENT】t265 首跑 36/38——两 FAIL 同根：argv 的 --topaz_train_picks 仍是原始 star 的 twin。staging 计数 7（= micrographs.star + 6 mref）证明合成未生效；追到根因：**AutoFamily 分支 writeFileSync(out) 时 outDir（topaztrain 作业的本地 workdir）尚不存在**——本地流 buildArgv 前工作目录必已建好（不变量），remote 预合成流没有这个前提 → ENOENT → catch 静默回落。修 = 函数内 mkdirSync(outDir, {recursive:true}) + 判例注释。**「本地流的不变量在跨世界复用时会变成暗雷」**。
+- 【e2e：t265-remote-topaz-train.mjs，40 断言 ×2 ALL PASS】A 相 demo 真相；B 相台账 8 断言（engine 导出 + 预合成块 + resolvedInputs 接管 + collectOutputs 收割 topaz_model/training_plot + autopick 可选 topaz_model 输入 + --topaz_model argv 接线 + externalFor 世界律）；C 相**全集群三腿活体**——真 import → 连接 + probe（topaz 在册）→ **腿1：LoG autopick 集群完成**（argv --LoG + 102 picks 从回同步 per-mic star 数出）→ **腿2：topaztrain 集群完成**（argv --topaz_train 非 extract + --topaz_train_picks = 集群上已 staged 的 training_picks.star + --fn_topaz_exe = 集群自己的 topaz + **集群侧 cat 索引验证 data_coordinate_files 格式与 per-mic 引用** + topaz_model.sav 回同步 **byte-identical**（base64 对照）+ record.outputs.topaz_model + remoteOutputs twin + 诊断图回同步）→ **腿3：Topaz autopick 消费 twin**（--topaz_model 直指 trainer 的集群 workdir——透传零重传 + 102 picks 收官）→ 定妆照；D 相 console 0；finally **job 粒度清场**（pkill 按 _<id8> 后缀——t263 遗留「stub 进程清理粗于 job 粒度」在测试侧落地）+ 集群侧 rm 含 _staged + roster 恒等 21。
+- 【工艺判例】①**staging 计数是合成是否生效的第一证人**——7 vs 8 之差锁定了「合成未跑」再追 ENOENT，比读 argv 更早收敛；②**minified chunk 里找代码要搜字符串字面量不搜变量名**（resolvedInputs 被改名为单字母，"topaztrain" 字面量常在）；③**byte-identical 断言用 base64 对照**——集群 exec 通道过不了二进制就直接过文本通道；④**stub 的行为契约与真 RELION 对齐**（epoch 行/模型文件/诊断图三件套）断言才不是特例。
+- 【全家族回归】六批前台：qa 批 pass 10 · 399.8s ｜ t21 批 pass 7 · 190.3s ｜ t22 批 pass 2 · 66.0s ｜ t24 批 pass 9 · 122.7s ｜ t25 批 pass 9 · 445.8s ｜ t26 批 pass 6 · 335.7s（t260–t265）——**合计 pass 43 · solo-recovery 0 · real-fail 0 · wall ~1560s**；t265 收编花名册 42→43（--filter 亲跑验收 28.5s）；roster 恒等 21。
+- 【定妆照】**shots-qa/t265-cluster-topaz-loop.png**（训练好的模型喂给 picker 后的 inspector）。
+- 【收尾】worklog（本条）+ commit/push + 环境清理（Task 86 双杀 + mock cluster 击杀 + port FREE 验证）。
+
+Stage Summary:
+- **「train→pick 闭环在集群上合龙」**：import(本地) → LoG pick(集群) → topaztrain(集群) → Topaz pick(集群·模型 twin 透传)——picking 家族三面（LoG/Topaz extract/Topaz train）全部集群化；「同一引擎，两块大地」从会挑进化到会学
+- 「合成发生在文件可读的世界」：跨世界的预计算步骤要把产物当输入重新过一遍 staging 律——索引在本地造、按镜像映射上传、引用的同级文件走 refs 扫描、twin 已在集群的自动跳过——每一步都是既有法则的组合而非新发明
+- 「本地流的不变量在跨世界复用时会变成暗雷」：outDir 必存在的本地前提在 remote 预合成流里不成立，ENOENT 被 catch 吞成静默回落——**首跑的两 FAIL 是 e2e 的价值兑现**：不绿的时候它说的是真话
+- 「staging 计数是第一证人」：7 vs 8 之差比读 argv 更早收敛排查方向；「每一层都有自己的证人」判例再应用
+- 遗留（下轮候选）：staging 心跳的活体推进断言（需 >10s 真实 staging）；topaztrain 的 test-set loss 曲线可视化（training_plot 目前只是诊断面）；molstar-embed 存量 tsc 噪音；updatedAt 治理；家族跑批 --report JSON；EMPIAR 真数据回归（让位）

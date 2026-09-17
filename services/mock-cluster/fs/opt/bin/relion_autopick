@@ -6,6 +6,16 @@ only changes the log lines; the output contract is the same: per-micrograph
 coordinate stars at <odir>micrographs/<mic>_autopick.star (the app's
 collectOutputs counts picks across them). Topaz mode logs the --fn_topaz_exe
 path it was handed (the t264 e2e asserts it is the CLUSTER's own topaz).
+
+t265 adds the TRAINING face (--topaz_train): relion_autopick trained on a
+coordinate_files index (--topaz_train_picks) writes the CNN model into the
+job dir (topaz_model.sav) plus a training-curve PNG, logging per-epoch
+progress — the shape real RELION's topaz train prints and the app's
+collectOutputs harvests (outputs.topaz_model / outputs.training_plot).
+
+Option parsing is flag-aware: a flag whose next token is another --flag (or
+end-of-argv) is BOOLEAN and consumes nothing — valueless flags like
+--topaz_train / --LoG used to swallow the flag that followed them.
 """
 import os
 import sys
@@ -17,8 +27,14 @@ i = 0
 while i < len(argv):
     a = argv[i]
     if a.startswith("--"):
-        opts[a[2:]] = argv[i + 1] if i + 1 < len(argv) else ""
-        i += 2
+        key = a[2:]
+        nxt = argv[i + 1] if i + 1 < len(argv) else None
+        if nxt is None or nxt.startswith("--"):
+            opts[key] = ""  # boolean flag
+            i += 1
+        else:
+            opts[key] = nxt
+            i += 2
     else:
         i += 1
 
@@ -26,7 +42,9 @@ star_in = opts.get("i")
 odir = opts.get("odir", "./").rstrip("/")
 pickname = opts.get("pickname", "autopick")
 topaz_exe = opts.get("fn_topaz_exe")
+train_mode = bool(opts.get("topaz_train", "")) or "topaz_train" in opts
 topaz_mode = "topaz_extract" in opts or bool(topaz_exe)
+
 if not star_in or not os.path.exists(star_in):
     print(f"ERROR: cannot read input star: {star_in}", file=sys.stderr)
     sys.exit(1)
@@ -51,6 +69,57 @@ with open(star_in) as fh:
             if cols:
                 mics.append(cols[0])
 
+os.makedirs(odir, exist_ok=True)
+
+# ---- TRAINING face (t265): coords index in → topaz_model.sav out ----------
+if train_mode:
+    picks_file = opts.get("topaz_train_picks", "")
+    entries = 0
+    try:
+        with open(picks_file) as fh:
+            for line in fh:
+                t = line.strip()
+                if t and not t.startswith("_") and not t.startswith("#") \
+                        and not t.startswith("data_") and t != "loop_":
+                    entries += 1
+    except OSError:
+        print(f"ERROR: cannot read training picks: {picks_file}", file=sys.stderr)
+        sys.exit(1)
+
+    nr_particles = opts.get("topaz_nr_particles", "200")
+    test_ratio = opts.get("topaz_test_ratio", "0.2")
+    print(
+        f"cryoflow-mock autopick: topaz TRAIN via {topaz_exe or '(bare topaz)'} — "
+        f"{len(mics)} micrograph(s), {entries} coordinate-file entr(ies), "
+        f"nr_particles={nr_particles}, test_ratio={test_ratio}"
+    )
+    sys.stdout.flush()
+
+    loss = 0.62
+    for epoch in range(1, 6):
+        time.sleep(0.6)
+        loss *= 0.72
+        print(f"Epoch {epoch}/5 — training loss {loss:.4f}, test loss {loss * 1.13:.4f}")
+        sys.stdout.flush()
+
+    # the trained model: a small distinctive binary (the e2e asserts the
+    # cluster copy and the synced-back local twin are byte-identical)
+    model = os.path.join(odir, "topaz_model.sav")
+    with open(model, "wb") as fh:
+        fh.write(b"CRYOFLOW-MOCK-TOPAZ-MODEL-v1\n")
+        fh.write(f"entries={entries} mics={len(mics)} loss={loss:.4f}\n".encode())
+        fh.write(bytes(range(256)) * 3)
+    # the training-curve diagnostic collectOutputs surfaces as training_plot
+    plot = os.path.join(odir, "topaz_training_plot.png")
+    with open(plot, "wb") as fh:
+        fh.write(bytes.fromhex(
+            "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c489"
+            "0000000d49444154789c626001000000ffff03000006000557bfabd40000000049454e44ae426082"
+        ))
+    print("Topaz model trained (5 epochs) — connect it into Auto-picking (Topaz mode)")
+    sys.exit(0)
+
+# ---- PICKING faces (LoG / References / Topaz) ------------------------------
 method = "topaz (CNN)" if topaz_mode else "log (Laplacian of Gaussian)"
 if topaz_exe:
     method += f" via {topaz_exe}"
