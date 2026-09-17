@@ -65,6 +65,7 @@ must(clean.stdout.includes('next.config.ts outputFileTracingExcludes names "_leg
 must(clean.stdout.includes('globals.css @source not names "../../_legacy-archive"'), "tailwind exclusion is single-root");
 must(!clean.stdout.includes('"persist/**"') && !clean.stdout.includes('"relion-projects/**"'), "no stale per-tree tracer exclusions remain");
 must(clean.stdout.includes('.gitignore hides /_legacy-archive/'), "gitignore hides the archive");
+must(clean.stdout.includes('tsconfig exclude hides _legacy-archive/'), "tsc exclusion is single-root (t276: the fourth layer)");
 
 console.log("== PHASE C: the living proof — an intrusion must flip the verdict ==");
 

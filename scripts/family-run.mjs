@@ -107,6 +107,7 @@ const FAMILY = [
   "t271-resume-jump.mjs", // the résumé becomes an index: a jumpable entry is a real button (name + ledger + hover arrow) that closes the dialog and opens that job's inspector; a deleted job's record leaves with it (Task 271)
   "t272-cross-canvas-resume.mjs", // the cross-canvas loop closes: a second project's run renders as a history row that NAMES the canvas it lives on (per-entry existence), and deleting that project sweeps its records with it — no orphans (Task 272)
   "t273-family-report.mjs", // the runner tests itself: first-class batches (decade boundary), the merged JSON report, --summary/--reset, and the 600s-ceiling health guard (Task 273)
+  "t276-empiar-fidelity.mjs", // real data speaks: EMPIAR-10017's real RELION 5.0.1 artifacts through our parsers (optics truth, FSC self-consistency, honest-zero cella) and the real bundle riding the product's import + manualpick VERBATIM (Task 276)
 ];
 
 // ---- batches are first-class (t273) ----------------------------------------

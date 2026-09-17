@@ -120,6 +120,18 @@ const gitignore = readFileSync(join(ROOT, ".gitignore"), "utf8");
 if (gitignore.includes("/_legacy-archive/")) ok(".gitignore hides /_legacy-archive/");
 else bad(".gitignore does not hide /_legacy-archive/ — git status noise returns");
 
+// t276 — the fourth exclusion layer: the TYPE CHECKER. tsconfig's include is
+// `**/*.ts`, so bare `tsc --noEmit` (every editor, every CI) used to walk the
+// archive and the other non-product trees and report their errors — 12 lines
+// of noise drowning the zero-error signal the product itself earns. The
+// exclusion law now has four layers: tracer, tailwind, gitignore, tsc.
+const tsconfig = readFileSync(join(ROOT, "tsconfig.json"), "utf8");
+const tscExcludes = ["_legacy-archive", "examples", "scripts/diag-archive", "skills"];
+for (const dir of tscExcludes) {
+  if (tsconfig.includes(`"${dir}"`)) ok(`tsconfig exclude hides ${dir}/`);
+  else bad(`tsconfig does not exclude "${dir}" — bare tsc walks a non-product tree; the noise hides the next real wound`);
+}
+
 if (failures > 0) {
   console.log(`\nFOREIGN-TREE CHECK: ${failures} FAIL — see _legacy-archive/README.md for the verdict and the fix`);
   process.exit(2);
