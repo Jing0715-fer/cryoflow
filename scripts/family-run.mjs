@@ -82,6 +82,7 @@ const FAMILY = [
   "t260-clip-from-card.mjs", // the cards' Show-in-parent anchored-clip doors (Task 260)
   "t261-remote-connections.mjs", // the remote-cluster registry: doors + test route + live probe (Task 261)
   "t262-remote-run-e2e.mjs", // the remote ENGINE live: stage → dispatch → poll → sync-back → stop (Task 262)
+  "t263-remote-hardening.mjs", // the three t262 audit findings, witnessed: heartbeat / orphan heal / ghost door (Task 263)
 ];
 
 // ---- CLI -------------------------------------------------------------------

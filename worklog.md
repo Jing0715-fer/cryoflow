@@ -1224,3 +1224,23 @@ Stage Summary:
 - 「record-first 断言」：引擎 record 是完成真值，DB 行可能被 BUSY 竞态拖住——两级断言分层让「引擎对了、行滞后」与「引擎错了」可区分；「每层都说同一个故事」需要每层都有自己的证人
 - 「三个暗区发现=三个加固候选」：staging 静默挂起、行翻转 BUSY 丢失无自愈、幽灵 remote 派发（陈旧连接 + pending 竞态）——e2e 的价值不止于绿，更在于把暗区的鬼照出来
 - 遗留（下轮候选）：**三发现加固**（staging 心跳 + finalize 重试/孤儿 sweep + auto-start 连接重验）；externalOnPath 的 remote 语义（motioncorr/topaz 系查本地盘）；molstar-embed 存量 tsc 噪音；updatedAt 治理；家族跑批 --report JSON；EMPIAR 真数据回归（让位）
+
+## Task 263 (2026-09-17, cron 08:48 窗口 trace cron-agent-loop-202609170848) — 进行中
+
+- 【开局四件套】尾部 = Task 262（83a5180，remote ENGINE 端到端）——续传摘要第二十一度过时（摘要称 Task 258/c333cdc；实际 259/260/261/262 均已交付）。cron 模板「Task 13」过时案照例不认。净场核查撞上**越场者**：PORT 3000 被 08:45 起的 `next dev` 占用（2.1GB 内存，非惯例体系），且 `next dev` 把 `.next` 整个重置成 dev 模式——**standalone 构建被抹掉**（.next/standalone/server.js 不存在）。双杀 + 前台 OOM rebuild 恢复（后台 setsid 构建两次被沙盒回收——前台单调用是唯一可靠配方）+ watchdog 拉起 200。
+- 【QA 撞出第一案：demo 态被清】t258 首跑 A 相三 FAIL（roster 8 ≠ 21，QA Refine3D 不在册）——本窗开场时 DB 只有 3 jobs（早于任何本窗操作）。灾后重建走 Task 85 配方 restore-gallery.py，链上 **qa60-seed-fsc.py 403**：它有自己的本地 api()（不走 qa_lib 单点），缺 same-origin 元数据——Task 259 判例「波及盘点按 client 类型」的漏网者。全面盘点揪出 **6 个 python 出口**（qa60/qa67/qa58/qa-multiselect-fixture/restore-sandbox-b/seed-outlier），逐一补 sec-fetch-site + Origin 双头（qa58 已有 Origin 补齐 Fetch Metadata）。restore-gallery 幂等重跑全绿 → **roster 21 复活**（21 jobs · 16 completed · 13 edges · QA Refine3D 在册）。
+- 【QA 撞出第二案：t261 台账文件不存在】t261 首跑 ENOENT：`src/app/api/remote/connections/[id]/test/route.ts` **在 git 全历史中从未存在**——Task 261 的重建只在丢失的工作树里（漏 git add），e2e 三次全绿是它对着工作树跑的。UI 的 Test 按钮当前真实 404（save→test→probe 回路断裂）。按 t261 台账契约**重建路由**（isLocalRequest 门 + getConnection 404 route-speak + probeConnection + patchConnection 落 lastProbe + ok:false 诚实降级不 500）。
+- 【三加固现状核实】Task 262 遗留的三个加固候选（staging 心跳 / finalize 重试+孤儿 sweep / 幽灵派发门）**代码已随 83a5180 入树**（remote-run.ts 内 "hardened t263" 注释），但 t262 套件对它们零断言——**代码在树而无证人**。本窗立案 = t263 加固验证套件。
+- 【t263-remote-hardening.mjs，54 断言 ×2 ALL PASS】A 相 demo 真相；B 相台账 17 断言（三机制源码钉死：startStagingBeat+双陈旧窗+诚实文案+stop 双出口 / updateJobWithRetry 3 试+backoff+孤儿分类+条件翻转 status 守卫 / startedAt 标记+own-connection 预检+deleted-conn 文案+busyKind live；另钉重建的 test 路由两断言）；C 相活体——真 import → 连接创建 → **重建的 test 路由活体**（probe 200 + relion/5.0.1 清单 + envmodules + lastProbe 落库 + bare 403 + 未知 id 404）→ API 直派 A → **幽灵忙门**（运行中二派 → 409 busyKind=live + 文案点名 cluster pid）→ A 全链完成（加固路径即回归）→ conn2 派 B → 运行中删 conn2 → **sweep 诚实翻行**（"the cluster connection for this run was deleted" + record finalized）→ **锻造台账四 sweep**（死心跳 staging → 行翻 failed + record 收口；orphan done → 行愈合 completed 保 REMOTE[] 结果；orphan failed → 行愈合 failed 保原因；终态行守卫 → completed 行无人敢动）+ sweep 日志大声自证；D 相 console 0；finally 清场 roster 21。
+- 【工艺】① 锻造 record 走 engine-state.json 直写（外部写自然击穿 mtime 缓存——readRuns 重解析）；行态走 sqlite 直写（restore-gallery 判例：PATCH 只放行 idle）——参数化 helper t263-rowflip.py，值走 argv 不进 SQL 字符串（首跑 `python3 -c` 引号嵌套炸出的教训）。② 后台构建两次被回收——长活前台化。③ 传输层吞字节判例第 N 次应验：t258 line 58/74 三个读取工具一致显示语法损坏，od 字节级证明完好——不修不存在的 bug。
+- 【状态】t261/t262 复跑 ALL PASS（重建路由在它们的路径上）；t263 已收编花名册（40→41）。全家族六批回归进行中。
+- 【全家族回归】六批前台（qa 批首跑 5 real-fail 全因 `agent-ctx/` 目录被同场清理抹掉——qa47/49/50/51/55 的 agent-browser 截图落盘失败，mkdir 恢复后重跑全绿）：qa 批 pass 10 · 393.2s ｜ t21 批 pass 7 · 190.1s ｜ t22 批 pass 2 · 65.2s ｜ t24 批 pass 9 · 122.4s ｜ t25 批 pass 9 · 474.5s ｜ t26 批 pass 4 · 270.8s（t260/t261/t262/t263）——**合计 pass 41 · solo-recovery 0 · real-fail 0 · wall ~1416s**；t263 收编花名册 40→41；roster 恒等 21。
+- 【gitignore 陷阱定罪】Task 261 路由失踪的**根因**不是漏 git add：`.gitignore` line 49 的裸 `test` 模式无视任何名为 test/ 的目录——`connections/[id]/test/` 从 Task 261 起就对 git 不可见，e2e 三次全绿是它对着丢失的工作树跑的。修 = 锚定为 `/test`（根级 scratch 名的本意）+ 判例注释；`prompt` 同型锚定。「gitignore 的裸模式是全局通缉令——新路由目录莫名不入 git 时先查 ignore 再查手误」。
+
+Stage Summary:
+- **「加固要证人，门要存在」**：Task 262 的三个审计发现（staging 静默挂起 / 行翻转 BUSY 丢失 / 幽灵派发）代码早已随树入账，但零断言零证人——t263 用 54 断言把三个机制全部钉进台账（源码 17 + 活体/锻造 30+）：死心跳翻行、孤儿双向愈合、终态守卫不动、幽灵忙门 409 live、删连后诚实翻行——「e2e 的价值不止于绿，更在于让机制的每条路都有走过的人证」
+- 「门要先存在才能谈门」：t261 的 test 路由只活在丢失的工作树里——gitignore 裸 `test` 模式是根因，UI 的 Test 按钮从头到尾 404；重建路由 + 锚定 ignore + 台账收编三件套，「lost working tree 的绿是假绿——commit 过的树才是世界的真身」
+- 「灾后重建配方三件」：`next dev` 越场抹掉 standalone → 前台 OOM rebuild（后台 setsid 两次被沙盒回收——长活前台化）；demo 态 21→3 → restore-gallery.py 幂等复活；agent-ctx 目录失踪 → 截图落盘批量失败——「环境损伤三案同源（同场清理），各自有各自的恢复配方」
+- 「python 出口的门头盘点要彻底」：qa60 的本地 api() 是 Task 259 波及盘点的漏网者（403 活体暴露），顺藤摸出 6 个出口全部补齐 sec-fetch-site + Origin——「按 client 类型盘点」判例的第三次应用，这次盘到了底
+- 遗留（下轮候选）：remote 停止后的 stub 进程清理（pkill 模式粗于 job 粒度）；staging 心跳的活体推进断言（需 >10s 的真实 staging——小上传竞速不过它）；externalOnPath 的 remote 语义（motioncorr/topaz 系查本地盘）；molstar-embed 存量 tsc 噪音；updatedAt 治理；家族跑批 --report JSON；EMPIAR 真数据回归（让位）
+- 【收尾】worklog（本条）+ commit/push + 环境清理（Task 86 双杀 + mock cluster 击杀 + port FREE 验证）。

@@ -72,7 +72,10 @@ def api(path, method="GET", body=None):
     req = urllib.request.Request(
         BASE + path,
         method=method,
-        headers={"Content-Type": "application/json"},
+        # t259 doctrine: the metadata-door routes (projects family) check
+        # Fetch Metadata / Origin — this local api() is a client the qa_lib
+        # single point never covered; speak same-origin like the browser does.
+        headers={"sec-fetch-site": "same-origin", "Origin": BASE, "Content-Type": "application/json"},
         data=json.dumps(body).encode() if body else None,
     )
     with urllib.request.urlopen(req, timeout=30) as r:

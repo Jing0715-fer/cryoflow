@@ -46,8 +46,12 @@ local-*
 *.log
 dev.log
 dev.out.log
-test
-prompt
+# anchor scratch names to the repo ROOT — a bare "test" ignored ANY directory
+# named test/ anywhere, which is exactly how the remote-connections test
+# route (src/app/api/remote/connections/[id]/test/) vanished from Task 261's
+# commit while its e2e stayed green against the working tree
+/test
+/prompt
 
 server.log
 # Skills directory

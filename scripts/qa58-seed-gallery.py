@@ -57,8 +57,9 @@ def api(path, method="GET", body=None):
         BASE + path,
         method=method,
         # t251: job-data read routes carry the same-origin door — the seeder
-        # authenticates like any other local client (Origin names the host).
-        headers={"Content-Type": "application/json", "Origin": BASE},
+        # authenticates like any other local client. t259: the door checks
+        # Fetch Metadata too — send sec-fetch-site explicitly, same as qa_lib.
+        headers={"sec-fetch-site": "same-origin", "Origin": BASE, "Content-Type": "application/json"},
         data=json.dumps(body).encode() if body else None,
     )
     with urllib.request.urlopen(req, timeout=30) as r:

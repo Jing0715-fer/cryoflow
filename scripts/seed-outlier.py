@@ -43,7 +43,9 @@ BLOB_Z_QA67 = 48  # the original: 48/63 of depth ≈ 76.2%
 def api(path, method="GET", body=None):
     req = urllib.request.Request(
         BASE + path, method=method,
-        headers={"Content-Type": "application/json"},
+        # t259 doctrine: same-origin metadata for the metadata-door routes
+        # (local api() outside the qa_lib single point).
+        headers={"sec-fetch-site": "same-origin", "Origin": BASE, "Content-Type": "application/json"},
         data=json.dumps(body).encode() if body else None,
     )
     with urllib.request.urlopen(req, timeout=30) as r:
