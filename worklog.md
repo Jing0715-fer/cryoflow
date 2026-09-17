@@ -1244,3 +1244,23 @@ Stage Summary:
 - 「python 出口的门头盘点要彻底」：qa60 的本地 api() 是 Task 259 波及盘点的漏网者（403 活体暴露），顺藤摸出 6 个出口全部补齐 sec-fetch-site + Origin——「按 client 类型盘点」判例的第三次应用，这次盘到了底
 - 遗留（下轮候选）：remote 停止后的 stub 进程清理（pkill 模式粗于 job 粒度）；staging 心跳的活体推进断言（需 >10s 的真实 staging——小上传竞速不过它）；externalOnPath 的 remote 语义（motioncorr/topaz 系查本地盘）；molstar-embed 存量 tsc 噪音；updatedAt 治理；家族跑批 --report JSON；EMPIAR 真数据回归（让位）
 - 【收尾】worklog（本条）+ commit/push + 环境清理（Task 86 双杀 + mock cluster 击杀 + port FREE 验证）。
+
+## Task 264 (2026-09-17, cron 10:03 窗口 trace cron-agent-loop-202609171012)
+
+- 【开局四件套】尾部 = Task 263（87a7ccb，加固证人 + test 路由重建）零过时（本窗紧邻上窗）；cron 模板「Task 13」过时案照例不认。净场 PORT DOWN → watchdog 拉起 200 + roster 21。QA：qa00 GREEN + qa63 SMOKE GREEN + t258/t263 哨兵 ALL PASS + agent-browser errors/console 双空。无 bug。
+- 【巡检与立项】Task 262 三审计发现的最后一项当选：**externalOnPath 的 remote 语义（暗区发现 #3）**——engine 的 argv 构造器在**集群命令**上用**本地盘**找 motioncor2/topaz：本地没有 → 诚实报错但文案误导（说本地 EMPIAR）；本地有 → **把本地路径嵌进集群 argv**（集群侧运行时爆炸）。这是真 bug 修复 + 全引擎集群化解锁（此前只有 ctffind——它不查 external 且有专用 ctffindExe 通道）。
+- 【实现① probe 清单】probe.ts 每 module 批次追加 9 条 `command -v`（motioncor2/MotionCor2/relion_python_topaz/topaz/model_angelo/modelangelo/dynamight/tomo_denoise/tomo_pick），EXT_PROGRAMS 表驱动解析（exact-basename、每键先到先得），RemoteProbe 新增 `externals: Record<module, Record<key, clusterPath>>`。「module load 之后问集群自己」——PATH 是模块的。
+- 【实现② engine 的世界自觉】BuildCtx 新增 `externals?: Record<string,string> | null`（null/缺席 = 本地世界）；新 helper **externalFor(ctx, key, names)**：remote 先查 probe 清单（本地盘绝不介入集群 argv），local 回落 externalOnPath（binDir + which）。七个 case 全部改道：motioncorr、autopick-Topaz、topaztrain、dynamight、modelangelo、tomo_denoise、tomo_picks——错误文案分世界（remote 版点名 "on the cluster (probed after module load)"，local 版保留原 EMPIAR/PATH 建议）。ctffind 的 ctffindExe 专线原样保留（同一律法，旧接线）。
+- 【实现③ remote 层传递】remote-run.ts buildArgv 调用传入 `externals: conn.lastProbe?.externals?.[moduleName] ?? null`——集群 argv 从此只说集群的话。
+- 【实现④ rig 四 stub】mock cluster 补 motioncor2（占位可执行）+ relion_run_motioncorr（逐微图进度行 + corrected_micrographs.star 契约）+ relion_autopick（三法通吃：Topaz 模式日志点名 --fn_topaz_exe，逐微图 _autopick.star 契约）+ relion_python_topaz（占位可执行）。
+- 【e2e：t264-remote-externals.mjs，26 断言 ×2 ALL PASS】A 相 demo 真相；B 相台账 9 断言（probe 表/脚本/解析 + BuildCtx/externalFor + 世界分文案 + remote 传递 + ctffind 专线不漂移）；C 相活体——probe 清单活体（mock 的 motioncor2/topaz 路径在册）→ **世界对照**：LOCAL motioncorr 诚实失败（沙盒无 RELION，bin-dir 守卫先行——"RELION not detected"，本地世界的拒绝归属本地）→ REMOTE motioncorr 完成端到端（**record argv 携带集群 motioncor2 路径** + REMOTE[] 结果 + corrected_micrographs.star 回同步无集群根）→ REMOTE autopick Topaz 完成（**--fn_topaz_exe = 集群自己的 relion_python_topaz** + 102 picks 从回同步的逐微图星表数出）；D 相 console 0；finally 清场 roster 21。
+- 【工艺判例】①**端口语汇判例三度应验**：motioncorr 的 spec 输入端口叫 "movies" 不叫引擎键 "micrographs_star"——edge 400 的第一排查问仍是「这是哪层的词汇」；②**断言要引用 probe 的动态真值**：mock 的集群路径是宿主可见的 fs/opt/bin——写死 /opt/bin 的断言在别 rig 必碎，argv 断言改为 `--motioncor2_exe ${extMap.motioncor2}` 动态拼接；③**世界对照要落在各自世界的真实形状上**：本地侧原以为「idle + EMPIAR 文案」，实测是「failed + RELION not detected」（bin-dir 守卫先于 MotionCor2 检查）——先手动复现再写断言，不臆测拒绝的层级。
+- 【全家族回归】六批前台（t25 首跑被工具超时腰斩后整批重跑）：qa 批 pass 10 · 399.7s ｜ t21 批 pass 7 · 189.0s ｜ t22 批 pass 2 · 65.4s ｜ t24 批 pass 9 · 121.7s ｜ t25 批 pass 9 · 418.6s ｜ t26 批 pass 5 · 300.2s（t260–t264）——**合计 pass 42 · solo-recovery 0 · real-fail 0 · wall ~1494s**；t264 收编花名册 41→42（t26 批亲跑验收 28.1s）；roster 恒等 21。
+- 【收尾】worklog（本条）+ commit/push + 环境清理（Task 86 双杀 + mock cluster 击杀 + port FREE 验证）。
+
+Stage Summary:
+- **「externals 属于它们运行的世界」**：t262 三审计发现的最后一块拼图落位——probe 在 module load 后问集群自己有什么，engine 的 externalFor 按世界选解析源，remote 层把集群真值递进去；「同一引擎，两块大地」从 ctffind 独苗扩到 motioncorr/Topaz/tomo 全家族，motioncorr + Topaz picking 在集群上第一次跑通端到端
+- 「七个 case 一个 helper」：世界分叉收在 externalFor 一处——七个 argv 构造点各自一行改道，本地行为零漂移（externalOnPath 原样兜底）；「世界自觉」是 ctx 的一个字段，不是一个 if 山
+- 「文案也有世界」：同一类缺席，remote 文案点名集群与 probe、local 文案保留 EMPIAR/PATH 建议——诚实缺席要按读者的世界说话
+- 「断言三课」：端口语汇问 spec、路径断言引动态真值、拒绝层级先手动复现——三条都是把「想当然」换成「看一眼」的老判例新应用
+- 遗留（下轮候选）：remote 停止后 stub 进程的 job 粒度清理（pkill 模式粗于 job 粒度）；staging 心跳的活体推进断言（需 >10s 真实 staging）；topaztrain 集群链（stub 需产 topaz_model.sav——autopick Topaz 的 --topaz_model 输入位）；molstar-embed 存量 tsc 噪音；updatedAt 治理；家族跑批 --report JSON；EMPIAR 真数据回归（让位）

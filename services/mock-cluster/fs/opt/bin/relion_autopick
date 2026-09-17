@@ -1,0 +1,86 @@
+#!/usr/bin/env python3
+"""Mock relion_autopick for the CryoFlow mock cluster.
+
+Handles all three picking methods (LoG / References / Topaz) — the method
+only changes the log lines; the output contract is the same: per-micrograph
+coordinate stars at <odir>micrographs/<mic>_autopick.star (the app's
+collectOutputs counts picks across them). Topaz mode logs the --fn_topaz_exe
+path it was handed (the t264 e2e asserts it is the CLUSTER's own topaz).
+"""
+import os
+import sys
+import time
+
+argv = sys.argv[1:]
+opts = {}
+i = 0
+while i < len(argv):
+    a = argv[i]
+    if a.startswith("--"):
+        opts[a[2:]] = argv[i + 1] if i + 1 < len(argv) else ""
+        i += 2
+    else:
+        i += 1
+
+star_in = opts.get("i")
+odir = opts.get("odir", "./").rstrip("/")
+pickname = opts.get("pickname", "autopick")
+topaz_exe = opts.get("fn_topaz_exe")
+topaz_mode = "topaz_extract" in opts or bool(topaz_exe)
+if not star_in or not os.path.exists(star_in):
+    print(f"ERROR: cannot read input star: {star_in}", file=sys.stderr)
+    sys.exit(1)
+
+mics = []
+with open(star_in) as fh:
+    in_loop = False
+    name_col = None
+    for line in fh:
+        t = line.strip()
+        if t == "loop_":
+            in_loop = True
+            name_col = None
+            continue
+        if t.startswith("_rlnMicrographName"):
+            name_col = t.split()[0]
+            continue
+        if t.startswith("_") or t.startswith("#") or t.startswith("data_"):
+            continue
+        if in_loop and t and name_col:
+            cols = t.split()
+            if cols:
+                mics.append(cols[0])
+
+method = "topaz (CNN)" if topaz_mode else "log (Laplacian of Gaussian)"
+if topaz_exe:
+    method += f" via {topaz_exe}"
+print(f"cryoflow-mock autopick: {method} — {len(mics)} micrograph(s)")
+
+os.makedirs(os.path.join(odir, "micrographs"), exist_ok=True)
+total = 0
+for n, mic in enumerate(mics, 1):
+    time.sleep(0.8)
+    picks = 14 + (n * 3) % 9
+    total += picks
+    base = os.path.basename(mic)
+    if base.endswith(".mrc"):
+        star_name = base[: -len(".mrc")] + f"_{pickname}.star"
+    else:
+        star_name = base + f"._{pickname}.star"
+    out = os.path.join(odir, "micrographs", star_name)
+    with open(out, "w") as fh:
+        fh.write("\ndata_\n\nloop_\n")
+        fh.write("_rlnCoordinateX #1\n")
+        fh.write("_rlnCoordinateY #2\n")
+        fh.write("_rlnAutopickFigureOfMerit #3\n")
+        fh.write("_rlnClassNumber #4\n")
+        for k in range(picks):
+            x = 120 + (k * 61) % 1800
+            y = 140 + (k * 97) % 1700
+            fom = 0.32 + 0.05 * (k % 5)
+            fh.write(f"{x}.0\t{y}.0\t{fom:.3f}\t1\n")
+    print(f"Micrograph {n}/{len(mics)}: {base} — {picks} particles picked")
+    sys.stdout.flush()
+
+print(f"autopick done: {total} particles across {len(mics)} micrographs")
+sys.exit(0)

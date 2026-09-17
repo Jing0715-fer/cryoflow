@@ -779,6 +779,9 @@ export async function startRemoteJob(args: {
         upstream,
         bridge: null,
         ctffindExe: moduleName ? conn.lastProbe?.relionCtffind?.[moduleName] ?? null : null,
+        // t264: the cluster's OWN externals (probed after module load) —
+        // a cluster argv must never resolve motioncor2/topaz on the LOCAL disk
+        externals: moduleName ? conn.lastProbe?.externals?.[moduleName] ?? null : null,
       } as Parameters<typeof buildArgv>[0]);
       if ("error" in built) throw new Error(built.error);
       let argv = built as string[];

@@ -1,0 +1,71 @@
+#!/usr/bin/env python3
+"""Mock relion_run_motioncorr for the CryoFlow mock cluster.
+
+The engine's motioncorr argv calls relion_run_motioncorr with
+--use_motioncor2 --motioncor2_exe <cluster path> (resolved by the t264
+externals probe — the mock rig ships motioncor2 next door). Reads
+--i <micrographs.star>, simulates per-micrograph motion correction
+(log lines with the word "micrograph" feed the progress parser), writes
+<outdir>/corrected_micrographs.star — the collectOutputs contract.
+"""
+import os
+import sys
+import time
+
+argv = sys.argv[1:]
+opts = {}
+i = 0
+while i < len(argv):
+    a = argv[i]
+    if a.startswith("--"):
+        opts[a[2:]] = argv[i + 1] if i + 1 < len(argv) else ""
+        i += 2
+    else:
+        i += 1
+
+star_in = opts.get("i")
+outdir = opts.get("o", "./").rstrip("/")
+mc2 = opts.get("motioncor2_exe", "?")
+if not star_in or not os.path.exists(star_in):
+    print(f"ERROR: cannot read input star: {star_in}", file=sys.stderr)
+    sys.exit(1)
+
+mics = []
+with open(star_in) as fh:
+    in_loop = False
+    name_col = None
+    for line in fh:
+        t = line.strip()
+        if t == "loop_":
+            in_loop = True
+            name_col = None
+            continue
+        if t.startswith("_rlnMicrographName"):
+            name_col = t.split()[0]
+            continue
+        if t.startswith("_") or t.startswith("#") or t.startswith("data_"):
+            continue
+        if in_loop and t and name_col:
+            cols = t.split()
+            if cols:
+                mics.append(cols[0])
+
+print(f"cryoflow-mock motioncorr: {len(mics)} micrograph(s) via motioncor2 at {mc2}")
+for n, mic in enumerate(mics, 1):
+    time.sleep(1.0)
+    print(f"Micrograph {n}/{len(mics)}: {os.path.basename(mic)} — motion corrected (shift 2.4, 1.1 px)")
+    sys.stdout.flush()
+
+os.makedirs(outdir, exist_ok=True)
+out = os.path.join(outdir, "corrected_micrographs.star")
+with open(out, "w") as fh:
+    fh.write("\ndata_\n\nloop_\n")
+    fh.write("_rlnMicrographName #1\n")
+    fh.write("_rlnAccumMotionTotal #2\n")
+    fh.write("_rlnAccumMotionEarly #3\n")
+    fh.write("_rlnAccumMotionLate #4\n")
+    for k, mic in enumerate(mics):
+        total = 2.2 + 0.3 * (k % 4)
+        fh.write(f"{mic}\t{total:.2f}\t{total * 0.6:.2f}\t{total * 0.4:.2f}\n")
+print(f"wrote {out}")
+sys.exit(0)

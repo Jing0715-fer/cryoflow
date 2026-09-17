@@ -1,0 +1,7 @@
+#!/usr/bin/env python3
+"""Mock MotionCor2 (the external relion_run_motioncorr wraps). The mock
+flow never execs it directly — it exists so the t264 probe inventory finds
+motioncor2 on the cluster and the argv carries a CLUSTER path."""
+import sys
+print("cryoflow-mock motioncor2: frame alignment would happen here", " ".join(sys.argv[1:]))
+sys.exit(0)

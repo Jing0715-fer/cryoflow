@@ -16,6 +16,20 @@
 import type { RemoteConnection, RemoteProbe } from "./types";
 import { exec, loginShellScript } from "./ssh";
 
+/**
+ * The non-relion externals the engine's argv builders resolve (engine.ts
+ * externalFor): probe key → the program names that satisfy it on the
+ * cluster. Resolved per module AFTER `module load` — PATH is the module's.
+ */
+const EXT_PROGRAMS: Array<[string, string[]]> = [
+  ["motioncor2", ["motioncor2", "MotionCor2"]],
+  ["topaz", ["relion_python_topaz", "topaz"]],
+  ["modelangelo", ["model_angelo", "modelangelo"]],
+  ["dynamight", ["relion_python_dynamight", "dynamight"]],
+  ["tomo_denoise", ["relion_python_tomo_denoise"]],
+  ["tomo_pick", ["relion_python_tomo_pick"]],
+];
+
 /* ------------------------------------------------------------------ */
 /* Module list parsing                                                 */
 /* ------------------------------------------------------------------ */
@@ -73,6 +87,7 @@ export async function probeConnection(c: RemoteConnection): Promise<RemoteProbe>
     relionHomes: {},
     relionMpi: {},
     relionCtffind: {},
+    externals: {},
     slurm: false,
     gpus: [],
   };
@@ -124,6 +139,7 @@ export async function probeConnection(c: RemoteConnection): Promise<RemoteProbe>
       const homes: Record<string, string> = {};
       const mpi: Record<string, boolean> = {};
       const ctffind: Record<string, string> = {};
+      const externals: Record<string, Record<string, string>> = {};
       for (const m of modules.slice(0, 8)) {
         const q = m.replace(/'/g, "'\\''");
         const detail = await exec(
@@ -133,6 +149,16 @@ export async function probeConnection(c: RemoteConnection): Promise<RemoteProbe>
               "command -v relion_refine 2>/dev/null; " +
               "command -v mpirun 2>/dev/null; " +
               "command -v ctffind 2>/dev/null || command -v ctffind4 2>/dev/null; " +
+              // t264: inventory the NON-relion externals per module — the
+              // argv a cluster run builds must reference cluster paths
+              // (engine.ts externalFor consumes this map; local disk is
+              // never consulted for a remote command)
+              "command -v motioncor2 2>/dev/null; command -v MotionCor2 2>/dev/null; " +
+              "command -v relion_python_topaz 2>/dev/null; command -v topaz 2>/dev/null; " +
+              "command -v model_angelo 2>/dev/null; command -v modelangelo 2>/dev/null; " +
+              "command -v relion_python_dynamight 2>/dev/null; command -v dynamight 2>/dev/null; " +
+              "command -v relion_python_tomo_denoise 2>/dev/null; " +
+              "command -v relion_python_tomo_pick 2>/dev/null; " +
               "echo RELION_HOME=$(dirname $(dirname $(command -v relion_refine 2>/dev/null || echo /bin/true)))"
           ),
           { timeoutMs: 15_000 }
@@ -147,11 +173,23 @@ export async function probeConnection(c: RemoteConnection): Promise<RemoteProbe>
           mpi[m] = lines.some((l) => /mpirun$/.test(l));
           const ctf = lines.find((l) => /ctffind\d*$/.test(l) && l.startsWith("/"));
           if (ctf) ctffind[m] = ctf;
+          // externals: exact-basename match, first per key wins
+          const ext: Record<string, string> = {};
+          for (const l of lines) {
+            if (!l.startsWith("/")) continue;
+            const bn = l.split("/").pop() ?? "";
+            for (const [key, names] of EXT_PROGRAMS) {
+              if (ext[key]) continue;
+              if (names.includes(bn)) ext[key] = l;
+            }
+          }
+          if (Object.keys(ext).length > 0) externals[m] = ext;
         }
       }
       base.relionHomes = homes;
       base.relionMpi = mpi;
       base.relionCtffind = ctffind;
+      base.externals = externals;
     }
 
     // ---- Slurm + GPUs (non-fatal) ------------------------------------

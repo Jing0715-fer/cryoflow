@@ -2248,6 +2248,16 @@ interface BuildCtx {
   upstream: UpstreamRef[];
   /** Active WSL bridge (null on native execution). */
   bridge: WslBridge | null;
+  /**
+   * Cluster-side external programs (the remote probe's per-module inventory:
+   * motioncor2 / topaz / modelangelo / dynamight / tomo_* → absolute cluster
+   * path). The remote layer passes the probed module's map; null/absent =
+   * the LOCAL world (bin dir + host `which`). t262's finding #3: resolving
+   * a cluster argv's externals on the local disk either fails honestly with
+   * a misleading message or — worse — embeds a LOCAL path into a CLUSTER
+   * command line. Externals belong to the world they run in.
+   */
+  externals?: Record<string, string> | null;
 }
 
 function outPath(ctx: BuildCtx, name: string): string {
@@ -2265,6 +2275,24 @@ function outPath(ctx: BuildCtx, name: string): string {
  *    host existsSync/`which` cannot see them (and `which` does not exist on
  *    Windows at all) — so ask the distro itself with `command -v`.
  */
+/**
+ * Resolve an external program IN THE WORLD THE COMMAND WILL RUN IN:
+ *  - remote (ctx.externals present, possibly empty): the probe already
+ *    inventoried the cluster after `module load` — ask that map, never the
+ *    local disk (a local hit would embed a local path into a cluster argv);
+ *  - local (null/absent): bin dir first, then the host PATH (`which`).
+ * The ctffind lane keeps its dedicated ctffindExe override (t262) — same
+ * law, older wiring.
+ */
+async function externalFor(
+  ctx: BuildCtx,
+  key: string,
+  names: string[]
+): Promise<string | null> {
+  if (ctx.externals) return ctx.externals[key] ?? null;
+  return externalOnPath(ctx.binDir, names, ctx.bridge);
+}
+
 async function externalOnPath(
   binDir: string,
   names: string[],
@@ -2513,11 +2541,12 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
     }
 
     case "motioncorr": {
-      const mc2 = await externalOnPath(binDir, ["motioncor2", "MotionCor2"], ctx.bridge);
+      const mc2 = await externalFor(ctx, "motioncor2", ["motioncor2", "MotionCor2"]);
       if (!mc2) {
         return {
-          error:
-            "MotionCor2 executable not found — EMPIAR-10017 images are pre-averaged anyway (import them as micrographs and skip MotionCorr)",
+          error: ctx.externals
+            ? "MotionCor2 executable not found on the cluster (probed after module load) — install MotionCor2 there, or run MotionCorr locally"
+            : "MotionCor2 executable not found — EMPIAR-10017 images are pre-averaged anyway (import them as micrographs and skip MotionCorr)",
         };
       }
       return [
@@ -2576,11 +2605,12 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
         // missing. A file-existence probe cannot catch that; if the module
         // is absent the run fails honestly and rootCauseDetail surfaces the
         // ModuleNotFoundError from run.err.
-        const topaz = await externalOnPath(binDir, ["relion_python_topaz", "topaz"], ctx.bridge);
+        const topaz = await externalFor(ctx, "topaz", ["relion_python_topaz", "topaz"]);
         if (!topaz) {
           return {
-            error:
-              "Topaz executable not found — install topaz into RELION's python environment (pip install topaz-denoise), or switch Picking method to Laplacian of Gaussian",
+            error: ctx.externals
+              ? "Topaz executable not found on the cluster (probed after module load) — install topaz into RELION's python environment there (pip install topaz-denoise), or switch Picking method to Laplacian of Gaussian"
+              : "Topaz executable not found — install topaz into RELION's python environment (pip install topaz-denoise), or switch Picking method to Laplacian of Gaussian",
           };
         }
         argv.push(
@@ -2622,11 +2652,12 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
       // an Auto-picking job's Topaz mode through --topaz_model. Needs the
       // topaz python module (same wrapper as extract) — a missing module
       // fails honestly in run.err and rootCauseDetail surfaces it.
-      const topaz = await externalOnPath(binDir, ["relion_python_topaz", "topaz"], ctx.bridge);
+      const topaz = await externalFor(ctx, "topaz", ["relion_python_topaz", "topaz"]);
       if (!topaz) {
         return {
-          error:
-            "Topaz executable not found — install topaz into RELION's python environment (pip install topaz-denoise)",
+          error: ctx.externals
+            ? "Topaz executable not found on the cluster (probed after module load) — install topaz into RELION's python environment there (pip install topaz-denoise)"
+            : "Topaz executable not found — install topaz into RELION's python environment (pip install topaz-denoise)",
         };
       }
       if (!inputs.train_picks) {
@@ -2713,9 +2744,11 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
     }
 
     case "dynamight": {
-      const exe = await externalOnPath(binDir, ["relion_python_dynamight", "dynamight"], ctx.bridge);
+      const exe = await externalFor(ctx, "dynamight", ["relion_python_dynamight", "dynamight"]);
       if (!exe) {
-        return { error: "DynaMight requires python + torch (relion_python_dynamight not found on PATH)" };
+        return { error: ctx.externals
+          ? "DynaMight requires python + torch (relion_python_dynamight not found on the cluster after module load)"
+          : "DynaMight requires python + torch (relion_python_dynamight not found on PATH)" };
       }
       return [
         exe,
@@ -2730,9 +2763,11 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
     }
 
     case "modelangelo": {
-      const exe = await externalOnPath(binDir, ["model_angelo", "modelangelo"], ctx.bridge);
+      const exe = await externalFor(ctx, "modelangelo", ["model_angelo", "modelangelo"]);
       if (!exe) {
-        return { error: "ModelAngelo requires a python environment with model_angelo installed (not found on PATH)" };
+        return { error: ctx.externals
+          ? "ModelAngelo requires a python environment with model_angelo installed (not found on the cluster after module load)"
+          : "ModelAngelo requires a python environment with model_angelo installed (not found on PATH)" };
       }
       const argv = [exe, str(job, "buildMode", "build_no_seq"), "-v", inputs.map_mrc, "-o", ctx.workdir + "/", "-d", str(job, "gpuId", "0")];
       return argv;
@@ -2863,9 +2898,11 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
     }
 
     case "tomo_denoise": {
-      const exe = await externalOnPath(binDir, ["relion_python_tomo_denoise"], ctx.bridge);
+      const exe = await externalFor(ctx, "tomo_denoise", ["relion_python_tomo_denoise"]);
       if (!exe) {
-        return { error: "cryoCARE requires a python environment (relion_python_tomo_denoise not found on PATH)" };
+        return { error: ctx.externals
+          ? "cryoCARE requires a python environment (relion_python_tomo_denoise not found on the cluster after module load)"
+          : "cryoCARE requires a python environment (relion_python_tomo_denoise not found on PATH)" };
       }
       const mode = str(job, "mode", "cryoCARE:train");
       return [
@@ -2878,9 +2915,11 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
     }
 
     case "tomo_picks": {
-      const pick = await externalOnPath(binDir, ["relion_python_tomo_pick"], ctx.bridge);
+      const pick = await externalFor(ctx, "tomo_pick", ["relion_python_tomo_pick"]);
       if (!pick) {
-        return { error: "Napari picking requires a python environment (relion_python_tomo_pick not found on PATH)" };
+        return { error: ctx.externals
+          ? "Napari picking requires a python environment (relion_python_tomo_pick not found on the cluster after module load)"
+          : "Napari picking requires a python environment (relion_python_tomo_pick not found on PATH)" };
       }
       return [
         pick,

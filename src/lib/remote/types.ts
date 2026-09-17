@@ -74,6 +74,15 @@ export interface RemoteProbe {
   relionMpi: Record<string, boolean>;
   /** ctffind executable per module (module → path), when found. */
   relionCtffind: Record<string, string>;
+  /**
+   * External (non-relion) programs per module (module → key → absolute
+   * cluster path): motioncor2, topaz, modelangelo, dynamight, tomo_denoise,
+   * tomo_pick. Resolved ON the cluster after `module load` — the argv a
+   * cluster run builds must reference cluster paths, never local ones
+   * (t262's finding #3, hardened t264: externals belong to the world they
+   * run in).
+   */
+  externals: Record<string, Record<string, string>>;
   /** Slurm client (sbatch/squeue) present on the login node. */
   slurm: boolean;
   /** GPU names from nvidia-smi (empty = no GPUs visible on login node). */
