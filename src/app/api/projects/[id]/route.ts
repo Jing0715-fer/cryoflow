@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { toProjectDTO } from "@/lib/seed";
 import { getProjectMeta, removeProjectMeta } from "@/lib/projects";
 import { readFileEdges, removeFileEdge } from "@/lib/edge-ports";
-import { isRunAlive, stopRun } from "@/lib/relion/engine";
+import { clearRunRecord, isRunAlive, stopRun } from "@/lib/relion/engine";
 import { isLocalRequest } from "@/lib/http-guard";
 
 export const dynamic = "force-dynamic";
@@ -64,8 +64,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
  * edge-port sidecar entries and the projects.json meta. The last remaining
  * project cannot be deleted (400). When the active project is deleted, the
  * active pointer is fixed by removeProjectMeta (first remaining or null).
- * NOTE: RELION run records in data/engine-state.json are intentionally left
- * untouched (main agent owns the engine state lifecycle).
+ * t272: every run record dies with its project too — db.job.deleteMany
+ * bypasses the single-job DELETE route (whose clearRunRecord keeps the
+ * "records only live while their job does" invariant), so the project
+ * sweep performs the same ceremony per job or the résumé would count
+ * jobs that no canvas can open ever again.
  */
 export async function DELETE(request: NextRequest, context: RouteContext) {
   if (!isLocalRequest(request)) {
@@ -106,6 +109,13 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
         stopped += 1;
       }
     }
+
+    // 0.5 t272 — the record lifecycle is the job's, at project granularity
+    // too. The single-job DELETE route runs clearRunRecord on every exit
+    // path; this route's db.job.deleteMany used to bypass it, leaving orphan
+    // records in the GLOBAL engine-state.json — a cluster's résumé would
+    // count and render entries no canvas could ever open again.
+    for (const { id: jobId } of projectJobs) clearRunRecord(jobId);
 
     // 1. Purge port-aware sidecar edges for this project (DB rows cascade,
     //    the file sidecar does not).

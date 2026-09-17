@@ -30,10 +30,12 @@ export async function GET(request: NextRequest) {
   // t270 — each connection rides its run résumé (aggregate over the run
   // records). Zero runs → the field is OMITTED: "no résumé" is the honest
   // state and the UI renders no card for it (the badge language: only
-  // things that happened get badges).
-  return NextResponse.json({
-    connections: loadConnections().map((c) => withRunResume(toConnectionDTO(c))),
-  });
+  // things that happened get badges). t272 — withRunResume is async (the
+  // résumé's per-entry existence check queries the DB).
+  const connections = await Promise.all(
+    loadConnections().map((c) => withRunResume(toConnectionDTO(c)))
+  );
+  return NextResponse.json({ connections });
 }
 
 export async function POST(request: NextRequest) {
@@ -55,7 +57,7 @@ export async function POST(request: NextRequest) {
     dropConnection(conn.id); // a saved edit invalidates any live SSH session
     // t270 — same résumé contract as GET/PATCH: an edit must not erase the
     // run history the dialog already shows.
-    return NextResponse.json({ connection: withRunResume(toConnectionDTO(conn)) }, { status: 201 });
+    return NextResponse.json({ connection: await withRunResume(toConnectionDTO(conn)) }, { status: 201 });
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "connection save failed" },

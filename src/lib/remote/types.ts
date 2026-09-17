@@ -76,6 +76,16 @@ export interface ConnectionRunResumeEntry {
   syncMs?: number;
   syncedFiles?: number;
   syncedBytes?: number;
+  /**
+   * t272 — does the job still exist on ANY canvas? The connection and the
+   * run records are global; the job is per-project. Absent (pre-t272 DTO)
+   * means the server did not say — the UI keeps the honest merged wording.
+   * true with the job absent from THIS canvas = "another project's canvas";
+   * false = the job is gone everywhere (the résumé keeps it as history).
+   */
+  exists?: boolean;
+  /** t272 — the owning project's name, when the job still exists. */
+  projectName?: string;
 }
 
 /** Aggregate of every remote run dispatched through one connection. */

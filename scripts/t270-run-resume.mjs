@@ -146,14 +146,14 @@ try {
     "the types carry ConnectionRunResume (+entry) and the DTO's optional resume"
   );
   must(
-    rr.includes("export function connectionRunResume") &&
+    rr.includes("export async function connectionRunResume") &&
       rr.includes("rec.remote?.connectionId !== connectionId") &&
       rr.includes("if (rec.exitCode === 0) resume.completed += 1;") &&
       rr.includes("resume.recent.slice(0, 3)"),
     "connectionRunResume filters by connectionId, buckets by exitCode, keeps ≤3 newest"
   );
   must(
-    rr.includes("export function withRunResume") &&
+    rr.includes("export async function withRunResume") &&
       rr.includes("return resume.total > 0 ? { ...dto, resume } : dto;"),
     "withRunResume omits the field at zero runs (the no-résumé honesty contract)"
   );

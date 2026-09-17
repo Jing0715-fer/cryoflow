@@ -1409,3 +1409,24 @@ Stage Summary:
 - 「record 的生命周期是 job 的」：clearRunRecord 让删 job 连带抹账——简历不数「已从账本上撕掉的页」；history 行留给真正够不着的门（跨 project 画布）；「改断言不改产品」的前提是产品的语义真的站得住
 - 「十年界分批」：t26 批涨到 12 套件必然撞 600s 工具上限——t26/t27 按十年界自然分割，「批边界是工具超时的单位」判例的空间版
 - 遗留（下轮候选）：简历 history 行的跨 project 活体见证（需第二 project + 项目切换驱动）；updatedAt 治理；家族跑批 --report JSON + 批次一等公民化（十年界分批是手动的，--filter 子串与批次命名的耦合仍在）；EMPIAR 真数据回归（让位）
+
+## Task 272 (2026-09-17, cron 18:18 窗口 trace 1a07549302235a99-cron-agent-loop-202609171818)
+
+- 【开局四件套】续传摘要称 Task 267/762c2d4——**实际 268/269/270/271 已在前四窗交付**（尾部 Task 271 / 0fe6295），真源律第 N 次应验。净场 PORT 3000/3022 FREE → watchdog 拉起（脚本名笔误 .mjs→.sh 纠正）→ 200 + roster 21。QA：qa00 GREEN + qa63 SMOKE GREEN + 哨兵 t271/t258(实名 view-in-3d)/t268 ALL PASS + agent-browser 双面（主页 + clusters dialog 空态）+ console 0。无 bug。
+- 【巡检与立项】Task 271 遗留①当选：**简历 history 行的跨 project 活体见证**。树上勘察第一步就撞见真缺口：**DELETE /api/projects/[id] 用 db.job.deleteMany 绕过单 job DELETE 路由的 clearRunRecord**——注释明说 records「intentionally left untouched」；而 run records 存于全局单文件 engine-state.json（connection 全局 + records 全局 + job per-project）。后果链：删 project → records 永远孤儿 → résumé 永远数着死 job、任何画布上都渲染指不到的门——「records 只为存在的 job 而活」invariant 在 project 粒度被打破。立项 = 孤儿治理（级联清）+ 遗留①的活体见证 + 哑行文案从「合并猜测」升级为「三态诚实」。
+- 【实现① 孤儿治理（project 粒度闭合）】projects/[id]/route.ts：stop live 循环后、db.job.deleteMany **之前**逐 job clearRunRecord（幂等）——「删 job 连带抹账」的仪式在 project 级同款执行；旧注释退休，新注释写明 bypass 与 invariant。顺序律成文：records 先死、job 行后删。
+- 【实现② 存在性三态（server 端真值）】types.ts 的 ConnectionRunResumeEntry 加 exists?: boolean + projectName?: string（pre-t272 DTO 天然缺省）；connectionRunResume **async 化**——对 ≤3 条 recent 逐条 db.job.findUnique（select project.name 一查询双真值）：exists=true + 画布名 / exists=false / 服务端未说。withRunResume 随之 async，三路由调用点全部 await（GET 的 Promise.all + POST/PATCH 的 await）——「每一层都说同一个故事」的 async 版。
+- 【实现③ UI 三态哑行】RunResumeCard 哑行分支三分：exists===true → 「the job lives on the “{画布名}” project's canvas — switch to that project to inspect it」（**点名画布**，不再说 another）；exists===false → 「the job is gone (deleted) — the résumé keeps it as history」（不再猜画布）；undefined → pre-t272 合并文案保留。data-resume-gone 数据钩子给第三态一个 CSS/test 接缝。doc comment 同步两态→三态。
+- 【OOM rebuild】src 三文件改动 → Task 86 双杀 → build → watchdog 复活 → roster 21。tsc src 全清零保持（新增 0 错误；噪音全在 examples/diag-archive/skills 存量）。
+- 【e2e：t272-cross-canvas-resume.mjs，31 断言 ×3 ALL PASS】A 相 demo 真相；B 相台账 14 断言（clearRunRecord 导入+循环+顺序律+旧注释退休；DTO 字段；async 聚合+联合查询+双分支；三路由 await；UI 三态+data 钩子）；C 相活体——**C1 第二画布诞生**（POST /api/projects 创建即 active，注册表双画布，jobs 0）→ C2 六微图真 import（第二画布上）→ C3 无探针连接 + 裸派发 motioncorr 完成（record 落全局 state file——「connection 与 records 不知 project 为何物」）→ **C4 切回 demo**（switch 200 → 21 jobs 回归 → 第二画布的 job 不在）→ **C5 résumé 跨画布见证**（total 1 不变 + exists=true + projectName="t272 Cross Canvas"——server 端存在性分级的活体）→ **C6 UI 哑行见证**（无 data-resume-jump + tooltip 点名画布且不说 gone）→ **C7 DELETE 第二 project → résumé 字段整体省略（t270 零运行契约 project 粒度第三度见证）+ 级联清空双 record（无孤儿）**→ 卡片退场定妆照；D 相 console 0。定妆照①首拍 résumé 卡缺席（60vh 滚动区，t270 判例复用 scrollIntoViewIfNeeded 入镜）。
+- 【两跑两课】①首跑 2 FAIL + 崩溃：GET /api/projects 有 isLocalRequest 守卫，套件裸 fetch 被拒——「守卫也是 API 契约的一部分，SH 头在 registry 面前是 load-bearing」；demoProject undefined 让 C4/finally 崩——demoId 防御 + throw 走 finally 清场。②二跑 1 FAIL：断言找旧词「another project」，而 exists=true 分支正因**点名画布**不再说 another——「断言的错，不是产品的错」判例第四次应验（tooltip 完全正确）。③t270 家族回归 2 real-fail：async 化改了签名文本，t270 的两处源码断言跟进升级（`export function` → `export async function`）——「语义不变、文本演进」的断言维护，「改断言」的合法场景是产品语义站得住且断言描述的是旧文本。
+- 【全家族回归】七批前台（逐批调用，批边界=工具上限单位）：qa 批 pass 10 · 399.9s ｜ t21 批 pass 7 · 190.0s ｜ t22 批 pass 2 · 64.8s ｜ t24 批 pass 9 · 123.1s ｜ t25 批 pass 9 · 460.2s ｜ t26 批 pass 10 · 531.4s（t260–t269）｜ **t27 批 pass 3 · 100.2s（t270–t272）**——合计 **pass 50 · solo-recovery 0 · real-fail 0 · wall ~1870s**；t272 收编花名册 49→50（t27 批亲跑验收 27.7s）；t270 断言升级后亲跑 + 批内全过；roster 恒等 21。
+- 【定妆照】**shots-qa/t272-cross-canvas-history-row.png**（RUN RÉSUMÉ 卡的跨画布哑行：1 run · 1 completed 徽标 + motioncorr 条目无 ↗ 箭头——门在别的画布上）+ **shots-qa/t272-post-delete-empty-dialog.png**（第二 project 删除后卡片整体退场）。
+- 【收尾】worklog（本条）+ commit/push + 环境清理（Task 86 双杀 + mock cluster 击杀 + port FREE 验证）。
+
+Stage Summary:
+- **「跨画布的简历闭环」**：remote 可观测性第六幕——resume 的全局性与 job 的 project 粒度第一次正面相遇：活体见证（哑行点名画布）、孤儿治理（project DELETE 级联清 records）、三态诚实（点名/已逝/未说）一次交付；t271 遗留①以「真 bug + 产品深化」的姿態收官
+- 「真源律第 N 次应验」：续传摘要落后 4 个身位（267→271）；开局四件套的树上核实永远是第一动作
+- 「守卫也是契约」：isLocalRequest 让裸 fetch 在 registry 面前吃闭门羹——套件的 SH 头不是装饰；「断言的假设要先验证世界按假设运转」的 API 守卫版
+- 「async 化是签名事件」：函数从 sync 变 async，类型、调用点、三路由、既有源码断言四处同步——「一个签名变更的半径要先画出来再动手」；t270 的 real-fail 是这半径的第一张账单
+- 遗留（下轮候选）：exists=false 的 UI 活体见证（需手工注入 record——正常流转已不可达，正是修复的意义）；家族跑批 --report JSON + 批次一等公民化（十年界分批仍手动）；updatedAt 治理；EMPIAR 真数据回归（让位）

@@ -27,7 +27,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     // t270 — the patch response carries the résumé too: the dialog's upsert
     // replaces the whole row, and an edit must not erase the run history
     // ("every layer tells the same story" applies to partial writes).
-    return NextResponse.json({ connection: withRunResume(toConnectionDTO(conn)) });
+    // t272 — withRunResume is async (per-entry existence check).
+    return NextResponse.json({ connection: await withRunResume(toConnectionDTO(conn)) });
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "connection update failed" },

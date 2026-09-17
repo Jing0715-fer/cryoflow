@@ -326,9 +326,13 @@ function resumeDot(e: ConnectionRunResumeEntry): { className: string; label: str
  *  t271 — the résumé becomes an INDEX: a run whose job still exists on
  *  this canvas is a <button> (click = close this dialog and open that
  *  job's inspector — the résumé entry is the doorway, not a dead end);
- *  a run whose job is gone (deleted, or another project's canvas) stays
- *  a plain history row — the résumé remembers what the canvas forgot,
- *  and says so in its tooltip instead of pretending the jump works. */
+ *  a run whose job is not on this canvas stays a plain history row.
+ *  t272 — the history row speaks THREE honest states, because the server
+ *  now reports per-entry existence (the résumé is global, the canvas is
+ *  per-project): "lives on the “X” project's canvas" / "gone (deleted)" /
+ *  the pre-t272 merged guess when the server did not say. The résumé
+ *  remembers what the canvas forgot, and says WHERE it lives instead of
+ *  pretending the jump works. */
 function RunResumeCard({
   resume,
   onOpenJob,
@@ -438,11 +442,19 @@ function RunResumeCard({
           <div
             key={e.jobId}
             data-resume-entry={e.jobId}
+            data-resume-gone={e.exists === false ? "gone" : undefined}
             className="flex items-center gap-1.5 text-[10px] text-muted-foreground/80"
             title={
-              job
-                ? undefined
-                : "the job is gone (deleted, or another project's canvas) — the résumé keeps it as history"
+              // t272 — the server knows whether the job still exists ANYWHERE
+              // (the résumé is global, the canvas is per-project), so the
+              // history row can speak three honest states instead of one
+              // merged guess: another (named!) canvas / gone everywhere /
+              // the server did not say (pre-t272 DTO).
+              e.exists === true
+                ? `the job lives on the “${e.projectName ?? "another"}” project's canvas — switch to that project to inspect it`
+                : e.exists === false
+                  ? "the job is gone (deleted) — the résumé keeps it as history"
+                  : "the job is gone (deleted, or another project's canvas) — the résumé keeps it as history"
             }
           >
             {row}

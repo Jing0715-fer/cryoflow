@@ -1542,7 +1542,7 @@ export function remoteInfoFor(jobId: string): RemoteRunInfo | null {
  * A connection with zero runs yields an all-zero resume (total 0) — the
  * route omits the field entirely for that case, so "no résumé" stays honest.
  */
-export function connectionRunResume(connectionId: string): ConnectionRunResume {
+export async function connectionRunResume(connectionId: string): Promise<ConnectionRunResume> {
   const resume: ConnectionRunResume = { total: 0, completed: 0, failed: 0, lastRunAt: null, recent: [] };
   const runs = readRuns();
   for (const rec of Object.values(runs)) {
@@ -1568,6 +1568,23 @@ export function connectionRunResume(connectionId: string): ConnectionRunResume {
   }
   resume.recent.sort((a, b) => (a.startedAt < b.startedAt ? 1 : a.startedAt > b.startedAt ? -1 : 0));
   resume.recent = resume.recent.slice(0, 3);
+  // t272 — existence is the doorway's truth: the résumé is GLOBAL (records +
+  // connections), the job is per-project. For the ≤3 rendered entries the
+  // server says whether the job still exists anywhere, and under which
+  // project's canvas it lives — the UI can then speak THREE honest states
+  // (jumpable / another canvas / gone) instead of one merged guess.
+  for (const e of resume.recent) {
+    const row = await db.job.findUnique({
+      where: { id: e.jobId },
+      select: { id: true, project: { select: { name: true } } },
+    });
+    if (row) {
+      e.exists = true;
+      if (row.project?.name) e.projectName = row.project.name;
+    } else {
+      e.exists = false;
+    }
+  }
   return resume;
 }
 
@@ -1577,7 +1594,7 @@ export function connectionRunResume(connectionId: string): ConnectionRunResume {
  * whole rows, so ANY layer returning a bare DTO would erase the history the
  * list view already showed.
  */
-export function withRunResume(dto: RemoteConnectionDTO): RemoteConnectionDTO {
-  const resume = connectionRunResume(dto.id);
+export async function withRunResume(dto: RemoteConnectionDTO): Promise<RemoteConnectionDTO> {
+  const resume = await connectionRunResume(dto.id);
   return resume.total > 0 ? { ...dto, resume } : dto;
 }
