@@ -26,7 +26,7 @@ import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { PENDING_VIEW_KEY } from "@/lib/view-link";
-import { ORTHO_SLICE_EVENT, ORTHO_SLICE_STATE_EVENT, ORTHO_CLIP_STATE_EVENT, ORTHO_FOCUS_EVENT, ORTHO_FOCUS_RESTORE_EVENT, ORTHO_SIGMA_STATE_EVENT, ORTHO_SIGMA_REQUEST_EVENT } from "./map-ortho-panel";
+import { ORTHO_SLICE_EVENT, ORTHO_SLICE_STATE_EVENT, ORTHO_CLIP_STATE_EVENT, ORTHO_FOCUS_EVENT, ORTHO_FOCUS_RESTORE_EVENT, ORTHO_SIGMA_STATE_EVENT, ORTHO_SIGMA_REQUEST_EVENT, ORTHO_SIGMA_SET_EVENT } from "./map-ortho-panel";
 import { useWorkflowStore } from "@/lib/store";
 import { fmtBytes } from "@/lib/canvas-export";
 import { encodeGifFrames } from "@/lib/gif-export";
@@ -660,6 +660,25 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     };
     window.addEventListener(ORTHO_SIGMA_REQUEST_EVENT, onSigmaRequest);
     return () => window.removeEventListener(ORTHO_SIGMA_REQUEST_EVENT, onSigmaRequest);
+  }, []);
+
+  // t283 — the SET channel completes the σ family: STATE echoes (3D→2D),
+  // REQUEST pulls (2D→3D), SET commands (2D→3D). The histogram strip is a
+  // contour PICKER — clicking a density sends it here; the clamp is the
+  // slider's own restore bounds ([0.05, 10]), the sign follows the clicked
+  // side of the mean, and the existing [sigma, sign] effect does the rest
+  // (pump + STATE echo) — the chip and the cut line converge on their own.
+  useEffect(() => {
+    const onSigmaSet = (e: Event) => {
+      const d = (e as CustomEvent<Partial<{ sigma: number; sign: number }>>).detail;
+      if (!d || typeof d.sigma !== "number" || !Number.isFinite(d.sigma)) return;
+      const s = Math.min(10, Math.max(0.05, d.sigma));
+      const sg: 1 | -1 = d.sign === -1 ? -1 : 1;
+      if (Math.abs(sigmaRef.current - s) > 1e-6) setSigma(s);
+      if (signRef.current !== sg) setSign(sg);
+    };
+    window.addEventListener(ORTHO_SIGMA_SET_EVENT, onSigmaSet);
+    return () => window.removeEventListener(ORTHO_SIGMA_SET_EVENT, onSigmaSet);
   }, []);
 
   const commitContour = async (value: number, dir: 1 | -1) => {

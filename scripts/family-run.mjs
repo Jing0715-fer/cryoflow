@@ -113,6 +113,7 @@ const FAMILY = [
   "t280-ortho-sigma-chips.mjs", // σ walks over to the 2D side: the ortho panel's header chip + export footer carry the isosurface contour (pull on mount, push on change), and bookmark rows show WHERE the inspection happened (Task 280)
   "t281-density-probe.mjs", // the density probe: hovering an ortho tile reads the voxel under the cursor (format=value, a single-voxel pread) — solid sky cursor lines, a corner chip speaking value @ x,y,z, three-axes-one-voxel mapping proof (Task 281)
   "t282-updated-at-honesty.mjs", // updatedAt honesty: a same-value/empty PATCH no longer touches @updatedAt (Prisma's @updatedAt fires per update CALL) — the dashboard's 'updated X ago' answers the last REAL edit, not the last request; the idle-reset intent stays exempt (Task 282)
+  "t283-histogram-sigma-pick.mjs", // the histogram speaks: the volume's density distribution as a strip (format=histogram, chunked two-pass + cache) with a σ ruler and the current contour as a cut line — CLICKING it sets the contour (ORTHO_SIGMA_SET completes the σ family), sign follows the clicked side of the mean (Task 283)
 ];
 
 // ---- batches are first-class (t273) ----------------------------------------

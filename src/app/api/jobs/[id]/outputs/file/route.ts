@@ -7,7 +7,7 @@ import { getRun } from "@/lib/relion/engine";
 import { readPathrefTarget } from "@/lib/relion/pathref";
 import { resolveInsideJobWorkdir } from "@/lib/relion/jobfile";
 import { isLocalRequest } from "@/lib/http-guard";
-import { isMrcPath, readMrcVoxel, renderMrcLargePng, renderMrcMontagePng, renderMrcOrthoPng, renderMrcSlicePng } from "@/lib/mrc";
+import { isMrcPath, readMrcHistogram, readMrcVoxel, renderMrcLargePng, renderMrcMontagePng, renderMrcOrthoPng, renderMrcSlicePng } from "@/lib/mrc";
 
 export const dynamic = "force-dynamic";
 
@@ -173,6 +173,31 @@ export async function GET(request: NextRequest, context: RouteContext) {
           value: hit.value,
           voxel: { x: hit.ix, y: hit.iy, z: hit.iz },
         },
+        { headers: { "Cache-Control": "no-cache" } }
+      );
+    }
+
+    // t283 — the histogram instrument: the WHOLE volume's density
+    // distribution in one JSON payload. Same containment chain as every
+    // other format, but like "value" it serves NUMBERS, not bytes. The
+    // reader walks the file chunked (O(1) memory, two passes) and caches
+    // per (path, mtime, size) — panel-open frequency, not hover frequency.
+    if (format === "histogram") {
+      if (!isMrc) {
+        return NextResponse.json({ error: "The density histogram is for MRC maps only" }, { status: 400 });
+      }
+      if (lower.endsWith(".mrcs")) {
+        return NextResponse.json(
+          { error: "The density histogram is for 3D volumes — stacks browse images with slice/montage" },
+          { status: 400 }
+        );
+      }
+      const hist = readMrcHistogram(abs);
+      if (!hist) {
+        return NextResponse.json({ error: "Could not read this map" }, { status: 400 });
+      }
+      return NextResponse.json(
+        { jobId: job.id, file: name, ...hist },
         { headers: { "Cache-Control": "no-cache" } }
       );
     }

@@ -546,6 +546,154 @@ export function readMrcVoxel(
   }
 }
 
+/* ------------------------------------------------------------------ */
+/* Volume histogram (t283)                                             */
+/* ------------------------------------------------------------------ */
+
+export interface MrcHistogram {
+  /** every voxel in the grid, finite or not */
+  nTotal: number;
+  /** voxels that entered the stats and the bins (NaN/Inf excluded) */
+  nFinite: number;
+  min: number;
+  max: number;
+  /** mean density over the finite voxels */
+  mean: number;
+  /** population std over the finite voxels — the σ the contour slider
+   *  speaks (mol*'s IsoValue.relative resolves against the same stats) */
+  std: number;
+  lo: number;
+  hi: number;
+  bins: number[];
+}
+
+const HIST_BINS = 256;
+/** 262,144 voxels = 1 MB of float32 per chunk — memory stays flat no
+ *  matter the map size (the OOM doctrine at histogram scale). */
+const HIST_CHUNK_VOXELS = 1 << 18;
+const HIST_CACHE_MAX = 8;
+/** key: realpath + mtime + size — a re-rendered map is a new histogram */
+const histCache = new Map<string, MrcHistogram>();
+
+/**
+ * The whole volume's density distribution in one payload (t283 — the
+ * histogram instrument's backend). "Where should the contour cut?" is
+ * answered by SEEING the distribution: the noise peak, the particle
+ * shoulder, and where Nσ lands inside it.
+ *
+ * I/O shape: the histogram NEEDS every voxel — that is the semantic
+ * floor — so this walks the file in chunks, TWICE (pass 1: min/max/mean/
+ * σ accumulators, pass 2: binning over the now-known [min,max] range)
+ * with O(1) memory; a 700³ float32 map costs ~2.8 GB of sequential read
+ * but never 2.8 GB of RAM. The result is cached per (path, mtime, size)
+ * and LRU-capped: hover-frequency it is not, panel-open frequency it
+ * absolutely is — the second look is free.
+ */
+export function readMrcHistogram(file: string): MrcHistogram | null {
+  const h = readMrcHeader(file);
+  if (!h) return null;
+  const count = h.nx * h.ny * h.nz;
+  if (count < 1) return null;
+  let cacheKey: string | null = null;
+  try {
+    const st = statSync(file);
+    cacheKey = `${file}|${st.mtimeMs}|${st.size}`;
+    const hit = histCache.get(cacheKey);
+    if (hit) {
+      // Map-as-LRU: re-insert to mark the entry freshly used
+      histCache.delete(cacheKey);
+      histCache.set(cacheKey, hit);
+      return hit;
+    }
+  } catch {
+    /* unreadable stat — proceed uncached */
+  }
+
+  const dataStart = 1024 + h.nsymbt;
+  const bpp = h.bytesPerVoxel;
+  const chunkVox = Math.max(1, Math.min(HIST_CHUNK_VOXELS, count));
+  const raw = Buffer.alloc(chunkVox * bpp);
+  let fd: number;
+  try {
+    fd = openSync(file, "r");
+  } catch {
+    return null;
+  }
+  try {
+    // pass 1 — accumulators (float64; finite voxels only)
+    let nFinite = 0;
+    let min = Infinity;
+    let max = -Infinity;
+    let sum = 0;
+    let sumsq = 0;
+    for (let done = 0; done < count; ) {
+      const take = Math.min(chunkVox, count - done);
+      const want = take * bpp;
+      const got = readSync(fd, raw, 0, want, dataStart + done * bpp);
+      if (got < want) return null;
+      for (let i = 0; i < take; i++) {
+        const v = decodeVoxel(raw, i * bpp, h.mode);
+        if (!Number.isFinite(v)) continue;
+        nFinite++;
+        if (v < min) min = v;
+        if (v > max) max = v;
+        sum += v;
+        sumsq += v * v;
+      }
+      done += take;
+    }
+    if (nFinite === 0) return null;
+    const mean = sum / nFinite;
+    const variance = Math.max(0, sumsq / nFinite - mean * mean);
+    const std = Math.sqrt(variance);
+
+    // pass 2 — bin the finite values over the known [min, max]
+    const bins = new Array<number>(HIST_BINS).fill(0);
+    const span = max - min;
+    const scale = span > 0 ? HIST_BINS / span : 0;
+    for (let done = 0; done < count; ) {
+      const take = Math.min(chunkVox, count - done);
+      const want = take * bpp;
+      const got = readSync(fd, raw, 0, want, dataStart + done * bpp);
+      if (got < want) return null;
+      for (let i = 0; i < take; i++) {
+        const v = decodeVoxel(raw, i * bpp, h.mode);
+        if (!Number.isFinite(v)) continue;
+        let b = span > 0 ? Math.trunc((v - min) * scale) : 0;
+        if (b >= HIST_BINS) b = HIST_BINS - 1; // v === max lands in the last bin
+        if (b < 0) b = 0;
+        bins[b]++;
+      }
+      done += take;
+    }
+
+    const out: MrcHistogram = {
+      nTotal: count,
+      nFinite,
+      min,
+      max,
+      mean,
+      std,
+      lo: min,
+      hi: max,
+      bins,
+    };
+    if (cacheKey) {
+      histCache.delete(cacheKey);
+      histCache.set(cacheKey, out);
+      if (histCache.size > HIST_CACHE_MAX) {
+        const oldest = histCache.keys().next().value;
+        if (oldest !== undefined) histCache.delete(oldest);
+      }
+    }
+    return out;
+  } catch {
+    return null;
+  } finally {
+    closeSync(fd);
+  }
+}
+
 /**
  * Render one plane through a map as a grayscale PNG (≤384 px wide).
  * `axis` is the plane's NORMAL (movement) axis: "z" → native sections,

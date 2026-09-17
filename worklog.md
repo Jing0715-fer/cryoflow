@@ -1742,3 +1742,23 @@ Stage Summary:
 - 「params 对比要语义不要字面」：stringify 的 key 顺序是序列化伪影——同一 map 两次 parse 顺序一致，覆盖不变序 + 新 key 尾追，语义对比等价且零依赖；unparseable 永不相等是「写入修复优于沉默相等」
 - 「reset 豁免是意图语义不是字段语义」：status=idle 的 PATCH 即使全等也摸 stamp——它已经跑了 kill + clearRunRecord，副作用的痕迹就该留在时间戳上；no-op 抑制抑制的是「没有意图的请求」，不是「没有 diff 的字段」
 - 遗留（下轮候选）：bookmark 缩略图叠加焦点交点（需 3D→2D 投影，成本收益再评估）；探针 chip 的 σ 相对值显示（等用户真正需要时再加）；导出图叠加探针标记（瞬态 hover 状态进文档资产语义存疑）；产品功能候选：Topaz wrapper 深化
+
+## Task 283 (2026-09-18, cron 06:48 窗口 trace 1a07549302235a99-cron-agent-loop-202609180656)
+
+- 【开局四件套】尾部实证 = Task 282（e2ae285 已 push）——摘要里以为的 Task 272 基线已过时三个 Task（03:33/05:03/06:03 三窗在其它会话交付了 280/281/282），以树上实际为准；cron 模板「Task 13」照例不认。净场：清掉 3022 上 1h 前的 mock cluster 残留 + watchdog 拉起 200 + roster 21 三连恒等。
+- 【QA】四哨兵全绿：qa68-legacy-archive 26 断言 + qa00 + qa63 + t282；agent-browser 活体目检 console 0 / errors 0 / 画布 21 jobs·16 edges。开局自摆乌龙一次：`react-flow__node` 数出 0——这是自绘 canvas 工作流 UI，探针的错不是产品的错（本窗第十次应验）。
+- 【遗留池树上核实】Task 13 老遗留 #5 fs/browse 已有 isLocalRequest 守卫（早年交付）；Task 272 遗留 family --report JSON 已由 t273 交付（--batches/--summary）；updatedAt 治理已由 Task 282 交付——老任务书遗留池**彻底清空**。真缺口：体素密度直方图不存在（angdist 的 marginal histograms 是无关物）+ σ 事件家族缺 SET 通道（面板看得见 σ 改不了 σ）。立项 = Task 283「直方图说话」：WHERE TO CUT 由看分布回答，不由 slider 试错回答。
+- 【实现① readMrcHistogram（mrc.ts）】直方图 NEEDS 每个体素——这是语义地板——故分块两遍单文件读：pass1 min/max/sum/sumsq 累加器（float64）、pass2 在已知 [min,max] 上分 256 箱；O(1) 内存（1<<18 体素 ≈ 1MB float32/块，700³ 图也永不 2.8GB RAM）；NaN/Inf 诚实排除（nFinite 独立计数，Σbins=nFinite 断言每体素恰入一箱，v===max 落末箱不可丢）；(path,mtime,size) 缓存 + LRU 8——hover 频率不是它、panel-open 频率绝对是它，第二眼免费。
+- 【实现② format=histogram 路由分支（outputs/file/route.ts）】同 containment 链（isLocalRequest 守卫 → findEffectiveJob → workdir 词汇域 + realpath → pathref），payload 是分布不是字节；.mrcs 拒绝（stack 用 slice/montage 浏览）、非 MRC 拒绝；receipt 带 jobId+file。
+- 【实现③ OrthoHistogram 条（map-ortho-panel.tsx）】**log 刻度柱**——cryo-EM 直方图是噪声尖峰+粒子长尾，线性 y 把其余一切压扁成不可见；**σ 标尺** ±1/2/3σ（stats 实际跨到的才画）+ μ 最强线；**cut line** 当前 contour 青色实线（σ chip 同族——条的全部生意就是 contour），越界阈值画 faded 箭头在边缘（诚实：值在可见范围之外，chip 说多远）；**hover bin 读数** value (+σoffset) · count（探针的「要数字不要眯眼」教义上一层）；stats 行 data 接缝 mean/std/n/lo/hi（点击数学的服务端真值）；主题感知（useTheme 重绘，仪器两主题都可读）；**默认 OFF**——第一次看是一次显式请求（服务端要全卷走读），toggle 后服务端缓存使后续免费。
+- 【实现④ ORTHO_SIGMA_SET_EVENT】σ 家族补全：STATE 回声（3D→2D）/REQUEST 拉取（2D→3D）/**SET 命令（2D→3D）**。点击密度 → σ = (v−μ)/σ → sign 跟随点击侧（μ 左负右正——负 contour 反差门一键直达）→ clamp [0.05,10]（slider 恢复路径同款）→ dispatch；embed 监听 setSigma/setSign，既有 [sigma,sign] effect 完成剩余（pump + STATE 回声）——chip 与 cut line 自行汇聚，零额外管道。
+- 【t283-histogram-sigma-pick.mjs（46 断言 ×3 ALL PASS，t28 批内收编花名册 58→59）】A 相 demo 真相；B 相源码台账 21 断言（分块常量、累加器、分箱、非有限排除、缓存 mtime、LRU、路由分支+守卫、log 柱、标尺、cut 解析同 stats、箭头诚实、主题重绘、SET 家族、clamp、sign 跟随）；C 相活体：API 全分布（nTotal=64³、256 箱、Σbins=nFinite=262144、μ∈(min,max) σ>0）、缓存 bit-identical、.star 404、**探针与直方图读同一文件**（centre probe 值 0.8763 ∈ [0.0000, 0.9054]）、UI toggle→ready、UI μ = API μ（一个服务端真值两个消费者）、**CLICK-TO-SET 闭环**（点击 mean+3σ → chip echo 3.00 σ）、**远边缘 clamp**（(hi−μ)/σ=6.35 → chip 6.35）、负侧诚实缺席（seed map min=0 无负尾巴 → 负点击不可达如实断言 + 直接 dispatch SET −1.5σ 活体见证 embed 翻转分支 chip −1.50 σ——「缺席是诚实，活体在下一层」）；定妆照 t283-histogram-strip.png（hover 读数 0.5641 (+3.82σ) · 84 vx 在册）。
+- 【全家族回归（八批前台逐批——OOM 纪律第八窗）】qa 11 · 414.9s ｜ t21 7 · 191.9s ｜ t22 2 · 66.0s ｜ t24 9 · 124.0s ｜ t25 9 · 501.7s ｜ t26 10 · 539.8s ｜ t27 7 · 278.4s ｜ t28 4 · 102.7s（t280+t281+t282+**t283 首战** 22.8s）——**合计 pass 59 · solo-recovery 0 · real-fail 0 · wall 2219.4s**（--summary 机器拷贝）；t273 coverage check 认证 59 套件八批零孤儿；roster 恒等 21；build 首试即过 + watchdog 复活；裸 tsc 0。
+- 【收尾】worklog（本条）+ commit/push + 环境清理（Task 86 双杀 + port FREE 验证）。
+
+Stage Summary:
+- **「WHERE TO CUT 有了眼睛」**：直方图条补上 contour 决策的经典仪器——噪声峰、粒子肩、Nσ 落点一眼可见；「这块该切在哪」从 slider 试错变成看分布+点击（RELION _display / IMOD / ChimeraX 的共同答案，本井第三个 ortho 仪器：切片→探针→直方图）
+- 「σ 家族三通道成形」：STATE 回声 / REQUEST 拉取 / SET 命令——2D 侧从「看得见 σ」升级为「改得动 σ」；sign 跟随点击侧让负 contour（反差倒置样本）从设置面板的特例变成直方图上普通的一击
+- 「直方图的 I/O 是语义地板的又一课」：单 voxel pread（t281）→ 语义需求要全体素 → 分块两遍 O(1) 内存 + (path,mtime,size) 缓存——「I/O 粒子随语义收缩」反过来也成立：「语义要求多少就读多少，但内存恒定、缓存兜底」
+- 「诚实缺席的套件版」：seed map 无负尾巴 → 负点击断言如实改名（min≥0 解释为何不可达），翻转分支下沉一层用直接 SET 活体见证——不假装点击、不删断言，缺席本身成为证词
+- 遗留（下轮候选）：直方图叠加到 triptych 导出 footer（文档资产语义待评估）；.mrcs 栈的 per-slice 直方图（stack 浏览的下一步）；bookmark 缩略图叠加焦点交点（继续让位）；产品功能候选：Topaz wrapper 深化
