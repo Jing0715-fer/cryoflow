@@ -281,6 +281,13 @@ try {
     /10 micrographs imported/.test(importDone?.result ?? "") && /\(pixel 1\.77 Å\)/.test(importDone?.result ?? ""),
     `the result speaks the era truth ("${(importDone?.result ?? "").slice(0, 90)}")`
   );
+  // t277 — the folder's non-images are COUNTED now (the bundle holds 10 real
+  //        Henderson .coord files beside the 10 real mrcs; the era of silent
+  //        filtering is over)
+  must(
+    /10 non-image files skipped/.test(importDone?.result ?? ""),
+    `the folder's 10 real .coord files are reported, not swallowed ("${(importDone?.result ?? "").slice(0, 90)}")`
+  );
   const importLog = await readLog(importJob.id);
   const starMatch = importLog.match(/output: (.+micrographs\.star)/);
   must(!!starMatch, "the import log names its output star");

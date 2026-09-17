@@ -1404,9 +1404,15 @@ async function runImportNative(job: EngineJobRef): Promise<NativeResult> {
           };
         }
         if (st.isDirectory) {
-          const mrcs = readdirSync(hostDir)
-            .filter((f) => MIC_RE.test(f))
-            .sort();
+          // t277 — the folder's non-image entries are COUNTED, not silently
+          // swallowed. The explicit file list and the wildcard pattern always
+          // reported their skips; the folder branch (the shape every demo and
+          // every EMPIAR bundle takes) filtered in silence — the t276 fidelity
+          // suite's ground truth (10 real mrcs + 10 real Henderson coords in
+          // ONE directory) is exactly the world where the silence misleads.
+          const entries = readdirSync(hostDir);
+          const mrcs = entries.filter((f) => MIC_RE.test(f)).sort();
+          skipped = entries.length - mrcs.length;
           if (mrcs.length === 0) {
             return {
               ok: false,

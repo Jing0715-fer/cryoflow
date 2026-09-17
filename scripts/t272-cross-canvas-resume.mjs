@@ -140,6 +140,8 @@ page.on("pageerror", (e) => consoleErrors.push(`pageerror: ${e.message}`));
 const createdJobs = [];
 const connIds = [];
 let secondProjectId = null;
+let injectedStateSnapshot = null; // C8 — the state file before the gone-record injection (finally restores it)
+let jobIdForInjection = null; // C8 — the deleted job the injected record points at
 
 try {
   // ---- Phase A: demo truth -----------------------------------------------
@@ -458,6 +460,79 @@ try {
   must(cardAfter === 0, `the résumé card stood down with its last record (${cardAfter} cards)`);
   await page.screenshot({ path: `${SHOTS}/t272-post-delete-empty-dialog.png` });
 
+  // C8 — t277: the THIRD state gets its live witness. Normal flow can no
+  //      longer produce a gone row (the cascade sweeps records with their
+  //      project — that IS the fix), so the witness needs a hand-injected
+  //      record whose job is REALLY deleted (jobM died with the second
+  //      canvas in C7). The résumé is global; the record points at the
+  //      probeless connection; the server's DB check must grade the entry
+  //      exists=false; the UI must render the gone dumb-row — tooltip says
+  //      "gone (deleted)", names NO canvas, offers NO jump.
+  console.log("== PHASE C8: the gone state, witnessed alive ==");
+  const stateBefore = readFileSync(STATE_FILE, "utf8");
+  injectedStateSnapshot = stateBefore; // the finally restores this after the witness
+  jobIdForInjection = jobM.id;
+  const injectedRec = {
+    jobId: jobM.id,
+    projectId: secondProjectId ?? "cmu5t272gone", // the canvas that no longer exists
+    type: jobM.type ?? "motioncorr",
+    pid: null,
+    cmd: "t272-injected: the job is gone, the record remains",
+    workdir: `/home/z/my-project/data/relion/gone/${jobM.id}`,
+    logFile: `/home/z/my-project/data/relion/gone/${jobM.id}/run.out`,
+    errFile: `/home/z/my-project/data/relion/gone/${jobM.id}/run.err`,
+    startedAt: new Date().toISOString(),
+    done: true,
+    exitCode: 0,
+    remote: { connectionId: connId, module: "relion/5.0.1", mode: "direct", stagedMs: 1200, syncMs: 3400, syncedFiles: 3, syncedBytes: 4096 },
+  };
+  const stateObj = JSON.parse(stateBefore);
+  stateObj[jobM.id] = injectedRec;
+  writeFileSync(STATE_FILE, JSON.stringify(stateObj, null, 2));
+  must(!!stateRuns()[jobM.id], "the gone-job record is injected into the GLOBAL state file");
+
+  const goneResume = await pollUntil(async () => {
+    const list = await readConns();
+    return (Array.isArray(list) ? list : []).find((c) => c.id === connId)?.resume ?? null;
+  }, 10_000);
+  must(!!goneResume && goneResume.total === 1, `the résumé counts the injected record (total ${goneResume?.total ?? 0})`);
+  const goneEntry = goneResume?.recent?.[0];
+  must(
+    goneEntry?.jobId === jobM.id && goneEntry?.exists === false,
+    `the server GRADES the dead entry exists=false (exists ${goneEntry?.exists})`
+  );
+  must(goneEntry?.projectName === undefined, "no canvas is named for a job that exists nowhere");
+
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await sleep(2500);
+  await page.locator('button[aria-label="Remote clusters (SSH)"]').first().click({ force: true }).catch(() => {});
+  await sleep(1500);
+  const goneCard = page.locator("[data-run-resume]").first();
+  must(await goneCard.isVisible().catch(() => false), "the résumé card returns with the injected history");
+  const goneRow = page.locator(`[data-resume-entry="${jobM.id}"]`).first();
+  must(await goneRow.isVisible().catch(() => false), "the gone entry still renders (history, not a void)");
+  must(
+    (await goneRow.getAttribute("data-resume-gone").catch(() => null)) === "gone",
+    "the row carries data-resume-gone=gone (the third state's CSS/test seam)"
+  );
+  const goneJump = page.locator(`[data-resume-jump][data-resume-entry="${jobM.id}"]`).first();
+  must(
+    !(await goneJump.isVisible().catch(() => false)),
+    "the gone entry is NOT a jump button (there is no door left to open)"
+  );
+  const goneTitle = ((await goneRow.getAttribute("title").catch(() => "")) ?? "").replace(/\s+/g, " ");
+  must(
+    goneTitle.includes("the job is gone (deleted)") && goneTitle.includes("the résumé keeps it as history"),
+    `the tooltip speaks the gone state ("${goneTitle.slice(0, 90)}")`
+  );
+  must(
+    !goneTitle.includes("project's canvas") && !goneTitle.includes("another"),
+    "the gone tooltip names NO canvas (three states, zero lies)"
+  );
+  await goneRow.scrollIntoViewIfNeeded().catch(() => {});
+  await sleep(400);
+  await page.screenshot({ path: `${SHOTS}/t272-resume-gone-row.png` });
+
   // ---- Phase D: console clean ---------------------------------------------
   console.log("== PHASE D: console ==");
   must(consoleErrors.length === 0, `no real console errors (got ${consoleErrors.length}${consoleErrors.length ? ": " + consoleErrors[0].slice(0, 140) : ""})`);
@@ -491,6 +566,17 @@ try {
     }
   } catch { /* best effort */ }
   try { rmSync(MICS_DIR, { recursive: true, force: true }); } catch { /* gone */ }
+  // C8 — the injected gone-record must leave with the witness (the suite
+  //      manufactures its own scenario; it digs its own grave shut)
+  if (injectedStateSnapshot) {
+    try {
+      const now = JSON.parse(readFileSync(STATE_FILE, "utf8"));
+      if (now[jobIdForInjection]) {
+        writeFileSync(STATE_FILE, injectedStateSnapshot);
+        console.log("  (cleanup) un-injected the gone-record (state file restored)");
+      }
+    } catch { /* best effort */ }
+  }
   try {
     const fs = await import("node:fs");
     const ids = createdJobs.map((id) => id.slice(-8));

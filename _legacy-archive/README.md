@@ -21,7 +21,7 @@
 
 | 条目 | 内容 | 归属证据 |
 |------|------|----------|
-| `persist/` | RELION 5.0.1 栈备份（123 二进制 + MPICH + ctffind）、`RESTORE.md` 灾后恢复指南、worklog 快照 | 自述"跨容器回收存活"，恢复路径指向 `/tmp/my-project/`（旧挂载拓扑） |
+| `persist/` | RELION 5.0.1 栈备份（123 二进制 + MPICH + ctffind）、`RESTORE.md` 灾后恢复指南（含 Task 277 现拓扑翻译节）、worklog 快照 | 自述"跨容器回收存活"，恢复路径指向 `/tmp/my-project/`（旧挂载拓扑，Task 277 起文末附现拓扑翻译表） |
 | `relion-projects/` | beta-gal 教程数据集、empiar-10017 真实全流程、real-relion 验证项目（共 2.9G） | RESTORE.md 引用的 EMPIAR 数据宿主 |
 | `mini-services/relion-ws/` | 早期 era 的 mini-service 实验（bun + index.ts） | 当前产品无此架构（src/ 零引用） |
 | `molstar/` + `molstar.css` | 23M 独立 molstar bundle 副本 | 产品实际从 node_modules 导入 molstar（`import "molstar/build/viewer/molstar.css"`），此副本全仓库零引用 |
@@ -29,7 +29,7 @@
 
 ## 需要里面的数据时
 
-1. RELION 栈 / EMPIAR 数据：读 `persist/RESTORE.md`（它描述的是旧挂载点
-   `/tmp/my-project/` 下的恢复流程，路径需按当前拓扑翻译）。
+1. RELION 栈 / EMPIAR 数据：读 `persist/RESTORE.md`（正文描述旧挂载点
+   `/tmp/my-project/` 下的恢复流程；文末「当前拓扑翻译」节已给出新旧路径映射表）。
 2. 旧截图：直接看文件。
 3. 之后请**放回本检疫区**，不要留在仓库根——qa68 检测器会拒绝根目录复现。
