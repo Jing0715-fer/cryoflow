@@ -49,6 +49,23 @@ export const ORTHO_FOCUS_EVENT = "cryoflow:ortho-focus";
  *  tiles adopt it through the same channels a pick uses, so "fly back"
  *  means the whole picture here too (restore = navigation, not a note) */
 export const ORTHO_FOCUS_RESTORE_EVENT = "cryoflow:ortho-focus-restore";
+/** 3D → 2D (t280): the isosurface contour the 3D view is drawn at — the
+ *  ortho panel shows it as a header chip and records it in the triptych
+ *  export footer (a figure without its contour level is half a figure:
+ *  RELION's _display always prints σ alongside the map) */
+export const ORTHO_SIGMA_STATE_EVENT = "cryoflow:ortho-sigma-state";
+/** 2D → 3D (t280): the panel's pull channel — the embed answers with one
+ *  ORTHO_SIGMA_STATE carrying the current σ, so a panel that mounts after
+ *  the last σ change (or the dialog's first paint) still learns the value
+ *  without the embed having to re-broadcast on a timer */
+export const ORTHO_SIGMA_REQUEST_EVENT = "cryoflow:ortho-sigma-request";
+
+/** the σ payload both directions speak: the contour level in σ units and
+ *  the density sign it is measured on (negative = the inverted surface) */
+export interface OrthoSigmaState {
+  sigma: number;
+  sign: 1 | -1;
+}
 
 /** the clip state the tiles need, as the embed's clipStateRef carries it */
 export interface OrthoClipState {
@@ -456,6 +473,11 @@ export function MapOrthoPanel({
   const [crosshairOn, setCrosshairOn] = useState(true);
   /** t279 — export button's machine state: idle / rasterizing / flash */
   const [exportState, setExportState] = useState<"idle" | "busy" | "ok" | "err">("idle");
+  /** t280 — the 3D view's isosurface contour, as last reported by the
+   *  embed (push on change + pull on mount). Null = nothing heard yet —
+   *  the chip stays absent and the export footer skips the σ segment
+   *  rather than guessing a default (the footer must not lie). */
+  const [isoSigma, setIsoSigma] = useState<OrthoSigmaState | null>(null);
 
   const isStack = path.toLowerCase().endsWith(".mrcs");
 
@@ -494,6 +516,23 @@ export function MapOrthoPanel({
     };
     window.addEventListener(ORTHO_SLICE_STATE_EVENT, onSliceState);
     return () => window.removeEventListener(ORTHO_SLICE_STATE_EVENT, onSliceState);
+  }, []);
+
+  // 3D → 2D (t280): the embed's isosurface contour moved (slider, preset
+  // button, restored bookmark) — the header chip follows. The listener is
+  // also the answer side of the pull channel: mounting dispatches one
+  // ORTHO_SIGMA_REQUEST and the embed replays its CURRENT value, so the
+  // chip is live from the dialog's first paint instead of waiting for the
+  // user's first σ interaction.
+  useEffect(() => {
+    const onSigmaState = (e: Event) => {
+      const d = (e as CustomEvent<Partial<OrthoSigmaState>>).detail;
+      if (!d || typeof d.sigma !== "number" || !Number.isFinite(d.sigma) || (d.sign !== 1 && d.sign !== -1)) return;
+      setIsoSigma({ sigma: d.sigma, sign: d.sign });
+    };
+    window.addEventListener(ORTHO_SIGMA_STATE_EVENT, onSigmaState);
+    window.dispatchEvent(new CustomEvent(ORTHO_SIGMA_REQUEST_EVENT));
+    return () => window.removeEventListener(ORTHO_SIGMA_STATE_EVENT, onSigmaState);
   }, []);
 
   // 3D → 2D (t253): the embed's box-clip moved — the tiles speak its state
@@ -650,7 +689,10 @@ export function MapOrthoPanel({
           ctx.restore();
         }
       });
-      // footer: map name left, focus fractions + moment right
+      // footer: map name left, contour + focus fractions + moment right
+      // (t280 — the σ segment joins when the embed has reported a contour:
+      // a figure without its contour level is half a figure, but a GUESSED
+      // one is a lie — absent σ simply keeps the footer honest)
       const footY = EXPORT_GAP + EXPORT_LABEL_H + EXPORT_TILE + EXPORT_GAP + EXPORT_FOOT_H / 2;
       const base = path.split("/").pop() || path;
       ctx.font = "600 13px ui-sans-serif, system-ui, sans-serif";
@@ -659,7 +701,8 @@ export function MapOrthoPanel({
       ctx.font = "12px ui-monospace, SFMono-Regular, Menlo, monospace";
       ctx.fillStyle = EXPORT_TEXT;
       ctx.textAlign = "right";
-      const f = `focus x ${Math.round(positions.x * 100)}% · y ${Math.round(positions.y * 100)}% · z ${Math.round(positions.z * 100)}%   ${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC`;
+      const sigmaSeg = isoSigma ? `iso ${isoSigma.sign < 0 ? "-" : ""}${isoSigma.sigma.toFixed(2)} σ · ` : "";
+      const f = `${sigmaSeg}focus x ${Math.round(positions.x * 100)}% · y ${Math.round(positions.y * 100)}% · z ${Math.round(positions.z * 100)}%   ${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC`;
       ctx.fillText(f, W - EXPORT_GAP, footY);
       ctx.textAlign = "left";
       const blob = await new Promise<Blob | null>((res) => cv.toBlob(res, "image/png"));
@@ -702,6 +745,19 @@ export function MapOrthoPanel({
             aria-hidden="true"
           />
         </button>
+        {/* t280 — the isosurface contour the 3D view is drawn at, as a
+            quiet mono chip. Sibling of the crosshair/export buttons (never
+            nested); absent until the embed reports a σ — the panel never
+            guesses a default (the chip must not lie). */}
+        {isoSigma && (
+          <span
+            data-canvas-ui="ortho-sigma-chip"
+            title="The isosurface contour the 3D view is drawn at — recorded in the triptych export footer"
+            className="shrink-0 rounded bg-cyan-600/10 px-1.5 py-0.5 font-mono text-[9px] font-medium tabular-nums text-cyan-700 dark:text-cyan-400"
+          >
+            iso {isoSigma.sign < 0 ? "-" : ""}{isoSigma.sigma.toFixed(2)} σ
+          </span>
+        )}
         {/* t278 — the tri-planar crosshair toggle. Sibling of the expand
             button (never nested): the expand behaviour stays the same for
             every existing locator while the crosshair gets its own switch. */}

@@ -26,7 +26,7 @@ import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { PENDING_VIEW_KEY } from "@/lib/view-link";
-import { ORTHO_SLICE_EVENT, ORTHO_SLICE_STATE_EVENT, ORTHO_CLIP_STATE_EVENT, ORTHO_FOCUS_EVENT, ORTHO_FOCUS_RESTORE_EVENT } from "./map-ortho-panel";
+import { ORTHO_SLICE_EVENT, ORTHO_SLICE_STATE_EVENT, ORTHO_CLIP_STATE_EVENT, ORTHO_FOCUS_EVENT, ORTHO_FOCUS_RESTORE_EVENT, ORTHO_SIGMA_STATE_EVENT, ORTHO_SIGMA_REQUEST_EVENT } from "./map-ortho-panel";
 import { useWorkflowStore } from "@/lib/store";
 import { fmtBytes } from "@/lib/canvas-export";
 import { encodeGifFrames } from "@/lib/gif-export";
@@ -638,8 +638,29 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
   useEffect(() => {
     sigmaRef.current = sigma;
     signRef.current = sign;
+    // t280 — the ortho panel's header chip and export footer speak the
+    // contour: every σ change (slider, preset, restored bookmark — this
+    // effect runs on mount too) echoes to the 2D side. Late listeners are
+    // covered by the ORTHO_SIGMA_REQUEST pull below.
+    window.dispatchEvent(new CustomEvent(ORTHO_SIGMA_STATE_EVENT, { detail: { sigma, sign } }));
     void pumpContour();
   }, [sigma, sign]);
+
+  // t280 — the pull channel: a mounting (or re-mounting) ortho panel asks
+  // for the CURRENT contour; answer from the ref, not the state — the
+  // ref is the same "what the screen shows right now" source the bookmark
+  // capture reads, so chip and bookmarks can never disagree.
+  useEffect(() => {
+    const onSigmaRequest = () => {
+      window.dispatchEvent(
+        new CustomEvent(ORTHO_SIGMA_STATE_EVENT, {
+          detail: { sigma: sigmaRef.current, sign: signRef.current },
+        })
+      );
+    };
+    window.addEventListener(ORTHO_SIGMA_REQUEST_EVENT, onSigmaRequest);
+    return () => window.removeEventListener(ORTHO_SIGMA_REQUEST_EVENT, onSigmaRequest);
+  }, []);
 
   const commitContour = async (value: number, dir: 1 | -1) => {
     const plugin = pluginRef.current;
@@ -1580,6 +1601,16 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                 .filter((ax) => v.clip[ax] < 0.999)
                 .map((ax) => ` ${ax.toUpperCase()} ${Math.round(v.clip[ax] * 100)}%`)
                 .join("")}${v.clip.invert ? " · flip" : ""}`}
+        </span>
+      )}
+      {v.focus && (
+        // t280 — the tri-planar focus point joins the trio: a saved view
+        // now shows WHERE the inspection happened, not only how the map
+        // was cut. Cyan (the ortho panel's own hue) — the three plane
+        // accents are taken. Legacy rows without focus stay chipless:
+        // absent is honest, a guessed "50/50/50" is a lie.
+        <span className="rounded bg-cyan-600/10 px-1 py-px font-mono text-[8px] font-medium tabular-nums text-cyan-700 dark:text-cyan-400">
+          focus {Math.round(v.focus.x * 100)}/{Math.round(v.focus.y * 100)}/{Math.round(v.focus.z * 100)}%
         </span>
       )}
     </span>

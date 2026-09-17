@@ -1683,3 +1683,24 @@ Stage Summary:
 - 「ref 而非 state 的捕获纪律」：2D 每次刷洗都上报会让 embed 重渲染——orthoFocusRef 只存「屏幕此刻」，捕获时读取；事件轻、方向清、职责不越界
 - 「clamp 在门口咬合」：服务端 sanitize 对 focus 三值 bounded——套件 PUT x:5/y:-1 得回 x:1/y:0，白名单不是纸面声明；legacy 行缺席字段原样透传，向后兼容在四道门每一道都成立
 - 遗留（下轮候选）：updatedAt 治理（继续让位）；ortho 瓦片点击拾取与框选缩放的潜在手势冲突（未探测到但值得留心）；3D viewer 剩余深化：bookmark 列表/缩略图标注焦点交点位置、导出图加 σ/contour 元数据行；产品功能候选：Topaz wrapper 深化
+
+## Task 280 (2026-09-18, cron 03:33 窗口 trace 1a07549302235a99-cron-agent-loop-202609180335)
+
+- 【开局四件套】尾部 = Task 279（6275399 已 push）零过时；origin/main..HEAD 空；净场良好（PORT 3000/3022 FREE，watchdog 拉起 200 + roster 21）。QA：五哨兵全 GREEN（qa68 19 断言 + qa68-legacy 26 断言 + t273 + t276 + qa00 + qa63）+ agent-browser 活体目检 console 0 / errors 0 / 21 jobs 恒等。cron 模板「Task 13」照例不认（实际尾部已是 279）。
+- 【巡检与立项】Task 279 遗留两项树上核实均真未交付：① bookmark 列表行 renderViewChips 只有 σ/slice/clip 三 chip，无 focus 标注（t279 已把 focus 存进 view，唯独行上不可见）；② 导出 footer 只有 focus+时刻，无 σ/contour 元数据（σ 是 embed 的 isosurface 状态，MapOrthoPanel 无通道可知）。合并立项 Task 280「σ 走到 2D」：req/resp 成对事件（ORTHO_SIGMA_STATE 3D→2D 推送 + ORTHO_SIGMA_REQUEST 2D→3D 拉取，同 FOCUS/FOCUS_RESTORE 成对先例）+ 面板头 σ chip + footer contour 元数据 + 书签行 focus chip。updatedAt 治理继续让位。
+- 【实现① σ 状态通道（成对事件，同 FOCUS/FOCUS_RESTORE 先例）】**3D→2D 推送**：molstar-embed 的 sigmaRef 同步 effect（[sigma, sign] 依赖，mount 亦跑）每次变化 dispatch `cryoflow:ortho-sigma-state`（detail {sigma, sign}）——slider / preset / 书签恢复三条源全覆盖；**2D→3D 拉取**：MapOrthoPanel mount 时 dispatch `cryoflow:ortho-sigma-request`，embed 监听后从 **refs（非 state）** 应答——「refs 是书签捕获读的同一份屏幕此刻真源，chip 与书签永不打架」；panel 应答侧校验（sigma 数字有限 + sign ∈ {1,-1}）防畸形事件。拉取解决了兄弟 mount 时序（MolStarEmbed 的推送 effect 先跑、2D 面板晚听一拍）——「推送保增量、拉取保存量，chip 从对话框首帧就活着」。
+- 【实现② 面板头 σ chip + 导出 footer contour 元数据行】**chip**：头部 crosshair toggle 的左兄弟（绝不嵌套——既有定位器全部幸存），cyan 色系（ortho 面板自家色相 ScanLine cyan-600；三平面 accent teal/violet/amber 已被占用），mono tabular，`iso 3.00 σ`（sign<0 显示 `-`），`data-canvas-ui="ortho-sigma-chip"` 测试接缝，title 说明它会进导出 footer；**footer**：σ 段拼进既有右串（`iso 3.00 σ · focus x ..% · …  UTC`）——EXPORT_FOOT_H 42 不变、栅格 1592×616 不变，t279 尺寸断言零维护；**诚实缺席律**：isoSigma null（未听到任何 σ）时 chip 不渲染、footer 跳过 σ 段——「猜的默认 2.00 是谎言」。
+- 【实现③ 书签行 focus chip（renderViewChips 第四 chip）】v.focus 存在时渲染 `focus 25/75/50%`（cyan 同 σ chip 语义呼应 ortho 世界）；导入预览对话框共享 renderer 同步受益；legacy 行无 focus 保持 chipless（「缺席是诚实，猜的 50/50/50 是谎言」）；BookmarkView 类型不动（focus 字段 t279 已有）。
+- 【t280-ortho-sigma-chips.mjs（43 断言 ×2 ALL PASS，归 t28 批）】B 相源码台账 17 断言（成对事件、refs 应答、诚实缺席、chip 分支）；C 相活体（qa67 64³ seed → Mol* 活 → ortho 展开）：**C1 拉取通道活体**（chip 从首帧可见且读 `iso 2.00 σ`）、**C2 推送通道活体**（点 preset `Set contour to 3 sigma` → chip 跟 `iso 3.00 σ`）、C3 pick (25%,75%) → Save 书签 → 服务端 view.sigma=3 + view.focus 落地 + **DOM 行含 `focus 25/75/50%` 与 `3.00 σ`**（renderViewChips 活体）+ 定妆照 t280-sigma-chip-row.png、C4 导出活体（PNG 魔数 + 1592×616 尺寸不变 + exportState ok）、C5 no-focus 书签 reload 后行 chipless + focus 行 chip 幸存（向后兼容）；finally PUT 空列表清行；Z 相 roster 21 + console 0。
+- 【t28 十年诞生与防呆的活体演示】花名册收编时把 t280 写进 t27 批注释行——但 BATCHES 匹配 `/^t27/`，t280 是 **t28 十年**第一个套件：家族 t27 批跑出 real-fail **t273-family-report**（--batches exit 2 + covered NaN）——「A NEW DECADE must be REGISTERED here」的防呆正确地叫了（loud, not silent）。修复两处：BATCHES += `{ name: "t28", match: /^t28/ }`（八批注册表完整化）；t273 C1 断言数组加 "t28" + 文本 seven→eight（批数文本演进，同 t270 async 化判例——「roster GROWS never a literal」教义的批列表演进）。t273 复跑 ALL PASS + t28 批首战 pass 1 + t27 批复跑全绿覆盖台账。
+- 【启动瞬态一课】watchdog 拉起后立即探活 200 但 roster 短暂为 1（server 首启 Prisma 初始化未完）——「探活 200 ≠ 世界就绪」；三连测 roster 21 恒等后确认虚惊；fd 22 证实 server 打开的是真 DB（/home/z/my-project/db/custom.db）非 Task 99 冻结快照。
+- 【全家族回归（八批前台逐批——OOM 纪律第五窗；t24+t25 连跑又撞 600s 工具上限，拆单批重跑）】qa 11 · 411.4s ｜ t21 7 · 195.7s ｜ t22 2 · 66.8s ｜ t24 9 · 124.2s ｜ t25 9 · 480.8s ｜ t26 10 · 535.7s ｜ t27 7 · 280.8s ｜ t28 1 · 43.6s（**t280 首战**）——**合计 pass 56 · solo-recovery 0 · real-fail 0 · wall 2139.0s**（--summary 机器拷贝）；roster 恒等 21；build 首试即过 + watchdog 复活；裸 tsc 0。
+- 【收尾】worklog（本条）+ commit/push + 环境清理（Task 86 双杀 + port FREE 验证）。
+
+Stage Summary:
+- **「σ 终于走到了 2D」**：三联导出图从此带着 contour level 走（RELION _display 的经典排版——图必有 σ）；面板头一枚安静 cyan chip 让「3D 现在切在哪个阈值」在 2D 侧也可见；t279 的 footer 只差这一行
+- 「成对事件是双向通道的既有形状」：FOCUS_EVENT/FOCUS_RESTORE_EVENT 先例 → SIGMA_STATE(3D→2D 推)/SIGMA_REQUEST(2D→3D 拉)；推送保增量、拉取保存量——mount 时序竞态不需要定时器，需要一条拉取门
+- 「应答从 refs 来，不从 state 来」：refs 是书签捕获读的同一份「屏幕此刻」真源——chip、书签、导出 footer 三处 σ 永远同源；state 可能落后于异步 commit
+- 「缺席是诚实」：isoSigma null → chip 不渲染、footer 无 σ 段；书签无 focus → 行无 chip——猜的默认值是谎言，缺席渲染是三处一致的诚实律
+- 「防呆叫对了」：t280 进错批注释行，decade registry 的 coverage check 当窗抓住（t273 real-fail）——loud not silent 的设计本意；修复是登记 t28 批 + 断言随批数演进，家族台账八批全绿收官
+- 遗留（下轮候选）：updatedAt 治理（继续让位）；ortho 瓦片点击拾取与框选缩放的潜在手势冲突（未探测到但值得留心）；bookmark 缩略图上标注焦点交点位置（chip 已见，缩略图叠加是下一步）；产品功能候选：Topaz wrapper 深化

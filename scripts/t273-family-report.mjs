@@ -26,7 +26,7 @@
  * Phases (no UI, no server rebuild — this is the runner testing itself):
  *   B  the ledger (source assertions on family-run.mjs)
  *   C  the live loop:
- *      C1  --batches: seven batches, full coverage, zero orphans
+ *      C1  --batches: eight batches, full coverage, zero orphans
  *      C2  --batch nosuch: exit 2, names the available batches
  *      C3  --reset: the report file is gone
  *      C4  --summary on an empty report: honest "no family report yet"
@@ -123,12 +123,13 @@ must(
 // ---- Phase C: the live loop -------------------------------------------------
 console.log("== PHASE C: the live loop ==");
 
-// C1 — the registry, witnessed: seven batches, full coverage, no orphans
+// C1 — the registry, witnessed: eight batches (t280 opened the t28 decade),
+// full coverage, no orphans
 const c1 = run(["--batches"]);
 must(c1.status === 0, `--batches exits 0 (got ${c1.status})`);
 must(
-  ["qa", "t21", "t22", "t24", "t25", "t26", "t27"].every((b) => c1.stdout.includes(b)),
-  "all seven batches are listed with their members"
+  ["qa", "t21", "t22", "t24", "t25", "t26", "t27", "t28"].every((b) => c1.stdout.includes(b)),
+  "all eight batches are listed with their members"
 );
 // the roster GROWS (t273 itself just joined) — the coverage line must be
 // asserted against the roster's CURRENT size, parsed from the same output,

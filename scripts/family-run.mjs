@@ -110,6 +110,7 @@ const FAMILY = [
   "t276-empiar-fidelity.mjs", // real data speaks: EMPIAR-10017's real RELION 5.0.1 artifacts through our parsers (optics truth, FSC self-consistency, honest-zero cella) and the real bundle riding the product's import + manualpick VERBATIM (Task 276)
   "t278-ortho-crosshair.mjs", // the tri-planar focus point: crosshair lines mark where sibling planes cut, clicking an image picks the point, sliders step one voxel — and the résumé helper stops lying over gone rows (Task 278)
   "t279-ortho-export-focus.mjs", // the triptych leaves the app: one publishing-grid PNG of the three sections (crosshair + focus footer), and the focus point rides in every saved view — capture, restore, import check, server clamp (Task 279)
+  "t280-ortho-sigma-chips.mjs", // σ walks over to the 2D side: the ortho panel's header chip + export footer carry the isosurface contour (pull on mount, push on change), and bookmark rows show WHERE the inspection happened (Task 280)
 ];
 
 // ---- batches are first-class (t273) ----------------------------------------
@@ -125,6 +126,7 @@ const BATCHES = [
   { name: "t25", match: /^t25/ },
   { name: "t26", match: /^t26/ },
   { name: "t27", match: /^t27/ },
+  { name: "t28", match: /^t28/ },
 ];
 const batchOf = (file) => BATCHES.find((b) => b.match.test(file))?.name ?? null;
 
