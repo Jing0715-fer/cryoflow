@@ -90,6 +90,7 @@ const FAMILY = [
   "t268-probe-cost-heartbeat.mjs", // the probe's cost becomes visible (durationMs on dot/card/log) + the staging heartbeat caught beating under a tunable interval (Task 268)
   "t269-time-ledger.mjs", // the run's two cluster waits become a ledger: stagedMs at the spawn handoff, syncMs at finalize, spoken by the terminal strip (Task 269)
   "t270-run-resume.mjs", // the connection's run résumé: the dialog aggregates total/completed/failed + the ≤3 newest ledgers — a stopped run speaks only its staged leg (Task 270)
+  "t271-resume-jump.mjs", // the résumé becomes an index: a jumpable entry is a real button (name + ledger + hover arrow) that closes the dialog and opens that job's inspector; a deleted job's record leaves with it (Task 271)
 ];
 
 // ---- CLI -------------------------------------------------------------------

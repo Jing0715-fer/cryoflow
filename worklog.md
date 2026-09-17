@@ -1389,3 +1389,23 @@ Stage Summary:
 - 「方言要共享不要复制」：formatLedgerMs export 一行改动，inspector 与 dialog 说同一语言——「两个地方说一种话，第三处就会说第三种」
 - 「stopped 的账本不撒谎」：stop 运行的 résumé 条目只有 staged 腿——sync 从未发生就不该被说出；断言先验证世界的假设（t268 判例）与复数方言的正则教训同场应验
 - 遗留（下轮候选）：简历的深度视图（点条目跳转对应 job 的 inspector——简历作为索引）；updatedAt 治理；家族跑批 --report JSON + 分批一等公民化（t270 已暴露 --filter 子串与批次命名的耦合）；EMPIAR 真数据回归（让位）
+
+## Task 271 (2026-09-17, cron 17:18 窗口 trace 1a07549302235a99-cron-agent-loop-202609171718)
+
+- 【开局四件套】续传摘要称 Task 267/762c2d4——**实际 268/269/270 已在前三窗交付**（尾部 Task 270 / 4b3da23），真源律第 N 次应验。净场 PORT 3000/3022 FREE → watchdog 拉起 200 + roster 21。QA：qa00 GREEN + qa63 SMOKE GREEN + 哨兵 t270/t268/t258 ALL PASS + agent-browser 双空。无 bug。
+- 【立项】Task 270 遗留①当选：**简历成为索引（run résumé 深度视图）**——résumé 条目已携带 jobId（types.ts:69），但 dialog 里只是哑行；点条目应关闭 dialog 并打开对应 job 的 inspector。树上核实未交付。
+- 【实现① 条目 button 化 + 存在性诚实态】RunResumeCard 直读 workflow store（`jobs.find(j => j.id === e.jobId)`）：**job 在画布上 = 真 button**（`data-resume-jump`，`aria-label` 说 job 名字，hover 时 ArrowUpRight 淡入 + bg-accent 高亮，focus-visible ring——键盘可达）；**job 不在 store = 哑 history 行**（「the job is gone (deleted, or another project's canvas) — the résumé keeps it as history」的诚实 tooltip）——store 是 inspector 真正能打开的世界，索引只指向真的门。条目内容升级：`[dot][job name（truncate，font-medium）][type mono][开始时间 tabular][ledger mono]`，tooltip 带精确 startedAt。
+- 【实现② 门把手链路】RemoteClusterDialog 加 `handleOpenJob`（`onOpenChange(false)` → `inspect(jobId)`——**顺序律：先关 dialog 再开 inspector**，两个 dialog 抢 foreground 是输家用户）；ConnectionEditor 透传 onOpenJob（creating + editing 两处实例都接上——「两个渲染点漏一个就是一半用户的哑门」）；footer 教新动词「click one to open its job's inspector」。
+- 【e2e：t271-resume-jump.mjs，28 断言 ×2 ALL PASS】A 相 demo 真相；B 相台账 9 断言（store import + onOpenJob 可选 prop + 存在性检查 + button/onClick + hover affordance + **顺序律**（onOpenChange(false) 先于 inspect(jobId)，indexOf 对位）+ 双实例透传 + gone-job 诚实行 + footer 动词）；C 相活体——六微图真 import → 无探针连接 → 裸派发 motioncorr 完成 → **C3 门全程见证：条目是真 button + aria-label 说名字 → hover 定妆照 → 点击 → cluster dialog 自我关闭 → inspector 打开且正在被指的那个 job**（data-inspector-dialog + 名字断言）→ 目的地定妆照 → **C4 删 job：run record 随之而去（DELETE /api/jobs 的 clearRunRecord——record 的生命周期是 job 的）→ résumé total 归零 → 卡片整体退场（t270 零运行省略契约从另一侧见证）**；D 相 console 0；finally 清场 roster 21。
+- 【断言的错，不是产品的错（t268/t270 判例第三次家族应验）】C4 首版断言「删 job 后条目留作 history」3 FAIL——树上真相：DELETE /api/jobs 走 clearRunRecord，run record 与 job 同生共死，条目不是「不跳转」而是「整体消失」。**改断言不改产品**：record 生命周期是既有语义（clean invariant：records 只为存在的 job 而活），history 行的真实场景是**跨 project 画布**（connection 是全局的，job 是 per-project 的——从别的项目开 dialog，条目指向不在本画布的 job，哑行 + 诚实 tooltip 就是那时的正确面孔）。改断言时顺便把 finally 作用域 bug 修掉（try 内 const 在 finally 不可见）。
+- 【家族七批回归（t26 十年界自然分批）】qa 批 pass 10 · 398.6s ｜ t21 批 pass 7 · 189.8s ｜ t22 批 pass 2 · 65.5s ｜ t24 批 pass 9 · 122.6s ｜ t25 批 pass 9 · 445.3s ｜ t26 批 pass 10 · 540.3s（t260–t269）｜ **t27 批（新十年）pass 2 · 68.7s（t270 + t271）**——合计 **pass 49 · solo-recovery 0 · real-fail 0 · wall ~1831s**；t271 收编花名册 48→49（t27 批亲跑验收 28.8s）；t270 姊妹回归亲跑全过（条目结构升级未伤其内容断言）；roster 恒等 21。
+- 【定妆照】**shots-qa/t271-resume-jump-dialog.png**（RUN RÉSUMÉ 卡：hover 态的可跳条目——job 名高亮 + ↗ 箭头 + staged/synced 账本 + footer 新动词）+ **shots-qa/t271-resume-jump-inspector.png**（点击后的目的地：job inspector 正开着被指的那个 job）。
+- 【收尾】worklog（本条）+ commit/push + 环境清理（Task 86 双杀 + mock cluster 击杀 + port FREE 验证）。
+
+Stage Summary:
+- **「简历成为索引」**：remote 可观测性第五幕——单次的账本（t269）、集群的简历（t270）之后，简历的条目第一次有了门把手：点一条就站在那个 job 的 inspector 前；「徽章告诉你发生过什么」的索引版——门只开向存在的 job
+- 「store 是 inspector 能打开的世界」：存在性检查直读 store 而非 API 回调——跨画布的 job 是哑 history 行 + 诚实 tooltip，「索引只指向真的门，指不了的门要说为什么」
+- 「顺序律第三度成文」：先关 dialog 再开 inspector——两个 foreground 抢夺者不能共存；t267 的「probe 先于 lastProbe 读取」、t269 的「记账点=阶段边界」之后，这是「顺序即律法」的 UI 交互版
+- 「record 的生命周期是 job 的」：clearRunRecord 让删 job 连带抹账——简历不数「已从账本上撕掉的页」；history 行留给真正够不着的门（跨 project 画布）；「改断言不改产品」的前提是产品的语义真的站得住
+- 「十年界分批」：t26 批涨到 12 套件必然撞 600s 工具上限——t26/t27 按十年界自然分割，「批边界是工具超时的单位」判例的空间版
+- 遗留（下轮候选）：简历 history 行的跨 project 活体见证（需第二 project + 项目切换驱动）；updatedAt 治理；家族跑批 --report JSON + 批次一等公民化（十年界分批是手动的，--filter 子串与批次命名的耦合仍在）；EMPIAR 真数据回归（让位）

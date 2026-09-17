@@ -39,8 +39,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { Check, Loader2, Network, Plus, Server, Trash2 } from "lucide-react";
+import { ArrowUpRight, Check, Loader2, Network, Plus, Server, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useWorkflowStore } from "@/lib/store";
 import type {
   ConnectionRunResume,
   ConnectionRunResumeEntry,
@@ -320,8 +321,24 @@ function resumeDot(e: ConnectionRunResumeEntry): { className: string; label: str
 /** The cluster's résumé: an aggregate line + the ≤3 newest runs, each
  *  speaking the time ledger's dialect (formatLedgerMs — the same language
  *  the inspector's remote strip speaks). The tooltip carries the EXACT
- *  milliseconds (t269's leftover: compact display, precise hover). */
-function RunResumeCard({ resume }: { resume: ConnectionRunResume }) {
+ *  milliseconds (t269's leftover: compact display, precise hover).
+ *
+ *  t271 — the résumé becomes an INDEX: a run whose job still exists on
+ *  this canvas is a <button> (click = close this dialog and open that
+ *  job's inspector — the résumé entry is the doorway, not a dead end);
+ *  a run whose job is gone (deleted, or another project's canvas) stays
+ *  a plain history row — the résumé remembers what the canvas forgot,
+ *  and says so in its tooltip instead of pretending the jump works. */
+function RunResumeCard({
+  resume,
+  onOpenJob,
+}: {
+  resume: ConnectionRunResume;
+  onOpenJob?: (jobId: string) => void;
+}) {
+  // the store is the truth the inspector can actually open — an entry
+  // whose job is not in it renders as history, not as a doorway
+  const jobs = useWorkflowStore((s) => s.jobs);
   return (
     <div className="space-y-2 rounded-md border bg-muted/30 p-3" data-run-resume="">
       <div className="flex flex-wrap items-center gap-1.5">
@@ -370,32 +387,71 @@ function RunResumeCard({ resume }: { resume: ConnectionRunResume }) {
         ]
           .filter(Boolean)
           .join(" · ");
-        return (
-          <div
-            key={e.jobId}
-            className="flex items-center gap-1.5 text-[10px]"
-            data-resume-entry={e.jobId}
-          >
+        const job = jobs.find((j) => j.id === e.jobId) ?? null;
+        const jumpable = job != null && onOpenJob != null;
+        const startedShort = new Date(e.startedAt).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+        const row = (
+          <>
             <span
               className={cn("size-1.5 shrink-0 rounded-full", dot.className)}
               aria-hidden="true"
               title={dot.label}
             />
+            {job?.name ? (
+              <span className="min-w-0 truncate font-medium text-foreground">{job.name}</span>
+            ) : null}
             <span className="font-mono text-muted-foreground">{e.jobType}</span>
+            <span className="ml-auto shrink-0 tabular-nums text-muted-foreground/70" aria-hidden="true">
+              {startedShort}
+            </span>
             {ledger ? (
               <span
-                className="ml-auto truncate font-mono tabular-nums text-muted-foreground"
+                className="max-w-[45%] truncate font-mono tabular-nums text-muted-foreground"
                 title={`${exact} — from the run's time ledger`}
               >
                 {ledger}
               </span>
             ) : null}
+          </>
+        );
+        return jumpable ? (
+          <button
+            key={e.jobId}
+            type="button"
+            data-resume-entry={e.jobId}
+            data-resume-jump=""
+            onClick={() => onOpenJob?.(e.jobId)}
+            className="group -mx-1 flex w-full items-center gap-1.5 rounded-sm px-1 py-0.5 text-left text-[10px] transition-colors hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            title={`Open the inspector for “${job?.name}” — ${e.jobType} started ${new Date(e.startedAt).toLocaleString()}`}
+            aria-label={`Open the inspector for ${job?.name ?? e.jobType}`}
+          >
+            {row}
+            <ArrowUpRight
+              className="size-3 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-70 group-focus-visible:opacity-70"
+              aria-hidden="true"
+            />
+          </button>
+        ) : (
+          <div
+            key={e.jobId}
+            data-resume-entry={e.jobId}
+            className="flex items-center gap-1.5 text-[10px] text-muted-foreground/80"
+            title={
+              job
+                ? undefined
+                : "the job is gone (deleted, or another project's canvas) — the résumé keeps it as history"
+            }
+          >
+            {row}
           </div>
         );
       })}
       <p className="text-[10px] leading-relaxed text-muted-foreground/80">
-        Runs dispatched through this connection — staging and sync-back times come from each
-        run&apos;s time ledger.
+        Runs dispatched through this connection — click one to open its job&apos;s inspector;
+        staging and sync-back times come from each run&apos;s time ledger.
       </p>
     </div>
   );
@@ -451,6 +507,7 @@ function ConnectionEditor({
   onProbed,
   onPatched,
   onCancelCreate,
+  onOpenJob,
 }: {
   /** null = creating a new connection. */
   connection: RemoteConnectionDTO | null;
@@ -459,6 +516,9 @@ function ConnectionEditor({
   onProbed: (c: RemoteConnectionDTO | null, probe: RemoteProbe | null) => void;
   onPatched: (c: RemoteConnectionDTO) => void;
   onCancelCreate?: () => void;
+  /** t271 — the résumé as an index: called when a résumé entry whose job
+   *  still exists is clicked (the dialog closes itself, the inspector opens). */
+  onOpenJob?: (jobId: string) => void;
 }) {
   const creating = connection === null;
   const [draft, setDraft] = React.useState<Draft>(() => toDraft(connection));
@@ -900,7 +960,7 @@ function ConnectionEditor({
       {!creating && connection?.resume ? (
         <div className="space-y-2">
           <SectionTitle>Run résumé</SectionTitle>
-          <RunResumeCard resume={connection.resume} />
+          <RunResumeCard resume={connection.resume} onOpenJob={onOpenJob} />
         </div>
       ) : null}
 
@@ -993,6 +1053,17 @@ export function RemoteClusterDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const { connections, setConnections, reload } = useRemoteConnections(open);
+  // t271 — the résumé's doorway: closing THIS dialog is part of the jump
+  // (the inspector must not fight another dialog for the foreground), and
+  // inspect() is the same store action every other surface uses.
+  const inspect = useWorkflowStore((s) => s.inspect);
+  const handleOpenJob = React.useCallback(
+    (jobId: string) => {
+      onOpenChange(false);
+      inspect(jobId);
+    },
+    [onOpenChange, inspect]
+  );
   // selection IS activation (see file doc): the highlighted row is the
   // active connection, persisted on every click.
   const [selectedId, setSelectedId] = React.useState<string>("");
@@ -1176,6 +1247,7 @@ export function RemoteClusterDialog({
                 onProbed={handleProbed}
                 onPatched={handlePatched}
                 onCancelCreate={() => setCreating(false)}
+                onOpenJob={handleOpenJob}
               />
             ) : selected ? (
               <ConnectionEditor
@@ -1185,6 +1257,7 @@ export function RemoteClusterDialog({
                 onDeleted={handleDeleted}
                 onProbed={handleProbed}
                 onPatched={handlePatched}
+                onOpenJob={handleOpenJob}
               />
             ) : (
               <div className="flex h-full min-h-40 flex-col items-center justify-center gap-2 text-center">
