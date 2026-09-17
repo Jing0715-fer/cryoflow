@@ -1586,3 +1586,24 @@ Stage Summary:
 - 「README 的第一步不能是空指针」：.env.example 被 `.env*` 吞掉 272 个任务无人发现——gitignore 例外语法与模板文件必须成对提交
 - 「沙箱重建第二次」：t273 的恢复配方（origin/main 为真源 + 规范位重装 + 脚本化拉起）本次复用即中——判例成文的价值；bun.lock 漏再生是 t273 的账单，本窗口代付
 - 遗留（下轮候选）：卫兵清单目前只有 ssh2——未来新增 serverExternal 级依赖时应扩卫兵数组而非另起炉灶；exists=false 的 UI 活体见证（t272 遗留）；EMPIAR 真数据回归（连续让位）
+
+## Task 275 (2026-09-17, cron 21:33 窗口 trace 1a07549302235a99-cron-agent-loop-202609172136)
+
+- 【撞号声明】本窗与用户报障窗并行——两边都把各自工作称 Task 274；远端 45193a7 先 push 先得名，本条在 rebase 融合时重编号 **275**。两窗工作互不重叠（对方 = ssh2 缺装守卫 + .env.example + bun.lock 补账 + 沙盒二次重建；本窗 = 早期 era 数据树检疫），next.config.ts 与 .gitignore 的并行改动区域不重叠、自动融合；worklog 双条目全保留。
+- 【开局四件套】尾部 = Task 273（d8d9f5c，批次一等公民 + --report JSON + 沙盒重建恢复）零过时；origin/main..HEAD 空（d8d9f5c 已 push）。cron 模板「Task 13」照例不认。净场发现 3022 有上窗 mock cluster 残留（bun pid 15501）击杀 + watchdog 拉起初次无声（手动 start-prod.sh 复盘起活——watchdog 后续重新武装）。QA：qa00 GREEN + qa63 SMOKE GREEN + 哨兵 t273/t272/t270 三连 ALL PASS + agent-browser 双空（console 0 / errors 0）+ roster 21。无 bug。
+- 【巡检与立项】Task 273 遗留④当选：**persist//relion-projects/ 的归属确认**（t273 只用 @source not 绕过了它们，没有回答它们是什么）。树上勘察三步出真相：①产品 7 处 src 文件引用 molstar，但引用全走 node_modules（`import "molstar/build/viewer/molstar.css"`）——public/molstar/（23M 独立 bundle）**全仓库零路径引用**；②persist/RESTORE.md 自述「PolarFS 跨容器回收存活」的灾后恢复指南，但恢复路径指向 `/tmp/my-project/`（旧挂载拓扑）且称 GitHub 5a72d14 为「最终工作树」；③**git cat-file 证实 5a72d14 在我们自己的历史里、remote 同为 Jing0715-fer/cryoflow**——归属判决精化：不是异项目残骸，而是**本项目早期 era（real-RELION 验证时代）的持久备份卷**。立项 = 归属判决文书化 + 单根检疫 + 根目录复现检测器。
+- 【判决：检疫（mv）而非删除】relion-projects/ 内含 641MB EMPIAR-10017 真实原始数据（10 微图 + 10 Henderson .coord）与三个真实验证项目——不可再生的实验资产删除不可接受；放着不可接受（t273 的三条内存账单：tracer EACCES、tailwind 扫描 OOM×3、未来任何扫仓库工具的同类地雷）。`mv` 同文件系统 rename 零拷贝、verdict 可逆。**执行**：persist/、relion-projects/、mini-services/、qa-shots/、qa-shots-17/、public/molstar{,.css} 七项 → `_legacy-archive/`（3.3G），README.md 判决书随行（内容清单 + 归属证据 + 取用路径 + 「放回检疫区」警告）。
+- 【实现① 排除规则单根化】next.config.ts outputFileTracingExcludes：四条（tool-results/persist/relion-projects/mini-services）→ 两条（tool-results——我们的运行时 scratch 留根、`_legacy-archive/**`）；globals.css @source not 三行散排 → 单根一行（tool-results 行保留）；.gitignore `/_legacy-archive/*` + `!/_legacy-archive/README.md`（README 必须随库——判决书不随数据走就等于没写；注意 gitignore 语义：父目录整体排除后无法 re-include，须用 `/*` 排内容再豁免 README）。
+- 【实现② 检测器 scripts/check-foreign-trees.mjs】19 断言三组：①根目录五名 + public/ 两名清白（exit 2 + FAIL 行点名入侵者 + 给出修复 mv 命令）；②检疫区完备（根存在 + README 判决词在文 + 七成员在场）；③排除规则单根化（next.config 有新名无三名陈旧、globals.css 同、.gitignore 藏目录）。exit 0 GREEN / exit 2 大叫——「根目录复现」从下次 build 的 OOM 崩溃前移为亚秒级检测。
+- 【实现③ qa68-legacy-archive.mjs 哨兵，25 断言 ×2 ALL PASS】A 相产品存活（GET / 200）；B 相检测器判决全 ledger（五根清白 + 两 public 清白 + 档案根 + 判决 README + 七成员 + 双排除单根 + 无陈旧排除 + gitignore）；**C 相活体自检：staged 伪造入侵（persist/.qa68-probe）→ 检测器 exit 0→2 且 FAIL 行点名 persist → heal → 2→0 GREEN 复言**——「一个不能失败的检测器是装饰字符串」；D 相零残留（try/finally 保证伪造入侵永不遗留——套件自己制造的地雷自己拆）。
+- 【两课】①「断言的错」第五次应验：检测器首跑 1 FAIL——README 判决词找英文 "quarantine"，而判决书是中文「检疫」；改检测器认「检疫」，文书不动；②**tracked 残余在移动时现形**：mini-services/.gitkeep 被 git 跟踪（占位符时代遗产），mv 让它变成 `D`——占位符随其时代退休是正确的（内容已入档案、检测器守门），提交删除而非复活。
+- 【build 健康验证（检疫的回报）】Task 86 双杀 → npm run build **首试即过 · 2m0.452s · 零事故**——对比 t273 环境重建后的九试三败（EACCES ×1 + PostCSS OOM panic ×3）；start-prod.sh 复活 200 + roster 21。同参数的 build，树外 3.3G 的消失就是全部差异——「排除规则挡住账单，检疫直接消灭账单」。
+- 【全家族回归（--batch 七批 = t273 交付的首次实战 dogfood）】qa 批 pass 11 · 416.1s（**qa68 0.3s 批内收编验收**，花名册 51→52）｜ t21 批 pass 7 · 195.1s ｜ t22 批 pass 2 · 66.2s ｜ t24 批 pass 9 · 124.8s ｜ t25 批 pass 9 · 453.7s ｜ t26 批 pass 10 · 536.9s ｜ t27 批 pass 4 · 176.7s——**合计 pass 52 · solo-recovery 0 · real-fail 0 · wall 1969.5s**（--summary 一条命令直出，本条回归行首次全程机器拷贝）；roster 恒等 21。
+- 【收尾】worklog（本条）+ commit/push + 环境清理（mock cluster 击杀 + Task 86 双杀 + port FREE 验证）。
+
+Stage Summary:
+- **「检疫不是删除，也不只是排除」**：t273 用 @source not 挡住账单（每层排除旋钮），t274 把账单本身搬走（单根 + 一行排除）并立碑（README 判决书）+ 派卫兵（qa68 检测器）——「环境的残骸要有名字地被排除」的下文是「先让残骸只剩一个名字」
+- 「归属要先问 git 而不是先猜」：RESTORE.md 的另一 remote 暗示 + /tmp/my-project 的他拓扑路径都指向「外来时间线」，而 `git cat-file -t 5a72d14` 一锤定音是**本仓库自己的历史**——文档会撒谎（路径是旧拓扑的），对象库不撒谎
+- 「免疫系统的活体自检」：伪造入侵 → exit 2 点名 → heal → GREEN 复言——检测器的失败路径被亲跑过一次，它才有资格守门；套件的 try/finally 是「自己制造的地雷自己拆」
+- 「--batch 七批首战全绿」：上窗为「批边界是工具超时的单位」建的机制，本窗第一次成为唯一操作方式——七条 --batch + 一条 --summary，回归行机器拷贝零手抄
+- 遗留（下轮候选）：updatedAt 治理；exists=false 的 UI 活体见证（继续让位）；EMPIAR 真数据回归（数据现在有了明确门牌 `_legacy-archive/relion-projects/empiar-10017-真实全流程/`，RESTORE.md 路径需按现拓扑翻译）；产品功能候选：3D viewer 体积截面工具、Topaz wrapper 深化

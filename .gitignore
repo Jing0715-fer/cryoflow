@@ -64,6 +64,10 @@ server.log
 # RELION engine outputs + runtime state (large real data files)
 /data/
 /tool-results/
+# t274 — early-era legacy data trees, quarantined (see _legacy-archive/README.md);
+# the README itself is tracked — the ownership verdict must travel with the repo
+/_legacy-archive/*
+!/_legacy-archive/README.md
 3001
 3001.*
 qa44-*.png

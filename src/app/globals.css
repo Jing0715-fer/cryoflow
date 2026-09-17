@@ -9,9 +9,12 @@
    unexpected end of file" — three identical panics on 2026-09-17). Excluded
    by name: the product's class sources live in src/ and that is where the
    detector should look. */
-@source not "../../relion-projects";
-@source not "../../persist";
-@source not "../../mini-services";
+/* t274 — the early-era trees were quarantined into the single
+   _legacy-archive/ root (README inside carries the ownership verdict), so
+   ONE exclusion replaces the three per-tree lines; tool-results/ stays —
+   it is OUR runtime scratch, alive in the repo root by design. The qa68
+   detector fails the suite if a legacy name reappears in the root. */
+@source not "../../_legacy-archive";
 @source not "../../tool-results";
 
 @custom-variant dark (&:is(.dark *));

@@ -60,8 +60,14 @@ const nextConfig: NextConfig = {
   // dies with "Failed to write app endpoint /page". Excluded by name: the
   // tracer never needs scratch data, and a directory the shell cannot even
   // list must not be able to take the build hostage.
+  // t274: the early-era data trees (persist/, relion-projects/,
+  // mini-services/ — 3.3G of untracked runtime data the product never
+  // reads) moved into the single _legacy-archive/ quarantine root, so the
+  // tracer excludes ONE name instead of three; tailwind's @source not in
+  // globals.css mirrors this one-for-one. The qa68 detector fails loudly
+  // if any legacy name ever reappears in the repo root.
   outputFileTracingExcludes: {
-    "*": ["tool-results/**", "persist/**", "relion-projects/**", "mini-services/**"],
+    "*": ["tool-results/**", "_legacy-archive/**"],
   },
   // ssh2 (t261-remote's transport) is a Node-only lib whose dynamic
   // requires Turbopack cannot place into ESM chunks ("non-ecmascript

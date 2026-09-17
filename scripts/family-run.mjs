@@ -65,6 +65,7 @@ const FAMILY = [
   "qa57-e2e.mjs",
   "qa58-e2e.mjs",
   "qa84-e2e.mjs",
+  "qa68-legacy-archive.mjs", // the quarantine sentinel: the root stays free of the era trees, the archive stays complete, and a staged intrusion flips the detector 0->2->0 (Task 274)
   "t210-e2e.mjs", // 151 assertions — the heaviest
   "t212-e2e.mjs",
   "t213-e2e.mjs",
