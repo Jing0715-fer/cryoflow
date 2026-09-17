@@ -62,7 +62,8 @@ import {
   type WaitKind,
 } from "@/lib/relion/engine";
 import { gpuStrategyFor } from "@/lib/hpc/slurm";
-import { getConnection } from "./connections";
+import { getConnection, patchConnection } from "./connections";
+import { probeConnection } from "./probe";
 import {
   exec,
   loginShellScript,
@@ -539,7 +540,7 @@ export async function startRemoteJob(args: {
     );
   }
 
-  const conn = getConnection(target.connectionId);
+  let conn = getConnection(target.connectionId);
   if (!conn) {
     return fail("cluster connection not found — it may have been deleted (re-open Remote cluster and re-save)", true);
   }
@@ -548,7 +549,6 @@ export async function startRemoteJob(args: {
   }
 
   const moduleName = target.module ?? conn.defaultModule ?? "";
-  const relionHomeFromProbe = moduleName ? conn.lastProbe?.relionHomes?.[moduleName] ?? null : null;
 
   // ---- liveness pre-check (precise, async — isRunAlive only guesses) ----
   const prev = getRun(job.id);
@@ -590,6 +590,39 @@ export async function startRemoteJob(args: {
   if (resolved.missing) {
     return { ok: false, error: resolved.missing, ...(resolved.wait ? { waiting: resolved.wait } : {}) };
   }
+
+  // ---- t267: a never-probed connection must not dispatch blind ----------
+  // The UI dialog can't reach this state (its module list IS lastProbe),
+  // but the bare API can: without lastProbe the argv below would be built
+  // from NULL externals/ctffind/relionHome, and externalFor would fall
+  // back to the LOCAL PATH — an honest-but-misleading LOCAL error for a
+  // CLUSTER command (t266's unprobed-dispatch finding, now closed at the
+  // product layer). The probe is load-bearing, so the dispatch performs
+  // it itself: probe now, persist exactly like the Test route does, and
+  // re-read the connection; a failed probe degrades to an honest error
+  // naming the door, never to a local-path guess.
+  if (!conn.lastProbe) {
+    try {
+      const probe = await probeConnection(conn);
+      patchConnection(conn.id, { lastProbe: probe });
+      if (probe.ok) {
+        conn = getConnection(conn.id) ?? conn; // re-read with the fresh truth
+      } else {
+        const why = probe.error?.split("\n")[0]?.trim() || "probe failed";
+        return fail(
+          `the connection has never been probed and probing just failed (${why}) — open Remote clusters and run Test first`,
+          true
+        );
+      }
+    } catch (e) {
+      const why = e instanceof Error ? e.message : String(e);
+      return fail(
+        `the connection has never been probed and probing just failed (${why.split("\n")[0]}) — open Remote clusters and run Test first`,
+        true
+      );
+    }
+  }
+  const relionHomeFromProbe = moduleName ? conn.lastProbe?.relionHomes?.[moduleName] ?? null : null;
 
   // ---- remote roots ------------------------------------------------------
   let remoteRoot: string;

@@ -1306,3 +1306,23 @@ Stage Summary:
 - 「图表要长在智能默认会落的地方」：Overview-only 挂载 × completed→Results 默认 = 永远错开；双挂载（FSC 判例）让曲线在完成的一刻就在眼前——「可发现性是 UI 的一部分」
 - 「取证要双探针」：node 侧绿 + 页侧空是另一种 bug——dialog head + 页内 fetch 一次跑分辨「哪层在说谎」，断言落在失败的那层
 - 遗留（下轮候选）：未探针连接的裸 API 派发诚实化（remote 层 probeless 分世界文案）；staging 心跳的活体推进断言；molstar-embed 存量 tsc 噪音；updatedAt 治理；家族跑批 --report JSON；EMPIAR 真数据回归（让位）
+
+## Task 267 (2026-09-17, cron 13:18 窗口 trace 1a07549302235a99-cron-agent-loop-202609171318)
+
+- 【开局四件套】尾部 = Task 266（bb20596，训练曲线真跑点亮）零过时（本窗紧邻上窗，首次连续两窗零过时）。cron 模板「Task 13」过时案照例不认。净场 PORT FREE → watchdog 拉起 200 + roster 21·16。QA：qa00 GREEN + qa63 SMOKE GREEN + 哨兵 t266/t265/t258 ALL PASS + agent-browser 双空。无 bug。
+- 【勘误两则】①续传摘要称 Task 258 遗留首选「带裁剪状态打开」未做——**实际已由 Task 260 交付**（两卡 initialClipBox 接线在树：reference-map-card:347 / results-view:1088），摘要的世系认知又落后一个身位；②「pip 候选 molstar-embed tsc 噪音」实际不止一处——session-report-dialog 另有 11 处存量 null-safety 噪音，台账记漏（基线 stash 对照法确认 12 处全部先于本窗存在）。
+- 【巡检与立项】Task 266 真发现首选当选：**probeless 派发诚实化**——UI dialog 因模块列表来自 lastProbe 天然走不到「未探针派发」，但裸 API 可以：lastProbe 缺席时 argv 从 NULL externals 构造，externalFor 回落**本地 PATH**——对集群命令报本地口吻的诚实但误导错误（t266 注释「the unprobed-dispatch finding now on the ledger」的兑现）。
+- 【实现：自动 probe，而非分世界文案】修复选型放弃「报错文案分世界」（用户在 staging 之后才发现，太晚），落「**probe 是 load-bearing，派发自己执行仪式**」：startRemoteJob 在 resolveInputs 之后、任何昂贵工作之前，对 `!conn.lastProbe` 的连接当场 probeConnection → patchConnection 落库（与 Test 路由完全同款）→ 重读连接；probe 成功 = externals/ctffind/relionHomes/gpus 全部来自集群真值；probe 失败 = 诚实报错点名「never been probed + run Test first」，绝不回落本地猜测。配套重构：`const conn → let conn`（可重读）、relionHomeFromProbe 读取点后移（**每处 lastProbe 读取都在自动 probe 之后——顺序即律法**）、import 补 probeConnection。产品效果：裸 API 派发之后 UI dialog 的模块选择器也随之点亮（lastProbe 落库是同一份真值）。
+- 【顺手细修：src 首次 tsc 全清零】①session-report-dialog 的 hero landscape：map+类型谓词 filter 是 11 处 'o' possibly null + TS2677 的根源，改 flatMap（行为等价，null 在类型层消失）；②molstar-embed pairwise chip 的 aria-label：pcentre 由 `pw ? … : null` 三元产生而 button 分支已被 4307 行守卫保证 pw 非空——TS 不懂蕴含，aria-label 改条件插值（与 ptitle 的既有方言一致）。**npx tsc --noEmit 的 src 错误从 12 → 0**（stash 基线对照法证基线即 12）。
+- 【e2e：t267-probeless-dispatch.mjs，27 断言 ×2 ALL PASS】A 相 demo 真相；B 相台账 7 断言（自动 probe 块 + 落库同款 + 重读 + 双路诚实文案 ×2 + let conn + **顺序律**（probe 块先于 relionHomeFromProbe 读取）+ import）；C 相活体——六微图 → 真 import → **C2 无探针连接创建（故意永不 Test）+ GET 验证 lastProbe null** → **C3 裸 API 派发 motioncorr：自动 probe 发生 → 完成端到端 → lastProbe 落库含集群 motioncor2 清单（自动 probe 的直接证人）→ record argv 携带集群路径 → REMOTE[] 收官 → STAR 回同步无集群根** → **C4 死端口连接（3099 无监听）probeless 派发：HTTP 200 + error 含 "never been probed"+"run Test first"、零本地口吻（无 PATH/EMPIAR 建议）、job 行保持 idle（requestError 语义）** → 定妆照；D 相 console 0；job 粒度清场 roster 21。
+- 【工艺判例】①「派发自己执行仪式」优于「报错分世界」：load-bearing 的前置步骤不该依赖用户手动触发，也不该只在失败时道歉——系统在正确的时刻自己补上，失败才诚实点名门；②「断言引用动态真值」再应用：argv 断言的 motioncor2 路径从自动 probe 落库的 lastProbe.externals 读出，不写死 rig 路径；③「基线 stash 对照法」：tsc 噪音的归属（存量 vs 新增）用 git stash 前后对照一锤定音，不靠记忆。
+- 【全家族回归】六批前台：qa 批 pass 10 · 403.4s ｜ t21 批 pass 7 · 188.1s ｜ t22 批 pass 2 · 65.8s ｜ t24 批 pass 9 · 122.7s ｜ t25 批 pass 9 · 444.7s ｜ t26 批 pass 8 · 382.4s（t259–t267）——**合计 pass 45 · solo-recovery 0 · real-fail 0 · wall ~1607s**；t267 收编花名册 44→45（t26 批亲跑验收 21.2s）；roster 恒等 21。
+- 【定妆照】**shots-qa/t267-probeless-autoprobe.png**（自动 probe 的集群 motioncorr 完成卡）。
+- 【收尾】worklog（本条）+ commit/push + 环境清理（Task 86 双杀 + mock cluster 击杀 + port FREE 验证）。
+
+Stage Summary:
+- **「派发自己执行仪式」**：t266 的最后一块拼图落位——probe 是 load-bearing 的，所以派发对从未探针的连接当场自己跑（落库同 Test 路由、重读连接、顺序律保证每处 lastProbe 读取都在其后）；probe 失败的诚实报错点名「run Test first」，本地 PATH 的误导口吻从 remote 世界绝迹——「仪式不该依赖用户记得，失败才需要用户知道」
+- 「裸 API 派发后 UI 随之点亮」：自动 probe 落库的 lastProbe 是 dialog 模块选择器读的同一份真值——一个修复同时治好 API 面与 UI 面的盲区
+- 「src 首次 tsc 全清零」：flatMap 消灭类型谓词（11 处）、条件插值收窄三元蕴含（1 处）——「存量噪音不是噪音，是下一次真伤的藏身处」；台账漏记的 session-report-dialog 11 处由基线 stash 对照法揪出
+- 「摘要的世系认知永远落后」：续传摘要称「带裁剪状态打开」待做，实际 t260 已交付——worklog + git log 唯一真源律第 N 次应验，这次连「遗留清单」都要在树上核实
+- 遗留（下轮候选）：staging 心跳的活体推进断言（需 >10s 真实 staging）；自动 probe 的耗时预算上账（SSH 慢集群的派发延迟可见化）；updatedAt 治理；家族跑批 --report JSON；EMPIAR 真数据回归（让位）

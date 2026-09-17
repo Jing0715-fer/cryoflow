@@ -86,6 +86,7 @@ const FAMILY = [
   "t264-remote-externals.mjs", // externals belong to the world they run in: probe inventories cluster motioncor2/topaz, cluster argvs carry cluster paths (Task 264)
   "t265-remote-topaz-train.mjs", // the train→pick loop closed on the cluster: staged coordinate_files index, byte-identical model sync-back, twin pass-through (Task 265)
   "t266-topaz-training-curve.mjs", // the training curve's first living witness: gated route, wild-shape stub, dual-mount on Results, best-test dot (Task 266)
+  "t267-probeless-dispatch.mjs", // a never-probed connection is probed BY the dispatch: auto-probe persists, honest refusal names the door (Task 267)
 ];
 
 // ---- CLI -------------------------------------------------------------------

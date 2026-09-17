@@ -4323,7 +4323,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                                 data-pairwise-chip={`${p.a}|${p.b}`}
                                 onClick={pjump}
                                 title={ptitle}
-                                aria-label={`Jump the plane to the centre of the thinnest corroboration between ${p.a} and ${p.b}, ${pw.label} — ${Math.round(pcentre * 100)}% on the ${sliceAxis} axis`}
+                                aria-label={`Jump the plane to the centre of the thinnest corroboration between ${p.a} and ${p.b}, ${pw.label} — ${pcentre !== null ? `${Math.round(pcentre * 100)}% on the ${sliceAxis} axis` : pw.label}`}
                                 data-visiting={pvisiting ? "1" : undefined}
                                 className={`flex cursor-pointer items-center gap-1.5 rounded-full bg-muted px-1.5 py-0.5 font-mono text-[8.5px] tabular-nums outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97] ${pvisiting ? "text-foreground" : "text-muted-foreground"}`}
                               >

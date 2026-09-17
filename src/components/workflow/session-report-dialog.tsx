@@ -425,14 +425,12 @@ function HeroLandscape({
     pct == null ? null : Math.min(HERO_W, Math.max(0, (pct / 100) * HERO_W));
   const mainPct = peakPctNumOf(mainBins);
   const xMain = markX(mainPct);
-  const drawn = overlays
-    .map((o) => {
-      const dow = sparklinePath(o.bins, HERO_W, HERO_H, SPARK_STATIONS);
-      if (!dow) return null;
-      const pct = peakPctNumOf(o.bins);
-      return { name: o.name, d: dow, x: markX(pct), pct };
-    })
-    .filter((o): o is { name: string; d: string; x: number | null; pct: number | null } => o !== null);
+  const drawn = overlays.flatMap((o) => {
+    const dow = sparklinePath(o.bins, HERO_W, HERO_H, SPARK_STATIONS);
+    if (!dow) return [];
+    const pct = peakPctNumOf(o.bins);
+    return [{ name: o.name, d: dow, x: markX(pct), pct }];
+  });
   // t229: the signatures — the figure's speech made visible. A table row
   // speaks for its portrait; the hero has no row, so each addressed line
   // signs itself at its mark address with the words the aria quotes (name
