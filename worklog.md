@@ -1725,3 +1725,20 @@ Stage Summary:
 - 「单 voxel pread 是 OOM 教义的极致」：从 raw 全文件流（t251 前）到 section-wise（map-profile）到单 voxel 4 字节——I/O 粒子随语义需求收缩到下限，hover 频率轮询在服务端近乎免费
 - 「探针与拾取的手势边界被活体排查」：t278 遗留的「点击拾取与框选缩放冲突」担忧落定——瓦片无拖拽手势，hover(move) 与 pick(click) 正交，套件 C9 亲证 hover 后 click 仍然拾取、focus 线幸存
 - 遗留（下轮候选）：updatedAt 治理（继续让位）；bookmark 缩略图叠加焦点交点（需 3D→2D 投影，成本收益再评估）；探针 chip 的 σ 相对值显示（value/σ 比值——等用户真正需要时再加）；产品功能候选：Topaz wrapper 深化、导出图叠加探针标记
+
+## Task 282 (2026-09-18, cron 06:03 窗口 trace 1a07549302235a99-cron-agent-loop-202609180610)
+
+- 【开局四件套】尾部 = Task 281（22307ac 已 push）零过时；origin/main..HEAD 空；净场良好（PORT 3000/3022 FREE）→ watchdog 拉起 200 + roster 21 三连恒等。cron 模板「Task 13」照例不认（实际尾部已是 281）。
+- 【QA：六哨兵全绿】qa68-legacy 26 断言 + qa00 + qa63 + t281 + t280 全 GREEN；agent-browser 活体目检 console 0 / 21 jobs 恒等。无 bug，基线稳定。
+- 【巡检与立项】让位多窗的「updatedAt 治理（大工程）」终于被树上核实——**传说与实际不符**：schema 全 @updatedAt 自动管理、手动 touch 仅一处 legacy 构造、store L905 的 Task 164 注释早已声明 equality predicate 不依赖「每次 PATCH 都 bump」的 courtesy。真正的痛点 = **Prisma @updatedAt 在每次 update() 调用时都 touch（哪怕 data 全同值）**，而 project-dashboard L1420 的 `formatDistanceToNow(j.updatedAt)` 拿它当「最近修改」显示——拖拽抖动落回原位、重复保存、空体 PATCH 都会把「updated 2 minutes ago」说成一次从未发生的编辑。立项 = Task 282「updatedAt 诚实化」：让时间戳回答「最后一次真实编辑」而非「最后一次请求」。规模：PATCH 一处 + 套件——所谓大工程实为精确语义修复。
+- 【实现：PATCH no-op 抑制（jobs/[id]/route.ts）】data 构造完成后、update 调用前插 `patchIsNoOp` 检测：**空 data 即 no-op**（Prisma 对空 update 也 touch）；字段逐一与 existing 对比（x/y 数字严格等、name/note/workspaceId 字符串等）；**params 语义对比**——stringify 对比可能因 key 顺序误判，两侧 parse 后 stringify（同一字符串两次 parse 顺序一致，覆盖已有 key 不变序、新 key 追加在尾，等价语义对比）；**unparseable 的 stored params 永不相等**（写入 sanitized merge 是诚实修复）；**reset 意图豁免**——body.status==="idle" 永远执行（kill + clearRunRecord 副作用已先跑，reset 是显式意图必然摸时间戳）。no-op 时直接返回 existing——响应形状零变化（job DTO 照旧，t262 等套件无感）。
+- 【t282-updated-at-honesty.mjs（27 断言首跑 ALL PASS，t28 批内收编花名册 57→58）】A 相 demo 真相；B 相源码台账 7 断言（no-op 检测、空体分支、reset 豁免、语义对比、unparseable 分支、existing 短路返回、dashboard 消费方在场）；C 相活体（demo Import Movies 1 为标本，1100ms sleep 让时钟先于 s0 走动）：同值 x PATCH 不摸 stamp、空体不摸、变值摸（52.561Z→06.362Z）、params 同 map 不摸/改 pixelSize 摸、name/note 同值不摸（note null→显式清空写 null 也是 no-op——写 null 到已 null）、**reset 意图即使全等也摸**（06.415Z→06.575Z）；标本 x 恢复原位（真实变值 PATCH 故意摸）；Z 相 roster 21 + 浏览器 21 节点 + console 0。既有套件 PATCH 依赖核查：t272/t270 的 PATCH 断言在 remote 路由域、家族 jobs PATCH 全是变值语义——零冲突。
+- 【全家族回归（八批前台逐批——OOM 纪律第七窗）】qa 11 · 412.1s ｜ t21 7 · 191.3s ｜ t22 2 · 66.0s ｜ t24 9 · 124.3s ｜ t25 9 · 459.3s ｜ t26 10 · 529.3s ｜ t27 7 · 279.0s ｜ t28 3 · 73.2s（t280 + t281 + **t282 首战**）——**合计 pass 58 · solo-recovery 0 · real-fail 0 · wall 2134.5s**（--summary 机器拷贝）；coverage 58 套件八批各归属唯一；roster 恒等 21；build 首试即过 + watchdog 复活；裸 tsc 0。
+- 【收尾】worklog（本条）+ commit/push + 环境清理（Task 86 双杀 + port FREE 验证）。
+
+Stage Summary:
+- **「让位多窗的『大工程』是精确的一处语义修复」**：updatedAt 治理连续让位约十窗，树上核实后实为 PATCH 一处 no-op 抑制——「传说的大工程」也要开箱验货，让位的成本可能远大于工程的成本；本窗同时把 Task 281 遗留的 bookmark 缩略图投影（成本高收益小）与探针 σ 相对值（等真需求）正式判让位
+- 「@updatedAt 的诚实度在调用者手里」：Prisma 的 @updatedAt 每次 update() 都 fire 忠实于调用——说谎的是把「调用」当「变化」的上层；Task 164 让 equality 不依赖 courtesy（防御），t282 移除 courtesy 本身（根治）
+- 「params 对比要语义不要字面」：stringify 的 key 顺序是序列化伪影——同一 map 两次 parse 顺序一致，覆盖不变序 + 新 key 尾追，语义对比等价且零依赖；unparseable 永不相等是「写入修复优于沉默相等」
+- 「reset 豁免是意图语义不是字段语义」：status=idle 的 PATCH 即使全等也摸 stamp——它已经跑了 kill + clearRunRecord，副作用的痕迹就该留在时间戳上；no-op 抑制抑制的是「没有意图的请求」，不是「没有 diff 的字段」
+- 遗留（下轮候选）：bookmark 缩略图叠加焦点交点（需 3D→2D 投影，成本收益再评估）；探针 chip 的 σ 相对值显示（等用户真正需要时再加）；导出图叠加探针标记（瞬态 hover 状态进文档资产语义存疑）；产品功能候选：Topaz wrapper 深化

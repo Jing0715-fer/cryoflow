@@ -156,7 +156,46 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       }
     }
 
-    const job = await db.job.update({ where: { id }, data });
+    // t282 — no-op suppression: a PATCH that would write the SAME values
+    // (drag jitter landing back on the same spot, a repeated save, an
+    // empty body) must not touch @updatedAt — Prisma's @updatedAt fires
+    // on every update() CALL, not on every actual change, so today the
+    // dashboard's "updated X ago" answers "the last REQUEST", not "the
+    // last REAL edit". The idle-reset branch above is an explicit intent
+    // (its kill + record-clear side effects already ran) and always
+    // executes. Params compare SEMANTICALLY (parse both sides) — a
+    // stringify diff could disagree on key order even when the map is
+    // identical; an unparseable stored string is never "equal" (writing
+    // the sanitized merge is the honest fix).
+    const resetIntent = body.status === "idle";
+    const patchIsNoOp = (() => {
+      const keys = Object.keys(data);
+      if (keys.length === 0) return true;
+      let storedParams: Record<string, unknown> | null = null;
+      try {
+        const p = JSON.parse(existing.params || "{}");
+        if (p && typeof p === "object" && !Array.isArray(p)) storedParams = p;
+      } catch {
+        /* unparseable stored params — never treated as equal */
+      }
+      return keys.every((k) => {
+        const v = data[k];
+        if (k === "params") {
+          if (storedParams === null) return false;
+          try {
+            return JSON.stringify(JSON.parse(v as string)) === JSON.stringify(storedParams);
+          } catch {
+            return false;
+          }
+        }
+        return (existing as unknown as Record<string, unknown>)[k] === v;
+      });
+    })();
+
+    const job =
+      !resetIntent && patchIsNoOp
+        ? existing
+        : await db.job.update({ where: { id }, data });
     return NextResponse.json({ job: toJobDTO(job) });
   } catch (error) {
     console.error("PATCH /api/jobs/[id] failed:", error);
