@@ -95,6 +95,17 @@ function formatStagedBytes(bytes?: number): string {
   if (bytes >= 1024 ** 2) return ` · ${(bytes / 1024 ** 2).toFixed(1)} MB`;
   return ` · ${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
+
+/** t269 — the time ledger's dialect: wall-clock ms spoken the way the ETA
+ *  chip speaks remaining time (compact, tabular, no zero-precision noise). */
+function formatLedgerMs(ms?: number): string {
+  if (ms == null || !Number.isFinite(ms) || ms < 0) return "";
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  const s = ms / 1000;
+  if (s < 60) return `${s.toFixed(1)}s`;
+  const m = Math.floor(s / 60);
+  return `${m}m${String(Math.round(s % 60)).padStart(2, "0")}s`;
+}
 import type { EdgeDTO, JobDTO } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { TypeIcon } from "./icons";
@@ -2076,8 +2087,26 @@ function InspectorHeader({ job }: { job: JobDTO }) {
           <span className="min-w-0 truncate">
             {job.runRemote.phase === "staging"
               ? `Staging inputs to the cluster${formatStagedBytes(job.runRemote.stagedBytes)}…`
-              : `Running on the cluster${job.runRemote.pid ? ` · pid ${job.runRemote.pid}` : ""}`}
+              : job.status === "completed" || job.status === "failed"
+                ? // t269 — terminal: the pid is dead, so the strip stops
+                  // claiming the run is "Running"; the ledger span below
+                  // speaks the timing instead
+                  "Ran on the cluster"
+                : `Running on the cluster${job.runRemote.pid ? ` · pid ${job.runRemote.pid}` : ""}`}
           </span>
+          {job.runRemote.phase !== "staging" &&
+          (job.status === "completed" || job.status === "failed") &&
+          (job.runRemote.stagedMs != null || job.runRemote.syncMs != null) ? (
+            <span
+              data-remote-ledger=""
+              title="the run's time ledger — staging (upload) and sync-back (download) are the two waits the cluster adds around the compute itself"
+              className="min-w-0 truncate rounded border border-teal-600/20 bg-teal-500/[0.08] px-1.5 py-px font-mono text-[9.5px] tabular-nums text-teal-700 dark:text-teal-300"
+            >
+              staged {formatLedgerMs(job.runRemote.stagedMs) ?? "—"}
+              {job.runRemote.syncMs != null ? ` · synced ${formatLedgerMs(job.runRemote.syncMs)}` : ""}
+              {job.runRemote.syncedFiles != null ? ` · ${job.runRemote.syncedFiles} file(s) back` : ""}
+            </span>
+          ) : null}
         </div>
       ) : null}
       {job.runRemote?.note ? (

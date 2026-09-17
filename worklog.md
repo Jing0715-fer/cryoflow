@@ -1348,3 +1348,23 @@ Stage Summary:
 - 「活体断言的三课」：假设先验证（staging 真的 >间隔吗）、耦合时长分别治理（staging 文件数与 stub 运行数）、证人 poll 不 sleep——三条都是把「想当然的时长」换成「观测到的推进」
 - 「腰斩批次的孤儿按形状清场」：t258 的 mapimport 孤儿让 roster 恒等说谎、让 solo-recovery 卡死——「上跑的残骸不该让下跑的断言说谎」判例的家族回归版；工具超时以批边界为单位
 - 遗留（下轮候选）：sync-back 的耗时上账（对称于 probe.durationMs，回同步也是派发延迟的一部分）；updatedAt 治理；家族跑批 --report JSON；EMPIAR 真数据回归（让位）
+
+## Task 269 (2026-09-17, cron 15:18 窗口 trace 1a07549302235a99-cron-agent-loop-202609171527)
+
+- 【开局四件套】尾部 = Task 268（f798c52，probe 耗时上账 + 心跳活体）零过时（连续四窗）。cron 模板「Task 13」过时案照例不认。净场 PORT FREE + mock FREE → watchdog 拉起 200 + roster 21·16。QA：qa00 GREEN + qa63 SMOKE GREEN + 哨兵 t268/t266/t258 ALL PASS + agent-browser 双空。无 bug。
+- 【巡检与立项】Task 268 遗留首选当选：**remote 运行的时间账本**（可观测性三部曲之二）——probe 耗时可见了（t268），但一次 remote 运行真正让用户等待的两段——staging（上传）与 sync-back（回同步）——仍是暗时间；且顺带勘察发现一处诚实小伤：**inspector 的 remote strip 在运行终态后仍显示「Running on the cluster · pid N」**（pid 早已死亡）——phase 停在 "running" 而展示层没有终态分支。立项 = stagedMs/syncMs 两笔账 + 终态措辞退休死 pid。
+- 【实现① 两笔计时】①staging 腿：stageFileTree 循环前后计时（stagedT0/stagedMs），随 spawn 交接落 record（`phase:"running", stagedBytes, stagedMs`）——「交接即记账」；②sync 腿：finalizeRemoteRun 里 syncBackWorkdir 前后计时（syncT0/syncMs），随 finalize 落 record——「运行已毕、结果未至的等待」正是它。
+- 【实现② 类型与 DTO】RemoteRunState 加 stagedMs/syncMs（可选——pre-t269 记录天然缺省）；RemoteRunInfo（DTO）加 stagedMs/syncMs/syncedFiles/syncedBytes 四字段透传（后两个此前只在 record 层，UI 从未见过）——「账本要一路走到读账人面前」。
+- 【实现③ 终态措辞 + 账本 span】inspector remote strip 三分：staging（原文案）→ running（原文案，活 pid）→ **终态（"Ran on the cluster"，死 pid 退休）**；终态追加独立账本 span（`data-remote-ledger`，mono/tabular/teal 描边——「staged 266ms · synced 79ms · 3 file(s) back」），formatLedgerMs 方言（ms/s/m+ss 自适应，与 ETA chip 同语感），title 解释两段等待的语义。「徽章告诉你发生过什么」的既有语言第三度应用。
+- 【e2e：t269-time-ledger.mjs，16 断言 ×2 ALL PASS】A 相 demo 真相；B 相台账 5 断言（类型字段 + 两计时块 + spawn 交接落账 + finalize 落账 + DTO 透传 + strip 三态源码）；C 相活体——六微图 → import → 无探针连接 → 裸派发（自动 probe 世系）→ 完成 → **record 账本落账（staged 266ms · synced 79ms 双正数）→ DTO 账本（+3 files）→ inspector 终态 strip（"Ran on the cluster" 且无 "Running" 字样 + 账本 span 三段全说）** → 定妆照；D 相 console 0；job 粒度清场 roster 21。
+- 【工艺判例】①「交接即记账」：stagedMs 在 staging 循环结束的瞬间落，不等到 finalize 补记——账本条目诞生在它的阶段结束处，与心跳的「活着就打点」互补；②「retire 死状态」：终态展示层借账本行顺带修正（strip 不再宣称 Running）——「修一处时顺手治好它旁边的旧伤，前提是旧伤真的在路径上」；③孤儿清扫判例第二次家族应用：t26 批撞工具上限腰斩，t269 的两作业 + 一连接成孤儿（roster 23）——按形状 DELETE + MICS_DIR 清扫 → roster 21 复原 → 单独验收 → 整批重跑拿正式 verdict。
+- 【全家族回归】六批前台（逐批调用——600s 工具上限以批边界为单位，上窗判例）：qa 批 pass 10 · 396.6s ｜ t21 批 pass 7 · 194.0s ｜ t22 批 pass 2 · 65.1s ｜ t24 批 pass 9 · 123.0s ｜ t25 批 pass 9 · 483.3s ｜ t26 批 pass 10 · 532.1s（t259–t269）——**合计 pass 47 · solo-recovery 0 · real-fail 0 · wall ~1794s**；t269 收编花名册 46→47（t26 批亲跑验收 21.4s）；roster 恒等 21；t268 的 server 环境还原在批内验证有效（/proc environ 无 CF_STAGING_BEAT_MS 残留）。
+- 【定妆照】**shots-qa/t269-time-ledger.png**（终态 strip：Ran on the cluster + 账本 span）。
+- 【收尾】worklog（本条）+ commit/push + 环境清理（Task 86 双杀 + mock cluster 击杀 + port FREE 验证）。
+
+Stage Summary:
+- **「两段暗时间，一本明账」**：staging 与 sync-back 从「用户感到的卡」变成「strip 上的两个数字」——remote 可观测性三部曲（probe → heartbeat → ledger）完结；「每一层都有自己的证人」判例的计时版
+- 「终态要说终态的话」：phase 字段停在 "running" 是记录层的诚实（它只描述 record 视角），但展示层有 job.status 可以判断终态——「旧伤 retire 的时机是它真正挡路的时候」
+- 「账本条目诞生在阶段结束处」：stagedMs 记在 spawn 交接、syncMs 记在 finalize——不补记不追认，记账点 = 阶段边界；与 DTO 透传到 UI 的完整链路一起，「每一层都说同一个故事」有了时间维度
+- 「工具上限的批边界律」第二次应验：腰斩 → 孤儿 → 按形状清扫 → 单独验收 → 整批重跑——流程已可预期地恢复
+- 遗留（下轮候选）：m+ss 以上时长的可视化打磨（>60s 的 staged 显示 2m05s，可加 tooltip 精确 ms）；updatedAt 治理；家族跑批 --report JSON；EMPIAR 真数据回归（让位）

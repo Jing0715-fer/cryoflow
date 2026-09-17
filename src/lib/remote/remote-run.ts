@@ -825,6 +825,10 @@ export async function startRemoteJob(args: {
         `remote-run: task alive — staging ${uploads.length} input file(s) for "${job.name}" to ${conn.host} (module ${moduleName || "none"})`
       );
       let stagedBytes = 0;
+      // t269 — the staging leg's wall-clock cost: the ledger's first entry,
+      // set when staging hands off to the spawn (visible in the inspector's
+      // remote strip once the run is terminal).
+      const stagedT0 = Date.now();
       for (const u of uploads) {
         stagedBytes += await stageFileTree(conn, u.local, u.remote);
         if (u.external) rememberStage(u.local, u.remote);
@@ -834,6 +838,7 @@ export async function startRemoteJob(args: {
             : null
         );
       }
+      const stagedMs = Date.now() - stagedT0;
 
       // ---- argv (cluster paths, cluster binary dir) ---------------------
       const relionHome = relionHomeFromProbe;
@@ -924,7 +929,7 @@ export async function startRemoteJob(args: {
               ...rec,
               pid,
               cmd: command,
-              remote: { ...rec.remote, pid, phase: "running", stagedBytes },
+              remote: { ...rec.remote, pid, phase: "running", stagedBytes, stagedMs },
             }
           : null
       );
@@ -1268,7 +1273,12 @@ async function finalizeRemoteRun(
   const r = rec.remote;
   if (!r) return null; // defensive: entries are pre-filtered on rec.remote
   const localWorkdir = rec.workdir;
+  // t269 — the sync-back leg's wall-clock cost: the ledger's second entry,
+  // set at finalize (the run itself is already over; this is the wait the
+  // user still feels before the results appear).
+  const syncT0 = Date.now();
   const sync = await syncBackWorkdir(conn, r, localWorkdir);
+  const syncMs = Date.now() - syncT0;
 
   let outputs: Record<string, string> = {};
   let result: string;
@@ -1314,6 +1324,7 @@ async function finalizeRemoteRun(
             syncedFiles: sync.files,
             syncedBytes: sync.bytes,
             skippedFiles: sync.skipped.slice(0, 50),
+            syncMs,
             ...(sync.note ? { note: sync.note } : {}),
           },
         }
@@ -1509,6 +1520,12 @@ export function remoteInfoFor(jobId: string): RemoteRunInfo | null {
     ...(r.slurmId != null ? { slurmId: r.slurmId } : {}),
     phase: r.phase,
     ...(r.stagedBytes != null ? { stagedBytes: r.stagedBytes } : {}),
+    // t269 — the time ledger rides the DTO so the inspector's remote strip
+    // can speak it once the run is terminal.
+    ...(r.stagedMs != null ? { stagedMs: r.stagedMs } : {}),
+    ...(r.syncMs != null ? { syncMs: r.syncMs } : {}),
+    ...(r.syncedFiles != null ? { syncedFiles: r.syncedFiles } : {}),
+    ...(r.syncedBytes != null ? { syncedBytes: r.syncedBytes } : {}),
     ...(r.note ? { note: r.note } : {}),
   };
 }

@@ -128,6 +128,13 @@ export interface RemoteRunInfo {
   stagedBytes?: number;
   /** Non-fatal note (ssh loss, capped sync-back …). */
   note?: string;
+  /** t269 — wall-clock staging duration (ms), set when staging hands off to the spawn. */
+  stagedMs?: number;
+  /** t269 — wall-clock sync-back duration (ms), set at finalize. */
+  syncMs?: number;
+  /** t269 — files + bytes pulled back to the local mirror at finalize. */
+  syncedFiles?: number;
+  syncedBytes?: number;
 }
 
 /**
@@ -163,6 +170,10 @@ export interface RemoteRunState {
   note?: string;
   /** Total bytes staged TO the cluster (inputs) — user feedback. */
   stagedBytes?: number;
+  /** t269 — wall-clock staging duration (ms), set when staging hands off to the spawn. */
+  stagedMs?: number;
+  /** t269 — wall-clock sync-back duration (ms), set at finalize. */
+  syncMs?: number;
   /**
    * Staging heartbeat (ms epoch) — touched every 10s by the background
    * staging task while it is alive. The poll sweep reads it to tell
