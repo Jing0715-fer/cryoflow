@@ -1665,7 +1665,21 @@ Stage Summary:
 - 「轻量注入配方的诞生」：t277 的 gone 见证需要第二画布真死一 job；t278 发现 helper 见证不需要——POST 连接是纯 upsert（不探测），record 可纯手造，exists 的分级只查 DB——「能注入的就不必真死」；三轮 reload 刷数据、键级快照恢复、套件自拆
 - 遗留（下轮候选）：updatedAt 治理（继续让位）；ortho 瓦片点击拾取与框选缩放的潜在手势冲突（未探测到但值得留心）；3D viewer 剩余深化方向：截面 PNG 一键导出、bookmark 里携带焦点交点；产品功能候选：Topaz wrapper 深化
 
+## Task 279 (2026-09-18, cron 02:18 窗口 trace 1a07549302235a99-cron-agent-loop-202609180221)
 
-- 【开局四件套】尾部 = Task 277（7623ccd）零过时；origin/main..HEAD 空（已 push）；净场良好（PORT 3000/3022 FREE，watchdog 拉起 200 + roster 21）。cron 模板「Task 13」照例不认。
-- 【QA】qa68 26 断言 GREEN + t273-family-report + t276-empiar-fidelity + qa00 + qa63 五哨兵全 GREEN；agent-browser 活体目检 console 0 / errors 0 / 画布 21 jobs。无 bug。
-- 【立项】Task 277 遗留两项合并交付：① 三平面正交查看器「焦点交点」深化（crosshair 三瓦片联动 + 点击拾取 + 体素级步进——惯例④⑤）；② resume 卡 helper 文案随记录形态三态自适应（「click one to open」对 gone 行不适用——Task 277 遗留终结）。套件 scripts/t278-ortho-crosshair.mjs（B 相源码台账 + C 相 ortho 活体 + D 相 helper 三态轻量注入活体）。
+- 【开局四件套】尾部 = Task 278（c3a893b 已 push）零过时；origin/main..HEAD 空；净场良好（PORT 3000/3022 FREE，watchdog 拉起 200 + roster 21）。开局即修：worklog 尾部发现 Task 278 收尾编辑残渣——一段无标题孤儿片段（开局三行，内容与 Task 278 条目自身完全重复，rfind 尾部定位 + 2 次出现计数守卫后删除）。cron 模板「Task 13」照例不认（实际尾部已是 278，中间 6 个 task 由中间窗口交付——摘要过时第三窗实证）。
+- 【QA】五哨兵全 GREEN：qa68 19 断言 + t273-family-report + t276-empiar-fidelity + qa00 + qa63；agent-browser 活体目检 console 0 / errors 0 / 画布 21 jobs（data-job 节点恒等，svg 37）——无 bug，基线稳定。
+- 【巡检与立项】Task 278 遗留池两项合并立项（惯例④⑤）：① **三联截面 PNG 一键导出**（t278 焦点交点的自然延续——三张正交切片是每篇 cryo-EM 论文的经典多联图，但只活在应用里，无路可去 deck/稿件）；② **bookmark 携带焦点交点**（保存的 view 已带 σ/sign/slice/clip，唯独不知道「检视发生在哪里」）。updatedAt 治理继续让位。
+- 【实现① 三联导出（map-ortho-panel.tsx）】panel 头部 Download 按钮（crosshair toggle 的兄弟，绝不嵌套——既有定位器全部幸存；data-ortho-export-state 机器态接缝：idle/busy/ok/err + Loader2/Check/TriangleAlert 三态字形，ok/err 1.6s 自回 idle）：三平面用瓦片自己的服务端渲染器在**当前焦点交点**处取图（fetch format=png&axis&pos → createImageBitmap）→ 固定出版栅格 canvas 合成（14+34+512×3+14 布局：每板 512px、accent 色板名、等宽 voxel readout、**crosshair 虚线同色同语言** ctx.setLineDash([5,4]) + AXIS_COLOR、底部 footer = map 文件名 + focus x/y/z % + UTC 时刻）→ toBlob → a[download] `ortho-<map>-<hhmmss>.png`。深底 #0b1220 出版风格——文档资产不随应用主题摆动。EXPORT_BG/EXPORT_TILE/AXIS_LABEL 常量族与 AXIS_COLOR（t278 原有）同源。
+- 【实现② 焦点随书签走（四道门一次闭环）】**上报**：panel 的 positions 每次提交变化 dispatch `cryoflow:ortho-focus`（2D→3D），embed 以 orthoFocusRef 接住（ref 非 state——捕获读「屏幕此刻」，embed 不因 2D 刷洗重渲染）；**采集**：captureBookmarkView 以 spread 冻结 `focus` 进 view（无 ortho 世界时缺席——不撒谎）；**恢复**：restoreBookmark dispatch `cryoflow:ortho-focus-restore`（3D→2D），panel 三瓦片经 pick 的同一双通道 adopt（positions 线 + follow 平面滑移——「fly back = 整张图」，恢复即导航）；**白名单**：camera-bookmarks 路由 sanitizeView 增 focus 三值 bounded(0,1,0.5)，缺席行原样透传（legacy 永远合法）；saneImportedView 对畸形 focus 诚实降级 undefined（不毒化 restore）。
+- 【t279-ortho-export-focus.mjs（41 断言首跑 ALL PASS，批内收编花名册 54→55）】A 相 demo 真相；B 相源码台账 19 断言（事件对、导出机器、四道门逐处）；C 相活体（qa67 64³ seed → Mol* 活 → ortho 展开）：事件监听证 focus 上报（点击 (25%,75%) → x 0.2486/y 0.7498/z 0.5）、**下载活体**（waitForEvent("download") → saveAs → PNG 魔数 + IHDR 1592×616 逐字节断言 + 文件名 `ortho-orthovol-*.png` + exportState ok）、保存书签 → GET 断言 view.focus 服务端落地、clamp 探针（PUT focus x:5,y:-1 → GET x:1,y:0——白名单真咬合）、先改焦点再点书签行 → XZ 回 ~0.75 / YZ 回 ~0.25（恢复即导航活体）、legacy pose-only 书签 reload 后恢复零错误（向后兼容）；finally PUT 空列表触发路由 deleteMany 清行；Z 相 roster 21 + console 0。
+- 【断言的错，第八次应验（首跑 2 FAIL 全是套件的错）】① triptych 高度断言写 630——14+34+512+14+42 心算错，真值 616，产品无误（「断言先算术，产品后怀疑」）；② C6 reload 后找不到 View in 3D——reload 链路漏了 Enlarge orthovol 步骤（View in 3D 按钮住在放大视图里），补齐后全绿。另首跑前语法错一次（孤儿 try 无 catch）——python 编辑注释行残留，套件自身 lint 意识。
+- 【全家族回归（七批前台逐批——OOM 纪律第四窗；t24+t25 连跑超 600s 工具上限，拆单批）】qa 批 pass 11 · 414.1s ｜ t21 批 7 · 198.5s ｜ t22 批 2 · 65.9s ｜ t24 批 9 · 124.0s ｜ t25 批 9 · 502.4s ｜ t26 批 10 · 531.8s ｜ t27 批 7 · 279.3s（t270-t273 + t276 + t278 + **t279 首战**）——**合计 pass 55 · solo-recovery 0 · real-fail 0 · wall 2116.0s**（--summary 机器拷贝）；roster 恒等 21；build 首试即过 + watchdog 复活 200；裸 tsc 0。
+- 【收尾】worklog（本条）+ commit/push + 环境清理（Task 86 双杀 + port FREE 验证）。
+
+Stage Summary:
+- **「三联图终于能上稿件了」**：三张正交切片是 cryo-EM 论文的经典 figure，此前只活在应用里——一键导出用瓦片自己的服务端渲染器取图、固定出版栅格合成、crosshair 同色同语言随行，文档资产不随主题摆动；这是 t278 焦点交点的直接下游（导出的正是「你正在检视的那个点」）
+- 「焦点是 view 的一部分」：书签已带 σ/slice/clip，唯独不知道检视发生在哪里——四道门（上报/采集/恢复/白名单）一次闭环，恢复走 pick 的同一双通道，「fly back = 整张图」教义贯彻到 2D
+- 「ref 而非 state 的捕获纪律」：2D 每次刷洗都上报会让 embed 重渲染——orthoFocusRef 只存「屏幕此刻」，捕获时读取；事件轻、方向清、职责不越界
+- 「clamp 在门口咬合」：服务端 sanitize 对 focus 三值 bounded——套件 PUT x:5/y:-1 得回 x:1/y:0，白名单不是纸面声明；legacy 行缺席字段原样透传，向后兼容在四道门每一道都成立
+- 遗留（下轮候选）：updatedAt 治理（继续让位）；ortho 瓦片点击拾取与框选缩放的潜在手势冲突（未探测到但值得留心）；3D viewer 剩余深化：bookmark 列表/缩略图标注焦点交点位置、导出图加 σ/contour 元数据行；产品功能候选：Topaz wrapper 深化

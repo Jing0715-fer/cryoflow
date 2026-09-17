@@ -34,6 +34,9 @@ interface BookmarkView {
   sign: number;
   slice: { on: boolean; axis: string; pos: number };
   clip: { on: boolean; x: number; y: number; z: number; invert: boolean };
+  /** t279 — the tri-planar focus point (the ortho browser's three plane
+   *  positions at save time); optional, legacy rows never carry it */
+  focus?: { x: number; y: number; z: number };
 }
 
 interface BookmarkEntry {
@@ -73,6 +76,17 @@ function sanitizeView(raw: unknown): BookmarkView | null {
   const sl = (v.slice ?? {}) as Record<string, unknown>;
   const cp = (v.clip ?? {}) as Record<string, unknown>;
   const axis = sl.axis === "X" || sl.axis === "Y" || sl.axis === "Z" ? sl.axis : "Z";
+  // t279 — the focus point rides along when present; clamped to the same
+  // fractional language the ortho panel speaks, defaults are honest centres
+  let focus: BookmarkView["focus"];
+  const fc = v.focus as Record<string, unknown> | null | undefined;
+  if (fc && typeof fc === "object" && !Array.isArray(fc)) {
+    focus = {
+      x: bounded(fc.x, 0, 1, 0.5),
+      y: bounded(fc.y, 0, 1, 0.5),
+      z: bounded(fc.z, 0, 1, 0.5),
+    };
+  }
   return {
     sigma: bounded(v.sigma, 0.01, 100, 2),
     sign: v.sign === -1 ? -1 : 1,
@@ -88,6 +102,7 @@ function sanitizeView(raw: unknown): BookmarkView | null {
       z: bounded(cp.z, 0, 1, 1),
       invert: cp.invert === true,
     },
+    ...(focus ? { focus } : {}),
   };
 }
 

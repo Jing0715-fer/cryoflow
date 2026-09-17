@@ -109,6 +109,7 @@ const FAMILY = [
   "t273-family-report.mjs", // the runner tests itself: first-class batches (decade boundary), the merged JSON report, --summary/--reset, and the 600s-ceiling health guard (Task 273)
   "t276-empiar-fidelity.mjs", // real data speaks: EMPIAR-10017's real RELION 5.0.1 artifacts through our parsers (optics truth, FSC self-consistency, honest-zero cella) and the real bundle riding the product's import + manualpick VERBATIM (Task 276)
   "t278-ortho-crosshair.mjs", // the tri-planar focus point: crosshair lines mark where sibling planes cut, clicking an image picks the point, sliders step one voxel — and the résumé helper stops lying over gone rows (Task 278)
+  "t279-ortho-export-focus.mjs", // the triptych leaves the app: one publishing-grid PNG of the three sections (crosshair + focus footer), and the focus point rides in every saved view — capture, restore, import check, server clamp (Task 279)
 ];
 
 // ---- batches are first-class (t273) ----------------------------------------

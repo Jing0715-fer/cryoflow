@@ -31,7 +31,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, ChevronLeft, ChevronRight, Crosshair, Focus, ScanLine } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, ChevronRight, Crosshair, Download, Focus, Loader2, ScanLine, TriangleAlert } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { MrcImage } from "./mrc-image";
 import { cn } from "@/lib/utils";
@@ -41,6 +41,14 @@ export const ORTHO_SLICE_EVENT = "cryoflow:ortho-slice";
 export const ORTHO_SLICE_STATE_EVENT = "cryoflow:slice-state";
 /** 3D → 2D clip echo (t253): the box-clip state, so tiles can speak it */
 export const ORTHO_CLIP_STATE_EVENT = "cryoflow:clip-state";
+/** 2D → 3D (t279): the tri-planar focus point moved — the embed stores it
+ *  in a ref so the bookmark capture freezes the whole picture (the focus
+ *  point is part of a saved view, not just the camera and the σ) */
+export const ORTHO_FOCUS_EVENT = "cryoflow:ortho-focus";
+/** 3D → 2D (t279): a restored bookmark carries a focus point — the three
+ *  tiles adopt it through the same channels a pick uses, so "fly back"
+ *  means the whole picture here too (restore = navigation, not a note) */
+export const ORTHO_FOCUS_RESTORE_EVENT = "cryoflow:ortho-focus-restore";
 
 /** the clip state the tiles need, as the embed's clipStateRef carries it */
 export interface OrthoClipState {
@@ -101,6 +109,26 @@ const AXIS_COLOR: Record<"x" | "y" | "z", string> = {
 
 /** fraction 0..1 → CSS percentage (1 decimal, same math as the clip overlay) */
 const pct = (v: number) => `${(v * 100).toFixed(1)}%`;
+
+/** t279 — canvas colours for the exported triptych: the same axis accents
+ *  as AXIS_COLOR (crosshair lines keep their on-screen hue) on a deep
+ *  publishing-style backdrop — the export is a document asset, its look
+ *  must not swing with the app theme */
+const EXPORT_BG = "#0b1220";
+const EXPORT_TILE_BORDER = "#334155";
+const EXPORT_TEXT = "#94a3b8";
+/** solid (non-alpha) versions of the accents for label text on the dark strip */
+const AXIS_LABEL: Record<"x" | "y" | "z", string> = {
+  x: "#f59e0b",
+  y: "#8b5cf6",
+  z: "#14b8a6",
+};
+/** raster metrics of the exported triptych (fixed grid — a document, not
+ *  a screenshot: it looks identical at any window size) */
+const EXPORT_TILE = 512;
+const EXPORT_LABEL_H = 34;
+const EXPORT_FOOT_H = 42;
+const EXPORT_GAP = 14;
 
 function OrthoTile({
   jobId,
@@ -426,6 +454,8 @@ export function MapOrthoPanel({
   });
   /** t278 — crosshair lines on/off (panel-level; default ON) */
   const [crosshairOn, setCrosshairOn] = useState(true);
+  /** t279 — export button's machine state: idle / rasterizing / flash */
+  const [exportState, setExportState] = useState<"idle" | "busy" | "ok" | "err">("idle");
 
   const isStack = path.toLowerCase().endsWith(".mrcs");
 
@@ -490,6 +520,37 @@ export function MapOrthoPanel({
     return () => window.removeEventListener(ORTHO_CLIP_STATE_EVENT, onClipState);
   }, []);
 
+  // 2D → 3D (t279): the focus point is part of a saved view — every
+  // committed positions change is reported once to the embed, whose
+  // bookmark capture reads it from a ref (fire-and-forget; the embed
+  // never re-renders for this).
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent(ORTHO_FOCUS_EVENT, { detail: { ...positions } }));
+  }, [positions]);
+
+  // 3D → 2D (t279): a restored bookmark carries a focus point — the three
+  // tiles adopt it through the SAME two channels a pick uses (positions
+  // for the crosshair lines, follow for the plane glide), so "fly back"
+  // is navigation here too, not just a note on a map.
+  useEffect(() => {
+    const onFocusRestore = (e: Event) => {
+      const d = (e as CustomEvent<Partial<{ x: number; y: number; z: number }>>).detail;
+      if (!d || typeof d !== "object") return;
+      const ax = (v: unknown, fb: number) =>
+        typeof v === "number" && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : fb;
+      followNonce.current += 1;
+      const nonce = followNonce.current;
+      setPositions((prev) => ({ x: ax(d.x, prev.x), y: ax(d.y, prev.y), z: ax(d.z, prev.z) }));
+      setFollow((prev) => ({
+        x: { pos: ax(d.x, prev.x?.pos ?? 0.5), nonce },
+        y: { pos: ax(d.y, prev.y?.pos ?? 0.5), nonce },
+        z: { pos: ax(d.z, prev.z?.pos ?? 0.5), nonce },
+      }));
+    };
+    window.addEventListener(ORTHO_FOCUS_RESTORE_EVENT, onFocusRestore);
+    return () => window.removeEventListener(ORTHO_FOCUS_RESTORE_EVENT, onFocusRestore);
+  }, []);
+
   if (isStack) return null;
 
   const dimFor = (axis: "x" | "y" | "z") =>
@@ -509,6 +570,110 @@ export function MapOrthoPanel({
       [hAxis]: { pos: hFrac, nonce: followNonce.current },
       [vAxis]: { pos: vFrac, nonce: followNonce.current },
     }));
+  };
+
+  // t279 — the flash-back timer: ok/err states return to idle on their own
+  useEffect(() => {
+    if (exportState !== "ok" && exportState !== "err") return;
+    const t = setTimeout(() => setExportState("idle"), 1600);
+    return () => clearTimeout(t);
+  }, [exportState]);
+
+  /** t279 — export the three orthogonal sections as ONE PNG triptych (the
+   *  classic multi-panel figure in every cryo-EM paper). The tiles' own
+   *  server renderer supplies the planes at the CURRENT focus point; the
+   *  crosshair lines (same accents as on screen), per-plane voxel readouts
+   *  and a footer naming the map, the focus fractions and the moment are
+   *  drawn on a fixed publishing-style grid — a document asset, not a
+   *  screenshot: it looks the same at any window size or theme. */
+  const exportTriptych = async () => {
+    if (exportState === "busy") return;
+    setExportState("busy");
+    try {
+      const planes = await Promise.all(
+        TILES.map(async (t) => {
+          const url = `/api/jobs/${jobId}/outputs/file?path=${encodeURIComponent(path)}&format=png&axis=${t.axis}&pos=${positions[t.axis].toFixed(3)}`;
+          const r = await fetch(url, { cache: "no-store" });
+          if (!r.ok) throw new Error(`render failed (${r.status})`);
+          return createImageBitmap(await r.blob());
+        })
+      );
+      const W = EXPORT_GAP * 4 + EXPORT_TILE * 3;
+      const H = EXPORT_GAP + EXPORT_LABEL_H + EXPORT_TILE + EXPORT_GAP + EXPORT_FOOT_H;
+      const cv = document.createElement("canvas");
+      cv.width = W;
+      cv.height = H;
+      const ctx = cv.getContext("2d");
+      if (!ctx) throw new Error("no 2d context");
+      ctx.fillStyle = EXPORT_BG;
+      ctx.fillRect(0, 0, W, H);
+      const readoutFor = (axis: "x" | "y" | "z", v: number) => {
+        const d = dimFor(axis);
+        if (d && d > 1) return `${axis} ${Math.round(v * (d - 1)) + 1}/${d}`;
+        return `${axis} ${Math.round(v * 100)}%`;
+      };
+      TILES.forEach((t, i) => {
+        const x0 = EXPORT_GAP + i * (EXPORT_TILE + EXPORT_GAP);
+        // label strip: plane name in the tile's accent, voxel readout right
+        ctx.font = "600 13px ui-sans-serif, system-ui, sans-serif";
+        ctx.fillStyle = AXIS_LABEL[t.axis];
+        ctx.textBaseline = "middle";
+        ctx.fillText(t.plane, x0, EXPORT_GAP + EXPORT_LABEL_H / 2);
+        ctx.font = "11px ui-monospace, SFMono-Regular, Menlo, monospace";
+        ctx.fillStyle = EXPORT_TEXT;
+        ctx.textAlign = "right";
+        ctx.fillText(readoutFor(t.axis, positions[t.axis]), x0 + EXPORT_TILE, EXPORT_GAP + EXPORT_LABEL_H / 2);
+        ctx.textAlign = "left";
+        // the plane itself
+        ctx.drawImage(planes[i], x0, EXPORT_GAP + EXPORT_LABEL_H, EXPORT_TILE, EXPORT_TILE);
+        ctx.strokeStyle = EXPORT_TILE_BORDER;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x0 + 0.5, EXPORT_GAP + EXPORT_LABEL_H + 0.5, EXPORT_TILE - 1, EXPORT_TILE - 1);
+        // the crosshair — same hue and dashed language as the live tiles
+        if (crosshairOn) {
+          ctx.save();
+          ctx.setLineDash([5, 4]);
+          ctx.lineWidth = 1.5;
+          for (const src of [t.hAxis, t.vAxis] as const) {
+            const at = positions[src] * EXPORT_TILE;
+            ctx.strokeStyle = AXIS_COLOR[src];
+            ctx.beginPath();
+            if (src === t.hAxis) {
+              ctx.moveTo(x0 + at, EXPORT_GAP + EXPORT_LABEL_H);
+              ctx.lineTo(x0 + at, EXPORT_GAP + EXPORT_LABEL_H + EXPORT_TILE);
+            } else {
+              ctx.moveTo(x0, EXPORT_GAP + EXPORT_LABEL_H + at);
+              ctx.lineTo(x0 + EXPORT_TILE, EXPORT_GAP + EXPORT_LABEL_H + at);
+            }
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+      });
+      // footer: map name left, focus fractions + moment right
+      const footY = EXPORT_GAP + EXPORT_LABEL_H + EXPORT_TILE + EXPORT_GAP + EXPORT_FOOT_H / 2;
+      const base = path.split("/").pop() || path;
+      ctx.font = "600 13px ui-sans-serif, system-ui, sans-serif";
+      ctx.fillStyle = "#e2e8f0";
+      ctx.fillText(base, EXPORT_GAP, footY);
+      ctx.font = "12px ui-monospace, SFMono-Regular, Menlo, monospace";
+      ctx.fillStyle = EXPORT_TEXT;
+      ctx.textAlign = "right";
+      const f = `focus x ${Math.round(positions.x * 100)}% · y ${Math.round(positions.y * 100)}% · z ${Math.round(positions.z * 100)}%   ${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC`;
+      ctx.fillText(f, W - EXPORT_GAP, footY);
+      ctx.textAlign = "left";
+      const blob = await new Promise<Blob | null>((res) => cv.toBlob(res, "image/png"));
+      if (!blob) throw new Error("encode failed");
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      const stamp = new Date().toISOString().slice(11, 19).replace(/:/g, "");
+      a.download = `ortho-${base.replace(/\.(mrc|mrcs)$/i, "")}-${stamp}.png`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+      setExportState("ok");
+    } catch {
+      setExportState("err");
+    }
   };
 
   return (
@@ -557,6 +722,36 @@ export function MapOrthoPanel({
           )}
         >
           <Focus className="h-3.5 w-3.5" aria-hidden="true" />
+        </button>
+        {/* t279 — export the triptych: one PNG with the three sections at
+            the current focus point, crosshair included. Sibling of the
+            crosshair toggle, never nested inside the expand button. */}
+        <button
+          type="button"
+          onClick={exportTriptych}
+          disabled={exportState === "busy"}
+          data-canvas-ui="ortho-export"
+          data-ortho-export-state={exportState}
+          aria-label="Export the three orthogonal sections as a PNG triptych"
+          title="Export the three sections (crosshair included) as one PNG"
+          className={cn(
+            "shrink-0 rounded p-1 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+            exportState === "ok"
+              ? "text-teal-600"
+              : exportState === "err"
+                ? "text-amber-600"
+                : "text-muted-foreground"
+          )}
+        >
+          {exportState === "busy" ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+          ) : exportState === "ok" ? (
+            <Check className="h-3.5 w-3.5" aria-hidden="true" />
+          ) : exportState === "err" ? (
+            <TriangleAlert className="h-3.5 w-3.5" aria-hidden="true" />
+          ) : (
+            <Download className="h-3.5 w-3.5" aria-hidden="true" />
+          )}
         </button>
       </div>
       {open && (

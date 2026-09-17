@@ -26,7 +26,7 @@ import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { PENDING_VIEW_KEY } from "@/lib/view-link";
-import { ORTHO_SLICE_EVENT, ORTHO_SLICE_STATE_EVENT, ORTHO_CLIP_STATE_EVENT } from "./map-ortho-panel";
+import { ORTHO_SLICE_EVENT, ORTHO_SLICE_STATE_EVENT, ORTHO_CLIP_STATE_EVENT, ORTHO_FOCUS_EVENT, ORTHO_FOCUS_RESTORE_EVENT } from "./map-ortho-panel";
 import { useWorkflowStore } from "@/lib/store";
 import { fmtBytes } from "@/lib/canvas-export";
 import { encodeGifFrames } from "@/lib/gif-export";
@@ -1229,8 +1229,33 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
        *  box mode; absent (old bookmarks) restores in slider language */
       box?: { lo: [number, number, number]; hi: [number, number, number] } | null;
     };
+    /** t279 — the tri-planar focus point (the ortho browser's three plane
+     *  positions at save time); absent (old bookmarks, or no ortho world
+     *  open when the view was saved) restores the tiles untouched */
+    focus?: { x: number; y: number; z: number };
   };
   type CamBookmark = { id: string; name: string; ts: number; thumb?: string; snapshot: Record<string, unknown>; view?: BookmarkView };
+  // t279 — the ortho browser's tri-planar focus point, as last reported
+  // over ORTHO_FOCUS_EVENT. A ref, not state: the bookmark capture reads
+  // "what the screen shows right now" and the embed must not re-render
+  // every time the 2D panel scrubs. Absent = no ortho world yet (no map
+  // open, or a .mrcs stack) — the saved view simply carries no focus.
+  const orthoFocusRef = useRef<{ x: number; y: number; z: number } | null>(null);
+  useEffect(() => {
+    const onOrthoFocus = (e: Event) => {
+      const d = (e as CustomEvent<Partial<{ x: number; y: number; z: number }>>).detail;
+      if (!d || typeof d !== "object") return;
+      const n = (v: unknown) =>
+        typeof v === "number" && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : undefined;
+      const x = n(d.x);
+      const y = n(d.y);
+      const z = n(d.z);
+      if (x === undefined || y === undefined || z === undefined) return;
+      orthoFocusRef.current = { x, y, z };
+    };
+    window.addEventListener(ORTHO_FOCUS_EVENT, onOrthoFocus);
+    return () => window.removeEventListener(ORTHO_FOCUS_EVENT, onOrthoFocus);
+  }, []);
   const [bookmarks, setBookmarks] = useState<CamBookmark[]>([]);
   const [bookmarkName, setBookmarkName] = useState("");
   // inline rename — the pencil swaps the row's name span for an input;
@@ -1451,6 +1476,11 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
       invert: clipStateRef.current.invert,
       box: clipStateRef.current.box,
     },
+    // t279 — the ortho focus point rides along when the 2D browser has
+    // reported one: a bookmark that flies the camera back to the right
+    // angle and the right threshold should also land the three section
+    // planes where the inspection was happening
+    ...(orthoFocusRef.current ? { focus: { ...orthoFocusRef.current } } : {}),
   });
 
   /** gentle duplicate-name guard — saving/renaming to a name another view
@@ -1570,6 +1600,12 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
       if (signRef.current !== v.sign) setSign(v.sign);
       applySliceIntent({ on: v.slice.on, axis: v.slice.axis, pos: v.slice.pos });
       applyClipIntent({ on: v.clip.on, x: v.clip.x, y: v.clip.y, z: v.clip.z, invert: v.clip.invert, box: v.clip.box ?? null });
+      // t279 — the focus point flies back too: the three ortho tiles adopt
+      // the saved intersection through their own navigation channel (the
+      // restore is a no-op whisper when no ortho panel is mounted)
+      if (v.focus) {
+        window.dispatchEvent(new CustomEvent(ORTHO_FOCUS_RESTORE_EVENT, { detail: { ...v.focus } }));
+      }
     }
   };
 
@@ -1600,6 +1636,12 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     if (o.slice.axis !== "X" && o.slice.axis !== "Y" && o.slice.axis !== "Z") return undefined;
     if (!num(o.slice.pos) || !o.clip || typeof o.clip.on !== "boolean") return undefined;
     if (!num(o.clip.x) || !num(o.clip.y) || !num(o.clip.z) || typeof o.clip.invert !== "boolean") return undefined;
+    // t279 — focus stays optional (legacy files never carry it), but a
+    // present-yet-malformed one must not poison restoreBookmark either
+    if (o.focus !== undefined) {
+      const f = o.focus as { x?: unknown; y?: unknown; z?: unknown } | null;
+      if (!f || !num(f.x) || !num(f.y) || !num(f.z)) return undefined;
+    }
     return o;
   };
 
