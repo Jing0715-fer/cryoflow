@@ -1557,15 +1557,24 @@ async function runMapImportNative(job: EngineJobRef): Promise<NativeResult> {
     };
   }
 
-  // link the map into the workdir under its own name (one copy on disk);
-  // fall back to a byte copy when the link isn't possible (exotic mounts)
+  // Materialize the map into the workdir under its own name — HARDLINK
+  // first (one copy on disk, same-filesystem), byte copy as the fallback
+  // (exotic mounts / cross-volume sources). A symlink is NOT an option
+  // here (t296): the file routes' unified containment policy (t270-era
+  // hardening, resolveInsideJobWorkdir) realpaths every fetch and refuses
+  // anything whose realpath leaves the data tree — an out-of-tree symlink
+  // made the identity card honest (the listing reads the header directly)
+  // while png/raw/histogram/value all answered 400 "Path escapes the job
+  // directory": an imported map the viewer could never open. The import
+  // (movie) flow has hardlinked first since the beginning — this site now
+  // speaks the same doctrine, and both outcomes land INSIDE the workdir.
   const linked = path.join(workdir, path.basename(host));
   let linkedOk = false;
   try {
-    if (!existsSync(linked)) symlinkSync(host, linked);
+    if (!existsSync(linked)) linkSync(host, linked);
     linkedOk = existsSync(linked);
   } catch {
-    linkedOk = false;
+    linkedOk = false; // cross-volume (EXDEV) and friends — copy below
   }
   if (!linkedOk) {
     try {
@@ -1583,7 +1592,7 @@ async function runMapImportNative(job: EngineJobRef): Promise<NativeResult> {
   const logText = [
     `CryoFlow engine-native map import ${new Date().toISOString()}`,
     `source: ${host}`,
-    linkedOk ? "linked into the job workdir (one copy on disk)" : "referenced in place (link not possible)",
+    linkedOk ? "materialized into the job workdir (hardlink, or byte copy across volumes)" : "referenced in place (link not possible)",
     `output: ${outPath}`,
     result,
     "",

@@ -2006,3 +2006,25 @@ Stage Summary:
 - **「全景跟账本走」**：effect 以 resume prop 为依赖——reload 换对象即重拉全景，bulk 成功后展开态自动瘦身（5 行 → 2 行），无一处本地手术；对共享状态的每个读路径都回服务端聚合出口
 - 遗留（下轮候选）：remote-view-3d 大 map 的 Mol* 渲染实测；快看对话框 display range 的 σ 口径输入（待真需求）；EMPIAR 真数据回归（连续第九窗让位）；résumé 全景的分页（当前一页全量，条目数十级尚可，百级待真需求）；Topaz wrapper 深化（边际递减）
 - 【收尾补记】净场又抓到一个真泄漏 + 完整归因：:3022 残留 pid 14561（09:17:47 启动，cmdline 已是绝对路径形态）——本窗哨兵对 2 的 t271 启动后泄漏。根因不在 launch.sh（绝对路径修复已生效，严格复现 launch→pkill→dead exit 0），而在 **t271 自己：启动 mock（weLaunchedMock=true）但 finally 从不清理**——标志设了没用，每次「端口空闲时启动」的 t271 运行都漏一个 mock；后续 t272 走 mockListening 复用路径（weLaunchedMock=false）清场门关着，家族跑批全程复用，泄漏就此穿越整个家族回归。修复 = t271 finally 补 t270/t272 同款 `if (weLaunchedMock) pkill` 块；复跑 t271 ALL PASS + 运行后 3022 FREE 实证闭合。附：fuser -k 3022/tcp 本窗对 bun 监听者一次未命中（kill pid 可靠）——端口清场以 ss 验证 + pkill 模式为主，fuser 降级为兜底。
+
+
+## Task 296 (2026-09-18, cron 18:03 窗口 trace 1a07549302235a99-cron-agent-loop-202609181808 —— 无撞号，树上直接立项 296)
+
+- 【开局】尾部实证 = Task 295 收尾补记（t271 mock 泄漏修复，0645214 已 push）——续窗摘要声称「272 基线 + 连续十五窗被摘要阻塞」第十六次不实；cron 模板「Task 13」照例不认。净场良好（双 port FREE、零残留）→ watchdog 200 + roster 21；BUILD_ID（09:13）晚于最后 src 提交——部署树在位。
+- 【QA】四哨兵全绿（qa00 / qa63 / t295 / t294）+ 活体渲染正常——项目稳定，进入自主立项。
+- 【立项】遗留池树上核实：「remote-view-3d 大 map 的 Mol* 渲染实测」连续九窗让位且零套件覆盖——现有测试世界最大 3D 体素网格只有 64³（1MB demo orthovol）、t293 植入图 720×720×1（2MB），Mol* 管线从未被真实重建量级压过。立项 Task 296「大 map 的判决」：256³ float32 = 64MB（64× 体素数）走完 mapimport → identity card → Mol* 全管线并计时定罪。
+- 【实现① 套件（t296-big-map-viewer.mjs，37 断言，三跑 ALL PASS）】A 相 demo 真相；B 相台账 9 断言（raw 路由流式注释在案、ParseCcp4 四段链、四阶段 loading overlay、contour slider/presets 契约、mapimport 卷校验、**hardlink 先行 + 无出树 symlink 双钉**）；C0 确定性合成 MRC（三个高斯球 bounding-box 求值 ~400ms、诚实 header stats——min/max/mean/rms 真算不伪造、精确 1024+n³·4 字节）；C1 mapimport → 原生 run → completed → model_mrc + **lstat 断真文件非 symlink** + **raw API 直证**（SH 同源头、46ms 全量 67MB 流出——Mol* 即将发出的同一请求，失败则具名报错而非 viewer 内神秘 overlay）；C2 计时：identity card dims chip「256 × 256 × 256 vox」→ View in 3D → canvas 4.3s → **fetch+parse+isosurface 全程 15.4s**（120s 判决门）→ 无 error overlay；C3 5σ preset 提交 16.7M 体素无崩 + 定妆照；C4 Esc 退场；C5 直方图路由直证——**冷全网格扫描 1036ms → LRU 命中 46ms**（「第二眼免费」教义的活体见证，nFinite=256³ 全网格在案）；D 相 console 0；finally 删 citizen + 清 tmp + roster 21。
+- 【真 bug 现形（首跑 ERROR OVERLAY 兜底取证）】「map download failed (HTTP 400)」——png/raw/value/histogram 全线 400「Path escapes the job directory」而 identity card 的 stats 却诚实显示。根因：**runMapImportNative 用 symlinkSync 把源 map 链进 workdir**——源在 data 树之外（用户 Downloads/EMPIAR 下载是常态场景）时，t270 时代加固的 containment 政策（resolveInsideJobWorkdir realpath 检查）如设计般拒绝出树 symlink → **导入的 map 永远打不开**。t258 家族只导入过 crop（subvolume 路由直接写字节），九窗让位恰好掩护了这个盲区。对照组实验定罪：demo orthovol（树内真文件）raw 200/10ms ✓，直连 import（树外 symlink）400 ✗。六处 symlink 点位排查：import（电影）流 line 687 早已 hardlink 先行——唯 mapimport 用错原语，且其注释本就声称「link into the workdir (one copy on disk)」。
+- 【实现② 修复（src/lib/relion/engine.ts，一处手术）】symlinkSync(host, linked) → **linkSync(host, linked)**（hardlink 先行，同文件系统零拷贝、realpath 落在 workdir 内 containment 天然通过）→ copyFileSync 兜底原样保留（跨卷 EXDEV）。注释全文记录 t296 判决（identity card 诚实而 viewer 被锁死的完整因果链）；logText 文案改「materialized into the job workdir (hardlink, or byte copy across volumes)」。修复后：raw 200、Mol* 15.4s 渲染、5σ 提交、直方图全链复活。
+- 【断言的错，第十七次应验（首跑 2 FAIL + 一崩溃全自摆乌龙）】①「Building isosurface…」span 的 detach 在 error 相同样卸载——6847ms 实为 time-to-error 而非成功计时（修复后用「无 error overlay」+ raw 直证双保险）；②C5 裸 Node fetch 撞 isLocalRequest 守卫（403 13ms）被误标为「cold scan」——补 SH 头后真相优美（1036ms 真冷扫 → 46ms LRU）；③C3 预设点击在 error 相未挂载 → 未捕获超时崩套件——可见性守卫包裹。产品零错，套件三处修正。
+- 【部署】rebuild 前台独占（chromium/watchdog 先杀——OOM 纪律第十七窗），进程启动 > BUILD_ID 检验在案。
+- 【哨兵复绿】t258（crop 链最受波及——subvolume-job 也是 mapimport，现 hardlink 树内）+ t276（EMPIAR import 流）全 ALL PASS。
+- 【全家族回归（九批前台逐批——一命令一批）】qa 11 · 413.3s ｜ t21 7 · 201.2s ｜ t22 2 · 65.4s ｜ t24 9 · 123.3s ｜ t25 9 · 491.0s ｜ t26 10 · 538.5s ｜ t27 7 · 280.0s ｜ t28 8 · 172.3s ｜ t29 5 · 150.8s（**t296 首战即家族**）——合计 **pass 68 · solo 0 · real-fail 0 · wall 2435.8s**；coverage 认证 68 套件九批各归属唯一（花名册 67→68）；roster 恒等 21；裸 tsc 0。
+- 【收尾】worklog（本条）+ commit/push + 环境清理（Task 86 双杀 + port FREE 验证）。
+
+Stage Summary:
+- **「九窗让位掩护了一个真 bug」**：mapimport 对树外源 symlink 而非 hardlink——containment 加固后（t270 时代）identity card 依旧诚实（listing 直读 header）而 png/raw/histogram 全线 400，导入的 map 成了看得见摸不着的展品；只有第一份用真实重建量级从**树外**导入的套件才能撞见——九窗让位的债，一笔还清还带了利息
+- **「代码用错了自己的注释」**：注释声称「link into the workdir (one copy on disk)」，代码却写 symlinkSync——hardlink 才是这句话的本义；import（电影）流 line 687 的 hardlink-first 早已是榜样，mapimport 补齐同一教义（hardlink → copy，永不 symlink——出树 symlink 在 containment 政策下永远是死路）
+- **「计时断言要区分 time-to-done 与 time-to-error」**：loading overlay 的 detach 是双相出口（成功与 error 都卸载它）——「无 error overlay」必须与计时并列断言，raw API 直证（Mol* 的同一请求）让失败在进 viewer 之前就具名
+- **「大 map 的判决数据」**：256³ float32 64MB——raw 流式 46ms 全量、Mol* fetch+parse+isosurface 15.4s、5σ 提交无崩、直方图冷扫 1036ms → LRU 46ms；4GB 盒上的重建量级基线首次在案
+- 遗留（下轮候选）：384³/512³ 更大体素级的阶梯压测（T296_N 环境变量已备，OOM 互斥下另行立项）；remote-view-3d 大 map 的 **remote 借用链**实测（t293 cap 拦截过的 2MB 已见，64MB+ 过网线是真考题）；快看对话框 display range 的 σ 口径输入（待真需求）；EMPIAR 真数据回归（连续第十窗让位）；Topaz wrapper 深化（边际递减）
