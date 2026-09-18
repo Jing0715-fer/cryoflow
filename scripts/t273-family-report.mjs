@@ -143,12 +143,20 @@ must(
 );
 must(!c1.stdout.includes("ORPHANS"), "zero orphans (the decade registry is complete)");
 
-// C2 — an unknown batch is refused, loudly and helpfully
+// C2 — an unknown batch is refused, loudly and helpfully. The batch list is
+// asserted SELF-MAINTAINING (the t302 lesson, born as a t273 real-fail): the
+// joined literal "qa, t21, …, t26, t27" broke the moment t26b registered
+// between t26 and t27 (the refusal prints "t26, t26b, t27" — the contiguous
+// substring is gone), a volatile literal in a list that grows at every
+// decade. Parse the names out of the runner's source instead; the refusal
+// must name every batch that EXISTS, whatever that is.
 const c2 = run(["--batch", "nosuch"]);
 must(c2.status === 2, `--batch nosuch exits 2 (got ${c2.status})`);
+const batchNames = [...src.matchAll(/name: "([^"]+)"/g)].map((m) => m[1]);
+must(batchNames.length >= 10, `the runner's source declares ${batchNames.length} first-class batches`);
 must(
-  c2.stdout.includes('no batch named "nosuch"') && c2.stdout.includes("qa, t21, t22, t24, t25, t26, t27"),
-  "the refusal names the batches that DO exist"
+  c2.stdout.includes('no batch named "nosuch"') && batchNames.every((n) => c2.stdout.includes(n)),
+  `the refusal names every batch that DOES exist (${batchNames.join(", ")})`,
 );
 
 // C3 — reset: the report is scratch data, scratched

@@ -12,7 +12,7 @@
 //        solo FAIL  → REAL-FAIL (a verdict, needs a human)
 //   3. EXIT CODE — 0 iff zero REAL-FAILs (SOLO-RECOVERY is honest but not a blocker).
 //
-// The FAMILY roster is an audited membership list (34 suites as of Task 256) —
+// The FAMILY roster is an audited membership list (71 suites as of Task 302) —
 // it is written here EXPLICITLY, not discovered by glob: diag-*/probe scripts and
 // one-off hearings are not family. When a new suite joins the family, add it here.
 //
@@ -33,6 +33,16 @@
 // overwritten — after the seven foreground batches the file IS the family
 // truth, and --summary speaks it so the worklog never hand-copies numbers
 // again.
+//
+// t302 — the runner dies with its children. A SIGTERM from the tool ceiling
+// (or Ctrl-C) used to kill the runner while the in-flight suite — detached,
+// its own process group — survived as an ORPHAN that kept rewriting the world
+// (the t299 window's biggest heist: orphans that look more like parallel
+// windows than parallel windows do). On SIGTERM/SIGINT/SIGHUP the runner now
+// kills the in-flight suite's WHOLE group, writes an HONEST interrupted
+// report entry (a killed batch leaves testimony, not silence — and never
+// leaves a stale prior entry standing in for a batch that did not finish),
+// and exits 143/130. The orphan root moves from discipline to code.
 //
 // Self-test hook (the runner testing its own retry law):
 //   FAMILY_DRILL=t249 node scripts/family-run.mjs --filter t249
@@ -125,6 +135,7 @@ const FAMILY = [
   "t296-big-map-viewer.mjs", // the big map's verdict: a REAL reconstruction-scale volume (256³ float32 = 64 MB, 64× the demo's voxel count) walks mapimport → identity card → Mol* — the raw route streams 67 MB flat, ParseCcp4 + isosurface commit inside the 120 s gate (~15 s live), 5σ contour recomputes on 16.7M voxels, the histogram's cold full-grid scan (~1 s) collapses to an LRU hit on the second look; the suite FOUND the out-of-tree symlink lockout (mapimport symlinked its source — the containment policy honest 400'd every png/raw/histogram fetch while the identity card spoke stats) and pins the hardlink-first materialization (Task 296)
   "t298-remote-big-map.mjs", // the borrowed big map: the two legs that never crossed (t293's borrow chain only ever handed over a 2 MB png door; t296's reconstruction-scale map was always LOCAL) — a 256³ float32 map is planted on the mock cluster, left there by the key-files policy, and opened through the REMOTE tile's View in 3D: the raw door lazy-fetches over SSH (timed), the in-flight dedup survives a two-concurrent-fetch race byte-identically, Mol* commits the isosurface inside the 120 s gate, the tile graduates WITH dims, and the histogram's cold→LRU doctrine lands on a fetched file; the suite FOUND the mock's exec cat losing 1.6–48 MB per 64 MB transfer (pipe 'end' ≠ channel flushed) and pins the write-callback pump + the close-only file end (Task 298)
   "t299-slurm-sacct.mjs", // the accounting fallback: squeue purges finished jobs, so a lost .cf-exit used to age into a false 'interrupted remotely' — the alive-check's THIRD witness asks sacct for the controller's own terminal verdict and maps it onto the wrapper's exit contract (COMPLETED→0, FAILED→exit, CANCELLED→143, TIMEOUT→124, signal→128+sig), VANISHED means 'no testimony anywhere'; the mock journals its verdicts (launcher COMPLETED/FAILED, scancel CANCELLED + marker), the strip speaks the terminal word, and planted witnesses ride the REAL sweep — FIRST persisted slurm-mode regression (t297 shipped without one) (Task 299)
+  "t302-family-suicide.mjs", // the runner dies with its children: a death signal kills the in-flight suite's whole group and writes an interrupted report entry — the orphan root, discipline → code (Task 302)
 ];
 
 // ---- batches are first-class (t273) ----------------------------------------
@@ -148,6 +159,7 @@ const BATCHES = [
   { name: "t27", match: /^t27/ },
   { name: "t28", match: /^t28/ },
   { name: "t29", match: /^t29/ },
+  { name: "t30", match: /^t30/ }, // t302 — the t30 decade registers itself on arrival
 ];
 const batchOf = (file) => BATCHES.find((b) => b.match.test(file))?.name ?? null;
 
@@ -191,11 +203,13 @@ const flagOf = (name) => {
 if (args.includes("--help") || args.includes("-h")) {
   console.log(
     "usage: node scripts/family-run.mjs [--filter <substring>] [--batch <name>] [--batches] [--list] [--summary] [--reset]\n" +
-      "  --batch <name>   run one first-class batch (qa / t21 / t22 / t24 / t25 / t26 / t27)\n" +
+      "  --batch <name>   run one first-class batch (the decades — --batches lists them)\n" +
       "  --batches        list the batches and their members (coverage-checked), run nothing\n" +
       "  --summary        print the family summary from scripts/.family-report.json, run nothing\n" +
       "  --reset          delete the accumulated report file, run nothing\n" +
-      "  FAMILY_DRILL=<suite>  drill the solo-retry path (first attempt of <suite> fails)",
+      "  FAMILY_DRILL=<suite>  drill the solo-retry path (first attempt of <suite> fails)\n" +
+      "  signals          SIGTERM/SIGINT/SIGHUP kill the in-flight suite's whole group and write an\n" +
+      "                   interrupted report entry — the runner dies with its children (exit 143/130)",
   );
   process.exit(0);
 }
@@ -237,10 +251,16 @@ if (args.includes("--summary")) {
   for (const k of keys) {
     const b = report.batches[k];
     totPass += b.pass; totSolo += b.soloRecovery; totFail += b.realFail; totWall += b.wallMs;
-    const flag = b.realFail > 0 ? paint.red("✗") : b.soloRecovery > 0 ? paint.yellow("↻") : paint.green("✓");
+    const flag = b.interrupted ? paint.bold("⚡") : b.realFail > 0 ? paint.red("✗") : b.soloRecovery > 0 ? paint.yellow("↻") : paint.green("✓");
     console.log(
       `  ${flag} ${k.padEnd(12)} pass ${String(b.pass).padStart(2)}  solo ${b.soloRecovery}  real-fail ${b.realFail}` +
-        paint.dim(`  wall ${(b.wallMs / 1000).toFixed(1)}s  ${b.lastRun}`),
+        paint.dim(`  wall ${(b.wallMs / 1000).toFixed(1)}s  ${b.lastRun}`) +
+        (b.interrupted
+          ? paint.bold(
+              `  ⚡ INTERRUPTED by ${b.interruptedBy ?? "a signal"} at ${b.interruptedAt ?? "the first breath"}` +
+                ` — re-run the key to overwrite the testimony`,
+            )
+          : ""),
     );
   }
   console.log(line);
@@ -270,6 +290,11 @@ const SOLO_BREATH_MS = 4_000;
 const TAIL = 8; // failure transcript lines shown per attempt
 
 const drill = process.env.FAMILY_DRILL || null;
+
+// t302 — the suite currently in flight (file + pid + pipes), or null. The
+// death signal needs the pid to take the whole group; the pipes need
+// destroying so nothing hangs on a dying handle.
+let inFlight = null;
 
 const sleepMs = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -336,6 +361,7 @@ async function runSuite(file) {
     detached: true, // its own process group — the group kill depends on this
     stdio: ["ignore", "pipe", "pipe"],
   });
+  inFlight = { file, pid: child.pid, stdout: child.stdout, stderr: child.stderr, startedAt: Date.now() };
   const chunks = [];
   child.stdout.on("data", (d) => chunks.push(d));
   child.stderr.on("data", (d) => chunks.push(d));
@@ -355,6 +381,7 @@ async function runSuite(file) {
     child.on("error", () => resolve(1));
   });
   clearTimeout(timer);
+  inFlight = null; // the suite is done — death has nothing left to reap
   // drill: the named suite's FIRST attempt is forced to fail (the simulated transient)
   if (drill && file.startsWith(drill) && !runSuite.drilled) {
     runSuite.drilled = true;
@@ -419,6 +446,88 @@ console.log(
 const verdicts = { PASS: [], "SOLO-RECOVERY": [], "REAL-FAIL": [], "SKIPPED(SERVER)": [] };
 const runSuiteMs = new Map(); // the deciding attempt's wall time, per suite (the report's ledger)
 const t0 = Date.now();
+
+// t302 — THE RUNNER DIES WITH ITS CHILDREN. runSuite's timeout kill reaps a
+// hung SUITE's group, but nothing reaped the runner itself: a SIGTERM from
+// the 600s tool ceiling (or Ctrl-C) killed the parent while the in-flight
+// suite — detached, its own group — survived as an ORPHAN that kept rewriting
+// the world (jobs created, records deleted, servers restarted — the t299
+// window's biggest heist; orphans look more like parallel windows than
+// parallel windows do). The orphan root moves from discipline to code:
+//   1. GROUP KILL — the in-flight suite's whole tree dies with the runner;
+//   2. HONEST TESTIMONY — the batch key gets an `interrupted` report entry
+//      (suites finished so far + the in-flight one as `interrupted`), never
+//      silence and never a stale prior entry standing in for a batch that
+//      did not finish;
+//   3. SIGNAL CODES — 143 for SIGTERM/SIGHUP, 130 for SIGINT.
+let dying = false;
+const interruptedSuites = (flightFile, flightMs) =>
+  roster
+    .filter(
+      (f) =>
+        f === flightFile ||
+        verdicts.PASS.includes(f) ||
+        verdicts["SOLO-RECOVERY"].includes(f) ||
+        verdicts["REAL-FAIL"].includes(f) ||
+        verdicts["SKIPPED(SERVER)"].includes(f),
+    )
+    .map((file) => {
+      if (file === flightFile) return { name: file, verdict: "interrupted", ms: flightMs, attempts: 1 };
+      const verdict =
+        (verdicts.PASS.includes(file) && "pass") ||
+        (verdicts["SOLO-RECOVERY"].includes(file) && "solo-recovery") ||
+        (verdicts["REAL-FAIL"].includes(file) && "real-fail") ||
+        "skipped-server";
+      const attempts = verdict === "pass" ? 1 : verdict === "skipped-server" ? 0 : 2;
+      return { name: file, verdict, ms: runSuiteMs.get(file) ?? 0, attempts };
+    });
+const signalDeath = (sig) => {
+  if (dying) return; // a second signal adds nothing — the first is already landing
+  dying = true;
+  const flight = inFlight;
+  console.log(`\n  ⚡ ${sig} — the runner dies with its children (the orphan root, discipline → code)`);
+  if (flight) {
+    console.log(`  ⚡ killing the in-flight suite's whole group: ${flight.file} (pid -${flight.pid})`);
+    try {
+      process.kill(-flight.pid, "SIGKILL"); // the whole tree — the timeout kill's own law
+    } catch {
+      /* the group is already gone */
+    }
+    try {
+      flight.stdout.destroy(); // release the pipes so nothing hangs on a dying handle
+      flight.stderr.destroy();
+    } catch {
+      /* pipes already closed */
+    }
+  }
+  try {
+    const report = readReport();
+    report.batches[reportKey] = {
+      lastRun: new Date().toISOString(),
+      interrupted: true,
+      interruptedBy: sig,
+      interruptedAt: flight ? flight.file : null, // null = death came before the first suite spawned
+      suites: interruptedSuites(flight?.file ?? null, flight ? Date.now() - flight.startedAt : 0),
+      pass: verdicts.PASS.length,
+      soloRecovery: verdicts["SOLO-RECOVERY"].length,
+      realFail: verdicts["REAL-FAIL"].length,
+      skippedServer: verdicts["SKIPPED(SERVER)"].length,
+      wallMs: Date.now() - t0,
+    };
+    writeReport(report);
+    console.log(
+      `  ⚡ report → ${REPORT_FILE.replace(ROOT + "/", "")} · key "${reportKey}" marked interrupted` +
+        ` (testimony, not silence — re-run the key to overwrite it)`,
+    );
+  } catch (e) {
+    console.log(`  report write failed on the way out (${e.message})`);
+  }
+  const code = sig === "SIGINT" ? 130 : 143;
+  setTimeout(() => process.exit(code), 150); // give the pipe a beat to flush — exit truncates pending writes
+};
+process.on("SIGTERM", () => signalDeath("SIGTERM"));
+process.on("SIGINT", () => signalDeath("SIGINT"));
+process.on("SIGHUP", () => signalDeath("SIGHUP"));
 
 for (const file of roster) {
   if (!existsSync(path.join(SCRIPTS, file))) {

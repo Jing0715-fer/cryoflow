@@ -2121,3 +2121,22 @@ Stage Summary:
 - **「timeout 杀得死父进程，杀不死在飞的孤儿」**：被切断的批次留下继续改写世界的孤儿套件——它们比并行窗更像并行窗；处决任何「残留」前先解码 qa-t*-<base36 时间戳>，新鲜的 id 是活窗
 - **「批次边界就是天花板边界」**：t26 十套件涨破 600s 后，_registry 分裂是 t273 法则的自然进化，不是官僚主义——被切断的批次的报告是谎言，宁可两个诚实的半批
 - 遗留（下轮候选）：sacct 的 elapsed/TRES 列（sacct -o Elapsed,MaxRSS 让台账说调度器的时长）；sbatch --dependency 链（管线级 afterok）；array 模式 sbatch（HPC 对话框已有生成器，远程 dispatch 未接）；verify-module 的 by-value 变体（create 流程保存前验证）；384³/512³ 阶梯压测（T296_N 已备）；family-run 的进程组自杀（SIGTERM 时先杀在飞套件再死——把孤儿的根从纪律变成代码）；EMPIAR 真数据回归（连续第十一窗让位）
+
+## Task 302 (2026-09-19, cron 03:03 窗口 trace 1a07549302235a99-cron-agent-loop-202609190303 —— 无撞号，树上直接立项 302；开局实证：worklog 实际尾部 = Task 299（sacct 第三证人，HEAD 1d4c7f6），cron 指引的「Task 13」与续窗摘要的「Task 272」双双过时，照例以树上实际为准)
+
+- 【开局盘点】HEAD = 1d4c7f6（t299），其前有 t300（remote projects）/t301（KPI band/header 细节）两窗交付；PORT 3000 活（bun 独监）、3001/3022 FREE；roster 21 恒等；裸 tsc 0；家族十批 pass 70 报告在案。agent-browser QA：GET / 200、快照渲染正常（header/工作区/项目切换器/noted chip/RELION chip 全在位）、console + errors 双零、qa63-smoke solo SMOKE GREEN（console 0）——项目稳定，按惯例③自主选题。
+- 【QA 先行揪出在树真雷（断言之错第十九次，但这次是真 real-fail 不是文本演进）】t273-family-report C2 断言硬编码批名连写串 `"qa, t21, t22, t24, t25, t26, t27"`——t26b 注册进 BATCHES 后 join 产物是 `...t26, t26b, t27...`，连续子串失配，solo 复跑坐实 `t273: 1 FAIL`。盘上报告的时间戳揭示病灶：t27 批 17:26 跑在 t26b 注册（18:46）之前——t299 窗的家族回归没吃到自己嘴里的狗粮（注册与回归的顺序颠倒，套件就没机会看见新批名）。修复 = 断言自维护化（t273 C1 对花名册规模的「永不字面量」教义推广到批名清单）：从 family-run 源码 `matchAll(/name: "([^"]+)"/g)` 解析批名，refusal 必须点名每一个在册批——名单再长也不会碎。修复后 t273 solo ALL PASS。
+- 【本轮主交付：family-run 的进程组自杀（t302）——t299 遗留首选，「把孤儿的根从纪律变成代码」】runSuite 的超时组杀收得了悬挂的套件，收不了跑者自己：600s 工具天花板的 SIGTERM（或 Ctrl-C）杀死父进程后，在飞套件（detached 自成进程组）无人收尸，继续改写世界——正是 t299 窗最大劫难的根因（孤儿比并行窗更像并行窗）。三件套：
+  1. **组杀**：runSuite 以 `inFlight = { file, pid, stdout, stderr, startedAt }` 追踪在飞套件、close 时清位；SIGTERM/SIGINT/SIGHUP 处决器 `process.kill(-pid, "SIGKILL")` 取整树（超时组杀的自身法则向外转），管道 destroy 防 'close' 悬挂；`dying` 守卫防二连信号。
+  2. **诚实证词**：死前把批次键写成 `interrupted: true` + `interruptedBy` + `interruptedAt`（在飞套件名；null = 死在第一口气之前）+ suites 台账（已完结者按原词汇 + 在飞者 verdict "interrupted" / attempts 1 / ms 实测）——被杀的批次留下证词，不是沉默，更不让陈旧旧条目冒充「这批从没跑过」。
+  3. **信号方言**：退出码 143（SIGTERM/SIGHUP）/ 130（SIGINT）；`setTimeout(exit, 150)` 让管道先冲刷（process.exit 截断在途写）。--summary 为 interrupted 条目渲染 ⚡ 行（"INTERRUPTED by <sig> at <where> — re-run the key to overwrite the testimony"）；--help 增补信号条款；BATCHES 注册 t30 十年位（t302 即其唯一成员，coverage 71 套件零孤儿）。
+- 【套件 t302-family-suicide.mjs（44 断言，首航 ALL PASS）】A demo 真相（GET / 200 + roster 21）；B 台账 15（三信号注册、组杀、dying 守卫、inFlight 追踪/清位、三证词字段、143/130、150ms 冲刷、--help、t30/t302 在册、⚡ 渲染、interruptedSuites 复用台账词汇 + t273 修复双钉：旧字面量已死 + 自维护解析在场）；C0 --batches 活体（11 批、declared===covered=71）；C1 breath 期 SIGTERM（143 + interruptedAt null + 空 suites 诚实）；C1b breath 期 SIGINT（130 + interruptedBy）；**C2 在飞杀活体**——poll ps 见 qa63-smoke 进程即 SIGTERM 跑者：143 退出 + **孤儿处决活体见证**（在飞套件 ms 40 即死于组杀，ps 复查无踪）+ interruptedAt 点名套件 + 台账行 interrupted；C3 --summary 渲染 ⚡ 行；C4 重跑覆盖自愈（interrupted 字段消失、pass 1、ms 9791 first-try——同时让修复后的 runSuite 热路径扛真实套件端到端）；D 卫生（无 family-run/qa63 残留 + roster 21）；finally 临时报告三件焚毁。嵌套隔离照 t273 法则：FAMILY_REPORT 三份私有文件，真累积器分毫未动（--summary 复核：t27 条目刷新 274.5s，余九批原样）。
+- 【套件自纠三处】① 嵌套运行时 runnerAlive() 会撞上外层跑者（batch t30 里 t302 的 ppid 就是外层 family-run）—— hygiene 扫描排除 `process.ppid`；② C1 同义反复断言删除；③ 未用 import 清除。
+- 【家族回归】--batch t27（修复热路径 7 套件端到端 + 跑者自测嵌套隔离）：pass 7 · solo 0 · real-fail 0 · wall 274.5s；t302 solo 全绿；t273 solo 复绿。产品代码零改动（纯 test-infra 窗），全家族十批重跑不必要——t27 批 + 两个跑者套件已覆盖全部被改面。
+- 【收尾】worklog（本条）+ commit/push + 环境清理（3000 独监、零残留进程、临时报告焚净、roster 21）。
+
+Stage Summary:
+- **「跑者要与自己的孩子同死」**：超时组杀收得了套件、收不了跑者——SIGTERM 一到，在飞套件整组陪葬、死前留下 interrupted 证词；孤儿从纪律问题变成代码保证，t299 窗的「孤儿误当并行窗」事故根因自此关死
+- **「被杀的批次留下证词，不是沉默」**：interrupted 条目三字段（flag/signal/where）+ 台账按原词汇记账；--summary 的 ⚡ 行指路「重跑即覆盖」——杀死的批次不能让旧条目冒充现状，也不该让累积器永远带伤
+- **「名单类断言永不连写字面量」**：t273 C2 的碎裂是 t26b 插队的一等必然（t271 断言找旧词、t299 断言找旧词之后，第一次碎在注册行为本身上）——批名从源码解析，名单增长时断言自愈；这颗雷在树上活了整整一个家族回归周期（t26b 注册于回归之后，套件没机会看见），「先改注册、后跑回归」的顺序自此也是套件的性命
+- 遗留（下轮候选）：sacct 的 elapsed/TRES 列；sbatch --dependency 链（管线级 afterok）；array 模式 sbatch（HPC 对话框已有生成器，远程 dispatch 未接）；verify-module 的 by-value 变体；384³/512³ 阶梯压测（T296_N 已备）；EMPIAR 真数据回归（连续第十二窗让位）；family 全家族 t30 批首跑（t302 已在册，下次全家族回归自然入账）
