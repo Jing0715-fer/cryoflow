@@ -89,8 +89,18 @@ const MOCK_PATH = [
   "/bin",
 ].join(":");
 
-/** Grace period after process exit before closing the SSH channel anyway. */
+/** Grace period after process exit before closing the SSH channel anyway.
+ * t298 — the grace is IDLE-aware AND the close is FLUSH-aware: a big pipe
+ * (`cat 64MB` through the SSH channel) is still MOVING when the process exits,
+ * and destroying it mid-drain silently truncates the transfer (the client sees
+ * a short read with exit=0 — ten-run probe: 10/10 lost 1.6–48 MB). Two layers:
+ * the close waits for ssh2's write CALLBACKS (pipe 'end' means HANDED TO the
+ * channel, not FLUSHED to the socket), and the grace re-arms while the pipes
+ * flow (data or drain events within the window) — only an IDLE window (the
+ * stuck grandchild it was written for) fires it. The hard cap bounds a
+ * forever-flowing pipe (tail -f). */
 const DRAIN_GRACE_MS = 400;
+const DRAIN_HARD_CAP_MS = 60_000;
 
 const KNOWN_SIGNALS = new Set([
   "SIGABRT", "SIGALRM", "SIGFPE", "SIGHUP", "SIGILL", "SIGINT", "SIGKILL",
@@ -218,6 +228,9 @@ function runCommand(stream, args, { onFinish } = {}) {
   let outEnded = !proc.stdout;
   let errEnded = !proc.stderr;
   let graceTimer = null;
+  let lastFlow = Date.now(); // t298 — the drain-aware grace's pulse
+  let graceStart = 0;
+  let pendingWrites = 0; // t298 — chunks handed to the channel, callbacks pending
 
   const clearGrace = () => {
     if (graceTimer) {
@@ -247,14 +260,40 @@ function runCommand(stream, args, { onFinish } = {}) {
   const maybeFinish = () => {
     if (finished || !dead) return;
     if (outEnded && errEnded) {
+      if (pendingWrites > 0) {
+        // t298 — the readables are exhausted but the channel's write buffer
+        // still holds chunks in flight (pipe 'end' means HANDED TO the ssh2
+        // writable, not FLUSHED to the socket). Closing here destroyed the
+        // tail of every big transfer. Wait for the write callbacks; the
+        // drain-aware grace below bounds the wait.
+        armGrace();
+        return;
+      }
       finish();
       return;
     }
     // Process exited but a pipe is still open — either output is still
     // draining or a backgrounded grandchild inherited the fd. Close after a
-    // short grace period either way (`setsid … >log 2>err &` redirects its
-    // stdio to files, so this is only a safety net).
-    if (!graceTimer) graceTimer = setTimeout(finish, DRAIN_GRACE_MS);
+    // grace period either way (`setsid … >log 2>err &` redirects its stdio to
+    // files, so this is only a safety net) — but t298: the grace is DRAIN-AWARE.
+    // The timer re-arms while the flow pulses (proc stdout/stderr data, channel
+    // drain) and only fires when NOTHING has moved for the whole window — plus
+    // a hard cap for forever-flowers.
+    armGrace();
+  };
+
+  const armGrace = () => {
+    if (graceTimer) return;
+    graceStart = Date.now();
+    graceTimer = setTimeout(function check() {
+      const now = Date.now();
+      if (now - graceStart > DRAIN_HARD_CAP_MS) return finish();
+      if (now - lastFlow < DRAIN_GRACE_MS) {
+        graceTimer = setTimeout(check, DRAIN_GRACE_MS);
+        return;
+      }
+      finish();
+    }, DRAIN_GRACE_MS);
   };
 
   proc.on("error", (err) => {
@@ -273,13 +312,52 @@ function runCommand(stream, args, { onFinish } = {}) {
   });
 
   // end:false — we close the channel ourselves (after exit status is known).
+  // t298 — NOT a bare pipe: a pipe hands chunks to stream.write() and treats
+  // them as done, but ssh2's channel buffers them (crypto + socket) — a 64 MB
+  // cat's 'end' fired with megabytes still unflushed, and the close then ate
+  // them. Manual pump with write CALLBACKS: a chunk counts as delivered only
+  // when its callback fires; backpressure pauses the readable until drain.
   try {
     if (proc.stdout) {
-      proc.stdout.pipe(stream, { end: false });
+      proc.stdout.on("data", (chunk) => {
+        lastFlow = Date.now();
+        pendingWrites++;
+        try {
+          const flushed = stream.write(chunk, () => {
+            pendingWrites--;
+            lastFlow = Date.now();
+            maybeFinish();
+          });
+          if (!flushed) {
+            proc.stdout.pause();
+            stream.once("drain", () => proc.stdout.resume());
+          }
+        } catch {
+          pendingWrites--; // channel gone — the chunk is lost either way
+          proc.stdout.destroy();
+        }
+      });
       proc.stdout.on("end", () => { outEnded = true; maybeFinish(); });
     }
     if (proc.stderr) {
-      proc.stderr.pipe(stream.stderr, { end: false });
+      proc.stderr.on("data", (chunk) => {
+        lastFlow = Date.now();
+        pendingWrites++;
+        try {
+          const flushed = stream.stderr.write(chunk, () => {
+            pendingWrites--;
+            lastFlow = Date.now();
+            maybeFinish();
+          });
+          if (!flushed) {
+            proc.stderr.pause();
+            stream.stderr.once("drain", () => proc.stderr.resume());
+          }
+        } catch {
+          pendingWrites--; // channel gone — the chunk is lost either way
+          proc.stderr.destroy();
+        }
+      });
       proc.stderr.on("end", () => { errEnded = true; maybeFinish(); });
     }
     stream.pipe(proc.stdin, { end: false });

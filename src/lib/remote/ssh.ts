@@ -25,7 +25,7 @@
  * previous state — the next tick re-polls).
  */
 
-import { createWriteStream, existsSync, mkdirSync, readFileSync, statSync } from "fs";
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, statSync, writeSync } from "fs";
 import path from "path";
 import { Client } from "ssh2";
 import type { RemoteConnection } from "./types";
@@ -562,18 +562,23 @@ export async function remoteDownload(
   }
   return new Promise<number | null>((resolve) => {
     let settled = false;
+    let fd: number | null = null;
     const finish = (v: number | null) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      try {
-        ws.close();
-      } catch {
-        /* ignore */
+      if (fd != null) {
+        try { closeSync(fd); } catch { /* ignore */ }
+        fd = null;
       }
       resolve(v);
     };
-    const ws = createWriteStream(localPath);
+    // t298 — SYNCHRONOUS writes, not a WriteStream: bun's stream buffering
+    // silently dropped chunks under concurrent load (the bare-ssh2 probe in
+    // Node was byte-exact 10/10 while the app's streamed writes lost 1.6–48
+    // MB per 64 MB transfer). writeSync has no buffer to drop from — each
+    // chunk lands in the page cache the moment the SSH stream emits it, and
+    // the SSH socket's own TCP backpressure paces the transfer.
     let written = 0;
     const timer = setTimeout(() => {
       try {
@@ -590,6 +595,12 @@ export async function remoteDownload(
         return;
       }
       streamRef = stream;
+      try {
+        fd = openSync(localPath, "w");
+      } catch {
+        finish(null);
+        return;
+      }
       stream.on("data", (chunk: Buffer) => {
         written += chunk.length;
         if (written > maxBytes) {
@@ -601,13 +612,19 @@ export async function remoteDownload(
           finish(-1);
           return;
         }
-        ws.write(chunk);
+        if (fd != null) {
+          try {
+            writeSync(fd, chunk);
+          } catch {
+            finish(null);
+          }
+        }
       });
-      stream.on("exit", () => {
-        ws.end(() => finish(written));
-      });
+      // t298 — end the file ONLY on 'close': data may legally arrive between
+      // 'exit' and 'close'. 'close' is the point where no further data is
+      // possible.
       stream.on("close", () => {
-        ws.end(() => finish(written > 0 ? written : null));
+        finish(written > 0 ? written : null);
       });
     });
   });

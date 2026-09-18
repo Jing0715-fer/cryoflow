@@ -28,7 +28,7 @@
  * data, not an evictable thumbnail.
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "fs";
 import path from "path";
 import type { RemoteRunState } from "./types";
 import { getConnection } from "./connections";
@@ -128,6 +128,9 @@ function safeRel(rel: string): string | null {
  * Pull one file from the cluster's workdir into the local mirror. Verified
  * over SSH before the pull (remoteStat), capped at FETCH_CAP_BYTES, STAR
  * files rewritten to-local — the lazy twin of the sync-back's per-file leg.
+ * t298 — a FAILED pull leaves NO partial file behind: a half-written map on
+ * disk would graduate the tile to "local" and feed every viewer garbage
+ * (the listing walks the workdir, the header reads what is there).
  */
 async function fetchIntoWorkdir(
   workdir: string,
@@ -160,8 +163,41 @@ async function fetchIntoWorkdir(
     };
   }
   const localPath = path.join(workdir, clean);
-  const written = await remoteDownload(conn, remotePath, localPath, FETCH_CAP_BYTES);
-  if (written == null || written < 0) {
+  // t298 — the byte-count verdict. The SSH layer (ssh2's channel buffers,
+  // the Bun client's quirks under load) can silently truncate a big `cat`
+  // mid-stream while still reporting success — the t298 probe caught the
+  // mock losing 1.6–48 MB per 64 MB transfer with exit=0. A landed file is
+  // only believed when its byte count MATCHES the pre-pull remoteStat; a
+  // short read gets up to two honest retries, then the partial is destroyed and the
+  // door refuses (502) — feeding a viewer a truncated map is the one thing
+  // this door must never do.
+  const expected = st.size;
+  let written: number | null = null;
+  let landed = -1;
+  // five attempts, a breath between: a load spike (a Mol* parse churning
+  // the box) can squeeze several transfers in a row — the bun+ssh2 receive side stalls in quantized 5 MiB stops under load (the t298 exam), and each retry rides a fresh exec channel
+  for (let attempt = 0; attempt < 5; attempt++) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, 250));
+    written = await remoteDownload(conn, remotePath, localPath, FETCH_CAP_BYTES);
+    if (written == null || written < 0) break;
+    try {
+      landed = statSync(localPath).size;
+    } catch {
+      landed = -1;
+    }
+    if (landed === expected) break;
+  }
+  if (written == null || written < 0 || landed !== expected) {
+    // t298 — no tombstones: a failed pull must not leave a partial file at
+    // the real workdir path (the fast-path and the listing would believe it)
+    try { rmSync(localPath, { force: true }); } catch { /* best effort */ }
+    if (written != null && written >= 0) {
+      return {
+        ok: false,
+        error: `Fetch from the cluster came up short (${landed} of ${expected} bytes, retried once) — refused rather than served truncated`,
+        status: 502,
+      };
+    }
     return { ok: false, error: "Fetch from the cluster failed (SSH transfer error)", status: 502 };
   }
   // STAR rewrite to-local — the same contract the sync-back applies, so a
@@ -182,6 +218,13 @@ async function fetchIntoWorkdir(
  * Public door (dedup-wrapped): fetch `rel` into the local mirror of a remote
  * run. Idempotent — if the file already exists locally the answer is an
  * immediate ok (0 bytes pulled).
+ *
+ * t298 — the in-flight check comes FIRST: the fast-path's existsSync can
+ * otherwise see the file a concurrent download has just CREATED (empty, then
+ * growing) and stream it as if complete — the second caller of a gallery +
+ * Mol* race served a truncated map. Only when NO pull is in flight does a
+ * landed file mean a COMPLETE file (remoteDownload resolves after the write
+ * stream flushes).
  */
 export async function fetchRemoteFileIntoWorkdir(
   run: { workdir: string; remote?: RemoteRunState },
@@ -190,10 +233,10 @@ export async function fetchRemoteFileIntoWorkdir(
   const remote = run.remote;
   if (!remote) return { ok: false, error: "Not a remote run", status: 400 };
   const localPath = path.join(run.workdir, rel);
-  if (existsSync(localPath)) return { ok: true, bytes: 0 };
   const key = `${remote.remoteWorkdir}::${rel}`;
   let p = inFlight.get(key);
   if (!p) {
+    if (existsSync(localPath)) return { ok: true, bytes: 0 };
     p = fetchIntoWorkdir(run.workdir, remote, rel).finally(() => inFlight.delete(key));
     inFlight.set(key, p);
   }
