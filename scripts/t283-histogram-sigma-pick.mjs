@@ -103,8 +103,8 @@ const routeSrc = await import("node:fs").then((fs) =>
 );
 must(routeSrc.includes('format === "histogram"'), "the route grows the format=histogram branch");
 must(routeSrc.includes("The density histogram is for MRC maps only"), "non-MRC files refuse the histogram");
-must(routeSrc.includes("The density histogram is for 3D volumes"), ".mrcs stacks refuse (stacks browse with slice/montage)");
-must(routeSrc.includes("readMrcHistogram(abs)"), "the branch runs AFTER the containment chain resolves abs");
+must(routeSrc.includes("Stacks histogram per slice — pass &slice=N"), ".mrcs stacks histogram PER SLICE (t287: an unnamed stack is a blur with no subject — the refusal says how to comply)");
+must(routeSrc.includes("readMrcHistogram(abs, slice)"), "the branch runs AFTER the containment chain resolves abs (t287: the slice rides along)");
 must(routeSrc.includes("isLocalRequest(request)"), "the route sits BEHIND the local-request guard");
 
 const orthoSrc = await import("node:fs").then((fs) =>

@@ -116,6 +116,7 @@ const FAMILY = [
   "t283-histogram-sigma-pick.mjs", // the histogram speaks: the volume's density distribution as a strip (format=histogram, chunked two-pass + cache) with a σ ruler and the current contour as a cut line — CLICKING it sets the contour (ORTHO_SIGMA_SET completes the σ family), sign follows the clicked side of the mean (Task 283)
   "t284-quick-histogram.mjs", // the quick look speaks distributions: the strip lifted into density-histogram.tsx (ONE drawing truth, two consumers) and the quick-look dialog renders it read-only (default OFF, per-file reset) — plus the dialog learns to scroll (max-h/overflow: tall content was clipped, pre-existing) (Task 284)
   "t286-display-window.mjs", // the histogram COMMANDS the display: an explicit lo/hi window overrides the 2–98 percentile stretch (literal mapping, no auto-inversion), σ preset chips + draggable lo/hi handles on the dialog's strip, bars outside the window dim — the render and the strip read ONE window state (Task 286)
+  "t287-stack-histogram.mjs", // the stack speaks: a .mrcs histogram is PER SLICE (&slice=N required — an unnamed stack histogram is a blur with no subject; a volume+slice is refused), the dialog grows a slice cursor (prev/next/range/readout) driving ONE slice view + the SAME instrument, and stepping the slice resets the display window (a different image is a different distribution) (Task 287)
 ];
 
 // ---- batches are first-class (t273) ----------------------------------------

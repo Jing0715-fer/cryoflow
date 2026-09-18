@@ -1822,3 +1822,26 @@ Stage Summary:
 - 「确定性证据」：十六个密度值各恰 1024 次的合成卷让 μ=−0.5、σ=√21.25 成为算术——直方图真值对照算术而非自身；「证据文件不是居民」（先删 + finally 后删）延续 t284
 - 「拖拽的诚实」：release 才 commit（拖拽中不逐帧重渲染）、release 读 ref 防陈旧闭包、手柄不可穿越、越窗柱在 strip 上即时淡化——仪器说什么就是什么
 - 遗留（下轮候选）：.mrcs 栈 per-slice 直方图 + 窗口（stack 浏览下一步，服务端 window 能力已就位）；triptych 导出 footer 叠加直方图缩略；快看对话框 display range 数值输入（chips/拖拽之外的第三入口）；bookmark 缩略图叠加焦点交点（继续让位）；Topaz wrapper 深化（边际递减）
+
+## Task 287 (2026-09-18, cron 窗口 trace 1a07549302235a99-cron-agent-loop-202609180503——被摘要窗延误后实际执行)
+
+- 【开局四件套】尾部实证 = Task 286（05887cd 已 push）——续窗摘要声称的「272 基线 + 连续十窗被摘要阻塞」第十一次不实：05:03 窗实交付 280/281/282，06:48→283、07:48→284、并行窗 a8cbd3f→285（用户报障 setup）、09:18→286；worklog 唯一真源律再次应验。净场良好（PORT 3000/3022 FREE）→ watchdog 拉起 200 + roster 21。cron 模板「重点读 Task 13」照例不认。
+- 【QA】三哨兵全绿（qa00 DATA-VIEW GREEN + qa63 SMOKE GREEN + t286 ALL PASS）；agent-browser 活体目检 console 0 / errors 0 / 33 data-canvas-ui hooks（`react-flow__node`=0 依旧是自绘 canvas 的探针陷阱，非产品缺陷）。
+- 【巡检与立项】Task 286 遗留池树上核实：快看对话框 stack 分支只有 montage+说明文字，路由 histogram 对 .mrcs 一律 400「for 3D volumes」——**「.mrcs per-slice 直方图」为真缺口**，直方图家族第四部曲立项 = Task 287「栈也开口」。t283 面板→t284 快看→t286 指挥显示→t287 per-slice：stack 的第一问「这张粒子能不能用」由**那张图的分布**回答，不是几千张的栈级模糊。
+- 【实现① mrc.ts readMrcHistogram slice 化】可选 `slice` 参数 = 单 z section（对 .mrcs 即单张粒子图）：sliceOffset = s·nx·ny，count 收缩为 nx·ny；两遍分块读 O(1) 内存不变；**cacheKey 带 slice 维度**（`|s${slice ?? "all"}`——单图直方图不是整卷直方图）；范围外/非有限 → null（路由转成 actionable 400）。
+- 【实现② 路由 histogram 分支三重诚实】stack：slice **必填**（未命名的栈直方图=没有主语的数字，400 文案教用法「pass &slice=N (0-based)」）+ 必须整数 + 范围校验（越界 400 **实名 nz**「this stack holds N images (0…N-1)」——header 现读）；volume+slice → 400「a volume's histogram is the whole grid」（静默忽略参数是撒谎）；payload 回显 `slice: slice ?? null`（一个 payload 一个真相）。
+- 【实现③ strip 透传】DensityHistogramStrip + QuickHistSection 各加 `slice?: number`；fetch URL 条件拼 `&slice=`、依赖数组 `[jobId, path, slice]`——步进即重问同一仪器；toggle 状态**不**重置（读者的意愿跨步存活）；toggle 行文案 slice 感知（「slice N's density distribution」）。
+- 【实现④ stack 分支 UI】slice 光标（◀ ▶ + range slider + 等宽读数，四枚 data-canvas-ui hooks，两端 disabled 诚实）驱动**单 slice 视图**（`&montage=0&scale=large&slice=N` + imgWindow 联动 &lo=&hi=）与直方图（一个光标两个消费者）；**步进清窗口**（`[imgPath, stackSlice]` effect——另一张图是另一个分布，旧 lo/hi 是对新像素的陈旧命令）；换文件光标归位 0 + toggle 复位（t284 契约）；montage 总览原样保留（t286 的 auto-overview 契约持有）。
+- 【t287-stack-histogram.mjs（68 断言 ×3 ALL PASS，t28 批收编花名册 61→62）】A 相 demo 真相；B 相源码台账 23 断言（slice 偏移/缓存键/范围校验、路由三重诚实+回显、strip 双 props+deps、光标四 hooks+clamp+montage 原样）；C 相活体：**确定性证据栈 t287stack.mrcs**（4 sections×32×32，section s 值 = s·10+((x+y)%4)·0.5——四值各恰 256 次（32%4==0），μ_s = s·10+0.75、σ=√0.3125 是算术）；C1 API：slice 0/3 的 μ 0.75/30.75 算术命中 + 回显 + 诚实 400 五连（缺 slice/negative/越界实名 nz/小数/volume+slice）；C2 UI：光标步进→视图跟随（slice=1 URL）→直方图 μ 跟随（10.75→20.75）→toggle 行点名 slice→±1σ 窗口 = **该 slice 自己的 μ±σ**（10.1910/11.3090）→步进清窗口（slice=2 无 &lo=）+ strip 状态归 auto + **toggle 存活**；C3 重开归位 slice 1 + toggle OFF；Z 相 roster 21 + console 0；定妆照 t287-stack-slice-histogram.png。证据文件先删+finally 后删（不是居民）。
+- 【断言的错，第十三次应验（首跑 1 系列假 FAIL + 环境二连）】①「Enlarge t287stack」选择器落空——friendlyLabel 对 workdir 根的 .mrcs 给「Stack <name>」标签（带扩展名），非产品缺陷，选择器改 `aria-label*=` 部分匹配；②首跑大量 API FAIL 实为**旧 server 占港**：fuser -k 漏杀 02:34 启动的旧 standalone 实例（Task 86 教训复活变体——start-prod.sh 注释里写着的正是这个），重建产物明明含新代码（rg 实证）而 3000 仍答旧行为（volume+slice 200 铁证），按 PID 诛之 + watchdog 重拉即愈——**重建后必须以进程启动时间实证新实例在位**；③自己埋的雷：t24+t25 两批串在一条 600s 超时命令里，强杀时 t25 的 t255/t258 世界 job 残留（roster 23 污染 t24 重跑全军 roster 断言崩）——手动 DELETE 两 job（Task 272 clearRunRecord 仪式在位）恢复 21 后 t24 全绿。教训固化：**家族批次必须一命令一批，两命令一批也绝不合并**。
+- 【t283/t284 断言随语义演进（t270 async 化同款合法维护）】「The density histogram is for 3D volumes」文案退场 → 演进为 grep「Stacks histogram per slice — pass &slice=N」（语义升级：从一律拒到按 slice 开口）；t283 的 `readMrcHistogram(abs)` → `readMrcHistogram(abs, slice)`。t283/t284/t286 三哨兵复绿 ALL PASS。
+- 【全家族回归（八批前台逐批——OOM 纪律第十一窗，一命令一批）】qa 11 · 405.0s ｜ t21 7 · 196.3s ｜ t22 2 · 65.3s ｜ t24 9 · 121.8s（roster 污染清除后全绿）｜ t25 9 · 467.4s ｜ t26 10 · 542.7s ｜ t27 7 · 275.5s ｜ t28 7 · 154.5s（t280–t287，**t287 首战即家族**）——合计 **pass 62 · solo 0 · real-fail 0 · wall 2228.5s**（--summary 机器拷贝）；coverage 认证 62 套件八批各归属唯一；裸 tsc 0；build 首试即过；roster 恒等 21。
+- 【收尾】worklog（本条）+ commit/push + 环境清理（Task 86 双杀 + port FREE 验证）。
+
+Stage Summary:
+- **「栈也开口了」**：直方图家族四部曲收官——面板（t283）、快看（t284）、指挥显示（t286）、per-slice（t287）；RELION _display 的粒子栈逐张检视惯例补齐，「这张粒子能不能用」从眯眼看 montage 变成看那张图的分布 + 以分布为仪表盘改显示
+- 「没有主语的数字不是答案」：栈级直方图被拒绝不是因为做不到（整栈读就完了），而是因为**它没有语义主体**——每张图有自己的 μ/σ；slice 必填 + volume 拒 slice 是同一枚诚实的两面（参数要么有主体、要么不存在，静默忽略是撒谎）
+- 「窗口属于它被画下的那张图」：t286 的「窗口属于文件」在 stack 里再下沉一层——另一张图是另一个分布，步进即清窗（strip 与视图一起归 AUTO），但 toggle 存活——读者的意愿跨步存活，命令不跨分布存活
+- 「重建 ≠ 上线」：fuser 漏杀的旧 standalone 实例让新构建空转半小时——**验证新实例在位要看进程启动时间**，PORT 200 只说明有个 server 在答话，不说明它是谁
+- 「一命令一批」：600s 强杀拦腰斩断套件的 finally 清场，世界残留以 roster 23 反噬下一批的 roster 断言——家族批次的时间上限纪律不是跑得慢的问题，是被杀后世界是否完整的问题
+- 遗留（下轮候选）：.mrcs montage 缩略图也可吃 display window（服务端 montage renderer 已接 win——只差 UI 入口）；快看对话框 display range 数值输入（chips/拖拽之外的第三入口）；triptych 导出 footer 叠加直方图缩略；bookmark 缩略图叠加焦点交点（连续让位）；EMPIAR 真数据回归（连续第四窗让位）

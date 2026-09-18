@@ -7,7 +7,7 @@ import { getRun } from "@/lib/relion/engine";
 import { readPathrefTarget } from "@/lib/relion/pathref";
 import { resolveInsideJobWorkdir } from "@/lib/relion/jobfile";
 import { isLocalRequest } from "@/lib/http-guard";
-import { isMrcPath, readMrcHistogram, readMrcVoxel, renderMrcLargePng, renderMrcMontagePng, renderMrcOrthoPng, renderMrcSlicePng } from "@/lib/mrc";
+import { isMrcPath, readMrcHeader, readMrcHistogram, readMrcVoxel, renderMrcLargePng, renderMrcMontagePng, renderMrcOrthoPng, renderMrcSlicePng } from "@/lib/mrc";
 
 export const dynamic = "force-dynamic";
 
@@ -181,23 +181,58 @@ export async function GET(request: NextRequest, context: RouteContext) {
     // distribution in one JSON payload. Same containment chain as every
     // other format, but like "value" it serves NUMBERS, not bytes. The
     // reader walks the file chunked (O(1) memory, two passes) and caches
-    // per (path, mtime, size) — panel-open frequency, not hover frequency.
+    // per (path, mtime, size, slice) — panel-open frequency, not hover
+    // frequency.
+    // t287 — STACKS SPEAK NOW: a .mrcs must name its slice (&slice=N,
+    // 0-based), and the payload is THAT particle image's distribution —
+    // "is this particle even usable?" answered per image, not as the
+    // stack-wide blur of thousands. The slice is REQUIRED for stacks
+    // (an un-named stack histogram would be exactly that blur — a
+    // number with no subject); a VOLUME with a slice is refused (the
+    // volume's histogram is the whole grid — silently ignoring the
+    // parameter would be a lie), and a missing slice gets an
+    // actionable 400 that names the range.
     if (format === "histogram") {
       if (!isMrc) {
         return NextResponse.json({ error: "The density histogram is for MRC maps only" }, { status: 400 });
       }
-      if (lower.endsWith(".mrcs")) {
+      const isStack = lower.endsWith(".mrcs");
+      const sliceRaw = url.searchParams.get("slice");
+      let slice: number | undefined;
+      if (isStack) {
+        if (sliceRaw === null) {
+          return NextResponse.json(
+            { error: "Stacks histogram per slice — pass &slice=N (0-based)" },
+            { status: 400 }
+          );
+        }
+        const s = Number.parseFloat(sliceRaw);
+        if (!Number.isFinite(s) || !Number.isInteger(s)) {
+          return NextResponse.json({ error: "slice must be an integer (0-based)" }, { status: 400 });
+        }
+        const hdr = readMrcHeader(abs);
+        if (!hdr) {
+          return NextResponse.json({ error: "Could not read this map" }, { status: 400 });
+        }
+        if (s < 0 || s >= hdr.nz) {
+          return NextResponse.json(
+            { error: `slice out of range — this stack holds ${hdr.nz} images (0…${hdr.nz - 1})` },
+            { status: 400 }
+          );
+        }
+        slice = s;
+      } else if (sliceRaw !== null) {
         return NextResponse.json(
-          { error: "The density histogram is for 3D volumes — stacks browse images with slice/montage" },
+          { error: "slice is for stacks — a volume's histogram is the whole grid" },
           { status: 400 }
         );
       }
-      const hist = readMrcHistogram(abs);
+      const hist = readMrcHistogram(abs, slice);
       if (!hist) {
         return NextResponse.json({ error: "Could not read this map" }, { status: 400 });
       }
       return NextResponse.json(
-        { jobId: job.id, file: name, ...hist },
+        { jobId: job.id, file: name, slice: slice ?? null, ...hist },
         { headers: { "Cache-Control": "no-cache" } }
       );
     }

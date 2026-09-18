@@ -251,6 +251,7 @@ function drawHistogramStrip(
 export function DensityHistogramStrip({
   jobId,
   path,
+  slice,
   cutSigma = null,
   onPickSigma,
   window: winProp = null,
@@ -261,6 +262,10 @@ export function DensityHistogramStrip({
 }: {
   jobId: string;
   path: string;
+  /** t287 — for .mrcs stacks: WHICH image the distribution speaks (0-based).
+   *  Changing it re-fetches (the server caches per slice); the toggle and
+   *  the window above stay — the reader's intent survives the step. */
+  slice?: number;
   /** the live contour (σ units + sign) — draws the cyan cut line; the
    *  quick-look dialog passes none (nothing to cut there) */
   cutSigma?: HistCutSigma | null;
@@ -300,13 +305,16 @@ export function DensityHistogramStrip({
   const { resolvedTheme } = useTheme();
 
   // one fetch per strip mount — the server caches the histogram per
-  // (path, mtime, size), so re-opening the strip is free
+  // (path, mtime, size, slice), so re-opening the strip is free.
+  // t287 — slice rides the deps: stepping through a stack re-asks the
+  // SAME instrument for the NEXT image's distribution.
   useEffect(() => {
     let cancelled = false;
     setState("loading");
     setData(null);
     fetch(
-      `/api/jobs/${jobId}/outputs/file?path=${encodeURIComponent(path)}&format=histogram`,
+      `/api/jobs/${jobId}/outputs/file?path=${encodeURIComponent(path)}&format=histogram` +
+        (slice !== undefined ? `&slice=${slice}` : ""),
       { cache: "no-store" }
     )
       .then(async (r) => {
@@ -332,7 +340,7 @@ export function DensityHistogramStrip({
     return () => {
       cancelled = true;
     };
-  }, [jobId, path]);
+  }, [jobId, path, slice]);
 
   // the draw — data, contour, hover and theme all repaint the strip
   useEffect(() => {
@@ -581,20 +589,23 @@ export function DensityHistogramStrip({
 
 /**
  * The quick-look dialog's histogram section (t284; t286 adds the
- * display window): a toggle (default OFF — the first look is an
- * explicit ask) plus the strip. When `onWindowChange` is passed the
- * strip speaks WINDOW (draggable lo/hi handles + σ presets) and the
- * caller re-renders the image through the SAME state.
+ * display window; t287 adds the stack slice): a toggle (default OFF —
+ * the first look is an explicit ask) plus the strip. When
+ * `onWindowChange` is passed the strip speaks WINDOW (draggable lo/hi
+ * handles + σ presets) and the caller re-renders the image through the
+ * SAME state. `slice` narrows the distribution to one stack image.
  * Mount with key={path} so a new file resets the toggle.
  */
 export function QuickHistSection({
   jobId,
   path,
+  slice,
   window: winProp = null,
   onWindowChange,
 }: {
   jobId: string;
   path: string;
+  slice?: number;
   window?: HistWindow | null;
   onWindowChange?: (w: HistWindow | null) => void;
 }) {
@@ -625,13 +636,18 @@ export function QuickHistSection({
           Histogram
         </button>
         <span className="text-[10px] text-muted-foreground">
-          {on ? "whole-file density distribution" : "where does the density live?"}
+          {on
+            ? slice !== undefined
+              ? `slice ${slice + 1}'s density distribution`
+              : "whole-file density distribution"
+            : "where does the density live?"}
         </span>
       </div>
       {on && (
         <DensityHistogramStrip
           jobId={jobId}
           path={path}
+          slice={slice}
           uiPrefix="quick-hist"
           ariaLabel="The file's density histogram with the σ ruler"
           window={winProp}

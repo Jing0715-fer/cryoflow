@@ -15,6 +15,8 @@ import {
   AlertTriangle,
   Box,
   Check,
+  ChevronLeft,
+  ChevronRight,
   Copy,
   Crop,
   ExternalLink,
@@ -163,6 +165,10 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
    *  (or its σ presets) commands the PNG render (lo → black, hi → white);
    *  null = AUTO, the 2–98 percentile answers. Reset per file. */
   const [imgWindow, setImgWindow] = useState<{ lo: number; hi: number } | null>(null);
+  // t287 — the stack dialog's slice cursor (0-based). The montage stays
+  // the overview; the slice cursor picks WHICH particle image the single
+  // view and the histogram speak.
+  const [stackSlice, setStackSlice] = useState(0);
   const [starFile, setStarFile] = useState<OutputFile | null>(null);
   const [textFile, setTextFile] = useState<OutputFile | null>(null);
   /** t260 — the shared Mol* dialog opens on a TARGET (job + file + optional
@@ -207,10 +213,19 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
 
   // t286 — a display window belongs to the file it was drawn on: opening
   // another file resets to AUTO (the strip's key={path} resets its toggle
-  // the same way — two resets, one honest per-file world)
+  // the same way — two resets, one honest per-file world).
+  // t287 — and to the IMAGE it was drawn on inside a stack: a different
+  // slice is a different distribution with its own μ/σ, so the old
+  // lo/hi pair would be a stale command over new pixels — stepping the
+  // slice resets the window too (the slice view and the histogram both
+  // snap back to AUTO together).
   const imgPath = imageFile?.path ?? null;
   useEffect(() => {
     setImgWindow(null);
+  }, [imgPath, stackSlice]);
+  // opening another FILE restarts the stack at its first image
+  useEffect(() => {
+    setStackSlice(0);
   }, [imgPath]);
 
   // latest-iteration first: for finished jobs the FINAL classes/maps are what
@@ -1010,6 +1025,82 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
                       Stack of {imageFile.slices ?? "?"} particle images — showing the first{" "}
                       {Math.min(16, imageFile.slices ?? 16)}
                     </p>
+                    {(
+                      /* t287 — THE STACK SPEAKS: a slice cursor (prev/next +
+                         a range slider) drives ONE slice view and the
+                         histogram below — "is this particle even usable?"
+                         is answered by THAT image's distribution, not the
+                         stack-wide blur of thousands. Stepping the slice
+                         resets the display window (a different image is a
+                         different distribution — the old lo/hi pair would
+                         be a stale command over new pixels). */
+                      <>
+                        <div className="flex items-center gap-2 rounded-md border border-border/60 bg-background/40 px-2 py-1.5">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 w-7 shrink-0 p-0"
+                            disabled={stackSlice <= 0}
+                            aria-label="Previous particle image"
+                            data-canvas-ui="stack-slice-prev"
+                            onClick={() => setStackSlice((s) => Math.max(0, s - 1))}
+                          >
+                            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+                          </Button>
+                          <input
+                            type="range"
+                            min={0}
+                            max={Math.max(0, (imageFile.slices ?? 1) - 1)}
+                            value={stackSlice}
+                            onChange={(e) => setStackSlice(Math.trunc(Number(e.target.value)) || 0)}
+                            className="h-1.5 flex-1 accent-teal-600"
+                            aria-label="Particle image index"
+                            data-canvas-ui="stack-slice-range"
+                          />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 w-7 shrink-0 p-0"
+                            disabled={stackSlice >= (imageFile.slices ?? 1) - 1}
+                            aria-label="Next particle image"
+                            data-canvas-ui="stack-slice-next"
+                            onClick={() =>
+                              setStackSlice((s) => Math.min((imageFile.slices ?? 1) - 1, s + 1))
+                            }
+                          >
+                            <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                          </Button>
+                          <span
+                            className="shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground"
+                            data-canvas-ui="stack-slice-readout"
+                          >
+                            slice {stackSlice + 1} of {imageFile.slices ?? "?"}
+                          </span>
+                        </div>
+                        <MrcImage
+                          src={
+                            fileUrl(
+                              job.id,
+                              imageFile,
+                              `&format=png&montage=0&scale=large&slice=${stackSlice}`
+                            ) + (imgWindow ? `&lo=${imgWindow.lo}&hi=${imgWindow.hi}` : "")
+                          }
+                          alt={`${imageFile.name} particle image ${stackSlice + 1}`}
+                          className="bg-zinc-950 p-2"
+                        />
+                        <p className="text-center text-[11px] text-muted-foreground">
+                          Particle image {stackSlice + 1} · {(imageFile.slices ?? 1)} in the stack
+                          {imgWindow ? " · windowed" : " · auto contrast"}
+                        </p>
+                        <QuickHistSection key={imageFile.path}
+                          jobId={job.id}
+                          path={imageFile.path}
+                          slice={stackSlice}
+                          window={imgWindow}
+                          onWindowChange={setImgWindow}
+                        />
+                      </>
+                    )}
                   </>
                 ) : (
                   <>

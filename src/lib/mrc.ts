@@ -626,23 +626,41 @@ const histCache = new Map<string, MrcHistogram>();
  * answered by SEEING the distribution: the noise peak, the particle
  * shoulder, and where Nσ lands inside it.
  *
- * I/O shape: the histogram NEEDS every voxel — that is the semantic
- * floor — so this walks the file in chunks, TWICE (pass 1: min/max/mean/
- * σ accumulators, pass 2: binning over the now-known [min,max] range)
- * with O(1) memory; a 700³ float32 map costs ~2.8 GB of sequential read
- * but never 2.8 GB of RAM. The result is cached per (path, mtime, size)
- * and LRU-capped: hover-frequency it is not, panel-open frequency it
- * absolutely is — the second look is free.
+ * t287 — an optional `slice` narrows the read to ONE section along z:
+ * for a .mrcs stack that is one particle IMAGE (nz = the image count),
+ * and "is this particle even usable?" is answered by THAT image's
+ * distribution, not the stack-wide blur of thousands of them. A volume
+ * with a slice speaks that z-plane's distribution (same read shape).
+ *
+ * I/O shape: the histogram NEEDS every voxel in its scope — that is the
+ * semantic floor — so this walks the file in chunks, TWICE (pass 1:
+ * min/max/mean/σ accumulators, pass 2: binning over the now-known
+ * [min,max] range) with O(1) memory; a 700³ float32 map costs ~2.8 GB
+ * of sequential read but never 2.8 GB of RAM. The result is cached per
+ * (path, mtime, size, slice) and LRU-capped: hover-frequency it is not,
+ * panel-open frequency it absolutely is — the second look is free.
  */
-export function readMrcHistogram(file: string): MrcHistogram | null {
+export function readMrcHistogram(file: string, slice?: number): MrcHistogram | null {
   const h = readMrcHeader(file);
   if (!h) return null;
-  const count = h.nx * h.ny * h.nz;
+  // t287 — resolve the slice: undefined = the whole grid (the t283
+  // semantics, every caller's default); a finite integer = one z section
+  // (nx×ny voxels starting at slice*nx*ny). Out of range → null (the
+  // route turns that into an actionable 400 with the header's real nz).
+  let sliceOffset = 0;
+  let count = h.nx * h.ny * h.nz;
+  if (slice !== undefined) {
+    if (!Number.isFinite(slice)) return null;
+    const s = Math.trunc(slice);
+    if (s < 0 || s >= h.nz) return null;
+    sliceOffset = s * h.nx * h.ny;
+    count = h.nx * h.ny;
+  }
   if (count < 1) return null;
   let cacheKey: string | null = null;
   try {
     const st = statSync(file);
-    cacheKey = `${file}|${st.mtimeMs}|${st.size}`;
+    cacheKey = `${file}|${st.mtimeMs}|${st.size}|s${slice === undefined ? "all" : Math.trunc(slice)}`;
     const hit = histCache.get(cacheKey);
     if (hit) {
       // Map-as-LRU: re-insert to mark the entry freshly used
@@ -654,7 +672,7 @@ export function readMrcHistogram(file: string): MrcHistogram | null {
     /* unreadable stat — proceed uncached */
   }
 
-  const dataStart = 1024 + h.nsymbt;
+  const dataStart = 1024 + h.nsymbt + sliceOffset * h.bytesPerVoxel;
   const bpp = h.bytesPerVoxel;
   const chunkVox = Math.max(1, Math.min(HIST_CHUNK_VOXELS, count));
   const raw = Buffer.alloc(chunkVox * bpp);

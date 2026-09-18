@@ -108,7 +108,7 @@ must(!orthoSrc.includes("QuickHistSection"), "the panel does not speak the dialo
 const routeSrc = await import("node:fs").then((fs) =>
   fs.readFileSync("src/app/api/jobs/[id]/outputs/file/route.ts", "utf8")
 );
-must(routeSrc.includes("The density histogram is for 3D volumes"), "the route still refuses stacks (the dialog rides the SAME containment chain)");
+must(routeSrc.includes("Stacks histogram per slice — pass &slice=N"), "the route speaks per-slice for stacks (t287's upgrade of the old flat refusal — the dialog rides the SAME containment chain)");
 
 console.log("== PHASE C: the quick look, alive ==");
 // the volume world (t283's recipe — idempotent, roster stays 21)
