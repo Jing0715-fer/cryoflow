@@ -258,20 +258,48 @@ try {
   // ---- Phase B: the ledger -------------------------------------------------
   console.log("== PHASE B: the ledger ==");
   const src = readFileSync(`${ROOT}/src/lib/remote/remote-run.ts`, "utf8");
-  must(src.includes("sacct -j ${J} -n -P -o State,ExitCode"), "B: the alive-check's third witness queries sacct with the app grammar");
+  must(src.includes("sacct -j ${J} -n -P -o State,ExitCode,Elapsed,MaxRSS"), "B: the third witness queries the app grammar (t303: the stopwatch + meter ride the same row)");
+  must(
+    src.includes("const AC = ") &&
+      (src.match(/sacct -j/g)?.length ?? 0) === 1 &&
+      (src.match(/\$\{AC\}/g)?.length ?? 0) === 2,
+    "B: ONE shared 4-column query, invoked by BOTH exit branches (EXIT enrichment + the fallback)"
+  );
   must(src.includes('echo "SACCT:$__ac"'), "B: terminal accounting words ride out as SACCT:<state>|<exit>:<sig>");
   must(src.includes("PENDING*|RUNNING*|COMPLETING*"), "B: in-flight accounting words stay ALIVE (accounting lag cannot fake death)");
   must(src.includes("COMPLETED*|FAILED*|CANCELLED*|TIMEOUT*"), "B: the terminal case covers the controller's verdict family");
   must(src.includes("OUT_OF_*"), "B: OUT_OF_MEMORY (and kin) are terminal, not vanished");
   must(src.includes('*) echo VANISHED ;; esac'), "B: an EMPTY verdict is the only thing still allowed to mean VANISHED");
   must(
-    src.includes("/^SACCT:([A-Z_]+)(?:\\s+by\\s+\\d+)?\\|(\\d+):(\\d+)/"),
-    "B: the sweep parses SACCT rows (and tolerates real sacct's 'CANCELLED by <uid>')"
+    src.includes("([A-Z_]+)(?:\\s+by\\s+\\d+)?\\|(\\d+):(\\d+)(?:\\|([^|]*)\\|([^|]*))?"),
+    "B: the sweep parses SACCT rows (t303: optional Elapsed/MaxRSS columns; real sacct's 'CANCELLED by <uid>' tolerated)"
+  );
+  must(
+    src.includes("function parseSlurmElapsed") && src.includes("function parseSlurmMaxRss"),
+    "B: the ledger's dialects have their own parsers ([[DD-]hh:]mm:ss → ms; K/M/G/T → bytes)"
+  );
+  must(
+    src.includes("function parseSacctRow") && src.includes("function persistSacctTestimony"),
+    "B: one row parser + one testimony persist serve BOTH exit paths (wrapper-verdict + fallback)"
+  );
+  must(
+    src.includes('persistSacctTestimony(e, witness, false)') && src.includes('persistSacctTestimony(e, witness, true)'),
+    "B: the wrapper's EXIT carries the ledger line (word stays), the fallback owns the word"
+  );
+  must(
+    src.includes('line2.startsWith("SACCT:")'),
+    "B: the block parser stows a SECOND-line SACCT row (the EXIT branch's enrichment)"
+  );
+  must(
+    src.includes("patch.slurmState = row.word") &&
+      src.includes("e.remote.slurmElapsedMs == null") &&
+      src.includes("e.remote.slurmMaxRssBytes == null"),
+    "B: the testimony persists the word + the first-served stopwatch/meter (never a done record, never a guess)"
   );
   must(src.includes('word === "CANCELLED" ? 143'), "B: CANCELLED maps onto the stop contract (143 — the TERM-trap word)");
   must(src.includes('word === "TIMEOUT" && mapped === 0 ? 124 : mapped'), "B: TIMEOUT is a failure even when the step exited 0 (timeout(1)'s 124)");
   must(src.includes("128 + sigNum"), "B: a signal death with a clean exit rides 128+sig");
-  must(src.includes("slurmState: word"), "B: the terminal word is persisted on the record for the UI");
+  must(src.includes("patch.slurmState = row.word"), "B: the terminal word is persisted on the record for the UI");
   must(src.includes('if (/^SACCT:/m.test(res.stdout)) return "exit";'), "B: the single poll treats a terminal verdict as an exit");
 
   const sb = readFileSync(`${ROOT}/services/mock-cluster/fs/opt/bin/sbatch`, "utf8");
@@ -279,12 +307,20 @@ try {
   must(sb.includes("__rc=$?") || sb.includes("__rc=\\$?"), "B: the launcher captures the script's rc");
   must(sb.includes('job-$id.cancelled'), "B: the launcher stands down when scancel owns the accounting");
   must(sb.includes(">> \"$SLURM_DIR/accounting\""), "B: natural completion journals COMPLETED/FAILED");
+  must(
+    sb.includes("__t0") && sb.includes("job-$id.start"),
+    "B: the launcher pins the start epoch (the stopwatch's zero)"
+  );
 
   const sc = readFileSync(`${ROOT}/services/mock-cluster/fs/opt/bin/scancel`, "utf8");
   must(
     sc.indexOf('job-$id.cancelled') !== -1 &&
       sc.indexOf('job-$id.cancelled') < sc.indexOf("kill -- -\"$pid\""),
     "B: scancel writes marker + CANCELLED row BEFORE the kills"
+  );
+  must(
+    sc.includes('job-$id.start'),
+    "B: scancel's CANCELLED row reads the launcher's start epoch (the stopwatch speaks on cancel too)"
   );
 
   const sa = `${ROOT}/services/mock-cluster/fs/opt/bin/sacct`;
@@ -293,10 +329,28 @@ try {
   const sac = readFileSync(sa, "utf8");
   must(sac.includes("tail -1"), "B: the LAST journal row wins (requeue supersede)");
   must(sac.includes('[ -f "$SLURM_DIR/accounting" ] || exit 0'), "B: no ledger → silence, never an invented verdict");
+  must(
+    sac.includes("Elapsed)") && sac.includes("MaxRSS)"),
+    "B: the mock sacct serves the stopwatch + meter columns (t303)"
+  );
+  must(sac.includes("fmt_elapsed"), "B: Elapsed renders in sacct's own family ([[DD-]hh:]mm:ss)");
 
   const insp = readFileSync(`${ROOT}/src/components/workflow/job-inspector.tsx`, "utf8");
   must(insp.includes("` · Slurm ${"), "B: the terminal strip speaks the scheduler's word");
   must(insp.includes("OUT_OF_MEMORY|PREEMPTED|DEADLINE"), "B: the strip's terminal-word guard matches the sweep's family");
+  must(
+    insp.includes("slurmElapsedMs != null") && insp.includes("formatLedgerMs(job.runRemote.slurmElapsedMs)"),
+    "B: the strip speaks the ledger's stopwatch in the ledger dialect (t303)"
+  );
+  must(
+    insp.includes("slurmMaxRssBytes != null") && insp.includes("formatStagedBytes(job.runRemote.slurmMaxRssBytes)"),
+    "B: the strip speaks the ledger's peak memory (t303)"
+  );
+  const tt = readFileSync(`${ROOT}/src/lib/remote/types.ts`, "utf8");
+  must(
+    tt.includes("slurmElapsedMs?: number") && tt.includes("slurmMaxRssBytes?: number"),
+    "B: the DTO carries the stopwatch + meter (RemoteRunInfo + RemoteRunState)"
+  );
 
   // ---- Phase C0: sacct's silence contract ----------------------------------
   console.log("== PHASE C0: silence contract ==");
@@ -309,6 +363,8 @@ try {
   must(Number.isFinite(id1) && id1 > 0, `C1: bare sbatch submitted (job ${id1})`);
   const j1 = await waitJournal(id1, "COMPLETED");
   must(j1 === "COMPLETED|0:0", `C1: the launcher journals the verdict (got "${j1}")`);
+  const e1 = client(`sacct -j ${id1} -n -P -o Elapsed`).trim();
+  must(/^\d[\d:]*$/.test(e1), `C1: the ledger speaks the stopwatch (Elapsed "${e1}", sacct's [[DD-]hh:]mm:ss family)`);
 
   const id2 = bareSbatch("bad3", "#!/usr/bin/env bash\\nexit 3\\n");
   const j2 = await waitJournal(id2, "FAILED");
@@ -321,6 +377,8 @@ try {
   must(j3 === "CANCELLED|0:15", `C3: scancel journals CANCELLED|0:15 (got "${j3}")`);
   const marker = client(`test -f "$HOME/.slurm/job-${id3}.cancelled" && echo YES || echo NO`).trim();
   must(marker === "YES", "C3: the cancel marker stands (the launcher will not double-journal)");
+  const e3 = client(`sacct -j ${id3} -n -P -o Elapsed`).trim();
+  must(/^\d[\d:]*$/.test(e3), `C3: the cancelled row's stopwatch speaks too (Elapsed "${e3}")`);
   const rows3 = client(`grep -c "^${id3}|" "$HOME/.slurm/accounting" 2>/dev/null || echo 0`).trim();
   must(rows3 === "1", `C3: exactly ONE accounting row for the cancelled job (got ${rows3})`);
 
@@ -335,6 +393,10 @@ try {
   const rec4 = stateRuns()[job4.id];
   must(rec4?.done === true && rec4?.exitCode === 0, "C4: the record finalized exit 0 — the same contract the wrapper writes");
   must(rec4?.remote?.slurmState === "COMPLETED", "C4: the record carries the scheduler's terminal word");
+  must(
+    typeof rec4?.remote?.slurmElapsedMs === "number" && rec4.remote.slurmElapsedMs >= 0,
+    `C4: the record carries the scheduler's stopwatch (slurmElapsedMs ${rec4?.remote?.slurmElapsedMs} — a sub-second script is an honest 0, never absent)`
+  );
   must(!/interrupted remotely/.test(rec4?.result ?? ""), "C4: no false interrupted-remotely tombstone");
 
   console.log("== PHASE C5: FAILED witness ==");
@@ -368,6 +430,10 @@ try {
   const rec7 = stateRuns()[job7.id];
   must(rec7?.exitCode === 124, `C7: TIMEOUT with a clean step-exit maps to 124 (got ${rec7?.exitCode})`);
   must(rec7?.remote?.slurmState === "TIMEOUT", "C7: the word TIMEOUT is on the record");
+  must(
+    rec7?.remote?.slurmElapsedMs === undefined,
+    "C7: a 4-field row serves NO stopwatch — absent, not guessed (the honesty contract)"
+  );
 
   console.log("== PHASE C8: VANISHED stays honest ==");
   const job8 = await mkRow("t299 Sacct Witness VANISHED");
@@ -392,6 +458,46 @@ try {
   const bodyText = await page.locator("body").innerText();
   must(/Ran on the cluster · Slurm COMPLETED/.test(bodyText), "C9: the strip says 'Ran on the cluster · Slurm COMPLETED'");
   await page.screenshot({ path: `${SHOTS}/t299-sacct-witness.png` });
+
+  // ---- Phase C10: the ledger's stopwatch + meter, end to end -----------------
+  // t303 — a planted 6-field row (COMPLETED, known epochs, MaxRSS 1.24G) rides
+  // the REAL sweep: the record carries the scheduler's OWN wall-clock
+  // (754s = 12m34s exactly) and peak memory (1.24 GiB in bytes), and the
+  // inspector's strip speaks both in the ledger's dialect — deterministic
+  // words, no formatting guesswork (1.24, not 1.25 — a toFixed tie must
+  // never be load-bearing in a deterministic assertion).
+  console.log("== PHASE C10: the ledger's stopwatch + meter ==");
+  const t0c10 = Math.floor(Date.now() / 1000) - 754;
+  client(`printf "999905|COMPLETED|0:0|$(( ${t0c10} + 754 ))|${t0c10}|1.24G\\n" >> "$HOME/.slurm/accounting"`);
+  const job10 = await mkRow("t299 Sacct Witness LEDGER");
+  flipRunning(job10.id);
+  plant(job10.id, job10.projectId, 999905, new Date(Date.now() - 60_000).toISOString());
+  const done10 = await sweepVerdict(job10.id);
+  must(done10?.status === "completed", `C10: the ledger row COMPLETED (got ${done10?.status ?? "still running"})`);
+  const rec10 = stateRuns()[job10.id];
+  must(rec10?.exitCode === 0, "C10: the exit contract holds (0)");
+  must(
+    rec10?.remote?.slurmElapsedMs === 754_000,
+    `C10: the record carries the scheduler's stopwatch (slurmElapsedMs ${rec10?.remote?.slurmElapsedMs}, want 754000)`
+  );
+  must(
+    rec10?.remote?.slurmMaxRssBytes === Math.round(1.24 * 1024 ** 3),
+    `C10: the record carries the scheduler's meter (slurmMaxRssBytes ${rec10?.remote?.slurmMaxRssBytes}, want ${Math.round(1.24 * 1024 ** 3)})`
+  );
+  await page.goto(`${BASE}`, { waitUntil: "domcontentloaded" });
+  await sleep(2500);
+  const card10 = page
+    .locator("[data-job]", { hasText: "t299 Sacct Witness LEDGER" })
+    .locator('[role="button"]')
+    .first();
+  await card10.click({ timeout: 8000, force: true });
+  await sleep(1500);
+  const body10 = await page.locator("body").innerText();
+  must(
+    /Ran on the cluster · Slurm COMPLETED · 12m34s · 1\.2 GB peak/.test(body10),
+    "C10: the strip speaks the stopwatch + meter in the ledger dialect ('· 12m34s · 1.2 GB peak')"
+  );
+  await page.screenshot({ path: `${SHOTS}/t299-sacct-ledger-stopwatch.png` });
 
   // ---- Phase D: console clean ----------------------------------------------
   console.log("== PHASE D: console ==");

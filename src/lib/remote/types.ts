@@ -250,6 +250,10 @@ export interface RemoteRunInfo {
   gpusRequested?: number;
   /** t300 — the partition this sbatch pinned (mode=slurm, user-chosen). */
   partition?: string;
+  /** t303 — the scheduler's own wall-clock (sacct Elapsed → ms), when the ledger served it. */
+  slurmElapsedMs?: number;
+  /** t303 — the scheduler's own peak memory (sacct MaxRSS → bytes), when the ledger served it. */
+  slurmMaxRssBytes?: number;
   /** Cluster-side pid (mode=direct). */
   pid?: number;
   /** Lifecycle phase (staging = uploading inputs to the cluster). */
@@ -293,6 +297,10 @@ export interface RemoteRunState {
   gpusRequested?: number;
   /** t300 — slurm mode: the partition this sbatch pinned (user-chosen node group). */
   partition?: string;
+  /** t303 — slurm mode: the scheduler's own wall-clock (sacct Elapsed → ms). Absent when the ledger did not serve it (accounting off, wrapper's exit won the race). */
+  slurmElapsedMs?: number;
+  /** t303 — slurm mode: the scheduler's own peak resident memory (sacct MaxRSS → bytes). Same honesty: served or absent, never guessed. */
+  slurmMaxRssBytes?: number;
   /** Lifecycle: staging inputs → running → (done flips on RunRecord). */
   phase: "staging" | "running";
   /** Cluster-side outputs (filled at finalize) — key → remote path. */

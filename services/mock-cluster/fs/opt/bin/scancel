@@ -15,9 +15,11 @@ for id in "$@"; do
     # CANCELLED for scancel'd jobs even when no step ever writes anything.
     # Marker + journal row land BEFORE the kills so the launcher's
     # post-script check (which would otherwise journal a FAILED verdict)
-    # sees the cancel and stands down.
+    # sees the cancel and stands down. t303 — the row carries the job's
+    # start epoch (pinned by the launcher) so the ledger's stopwatch speaks.
     touch "$SLURM_DIR/job-$id.cancelled"
-    printf '%s|%s|%s|%s\n' "$id" "CANCELLED" "0:15" "$(date +%s)" >> "$SLURM_DIR/accounting"
+    __t0="$(cat "$SLURM_DIR/job-$id.start" 2>/dev/null || true)"
+    printf '%s|%s|%s|%s|%s|\n' "$id" "CANCELLED" "0:15" "$(date +%s)" "${__t0:-}" >> "$SLURM_DIR/accounting"
     kill -- -"$pid" 2>/dev/null
     kill "$pid" 2>/dev/null
     sleep 0.3

@@ -2140,3 +2140,25 @@ Stage Summary:
 - **「被杀的批次留下证词，不是沉默」**：interrupted 条目三字段（flag/signal/where）+ 台账按原词汇记账；--summary 的 ⚡ 行指路「重跑即覆盖」——杀死的批次不能让旧条目冒充现状，也不该让累积器永远带伤
 - **「名单类断言永不连写字面量」**：t273 C2 的碎裂是 t26b 插队的一等必然（t271 断言找旧词、t299 断言找旧词之后，第一次碎在注册行为本身上）——批名从源码解析，名单增长时断言自愈；这颗雷在树上活了整整一个家族回归周期（t26b 注册于回归之后，套件没机会看见），「先改注册、后跑回归」的顺序自此也是套件的性命
 - 遗留（下轮候选）：sacct 的 elapsed/TRES 列；sbatch --dependency 链（管线级 afterok）；array 模式 sbatch（HPC 对话框已有生成器，远程 dispatch 未接）；verify-module 的 by-value 变体；384³/512³ 阶梯压测（T296_N 已备）；EMPIAR 真数据回归（连续第十二窗让位）；family 全家族 t30 批首跑（t302 已在册，下次全家族回归自然入账）
+
+## Task 303 (2026-09-19, cron 03:18 窗口 trace 1a07549302235a99-cron-agent-loop-202609190326 —— 无撞号，树上直接立项 303；开局实证：worklog 尾部 = Task 302（HEAD b0c77c4），cron 指引的「Task 13」照例过时)
+
+- 【开局盘点 + QA】HEAD = b0c77c4（t302 进程组自杀 + shots chore），树净、3000 活、roster 21、tsc 0。agent-browser 冒烟：GET / 200、console/errors 双零——稳定。按惯例③自主选题：**t303 = sacct 的 elapsed/TRES 列**（Task 302 遗留首选，t299「调度器自己的证词」的自然续章——控制器说了 COMPLETED，但调度器的秒表（Elapsed）与资源计量（MaxRSS）产品还听不见）。
+- 【主交付：台账说调度器的时长】四层一次交付：
+  1. **alive-check 语法升级**：sacct 查询 `State,ExitCode` → `State,ExitCode,Elapsed,MaxRSS`（单一 const AC，两分支共用）；且 **EXIT 路径也附征 sacct 证词**——wrapper 的 .cf-exit 赢得判决后，同一 SSH 往返里对终局账本行（且仅终局行，accounting lag 不得伪造判决）追加第二行 `SACCT:…`，块解析器新增 second-line 收藏（b.sacct）——调度器的秒表不再是回退证词的特权。
+  2. **方言解析器**：parseSlurmElapsed（[[DD-]hh:]mm:ss → ms，含 mm:ss 与天前缀两种真 sacct 输出）+ parseSlurmMaxRss（K/M/G/T/裸 → bytes）+ parseSacctRow（可选四/五列组，真 sacct「CANCELLED by <uid>」照旧容忍）+ persistSacctTestimony（两条退出路径共用：EXIT 附征时 word 不动、fallback 时 word 上位；首服即录、done 记录不覆写、缺列沉默不猜）。
+  3. **记录与 DTO**：RemoteRunState/RemoteRunInfo 增 slurmElapsedMs/slurmMaxRssBytes（served or absent, never guessed）；remoteInfoFor 投影放行。
+  4. **UI**：inspector 终局条在 `Ran on the cluster · Slurm <WORD>` 之后追加 ` · 12m34s · 1.2 GB peak`——formatLedgerMs 保持台账单一时间方言（t270 教义），峰值内存骑 formatStagedBytes 形状。
+- 【mock 三件套跟进】sbatch launcher 钉起始时刻（job-$id.start 镜像）→ 账本行升为六列 `<id>|<STATE>|<exit:sig>|<end>|<start>|<MaxRSS>`（MaxRSS 恒空——mock 不计量脚本内存，诚实缺席）；scancel 读起始文件让 CANCELLED 行的秒表也说话；sacct render 支持六列行（4 列旧账本向后兼容 → Elapsed 空）+ fmt_elapsed 按真 sacct 家族渲染。
+- 【真 bug（套件活体抓获，源码断言全瞎）】首版把共享查询提成**普通字符串** const——`${J}` 失去模板插值、字面量吐进 shell，`set -u` 下未绑定 J 使每个 $() 空转 → 有账本的 witness 全被判 VANISHED（C4-C7/C10 全灭，恰是 C8 的 VANISHED 路径暴露的对照）。mock 日志逐字坐实 `sacct -j ${J} …`。修复 = 模板字面量；B 相断言同步改为「sacct -j 恰 1 处（单一真源）+ ${AC} 恰 2 处（两分支各一调）」。**教义重申：台账断言看不见插值层的语义，活体见证必须。**
+- 【第二处断言之错】C4 曾要求 slurmElapsedMs > 0——但 exit-0 裸脚本同秒完结，调度器诚实给 0ms；恰是 t299 自己的「0 === 0 是 PASS」字节对账教义在时间维度重演。改 >= 0，>0 案例由 C10 的 754000 精确见证。另：C10 植入 MaxRSS 刻意取 1.24G 而非 1.25G——toFixed(1) 的平局（1.25→1.3）不得作为确定性断言的承重墙。
+- 【套件】t299-slurm-sacct.mjs 扩至 **57 断言 ALL PASS**（原 47 + t303 新增 10）：B 相 4 列语法/单一真源/双解析器/双路径共用 persist/second-line 收藏/DTO/types/strip 词条/mock 六列渲染/launcher 钉表/scancel 读表；C 相 C1/C3 秒表活体（00:00/00:01）、C4 记录秒表、C7 四列行诚实缺席、**C10 六列植入行走真 sweep**（754000ms + 1331439862 bytes 精确 + strip「· 12m34s · 1.2 GB peak」确定性词条 + 定妆照 t299-sacct-ledger-stopwatch.png）。诊断脚本 scripts/t303-probe.py（非家族成员）：连接 + 植入 + 轮询 + 自清理的活体探针。
+- 【家族回归】改动面 = 远程生命周期两批：t26 pass 6 · 353.9s（t262 引擎 e2e 123.3s——EXIT 附征路径全量穿越）｜ t26b pass 4 · 205.1s（t268 心跳 + t269 台账）｜ t299 solo ALL PASS。产品重建 + watchdog 复活（GET / 200）。累积器 t26/t26b/t29 条目刷新，TOTAL pass 70 · real-fail 0。
+- 【收尾】worklog（本条）+ commit/push + 环境清理（mock 杀净、探针残留焚毁、3000 独监、roster 21 恒等）。
+
+Stage Summary:
+- **「调度器的秒表不是回退证词的特权」**：EXIT 路径的 wrapper 判决与 sacct 证词同车（一次 SSH 往返、零额外开销）——只要账本有终局行，记录就带 Elapsed/MaxRSS；served or absent, never guessed，四列行的空列与缺席同义
+- **「插值层是源码断言的盲区」**：模板字符串提成普通 const，`${J}` 字面量入 shell，set -u 全灭活体——B 相 15 条源码断言无一报警，mock 日志一行坐实；凡 shell 生成代码，必须有走真通道的活体见证
+- **「0 是答案，不是缺席」**：秒表 0ms 与缺席是两个词——sub-second 脚本的诚实 0（>= 0）与账本未服务的 undefined（=== undefined）在套件里各占一条断言；时间维度的 0 === 0 教义
+- **「toFixed 的平局不承重」**：1.25G 会因 round-half 规则浮成 1.3——确定性断言的输入必须躲开一切平局点
+- 遗留（下轮候选）：sbatch --dependency 链（管线级 afterok）；array 模式 sbatch（HPC 对话框已有生成器，远程 dispatch 未接）；verify-module 的 by-value 变体；384³/512³ 阶梯压测（T296_N 已备）；EMPIAR 真数据回归（连续第十三窗让位）；family 全家族 t30 批首跑（t302 已在册）

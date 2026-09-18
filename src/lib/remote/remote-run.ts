@@ -1277,16 +1277,114 @@ async function pollOneRemote(conn: RemoteConnection, rec: RunRecord): Promise<Po
  * lag) stay ALIVE, and an empty verdict (no accounting row either) is the
  * only thing still allowed to mean VANISHED.
  */
+
+/**
+ * t303 — the scheduler's stopwatch dialect: Elapsed as sacct prints it
+ * ([[DD-]hh:]mm:ss — under an hour it is mm:ss, over a day it carries the
+ * day prefix) → ms. Anything else stays null: an unparseable column is
+ * silence, never a guess.
+ */
+function parseSlurmElapsed(s?: string): number | null {
+  if (!s) return null;
+  const t = s.trim();
+  let days = 0;
+  let rest = t;
+  const dm = /^(\d+)-(.*)$/.exec(t);
+  if (dm) {
+    days = Number(dm[1]);
+    rest = dm[2];
+  }
+  const p = rest.split(":").map(Number);
+  if (p.length < 2 || p.length > 3 || p.some((n) => !Number.isFinite(n))) return null;
+  const [h, m, sec = 0] = p.length === 3 ? p : [0, p[0], p[1]];
+  return ((days * 24 + h) * 3600 + m * 60 + sec) * 1000;
+}
+
+/**
+ * t303 — the scheduler's meter dialect: MaxRSS as sacct prints it (a number
+ * with an optional K/M/G/T suffix, bare = KiB) → bytes. Empty (the common
+ * case when accounting TRES usage is off) stays null.
+ */
+function parseSlurmMaxRss(s?: string): number | null {
+  if (!s) return null;
+  const m = /^([\d.]+)([KMGT])?$/.exec(s.trim());
+  if (!m) return null;
+  const mult = { K: 1024, M: 1024 ** 2, G: 1024 ** 3, T: 1024 ** 4 }[m[2] ?? "K"] ?? 1024;
+  return Math.round(Number(m[1]) * mult);
+}
+
+/**
+ * t303 — one terminal accounting row ("STATE|exit:sig|Elapsed|MaxRSS", real
+ * sacct's "CANCELLED by <uid>" tolerated) → its parts. The Elapsed/MaxRSS
+ * columns are optional: a ledger that never served them parses the same
+ * three-lead row it always did.
+ */
+function parseSacctRow(raw: string): {
+  word: string;
+  exitNum: number;
+  sigNum: number;
+  elapsedMs: number | null;
+  maxRssBytes: number | null;
+} | null {
+  const m = /^([A-Z_]+)(?:\s+by\s+\d+)?\|(\d+):(\d+)(?:\|([^|]*)\|([^|]*))?/.exec(raw.trim());
+  if (!m) return null;
+  return {
+    word: m[1],
+    exitNum: Number(m[2]),
+    sigNum: Number(m[3]),
+    elapsedMs: parseSlurmElapsed(m[4]),
+    maxRssBytes: parseSlurmMaxRss(m[5]),
+  };
+}
+
+/**
+ * t303 — the ledger's stopwatch + meter onto the record. Fired from BOTH
+ * exit paths (the wrapper's EXIT with the sacct line riding along, and the
+ * SACCT-fallback verdict itself); never overwrites a done record, and only
+ * writes when there is something new to say (the state word moved, or a
+ * column the record does not carry yet).
+ */
+function persistSacctTestimony(
+  e: BatchEntry,
+  row: NonNullable<ReturnType<typeof parseSacctRow>>,
+  includeWord: boolean
+): void {
+  if (e.remote.slurmId == null) return;
+  const patch: Partial<RemoteRunState> = {};
+  if (includeWord && e.remote.slurmState !== row.word) patch.slurmState = row.word;
+  if (row.elapsedMs != null && e.remote.slurmElapsedMs == null) patch.slurmElapsedMs = row.elapsedMs;
+  if (row.maxRssBytes != null && e.remote.slurmMaxRssBytes == null) patch.slurmMaxRssBytes = row.maxRssBytes;
+  if (Object.keys(patch).length === 0) return;
+  Object.assign(e.remote, patch);
+  updateRun(e.job.id, (rec) =>
+    rec.remote && !rec.done ? { ...rec, remote: { ...rec.remote, ...patch } } : null
+  );
+}
+
 function aliveCheckScript(remoteWorkdir: string, slurmId?: string | null): string {
   const W = shQuote(remoteWorkdir);
   const EXIT = shQuote(remoteWorkdir + "/.cf-exit");
   if (slurmId) {
     const J = shQuote(String(Number(slurmId)));
+    // t303 — the query grew the scheduler's stopwatch and meter (Elapsed,
+    // MaxRSS); both branches speak the same 4-column grammar so the verdict
+    // and its ledger line arrive in ONE SSH round trip. A TEMPLATE literal —
+    // the first draft used a plain string and ${J} shipped LITERALLY into
+    // the shell script, where set -u doomed every $() to an empty verdict
+    // (VANISHED for jobs the ledger knew all about — the t302 suite's live
+    // C-phase caught what the source assertions could not).
+    const AC = `sacct -j ${J} -n -P -o State,ExitCode,Elapsed,MaxRSS 2>/dev/null | head -1`;
     return (
       `if [ -f ${EXIT} ]; then echo "EXIT:$(cat ${EXIT} 2>/dev/null)"; ` +
+      // t303 — the wrapper's exit usually wins the race, but the ledger's
+      // stopwatch rides ALONG: a terminal accounting row (and only a
+      // terminal one — accounting lag must never fake a verdict) is echoed
+      // as a second line for the block parser to stow.
+      `__ac="$(${AC})"; case "$__ac" in ` +
+      `COMPLETED*|FAILED*|CANCELLED*|TIMEOUT*|NODE_FAIL*|BOOT_FAIL*|OUT_OF_*|PREEMPTED*|DEADLINE*|SPECIAL_EXIT*) echo "SACCT:$__ac" ;; esac; ` +
       `else __st="$(squeue -j ${J} -h -o %T 2>/dev/null | head -1)"; ` +
       `if [ -n "$__st" ]; then echo "ALIVE:$__st"; ` +
-      `else __ac="$(sacct -j ${J} -n -P -o State,ExitCode 2>/dev/null | head -1)"; ` +
+      `else __ac="$(${AC})"; ` +
       `case "$__ac" in ` +
       `PENDING*|RUNNING*|COMPLETING*) echo "ALIVE:${"${"}__ac%%|*}" ;; ` +
       `COMPLETED*|FAILED*|CANCELLED*|TIMEOUT*|NODE_FAIL*|BOOT_FAIL*|OUT_OF_*|PREEMPTED*|DEADLINE*|SPECIAL_EXIT*) echo "SACCT:$__ac" ;; ` +
@@ -1468,16 +1566,22 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
         // everything running and retry next tick
         continue;
       }
-      // parse per-job blocks
-      const blocks = new Map<string, { status: string; log: string }>();
+      // parse per-job blocks. t303 — the status is still the FIRST line,
+      // but a terminal sacct row may now ride as a SECOND line (the EXIT
+      // branch's ledger enrichment) — stow it as b.sacct before the log.
+      const blocks = new Map<string, { status: string; sacct?: string; log: string }>();
       const re = /===CF:START:([\w-]+)\n([\s\S]*?)===CF:END:\1/g;
       let m: RegExpExecArray | null;
       while ((m = re.exec(res.stdout)) !== null) {
         const body = m[2];
         const nl = body.indexOf("\n");
         const status = body.slice(0, nl).trim();
+        const rest = body.slice(nl + 1);
+        const nl2 = rest.indexOf("\n");
+        const line2 = (nl2 >= 0 ? rest.slice(0, nl2) : rest).trim();
+        const sacct = line2.startsWith("SACCT:") ? line2.slice("SACCT:".length) : undefined;
         const log = body.includes("---LOG---") ? body.slice(body.indexOf("---LOG---") + 10) : "";
-        blocks.set(m[1], { status, log: log.replace(/\n$/, "") });
+        blocks.set(m[1], { status, sacct, log: log.replace(/\n$/, "") });
       }
 
       for (const e of entries) {
@@ -1507,6 +1611,11 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
         const exitMatch = /^EXIT:\s*(-?\d+)/.exec(b.status);
         if (exitMatch) {
           const exitCode = Number(exitMatch[1]);
+          // t303 — the wrapper's verdict wins, the ledger's stopwatch rides:
+          // a terminal SACCT line on the EXIT block enriches the record
+          // (Elapsed/MaxRSS) without touching the verdict.
+          const witness = b.sacct ? parseSacctRow(b.sacct) : null;
+          if (witness) persistSacctTestimony(e, witness, false);
           const updated = await finalizeRemoteRun(e.job, e.rec, exitCode, b.log, conn);
           if (updated) replace(out, updated);
           continue;
@@ -1517,11 +1626,9 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
         // wrapper would have written, so finalize (sync-back → outputs →
         // DB flip) runs the one honest path instead of the false
         // "interrupted remotely" tombstone.
-        const sacctMatch = /^SACCT:([A-Z_]+)(?:\s+by\s+\d+)?\|(\d+):(\d+)/.exec(b.status);
-        if (sacctMatch) {
-          const word = sacctMatch[1];
-          const exitNum = Number(sacctMatch[2]);
-          const sigNum = Number(sacctMatch[3]);
+        const witness = b.status.startsWith("SACCT:") ? parseSacctRow(b.status.slice("SACCT:".length)) : null;
+        if (witness) {
+          const { word, exitNum, sigNum } = witness;
           // CANCELLED is the stop contract (t297's TERM trap writes 143 —
           // the scheduler's own accounting must speak the same word); a
           // signal death with a clean exit rides 128+sig; TIMEOUT killed
@@ -1530,14 +1637,7 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
           const mapped =
             word === "CANCELLED" ? 143 : exitNum !== 0 ? exitNum : sigNum !== 0 ? 128 + sigNum : 0;
           const exitCode = word === "TIMEOUT" && mapped === 0 ? 124 : mapped;
-          if (e.remote.slurmId != null && e.remote.slurmState !== word) {
-            e.remote.slurmState = word;
-            updateRun(e.job.id, (rec) =>
-              rec.remote && !rec.done
-                ? { ...rec, remote: { ...rec.remote, slurmState: word } }
-                : null
-            );
-          }
+          persistSacctTestimony(e, witness, true);
           const updated = await finalizeRemoteRun(e.job, e.rec, exitCode, b.log, conn);
           if (updated) replace(out, updated);
           continue;
@@ -1892,6 +1992,10 @@ export function remoteInfoFor(jobId: string): RemoteRunInfo | null {
     ...(r.slurmState ? { slurmState: r.slurmState } : {}),
     ...(r.gpusRequested != null ? { gpusRequested: r.gpusRequested } : {}),
     ...(r.partition ? { partition: r.partition } : {}),
+    // t303 — the scheduler's stopwatch + meter ride the DTO so the
+    // inspector's terminal strip can speak the ledger's own numbers.
+    ...(r.slurmElapsedMs != null ? { slurmElapsedMs: r.slurmElapsedMs } : {}),
+    ...(r.slurmMaxRssBytes != null ? { slurmMaxRssBytes: r.slurmMaxRssBytes } : {}),
     phase: r.phase,
     ...(r.stagedBytes != null ? { stagedBytes: r.stagedBytes } : {}),
     // t269 — the time ledger rides the DTO so the inspector's remote strip

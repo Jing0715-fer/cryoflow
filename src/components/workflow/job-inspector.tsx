@@ -2173,6 +2173,18 @@ function InspectorHeader({ job }: { job: JobDTO }) {
                     )
                       ? ` · Slurm ${job.runRemote.slurmState}`
                       : ""
+                  }${
+                    // t303 — the scheduler's own stopwatch + meter, when the
+                    // accounting ledger served them: the ledger dialect
+                    // (formatLedgerMs) keeps ONE time language across the
+                    // strip; the peak memory rides formatStagedBytes' shape.
+                    job.runRemote.slurmElapsedMs != null
+                      ? ` · ${formatLedgerMs(job.runRemote.slurmElapsedMs)}`
+                      : ""
+                  }${
+                    job.runRemote.slurmMaxRssBytes != null
+                      ? `${formatStagedBytes(job.runRemote.slurmMaxRssBytes)} peak`
+                      : ""
                   }`
                 : job.runRemote.mode === "slurm"
                   ? // t297 — the scheduler's own vocabulary: the state word

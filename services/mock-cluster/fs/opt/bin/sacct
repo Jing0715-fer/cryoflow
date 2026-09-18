@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# mock sacct for the CryoFlow mock cluster (t299)
+# mock sacct for the CryoFlow mock cluster (t299; t303 grew the stopwatch)
 #
 # Real Slurm purges finished jobs from squeue almost immediately — squeue
 # only knows PENDING/RUNNING/COMPLETING. The terminal truth lives in the
@@ -7,11 +7,17 @@
 # sbatch's launcher (COMPLETED/FAILED) and scancel (CANCELLED) append to
 # ~/.slurm/accounting, one pipe-delimited row per verdict:
 #
-#   <jobid>|<STATE>|<exit>:<signal>|<unix-epoch>
+#   t299: <jobid>|<STATE>|<exit>:<signal>|<unix-epoch>
+#   t303: <jobid>|<STATE>|<exit>:<signal>|<end-epoch>|<start-epoch>|<MaxRSS>
 #
-# Supports the app's poll grammar (aliveCheckScript, t299):
-#   sacct -j <id> -n -P -o State,ExitCode   →  "COMPLETED|0:0"
-# plus the loose basics (bare listing, -o with JobID/State/ExitCode cols).
+# (4-field rows are pre-t303 ledgers — Elapsed renders empty for them, the
+# app's honesty contract: served or absent, never guessed.)
+#
+# Supports the app's poll grammar (aliveCheckScript):
+#   sacct -j <id> -n -P -o State,ExitCode            →  "COMPLETED|0:0"
+#   sacct -j <id> -n -P -o State,ExitCode,Elapsed,MaxRSS
+#                 →  "COMPLETED|0:0|00:00:05|1.25G"   ("" when unserved)
+# plus the loose basics (bare listing, -o with JobID/State/ExitCode/…).
 # The LAST row for a job wins (re-submissions after requeue supersede).
 set -u
 SLURM_DIR="$HOME/.slurm"
@@ -35,17 +41,38 @@ while [ $# -gt 0 ]; do
   shift
 done
 
+# t303 — seconds → sacct's Elapsed family: [[DD-]hh:]mm:ss
+fmt_elapsed() {
+  local s=$1 d h m sec
+  d=$((s / 86400)); h=$(( (s % 86400) / 3600 )); m=$(( (s % 3600) / 60 )); sec=$((s % 60))
+  if [ "$d" -gt 0 ]; then
+    printf '%d-%02d:%02d:%02d' "$d" "$h" "$m" "$sec"
+  elif [ "$h" -gt 0 ]; then
+    printf '%02d:%02d:%02d' "$h" "$m" "$sec"
+  else
+    printf '%02d:%02d' "$m" "$sec"
+  fi
+}
+
 render() {
-  # $1 = journal row (id|STATE|exit:signal|epoch)
+  # $1 = journal row (id|STATE|exit:signal|end|start|maxrss)
   local row="$1" out="" c v
-  local jid state xit epoch
-  IFS='|' read -r jid state xit epoch <<< "$row"
+  local jid state xit end start maxrss
+  IFS='|' read -r jid state xit end start maxrss <<< "$row"
   IFS=',' read -ra COLS <<< "$cols"
   for c in "${COLS[@]}"; do
     case "$c" in
       JobID) v="$jid" ;;
       State) v="$state" ;;
       ExitCode) v="$xit" ;;
+      Elapsed)
+        v=""
+        case "$end$start" in
+          ''|*[!0-9]*) ;;                       # any missing/non-numeric epoch → silence
+          *) if [ "$end" -ge "$start" ]; then v="$(fmt_elapsed $((end - start)))"; fi ;;
+        esac
+        ;;
+      MaxRSS) v="${maxrss:-}" ;;
       *) v="" ;;
     esac
     out="${out:+$out|}$v"

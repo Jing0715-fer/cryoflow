@@ -58,6 +58,10 @@ cat > "$launcher" <<EOF
 #!/usr/bin/env bash
 sleep 1
 echo "RUNNING" > "$SLURM_DIR/job-$id.state"
+# t303 — the ledger's stopwatch needs a start: pinned when the script begins
+# (and mirrored to job-\$id.start so scancel's CANCELLED row can speak it too)
+__t0=\$(date +%s)
+echo "\$__t0" > "$SLURM_DIR/job-$id.start"
 # t299 — the launcher must outlive the script by one breath: with exec the
 # process REPLACED itself and died mute, and sacct's accounting (the only
 # witness that survives the squeue purge) never learned the verdict
@@ -69,7 +73,9 @@ if [ -f "$SLURM_DIR/job-$id.cancelled" ]; then
 fi
 __state=COMPLETED
 [ "\$__rc" -ne 0 ] && __state=FAILED
-printf '%s|%s|%s|%s\n' "$id" "\$__state" "\$__rc:0" "\$(date +%s)" >> "$SLURM_DIR/accounting"
+# t303 — journal rows grew a start epoch (5th) and a MaxRSS slot (6th,
+# empty — the mock does not meter its scripts' memory; honest absence)
+printf '%s|%s|%s:%s|%s|%s|\n' "$id" "\$__state" "\$__rc" "0" "\$(date +%s)" "\$__t0" >> "$SLURM_DIR/accounting"
 exit \$__rc
 EOF
 chmod +x "$launcher"
