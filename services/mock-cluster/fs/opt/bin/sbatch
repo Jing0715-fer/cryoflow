@@ -34,6 +34,10 @@ fi
 out="$(grep -m1 -oP '(?<=#SBATCH --output=).*' "$script" || true)"
 err="$(grep -m1 -oP '(?<=#SBATCH --error=).*' "$script" || true)"
 name="$(grep -m1 -oP '(?<=#SBATCH --job-name=).*' "$script" || true)"
+# t304 — the pipeline handoff: --dependency=afterok:<id>[:<id>…] holds the
+# job in PENDING until every upstream lands (or cancels it the moment one
+# fails — the scheduler's own kill-on-invalid-dep contract)
+deps="$(grep -m1 -oP '(?<=#SBATCH --dependency=afterok:)[0-9:]+' "$script" || true)"
 [ -n "$extra_out" ] && out="$extra_out"
 [ -n "$extra_err" ] && err="$extra_err"
 [ -z "$out" ] && out="slurm-%j.out"
@@ -57,9 +61,43 @@ launcher="$SLURM_DIR/.launch-$id.sh"
 cat > "$launcher" <<EOF
 #!/usr/bin/env bash
 sleep 1
+# t304 — the dependency wait: the job stays PENDING (the state file is not
+# touched) until every upstream id journals COMPLETED. Any upstream terminal
+# failure — or a 600s wait cap — cancels THIS job with its own CANCELLED
+# journal row (the kill-on-invalid-dep contract): a stranded PENDING child
+# is exactly the lie the sweep must never have to guess about.
+__deps="$deps"
+__failed=0
+if [ -n "\$__deps" ]; then
+  __waited=0
+  while :; do
+    __ok=1; __failed=0
+    IFS=':' read -ra __arr <<< "\$__deps"
+    for __d in "\${__arr[@]}"; do
+      [ -n "\$__d" ] || continue
+      __st="\$(sacct -j "\$__d" -n -o State 2>/dev/null | head -1 | awk '{print \$1}')"
+      case "\$__st" in
+        COMPLETED*) ;;
+        ''|PENDING*|RUNNING*|COMPLETING*) __ok=0 ;;
+        *) __failed=1 ;;
+      esac
+    done
+    [ "\$__failed" = "1" ] && break
+    [ "\$__ok" = "1" ] && break
+    [ "\$__waited" -ge 600 ] && __failed=2 && break
+    sleep 2
+    __waited=\$((__waited + 2))
+  done
+  if [ "\$__failed" != "0" ]; then
+    printf '%s|%s|%s|%s|%s|\n' "$id" "CANCELLED" "0:0" "\$(date +%s)" "" >> "$SLURM_DIR/accounting"
+    rm -f "$SLURM_DIR/job-$id.state"
+    exit 143
+  fi
+fi
 echo "RUNNING" > "$SLURM_DIR/job-$id.state"
 # t303 — the ledger's stopwatch needs a start: pinned when the script begins
 # (and mirrored to job-\$id.start so scancel's CANCELLED row can speak it too)
+# — AFTER the dependency wait, the way real Slurm's Elapsed excludes pending
 __t0=\$(date +%s)
 echo "\$__t0" > "$SLURM_DIR/job-$id.start"
 # t299 — the launcher must outlive the script by one breath: with exec the

@@ -522,8 +522,17 @@ function buildSbatchScript(args: {
    * only. Sanitized like partition (a hostname is the same charset).
    */
   nodelist?: string | null;
+  /**
+   * t304 — the pipeline handoff, scheduler-side: "afterok:<id>[:<id>…]"
+   * when an upstream job is still in flight on this same connection. The
+   * child becomes the SCHEDULER's problem (PENDING until the parents land)
+   * instead of a failed RELION command staring at missing inputs;
+   * --kill-on-invalid-dep=yes (emitted alongside) keeps a parent's failure
+   * from stranding the child in PENDING forever. null = no live upstream.
+   */
+  dependency?: string | null;
 }): string {
-  const { conn, module: moduleName, relionHome, ctffind, command, gpus, ntasks, threads, jobName, remoteProjectRoot, remoteWorkdir, partition, nodelist } = args;
+  const { conn, module: moduleName, relionHome, ctffind, command, gpus, ntasks, threads, jobName, remoteProjectRoot, remoteWorkdir, partition, nodelist, dependency } = args;
   const effectivePartition = partition ?? conn.slurmPartition ?? null;
   const L: string[] = [];
   L.push("#!/bin/bash");
@@ -532,6 +541,10 @@ function buildSbatchScript(args: {
   L.push(`#SBATCH --job-name=${jobName}`);
   if (effectivePartition) L.push(`#SBATCH --partition=${effectivePartition}`);
   if (nodelist) L.push(`#SBATCH --nodelist=${nodelist}`);
+  if (dependency) {
+    L.push(`#SBATCH --dependency=${dependency}`);
+    L.push("#SBATCH --kill-on-invalid-dep=yes");
+  }
   L.push("#SBATCH --nodes=1");
   L.push(`#SBATCH --ntasks=${Math.max(1, ntasks)}`);
   L.push(`#SBATCH --cpus-per-task=${Math.max(1, threads)}`);
@@ -1094,6 +1107,29 @@ export async function startRemoteJob(args: {
 
       if (isSlurm) {
         // ---- t297: the sbatch door (sbatch6gpu.sh pattern) ---------------
+        // t304 — the pipeline handoff: upstream jobs still in flight on THIS
+        // connection contribute their slurmIds to --dependency=afterok, so
+        // the scheduler orders the pipeline (the child sits PENDING — the
+        // sweep already speaks that word — instead of failing on inputs that
+        // are not there yet). A finished parent's outputs are already synced
+        // and staged; a failed one is the user's override. Staging-phase
+        // parents have no scheduler id yet and cannot ride this door.
+        const depIds: string[] = [];
+        const parentIds = (
+          await db.edge.findMany({ where: { toJobId: job.id }, select: { fromJobId: true } })
+        ).map((e) => e.fromJobId);
+        if (parentIds.length) {
+          const runs = readRuns();
+          for (const pid of parentIds) {
+            const pr = runs[pid];
+            if (
+              pr?.remote && !pr.done && pr.remote.connectionId === conn.id &&
+              pr.remote.slurmId != null
+            )
+              depIds.push(pr.remote.slurmId);
+          }
+        }
+        const dependency = depIds.length ? `afterok:${depIds.join(":")}` : null;
         const script = buildSbatchScript({
           conn,
           module: moduleName,
@@ -1108,6 +1144,7 @@ export async function startRemoteJob(args: {
           remoteWorkdir,
           partition: partitionOverride,
           nodelist: nodelistPin,
+          dependency,
         });
         const scriptPath = `${remoteWorkdir}/.cf-sbatch.sh`;
         const upOk = await remoteUpload(conn, script, scriptPath);
@@ -1133,6 +1170,7 @@ export async function startRemoteJob(args: {
                   ...rec.remote,
                   slurmId,
                   slurmState: "PENDING",
+                  ...(depIds.length ? { slurmDependsOn: depIds } : {}),
                   phase: "running",
                   stagedBytes,
                   stagedMs,
@@ -1146,7 +1184,7 @@ export async function startRemoteJob(args: {
         });
         stopBeat();
         console.log(
-          `remote-run: ${job.type} "${job.name}" submitted to Slurm on ${conn.name} (job ${slurmId}, ${gresWidth > 0 ? `${gresWidth} GPU(s)` : "CPU"}${partitionOverride ? ` · partition ${partitionOverride}` : ""}${nodelistPin ? ` · node ${nodelistPin}` : ""}, module ${moduleName || "none"})`
+          `remote-run: ${job.type} "${job.name}" submitted to Slurm on ${conn.name} (job ${slurmId}, ${gresWidth > 0 ? `${gresWidth} GPU(s)` : "CPU"}${partitionOverride ? ` · partition ${partitionOverride}` : ""}${nodelistPin ? ` · node ${nodelistPin}` : ""}${depIds.length ? ` · afterok ${depIds.join(",")}` : ""}, module ${moduleName || "none"})`
         );
       } else {
         // ---- direct mode: the setsid wrapper (unchanged contract) --------
@@ -1996,6 +2034,7 @@ export function remoteInfoFor(jobId: string): RemoteRunInfo | null {
     // inspector's terminal strip can speak the ledger's own numbers.
     ...(r.slurmElapsedMs != null ? { slurmElapsedMs: r.slurmElapsedMs } : {}),
     ...(r.slurmMaxRssBytes != null ? { slurmMaxRssBytes: r.slurmMaxRssBytes } : {}),
+    ...(r.slurmDependsOn?.length ? { slurmDependsOn: r.slurmDependsOn } : {}),
     phase: r.phase,
     ...(r.stagedBytes != null ? { stagedBytes: r.stagedBytes } : {}),
     // t269 — the time ledger rides the DTO so the inspector's remote strip

@@ -2162,3 +2162,23 @@ Stage Summary:
 - **「0 是答案，不是缺席」**：秒表 0ms 与缺席是两个词——sub-second 脚本的诚实 0（>= 0）与账本未服务的 undefined（=== undefined）在套件里各占一条断言；时间维度的 0 === 0 教义
 - **「toFixed 的平局不承重」**：1.25G 会因 round-half 规则浮成 1.3——确定性断言的输入必须躲开一切平局点
 - 遗留（下轮候选）：sbatch --dependency 链（管线级 afterok）；array 模式 sbatch（HPC 对话框已有生成器，远程 dispatch 未接）；verify-module 的 by-value 变体；384³/512³ 阶梯压测（T296_N 已备）；EMPIAR 真数据回归（连续第十三窗让位）；family 全家族 t30 批首跑（t302 已在册）
+
+## Task 304 (2026-09-19, cron 04:33 窗口 trace 1a07549302235a99-cron-agent-loop-202609190433 —— 开局实证：worklog 尾部 = Task 303（HEAD 1a3c7c5），但树顶躺着**并行窗 04:21 的半成品提交 a59c595（懒惰 UUID 消息、未 push、无 worklog 条目、产品改动未重建部署）**——t304（sbatch --dependency 链）收养案)
+
+- 【收养与首航】04:33 cron 开局：worklog 尾部=Task 303 ✓，但 git 树顶多出一个 `a59c595 b3af81e5-…-cron` 懒惰消息提交（t299 窗撞号事故的同款形态）：内容 = t304 套件 458 行 + 产品三件（buildSbatchScript 的 dependency 参数 + startRemoteJob 的 db.edge 直系父母扫描 → afterok 链 + slurmDependsOn 记录/DTO/strip「waits on」）+ mock sbatch 的依赖合同 + FAMILY 注册 1 行（t304 经 /^t30/ 自动归批）——**提交后窗即死**：无 worklog、未 push、BUILD_ID 早于提交（产品改动从未部署）。收养流程：tsc 0 / eslint 0 → 重建部署（watchdog 复活）→ 套件首航 → **13 FAIL**。
+- 【QA 先行揪雷 ×3（层层剥开，全是并行窗半成品的债）】
+  1. **边创建 400 被空洞断言放行（真根因）**：mkEdge 用引擎词汇 `micrographs_star` 建边——边 API 校验的是 **workflow.ts 的 UI 端口注册表，端口名是 `micrographs`**（两套词汇各说各话：引擎 INPUTS/记录 outputs 用 micrographs_star，UI 端口用 micrographs）→ POST /api/edges 400 "Port mismatch"，而套件断言 `!== 0` **任何非字面 0 的状态都算过**（空洞见证的教科书）→ 全部子任务饿死在 resolveInputs "not-ready"，一个 sbatch 都没提交。修 = 端口名改注册表词汇 + 断言改诚实（=== 201，五处边全部见证）。
+  2. **pollUntil 误用（假停滞的根源）**：`pollUntil(fn)` 在**第一个真值就返回**，而 job status 永远真值——三个终态轮询全在 tick 0 返回派发时刻的 "pending"/"running"，套件「失败」时机器其实一切正常（mock 的 CANCELLED 行 6 秒落账、sweep 随后 finalize）。C1 的 completed 通过纯靠 strip 轮询烧掉的 45 秒偶然垫到。修 = 状态轮询等待目标终态（=== "failed"/"completed" 才返回）。
+  3. **strip 正则漏算 GPU 段**：strip 实际渲染 `Slurm job 61 · 6 GPU(s) · queued · waits on 60`（ctffind 申请 6 GPU，strip 如实说话），首稿正则假设 id 后直接跟状态词 → 17 个轮询圈全空。修 = `(?: · \d+ GPU\(s\))?` 可选段。
+- 【诊断武器库（仪器化 + 三方活体对账）】sweep 临时插桩（skip 原因/poll 逐块状态）+ 复现探针三件（repro/C2/strip）+ state 文件 watcher——**watcher 抓到探针自身的读改写竞态**（stateRuns 的 `?? {}` 回退在裸 map 形状的 engine-state.json 上全盲 + 植入清台）——探针的锅，不是产品的（套件的 `?? s` 写法正确）。仪器证据链：mock 账本行（52 FAILED / 53 CANCELLED / 54 COMPLETED）与 sweep 块状态（ALIVE:PENDING → SACCT:CANCELLED|0:0|| → finalize 143）逐秒对上；**直接 mock 测试证明依赖取消合同 3 秒内闭环**。诊断完拆除插桩、焚毁探针（套件本身覆盖全部路径，不留坏工具）。
+- 【产品契约的两处澄清（断言跟进产品，不是产品迁就断言）】① **EXIT 路径的 word 不动是 t303 明文**：wrapper 的 .cf-exit 赢得判决时记录的 slurmState 停在最后 ALIVE 词（RUNNING），秒表照落——终局 strip 的 `· Slurm <WORD>` 只在 accounting 兜底路径说话（正则卫兵防伪），wrapper 路径优雅降级为裸 "Ran on the cluster · <ledger>"。套件的诚实断言改为：调度器自己的词找账本要（waitJournal COMPLETED|0:0）+ 记录要 done/exit 0/秒表 ≥0。② mock 的 PENDING 期对 squeue 可见（sbatch 写 pid 文件指向 launcher + state=PENDING），取消后 launcher 死 → squeue 沉默 → sacct 兜底——ALIVE:PENDING 是诚实的话，不是卡死。
+- 【套件 t304-sbatch-dependency.mjs（58 断言，六航终版 + 家族绿）】A demo 真相；B 台账 11（directive+kill-on-invalid、db.edge 直系父母、同连接活父母过滤、afterok 语法、slurmDependsOn 记录/DTO×2/投影、strip 词汇、mock 解析/CANCELLED 自记/600s 上限）；C1 活体全链（边 201×2 → 活父母 55 → 派发（staging 回执 waiting:"not-ready" 是成功形状，拒绝才带 error）→ slurmId → 记录点名链条 → 脚本带指令 → mock HOLD PENDING → **strip 说话** → 父落 → 子释 → 账本词 COMPLETED + 记录 done/exit 0/秒表）；C2 kill-on-invalid-dep 见证（败父 → mock CANCELLED → **143 + 词上记录 + 无伪墓碑**）；C3 对照（无活上游 → 无链条、脚本无指令、跑完）；D console 0 + roster 21；finally 状态快照还原 + job/连接/mock/账本全清。
+- 【家族回归】--batch t30 首跑入账：**pass 2（t302 + t304）· solo 0 · real-fail 0 · wall 94.0s**；累积器 11 批 TOTAL **pass 72 · real-fail 0**；roster 恒等 21；裸 tsc 0；改动文件 eslint 0；roster 注释更新（72 suites as of Task 304）。
+- 【收尾】worklog（本条）+ **懒惰提交 a59c595 amend 为正式 t304 消息**（未 push 故 amend 安全）+ push + 环境净场（3000 独监、3001/3022 FREE、mock 杀净、探针焚毁、零残留进程）。
+
+Stage Summary:
+- **「半成品收养要过三道门：重建、首航、验毒」**：并行窗的提交里套件从未绿过——产品代码质量不差，但空句断言（`!== 0`）、误用 pollUntil（第一个真值即返回）、漏算渲染段（GPU 插入语）三层雷全部埋在「首航」之后；收养不是 git 操作，是完整重走交付闭环
+- **「两套词汇的 registry 必有一撞」**：引擎的记录 outputs 键（micrographs_star）与 UI 的端口注册表名（micrographs）各说各话——跨层 API 的字面量必须向**接收方**的注册表对齐；而 `!== 0` 式断言是空洞见证的极简反例，状态码断言必须点名成功的那个码
+- **「轮询器等的是真值，不是终态」**：通用 pollUntil(fn) 的合同是「第一个真值返回」——拿它等终态必须在 fn 里翻译目标（s === "failed" ? s : null）；否则 tick 0 的 "pending" 就是你得到的一切，机器在套件身后悄悄把活干完
+- **「ALIVE:PENDING 是诚实的话」**：mock 的 PENDING 期 squeue 可见（pid+state 文件）、取消后 launcher 死 → squeue 沉默 → sacct 兜底——sweep 看到 ALIVE:PENDING 不是卡死，是调度器在如实报告它的队列；判断「停滞」前先问每一环的证人
+- 遗留（下轮候选）：array 模式 sbatch（HPC 对话框已有生成器，远程 dispatch 未接）；verify-module 的 by-value 变体；384³/512³ 阶梯压测（T296_N 已备）；EMPIAR 真数据回归（连续第十四窗让位）；**终局 strip 的 wrapper 路径也可以说话**（EXIT 附征的 SACCT 第二行里有终局词，includeWord=false 把它丢了——happy path 的 strip 永远说不了 "· Slurm COMPLETED"，t299 的终局词条近乎死代码——升级 persistSacctTestimony 的 includeWord 语义是下一颗好雷）

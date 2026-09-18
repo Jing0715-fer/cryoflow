@@ -254,6 +254,8 @@ export interface RemoteRunInfo {
   slurmElapsedMs?: number;
   /** t303 — the scheduler's own peak memory (sacct MaxRSS → bytes), when the ledger served it. */
   slurmMaxRssBytes?: number;
+  /** t304 — slurm ids this submission waits on (--dependency=afterok), when it was dispatched with live upstream. */
+  slurmDependsOn?: string[];
   /** Cluster-side pid (mode=direct). */
   pid?: number;
   /** Lifecycle phase (staging = uploading inputs to the cluster). */
@@ -301,6 +303,8 @@ export interface RemoteRunState {
   slurmElapsedMs?: number;
   /** t303 — slurm mode: the scheduler's own peak resident memory (sacct MaxRSS → bytes). Same honesty: served or absent, never guessed. */
   slurmMaxRssBytes?: number;
+  /** t304 — slurm ids this submission waits on (--dependency=afterok). Present only when the dispatch saw live upstream on the same connection. */
+  slurmDependsOn?: string[];
   /** Lifecycle: staging inputs → running → (done flips on RunRecord). */
   phase: "staging" | "running";
   /** Cluster-side outputs (filled at finalize) — key → remote path. */

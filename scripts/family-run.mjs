@@ -12,7 +12,7 @@
 //        solo FAIL  → REAL-FAIL (a verdict, needs a human)
 //   3. EXIT CODE — 0 iff zero REAL-FAILs (SOLO-RECOVERY is honest but not a blocker).
 //
-// The FAMILY roster is an audited membership list (71 suites as of Task 302) —
+// The FAMILY roster is an audited membership list (72 suites as of Task 304) —
 // it is written here EXPLICITLY, not discovered by glob: diag-*/probe scripts and
 // one-off hearings are not family. When a new suite joins the family, add it here.
 //
@@ -136,6 +136,7 @@ const FAMILY = [
   "t298-remote-big-map.mjs", // the borrowed big map: the two legs that never crossed (t293's borrow chain only ever handed over a 2 MB png door; t296's reconstruction-scale map was always LOCAL) — a 256³ float32 map is planted on the mock cluster, left there by the key-files policy, and opened through the REMOTE tile's View in 3D: the raw door lazy-fetches over SSH (timed), the in-flight dedup survives a two-concurrent-fetch race byte-identically, Mol* commits the isosurface inside the 120 s gate, the tile graduates WITH dims, and the histogram's cold→LRU doctrine lands on a fetched file; the suite FOUND the mock's exec cat losing 1.6–48 MB per 64 MB transfer (pipe 'end' ≠ channel flushed) and pins the write-callback pump + the close-only file end (Task 298)
   "t299-slurm-sacct.mjs", // the accounting fallback: squeue purges finished jobs, so a lost .cf-exit used to age into a false 'interrupted remotely' — the alive-check's THIRD witness asks sacct for the controller's own terminal verdict and maps it onto the wrapper's exit contract (COMPLETED→0, FAILED→exit, CANCELLED→143, TIMEOUT→124, signal→128+sig), VANISHED means 'no testimony anywhere'; the mock journals its verdicts (launcher COMPLETED/FAILED, scancel CANCELLED + marker), the strip speaks the terminal word, and planted witnesses ride the REAL sweep — FIRST persisted slurm-mode regression (t297 shipped without one) (Task 299)
   "t302-family-suicide.mjs", // the runner dies with its children: a death signal kills the in-flight suite's whole group and writes an interrupted report entry — the orphan root, discipline → code (Task 302)
+  "t304-sbatch-dependency.mjs", // the pipeline handoff, scheduler-side: a live remote parent turns the child's sbatch into --dependency=afterok + kill-on-invalid-dep, the mock holds/cancels by the same contract, the strip says 'waits on' (Task 304)
 ];
 
 // ---- batches are first-class (t273) ----------------------------------------

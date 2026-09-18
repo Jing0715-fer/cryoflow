@@ -2195,6 +2195,12 @@ function InspectorHeader({ job }: { job: JobDTO }) {
                           ? " · queued"
                           : ` · ${job.runRemote.slurmState.toLowerCase()}`
                         : ""
+                    }${
+                      // t304 — the pipeline handoff, spoken: the scheduler is
+                      // holding THIS job until those upstream slurm ids land
+                      job.runRemote.slurmDependsOn?.length
+                        ? ` · waits on ${job.runRemote.slurmDependsOn.join(", ")}`
+                        : ""
                     }`
                   : `Running on the cluster${job.runRemote.pid ? ` · pid ${job.runRemote.pid}` : ""}`}
           </span>
