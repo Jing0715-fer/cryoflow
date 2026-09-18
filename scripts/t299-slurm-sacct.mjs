@@ -32,7 +32,7 @@
  *   C9 the inspector strip speaks the scheduler's terminal word
  *   D  console clean
  */
-import { execSync } from "node:child_process";
+import { execSync, execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync, statSync } from "node:fs";
 import path from "node:path";
 import net from "node:net";
@@ -43,6 +43,14 @@ const ROOT = "/home/z/my-project";
 const STATE_FILE = `${ROOT}/data/engine-state.json`;
 const SHOTS = `${ROOT}/shots-qa`;
 const CONN = `qa-t299-${Date.now().toString(36)}`;
+// PATH LESSON (t299 first passes): the mock's translateCommand rewrites any
+// command containing the literal substring "/home/cryo/" (or "/projects/")
+// onto the mock fs root — an absolute HOST path that happens to contain that
+// substring gets DOUBLED into a tree that does not exist. And execSync +
+// JSON.stringify let the LOCAL shell expand $HOME before the command ever
+// reached the mock. So: execFileSync (no local shell, no re-quoting) and
+// mock-native "$HOME/..." paths (the mock shell expands them exactly like
+// the tools do — one HOME, one journal, no drift).
 
 let fail = 0;
 const must = (cond, label) => {
@@ -73,7 +81,7 @@ async function pollUntil(fn, deadlineMs, intervalMs = 1500) {
 }
 
 const client = (cmd) =>
-  execSync(`node services/mock-cluster/test-client.mjs ${JSON.stringify(cmd)}`, {
+  execFileSync("node", ["services/mock-cluster/test-client.mjs", cmd], {
     cwd: ROOT, encoding: "utf8", timeout: 30_000,
   });
 
@@ -132,9 +140,15 @@ let accPre = "NO";
 const getJobs = async () =>
   (await (await fetch(`${BASE}/api/jobs`, { headers: SH })).json()).jobs ?? [];
 
+let rowSeq = 0;
 const mkRow = async (name) => {
+  // explicit canvas positions — the default random x/y drops every witness
+  // into the same 60px window, and overlapping cards intercept each other's
+  // clicks (the C9 lesson from the first pass)
+  const i = rowSeq++;
   const r = await fetch(`${BASE}/api/jobs`, {
-    method: "POST", headers: SHJ, body: JSON.stringify({ type: "import", name }),
+    method: "POST", headers: SHJ,
+    body: JSON.stringify({ type: "import", name, x: 80 + i * 260, y: 80 + i * 200 }),
   });
   const b = await r.json();
   if (b.job?.id) createdJobs.push(b.job.id);
@@ -237,7 +251,7 @@ try {
       }),
     });
     return { status: r.status, body: await r.json() };
-  }, { connId, SHJ });
+  }, { connId: CONN, SHJ });
   connOk = mk.status === 201 || mk.status === 200;
   must(connOk, `the probeless connection exists (${mk.status})`);
 
@@ -345,7 +359,7 @@ try {
   must(rec6?.remote?.slurmState === "CANCELLED", "C6: the word CANCELLED is on the record");
 
   console.log("== PHASE C7: TIMEOUT witness ==");
-  client('printf "999903|TIMEOUT|0:0|1758220000\\n" >> "$HOME/.slurm/accounting"');
+  client('mkdir -p "$HOME/.slurm" && printf "999903|TIMEOUT|0:0|1758220000\\n" >> "$HOME/.slurm/accounting"');
   const job7 = await mkRow("t299 Sacct Witness TIMEOUT");
   flipRunning(job7.id);
   plant(job7.id, job7.projectId, 999903, new Date(Date.now() - 60_000).toISOString());
@@ -373,7 +387,7 @@ try {
     .locator("[data-job]", { hasText: "t299 Sacct Witness COMPLETED" })
     .locator('[role="button"]')
     .first();
-  await card.click({ timeout: 6000 });
+  await card.click({ timeout: 8000, force: true });
   await sleep(1500);
   const bodyText = await page.locator("body").innerText();
   must(/Ran on the cluster · Slurm COMPLETED/.test(bodyText), "C9: the strip says 'Ran on the cluster · Slurm COMPLETED'");
