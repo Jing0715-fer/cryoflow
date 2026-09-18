@@ -110,7 +110,7 @@ export function RemoteRunButton({ job }: { job: JobDTO }) {
         </Button>
       </DialogTrigger>
       <DialogContent
-        className="max-w-md"
+        className="sm:max-w-lg"
         onKeyDown={onEscapeClose(() => setOpen(false))}
       >
         <DialogHeader>
@@ -136,7 +136,7 @@ export function RemoteRunButton({ job }: { job: JobDTO }) {
                 modules, then come back.
               </p>
             </div>
-            <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setClusterOpen(true)}>
+            <Button variant="outline" size="sm" className="h-9 text-sm" onClick={() => setClusterOpen(true)}>
               Manage clusters
             </Button>
           </div>
@@ -152,7 +152,7 @@ export function RemoteRunButton({ job }: { job: JobDTO }) {
                     setModule("");
                   }}
                 >
-                  <SelectTrigger className="h-8 text-xs" aria-label="Cluster connection">
+                  <SelectTrigger className="h-9 text-sm" aria-label="Cluster connection">
                     <SelectValue placeholder="Cluster connection" />
                   </SelectTrigger>
                   <SelectContent>
@@ -181,7 +181,7 @@ export function RemoteRunButton({ job }: { job: JobDTO }) {
                 <p className="text-[11px] text-muted-foreground">relion module</p>
                 {probedModules.length > 0 ? (
                   <Select value={module} onValueChange={setModule}>
-                    <SelectTrigger className="h-8 font-mono text-xs" aria-label="relion module to load">
+                    <SelectTrigger className="h-9 font-mono text-[13px]" aria-label="relion module to load">
                       <SelectValue placeholder="module" />
                     </SelectTrigger>
                     <SelectContent>
@@ -195,7 +195,7 @@ export function RemoteRunButton({ job }: { job: JobDTO }) {
                 ) : (
                   <>
                     <div
-                      className="flex h-8 items-center rounded-md border bg-muted/40 px-2 text-xs text-muted-foreground"
+                      className="flex h-9 items-center rounded-md border bg-muted/40 px-2 text-[13px] text-muted-foreground"
                       aria-label="relion module — not probed yet"
                     >
                       not probed
@@ -227,12 +227,12 @@ export function RemoteRunButton({ job }: { job: JobDTO }) {
             </div>
 
             <div className="flex items-center justify-end gap-2">
-              <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setOpen(false)}>
+              <Button variant="outline" size="sm" className="h-9 text-sm" onClick={() => setOpen(false)}>
                 Cancel
               </Button>
               <Button
                 size="sm"
-                className="h-8 gap-1.5 text-xs"
+                className="h-9 gap-1.5 text-sm"
                 onClick={() => void submit()}
                 disabled={pending || !conn}
               >

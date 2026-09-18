@@ -137,9 +137,9 @@ function Field({
 }) {
   return (
     <div className={cn("space-y-1", className)}>
-      <Label className="text-[11px] text-muted-foreground">{label}</Label>
+      <Label className="text-xs text-muted-foreground">{label}</Label>
       {children}
-      {hint ? <p className="text-[10px] leading-snug text-muted-foreground/80">{hint}</p> : null}
+      {hint ? <p className="text-[11px] leading-snug text-muted-foreground/80">{hint}</p> : null}
     </div>
   );
 }
@@ -513,7 +513,7 @@ function toDraft(c: RemoteConnectionDTO | null): Draft {
     host: c?.host ?? "",
     port: c?.port ?? 22,
     username: c?.username ?? "",
-    authMethod: c?.authMethod ?? "agent",
+    authMethod: c?.authMethod ?? "password",
     privateKeyPath: c?.privateKeyPath ?? "",
     password: "",
     clearPassword: false,
@@ -737,7 +737,7 @@ function ConnectionEditor({
             if (e.target.value) onClearFlag(false);
           }}
           placeholder={hasStored ? placeholder : undefined}
-          className="h-8 text-xs"
+          className="h-9 text-sm"
           autoComplete="new-password"
           aria-label={label}
         />
@@ -747,7 +747,7 @@ function ConnectionEditor({
             variant="ghost"
             size="sm"
             className={cn(
-              "h-8 shrink-0 px-2 text-[10px] text-muted-foreground hover:text-foreground",
+              "h-9 shrink-0 px-2.5 text-[11px] text-muted-foreground hover:text-foreground",
               clearFlag && "bg-amber-500/10 text-amber-700 dark:text-amber-300"
             )}
             onClick={() => onClearFlag(!clearFlag)}
@@ -766,25 +766,25 @@ function ConnectionEditor({
     <div className="space-y-4">
       <div className="space-y-3">
         <SectionTitle>{creating ? "New connection" : "Login"}</SectionTitle>
-        <div className="grid grid-cols-4 gap-3">
-          <Field label="Display name" className="col-span-2">
-            <Input
-              value={draft.name}
-              onChange={(e) => patch({ name: e.target.value.slice(0, 120) })}
-              placeholder={creating ? "e.g. Lab cluster" : undefined}
-              className="h-8 text-xs"
-              maxLength={120}
-              aria-label="Connection display name"
-            />
-          </Field>
-          <Field label="Host" hint={valid ? undefined : "required"}>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+          <Field label="Host" hint={valid ? undefined : "required"} className="col-span-2">
             <Input
               value={draft.host}
               onChange={(e) => patch({ host: e.target.value.trim().slice(0, 200) })}
               placeholder="login.cluster.example.org"
-              className="h-8 text-xs"
+              className="h-9 text-sm"
               maxLength={200}
               aria-label="SSH host (required)"
+            />
+          </Field>
+          <Field label="Username" hint={valid ? undefined : "required"}>
+            <Input
+              value={draft.username}
+              onChange={(e) => patch({ username: e.target.value.trim().slice(0, 60) })}
+              placeholder="your.cluster.user"
+              className="h-9 text-sm"
+              maxLength={60}
+              aria-label="SSH username (required)"
             />
           </Field>
           <Field label="Port">
@@ -794,36 +794,36 @@ function ConnectionEditor({
               max={65535}
               value={draft.port}
               onChange={(e) => patch({ port: Number(e.target.value) })}
-              className="h-8 text-xs"
+              className="h-9 text-sm"
               aria-label="SSH port"
             />
           </Field>
-          <Field label="Username" hint={valid ? undefined : "required"}>
+          <Field label="Display name">
             <Input
-              value={draft.username}
-              onChange={(e) => patch({ username: e.target.value.trim().slice(0, 60) })}
-              placeholder="cryo"
-              className="h-8 text-xs"
-              maxLength={60}
-              aria-label="SSH username (required)"
+              value={draft.name}
+              onChange={(e) => patch({ name: e.target.value.slice(0, 120) })}
+              placeholder={creating ? "e.g. Lab cluster" : undefined}
+              className="h-9 text-sm"
+              maxLength={120}
+              aria-label="Connection display name"
             />
           </Field>
-          <Field label="Auth method" className="col-span-2">
+          <Field label="Auth method">
             <Select
               value={draft.authMethod}
               onValueChange={(v) => patch({ authMethod: v as RemoteAuthMethod })}
             >
-              <SelectTrigger className="h-8 text-xs" aria-label="Authentication method">
+              <SelectTrigger className="h-9 text-sm" aria-label="Authentication method">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="agent" className="text-xs">SSH agent</SelectItem>
-                <SelectItem value="key" className="text-xs">Private key</SelectItem>
-                <SelectItem value="password" className="text-xs">Password</SelectItem>
+                <SelectItem value="password" className="text-sm">Password</SelectItem>
+                <SelectItem value="key" className="text-sm">Private key</SelectItem>
+                <SelectItem value="agent" className="text-sm">SSH agent</SelectItem>
               </SelectContent>
             </Select>
           </Field>
-          <div className="col-span-4">
+          <div className="col-span-2">
             <Badge variant="outline" className="h-4 px-1 text-[9px] font-normal text-muted-foreground">
               {AUTH_LABEL[draft.authMethod]}
             </Badge>
@@ -850,7 +850,7 @@ function ConnectionEditor({
                 value={draft.privateKeyPath}
                 onChange={(e) => patch({ privateKeyPath: e.target.value.slice(0, 300) })}
                 placeholder="~/.ssh/id_ed25519"
-                className="h-8 font-mono text-[11px]"
+                className="h-9 font-mono text-[13px]"
                 maxLength={300}
                 aria-label="Private key path on this machine"
               />
@@ -887,7 +887,7 @@ function ConnectionEditor({
 
       <div className="space-y-3">
         <SectionTitle>Cluster layout</SectionTitle>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
           <Field
             label="Remote root"
             hint="Cluster directory that mirrors the local data/relion workdir."
@@ -896,7 +896,7 @@ function ConnectionEditor({
               value={draft.remoteRoot}
               onChange={(e) => patch({ remoteRoot: e.target.value.slice(0, 300) })}
               placeholder="~/cryoflow"
-              className="h-8 font-mono text-[11px]"
+              className="h-9 font-mono text-[13px]"
               maxLength={300}
               aria-label="Cluster-side remote root directory"
             />
@@ -921,7 +921,7 @@ function ConnectionEditor({
               value={draft.envLines}
               onChange={(e) => patch({ envLines: e.target.value })}
               placeholder={"module load cuda/12.2\nexport RELION_MPI_MAX=8"}
-              className="min-h-[64px] font-mono text-[11px] leading-relaxed"
+              className="min-h-[72px] font-mono text-xs leading-relaxed"
               aria-label="Environment preparation lines"
             />
           </Field>
@@ -931,7 +931,7 @@ function ConnectionEditor({
               min={1}
               value={draft.maxFileMb}
               onChange={(e) => patch({ maxFileMb: Number(e.target.value) })}
-              className="h-8 text-xs"
+              className="h-9 text-sm"
               aria-label="Maximum single file size in MB for sync-back"
             />
           </Field>
@@ -941,7 +941,7 @@ function ConnectionEditor({
               min={1}
               value={draft.maxTotalMb}
               onChange={(e) => patch({ maxTotalMb: Number(e.target.value) })}
-              className="h-8 text-xs"
+              className="h-9 text-sm"
               aria-label="Maximum total sync-back size in MB"
             />
           </Field>
@@ -1003,7 +1003,7 @@ function ConnectionEditor({
       {/* Editor actions */}
       <div className="flex flex-wrap items-center gap-2 border-t pt-3">
         {creating ? (
-          <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={onCancelCreate}>
+          <Button variant="ghost" size="sm" className="h-9 text-sm" onClick={onCancelCreate}>
             Cancel
           </Button>
         ) : (
@@ -1011,7 +1011,7 @@ function ConnectionEditor({
             variant="ghost"
             size="sm"
             className={cn(
-              "h-8 text-xs text-rose-600 hover:bg-rose-500/10 hover:text-rose-700 dark:text-rose-400",
+              "h-9 text-sm text-rose-600 hover:bg-rose-500/10 hover:text-rose-700 dark:text-rose-400",
               confirmDelete && "bg-rose-500/10"
             )}
             onClick={() => (confirmDelete ? void remove() : setConfirmDelete(true))}
@@ -1040,7 +1040,7 @@ function ConnectionEditor({
           <Button
             variant="outline"
             size="sm"
-            className="h-8 gap-1.5 text-xs"
+            className="h-9 gap-1.5 text-sm"
             onClick={() => void test()}
             disabled={testing || saving}
             title="Log in over SSH and probe the node (can take ~30s)"
@@ -1055,7 +1055,7 @@ function ConnectionEditor({
         ) : null}
         <Button
           size="sm"
-          className="h-8 text-xs"
+          className="h-9 text-sm"
           onClick={() => void save()}
           disabled={saving || !valid}
           title={valid ? undefined : "Host and username are required"}
@@ -1159,7 +1159,7 @@ export function RemoteClusterDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-w-3xl"
+        className="max-h-[85vh] overflow-y-auto sm:max-w-5xl"
         onKeyDown={onEscapeClose(() => onOpenChange(false))}
       >
         <DialogHeader>
@@ -1179,9 +1179,9 @@ export function RemoteClusterDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex min-h-0 gap-4">
+        <div className="flex min-h-0 flex-col gap-4 sm:flex-row">
           {/* ---------------- left rail: the connection list ---------------- */}
-          <div className="flex w-60 shrink-0 flex-col gap-1.5">
+          <div className="flex w-full shrink-0 flex-col gap-1.5 sm:w-60">
             <div
               className="max-h-[54vh] space-y-1 overflow-y-auto pr-0.5"
               role="list"

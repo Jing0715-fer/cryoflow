@@ -1845,3 +1845,19 @@ Stage Summary:
 - 「重建 ≠ 上线」：fuser 漏杀的旧 standalone 实例让新构建空转半小时——**验证新实例在位要看进程启动时间**，PORT 200 只说明有个 server 在答话，不说明它是谁
 - 「一命令一批」：600s 强杀拦腰斩断套件的 finally 清场，世界残留以 roster 23 反噬下一批的 roster 断言——家族批次的时间上限纪律不是跑得慢的问题，是被杀后世界是否完整的问题
 - 遗留（下轮候选）：.mrcs montage 缩略图也可吃 display window（服务端 montage renderer 已接 win——只差 UI 入口）；快看对话框 display range 数值输入（chips/拖拽之外的第三入口）；triptych 导出 footer 叠加直方图缩略；bookmark 缩略图叠加焦点交点（连续让位）；EMPIAR 真数据回归（连续第四窗让位）
+
+## Task 288 (2026-09-18, 用户报障第三窗口（编号让位于 cron 09:18 窗口的 Task 286——同窗并行，287 已被 cron 05:03 窗占号，本条顺延为 288 — 集群弹窗「太窄、输入框太小、用户名密码」)
+
+- 【报障】用户三连：①「0设置的窗口太窄了」——Remote clusters 弹窗在 1440 视口上实测仅 512px；②「很多输入框太小，看不见输进去的内容」——全表单 h-8 text-xs（32px 高/12px 字号），登录区还是 4 列网格，host 输入框只有 ~100px 宽，login.cluster.example.org 根本看不见；③「ssh登录还是需要用户名和密码的，需要进行设置」——字段其实一直在，但默认认证是 agent（下拉里排第一），密码用户找不到入口。
+- 【t286 修复】①弹窗 max-w-3xl → sm:max-w-5xl + max-h-[85vh] overflow-y-auto（矮屏可滚）；②两栏布局 flex-col sm:flex-row + 左栏 w-full sm:w-60（窄屏列表堆叠在表单上方）；③登录区 4 列 → 2 列重排：Host 全宽置顶（714px）→ Username + Port → Display name + Auth method——「最长的值占最宽的格」；④全表单输入 h-8 text-xs → h-9 text-sm（36px/14px，实测），路径类字段 font-mono text-[13px]，Textarea min-h-[72px]；⑤默认认证 agent → password + 下拉排序 Password 置顶——「大学集群的第一路径是密码，agent 是进阶」；⑥Field 标签 text-[11px] → text-xs、hint 10px → 11px；⑦Run-on-cluster 弹窗同步升级（max-w-md → sm:max-w-lg，控件同尺寸）。
+- 【CSS 判例】第一版用 max-w-5xl 无效——shadcn Dialog 基类带 sm:max-w-lg，Tailwind 同属性响应式变体在样式表中排在裸 utility 之后，512px 赢了。修法：用相同断点变体 sm:max-w-5xl（同变体内按 max-w 尺度排序，5xl > lg 必胜）。「要赢过基类的响应式类，得在同一个断点里说话」。
+- 【验证】1440 视口：弹窗 512→1024px、Host 100→714px、Username 349px、全部输入 36px/14px；390 移动视口：弹窗 358px 贴合、Host 304px、列表堆叠、overflow-y auto；新建流程 UI 实走：默认认证=Password 且密码框直接可见 → 六字段填充 → Create connection 落列 → Test & probe 真实 SSH 登录 → 3 个 relion 模块 chips + LAST PROBE 卡现身；console 0 错误；测试连接清理后世界只剩 Mock Cluster。
+- 【环境】本窗 next-server 无声暴毙两次（均伴随 tsc/chromium 并行）——4GB 盒「重进程串行化」纪律第三次应验；tsc 全绿后服务器即重启恢复。
+- 【收尾】worklog（本条）+ commit/push。
+
+Stage Summary:
+- 「512px 的牢笼」：基类的 sm:max-w-lg 悄悄赢了裸 max-w-5xl——同属性响应式变体后写不等于后赢，样式表顺序才是法官；同断点变体是唯一公平决斗
+- 「最长的值占最宽的格」：Host 全宽置顶是表单重排的第一律——4 列网格里 100px 的 host 框是「设计密度压垮功能」的标本
+- 「默认值即路径」：auth 默认从 agent 改 password + 选项重排，比任何提示文案都直接——用户找不到入口的字段等于不存在
+- 「输入框的最小尊严」：h-9 text-sm（36px/14px）是可读与紧凑的分界——密码用户在 32px/12px 的格子里输凭据是对耐心的征税
+- 遗留（下轮候选）：弹窗在超宽屏（>1536）可考虑 max-w-6xl；t272 遗留 exists=false 活体见证仍在排队
