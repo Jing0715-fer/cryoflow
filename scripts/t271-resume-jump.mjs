@@ -362,6 +362,17 @@ try {
 } finally {
   console.log("== cleanup ==");
   try { execSync("pkill -f relion_run_motioncorr", { stdio: "pipe" }); } catch { /* none */ }
+  // t295 — the leak the closing note caught: this suite LAUNCHED the mock
+  // (weLaunchedMock) but its finally never dismissed it — every run that
+  // launched left a mock cluster listening on :3022 for the next window to
+  // trip over (a later suite's launch.sh reuses the busy port, so nobody
+  // ever cleaned it). The t270/t272 idiom: only the launcher reaps.
+  if (weLaunchedMock) {
+    try {
+      execSync("pkill -f 'mock-cluster/server.mjs'", { stdio: "pipe" });
+      console.log("  (cleanup) stopped the mock cluster we launched");
+    } catch { /* already gone */ }
+  }
   for (const id of [...createdJobs].reverse()) await deleteJob(id);
   for (const cid of [...connIds].reverse()) {
     try {

@@ -2005,3 +2005,4 @@ Stage Summary:
 - **「修根不修症状」**：11 个套件的清场模式一个没改——launch.sh 的 exec 换绝对路径后既有模式全体复活；跨窗 mock 残留（Task 291 抓过 1h38m、t294 收尾抓过）从根源闭合，副利封死 `pkill -f "bun run start"` 误杀通道
 - **「全景跟账本走」**：effect 以 resume prop 为依赖——reload 换对象即重拉全景，bulk 成功后展开态自动瘦身（5 行 → 2 行），无一处本地手术；对共享状态的每个读路径都回服务端聚合出口
 - 遗留（下轮候选）：remote-view-3d 大 map 的 Mol* 渲染实测；快看对话框 display range 的 σ 口径输入（待真需求）；EMPIAR 真数据回归（连续第九窗让位）；résumé 全景的分页（当前一页全量，条目数十级尚可，百级待真需求）；Topaz wrapper 深化（边际递减）
+- 【收尾补记】净场又抓到一个真泄漏 + 完整归因：:3022 残留 pid 14561（09:17:47 启动，cmdline 已是绝对路径形态）——本窗哨兵对 2 的 t271 启动后泄漏。根因不在 launch.sh（绝对路径修复已生效，严格复现 launch→pkill→dead exit 0），而在 **t271 自己：启动 mock（weLaunchedMock=true）但 finally 从不清理**——标志设了没用，每次「端口空闲时启动」的 t271 运行都漏一个 mock；后续 t272 走 mockListening 复用路径（weLaunchedMock=false）清场门关着，家族跑批全程复用，泄漏就此穿越整个家族回归。修复 = t271 finally 补 t270/t272 同款 `if (weLaunchedMock) pkill` 块；复跑 t271 ALL PASS + 运行后 3022 FREE 实证闭合。附：fuser -k 3022/tcp 本窗对 bun 监听者一次未命中（kill pid 可靠）——端口清场以 ss 验证 + pkill 模式为主，fuser 降级为兜底。
