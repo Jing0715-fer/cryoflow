@@ -230,6 +230,16 @@ export interface RemoteRunTarget {
    * meaningful in slurm mode; sanitized server-side ([A-Za-z0-9_.-]).
    */
   partition?: string | null;
+  /**
+   * t306 — the array split for data-parallel types: ONE sbatch carrying
+   * `--array=1-N%M`, each task slicing the input STAR by
+   * SLURM_ARRAY_TASK_ID, the last task home merging the shard output stars
+   * back into the canonical one. 2..64, clamped server-side; only
+   * meaningful in slurm mode AND only for the types the engine's argv
+   * actually shards (motioncorr/ctffind — one --i star, --o the workdir);
+   * anything else is an honest refusal, never a silently un-split run.
+   */
+  shards?: number;
 }
 
 /** Per-job remote execution info (attached to JobDTO while relevant). */
@@ -256,6 +266,8 @@ export interface RemoteRunInfo {
   slurmMaxRssBytes?: number;
   /** t304 — slurm ids this submission waits on (--dependency=afterok), when it was dispatched with live upstream. */
   slurmDependsOn?: string[];
+  /** t306 — the array split this submission rode (--array=1-N%M). Present only when dispatched with shards ≥ 2 on an array-eligible type. */
+  slurmArray?: { total: number; concurrency: number };
   /** Cluster-side pid (mode=direct). */
   pid?: number;
   /** Lifecycle phase (staging = uploading inputs to the cluster). */
@@ -305,6 +317,8 @@ export interface RemoteRunState {
   slurmMaxRssBytes?: number;
   /** t304 — slurm ids this submission waits on (--dependency=afterok). Present only when the dispatch saw live upstream on the same connection. */
   slurmDependsOn?: string[];
+  /** t306 — the array split this submission rode (--array=1-N%M): total shards + the %M concurrency cap. Present only when dispatched with shards ≥ 2 on an array-eligible type. */
+  slurmArray?: { total: number; concurrency: number };
   /** Lifecycle: staging inputs → running → (done flips on RunRecord). */
   phase: "staging" | "running";
   /** Cluster-side outputs (filled at finalize) — key → remote path. */

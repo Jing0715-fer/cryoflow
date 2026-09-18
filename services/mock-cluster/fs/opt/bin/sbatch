@@ -38,6 +38,14 @@ name="$(grep -m1 -oP '(?<=#SBATCH --job-name=).*' "$script" || true)"
 # job in PENDING until every upstream lands (or cancels it the moment one
 # fails — the scheduler's own kill-on-invalid-dep contract)
 deps="$(grep -m1 -oP '(?<=#SBATCH --dependency=afterok:)[0-9:]+' "$script" || true)"
+# t306 — the array split: --array=1-N%M runs the script N times as
+# independent tasks (SLURM_ARRAY_TASK_ID 1..N, at most M at once), each
+# task's rc captured launcher-side; per-task rows land in the ledger as
+# <id>_<t> (real sacct's array grammar) and the MASTER row's verdict is
+# COMPLETED only when every task's rc was 0 (the first failing rc rides
+# the master's exit code — the app's exit contract reads one row).
+arr="$(grep -m1 -oP '#SBATCH --array=1-\K[0-9]+' "$script" || true)"
+conc="$(grep -m1 -oP '#SBATCH --array=1-[0-9]+%\K[0-9]+' "$script" || true)"
 [ -n "$extra_out" ] && out="$extra_out"
 [ -n "$extra_err" ] && err="$extra_err"
 [ -z "$out" ] && out="slurm-%j.out"
@@ -67,6 +75,9 @@ sleep 1
 # journal row (the kill-on-invalid-dep contract): a stranded PENDING child
 # is exactly the lie the sweep must never have to guess about.
 __deps="$deps"
+__total="$arr"
+__conc="$conc"
+[ -n "\$__total" ] && [ -z "\$__conc" ] && __conc="\$__total"
 __failed=0
 if [ -n "\$__deps" ]; then
   __waited=0
@@ -100,6 +111,43 @@ echo "RUNNING" > "$SLURM_DIR/job-$id.state"
 # — AFTER the dependency wait, the way real Slurm's Elapsed excludes pending
 __t0=\$(date +%s)
 echo "\$__t0" > "$SLURM_DIR/job-$id.start"
+# t306 — the array fan-out: N tasks, at most M running concurrently (the
+# %M cap — wait -n releases a slot each time a task exits). Each task's rc
+# is captured launcher-side (job-$id.taskrcs); after the last one lands,
+# per-task rows (<id>_<t>) journal first, then the MASTER row speaks the
+# aggregate verdict (first failing rc, else 0). A scancel'd array stands
+# down (scancel owns the CANCELLED row, as with single jobs).
+if [ -n "\$__total" ]; then
+  __rcs="$SLURM_DIR/job-$id.taskrcs"
+  : > "\$__rcs"
+  __active=0
+  for __t in \$(seq 1 "\$__total"); do
+    ( SLURM_ARRAY_JOB_ID="$id" SLURM_ARRAY_TASK_ID="\$__t" bash "$script"; echo "\$__t \$?" >> "\$__rcs" ) &
+    __active=\$((\$__active + 1))
+    if [ "\$__active" -ge "\$__conc" ]; then
+      wait -n
+      __active=\$((\$__active - 1))
+    fi
+  done
+  wait
+  __firstbad="\$(awk '\$2!=0{print \$2; exit}' "\$__rcs" 2>/dev/null || true)"
+  __firstbad="\${__firstbad:-0}"
+  __end=\$(date +%s)
+  while read -r __t __trc; do
+    [ -n "\$__t" ] || continue
+    __tst=COMPLETED
+    [ "\$__trc" -ne 0 ] && __tst=FAILED
+    printf '%s_%s|%s|%s:0|%s|%s|\n' "$id" "\$__t" "\$__tst" "\$__trc" "\$__end" "\$__t0" >> "$SLURM_DIR/accounting"
+  done < "\$__rcs"
+  rm -f "\$__rcs"
+  if [ ! -f "$SLURM_DIR/job-$id.cancelled" ]; then
+    __mstate=COMPLETED
+    [ "\$__firstbad" -ne 0 ] && __mstate=FAILED
+    printf '%s|%s|%s:0|%s|%s|\n' "$id" "\$__mstate" "\$__firstbad" "\$__end" "\$__t0" >> "$SLURM_DIR/accounting"
+  fi
+  rm -f "$SLURM_DIR/job-$id.state"
+  exit "\$__firstbad"
+fi
 # t299 — the launcher must outlive the script by one breath: with exec the
 # process REPLACED itself and died mute, and sacct's accounting (the only
 # witness that survives the squeue purge) never learned the verdict

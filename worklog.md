@@ -2198,3 +2198,28 @@ Stage Summary:
 - **「clean up your own crime scene」**：t304 窗的坏探针清台抹掉 19 条 demo 记录，五窗连绿掩盖了它（没有消费者），t260 才引爆——修探针不等于修现场；状态文件的读改写竞态一次污染，恢复要靠 DB + 磁盘 + 引擎自己的 collectOutputs 逐条重验
 - **「愈合工具入库」**：restore-demo-records.mjs 不是一次性脚本——记录是运行态、没有种子文件、下一次状态污染还需要它；用引擎自己的 collectOutputs 重建 = 零猜测，认不出的就是诚实缺席
 - 遗留（下轮候选）：array 模式 sbatch（HPC 对话框已有生成器，远程 dispatch 未接）；verify-module 的 by-value 变体；384³/512³ 阶梯压测（T296_N 已备）；EMPIAR 真数据回归（连续第十五窗让位）；demo 教程链的下游重跑（记录的 outputs 是诚实缺席，demo 链若要可重跑需按老约定补 outputs 映射）
+
+## Task 306 (2026-09-19, cron 06:18 窗口 trace 1a07549302235a99-cron-agent-loop-202609190628 —— 开局实证：worklog 尾部 = Task 305（HEAD 2f8c397 已 push、树净、3000 活、roster 21、qa63 GREEN、零残留），cron 指引的「Task 13」照例过时)
+
+- 【开局 + QA】GET / 200、roster 21、qa63-smoke GREEN（console 0）、累积器 11 批 pass 72 real-fail 0 与 Task 305 报告一致。按惯例③自主选题：**t306 = array 模式接进远程 dispatch**（Task 305 遗留清单首选：HPC 对话框的生成器/模拟器早就会说 --array，真 dispatch 路径从没说过——万张微图的 MotionCorr 在簇上只能单节点独跑，调度器自己的数组语法闲置）。
+- 【主交付：--array=1-N%M 进真路径】六层一次交付：
+  1. **类型合同**（remote-run.ts）：ARRAY_TYPES（motioncorr→corrected_micrographs.star、ctffind→micrographs_ctf.star）——合法 = argv 恰一个 --i 输入星表 + --o 指向 workdir 根（末任务能把 shard 输出星表并回 collectOutputs 认的规范名）；refine3d 类全局对齐 Job 拒绝切片（名字上切了、统计上碎了）。ARRAY_CONCURRENCY=4 一个诚实默认（对话框一个旋钮，不给第二个误用的）。
+  2. **脚本生成**（buildSbatchScript 的 array 参数）：--array=1-N%M 指令（骑 dependency 之后）；每个任务 awk 轮转切片（**结构行 data_/loop_/列定义全量透传、仅 block>=2 数据行进轮转**——import 星表 2 列行也要活，原 hpc 生成器的 NF>3 启发式吃不下）；命令里 --i 换 "$SHARD"、--o 换 "$OSHARD/"（任务私有输出子目录）；rc 记账文件名带 SLURM_ARRAY_JOB_ID（重跑永不读旧账）；**末任务计数门**（wc -l ≥ N）并回 shard 星表 + 写 .cf-exit（全零才 0，第一个坏 rc 说话）。
+  3. **trap 分工**：EXIT trap 加阵列守卫（单个 shard 的失败不得在兄弟还在跑时抢判决词）；TERM/INT trap 不设防（scancel 杀整组，先写者赢、词相同 143）。
+  4. **接线**：RemoteRunTarget.shards（2..64、slurm-only、路由+引擎双闸）+ RemoteRunState/Info.slurmArray + remoteInfoFor 投影 + startRemoteJob 的类型门（stage 之前诚实拒绝）+ argv 重写目标定位失败即 throw（spawn 闭包内 return fail 够不着调用方——TS2322 教的）。
+  5. **mock 同长牙**：sbatch 解析 --array=1-N%M（**\K 而非 lookbehind——GNU grep 禁变宽 lookbehind**）；launcher 以 %M 上限并发 fan-out（wait -n）+ 逐任务 rc 捕获 + 账本逐任务行 `<id>_<t>`（真 sacct 数组语法）+ 主行 verdict（全零 COMPLETED 否则 FAILED 带第一个坏 rc）；scancel 杀组照旧波及任务子进程。
+  6. **UI**：运行对话框 Array split 步进器（1 = 不切分 = 旧合同字节不变；仅 slurm 模式 + 合法类型显示——「在 dispatch 时会被拒的旋钮不是旋钮是陷阱」）；inspector 终局条 + 活体条都说 `· array 1-3%4`。
+- 【真雷两颗（全被活体/沙箱揪出，源码断言全瞎）】
+  1. **切片 awk 的 NF>0 把 block-2 列定义行（_rln #N）和 loop_ 也卷进轮转池**——每个 shard 的星表结构被打碎（沙箱跑出 3/2/2/3 的行数分布才暴露）。修 = 结构行三条规则前置透传（/^loop_/、/^_/），仅数据行轮转；沙箱复验 shard 结构完整（两块 data_ + 列定义全量 + m1/m5 轮转精确）。
+  2. **mock launcher heredoc 的 $__total 未转义**——sbatch 期展开撞 set -u 直接炸（行号还撒谎指到 mkdir）；同场加映 GNU grep 变宽 lookbehind 非法。修 = 运行时引用全转义 + 解析器换 \K 形式。**heredoc 里的每一层展开时机（sbatch 期 vs launcher 期 vs awk 单引号期）都要点名**。
+- 【套件】t306-sbatch-array.mjs **52 断言 ALL PASS**（A 真相 + B 台账 21 + C 活体 28 + D 卫生）：C1 全链（分片派发 → 记录点名 {total:3,concurrency:4} → 递交脚本带指令与切片 → mock 3 任务并发 → 逐任务行 COMPLETED → 主行 COMPLETED → sweep 终结 done/exit 0 → **合并星表 12 行全部到家**（collectOutputs 原样认领）→ DTO 携带 split → strip 说词 + 定妆照）；C2 中途 scancel 三见证（记录 137 = stop 路由自己的 KILL 词、账本 CANCELLED、**任务 TERM trap 的 143 落在 .cf-exit**）；C3 对照（无分片 → 无指令无分支，trap 守卫是唯一保留——一份 trap 形状服务所有递交）；C4 class2d+shards 在 staging 之前被诚实拒绝（"cannot ride an array split"）。
+- 【家族回归揪自己两笔】① **roster 是显式名单不是注释**——只改了注释没加条目，t30 批跑了 t302+t304、t306 隐形（Task 302 的名单教训原样反咬）；补条目后 73 套件。② **timeout 580 包裹调用投毒卫生扫描**——timeout 进程的 argv 含 "node scripts/family-run.mjs"，正则命中、pid 是祖父非 ppid → t302 的「无残留跑者」×2 连 solo 复跑都炸；去包裹重跑即愈（套件没错，操作者错）。
+- 【家族回归】--batch t30：**pass 3（t302 32.9s + t304 59.8s + t306 51.1s）· solo 0 · real-fail 0 · wall 152.9s**；累积器 11 批 TOTAL **pass 73 · real-fail 0**；roster 21 恒等；裸 tsc 0；改动文件 eslint 0；重建部署后 strip 词条进包（首航时终端条缺词 = 陈旧构建，定妆照坐实——「改了 UI 再 build，顺序不能反」）。
+- 【收尾】worklog（本条）+ commit/push + 环境净场（3000 独监、mock 杀净、沙箱焚毁、零残留）。
+
+Stage Summary:
+- **「末任务计数门」**：数组任务彼此独立、无人知道谁是最后一个——rc 记账文件（名字带 SLURM_ARRAY_JOB_ID 防重跑串账）+ wc -l ≥ N 的计数门让最后收工的任务兼职合并员与判决员；单 shard 失败由 EXIT trap 守卫压着不抢词，TERM 例外（scancel 杀全组、词恒 143）
+- **「结构行不进轮转池」**：STAR 的 data_/loop_/列定义是骨架、数据行才是肉——切片器必须把骨架整根递给每个 shard；NF 启发式（原 NF>3）在 2 列行面前既切不动又骗得过活体，只有逐 shard 结构校验能抓
+- **「heredoc 有三个时钟」**：sbatch 期（$id/$deps 未转义=烘焙）、launcher 期（\$__t 转义=运行时求值）、awk 单引号期（\$2 转义才活着进程序）——三层展开时机混用一行就是一颗雷，set -u 的报错行号还会指错地方；GNU grep 的变宽 lookbehind 禁令让 \K 成为唯一正解
+- **「卫生扫描的 ps 正则会看见祖父」**：timeout/wrapper 类进程的 argv 含被检字符串、pid 却不是 ppid——套件的 ppid 排除只防一层；跑批者不用 wrapper（或套件排除整条祖先链）是操作纪律
+- 遗留（下轮候选）：extract/autopick 的 array 变体（输出非单星表，合并需要 coords/粒子语义）；verify-module 的 by-value 变体；384³/512³ 阶梯压测（T296_N 已备）；EMPIAR 真数据回归（连续第十六窗让位）；demo 教程链的下游重跑（按老约定补 outputs 映射）

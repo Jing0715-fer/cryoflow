@@ -2185,7 +2185,14 @@ function InspectorHeader({ job }: { job: JobDTO }) {
                     job.runRemote.slurmMaxRssBytes != null
                       ? `${formatStagedBytes(job.runRemote.slurmMaxRssBytes)} peak`
                       : ""
-                  }`
+                }${
+                  // t306 — the array split rides the terminal strip too:
+                  // one scheduler job that was really N shards, merged into
+                  // one run everywhere else — the strip is where it shows
+                  job.runRemote.slurmArray
+                    ? ` · array 1-${job.runRemote.slurmArray.total}%${job.runRemote.slurmArray.concurrency}`
+                    : ""
+                }`
                 : job.runRemote.mode === "slurm"
                   ? // t297 — the scheduler's own vocabulary: the state word
                     // (PENDING/RUNNING/…) + the job id + the GPU width
@@ -2200,6 +2207,13 @@ function InspectorHeader({ job }: { job: JobDTO }) {
                       // holding THIS job until those upstream slurm ids land
                       job.runRemote.slurmDependsOn?.length
                         ? ` · waits on ${job.runRemote.slurmDependsOn.join(", ")}`
+                        : ""
+                    }${
+                      // t306 — the array split, spoken: ONE scheduler job that
+                      // is really N shards (the merge makes it look like one
+                      // run everywhere else — the strip is where it shows)
+                      job.runRemote.slurmArray
+                        ? ` · array 1-${job.runRemote.slurmArray.total}%${job.runRemote.slurmArray.concurrency}`
                         : ""
                     }`
                   : `Running on the cluster${job.runRemote.pid ? ` · pid ${job.runRemote.pid}` : ""}`}

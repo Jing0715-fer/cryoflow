@@ -12,7 +12,7 @@
 //        solo FAIL  → REAL-FAIL (a verdict, needs a human)
 //   3. EXIT CODE — 0 iff zero REAL-FAILs (SOLO-RECOVERY is honest but not a blocker).
 //
-// The FAMILY roster is an audited membership list (72 suites as of Task 304) —
+// The FAMILY roster is an audited membership list (73 suites as of Task 306) —
 // it is written here EXPLICITLY, not discovered by glob: diag-*/probe scripts and
 // one-off hearings are not family. When a new suite joins the family, add it here.
 //
@@ -137,6 +137,7 @@ const FAMILY = [
   "t299-slurm-sacct.mjs", // the accounting fallback: squeue purges finished jobs, so a lost .cf-exit used to age into a false 'interrupted remotely' — the alive-check's THIRD witness asks sacct for the controller's own terminal verdict and maps it onto the wrapper's exit contract (COMPLETED→0, FAILED→exit, CANCELLED→143, TIMEOUT→124, signal→128+sig), VANISHED means 'no testimony anywhere'; the mock journals its verdicts (launcher COMPLETED/FAILED, scancel CANCELLED + marker), the strip speaks the terminal word, and planted witnesses ride the REAL sweep — FIRST persisted slurm-mode regression (t297 shipped without one) (Task 299)
   "t302-family-suicide.mjs", // the runner dies with its children: a death signal kills the in-flight suite's whole group and writes an interrupted report entry — the orphan root, discipline → code (Task 302)
   "t304-sbatch-dependency.mjs", // the pipeline handoff, scheduler-side: a live remote parent turns the child's sbatch into --dependency=afterok + kill-on-invalid-dep, the mock holds/cancels by the same contract, the strip says 'waits on' (Task 304)
+  "t306-sbatch-array.mjs", // the array split joins the dispatch: --array=1-N%M shards the input STAR round-robin, the last task home merges the shard stars and speaks the verdict, the mock fans out with %M and journals <id>_<t> rows (Task 306)
 ];
 
 // ---- batches are first-class (t273) ----------------------------------------

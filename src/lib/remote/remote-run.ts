@@ -467,6 +467,28 @@ function buildWrapperScript(args: {
 /* ------------------------------------------------------------------ */
 
 /**
+ * t306 — the array split's type contract: a type is array-eligible only when
+ * its argv takes ONE per-micrograph input STAR (`--i`) and points `--o` at
+ * the workdir root, so each SLURM_ARRAY_TASK_ID can slice the star
+ * round-robin, run the shard in its own output subdir, and the LAST task
+ * home can merge the shard output stars back into the canonical file the
+ * engine's collectOutputs expects. The value is that canonical output star's
+ * name. Anything else (refine3d's global halves, postprocess's single map)
+ * would be split in name only — refused honestly instead.
+ */
+const ARRAY_TYPES: Record<string, string> = {
+  motioncorr: "corrected_micrographs.star",
+  ctffind: "micrographs_ctf.star",
+};
+
+/**
+ * t306 — the %M concurrency cap baked into `--array=1-N%M`. A real cluster
+ * backfills beyond it as slots free; the run dialog exposes ONE knob (the
+ * shard count) and this honest default, not a second stepper to misuse.
+ */
+const ARRAY_CONCURRENCY = 4;
+
+/**
  * t300 — the hostnames the probe's sinfo inventory resolved for ONE
  * partition (from the connection's lastProbe.slurmGpus[].hosts). null =
  * the partition is unknown to the probe (bare API callers, stale probes)
@@ -531,19 +553,44 @@ function buildSbatchScript(args: {
    * from stranding the child in PENDING forever. null = no live upstream.
    */
   dependency?: string | null;
+  /**
+   * t306 — the array split: when present the script carries
+   * `#SBATCH --array=1-N%M`, each SLURM_ARRAY_TASK_ID slices the input STAR
+   * round-robin (data-block rows), runs the command on the shard with --o
+   * pointed at a per-task subdir, and the LAST task home (the rc-file count
+   * gate — nobody else knows who is last) merges the shard output stars
+   * into the canonical one and writes .cf-exit: 0 only when every task's rc
+   * was 0. The EXIT trap stands down for array tasks (a single shard's
+   * failure must not speak the verdict while its siblings still run) — the
+   * TERM/INT trap keeps writing 143 (a scancel kills ALL tasks; the first
+   * writer wins, the word is the same). null = single job, byte-identical
+   * to the pre-t306 contract.
+   */
+  array?: {
+    total: number;
+    concurrency: number;
+    inputStar: string;
+    outStar: string;
+  } | null;
 }): string {
-  const { conn, module: moduleName, relionHome, ctffind, command, gpus, ntasks, threads, jobName, remoteProjectRoot, remoteWorkdir, partition, nodelist, dependency } = args;
+  const { conn, module: moduleName, relionHome, ctffind, command, gpus, ntasks, threads, jobName, remoteProjectRoot, remoteWorkdir, partition, nodelist, dependency, array } = args;
   const effectivePartition = partition ?? conn.slurmPartition ?? null;
   const L: string[] = [];
   L.push("#!/bin/bash");
   L.push("# CryoFlow Slurm submission — generated locally, submitted on the cluster");
-  L.push("# connection: " + `${conn.username}@${conn.host}:${conn.port} · module ${moduleName || "(none)"} · ${gpus > 0 ? `${gpus} GPU(s)` : "CPU"}${effectivePartition ? ` · partition ${effectivePartition}` : ""}${nodelist ? ` · node ${nodelist}` : ""}`);
+  L.push("# connection: " + `${conn.username}@${conn.host}:${conn.port} · module ${moduleName || "(none)"} · ${gpus > 0 ? `${gpus} GPU(s)` : "CPU"}${effectivePartition ? ` · partition ${effectivePartition}` : ""}${nodelist ? ` · node ${nodelist}` : ""}${array ? ` · array 1-${array.total}%${array.concurrency}` : ""}`);
   L.push(`#SBATCH --job-name=${jobName}`);
   if (effectivePartition) L.push(`#SBATCH --partition=${effectivePartition}`);
   if (nodelist) L.push(`#SBATCH --nodelist=${nodelist}`);
   if (dependency) {
     L.push(`#SBATCH --dependency=${dependency}`);
     L.push("#SBATCH --kill-on-invalid-dep=yes");
+  }
+  // t306 — the array directive: N shards, at most M running at once (the
+  // scheduler backfills as slots free). Rides AFTER the dependency so an
+  // array child of a live upstream orders the WHOLE fan-out behind it.
+  if (array) {
+    L.push(`#SBATCH --array=1-${array.total}%${array.concurrency}`);
   }
   L.push("#SBATCH --nodes=1");
   L.push(`#SBATCH --ntasks=${Math.max(1, ntasks)}`);
@@ -590,11 +637,63 @@ function buildSbatchScript(args: {
   //     `bash -c 'trap "echo $?" EXIT; sleep N'` + kill → writes 0);
   //   - SIGKILL / node loss: nothing is written → VANISHED → the honest
   //     "interrupted remotely" path.
+  //   t306 — array tasks: the EXIT trap STANDS DOWN (one shard's failure
+  //     must not speak the verdict while its siblings still run — the
+  //     count gate below owns the word); the TERM/INT trap keeps writing
+  //     143 (a scancel hits ALL tasks; first writer wins, same word).
   L.push(`trap 'echo 143 > ${shQuote(remoteWorkdir + "/.cf-exit")} 2>/dev/null; exit 143' TERM INT`);
   L.push(
-    `trap '__rc=$?; [ "$__rc" -eq 0 ] || echo "$__rc" > ${shQuote(remoteWorkdir + "/.cf-exit")} 2>/dev/null' EXIT`
+    `trap '__rc=$?; [ "$__rc" -eq 0 ] || [ -n "${"${"}SLURM_ARRAY_TASK_ID:-}" ] || echo "$__rc" > ${shQuote(remoteWorkdir + "/.cf-exit")} 2>/dev/null' EXIT`
   );
   L.push(`set +e`);
+  // t306 — the array branch: each task slices its shard out of the input
+  // star (round-robin over the data-block rows — the optics block and the
+  // comments pass through untouched), runs the command with $SHARD as the
+  // input and $OSHARD as its own output subdir, appends its rc, and the
+  // LAST task home (the rc-file count gate) merges the shard output stars
+  // into the canonical one before writing .cf-exit. The RCF's name carries
+  // SLURM_ARRAY_JOB_ID so a re-run never reads a previous submission's
+  // tally, and the merge is tolerated-missing (a failed shard's star is
+  // simply absent — the verdict says FAILED anyway).
+  if (array) {
+    const N = array.total;
+    const W = remoteWorkdir;
+    L.push(`if [ -n "${"${"}SLURM_ARRAY_TASK_ID:-}" ]; then`);
+    L.push(`  SHARD="${W}/.cf-shard-$SLURM_ARRAY_TASK_ID.star"`);
+    L.push(`  RCF="${W}/.cf-array-rc-$SLURM_ARRAY_JOB_ID"`);
+    L.push(`  OSHARD="${W}/shard_$SLURM_ARRAY_TASK_ID"`);
+    L.push(`  awk -v s="$SLURM_ARRAY_TASK_ID" -v n=${N} '`);
+    L.push(`    /^data_/{block++; print; next}`);
+    L.push(`    /^loop_/{print; next}`);
+    L.push(`    /^_/{print; next}`);
+    L.push(`    block>=2 && NF>0 && $1 !~ /^#/{ if(idx % n == s-1) print; idx++; next }`);
+    L.push(`    { if(block<2) print }`);
+    L.push(`  ' ${shQuote(array.inputStar)} > "$SHARD" 2>/dev/null || cp ${shQuote(array.inputStar)} "$SHARD"`);
+    L.push(`  ${command}`);
+    L.push(`  __rc=$?`);
+    L.push(`  echo "$SLURM_ARRAY_TASK_ID $__rc" >> "$RCF"`);
+    L.push(`  __done="$(wc -l < "$RCF" 2>/dev/null || true)"`);
+    L.push(`  if [ "${"${__done:-0}"}" -ge ${N} ]; then`);
+    L.push(`    __merged="${W}/${array.outStar}"`);
+    L.push(`    __have=0`);
+    L.push(`    for __k in $(seq 1 ${N}); do`);
+    L.push(`      __f="${W}/shard_$__k/${array.outStar}"`);
+    L.push(`      [ -f "$__f" ] || continue`);
+    L.push(`      if [ "$__have" = "0" ]; then`);
+    L.push(`        cp "$__f" "$__merged.cf-merge"`);
+    L.push(`        __have=1`);
+    L.push(`      else`);
+    L.push(`        awk '!/^data_/ && !/^loop_/ && !/^_/ && !/^#/ && NF>0' "$__f" >> "$__merged.cf-merge" 2>/dev/null || true`);
+    L.push(`      fi`);
+    L.push(`    done`);
+    L.push(`    [ "$__have" = "1" ] && mv "$__merged.cf-merge" "$__merged"`);
+    L.push(`    __bad="$(awk '$2!=0{print $2; exit}' "$RCF" 2>/dev/null || true)"`);
+    L.push(`    echo "${"${__bad:-0}"}" > ${shQuote(W + "/.cf-exit")}`);
+    L.push(`    rm -f "$RCF" "${W}"/.cf-shard-*.star`);
+    L.push(`  fi`);
+    L.push(`  exit "$__rc"`);
+    L.push(`fi`);
+  }
   L.push(command);
   L.push(`__rc=$?`);
   L.push(`echo "$__rc" > ${shQuote(remoteWorkdir + "/.cf-exit")}`);
@@ -682,6 +781,11 @@ export async function startRemoteJob(args: {
   const gpuWidth = isSlurm
     ? Math.max(1, Math.min(8, Math.round(Number(target.gpus ?? 6)) || 6))
     : 0;
+  // t306 — the array split width: 0 = no split (the single-job contract,
+  // byte-identical submissions). 2..64 after the clamp; the route already
+  // dropped sub-2 values, this is the second gate on the engine side.
+  const shardTotal =
+    isSlurm && Number(target.shards) >= 2 ? Math.min(64, Math.round(Number(target.shards))) : 0;
   // t300 — the partition (detected node group) this sbatch pins. The run
   // route already sanitized the raw body; this is the second gate on the
   // engine side (bare API callers get the same clamps, never a raw string
@@ -711,6 +815,18 @@ export async function startRemoteJob(args: {
   if (NATIVE_TYPES.has(job.type)) {
     return fail(
       `"${job.type}" runs locally in milliseconds (no cluster needed) — its outputs stage to the cluster automatically when a remote job needs them`,
+      true
+    );
+  }
+
+  // t306 — the array gate: shards only mean something for the types whose
+  // argv takes ONE per-micrograph input star and whose output star the last
+  // task can merge (ARRAY_TYPES). Anything else is refused BEFORE staging —
+  // a silently un-split run would be a lie with extra steps, and a split
+  // refine3d would break global alignment statistics outright.
+  if (shardTotal >= 2 && !ARRAY_TYPES[job.type]) {
+    return fail(
+      `"${job.type}" cannot ride an array split (only ${Object.keys(ARRAY_TYPES).join(" / ")} shard per micrograph today) — submit it without the split`,
       true
     );
   }
@@ -1099,7 +1215,36 @@ export async function startRemoteJob(args: {
             : 0
         : 0;
 
-      const command = argv.map(shQuote).join(" ");
+      // t306 — the array rewrite: the shard task sees $SHARD (its slice of
+      // the input star) and $OSHARD (its own output subdir) — the two argv
+      // slots are swapped for raw shell refs the script defines per task;
+      // every other arg keeps its quoted literal. A rewrite that cannot
+      // name its targets (no --i star, --o not the workdir root) refuses
+      // the split honestly instead of submitting a script that would slice
+      // the wrong file.
+      let command: string;
+      let arrayPlan: { total: number; concurrency: number; inputStar: string; outStar: string } | null = null;
+      if (shardTotal >= 2) {
+        const ii = argv.indexOf("--i");
+        const oi = argv.indexOf("--o");
+        const inputStar = ii >= 0 ? String(argv[ii + 1] ?? "") : "";
+        const outArg = oi >= 0 ? String(argv[oi + 1] ?? "") : "";
+        const outStar = ARRAY_TYPES[job.type] ?? "";
+        if (!inputStar.endsWith(".star") || outArg !== remoteWorkdir + "/" || !outStar) {
+          // inside the spawn task the honest exit is a THROWN error (the
+          // catch below marks the record + row failed with this message) —
+          // a return here could not reach the caller.
+          throw new Error(
+            `array split unavailable for "${job.type}": the command does not take one input STAR + the workdir as its output (the shard slicing would target the wrong file)`
+          );
+        }
+        arrayPlan = { total: shardTotal, concurrency: ARRAY_CONCURRENCY, inputStar, outStar };
+        command = argv
+          .map((a, k) => (k === ii + 1 ? '"$SHARD"' : k === oi + 1 ? '"$OSHARD/"' : shQuote(a)))
+          .join(" ");
+      } else {
+        command = argv.map(shQuote).join(" ");
+      }
       const threads = Math.max(1, Math.min(32, Math.round(Number(params.threads ?? 4) || 4)));
       const jobName = `cf_${job.type}_${job.id.slice(-8)}`;
 
@@ -1145,6 +1290,7 @@ export async function startRemoteJob(args: {
           partition: partitionOverride,
           nodelist: nodelistPin,
           dependency,
+          array: arrayPlan,
         });
         const scriptPath = `${remoteWorkdir}/.cf-sbatch.sh`;
         const upOk = await remoteUpload(conn, script, scriptPath);
@@ -1171,6 +1317,7 @@ export async function startRemoteJob(args: {
                   slurmId,
                   slurmState: "PENDING",
                   ...(depIds.length ? { slurmDependsOn: depIds } : {}),
+                  ...(arrayPlan ? { slurmArray: { total: arrayPlan.total, concurrency: arrayPlan.concurrency } } : {}),
                   phase: "running",
                   stagedBytes,
                   stagedMs,
@@ -1184,7 +1331,7 @@ export async function startRemoteJob(args: {
         });
         stopBeat();
         console.log(
-          `remote-run: ${job.type} "${job.name}" submitted to Slurm on ${conn.name} (job ${slurmId}, ${gresWidth > 0 ? `${gresWidth} GPU(s)` : "CPU"}${partitionOverride ? ` · partition ${partitionOverride}` : ""}${nodelistPin ? ` · node ${nodelistPin}` : ""}${depIds.length ? ` · afterok ${depIds.join(",")}` : ""}, module ${moduleName || "none"})`
+          `remote-run: ${job.type} "${job.name}" submitted to Slurm on ${conn.name} (job ${slurmId}, ${gresWidth > 0 ? `${gresWidth} GPU(s)` : "CPU"}${partitionOverride ? ` · partition ${partitionOverride}` : ""}${nodelistPin ? ` · node ${nodelistPin}` : ""}${depIds.length ? ` · afterok ${depIds.join(",")}` : ""}${arrayPlan ? ` · array 1-${arrayPlan.total}%${arrayPlan.concurrency}` : ""}, module ${moduleName || "none"})`
         );
       } else {
         // ---- direct mode: the setsid wrapper (unchanged contract) --------
@@ -2077,6 +2224,7 @@ export function remoteInfoFor(jobId: string): RemoteRunInfo | null {
     ...(r.slurmElapsedMs != null ? { slurmElapsedMs: r.slurmElapsedMs } : {}),
     ...(r.slurmMaxRssBytes != null ? { slurmMaxRssBytes: r.slurmMaxRssBytes } : {}),
     ...(r.slurmDependsOn?.length ? { slurmDependsOn: r.slurmDependsOn } : {}),
+    ...(r.slurmArray ? { slurmArray: r.slurmArray } : {}),
     phase: r.phase,
     ...(r.stagedBytes != null ? { stagedBytes: r.stagedBytes } : {}),
     // t269 — the time ledger rides the DTO so the inspector's remote strip

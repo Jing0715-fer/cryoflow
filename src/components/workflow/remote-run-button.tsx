@@ -54,6 +54,15 @@ import {
 
 const CUSTOM_MODULE_VALUE = "__custom__";
 const PARTITION_AUTO = "__auto__";
+const ARRAY_MAX_SHARDS = 64;
+/**
+ * t306 — the types whose remote Slurm run can ride an array split (the
+ * dispatch's own ARRAY_TYPES gate — per-micrograph embarrassingly parallel:
+ * one --i star in, a per-micrograph output star the last task merges back).
+ * The dialog hides the stepper for everything else — a knob that would be
+ * refused at dispatch time is not a knob, it is a trap.
+ */
+const ARRAY_ELIGIBLE_TYPES = new Set(["motioncorr", "ctffind"]);
 
 /** The relion --gpu flag's device list for N GPUs: "0", "0:1", "0:1:2"… */
 function gpuListFor(n: number): string {
@@ -100,6 +109,10 @@ export function RemoteRunButton({
   // t300 — the detected node group (Slurm partition) this sbatch pins;
   // "__auto__" = the scheduler picks (falls back to the connection default)
   const [partition, setPartition] = React.useState<string>(PARTITION_AUTO);
+  // t306 — the array split (1 = off — the single-job contract; 2..64 shards
+  // ride --array=1-N%4). Defaults OFF: a re-run of an old job must submit
+  // byte-identical scripts unless the user asks for the split.
+  const [shards, setShards] = React.useState(1);
   const [customModule, setCustomModule] = React.useState("");
   const [pending, setPending] = React.useState(false);
   // the nested cluster manager (empty state → add a connection right here)
@@ -176,6 +189,10 @@ export function RemoteRunButton({
 
   const disabled = job.status === "running" || job.linkedJobId != null;
 
+  // t306 — the array stepper only exists for eligible types (the dispatch
+  // would refuse the split for anything else) and only in slurm mode.
+  const arrayEligible = ARRAY_ELIGIBLE_TYPES.has(job.type);
+
   /** The module the dispatch will actually load: the free-text door wins
    *  over the select while it carries a value. */
   const effectiveModule =
@@ -193,6 +210,7 @@ export function RemoteRunButton({
           ? {
               gpus,
               ...(partition !== PARTITION_AUTO ? { partition } : {}),
+              ...(arrayEligible && shards >= 2 ? { shards: Math.min(ARRAY_MAX_SHARDS, shards) } : {}),
             }
           : {}),
       };
@@ -488,6 +506,61 @@ export function RemoteRunButton({
                 </div>
               ) : null}
 
+              {/* t306 — the array split stepper (slurm mode, eligible types
+                  only): 1 = a single job (the old contract), 2..64 shards
+                  ride ONE sbatch --array=1-N%4 — each task slices the input
+                  STAR by SLURM_ARRAY_TASK_ID, and the last task home merges
+                  the shard output stars back into the canonical one, so
+                  downstream jobs and Results never learn it was an array. */}
+              {mode === "slurm" && arrayEligible ? (
+                <div className="space-y-1" data-array-shards-row="">
+                  <p className="text-[11px] text-muted-foreground">Array split</p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="size-8 shrink-0"
+                      onClick={() => setShards((s) => Math.max(1, s - 1))}
+                      disabled={shards <= 1}
+                      aria-label="One shard fewer"
+                    >
+                      <Minus className="size-3.5" aria-hidden="true" />
+                    </Button>
+                    <span
+                      className="min-w-20 rounded-md border bg-muted/40 px-2 py-1.5 text-center font-mono text-sm font-semibold tabular-nums"
+                      aria-live="polite"
+                      aria-label={shards >= 2 ? `${shards} array shards` : "single job, no split"}
+                    >
+                      {shards >= 2 ? `${shards} shards` : "1 × job"}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="size-8 shrink-0"
+                      onClick={() => setShards((s) => Math.min(ARRAY_MAX_SHARDS, s + 1))}
+                      disabled={shards >= ARRAY_MAX_SHARDS}
+                      aria-label="One shard more"
+                    >
+                      <Plus className="size-3.5" aria-hidden="true" />
+                    </Button>
+                    <p className="min-w-0 flex-1 text-[10px] leading-snug text-muted-foreground/80">
+                      {shards >= 2 ? (
+                        <>
+                          One <span className="font-mono">sbatch --array=1-{shards}%4</span> — each
+                          shard takes every {shards}
+                          <sup className="text-[8px]">th</sup> micrograph; the last shard home merges
+                          the outputs. 1 job = no split.
+                        </>
+                      ) : (
+                        <>Split per micrograph for data-parallel steps (MotionCorr, CTF Find). 1 job = no split.</>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+
               {conn ? (
                 <p className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
                   <span className="font-mono">
@@ -504,7 +577,7 @@ export function RemoteRunButton({
                   <span aria-hidden="true">·</span>
                   <span data-run-mode-line="">
                     {mode === "slurm"
-                      ? `sbatch${conn.slurmPartition ? ` · ${conn.slurmPartition}` : ""}${gpus > 0 ? ` · ${gpus} GPU(s)` : ""}`
+                      ? `sbatch${conn.slurmPartition ? ` · ${conn.slurmPartition}` : ""}${gpus > 0 ? ` · ${gpus} GPU(s)` : ""}${arrayEligible && shards >= 2 ? ` · array 1-${shards}%4` : ""}`
                       : "runs direct (no scheduler)"}
                   </span>
                 </p>
