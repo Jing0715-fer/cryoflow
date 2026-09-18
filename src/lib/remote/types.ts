@@ -107,7 +107,11 @@ export interface ConnectionRunResume {
   failed: number;
   /** ISO time of the most recent run (any terminal state counts). */
   lastRunAt: string | null;
-  /** ≤3 newest runs, newest first — the résumé's reading line. */
+  /**
+   * The résumé's rows, newest first. The list route keeps ≤3 (the reading
+   * line); t295's panorama route returns EVERY entry under the same shape —
+   * the card's expand swaps the full aggregate in wholesale.
+   */
   recent: ConnectionRunResumeEntry[];
 }
 

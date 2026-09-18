@@ -189,8 +189,11 @@ try {
     "both ConnectionEditor mounts (create + saved) carry the door's caller"
   );
   must(
-    dlg.includes("<RunResumeCard resume={connection.resume} onOpenJob={onOpenJob} onForgetRun={onForgetRun} />"),
-    "the editor threads the door down to the résumé card"
+    dlg.includes("resume={connection.resume}") &&
+      dlg.includes("connectionId={connection.id}") &&
+      dlg.includes("onForgetRun={onForgetRun}") &&
+      dlg.includes("onForgetAllDead={onForgetAllDead}"),
+    "the editor threads the door down to the résumé card (t295: + connectionId and the bulk caller)"
   );
 
   // ---- Phase C: the live loop ---------------------------------------------

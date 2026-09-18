@@ -337,15 +337,28 @@ function resumeDot(e: ConnectionRunResumeEntry): { className: string; label: str
  *  on is a ledger that only grows. A row whose job is gone EVERYWHERE gets
  *  a quiet X (hover-revealed, like the live row's arrow) that deletes the
  *  dead record; a row whose job lives on ANOTHER canvas keeps no such
- *  door — that record is live history for the canvas that can open it. */
+ *  door — that record is live history for the canvas that can open it.
+ *  t295 — the card grows TWO doors for its own depth: the expand toggle
+ *  (the list route shows ≤3 rows; the panorama route returns EVERY entry
+ *  under the same shape — the card swaps it in wholesale, and any reload
+ *  re-fetches, so the panorama tracks the ledger rather than a snapshot)
+ *  and the bulk forget (one click retires every DEAD entry — the server
+ *  keeps live records and counts both). The bulk door renders only over
+ *  the FULL picture (every row on screen): a count computed from a
+ *  three-row fold would understate what the click destroys — a door that
+ *  cannot state its blast radius is never drawn. */
 function RunResumeCard({
   resume,
+  connectionId,
   onOpenJob,
   onForgetRun,
+  onForgetAllDead,
 }: {
   resume: ConnectionRunResume;
+  connectionId: string;
   onOpenJob?: (jobId: string) => void;
   onForgetRun?: (jobId: string) => Promise<void>;
+  onForgetAllDead?: () => Promise<{ forgotten: number; kept: number }>;
 }) {
   // the store is the truth the inspector can actually open — an entry
   // whose job is not in it renders as history, not as a doorway
@@ -358,8 +371,64 @@ function RunResumeCard({
   // last refusal's honest wording (role=alert, under the rows).
   const [forgetting, setForgetting] = React.useState<string | null>(null);
   const [forgetError, setForgetError] = React.useState<string | null>(null);
-  const goneCount = resume.recent.filter((e) => e.exists === false).length;
-  const openCount = resume.recent.length - goneCount;
+  // t295 — the panorama: expanded swaps in the server's full aggregate;
+  // bulk = the armed two-step ("Forget n gone" → "Sure?"), its result and
+  // refusal lines land under the rows like the single door's do.
+  const [expanded, setExpanded] = React.useState(false);
+  const [full, setFull] = React.useState<ConnectionRunResume | null>(null);
+  const [bulkArmed, setBulkArmed] = React.useState(false);
+  const [bulkBusy, setBulkBusy] = React.useState(false);
+  const [bulkError, setBulkError] = React.useState<string | null>(null);
+  const [bulkOk, setBulkOk] = React.useState<{ forgotten: number; kept: number } | null>(null);
+  // t295 — the panorama's data path: expanding fetches the full aggregate
+  // from the server (one truth — the card never assembles history
+  // locally), and any change to the underlying connection (a reload
+  // swapped the object) re-fetches. The card is the same renderer at both
+  // apertures; only the rows it is handed differ.
+  React.useEffect(() => {
+    if (!expanded) {
+      setFull(null);
+      setBulkArmed(false);
+      return;
+    }
+    let alive = true;
+    fetch(`/api/remote/records?connectionId=${encodeURIComponent(connectionId)}`)
+      .then((r) => r.json())
+      .then((d: { ok?: boolean; resume?: ConnectionRunResume } | null) => {
+        if (alive && d?.ok && d.resume) setFull(d.resume);
+      })
+      .catch(() => {
+        /* honest absence: the collapsed rows remain on show */
+      });
+    return () => {
+      alive = false;
+    };
+  }, [expanded, connectionId, resume]);
+  const shown = full ?? resume;
+  const toggleExpand = () => {
+    setBulkArmed(false);
+    setExpanded((v) => !v);
+  };
+  const bulkForget = async () => {
+    if (!bulkArmed) {
+      setBulkArmed(true);
+      return;
+    }
+    setBulkError(null);
+    setBulkOk(null);
+    setBulkBusy(true);
+    try {
+      setBulkOk((await onForgetAllDead?.()) ?? null);
+      setBulkArmed(false);
+    } catch (err) {
+      setBulkError(err instanceof Error ? err.message : "bulk forget failed");
+      setBulkArmed(false);
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+  const goneCount = shown.recent.filter((e) => e.exists === false).length;
+  const openCount = shown.recent.length - goneCount;
   const helperVariant = goneCount === 0 ? "live" : openCount > 0 ? "mixed" : "history";
   const helperText =
     helperVariant === "live"
@@ -367,11 +436,19 @@ function RunResumeCard({
       : helperVariant === "mixed"
         ? "Runs dispatched through this connection — click a live one to open its job's inspector; entries marked gone are deleted jobs the résumé keeps as history. Staging and sync-back times come from each run's time ledger."
         : "Runs this connection once dispatched, kept as history — the jobs behind these entries are gone (deleted), so there is nothing left to open.";
+  // t295 — the two apertures: overflow decides whether the expand door
+  // exists at all; fullPicture decides whether the bulk door may state a
+  // count (only when every row is on screen); deadShown is the count that
+  // count would state.
+  const overflow = shown.total > resume.recent.length;
+  const fullPicture = shown.recent.length >= shown.total;
+  const deadShown = goneCount;
+  const showBulk = deadShown > 0 && fullPicture && onForgetAllDead != null;
   return (
     <div className="space-y-2 rounded-md border bg-muted/30 p-3" data-run-resume="">
       <div className="flex flex-wrap items-center gap-1.5">
         <Badge variant="outline" className="text-[10px]" data-resume-total="">
-          {resume.total} run{resume.total === 1 ? "" : "s"}
+          {shown.total} run{shown.total === 1 ? "" : "s"}
         </Badge>
         {resume.completed > 0 ? (
           <Badge
@@ -397,7 +474,7 @@ function RunResumeCard({
           </span>
         ) : null}
       </div>
-      {resume.recent.map((e) => {
+      {shown.recent.map((e) => {
         const dot = resumeDot(e);
         const ledger = [
           e.stagedMs != null ? `staged ${formatLedgerMs(e.stagedMs)}` : "",
@@ -518,6 +595,69 @@ function RunResumeCard({
           </div>
         );
       })}
+      {/* t295 — the card's own depth doors. Expand: the panorama toggle
+          (exists on overflow, or while expanded to come back down). Bulk:
+          the armed two-step, ONLY over the full picture — the label always
+          states the exact blast radius (deadShown). */}
+      {(overflow || expanded) ? (
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            data-resume-expand=""
+            aria-expanded={expanded}
+            onClick={toggleExpand}
+            className="rounded-sm px-1 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            title={
+              expanded
+                ? "Back to the three newest runs"
+                : `The list view keeps the three newest rows — this card remembers ${shown.total} runs; open the whole ledger`
+            }
+          >
+            {expanded ? "Show recent only" : `Show all ${shown.total} runs`}
+          </button>
+          {showBulk ? (
+            <button
+              type="button"
+              data-resume-forget-dead=""
+              disabled={bulkBusy || forgetting != null}
+              onClick={() => void bulkForget()}
+              aria-label={
+                bulkArmed
+                  ? `Confirm forgetting the ${deadShown} dead history entries`
+                  : `Forget the ${deadShown} dead history entries`
+              }
+              className={cn(
+                "ml-auto flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] transition-colors hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40",
+                bulkArmed
+                  ? "bg-rose-500/10 text-rose-700 hover:text-rose-800 dark:text-rose-300"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+              title={
+                bulkArmed
+                  ? `Click again — ${deadShown} dead records leave the résumé; live ones stay`
+                  : "Every entry whose job is gone everywhere, retired in one click — live history stays (its canvas can still open it)"
+              }
+            >
+              {bulkBusy ? (
+                <Loader2 className="size-3 animate-spin" aria-hidden="true" />
+              ) : (
+                <X className="size-3" aria-hidden="true" />
+              )}
+              {bulkArmed ? `Sure? Forget ${deadShown}` : `Forget ${deadShown} gone`}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+      {bulkOk ? (
+        <p role="status" data-resume-forget-dead-ok="" className="text-[10px] text-emerald-700 dark:text-emerald-300">
+          Forgot {bulkOk.forgotten} dead entr{bulkOk.forgotten === 1 ? "y" : "ies"} · kept {bulkOk.kept} live
+        </p>
+      ) : null}
+      {bulkError ? (
+        <p role="alert" data-resume-forget-dead-error="" className="text-[10px] leading-relaxed text-rose-700 dark:text-rose-300">
+          {bulkError}
+        </p>
+      ) : null}
       {forgetError ? (
         <p
           role="alert"
@@ -595,6 +735,7 @@ function ConnectionEditor({
   onCancelCreate,
   onOpenJob,
   onForgetRun,
+  onForgetAllDead,
 }: {
   /** null = creating a new connection. */
   connection: RemoteConnectionDTO | null;
@@ -610,6 +751,10 @@ function ConnectionEditor({
    *  refuses live jobs); the caller refreshes the list on success and the
    *  refusal's error propagates back to the row. */
   onForgetRun?: (jobId: string) => Promise<void>;
+  /** t295 — the bulk door: retires every DEAD record of the editor's
+   *  connection (live ones are kept and counted); the dialog owns the
+   *  fetch + reload, the card owns the arm/confirm two-step. */
+  onForgetAllDead?: () => Promise<{ forgotten: number; kept: number }>;
 }) {
   const creating = connection === null;
   const [draft, setDraft] = React.useState<Draft>(() => toDraft(connection));
@@ -1159,7 +1304,13 @@ function ConnectionEditor({
       {!creating && connection?.resume ? (
         <div className="space-y-2">
           <SectionTitle>Run résumé</SectionTitle>
-          <RunResumeCard resume={connection.resume} onOpenJob={onOpenJob} onForgetRun={onForgetRun} />
+          <RunResumeCard
+            resume={connection.resume}
+            connectionId={connection.id}
+            onOpenJob={onOpenJob}
+            onForgetRun={onForgetRun}
+            onForgetAllDead={onForgetAllDead}
+          />
         </div>
       ) : null}
 
@@ -1279,6 +1430,24 @@ export function RemoteClusterDialog({
       const body = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
       if (!res.ok) throw new Error(body?.error || `forget failed (${res.status})`);
       reload();
+    },
+    [reload]
+  );
+  // t295 — the bulk door's caller: one DELETE retires every DEAD record of
+  // the connection (the server keeps live records and counts both), then
+  // reload — the server re-aggregates (one truth, no local surgery). The
+  // counts come back so the card can state what actually happened.
+  const handleForgetAllDead = React.useCallback(
+    async (connectionId: string): Promise<{ forgotten: number; kept: number }> => {
+      const res = await fetch(`/api/remote/records?connectionId=${encodeURIComponent(connectionId)}`, {
+        method: "DELETE",
+      });
+      const body = (await res.json().catch(() => null)) as
+        | { ok?: boolean; error?: string; forgotten?: number; kept?: number }
+        | null;
+      if (!res.ok || !body?.ok) throw new Error(body?.error || `bulk forget failed (${res.status})`);
+      reload();
+      return { forgotten: body.forgotten ?? 0, kept: body.kept ?? 0 };
     },
     [reload]
   );
@@ -1478,6 +1647,7 @@ export function RemoteClusterDialog({
                 onPatched={handlePatched}
                 onOpenJob={handleOpenJob}
                 onForgetRun={handleForgetRun}
+                onForgetAllDead={() => handleForgetAllDead(selected.id)}
               />
             ) : (
               <div className="flex h-full min-h-40 flex-col items-center justify-center gap-2 text-center">

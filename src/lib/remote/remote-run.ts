@@ -1572,10 +1572,16 @@ export function remoteInfoFor(jobId: string): RemoteRunInfo | null {
  * connection; status derives from done/exitCode the same way the stop route
  * writes them (137 = stopped by user → failed bucket). recent keeps the ≤3
  * newest entries, newest first — the reading line under the summary.
+ * t295 — opts.all is the PANORAMA variant: recent then holds EVERY entry
+ * (newest first, same shape) for the card's expand — the reading line and
+ * the panorama are the same aggregate at two apertures, never two truths.
  * A connection with zero runs yields an all-zero resume (total 0) — the
  * route omits the field entirely for that case, so "no résumé" stays honest.
  */
-export async function connectionRunResume(connectionId: string): Promise<ConnectionRunResume> {
+export async function connectionRunResume(
+  connectionId: string,
+  opts?: { all?: boolean }
+): Promise<ConnectionRunResume> {
   const resume: ConnectionRunResume = { total: 0, completed: 0, failed: 0, lastRunAt: null, recent: [] };
   const runs = readRuns();
   for (const rec of Object.values(runs)) {
@@ -1600,11 +1606,12 @@ export async function connectionRunResume(connectionId: string): Promise<Connect
     });
   }
   resume.recent.sort((a, b) => (a.startedAt < b.startedAt ? 1 : a.startedAt > b.startedAt ? -1 : 0));
-  resume.recent = resume.recent.slice(0, 3);
+  resume.recent = resume.recent.slice(0, opts?.all ? undefined : 3);
   // t272 — existence is the doorway's truth: the résumé is GLOBAL (records +
-  // connections), the job is per-project. For the ≤3 rendered entries the
-  // server says whether the job still exists anywhere, and under which
-  // project's canvas it lives — the UI can then speak THREE honest states
+  // connections), the job is per-project. For every rendered entry (the ≤3
+  // reading line, or the whole panorama under opts.all) the server says
+  // whether the job still exists anywhere, and under which project's canvas
+  // it lives — the UI can then speak THREE honest states
   // (jumpable / another canvas / gone) instead of one merged guess.
   for (const e of resume.recent) {
     const row = await db.job.findUnique({

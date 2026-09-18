@@ -1983,3 +1983,25 @@ Stage Summary:
 - 遗留（下轮候选）：remote-view-3d 大 map 的 Mol* 渲染实测；快看对话框 σ 口径输入（待真需求）；EMPIAR 真数据回归（连续第八窗让位）；résumé recent 只有 ≤3 行、total 大时旧条目无入口（分页/展开，待真需求）；批量 forget「一键清墓」（待真需求）
 - 【收尾补记】净场抓到一个跨窗残留 + 一个真基础设施刺：:3022 被 pid 20854（07:45 启动）占着——是哨兵复绿时 t272/t293 套件拉起的 mock cluster；套件 finally 的清场模式 `pkill -f 'mock-cluster/server.mjs'` 与实际进程 cmdline `bun server.mjs`（launch.sh 以裸相对路径 exec）**永不匹配**——这就是 mock 残留屡次跨窗存活（Task 291 开局也抓到过一次 1h38m 残留）的根源。修法方向（下轮可落地）：launch.sh exec 时用绝对路径，或清场模式改为按 cwd/端口定位（fuser -k 3022/tcp 已证可靠）。本窗以 kill pid + 端口验证净场（双 port FREE、无 watchdog/standalone 残留）。
 
+
+## Task 295 (2026-09-18, cron 16:48 窗口 trace 1a07549302235a99-cron-agent-loop-202609181652 —— 取代 13:18 cron（连续十四窗被摘要阻塞未执行），无撞号，树上直接立项 295)
+
+- 【开局】尾部实证 = Task 294（f82b29c 已 push）——续窗摘要声称「272 基线 + 连续十四窗被摘要阻塞」第十五次不实（272→294 已由各窗实交付）；cron 模板「Task 13」照例不认（Task 291 已核实 recital 七件全销账；Task 273 已交付 --report JSON）。净场良好（双 port FREE）→ watchdog 200 + roster 21。
+- 【QA】三哨兵全绿（qa00 + qa63 + t294）+ agent-browser 活体渲染正常。
+- 【立项】t294 收尾补记交办的**基础设施刺**（11 个套件的清场模式 `pkill -f 'mock-cluster/server.mjs'` 永不匹配实际 cmdline `bun server.mjs`——mock 残留屡次跨窗存活的根源）+ Task 294 遗留池两项「待真需求」合流立项：**résumé 的全景与批量**（recent 硬 cap 3、total 大时旧条目无入口；墓碑逐个 hover 手点繁琐）——résumé 家族第五部曲（t270 记忆 → t272 真话 → t277 见证 → t294 放手 → **t295 全景与清墓**）。
+- 【实现① 基础设施（launch.sh）】exec 改绝对路径 `bun "$PWD/server.mjs"`（dev 同理 `--hot`）——surviving cmdline 终于携带 `services/mock-cluster/server.mjs`，11 个套件的既有清场模式零改动即命中；副利：cmdline 不再含 "run start"，`pkill -f "bun run start"`（t292 判例的误杀）从此不可能误杀 mock。活体三证：cmdline 绝对路径在案 → 老 pkill 命中诛杀 → port FREE。
+- 【实现② 全景（remote-run.ts + GET /api/remote/records）】connectionRunResume 增 `opts?: { all?: boolean }`——`slice(0, opts?.all ? undefined : 3)`，读数行与全景是**同一聚合的两个孔径**，不是两本台账；exists/projectName 的 t272 注解循环随孔径覆盖全部条目。新路由 GET：isLocalRequest 守卫 + 400（无 connectionId——全景永远是一个连接的历史）+ 404（未知连接——虚无的全景是撒谎）。
+- 【实现③ 批量 forget（DELETE /api/remote/records）】t294 单门法则的集合版且**更窄不更宽**：只触及穿本 connectionId 的 records；**批量顺序律**——一次 findMany 先给全批画生死线，再让死者清场（拒绝先于删除）；活 records 保留并计数（kept）——活历史归画布管，t272 级联会带走。响应 `{ ok, forgotten, kept }` 两种命运都报数。
+- 【实现④ UI（RunResumeCard）】expand 开关（data-resume-expand + aria-expanded）：overflow 才出现、expanded 即「Show recent only」；effect `[expanded, connectionId, resume]` 从服务端拉全景——reload 换对象即重拉，**全景跟账本走不跟快照走**；shown = full ?? resume，同一渲染器两个孔径。bulk 门（data-resume-forget-dead）两段武装（"Forget n gone" → "Sure? Forget n"）+ **全图门**（`shown.recent.length >= shown.total` 才渲染）——折叠态的计数会低估爆炸半径，「说不出爆炸半径的门绝不画」；成功落 role=status 行（Forgot n · kept m），拒绝落 role=alert 行；单行 X 门（t294）原样保留。
+- 【套件 t295-resume-panorama.mjs（56 断言，**首跑 ALL PASS**）】A 相 demo 真相；B 相台账 22 断言（两路由 + 孔径变体 + 批量顺序律 + 全图门 + 双段武装 + effect 依赖 + launch.sh 绝对路径）；C 相活体：C1 probeless 连接（零 SSH）；C2 注入 5 records（2 活 = 真 demo jobs、3 死，死者穿插最新三行）；C3 折叠态 3 行 + expand 在场 + **bulk 缺席**（全图门活体）；C4 展开 5 行 + bulk 在场 "Forget 3 gone" + 定妆照；C5 API 直证（400×2 / 404×2 / 全景 5 条 + exists=false 预分级）；C6 折叠往返 + 门随折叠退场；C7 两段 bulk → Forgot 3 · kept 2 + 状态文件三死俱逝两活俱存 + 二次 bulk 诚实幂等（forgotten 0, kept 2）+ t294 单门 409 活 record 复证；D 相 console 0；finally 状态文件回灌 + 连接删除 + roster 21。
+- 【哨兵复绿 + 断言的错，第十六次应验（1 FAIL 全是套件）】t294 台账断言随 JSX 穿透演进（RunResumeCard 增 connectionId/onForgetAllDead 两 props——改断言文本，产品零错）；t270 `slice(0, 3)` 断言随孔径语义演进（`opts?.all ? undefined : 3`——默认孔径不变）；t270/t271/t272/t294 全 ALL PASS。
+- 【全家族回归（九批前台逐批——OOM 纪律第十六窗，一命令一批）】qa 11 · 406.9s ｜ t21 7 · 193.1s ｜ t22 2 · 65.2s ｜ t24 9 · 122.3s ｜ t25 9 · 436.3s ｜ t26 10 · 530.6s ｜ t27 7 · 277.6s ｜ t28 8 · 165.9s ｜ t29 4 · 113.2s（**t295 首战即家族**）——合计 **pass 67 · solo 0 · real-fail 0 · wall 2311.1s**（--summary 机器拷贝）；coverage 认证 67 套件九批各归属唯一（花名册 66→67）；roster 恒等 21；裸 tsc 0；rebuild 前台独占 ×1（chromium/watchdog 先杀），新路由 /api/remote/records 在构建清单在列，进程启动 09:13:56 > build 09:13:52——「重建 ≠ 上线」检验在案。
+- 【收尾】worklog（本条）+ commit/push + 环境清理（Task 86 双杀 + port FREE 验证）。
+
+Stage Summary:
+- **「读数行与全景是同一本台账的两个孔径」**：opts.all 不是第二份聚合——≤3 与全量出自同一个 connectionRunResume，t272 存在性分级随孔径全程在案；卡片展开即换上宽孔径，折叠即回读数行，渲染器只有一个——「一个真相，两个焦距」
+- **「说不出爆炸半径的门绝不画」**：bulk 门只在全图态渲染（shown.recent.length >= shown.total）——三行折叠态下的 "Forget n" 会把没看见的墓碑也一并清掉而标签只说看见的；全图门让标签永远精确（Forget 3 gone / Sure? Forget 3 / Forgot 3 · kept 2）
+- **「批量顺序律是单门法则的集合版」**：一次 findMany 画全批生死线，然后死者才清场——t294 的「拒绝先于删除」从行粒度升到批粒度；活记录 kept 计数返回，清墓从不清活人
+- **「修根不修症状」**：11 个套件的清场模式一个没改——launch.sh 的 exec 换绝对路径后既有模式全体复活；跨窗 mock 残留（Task 291 抓过 1h38m、t294 收尾抓过）从根源闭合，副利封死 `pkill -f "bun run start"` 误杀通道
+- **「全景跟账本走」**：effect 以 resume prop 为依赖——reload 换对象即重拉全景，bulk 成功后展开态自动瘦身（5 行 → 2 行），无一处本地手术；对共享状态的每个读路径都回服务端聚合出口
+- 遗留（下轮候选）：remote-view-3d 大 map 的 Mol* 渲染实测；快看对话框 display range 的 σ 口径输入（待真需求）；EMPIAR 真数据回归（连续第九窗让位）；résumé 全景的分页（当前一页全量，条目数十级尚可，百级待真需求）；Topaz wrapper 深化（边际递减）

@@ -149,8 +149,8 @@ try {
     rr.includes("export async function connectionRunResume") &&
       rr.includes("rec.remote?.connectionId !== connectionId") &&
       rr.includes("if (rec.exitCode === 0) resume.completed += 1;") &&
-      rr.includes("resume.recent.slice(0, 3)"),
-    "connectionRunResume filters by connectionId, buckets by exitCode, keeps ≤3 newest"
+      rr.includes("resume.recent.slice(0, opts?.all ? undefined : 3)"),
+    "connectionRunResume filters by connectionId, buckets by exitCode, keeps ≤3 newest (t295: the aperture is opts.all-wide, default unchanged)"
   );
   must(
     rr.includes("export async function withRunResume") &&
