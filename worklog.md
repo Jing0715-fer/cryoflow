@@ -1922,3 +1922,4 @@ Stage Summary:
 - **「文档版式永不碰撞」**：measure-first 布局——先量 name/stats 文宽再让渡 span，缩略缩至 span 上限、<120px 整体跳过；文档网格归常量（EXPORT_THUMB 300×40）所有，数据只决定内容不决定版式
 - **「把哲学讨论变像素事实」再下一城**：t291 套件在 Node 里裸手解 PNG（zlib + 五种 filter unfilter，零依赖）——518/506 slate 柱像素 + 单列青色窄带（≥15px 纵向 run）落在中段 span：「分布画上去了、截断线是窄带不是色块」从断言文本升级为像素证据
 - 遗留（下轮候选）：快看对话框 display range 的 σ 数值输入（σ 口径待真需求）；bookmark 缩略图叠加焦点交点（连续让位）；EMPIAR 真数据回归（连续第六窗让位）；Topaz wrapper 深化（边际递减）；triptych 导出的 8s 超时在大体积地图上的余量实测（首走 O(volume) 的真实耗时曲线）
+- 【收尾补记】撞号处理完成：rebase onto 2b8d663（仅 worklog.md 一处冲突，双方条目双保留）→ renumber 291（套件/花名册/源码注释/t279/t280 引用/证据照名重链）→ amend 996be81 push + 证据重摆 7b6f0fc push；合并树 tsc 0、t291 套件 renumber 后复跑 ALL PASS（青色截断 x≈615 复现）。终态 HEAD = 7b6f0fc，roster 21，双 port 净场。
