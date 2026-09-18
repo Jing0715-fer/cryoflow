@@ -124,6 +124,7 @@ const FAMILY = [
   "t295-resume-panorama.mjs", // the résumé's panorama and the bulk forget: the expand toggle serves the SAME aggregate at the wide aperture ({ all: true } — same shape, t272 grades ride along) so history past the three-row fold is visible; DELETE /api/remote/records retires every DEAD record of one connection — the whole batch's existence is settled BEFORE anything dies, live records are kept and counted, the UI door is armed two-step and renders ONLY over the full picture (a count computed from a fold would understate the blast radius); the ledger also pins launch.sh's absolute-path exec (the cleanup pattern can finally find the cmdline) (Task 295)
   "t296-big-map-viewer.mjs", // the big map's verdict: a REAL reconstruction-scale volume (256³ float32 = 64 MB, 64× the demo's voxel count) walks mapimport → identity card → Mol* — the raw route streams 67 MB flat, ParseCcp4 + isosurface commit inside the 120 s gate (~15 s live), 5σ contour recomputes on 16.7M voxels, the histogram's cold full-grid scan (~1 s) collapses to an LRU hit on the second look; the suite FOUND the out-of-tree symlink lockout (mapimport symlinked its source — the containment policy honest 400'd every png/raw/histogram fetch while the identity card spoke stats) and pins the hardlink-first materialization (Task 296)
   "t298-remote-big-map.mjs", // the borrowed big map: the two legs that never crossed (t293's borrow chain only ever handed over a 2 MB png door; t296's reconstruction-scale map was always LOCAL) — a 256³ float32 map is planted on the mock cluster, left there by the key-files policy, and opened through the REMOTE tile's View in 3D: the raw door lazy-fetches over SSH (timed), the in-flight dedup survives a two-concurrent-fetch race byte-identically, Mol* commits the isosurface inside the 120 s gate, the tile graduates WITH dims, and the histogram's cold→LRU doctrine lands on a fetched file; the suite FOUND the mock's exec cat losing 1.6–48 MB per 64 MB transfer (pipe 'end' ≠ channel flushed) and pins the write-callback pump + the close-only file end (Task 298)
+  "t299-slurm-sacct.mjs", // the accounting fallback: squeue purges finished jobs, so a lost .cf-exit used to age into a false 'interrupted remotely' — the alive-check's THIRD witness asks sacct for the controller's own terminal verdict and maps it onto the wrapper's exit contract (COMPLETED→0, FAILED→exit, CANCELLED→143, TIMEOUT→124, signal→128+sig), VANISHED means 'no testimony anywhere'; the mock journals its verdicts (launcher COMPLETED/FAILED, scancel CANCELLED + marker), the strip speaks the terminal word, and planted witnesses ride the REAL sweep — FIRST persisted slurm-mode regression (t297 shipped without one) (Task 299)
 ];
 
 // ---- batches are first-class (t273) ----------------------------------------
@@ -137,7 +138,13 @@ const BATCHES = [
   { name: "t22", match: /^t22/ },
   { name: "t24", match: /^t24/ },
   { name: "t25", match: /^t25/ },
-  { name: "t26", match: /^t26/ },
+  // t299 — t26 outgrew the 600s tool ceiling (10 suites, the t268 heartbeat
+  // reboot alone eats minutes; two windows watched it get cut mid-run and
+  // the report kept a stale 10-real-fail verdict). t273's law: the ceiling
+  // IS the batch boundary — so the decade splits: t26 = t260–t265, t26b =
+  // t266–t269 (the heartbeat ledger half).
+  { name: "t26", match: /^t26[0-5]/ },
+  { name: "t26b", match: /^t26[6-9]/ },
   { name: "t27", match: /^t27/ },
   { name: "t28", match: /^t28/ },
   { name: "t29", match: /^t29/ },

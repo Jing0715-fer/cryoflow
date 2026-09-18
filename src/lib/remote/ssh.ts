@@ -623,8 +623,14 @@ export async function remoteDownload(
       // t298 — end the file ONLY on 'close': data may legally arrive between
       // 'exit' and 'close'. 'close' is the point where no further data is
       // possible.
+      // t299 — the verdict is the BYTE ACCOUNT against the pre-pull
+      // remoteStat, not "some bytes arrived": a clean ctffind run's run.err
+      // is legitimately ZERO bytes, and `written > 0` sentenced every empty
+      // file to "download failed" (the sync-back skipped it, the ledger
+      // under-counted, t262's ≥3 assertion caught it). 0 === 0 is a PASS;
+      // a truncated non-empty read (written < st.size) still fails honest.
       stream.on("close", () => {
-        finish(written > 0 ? written : null);
+        finish(written === st.size ? written : null);
       });
     });
   });

@@ -147,8 +147,8 @@ try {
     "the time ledger rides the DTO (remoteInfoFor passthrough)"
   );
   must(
-    inspSrc.includes("formatLedgerMs") && inspSrc.includes("data-remote-ledger") && inspSrc.includes('"Ran on the cluster"'),
-    "the inspector strip speaks the ledger (and retires the dead-pid 'Running' claim)"
+    inspSrc.includes("formatLedgerMs") && inspSrc.includes("data-remote-ledger") && inspSrc.includes("Ran on the cluster"),
+    "the inspector strip speaks the ledger (and retires the dead-pid 'Running' claim) — t299: the terminal text grew the scheduler's word, so the bare double-quoted literal became a template literal and the grep follows the substring"
   );
 
   // ---- Phase C: the live loop ---------------------------------------------
