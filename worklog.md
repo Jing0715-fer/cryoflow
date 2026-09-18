@@ -1942,3 +1942,19 @@ Stage Summary:
 - 「套件的地基也会烂」：rowflip 的硬编码库路径、日志文件的模式假设、丢失的执行位——三笔都不是产品代码，但每一笔都能让绿灯家族说谎；基础设施的腐烂以套件假 FAIL 的形式自我暴露
 - 「watchdog 与 pkill 的教训」：常驻守护者会复活你杀掉的东西（先杀 watchdog 再杀服务器）；模式匹配的 pkill 不分敌我（bun run start 一句杀两家）
 - 遗留（下轮候选）：真实 OpenSSH sshd 的 kbd-interactive 复验（沙箱无 root 装不了 openssh-server——用户侧下一次 Test 即见完整诊断，错误行自带下一步指引）；用户 PAT 已暴露多窗仍未轮换（继续提醒）；EMPIAR 真数据回归（连续第六窗让位）
+## Task 293 (2026-09-18, cron 14:18 窗口 trace 1a07549302235a99-cron-agent-loop-202609181426 —— 树上立项为 292，与并行用户报障窗撞号：对方 SSH 认证诊断（MobaXterm 报障）先落地占号，按 t286/t291 判例 rebase + 我方 renumber 293，套件/花名册/证据照名重链)
+
+- 【开局】尾部实证 = Task 291（106078c 已 push）。「重建 ≠ 上线」本窗再挣：standalone（05:35）老于合并树（05:40 rebase 带入对端 t290 cluster 借用代码）——前台独占 rebuild 后 watchdog 200 + roster 21。
+- 【QA】七哨兵全绿（qa00/qa63/t291/t283/t284/t281/t289）——对端 t290 重接的 outputs/file 404 分支未伤及直方图/png/value 消费方。
+- 【立项】对端 t290（cluster 借用五部曲）**零家族套件**（commit 无 scripts/ 文件、花名册无条目）——其改动恰是全 results 面（png/raw/value/histogram/Mol*）共用的解析点。立项 Task 292「借用的守门」：补家族套件守共享门。
+- 【实现（纯 QA 资产，零产品改动）】t293-remote-borrow.mjs：A 相 demo 真相；B 相台账 24 断言（by-value 探测路由三门 + 同步策略 key-files 默认/16MB cap/KEY_TEXT_EXT + manifest dotfile 台账 + 懒腿 stat-verify/32GB/safeRel/STAR 重写/in-flight 去重/幂等 + outputs 合并 remote:true/300 cap/无 header 诚实 + file 路由 404→fetch 分支 + Run ▾ 两世界/受控门/四扇 remote 门/$HOME）；C 相活体：C1 by-value 探测（好凭据 ok+relion/5.0.1+homeDir、注册表零变化、坏密码 ok:false 非 500）；C3 import→dispatch(keyFileMb=1)→完成→骨架同步；C4 植入 720×720 float32 2MB map 于集群 workdir→重跑→**cap 拦截**（未落地）+ manifest 台账点名 + REMOTE 瓦片（kind/size/label、dims 诚实缺席）；C5 png 门懒取回→落地**字节同一（sha256）**→瓦片毕业为本地**带 dims**（identity card 免费见证）；C2 Run ▾ 双世界 + local 无 RELION 诚实禁用；定妆照 t293-remote-borrow.png；Z 相 roster 21 + console 0。
+- 【套件七跑定妆（首跑 8 FAIL 全自摆乌龙——两个真发现）】①sync-back 只看作业自己的 workdir（首跑把 2MB map 植入 A 的集群 workdir 却指望兄弟作业 B 的 manifest 记账——零命中；修正 = 对端手测的 Re-run 流：同作业重派、manifest writtenAt 轮询判定二次 finalize）；②completed 作业开的是 job-inspector 的 Re-run ▾（无 disabled 门、confirm 兜底），诚实禁用门住在 job-panel（idle 作业）——qa63「completed → inspector modal」判例的套件面应验，修正 = 各门各断（panel 菜单断禁用、inspector 菜单断双世界）；③附带断言卫生：.catch(() => true) 的 isDisabled 是虚绿——清除，menu 定位收敛 [data-state="open"]。终版 52 断言 ALL PASS：植入 map cap 拦截未落地 + manifest 台账点名 2074624B + REMOTE 瓦片（kind/size/"Class 1 map (iter 3)" label、dims 诚实缺席）+ png 门懒取回字节同一（sha256 对比集群副本）+ 瓦片毕业带 dims [720,720,1] + zero remote residue。
+- 【全家族回归（九批前台逐批——OOM 纪律第十四窗，一命令一批）】qa 11 · 406.9s ｜ t21 7 · 192.5s ｜ t22 2 · 64.9s ｜ t24 9 · 122.0s ｜ t25 9 · 476.0s ｜ t26 10 · 537.2s ｜ t27 7 · 278.4s ｜ t28 8 · 167.3s ｜ t29 2 · 71.2s（t291+t293）——合计 **pass 65 · solo 0 · real-fail 0 · wall 2316.5s**（--summary 机器拷贝）；roster 恒等 21；裸 tsc 0；rebuild 前台独占 ×1（部署合并树）。
+- 【收尾】worklog（本条）+ commit/push + 环境清理（Task 86 双杀 + port FREE 验证）。
+
+Stage Summary:
+- **「借用的守门」**：t290 五部曲（by-value 探测/Run ▾ 模式切换/root 释义/key-files 策略/按需取回）从手测变为家族一等公民——它重接的 outputs/file 404 分支是 png/raw/value/histogram/Mol* 全体消费方的共享解析点，此门无守则处处无守
+- **「同作业重跑」才是 sync-back 的正确试验场**：兄弟作业各有 workdir，manifest 记账只认自己的家——植入式证据必须走 Re-run 流（对端手测的隐含前提被套件化时显式化）
+- **「各门各断」**：job-panel（idle）的 Run ▾ 持有 relionBlocked 诚实禁用；job-inspector（completed）的 Re-run ▾ 无门、confirm 兜底——同一个 aria-label 的两个实例，断言必须落在持有该门的组件上
+- **「字节同一」的懒腿证明**：sha256(落地副本) == sha256(集群原件) + 瓦片毕业带 dims——「下载是数据的搬家不是缓存」从注释升级为像素级证据链
+- 遗留（下轮候选）：远程瓦片 identity card 之 fetch 后补读 header 已由毕业流部分见证（dims 在案），其余 header 事实（μ/σ 等）待真需求；remote-view-3d 大 map 的 Mol* 渲染实测；t272 exists=false 活体见证（连续排队）；快看对话框 σ 口径输入（待真需求）；EMPIAR 真数据回归（连续第七窗让位）
