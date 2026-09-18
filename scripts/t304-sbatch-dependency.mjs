@@ -394,13 +394,12 @@ try {
   }, 90_000);
   must(done1 === "completed", `C1: the child RELEASED and completed (got ${done1 ?? "still queued/running"})`);
   const rec1b = stateRuns()[child1.id];
-  // t304 FIX — the verdict contract, stated honestly: the SCHEDULER's word
+  // t305 — the verdict contract, stated honestly: the SCHEDULER's word
   // lives in the accounting ledger (waitJournal below); the RECORD carries
-  // done + exit 0 + the stopwatch. The record's slurmState word stays the
-  // last ALIVE state (RUNNING) when the wrapper's .cf-exit wins the race —
-  // t303's own law: on the EXIT path the word is not overwritten (first-
-  // served wins), only the fallback path promotes the word. Demanding
-  // COMPLETED on the record was over-asserting past the product's contract.
+  // done + exit 0 + the stopwatch. AND since t305 the EXIT path's
+  // consistency gate promotes the word when the ledger agrees (COMPLETED
+  // maps to 0 === the wrapper's exit 0): the record now says COMPLETED too
+  // — the happy path speaks the scheduler's word, not just the fallback.
   const childWord = await waitJournal(cSlurmId, "COMPLETED", 30_000);
   must(childWord.startsWith("COMPLETED"), `C1: the scheduler's own word for the child is COMPLETED (${childWord})`);
   must(
@@ -408,6 +407,23 @@ try {
       typeof rec1b?.remote?.slurmElapsedMs === "number" && rec1b.remote.slurmElapsedMs >= 0,
     `C1: the record finalized with the stopwatch (done ${rec1b?.done}, exit ${rec1b?.exitCode}, elapsed ${rec1b?.remote?.slurmElapsedMs}ms)`
   );
+  must(
+    rec1b?.remote?.slurmState === "COMPLETED",
+    `C1: the record's word is COMPLETED (the EXIT path's gate promoted it; got ${rec1b?.remote?.slurmState})`
+  );
+  // t305 — the terminal strip: the happy path now says '· Slurm COMPLETED'
+  // (before this the word was fallback-only and the strip degraded to a
+  // bare 'Ran on the cluster').
+  const stripTerminal = await pollUntil(async () => {
+    await page.goto(BASE, { waitUntil: "domcontentloaded" });
+    await sleep(2000);
+    const card = page.locator("[data-job]", { hasText: "t304 Child C1" }).locator('[role="button"]').first();
+    try { await card.click({ timeout: 6000, force: true }); } catch { return null; }
+    await sleep(1200);
+    const body = await page.locator("body").innerText();
+    return /Ran on the cluster · Slurm COMPLETED · /.test(body) ? body : null;
+  }, 30_000, 2500);
+  must(!!stripTerminal, "C1: the terminal strip speaks 'Ran on the cluster · Slurm COMPLETED · …' on the happy path");
 
   // C2 — the parent FAILS: the child is cancelled, not stranded
   console.log("== PHASE C2: kill-on-invalid-dep, witnessed ==");

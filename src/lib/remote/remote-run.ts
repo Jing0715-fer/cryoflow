@@ -1399,6 +1399,34 @@ function persistSacctTestimony(
   );
 }
 
+/**
+ * t305 — does the ledger's terminal word tell the SAME story as the
+ * wrapper's exit? The mapping is the fallback's OWN exit contract
+ * (CANCELLED→143, TIMEOUT→124, exit/sig otherwise): agreement means the
+ * scheduler's word may decorate the record (and the strip's
+ * '· Slurm COMPLETED' finally speaks on the happy path — t299's terminal
+ * word used to be fallback-only, nearly dead code). A disagreement (a
+ * scancel landing in the script's final breath, a wrapper that survived a
+ * TIMEOUT kill) keeps the word silent: the wrapper's exit is the verdict,
+ * the word is vocabulary, and the strip never renders a contradiction.
+ */
+function wordAgreesWithExit(
+  row: NonNullable<ReturnType<typeof parseSacctRow>>,
+  exitCode: number
+): boolean {
+  const mapped =
+    row.word === "CANCELLED"
+      ? 143
+      : row.word === "TIMEOUT"
+        ? 124
+        : row.exitNum !== 0
+          ? row.exitNum
+          : row.sigNum !== 0
+            ? 128 + row.sigNum
+            : 0;
+  return mapped === exitCode;
+}
+
 function aliveCheckScript(remoteWorkdir: string, slurmId?: string | null): string {
   const W = shQuote(remoteWorkdir);
   const EXIT = shQuote(remoteWorkdir + "/.cf-exit");
@@ -1652,8 +1680,22 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
           // t303 — the wrapper's verdict wins, the ledger's stopwatch rides:
           // a terminal SACCT line on the EXIT block enriches the record
           // (Elapsed/MaxRSS) without touching the verdict.
+          // t305 — AND the word can finally speak: when the ledger's terminal
+          // word agrees with the wrapper's exit (the fallback's own mapping
+          // equals the exit code), the record carries the scheduler's word
+          // too — the strip's '· Slurm COMPLETED' is no longer fallback-only.
+          // A disagreement keeps the old silence and says so out loud.
           const witness = b.sacct ? parseSacctRow(b.sacct) : null;
-          if (witness) persistSacctTestimony(e, witness, false);
+          let agreed = false;
+          if (witness) {
+            agreed = wordAgreesWithExit(witness, exitCode);
+            if (!agreed) {
+              console.log(
+                `remote-run: the ledger says ${witness.word} but the wrapper exited ${exitCode} for "${e.job.name}" — the word stays silent (the verdict is the wrapper's)`
+              );
+            }
+          }
+          if (witness) persistSacctTestimony(e, witness, agreed);
           const updated = await finalizeRemoteRun(e.job, e.rec, exitCode, b.log, conn);
           if (updated) replace(out, updated);
           continue;

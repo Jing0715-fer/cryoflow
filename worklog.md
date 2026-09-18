@@ -2182,3 +2182,19 @@ Stage Summary:
 - **「轮询器等的是真值，不是终态」**：通用 pollUntil(fn) 的合同是「第一个真值返回」——拿它等终态必须在 fn 里翻译目标（s === "failed" ? s : null）；否则 tick 0 的 "pending" 就是你得到的一切，机器在套件身后悄悄把活干完
 - **「ALIVE:PENDING 是诚实的话」**：mock 的 PENDING 期 squeue 可见（pid+state 文件）、取消后 launcher 死 → squeue 沉默 → sacct 兜底——sweep 看到 ALIVE:PENDING 不是卡死，是调度器在如实报告它的队列；判断「停滞」前先问每一环的证人
 - 遗留（下轮候选）：array 模式 sbatch（HPC 对话框已有生成器，远程 dispatch 未接）；verify-module 的 by-value 变体；384³/512³ 阶梯压测（T296_N 已备）；EMPIAR 真数据回归（连续第十四窗让位）；**终局 strip 的 wrapper 路径也可以说话**（EXIT 附征的 SACCT 第二行里有终局词，includeWord=false 把它丢了——happy path 的 strip 永远说不了 "· Slurm COMPLETED"，t299 的终局词条近乎死代码——升级 persistSacctTestimony 的 includeWord 语义是下一颗好雷）
+
+## Task 305 (2026-09-19, cron 05:48 窗口 trace 1a07549302235a99-cron-agent-loop-202609190549 —— 开局实证：worklog 尾部 = Task 304（HEAD 8e09d87 已 push、树净、3000 活、零残留），cron 指引的「Task 13」照例过时)
+
+- 【开局 + QA】GET / 200、roster 21、qa63-smoke GREEN（console 0）——稳定。按惯例③自主选题：**t305 = 终局 strip 的 wrapper 路径也可以说话**（Task 304 遗留清单自钉的雷：EXIT 附征的 SACCT 第二行里有终局词，`includeWord=false` 把它丢了——happy path 的 strip 永远说不了 "· Slurm COMPLETED"，t299 的终局词条近乎死代码）。
+- 【主交付：EXIT 路径的词提升 + 一致性门控】`wordAgreesWithExit(row, exitCode)`——用兜底路径自己的映射合同（CANCELLED→143、TIMEOUT→124、否则 exit/sig）算出账本词对应的退出码，**等于 wrapper 的退出码才提升词**；分歧（收尾一瞬的 scancel、TIMEOUT 后仍存活的 wrapper）保持旧沉默并 console 点名（"the ledger says X but the wrapper exited Y — the word stays silent"）。EXIT 分支：`persistSacctTestimony(e, witness, agreed)`——**verdict 永远是 wrapper 的退出码，词只是词汇**，strip 永不渲染矛盾；秒表/计量不受门控（两字段本就 first-served-wins）。
+- 【套件 t299 扩至 70 断言（+13）首航 ALL PASS】B 相钉子更新（条件提升 + 门控映射）；**C11 wrapper 路径词开口活体**——plant 新增 `cfExit` 参数（在 sweep 首轮前预写 .cf-exit，确定性走 EXIT 分支而非兜底）+ 植入 6 列 COMPLETED 行（125s + 1.24G）→ 记录词 COMPLETED + 秒表/计量齐 + **strip 说 '· Slurm COMPLETED · 2m05s · 1.2 GB peak'**（定妆照 t299-wrapper-word-speaks.png）；**C12 矛盾守卫活体**——.cf-exit 0 对 CANCELLED 行 → 词不落（slurmState undefined）、verdict 仍是 wrapper 的 0、秒表/计量照骑。t304 C1 升级：记录词断言改 demand COMPLETED + 新增终局 strip 活体断言（'Ran on the cluster · Slurm COMPLETED · …' happy path 首次端到端）。
+- 【家族回归揪出上一窗的自己的债（真 real-fail，非断言之错）】--batch t26 **t260-clip-from-card FAIL**：crop send 路由 400 "No on-disk outputs"——**QA Refine3D 的运行记录不在 engine-state.json**。根因溯源 = **t304 窗调试期的坏探针**（`stateRuns` 的 `?? {}` 回退在裸 map 上全盲 + 植入清台）抹掉了全部 19 条 demo 记录，当时只修了探针没恢复现场；roster（DB）/磁盘树/smoke 都不依赖记录所以连绿五窗，t260 是第一个消费者。修 = **scripts/restore-demo-records.mjs（常备愈合工具入库）**：从 DB roster + 磁盘树重建缺失记录——workdir 按引擎 `<type>_<id8>` 布局、outputs 用**引擎自己的 collectOutputs**（零猜测：认不出的老命名约定 = 诚实缺席，demo 教程作业的 workdir 本就大多为空，空 outputs 恰是原状）、result 用 DB 行的历史字符串、文件顶层形状保持（裸 map vs {runs}）。15 条重建（select2d 无 workdir 跳过——idle 无需记录）、QA Refine3D 复活、手动重放 crop POST 400→201、t260 solo ALL PASS。
+- 【家族回归】四批全绿：t26 pass 6 · 334.6s（t260 愈合 + t262 的 EXIT e2e 活体骑过词提升）｜ t26b pass 4 · 203.6s（t269 strip 子串断言与新增词相容）｜ t29 pass 7 · 260.1s（t299 C11/C12 入批）｜ t30 pass 2 · 97.2s（t304 升级 C1）；累积器 TOTAL **pass 72 · real-fail 0**；roster 21 恒等；记录 20 条（5 原有 + 15 重建）；裸 tsc 0；改动文件 eslint 0。
+- 【收尾】worklog（本条）+ commit/push + 环境净场（3000 独监、mock 杀净、零残留）。
+
+Stage Summary:
+- **「verdict 是退出码，词是词汇」**：wrapper 的 .cf-exit 与账本的终局行都到场时，两者讲同一个故事才让词上记录——映射合同复用兜底路径自己的（CANCELLED→143/TIMEOUT→124），矛盾时沉默 + 点名；strip 永不渲染矛盾，t299 的终局词条从近乎死代码变成 happy path 的常驻话
+- **「确定性走 EXIT 分支要预写 .cf-exit」**：sweep 每 4-6s 一轮、wrapper 先写 exit 文件 launcher 后落账——活体见证 EXIT 分支的词门控必须把 .cf-exit 在 plant 时就放好，否则兜底路径抢先、见证无效
+- **「clean up your own crime scene」**：t304 窗的坏探针清台抹掉 19 条 demo 记录，五窗连绿掩盖了它（没有消费者），t260 才引爆——修探针不等于修现场；状态文件的读改写竞态一次污染，恢复要靠 DB + 磁盘 + 引擎自己的 collectOutputs 逐条重验
+- **「愈合工具入库」**：restore-demo-records.mjs 不是一次性脚本——记录是运行态、没有种子文件、下一次状态污染还需要它；用引擎自己的 collectOutputs 重建 = 零猜测，认不出的就是诚实缺席
+- 遗留（下轮候选）：array 模式 sbatch（HPC 对话框已有生成器，远程 dispatch 未接）；verify-module 的 by-value 变体；384³/512³ 阶梯压测（T296_N 已备）；EMPIAR 真数据回归（连续第十五窗让位）；demo 教程链的下游重跑（记录的 outputs 是诚实缺席，demo 链若要可重跑需按老约定补 outputs 映射）

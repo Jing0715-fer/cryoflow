@@ -30,6 +30,12 @@
  *   C8 VANISHED stays honest: no testimony at all + past grace → the old
  *      interrupted-remotely tombstone (the fallback widens nothing)
  *   C9 the inspector strip speaks the scheduler's terminal word
+ *   C10 the ledger's stopwatch + meter, end to end (6-field row → 12m34s · 1.2 GB peak)
+ *   C11 t305: the wrapper path's word finally speaks — .cf-exit 0 + a
+ *      COMPLETED ledger row → the EXIT branch's consistency gate passes →
+ *      the record carries the word AND the strip says '· Slurm COMPLETED'
+ *   C12 t305: the contradiction guard — .cf-exit 0 against a CANCELLED row →
+ *      the word stays silent, the verdict stays the wrapper's, the meter rides
  *   D  console clean
  */
 import { execSync, execFileSync } from "node:child_process";
@@ -180,14 +186,18 @@ const journalWord = (id) => {
 const waitJournal = async (id, want, deadlineMs = 20_000) =>
   pollUntil(() => (journalWord(id).startsWith(want) ? journalWord(id) : null), deadlineMs, 700);
 
-/** plant a running slurm record pointing at a REAL connection + mock workdir. */
+/** plant a running slurm record pointing at a REAL connection + mock workdir.
+ *  `cfExit` (t305) pre-writes .cf-exit into the remote workdir BEFORE the
+ *  sweep can poll the record — the EXIT branch then fires deterministically
+ *  (never the fallback), which is the only way to witness its word gate. */
 let wdSeq = 0;
-const plant = (jobId, projectId, slurmId, startedAtIso) => {
+const plant = (jobId, projectId, slurmId, startedAtIso, cfExit = null) => {
   const n = ++wdSeq;
   const remoteWd = `/projects/cryoflow/t299-sacct/wd-${n}`;
   const localWd = `${ROOT}/data/relion/t299-sacct/wd-${n}`;
   mkdirSync(localWd, { recursive: true });
   client(`mkdir -p ${remoteWd}`);
+  if (cfExit != null) client(`printf '${cfExit}' > ${remoteWd}/.cf-exit`);
   const runs = { ...stateRuns() };
   runs[jobId] = {
     jobId,
@@ -283,8 +293,18 @@ try {
     "B: one row parser + one testimony persist serve BOTH exit paths (wrapper-verdict + fallback)"
   );
   must(
-    src.includes('persistSacctTestimony(e, witness, false)') && src.includes('persistSacctTestimony(e, witness, true)'),
-    "B: the wrapper's EXIT carries the ledger line (word stays), the fallback owns the word"
+    // t305 — the EXIT branch promotes the word CONDITIONALLY: the ledger's
+    // terminal word decorates the record only when it agrees with the
+    // wrapper's exit (the fallback's own mapping) — a disagreement keeps
+    // the old silence and logs it. The fallback still owns the word outright.
+    src.includes('wordAgreesWithExit(witness, exitCode)') &&
+      src.includes('persistSacctTestimony(e, witness, agreed)') &&
+      src.includes('persistSacctTestimony(e, witness, true)'),
+    "B: the EXIT path promotes the word through the consistency gate; the fallback owns it outright"
+  );
+  must(
+    src.includes('row.word === "CANCELLED"') && src.includes('row.word === "TIMEOUT"'),
+    "B: the gate maps the word through the fallback's own exit contract (CANCELLED→143, TIMEOUT→124)"
   );
   must(
     src.includes('line2.startsWith("SACCT:")'),
@@ -498,6 +518,69 @@ try {
     "C10: the strip speaks the stopwatch + meter in the ledger dialect ('· 12m34s · 1.2 GB peak')"
   );
   await page.screenshot({ path: `${SHOTS}/t299-sacct-ledger-stopwatch.png` });
+
+  // ---- Phase C11: the wrapper path's word finally speaks (t305) -------------
+  // A planted record whose workdir ALREADY carries .cf-exit "0" (the
+  // wrapper's verdict) AND whose ledger row says COMPLETED — the EXIT branch
+  // fires deterministically (never the fallback), the consistency gate sees
+  // mapped 0 === exit 0, and the scheduler's word decorates the record. The
+  // strip's '· Slurm COMPLETED' speaks on the HAPPY path for the first time.
+  console.log("== PHASE C11: the wrapper path's word speaks ==");
+  const t0c11 = Math.floor(Date.now() / 1000) - 125;
+  client(`printf "999906|COMPLETED|0:0|$(( ${t0c11} + 125 ))|${t0c11}|1.24G\\n" >> "$HOME/.slurm/accounting"`);
+  const job11 = await mkRow("t299 Sacct Wrapper COMPLETED");
+  flipRunning(job11.id);
+  plant(job11.id, job11.projectId, 999906, new Date(Date.now() - 60_000).toISOString(), "0");
+  const done11 = await sweepVerdict(job11.id);
+  must(done11?.status === "completed", `C11: the wrapper-verdict row COMPLETED (got ${done11?.status ?? "still running"})`);
+  const rec11 = stateRuns()[job11.id];
+  must(rec11?.exitCode === 0, "C11: the wrapper's exit is the verdict (0)");
+  must(
+    rec11?.remote?.slurmState === "COMPLETED",
+    `C11: the word COMPLETED rode the EXIT path through the consistency gate (got ${rec11?.remote?.slurmState})`
+  );
+  must(
+    rec11?.remote?.slurmElapsedMs === 125_000 && rec11?.remote?.slurmMaxRssBytes === Math.round(1.24 * 1024 ** 3),
+    `C11: the stopwatch + meter still ride (elapsed ${rec11?.remote?.slurmElapsedMs}, rss ${rec11?.remote?.slurmMaxRssBytes})`
+  );
+  await page.goto(`${BASE}`, { waitUntil: "domcontentloaded" });
+  await sleep(2500);
+  const card11 = page
+    .locator("[data-job]", { hasText: "t299 Sacct Wrapper COMPLETED" })
+    .locator('[role="button"]')
+    .first();
+  await card11.click({ timeout: 8000, force: true });
+  await sleep(1500);
+  const body11 = await page.locator("body").innerText();
+  must(
+    /Ran on the cluster · Slurm COMPLETED · 2m05s · 1\.2 GB peak/.test(body11),
+    "C11: the happy path's strip speaks '· Slurm COMPLETED · 2m05s · 1.2 GB peak'"
+  );
+  await page.screenshot({ path: `${SHOTS}/t299-wrapper-word-speaks.png` });
+
+  // ---- Phase C12: the contradiction guard (t305) ----------------------------
+  // .cf-exit says 0 but the ledger's last word is CANCELLED (a scancel in the
+  // script's final breath): the gate maps CANCELLED→143 ≠ 0, keeps the word
+  // silent, and the finalize still runs the wrapper's honest exit. The
+  // stopwatch + meter ride regardless — only the WORD is gated.
+  console.log("== PHASE C12: the contradiction stays silent ==");
+  const t0c12 = Math.floor(Date.now() / 1000) - 61;
+  client(`printf "999907|CANCELLED|0:0|$(( ${t0c12} + 61 ))|${t0c12}|2.50G\\n" >> "$HOME/.slurm/accounting"`);
+  const job12 = await mkRow("t299 Sacct Wrapper CONTRA");
+  flipRunning(job12.id);
+  plant(job12.id, job12.projectId, 999907, new Date(Date.now() - 60_000).toISOString(), "0");
+  const done12 = await sweepVerdict(job12.id);
+  must(done12?.status === "completed", `C12: the wrapper's verdict stands (completed, got ${done12?.status ?? "still running"})`);
+  const rec12 = stateRuns()[job12.id];
+  must(rec12?.exitCode === 0, `C12: the exit is the wrapper's 0 (got ${rec12?.exitCode})`);
+  must(
+    rec12?.remote?.slurmState === undefined,
+    `C12: the word CANCELLED never landed against a clean exit (slurmState ${rec12?.remote?.slurmState})`
+  );
+  must(
+    rec12?.remote?.slurmElapsedMs === 61_000 && rec12?.remote?.slurmMaxRssBytes === Math.round(2.5 * 1024 ** 3),
+    `C12: the stopwatch + meter ride ungated (elapsed ${rec12?.remote?.slurmElapsedMs}, rss ${rec12?.remote?.slurmMaxRssBytes})`
+  );
 
   // ---- Phase D: console clean ----------------------------------------------
   console.log("== PHASE D: console ==");
