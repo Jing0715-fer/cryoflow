@@ -43,6 +43,14 @@ bun run dev        # http://localhost:3000
 
 A demo project — **β-Galactosidase Tutorial** (Import → Motion Correction → CTF) — is seeded automatically on first API call.
 
+### Troubleshooting
+
+| Symptom | Fix |
+| --- | --- |
+| `Module not found: Can't resolve 'ssh2'` | your `node_modules` predates the remote feature — re-run `bun install` (or `npm install`) and restart; the server prints the same hint at boot |
+| port 3000 busy (stuck old process) | kill the stale listener, or pick another port — `PORT=3004 bun run dev` (PowerShell: `$env:PORT=3004; bun run dev`). `next dev` reads `PORT` natively; extra CLI args after `bun run dev` are swallowed by the log pipe |
+| local edits broke the tree | `git fetch origin && git reset --hard origin/main` — `db/` and `data/` are gitignored, so projects, run records and in-flight RELION jobs survive the reset |
+
 ### Run jobs on your cluster (SSH + module load)
 
 ```bash

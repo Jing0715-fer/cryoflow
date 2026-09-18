@@ -1786,3 +1786,18 @@ Stage Summary:
 - 「真 bug 是顺手挖出的」：对话框从不滚动（基类无 max-height/overflow，历史内容恰好不超高）——t284 的 strip 让下半截不可达，探针实锤「零可滚祖先、docSH=视口」后调用点 max-h-[90dvh]+overflow-y-auto 修复；新仪器暴露既有缺陷，正是仪器存在的意义
 - 「证据文件不是居民」：套件写入宿主 workdir 的文件要么进台账（qa67 的 orthovol 被 t212 记账）、要么以先删+finally 后删清场（qamic）——「世界如其所被发现的那样归还」
 - 遗留（下轮候选）：triptych 导出 footer 叠加直方图缩略（文档资产语义再评估）；.mrcs 栈 per-slice 直方图（stack 浏览下一步）；bookmark 缩略图叠加焦点交点（继续让位）；产品功能候选：Topaz wrapper 深化、快看对话框内 display range 调节（histogram 之上的一步）
+
+## Task 285 (2026-09-18, 用户报障第二窗口 — "Export buildArgv doesn't exist" + 端口硬编码)
+
+- 【报障与法医】用户转来另一助手在本机的抢修日志：ssh2 错误之后又爆 `Export buildArgv doesn't exist`（slurm.ts:30 → engine.ts），该助手遂行 36 分钟手术——engine.ts +730/-999、remote-run.ts 改导入、`bun add asn1`、从 "6baa340^" 恢复 upsertRun/updateRun——错误依旧。上游取证三枚指纹：①HEAD 的 buildArgv 是 2352 行 `export async function buildArgv`（grep 'export function' 漏 async 是双探陷阱）+ resolveInputs(967)/collectOutputs(3208)/workdirFor(548)/upsertRun(271)/updateRun(281) 全部在位，slurm.ts:30 导入一一对应；②tsc src 0 错；③/api/jobs 200 本身就穿过 slurm→remote-run 导入链。结论：**上游从未坏过，用户本地是分叉历史**——`git cat-file -t 6baa340` = "Not a valid object name"，该提交不存在于 origin 任何历史；另一助手是从用户本地某次未推送的私改提交里"恢复"代码，等于给幻影打补丁。asn1 之谜同解：ssh2@1.17 的 dependencies 本就含 asn1 ^0.2.6——缺它说明用户 node_modules 连传递依赖都不全（残缺安装的又一指纹），`bun add asn1` 是给残肢装义肢。
+- 【t285 交付：端口硬编码退休】用户真实场景：3000 被卡死旧进程占用，`bun run dev --port 3004` 被吞——package.json 脚本的追加参数落在 `| tee dev.log` 管道之后、进了 tee 而非 next（"管道后缀吞参"判例）。修法：`"dev": "next dev 2>&1 | tee dev.log"` 去掉 `-p 3000`——next dev 原生读 PORT 环境变量、缺省仍 3000，零 shell 展开语法、全平台一致。实测双面：`PORT=3005 bun run dev` → 3 秒绑 :3005 + /api/jobs 200；无 PORT → 3000 默认 + 200。README Getting started 新增 Troubleshooting 三行表（ssh2 缺失→重装、端口被占→PORT 环境变量+PowerShell 变体、本地树改坏→reset --hard origin/main 且 db//data/ 免疫）。
+- 【环境战役（一窗三折）】①并发 cron 窗口已把 origin 推进 11 提交（t275-t284：直方图三部曲、引擎第三态、平台治理）且本地 t274 被重写为 a127acf（混入 .zscripts/dev.pid）——stash→reset --hard origin/main→pop 干净落地（README 无冲突：t275-284 未碰它）；②db/cryoflow.db 被清成 0 字节 + data/remote-connections.json 被抹（cron 收尾清理的代价）——db:push 重建表、demo 项目自动重播、Mock Cluster 连接重建+实测探针（3 模块、233ms）；③next-server 无声暴毙一次——3022 存活+日志零错误+内存骤释三证确诊 OOM（tsc 与 chromium 并行压垮 4GB 盒，t268 判例重演）——串行化重进程后复活。
+- 【验证】PORT 覆盖与默认双绿；/、/api/jobs、/api/remote/connections 全 200；tsc src 0 错；浏览器主页+对话框 0 错误；探针 233ms。
+- 【用户本机修法（写给报障人）】见最终回复——核心是 `git reset --hard origin/main` 回正分叉历史 + 重装依赖 + 清 .next 缓存；运行中的 WSL RELION 作业不受影响（db/ 与 data/ 均 gitignored）。
+
+Stage Summary:
+- 「上游健康，本地分叉」：cat-file 一锤定音（6baa340 不存在）——当助手开始从"本地未推送提交"恢复代码时，该怀疑的是历史本身而非导出表；grep 'export function' 漏掉 'export async function' 是本案的第一个假线索
+- 「管道后缀吞参」：package.json 带管道的脚本会吞掉 CLI 追加参数——PORT 环境变量是 next dev 的原生正道，不是 shell 技巧
+- 「残缺安装的指纹链」：缺传递依赖(asn1) + 缺直接依赖(ssh2) 同源——别给残肢装义肢，重装才是治愈
+- 「4GB 盒的并发税」：tsc+chromium+next-server 三峰并压 = OOM 第三次应验（t268 首例）——重进程串行化是本盒的生存纪律；3022 存活+零日志暴毙 = OOM 的法医三联征
+- 遗留（下轮候选）：t272 遗留 exists=false 活体见证仍在排队；EMPIAR 真数据回归（连续第三窗让位）
