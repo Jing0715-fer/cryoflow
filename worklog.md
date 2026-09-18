@@ -1958,3 +1958,4 @@ Stage Summary:
 - **「各门各断」**：job-panel（idle）的 Run ▾ 持有 relionBlocked 诚实禁用；job-inspector（completed）的 Re-run ▾ 无门、confirm 兜底——同一个 aria-label 的两个实例，断言必须落在持有该门的组件上
 - **「字节同一」的懒腿证明**：sha256(落地副本) == sha256(集群原件) + 瓦片毕业带 dims——「下载是数据的搬家不是缓存」从注释升级为像素级证据链
 - 遗留（下轮候选）：远程瓦片 identity card 之 fetch 后补读 header 已由毕业流部分见证（dims 在案），其余 header 事实（μ/σ 等）待真需求；remote-view-3d 大 map 的 Mol* 渲染实测；t272 exists=false 活体见证（连续排队）；快看对话框 σ 口径输入（待真需求）；EMPIAR 真数据回归（连续第七窗让位）
+- 【收尾补记】撞号处理完成（本窗第二次）：rebase onto 069e7d7（对方 Task 292 = SSH 认证诊断；16 个家族重摆 PNG 二进制冲突取对方、worklog 双保留）→ renumber 293（套件/花名册/证据/内部标识符照名重链）→ amend 5667649；合并树 rebuild ×1（对方 ssh.ts 认证路径上线）+ tsc 0 + **t293 renumber 后复跑 ALL PASS**——其 C1 by-value 探测断言在对端新 authHandler 之上依然成立（好凭据 ok、坏密码诚实诊断）。终态 HEAD = 5667649+证据重摆，roster 21，净场。
