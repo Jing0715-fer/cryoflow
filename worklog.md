@@ -1762,3 +1762,27 @@ Stage Summary:
 - 「直方图的 I/O 是语义地板的又一课」：单 voxel pread（t281）→ 语义需求要全体素 → 分块两遍 O(1) 内存 + (path,mtime,size) 缓存——「I/O 粒子随语义收缩」反过来也成立：「语义要求多少就读多少，但内存恒定、缓存兜底」
 - 「诚实缺席的套件版」：seed map 无负尾巴 → 负点击断言如实改名（min≥0 解释为何不可达），翻转分支下沉一层用直接 SET 活体见证——不假装点击、不删断言，缺席本身成为证词
 - 遗留（下轮候选）：直方图叠加到 triptych 导出 footer（文档资产语义待评估）；.mrcs 栈的 per-slice 直方图（stack 浏览的下一步）；bookmark 缩略图叠加焦点交点（继续让位）；产品功能候选：Topaz wrapper 深化
+
+## Task 284 (2026-09-18, cron 07:48 窗口 trace 1a07549302235a99-cron-agent-loop-202609180754)
+
+- 【开局四件套】尾部实证 = Task 283（efc61b1 已 push）——摘要以为的 272 基线又过时三个 Task；cron 模板「Task 13」照例不认。净场良好（PORT 3000/3022 FREE）→ watchdog 200 + roster 21。
+- 【QA】四哨兵全绿（qa68 26 断言 + qa00 + qa63 + t283）；agent-browser 活体 console 0 / errors 0。
+- 【巡检与立项】Task 283 遗留池树上核实：triptych footer 直方图（t280 已把 σ 送进 footer，分布叠加语义待评估）、.mrcs per-slice 直方图（class 分布条已是无关物）、bookmark 缩略图投影（继续让位）、Topaz 深化（边际递减）。**快看对话框核查发现真缺口**：t283 的直方图仪器只在 ortho 面板，而用户对任一图像输出的第一眼走的是 results-view 的 map/stack 对话框——「第一眼」无分布可言。立项 = Task 284「快看也开口」：strip 抽取为共享组件 + 对话框只读接入。
+- 【实现① density-histogram.tsx】t283 的常量、绘制核心（σ 标尺 + log 柱 + cut line + arrowhead + hover 读数）、fetch、stats 行整体迁出为 ONE drawing truth；`DensityHistogramStrip` 可选 `cutSigma`/`onPickSigma`——面板传两者（交互），对话框都不传（只读，光标 default、title 不许诺 cut）；`QuickHistSection` = 对话框用 toggle（默认 OFF）+ strip，data-canvas-ui 用 uiPrefix 组合（ortho-hist / quick-hist 各自机器可寻）。
+- 【实现② 面板换用】map-ortho-panel 删 270 行内联 strip，改 import 共享组件：cutSigma={isoSigma} + onPickSigma 里 dispatch ORTHO_SIGMA_SET——σ 数学（sign 跟随点击侧、clamp [0.05,10]）随 strip 走，dispatch 留在面板。
+- 【实现③ 对话框接入】非 .mrcs 分支 `<QuickHistSection key={imageFile.path}>`——key 逐文件重置 toggle；默认 OFF（第一次看是显式请求，服务端缓存让后续免费）。
+- 【真 bug（t284 顺藤摸出）】探针实锤：**对话框从不滚动**——DialogContent 基类无 max-height/overflow，超高内容被视口硬裁剪（t284 前内容恰好不超高，故从未暴露；strip 一上，下半截不可达）。修复 = 调用点加 `max-h-[90dvh] overflow-y-auto`（不动共享基类，避免波及其它对话框）。
+- 【t284-quick-histogram.mjs（31 断言，t28 批收编花名册 59→60）】A 相 demo 真相；B 相源码台账 17 断言（共享模块双 export、read-only 门 `if (!onPickSigma) return`、cursor 双态、对话框永不传 onPickSigma「只读靠构造不靠运气」、key 重置、对话框可滚、面板交互接线、路由仍拒 stacks）；C 相活体：qamic.mrc（套件手写 64×64×1 float32 MRC——微照片头型）API nTotal=4096、体积对话框 toggle OFF→ready→**μ = API μ（一个服务端真值，第三个消费者）**、微照片对话框 single section + n=4096 + μ 相等、逐文件重置（重开体积 toggle 复位 OFF）；Z 相 roster 21 + console 0；定妆照 ×2（volume: hover 0.3802 (+2.46σ)·141 vx / micrograph: 0.3361 (+1.83σ)·n 4,096）。
+- 【断言的错，第十一次应验（首跑 7 FAIL 全是套件）】①pollUntil 返回第一个 truthy——"loading" 也是 truthy，t283 同形断言的 `st === "ready" ? st : null` 映射被漏写；②gallery 的 aria-label 无扩展名（label=orthovol 非 orthovol.mrc），选择器落空 → fallback 点中第一个瓦片（run_it020_half1 32³ → n=32768 的 μ）——「选择器的错，不是产品的错」。
+- 【收尾前】t283 断言随 t284 重构演进（绘制断言迁读 density-histogram.tsx，语义不变——t270 async 化同款合法维护）；t283/t284 各两连 ALL PASS；裸 tsc 0；build 首试即过。
+- 【t212 证词修复（家族首跑的意外收获）】家族 t21 批 4 real-fail（t212-215）：t212 的 S2/D5 期望宿主恰四卷（orthovol + halves + masked 是常驻成员、被台账记账），而 t284 的 qamic.mrc 证据文件留驻 workdir → 清单变五。修复 = t284 的 qamic 以「先删（防上次崩溃残留投毒）+ try/finally 后删（证据不留驻）」清场——「证据文件不是居民」；重跑 t21 全绿。
+- 【全家族回归（八批前台逐批——OOM 纪律第九窗）】qa 11 · 415.4s ｜ t21 7 · 197.8s（首跑 4 real-fail → qamic 清场修复后全绿）｜ t22 2 · 66.5s ｜ t24 9 · 122.9s ｜ t25 9 · 446.9s ｜ t26 10 · 535.5s ｜ t27 7 · 273.4s ｜ t28 5 · 114.0s（t280-t284，t284 首战）——合计 pass 60 · solo-recovery 0 · real-fail 0 · wall 2172.3s（--summary 机器拷贝）；coverage check 认证 60 套件八批各归属唯一；roster 恒等 21；裸 tsc 0；build 首试即过。
+- 【I/O 通道的「display 不是真相」再应验】收尾时 python/rg/Read 一致「显示」state[host.id] 为 stateost.id（e[h] 字节序列被终端通道吞掉）——差点按假象「修复」一个正确的文件；Task 283 的教训（display is not truth, codepoints are）原样应验，本轮唯一真缺陷只是尾部少一个闭括号。判读真伪靠 node --check / 套件运行 / 字节级探针，不靠回显。
+- 【收尾】worklog（本条）+ commit/push + 环境清理（Task 86 双杀 + port FREE 验证）。
+
+Stage Summary:
+- **「快看也开口了」**：直方图仪器从 ortho 面板走进快看对话框——用户对任一图像输出（校正微照片、half-map、movie stack）的第一眼从「眯眼看图」升级为「看分布 + 读数字」；RELION _display 对微照片的直方图惯例在产品里补齐
+- 「ONE drawing truth, two consumers」：strip 抽取为共享组件，面板传 cutSigma + onPickSigma（交互）、对话框两者皆无（只读）——「只读靠构造不靠运气」（对话框源码 grep 不到 onPickSigma 成套件断言）；光标与 title 双态区分模式
+- 「真 bug 是顺手挖出的」：对话框从不滚动（基类无 max-height/overflow，历史内容恰好不超高）——t284 的 strip 让下半截不可达，探针实锤「零可滚祖先、docSH=视口」后调用点 max-h-[90dvh]+overflow-y-auto 修复；新仪器暴露既有缺陷，正是仪器存在的意义
+- 「证据文件不是居民」：套件写入宿主 workdir 的文件要么进台账（qa67 的 orthovol 被 t212 记账）、要么以先删+finally 后删清场（qamic）——「世界如其所被发现的那样归还」
+- 遗留（下轮候选）：triptych 导出 footer 叠加直方图缩略（文档资产语义再评估）；.mrcs 栈 per-slice 直方图（stack 浏览下一步）；bookmark 缩略图叠加焦点交点（继续让位）；产品功能候选：Topaz wrapper 深化、快看对话框内 display range 调节（histogram 之上的一步）

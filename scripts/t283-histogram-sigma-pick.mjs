@@ -110,20 +110,26 @@ must(routeSrc.includes("isLocalRequest(request)"), "the route sits BEHIND the lo
 const orthoSrc = await import("node:fs").then((fs) =>
   fs.readFileSync("src/components/workflow/results/map-ortho-panel.tsx", "utf8")
 );
+// t284 moved the strip's code to density-histogram.tsx (ONE drawing
+// truth, two consumers) — the DRAWING assertions follow the code there;
+// the panel keeps the toggle, the uiPrefix and the σ dispatch.
+const histSrc = await import("node:fs").then((fs) =>
+  fs.readFileSync("src/components/workflow/results/density-histogram.tsx", "utf8")
+);
 must(orthoSrc.includes('ORTHO_SIGMA_SET_EVENT = "cryoflow:ortho-sigma-set"'), "the SET event completes the σ family (STATE/REQUEST/SET)");
-must(orthoSrc.includes("Math.log10(1 + c)"), "bars are LOG-scaled (a noise spike must not flatten the tails)");
-must(orthoSrc.includes("HIST_SIGMA_TICKS = [-3, -2, -1, 0, 1, 2, 3]"), "the σ ruler marks ±1/2/3σ");
-must(orthoSrc.includes("data.mean + isoSigma.sign * isoSigma.sigma * data.std"), "the cut line resolves the contour against the SAME stats");
-must(orthoSrc.includes("arrowhead"), "an off-scale threshold is drawn honestly (a faded arrowhead at the edge)");
-must(orthoSrc.includes("resolvedTheme === \"dark\""), "the strip repaints with the theme (an instrument readable in both)");
-must(orthoSrc.includes('data-canvas-ui="ortho-hist"'), "the strip carries its test hook");
+must(histSrc.includes("Math.log10(1 + c)"), "bars are LOG-scaled (a noise spike must not flatten the tails)");
+must(histSrc.includes("HIST_SIGMA_TICKS = [-3, -2, -1, 0, 1, 2, 3]"), "the σ ruler marks ±1/2/3σ");
+must(histSrc.includes("data.mean + cutSigma.sign * cutSigma.sigma * data.std"), "the cut line resolves the contour against the SAME stats");
+must(histSrc.includes("arrowhead"), "an off-scale threshold is drawn honestly (a faded arrowhead at the edge)");
+must(histSrc.includes("resolvedTheme === \"dark\""), "the strip repaints with the theme (an instrument readable in both)");
+must(orthoSrc.includes('uiPrefix="ortho-hist"') && histSrc.includes("data-canvas-ui={uiPrefix}"), "the strip carries its test hook (panel passes the prefix)");
 must(orthoSrc.includes('data-canvas-ui="ortho-hist-toggle"'), "the toggle carries its hook (sibling of export, never nested)");
-must(orthoSrc.includes('data-canvas-ui="ortho-hist-stats"'), "the stats row carries its hook");
-must(orthoSrc.includes('data-canvas-ui="ortho-hist-toggle"') && orthoSrc.includes('data-hist-state={state}'),
-  "the strip speaks its machine state (loading/ready/err)");
+must(histSrc.includes("data-canvas-ui={`${uiPrefix}-stats`}"), "the stats row carries its hook (prefix-composed)");
+must(histSrc.includes('data-hist-state={state}'), "the strip speaks its machine state (loading/ready/err)");
 must(orthoSrc.includes("ORTHO_SIGMA_SET_EVENT, { detail: { sigma, sign } }"), "a click dispatches the SET (density → σ)");
-must(orthoSrc.includes("raw < 0 ? -1 : 1"), "the sign follows the clicked side of the mean (the inversion door)");
-must(orthoSrc.includes("Math.min(10, Math.max(0.05, Math.abs(raw)))"), "the picked σ clamps to the slider's own bounds");
+must(histSrc.includes("raw < 0 ? -1 : 1"), "the sign follows the clicked side of the mean (the inversion door)");
+must(histSrc.includes("Math.min(10, Math.max(0.05, Math.abs(raw)))"), "the picked σ clamps to the slider's own bounds");
+must(orthoSrc.includes("onPickSigma={(sigma, sign)"), "the panel wires the pick to the σ dispatch");
 
 const embedSrc = await import("node:fs").then((fs) =>
   fs.readFileSync("src/components/workflow/results/molstar-embed.tsx", "utf8")

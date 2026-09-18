@@ -114,6 +114,7 @@ const FAMILY = [
   "t281-density-probe.mjs", // the density probe: hovering an ortho tile reads the voxel under the cursor (format=value, a single-voxel pread) — solid sky cursor lines, a corner chip speaking value @ x,y,z, three-axes-one-voxel mapping proof (Task 281)
   "t282-updated-at-honesty.mjs", // updatedAt honesty: a same-value/empty PATCH no longer touches @updatedAt (Prisma's @updatedAt fires per update CALL) — the dashboard's 'updated X ago' answers the last REAL edit, not the last request; the idle-reset intent stays exempt (Task 282)
   "t283-histogram-sigma-pick.mjs", // the histogram speaks: the volume's density distribution as a strip (format=histogram, chunked two-pass + cache) with a σ ruler and the current contour as a cut line — CLICKING it sets the contour (ORTHO_SIGMA_SET completes the σ family), sign follows the clicked side of the mean (Task 283)
+  "t284-quick-histogram.mjs", // the quick look speaks distributions: the strip lifted into density-histogram.tsx (ONE drawing truth, two consumers) and the quick-look dialog renders it read-only (default OFF, per-file reset) — plus the dialog learns to scroll (max-h/overflow: tall content was clipped, pre-existing) (Task 284)
 ];
 
 // ---- batches are first-class (t273) ----------------------------------------

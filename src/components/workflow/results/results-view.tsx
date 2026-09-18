@@ -69,6 +69,7 @@ import { MrcImage } from "./mrc-image";
 import { MolViewer, type MolViewerTarget } from "./mol-viewer";
 import { useAnchorParent } from "./anchor-parent";
 import { StarTable } from "./star-table";
+import { QuickHistSection } from "./density-histogram";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -971,7 +972,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
       {/* map / stack dialog */}
       <Dialog open={imageFile !== null} onOpenChange={(o) => !o && setImageFile(null)}>
         <DialogContent
-          className="max-w-2xl sm:max-w-2xl"
+          className="max-h-[90dvh] max-w-2xl overflow-y-auto sm:max-w-2xl"
           onKeyDown={onEscapeClose(() => setImageFile(null))}
         >
           {imageFile && (
@@ -1024,6 +1025,14 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
                         View in 3D (Mol*)
                       </Button>
                     </div>
+                    {/* t284 — the quick look speaks distributions: the SAME
+                        histogram instrument the ortho panel carries, here
+                        read-only (a dialog has no contour context to cut).
+                        Default OFF — the first look walks the whole file on
+                        the server; the toggle makes that an explicit ask and
+                        the (path, mtime, size) cache makes the rest free.
+                        key={path} resets the toggle when another file opens. */}
+                    <QuickHistSection key={imageFile.path} jobId={job.id} path={imageFile.path} />
                   </>
                 )}
               </div>
