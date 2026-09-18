@@ -178,8 +178,8 @@ must(
   "the cursor cannot leave the stack (prev/next clamp at the ends)"
 );
 must(
-  rvSrc.includes('src={fileUrl(job.id, imageFile, "&format=png&montage=16")}'),
-  "the montage overview is untouched (t286's auto-overview contract holds)"
+  rvSrc.includes("montageWin && imgWindow"),
+  "the montage overview follows the window only via the explicit toggle (t288 — the auto-overview contract holds BY DEFAULT, the toggle is the exception)"
 );
 must(
   rvSrc.includes("Particle image {stackSlice + 1}"),

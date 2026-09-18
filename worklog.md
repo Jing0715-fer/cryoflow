@@ -1861,3 +1861,25 @@ Stage Summary:
 - 「默认值即路径」：auth 默认从 agent 改 password + 选项重排，比任何提示文案都直接——用户找不到入口的字段等于不存在
 - 「输入框的最小尊严」：h-9 text-sm（36px/14px）是可读与紧凑的分界——密码用户在 32px/12px 的格子里输凭据是对耐心的征税
 - 遗留（下轮候选）：弹窗在超宽屏（>1536）可考虑 max-w-6xl；t272 遗留 exists=false 活体见证仍在排队
+
+## Task 289 (2026-09-18, cron 12:03 窗口 trace 1a07549302235a99-cron-agent-loop-202609181203)
+
+- 【开局四件套】尾部实证 = Task 287（39305e1 已 push）——续窗摘要声称的「272 基线 + 连续十一窗被摘要阻塞」第十二次不实：272→287 已由各窗实交付；cron 模板「Task 13」照例不认。净场良好 → watchdog 200 + roster 21。
+- 【QA】三哨兵全绿（qa00 DATA-VIEW + qa63 SMOKE + t287）+ agent-browser 活体 console 0 / errors 0。
+- 【立项】Task 287 遗留池树上核实：①数值输入第三入口（t286 遗留）与 ②montage 跟窗（t287 遗留）均为真缺口——服务端 renderMrcMontagePng 已接 window 且路由已透传（line 291），只差 UI 入口。合窗立项 Task 289「窗口的输入面收官」（树上立项时为 288，与并行窗撞号——对方 cluster dialog 修复先落地占号，按 t286 判例 renumber 289）。
+- 【实现① 数值输入（density-histogram.tsx）】读数升级为可写：lo/hi 两个 number input（step=any、placeholder=auto）替代纯文本读数——第三入口（chips=一击、拖拽=探索、数值=精确复现）；Enter→blur→容器 onBlur 一条 commit 路径（无双提交）；容器级 focus 门（onFocusCapture/onBlur+relatedTarget）：打字中外部窗口变化不重写字段、tab lo→hi 不早提交、离开整对才 commit；无效对（倒置/半成品）恢复活体窗口——「拒绝撒谎，不拒绝服务」；σ 偏移从读数迁入字段 title（动态 currently Xσ）。
+- 【实现② montage 听令（results-view.tsx）】stack 总览加「follow window」开关：默认 OFF（十六图十六分布——auto-overview 契约默认持有）；开启即显式命令全部 cell（服务端已就位）；无窗时 disabled + title 教如何 earned；三层各司其职：aria-pressed=意愿、disabled=可交互性、data-montage-window=实际行为（montageWin && imgWindow——开关存活跨 slice 步进但窗口死了时 hook 诚实读 off）；开关逐文件复位（[imgPath] effect）。
+- 【套件 t289-window-input.mjs（56 断言，二跑起 ALL PASS）】A 相 demo 真相；B 相台账 22 断言；C 相活体：确定性证据栈（t287 配方 4×32×32）→ 数值输入全链（typed pair URL verbatim、σ echo hook 精度、字段跟 chips、倒置拒绝、半成品拒绝、恢复活体）→ montage 三幕（无窗 disabled+URL 净、开窗跟令+windowed、撤令回 auto）→ slice 步进（窗口死 toggle 存活→新窗免点击复用）→ 重开全复位；Z 相 roster 21 + console 0；定妆照 t289-windowed-montage.png。
+- 【断言的错，第十四次应验（首跑 2 FAIL 全是套件）】①σ echo 断言用全精度期望对照 hook 的 toFixed(2) 输出（0.0039>1e-3）——改按 hook 自身精度对照；②流程自摆乌龙：slice step 前手动关了 toggle，后面「surviving toggle」断言对象被自己撤走——重排为 ON→步进→新窗复用→撤令。附带产品精修：data-montage-window 从「开关状态」升级为「实际行为」。
+- 【「重建 ≠ 上线」再挣一次 + 撞号再应验 + 后台化截断 build 新教训】首跑 C 相超时 = watchdog 服务旧 standalone（UI 改动未 rebuild）；第二次 build 被命令链尾部 `&` 后台化截断（26s 即断）致 standalone MISSING、server 起不来——**npm run build 必须前台独占跑完**（OOM 纪律 + 不可后台化双纪律）；前台重跑后 standalone OK、新实例启动时间实证在位。
+- 【哨兵复绿】t283/t284/t286/t287 全 ALL PASS（本窗 commit 后 push 撞号：并行窗 baeaeab 的用户报障窗也交付了一个「Task 288」cluster dialog 修复先落地占号——按 t286 判例 rebase + 我方 renumber 289、套件与证据照名重链，编年史单一真相）（t286 两处断言随语义演进：旧读数文案→placeholder="auto"；montage「永不」→「默认不、显式才」）；t287 montage 契约断言同款演进；family-run.mjs 花名册 62→63 收编 t289。
+- 【全家族回归（八批前台逐批——OOM 纪律第十二窗，一命令一批）】qa 11 · 403.4s ｜ t21 7 · 189.4s ｜ t22 2 · 65.1s ｜ t24 9 · 121.7s ｜ t25 9 · 470.0s ｜ t26 10 · 530.6s ｜ t27 7 · 274.1s ｜ t28 8 · 166.5s（t280–t288，**t288 首战即家族**）——合计 **pass 63 · solo 0 · real-fail 0 · wall 2220.7s**（--summary 机器拷贝）；coverage 认证 63 套件八批各归属唯一；roster 恒等 21；裸 tsc 0；build 两次（UI 精修后重建）均过。
+- 【收尾】worklog（本条）+ commit/push + 环境清理（Task 86 双杀 + port FREE 验证）。
+
+Stage Summary:
+- **「窗口的输入面收官」**：display window 家族第五部曲——chips（σ 一击）、拖拽（视觉探索）、**数值输入（精确复现）**三入口齐备；RELION _display 的 min/max 惯例从「看得见、指得出」到「写得进」——论文方法节说 displayed at lo=0.2, hi=1.3 时用户不再需要拖 handle 追浮点
+- **「总览听令，但只听点名的令」**：montage 跟窗开关默认 OFF——十六图十六分布，一个窗口命令全部是跨分布命令（t287 清窗教义的另一面）；打开即是显式意图，无窗时 disabled 并教如何 earned；开关存活跨 slice 步进（意愿）、窗口不存活（命令）——「意愿与命令的分离」在 montage 上第三次落地
+- 「三层各司其职」：aria-pressed 说意愿、disabled 说可交互性、data-montage-window 说实际行为（montageWin && imgWindow）——仪器的每个信号只说一件事，测试就不必猜
+- 「一条 commit 路径」：Enter→blur→容器 onBlur（relatedTarget 门）单路提交——tab lo→hi 不早提交、打字中外部不重写、无效对恢复活体；逐键提交是对半个数字的撒谎
+- 「后台化截断 build」新教训：命令链尾部 `&` 把 npm run build 甩进后台又被会话终止（26s 即断）→ standalone MISSING、server 起不来——**build 必须前台独占跑完**（OOM 纪律 + 不可后台化双纪律）；「重建 ≠ 上线」的检验手段（进程启动时间）第二次救命
+- 遗留（下轮候选）：triptych 导出 footer 叠加直方图缩略（文档资产语义再评估）；快看对话框 display range 的 σ 数值输入（当前是绝对值——σ 口径输入待真需求）；bookmark 缩略图叠加焦点交点（连续让位）；EMPIAR 真数据回归（连续第五窗让位）；Topaz wrapper 深化（边际递减）

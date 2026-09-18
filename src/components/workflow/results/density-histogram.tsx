@@ -390,6 +390,35 @@ export function DensityHistogramStrip({
   const winNow = dragWin ?? winProp; // in-flight while dragging, committed otherwise
   const MIN_GAP_FRAC = 0.02; // lo and hi never meet: ≥2% of the strip's span apart
 
+  // t288 — the numeric entry: the readout that can also be WRITTEN.
+  // Two string buffers commit on Enter/blur (a per-keystroke commit would
+  // claim a half-typed number is a command); a container-level focus gate
+  // keeps external window changes (chips, handle drags, slice steps) from
+  // rewriting the fields under the typist's hands, and tabbing lo→hi does
+  // NOT commit early — only leaving the pair entirely does.
+  const [numLo, setNumLo] = useState("");
+  const [numHi, setNumHi] = useState("");
+  const numFocus = useRef(false);
+  useEffect(() => {
+    if (numFocus.current) return; // under a typing hand — hands off
+    setNumLo(winNow ? String(winNow.lo) : "");
+    setNumHi(winNow ? String(winNow.hi) : "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [winNow]);
+  const commitNum = () => {
+    if (!onPickWindow) return;
+    const lo = Number.parseFloat(numLo);
+    const hi = Number.parseFloat(numHi);
+    if (Number.isFinite(lo) && Number.isFinite(hi) && hi > lo) {
+      onPickWindow({ lo, hi }); // a valid pair is a command — same shape the handles commit
+    } else {
+      // an invalid or half-typed pair is not a command: restore the live
+      // window (the strip refuses to lie, it doesn't refuse to serve)
+      setNumLo(winNow ? String(winNow.lo) : "");
+      setNumHi(winNow ? String(winNow.hi) : "");
+    }
+  };
+
   const onDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (!onPickWindow || !winNow || !data) return; // no handles, no drag
     const v = valueAt(e.clientX);
@@ -545,14 +574,67 @@ export function DensityHistogramStrip({
                   </button>
                 );
               })}
-              <span className="ml-auto font-mono text-[9px] tabular-nums text-muted-foreground">
-                {winNow
-                  ? `window ${fmtHist(winNow.lo)} … ${fmtHist(winNow.hi)}${
-                      data.std > 0
-                        ? ` (${((winNow.lo - data.mean) / data.std).toFixed(1)}σ … ${((winNow.hi - data.mean) / data.std).toFixed(1)}σ)`
-                        : ""
-                    }`
-                  : "window auto (2–98 %)"}
+              {/* t288 — the readout became an entry: lo/hi typeable,
+                  Enter or leaving the pair commits (see commitNum). The
+                  old printed window text lives on as the fields' values
+                  and the data-win-* hooks; the σ offsets moved into the
+                  fields' titles. */}
+              <span
+                className="ml-auto flex items-center gap-1 font-mono text-[9px] tabular-nums text-muted-foreground"
+                onFocusCapture={() => {
+                  numFocus.current = true;
+                }}
+                onBlur={(e) => {
+                  if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+                    numFocus.current = false;
+                    commitNum(); // leaving the pair entirely is the commit
+                  }
+                }}
+              >
+                <span>lo</span>
+                <input
+                  type="number"
+                  step="any"
+                  aria-label="Lower display bound (lo) — absolute density units"
+                  data-canvas-ui={`${uiPrefix}-win-lo`}
+                  value={numLo}
+                  placeholder="auto"
+                  onChange={(e) => setNumLo(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      e.currentTarget.blur(); // blur walks the commit path
+                    }
+                  }}
+                  title={
+                    winNow && data.std > 0
+                      ? `currently ${((winNow.lo - data.mean) / data.std).toFixed(2)}σ — type an absolute lo (renders black); Enter commits`
+                      : "type an absolute lo (renders black); Enter commits"
+                  }
+                  className="w-14 rounded border border-border/60 bg-background/60 px-1 py-0.5 text-[9px] tabular-nums outline-none focus:border-violet-700/60"
+                />
+                <span aria-hidden="true">…</span>
+                <input
+                  type="number"
+                  step="any"
+                  aria-label="Upper display bound (hi) — absolute density units"
+                  data-canvas-ui={`${uiPrefix}-win-hi`}
+                  value={numHi}
+                  placeholder="auto"
+                  onChange={(e) => setNumHi(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      e.currentTarget.blur();
+                    }
+                  }}
+                  title={
+                    winNow && data.std > 0
+                      ? `currently ${((winNow.hi - data.mean) / data.std).toFixed(2)}σ — type an absolute hi (renders white); Enter commits`
+                      : "type an absolute hi (renders white); Enter commits"
+                  }
+                  className="w-14 rounded border border-border/60 bg-background/60 px-1 py-0.5 text-[9px] tabular-nums outline-none focus:border-violet-700/60"
+                />
               </span>
             </div>
           )}

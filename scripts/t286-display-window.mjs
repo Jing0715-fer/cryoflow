@@ -123,7 +123,10 @@ must(sharedSrc.includes("clipped ? 0.28 : 1"), "bars OUTSIDE the window dim — 
 must(sharedSrc.includes("cursor-ew-resize"), "the cursor offers the drag only where a drag exists");
 must(sharedSrc.includes('data-win-preset={k}'), "the σ preset chips are machine-findable");
 must(sharedSrc.includes('data-win-state={winNow ? "custom" : "auto"}'), "the window state is a hook (custom vs auto)");
-must(sharedSrc.includes("window auto (2–98 %)"), "the readout says what AUTO actually is (the percentile stretch)");
+must(
+  sharedSrc.includes('placeholder="auto"'),
+  "the numeric fields say what AUTO is — an empty field answers to the percentile stretch (t288: the readout became an entry)"
+);
 must(sharedSrc.includes("if (!onPickSigma) return;"), "the σ pick gate survives (t284's honest gate, untouched)");
 must(
   sharedSrc.includes("Math.min(Math.max(v, data.lo), hi - minGap)"),
@@ -137,8 +140,8 @@ must(rvSrc.includes("window={imgWindow}") && rvSrc.includes("onWindowChange={set
 must(rvSrc.includes("setImgWindow(null)"), "the window resets (a new file inherits no command)");
 must(!rvSrc.includes("onPickSigma"), "the dialog STILL never passes a σ pick handler (t284's read-only-by-construction, preserved)");
 must(
-  rvSrc.includes('src={fileUrl(job.id, imageFile, "&format=png&montage=16")}'),
-  "the stack montage URL is untouched (no window on stacks — the histogram never spoke .mrcs)"
+  rvSrc.includes('"&format=png&montage=16") +') && rvSrc.includes("montageWin && imgWindow"),
+  "the montage follows the window ONLY through the explicit toggle (t288: sixteen images are sixteen distributions — the default is still auto)"
 );
 
 console.log("== PHASE C: the window commands, alive ==");

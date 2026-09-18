@@ -169,6 +169,14 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
   // the overview; the slice cursor picks WHICH particle image the single
   // view and the histogram speak.
   const [stackSlice, setStackSlice] = useState(0);
+  // t288 — the montage overview follows the display window ONLY when the
+  // user asks: sixteen images are sixteen distributions, so by default
+  // every cell speaks its own auto stretch. The toggle is the explicit
+  // command over all of them (and survives slice steps — it's the
+  // reader's intent, not a command over any one image's pixels; the
+  // window itself still resets per image, so the montage silently
+  // returns to auto with it). Reset per file, like the window.
+  const [montageWin, setMontageWin] = useState(false);
   const [starFile, setStarFile] = useState<OutputFile | null>(null);
   const [textFile, setTextFile] = useState<OutputFile | null>(null);
   /** t260 — the shared Mol* dialog opens on a TARGET (job + file + optional
@@ -226,6 +234,12 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
   // opening another FILE restarts the stack at its first image
   useEffect(() => {
     setStackSlice(0);
+  }, [imgPath]);
+  // t288 — and resets the montage's follow-window toggle (the toggle is
+  // the reader's intent across SLICES, but across FILES a fresh dialog
+  // starts honest: overview auto, window auto)
+  useEffect(() => {
+    setMontageWin(false);
   }, [imgPath]);
 
   // latest-iteration first: for finished jobs the FINAL classes/maps are what
@@ -1017,14 +1031,56 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
                 {imageFile.name.toLowerCase().endsWith(".mrcs") ? (
                   <>
                     <MrcImage
-                      src={fileUrl(job.id, imageFile, "&format=png&montage=16")}
+                      src={
+                        fileUrl(job.id, imageFile, "&format=png&montage=16") +
+                        (montageWin && imgWindow ? `&lo=${imgWindow.lo}&hi=${imgWindow.hi}` : "")
+                      }
                       alt={`${imageFile.name} montage`}
                       className="bg-zinc-950 p-2"
                     />
-                    <p className="text-center text-[11px] text-muted-foreground">
-                      Stack of {imageFile.slices ?? "?"} particle images — showing the first{" "}
-                      {Math.min(16, imageFile.slices ?? 16)}
-                    </p>
+                    {/* t288 — the overview takes commands, but only by
+                        name: sixteen images are sixteen distributions, so
+                        the toggle (default OFF) is the explicit act of
+                        commanding all of them with one window. With no
+                        window set there is nothing to follow — the toggle
+                        is disabled and says so. */}
+                    <div
+                      className="flex items-center justify-center gap-2 text-[11px] text-muted-foreground"
+                      data-canvas-ui="stack-montage-meta"
+                      /* the hook reads the montage's ACTUAL behavior (is
+                         it windowed right now?), not the toggle's intent:
+                         aria-pressed owns the intent, disabled owns the
+                         interactivity, this owns the deed */
+                      data-montage-window={montageWin && imgWindow ? "on" : "off"}
+                    >
+                      <span>
+                        Stack of {imageFile.slices ?? "?"} particle images — showing the first{" "}
+                        {Math.min(16, imageFile.slices ?? 16)} ·{" "}
+                        {montageWin && imgWindow ? "windowed" : "auto contrast"}
+                      </span>
+                      <button
+                        type="button"
+                        aria-pressed={montageWin}
+                        disabled={!imgWindow}
+                        data-canvas-ui="stack-montage-window"
+                        onClick={() => setMontageWin((w) => !w)}
+                        title={
+                          !imgWindow
+                            ? "Set a display window first (σ presets or the lo/hi fields below) — then the montage can follow it"
+                            : montageWin
+                              ? "The montage follows the display window — every cell renders lo → black, hi → white"
+                              : "Command the montage with the display window — sixteen images are sixteen distributions; by default each cell speaks its own auto stretch"
+                        }
+                        className={
+                          "rounded border px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider transition-colors " +
+                          (montageWin && imgWindow
+                            ? "border-violet-700/60 bg-violet-950/30 text-violet-700 dark:border-violet-400/50 dark:bg-violet-950/40 dark:text-violet-300"
+                            : "border-border/60 bg-background/60 text-muted-foreground hover:bg-muted/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50")
+                        }
+                      >
+                        follow window
+                      </button>
+                    </div>
                     {(
                       /* t287 — THE STACK SPEAKS: a slice cursor (prev/next +
                          a range slider) drives ONE slice view and the
