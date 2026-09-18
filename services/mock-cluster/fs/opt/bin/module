@@ -1,10 +1,32 @@
 #!/usr/bin/env bash
 # mock Lmod-style module tool for the CryoFlow mock cluster
-case "$1" in
+#
+# t297 — models the user's OpenHPC cluster honestly:
+#   - the VISIBLE relion modules keep their pre-t297 names (the QA suites'
+#     assertions ride on them);
+#   - relion/beta_5.0_gpu_ompi5_cuda118 is Lmod-HIDDEN: `module load` works,
+#     `module avail` stays silent about it, and only --show_hidden / -d lists
+#     it — exactly the "why can't I see relion 5" report;
+#   - avail/spider accept flags AFTER the subcommand (--show_hidden, -d,
+#     patterns) the way real Lmod does.
+
+sub="$1"; shift || true
+show_hidden=0
+args=()
+for a in "$@"; do
+  case "$a" in
+    --show_hidden|-d|--show-hidden) show_hidden=1 ;;
+    -*) ;; # any other flag: swallow like Lmod does
+    *) args+=("$a") ;;
+  esac
+done
+pattern="${args[0]}"
+
+case "$sub" in
   load)
-    mod="$2"
+    mod="$1"
     case "$mod" in
-      relion/5.0.1|relion/4.4.1|relion/5.0-beta)
+      relion/5.0.1|relion/4.4.1|relion/5.0-beta|relion/beta_5.0_gpu_ompi5_cuda118)
         # real RELION is already on PATH via the server env; record the load
         mkdir -p "$HOME/.lmod" && echo "$mod" > "$HOME/.lmod/loaded"
         exit 0 ;;
@@ -12,15 +34,27 @@ case "$1" in
       *) echo "Lmod has detected the following error: Unknown module: $mod" >&2; exit 1 ;;
     esac ;;
   avail|spider)
-    # stderr like real Lmod, plus stdout fallback lines — the app parses BOTH
+    # stderr like real Lmod, plus stdout fallback lines — the app parses BOTH.
+    # The hidden beta_5.0 rides along ONLY when asked for (t297).
     {
       echo "   relion/4.4.1    relion/5.0.1    relion/5.0-beta"
+      if [ "$show_hidden" = "1" ]; then
+        echo "   relion/beta_5.0_gpu_ompi5_cuda118"
+      fi
+    } >&2
+    exit 0 ;;
+  whatis)
+    {
+      echo "relion/4.4.1     : RELION 4.4.1 (mock)"
+      echo "relion/5.0.1     : RELION 5.0.1 (mock)"
+      echo "relion/5.0-beta  : RELION 5.0 beta (mock)"
     } >&2
     exit 0 ;;
   list)
     [ -f "$HOME/.lmod/loaded" ] && { echo "Currently Loaded Modulefiles:"; echo "  1) $(cat "$HOME/.lmod/loaded")"; } || echo "No modules loaded"
     exit 0 ;;
   purge) rm -f "$HOME/.lmod/loaded" 2>/dev/null; exit 0 ;;
+  --version|-V) echo "Modules based on Lua: Version 8.3 (mock)" ;;
   ""|-h|--help|help) echo "Modules based on Lua: Version 8.3 (mock)"; exit 0 ;;
-  *) echo "Unknown module command: $1" >&2; exit 1 ;;
+  *) echo "Unknown module command: $sub" >&2; exit 1 ;;
 esac

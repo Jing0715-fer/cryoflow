@@ -2163,7 +2163,17 @@ function InspectorHeader({ job }: { job: JobDTO }) {
                   // claiming the run is "Running"; the ledger span below
                   // speaks the timing instead
                   "Ran on the cluster"
-                : `Running on the cluster${job.runRemote.pid ? ` · pid ${job.runRemote.pid}` : ""}`}
+                : job.runRemote.mode === "slurm"
+                  ? // t297 — the scheduler's own vocabulary: the state word
+                    // (PENDING/RUNNING/…) + the job id + the GPU width
+                    `Slurm job ${job.runRemote.slurmId ?? "?"}${job.runRemote.gpusRequested ? ` · ${job.runRemote.gpusRequested} GPU(s)` : ""}${
+                      job.runRemote.slurmState
+                        ? job.runRemote.slurmState === "PENDING"
+                          ? " · queued"
+                          : ` · ${job.runRemote.slurmState.toLowerCase()}`
+                        : ""
+                    }`
+                  : `Running on the cluster${job.runRemote.pid ? ` · pid ${job.runRemote.pid}` : ""}`}
           </span>
           {job.runRemote.phase !== "staging" &&
           (job.status === "completed" || job.status === "failed") &&

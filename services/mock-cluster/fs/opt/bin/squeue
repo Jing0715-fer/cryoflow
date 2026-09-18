@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# mock squeue for the CryoFlow mock cluster (t297)
+#
+# Supports the app's poll grammar: squeue -j <id> -h -o %T  → the job's
+# state word (PENDING/RUNNING) or NOTHING once the job is gone, exactly
+# like real squeue purging finished jobs. A bare `squeue` lists every
+# known job in the classic table form.
+set -u
+SLURM_DIR="$HOME/.slurm"
+[ -d "$SLURM_DIR" ] || exit 0
+
+want_id=""
+header=1
+fmt="%i %P %j %u %T %M %D %R"
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -j)
+      shift
+      want_id="${1:-}"
+      ;;
+    --jobs=*) want_id="${1#--jobs=}" ;;
+    -h|--noheader) header=0 ;;
+    -o)
+      shift
+      fmt="${1:-$fmt}"
+      ;;
+    --format=*) fmt="${1#--format=}" ;;
+    *) ;;
+  esac
+  shift
+done
+
+state_of() {
+  # a job is RUNNING while its launcher pid lives; the .state file may say
+  # PENDING before the launcher's sleep elapses
+  local id="$1"
+  local pinfo
+  pinfo="$(cat "$SLURM_DIR/job-$id.pid" 2>/dev/null)" || return 1
+  local pid st
+  pid="$(echo "$pinfo" | awk '{print $2}')"
+  st="$(echo "$pinfo" | awk '{print $3}')"
+  [ -n "$pid" ] || return 1
+  if [ -r "/proc/$pid/stat" ] && [ "$(awk '{print $22}' /proc/$pid/stat 2>/dev/null)" = "$st" ]; then
+    cat "$SLURM_DIR/job-$id.state" 2>/dev/null || echo "RUNNING"
+  else
+    return 1
+  fi
+}
+
+render() {
+  local id="$1" state="$2"
+  local name
+  name="$(cat "$SLURM_DIR/job-$id.name" 2>/dev/null || echo "job$id")"
+  case "$fmt" in
+    %T) echo "$state" ;;
+    *) echo "$id  gpu*  $name  cryo  $state  0:00  1  node01" ;;
+  esac
+}
+
+if [ -n "$want_id" ]; then
+  # single-job query: silent (exit 0) when unknown/finished — the contract
+  # the app's alive-check relies on
+  if [ -f "$SLURM_DIR/job-$want_id.pid" ]; then
+    state="$(state_of "$want_id")" && render "$want_id" "$state"
+  fi
+  exit 0
+fi
+
+[ "$header" = "1" ] && echo "JOBID PARTITION     NAME     USER ST  TIME NODES NODELIST(REASON)"
+for pidfile in "$SLURM_DIR"/job-*.pid; do
+  [ -f "$pidfile" ] || continue
+  id="$(basename "$pidfile" .pid)"; id="${id#job-}"
+  state="$(state_of "$id")" && render "$id" "$state"
+done
+exit 0

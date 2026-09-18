@@ -39,7 +39,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { ArrowUpRight, Check, Loader2, Network, Plus, Server, Trash2, X } from "lucide-react";
+import { ArrowUpRight, BadgeCheck, Check, Loader2, Network, Plus, Server, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWorkflowStore } from "@/lib/store";
 import type {
@@ -297,6 +297,21 @@ function ProbeCard({
         <p className="truncate text-[10px] text-muted-foreground" title={probe.gpus.join(", ")}>
           GPUs: {probe.gpus.join(", ")}
         </p>
+      ) : probe.slurmGpus && probe.slurmGpus.length > 0 ? (
+        <div className="space-y-0.5">
+          <p className="text-[10px] leading-relaxed text-muted-foreground">
+            <span className="font-medium text-foreground/80">Compute-node GPUs (via Slurm sinfo):</span>{" "}
+            {probe.slurmGpus
+              .map(
+                (g) =>
+                  `${g.partition}: ${g.gpusPerNode} GPU/node × ${g.nodes} node${g.nodes === 1 ? "" : "s"}${g.model ? ` (${g.model})` : ""}`
+              )
+              .join(" · ")}
+          </p>
+          <p className="text-[10px] leading-relaxed text-muted-foreground/70">
+            The login node has no GPUs (normal — nvidia-smi is quiet here); sbatch runs land on the compute nodes above.
+          </p>
+        </div>
       ) : (
         <p className="text-[10px] text-muted-foreground/70">
           No GPUs visible on the login node (compute nodes may still have them).
@@ -696,6 +711,8 @@ interface Draft {
   remoteRoot: string;
   envLines: string;
   useSlurm: boolean;
+  /** t297 — Slurm partition for sbatch submissions (empty = cluster default). */
+  slurmPartition: string;
   /** t289 — what finalize syncs back: key files only (default) or everything. */
   syncPolicy: "key-files" | "everything";
   /** t289 — binary cap (MB) for the key-files policy. */
@@ -719,6 +736,7 @@ function toDraft(c: RemoteConnectionDTO | null): Draft {
     remoteRoot: c?.remoteRoot ?? "~/cryoflow",
     envLines: (c?.envLines ?? []).join("\n"),
     useSlurm: c?.useSlurm ?? false,
+    slurmPartition: c?.slurmPartition ?? "",
     syncPolicy: c?.syncPolicy ?? "key-files",
     keyFileMb: c?.keyFileMb ?? 16,
     maxFileMb: c?.maxFileMb ?? 512,
@@ -769,6 +787,21 @@ function ConnectionEditor({
   const [confirmDelete, setConfirmDelete] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
   const [pickingModule, setPickingModule] = React.useState<string | null>(null);
+  /**
+   * t297 — the beta/hidden module door: `module avail` never lists hidden
+   * modules (Lmod hides beta installs), so a name the user KNOWS loads
+   * (`module load relion/beta_5.0_gpu_ompi5_cuda118` in their env lines)
+   * needs its own proof. The verify door loads it over SSH, requires
+   * relion_refine on PATH, and merges the module into the probe's list —
+   * the chips above then offer it like any probed module.
+   */
+  const [verifyInput, setVerifyInput] = React.useState("");
+  const [verifying, setVerifying] = React.useState(false);
+  const [verifyResult, setVerifyResult] = React.useState<
+    | { ok: true; module: string; relionHome: string; mpi: boolean }
+    | { ok: false; error: string }
+    | null
+  >(null);
   /** t289 — the create flow's pre-pinned default module: the by-value probe
    *  shows module chips BEFORE anything is saved; a click stores the pick
    *  here and Create sends it with the connection (saved connections keep
@@ -807,6 +840,7 @@ function ConnectionEditor({
         .map((l) => l.trim())
         .filter((l) => l.length > 0),
       useSlurm: draft.useSlurm,
+      slurmPartition: draft.slurmPartition.trim(),
       syncPolicy: draft.syncPolicy,
       keyFileMb: cap(draft.keyFileMb, 16),
       maxFileMb: cap(draft.maxFileMb, 512),
@@ -951,6 +985,58 @@ function ConnectionEditor({
       setError("Request failed while setting the default module.");
     } finally {
       setPickingModule(null);
+    }
+  };
+
+  /**
+   * t297 — verify a module name the listing never showed (beta / hidden):
+   * the server loads it in a login shell and requires relion_refine on
+   * PATH. Success merges the module into the connection's probe (the chips
+   * above re-render with it) AND pins it as the default — the exact
+   * "confirm this command can call relion 5" the user asked for. A refusal
+   * carries the module tool's own words (Lmod's "Unknown module").
+   */
+  const verifyModule = async () => {
+    const name = verifyInput.trim();
+    if (!connection || !name || verifying) return;
+    setVerifying(true);
+    setVerifyResult(null);
+    setError(null);
+    try {
+      const res = await fetch(`/api/remote/connections/${connection.id}/verify-module`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ module: name, pin: true }),
+      });
+      const body = (await res.json().catch(() => null)) as
+        | {
+            ok?: boolean;
+            module?: string;
+            relionHome?: string;
+            mpi?: boolean;
+            error?: string;
+            connection?: RemoteConnectionDTO;
+          }
+        | null;
+      if (res.ok && body?.ok && body.connection) {
+        setVerifyResult({
+          ok: true,
+          module: body.module ?? name,
+          relionHome: body.relionHome ?? "",
+          mpi: body.mpi === true,
+        });
+        // the server's truth replaces both the row and the probe card's
+        // source — the verified module appears among the chips immediately
+        onPatched(body.connection);
+        setProbeOverride(body.connection.lastProbe ?? null);
+        setVerifyInput("");
+      } else {
+        setVerifyResult({ ok: false, error: body?.error ?? `Verification failed (HTTP ${res.status}).` });
+      }
+    } catch {
+      setVerifyResult({ ok: false, error: "Verify request failed — is the app server reachable?" });
+    } finally {
+      setVerifying(false);
     }
   };
 
@@ -1178,9 +1264,22 @@ function ConnectionEditor({
               aria-label="Prefer Slurm submission"
             />
             <Label htmlFor="remote-use-slurm" className="text-[11px] leading-snug text-muted-foreground">
-              Prefer Slurm submission <span className="text-muted-foreground/70">(not wired yet — runs direct)</span>
+              Prefer Slurm (sbatch) submission <span className="text-muted-foreground/70">— the run dialog defaults to sbatch; direct nohup stays one click away</span>
             </Label>
           </div>
+          <Field
+            label="Slurm partition"
+            hint="Used for #SBATCH --partition when submitting via sbatch (the probe's sinfo inventory lists what your cluster offers). Leave empty for the cluster default."
+          >
+            <Input
+              value={draft.slurmPartition}
+              onChange={(e) => patch({ slurmPartition: e.target.value.trim().slice(0, 80) })}
+              placeholder="(cluster default) — e.g. gpu"
+              className="h-9 font-mono text-[13px]"
+              maxLength={80}
+              aria-label="Slurm partition for sbatch submissions"
+            />
+          </Field>
           <Field
             label="Environment lines"
             hint="module load cuda/12.2 · export FOO=bar — one line each, sourced before runs."
@@ -1257,7 +1356,8 @@ function ConnectionEditor({
       {/* Probe — the payoff card (test results / last registry probe).
           t289: the CREATE form speaks too — the by-value test fills
           probeOverride without a saved connection, chips pre-pin the
-          default module (draftDefaultModule rides the Create payload). */}
+          default module (draftDefaultModule rides the Create payload).
+          t297: below it, the verify door for modules no listing shows. */}
       {probe ? (
         <div className="space-y-2">
           <SectionTitle>{creating ? "Probe (not saved yet)" : "Last probe"}</SectionTitle>
@@ -1287,6 +1387,79 @@ function ConnectionEditor({
           )}
         </p>
       )}
+
+      {/* t297 — the beta/hidden module door (saved connections only: the
+          verify route needs a registry id to load against). */}
+      {!creating ? (
+        <div
+          className="space-y-1.5 rounded-md border border-dashed px-3 py-2.5"
+          data-verify-module-row=""
+        >
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Module not listed? Verify by name
+          </p>
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            Hidden and beta modules (Lmod hides them from <code className="rounded bg-muted px-1 py-0.5 font-mono text-[10px]">module avail</code>)
+            still load by full name — type the exact name, verify it, and it joins the list above and becomes
+            the default.
+          </p>
+          <div className="flex items-center gap-1.5">
+            <Input
+              value={verifyInput}
+              onChange={(e) => setVerifyInput(e.target.value.trim())}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  void verifyModule();
+                }
+              }}
+              placeholder="relion/beta_5.0_gpu_ompi5_cuda118"
+              className="h-9 font-mono text-[13px]"
+              maxLength={200}
+              aria-label="Module name to verify"
+              data-verify-module-input=""
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-9 shrink-0 gap-1.5 text-xs"
+              onClick={() => void verifyModule()}
+              disabled={verifying || !verifyInput.trim()}
+              data-verify-module-button=""
+            >
+              {verifying ? (
+                <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+              ) : (
+                <BadgeCheck className="size-3.5" aria-hidden="true" />
+              )}
+              {verifying ? "Verifying…" : "Verify & pin"}
+            </Button>
+          </div>
+          {verifyResult ? (
+            verifyResult.ok ? (
+              <p
+                role="status"
+                className="text-[11px] leading-relaxed text-emerald-700 dark:text-emerald-300"
+                data-verify-module-ok=""
+              >
+                <span className="font-mono">{verifyResult.module}</span> loads — relion_refine at{" "}
+                <span className="font-mono">{verifyResult.relionHome || "(module PATH)"}</span>
+                {verifyResult.mpi ? " · mpirun ✓" : " · no mpirun (sequential fallback)"}. It is now in the
+                list above and pinned as the default.
+              </p>
+            ) : (
+              <p
+                role="alert"
+                className="text-[11px] leading-relaxed text-rose-700 dark:text-rose-300"
+                data-verify-module-error=""
+              >
+                {verifyResult.error}
+              </p>
+            )
+          ) : null}
+        </div>
+      ) : null}
 
       {testError ? (
         <p

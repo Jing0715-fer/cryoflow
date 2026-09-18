@@ -466,6 +466,100 @@ function buildWrapperScript(args: {
 /* startRemoteJob                                                      */
 /* ------------------------------------------------------------------ */
 
+/**
+ * t297 — the sbatch variant of the run script, modeled on the user's
+ * sbatch6gpu.sh submission idiom (OpenHPC + Slurm + Lmod clusters):
+ *
+ *   #SBATCH --nodes=1
+ *   #SBATCH --ntasks=<gpus>          ← one MPI rank per GPU
+ *   #SBATCH --gres=gpu:<gpus>
+ *   … mpirun -n <gpus> relion_* … --gpu 0:1:…:N-1
+ *
+ * The GPU count is the WIDTH the user chose in the run dialog (1–8) — the
+ * same script shape at any width. The output/error land in the workdir's
+ * run.out / run.err (the SAME contract as direct mode), so log tailing,
+ * progress parsing and the finalize sweep are unchanged. The exit status
+ * lands in .cf-exit via the explicit capture + EXIT trap — the completion
+ * truth the poll already speaks (a scancel SIGKILL that beats the trap
+ * leaves no file → the honest "interrupted remotely" path).
+ */
+function buildSbatchScript(args: {
+  conn: RemoteConnection;
+  module: string;
+  relionHome: string | null;
+  ctffind: string | null;
+  command: string;
+  gpus: number;
+  ntasks: number;
+  threads: number;
+  jobName: string;
+  remoteProjectRoot: string;
+  remoteWorkdir: string;
+}): string {
+  const { conn, module: moduleName, relionHome, ctffind, command, gpus, ntasks, threads, jobName, remoteProjectRoot, remoteWorkdir } = args;
+  const L: string[] = [];
+  L.push("#!/bin/bash");
+  L.push("# CryoFlow Slurm submission — generated locally, submitted on the cluster");
+  L.push("# connection: " + `${conn.username}@${conn.host}:${conn.port} · module ${moduleName || "(none)"} · ${gpus > 0 ? `${gpus} GPU(s)` : "CPU"}`);
+  L.push(`#SBATCH --job-name=${jobName}`);
+  if (conn.slurmPartition) L.push(`#SBATCH --partition=${conn.slurmPartition}`);
+  L.push("#SBATCH --nodes=1");
+  L.push(`#SBATCH --ntasks=${Math.max(1, ntasks)}`);
+  L.push(`#SBATCH --cpus-per-task=${Math.max(1, threads)}`);
+  if (gpus > 0) L.push(`#SBATCH --gres=gpu:${gpus}`);
+  L.push(`#SBATCH --mem=${Math.min(256, 16 + 12 * Math.max(1, gpus))}G`);
+  L.push(`#SBATCH --output=${remoteWorkdir}/run.out`);
+  L.push(`#SBATCH --error=${remoteWorkdir}/run.err`);
+  L.push("");
+  L.push("# ---- login-shell environment (module is a shell function) ----");
+  L.push("source /etc/profile >/dev/null 2>&1 || true");
+  L.push('[ -f "$HOME/.bash_profile" ] && . "$HOME/.bash_profile" >/dev/null 2>&1 || true');
+  L.push('[ -f "$HOME/.bashrc" ] && . "$HOME/.bashrc" >/dev/null 2>&1 || true');
+  L.push("");
+  L.push("# ---- connection environment lines ----");
+  for (const line of conn.envLines) {
+    if (line.trim() && !line.trim().startsWith("#")) L.push(line);
+  }
+  L.push("");
+  L.push("# ---- RELION environment (module load, with a PATH fallback) ----");
+  if (moduleName) {
+    L.push(`module load ${shQuote(moduleName)} 2>/dev/null || module load ${shQuote(moduleName)}`);
+  }
+  if (relionHome) {
+    L.push(`export RELION_HOME=${shQuote(relionHome)}`);
+    L.push('export PATH="$RELION_HOME/bin:$PATH"');
+  }
+  if (ctffind) {
+    L.push(`export RELION_CTFFIND_EXECUTABLE=${shQuote(ctffind)}`);
+  }
+  L.push('command -v relion_refine >/dev/null 2>&1 || { echo "CRYOFLOW_ERR: relion_refine not found on PATH after module load" >&2; exit 127; }');
+  L.push("");
+  L.push("# ---- run ----");
+  L.push(`mkdir -p ${shQuote(remoteProjectRoot)}`);
+  L.push(`cd ${shQuote(remoteWorkdir)} || exit 111`);
+  L.push(`rm -f ${shQuote(remoteWorkdir + "/.cf-exit")}`);
+  // Exit-status contract (the poll's completion truth):
+  //   - natural completion: the explicit capture below writes the TRUE
+  //     status (0 included) — the last word;
+  //   - scancel's SIGTERM: the TERM/INT trap writes 143 (cancelled), and
+  //     the EXIT trap only speaks when rc != 0 — a TERM'ed bash otherwise
+  //     runs its EXIT trap with a stale $? == 0, which would forge a
+  //     success line for a job the user just killed (observed on GNU bash:
+  //     `bash -c 'trap "echo $?" EXIT; sleep N'` + kill → writes 0);
+  //   - SIGKILL / node loss: nothing is written → VANISHED → the honest
+  //     "interrupted remotely" path.
+  L.push(`trap 'echo 143 > ${shQuote(remoteWorkdir + "/.cf-exit")} 2>/dev/null; exit 143' TERM INT`);
+  L.push(
+    `trap '__rc=$?; [ "$__rc" -eq 0 ] || echo "$__rc" > ${shQuote(remoteWorkdir + "/.cf-exit")} 2>/dev/null' EXIT`
+  );
+  L.push(`set +e`);
+  L.push(command);
+  L.push(`__rc=$?`);
+  L.push(`echo "$__rc" > ${shQuote(remoteWorkdir + "/.cf-exit")}`);
+  L.push(`exit $__rc`);
+  return L.join("\n") + "\n";
+}
+
 /** A staging heartbeat older than this means the upload task is gone. */
 const STAGING_BEAT_STALE_MS = 120_000;
 
@@ -539,12 +633,14 @@ export async function startRemoteJob(args: {
 }): Promise<StartRemoteOutcome> {
   const { job, upstream, target } = args;
 
-  if (target.mode === "slurm") {
-    return fail(
-      "Slurm sbatch submission is not wired yet — use direct mode (the HPC dialog still generates submission scripts for manual use)",
-      true
-    );
-  }
+  // t297 — slurm mode is WIRED: the sbatch6gpu.sh pattern at a chosen GPU
+  // width. The one honest pre-condition: the cluster must actually offer a
+  // Slurm client (the probe looked for sbatch + squeue on the login node).
+  const isSlurm = target.mode === "slurm";
+  const gpuWidth = isSlurm
+    ? Math.max(1, Math.min(8, Math.round(Number(target.gpus ?? 6)) || 6))
+    : 0;
+
   if (NATIVE_TYPES.has(job.type)) {
     return fail(
       `"${job.type}" runs locally in milliseconds (no cluster needed) — its outputs stage to the cluster automatically when a remote job needs them`,
@@ -561,6 +657,16 @@ export async function startRemoteJob(args: {
   }
 
   const moduleName = target.module ?? conn.defaultModule ?? "";
+
+  // t297 — sbatch needs the Slurm client the probe looked for; a cluster
+  // that never probed (bare API) gets the same honest door the module probe
+  // has — never a blind spawn that fails five minutes later at submit time.
+  if (isSlurm && conn.lastProbe && !conn.lastProbe.slurm) {
+    return fail(
+      `the probe saw no Slurm client (sbatch/squeue) on ${conn.host} — re-test the connection, or run direct (nohup) mode`,
+      true
+    );
+  }
 
   // ---- liveness pre-check (precise, async — isRunAlive only guesses) ----
   const prev = getRun(job.id);
@@ -684,11 +790,12 @@ export async function startRemoteJob(args: {
     host: `${conn.host}:${conn.port}`,
     user: conn.username,
     module: moduleName,
-    mode: "direct",
+    mode: isSlurm ? "slurm" : "direct",
     remoteRoot,
     remoteWorkdir,
     pid: null,
     slurmId: null,
+    ...(isSlurm ? { gpusRequested: gpuWidth } : {}),
     phase: "staging",
   };
 
@@ -871,20 +978,36 @@ export async function startRemoteJob(args: {
       if (argv[0].startsWith("<RELION_BIN>/")) argv[0] = argv[0].slice("<RELION_BIN>/".length);
 
       // ---- GPU adaptation (cluster GPUs are probed, not assumed) --------
+      // t297 — slurm mode: the GPUs live on the COMPUTE node the scheduler
+      // grants, so the login-node nvidia-smi result is irrelevant — a GPU
+      // strategy > 0 gets its flags, and the MPI width is the USER-chosen
+      // gpuWidth (the sbatch6gpu.sh idiom: one rank per GPU). The multi-GPU
+      // TYPE SET follows the scheduler-aware strategy (hpc/slurm.ts's
+      // MULTI_GPU_TYPES — class2d/class3d/refine3d/initialmodel/multibody:
+      // relion_refine_mpi splits particles across ranks), NOT the local
+      // engine's narrower set (which mirrors sandbox constraints). Direct
+      // mode keeps the probe-driven behavior untouched.
       const strategy = gpuStrategyFor(job.type, {
         micrographs: 10,
         particles: Number(params.particles ?? 5000) || 5000,
+        ...(isSlurm ? { gpus: gpuWidth } : {}),
       });
-      const hasGpu = (conn.lastProbe?.gpus?.length ?? 0) > 0;
+      const multiGpuType = strategy.mode === "multi-gpu";
+      const mpiParallelType = isSlurm ? multiGpuType : MPI_PARALLEL_TYPES.has(job.type);
+      const hasGpu = isSlurm
+        ? strategy.gpus > 0
+        : (conn.lastProbe?.gpus?.length ?? 0) > 0;
       const mpiAvailable = moduleName ? conn.lastProbe?.relionMpi?.[moduleName] ?? false : false;
 
-      if (MPI_PARALLEL_TYPES.has(job.type) && mpiAvailable) {
-        const nranks = job.type === "refine3d" ? 3 : 2;
+      let ntasks = 1;
+      if (mpiParallelType && mpiAvailable) {
+        const nranks = isSlurm ? gpuWidth : job.type === "refine3d" ? 3 : 2;
+        ntasks = nranks;
         argv = ["mpirun", "-n", String(nranks), ...argv];
-        if (hasGpu && strategy.gpus > 1) argv.push("--gpu", Array.from({ length: nranks }, (_, i) => i).join(":"));
+        if (hasGpu && nranks > 1) argv.push("--gpu", Array.from({ length: nranks }, (_, i) => i).join(":"));
         else if (hasGpu) argv.push("--gpu", "0");
       } else {
-        if (MPI_PARALLEL_TYPES.has(job.type)) {
+        if (mpiParallelType) {
           // sequential fallback — mirrors the engine's no-mpirun path
           const splitIdx = argv.indexOf("--split_random_halves");
           if (splitIdx !== -1) {
@@ -897,53 +1020,124 @@ export async function startRemoteJob(args: {
         }
         if (hasGpu && strategy.gpus > 0 && !argv.includes("--gpu")) argv.push("--gpu", "0");
       }
+      // slurm mode: the --gres width follows what the argv actually uses —
+      // MPI rank count for MPI jobs, one GPU for single-GPU jobs, none for
+      // CPU jobs (a CPU job that requests GPUs starves the GPU queue).
+      const gresWidth = isSlurm
+        ? mpiParallelType && mpiAvailable
+          ? gpuWidth
+          : hasGpu && strategy.gpus > 0
+            ? 1
+            : 0
+        : 0;
 
       const command = argv.map(shQuote).join(" ");
-      const wrapper = buildWrapperScript({
-        conn,
-        module: moduleName,
-        relionHome,
-        ctffind: moduleName ? conn.lastProbe?.relionCtffind?.[moduleName] ?? null : null,
-        command,
-        remoteProjectRoot,
-        remoteWorkdir,
-      });
+      const threads = Math.max(1, Math.min(32, Math.round(Number(params.threads ?? 4) || 4)));
+      const jobName = `cf_${job.type}_${job.id.slice(-8)}`;
 
       await remoteMkdir(conn, remoteWorkdir);
-      const wrapperPath = `${remoteWorkdir}/.cf-run.sh`;
-      const upOk = await remoteUpload(conn, wrapper, wrapperPath);
-      if (!upOk) throw new Error(`could not upload the run script to ${wrapperPath}`);
 
-      const runRes = await exec(conn, `bash ${shQuote(wrapperPath)}`, { timeoutMs: 30_000 });
-      const pidMatch = /CRYOFLOW_PID:(\d+)/.exec(runRes.stdout);
-      if (!pidMatch) {
-        const why =
-          runRes.stderr.trim().slice(0, 400) ||
-          runRes.stdout.trim().slice(0, 400) ||
-          runRes.error ||
-          `ssh exit ${runRes.code}`;
-        throw new Error(`the cluster refused to start the job: ${why}`);
+      if (isSlurm) {
+        // ---- t297: the sbatch door (sbatch6gpu.sh pattern) ---------------
+        const script = buildSbatchScript({
+          conn,
+          module: moduleName,
+          relionHome,
+          ctffind: moduleName ? conn.lastProbe?.relionCtffind?.[moduleName] ?? null : null,
+          command,
+          gpus: gresWidth,
+          ntasks,
+          threads,
+          jobName,
+          remoteProjectRoot,
+          remoteWorkdir,
+        });
+        const scriptPath = `${remoteWorkdir}/.cf-sbatch.sh`;
+        const upOk = await remoteUpload(conn, script, scriptPath);
+        if (!upOk) throw new Error(`could not upload the sbatch script to ${scriptPath}`);
+        const subRes = await exec(conn, `sbatch ${shQuote(scriptPath)}`, { timeoutMs: 30_000 });
+        const idMatch = /Submitted batch job (\d+)/.exec(subRes.stdout);
+        if (!idMatch) {
+          const why =
+            subRes.stderr.trim().slice(0, 400) ||
+            subRes.stdout.trim().slice(0, 400) ||
+            subRes.error ||
+            `ssh exit ${subRes.code}`;
+          throw new Error(`sbatch refused the submission: ${why}`);
+        }
+        const slurmId = idMatch[1];
+
+        await updateRun(job.id, (rec) =>
+          rec.startedAt === record.startedAt && rec.remote
+            ? {
+                ...rec,
+                cmd: command,
+                remote: {
+                  ...rec.remote,
+                  slurmId,
+                  slurmState: "PENDING",
+                  phase: "running",
+                  stagedBytes,
+                  stagedMs,
+                },
+              }
+            : null
+        );
+        await db.job.update({
+          where: { id: job.id },
+          data: { status: "running", progress: 0, result: null, startedAt: new Date(startedAtMs) },
+        });
+        stopBeat();
+        console.log(
+          `remote-run: ${job.type} "${job.name}" submitted to Slurm on ${conn.name} (job ${slurmId}, ${gresWidth > 0 ? `${gresWidth} GPU(s)` : "CPU"}, module ${moduleName || "none"})`
+        );
+      } else {
+        // ---- direct mode: the setsid wrapper (unchanged contract) --------
+        const wrapper = buildWrapperScript({
+          conn,
+          module: moduleName,
+          relionHome,
+          ctffind: moduleName ? conn.lastProbe?.relionCtffind?.[moduleName] ?? null : null,
+          command,
+          remoteProjectRoot,
+          remoteWorkdir,
+        });
+
+        const wrapperPath = `${remoteWorkdir}/.cf-run.sh`;
+        const upOk = await remoteUpload(conn, wrapper, wrapperPath);
+        if (!upOk) throw new Error(`could not upload the run script to ${wrapperPath}`);
+
+        const runRes = await exec(conn, `bash ${shQuote(wrapperPath)}`, { timeoutMs: 30_000 });
+        const pidMatch = /CRYOFLOW_PID:(\d+)/.exec(runRes.stdout);
+        if (!pidMatch) {
+          const why =
+            runRes.stderr.trim().slice(0, 400) ||
+            runRes.stdout.trim().slice(0, 400) ||
+            runRes.error ||
+            `ssh exit ${runRes.code}`;
+          throw new Error(`the cluster refused to start the job: ${why}`);
+        }
+        const pid = Number(pidMatch[1]);
+
+        await updateRun(job.id, (rec) =>
+          rec.startedAt === record.startedAt && rec.remote
+            ? {
+                ...rec,
+                pid,
+                cmd: command,
+                remote: { ...rec.remote, pid, phase: "running", stagedBytes, stagedMs },
+              }
+            : null
+        );
+        await db.job.update({
+          where: { id: job.id },
+          data: { status: "running", progress: 0, result: null, startedAt: new Date(startedAtMs) },
+        });
+        stopBeat();
+        console.log(
+          `remote-run: ${job.type} "${job.name}" spawned on ${conn.name} (pid ${pid}, module ${moduleName || "none"})`
+        );
       }
-      const pid = Number(pidMatch[1]);
-
-      await updateRun(job.id, (rec) =>
-        rec.startedAt === record.startedAt && rec.remote
-          ? {
-              ...rec,
-              pid,
-              cmd: command,
-              remote: { ...rec.remote, pid, phase: "running", stagedBytes, stagedMs },
-            }
-          : null
-      );
-      await db.job.update({
-        where: { id: job.id },
-        data: { status: "running", progress: 0, result: null, startedAt: new Date(startedAtMs) },
-      });
-      stopBeat();
-      console.log(
-        `remote-run: ${job.type} "${job.name}" spawned on ${conn.name} (pid ${pid}, module ${moduleName || "none"})`
-      );
     } catch (e) {
       stopBeat();
       const msg = e instanceof Error ? e.message : String(e);
@@ -995,7 +1189,7 @@ async function pollOneRemote(conn: RemoteConnection, rec: RunRecord): Promise<Po
   const r = rec.remote;
   if (!r) return "unknown";
   if (r.phase === "staging") return "staging";
-  const script = aliveCheckScript(r.remoteWorkdir);
+  const script = aliveCheckScript(r.remoteWorkdir, r.slurmId);
   const res = await exec(conn, script, { timeoutMs: 10_000 });
   if (res.error) return res.error === "busy" ? "busy" : "unknown";
   if (/^EXIT:/m.test(res.stdout)) return "exit";
@@ -1006,13 +1200,24 @@ async function pollOneRemote(conn: RemoteConnection, rec: RunRecord): Promise<Po
 
 /**
  * The alive-check snippet shared by the single poll + the batch sweep:
- * EXIT:<code> when the wrapper wrote its exit file, ALIVE only when the
- * recorded pid AND its /proc starttime (field 22) still match (recycled
- * pids can never fake liveness), VANISHED otherwise.
+ * EXIT:<code> when the wrapper wrote its exit file; for DIRECT runs ALIVE
+ * only when the recorded pid AND its /proc starttime (field 22) still match
+ * (recycled pids can never fake liveness), VANISHED otherwise; for SLURM
+ * runs (t297) the scheduler is the witness — squeue still knowing the job
+ * means queued/running/completing, and the state word rides the line
+ * (ALIVE:PENDING / ALIVE:RUNNING) so the UI can say "queued" honestly.
  */
-function aliveCheckScript(remoteWorkdir: string): string {
+function aliveCheckScript(remoteWorkdir: string, slurmId?: string | null): string {
   const W = shQuote(remoteWorkdir);
   const EXIT = shQuote(remoteWorkdir + "/.cf-exit");
+  if (slurmId) {
+    const J = shQuote(String(Number(slurmId)));
+    return (
+      `if [ -f ${EXIT} ]; then echo "EXIT:$(cat ${EXIT} 2>/dev/null)"; ` +
+      `else __st="$(squeue -j ${J} -h -o %T 2>/dev/null | head -1)"; ` +
+      `if [ -n "$__st" ]; then echo "ALIVE:$__st"; else echo VANISHED; fi; fi`
+    );
+  }
   return (
     `__ps="$(cat ${W}/.cf-pid 2>/dev/null)"; __p="${'${'}__ps%% *}"; __st="${'${'}__ps##* }"; ` +
     `if [ -f ${EXIT} ]; then echo "EXIT:$(cat ${EXIT} 2>/dev/null)"; ` +
@@ -1177,7 +1382,7 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
         const r = e.remote;
         const W = shQuote(r.remoteWorkdir);
         scriptLines.push(`echo "===CF:START:${e.job.id}"`);
-        scriptLines.push(aliveCheckScript(r.remoteWorkdir));
+        scriptLines.push(aliveCheckScript(r.remoteWorkdir, r.slurmId));
         scriptLines.push(`echo "---LOG---"`);
         scriptLines.push(`tail -c 4096 ${W}/run.out 2>/dev/null`);
         scriptLines.push(`echo "===CF:END:${e.job.id}"`);
@@ -1204,7 +1409,19 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
         const b = blocks.get(e.job.id);
         if (!b) continue;
         const ageMs = Date.now() - new Date(e.rec.startedAt).getTime();
-        if (b.status === "ALIVE") {
+        if (/^ALIVE/.test(b.status)) {
+          // t297 — slurm records speak their scheduler state (ALIVE:PENDING /
+          // ALIVE:RUNNING): persist it for the inspector's strip so "queued"
+          // and "running" are two honest words, not one merged guess.
+          const slurmState = b.status.startsWith("ALIVE:") ? b.status.slice("ALIVE:".length) : null;
+          if (slurmState && e.remote.slurmId != null && e.remote.slurmState !== slurmState) {
+            e.remote.slurmState = slurmState;
+            updateRun(e.job.id, (rec) =>
+              rec.remote && !rec.done
+                ? { ...rec, remote: { ...rec.remote, slurmState } }
+                : null
+            );
+          }
           if (e.job.status !== "running") continue; // heal path: still alive, nothing to do
           const progress = parseProgressText(e.job.type, b.log, parseJobParams(e.job.params));
           if (progress != null && progress !== e.job.progress) {
@@ -1515,12 +1732,25 @@ export async function remoteLogTail(jobId: string, opts: { full?: boolean }): Pr
   };
 }
 
-/** Kill the cluster-side session (process group) — the stop route's branch. */
+/** Kill the cluster-side session — the stop route's branch.
+ *  t297: slurm records die by scancel (the scheduler owns the tree on the
+ *  compute node; a login-node kill could never reach it). */
 export async function remoteStopRun(jobId: string): Promise<{ stopped: boolean; message: string }> {
   const rec = getRun(jobId);
   if (!rec?.remote) return { stopped: false, message: "not a remote run" };
   const conn = getConnection(rec.remote.connectionId);
   if (!conn) return { stopped: false, message: "the connection for this run was deleted — kill the process on the cluster manually" };
+  const r = rec.remote;
+  if (r.mode === "slurm" && r.slurmId) {
+    const res = await exec(conn, `scancel ${shQuote(String(Number(r.slurmId)))}`, { timeoutMs: 15_000 });
+    const ok = res.code === 0 && !res.error;
+    return {
+      stopped: ok,
+      message: ok
+        ? `sent scancel to Slurm job ${r.slurmId} — the scheduler tears the process tree down on the compute node`
+        : `scancel ${r.slurmId} failed${res.stderr.trim() ? `: ${res.stderr.trim().slice(0, 200)}` : " (already finished?)"}`,
+    };
+  }
   const W = shQuote(rec.remote.remoteWorkdir);
   const res = await exec(
     conn,
@@ -1553,6 +1783,8 @@ export function remoteInfoFor(jobId: string): RemoteRunInfo | null {
     remoteWorkdir: r.remoteWorkdir,
     ...(r.pid != null ? { pid: r.pid } : {}),
     ...(r.slurmId != null ? { slurmId: r.slurmId } : {}),
+    ...(r.slurmState ? { slurmState: r.slurmState } : {}),
+    ...(r.gpusRequested != null ? { gpusRequested: r.gpusRequested } : {}),
     phase: r.phase,
     ...(r.stagedBytes != null ? { stagedBytes: r.stagedBytes } : {}),
     // t269 — the time ledger rides the DTO so the inspector's remote strip

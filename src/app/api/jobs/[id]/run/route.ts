@@ -56,14 +56,19 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     // optional remote target ({ remote: {...} }); absent/invalid → local run
     const body = (await request.json().catch(() => ({}))) as {
-      remote?: { connectionId?: unknown; module?: unknown; mode?: unknown };
+      remote?: { connectionId?: unknown; module?: unknown; mode?: unknown; gpus?: unknown };
     };
     let remote: RemoteRunTarget | undefined;
     if (body?.remote && typeof body.remote === "object" && typeof body.remote.connectionId === "string" && body.remote.connectionId) {
+      // t297 — gpus: the sbatch GPU width (1–8, default 6 — the
+      // sbatch6gpu.sh idiom). Non-numeric garbage falls back to the default
+      // server-side; the field only means anything in slurm mode.
+      const gpusNum = Number(body.remote.gpus);
       remote = {
         connectionId: body.remote.connectionId,
         module: typeof body.remote.module === "string" && body.remote.module ? body.remote.module : null,
         mode: body.remote.mode === "slurm" ? "slurm" : "direct",
+        ...(Number.isFinite(gpusNum) && gpusNum >= 1 ? { gpus: Math.min(8, Math.round(gpusNum)) } : {}),
       };
     }
 

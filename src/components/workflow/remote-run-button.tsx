@@ -7,9 +7,16 @@
  * the relion module it should load, and the job is POSTed to
  * /api/jobs/[id]/run with { remote: target } — the store's runJobRemote
  * owns the response dialect (busy kinds, waiting/staging, honest
- * failures). Mode is deliberately NOT exposed: the remote engine runs
- * direct (nohup) today, so a choice would be a promise the backend
- * doesn't keep yet.
+ * failures).
+ *
+ * t297 — the mode door is finally honest: "direct" (nohup on the login
+ * node) or "slurm" (sbatch submission, the sbatch6gpu.sh pattern). In
+ * slurm mode a GPU stepper picks the submission width (1–8, default 6 —
+ * one MPI rank per GPU, --gres=gpu:N); the connection's useSlurm flag
+ * preselects the mode. The module picker also grew a free-text door: a
+ * beta/hidden module the probe never listed can be typed by its exact
+ * name (the dispatch's module-load guard reports an honest exit-127 if
+ * the name is wrong).
  *
  * Defaults come from the cluster manager's ACTIVE connection
  * (localStorage "cryoflow.remote.active"); modules from that
@@ -27,7 +34,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Server } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Loader2, Minus, Plus, Server } from "lucide-react";
 import { useWorkflowStore } from "@/lib/store";
 import type { JobDTO } from "@/lib/types";
 import type { RemoteRunTarget } from "@/lib/remote/types";
@@ -36,6 +44,13 @@ import {
   readActiveRemoteConnectionId,
   useRemoteConnections,
 } from "./remote-cluster-dialog";
+
+const CUSTOM_MODULE_VALUE = "__custom__";
+
+/** The relion --gpu flag's device list for N GPUs: "0", "0:1", "0:1:2"… */
+function gpuListFor(n: number): string {
+  return Array.from({ length: Math.max(1, n) }, (_, i) => i).join(":");
+}
 
 /**
  * t289 — the run-mode dropdown drives this dialog too: pass `dialogOnly`
@@ -67,12 +82,17 @@ export function RemoteRunButton({
 
   const [connId, setConnId] = React.useState("");
   const [module, setModule] = React.useState("");
+  // t297 — mode + the sbatch GPU width + the free-text module door
+  const [mode, setMode] = React.useState<"direct" | "slurm">("direct");
+  const [gpus, setGpus] = React.useState(6);
+  const [customModule, setCustomModule] = React.useState("");
   const [pending, setPending] = React.useState(false);
   // the nested cluster manager (empty state → add a connection right here)
   const [clusterOpen, setClusterOpen] = React.useState(false);
 
   const conn = connections.find((c) => c.id === connId) ?? null;
   const probedModules = conn?.lastProbe?.relionModules ?? [];
+  const slurmAvailable = conn?.lastProbe?.slurm === true;
 
   // default connection: keep the current pick, else the ACTIVE one, else first
   React.useEffect(() => {
@@ -96,7 +116,26 @@ export function RemoteRunButton({
     else setModule(probed[0] ?? conn.defaultModule ?? "");
   }, [conn]);
 
+  // t297 — the mode defaults to the connection's preference, and degrades
+  // to direct when this cluster offers no Slurm client (the probe's word).
+  React.useEffect(() => {
+    if (!conn) return;
+    if (conn.useSlurm && conn.lastProbe?.slurm) setMode("slurm");
+    else setMode("direct");
+  }, [conn]);
+
+  // t297 — the GPU width's ceiling: what the cluster's partitions actually
+  // offer (sinfo), when the probe brought it back. The stepper still
+  // allows up to 8 (a partition may be bigger than the probe reported).
+  const slurmGpuHint = conn?.lastProbe?.slurmGpus?.[0] ?? null;
+  const maxGpus = Math.max(1, Math.min(8, slurmGpuHint?.gpusPerNode ?? 8));
+
   const disabled = job.status === "running" || job.linkedJobId != null;
+
+  /** The module the dispatch will actually load: the free-text door wins
+   *  over the select while it carries a value. */
+  const effectiveModule =
+    module === CUSTOM_MODULE_VALUE ? customModule.trim() : module;
 
   const submit = async () => {
     if (!conn || pending) return;
@@ -104,8 +143,9 @@ export function RemoteRunButton({
     try {
       const target: RemoteRunTarget = {
         connectionId: conn.id,
-        module: module || null,
-        mode: "direct",
+        module: effectiveModule || null,
+        mode,
+        ...(mode === "slurm" ? { gpus } : {}),
       };
       const ok = await runJobRemote(job.id, target);
       if (ok) setOpen(false);
@@ -145,9 +185,11 @@ export function RemoteRunButton({
           </DialogTitle>
           <DialogDescription>
             Dispatch this job over SSH — inputs are staged to the cluster and the
-            chosen relion module is loaded. When it finishes, key files (STAR,
-            logs, small images) sync back; bulky maps and stacks stay on the
-            cluster, listed in Results and fetchable on demand.
+            chosen relion module is loaded. Direct mode starts the process on the
+            login node; Slurm mode submits an sbatch script (one MPI rank per GPU)
+            and the scheduler places it on a compute node. When it finishes, key
+            files (STAR, logs, small images) sync back; bulky maps and stacks stay
+            on the cluster, listed in Results and fetchable on demand.
           </DialogDescription>
         </DialogHeader>
 
@@ -177,6 +219,7 @@ export function RemoteRunButton({
                   onValueChange={(v) => {
                     setConnId(v);
                     setModule("");
+                    setCustomModule("");
                   }}
                 >
                   <SelectTrigger className="h-9 text-sm" aria-label="Cluster connection">
@@ -207,7 +250,13 @@ export function RemoteRunButton({
               <div className="space-y-1">
                 <p className="text-[11px] text-muted-foreground">relion module</p>
                 {probedModules.length > 0 ? (
-                  <Select value={module} onValueChange={setModule}>
+                  <Select
+                    value={module}
+                    onValueChange={(v) => {
+                      setModule(v);
+                      if (v !== CUSTOM_MODULE_VALUE) setCustomModule("");
+                    }}
+                  >
                     <SelectTrigger className="h-9 font-mono text-[13px]" aria-label="relion module to load">
                       <SelectValue placeholder="module" />
                     </SelectTrigger>
@@ -217,22 +266,124 @@ export function RemoteRunButton({
                           {m}
                         </SelectItem>
                       ))}
+                      <SelectItem value={CUSTOM_MODULE_VALUE} className="font-mono text-xs italic">
+                        other — type a module name…
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 ) : (
-                  <>
-                    <div
-                      className="flex h-9 items-center rounded-md border bg-muted/40 px-2 text-[13px] text-muted-foreground"
-                      aria-label="relion module — not probed yet"
-                    >
-                      not probed
-                    </div>
-                    <p className="text-[10px] leading-snug text-amber-600 dark:text-amber-400">
-                      module not probed — Test the connection first (Remote clusters in the top bar).
-                    </p>
-                  </>
+                  <Input
+                    value={module === CUSTOM_MODULE_VALUE ? customModule : module}
+                    onChange={(e) => {
+                      setCustomModule(e.target.value.trim());
+                      setModule(CUSTOM_MODULE_VALUE);
+                    }}
+                    placeholder="relion/beta_5.0_gpu_ompi5_cuda118"
+                    className="h-9 font-mono text-[13px]"
+                    maxLength={200}
+                    aria-label="relion module to load"
+                  />
                 )}
+                {module === CUSTOM_MODULE_VALUE ? (
+                  <div className="space-y-0.5">
+                    <Input
+                      autoFocus
+                      value={customModule}
+                      onChange={(e) => setCustomModule(e.target.value.trim())}
+                      placeholder="relion/beta_5.0_gpu_ompi5_cuda118"
+                      className="h-9 font-mono text-[13px]"
+                      maxLength={200}
+                      aria-label="Custom module name"
+                    />
+                    <p className="text-[10px] leading-snug text-muted-foreground/80">
+                      Hidden or beta module? Type its exact name — the run&apos;s module-load
+                      guard verifies it on the cluster and reports an honest error if the
+                      name is wrong. You can also verify it once in the cluster manager.
+                    </p>
+                  </div>
+                ) : probedModules.length === 0 ? (
+                  <p className="text-[10px] leading-snug text-amber-600 dark:text-amber-400">
+                    module not probed — Test the connection first (Remote clusters in the top bar),
+                    or type the exact module name above.
+                  </p>
+                ) : null}
               </div>
+
+              {/* t297 — the mode door: direct nohup vs Slurm sbatch */}
+              <div className="space-y-1">
+                <p className="text-[11px] text-muted-foreground">Run mode</p>
+                <Select
+                  value={mode}
+                  onValueChange={(v) => setMode(v === "slurm" ? "slurm" : "direct")}
+                >
+                  <SelectTrigger className="h-9 text-sm" aria-label="Run mode">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="direct" className="text-xs">
+                      Direct — nohup process on the login node
+                    </SelectItem>
+                    <SelectItem
+                      value="slurm"
+                      className="text-xs"
+                      disabled={!slurmAvailable}
+                    >
+                      Slurm — sbatch to the scheduler{slurmAvailable ? "" : " (no Slurm client on this cluster)"}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                {!slurmAvailable && mode === "slurm" ? (
+                  <p className="text-[10px] leading-snug text-amber-600 dark:text-amber-400" role="alert">
+                    This cluster&apos;s probe saw no Slurm client — run Test &amp; probe again or use direct mode.
+                  </p>
+                ) : null}
+              </div>
+
+              {/* t297 — the GPU width stepper (slurm mode only): the
+                  sbatch6gpu.sh pattern at the width the user picks. */}
+              {mode === "slurm" ? (
+                <div className="space-y-1" data-gpu-width-row="">
+                  <p className="text-[11px] text-muted-foreground">GPUs to request</p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="size-8 shrink-0"
+                      onClick={() => setGpus((g) => Math.max(1, g - 1))}
+                      disabled={gpus <= 1}
+                      aria-label="One GPU less"
+                    >
+                      <Minus className="size-3.5" aria-hidden="true" />
+                    </Button>
+                    <span
+                      className="min-w-14 rounded-md border bg-muted/40 px-2 py-1.5 text-center font-mono text-sm font-semibold tabular-nums"
+                      aria-live="polite"
+                      aria-label={`${gpus} GPU${gpus === 1 ? "" : "s"} requested`}
+                    >
+                      {gpus} × GPU
+                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="size-8 shrink-0"
+                      onClick={() => setGpus((g) => Math.min(maxGpus, g + 1))}
+                      disabled={gpus >= maxGpus}
+                      aria-label="One GPU more"
+                    >
+                      <Plus className="size-3.5" aria-hidden="true" />
+                    </Button>
+                    <p className="min-w-0 flex-1 text-[10px] leading-snug text-muted-foreground/80">
+                      One MPI rank per GPU —{" "}
+                      <span className="font-mono">--gres=gpu:{gpus}</span>,{" "}
+                      <span className="font-mono">mpirun -n {gpus}</span>,{" "}
+                      <span className="font-mono">--gpu {gpuListFor(gpus)}</span>
+                      {slurmGpuHint ? ` · ${slurmGpuHint.partition} offers ${slurmGpuHint.gpusPerNode}/node` : ""}
+                    </p>
+                  </div>
+                </div>
+              ) : null}
 
               {conn ? (
                 <p className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
@@ -240,15 +391,19 @@ export function RemoteRunButton({
                     {conn.username}@{conn.host}
                   </span>
                   <span aria-hidden="true">·</span>
-                  {module ? (
+                  {effectiveModule ? (
                     <Badge variant="outline" className="h-4 px-1 font-mono text-[9.5px] text-foreground/80">
-                      module {module}
+                      module {effectiveModule}
                     </Badge>
                   ) : (
                     <span>no module</span>
                   )}
                   <span aria-hidden="true">·</span>
-                  <span>runs direct (no scheduler)</span>
+                  <span data-run-mode-line="">
+                    {mode === "slurm"
+                      ? `sbatch${conn.slurmPartition ? ` · ${conn.slurmPartition}` : ""}${gpus > 0 ? ` · ${gpus} GPU(s)` : ""}`
+                      : "runs direct (no scheduler)"}
+                  </span>
                 </p>
               ) : null}
             </div>
@@ -261,7 +416,7 @@ export function RemoteRunButton({
                 size="sm"
                 className="h-9 gap-1.5 text-sm"
                 onClick={() => void submit()}
-                disabled={pending || !conn}
+                disabled={pending || !conn || (mode === "slurm" && !slurmAvailable)}
               >
                 {pending ? (
                   <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />

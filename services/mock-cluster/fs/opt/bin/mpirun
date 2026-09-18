@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# mock mpirun for the CryoFlow mock cluster (t297)
+#
+# An MPI launcher that pretends: -n/-np/--map-by etc. are swallowed, the
+# single command is exec'd as rank 0. Good enough to exercise the app's
+# `mpirun -n <gpus> relion_* --gpu 0:1:…` submission path without a real
+# MPI runtime (the stub binaries are single-process anyway).
+skip=2
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -n|-np|-npersocket|-max-ppr|--map-by|--mca|-host|-H)
+      # flag + value pairs
+      shift 2
+      ;;
+    -np=*)
+      shift
+      ;;
+    --map-by=*)
+      shift
+      ;;
+    -*)
+      # single-dash flags without values (oversubscribe, verbose…)
+      shift
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
+if [ $# -eq 0 ]; then
+  echo "mpirun (mock): no command given" >&2
+  exit 1
+fi
+exec "$@"

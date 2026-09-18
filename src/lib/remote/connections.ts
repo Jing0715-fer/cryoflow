@@ -79,6 +79,15 @@ export function sanitizeConnection(raw: Record<string, unknown>, prev?: RemoteCo
     defaultModule: str(raw.defaultModule, 200) ?? prev?.defaultModule ?? null,
     envLines,
     useSlurm: typeof raw.useSlurm === "boolean" ? raw.useSlurm : (prev?.useSlurm ?? false),
+    // t297 — the sbatch partition (null = cluster default). An explicitly
+    // empty string MEANS "use the default" (clearing the field), absent
+    // keeps the stored value — the same three-state dialect as strings above.
+    slurmPartition:
+      typeof raw.slurmPartition === "string"
+        ? raw.slurmPartition.trim()
+          ? raw.slurmPartition.trim().slice(0, 80)
+          : null
+        : (prev?.slurmPartition ?? null),
     syncPolicy: policy,
     keyFileMb,
     maxFileMb: Number.isFinite(fileMb) ? Math.max(1, Math.min(8192, Math.round(fileMb))) : (prev?.maxFileMb ?? 512),

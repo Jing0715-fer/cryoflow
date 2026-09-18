@@ -326,6 +326,11 @@ export async function autoStartPendingDownstream(triggerJobId: string): Promise<
               connectionId: triggerRec.remote.connectionId,
               module: triggerRec.remote.module || null,
               mode: triggerRec.remote.mode,
+              // t297 — the sbatch GPU width rides the passthrough too: a
+              // remote pipeline stays remote at the width the user chose
+              ...(triggerRec.remote.mode === "slurm" && triggerRec.remote.gpusRequested != null
+                ? { gpus: triggerRec.remote.gpusRequested }
+                : {}),
             },
           }
         : {};

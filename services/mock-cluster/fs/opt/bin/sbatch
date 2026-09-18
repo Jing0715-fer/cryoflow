@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+# mock sbatch for the CryoFlow mock cluster (t297)
+#
+# Implements just enough of Slurm's sbatch for the app's remote-Slurm path:
+#   - parses #SBATCH --output/--error/--job-name directives from the script
+#   - runs the script (the directives are bash comments — harmless) with
+#     setsid in the background, stdout/stderr redirected per the directives
+#   - allocates a job id, records `id pid starttime` in ~/.slurm/jobs
+#   - prints "Submitted batch job <id>" on stdout
+# A tiny backoff before launch models PENDING→RUNNING so the poll sweep can
+# watch a state transition (squeue says PENDING until the script starts).
+set -u
+SLURM_DIR="$HOME/.slurm"
+mkdir -p "$SLURM_DIR"
+
+script=""
+extra_out=""
+extra_err=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --output=*) extra_out="${1#--output=}" ;;
+    --error=*) extra_err="${1#--error=}" ;;
+    -*) ;; # swallow other options
+    *) script="$1" ;;
+  esac
+  shift
+done
+if [ -z "$script" ] || [ ! -f "$script" ]; then
+  echo "sbatch: error: Batch script not found or invalid: $script" >&2
+  exit 1
+fi
+
+# directives out of the script body (first #SBATCH block)
+out="$(grep -m1 -oP '(?<=#SBATCH --output=).*' "$script" || true)"
+err="$(grep -m1 -oP '(?<=#SBATCH --error=).*' "$script" || true)"
+name="$(grep -m1 -oP '(?<=#SBATCH --job-name=).*' "$script" || true)"
+[ -n "$extra_out" ] && out="$extra_out"
+[ -n "$extra_err" ] && err="$extra_err"
+[ -z "$out" ] && out="slurm-%j.out"
+[ -z "$err" ] && err="$out"
+
+# job id: monotonically increasing
+id=1
+if [ -f "$SLURM_DIR/next-id" ]; then
+  id=$(( $(cat "$SLURM_DIR/next-id") + 1 ))
+fi
+echo "$id" > "$SLURM_DIR/next-id"
+
+# the output dir must exist before the redirection (Slurm creates it)
+mkdir -p "$(dirname "$out")" "$(dirname "$err")" 2>/dev/null || true
+
+# PENDING marker: squeue reports PENDING until the launcher flips it
+touch "$SLURM_DIR/job-$id.state"
+echo "PENDING" > "$SLURM_DIR/job-$id.state"
+
+launcher="$SLURM_DIR/.launch-$id.sh"
+cat > "$launcher" <<EOF
+#!/usr/bin/env bash
+sleep 1
+echo "RUNNING" > "$SLURM_DIR/job-$id.state"
+exec bash "$script"
+EOF
+chmod +x "$launcher"
+
+setsid bash "$launcher" > "$out" 2> "$err" < /dev/null &
+pid=$!
+echo "$id $pid $(awk '{print $22}' /proc/$pid/stat 2>/dev/null)" > "$SLURM_DIR/job-$id.pid"
+echo "$name" > "$SLURM_DIR/job-$id.name" 2>/dev/null || true
+
+echo "Submitted batch job $id"
+exit 0

@@ -42,6 +42,11 @@ export interface RemoteConnection {
   /** Submit through Slurm (sbatch) instead of a direct nohup process. */
   useSlurm: boolean;
   /**
+   * t297 — Slurm partition for sbatch submissions (null = the cluster's
+   * default). Sourced from the probe's sinfo inventory or typed by hand.
+   */
+  slurmPartition?: string | null;
+  /**
    * t289 — what finalize syncs back into the LOCAL mirror:
    *   "key-files"  text outputs (.star/.log/…) always; binary outputs only
    *                up to keyFileMb (class averages yes, maps & stacks stay
@@ -145,6 +150,23 @@ export interface RemoteProbe {
   /** GPU names from nvidia-smi (empty = no GPUs visible on login node). */
   gpus: string[];
   /**
+   * t297 — GPU inventory from Slurm (`sinfo -o %P|%G|%D`), the honest
+   * answer when the login node has no GPUs (the usual case — the batch
+   * nodes own them). Absent on pre-t297 probes and CPU-only machines.
+   */
+  slurmGpus?: Array<{
+    /** Partition name (default-partition marker stripped). */
+    partition: string;
+    /** Nodes reporting GPUs in this partition. */
+    nodes: number;
+    /** GPUs per node (max seen across the partition's lines). */
+    gpusPerNode: number;
+    /** nodes × gpusPerNode — what the whole partition offers. */
+    gpuTotal: number;
+    /** GPU model when sinfo's GRES spells it (gpu:A100:6). */
+    model?: string;
+  }>;
+  /**
    * t289 — the login node's $HOME (absolute, no ~). The dialog uses it to
    * show the remote root RESOLVED ("~/cryoflow → /home/cryo/cryoflow") —
    * a root the user can see is a root the user can trust. Optional: probes
@@ -170,6 +192,13 @@ export interface RemoteRunTarget {
   module: string | null;
   /** "direct" = nohup process, "slurm" = sbatch submission. */
   mode: "direct" | "slurm";
+  /**
+   * t297 — GPUs to request when mode=slurm: `#SBATCH --gres=gpu:N` with one
+   * MPI rank per GPU (`mpirun -n N … --gpu 0:1:…:N-1`), the sbatch6gpu.sh
+   * pattern at a user-chosen width. 1..8, clamped server-side; ignored in
+   * direct mode.
+   */
+  gpus?: number;
 }
 
 /** Per-job remote execution info (attached to JobDTO while relevant). */
@@ -184,6 +213,10 @@ export interface RemoteRunInfo {
   remoteWorkdir: string;
   /** Slurm job id (mode=slurm). */
   slurmId?: string;
+  /** t297 — scheduler state word as last witnessed (PENDING/RUNNING/…). */
+  slurmState?: string;
+  /** t297 — GPUs this submission requested (mode=slurm). */
+  gpusRequested?: number;
   /** Cluster-side pid (mode=direct). */
   pid?: number;
   /** Lifecycle phase (staging = uploading inputs to the cluster). */
@@ -221,6 +254,10 @@ export interface RemoteRunState {
   pid: number | null;
   /** slurm mode: scheduler job id. */
   slurmId: string | null;
+  /** t297 — slurm mode: the scheduler's own state word (PENDING/RUNNING/…) as last seen by the poll. */
+  slurmState?: string;
+  /** t297 — slurm mode: GPUs this submission requested (–gres=gpu:N). */
+  gpusRequested?: number;
   /** Lifecycle: staging inputs → running → (done flips on RunRecord). */
   phase: "staging" | "running";
   /** Cluster-side outputs (filled at finalize) — key → remote path. */

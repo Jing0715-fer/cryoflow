@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# mock sinfo for the CryoFlow mock cluster (t297)
+#
+# Answers the app's probe grammar: sinfo -h -o '%P|%G|%D|%T' — a GPU
+# partition with 6 GPUs per node across 2 idle + 2 mixed nodes, and a CPU
+# partition without GRES. The GPU nodes are the mock's honest answer to
+# "the login node has no GPUs" (the mock deliberately ships no nvidia-smi).
+fmt="%P %a %l %D %T %N"
+header=1
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -h|--noheader) header=0 ;;
+    -o)
+      shift
+      fmt="${1:-$fmt}"
+      ;;
+    --format=*) fmt="${1#--format=}" ;;
+  esac
+  shift
+done
+
+emit() {
+  # $1 partition  $2 gres  $3 nodes  $4 state
+  local p="$1" g="$2" n="$3" s="$4"
+  case "$fmt" in
+    *%P*|*)
+      # honor the common %P|%G|%D|%T and the default alike — this mock only
+      # needs the pipe form the app uses, plus a classic default listing
+      if [ "$fmt" = "%P|%G|%D|%T" ]; then
+        echo "$p|$g|$n|$s"
+      else
+        printf "%-10s %-6s %-30s %s   %s\n" "$p*" "up" "infinite" "$n $s" "node[01-0$((n))]"
+      fi
+      ;;
+  esac
+}
+
+[ "$header" = "1" ] && echo "PARTITION AVAIL  TIMELIMIT  NODES  STATE NODELIST"
+emit "gpu"   "gpu:6"  2 "idle"
+emit "gpu"   "gpu:6"  2 "mix"
+emit "long"  "(null)" 4 "idle"
+exit 0
