@@ -279,6 +279,17 @@ function downsample(
 }
 
 /**
+ * An explicit display window — t286 lets the histogram COMMAND the
+ * display: lo renders black, hi renders white, everything outside is
+ * clipped. Validated by the caller (finite, hi > lo) before it gets
+ * here; the stretch trusts it.
+ */
+export interface MrcWindow {
+  lo: number;
+  hi: number;
+}
+
+/**
  * 2–98 percentile contrast stretch → 8-bit grayscale buffer.
  *
  * RELION cryo-EM convention: the particle signal is NEGATIVE density —
@@ -292,13 +303,34 @@ function downsample(
  * never satisfy `lo < 0` and are never flipped. Measured on the EMPIAR
  * beta-gal dataset: class averages flip at ratio 2.7–3.0, particle stacks
  * at 1.24, micrographs are all-positive, CTF .ctf diagnostics sit at 0.56.
+ *
+ * t286 — an explicit `window` overrides the percentile entirely: lo maps
+ * to black, hi maps to white, LITERAL mapping (no auto-inversion — the
+ * heuristic second-guesses an auto range, but a range the user typed or
+ * dragged is an explicit command, and silently flipping it would betray
+ * the drag). The percentile + inversion path is the AUTO default and is
+ * untouched when no window is given.
  */
-function stretchToGray(data: Float32Array): Buffer {
+function stretchToGray(data: Float32Array, window?: MrcWindow): Buffer {
   const n = data.length;
+  const gray = Buffer.alloc(n);
+
+  if (window) {
+    const span = window.hi - window.lo;
+    if (!(span > 0)) {
+      gray.fill(128);
+      return gray;
+    }
+    for (let i = 0; i < n; i++) {
+      const v = (data[i] - window.lo) / span;
+      gray[i] = Math.max(0, Math.min(255, Math.round(v * 255)));
+    }
+    return gray;
+  }
+
   const sorted = Float32Array.from(data).sort();
   const lo = sorted[Math.floor(0.02 * (n - 1))];
   const hi = sorted[Math.ceil(0.98 * (n - 1))];
-  const gray = Buffer.alloc(n);
 
   // inverted reference: the negative side carries the particle signal
   // (median-zero check from v1 was dropped — real class averages settle
@@ -344,15 +376,20 @@ async function grayToPng(gray: Buffer, width: number, height: number): Promise<B
 /**
  * Render one slice as a grayscale PNG (≤384 px wide).
  * `slice` defaults to the middle section for volumes, 0 for stacks.
+ * `window` (t286) overrides the 2–98 percentile stretch.
  */
-export async function renderMrcSlicePng(file: string, slice?: number): Promise<Buffer | null> {
+export async function renderMrcSlicePng(
+  file: string,
+  slice?: number,
+  window?: MrcWindow
+): Promise<Buffer | null> {
   const h = readMrcHeader(file);
   if (!h) return null;
   const z = slice !== undefined && Number.isFinite(slice) ? Math.trunc(slice) : Math.floor(h.nz / 2);
   const data = readMrcSlice(file, z, h);
   if (!data) return null;
   const small = downsample(data, h.nx, h.ny, MAX_W);
-  const gray = stretchToGray(small.values);
+  const gray = stretchToGray(small.values, window);
   return grayToPng(gray, small.width, small.height);
 }
 
@@ -360,7 +397,11 @@ export async function renderMrcSlicePng(file: string, slice?: number): Promise<B
  * Render the first `count` (≤16) images of a .mrcs stack as a 4-column
  * montage PNG: white background, 2 px gaps, each cell ≤128 px.
  */
-export async function renderMrcMontagePng(file: string, count = 8): Promise<Buffer | null> {
+export async function renderMrcMontagePng(
+  file: string,
+  count = 8,
+  window?: MrcWindow
+): Promise<Buffer | null> {
   const h = readMrcHeader(file);
   if (!h) return null;
   const n = Math.max(1, Math.min(16, Math.trunc(count) || 8, h.nz));
@@ -376,7 +417,7 @@ export async function renderMrcMontagePng(file: string, count = 8): Promise<Buff
     const data = readMrcSlice(file, i, h);
     if (!data) continue;
     const small = downsample(data, h.nx, h.ny, MONTAGE_CELL);
-    const cell = stretchToGray(small.values);
+    const cell = stretchToGray(small.values, window);
     const cx = gap + (i % MONTAGE_COLS) * (cellW + gap);
     const cy = gap + Math.floor(i / MONTAGE_COLS) * (cellH + gap);
     for (let y = 0; y < small.height && y < cellH; y++) {
@@ -389,13 +430,17 @@ export async function renderMrcMontagePng(file: string, count = 8): Promise<Buff
 }
 
 /** Render one slice of a stack enlarged for the dialog view (≤ 768 px). */
-export async function renderMrcLargePng(file: string, slice: number): Promise<Buffer | null> {
+export async function renderMrcLargePng(
+  file: string,
+  slice: number,
+  window?: MrcWindow
+): Promise<Buffer | null> {
   const h = readMrcHeader(file);
   if (!h) return null;
   const data = readMrcSlice(file, slice, h);
   if (!data) return null;
   const small = downsample(data, h.nx, h.ny, 768);
-  const gray = stretchToGray(small.values);
+  const gray = stretchToGray(small.values, window);
   return grayToPng(gray, small.width, small.height);
 }
 
@@ -704,7 +749,8 @@ export async function renderMrcOrthoPng(
   file: string,
   axis: "x" | "y" | "z",
   pos: number,
-  header?: MrcHeader
+  header?: MrcHeader,
+  window?: MrcWindow
 ): Promise<Buffer | null> {
   const h = header ?? readMrcHeader(file);
   if (!h) return null;
@@ -715,7 +761,7 @@ export async function renderMrcOrthoPng(
     const data = readMrcSlice(file, z, h);
     if (!data) return null;
     const small = downsample(data, h.nx, h.ny, MAX_W);
-    return grayToPng(stretchToGray(small.values), small.width, small.height);
+    return grayToPng(stretchToGray(small.values, window), small.width, small.height);
   }
 
   const idx =
@@ -723,7 +769,7 @@ export async function renderMrcOrthoPng(
   const plane = readMrcOrthoSlice(file, axis, idx, h);
   if (!plane) return null;
   const small = downsample(plane.values, plane.width, plane.height, MAX_W);
-  return grayToPng(stretchToGray(small.values), small.width, small.height);
+  return grayToPng(stretchToGray(small.values, window), small.width, small.height);
 }
 
 /* ------------------------------------------------------------------ */

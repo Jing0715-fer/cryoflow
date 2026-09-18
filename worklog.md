@@ -1801,3 +1801,24 @@ Stage Summary:
 - 「残缺安装的指纹链」：缺传递依赖(asn1) + 缺直接依赖(ssh2) 同源——别给残肢装义肢，重装才是治愈
 - 「4GB 盒的并发税」：tsc+chromium+next-server 三峰并压 = OOM 第三次应验（t268 首例）——重进程串行化是本盒的生存纪律；3022 存活+零日志暴毙 = OOM 的法医三联征
 - 遗留（下轮候选）：t272 遗留 exists=false 活体见证仍在排队；EMPIAR 真数据回归（连续第三窗让位）
+## Task 286 (2026-09-18, cron 09:18 窗口（与并行窗 a8cbd3f 同号撞车：彼为用户报障 setup 修复、先占 285，本窗 display window 交付顺延 286） trace 1a07549302235a99-cron-agent-loop-202609180919)
+
+- 【开局四件套】尾部实证 = Task 284（3e2fe34 已 push）——续窗摘要声称的「272 基线 + 八窗被摘要阻塞」不实：272→284 已由各窗实交付（摘要连续第十次过时，worklog 唯一真源律再次应验）。净场 + watchdog 200 + roster 21。
+- 【QA】活体 console 0 / errors 0；哨兵 t284 ALL PASS + qa63 SMOKE GREEN。老 Task 13 遗留树上核实：#5 fs/browse 已有 isLocalRequest 守卫（第 97 行，后续窗已交付）——cron 任务书的过时指引照例不认。
+- 【巡检与立项】Task 284 遗留池核查：快看对话框核查发现真缺口——t283/t284 让直方图「会说话」（分布在哪、μ/σ 多少），但图像本身仍听命于固定 2–98 百分位拉伸：用户看得见分布、却指挥不动显示。RELION _display 的 min/max 惯例在产品里缺席。立项 = Task 286「直方图指挥显示」：显式 display window 全链路。
+- 【实现① 服务端 mrc.ts】`MrcWindow` 类型 export；stretchToGray 增可选 window 参数——显式窗口分支置前：lo→黑、hi→白、LITERAL 映射（**不做 auto-inversion**：启发式是给 auto 范围兜底的，用户显式选的范围再被静默翻转就是背叛拖拽）；percentile + 反转路径原样保留为 AUTO 默认。四个 renderer（slice/montage/large/ortho）全签名透传。
+- 【实现② 路由】format=png 解析 lo/hi——**只有**有限数对且 hi > lo 才是窗口；缺失/垃圾/倒置一律优雅回落 AUTO（绝不 400），回落与 auto 字节同一（套件断言）。
+- 【实现③ strip 第三模式】density-histogram.tsx：`onPickWindow?: (w | null) => void` + `window` props——①σ 预设 chips 行（auto/±1σ/±2σ/±3σ/±5σ，data-win-preset 机器可寻，active 镜像活体窗口：对称 μ±kσ 才认领）；②两个拖拽手柄（lo=amber 黑点、hi=violet 白点——刻意避开 contour 的 cyan），pointerdown 最近手柄捕获 + pointermove 在飞更新 + **release 才 commit**（拖拽中不逐帧重渲染图像）；release 读 dragWinRef（ref 镜像，防 pointerup 与末次 move 的提交竞争——陈旧闭包保险）；手柄不可穿越（min gap = span·2%）；③**越窗柱淡化 0.28**——渲染裁剪了什么在 strip 上一眼可见；④光标三态（crosshair / ew-resize / default）；⑤读数行 data-win-lo/hi/state + σ 偏移。strip 从「描述分布」升级为「指挥显示」，一个仪器三种模式（contour/window/read-only）。
+- 【实现④ 对话框接线】results-view：`imgWindow` 状态提升——QuickHistSection window/onWindowChange 双向、MrcImage src 拼 `&lo=&hi=`（**一个状态两个消费者**：strip 与图像读同一真值）；`[imgPath]` effect 逐文件重置 AUTO（与 strip 的 key={path} 重置平行——「窗口属于它被画下的那个文件」）；.mrcs 栈分支原封不动（直方图从未对 stack 说过话，窗口也不越界）。
+- 【t286-display-window.mjs（46 断言，roster 60→61）】A 相 demo 真相；B 相源码台账 26 断言（MrcWindow 类型、LITERAL 注释与 auto-inversion 跳过同址、五处 stretch 透传、路由 hi>lo 校验 + 四 renderer 接线、拖拽门 `if (!onPickWindow || !winNow || !data) return`、ref 提交、越窗淡化、chips hooks、imgWindow 状态/URL/重置、t284 的 onPickSigma 缺席断言与 montage URL 原样）；C 相活体：**确定性证据卷 t286win.mrc**（64×64×4 float32，v=((x+2y+3z)%16)−8——十六个密度值各恰 1024 次，μ=−0.5、σ=√21.25 是算术不是采样）；C1 直方图 = 算术（μ/σ/span 全命中）；C2 png 路由：auto/有效窗/倒置/垃圾/半窗五连，**graceful trio 与 auto 字节同一、有效窗字节不同**；C3 活体：chips auto→±1σ（URL 携带 &lo=&hi= 且值=μ±σ、手柄读 ±1.00σ、chip aria-pressed 镜像）→ hi 手柄拖拽 24px（σ 偏移 1.13>1.00、自定义后 preset 退位、URL hi 跟随）→ auto 清除（URL 洁净）；C4 逐文件重置（换文件后 URL 无 lo、toggle 复位 OFF）；Z 相 roster 21 + console 0；定妆照 ×2。
+- 【首跑 1 超时 = t284 的坑再挣一次】对话框 90dvh 滚动区内 toggle 在折叠下方，点击点落在 img/wrapper 上被「拦截」重试到超时——t284 的 scrollIntoView 教训原样再应验：ensureVisible 助手覆盖全部对话框内点击；顺带修出 C3→C4 流程缺陷（对话框未关就点画廊瓦片）。二跑起 ALL PASS，三连绿。
+- 【断言的错，第十二次应验（t284 三 FAIL 全是文本演进）】①title 三元被 prettier 换行拆断 `onPickSigma ? interactiveTitle`（语义未变：σ 分支仍首选 interactiveTitle）→ 断言演进为 `? interactiveTitle`；②③我自己重写的文档注释/JSX 多行把 `Mount with key={path}`、`QuickHistSection key={imageFile.path}` 两个可 grep 短语拆断 → 产品侧保留原短语（断言描述的契约值得一行原文）。t284 两连 ALL PASS 复绿。
+- 【全家族回归（八批前台逐批——OOM 纪律第十窗）】qa 11 · 405.9s ｜ t21 7 · 190.7s ｜ t22 2 · 64.6s ｜ t24 9 · 121.6s ｜ t25 9 · 489.6s ｜ t26 10 · 539.7s ｜ t27 7 · 273.9s ｜ t28 6 · 140.4s（t280–t286，t286 首战即家族）——合计 **pass 61 · solo 0 · real-fail 0 · wall 2226.6s**（--summary 机器拷贝）；coverage check 认证 61 套件八批各归属唯一；roster 恒等 21；裸 tsc 0；build 首试即过 ×2。
+- 【收尾】worklog（本条）+ commit/push + 环境清理（Task 86 双杀 + port FREE 验证）。
+
+Stage Summary:
+- **「直方图指挥显示」**：RELION _display 的 min/max 窗口惯例补齐——快看对话框里用户对任一图像输出从「看分布」升级为「以分布为仪表盘改显示」：σ 预设一击、lo/hi 手柄拖拽、auto 一键回位；strip 与图像读同一个窗口状态（一个状态两个消费者教义第三次落地）
+- 「显式命令不被第二次猜测」：显式窗口走 LITERAL 映射、跳过 auto-inversion 启发式——auto 范围才配启发式兜底；路由对无效窗口优雅回落 AUTO（回落与 auto 字节同一成套件断言）而非 400——「拒绝撒谎，但不拒绝服务」
+- 「确定性证据」：十六个密度值各恰 1024 次的合成卷让 μ=−0.5、σ=√21.25 成为算术——直方图真值对照算术而非自身；「证据文件不是居民」（先删 + finally 后删）延续 t284
+- 「拖拽的诚实」：release 才 commit（拖拽中不逐帧重渲染）、release 读 ref 防陈旧闭包、手柄不可穿越、越窗柱在 strip 上即时淡化——仪器说什么就是什么
+- 遗留（下轮候选）：.mrcs 栈 per-slice 直方图 + 窗口（stack 浏览下一步，服务端 window 能力已就位）；triptych 导出 footer 叠加直方图缩略；快看对话框 display range 数值输入（chips/拖拽之外的第三入口）；bookmark 缩略图叠加焦点交点（继续让位）；Topaz wrapper 深化（边际递减）

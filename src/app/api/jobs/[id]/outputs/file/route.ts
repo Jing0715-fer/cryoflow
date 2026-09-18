@@ -212,6 +212,22 @@ export async function GET(request: NextRequest, context: RouteContext) {
       let png: Buffer | null = null;
       const isStack = lower.endsWith(".mrcs");
 
+      // t286 — the display window: the histogram (or a drag on it) can
+      // COMMAND the render. lo → black, hi → white, literal mapping (no
+      // auto-inversion). Only a PAIR of finite numbers with hi > lo is a
+      // window; anything else (missing, garbage, inverted) means AUTO —
+      // the 2–98 percentile stretch answers, as it always has.
+      let win: { lo: number; hi: number } | undefined;
+      const loRaw = url.searchParams.get("lo");
+      const hiRaw = url.searchParams.get("hi");
+      if (loRaw !== null && hiRaw !== null) {
+        const loV = Number.parseFloat(loRaw);
+        const hiV = Number.parseFloat(hiRaw);
+        if (Number.isFinite(loV) && Number.isFinite(hiV) && hiV > loV) {
+          win = { lo: loV, hi: hiV };
+        }
+      }
+
       // orthogonal plane request? axis = the plane's normal/movement axis
       // (x|y|z), pos ∈ 0…1 positions it inside the box. Volumes only —
       // for .mrcs stacks the X/Y "planes" are in-image axes, and the Z
@@ -230,20 +246,20 @@ export async function GET(request: NextRequest, context: RouteContext) {
             { status: 400 }
           );
         }
-        png = await renderMrcOrthoPng(abs, axis, toPos());
+        png = await renderMrcOrthoPng(abs, axis, toPos(), undefined, win);
       } else if (!isStack && posRaw !== null) {
         // fractional z plane (pos) — without pos, the legacy slice/montage
         // params below keep their meaning
-        png = await renderMrcOrthoPng(abs, "z", toPos());
+        png = await renderMrcOrthoPng(abs, "z", toPos(), undefined, win);
       } else if (isStack && montageParam !== "0") {
         const n = Math.min(16, Math.max(1, Number.parseInt(montageParam ?? "8", 10) || 8));
-        png = await renderMrcMontagePng(abs, n);
+        png = await renderMrcMontagePng(abs, n, win);
       } else if (scale === "large") {
         const slice = sliceParam !== null ? Number.parseInt(sliceParam, 10) || 0 : 0;
-        png = await renderMrcLargePng(abs, slice);
+        png = await renderMrcLargePng(abs, slice, win);
       } else {
         const slice = sliceParam !== null ? Number.parseInt(sliceParam, 10) || 0 : undefined;
-        png = await renderMrcSlicePng(abs, slice);
+        png = await renderMrcSlicePng(abs, slice, win);
       }
       if (!png) {
         return NextResponse.json({ error: "Could not render this MRC file" }, { status: 400 });

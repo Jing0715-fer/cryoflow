@@ -159,6 +159,10 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
   const [error, setError] = useState<string | null>(null);
 
   const [imageFile, setImageFile] = useState<OutputFile | null>(null);
+  /** t286 — the quick-look dialog's display window: the histogram strip
+   *  (or its σ presets) commands the PNG render (lo → black, hi → white);
+   *  null = AUTO, the 2–98 percentile answers. Reset per file. */
+  const [imgWindow, setImgWindow] = useState<{ lo: number; hi: number } | null>(null);
   const [starFile, setStarFile] = useState<OutputFile | null>(null);
   const [textFile, setTextFile] = useState<OutputFile | null>(null);
   /** t260 — the shared Mol* dialog opens on a TARGET (job + file + optional
@@ -200,6 +204,14 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
   useEffect(() => {
     if (refreshKey !== firstKey.current) void load();
   }, [refreshKey, load]);
+
+  // t286 — a display window belongs to the file it was drawn on: opening
+  // another file resets to AUTO (the strip's key={path} resets its toggle
+  // the same way — two resets, one honest per-file world)
+  const imgPath = imageFile?.path ?? null;
+  useEffect(() => {
+    setImgWindow(null);
+  }, [imgPath]);
 
   // latest-iteration first: for finished jobs the FINAL classes/maps are what
   // users come to see (run_it025_classes beats run_it000_classes)
@@ -1002,7 +1014,12 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
                 ) : (
                   <>
                     <MrcImage
-                      src={fileUrl(job.id, imageFile, "&format=png&scale=large")}
+                      src={
+                        fileUrl(job.id, imageFile, "&format=png&scale=large") +
+                        (imgWindow
+                          ? `&lo=${imgWindow.lo}&hi=${imgWindow.hi}`
+                          : "")
+                      }
                       alt={`${imageFile.name} central slice`}
                       className="bg-zinc-950 p-2"
                     />
@@ -1031,8 +1048,17 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
                         Default OFF — the first look walks the whole file on
                         the server; the toggle makes that an explicit ask and
                         the (path, mtime, size) cache makes the rest free.
-                        key={path} resets the toggle when another file opens. */}
-                    <QuickHistSection key={imageFile.path} jobId={job.id} path={imageFile.path} />
+                        key={path} resets the toggle when another file opens.
+                        t286 — the same strip now also COMMANDS the display:
+                        the σ presets / draggable handles lift their window
+                        into imgWindow, and the <MrcImage> above re-renders
+                        with &lo=&hi= (one state, two consumers). */}
+                    <QuickHistSection key={imageFile.path}
+                      jobId={job.id}
+                      path={imageFile.path}
+                      window={imgWindow}
+                      onWindowChange={setImgWindow}
+                    />
                   </>
                 )}
               </div>

@@ -115,6 +115,7 @@ const FAMILY = [
   "t282-updated-at-honesty.mjs", // updatedAt honesty: a same-value/empty PATCH no longer touches @updatedAt (Prisma's @updatedAt fires per update CALL) — the dashboard's 'updated X ago' answers the last REAL edit, not the last request; the idle-reset intent stays exempt (Task 282)
   "t283-histogram-sigma-pick.mjs", // the histogram speaks: the volume's density distribution as a strip (format=histogram, chunked two-pass + cache) with a σ ruler and the current contour as a cut line — CLICKING it sets the contour (ORTHO_SIGMA_SET completes the σ family), sign follows the clicked side of the mean (Task 283)
   "t284-quick-histogram.mjs", // the quick look speaks distributions: the strip lifted into density-histogram.tsx (ONE drawing truth, two consumers) and the quick-look dialog renders it read-only (default OFF, per-file reset) — plus the dialog learns to scroll (max-h/overflow: tall content was clipped, pre-existing) (Task 284)
+  "t286-display-window.mjs", // the histogram COMMANDS the display: an explicit lo/hi window overrides the 2–98 percentile stretch (literal mapping, no auto-inversion), σ preset chips + draggable lo/hi handles on the dialog's strip, bars outside the window dim — the render and the strip read ONE window state (Task 286)
 ];
 
 // ---- batches are first-class (t273) ----------------------------------------

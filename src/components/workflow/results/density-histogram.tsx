@@ -17,10 +17,16 @@
  *
  *   - the ortho panel passes `cutSigma` (the live contour, echoing the
  *     embed) and `onPickSigma` (the click→σ→ORTHO_SIGMA_SET loop);
- *   - the quick-look dialog passes neither — the strip is read-only
- *     there (a dialog has no contour context to cut; honest absence),
- *     but the hover readout and the stats row still turn the first
- *     glance quantitative.
+ *   - the quick-look dialog passes `onPickWindow` (t286): the strip
+ *     carries the DISPLAY WINDOW — two draggable handles (lo = the
+ *     black point, hi = the white point) plus σ preset chips, and the
+ *     bars OUTSIDE the current window dim to show what the render
+ *     clips. One instrument, now commanding the display, not just
+ *     describing it;
+ *   - with neither handler the strip is read-only (a dialog without
+ *     windowing needs no handles — honest absence), but the hover
+ *     readout and the stats row still turn the first glance
+ *     quantitative.
  *
  * Default OFF at both call sites: the first look costs one volume walk
  * on the server (O(1) memory, chunked) — the toggle makes that an
@@ -38,6 +44,11 @@ const HIST_GRID = { light: "rgba(0,0,0,0.10)", dark: "rgba(255,255,255,0.10)" };
 const HIST_TEXT = { light: "rgba(0,0,0,0.45)", dark: "rgba(255,255,255,0.45)" };
 const HIST_CUT = { light: "#0891b2", dark: "#22d3ee" };
 const HIST_MEAN = { light: "rgba(0,0,0,0.55)", dark: "rgba(255,255,255,0.55)" };
+// t286 — the display window's two handles: lo is the BLACK point,
+// hi is the WHITE point. Amber and violet — deliberately NOT the
+// contour's cyan, which lives on the other consumer.
+const HIST_WIN_LO = { light: "#b45309", dark: "#fbbf24" };
+const HIST_WIN_HI = { light: "#6d28d9", dark: "#a78bfa" };
 
 const HIST_PAD_L = 6;
 const HIST_PAD_R = 6;
@@ -66,6 +77,12 @@ export interface HistCutSigma {
   sign: 1 | -1;
 }
 
+/** the display window the dialog's strip commands (lo = black, hi = white) */
+export interface HistWindow {
+  lo: number;
+  hi: number;
+}
+
 const fmtHist = (v: number) =>
   Math.abs(v) >= 1000 ? v.toLocaleString("en-US") : v.toFixed(4).replace(/\.?0+$/, (m) => (m.startsWith(".") ? "" : m));
 const fmtN = (v: number) => v.toLocaleString("en-US");
@@ -84,15 +101,17 @@ function drawHistogramStrip(
   w: number,
   h: number,
   data: HistPayload,
-  opts: { dark: boolean; cutSigma?: HistCutSigma | null; hover: number | null }
+  opts: { dark: boolean; cutSigma?: HistCutSigma | null; hover: number | null; win?: HistWindow | null }
 ) {
-  const { dark, cutSigma, hover } = opts;
+  const { dark, cutSigma, hover, win } = opts;
   const bar = dark ? HIST_BAR.dark : HIST_BAR.light;
   const barHover = dark ? HIST_BAR_HOVER.dark : HIST_BAR_HOVER.light;
   const grid = dark ? HIST_GRID.dark : HIST_GRID.light;
   const text = dark ? HIST_TEXT.dark : HIST_TEXT.light;
   const cut = dark ? HIST_CUT.dark : HIST_CUT.light;
   const meanCol = dark ? HIST_MEAN.dark : HIST_MEAN.light;
+  const winLo = dark ? HIST_WIN_LO.dark : HIST_WIN_LO.light;
+  const winHi = dark ? HIST_WIN_HI.dark : HIST_WIN_HI.light;
 
   const x0 = HIST_PAD_L;
   const x1 = w - HIST_PAD_R;
@@ -121,7 +140,9 @@ function drawHistogramStrip(
   }
 
   // bars — log-scaled: log10(1 + c) against the max, so the noise peak
-  // and the particle tails share one readable picture
+  // and the particle tails share one readable picture. t286: with a
+  // display window live, the bins OUTSIDE [lo, hi] dim — what the render
+  // clips to black/white is visible at one glance on the strip itself.
   const bins = data.bins;
   const n = bins.length;
   let maxC = 0;
@@ -129,13 +150,50 @@ function drawHistogramStrip(
   if (maxC <= 0) maxC = 1;
   const logMax = Math.log10(1 + maxC);
   const bw = (x1 - x0) / n;
+  const binW = span > 0 ? span / n : 0;
   for (let i = 0; i < n; i++) {
     const c = bins[i];
     if (c <= 0) continue;
     const bh = ((y1 - y0) * Math.log10(1 + c)) / logMax;
+    const bLo = data.lo + i * binW;
+    const bHi = bLo + binW;
+    const clipped = win ? bHi < win.lo || bLo > win.hi : false;
     ctx.fillStyle = hover === i ? barHover : bar;
+    ctx.globalAlpha = clipped ? 0.28 : 1;
     // 1px gap between bars keeps 256 bins legible at strip width
     ctx.fillRect(x0 + i * bw, y1 - bh, Math.max(0.5, bw - 1), bh);
+    ctx.globalAlpha = 1;
+  }
+
+  // the display window's two handles (t286): lo = the black point
+  // (amber), hi = the white point (violet). A 1.5 px line + a grab tab
+  // at the top + a tiny mono label — the strip says WHICH bound is
+  // which, not just where they sit. The in-window span gets a faint
+  // tint so the commanded range reads as a region, not two fences.
+  if (win) {
+    const gxLo = Math.min(x1, Math.max(x0, xOf(win.lo)));
+    const gxHi = Math.min(x1, Math.max(x0, xOf(win.hi)));
+    ctx.fillStyle = dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.045)";
+    ctx.fillRect(gxLo, y0 - 2, Math.max(0, gxHi - gxLo), y1 - y0 + 2);
+    const handle = (gx: number, col: string, label: string) => {
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(gx, y0 - 2);
+      ctx.lineTo(gx, y1);
+      ctx.stroke();
+      // grab tab
+      ctx.fillStyle = col;
+      ctx.fillRect(gx - 3, y0 - 6, 6, 5);
+      // label
+      ctx.font = "8px ui-monospace, SFMono-Regular, Menlo, monospace";
+      ctx.textAlign = gx < (x0 + x1) / 2 ? "left" : "right";
+      ctx.textBaseline = "top";
+      ctx.fillStyle = col;
+      ctx.fillText(label, gx + (gx < (x0 + x1) / 2 ? 5 : -5), y0 - 5);
+    };
+    handle(gxLo, winLo, "lo");
+    handle(gxHi, winHi, "hi");
   }
 
   // the current contour — a cyan cut line; an off-scale threshold is
@@ -186,14 +244,17 @@ function drawHistogramStrip(
 
 /**
  * The strip itself: fetch (once per mount — the server cache makes
- * re-opens free), draw, hover, stats row. Interactive (crosshair +
- * click→σ) only when `onPickSigma` is passed; read-only otherwise.
+ * re-opens free), draw, hover, stats row. Three modes by props:
+ * contour (onPickSigma, the panel), window (onPickWindow, the dialog —
+ * draggable lo/hi handles + σ presets), read-only (neither).
  */
 export function DensityHistogramStrip({
   jobId,
   path,
   cutSigma = null,
   onPickSigma,
+  window: winProp = null,
+  onPickWindow,
   uiPrefix = "hist",
   ariaLabel = "The file's density histogram with the σ ruler",
   interactiveTitle,
@@ -207,6 +268,15 @@ export function DensityHistogramStrip({
    *  density into σ (sign follows the clicked side of the mean, clamped
    *  to the slider's own bounds) and hands it to the caller */
   onPickSigma?: (sigma: number, sign: 1 | -1) => void;
+  /** t286 — the live display window (lo = black point, hi = white
+   *  point); null means AUTO (the 2–98 percentile answers). Drawn as
+   *  two draggable handles; bars outside the window dim. */
+  window?: HistWindow | null;
+  /** t286 — when passed, the strip speaks WINDOW: σ preset chips
+   *  render under the canvas, the handles drag (commit on release),
+   *  and Auto clears the override. The dialog passes the lifted
+   *  setter so the image re-renders through the SAME state. */
+  onPickWindow?: (w: HistWindow | null) => void;
   /** data-canvas-ui prefix: "ortho-hist" in the panel, "quick-hist" in
    *  the dialog — the hooks stay machine-findable per consumer */
   uiPrefix?: string;
@@ -217,6 +287,15 @@ export function DensityHistogramStrip({
   const [data, setData] = useState<HistPayload | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "err">("loading");
   const [hover, setHover] = useState<number | null>(null);
+  const [dragWin, setDragWin] = useState<HistWindow | null>(null);
+  const dragRef = useRef<"lo" | "hi" | null>(null);
+  // the release handler reads the REF, not the state — a pointerup racing
+  // the last pointermove's commit would otherwise see a stale window
+  const dragWinRef = useRef<HistWindow | null>(null);
+  const setDrag = (w: HistWindow | null) => {
+    dragWinRef.current = w;
+    setDragWin(w);
+  };
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const { resolvedTheme } = useTheme();
 
@@ -271,8 +350,8 @@ export function DensityHistogramStrip({
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, w, h);
 
-    drawHistogramStrip(ctx, w, h, data, { dark, cutSigma, hover });
-  }, [data, state, cutSigma, hover, resolvedTheme]);
+    drawHistogramStrip(ctx, w, h, data, { dark, cutSigma, hover, win: dragWin ?? winProp });
+  }, [data, state, cutSigma, hover, winProp, dragWin, resolvedTheme]);
 
   const binAt = (clientX: number) => {
     const cv = canvasRef.current;
@@ -287,6 +366,58 @@ export function DensityHistogramStrip({
     return idx;
   };
 
+  // t286 — the strip-fraction → density value mapping, shared by the
+  // σ pick (below) and the window drag
+  const valueAt = (clientX: number) => {
+    const cv = canvasRef.current;
+    if (!cv || !data) return null;
+    const rect = cv.getBoundingClientRect();
+    const x0 = HIST_PAD_L;
+    const x1 = rect.width - HIST_PAD_R;
+    const frac = (clientX - rect.left - x0) / (x1 - x0);
+    if (!Number.isFinite(frac)) return null;
+    return data.lo + Math.min(1, Math.max(0, frac)) * (data.hi - data.lo);
+  };
+
+  const winNow = dragWin ?? winProp; // in-flight while dragging, committed otherwise
+  const MIN_GAP_FRAC = 0.02; // lo and hi never meet: ≥2% of the strip's span apart
+
+  const onDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!onPickWindow || !winNow || !data) return; // no handles, no drag
+    const v = valueAt(e.clientX);
+    if (v === null) return;
+    const span = data.hi - data.lo;
+    // nearest handle grabs (the strip is forgiving: no pixel hunting)
+    const handle = Math.abs(v - winNow.lo) <= Math.abs(v - winNow.hi) ? "lo" : "hi";
+    dragRef.current = handle;
+    setDrag({ ...winNow });
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  const onMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (dragRef.current && winNow && data) {
+      const v = valueAt(e.clientX);
+      if (v === null) return;
+      const span = data.hi - data.lo;
+      const minGap = span * MIN_GAP_FRAC;
+      let lo = winNow.lo;
+      let hi = winNow.hi;
+      if (dragRef.current === "lo") lo = Math.min(Math.max(v, data.lo), hi - minGap);
+      else hi = Math.max(Math.min(v, data.hi), lo + minGap);
+      setDrag({ lo, hi });
+      return;
+    }
+    setHover(binAt(e.clientX));
+  };
+
+  const onUp = () => {
+    if (dragRef.current && dragWinRef.current && onPickWindow) {
+      onPickWindow({ lo: dragWinRef.current.lo, hi: dragWinRef.current.hi }); // commit on release — no per-frame re-renders
+    }
+    dragRef.current = null;
+    setDrag(null);
+  };
+
   return (
     <div
       data-canvas-ui={uiPrefix}
@@ -299,9 +430,24 @@ export function DensityHistogramStrip({
             ref={canvasRef}
             role="img"
             aria-label={ariaLabel}
-            title={onPickSigma ? interactiveTitle : "The density distribution — hover to read bins"}
-            className={(onPickSigma ? "h-24 w-full cursor-crosshair" : "h-24 w-full cursor-default") + " select-none"}
-            onPointerMove={(e) => setHover(binAt(e.clientX))}
+            title={
+              onPickSigma
+                ? interactiveTitle
+                : onPickWindow
+                  ? "The density distribution — drag the lo/hi handles (or pick a σ preset) to command the display window"
+                  : "The density distribution — hover to read bins"
+            }
+            className={
+              (onPickSigma
+                ? "h-24 w-full cursor-crosshair"
+                : winNow || onPickWindow
+                  ? "h-24 w-full cursor-ew-resize"
+                  : "h-24 w-full cursor-default") + " select-none"
+            }
+            onPointerDown={onDown}
+            onPointerMove={onMove}
+            onPointerUp={onUp}
+            onPointerCancel={onUp}
             onPointerLeave={() => setHover(null)}
             onClick={(e) => {
               if (!onPickSigma) return; // read-only strip: a click is just a click
@@ -321,6 +467,87 @@ export function DensityHistogramStrip({
               onPickSigma(sigma, sign);
             }}
           />
+          {/* t286 — the window control row: σ presets + Auto. Only when a
+              window consumer is wired (the dialog); the panel's contour
+              strip stays chip-free. Active chip mirrors the live window:
+              symmetric μ±kσ matches its preset, anything else is custom. */}
+          {onPickWindow && (
+            <div
+              data-canvas-ui={`${uiPrefix}-win`}
+              data-win-state={winNow ? "custom" : "auto"}
+              data-win-lo={winNow ? winNow.lo.toFixed(6) : ""}
+              data-win-hi={winNow ? winNow.hi.toFixed(6) : ""}
+              data-win-lo-sigma={
+                winNow && data.std > 0 ? ((winNow.lo - data.mean) / data.std).toFixed(2) : ""
+              }
+              data-win-hi-sigma={
+                winNow && data.std > 0 ? ((winNow.hi - data.mean) / data.std).toFixed(2) : ""
+              }
+              className="flex flex-wrap items-center gap-1 pt-0.5"
+            >
+              <span className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
+                display
+              </span>
+              {[
+                { k: "auto", label: "auto" },
+                { k: "1", label: "±1σ" },
+                { k: "2", label: "±2σ" },
+                { k: "3", label: "±3σ" },
+                { k: "5", label: "±5σ" },
+              ].map(({ k, label }) => {
+                const active =
+                  k === "auto"
+                    ? !winNow
+                    : winNow != null &&
+                      data.std > 0 &&
+                      Math.abs((data.mean - winNow.lo) / data.std - Number(k)) < 0.02 &&
+                      Math.abs((winNow.hi - data.mean) / data.std - Number(k)) < 0.02;
+                return (
+                  <button
+                    key={k}
+                    type="button"
+                    data-win-preset={k}
+                    aria-pressed={active}
+                    title={
+                      k === "auto"
+                        ? "The 2–98 percentile stretch answers (the auto window)"
+                        : `Display from μ−${k}σ to μ+${k}σ — lo renders black, hi renders white`
+                    }
+                    onClick={() => {
+                      if (!onPickWindow) return;
+                      if (k === "auto") {
+                        onPickWindow(null);
+                        return;
+                      }
+                      if (!(data.std > 0)) return;
+                      const kw = Number(k);
+                      onPickWindow({
+                        lo: data.mean - kw * data.std,
+                        hi: data.mean + kw * data.std,
+                      });
+                    }}
+                    className={
+                      "rounded border px-1.5 py-0.5 font-mono text-[9px] tabular-nums transition-colors " +
+                      (active
+                        ? "border-violet-700/60 bg-violet-950/30 text-violet-700 dark:border-violet-400/50 dark:bg-violet-950/40 dark:text-violet-300"
+                        : "border-border/60 bg-background/60 text-muted-foreground hover:bg-muted/60 hover:text-foreground")
+                    }
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+              <span className="ml-auto font-mono text-[9px] tabular-nums text-muted-foreground">
+                {winNow
+                  ? `window ${fmtHist(winNow.lo)} … ${fmtHist(winNow.hi)}${
+                      data.std > 0
+                        ? ` (${((winNow.lo - data.mean) / data.std).toFixed(1)}σ … ${((winNow.hi - data.mean) / data.std).toFixed(1)}σ)`
+                        : ""
+                    }`
+                  : "window auto (2–98 %)"}
+              </span>
+            </div>
+          )}
           <div
             data-canvas-ui={`${uiPrefix}-stats`}
             data-hist-mean={data.mean.toFixed(6)}
@@ -353,11 +580,24 @@ export function DensityHistogramStrip({
 }
 
 /**
- * The quick-look dialog's histogram section (t284): a toggle (default
- * OFF — the first look is an explicit ask) plus the read-only strip.
+ * The quick-look dialog's histogram section (t284; t286 adds the
+ * display window): a toggle (default OFF — the first look is an
+ * explicit ask) plus the strip. When `onWindowChange` is passed the
+ * strip speaks WINDOW (draggable lo/hi handles + σ presets) and the
+ * caller re-renders the image through the SAME state.
  * Mount with key={path} so a new file resets the toggle.
  */
-export function QuickHistSection({ jobId, path }: { jobId: string; path: string }) {
+export function QuickHistSection({
+  jobId,
+  path,
+  window: winProp = null,
+  onWindowChange,
+}: {
+  jobId: string;
+  path: string;
+  window?: HistWindow | null;
+  onWindowChange?: (w: HistWindow | null) => void;
+}) {
   const [on, setOn] = useState(false);
   return (
     <div className="space-y-1.5">
@@ -394,6 +634,8 @@ export function QuickHistSection({ jobId, path }: { jobId: string; path: string 
           path={path}
           uiPrefix="quick-hist"
           ariaLabel="The file's density histogram with the σ ruler"
+          window={winProp}
+          onPickWindow={onWindowChange}
         />
       )}
     </div>

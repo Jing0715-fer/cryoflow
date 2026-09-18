@@ -84,7 +84,9 @@ must(sharedSrc.includes("export function QuickHistSection"), "the dialog's toggl
 must(sharedSrc.includes("useState(false)"), "the quick look starts OFF (the first look is an explicit ask)");
 must(sharedSrc.includes("if (!onPickSigma) return;"), "a read-only strip ignores clicks (the honest gate)");
 must(sharedSrc.includes("cursor-crosshair") && sharedSrc.includes("cursor-default"), "the cursor says which mode the strip is in");
-must(sharedSrc.includes("onPickSigma ? interactiveTitle"), "the title only promises the cut when the cut is possible");
+// t286 wrapped the title ternary (the window mode joined it) — the σ
+// branch still resolves to interactiveTitle FIRST; semantics unchanged
+must(sharedSrc.includes("? interactiveTitle"), "the title only promises the cut when the cut is possible");
 must(sharedSrc.includes("data-canvas-ui={uiPrefix}") && sharedSrc.includes("data-canvas-ui={`${uiPrefix}-stats`}"), "both consumers carry machine-findable hooks");
 must(sharedSrc.includes("Math.min(10, Math.max(0.05, Math.abs(raw)))"), "the shared pick clamps to the slider's own bounds");
 must(sharedSrc.includes("key={path} resets the toggle") || sharedSrc.includes("Mount with key={path}"), "the per-file reset is documented where it is implemented");
