@@ -6,6 +6,7 @@ import { getRun } from "@/lib/relion/engine";
 import { readMrcHeader } from "@/lib/mrc";
 import { biggestLoop, parseStar } from "@/lib/starfile";
 import { isLocalRequest } from "@/lib/http-guard";
+import { readRemoteManifest } from "@/lib/remote/remote-files";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +33,13 @@ export interface OutputFile {
   label?: string;
   /** parsed row count for STAR files (small files only) */
   rows?: number;
+  /**
+   * t289 — this file is NOT on this machine: finalize's key-files policy
+   * left it on the cluster (it is in the remote manifest). The UI renders
+   * an "on cluster" card instead of auto-loading a preview, and every
+   * format of the file route fetches it over SSH on demand.
+   */
+  remote?: boolean;
   /** map header summary for 3D volumes — the identity-card data. `dims`
    *  carries the grid size; this carries where the map sits inside its
    *  parent (origin), its voxel spacing, and the density statistics the
@@ -255,13 +263,49 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
 
     const { files, truncated } = walkWorkdir(workdir);
+    // t289 — the remote manifest: files finalize left on the cluster join
+    // the listing marked `remote` (sizes from the ledger — no SSH here, the
+    // listing stays instant). Header facts (dims/slices) are unknown until
+    // the file is fetched; the card speaks size + label + kind, honestly.
+    let remoteTruncated = false;
+    if (run.remote) {
+      const manifest = readRemoteManifest(workdir);
+      if (manifest) {
+        const localSet = new Set(files.map((f) => f.path));
+        let remoteAdded = 0;
+        for (const entry of manifest.files) {
+          if (localSet.has(entry.path)) continue;
+          if (remoteAdded >= 300) {
+            remoteTruncated = true;
+            break;
+          }
+          const name = path.posix.basename(entry.path);
+          files.push({
+            path: entry.path,
+            name,
+            kind: classify(name),
+            size: entry.size,
+            label: friendlyLabel(name, entry.path),
+            remote: true,
+          });
+          remoteAdded += 1;
+        }
+        if (remoteAdded > 0) {
+          files.sort((a, b) => KIND_ORDER[a.kind] - KIND_ORDER[b.kind] || naturalCompare(a.path, b.path));
+        }
+      }
+    }
     return NextResponse.json({
       workdir,
       engine,
       files,
       inputs: inputFilesFromCmd(run.cmd),
       cmd: run.cmd,
-      note: truncated ? `Listing truncated at ${files.length} files` : undefined,
+      note: truncated
+        ? `Listing truncated at ${files.length} files`
+        : remoteTruncated
+          ? `Listing truncated at ${files.length} files (remote manifest capped)`
+          : undefined,
     });
   } catch (error) {
     console.error("GET /api/jobs/[id]/outputs failed:", error);

@@ -6,6 +6,7 @@ import { getRun } from "@/lib/relion/engine";
 import { resolveInsideJobWorkdir } from "@/lib/relion/jobfile";
 import { biggestLoop, extractFsc, findPair, parseStar } from "@/lib/starfile";
 import { isLocalRequest } from "@/lib/http-guard";
+import { fetchRemoteFileIntoWorkdir } from "@/lib/remote/remote-files";
 
 export const dynamic = "force-dynamic";
 
@@ -70,7 +71,21 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const rel = url.searchParams.get("path") ?? "";
     const rowsParam = Math.max(1, Math.min(1000, Number.parseInt(url.searchParams.get("rows") ?? "100", 10) || 100));
 
-    const resolved = resolveInsideJobWorkdir(run.workdir, rel);
+    let resolved = resolveInsideJobWorkdir(run.workdir, rel);
+    // t289 — the same lazy leg as the file route: a remote-only STAR
+    // (key-files policy edge, or a sync that died mid-way) is pulled over
+    // SSH on the user's explicit click, then parsed from the local mirror.
+    if ("error" in resolved && resolved.error === "File not found" && run.remote) {
+      const fetched = await fetchRemoteFileIntoWorkdir(
+        { workdir: run.workdir, remote: run.remote },
+        rel
+      );
+      if (fetched.ok) {
+        resolved = resolveInsideJobWorkdir(run.workdir, rel);
+      } else if (fetched.status !== 404) {
+        return NextResponse.json({ error: fetched.error }, { status: fetched.status });
+      }
+    }
     if ("error" in resolved) {
       return NextResponse.json({ error: resolved.error }, { status: resolved.status });
     }

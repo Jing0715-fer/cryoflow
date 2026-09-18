@@ -44,6 +44,17 @@ export function sanitizeConnection(raw: Record<string, unknown>, prev?: RemoteCo
   const portRaw = Number(raw.port);
   const fileMb = Number(raw.maxFileMb);
   const totalMb = Number(raw.maxTotalMb);
+  // t289 — sync-back policy + the key-files binary cap. Absent fields keep
+  // the stored value; a brand-new connection defaults to key-files/16MB
+  // (bulky maps stay on the cluster, fetchable on demand).
+  const policy: RemoteConnection["syncPolicy"] =
+    raw.syncPolicy === "everything" || raw.syncPolicy === "key-files"
+      ? raw.syncPolicy
+      : (prev?.syncPolicy ?? "key-files");
+  const keyMbRaw = Number(raw.keyFileMb);
+  const keyFileMb = Number.isFinite(keyMbRaw)
+    ? Math.max(1, Math.min(2048, Math.round(keyMbRaw)))
+    : (prev?.keyFileMb ?? 16);
   const envLines = Array.isArray(raw.envLines)
     ? raw.envLines
         .filter((l): l is string => typeof l === "string")
@@ -68,6 +79,8 @@ export function sanitizeConnection(raw: Record<string, unknown>, prev?: RemoteCo
     defaultModule: str(raw.defaultModule, 200) ?? prev?.defaultModule ?? null,
     envLines,
     useSlurm: typeof raw.useSlurm === "boolean" ? raw.useSlurm : (prev?.useSlurm ?? false),
+    syncPolicy: policy,
+    keyFileMb,
     maxFileMb: Number.isFinite(fileMb) ? Math.max(1, Math.min(8192, Math.round(fileMb))) : (prev?.maxFileMb ?? 512),
     maxTotalMb: Number.isFinite(totalMb) ? Math.max(16, Math.min(65536, Math.round(totalMb))) : (prev?.maxTotalMb ?? 2048),
     lastProbe: probe,

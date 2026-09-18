@@ -63,6 +63,7 @@ import {
 } from "@/lib/relion/engine";
 import { gpuStrategyFor } from "@/lib/hpc/slurm";
 import { getConnection, patchConnection } from "./connections";
+import { writeRemoteManifest } from "./remote-files";
 import { probeConnection } from "./probe";
 import {
   exec,
@@ -1363,11 +1364,21 @@ interface SyncResult {
   note?: string;
 }
 
+/** t289 — extensions that ALWAYS sync under the key-files policy: the
+ * small textual skeleton of a RELION run (particles/metadata/logs). Bulky
+ * binary formats (.mrc/.mrcs/.map/.hdf/…) are gated by the key-file size
+ * cap instead — class averages (a few MB) come home, half-maps and stacks
+ * stay on the cluster and wait for an explicit fetch. */
+const KEY_TEXT_EXT =
+  /\.(star|log|txt|out|err|json|xml|com|lst|coord|bild|dat|eps|pdf|csv|ini|toml|ya?ml|md)$/i;
+
 /**
  * Download the cluster workdir into the local mirror (bounded by the
- * connection's caps). STAR files are rewritten to-local so downstream LOCAL
- * jobs and the results viewers work unchanged. `.cf-*` control files stay
- * remote-only. Returns counts + the skipped list for the UI.
+ * connection's caps AND — since t289 — its sync policy). STAR files are
+ * rewritten to-local so downstream LOCAL jobs and the results viewers work
+ * unchanged. `.cf-*` control files stay remote-only. The FULL remote
+ * listing lands in `.cf-remote-manifest.json` so the outputs view can show
+ * what stayed behind. Returns counts + the skipped list for the UI.
  */
 async function syncBackWorkdir(
   conn: RemoteConnection,
@@ -1385,8 +1396,13 @@ async function syncBackWorkdir(
     res.note = "sync-back failed (workdir unreadable over SSH) — outputs remain on the cluster";
     return res;
   }
+  // t289 — the policy: key-files (default) gates binaries at keyFileMb;
+  // everything keeps the pre-t289 behavior (caps only).
+  const policy = conn.syncPolicy === "everything" ? "everything" : "key-files";
+  const keyCap = (conn.keyFileMb ?? 16) * 1024 * 1024;
   const capPerFile = conn.maxFileMb * 1024 * 1024;
   let budget = conn.maxTotalMb * 1024 * 1024;
+  const entries: { rel: string; size: number }[] = [];
   for (const line of manifest.stdout.trim().split("\n")) {
     if (!line.trim()) continue;
     const tab = line.lastIndexOf("\t");
@@ -1394,6 +1410,20 @@ async function syncBackWorkdir(
     const rel = line.slice(0, tab).trim();
     const size = Number(line.slice(tab + 1).trim());
     if (!rel || !Number.isFinite(size)) continue;
+    entries.push({ rel, size });
+  }
+  // t289 — the ledger FIRST: even a sync that dies mid-way leaves the
+  // outputs view knowing what the cluster holds (sizes included).
+  writeRemoteManifest(localWorkdir, {
+    connectionId: r.connectionId,
+    remoteWorkdir: r.remoteWorkdir,
+    files: entries.map((e) => ({ path: e.rel, size: e.size })),
+  });
+  for (const { rel, size } of entries) {
+    if (policy === "key-files" && !KEY_TEXT_EXT.test(rel) && size > keyCap) {
+      res.skipped.push(`${rel} (${(size / 1024 / 1024).toFixed(0)} MB > ${conn.keyFileMb ?? 16} MB key-file cap)`);
+      continue;
+    }
     if (size > capPerFile) {
       res.skipped.push(`${rel} (${(size / 1024 / 1024).toFixed(0)} MB > ${conn.maxFileMb} MB cap)`);
       continue;
@@ -1436,7 +1466,10 @@ async function syncBackWorkdir(
     }
   }
   if (res.skipped.length > 0) {
-    res.note = `${res.skipped.length} file(s) stayed on the cluster (caps): ${res.skipped.slice(0, 3).join(", ")}${res.skipped.length > 3 ? " …" : ""} — raise the sync caps in the connection settings or fetch them manually from ${r.remoteWorkdir}`;
+    res.note =
+      policy === "key-files"
+        ? `${res.skipped.length} bulky file(s) stayed on the cluster (key-files policy): ${res.skipped.slice(0, 3).join(", ")}${res.skipped.length > 3 ? " …" : ""} — they are listed in this job's Results; preview or download them there on demand`
+        : `${res.skipped.length} file(s) stayed on the cluster (caps): ${res.skipped.slice(0, 3).join(", ")}${res.skipped.length > 3 ? " …" : ""} — raise the sync caps in the connection settings or fetch them manually from ${r.remoteWorkdir}`;
   }
   return res;
 }

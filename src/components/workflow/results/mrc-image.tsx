@@ -13,10 +13,14 @@ export function MrcImage({
   src,
   alt,
   className,
+  onLoaded,
 }: {
   src: string;
   alt: string;
   className?: string;
+  /** t289 — fired once the bytes actually arrived (remote tiles use it to
+   *  learn their SSH fetch landed and refresh the outputs listing). */
+  onLoaded?: () => void;
 }) {
   const [status, setStatus] = useState<"loading" | "loaded" | "error">("loading");
 
@@ -47,7 +51,10 @@ export function MrcImage({
           src={src}
           alt={alt}
           loading="lazy"
-          onLoad={() => setStatus("loaded")}
+          onLoad={() => {
+            setStatus("loaded");
+            onLoaded?.();
+          }}
           onError={() => setStatus("error")}
           className={cn(
             "block h-auto w-full transition-opacity duration-300",

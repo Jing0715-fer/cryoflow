@@ -503,6 +503,10 @@ interface Draft {
   remoteRoot: string;
   envLines: string;
   useSlurm: boolean;
+  /** t289 — what finalize syncs back: key files only (default) or everything. */
+  syncPolicy: "key-files" | "everything";
+  /** t289 — binary cap (MB) for the key-files policy. */
+  keyFileMb: number;
   maxFileMb: number;
   maxTotalMb: number;
 }
@@ -522,6 +526,8 @@ function toDraft(c: RemoteConnectionDTO | null): Draft {
     remoteRoot: c?.remoteRoot ?? "~/cryoflow",
     envLines: (c?.envLines ?? []).join("\n"),
     useSlurm: c?.useSlurm ?? false,
+    syncPolicy: c?.syncPolicy ?? "key-files",
+    keyFileMb: c?.keyFileMb ?? 16,
     maxFileMb: c?.maxFileMb ?? 512,
     maxTotalMb: c?.maxTotalMb ?? 2048,
   };
@@ -560,6 +566,11 @@ function ConnectionEditor({
   const [confirmDelete, setConfirmDelete] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
   const [pickingModule, setPickingModule] = React.useState<string | null>(null);
+  /** t289 — the create flow's pre-pinned default module: the by-value probe
+   *  shows module chips BEFORE anything is saved; a click stores the pick
+   *  here and Create sends it with the connection (saved connections keep
+   *  using the PATCH route via pickModule). */
+  const [draftDefaultModule, setDraftDefaultModule] = React.useState<string | null>(null);
 
   const patch = (fields: Partial<Draft>) => {
     setDirty(true);
@@ -593,9 +604,15 @@ function ConnectionEditor({
         .map((l) => l.trim())
         .filter((l) => l.length > 0),
       useSlurm: draft.useSlurm,
+      syncPolicy: draft.syncPolicy,
+      keyFileMb: cap(draft.keyFileMb, 16),
       maxFileMb: cap(draft.maxFileMb, 512),
       maxTotalMb: cap(draft.maxTotalMb, 2048),
     };
+    // t289 — the create flow can pre-pin the default module: the by-value
+    // probe shows the chips BEFORE anything is saved, a click stores the
+    // choice here, and Create sends it along with the connection
+    if (creating && draftDefaultModule) payload.defaultModule = draftDefaultModule;
     if (connection) payload.id = connection.id;
     // three-state secrets: typed = store, explicit clear = "", untouched = absent
     if (draft.authMethod === "password") {
@@ -661,6 +678,33 @@ function ConnectionEditor({
     }
   };
 
+  // t289 — the create form's Test & probe: same probe, BY VALUE — the draft
+  // above is sent as-is, nothing lands in the registry until Create. A
+  // login that works is knowable BEFORE it is committed.
+  const testDraft = async () => {
+    if (!valid || testing) return;
+    setTesting(true);
+    setTestError(null);
+    try {
+      const res = await fetch("/api/remote/connections/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(buildPayload()),
+      });
+      const body = (await res.json().catch(() => null)) as
+        | { ok?: boolean; probe?: RemoteProbe; error?: string }
+        | null;
+      if (body?.probe) setProbeOverride(body.probe);
+      if (!body?.ok) {
+        setTestError(body?.error ?? body?.probe?.error ?? "Connection test failed.");
+      }
+    } catch {
+      setTestError("Test request failed — is the app server reachable?");
+    } finally {
+      setTesting(false);
+    }
+  };
+
   const remove = async () => {
     if (!connection || deleting) return;
     setDeleting(true);
@@ -709,6 +753,13 @@ function ConnectionEditor({
 
   // probe card reads the freshest source: this session's test, else the registry
   const probe = probeOverride ?? connection?.lastProbe ?? null;
+  // t289 — the remote root, EXPANDED: once any probe brought back the
+  // cluster's $HOME, a ~-root can show its absolute form. No probe yet →
+  // nothing to expand (the hint already teaches the semantics).
+  const resolvedRemoteRoot =
+    probe?.homeDir && draft.remoteRoot.trim().startsWith("~")
+      ? probe.homeDir.replace(/\/+$/, "") + draft.remoteRoot.trim().slice(1)
+      : null;
   const secretRow = (
     label: string,
     value: string,
@@ -890,7 +941,8 @@ function ConnectionEditor({
         <div className="grid grid-cols-2 gap-x-4 gap-y-3">
           <Field
             label="Remote root"
-            hint="Cluster directory that mirrors the local data/relion workdir."
+            hint="Where this app's local data/relion workdir is mirrored on the cluster — job workdirs live under it and it is created on first run. ~ means your cluster home. Examples: ~/cryoflow · /scratch/$USER/cryoflow"
+            className="col-span-2"
           >
             <Input
               value={draft.remoteRoot}
@@ -900,6 +952,16 @@ function ConnectionEditor({
               maxLength={300}
               aria-label="Cluster-side remote root directory"
             />
+            {/* t289 — a root the user can SEE: once a probe brought back the
+                cluster's $HOME, a ~-root shows its absolute expansion */}
+            {resolvedRemoteRoot && resolvedRemoteRoot !== draft.remoteRoot.trim() ? (
+              <p
+                className="pt-0.5 font-mono text-[10.5px] leading-snug text-muted-foreground"
+                data-remote-root-resolved=""
+              >
+                resolves to {resolvedRemoteRoot}
+              </p>
+            ) : null}
           </Field>
           <div className="flex items-end gap-2 pb-4">
             <Switch
@@ -925,6 +987,43 @@ function ConnectionEditor({
               aria-label="Environment preparation lines"
             />
           </Field>
+          <Field
+            label="Results sync-back"
+            hint="What finalize copies back to this machine. Bulky files that stay on the cluster are still listed in Results — preview or download them there on demand."
+            className="col-span-2"
+          >
+            <Select
+              value={draft.syncPolicy}
+              onValueChange={(v) => patch({ syncPolicy: v as Draft["syncPolicy"] })}
+            >
+              <SelectTrigger className="h-9 text-sm" aria-label="Results sync-back policy">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="key-files" className="text-sm">
+                  Key files only — maps &amp; stacks stay on the cluster
+                </SelectItem>
+                <SelectItem value="everything" className="text-sm">
+                  Everything under the caps
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+          {draft.syncPolicy === "key-files" ? (
+            <Field
+              label="Key-file cap (MB)"
+              hint="Binary outputs above this stay remote (text, STAR and logs always sync)."
+            >
+              <Input
+                type="number"
+                min={1}
+                value={draft.keyFileMb}
+                onChange={(e) => patch({ keyFileMb: Number(e.target.value) })}
+                className="h-9 text-sm"
+                aria-label="Key-file size cap in MB"
+              />
+            </Field>
+          ) : null}
           <Field label="Max file size (MB)" hint="Sync-back cap for a single file.">
             <Input
               type="number"
@@ -948,26 +1047,37 @@ function ConnectionEditor({
         </div>
       </div>
 
-      {/* Probe — the payoff card (test results / last registry probe) */}
-      {creating ? (
-        <p className="text-[11px] leading-relaxed text-muted-foreground">
-          Save the connection first, then{" "}
-          <span className="font-medium text-foreground/80">Test &amp; probe</span> discovers its relion modules.
-        </p>
-      ) : probe ? (
+      {/* Probe — the payoff card (test results / last registry probe).
+          t289: the CREATE form speaks too — the by-value test fills
+          probeOverride without a saved connection, chips pre-pin the
+          default module (draftDefaultModule rides the Create payload). */}
+      {probe ? (
         <div className="space-y-2">
-          <SectionTitle>Last probe</SectionTitle>
+          <SectionTitle>{creating ? "Probe (not saved yet)" : "Last probe"}</SectionTitle>
           <ProbeCard
             probe={probe}
-            defaultModule={connection?.defaultModule ?? null}
-            onPickModule={(m) => void pickModule(m)}
-            picking={pickingModule}
+            defaultModule={creating ? draftDefaultModule : (connection?.defaultModule ?? null)}
+            onPickModule={
+              creating
+                ? (m) => setDraftDefaultModule(m === draftDefaultModule ? null : m)
+                : (m) => void pickModule(m)
+            }
+            picking={creating ? null : pickingModule}
           />
         </div>
       ) : (
         <p className="text-[11px] leading-relaxed text-muted-foreground">
-          Never tested — run <span className="font-medium text-foreground/80">Test &amp; probe</span> to log in and
-          discover the node&apos;s relion modules.
+          {creating ? (
+            <>
+              Not tested yet — <span className="font-medium text-foreground/80">Test &amp; probe</span> logs in
+              with the values above (nothing is saved) and discovers the node&apos;s relion modules.
+            </>
+          ) : (
+            <>
+              Never tested — run <span className="font-medium text-foreground/80">Test &amp; probe</span> to log
+              in and discover the node&apos;s relion modules.
+            </>
+          )}
         </p>
       )}
 
@@ -1036,23 +1146,27 @@ function ConnectionEditor({
             <span className="size-1.5 rounded-full bg-amber-500" aria-hidden="true" /> unsaved edits
           </span>
         ) : null}
-        {!creating ? (
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-9 gap-1.5 text-sm"
-            onClick={() => void test()}
-            disabled={testing || saving}
-            title="Log in over SSH and probe the node (can take ~30s)"
-          >
-            {testing ? (
-              <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
-            ) : (
-              <Server className="size-3.5" aria-hidden="true" />
-            )}
-            {testing ? "Probing…" : "Test & probe"}
-          </Button>
-        ) : null}
+        {/* t289 — Test & probe lives on the CREATE form too: the by-value
+            probe answers "does this login work" before anything is saved. */}
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-9 gap-1.5 text-sm"
+          onClick={() => void (creating ? testDraft() : test())}
+          disabled={testing || saving || (creating && !valid)}
+          title={
+            creating
+              ? "Log in over SSH with the values above (nothing is saved) and probe the node — can take ~30s"
+              : "Log in over SSH and probe the node (can take ~30s)"
+          }
+        >
+          {testing ? (
+            <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+          ) : (
+            <Server className="size-3.5" aria-hidden="true" />
+          )}
+          {testing ? "Probing…" : "Test & probe"}
+        </Button>
         <Button
           size="sm"
           className="h-9 text-sm"

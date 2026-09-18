@@ -19,6 +19,9 @@ import {
   ArrowLeftRight,
   ArrowRight,
   BarChart3,
+  ChevronDown,
+  Monitor,
+  Server,
   Check,
   ChevronsDownUp,
   CircleAlert,
@@ -32,7 +35,6 @@ import {
   Plus,
   RotateCcw,
   RefreshCw,
-  Server,
   SlidersHorizontal,
   Terminal,
   Trash2,
@@ -73,6 +75,12 @@ import { RemoteRunButton } from "./remote-run-button";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CheckSquare, ListFilter, Folder } from "lucide-react";
@@ -1175,9 +1183,18 @@ function PanelBody({ job }: { job: JobDTO }) {
     }
   };
 
+  // t289 — the run-mode door: the Run button grows a ▾ menu (this machine
+  // vs cluster SSH) and the action row's server icon opens the SAME dialog
+  // — one dialog, two doors, no hidden modes. The mode is a per-run choice,
+  // not a global toggle, so the menu speaks choices instead of state.
+  const [clusterRunOpen, setClusterRunOpen] = React.useState(false);
+  const runModeBlocked =
+    job.status === "running" || runPending || relionBlocked || job.linkedJobId != null;
+  const clusterModeBlocked = job.status === "running" || job.linkedJobId != null;
+
   const runButton = (
     <Button
-      className="w-full"
+      className="w-full rounded-r-none"
       size="sm"
       disabled={job.status === "running" || runPending || relionBlocked || job.linkedJobId != null}
       onClick={() => void handleRun()}
@@ -1280,24 +1297,87 @@ function PanelBody({ job }: { job: JobDTO }) {
 
         {/* Action row */}
         <div className="flex items-center gap-1.5">
-          {relionBlocked ? (
-            <TooltipProvider delayDuration={150}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="flex-1 inline-flex" title={relionHint}>
-                    {runButton}
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-64 text-[11px]">
-                  {relionHint} — jobs will fail to start honestly.
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          ) : (
-            <span className="flex-1 inline-flex">{runButton}</span>
-          )}
+          {/* t289 — Run + mode ▾: the local run and the cluster dispatch are
+              ONE control with a visible seam, not two unlabeled buttons. */}
+          <div className="flex min-w-0 flex-1 items-stretch">
+            {relionBlocked ? (
+              <TooltipProvider delayDuration={150}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="flex min-w-0 flex-1 inline-flex">{runButton}</span>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-64 text-[11px]">
+                    {relionHint} — jobs will fail to start honestly.
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : (
+              <span className="flex min-w-0 flex-1 inline-flex">{runButton}</span>
+            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size="sm"
+                  className="shrink-0 rounded-l-none px-1"
+                  disabled={runModeBlocked && clusterModeBlocked}
+                  aria-label="Choose run mode: this machine or cluster (SSH)"
+                  title="Choose run mode — this machine or a cluster over SSH"
+                >
+                  <ChevronDown className="size-3.5" aria-hidden="true" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-72">
+                <DropdownMenuItem
+                  onClick={() => void handleRun()}
+                  disabled={runModeBlocked}
+                  aria-label="Run on this machine"
+                  data-run-mode="local"
+                >
+                  <Monitor className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  <div className="flex min-w-0 flex-col gap-0.5">
+                    <span className="text-xs font-medium">Run on this machine</span>
+                    <span className="text-[10px] leading-snug text-muted-foreground">
+                      the local RELION binary — outputs stay on this disk
+                    </span>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setClusterRunOpen(true)}
+                  disabled={clusterModeBlocked}
+                  aria-label="Run on cluster over SSH"
+                  data-run-mode="cluster"
+                >
+                  <Server className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  <div className="flex min-w-0 flex-col gap-0.5">
+                    <span className="text-xs font-medium">Run on cluster (SSH)…</span>
+                    <span className="text-[10px] leading-snug text-muted-foreground">
+                      stage inputs · module load relion · key files sync back, bulky
+                      outputs stay on the cluster
+                    </span>
+                  </div>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
           <HpcSbatchDialog jobId={job.id} compact />
-          <RemoteRunButton job={job} />
+          {/* t289 — the server icon and the ▾ menu open the SAME dialog (one
+              RemoteRunButton instance, dialogOnly + controlled). */}
+          <Button
+            variant="outline"
+            size="icon"
+            className="relative size-8 shrink-0 text-muted-foreground hover:text-foreground before:absolute before:-inset-1.5 before:rounded-md before:content-['']"
+            disabled={clusterModeBlocked}
+            onClick={() => setClusterRunOpen(true)}
+            aria-label="Run on cluster (SSH)"
+            title={
+              job.linkedJobId != null
+                ? "Linked copies mirror their original — run the original job instead"
+                : "Run on cluster (SSH)"
+            }
+          >
+            <Server className="size-4" aria-hidden="true" />
+          </Button>
+          <RemoteRunButton job={job} dialogOnly open={clusterRunOpen} onOpenChange={setClusterRunOpen} />
           <Button
             variant="ghost"
             size="icon"

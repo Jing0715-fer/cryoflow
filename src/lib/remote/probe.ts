@@ -101,14 +101,25 @@ async function probeConnectionInner(c: RemoteConnection): Promise<RemoteProbe> {
     externals: {},
     slurm: false,
     gpus: [],
+    homeDir: null,
   };
 
   try {
     // ---- reachability + identity ------------------------------------
-    const who = await exec(c, loginShellScript("echo \"$USER@$(hostname)\"; uname -a"), { timeoutMs: 12_000 });
+    // t289 — $HOME rides the identity round-trip (one SSH exec, one line
+    // more): the dialog shows the remote root RESOLVED (~/cryoflow →
+    // /home/cryo/cryoflow) without a second login.
+    const who = await exec(
+      c,
+      loginShellScript('echo "$USER@$(hostname)"; echo "CF_HOME=$HOME"; uname -a'),
+      { timeoutMs: 12_000 }
+    );
     if (who.error) return { ...base, error: who.error };
     if (who.code !== 0) return { ...base, error: `login shell failed (exit ${who.code}): ${who.stderr.trim().slice(0, 200)}` };
-    base.uname = who.stdout.trim().split("\n").slice(-1)[0] ?? null;
+    const homeLine = who.stdout.split("\n").find((l) => l.startsWith("CF_HOME="));
+    const homeVal = homeLine ? homeLine.slice("CF_HOME=".length).trim() : "";
+    if (homeVal.startsWith("/")) base.homeDir = homeVal;
+    base.uname = who.stdout.trim().split("\n").filter((l) => !l.startsWith("CF_HOME=")).slice(-1)[0] ?? null;
 
     // ---- module system ----------------------------------------------
     const mod = await exec(

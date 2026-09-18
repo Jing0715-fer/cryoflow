@@ -41,6 +41,18 @@ export interface RemoteConnection {
   envLines: string[];
   /** Submit through Slurm (sbatch) instead of a direct nohup process. */
   useSlurm: boolean;
+  /**
+   * t289 — what finalize syncs back into the LOCAL mirror:
+   *   "key-files"  text outputs (.star/.log/…) always; binary outputs only
+   *                up to keyFileMb (class averages yes, maps & stacks stay
+   *                on the cluster — listed + fetchable on demand)
+   *   "everything" the previous behavior: every file under the caps below
+   * Absent (pre-t289 records) reads as "key-files" — bulky maps stopped
+   * silently landing on the laptop by default.
+   */
+  syncPolicy?: "key-files" | "everything";
+  /** t289 — per-file cap (MB) for the key-files policy's binary leg. */
+  keyFileMb?: number;
   /** File sync caps (MB) — per single file and per whole workdir sync-back. */
   maxFileMb: number;
   maxTotalMb: number;
@@ -128,6 +140,13 @@ export interface RemoteProbe {
   slurm: boolean;
   /** GPU names from nvidia-smi (empty = no GPUs visible on login node). */
   gpus: string[];
+  /**
+   * t289 — the login node's $HOME (absolute, no ~). The dialog uses it to
+   * show the remote root RESOLVED ("~/cryoflow → /home/cryo/cryoflow") —
+   * a root the user can see is a root the user can trust. Optional: probes
+   * recorded before t289 lack it.
+   */
+  homeDir?: string | null;
   /** First error line when the probe could not complete. */
   error?: string;
   /**

@@ -7,6 +7,7 @@ import { getRun } from "@/lib/relion/engine";
 import { readPathrefTarget } from "@/lib/relion/pathref";
 import { resolveInsideJobWorkdir } from "@/lib/relion/jobfile";
 import { isLocalRequest } from "@/lib/http-guard";
+import { fetchRemoteFileIntoWorkdir } from "@/lib/remote/remote-files";
 import { isMrcPath, readMrcHeader, readMrcHistogram, readMrcVoxel, renderMrcLargePng, renderMrcMontagePng, renderMrcOrthoPng, renderMrcSlicePng } from "@/lib/mrc";
 
 export const dynamic = "force-dynamic";
@@ -71,7 +72,26 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const rel = url.searchParams.get("path") ?? "";
     const format = url.searchParams.get("format") ?? "png";
 
-    const resolved = resolveInsideJobWorkdir(run.workdir, rel);
+    let resolved = resolveInsideJobWorkdir(run.workdir, rel);
+    // t289 — the lazy leg: a remote run's bulky files stay on the cluster
+    // (key-files policy) until an EXPLICIT user action asks for them. This
+    // route is that ask — every format (png/raw/text/value/histogram)
+    // funnels through the one resolution above, so the fetch here serves
+    // gallery previews, browser downloads and Mol* alike. Only a remote
+    // run pays the SSH round trip; local jobs keep the plain 404 path.
+    if ("error" in resolved && resolved.error === "File not found" && run.remote) {
+      const fetched = await fetchRemoteFileIntoWorkdir(
+        { workdir: run.workdir, remote: run.remote },
+        rel
+      );
+      if (fetched.ok) {
+        resolved = resolveInsideJobWorkdir(run.workdir, rel);
+      } else if (fetched.status !== 404) {
+        return NextResponse.json({ error: fetched.error }, { status: fetched.status });
+      }
+      // a 404 from the fetch falls through to the original 404 below —
+      // "not on disk AND not on the cluster" is simply not found
+    }
     if ("error" in resolved) {
       return NextResponse.json({ error: resolved.error }, { status: resolved.status });
     }

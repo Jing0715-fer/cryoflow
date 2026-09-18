@@ -37,8 +37,31 @@ import {
   useRemoteConnections,
 } from "./remote-cluster-dialog";
 
-export function RemoteRunButton({ job }: { job: JobDTO }) {
-  const [open, setOpen] = React.useState(false);
+/**
+ * t289 — the run-mode dropdown drives this dialog too: pass `dialogOnly`
+ * with open/onOpenChange to embed the SAME dialog without the standalone
+ * trigger (one dialog component, many doors — the action row's server icon
+ * and the Run button's ▾ menu both open it).
+ */
+export function RemoteRunButton({
+  job,
+  dialogOnly = false,
+  open: openProp,
+  onOpenChange,
+}: {
+  job: JobDTO;
+  /** render just the dialog (no trigger) — for controlled callers. */
+  dialogOnly?: boolean;
+  /** controlled open state (requires dialogOnly). */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}) {
+  const [openState, setOpenState] = React.useState(false);
+  const open = dialogOnly ? (openProp ?? false) : openState;
+  const setOpen = (v: boolean) => {
+    setOpenState(v);
+    onOpenChange?.(v);
+  };
   const { connections, reload } = useRemoteConnections(open);
   const runJobRemote = useWorkflowStore((s) => s.runJobRemote);
 
@@ -93,22 +116,24 @@ export function RemoteRunButton({ job }: { job: JobDTO }) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button
-          variant="outline"
-          size="icon"
-          className="relative size-8 shrink-0 text-muted-foreground hover:text-foreground before:absolute before:-inset-1.5 before:rounded-md before:content-['']"
-          disabled={disabled}
-          aria-label="Run on cluster (SSH)"
-          title={
-            job.linkedJobId != null
-              ? "Linked copies mirror their original — run the original job instead"
-              : "Run on cluster (SSH)"
-          }
-        >
-          <Server className="size-4" aria-hidden="true" />
-        </Button>
-      </DialogTrigger>
+      {dialogOnly ? null : (
+        <DialogTrigger asChild>
+          <Button
+            variant="outline"
+            size="icon"
+            className="relative size-8 shrink-0 text-muted-foreground hover:text-foreground before:absolute before:-inset-1.5 before:rounded-md before:content-['']"
+            disabled={disabled}
+            aria-label="Run on cluster (SSH)"
+            title={
+              job.linkedJobId != null
+                ? "Linked copies mirror their original — run the original job instead"
+                : "Run on cluster (SSH)"
+            }
+          >
+            <Server className="size-4" aria-hidden="true" />
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent
         className="sm:max-w-lg"
         onKeyDown={onEscapeClose(() => setOpen(false))}
@@ -119,8 +144,10 @@ export function RemoteRunButton({ job }: { job: JobDTO }) {
             Run on cluster · {job.name}
           </DialogTitle>
           <DialogDescription>
-            Dispatch this job over SSH — inputs are staged to the cluster, the chosen
-            relion module is loaded, and outputs sync back when it finishes.
+            Dispatch this job over SSH — inputs are staged to the cluster and the
+            chosen relion module is loaded. When it finishes, key files (STAR,
+            logs, small images) sync back; bulky maps and stacks stay on the
+            cluster, listed in Results and fetchable on demand.
           </DialogDescription>
         </DialogHeader>
 

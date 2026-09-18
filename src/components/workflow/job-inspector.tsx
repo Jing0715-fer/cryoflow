@@ -25,6 +25,7 @@ import {
   ArrowRight,
   BarChart3,
   Check,
+  ChevronDown,
   ChevronRight,
   Clock,
   Copy,
@@ -44,6 +45,7 @@ import {
   Locate,
   Lock,
   Loader2,
+  Monitor,
   Pause,
   Play,
   RotateCcw,
@@ -76,6 +78,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -1873,6 +1881,9 @@ function InspectorHeader({ job }: { job: JobDTO }) {
   const workspaces = useWorkflowStore((s) => s.workspaces);
   const switchWorkspace = useWorkflowStore((s) => s.switchWorkspace);
   const [confirmRerun, setConfirmRerun] = React.useState(false);
+  /** t289 — the cluster door behind the Re-run ▾ menu (one dialog, two
+   *  doors: the toolbar's server icon and the mode menu both open it). */
+  const [clusterRunOpen, setClusterRunOpen] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const elapsed = useElapsed(job.startedAt, running);
   // ETA for running jobs (dialog opens client-side, no SSR concern);
@@ -2025,15 +2036,62 @@ function InspectorHeader({ job }: { job: JobDTO }) {
                 <RotateCcw className="size-3.5" aria-hidden="true" />
                 <span>Reset &amp; edit</span>
               </Button>
-              <Button
-                size="sm"
-                disabled={busy}
-                onClick={() => setConfirmRerun(true)}
-                className="h-7 gap-1.5 bg-teal-600 px-3 text-xs text-white hover:bg-teal-700"
-              >
-                {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Play className="size-3.5" />}
-                Re-run
-              </Button>
+              {/* t289 — Re-run + mode ▾: the same visible seam as the job
+                  panel's Run control (this machine vs cluster SSH, one
+                  dropdown, honest disabled states). */}
+              <div className="flex items-stretch">
+                <Button
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => setConfirmRerun(true)}
+                  className="h-7 gap-1.5 rounded-r-none bg-teal-600 px-3 text-xs text-white hover:bg-teal-700"
+                >
+                  {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Play className="size-3.5" />}
+                  Re-run
+                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      size="sm"
+                      className="h-7 rounded-l-none bg-teal-600 px-1 text-white hover:bg-teal-700"
+                      disabled={busy}
+                      aria-label="Choose run mode: this machine or cluster (SSH)"
+                      title="Choose run mode — this machine or a cluster over SSH"
+                    >
+                      <ChevronDown className="size-3.5" aria-hidden="true" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-72">
+                    <DropdownMenuItem
+                      onClick={() => setConfirmRerun(true)}
+                      aria-label="Re-run on this machine"
+                      data-run-mode="local"
+                    >
+                      <Monitor className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                      <div className="flex min-w-0 flex-col gap-0.5">
+                        <span className="text-xs font-medium">Re-run on this machine</span>
+                        <span className="text-[10px] leading-snug text-muted-foreground">
+                          the local RELION binary — outputs stay on this disk
+                        </span>
+                      </div>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => setClusterRunOpen(true)}
+                      aria-label="Re-run on cluster over SSH"
+                      data-run-mode="cluster"
+                    >
+                      <Server className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                      <div className="flex min-w-0 flex-col gap-0.5">
+                        <span className="text-xs font-medium">Re-run on cluster (SSH)…</span>
+                        <span className="text-[10px] leading-snug text-muted-foreground">
+                          stage inputs · module load relion · key files sync back,
+                          bulky outputs stay on the cluster
+                        </span>
+                      </div>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </>
           ) : (
             <Tooltip>
@@ -2059,8 +2117,19 @@ function InspectorHeader({ job }: { job: JobDTO }) {
             </Tooltip>
           )}
           {/* remote dispatch: same graph, same argv — the cluster executes it
-              (module load relion/<ver>, staging in, sync-back out) */}
-          <RemoteRunButton job={job} />
+              (module load relion/<ver>, staging in, sync-back out). t289 —
+              the icon and the Re-run ▾ menu open the SAME dialog. */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="relative size-7 shrink-0 text-muted-foreground hover:text-foreground before:absolute before:-inset-1.5 before:rounded-md before:content-['']"
+            onClick={() => setClusterRunOpen(true)}
+            aria-label="Run on cluster (SSH)"
+            title="Run on cluster (SSH)"
+          >
+            <Server className="size-3.5" aria-hidden="true" />
+          </Button>
+          <RemoteRunButton job={job} dialogOnly open={clusterRunOpen} onOpenChange={setClusterRunOpen} />
         </div>
       ) : null}
 

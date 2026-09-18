@@ -17,6 +17,8 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  Cloud,
+  CloudDownload,
   Copy,
   Crop,
   ExternalLink,
@@ -84,6 +86,10 @@ interface OutputFile {
   name: string;
   kind: OutputKind;
   size: number;
+  /** t289 — the file lives on the cluster (key-files sync policy): the
+   *  tile renders a fetch-gated card; every viewer door (preview,
+   *  download, Mol*) pulls it over SSH on the explicit click. */
+  remote?: boolean;
   slices?: number;
   /** volume grid [nx, ny, nz] — 3D maps only */
   dims?: [number, number, number];
@@ -892,10 +898,22 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
           </h4>
           {mrcFiles.length > 9 ? (
             <div className="max-h-80 overflow-y-auto pr-1">
-              <MrcGallery job={job} files={mrcFiles} onOpen={setImageFile} />
+              <MrcGallery
+                job={job}
+                files={mrcFiles}
+                onOpen={setImageFile}
+                onFetched={() => void load()}
+                onView3D={(f) => setMolTarget({ job, path: f.path, name: f.label ?? f.name })}
+              />
             </div>
           ) : (
-            <MrcGallery job={job} files={mrcFiles} onOpen={setImageFile} />
+            <MrcGallery
+              job={job}
+              files={mrcFiles}
+              onOpen={setImageFile}
+              onFetched={() => void load()}
+              onView3D={(f) => setMolTarget({ job, path: f.path, name: f.label ?? f.name })}
+            />
           )}
         </section>
       )}
@@ -1499,10 +1517,18 @@ function MrcGallery({
   job,
   files,
   onOpen,
+  onFetched,
+  onView3D,
 }: {
   job: JobDTO;
   files: OutputFile[];
   onOpen: (file: OutputFile) => void;
+  /** t289 — a remote file finished fetching over SSH: the listing refreshes
+   *  so the tile graduates to a fully local one. */
+  onFetched: () => void;
+  /** t289 — the remote tile's 3D door (Mol* fetches the raw bytes over
+   *  SSH through the same lazy route). */
+  onView3D: (file: OutputFile) => void;
 }) {
   // iterations present on disk, newest first
   const iters = useMemo(() => {
@@ -1617,6 +1643,19 @@ function MrcGallery({
         {shown.map((f) => {
           const it = iterOfName(f.name);
           const isFinal = it != null && it === maxIter;
+          // t289 — cluster-resident files never auto-load: the fetch is the
+          // user's explicit click, never a render side effect
+          if (f.remote) {
+            return (
+              <RemoteFileTile
+                key={f.path}
+                job={job}
+                file={f}
+                onFetched={onFetched}
+                onView3D={onView3D}
+              />
+            );
+          }
           return (
             <button
               key={f.path}
@@ -1666,6 +1705,121 @@ function MrcGallery({
             </button>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* t289 — cluster-resident file tile                                    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A map/stack that finalize LEFT ON THE CLUSTER (key-files policy). It
+ * never auto-loads — a render must not cost an SSH transfer — every door
+ * is an explicit click:
+ *   Fetch & preview  mounts MrcImage; the png request lazy-fetches the
+ *                    file over SSH server-side, then renders; onLoaded
+ *                    refreshes the listing so the tile graduates to a
+ *                    fully local one.
+ *   ⤓ Download       the raw route streams the fetched bytes to disk.
+ *   Mol* 3D          opens the shared viewer; Mol* pulls the raw bytes
+ *                    through the same lazy route — "preview the file ON
+ *                    the cluster" in one click, cached forever after.
+ */
+function RemoteFileTile({
+  job,
+  file,
+  onFetched,
+  onView3D,
+}: {
+  job: JobDTO;
+  file: OutputFile;
+  onFetched: () => void;
+  onView3D: (file: OutputFile) => void;
+}) {
+  const [fetching, setFetching] = useState(false);
+  const isStack = file.name.toLowerCase().endsWith(".mrcs");
+  const src = fileUrl(job.id, file, isStack ? "&format=png&montage=16" : "&format=png");
+  return (
+    <div
+      className="group relative flex flex-col rounded-lg border border-dashed p-1.5 transition-colors hover:border-teal-600/50"
+      data-remote-file=""
+      data-remote-path={file.path}
+    >
+      <span className="absolute right-2 top-2 z-10 flex items-center gap-1 rounded-full border border-teal-600/40 bg-background/90 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-teal-700 shadow-sm dark:text-teal-300">
+        <Cloud className="size-2.5" aria-hidden="true" />
+        on cluster
+      </span>
+      <div className="relative">
+        {fetching ? (
+          <MrcImage
+            src={src}
+            alt={`${file.label ?? file.name} (fetched from the cluster)`}
+            className="aspect-square"
+            onLoaded={onFetched}
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => setFetching(true)}
+            className="flex aspect-square w-full flex-col items-center justify-center gap-1 rounded-md border border-border/50 bg-muted/40 text-muted-foreground transition-colors hover:border-teal-600/40 hover:text-foreground"
+            aria-label={`Fetch ${file.label ?? file.name} from the cluster and preview it`}
+            title={`Fetch & preview — pulls ${formatBytes(file.size)} from the cluster over SSH, then renders it (stays on this machine afterwards)`}
+            data-canvas-ui="remote-fetch-preview"
+          >
+            <CloudDownload className="size-5" aria-hidden="true" />
+            <span className="text-[10px] font-semibold tabular-nums">{formatBytes(file.size)}</span>
+            <span className="px-1.5 text-center text-[9px] leading-tight text-muted-foreground/80">
+              not synced — click to fetch over SSH
+            </span>
+          </button>
+        )}
+      </div>
+      <p className="mt-1 truncate text-[10px] font-medium text-foreground/85" title={file.label ?? file.name}>
+        {file.label ?? file.name}
+      </p>
+      <div className="mt-0.5 flex items-center gap-1">
+        {fetching ? (
+          <span className="flex flex-1 items-center gap-1 text-[9px] text-muted-foreground" role="status">
+            <Loader2 className="size-3 animate-spin" aria-hidden="true" />
+            fetching over SSH…
+          </span>
+        ) : (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-6 flex-1 gap-1 px-1 text-[10px]"
+            onClick={() => setFetching(true)}
+            data-canvas-ui="remote-fetch-btn"
+          >
+            <CloudDownload className="size-3" aria-hidden="true" />
+            Fetch &amp; preview
+          </Button>
+        )}
+        {!isStack ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 shrink-0 p-0 text-muted-foreground hover:text-teal-600"
+            onClick={() => onView3D(file)}
+            aria-label={`View ${file.label ?? file.name} in 3D (Mol*)`}
+            title="View in 3D — Mol* pulls this map from the cluster over SSH"
+            data-canvas-ui="remote-view-3d"
+          >
+            <Box className="size-3.5" aria-hidden="true" />
+          </Button>
+        ) : null}
+        <a
+          href={fileUrl(job.id, file, "&format=raw")}
+          download={file.name}
+          className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          aria-label={`Download ${file.label ?? file.name} from the cluster`}
+          title="Download — pulls the file from the cluster, then saves it"
+          data-canvas-ui="remote-download"
+        >
+          <FileDown className="size-3.5" aria-hidden="true" />
+        </a>
       </div>
     </div>
   );
