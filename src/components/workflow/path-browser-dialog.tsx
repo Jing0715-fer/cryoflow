@@ -121,6 +121,7 @@ export function PathBrowserDialog({
   description,
   initialPath,
   initialMode = "folder",
+  remote = null,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
@@ -130,6 +131,14 @@ export function PathBrowserDialog({
   description?: string;
   initialPath?: string;
   initialMode?: BrowserMode;
+  /**
+   * t300 — browse a CLUSTER's filesystem instead of this machine's: the
+   * saved SSH connection whose `/api/remote/connections/[id]/browse` route
+   * answers the listing. Remote projects pass their bound connection; the
+   * picked paths are CLUSTER-absolute and ride the import's zero-upload
+   * staging contract. Absent = the classic local browser, unchanged.
+   */
+  remote?: { connectionId: string; label?: string } | null;
 }) {
   const [mode, setMode] = React.useState<BrowserMode>(initialMode);
   const [cwd, setCwd] = React.useState<string | null>(null);
@@ -165,9 +174,14 @@ export function PathBrowserDialog({
     let cancelled = false;
     setLoading(true);
     setError(null);
-    const url = cwd
-      ? `/api/fs/browse?path=${encodeURIComponent(cwd)}`
+    // t300 — one dialog, two worlds: the remote variant speaks the SAME
+    // response dialect over the connection's SSH browse route.
+    const base = remote
+      ? `/api/remote/connections/${encodeURIComponent(remote.connectionId)}/browse`
       : "/api/fs/browse";
+    const url = cwd
+      ? `${base}?path=${encodeURIComponent(cwd)}`
+      : base;
     fetch(url)
       .then((r) => r.json() as Promise<BrowseResponse>)
       .then((d) => {
@@ -189,7 +203,7 @@ export function PathBrowserDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, cwd]);
+  }, [open, cwd, remote]);
 
   // a wildcard pattern listing is always a file listing — force files mode
   const patternView = data?.ok && data.pattern === true;
@@ -264,12 +278,19 @@ export function PathBrowserDialog({
 
   const displayedMode = activeMode;
   const resolvedTitle =
-    title ?? (displayedMode === "files" ? "Select micrograph files" : "Choose a folder");
+    title ??
+    (remote
+      ? `Select files on ${remote.label ?? "the cluster"}`
+      : displayedMode === "files"
+        ? "Select micrograph files"
+        : "Choose a folder");
   const resolvedDescription =
     description ??
-    (displayedMode === "files"
-      ? "Multi-select files across folders (selection accumulates), or paste a wildcard pattern like /data/movies/*.tiff."
-      : "Navigate to your micrographs folder — local drives and WSL distros are both browsable.");
+    (remote
+      ? `Browse ${remote.label ?? "the cluster"}'s filesystem over SSH — every path you pick stays on the cluster (zero upload); downstream jobs run there.`
+      : displayedMode === "files"
+        ? "Multi-select files across folders (selection accumulates), or paste a wildcard pattern like /data/movies/*.tiff."
+        : "Navigate to your micrographs folder — local drives and WSL distros are both browsable.");
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -281,7 +302,9 @@ export function PathBrowserDialog({
       >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-sm">
-            {displayedMode === "files" ? (
+            {remote ? (
+              <Server className="h-4 w-4 text-violet-500" aria-hidden="true" />
+            ) : displayedMode === "files" ? (
               <Images className="h-4 w-4 text-primary" aria-hidden="true" />
             ) : (
               <FolderOpen className="h-4 w-4 text-primary" aria-hidden="true" />
@@ -334,10 +357,14 @@ export function PathBrowserDialog({
             size="sm"
             className="h-6 px-1.5 text-xs"
             onClick={() => setCwd(null)}
-            title="Back to drives / roots"
+            title={remote ? "Back to the cluster's roots (/, home, cryoflow root)" : "Back to drives / roots"}
             aria-label="Back to roots"
           >
-            <HardDrive className="h-3.5 w-3.5" aria-hidden="true" />
+            {remote ? (
+              <Server className="h-3.5 w-3.5" aria-hidden="true" />
+            ) : (
+              <HardDrive className="h-3.5 w-3.5" aria-hidden="true" />
+            )}
           </Button>
           {data?.ok && data.parent != null && (
             <Button
@@ -356,9 +383,9 @@ export function PathBrowserDialog({
               "min-w-0 flex-1 truncate font-mono text-[11px] text-foreground/80",
               patternView && "text-primary"
             )}
-            title={currentPath || "Roots"}
+            title={currentPath || (remote ? "Cluster roots" : "Roots")}
           >
-            {inRootsView ? "Drives & locations" : shortenPath(currentPath, 58)}
+            {inRootsView ? (remote ? "Cluster locations" : "Drives & locations") : shortenPath(currentPath, 58)}
           </span>
           <Button
             variant="ghost"
@@ -420,7 +447,11 @@ export function PathBrowserDialog({
                     onDoubleClick={() => setCwd(r.path)}
                     onClick={() => setCwd(r.path)}
                   >
-                    <HardDrive className="h-3.5 w-3.5 shrink-0 text-primary/70" aria-hidden="true" />
+                    {remote ? (
+                      <Server className="h-3.5 w-3.5 shrink-0 text-violet-500/80" aria-hidden="true" />
+                    ) : (
+                      <HardDrive className="h-3.5 w-3.5 shrink-0 text-primary/70" aria-hidden="true" />
+                    )}
                     <span className="min-w-0 flex-1 truncate font-mono">{r.label}</span>
                     <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" aria-hidden="true" />
                   </button>
@@ -663,7 +694,11 @@ export function PathBrowserDialog({
                   setCwd(manual.trim());
                 }
               }}
-              placeholder="Paste a path or pattern (C:\… / /home/… / /data/*.tiff)"
+              placeholder={
+                remote
+                  ? "Cluster path or pattern (/data2/home/… / /projects/movies/*.mrc)"
+                  : "Paste a path or pattern (C:\… / /home/… / /data/*.tiff)"
+              }
               className="h-8 text-xs font-mono"
               aria-label="Manual path or wildcard pattern"
             />

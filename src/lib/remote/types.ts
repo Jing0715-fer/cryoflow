@@ -8,6 +8,22 @@
  * shape contract between the /api/remote/* routes, the run engine and the UI.
  */
 
+/**
+ * t300 — a project's cluster binding, projected for the UI (secret-free):
+ * the connection a REMOTE project's data lives on. Resolved fresh from the
+ * connections registry whenever a project DTO/summary is served, so a
+ * renamed connection re-labels its projects on the next fetch. Absent on
+ * local projects (and on rows saved before t300).
+ */
+export interface ProjectRemoteRef {
+  connectionId: string;
+  /** Display name (falls back to user@host when the connection is unnamed). */
+  name: string;
+  host: string;
+  port: number;
+  username: string;
+}
+
 /** How to authenticate against the SSH server. */
 export type RemoteAuthMethod = "agent" | "key" | "password";
 
@@ -165,6 +181,14 @@ export interface RemoteProbe {
     gpuTotal: number;
     /** GPU model when sinfo's GRES spells it (gpu:A100:6). */
     model?: string;
+    /**
+     * t300 — the partition's node HOSTNAMES (sinfo %N hostlist expanded:
+     * "brain[2-4]" → brain2, brain3, brain4). The run dialog offers these
+     * as the "detected nodes" to submit onto. Absent on pre-t300 probes
+     * and clusters whose sinfo predates %N — the partition aggregate still
+     * stands on its own.
+     */
+    hosts?: string[];
   }>;
   /**
    * t289 — the login node's $HOME (absolute, no ~). The dialog uses it to
@@ -199,6 +223,13 @@ export interface RemoteRunTarget {
    * direct mode.
    */
   gpus?: number;
+  /**
+   * t300 — the Slurm partition (≈ the detected node group: "brain2", 8
+   * GPU/node) this sbatch should land on. null/absent = the connection's
+   * default (conn.slurmPartition) or the scheduler's own choice. Only
+   * meaningful in slurm mode; sanitized server-side ([A-Za-z0-9_.-]).
+   */
+  partition?: string | null;
 }
 
 /** Per-job remote execution info (attached to JobDTO while relevant). */
@@ -217,6 +248,8 @@ export interface RemoteRunInfo {
   slurmState?: string;
   /** t297 — GPUs this submission requested (mode=slurm). */
   gpusRequested?: number;
+  /** t300 — the partition this sbatch pinned (mode=slurm, user-chosen). */
+  partition?: string;
   /** Cluster-side pid (mode=direct). */
   pid?: number;
   /** Lifecycle phase (staging = uploading inputs to the cluster). */
@@ -258,6 +291,8 @@ export interface RemoteRunState {
   slurmState?: string;
   /** t297 — slurm mode: GPUs this submission requested (–gres=gpu:N). */
   gpusRequested?: number;
+  /** t300 — slurm mode: the partition this sbatch pinned (user-chosen node group). */
+  partition?: string;
   /** Lifecycle: staging inputs → running → (done flips on RunRecord). */
   phase: "staging" | "running";
   /** Cluster-side outputs (filled at finalize) — key → remote path. */

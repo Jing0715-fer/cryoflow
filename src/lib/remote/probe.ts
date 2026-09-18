@@ -300,12 +300,14 @@ async function probeConnectionInner(c: RemoteConnection): Promise<RemoteProbe> {
     // Slurm is present, sinfo is the honest inventory: %P partition, %G
     // GRES (gpu[:model]:count), %D node count, %T state — aggregated per
     // partition into what the run dialog's GPU picker can actually ask for.
+    // t300 adds %N (the hostlist): the node NAMES the run dialog offers as
+    // the submit target ("brain2 · 8 GPU/node"), not just the count.
     const extras = await exec(
       c,
       loginShellScript(
         "command -v sbatch >/dev/null && command -v squeue >/dev/null && echo SLURM=yes || echo SLURM=no; " +
           "(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -8) || true; " +
-          "if command -v sinfo >/dev/null 2>&1; then echo CF_SINFO; sinfo -h -o '%P|%G|%D|%T' 2>/dev/null; echo CF_SINFO_END; fi"
+          "if command -v sinfo >/dev/null 2>&1; then echo CF_SINFO; sinfo -h -o '%P|%G|%D|%T|%N' 2>/dev/null; echo CF_SINFO_END; fi"
       ),
       { timeoutMs: 12_000 }
     );
@@ -344,24 +346,95 @@ function dirnameOf(p: string): string {
 }
 
 /* ------------------------------------------------------------------ */
-/* Slurm GPU inventory parsing (t297)                                  */
+/* Slurm GPU inventory parsing (t297, hosts t300)                      */
 /* ------------------------------------------------------------------ */
 
 /**
- * Aggregate `sinfo -h -o '%P|%G|%D|%T'` lines into a per-partition GPU
- * inventory. GRES grammar: `gpu`, `gpu:N`, `gpu:MODEL:N`, comma-separated
- * for mixed nodes; `(null)` = no GRES. Lines repeat per state (idle/mix/…)
- * so node counts are summed per partition; the GPU-per-node figure is the
- * max seen (a partition is homogeneous on most clusters). The default
- * partition marker (`gpu*`) is stripped from the name.
+ * t300 — expand a Slurm hostlist expression into node names:
+ * "brain2" → [brain2]; "node[01-04]" → node01..node04 (zero-padding
+ * preserved); "gpu[1,3-5]" → gpu1,gpu3,gpu4,gpu5; "a[1-9:2]" → a1,a3,a5,
+ * a7,a9 (step). Comma-separated lists concatenate. A truncated spec
+ * ("node[1-99...]" — sinfo abbreviates at width) is kept as-given: an
+ * honest partial list beats a fabricated complete one. "(null)"/empty
+ * answers an empty list.
+ */
+export function expandHostlist(spec: string): string[] {
+  const out: string[] = [];
+  const s = (spec ?? "").trim();
+  if (!s || s === "(null)") return out;
+  // split on commas OUTSIDE brackets
+  const items: string[] = [];
+  let depth = 0;
+  let cur = "";
+  for (const ch of s) {
+    if (ch === "[") depth += 1;
+    if (ch === "]") depth = Math.max(0, depth - 1);
+    if (ch === "," && depth === 0) {
+      items.push(cur);
+      cur = "";
+    } else {
+      cur += ch;
+    }
+  }
+  if (cur) items.push(cur);
+  for (const item of items) {
+    const m = /^([^\[\]]*)\[([^\[\]]+)\](.*)$/.exec(item);
+    if (!m) {
+      if (item) out.push(item);
+      continue;
+    }
+    const [, prefix, rangesRaw, suffix] = m;
+    if (/\.\.$/.test(rangesRaw)) {
+      // sinfo truncation ("node[1-99...]") — keep the literal form
+      out.push(item);
+      continue;
+    }
+    for (const range of rangesRaw.split(",")) {
+      const rm = /^(\d+)-(\d+)(?::(\d+))?$/.exec(range);
+      if (rm) {
+        const start = Number(rm[1]);
+        const end = Number(rm[2]);
+        const step = Math.max(1, Number(rm[3] ?? 1) || 1);
+        const width = rm[1].length;
+        if (!Number.isFinite(start) || !Number.isFinite(end) || end < start || end - start > 4096) continue;
+        for (let n = start; n <= end; n += step) {
+          out.push(prefix + String(n).padStart(width, "0") + suffix);
+        }
+      } else if (/^\d+$/.test(range)) {
+        // single number inside a bracket list — pad to the widest sibling
+        const first = rangesRaw.split(",")[0] ?? "";
+        const width = /^\d+$/.test(first) && first.length > range.length ? first.length : range.length;
+        out.push(prefix + range.padStart(width, "0") + suffix);
+      } else if (range) {
+        out.push(prefix + range + suffix);
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Aggregate `sinfo -h -o '%P|%G|%D|%T|%N'` lines into a per-partition GPU
+ * inventory (the t297 grammar + the t300 hostlist tail; the 4-field form
+ * parses identically — hosts simply absent). GRES grammar: `gpu`, `gpu:N`,
+ * `gpu:MODEL:N`, comma-separated for mixed nodes; `(null)` = no GRES. Lines
+ * repeat per state (idle/mix/…) so node counts are summed per partition;
+ * the GPU-per-node figure is the max seen (a partition is homogeneous on
+ * most clusters). The default partition marker (`gpu*`) is stripped from
+ * the name. Host names merge + dedupe across the state lines, capped at
+ * 64 (a partition far wider than that does not fit in a dropdown anyway).
  */
 export function parseSlurmGpus(sinfoText: string): NonNullable<RemoteProbe["slurmGpus"]> {
-  const byPart = new Map<string, { nodes: number; gpusPerNode: number; model?: string }>();
+  const byPart = new Map<
+    string,
+    { nodes: number; gpusPerNode: number; model?: string; hosts: Set<string> }
+  >();
   for (const raw of sinfoText.split(/\r?\n/)) {
     const line = raw.trim();
     if (!line || !line.includes("|")) continue;
-    const [partRaw, gres, nodesRaw] = line.split("|").map((s) => (s ?? "").trim());
-    const partition = partRaw.replace(/\*$/, "").trim();
+    const fields = line.split("|").map((s) => (s ?? "").trim());
+    const [partRaw, gres, nodesRaw, , hostRaw] = fields;
+    const partition = (partRaw ?? "").replace(/\*$/, "").trim();
     if (!partition) continue;
     const nodes = Number(nodesRaw);
     if (!Number.isFinite(nodes) || nodes <= 0) continue;
@@ -377,10 +450,11 @@ export function parseSlurmGpus(sinfoText: string): NonNullable<RemoteProbe["slur
         if (parts.length === 3) model = parts[1];
       }
     }
-    const cur = byPart.get(partition) ?? { nodes: 0, gpusPerNode: 0 };
+    const cur = byPart.get(partition) ?? { nodes: 0, gpusPerNode: 0, hosts: new Set<string>() };
     cur.nodes += nodes;
     cur.gpusPerNode = Math.max(cur.gpusPerNode, gpus);
     if (model && !cur.model) cur.model = model;
+    for (const h of expandHostlist(hostRaw ?? "")) cur.hosts.add(h);
     byPart.set(partition, cur);
   }
   const out: NonNullable<RemoteProbe["slurmGpus"]> = [];
@@ -388,12 +462,14 @@ export function parseSlurmGpus(sinfoText: string): NonNullable<RemoteProbe["slur
     (a, b) => b[1].gpusPerNode - a[1].gpusPerNode || a[0].localeCompare(b[0])
   )) {
     if (v.gpusPerNode <= 0) continue; // CPU partitions are not GPU inventory
+    const hosts = [...v.hosts].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })).slice(0, 64);
     out.push({
       partition,
       nodes: v.nodes,
       gpusPerNode: v.gpusPerNode,
       gpuTotal: v.nodes * v.gpusPerNode,
       ...(v.model ? { model: v.model } : {}),
+      ...(hosts.length > 0 ? { hosts } : {}),
     });
   }
   return out;

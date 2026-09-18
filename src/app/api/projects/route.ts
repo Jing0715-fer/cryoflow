@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { toProjectDTO } from "@/lib/seed";
 import { listProjectsWithMeta, registerProject } from "@/lib/projects";
 import type { ProjectEngine, ProjectMode } from "@/lib/projects";
+import { getConnection } from "@/lib/remote/connections";
 import { isLocalRequest } from "@/lib/http-guard";
 
 export const dynamic = "force-dynamic";
@@ -34,7 +35,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-/** POST /api/projects — body: { name, mode? } → create + set active. The engine is always the real RELION one (legacy `engine` body values are ignored). */
+/** POST /api/projects — body: { name, mode?, remoteConnectionId? } → create + set active. The engine is always the real RELION one (legacy `engine` body values are ignored). */
 export async function POST(request: NextRequest) {
   if (!isLocalRequest(request)) {
     return NextResponse.json(
@@ -46,6 +47,9 @@ export async function POST(request: NextRequest) {
     const body = (await request.json().catch(() => ({}))) as {
       name?: unknown;
       mode?: unknown;
+      /** t300 — id of a SAVED cluster connection: creates a REMOTE project
+       * (data lives on that cluster; the import browser browses it). */
+      remoteConnectionId?: unknown;
     };
 
     const name = typeof body.name === "string" ? body.name.trim() : "";
@@ -55,8 +59,26 @@ export async function POST(request: NextRequest) {
     const mode: ProjectMode = body.mode === "tomo" ? "tomo" : "spa";
     const engine: ProjectEngine = "relion";
 
+    // t300 — the remote binding is validated BEFORE the row is created: a
+    // typo'd connection id must not strand a half-bound project (no row,
+    // no meta, a clean 400 naming the door).
+    const remoteId =
+      typeof body.remoteConnectionId === "string" && body.remoteConnectionId.trim()
+        ? body.remoteConnectionId.trim()
+        : null;
+    if (remoteId && !getConnection(remoteId)) {
+      return NextResponse.json(
+        { error: "remoteConnectionId does not match a saved cluster connection — add or re-save it in Remote clusters first" },
+        { status: 400 }
+      );
+    }
+
     const project = await db.project.create({ data: { name } });
-    registerProject(project.id, { mode, engine }, true);
+    registerProject(
+      project.id,
+      { mode, engine, ...(remoteId ? { remote: { connectionId: remoteId } } : {}) },
+      true
+    );
 
     return NextResponse.json(
       { project: toProjectDTO(project, mode, engine) },

@@ -611,6 +611,17 @@ function ParamField({
 }
 
 /**
+ * t300 — engine-native (local bookkeeping) job types, mirrored client-side
+ * from the engine's NATIVE_TYPES: they run locally even in a REMOTE project
+ * (the import writes micrographs.star with cluster paths; select/symexpand/
+ * rebalance are table surgery — nothing to dispatch). Everything else in a
+ * remote project dispatches to the cluster by default.
+ */
+const REMOTE_BOOKKEEPING_TYPES = new Set([
+  "import", "mapimport", "manualpick", "select", "select2d", "symexpand", "rebalance",
+]);
+
+/**
  * Path-type param — one field, three RELION-import forms (like RELION's
  * "Select files by: File name pattern / Browse"):
  *   - a folder           → imports every image file inside it
@@ -632,6 +643,13 @@ function PathParamField({
 }) {
   const inputId = `${idPrefix}-${p.key}`;
   const [browsing, setBrowsing] = React.useState(false);
+  // t300 — a REMOTE project browses the CLUSTER's filesystem for every path
+  // param (movies folder, star files, reference maps…): the bound connection
+  // switches the browser's backend; picked paths are cluster-absolute.
+  const projectRemote = useWorkflowStore((s) => s.project?.remote ?? null);
+  const remoteBrowser = projectRemote
+    ? { connectionId: projectRemote.connectionId, label: projectRemote.name }
+    : null;
   const raw = value === undefined || value === null ? "" : String(value);
   const trimmed = raw.trim();
   const lines = trimmed ? trimmed.split(/\r?\n/).map((s) => s.trim()).filter(Boolean) : [];
@@ -659,7 +677,11 @@ function PathParamField({
           <Input
             id={inputId}
             value={raw}
-            placeholder="Folder, wildcard (…/*.tiff), or paste file paths"
+            placeholder={
+              remoteBrowser
+                ? "Cluster folder, wildcard (…/*.mrc), or paste cluster paths"
+                : "Folder, wildcard (…/*.tiff), or paste file paths"
+            }
             title={p.hint}
             onChange={(e) => onChange(e.target.value)}
             className="h-8 font-mono text-xs"
@@ -668,12 +690,20 @@ function PathParamField({
         <Button
           variant="outline"
           size="sm"
-          className="h-8 shrink-0 gap-1 px-2"
+          className={cn("h-8 shrink-0 gap-1 px-2", remoteBrowser && "border-violet-500/40 text-violet-600 hover:bg-violet-500/10 dark:text-violet-400")}
           onClick={() => setBrowsing(true)}
-          aria-label={`Browse for ${p.label}`}
-          title="Browse folders, multi-select files, or preview a wildcard pattern"
+          aria-label={`Browse for ${p.label}${remoteBrowser ? " on the cluster" : ""}`}
+          title={
+            remoteBrowser
+              ? `Browse ${projectRemote?.name ?? "the cluster"}'s filesystem over SSH — paths stay on the cluster`
+              : "Browse folders, multi-select files, or preview a wildcard pattern"
+          }
         >
-          <FolderOpen className="h-3.5 w-3.5" aria-hidden="true" />
+          {remoteBrowser ? (
+            <Server className="h-3.5 w-3.5" aria-hidden="true" />
+          ) : (
+            <FolderOpen className="h-3.5 w-3.5" aria-hidden="true" />
+          )}
           Browse
         </Button>
       </div>
@@ -684,6 +714,7 @@ function PathParamField({
           onPick={(picked) => onChange(picked)}
           initialPath={raw}
           initialMode={p.filePick ? "files" : "folder"}
+          remote={remoteBrowser}
         />
       )}
       {trimmed && (
@@ -705,7 +736,11 @@ function PathParamField({
           ) : (
             <>
               <Folder className="h-3 w-3 text-amber-500/80" aria-hidden="true" />
-              <span>Folder — imports every image inside</span>
+              <span>
+                {remoteBrowser
+                  ? "Folder on the cluster — every image inside (stays there, zero upload)"
+                  : "Folder — imports every image inside"}
+              </span>
             </>
           )}
           <button
@@ -1188,35 +1223,59 @@ function PanelBody({ job }: { job: JobDTO }) {
   // — one dialog, two doors, no hidden modes. The mode is a per-run choice,
   // not a global toggle, so the menu speaks choices instead of state.
   const [clusterRunOpen, setClusterRunOpen] = React.useState(false);
+  // t300 — a REMOTE project's primary Run IS the cluster dispatch: its
+  // inputs are cluster paths (a local spawn would only fail on files this
+  // machine does not have). The engine-native bookkeeping types still run
+  // locally — they ARE the local half of a remote project (the import
+  // writes micrographs.star with cluster paths; select/symexpand/… are
+  // table surgery). The ▾ menu keeps the local door open for both.
+  const projectRemote = useWorkflowStore((s) => s.project?.remote ?? null);
+  const remotePrimaryRun =
+    projectRemote != null && !REMOTE_BOOKKEEPING_TYPES.has(job.type) && job.linkedJobId == null;
   const runModeBlocked =
     job.status === "running" || runPending || relionBlocked || job.linkedJobId != null;
   const clusterModeBlocked = job.status === "running" || job.linkedJobId != null;
 
   const runButton = (
     <Button
-      className="w-full rounded-r-none"
+      className={cn("w-full rounded-r-none", remotePrimaryRun && "border-violet-500/40")}
       size="sm"
-      disabled={job.status === "running" || runPending || relionBlocked || job.linkedJobId != null}
-      onClick={() => void handleRun()}
-      aria-describedby={relionBlocked ? "job-relion-blocked-hint" : relionBridged ? "job-relion-bridge-hint" : undefined}
+      disabled={
+        job.status === "running" ||
+        job.linkedJobId != null ||
+        (remotePrimaryRun ? false : runPending || relionBlocked)
+      }
+      onClick={() => {
+        if (remotePrimaryRun) setClusterRunOpen(true);
+        else void handleRun();
+      }}
+      aria-describedby={relionBlocked && !remotePrimaryRun ? "job-relion-blocked-hint" : relionBridged ? "job-relion-bridge-hint" : undefined}
       title={
-        job.linkedJobId != null
-          ? "Linked copies mirror their original — run the original job instead"
-          : undefined
+        remotePrimaryRun
+          ? `Remote project — dispatch to ${projectRemote?.name ?? projectRemote?.host ?? "the cluster"} (pick the node/partition + GPU count)`
+          : job.linkedJobId != null
+            ? "Linked copies mirror their original — run the original job instead"
+            : undefined
       }
     >
       {runPending ? (
         <Loader2 className="animate-spin" aria-hidden="true" />
+      ) : remotePrimaryRun ? (
+        <Server aria-hidden="true" />
       ) : (
         <Play aria-hidden="true" />
       )}
       {job.linkedJobId != null
         ? "Linked copy — run the original"
-        : job.status === "completed" || job.status === "failed"
-          ? "Re-run"
-          : job.status === "pending"
-            ? "Run (re-check inputs)"
-            : "Run Job"}
+        : remotePrimaryRun
+          ? job.status === "completed" || job.status === "failed"
+            ? "Re-run on cluster"
+            : "Run on cluster"
+          : job.status === "completed" || job.status === "failed"
+            ? "Re-run"
+            : job.status === "pending"
+              ? "Run (re-check inputs)"
+              : "Run Job"}
     </Button>
   );
 

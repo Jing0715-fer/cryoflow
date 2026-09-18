@@ -304,12 +304,15 @@ function ProbeCard({
             {probe.slurmGpus
               .map(
                 (g) =>
-                  `${g.partition}: ${g.gpusPerNode} GPU/node × ${g.nodes} node${g.nodes === 1 ? "" : "s"}${g.model ? ` (${g.model})` : ""}`
+                  `${g.partition}: ${g.gpusPerNode} GPU/node × ${g.nodes} node${g.nodes === 1 ? "" : "s"}${
+                    g.hosts && g.hosts.length > 0 ? ` (${g.hosts.slice(0, 4).join(", ")}${g.hosts.length > 4 ? ` +${g.hosts.length - 4}` : ""})` : ""
+                  }${g.model ? ` · ${g.model}` : ""}`
               )
               .join(" · ")}
           </p>
           <p className="text-[10px] leading-relaxed text-muted-foreground/70">
-            The login node has no GPUs (normal — nvidia-smi is quiet here); sbatch runs land on the compute nodes above.
+            The login node has no GPUs (normal — nvidia-smi is quiet here); sbatch runs land on the compute nodes above
+            — the run dialog offers each detected group (and its node) as the submit target.
           </p>
         </div>
       ) : (

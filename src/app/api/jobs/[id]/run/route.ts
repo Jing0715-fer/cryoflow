@@ -56,7 +56,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     // optional remote target ({ remote: {...} }); absent/invalid → local run
     const body = (await request.json().catch(() => ({}))) as {
-      remote?: { connectionId?: unknown; module?: unknown; mode?: unknown; gpus?: unknown };
+      remote?: { connectionId?: unknown; module?: unknown; mode?: unknown; gpus?: unknown; partition?: unknown };
     };
     let remote: RemoteRunTarget | undefined;
     if (body?.remote && typeof body.remote === "object" && typeof body.remote.connectionId === "string" && body.remote.connectionId) {
@@ -64,11 +64,19 @@ export async function POST(request: NextRequest, context: RouteContext) {
       // sbatch6gpu.sh idiom). Non-numeric garbage falls back to the default
       // server-side; the field only means anything in slurm mode.
       const gpusNum = Number(body.remote.gpus);
+      // t300 — partition: the detected node group this sbatch pins. The
+      // charset clamp ([A-Za-z0-9_.-], ≤64) is the FIRST gate — the engine
+      // re-validates; anything else silently degrades to the connection's
+      // default (a malformed name must never reach #SBATCH --partition=).
+      const partitionRaw =
+        typeof body.remote.partition === "string" ? body.remote.partition.trim() : "";
+      const partition = /^[A-Za-z0-9_.-]{1,64}$/.test(partitionRaw) ? partitionRaw : null;
       remote = {
         connectionId: body.remote.connectionId,
         module: typeof body.remote.module === "string" && body.remote.module ? body.remote.module : null,
         mode: body.remote.mode === "slurm" ? "slurm" : "direct",
         ...(Number.isFinite(gpusNum) && gpusNum >= 1 ? { gpus: Math.min(8, Math.round(gpusNum)) } : {}),
+        ...(partition ? { partition } : {}),
       };
     }
 

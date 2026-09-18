@@ -15,6 +15,7 @@ import {
   Loader2,
   Printer,
   RefreshCw,
+  Server,
   Snowflake,
   StickyNote,
   Workflow,
@@ -86,6 +87,10 @@ function ProjectSwitcher() {
     void switchProject(id).finally(() => setPending(false));
   };
 
+  // t300 — a remote project's trigger shows WHERE its data lives (the
+  // bound cluster), so the top bar names the world the canvas is editing.
+  const activeRemote = project?.remote ?? null;
+
   return (
     <div className="flex items-center gap-1.5">
       <Select value={project?.id ?? ""} onValueChange={onChange}>
@@ -107,11 +112,31 @@ function ProjectSwitcher() {
                 >
                   RELION
                 </Badge>
+                {p.remote ? (
+                  <Badge
+                    variant="outline"
+                    className="h-4 max-w-[140px] shrink-0 gap-1 border-violet-500/40 bg-violet-500/10 px-1 text-[9px] font-medium normal-case tracking-normal text-violet-600 dark:text-violet-400"
+                    title={`Remote project — data on ${p.remote.username}@${p.remote.host}`}
+                  >
+                    <Server className="size-2.5" aria-hidden="true" />
+                    <span className="truncate">{p.remote.host}</span>
+                  </Badge>
+                ) : null}
               </span>
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
+      {activeRemote ? (
+        <Badge
+          variant="outline"
+          className="h-8 max-w-[170px] shrink-0 gap-1 rounded-lg border-violet-500/40 bg-violet-500/10 px-2 text-[10px] font-medium normal-case tracking-normal text-violet-600 dark:text-violet-400"
+          title={`Remote project — data lives on ${activeRemote.username}@${activeRemote.host}:${activeRemote.port}; the import browser and the run dialog target this cluster`}
+        >
+          <Server className="size-3 shrink-0" aria-hidden="true" />
+          <span className="truncate">{activeRemote.name || activeRemote.host}</span>
+        </Badge>
+      ) : null}
     </div>
   );
 }

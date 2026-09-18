@@ -2,3 +2,6 @@ keys/
 fs/projects/cryoflow/
 fs/home/cryo/.lmod/
 fs/home/cryo/.slurm/
+
+# t300 — the E2E rehearsal movie fixtures (runtime, not fixtures-in-git)
+fs/data2/movies-t298/

@@ -132,13 +132,27 @@ function commandEnv() {
  * mock filesystem root:
  *   /projects/…  → <FS_ROOT>/projects/…
  *   /home/cryo/… → <FS_ROOT>/home/cryo/…
+ *   /data2/…     → <FS_ROOT>/data2/…   (t300 — the user's cluster keeps its
+ *                  Relion installs + movies under /data2; the remote-project
+ *                  browser rehearses against that shape)
  * FS_ROOT itself contains neither prefix, so a single replaceAll pass is safe.
  * (Reverse translation is not needed.)
  */
 function translateCommand(cmd) {
+  // A command that already carries the REAL fs root (the app echoing back
+  // an expanded $HOME — the mock's $HOME IS the sandbox-absolute path) must
+  // not be translated AGAIN: its mount prefixes are already real paths, and
+  // a second pass would double them.
+  if (String(cmd).includes(FS_ROOT)) return String(cmd);
   let out = String(cmd)
     .replaceAll("/projects/", `${FS_ROOT}/projects/`)
-    .replaceAll("/home/cryo/", `${FS_ROOT}/home/cryo/`);
+    .replaceAll("/home/cryo/", `${FS_ROOT}/home/cryo/`)
+    .replaceAll("/data2/", `${FS_ROOT}/data2/`);
+  // BARE mount roots (a listing of /data2 itself — quoted, whitespace,
+  // shell-metacharacter or line terminated) miss the trailing-slash forms
+  // above. The lookahead never matches "/" so already-translated
+  // <FS_ROOT>/data2/… tails are never re-matched.
+  out = out.replace(/\/(data2|projects|home\/cryo)(?=['"\s;&|)]|$)/g, `${FS_ROOT}/$1`);
   // Uploaded SCRIPT files carry cluster-absolute paths in their CONTENT —
   // the command translation above can't see those. When the app uploads a
   // shell script (`head -c N > path.sh`), rewrite the content's paths too
@@ -146,7 +160,7 @@ function translateCommand(cmd) {
   const up = /head -c \d+ > (.+\.sh)['"]?\s*$/.exec(out);
   if (up) {
     const target = up[1].trim().replace(/^['"]|['"]$/g, "");
-    out += ` && sed -i 's#/projects/#${FS_ROOT}/projects/#g; s#/home/cryo/#${FS_ROOT}/home/cryo/#g' ${JSON.stringify(target)}`;
+    out += ` && sed -i 's#/projects/#${FS_ROOT}/projects/#g; s#/home/cryo/#${FS_ROOT}/home/cryo/#g; s#/data2/#${FS_ROOT}/data2/#g' ${JSON.stringify(target)}`;
   }
   return out;
 }
@@ -308,6 +322,7 @@ function runCommand(stream, args, { onFinish } = {}) {
     dead = true;
     exitSignal = signal ?? null;
     exitCode = code ?? (signal ? 1 : 0);
+    if (process.env.CF_MOCK_DEBUG) log(`exec-exit: code=${exitCode}`);
     maybeFinish();
   });
 
@@ -431,7 +446,9 @@ function handleSession(session) {
     try {
       const raw = String(info?.command ?? "");
       log(`exec: ${raw}`);
-      activeProc = runCommand(stream, ["-c", translateCommand(raw)], { onFinish: clearActive });
+      const translated = translateCommand(raw);
+      if (process.env.CF_MOCK_DEBUG) log(`exec-translated: ${translated.slice(0, 200)}`);
+      activeProc = runCommand(stream, ["-c", translated], { onFinish: clearActive });
     } catch (err) {
       log(`exec handler error: ${err?.stack ?? err}`);
       safeWrite(stream.stderr, `mock-cluster: internal error: ${err?.message ?? err}\n`);

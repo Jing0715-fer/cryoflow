@@ -142,6 +142,14 @@ export interface ProjectDTO {
   mode?: string;
   /** Always "relion" — the real RELION engine is the only engine (legacy meta healed on read). */
   engine?: string;
+  /**
+   * t300 — the cluster this project's DATA lives on (remote project), or
+   * null/absent for a local project. Set at creation (New project → Data
+   * location → cluster); the import browser and the run dialog read it to
+   * browse/submit on the bound cluster. Resolved from the live connection
+   * registry server-side — secrets never leave the server.
+   */
+  remote?: import("./remote/types").ProjectRemoteRef | null;
   /** Job statistics (computed on the server for the project panel). */
   stats?: { total: number; running: number; pending?: number; completed: number; failed: number };
 }
@@ -151,6 +159,8 @@ export interface ProjectSummaryDTO {
   name: string;
   mode: string;
   engine: string;
+  /** t300 — the bound cluster when this is a remote project. */
+  remote?: import("./remote/types").ProjectRemoteRef | null;
 }
 
 /** Parameters are numbers, enum strings, booleans or filesystem paths. */

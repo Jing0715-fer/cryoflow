@@ -21,6 +21,7 @@ import {
   Loader2,
   Pencil,
   Plus,
+  Server,
   Snowflake,
   Trash2,
   TriangleAlert,
@@ -58,6 +59,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import {
+  RemoteClusterDialog,
+  readActiveRemoteConnectionId,
+  useRemoteConnections,
+} from "./remote-cluster-dialog";
 
 /* ------------------------------------------------------------------ */
 /* Local types (ProjectSummaryDTO is frozen — the API serves extras)    */
@@ -111,6 +117,26 @@ function EngineBadge() {
   );
 }
 
+/**
+ * t300 — the cluster badge a REMOTE project wears: the bound connection's
+ * name/host. Its absence on a project whose data lives on a cluster that
+ * was deleted is the honest degraded state — the badge simply is not there
+ * until the connection is re-added (the API resolves the binding fresh).
+ */
+function RemoteBadge({ remote }: { remote?: ProjectSummaryDTO["remote"] }) {
+  if (!remote) return null;
+  return (
+    <Badge
+      variant="outline"
+      className="h-5 max-w-[180px] gap-1 border-violet-500/40 bg-violet-500/10 px-1.5 text-[9px] font-medium normal-case tracking-normal text-violet-600 dark:text-violet-400"
+      title={`Remote project — data lives on ${remote.username}@${remote.host}:${remote.port}; the import browser and the run dialog target this cluster`}
+    >
+      <Server className="size-2.5 shrink-0" aria-hidden="true" />
+      <span className="truncate">{remote.name || `${remote.username}@${remote.host}`}</span>
+    </Badge>
+  );
+}
+
 function StatChip({
   icon,
   value,
@@ -150,6 +176,19 @@ export function NewProjectDialog({
 
   const [name, setName] = React.useState("");
   const [mode, setMode] = React.useState("spa");
+  // t300 — the data location: local disk vs a saved SSH cluster (remote
+  // project: the import browser browses THAT cluster, jobs submit there)
+  const [location, setLocation] = React.useState<"local" | "remote">("local");
+  const [connId, setConnId] = React.useState("");
+  const [clusterOpen, setClusterOpen] = React.useState(false);
+  // reload the connection list whenever the dialog opens (and again after
+  // the nested manager closes — a connection may have just been saved)
+  const { connections, reload } = useRemoteConnections(open);
+  React.useEffect(() => {
+    if (clusterOpen) return;
+    reload();
+  }, [clusterOpen, reload]);
+
   const [creating, setCreating] = React.useState(false);
   const [touched, setTouched] = React.useState(false);
 
@@ -171,16 +210,38 @@ export function NewProjectDialog({
     if (open) {
       setName("");
       setMode("spa");
+      setLocation("local");
+      setConnId("");
       setCreating(false);
       setTouched(false);
     }
   }, [open]);
 
+  // default connection pick: the ACTIVE one (the cluster the user last
+  // worked with), else the first saved connection
+  React.useEffect(() => {
+    if (location !== "remote" || !open) return;
+    setConnId((prev) => {
+      if (prev && connections.some((c) => c.id === prev)) return prev;
+      const active = readActiveRemoteConnectionId();
+      if (active && connections.some((c) => c.id === active)) return active;
+      return connections[0]?.id ?? "";
+    });
+  }, [open, location, connections]);
+
+  const selectedConn = connections.find((c) => c.id === connId) ?? null;
+  const remoteBlocked = location === "remote" && connections.length === 0;
+
   const handleCreate = async () => {
     setTouched(true);
     if (trimmed.length < 1 || trimmed.length > 80) return;
+    if (location === "remote" && !selectedConn) return;
     setCreating(true);
-    const ok = await createProject({ name: trimmed, mode });
+    const ok = await createProject({
+      name: trimmed,
+      mode,
+      ...(location === "remote" && selectedConn ? { remoteConnectionId: selectedConn.id } : {}),
+    });
     setCreating(false);
     if (ok) onOpenChange(false);
   };
@@ -237,6 +298,135 @@ export function NewProjectDialog({
               </SelectContent>
             </Select>
           </div>
+
+          {/* t300 — the data location: where this project's DATA lives. Local
+              keeps the classic contract (browse this machine's drives); remote
+              binds the project to a saved SSH cluster — the import browser
+              browses THAT cluster's filesystem and jobs are submitted there. */}
+          <div className="space-y-1.5">
+            <Label>Data location</Label>
+            <div
+              className="grid grid-cols-2 gap-1 rounded-lg border bg-secondary/40 p-0.5"
+              role="tablist"
+              aria-label="Data location"
+            >
+              {(
+                [
+                  { value: "local", label: "This machine", hint: "local drives · browse & run here" },
+                  { value: "remote", label: "Cluster (SSH)", hint: "data stays on the cluster" },
+                ] as const
+              ).map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  role="tab"
+                  aria-selected={location === opt.value}
+                  onClick={() => setLocation(opt.value)}
+                  className={cn(
+                    "flex flex-col items-center gap-0.5 rounded-md px-2 py-1.5 text-[11px] font-medium transition-colors",
+                    location === opt.value
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <span className="flex items-center gap-1.5">
+                    {opt.value === "local" ? (
+                      <FolderGit2 className="size-3.5" aria-hidden="true" />
+                    ) : (
+                      <Server className="size-3.5" aria-hidden="true" />
+                    )}
+                    {opt.label}
+                  </span>
+                  <span className="text-[9.5px] font-normal text-muted-foreground">{opt.hint}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {location === "remote" ? (
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="new-project-connection">Cluster connection</Label>
+                <button
+                  type="button"
+                  className="rounded px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:text-foreground"
+                  onClick={() => setClusterOpen(true)}
+                >
+                  Manage clusters…
+                </button>
+              </div>
+              {connections.length === 0 ? (
+                <div className="flex flex-col items-center gap-2 rounded-md border border-dashed px-3 py-5 text-center">
+                  <div className="flex size-8 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                    <Server className="size-4" aria-hidden="true" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium">No cluster connections yet</p>
+                    <p className="mt-1 text-[10px] leading-snug text-muted-foreground">
+                      Add an SSH login node (host, user, password or key) — then pick it here.
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs"
+                    onClick={() => setClusterOpen(true)}
+                  >
+                    Add a cluster
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <Select value={connId} onValueChange={setConnId}>
+                    <SelectTrigger id="new-project-connection" className="text-xs">
+                      <SelectValue placeholder="Saved IP / cluster" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {connections.map((c) => (
+                        <SelectItem key={c.id} value={c.id} className="text-xs">
+                          <span className="flex min-w-0 items-center gap-1.5">
+                            <span
+                              className={cn(
+                                "size-1.5 shrink-0 rounded-full",
+                                c.lastProbe?.ok
+                                  ? "bg-emerald-500"
+                                  : c.lastProbe
+                                    ? "bg-rose-500"
+                                    : "bg-slate-400 dark:bg-slate-500"
+                              )}
+                              aria-hidden="true"
+                            />
+                            <span className="max-w-[220px] truncate">
+                              {c.name || `${c.username}@${c.host}`}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground">{c.host}</span>
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {selectedConn ? (
+                    <p className="flex items-start gap-1.5 rounded-md border border-violet-500/30 bg-violet-500/10 px-2 py-1.5 text-[10px] leading-snug text-violet-700 dark:text-violet-400">
+                      <Server className="mt-px size-3 shrink-0" aria-hidden="true" />
+                      <span>
+                        Remote project on <span className="font-mono">{selectedConn.username}@{selectedConn.host}</span> — the
+                        import browser lists that cluster&apos;s folders (movies stay there, zero upload), and job submission
+                        offers its detected nodes + GPU count.
+                      </span>
+                    </p>
+                  ) : null}
+                </>
+              )}
+            </div>
+          ) : (
+            <p className="flex items-start gap-1.5 rounded-md border bg-secondary/40 px-2 py-1.5 text-[10px] leading-snug text-muted-foreground">
+              <FolderGit2 className="mt-px size-3 shrink-0" aria-hidden="true" />
+              <span>
+                Local project — browse this machine&apos;s drives (and WSL distros) for micrographs; jobs run on the local
+                RELION (or any SSH cluster, per-run).
+              </span>
+            </p>
+          )}
           <div className="flex items-center gap-2 rounded-md border border-teal-500/30 bg-teal-500/10 px-2.5 py-2 text-[11px] leading-relaxed text-teal-700 dark:text-teal-400">
             <Snowflake className="size-3.5 shrink-0" aria-hidden="true" />
             <span>
@@ -266,12 +456,22 @@ export function NewProjectDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={creating}>
             Cancel
           </Button>
-          <Button onClick={() => void handleCreate()} disabled={creating || trimmed.length < 1}>
+          <Button
+            onClick={() => void handleCreate()}
+            disabled={creating || trimmed.length < 1 || remoteBlocked}
+          >
             {creating ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Plus aria-hidden="true" />}
             Create project
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      {/* the nested cluster manager — a connection saved there becomes
+          selectable the moment it closes (reload on close) */}
+      <RemoteClusterDialog
+        open={clusterOpen}
+        onOpenChange={(v) => setClusterOpen(v)}
+      />
     </Dialog>
   );
 }
@@ -383,6 +583,7 @@ function ProjectCardRow({
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
         <ModeBadge mode={project.mode} />
         <EngineBadge />
+        <RemoteBadge remote={project.remote} />
         <span className="ml-auto flex items-center gap-1">
           <StatChip
             icon={<Boxes className="size-3" aria-hidden="true" />}

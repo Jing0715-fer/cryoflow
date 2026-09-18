@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { toProjectDTO } from "@/lib/seed";
-import { getProjectMeta, removeProjectMeta } from "@/lib/projects";
+import { getProjectMeta, removeProjectMeta, setProjectRemote } from "@/lib/projects";
 import { readFileEdges, removeFileEdge } from "@/lib/edge-ports";
 import { clearRunRecord, isRunAlive, stopRun } from "@/lib/relion/engine";
+import { getConnection } from "@/lib/remote/connections";
 import { isLocalRequest } from "@/lib/http-guard";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +12,14 @@ export const dynamic = "force-dynamic";
 type RouteContext = { params: Promise<{ id: string }> };
 
 /**
- * PATCH /api/projects/[id] — body: { name } (1–80 chars) → rename.
+ * PATCH /api/projects/[id] — body: { name } (1–80 chars) → rename, and/or
+ * { remoteConnectionId } (t300) → bind the project to a saved cluster
+ * (string id) or unbind it back to local (null). A binding change is a
+ * data-location move in intent: paths already picked on the old cluster
+ * stay valid only there, so the honest answer for a re-bind is a NEW
+ * project — the door exists for the early mistake (created local, meant
+ * remote) and for unbinding after the data moved.
+ *
  * DELETE /api/projects/[id] — stop its live runs, remove edges, delete.
  *
  * t259 — the metadata door: both handlers are blind STATE CHANGES
@@ -29,29 +37,70 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   }
   try {
     const { id } = await context.params;
-    const body = (await request.json().catch(() => ({}))) as { name?: unknown };
-
-    const name = typeof body.name === "string" ? body.name.trim() : "";
-    if (name.length < 1 || name.length > 80) {
-      return NextResponse.json(
-        { error: "Project name must be 1–80 characters" },
-        { status: 400 }
-      );
-    }
+    const body = (await request.json().catch(() => ({}))) as {
+      name?: unknown;
+      /** t300 — "" | null | absent = no change is NOT true for null: null
+       * UNBINDS. Absent = leave the binding alone (rename-only PATCH). */
+      remoteConnectionId?: unknown;
+    };
 
     const existing = await db.project.findUnique({ where: { id } });
     if (!existing) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    const project = await db.project.update({
-      where: { id },
-      data: { name },
-    });
+    // ---- t300 — the binding leg (absent = untouched) --------------------
+    let remoteTouched = false;
+    if ("remoteConnectionId" in body) {
+      const raw = body.remoteConnectionId;
+      const bindId =
+        raw === null || raw === ""
+          ? null
+          : typeof raw === "string" && raw.trim()
+            ? raw.trim()
+            : undefined;
+      if (bindId === undefined) {
+        return NextResponse.json(
+          { error: "remoteConnectionId must be a saved connection id, or null to unbind" },
+          { status: 400 }
+        );
+      }
+      if (bindId && !getConnection(bindId)) {
+        return NextResponse.json(
+          { error: "remoteConnectionId does not match a saved cluster connection — add or re-save it in Remote clusters first" },
+          { status: 400 }
+        );
+      }
+      if (!setProjectRemote(id, bindId)) {
+        return NextResponse.json(
+          { error: "Project has no meta entry yet — open it once, then rebind" },
+          { status: 409 }
+        );
+      }
+      remoteTouched = true;
+    }
+
+    // ---- the rename leg (absent = untouched) ----------------------------
+    let project = existing;
+    if (body.name !== undefined) {
+      const name = typeof body.name === "string" ? body.name.trim() : "";
+      if (name.length < 1 || name.length > 80) {
+        return NextResponse.json(
+          { error: "Project name must be 1–80 characters" },
+          { status: 400 }
+        );
+      }
+      project = await db.project.update({
+        where: { id },
+        data: { name },
+      });
+    }
+
     const meta = getProjectMeta(id);
     return NextResponse.json({
       ok: true,
       project: toProjectDTO(project, meta?.mode ?? "spa", "relion"),
+      ...(remoteTouched ? { rebound: true } : {}),
     });
   } catch (error) {
     console.error("PATCH /api/projects/[id] failed:", error);

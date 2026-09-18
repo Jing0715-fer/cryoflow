@@ -36,6 +36,9 @@ import path from "path";
 import type { Job } from "@prisma/client";
 import { db } from "@/lib/db";
 import { DATA_DIR, RELION_DIR } from "@/lib/paths";
+import { getProjectMeta } from "@/lib/projects";
+import { getConnection } from "@/lib/remote/connections";
+import { listRemoteDir, statRemoteFiles } from "@/lib/remote/remote-ls";
 import type { RemoteRunState } from "@/lib/remote/types";
 import { readMrcHeader } from "@/lib/mrc";
 import { detectRelion } from "./system";
@@ -1276,6 +1279,143 @@ function recordNativeRun(
   });
 }
 
+/**
+ * t300 — the REMOTE-project leg of the engine-native import. The picked
+ * micrographsPath points at the CLUSTER's filesystem (chosen with the
+ * remote browser); the data NEVER leaves the cluster:
+ *
+ *   - the path is validated + enumerated over SSH (folder / wildcard /
+ *     multi-file list — the same three shapes the local branch speaks);
+ *   - micrographs.star is written with CLUSTER-ABSOLUTE paths. When a
+ *     downstream job is dispatched to the SAME cluster, the staging walk
+ *     finds the refs already present there (refsInStar only collects refs
+ *     that exist LOCALLY — cluster-absolute refs ride untouched), so not
+ *     one movie byte is uploaded; the argv references the cluster paths
+ *     exactly as written.
+ *
+ * Returns "not-remote" when the project has no cluster binding (the local
+ * branch runs), an error result when the cluster cannot answer, and the
+ * star lines + display strings on success.
+ */
+async function runImportRemoteLeg(
+  job: EngineJobRef,
+  customRaw: string,
+  starLines: string[]
+): Promise<
+  | { kind: "not-remote" }
+  | { kind: "error"; error: string }
+  | { kind: "done"; result: string; sourceLabel: string }
+> {
+  const meta = getProjectMeta(job.projectId);
+  const connId = meta?.remote?.connectionId ?? null;
+  if (!connId) return { kind: "not-remote" };
+  const conn = getConnection(connId);
+  if (!conn || !conn.host) {
+    return {
+      kind: "error",
+      error:
+        "this is a remote project, but its cluster connection was deleted — re-add the cluster in Remote clusters (the picked paths live on it)",
+    };
+  }
+
+  const listed = customRaw.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+  const multiFile = listed.length > 1;
+  const single = listed[0] ?? "";
+  const isPattern = !multiFile && /[*?]/.test(single);
+  const base = (p: string) => p.slice(p.lastIndexOf("/") + 1);
+
+  let clusterFiles: string[] = [];
+  let skipped = 0;
+  let note = "";
+
+  try {
+    if (multiFile) {
+      // ---- 3. explicit multi-select file list --------------------------
+      const { missing } = await statRemoteFiles(conn, listed);
+      if (missing.length > 0) {
+        return {
+          kind: "error",
+          error: `Not on the cluster: ${missing[0]}${missing.length > 1 ? ` (+${missing.length - 1} more)` : ""} — re-pick the micrographs in the params tab (Browse → Files)`,
+        };
+      }
+      for (const f of listed) {
+        if (MIC_RE.test(base(f))) clusterFiles.push(f);
+        else skipped += 1;
+      }
+    } else if (isPattern) {
+      // ---- 2. wildcard pattern (RELION "File name pattern") -------------
+      const i = single.lastIndexOf("/");
+      const baseDir = i === 0 ? "/" : single.slice(0, i);
+      const glob = single.slice(i + 1);
+      const res = await listRemoteDir(connId, baseDir, glob);
+      if (res.notDir) {
+        return { kind: "error", error: `Folder not found on the cluster: ${baseDir} — check the pattern in the params tab` };
+      }
+      const imgs = res.entries.filter((e) => e.img && e.abs).map((e) => e.abs!);
+      clusterFiles = imgs;
+      skipped = Math.max(0, res.total - imgs.length);
+      if (res.truncated) note = ` · pattern matched more than ${imgs.length} — only the first ${imgs.length} imported`;
+    } else {
+      // ---- 1. folder (or one pasted file) -------------------------------
+      const res = await listRemoteDir(connId, single, null);
+      if (res.notDir) {
+        // maybe a single FILE path was pasted — stat it before refusing
+        const { missing } = await statRemoteFiles(conn, [single]);
+        if (missing.length > 0) {
+          return {
+            kind: "error",
+            error: `Micrographs folder not accessible on the cluster: ${customRaw} — re-pick it in the params tab (Browse…)`,
+          };
+        }
+        if (!MIC_RE.test(base(single))) {
+          return {
+            kind: "error",
+            error: `Not a micrograph file (.mrc/.mrcs/.tif/.tiff/.eer): ${single}`,
+          };
+        }
+        clusterFiles = [single];
+      } else {
+        const imgs = res.entries.filter((e) => e.img && e.abs).map((e) => e.abs!);
+        skipped = Math.max(0, res.total - imgs.length);
+        if (imgs.length === 0) {
+          return {
+            kind: "error",
+            error: `No .mrc/.mrcs/.tif/.eer micrographs found in ${customRaw} (on ${conn.host})`,
+          };
+        }
+        clusterFiles = imgs;
+        if (res.truncated) note = ` · folder holds more files — only the first ${imgs.length} imported`;
+      }
+    }
+  } catch (e) {
+    return {
+      kind: "error",
+      error: `the cluster (${conn.host}) could not list ${single || customRaw}: ${e instanceof Error ? e.message : String(e)} — check the connection in Remote clusters`,
+    };
+  }
+
+  if (clusterFiles.length === 0) {
+    return {
+      kind: "error",
+      error: multiFile
+        ? `No image files (.mrc/.mrcs/.tif/.tiff/.eer) among the ${listed.length} selected paths`
+        : `No image files (.mrc/.mrcs/.tif/.tiff/.eer) match ${single}`,
+    };
+  }
+
+  // CLUSTER-ABSOLUTE paths — the whole point: downstream remote runs on
+  // this cluster reference them exactly as written, zero staging bytes.
+  for (const f of clusterFiles) starLines.push(`${f} 1`);
+
+  const skipNote = skipped > 0 ? ` · ${skipped} non-image file${skipped === 1 ? "" : "s"} skipped` : "";
+  const kindNote = isPattern ? " · pattern" : multiFile ? " · file list" : "";
+  return {
+    kind: "done",
+    result: `${clusterFiles.length} micrographs imported from ${conn.name || conn.host}${kindNote}${skipNote}${note} — paths stay on the cluster (zero upload) · pixel ${String(job.params.pixelSize ?? 1.77)} Å`,
+    sourceLabel: `source (cluster ${conn.host}): ${customRaw.slice(0, 200)} — cluster-absolute paths`,
+  };
+}
+
 /** Import: writes a RELION 5 optics-group micrographs.star (EMPIAR or empty). */
 async function runImportNative(job: EngineJobRef): Promise<NativeResult> {
   const workdir = workdirFor(job);
@@ -1342,6 +1482,15 @@ async function runImportNative(job: EngineJobRef): Promise<NativeResult> {
     //   3. file paths          → newline-separated multi-select list
     const customRaw = String(job.params.micrographsPath ?? "").trim();
     if (customRaw) {
+      // ---- t300: remote project? the path names the CLUSTER's filesystem --
+      const remoteLeg = await runImportRemoteLeg(job, customRaw, lines);
+      if (remoteLeg.kind === "error") {
+        return { ok: false, error: remoteLeg.error };
+      }
+      if (remoteLeg.kind === "done") {
+        result = remoteLeg.result;
+        sourceLabel = remoteLeg.sourceLabel;
+      } else {
       const status = await detectRelion();
       const bridge = bridgeFromStatus(status);
       const toHost = (p: string) => userPathToHost(p, bridge?.distro ?? null);
@@ -1481,6 +1630,7 @@ async function runImportNative(job: EngineJobRef): Promise<NativeResult> {
           customRaw.slice(0, 200) +
           (unlinked > 0 ? " (absolute paths)" : "");
       }
+      } // end local branch (project not remote)
     } else {
       result = "Import job completed (no source data configured — pick a micrographs folder, pattern or files in the params tab)";
       sourceLabel = "source: (none configured)";

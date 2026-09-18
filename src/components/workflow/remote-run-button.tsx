@@ -18,6 +18,13 @@
  * name (the dispatch's module-load guard reports an honest exit-127 if
  * the name is wrong).
  *
+ * t300 — two more defaults became CHOICES: a REMOTE project locks the
+ * dialog to its bound cluster (the project's picked paths are absolute
+ * THERE — another connection would strand the data), and slurm mode
+ * grows the "node / partition" picker from the probe's sinfo inventory
+ * (the detected node groups, each with its GPU/node figure and hostname
+ * list — picking "brain2" lands the job on that node).
+ *
  * Defaults come from the cluster manager's ACTIVE connection
  * (localStorage "cryoflow.remote.active"); modules from that
  * connection's last probe. No connections yet? The dialog offers the
@@ -46,6 +53,7 @@ import {
 } from "./remote-cluster-dialog";
 
 const CUSTOM_MODULE_VALUE = "__custom__";
+const PARTITION_AUTO = "__auto__";
 
 /** The relion --gpu flag's device list for N GPUs: "0", "0:1", "0:1:2"… */
 function gpuListFor(n: number): string {
@@ -79,12 +87,19 @@ export function RemoteRunButton({
   };
   const { connections, reload } = useRemoteConnections(open);
   const runJobRemote = useWorkflowStore((s) => s.runJobRemote);
+  // t300 — a REMOTE project's bound cluster is the dialog's DEFAULT (and
+  // locked) target: the project's picked input paths are absolute on THAT
+  // cluster — another connection would strand the data.
+  const projectRemote = useWorkflowStore((s) => s.project?.remote ?? null);
 
   const [connId, setConnId] = React.useState("");
   const [module, setModule] = React.useState("");
   // t297 — mode + the sbatch GPU width + the free-text module door
   const [mode, setMode] = React.useState<"direct" | "slurm">("direct");
   const [gpus, setGpus] = React.useState(6);
+  // t300 — the detected node group (Slurm partition) this sbatch pins;
+  // "__auto__" = the scheduler picks (falls back to the connection default)
+  const [partition, setPartition] = React.useState<string>(PARTITION_AUTO);
   const [customModule, setCustomModule] = React.useState("");
   const [pending, setPending] = React.useState(false);
   // the nested cluster manager (empty state → add a connection right here)
@@ -93,17 +108,27 @@ export function RemoteRunButton({
   const conn = connections.find((c) => c.id === connId) ?? null;
   const probedModules = conn?.lastProbe?.relionModules ?? [];
   const slurmAvailable = conn?.lastProbe?.slurm === true;
+  const partitionInventory = conn?.lastProbe?.slurmGpus ?? [];
 
-  // default connection: keep the current pick, else the ACTIVE one, else first
+  // default connection: the project's binding (locked, see below), else
+  // keep the current pick, else the ACTIVE one, else first
   React.useEffect(() => {
     if (!open) return;
+    if (projectRemote) {
+      // the project's cluster wins unconditionally while it exists in the
+      // registry — a remote project's data lives THERE
+      if (connections.some((c) => c.id === projectRemote.connectionId)) {
+        setConnId(projectRemote.connectionId);
+        return;
+      }
+    }
     setConnId((prev) => {
       if (prev && connections.some((c) => c.id === prev)) return prev;
       const active = readActiveRemoteConnectionId();
       if (active && connections.some((c) => c.id === active)) return active;
       return connections[0]?.id ?? "";
     });
-  }, [open, connections]);
+  }, [open, connections, projectRemote]);
 
   // module default follows the connection (its defaultModule, else first probed)
   React.useEffect(() => {
@@ -124,11 +149,30 @@ export function RemoteRunButton({
     else setMode("direct");
   }, [conn]);
 
-  // t297 — the GPU width's ceiling: what the cluster's partitions actually
-  // offer (sinfo), when the probe brought it back. The stepper still
-  // allows up to 8 (a partition may be bigger than the probe reported).
-  const slurmGpuHint = conn?.lastProbe?.slurmGpus?.[0] ?? null;
-  const maxGpus = Math.max(1, Math.min(8, slurmGpuHint?.gpusPerNode ?? 8));
+  // t300 — partition default: the connection's pinned partition when the
+  // probe's inventory actually lists it, else auto
+  React.useEffect(() => {
+    if (!conn) return;
+    setPartition(
+      conn.slurmPartition && partitionInventory.some((p) => p.partition === conn.slurmPartition)
+        ? conn.slurmPartition
+        : PARTITION_AUTO
+    );
+  }, [conn, partitionInventory]);
+
+  // t300 — the GPU width's ceiling: the SELECTED node group's per-node
+  // GPUs (sinfo), falling back to the widest partition the probe saw, else 8.
+  const selectedGroup =
+    partition === PARTITION_AUTO ? null : partitionInventory.find((p) => p.partition === partition) ?? null;
+  const maxGpus = Math.max(
+    1,
+    Math.min(8, selectedGroup?.gpusPerNode ?? partitionInventory[0]?.gpusPerNode ?? 8)
+  );
+  // clamping the pick when the partition changes (a 5-GPU partition cannot
+  // honor a 6-GPU request — the stepper must not offer it)
+  React.useEffect(() => {
+    setGpus((g) => Math.min(g, maxGpus));
+  }, [maxGpus]);
 
   const disabled = job.status === "running" || job.linkedJobId != null;
 
@@ -145,7 +189,12 @@ export function RemoteRunButton({
         connectionId: conn.id,
         module: effectiveModule || null,
         mode,
-        ...(mode === "slurm" ? { gpus } : {}),
+        ...(mode === "slurm"
+          ? {
+              gpus,
+              ...(partition !== PARTITION_AUTO ? { partition } : {}),
+            }
+          : {}),
       };
       const ok = await runJobRemote(job.id, target);
       if (ok) setOpen(false);
@@ -339,6 +388,58 @@ export function RemoteRunButton({
                 ) : null}
               </div>
 
+              {/* t300 — the detected node picker (slurm mode): the
+                  probe's sinfo inventory as submit targets. Each option is
+                  a node group with its GPU/node figure + hostnames; picking
+                  one pins the sbatch (--partition, plus --nodelist when the
+                  group is a single node — "Auto" lets the scheduler decide). */}
+              {mode === "slurm" && partitionInventory.length > 0 ? (
+                <div className="space-y-1" data-node-picker-row="">
+                  <p className="text-[11px] text-muted-foreground">Node / partition</p>
+                  <Select value={partition} onValueChange={setPartition}>
+                    <SelectTrigger className="h-9 text-sm" aria-label="Node or partition to submit to">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={PARTITION_AUTO} className="text-xs">
+                        <span className="flex flex-col gap-0.5">
+                          <span>Auto — scheduler picks</span>
+                          <span className="text-[10px] font-normal text-muted-foreground">
+                            {conn?.slurmPartition
+                              ? `connection default: ${conn.slurmPartition}`
+                              : "the cluster's default partition"}
+                          </span>
+                        </span>
+                      </SelectItem>
+                      {partitionInventory.map((p) => (
+                        <SelectItem key={p.partition} value={p.partition} className="text-xs">
+                          <span className="flex flex-col gap-0.5">
+                            <span className="flex min-w-0 items-center gap-1.5">
+                              <span className="font-mono">{p.partition}</span>
+                              {p.hosts && p.hosts.length > 0 ? (
+                                <span className="max-w-[180px] truncate font-mono text-[10px] text-muted-foreground">
+                                  {p.hosts.slice(0, 3).join(", ")}
+                                  {p.hosts.length > 3 ? ` +${p.hosts.length - 3}` : ""}
+                                </span>
+                              ) : null}
+                            </span>
+                            <span className="text-[10px] font-normal text-muted-foreground">
+                              {p.gpusPerNode} GPU/node · {p.nodes} node{p.nodes === 1 ? "" : "s"}
+                              {p.model ? ` · ${p.model}` : ""}
+                            </span>
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[10px] leading-snug text-muted-foreground/80">
+                    Detected node groups from this cluster&apos;s sinfo — the pick lands the job there
+                    ({"--partition"}
+                    {selectedGroup && selectedGroup.hosts?.length === 1 ? ", --nodelist pins the node" : ""}).
+                  </p>
+                </div>
+              ) : null}
+
               {/* t297 — the GPU width stepper (slurm mode only): the
                   sbatch6gpu.sh pattern at the width the user picks. */}
               {mode === "slurm" ? (
@@ -379,7 +480,9 @@ export function RemoteRunButton({
                       <span className="font-mono">--gres=gpu:{gpus}</span>,{" "}
                       <span className="font-mono">mpirun -n {gpus}</span>,{" "}
                       <span className="font-mono">--gpu {gpuListFor(gpus)}</span>
-                      {slurmGpuHint ? ` · ${slurmGpuHint.partition} offers ${slurmGpuHint.gpusPerNode}/node` : ""}
+                      {(selectedGroup ?? partitionInventory[0]) != null
+                        ? ` · ${(selectedGroup ?? partitionInventory[0])!.partition} offers ${(selectedGroup ?? partitionInventory[0])!.gpusPerNode}/node`
+                        : ""}
                     </p>
                   </div>
                 </div>

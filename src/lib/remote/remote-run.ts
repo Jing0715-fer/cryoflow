@@ -467,6 +467,19 @@ function buildWrapperScript(args: {
 /* ------------------------------------------------------------------ */
 
 /**
+ * t300 — the hostnames the probe's sinfo inventory resolved for ONE
+ * partition (from the connection's lastProbe.slurmGpus[].hosts). null =
+ * the partition is unknown to the probe (bare API callers, stale probes)
+ * — the submission stays partition-level, never a fabricated node.
+ */
+function connLastPartitionHosts(connId: string, partition: string): string[] | null {
+  const groups = getConnection(connId)?.lastProbe?.slurmGpus ?? null;
+  if (!groups) return null;
+  const g = groups.find((x) => x.partition === partition);
+  return g?.hosts && g.hosts.length > 0 ? g.hosts : null;
+}
+
+/**
  * t297 — the sbatch variant of the run script, modeled on the user's
  * sbatch6gpu.sh submission idiom (OpenHPC + Slurm + Lmod clusters):
  *
@@ -495,14 +508,30 @@ function buildSbatchScript(args: {
   jobName: string;
   remoteProjectRoot: string;
   remoteWorkdir: string;
+  /**
+   * t300 — the partition this submission pins (the run dialog's detected
+   * node group). null = the connection's own default (conn.slurmPartition),
+   * undefined = neither (the scheduler decides). Already sanitized by the
+   * caller ([A-Za-z0-9_.-], ≤64 chars).
+   */
+  partition?: string | null;
+  /**
+   * t300 — the exact NODE this submission pins (--nodelist), when the
+   * picked partition resolved to a single hostname in the probe's sinfo
+   * inventory ("brain2" as partition AND node). null = partition-level
+   * only. Sanitized like partition (a hostname is the same charset).
+   */
+  nodelist?: string | null;
 }): string {
-  const { conn, module: moduleName, relionHome, ctffind, command, gpus, ntasks, threads, jobName, remoteProjectRoot, remoteWorkdir } = args;
+  const { conn, module: moduleName, relionHome, ctffind, command, gpus, ntasks, threads, jobName, remoteProjectRoot, remoteWorkdir, partition, nodelist } = args;
+  const effectivePartition = partition ?? conn.slurmPartition ?? null;
   const L: string[] = [];
   L.push("#!/bin/bash");
   L.push("# CryoFlow Slurm submission — generated locally, submitted on the cluster");
-  L.push("# connection: " + `${conn.username}@${conn.host}:${conn.port} · module ${moduleName || "(none)"} · ${gpus > 0 ? `${gpus} GPU(s)` : "CPU"}`);
+  L.push("# connection: " + `${conn.username}@${conn.host}:${conn.port} · module ${moduleName || "(none)"} · ${gpus > 0 ? `${gpus} GPU(s)` : "CPU"}${effectivePartition ? ` · partition ${effectivePartition}` : ""}${nodelist ? ` · node ${nodelist}` : ""}`);
   L.push(`#SBATCH --job-name=${jobName}`);
-  if (conn.slurmPartition) L.push(`#SBATCH --partition=${conn.slurmPartition}`);
+  if (effectivePartition) L.push(`#SBATCH --partition=${effectivePartition}`);
+  if (nodelist) L.push(`#SBATCH --nodelist=${nodelist}`);
   L.push("#SBATCH --nodes=1");
   L.push(`#SBATCH --ntasks=${Math.max(1, ntasks)}`);
   L.push(`#SBATCH --cpus-per-task=${Math.max(1, threads)}`);
@@ -640,6 +669,31 @@ export async function startRemoteJob(args: {
   const gpuWidth = isSlurm
     ? Math.max(1, Math.min(8, Math.round(Number(target.gpus ?? 6)) || 6))
     : 0;
+  // t300 — the partition (detected node group) this sbatch pins. The run
+  // route already sanitized the raw body; this is the second gate on the
+  // engine side (bare API callers get the same clamps, never a raw string
+  // into the script — #SBATCH --partition is a shell-facing line).
+  const partitionOverride =
+    isSlurm && typeof target.partition === "string" && /^[A-Za-z0-9_.-]{1,64}$/.test(target.partition)
+      ? target.partition
+      : null;
+  // t300 — the NODE pin: a user picking a group the probe resolved to
+  // exactly ONE hostname ("brain2", "normal"…) asked for THAT node, not
+  // merely its partition — a partition can outlive its hostlist (nodes
+  // added later would silently widen the pick). Only a single resolved
+  // host pins (--nodelist); multi-host groups stay partition-level (a
+  // 1-node sbatch pinning 4 nodes would request the whole group).
+  const partitionHosts =
+    partitionOverride != null
+      ? connLastPartitionHosts(target.connectionId, partitionOverride)
+      : null;
+  // the pin rides ONLY a hostname-shaped single host (expandHostlist's
+  // grammar cannot emit metacharacters, but the second gate is cheap and
+  // #SBATCH --nodelist is a shell-facing line like --partition)
+  const nodelistPin =
+    partitionHosts && partitionHosts.length === 1 && /^[A-Za-z0-9_.-]{1,64}$/.test(partitionHosts[0])
+      ? partitionHosts[0]
+      : null;
 
   if (NATIVE_TYPES.has(job.type)) {
     return fail(
@@ -796,6 +850,7 @@ export async function startRemoteJob(args: {
     pid: null,
     slurmId: null,
     ...(isSlurm ? { gpusRequested: gpuWidth } : {}),
+    ...(isSlurm && partitionOverride ? { partition: partitionOverride } : {}),
     phase: "staging",
   };
 
@@ -1051,6 +1106,8 @@ export async function startRemoteJob(args: {
           jobName,
           remoteProjectRoot,
           remoteWorkdir,
+          partition: partitionOverride,
+          nodelist: nodelistPin,
         });
         const scriptPath = `${remoteWorkdir}/.cf-sbatch.sh`;
         const upOk = await remoteUpload(conn, script, scriptPath);
@@ -1089,7 +1146,7 @@ export async function startRemoteJob(args: {
         });
         stopBeat();
         console.log(
-          `remote-run: ${job.type} "${job.name}" submitted to Slurm on ${conn.name} (job ${slurmId}, ${gresWidth > 0 ? `${gresWidth} GPU(s)` : "CPU"}, module ${moduleName || "none"})`
+          `remote-run: ${job.type} "${job.name}" submitted to Slurm on ${conn.name} (job ${slurmId}, ${gresWidth > 0 ? `${gresWidth} GPU(s)` : "CPU"}${partitionOverride ? ` · partition ${partitionOverride}` : ""}${nodelistPin ? ` · node ${nodelistPin}` : ""}, module ${moduleName || "none"})`
         );
       } else {
         // ---- direct mode: the setsid wrapper (unchanged contract) --------
@@ -1834,6 +1891,7 @@ export function remoteInfoFor(jobId: string): RemoteRunInfo | null {
     ...(r.slurmId != null ? { slurmId: r.slurmId } : {}),
     ...(r.slurmState ? { slurmState: r.slurmState } : {}),
     ...(r.gpusRequested != null ? { gpusRequested: r.gpusRequested } : {}),
+    ...(r.partition ? { partition: r.partition } : {}),
     phase: r.phase,
     ...(r.stagedBytes != null ? { stagedBytes: r.stagedBytes } : {}),
     // t269 — the time ledger rides the DTO so the inspector's remote strip

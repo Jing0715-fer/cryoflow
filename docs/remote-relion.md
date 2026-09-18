@@ -21,16 +21,27 @@
    login node when it has any, otherwise the **Slurm inventory via
    `sinfo`** (partition → GPUs per node → node count) — the honest answer
    for clusters whose GPUs live on the compute nodes only.
-3. Click a job → **Run on cluster (SSH)** (the server icon next to Re-run) →
+3. **New project → Data location** — pick **This machine** (the classic
+   local project) or **Cluster (SSH)** and choose one of your SAVED
+   connections (the dropdown lists every login node you added — the
+   project is bound to that cluster). On a remote project the import
+   browser lists the CLUSTER's filesystem (pick movies / STAR files where
+   the data actually lives — nothing is downloaded), and the primary Run
+   button dispatches to that cluster directly. The header and the project
+   list badge the project with its cluster (`user@host`).
+4. Click a job → **Run on cluster (SSH)** (the server icon next to Re-run) →
    pick the connection + the relion module for THIS run + the run mode
-   (**direct** nohup, or **Slurm sbatch** with a chosen GPU count) → *Send
-   to cluster*. Every run can use a different version and width — that was
-   the whole point.
-4. Watch it live: the card gets a cluster chip, the inspector shows
+     (**direct** nohup, or **Slurm sbatch**) — in Slurm mode also the
+   **node / partition** (the detected node groups from `sinfo`, each with
+   its GPU-per-node figure and hostnames — e.g. `brain2 · 8 GPU/node ·
+   brain2`) and the **GPU count** (one MPI rank per GPU, capped by the
+   chosen group's width) → *Send to cluster*. Every run can use a different
+   version, node and width — that was the whole point.
+5. Watch it live: the card gets a cluster chip, the inspector shows
    `user@host · module · pid` (direct) or `Slurm <jobid> · N GPU(s) ·
    queued/running` (sbatch), progress parses the cluster log, and the
    **Log tab streams the run output over SSH**.
-5. On completion, outputs sync back into the local mirror (STARs rewritten
+6. On completion, outputs sync back into the local mirror (STARs rewritten
    to local paths) — the Results views, galleries and downstream jobs work
    unchanged. Files over the sync caps stay on the cluster and are listed
    in the result line.
@@ -187,12 +198,66 @@ tool's own words when the name is wrong).
 `nvidia-smi` runs on the LOGIN node — on real HPC clusters there are no
 GPUs there (the batch nodes own them), so an empty GPU line is normal,
 not a defect. When Slurm is present, the probe reads the scheduler's own
-inventory (`sinfo -o '%P|%G|%D|%T'`) and the probe card shows what the
-compute nodes actually offer (e.g. `gpu: 6 GPU/node × 4 nodes`). That
-figure also caps the Run dialog's GPU stepper. In slurm mode the GPU
-flags and `--gres` width describe the COMPUTE node's devices, so a
-GPU-strategy job gets its `--gpu` flags even when the login node's
-nvidia-smi was silent.
+inventory (`sinfo -o '%P|%G|%D|%T|%N'` — the `%N` tail carries the node
+hostnames, hostlist-expanded: `brain[2-4]` → `brain2, brain3, brain4`)
+and the probe card shows what the compute nodes actually offer (e.g.
+`brain2: 8 GPU/node × 1 node (brain2)`). That figure also caps the Run
+dialog's GPU stepper. In slurm mode the GPU flags and `--gres` width
+describe the COMPUTE node's devices, so a GPU-strategy job gets its `--gpu`
+flags even when the login node's nvidia-smi was silent.
+
+## 4c. Local vs remote projects
+
+A project's DATA has a location, chosen at creation (**New project →
+Data location**):
+
+- **This machine** — the classic contract: the import browser walks the
+  local drives (and WSL distros), jobs run on the local RELION or dispatch
+  per-run to any SSH cluster (the ▾ menu keeps both doors).
+- **Cluster (SSH)** — the project is BOUND to one saved connection (the
+  dropdown lists them; a connection saved in the nested manager becomes
+  selectable the moment it closes). The binding is stored per project
+  (`projects.json` → `remote.connectionId`), projected secret-free onto
+  every project DTO, and shown as a violet `user@host` badge in the header
+  and the project list. `PATCH /api/projects/[id]` with
+  `remoteConnectionId: <id> | null` re-binds or un-binds (a re-bind is a
+  data-location move in intent — paths picked on the old cluster only
+  live there; the door exists for the early mistake and for unbinding).
+
+On a remote project:
+
+- **Every path parameter browses the cluster.** The params tab's Browse
+  button (violet, server icon) opens the same file browser pointed at the
+  CLUSTER's filesystem over SSH (`GET /api/remote/connections/[id]/browse`—
+  roots view with `/`, `$HOME` and the remote root, one-level listings
+  with sizes/types, wildcard pattern preview `…/*.mrc`, capped at 400
+  entries; `~` expands cluster-side). Picked paths are CLUSTER-ABSOLUTE.
+- **The import writes cluster-absolute STARs.** Import (an engine-native,
+  local bookkeeping step) validates and enumerates the picked cluster
+  path over SSH and writes `micrographs.star` with the cluster paths —
+  the data never leaves the cluster, not one movie byte is uploaded. When
+  a downstream job dispatches to the SAME cluster, the staging walk finds
+  the refs already present and the argv references them exactly as
+  written (zero-upload staging).
+- **The primary Run button IS the cluster dispatch** (its inputs are
+  cluster paths — a local spawn would only fail on files this machine
+  does not have), pre-locked to the bound connection. Bookkeeping types
+  (import, select, symexpand…) still run locally — they ARE the local
+  half of a remote project. The ▾ menu keeps the local door open for
+  everything.
+- **The run dialog offers the detected nodes.** In Slurm mode the
+  "Node / partition" picker lists the probe's sinfo inventory — every GPU
+  node group with its per-node figure and hostnames; picking one pins the
+  submission (`#SBATCH --partition=<group>`, plus `#SBATCH
+  --nodelist=<host>` when the group resolves to a single hostname — the
+  literal "submit onto brain2"). "Auto" leaves the choice to the
+  scheduler (the connection's default partition applies).
+
+A remote project whose connection was deleted degrades honestly: the
+badge disappears (the binding is resolved fresh from the live registry),
+the browse/run doors name the missing cluster, and re-adding the
+connection restores everything (the binding itself never silently
+unbinds).
 
 ## 5. Honest failure catalog
 
@@ -216,10 +281,15 @@ nvidia-smi was silent.
 (`relion/4.4.1`, `relion/5.0.1`, `relion/5.0-beta` — plus the Lmod-HIDDEN
 `relion/beta_5.0_gpu_ompi5_cuda118`, loadable but absent from plain
 `module avail`), stub `relion_*` binaries that produce realistic STAR/MRC
-outputs, and a mini Slurm (`sbatch`/`squeue`/`scancel`/`sinfo` — a `gpu`
-partition with 6 GPUs/node, PENDING→RUNNING transitions, and honest
-purge-on-finish) so the whole remote-Slurm path is testable without a
-real scheduler:
+outputs, and a mini Slurm (`sbatch`/`squeue`/`scancel`/`sinfo` — the sinfo
+answers the 5-field hostlist grammar and its inventory mirrors a real
+user cluster: `brain`/`brain3` 6 GPU, `brain2`/`brain4`/`normal02` 8 GPU,
+`normal` 5 GPU — one node each — plus the shared `gpu` partition, with
+PENDING→RUNNING transitions and honest purge-on-finish) so the whole
+remote-Slurm path is testable without a real scheduler. `/data2/…` paths
+translate into its fs root the same way `/projects/…` and `/home/cryo/…`
+always have, so remote projects can rehearse against `/data2/movies/…`-shaped
+input paths:
 
 ```bash
 cd services/mock-cluster && bun run dev     # listens on :3022
@@ -238,6 +308,15 @@ without a real HPC system.
   downstream passthrough. Array-mode submissions (per-micrograph
   `--array` sharding through the scheduler) are the remaining stretch —
   the HPC dialog already generates such scripts for manual use.
+- ~~**Remote projects** (data lives on the cluster)~~ — **shipped**: the
+  project's Data location binds it to a saved connection; the import
+  browser walks the cluster's filesystem over SSH; imports write
+  cluster-absolute STARs (zero-upload staging); the run dialog pins the
+  submission to a detected node group (+ `--nodelist` for single-node
+  groups).
 - **rsync/tar-based bulk staging** for multi-TB movie sets.
 - **Cluster-side GPU reservation awareness** (only dispatch GPU jobs when
   the scheduler actually has one free — `squeue -t R` GRES accounting).
+- **Node-level (not partition-level) picking on multi-host groups** — the
+  picker currently offers the group; a wide `gpu` partition with idle-node
+  awareness could offer the individual host.

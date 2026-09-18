@@ -12,6 +12,8 @@ import path from "path";
 import type { Project } from "@prisma/client";
 import { db } from "@/lib/db";
 import { DATA_DIR } from "@/lib/paths";
+import { getConnection } from "@/lib/remote/connections";
+import type { ProjectRemoteRef } from "@/lib/remote/types";
 import type { ProjectSummaryDTO } from "./types";
 
 const FILE = path.join(DATA_DIR, "projects.json");
@@ -23,6 +25,16 @@ export type ProjectEngine = "relion";
 export interface ProjectMeta {
   mode: ProjectMode;
   engine: ProjectEngine;
+  /**
+   * t300 — remote project binding: the connection whose cluster holds this
+   * project's INPUT data (movies/micrographs picked by browsing the cluster)
+   * and where its jobs are meant to be submitted. Absent/null = a local
+   * project (data on this machine, exactly as before). The id is validated
+   * against the connections registry at the API door; here it is stored as
+   * given so a temporarily-missing connection degrades honestly (the UI
+   * shows "connection gone" instead of silently unbinding).
+   */
+  remote?: { connectionId: string } | null;
 }
 
 /** Normalize legacy sim entries (and unknown values) → "relion". */
@@ -69,7 +81,50 @@ export function getProjectMeta(id: string): ProjectMeta | null {
   const meta = readProjectsFile().projects[id];
   if (!meta) return null;
   // legacy "sim" entries heal on read (engine is always the real RELION one)
-  return { mode: meta.mode === "tomo" ? "tomo" : "spa", engine: "relion" };
+  return {
+    mode: meta.mode === "tomo" ? "tomo" : "spa",
+    engine: "relion",
+    ...(meta.remote?.connectionId ? { remote: { connectionId: meta.remote.connectionId } } : {}),
+  };
+}
+
+/**
+ * t300 — bind (or unbind) a project's data location to a saved cluster
+ * connection. `connectionId === null` clears the binding (back to local);
+ * existence is NOT re-validated here (the API route owns that check — this
+ * module stays decoupled from the registry's write paths).
+ */
+export function setProjectRemote(id: string, connectionId: string | null): boolean {
+  const file = readProjectsFile();
+  const meta = file.projects[id];
+  if (!meta) return false;
+  const next: ProjectMeta = {
+    ...meta,
+    remote: connectionId ? { connectionId } : null,
+  };
+  file.projects[id] = next;
+  writeProjectsFile(file);
+  return true;
+}
+
+/**
+ * t300 — resolve a project's cluster binding to a secret-free UI projection.
+ * null when the project is local OR the bound connection no longer exists
+ * (the honest degraded state — the UI names it, never hides it).
+ */
+export function projectRemoteRef(id: string): ProjectRemoteRef | null {
+  const meta = readProjectsFile().projects[id];
+  const connId = meta?.remote?.connectionId;
+  if (!connId) return null;
+  const conn = getConnection(connId);
+  if (!conn) return null;
+  return {
+    connectionId: conn.id,
+    name: conn.name || `${conn.username}@${conn.host}`,
+    host: conn.host,
+    port: conn.port,
+    username: conn.username,
+  };
 }
 
 export function setActiveProject(id: string): boolean {
@@ -107,8 +162,13 @@ export async function getActiveProject(): Promise<{ project: Project; meta: Proj
 
   let meta = file.projects[project.id];
   if (!meta || meta.engine !== "relion") {
-    // missing meta OR legacy "sim" entry → real engine (heal in place)
-    meta = { mode: meta?.mode === "tomo" ? "tomo" : "spa", engine: "relion" };
+    // missing meta OR legacy "sim" entry → real engine (heal in place);
+    // t300 — a legacy row's remote binding (if any) survives the heal
+    meta = {
+      mode: meta?.mode === "tomo" ? "tomo" : "spa",
+      engine: "relion",
+      ...(meta?.remote?.connectionId ? { remote: { connectionId: meta.remote.connectionId } } : {}),
+    };
     file.projects[project.id] = meta;
     dirty = true;
   }
@@ -193,6 +253,7 @@ export async function listProjectsWithMeta(): Promise<ProjectSummaryWithStats[]>
       name: p.name,
       mode: meta.mode,
       engine: meta.engine,
+      remote: projectRemoteRef(p.id),
       createdAt: p.createdAt.toISOString(),
       stats: statsBy.get(p.id) ?? emptyStats(),
     };

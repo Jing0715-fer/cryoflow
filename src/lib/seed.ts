@@ -8,7 +8,7 @@ import { db } from "@/lib/db";
 import type { Edge, Job, Project } from "@prisma/client";
 import { defaultParams, jobType } from "@/lib/workflow";
 import type { EdgeDTO, JobDTO, ProjectDTO } from "@/lib/types";
-import { registerProject, getActiveProject } from "@/lib/projects";
+import { registerProject, getActiveProject, projectRemoteRef } from "@/lib/projects";
 
 /* ------------------------------------------------------------------ */
 /* DTO mappers                                                          */
@@ -59,6 +59,10 @@ export function toProjectDTO(project: Project, mode = "spa", engine: "relion" = 
     createdAt: project.createdAt.toISOString(),
     mode,
     engine,
+    // t300 — the cluster binding rides every project DTO (null for local
+    // projects and for bindings whose connection was deleted — the honest
+    // degraded state, resolved fresh from the registry on each build)
+    remote: projectRemoteRef(project.id),
   };
 }
 

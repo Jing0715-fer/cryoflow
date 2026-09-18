@@ -608,7 +608,7 @@ interface WorkflowState {
   /** Switch the active RELION install (multi-version switcher). */
   selectRelionInstall: (installId: string) => Promise<boolean>;
   switchProject: (id: string) => Promise<void>;
-  createProject: (input: { name: string; mode: string }) => Promise<boolean>;
+  createProject: (input: { name: string; mode: string; remoteConnectionId?: string | null }) => Promise<boolean>;
   renameProject: (id: string, name: string) => Promise<boolean>;
   deleteProject: (id: string) => Promise<boolean>;
   /** POST /api/projects/[id]/duplicate — clone as a RERUN-READY TEMPLATE:
@@ -1460,8 +1460,14 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       await api<{ ok: boolean }>("/api/projects", {
         method: "POST",
         headers: JSON_HEADERS,
-        // engine is always the real RELION one — no field needed anymore
-        body: JSON.stringify({ name: input.name, mode: input.mode }),
+        // engine is always the real RELION one — no field needed anymore;
+        // t300 — remoteConnectionId binds the project's DATA to a saved
+        // cluster (remote project: browse + run on that cluster)
+        body: JSON.stringify({
+          name: input.name,
+          mode: input.mode,
+          ...(input.remoteConnectionId ? { remoteConnectionId: input.remoteConnectionId } : {}),
+        }),
       });
       await get().load();
       toast({ title: "Project created", description: input.name });
