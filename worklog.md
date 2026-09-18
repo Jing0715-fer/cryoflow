@@ -1904,3 +1904,21 @@ Stage Summary:
 - **「测试先于承诺」**：by-value 探测让创建表单在落库前回答「这个登录能用吗」，chip 预选 defaultModule 随 Create 一起进注册表——「先保存再测试」的信任跳跃退役
 - **「4GB 盒的互斥纪律」**：chromium 与 Turbopack 重编译/tsc 同驻 = 内核 OOM 必诛 next-server（四连实锤）——重进程窗口先关浏览器；dev server 死亡后远程作业在集群侧继续、reconcile 自愈收尾（run 记录未落地的 POST 死亡 = 旧记录原样，重派发即正解）
 - 遗留（下轮候选）：远程瓦片 identity card（取回后 header 事实随列表刷新出现，取回前只有尺寸——可在 fetch 后补读）；remote-view-3d 在大 map 上的实际 Mol* 渲染实测（本轮以 raw 门字节同一 + 既有 Mol* 流路代证）；t272 exists=false 活体见证仍在排队；EMPIAR 真数据回归（连续第五窗让位）
+## Task 291 (2026-09-18, cron 13:18 窗口 trace 1a07549302235a99-cron-agent-loop-202609181318 —— 树上立项为 290，与并行用户报障窗撞号：对方 cluster 结果借用（五连报障）先落地占号，按 t286 判例 rebase + 我方 renumber 291，套件/花名册/证据照名重链)
+
+- 【开局】尾部实证 = Task 289（1ce1505 已 push）——续窗摘要声称「272 基线 + 连续十二窗被摘要阻塞」第十三次不实（272→289 已由各窗实交付）；cron 模板「Task 13」照例不认（树上核实 recital 七件全销账：#5/#6/#14/#7/#8/#13 均闭合）。净场：3022 残留 mock-cluster bun（1h38m 前窗清场遗漏）双杀清掉 → watchdog 200 + roster 21。
+- 【QA】agent-browser 活体 console/errors 0 + 三哨兵全绿（qa00 + qa63 + t289）。
+- 【立项】Task 289 遗留池树上核实：家族 --report JSON 已被 Task 273 交付（t273-family-report + --summary/--reset 实在树上）；当选遗留①「triptych 导出 footer 叠加直方图缩略」——文档资产线第三部曲（t279 三联画 → t280 σ 脚注 → **t291 分布**）。
+- 【实现】map-ortho-panel.tsx：EXPORT_FOOT_H 42→64；导出时与三平面**并行**拉 format=histogram（8s AbortController 超时守卫）；footer 中央画 log 缩略（EXPORT_THUMB 300×40、slate 柱 #64748b、μ 强刻度 + ±1σ/±2σ 静刻度、青色截断线 #22d3ee 随 isoSigma、离标 faded 0.35、caption "density (log)"）；honest-absence（fetch 失败/超时/畸形 → 单行 footer，缺席即诚实）；measure-first 防碰撞布局（缩至文本让渡 span，<120px 整体跳过）；导出按钮 title 增列 cargo。
+- 【套件】t291-ortho-hist-footer.mjs（**42 断言首跑 ALL PASS**）：B 相台账 20；C0 API 直方图 256 bins/nTotal 262144；C1 光栅演进 1592×616→**638**；C2 **Node zlib 解 PNG 像素级**——518 slate 柱像素 + 青色单列窄带（≥15px 纵向 run）落于中段 span x≈615；C3 文档 186KiB 即定妆照。t279/t280 两处 616 高度断言随语义演进（t286 判例合法维护）；family-run 花名册 63→64 + 新十年批次 t29 注册。
+- 【哨兵复绿】t279/t280/t281/t283/t284 全 ALL PASS（build 前台独占 ×1，server 启动时间 05:35:56 > build 05:35:49——「重建 ≠ 上线」检验在案）。
+- 【全家族回归（九批前台逐批——OOM 纪律第十三窗，一命令一批）】qa 11 · 410.1s ｜ t21 7 · 190.4s ｜ t22 2 · 64.9s ｜ t24 9 · 121.9s ｜ t25 9 · 485.5s ｜ t26 10 · 532.6s ｜ t27 7 · 281.4s ｜ t28 8 · 166.7s ｜ t29 1 · 22.6s（**t291 首战即家族**；t29 批次 22.6s 疑假绿——独立复验：报告落盘 06:19:10 新鲜、光栅 1592×638、青色截断 x≈615、506 柱像素全在——热缓存加速而非跳步）——合计 **pass 64 · solo 0 · real-fail 0 · wall 2276.0s**（--summary 机器拷贝）；coverage 认证 64 套件九批各归属唯一；roster 恒等 21；裸 tsc 0。
+- 【收尾】worklog（本条）+ commit/push + 环境清理（Task 86 双杀 + port FREE 验证）。
+
+Stage Summary:
+- **「footer 长出分布」**：文档资产线第三部曲——t279 三联画（三平面 + 十字线）、t280 σ 脚注（「没有 contour 的图是半张图」）、t291 分布（「有 contour 还有它切在分布何处」）：读者一眼看出截断活在粒子尾部而非噪声峰——RELION 论文图的惯例（地图直方图 + 阈值标记）进了导出资产
+- **「一个真相，三个消费者」**：format=histogram（chunked two-pass + mtime 缓存）的同一 payload——ortho 面板的 σ picker（t283）、快看对话框的只读条（t284）、triptych footer 的缩略（t291）——服务端一份数据喂三种口径的仪器，产品无第二份真相
+- **「缺席即诚实」在 footer 上的第三次落地**：fetch 失败/超时（8s AbortController）/畸形 payload → 缩略整体不画、单行 footer 照旧——猜出来的分布是对读者的撒谎；σ 截断线同款：离标 faded 0.35 + 钳位，绝不发明位置
+- **「文档版式永不碰撞」**：measure-first 布局——先量 name/stats 文宽再让渡 span，缩略缩至 span 上限、<120px 整体跳过；文档网格归常量（EXPORT_THUMB 300×40）所有，数据只决定内容不决定版式
+- **「把哲学讨论变像素事实」再下一城**：t291 套件在 Node 里裸手解 PNG（zlib + 五种 filter unfilter，零依赖）——518/506 slate 柱像素 + 单列青色窄带（≥15px 纵向 run）落在中段 span：「分布画上去了、截断线是窄带不是色块」从断言文本升级为像素证据
+- 遗留（下轮候选）：快看对话框 display range 的 σ 数值输入（σ 口径待真需求）；bookmark 缩略图叠加焦点交点（连续让位）；EMPIAR 真数据回归（连续第六窗让位）；Topaz wrapper 深化（边际递减）；triptych 导出的 8s 超时在大体积地图上的余量实测（首走 O(volume) 的真实耗时曲线）

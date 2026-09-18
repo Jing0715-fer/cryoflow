@@ -30,7 +30,7 @@
 //      focus doors (capture / restore / import check / server whitelist)
 //   C  alive on the seeded 64³ world — the focus event reports the pick;
 //      the export button downloads a real PNG with the documented raster
-//      (1592×630); saving a view persists view.focus server-side; the
+//      (1592×638); saving a view persists view.focus server-side; the
 //      server clamps out-of-range fractions; restoring a view flies the
 //      planes back; a legacy pose-only bookmark still restores
 //   Z  roster identity + console clean
@@ -178,7 +178,7 @@ try {
   }
 
   // C2 — the triptych export: click the button, catch the download, read
-  // the PNG's IHDR (the documented raster is 1592 × 630)
+  // the PNG's IHDR (the documented raster is 1592 × 638)
   const [download] = await Promise.all([
     page.waitForEvent("download", { timeout: 15000 }),
     page.locator('[data-canvas-ui="ortho-export"]').click(),
@@ -192,7 +192,7 @@ try {
   const w = png.readUInt32BE(16);
   const h = png.readUInt32BE(20);
   must(w === 1592, `the triptych is three 512px panels wide (got ${w})`);
-  must(h === 616, `the triptych carries label + footer strips (14+34+512+14+42, got ${h})`);
+  must(h === 638, `the triptych carries label + footer strips (14+34+512+14+64 — t291's footer grew the distribution, got ${h})`);
   must(/^ortho-.*-\d{6}\.png$/.test(download.suggestedFilename() ?? ""),
     `the filename is map-named and stamped ("${download.suggestedFilename()}")`);
   const state = await pollUntil(async () => {

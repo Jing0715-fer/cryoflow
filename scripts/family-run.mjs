@@ -118,6 +118,7 @@ const FAMILY = [
   "t286-display-window.mjs", // the histogram COMMANDS the display: an explicit lo/hi window overrides the 2–98 percentile stretch (literal mapping, no auto-inversion), σ preset chips + draggable lo/hi handles on the dialog's strip, bars outside the window dim — the render and the strip read ONE window state (Task 286)
   "t287-stack-histogram.mjs", // the stack speaks: a .mrcs histogram is PER SLICE (&slice=N required — an unnamed stack histogram is a blur with no subject; a volume+slice is refused), the dialog grows a slice cursor (prev/next/range/readout) driving ONE slice view + the SAME instrument, and stepping the slice resets the display window (a different image is a different distribution) (Task 287)
   "t289-window-input.mjs", // the window takes orders in every dialect: the strip's readout became lo/hi TYPEABLE fields (Enter/blur commits, tab lo→hi doesn't commit early, an invalid pair restores the live window) and the stack montage follows the window ONLY through an explicit toggle (default off — sixteen images are sixteen distributions; the toggle survives slice steps, the window does not) (Task 289)
+  "t291-ortho-hist-footer.mjs", // the footer carries the distribution: the triptych export fetches the map's histogram (8s timeout, honest absence) and draws it as a log-scaled thumbnail between name and stats — σ ruler + cyan cut line, measure-first layout that never collides, the raster grows 616→638; the suite decodes the PNG pixel-by-pixel (Node zlib) to prove the bars and the cut are ON the canvas (Task 290)
 ];
 
 // ---- batches are first-class (t273) ----------------------------------------
@@ -134,6 +135,7 @@ const BATCHES = [
   { name: "t26", match: /^t26/ },
   { name: "t27", match: /^t27/ },
   { name: "t28", match: /^t28/ },
+  { name: "t29", match: /^t29/ },
 ];
 const batchOf = (file) => BATCHES.find((b) => b.match.test(file))?.name ?? null;
 

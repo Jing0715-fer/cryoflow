@@ -186,8 +186,24 @@ const AXIS_LABEL: Record<"x" | "y" | "z", string> = {
  *  a screenshot: it looks identical at any window size) */
 const EXPORT_TILE = 512;
 const EXPORT_LABEL_H = 34;
-const EXPORT_FOOT_H = 42;
+/** t291 — the footer grew a distribution: 42 held one text line, 64 holds
+ *  the 40px histogram thumbnail the text now shares the band with */
+const EXPORT_FOOT_H = 64;
 const EXPORT_GAP = 14;
+/** t291 — the footer thumbnail: the map's density distribution, drawn
+ *  small between the map name and the caption stats. Fixed size — the
+ *  document grid, not the data, owns the layout; a map whose caption
+ *  leaves no room simply keeps the one-line footer (shrink, then skip). */
+const EXPORT_THUMB_W = 300;
+const EXPORT_THUMB_H = 40;
+/** publishing-palette cousins of the live strip's hues (the export is a
+ *  document asset — same colour language, fixed values that never swing
+ *  with the app theme): bars, the σ ruler's quiet ticks, the strong μ
+ *  and the cyan cut line */
+const EXPORT_BAR = "#64748b";
+const EXPORT_SIGMA_TICK = "#475569";
+const EXPORT_MEAN_TICK = "#e2e8f0";
+const EXPORT_CUT = "#22d3ee";
 
 function OrthoTile({
   jobId,
@@ -775,25 +791,73 @@ export function MapOrthoPanel({
     return () => clearTimeout(t);
   }, [exportState]);
 
+  /** t291 — the footer's distribution: the same `format=histogram` payload
+   *  the live strip consumes (server-cached per map, so a panel that had
+   *  the strip on pays nothing). Honest absence on ANY failure — a fetch
+   *  that errs, times out (8s: the first look walks the volume, the
+   *  export must not hang on it) or comes back malformed keeps the
+   *  one-line footer instead of drawing a guessed distribution. */
+  const fetchHistForExport = async (): Promise<{
+    bins: number[];
+    mean: number;
+    std: number;
+    lo: number;
+    hi: number;
+  } | null> => {
+    try {
+      const ac = new AbortController();
+      const t = setTimeout(() => ac.abort(), 8000);
+      const r = await fetch(
+        `/api/jobs/${jobId}/outputs/file?path=${encodeURIComponent(path)}&format=histogram`,
+        { signal: ac.signal, cache: "no-store" }
+      );
+      clearTimeout(t);
+      if (!r.ok) return null;
+      const d = (await r.json()) as Partial<{
+        bins: unknown;
+        mean: unknown;
+        std: unknown;
+        lo: unknown;
+        hi: unknown;
+      }> | null;
+      if (!d || !Array.isArray(d.bins) || d.bins.length === 0) return null;
+      if (
+        typeof d.mean !== "number" || typeof d.std !== "number" ||
+        typeof d.lo !== "number" || typeof d.hi !== "number"
+      ) return null;
+      if (!(d.std > 0) || !(d.hi > d.lo)) return null;
+      return { bins: d.bins as number[], mean: d.mean, std: d.std, lo: d.lo, hi: d.hi };
+    } catch {
+      return null; // aborted or failed — the footer stays honest by omission
+    }
+  };
+
   /** t279 — export the three orthogonal sections as ONE PNG triptych (the
    *  classic multi-panel figure in every cryo-EM paper). The tiles' own
    *  server renderer supplies the planes at the CURRENT focus point; the
    *  crosshair lines (same accents as on screen), per-plane voxel readouts
    *  and a footer naming the map, the focus fractions and the moment are
    *  drawn on a fixed publishing-style grid — a document asset, not a
-   *  screenshot: it looks the same at any window size or theme. */
+   *  screenshot: it looks the same at any window size or theme. t291 —
+   *  the footer also carries the map's DENSITY DISTRIBUTION as a small
+   *  histogram with the contour's cyan cut marked: a figure with its
+   *  contour level AND its distribution. */
   const exportTriptych = async () => {
     if (exportState === "busy") return;
     setExportState("busy");
     try {
-      const planes = await Promise.all(
-        TILES.map(async (t) => {
-          const url = `/api/jobs/${jobId}/outputs/file?path=${encodeURIComponent(path)}&format=png&axis=${t.axis}&pos=${positions[t.axis].toFixed(3)}`;
-          const r = await fetch(url, { cache: "no-store" });
-          if (!r.ok) throw new Error(`render failed (${r.status})`);
-          return createImageBitmap(await r.blob());
-        })
-      );
+      const [planeBitmaps, hist] = await Promise.all([
+        Promise.all(
+          TILES.map(async (t) => {
+            const url = `/api/jobs/${jobId}/outputs/file?path=${encodeURIComponent(path)}&format=png&axis=${t.axis}&pos=${positions[t.axis].toFixed(3)}`;
+            const r = await fetch(url, { cache: "no-store" });
+            if (!r.ok) throw new Error(`render failed (${r.status})`);
+            return createImageBitmap(await r.blob());
+          })
+        ),
+        fetchHistForExport(),
+      ]);
+      const planes = planeBitmaps;
       const W = EXPORT_GAP * 4 + EXPORT_TILE * 3;
       const H = EXPORT_GAP + EXPORT_LABEL_H + EXPORT_TILE + EXPORT_GAP + EXPORT_FOOT_H;
       const cv = document.createElement("canvas");
@@ -846,20 +910,94 @@ export function MapOrthoPanel({
           ctx.restore();
         }
       });
-      // footer: map name left, contour + focus fractions + moment right
-      // (t280 — the σ segment joins when the embed has reported a contour:
-      // a figure without its contour level is half a figure, but a GUESSED
-      // one is a lie — absent σ simply keeps the footer honest)
-      const footY = EXPORT_GAP + EXPORT_LABEL_H + EXPORT_TILE + EXPORT_GAP + EXPORT_FOOT_H / 2;
+      // footer: map name left, the map's density distribution centre
+      // (t291), contour + focus fractions + moment right (t280 — the σ
+      // segment joins when the embed has reported a contour: a figure
+      // without its contour level is half a figure, but a GUESSED one is
+      // a lie — absent σ simply keeps the footer honest; the thumbnail
+      // plays by the same rule: absent histogram, no thumbnail).
+      // Measure first, place second — a document layout never collides:
+      // the thumbnail shrinks to the span the caption texts leave, and
+      // skips entirely when that span cannot hold a legible chart.
+      const footTop = EXPORT_GAP + EXPORT_LABEL_H + EXPORT_TILE + EXPORT_GAP;
+      const footY = footTop + EXPORT_FOOT_H / 2;
       const base = path.split("/").pop() || path;
+      const sigmaSeg = isoSigma ? `iso ${isoSigma.sign < 0 ? "-" : ""}${isoSigma.sigma.toFixed(2)} σ · ` : "";
+      const f = `${sigmaSeg}focus x ${Math.round(positions.x * 100)}% · y ${Math.round(positions.y * 100)}% · z ${Math.round(positions.z * 100)}%   ${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC`;
+      ctx.font = "600 13px ui-sans-serif, system-ui, sans-serif";
+      const nameW = ctx.measureText(base).width;
+      ctx.font = "12px ui-monospace, SFMono-Regular, Menlo, monospace";
+      const statsW = ctx.measureText(f).width;
+      const spanL = EXPORT_GAP + nameW + 18;
+      const spanR = W - EXPORT_GAP - statsW - 18;
+      const thumbW = Math.min(EXPORT_THUMB_W, spanR - spanL);
+      if (hist && thumbW >= 120) {
+        const tx = spanL + (spanR - spanL - thumbW) / 2;
+        const ty = footTop + (EXPORT_FOOT_H - EXPORT_THUMB_H) / 2;
+        ctx.strokeStyle = EXPORT_TILE_BORDER;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(tx + 0.5, ty + 0.5, thumbW - 1, EXPORT_THUMB_H - 1);
+        const px0 = tx + 4;
+        const px1 = tx + thumbW - 4;
+        const py0 = ty + 4;
+        const py1 = ty + EXPORT_THUMB_H - 10; // the caption strip below the bars
+        const span = hist.hi - hist.lo;
+        const xOf = (v: number) =>
+          span > 0 ? px0 + ((v - hist.lo) / span) * (px1 - px0) : (px0 + px1) / 2;
+        // the σ ruler — the same one the live strip speaks: μ strongest,
+        // ±1σ ±2σ quiet (labels are the caption texts' job at this size)
+        ctx.lineWidth = 1;
+        for (const s of [-2, -1, 0, 1, 2]) {
+          const gx = xOf(hist.mean + s * hist.std);
+          if (gx < px0 || gx > px1) continue;
+          ctx.strokeStyle = s === 0 ? EXPORT_MEAN_TICK : EXPORT_SIGMA_TICK;
+          ctx.beginPath();
+          ctx.moveTo(gx, py0);
+          ctx.lineTo(gx, py1);
+          ctx.stroke();
+        }
+        // log-scaled bars — the strip's own visual language at postage size
+        let maxC = 0;
+        for (const c of hist.bins) if (c > maxC) maxC = c;
+        if (maxC <= 0) maxC = 1;
+        const logMax = Math.log10(1 + maxC);
+        const n = hist.bins.length;
+        const bw = (px1 - px0) / n;
+        ctx.fillStyle = EXPORT_BAR;
+        for (let i = 0; i < n; i++) {
+          const c = hist.bins[i];
+          if (c <= 0) continue;
+          const bh = ((py1 - py0) * Math.log10(1 + c)) / logMax;
+          ctx.fillRect(px0 + i * bw, py1 - bh, Math.max(0.5, bw - 1), bh);
+        }
+        // the contour — the cyan cut line, faded when it lives off-scale
+        // (the same honesty the live strip draws: clamped, not invented)
+        if (isoSigma) {
+          const v = hist.mean + isoSigma.sign * isoSigma.sigma * hist.std;
+          const cx = Math.min(px1, Math.max(px0, xOf(v)));
+          ctx.strokeStyle = EXPORT_CUT;
+          ctx.globalAlpha = v >= hist.lo && v <= hist.hi ? 1 : 0.35;
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(cx, py0 - 2);
+          ctx.lineTo(cx, py1);
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+        }
+        // the caption — WHAT the mini-picture is, centred under the bars
+        ctx.font = "7px ui-monospace, SFMono-Regular, Menlo, monospace";
+        ctx.fillStyle = EXPORT_TEXT;
+        ctx.textAlign = "center";
+        ctx.fillText("density (log)", tx + thumbW / 2, ty + EXPORT_THUMB_H - 2.5);
+        ctx.textAlign = "left";
+      }
+      // the two text runs — same content as ever, the thumb just moved in
       ctx.font = "600 13px ui-sans-serif, system-ui, sans-serif";
       ctx.fillStyle = "#e2e8f0";
       ctx.fillText(base, EXPORT_GAP, footY);
       ctx.font = "12px ui-monospace, SFMono-Regular, Menlo, monospace";
       ctx.fillStyle = EXPORT_TEXT;
       ctx.textAlign = "right";
-      const sigmaSeg = isoSigma ? `iso ${isoSigma.sign < 0 ? "-" : ""}${isoSigma.sigma.toFixed(2)} σ · ` : "";
-      const f = `${sigmaSeg}focus x ${Math.round(positions.x * 100)}% · y ${Math.round(positions.y * 100)}% · z ${Math.round(positions.z * 100)}%   ${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC`;
       ctx.fillText(f, W - EXPORT_GAP, footY);
       ctx.textAlign = "left";
       const blob = await new Promise<Blob | null>((res) => cv.toBlob(res, "image/png"));
@@ -946,7 +1084,7 @@ export function MapOrthoPanel({
           data-canvas-ui="ortho-export"
           data-ortho-export-state={exportState}
           aria-label="Export the three orthogonal sections as a PNG triptych"
-          title="Export the three sections (crosshair included) as one PNG"
+          title="Export the three sections as one PNG — crosshair and density footer included"
           className={cn(
             "shrink-0 rounded p-1 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
             exportState === "ok"

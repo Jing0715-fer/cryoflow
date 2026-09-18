@@ -33,7 +33,7 @@
 //      first paint (pull channel), follows a preset click (push channel),
 //      the saved view's row shows the focus chip, a view-without-focus
 //      row stays chipless after reload, and the export (σ in the footer)
-//      keeps the documented raster 1592×616
+//      keeps the documented raster 1592×638 (t291: the footer grew the distribution)
 //   Z  roster identity + console clean
 //
 // Run: node scripts/t280-ortho-sigma-chips.mjs   (server on :3000)
@@ -210,7 +210,7 @@ try {
   const w = png.readUInt32BE(16);
   const h = png.readUInt32BE(20);
   must(w === 1592, `the triptych width is unchanged (got ${w})`);
-  must(h === 616, `the footer kept its height with the σ segment in it (got ${h})`);
+  must(h === 638, `the footer grew with the distribution (t291: 64px band, got ${h})`);
   const state = await pollUntil(async () => {
     const s = await page.locator('[data-canvas-ui="ortho-export"]').getAttribute("data-ortho-export-state");
     return s === "ok" || s === "idle" ? s : null;
