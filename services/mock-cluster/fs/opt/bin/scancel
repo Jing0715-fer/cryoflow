@@ -11,6 +11,13 @@ for id in "$@"; do
   pid="$(echo "$pinfo" | awk '{print $2}')"
   st="$(echo "$pinfo" | awk '{print $3}')"
   if [ -n "$pid" ] && [ -r "/proc/$pid/stat" ] && [ "$(awk '{print $22}' /proc/$pid/stat 2>/dev/null)" = "$st" ]; then
+    # t299 — the cancel IS the terminal testimony: real sacct reports
+    # CANCELLED for scancel'd jobs even when no step ever writes anything.
+    # Marker + journal row land BEFORE the kills so the launcher's
+    # post-script check (which would otherwise journal a FAILED verdict)
+    # sees the cancel and stands down.
+    touch "$SLURM_DIR/job-$id.cancelled"
+    printf '%s|%s|%s|%s\n' "$id" "CANCELLED" "0:15" "$(date +%s)" >> "$SLURM_DIR/accounting"
     kill -- -"$pid" 2>/dev/null
     kill "$pid" 2>/dev/null
     sleep 0.3

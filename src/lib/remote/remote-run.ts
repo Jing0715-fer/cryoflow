@@ -1194,6 +1194,10 @@ async function pollOneRemote(conn: RemoteConnection, rec: RunRecord): Promise<Po
   if (res.error) return res.error === "busy" ? "busy" : "unknown";
   if (/^EXIT:/m.test(res.stdout)) return "exit";
   if (/^ALIVE/m.test(res.stdout)) return "alive";
+  // t299 — the scheduler's terminal verdict is an exit: the script only
+  // emits SACCT: for accounting words that ended the run, so the pre-spawn
+  // guard can treat the record as finished (the sweep does the finalize)
+  if (/^SACCT:/m.test(res.stdout)) return "exit";
   if (/^VANISHED/m.test(res.stdout)) return "vanished";
   return "unknown";
 }
@@ -1206,6 +1210,15 @@ async function pollOneRemote(conn: RemoteConnection, rec: RunRecord): Promise<Po
  * runs (t297) the scheduler is the witness — squeue still knowing the job
  * means queued/running/completing, and the state word rides the line
  * (ALIVE:PENDING / ALIVE:RUNNING) so the UI can say "queued" honestly.
+ * t299 — squeue purges finished jobs almost immediately, so a vanished
+ * .cf-exit (NFS lag, node gone mid-write) used to fall straight through to
+ * VANISHED and age into a false "interrupted remotely" failure. The third
+ * witness closes that hole: sacct serves the controller's OWN terminal
+ * verdict (COMPLETED/FAILED/CANCELLED/TIMEOUT/…) from the accounting
+ * ledger — terminal words ride out as SACCT:<state>|<exit>:<sig> for the
+ * sweep to map onto the exit contract, in-flight words (rare accounting
+ * lag) stay ALIVE, and an empty verdict (no accounting row either) is the
+ * only thing still allowed to mean VANISHED.
  */
 function aliveCheckScript(remoteWorkdir: string, slurmId?: string | null): string {
   const W = shQuote(remoteWorkdir);
@@ -1215,7 +1228,12 @@ function aliveCheckScript(remoteWorkdir: string, slurmId?: string | null): strin
     return (
       `if [ -f ${EXIT} ]; then echo "EXIT:$(cat ${EXIT} 2>/dev/null)"; ` +
       `else __st="$(squeue -j ${J} -h -o %T 2>/dev/null | head -1)"; ` +
-      `if [ -n "$__st" ]; then echo "ALIVE:$__st"; else echo VANISHED; fi; fi`
+      `if [ -n "$__st" ]; then echo "ALIVE:$__st"; ` +
+      `else __ac="$(sacct -j ${J} -n -P -o State,ExitCode 2>/dev/null | head -1)"; ` +
+      `case "$__ac" in ` +
+      `PENDING*|RUNNING*|COMPLETING*) echo "ALIVE:${"${"}__ac%%|*}" ;; ` +
+      `COMPLETED*|FAILED*|CANCELLED*|TIMEOUT*|NODE_FAIL*|BOOT_FAIL*|OUT_OF_*|PREEMPTED*|DEADLINE*|SPECIAL_EXIT*) echo "SACCT:$__ac" ;; ` +
+      `*) echo VANISHED ;; esac; fi; fi`
     );
   }
   return (
@@ -1432,6 +1450,37 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
         const exitMatch = /^EXIT:\s*(-?\d+)/.exec(b.status);
         if (exitMatch) {
           const exitCode = Number(exitMatch[1]);
+          const updated = await finalizeRemoteRun(e.job, e.rec, exitCode, b.log, conn);
+          if (updated) replace(out, updated);
+          continue;
+        }
+        // t299 — the accounting fallback: squeue went silent AND the exit
+        // file never landed, but the scheduler's ledger still knows the
+        // truth. Map the terminal word onto the SAME exit contract the
+        // wrapper would have written, so finalize (sync-back → outputs →
+        // DB flip) runs the one honest path instead of the false
+        // "interrupted remotely" tombstone.
+        const sacctMatch = /^SACCT:([A-Z_]+)(?:\s+by\s+\d+)?\|(\d+):(\d+)/.exec(b.status);
+        if (sacctMatch) {
+          const word = sacctMatch[1];
+          const exitNum = Number(sacctMatch[2]);
+          const sigNum = Number(sacctMatch[3]);
+          // CANCELLED is the stop contract (t297's TERM trap writes 143 —
+          // the scheduler's own accounting must speak the same word); a
+          // signal death with a clean exit rides 128+sig; TIMEOUT killed
+          // by the walltime limit is a failure even when the step itself
+          // exited 0 (timeout(1)'s 124, the batch world's shared idiom)
+          const mapped =
+            word === "CANCELLED" ? 143 : exitNum !== 0 ? exitNum : sigNum !== 0 ? 128 + sigNum : 0;
+          const exitCode = word === "TIMEOUT" && mapped === 0 ? 124 : mapped;
+          if (e.remote.slurmId != null && e.remote.slurmState !== word) {
+            e.remote.slurmState = word;
+            updateRun(e.job.id, (rec) =>
+              rec.remote && !rec.done
+                ? { ...rec, remote: { ...rec.remote, slurmState: word } }
+                : null
+            );
+          }
           const updated = await finalizeRemoteRun(e.job, e.rec, exitCode, b.log, conn);
           if (updated) replace(out, updated);
           continue;

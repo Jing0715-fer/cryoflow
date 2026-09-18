@@ -2061,3 +2061,12 @@ Stage Summary:
 - 【套件 t298-remote-big-map.mjs（42 断言，终版三跑 ALL PASS）】A demo 真相；B 台账 17（32GB ceiling + dedup 契约 + 排序法 + no-tombstones + 字节对账 + writeSync 法 + over-cap 流内斩 + 计时器 + 懒腿漏斗 + RemoteFileTile 四门 + mock 泵法）；C0 确定性 256³ MRC；C1 本地 import；C2 借用环（keyFileMb=1）；C3 植入 64MB→re-run→key-files 留下它+台账精确+REMOTE 瓦片 dims 缺席；C4 SSH 腿计时（Mol* 同请求，~1.2s 全量 67,109,888B + Content-Length + sha256 字节同一）；C5 dedup 竞态（双并发全量+字节同一）；C6 UI 腿计时（云徽章→remote-view-3d→Mol* 拉 64MB 过 SSH→canvas ~4s→全链 ~13-16s 进 120s 门→毕业带 dims [256,256,256]→零 remote 残留）；C7 直方图第二眼（冷 ~1s→LRU ~10-50ms，nFinite=256³）；D console 0 + **失败响应 0**（新增 page.on(response) 取证钩子）；finally 双 port 清场+植入图诛杀。
 - 【沙箱重启战役（本窗最大劫难）】家族回归 t27 批次期间 **12:25:20 整机重启**（uptime 实证）；平台重启后自启 next dev（dev.log 12:33，OOM 于 491s 自亡）**擦除 .next 全部 prod 工件**；随后工作区**回滚到 Task-272 时代快照**——本窗全部未提交工作（套件/探针/三层修复/worklog 条目）阵亡，Tasks 273–296 本地树消失。恢复：`git fetch`（origin/main 幸存全部历史）→ 发现**并行窗已交付其 Task 297**（26708f2，slurm sbatch+GPU 清单+probe 修复，零触碰我方修复位点）→ `reset --hard origin/main` + 我方 renumber 298 + 全部产物重放。第二次 build 又因 OOM 崩溃再擦 standalone（"Node.js v24.21.0" 横幅取证）→ 清场后单独前台重建成功。**教训入法：commit/push 前置到套件三绿之后、家族回归之前**——重启吃掉未提交工作，push 是唯一护身符。
 - 【收尾】commit/push（套件三绿后立即）→ 全家族回归（见 Stage Summary）→ worklog 补齐 + 终 push + 净场。
+
+
+## Task 299 (2026-09-18, cron 23:18 窗口 trace 1a07549302235a99-cron-agent-loop-202609182318 —— 立项中)
+
+- 【开局】尾部实证 = Task 298（6ab675d 已 push）；HEAD 6e1cfd1 为并行窗的未 push 截图翻新提交——已护身 push（+ 5 张 t266-t269 截图翻新 a6a1e7d）。续窗摘要第十九次不实（声称 272 基线/连续十八窗阻塞）；cron 模板「Task 13」照例不认。
+- 【净场】3022 泄漏 mock（21:38 启动，1h43m）处决；roster 23 → 代并行窗执行其夭折 t268 套件的清场仪式（删除 2 个泄漏 job）→ 21 恒等。
+- 【QA】四哨兵全绿：qa63-smoke ✓ qa00-data-view ✓ t298-remote-big-map ALL PASS ✓ t296-big-map-viewer ALL PASS ✓——项目稳定，进入自主立项。
+- 【树上核实】t297 遗留池核实：sacct 兜底未交付（src 仅注释提及）；**t297 的 slurm sbatch 模式无持久化套件**（树上无 t297-*.mjs，家族回归零覆盖）。
+- 【立项】Task 299「sacct 兜底——调度器自己的证词在 purge 后依然在场」：squeue 只见 PENDING/RUNNING，job 终局离队 + .cf-exit 因 NFS 迟滞/节点崩溃而缺席时，现行为 = VANISHED → 120s 宽限 → 伪「interrupted remotely」失败；sacct 的 accounting 是唯一诚实的终局证词。实现 = mock 三件套（accounting 账本 + sacct 工具 + scancel 记账）+ aliveCheckScript 第三证人 + sweep 解析 SACCT: 映射 + inspector 终局词条。副产品：t299 套件成为 slurm 模式的首个家族公民。

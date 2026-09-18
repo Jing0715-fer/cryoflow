@@ -58,7 +58,19 @@ cat > "$launcher" <<EOF
 #!/usr/bin/env bash
 sleep 1
 echo "RUNNING" > "$SLURM_DIR/job-$id.state"
-exec bash "$script"
+# t299 — the launcher must outlive the script by one breath: with exec the
+# process REPLACED itself and died mute, and sacct's accounting (the only
+# witness that survives the squeue purge) never learned the verdict
+bash "$script"
+__rc=\$?
+if [ -f "$SLURM_DIR/job-$id.cancelled" ]; then
+  # scancel owns this job's accounting — its CANCELLED entry already stands
+  exit \$__rc
+fi
+__state=COMPLETED
+[ "\$__rc" -ne 0 ] && __state=FAILED
+printf '%s|%s|%s|%s\n' "$id" "\$__state" "\$__rc:0" "\$(date +%s)" >> "$SLURM_DIR/accounting"
+exit \$__rc
 EOF
 chmod +x "$launcher"
 

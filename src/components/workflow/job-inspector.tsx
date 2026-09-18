@@ -2161,8 +2161,19 @@ function InspectorHeader({ job }: { job: JobDTO }) {
               : job.status === "completed" || job.status === "failed"
                 ? // t269 — terminal: the pid is dead, so the strip stops
                   // claiming the run is "Running"; the ledger span below
-                  // speaks the timing instead
-                  "Ran on the cluster"
+                  // speaks the timing instead. t299 — when the verdict came
+                  // from the scheduler's accounting (the .cf-exit never
+                  // landed), the strip carries the controller's OWN terminal
+                  // word instead of a bare "ran"
+                  `Ran on the cluster${
+                    job.runRemote.mode === "slurm" &&
+                    job.runRemote.slurmState &&
+                    /^(COMPLETED|FAILED|CANCELLED|TIMEOUT|NODE_FAIL|BOOT_FAIL|OUT_OF_MEMORY|PREEMPTED|DEADLINE|SPECIAL_EXIT)$/.test(
+                      job.runRemote.slurmState
+                    )
+                      ? ` · Slurm ${job.runRemote.slurmState}`
+                      : ""
+                  }`
                 : job.runRemote.mode === "slurm"
                   ? // t297 — the scheduler's own vocabulary: the state word
                     // (PENDING/RUNNING/…) + the job id + the GPU width

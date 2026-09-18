@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+# mock sacct for the CryoFlow mock cluster (t299)
+#
+# Real Slurm purges finished jobs from squeue almost immediately — squeue
+# only knows PENDING/RUNNING/COMPLETING. The terminal truth lives in the
+# accounting ledger, which sacct serves. This mock reads the journal that
+# sbatch's launcher (COMPLETED/FAILED) and scancel (CANCELLED) append to
+# ~/.slurm/accounting, one pipe-delimited row per verdict:
+#
+#   <jobid>|<STATE>|<exit>:<signal>|<unix-epoch>
+#
+# Supports the app's poll grammar (aliveCheckScript, t299):
+#   sacct -j <id> -n -P -o State,ExitCode   →  "COMPLETED|0:0"
+# plus the loose basics (bare listing, -o with JobID/State/ExitCode cols).
+# The LAST row for a job wins (re-submissions after requeue supersede).
+set -u
+SLURM_DIR="$HOME/.slurm"
+[ -f "$SLURM_DIR/accounting" ] || exit 0
+
+want_ids=""
+noheader=0
+cols="JobID,State,ExitCode"
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -j) shift; want_ids="${1:-}" ;;
+    --jobs=*) want_ids="${1#--jobs=}" ;;
+    -n|--noheader) noheader=1 ;;
+    -P|--parsable) noheader=1 ;;
+    -o) shift; cols="${1:-$cols}" ;;
+    -S|--starttime) shift ;;   # accepted, ignored (whole journal is in RAM-sized)
+    -E|--endtime) shift ;;
+    --units=*|--allocations|--abbrev) ;;
+    *) ;;
+  esac
+  shift
+done
+
+render() {
+  # $1 = journal row (id|STATE|exit:signal|epoch)
+  local row="$1" out="" c v
+  local jid state xit epoch
+  IFS='|' read -r jid state xit epoch <<< "$row"
+  IFS=',' read -ra COLS <<< "$cols"
+  for c in "${COLS[@]}"; do
+    case "$c" in
+      JobID) v="$jid" ;;
+      State) v="$state" ;;
+      ExitCode) v="$xit" ;;
+      *) v="" ;;
+    esac
+    out="${out:+$out|}$v"
+  done
+  printf '%s\n' "$out"
+}
+
+if [ -n "$want_ids" ]; then
+  # single/selected-job query: SILENT (exit 0) for a job the journal never
+  # met — the exact contract the app's alive-check fallback relies on
+  # (no accounting row == the scheduler has no testimony == VANISHED)
+  oldIFS="$IFS"
+  IFS=','
+  for id in $want_ids; do
+    IFS="$oldIFS"
+    [ -n "$id" ] || continue
+    line="$(grep -F "$id|" "$SLURM_DIR/accounting" 2>/dev/null | grep -E "^${id}\|" | tail -1)"
+    [ -n "$line" ] && render "$line"
+  done
+  IFS="$oldIFS"
+  exit 0
+fi
+
+[ "$noheader" = "1" ] || echo "JobID|State|ExitCode"
+while IFS= read -r row; do
+  [ -n "$row" ] && render "$row"
+done < "$SLURM_DIR/accounting"
+exit 0
