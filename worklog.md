@@ -1981,4 +1981,5 @@ Stage Summary:
 - **「一个真相，reload 即知」**：成功不做本地手术——缓存的卡片想不说谎，唯一的方式是重新问服务端；对共享状态（全局 engine-state.json）的每一个写路径都回到同一聚合出口
 - **「合跑撞上限」**：t24+t25 一条命令 = 596s > 600s 工具上限，斩断点丢掉的只有「批次作为单位」的语义——600s 天花板不认你的算术，一命令一批是物理定律不是建议
 - 遗留（下轮候选）：remote-view-3d 大 map 的 Mol* 渲染实测；快看对话框 σ 口径输入（待真需求）；EMPIAR 真数据回归（连续第八窗让位）；résumé recent 只有 ≤3 行、total 大时旧条目无入口（分页/展开，待真需求）；批量 forget「一键清墓」（待真需求）
+- 【收尾补记】净场抓到一个跨窗残留 + 一个真基础设施刺：:3022 被 pid 20854（07:45 启动）占着——是哨兵复绿时 t272/t293 套件拉起的 mock cluster；套件 finally 的清场模式 `pkill -f 'mock-cluster/server.mjs'` 与实际进程 cmdline `bun server.mjs`（launch.sh 以裸相对路径 exec）**永不匹配**——这就是 mock 残留屡次跨窗存活（Task 291 开局也抓到过一次 1h38m 残留）的根源。修法方向（下轮可落地）：launch.sh exec 时用绝对路径，或清场模式改为按 cwd/端口定位（fuser -k 3022/tcp 已证可靠）。本窗以 kill pid + 端口验证净场（双 port FREE、无 watchdog/standalone 残留）。
 
