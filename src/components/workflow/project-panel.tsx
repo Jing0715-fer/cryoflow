@@ -302,11 +302,21 @@ export function NewProjectDialog({
           {/* t300 — the data location: where this project's DATA lives. Local
               keeps the classic contract (browse this machine's drives); remote
               binds the project to a saved SSH cluster — the import browser
-              browses THAT cluster's filesystem and jobs are submitted there. */}
+              browses THAT cluster's filesystem and jobs are submitted there.
+              t301 — radio-card styling: the first cut was a quiet segmented
+              pill that users scrolled past without registering (the #1 "where
+              is the local/cluster option?" question) — bordered cards, left-
+              aligned labels and a real question line make the choice
+              unmissable without changing a line of behavior. */}
           <div className="space-y-1.5">
-            <Label>Data location</Label>
+            <div className="flex items-baseline justify-between gap-2">
+              <Label>Data location</Label>
+              <span className="text-[10px] text-muted-foreground">
+                where the data lives
+              </span>
+            </div>
             <div
-              className="grid grid-cols-2 gap-1 rounded-lg border bg-secondary/40 p-0.5"
+              className="grid grid-cols-2 gap-1.5"
               role="tablist"
               aria-label="Data location"
             >
@@ -323,21 +333,23 @@ export function NewProjectDialog({
                   aria-selected={location === opt.value}
                   onClick={() => setLocation(opt.value)}
                   className={cn(
-                    "flex flex-col items-center gap-0.5 rounded-md px-2 py-1.5 text-[11px] font-medium transition-colors",
+                    "flex flex-col items-start gap-0.5 rounded-lg border px-3 py-2 text-left transition-colors",
                     location === opt.value
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
+                      ? "border-primary/50 bg-primary/5 shadow-sm"
+                      : "border-border text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
                   )}
                 >
-                  <span className="flex items-center gap-1.5">
+                  <span className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
                     {opt.value === "local" ? (
-                      <FolderGit2 className="size-3.5" aria-hidden="true" />
+                      <FolderGit2 className="size-3.5 shrink-0" aria-hidden="true" />
                     ) : (
-                      <Server className="size-3.5" aria-hidden="true" />
+                      <Server className="size-3.5 shrink-0" aria-hidden="true" />
                     )}
                     {opt.label}
                   </span>
-                  <span className="text-[9.5px] font-normal text-muted-foreground">{opt.hint}</span>
+                  <span className="text-[10px] font-normal leading-snug text-muted-foreground">
+                    {opt.hint}
+                  </span>
                 </button>
               ))}
             </div>

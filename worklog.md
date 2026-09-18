@@ -2093,3 +2093,14 @@ Stage Summary:
 - **「选择器的上限来自被选者」」:GPU 步进器随所选节点组实时收敛——normal(5 GPU/node)不提供 6;「brain2 offers 8/node」的提示随选择实时更新
 - **「绑定新鲜解析,删除诚实降级」」:remote ref 每次 DTO 构建从活体注册表解析——连接删除徽章消失、浏览/提交门点名缺失集群、重加即复原;绑定从不静默解绑
 - 遗留(下轮候选): 多主机组的节点级(而非组级)挑选(待空闲节点感知);sacct 终局态交叉验证;sbatch --dependency 管线级 afterok 链;远程项目的 pipeline 模板一键搭建(当前 scaffold 在远程项目上建空作业)
+
+## Task 301 (2026-09-18, 用户工单窗口 —— t300 交付后的两问: 切换器可见性 + 宽屏 KPI 卡片重叠)
+
+- 【工单】用户两问: ①「为何我的 UI 中没有看到选择本地还是 cluster 的选项」②「dashboard 的统计卡片在宽屏上会显示在同一行,导致每个卡片都比较窄,文字和趋势图形会重叠」。核查: ①的答案是 checkout 落后——`git ls-remote` 证实 origin/main 已在 31e3b6d(t300 含 Data location 切换器),用户本地未 pull;但工单②是树上真实缺陷,且验证途中又揪出两个同族存量缺陷,一并修复。
+- 【根因② KPI 水印重叠】KpiCard 的 sparkline 是绝对定位的 bottom-right 水印(opacity-80, 84×24),与文字列同层——lg:grid-cols-5 五列平铺时每卡仅 ~210px,truncate 的 sub 文字跑满内容宽,水印必然压在 "+N in the last 14 days" 上;容器 max-w-6xl 封顶 1152px,宽屏也逃不出 210px 卡宽。
+- 【修复② 两区布局】KpiCard 重构为 flex flex-col justify-center: 文字区(图标+数值+标签+sub)在上,趋势条(mt-1.5 独立行、右对齐)在下——重叠在任何卡宽下结构性不可能(不再依赖恰好不相遇);网格 5 列从 lg 推迟到 xl(1024-1279 落到宽敞的 3+2),容器 xl:max-w-7xl(≥1280 用满宽度,卡宽 210→234px);Running/Engine 无 spark 的卡由 grid stretch 等高。
+- 【修复①可发现性】New project 对话框的 Data location 切换器从 bg-secondary/40 小药丸升级为 radio-card 双卡(边框、左对齐、text-xs 粗体标签、"where the data lives" 问句行、选中 border-primary/50 bg-primary/5)——行为零改动,可见性拉满;Dashboard 项目网格卡新增 violet Server 徽章(本地/集群在网格上一眼可辨,API 早已携带 remote ref 只是没人渲染;title 携 username@host,长名 truncate)。
+- 【顺带揪出·存量 A: RELION chip 纵向爆裂】RelionStatusChip 无 shrink-0、label 无 nowrap——header 拥挤时按钮被挤到 ~52px label 宽,"RELION not found" 折成三行,纵向撑破 h-8 chrome 盖到邻居(VLM 视觉复核发现,程序化几何证实 52×48 的 leaf)。修复: 按钮 shrink-0 + label max-w-[220px] truncate whitespace-nowrap(title 携全文)。
+- 【顺带揪出·存量 B: header 左右集群互相穿透】1600px 实测 "noted" chip 终于 x=1215 而 RELION chip 已始于 x=1169——46px 互穿。渐进披露档位按旧版右栏标定(右栏此后长了 remote 门+报告按钮,左栏 t300 又加了 violet 绑定徽章): 2xl(1536) 档的三个计数器实际需要 ~1700px 才有行宽。修复: 计数器档位 2xl:flex → min-[1700px]:flex(实测注释在案);1600 下计数器隐藏、左右集群零重叠,1920 下计数器回归且零重叠。
+- 【验证(standalone prod + agent-browser 双通道)】4GB 内存墙三杀 dev server(dmesg OOM 在案: Turbopack 懒 chunk 编译峰值 2.8GB,与浏览器不能共存)→ 转 standalone 生产构建(bun run build + 孤儿脚本 scripts/prod-3001.sh,启动模式复刻 start-prod.sh 教义)双验证: ①程序化几何断言——KPI 带 1600/1100/375 三宽度各 5/3/2 列、卡宽 234/337/166、sparkline 与 sub 文字重叠数全 0(vGap=6 的独立行);项目网格 violet 徽章 2(两远程项目)/0(本地 demo);header 1600 与 1920 双宽度 leaf 重叠数全 0、RELION chip 32px 单行;②VLM 视觉复核——KPI 卡无重叠/对话框双卡醒目且 Cluster 选中态+连接下拉在案/顶栏(修复后)干净;对话框交互链(Data location 切 Cluster → Mock HPC 下拉)活体走通。六张定妆照(t301-final-1600/final-dialog/header-1920/kpi-1100/kpi-375/newproject-cluster.png)。
+- 【质量】裸 tsc 0;改动三文件(header/project-dashboard/project-panel)eslint 0;沙箱模板 3000 验证期间暂停、验证后恢复。

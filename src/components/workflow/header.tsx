@@ -188,7 +188,7 @@ function RelionStatusChip() {
           type="button"
           title={title}
           aria-label={`RELION environment status: ${label}`}
-          className="flex h-8 items-center gap-1.5 rounded-lg border bg-card px-2.5 card-lift transition-colors hover:bg-secondary/60"
+          className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg border bg-card px-2.5 card-lift transition-colors hover:bg-secondary/60"
         >
           <span className="relative flex size-2">
             <span
@@ -209,7 +209,15 @@ function RelionStatusChip() {
           ) : (
             <CircleAlert className="size-3.5 text-amber-600 dark:text-amber-400" aria-hidden="true" />
           )}
-          <span className="text-xs font-medium">{label}</span>
+          {/* t301 — a status chip is ONE line, full stop. Under header
+              crowding (2xl stat chips + a remote project badge + a long
+              "not found"/WSL label) the flex row squeezed this button to
+              ~52px of label room and the multi-word label WRAPPED to three
+              lines, blowing vertically out of the h-8 chrome onto its
+              neighbors. shrink-0 lets the truncating LEFT cluster absorb
+              the squeeze; nowrap+truncate keeps the chip itself honest
+              (title carries the full text). */}
+          <span className="max-w-[220px] truncate whitespace-nowrap text-xs font-medium">{label}</span>
           {fromCache && (
             <Badge
               variant="outline"
@@ -643,11 +651,20 @@ export function Header() {
             tier has room (measured at 1280/1366/1440/1536: the middle zone
             used to overflow INTO the actions cluster below ~1470px, the
             last stat chip silently hidden under it). xl = workspace +
-            project + lens chip; 2xl = the three counters join. */}
+            project + lens chip; the three counters join from 1700px up
+            (t301 re-measure — see below). */}
+        {/* t301 — re-measured, the tiers had drifted: the right cluster
+            grew (remote-clusters door, session report) and a remote
+            project adds a violet binding badge to the project switcher,
+            so at 1600px the 2xl counters made the LEFT cluster overflow
+            INTO the right one (measured: "noted" chip ended at x=1215
+            while the RELION chip already started at x=1169 — 46px of
+            interpenetration). The counters need ~270px of row that only
+            exists from ~1700px up; 2xl (1536) was a lie since t300. */}
         <div className="hidden items-center gap-2 xl:flex">
           <WorkspaceSelect />
           <ProjectSwitcher />
-          <div className="hidden items-center gap-2 2xl:flex" aria-label="Workflow statistics">
+          <div className="hidden items-center gap-2 min-[1700px]:flex" aria-label="Workflow statistics">
             <StatChip
               icon={<Boxes className="size-3.5" />}
               label="jobs"

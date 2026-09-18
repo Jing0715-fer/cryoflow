@@ -31,6 +31,7 @@ import {
   Pencil,
   Plus,
   Search,
+  Server,
   Snowflake,
   StickyNote,
   Trash2,
@@ -242,47 +243,56 @@ const KpiCard = React.forwardRef<
   const interactive = typeof onClick === "function";
   const body = (
     <>
-      <span
-        className={cn(
-          "flex size-10 shrink-0 items-center justify-center rounded-lg ring-1 ring-inset",
-          tone
-        )}
-        aria-hidden="true"
-      >
-        {icon}
-      </span>
-      <div className="min-w-0 leading-tight">
-        <p className="text-xl font-semibold tabular-nums tracking-tight">{value}</p>
-        {/* truncate is a SCREEN economy — on paper the card has room and no
-            hover to recover hidden text, so labels/subs unwrap to full
-            width (Task 85: the paper contract expands what the screen
-            clips); title keeps screen hover recovery honest */}
-        <p
-          title={label}
-          className="truncate print:whitespace-normal print:overflow-visible text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
+      {/* t301 — two-zone card. The old single row pinned the spark as an
+          absolute bottom-right WATERMARK over the text column: at
+          lg:grid-cols-5 each card narrowed to ~210px, the truncated sub text
+          ran the full content width and the 84px spark landed right on top of
+          it. Now the spark owns its own row below the text — overlap is
+          structurally impossible at every card width. */}
+      <div className="flex w-full min-w-0 items-center gap-3">
+        <span
+          className={cn(
+            "flex size-10 shrink-0 items-center justify-center rounded-lg ring-1 ring-inset",
+            tone
+          )}
+          aria-hidden="true"
         >
-          {label}
-        </p>
-        {sub ? (
+          {icon}
+        </span>
+        <div className="min-w-0 flex-1 leading-tight">
+          <p className="text-xl font-semibold tabular-nums tracking-tight">{value}</p>
+          {/* truncate is a SCREEN economy — on paper the card has room and no
+              hover to recover hidden text, so labels/subs unwrap to full
+              width (Task 85: the paper contract expands what the screen
+              clips); title keeps screen hover recovery honest */}
           <p
-            title={sub}
-            className="truncate print:whitespace-normal print:overflow-visible text-[10px] text-muted-foreground/70"
+            title={label}
+            className="truncate print:whitespace-normal print:overflow-visible text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
           >
-            {sub}
+            {label}
           </p>
-        ) : null}
+          {sub ? (
+            <p
+              title={sub}
+              className="truncate print:whitespace-normal print:overflow-visible text-[10px] text-muted-foreground/70"
+            >
+              {sub}
+            </p>
+          ) : null}
+        </div>
       </div>
-      {/* sparkline as a bottom-right watermark: decorative trend that never
-          squeezes the text column (in-flow placement truncated "TOTAL JOBS"
-          to "TO…" at lg width) — pointer-events-none so it can't block */}
+      {/* trend strip — the sparkline's own row: never squeezes the text
+          column, never sits under a label (the in-flow placement that
+          truncated "TOTAL JOBS" to "TO…" is what birthed the watermark,
+          which then overlapped at 5-up; the row has room for both) */}
       {spark ? (
-        <div className="pointer-events-none absolute bottom-1.5 right-2.5 opacity-80">
+        <div className="mt-1.5 flex w-full items-center justify-end">
           {spark}
         </div>
       ) : null}
       {/* drill-down affordances: a corner chevron whispers "clickable", the
-          pressed dot states "this card IS the active filter" — both sit
-          above the spark watermark so they never fight for attention */}
+          pressed dot states "this card IS the active filter" — both pin to
+          the card's top-right corner, clear of the text and trend rows */}
       {interactive && !pressed ? (
         kbd ? (
           // shortcut badge: faintly visible at rest (discoverability — the
@@ -326,7 +336,7 @@ const KpiCard = React.forwardRef<
   );
 
   const shell = cn(
-    "card-lift group/kpi relative flex items-center gap-3 overflow-hidden rounded-xl border bg-card p-4 text-left transition-[box-shadow,border-color,background-color]",
+    "card-lift group/kpi relative flex flex-col justify-center gap-0 overflow-hidden rounded-xl border bg-card p-4 text-left transition-[box-shadow,border-color,background-color]",
     interactive
       ? pressed
         ? "cursor-pointer border-primary/50 ring-1 ring-primary/30"
@@ -547,6 +557,21 @@ function DashboardProjectCard({
         >
           {tomo ? "TOMO" : "SPA"}
         </Badge>
+        {/* t301 — remote binding badge: the grid never showed WHERE a
+            project's data lives, so a cluster project was indistinguishable
+            from a local one until you opened it. The API already carries
+            `remote` (ProjectRemoteRef) — surface it with the same violet
+            accent the remote browser uses. */}
+        {project.remote ? (
+          <Badge
+            variant="outline"
+            title={`Remote project — data lives on ${project.remote.name} (${project.remote.username}@${project.remote.host})`}
+            className="h-5 max-w-[9rem] border-violet-500/40 bg-violet-500/10 px-1.5 text-[9px] font-semibold uppercase tracking-wider text-violet-600 dark:text-violet-400"
+          >
+            <Server className="mr-1 size-2.5 shrink-0" aria-hidden="true" />
+            <span className="truncate">{project.remote.name}</span>
+          </Badge>
+        ) : null}
         <span className="ml-auto flex items-center gap-1.5 text-[11px] tabular-nums text-muted-foreground">
           <Boxes className="size-3" aria-hidden="true" />
           {total} jobs
@@ -2107,7 +2132,7 @@ export function ProjectDashboard() {
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto nice-scroll">
-      <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8 xl:max-w-7xl">
         {/* page header */}
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div className="min-w-0">
@@ -2163,8 +2188,10 @@ export function ProjectDashboard() {
         {/* KPI band — Running / Completed cards are live drill-downs into the
             grid below (pressed = that filter is on); Projects reals the grid
             and clears; Total jobs & engine stay informational (no project
-            dimension to reveal) */}
-        <div data-atomic-grid className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            dimension to reveal). t301: five-up only from xl — under the
+            max-w-6xl cap an lg viewport squeezed each card to ~180px; lg
+            now falls back to a roomy 3+2 while xl+ keeps the single row. */}
+        <div data-atomic-grid className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
           <KpiCard
             icon={<FolderGit2 className="size-5" />}
             value={projects.length}
