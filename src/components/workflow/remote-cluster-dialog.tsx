@@ -39,7 +39,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { ArrowUpRight, Check, Loader2, Network, Plus, Server, Trash2 } from "lucide-react";
+import { ArrowUpRight, Check, Loader2, Network, Plus, Server, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWorkflowStore } from "@/lib/store";
 import type {
@@ -332,13 +332,20 @@ function resumeDot(e: ConnectionRunResumeEntry): { className: string; label: str
  *  per-project): "lives on the “X” project's canvas" / "gone (deleted)" /
  *  the pre-t272 merged guess when the server did not say. The résumé
  *  remembers what the canvas forgot, and says WHERE it lives instead of
- *  pretending the jump works. */
+ *  pretending the jump works.
+ *  t294 — the gone rows grow a forget door: history the user cannot act
+ *  on is a ledger that only grows. A row whose job is gone EVERYWHERE gets
+ *  a quiet X (hover-revealed, like the live row's arrow) that deletes the
+ *  dead record; a row whose job lives on ANOTHER canvas keeps no such
+ *  door — that record is live history for the canvas that can open it. */
 function RunResumeCard({
   resume,
   onOpenJob,
+  onForgetRun,
 }: {
   resume: ConnectionRunResume;
   onOpenJob?: (jobId: string) => void;
+  onForgetRun?: (jobId: string) => Promise<void>;
 }) {
   // the store is the truth the inspector can actually open — an entry
   // whose job is not in it renders as history, not as a doorway
@@ -347,6 +354,10 @@ function RunResumeCard({
   // actually show: "click one to open" is a lie over a wall of gone rows.
   // Pre-t272 DTO rows (exists undefined) are still openable doors on the
   // canvas that owns them, so they count as live here.
+  // t294 — forget-door state: which row is mid-forget (spinner), and the
+  // last refusal's honest wording (role=alert, under the rows).
+  const [forgetting, setForgetting] = React.useState<string | null>(null);
+  const [forgetError, setForgetError] = React.useState<string | null>(null);
   const goneCount = resume.recent.filter((e) => e.exists === false).length;
   const openCount = resume.recent.length - goneCount;
   const helperVariant = goneCount === 0 ? "live" : openCount > 0 ? "mixed" : "history";
@@ -406,6 +417,11 @@ function RunResumeCard({
           .join(" · ");
         const job = jobs.find((j) => j.id === e.jobId) ?? null;
         const jumpable = job != null && onOpenJob != null;
+        // t294 — the forget door lives ONLY on exists===false rows: the
+        // server route refuses a live job anyway, but the UI already knows
+        // which rows are dead — showing a door only where it can open is
+        // the same honesty the row's tooltip speaks.
+        const forgettable = e.exists === false && onForgetRun != null;
         const startedShort = new Date(e.startedAt).toLocaleTimeString([], {
           hour: "2-digit",
           minute: "2-digit",
@@ -434,6 +450,17 @@ function RunResumeCard({
             ) : null}
           </>
         );
+        const forget = async (jobId: string) => {
+          setForgetError(null);
+          setForgetting(jobId);
+          try {
+            await onForgetRun?.(jobId);
+          } catch (err) {
+            setForgetError(err instanceof Error ? err.message : "forget failed");
+          } finally {
+            setForgetting(null);
+          }
+        };
         return jumpable ? (
           <button
             key={e.jobId}
@@ -456,7 +483,7 @@ function RunResumeCard({
             key={e.jobId}
             data-resume-entry={e.jobId}
             data-resume-gone={e.exists === false ? "gone" : undefined}
-            className="flex items-center gap-1.5 text-[10px] text-muted-foreground/80"
+            className="group flex items-center gap-1.5 text-[10px] text-muted-foreground/80"
             title={
               // t272 — the server knows whether the job still exists ANYWHERE
               // (the résumé is global, the canvas is per-project), so the
@@ -471,9 +498,35 @@ function RunResumeCard({
             }
           >
             {row}
+            {forgettable ? (
+              <button
+                type="button"
+                data-resume-forget={e.jobId}
+                disabled={forgetting != null}
+                onClick={() => void forget(e.jobId)}
+                className="ml-0.5 shrink-0 rounded-sm p-0.5 text-muted-foreground/40 opacity-0 transition-opacity hover:bg-accent/60 hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-40"
+                aria-label={`Forget the history entry for the ${e.jobType} run started ${new Date(e.startedAt).toLocaleString()}`}
+                title="Forget this history entry — the job is gone everywhere; the résumé keeps it only until you let it go"
+              >
+                {forgetting === e.jobId ? (
+                  <Loader2 className="size-3 animate-spin" aria-hidden="true" />
+                ) : (
+                  <X className="size-3" aria-hidden="true" />
+                )}
+              </button>
+            ) : null}
           </div>
         );
       })}
+      {forgetError ? (
+        <p
+          role="alert"
+          data-resume-forget-error=""
+          className="text-[10px] leading-relaxed text-rose-700 dark:text-rose-300"
+        >
+          {forgetError}
+        </p>
+      ) : null}
       <p
         className="text-[10px] leading-relaxed text-muted-foreground/80"
         data-resume-helper={helperVariant}
@@ -541,6 +594,7 @@ function ConnectionEditor({
   onPatched,
   onCancelCreate,
   onOpenJob,
+  onForgetRun,
 }: {
   /** null = creating a new connection. */
   connection: RemoteConnectionDTO | null;
@@ -552,6 +606,10 @@ function ConnectionEditor({
   /** t271 — the résumé as an index: called when a résumé entry whose job
    *  still exists is clicked (the dialog closes itself, the inspector opens). */
   onOpenJob?: (jobId: string) => void;
+  /** t294 — the résumé's forget door: deletes ONE dead record (the server
+   *  refuses live jobs); the caller refreshes the list on success and the
+   *  refusal's error propagates back to the row. */
+  onForgetRun?: (jobId: string) => Promise<void>;
 }) {
   const creating = connection === null;
   const [draft, setDraft] = React.useState<Draft>(() => toDraft(connection));
@@ -1101,7 +1159,7 @@ function ConnectionEditor({
       {!creating && connection?.resume ? (
         <div className="space-y-2">
           <SectionTitle>Run résumé</SectionTitle>
-          <RunResumeCard resume={connection.resume} onOpenJob={onOpenJob} />
+          <RunResumeCard resume={connection.resume} onOpenJob={onOpenJob} onForgetRun={onForgetRun} />
         </div>
       ) : null}
 
@@ -1208,6 +1266,21 @@ export function RemoteClusterDialog({
       inspect(jobId);
     },
     [onOpenChange, inspect]
+  );
+  // t294 — the forget door's caller: DELETE the dead record, then reload
+  // the list — the server re-aggregates the résumé (one truth, no local
+  // surgery on a cached card). A refusal (live job / not remote / missing)
+  // propagates its honest error text back to the row's role=alert line.
+  const handleForgetRun = React.useCallback(
+    async (jobId: string) => {
+      const res = await fetch(`/api/remote/records/${encodeURIComponent(jobId)}`, {
+        method: "DELETE",
+      });
+      const body = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+      if (!res.ok) throw new Error(body?.error || `forget failed (${res.status})`);
+      reload();
+    },
+    [reload]
   );
   // selection IS activation (see file doc): the highlighted row is the
   // active connection, persisted on every click.
@@ -1393,6 +1466,7 @@ export function RemoteClusterDialog({
                 onPatched={handlePatched}
                 onCancelCreate={() => setCreating(false)}
                 onOpenJob={handleOpenJob}
+                onForgetRun={handleForgetRun}
               />
             ) : selected ? (
               <ConnectionEditor
@@ -1403,6 +1477,7 @@ export function RemoteClusterDialog({
                 onProbed={handleProbed}
                 onPatched={handlePatched}
                 onOpenJob={handleOpenJob}
+                onForgetRun={handleForgetRun}
               />
             ) : (
               <div className="flex h-full min-h-40 flex-col items-center justify-center gap-2 text-center">

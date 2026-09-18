@@ -1959,3 +1959,26 @@ Stage Summary:
 - **「字节同一」的懒腿证明**：sha256(落地副本) == sha256(集群原件) + 瓦片毕业带 dims——「下载是数据的搬家不是缓存」从注释升级为像素级证据链
 - 遗留（下轮候选）：远程瓦片 identity card 之 fetch 后补读 header 已由毕业流部分见证（dims 在案），其余 header 事实（μ/σ 等）待真需求；remote-view-3d 大 map 的 Mol* 渲染实测；t272 exists=false 活体见证（连续排队）；快看对话框 σ 口径输入（待真需求）；EMPIAR 真数据回归（连续第七窗让位）
 - 【收尾补记】撞号处理完成（本窗第二次）：rebase onto 069e7d7（对方 Task 292 = SSH 认证诊断；16 个家族重摆 PNG 二进制冲突取对方、worklog 双保留）→ renumber 293（套件/花名册/证据/内部标识符照名重链）→ amend 5667649；合并树 rebuild ×1（对方 ssh.ts 认证路径上线）+ tsc 0 + **t293 renumber 后复跑 ALL PASS**——其 C1 by-value 探测断言在对端新 authHandler 之上依然成立（好凭据 ok、坏密码诚实诊断）。终态 HEAD = 5667649+证据重摆，roster 21，净场。
+
+## Task 294 (2026-09-18, cron 15:33 窗口 trace 1a07549302235a99-cron-agent-loop-202609181539 —— 无撞号，树上直接立项 294)
+
+- 【开局】尾部实证 = Task 293（3061474 已 push）——续窗摘要声称「272 基线 + 连续十三窗被摘要阻塞」第十四次不实（272→293 已由各窗实交付）；cron 模板「Task 13」照例不认。净场良好（双 port FREE、无残留进程）→ watchdog 200 + roster 21；standalone（07:37）新于最后 src 提交（069e7d7 07:08）——部署树在位。
+- 【QA】agent-browser 活体 console/errors 0 + 三哨兵全绿（qa00 1.4s / qa63 12.9s / t293 48.3s）。
+- 【立项】Task 272 遗留池树上核实——**「exists=false 的 UI 活体见证」已被 Task 277 交付**（t272 套件 C8 相：假 record 注入 → 服务端判 exists=false → UI 哑行 data-resume-gone 全套在案）——遗留清单逐窗抄写不核树的第二例（第一例 = Task 13 recital，Task 291 核实销账）。真缺口：**死历史没有处置权**——gone 行是永久居民，t272 级联只在 project DELETE 时扫记录，其余途径产生的孤儿记录（手工清库、旧快照回灌、t272 之前年代的残留）永远留在 résumé 里。立项 Task 294「résumé 的墓碑门」：给死历史一扇可关的门。
+- 【实现（API）】新路由 `DELETE /api/remote/records/[jobId]`：**三重拒绝各自开口**——404（无记录可忘）/ 409 非 remote record（这是 résumé 的门，不是 job 生命周期的门）/ 409 活 job（活历史归画布管——删 job 或 project，t272 级联会带走记录）；**顺序律**：alive 检查先于 clearRunRecord（拒绝先于删除）；isLocalRequest 守卫同 registry 惯例；成功返回 `{ ok, connectionId }`。
+- 【实现（UI）】remote-cluster-dialog.tsx：gone 行长出 hover 显影的 X（与活行跳转箭头同一习语，`data-resume-forget` 钩子）——**门只在 exists===false 的行渲染**（活行是门 jump、死行是墓碑 forget，UI 已经知道哪行死就不假装不知道；活行即使 API 层强闯也会被 409，但 UI 连门都不画）；in-flight disabled + Loader2 防双删；拒绝落 `role=alert` 行（`data-resume-forget-error`，服务端的诚实原文直达用户）；成功 `reload()`——服务端重聚合，一个真相，不对缓存卡片做本地手术。prop 链：handleForgetRun → ConnectionEditor（create + saved 双挂载）→ RunResumeCard。
+- 【套件 t294-resume-forget.mjs（47 断言，三跑 ALL PASS）】A 相 demo 真相；B 相台账 15 断言（三重拒绝 + 顺序律 + 门只画在死行 + 双挂载 + reload 一个真相）；C 相活体：C1 probeless 连接（全程零 SSH，不需要 mock cluster）；C2 拒绝三连活体（bogus 404 / 本地 record 409 带原文 / 活 demo job 的 remote record 409 带原文且记录存活）；C3 gone record 注入（t277 配方）→ résumé 计数 + exists=false + 无画布点名；C4 对比活体——同一连接下活 job 行 = jump 按钮且无 forget 门（门的位置学）；C5 点击 forget → 卡片退场（total 0 → 字段省略）+ 记录离开全局状态文件；hover 显影定妆照 t294-resume-forget-row.png；D 相 console 0；finally 状态文件回灌 + 连接删除 + roster 21。
+- 【断言的错，第十五次应验（首跑 3 FAIL 全自摆乌龙）】①`indexOf("reload();")` 命中 handleDeleted 的更早出现——断言未圈定 handleForgetRun 块；②对比活 record 穿 REFUSAL_CONN 马甲却在 FORGET_CONN 的 résumé 里找它——聚合按 connectionId 过滤，对比物必须穿同一件马甲。产品零错，套件两处修正后二跑三跑 ALL PASS。
+- 【部署】rebuild 前台独占（chromium + watchdog 先杀——OOM 互斥纪律第十五窗），新路由 `/api/remote/records/[jobId]` 在构建清单在列；进程启动 07:57:19 > BUILD_ID 07:57:06——「重建 ≠ 上线」检验在案。
+- 【哨兵复绿】t270（37.1s）/ t271（32.8s）/ t272（37.0s）全 ALL PASS——墓碑门未伤及 résumé 家族（t272 C8 的 gone 行在带门渲染下依然诚实）。
+- 【全家族回归（九批前台逐批——OOM 纪律；t24+t25 合跑撞 600s 工具上限被斩，t24 报告已落、t25 单独补跑——「一命令一批」再次立法）】qa 11 · 405.5s ｜ t21 7 · 191.4s ｜ t22 2 · 65.1s ｜ t24 9 · 122.3s ｜ t25 9 · 454.0s ｜ t26 10 · 535.9s ｜ t27 7 · 274.4s ｜ t28 8 · 166.9s ｜ t29 3 · 93.2s（**t294 首战即家族**）——合计 **pass 66 · solo 0 · real-fail 0 · wall 2308.7s**（--summary 机器拷贝）；coverage 认证 66 套件九批各归属唯一（花名册 65→66）；roster 恒等 21；裸 tsc 0。
+- 【收尾】worklog（本条）+ commit/push + 环境清理（Task 86 双杀 + port FREE 验证）。
+
+Stage Summary:
+- **「历史要能被放手」**：résumé 是记忆不是刑期——gone 行从永久居民变成可处置的墓碑；遗忘是用户的显式选择，系统不再替用户保管他不要的历史；t270（记忆）→ t272（记忆说真话）→ t277（真话活体见证）→ t294（真话可以被放手）——résumé 家族第四部曲
+- **「门只在能开的地方出现」**：活行是门（jump，inspector 能开）、死行是墓碑（forget，API 兜底 409）——双层诚实（UI 不画 + API 拒绝）比单层更便宜也更真；「显示一扇打不开的门」与「假装门不存在」都是撒谎
+- **「三重拒绝各自开口」**：404 / 409 非 remote / 409 活 job——每个拒绝都指路（这是 résumé 的门不是生命周期的门 / 活历史归画布管走级联）；顺序律「拒绝先于删除」与 t272「记录先于行删」互为镜像：门的两端都要先问后动
+- **「一个真相，reload 即知」**：成功不做本地手术——缓存的卡片想不说谎，唯一的方式是重新问服务端；对共享状态（全局 engine-state.json）的每一个写路径都回到同一聚合出口
+- **「合跑撞上限」**：t24+t25 一条命令 = 596s > 600s 工具上限，斩断点丢掉的只有「批次作为单位」的语义——600s 天花板不认你的算术，一命令一批是物理定律不是建议
+- 遗留（下轮候选）：remote-view-3d 大 map 的 Mol* 渲染实测；快看对话框 σ 口径输入（待真需求）；EMPIAR 真数据回归（连续第八窗让位）；résumé recent 只有 ≤3 行、total 大时旧条目无入口（分页/展开，待真需求）；批量 forget「一键清墓」（待真需求）
+
