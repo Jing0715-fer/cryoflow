@@ -52,6 +52,29 @@ const AUTH_USER = "cryo";
 const AUTH_PASSWORD = "demo";
 
 /**
+ * Auth dialect this login node speaks (t291):
+ *   - "password"              — sshd default (`PasswordAuthentication yes`).
+ *   - "keyboard-interactive"  — HPC hardened sshd (`PasswordAuthentication no` +
+ *                               `KbdInteractiveAuthentication yes`): the password
+ *                               METHOD is refused outright and the credential is
+ *                               only accepted through a keyboard-interactive
+ *                               round. MobaXterm/OpenSSH handle this transparently;
+ *                               naive clients that only send the `password` method
+ *                               die with "All configured authentication methods
+ *                               failed" — the exact user report this mode reproduces.
+ *   - "keyboard-interactive-2fa" — same, but the round asks TWO questions
+ *                               (password + verification code). MobaXterm pops a
+ *                               dialog and the user answers both; a client that
+ *                               answers every prompt with the stored password
+ *                               fails — and t291's error must NAME the cause.
+ */
+const RAW_AUTH_MODE = process.env.MOCK_AUTH_MODE ?? "password";
+const AUTH_MODE = ["password", "keyboard-interactive", "keyboard-interactive-2fa"].includes(RAW_AUTH_MODE)
+  ? RAW_AUTH_MODE
+  : "password";
+const AUTH_2FA_CODE = process.env.MOCK_2FA_CODE ?? "654321";
+
+/**
  * PATH for every command spawned "on the cluster":
  *   fs/opt/bin                       — mock module system (`module`)
  *   /home/z/relion-build/bin         — real RELION build of this sandbox
@@ -375,6 +398,43 @@ function handleClient(client) {
 
   client.on("authentication", (ctx) => {
     const { method, username } = ctx;
+
+    if (AUTH_MODE.startsWith("keyboard-interactive")) {
+      // Hardened login node: the `password` method does not exist here — the
+      // credential must travel through a keyboard-interactive round, exactly
+      // like PAM-backed sshd with PasswordAuthentication no.
+      if (method === "keyboard-interactive" && username === AUTH_USER) {
+        const prompts = AUTH_MODE === "keyboard-interactive-2fa"
+          ? [
+              { prompt: `${username}'s password: `, echo: false },
+              { prompt: "Verification code: ", echo: false },
+            ]
+          : [{ prompt: `${username}'s password: `, echo: false }];
+        ctx.prompt(
+          prompts,
+          "SSH Authentication",
+          "This cluster only accepts keyboard-interactive authentication.",
+          (answers) => {
+            const passwordOk = Array.isArray(answers) && answers[0] === AUTH_PASSWORD;
+            const codeOk =
+              AUTH_MODE !== "keyboard-interactive-2fa"
+              || (Array.isArray(answers) && answers[1] === AUTH_2FA_CODE);
+            if (passwordOk && codeOk) {
+              log(`auth ok: keyboard-interactive login for "${username}" from ${remote}`);
+              ctx.accept();
+            } else {
+              log(`auth rejected: bad keyboard-interactive answer for "${username}" from ${remote}`);
+              ctx.reject(["keyboard-interactive"]);
+            }
+          }
+        );
+        return;
+      }
+      log(`auth rejected: ${method} attempt for "${username}" (keyboard-interactive only)`);
+      ctx.reject(["keyboard-interactive"]);
+      return;
+    }
+
     if (method === "password" && username === AUTH_USER && ctx.password === AUTH_PASSWORD) {
       log(`auth ok: password login for "${username}" from ${remote}`);
       ctx.accept();
@@ -437,7 +497,7 @@ server.on("error", (err) => {
 server.listen(PORT, BIND_HOST, () => {
   log(`mock cluster listening on :${PORT} (bind ${BIND_HOST})`);
   log(`fs root: ${FS_ROOT}`);
-  log(`auth: "${AUTH_USER}" / "${AUTH_PASSWORD}" (password only) · remoteRoot: /projects/cryoflow`);
+  log(`auth mode: ${AUTH_MODE} — "${AUTH_USER}" / "${AUTH_PASSWORD}" · remoteRoot: /projects/cryoflow`);
 });
 
 // One bad command must never take the server down.

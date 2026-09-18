@@ -549,11 +549,19 @@ try {
   );
 
   // the sweep's own words in the server log (the heal is loud, not silent)
+  // t291: prod-mode families tee stdout to server.log, dev-mode sessions
+  // to dev.log — the assertion's truth is "the words are in the SERVER's
+  // log", so read whichever file this session's server actually wrote.
   let sweepLogged = false;
-  try {
-    const log = readFileSync("/home/z/my-project/server.log", "utf8");
-    sweepLogged = log.includes("healed orphan row") || log.includes("went stale");
-  } catch { /* log unreadable */ }
+  for (const logPath of ["/home/z/my-project/server.log", "/home/z/my-project/dev.log"]) {
+    try {
+      const log = readFileSync(logPath, "utf8");
+      if (log.includes("healed orphan row") || log.includes("went stale")) {
+        sweepLogged = true;
+        break;
+      }
+    } catch { /* that log file doesn't exist in this mode */ }
+  }
   must(sweepLogged, "the sweep logs its heals (loud self-healing, not silent mutation)");
 
   // ----定妆照: the crafted results in the canvas --------------------------

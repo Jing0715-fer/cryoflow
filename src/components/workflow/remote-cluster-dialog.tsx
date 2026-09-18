@@ -932,6 +932,10 @@ function ConnectionEditor({
                 "••• stored"
               )}
             </div>
+            <p className="col-span-2 text-[11px] leading-relaxed text-muted-foreground" data-auth-dialect-hint="">
+              Sent over both SSH password and keyboard-interactive prompts — the dialect university
+              clusters usually speak (the same login MobaXterm uses).
+            </p>
           </div>
         ) : null}
       </div>

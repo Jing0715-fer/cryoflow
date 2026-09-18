@@ -12,6 +12,13 @@
  * No SFTP subsystem is required — some hardened clusters disable it, and the
  * exec path works everywhere a shell does.
  *
+ * t291 — auth is diagnosed, not just attempted: preflightAuthProblem fails
+ * fast on user-fixable config errors, a custom authHandler records the
+ * negotiation (methods tried + what the server offered), and the
+ * keyboard-interactive round counts its prompts — so a rejected login says
+ * WHICH failure it was instead of ssh2's one-size-fits-all
+ * "All configured authentication methods failed".
+ *
  * Every connection has a serialized command queue (clusters hate concurrent
  * exec storms); fire-and-forget callers can use tryExec() which declines
  * politely while a command is in flight (the poll sweep just keeps its
@@ -87,6 +94,113 @@ function authConfig(c: RemoteConnection): {
   return { type: "password", ...base, password: c.password ?? "", tryKeyboard: true };
 }
 
+/* ------------------------------------------------------------------ */
+/* Auth pre-flight + negotiation recorder (t291)                       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * User-fixable auth config problems, caught BEFORE any network round-trip.
+ * t291's user report made the cost of skipping this concrete: a connection
+ * with no stored password (an edit that never re-typed it), a missing key
+ * file, or a missing agent socket all degrade into ssh2's single cryptic
+ * line — "All configured authentication methods failed" — which tells the
+ * user nothing about WHICH of these very different problems they have.
+ * Each message says what is wrong and what to do about it.
+ */
+export function preflightAuthProblem(c: RemoteConnection): string | null {
+  if (c.authMethod === "password") {
+    if (typeof c.password !== "string" || c.password.length === 0) {
+      return (
+        "this connection has NO password stored — open it in the cluster dialog, " +
+        "type the password, Save, then test again (an edit that skips the password " +
+        "field keeps it empty; MobaXterm working proves the credential, not the stored copy)"
+      );
+    }
+  }
+  if (c.authMethod === "key") {
+    if (!c.privateKeyPath) {
+      return "auth method is Private key but no key file path is set — choose the key file first";
+    }
+    try {
+      readFileSync(c.privateKeyPath);
+    } catch (e) {
+      const reason = e instanceof Error ? e.message : String(e);
+      return `cannot read the private key file "${c.privateKeyPath}" on this machine (${reason}) — check the path`;
+    }
+  }
+  if (c.authMethod === "agent") {
+    if (!process.env.SSH_AUTH_SOCK && process.platform !== "win32") {
+      return (
+        "no SSH agent is running (SSH_AUTH_SOCK is unset on this machine) — start " +
+        "ssh-agent with your key loaded, or switch the connection's auth method to Password / Private key"
+      );
+    }
+  }
+  return null;
+}
+
+/** What the auth negotiation saw — the recorder ssh2 never gives you. */
+interface AuthNegotiation {
+  /** Methods we sent, in order (ssh2's linear fallback chain). */
+  tried: string[];
+  /** The server's last "methods that can continue" list. */
+  serverOffers: string[];
+  /** Prompts in the keyboard-interactive round (0 = never reached / banner only). */
+  kbdPrompts: number;
+}
+
+/**
+ * Rewrite ssh2's auth-exhaustion error into a diagnosis. The base line stays
+ * recognizable, then we append the two facts only the negotiation knows
+ * (what we tried, what the server accepts) and ONE targeted hint — so "wrong
+ * password", "cluster wants keys only", and "multi-prompt 2FA" stop sharing
+ * a single indistinguishable sentence.
+ */
+function authFailureMessage(err: Error, n: AuthNegotiation): string {
+  const base = err.message || "SSH authentication failed";
+  const leveled = (err as Error & { level?: string }).level;
+  if (leveled !== "client-authentication" && !/All configured authentication methods/i.test(base)) {
+    return base; // not the exhaustion case — ssh2's own message is already specific
+  }
+  const tried = n.tried.filter((m) => m !== "none");
+  const parts: string[] = [base];
+  if (tried.length > 0) parts.push(`tried ${tried.join(" + ")}`);
+  if (n.serverOffers.length > 0) parts.push(`the server accepts ${n.serverOffers.join(" + ")}`);
+  parts.push(authHint(n));
+  return parts.join(" — ");
+}
+
+function authHint(n: AuthNegotiation): string {
+  const offers = new Set(n.serverOffers);
+  const triedKbd = n.tried.includes("keyboard-interactive");
+  if (triedKbd && n.kbdPrompts > 1) {
+    return (
+      `the cluster asked ${n.kbdPrompts} questions at login (multi-prompt / 2FA) — ` +
+      "only single-prompt password login is supported"
+    );
+  }
+  if (offers.size > 0 && !offers.has("password") && !offers.has("keyboard-interactive")) {
+    return (
+      "this cluster does not accept password logins at all — switch the " +
+      "connection's auth method to Private key"
+    );
+  }
+  if (triedKbd && offers.has("keyboard-interactive")) {
+    return (
+      "the username or password was refused — re-check the username, retype the " +
+      "password in the cluster dialog and Save (a login that works in MobaXterm proves " +
+      "the credential, not the stored copy)"
+    );
+  }
+  if (offers.size === 0) {
+    return (
+      "the server rejected the login without listing what it accepts — check the " +
+      "username, and whether this account is allowed password logins"
+    );
+  }
+  return "re-check the username and password, then Save and test again";
+}
+
 /** Reset any pooled client whose saved config changed (or on demand). */
 export function dropConnection(connectionId: string): void {
   const pooled = pool.get(connectionId);
@@ -123,7 +237,28 @@ function getPooled(c: RemoteConnection): PooledClient {
     queued: 0,
     lastError: null,
   };
+
+  // t291 pre-flight: config problems the user can fix get their OWN honest
+  // error before any network round-trip — they used to collapse into ssh2's
+  // "All configured authentication methods failed" together with genuinely
+  // wrong credentials, which made the user's report unactionable.
+  const preflight = preflightAuthProblem(c);
+  if (preflight) {
+    pooled.lastError = preflight;
+    const err = new Error(preflight);
+    failReady(err);
+    ready.catch(() => {}); // idle rejection must not trip unhandledRejection
+    pool.set(c.id, pooled);
+    return pooled;
+  }
+
   const auth = authConfig(c);
+  // t291 negotiation recorder: ssh2's default auth handler throws away the
+  // server's "methods that can continue" list, so a failed login can't say
+  // which dialect the cluster speaks. This custom handler mirrors ssh2's
+  // linear chain exactly (same methods, same order — validated against
+  // ssh2's own authsAllowed on every step) while recording the exchange.
+  const negotiation: AuthNegotiation = { tried: [], serverOffers: [], kbdPrompts: 0 };
   {
     const timeout = setTimeout(() => {
       pooled.lastError = "connect timeout";
@@ -143,18 +278,35 @@ function getPooled(c: RemoteConnection): PooledClient {
       keepaliveInterval: 15_000,
       keepaliveCountMax: 4,
     };
+    // mirrors ssh2's own authsAllowed construction order exactly: none →
+    // password → publickey → agent → keyboard-interactive (client.js builds
+    // this same list from the config; our strings must all be members of it)
+    const authMethods: string[] = ["none"];
     if (auth.type === "agent" && auth.agent) {
       cfg.agent = auth.agent;
       cfg.username = auth.username;
+      authMethods.push("agent");
     } else if (auth.type === "publickey" && auth.privateKey) {
       cfg.username = auth.username;
       cfg.privateKey = auth.privateKey;
       if (auth.passphrase) cfg.passphrase = auth.passphrase;
+      authMethods.push("publickey");
     } else {
       cfg.username = auth.username;
       cfg.password = auth.password ?? "";
       cfg.tryKeyboard = true;
+      authMethods.push("password", "keyboard-interactive");
     }
+    cfg.authHandler = (authsLeft: unknown) => {
+      if (Array.isArray(authsLeft) && authsLeft.length > 0) {
+        negotiation.serverOffers = Array.from(new Set(authsLeft.map((m) => String(m))));
+      }
+      const next = negotiation.tried.length;
+      if (next >= authMethods.length) return false;
+      const method = authMethods[next];
+      negotiation.tried.push(method);
+      return method;
+    };
     client
       .on("ready", () => {
         clearTimeout(timeout);
@@ -162,24 +314,32 @@ function getPooled(c: RemoteConnection): PooledClient {
       })
       .on("error", (err: Error) => {
         clearTimeout(timeout);
-        pooled.lastError = err.message;
+        const msg = authFailureMessage(err, negotiation);
+        pooled.lastError = msg;
         pool.delete(c.id);
-        failReady(err);
+        failReady(new Error(msg));
       })
       .on("close", () => {
         pool.delete(c.id);
-      })
-      .connect(cfg as Parameters<Client["connect"]>[0]);
-    // keyboard-interactive continuation (very common on HPC one-time codes).
+      });
+    // keyboard-interactive continuation (very common on HPC clusters whose
+    // sshd has PasswordAuthentication no + KbdInteractiveAuthentication yes —
+    // the dialect MobaXterm speaks transparently; t291 also counts prompts,
+    // because a multi-prompt round means 2FA, which we must name honestly).
     // Not in @types/ssh2's event union — attached through a string-typed shim.
     type AnyEmitter = { on(evt: string, fn: (...args: never[]) => void): void };
     (client as unknown as AnyEmitter).on("keyboard-interactive", (...args: never[]) => {
-      const prompts = args[3] as { text: string }[];
+      const prompts = args[3] as unknown[] | undefined;
       const finish = args[4] as (answers: string[]) => void;
+      const list = Array.isArray(prompts) ? prompts : [];
+      negotiation.kbdPrompts = Math.max(negotiation.kbdPrompts, list.length);
       // answer every prompt with the configured password — MFA beyond that
-      // is out of scope and fails honestly
-      finish(prompts.map(() => authConfig(c).password ?? ""));
+      // is out of scope and fails honestly (with the prompt count in the
+      // error, so the reason is legible)
+      const pw = authConfig(c).password ?? "";
+      finish(list.map(() => pw));
     });
+    client.connect(cfg as Parameters<Client["connect"]>[0]);
   }
   pool.set(c.id, pooled);
   return pooled;
