@@ -1,27 +1,156 @@
 #!/usr/bin/env python3
-"""Mock relion_preprocess (extract) — writes particles.star."""
+"""Mock relion_preprocess (extract) — star-aware since t307.
+
+The old fake ignored its input and always wrote a fixed 150-particle star —
+good enough for single runs, a LIE for the array split: the merge's ../ strip
+(t307's rows dialect) exists precisely because real RELION writes ImageName
+paths RELATIVE TO THE STAR'S OWN DIR, so a shard star one level down says
+../extra/<mic>_extract.mrcs. This fake speaks that dialect:
+
+  - reads the input STAR (the shard's round-robin slice) and iterates the
+    _rlnMicrographName column — a shard extracts only ITS micrographs;
+  - writes one placeholder stack per micrograph into
+    <part_dir>/extra/<micbase>_extract.mrcs (disjoint shards share the same
+    --part_dir without colliding — per-micrograph names);
+  - writes <part_star> with rows referencing those stacks by a path computed
+    RELATIVE TO THE STAR'S DIR (os.path.relpath — the same convention real
+    RELION uses), so the unsplit run says extra/… and each shard says
+    ../extra/…; the merge's awk strips the ../ and the merged rows resolve
+    from the workdir root;
+  - a missing/unreadable --i is an honest stderr error + exit 1 (the same
+    shape the t307 suite expects a shard failure to speak).
+
+Flag parsing is flag-aware like the autopick fake: a flag whose next token is
+another --flag (or end-of-argv) is BOOLEAN and consumes nothing — --extract
+and --norm used to swallow --extract_size and --bg_radius as values.
+"""
 import os, sys
+
 argv = sys.argv[1:]
 opts = {}
 i = 0
 while i < len(argv):
     a = argv[i]
     if a.startswith("--"):
-        opts[a[2:]] = argv[i+1] if i+1 < len(argv) else ""
-        i += 2
+        key = a[2:]
+        nxt = argv[i + 1] if i + 1 < len(argv) else None
+        if nxt is None or nxt.startswith("--"):
+            opts[key] = ""  # boolean flag (--extract, --norm, …)
+            i += 1
+        else:
+            opts[key] = nxt
+            i += 2
     else:
         i += 1
-outdir = opts.get("part_dir", "./").rstrip("/")
-os.makedirs(outdir, exist_ok=True)
-n = 150
-print(f"cryoflow-mock extract: {n} particles extracted (box={opts.get('extract_size','128')})")
-out = os.path.join(outdir, "particles.star")
-with open(out, "w") as fh:
-    fh.write("\ndata_\n\nloop_\n")
+
+star_in = opts.get("i")
+part_star = opts.get("part_star", "particles.star")
+part_dir = opts.get("part_dir", "./").rstrip("/")
+box = opts.get("extract_size", "128") or "128"
+scale = opts.get("scale", "") or ""
+
+if not star_in or not os.path.exists(star_in):
+    print(f"ERROR: cannot read input star: {star_in}", file=sys.stderr)
+    sys.exit(1)
+
+# ---- parse the micrograph names (loop-aware: optics block rows are skipped,
+# the MicrographName column is looked up per loop) ---------------------------
+mics = []
+with open(star_in) as fh:
+    in_loop = False
+    name_col = None
+    ncols = 0
+    for line in fh:
+        t = line.strip()
+        if t == "loop_":
+            in_loop = True
+            name_col = None
+            ncols = 0
+            continue
+        if t.startswith("data_"):
+            in_loop = False
+            name_col = None
+            continue
+        if t.startswith("_"):
+            if in_loop:
+                parts = t.split()
+                # STAR column defs carry their own index: "_rlnName #N".
+                # Real RELION always writes it; a bare def falls back to its
+                # positional order (the autopick fake's own convention).
+                name = parts[0]
+                col = None
+                if len(parts) >= 2 and parts[1].startswith("#"):
+                    try:
+                        col = int(parts[1].lstrip("#")) - 1
+                    except ValueError:
+                        col = None
+                if col is None:
+                    col = ncols
+                    ncols += 1
+                if col >= 0:
+                    ncols = max(ncols, col + 1)
+                    if "MicrographName" in name:
+                        name_col = col
+            continue
+        if in_loop and t and not t.startswith("#") and name_col is not None:
+            cols = t.split()
+            if len(cols) > name_col:
+                mics.append(cols[name_col])
+
+if not mics:
+    print(f"ERROR: no micrographs in input star: {star_in}", file=sys.stderr)
+    sys.exit(1)
+
+# ---- the per-micrograph stacks (shared part_dir, disjoint names) -----------
+extra = os.path.join(part_dir, "extra")
+os.makedirs(extra, exist_ok=True)
+
+star_dir = os.path.dirname(os.path.abspath(part_star))
+rows = []
+idx = 0
+total = 0
+for n, mic in enumerate(mics, 1):
+    per = 8 + (n * 2) % 5  # 8..12 particles per micrograph, deterministic
+    base = os.path.basename(mic)
+    for ext in (".mrc", ".mrcs"):
+        if base.endswith(ext):
+            base = base[: -len(ext)]
+            break
+    stack = os.path.join(extra, f"{base}_extract.mrcs")
+    if not os.path.exists(stack):
+        with open(stack, "wb") as fh:
+            fh.write(b"CRYOFLOW-MOCK-EXTRACT-STACK\n")
+            fh.write(f"mic={base} box={box} scale={scale or 'none'}\n".encode())
+            fh.write(bytes(range(256)) * 2)
+    rel = os.path.relpath(stack, star_dir)
+    for k in range(per):
+        idx += 1
+        total += 1
+        x = 100 + (n * 31 + k * 7) % 900
+        y = 120 + (n * 17 + k * 11) % 900
+        rows.append(f"{idx:06d}@{rel}\t{x}.0\t{y}.0")
+    print(f"Micrograph {n}/{len(mics)}: {base} — {per} particles (box={box})")
+    sys.stdout.flush()
+
+_pdir = os.path.dirname(part_star)
+if _pdir:
+    os.makedirs(_pdir, exist_ok=True)
+# Real RELION writes TWO blocks — data_optics (one loop row) then
+# data_particles. The rows-merge awk is designed for that shape (appended
+# donors contribute only block>=2 rows so the optics block never
+# duplicates); a single-block star would silently bypass the rewrite.
+with open(part_star, "w") as fh:
+    fh.write("\ndata_optics\n\nloop_\n")
+    fh.write("_rlnOpticsGroup #1\n")
+    fh.write("_rlnVoltage #2\n")
+    fh.write("_rlnSphericalAberration #3\n")
+    fh.write("1\t300.0\t2.7\n")
+    fh.write("\ndata_particles\n\nloop_\n")
     fh.write("_rlnImageName #1\n")
     fh.write("_rlnCoordinateX #2\n")
     fh.write("_rlnCoordinateY #3\n")
-    for k in range(n):
-        fh.write(f"{k+1:06d}@particles.mrcs\t{100 + (k*7)%400}\t{120 + (k*13)%380}\n")
-print(f"wrote {out}")
+    for r in rows:
+        fh.write(r + "\n")
+
+print(f"cryoflow-mock extract: {total} particles across {len(mics)} micrographs -> {part_star}")
 sys.exit(0)

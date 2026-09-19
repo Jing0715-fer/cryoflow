@@ -467,18 +467,42 @@ function buildWrapperScript(args: {
 /* ------------------------------------------------------------------ */
 
 /**
- * t306 — the array split's type contract: a type is array-eligible only when
- * its argv takes ONE per-micrograph input STAR (`--i`) and points `--o` at
- * the workdir root, so each SLURM_ARRAY_TASK_ID can slice the star
- * round-robin, run the shard in its own output subdir, and the LAST task
- * home can merge the shard output stars back into the canonical file the
- * engine's collectOutputs expects. The value is that canonical output star's
- * name. Anything else (refine3d's global halves, postprocess's single map)
- * would be split in name only — refused honestly instead.
+ * t306/t307 — the array split's type contract: a type is array-eligible only
+ * when its argv takes ONE per-micrograph input STAR (`--i`) and its output
+ * shape lets N disjoint shards merge back into exactly what the engine's
+ * collectOutputs expects. Each flavor names the argv flag the shard rewrite
+ * targets (`outArg`), the canonical output star the merge rebuilds
+ * (`outStar`, "" when there is no single star), and the merge DIALECT:
+ *
+ *   star   — shards write `<OSHARD>/<outStar>`; the last task home keeps the
+ *            first shard's file and appends the others' data rows (t306:
+ *            motioncorr/ctffind — one output row per micrograph).
+ *   rows   — extract: `--part_dir` stays SHARED (per-micrograph particle
+ *            stacks never collide — disjoint mic sets), only `--part_star`
+ *            is per-shard. Real RELION writes ImageName paths relative to
+ *            the STAR'S OWN DIR, so shard rows say `../extra/<mic>_mrcs`;
+ *            the merge concatenates block>=2 rows and strips that leading
+ *            `../`, leaving `extra/…` — correct relative to the merged star
+ *            at the workdir root. A redirected `--part_dir` breaks the
+ *            contract and refuses the split BEFORE staging.
+ *   coords — autopick writes one coordinate star PER MICROGRAPH at
+ *            `<odir>micrographs/<mic>_autopick.star`; disjoint mics mean
+ *            zero collisions even in the canonical dir, so the merge is a
+ *            file COLLECTION (`cp shard_k/micrographs/*_autopick.star
+ *            <W>/micrographs/`) — no star concatenation at all, and the
+ *            downstream extract sees byte-identical shapes either way.
+ *
+ * Anything else (refine3d's global halves, postprocess's single map) would
+ * be split in name only — refused honestly instead.
  */
-const ARRAY_TYPES: Record<string, string> = {
-  motioncorr: "corrected_micrographs.star",
-  ctffind: "micrographs_ctf.star",
+const ARRAY_FLAVORS: Record<
+  string,
+  { outArg: string; outStar: string; merge: "star" | "rows" | "coords" }
+> = {
+  motioncorr: { outArg: "--o", outStar: "corrected_micrographs.star", merge: "star" },
+  ctffind: { outArg: "--o", outStar: "micrographs_ctf.star", merge: "star" },
+  extract: { outArg: "--part_star", outStar: "particles.star", merge: "rows" },
+  autopick: { outArg: "--odir", outStar: "", merge: "coords" },
 };
 
 /**
@@ -571,6 +595,17 @@ function buildSbatchScript(args: {
     concurrency: number;
     inputStar: string;
     outStar: string;
+    /**
+     * t307 — the merge dialect (see ARRAY_FLAVORS): "star" concatenates the
+     * shard output stars (t306); "rows" concatenates only the block>=2 data
+     * rows AND strips the leading ../ from the ImageName column (extract's
+     * shard stars carry shard-relative stack paths; the shared --part_dir
+     * makes ../extra/… the honest shape, the strip makes the merged star
+     * resolve from the workdir root); "coords" collects the per-micrograph
+     * coordinate stars into the canonical micrographs/ dir (autopick — no
+     * star concatenation at all).
+     */
+    merge: "star" | "rows" | "coords";
   } | null;
 }): string {
   const { conn, module: moduleName, relionHome, ctffind, command, gpus, ntasks, threads, jobName, remoteProjectRoot, remoteWorkdir, partition, nodelist, dependency, array } = args;
@@ -662,6 +697,7 @@ function buildSbatchScript(args: {
     L.push(`  SHARD="${W}/.cf-shard-$SLURM_ARRAY_TASK_ID.star"`);
     L.push(`  RCF="${W}/.cf-array-rc-$SLURM_ARRAY_JOB_ID"`);
     L.push(`  OSHARD="${W}/shard_$SLURM_ARRAY_TASK_ID"`);
+    L.push(`  mkdir -p "$OSHARD" || exit 111`);
     L.push(`  awk -v s="$SLURM_ARRAY_TASK_ID" -v n=${N} '`);
     L.push(`    /^data_/{block++; print; next}`);
     L.push(`    /^loop_/{print; next}`);
@@ -674,22 +710,88 @@ function buildSbatchScript(args: {
     L.push(`  echo "$SLURM_ARRAY_TASK_ID $__rc" >> "$RCF"`);
     L.push(`  __done="$(wc -l < "$RCF" 2>/dev/null || true)"`);
     L.push(`  if [ "${"${__done:-0}"}" -ge ${N} ]; then`);
-    L.push(`    __merged="${W}/${array.outStar}"`);
-    L.push(`    __have=0`);
-    L.push(`    for __k in $(seq 1 ${N}); do`);
-    L.push(`      __f="${W}/shard_$__k/${array.outStar}"`);
-    L.push(`      [ -f "$__f" ] || continue`);
-    L.push(`      if [ "$__have" = "0" ]; then`);
-    L.push(`        cp "$__f" "$__merged.cf-merge"`);
-    L.push(`        __have=1`);
-    L.push(`      else`);
-    L.push(`        awk '!/^data_/ && !/^loop_/ && !/^_/ && !/^#/ && NF>0' "$__f" >> "$__merged.cf-merge" 2>/dev/null || true`);
-    L.push(`      fi`);
-    L.push(`    done`);
-    L.push(`    [ "$__have" = "1" ] && mv "$__merged.cf-merge" "$__merged"`);
-    L.push(`    __bad="$(awk '$2!=0{print $2; exit}' "$RCF" 2>/dev/null || true)"`);
-    L.push(`    echo "${"${__bad:-0}"}" > ${shQuote(W + "/.cf-exit")}`);
-    L.push(`    rm -f "$RCF" "${W}"/.cf-shard-*.star`);
+    // t307 — the count gate can fire in MORE THAN ONE task: two shards can
+    // append their rc and read the tally within the same breath, and two
+    // concurrent merges interleave their cp/append/mv until the canonical
+    // star lands TORN (observed live: a headerless 4-row fragment). Serialize
+    // the merge with flock — auto-released if a merger dies — and the loser
+    // finds .cf-exit already spoken and stands down. A login node without
+    // flock degrades to the old race (honest best effort, not a deadlock).
+    L.push(`    __locked=0`);
+    L.push(`    if command -v flock >/dev/null 2>&1; then`);
+    L.push(`      exec 9>>${shQuote(W + "/.cf-merge.lock")}`);
+    L.push(`      flock 9`);
+    L.push(`      __locked=1`);
+    L.push(`    fi`);
+    L.push(`    if [ "$__locked" = "0" ] || [ -z "$(cat ${shQuote(W + "/.cf-exit")} 2>/dev/null)" ]; then`);
+    if (array.merge === "coords") {
+      // t307 — autopick's canonical output is the micrographs/ COORD DIR,
+      // not a star: every shard's per-micrograph coordinate stars move home
+      // (names are per-micrograph, shards are disjoint, so nothing can
+      // overwrite anything). collectOutputs globs exactly these.
+      L.push(`    mkdir -p ${shQuote(W + "/micrographs")}`);
+      L.push(`    for __k in $(seq 1 ${N}); do`);
+      L.push(`      [ -d "${W}/shard_$__k/micrographs" ] && cp "${W}/shard_$__k"/micrographs/*_autopick.star "${W}/micrographs/" 2>/dev/null || true`);
+      L.push(`    done`);
+    } else {
+      // star (t306) / rows (t307): concatenate the shard stars into the
+      // canonical one. rows differs twice — the FIRST donor contributes its
+      // structure plus its own rewritten rows (its rows carry ../ paths
+      // too), and every appended donor contributes ONLY block>=2 rows (the
+      // optics block must never duplicate). The rewrite itself: ImageName =
+      // <idx>@<path>; when <path> starts with ../, drop it (the shared
+      // --part_dir put every stack in the canonical extra/ tree, so
+      // extra/… is the honest path relative to the merged star's dir).
+      // FS=OFS=tab: touching $1 makes awk rebuild $0 — without it the
+      // STAR's tab-separated columns would come back space-separated.
+      const rowsRewrite = `i=index($1,"@"); if(i>0 && substr($1,i+1,3)=="../") $1=substr($1,1,i) substr($1,i+4)`;
+      if (array.merge === "rows") {
+        L.push(`    __merged="${W}/${array.outStar}"`);
+        L.push(`    __have=0`);
+        L.push(`    for __k in $(seq 1 ${N}); do`);
+        L.push(`      __f="${W}/shard_$__k/${array.outStar}"`);
+        L.push(`      [ -f "$__f" ] || continue`);
+        L.push(`      if [ "$__have" = "0" ]; then`);
+        L.push(`        awk 'BEGIN{FS=OFS="\\t"}`);
+        L.push(`          /^data_/{block++; print; next}`);
+        L.push(`          /^loop_/{print; next}`);
+        L.push(`          /^_/{print; next}`);
+        L.push(`          /^#/{print; next}`);
+        L.push(`          block>=2 && NF>0{ ${rowsRewrite}; print; next }`);
+        L.push(`          {print}' "$__f" > "$__merged.cf-merge"`);
+        L.push(`        __have=1`);
+        L.push(`      else`);
+        L.push(`        awk 'BEGIN{FS=OFS="\\t"}`);
+        L.push(`          /^data_/{block++; next}`);
+        L.push(`          /^loop_/{next}`);
+        L.push(`          /^_/{next}`);
+        L.push(`          /^#/{next}`);
+        L.push(`          block>=2 && NF>0{ ${rowsRewrite}; print; next }`);
+        L.push(`          {next}' "$__f" >> "$__merged.cf-merge" 2>/dev/null || true`);
+        L.push(`      fi`);
+        L.push(`    done`);
+        L.push(`    [ "$__have" = "1" ] && mv "$__merged.cf-merge" "$__merged"`);
+      } else {
+        L.push(`    __merged="${W}/${array.outStar}"`);
+        L.push(`    __have=0`);
+        L.push(`    for __k in $(seq 1 ${N}); do`);
+        L.push(`      __f="${W}/shard_$__k/${array.outStar}"`);
+        L.push(`      [ -f "$__f" ] || continue`);
+        L.push(`      if [ "$__have" = "0" ]; then`);
+        L.push(`        cp "$__f" "$__merged.cf-merge"`);
+        L.push(`        __have=1`);
+        L.push(`      else`);
+        L.push(`        awk '!/^data_/ && !/^loop_/ && !/^_/ && !/^#/ && NF>0' "$__f" >> "$__merged.cf-merge" 2>/dev/null || true`);
+        L.push(`      fi`);
+        L.push(`    done`);
+        L.push(`    [ "$__have" = "1" ] && mv "$__merged.cf-merge" "$__merged"`);
+      }
+    }
+    L.push(`      __bad="$(awk '$2!=0{print $2; exit}' "$RCF" 2>/dev/null || true)"`);
+    L.push(`      echo "${"${__bad:-0}"}" > ${shQuote(W + "/.cf-exit")}`);
+    L.push(`    fi`);
+    L.push(`    rm -f "$RCF" "${W}"/.cf-shard-*.star "${W}/.cf-merge.lock"`);
+    L.push(`    [ "$__locked" = "1" ] && exec 9>&-`);
     L.push(`  fi`);
     L.push(`  exit "$__rc"`);
     L.push(`fi`);
@@ -819,14 +921,15 @@ export async function startRemoteJob(args: {
     );
   }
 
-  // t306 — the array gate: shards only mean something for the types whose
-  // argv takes ONE per-micrograph input star and whose output star the last
-  // task can merge (ARRAY_TYPES). Anything else is refused BEFORE staging —
-  // a silently un-split run would be a lie with extra steps, and a split
-  // refine3d would break global alignment statistics outright.
-  if (shardTotal >= 2 && !ARRAY_TYPES[job.type]) {
+  // t306/t307 — the array gate: shards only mean something for the flavors
+  // whose argv takes ONE per-micrograph input star and whose output shape the
+  // last task can merge back (ARRAY_FLAVORS — star concat, rows concat with
+  // the ../ strip, or a per-micrograph coords collection). Anything else is
+  // refused BEFORE staging — a silently un-split run would be a lie with
+  // extra steps, and a split refine3d would break global alignment stats.
+  if (shardTotal >= 2 && !ARRAY_FLAVORS[job.type]) {
     return fail(
-      `"${job.type}" cannot ride an array split (only ${Object.keys(ARRAY_TYPES).join(" / ")} shard per micrograph today) — submit it without the split`,
+      `"${job.type}" cannot ride an array split (only ${Object.keys(ARRAY_FLAVORS).join(" / ")} ride one today) — submit it without the split`,
       true
     );
   }
@@ -1223,24 +1326,62 @@ export async function startRemoteJob(args: {
       // the split honestly instead of submitting a script that would slice
       // the wrong file.
       let command: string;
-      let arrayPlan: { total: number; concurrency: number; inputStar: string; outStar: string } | null = null;
+      let arrayPlan: {
+        total: number;
+        concurrency: number;
+        inputStar: string;
+        outStar: string;
+        merge: "star" | "rows" | "coords";
+      } | null = null;
       if (shardTotal >= 2) {
+        const flavor = ARRAY_FLAVORS[job.type];
         const ii = argv.indexOf("--i");
-        const oi = argv.indexOf("--o");
+        const oi = flavor ? argv.indexOf(flavor.outArg) : -1;
         const inputStar = ii >= 0 ? String(argv[ii + 1] ?? "") : "";
         const outArg = oi >= 0 ? String(argv[oi + 1] ?? "") : "";
-        const outStar = ARRAY_TYPES[job.type] ?? "";
-        if (!inputStar.endsWith(".star") || outArg !== remoteWorkdir + "/" || !outStar) {
+        // t307 — the expected output value per flavor: FILE-valued flags
+        // (--part_star) point at the canonical star itself; DIR-valued
+        // flags (--o, --odir) point at the workdir root and the canonical
+        // star is whatever the binary writes INTO it. Keyed on the flag
+        // kind, NOT on outStar being non-empty — t306's family regression
+        // caught the first draft keying on outStar, which broke
+        // motioncorr/ctffind (outStar names the MERGE's file, the --o
+        // value stays the workdir root). extract's rows merge ALSO demands
+        // the shared --part_dir: the ../ strip is only honest when every
+        // shard's stacks land in the SAME canonical extra/ tree.
+        const wantOut =
+          flavor && flavor.outArg === "--part_star"
+            ? remoteWorkdir + "/" + flavor.outStar
+            : remoteWorkdir + "/";
+        const pdi = flavor?.merge === "rows" ? argv.indexOf("--part_dir") : -1;
+        const partDirOk = pdi < 0 || String(argv[pdi + 1] ?? "") === remoteWorkdir + "/";
+        if (
+          !flavor ||
+          !inputStar.endsWith(".star") ||
+          oi < 0 ||
+          outArg !== wantOut ||
+          !partDirOk
+        ) {
           // inside the spawn task the honest exit is a THROWN error (the
           // catch below marks the record + row failed with this message) —
           // a return here could not reach the caller.
           throw new Error(
-            `array split unavailable for "${job.type}": the command does not take one input STAR + the workdir as its output (the shard slicing would target the wrong file)`
+            `array split unavailable for "${job.type}": the command does not take one input STAR + an output the last task can merge (the shard slicing would target the wrong file)`
           );
         }
-        arrayPlan = { total: shardTotal, concurrency: ARRAY_CONCURRENCY, inputStar, outStar };
+        arrayPlan = {
+          total: shardTotal,
+          concurrency: ARRAY_CONCURRENCY,
+          inputStar,
+          outStar: flavor.outStar,
+          merge: flavor.merge,
+        };
+        const outVal =
+          flavor.outStar && flavor.outArg === "--part_star"
+            ? `"$OSHARD/${flavor.outStar}"`
+            : '"$OSHARD/"';
         command = argv
-          .map((a, k) => (k === ii + 1 ? '"$SHARD"' : k === oi + 1 ? '"$OSHARD/"' : shQuote(a)))
+          .map((a, k) => (k === ii + 1 ? '"$SHARD"' : k === oi + 1 ? outVal : shQuote(a)))
           .join(" ");
       } else {
         command = argv.map(shQuote).join(" ");

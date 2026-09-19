@@ -56,13 +56,15 @@ const CUSTOM_MODULE_VALUE = "__custom__";
 const PARTITION_AUTO = "__auto__";
 const ARRAY_MAX_SHARDS = 64;
 /**
- * t306 — the types whose remote Slurm run can ride an array split (the
- * dispatch's own ARRAY_TYPES gate — per-micrograph embarrassingly parallel:
- * one --i star in, a per-micrograph output star the last task merges back).
- * The dialog hides the stepper for everything else — a knob that would be
- * refused at dispatch time is not a knob, it is a trap.
+ * t306/t307 — the types whose remote Slurm run can ride an array split (the
+ * dispatch's own ARRAY_FLAVORS gate — per-micrograph embarrassingly parallel,
+ * each with a merge the last task home can do honestly: output-star concat
+ * for motioncorr/ctffind, path-rewritten particle rows for extract, a
+ * collected per-mic coords dir for autopick). The dialog hides the stepper
+ * for everything else — a knob that would be refused at dispatch time is not
+ * a knob, it is a trap.
  */
-const ARRAY_ELIGIBLE_TYPES = new Set(["motioncorr", "ctffind"]);
+const ARRAY_ELIGIBLE_TYPES = new Set(["motioncorr", "ctffind", "extract", "autopick"]);
 
 /** The relion --gpu flag's device list for N GPUs: "0", "0:1", "0:1:2"… */
 function gpuListFor(n: number): string {

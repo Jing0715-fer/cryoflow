@@ -12,7 +12,7 @@
 //        solo FAIL  → REAL-FAIL (a verdict, needs a human)
 //   3. EXIT CODE — 0 iff zero REAL-FAILs (SOLO-RECOVERY is honest but not a blocker).
 //
-// The FAMILY roster is an audited membership list (73 suites as of Task 306) —
+// The FAMILY roster is an audited membership list (74 suites as of Task 307) —
 // it is written here EXPLICITLY, not discovered by glob: diag-*/probe scripts and
 // one-off hearings are not family. When a new suite joins the family, add it here.
 //
@@ -138,6 +138,7 @@ const FAMILY = [
   "t302-family-suicide.mjs", // the runner dies with its children: a death signal kills the in-flight suite's whole group and writes an interrupted report entry — the orphan root, discipline → code (Task 302)
   "t304-sbatch-dependency.mjs", // the pipeline handoff, scheduler-side: a live remote parent turns the child's sbatch into --dependency=afterok + kill-on-invalid-dep, the mock holds/cancels by the same contract, the strip says 'waits on' (Task 304)
   "t306-sbatch-array.mjs", // the array split joins the dispatch: --array=1-N%M shards the input STAR round-robin, the last task home merges the shard stars and speaks the verdict, the mock fans out with %M and journals <id>_<t> rows (Task 306)
+  "t307-sbatch-array-extract-pick.mjs", // the array split learns extract+autopick: ARRAY_FLAVORS (outArg/outStar/merge dialect — star concat, rows concat with the ../ strip, per-mic coords collection), the mock's extract fake turns star-aware (relpath ImageName = the contract the strip is built on), one live pipeline picks in 3 shards and extracts in 2 (Task 307)
 ];
 
 // ---- batches are first-class (t273) ----------------------------------------

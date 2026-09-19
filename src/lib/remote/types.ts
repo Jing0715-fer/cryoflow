@@ -231,13 +231,16 @@ export interface RemoteRunTarget {
    */
   partition?: string | null;
   /**
-   * t306 — the array split for data-parallel types: ONE sbatch carrying
+   * t306/t307 — the array split for data-parallel types: ONE sbatch carrying
    * `--array=1-N%M`, each task slicing the input STAR by
-   * SLURM_ARRAY_TASK_ID, the last task home merging the shard output stars
-   * back into the canonical one. 2..64, clamped server-side; only
-   * meaningful in slurm mode AND only for the types the engine's argv
-   * actually shards (motioncorr/ctffind — one --i star, --o the workdir);
-   * anything else is an honest refusal, never a silently un-split run.
+   * SLURM_ARRAY_TASK_ID, the last task home merging the shards back into the
+   * canonical shape the engine's collectOutputs expects (per the flavor's
+   * dialect: concatenated output stars for motioncorr/ctffind, concatenated
+   * + path-rewritten particle rows for extract, a collected per-micrograph
+   * coords dir for autopick). 2..64, clamped server-side; only meaningful in
+   * slurm mode AND only for the types the engine's argv actually shards
+   * (ARRAY_FLAVORS); anything else is an honest refusal, never a silently
+   * un-split run.
    */
   shards?: number;
 }

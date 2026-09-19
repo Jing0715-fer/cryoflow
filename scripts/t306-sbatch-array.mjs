@@ -219,9 +219,9 @@ try {
   const route = readFileSync(`${ROOT}/src/app/api/jobs/[id]/run/route.ts`, "utf8");
 
   must(
-    src.includes('const ARRAY_TYPES: Record<string, string> = {') &&
-      src.includes('motioncorr: "corrected_micrographs.star"') &&
-      src.includes('ctffind: "micrographs_ctf.star"'),
+    src.includes('const ARRAY_FLAVORS: Record<') &&
+      src.includes('motioncorr: { outArg: "--o", outStar: "corrected_micrographs.star", merge: "star" }') &&
+      src.includes('ctffind: { outArg: "--o", outStar: "micrographs_ctf.star", merge: "star" }'),
     "B: the type contract names the canonical output star per eligible type"
   );
   must(
@@ -229,7 +229,7 @@ try {
     "B: the %M cap is ONE honest default (one knob in the dialog, not two)"
   );
   must(
-    src.includes("if (shardTotal >= 2 && !ARRAY_TYPES[job.type])") &&
+    src.includes("if (shardTotal >= 2 && !ARRAY_FLAVORS[job.type])") &&
       src.includes("cannot ride an array split"),
     "B: an ineligible type + shards is refused BEFORE staging (never a silently un-split run)"
   );
@@ -244,11 +244,15 @@ try {
     "B: the DTO + the engine state carry slurmArray; the target carries shards"
   );
   must(
-    src.includes("k === ii + 1 ? '\"$SHARD\"' : k === oi + 1 ? '\"$OSHARD/\"' : shQuote(a)"),
-    "B: the argv rewrite swaps --i for the shard slice and --o for the task subdir"
+    src.includes("k === ii + 1 ? '\"$SHARD\"' : k === oi + 1 ? outVal : shQuote(a)") &&
+      src.includes('flavor.outStar && flavor.outArg === "--part_star"'),
+    "B: the argv rewrite swaps --i for the shard slice and the flavor's out flag for the task subdir"
   );
   must(
-    src.includes("!inputStar.endsWith(\".star\") || outArg !== remoteWorkdir + \"/\" || !outStar"),
+    src.includes("!flavor ||") &&
+      src.includes("!inputStar.endsWith(\".star\") ||") &&
+      src.includes("outArg !== wantOut ||") &&
+      src.includes("!partDirOk"),
     "B: a rewrite that cannot name its targets throws (never slices the wrong file)"
   );
   must(
@@ -286,7 +290,7 @@ try {
     "B: the strip speaks the split BOTH live and terminal"
   );
   must(
-    dlg.includes('new Set(["motioncorr", "ctffind"])') &&
+    dlg.includes('new Set(["motioncorr", "ctffind", "extract", "autopick"])') &&
       dlg.includes('data-array-shards-row=""') &&
       dlg.includes("arrayEligible && shards >= 2 ? { shards: Math.min(ARRAY_MAX_SHARDS, shards) } : {}"),
     "B: the dialog gates the stepper to eligible types and sends shards only when split"
@@ -370,7 +374,7 @@ try {
   }, 45_000, 900);
   must(!!taskRow, `C1: task 1's own row says COMPLETED (${taskRow || "no row"})`);
   const masterWord = await waitJournal(sId1, "COMPLETED", 45_000);
-  must(masterWord.startsWith("COMPLETED"), `C1: the MASTER row is COMPLETED (every rc was 0) (${masterWord})`);
+  must((masterWord ?? "").startsWith("COMPLETED"), `C1: the MASTER row is COMPLETED (every rc was 0) (${masterWord ?? "no row"})`);
   const tasksAll = [1, 2, 3].every((t) => journalWord(`${sId1}_${t}`).startsWith("COMPLETED"));
   must(tasksAll, "C1: all three per-task rows say COMPLETED");
   const done1 = await pollUntil(async () => {

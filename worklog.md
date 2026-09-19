@@ -2223,3 +2223,24 @@ Stage Summary:
 - **「heredoc 有三个时钟」**：sbatch 期（$id/$deps 未转义=烘焙）、launcher 期（\$__t 转义=运行时求值）、awk 单引号期（\$2 转义才活着进程序）——三层展开时机混用一行就是一颗雷，set -u 的报错行号还会指错地方；GNU grep 的变宽 lookbehind 禁令让 \K 成为唯一正解
 - **「卫生扫描的 ps 正则会看见祖父」**：timeout/wrapper 类进程的 argv 含被检字符串、pid 却不是 ppid——套件的 ppid 排除只防一层；跑批者不用 wrapper（或套件排除整条祖先链）是操作纪律
 - 遗留（下轮候选）：extract/autopick 的 array 变体（输出非单星表，合并需要 coords/粒子语义）；verify-module 的 by-value 变体；384³/512³ 阶梯压测（T296_N 已备）；EMPIAR 真数据回归（连续第十六窗让位）；demo 教程链的下游重跑（按老约定补 outputs 映射）
+
+## Task 307 (2026-09-19, cron 07:18 窗口 trace 1a07549302235a99-cron-agent-loop-202609190719 —— 开局实证：worklog 尾部 = Task 306（HEAD 89ad82b 已 push、树净、3000 活、roster 21、qa63 GREEN、累积器 11 批 pass 73 · realFail 0），cron 指引的「Task 13」照例过时)
+
+- 【开局 + QA】GET / 200、roster 21、qa63 冒烟 GREEN（console 0）。开局即遇一桩显示层怪谈：remote-run.ts 三处 `?.[moduleName]` 在工具输出里显示成 `?.oduleName]`（语法坏状）——AST dump + 字符长度对账证明是**输出通道吞掉字面 `[m` 两字符序列**（ANSI SGR 复位过滤器不要求 ESC 前缀），文件本身健康；`[module`/`[mode` 同款伪影。教训：诊断要以 AST/长度为准，不凭渲染文本定罪。
+- 【主交付：extract + autopick 上了 array split】t306 只会切/并「单星表进、单星表出」的 motioncorr/ctffind；把微图变成粒子的两类活从没骑过 split，而它们才是最需要分片的。关键在输出形状根本不同——
+  1. **ARRAY_TYPES（名→星表）升级为 ARRAY_FLAVORS（outArg/outStar/merge 三元组）**，三种合并方言：`star`（t306 原样，motioncorr/ctffind）、`rows`（extract：`--part_dir` 保持**共享**——逐微图粒子栈零碰撞，仅 `--part_star` 分片；真 RELION 的 ImageName 路径相对**星表自身目录**，shard 星表写 `../extra/…`，合并时拼 block≥2 数据行并剥掉前导 `../`）、`coords`（autopick：逐微图坐标星表名字天然不相撞，合并 = **文件收集** `cp shard_k/micrographs/*_autopick.star <W>/micrographs/`，连星表拼接都不需要）。argv 重写按 flavor 定位各自的输出旗（`--o`/`--odir`/`--part_star`）；extract 另有共享 part_dir 卫兵（重定向即拒）。
+  2. **真 RELION 双块方言**：mock 的 relion_preprocess 假体从「无视输入写死 150 行」升级为 star-aware（#N 列号 + 位置回退、逐微图栈入共享 extra/、relpath ImageName），输出改为 data_optics + data_particles 双块——首航揪出单块星表会**整体绕过 block≥2 过滤**（首捐献者不剥 ../、追加捐献者全被丢弃），假体必须说真话的方言。
+  3. **flock 串行化计数门（真雷，家族回归揪出）**：两个 shard 可以在同一口气里 append rc + 读满台账 → **两个合并器并发** cp/append/mv 互相踩踏，合并星表撕裂成无结构头的 4 行碎片（manifest 尺寸 336B 坐实）。修 = `exec 9>>.cf-merge.lock; flock 9`，败者见 .cf-exit 已言即退位；无 flock 的异端登录节点诚实降级为旧竞态（尽力而为而非死锁）。t306 的潜伏竞态，昨日连绿是运气，家族批两次 solo 踩中后落网。
+  4. 脚本补 `mkdir -p "$OSHARD" || exit 111`（老 flavor 的二进制自建输出目录，extract 的 part_star 无人建）。
+- 【首航三连雷全记录】① wantOut 判别键写反：按 outStar 非空判别，把 motioncorr/ctffind 的 `--o`（目录 `<W>/`）误期望成文件路径 → 派发即 throw——t306 家族回归当场逮住（t307 自身三绿是因为 autopick 的 outStar 为空碰巧走对）；修 = 按**旗的种类**判别（--part_star 是文件旗，--o/--odir 是目录旗），教训钉进注释。② 服务器复活时序：watchdog 在构建完成前就用旧包复活，C4 说着旧文案——**杀两次、以拒绝文案为构建指纹**。③ select2d 在 NATIVE_TYPES 里根本不可远程，C4 拒绝测试须用 class2d（t306 同款）。
+- 【套件 t307-sbatch-array-extract-pick.mjs（61 断言，ALL PASS ×3）】A 真相；B 台账 12（flavor 表、重写、双块方言、共享 part_dir 卫兵、flock 串行、coords 收集、mock 假体合同、对话框四类型）；C1 autopick×3 活体全链（slurmArray {3,4} → 脚本带 --odir 分片换写 → 逐任务行 COMPLETED → 主行 COMPLETED → 204 粒子 across 12 微图 → **12/12 坐标星表收进 canonical micrographs/** → strip 说 `· array 1-3%4` + 定妆照）；C2 extract×2 活体消费 C1 的合并坐标（slurmArray {2,4}、`--part_star` 换写、`--part_dir` 共享、合并 awk 真身入脚本 → 合并星表 120 行、**零 `../` 幸存**、120/120 引用栈在盘上、extra/ 12 栈零碰撞）；C3 不分片对照（122 行、无 array 分支）；C4 class2d+shards 诚实拒绝；D console 0 + roster 21；finally 快照还原 + 全清。
+- 【家族回归】开局批 t30 揪出 wantOut 真雷（t306 real-fail）→ 修复后 **t30 连续两轮全绿：pass 4（t302 32.9s + t304 59.5s + t306 54.1s + t307 32.7s）· solo 0 · real-fail 0 · wall 191/192s**；累积器 11 批 TOTAL **pass 74 · real-fail 0**；roster 恒等 21；裸 tsc 0；改动文件 eslint 0；roster 注释 74 suites as of Task 307；qa63 冒烟 GREEN。
+- 【收尾】worklog（本条）+ commit/push + 环境净场（3000 独监、mock 杀净、探针焚毁、零残留进程）。
+
+Stage Summary:
+- **「合并方言要跟着输出形状走」**：单星表输出拼行即可；逐微图文件输出（坐标）连拼都不用——收集就是合并；粒子星表最险，路径语义（相对星表自身目录）决定了「共享 part_dir + 剥 ../」是唯一诚实解。ARRAY_FLAVORS 把这三件事变成声明式合同，重写器按旗定位、卫兵按方言设卡
+- **「计数门的『最后收工者』不止一个」**：append 与 wc 之间没有原子性，两个任务能同时看见满台账——并发的合并器互踩直到星表撕裂。flock（进程死即释放）+ 败者退位（.cf-exit 已言即止）让「谁 merge」从猜测变成调度；没有 flock 的机器要诚实降级，而不是假装安全
+- **「假体必须说产品的方言」**：mock 假体写单块星表时，block≥2 过滤静默旁路——产品语义对真 RELION 是对的，假体太假反而掩盖不了（活体揭穿）。假体的保真度决定见证的效力；star 的 #N 列号 + 位置回退、双块输出，都是「说真话」的最低配置
+- **「判别键要用旗的种类，不是值的形状」**：outStar 非空 ≠ --o 指向文件——t306 的 --o 是目录、outStar 只是合并的目标文件名；判别键错一位，t306 的整条活体链当场断流。家族回归的存在意义就是抓新套件自己看不见的旧合同破坏
+- **「显示层的语法坏状要用 AST 定罪」**：输出通道吞 `[m` 序列制造伪代码假象——文本渲染是证人不是法官，AST + 字节长度对账才能定罪
+- 遗留（下轮候选）：sacct elapsed/TRES 列已在 t303 落地（勿重做）；array 变体下游（class2d 吃合并粒子星表的端到端链）；verify-module 的 by-value 变体；384³/512³ 阶梯压测（T296_N 已备）；EMPIAR 真数据回归（连续第十七窗让位）；demo 教程链的下游重跑（按老约定补 outputs 映射）
