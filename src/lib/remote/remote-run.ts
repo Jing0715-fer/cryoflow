@@ -46,7 +46,7 @@ import { DATA_DIR, RELION_DIR } from "@/lib/paths";
 import {
   buildArgv,
   collectOutputs,
-  ctffindMovieStackRefusal,
+  ctffindInputGate,
   describeExitCode,
   getRun,
   parseJobParams,
@@ -76,6 +76,7 @@ import {
   shQuote,
   shSingleQuote,
 } from "./ssh";
+import { remoteHeaderSniffer } from "./sniff";
 import type {
   ConnectionRunResume,
   RemoteConnection,
@@ -412,8 +413,10 @@ function buildWrapperScript(args: {
   command: string;
   remoteProjectRoot: string;
   remoteWorkdir: string;
+  /** t313 — the CTF gate's "allowed" receipt, echoed into run.out */
+  note?: string | null;
 }): string {
-  const { conn, module: moduleName, relionHome, ctffind, command, remoteProjectRoot, remoteWorkdir } = args;
+  const { conn, module: moduleName, relionHome, ctffind, command, remoteProjectRoot, remoteWorkdir, note } = args;
   const L: string[] = [];
   L.push("#!/usr/bin/env bash");
   L.push("# CryoFlow remote run — generated locally, executed on the cluster");
@@ -460,6 +463,9 @@ function buildWrapperScript(args: {
     `echo "$__p $(awk '{print \$22}' /proc/$__p/stat 2>/dev/null)" > ${shQuote(remoteWorkdir + "/.cf-pid")}`
   );
   L.push('echo "CRYOFLOW_PID:$__p"');
+  // t313 — the gate's receipt APPENDS (the setsid redirect above truncated
+  // run.out at launch, so an earlier echo would be wiped)
+  if (note) L.push(`echo ${shQuote("CRYOFLOW_NOTE: " + note)} >> ${shQuote(remoteWorkdir + "/run.out")}`);
   return L.join("\n") + "\n";
 }
 
@@ -633,8 +639,10 @@ function buildSbatchScript(args: {
      */
     merge: "star" | "rows" | "coords";
   } | null;
+  /** t313 — the CTF gate's "allowed" receipt (SBATCH --output captures it) */
+  note?: string | null;
 }): string {
-  const { conn, module: moduleName, relionHome, ctffind, command, gpus, ntasks, threads, jobName, remoteProjectRoot, remoteWorkdir, partition, nodelist, dependency, array } = args;
+  const { conn, module: moduleName, relionHome, ctffind, command, gpus, ntasks, threads, jobName, remoteProjectRoot, remoteWorkdir, partition, nodelist, dependency, array, note } = args;
   const effectivePartition = partition ?? conn.slurmPartition ?? null;
   const L: string[] = [];
   L.push("#!/bin/bash");
@@ -689,6 +697,9 @@ function buildSbatchScript(args: {
   L.push('command -v relion_refine >/dev/null 2>&1 || { echo "CRYOFLOW_ERR: relion_refine not found on PATH after module load" >&2; exit 127; }');
   L.push("");
   L.push("# ---- run ----");
+  // t313 — the CTF gate's receipt lands at the TOP of run.out (SBATCH
+  // --output captures the whole script's stdout)
+  if (note) L.push(`echo ${shQuote("CRYOFLOW_NOTE: " + note)}`);
   L.push(`mkdir -p ${shQuote(remoteProjectRoot)}`);
   L.push(`cd ${shQuote(remoteWorkdir)} || exit 111`);
   L.push(`rm -f ${shQuote(remoteWorkdir + "/.cf-exit")}`);
@@ -1040,20 +1051,28 @@ export async function startRemoteJob(args: {
     return { ok: false, error: resolved.missing, ...(resolved.wait ? { waiting: resolved.wait } : {}) };
   }
 
-  // ---- t312 — raw movie stacks must not ride the CTF lane ---------------
-  // The user's Beijing ticket: Import of a Krios session's raw *_Fractions
-  // stacks wired STRAIGHT into ctffind. The cluster then refuses every
-  // micrograph ("failed to estimate CTF parameters for any micrograph") —
-  // a doomed submission the GUI should have named BEFORE staging anything.
-  // The smell test reads the RESOLVED star's own rows (provider-agnostic:
-  // import's raw star or anything else that smells), ≥50% of rows flagged
-  // → honest requestError refusal that teaches the fix (MotionCorr first).
-  // A wiring mistake must not flip the job row to failed.
+  // ---- t313 — the byte-verified CTF door (before any staging) -----------
+  // The Beijing ticket, round two: the t312 refusal judged by FILENAME and
+  // blocked the user's REAL motion-corrected micrographs (MotionCor2 keeps
+  // the movie's basename — *_Fractions_DW.mrc outputs are summed images).
+  // The gate now smells the RESOLVED star's rows only to find candidates,
+  // then reads the flagged files' own MRC headers over SSH (one round
+  // trip, spread sample): NZ>1 = a verified frame stack → the honest
+  // requestError refusal, now carrying the header's numbers as evidence;
+  // NZ=1 = verified micrographs → through (the note rides the submitted
+  // script's log so the receipt is visible in the Log tab); unverifiable
+  // → through with the advisory note. A wiring mistake must not flip the
+  // job row to failed; a filename smell must not block real data.
+  let ctffindGateNote: string | null = null;
   if (job.type === "ctffind" && resolved.inputs.micrographs_star) {
-    const movieRefusal = ctffindMovieStackRefusal(resolved.inputs.micrographs_star);
-    if (movieRefusal) {
-      return fail(movieRefusal, true);
+    const gate = await ctffindInputGate(
+      resolved.inputs.micrographs_star,
+      remoteHeaderSniffer(conn)
+    );
+    if (gate.refusal) {
+      return fail(gate.refusal, true);
     }
+    ctffindGateNote = gate.note;
   }
 
   // ---- t267: a never-probed connection must not dispatch blind ----------
@@ -1493,6 +1512,7 @@ export async function startRemoteJob(args: {
           nodelist: nodelistPin,
           dependency,
           array: arrayPlan,
+          note: ctffindGateNote,
         });
         const scriptPath = `${remoteWorkdir}/.cf-sbatch.sh`;
         const upOk = await remoteUpload(conn, script, scriptPath);
@@ -1564,6 +1584,7 @@ export async function startRemoteJob(args: {
           command,
           remoteProjectRoot,
           remoteWorkdir,
+          note: ctffindGateNote,
         });
 
         const wrapperPath = `${remoteWorkdir}/.cf-run.sh`;
@@ -2167,10 +2188,13 @@ async function finalizeRemoteRun(
   } else {
     const meaning = describeExitCode(exitCode);
     const errTail = tailText(path.join(localWorkdir, "run.err"), 400) || remoteLogTail.slice(-400);
-    // t312 — the ctffind all-failed signature gets a COMPACT diagnosis in
-    // the result strip itself (the Log tab carries the full hint via
-    // log-diagnosis): the user's Beijing run refused every micrograph
-    // because raw movie stacks cannot carry a CTF. The hint replaces two
+    // t312/t313 — the ctffind all-failed signature gets a COMPACT
+    // diagnosis in the result strip itself (the Log tab carries the full
+    // hint via log-diagnosis). t312 blamed raw movie stacks first and was
+    // WRONG for the Beijing data (the inputs were motion-corrected
+    // *_Fractions_DW.mrc micrographs); the all-at-once refusal means the
+    // INPUTS or the ctffind build were rejected outright, and the honest
+    // diagnosis orders the suspects by likelihood. The hint replaces two
     // of the tail's warning-noise lines — diagnosis beats repetition.
     const ctfNoFit =
       job.type === "ctffind" &&
@@ -2185,7 +2209,7 @@ async function finalizeRemoteRun(
       tailLines.join(" "),
       ...(ctfNoFit
         ? [
-            "CTF diagnosis: ctffind failed on EVERY micrograph — feed it motion-corrected micrographs (raw *_Fractions/.eer movie stacks always fail: run MotionCorr first, Import → MotionCorr → CTF), check the Import pixel size, and widen ResMin/ResMax if the fit still finds nothing",
+            "CTF diagnosis: ctffind rejected EVERY micrograph at once — inputs rejected outright, not bad fits. Check the MRCs are single-section (NZ>1 = raw frame stacks → MotionCorr first; .eer is always raw), that this ctffind build reads the file mode (float16/mode-12 needs a recent ctffind — the cluster's bundled 4.1 may predate it), and the Import pixel size — the job dir's .ctf/log files carry the literal per-file error",
           ]
         : []),
       sync.note,

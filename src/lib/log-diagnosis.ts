@@ -104,11 +104,18 @@ export const LOG_PATTERNS: LogPattern[] = [
   },
   {
     // t312 — relion_run_ctffind's own terminal words (ctffind_runner.cpp):
-    // the per-micrograph skip warning and the all-failed exit line
+    // the per-micrograph skip warning and the all-failed exit line.
+    // t314 — the hint was REWRITTEN: the first cut blamed raw movie stacks
+    // first, and the Beijing follow-up proved those inputs were
+    // motion-corrected *_Fractions_DW.mrc micrographs. An every-micrograph
+    // refusal that takes seconds (not minutes) means ctffind rejected the
+    // INPUTS or the FILE FORMAT outright — no fit was ever attempted — so
+    // the suspects are ordered by that physics, with the header-checking
+    // command the user can run themselves on the cluster.
     id: "ctffind-no-fit",
     re: /failed to estimate CTF parameters for any micrograph|cannot get CTF values for/i,
     label: "CTF estimation failed on every micrograph",
-    hint: "ctffind could not fit a CTF anywhere — the usual causes: raw movie frame stacks fed straight in (*_Fractions/_DW stacks, .eer — run MotionCorr first and feed ITS summed micrographs), a wrong pixel size in the Import job, or a ResMin/ResMax range outside what this data can support.",
+    hint: "ctffind rejected every micrograph at once — the input itself is the suspect, not the fitting. Check in order: (1) single-section MRCs? NZ>1 means raw frame stacks (run MotionCorr first: Import → MotionCorr → CTF; .eer is always raw) — an MRC's own header settles it, on the cluster run: head -c 16 <file>.mrc | od -An -td4 (NX NY NZ MODE); (2) does this ctffind build read the file mode — float16 / MRC mode 12 needs a recent ctffind, and a bundled 4.1 may predate it; (3) the Import pixel size must match the real data (Falcon 4i: ~0.5 Å unbinned, ~1.0 Å binned ×2); (4) widen ResMin/ResMax if the fit RUNS but finds nothing. The per-micrograph .ctf files and ctffind logs inside the job directory carry the literal error.",
   },
 ];
 

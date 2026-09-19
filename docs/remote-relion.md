@@ -147,17 +147,37 @@ shoot. Long picked-file lists render as a compact summary card in the
 params tab (`N files · M folders` + the first two paths, *show all* to
 edit) instead of a wall of paths.
 
-**Raw movie stacks never ride the CTF lane (t312).** Importing a Krios
-session's `Micrographs/` folder brings EPU's raw `*_Fractions[_DW].mrc`
-MOVIE STACKS (and Falcon `.eer` event records) — unsummed frames carry
-no CTF to fit, so a ctffind run wired straight onto them fails on every
-micrograph (the cluster's own words: *failed to estimate CTF parameters
-for any micrograph*). The dispatch now smells the resolved STAR's rows
-BEFORE anything is staged (≥50 % movie-shaped names → honest refusal
-that teaches the fix: run MotionCorr on the imported movies first,
-`Import → MotionCorr → CTF`, or import already-summed micrographs). If
-a CTF job still fails the old way, the failure strip and the Log tab's
-diagnosis both carry the same lesson.
+**The CTF door reads BYTES, not names (t314, replacing t312's smell test).**
+The first cut refused any ctffind input whose rows *smelled* like EPU
+movie naming — and the Beijing follow-up proved the false positive:
+that session's `Micrographs/` folder held MotionCor2 OUTPUTS (motioncor2
+keeps the movie's basename, so `xxx_Fractions.mrc` + `xxx_Fractions_DW.mrc`
+are summed single-section micrographs, 64 MB float32 apiece — a raw stack
+never matches its sum's size). The current gate smells the resolved
+STAR's rows only to find candidates worth verifying, then reads the
+flagged files' own MRC headers over SSH (one round trip, three spread
+files: NX/NY/NZ/MODE at offsets 0/4/8/12):
+
+* **NZ > 1** — a verified frame stack → the honest pre-staging refusal,
+  now carrying the header's own numbers as evidence (run MotionCorr
+  first: `Import → MotionCorr → CTF`);
+* **NZ = 1** — a summed micrograph → through (the receipt rides the
+  submitted script's `CRYOFLOW_NOTE` line and run.out, so the Log tab
+  shows *why* the gate let movie-shaped names pass);
+* **unreadable / TIFF** — through with an advisory note (the user is the
+  authority on their own data; never twice the same wrong block);
+* **`.eer` (≥50 %)** — refused without any bytes crossing the wire: an
+  event-record file is raw frames by definition.
+
+The import job sniffs the same way and says what the bytes are in its
+receipt (`headers (3 sampled): single-section MRCs 4096×4096 (mode 2) —
+motion-corrected micrographs, CTF-ready`, or the frame-stack warning).
+If a CTF job still fails on every micrograph at once, the failure strip
+and the Log tab's diagnosis order the honest suspects: single-section
+check (`head -c 16 <file>.mrc | od -An -td4` on the cluster reads
+NX NY NZ MODE), the ctffind build's file-mode support (float16 / MRC
+mode 12 needs a recent ctffind), the Import pixel size, then the
+ResMin/ResMax range.
 
 **Sync-back.** On completion (or stop), the job's cluster workdir is
 downloaded into the local mirror (per-file and total caps, defaults

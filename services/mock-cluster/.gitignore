@@ -14,3 +14,9 @@ fs/data2/movies-t312/
 
 # t312 — the 12-file control fixture for the movie-stack guard (runtime)
 fs/data2/mics-t312/
+
+# t314 — the byte-verified gate E2E fixtures (runtime, not fixtures-in-git)
+fs/data2/corrected-t314/
+fs/data2/rawmovies-t314/
+fs/data2/mics-t314/
+fs/data2/eer-t314/

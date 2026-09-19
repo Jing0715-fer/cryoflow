@@ -5,11 +5,17 @@
  *  1. NO-CAP BROWSER: a 2,054-file session folder (EPU naming) must arrive
  *     WHOLE through the remote browse route (entries 2054 = total 2054,
  *     truncated false) — the retired 400-row preview cap is the whole point.
- *  2. RAW-MOVIE CTF GUARD: import that folder (2,054 *_Fractions[_DW].mrc
- *     movie stacks), wire ctffind onto it, dispatch → the honest
+ *  2. RAW-MOVIE CTF GUARD (t314 semantics): import that folder (2,054
+ *     *_Fractions[_DW].mrc files whose REAL MRC headers say NZ=40 —
+ *     genuine frame stacks), wire ctffind onto it, dispatch → the honest
  *     requestError refusal that teaches MotionCorr first, BEFORE any
- *     staging (no workdir, no row flip). The 12-file mic_*.mrcs control
- *     dispatches for real and completes — the guard has no false positives.
+ *     staging (no workdir, no row flip), now carrying the header's own
+ *     numbers as evidence. The 12-file mic_*.mrcs control dispatches for
+ *     real and completes — the guard has no false positives. The fixtures
+ *     carry REAL 64-byte MRC headers because t314's gate verifies bytes,
+ *     not names (the t312 filename smell alone can no longer refuse
+ *     anything — the Beijing user's motion-corrected *_Fractions_DW.mrc
+ *     micrographs proved that false positive).
  *
  * Run against the standalone prod server on :3001 (t301/t311 doctrine).
  */
@@ -139,6 +145,34 @@ try {
   projectId = proj.body?.project?.id;
   must(!!projectId, "the project id rides the response");
 
+  // ---- the fixtures (t314): REAL MRC headers, not empty touch-files -----
+  // the gate now reads NZ off the bytes — a stack fixture needs a stack
+  // header (5760x4092 x 40 frames, mode 1) and the control needs a single
+  // image header (4096x4096, mode 2 float32). One SSH exec builds both
+  // trees with cp loops.
+  const mrc = (nx, ny, nz, mode) => {
+    const b = Buffer.alloc(64);
+    b.writeInt32LE(nx, 0);
+    b.writeInt32LE(ny, 4);
+    b.writeInt32LE(nz, 8);
+    b.writeInt32LE(mode, 12);
+    return b;
+  };
+  const stackB64 = mrc(5760, 4092, 40, 1).toString("base64");
+  const singleB64 = mrc(4096, 4096, 1, 2).toString("base64");
+  const mkFixtures = `mkdir -p /data2/movies-t312 /data2/mics-t312; ` +
+    `echo ${stackB64} | base64 -d > /tmp/.t312-stack.mrc; ` +
+    `echo ${singleB64} | base64 -d > /tmp/.t312-single.mrc; ` +
+    `for i in \$(seq 1 2054); do ` +
+    `if [ \$((i % 2)) -eq 0 ]; then ` +
+    `cp /tmp/.t312-stack.mrc /data2/movies-t312/20241031_lijing_925_neiyan_2_1_20241031_\$\{i\}_Fractions_DW.mrc; ` +
+    `else cp /tmp/.t312-stack.mrc /data2/movies-t312/20241031_lijing_925_neiyan_2_1_20241031_\$\{i\}_Fractions.mrc; fi; done; ` +
+    `for i in \$(seq 1 12); do cp /tmp/.t312-single.mrc /data2/mics-t312/mic_\$\{i\}.mrcs; done; ` +
+    `mkdir -p /data2/movies-t311; ` +
+    `for i in \$(seq 1 450); do cp /tmp/.t312-single.mrc /data2/movies-t311/t311_\$\{i\}.mrc; done`;
+  const fixtureOut = client(mkFixtures);
+  must(fixtureOut === "", `the fixtures build quietly (${fixtureOut.slice(0, 80)})`);
+
   // ======================================================================
   console.log("== PHASE 1: the 2,054-file folder arrives WHOLE ==");
   const browse = await api(
@@ -199,6 +233,11 @@ try {
     /2,?054 micrographs imported/.test(String(doneA?.result ?? "")),
     `the result speaks the full count: ${String(doneA?.result ?? "").slice(0, 120)}`
   );
+  // t314 — the import SNIFFED the bytes and said so in the receipt
+  must(
+    /40-section frame stacks/i.test(String(doneA?.result ?? "")) && /MotionCorr/.test(String(doneA?.result ?? "")),
+    `the import note names the stacks by their headers: ${String(doneA?.result ?? "").slice(0, 160)}`
+  );
   // the star itself: 2,054 cluster-absolute rows, all movie-stack-named
   // (the list DTO strips outputs — the engine's own workdir is the truth:
   // data/relion/<projectId>/import_*/micrographs.star)
@@ -215,7 +254,7 @@ try {
   must(rows.every((r) => /_Fractions(_DW)?\.mrc(\s+1)?$/.test(r)), "every row smells like an EPU movie stack");
 
   // ======================================================================
-  console.log("== PHASE 3: ctffind on raw movie stacks is REFUSED pre-staging ==");
+  console.log("== PHASE 3: ctffind on VERIFIED raw stacks is REFUSED pre-staging ==");
   const ctfA = await mkJob({
     projectId,
     type: "ctffind",
@@ -244,6 +283,8 @@ try {
   const errA = String(dispatchA.body?.error ?? "");
   must(/MotionCorr/.test(errA), "the refusal teaches the fix (MotionCorr first)");
   must(/frame stack/i.test(errA), "the refusal names the disease (raw movie frame stacks)");
+  must(/40 sections/.test(errA), `the refusal carries the header's own numbers (NZ=40): ${errA.slice(0, 120)}…`);
+  must(/5760×4092|5760x4092/.test(errA), "the refusal names the verified dimensions");
   must(/2,?054/.test(errA) || /2054/.test(errA), `the refusal counts the evidence (${errA.slice(0, 80)}…)`);
   must(
     dispatchA.body?.waiting === undefined,
@@ -310,8 +351,8 @@ try {
   );
   const remoteRunSrc = readFileSync(`${ROOT}/src/lib/remote/remote-run.ts`, "utf8");
   must(
-    remoteRunSrc.includes("CTF diagnosis: ctffind failed on EVERY micrograph"),
-    "B: the remote failure strip carries the compact CTF diagnosis"
+    remoteRunSrc.includes("CTF diagnosis: ctffind rejected EVERY micrograph at once"),
+    "B: the remote failure strip carries the compact CTF diagnosis (t314 wording)"
   );
   // the regex itself against the USER'S OWN pasted error text (the real
   // cluster's words, not a paraphrase)
@@ -335,6 +376,9 @@ try {
     try {
       client(`rm -rf /projects/cryoflow/${projectId}`);
     } catch { /* the jobs DELETE already dropped the local twin */ }
+    try {
+      client("rm -rf /data2/movies-t312 /data2/mics-t312 /data2/movies-t311 /tmp/.t312-stack.mrc /tmp/.t312-single.mrc");
+    } catch { /* fixtures are runtime, gitignored */ }
     try {
       rmSync(path.join(ROOT, "data/relion", projectId), { recursive: true, force: true });
     } catch { /* may not exist */ }

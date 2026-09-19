@@ -39,9 +39,11 @@ import { db } from "@/lib/db";
 import { DATA_DIR, RELION_DIR } from "@/lib/paths";
 import { getProjectMeta } from "@/lib/projects";
 import { getConnection } from "@/lib/remote/connections";
+import { remoteHeaderSniffer } from "@/lib/remote/sniff";
 import { listRemoteDir, REMOTE_IMPORT_MAX_ENTRIES, statRemoteFiles } from "@/lib/remote/remote-ls";
 import type { RemoteRunState } from "@/lib/remote/types";
 import { readMrcHeader } from "@/lib/mrc";
+import { sniffImageFile, spreadSample, type HeaderSniffer, type SniffVerdict } from "./mrc-sniff";
 import { detectRelion } from "./system";
 import { MIC_RE, expandPattern, hasWildcard, userPathToHost } from "./glob";
 import { writePathrefMarker } from "./pathref";
@@ -1093,24 +1095,31 @@ function micrographNames(starPath: string): string[] {
 }
 
 /* ------------------------------------------------------------------ */
-/* t312 — the movie-stack smell test (raw frames ≠ micrographs)         */
+/* t313 — the CTF input gate: names are hints, bytes are the verdict   */
 /* ------------------------------------------------------------------ */
 /*
- * The user's Beijing ticket: import a Krios G4 session's Micrographs/
- * folder (EPU exports — *_Fractions.mrc / *_Fractions_DW.mrc, i.e. RAW
- * movie FRAME STACKS) and run CTF estimation on it directly → the
- * cluster's ctffind refuses EVERY micrograph ("WARNING: skipping, since
- * cannot get CTF values" ×N → "failed to estimate CTF parameters for any
- * micrograph"). The physics is the why: an unsummed frame carries a few
- * electrons per pixel — there is no CTF to fit. The workflow fix is
- * MotionCorr FIRST, its summed micrographs feed ctffind.
+ * t312 refused any ctffind input whose rows SMELLED like EPU movie
+ * naming (≥50% `*_Fractions*`). The Beijing follow-up proved the false
+ * positive: the user's `Micrographs/` folder holds MotionCor2 OUTPUTS —
+ * motioncor2 KEEPS the input basename, so `xxx_Fractions.mrc` (aligned
+ * sum) and `xxx_Fractions_DW.mrc` (dose-weighted sum) are summed
+ * single-section micrographs, exactly what ctffind wants. The same stems
+ * also name raw frame stacks in a Movies/ folder. A filename cannot tell
+ * the two worlds apart — the t312 refusal blocked a legitimate workflow.
  *
- * This helper is the shared nose: it smells a micrographs.star's rows for
- * the movie-stack naming dialects the cryo-EM world actually writes
- * (EPU's *_Fractions[_DW].mrc/.tiff, Falcon's .eer event records, and the
- * generic frames/movie stems). DELIBERATELY NOT matched: a bare "_DW"
- * suffix (motioncor2's own dose-weighted OUTPUTS are legitimately named
- * that way — they are summed micrographs and feed ctffind fine).
+ * The t313 gate keeps the nose only to FIND candidates worth verifying,
+ * then reads the MRC headers themselves (64 bytes: NX/NY/NZ/MODE at
+ * offsets 0/4/8/12 — see relion/mrc-sniff.ts):
+ *   NZ > 1            → a genuine frame stack → refuse, with the header's
+ *                       own numbers as evidence (t312's intent, now with
+ *                       proof instead of a guess);
+ *   NZ === 1          → a summed micrograph → ALLOW — the name was just a
+ *                       name. This is the user's exact case.
+ *   unreadable / TIFF → allow with an honest note (the user is the
+ *                       authority on their own data; never twice the same
+ *                       wrong block);
+ *   .eer (≥50%)       → refuse: an event-record file is raw frames by
+ *                       definition, no bytes need crossing the wire.
  */
 
 const MOVIE_STACK_RE =
@@ -1127,29 +1136,125 @@ export function movieStackShare(paths: string[]): number {
   return hits / paths.length;
 }
 
+/** What the CTF input gate decided about a smelled input. */
+export interface CtffindGateResult {
+  /** non-null → refuse the dispatch/row with this message (the evidence) */
+  refusal: string | null;
+  /** non-null → allowed, but this honest note rides along (log/import) */
+  note: string | null;
+}
+
 /**
- * The honest pre-flight refusal for a CTF job whose input star smells like
- * raw movie stacks (≥50% of rows). Returns the actionable message, or null
- * when the input looks like real micrographs. The refusal rides the
- * requestError lane: a WIRING mistake must not flip the job row to failed.
+ * The shared CTF door (t313). `sniff` earns the verdicts — local fs reads
+ * on the local lane, one SSH round trip on the remote lane — and every
+ * verdict it cannot earn degrades to "allow with a note", never a block.
+ * Both lanes call this BEFORE any staging/workdir work happens.
  */
-export function ctffindMovieStackRefusal(starPath: string): string | null {
+export async function ctffindInputGate(
+  starPath: string,
+  sniff: HeaderSniffer
+): Promise<CtffindGateResult> {
+  const clean: CtffindGateResult = { refusal: null, note: null };
   let names: string[] = [];
   try {
     names = micrographNames(starPath);
   } catch {
-    return null; // unreadable → the run itself will say the real problem
+    return clean; // unreadable → the run itself will say the real problem
   }
-  if (names.length === 0) return null;
+  if (names.length === 0) return clean;
   const flagged = names.filter((n) => MOVIE_STACK_RE.test((n.split(/[\\/]/).pop() ?? n)));
-  if (flagged.length === 0 || flagged.length / names.length < 0.5) return null;
-  const examples = flagged.slice(0, 2).map((n) => path.basename(n));
+  if (flagged.length === 0) return clean;
+
+  // .eer — raw by definition: an event-record file IS the frames
+  const eer = flagged.filter((n) => /\.eer$/i.test(n));
+  if (eer.length / names.length >= 0.5) {
+    return {
+      refusal: `CTF estimation needs motion-corrected micrographs, but ${eer.length} of ${names.length} rows are .eer electron event records — raw movies by definition, ctffind cannot read them at all. Run MotionCorr on them first (Import → MotionCorr → CTF) and wire ITS summed micrographs into this job.`,
+      note: null,
+    };
+  }
+
+  // below the t312 bar (≥50%) a smell is noise, not a wiring mistake
+  if (flagged.length / names.length < 0.5) return clean;
+
+  const examples = flagged.slice(0, 2).map((n) => path.basename(n)).join(", ");
   const more = flagged.length > 2 ? ` +${flagged.length - 2} more` : "";
-  return [
-    `CTF estimation needs motion-corrected micrographs, but ${flagged.length} of ${names.length} rows in this input look like RAW movie frame stacks (${examples.join(", ")}${more}) — ctffind cannot fit a CTF on unsummed frames, so the cluster would refuse every micrograph.`,
-    "Run MotionCorr on the imported movies first and wire ITS corrected micrographs into this job (Import → MotionCorr → CTF), or import already-summed micrographs instead.",
-  ].join(" ");
+  const sniffable = flagged.filter((n) => /\.(mrc|mrcs)$/i.test(n));
+  if (sniffable.length === 0) {
+    // tiffs/unknowns: the smell is real but the bytes can't settle it here
+    return {
+      refusal: null,
+      note: `${flagged.length} of ${names.length} rows carry movie-stack naming (${examples}${more}) and their headers cannot be verified on this lane — if these are raw frame stacks run MotionCorr first; if they are already corrected, just proceed.`,
+    };
+  }
+
+  // spread sample (first/middle/last) — one sniff covers a mixed folder
+  const sample = spreadSample(sniffable);
+  let verdicts: Record<string, SniffVerdict> = {};
+  try {
+    verdicts = await sniff(sample);
+  } catch {
+    verdicts = {}; // unverified — allow with the note below
+  }
+
+  const stacks = sample.filter((p) => verdicts[p]?.kind === "mrc-stack");
+  if (stacks.length > 0) {
+    const worst = verdicts[stacks[0]]!;
+    const f = worst.facts!;
+    const float16 = f.mode === 12 ? " float16" : "";
+    return {
+      refusal: `CTF estimation needs motion-corrected micrographs, but the header of ${path.basename(stacks[0])} says ${f.nz} sections × ${f.nx}×${f.ny} (mode ${f.mode}${float16}) — a raw FRAME stack, not a summed micrograph (${stacks.length} of ${sample.length} sampled rows verified, ${flagged.length} of ${names.length} rows carry movie naming). Run MotionCorr first (Import → MotionCorr → CTF) and wire ITS corrected micrographs into this job.`,
+      note: null,
+    };
+  }
+
+  const singles = sample.filter((p) => verdicts[p]?.kind === "mrc-single");
+  if (singles.length > 0) {
+    // the user's exact case: the name smells, the bytes say summed micrographs
+    const f = verdicts[singles[0]]!.facts!;
+    const float16Note =
+      f.mode === 12
+        ? " — float16 (mode 12): modern ctffind reads it, very old builds refuse it"
+        : "";
+    return {
+      refusal: null,
+      note: `${flagged.length} of ${names.length} rows carry movie-stack naming, but the sampled headers say single-section MRCs ${f.nx}×${f.ny} (mode ${f.mode})${float16Note} — motion-corrected micrographs, safe for CTF.`,
+    };
+  }
+
+  // nothing verifiable came back (SSH hiccup, unreadable bytes)
+  return {
+    refusal: null,
+    note: `${flagged.length} of ${names.length} rows carry movie-stack naming (${examples}${more}) and their headers could not be verified — if these are raw frame stacks run MotionCorr first; if they are already corrected, proceed.`,
+  };
 }
+
+/**
+ * LOCAL-lane HeaderSniffer: read the first 64 bytes straight off the disk.
+ * A path that doesn't exist (e.g. a cluster-absolute row from a remote
+ * import) simply reports "unknown" — the lane's own run will fail on it
+ * soon enough with the real error.
+ */
+const localHeaderSniffer: HeaderSniffer = async (paths) => {
+  const out: Record<string, SniffVerdict> = {};
+  for (const p of paths) {
+    let buf: Buffer | null = null;
+    try {
+      const fd = openSync(p, "r");
+      try {
+        const b = Buffer.alloc(64);
+        const got = readSync(fd, b, 0, 64, 0);
+        buf = got >= 16 ? b.subarray(0, got) : null;
+      } finally {
+        closeSync(fd);
+      }
+    } catch {
+      buf = null;
+    }
+    out[p] = sniffImageFile(p, buf);
+  }
+  return out;
+};
 
 /**
  * Build the `--topaz_train_picks` STAR for --topaz_train.
@@ -1481,11 +1586,42 @@ async function runImportRemoteLeg(
   // this cluster reference them exactly as written, zero staging bytes.
   for (const f of clusterFiles) starLines.push(`${f} 1`);
 
+  // ---- t313 — the header sniff: facts, not filename guesses -------------
+  // One SSH round trip, three spread files: the import result now SAYS
+  // what the bytes are (single-section micrographs vs frame stacks vs
+  // .eer records). The Beijing user imported motion-corrected
+  // *_Fractions_DW.mrc micrographs — MotionCor2 keeps the movie's basename
+  // — and the platform owed them the receipt, not a naming-based lecture.
+  // The sniff is a bonus: any failure leaves the note empty, never blocks.
+  let sniffNote = "";
+  try {
+    if (conn) {
+      const mrcs = clusterFiles.filter((f) => /\.(mrc|mrcs)$/i.test(f));
+      const eers = clusterFiles.filter((f) => /\.eer$/i.test(f));
+      if (eers.length > 0 && eers.length / clusterFiles.length >= 0.5) {
+        sniffNote = " · .eer event records — raw movies, run MotionCorr before CTF";
+      } else if (mrcs.length > 0) {
+        const verdicts = await remoteHeaderSniffer(conn)(spreadSample(mrcs));
+        const vs = Object.values(verdicts);
+        const stacks = vs.filter((v) => v.kind === "mrc-stack");
+        const singles = vs.filter((v) => v.kind === "mrc-single");
+        if (stacks.length > 0) {
+          const f = stacks[0].facts!;
+          sniffNote = ` · headers (${vs.length} sampled): ${f.nz}-section frame stacks — raw movies, run MotionCorr before CTF`;
+        } else if (singles.length > 0) {
+          const f = singles[0].facts!;
+          const m16 = f.mode === 12 ? " float16" : "";
+          sniffNote = ` · headers (${vs.length} sampled): single-section MRCs ${f.nx}×${f.ny} (mode ${f.mode}${m16}) — motion-corrected micrographs, CTF-ready`;
+        }
+      }
+    }
+  } catch { /* the sniff is a receipt, never a gate */ }
+
   const skipNote = skipped > 0 ? ` · ${skipped} non-image file${skipped === 1 ? "" : "s"} skipped` : "";
   const kindNote = isPattern ? " · pattern" : multiFile ? " · file list" : "";
   return {
     kind: "done",
-    result: `${clusterFiles.length} micrographs imported from ${conn.name || conn.host}${kindNote}${skipNote}${note} — paths stay on the cluster (zero upload) · pixel ${String(job.params.pixelSize ?? 1.77)} Å`,
+    result: `${clusterFiles.length} micrographs imported from ${conn.name || conn.host}${kindNote}${skipNote}${note}${sniffNote} — paths stay on the cluster (zero upload) · pixel ${String(job.params.pixelSize ?? 1.77)} Å`,
     sourceLabel: `source (cluster ${conn.host}): ${customRaw.slice(0, 200)} — cluster-absolute paths`,
   };
 }
@@ -4017,7 +4153,8 @@ function spawnTrackedRun(
   workdir: string,
   binDir: string,
   resumedFrom?: number,
-  bridge: WslBridge | null = null
+  bridge: WslBridge | null = null,
+  ctffindGateNote: string | null = null
 ): RunOutcome {
   const logFile = path.join(workdir, "run.out");
   const errFile = path.join(workdir, "run.err");
@@ -4112,7 +4249,7 @@ function spawnTrackedRun(
   record.pid = child.pid ?? null;
   upsertRun(job.id, { ...record });
 
-  attachExitHandler(job, child, record.startedAt);
+  attachExitHandler(job, child, record.startedAt, ctffindGateNote);
 
   return {
     ok: true,
@@ -4323,16 +4460,21 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
   }
   const inputs = resolved.inputs;
 
-  // ---- t312 — the movie-stack door guards the LOCAL lane too -------------
-  // Same nose as the remote dispatch (ctffindMovieStackRefusal): a ctffind
-  // whose resolved star smells like raw movie frame stacks (≥50% rows) is
-  // refused BEFORE a workdir is created. Lane difference, same honesty:
-  // the remote dispatch refuses as a REQUEST error (row untouched, toast
-  // teaches); the local lane fails the row WITH the message as its result —
-  // the card itself carries the lesson (MotionCorr first).
+  // ---- t313 — the byte-verified CTF door guards the LOCAL lane too ------
+  // Same gate as the remote dispatch (ctffindInputGate + local header
+  // reads): a ctffind whose resolved star smells like movie naming gets its
+  // flagged rows VERIFIED before anything else happens. A verified frame
+  // stack (NZ>1) is refused BEFORE a workdir is created; a verified
+  // single-section micrograph sails through (the t312 false positive is
+  // dead). Lane difference, same honesty: the remote dispatch refuses as a
+  // REQUEST error (row untouched, toast teaches); the local lane fails the
+  // row WITH the message as its result — the card itself carries the lesson
+  // (MotionCorr first). The allowed-but-smelled note rides the result text.
+  let ctffindGateNote: string | null = null;
   if (job.type === "ctffind" && inputs.micrographs_star) {
-    const movieRefusal = ctffindMovieStackRefusal(inputs.micrographs_star);
-    if (movieRefusal) return { ok: false, error: movieRefusal };
+    const gate = await ctffindInputGate(inputs.micrographs_star, localHeaderSniffer);
+    if (gate.refusal) return { ok: false, error: gate.refusal };
+    ctffindGateNote = gate.note;
   }
 
   // ---- workdir ----------------------------------------------------------
@@ -4418,7 +4560,7 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
     if (preFlight) return { ok: false, error: preFlight };
   }
 
-  return spawnTrackedRun(job, argv, workdir, binDir, undefined, bridge);
+  return spawnTrackedRun(job, argv, workdir, binDir, undefined, bridge, ctffindGateNote);
 }
 
 /* ------------------------------------------------------------------ */
@@ -4504,7 +4646,8 @@ function interruptedResult(state: RunRecord): string {
 function attachExitHandler(
   job: EngineJobRef,
   child: ChildProcess,
-  startedAt: string
+  startedAt: string,
+  ctffindGateNote: string | null = null
 ): void {
   child.on("exit", (code) => {
     live.delete(job.id);
@@ -4540,6 +4683,9 @@ function attachExitHandler(
         const collected = collectOutputs(job.type, state.workdir);
         outputs = collected.outputs;
         result = collected.result;
+        // t313 — the byte-verified gate's "allowed" note rides the success
+        // text (the user saw movie-stack names and deserves the receipt)
+        if (ctffindGateNote) result = `${result} — ${ctffindGateNote}`.slice(0, 900);
       } else {
         result = failureResult(state, exitCode);
       }

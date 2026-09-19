@@ -2354,7 +2354,7 @@ Stage Summary:
 - 进行中：复活脚本（EMPIAR bundle 合成 + 连接注册 + 加节点 + 拓扑序重跑 + collectOutputs 补账）与守护套件待写
 
 ---
-Task ID: 311 (完)
+Task ID: 313 (完)
 Agent: main
 Task: demo 教程链复活：合成数据 + 全链 Mock 重跑 + postprocess/maskcreate 假体 + 搬家星表重定基
 
@@ -2376,3 +2376,23 @@ Stage Summary:
 - **「空壳世界要在自己的星球上造」**：healed demo 不再是无数据世界——qa55 的诚实缺席测试改在一次性空项目上跑，用完即焚（finally 兜底，失败也要清算，否则 active 指针搁浅）
 - **「哨兵是世界形状的承诺」**：roster 21→23 不是放宽断言而是世界合法长大——机械化迁移 87 文件 + qa 批活体验证；demo 的每次结构性演进都伴随哨兵的自觉迁移
 - 遗留（下轮候选）：384³/512³ 阶梯压测（T296_N 已备）；EMPIAR 真数据回归（连续第廿一窗让位）；t262/270/293/298 的镜像烧除行待各批自然轮跑验证；其余十个批的 roster-23 迁移待自然轮跑确认（qa+t31 已活体验证）
+
+## Task 314 (2026-09-19, 用户工单窗口 —— t312 交付后的回执: 「我导入的是做过motion correction的micrograph了啊，可以直接做ctf啊」)
+
+- 【工单】用户一句话推翻 t312 的诊断: 导入的就是做过运动校正的显微图, 应当直接做 CTF。**用户是对的**——重读两份粘贴的铁证: ①文件浏览器里 Fractions.mrc 与 Fractions_DW.mrc 成对出现且**同尺寸 64.0 MB**(4096×4096 float32 = 64 MiB 整, 单帧图像; 原始栈与它的求和不可能同尺寸); ②文件夹名就叫 Micrographs/; ③_DW 正是 MotionCor2 的剂量加权**输出**命名(motioncor2 保留输入 basename: xxx_Fractions.mrc → xxx_Fractions.mrc + xxx_Fractions_DW.mrc, 两个都是求和单帧); ④Krios G4 + Falcon 4i 原始数据是 EER, 根本不会以 MRC 电影栈落盘。t312 的「文件名含 Fractions = 原始电影栈」鼻在合法工作流上犯了假阳性, 把用户挡在门外。
+- 【修复: 名字只是线索, 字节才是裁决】engine.ts 的 ctffindMovieStackRefusal(纯文件名嗅探, ≥50% 即拒)退役 → ctffindInputGate(异步, HeaderSniffer 注入): 嗅探降级为「找值得验证的候选」, 然后读被标记文件自己的 MRC 头(64 字节: NX/NY/NZ/MODE 于偏移 0/4/8/12)。新 src/lib/relion/mrc-sniff.ts: 纯 Buffer 解析(无 fs/sharp, 客户端安全), 模式集 {0,1,2,3,4,6,12}(12=float16, MotionCor2 新输出——老 ctffind 不认), 维度健全界拒绝文本/截断垃圾; spreadSample(首/中/尾)一站覆盖混合夹。裁决表: **NZ>1 = 真帧栈 → 拒(带头部自己的数字为证, t312 的意图如今有据)**; **NZ=1 = 求和显微图 → 放行(用户的原场景)**; 读不出/TIFF → 放行+提示(用户是自己数据的权威, 同一个错不犯第二遍); **.eer ≥50% → 拒(事件记录文件定义即原始帧, 无需读字节)**。
+- 【修复: 两条泳道 + 一张回执】remote lane: remote-run 在 resolveInputs 后、staging 前过闸, 新 src/lib/remote/sniff.ts 用一次 SSH 往返(head -c 64 | base64, 逐行映射)挣裁决; 放行的 note 以 CRYOFLOW_NOTE 行写进提交脚本——sbatch 路径早 echo(SBATCH --output 落 run.out 顶部), 直接模式 launch 后追加(setsid 重定向先截断)。local lane: localHeaderSniffer 直读磁盘, 同一闸, note 骑 result 尾(attachExitHandler 新参, spawnTrackedRun 透传)。**Import 也嗅**: 远程导入腿对前 3 个(散布)文件读头, result 条直接说出字节身份——「headers (3 sampled): single-section MRCs 4096×4096 (mode 2) — motion-corrected micrographs, CTF-ready」或「40-section frame stacks — raw movies, run MotionCorr before CTF」或「.eer event records」。用户「我导入的是什么」的困惑从此在导入完成那一刻就有答案——这正是本工单的起点。
+- 【修复: 失败诊断改说真话】remote-run 紧凑诊断与 log-diagnosis 的 ctffind-no-fit 提示重写: t312 版把「原始电影栈」列为头号嫌疑且判了用户的案; 新版按物理排序——①单帧吗(NZ>1=栈, 附上集群自查命令 head -c 16 file.mrc | od -An -td4 读 NX NY NZ MODE); ②这个 ctffind 构建读不读该文件模式(float16/mode-12 需要新 ctffind, 集群捆绑的 4.1 可能早于它); ③Import 像素尺寸; ④ResMin/ResMax。用户真实失败(2 秒内 195 张全拒 = 读入即拒而非拟合差)最像 ②或栈, 工单回复里给了排查路径。
+- 【E2E 新约】scripts/diag-t314-mrc-sniff.mjs(56 断言全绿): 夹具带**真 MRC 头**(corrected-t314 60 张 NZ=1 Fractions/Fractions_DW 混名 = 用户原场景; rawmovies-t314 40 张 NZ=40 栈; mics-t314 12 张对照; eer 20 个)。回归主断言: 修正图 import 回执说「single-section MRCs … CTF-ready」, ctffind **dispatch 被接受并 COMPLETED**(t312 拒的就是这个), 提交脚本+run.out 双双带 CRYOFLOW_NOTE; 诚实拒绝: 栈夹 import 回执说「40-section frame stacks」, dispatch 拒于 staging 前(40 sections × 5760×4092 为证、行不翻红、集群零落地); .eer 拒且明说格式; 对照组无闸嗅、脚本无 note、回执照旧带事实(嗅探常开——用户每次导入都该知道字节身份)。台账断言: 旧函数名全仓清零、新模块存在、note 落两构建器、诊断新词、用户报错原文签名仍逐字命中。
+- 【t312 套件随新约更新】diag-t312 自建夹具(2054 张 NZ=40 真头 + 12 对照 + 450 浏览回归夹——旧运行时夹具随沙箱重置已失), 拒绝断言升级为带证据版(40 sections/5760×4092), import 回执断言新增, 紧凑诊断断言改 t314 措辞; 复跑全绿 46 断言。
+- 【浏览器活体(agent-browser + prod 3001)】app 加载 console/page error 双零; API 建 qa-t314-ui 连接+远程项目 → import /data2/corrected-ui(24 张真头) → **UI 上 import 卡回执全文在案**(「24 micrographs imported … single-section MRCs 4096×4096 (mode 2) — motion-corrected micrographs, CTF-ready …」), CTF 挂上 dispatch → 卡片 completed「CTF estimated for 24 micrographs」; 点开 CTF 卡 Log 标签页 → **CRYOFLOW_NOTE 行逐字在案**(「24 of 24 rows carry movie-stack naming, but the sampled headers say single-section MRCs … safe for CTF」)。三张定妆照 t314-app-load / t314-ui-receipt / t314-ui-log-note。测试树+连接+夹具全数烧净。
+- 【环境】沙箱重置后的重建: /home/z/cryoflow 从 origin/main(bfdeef3) 重新检出, prisma db push(DATABASE_URL 需显式覆盖——外层环境变量指向模板库), standalone prod 构建 + prod-3001.sh; mock 3022 dev 模式; 模板 3000 未动。途中排障: 旧会话遗留的 2 个 prod 进程引用已删除的树(kill 清场); bash 工具显示层吃字(`?.[moduleName]` 显示为 `?.oduleName]`)导致两次 python 匹配失败——worklog 判例重演, 换不含该表达式的锚点即过。
+- 【质量】tsc 0; 六个改动文件 + 两个 diag 脚本 eslint 0; docs/remote-relion.md t312 小节整体改写为「The CTF door reads BYTES, not names (t314)」; mock gitignore 四夹具目录入册。
+
+Stage Summary:
+- **「字节为证, 名字为线索」**: t312 的文件名嗅探在 MotionCor2 输出上犯了假阳性(motioncor2 保留电影 basename)——同一个 _Fractions_DW.mrc 词干, Movies/ 里是原始栈, Micrographs/ 里是求和显微图; 从此读 MRC 头的 NZ 裁决, 拒绝带证据, 放行带回执
+- **「导入即知情」**: 每次远程导入的回执都写出字节身份(单帧/帧栈/eer)——用户的困惑(「我导入的到底是什么」)在导入完成那一刻就有官方答案, 不必等 CTF 失败再来猜
+- **「放行的理由要看得见」**: CRYOFLOW_NOTE 骑提交脚本落 run.out(Log 标签页可见)——为什么电影样名字被放行, 一行说清
+- **「诊断不冤枉数据」**: 全拒于秒内的失败模式 = 输入/格式被当场拒绝, 不是拟合差; 诊断按此排序嫌疑并附集群自查命令
+- 交付: 已 push(用户 token 单次 URL, 未落任何文件)——详见下方 rebase 记录
+- 【rebase 记录(本条为 push 前最后一腿)】push 前探测发现远程已被并行 cron 窗推进(07d6aa0: t313 demo 链复活 + t310 verify-module), 且其 t313 与本工单撞号、双方同动 engine.ts/remote-run.ts。处理: ①按判例本工单重编号 t313→t314(套件/截图/worklog/注释/提交信息全链重命名); ②rebase 到 07d6aa0, worklog 冲突保留双方(顺带卫生修复: 并行窗完结条笔误「Task ID: 311 (完)」与历史 t311 撞号且悬空其前半条的「见 Task 313 完结条」引用, 按其提交信息/roster 证据改为 313 完); ③engine/remote-run 自动合并后语义复核——rebaseParticleRefs 四写手/ensureEmpiarLink lstat/twin stat round 与 ctffindInputGate/CRYOFLOW_NOTE 双方改动共存零踩踏。合并树验证: tsc 0 / eslint 0; diag-t314(56 断言) + diag-t312(46 断言) 双套件全绿; 并行窗布局绑定套件 t313-demo-chain-resurrect 在本沙箱不可跑(硬编码 /home/z/my-project 夹具 + :3000, t299 判例)——改以源码级六不变量核验(rebaseParticleRefs×4/lstat/twin-stat/三候选审计+空白宽容/RELION5 方言/真头读取)全数在场 + 其两新假体活体冒烟(mask_create 输出头 64×64×1 真几何, postprocess 出 data_general + FinalResolution 全方言)代偿; 浏览器合并构建健康检查(console/error 双零, 交互面完整)。四张定妆照含 t314-merged-app.png。
