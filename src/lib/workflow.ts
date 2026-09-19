@@ -429,7 +429,7 @@ export const JOB_TYPES: JobTypeSpec[] = [
     [
       sel("pickingMethod", "Picking method", "Laplacian of Gaussian", ["Laplacian of Gaussian", "References", "Topaz"], {
         tab: "autopicking",
-        hint: "LoG needs no references — pick straight after CTF. References needs Class2D averages. Topaz is a CNN picker (needs the topaz python module in RELION's env).",
+        hint: "LoG needs no references — pick straight after CTF; it is CPU-only (RELION refuses --gpu on it, so the cluster dispatch requests no GPUs). References needs Class2D averages and runs on GPU. Topaz is a CNN picker (needs the topaz python module in RELION's env).",
       }),
       num("logDiamMin", "LoG min particle diameter", 120, { unit: "Å", step: 5, tab: "Laplacian", hint: "smallest blob the DoG filter responds to" }),
       num("logDiamMax", "LoG max particle diameter", 180, { unit: "Å", step: 5, tab: "Laplacian", hint: "largest blob the DoG filter responds to" }),

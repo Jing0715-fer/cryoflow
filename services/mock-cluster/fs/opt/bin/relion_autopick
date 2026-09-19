@@ -7,6 +7,15 @@ coordinate stars at <odir>micrographs/<mic>_autopick.star (the app's
 collectOutputs counts picks across them). Topaz mode logs the --fn_topaz_exe
 path it was handed (the t264 e2e asserts it is the CLUSTER's own topaz).
 
+t320 — the REAL refusal, faithfully: RELION's autopicker.cpp read() hard-errors
+when --gpu rides --LoG (`do_gpu && do_LoG -> REPORT_ERROR("The
+Laplacian-of-Gaussian picker does not support GPU acceleration. Please
+remove --gpu option.")`). The user's real-cluster receipt is this exact text
+with a backtrace into build/bin/relion_autopick. A mock that ACCEPTED the
+pair would hide the very bug the dispatch just fixed — the mock must die
+exactly where the real binary dies, so any regression that re-adds --gpu
+to a LoG dispatch fails the e2e loudly instead of silently completing.
+
 t265 adds the TRAINING face (--topaz_train): relion_autopick trained on a
 coordinate_files index (--topaz_train_picks) writes the CNN model into the
 job dir (topaz_model.sav) plus a training-curve PNG, logging per-epoch
@@ -44,6 +53,18 @@ pickname = opts.get("pickname", "autopick")
 topaz_exe = opts.get("fn_topaz_exe")
 train_mode = bool(opts.get("topaz_train", "")) or "topaz_train" in opts
 topaz_mode = "topaz_extract" in opts or bool(topaz_exe)
+
+# t320 — the LoG + --gpu pair is a hard argv-parse error in real RELION
+# (read()-time, before any micrograph is touched). Die exactly there.
+if "gpu" in opts and "LoG" in opts:
+    print("in: src/autopicker.cpp, line 146", file=sys.stderr)
+    print("ERROR:", file=sys.stderr)
+    print(
+        "The Laplacian-of-Gaussian picker does not support GPU acceleration. "
+        "Please remove --gpu option.",
+        file=sys.stderr,
+    )
+    sys.exit(1)
 
 if not star_in or not os.path.exists(star_in):
     print(f"ERROR: cannot read input star: {star_in}", file=sys.stderr)

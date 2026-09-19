@@ -33,6 +33,7 @@
 
 import * as React from "react";
 import { Button } from "@/components/ui/button";
+import { isLogAutopick } from "@/lib/relion/log-autopick";
 import {
   onEscapeClose,
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger,
@@ -195,6 +196,14 @@ export function RemoteRunButton({
   // would refuse the split for anything else) and only in slurm mode.
   const arrayEligible = ARRAY_ELIGIBLE_TYPES.has(job.type);
 
+  // t320 — a LoG Auto-picking job is CPU-only (RELION's autopicker.cpp
+  // refuses --gpu on the Laplacian-of-Gaussian picker outright). The GPU
+  // stepper would be a knob the dispatch refuses at submit time — "a knob
+  // that would be refused is not a knob, it is a trap" (the array row's
+  // own doctrine): show the CPU contract instead. References/Topaz
+  // picking keep the stepper.
+  const logPick = isLogAutopick(job.type, job.params);
+
   /** The module the dispatch will actually load: the free-text door wins
    *  over the select while it carries a value. */
   const effectiveModule =
@@ -210,7 +219,10 @@ export function RemoteRunButton({
         mode,
         ...(mode === "slurm"
           ? {
-              gpus,
+              // t320 — a LoG autopick requests no GPUs; omit the width so
+              // the dispatch (and its gpusRequested ledger) hear nothing
+              // but the CPU contract
+              ...(logPick ? {} : { gpus }),
               ...(partition !== PARTITION_AUTO ? { partition } : {}),
               ...(arrayEligible && shards >= 2 ? { shards: Math.min(ARRAY_MAX_SHARDS, shards) } : {}),
             }
@@ -461,8 +473,25 @@ export function RemoteRunButton({
               ) : null}
 
               {/* t297 — the GPU width stepper (slurm mode only): the
-                  sbatch6gpu.sh pattern at the width the user picks. */}
+                  sbatch6gpu.sh pattern at the width the user picks.
+                  t320 — EXCEPT the LoG picker: RELION refuses --gpu on it
+                  outright, so the row states the CPU contract instead of
+                  offering a width the dispatch would never send. */}
               {mode === "slurm" ? (
+                logPick ? (
+                  <div className="space-y-1" data-gpu-width-row="" data-log-cpu-row="">
+                    <p className="text-[11px] text-muted-foreground">GPUs to request</p>
+                    <p className="rounded-md border bg-muted/40 px-2 py-1.5 font-mono text-[11px] leading-snug text-muted-foreground">
+                      0 × GPU — CPU-only picker
+                    </p>
+                    <p className="text-[10px] leading-snug text-muted-foreground/80">
+                      Laplacian-of-Gaussian picking runs on the CPU — RELION rejects{" "}
+                      <span className="font-mono">--gpu</span> on the LoG picker (its own error:
+                      "does not support GPU acceleration"), so no GPUs are requested or
+                      allocated. Switch Picking method to References or Topaz to use GPUs.
+                    </p>
+                  </div>
+                ) : (
                 <div className="space-y-1" data-gpu-width-row="">
                   <p className="text-[11px] text-muted-foreground">GPUs to request</p>
                   <div className="flex items-center gap-2">
@@ -506,6 +535,7 @@ export function RemoteRunButton({
                     </p>
                   </div>
                 </div>
+                )
               ) : null}
 
               {/* t306 — the array split stepper (slurm mode, eligible types
@@ -579,7 +609,7 @@ export function RemoteRunButton({
                   <span aria-hidden="true">·</span>
                   <span data-run-mode-line="">
                     {mode === "slurm"
-                      ? `sbatch${conn.slurmPartition ? ` · ${conn.slurmPartition}` : ""}${gpus > 0 ? ` · ${gpus} GPU(s)` : ""}${arrayEligible && shards >= 2 ? ` · array 1-${shards}%4` : ""}`
+                      ? `sbatch${conn.slurmPartition ? ` · ${conn.slurmPartition}` : ""}${logPick ? " · CPU (LoG picker)" : gpus > 0 ? ` · ${gpus} GPU(s)` : ""}${arrayEligible && shards >= 2 ? ` · array 1-${shards}%4` : ""}`
                       : "runs direct (no scheduler)"}
                   </span>
                 </p>

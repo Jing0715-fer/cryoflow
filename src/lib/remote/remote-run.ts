@@ -63,6 +63,7 @@ import {
   type WaitKind,
 } from "@/lib/relion/engine";
 import { gpuStrategyFor } from "@/lib/hpc/slurm";
+import { isLogAutopick } from "@/lib/relion/log-autopick";
 import { getConnection, patchConnection } from "./connections";
 import { writeRemoteManifest } from "./remote-files";
 import { probeConnection } from "./probe";
@@ -1080,6 +1081,15 @@ export async function startRemoteJob(args: {
   // dropped sub-2 values, this is the second gate on the engine side.
   const shardTotal =
     isSlurm && Number(target.shards) >= 2 ? Math.min(64, Math.round(Number(target.shards))) : 0;
+  // t320 — the pick METHOD decides GPUs for Auto-picking. RELION's
+  // autopicker.cpp read() refuses --gpu on the Laplacian-of-Gaussian
+  // picker OUTRIGHT (do_gpu && do_LoG → REPORT_ERROR — the user's
+  // real-cluster receipt: the job died before touching a micrograph), so
+  // a LoG Auto-picking dispatch carries NO --gpu, requests NO --gres and
+  // records gpusRequested: 0 no matter what width the dialog offered.
+  // References (template matching) and Topaz (the CNN wrapper) keep the
+  // GPU path untouched.
+  const logPick = isLogAutopick(job.type, job.params);
   // t300 — the partition (detected node group) this sbatch pins. The run
   // route already sanitized the raw body; this is the second gate on the
   // engine side (bare API callers get the same clamps, never a raw string
@@ -1312,7 +1322,7 @@ export async function startRemoteJob(args: {
     remoteWorkdir,
     pid: null,
     slurmId: null,
-    ...(isSlurm ? { gpusRequested: gpuWidth } : {}),
+    ...(isSlurm ? { gpusRequested: logPick ? 0 : gpuWidth } : {}),
     ...(isSlurm && partitionOverride ? { partition: partitionOverride } : {}),
     phase: "staging",
   };
@@ -1557,6 +1567,9 @@ export async function startRemoteJob(args: {
         micrographs: 10,
         particles: Number(params.particles ?? 5000) || 5000,
         ...(isSlurm ? { gpus: gpuWidth } : {}),
+        // t320 — the LoG picker's CPU-only contract rides the strategy:
+        // gpus → 0, so hasGpu/gresWidth below go quiet on their own
+        logAutopick: logPick,
       });
       const multiGpuType = strategy.mode === "multi-gpu";
       const mpiParallelType = isSlurm ? multiGpuType : MPI_PARALLEL_TYPES.has(job.type);
@@ -1585,6 +1598,16 @@ export async function startRemoteJob(args: {
           }
         }
         if (hasGpu && strategy.gpus > 0 && !argv.includes("--gpu")) argv.push("--gpu", "0");
+      }
+      // t320 — belt-and-braces: a LoG Auto-picking argv must NEVER carry
+      // --gpu, whatever future code path grows an append above (RELION's
+      // autopicker.cpp dies at argv-parse on do_gpu && do_LoG — before the
+      // first micrograph). The strategy zeroes gpus so the appends above
+      // already stay quiet; this splice is the invariant itself, enforced
+      // on the FINAL argv the script will carry.
+      if (logPick) {
+        const gi = argv.indexOf("--gpu");
+        if (gi !== -1) argv.splice(gi, 2);
       }
       // slurm mode: the --gres width follows what the argv actually uses —
       // MPI rank count for MPI jobs, one GPU for single-GPU jobs, none for

@@ -103,6 +103,18 @@ export const LOG_PATTERNS: LogPattern[] = [
     hint: "A Python wrapper crashed — the traceback's last line names the exception; check the wrapper's environment (module versions, CUDA_VISIBLE_DEVICES) before re-running.",
   },
   {
+    // t320 — relion_autopick's own hard refusal (autopicker.cpp read():
+    // do_gpu && do_LoG → REPORT_ERROR, argv-parse time, before the first
+    // micrograph). The dispatch now omits --gpu for LoG picking; this
+    // pattern heals the residual surfaces — a re-run of an OLD saved
+    // script, a hand-edited sbatch, or a future regression — by naming
+    // the flag pair itself.
+    id: "autopick-log-gpu",
+    re: /Laplacian-of-Gaussian picker does not support GPU acceleration/i,
+    label: "LoG picker + --gpu — RELION refuses the flag pair outright",
+    hint: "The Laplacian-of-Gaussian picker is CPU-only: relion_autopick hard-errors when --gpu rides --LoG (its own message: \"does not support GPU acceleration. Please remove --gpu option.\"). CryoFlow's dispatch already sends no GPUs for LoG picking — if this is an old or hand-edited script, remove the --gpu line, or switch Picking method to References or Topaz to pick on GPUs.",
+  },
+  {
     // t312 — relion_run_ctffind's own terminal words (ctffind_runner.cpp):
     // the per-micrograph skip warning and the all-failed exit line.
     // t314 — the hint was REWRITTEN: the first cut blamed raw movie stacks

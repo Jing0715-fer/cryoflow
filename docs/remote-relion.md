@@ -312,6 +312,30 @@ dialog's GPU stepper. In slurm mode the GPU flags and `--gres` width
 describe the COMPUTE node's devices, so a GPU-strategy job gets its `--gpu`
 flags even when the login node's nvidia-smi was silent.
 
+### The LoG picker is CPU-only (t320)
+
+One pick method refuses GPUs outright: RELION's `autopicker.cpp` hard-errors
+when `--gpu` rides `--LoG` — *"The Laplacian-of-Gaussian picker does not
+support GPU acceleration. Please remove --gpu option."* — and it dies at
+argv-parse time, before touching a micrograph. Because every GPU decision
+in CryoFlow was TYPE-driven (Auto-picking → 1 GPU), a default LoG dispatch
+carried exactly that forbidden pair. The pick METHOD now decides:
+
+- **Laplacian-of-Gaussian** (the default) — no `--gpu`, no `--gres`,
+  `gpusRequested: 0`, and the Run dialog's GPU row states the CPU contract
+  instead of offering a width the dispatch would never send. The GPU queue
+  stays free for jobs that can use it.
+- **References** (template matching) and **Topaz** (the CNN wrapper) —
+  keep their GPU: `--gpu 0` + `--gres=gpu:1` on sbatch, exactly as before.
+
+The contract lives in one pure predicate (`src/lib/relion/log-autopick.ts`)
+shared by the remote dispatch, the sbatch dry-run export, and the dialog;
+the mock cluster's `relion_autopick` refuses the pair with the same
+verbatim text as the real binary, so a regression that re-adds `--gpu` to a
+LoG dispatch fails the e2e loudly. The failure catalog (§5) also knows the
+signature now — an old or hand-edited script that still carries the pair
+gets a named diagnosis instead of a bare exit 1.
+
 ## 4c. Local vs remote projects
 
 A project's DATA has a location, chosen at creation (**New project →
@@ -448,6 +472,7 @@ Two contracts ride on top:
 | outputs too big for caps | result line lists what stayed on the cluster and where |
 | ctffind all-failed (cluster) | ACTIVE diagnosis: the first named file is SSH-stat'd on the login node — readable → "the compute node may not mount the data disk (try direct mode / copy the data)"; unreadable → "re-import" |
 | "Run on this machine" with cluster-resident inputs | refused BEFORE the spawn: "N of M rows live on the CLUSTER — dispatch to the cluster instead" (≥50% absolute-and-missing rows; nothing spawns, nothing lands) |
+| LoG picker + `--gpu` (old/hand-edited script) | named diagnosis: RELION refuses the pair outright ("does not support GPU acceleration") — remove the `--gpu` line or switch Picking method to References/Topaz; dispatches never send the pair (t320) |
 | local node_modules out of date | boot warning `node_modules is out of date — missing ssh2` + `/api/remote/*` fails with `Can't resolve 'ssh2'` — re-run `npm install` (or `bun install`) and restart |
 
 ## 6. Testing without a cluster: the mock cluster

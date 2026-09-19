@@ -10,7 +10,9 @@
  *      data-parallel ARRAY splitting (motioncorr/ctffind per-micrograph),
  *      single-job MULTI-GPU (RELION class2d/class3d/refine3d split
  *      particles across `mpirun -n N` ranks pinned to GPUs), or
- *      single-GPU (topaz train, autopick), or CPU-only.
+ *      single-GPU (topaz train, autopick — EXCEPT the LoG picker, which
+ *      is CPU-only: autopicker.cpp refuses --gpu outright, t320), or
+ *      CPU-only.
  *   3. Monitoring & lifecycle: sbatch returns a cluster JobID; the
  *      RunRecord is extended with scheduler fields (slurmId, state,
  *      array progress) polled via squeue/sacct; scancel wires into the
@@ -28,6 +30,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import path from "path";
 import type { EngineJobRef, UpstreamRef } from "../relion/engine";
 import { buildArgv, resolveInputs } from "../relion/engine";
+import { isLogAutopick } from "../relion/log-autopick";
 // Task 184: the data-dir contract is paths.ts's to own — this module once
 // re-derived DATA_DIR (and every default localRoot) from process.cwd(),
 // ignoring the CRYOFLOW_DATA_DIR override the run engine honors. One
@@ -186,7 +189,7 @@ const CPU_TYPES = new Set([
  */
 export function gpuStrategyFor(
   type: string,
-  opts: { micrographs?: number; particles?: number; gpus?: number } = {}
+  opts: { micrographs?: number; particles?: number; gpus?: number; logAutopick?: boolean } = {}
 ): GpuStrategy {
   const mics = Math.max(1, opts.micrographs ?? 10);
   const parts = Math.max(1, opts.particles ?? 5000);
@@ -218,6 +221,26 @@ export function gpuStrategyFor(
       type === "tomo_reconstruct" || type === "tomo_extract" || type === "tomo_denoise") {
     const shards = Math.min(mics, 64);
     const perShard = type === "motioncorr" ? 4 : type === "ctffind" ? 1 : 0.5;
+    // t320 — the LoG picker is CPU-only, FULL STOP: RELION's autopicker.cpp
+    // read() hard-errors on the flag pair (`do_gpu && do_LoG →
+    // REPORT_ERROR("The Laplacian-of-Gaussian picker does not support GPU
+    // acceleration. Please remove --gpu option.")` — the user's real-cluster
+    // receipt, re-verified against master). The strategy is type-driven and
+    // cannot see the pick method, so callers that KNOW it pass logAutopick
+    // and get the honest strategy: no GPU at all (no --gres, no --gpu — a
+    // CPU job that would request GPUs starves the GPU queue AND dies at
+    // argv-parse time). References/Topaz picking keep the single GPU.
+    if (isAutoPick && opts.logAutopick) {
+      return {
+        mode: "array", gpus: 0, shards,
+        minutes: Math.max(1, Math.round((mics / shards) * perShard * 2)),
+        reason:
+          "LoG picking is CPU-only — RELION's autopicker.cpp refuses --gpu on the " +
+          "Laplacian-of-Gaussian picker outright (do_gpu && do_LoG is a hard error); " +
+          "the dispatch requests no GPUs. Switch Picking method to References or Topaz " +
+          "to use GPUs for picking.",
+      };
+    }
     return {
       mode: "array",
       gpus: type === "motioncorr" || isAutoPick ? 1 : 0,
@@ -292,9 +315,13 @@ export async function buildSbatchForJob(args: {
   particles?: number;
 }): Promise<SbatchResult> {
   const { job, upstream, profile, clusterWorkdir } = args;
+  // t320 — the pick METHOD decides GPUs for Auto-picking: LoG is CPU-only
+  // (autopicker.cpp refuses --gpu), References/Topaz keep theirs.
+  const logAutopick = isLogAutopick(job.type, job.params);
   const strategy = gpuStrategyFor(job.type, {
     micrographs: args.micrographs,
     particles: args.particles,
+    logAutopick,
   });
 
   const r = resolveInputs(job.type, upstream, job.params as Record<string, unknown>);

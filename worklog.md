@@ -2502,3 +2502,23 @@ Stage Summary:
 - **「跑着的作业不说 100」**: 夹在 [1,99], finalize 才翻 100——「99% 卡了十分钟」是诚实的（最后一张图在算）, 「100% 却还失败」是撒谎
 - **「import 也要报进度」**: 原生腿的马拉松（stat 批×嗅探×写盘）从死 0% 变成阶段证人; 证人是可选参数——通用工具的签名不为一个调用方加负担
 - 遗留（下轮候选）: mock 其余假体（motioncorr/autopick/extract）仍只说 n/N 方言（解析器已兼容, 升级为真方言属美化）; 家族全量回归（环境/roster 世界重建后）; exists=false 的 UI 活体见证（t272 遗留）
+
+---
+Task ID: 320
+Agent: main-agent (Z.ai Code)
+Task: 用户工单第八期(t320)——真实集群回执: relion_autopick LoG 拾取器带 --gpu 提交, autopicker.cpp:146 直接 REPORT_ERROR("The Laplacian-of-Gaussian picker does not support GPU acceleration. Please remove --gpu option."); 拉取最新代码并修复
+
+Work Log:
+- 拉取: origin/main 4ee0add→555eeef(并行窗 t318 幽灵栅栏 + t319 进度条方言), fast-forward, 树净
+- 根因: 全应用的 GPU 决策是 TYPE 驱动——gpuStrategyFor(autopick) 返回 array/gpus:1, remote-run 的 GPU 适配块随即补 `--gpu 0` + `#SBATCH --gres=gpu:1`; 但 RELION 的拒绝是 FLAG PAIR 属性(autopicker.cpp read(): `do_gpu && do_LoG → REPORT_ERROR`, 已从 GitHub master 逐字核实, 用户 build 的 line 146 同源)——默认 LoG 拾取的派发恰好携带被禁组合, 在碰第一张微图前就死于 argv 解析
+- 修复(六面): ①新纯模块 src/lib/relion/log-autopick.ts(isLogAutopick 谓词: type=autopick 且 pickingMethod 缺省/LoG; 兼容 client Record 与 prisma JSON 串两种形态; 不可解析走安全侧) ②hpc/slurm.ts gpuStrategyFor 增 logAutopick 通道(→ gpus:0, reason 陈述 CPU-only 契约) + buildSbatchForJob 接线(sbatch 导出门) ③remote-run.ts: 策略接线 + gpusRequested: logPick?0:gpuWidth + argv 级熔断splice(不变量本身, 防未来任何 append 路径) ④remote-run-button.tsx: LoG 时 stepper 换「0 × GPU — CPU-only picker」说明行(data-log-cpu-row), 提交体不送 gpus, 汇总行「sbatch · CPU (LoG picker)」——「会被拒的旋钮不是旋钮是陷阱」(本文件自己的教义) ⑤mock relion_autopick 复刻真拒绝门(逐字用户 stderr 文本 + autopicker.cpp 引用, exit 1)——回归会响亮失败而非静默完成 ⑥log-diagnosis 新 autopick-log-gpu 签名(旧脚本/手编 sbatch 的残余面得到命名诊断) + workflow.ts pickingMethod hint + command-templates 注记
+- References(模板匹配)与 Topaz(CNN 包装)保持 GPU 不动——RELION 自己的 GUI 也只在这两者允许 GPU
+- e2e: scripts/diag-t320-log-cpu.mjs 74 断言 ALL GREEN(prod :3001 + mock :3022): PHASE A 单元(谓词真值表 8 + 策略门 6 + 桩直执 4——LoG+gpu exit 1 且逐字命中用户回执文本, LoG 无 gpu exit 0, gpu 无 LoG 不触发); PHASE B 用户原景复刻(import 8 张集群微图 → 默认 LoG autopick @slurm gpus:6): COMPLETED, .cf-sbatch.sh 无 --gpu/--gres/mpirun 且 --ntasks=1, run.out 说 LoG 拾取零拒绝文本, 记录 gpusRequested=0, 录制命令无 --gpu; PHASE C 对照链(LoG picks → extract → class2d → References autopick @gpus:2): COMPLETED 且脚本带 `--gpu 0` + `--gres=gpu:1` + `--ref`, gpusRequested=2——修复收窄在 LoG 门, 从不闸整个类型; PHASE D 导出门双面一致; PHASE E direct 第二通道同守其约; PHASE F 台账 9 契约钉死
+- 回归: t318(52)与 t319(60)全绿——两套件原绑定 /home/z/my-project+:3000(环境已重建回模板), 按可重定位临时副本(sed ROOT/BASE, 原提交工件未动)于 prod :3001 重跑; tsc 0; eslint 0(七改动文件 + diag)
+- 浏览器活体(agent-browser 1600×900 @ prod :3001): console/page error 双零; References 对话框 stepper 6×GPU(--gres=gpu:6, mpirun -n 6, --gpu 0:1:2:3:4:5)在案; LoG 对话框「0 × GPU — CPU-only picker」+「sbatch · CPU (LoG picker)」+ stepper 消失; **反应式证明**: 同一作业 Params→Picking method 切 References, 重开对话框 stepper 当场回归——谓词活在 job params 上; 两张定妆照 t320-run-dialog-*.png 入仓库
+- docs: remote-relion.md §4b 新「The LoG picker is CPU-only (t320)」小节 + §5 失败目录新行
+
+Stage Summary:
+- 工单闭环: GPU 决策从「按类型」升级为「按方法」——LoG 拾取器从此零 GPU 请求(无 --gpu/无 --gres/记录 0), References/Topaz 照旧; 单一纯谓词被派发/导出/对话框/测试四方共享, argv 级熔断把不变量钉在最终命令上
+- mock 说真方言的教义再下一城: 假体在真二进制死的地方死(逐字文本), 回归无处静默
+- 环境: 模板 :3000 全程运行(GET / 200), mock :3022 单实例, prod :3001 验证用(待 push 后清场)
