@@ -1461,8 +1461,9 @@ function PanelBody({ job }: { job: JobDTO }) {
             )}
           </div>
           <HpcSbatchDialog jobId={job.id} compact />
-          {/* t289 — the server icon and the ▾ menu open the SAME dialog (one
-              RemoteRunButton instance, dialogOnly + controlled). */}
+          {/* t289/t323 — the server icon opens the SAME dialog the primary
+              Run button opens in remote-primary projects (one RemoteRunButton
+              instance, dialogOnly + controlled). */}
           <Button
             variant="outline"
             size="icon"

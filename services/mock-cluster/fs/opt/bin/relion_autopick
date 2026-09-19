@@ -158,11 +158,15 @@ print(f"cryoflow-mock autopick: {method} — {len(mics)} micrograph(s)")
 # t323 — the optimise-scale warning dialect, faithful: real RELION's
 # getGoodFourierDims (autopicker.cpp) prints this exact chorus whenever the
 # prime-factor rescale fires and --skip_optimise_scale is ABSENT — the
-# user's 4096-px receipt carried all four lines verbatim. The dispatch now
-# always sends the flag for LoG picking, so a HEALTHY run.out stays silent;
-# a regression that drops the flag makes the chorus reappear and the e2e
-# fails loudly instead of silently completing.
-if not topaz_mode and "skip_optimise_scale" not in opts:
+# user's 4096-px receipt carried all four lines verbatim. t323-a (review):
+# the chorus is gated on the LoG METHOD, not merely "not topaz" — the
+# References lane's work size is lowpass-driven (small, friendly primes),
+# real RELION does not print the rescale chorus there, and the app's
+# References dispatch deliberately carries no flag (unsilenceable noise).
+# The dispatch always sends the flag for LoG picking, so a HEALTHY LoG
+# run.out stays silent; a regression that drops the flag makes the chorus
+# reappear and the e2e fails loudly instead of silently completing.
+if "LoG" in opts and "skip_optimise_scale" not in opts:
     print(" + Will use following diameters for Laplacian-of-Gaussian filter: ")
     print("   * 120 (ok)")
     print("   * 180 (ok)")
@@ -179,7 +183,7 @@ if not topaz_mode and "skip_optimise_scale" not in opts:
 # reaper / OOM / walltime). Every in-code RELION death PRINTS, so a silent
 # exit-1 is the one death the app must diagnose WITHOUT error text; the
 # fixture gives the e2e that scenario live.
-if not topaz_mode and any("silent-death" in os.path.basename(m) for m in mics):
+if "silent-death" in " ".join(os.path.basename(m) for m in mics):
     print("Autopicking ...")
     print("0.06/3.40 hrs ~~(,_,\">  [oo]")
     sys.stdout.flush()

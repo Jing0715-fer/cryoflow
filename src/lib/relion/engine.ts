@@ -5033,6 +5033,11 @@ export function describeExitCode(code: number): string {
   if (code === 130) return "interrupted (Ctrl-C)";
   if (code === 143) return "terminated (SIGTERM)";
   if (code === 255) return "uncaught error / abort";
+  // t323-a (review) — the sweep maps sacct's TIMEOUT word onto 124
+  // (timeout(1)'s idiom, remote-run.ts's accounting fallback); a walltime
+  // kill is one of the silent-death note's own named suspects and used to
+  // arrive with NO meaning at all ("exit 124" and silence).
+  if (code === 124) return "walltime limit reached (TIMEOUT) — raise the time limit or split the run";
   if (code > 128) return `killed by signal ${code - 128}`;
   if (code === 1) return "RELION reported an error";
   return "";

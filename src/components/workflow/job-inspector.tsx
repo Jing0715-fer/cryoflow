@@ -1921,8 +1921,9 @@ function InspectorHeader({ job }: { job: JobDTO }) {
   const workspaces = useWorkflowStore((s) => s.workspaces);
   const switchWorkspace = useWorkflowStore((s) => s.switchWorkspace);
   const [confirmRerun, setConfirmRerun] = React.useState(false);
-  /** t289 — the cluster door behind the Re-run ▾ menu (one dialog, two
-   *  doors: the toolbar's server icon and the mode menu both open it). */
+  /** t289/t323 — the cluster door beside the Re-run button (one dialog,
+   *  two doors: the toolbar's server icon and the Re-run context both open
+   *  it; the old ▾ mode menu is retired). */
   const [clusterRunOpen, setClusterRunOpen] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const elapsed = useElapsed(job.startedAt, running);
@@ -2115,8 +2116,8 @@ function InspectorHeader({ job }: { job: JobDTO }) {
             </Tooltip>
           )}
           {/* remote dispatch: same graph, same argv — the cluster executes it
-              (module load relion/<ver>, staging in, sync-back out). t289 —
-              the icon and the Re-run ▾ menu open the SAME dialog. */}
+              (module load relion/<ver>, staging in, sync-back out). t289/t323 —
+              the icon opens the SAME dialog the Re-run button family uses. */}
           <Button
             variant="ghost"
             size="icon"

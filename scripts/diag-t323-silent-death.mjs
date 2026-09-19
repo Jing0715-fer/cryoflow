@@ -108,8 +108,21 @@ const mockListening = () =>
   });
 
 const api = async (url, init) => {
-  const r = await fetch(`${BASE}${url}`, init);
-  return { status: r.status, body: await r.json().catch(() => null) };
+  // t323-a — one retry on a transient socket death: PHASE A's binary runs
+  // idle the keep-alive pool past the server's 5s keepAliveTimeout, and
+  // undici can pick a socket the server is tearing down exactly then
+  // ("other side closed" — a POST is never auto-retried). One 300ms
+  // backoff retry heals the race; a second failure is a real failure.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const r = await fetch(`${BASE}${url}`, init);
+      return { status: r.status, body: await r.json().catch(() => null) };
+    } catch (e) {
+      if (attempt === 1 || !/fetch failed|SocketError|ECONNRESET/i.test(String(e))) throw e;
+      await sleep(300);
+    }
+  }
+  throw new Error("unreachable");
 };
 
 const jobById = async (id) => {
@@ -156,7 +169,7 @@ const unitDiagnose = (lines) => {
       path.join(ROOT, "src/lib/log-diagnosis.ts")
     )});`,
     `const f = diagnoseFailureLines(${JSON.stringify(lines)});`,
-    `console.log(JSON.stringify(f.map(x => ({ id: x.id, excerpt: x.excerpt }))));`,
+    `console.log(JSON.stringify(f.map(x => ({ id: x.id, excerpt: x.excerpt, firstLine: x.firstLine }))));`,
   ].join("\n");
   const r = spawnSync("bun", ["-e", prog], { cwd: ROOT, encoding: "utf8", timeout: 60_000 });
   if (r.status !== 0) return `UNIT-ERROR: ${(r.stderr ?? "").slice(0, 200)}`;
@@ -268,6 +281,24 @@ try {
   );
   const midBarHealthy = unitDiagnose([]);
   must(Array.isArray(midBarHealthy) && midBarHealthy.length === 0, "an empty log stays empty (t318's null-grade contract)");
+  // t323-a (review) — a " yum!" COMPLETED frame is not a live frame: a run
+  // that finished its bar and then failed at the wrapper/merge layer must
+  // not get the external-kill story over its own completion line
+  const yumTail = unitDiagnose([
+    '3.50/3.50 min ....~~(,_,"> [oo]  yum!',
+    "Micrograph 32/32: mic_32.mrc — CTF estimated",
+  ]);
+  must(
+    Array.isArray(yumTail) && yumTail.length === 0,
+    "a yum! completed frame does NOT fire the autopsy (the wrapper failed AFTER the run finished)"
+  );
+  // t323-a — the firstLine chip points at the ACTUAL last frame (a
+  // trailing "" from split used to report one past the end)
+  const fl = Array.isArray(userShape) ? userShape[0] : null;
+  must(
+    fl?.firstLine === 6,
+    `the finding's firstLine is the bar's own line number (got ${fl?.firstLine}, want 6)`
+  );
 
   // the binary's SILENT-DEATH dialect, at the binary
   const silentRun = runMockAutopick(["silent-death-01.mrc"], ["--LoG", "--LoG_diam_min", "120", "--LoG_diam_max", "240", "--skip_optimise_scale", "--LoG_adjust_threshold", "0"]);
@@ -283,6 +314,15 @@ try {
   must(/The calculations will be done at a lower resolution than requested/.test(noFlag.stdout), "the chorus carries the lower-resolution warning");
   const withFlag = runMockAutopick(["mic_01.mrc"], ["--LoG", "--LoG_diam_min", "120", "--LoG_diam_max", "240", "--skip_optimise_scale"]);
   must(!/add --skip_optimise_scale/.test(withFlag.stdout), "WITH the flag the chorus is extinct (the regression guard's baseline)");
+  // t323-a (review) — the chorus is gated on the LoG METHOD: the References
+  // lane's work size is lowpass-driven in real RELION (no rescale chorus
+  // there) and the app's References dispatch carries no flag — the mock
+  // must not print unsilenceable noise over a References run
+  const refsRun = runMockAutopick(["mic_01.mrc"], ["--ref", "refs.mrc", "--particle_diameter", "180", "--threshold", "0.4", "--lowpass", "20"]);
+  must(
+    !/add --skip_optimise_scale/.test(refsRun.stdout) && !/prime factor/.test(refsRun.stdout),
+    "a REFERENCES run prints NO chorus (the gate is the LoG method, not 'not topaz')"
+  );
 
   // ======================================================================
   console.log("== PHASE B: LIVE — the user's scenario, the honest receipt ==");
@@ -459,6 +499,32 @@ try {
   must(
     /silent-death/.test(mockSrc) && /add --skip_optimise_scale to your autopick command/.test(mockSrc),
     "the mock speaks both new dialects (the silent fixture + the chorus-without-flag guard)"
+  );
+  // ---- t323-a (review) residuals, pinned ---------------------------------
+  must(
+    /let errEvidence = tailText\(path\.join\(localWorkdir, "run\.err"\), 2048\)/.test(remoteSrc) &&
+      /errEvidence\.length > 0 \? errEvidence : errTail/.test(remoteSrc),
+    "the SIGNATURE decision reads stderr at the rescue's width (2048, not the display tail's 400 — a stacked backtrace cannot hide the ERROR head)"
+  );
+  must(
+    /for \(const stale of \["run\.out", "run\.err"\]\)/.test(remoteSrc),
+    "the dispatch clears the LOCAL log twins too (a failed sync-back's stale run.err can never ghost the re-run's verdict)"
+  );
+  must(
+    /if \(code === 124\) return "walltime limit reached/.test(engineSrc),
+    "exit 124 (sacct TIMEOUT's mapped code) carries its own meaning — a walltime kill is a named suspect, not a silence"
+  );
+  must(
+    /const isLiveFrame = \(line: string\): boolean =>/.test(diagSrc) && /!\/yum!\/\.test\(line\)/.test(diagSrc),
+    "the autopsy skips COMPLETED bar frames (yum! means the run finished — no external-kill story over a completion line)"
+  );
+  must(
+    /firstLine: lastFrameIdx \+ 1/.test(diagSrc),
+    "the finding's firstLine points at the actual last frame (no trailing-empty off-by-one)"
+  );
+  must(
+    /if "LoG" in opts and "skip_optimise_scale" not in opts/.test(mockSrc),
+    "the mock's chorus gate is the LoG METHOD (References runs print no unsilenceable noise)"
   );
 
   console.log(fail === 0 ? "\n== t323 diag: ALL GREEN ==" : `\n== t323 diag: ${fail} FAIL ==`);

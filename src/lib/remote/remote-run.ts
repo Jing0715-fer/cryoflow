@@ -36,6 +36,7 @@ import {
   readFileSync,
   readdirSync,
   readSync,
+  rmSync,
   statSync,
   writeFileSync,
 } from "fs";
@@ -1464,6 +1465,20 @@ export async function startRemoteJob(args: {
 
   // ---- build the record + DB state --------------------------------------
   const startedAtMs = Date.now();
+  // t323-a (review) — the ghost-log residual: the t318 pre-submit clear
+  // wipes the CLUSTER's run.out/run.err, but a re-run whose previous
+  // sync-back failed ("workdir unreadable over SSH") leaves the PREVIOUS
+  // run's LOCAL run.err in place — finalize would read that stale stderr
+  // (localErrTail non-empty → the rescue never fires → the old run's
+  // ERROR text labels the new silent death). The local twins die with the
+  // cluster's: best-effort, a failure to remove degrades silently.
+  for (const stale of ["run.out", "run.err"]) {
+    try {
+      rmSync(path.join(localWorkdir, stale), { force: true });
+    } catch {
+      /* never a dispatch refusal over a stale log */
+    }
+  }
   const pendingPatch = needsStaging
     ? { status: "pending" as const, progress: 0, result: `Staging inputs to ${conn.host}${moduleName ? ` (${moduleName})` : ""}…` }
     : { status: "running" as const, progress: 0, result: null };
@@ -2513,6 +2528,14 @@ async function finalizeRemoteRun(
     // diagnosis scanned a log half. The receipt must see both streams.
     const localErrTail = tailText(path.join(localWorkdir, "run.err"), 400);
     let errTail = localErrTail || logTailText.slice(-400);
+    // t323-a (review) — the SIGNATURE decision reads stderr at the rescue's
+    // own width (2048), not the display tail's 400: a mid-run RelionError's
+    // head ("in: x.cpp, line N" / "ERROR:") can sit past the last 400 chars
+    // once the backtrace stacks up below it — the verdict would call a
+    // genuine RELION error a silent external kill over the very frames the
+    // tail still shows. Display keeps the compact tail; the verdict reads
+    // the same evidence the rescue would fetch.
+    let errEvidence = tailText(path.join(localWorkdir, "run.err"), 2048);
     // t318 — evidence rescue: a failed run's receipt must never be
     // tail-less while the cluster still holds a log. The poll's tail can
     // legitimately come up empty (the verdict raced the log's flush, or a
@@ -2540,6 +2563,9 @@ async function finalizeRemoteRun(
           if (joined.trim()) {
             logTailText = outT;
             errTail = joined;
+            // the rescue only fires when the local copy is empty, so the
+            // cluster's 2048 bytes can only WIDEN the evidence window
+            if (errT && errT.length > errEvidence.length) errEvidence = errT;
           }
         }
       } catch {
@@ -2630,7 +2656,7 @@ async function finalizeRemoteRun(
     // the old label sent them hunting a RELION error that does not exist.
     // Grounded on BOTH streams because the rescue above already fetched
     // the cluster's run.err when the local copy was empty.
-    const evidence = `${logTailText}\n${errTail}`;
+    const evidence = `${logTailText}\n${errEvidence.length > 0 ? errEvidence : errTail}`;
     const hasErrorSignature =
       /^ERROR\b/im.test(evidence) ||
       /in: \S+\.cpp,? line \d+/i.test(evidence) ||
@@ -2641,7 +2667,7 @@ async function finalizeRemoteRun(
       ? "RELION printed no error — the run ended silently mid-job"
       : describeExitCode(exitCode);
     const silentDeathNote = silentDeath
-      ? "no error text anywhere in run.out or run.err (verified on the cluster): an external kill is the usual cause — the login node's CPU-job reaper (long direct-mode runs), the OOM killer, or a walltime. Multi-hour jobs belong in Slurm mode; sacct -j <jobid> and the job directory hold the cluster's own record"
+      ? "no error text in the visible run.out/run.err tails (the rescue fetched the cluster's copy when the local one was empty): an external kill is the usual cause — the login node's CPU-job reaper (long direct-mode runs), the OOM killer, or a walltime. Multi-hour jobs belong in Slurm mode; sacct -j <jobid> and the job directory hold the cluster's own record"
       : "";
     result = [
       `REMOTE[${r.user}@${r.host.split(":")[0]}]: exit ${exitCode}${meaning ? ` (${meaning})` : ""}`,

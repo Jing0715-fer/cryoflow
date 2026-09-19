@@ -459,53 +459,38 @@ try {
   must(!!localTile?.dims, `the graduated tile now carries its header facts (dims ${JSON.stringify(localTile?.dims ?? null)})`);
   must(((outsAfter.files ?? []).filter((f) => f.remote === true)).length === 0, "no remote tile remains (everything accounted for)");
 
-  // C2 — the mode switch: the Run ▾ menu offers both worlds, local honestly disabled
+  // C2 — the mode doors (t323: the ▾ split menu is RETIRED — the primary
+  // Run button speaks the project's own lane and the Server icon is the
+  // cluster door; retargeted from the deleted [data-run-mode] menu so the
+  // suite tracks the UI that ships)
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await sleep(2200);
   await page.locator(`[data-job="${jobA.id}"]`).first().click({ force: true });
   await sleep(1400);
-  const modeTrigger = page.locator('[aria-label="Choose run mode: this machine or cluster (SSH)"]').first();
-  must(await modeTrigger.isVisible().catch(() => false), "the mode trigger is on the job card");
-  // open the menu with a retry (a transient toast may eat the first click)
-  let localItem = null;
-  let clusterItem = null;
-  for (let k = 0; k < 4 && !localItem; k++) {
-    if (k > 0) await modeTrigger.click().catch(() => {});
-    await sleep(600);
-    const menu = page.locator('[role="menu"][data-state="open"]');
-    if (!(await menu.isVisible().catch(() => false))) continue;
-    localItem = menu.locator('[data-run-mode="local"]').first();
-    clusterItem = menu.locator('[data-run-mode="cluster"]').first();
-    if (!(await localItem.isVisible().catch(() => false))) localItem = null;
-  }
-  must(!!localItem, "the menu offers Run on this machine (data-run-mode=local)");
-  must(!!clusterItem, "the menu offers Run on cluster (SSH) (data-run-mode=cluster)");
-  must(!(await clusterItem.isDisabled()), "the cluster item stays enabled (the connection exists)");
+  const serverIcon = page.locator('[aria-label="Run on cluster (SSH)"]').first();
+  must(await serverIcon.isVisible().catch(() => false), "the cluster door (server icon) is on the job panel");
+  must(!(await serverIcon.isDisabled()), "the cluster door stays enabled (the connection exists)");
+  must(
+    (await page.locator('[aria-label="Choose run mode: this machine or cluster (SSH)"]').count()) === 0,
+    "the retired ▾ mode menu is GONE (t323 — no third control repeating the two doors)"
+  );
   await page.keyboard.press("Escape").catch(() => {});
   await sleep(400);
 
-  // the HONEST disabled state lives in the job-panel's menu (idle job):
-  // the inspector's Re-run ▾ handles the no-RELION case via its confirm
+  // the HONEST disabled state lives in the job-panel's primary Run (idle
+  // job, no RELION on this machine → the local lane refuses to start):
+  // the inspector's Re-run handles the no-RELION case via its confirm
   // dialog instead — assert each gate on the component that owns it
   const idleJob = await mkJob({ type: "import", name: "t293 Mode Probe", params: { micrographsPath: MICS_DIR, pixelSize: 1.77 } });
-  must(!!idleJob?.id, "an idle job exists for the panel-menu gate");
+  must(!!idleJob?.id, "an idle job exists for the panel gate");
   await page.locator(`[data-job="${idleJob.id}"]`).first().click({ force: true });
   await sleep(1200);
-  const panelTrigger = page.locator('[aria-label="Choose run mode: this machine or cluster (SSH)"]').first();
-  await panelTrigger.click().catch(() => {});
-  let panelLocal = null;
-  for (let k = 0; k < 4 && !panelLocal; k++) {
-    if (k > 0) await panelTrigger.click().catch(() => {});
-    await sleep(600);
-    const menu = page.locator('[role="menu"][data-state="open"]');
-    if (!(await menu.isVisible().catch(() => false))) continue;
-    const cand = menu.locator('[data-run-mode="local"]').first();
-    if (await cand.isVisible().catch(() => false)) panelLocal = cand;
-  }
-  must(!!panelLocal, "the idle job's panel menu offers Run on this machine");
-  if (panelLocal) {
-    must(await panelLocal.isDisabled(), "the PANEL's local item is honestly disabled (no RELION — idle job, job-panel gate)");
-  }
+  const primaryRun = page.getByRole("button", { name: "Run", exact: true }).first();
+  must(await primaryRun.isVisible().catch(() => false), "the idle job's primary Run button is on the panel");
+  must(
+    await primaryRun.isDisabled().catch(() => false),
+    "the PANEL's primary Run is honestly disabled (no RELION — idle job, job-panel gate)"
+  );
   await page.keyboard.press("Escape").catch(() => {});
 } finally {
   // cleanup newest-first: jobs, connection, planted cluster file, mics

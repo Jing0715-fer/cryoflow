@@ -195,6 +195,13 @@ export function diagnoseLog(text: string | null | undefined): LogFinding[] {
  *  these, the process died between two heartbeats. */
 const PROGRESS_FRAME_RE = /~~\(,_,">|\[oo\]|\/\d+(?:\.\d+)?\/(?:\d+(?:\.\d+)?|\?\?\?)\s*(?:sec|min|hrs)\b/;
 
+/** t323-a (review) — a COMPLETED bar is not a live frame: time.cpp marks
+ *  the end of a run with the same worm/bar dialect plus " yum!" — a run
+ *  that finished its bar and then failed at the wrapper/merge layer must
+ *  not get the external-kill story over its own completion line. */
+const isLiveFrame = (line: string): boolean =>
+  PROGRESS_FRAME_RE.test(line) && !/yum!/.test(line);
+
 /**
  * t323 — the silent-death autopsy: a FAILED run whose log ends on a live
  * progress frame and matches no known signature. Verified against RELION
@@ -220,21 +227,31 @@ export function silentRunDeathFinding(lines: string[]): LogFinding | null {
   // the stderr section separator (remote log view) is structural, not a
   // log line — skip past it when it trails
   const tail: string[] = [];
+  let lastFrameIdx = -1;
   for (let i = display.length - 1; i >= 0 && tail.length < 3; i--) {
     const t = display[i].trim();
     if (!t) continue;
     if (t === "----- stderr -----") break;
+    // the FIRST hit walking down is the deepest (newest) line — the death
+    // spot the excerpt and the line chip both point at
+    if (tail.length === 0) lastFrameIdx = i;
     tail.unshift(t);
   }
   if (tail.length === 0) return null;
-  if (!tail.some((l) => PROGRESS_FRAME_RE.test(l))) return null;
+  // t323-a — only LIVE frames count: a " yum!" completion frame wears the
+  // same worm dialect but means the run FINISHED its bar — the failure (if
+  // any) happened after it and the autopsy has no story for that.
+  if (!tail.some((l) => isLiveFrame(l))) return null;
   const last = tail[tail.length - 1];
   return {
     id: "silent-run-death",
     label: "The log stops mid-run — the process died without an error signature",
     hint: "RELION printed no error (no ERROR line, no backtrace, no 'exiting with'): every in-code RELION death narrates itself, so a log that just stops means an external kill — the usual suspects are the login node's CPU-job reaper (multi-hour runs must go through Slurm/sbatch, not direct mode), the OOM killer, or a walltime limit. Re-run via Slurm mode (the run dialog), consider the array shard split for embarrassingly-parallel types, and check the cluster's own record: sacct -j <jobid> and the job directory.",
     count: 1,
-    firstLine: lines.length,
+    // t323-a — the last frame's 1-based display line (the deepest line the
+    // downward walk found; a trailing "" from split("\n") used to report
+    // one past the end)
+    firstLine: lastFrameIdx + 1,
     excerpt: last.length > EXCERPT_CAP ? `${last.slice(0, EXCERPT_CAP)}…` : last,
   };
 }
