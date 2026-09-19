@@ -38,7 +38,7 @@ import { db } from "@/lib/db";
 import { DATA_DIR, RELION_DIR } from "@/lib/paths";
 import { getProjectMeta } from "@/lib/projects";
 import { getConnection } from "@/lib/remote/connections";
-import { listRemoteDir, statRemoteFiles } from "@/lib/remote/remote-ls";
+import { listRemoteDir, REMOTE_IMPORT_MAX_ENTRIES, statRemoteFiles } from "@/lib/remote/remote-ls";
 import type { RemoteRunState } from "@/lib/remote/types";
 import { readMrcHeader } from "@/lib/mrc";
 import { detectRelion } from "./system";
@@ -1344,20 +1344,34 @@ async function runImportRemoteLeg(
       }
     } else if (isPattern) {
       // ---- 2. wildcard pattern (RELION "File name pattern") -------------
+      // t311 — the enumeration is UNCAPPED at the browser's 400: the import
+      // leg lists up to REMOTE_IMPORT_MAX_ENTRIES (default 20,000) so the
+      // pattern's EVERY match lands in the STAR (the dialog's preview may
+      // cap at 400 rows — it says so, and "import takes them all" is now
+      // literally true).
       const i = single.lastIndexOf("/");
       const baseDir = i === 0 ? "/" : single.slice(0, i);
       const glob = single.slice(i + 1);
-      const res = await listRemoteDir(connId, baseDir, glob);
+      const res = await listRemoteDir(connId, baseDir, glob, {
+        max: REMOTE_IMPORT_MAX_ENTRIES,
+        timeoutMs: 60_000,
+      });
       if (res.notDir) {
         return { kind: "error", error: `Folder not found on the cluster: ${baseDir} — check the pattern in the params tab` };
       }
       const imgs = res.entries.filter((e) => e.img && e.abs).map((e) => e.abs!);
       clusterFiles = imgs;
       skipped = Math.max(0, res.total - imgs.length);
-      if (res.truncated) note = ` · pattern matched more than ${imgs.length} — only the first ${imgs.length} imported`;
+      if (res.truncated) note = ` · pattern matched ${res.total.toLocaleString()} files — import capped at ${REMOTE_IMPORT_MAX_ENTRIES.toLocaleString()} (narrow the pattern)`;
     } else {
       // ---- 1. folder (or one pasted file) -------------------------------
-      const res = await listRemoteDir(connId, single, null);
+      // t311 — same uncapped enumeration: a folder with 2,341 movies imports
+      // 2,341 rows (the old shared 400 cap imported the first 400 and the
+      // user noticed the missing photos).
+      const res = await listRemoteDir(connId, single, null, {
+        max: REMOTE_IMPORT_MAX_ENTRIES,
+        timeoutMs: 60_000,
+      });
       if (res.notDir) {
         // maybe a single FILE path was pasted — stat it before refusing
         const { missing } = await statRemoteFiles(conn, [single]);
@@ -1384,7 +1398,7 @@ async function runImportRemoteLeg(
           };
         }
         clusterFiles = imgs;
-        if (res.truncated) note = ` · folder holds more files — only the first ${imgs.length} imported`;
+        if (res.truncated) note = ` · folder holds ${res.total.toLocaleString()} entries — import capped at ${REMOTE_IMPORT_MAX_ENTRIES.toLocaleString()} (import a subfolder or pattern instead)`;
       }
     }
   } catch (e) {

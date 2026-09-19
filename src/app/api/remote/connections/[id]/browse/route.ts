@@ -187,6 +187,11 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
       parent: parent === dir ? "" : parent,
       entries,
       truncated: res.truncated,
+      // t311 — the cluster's OWN count (awk END marker in the find pass):
+      // a 2,341-file folder can say so while the payload stays 400 rows,
+      // so the dialog's truncated notice can point at "select the folder"
+      // instead of a blind "more than 400".
+      totalEntries: res.total,
       micrographs: entries.filter((e) => REMOTE_MIC_RE.test(e.name) && !e.dir).length,
     });
   } catch (error) {

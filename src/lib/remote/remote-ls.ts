@@ -35,6 +35,20 @@ export const REMOTE_MIC_RE = /\.(mrc|mrcs|tif|tiff|eer)$/i;
 
 export const REMOTE_MAX_ENTRIES = 400;
 
+/**
+ * t311 — the import enumeration ceiling. The BROWSER listing stays at 400
+ * (UI payload sanity), but the engine's import leg enumerates EVERY image
+ * in the picked folder / pattern — a cryo-EM session routinely holds a few
+ * thousand movies, and the old shared 400 cap silently imported only the
+ * first 400 (the user's report: "没有读取到文件夹下的所有照片"). 20,000
+ * is the safety ceiling (STAR ≈ 2 MB, SSH payload ≈ 1.5 MB); beyond it the
+ * import refuses honestly instead of truncating. Env-tunable.
+ */
+export const REMOTE_IMPORT_MAX_ENTRIES = Math.max(
+  REMOTE_MAX_ENTRIES,
+  Math.min(200_000, Number(process.env.CF_REMOTE_IMPORT_MAX) || 20_000)
+);
+
 export interface RemoteListEntry {
   name: string;
   dir: boolean;
@@ -50,9 +64,11 @@ export interface RemoteListResult {
   notDir: boolean;
   /** find -printf unsupported — the listing came from the ls fallback. */
   findUnsupported: boolean;
-  /** more than REMOTE_MAX_ENTRIES matched (entries truncated). */
+  /** more than max matched (entries truncated). */
   truncated: boolean;
-  /** total entries before the cap (== entries.length when not truncated). */
+  /** total entries before the cap — the REAL count (t311: counted on the
+   * cluster in the same find pass, so a 2,341-file folder can say so while
+   * the payload stays 400 rows). */
   total: number;
 }
 
@@ -122,45 +138,67 @@ function sortEntries(entries: RemoteListEntry[]): RemoteListEntry[] {
  * List ONE level of a cluster directory — or, with `glob`, the files in it
  * matching a wildcard pattern (RELION "File name pattern" mode: the glob is
  * matched by find -name, never by an unquoted shell expansion).
+ *
+ * t311 — `opts.max` lets the engine's import leg enumerate far past the
+ * browser's 400-row payload cap (REMOTE_IMPORT_MAX_ENTRIES), and the REAL
+ * total is counted in the same find pass (awk END) so `total` is the
+ * cluster's own count even when `entries` is capped.
  */
 export async function listRemoteDir(
   connId: string,
   dir: string,
-  glob: string | null
+  glob: string | null,
+  opts: { max?: number; timeoutMs?: number } = {}
 ): Promise<RemoteListResult> {
   const conn = getConnection(connId);
   if (!conn) throw new Error("connection-gone");
+  const max = Math.max(1, Math.min(200_000, Math.round(opts.max ?? REMOTE_MAX_ENTRIES)));
+  const timeoutMs = Math.max(20_000, opts.timeoutMs ?? 20_000);
   const q = shSingleQuote(dir);
+  // one pass: find streams every match through awk, which forwards only the
+  // first `max` lines over SSH and appends the REAL count as a marker line.
+  // (head -N would cap the transfer without knowing the total; wc -l would
+  // need a second find over the same tree.)
   const finder =
     glob != null
-      ? `find -L ${q} -maxdepth 1 -mindepth 1 -name ${shSingleQuote(glob)} -printf '%y|%s|%f\\n' 2>/dev/null`
-      : `find -L ${q} -maxdepth 1 -mindepth 1 -printf '%y|%s|%f\\n' 2>/dev/null`;
+      ? `find -L ${q} -maxdepth 1 -mindepth 1 -name ${shSingleQuote(glob)}`
+      : `find -L ${q} -maxdepth 1 -mindepth 1`;
   const script = [
     `if ! test -d ${q}; then echo __CF_NOTDIR__; exit 0; fi`,
-    `${finder} | head -${REMOTE_MAX_ENTRIES + 1}`,
+    `${finder} -printf '%y|%s|%f\\n' 2>/dev/null | awk -v cap=${max} 'NR<=cap {print} END {print "__CF_TOTAL__" NR}'`,
     `__rc=$?`,
     // probe the -printf support itself: a find that rejects the predicate
     // prints nothing (stderr was swallowed) — distinguish via a canary line
     `if ! find -L / -maxdepth 0 -printf 'd|0|/\\n' 2>/dev/null | head -1 | grep -q '^d|'; then echo __CF_NO_PRINTF__; fi`,
     `exit 0`,
   ].join("\n");
-  const r = await exec(conn, loginShellScript(script), { timeoutMs: 20_000 });
+  const r = await exec(conn, loginShellScript(script), { timeoutMs });
   if (r.error) {
     throw new Error(`SSH listing failed: ${r.error}`);
   }
-  const lines = (r.stdout ?? "")
+  // the awk total marker rides the END of stdout: "__CF_TOTAL__<n>" (a real
+  // find line always contains a "|" separator, so the marker can never be
+  // confused with an entry — and an entry NAMED __CF_TOTAL__5 arrives as
+  // "f|<size>|__CF_TOTAL__5", a different string).
+  const TOTAL_RE = /^__CF_TOTAL__(\d+)$/;
+  const rawLines = (r.stdout ?? "")
     .split("\n")
     .map((l) => l.replace(/\r$/, ""))
     .filter(Boolean)
     .filter((l) => l !== "__CF_NOTDIR__" && l !== "__CF_NO_PRINTF__");
+  const totalMarker = rawLines.find((l) => TOTAL_RE.test(l));
+  const lines = rawLines.filter((l) => !TOTAL_RE.test(l));
   const notDir = (r.stdout ?? "").includes("__CF_NOTDIR__");
   const findUnsupported = (r.stdout ?? "").includes("__CF_NO_PRINTF__");
   let entries = findUnsupported
     ? parseLsLa(lines.join("\n"), dir).filter((e) => (glob != null ? !e.dir : true))
     : parseFindLines(lines, dir, glob != null);
-  const total = entries.length;
-  const truncated = entries.length > REMOTE_MAX_ENTRIES;
-  if (truncated) entries = entries.slice(0, REMOTE_MAX_ENTRIES);
+  // the REAL total when the awk marker survived the transport (find fallback
+  // path has no marker — entries.length is the honest count there, capped
+  // only by what the ls fallback printed)
+  const total = totalMarker ? Number(TOTAL_RE.exec(totalMarker)![1]) : entries.length;
+  const truncated = total > max || entries.length > max;
+  if (entries.length > max) entries = entries.slice(0, max);
   if (glob == null) entries = sortEntries(entries);
   return { entries, notDir, findUnsupported, truncated, total };
 }

@@ -76,6 +76,11 @@ interface BrowseResponse {
   baseDir?: string;
   /** total files matched before the 400-entry preview cap */
   totalMatched?: number;
+  /** t311 — the REAL entry count of the listed directory (both local and
+   * remote routes compute it before the cap): the truncated notice can
+   * say "2,341 entries — showing first 400" and steer the user to pick
+   * the folder itself (whose import enumerates EVERY image). */
+  totalEntries?: number;
   error?: string;
 }
 
@@ -527,11 +532,25 @@ export function PathBrowserDialog({
                   )
                 )}
                 {data?.truncated && (
-                  <p className="px-2 py-1.5 text-[10px] text-muted-foreground">
-                    {patternView
-                      ? `Preview capped at 400 matches — ${data.totalMatched ?? "?"} files match in total (import takes them all).`
-                      : "Listing truncated at 400 entries — enter a subfolder for more."}
-                  </p>
+                  <div className="px-2 py-1.5">
+                    <p className="text-[10px] leading-relaxed text-muted-foreground">
+                      {patternView
+                        ? `Preview capped at 400 matches — ${data.totalMatched ?? "?"} files match in total (import takes them all).`
+                        : `Listing shows the first 400 of ${data.totalEntries ?? "more than 400"} entries.`}
+                    </p>
+                    {!patternView && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="mt-1 h-6 gap-1 px-2 text-[11px]"
+                        onClick={() => currentPath && pick(currentPath)}
+                        title="Import the folder itself — the engine enumerates every image in it (no 400 cap at import time)"
+                      >
+                        <FolderOpen className="h-3 w-3" aria-hidden="true" />
+                        Import this whole folder — every image
+                      </Button>
+                    )}
+                  </div>
                 )}
                 {visibleEntries.length === 0 && (
                   <p className="px-3 py-6 text-center text-xs text-muted-foreground">
@@ -672,8 +691,13 @@ export function PathBrowserDialog({
             {microCount > 0 ? (
               <>
                 <Check className="mr-1 inline h-3 w-3 text-emerald-600" aria-hidden="true" />
-                {microCount} micrograph{microCount === 1 ? "" : "s"} (.mrc/.mrcs/.tif/.eer) in this folder —
-                switch to the Files tab to pick individual files
+                {microCount} micrograph{microCount === 1 ? "" : "s"} (.mrc/.mrcs/.tif/.eer)
+                {data?.truncated && data.totalEntries != null
+                  ? ` shown of ~${data.totalEntries} entries — `
+                  : " in this folder — "}
+                {data?.truncated
+                  ? "Select this folder imports EVERY image in it (the import enumerates past the 400-row preview)"
+                  : "switch to the Files tab to pick individual files"}
               </>
             ) : (
               "No micrograph files directly in this folder — they may be in a subfolder"

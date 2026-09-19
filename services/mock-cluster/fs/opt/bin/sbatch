@@ -51,6 +51,51 @@ conc="$(grep -m1 -oP '#SBATCH --array=1-[0-9]+%\K[0-9]+' "$script" || true)"
 [ -z "$out" ] && out="slurm-%j.out"
 [ -z "$err" ] && err="$out"
 
+# t311 — the submission gate the USER'S controller enforces (their live
+# report): an explicit #SBATCH --mem larger than the node's schedulable
+# RealMemory is REFUSED at submit time, and the exec channel's login shell
+# prints their ~/.bashrc noise first (a broken line 35 sourcing another
+# user's relion.sh). The refusal is byte-shaped like the real one so the
+# app's error-splitting (slurm lines vs login-shell noise) rehearses
+# against the exact world the user saw:
+#
+#   /data2/home/<user>/.bashrc: line 35: /home/guozhenqian/app/relion/relion.sh: No such file or directory
+#   sbatch: error: Memory specification can not be satisfied
+#   sbatch: error: Batch job submission failed: Requested node configuration is not available
+#
+# Node model (mirrors sinfo's inventory): the brain family carries 64 GB
+# schedulable — the old app script's --mem=16+12×gpus formula (88G @ 6 GPU,
+# 112G @ 8) crossed it, exactly like the real cluster. --gres beyond the
+# node's GPU count gets the sibling refusal (same "node configuration"
+# verdict, no memory line).
+partition="$(grep -m1 -oP '(?<=#SBATCH --partition=).*' "$script" || true)"
+mem_req="$(grep -m1 -oP '(?<=#SBATCH --mem=)\d+' "$script" || true)"
+gres_req="$(grep -m1 -oP '(?<=#SBATCH --gres=gpu:)\d+' "$script" || true)"
+
+node_mem=0; node_gpus=0
+case "$partition" in
+  brain)    node_mem=64; node_gpus=6 ;;
+  brain2)   node_mem=64; node_gpus=8 ;;
+  brain3)   node_mem=64; node_gpus=6 ;;
+  brain4)   node_mem=64; node_gpus=8 ;;
+  normal)   node_mem=64; node_gpus=5 ;;
+  normal02) node_mem=64; node_gpus=8 ;;
+  gpu)      node_mem=64; node_gpus=6 ;;
+  *)        node_mem=64; node_gpus=8 ;;
+esac
+
+if [ -n "$mem_req" ] && [ "$mem_req" -gt "$node_mem" ]; then
+  echo "/data2/home/$USER/.bashrc: line 35: /home/guozhenqian/app/relion/relion.sh: No such file or directory" >&2
+  echo "sbatch: error: Memory specification can not be satisfied" >&2
+  echo "sbatch: error: Batch job submission failed: Requested node configuration is not available" >&2
+  exit 1
+fi
+if [ -n "$gres_req" ] && [ "$gres_req" -gt "$node_gpus" ]; then
+  echo "/data2/home/$USER/.bashrc: line 35: /home/guozhenqian/app/relion/relion.sh: No such file or directory" >&2
+  echo "sbatch: error: Batch job submission failed: Requested node configuration is not available" >&2
+  exit 1
+fi
+
 # job id: monotonically increasing
 id=1
 if [ -f "$SLURM_DIR/next-id" ]; then

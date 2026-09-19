@@ -90,12 +90,30 @@ default 6):
 #SBATCH --ntasks=<gpus>          # one MPI rank per GPU
 #SBATCH --cpus-per-task=<threads>
 #SBATCH --gres=gpu:<gpus>
-#SBATCH --mem=<16+12×gpus>G
+# (deliberately NO --mem — see below)
 #SBATCH --output=<workdir>/run.out   # the SAME files direct mode uses —
 #SBATCH --error=<workdir>/run.err    # log tailing + progress parsing ride on
 … module load relion/<ver> …
 mpirun -n <gpus> relion_* … --gpu 0:1:…:<gpus-1>
 ```
+
+**No `--mem`, deliberately (t311).** A node's schedulable RealMemory is
+invisible from the login node, so any explicit size is a guess the
+controller may refuse AT SUBMIT TIME — the live report that started this
+fix was exactly that: `sbatch: error: Memory specification can not be
+satisfied` + `Batch job submission failed: Requested node configuration
+is not available` (a `--mem=16+12×gpus` formula crossing 64 GB nodes).
+The user's own working `sbatch6gpu.sh` requests no memory — the node /
+partition defaults apply — and so does the generated script (a commented
+`#SBATCH --mem=…` example stays in the script for clusters that want a
+pinned size). When a submission IS refused, the error now separates
+Slurm's own verdict from the login shell's `~/.bashrc` noise (a broken
+`source` line in your dotfiles prints to the same stderr and reads like
+the cause — it is named for what it is, so you fix your `.bashrc`, not
+us). The GPU width is also clamped server-side to the picked group's
+`gpusPerNode` from the last probe — a 5-GPU partition can never receive a
+`--gres=gpu:6` request (the other shape of "node configuration not
+available").
 
 `run.out` / `run.err` / `.cf-exit` keep their direct-mode contracts, so the
 poll sweep, log tab and sync-back work unchanged; liveness comes from
@@ -115,6 +133,16 @@ consistent tree. External files (e.g. movies on your laptop) land under
 outputs that already ran on the SAME cluster are reused in place — no
 re-upload. Staging is idempotent: identical-size files are skipped, so an
 interrupted staging continues where it left off on re-run.
+
+**Imports enumerate EVERYTHING (t311).** The browser's listing caps at
+400 rows per folder (payload sanity — it says so, and shows the folder's
+REAL total via a counted `find` pass). The IMPORT itself has no such cap:
+picking the folder (or a wildcard pattern) enumerates up to 20,000 images
+(`CF_REMOTE_IMPORT_MAX`) on the cluster and writes them all into
+`micrographs.star` — the earlier shared 400-entry cap silently imported
+only the first 400 of a 2,341-photo shoot. Long picked-file lists render
+as a compact summary card in the params tab (`N files · M folders` + the
+first two paths, *show all* to edit) instead of a wall of paths.
 
 **Sync-back.** On completion (or stop), the job's cluster workdir is
 downloaded into the local mirror (per-file and total caps, defaults
@@ -231,10 +259,14 @@ On a remote project:
   CLUSTER's filesystem over SSH (`GET /api/remote/connections/[id]/browse`—
   roots view with `/`, `$HOME` and the remote root, one-level listings
   with sizes/types, wildcard pattern preview `…/*.mrc`, capped at 400
-  entries; `~` expands cluster-side). Picked paths are CLUSTER-ABSOLUTE.
+  rows — with the folder's REAL total shown when truncated, and an
+  *Import this whole folder* shortcut that bypasses the cap; `~` expands
+  cluster-side). Picked paths are CLUSTER-ABSOLUTE.
 - **The import writes cluster-absolute STARs.** Import (an engine-native,
   local bookkeeping step) validates and enumerates the picked cluster
-  path over SSH and writes `micrographs.star` with the cluster paths —
+  path over SSH — folder and pattern enumerations go to 20,000 entries
+  (`CF_REMOTE_IMPORT_MAX`), far past the browser's 400-row preview — and
+  writes `micrographs.star` with the cluster paths —
   the data never leaves the cluster, not one movie byte is uploaded. When
   a downstream job dispatches to the SAME cluster, the staging walk finds
   the refs already present and the argv references them exactly as

@@ -83,7 +83,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { CheckSquare, ListFilter, Folder } from "lucide-react";
+import { CheckSquare, ChevronUp, ListFilter, Folder } from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -643,6 +643,14 @@ function PathParamField({
 }) {
   const inputId = `${idPrefix}-${p.key}`;
   const [browsing, setBrowsing] = React.useState(false);
+  // t311 — long file lists collapse to a SUMMARY by default. A 400-file pick
+  // used to land in the textarea as 400 newline-separated absolute paths —
+  // even capped at 4 visible rows it dominated the params tab (the user's
+  // report: "不要显示所有照片的路径…会占用太多空间"). The summary keeps the
+  // count + folders + first two paths on ~4 lines; "show all" restores the
+  // editable textarea (editing stays possible, and re-browsing re-seeds the
+  // multi-select from the full value — nothing is lost).
+  const [expanded, setExpanded] = React.useState(false);
   // t300 — a REMOTE project browses the CLUSTER's filesystem for every path
   // param (movies folder, star files, reference maps…): the bound connection
   // switches the browser's backend; picked paths are cluster-absolute.
@@ -655,6 +663,11 @@ function PathParamField({
   const lines = trimmed ? trimmed.split(/\r?\n/).map((s) => s.trim()).filter(Boolean) : [];
   const isPattern = lines.length === 1 && /[*?]/.test(lines[0]);
   const isFileList = lines.length > 1;
+  const manyFiles = isFileList && lines.length > 8;
+  const collapsed = manyFiles && !expanded;
+  const folderCount = new Set(
+    lines.map((l) => (l.includes("/") ? l.slice(0, l.lastIndexOf("/")) : l))
+  ).size;
 
   return (
     <div className="space-y-1.5">
@@ -662,17 +675,74 @@ function PathParamField({
         {p.label}
       </Label>
       <div className="flex items-start gap-1.5">
-        {isFileList ? (
-          <Textarea
-            id={inputId}
-            value={raw}
-            title={p.hint}
-            onChange={(e) => onChange(e.target.value)}
-            rows={Math.min(4, Math.max(2, lines.length))}
-            placeholder={"One file path per line…"}
-            className="min-h-8 resize-y font-mono text-xs"
-            aria-label={`${p.label} — ${lines.length} files`}
-          />
+        {collapsed ? (
+          <div
+            className="flex-1 rounded-md border bg-secondary/30 px-2.5 py-2"
+            role="group"
+            aria-label={`${p.label}: ${lines.length} files selected (collapsed summary — show all for the full list)`}
+          >
+            <div className="flex items-center gap-1.5">
+              <CheckSquare className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden="true" />
+              <span className="text-xs font-medium text-primary">{lines.length} files</span>
+              <span className="text-[10px] text-muted-foreground">
+                · {folderCount} folder{folderCount === 1 ? "" : "s"} · imported exactly as listed
+              </span>
+              <button
+                type="button"
+                className="ml-auto inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+                onClick={() => setExpanded(true)}
+                aria-label={`Show all ${lines.length} file paths`}
+                title="Expand to the full editable path list"
+              >
+                <ChevronDown className="h-3 w-3" aria-hidden="true" />
+                show all
+              </button>
+            </div>
+            <p
+              className="mt-1 truncate font-mono text-[10px] leading-relaxed text-muted-foreground"
+              title={lines[0]}
+            >
+              {lines[0]}
+            </p>
+            {lines.length > 1 && (
+              <p
+                className="truncate font-mono text-[10px] leading-relaxed text-muted-foreground"
+                title={lines[1]}
+              >
+                {lines[1]}
+              </p>
+            )}
+            {lines.length > 2 && (
+              <p className="text-[10px] leading-relaxed text-muted-foreground/70">
+                +{lines.length - 2} more — paths are kept, only the display is collapsed
+              </p>
+            )}
+          </div>
+        ) : isFileList ? (
+          <>
+            <Textarea
+              id={inputId}
+              value={raw}
+              title={p.hint}
+              onChange={(e) => onChange(e.target.value)}
+              rows={expanded ? Math.min(8, Math.max(4, lines.length)) : Math.min(4, Math.max(2, lines.length))}
+              placeholder={"One file path per line…"}
+              className="min-h-8 resize-y font-mono text-xs"
+              aria-label={`${p.label} — ${lines.length} files`}
+            />
+            {manyFiles && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 shrink-0 px-1.5"
+                onClick={() => setExpanded(false)}
+                aria-label="Collapse the file list back to a summary"
+                title="Collapse back to the summary"
+              >
+                <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" />
+              </Button>
+            )}
+          </>
         ) : (
           <Input
             id={inputId}
@@ -727,12 +797,16 @@ function PathParamField({
               <span>expanded at import — every matched .mrc/.mrcs/.tif/.eer</span>
             </>
           ) : isFileList ? (
-            <>
-              <CheckSquare className="h-3 w-3 text-primary" aria-hidden="true" />
-              <span className="font-medium text-primary">{lines.length} files selected</span>
-              <span aria-hidden="true">·</span>
-              <span>imported exactly as listed</span>
-            </>
+            collapsed ? (
+              <span>list collapsed above — the full paths ride the import untouched</span>
+            ) : (
+              <>
+                <CheckSquare className="h-3 w-3 text-primary" aria-hidden="true" />
+                <span className="font-medium text-primary">{lines.length} files selected</span>
+                <span aria-hidden="true">·</span>
+                <span>imported exactly as listed</span>
+              </>
+            )
           ) : (
             <>
               <Folder className="h-3 w-3 text-amber-500/80" aria-hidden="true" />

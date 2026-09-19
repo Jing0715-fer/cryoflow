@@ -47,8 +47,13 @@ with open(star_in) as fh:
                 mics.append(cols[0])
 
 print(f"cryoflow-mock ctffind: {len(mics)} micrograph(s) from {star_in}")
+# t311 — TOTAL sleep capped at 60s (motioncorr's own t268 doctrine): the
+# 1.6s/mic cadence was tuned for small suites; a 450-micrograph import tree
+# turned the run into a 12-minute wall. Small jobs (≤37 mics) keep the full
+# cadence the progress parser was tuned against.
+pace = min(1.6, 60.0 / max(1, len(mics)))
 for n, mic in enumerate(mics, 1):
-    time.sleep(1.6)
+    time.sleep(pace)
     print(f"Micrograph {n}/{len(mics)}: {os.path.basename(mic)} — CTF estimated (dF=12500, astig=180)")
     sys.stdout.flush()
 

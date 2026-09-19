@@ -5,3 +5,6 @@ fs/home/cryo/.slurm/
 
 # t300 — the E2E rehearsal movie fixtures (runtime, not fixtures-in-git)
 fs/data2/movies-t298/
+
+# t311 — the 450-file import-cap rehearsal fixture (runtime, not fixtures-in-git)
+fs/data2/movies-t311/

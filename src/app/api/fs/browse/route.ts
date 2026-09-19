@@ -211,6 +211,11 @@ export async function GET(request: NextRequest) {
       if (!e.dir) e.abs = path.join(dir, name);
       entries.push(e);
     }
+    // t311 — the REAL count before the cap (the remote twin computes the
+    // same number on the cluster): the dialog's truncated notice can say
+    // "2,341 entries — showing first 400; select the folder to import every
+    // image" instead of a blind "more than 400".
+    const totalEntries = entries.length;
     // directories first, then files — both alphabetical
     entries.sort((a, b) =>
       a.dir === b.dir ? a.name.localeCompare(b.name, undefined, { numeric: true }) : a.dir ? -1 : 1
@@ -234,6 +239,7 @@ export async function GET(request: NextRequest) {
       parent,
       entries,
       truncated,
+      totalEntries,
       micrographs,
       quick: quickJumps(),
     });

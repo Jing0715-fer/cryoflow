@@ -136,8 +136,12 @@ print(f"cryoflow-mock autopick: {method} — {len(mics)} micrograph(s)")
 
 os.makedirs(os.path.join(odir, "micrographs"), exist_ok=True)
 total = 0
+# t311 — TOTAL sleep capped at 60s (motioncorr's t268 doctrine, ctffind's
+# t311 twin): the 0.8s/mic cadence served small suites; a 450-micrograph
+# import tree made the run a 6-minute wall.
+pace = min(0.8, 60.0 / max(1, len(mics)))
 for n, mic in enumerate(mics, 1):
-    time.sleep(0.8)
+    time.sleep(pace)
     picks = 14 + (n * 3) % 9
     total += picks
     base = os.path.basename(mic)

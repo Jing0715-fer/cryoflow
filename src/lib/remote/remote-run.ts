@@ -526,6 +526,18 @@ function connLastPartitionHosts(connId: string, partition: string): string[] | n
 }
 
 /**
+ * t311 — the GPUs-per-node the probe's sinfo inventory resolved for ONE
+ * partition. null = unknown (no probe / stale probe / bare API caller) —
+ * the 8-wide cap stands, never a fabricated limit.
+ */
+function connPartitionGpus(connId: string, partition: string): number | null {
+  const groups = getConnection(connId)?.lastProbe?.slurmGpus ?? null;
+  if (!groups) return null;
+  const g = groups.find((x) => x.partition === partition);
+  return typeof g?.gpusPerNode === "number" && g.gpusPerNode > 0 ? g.gpusPerNode : null;
+}
+
+/**
  * t297 — the sbatch variant of the run script, modeled on the user's
  * sbatch6gpu.sh submission idiom (OpenHPC + Slurm + Lmod clusters):
  *
@@ -533,6 +545,19 @@ function connLastPartitionHosts(connId: string, partition: string): string[] | n
  *   #SBATCH --ntasks=<gpus>          ← one MPI rank per GPU
  *   #SBATCH --gres=gpu:<gpus>
  *   … mpirun -n <gpus> relion_* … --gpu 0:1:…:N-1
+ *
+ * t311 — NO --mem line, deliberately. The user's cluster REJECTED the
+ * memory spec we used to emit (--mem=16+12×gpus G):
+ *
+ *   sbatch: error: Memory specification can not be satisfied
+ *   sbatch: error: Batch job submission failed: Requested node
+ *   configuration is not available
+ *
+ * A node's schedulable RealMemory is invisible from the login node, so any
+ * explicit size is a guess the controller may refuse AT SUBMIT TIME. The
+ * user's own working script requests no memory — the node/partition
+ * defaults apply — and so do we (a commented example stays for clusters
+ * that want one).
  *
  * The GPU count is the WIDTH the user chose in the run dialog (1–8) — the
  * same script shape at any width. The output/error land in the workdir's
@@ -631,7 +656,11 @@ function buildSbatchScript(args: {
   L.push(`#SBATCH --ntasks=${Math.max(1, ntasks)}`);
   L.push(`#SBATCH --cpus-per-task=${Math.max(1, threads)}`);
   if (gpus > 0) L.push(`#SBATCH --gres=gpu:${gpus}`);
-  L.push(`#SBATCH --mem=${Math.min(256, 16 + 12 * Math.max(1, gpus))}G`);
+  // t311 — memory left to the cluster's node defaults (see the doc above:
+  // an explicit --mem the controller can't satisfy is refused at submit
+  // time — "Memory specification can not be satisfied"). Example for
+  // clusters that want a pinned size:
+  // #SBATCH --mem=64G
   L.push(`#SBATCH --output=${remoteWorkdir}/run.out`);
   L.push(`#SBATCH --error=${remoteWorkdir}/run.err`);
   L.push("");
@@ -880,7 +909,7 @@ export async function startRemoteJob(args: {
   // width. The one honest pre-condition: the cluster must actually offer a
   // Slurm client (the probe looked for sbatch + squeue on the login node).
   const isSlurm = target.mode === "slurm";
-  const gpuWidth = isSlurm
+  let gpuWidth = isSlurm
     ? Math.max(1, Math.min(8, Math.round(Number(target.gpus ?? 6)) || 6))
     : 0;
   // t306 — the array split width: 0 = no split (the single-job contract,
@@ -896,6 +925,21 @@ export async function startRemoteJob(args: {
     isSlurm && typeof target.partition === "string" && /^[A-Za-z0-9_.-]{1,64}$/.test(target.partition)
       ? target.partition
       : null;
+  // t311 — the probe's own GPU inventory caps the width for the picked
+  // partition: a 5-GPU group cannot honor --gres=gpu:6, and Slurm answers
+  // that at submit time with "Requested node configuration is not
+  // available". The run dialog's stepper already clamps client-side; this
+  // is the same gate server-side (bare API callers, stale dialogs after a
+  // re-probe shrank a group). No inventory → the 8-wide cap stands.
+  if (isSlurm && partitionOverride != null) {
+    const gpusPerNode = connPartitionGpus(target.connectionId, partitionOverride);
+    if (gpusPerNode != null && gpuWidth > gpusPerNode) {
+      console.warn(
+        `remote-run: clamping GPU width ${gpuWidth} → ${gpusPerNode} (partition ${partitionOverride} offers ${gpusPerNode}/node per the last probe)`
+      );
+      gpuWidth = gpusPerNode;
+    }
+  }
   // t300 — the NODE pin: a user picking a group the probe resolved to
   // exactly ONE hostname ("brain2", "normal"…) asked for THAT node, not
   // merely its partition — a partition can outlive its hostlist (nodes
@@ -1439,12 +1483,31 @@ export async function startRemoteJob(args: {
         const subRes = await exec(conn, `sbatch ${shQuote(scriptPath)}`, { timeoutMs: 30_000 });
         const idMatch = /Submitted batch job (\d+)/.exec(subRes.stdout);
         if (!idMatch) {
-          const why =
-            subRes.stderr.trim().slice(0, 400) ||
-            subRes.stdout.trim().slice(0, 400) ||
+          // t311 — the exec channel is a LOGIN shell (bash -lc), so the
+          // user's own ~/.bashrc noise rides stderr alongside Slurm's
+          // verdict (observed live: "/data2/home/…/.bashrc: line 35: …:
+          // No such file or directory" printed BEFORE the real errors, and
+          // it reads like the submission failed because of it). Split the
+          // streams: Slurm's own lines are the answer; the rest is named
+          // for what it is so the user fixes their .bashrc, not us.
+          const errLines = (subRes.stderr || "")
+            .split(/\r?\n/)
+            .map((l) => l.trim())
+            .filter(Boolean);
+          const slurmLines = errLines.filter((l) => /^sbatch:|^slurm/i.test(l));
+          const noiseLines = errLines.filter((l) => !slurmLines.includes(l));
+          const why = (
+            slurmLines.join(" · ") ||
+            errLines.join(" · ") ||
+            (subRes.stdout || "").trim() ||
             subRes.error ||
-            `ssh exit ${subRes.code}`;
-          throw new Error(`sbatch refused the submission: ${why}`);
+            `ssh exit ${subRes.code}`
+          ).slice(0, 400);
+          const noiseNote =
+            noiseLines.length > 0
+              ? ` · login-shell noise from the cluster (your ~/.bashrc, not the submission): ${noiseLines.join(" · ").slice(0, 200)}`
+              : "";
+          throw new Error(`sbatch refused the submission: ${why}${noiseNote}`);
         }
         const slurmId = idMatch[1];
 
