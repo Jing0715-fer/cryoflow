@@ -3,7 +3,8 @@ import { db } from "@/lib/db";
 import { toJobDTO } from "@/lib/seed";
 import { startJob } from "@/lib/relion/dispatch";
 import { isLocalRequest } from "@/lib/http-guard";
-import { remoteInfoFor } from "@/lib/remote/remote-run";
+import { remoteInfoFor, remoteEligible } from "@/lib/remote/remote-run";
+import { projectRemoteTarget } from "@/lib/projects";
 import type { RemoteRunTarget } from "@/lib/remote/types";
 
 export const dynamic = "force-dynamic";
@@ -18,8 +19,21 @@ type RouteContext = { params: Promise<{ id: string }> };
  *
  * Optional JSON body: { remote: { connectionId, module?, mode } } — runs the
  * job on an SSH cluster instead (module load relion/<module>, see
- * docs/remote-relion.md). Without a body (or without `remote`) the run is
- * local, exactly as before.
+ * docs/remote-relion.md). { local: true } — the EXPLICIT local choice (the
+ * panel's ▾ "Run on this machine"): a remote-bound project's bare POST
+ * would otherwise dispatch to the cluster (see below), and this flag keeps
+ * that door honest — the engine's cluster-resident refusal answers it.
+ *
+ * t317 — a BARE POST (no remote, no local flag) from a job whose PROJECT is
+ * bound to a live cluster dispatches with the project's binding (the
+ * connection's saved defaults). This is the manual-door twin of the t315
+ * auto-start passthrough fix: the card context-menu "Run job", the command
+ * palette, the toast "Retry" and the inspector "Start again" all POST
+ * bare, and before this they fell into the LOCAL lane — a remote project's
+ * job spawned through the WSL bridge (`wsl -d Debian -- bash -c {…}`) with
+ * a star full of cluster-absolute rows, the exact Beijing symptom through
+ * the side door. Engine-native types (import/select/…) stay local as
+ * always — they are the local half of a remote project by design.
  */
 export async function POST(request: NextRequest, context: RouteContext) {
   try {
@@ -54,9 +68,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
       );
     }
 
-    // optional remote target ({ remote: {...} }); absent/invalid → local run
+    // optional remote target ({ remote: {...} }); absent/invalid → the
+    // project-binding fallback below decides (t317)
     const body = (await request.json().catch(() => ({}))) as {
       remote?: { connectionId?: unknown; module?: unknown; mode?: unknown; gpus?: unknown; partition?: unknown; shards?: unknown };
+      local?: unknown;
     };
     let remote: RemoteRunTarget | undefined;
     if (body?.remote && typeof body.remote === "object" && typeof body.remote.connectionId === "string" && body.remote.connectionId) {
@@ -86,6 +102,18 @@ export async function POST(request: NextRequest, context: RouteContext) {
         ...(partition ? { partition } : {}),
         ...(body.remote.mode === "slurm" && shards >= 2 ? { shards } : {}),
       };
+    }
+
+    // t317 — the bare-POST project-binding fallback: no explicit remote AND
+    // no explicit local AND the job's project is bound to a live cluster AND
+    // the type can actually run on a cluster → dispatch with the project's
+    // binding (same target the auto-start passthrough would use — one shared
+    // shape, projects.projectRemoteTarget). A ghost binding degrades to the
+    // local lane honestly (the engine's cluster-resident refusal names the
+    // door and the re-add path).
+    if (!remote && body?.local !== true && remoteEligible(existing.type)) {
+      const target = projectRemoteTarget(existing.projectId);
+      if (target) remote = target;
     }
 
     const { job, error, busy, waiting, busyKind } = await startJob(existing, remote ? { remote } : {});

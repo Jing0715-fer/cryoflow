@@ -45,7 +45,7 @@ import { exec as sshExec } from "@/lib/remote/ssh";
 import type { RemoteRunState } from "@/lib/remote/types";
 import { readMrcHeader } from "@/lib/mrc";
 import { sniffImageFile, spreadSample, type HeaderSniffer, type SniffVerdict } from "./mrc-sniff";
-import { detectRelion } from "./system";
+import { detectRelion, savedWslDistro } from "./system";
 import { MIC_RE, expandPattern, hasWildcard, userPathToHost } from "./glob";
 import { writePathrefMarker } from "./pathref";
 import {
@@ -54,6 +54,7 @@ import {
   hostToWsl,
   isWindowsPath,
   wslStopArgs,
+  wslToHost,
   wrapWslCommand,
   type WslBridge,
 } from "./wsl-bridge";
@@ -1095,6 +1096,35 @@ function micrographNames(starPath: string): string[] {
   return names;
 }
 
+/**
+ * t317 — image stack paths from a particles.star: the path half of every
+ * _rlnImageName-style ref (both `000001@/abs/stack.mrcs` and bare
+ * `stack.mrcs` column shapes — whitespace-tolerant, same contract as
+ * rebaseParticlesStar). Only the FIRST image-shaped token per row counts,
+ * so extra columns never inflate the majority bar.
+ */
+function particleStackNames(starPath: string): string[] {
+  const blocks = parseStarBlocks(readFileSync(starPath, "utf8"));
+  const imgBlock = blocks.find((b) => b.lines.some((l) => l.includes("_rlnImageName")));
+  if (!imgBlock) return [];
+  const IMG_TOK = /^(?:\d+@)?(\S+\.(?:mrc|mrcs|tif|tiff|img))$/i;
+  const names: string[] = [];
+  for (const line of imgBlock.lines) {
+    const t = line.trim();
+    if (!t || t.startsWith("#") || t === "loop_" || t.startsWith("_rln") || t.startsWith("data_")) {
+      continue;
+    }
+    for (const tok of t.split(/\s+/)) {
+      const m = IMG_TOK.exec(tok);
+      if (m) {
+        names.push(m[1]);
+        break; // one stack ref per row
+      }
+    }
+  }
+  return names;
+}
+
 /* ------------------------------------------------------------------ */
 /* t313 — the CTF input gate: names are hints, bytes are the verdict   */
 /* ------------------------------------------------------------------ */
@@ -1273,6 +1303,31 @@ const MIC_FILE_READERS = new Set([
 ]);
 
 /**
+ * t317 — job types whose compute OPENS the particle image stacks referenced
+ * by their input particles.star (class2d/refine3d/…). The cluster-resident
+ * refusal now covers this family too: a remote project's IMPORT (Particles
+ * node type) writes cluster-absolute stack refs, and a local spawn through
+ * the WSL bridge would die per-particle — the exact Beijing failure shape,
+ * through the new lane the t315 import door opened. Engine-native table
+ * surgery (select/select2d/symexpand/rebalance/joinstar) is deliberately
+ * ABSENT: those never open the stacks — they run locally by design even in
+ * a remote project.
+ */
+const PARTICLE_STACK_READERS = new Set([
+  "class2d",
+  "class3d",
+  "refine3d",
+  "initialmodel",
+  "multibody",
+  "polish",
+  "ctfrefine",
+  "dynamight",
+  "subtract",
+  "tomo_ctfrefine",
+  "tomo_polish",
+]);
+
+/**
  * t315 — a star whose rows are absolute paths that DO NOT exist on this
  * machine (a remote project's cluster-absolute /data06/… rows) fails every
  * single file read at run time: the Beijing WSL attempt died 195 times in
@@ -1283,7 +1338,42 @@ const MIC_FILE_READERS = new Set([
  * missing) — one relocated file is noise, not a wiring mistake; and only
  * for POSIX-absolute rows (local lanes carry project-relative or host-
  * style paths, which never trip the check).
+ *
+ * t317 — "missing" now speaks the BRIDGE's dialect too: on a Windows host
+ * whose RELION lives in WSL, a local import writes WSL-VIEW rows
+ * (/mnt/c/…, \\wsl.localhost\… sources), which never exist host-side. Each
+ * row is translated back (wslToHost + the SAVED distro name) before the
+ * existsSync verdict — a run that works through the bridge is no longer
+ * refused as "files do not exist". Cluster-absolute rows (/data06/…)
+ * translate to themselves on every platform — the Beijing hole stays
+ * closed.
  */
+function residentMissing(names: string[], projectId: string): string[] {
+  const distro = savedWslDistro();
+  const missing = names.filter(
+    (n) =>
+      n.startsWith("/") &&
+      !existsSync(n) &&
+      !existsSync(wslToHost(n, distro)) // bridged WSL-view row → host path
+  );
+  return missing;
+}
+
+function residentRefusalMessage(
+  missing: string[],
+  total: number,
+  subject: string,
+  projectId: string
+): string {
+  const example = missing[0];
+  const more = missing.length > 1 ? ` (+${missing.length - 1} more)` : "";
+  const bound = getProjectMeta(projectId)?.remote?.connectionId != null;
+  if (bound) {
+    return `This job reads the ${subject} files, but ${missing.length} of ${total} rows in the input star live on the CLUSTER (${example}${more}) — they are not on this machine, so a local run would fail on every single file. Dispatch this job to the cluster instead: Run ▸ "Run on cluster (SSH)…" (in a remote project the main Run button already does exactly that).`;
+  }
+  return `This job reads the ${subject} files, but ${missing.length} of ${total} rows in the input star do not exist on this machine (${example}${more}) — the files may have been moved, unmounted or deleted. Re-import them (Import ▸ Browse), or — if they live on an SSH cluster — bind the project to that cluster and run the job there.`;
+}
+
 export function clusterResidentRefusal(
   type: string,
   starPath: string | undefined,
@@ -1297,15 +1387,32 @@ export function clusterResidentRefusal(
     return null; // unreadable → the run itself will say the real problem
   }
   if (names.length === 0) return null;
-  const missing = names.filter((n) => n.startsWith("/") && !existsSync(n));
+  const missing = residentMissing(names, projectId);
   if (missing.length === 0 || missing.length / names.length < 0.5) return null;
-  const example = missing[0];
-  const more = missing.length > 1 ? ` (+${missing.length - 1} more)` : "";
-  const bound = getProjectMeta(projectId)?.remote?.connectionId != null;
-  if (bound) {
-    return `This job reads the micrograph files, but ${missing.length} of ${names.length} rows in the input star live on the CLUSTER (${example}${more}) — they are not on this machine, so a local run would fail on every single file. Dispatch this job to the cluster instead: Run ▸ "Run on cluster (SSH)…" (in a remote project the main Run button already does exactly that).`;
+  return residentRefusalMessage(missing, names.length, "micrograph", projectId);
+}
+
+/**
+ * t317 — the particles twin of clusterResidentRefusal: the input
+ * particles.star's _rlnImageName refs (idx@stack.mrcs) name stacks that
+ * must exist where the compute runs. Same majority bar, same honest doors.
+ */
+export function clusterResidentParticlesRefusal(
+  type: string,
+  particlesStar: string | undefined,
+  projectId: string
+): string | null {
+  if (!particlesStar || !PARTICLE_STACK_READERS.has(type)) return null;
+  let names: string[] = [];
+  try {
+    names = particleStackNames(particlesStar);
+  } catch {
+    return null; // unreadable → the run itself will say the real problem
   }
-  return `This job reads the micrograph files, but ${missing.length} of ${names.length} rows in the input star do not exist on this machine (${example}${more}) — the files may have been moved, unmounted or deleted. Re-import them (Import ▸ Browse), or — if they live on an SSH cluster — bind the project to that cluster and run the job there.`;
+  if (names.length === 0) return null;
+  const missing = residentMissing(names, projectId);
+  if (missing.length === 0 || missing.length / names.length < 0.5) return null;
+  return residentRefusalMessage(missing, names.length, "particle stack", projectId);
 }
 
 /**
@@ -1989,20 +2096,25 @@ interface ParticlesStarFacts {
 
 /**
  * Validate + rebase a particles STAR's text. Validation is by DIALECT: a
- * star carrying _rlnMicrographName is a micrographs star (wrong node type —
- * refuse with the switch instruction); a star with no image references at
- * all is not a particles star. Rebase rule (t313's relocation lesson): any
- * RELATIVE image reference resolves against the SOURCE star's own
- * directory and is rewritten absolute — our copy lives in a different
- * directory, so verbatim relative rows would dangle. Absolute rows ride
- * verbatim (cluster-absolute rows are the zero-upload contract).
+ * star carrying _rlnMicrographName WITHOUT _rlnImageName is a micrographs
+ * star (wrong node type — refuse with the switch instruction); a star with
+ * no image references at all is not a particles star. Rebase rule (t313's
+ * relocation lesson): any RELATIVE image reference resolves against the
+ * SOURCE star's own directory and is rewritten absolute — our copy lives in
+ * a different directory, so verbatim relative rows would dangle. Absolute
+ * rows ride verbatim (cluster-absolute rows are the zero-upload contract).
+ *
+ * t317 — the dialect refusal only fires when _rlnImageName is ABSENT: some
+ * legacy/toolsome particles STARs carry _rlnMicrographName ALONGSIDE
+ * _rlnImageName (per-row provenance columns), and refusing those rejected
+ * legitimate particles files.
  */
 function rebaseParticlesStar(
   text: string,
   sourceDir: string,
   toEngine: (p: string) => string
 ): { error?: string; facts?: ParticlesStarFacts; lines?: string[] } {
-  if (/_rlnMicrographName\s/.test(text)) {
+  if (/_rlnMicrographName\s/.test(text) && !/_rlnImageName\s/.test(text)) {
     return {
       error:
         "that STAR describes MICROGRAPHS (it carries _rlnMicrographName), not particles — switch the Import job's Node type to Micrographs and point at the image folder instead",
@@ -2121,7 +2233,15 @@ async function runImportParticlesNative(
       };
     }
     sourceText = r.stdout;
-    sourceDir = raw.slice(0, raw.lastIndexOf("/") || undefined) || "/";
+    // t317 — the dir half of the cluster path, edge-honest: a slashless
+    // path ("particles.star") resolves refs against "."; a ROOT-level file
+    // ("/x.star") against "/" — the old `lastIndexOf("/") || undefined`
+    // idiom made the first chop the string's tail and the second use the
+    // FILE as its own directory (refs rebased under the file).
+    {
+      const cut = raw.lastIndexOf("/");
+      sourceDir = cut > 0 ? raw.slice(0, cut) : cut === 0 ? "/" : ".";
+    }
     toEngine = (p) => p; // cluster paths stay cluster-side verbatim
     origin = `cluster ${conn.name || conn.host}`;
   } else {
@@ -4692,12 +4812,12 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
   // A star full of cluster-absolute paths (remote project) on THIS machine
   // is a guaranteed 195× per-file failure — the WSL submission the user
   // reported. Refuse before the workdir exists, teach the right door.
+  // t317 — the particles star gets the same door: a Particles import's
+  // cluster-absolute stack refs would die per-particle in a local spawn.
   {
-    const residentRefusal = clusterResidentRefusal(
-      job.type,
-      inputs.micrographs_star,
-      job.projectId
-    );
+    const residentRefusal =
+      clusterResidentRefusal(job.type, inputs.micrographs_star, job.projectId) ??
+      clusterResidentParticlesRefusal(job.type, inputs.particles_star, job.projectId);
     if (residentRefusal) return { ok: false, error: residentRefusal };
   }
 
@@ -4727,44 +4847,41 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
   // (exit 0) intentionally restarts fresh. Upstream re-validation is skipped:
   // the checkpoint STAR files already reference the validated inputs.
   if (resumableCheckpoint) {
-    const checkpoint = resumableCheckpoint;
-    {
-      // --o MUST point at the SAME output root the checkpoint was written
-      // to (RELION in continue mode still checks the output dir from --o;
-      // omitting it defaults to ./run relative to cwd → "output directory
-      // does not exist" abort on the follower ranks).
-      const outRoot = path.join(workdir, "run");
-      const threads = String(Math.max(1, Math.round(num(job, "threads", 4))));
-      let resumeArgv: string[] | null = null;
-      if (bridge) {
-        // WSL bridge resumes SEQUENTIALLY — same rationale as fresh bridged
-        // runs (the distro MPI stack is the fragile part; --continue works
-        // on the serial binary, checkpoint STAR files are rank-agnostic).
-        resumeArgv = [
-          binJoin(binDir, "relion_refine"),
-          "--continue",
-          checkpoint.file,
-          "--o",
-          outRoot,
-          "--j",
-          threads,
-        ];
-      } else {
-        // POSIX binDir must not pass through path.join — binJoin keeps it
-        // intact on every host platform (see its doc comment).
-        const mpiBin = binJoin(binDir, "relion_refine_mpi");
-        const mpirun = resolveMpirun(binDir, null);
-        if (mpirun && existsSync(mpiBin)) {
-          // gold-standard halves need leader + 2 half-mappers
-          const nranks = job.type === "refine3d" ? 3 : 2;
-          resumeArgv = [mpirun, "-n", String(nranks), mpiBin, "--continue", checkpoint.file, "--o", outRoot];
-        }
+    // --o MUST point at the SAME output root the checkpoint was written
+    // to (RELION in continue mode still checks the output dir from --o;
+    // omitting it defaults to ./run relative to cwd → "output directory
+    // does not exist" abort on the follower ranks).
+    const outRoot = path.join(workdir, "run");
+    const threads = String(Math.max(1, Math.round(num(job, "threads", 4))));
+    let resumeArgv: string[] | null = null;
+    if (bridge) {
+      // WSL bridge resumes SEQUENTIALLY — same rationale as fresh bridged
+      // runs (the distro MPI stack is the fragile part; --continue works
+      // on the serial binary, checkpoint STAR files are rank-agnostic).
+      resumeArgv = [
+        binJoin(binDir, "relion_refine"),
+        "--continue",
+        resumableCheckpoint.file,
+        "--o",
+        outRoot,
+        "--j",
+        threads,
+      ];
+    } else {
+      // POSIX binDir must not pass through path.join — binJoin keeps it
+      // intact on every host platform (see its doc comment).
+      const mpiBin = binJoin(binDir, "relion_refine_mpi");
+      const mpirun = resolveMpirun(binDir, null);
+      if (mpirun && existsSync(mpiBin)) {
+        // gold-standard halves need leader + 2 half-mappers
+        const nranks = job.type === "refine3d" ? 3 : 2;
+        resumeArgv = [mpirun, "-n", String(nranks), mpiBin, "--continue", resumableCheckpoint.file, "--o", outRoot];
       }
-      if (resumeArgv) {
-        const preFlight = bridge ? verifyBridgeTarget(resumeArgv, bridge) : null;
-        if (preFlight) return { ok: false, error: preFlight };
-        return spawnTrackedRun(job, resumeArgv, workdir, binDir, checkpoint.iteration, bridge);
-      }
+    }
+    if (resumeArgv) {
+      const preFlight = bridge ? verifyBridgeTarget(resumeArgv, bridge) : null;
+      if (preFlight) return { ok: false, error: preFlight };
+      return spawnTrackedRun(job, resumeArgv, workdir, binDir, resumableCheckpoint.iteration, bridge);
     }
   }
 

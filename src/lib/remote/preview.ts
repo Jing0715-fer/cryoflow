@@ -37,12 +37,23 @@ import { sniffImageFile, type SniffVerdict } from "@/lib/relion/mrc-sniff";
 /** Where thumbnails + transient fetches live (under the app data root). */
 const PREVIEW_DIR = path.join(DATA_DIR, "remote-preview");
 
-/** A fetched micrograph is deleted after rendering — this is the ceiling we
- *  are willing to pull through the door (a sum image is ~64–256 MB). */
-const FETCH_CAP = 2 * 1024 * 1024 * 1024;
+/**
+ * A fetched micrograph is deleted after rendering — this is the ceiling we
+ * are willing to pull through the door for ONE thumbnail. t317: 512 MB
+ * (summed micrographs are 64–256 MB and always fit; raw frame stacks are
+ * GB-scale and honestly over — the over-cap error says what to do instead
+ * of silently multi-GB-ing the laptop through a gallery click).
+ */
+const FETCH_CAP = 512 * 1024 * 1024;
 
-function cacheKey(clusterPath: string): string {
-  return createHash("sha1").update(clusterPath).digest("hex");
+/**
+ * t317 — the cache key now names the CONNECTION as well as the path: two
+ * clusters can mount the same absolute path with different content, and a
+ * project re-bound to a second cluster must never be served the first
+ * cluster's cached thumbnails.
+ */
+function cacheKey(connectionId: string, clusterPath: string): string {
+  return createHash("sha1").update(`${connectionId}:${clusterPath}`).digest("hex");
 }
 
 /* ------------------------------------------------------------------ */
@@ -64,7 +75,9 @@ export interface ClusterSampleEntry {
 export interface ClusterSample {
   host: string;
   connectionName: string;
-  /** total image rows in the star (the "N micrographs live on …" figure) */
+  /** total image rows in the star (t317: the FULL row count, not just the
+   *  cluster-absolute subset — the "N micrographs live on …" figure must
+   *  not under-report mixed stars). */
   total: number;
   sample: ClusterSampleEntry[];
 }
@@ -74,11 +87,19 @@ export interface ClusterSample {
  * failure degrades to zeros/unknown — the gallery still shows the row, it
  * just shows less about it. Returns null when the whole round failed (dead
  * connection) — the route then answers the honest error.
+ *
+ * t317 — every echoed line carries the CF| sentinel AND its own path
+ * (`CF|<path>|<size>|<b64>`), and parsing maps BY PATH instead of line
+ * index: login shells print banner noise (.bashrc lines containing "|" —
+ * the t311 ticket proved real clusters do), and one noise line used to
+ * shift the whole index alignment (sizes/dims/kind misattributed across
+ * all five entries). base64 never contains "|", so the sentinel grammar
+ * is unambiguous.
  */
 export async function remoteClusterSample(
   connectionId: string,
-  rows: string[],
-  samplePaths: string[]
+  samplePaths: string[],
+  total: number
 ): Promise<ClusterSample | null> {
   const conn = getConnection(connectionId);
   if (!conn) return null;
@@ -86,7 +107,7 @@ export async function remoteClusterSample(
     `for f in ${samplePaths.map((p) => shQuote(p)).join(" ")}; do ` +
     `s=$(stat -c %s "$f" 2>/dev/null || echo 0); ` +
     `h=$(head -c 64 "$f" 2>/dev/null | base64 | tr -d '\\n'); ` +
-    `echo "$s|$h"; done`;
+    `echo "CF|$f|$s|$h"; done`;
   let stdout = "";
   try {
     const r = await exec(conn, script, { timeoutMs: 20_000 });
@@ -95,9 +116,14 @@ export async function remoteClusterSample(
   } catch {
     return null;
   }
-  const lines = stdout.split(/\r?\n/).filter((l) => l.includes("|"));
-  const sample: ClusterSampleEntry[] = samplePaths.map((p, i) => {
-    const line = lines[i] ?? "|";
+  const byPath = new Map<string, string>();
+  for (const line of stdout.split(/\r?\n/)) {
+    if (!line.startsWith("CF|")) continue; // sentinel — banner noise cannot forge it
+    const cells = line.slice(3).split("|");
+    if (cells.length >= 2) byPath.set(cells[0], cells.slice(1).join("|"));
+  }
+  const sample: ClusterSampleEntry[] = samplePaths.map((p) => {
+    const line = byPath.get(p) ?? "0|";
     const pipe = line.indexOf("|");
     const size = Number.parseInt(line.slice(0, pipe), 10);
     let nx = 0;
@@ -131,7 +157,7 @@ export async function remoteClusterSample(
   return {
     host: conn.host,
     connectionName: conn.name || `${conn.username}@${conn.host}`,
-    total: rows.length,
+    total,
     sample,
   };
 }
@@ -148,11 +174,20 @@ const rendering = new Map<string, Promise<RemotePreviewResult>>();
 
 /**
  * The cached PNG for one cluster-absolute micrograph path. Concurrent
- * requests for the same path share one pull+render (the gallery fires five
- * at once). The rendered PNG persists; the fetched .mrc does not. `scale`
+ * requests for the same path+scale share one pull+render (the gallery fires
+ * five at once). The rendered PNG persists; the fetched .mrc does not. `scale`
  * mirrors the outputs/file door: "thumb" (grid) vs "large" (the lightbox's
  * full contrast-stretched view) — separate cache files, a large request
  * after a thumb re-pulls (the .mrc is transient by design).
+ *
+ * t317 — three keying fixes: (a) the in-flight key AND the cache hash name
+ * the CONNECTION (a re-bound project must not collide with another
+ * cluster's identical path, in memory or on disk); (b) the transient .mrc
+ * carries the SCALE in its filename — thumb and large used to download to
+ * the SAME file and the first finisher's finally-rmSync deleted it under
+ * the second's render ("could not render this MRC file" under a concurrent
+ * thumb+lightbox); each scale now owns its own transient copy (worst case
+ * one extra 64 MB pull, correctness over cleverness).
  */
 export async function remotePreviewPng(
   connectionId: string,
@@ -160,7 +195,8 @@ export async function remotePreviewPng(
   scale: "thumb" | "large" = "thumb"
 ): Promise<RemotePreviewResult> {
   const suffix = scale === "large" ? ".large" : "";
-  const cached = path.join(PREVIEW_DIR, `${cacheKey(clusterPath)}${suffix}.png`);
+  const key = cacheKey(connectionId, clusterPath);
+  const cached = path.join(PREVIEW_DIR, `${key}${suffix}.png`);
   try {
     if (existsSync(cached)) {
       const png = await readCachedPng(cached);
@@ -169,7 +205,8 @@ export async function remotePreviewPng(
   } catch {
     /* fall through to a fresh render */
   }
-  const existing = rendering.get(`${scale}:${clusterPath}`);
+  const inFlightKey = `${connectionId}:${scale}:${clusterPath}`;
+  const existing = rendering.get(inFlightKey);
   if (existing) return existing;
   const task = (async (): Promise<RemotePreviewResult> => {
     const conn = getConnection(connectionId);
@@ -177,14 +214,19 @@ export async function remotePreviewPng(
       return { ok: false, error: "cluster connection not found — it may have been deleted", status: 404 };
     }
     mkdirSync(PREVIEW_DIR, { recursive: true });
-    const mrc = path.join(PREVIEW_DIR, `${cacheKey(clusterPath)}.mrc`);
+    // scale-suffixed: the thumb and large legs never share a transient file
+    const mrc = path.join(PREVIEW_DIR, `${key}.${scale}.mrc`);
     try {
       const got = await remoteDownload(conn, clusterPath, mrc, FETCH_CAP);
       if (got == null) {
         return { ok: false, error: `could not fetch ${clusterPath} from ${conn.host}`, status: 404 };
       }
       if (got < 0) {
-        return { ok: false, error: `${clusterPath} is larger than the preview fetch cap`, status: 400 };
+        return {
+          ok: false,
+          error: `${clusterPath} is larger than the 512 MB preview fetch cap — a raw frame stack does not preview as one image; import its MotionCor2 summed micrographs instead`,
+          status: 400,
+        };
       }
       const png =
         scale === "large"
@@ -207,11 +249,11 @@ export async function remotePreviewPng(
       }
     }
   })();
-  rendering.set(`${scale}:${clusterPath}`, task);
+  rendering.set(inFlightKey, task);
   try {
     return await task;
   } finally {
-    rendering.delete(`${scale}:${clusterPath}`);
+    rendering.delete(inFlightKey);
   }
 }
 

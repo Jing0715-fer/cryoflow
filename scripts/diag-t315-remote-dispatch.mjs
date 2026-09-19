@@ -315,7 +315,14 @@ try {
   });
   must(!!ctfB?.id, "the refusal ctffind job creates");
   must((await mkEdge(importA.id, ctfB.id, "micrographs", "micrographs")) < 300, "the refusal edge wires");
-  const localRun = await api(`/api/jobs/${ctfB.id}/run`, { method: "POST", headers: SHJ, body: "{}" });
+  // t317 — the explicit local door now speaks { local: true }: a bare POST
+  // inherits the project's cluster binding (the manual-door twin of the
+  // passthrough fix), and only the EXPLICIT choice meets the refusal
+  const localRun = await api(`/api/jobs/${ctfB.id}/run`, {
+    method: "POST",
+    headers: SHJ,
+    body: JSON.stringify({ local: true }),
+  });
   must(localRun.status >= 200 && localRun.status < 300, `the local run route answers (${localRun.status})`);
   const localErr = String(localRun.body?.error ?? "");
   must(/live on the CLUSTER/i.test(localErr), `the refusal names where the files live: ${localErr.slice(0, 140)}`);

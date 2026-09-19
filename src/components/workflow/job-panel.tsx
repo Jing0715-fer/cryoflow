@@ -1290,7 +1290,13 @@ function PanelBody({ job }: { job: JobDTO }) {
   const handleRun = async () => {
     setRunPending(true);
     try {
-      await runJob(job.id);
+      // t317 — { local: true }: this is the panel's LOCAL door (the main Run
+      // button for local projects, the ▾ "Run on this machine" for remote
+      // ones). It must stay honestly local even in a remote-bound project —
+      // a bare POST would ride the route's project-binding fallback to the
+      // cluster; the explicit flag meets the engine's cluster-resident
+      // refusal instead (which names the cluster door).
+      await runJob(job.id, { local: true });
     } finally {
       setRunPending(false);
     }

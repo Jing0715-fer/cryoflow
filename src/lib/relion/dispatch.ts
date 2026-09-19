@@ -16,7 +16,7 @@ import {
   type WaitKind,
 } from "./engine";
 import { getConnection } from "@/lib/remote/connections";
-import { getProjectMeta } from "@/lib/projects";
+import { getProjectMeta, projectRemoteTarget } from "@/lib/projects";
 import { remoteEligible, startRemoteJob } from "@/lib/remote/remote-run";
 import type { RemoteRunTarget } from "@/lib/remote/types";
 
@@ -311,13 +311,17 @@ export async function autoStartPendingDownstream(triggerJobId: string): Promise<
     // records outlive connections (old sessions, deleted clusters) — without
     // this re-verification a stale record routes fresh children to a ghost
     // cluster (dispatching someone's compute to the wrong machine).
+    // t317 — the guard is now a hard fork, not an OR-ed hint: the trigger's
+    // own record wins ONLY while ITS connection is alive; the moment it is a
+    // ghost, the PROJECT binding takes over (the old shape let a live
+    // project-fallback connection resurrect the dead trigger branch — the
+    // ternary went true and dispatched to the deleted connectionId anyway,
+    // and every sweep retried the same ghost).
     const triggerRec = getRun(triggerJobId);
-    let passthroughConn = triggerRec?.remote
-      ? getConnection(triggerRec.remote.connectionId)
-      : null;
-    if (triggerRec?.remote && !passthroughConn) {
+    const triggerConn = triggerRec?.remote ? getConnection(triggerRec.remote.connectionId) : null;
+    if (triggerRec?.remote && !triggerConn) {
       console.warn(
-        `dispatch: remote passthrough dropped for "${trigger.name}" — connection ${triggerRec.remote.connectionName} no longer exists (downstream runs locally or fails honestly)`
+        `dispatch: remote passthrough dropped for "${trigger.name}" — connection ${triggerRec.remote.connectionName} no longer exists (the project's binding takes over, or downstream runs locally)`
       );
     }
     // t315 — the PROJECT binding is the SECOND source of remote-ness. The
@@ -329,38 +333,33 @@ export async function autoStartPendingDownstream(triggerJobId: string): Promise<
     // file, and the inspector's recorded command line read
     // `wsl -d Debian -- bash -c {…}` (the user's exact complaint: remote
     // tasks must never be submitted to WSL). The project's binding is the
-    // truth that survives the local half: when the trigger ran locally but
-    // its PROJECT is bound to a live cluster, the consumers inherit the
-    // cluster (module + mode from the connection's own saved defaults).
+    // truth that survives the local half: when the trigger ran locally (or
+    // on a now-deleted cluster) but its PROJECT is bound to a live cluster,
+    // the consumers inherit the cluster (module + mode from the
+    // connection's own saved defaults — t317: shared shape with the manual
+    // bare-POST run door, first-probed-module fallback included).
     // Priority stays: the trigger's own remote record FIRST (a pipeline
     // that ran at a chosen GPU width keeps that width), the project
     // binding second, local only when neither speaks.
     let projectFallback: RemoteRunTarget | null = null;
-    if (!triggerRec?.remote || !passthroughConn) {
-      const meta = getProjectMeta(trigger.projectId);
-      const connId = meta?.remote?.connectionId ?? null;
-      const conn = connId ? getConnection(connId) : null;
-      if (connId && conn) {
-        projectFallback = {
-          connectionId: connId,
-          module: conn.defaultModule ?? null,
-          mode: conn.useSlurm ? "slurm" : "direct",
-          ...(conn.useSlurm && typeof conn.slurmPartition === "string" && conn.slurmPartition
-            ? { partition: conn.slurmPartition }
-            : {}),
-        };
-        passthroughConn = passthroughConn ?? conn;
+    if (!triggerRec?.remote || !triggerConn) {
+      projectFallback = projectRemoteTarget(trigger.projectId);
+      if (projectFallback) {
+        const fallbackConn = getConnection(projectFallback.connectionId);
         console.log(
-          `dispatch: remote passthrough falls back to project binding for "${trigger.name}" (ran locally) — downstream dispatches to ${conn.host}`
+          `dispatch: remote passthrough falls back to project binding for "${trigger.name}" (ran locally or its cluster is gone) — downstream dispatches to ${fallbackConn?.host ?? projectFallback.connectionId}`
         );
-      } else if (connId) {
-        console.warn(
-          `dispatch: project remote binding dropped for "${trigger.name}" — connection ${connId} no longer exists (downstream runs locally or fails honestly)`
-        );
+      } else {
+        const ghost = getProjectMeta(trigger.projectId)?.remote?.connectionId ?? null;
+        if (ghost) {
+          console.warn(
+            `dispatch: project remote binding dropped for "${trigger.name}" — connection ${ghost} no longer exists (downstream runs locally or fails honestly)`
+          );
+        }
       }
     }
     const remoteOpts: { remote?: RemoteRunTarget } =
-      triggerRec?.remote && passthroughConn
+      triggerRec?.remote && triggerConn
         ? {
             remote: {
               connectionId: triggerRec.remote.connectionId,

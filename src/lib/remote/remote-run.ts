@@ -2414,9 +2414,24 @@ async function finalizeRemoteRun(
     // checklist — the check teaches, it never blocks the finalize.
     let ctfProbeNote = "";
     if (ctfNoFit) {
-      const micPath = /cannot get CTF values for (\S+\.mrc[a-z]*)/i.exec(errTail)?.[1]
+      let micPath = /cannot get CTF values for (\S+\.mrc[a-z]*)/i.exec(errTail)?.[1]
         ?? /cannot get CTF values for (\S+\.mrc[a-z]*)/i.exec(remoteLogTail)?.[1]
         ?? null;
+      // t317 — the relink pass (t316, parallel window) uploads riding stars
+      // with PROJECT-RELATIVE rows, so the failure lines now name rows like
+      // micrographs/xxx.mrc. A relative row resolves against the run's
+      // remote PROJECT ROOT (the sbatch's cwd dialect — dirname of the
+      // workdir), never against the SSH home. Probe the resolved spelling
+      // first; a verbatim relative probe used to answer CF_UNREADABLE for
+      // files that are perfectly fine — the WRONG story ("the cluster lost
+      // them, re-import") for every relinked all-failed run.
+      if (micPath && !micPath.startsWith("/") && r.remoteWorkdir) {
+        const projectRoot = r.remoteWorkdir.slice(0, r.remoteWorkdir.lastIndexOf("/"));
+        if (projectRoot) {
+          const resolved = `${projectRoot}/${micPath.replace(/^\.\//, "")}`;
+          micPath = resolved;
+        }
+      }
       if (micPath) {
         try {
           const st = await exec(

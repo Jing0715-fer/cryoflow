@@ -729,7 +729,15 @@ interface WorkflowState {
     },
     opts?: { silent?: boolean }
   ) => Promise<{ ok: boolean; error?: string }>;
-  runJob: (id: string) => Promise<boolean>;
+  /**
+   * POST /run — start (or restart) a job. A BARE call (no opts) rides the
+   * route's t317 project-binding fallback: in a remote-bound project the
+   * job dispatches to the cluster (the toast says so via the response's
+   * runRemote). opts.local === true is the EXPLICIT local door (the panel's
+   * ▾ "Run on this machine") — it meets the engine's honest cluster-resident
+   * refusal instead of spawning through the WSL bridge.
+   */
+  runJob: (id: string, opts?: { local?: boolean }) => Promise<boolean>;
   /** POST /run with { remote } — dispatch the job to an SSH cluster
    *  connection (module load relion/x, direct nohup run). Same response
    *  dialect as runJob (409 busy kinds, waiting/staging, honest engine
@@ -2084,7 +2092,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     }
   },
 
-  runJob: async (id) => {
+  runJob: async (id, opts) => {
     // flush any pending (debounced) parameter edits FIRST so the run starts
     // with exactly what the user sees in the form
     try {
@@ -2096,7 +2104,18 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       // local fetch instead of api(): the 409 body carries busyKind, which
       // api() would flatten into a bare Error message — and the whole point
       // is that the two busy cases must NOT share one face.
-      const res = await fetch(`/api/jobs/${id}/run`, { method: "POST" });
+      // t317 — opts.local is the EXPLICIT local choice (the panel's ▾ "Run
+      // on this machine"): it opts OUT of the route's project-binding
+      // fallback, meeting the engine's honest cluster-resident refusal
+      // instead of silently spawning through the WSL bridge. A BARE POST
+      // (every other door: card menu / palette / toast Retry / inspector)
+      // inherits the project's cluster binding server-side.
+      const res = await fetch(`/api/jobs/${id}/run`, {
+        method: "POST",
+        ...(opts?.local === true
+          ? { headers: JSON_HEADERS, body: JSON.stringify({ local: true }) }
+          : {}),
+      });
       const data = (await res.json().catch(() => ({}))) as {
         job?: JobDTO;
         error?: string;
@@ -2155,7 +2174,14 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         });
         return false;
       }
-      toast({ title: "Job started", description: `${started?.name ?? "Job"} is now running` });
+      toast(
+        started?.runRemote
+          ? {
+              title: "Job sent to cluster",
+              description: `${started?.name ?? "Job"} → ${started.runRemote.user}@${started.runRemote.host}`,
+            }
+          : { title: "Job started", description: `${started?.name ?? "Job"} is now running` }
+      );
       // CryoSPARC-style: submitting a job opens its inspector page
       set({ inspectId: id, selectedId: null, selectedIds: [] });
       return true;

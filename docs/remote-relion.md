@@ -244,6 +244,35 @@ honesty: a star whose rows are absolute paths that do not exist locally
 (≥50% of them) is refused BEFORE any spawn, with the error naming the
 cluster door instead of a 195-file failure parade.
 
+**t317 — the bare POST speaks the project's binding too (the side doors
+close).** Every secondary run door — the job card's context-menu "Run
+job", the command palette, the failure toast's "Retry", the inspector's
+"Start again" — POSTs `/api/jobs/[id]/run` with no body, and in a
+remote-bound project that bare POST now dispatches with the project's
+binding (the same shared target the auto-start passthrough uses:
+`projects.projectRemoteTarget`). Before t317 those doors fell into the
+LOCAL lane — the exact Beijing symptom through the side door: a class2d
+fed by a Particles import spawned through `wsl -d Debian -- bash -c {…}`
+with stack refs the machine does not have. The EXPLICIT local choice
+survives as `{ local: true }` (the panel's ▾ "Run on this machine"):
+it meets the cluster-resident refusal — which now covers the particles
+family too (class2d/class3d/refine3d/…: a particles star whose
+`_rlnImageName` refs are ≥50% cluster-absolute-and-missing is refused
+with the same teaching error, before any spawn).
+
+Two smaller doors hardened in the same pass: the ghost-guard in the
+auto-start passthrough is now a hard fork (a trigger's remote record only
+wins while ITS connection is alive — a dead record falls to the project's
+live binding instead of resurrecting the deleted connectionId), and a
+module-less connection's passthrough falls back to the FIRST PROBED
+module (`defaultModule ?? lastProbe.relionModules[0]` — the run dialog's
+own default), so a module-less sbatch never dies 127 after a full
+staging round. The preview door also learned honesty at the edges: a
+RELATIVE star row is refused (it would `cat` against the SSH home), a
+file over the 512 MB fetch cap is refused with the "import the summed
+micrographs instead" lesson, and the cluster strip's `total` is the FULL
+row count (mixed stars included).
+
 ## 4a. Beta & hidden modules ("why can't I see relion 5?")
 
 Two honest reasons a relion version the cluster clearly has never shows

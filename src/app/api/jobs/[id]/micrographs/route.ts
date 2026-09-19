@@ -200,6 +200,15 @@ export async function GET(request: NextRequest, context: RouteContext) {
         if (!names.includes(preview)) {
           return NextResponse.json({ error: "Not a micrograph of this import job" }, { status: 404 });
         }
+        // t317 — only CLUSTER-ABSOLUTE rows can ride this door: a relative
+        // row would `cat` against the SSH login shell's HOME (a pointless
+        // cluster fetch that can only 404) — refuse it honestly instead.
+        if (!preview.startsWith("/")) {
+          return NextResponse.json(
+            { error: "Only cluster-absolute rows can be previewed from the cluster — this row is relative to the project" },
+            { status: 400 }
+          );
+        }
         const full = url.searchParams.get("full") === "1";
         const r = await remotePreviewPng(connId, preview, full ? "large" : "thumb");
         if (!r.ok) {
@@ -227,7 +236,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         const i = Math.floor(Math.random() * pool.length);
         samplePaths.push(pool.splice(i, 1)[0]);
       }
-      const sample = await remoteClusterSample(connId, clusterRows, samplePaths);
+      const sample = await remoteClusterSample(connId, samplePaths, names.length);
       const micrographs: MicrographEntry[] = (sample?.sample ?? samplePaths.map((p) => ({
         path: p,
         name: path.basename(p),

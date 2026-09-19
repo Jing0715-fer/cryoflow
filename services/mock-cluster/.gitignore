@@ -27,3 +27,8 @@ fs/data2/qa-t315-mics/
 fs/data2/qa-t315-movies/
 fs/data2/qa-t315-particles/
 fs/data2/qa-t315-micstar.star
+
+# t317 — the review-fix E2E fixtures (runtime, not fixtures-in-git)
+fs/data2/qa-t317-mics/
+fs/data2/qa-t317-particles/
+fs/data2/qa-t317-big/

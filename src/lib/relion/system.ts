@@ -216,6 +216,29 @@ function writeSnapshot(status: RelionStatus): void {
   }
 }
 
+/**
+ * t317 — the saved detection's WSL distro name, read SYNCHRONOUSLY from the
+ * snapshot (null when no bridge was ever detected / the file is unreadable).
+ *
+ * The cluster-resident refusal gate (engine, t315) must decide BEFORE
+ * detectRelion() whether a star's rows are "missing on this machine" — on a
+ * bridged Windows host a local import writes WSL-VIEW rows (/mnt/c/…), which
+ * never exist host-side, and a bare existsSync would refuse a run that works
+ * perfectly through the bridge. With the distro name those rows translate
+ * back to host-visible paths (wslToHost). No probe is spawned here: this is
+ * the SAVED word, stale-while-revalidate — the same freshness contract the
+ * Run button already rides.
+ */
+export function savedWslDistro(): string | null {
+  try {
+    const snap = readSnapshot();
+    const wsl = snap?.status.wsl;
+    return wsl?.available && wsl.distro ? wsl.distro : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Auto-pick the default install by priority when nothing is selected. */
 function pickDefaultInstall(installs: RelionInstall[]): RelionInstall | null {
   if (installs.length === 0) return null;

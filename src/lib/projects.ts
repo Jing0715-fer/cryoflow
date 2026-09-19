@@ -13,7 +13,7 @@ import type { Project } from "@prisma/client";
 import { db } from "@/lib/db";
 import { DATA_DIR } from "@/lib/paths";
 import { getConnection } from "@/lib/remote/connections";
-import type { ProjectRemoteRef } from "@/lib/remote/types";
+import type { ProjectRemoteRef, RemoteRunTarget } from "@/lib/remote/types";
 import type { ProjectSummaryDTO } from "./types";
 
 const FILE = path.join(DATA_DIR, "projects.json");
@@ -124,6 +124,35 @@ export function projectRemoteRef(id: string): ProjectRemoteRef | null {
     host: conn.host,
     port: conn.port,
     username: conn.username,
+  };
+}
+
+/**
+ * t317 — the project binding as a RUN TARGET (the connection's own saved
+ * defaults: module, mode, partition). This is the "project binding is the
+ * second source of remote-ness" doctrine as one shared shape — the
+ * auto-start passthrough (t315) and the manual bare-POST run door (t317)
+ * must speak the EXACT same target, so neither hand-rolls it.
+ *
+ * Module fallback mirrors the run dialog's default (remote-run-button):
+ * the connection's defaultModule, else the FIRST probed module — a
+ * module-less sbatch would die 127 (relion_refine not on PATH) after a
+ * full staging round. Null when the project is local or its connection
+ * is gone (ghost binding — callers degrade honestly).
+ */
+export function projectRemoteTarget(projectId: string): RemoteRunTarget | null {
+  const meta = readProjectsFile().projects[projectId];
+  const connId = meta?.remote?.connectionId;
+  if (!connId) return null;
+  const conn = getConnection(connId);
+  if (!conn) return null;
+  return {
+    connectionId: connId,
+    module: conn.defaultModule ?? conn.lastProbe?.relionModules?.[0] ?? null,
+    mode: conn.useSlurm ? "slurm" : "direct",
+    ...(conn.useSlurm && typeof conn.slurmPartition === "string" && conn.slurmPartition
+      ? { partition: conn.slurmPartition }
+      : {}),
   };
 }
 
