@@ -50,8 +50,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { BROWSER_LIST_MAX } from "@/lib/browse-caps";
 
 interface BrowseEntry {
   name: string;
@@ -74,12 +74,16 @@ interface BrowseResponse {
   /** true when this listing is a wildcard-pattern expansion */
   pattern?: boolean;
   baseDir?: string;
-  /** total files matched before the 400-entry preview cap */
+  /** total files matched before the preview cap (t312: the cap is the
+   * shared browser ceiling — 20,000 by default — so this now fires only
+   * for genuinely enormous folders) */
   totalMatched?: number;
-  /** t311 — the REAL entry count of the listed directory (both local and
-   * remote routes compute it before the cap): the truncated notice can
-   * say "2,341 entries — showing first 400" and steer the user to pick
-   * the folder itself (whose import enumerates EVERY image). */
+  /** t311/t312 — the REAL entry count of the listed directory (both local
+   * and remote routes compute it before the cap): for a normal session
+   * folder the listing arrives WHOLE (every image visible, every image
+   * selectable); beyond the browser ceiling the truncated notice still
+   * names the real total and steers the user to import the folder itself
+   * (whose import enumerates EVERY image). */
   totalEntries?: number;
   error?: string;
 }
@@ -155,6 +159,26 @@ export function PathBrowserDialog({
   /** name substring filter (files mode) — narrows the visible listing so
    * "Select all images" becomes "select everything that matched" */
   const [filter, setFilter] = React.useState("");
+
+  // ---- t312: windowed rendering ------------------------------------------
+  // The listing may now hold EVERY entry in a session folder (the 400-row
+  // preview cap is retired — BROWSER_LIST_MAX, 20,000 by default), so the
+  // DOM only ever materializes the visible window: a fixed 30px row pitch
+  // (28px h-7 row + 2px breathing gap) with ±8 rows of overscan. Scrolling
+  // just moves the translateY window — 2,054 or 20,000 entries cost the
+  // same dozen row nodes.
+  const LIST_ROW_PX = 30; // h-7 row + mb-0.5 gap
+  const LIST_VIEW_PX = 288; // h-72 viewport
+  const LIST_OVERSCAN = 8;
+  const listScrollRef = React.useRef<HTMLDivElement | null>(null);
+  const [listScrollTop, setListScrollTop] = React.useState(0);
+
+  // navigating / filtering / reloading swaps the list under the scrollbar —
+  // snap both the window math and the element itself back to the top
+  React.useEffect(() => {
+    setListScrollTop(0);
+    if (listScrollRef.current) listScrollRef.current.scrollTop = 0;
+  }, [data, filter]);
 
   // reset when re-opened — restore a previous multi-file selection
   React.useEffect(() => {
@@ -426,10 +450,17 @@ export function PathBrowserDialog({
           </div>
         )}
 
-        {/* listing — the [&>…div]:!block override undoes Radix's display:table
-            wrapper, which otherwise sizes rows to their max-content (a long
-            single-word filename then pushes rows ~180px past the viewport) */}
-        <ScrollArea className="h-72 rounded-lg border [&>[data-radix-scroll-area-viewport]>div]:!block">
+        {/* t312 — plain overflow container + WINDOWED rows: the Radix
+            ScrollArea's display:table wrapper sized rows to max-content; a
+            virtualized 20,000-row listing needs direct scrollTop access
+            anyway, and globals.css already themes every scrollbar thin.
+            Rows are pinned h-7 (30px pitch incl. the 2px gap) so the
+            translateY window math is exact at any scroll offset. */}
+        <div
+          ref={listScrollRef}
+          onScroll={(ev) => setListScrollTop(ev.currentTarget.scrollTop)}
+          className="h-72 overflow-y-auto rounded-lg border"
+        >
           <div role="listbox" aria-label="Folders" className="p-1">
             {loading && (
               <div className="flex items-center justify-center gap-2 py-10 text-xs text-muted-foreground">
@@ -464,16 +495,48 @@ export function PathBrowserDialog({
               </div>
             )}
             {!loading && !error && !inRootsView && (
-              <div className="grid-cols-[minmax(0,1fr)] grid gap-0.5">
-                {visibleEntries.map((e, i) =>
-                  e.dir ? (
+              <>
+                {/* the virtualized window: a spacer of the FULL list height
+                    (n × 30px) keeps the scrollbar honest; the materialized
+                    slice rides translateY — a 2,054-image folder scrolls
+                    exactly like a 40-row one, at the same DOM cost */}
+                {visibleEntries.length > 0 && (
+                  <div
+                    role="presentation"
+                    style={{ height: visibleEntries.length * LIST_ROW_PX }}
+                    className="relative"
+                  >
+                    <div
+                      role="presentation"
+                      className="absolute inset-x-0 top-0"
+                      style={{
+                        transform: `translateY(${Math.max(
+                          0,
+                          Math.floor(listScrollTop / LIST_ROW_PX) - LIST_OVERSCAN
+                        ) * LIST_ROW_PX}px)`,
+                      }}
+                    >
+                      {visibleEntries
+                        .slice(
+                          Math.max(0, Math.floor(listScrollTop / LIST_ROW_PX) - LIST_OVERSCAN),
+                          Math.min(
+                            visibleEntries.length,
+                            Math.ceil((listScrollTop + LIST_VIEW_PX) / LIST_ROW_PX) + LIST_OVERSCAN
+                          )
+                        )
+                        .map((e, i) => {
+                          const rowIdx =
+                            Math.max(0, Math.floor(listScrollTop / LIST_ROW_PX) - LIST_OVERSCAN) + i;
+                          return e.dir ? (
                     <button
-                      key={`${e.name}-${i}`}
+                      key={`${e.name}-${rowIdx}`}
                       type="button"
                       role="option"
                       aria-selected={false}
+                      aria-posinset={rowIdx + 1}
+                      aria-setsize={visibleEntries.length}
                       title={e.name}
-                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-secondary/60"
+                      className="mb-0.5 flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-xs transition-colors hover:bg-secondary/60"
                       onDoubleClick={() =>
                         setCwd(currentPath ? `${currentPath.replace(/[\\/]$/, "")}/${e.name}` : e.name)
                       }
@@ -488,14 +551,16 @@ export function PathBrowserDialog({
                     </button>
                   ) : activeMode === "files" && e.abs ? (
                     <button
-                      key={`${e.name}-${i}`}
+                      key={`${e.name}-${rowIdx}`}
                       type="button"
                       role="option"
                       aria-selected={selected.has(e.abs)}
+                      aria-posinset={rowIdx + 1}
+                      aria-setsize={visibleEntries.length}
                       aria-label={`Select file ${e.name}`}
                       title={e.name}
                       className={cn(
-                        "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-secondary/60",
+                        "mb-0.5 flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-xs transition-colors hover:bg-secondary/60",
                         selected.has(e.abs) && "bg-primary/10 hover:bg-primary/15"
                       )}
                       onClick={() => toggleFile(e.abs!)}
@@ -512,10 +577,14 @@ export function PathBrowserDialog({
                     </button>
                   ) : (
                     <div
-                      key={`${e.name}-${i}`}
+                      key={`${e.name}-${rowIdx}`}
+                      role="option"
+                      aria-selected={false}
+                      aria-posinset={rowIdx + 1}
+                      aria-setsize={visibleEntries.length}
                       title={e.name}
                       className={cn(
-                        "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground",
+                        "mb-0.5 flex h-7 w-full items-center gap-2 rounded-md px-2 text-xs text-muted-foreground",
                         e.img && "text-foreground/90"
                       )}
                     >
@@ -529,14 +598,17 @@ export function PathBrowserDialog({
                         {humanSize(e.size)}
                       </span>
                     </div>
-                  )
+                  );
+                        })}
+                    </div>
+                  </div>
                 )}
                 {data?.truncated && (
-                  <div className="px-2 py-1.5">
+                  <div className="px-2 pb-1 pt-2">
                     <p className="text-[10px] leading-relaxed text-muted-foreground">
                       {patternView
-                        ? `Preview capped at 400 matches — ${data.totalMatched ?? "?"} files match in total (import takes them all).`
-                        : `Listing shows the first 400 of ${data.totalEntries ?? "more than 400"} entries.`}
+                        ? `Preview capped at ${(data.entries?.length ?? BROWSER_LIST_MAX).toLocaleString()} matches — ${data.totalMatched?.toLocaleString() ?? "?"} files match in total (import takes them all).`
+                        : `Listing shows the first ${(data.entries?.length ?? BROWSER_LIST_MAX).toLocaleString()} of ${data.totalEntries?.toLocaleString() ?? "many"} entries.`}
                     </p>
                     {!patternView && (
                       <Button
@@ -544,7 +616,7 @@ export function PathBrowserDialog({
                         size="sm"
                         className="mt-1 h-6 gap-1 px-2 text-[11px]"
                         onClick={() => currentPath && pick(currentPath)}
-                        title="Import the folder itself — the engine enumerates every image in it (no 400 cap at import time)"
+                        title="Import the folder itself — the engine enumerates every image in it (any count)"
                       >
                         <FolderOpen className="h-3 w-3" aria-hidden="true" />
                         Import this whole folder — every image
@@ -561,10 +633,10 @@ export function PathBrowserDialog({
                         : "Empty folder"}
                   </p>
                 )}
-              </div>
+              </>
             )}
           </div>
-        </ScrollArea>
+        </div>
 
         {/* quick filter + one-click pattern chips (files mode, directory listing) */}
         {activeMode === "files" && !inRootsView && !patternView && (
@@ -696,7 +768,7 @@ export function PathBrowserDialog({
                   ? ` shown of ~${data.totalEntries} entries — `
                   : " in this folder — "}
                 {data?.truncated
-                  ? "Select this folder imports EVERY image in it (the import enumerates past the 400-row preview)"
+                  ? "Select this folder imports EVERY image in it (the import enumerates the whole folder)"
                   : "switch to the Files tab to pick individual files"}
               </>
             ) : (

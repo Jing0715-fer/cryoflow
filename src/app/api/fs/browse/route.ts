@@ -6,6 +6,7 @@ import { detectRelion } from "@/lib/relion/system";
 import { PROJECT_ROOT } from "@/lib/paths";
 import { countImages, expandPattern, hasWildcard, userPathToHost } from "@/lib/relion/glob";
 import { isLocalRequest } from "@/lib/http-guard";
+import { BROWSER_LIST_MAX } from "@/lib/browse-caps";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +20,10 @@ export const dynamic = "force-dynamic";
  *  - path empty          → root picker (drives on Windows, / + WSL distros) + quick jumps
  *  - path with * / ?     → WILDCARD PATTERN preview (RELION import style): matched
  *                          files listed with img flags + total match count
- *  - path <dir>          → { entries, parent, micrographs } (capped at 400 entries)
+ *  - path <dir>          → { entries, parent, micrographs } — t312: every
+ *                          entry up to the shared browser ceiling
+ *                          (BROWSER_LIST_MAX, 20,000 default — the dialog
+ *                          virtualizes the rows; the 400 cap is retired)
  *
  * Safety: listing only — never writes, never follows into file contents.
  * Arbitrary browsing is REQUIRED by the import UX (movies live anywhere on
@@ -31,7 +35,7 @@ export const dynamic = "force-dynamic";
  */
 
 const MIC_RE = /\.(mrc|mrcs|tif|tiff|eer)$/i;
-const MAX_ENTRIES = 400;
+const MAX_ENTRIES = BROWSER_LIST_MAX;
 
 interface Entry {
   name: string;
@@ -211,10 +215,10 @@ export async function GET(request: NextRequest) {
       if (!e.dir) e.abs = path.join(dir, name);
       entries.push(e);
     }
-    // t311 — the REAL count before the cap (the remote twin computes the
-    // same number on the cluster): the dialog's truncated notice can say
-    // "2,341 entries — showing first 400; select the folder to import every
-    // image" instead of a blind "more than 400".
+    // t312 — the REAL count before the cap (the remote twin computes the
+    // same number on the cluster): with the 400-row preview cap retired the
+    // listing carries every entry for normal sessions; beyond the shared
+    // browser ceiling the truncated notice still names the REAL total.
     const totalEntries = entries.length;
     // directories first, then files — both alphabetical
     entries.sort((a, b) =>

@@ -1091,6 +1091,65 @@ function micrographNames(starPath: string): string[] {
   return names;
 }
 
+/* ------------------------------------------------------------------ */
+/* t312 — the movie-stack smell test (raw frames ≠ micrographs)         */
+/* ------------------------------------------------------------------ */
+/*
+ * The user's Beijing ticket: import a Krios G4 session's Micrographs/
+ * folder (EPU exports — *_Fractions.mrc / *_Fractions_DW.mrc, i.e. RAW
+ * movie FRAME STACKS) and run CTF estimation on it directly → the
+ * cluster's ctffind refuses EVERY micrograph ("WARNING: skipping, since
+ * cannot get CTF values" ×N → "failed to estimate CTF parameters for any
+ * micrograph"). The physics is the why: an unsummed frame carries a few
+ * electrons per pixel — there is no CTF to fit. The workflow fix is
+ * MotionCorr FIRST, its summed micrographs feed ctffind.
+ *
+ * This helper is the shared nose: it smells a micrographs.star's rows for
+ * the movie-stack naming dialects the cryo-EM world actually writes
+ * (EPU's *_Fractions[_DW].mrc/.tiff, Falcon's .eer event records, and the
+ * generic frames/movie stems). DELIBERATELY NOT matched: a bare "_DW"
+ * suffix (motioncor2's own dose-weighted OUTPUTS are legitimately named
+ * that way — they are summed micrographs and feed ctffind fine).
+ */
+
+const MOVIE_STACK_RE =
+  /(?:^|[_\-.])(?:fractions?|frames?|movies?)(?:[_\-.]|$)|\.eer$/i;
+
+/** Share of paths whose BASENAME smells like a raw movie frame stack. */
+export function movieStackShare(paths: string[]): number {
+  if (paths.length === 0) return 0;
+  let hits = 0;
+  for (const p of paths) {
+    const base = p.split(/[\\/]/).pop() ?? p;
+    if (MOVIE_STACK_RE.test(base)) hits += 1;
+  }
+  return hits / paths.length;
+}
+
+/**
+ * The honest pre-flight refusal for a CTF job whose input star smells like
+ * raw movie stacks (≥50% of rows). Returns the actionable message, or null
+ * when the input looks like real micrographs. The refusal rides the
+ * requestError lane: a WIRING mistake must not flip the job row to failed.
+ */
+export function ctffindMovieStackRefusal(starPath: string): string | null {
+  let names: string[] = [];
+  try {
+    names = micrographNames(starPath);
+  } catch {
+    return null; // unreadable → the run itself will say the real problem
+  }
+  if (names.length === 0) return null;
+  const flagged = names.filter((n) => MOVIE_STACK_RE.test((n.split(/[\\/]/).pop() ?? n)));
+  if (flagged.length === 0 || flagged.length / names.length < 0.5) return null;
+  const examples = flagged.slice(0, 2).map((n) => path.basename(n));
+  const more = flagged.length > 2 ? ` +${flagged.length - 2} more` : "";
+  return [
+    `CTF estimation needs motion-corrected micrographs, but ${flagged.length} of ${names.length} rows in this input look like RAW movie frame stacks (${examples.join(", ")}${more}) — ctffind cannot fit a CTF on unsummed frames, so the cluster would refuse every micrograph.`,
+    "Run MotionCorr on the imported movies first and wire ITS corrected micrographs into this job (Import → MotionCorr → CTF), or import already-summed micrographs instead.",
+  ].join(" ");
+}
+
 /**
  * Build the `--topaz_train_picks` STAR for --topaz_train.
  *
@@ -4189,6 +4248,18 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
     };
   }
   const inputs = resolved.inputs;
+
+  // ---- t312 — the movie-stack door guards the LOCAL lane too -------------
+  // Same nose as the remote dispatch (ctffindMovieStackRefusal): a ctffind
+  // whose resolved star smells like raw movie frame stacks (≥50% rows) is
+  // refused BEFORE a workdir is created. Lane difference, same honesty:
+  // the remote dispatch refuses as a REQUEST error (row untouched, toast
+  // teaches); the local lane fails the row WITH the message as its result —
+  // the card itself carries the lesson (MotionCorr first).
+  if (job.type === "ctffind" && inputs.micrographs_star) {
+    const movieRefusal = ctffindMovieStackRefusal(inputs.micrographs_star);
+    if (movieRefusal) return { ok: false, error: movieRefusal };
+  }
 
   // ---- workdir ----------------------------------------------------------
   mkdirSync(workdir, { recursive: true });

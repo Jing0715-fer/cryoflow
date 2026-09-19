@@ -15,7 +15,9 @@
  * One SSH round-trip per listing: GNU `find -L -printf '%y|%s|%f\n'`
  * (follows symlinks — a linked /data → /data2 behaves like the folder a
  * browser user expects), with an `ls -la` parse fallback for findutils
- * without -printf (BSD world). Entries are capped at MAX_ENTRIES; the
+ * without -printf (BSD world). Entries are capped at the caller's max (the
+ * browse routes ride BROWSER_LIST_MAX — t312: every entry arrives whole and
+ * the dialog virtualizes the rows); the
  * ABSOLUTE paths are RECONSTRUCTED server-side (dir + "/" + basename) so a
  * path-rewriting mock or a chrooted exec channel can never leak its own
  * filesystem layout into a STAR file or a picked param.
@@ -29,20 +31,23 @@
 import type { RemoteConnection } from "./types";
 import { getConnection } from "./connections";
 import { exec, loginShellScript, shSingleQuote } from "./ssh";
+import { BROWSER_LIST_MAX } from "@/lib/browse-caps";
 
 /** Micrograph/movie extensions (mirrors the local browser's MIC_RE). */
 export const REMOTE_MIC_RE = /\.(mrc|mrcs|tif|tiff|eer)$/i;
 
-export const REMOTE_MAX_ENTRIES = 400;
+export { BROWSER_LIST_MAX };
+
+export const REMOTE_MAX_ENTRIES = BROWSER_LIST_MAX;
 
 /**
- * t311 — the import enumeration ceiling. The BROWSER listing stays at 400
- * (UI payload sanity), but the engine's import leg enumerates EVERY image
- * in the picked folder / pattern — a cryo-EM session routinely holds a few
- * thousand movies, and the old shared 400 cap silently imported only the
- * first 400 (the user's report: "没有读取到文件夹下的所有照片"). 20,000
- * is the safety ceiling (STAR ≈ 2 MB, SSH payload ≈ 1.5 MB); beyond it the
- * import refuses honestly instead of truncating. Env-tunable.
+ * t312 — the browser's listing ceiling rides the SAME shared constant as
+ * the local fs browser (browse-caps.ts: default 20,000, env CF_BROWSER_MAX,
+ * hard 200k). The 400-row payload cap is retired: the dialog virtualizes
+ * the rows, so a 2,054-image session folder arrives whole and the "select
+ * all" button selects what it says. The ENGINE's import leg keeps its own
+ * REMOTE_IMPORT_MAX_ENTRIES contract below (identical default — but the
+ * two doors can be tuned apart).
  */
 export const REMOTE_IMPORT_MAX_ENTRIES = Math.max(
   REMOTE_MAX_ENTRIES,
@@ -139,8 +144,8 @@ function sortEntries(entries: RemoteListEntry[]): RemoteListEntry[] {
  * matching a wildcard pattern (RELION "File name pattern" mode: the glob is
  * matched by find -name, never by an unquoted shell expansion).
  *
- * t311 — `opts.max` lets the engine's import leg enumerate far past the
- * browser's 400-row payload cap (REMOTE_IMPORT_MAX_ENTRIES), and the REAL
+ * t311/t312 — `opts.max` lets callers enumerate past the default (the
+ * engine's import leg rides REMOTE_IMPORT_MAX_ENTRIES), and the REAL
  * total is counted in the same find pass (awk END) so `total` is the
  * cluster's own count even when `entries` is capped.
  */

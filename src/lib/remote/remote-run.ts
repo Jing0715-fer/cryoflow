@@ -46,6 +46,7 @@ import { DATA_DIR, RELION_DIR } from "@/lib/paths";
 import {
   buildArgv,
   collectOutputs,
+  ctffindMovieStackRefusal,
   describeExitCode,
   getRun,
   parseJobParams,
@@ -1037,6 +1038,22 @@ export async function startRemoteJob(args: {
   const resolved = resolveInputs(job.type, upstream, params);
   if (resolved.missing) {
     return { ok: false, error: resolved.missing, ...(resolved.wait ? { waiting: resolved.wait } : {}) };
+  }
+
+  // ---- t312 — raw movie stacks must not ride the CTF lane ---------------
+  // The user's Beijing ticket: Import of a Krios session's raw *_Fractions
+  // stacks wired STRAIGHT into ctffind. The cluster then refuses every
+  // micrograph ("failed to estimate CTF parameters for any micrograph") —
+  // a doomed submission the GUI should have named BEFORE staging anything.
+  // The smell test reads the RESOLVED star's own rows (provider-agnostic:
+  // import's raw star or anything else that smells), ≥50% of rows flagged
+  // → honest requestError refusal that teaches the fix (MotionCorr first).
+  // A wiring mistake must not flip the job row to failed.
+  if (job.type === "ctffind" && resolved.inputs.micrographs_star) {
+    const movieRefusal = ctffindMovieStackRefusal(resolved.inputs.micrographs_star);
+    if (movieRefusal) {
+      return fail(movieRefusal, true);
+    }
   }
 
   // ---- t267: a never-probed connection must not dispatch blind ----------
@@ -2150,9 +2167,27 @@ async function finalizeRemoteRun(
   } else {
     const meaning = describeExitCode(exitCode);
     const errTail = tailText(path.join(localWorkdir, "run.err"), 400) || remoteLogTail.slice(-400);
+    // t312 — the ctffind all-failed signature gets a COMPACT diagnosis in
+    // the result strip itself (the Log tab carries the full hint via
+    // log-diagnosis): the user's Beijing run refused every micrograph
+    // because raw movie stacks cannot carry a CTF. The hint replaces two
+    // of the tail's warning-noise lines — diagnosis beats repetition.
+    const ctfNoFit =
+      job.type === "ctffind" &&
+      /failed to estimate CTF parameters for any micrograph|cannot get CTF values for/i.test(
+        `${errTail}\n${remoteLogTail}`
+      );
+    const tailLines = errTail.trim()
+      ? errTail.trim().split("\n").slice(ctfNoFit ? -2 : -4)
+      : [];
     result = [
       `REMOTE[${r.user}@${r.host.split(":")[0]}]: exit ${exitCode}${meaning ? ` (${meaning})` : ""}`,
-      errTail.trim() ? errTail.trim().split("\n").slice(-4).join(" ") : "",
+      tailLines.join(" "),
+      ...(ctfNoFit
+        ? [
+            "CTF diagnosis: ctffind failed on EVERY micrograph — feed it motion-corrected micrographs (raw *_Fractions/.eer movie stacks always fail: run MotionCorr first, Import → MotionCorr → CTF), check the Import pixel size, and widen ResMin/ResMax if the fit still finds nothing",
+          ]
+        : []),
       sync.note,
     ]
       .filter(Boolean)

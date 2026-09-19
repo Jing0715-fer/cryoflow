@@ -8,3 +8,9 @@ fs/data2/movies-t298/
 
 # t311 — the 450-file import-cap rehearsal fixture (runtime, not fixtures-in-git)
 fs/data2/movies-t311/
+
+# t312 — the 2,054-file no-cap browser rehearsal fixture (runtime, not fixtures-in-git)
+fs/data2/movies-t312/
+
+# t312 — the 12-file control fixture for the movie-stack guard (runtime)
+fs/data2/mics-t312/

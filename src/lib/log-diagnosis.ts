@@ -102,6 +102,14 @@ export const LOG_PATTERNS: LogPattern[] = [
     label: "Python traceback (script failure)",
     hint: "A Python wrapper crashed — the traceback's last line names the exception; check the wrapper's environment (module versions, CUDA_VISIBLE_DEVICES) before re-running.",
   },
+  {
+    // t312 — relion_run_ctffind's own terminal words (ctffind_runner.cpp):
+    // the per-micrograph skip warning and the all-failed exit line
+    id: "ctffind-no-fit",
+    re: /failed to estimate CTF parameters for any micrograph|cannot get CTF values for/i,
+    label: "CTF estimation failed on every micrograph",
+    hint: "ctffind could not fit a CTF anywhere — the usual causes: raw movie frame stacks fed straight in (*_Fractions/_DW stacks, .eer — run MotionCorr first and feed ITS summed micrographs), a wrong pixel size in the Import job, or a ResMin/ResMax range outside what this data can support.",
+  },
 ];
 
 /** Collapse each line the way the console displays it (\r progress bars →

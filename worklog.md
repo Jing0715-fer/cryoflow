@@ -2320,3 +2320,21 @@ Stage Summary:
 - **「预览 400, 导入 20000」**: 浏览器 listing 是预览(载荷卫生), 导入是事实(awk 单遍计数 + 20k 枚举)——「import takes them all」从 UI 口号变成引擎行为; 截断提示给出真实总数并指路整夹导入
 - **「路径一条不丢, 显示一刀折叠」**: >8 文件的参数值默认摘要卡(计数+文件夹数+前两条), show all 才见全量; 浏览重开照旧从全量播种
 - 交付: commit 待 push(用户 token); mock sbatch 的 RealMemory 拒绝门让「用户控制器」从此在沙箱可复刻
+
+## Task 312 (2026-09-19, 用户工单窗口 —— t311 推送后的两报: 浏览器仍只见 400 张 + CTF 还是失败)
+
+- 【工单】用户两报: ①「还是只能看到400张图片, 需要能看到所有图片, 不设上限」——t311 给了真实总数提示与整夹导入按钮, 但 listing 本体仍被 400 截断(用户真实集群文件夹 2054 张, 第一份粘贴即证); ②「ctf还是失败了」——第二份粘贴 195 输入 → 195 条「WARNING: skipping, since cannot get CTF values」→「failed to estimate CTF parameters for any micrograph」: 输入全是 /data06/KriosG4_data/.../Micrographs/ 下的 EPU 原始电影栈(*_Fractions_DW.mrc), 未经运动校正直接喂 ctffind——未求和的单帧上没有可拟合的 CTF, 100% 失败是物理不是 bug。
+- 【修复①: 上限退役, 浏览与导入同一世界观】新 src/lib/browse-caps.ts: BROWSER_LIST_MAX(默认 20,000, env CF_BROWSER_MAX 可调, 40 万硬顶镜像导入侧的 20 万封顶逻辑)——本地 /api/fs/browse 与远程 browse 两路由同源引用, truncated 文案从硬编码 400 改为 entries.length 自述; remote-ls 的 REMOTE_MAX_ENTRIES 改骑共享常量(引擎导入腿 REMOTE_IMPORT_MAX_ENTRIES 保持独立可调)。t311 的「预览 400、导入 20000」教义被用户的「不设上限」一句话依法退役: 预览即事实。
+- 【修复①: 虚拟滚动】path-browser-dialog 弃 Radix ScrollArea(display:table 包裹的历史补丁随之退役)换直 overflow 容器(globals.css 本就给所有滚动条配了 thin 主题): 行高钉死 h-7(30px pitch 含 2px 呼吸), 全列表 spacer(n×30px)+translateY 窗口(±8 overscan), 滚动/换夹/过滤都归零复位; role=option 补 aria-posinset/aria-setsize(虚拟列表对读屏器诚实)。2054 行的 DOM 成本 = 18 节点。
+- 【修复②: 防呆先于 staging】engine.ts 新共享鼻 ctffindMovieStackRefusal: 嗅 resolved star 的 rlnMicrographName 行, 命中 EPU 的 *_Fractions[.mrc/.tiff]、Falcon .eer、frames/movie 词干(刻意不匹配裸 _DW——motioncor2 自己的剂量加权输出就叫这个, 是合法求和显微图); ≥50% 行命中 → remote-run 在 resolveInputs 之后、staging 之前 fail(requestError 语义: 行不翻红、toast 教学「先跑 MotionCorr(Import → MotionCorr → CTF), 或导入已求和的显微图」), 本地 runRealJob 同一道闸(行标红但 result 就是课程)。拒绝是"名称里写着不可能"的提交——与 t307「拒绝于 staging 之前, 绝不名义分裂」同门。
+- 【修复②: 失败仍在时, 诊断随行】log-diagnosis 增 ctffind-no-fit 模式(cannot get CTF values / failed to estimate…for any micrograph → 三因教学: 原始电影栈/像素尺寸/ResMin-ResMax), Log 标签页本地远程同治; finalizeRemoteRun 失败分支对 ctffind 签名压缩尾部噪声行数(4→2)腾出结果条空间, 追加紧凑 CTF diagnosis——用户粘贴的那段报错从此自带"下一步"。
+- 【E2E(prod 3001 + mock, scripts/diag-t312-nocap-ctf.mjs 全绿 39 断言)】mock fs 新 2054 文件夹(movies-t312, EPU 命名 1027 raw + 1027 DW)+ 12 文件对照组(mics-t312): browse 2054=2054 truncated=false micrographs=2054 DW 子集 1027; import 文件夹 →「2054 micrographs imported」+ star 2054 行集群绝对路径; ctffind 挂 2054 原始栈 → 拒绝(教 MotionCorr、数 2054 of 2054、无 waiting、行 idle、集群树零落地); 对照组 12 张 mic_*.mrcs 真跑 COMPLETED(「CTF estimated for 12 micrographs」——守卫零误伤); 台账断言(log-diagnosis 模式/结果条诊断/签名对用户原文逐字命中)。
+- 【浏览器活体(agent-browser + prod 3001, 1600×900)】对话框深导航 2054 夹: DOM 仅 18 行节点而 spacer 精确 61620px(=2054×30), 深滚 30000px 窗口跳 posinset 993/2054(setsize 诚实), 「Select all images (2054)」一点全选 2054, DW chip (1027)(用户此前只见 195), Import 2054 files → 参数页紧凑摘要卡(2054 files + show all, 无路径墙); console/page error 双零。两张定妆照 t312-browser-2054.png / t312-summary-card.png。
+- 【途中真修一 bug: prod-3001.sh 数据根】standalone server 启动时 process.chdir(__dirname), 数据树落进 .next/standalone/data——一个每次 next build 都会删掉的目录(t312 E2E 首跑 star 0 找到的就是它)。补 export CRYOFLOW_DATA_DIR=/home/z/cryoflow/data(Task 183 自己写好的解药), 烧掉游离树, 手工项目行经 API 清场。
+- 【质量】tsc 0; 九个改动文件 eslint 0; docs/remote-relion.md(浏览上限退役小节 + Raw movie stacks never ride the CTF lane 小节); mock 侧两夹具入 gitignore。
+
+Stage Summary:
+- **「预览即事实」**: 用户的「不设上限」是法——浏览器与导入共用一个天花板(20k 默认), 虚拟滚动让 2054 行滚动如 40 行; 「Select all」按钮数的、DW chip 数的、过滤器过滤的, 从此都是整个文件夹
+- **「名字里写着不可能的提交, 拒于门外」**: ctffind 吃原始电影栈在物理上必败(单帧无可拟合 CTF), 提交前嗅星表行(≥50% 电影栈命名)即拒并教 MotionCorr; 本地远程同一道闸, 失败签名仍备诊断兜底
+- **「修脚本时先看它的受害者」**: prod-3001 的数据根 bug 是 E2E 首跑的 FAIL 逼出来的——.next/standalone/data 是 build 每次都删的流沙, Task 183 的覆盖变量早就在那里等着被用
+- 交付: commit 待 push

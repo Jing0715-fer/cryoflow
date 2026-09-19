@@ -134,15 +134,30 @@ outputs that already ran on the SAME cluster are reused in place — no
 re-upload. Staging is idempotent: identical-size files are skipped, so an
 interrupted staging continues where it left off on re-run.
 
-**Imports enumerate EVERYTHING (t311).** The browser's listing caps at
-400 rows per folder (payload sanity — it says so, and shows the folder's
-REAL total via a counted `find` pass). The IMPORT itself has no such cap:
-picking the folder (or a wildcard pattern) enumerates up to 20,000 images
-(`CF_REMOTE_IMPORT_MAX`) on the cluster and writes them all into
-`micrographs.star` — the earlier shared 400-entry cap silently imported
-only the first 400 of a 2,341-photo shoot. Long picked-file lists render
-as a compact summary card in the params tab (`N files · M folders` + the
-first two paths, *show all* to edit) instead of a wall of paths.
+**Imports enumerate EVERYTHING (t311/t312).** The browser's listing
+itself carries the WHOLE folder (t312 retired the 400-row preview cap:
+the shared browser ceiling is 20,000 entries by default, `CF_BROWSER_MAX`
+tunable, and the dialog virtualizes the rows so a 2,054-image session
+scrolls like a 40-row one — every image visible, every image selectable).
+The IMPORT has the same world view: picking the folder (or a wildcard
+pattern) enumerates up to 20,000 images (`CF_REMOTE_IMPORT_MAX`) on the
+cluster and writes them all into `micrographs.star` — the earlier shared
+400-entry cap silently imported only the first 400 of a 2,341-photo
+shoot. Long picked-file lists render as a compact summary card in the
+params tab (`N files · M folders` + the first two paths, *show all* to
+edit) instead of a wall of paths.
+
+**Raw movie stacks never ride the CTF lane (t312).** Importing a Krios
+session's `Micrographs/` folder brings EPU's raw `*_Fractions[_DW].mrc`
+MOVIE STACKS (and Falcon `.eer` event records) — unsummed frames carry
+no CTF to fit, so a ctffind run wired straight onto them fails on every
+micrograph (the cluster's own words: *failed to estimate CTF parameters
+for any micrograph*). The dispatch now smells the resolved STAR's rows
+BEFORE anything is staged (≥50 % movie-shaped names → honest refusal
+that teaches the fix: run MotionCorr on the imported movies first,
+`Import → MotionCorr → CTF`, or import already-summed micrographs). If
+a CTF job still fails the old way, the failure strip and the Log tab's
+diagnosis both carry the same lesson.
 
 **Sync-back.** On completion (or stop), the job's cluster workdir is
 downloaded into the local mirror (per-file and total caps, defaults
@@ -258,14 +273,15 @@ On a remote project:
   button (violet, server icon) opens the same file browser pointed at the
   CLUSTER's filesystem over SSH (`GET /api/remote/connections/[id]/browse`—
   roots view with `/`, `$HOME` and the remote root, one-level listings
-  with sizes/types, wildcard pattern preview `…/*.mrc`, capped at 400
-  rows — with the folder's REAL total shown when truncated, and an
-  *Import this whole folder* shortcut that bypasses the cap; `~` expands
+  with sizes/types, wildcard pattern preview `…/*.mrc` — t312: the whole
+  folder up to the shared browser ceiling (20,000 default, virtualized
+  rows; the REAL total is still shown when a listing goes past it, with
+  an *Import this whole folder* shortcut); `~` expands
   cluster-side). Picked paths are CLUSTER-ABSOLUTE.
 - **The import writes cluster-absolute STARs.** Import (an engine-native,
   local bookkeeping step) validates and enumerates the picked cluster
   path over SSH — folder and pattern enumerations go to 20,000 entries
-  (`CF_REMOTE_IMPORT_MAX`), far past the browser's 400-row preview — and
+  (`CF_REMOTE_IMPORT_MAX`), matching the browser's own ceiling — and
   writes `micrographs.star` with the cluster paths —
   the data never leaves the cluster, not one movie byte is uploaded. When
   a downstream job dispatches to the SAME cluster, the staging walk finds

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getConnection } from "@/lib/remote/connections";
 import { exec, loginShellScript } from "@/lib/remote/ssh";
 import { expandRemotePath } from "@/lib/remote/remote-run";
-import { listRemoteDir, REMOTE_MIC_RE } from "@/lib/remote/remote-ls";
+import { listRemoteDir, REMOTE_MIC_RE, REMOTE_MAX_ENTRIES } from "@/lib/remote/remote-ls";
 import { isLocalRequest } from "@/lib/http-guard";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +23,9 @@ export const dynamic = "force-dynamic";
  *                            pattern's base directory
  *   - path <dir>          → one-level listing (shared remote-ls primitives:
  *                            GNU find -printf primary, `ls -la` fallback),
- *                            capped at 400 entries
+ *                            every entry up to the t312 browser ceiling
+ *                            (BROWSER_LIST_MAX — 20,000 by default; the
+ *                            dialog virtualizes the rows)
  *
  * Safety: listing only — names/sizes/types, never file contents (those move
  * exclusively through the run staging / on-demand fetch legs). Paths travel
@@ -33,7 +35,7 @@ export const dynamic = "force-dynamic";
  * other filesystem-enumerating route (drive-by + DNS-rebind).
  */
 
-const MAX_ENTRIES = 400;
+const MAX_ENTRIES = REMOTE_MAX_ENTRIES;
 
 interface Entry {
   name: string;
@@ -133,7 +135,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
         );
       }
       const { baseDir, glob } = split;
-      const res = await listRemoteDir(id, baseDir, glob);
+      const res = await listRemoteDir(id, baseDir, glob, { max: MAX_ENTRIES });
       if (res.notDir) {
         return NextResponse.json(
           { error: `Folder not found on the cluster: ${baseDir}` },
@@ -172,7 +174,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
         );
       }
     }
-    const res = await listRemoteDir(id, dir, null);
+    const res = await listRemoteDir(id, dir, null, { max: MAX_ENTRIES });
     if (res.notDir) {
       return NextResponse.json(
         { error: `Folder not found on the cluster (or not a folder): ${dir}` },
@@ -187,10 +189,11 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
       parent: parent === dir ? "" : parent,
       entries,
       truncated: res.truncated,
-      // t311 — the cluster's OWN count (awk END marker in the find pass):
-      // a 2,341-file folder can say so while the payload stays 400 rows,
-      // so the dialog's truncated notice can point at "select the folder"
-      // instead of a blind "more than 400".
+      // t311/t312 — the cluster's OWN count (awk END marker in the find
+      // pass): with the 400-row preview cap retired this equals the listing
+      // size for every normal session (a 2,054-image folder arrives whole);
+      // beyond the browser ceiling (20k default) the truncated notice still
+      // names the REAL total and points at "import the folder".
       totalEntries: res.total,
       micrographs: entries.filter((e) => REMOTE_MIC_RE.test(e.name) && !e.dir).length,
     });
