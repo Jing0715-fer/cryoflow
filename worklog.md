@@ -2460,3 +2460,23 @@ Stage Summary:
 - **「同一形状, 一处定义」**: passthrough 与裸 POST 分发共用 projectRemoteTarget(含首探测模块兜底)——幽灵连接的死 id 永远赢不了活绑定, 无模块连接的 sbatch 永不白跑
 - **「假阳性也是误伤」**: 桥接 Windows 的 /mnt/c 行、伴生 _rlnMicrographName 的粒子谱、混星的 total——诚实不是加严, 是把每个判定说对
 - 交付: t317 五修(裸 POST 继承/粒子闸/幽灵硬分叉/模块兜底/桥反译) + low 快修族, 四套件全绿, 待 push
+
+## Task 318 (2026-09-19, 用户工单窗口 —— t316 推送后的回执: 真实集群 CTF 重跑「exit 1 (RELION reported an error)」+ run.out 留集群 + 诊断 0 findings)
+
+- 【撞号与重编号】本工单本地动工时自编号 t317, push 前探测发现远程已被并行审查窗（t315 推送后的全面代码审查+侧门修复）推进并占走 t317（其提交注明「renumbered from t316」）——按 t314 判例, 后推者重编号: t317→t318, 套件文件名/源码注释/worklog/提交信息全链更名; 该窗口与本地同动 finalizeRemoteRun 的 micPath 段（正交语义, rebase 合并: 他们解析项目相对行, 本窗把 remoteLogTail 改名 logTailText）。
+- 【工单原文】`Job failed REMOTE[lijing@192.168.2.253]: exit 1 (RELION reported an error) — 1 bulky file(s) stayed on the cluster (key-files policy): run.out (download failed) … FAILURE DIAGNOSIS 0 findings — No known failure signature matched the full log`。用户随后亲自上集群通读 run.out，结论：**「确实看log是正常跑完了」**——作业实际成功，失败回执是假的。
+- 【解剖：一个竞态解释全部三处异常】ctffind workdir 跨派发稳定（<root>/ctffind_<jobid8>），t314 时代的失败跑把 `.cf-exit`=1 留在里面；重跑的 sbatch 脚本自己的 `rm -f .cf-exit` 只在**作业启动时**才执行——落后 profile+module 加载数秒（或整个排队等待）；poll sweep 读 .cf-exit **存在性**当判决 → 窗口内的第一轮 tick 把上一轮的退出码伪造成新派发的判决（伪造 exit 1、证据尾为空：slurmstepd 刚截断 run.out 还没写字节）；sync 接着与仍在生长的 run.out 竞速撞进 t299 字节账（「download failed」），真实集群作业在无人看护下跑完。「the log is the ground truth」——集群上的 run.out 正是这么说的。
+- 【刀① pre-submit clear】startRemoteJob 在递交**前**（remoteMkdir 之后、isSlurm 分叉之前）一次 SSH：`rm -f` 上一轮的 .cf-exit/.cf-pid/run.out/run.err/.cf-array-rc-*/.cf-shard-*.star/.cf-merge.lock，同一次 exec 末尾 `date +%s` 取**集群自己的钟**为派发栅栏（fenceEpoch）。清理失败静默降级（fence 缺席 → poll 回落 t318 前合同），绝不因清理打嗝拒绝派发。
+- 【刀② mtime fence】aliveCheckScript 增第三参 fenceEpoch：__ex 先按存在性置位，再被 `stat -c %Y` 守卫降级——mtime < fence−2s（2s 吸收文件系统 mtime 粒度）的 .cf-exit 是上一轮的幽灵，不配当判决，检查落梯子（ALIVE/squeue → SACCT/VANISHED 诚实阶梯，slurm 与 direct 两世界同契约）。栅栏骑 RemoteRunState.dispatchedAtEpoch，sbatch/direct 两分支递记录时都带上；**两个 poll 门**（sweep 的 reconcileRemoteJobs + pre-spawn 的 pollOneRemote）都传参。stat 失败读 0 → 降级 → 梯子说话——消失的 exit 文件从来不是判决。legacy 记录无 fence → 信任任何 .cf-exit（旧合同不破）。
+- 【刀③ evidence rescue】finalizeRemoteRun 失败路径：errTail 为空时最后一轮 SSH 取 run.out 尾 4096B + run.err 尾 2048B（`---CF-EVID---` 分隔）补回执——「判决 raced 日志 flush」或「sync raced 仍在生长的文件」的空尾从此有真相可读；真正一个字没打的作业得到诚实注记「run.out and run.err are EMPTY on the cluster — the wrapper exited before RELION printed anything」而非裸 exit 1 让用户猎一本不存在的日志。
+- 【刀④ 诊断不再空口】job-inspector 的 full-log fetch：`diagnoseLog("") === []` 曾把「scanned the full run.out — 0 findings」渲染在一本一个字节都没有的日志上（伪造判决工单的回执正是这个长相）；fetch 失败的 `(log fetch failed: …)` 注记同理。两者保持 null 态——没有可扫的东西时卡片沉默。
+- 【e2e：scripts/diag-t318-stale-exit-fence.mjs，52 断言 ALL GREEN】夹具=8 张真头 MRC。PHASE 3（回归主断言）：植入 t314 形状的幽灵（.cf-exit=1 + 毒化 run.out + 假 .cf-pid）→ 重派 → **幽灵的 .cf-exit 在作业启动前已消失**（刀①）→ 作业诚实 COMPLETED「CTF estimated for 8 micrographs」→ 回执不带伪造 exit 1、毒化日志不复现、集群 .cf-exit=0。PHASE 4（fence 最难窗口的遭遇战）：派发后趁 sweep 每 4s tick 时**中途植入**回溯 mtime 的幽灵 → sweep 全程看见作业 running（梯子说话）、**从未翻 failed**（旧代码一轮 tick 内就会判死）→ 作业诚实跑完、回执属于自己、新 mtime 的真 .cf-exit=0 被信任。PHASE 4b：direct 模式同一契约（幽灵清除 + 诚实完成 + 毒日志不复现）。PHASE 5：台账（刀①–④ 源码契约 + 3 次派发的记录全带集群钟 fence、epoch 值健全）。途中修一处台账正则的转义陈旧（实现定稿为模板字符串后 `)" -lt` 无反斜杠，断言还停在草稿形状）——行为面 PHASE 4 活体早已全绿，纯断言形状跟进。
+- 【质量】tsc 0；四个改动文件 + diag 脚本 eslint 0。环境插曲：本窗 dev server 又被 OOM 收割（dev-server.sh NODE_OPTIONS 896MB 帽拉起后全程稳定）；mock :3022 常绿（SSH 服务，非 HTTP——curl 000 是方言不是死讯）。
+- 【对用户真实世界的预言】真实集群上任何一次「失败后重跑」：不再有幽灵判决——回执要么是这一轮自己的真相（含空日志的诚实注记），要么作业还在跑（梯子看着它）。
+
+Stage Summary:
+- **「重跑的 workdir 是上一轮的凶案现场」**: workdir 稳定是设计（同一作业目录可追溯）, 但它也保存上一轮的 .cf-exit——脚本自己的 rm 只在作业启动时执行, 而 poll 从不等人; 预递交清除 + 集群钟栅栏把「谁的判决」从猜测变成时序
+- **「存在性不是时序的证词」**: `[ -f .cf-exit ]` 只能证明有人写过它, 不能证明它是这一轮写的——mtime 对照派发栅栏（集群自己的钟, 不是应用钟——NFS 时漂之下应用钟会说谎）才是诚实的判据
+- **「空尾回执要有救援, 无字日志要有墓志铭」**: 失败回执的空尾先补一趟 SSH 取真相, 取不到就明说日志为空——裸 exit 1 会派用户去找一本不存在的日志
+- **「『0 findings』不是『扫描过了』」**: 空日志与拉取失败都不配宣称扫描——诊断的沉默分三档: 扫过无匹配/无物可扫/没扫成
+- 交付: 本窗 commit + push（用户 token 单次 URL 推送）

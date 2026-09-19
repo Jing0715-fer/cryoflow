@@ -1670,6 +1670,37 @@ export async function startRemoteJob(args: {
 
       await remoteMkdir(conn, remoteWorkdir);
 
+      // t318 — the re-run's ghost, blade 1: the workdir is STABLE across
+      // dispatches (<root>/<type>_<jobid8>) and the PREVIOUS run's verdict
+      // artifacts survive in it (the script's own `rm -f .cf-exit` runs
+      // only when the job STARTS — seconds behind profile+module load, or
+      // a whole queue wait). The poll reads .cf-exit EXISTENCE as the
+      // verdict, so a stale file would forge the old verdict onto the new
+      // dispatch (the t318 ticket: a re-run after a failed CTF finalized
+      // "exit 1" while the fresh job was still loading modules — an empty
+      // evidence tail, run.out "download failed" because the file GREW
+      // during the sync's byte-account, and the real run kept going
+      // unwatched). Clear the old verdict + logs BEFORE submission, and
+      // stamp the CLUSTER's own clock as the dispatch fence (blade 2 —
+      // aliveCheckScript refuses any .cf-exit older than it, for whatever
+      // a future race leaks past this rm).
+      const clearW = shQuote(remoteWorkdir);
+      let fenceEpoch: number | null = null;
+      try {
+        const clearRes = await exec(
+          conn,
+          `rm -f ${clearW}/.cf-exit ${clearW}/.cf-pid ${clearW}/run.out ${clearW}/run.err ` +
+            `${clearW}/.cf-array-rc-* ${clearW}/.cf-shard-*.star ${clearW}/.cf-merge.lock; date +%s`,
+          { timeoutMs: 15_000 }
+        );
+        const t = clearRes.stdout.trim().split(/\r?\n/).pop() ?? "";
+        if (/^\d{9,12}$/.test(t)) fenceEpoch = Number(t);
+      } catch {
+        /* the sweep's fence stays absent → the poll falls back to the
+           pre-t318 contract (trust any .cf-exit) — never a dispatch
+           refusal over a cleanup hiccup */
+      }
+
       if (isSlurm) {
         // ---- t297: the sbatch door (sbatch6gpu.sh pattern) ---------------
         // t304 — the pipeline handoff: upstream jobs still in flight on THIS
@@ -1758,6 +1789,9 @@ export async function startRemoteJob(args: {
                   slurmState: "PENDING",
                   ...(depIds.length ? { slurmDependsOn: depIds } : {}),
                   ...(arrayPlan ? { slurmArray: { total: arrayPlan.total, concurrency: arrayPlan.concurrency } } : {}),
+                  // t318 — the dispatch fence (cluster clock) rides the
+                  // record the moment the submission owns the workdir.
+                  ...(fenceEpoch != null ? { dispatchedAtEpoch: fenceEpoch } : {}),
                   phase: "running",
                   stagedBytes,
                   stagedMs,
@@ -1808,7 +1842,15 @@ export async function startRemoteJob(args: {
                 ...rec,
                 pid,
                 cmd: command,
-                remote: { ...rec.remote, pid, phase: "running", stagedBytes, stagedMs },
+                remote: {
+                  ...rec.remote,
+                  pid,
+                  // t318 — same fence for the direct wrapper's world.
+                  ...(fenceEpoch != null ? { dispatchedAtEpoch: fenceEpoch } : {}),
+                  phase: "running",
+                  stagedBytes,
+                  stagedMs,
+                },
               }
             : null
         );
@@ -1872,7 +1914,11 @@ async function pollOneRemote(conn: RemoteConnection, rec: RunRecord): Promise<Po
   const r = rec.remote;
   if (!r) return "unknown";
   if (r.phase === "staging") return "staging";
-  const script = aliveCheckScript(r.remoteWorkdir, r.slurmId);
+  // t318 — the fence rides here too: the pre-spawn guard asks "is the
+  // cluster still busy with this workdir?" and a stale .cf-exit from a
+  // PREVIOUS dispatch must answer through the same gated door as the
+  // sweep (stale → the ladder: squeue/sacct say whether anything is live).
+  const script = aliveCheckScript(r.remoteWorkdir, r.slurmId, r.dispatchedAtEpoch);
   const res = await exec(conn, script, { timeoutMs: 10_000 });
   if (res.error) return res.error === "busy" ? "busy" : "unknown";
   if (/^EXIT:/m.test(res.stdout)) return "exit";
@@ -2015,9 +2061,34 @@ function wordAgreesWithExit(
   return mapped === exitCode;
 }
 
-function aliveCheckScript(remoteWorkdir: string, slurmId?: string | null): string {
+function aliveCheckScript(
+  remoteWorkdir: string,
+  slurmId?: string | null,
+  /**
+   * t318 — the dispatch fence (cluster-clock epoch seconds, see
+   * RemoteRunState.dispatchedAtEpoch). When present, an existing .cf-exit
+   * is only TRUSTED as this dispatch's verdict when its mtime is ≥
+   * fence−2s; an older file is the PREVIOUS run's leftover and the check
+   * falls through to the honest ladder (ALIVE / SACCT / VANISHED)
+   * instead of forging the old verdict onto the fresh dispatch.
+   * Undefined (legacy records) → trust any .cf-exit, the pre-t318
+   * contract.
+   */
+  fenceEpoch?: number
+): string {
   const W = shQuote(remoteWorkdir);
   const EXIT = shQuote(remoteWorkdir + "/.cf-exit");
+  // the stale gate: __ex starts as "the exit file exists" and is demoted
+  // to 0 when the file predates this dispatch. stat's failure (vanished
+  // between -f and stat) reads as 0 → demoted → the ladder speaks — a
+  // vanished exit file was never a verdict anyway. The 2s grace absorbs
+  // filesystem mtime granularity against the fence captured moments
+  // before submission.
+  const staleGate =
+    fenceEpoch != null && Number.isFinite(fenceEpoch)
+      ? `__ex=0; [ -f ${EXIT} ] && __ex=1; ` +
+        `[ "$__ex" = "1" ] && [ "$(stat -c %Y ${EXIT} 2>/dev/null || echo 0)" -lt ${Math.max(0, Math.floor(fenceEpoch) - 2)} ] && __ex=0; `
+      : `__ex=0; [ -f ${EXIT} ] && __ex=1; `;
   if (slurmId) {
     const J = shQuote(String(Number(slurmId)));
     // t303 — the query grew the scheduler's stopwatch and meter (Elapsed,
@@ -2028,26 +2099,33 @@ function aliveCheckScript(remoteWorkdir: string, slurmId?: string | null): strin
     // (VANISHED for jobs the ledger knew all about — the t302 suite's live
     // C-phase caught what the source assertions could not).
     const AC = `sacct -j ${J} -n -P -o State,ExitCode,Elapsed,MaxRSS 2>/dev/null | head -1`;
+    // t318 — the ladder (squeue → sacct) now serves BOTH the no-exit-file
+    // case AND the stale-exit case: a .cf-exit older than the fence is the
+    // previous run's ghost and must not speak for this dispatch.
+    const ladder =
+      `__st="$(squeue -j ${J} -h -o %T 2>/dev/null | head -1)"; ` +
+      `if [ -n "$__st" ]; then echo "ALIVE:$__st"; ` +
+      `else __ac="$(${AC})"; ` +
+      `case "$__ac" in ` +
+      `PENDING*|RUNNING*|COMPLETING*) echo "ALIVE:${"${"}__ac%%|*}" ;; ` +
+      `COMPLETED*|FAILED*|CANCELLED*|TIMEOUT*|NODE_FAIL*|BOOT_FAIL*|OUT_OF_*|PREEMPTED*|DEADLINE*|SPECIAL_EXIT*) echo "SACCT:$__ac" ;; ` +
+      `*) echo VANISHED ;; esac; fi`;
     return (
-      `if [ -f ${EXIT} ]; then echo "EXIT:$(cat ${EXIT} 2>/dev/null)"; ` +
+      staleGate +
+      `if [ "$__ex" = "1" ]; then echo "EXIT:$(cat ${EXIT} 2>/dev/null)"; ` +
       // t303 — the wrapper's exit usually wins the race, but the ledger's
       // stopwatch rides ALONG: a terminal accounting row (and only a
       // terminal one — accounting lag must never fake a verdict) is echoed
       // as a second line for the block parser to stow.
       `__ac="$(${AC})"; case "$__ac" in ` +
       `COMPLETED*|FAILED*|CANCELLED*|TIMEOUT*|NODE_FAIL*|BOOT_FAIL*|OUT_OF_*|PREEMPTED*|DEADLINE*|SPECIAL_EXIT*) echo "SACCT:$__ac" ;; esac; ` +
-      `else __st="$(squeue -j ${J} -h -o %T 2>/dev/null | head -1)"; ` +
-      `if [ -n "$__st" ]; then echo "ALIVE:$__st"; ` +
-      `else __ac="$(${AC})"; ` +
-      `case "$__ac" in ` +
-      `PENDING*|RUNNING*|COMPLETING*) echo "ALIVE:${"${"}__ac%%|*}" ;; ` +
-      `COMPLETED*|FAILED*|CANCELLED*|TIMEOUT*|NODE_FAIL*|BOOT_FAIL*|OUT_OF_*|PREEMPTED*|DEADLINE*|SPECIAL_EXIT*) echo "SACCT:$__ac" ;; ` +
-      `*) echo VANISHED ;; esac; fi; fi`
+      `else ${ladder}; fi`
     );
   }
   return (
+    staleGate +
     `__ps="$(cat ${W}/.cf-pid 2>/dev/null)"; __p="${'${'}__ps%% *}"; __st="${'${'}__ps##* }"; ` +
-    `if [ -f ${EXIT} ]; then echo "EXIT:$(cat ${EXIT} 2>/dev/null)"; ` +
+    `if [ "$__ex" = "1" ]; then echo "EXIT:$(cat ${EXIT} 2>/dev/null)"; ` +
     `elif [ -n "$__p" ] && [ -r "/proc/$__p/stat" ] && [ "$(awk '{print \$22}' /proc/$__p/stat 2>/dev/null)" = "$__st" ] && kill -0 "$__p" >/dev/null 2>&1; then echo ALIVE; ` +
     `else echo VANISHED; fi`
   );
@@ -2209,7 +2287,10 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
         const r = e.remote;
         const W = shQuote(r.remoteWorkdir);
         scriptLines.push(`echo "===CF:START:${e.job.id}"`);
-        scriptLines.push(aliveCheckScript(r.remoteWorkdir, r.slurmId));
+        // t318 — the dispatch fence: a .cf-exit older than this dispatch
+        // is the previous run's ghost (re-runs reuse the workdir; the new
+        // script's own rm runs only when the job starts) — never a verdict.
+        scriptLines.push(aliveCheckScript(r.remoteWorkdir, r.slurmId, r.dispatchedAtEpoch));
         scriptLines.push(`echo "---LOG---"`);
         scriptLines.push(`tail -c 4096 ${W}/run.out 2>/dev/null`);
         scriptLines.push(`echo "===CF:END:${e.job.id}"`);
@@ -2386,7 +2467,37 @@ async function finalizeRemoteRun(
         : `REMOTE[${origin}]: exited 0 but no expected outputs appeared — check the log tab`;
   } else {
     const meaning = describeExitCode(exitCode);
-    const errTail = tailText(path.join(localWorkdir, "run.err"), 400) || remoteLogTail.slice(-400);
+    let logTailText = remoteLogTail;
+    let errTail = tailText(path.join(localWorkdir, "run.err"), 400) || logTailText.slice(-400);
+    // t318 — evidence rescue: a failed run's receipt must never be
+    // tail-less while the cluster still holds a log. The poll's tail can
+    // legitimately come up empty (the verdict raced the log's flush, or a
+    // sync raced a still-growing file into "download failed") — one final
+    // SSH round for the last bytes of run.out + run.err mends the receipt
+    // with the ground truth. A run that truly printed nothing gets the
+    // honest note below instead of a mystery.
+    if (!errTail.trim()) {
+      try {
+        const W = shQuote(r.remoteWorkdir);
+        const evid = await exec(
+          conn,
+          `tail -c 4096 ${W}/run.out 2>/dev/null; echo ---CF-EVID---; tail -c 2048 ${W}/run.err 2>/dev/null`,
+          { timeoutMs: 15_000 }
+        );
+        if (!evid.error) {
+          const parts = evid.stdout.split("---CF-EVID---");
+          const outT = (parts[0] ?? "").replace(/\n$/, "");
+          const errT = (parts[1] ?? "").replace(/^\n/, "").trimEnd();
+          const joined = errT ? `${outT}\n----- stderr -----\n${errT}` : outT;
+          if (joined.trim()) {
+            logTailText = outT;
+            errTail = joined;
+          }
+        }
+      } catch {
+        /* the honest note below speaks for a log we cannot reach */
+      }
+    }
     // t312/t313 — the ctffind all-failed signature gets a COMPACT
     // diagnosis in the result strip itself (the Log tab carries the full
     // hint via log-diagnosis). t312 blamed raw movie stacks first and was
@@ -2398,7 +2509,7 @@ async function finalizeRemoteRun(
     const ctfNoFit =
       job.type === "ctffind" &&
       /failed to estimate CTF parameters for any micrograph|cannot get CTF values for/i.test(
-        `${errTail}\n${remoteLogTail}`
+        `${errTail}\n${logTailText}`
       );
     const tailLines = errTail.trim()
       ? errTail.trim().split("\n").slice(ctfNoFit ? -2 : -4)
@@ -2415,7 +2526,7 @@ async function finalizeRemoteRun(
     let ctfProbeNote = "";
     if (ctfNoFit) {
       let micPath = /cannot get CTF values for (\S+\.mrc[a-z]*)/i.exec(errTail)?.[1]
-        ?? /cannot get CTF values for (\S+\.mrc[a-z]*)/i.exec(remoteLogTail)?.[1]
+        ?? /cannot get CTF values for (\S+\.mrc[a-z]*)/i.exec(logTailText)?.[1]
         ?? null;
       // t317 — the relink pass (t316, parallel window) uploads riding stars
       // with PROJECT-RELATIVE rows, so the failure lines now name rows like
@@ -2450,9 +2561,17 @@ async function finalizeRemoteRun(
         }
       }
     }
+    // t318 — the no-evidence verdict must SAY so: after the rescue above,
+    // an empty tail means run.out AND run.err hold not one byte on the
+    // cluster (the wrapper died before exec, or the output never flushed).
+    // "exit 1" alone would send the user hunting a log that does not exist.
+    const emptyLogNote = tailLines.length === 0
+      ? "run.out and run.err are EMPTY on the cluster — the wrapper exited before RELION printed anything (module/env failure or an instant crash); inspect the job directory there"
+      : "";
     result = [
       `REMOTE[${r.user}@${r.host.split(":")[0]}]: exit ${exitCode}${meaning ? ` (${meaning})` : ""}`,
       tailLines.join(" "),
+      emptyLogNote,
       ...(ctfNoFit
         ? [
             ctfProbeNote ||

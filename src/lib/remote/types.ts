@@ -349,4 +349,19 @@ export interface RemoteRunState {
    * back to the age window.
    */
   stagingBeat?: number;
+  /**
+   * t318 — the dispatch fence: the CLUSTER's own clock (epoch seconds,
+   * `date +%s`) captured in the same exec that clears the previous run's
+   * verdict artifacts right before submission. The poll's aliveCheck
+   * refuses any .cf-exit whose mtime is older than this (−2s grace) — a
+   * re-run's workdir is stable (<root>/<type>_<jobid8>) and the previous
+   * run's exit file survives until the NEW script's own `rm` runs on the
+   * compute node (seconds of profile+module preamble, or a whole queue
+   * wait), so without the fence the first poll would forge the OLD
+   * verdict onto the fresh dispatch (the t318 ticket: a re-run after a
+   * failed CTF finalized "exit 1" while the new job was still loading
+   * modules). Absent (pre-t318 records) → the poll trusts any .cf-exit,
+   * the old contract.
+   */
+  dispatchedAtEpoch?: number;
 }

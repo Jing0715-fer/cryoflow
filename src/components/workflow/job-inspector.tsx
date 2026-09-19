@@ -2453,7 +2453,18 @@ export function JobInspector() {
         const res = await fetch(`/api/jobs/${jobId}/log?full=1`, { cache: "no-store" });
         if (!res.ok) return; // no log (job never ran) — stays null, silent
         const body = (await res.json()) as { tail?: string };
-        if (alive) setFullFindings(diagnoseLog(body.tail));
+        // t318 — an EMPTY log is NOT "scanned and nothing matched":
+        // diagnoseLog("") === [], which used to render the negative teaser's
+        // "scanned the full run.out — 0 findings" over a log that never had
+        // a byte (the forged-verdict ticket's receipt read exactly like
+        // that). Same for the route's "(log fetch failed: …)" note — a
+        // fetch that failed scanned nothing. Both keep the null state: the
+        // card stays silent when there is nothing to scan.
+        const text = (body.tail ?? "").trim();
+        if (alive)
+          setFullFindings(
+            text && !text.startsWith("(log fetch failed") ? diagnoseLog(text) : null
+          );
       } catch {
         /* transient — the teaser is a summary, not a promise; the next open retries */
       }
