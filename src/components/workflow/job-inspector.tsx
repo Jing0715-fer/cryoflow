@@ -25,7 +25,6 @@ import {
   ArrowRight,
   BarChart3,
   Check,
-  ChevronDown,
   ChevronRight,
   Clock,
   Copy,
@@ -45,7 +44,6 @@ import {
   Locate,
   Lock,
   Loader2,
-  Monitor,
   Pause,
   Play,
   RotateCcw,
@@ -78,17 +76,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { diagnoseLines, diagnoseLog, type LogFinding } from "@/lib/log-diagnosis";
+import { diagnoseFailureLines, diagnoseFailureLog, type LogFinding } from "@/lib/log-diagnosis";
 import { fmtAgo, fmtClock, fmtDuration } from "@/lib/duration";
 import { jobType } from "@/lib/workflow";
 import { COMMAND_TEMPLATES } from "@/lib/relion/command-templates";
@@ -428,8 +420,11 @@ function LogConsole({
 
   // Task 119: failure diagnosis — only a FAILED job diagnoses; a healthy
   // job's log mentioning "Killed" in passing must not summon the strip.
+  // t323 — diagnoseFailureLines: the signature table first, then the
+  // silent-death autopsy (a log that ends on a live progress frame with
+  // zero signatures = an external kill, not "0 findings").
   const findings = React.useMemo(
-    () => (job.status === "failed" ? diagnoseLines(lines) : []),
+    () => (job.status === "failed" ? diagnoseFailureLines(lines) : []),
     [job.status, lines]
   );
 
@@ -2081,62 +2076,20 @@ function InspectorHeader({ job }: { job: JobDTO }) {
                 <RotateCcw className="size-3.5" aria-hidden="true" />
                 <span>Reset &amp; edit</span>
               </Button>
-              {/* t289 — Re-run + mode ▾: the same visible seam as the job
-                  panel's Run control (this machine vs cluster SSH, one
-                  dropdown, honest disabled states). */}
-              <div className="flex items-stretch">
-                <Button
-                  size="sm"
-                  disabled={busy}
-                  onClick={() => setConfirmRerun(true)}
-                  className="h-7 gap-1.5 rounded-r-none bg-teal-600 px-3 text-xs text-white hover:bg-teal-700"
-                >
-                  {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Play className="size-3.5" />}
-                  Re-run
-                </Button>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      size="sm"
-                      className="h-7 rounded-l-none bg-teal-600 px-1 text-white hover:bg-teal-700"
-                      disabled={busy}
-                      aria-label="Choose run mode: this machine or cluster (SSH)"
-                      title="Choose run mode — this machine or a cluster over SSH"
-                    >
-                      <ChevronDown className="size-3.5" aria-hidden="true" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-72">
-                    <DropdownMenuItem
-                      onClick={() => setConfirmRerun(true)}
-                      aria-label="Re-run on this machine"
-                      data-run-mode="local"
-                    >
-                      <Monitor className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                      <div className="flex min-w-0 flex-col gap-0.5">
-                        <span className="text-xs font-medium">Re-run on this machine</span>
-                        <span className="text-[10px] leading-snug text-muted-foreground">
-                          the local RELION binary — outputs stay on this disk
-                        </span>
-                      </div>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => setClusterRunOpen(true)}
-                      aria-label="Re-run on cluster over SSH"
-                      data-run-mode="cluster"
-                    >
-                      <Server className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                      <div className="flex min-w-0 flex-col gap-0.5">
-                        <span className="text-xs font-medium">Re-run on cluster (SSH)…</span>
-                        <span className="text-[10px] leading-snug text-muted-foreground">
-                          stage inputs · module load relion · key files sync back,
-                          bulky outputs stay on the cluster
-                        </span>
-                      </div>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+              {/* t289 — Re-run + mode door. t323 — the ▾ split button is
+                  RETIRED (the user's receipt: crowded text, the arrow could
+                  go): the primary Re-run button speaks local re-run and the
+                  Server icon right of it is the cluster door — no third
+                  control repeating both. */}
+              <Button
+                size="sm"
+                disabled={busy}
+                onClick={() => setConfirmRerun(true)}
+                className="h-7 gap-1.5 bg-teal-600 px-3 text-xs text-white hover:bg-teal-700"
+              >
+                {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Play className="size-3.5" />}
+                Re-run
+              </Button>
             </>
           ) : (
             <Tooltip>
@@ -2505,7 +2458,7 @@ export function JobInspector() {
         const text = (body.tail ?? "").trim();
         if (alive)
           setFullFindings(
-            text && !text.startsWith("(log fetch failed") ? diagnoseLog(text) : null
+            text && !text.startsWith("(log fetch failed") ? diagnoseFailureLog(text) : null
           );
       } catch {
         /* transient — the teaser is a summary, not a promise; the next open retries */

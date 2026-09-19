@@ -155,6 +155,44 @@ if topaz_exe:
     method += f" via {topaz_exe}"
 print(f"cryoflow-mock autopick: {method} — {len(mics)} micrograph(s)")
 
+# t323 — the optimise-scale warning dialect, faithful: real RELION's
+# getGoodFourierDims (autopicker.cpp) prints this exact chorus whenever the
+# prime-factor rescale fires and --skip_optimise_scale is ABSENT — the
+# user's 4096-px receipt carried all four lines verbatim. The dispatch now
+# always sends the flag for LoG picking, so a HEALTHY run.out stays silent;
+# a regression that drops the flag makes the chorus reappear and the e2e
+# fails loudly instead of silently completing.
+if not topaz_mode and "skip_optimise_scale" not in opts:
+    print(" + Will use following diameters for Laplacian-of-Gaussian filter: ")
+    print("   * 120 (ok)")
+    print("   * 180 (ok)")
+    print("   * 240 (ok)")
+    print(" + WARNING: Requested rescale of micrographs is 4096 pixels. The largest prime factor in FFTs is 683")
+    print(" + WARNING: Will change rescaling of micrographs to 4048 pixels, because the prime factor then becomes 23")
+    print(" + WARNING: add --skip_optimise_scale to your autopick command to prevent rescaling")
+    print(" + WARNING: The calculations will be done at a lower resolution than requested.")
+
+# t323 — the SILENT DEATH trigger, faithful to the user's real-cluster
+# receipt: a micrograph whose basename carries "silent-death" makes the
+# picker run a while (progress bars on stdout), then exit 1 with ZERO
+# stderr — the exact shape of an externally-killed run (login-node CPU
+# reaper / OOM / walltime). Every in-code RELION death PRINTS, so a silent
+# exit-1 is the one death the app must diagnose WITHOUT error text; the
+# fixture gives the e2e that scenario live.
+if not topaz_mode and any("silent-death" in os.path.basename(m) for m in mics):
+    print("Autopicking ...")
+    print("0.06/3.40 hrs ~~(,_,\">  [oo]")
+    sys.stdout.flush()
+    time.sleep(2)
+    print("0.12/3.68 hrs .~~(,_,\">  [oo]")
+    print("0.19/3.82 hrs ..~~(,_,\">  [oo]")
+    sys.stdout.flush()
+    time.sleep(2)
+    print("0.31/3.82 hrs ....~~(,_,\"> [oo]")
+    sys.stdout.flush()
+    # exit 1, nothing on stderr — the silent external kill
+    sys.exit(1)
+
 os.makedirs(os.path.join(odir, "micrographs"), exist_ok=True)
 total = 0
 # t311 — TOTAL sleep capped at 60s (motioncorr's t268 doctrine, ctffind's

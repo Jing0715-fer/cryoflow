@@ -184,3 +184,76 @@ export function diagnoseLog(text: string | null | undefined): LogFinding[] {
   if (!text) return [];
   return diagnoseLines(text.split("\n"));
 }
+
+/* ------------------------------------------------------------------ */
+/* t323 — the silent mid-run death                                      */
+/* ------------------------------------------------------------------ */
+
+/** A RELION progress-bar frame: the worm mascot, the owl eyes, or the
+ *  elapsed/total time bar ("0.31/3.82 hrs") — the dialects time.cpp
+ *  prints while a run is ALIVE. If the log's last visible line is one of
+ *  these, the process died between two heartbeats. */
+const PROGRESS_FRAME_RE = /~~\(,_,">|\[oo\]|\/\d+(?:\.\d+)?\/(?:\d+(?:\.\d+)?|\?\?\?)\s*(?:sec|min|hrs)\b/;
+
+/**
+ * t323 — the silent-death autopsy: a FAILED run whose log ends on a live
+ * progress frame and matches no known signature. Verified against RELION
+ * master: every in-code death PRINTS (RelionError → "ERROR: …" + "in: …
+ * .cpp, line N" + backtrace on stderr; the pipeline_control exit wrapper →
+ * "exiting with an error/abort" on stdout), so a log that simply STOPS
+ * means the process was killed from outside — the login node's CPU-job
+ * reaper, the OOM killer, or a scheduler walltime — or crashed so hard the
+ * harness never narrated it. The user's 576-micrograph LoG autopick (ETA
+ * 3.82 hrs, dead at 0.31, both streams error-free) was exactly this shape
+ * and the strip used to answer "0 findings".
+ *
+ * Only consulted when the signature table found NOTHING (a real error
+ * outranks the autopsy — an error-then-death log also ends without a bar
+ * frame, so the ordering is doubly safe). Returns null when the tail is
+ * not a live frame (empty log, clean completion line, error text).
+ */
+export function silentRunDeathFinding(lines: string[]): LogFinding | null {
+  const display = lines.map((l) => {
+    const idx = l.lastIndexOf("\r");
+    return (idx >= 0 ? l.slice(idx + 1) : l).replace(/\s+$/, "");
+  });
+  // the stderr section separator (remote log view) is structural, not a
+  // log line — skip past it when it trails
+  const tail: string[] = [];
+  for (let i = display.length - 1; i >= 0 && tail.length < 3; i--) {
+    const t = display[i].trim();
+    if (!t) continue;
+    if (t === "----- stderr -----") break;
+    tail.unshift(t);
+  }
+  if (tail.length === 0) return null;
+  if (!tail.some((l) => PROGRESS_FRAME_RE.test(l))) return null;
+  const last = tail[tail.length - 1];
+  return {
+    id: "silent-run-death",
+    label: "The log stops mid-run — the process died without an error signature",
+    hint: "RELION printed no error (no ERROR line, no backtrace, no 'exiting with'): every in-code RELION death narrates itself, so a log that just stops means an external kill — the usual suspects are the login node's CPU-job reaper (multi-hour runs must go through Slurm/sbatch, not direct mode), the OOM killer, or a walltime limit. Re-run via Slurm mode (the run dialog), consider the array shard split for embarrassingly-parallel types, and check the cluster's own record: sacct -j <jobid> and the job directory.",
+    count: 1,
+    firstLine: lines.length,
+    excerpt: last.length > EXCERPT_CAP ? `${last.slice(0, EXCERPT_CAP)}…` : last,
+  };
+}
+
+/**
+ * t323 — the failure-scanner entry point the UI calls: the signature
+ * table first (an OS/runtime-narrated death outranks the autopsy), the
+ * silent-death autopsy as the fallback when nothing matched and the log
+ * ends on a live progress frame.
+ */
+export function diagnoseFailureLines(lines: string[]): LogFinding[] {
+  const base = diagnoseLines(lines);
+  if (base.length > 0) return base;
+  const silent = silentRunDeathFinding(lines);
+  return silent ? [silent] : [];
+}
+
+/** Text-form twin of diagnoseFailureLines (the Overview teaser's diet). */
+export function diagnoseFailureLog(text: string | null | undefined): LogFinding[] {
+  if (!text) return [];
+  return diagnoseFailureLines(text.split("\n"));
+}

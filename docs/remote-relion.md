@@ -510,6 +510,35 @@ the old Math.random re-roll meant five fresh cluster paths every visit, so
 the cache never hit. Responses carry `Cache-Control: public, max-age=86400`
 so the browser stops re-asking too.
 
+## 4g. Two LoG autopick contracts (t323)
+
+**The warning chorus is paid off at the source.** On large micrographs whose
+FFT sizes carry a big prime (the user's 4096-px data: `4096/2+1 = 2049 =
+3×683`), RELION's `getGoodFourierDims` rescales to a friendlier size
+(4048, prime 23) and prints four warning lines — the last one is literally
+*add `--skip_optimise_scale` to your autopick command to prevent rescaling*.
+CryoFly generates the command, so the dispatch now always carries the flag
+for Laplacian-of-Gaussian picking: no rescale, no chorus, calculations at
+exactly the requested resolution (the flag is a global argv option in
+autopicker.cpp `read()`; References/Topaz keep their own lowpass-driven
+sizes and stay untouched). The mock cluster's `relion_autopick` prints the
+chorus verbatim whenever the flag is ABSENT — a dispatch regression fails
+the e2e loudly instead of re-teaching users to read warnings.
+
+**A silent exit 1 is an external kill, not a RELION error.** Verified
+against RELION master: every in-code death NARRATES itself — a `RelionError`
+puts `ERROR: …` + `in: … .cpp, line N` + a backtrace on stderr (the t320
+receipt was exactly that shape), and the pipeline-control exit wrapper
+writes `exiting with an error/abort` to stdout. So a run that dies mid-bar
+with exit 1 and NO error text in either stream was killed from outside:
+the login node's CPU-job reaper (multi-hour `direct` runs), the OOM killer,
+or a walltime. The receipt now says exactly that (and points at
+`sacct -j <jobid>` / the job directory), the Log tab's failure diagnosis
+grows the matching `silent-run-death` signature, and the t318 evidence
+rescue fires whenever the local `run.err` is empty — run.out alone is not
+evidence that run.err is empty (a mid-run stderr error used to stay
+invisible whenever run.out had content).
+
 ## 5. Honest failure catalog
 
 | Failure | What you see |
@@ -527,6 +556,8 @@ so the browser stops re-asking too.
 | ctffind all-failed (cluster) | ACTIVE diagnosis: the first named file is SSH-stat'd on the login node — readable → "the compute node may not mount the data disk (try direct mode / copy the data)"; unreadable → "re-import" |
 | "Run on this machine" with cluster-resident inputs | refused BEFORE the spawn: "N of M rows live on the CLUSTER — dispatch to the cluster instead" (≥50% absolute-and-missing rows; nothing spawns, nothing lands) |
 | LoG picker + `--gpu` (old/hand-edited script) | named diagnosis: RELION refuses the pair outright ("does not support GPU acceleration") — remove the `--gpu` line or switch Picking method to References/Topaz; dispatches never send the pair (t320) |
+| LoG autopick rescale warnings | extinct at the source: the dispatch carries `--skip_optimise_scale` (RELION's own advice), picking runs at the requested resolution (t323) |
+| exit 1 with NO error text in run.out/run.err | the silent-death verdict: "RELION printed no error — the run ended silently mid-job" + the external-kill suspects (login-node CPU reaper / OOM / walltime) + `sacct -j <jobid>`; multi-hour jobs belong in Slurm mode (t323) |
 | local node_modules out of date | boot warning `node_modules is out of date — missing ssh2` + `/api/remote/*` fails with `Can't resolve 'ssh2'` — re-run `npm install` (or `bun install`) and restart |
 
 ## 6. Testing without a cluster: the mock cluster

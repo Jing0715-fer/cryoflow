@@ -20,7 +20,6 @@ import {
   ArrowRight,
   BarChart3,
   ChevronDown,
-  Monitor,
   Server,
   Check,
   ChevronsDownUp,
@@ -75,12 +74,6 @@ import { RemoteRunButton } from "./remote-run-button";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CheckSquare, ChevronUp, ListFilter, Folder } from "lucide-react";
@@ -1302,27 +1295,28 @@ function PanelBody({ job }: { job: JobDTO }) {
     }
   };
 
-  // t289 — the run-mode door: the Run button grows a ▾ menu (this machine
-  // vs cluster SSH) and the action row's server icon opens the SAME dialog
-  // — one dialog, two doors, no hidden modes. The mode is a per-run choice,
-  // not a global toggle, so the menu speaks choices instead of state.
+  // t289 — the run-mode door. t323 — the ▾ menu is RETIRED (the user's
+  // receipt: the button row felt crowded, the arrow could go): the primary
+  // Run button speaks the project's own lane and the action row's server
+  // icon opens the SAME dialog — one dialog, two doors, no hidden modes,
+  // and no third control that repeats both. The mode is a per-run choice,
+  // not a global toggle.
   const [clusterRunOpen, setClusterRunOpen] = React.useState(false);
   // t300 — a REMOTE project's primary Run IS the cluster dispatch: its
   // inputs are cluster paths (a local spawn would only fail on files this
   // machine does not have). The engine-native bookkeeping types still run
   // locally — they ARE the local half of a remote project (the import
   // writes micrographs.star with cluster paths; select/symexpand/… are
-  // table surgery). The ▾ menu keeps the local door open for both.
+  // table surgery). A local project's primary Run stays local; the server
+  // icon is the cluster door in both worlds.
   const projectRemote = useWorkflowStore((s) => s.project?.remote ?? null);
   const remotePrimaryRun =
     projectRemote != null && !REMOTE_BOOKKEEPING_TYPES.has(job.type) && job.linkedJobId == null;
-  const runModeBlocked =
-    job.status === "running" || runPending || relionBlocked || job.linkedJobId != null;
   const clusterModeBlocked = job.status === "running" || job.linkedJobId != null;
 
   const runButton = (
     <Button
-      className={cn("w-full rounded-r-none", remotePrimaryRun && "border-violet-500/40")}
+      className={cn("w-full", remotePrimaryRun && "border-violet-500/40")}
       size="sm"
       disabled={
         job.status === "running" ||
@@ -1339,7 +1333,9 @@ function PanelBody({ job }: { job: JobDTO }) {
           ? `Remote project — dispatch to ${projectRemote?.name ?? projectRemote?.host ?? "the cluster"} (pick the node/partition + GPU count)`
           : job.linkedJobId != null
             ? "Linked copies mirror their original — run the original job instead"
-            : undefined
+            : job.status === "pending"
+              ? "Run — inputs will be re-checked before the run starts"
+              : undefined
       }
     >
       {runPending ? (
@@ -1349,17 +1345,20 @@ function PanelBody({ job }: { job: JobDTO }) {
       ) : (
         <Play aria-hidden="true" />
       )}
+      {/* t323 — the ▾ mode menu is RETIRED: the primary button speaks the
+          project's own lane (local / cluster-primary) and the Server icon
+          right of it is the cluster door; a third control that repeated
+          both only crowded the row (the user's receipt). Labels stay
+          one-word — the title carries the detail. */}
       {job.linkedJobId != null
-        ? "Linked copy — run the original"
+        ? "Linked copy"
         : remotePrimaryRun
           ? job.status === "completed" || job.status === "failed"
             ? "Re-run on cluster"
             : "Run on cluster"
           : job.status === "completed" || job.status === "failed"
             ? "Re-run"
-            : job.status === "pending"
-              ? "Run (re-check inputs)"
-              : "Run Job"}
+            : "Run"}
     </Button>
   );
 
@@ -1440,8 +1439,11 @@ function PanelBody({ job }: { job: JobDTO }) {
 
         {/* Action row */}
         <div className="flex items-center gap-1.5">
-          {/* t289 — Run + mode ▾: the local run and the cluster dispatch are
-              ONE control with a visible seam, not two unlabeled buttons. */}
+          {/* t289 — Run + mode door. t323 — the ▾ split button is RETIRED
+              (the user's receipt: the row felt crowded, the arrow could go):
+              the primary Run button speaks the project's own lane and the
+              Server icon button beside it is the cluster door — one dialog,
+              two doors, no third control repeating both. */}
           <div className="flex min-w-0 flex-1 items-stretch">
             {relionBlocked ? (
               <TooltipProvider delayDuration={150}>
@@ -1457,50 +1459,6 @@ function PanelBody({ job }: { job: JobDTO }) {
             ) : (
               <span className="flex min-w-0 flex-1 inline-flex">{runButton}</span>
             )}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  size="sm"
-                  className="shrink-0 rounded-l-none px-1"
-                  disabled={runModeBlocked && clusterModeBlocked}
-                  aria-label="Choose run mode: this machine or cluster (SSH)"
-                  title="Choose run mode — this machine or a cluster over SSH"
-                >
-                  <ChevronDown className="size-3.5" aria-hidden="true" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-72">
-                <DropdownMenuItem
-                  onClick={() => void handleRun()}
-                  disabled={runModeBlocked}
-                  aria-label="Run on this machine"
-                  data-run-mode="local"
-                >
-                  <Monitor className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                  <div className="flex min-w-0 flex-col gap-0.5">
-                    <span className="text-xs font-medium">Run on this machine</span>
-                    <span className="text-[10px] leading-snug text-muted-foreground">
-                      the local RELION binary — outputs stay on this disk
-                    </span>
-                  </div>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => setClusterRunOpen(true)}
-                  disabled={clusterModeBlocked}
-                  aria-label="Run on cluster over SSH"
-                  data-run-mode="cluster"
-                >
-                  <Server className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                  <div className="flex min-w-0 flex-col gap-0.5">
-                    <span className="text-xs font-medium">Run on cluster (SSH)…</span>
-                    <span className="text-[10px] leading-snug text-muted-foreground">
-                      stage inputs · module load relion · key files sync back, bulky
-                      outputs stay on the cluster
-                    </span>
-                  </div>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
           </div>
           <HpcSbatchDialog jobId={job.id} compact />
           {/* t289 — the server icon and the ▾ menu open the SAME dialog (one

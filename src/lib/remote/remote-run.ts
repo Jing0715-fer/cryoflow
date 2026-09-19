@@ -2503,17 +2503,28 @@ async function finalizeRemoteRun(
         ? `REMOTE[${origin}]: ${collected.result.replace(/^REAL: /, "")}`
         : `REMOTE[${origin}]: exited 0 but no expected outputs appeared — check the log tab`;
   } else {
-    const meaning = describeExitCode(exitCode);
     let logTailText = remoteLogTail;
-    let errTail = tailText(path.join(localWorkdir, "run.err"), 400) || logTailText.slice(-400);
+    // t323 — the rescue arm now reads the LOCAL run.err's own content, not
+    // the merged tail: the old `!errTail.trim()` condition included the
+    // run.out fallback, so a run with a non-empty run.out NEVER fetched the
+    // cluster's run.err — a mid-run RelionError (printed to stderr, which
+    // sbatch --error / the direct 2> redirect own) stayed invisible in the
+    // receipt, the Log tab's evidence round never ran, and the failure
+    // diagnosis scanned a log half. The receipt must see both streams.
+    const localErrTail = tailText(path.join(localWorkdir, "run.err"), 400);
+    let errTail = localErrTail || logTailText.slice(-400);
     // t318 — evidence rescue: a failed run's receipt must never be
     // tail-less while the cluster still holds a log. The poll's tail can
     // legitimately come up empty (the verdict raced the log's flush, or a
     // sync raced a still-growing file into "download failed") — one final
     // SSH round for the last bytes of run.out + run.err mends the receipt
     // with the ground truth. A run that truly printed nothing gets the
-    // honest note below instead of a mystery.
-    if (!errTail.trim()) {
+    // honest note below instead of a mystery. t323 — the trigger is now
+    // "no LOCAL stderr content" (missing file, empty file, or a sync that
+    // never brought it home): whenever stderr is unaccounted for, the
+    // cluster gets the last word — run.out alone is NOT evidence that
+    // run.err is empty.
+    if (!localErrTail.trim()) {
       try {
         const W = shQuote(r.remoteWorkdir);
         const evid = await exec(
@@ -2605,8 +2616,36 @@ async function finalizeRemoteRun(
     const emptyLogNote = tailLines.length === 0
       ? "run.out and run.err are EMPTY on the cluster — the wrapper exited before RELION printed anything (module/env failure or an instant crash); inspect the job directory there"
       : "";
+    // t323 — the silent-death verdict: exit 1 with NO error signature in
+    // EITHER stream is not "RELION reported an error". Verified against
+    // RELION master: every in-code death path PRINTS — a RelionError puts
+    // "ERROR: …" + "in: … .cpp, line N" + a backtrace on stderr (the
+    // t320 receipt was exactly that shape), and the pipeline_control exit
+    // wrapper writes "exiting with an error/abort" to stdout. A mid-run
+    // exit 1 whose logs end on a live progress bar means the process was
+    // killed from OUTSIDE (the login node's CPU-job reaper harvesting a
+    // multi-hour direct-mode run, the OOM killer, a walltime) or died a
+    // hard crash the harness never narrated. The user's 576-micrograph
+    // LoG run (ETA 3.82 hrs, dead at 0.31, run.err empty) was this shape;
+    // the old label sent them hunting a RELION error that does not exist.
+    // Grounded on BOTH streams because the rescue above already fetched
+    // the cluster's run.err when the local copy was empty.
+    const evidence = `${logTailText}\n${errTail}`;
+    const hasErrorSignature =
+      /^ERROR\b/im.test(evidence) ||
+      /in: \S+\.cpp,? line \d+/i.test(evidence) ||
+      /exiting with an (error|abort)/i.test(evidence) ||
+      /CRYOFLOW_ERR|Segmentation fault|core dumped|\bKilled\b|MPI_ABORT|Traceback \(most recent call last\)/i.test(evidence);
+    const silentDeath = exitCode === 1 && !hasErrorSignature && tailLines.length > 0;
+    const meaning = silentDeath
+      ? "RELION printed no error — the run ended silently mid-job"
+      : describeExitCode(exitCode);
+    const silentDeathNote = silentDeath
+      ? "no error text anywhere in run.out or run.err (verified on the cluster): an external kill is the usual cause — the login node's CPU-job reaper (long direct-mode runs), the OOM killer, or a walltime. Multi-hour jobs belong in Slurm mode; sacct -j <jobid> and the job directory hold the cluster's own record"
+      : "";
     result = [
       `REMOTE[${r.user}@${r.host.split(":")[0]}]: exit ${exitCode}${meaning ? ` (${meaning})` : ""}`,
+      silentDeathNote,
       tailLines.join(" "),
       emptyLogNote,
       ...(ctfNoFit
@@ -2619,7 +2658,7 @@ async function finalizeRemoteRun(
     ]
       .filter(Boolean)
       .join(" — ")
-      .slice(0, 1200);
+      .slice(0, 1400);
   }
 
   // remote twins for the outputs (downstream remote jobs consume these

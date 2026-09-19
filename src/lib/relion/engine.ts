@@ -3508,6 +3508,17 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
         const upper = num(job, "logUpperThreshold", 99999);
         if (upper > 0 && upper < 99999) argv.push("--LoG_upper_threshold", String(upper));
         if (flag(job, "logInvert")) argv.push("--Log_invert");
+        // t323 — RELION's own advice, verbatim: whenever the optimise-scale
+        // rescale fires (large micrographs whose FFT sizes carry a big prime
+        // — the user's 4096-px data hit prime 683, rescaled to 4048),
+        // autopicker.cpp prints FOUR warning lines, the last one literally
+        // "add --skip_optimise_scale to your autopick command to prevent
+        // rescaling". CryoFly generates the command, so CryoFly takes the
+        // advice: the LoG picker runs at exactly the requested resolution
+        // with no prime-factor rescale and no warning chorus (autopicker.cpp
+        // read(): do_optimise_scale = !checkOption("--skip_optimise_scale")
+        // — a global argv option, honored in every picking mode).
+        argv.push("--skip_optimise_scale");
       }
       return argv;
     }
