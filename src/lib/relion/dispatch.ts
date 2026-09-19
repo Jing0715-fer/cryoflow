@@ -366,8 +366,15 @@ export async function autoStartPendingDownstream(triggerJobId: string): Promise<
               module: triggerRec.remote.module || null,
               mode: triggerRec.remote.mode,
               // t297 — the sbatch GPU width rides the passthrough too: a
-              // remote pipeline stays remote at the width the user chose
-              ...(triggerRec.remote.mode === "slurm" && triggerRec.remote.gpusRequested != null
+              // remote pipeline stays remote at the width the user chose.
+              // t321 — a 0 width (a LoG autopick trigger, t320's CPU
+              // contract) is OMITTED, not forwarded: startRemoteJob's
+              // `Number(target.gpus ?? 6) || 6` would silently re-coerce a
+              // literal 0 to the default 6 — shape-wrong noise for a width
+              // the downstream job's own strategy decides anyway.
+              ...(triggerRec.remote.mode === "slurm" &&
+                triggerRec.remote.gpusRequested != null &&
+                triggerRec.remote.gpusRequested > 0
                 ? { gpus: triggerRec.remote.gpusRequested }
                 : {}),
             },

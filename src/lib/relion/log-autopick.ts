@@ -38,11 +38,20 @@
 export const LOG_PICK_METHOD = "Laplacian of Gaussian";
 
 /**
- * True when this job is an Auto-picking run whose picking method is the
- * CPU-only Laplacian-of-Gaussian picker. Unknown/absent params default to
- * LoG — that is the default everywhere else too (engine buildArgv, the
- * workflow spec, the preset), so a stale client or a bare API caller gets
- * the SAFE side: no GPUs are ever sent to a picker that would refuse them.
+ * True when this job is an Auto-picking run whose picking method lands in
+ * the CPU-only Laplacian-of-Gaussian branch.
+ *
+ * t321 — the classification MIRRORS the argv builder byte-for-byte: engine
+ * buildArgv reads the method with `str()` (undefined/null → the LoG default,
+ * else `String(v)` — no trim, no case-folding) and dispatches to exactly two
+ * NAMED branches ("References", "Topaz"); everything else — absent, empty,
+ * padded, lower-cased, a number, garbage — falls to the `--LoG` else-branch.
+ * The first cut of this predicate matched `=== LOG_PICK_METHOD` exactly,
+ * which disagreed with the builder on every non-canonical form ("LoG",
+ * "laplacian of gaussian", " References ") and would have handed those
+ * dispatches a GPU the picker refuses (the review's HIGH). The mirror is
+ * the contract: whatever the builder would send `--LoG` for, the GPU
+ * decision must treat as CPU-only.
  */
 export function isLogAutopick(type: string, params: unknown): boolean {
   if (type !== "autopick") return false;
@@ -51,13 +60,12 @@ export function isLogAutopick(type: string, params: unknown): boolean {
     try {
       raw = JSON.parse(raw);
     } catch {
-      return true; // unparseable params → assume the LoG default (safe side)
+      return true; // unparseable params → the builder's LoG default (safe side)
     }
   }
   const rec = (raw ?? {}) as Record<string, unknown>;
-  const method =
-    typeof rec.pickingMethod === "string" && rec.pickingMethod.trim() !== ""
-      ? rec.pickingMethod
-      : LOG_PICK_METHOD;
-  return method === LOG_PICK_METHOD;
+  // engine str(): undefined/null → fallback, else String(v) — verbatim
+  const v = rec.pickingMethod;
+  const method = v === undefined || v === null ? LOG_PICK_METHOD : String(v);
+  return method !== "References" && method !== "Topaz";
 }

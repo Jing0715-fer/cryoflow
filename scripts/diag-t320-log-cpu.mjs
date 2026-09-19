@@ -271,6 +271,18 @@ try {
     "a LoG-named param on another type is inert"
   );
 
+  // t321 — the MIRROR: the predicate's classification must agree with the
+  // argv builder byte-for-byte (engine str(): no trim, no case-folding;
+  // exactly two NAMED branches). Whatever the builder would send --LoG for,
+  // the GPU decision must treat as CPU-only — the review's HIGH was an
+  // exact-match predicate that handed non-canonical forms a GPU.
+  must(unitIsLog("autopick", { pickingMethod: "LoG" }) === "true", "non-canonical 'LoG' mirrors the builder's else-branch (CPU)");
+  must(unitIsLog("autopick", { pickingMethod: "laplacian of gaussian" }) === "true", "the lower-case variant mirrors the builder (→ --LoG → CPU)");
+  must(unitIsLog("autopick", { pickingMethod: " References " }) === "true", "padded ' References ' mirrors the builder (str() never trims → --LoG → CPU)");
+  must(unitIsLog("autopick", { pickingMethod: 5 }) === "true", "a NUMBER param mirrors the builder (String(5) → else-branch → CPU)");
+  must(unitIsLog("autopick", { pickingMethod: "" }) === "true", "empty string mirrors the builder (else-branch → CPU)");
+  must(unitIsLog("autopick", JSON.stringify({ pickingMethod: "Topaz" })) === "false", "the prisma-string form still classifies Topaz (GPU)");
+
   // the strategy door
   const logStrategy = unitStrategy("autopick", { micrographs: 8, logAutopick: true });
   must(logStrategy?.gpus === 0, `gpuStrategyFor(autopick, logAutopick) → gpus 0 (got ${logStrategy?.gpus})`);
@@ -481,6 +493,27 @@ try {
   must(/--gpu 0/.test(String(exportRef.body?.script ?? "")), "the exported References script carries --gpu 0");
   must(exportRef.body?.strategy?.gpus === 1, `the exported References strategy.gpus is 1 (got ${exportRef.body?.strategy?.gpus})`);
 
+  // t321 — the queue SIMULATOR speaks the same dialect: the LoG autopick
+  // bills 0 GPUs, the References one bills its 1 — the plan the user reads
+  // must match what the dispatch actually requests.
+  const sim = await api("/api/hpc/simulate", {
+    method: "POST",
+    headers: SHJ,
+    body: JSON.stringify({ clusterGpus: 8, nodes: 2 }),
+  });
+  must(sim.status === 200, `the simulate route answers (${sim.status})`);
+  const bars = sim.body?.bars ?? [];
+  const logBars = bars.filter((b) => b.key === logJob.id);
+  const refBars = bars.filter((b) => b.key === refJob.id);
+  must(
+    logBars.length > 0 && logBars.every((b) => b.gpus === 0),
+    `the simulated LoG autopick bills 0 GPUs (bars: ${JSON.stringify(logBars.map((b) => b.gpus))})`
+  );
+  must(
+    refBars.length > 0 && refBars.every((b) => b.gpus === 1),
+    `the simulated References autopick bills its 1 GPU (bars: ${JSON.stringify(refBars.map((b) => b.gpus))})`
+  );
+
   // ======================================================================
   console.log("== PHASE E: DIRECT — the second lane keeps the same word ==");
   const logJob2 = await mkJob({
@@ -524,6 +557,20 @@ try {
   const diagSrc = readFileSync(`${ROOT}/src/lib/log-diagnosis.ts`, "utf8");
 
   must(pureSrc.includes("export function isLogAutopick"), "the predicate lives in a PURE module (client/server/test)");
+  must(
+    /return method !== "References" && method !== "Topaz";/.test(pureSrc),
+    "t321 — the predicate MIRRORS the builder's branches (non-canonical → LoG → CPU)"
+  );
+  const simulateSrc = readFileSync(`${ROOT}/src/app/api/hpc/simulate/route.ts`, "utf8");
+  must(
+    /logAutopick: isLogAutopick\(j\.type, j\.params\)/.test(simulateSrc),
+    "t321 — the queue simulator threads the predicate (the plan bills no GPU for LoG)"
+  );
+  const dispatchSrc = readFileSync(`${ROOT}/src/lib/relion/dispatch.ts`, "utf8");
+  must(
+    /gpusRequested > 0/.test(dispatchSrc),
+    "t321 — the passthrough omits a 0 width instead of forwarding it (the || 6 coercion trap)"
+  );
   must(
     /logAutopick\?: boolean/.test(slurmSrc) && /isAutoPick && opts\.logAutopick/.test(slurmSrc),
     "the strategy has the logAutopick door (gpus → 0 branch)"

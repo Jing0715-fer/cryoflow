@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { readRuns } from "@/lib/relion/engine";
 import { gpuStrategyFor, simulateQueue, type SimJobInput } from "@/lib/hpc/slurm";
+import { isLogAutopick } from "@/lib/relion/log-autopick";
 
 export const dynamic = "force-dynamic";
 
@@ -55,7 +56,14 @@ export async function POST(request: NextRequest) {
     // minutes, GPU jobs scaled by speedup)
     const byKey = new Map(jobs.map((j) => [j.id, j]));
     const simJobs: SimJobInput[] = jobs.map((j) => {
-      const strategy = gpuStrategyFor(j.type, { micrographs, particles });
+      // t321 — the pick METHOD drives the autopick strategy here too: a LoG
+      // picker is CPU-only on the real dispatch (t320), and the queue plan
+      // must not bill it a GPU it will never request
+      const strategy = gpuStrategyFor(j.type, {
+        micrographs,
+        particles,
+        logAutopick: isLogAutopick(j.type, j.params),
+      });
       const st = runs[j.id];
       let minutes = strategy.minutes;
       if (st?.startedAt) {

@@ -2522,3 +2522,21 @@ Stage Summary:
 - 工单闭环: GPU 决策从「按类型」升级为「按方法」——LoG 拾取器从此零 GPU 请求(无 --gpu/无 --gres/记录 0), References/Topaz 照旧; 单一纯谓词被派发/导出/对话框/测试四方共享, argv 级熔断把不变量钉在最终命令上
 - mock 说真方言的教义再下一城: 假体在真二进制死的地方死(逐字文本), 回归无处静默
 - 环境: 模板 :3000 全程运行(GET / 200), mock :3022 单实例, prod :3001 验证用(待 push 后清场)
+
+---
+Task ID: 321
+Agent: main-agent (Z.ai Code)
+Task: t320 推送后的全面代码审查(只读子代理 11-a: 0 critical/1 high/0 medium/2 low/2 nit)发现三处残余 → 修复回推
+
+Work Log:
+- 审查裁决: 六刀架构正确——谓词住在 startRemoteJob 单一咽喉(其唯一调用方 dispatch.ts:170, 所有门都到它), splice 在 t306 $SHARD 重写之前无索引危险, 7 个审查面里 6 个干净
+- HIGH 修复(谓词/构建器分类失配可复活原 bug): isLogAutopick 首版精确匹配 `=== "Laplacian of Gaussian"`, 而 engine buildArgv 把一切非 "References"/"Topaz"(含 "LoG"/小写/带空格/数字/垃圾串, str() 无 trim 无大小写折叠)都送 --LoG else 支——非规范值会拿到 GPU 却仍带 --LoG, 被禁组合复活; params PATCH 路由不校验枚举故可达。修复: 谓词逐字镜像构建器分支(`method !== "References" && method !== "Topaz"`), 构建器会发 --LoG 的一切形态 GPU 决策都按 CPU 处理
+- LOW 修复(模拟器不知道方法): /api/hpc/simulate 只按 type 调 gpuStrategyFor——队列规划给默认 LoG autopick 计 1 GPU/膨胀 GPU 时; 修复: 线程 isLogAutopick(j.type, j.params), 规划与真实派发同方言
+- LOW 修复(透传转发无意义的 gpus: 0): dispatch.ts 远程透传把 LoG 触发器的 gpusRequested: 0 经 `!= null` 门转发为 gpus: 0, 被 startRemoteJob 的 `Number(target.gpus ?? 6) || 6` 静默 coerce 回默认 6(净中性但形状错); 修复: `gpusRequested > 0` 才转发
+- NIT 不修: splice 单次移除(当前唯一性不变量成立, while 属未来保险); inspector 无 CPU 字(对话框已说契约)
+- diag-t320 扩至 85 断言 ALL GREEN(prod :3001 重建后): 新增镜像单元六案("LoG"/小写/带空格 " References "/数字 5/空串/prisma 串 Topaz 对照) + simulate 活体(LoG 8 分片 bar 全 0 GPU, References 8 bar 全 1 GPU——规划与派发同账) + 台账三新契约(镜像谓词/模拟器线程/透传 >0 门)
+- 回归: t318(52)/t319(60) 于新构建复跑全绿; tsc 0; eslint 0(四改动文件 + diag)
+
+Stage Summary:
+- 审查三发现(1H/2L)全部修复并验证; GPU 决策与 argv 构建器从此共享同一分支语义(镜像即合同), 队列模拟器与真实派发同方言, 透传不再送会被 || 6 吞掉的 0 宽度
+- 遗留 NIT 两枚按 roadmap 记账未修
