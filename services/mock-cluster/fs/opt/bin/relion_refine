@@ -1,10 +1,16 @@
 #!/usr/bin/env python3
 """Mock relion_refine for the CryoFlow mock cluster.
 
-Simulates a 2D/3D classification or refinement: prints RELION-style
-iteration lines (it [003] — feeds the progress parser), writes per-iteration
-run_it<NNN>_data.star + class averages, and the final run_classes.mrcs +
-run_model.star collectOutputs harvests.
+Star-aware since t308 (the way t307 taught relion_preprocess): a 2D/3D
+classification CONSUMES the input particles star — the fake reads --i,
+counts the LAST data block's rows (RELION convention: particles last, so
+the data_optics row is never counted), audits that every referenced stack
+resolves relative to the STAR'S OWN DIR (a torn array merge or a star
+moved away from its tree refuses with a legible count instead of
+silently classifying ghosts), and echoes the input rows' ImageName into
+run_data.star with a class column appended (provenance: the classes
+describe exactly the particles the merged star listed, in the same
+order). A missing --i refuses to invent particles.
 """
 import os
 import struct
@@ -28,10 +34,61 @@ if outdir.endswith("/run"):
 os.makedirs(outdir, exist_ok=True)
 iters = int(opts.get("iter", opts.get("maxiter", "12")))
 ncls = int(opts.get("K", "3"))
-npart = int(opts.get("nt", "1500"))
 mode = opts.get("mode", "classify2d")
 
-print(f"cryoflow-mock refine: mode={mode} K={ncls} particles={npart} iters={iters}")
+# ---- the input star is the contract (t308) ------------------------------
+star_in = opts.get("i", "")
+if not star_in or not os.path.exists(star_in):
+    print(
+        f"cryoflow-mock refine: the input star is missing ({star_in or 'no --i given'}) — refusing to invent particles",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+
+# parse data_ blocks; the LAST block owns the particles (data_optics comes
+# first and its single row must never be counted as a particle)
+blocks = []
+cur = None
+with open(star_in) as fh:
+    for line in fh:
+        s = line.strip()
+        if s.startswith("data_"):
+            cur = []
+            blocks.append(cur)
+        elif cur is not None:
+            if s and not s.startswith("loop_") and not s.startswith("_") and not s.startswith("#"):
+                cur.append(s)
+rows = blocks[-1] if blocks else []
+if not rows:
+    print(
+        f"cryoflow-mock refine: {star_in} carries no particle rows (a torn merge lands headerless) — refusing",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+npart = len(rows)
+
+# merge-integrity audit: every ImageName after the @ resolves relative to
+# the STAR'S OWN DIR (absolute paths pass as-is). One missing stack means
+# the canonical star is torn or drifted from its extra/ tree — real RELION
+# dies inside HealpixSampling::readStar on exactly this shape.
+star_dir = os.path.dirname(os.path.abspath(star_in))
+missing = 0
+for r in rows:
+    img = r.split("\t")[0]
+    if "@" not in img:
+        continue
+    stack = img.split("@", 1)[1]
+    stack = stack if os.path.isabs(stack) else os.path.join(star_dir, stack)
+    if not os.path.exists(stack):
+        missing += 1
+if missing:
+    print(
+        f"cryoflow-mock refine: {missing} of {npart} particle stacks are missing relative to the star's dir — the merge is torn or the tree moved — refusing",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+
+print(f"cryoflow-mock refine: mode={mode} K={ncls} particles={npart} iters={iters} (from {os.path.basename(star_in)})")
 
 
 def write_mrc(path, nx, ny, nz, seed):
@@ -77,9 +134,12 @@ for it in range(1, iters + 1):
         fh.write("_rlnAngleRot #3\n")
         fh.write("_rlnAngleTilt #4\n")
         fh.write("_rlnAnglePsi #5\n")
-        for p in range(min(npart, 40)):
+        # provenance: echo the INPUT rows' ImageName (first tab field) —
+        # the classes describe exactly the particles the star listed
+        for p, r in enumerate(rows):
+            img = r.split("\t")[0]
             cls = (p * 7 + it) % ncls + 1
-            fh.write(f"{p + 1:06d}@particles.mrcs\t{cls}\t{p * 13.0:.1f}\t{90.0 - p}.2\t{p * 3.0:.1f}\n")
+            fh.write(f"{img}\t{cls}\t{p * 13.0:.1f}\t{90.0 - p}.2\t{p * 3.0:.1f}\n")
     for c in range(1, ncls + 1):
         write_mrc(os.path.join(outdir, f"run_it{its}_class{c:03d}.mrc"), 64, 64, 1, c * 31 + it)
 
@@ -90,5 +150,5 @@ final_data = os.path.join(outdir, "run_data.star")
 os.replace(os.path.join(outdir, f"run_it{iters:03d}_data.star"), final_data)
 with open(os.path.join(outdir, "run_model.star"), "w") as fh:
     fh.write("\ndata_\n\n_rlnReferenceImage run_classes.mrcs\n_rlnEstimatedResolution 4.2\n")
-print(f"wrote {final_classes} + {final_data} after {iters} iterations")
+print(f"wrote {final_classes} + {final_data} after {iters} iterations ({npart} particles classified)")
 sys.exit(0)

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Mock relion_preprocess (extract) — star-aware since t307.
+"""Mock relion_preprocess (extract) — star-aware since t307, stacks RENDERABLE since t308.
 
 The old fake ignored its input and always wrote a fixed 150-particle star —
 good enough for single runs, a LIE for the array split: the merge's ../ strip
@@ -9,9 +9,13 @@ paths RELATIVE TO THE STAR'S OWN DIR, so a shard star one level down says
 
   - reads the input STAR (the shard's round-robin slice) and iterates the
     _rlnMicrographName column — a shard extracts only ITS micrographs;
-  - writes one placeholder stack per micrograph into
-    <part_dir>/extra/<micbase>_extract.mrcs (disjoint shards share the same
-    --part_dir without colliding — per-micrograph names);
+  - writes one REAL (renderable) MRC stack per micrograph into
+    <part_dir>/extra/<micbase>_extract.mrcs — mode-2 float32, box×box×per,
+    a valid 1024-byte header (t308: the old text placeholder was honest
+    about existing but the results view's montage renderer rightly refused
+    it — a stack that exists but cannot be READ is a lie the inspector
+    pays for in console errors; the fake must speak the product's dialect
+    all the way to the pixels);
   - writes <part_star> with rows referencing those stacks by a path computed
     RELATIVE TO THE STAR'S DIR (os.path.relpath — the same convention real
     RELION uses), so the unsplit run says extra/… and each shard says
@@ -24,7 +28,7 @@ Flag parsing is flag-aware like the autopick fake: a flag whose next token is
 another --flag (or end-of-argv) is BOOLEAN and consumes nothing — --extract
 and --norm used to swallow --extract_size and --bg_radius as values.
 """
-import os, sys
+import os, struct, sys
 
 argv = sys.argv[1:]
 opts = {}
@@ -102,6 +106,43 @@ if not mics:
     sys.exit(1)
 
 # ---- the per-micrograph stacks (shared part_dir, disjoint names) -----------
+def write_mrc_stack(path, box, nslices, seed=1):
+    """A real, renderable MRC stack: mode 2 (float32), box×box×nslices.
+
+    t308 — the results view's montage renderer reads the header and the
+    bytes; a text placeholder answers "exists" but not "readable", and the
+    inspector pays for that lie in console errors. Values are a
+    deterministic LCG so every run (and every shard) writes identical
+    bytes for identical inputs.
+    """
+    data = bytearray()
+    n = box * box
+    for s in range(nslices):
+        base = (seed * 1103515245 + s * 7919) & 0x7FFFFFFF
+        for k in range(n):
+            v = ((base + k * 12345) % 2000) / 2000.0 - 0.5
+            data += struct.pack("<f", v)
+    header = bytearray(1024)
+    struct.pack_into("<3i", header, 0, box, box, nslices)   # NX, NY, NZ
+    struct.pack_into("<i", header, 4, 2)                    # MODE float32
+    struct.pack_into("<3i", header, 12, 0, 0, 0)            # NXSTART etc.
+    struct.pack_into("<3i", header, 20, box, box, nslices)  # MX, MY, MZ
+    struct.pack_into("<3f", header, 40, float(box), float(box), float(nslices))  # CELLA
+    struct.pack_into("<3f", header, 56, 90.0, 90.0, 90.0)   # CELLB
+    struct.pack_into("<3i", header, 64, 1, 2, 3)            # MAPC, MAPR, MAPS
+    struct.pack_into("<3f", header, 76, -0.5, 0.5, 0.0)     # DMIN, DMAX, DMEAN
+    struct.pack_into("<i", header, 92, 1)                   # ISPG (stack = 1)
+    struct.pack_into("<i", header, 96, 0)                   # NSYMBT
+    struct.pack_into("<3f", header, 196, 0.0, 0.0, 0.0)     # ORIGIN
+    header[208:212] = b"MAP "
+    header[212:216] = b"\x44\x41\x00\x00"                   # MACHST little-endian
+    struct.pack_into("<f", header, 216, 0.1)                # RMS
+    struct.pack_into("<i", header, 220, 1)                  # NLABL
+    with open(path, "wb") as fh:
+        fh.write(header)
+        fh.write(bytes(data))
+
+
 extra = os.path.join(part_dir, "extra")
 os.makedirs(extra, exist_ok=True)
 
@@ -118,10 +159,7 @@ for n, mic in enumerate(mics, 1):
             break
     stack = os.path.join(extra, f"{base}_extract.mrcs")
     if not os.path.exists(stack):
-        with open(stack, "wb") as fh:
-            fh.write(b"CRYOFLOW-MOCK-EXTRACT-STACK\n")
-            fh.write(f"mic={base} box={box} scale={scale or 'none'}\n".encode())
-            fh.write(bytes(range(256)) * 2)
+        write_mrc_stack(stack, max(32, int(box or 128)), per, seed=n)
     rel = os.path.relpath(stack, star_dir)
     for k in range(per):
         idx += 1

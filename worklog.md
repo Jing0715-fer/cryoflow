@@ -2244,3 +2244,21 @@ Stage Summary:
 - **「判别键要用旗的种类，不是值的形状」**：outStar 非空 ≠ --o 指向文件——t306 的 --o 是目录、outStar 只是合并的目标文件名；判别键错一位，t306 的整条活体链当场断流。家族回归的存在意义就是抓新套件自己看不见的旧合同破坏
 - **「显示层的语法坏状要用 AST 定罪」**：输出通道吞 `[m` 序列制造伪代码假象——文本渲染是证人不是法官，AST + 字节长度对账才能定罪
 - 遗留（下轮候选）：sacct elapsed/TRES 列已在 t303 落地（勿重做）；array 变体下游（class2d 吃合并粒子星表的端到端链）；verify-module 的 by-value 变体；384³/512³ 阶梯压测（T296_N 已备）；EMPIAR 真数据回归（连续第十七窗让位）；demo 教程链的下游重跑（按老约定补 outputs 映射）
+
+## Task 308 (2026-09-19, cron 08:33 窗口 trace 1a07549302235a99-cron-agent-loop-202609190835 —— 开局实证：worklog 尾部 = Task 307（HEAD 441a715 已 push、树净、3000 活、roster 21、qa63 GREEN、累积器 11 批 pass 74 · realFail 0），cron 指引的「Task 13」照例过时)
+
+- 【开局 + QA】GET / 200、roster 21、qa63-smoke GREEN（console 0）、累积器与 Task 307 报告一致。按惯例③自主选题：**t308 = array 下游——class2d 吃合并粒子星表的端到端链**（Task 307 遗留清单首选：t306/t307 教会了 dispatch 切片与合并，但没有任何下游 RELION 作业在簇上**消费过**合并产物——split 的故事缺最后一环）。
+- 【主交付①：mock relion_refine 假体 star-aware】老假体无视 --i、写 40 行假 `000001@particles.mrcs`、粒子数来自引擎根本不传的 `--nt`（默认 1500 = 一句谎）。四颗新牙：① 读 --i，缺输入诚实拒绝（"refusing to invent particles"，exit 1）；② 解析 data_ 块、**取最后一块**当粒子（data_optics 的行永不计数）；③ **合并完整性审计**——每个 @ 后的栈相对星表自身目录解析，任一缺失即拒绝（t307 的 flock 竞态撕裂星表正是无头 4 行形状，撕到哪都能被下游咬住）；④ run_data.star **回声输入 ImageName + 追加 _rlnClassNumber**（产物可链、来源可证）；头部说真实粒子数。爆炸半径核实近零：全家族只有 t262 断言假体存在、无套件执行 refine 族。
+- 【主交付②：t308 套件 56 断言 ALL PASS】A 真相 + B 台账（假体合同、class2d 的 extract 边、twin 直通源码）+ C0 沙箱四牙（无需簇）+ C1 数组管线（import 本地 → autopick ×3 → extract ×2，合并星表 120 行零 ../）+ **C2 消费见证**（class2d 同簇无分片：脚本 --i = 合并星表的**簇上孪生路径**、零 _staged/ 重传、无本地路径、无 array 指令；record result 说 "120 particles classified"；产物 data star 的 ImageName 行与合并星表**逐行同序**——pick 分片 → 坐标收集 → extract 分片 → 行合并 → 分类，一条身份贯穿五段）+ C3 strip 双见证（下游 'Ran on the cluster · Slurm COMPLETED' + 上游 '· array 1-2%4'，定妆照）+ D console 0 + roster 21。
+- 【真雷一颗：假体栈不可渲染（被掩盖的真 QA 问题）】首航 console 12× 400 打在 `/api/jobs/<extract>/outputs/file?path=extra/mic-NN_extract.mrcs&format=png&montage=16`——错误体重放点名 **"Could not render this MRC file"**：extract 假体写的是文本占位符（`CRYOFLOW-MOCK-EXTRACT-STACK` + bytes），"存在" 但不可读，渲染器诚实拒绝。t307 窗口没炸是因为它的 inspector 截图 click 超时被 catch 吞掉、模态从未真开（**掩盖机制**）。修 = **relion_preprocess 写真 MRC**（mode 2 float32、box×box×per、合法 1024B 头、LCG 确定性值）——「假体要说产品方言，一路说到像素」。修后 console 0。
+- 【套件自身三处自纠】① 边端口名用 engine 键 `particles_star` → registry 名 `particles`（t260 教训原样反咬，201 变 400）；② inspector 已开时点下一张卡被吞 → 先重新导航；③ probe 的 4xx URL 聚类最初剥掉查询串看不到 path、id→类型映射正则长度不匹配——多航迭代是定位成本，错误体重放（replay 首个失败 URL）才是最短路径。
+- 【真雷二颗：mock fs 的 100 个 workdir 残留】历届套件只删 API job（清本地孪生），mock 簇侧树从未烧过；各套件 finally 里的 `rm -rf /projects/cryoflow/t30X-array` 是想当然的错路径（workdir 在**项目 id** 下）。修两层：本窗烧净 5 个项目目录 × 100 个 job workdir；t308 finally 改为按真实 remoteWorkdir 逐个 rm（教训入码），复验 0 残留。
+- 【家族回归】t308 注册（roster **75** 套件 · t30 批 5 成员）；--batch t30 **pass 5（t302 32.9s + t304 61.7s + t306 54.5s + t307 34.7s + t308 37.1s）· solo 0 · real-fail 0 · wall 235.9s**；累积器 11 批 TOTAL **pass 75 · real-fail 0**；roster 21 恒等；裸 tsc 0；改动文件 eslint 0；qa63 复验 GREEN；mock fs 残留 0。
+- 【收尾】worklog（本条）+ commit/push + 环境净场（3000 独监、mock 杀净、簇侧树烧净、零残留进程）。
+
+Stage Summary:
+- **「split 的故事要由下游盖章」**：合并星表存在、行数对、零 ../——这些是上游的自证；只有下游消费者真的吃了它（脚本引用簇上孪生路径、假体报出 120、产物回声同序行），数组切分才从「自洽」变成「被信任」。twin 直通让合并产物按引用穿边界，一次字节都不重传
+- **「假体的方言要说到像素」**：栈"存在"与栈"可渲染"是两种诚实——结果视图的 montage 渲染器有权拒绝读不了的字节，占位符在 t307 的存在性断言下全绿、在 t308 的真开模态下现形。掩盖机制（被 catch 吞掉的 click）比雷本身更值得记录：断言的沉默不等于雷的不存在
+- **「错误体的重放是最短诊断路径」**：console 只说 "400"，URL 聚类给出形状，而 route 的 JSON error body 一句话定罪（"Could not render this MRC file"）。逐层逼近不如直接问拒绝者
+- **「清理要烧真实的树，不是想象中的路径」**：API 删 job 只清本地孪生；簇侧 workdir 在项目 id 下、套件 finally 的想当然 rm 匹配不了任何东西——100 个目录的残留是无声的复利。修复 = 套件记录自己创建的 remoteWorkdir、finally 逐个 rm
+- 遗留（下轮候选）：verify-module 的 by-value 变体；384³/512³ 阶梯压测（T296_N 已备）；EMPIAR 真数据回归（连续第十八窗让位）；demo 教程链的下游重跑（按老约定补 outputs 映射）；各历史套件 finally 的簇侧 rm 同款修正（t302-307 仍带想当然路径，mock fs 残留会复利）
