@@ -230,6 +230,20 @@ stage to the cluster automatically when a remote consumer needs them. A
 mixed local/remote graph works: each job runs where it was sent, and the
 data follows.
 
+**t315 — the project's binding is the second source of remote-ness.** The
+import of a REMOTE project is engine-native: it runs locally by design,
+so its own run record carries no remote target. The auto-start passthrough
+used to hand those downstream jobs `{}` — and a ctffind wired to a
+cluster-path import would run on THIS machine (through the WSL bridge on
+Windows, with a star full of cluster-absolute rows it cannot open — every
+file fails instantly). Now the passthrough falls back to the project's
+cluster binding (module + mode from the connection's saved defaults);
+only when neither the trigger's record NOR the project speaks does a
+consumer run locally. The manual "Run on this machine" door got the same
+honesty: a star whose rows are absolute paths that do not exist locally
+(≥50% of them) is refused BEFORE any spawn, with the error naming the
+cluster door instead of a 195-file failure parade.
+
 ## 4a. Beta & hidden modules ("why can't I see relion 5?")
 
 Two honest reasons a relion version the cluster clearly has never shows
@@ -327,6 +341,39 @@ the browse/run doors name the missing cluster, and re-adding the
 connection restores everything (the binding itself never silently
 unbinds).
 
+**t315 additions on a remote project:**
+
+- **Import has a Node type** (micrographs / movies / particles — RELION's
+  own import dialog semantics). The card's OUTPUT port follows it:
+  Micrographs → the CTF/picking family consumes it directly; Movies →
+  only MotionCorr accepts the wire (CTF's port refuses the movies kind —
+  the pipeline typing teaches the order); Particles → an existing
+  particles `.star` (read over SSH on a remote project, cluster-absolute
+  image refs kept verbatim; local copies rebase RELATIVE refs against the
+  source star's own directory, so the copy never dangles). The import
+  receipt cross-checks the node type against the BYTE sniff: "Node type
+  says Micrographs but the sampled headers say FRAME STACKS" (and the
+  reverse) — a receipt-level heads-up, the CTF byte gate stays the
+  enforcement.
+- **The import gallery samples five random micrographs over SSH.** A
+  cluster-resident import's star rows are cluster-absolute — nothing is
+  on this machine — so the gallery shows a random sample of five with
+  thumbnails fetched through the SSH preview door (`GET
+  /api/jobs/[id]/micrographs?preview=<cluster-path>` — the path must be a
+  row of THAT job's own star; the fetched .mrc is deleted after the PNG
+  render, only kilobyte thumbnails persist). The **re-sample** button
+  rolls five new ones; the lightbox's full view pulls the large render.
+- **A ctffind that fails with the all-at-once signature gets an ACTIVE
+  diagnosis.** When the log says "cannot get CTF values" for every file
+  and "failed to estimate CTF parameters for any micrograph", the
+  finalize SSH-stats the FIRST named file on the login node: readable
+  there → "the failure happened where the job RAN — if this went through
+  Slurm, the compute node may not mount <dir> (microscope data disks are
+  often login-node-only) — try direct mode, or copy the data to a
+  cluster-wide path"; unreadable → "the cluster itself CANNOT read the
+  file — re-import". The Beijing ticket's ~199 instant per-file failures
+  had exactly this shape.
+
 ## 5. Honest failure catalog
 
 | Failure | What you see |
@@ -341,6 +388,8 @@ unbinds).
 | node reboot / hard kill | "interrupted remotely (no exit status)" — re-run resumes refine-family from checkpoints |
 | ssh drops mid-run | the job KEEPS RUNNING on the cluster; polling resumes when the connection returns |
 | outputs too big for caps | result line lists what stayed on the cluster and where |
+| ctffind all-failed (cluster) | ACTIVE diagnosis: the first named file is SSH-stat'd on the login node — readable → "the compute node may not mount the data disk (try direct mode / copy the data)"; unreadable → "re-import" |
+| "Run on this machine" with cluster-resident inputs | refused BEFORE the spawn: "N of M rows live on the CLUSTER — dispatch to the cluster instead" (≥50% absolute-and-missing rows; nothing spawns, nothing lands) |
 | local node_modules out of date | boot warning `node_modules is out of date — missing ssh2` + `/api/remote/*` fails with `Can't resolve 'ssh2'` — re-run `npm install` (or `bun install`) and restart |
 
 ## 6. Testing without a cluster: the mock cluster

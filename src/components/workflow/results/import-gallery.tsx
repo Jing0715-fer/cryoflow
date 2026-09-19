@@ -12,7 +12,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { Aperture, Grid3x3, ImageIcon } from "lucide-react";
+import { Aperture, Grid3x3, ImageIcon, RefreshCw, Server } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -32,6 +32,20 @@ interface MicrographEntry {
   ny: number;
 }
 
+interface ClusterInfo {
+  host: string;
+  connectionName: string;
+  total: number;
+  sample: Array<{
+    path: string;
+    name: string;
+    size: number;
+    nx: number;
+    ny: number;
+    kind: string;
+  }>;
+}
+
 interface MicrographsResponse {
   total: number;
   pixelSize: number | null;
@@ -39,6 +53,10 @@ interface MicrographsResponse {
   sphericalAberration: number | null;
   amplitudeContrast: number | null;
   micrographs: MicrographEntry[];
+  /** t315 — the star's rows are cluster-absolute (remote project import):
+   *  micrographs[] holds a random sample of five, its thumbnails arrive
+   *  through the SSH preview door. */
+  cluster?: ClusterInfo;
 }
 
 function formatBytes(bytes: number): string {
@@ -73,6 +91,7 @@ export function ImportGallery({
   const [data, setData] = useState<MicrographsResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<MicrographEntry | null>(null);
+  const [reroll, setReroll] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -92,13 +111,18 @@ export function ImportGallery({
     return () => {
       cancelled = true;
     };
-  }, [jobId]);
+  }, [jobId, reroll]);
 
   if (error && !data) return null; // enhancement — silent when unavailable
   if (!data || data.micrographs.length === 0) return null;
 
+  const isCluster = data.cluster != null;
+  // cluster rows (cluster-absolute paths) preview through the SSH door —
+  // local rows through the outputs/file door as always
   const fileUrl = (relPath: string, extra = "") =>
-    `/api/jobs/${jobId}/outputs/file?path=${encodeURIComponent(relPath)}&format=png${extra}`;
+    isCluster
+      ? `/api/jobs/${jobId}/micrographs?preview=${encodeURIComponent(relPath)}${extra ? "&full=1" : ""}`
+      : `/api/jobs/${jobId}/outputs/file?path=${encodeURIComponent(relPath)}&format=png${extra}`;
 
   const withDims = data.micrographs.filter((m) => m.nx > 0);
   const dims =
@@ -124,6 +148,30 @@ export function ImportGallery({
           <Grid3x3 className="h-3 w-3" aria-hidden="true" />
           {data.total}
         </span>
+        {isCluster && data.cluster ? (
+          <span
+            className="inline-flex items-center gap-1 rounded border border-violet-500/30 bg-violet-500/10 px-1.5 py-px text-[10px] font-medium text-violet-700 dark:text-violet-300"
+            title={`${data.cluster.connectionName} — the files stay there (zero upload); thumbnails travel over SSH`}
+          >
+            <Server className="h-3 w-3" aria-hidden="true" />
+            on {data.cluster.host} · sample of {data.micrographs.length}
+          </span>
+        ) : null}
+        {isCluster ? (
+          <button
+            type="button"
+            onClick={() => {
+              setSelected(null);
+              setReroll((n) => n + 1);
+            }}
+            className="inline-flex items-center gap-1 rounded border px-1.5 py-px text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+            aria-label="Sample five different micrographs"
+            title="Pick five different micrographs at random"
+          >
+            <RefreshCw className="h-3 w-3" aria-hidden="true" />
+            re-sample
+          </button>
+        ) : null}
         <div className="ml-auto flex flex-wrap gap-1">
           <Chip label="pixel" value={data.pixelSize != null ? `${data.pixelSize} Å` : null} />
           <Chip label="HT" value={data.voltage != null ? `${data.voltage} kV` : null} />
@@ -155,7 +203,14 @@ export function ImportGallery({
 
       {dims ? (
         <p className="mt-1.5 text-[10px] text-muted-foreground">
-          {dims} detector frames · click a thumbnail for the full contrast-stretched view
+          {dims} detector frames ·{" "}
+          {isCluster
+            ? `all ${data.total} micrographs live on ${data.cluster?.host} — five sampled at random, thumbnails fetched over SSH`
+            : "click a thumbnail for the full contrast-stretched view"}
+        </p>
+      ) : isCluster ? (
+        <p className="mt-1.5 text-[10px] text-muted-foreground">
+          all {data.total} micrographs live on {data.cluster?.host} — five sampled at random, thumbnails fetched over SSH
         </p>
       ) : null}
 
@@ -176,7 +231,7 @@ export function ImportGallery({
                 </DialogDescription>
               </DialogHeader>
               <MrcImage
-                src={fileUrl(selected.path, "&scale=large")}
+                src={fileUrl(selected.path, isCluster ? "&full=1" : "&scale=large")}
                 alt={`Micrograph ${selected.name}, full view`}
                 className="max-h-[70vh]"
               />

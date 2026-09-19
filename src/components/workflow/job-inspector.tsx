@@ -1365,8 +1365,11 @@ function OverviewTab({
     <div className="space-y-6">
       <ResultSummary job={job} diagnosis={diagnosis} onOpenDiagnosis={onOpenDiagnosis} />
       <JobNoteSection job={job} />
-      {/* import jobs show the raw detector frames gallery. */}
-      {/^import$/i.test(job.type) && job.status !== "idle" ? (
+      {/* import jobs show the raw detector frames gallery (t315: the
+          particles node type imports a STAR, not detector frames — the
+          result line above already speaks its truth). */}
+      {/^import$/i.test(job.type) && job.status !== "idle" &&
+      String(job.params?.nodeType ?? "micrographs") !== "particles" ? (
         <ImportGallery jobId={job.id} />
       ) : null}
       {/* manualpick jobs show the picked-particle overlay map. */}

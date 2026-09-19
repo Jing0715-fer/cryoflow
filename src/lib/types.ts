@@ -231,6 +231,14 @@ export interface PortSpec {
   accepts?: (PortKind | "*")[];
   /** Input may receive several edges (select, joinstar, external…). */
   multiple?: boolean;
+  /**
+   * t315 — render this port only when the predicate passes (evaluated
+   * against the JOB's own params, not the type default). The Import job's
+   * output port is one-of-three by Node type: micrographs / movies /
+   * particles — RELION's own import dialog semantics, expressed as a
+   * per-job visible port instead of three separate job types.
+   */
+  when?: (params: Record<string, ParamValue>) => boolean;
 }
 
 /** Tailwind fragments used to tint ports by data kind. */

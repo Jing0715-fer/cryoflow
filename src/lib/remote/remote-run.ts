@@ -2204,19 +2204,52 @@ async function finalizeRemoteRun(
     const tailLines = errTail.trim()
       ? errTail.trim().split("\n").slice(ctfNoFit ? -2 : -4)
       : [];
+    // t315 — the all-failed signature gets an ACTIVE diagnosis, not just a
+    // checklist: the warnings name the files, so SSH-stat the FIRST one on
+    // the login node and let the verdict split the suspects in two. Readable
+    // there → the bytes are fine where SSH lands and the failure happened
+    // where the job RAN (the classic: microscope data disks like /data06 are
+    // mounted on login nodes only — compute nodes see every ctffind open
+    // fail instantly, ~199 files die in seconds); unreadable there → the
+    // cluster itself lost the file. An SSH hiccup degrades to the static
+    // checklist — the check teaches, it never blocks the finalize.
+    let ctfProbeNote = "";
+    if (ctfNoFit) {
+      const micPath = /cannot get CTF values for (\S+\.mrc[a-z]*)/i.exec(errTail)?.[1]
+        ?? /cannot get CTF values for (\S+\.mrc[a-z]*)/i.exec(remoteLogTail)?.[1]
+        ?? null;
+      if (micPath) {
+        try {
+          const st = await exec(
+            conn,
+            `if [ -r ${shQuote(micPath)} ]; then echo CF_READABLE; else echo CF_UNREADABLE; fi`,
+            { timeoutMs: 10_000 }
+          );
+          if (st.stdout.includes("CF_READABLE")) {
+            const dir = micPath.slice(0, micPath.lastIndexOf("/"));
+            ctfProbeNote = `Verified: ${path.basename(micPath)} IS readable on the login node — the failure happened where the job RAN. If this went through Slurm, the compute node may not mount ${dir} (microscope data disks are often login-node-only) — try direct mode, or copy the data to a cluster-wide path`;
+          } else if (st.stdout.includes("CF_UNREADABLE")) {
+            ctfProbeNote = `Verified: the cluster itself CANNOT read ${micPath} right now — moved, deleted or permissions changed since the import. Re-import the micrographs`;
+          }
+        } catch {
+          /* the probe is a bonus — the static diagnosis below still speaks */
+        }
+      }
+    }
     result = [
       `REMOTE[${r.user}@${r.host.split(":")[0]}]: exit ${exitCode}${meaning ? ` (${meaning})` : ""}`,
       tailLines.join(" "),
       ...(ctfNoFit
         ? [
-            "CTF diagnosis: ctffind rejected EVERY micrograph at once — inputs rejected outright, not bad fits. Check the MRCs are single-section (NZ>1 = raw frame stacks → MotionCorr first; .eer is always raw), that this ctffind build reads the file mode (float16/mode-12 needs a recent ctffind — the cluster's bundled 4.1 may predate it), and the Import pixel size — the job dir's .ctf/log files carry the literal per-file error",
+            ctfProbeNote ||
+              "CTF diagnosis: ctffind rejected EVERY micrograph at once — inputs rejected outright, not bad fits. Check the MRCs are single-section (NZ>1 = raw frame stacks → MotionCorr first; .eer is always raw), that this ctffind build reads the file mode (float16/mode-12 needs a recent ctffind — the cluster's bundled 4.1 may predate it), and the Import pixel size — the job dir's .ctf/log files carry the literal per-file error",
           ]
         : []),
       sync.note,
     ]
       .filter(Boolean)
       .join(" — ")
-      .slice(0, 900);
+      .slice(0, 1200);
   }
 
   // remote twins for the outputs (downstream remote jobs consume these

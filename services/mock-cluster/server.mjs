@@ -121,6 +121,11 @@ function commandEnv() {
     ...process.env, // inherit the rest
     HOME: `${FS_ROOT}/home/cryo`,
     PATH: MOCK_PATH,
+    // t315 — stubs that AUDIT absolute star rows (relion_refine's merge
+    // audit) resolve cluster-absolute candidates through the mock's fs
+    // root: a staged star's /projects/… or /data2/… rows point at the
+    // MOCK's mounts, which live under FS_ROOT on the host.
+    CRYOFLOW_MOCK_FS_ROOT: FS_ROOT,
     // `bash -l` sources /etc/profile which RESETS PATH; fs/home/cryo/.bash_profile
     // re-exports it from this variable (the app runs `bash -lc '…'`).
     CRYOFLOW_MOCK_PATH: MOCK_PATH,

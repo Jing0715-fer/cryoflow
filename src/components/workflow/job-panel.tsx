@@ -40,7 +40,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { PORT_COLORS, coerceParam, jobType, portsCompatible, tabsFor } from "@/lib/workflow";
+import { PORT_COLORS, coerceParam, jobType, portsCompatible, tabsFor, visibleOutputs } from "@/lib/workflow";
 import { registerParamFlusher, useWorkflowStore } from "@/lib/store";
 import { COMMAND_TEMPLATES } from "@/lib/relion/command-templates";
 import { ClassGallery } from "./class-gallery";
@@ -264,7 +264,11 @@ function compatibleSources(job: JobDTO, port: PortSpec, jobs: JobDTO[]): SourceO
     if (j.id === job.id) continue;
     const jSpec = jobType(j.type);
     if (!jSpec) continue;
-    jSpec.outputs.forEach((p, order) => {
+    // t315 — a port hidden by its `when` (the import job's one-of-three
+    // output by Node type) is not a wiring source either: the drawer lists
+    // exactly the ports the canvas shows.
+    const visible = visibleOutputs(jSpec, j.params);
+    visible.forEach((p, order) => {
       if (portsCompatible(j.type, p.name, job.type, port.name)) {
         out.push({
           jobId: j.id,

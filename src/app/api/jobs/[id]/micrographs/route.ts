@@ -3,10 +3,13 @@ import { existsSync, statSync } from "fs";
 import path from "path";
 import { findEffectiveJob } from "@/lib/link";
 import { getRun } from "@/lib/relion/engine";
+import { getProjectMeta } from "@/lib/projects";
 import { cachedFileCompute } from "@/lib/relion/statcache";
 import { resolveMicrographEntry } from "@/lib/relion/pathref";
 import { readMrcHeader } from "@/lib/mrc";
 import { isLocalRequest } from "@/lib/http-guard";
+import { remoteClusterSample, remotePreviewPng } from "@/lib/remote/preview";
+import type { ClusterSample } from "@/lib/remote/preview";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +35,10 @@ export interface MicrographsResponse {
   sphericalAberration: number | null;
   amplitudeContrast: number | null;
   micrographs: MicrographEntry[];
+  /** t315 — present when the star's rows are CLUSTER-absolute (a remote
+   *  project's zero-upload import): the gallery shows a random sample of
+   *  five with SSH-fetched thumbnails instead of a blank grid. */
+  cluster?: ClusterSample;
 }
 
 /**
@@ -120,7 +127,10 @@ function parseNames(lines: string[]): string[] {
     if (t.startsWith("_rln")) continue;
     if (!inLoop || !t || t.startsWith("#")) continue;
     const first = t.split(/\s+/)[0];
-    if (first) names.push(first.replace(/^\.?\//, ""));
+    // t315 — ABSOLUTE rows keep their leading slash (a remote import's
+    // cluster-absolute /data2/… rows are detected BY it); only the "./"
+    // relative prefix is normalized away.
+    if (first) names.push(first.replace(/^\.\//, ""));
   }
   return names;
 }
@@ -172,6 +182,71 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
     const { pixelSize, voltage, sphericalAberration, amplitudeContrast } = parsed.optics;
     const names = parsed.names;
+
+    // ---- t315 — cluster-resident rows (a remote project's zero-upload
+    // import): the star's paths are CLUSTER-absolute and nothing is on this
+    // machine. The preview door serves SSH-fetched thumbnails for a random
+    // sample of five; the manifest carries the sample + the full count.
+    const connId = getProjectMeta(job.projectId)?.remote?.connectionId ?? null;
+    {
+      const url = new URL(request.url);
+      const preview = url.searchParams.get("preview");
+      if (preview != null && preview !== "") {
+        // the thumbnail door: ONLY rows of this job's own star (never an
+        // arbitrary cluster path), and only with a live project binding
+        if (!connId) {
+          return NextResponse.json({ error: "Project is not bound to a cluster" }, { status: 400 });
+        }
+        if (!names.includes(preview)) {
+          return NextResponse.json({ error: "Not a micrograph of this import job" }, { status: 404 });
+        }
+        const full = url.searchParams.get("full") === "1";
+        const r = await remotePreviewPng(connId, preview, full ? "large" : "thumb");
+        if (!r.ok) {
+          return NextResponse.json({ error: r.error }, { status: r.status });
+        }
+        return new NextResponse(new Uint8Array(r.png), {
+          status: 200,
+          headers: { "Content-Type": "image/png", "Cache-Control": "no-cache" },
+        });
+      }
+    }
+
+    const clusterRows =
+      connId != null
+        ? names.filter((n) => n.startsWith("/") && !existsSync(n))
+        : [];
+    const clusterResident =
+      clusterRows.length > 0 && clusterRows.length / Math.max(1, names.length) >= 0.5;
+    if (clusterResident && connId != null) {
+      // five RANDOM rows (a re-roll is a plain refetch), one batched SSH
+      // round for their stats + headers
+      const pool = [...clusterRows];
+      const samplePaths: string[] = [];
+      while (samplePaths.length < 5 && pool.length > 0) {
+        const i = Math.floor(Math.random() * pool.length);
+        samplePaths.push(pool.splice(i, 1)[0]);
+      }
+      const sample = await remoteClusterSample(connId, clusterRows, samplePaths);
+      const micrographs: MicrographEntry[] = (sample?.sample ?? samplePaths.map((p) => ({
+        path: p,
+        name: path.basename(p),
+        size: 0,
+        nx: 0,
+        ny: 0,
+        kind: "unknown",
+      }))).map((e) => ({ path: e.path, name: e.name, size: e.size, nx: e.nx, ny: e.ny }));
+      return NextResponse.json({
+        jobId: id,
+        total: names.length,
+        pixelSize,
+        voltage,
+        sphericalAberration,
+        amplitudeContrast,
+        micrographs,
+        ...(sample ? { cluster: sample } : {}),
+      });
+    }
 
     const micDir = path.join(run.workdir, "micrographs");
     const micrographs: MicrographEntry[] = [];

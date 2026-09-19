@@ -27,6 +27,7 @@ import {
   jobType,
   portY,
   portsCompatible,
+  visibleOutputs,
 } from "@/lib/workflow";
 import { useWorkflowStore, type PendingFrom } from "@/lib/store";
 import { computeEdgeGeoms, setLiveDrag } from "@/lib/edge-geom";
@@ -866,7 +867,9 @@ export const JobCard = React.memo(function JobCard({
 }: JobCardProps) {
   const spec = jobType(job.type);
   const inputs = spec?.inputs ?? [];
-  const outputs = spec?.outputs ?? [];
+  // t315 — Node type picks the import job's output port: the card renders
+  // only the port whose `when` matches the job's own params.
+  const outputs = visibleOutputs(spec, job.params);
 
   // Task 124 — arrival flash: the card a reveal/focus just landed on pulses
   // once per focusEpoch. The selector pins re-renders to the two cards a

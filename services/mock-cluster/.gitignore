@@ -20,3 +20,10 @@ fs/data2/corrected-t314/
 fs/data2/rawmovies-t314/
 fs/data2/mics-t314/
 fs/data2/eer-t314/
+
+# t315 — the remote-dispatch / node-type / random-5 gallery E2E fixtures
+# (runtime, not fixtures-in-git)
+fs/data2/qa-t315-mics/
+fs/data2/qa-t315-movies/
+fs/data2/qa-t315-particles/
+fs/data2/qa-t315-micstar.star

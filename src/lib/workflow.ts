@@ -131,7 +131,12 @@ const inp = (name: string, label: string, accepts: (PortKind | "*")[], multiple 
   multiple,
 });
 
-const outp = (name: string, label: string, kind: PortKind): PortSpec => ({ name, label, kind });
+const outp = (
+  name: string,
+  label: string,
+  kind: PortKind,
+  when?: (params: Record<string, ParamValue>) => boolean
+): PortSpec => ({ name, label, kind, ...(when ? { when } : {}) });
 
 /** Standard port labels (RELION wording). */
 const L = {
@@ -267,14 +272,18 @@ export const JOB_TYPES: JobTypeSpec[] = [
   /* ---------------- Import ------------------------------------------ */
   spec(
     "import",
-    "Import Movies / Micrographs",
+    "Import Movies / Micrographs / Particles",
     "FolderInput",
     "teal",
-    "Ingest movies or micrograph metadata into the project as a RELION 5 optics-group STAR file.",
+    "Ingest movies, micrographs or a particles STAR into the project as a RELION 5 optics-group STAR file.",
     2000,
     [
-      pth("micrographsPath", "Micrographs — folder, pattern or files", {
-        hint: "RELION-style: pick a folder (imports every image), a wildcard pattern (/data/movies/*.tiff — * and ? allowed), or Browse → Files to multi-select individual files. Local drives and WSL paths both work (/mnt/c/… or C:\\…).",
+      sel("nodeType", "Node type", "micrographs", ["micrographs", "movies", "particles"], {
+        hint: "RELION-style: what are these files? Micrographs (motion-corrected, CTF-ready) feed CTF directly; Movies (raw frame stacks) need MotionCorr first; Particles imports an existing particles .star.",
+        tab: "Movies/mics",
+      }),
+      pth("micrographsPath", "Files — folder, pattern or file list", {
+        hint: "RELION-style: pick a folder (imports every image inside), a wildcard pattern (/data/movies/*.tiff — * and ? allowed), Browse → Files to multi-select, or — with Node type Particles — a particles .star. Local drives and WSL paths both work (/mnt/c/… or C:\\…).",
         tab: "Movies/mics",
         filePick: true,
       }),
@@ -290,7 +299,21 @@ export const JOB_TYPES: JobTypeSpec[] = [
       category: "import",
       tabs: ["Movies/mics"],
       inputs: [],
-      outputs: [outp("micrographs", "Micrographs STAR file (.star)", "micrographs")],
+      // t315 — one visible output port per Node type (RELION's import
+      // semantics): Micrographs → CTF can consume directly; Movies → only
+      // MotionCorr accepts (CTF's port refuses the movies kind, exactly as
+      // RELION's pipeline typing does); Particles → the classification and
+      // selection family consumes it.
+      outputs: [
+        outp(
+          "micrographs",
+          "Micrographs STAR (motion-corrected)",
+          "micrographs",
+          (p) => p.nodeType !== "movies" && p.nodeType !== "particles"
+        ),
+        outp("movies", "Movies STAR (raw frame stacks)", "movies", (p) => p.nodeType === "movies"),
+        outp("particles", "Particles STAR", "particles", (p) => p.nodeType === "particles"),
+      ],
     }
   ),
 
@@ -1306,6 +1329,22 @@ export function tabsFor(t: JobTypeSpec | undefined): string[] {
 export function portY(i: number, count: number): number {
   if (count <= 1) return CARD_H / 2;
   return (CARD_H * (i + 1)) / (count + 1);
+}
+
+/**
+ * t315 — the output ports a SPECIFIC job renders: the spec's outputs minus
+ * any port whose `when` predicate (evaluated against the job's own params)
+ * says otherwise. The Import job's port is one-of-three by Node type; every
+ * port-listing surface (card, wiring drawer) goes through here so the
+ * visible truth and the compatible truth stay the same truth.
+ */
+export function visibleOutputs(
+  spec: JobTypeSpec | undefined,
+  params: Record<string, ParamValue> | undefined
+): PortSpec[] {
+  const outputs = spec?.outputs ?? [];
+  if (params == null) return outputs;
+  return outputs.filter((p) => !p.when || p.when(params));
 }
 
 /** Can the output port of one job type feed the input port of another? */

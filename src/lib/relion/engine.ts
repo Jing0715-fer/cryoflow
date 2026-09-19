@@ -41,6 +41,7 @@ import { getProjectMeta } from "@/lib/projects";
 import { getConnection } from "@/lib/remote/connections";
 import { remoteHeaderSniffer } from "@/lib/remote/sniff";
 import { listRemoteDir, REMOTE_IMPORT_MAX_ENTRIES, statRemoteFiles } from "@/lib/remote/remote-ls";
+import { exec as sshExec } from "@/lib/remote/ssh";
 import type { RemoteRunState } from "@/lib/remote/types";
 import { readMrcHeader } from "@/lib/mrc";
 import { sniffImageFile, spreadSample, type HeaderSniffer, type SniffVerdict } from "./mrc-sniff";
@@ -850,22 +851,22 @@ const INPUTS: Record<string, InputReq[]> = {
     { key: "coords_dir", accepts: ["coords_dir", "coords_star"], from: ["manualpick", "autopick"], label: "particle coordinates (run ManualPick/AutoPick first)" },
   ],
   select: [
-    { key: "particles_star", accepts: ["particles_star"], from: ["extract", "class2d", "select", "select2d", "joinstar", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
+    { key: "particles_star", accepts: ["particles_star"], from: ["import", "extract", "class2d", "select", "select2d", "joinstar", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
   ],
   select2d: [
-    { key: "particles_star", accepts: ["particles_star"], from: ["class2d", "select2d"], label: "classified particles STAR with _rlnClassNumber (run 2D Classification first)" },
+    { key: "particles_star", accepts: ["particles_star"], from: ["import", "class2d", "select2d"], label: "classified particles STAR with _rlnClassNumber (run 2D Classification first)" },
     // class averages only feed the selection GALLERY — missing stack must
     // never block the run (older jobs may lack the output)
     { key: "classes_mrc", accepts: ["classes_mrc"], from: ["class2d"], label: "2D class averages (gallery)", optional: true },
   ],
   class2d: [
-    { key: "particles_star", accepts: ["particles_star"], from: ["extract", "select", "select2d", "class2d", "joinstar", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
+    { key: "particles_star", accepts: ["particles_star"], from: ["import", "extract", "select", "select2d", "class2d", "joinstar", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
   ],
   initialmodel: [
-    { key: "particles_star", accepts: ["particles_star"], from: ["extract", "select", "select2d", "class2d", "joinstar", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
+    { key: "particles_star", accepts: ["particles_star"], from: ["import", "extract", "select", "select2d", "class2d", "joinstar", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
   ],
   class3d: [
-    { key: "particles_star", accepts: ["particles_star"], from: ["extract", "select", "select2d", "class2d", "initialmodel", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
+    { key: "particles_star", accepts: ["particles_star"], from: ["import", "extract", "select", "select2d", "class2d", "initialmodel", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
     // the reference MUST be a 3D map: initialmodel's VDAM model or class3d's
     // own 3D class volumes. class2d is deliberately absent — its classes are
     // 2D averages, and seeding a 3D refinement with them silently produced
@@ -874,19 +875,19 @@ const INPUTS: Record<string, InputReq[]> = {
     { key: "model_mrc", accepts: ["model_mrc", "classes_mrc"], from: ["initialmodel", "class3d", "mapimport"], label: "reference map (run InitialModel first, or import a map)" },
   ],
   refine3d: [
-    { key: "particles_star", accepts: ["particles_star"], from: ["extract", "select", "select2d", "class2d", "joinstar", "initialmodel", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
+    { key: "particles_star", accepts: ["particles_star"], from: ["import", "extract", "select", "select2d", "class2d", "joinstar", "initialmodel", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
     // 3D reference only — never class2d's 2D averages (see class3d note)
     { key: "model_mrc", accepts: ["model_mrc", "classes_mrc"], from: ["initialmodel", "class3d", "mapimport"], label: "reference map (run InitialModel first, or import a map)" },
   ],
   multibody: [
-    { key: "particles_star", accepts: ["particles_star"], from: ["extract", "select", "select2d", "class2d", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
+    { key: "particles_star", accepts: ["particles_star"], from: ["import", "extract", "select", "select2d", "class2d", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
     { key: "optimiser_star", accepts: ["optimiser_star"], from: ["refine3d", "class3d"], label: "optimiser.star (run Refine3D first)" },
   ],
   symexpand: [
-    { key: "particles_star", accepts: ["particles_star", "refine_data_star"], from: ["extract", "select", "select2d", "class2d", "initialmodel", "class3d", "refine3d", "joinstar", "symexpand", "rebalance"], label: "particles.star with Euler angles (run Extract/Refine first)" },
+    { key: "particles_star", accepts: ["particles_star", "refine_data_star"], from: ["import", "extract", "select", "select2d", "class2d", "initialmodel", "class3d", "refine3d", "joinstar", "symexpand", "rebalance"], label: "particles.star with Euler angles (run Extract/Refine first)" },
   ],
   rebalance: [
-    { key: "particles_star", accepts: ["particles_star", "refine_data_star"], from: ["extract", "select", "select2d", "class2d", "initialmodel", "class3d", "refine3d", "joinstar", "symexpand", "rebalance"], label: "oriented particles STAR with _rlnAngleRot/Tilt (refine/classify output)" },
+    { key: "particles_star", accepts: ["particles_star", "refine_data_star"], from: ["import", "extract", "select", "select2d", "class2d", "initialmodel", "class3d", "refine3d", "joinstar", "symexpand", "rebalance"], label: "oriented particles STAR with _rlnAngleRot/Tilt (refine/classify output)" },
   ],
   maskcreate: [
     { key: "map_mrc", accepts: ["half1_mrc", "model_mrc", "map_mrc"], from: ["refine3d", "initialmodel", "class3d", "postprocess", "localres"], label: "3D map (run Refine3D first)" },
@@ -901,16 +902,16 @@ const INPUTS: Record<string, InputReq[]> = {
     { key: "mask_mrc", accepts: ["mask_mrc"], from: ["maskcreate"], label: "solvent mask (run MaskCreate first)" },
   ],
   polish: [
-    { key: "particles_star", accepts: ["particles_star", "refine_data_star"], from: ["extract", "refine3d", "class2d", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
+    { key: "particles_star", accepts: ["particles_star", "refine_data_star"], from: ["import", "extract", "refine3d", "class2d", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
     { key: "postprocess_star", accepts: ["postprocess_star"], from: ["postprocess"], label: "postprocess.star (run PostProcess first)" },
     { key: "micrographs_star", accepts: ["micrographs_star", "corrected_micrographs_star"], from: ["motioncorr", "import"], label: "corrected micrographs.star (run MotionCorr first)" },
   ],
   ctfrefine: [
-    { key: "particles_star", accepts: ["particles_star", "refine_data_star"], from: ["extract", "refine3d", "class2d", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
+    { key: "particles_star", accepts: ["particles_star", "refine_data_star"], from: ["import", "extract", "refine3d", "class2d", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
     { key: "postprocess_star", accepts: ["postprocess_star"], from: ["postprocess"], label: "postprocess.star (run PostProcess first)" },
   ],
   dynamight: [
-    { key: "particles_star", accepts: ["particles_star", "refine_data_star"], from: ["extract", "refine3d", "class2d", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
+    { key: "particles_star", accepts: ["particles_star", "refine_data_star"], from: ["import", "extract", "refine3d", "class2d", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
     { key: "model_mrc", accepts: ["model_mrc", "map_mrc"], from: ["refine3d", "postprocess"], label: "consensus map (run Refine3D first)" },
   ],
   modelangelo: [
@@ -919,7 +920,7 @@ const INPUTS: Record<string, InputReq[]> = {
   subtract: [
     { key: "optimiser_star", accepts: ["optimiser_star"], from: ["refine3d", "class3d"], label: "optimiser.star (run Refine3D first)" },
     { key: "mask_mrc", accepts: ["mask_mrc"], from: ["maskcreate"], label: "mask of signal to subtract (run MaskCreate first)" },
-    { key: "particles_star", accepts: ["particles_star"], from: ["extract", "refine3d"], label: "particles.star (run Extract first)" },
+    { key: "particles_star", accepts: ["particles_star"], from: ["import", "extract", "refine3d"], label: "particles.star (run Extract first)" },
   ],
   tomo_import: [],
   tomo_aligntiltseries: [
@@ -929,18 +930,18 @@ const INPUTS: Record<string, InputReq[]> = {
     { key: "tilt_series_star", accepts: ["aligned_tilt_series_star", "tilt_series_star"], from: ["tomo_aligntiltseries", "tomo_import"], label: "aligned tilt series (run Tomo: Align Tilt Series first)" },
   ],
   tomo_ctfrefine: [
-    { key: "particles_star", accepts: ["particles_star"], from: ["tomo_extract", "tomo_picks"], label: "particles.star (run Tomo: Extract first)" },
+    { key: "particles_star", accepts: ["particles_star"], from: ["import", "tomo_extract", "tomo_picks"], label: "particles.star (run Tomo: Extract first)" },
     { key: "half1_mrc", accepts: ["half1_mrc"], from: ["tomo_reconstruct", "refine3d"], label: "reference half-map (run Tomo: Reconstruct first)" },
   ],
   tomo_exclude: [
     { key: "tilt_series_star", accepts: ["tilt_series_star"], from: ["tomo_import", "tomo_aligntiltseries"], label: "tilt_series.star (run Tomo: Import first)" },
   ],
   tomo_polish: [
-    { key: "particles_star", accepts: ["particles_star"], from: ["tomo_extract", "tomo_picks"], label: "particles.star (run Tomo: Extract first)" },
+    { key: "particles_star", accepts: ["particles_star"], from: ["import", "tomo_extract", "tomo_picks"], label: "particles.star (run Tomo: Extract first)" },
     { key: "half1_mrc", accepts: ["half1_mrc"], from: ["tomo_reconstruct", "refine3d"], label: "reference half-map (run Tomo: Reconstruct first)" },
   ],
   tomo_reconstruct: [
-    { key: "particles_star", accepts: ["particles_star"], from: ["tomo_extract", "tomo_picks"], label: "particles.star (run Tomo: Extract first)" },
+    { key: "particles_star", accepts: ["particles_star"], from: ["import", "tomo_extract", "tomo_picks"], label: "particles.star (run Tomo: Extract first)" },
   ],
   tomo_denoise: [
     { key: "tomograms_star", accepts: ["tomograms_star"], from: ["tomo_tomograms"], label: "tomograms.star (run Tomo: Reconstruct Tomograms first)" },
@@ -949,7 +950,7 @@ const INPUTS: Record<string, InputReq[]> = {
     { key: "tilt_series_star", accepts: ["tilt_series_star", "aligned_tilt_series_star"], from: ["tomo_aligntiltseries", "tomo_import"], label: "tilt_series.star (run Tomo: Import first)" },
   ],
   tomo_extract: [
-    { key: "particles_star", accepts: ["particles_star"], from: ["tomo_picks"], label: "picks (run Tomo: Picking first)" },
+    { key: "particles_star", accepts: ["particles_star"], from: ["import", "tomo_picks"], label: "picks (run Tomo: Picking first)" },
   ],
   external: [],
 };
@@ -1255,6 +1256,57 @@ const localHeaderSniffer: HeaderSniffer = async (paths) => {
   }
   return out;
 };
+
+/* ------------------------------------------------------------------ */
+/* t315 — cluster-resident inputs: the local lane refuses politely    */
+/* ------------------------------------------------------------------ */
+
+/** Types whose RELION binary READS the micrograph files named in the star
+ *  (ctffind/motioncorr/autopick/extract/topaztrain open every row; a row
+ *  that is not on this machine is a guaranteed per-file failure). */
+const MIC_FILE_READERS = new Set([
+  "ctffind",
+  "motioncorr",
+  "autopick",
+  "extract",
+  "topaztrain",
+]);
+
+/**
+ * t315 — a star whose rows are absolute paths that DO NOT exist on this
+ * machine (a remote project's cluster-absolute /data06/… rows) fails every
+ * single file read at run time: the Beijing WSL attempt died 195 times in
+ * a row over exactly this ("cannot get CTF values" ×N in seconds, the
+ * recorded command line wrapped in `wsl -d Debian -- bash -c {…}`). The
+ * honest local answer is a refusal BEFORE the spawn, naming the door the
+ * user actually wanted. Fires only at the majority bar (≥50% absolute AND
+ * missing) — one relocated file is noise, not a wiring mistake; and only
+ * for POSIX-absolute rows (local lanes carry project-relative or host-
+ * style paths, which never trip the check).
+ */
+export function clusterResidentRefusal(
+  type: string,
+  starPath: string | undefined,
+  projectId: string
+): string | null {
+  if (!starPath || !MIC_FILE_READERS.has(type)) return null;
+  let names: string[] = [];
+  try {
+    names = micrographNames(starPath);
+  } catch {
+    return null; // unreadable → the run itself will say the real problem
+  }
+  if (names.length === 0) return null;
+  const missing = names.filter((n) => n.startsWith("/") && !existsSync(n));
+  if (missing.length === 0 || missing.length / names.length < 0.5) return null;
+  const example = missing[0];
+  const more = missing.length > 1 ? ` (+${missing.length - 1} more)` : "";
+  const bound = getProjectMeta(projectId)?.remote?.connectionId != null;
+  if (bound) {
+    return `This job reads the micrograph files, but ${missing.length} of ${names.length} rows in the input star live on the CLUSTER (${example}${more}) — they are not on this machine, so a local run would fail on every single file. Dispatch this job to the cluster instead: Run ▸ "Run on cluster (SSH)…" (in a remote project the main Run button already does exactly that).`;
+  }
+  return `This job reads the micrograph files, but ${missing.length} of ${names.length} rows in the input star do not exist on this machine (${example}${more}) — the files may have been moved, unmounted or deleted. Re-import them (Import ▸ Browse), or — if they live on an SSH cluster — bind the project to that cluster and run the job there.`;
+}
 
 /**
  * Build the `--topaz_train_picks` STAR for --topaz_train.
@@ -1594,12 +1646,19 @@ async function runImportRemoteLeg(
   // — and the platform owed them the receipt, not a naming-based lecture.
   // The sniff is a bonus: any failure leaves the note empty, never blocks.
   let sniffNote = "";
+  // t315 — the sniff verdict also feeds the NODE TYPE cross-check: picking
+  // "Micrographs" while the headers say frame stacks (or "Movies" while
+  // they say single-section) deserves a receipt-level heads-up — the byte
+  // gate at CTF dispatch remains the enforcement, this only teaches.
+  let sniffStacks = false;
+  let sniffSingles = false;
   try {
     if (conn) {
       const mrcs = clusterFiles.filter((f) => /\.(mrc|mrcs)$/i.test(f));
       const eers = clusterFiles.filter((f) => /\.eer$/i.test(f));
       if (eers.length > 0 && eers.length / clusterFiles.length >= 0.5) {
         sniffNote = " · .eer event records — raw movies, run MotionCorr before CTF";
+        sniffStacks = true;
       } else if (mrcs.length > 0) {
         const verdicts = await remoteHeaderSniffer(conn)(spreadSample(mrcs));
         const vs = Object.values(verdicts);
@@ -1608,10 +1667,12 @@ async function runImportRemoteLeg(
         if (stacks.length > 0) {
           const f = stacks[0].facts!;
           sniffNote = ` · headers (${vs.length} sampled): ${f.nz}-section frame stacks — raw movies, run MotionCorr before CTF`;
+          sniffStacks = true;
         } else if (singles.length > 0) {
           const f = singles[0].facts!;
           const m16 = f.mode === 12 ? " float16" : "";
           sniffNote = ` · headers (${vs.length} sampled): single-section MRCs ${f.nx}×${f.ny} (mode ${f.mode}${m16}) — motion-corrected micrographs, CTF-ready`;
+          sniffSingles = true;
         }
       }
     }
@@ -1619,9 +1680,17 @@ async function runImportRemoteLeg(
 
   const skipNote = skipped > 0 ? ` · ${skipped} non-image file${skipped === 1 ? "" : "s"} skipped` : "";
   const kindNote = isPattern ? " · pattern" : multiFile ? " · file list" : "";
+  const nodeType = String(job.params.nodeType ?? "micrographs");
+  const kindWord = nodeType === "movies" ? "movies" : "micrographs";
+  const mismatch =
+    nodeType === "micrographs" && sniffStacks
+      ? " · ⚠ Node type says Micrographs but the sampled headers say FRAME STACKS — wire MotionCorr before CTF"
+      : nodeType === "movies" && sniffSingles
+        ? " · Node type says Movies but the sampled headers say single-section (already motion-corrected) — CTF can consume these directly; MotionCorr would refuse them"
+        : "";
   return {
     kind: "done",
-    result: `${clusterFiles.length} micrographs imported from ${conn.name || conn.host}${kindNote}${skipNote}${note}${sniffNote} — paths stay on the cluster (zero upload) · pixel ${String(job.params.pixelSize ?? 1.77)} Å`,
+    result: `${clusterFiles.length} ${kindWord} imported from ${conn.name || conn.host}${kindNote}${skipNote}${note}${sniffNote}${mismatch} — paths stay on the cluster (zero upload) · pixel ${String(job.params.pixelSize ?? 1.77)} Å`,
     sourceLabel: `source (cluster ${conn.host}): ${customRaw.slice(0, 200)} — cluster-absolute paths`,
   };
 }
@@ -1632,6 +1701,16 @@ async function runImportNative(job: EngineJobRef): Promise<NativeResult> {
   mkdirSync(workdir, { recursive: true });
   const projectDir = projectDirFor(job);
   mkdirSync(projectDir, { recursive: true });
+
+  // t315 — RELION's import "Node type" door: micrographs (motion-corrected,
+  // CTF-ready), movies (raw frame stacks, MotionCorr first) or particles
+  // (an existing particles .star, local or cluster-side). The first two
+  // share the folder/pattern/file-list machinery; particles is its own leg.
+  const nodeType = String(job.params.nodeType ?? "micrographs");
+  if (nodeType === "particles") {
+    return runImportParticlesNative(job, workdir, projectDir);
+  }
+  const kindWord = nodeType === "movies" ? "movies" : "micrographs";
 
   const pixel = num(job, "pixelSize", 1.77);
   const kV = num(job, "voltage", 300);
@@ -1854,7 +1933,7 @@ async function runImportNative(job: EngineJobRef): Promise<NativeResult> {
           ? ` · ${linkedCount} linked, ${unlinked} referenced by path (source not linkable)`
           : "";
       const kindNote = isPattern ? " · pattern" : multiFile ? " · file list" : "";
-      result = `${hostFiles.length} micrographs imported${kindNote}${skipNote}${linkNote} (pixel ${pixel} Å)`;
+      result = `${hostFiles.length} ${kindWord} imported${kindNote}${skipNote}${linkNote} (pixel ${pixel} Å)`;
       if (!sourceLabel) {
         sourceLabel =
           "source: " +
@@ -1883,6 +1962,214 @@ async function runImportNative(job: EngineJobRef): Promise<NativeResult> {
     workdir,
     "engine-native: write micrographs.star (RELION 5 optics format)",
     { micrographs_star: starPath },
+    result,
+    logText
+  );
+  return { ok: true, result };
+}
+
+/* ------------------------------------------------------------------ */
+/* t315 — Import (Node type: Particles)                                 */
+/* ------------------------------------------------------------------ */
+
+/**
+ * What a source particles STAR is made of, and what our copy did to it.
+ */
+interface ParticlesStarFacts {
+  /** data rows that carry at least one image reference (the particles —
+   *  an optics row like "1 0.93 48" is structure, not a particle) */
+  rows: number;
+  /** image-reference tokens seen (idx@stack.mrcs or bare paths) */
+  imageRefs: number;
+  /** REFERENCE tokens that were relative and got rebased to absolute */
+  rebased: number;
+  /** references that stayed verbatim (already absolute) */
+  verbatim: number;
+}
+
+/**
+ * Validate + rebase a particles STAR's text. Validation is by DIALECT: a
+ * star carrying _rlnMicrographName is a micrographs star (wrong node type —
+ * refuse with the switch instruction); a star with no image references at
+ * all is not a particles star. Rebase rule (t313's relocation lesson): any
+ * RELATIVE image reference resolves against the SOURCE star's own
+ * directory and is rewritten absolute — our copy lives in a different
+ * directory, so verbatim relative rows would dangle. Absolute rows ride
+ * verbatim (cluster-absolute rows are the zero-upload contract).
+ */
+function rebaseParticlesStar(
+  text: string,
+  sourceDir: string,
+  toEngine: (p: string) => string
+): { error?: string; facts?: ParticlesStarFacts; lines?: string[] } {
+  if (/_rlnMicrographName\s/.test(text)) {
+    return {
+      error:
+        "that STAR describes MICROGRAPHS (it carries _rlnMicrographName), not particles — switch the Import job's Node type to Micrographs and point at the image folder instead",
+    };
+  }
+  const IMG_TOK = /^(?:\d+@)?(\S+\.(?:mrc|mrcs|tif|tiff|img))$/i;
+  const lines = text.split(/\r?\n/);
+  const out: string[] = [];
+  const facts: ParticlesStarFacts = { rows: 0, imageRefs: 0, rebased: 0, verbatim: 0 };
+  let inLoop = false;
+  for (const raw of lines) {
+    const t = raw.trim();
+    if (t === "loop_") {
+      // a loop_ OPENS the row region — the _rln label lines that follow are
+      // still inside it (the first version reset inLoop on every label and
+      // the data rows never registered)
+      inLoop = true;
+      out.push(raw);
+      continue;
+    }
+    if (t.startsWith("data_")) {
+      inLoop = false;
+      out.push(raw);
+      continue;
+    }
+    const isStructural =
+      t === "" ||
+      t.startsWith("#") ||
+      t.startsWith("_");
+    if (inLoop && !isStructural) {
+      // a data row inside a loop_ block
+      const tokens = t.split(/\s+/);
+      let touched = false;
+      let hadImageRef = false;
+      const mapped = tokens.map((tok) => {
+        const m = IMG_TOK.exec(tok);
+        if (!m) return tok;
+        facts.imageRefs += 1;
+        hadImageRef = true;
+        const ref = m[1];
+        if (ref.startsWith("/")) {
+          facts.verbatim += 1;
+          return tok; // absolute (cluster-absolute included) rides verbatim
+        }
+        // relative → absolute against the SOURCE star's directory, then the
+        // engine-side view (WSL translation on bridged hosts)
+        const abs = toEngine(`${sourceDir.replace(/\/$/, "")}/${ref}`);
+        facts.rebased += 1;
+        touched = true;
+        const at = tok.indexOf("@");
+        return at >= 0 ? `${tok.slice(0, at + 1)}${abs}` : abs;
+      });
+      if (hadImageRef) facts.rows += 1;
+      out.push(mapped.join(" "));
+      if (!touched) out[out.length - 1] = raw; // nothing rebased → verbatim row
+      continue;
+    }
+    out.push(raw);
+  }
+  if (facts.rows === 0 || facts.imageRefs === 0) {
+    return {
+      error:
+        "that file does not look like a RELION particles STAR — no image references (idx@stack.mrcs or image paths) were found in any data block",
+    };
+  }
+  return { facts, lines: out };
+}
+
+/**
+ * t315 — Import Node type "Particles": bring an existing particles STAR
+ * (RELION's own "Import particles" door) into the project. The copy keeps
+ * every non-image column and the optics block VERBATIM; image references
+ * are rebased absolute (see rebaseParticlesStar). A remote project reads
+ * the source over SSH and keeps cluster-absolute rows as-is — the
+ * zero-upload contract, identical to the micrographs leg.
+ */
+async function runImportParticlesNative(
+  job: EngineJobRef,
+  workdir: string,
+  projectDir: string
+): Promise<NativeResult> {
+  void projectDir; // (the copy is self-contained — no project-level linking)
+  const raw = String(job.params.micrographsPath ?? "").trim();
+  if (!raw) {
+    return {
+      ok: false,
+      error:
+        "Node type Particles needs a particles .star — pick one in the params tab (Browse → Files, or paste its path; on a remote project pick it from the cluster browser)",
+    };
+  }
+  const meta = getProjectMeta(job.projectId);
+  const connId = meta?.remote?.connectionId ?? null;
+  const conn = connId ? getConnection(connId) : null;
+  if (connId && !conn) {
+    return {
+      ok: false,
+      error:
+        "this is a remote project, but its cluster connection was deleted — re-add the cluster in Remote clusters (the picked paths live on it)",
+    };
+  }
+
+  const starPath = path.join(workdir, "particles.star");
+  let sourceText: string;
+  let sourceDir: string;
+  let toEngine: (p: string) => string;
+  let origin: string;
+
+  if (conn) {
+    // ---- remote project: the path names the CLUSTER's filesystem --------
+    const q = raw.replace(/'/g, "'\\''");
+    const r = await sshExec(conn, `cat '${q}'`, { timeoutMs: 30_000 }).catch(() => null);
+    if (!r || r.code !== 0 || !r.stdout.trim()) {
+      return {
+        ok: false,
+        error: `could not read ${raw} on ${conn.host}${r?.stderr ? ` (${r.stderr.trim().split("\n")[0].slice(0, 160)})` : ""} — re-pick the particles .star in the params tab`,
+      };
+    }
+    sourceText = r.stdout;
+    sourceDir = raw.slice(0, raw.lastIndexOf("/") || undefined) || "/";
+    toEngine = (p) => p; // cluster paths stay cluster-side verbatim
+    origin = `cluster ${conn.name || conn.host}`;
+  } else {
+    // ---- local project: host-side read, engine-view rebase --------------
+    const status = await detectRelion();
+    const bridge = bridgeFromStatus(status);
+    const host = userPathToHost(raw, bridge?.distro ?? null);
+    let text: string;
+    try {
+      text = readFileSync(host, "utf8");
+    } catch {
+      return {
+        ok: false,
+        error: `particles .star not accessible: ${raw} — re-pick it in the params tab (Browse → Files)`,
+      };
+    }
+    sourceText = text;
+    const hostDir = path.dirname(host);
+    sourceDir = hostDir.split(path.sep).join("/");
+    toEngine = (p) => (bridge ? hostToWsl(p) : p);
+    origin = "local";
+  }
+
+  const rebased = rebaseParticlesStar(sourceText, sourceDir, toEngine);
+  if (rebased.error || !rebased.facts || !rebased.lines) {
+    return { ok: false, error: rebased.error ?? "the particles .star could not be parsed" };
+  }
+  const facts = rebased.facts;
+  writeFileSync(starPath, rebased.lines.join("\n") + "\n");
+
+  const refNote =
+    facts.rebased > 0
+      ? ` · ${facts.rebased} relative image refs rebased absolute`
+      : " · image refs kept verbatim (already absolute)";
+  const result = `${facts.rows} particles imported from a ${origin} STAR${refNote} — optics columns preserved from the source`;
+  const logText = [
+    `CryoFlow engine-native import (particles) ${new Date().toISOString()}`,
+    `source: ${raw.slice(0, 200)} (${origin})`,
+    `rows=${facts.rows} imageRefs=${facts.imageRefs} rebased=${facts.rebased} verbatim=${facts.verbatim}`,
+    `output: ${starPath}`,
+    result,
+    "",
+  ].join("\n");
+  recordNativeRun(
+    job,
+    workdir,
+    "engine-native: copy particles.star (refs rebased absolute)",
+    { particles_star: starPath },
     result,
     logText
   );
@@ -4371,6 +4658,49 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
       : { ok: false, error: r.error, ...(r.wait ? { waiting: r.wait } : {}) };
   }
 
+  // ---- resolve inputs (EARLY — t315) ---------------------------------
+  // Two verdicts must speak BEFORE the local-RELION gate below: a job whose
+  // upstream hasn't produced its inputs goes PENDING regardless of whether
+  // THIS machine has a local RELION (a remote-bound project may have none —
+  // "RELION not detected" used to fail the row before the waiting verdict
+  // could speak), and the cluster-resident refusal must fire first for the
+  // same reason (the honest answer to "run this on my machine" with
+  // cluster-absolute paths names the cluster door, not an install lecture).
+  // The resume contract is preserved: an interrupted run's checkpoint still
+  // resumes WITHOUT upstream re-validation (the guard below falls through).
+  const workdir = workdirFor(job);
+  const prevRun = readRuns()[job.id];
+  const interrupted =
+    prevRun != null && (prevRun.done === false || prevRun.exitCode !== 0);
+  const resumableCheckpoint =
+    RESUMABLE_TYPES.has(job.type) && prevRun && interrupted && prevRun.jobId === job.id
+      ? resumableOptimiser(workdir, job.type)
+      : null;
+  const resolved = resolveInputs(job.type, upstream, job.params);
+  if (resolved.missing && resumableCheckpoint == null) {
+    // upstream failed / still running / never ran → the dispatcher marks the
+    // job PENDING (amber) instead of failed — no cascade of red jobs
+    return {
+      ok: false,
+      error: resolved.missing,
+      ...(resolved.wait ? { waiting: resolved.wait } : {}),
+    };
+  }
+  const inputs = resolved.inputs;
+
+  // ---- t315 — cluster-resident inputs: the local lane refuses ----------
+  // A star full of cluster-absolute paths (remote project) on THIS machine
+  // is a guaranteed 195× per-file failure — the WSL submission the user
+  // reported. Refuse before the workdir exists, teach the right door.
+  {
+    const residentRefusal = clusterResidentRefusal(
+      job.type,
+      inputs.micrographs_star,
+      job.projectId
+    );
+    if (residentRefusal) return { ok: false, error: residentRefusal };
+  }
+
   // ---- RELION required ------------------------------------------------
   // Non-force: served instantly from the warm cache / SAVED detection
   // snapshot (stale-while-revalidate re-probes in the background). Run never
@@ -4396,18 +4726,9 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
   // of starting over — hours saved on long auto-refinements. A COMPLETED run
   // (exit 0) intentionally restarts fresh. Upstream re-validation is skipped:
   // the checkpoint STAR files already reference the validated inputs.
-  const workdir = workdirFor(job);
-  const prevRun = readRuns()[job.id];
-  const interrupted =
-    prevRun != null && (prevRun.done === false || prevRun.exitCode !== 0);
-  if (
-    RESUMABLE_TYPES.has(job.type) &&
-    prevRun &&
-    interrupted &&
-    prevRun.jobId === job.id
-  ) {
-    const checkpoint = resumableOptimiser(workdir, job.type);
-    if (checkpoint) {
+  if (resumableCheckpoint) {
+    const checkpoint = resumableCheckpoint;
+    {
       // --o MUST point at the SAME output root the checkpoint was written
       // to (RELION in continue mode still checks the output dir from --o;
       // omitting it defaults to ./run relative to cwd → "output directory
@@ -4446,19 +4767,6 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
       }
     }
   }
-
-  // ---- resolve inputs --------------------------------------------------
-  const resolved = resolveInputs(job.type, upstream, job.params);
-  if (resolved.missing) {
-    // upstream failed / still running / never ran → the dispatcher marks the
-    // job PENDING (amber) instead of failed — no cascade of red jobs
-    return {
-      ok: false,
-      error: resolved.missing,
-      ...(resolved.wait ? { waiting: resolved.wait } : {}),
-    };
-  }
-  const inputs = resolved.inputs;
 
   // ---- t313 — the byte-verified CTF door guards the LOCAL lane too ------
   // Same gate as the remote dispatch (ctffindInputGate + local header

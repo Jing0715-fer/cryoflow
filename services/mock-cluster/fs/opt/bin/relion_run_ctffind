@@ -47,6 +47,19 @@ with open(star_in) as fh:
                 mics.append(cols[0])
 
 print(f"cryoflow-mock ctffind: {len(mics)} micrograph(s) from {star_in}")
+# t315 QA affordance — a flag file NEXT TO THE INPUT STAR makes this stub
+# replay the user's Beijing-shaped failure verbatim (per-micrograph
+# "cannot get CTF values" warnings + the final all-failed ERROR + exit 6),
+# so the finalize diagnosis (login-node readability probe) is exercisable
+# against both verdicts: files readable (compute-node mount story) and
+# files gone (re-import story).
+if os.path.exists(os.path.join(os.path.dirname(os.path.abspath(star_in)), ".qa-ctf-allfail")):
+    for mic in mics:
+        print(f" WARNING: skipping, since cannot get CTF values for {mic}", file=sys.stderr)
+    print("in: ctffind_runner.cpp, line 467", file=sys.stderr)
+    print("ERROR:", file=sys.stderr)
+    print("failed to estimate CTF parameters for any micrograph, exiting...", file=sys.stderr)
+    sys.exit(6)
 # t311 — TOTAL sleep capped at 60s (motioncorr's own t268 doctrine): the
 # 1.6s/mic cadence was tuned for small suites; a 450-micrograph import tree
 # turned the run into a 12-minute wall. Small jobs (≤37 mics) keep the full

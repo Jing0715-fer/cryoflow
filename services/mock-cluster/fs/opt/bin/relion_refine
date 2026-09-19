@@ -95,6 +95,10 @@ def rebase_ref(ref):
 # row resolves from the star's PARENT (dirname(star_dir) == the project
 # root by layout law). The audit accepts star-dir, cwd, or project root.
 star_dir = os.path.dirname(os.path.abspath(star_in))
+# t315 — cluster-absolute rows name the MOCK's mounts, which live under the
+# mock's fs root on the host (the mock server exports it). Every absolute
+# candidate also gets its fs-root translation tried.
+MOCK_ROOT = os.environ.get("CRYOFLOW_MOCK_FS_ROOT", "")
 missing = 0
 for r in rows:
     # real RELION loop rows are WHITESPACE-separated (t311: the engine's own
@@ -106,6 +110,8 @@ for r in rows:
     stack = img.split("@", 1)[1]
     if os.path.isabs(stack):
         candidates = [stack]
+        if MOCK_ROOT:
+            candidates.append(os.path.join(MOCK_ROOT, stack.lstrip("/")))
     else:
         candidates = [
             os.path.join(star_dir, stack),
