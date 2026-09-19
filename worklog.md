@@ -2281,3 +2281,21 @@ Stage Summary:
 - **「烧除三层，层层有形」**：具名镜像、精确 workdir、glob provider 副本——精确路径自证清白，glob 兜住项目 id 漂移；`rmdir` 只清自己掏空的壳（绝不 `rm -rf` 共享目录）
 - **「守卫是日志，不是断言」**：must 进 finally 要么被 catch 吞掉要么炸掉后续清理——日志行让残留响亮而不破坏清理链；执法靠烧除，守卫靠可见
 - 遗留（下轮候选）：verify-module 的 by-value 变体；384³/512³ 阶梯压测（T296_N 已备）；EMPIAR 真数据回归（连续第十九窗让位）；demo 教程链的下游重跑（按老约定补 outputs 映射）；t262/270/293/298 的镜像烧除行已入码、待各批下次自然轮跑活体验证
+
+## Task 310 (2026-09-19 09:55 cron 窗口 trace 1a07549302235a99-cron-agent-loop-202609190955 —— 开局实证：worklog 尾部 = Task 309（HEAD 7c36d2a 已 push、树净、3000 活、roster 21、冒烟 console 0、累积器 11 批 pass 75 · realFail 0），cron 指引的「Task 13」照例过时)
+
+- 【开局 + QA】GET / 200（2.4ms）、roster 21、agent-browser 冒烟（Workflow 视图 + demo 项目加载 + console 0）、累积器与 Task 309 一致。按惯例③自主选题：**t310 = verify-module 的 by-value 变体**（Task 309 遗留清单首选）——t297 给已保存连接造了隐藏模块验证门（`[id]/verify-module`），但创建表单回答不了「我 env 行里这个 beta 模块名在我要加的集群上到底 load 得动吗」——t290 用 by-value 探测退役的「先保存再测试」信任跳跃，在模块名上还活着。附带发现：**t297 的 verify 门在家族里零套件覆盖**（t299 注释自证 "t297 shipped without one"），本窗一并清偿。
+- 【主交付①：by-value 验证门】新路由 `POST /api/remote/connections/verify-module`（静态兄弟段，`/test` 的同族）：body = 连接对象 + `module` + 可选 `probe`（客户端的 probeOverride 回传合并）→ sanitizeConnection 造瞬态连接 → probeModuleDetail 同一仪式 → 判定链三阶：**execError 先答**（SSH 层的自己的话：连不上/认证败/超时——exec 永不 throw，死主机与缺模块曾共住 `home: null` 桶，门对从未到达的主机说 "not found on PATH" 是失真）→ loadRc ≠ 0 带模块工具原话（Lmod 的 "Unknown module"）→ !home 诚实缺 PATH。成功 = mergeVerifiedModule 把模块折进客户端探针（或 emptyProbe 骨架），pin 是草稿侧关切（draftDefaultModule 随 Create 落库，t289 的 chip 惯例）——**注册表字节不动**（套件 sha256 对账）。瞬态 id 用后 dropConnection（幻影不得占 SSH 池位）。
+- 【主交付②：一次合并，两扇门】`mergeVerifiedModule` + `emptyProbe` 从 [id]/verify-module 路由原样提炼进 probe.ts——已保存门重构为共享助手（行为恒等），by-value 门直接复用；ModuleDetail 新增 `execError`（probeModuleDetail 从 exec 结果透传），两扇门的判定链同序说话。ProbeCard 其余事实（uname/Slurm/GPU/homeDir）在合并中保座（套件活体断言）。
+- 【主交付③：创建表单的门】ConnectionEditor 的 verify 行**双模式渲染**（saved-only 门拆除）：创建模式按钮 valid 前禁用（与 Test & probe 同款）、标签 "Verify"（pin 尚非服务端关切）、成功文案说「随 Create 成为默认（在那之前什么都不保存）」；verifyModule 分模式取路由——saved 走 [id] + onPatched（服务器真相回填），create 走 by-value + probeOverride/draftDefaultModule 本地合并。
+- 【家族回归揪出本窗自己的第一颗雷】t310 注册入册（花名册 75→**76**）后 --batch t30 首跑 **t302 real-fail（3 FAIL 双响）**——根因不是 t302 本身：t302 B 相自带 `--batches` 全球覆盖认证，`/^t30/` 不匹配 "t310"，新十年无批归属 → coverage 报孤儿 exit 2（"declared 76, covered NaN"）。修 = BATCHES 注册 `{ name: "t31", match: /^t31/ }`（十年边界即批边界的法则原文：新十年必须到场登记，遗忘是响亮的不是沉默的）。复跑 **t30 pass 5（wall 228.4s）· t31 首跑 pass 1（t310 11.7s）**；累积器 **12 批 TOTAL pass 76 · solo 0 · real-fail 0**；coverage 认证 76 套件各归属唯一。
+- 【套件 t310-verify-module-by-value.mjs（52 断言，ALL PASS ×2）】A 真相；B 台账 18（by-value 路由六牙、saved 门重构三证、probe.ts 助手两证、对话框四证——含 saved-only 门已拆除的源码否定断言）；C 活体：C1 隐藏 beta 名带基座探针验证（ok + relionHome + mpi + 合并探针双模块在列 + 基座事实保座 + 注册表字节恒等）、C1b 无基座验证（emptyProbe 骨架说话，合并列表恰为被证模块）、C2 假名拒绝（Lmod 原话 verbatim）、C3 死主机（"SSH failed: connect ECONNREFUSED" 先答）、C4 三连 400（空名/Shell 元字符——语法即守卫/无 host，node 侧不打脏 console）、C5 跨站 403、C6 **saved 门首个家族覆盖**（创建 → 验证+pin → DTO defaultModule + lastProbe 合并 + hasPassword 密钥剥离 → 注册表持久 → 删除后诚实 404）、C7 创建表单活体全链（行在场于空表单 → valid+名双条件武装 → ok 行 + 「随 Create」文案 → chip 预选 aria-pressed → **Create 落库 defaultModule**）；D console 0 + roster 21；finally 烧净自建连接 + .lmod/loaded 还原为发现时状态（t309 教训：碰过什么还什么）。
+- 【套件写作期自纠三处（全是套件的错，应用无咎）】① C4 两个 must 差一个配对括号（SyntaxError 首航即抓）；② C7 在模块名还空着时断言 Verify 已武装——disabled 三条件含 `!verifyInput.trim()`，顺序错误；③ C7 忘填 Port 字段——UI 诚实打 :22 被拒，错误行原样渲染「SSH failed: connect ECONNREFUSED 127.0.0.1:22」（**错误体是最短诊断路径的又一次现场教学**）；C7 探测卡标题断言补大小写不敏感（SectionTitle 的 CSS uppercase 让 innerText 说大写话）。
+- 【收尾】worklog（本条）+ commit/push + 环境净场（3000 独监、mock 杀净、.lmod 还原、roster 21、tsc 0、改动文件 eslint 0）。
+
+Stage Summary:
+- **「先保存再测试」的信任跳跃按域退役**：登录（t290 by-value probe）、模块名（t310 by-value verify）——凡「请求体自己能回答的问题」就不该要求先落库；by-value 门的一切都按值发生（瞬态连接、用后弃池、注册表字节恒等），而 pin 这类「承诺」依然只属于保存动作
+- **「登录失败是另一种答案」**：exec 永不 throw，把死主机和缺模块折进同一个 `home: null` 桶，门就会对从未到达的主机说「PATH 上没有」——execError 先答让「连不上」「模块拒绝」「二进制缺席」各说各话；判定的顺序就是诊断的顺序
+- **「一次合并，两扇门」**：合并逻辑提炼成共享助手不是洁癖——两处手写必然漂移，漂移的合并让两个门给同一个模块发不同的身份证；提取后 saved 门是重构不是复写，行为恒等由既有断言看管
+- **「覆盖认证是全球的，孤儿是响亮的」**：t302 的 real-fail 根因在别处（新十年未登记），但正是它 B 相自带的 --batches 认证把孤儿当场报出——家族里没有「只测自己」的套件，每个套件都替全世界看门；修法也是全球的：登记 t31 批，而不是放宽断言
+- 遗留（下轮候选）：384³/512³ 阶梯压测（T296_N 已备）；EMPIAR 真数据回归（连续第二十窗让位）；demo 教程链的下游重跑（按老约定补 outputs 映射）；t262/270/293/298 的镜像烧除行已入码、待各批下次自然轮跑活体验证；verify 门 by-value 变体已落地勿重做

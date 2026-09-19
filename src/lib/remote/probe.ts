@@ -89,7 +89,9 @@ export function parseRelionModules(text: string): string[] {
 /* Per-module detail probe (shared by the sweep + the verify door)      */
 /* ------------------------------------------------------------------ */
 
-/** What a single `module load X` reveals about one relion install. */
+/**
+ * What a single `module load X` reveals about one relion install.
+ */
 export interface ModuleDetail {
   /** Install root (…/bin contains relion_refine) — null when unresolved. */
   home: string | null;
@@ -101,6 +103,16 @@ export interface ModuleDetail {
   loadRc: number | null;
   /** First line of `module load` failure output when the load itself failed. */
   loadError: string | null;
+  /**
+   * t310 — the SSH layer's own complaint (connection refused, auth failed,
+   * timeout). exec NEVER throws, so a dead host and "module not on PATH"
+   * used to land in the same `home: null` bucket and the verify door told
+   * the user "relion_refine not found on PATH" about a host it never
+   * reached. The verify doors (saved + by-value) check this FIRST — a
+   * login that cannot happen is a different answer than a module that
+   * does not exist.
+   */
+  execError: string | null;
 }
 
 /**
@@ -175,7 +187,68 @@ export async function probeModuleDetail(
     externals,
     loadRc,
     loadError,
+    execError: detail.error ?? null,
   };
+}
+
+/* ------------------------------------------------------------------ */
+/* Verify-door merge helpers (t310) — one merge, both doors             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * t310 — the probe skeleton the verify doors merge into when there is no
+ * prior probe to build on (a by-value verify from a form that was never
+ * Test & probe'd, or a saved connection that never probed). Extracted from
+ * the [id]/verify-module route so the by-value door speaks the same shape.
+ */
+export function emptyProbe(): RemoteProbe {
+  return {
+    ok: true,
+    checkedAt: new Date().toISOString(),
+    uname: null,
+    moduleSystem: "none",
+    relionModules: [],
+    relionHomes: {},
+    relionMpi: {},
+    relionCtffind: {},
+    externals: {},
+    slurm: false,
+    gpus: [],
+    slurmGpus: [],
+    homeDir: null,
+  };
+}
+
+/**
+ * t310 — fold ONE verified module into a probe (the [id]/verify-module
+ * merge, extracted verbatim): the name joins the version-sorted list, the
+ * install root / mpi / ctffind / externals facts land under the module's
+ * key. The same function serves the saved door (merging into lastProbe
+ * before the patch) and the by-value door (merging into the client's
+ * probeOverride) — one merge, no drift.
+ */
+export function mergeVerifiedModule(
+  probe: RemoteProbe,
+  moduleName: string,
+  detail: ModuleDetail
+): RemoteProbe {
+  const merged: RemoteProbe = { ...probe };
+  if (!merged.relionModules.includes(moduleName)) {
+    merged.relionModules = [...merged.relionModules, moduleName].sort((a, b) => {
+      const va = /(\d+(?:\.\d+)*)/.exec(a)?.[1] ?? "0";
+      const vb = /(\d+(?:\.\d+)*)/.exec(b)?.[1] ?? "0";
+      return vb.localeCompare(va, undefined, { numeric: true });
+    });
+  }
+  if (detail.home) merged.relionHomes = { ...merged.relionHomes, [moduleName]: detail.home };
+  merged.relionMpi = { ...merged.relionMpi, [moduleName]: detail.mpi };
+  if (detail.ctffind) {
+    merged.relionCtffind = { ...merged.relionCtffind, [moduleName]: detail.ctffind };
+  }
+  if (Object.keys(detail.externals).length > 0) {
+    merged.externals = { ...merged.externals, [moduleName]: detail.externals };
+  }
+  return merged;
 }
 
 /* ------------------------------------------------------------------ */

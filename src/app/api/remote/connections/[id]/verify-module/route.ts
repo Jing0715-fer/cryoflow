@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isLocalRequest } from "@/lib/http-guard";
 import { getConnection, patchConnection, toConnectionDTO } from "@/lib/remote/connections";
-import { probeModuleDetail } from "@/lib/remote/probe";
+import { emptyProbe, mergeVerifiedModule, probeModuleDetail } from "@/lib/remote/probe";
 import { dropConnection } from "@/lib/remote/ssh";
 import { withRunResume } from "@/lib/remote/remote-run";
-import type { RemoteConnection, RemoteProbe } from "@/lib/remote/types";
+import type { RemoteConnection } from "@/lib/remote/types";
 
 export const dynamic = "force-dynamic";
 
@@ -54,7 +54,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     const detail = await probeModuleDetail(conn as RemoteConnection, moduleName);
-    // The module tool's OWN verdict first: a non-zero load rc means the name
+    // The SSH layer's own complaint first (t310): exec NEVER throws, so a
+    // dead host and a missing module used to share the `home: null` bucket
+    // and the door said "not found on PATH" about a host it never reached —
+    // a login that cannot happen is a different answer than a module that
+    // does not exist. (The saved door could only hit this when the cluster
+    // went dark AFTER a successful probe; the by-value sibling t310 hits it
+    // on first contact.)
+    if (detail.execError) {
+      return NextResponse.json({ ok: false, error: `SSH failed: ${detail.execError}` });
+    }
+    // The module tool's OWN verdict next: a non-zero load rc means the name
     // is wrong even when a stale environment still offers relion_refine on
     // PATH (the mock and half-loaded shells both do this) — reporting
     // success there would forge the exact confirmation the user asked for.
@@ -76,38 +86,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     // ---- verified: merge into lastProbe + optional pin --------------------
-    const probe: RemoteProbe = conn.lastProbe
-      ? { ...conn.lastProbe }
-      : {
-          ok: true,
-          checkedAt: new Date().toISOString(),
-          uname: null,
-          moduleSystem: "none",
-          relionModules: [],
-          relionHomes: {},
-          relionMpi: {},
-          relionCtffind: {},
-          externals: {},
-          slurm: false,
-          gpus: [],
-          slurmGpus: [],
-          homeDir: null,
-        };
-    if (!probe.relionModules.includes(moduleName)) {
-      probe.relionModules = [...probe.relionModules, moduleName].sort((a, b) => {
-        const va = /(\d+(?:\.\d+)*)/.exec(a)?.[1] ?? "0";
-        const vb = /(\d+(?:\.\d+)*)/.exec(b)?.[1] ?? "0";
-        return vb.localeCompare(va, undefined, { numeric: true });
-      });
-    }
-    probe.relionHomes = { ...probe.relionHomes, [moduleName]: detail.home };
-    probe.relionMpi = { ...probe.relionMpi, [moduleName]: detail.mpi };
-    if (detail.ctffind) {
-      probe.relionCtffind = { ...probe.relionCtffind, [moduleName]: detail.ctffind };
-    }
-    if (Object.keys(detail.externals).length > 0) {
-      probe.externals = { ...probe.externals, [moduleName]: detail.externals };
-    }
+    // t310 — the merge lives in mergeVerifiedModule (shared with the
+    // by-value door), the skeleton in emptyProbe() — one merge, no drift.
+    const probe = mergeVerifiedModule(conn.lastProbe ?? emptyProbe(), moduleName, detail);
 
     const patch: Record<string, unknown> = { lastProbe: probe };
     if (body?.pin === true) patch.defaultModule = moduleName;

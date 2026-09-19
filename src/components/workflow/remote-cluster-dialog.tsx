@@ -998,19 +998,32 @@ function ConnectionEditor({
    * above re-render with it) AND pins it as the default — the exact
    * "confirm this command can call relion 5" the user asked for. A refusal
    * carries the module tool's own words (Lmod's "Unknown module").
+   *
+   * t310 — the door speaks BY VALUE on the create form too: the draft is
+   * sent as-is (nothing persisted until Create), the server merges the
+   * verified module into the probe the client already has, and the pin
+   * lives in draftDefaultModule (t289's chip idiom — defaultModule rides
+   * the Create payload). Saved connections keep the [id] route: the server
+   * patches lastProbe + defaultModule and the response DTO is the truth.
    */
   const verifyModule = async () => {
     const name = verifyInput.trim();
-    if (!connection || !name || verifying) return;
+    if (!name || verifying || (creating ? !valid : !connection)) return;
     setVerifying(true);
     setVerifyResult(null);
     setError(null);
     try {
-      const res = await fetch(`/api/remote/connections/${connection.id}/verify-module`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ module: name, pin: true }),
-      });
+      const res = creating
+        ? await fetch("/api/remote/connections/verify-module", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ...buildPayload(), module: name, probe: probeOverride }),
+          })
+        : await fetch(`/api/remote/connections/${connection!.id}/verify-module`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ module: name, pin: true }),
+          });
       const body = (await res.json().catch(() => null)) as
         | {
             ok?: boolean;
@@ -1018,20 +1031,27 @@ function ConnectionEditor({
             relionHome?: string;
             mpi?: boolean;
             error?: string;
+            probe?: RemoteProbe;
             connection?: RemoteConnectionDTO;
           }
         | null;
-      if (res.ok && body?.ok && body.connection) {
+      const verified = res.ok && body?.ok && (creating ? body.probe : body.connection);
+      if (verified) {
         setVerifyResult({
           ok: true,
-          module: body.module ?? name,
-          relionHome: body.relionHome ?? "",
-          mpi: body.mpi === true,
+          module: body?.module ?? name,
+          relionHome: body?.relionHome ?? "",
+          mpi: body?.mpi === true,
         });
         // the server's truth replaces both the row and the probe card's
         // source — the verified module appears among the chips immediately
-        onPatched(body.connection);
-        setProbeOverride(body.connection.lastProbe ?? null);
+        if (creating) {
+          setProbeOverride(body!.probe ?? null);
+          setDraftDefaultModule(body?.module ?? name);
+        } else {
+          onPatched(body!.connection!);
+          setProbeOverride(body!.connection!.lastProbe ?? null);
+        }
         setVerifyInput("");
       } else {
         setVerifyResult({ ok: false, error: body?.error ?? `Verification failed (HTTP ${res.status}).` });
@@ -1391,78 +1411,83 @@ function ConnectionEditor({
         </p>
       )}
 
-      {/* t297 — the beta/hidden module door (saved connections only: the
-          verify route needs a registry id to load against). */}
-      {!creating ? (
-        <div
-          className="space-y-1.5 rounded-md border border-dashed px-3 py-2.5"
-          data-verify-module-row=""
-        >
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Module not listed? Verify by name
-          </p>
-          <p className="text-[11px] leading-relaxed text-muted-foreground">
-            Hidden and beta modules (Lmod hides them from <code className="rounded bg-muted px-1 py-0.5 font-mono text-[10px]">module avail</code>)
-            still load by full name — type the exact name, verify it, and it joins the list above and becomes
-            the default.
-          </p>
-          <div className="flex items-center gap-1.5">
-            <Input
-              value={verifyInput}
-              onChange={(e) => setVerifyInput(e.target.value.trim())}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  void verifyModule();
-                }
-              }}
-              placeholder="relion/beta_5.0_gpu_ompi5_cuda118"
-              className="h-9 font-mono text-[13px]"
-              maxLength={200}
-              aria-label="Module name to verify"
-              data-verify-module-input=""
-            />
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-9 shrink-0 gap-1.5 text-xs"
-              onClick={() => void verifyModule()}
-              disabled={verifying || !verifyInput.trim()}
-              data-verify-module-button=""
-            >
-              {verifying ? (
-                <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
-              ) : (
-                <BadgeCheck className="size-3.5" aria-hidden="true" />
-              )}
-              {verifying ? "Verifying…" : "Verify & pin"}
-            </Button>
-          </div>
-          {verifyResult ? (
-            verifyResult.ok ? (
-              <p
-                role="status"
-                className="text-[11px] leading-relaxed text-emerald-700 dark:text-emerald-300"
-                data-verify-module-ok=""
-              >
-                <span className="font-mono">{verifyResult.module}</span> loads — relion_refine at{" "}
-                <span className="font-mono">{verifyResult.relionHome || "(module PATH)"}</span>
-                {verifyResult.mpi ? " · mpirun ✓" : " · no mpirun (sequential fallback)"}. It is now in the
-                list above and pinned as the default.
-              </p>
+      {/* t297 — the beta/hidden module door. t310: the CREATE form speaks
+          too — the by-value route proves the name against the draft (nothing
+          persisted until Create), so "does this beta module load HERE" is
+          answerable BEFORE the connection exists. The Verify button waits
+          for a valid host+username, exactly like Test & probe. */}
+      <div
+        className="space-y-1.5 rounded-md border border-dashed px-3 py-2.5"
+        data-verify-module-row=""
+      >
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Module not listed? Verify by name
+        </p>
+        <p className="text-[11px] leading-relaxed text-muted-foreground">
+          Hidden and beta modules (Lmod hides them from <code className="rounded bg-muted px-1 py-0.5 font-mono text-[10px]">module avail</code>)
+          still load by full name — type the exact name and verify it.{" "}
+          {creating
+            ? "It joins the list above and rides with Create as the default (nothing is saved until then)."
+            : "It joins the list above and becomes the default."}
+        </p>
+        <div className="flex items-center gap-1.5">
+          <Input
+            value={verifyInput}
+            onChange={(e) => setVerifyInput(e.target.value.trim())}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                void verifyModule();
+              }
+            }}
+            placeholder="relion/beta_5.0_gpu_ompi5_cuda118"
+            className="h-9 font-mono text-[13px]"
+            maxLength={200}
+            aria-label="Module name to verify"
+            data-verify-module-input=""
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-9 shrink-0 gap-1.5 text-xs"
+            onClick={() => void verifyModule()}
+            disabled={verifying || !verifyInput.trim() || (creating && !valid)}
+            data-verify-module-button=""
+          >
+            {verifying ? (
+              <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
             ) : (
-              <p
-                role="alert"
-                className="text-[11px] leading-relaxed text-rose-700 dark:text-rose-300"
-                data-verify-module-error=""
-              >
-                {verifyResult.error}
-              </p>
-            )
-          ) : null}
+              <BadgeCheck className="size-3.5" aria-hidden="true" />
+            )}
+            {verifying ? "Verifying…" : creating ? "Verify" : "Verify & pin"}
+          </Button>
         </div>
-      ) : null}
+        {verifyResult ? (
+          verifyResult.ok ? (
+            <p
+              role="status"
+              className="text-[11px] leading-relaxed text-emerald-700 dark:text-emerald-300"
+              data-verify-module-ok=""
+            >
+              <span className="font-mono">{verifyResult.module}</span> loads — relion_refine at{" "}
+              <span className="font-mono">{verifyResult.relionHome || "(module PATH)"}</span>
+              {verifyResult.mpi ? " · mpirun ✓" : " · no mpirun (sequential fallback)"}.{" "}
+              {creating
+                ? "It is in the list above and will become the default when you create the connection."
+                : "It is now in the list above and pinned as the default."}
+            </p>
+          ) : (
+            <p
+              role="alert"
+              className="text-[11px] leading-relaxed text-rose-700 dark:text-rose-300"
+              data-verify-module-error=""
+            >
+              {verifyResult.error}
+            </p>
+          )
+        ) : null}
+      </div>
 
       {testError ? (
         <p

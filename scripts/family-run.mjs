@@ -12,7 +12,7 @@
 //        solo FAIL  → REAL-FAIL (a verdict, needs a human)
 //   3. EXIT CODE — 0 iff zero REAL-FAILs (SOLO-RECOVERY is honest but not a blocker).
 //
-// The FAMILY roster is an audited membership list (75 suites as of Task 308) —
+// The FAMILY roster is an audited membership list (76 suites as of Task 310) —
 // it is written here EXPLICITLY, not discovered by glob: diag-*/probe scripts and
 // one-off hearings are not family. When a new suite joins the family, add it here.
 //
@@ -140,6 +140,7 @@ const FAMILY = [
   "t306-sbatch-array.mjs", // the array split joins the dispatch: --array=1-N%M shards the input STAR round-robin, the last task home merges the shard stars and speaks the verdict, the mock fans out with %M and journals <id>_<t> rows (Task 306)
   "t307-sbatch-array-extract-pick.mjs", // the array split learns extract+autopick: ARRAY_FLAVORS (outArg/outStar/merge dialect — star concat, rows concat with the ../ strip, per-mic coords collection), the mock's extract fake turns star-aware (relpath ImageName = the contract the strip is built on), one live pipeline picks in 3 shards and extracts in 2 (Task 307)
   "t308-array-downstream.mjs", // the array pipeline's DOWNSTREAM: class2d eats the merged particle star on the cluster — twin pass-through by cluster path (zero re-upload), the refine fake turns star-aware (reads --i, audits merge integrity, echoes ImageName provenance), the extract fake's stacks become RENDERABLE MRCs (Task 308)
+  "t310-verify-module-by-value.mjs", // the verify door speaks BY VALUE: the CREATE form proves a hidden beta module name before anything is saved (transient connection, dropped SSH pool slot, byte-identical registry), execError speaks FIRST (a dead host is a different answer than a missing module), one mergeVerifiedModule serves both doors, and the SAVED door gets its first family coverage (t297's debt) (Task 310)
 ];
 
 // ---- batches are first-class (t273) ----------------------------------------
@@ -164,6 +165,7 @@ const BATCHES = [
   { name: "t28", match: /^t28/ },
   { name: "t29", match: /^t29/ },
   { name: "t30", match: /^t30/ }, // t302 — the t30 decade registers itself on arrival
+  { name: "t31", match: /^t31/ }, // t310 — the t31 decade registers itself on arrival
 ];
 const batchOf = (file) => BATCHES.find((b) => b.match.test(file))?.name ?? null;
 
