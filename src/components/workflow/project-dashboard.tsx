@@ -55,7 +55,7 @@ import type { JobDTO, ProjectSummaryDTO } from "@/lib/types";
 import { jobType } from "@/lib/workflow";
 import { TypeIcon } from "./icons";
 import { PipelineAnalytics } from "./pipeline-analytics";
-import { StatusBadge, estimateEta, formatEta, trackEtaBaseline } from "./job-card";
+import { StatusBadge, estimateEta, formatEta, isSlurmQueued, trackEtaBaseline } from "./job-card";
 import { formatElapsed } from "@/lib/elapsed";
 import { useNow } from "@/lib/use-now";
 // diff entry No.4 (Task 89): the roster is the SURVEY surface — "compare
@@ -1046,7 +1046,7 @@ function JobRow({ job, onOpen }: { job: JobDTO; onOpen: () => void }) {
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-2">
             <span className="truncate text-xs font-semibold">{job.name}</span>
-            <StatusBadge status={job.status} />
+            <StatusBadge status={job.status} queued={isSlurmQueued(job)} />
             {job.note ? (
               // the row-level twin of the canvas badge (Task 73): amber
               // StickyNote, full text on hover, .no-print — the dashboard's
@@ -1106,7 +1106,18 @@ function JobRow({ job, onOpen }: { job: JobDTO; onOpen: () => void }) {
               </span>
             ) : null}
           </span>
-          {job.status === "running" ? (
+          {job.status === "running" && isSlurmQueued(job) ? (
+            // t322 — queued on slurm: no progress bar (0% would claim
+            // compute that has not started), the queue wait speaks instead
+            <span className="mt-1 flex items-center gap-1 truncate text-[10px] font-medium text-amber-700 dark:text-amber-300">
+              <span className="inline-block size-1.5 shrink-0 rounded-full bg-amber-500" aria-hidden="true" />
+              <span className="truncate">
+                {job.runRemote?.slurmDependsOn?.length
+                  ? `queued · waits on ${job.runRemote.slurmDependsOn.join(", ")}`
+                  : "queued · waiting for the scheduler"}
+              </span>
+            </span>
+          ) : job.status === "running" ? (
             <span className="mt-1 flex items-center gap-2">
               <Progress value={job.progress} className="h-1 flex-1 overflow-hidden" />
               <span className="shrink-0 text-[10px] font-semibold tabular-nums text-teal-600 dark:text-teal-400">
@@ -1193,6 +1204,10 @@ interface RecentJob {
   updatedAt: string;
   projectId: string | null;
   projectName: string | null;
+  /** t322 — the queue dialect's minimal signal (mode + slurmState + the
+   * upstream ids): a slurm-queued run wears "Queued" here too, never a
+   * teal "Running" over a 0% bar that claims compute. */
+  runRemote?: { mode?: string; slurmState?: string; slurmDependsOn?: string[] } | null;
 }
 
 /** One wire→internal translation point: divide the 0–100 wire scale down
@@ -1438,13 +1453,25 @@ function RecentActivityFeed({ activeProjectId }: { activeProjectId: string | nul
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-1.5">
                     <span className="truncate text-[11px] font-semibold">{j.name}</span>
-                    <StatusBadge status={j.status} />
+                    <StatusBadge status={j.status} queued={isSlurmQueued(j)} />
                   </span>
                   <span className="mt-0.5 block truncate text-[10px] text-muted-foreground">
                     {!isLocal && j.projectName ? `${j.projectName} · ` : ""}
                     {formatDistanceToNow(new Date(j.updatedAt), { addSuffix: true })}
                   </span>
-                  {j.status === "running" && (
+                  {j.status === "running" && isSlurmQueued(j) ? (
+                    // t322 — the feed's queue dialect: no shimmer bar (0%
+                    // would claim compute that has not started), the wait
+                    // speaks instead — same word the roster row speaks
+                    <span className="mt-1 flex items-center gap-1 truncate text-[10px] font-medium text-amber-700 dark:text-amber-300">
+                      <span className="inline-block size-1.5 shrink-0 rounded-full bg-amber-500" aria-hidden="true" />
+                      <span className="truncate">
+                        {j.runRemote?.slurmDependsOn?.length
+                          ? `queued · waits on ${j.runRemote.slurmDependsOn.join(", ")}`
+                          : "queued · waiting for the scheduler"}
+                      </span>
+                    </span>
+                  ) : j.status === "running" && (
                     <span
                       className="mt-1 flex items-center gap-1.5"
                       aria-label={`Progress ${Math.round(j.progress * 100)}%`}

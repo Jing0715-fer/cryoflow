@@ -456,6 +456,60 @@ Two contracts ride on top:
   the header sniff, the star write — instead of a dead 0% for the whole
   listing marathon.
 
+## 4e. The queue is a status, not a silence (t322)
+
+A Slurm job that is **PENDING is not "Running"**. The sweep has spoken the
+scheduler's own word since t297 (`runRemote.slurmState`, live-patched from
+`squeue -o %T` every 4s); every STATUS SURFACE now renders it through one
+shared predicate (`isSlurmQueued` — DB status still `running`, mode slurm,
+slurmState PENDING):
+
+- the card badge says **Queued** (amber, the pending dialect) — never teal
+  "Running" over compute that has not started;
+- **no progress bar, no ETA** — 0% would be a claim; the queue wait speaks
+  instead (`queued · waits on 124589` when an `--dependency=afterok` holds
+  it, `queued · waiting for the scheduler` otherwise);
+- the hover peek's clock says **"4m in queue"**, the panel and the roster
+  row speak the same sentence, the inspector's timeline step is **Queued**
+  (amber "wait" tone) and its result card says **"Waiting in the Slurm
+  queue — Slurm job 124590 is held until 124589 lands"**;
+- the recent-activity feed carries a slim `runRemote` (mode + slurmState +
+  the upstream ids) so the dashboard feed agrees with the roster.
+
+When the scheduler starts the job the badge flips to Running and the bar
+wakes up — the DB status was honest all along; only the rendering had been
+merging two states into one word.
+
+## 4f. Cluster thumbnails: decimate on the cluster, cache locally (t322)
+
+The import gallery never pulls a whole .mrc again. The preview door runs a
+**decimation ladder** over SSH:
+
+1. **python3, pure stdlib** (no numpy demand on a login node): parses the
+   MRC header, nearest-neighbour-thins BOTH axes on the cluster, streams
+   ~0.5 MB of base64 voxels for a 64 MB micrograph (a 4096² float32 thumb
+   at 384 px ≈ 121× less wire). Frame stacks preview via their MIDDLE frame
+   (one frame of a 32 MB 8-frame movie travels, not the stack).
+2. **GNU dd strided rows** (no python3 on the node): `od` reads the header,
+   one `dd iflag=skip_bytes,count_bytes` per kept row — full-width rows
+   travel, the columns thin locally with the same step math.
+3. **The whole-file pull** (FETCH_CAP 512 MB + its teaching refusal) — only
+   for shells that speak neither dialect.
+
+All three tiers pick the SAME pixels (the step math mirrors `downsample()`
+exactly — the ladder smoke proves byte-identical PNGs against full-file
+renders), the contrast stretch is the same 2–98% pipeline as every local
+thumbnail, and the rendered PNG persists in `data/remote-preview` — the
+second visit is served from disk, byte-identical (`X-CF-Preview-Tier:
+python | dd | full | cache` speaks which tier answered, `X-CF-Preview-Bytes`
+the wire bill).
+
+The sample of five is **deterministic per job** (seeded by job id + a reroll
+counter; the re-sample button advances and remembers it in localStorage) —
+the old Math.random re-roll meant five fresh cluster paths every visit, so
+the cache never hit. Responses carry `Cache-Control: public, max-age=86400`
+so the browser stops re-asking too.
+
 ## 5. Honest failure catalog
 
 | Failure | What you see |

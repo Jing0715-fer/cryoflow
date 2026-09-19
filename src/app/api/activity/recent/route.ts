@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { remoteInfoFor } from "@/lib/remote/remote-run";
 
 export const dynamic = "force-dynamic";
 
@@ -44,16 +45,32 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json({
-      jobs: jobs.map((j) => ({
-        id: j.id,
-        name: j.name,
-        type: j.type,
-        status: j.status,
-        progress: j.progress,
-        updatedAt: j.updatedAt,
-        projectId: j.project?.id ?? null,
-        projectName: j.project?.name ?? null,
-      })),
+      jobs: jobs.map((j) => {
+        // t322 — the feed's badge must speak the SCHEDULER's word too: a
+        // slurm-queued run is "Queued", not "Running". The slim select
+        // stays slim — the runs store is an in-memory read, and only the
+        // three fields the queue dialect needs ride the wire.
+        const info = remoteInfoFor(j.id);
+        return {
+          id: j.id,
+          name: j.name,
+          type: j.type,
+          status: j.status,
+          progress: j.progress,
+          updatedAt: j.updatedAt,
+          projectId: j.project?.id ?? null,
+          projectName: j.project?.name ?? null,
+          ...(info
+            ? {
+                runRemote: {
+                  mode: info.mode,
+                  ...(info.slurmState ? { slurmState: info.slurmState } : {}),
+                  ...(info.slurmDependsOn?.length ? { slurmDependsOn: info.slurmDependsOn } : {}),
+                },
+              }
+            : {}),
+        };
+      }),
     });
   } catch (err) {
     console.error("GET /api/activity/recent failed:", err);

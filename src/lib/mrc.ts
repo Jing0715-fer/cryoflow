@@ -445,6 +445,80 @@ export async function renderMrcLargePng(
 }
 
 /* ------------------------------------------------------------------ */
+/* Decimated previews (t322) — the pixels arrive pre-thinned           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Decode a run of raw little-endian MRC voxels (mode-dispatched) into
+ * Float32 values. The decimation ladder's cluster-side scripts emit RAW
+ * strided bytes — decoding happens here, on the app side, so the remote
+ * leg needs nothing beyond POSIX shell (t322).
+ */
+export function decodeRawVoxels(raw: Buffer, mode: number, count: number): Float32Array {
+  const out = new Float32Array(count);
+  switch (mode) {
+    case 0:
+      for (let i = 0; i < count; i++) out[i] = raw.readInt8(i);
+      break;
+    case 1:
+      for (let i = 0; i < count; i++) out[i] = raw.readInt16LE(i * 2);
+      break;
+    case 6:
+      for (let i = 0; i < count; i++) out[i] = raw.readUInt16LE(i * 2);
+      break;
+    default: // 2 — float32
+      for (let i = 0; i < count; i++) out[i] = raw.readFloatLE(i * 4);
+  }
+  return out;
+}
+
+/**
+ * Column decimation for row-thinned payloads — the dd tier of the ladder
+ * sends FULL-width rows (strided row reads only), so the columns are
+ * thinned here. The step math is downsample()'s own (step from nx vs
+ * maxW, nearest neighbour, no clamping needed — (ceil(nx/step)-1)*step
+ * < nx always), which is why ALL THREE tiers of the preview ladder pick
+ * the SAME pixels and render byte-identical PNGs (t322).
+ */
+function decimateColumns(
+  data: Float32Array,
+  nx: number,
+  ny: number,
+  maxW: number
+): { values: Float32Array; width: number; height: number } {
+  const step = Math.max(1, Math.ceil(nx / maxW));
+  const w = Math.ceil(nx / step);
+  const out = new Float32Array(w * ny);
+  for (let y = 0; y < ny; y++) {
+    for (let x = 0; x < w; x++) {
+      out[y * w + x] = data[y * nx + x * step];
+    }
+  }
+  return { values: out, width: w, height: ny };
+}
+
+/**
+ * Render an ALREADY-thinned pixel grid (t322's decimated preview ladder):
+ * `data` is row-major `nx × ny` (the python tier sends both axes thinned,
+ * the dd tier sends full-width strided rows — this render thins the
+ * columns only when nx still exceeds maxW). Contrast stretch and PNG
+ * encoding are the SAME pipeline as every other thumbnail, so a
+ * decimated preview is pixel-identical to a full-file render.
+ */
+export async function renderDecimatedPng(
+  data: Float32Array,
+  nx: number,
+  ny: number,
+  maxW: number,
+  window?: MrcWindow
+): Promise<Buffer | null> {
+  if (!(nx > 0) || !(ny > 0) || data.length < nx * ny) return null;
+  const grid = nx > maxW ? decimateColumns(data, nx, ny, maxW) : { values: data, width: nx, height: ny };
+  const gray = stretchToGray(grid.values, window);
+  return grayToPng(gray, grid.width, grid.height);
+}
+
+/* ------------------------------------------------------------------ */
 /* Orthogonal planes (3D volumes only)                                 */
 /* ------------------------------------------------------------------ */
 

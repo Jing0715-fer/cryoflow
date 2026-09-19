@@ -68,6 +68,26 @@ import { capturePointer } from "@/lib/pointer";
 /* Shared bits (also used by the details panel)                        */
 /* ------------------------------------------------------------------ */
 
+/**
+ * t322 — a Slurm-queued remote run is NOT "running": the scheduler holds
+ * the job (PENDING, often waiting on an upstream afterok dependency — the
+ * user's autopick-while-ctffind-runs report). The DB status stays
+ * "running" (the sweep's honest ladder owns the lifecycle), but every
+ * STATUS SURFACE renders the scheduler's own word instead: "Queued",
+ * amber, no fake progress. Structural typing: every DTO flavor with a
+ * runRemote rides the same helper.
+ */
+export function isSlurmQueued(job: {
+  status: string;
+  runRemote?: { mode?: string; slurmState?: string } | null;
+}): boolean {
+  return (
+    job.status === "running" &&
+    job.runRemote?.mode === "slurm" &&
+    job.runRemote?.slurmState === "PENDING"
+  );
+}
+
 export const STATUS_STYLES: Record<string, string> = {
   idle: "border-slate-300 text-slate-600 dark:border-slate-600 dark:text-slate-400",
   pending:
@@ -79,25 +99,27 @@ export const STATUS_STYLES: Record<string, string> = {
   failed: "border-rose-400/60 text-rose-700 dark:border-rose-500/50 dark:text-rose-300",
 };
 
-export function StatusBadge({ status }: { status: string }) {
+export function StatusBadge({ status, queued }: { status: string; queued?: boolean }) {
   return (
     <Badge
       variant="outline"
       className={cn(
         "h-5 gap-1 rounded-full px-2 text-[10px] font-medium capitalize",
-        STATUS_STYLES[status] ?? STATUS_STYLES.idle
+        // t322 — a queued remote run wears the pending dialect (amber):
+        // "running" would claim compute that has not started yet
+        queued ? STATUS_STYLES.pending : STATUS_STYLES[status] ?? STATUS_STYLES.idle
       )}
     >
-      {status === "running" && (
-        <span className="animate-soft-pulse inline-block size-1.5 rounded-full bg-teal-500" />
-      )}
-      {status === "pending" && (
+      {(queued || status === "pending") && (
         <span className="animate-soft-pulse inline-block size-1.5 rounded-full bg-amber-500" />
+      )}
+      {status === "running" && !queued && (
+        <span className="animate-soft-pulse inline-block size-1.5 rounded-full bg-teal-500" />
       )}
       {status === "completed" && (
         <span className="inline-block size-1.5 rounded-full bg-emerald-500" />
       )}
-      {status}
+      {queued ? "queued" : status}
     </Badge>
   );
 }
@@ -754,19 +776,32 @@ function JobCardPreview({
       </div>
       <div className="space-y-2 px-3 py-2.5">
         <div className="flex items-center gap-2">
-          <StatusBadge status={job.status} />
+          <StatusBadge status={job.status} queued={isSlurmQueued(job)} />
           {job.status === "running" ? (
-            <span
-              data-testid="preview-elapsed"
-              className="text-[10px] font-semibold tabular-nums text-teal-600 dark:text-teal-400"
-            >
-              {elapsedText ? `${elapsedText} elapsed · ` : ""}
-              {Math.round(job.progress)}%
-              {etaText ? ` · ${etaText} left` : ""}
-            </span>
+            isSlurmQueued(job) ? (
+              // t322 — the hover peek speaks the queue dialect too: the
+              // elapsed clock is the QUEUE wait (honest — it really has
+              // been that long since dispatch), never a %-claim on compute
+              // that has not started, never an ETA on a held job
+              <span
+                data-testid="preview-elapsed"
+                className="text-[10px] font-semibold tabular-nums text-amber-600 dark:text-amber-400"
+              >
+                {elapsedText ? `${elapsedText} in queue` : "queued"}
+              </span>
+            ) : (
+              <span
+                data-testid="preview-elapsed"
+                className="text-[10px] font-semibold tabular-nums text-teal-600 dark:text-teal-400"
+              >
+                {elapsedText ? `${elapsedText} elapsed · ` : ""}
+                {Math.round(job.progress)}%
+                {etaText ? ` · ${etaText} left` : ""}
+              </span>
+            )
           ) : null}
         </div>
-        {job.status === "running" ? (
+        {job.status === "running" && !isSlurmQueued(job) ? (
           <MiniProgress value={job.progress} running label={`${job.name} progress`} />
         ) : null}
         {(job.status === "completed" || job.status === "failed") && job.result ? (
@@ -1507,7 +1542,7 @@ export const JobCard = React.memo(function JobCard({
 
             {/* Row 2: status + type + remote host + link lineage */}
             <div className="flex items-center gap-1.5">
-              <StatusBadge status={job.status} />
+              <StatusBadge status={job.status} queued={isSlurmQueued(job)} />
               <span className="truncate text-[11px] text-muted-foreground">
                 {spec?.key ?? job.type}
               </span>
@@ -1515,9 +1550,11 @@ export const JobCard = React.memo(function JobCard({
                 // Remote-run chip: this job's process lives on an SSH
                 // cluster right now — the panel carries the full story
                 // (module, phase, pid), the card carries the where.
+                // t322 — a PENDING slurm state changes the claim: the job
+                // is HELD on the cluster (the queue), not running on it.
                 <span
                   role="img"
-                  aria-label={`Running on cluster ${job.runRemote.user}@${job.runRemote.host}`}
+                  aria-label={`${isSlurmQueued(job) ? "Queued on cluster" : "Running on cluster"} ${job.runRemote.user}@${job.runRemote.host}`}
                   title={`${job.runRemote.user}@${job.runRemote.host} · ${job.runRemote.module || "no module"} · ${job.runRemote.remoteWorkdir}`}
                   className="flex shrink-0 items-center gap-0.5 rounded border border-teal-500/40 bg-teal-500/10 px-1 text-[9px] font-semibold text-teal-600 dark:border-teal-500/40 dark:text-teal-300"
                 >
@@ -1585,7 +1622,32 @@ export const JobCard = React.memo(function JobCard({
 
             {/* Row 3: progress + ETA / result / ready hint */}
             <div className={`h-4 ${job.note || classNoteEntries.length > 0 ? "print:hidden" : ""}`}>
-              {job.status === "running" ? (
+              {job.status === "running" && isSlurmQueued(job) ? (
+                // t322 — the scheduler is holding this job (PENDING): no
+                // progress bar (0% would be a claim), no ETA (nothing is
+                // moving) — the queue wait speaks instead, in the pending
+                // dialect, with the upstream ids when a dependency holds it
+                <p
+                  className="flex items-center gap-1 truncate text-[11px] leading-4 text-amber-700 dark:text-amber-300"
+                  title={
+                    job.runRemote?.slurmDependsOn?.length
+                      ? `Slurm holds this job until ${job.runRemote.slurmDependsOn.join(
+                          ", "
+                        )} lands — the strip in the inspector carries the scheduler's own words`
+                      : "Waiting in the Slurm queue — the scheduler starts it when resources free up"
+                  }
+                >
+                  <span
+                    className="inline-block size-1.5 shrink-0 rounded-full bg-amber-500"
+                    aria-hidden="true"
+                  />
+                  <span className="truncate">
+                    {job.runRemote?.slurmDependsOn?.length
+                      ? `queued · waits on ${job.runRemote.slurmDependsOn.join(", ")}`
+                      : "queued · waiting for the scheduler"}
+                  </span>
+                </p>
+              ) : job.status === "running" ? (
                 <div className="flex items-center gap-1.5">
                   <MiniProgress
                     value={job.progress}

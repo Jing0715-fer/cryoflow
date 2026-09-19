@@ -119,7 +119,7 @@ export function formatLedgerMs(ms?: number): string {
 import type { EdgeDTO, JobDTO } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { TypeIcon } from "./icons";
-import { StatusBadge, estimateEta, formatEta, trackEtaBaseline } from "./job-card";
+import { StatusBadge, estimateEta, formatEta, isSlurmQueued, trackEtaBaseline } from "./job-card";
 import { formatElapsed } from "@/lib/elapsed";
 import { useNow } from "@/lib/use-now";
 // the sibling picker became a shared module in Task 89 — the dashboard
@@ -767,6 +767,10 @@ function LogConsole({
 
 function Timeline({ job }: { job: JobDTO }) {
   const running = job.status === "running";
+  // t322 — a slurm-queued remote run is a fourth honest word: the job is
+  // submitted and alive, but the scheduler holds it — "Queued" on the
+  // step, "—" instead of a 0% that claims compute
+  const queued = isSlurmQueued(job);
   const started = job.startedAt;
   const finished = job.status === "completed" || job.status === "failed";
   const elapsed = useElapsed(started, running);
@@ -779,7 +783,7 @@ function Timeline({ job }: { job: JobDTO }) {
     sub: string;
     done: boolean;
     live?: boolean;
-    tone?: "bad" | "good" | "run";
+    tone?: "bad" | "good" | "run" | "wait";
   }
 
   const steps: TimelineStep[] = [
@@ -800,12 +804,25 @@ function Timeline({ job }: { job: JobDTO }) {
     },
     {
       icon: job.status === "failed" ? AlertTriangle : Check,
-      label: running ? "Running" : finished ? (job.status === "completed" ? "Completed" : "Failed") : "Pending",
-      value: running ? `${Math.round(job.progress)}%` : finished ? fmtDuration(duration) : "—",
-      sub: running && duration > 0 ? formatElapsed(duration) + " elapsed" : finished ? "wall time" : "",
+      label: running
+        ? queued
+          ? "Queued"
+          : "Running"
+        : finished
+          ? job.status === "completed"
+            ? "Completed"
+            : "Failed"
+          : "Pending",
+      value: running ? (queued ? "—" : `${Math.round(job.progress)}%`) : finished ? fmtDuration(duration) : "—",
+      sub:
+        running && duration > 0
+          ? formatElapsed(duration) + (queued ? " in queue" : " elapsed")
+          : finished
+            ? "wall time"
+            : "",
       done: finished,
       live: running,
-      tone: job.status === "failed" ? "bad" : job.status === "completed" ? "good" : "run",
+      tone: queued ? "wait" : job.status === "failed" ? "bad" : job.status === "completed" ? "good" : "run",
     },
   ] satisfies TimelineStep[];
 
@@ -836,7 +853,9 @@ function Timeline({ job }: { job: JobDTO }) {
                     ? "border-rose-500 text-rose-600"
                     : s.tone === "good"
                       ? "border-emerald-500 text-emerald-600"
-                      : "border-teal-500 text-teal-600"
+                      : s.tone === "wait"
+                        ? "border-amber-500 text-amber-600"
+                        : "border-teal-500 text-teal-600"
                   : "border-muted text-muted-foreground",
                 s.live && "animate-pulse"
               )}
@@ -867,6 +886,29 @@ function ResultSummary({
   diagnosis?: LogFinding[] | null;
   onOpenDiagnosis?: () => void;
 }) {
+  // t322 — the queue wait is NOT "Refinement in progress": the scheduler
+  // holds the job (PENDING, usually on an afterok dependency). The amber
+  // dialect + the upstream ids say what is actually happening.
+  if (isSlurmQueued(job)) {
+    const deps = job.runRemote?.slurmDependsOn ?? [];
+    return (
+      <div className="flex items-start gap-3 rounded-lg border border-amber-600/30 bg-amber-600/5 p-3.5" data-print-atomic="">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-amber-600/15 text-amber-600">
+          <Clock className="size-4.5" aria-hidden="true" />
+        </span>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-foreground">Waiting in the Slurm queue</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {deps.length
+              ? `Slurm job ${job.runRemote?.slurmId ?? "?"} is held until ${deps.join(
+                  ", "
+                )} lands — it starts the moment the upstream completes.`
+              : `Slurm job ${job.runRemote?.slurmId ?? "?"} is queued — the scheduler starts it when resources free up.`}
+          </p>
+        </div>
+      </div>
+    );
+  }
   if (job.status === "running") {
     return (
       <div className="flex items-center gap-3 rounded-lg border border-teal-600/30 bg-teal-600/5 p-3.5" data-print-atomic="">
@@ -1963,7 +2005,7 @@ function InspectorHeader({ job }: { job: JobDTO }) {
             <h2 className="truncate text-base font-semibold leading-tight tracking-tight text-foreground" title={job.name}>
               {job.name}
             </h2>
-            <StatusBadge status={job.status} />
+            <StatusBadge status={job.status} queued={isSlurmQueued(job)} />
           </div>
           {/* NOTE: div, not <p> — the vertical Separators render <div>s and
            * HTML forbids div-in-p (hydration error) */}

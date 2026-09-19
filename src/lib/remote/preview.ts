@@ -13,12 +13,25 @@
  *                          detector dims for the card, verdicts for the
  *                          caption), all in a single exec.
  *   remotePreviewPng       the thumbnail door — a cached PNG per cluster
- *                          path. Miss: remoteDownload the whole file into
- *                          the cache dir (64 MB is one cluster-LAN pull),
- *                          renderMrcSlicePng it (2–98% contrast stretch,
- *                          same pipeline as every local thumbnail), write
- *                          the PNG, DELETE the fetched .mrc — the cache
- *                          holds kilobyte-scale PNGs, not the data itself.
+ *                          path. Miss: the DECIMATION LADDER (t322) thins
+ *                          the pixels ON THE CLUSTER — python3 (pure
+ *                          stdlib) decimates both axes (~0.5 MB travels
+ *                          for a 64 MB micrograph), GNU dd strided rows
+ *                          (~11× less than the whole file) as fallback,
+ *                          and only a shell that speaks neither dialect
+ *                          falls back to the old whole-file pull (FETCH_CAP
+ *                          + its teaching refusal). The bytes render
+ *                          locally through the SAME 2–98% stretch pipeline
+ *                          as every other thumbnail, the PNG persists in
+ *                          the cache, the fetched raw pixels never touch
+ *                          disk.
+ *
+ * t322 — the second half of the user's ticket: every gallery visit used to
+ * re-roll the random five, so the PNG cache NEVER hit (five fresh cluster
+ * paths each time, five whole-file pulls each time — “每次重新读取”). The
+ * manifest route now samples DETERMINISTICALLY (seeded by job id + reroll
+ * counter), and the preview responses carry Cache-Control so the browser
+ * stops re-asking too.
  *
  * Security: callers must validate the requested path is a row of THEIR OWN
  * star before calling (this module trusts the caller for that gate; it
@@ -31,7 +44,7 @@ import path from "path";
 import { DATA_DIR } from "@/lib/paths";
 import { getConnection } from "./connections";
 import { exec, remoteDownload, shQuote } from "./ssh";
-import { renderMrcLargePng, renderMrcSlicePng } from "@/lib/mrc";
+import { decodeRawVoxels, renderDecimatedPng, renderMrcLargePng, renderMrcSlicePng } from "@/lib/mrc";
 import { sniffImageFile, type SniffVerdict } from "@/lib/relion/mrc-sniff";
 
 /** Where thumbnails + transient fetches live (under the app data root). */
@@ -163,11 +176,247 @@ export async function remoteClusterSample(
 }
 
 /* ------------------------------------------------------------------ */
+/* t322 — the decimation ladder (compress on the cluster, render here)  */
+/* ------------------------------------------------------------------ */
+
+/** One thinned pixel grid, as it arrived from the cluster. */
+export interface DecimatedGrid {
+  tier: "python" | "dd";
+  /** the FILE's own dims (telemetry + plausibility — not the grid's). */
+  fileNx: number;
+  fileNy: number;
+  fileNz: number;
+  mode: number;
+  /** the grid: python tier → both axes thinned; dd tier → FULL-width rows
+   * (renderDecimatedPng thins the columns locally with the same step
+   * math, so every tier renders byte-identical PNGs). */
+  grid: { data: Float32Array; width: number; height: number };
+  /** payload bytes that actually traveled the wire (base64-decoded). */
+  payloadBytes: number;
+}
+
+/**
+ * Tier 1 — python3, PURE STDLIB (struct + file seeks, no numpy): parses
+ * the MRC header itself, decimates BOTH axes with nearest-neighbour
+ * strides, emits a `CFD|PY|…` sentinel line + base64 raw voxels. A
+ * ~4096×4096 float32 micrograph's 384-px thumb transfers ~0.5 MB instead
+ * of 64 MB. Any bad header / short read prints `CFD|ERR|…` and exits 0
+ * (the caller falls to the next tier — an error message on stdout would
+ * poison nothing, but the sentinel grammar keeps it unambiguous).
+ */
+export function buildPythonDecimateCmd(
+  clusterPath: string,
+  maxW: number,
+  sliceSel: "first" | "mid"
+): string {
+  const script = [
+    "import base64, struct, sys",
+    "path, maxw, sel = sys.argv[1], int(sys.argv[2]), sys.argv[3]",
+    "try:",
+    "    f = open(path, 'rb', buffering=0)",
+    "    h = f.read(1024)",
+    "    if len(h) < 96:",
+    "        print('CFD|ERR|short-header'); sys.exit(0)",
+    "    nx, ny, nz, mode = struct.unpack('<4i', h[:16])",
+    "    ns = struct.unpack('<i', h[92:96])[0]",
+    "    bpp = {0: 1, 1: 2, 2: 4, 6: 2}.get(mode, 0)",
+    "    ok = bpp and 0 < nx <= 200000 and 0 < ny <= 200000 and 0 < nz <= 100000 and 0 <= ns <= 100000000",
+    "    if not ok:",
+    "        print('CFD|ERR|bad-header'); sys.exit(0)",
+    "    z = (nz // 2) if sel == 'mid' else 0",
+    "    if z >= nz: z = nz - 1",
+    "    step = -(-nx // maxw)",
+    "    if step < 1: step = 1",
+    "    w = -(-nx // step)",
+    "    hh = -(-ny // step)",
+    "    base = 1024 + ns + z * ny * nx * bpp",
+    "    out = bytearray()",
+    "    for r in range(hh):",
+    "        row = r * step",
+    "        if row > ny - 1: row = ny - 1",
+    "        f.seek(base + row * nx * bpp)",
+    "        rb = f.read(nx * bpp)",
+    "        if len(rb) < nx * bpp:",
+    "            print('CFD|ERR|short-read'); sys.exit(0)",
+    "        # every step-TH VOXEL, all of its bytes (a byte-slice rb[::step*bpp]",
+    "        # would keep only the first byte of each voxel — mode-2 murder)",
+    "        for i in range(0, nx, step):",
+    "            o = i * bpp",
+    "            out += rb[o:o + bpp]",
+    "    print('CFD|PY|%d|%d|%d|%d|%d|%d|%d' % (nx, ny, nz, mode, w, hh, bpp))",
+    "    sys.stdout.flush()",
+    "    sys.stdout.buffer.write(base64.b64encode(bytes(out)) + b'\\n')",
+    "    sys.stdout.buffer.flush()",
+    "except Exception:",
+    "    print('CFD|ERR|exception')",
+  ].join("\n");
+  return (
+    `python3 - ${shQuote(clusterPath)} ${maxW} ${sliceSel} <<'CFDPY'\n` +
+    `${script}\nCFDPY`
+  );
+}
+
+/** the dd tier refuses to emit more than this (python tier is bounded by
+ * maxW² × 4 ≈ 2.4 MB by construction) */
+const DD_PAYLOAD_CAP = 48 * 1024 * 1024;
+
+/**
+ * Tier 2 — GNU dd strided rows (no python3 on the login node): od reads
+ * the header fields, then one `dd iflag=skip_bytes,count_bytes` per kept
+ * row (row stride = ceil(nx/maxW), the same step downsample() uses).
+ * Full-width rows travel (~11× less than the whole file for a 4096-px
+ * micrograph); the columns thin locally at render time. A non-GNU dd
+ * (no iflag support) writes nothing — the payload length check fails and
+ * the caller falls to the whole-file tier.
+ */
+export function buildDdDecimateCmd(
+  clusterPath: string,
+  maxW: number,
+  sliceSel: "first" | "mid"
+): string {
+  const F = shQuote(clusterPath);
+  return [
+    "F=" + F,
+    `NX=$(od -An -tu4 -j0 -N4 ${F} 2>/dev/null | tr -d ' \n')`,
+    `NY=$(od -An -tu4 -j4 -N4 ${F} 2>/dev/null | tr -d ' \n')`,
+    `NZ=$(od -An -tu4 -j8 -N4 ${F} 2>/dev/null | tr -d ' \n')`,
+    `MODE=$(od -An -tu4 -j12 -N4 ${F} 2>/dev/null | tr -d ' \n')`,
+    `NS=$(od -An -tu4 -j92 -N4 ${F} 2>/dev/null | tr -d ' \n')`,
+    `if [ -z "$NX" ] || [ -z "$NY" ] || [ -z "$NZ" ] || [ -z "$MODE" ] || [ -z "$NS" ]; then echo "CFD|ERR|bad-header"; exit 0; fi`,
+    `if [ "$NX" -le 0 ] || [ "$NY" -le 0 ] || [ "$NZ" -le 0 ] || [ "$NS" -lt 0 ] || [ "$NX" -gt 200000 ] || [ "$NY" -gt 200000 ] || [ "$NZ" -gt 100000 ] || [ "$NS" -gt 100000000 ]; then echo "CFD|ERR|bad-header"; exit 0; fi`,
+    `case "$MODE" in 0) BPP=1 ;; 1|6) BPP=2 ;; 2) BPP=4 ;; *) echo "CFD|ERR|bad-header"; exit 0 ;; esac`,
+    `STEP=$(( (NX + ${maxW} - 1) / ${maxW} ))`,
+    `[ "$STEP" -lt 1 ] && STEP=1`,
+    `ROWS=$(( (NY + STEP - 1) / STEP ))`,
+    `RB=$(( NX * BPP ))`,
+    sliceSel === "mid" ? `Z=$(( NZ / 2 ))` : `Z=0`,
+    `[ "$Z" -ge "$NZ" ] && Z=$(( NZ - 1 ))`,
+    `BASE=$(( 1024 + NS + Z * NY * NX * BPP ))`,
+    // a pathological width would make the row payload huge — refuse and
+    // let the whole-file tier's own cap + teaching answer instead
+    `if [ $(( ROWS * RB )) -gt ${DD_PAYLOAD_CAP} ]; then echo "CFD|ERR|too-big"; exit 0; fi`,
+    `echo "CFD|DD|$NX|$NY|$NZ|$MODE|$ROWS|$RB"`,
+    "{ I=0",
+    `while [ "$I" -lt "$ROWS" ]; do`,
+    `  R=$(( I * STEP )); [ "$R" -ge "$NY" ] && R=$(( NY - 1 ))`,
+    `  dd if="$F" bs=65536 iflag=skip_bytes,count_bytes skip=$(( BASE + R * RB )) count="$RB" status=none 2>/dev/null`,
+    `  I=$(( I + 1 ))`,
+    `done; } | base64 | tr -d '\n'`,
+    `echo`,
+  ].join("\n");
+}
+
+/**
+ * Parse a ladder tier's stdout: the `CFD|…` sentinel line + base64
+ * payload. Banner noise BEFORE the sentinel is skipped (t317 doctrine);
+ * the payload is sliced to its EXPECTED length so trailing noise (a
+ * login shell's logout banner) cannot poison the decode. Any mismatch →
+ * null (the caller falls to the next tier).
+ */
+export function parseDecimateResponse(stdout: string): DecimatedGrid | null {
+  const lines = stdout.split(/\r?\n/);
+  let idx = -1;
+  let hdr = "";
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].startsWith("CFD|")) {
+      idx = i;
+      hdr = lines[i];
+      break;
+    }
+  }
+  if (idx < 0) return null;
+  const cells = hdr.split("|");
+  if (cells[1] === "ERR") return null;
+  const body = lines.slice(idx + 1).join("");
+
+  // python tier: CFD|PY|nx|ny|nz|mode|w|h|bpp → w×h both-thinned voxels
+  if (cells[1] === "PY") {
+    const [nx, ny, nz, mode, w, h, bpp] = cells.slice(2).map(Number);
+    if (![nx, ny, nz, mode, w, h, bpp].every((v) => Number.isFinite(v) && v > 0)) return null;
+    const expectBytes = w * h * bpp;
+    if (expectBytes > 64 * 1024 * 1024) return null;
+    const expectChars = 4 * Math.ceil(expectBytes / 3);
+    const payload = body.replace(/[^A-Za-z0-9+/=]/g, "").slice(0, expectChars);
+    if (payload.length < expectChars) return null;
+    const raw = Buffer.from(payload, "base64");
+    if (raw.length !== expectBytes) return null;
+    return {
+      tier: "python",
+      fileNx: nx,
+      fileNy: ny,
+      fileNz: nz,
+      mode,
+      grid: { data: decodeRawVoxels(raw, mode, w * h), width: w, height: h },
+      payloadBytes: raw.length,
+    };
+  }
+
+  // dd tier: CFD|DD|nx|ny|nz|mode|rows|rowbytes → rows FULL-width rows
+  if (cells[1] === "DD") {
+    const [nx, ny, nz, mode, rows, rb] = cells.slice(2).map(Number);
+    if (![nx, ny, nz, mode, rows, rb].every((v) => Number.isFinite(v) && v > 0)) return null;
+    const expectBytes = rows * rb;
+    if (expectBytes > DD_PAYLOAD_CAP) return null;
+    const expectChars = 4 * Math.ceil(expectBytes / 3);
+    const payload = body.replace(/[^A-Za-z0-9+/=]/g, "").slice(0, expectChars);
+    if (payload.length < expectChars) return null;
+    const raw = Buffer.from(payload, "base64");
+    if (raw.length !== expectBytes) return null;
+    return {
+      tier: "dd",
+      fileNx: nx,
+      fileNy: ny,
+      fileNz: nz,
+      mode,
+      grid: { data: decodeRawVoxels(raw, mode, nx * rows), width: nx, height: rows },
+      payloadBytes: raw.length,
+    };
+  }
+  return null;
+}
+
+/** Run one ladder tier; null on any exec error (dead connection, timeout). */
+async function execOrNone(conn: NonNullable<ReturnType<typeof getConnection>>, cmd: string): Promise<string | null> {
+  try {
+    const r = await exec(conn, cmd, { timeoutMs: 45_000 });
+    if (r.error) return null;
+    return r.stdout;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The ladder: python3 first (smallest transfer), GNU dd strided rows
+ * second, null when neither dialect served — the caller then falls back
+ * to the whole-file pull. Both scripts are cluster-side pure: no uploads,
+ * no temp files, nothing left behind.
+ */
+export async function remoteDecimatedFetch(
+  connectionId: string,
+  clusterPath: string,
+  maxW: number,
+  sliceSel: "first" | "mid"
+): Promise<DecimatedGrid | null> {
+  const conn = getConnection(connectionId);
+  if (!conn) return null;
+  const py = parseDecimateResponse(
+    (await execOrNone(conn, buildPythonDecimateCmd(clusterPath, maxW, sliceSel))) ?? ""
+  );
+  if (py) return py;
+  const dd = parseDecimateResponse(
+    (await execOrNone(conn, buildDdDecimateCmd(clusterPath, maxW, sliceSel))) ?? ""
+  );
+  if (dd) return dd;
+  return null;
+}
+
+/* ------------------------------------------------------------------ */
 /* The thumbnail door                                                   */
 /* ------------------------------------------------------------------ */
 
 export type RemotePreviewResult =
-  | { ok: true; png: Buffer }
+  | { ok: true; png: Buffer; tier: "cache" | "python" | "dd" | "full"; fetchedBytes?: number }
   | { ok: false; error: string; status: number };
 
 const rendering = new Map<string, Promise<RemotePreviewResult>>();
@@ -200,7 +449,7 @@ export async function remotePreviewPng(
   try {
     if (existsSync(cached)) {
       const png = await readCachedPng(cached);
-      if (png) return { ok: true, png };
+      if (png) return { ok: true, png, tier: "cache" };
     }
   } catch {
     /* fall through to a fresh render */
@@ -214,6 +463,31 @@ export async function remotePreviewPng(
       return { ok: false, error: "cluster connection not found — it may have been deleted", status: 404 };
     }
     mkdirSync(PREVIEW_DIR, { recursive: true });
+
+    // t322 — tiers 1–2: decimate ON THE CLUSTER, transfer the thin pixels,
+    // render locally through the same stretch pipeline. The step math
+    // mirrors downsample() exactly, so the PNG is byte-identical to a
+    // whole-file render — only the wire bill shrinks (the user's “在集群
+    // 上先压缩再传回本地” ask).
+    const maxW = scale === "large" ? 768 : 384;
+    const sliceSel = scale === "large" ? "first" : "mid";
+    const dec = await remoteDecimatedFetch(connectionId, clusterPath, maxW, sliceSel);
+    if (dec) {
+      const png = await renderDecimatedPng(dec.grid.data, dec.grid.width, dec.grid.height, maxW);
+      if (png) {
+        try {
+          writeFileSync(cached, png);
+        } catch {
+          /* cache write is best-effort — the bytes still serve */
+        }
+        return { ok: true, png, tier: dec.tier, fetchedBytes: dec.payloadBytes };
+      }
+      // a payload that cannot render (a header lying about its dims)
+      // falls through to the whole-file tier — the full render referees
+    }
+
+    // tier 3 — the whole-file pull (FETCH_CAP + teaching refusal): the
+    // last resort for shells that speak neither dialect of the ladder.
     // scale-suffixed: the thumb and large legs never share a transient file
     const mrc = path.join(PREVIEW_DIR, `${key}.${scale}.mrc`);
     try {
@@ -240,7 +514,7 @@ export async function remotePreviewPng(
       } catch {
         /* cache write is best-effort — the bytes still serve */
       }
-      return { ok: true, png };
+      return { ok: true, png, tier: "full", fetchedBytes: got };
     } finally {
       try {
         if (existsSync(mrc)) rmSync(mrc, { force: true });

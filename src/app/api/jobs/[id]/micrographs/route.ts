@@ -135,6 +135,39 @@ function parseNames(lines: string[]): string[] {
   return names;
 }
 
+/** t322 — FNV-1a: a stable 32-bit seed from the job id + reroll counter.
+ * The gallery's five samples must be THE SAME FIVE on every visit (the
+ * old Math.random re-rolled per request, so the preview PNG cache never
+ * hit — five fresh cluster paths, five whole-file pulls, every single
+ * time — the user's “不用每次重新读取”). */
+function fnv1a(s: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
+
+/** mulberry32 — tiny deterministic PRNG; the sample is reproducible across
+ * requests, restarts and machines (same job + same reroll ⇒ same five). */
+function seededPick<T>(pool: T[], seed: number, n: number): T[] {
+  let s = seed >>> 0;
+  const rand = () => {
+    s = (s + 0x6d2b79f5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const idx = pool.map((_, i) => i);
+  const out: T[] = [];
+  while (out.length < n && idx.length > 0) {
+    const i = Math.floor(rand() * idx.length);
+    out.push(pool[idx.splice(i, 1)[0]]);
+  }
+  return out;
+}
+
 export async function GET(request: NextRequest, context: RouteContext) {
   try {
     // Hardening (t251, the #5 sibling closure): workdir-derived data —
@@ -214,9 +247,20 @@ export async function GET(request: NextRequest, context: RouteContext) {
         if (!r.ok) {
           return NextResponse.json({ error: r.error }, { status: r.status });
         }
+        // t322 — the browser stops re-asking too: a previewed path's PNG is
+        // content-stable (micrographs do not mutate), so a day of local
+        // caching is honest — and with the deterministic sample the URL is
+        // stable, so the cache actually engages. The tier headers speak
+        // the wire bill (python/dd/full = a fresh decimated/full pull,
+        // cache = the persisted PNG) for anyone asking "why is this slow?".
         return new NextResponse(new Uint8Array(r.png), {
           status: 200,
-          headers: { "Content-Type": "image/png", "Cache-Control": "no-cache" },
+          headers: {
+            "Content-Type": "image/png",
+            "Cache-Control": "public, max-age=86400",
+            "X-CF-Preview-Tier": r.tier,
+            ...(r.fetchedBytes != null ? { "X-CF-Preview-Bytes": String(r.fetchedBytes) } : {}),
+          },
         });
       }
     }
@@ -228,14 +272,14 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const clusterResident =
       clusterRows.length > 0 && clusterRows.length / Math.max(1, names.length) >= 0.5;
     if (clusterResident && connId != null) {
-      // five RANDOM rows (a re-roll is a plain refetch), one batched SSH
-      // round for their stats + headers
-      const pool = [...clusterRows];
-      const samplePaths: string[] = [];
-      while (samplePaths.length < 5 && pool.length > 0) {
-        const i = Math.floor(Math.random() * pool.length);
-        samplePaths.push(pool.splice(i, 1)[0]);
-      }
+      // t322 — five DETERMINISTIC rows (seeded by job id + the client's
+      // reroll counter): the same five on every visit until the user
+      // presses re-sample, so the preview cache + the browser cache
+      // actually engage. One batched SSH round for their stats + headers.
+      const url = new URL(request.url);
+      const rerollRaw = Number.parseInt(url.searchParams.get("reroll") ?? "0", 10);
+      const reroll = Number.isFinite(rerollRaw) ? Math.max(0, Math.min(9_999, rerollRaw)) : 0;
+      const samplePaths = seededPick(clusterRows, fnv1a(`${job.id}:${reroll}`), 5);
       const sample = await remoteClusterSample(connId, samplePaths, names.length);
       const micrographs: MicrographEntry[] = (sample?.sample ?? samplePaths.map((p) => ({
         path: p,

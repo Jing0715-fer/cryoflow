@@ -9,6 +9,14 @@
  * else" step every cryo-EM course teaches.
  *
  * Data: /api/jobs/[id]/micrographs (micrographs.star + optics group).
+ *
+ * t322 — the cluster sample is DETERMINISTIC per job (the route seeds on
+ * job id + a reroll counter) and this component PERSISTS the reroll per
+ * job in localStorage: reopening the inspector shows the same five
+ * thumbnails, served from the app's PNG cache and the browser's own
+ * cache — no re-roll, no re-pull. The re-sample button advances the
+ * counter (and remembers it) — a new deterministic five, still stable
+ * until the next press.
  */
 
 import { useEffect, useState } from "react";
@@ -81,6 +89,9 @@ function Chip({ label, value }: { label: string; value: string | null }) {
   );
 }
 
+/** localStorage key for this job's sample generation (t322). */
+const rerollKey = (jobId: string) => `cryoflow:import-sample:${jobId}`;
+
 export function ImportGallery({
   jobId,
   className,
@@ -91,13 +102,29 @@ export function ImportGallery({
   const [data, setData] = useState<MicrographsResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<MicrographEntry | null>(null);
-  const [reroll, setReroll] = useState(0);
+  // t322 — the reroll counter survives remounts per job: the initializer
+  // reads it client-side (guarded for SSR), the re-sample button advances
+  // AND persists it. The sample therefore stays THE SAME FIVE across
+  // inspector reopens — which is exactly what makes the preview caches
+  // (server PNG + browser) finally engage.
+  const [reroll, setReroll] = useState(() => {
+    if (typeof window === "undefined") return 0;
+    try {
+      const v = Number.parseInt(window.localStorage.getItem(rerollKey(jobId)) ?? "0", 10);
+      return Number.isFinite(v) && v > 0 ? Math.min(v, 9_999) : 0;
+    } catch {
+      return 0;
+    }
+  });
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`/api/jobs/${jobId}/micrographs`, { cache: "no-store" });
+        const res = await fetch(
+          `/api/jobs/${jobId}/micrographs${reroll > 0 ? `?reroll=${reroll}` : ""}`,
+          { cache: "no-store" }
+        );
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const body = (await res.json()) as MicrographsResponse;
         if (!cancelled) {
@@ -112,6 +139,20 @@ export function ImportGallery({
       cancelled = true;
     };
   }, [jobId, reroll]);
+
+  /** advance + persist the sample generation (the re-sample button). */
+  const resample = () => {
+    setSelected(null);
+    setReroll((n) => {
+      const next = Math.min(n + 1, 9_999);
+      try {
+        window.localStorage.setItem(rerollKey(jobId), String(next));
+      } catch {
+        /* private mode etc. — the counter still advances for this visit */
+      }
+      return next;
+    });
+  };
 
   if (error && !data) return null; // enhancement — silent when unavailable
   if (!data || data.micrographs.length === 0) return null;
@@ -160,13 +201,10 @@ export function ImportGallery({
         {isCluster ? (
           <button
             type="button"
-            onClick={() => {
-              setSelected(null);
-              setReroll((n) => n + 1);
-            }}
+            onClick={resample}
             className="inline-flex items-center gap-1 rounded border px-1.5 py-px text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
             aria-label="Sample five different micrographs"
-            title="Pick five different micrographs at random"
+            title="Pick five different micrographs (a new stable selection — it persists until you press again)"
           >
             <RefreshCw className="h-3 w-3" aria-hidden="true" />
             re-sample
@@ -205,12 +243,12 @@ export function ImportGallery({
         <p className="mt-1.5 text-[10px] text-muted-foreground">
           {dims} detector frames ·{" "}
           {isCluster
-            ? `all ${data.total} micrographs live on ${data.cluster?.host} — five sampled at random, thumbnails fetched over SSH`
+            ? `all ${data.total} micrographs live on ${data.cluster?.host} — five sampled (stable per job), thumbnails compressed on the cluster and cached locally`
             : "click a thumbnail for the full contrast-stretched view"}
         </p>
       ) : isCluster ? (
         <p className="mt-1.5 text-[10px] text-muted-foreground">
-          all {data.total} micrographs live on {data.cluster?.host} — five sampled at random, thumbnails fetched over SSH
+          all {data.total} micrographs live on {data.cluster?.host} — five sampled (stable per job), thumbnails compressed on the cluster and cached locally
         </p>
       ) : null}
 

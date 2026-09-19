@@ -55,7 +55,7 @@ import type {
   PortSpec,
 } from "@/lib/types";
 import { TypeIcon } from "./icons";
-import { MiniProgress, StatusBadge } from "./job-card";
+import { MiniProgress, StatusBadge, isSlurmQueued } from "./job-card";
 import { PathBrowserDialog } from "./path-browser-dialog";
 import { JobResults } from "./results/results-view";
 import {
@@ -1426,7 +1426,7 @@ function PanelBody({ job }: { job: JobDTO }) {
 
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5">
-            <StatusBadge status={job.status} />
+            <StatusBadge status={job.status} queued={isSlurmQueued(job)} />
             <EngineBadge />
           </div>
           <span className="text-[11px] text-muted-foreground">
@@ -1636,7 +1636,20 @@ function PanelBody({ job }: { job: JobDTO }) {
           </p>
         )}
 
-        {job.status === "running" && (
+        {job.status === "running" && isSlurmQueued(job) ? (
+          // t322 — queued on slurm: the panel says what the scheduler says
+          // (held in the queue), not "RELION process running" — no process
+          // has started yet
+          <p
+            role="note"
+            className="rounded-md bg-amber-500/10 px-2 py-1.5 text-[11px] leading-relaxed text-amber-700 dark:text-amber-300"
+          >
+            {job.runRemote?.slurmDependsOn?.length
+              ? `Queued on the cluster — Slurm holds it until ${job.runRemote.slurmDependsOn.join(", ")} lands.`
+              : "Queued on the cluster — the scheduler starts it when resources free up."}{" "}
+            <span className="text-muted-foreground">The bar and log wake up when it starts.</span>
+          </p>
+        ) : job.status === "running" && (
           <div className="space-y-1">
             <MiniProgress value={job.progress} running label={`${job.name} progress`} />
             <p className="text-right text-xs tabular-nums text-muted-foreground">
