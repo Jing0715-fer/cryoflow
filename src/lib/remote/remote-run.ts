@@ -283,6 +283,92 @@ export function rewriteStarPaths(
 }
 
 /**
+ * t316 — CLUSTER-NATIVE refs inside a STAR: absolute paths that do NOT exist
+ * locally and are not part of the mirror tree. These are the remote-import
+ * leg's zero-upload rows (runImportRemoteLeg writes CLUSTER-ABSOLUTE paths
+ * into micrographs.star so no movie byte ever leaves the cluster) — plus,
+ * in principle, any cluster file a hand-edited STAR names. RELION's
+ * pipeliner law is that STAR rows are PROJECT-RELATIVE (its runners build
+ * scratch symlinks as `cwd + star-path` — an absolute row concatenates into
+ * `<workdir>//data06/...`, the exact string in the user's filename.cpp:610
+ * ticket), so these refs must be RE-LINKED project-relative before the STAR
+ * rides to the cluster (see planRelinks).
+ */
+function remoteNativeRefs(content: string): string[] {
+  const out = new Set<string>();
+  const IMG = /\.(mrc|mrcs|tif|tiff|eer|star|coord|box|sav)$/i;
+  const localRoot = RELION_DIR.split(path.sep).join("/");
+  for (const raw of content.split(/\r?\n/)) {
+    for (const token of raw.trim().split(/\s+/)) {
+      let t = token;
+      const at = t.lastIndexOf("@");
+      if (at >= 0 && at < t.length - 1) t = t.slice(at + 1);
+      t = t.replace(/[,;)\]]+$/, "").replace(/^"|"$/g, "");
+      if (t.length < 5 || !t.startsWith("/")) continue;
+      if (!IMG.test(t)) continue;
+      if (t.startsWith(localRoot + "/")) continue; // a local mirror path — the normal staging legs own it
+      if (existsSync(t)) continue; // a LOCAL absolute file — refsInStar already collected it
+      out.add(t);
+    }
+  }
+  return [...out];
+}
+
+/** The relink pass's sanity ceiling (t316): one STAR may name at most this
+ * many cluster-native files (a runaway/garbage STAR refuses honestly
+ * instead of shipping a symlink farm to the cluster). */
+const RELINK_MAX = 20_000;
+
+/**
+ * t316 — decide the project-relative name every cluster-native ref will be
+ * re-linked as: `<remoteProjectRoot>/micrographs/<linkName>` → the cluster
+ * absolute file. Same-target rows across STARs share ONE link (Map), and
+ * basename collisions from different directories get a __cfN suffix (the
+ * STAR is rewritten in lockstep, so any unique name is correct — this only
+ * keeps the directory greppable). RELION then resolves `micrographs/<n>`
+ * against its cwd (= remoteWorkdir, two levels inside the project root —
+ * the wrapper/sbatch `cd`), exactly the pipeliner convention the LOCAL
+ * engine already speaks (projectDirFor + linkDirInto).
+ */
+function planRelinks(
+  refs: string[],
+  taken: Map<string, string>
+): { links: Array<{ target: string; linkName: string }>; rewrites: Array<{ from: string; to: string }> } {
+  const links: Array<{ target: string; linkName: string }> = [];
+  const rewrites: Array<{ from: string; to: string }> = [];
+  const usedNames = new Set(taken.values());
+  for (const abs of refs) {
+    const known = taken.get(abs);
+    if (known) continue; // already planned — one link serves every STAR
+    let name = path.basename(abs).replace(/[^A-Za-z0-9._-]/g, "_");
+    if (name.length > 120) name = name.slice(0, 110) + name.slice(name.lastIndexOf("."));
+    if (!/[A-Za-z0-9]/.test(name)) name = "cf_link_" + createHash("sha1").update(abs).digest("hex").slice(0, 12);
+    let unique = name;
+    for (let n = 2; usedNames.has(unique); n++) unique = `${name.replace(/(\.[^.]+)?$/, (ext) => `__cf${n}${ext}`)}`;
+    usedNames.add(unique);
+    taken.set(abs, unique);
+    links.push({ target: abs, linkName: unique });
+    rewrites.push({ from: abs, to: `micrographs/${unique}` });
+  }
+  return { links, rewrites };
+}
+
+/**
+ * t316 — apply the relink rewrite table to a (already to-remote-rewritten)
+ * STAR body: every cluster-absolute ref string is replaced by its
+ * `micrographs/<name>` alias. Byte-substring replacement is safe here for
+ * the same reason rewriteStarPaths' is: the ref is a full absolute path
+ * delimited by whitespace in the STAR grammar.
+ */
+function applyRelinks(content: string, rewrites: Array<{ from: string; to: string }>): string {
+  let out = content;
+  for (const r of rewrites) {
+    if (out.includes(r.from)) out = out.split(r.from).join(r.to);
+  }
+  return out;
+}
+
+/**
  * File references inside a STAR — ABSOLUTE paths that exist locally, plus
  * RELATIVE (project-relative, the RELION pipeliner convention: the engine
  * runs with cwd = project root, so "micrographs/mic_1.mrc" lives at
@@ -399,6 +485,61 @@ async function stageFileTree(
     }
   }
   return uploaded;
+}
+
+/**
+ * t316 — create the relink symlinks on the cluster: <projectRoot>/micrographs/
+ * gains one `ln -sfn <cluster file> <linkName>` per planned link (idempotent
+ * — -fn re-points a stale link from an earlier dispatch). Batched SSH (250
+ * links per round trip) so a 1034-micrograph import costs a handful of
+ * execs, not a thousand.
+ */
+async function ensureRemoteRelinks(
+  c: RemoteConnection,
+  remoteProjectRoot: string,
+  links: Array<{ target: string; linkName: string }>
+): Promise<void> {
+  const linkDir = `${remoteProjectRoot.replace(/\/$/, "")}/micrographs`;
+  await remoteMkdir(c, linkDir);
+  const BATCH = 250;
+  for (let i = 0; i < links.length; i += BATCH) {
+    const batch = links.slice(i, i + BATCH);
+    const script = batch
+      .map((l) => `ln -sfn ${shQuote(l.target)} ${shQuote(`${linkDir}/${l.linkName}`)}`)
+      .join(" && ");
+    const res = await exec(c, script, { timeoutMs: 120_000 });
+    if (res.error || (res.code != null && res.code !== 0)) {
+      const why = (res.error || res.stderr || "").split("\n").map((l) => l.trim()).filter(Boolean).slice(-1)[0] ?? `ssh exit ${res.code}`;
+      throw new Error(
+        `could not re-link the cluster's micrographs into ${linkDir} (${why}) — the data paths in the import STAR must stay reachable on the cluster`
+      );
+    }
+  }
+}
+
+/**
+ * t316 — upload ONE STAR with the relink rewrite applied: the normal
+ * to-remote translation first (mirror prefixes, staged externals), then
+ * every cluster-absolute ref becomes its `micrographs/<name>` alias, so the
+ * copy that lands on the cluster speaks the pipeliner's project-relative
+ * dialect. Size-checked against the remote twin exactly like stageFileTree
+ * (idempotent re-staging).
+ */
+async function stageStarWithRelinks(
+  c: RemoteConnection,
+  localStar: string,
+  remoteTarget: string,
+  rewrites: Array<{ from: string; to: string }>
+): Promise<number> {
+  let content = rewriteStarPaths(readFileSync(localStar, "utf8"), "to-remote", await expandRemotePath(c, c.remoteRoot));
+  content = applyRelinks(content, rewrites);
+  const buf = Buffer.from(content, "utf8");
+  const existing = await remoteStat(c, remoteTarget);
+  if (!existing || existing.size !== buf.length) {
+    const ok = await remoteUpload(c, buf, remoteTarget);
+    if (!ok) throw new Error(`upload failed: ${remoteTarget}`);
+  }
+  return buf.length;
 }
 
 /* ------------------------------------------------------------------ */
@@ -701,7 +842,17 @@ function buildSbatchScript(args: {
   // --output captures the whole script's stdout)
   if (note) L.push(`echo ${shQuote("CRYOFLOW_NOTE: " + note)}`);
   L.push(`mkdir -p ${shQuote(remoteProjectRoot)}`);
-  L.push(`cd ${shQuote(remoteWorkdir)} || exit 111`);
+  // t316 — the RELION process runs from the PROJECT ROOT, exactly like the
+  // direct-mode wrapper above and the LOCAL engine (projectDirFor). The old
+  // `cd remoteWorkdir` made cwd == the --o directory, and RELION's runners
+  // build their scratch symlinks as `cwd + star-row` → `fn_out + star-row`
+  // — with cwd == fn_out both concatenations are the SAME string, a
+  // self-referencing symlink (the user's ticket: "Failed to make a symlink
+  // from X to X", filename.cpp:610, from == to verbatim). From the project
+  // root the two sides diverge (cwd row resolves through
+  // <projectRoot>/micrographs re-links; fn_out row lands in the workdir's
+  // mirror tree) — the pipeliner dialect, everywhere.
+  L.push(`cd ${shQuote(remoteProjectRoot)} || exit 111`);
   L.push(`rm -f ${shQuote(remoteWorkdir + "/.cf-exit")}`);
   // Exit-status contract (the poll's completion truth):
   //   - natural completion: the explicit capture below writes the TRUE
@@ -1243,6 +1394,42 @@ export async function startRemoteJob(args: {
     }
   }
 
+  // ---- t316 — the relink pass (cluster-native refs → project-relative) ----
+  // runImportRemoteLeg's zero-upload design writes CLUSTER-ABSOLUTE rows into
+  // micrographs.star (not one movie byte leaves the cluster) — but RELION's
+  // pipeliner law is that STAR rows are PROJECT-RELATIVE: its runners build
+  // scratch symlinks as `cwd + star-path`, so an absolute row concatenates
+  // into `<workdir>//data06/...` and relion_run_ctffind dies inside
+  // filename.cpp's symlink (the user's ticket, from==to the same string).
+  // The fix mirrors the LOCAL engine's own convention (projectDirFor +
+  // linkDirInto: star rows say `micrographs/<name>`): every cluster-native
+  // ref gets a symlink at <remoteProjectRoot>/micrographs/<linkName> → its
+  // cluster file, and every uploaded STAR is rewritten to the alias. RELION
+  // runs with cwd = remoteWorkdir (two levels inside the project root), so
+  // `micrographs/<name>` resolves; the data still never moves.
+  const relinkRewrites: Array<{ from: string; to: string }> = [];
+  let relinkLinks: Array<{ target: string; linkName: string }> = [];
+  {
+    const takenNames = new Map<string, string>(); // one link serves every STAR
+    for (const u of uploads) {
+      if (!/\.star$/i.test(u.local) || u.external) continue;
+      try {
+        const natives = remoteNativeRefs(readFileSync(u.local, "utf8"));
+        if (natives.length === 0) continue;
+        if (natives.length > RELINK_MAX) {
+          return fail(
+            `the input STAR names ${natives.length.toLocaleString()} cluster-side files — over the ${RELINK_MAX.toLocaleString()}-link ceiling (a runaway STAR, or an import wider than the door accepts) — re-import a narrower set`,
+          );
+        }
+        const plan = planRelinks(natives, takenNames);
+        relinkLinks = relinkLinks.concat(plan.links);
+        relinkRewrites.push(...plan.rewrites);
+      } catch {
+        /* unreadable star → the cluster will report the real problem */
+      }
+    }
+  }
+
   // ---- anti-ghost re-check (the dispatch race, t263) ---------------------
   // The pre-check above ran before several awaits (remote-root expansion).
   // A CONCURRENT dispatch — the dialog vs the auto-start passthrough — may
@@ -1306,8 +1493,20 @@ export async function startRemoteJob(args: {
       // set when staging hands off to the spawn (visible in the inspector's
       // remote strip once the run is terminal).
       const stagedT0 = Date.now();
+      // t316 — the relink pass rides FIRST: the symlinks must exist before
+      // any rewritten STAR could be read on the other side (and before the
+      // run starts). ln -sfn is idempotent, so a re-dispatch re-points.
+      if (relinkLinks.length > 0) {
+        console.log(
+          `remote-run: relinking ${relinkLinks.length} cluster-native ref(s) under ${remoteProjectRoot}/micrographs — STAR rows ride project-relative (the RELION pipeliner law, t316)`
+        );
+        await ensureRemoteRelinks(conn, remoteProjectRoot, relinkLinks);
+      }
       for (const u of uploads) {
-        stagedBytes += await stageFileTree(conn, u.local, u.remote);
+        stagedBytes +=
+          /\.star$/i.test(u.local) && !u.external && relinkRewrites.length > 0
+            ? await stageStarWithRelinks(conn, u.local, u.remote, relinkRewrites)
+            : await stageFileTree(conn, u.local, u.remote);
         if (u.external) rememberStage(u.local, u.remote);
         await updateRun(job.id, (rec) =>
           rec.remote && rec.startedAt === record.startedAt
