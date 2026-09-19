@@ -216,7 +216,13 @@ export async function listRemoteDir(
  */
 export async function statRemoteFiles(
   conn: RemoteConnection,
-  files: string[]
+  files: string[],
+  /**
+   * t319 — optional per-batch progress witness (0..1 of the whole stat
+   * pass). The import leg passes one so a 1034-file pick's stat rounds move
+   * the job's progress bar; every other caller stays unchanged.
+   */
+  onProgress?: (fraction: number) => void
 ): Promise<{ sizes: Array<number | null>; missing: string[] }> {
   const sizes: Array<number | null> = [];
   const missing: string[] = [];
@@ -241,6 +247,11 @@ export async function statRemoteFiles(
         sizes.push(Number.isFinite(n) ? n : null);
         if (!Number.isFinite(n)) missing.push(batch[i]);
       }
+    }
+    try {
+      onProgress?.(Math.min(1, (base + batch.length) / Math.max(1, files.length)));
+    } catch {
+      /* a progress witness never breaks the stat */
     }
   }
   return { sizes, missing };

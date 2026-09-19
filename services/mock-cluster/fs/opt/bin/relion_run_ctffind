@@ -65,9 +65,35 @@ if os.path.exists(os.path.join(os.path.dirname(os.path.abspath(star_in)), ".qa-c
 # turned the run into a 12-minute wall. Small jobs (≤37 mics) keep the full
 # cadence the progress parser was tuned against.
 pace = min(1.6, 60.0 / max(1, len(mics)))
+# t319 — speak RELION's REAL progress dialect (src/time.cpp progress_bar):
+# the runner prints ONE GLOBAL bar over all micrographs, rewritten in place
+# with \r ("elapsed/total min ~~(,_,\"> [oo]", " yum!\n" at the end). The
+# platform's parser reads this line as ground truth on real clusters, so
+# the mock must speak it too (t313 doctrine: the fake's dialect reaches the
+# header fields). The "Micrograph n/N" lines stay for the countable dialect
+# (and the t318 suite's mid-flight witness).
+import time as _time
+_t0 = _time.time()
+print(" Estimating CTF parameters using Alexis Rohou's and Niko Grigorieff's CTFFIND4.1 ...")
+sys.stdout.flush()
 for n, mic in enumerate(mics, 1):
-    time.sleep(pace)
-    print(f"Micrograph {n}/{len(mics)}: {os.path.basename(mic)} — CTF estimated (dF=12500, astig=180)")
+    _time.sleep(pace)
+    elapsed = _time.time() - _t0
+    # relion's own extrapolation: total = elapsed * N / done
+    est_total = elapsed * len(mics) / n if n > 0 else elapsed
+    if est_total > 90:
+        _el, _tot, _unit = elapsed / 60.0, est_total / 60.0, "min"
+    else:
+        _el, _tot, _unit = elapsed, est_total, "sec"
+    _done_dots = int(60 * n / len(mics))
+    _bar = f"\r{_el:3.2f}/{_tot:3.2f} {_unit} " + "." * _done_dots + '~~(,_,">'
+    if n >= len(mics):
+        _bar += " yum!\n"
+    else:
+        _bar += " " * max(0, 60 - _done_dots - 3) + "[oo]"
+    sys.stdout.write(_bar)
+    sys.stdout.flush()
+    print(f"\nMicrograph {n}/{len(mics)}: {os.path.basename(mic)} — CTF estimated (dF=12500, astig=180)")
     sys.stdout.flush()
 
 os.makedirs(outdir, exist_ok=True)

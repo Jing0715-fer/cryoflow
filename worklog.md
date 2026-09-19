@@ -2480,3 +2480,25 @@ Stage Summary:
 - **「空尾回执要有救援, 无字日志要有墓志铭」**: 失败回执的空尾先补一趟 SSH 取真相, 取不到就明说日志为空——裸 exit 1 会派用户去找一本不存在的日志
 - **「『0 findings』不是『扫描过了』」**: 空日志与拉取失败都不配宣称扫描——诊断的沉默分三档: 扫过无匹配/无物可扫/没扫成
 - 交付: 本窗 commit + push（用户 token 单次 URL 推送）
+
+## Task 319 (2026-09-19, 用户工单窗口 —— t318 推送后的回执: 「进度条似乎有些问题，很多次到99%后又回到0%」+ import 也有问题 + 「其实log中会有 Estimating CTF parameters using … 3.53/53.72 min ...~~(,_,"> [oo]」)
+
+- 【工单】用户在真实集群上看到: 进度条反复 99% → 0%; import 进度也有问题; 并亲自指出日志里的真实进度信号——`3.53/53.72 min ...~~(,_,"> [oo]`。「检查所有job的进度条，并需要根据实际的任务进度来显示真实进度」。
+- 【取证（relion 源码重新拉取, 沙箱重建后 t316 的缓存已失）】`3.53/53.72 min` 正是 RELION 自己的 progress_bar（src/time.cpp）: `init_progress_bar(N)` 后 `\r%3.2f/%3.2f min|min|sec` 原地刷新（超 1 小时切 hrs, 完结打 ` yum!`）——ctffind/motioncorr/extract/autopick 四 runner 全用它做**全任务级**条（elapsed×total/done 外推, 自适应任意 N）; ctffind/motioncor2 子进程输出被重定向到 per-mic 日志（`> fn_log`）, run.out 里的条无污染。refine 族的方言是 ` Expectation iteration N of M`（initialmodel: `Gradient optimisation iteration`）, 每迭代的 expectation 步自己 re-init 一条时间条。
+- 【根因①: 解析器说的是死方言】parseProgressText 数 tail 窗口里含 "micrograph" 的行数再 **除以 6**——硬编码 6 张 EMPIAR 微图当分母。用户 1034 张的真实 ctffind 日志一句都读不懂, 微图行多时 60 行就封顶 99%。
+- 【根因②: null 回落伪造 0%】sweep 读 run.out 的 4096 字节**滑动窗**; 窗口里没有可数行时解析返回 null, GET 响应回落到 DB 里派发时写的 0 → 卡片 99%（窗口有行）→ 0%（窗口滑过去）→ 99% → 0% 无限振荡——正是用户看到的样子。
+- 【根因③: import 全程死 0%】原生 import 在进程内跑完整个 listing/stat/sniff/写盘马拉松, 行一直是派发时的 0, 直到 finalize 一跳 100。
+- 【修复①: 解析器重写为真方言（新纯模块 src/lib/relion/progress-parse.ts, 无 fs/db 依赖——本地/远程/测试三方同一实现, engine re-export 保持导入方不变）】三方言按优先级: (1) RELION 时间条 `X.XX/Y.YY sec|min|hrs`（\r 折叠取每物理行最后一段, 全文取最后匹配=最新; `000/??? sec` 初始占位天然不匹配）; (2) refine 迭代头 `Expectation|optimisation iteration N of M`（日志自带的 N 权威于 --iter 参数）与迭代内条组合 `((iter-1)+barRatio)/total`, legacy `it [003]` 兜底; (3) n/N 计数行（mock 方言 `Micrograph 5/8`）直接做比值。**/6 硬编码死刑**。pct 上下夹 [1,99]——跑着的作业永远不说 100（finalize 才说）。
+- 【修复②: 单调律 + 持久化（双 lane 同契约）】remote sweep 与本地 poll: `next = Math.max(旧行值, 解析值)`, 解析 null 保持旧值——「parsed beats stored, stored beats null」; 变化时 `updateMany({ where: { id, status: "running" } })` 落库（status 守卫: 并发 finalize 已完结的行永远碰不到; 派发重跑合法归零重爬）。UI 的 ETA 基线（p0 回退即重置）随之稳定。
+- 【修复③: import 阶段证人】statRemoteFiles 增可选 onProgress（每 200 文件批回调, 其它调用方零改动）; runImportRemoteLeg 逐阶段上报（多选 stat 批 5→35 / folder·pattern 枚举 35 / 头嗅探 60）, 原生腿补 75（remote done）/60（EMPIAR·本地列单）/90（star 写盘前）——全部 status 守卫, 完成翻转 100 仍归 finalize。
+- 【mock 假体说真方言】relion_run_ctffind 新增 RELION 时间条输出（\r 原地刷新 + worm + ` yum!` 收尾, elapsed×N/done 外推同款数学）, `Micrograph n/N` 行保留（家族套件的中途见证与 n/N 方言仍活）。
+- 【e2e: scripts/diag-t319-real-progress.mjs, 60 断言 ALL GREEN】PHASE A 单元（bun 直导纯模块）: 用户原话行逐字解析 → **7%**; `000/??? sec` → null; sec/min/hrs 三变体; \r 多次刷新取最新; `yum!` ≈99 不越 100; refine 头+迭代内条组合 → 9%; initialmodel 梯度头 → 40%; legacy `it [003]`/25 → 12%; `Micrograph 5/8` → 63%; 垃圾尾巴 → null。PHASE B import 活体: 450 文件多选（3 个 stat 批）并发轮询 GET——样本 `0…18,18,32,100` 单调且中途移动（死 0 已绝迹）。PHASE C ctffind 活体（mock slurm, 450 张=60s 真时长）: 样本单调爬升 14 个移动步（0→6→13→20→…→100）, **99→0 振荡死亡**; run.out 带真方言字节（头行 + elapsed/total + worm + yum!）。PHASE D refine 活体（particles 导入喂 class2d, iterations=4）: 样本 `0…50…100` 单调。PHASE E 台账: 纯模块在场 + engine re-export + /6 绝迹 + 双 lane 单调守卫与 status 守卫持久化 + statRemoteFiles 证人 + import 三阶段 + 假体真方言。
+- 【回归】t318（幽灵栅栏, 52 断言）全绿——sweep 同区域无回归; t316（relink, 48 断言）全绿——ctffind 派发链路含新方言输出无恙; t312/t314/t315/t317 绑定 :3001 prod 环境（各窗沙箱重建后不存在, 判例 t299/t316）——源码级核验代偿: 四套件零进度值断言、mock 附加 bar 行不触其拒绝/诊断正则; n/N 方言由 t319 单元钉住。tsc 0; eslint 0（六个改动文件 + diag）。
+- 【环境插曲】dev server 两次被 OOM 收割（4GB 盒 + 450 微图活体轮询的内存压力, dev-server.sh 896MB 帽拉起即愈）; mock :3022 全程常绿。
+
+Stage Summary:
+- **「日志里的方言就是 UI 的方言」**: 用户一句「其实log中会有 3.53/53.72 min」就是移植指南——relion 的 progress_bar（time.cpp）全任务级时间条、refine 的迭代头、mock 的 n/N, 解析器从此只说日志真说的话; 硬编码分母（/6）是 EMPIAR 演示世界的化石, 在 1034 张的真实集群上只会说谎
+- **「单调律是进度条的宪法」**: 滑动窗口 + 可失败解析的世界里, 「parsed beats stored, stored beats null」是唯一不振荡的合同; 持久化让每个 GET 都同意昨天说过的数, status 守卫让并发 finalize 永远赢
+- **「跑着的作业不说 100」**: 夹在 [1,99], finalize 才翻 100——「99% 卡了十分钟」是诚实的（最后一张图在算）, 「100% 却还失败」是撒谎
+- **「import 也要报进度」**: 原生腿的马拉松（stat 批×嗅探×写盘）从死 0% 变成阶段证人; 证人是可选参数——通用工具的签名不为一个调用方加负担
+- 遗留（下轮候选）: mock 其余假体（motioncorr/autopick/extract）仍只说 n/N 方言（解析器已兼容, 升级为真方言属美化）; 家族全量回归（环境/roster 世界重建后）; exists=false 的 UI 活体见证（t272 遗留）

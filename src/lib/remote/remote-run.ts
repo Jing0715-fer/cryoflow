@@ -2338,8 +2338,22 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
           }
           if (e.job.status !== "running") continue; // heal path: still alive, nothing to do
           const progress = parseProgressText(e.job.type, b.log, parseJobParams(e.job.params));
-          if (progress != null && progress !== e.job.progress) {
-            replace(out, { ...e.job, progress });
+          // t319 — the monotonic contract: a running job's progress NEVER
+          // regresses. The remote sweep reads a 4096-byte SLIDING window of
+          // run.out; whenever the window holds no parsable signal (mid-bar
+          // silence, a slow SSH round, log rotation lag) the old code fell
+          // back to the DB's dispatch-time 0 — the user's 99% → 0% → 99%
+          // oscillation on the real cluster. Parsed beats stored, stored
+          // beats null; the updateMany is status-guarded so it can never
+          // touch a row a concurrent finalize already completed.
+          if (progress != null) {
+            const next = Math.max(e.job.progress, progress);
+            if (next !== e.job.progress) {
+              await db.job
+                .updateMany({ where: { id: e.job.id, status: "running" }, data: { progress: next } })
+                .catch(() => null);
+              replace(out, { ...e.job, progress: next });
+            }
           }
           continue;
         }

@@ -403,6 +403,35 @@ unbinds).
   file — re-import". The Beijing ticket's ~199 instant per-file failures
   had exactly this shape.
 
+## 4d. Progress: RELION's own bar is the ground truth (t319)
+
+The progress parser reads the SAME dialects RELION itself prints (verified
+against the sources — `src/time.cpp`'s `progress_bar`, the runners, and
+`ml_optimiser.cpp`):
+
+- **The time bar** (`ctffind` / `motioncorr` / `extract` / `autopick`): one
+  GLOBAL `elapsed/total` estimate, rewritten in place with `\r`
+  (`3.53/53.72 min ...~~(,_,"> [oo]`, ` yum!` when finished; the unit flips
+  sec → min → hrs). The ctffind/MotionCor2 subprocess output never reaches
+  run.out (the runners redirect it to per-micrograph logs), so the bar is
+  unpolluted — and `elapsed/total` self-adapts to any number of images.
+- **Iteration headers** (the refine family): ` Expectation iteration 3 of
+  25` (initialmodel: ` Gradient optimisation iteration N of M`) combined
+  with the in-iteration bar: `((iter-1) + barRatio) / total`.
+- **n/N counters** (the mock cluster's dialect): `Micrograph 5/1034` — a
+  direct ratio, denominator included.
+
+Two contracts ride on top:
+
+- **Monotonic** — a RUNNING job's progress never regresses. The sweeps read
+  a sliding 4096-byte tail; a parse miss keeps the stored value (parsed
+  beats stored, stored beats null) and the value is persisted
+  (status-guarded) so every poll agrees. A re-dispatch resets to 0 and
+  climbs again.
+- **The import reports its own phases** — per stat batch (200 files/round),
+  the header sniff, the star write — instead of a dead 0% for the whole
+  listing marathon.
+
 ## 5. Honest failure catalog
 
 | Failure | What you see |

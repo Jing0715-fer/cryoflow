@@ -1624,12 +1624,26 @@ function recordNativeRun(
 async function runImportRemoteLeg(
   job: EngineJobRef,
   customRaw: string,
-  starLines: string[]
+  starLines: string[],
+  /**
+   * t319 — phase witness for the import's own progress bar (the job runs
+   * in-process; the row sits "running" for the whole SSH listing/stat/sniff
+   * marathon and used to show a dead 0% the entire time). Percentages of
+   * the WHOLE import; the native leg tops up to 90 at star-write time.
+   */
+  onProgress?: (pct: number) => void
 ): Promise<
   | { kind: "not-remote" }
   | { kind: "error"; error: string }
   | { kind: "done"; result: string; sourceLabel: string }
 > {
+  const phase = (pct: number) => {
+    try {
+      onProgress?.(pct);
+    } catch {
+      /* a witness never breaks the import */
+    }
+  };
   const meta = getProjectMeta(job.projectId);
   const connId = meta?.remote?.connectionId ?? null;
   if (!connId) return { kind: "not-remote" };
@@ -1655,7 +1669,12 @@ async function runImportRemoteLeg(
   try {
     if (multiFile) {
       // ---- 3. explicit multi-select file list --------------------------
-      const { missing } = await statRemoteFiles(conn, listed);
+      // t319 — per-batch witness: a 1034-file pick runs ~6 stat rounds of
+      // 200; the bar moves with every round instead of sitting dead at 0.
+      const { missing } = await statRemoteFiles(conn, listed, (f) =>
+        phase(Math.round(5 + f * 30))
+      );
+      phase(35);
       if (missing.length > 0) {
         return {
           kind: "error",
@@ -1686,6 +1705,7 @@ async function runImportRemoteLeg(
       const imgs = res.entries.filter((e) => e.img && e.abs).map((e) => e.abs!);
       clusterFiles = imgs;
       skipped = Math.max(0, res.total - imgs.length);
+      phase(35);
       if (res.truncated) note = ` · pattern matched ${res.total.toLocaleString()} files — import capped at ${REMOTE_IMPORT_MAX_ENTRIES.toLocaleString()} (narrow the pattern)`;
     } else {
       // ---- 1. folder (or one pasted file) -------------------------------
@@ -1722,6 +1742,7 @@ async function runImportRemoteLeg(
           };
         }
         clusterFiles = imgs;
+        phase(35);
         if (res.truncated) note = ` · folder holds ${res.total.toLocaleString()} entries — import capped at ${REMOTE_IMPORT_MAX_ENTRIES.toLocaleString()} (import a subfolder or pattern instead)`;
       }
     }
@@ -1784,6 +1805,7 @@ async function runImportRemoteLeg(
       }
     }
   } catch { /* the sniff is a receipt, never a gate */ }
+  phase(60);
 
   const skipNote = skipped > 0 ? ` · ${skipped} non-image file${skipped === 1 ? "" : "s"} skipped` : "";
   const kindNote = isPattern ? " · pattern" : multiFile ? " · file list" : "";
@@ -1828,6 +1850,14 @@ async function runImportNative(job: EngineJobRef): Promise<NativeResult> {
     !String(job.params.micrographsPath ?? "").trim();
 
   const starPath = path.join(workdir, "micrographs.star");
+  // t319 — the import's own progress: the row sits "running" for the whole
+  // listing/stat/sniff/write marathon and used to show a dead 0% until the
+  // 100% flip at finalize. Status-guarded so it can never touch a row that
+  // a concurrent finalize/stopped path already settled.
+  const setProgress = (pct: number) =>
+    db.job
+      .updateMany({ where: { id: job.id, status: "running" }, data: { progress: pct } })
+      .catch(() => null);
   const lines: string[] = [
     "data_optics",
     "",
@@ -1889,6 +1919,7 @@ async function runImportNative(job: EngineJobRef): Promise<NativeResult> {
     // Files tab + gallery can serve PNG previews through outputs/file.
     const micLinkInWorkdir = path.join(workdir, "micrographs");
     ensureEmpiarLink(micLinkInWorkdir);
+    void setProgress(60);
     for (const m of mrcs) lines.push(`micrographs/${m} 1`);
     result = `${mrcs.length} micrographs imported · EMPIAR-10017 (pixel ${pixel} Å)`;
     sourceLabel = `source: EMPIAR-10017 ${EMPIAR_DIR}`;
@@ -1901,13 +1932,16 @@ async function runImportNative(job: EngineJobRef): Promise<NativeResult> {
     const customRaw = String(job.params.micrographsPath ?? "").trim();
     if (customRaw) {
       // ---- t300: remote project? the path names the CLUSTER's filesystem --
-      const remoteLeg = await runImportRemoteLeg(job, customRaw, lines);
+      const remoteLeg = await runImportRemoteLeg(job, customRaw, lines, (pct) => {
+        void setProgress(pct);
+      });
       if (remoteLeg.kind === "error") {
         return { ok: false, error: remoteLeg.error };
       }
       if (remoteLeg.kind === "done") {
         result = remoteLeg.result;
         sourceLabel = remoteLeg.sourceLabel;
+        void setProgress(75);
       } else {
       const status = await detectRelion();
       const bridge = bridgeFromStatus(status);
@@ -2007,6 +2041,7 @@ async function runImportNative(job: EngineJobRef): Promise<NativeResult> {
         };
       }
 
+      void setProgress(60); // local source listed — the link/write phases remain
       let unlinked = 0;
       if (!multiFile && !isPattern) {
         // folder import — link the WHOLE directory (one junction/symlink,
@@ -2055,6 +2090,7 @@ async function runImportNative(job: EngineJobRef): Promise<NativeResult> {
     }
   }
 
+  void setProgress(90); // star write is the last mile — finalize flips 100
   writeFileSync(starPath, lines.join("\n") + "\n");
   const logText = [
     `CryoFlow engine-native import ${new Date().toISOString()}`,
@@ -4427,36 +4463,13 @@ export function parseProgress(
 }
 
 /**
- * Content-based progress parser — the remote layer's entry (log text arrives
- * over SSH, not from a local file). Same heuristics as parseProgress.
+ * Content-based progress parser — re-exported from the PURE t319 module
+ * (src/lib/relion/progress-parse.ts) so the local engine, the remote sweep
+ * and the test tooling all parse the SAME dialects. See that file for the
+ * full dialect map (RELION's own time bar, iteration headers, n/N counters).
  */
-export function parseProgressText(
-  type: string,
-  tail: string,
-  params: Record<string, number | string | boolean>
-): number | null {
-  try {
-    if (!tail) return null;
-    const totalIter = Number(params.iterations ?? 25);
-    if (Number.isFinite(totalIter) && totalIter > 0) {
-      const itMatches = [...tail.matchAll(/(?:^|\s)it\s*\[?\s*(\d+)/gi)].map((m) => parseInt(m[1], 10));
-      const iterMatches = [...tail.matchAll(/iteration\s*:?\s*(\d+)/gi)].map((m) => parseInt(m[1], 10));
-      const all = [...itMatches, ...iterMatches];
-      if (all.length > 0) {
-        const current = Math.max(...all);
-        return Math.min(99, Math.round((current / totalIter) * 100));
-      }
-    }
-    // per-micrograph jobs: fraction of 6 EMPIAR micrographs seen in the log
-    if (type === "ctffind" || type === "extract" || type === "motioncorr") {
-      const micLines = tail.split("\n").filter((l) => /micrograph/i.test(l)).length;
-      if (micLines > 0) return Math.min(99, Math.round((micLines / 6) * 100));
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
+export { parseProgressText } from "./progress-parse";
+import { parseProgressText } from "./progress-parse";
 
 /* ------------------------------------------------------------------ */
 /* Main entry point                                                     */
@@ -5413,8 +5426,25 @@ export async function reconcileRealJobs(jobs: Job[]): Promise<Job[]> {
     const alive = state.pid != null && pidAlive(state.pid);
 
     if (alive) {
-      const progress = parseProgress(job.type, state.logFile, parseJobParams(job.params));
-      out.push(progress != null ? { ...job, progress } : job);
+      const parsed = parseProgress(job.type, state.logFile, parseJobParams(job.params));
+      // t319 — the monotonic contract: a running job's progress NEVER
+      // regresses. The log-tail window slides (a growing log can push the
+      // bar out of the last 4096 bytes for whole seconds) and a null parse
+      // must never drag the bar back to the dispatch-time 0 — the user's
+      // 99% → 0% → 99% oscillation was exactly this fall-through. The
+      // updateMany is status-guarded so it can never touch a row a
+      // concurrent finalize already completed.
+      if (parsed != null) {
+        const next = Math.max(job.progress, parsed);
+        if (next !== job.progress) {
+          await db.job
+            .updateMany({ where: { id: job.id, status: "running" }, data: { progress: next } })
+            .catch(() => null);
+          out.push({ ...job, progress: next });
+          continue;
+        }
+      }
+      out.push(job);
       continue;
     }
 
