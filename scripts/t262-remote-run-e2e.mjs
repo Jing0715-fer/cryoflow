@@ -647,10 +647,13 @@ try {
       } catch { /* not a link */ }
     }
   } catch { /* best effort */ }
-  // remote leftovers: the project mirror on the mock cluster
+  // remote leftovers: the project mirror on the mock cluster — the workdirs
+  // AND the staged input tree (t262-mics mirrors data/relion/t262-mics; the
+  // t308/t309 lesson: a tree the mirror knows about must be named, or it
+  // compounds silently on every family run)
   try {
     execSync(
-      `node services/mock-cluster/test-client.mjs 'rm -rf /projects/cryoflow/*/ctffind_* /projects/cryoflow/*/import_* /projects/cryoflow/*/micrographs'`,
+      `node services/mock-cluster/test-client.mjs 'rm -rf /projects/cryoflow/*/ctffind_* /projects/cryoflow/*/import_* /projects/cryoflow/*/micrographs /projects/cryoflow/t262-mics'`,
       { cwd: "/home/z/my-project", stdio: "pipe", timeout: 30_000 }
     );
   } catch { /* best effort */ }

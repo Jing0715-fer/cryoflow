@@ -148,6 +148,16 @@ page.on("pageerror", (e) => consoleErrors.push(`pageerror: ${e.message}`));
 
 const createdJobs = [];
 const sbatchIds = [];
+// cluster-side trees this suite created (the t309 lesson: the mirror rm never
+// matched the workdirs — they live under <remoteRoot>/<projectId>/, and the
+// API job delete cleans the LOCAL twin only; the REFUSED dispatch (C4)
+// stages nothing, so it notes nothing)
+const remoteWorkdirs = [];
+const projShells = new Set();
+const noteRemote = (j) => {
+  remoteWorkdirs.push(`/projects/cryoflow/${j.projectId}/${j.type}_${j.id.slice(-8)}`);
+  projShells.add(j.projectId);
+};
 let connOk = false;
 let snap0 = null;
 let accPre = "NO";
@@ -323,6 +333,7 @@ try {
   const disp1 = await dispatch(c1.id, CONN, { shards: 3 });
   must(disp1.status === 200 && !disp1.body?.error,
     `C1: the split dispatch went through (status ${disp1.status}, err=${disp1.body?.error ?? "-"})`);
+  noteRemote(c1);
   const rec1 = await pollUntil(() => {
     const r = stateRuns()[c1.id];
     return r?.remote?.slurmId ? r : null;
@@ -402,6 +413,7 @@ try {
   const disp2 = await dispatch(c2.id, CONN, { shards: 2 });
   must(disp2.status === 200 && !disp2.body?.error,
     `C2: the split dispatch went through (status ${disp2.status}, err=${disp2.body?.error ?? "-"})`);
+  noteRemote(c2);
   const rec2 = await pollUntil(() => {
     const r = stateRuns()[c2.id];
     return r?.remote?.slurmId ? r : null;
@@ -494,6 +506,7 @@ try {
   must(await mkEdge(c1.id, c3.id, "coords", "coords") === 201, "C3: the coords edge stands (201)");
   const disp3 = await dispatch(c3.id, CONN);
   must(disp3.status === 200 && !disp3.body?.error, `C3: the plain dispatch went through (${disp3.status})`);
+  noteRemote(c3);
   const rec3 = await pollUntil(() => {
     const r = stateRuns()[c3.id];
     return r?.remote?.slurmId ? r : null;
@@ -560,7 +573,16 @@ try {
     await fetch(`${BASE}/api/remote/connections/${CONN}`, { method: "DELETE", headers: SH });
   } catch { /* best effort */ }
   try {
-    const parts = ["rm -rf /projects/cryoflow/t307-array"];
+    const parts = [
+      // the staged input mirror + the REAL workdirs + the project shells if
+      // WE emptied them (rmdir, never rm -rf — the t309 lesson)
+      "rm -rf /projects/cryoflow/t307-array",
+      ...remoteWorkdirs.map((wd) => `rm -rf ${wd}`),
+      // + the staged provider copies — every dispatch stages its input chain
+      // at the provider's mapped path (import_* dirs), the t30 batch's own
+      // residue proved no suite burned those (the t309 lesson, upgraded)
+      "rm -rf /projects/cryoflow/*/autopick_* /projects/cryoflow/*/extract_* /projects/cryoflow/*/import_*",
+    ];
     for (const id of sbatchIds) {
       parts.push(`rm -f "$HOME/.slurm/job-${id}."* "$HOME/.slurm/.launch-${id}.sh"`);
       parts.push(`rm -f "$HOME/.slurm/job-${id}_"* 2>/dev/null`);
@@ -572,7 +594,14 @@ try {
       parts.push('rm -f "$HOME/.slurm/accounting"');
     }
     parts.push('rm -f "$HOME/.slurm/accounting.t307snap"');
+    // dead bookkeeping sweep — accounting and next-id are the mock's MEMORY
+    // and stay (the t309 lesson)
+    parts.push('rm -f "$HOME/.slurm/"job-*.sh "$HOME/.slurm/"job-*.pid "$HOME/.slurm/"job-*.name "$HOME/.slurm/"job-*.start "$HOME/.slurm/"job-*.state "$HOME/.slurm/".launch-*.sh 2>/dev/null || true');
+    parts.push(...[...projShells].map((p) => `rmdir /projects/cryoflow/${p} 2>/dev/null || true`));
     client(parts.join("; "));
+    // the residue guard: loud, not load-bearing (the t309 lesson)
+    const leftover = client("ls -A /projects/cryoflow 2>/dev/null");
+    if (leftover) console.log(`  (cleanup) RESIDUE left on the cluster: ${leftover.split(/\s+/).filter(Boolean).join(", ")}`);
   } catch { /* best effort */ }
   try { rmSync(`${ROOT}/data/relion/t307-array`, { recursive: true, force: true }); } catch { /* gone */ }
   if (weLaunchedMock) {

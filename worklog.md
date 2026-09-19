@@ -2262,3 +2262,22 @@ Stage Summary:
 - **「错误体的重放是最短诊断路径」**：console 只说 "400"，URL 聚类给出形状，而 route 的 JSON error body 一句话定罪（"Could not render this MRC file"）。逐层逼近不如直接问拒绝者
 - **「清理要烧真实的树，不是想象中的路径」**：API 删 job 只清本地孪生；簇侧 workdir 在项目 id 下、套件 finally 的想当然 rm 匹配不了任何东西——100 个目录的残留是无声的复利。修复 = 套件记录自己创建的 remoteWorkdir、finally 逐个 rm
 - 遗留（下轮候选）：verify-module 的 by-value 变体；384³/512³ 阶梯压测（T296_N 已备）；EMPIAR 真数据回归（连续第十八窗让位）；demo 教程链的下游重跑（按老约定补 outputs 映射）；各历史套件 finally 的簇侧 rm 同款修正（t302-307 仍带想当然路径，mock fs 残留会复利）
+
+## Task 309 (2026-09-19 09:18 cron) — 簇侧清理债清偿：每个套件烧掉自己碰过的每一棵树
+
+**开局实证**：树上已被并行窗口推进到 Task 308（HEAD `25f6ad6` 已 push）——t303 sacct 时钟、t304 依赖链、t305 wrapper 文字、t306/307/308 数组切分全线均已交付，roster 75 套件/11 批。环境净场良好（3000 独监、roster 21、tsc 0、console 净）。选题：Task 308 遗留清单里最"债"味的一项——**各历史套件 finally 的簇侧 rm 想当然路径，mock fs 残留会复利**。
+
+**【债务画像（逐个套件验尸）】**路径模型：本地 `data/relion/*` 镜像到 `/projects/cryoflow/*`（staging 上传），workdir 在 `<remoteRoot>/<projectId>/<type>_<id后8>`，外部文件在 `_staged/<hash>/`。开局时簇侧 11 项残留：5 个 `cmu*` 空壳（t308 烧净后的壳）+ `dep-test`（开发探针孤儿）+ `t262/t270/t293/t298-mics`（staged 输入镜像树，套件只烧本地侧）+ `t308-array/mics`（t308 把镜像烧除行连同想当然行一起删了——烧了 workdir 却漏了镜像）。**每个套件的病各不相同**：t262/t270 烧 workdir glob 不烧镜像；t293 全都不烧；t298 只烧本地；t299/304/306/307 烧镜像不烧 workdir；t308 烧 workdir 不烧镜像。demo 记录对 `/projects/cryoflow` **零引用**（烧除安全，已核实）。
+
+**【修复（8 套件 × 各自的病）】**① 一次性烧净 11 项残留；② t262/t270：镜像烧除行入 glob（`rm -rf … /projects/cryoflow/t262-mics`）；③ t293：`remoteWorkdirs` 记录（从记录的 `remote.remoteWorkdir` 取真值）+ 镜像 + workdir + rmdir 壳清扫；④ t298：FS_ROOT 直连 rmSync 补镜像；⑤ t304/306/307：`noteRemote()` 在每处 dispatch 成功后记录（t307 的 C4 是**预期拒绝**——拒绝的 dispatch 不 staging，不记）+ finally 烧 workdir + `rmdir` 壳清扫（只清空壳，绝不 `rm -rf` 项目目录）+ 残留日志守卫；⑥ t308：**纠正自己的注释**（`/projects/cryoflow/t308-array` 对 workdir 是想当然、对镜像却是真路径——两件事共用一个形状）+ 补回镜像烧除。
+
+**【批跑活体揪出第三种残留】**修复后 --batch t30 首跑五绿（wall 234.8s），但磁盘终验暴露**第三种残留形状**：`cmu6xtvf7…/import_*` ×3——**每次 dispatch 都会把输入链按 provider 的本地映射路径 staging 上簇**（`import_<suffix>/micrographs.star`），没有任何套件烧过这些 staged provider 副本。升级 t304/306/307/308 的烧除为三层：镜像（具名）+ 自己的 workdir（精确路径）+ staged provider 副本（**glob**：`/*/ctffind_* //*/import_*` 等，t262 已验证的形状，任意项目 id 都命中）。顺带清算 `.slurm` 死账簿（65 pid + 65 name + 45 start + 43 state 积累）——**accounting 和 next-id 是 mock 的记忆，保留**。
+
+**【终局证明】**复跑 --batch t30（升级后代码）：**pass 5 · solo 0 · real-fail 0 · wall 236.3s**；簇树 **0 项**（自建自清，含 staged provider 副本与项目壳）；`.slurm` 只剩 accounting + next-id；roster 21；tsc 0；改动文件 eslint 0。烧除命令活体证明（种植假镜像/假 workdir/假壳 → 原样命令 → 验净，`rmdir` 空壳语义验证）。守卫是日志不是断言——烧除本身是执法，守卫让未来复发**可见**（家族跑批输出每窗必读）。
+
+Stage Summary:
+- **「同一个路径形状，两种真实」**：`/projects/cryoflow/t308-array` 对 workdir 是想当然、对 staged 镜像却是真路径——t308 删烧除行时把婴儿和洗澡水一起倒了。修复不是"删掉错的"，是"分清哪个真的、哪个假的、各用什么形状烧"
+- **「残留在批跑里现形」**：单套件绿不等于簇树净——三种残留（镜像/workdir/staged provider 副本）只有批跑后的磁盘终验才暴露全貌。修复后复跑批 + 终验 0，才是闭环
+- **「烧除三层，层层有形」**：具名镜像、精确 workdir、glob provider 副本——精确路径自证清白，glob 兜住项目 id 漂移；`rmdir` 只清自己掏空的壳（绝不 `rm -rf` 共享目录）
+- **「守卫是日志，不是断言」**：must 进 finally 要么被 catch 吞掉要么炸掉后续清理——日志行让残留响亮而不破坏清理链；执法靠烧除，守卫靠可见
+- 遗留（下轮候选）：verify-module 的 by-value 变体；384³/512³ 阶梯压测（T296_N 已备）；EMPIAR 真数据回归（连续第十九窗让位）；demo 教程链的下游重跑（按老约定补 outputs 映射）；t262/270/293/298 的镜像烧除行已入码、待各批下次自然轮跑活体验证

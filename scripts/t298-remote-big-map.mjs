@@ -532,6 +532,10 @@ try {
     try { rmSync(mockWorkdir, { recursive: true, force: true }); } catch { /* best effort */ }
   }
   try { rmSync(MICS_DIR, { recursive: true, force: true }); } catch { /* best effort */ }
+  // + the CLUSTER-side mirror of the mics tree (the t309 lesson: the local
+  // rm never touched services/mock-cluster/fs — the mirror compounded on
+  // every family run of the t29 batch)
+  try { rmSync(`${FS_ROOT}/t298-mics`, { recursive: true, force: true }); } catch { /* best effort */ }
   try { rmSync(TMP, { recursive: true, force: true }); } catch { /* best effort */ }
   await browser.close();
   if (weLaunchedMock) {

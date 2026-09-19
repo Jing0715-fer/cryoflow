@@ -414,7 +414,9 @@ try {
   } catch { /* best effort */ }
   try {
     execSync(
-      `node services/mock-cluster/test-client.mjs 'rm -rf /projects/cryoflow/*/motioncorr_* /projects/cryoflow/*/import_* /projects/cryoflow/*/micrographs'`,
+      // + t270-mics — the staged input mirror (the t309 lesson: the workdir
+      // globs never matched it, and it compounded on every family run)
+      `node services/mock-cluster/test-client.mjs 'rm -rf /projects/cryoflow/*/motioncorr_* /projects/cryoflow/*/import_* /projects/cryoflow/*/micrographs /projects/cryoflow/t270-mics'`,
       { cwd: "/home/z/my-project", stdio: "pipe", timeout: 30_000 }
     );
   } catch { /* best effort */ }

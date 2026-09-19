@@ -131,6 +131,15 @@ page.on("pageerror", (e) => consoleErrors.push(`pageerror: ${e.message}`));
 
 const createdJobs = [];
 const sbatchIds = [];
+// cluster-side trees this suite created (the t309 lesson: the API job delete
+// cleans the LOCAL twin only — the dispatched workdir under
+// <remoteRoot>/<projectId>/<type>_<suffix> survives it and compounds)
+const remoteWorkdirs = [];
+const projShells = new Set();
+const noteRemote = (j) => {
+  remoteWorkdirs.push(`/projects/cryoflow/${j.projectId}/${j.type}_${j.id.slice(-8)}`);
+  projShells.add(j.projectId);
+};
 let connOk = false;
 let snap0 = null;
 let accPre = "NO";
@@ -333,6 +342,7 @@ try {
   // body.error (resolveInputs' missing message), not in waiting.
   must(disp1.status === 200 && !disp1.body?.error,
     `C1: the child dispatched (status ${disp1.status}, err=${disp1.body?.error ?? "-"}, wait=${disp1.body?.waiting ?? "-"})`);
+  noteRemote(child1);
   const rec1 = await pollUntil(() => {
     const r = stateRuns()[child1.id];
     return r?.remote?.slurmId ? r : null;
@@ -441,6 +451,7 @@ try {
   plant(p2.id, p2.projectId, failing);
   const disp2 = await dispatch(child2.id, CONN);
   must(disp2.status === 200 && !disp2.body?.error, `C2: the child dispatched (${disp2.status})`);
+  noteRemote(child2);
   const done2 = await pollUntil(async () => {
     const s = (await getJobs()).find((j) => j.id === child2.id)?.status;
     return s === "failed" ? s : null;
@@ -461,6 +472,7 @@ try {
   must(await mkEdge(a0.id, child3.id, "micrographs", "micrographs") === 201, "C3: the provider edge (A0 → C3) stands (201)");
   const disp3 = await dispatch(child3.id, CONN);
   must(disp3.status === 200 && !disp3.body?.error, `C3: the child dispatched (${disp3.status})`);
+  noteRemote(child3);
   const rec3 = await pollUntil(() => {
     const r = stateRuns()[child3.id];
     return r?.remote?.slurmId ? r : null;
@@ -501,7 +513,18 @@ try {
     await fetch(`${BASE}/api/remote/connections/${CONN}`, { method: "DELETE", headers: SH });
   } catch { /* best effort */ }
   try {
-    const parts = ["rm -rf /projects/cryoflow/t304-dep"];
+    const parts = [
+      // THREE kinds of cluster-side tree (the t309 lesson, upgraded after the
+      // batch's own residue proved it: every dispatch stages its INPUT CHAIN
+      // at the provider's mapped path — import_* dirs holding the provider
+      // star — and NO suite burned those until now):
+      //   1. the staged input mirror (data/relion/t304-dep)
+      //   2. this suite's OWN dispatched workdirs (exact paths)
+      //   3. the staged provider copies — by GLOB, so any project id matches
+      "rm -rf /projects/cryoflow/t304-dep",
+      ...remoteWorkdirs.map((wd) => `rm -rf ${wd}`),
+      "rm -rf /projects/cryoflow/*/ctffind_* /projects/cryoflow/*/import_*",
+    ];
     for (const id of sbatchIds) {
       parts.push(`rm -f "$HOME/.slurm/job-${id}."* "$HOME/.slurm/.launch-${id}.sh"`);
     }
@@ -512,7 +535,17 @@ try {
       parts.push('rm -f "$HOME/.slurm/accounting"');
     }
     parts.push('rm -f "$HOME/.slurm/accounting.t304snap"');
+    // dead bookkeeping from every suite that never swept its own (pid/name
+    // accumulated 65-deep across the family's history) — accounting and
+    // next-id are the mock's MEMORY and stay
+    parts.push('rm -f "$HOME/.slurm/"job-*.sh "$HOME/.slurm/"job-*.pid "$HOME/.slurm/"job-*.name "$HOME/.slurm/"job-*.start "$HOME/.slurm/"job-*.state "$HOME/.slurm/".launch-*.sh 2>/dev/null || true');
+    // the project shell leaves only if WE emptied it (rmdir, never rm -rf)
+    parts.push(...[...projShells].map((p) => `rmdir /projects/cryoflow/${p} 2>/dev/null || true`));
     client(parts.join("; "));
+    // the residue guard: loud, not load-bearing — the burns themselves are
+    // the enforcement, this line makes any future relapse VISIBLE
+    const leftover = client("ls -A /projects/cryoflow 2>/dev/null");
+    if (leftover) console.log(`  (cleanup) RESIDUE left on the cluster: ${leftover.split(/\s+/).filter(Boolean).join(", ")}`);
   } catch { /* best effort */ }
   try { rmSync(`${ROOT}/data/relion/t304-dep`, { recursive: true, force: true }); } catch { /* gone */ }
   if (weLaunchedMock) {

@@ -521,12 +521,19 @@ try {
   } catch { /* best effort */ }
   try {
     const parts = [
-      // the REAL remote workdirs — the API job delete cleans the LOCAL twin
-      // only, and the mock fs keeps every tree it was ever handed (the
-      // aspirational /projects/cryoflow/t308-array rm below matched nothing:
-      // workdirs live under the PROJECT id, and 100 dirs of prior suites'
-      // residue taught this rm its exact shape)
+      // BOTH trees the suite touches cluster-side (the t309 correction of
+      // t308's own comment: the workdirs live under the PROJECT id — a
+      // /projects/cryoflow/t308-array rm never matched them — BUT the same
+      // path is ALSO the STAGED INPUT MIRROR of data/relion/t308-array, and
+      // THAT is real: this window found it still on disk with all 12 mics.
+      // the API job delete cleans the LOCAL twin only; the mirror rm was
+      // dropped along with the aspirational one and the residue compounded)
+      "rm -rf /projects/cryoflow/t308-array",
       ...remoteWorkdirs.map((wd) => `rm -rf ${wd}`),
+      // + the staged provider copies — every dispatch stages its input chain
+      // at the provider's mapped path (import_* dirs), the t30 batch's own
+      // residue proved no suite burned those (the t309 lesson, upgraded)
+      "rm -rf /projects/cryoflow/*/autopick_* /projects/cryoflow/*/extract_* /projects/cryoflow/*/class2d_* /projects/cryoflow/*/import_*",
     ];
     for (const id of sbatchIds) {
       parts.push(`rm -f "$HOME/.slurm/job-${id}."* "$HOME/.slurm/.launch-${id}.sh"`);
@@ -539,7 +546,16 @@ try {
       parts.push('rm -f "$HOME/.slurm/accounting"');
     }
     parts.push('rm -f "$HOME/.slurm/accounting.t308snap"');
+    // dead bookkeeping sweep — accounting and next-id are the mock's MEMORY
+    // and stay (the t309 lesson)
+    parts.push('rm -f "$HOME/.slurm/"job-*.sh "$HOME/.slurm/"job-*.pid "$HOME/.slurm/"job-*.name "$HOME/.slurm/"job-*.start "$HOME/.slurm/"job-*.state "$HOME/.slurm/".launch-*.sh 2>/dev/null || true');
+    // the project shell leaves only if WE emptied it (rmdir, never rm -rf)
+    parts.push(...[...new Set(remoteWorkdirs.map((wd) => wd.replace(/\/[^/]+$/, "")))]
+      .map((p) => `rmdir ${p} 2>/dev/null || true`));
     client(parts.join("; "));
+    // the residue guard: loud, not load-bearing (the t309 lesson)
+    const leftover = client("ls -A /projects/cryoflow 2>/dev/null");
+    if (leftover) console.log(`  (cleanup) RESIDUE left on the cluster: ${leftover.split(/\s+/).filter(Boolean).join(", ")}`);
   } catch { /* best effort */ }
   try { rmSync(`${ROOT}/data/relion/t308-array`, { recursive: true, force: true }); } catch { /* gone */ }
   try { rmSync(`${ROOT}/data/relion/t308-sandbox`, { recursive: true, force: true }); } catch { /* gone */ }

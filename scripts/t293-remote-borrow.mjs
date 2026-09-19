@@ -106,6 +106,7 @@ const SH = {
 };
 
 const createdJobs = [];
+const remoteWorkdirs = []; // cluster-side trees this suite created (burned in finally, the t309 lesson)
 let connId = null;
 const stateRuns = () => {
   try {
@@ -368,6 +369,7 @@ try {
   must(!!doneA, "A finalized on the cluster");
   const remoteWorkdir = doneA?.remote?.remoteWorkdir ?? "";
   must(remoteWorkdir.startsWith("/projects/cryoflow"), `the record carries the cluster workdir (${remoteWorkdir})`);
+  remoteWorkdirs.push(remoteWorkdir);
   const mirrorA = `/home/z/my-project/data/relion/${projId}/ctffind_${jobA.id.slice(-8)}`;
   must(existsSync(path.join(mirrorA, "micrographs_ctf.star")), "the STAR synced back (text skeleton always syncs)");
 
@@ -514,6 +516,17 @@ try {
     try { await fetch(`${BASE}/api/remote/connections/${connId}`, { method: "DELETE", headers: SH }); } catch { /* best effort */ }
   }
   try { rmSync(MICS_DIR, { recursive: true, force: true }); } catch { /* best effort */ }
+  // remote leftovers: the dispatched workdir + the staged input mirror + the
+  // project shell if WE emptied it (the t309 lesson — the API job delete
+  // cleans the LOCAL twin only; the mirror rm must name the REAL path)
+  try {
+    const burns = ["/projects/cryoflow/t293-mics", ...remoteWorkdirs];
+    const shells = remoteWorkdirs.map((wd) => wd.replace(/\/[^/]+$/, ""));
+    execSync(
+      `node services/mock-cluster/test-client.mjs 'rm -rf ${burns.join(" ")}; rmdir ${[...new Set(shells)].join(" ")} 2>/dev/null || true'`,
+      { cwd: "/home/z/my-project", stdio: "pipe", timeout: 30_000 }
+    );
+  } catch { /* best effort */ }
   await browser.close();
 }
 
