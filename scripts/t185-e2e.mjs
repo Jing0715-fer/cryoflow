@@ -11,7 +11,7 @@
  * RESPONSE — what the server kept, never what was sent.
  *
  * Probe layers:
- *   S  baseline world (roster 21, registry = built-in trio, no
+ *   S  baseline world (roster 23, registry = built-in trio, no
  *      hpc-profiles.json persisted — the canonical default world)
  *   X  source oracles — the editor POSTs and re-renders from the response;
  *      localRoot renders read-only (server-pinned, Task 184); ids are
@@ -92,7 +92,7 @@ function trackConsole(pageRef, label) {
 section("S: baseline world");
 const list0 = await (await fetch(BASE + "/api/jobs")).json();
 const jobs0 = Array.isArray(list0) ? list0 : list0.jobs ?? [];
-must(jobs0.length === 21, `S1 roster 21 jobs (${jobs0.length})`);
+must(jobs0.length === 23, `S1 roster 23 jobs (${jobs0.length})`);
 
 const profilesRaw = (await (await fetch(BASE + "/api/hpc/profiles", { headers: SH })).json()).profiles ?? [];
 must(profilesRaw.length === 3, `S2 registry is the built-in trio (${profilesRaw.length})`);
@@ -456,7 +456,7 @@ must(
 );
 const listZ = await (await fetch(BASE + "/api/jobs")).json();
 const jobsZ = Array.isArray(listZ) ? listZ : listZ.jobs ?? [];
-must(jobsZ.length === 21, `Z3 roster identity (${jobsZ.length})`);
+must(jobsZ.length === 23, `Z3 roster identity (${jobsZ.length})`);
 
 const real5xx = failedUrls.filter((f) => f.status >= 500);
 const real404 = failedUrls.filter((f) => f.status === 404);

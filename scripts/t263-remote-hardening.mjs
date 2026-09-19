@@ -17,7 +17,7 @@
 //      marker), and the deleted-connection sweep path fails running rows
 //      honestly instead of dispatching children to a stale target.
 // Phases:
-//   A  demo truth — homepage 200, roster 21, mock cluster answering, stubs
+//   A  demo truth — homepage 200, roster 23, mock cluster answering, stubs
 //   B  the ledger — the three mechanisms pinned in source
 //   C  the live loop — real dispatch (the hardened path carries a full
 //      run), the ghost busy door (409 live), the deleted-connection heal,
@@ -147,7 +147,7 @@ try {
   const res = await page.goto(BASE, { waitUntil: "domcontentloaded" });
   must(res.status() === 200, `homepage 200 (got ${res.status()})`);
   await sleep(2500);
-  must(roster0 === 21, `roster identity 21 (got ${roster0})`);
+  must(roster0 === 23, `roster identity 23 (got ${roster0})`);
   must(await mockListening(), `the mock cluster answers on :${MOCK_PORT}`);
   must(
     existsSync("/home/z/my-project/services/mock-cluster/fs/opt/bin/relion_run_ctffind"),
@@ -624,7 +624,7 @@ try {
   try {
     const after = await (await fetch(`${BASE}/api/jobs`)).json();
     const n = (after.jobs ?? []).length;
-    must(n === 21, `roster restored to 21 (got ${n})`);
+    must(n === 23, `roster restored to 23 (got ${n})`);
   } catch { /* server busy */ }
   await browser.close().catch(() => {});
 }

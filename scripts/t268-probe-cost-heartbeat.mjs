@@ -21,7 +21,7 @@
  *     mid-flight while the suite reads the beat twice.
  *
  * Phases:
- *   A  demo truth (roster 21, mock cluster)
+ *   A  demo truth (roster 23, mock cluster)
  *   B  ledger — durationMs in the type, the wrapper in probe.ts, the two
  *      dialog surfaces, the auto-probe log line
  *   C  live loop —
@@ -181,7 +181,7 @@ try {
   const res = await page.goto(BASE, { waitUntil: "domcontentloaded" });
   must(res.status() === 200, `homepage 200 (got ${res.status()})`);
   await sleep(2500);
-  must(roster0 === 21, `roster identity 21 (got ${roster0})`);
+  must(roster0 === 23, `roster identity 23 (got ${roster0})`);
   must(await mockListening(), `the mock cluster answers on :${MOCK_PORT}`);
 
   // ---- Phase B: the ledger -------------------------------------------------
@@ -444,7 +444,7 @@ try {
   try {
     const after = await (await fetch(`${BASE}/api/jobs`)).json();
     const n = (after.jobs ?? []).length;
-    must(n === 21, `roster restored to 21 (got ${n})`);
+    must(n === 23, `roster restored to 23 (got ${n})`);
   } catch { /* server busy */ }
   await browser.close().catch(() => {});
   // t268 restores the DEFAULT server (10s beat) for the rest of the family —

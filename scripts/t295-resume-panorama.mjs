@@ -32,7 +32,7 @@
  * closing note filed the fix direction).
  *
  * Phases:
- *   A  demo truth (roster 21)
+ *   A  demo truth (roster 23)
  *   B  the ledger (source assertions: the two routes, the all variant,
  *      the order law, the UI doors, the threading, the launcher)
  *   C  the live loop:
@@ -47,7 +47,7 @@
  *          verified; the status line speaks the counts
  *   D  console clean
  *   finally  state file restored to the pre-suite truth, connection
- *            removed, roster back to 21
+ *            removed, roster back to 23
  */
 import { chromium } from "playwright";
 import { execSync } from "node:child_process";
@@ -124,7 +124,7 @@ try {
   const res = await page.goto(BASE, { waitUntil: "domcontentloaded" });
   must(res.status() === 200, `homepage 200 (got ${res.status()})`);
   await sleep(2500);
-  must(roster0 === 21, `roster identity 21 (got ${roster0})`);
+  must(roster0 === 23, `roster identity 23 (got ${roster0})`);
 
   // ---- Phase B: the ledger -------------------------------------------------
   console.log("== PHASE B: the ledger ==");
@@ -481,7 +481,7 @@ try {
   try {
     const jobsNow = await (await fetch(`${BASE}/api/jobs`)).json();
     const n = (jobsNow.jobs ?? []).length;
-    must(n === 21, `roster restored to 21 (got ${n})`);
+    must(n === 23, `roster restored to 23 (got ${n})`);
   } catch { /* best effort */ }
   try { execSync("fuser -k 3022/tcp 2>/dev/null"); } catch { /* nothing on the port */ }
   await browser.close().catch(() => {});

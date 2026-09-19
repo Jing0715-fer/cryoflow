@@ -8,7 +8,7 @@
 //      a route that DID NOT EXIST (404; the core save→test→probe loop was
 //      dead in the UI). Route built: gate + probe + lastProbe persistence.
 // This suite pins both fixes and gives the feature its first family suite:
-//   A  demo truth — homepage 200, roster 21, the mock cluster answering
+//   A  demo truth — homepage 200, roster 23, the mock cluster answering
 //   B  the ledger — the GET door, the test route (gate + probe + persist),
 //      the 0600 secret registry, the DTO stripping, the ssh quoting helper
 //   C  the doors matrix — GET/POST/PATCH/DELETE × bare/cross/rebind → 403,
@@ -120,7 +120,7 @@ try {
   const res = await page.goto(BASE, { waitUntil: "domcontentloaded" });
   must(res.status() === 200, `homepage 200 (got ${res.status()})`);
   await sleep(2500);
-  must(roster0 === 21, `roster identity 21 (got ${roster0})`);
+  must(roster0 === 23, `roster identity 23 (got ${roster0})`);
   must(await mockListening(), `the mock cluster answers on :${MOCK_PORT}`);
 
   // ---- Phase B: the ledger -------------------------------------------------
@@ -361,7 +361,7 @@ try {
     console.log("  (cleanup) stopped the mock cluster we launched");
   }
   const after = (await (await fetch(`${BASE}/api/jobs`)).json()).jobs ?? [];
-  must(after.length === 21, `roster restored to 21 (got ${after.length})`);
+  must(after.length === 23, `roster restored to 23 (got ${after.length})`);
 }
 
 // ---- Phase E: console clean ----------------------------------------------

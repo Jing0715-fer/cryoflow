@@ -19,7 +19,7 @@
  *      markdown source, so exports carry it too. The CSV door (t218)
  *      still speaks three rows, cell-for-cell with the paper.
  *   T  teardown — DELETE /api/jobs/:id clears the run record and the row;
- *      the roster returns to 21; the outputs route refuses the dead id.
+ *      the roster returns to 23; the outputs route refuses the dead id.
  *   Z  world hygiene — console clean; t220's negative branch: the untied
  *      world speaks TWO rows, the amber edge returns, the note is gone.
  */
@@ -154,8 +154,8 @@ section("T: DELETE the twin — the roster forgets, the disk remembers (undo doc
 const del = await fetch(`${BASE}/api/jobs/${twinId}`, { method: "DELETE", headers: H });
 must(del.ok, `T1 DELETE accepted (${del.status})`);
 const rosterT = await jobs();
-must(rosterT.length === 21 && !rosterT.find((j) => j.name === "QA Class2D Twin"),
-  `T2 the roster is 21 again, twin gone (${rosterT.length})`);
+must(rosterT.length === 23 && !rosterT.find((j) => j.name === "QA Class2D Twin"),
+  `T2 the roster is 23 again, twin gone (${rosterT.length})`);
 const deadProf = await fetch(`${BASE}/api/jobs/${twinId}/map-profile?path=orthovol.mrc&axis=z`, { headers: H });
 must(deadProf.status === 404 || (await deadProf.json()).error, "T3 the outputs route refuses the dead id");
 const state = JSON.parse(readFileSync("data/engine-state.json", "utf8"));
@@ -163,7 +163,7 @@ must(!state[twinId], "T4 the run record left with the job (clearRunRecord, alive
 
 /* ============ Z: world hygiene ============ */
 section("Z: the world after");
-must((await jobs()).length === 21, "Z1 roster identity (21) after the whole dance");
+must((await jobs()).length === 23, "Z1 roster identity (23) after the whole dance");
 
 // t220: the negative branch on the wire — in the untied world the tie
 // note is NEVER born (the amber edge already speaks), and with the twin

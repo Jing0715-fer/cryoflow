@@ -11,7 +11,7 @@
 // behind the door, and the app's own same-origin world unharmed.
 //
 // Phases:
-//   A  demo truth — homepage 200, roster 21
+//   A  demo truth — homepage 200, roster 23
 //   B  the door (#5) — on ALL 16 guarded surfaces: no fetch metadata
 //      (curl-style) → 403; cross-site Origin → 403; rebound Host
 //      (the DNS-rebinding backstop: Origin passes, Host pin convicts)
@@ -97,7 +97,7 @@ const roster = await page.evaluate(async () => {
   const r = await fetch("/api/jobs");
   return (await r.json()).jobs.length;
 });
-must(roster === 21, `roster identity 21 (got ${roster})`);
+must(roster === 23, `roster identity 23 (got ${roster})`);
 must(consoleErrors.length === 0, `the homepage's own world is console-clean (got ${consoleErrors.length})`);
 // a real job id so the guarded routes reach their route-level answers
 const jobs = await (await fetch(`${BASE}/api/jobs`)).json();

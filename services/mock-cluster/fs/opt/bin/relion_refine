@@ -67,19 +67,52 @@ if not rows:
     sys.exit(1)
 npart = len(rows)
 
+star_dir = os.path.dirname(os.path.abspath(star_in))
+
+# t311 — the echo RELOCATES the rows (they land in THIS job's run_data.star,
+# not the upstream's dir), so every ref re-points at the stacks from their
+# new home: resolve against the star's dir OR the cwd (the project root —
+# the wrapper cds there, the real RELION convention) and re-emit
+# project-relative. A verbatim echo left rows like extra/x.mrcs meaning
+# "the upstream's extra/" inside a directory that has no extra/ — the same
+# relocation disease the engine's own natives caught this window.
+def rebase_ref(ref):
+    if os.path.isabs(ref):
+        return ref
+    for base in (star_dir, os.getcwd()):
+        p = os.path.join(base, ref)
+        if os.path.exists(p):
+            return os.path.relpath(p, os.getcwd())
+    return ref
+
 # merge-integrity audit: every ImageName after the @ resolves relative to
 # the STAR'S OWN DIR (absolute paths pass as-is). One missing stack means
 # the canonical star is torn or drifted from its extra/ tree — real RELION
 # dies inside HealpixSampling::readStar on exactly this shape.
+# t311 — real RELION resolves star rows against the process CWD (the
+# PROJECT ROOT — the pipeliner writes project-relative paths). On this mock
+# the launcher runs each job from ITS OWN workdir, so a project-relative
+# row resolves from the star's PARENT (dirname(star_dir) == the project
+# root by layout law). The audit accepts star-dir, cwd, or project root.
 star_dir = os.path.dirname(os.path.abspath(star_in))
 missing = 0
 for r in rows:
-    img = r.split("\t")[0]
+    # real RELION loop rows are WHITESPACE-separated (t311: the engine's own
+    # natives emit space-joined rows) — a hard tab split swallowed the whole
+    # line into the stack name and refused every row
+    img = r.split()[0]
     if "@" not in img:
         continue
     stack = img.split("@", 1)[1]
-    stack = stack if os.path.isabs(stack) else os.path.join(star_dir, stack)
-    if not os.path.exists(stack):
+    if os.path.isabs(stack):
+        candidates = [stack]
+    else:
+        candidates = [
+            os.path.join(star_dir, stack),
+            os.path.join(os.getcwd(), stack),
+            os.path.join(os.path.dirname(star_dir), stack),
+        ]
+    if not any(os.path.exists(c) for c in candidates):
         missing += 1
 if missing:
     print(
@@ -92,28 +125,36 @@ print(f"cryoflow-mock refine: mode={mode} K={ncls} particles={npart} iters={iter
 
 
 def write_mrc(path, nx, ny, nz, seed):
-    """Minimal valid MRC (mode 2, float32) — enough for header readers."""
+    """Minimal valid MRC (mode 2, float32) — enough for header readers.
+
+    t311: the header offsets now follow the REAL MRC2014 layout — MODE is
+    word 3 (byte 12), NXSTART/NYSTART/NZSTART words 4-6 (16), MX/MY/MZ words
+    7-9 (28), DMIN/DMAX/DMEAN words 19-21 (76), ISPG word 22 (88), NSYMBT
+    word 23 (92), ORIGIN words 24-26 (96), RMS word 54 (216). The old writer
+    put MODE at byte 4 — overwriting NY with 2 — and packed the sampling
+    into the NXSTART slot; the app's lenient montage path still drew tiles,
+    but every honest header reader (readMrcHeader's own dims, Mol*, real
+    RELION) read a 64x2x64 sliver. The fake's dialect now reaches the header.
+    """
     data = bytearray()
     for k in range(nx * ny * nz):
         v = ((seed * 1103515245 + k * 12345) % 1000) / 1000.0 - 0.5
         data += struct.pack("<f", v)
     header = bytearray(1024)
     struct.pack_into("<3i", header, 0, nx, ny, nz)          # NX,NY,NZ
-    struct.pack_into("<i", header, 4, 2)                    # MODE float32
-    struct.pack_into("<3i", header, 12, 0, 0, 0)            # NXSTART, NYSTART, NZSTART
-    struct.pack_into("<3i", header, 20, nx, ny, nz)         # MX,MY,MZ sampling
+    struct.pack_into("<i", header, 12, 2)                   # MODE float32 (word 3)
+    struct.pack_into("<3i", header, 16, 0, 0, 0)            # NXSTART, NYSTART, NZSTART
+    struct.pack_into("<3i", header, 28, nx, ny, nz)         # MX,MY,MZ sampling
     struct.pack_into("<3f", header, 40, float(nx), float(ny), float(nz))  # CELLA
-    struct.pack_into("<3f", header, 56, 90.0, 90.0, 90.0)   # CELLB angles
-    struct.pack_into("<3i", header, 64, 1, 2, 3)            # AXISIDX (crystal)
+    struct.pack_into("<3f", header, 52, 90.0, 90.0, 90.0)   # CELLB angles
+    struct.pack_into("<3i", header, 64, 1, 2, 3)            # MAPC, MAPR, MAPS
     struct.pack_into("<3f", header, 76, -0.5, 0.5, 0.0)     # DMIN, DMAX, DMEAN
-    struct.pack_into("<i", header, 88, nx * ny * nz)        # NXYZSTART? (unused) — actually ISPG below
-    struct.pack_into("<i", header, 92, 1)                   # ISPG
-    struct.pack_into("<i", header, 96, 0)                   # NSYMBT (no extended header)
-    struct.pack_into("<3i", header, 104, 0, 0, 0)           # ORIGIN (pixels)
-    struct.pack_into("<3f", header, 196, 0.0, 0.0, 0.0)     # ORIGIN (coords)
+    struct.pack_into("<i", header, 88, 1)                   # ISPG
+    struct.pack_into("<i", header, 92, 0)                   # NSYMBT (no extended header)
+    struct.pack_into("<3f", header, 96, 0.0, 0.0, 0.0)      # ORIGIN
     header[208:212] = b"MAP "                               # MAP magic
     header[212:216] = b"\x44\x41\x00\x00"                   # MACHST little-endian
-    struct.pack_into("<f", header, 216, 1.0)                # RMS
+    struct.pack_into("<f", header, 216, 0.29)               # RMS
     struct.pack_into("<i", header, 220, 1)                  # NLABL
     with open(path, "wb") as fh:
         fh.write(header)
@@ -135,9 +176,13 @@ for it in range(1, iters + 1):
         fh.write("_rlnAngleTilt #4\n")
         fh.write("_rlnAnglePsi #5\n")
         # provenance: echo the INPUT rows' ImageName (first tab field) —
-        # the classes describe exactly the particles the star listed
+        # the classes describe exactly the particles the star listed, with
+        # every ref RE-BASED to this star's own home (t311)
         for p, r in enumerate(rows):
-            img = r.split("\t")[0]
+            img = r.split()[0]
+            if "@" in img:
+                n, stack = img.split("@", 1)
+                img = f"{n}@{rebase_ref(stack)}"
             cls = (p * 7 + it) % ncls + 1
             fh.write(f"{img}\t{cls}\t{p * 13.0:.1f}\t{90.0 - p}.2\t{p * 3.0:.1f}\n")
     for c in range(1, ncls + 1):

@@ -12,7 +12,7 @@
 // door that matches no rule FAILS the suite — the contract must be updated,
 // not silently drifted past. A rule matching no door is stale — also FAIL.
 // Phases:
-//   A  demo truth — engine not-found, roster 21, exactly one project
+//   A  demo truth — engine not-found, roster 23, exactly one project
 //   B  the law — enumerate the header's interactive doors from the live DOM,
 //      match each against DOOR_RULES/EXEMPT_RULES, then open the palette and
 //      assert every coverage rule finds its row + the group order
@@ -46,7 +46,7 @@ console.log("== PHASE A: demo world identity ==");
 const sys = await (await fetch(`${BASE}/api/system`, { headers: { "sec-fetch-site": "same-origin" } })).json();
 must(sys.found === false, "real API: engine not found (demo host truth)");
 const jobs = await (await fetch(`${BASE}/api/jobs`)).json();
-must((jobs.jobs ?? []).length === 21, `roster identity 21 (got ${(jobs.jobs ?? []).length})`);
+must((jobs.jobs ?? []).length === 23, `roster identity 23 (got ${(jobs.jobs ?? []).length})`);
 const projs = await (await fetch(`${BASE}/api/projects`, { headers: { "sec-fetch-site": "same-origin" } })).json();
 must((projs.projects ?? []).length === 1, `demo world has exactly one project (got ${(projs.projects ?? []).length})`);
 

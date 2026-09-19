@@ -7,7 +7,7 @@
 // I am about to add?" — the same leap of faith t290's by-value probe retired
 // for logins, still alive for module names. t310 closes it:
 //
-//   A  demo truth — homepage 200, roster 21, mock cluster answering
+//   A  demo truth — homepage 200, roster 23, mock cluster answering
 //   B  the ledger — the by-value route (gate + sanitize + transient-pool drop
 //      + nothing-persisted imports), the verdict chain with execError FIRST
 //      (a dead host is a different answer than a missing module), the shared
@@ -131,7 +131,7 @@ try {
   must((await home.status()) === 200, `homepage 200 (got ${home.status()})`);
   await sleep(2200);
   const jobs0 = await (await fetch(`${BASE}/api/jobs`)).json();
-  must((jobs0.jobs ?? []).length === 21, `roster 21 ((${(jobs0.jobs ?? []).length}))`);
+  must((jobs0.jobs ?? []).length === 23, `roster 23 ((${(jobs0.jobs ?? []).length}))`);
   must(await mockListening(), "the mock cluster answers on :3022");
 
   // ---- Phase B: the ledger (source assertions) ----------------------------
@@ -425,7 +425,7 @@ try {
   console.log("== PHASE D: console + roster ==");
   must(consoleErrors.length === 0, `console clean (${consoleErrors.length} errors${consoleErrors.length ? `: ${consoleErrors[0].slice(0, 100)}` : ""})`);
   const jobs1 = await (await fetch(`${BASE}/api/jobs`)).json();
-  must((jobs1.jobs ?? []).length === 21, `roster still 21 (${(jobs1.jobs ?? []).length})`);
+  must((jobs1.jobs ?? []).length === 23, `roster still 23 (${(jobs1.jobs ?? []).length})`);
 } finally {
   console.log("== finally: the world scrub ==");
   // created connections, newest first

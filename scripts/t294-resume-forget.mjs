@@ -24,7 +24,7 @@
  *     surgery on a cached card).
  *
  * Phases:
- *   A  demo truth (roster 21)
+ *   A  demo truth (roster 23)
  *   B  the ledger (source assertions: the route's three refusals, the
  *      order law (alive-check BEFORE clearRunRecord), the UI chain:
  *      dialog handler → ConnectionEditor → RunResumeCard, the door only
@@ -43,7 +43,7 @@
  *          file; the shot: the door revealed on hover
  *   D  console clean
  *   finally  state file restored to the pre-suite truth, connection
- *            removed, roster back to 21
+ *            removed, roster back to 23
  */
 import { chromium } from "playwright";
 import { execSync } from "node:child_process";
@@ -122,7 +122,7 @@ try {
   const res = await page.goto(BASE, { waitUntil: "domcontentloaded" });
   must(res.status() === 200, `homepage 200 (got ${res.status()})`);
   await sleep(2500);
-  must(roster0 === 21, `roster identity 21 (got ${roster0})`);
+  must(roster0 === 23, `roster identity 23 (got ${roster0})`);
 
   // ---- Phase B: the ledger -------------------------------------------------
   console.log("== PHASE B: the ledger ==");
@@ -443,7 +443,7 @@ try {
   try {
     const after = await (await fetch(`${BASE}/api/jobs`)).json();
     const n = (after.jobs ?? []).length;
-    must(n === 21, `roster restored to 21 (got ${n})`);
+    must(n === 23, `roster restored to 23 (got ${n})`);
   } catch (e) {
     must(false, `roster check failed (${e.message})`);
   }

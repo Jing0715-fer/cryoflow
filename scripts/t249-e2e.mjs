@@ -14,7 +14,7 @@
 // terrain is the whole hierarchy working as designed).
 //
 // Phases:
-//   A  demo truth — homepage 200, roster 21
+//   A  demo truth — homepage 200, roster 23
 //   B  the evidence — the hero stands, its signatures cross the terrain
 //      (the overlap is quantified live: stroke samples inside signature
 //      bboxes), the print tier's opacity ladder is re-checked pair for
@@ -58,7 +58,7 @@ const roster = await page.evaluate(async () => {
   const r = await fetch("/api/jobs");
   return (await r.json()).jobs.length;
 });
-must(roster === 21, `roster identity 21 (got ${roster})`);
+must(roster === 23, `roster identity 23 (got ${roster})`);
 
 // ---- Phase B: the evidence -----------------------------------------------------
 console.log("== PHASE B: the overlap, quantified ==");

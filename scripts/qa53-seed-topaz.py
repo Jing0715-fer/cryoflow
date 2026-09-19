@@ -55,7 +55,18 @@ if __name__ == "__main__":
         if os.path.exists(TOPAZ):
             os.remove(TOPAZ)
             removed += 1
-        print(f"qa53 removed {removed} topaz log(s)")
+        # t313 — the healed demo carries REAL postprocess FSC data; the
+        # honest-gap world (a demo without FSC artifacts) needs those gone
+        # too, or the session report grows FSC sections and qa55's plain-
+        # variant premise dies. The healer restores them on demand.
+        pp = os.path.join("/home/z/my-project/data/relion", _PROJECT,
+                          "postprocess_97pzlq90")
+        for name in ("postprocess.star", "postprocess.mrc", "postprocess_mask.mrc"):
+            f = os.path.join(pp, name)
+            if os.path.exists(f):
+                os.remove(f)
+                removed += 1
+        print(f"qa53 removed {removed} artifact(s) (topaz log + healed postprocess FSC data)")
         os.system("python3 /home/z/my-project/scripts/qa52-seed-report.py --clean")
         sys.exit(0)
     os.system("python3 /home/z/my-project/scripts/qa52-seed-report.py")

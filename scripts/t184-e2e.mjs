@@ -18,7 +18,7 @@
  * its history, every consumer sees one name.
  *
  * Probe layers:
- *   S  baseline world (roster 21, profiles reachable, expected root
+ *   S  baseline world (roster 23, profiles reachable, expected root
  *      resolved from the SERVER's CRYOFLOW_DATA_DIR via /proc when present)
  *   X  source oracles — after a conservative comment-strip: exactly two
  *      process.cwd() in the whole src tree (paths.ts definition + glob.ts
@@ -93,7 +93,7 @@ function trackConsole(pageRef, label) {
 section("S: baseline world");
 const list0 = await (await fetch(BASE + "/api/jobs")).json();
 const jobs0 = Array.isArray(list0) ? list0 : list0.jobs ?? [];
-must(jobs0.length === 21, `S1 roster 21 jobs (${jobs0.length})`);
+must(jobs0.length === 23, `S1 roster 23 jobs (${jobs0.length})`);
 
 const profiles0 = (await (await fetch(BASE + "/api/hpc/profiles")).json()).profiles ?? [];
 must(profiles0.length >= 3, `S2 profile registry reachable (${profiles0.length} profiles)`);

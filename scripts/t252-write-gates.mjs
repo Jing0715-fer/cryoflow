@@ -25,7 +25,7 @@
 // isLocalRequest pair proven open on its three siblings — sibling-proof.
 //
 // Phases:
-//   A  demo truth — homepage 200, roster 21, homepage console-clean
+//   A  demo truth — homepage 200, roster 23, homepage console-clean
 //   B  the write door — run/stop/duplicate (fake id): bare 403 / cross
 //      Origin 403 / rebound Host 403 (curl forges) / same-origin → 404
 //      route-speak; empiar-seed: the three denials 403
@@ -85,7 +85,7 @@ const res = await page.goto(BASE, { waitUntil: "domcontentloaded" });
 must(res.status() === 200, `homepage 200 (got ${res.status()})`);
 await sleep(2500);
 const roster0 = await page.evaluate(async () => (await (await fetch("/api/jobs")).json()).jobs.length);
-must(roster0 === 21, `roster identity 21 (got ${roster0})`);
+must(roster0 === 23, `roster identity 23 (got ${roster0})`);
 must(consoleErrors.length === 0, `the homepage's own world is console-clean (got ${consoleErrors.length})`);
 
 // ---- Phase B: the write door ---------------------------------------------------
@@ -120,7 +120,7 @@ must(
 );
 // and the roster is untouched by all that poking
 const roster1 = await page.evaluate(async () => (await (await fetch("/api/jobs")).json()).jobs.length);
-must(roster1 === 21, `roster still 21 after the door probes (got ${roster1})`);
+must(roster1 === 23, `roster still 23 after the door probes (got ${roster1})`);
 
 // ---- Phase C: self-defense ledger ----------------------------------------------
 console.log("== PHASE C: the JSON routes defend themselves ==");
@@ -154,7 +154,7 @@ must(
   `layout with empty updates → 400 contract rejection (got ${noop2.status}: ${noop2b.error ?? "—"})`
 );
 const roster2 = await page.evaluate(async () => (await (await fetch("/api/jobs")).json()).jobs.length);
-must(roster2 === 21, `roster still 21 after the no-ops (got ${roster2})`);
+must(roster2 === 23, `roster still 23 after the no-ops (got ${roster2})`);
 
 // ---- Phase D: the legit user's own page ----------------------------------------
 console.log("== PHASE D: the UI's origin still drives actions ==");

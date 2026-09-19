@@ -98,7 +98,7 @@ try {
 
 section("world hygiene");
 const roster = await (await fetch(`${BASE}/api/jobs`)).json();
-must((roster.jobs?.length ?? 0) === 21, `roster identity (21) — read-only window (${roster.jobs?.length})`);
+must((roster.jobs?.length ?? 0) === 23, `roster identity (23) — read-only window (${roster.jobs?.length})`);
 must(consoleErrors.length === 0, `console clean (${consoleErrors.length})`);
 await page.close();
 await browser.close();

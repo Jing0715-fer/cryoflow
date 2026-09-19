@@ -27,7 +27,7 @@
 //    to tests.
 //
 // Phases:
-//   A  demo truth — homepage 200, roster 21
+//   A  demo truth — homepage 200, roster 23
 //   B  source ledger — crosshair machinery (AXIS_COLOR, data-ortho-cross,
 //      cursor-crosshair pick, stepFrac, Focus toggle, positions lift) +
 //      the helper's three branches + data-resume-helper, at source
@@ -104,7 +104,7 @@ const readConns = async () => {
 console.log("== PHASE A: demo truth ==");
 await fetch(`${BASE}/`).then((r) => must(r.status === 200, `homepage 200 (got ${r.status})`));
 const roster = await (await fetch(`${BASE}/api/jobs`)).json();
-must((roster.jobs ?? []).length === 21, `roster 21 (got ${(roster.jobs ?? []).length})`);
+must((roster.jobs ?? []).length === 23, `roster 23 (got ${(roster.jobs ?? []).length})`);
 
 console.log("== PHASE B: source ledger ==");
 const orthoSrc = readFileSync("src/components/workflow/results/map-ortho-panel.tsx", "utf8");
@@ -134,7 +134,7 @@ must(dlgSrc.includes("nothing left to open"), "the history text says the door is
 must(dlgSrc.includes("e.exists === false).length"), "the variant is computed from the rows' exists shape");
 
 console.log("== PHASE C: the focus point, alive ==");
-// the volume world (t253's recipe — idempotent, roster stays 21)
+// the volume world (t253's recipe — idempotent, roster stays 23)
 try {
   execSync('QA_VOL_HOST="QA Refine3D" python3 scripts/qa67-seed-volume.py', { stdio: "pipe", timeout: 120_000 });
   must(true, "the volume world is seeded (qa67-seed-volume)");
@@ -390,7 +390,7 @@ try {
 
 console.log("== PHASE Z: the world as it was ==");
 const rosterEnd = await (await fetch(`${BASE}/api/jobs`)).json();
-must((rosterEnd.jobs ?? []).length === 21, `roster 21 after the dance (got ${(rosterEnd.jobs ?? []).length})`);
+must((rosterEnd.jobs ?? []).length === 23, `roster 23 after the dance (got ${(rosterEnd.jobs ?? []).length})`);
 const connsEnd = await readConns();
 must(!connsEnd.find((x) => x.id === connId), "the probeless connection left with the witness");
 must(stateRuns()[deadId] === undefined, "the fabricated dead record left the global state");

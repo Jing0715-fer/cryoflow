@@ -17,7 +17,7 @@
 // side BEFORE calling — the API speaks plain geometry.
 //
 // Phases:
-//   A  demo truth — homepage 200, roster 21, the seeded volume host
+//   A  demo truth — homepage 200, roster 23, the seeded volume host
 //   B  the ledger — route guard + containment + lib + the embed's export
 //      button, all asserted at source
 //   C  the door — four states on the new route (bare / cross-site /
@@ -55,7 +55,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 try { execSync("pkill -f agent-browser"); } catch { /* none running */ }
 await sleep(500);
 
-// seed the volume world (t210/t253's recipe — idempotent, roster stays 21)
+// seed the volume world (t210/t253's recipe — idempotent, roster stays 23)
 execSync('QA_VOL_HOST="QA Refine3D" python3 scripts/qa67-seed-volume.py', { stdio: "pipe" });
 execSync("python3 scripts/seed-refine-halves.py", { stdio: "pipe" });
 
@@ -86,7 +86,7 @@ console.log("== PHASE A: demo truth ==");
 const res = await page.goto(BASE, { waitUntil: "domcontentloaded" });
 must(res.status() === 200, `homepage 200 (got ${res.status()})`);
 await sleep(2500);
-must(roster === 21, `roster identity 21 (got ${roster})`);
+must(roster === 23, `roster identity 23 (got ${roster})`);
 must(!!host && !!workdir, "QA Refine3D in roster with an on-disk workdir");
 must(existsSync(parentPath), "the parent map (orthovol.mrc) is on disk");
 

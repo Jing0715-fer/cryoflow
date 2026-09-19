@@ -16,7 +16,7 @@
 //     readout carries the numbers; export/send read the same intervals.
 //
 // Phases:
-//   A  demo truth — homepage 200, roster 21, the orthovol host on disk
+//   A  demo truth — homepage 200, roster 23, the orthovol host on disk
 //   B  the ledger — the resolver hook, the general-box clip machinery,
 //      both doors, the honest readout/release controls — at source
 //   C  the live loop — REAL two-sided crop (X 25–75%, Y full, Z 25–50%)
@@ -127,7 +127,7 @@ try {
   const res = await page.goto(BASE, { waitUntil: "domcontentloaded" });
   must(res.status() === 200, `homepage 200 (got ${res.status()})`);
   await sleep(2500);
-  must(roster0 === 21, `roster identity 21 (got ${roster0})`);
+  must(roster0 === 23, `roster identity 23 (got ${roster0})`);
   must(!!host && !!hostWd, "QA Refine3D in roster with an on-disk workdir");
   must(existsSync(parentMap), "the parent map (orthovol.mrc) is on disk");
 
@@ -511,7 +511,7 @@ try {
     `focus parks on the reference card (got "${parked2}")`
   );
 } finally {
-  // ---- cleanup: probes die, crops sweep, roster returns to 21 -------------
+  // ---- cleanup: probes die, crops sweep, roster returns to 23 -------------
   console.log("== cleanup ==");
   for (const id of created.reverse()) {
     await fetch(`${BASE}/api/jobs/${id}`, { method: "DELETE" });
@@ -528,7 +528,7 @@ try {
   }
   rmSync(TMP, { recursive: true, force: true });
   const after = (await (await fetch(`${BASE}/api/jobs`)).json()).jobs ?? [];
-  must(after.length === 21, `roster restored to 21 (got ${after.length})`);
+  must(after.length === 23, `roster restored to 23 (got ${after.length})`);
 }
 
 // ---- Phase D: console clean ----------------------------------------------

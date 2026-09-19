@@ -31,7 +31,7 @@
 // σ = √0.3125 ≈ 0.559017 is arithmetic, not sampling.
 //
 // Phases:
-//   A  demo truth — homepage 200, roster 21
+//   A  demo truth — homepage 200, roster 23
 //   B  source ledger — the numeric entry (fields, commit path, focus
 //      gate, restore-on-invalid), the montage toggle (conditional URL,
 //      disabled-without-window, per-file reset, honest titles)
@@ -84,7 +84,7 @@ console.log("== PHASE A: demo truth ==");
 const home = await fetch(`${BASE}/`, { headers: SH });
 must(home.status === 200, `homepage 200 (got ${home.status})`);
 const jobs0 = await (await fetch(`${BASE}/api/jobs`, { headers: SH })).json();
-must((jobs0.jobs ?? []).length === 21, `roster 21 at the start (got ${(jobs0.jobs ?? []).length})`);
+must((jobs0.jobs ?? []).length === 23, `roster 23 at the start (got ${(jobs0.jobs ?? []).length})`);
 
 console.log("== PHASE B: source ledger ==");
 const sharedSrc = readFileSync("src/components/workflow/results/density-histogram.tsx", "utf8");
@@ -416,7 +416,7 @@ if (host) {
 
 console.log("== PHASE Z: the world as it was ==");
 const jobsEnd = await (await fetch(`${BASE}/api/jobs`, { headers: SH })).json();
-must((jobsEnd.jobs ?? []).length === 21, `roster 21 after the dance (got ${(jobsEnd.jobs ?? []).length})`);
+must((jobsEnd.jobs ?? []).length === 23, `roster 23 after the dance (got ${(jobsEnd.jobs ?? []).length})`);
 must(consoleErrors.length === 0, `console clean (${consoleErrors.length} errors${consoleErrors.length ? `: ${consoleErrors[0]?.slice(0, 90)}` : ""})`);
 
 console.log(fail === 0 ? "\nt289: ALL PASS" : `\nt289: ${fail} FAIL`);

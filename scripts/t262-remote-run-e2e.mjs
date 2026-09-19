@@ -3,7 +3,7 @@
 // the RUN itself — staging → dispatch → poll → sync-back → downstream —
 // never crossed a real SSH channel inside a test. This suite runs the whole
 // engine on the repo's own mock cluster:
-//   A  demo truth — homepage 200, roster 21, mock cluster answering, the
+//   A  demo truth — homepage 200, roster 23, mock cluster answering, the
 //      rig's stub relion binaries in place
 //   B  the ledger — startRemoteJob staging laws (pendingPatch + background
 //      spawn), the wrapper (setsid + .cf-exit + pid/starttime), the poll
@@ -126,7 +126,7 @@ try {
   const res = await page.goto(BASE, { waitUntil: "domcontentloaded" });
   must(res.status() === 200, `homepage 200 (got ${res.status()})`);
   await sleep(2500);
-  must(roster0 === 21, `roster identity 21 (got ${roster0})`);
+  must(roster0 === 23, `roster identity 23 (got ${roster0})`);
   must(await mockListening(), `the mock cluster answers on :${MOCK_PORT}`);
   must(
     existsSync("/home/z/my-project/services/mock-cluster/fs/opt/bin/relion_run_ctffind") &&
@@ -667,7 +667,7 @@ try {
   try {
     const after = await (await fetch(`${BASE}/api/jobs`)).json();
     const n = (after.jobs ?? []).length;
-    must(n === 21, `roster restored to 21 (got ${n})`);
+    must(n === 23, `roster restored to 23 (got ${n})`);
   } catch { /* server busy */ }
   await browser.close().catch(() => {});
 }

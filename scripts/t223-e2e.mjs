@@ -909,8 +909,8 @@ section("T: DELETE the twin");
 const del = await fetch(`${BASE}/api/jobs/${twinId}`, { method: "DELETE", headers: H });
 must(del.ok, `T1 DELETE accepted (${del.status})`);
 const rosterT = await jobs();
-must(rosterT.length === 21 && !rosterT.find((j) => j.name === "QA Class2D Twin"),
-  `T2 the roster is 21 again, twin gone (${rosterT.length})`);
+must(rosterT.length === 23 && !rosterT.find((j) => j.name === "QA Class2D Twin"),
+  `T2 the roster is 23 again, twin gone (${rosterT.length})`);
 
 /* ============ Z: the untied world — the lens survives ============ */
 section("Z: the picture after the tie ends");
@@ -974,7 +974,7 @@ for (let i = 0; untiedPairOk && i < chips2N; i++) {
 }
 must(chips2N > 0 && untiedPairOk,
   `Z2l the untied world carries its own map (${chips2N} chips paired digit for digit with ${heads2N} headings)`);
-must(rosterT.length === 21, "Z3 roster identity (21) after the whole dance");
+must(rosterT.length === 23, "Z3 roster identity (23) after the whole dance");
 must(consoleErrors.length === 0 && consoleErrors2.length === 0,
   `Z4 console clean across both visits (${consoleErrors.length}/${consoleErrors2.length})`);
 await browser2.close();

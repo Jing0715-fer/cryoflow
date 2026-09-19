@@ -19,7 +19,7 @@
 // on planes the crop removed entirely.
 //
 // Phases:
-//   A  demo truth — homepage 200, roster 21 (seeders idempotent)
+//   A  demo truth — homepage 200, roster 23 (seeders idempotent)
 //   B  the recital's ledger — Topaz wrapper (params + training lib/route),
 //      the cross-section toolset (slice + clip intents), the t251/t252
 //      gates on disk, statcache + batched BFS — all asserted at source
@@ -48,7 +48,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 try { execSync("pkill -f agent-browser"); } catch { /* none running */ }
 await sleep(500);
 
-// seed the volume world (t210's recipe — idempotent, roster stays 21)
+// seed the volume world (t210's recipe — idempotent, roster stays 23)
 execSync('QA_VOL_HOST="QA Refine3D" python3 scripts/qa67-seed-volume.py', { stdio: "pipe" });
 execSync("python3 scripts/seed-refine-halves.py", { stdio: "pipe" });
 
@@ -71,7 +71,7 @@ console.log("== PHASE A: demo truth ==");
 const res = await page.goto(BASE, { waitUntil: "domcontentloaded" });
 must(res.status() === 200, `homepage 200 (got ${res.status()})`);
 await sleep(2500);
-must(roster === 21, `roster identity 21 (got ${roster})`);
+must(roster === 23, `roster identity 23 (got ${roster})`);
 must(!!host, "QA Refine3D in roster (the seeder's host)");
 
 // ---- Phase B: the recital's ledger — both feature directions are BUILT --------

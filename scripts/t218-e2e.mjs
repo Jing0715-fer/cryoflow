@@ -218,7 +218,7 @@ await browser.close();
 /* ============ Z: world hygiene ============ */
 section("Z: the world after");
 const rosterZ = await jobs();
-must(rosterZ.length === 21, `Z1 roster identity (21) — got ${rosterZ.length}`);
+must(rosterZ.length === 23, `Z1 roster identity (23) — got ${rosterZ.length}`);
 
 console.log(`\n== RESULT ==\npass ${pass} / fail ${fail}`);
 if (fail) { fails.forEach((f) => console.log(`  - ${f}`)); process.exit(1); }

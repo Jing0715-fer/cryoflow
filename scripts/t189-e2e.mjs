@@ -61,7 +61,7 @@ const getProfile = async (jid, params) => {
 section("S: baseline world + seeded volume");
 const list0 = await (await fetch(BASE + "/api/jobs")).json();
 const jobs0 = Array.isArray(list0) ? list0 : list0.jobs ?? [];
-must(jobs0.length === 21, `S1 roster 21 jobs (${jobs0.length})`);
+must(jobs0.length === 23, `S1 roster 23 jobs (${jobs0.length})`);
 const host = jobs0.find((j) => j.name === HOST_JOB && j.status === "completed");
 must(!!host, `S2 the volume host job exists (${HOST_JOB}, completed)`);
 try {

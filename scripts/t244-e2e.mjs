@@ -14,7 +14,7 @@
 // has none, so the suite speaks for it through route interception at the
 // network boundary — a synthetic well with two native installs.
 // Phases:
-//   A  demo truth — the REAL API says not-found (world identity); roster 21
+//   A  demo truth — the REAL API says not-found (world identity); roster 23
 //   B  found world (route-intercepted) — card is a button with the version;
 //      popover opens: "RELION detected" + 2-install radiogroup + Re-detect
 //      door; switching installs flips the card (store updates, toast receipt)
@@ -45,7 +45,7 @@ console.log("== PHASE A: demo world identity ==");
 const sys = await (await fetch(`${BASE}/api/system`, { headers: { "sec-fetch-site": "same-origin" } })).json();
 must(sys.found === false, "real API: engine not found (demo host truth)");
 const jobs = await (await fetch(`${BASE}/api/jobs`)).json();
-must((jobs.jobs ?? []).length === 21, `roster identity 21 (got ${(jobs.jobs ?? []).length})`);
+must((jobs.jobs ?? []).length === 23, `roster identity 23 (got ${(jobs.jobs ?? []).length})`);
 
 // ---- Phase B: the found world (route-intercepted) ---------------------------
 console.log("== PHASE B: found world ==");

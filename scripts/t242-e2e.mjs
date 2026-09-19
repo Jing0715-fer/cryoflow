@@ -67,7 +67,7 @@ await sleep(2500);
 
 // roster guard (the family's world-identity check)
 const jobs = await (await fetch(`${BASE}/api/jobs`)).json();
-must((jobs.jobs ?? []).length === 21, `roster identity 21 (got ${(jobs.jobs ?? []).length})`);
+must((jobs.jobs ?? []).length === 23, `roster identity 23 (got ${(jobs.jobs ?? []).length})`);
 
 const chip = page.locator('button[aria-label^="RELION environment status"]');
 must((await chip.count()) === 1, "engine chip present with status aria-label");

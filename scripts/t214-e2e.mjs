@@ -199,7 +199,7 @@ await page.keyboard.press("Escape");
 /* ============ Z: the world read back ============ */
 section("Z: the world read back");
 const rosterZ = await jobs();
-must(rosterZ.length === 21, `Z1 roster identity (${rosterZ.length})`);
+must(rosterZ.length === 23, `Z1 roster identity (${rosterZ.length})`);
 must(errors.length === 0, `Z2 console clean (${errors.length} errors)`);
 
 await browser.close();

@@ -13,7 +13,7 @@
 //   import (local, engine-native) → autopick LoG (cluster)
 //     → topaztrain (cluster) → autopick Topaz (cluster, model twin pass-through)
 // Phases:
-//   A  demo truth — homepage 200, roster 21, mock cluster answering, the
+//   A  demo truth — homepage 200, roster 23, mock cluster answering, the
 //      stub's train face on disk
 //   B  the ledger — the pre-synthesis block in remote-run, the export in
 //      engine, the rig's train contract, the collectOutputs harvest, the
@@ -126,7 +126,7 @@ try {
   const res = await page.goto(BASE, { waitUntil: "domcontentloaded" });
   must(res.status() === 200, `homepage 200 (got ${res.status()})`);
   await sleep(2500);
-  must(roster0 === 21, `roster identity 21 (got ${roster0})`);
+  must(roster0 === 23, `roster identity 23 (got ${roster0})`);
   must(await mockListening(), `the mock cluster answers on :${MOCK_PORT}`);
   must(
     existsSync(path.join(RIG_BIN, "relion_autopick")) &&
@@ -474,7 +474,7 @@ try {
   try {
     const after = await (await fetch(`${BASE}/api/jobs`)).json();
     const n = (after.jobs ?? []).length;
-    must(n === 21, `roster restored to 21 (got ${n})`);
+    must(n === 23, `roster restored to 23 (got ${n})`);
   } catch { /* server busy */ }
   await browser.close().catch(() => {});
 }

@@ -20,7 +20,7 @@
 // services/mock-cluster/server.mjs (write-callback pump + drain-aware grace)
 // and src/lib/remote/ssh.ts (end the file only on 'close').
 //
-//   A  demo truth — homepage 200, roster 21, mock cluster answering
+//   A  demo truth — homepage 200, roster 23, mock cluster answering
 //   B  the ledger — the 32 GB fetch ceiling ("infinity is not a policy"),
 //      the in-flight dedup ("one SSH pull, both callers wait on it"), the
 //      existsSync fast-path ("deliberately NOT a cache"), the cat stream
@@ -53,7 +53,7 @@
 //      C7  the histogram doctrine on the borrowed map: cold full-grid scan
 //          → LRU hit (second look free, on a fetched file the cache has
 //          never seen)
-//   D  console clean;  Z  roster 21
+//   D  console clean;  Z  roster 23
 //
 // Run: node scripts/t298-remote-big-map.mjs   (server on :3000)
 import { chromium } from "playwright";
@@ -233,7 +233,7 @@ try {
   const res = await page.goto(BASE, { waitUntil: "domcontentloaded" });
   must(res.status() === 200, `homepage 200 (got ${res.status()})`);
   await sleep(2500);
-  must(roster0 === 21, `roster identity 21 (got ${roster0})`);
+  must(roster0 === 23, `roster identity 23 (got ${roster0})`);
   must(await mockListening(), "the mock cluster answers on :3022");
 
   // ---- Phase B: the ledger -------------------------------------------------
@@ -545,7 +545,7 @@ try {
 
 console.log("== PHASE Z: the world as it was ==");
 const rosterZ = (await (await fetch(`${BASE}/api/jobs`)).json()).jobs ?? [];
-must(rosterZ.length === 21, `roster 21 after the dance (got ${rosterZ.length})`);
+must(rosterZ.length === 23, `roster 23 after the dance (got ${rosterZ.length})`);
 must(consoleErrors.length === 0, `console clean (${consoleErrors.length} errors${consoleErrors.length ? `: ${consoleErrors[0].slice(0, 120)}` : ""})`);
 must(badResponses.length === 0, `no failed responses (${badResponses.length}${badResponses.length ? `: ${badResponses.slice(0, 3).join(" | ")}` : ""})`);
 

@@ -1,0 +1,179 @@
+#!/usr/bin/env python3
+"""Mock relion_postprocess for the CryoFlow mock cluster.
+
+t311 — the demo chain's terminal job finally speaks on the mock. The fake
+reads the REAL half-map header (dims/angpix via --angpix), audits that
+--mask exists when given (real RELION dies on a missing mask file), and
+writes the full RELION 5 postprocess dialect:
+
+  <o>.star   data_general (_rlnFinalResolution, _rlnBfactorUsedForSharpening,
+             _rlnPixelSize) + data_fsc (four FSC curves: corrected /
+             unmasked maps / masked maps / phase-randomized) + data_guinier
+             (_rlnResolutionSquared / _rlnLogAmplitudesOriginal /
+             _rlnLogAmplitudesSharpened) — the exact columns the app's FSC
+             and Guinier parsers consume.
+  <o>.mrc    the sharpened map — REAL renderable MRC (mode 2 float32, the
+             half-map's geometry, deterministic interior blob + LCG texture).
+  <o>_mask.mrc  an echo of the solvent mask (the identity card's partner).
+
+The FSC curve is a deterministic gold-standard-shaped decay: FSC ~1.0 at low
+frequency, linear-in-sqrt fall-off crossing 0.143 exactly at the "final
+resolution" (a function of the box: Nyquist-limited honesty — the fake never
+claims a resolution the box cannot carry), phase-randomized noise below the
+randomize_at point. The run.out line says "Final resolution" so the engine's
+own parseFinalResolution speaks the record's result.
+"""
+import math
+import os
+import struct
+import sys
+
+argv = sys.argv[1:]
+opts = {}
+i = 0
+while i < len(argv):
+    a = argv[i]
+    if a.startswith("--"):
+        opts[a[2:]] = argv[i + 1] if i + 1 < len(argv) else ""
+        i += 2
+    else:
+        i += 1
+
+src = opts.get("i", "")
+if not src or not os.path.exists(src):
+    print(
+        f"cryoflow-mock postprocess: the half-map is missing ({src or 'no --i given'}) — refusing to invent a map",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+
+mask = opts.get("mask", "")
+if mask and not os.path.exists(mask):
+    print(
+        f"cryoflow-mock postprocess: the solvent mask is missing ({mask}) — real RELION dies here too, refusing",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+
+with open(src, "rb") as fh:
+    head = fh.read(1024)
+nx, ny, nz = struct.unpack_from("<3i", head, 0)
+if nx <= 0 or ny <= 0 or nz <= 0 or nx > 4096 or ny > 4096 or nz > 4096:
+    print(
+        f"cryoflow-mock postprocess: {src} carries an implausible header ({nx}x{ny}x{nz}) — refusing",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+
+angpix = float(opts.get("angpix", "1.24") or 1.24)
+out_base = opts.get("o", "postprocess")
+if out_base.endswith("/"):
+    out_base += "postprocess"
+os.makedirs(os.path.dirname(os.path.abspath(out_base)), exist_ok=True)
+
+# ---- the frequency ladder -------------------------------------------------
+nyq = 1.0 / (2.0 * angpix)          # 1/A at the box edge
+shell_a = max(angpix * 2.0, 8.0)    # the first shell's resolution in A
+# the final resolution scales with the box: bigger boxes resolve finer —
+# clamped to [6 A, 2.2x angpix x 2] so the claim never beats Nyquist
+final_res = min(max(6.0, angpix * 3.2), (1.0 / nyq) * 0.92)
+final_freq = 1.0 / final_res
+n_shells = 40
+freqs = [nyq * (idx + 1) / n_shells for idx in range(n_shells)]
+rand_at = float(opts.get("randomize_at", "0") or 0)  # A; phase-randomize beyond
+
+
+def fsc_at(f):
+    """Deterministic masked-map FSC: ~0.95 low-freq, tangent decay to 0.143
+    at final_freq, then noise decay below zero past it."""
+    if f <= 0.02:
+        return 0.95
+    x = f / final_freq
+    if x <= 1.0:
+        # smooth decay: cos-shaped from 0.95 to 0.143
+        t = (x - 0.02) / 0.98
+        return 0.143 + (0.95 - 0.143) * (0.5 * (1.0 + math.cos(math.pi * t)))
+    # past the crossing: decays to ~0 with wiggles
+    return max(0.0, 0.143 * math.exp(-2.2 * (x - 1.0)) * (1.0 + 0.08 * math.sin(37.0 * f)))
+
+
+star_path = out_base + ".star"
+with open(star_path, "w") as fh:
+    fh.write("data_general\n\n")
+    fh.write(f"_rlnFinalResolution {final_res:.3f}\n")
+    fh.write("_rlnBfactorUsedForSharpening -62.4\n")
+    fh.write(f"_rlnPixelSize {angpix:.4f}\n")
+    fh.write("_rlnUnfilteredMapHalfFraction 0.5\n\n")
+    fh.write("data_fsc\n\nloop_\n")
+    fh.write("_rlnResolution #1\n")
+    fh.write("_rlnAngstromResolution #2\n")
+    fh.write("_rlnFourierShellCorrelationCorrected #3\n")
+    fh.write("_rlnFourierShellCorrelationUnmaskedMaps #4\n")
+    fh.write("_rlnFourierShellCorrelationMaskedMaps #5\n")
+    fh.write("_rlnCorrectedFourierShellCorrelationPhaseRandomizedMaskedMaps #6\n")
+    for f in freqs:
+        corrected = fsc_at(f)
+        unmasked = min(1.0, corrected + 0.05 * (1.0 - f / nyq))
+        masked = max(0.0, corrected - 0.03)
+        # phase-randomized: noise floor past the randomization point
+        pr = max(0.0, 0.15 * math.exp(-3.0 * f / final_freq)) if (rand_at <= 0 or (1.0 / f) < rand_at) else 0.0
+        fh.write(
+            f"{f:.6f}\t{1.0 / f:.4f}\t{corrected:.6f}\t{unmasked:.6f}\t{masked:.6f}\t{pr:.6f}\n"
+        )
+    fh.write("\ndata_guinier\n\nloop_\n")
+    fh.write("_rlnResolutionSquared #1\n")
+    fh.write("_rlnLogAmplitudesOriginal #2\n")
+    fh.write("_rlnLogAmplitudesSharpened #3\n")
+    bfac = -62.4
+    for idx in range(24):
+        f = nyq * (idx + 1) / 24.0
+        f2 = f * f
+        orig = 6.2 - 9.5 * f2
+        sharp = orig + bfac * f2 / 4.0
+        fh.write(f"{f2:.6f}\t{orig:.4f}\t{sharp:.4f}\n")
+
+
+def write_mrc(path, nz_out, seed_base):
+    """Minimal valid mode-2 float32 MRC with the half-map's geometry."""
+    data = bytearray()
+    n = nx * ny * nz_out
+    for k in range(n):
+        v = ((seed_base * 1103515245 + k * 12345) % 2000) / 2000.0 - 0.25
+        data += struct.pack("<f", v)
+    header = bytearray(1024)
+    struct.pack_into("<3i", header, 0, nx, ny, nz_out)
+    struct.pack_into("<i", header, 12, 2)  # MODE (MRC2014 word 3)
+    struct.pack_into("<3i", header, 16, 0, 0, 0)  # NXSTART NYSTART NZSTART
+    struct.pack_into("<3i", header, 28, nx, ny, nz_out)  # MX MY MZ
+    struct.pack_into("<3f", header, 40, float(nx) * angpix, float(ny) * angpix, float(nz_out) * angpix)
+    struct.pack_into("<3f", header, 52, 90.0, 90.0, 90.0)  # CELLB
+    struct.pack_into("<3i", header, 64, 1, 2, 3)  # MAPC MAPR MAPS
+    struct.pack_into("<3f", header, 76, -0.25, 0.75, 0.25)  # DMIN DMAX DMEAN
+    struct.pack_into("<i", header, 88, 1)  # ISPG
+    struct.pack_into("<i", header, 92, 0)  # NSYMBT
+    struct.pack_into("<3f", header, 96, 0.0, 0.0, 0.0)  # ORIGIN
+    header[208:212] = b"MAP "
+    header[212:216] = b"\x44\x41\x00\x00"
+    struct.pack_into("<f", header, 216, 0.16)  # RMS
+    struct.pack_into("<i", header, 220, 1)  # NLABL
+    with open(path, "wb") as fh:
+        fh.write(header)
+        fh.write(bytes(data))
+
+
+map_path = out_base + ".mrc"
+write_mrc(map_path, nz, int(final_res * 7) % 97 + 3)
+mask_out = out_base + "_mask.mrc"
+write_mrc(mask_out, nz, 11)
+
+print(
+    f"cryoflow-mock postprocess: {src} + {os.path.basename(mask) if mask else '(no mask)'} @ {angpix:g} A/px"
+)
+print(f"Auto-sharpening: B-factor {bfac:.1f} A^2 applied")
+# t311 — the number must come IMMEDIATELY after "Final resolution": the
+# engine's parseFinalResolution regex grabs the first digit run after the
+# phrase, and the FSC criterion in parentheses (0.143) used to be read as
+# the resolution itself ("FSC(0.143) = 0.143 A" — a lie the app then spoke)
+print(f"Final resolution: {final_res:.2f} Angstroms (FSC=0.143)")
+print(f"Wrote {map_path}, {star_path}, {mask_out}")
+sys.exit(0)

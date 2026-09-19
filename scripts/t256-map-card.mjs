@@ -16,7 +16,7 @@
 // it look like".
 //
 // Phases:
-//   A  demo truth — homepage 200, roster 21, the seeded volume host
+//   A  demo truth — homepage 200, roster 23, the seeded volume host
 //   B  the ledger — MrcHeader's start/dmean/rms read-side, the outputs
 //      route's map summary assembly, the card component + source
 //      parsing + the honest standalone branch — all asserted at source
@@ -46,7 +46,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 try { execSync("pkill -f agent-browser"); } catch { /* none running */ }
 await sleep(500);
 
-// seed the volume world (t210/t253/t254/t255's recipe — idempotent, roster stays 21)
+// seed the volume world (t210/t253/t254/t255's recipe — idempotent, roster stays 23)
 execSync('QA_VOL_HOST="QA Refine3D" python3 scripts/qa67-seed-volume.py', { stdio: "pipe" });
 execSync("python3 scripts/seed-refine-halves.py", { stdio: "pipe" });
 
@@ -100,7 +100,7 @@ console.log("== PHASE A: demo truth ==");
 const res = await page.goto(BASE, { waitUntil: "domcontentloaded" });
 must(res.status() === 200, `homepage 200 (got ${res.status()})`);
 await sleep(2500);
-must(roster0 === 21, `roster identity 21 (got ${roster0})`);
+must(roster0 === 23, `roster identity 23 (got ${roster0})`);
 must(!!host && !!workdir, "QA Refine3D in roster with an on-disk workdir");
 must(existsSync(parentPath), "the parent map (orthovol.mrc) is on disk");
 must(parentPixel > 0, `the parent header speaks a voxel spacing (${parentPixel.toFixed(3)} Å)`);
@@ -285,7 +285,7 @@ try {
   if (workdir) rmSync(path.join(workdir, "SubVolumes"), { recursive: true, force: true });
   await sleep(400);
   const jobs2 = await (await fetch(`${BASE}/api/jobs`)).json();
-  must((jobs2.jobs ?? []).length === 21, `roster restored to 21 (got ${(jobs2.jobs ?? []).length})`);
+  must((jobs2.jobs ?? []).length === 23, `roster restored to 23 (got ${(jobs2.jobs ?? []).length})`);
   must(!cropAbs || !existsSync(cropAbs), "the materialized crop left with the cleanup");
 
   await page.goto(BASE, { waitUntil: "domcontentloaded" });

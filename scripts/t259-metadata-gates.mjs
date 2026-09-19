@@ -19,7 +19,7 @@
 // catches the rebound page. Same-origin UI calls always pass.
 //
 // Phases:
-//   A  demo truth — homepage 200, roster 21
+//   A  demo truth — homepage 200, roster 23
 //   B  the ledger — every door file, the guard's widened signature, the
 //      doctrine comments, the test-suite adaptations — asserted at source
 //   C  the gate matrix — 8 routes × 4 states (bare / cross-origin /
@@ -89,7 +89,7 @@ try {
   must(res.status() === 200, `homepage 200 (got ${res.status()})`);
   await sleep(2500);
   const roster0 = (await (await fetch(`${BASE}/api/jobs`)).json()).jobs ?? [];
-  must(roster0.length === 21, `roster identity 21 (got ${roster0.length})`);
+  must(roster0.length === 23, `roster identity 23 (got ${roster0.length})`);
 
   // ---- Phase B: the ledger -------------------------------------------------
   console.log("== PHASE B: the ledger ==");
@@ -231,7 +231,7 @@ try {
     }
   } catch { /* best effort */ }
   const after = (await (await fetch(`${BASE}/api/jobs`)).json()).jobs ?? [];
-  must(after.length === 21, `roster still 21 (got ${after.length})`);
+  must(after.length === 23, `roster still 23 (got ${after.length})`);
 }
 
 // ---- Phase E: console clean ----------------------------------------------

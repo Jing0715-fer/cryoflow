@@ -80,7 +80,7 @@ if (seedFile && !existsSync(seedFile)) {
 try {
   /* ============ S: baseline ============ */
   section("S: baseline");
-  must(roster0.length === 21, `S1 roster 21 jobs (${roster0.length})`);
+  must(roster0.length === 23, `S1 roster 23 jobs (${roster0.length})`);
   must(!!motionJob, `S2 a completed MotionCorr job exists (${motionJob?.name ?? "none"})`);
   must(!!seedDir, "S3 the engine-state entry carries a workdir");
 

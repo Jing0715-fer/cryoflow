@@ -30,7 +30,7 @@
  * a real-fail that sat in the tree until this window.
  *
  * Phases (no UI, no server rebuild — the runner testing its own death):
- *   A   the demo truth (app alive, roster identity 21)
+ *   A   the demo truth (app alive, roster identity 23)
  *   B   the ledger (source assertions on family-run.mjs + the t273 pin)
  *   C   the live loop:
  *       C0  --batches: eleven batches, zero orphans, t30 registered
@@ -44,7 +44,7 @@
  *       C4  re-running the key to completion OVERWRITES the testimony
  *           (no interrupted flag, pass 1) — the hot path (runSuite's
  *           inFlight tracking) carries a real suite end to end
- *   D   the hygiene: no stray runner/suite processes, roster still 21
+ *   D   the hygiene: no stray runner/suite processes, roster still 23
  *
  * Isolation: every nested family-run world writes its OWN report via
  * FAMILY_REPORT (t273's law) — this suite never touches the accumulating
@@ -120,7 +120,7 @@ console.log("== PHASE A: the demo truth ==");
 const health = await fetch("http://localhost:3000/", { method: "GET" }).catch(() => null);
 must(health?.status === 200, `the app answers GET / with 200 (got ${health?.status ?? "none"})`);
 const jobs = await fetch("http://localhost:3000/api/jobs").then((r) => r.json()).catch(() => null);
-must(jobs?.jobs?.length === 21, `the roster is intact at 21 jobs (got ${jobs?.jobs?.length ?? "none"})`);
+must(jobs?.jobs?.length === 23, `the roster is intact at 23 jobs (got ${jobs?.jobs?.length ?? "none"})`);
 
 // ---- Phase B: the ledger ----------------------------------------------------
 console.log("== PHASE B: the ledger ==");
@@ -296,7 +296,7 @@ await pollUntil(() => !runnerAlive() && !victimAlive(), 8_000);
 must(!runnerAlive(), "no family-run process is left behind");
 must(!victimAlive(), `no ${SUITE} process is left behind`);
 const jobsD = await fetch("http://localhost:3000/api/jobs").then((r) => r.json()).catch(() => null);
-must(jobsD?.jobs?.length === 21, `the roster survived the executions untouched (got ${jobsD?.jobs?.length ?? "none"})`);
+must(jobsD?.jobs?.length === 23, `the roster survived the executions untouched (got ${jobsD?.jobs?.length ?? "none"})`);
 
 // ---- finally: the scratch is scratched --------------------------------------
 for (const p of Object.values(TMP)) {

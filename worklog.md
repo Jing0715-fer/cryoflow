@@ -2338,3 +2338,41 @@ Stage Summary:
 - **「名字里写着不可能的提交, 拒于门外」**: ctffind 吃原始电影栈在物理上必败(单帧无可拟合 CTF), 提交前嗅星表行(≥50% 电影栈命名)即拒并教 MotionCorr; 本地远程同一道闸, 失败签名仍备诊断兜底
 - **「修脚本时先看它的受害者」**: prod-3001 的数据根 bug 是 E2E 首跑的 FAIL 逼出来的——.next/standalone/data 是 build 每次都删的流沙, Task 183 的覆盖变量早就在那里等着被用
 - 交付: commit 待 push
+---
+Task ID: 313 (中途进行时，前半；后半见 Task 313 完结条)
+Agent: main
+Task: demo 教程链复活（合成数据 + 全链 Mock 重跑 + postprocess/maskcreate 假体）
+
+Work Log:
+- 开局实证：尾部 = Task 310（HEAD 2e36b8b）、QA 三绿。「3D 体积截面」候选经工件核实早已交付（Task 217 窗），Task 13 recital 照例化石——选题转 Task 310 遗留清单的「demo 教程链下游重跑」。
+- 立项侦察：demo 链 13 环（import→…→refine3d→postprocess，边拓扑为真源）全部 completed 但 workdir 空（t305 诚实缺席）；EMPIAR-10017 bundle 缺席；mock 缺 relion_mask_create + relion_postprocess 二假体；demo 链还缺 initialmodel + maskcreate 两个工作流节点（class3d/refine3d 的 model_mrc、postprocess 的 mask_mrc 无上游）。
+- 已交付：两个新假体（relion_mask_create 读真头写同几何软掩膜；relion_postprocess 写 RELION 5 postprocess.star 全方言——data_general + data_fsc 四曲线 + data_guinier——加可渲染 postprocess.mrc）。
+- 【真雷：mock 四假体的 MRC2014 头偏移全错】MODE 写在 byte 4（=覆盖 NY 为 2！）、采样进 NXSTART 槽、NSYMBT=ISPG 串位——t308 的「可渲染」是应用宽容路径的假象，诚实的 readMrcHeader 读到 64×2×64 模式错乱。修复 = relion_refine / relion_preprocess / 新 mask_create / 新 postprocess 四处全部对齐真 MRC2014 布局（MODE@12、采样@28、ISPG@88、NSYMBT@92、ORIGIN@96）——「假体的方言要说到头字段」。
+- 活体验证：mask_create / postprocess 在 mock 上 happy path + 拒绝路径全通；postprocess.star 语法四项（FSC 列、final res、Guinier 列、B-factor）对应用解析器全过。
+
+Stage Summary:
+- 进行中：复活脚本（EMPIAR bundle 合成 + 连接注册 + 加节点 + 拓扑序重跑 + collectOutputs 补账）与守护套件待写
+
+---
+Task ID: 311 (完)
+Agent: main
+Task: demo 教程链复活：合成数据 + 全链 Mock 重跑 + postprocess/maskcreate 假体 + 搬家星表重定基
+
+Work Log:
+- 【立项核实】「3D 体积截面工具」经工件核实早已全量交付（Task 217 窗，ChimeraX 风格 per-axis clip + 滑杆 + invert + SVG 拖拽面）——Task 13 recital 第 N 度化石，遗留唯一真源仍是 worklog 尾部。选题 = Task 310 遗留清单的「demo 教程链下游重跑」。
+- 【缺口侦察】demo 链 13 环全部 completed 但 workdir 空（t305 诚实缺席）；EMPIAR-10017 bundle 缺席；链缺 initialmodel + maskcreate 两环（class3d/refine3d 的 model_mrc、postprocess 的 mask_mrc 无上游可解析，resolveInputs 永远 not-ready）；mock 缺 relion_mask_create + relion_postprocess 二假体。
+- 【假体×2 + 四处 MRC 头修复】relion_mask_create（读真 MRC2014 头、同几何软掩膜、拒绝缺失 --i）；relion_postprocess（RELION 5 全方言 star：data_general + data_fsc 四曲线 + data_guinier；可渲染 postprocess.mrc；日志行紧邻短语的分辨率数）。真雷：**全部 mock 假体的 MRC 头偏移错**——MODE 写在 byte 4（覆盖 NY=2！）、采样进 NXSTART 槽——t308 的「可渲染」是宽容渲染器的假象。修复 relion_refine/preprocess/mask_create/postprocess 四处对齐真布局（MODE@12、采样@28、ISPG@88、NSYMBT@92、ORIGIN@96）——「假体的方言要说到头字段」。
+- 【EMPIAR bundle + healer】scripts/demo-chain-resurrect.mjs（幂等 healer）：合成 24×512² float32 微图（真头、确定性 LCG+高斯粒子斑）；qa-probe 残留连接清扫；Mock Cluster 连接创建/复用；import 参数切 EMPIAR 腿；加 initialmodel/maskcreate 节点+四边（幂等）；拓扑序重跑全链（native 本地、CLI 走 mock slurm）；验证 FSC/Guinier 路由。
+- 【真雷①：断链 EEXIST 500】链 import 首跑 500——projectDir/micrographs 是**断链**（指向 t293 套件烧掉的镜像目录），existsSync(dangling)=false → symlinkSync EEXIST throw。修复 ensureEmpiarLink（lstat 不跟随链接：真目录不动、断链/他链重指向）。这是真产品 bug：任何陈旧断链都会让 EMPIAR 导入崩成 500。
+- 【真雷②：sweep 饥饿】mock slurm 已 COMPLETED 而应用记录十分钟不结账——远程 poll sweep 由 jobs GET 驱动，直读 engine-state 的轮询者会饿死 sweep。healer 改走 API 轮询。
+- 【真雷③：搬家星表（本窗最大的雷）】select/select2d/symexpand/rebalance 四个 native 把上游行**原样抄进自己 workdir 的星表**——行引用 `extra/x` 只在上游目录旁成立，全链所有读栈消费者死（mock 审计 242/242 拒绝；老时代假体不审计所以从未暴露）。修复三层：①engine 共享 rebaseParticleRefs（四写手重定基为项目相对——真 RELION cwd=项目根的约定）；②mock 审计三候选（星表目录/cwd/项目根=dirname(star_dir)）；③refine 假体 echo 同样重定基（echo 也是搬家）+ 行解析空白宽容（rebalance/symexpand 的空格行是合法 RELION，TAB 硬切把整行当栈名）。
+- 【真雷④：说谎的孪生地图】refine3d 顺序模式在 finalize 时**本地合成** half maps，finalizeRemoteRun 把它们也映射成 remote twin → 下游 dispatch 信以为真跳过上传 → maskcreate 饿死。修复：twin 候选一次批量 SSH stat 定账，簇上不存在的从不进 twin 地图。
+- 【家族哨兵迁移】demo 世界合法长大：roster 21→23（+initialmodel/maskcreate）、画布 21→23 卡——87 个套件文件机械化迁移（正则只碰 roster/长度语境）；t282 画布断言同迁。qa55 Phase C「诚实缺席」前提死了（demo 有真数据）——适配为**一次性空项目世界**（POST 创建即激活 + 无数据 import 作业 → Export 报告 → 删除，try/finally 保证失败也清算——失败路径残留会把 active 指针搁浅在空项目上，jobs GET 答复 0，活体踩过）。qa53 清理器 --clean 扩展拔掉 healed FSC 工件（healer 随时恢复）。
+- 【终局】全链 15 环贯通：import→motioncorr→ctffind→autopick→extract→class2d→select2d→select→initialmodel→class3d→symexpand→rebalance→refine3d→maskcreate→postprocess；FSC 路由 40 shells、官方分辨率 6.51 Å、Guinier 数据在列；UI 活体（FSC 卡在屏，shots-qa/t311-fsc-chart-live.png）。套件 t311（~30 断言 ALL PASS）：B 台账十证、C healed demo 十三环+行形状+路由+新边、D select2d 重跑活切片、E console 0。--batch t31 pass 2 · --batch qa pass 11（迁移哨兵活体验证）· 累积器 12 批。roster 77 套件、tsc 0、eslint 0、改动文件 lint 净。
+
+Stage Summary:
+- **「搬家的星表要重定基」**：星表的相对引用只对它自己的目录负责——任何把行抄进新星表的写手（engine native、假体 echo、一切未来的写手）都必须把 ref 重新指向栈的真实位置；老时代从未暴露是因为假体不审计，审计越诚实，搬家越要守约
+- **「宽容的读者会掩盖撒谎的写手」**：MRC 头 MODE 错位十年渲染如常——渲染器越宽容，头字段越敢撒谎；修复对齐真 MRC2014 布局是对「假体方言说到像素」教义的再进一层：说到头字段
+- **「空壳世界要在自己的星球上造」**：healed demo 不再是无数据世界——qa55 的诚实缺席测试改在一次性空项目上跑，用完即焚（finally 兜底，失败也要清算，否则 active 指针搁浅）
+- **「哨兵是世界形状的承诺」**：roster 21→23 不是放宽断言而是世界合法长大——机械化迁移 87 文件 + qa 批活体验证；demo 的每次结构性演进都伴随哨兵的自觉迁移
+- 遗留（下轮候选）：384³/512³ 阶梯压测（T296_N 已备）；EMPIAR 真数据回归（连续第廿一窗让位）；t262/270/293/298 的镜像烧除行待各批自然轮跑验证；其余十个批的 roster-23 迁移待自然轮跑确认（qa+t31 已活体验证）

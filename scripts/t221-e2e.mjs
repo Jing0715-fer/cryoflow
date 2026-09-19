@@ -96,7 +96,7 @@ must(wCells[0] === "Q1 (1.00)", `R7 the reference row's thinnest quarter is perf
 await page.keyboard.press("Escape");
 await sleep(500);
 const roster = await jobs();
-must(roster.length === 21, `Z1 roster identity (${roster.length})`);
+must(roster.length === 23, `Z1 roster identity (${roster.length})`);
 must(errors.length === 0, `Z2 console clean (${errors.length})`);
 await browser.close();
 

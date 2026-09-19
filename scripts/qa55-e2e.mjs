@@ -458,16 +458,36 @@ const phaseB = async () => {
 const phaseC = async () => {
   console.log("== PHASE C: honest gap + console ==");
   sh(SEED_CLEAN);
-  // always re-bootstrap: phase B may have navigated to the dashboard (and
-  // standalone batches start with no page at all) — land on Results first
-  await openJobResults();
-  const rf = unq(evalJs(`(() => {
-    const b = [...document.querySelectorAll('button')].find(x => x.getAttribute('aria-label') === 'Refresh outputs');
-    if (!b) return 'NO-REFRESH';
-    b.click(); return 'refreshed';
-  })()`));
-  step(`  refresh: ${rf}`);
-  if (rf !== "refreshed") throw new Error(rf);
+  // t313 — the demo tutorial chain is HEALED (real FSC/angular data in its
+  // records and workdirs), so the honest-gap report can no longer be read
+  // off the demo itself. The gap now lives in its OWN world: a fresh EMPTY
+  // project (create + set active in one POST), report rendered there, then
+  // deleted — the active pointer falls back to the demo automatically.
+  const mk = JSON.parse(sh(`curl -s -X POST ${B}/api/projects -H "Content-Type: application/json" -H "Origin: http://localhost:3000" -H "Sec-Fetch-Site: same-origin" -d '{"name":"QA t55 Honest Gap"}'`));
+  const gapProjectId = mk?.project?.id ?? mk?.id;
+  if (!gapProjectId) throw new Error("fresh gap project did not create");
+  try {
+  // the Export Run Report door lives on a JOB's Results view — give the gap
+  // world one dataless import (the "no source configured" dialect, t282-era)
+  const mkJob = JSON.parse(sh(`curl -s -X POST ${B}/api/jobs -H "Content-Type: application/json" -H "Origin: http://localhost:3000" -H "Sec-Fetch-Site: same-origin" -d '{"projectId":"${gapProjectId}","type":"import","name":"QA Gap Import","x":80,"y":120}'`));
+  const gapJobId = mkJob?.job?.id;
+  if (!gapJobId) throw new Error("fresh gap job did not create");
+  sh(`curl -s -X POST ${B}/api/jobs/${gapJobId}/run -H "Content-Type: application/json" -H "Origin: http://localhost:3000" -H "Sec-Fetch-Site: same-origin" -d '{}' >/dev/null`);
+  await sleep(2000);
+  sh(`${AB} open ${B} >/dev/null 2>&1`);
+  await sleep(4000);
+  // open the gap job's Results (same card-click seam as openJobResults)
+  let opened = "";
+  for (let i = 0; i < 10 && !opened.includes("clicked@"); i++) {
+    const coords = evalJs(`(() => { const el = [...document.querySelectorAll('[role=button]')].find(x => (x.textContent||'').includes('QA Gap Import') && (x.textContent||'').includes('completed')); if (!el) return null; const r = el.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }; })()`);
+    if (!coords || coords === "null") { opened = "NO-ELEMENT"; await sleep(2000); continue; }
+    const c = JSON.parse(coords);
+    sh(`${AB} mouse move ${c.x} ${c.y}`);
+    sh(`${AB} mouse down`);
+    sh(`${AB} mouse up`);
+    opened = `clicked@${c.x},${c.y}`;
+  }
+  if (!opened.includes("clicked@")) throw new Error("gap job card never appeared");
   await sleep(2500);
   const { toasts } = await hookAndClickReport();
   if (!/Run report downloaded/i.test(toasts)) throw new Error(`toast missing: ${toasts}`);
@@ -488,6 +508,14 @@ const phaseC = async () => {
   if (!md.includes("## Resolution") || !md.includes("## Outputs on disk"))
     throw new Error("base sections missing");
   step(`  honest-gap markdown OK (${md.length}B, no Contents, plain toast)`);
+  } finally {
+    // the gap world is disposable on EVERY path — a failure must still
+    // delete it or the active pointer strands the next window's readers on
+    // an empty project (observed live: /api/jobs answered 0 jobs)
+    sh(`curl -s -X DELETE ${B}/api/projects/${gapProjectId} -H "Origin: http://localhost:3000" -H "Sec-Fetch-Site: same-origin"`).trim();
+    sh(`${AB} open ${B} >/dev/null 2>&1`);
+    await sleep(2000);
+  }
   const errs = sh(`${AB} errors`) || "(none)";
   step(`  console errors: ${errs}`);
   if (errs !== "(none)") throw new Error("console errors present");

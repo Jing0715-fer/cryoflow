@@ -65,7 +65,7 @@ section("S: baseline world");
 const list0 = await (await fetch(BASE + "/api/jobs")).json();
 const jobs0 = Array.isArray(list0) ? list0 : list0.jobs ?? [];
 const roster0 = jobs0.map((j) => ({ id: j.id, name: j.name }));
-must(roster0.length === 21, `S1 roster 21 jobs (${roster0.length})`);
+must(roster0.length === 23, `S1 roster 23 jobs (${roster0.length})`);
 const projectId = jobs0[0]?.projectId ?? "";
 must(!!projectId, "S2 projectId resolvable");
 const nativeJob = jobs0.find((j) => j.type === "import" && j.status === "completed");

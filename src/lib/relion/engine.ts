@@ -23,6 +23,7 @@ import {
   linkSync,
   mkdirSync,
   openSync,
+  lstatSync,
   readdirSync,
   readFileSync,
   readSync,
@@ -1538,12 +1539,34 @@ async function runImportNative(job: EngineJobRef): Promise<NativeResult> {
     // Project-relative paths + a symlink so every downstream RELION job (run
     // with CWD = projectDir) can open "micrographs/<name>.mrc". This mirrors
     // the RELION pipeliner: STAR paths are project-root-relative.
+    // t311 — ensureEmpiarLink: a link that previously pointed at this import
+    // source may sit there DANGLING (the target was burned/cleaned underneath
+    // it — observed live: a suite's mirror dir gone, the demo project's
+    // micrographs link left swinging). existsSync(dangling) is FALSE, so a
+    // naive guard falls through to symlinkSync and dies with EEXIST — the
+    // import crashed as a bare 500 instead of re-pointing. lstat does not
+    // follow the link, so the stale shape is visible and re-pointable; a REAL
+    // directory with the user's own content is left untouched.
+    const ensureEmpiarLink = (linkPath: string) => {
+      try {
+        const st = lstatSync(linkPath);
+        if (st.isDirectory() && !st.isSymbolicLink()) return; // real dir — not ours to move
+        rmSync(linkPath, { force: true, recursive: st.isDirectory() });
+      } catch {
+        /* nothing there yet — fall through and link */
+      }
+      try {
+        symlinkSync(EMPIAR_DIR, linkPath);
+      } catch {
+        /* lost a race and the link is already in place */
+      }
+    };
     const micLink = path.join(projectDir, "micrographs");
-    if (!existsSync(micLink)) symlinkSync(EMPIAR_DIR, micLink);
+    ensureEmpiarLink(micLink);
     // Also expose the micrographs inside the import job's own workdir so the
     // Files tab + gallery can serve PNG previews through outputs/file.
     const micLinkInWorkdir = path.join(workdir, "micrographs");
-    if (!existsSync(micLinkInWorkdir)) symlinkSync(EMPIAR_DIR, micLinkInWorkdir);
+    ensureEmpiarLink(micLinkInWorkdir);
     for (const m of mrcs) lines.push(`micrographs/${m} 1`);
     result = `${mrcs.length} micrographs imported · EMPIAR-10017 (pixel ${pixel} Å)`;
     sourceLabel = `source: EMPIAR-10017 ${EMPIAR_DIR}`;
@@ -2042,7 +2065,11 @@ async function runSelectNative(job: EngineJobRef, upstream: UpstreamRef[]): Prom
     outLines.push("");
   }
 
-  writeFileSync(outStar, outLines.join("\n") + "\n");
+  writeFileSync(
+    outStar,
+    // t311 — the rows re-point at the stacks from THEIR new home (project-relative)
+    rebaseParticleRefs(outLines.join("\n") + "\n", inStar, projectDirFor(job))
+  );
   const result =
     classStats.length > 0
       ? `${kept} of ${total} particles selected · kept ${keptClasses}/${classStats.length} classes (occupancy ≥ ${cutoff}× best)`
@@ -2182,7 +2209,11 @@ async function runSelect2dNative(job: EngineJobRef, upstream: UpstreamRef[]): Pr
     return { ok: false, error: `no particle rows found in ${inStar}` };
   }
 
-  writeFileSync(outStar, outLines.join("\n") + "\n");
+  writeFileSync(
+    outStar,
+    // t311 — the rows re-point at the stacks from THEIR new home (project-relative)
+    rebaseParticleRefs(outLines.join("\n") + "\n", inStar, projectDirFor(job))
+  );
   const keptClasses = classStats.filter((c) => c.kept).length;
   const result = `${kept.toLocaleString()} of ${total.toLocaleString()} particles kept · ${keptClasses}/${classStats.length} classes (${mode})`;
   const logText = [
@@ -2305,7 +2336,11 @@ async function runSymexpandNative(job: EngineJobRef, upstream: UpstreamRef[]): P
     return { ok: false, error: `no particle rows found in ${inStar}` };
   }
 
-  writeFileSync(outStar, outLines.join("\n") + "\n");
+  writeFileSync(
+    outStar,
+    // t311 — the rows re-point at the stacks from THEIR new home (project-relative)
+    rebaseParticleRefs(outLines.join("\n") + "\n", inStar, projectDirFor(job))
+  );
   const factor = matrices.length;
   const result = `${total.toLocaleString()} × ${factor} = ${expanded.toLocaleString()} particles (${group}${group === "I" ? `/${icoSubset}` : ""})`;
   const logText = [
@@ -2450,7 +2485,11 @@ async function runRebalanceNative(job: EngineJobRef, upstream: UpstreamRef[]): P
   for (const idx of keptSet) outLines.push(rows[idx].join(" "));
   outLines.push("");
 
-  writeFileSync(outStar, outLines.join("\n") + "\n");
+  writeFileSync(
+    outStar,
+    // t311 — the rows re-point at the stacks from THEIR new home (project-relative)
+    rebaseParticleRefs(outLines.join("\n") + "\n", inStar, projectDirFor(job))
+  );
   writeFileSync(reportFile, JSON.stringify(report, null, 2));
 
   const s = report.stats;
@@ -3881,6 +3920,41 @@ export function parseProgressText(
 /* ------------------------------------------------------------------ */
 
 const NATIVE_TYPES = new Set(["import", "manualpick", "select"]);
+
+/**
+ * t311 — re-base ImageName refs when a particle star RELOCATES. RELION
+ * resolves a star's relative refs against the process CWD (the project root
+ * — the pipeliner writes project-relative paths), so a native star
+ * transform that copies particle rows into its OWN workdir must re-point
+ * every ref that only made sense next to the UPSTREAM star. The old
+ * verbatim copy left rows like `extra/x.mrcs` in select's star — a tree the
+ * upstream extract owned — and every stack-reading consumer downstream died
+ * on it (live: the mock's merge audit refused 242/242; the original demo era
+ * never noticed because its fake didn't audit). Absolute refs ride
+ * untouched; refs that already resolve from the project root ride untouched;
+ * everything else re-resolves against the upstream star's dir and
+ * re-relativizes to the project root.
+ */
+function rebaseParticleRefs(text: string, fromStar: string, projectRoot: string): string {
+  const fromDir = path.dirname(fromStar);
+  // \S+ — a loop row may be TAB- or SPACE-separated (real RELION reads both;
+  // the engine's own rebalance/symexpand emit space-joined rows), so the ref
+  // token ends at the first whitespace, never at the line end
+  return text.replace(/(\d+@)(\S+)/g, (full, prefix: string, ref: string) => {
+    if (ref.startsWith("/")) return full; // absolute — rides as-is
+    try {
+      const fromProject = path.resolve(projectRoot, ref);
+      if (existsSync(fromProject)) return full; // already project-relative and live
+      const viaFrom = path.resolve(fromDir, ref);
+      if (!existsSync(viaFrom)) return full; // unresolvable — honest absence downstream
+      const rel = path.relative(projectRoot, viaFrom);
+      if (rel.startsWith("..") || path.isAbsolute(rel)) return full; // escapes the project — leave
+      return prefix + rel.split(path.sep).join("/");
+    } catch {
+      return full;
+    }
+  });
+}
 
 /**
  * Run a job with the REAL engine.

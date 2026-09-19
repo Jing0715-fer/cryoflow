@@ -15,7 +15,7 @@
  * signal→128+sig), so finalize runs the ONE honest path.
  *
  * Phases:
- *   A  demo truth (roster 21, mock cluster alive)
+ *   A  demo truth (roster 23, mock cluster alive)
  *   B  the ledger — src + mock + inspector source assertions
  *   C0 sacct's silence contract (unknown id → empty, exit 0)
  *   C1 sbatch a bare exit-0 script → accounting row → sacct COMPLETED|0:0
@@ -240,7 +240,7 @@ try {
   const res = await page.goto(BASE, { waitUntil: "domcontentloaded" });
   must(res.status() === 200, `homepage 200 (got ${res.status()})`);
   await sleep(2500);
-  must(roster0 === 21, `roster identity 21 (got ${roster0})`);
+  must(roster0 === 23, `roster identity 23 (got ${roster0})`);
   must(await mockListening(), "the mock cluster answers on :3022");
 
   snap0 = readFileSync(STATE_FILE, "utf8"); // pre-suite record truth
@@ -629,7 +629,7 @@ try {
   await sleep(1200);
   try {
     const n = (await getJobs()).length;
-    must(n === 21, `roster restored to 21 (got ${n})`);
+    must(n === 23, `roster restored to 23 (got ${n})`);
   } catch { /* server busy */ }
   await browser.close().catch(() => {});
 }

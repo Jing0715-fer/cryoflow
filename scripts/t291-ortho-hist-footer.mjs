@@ -17,7 +17,7 @@
 //   - the cut line fades when the contour lives off the visible range.
 //
 // Phases:
-//   A  demo truth — homepage 200, roster 21
+//   A  demo truth — homepage 200, roster 23
 //   B  source ledger — the constants, the parallel fetch, the timeout
 //      guard, the honest-absence branch, the shrink-then-skip guard,
 //      the log-scaled bars, the σ ruler, the conditional cut, the caption
@@ -119,7 +119,7 @@ const near = (rgb, ref, tol) =>
 console.log("== PHASE A: demo truth ==");
 await fetch(`${BASE}/`).then((r) => must(r.status === 200, `homepage 200 (got ${r.status})`));
 const roster = await (await fetch(`${BASE}/api/jobs`)).json();
-must((roster.jobs ?? []).length === 21, `roster 21 (got ${(roster.jobs ?? []).length})`);
+must((roster.jobs ?? []).length === 23, `roster 23 (got ${(roster.jobs ?? []).length})`);
 
 console.log("== PHASE B: source ledger ==");
 const src = readFileSync("src/components/workflow/results/map-ortho-panel.tsx", "utf8");
@@ -144,7 +144,7 @@ must(src.includes("const [planeBitmaps, hist] = await Promise.all(["), "planes a
 must(src.includes("crosshair and density footer included"), "the export button's title admits the new cargo");
 
 console.log("== PHASE C: alive on the seeded world ==");
-// the volume world (t253/t280's recipe — idempotent, roster stays 21)
+// the volume world (t253/t280's recipe — idempotent, roster stays 23)
 try {
   execSync('QA_VOL_HOST="QA Refine3D" python3 scripts/qa67-seed-volume.py', { stdio: "pipe", timeout: 120_000 });
   must(true, "the volume world is seeded (qa67-seed-volume)");
@@ -277,7 +277,7 @@ try {
 
 console.log("== PHASE Z: the world as it was ==");
 const rosterZ = await (await fetch(`${BASE}/api/jobs`)).json();
-must((rosterZ.jobs ?? []).length === 21, `roster 21 after the dance (got ${(rosterZ.jobs ?? []).length})`);
+must((rosterZ.jobs ?? []).length === 23, `roster 23 after the dance (got ${(rosterZ.jobs ?? []).length})`);
 must(consoleErrors.length === 0, `console clean (${consoleErrors.length} errors${consoleErrors.length ? `: ${consoleErrors[0].slice(0, 120)}` : ""})`);
 
 console.log(fail === 0 ? "t291: ALL PASS" : `t291: ${fail} FAIL`);

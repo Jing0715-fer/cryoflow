@@ -6,7 +6,7 @@
  * people-units (1h 03m, %) while the CSV keeps raw minutes.
  *
  * Phases:
- *   S — baseline world (roster 21, trio registry, 2 GPU racers)
+ *   S — baseline world (roster 23, trio registry, 2 GPU racers)
  *   X — source oracles (ONE builder, mdCell GFM escaping, carrier,
  *       retirement, four doors named, failure doctrine carried)
  *   B — live wire: compare → export report → the bytes speak the
@@ -72,7 +72,7 @@ function trackConsole(pageRef, label) {
 section("S: baseline world");
 const list0 = await (await fetch(BASE + "/api/jobs")).json();
 const jobs0 = Array.isArray(list0) ? list0 : list0.jobs ?? [];
-must(jobs0.length === 21, `S1 roster 21 jobs (${jobs0.length})`);
+must(jobs0.length === 23, `S1 roster 23 jobs (${jobs0.length})`);
 const profiles0 = (await (await fetch(BASE + "/api/hpc/profiles")).json()).profiles ?? [];
 const gpuProfiles = profiles0.filter((p) => p.gpusPerNode >= 1);
 must(

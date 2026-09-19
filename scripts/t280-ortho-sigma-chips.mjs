@@ -25,7 +25,7 @@
 //    renderer, legacy rows without focus stay chipless.
 //
 // Phases:
-//   A  demo truth — homepage 200, roster 21
+//   A  demo truth — homepage 200, roster 23
 //   B  source ledger — the request/response pair, the push in the σ
 //      effect, the ref-sourced answer, the honest-absent chip and footer
 //      segment, the focus chip branch
@@ -79,7 +79,7 @@ const SH = {
 console.log("== PHASE A: demo truth ==");
 await fetch(`${BASE}/`).then((r) => must(r.status === 200, `homepage 200 (got ${r.status})`));
 const roster = await (await fetch(`${BASE}/api/jobs`)).json();
-must((roster.jobs ?? []).length === 21, `roster 21 (got ${(roster.jobs ?? []).length})`);
+must((roster.jobs ?? []).length === 23, `roster 23 (got ${(roster.jobs ?? []).length})`);
 
 console.log("== PHASE B: source ledger ==");
 const orthoSrc = readFileSync("src/components/workflow/results/map-ortho-panel.tsx", "utf8");
@@ -104,7 +104,7 @@ must(embedSrc.includes("focus {Math.round(v.focus.x * 100)}/{Math.round(v.focus.
 must(embedSrc.includes("bg-cyan-600/10 px-1 py-px"), "the focus chip wears the ortho panel's cyan");
 
 console.log("== PHASE C: alive on the seeded world ==");
-// the volume world (t253's recipe — idempotent, roster stays 21)
+// the volume world (t253's recipe — idempotent, roster stays 23)
 try {
   execSync('QA_VOL_HOST="QA Refine3D" python3 scripts/qa67-seed-volume.py', { stdio: "pipe", timeout: 120_000 });
   must(true, "the volume world is seeded (qa67-seed-volume)");
@@ -288,7 +288,7 @@ try {
 
 console.log("== PHASE Z: the world as it was ==");
 const rosterEnd = await (await fetch(`${BASE}/api/jobs`)).json();
-must((rosterEnd.jobs ?? []).length === 21, `roster 21 after the dance (got ${(rosterEnd.jobs ?? []).length})`);
+must((rosterEnd.jobs ?? []).length === 23, `roster 23 after the dance (got ${(rosterEnd.jobs ?? []).length})`);
 must(consoleErrors.length === 0, `console clean (${consoleErrors.length} errors${consoleErrors.length ? `: ${consoleErrors[0].slice(0, 80)}` : ""})`);
 
 console.log(fail === 0 ? "\nt280: ALL PASS" : `\nt280: ${fail} FAIL`);

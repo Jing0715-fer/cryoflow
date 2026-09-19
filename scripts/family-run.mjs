@@ -12,7 +12,7 @@
 //        solo FAIL  → REAL-FAIL (a verdict, needs a human)
 //   3. EXIT CODE — 0 iff zero REAL-FAILs (SOLO-RECOVERY is honest but not a blocker).
 //
-// The FAMILY roster is an audited membership list (76 suites as of Task 310) —
+// The FAMILY roster is an audited membership list (77 suites as of Task 313) —
 // it is written here EXPLICITLY, not discovered by glob: diag-*/probe scripts and
 // one-off hearings are not family. When a new suite joins the family, add it here.
 //
@@ -141,6 +141,7 @@ const FAMILY = [
   "t307-sbatch-array-extract-pick.mjs", // the array split learns extract+autopick: ARRAY_FLAVORS (outArg/outStar/merge dialect — star concat, rows concat with the ../ strip, per-mic coords collection), the mock's extract fake turns star-aware (relpath ImageName = the contract the strip is built on), one live pipeline picks in 3 shards and extracts in 2 (Task 307)
   "t308-array-downstream.mjs", // the array pipeline's DOWNSTREAM: class2d eats the merged particle star on the cluster — twin pass-through by cluster path (zero re-upload), the refine fake turns star-aware (reads --i, audits merge integrity, echoes ImageName provenance), the extract fake's stacks become RENDERABLE MRCs (Task 308)
   "t310-verify-module-by-value.mjs", // the verify door speaks BY VALUE: the CREATE form proves a hidden beta module name before anything is saved (transient connection, dropped SSH pool slot, byte-identical registry), execError speaks FIRST (a dead host is a different answer than a missing module), one mergeVerifiedModule serves both doors, and the SAVED door gets its first family coverage (t297's debt) (Task 310)
+  "t313-demo-chain-resurrect.mjs", // the demo tutorial chain STAYS resurrected: 13 links healed through the product's own run door via the mock (EMPIAR stand-in bundle, the missing InitialModel/MaskCreate links, the FSC route speaking 40 shells), the relocation disease fixed at every star writer (natives re-base refs project-relative; the fake's echo re-bases; the audit reads star-dir + cwd + project root; whitespace-tolerant rows), honest remote twins (stat-verified — locally synthesized half-maps never claim cluster seats), and two new fakes (mask_create reading real headers, postprocess speaking the RELION 5 dialect) (Task 313)
 ];
 
 // ---- batches are first-class (t273) ----------------------------------------

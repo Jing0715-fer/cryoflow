@@ -120,7 +120,7 @@ try {
   const res = await page.goto(BASE, { waitUntil: "domcontentloaded" });
   must(res.status() === 200, `homepage 200 (got ${res.status()})`);
   await sleep(2500);
-  must(roster0 === 21, `roster identity 21 (got ${roster0})`);
+  must(roster0 === 23, `roster identity 23 (got ${roster0})`);
   must(await mockListening(), `the mock cluster answers on :${MOCK_PORT}`);
 
   // ---- Phase B: the index's ledger ----------------------------------------
@@ -397,6 +397,6 @@ try {
   } catch { /* best effort */ }
   const jobsZ = await (await fetch(`${BASE}/api/jobs`)).json();
   const rosterZ = (jobsZ.jobs ?? []).length;
-  must(rosterZ === 21, `roster restored to 21 (got ${rosterZ})`);
+  must(rosterZ === 23, `roster restored to 23 (got ${rosterZ})`);
   await browser.close().catch(() => {});
 }

@@ -27,7 +27,7 @@
 // arithmetic, not sampling.
 //
 // Phases:
-//   A  demo truth — homepage 200, roster 21
+//   A  demo truth — homepage 200, roster 23
 //   B  source ledger — the slice in the reader (offset, cache key), the
 //      route's stack/volume slice policy (require + refuse + echo), the
 //      strip's slice prop riding the fetch deps, the dialog's cursor
@@ -82,7 +82,7 @@ console.log("== PHASE A: demo truth ==");
 const home = await fetch(`${BASE}/`, { headers: SH });
 must(home.status === 200, `homepage 200 (got ${home.status})`);
 const jobs0 = await (await fetch(`${BASE}/api/jobs`, { headers: SH })).json();
-must((jobs0.jobs ?? []).length === 21, `roster 21 at the start (got ${(jobs0.jobs ?? []).length})`);
+must((jobs0.jobs ?? []).length === 23, `roster 23 at the start (got ${(jobs0.jobs ?? []).length})`);
 
 console.log("== PHASE B: source ledger ==");
 const mrcSrc = readFileSync("src/lib/mrc.ts", "utf8");
@@ -187,7 +187,7 @@ must(
 );
 
 console.log("== PHASE C: the stack speaks, alive ==");
-// the volume world (t283's recipe — idempotent, roster stays 21)
+// the volume world (t283's recipe — idempotent, roster stays 23)
 try {
   execSync('QA_VOL_HOST="QA Refine3D" python3 scripts/qa67-seed-volume.py', { stdio: "pipe", timeout: 120_000 });
   must(true, "the volume world is seeded (qa67-seed-volume)");
@@ -424,7 +424,7 @@ if (host) {
 
 console.log("== PHASE Z: the world as it was ==");
 const jobsEnd = await (await fetch(`${BASE}/api/jobs`, { headers: SH })).json();
-must((jobsEnd.jobs ?? []).length === 21, `roster 21 after the dance (got ${(jobsEnd.jobs ?? []).length})`);
+must((jobsEnd.jobs ?? []).length === 23, `roster 23 after the dance (got ${(jobsEnd.jobs ?? []).length})`);
 must(consoleErrors.length === 0, `console clean (${consoleErrors.length} errors${consoleErrors.length ? `: ${consoleErrors[0]?.slice(0, 90)}` : ""})`);
 
 console.log(fail === 0 ? "\nt287: ALL PASS" : `\nt287: ${fail} FAIL`);

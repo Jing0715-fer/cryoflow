@@ -15,7 +15,7 @@
 // and the count words in the hint derive from the same bytes.
 //
 // Phases:
-//   A  demo truth — homepage 200, roster 21
+//   A  demo truth — homepage 200, roster 23
 //   B  the doc — press "?" opens the shortcuts dialog; group order
 //      (Global → Not in ⌘K — and why: the answer follows the question);
 //      the hint's "2 honest exemptions" derives from the well; each
@@ -68,7 +68,7 @@ const roster = await page.evaluate(async () => {
   const r = await fetch("/api/jobs");
   return (await r.json()).jobs.length;
 });
-must(roster === 21, `roster identity 21 (got ${roster})`);
+must(roster === 23, `roster identity 23 (got ${roster})`);
 
 // ---- Phase B: the doc ----------------------------------------------------------
 console.log("== PHASE B: the doc follows the question ==");

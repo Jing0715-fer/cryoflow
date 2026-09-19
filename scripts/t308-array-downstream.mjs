@@ -4,7 +4,7 @@
 // job ever CONSUMED a merged shard product on the cluster — the split's
 // story ended at the canonical star. This suite closes the loop end to end:
 //
-//   A   the demo truth (homepage 200, roster 21, mock cluster answering)
+//   A   the demo truth (homepage 200, roster 23, mock cluster answering)
 //   B   the ledger — the mock's relion_refine grew star-aware teeth (t307
 //       did this for preprocess; the refine fake still wrote 40 fake rows
 //       and a `--nt` default of 1500 particles the engine never even
@@ -188,7 +188,7 @@ try {
   const res = await page.goto(BASE, { waitUntil: "domcontentloaded" });
   must(res.status() === 200, `homepage 200 (got ${res.status()})`);
   await sleep(2500);
-  must(roster0 === 21, `roster identity 21 (got ${roster0})`);
+  must(roster0 === 23, `roster identity 23 (got ${roster0})`);
   must(await mockListening(), "the mock cluster answers on :3022");
 
   snap0 = readFileSync(STATE_FILE, "utf8");
@@ -568,7 +568,7 @@ try {
   await sleep(1200);
   try {
     const n = (await getJobs()).length;
-    must(n === 21, `roster restored to 21 (got ${n})`);
+    must(n === 23, `roster restored to 23 (got ${n})`);
   } catch { /* server busy */ }
   await browser.close().catch(() => {});
 }

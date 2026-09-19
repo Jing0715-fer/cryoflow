@@ -123,17 +123,20 @@ def write_mrc_stack(path, box, nslices, seed=1):
             v = ((base + k * 12345) % 2000) / 2000.0 - 0.5
             data += struct.pack("<f", v)
     header = bytearray(1024)
+    # t311 — REAL MRC2014 offsets: MODE is word 3 (byte 12) — the old byte-4
+    # write overwrote NY with 2; sampling belongs at words 7-9 (28), ISPG at
+    # word 22 (88), NSYMBT at word 23 (92), ORIGIN at words 24-26 (96)
     struct.pack_into("<3i", header, 0, box, box, nslices)   # NX, NY, NZ
-    struct.pack_into("<i", header, 4, 2)                    # MODE float32
-    struct.pack_into("<3i", header, 12, 0, 0, 0)            # NXSTART etc.
-    struct.pack_into("<3i", header, 20, box, box, nslices)  # MX, MY, MZ
+    struct.pack_into("<i", header, 12, 2)                   # MODE float32
+    struct.pack_into("<3i", header, 16, 0, 0, 0)            # NXSTART etc.
+    struct.pack_into("<3i", header, 28, box, box, nslices)  # MX, MY, MZ
     struct.pack_into("<3f", header, 40, float(box), float(box), float(nslices))  # CELLA
-    struct.pack_into("<3f", header, 56, 90.0, 90.0, 90.0)   # CELLB
+    struct.pack_into("<3f", header, 52, 90.0, 90.0, 90.0)   # CELLB
     struct.pack_into("<3i", header, 64, 1, 2, 3)            # MAPC, MAPR, MAPS
     struct.pack_into("<3f", header, 76, -0.5, 0.5, 0.0)     # DMIN, DMAX, DMEAN
-    struct.pack_into("<i", header, 92, 1)                   # ISPG (stack = 1)
-    struct.pack_into("<i", header, 96, 0)                   # NSYMBT
-    struct.pack_into("<3f", header, 196, 0.0, 0.0, 0.0)     # ORIGIN
+    struct.pack_into("<i", header, 88, 1)                   # ISPG (stack = 1)
+    struct.pack_into("<i", header, 92, 0)                   # NSYMBT
+    struct.pack_into("<3f", header, 96, 0.0, 0.0, 0.0)      # ORIGIN
     header[208:212] = b"MAP "
     header[212:216] = b"\x44\x41\x00\x00"                   # MACHST little-endian
     struct.pack_into("<f", header, 216, 0.1)                # RMS

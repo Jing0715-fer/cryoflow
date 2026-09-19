@@ -15,13 +15,13 @@
 // keyboard layer, asserted live.
 //
 // Phases:
-//   A  demo truth — homepage 200, roster 21
+//   A  demo truth — homepage 200, roster 23
 //   B  "/" live — press / → the palette search owns focus; type filters
 //      the catalog; Esc peels twice (clears the query, then blurs)
 //   C  Alt+←/→ live — a synthetic favorites world (localStorage, context-
 //      local so the demo box stays clean): three chips, Alt+ArrowRight
 //      moves the first chip right, Alt+ArrowLeft brings it home; NO job is
-//      ever added (moveFav writes localStorage only — roster stays 21)
+//      ever added (moveFav writes localStorage only — roster stays 23)
 //   D  the doc — the canvas group carries 17 rows with both new keys
 //      seated beside their semantic siblings; filter "palette" shows the
 //      three palette truths at once
@@ -72,7 +72,7 @@ const roster = await page.evaluate(async () => {
   const r = await fetch("/api/jobs");
   return (await r.json()).jobs.length;
 });
-must(roster === 21, `roster identity 21 (got ${roster})`);
+must(roster === 23, `roster identity 23 (got ${roster})`);
 
 // ---- Phase B: "/" is alive -----------------------------------------------------
 console.log("== PHASE B: / focuses the palette search ==");
@@ -147,7 +147,7 @@ const rosterAfter = await page.evaluate(async () => {
   const r = await fetch("/api/jobs");
   return (await r.json()).jobs.length;
 });
-must(rosterAfter === 21, `the reorder added NO job — roster still 21 (got ${rosterAfter})`);
+must(rosterAfter === 23, `the reorder added NO job — roster still 23 (got ${rosterAfter})`);
 
 // ---- Phase D: the doc -----------------------------------------------------------
 console.log("== PHASE D: the rows are seated beside their siblings ==");

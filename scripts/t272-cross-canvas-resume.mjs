@@ -23,7 +23,7 @@
  *     guess — and names the canvas the job actually lives on.
  *
  * Phases:
- *   A  demo truth (roster 21, mock cluster, rig stubs)
+ *   A  demo truth (roster 23, mock cluster, rig stubs)
  *   B  the ledger (source assertions: cascade sweep + ordering, DTO fields,
  *      the async résumé, three await'd routes, the three-state UI)
  *   C  the live loop:
@@ -149,7 +149,7 @@ try {
   const res = await page.goto(BASE, { waitUntil: "domcontentloaded" });
   must(res.status() === 200, `homepage 200 (got ${res.status()})`);
   await sleep(2500);
-  must(roster0 === 21, `roster identity 21 (got ${roster0})`);
+  must(roster0 === 23, `roster identity 23 (got ${roster0})`);
   must(await mockListening(), `the mock cluster answers on :${MOCK_PORT}`);
   must(
     ["motioncor2", "relion_run_motioncorr"].every((b) => existsSync(path.join(RIG_BIN, b))),
@@ -612,7 +612,7 @@ try {
   try {
     const after = await (await fetch(`${BASE}/api/jobs`)).json();
     const n = (after.jobs ?? []).length;
-    must(n === 21, `roster restored to 21 (got ${n})`);
+    must(n === 23, `roster restored to 23 (got ${n})`);
   } catch (e) {
     must(false, `roster check failed (${e.message})`);
   }

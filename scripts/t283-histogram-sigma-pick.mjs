@@ -22,7 +22,7 @@
 // the histogram is the inverted-contrast door, one click away).
 //
 // Phases:
-//   A  demo truth — homepage 200, roster 21
+//   A  demo truth — homepage 200, roster 23
 //   B  source ledger — the chunked two-pass reader (O(1) memory, cache
 //      key mtime+size, LRU cap, non-finite skip), the route branch (same
 //      containment chain, refusals), the strip (log bars, σ ruler, cut
@@ -85,7 +85,7 @@ console.log("== PHASE A: demo truth ==");
 const home = await fetch(`${BASE}/`, { headers: SH });
 must(home.status === 200, `homepage 200 (got ${home.status})`);
 const jobs0 = await (await fetch(`${BASE}/api/jobs`, { headers: SH })).json();
-must((jobs0.jobs ?? []).length === 21, `roster 21 at the start (got ${(jobs0.jobs ?? []).length})`);
+must((jobs0.jobs ?? []).length === 23, `roster 23 at the start (got ${(jobs0.jobs ?? []).length})`);
 
 console.log("== PHASE B: source ledger ==");
 const mrcSrc = await import("node:fs").then((fs) => fs.readFileSync("src/lib/mrc.ts", "utf8"));
@@ -139,7 +139,7 @@ must(embedSrc.includes("const s = Math.min(10, Math.max(0.05, d.sigma));"), "the
 must(embedSrc.includes("if (signRef.current !== sg) setSign(sg);"), "the SET flips the sign when the pick demands it");
 
 console.log("== PHASE C: the histogram, alive ==");
-// the volume world (t253/t278/t281's recipe — idempotent, roster stays 21)
+// the volume world (t253/t278/t281's recipe — idempotent, roster stays 23)
 try {
   execSync('QA_VOL_HOST="QA Refine3D" python3 scripts/qa67-seed-volume.py', { stdio: "pipe", timeout: 120_000 });
   must(true, "the volume world is seeded (qa67-seed-volume)");
@@ -344,7 +344,7 @@ if (host) {
 
 console.log("== PHASE Z: the world as it was ==");
 const jobsEnd = await (await fetch(`${BASE}/api/jobs`, { headers: SH })).json();
-must((jobsEnd.jobs ?? []).length === 21, `roster 21 after the dance (got ${(jobsEnd.jobs ?? []).length})`);
+must((jobsEnd.jobs ?? []).length === 23, `roster 23 after the dance (got ${(jobsEnd.jobs ?? []).length})`);
 must(consoleErrors.length === 0, `console clean (${consoleErrors.length} errors${consoleErrors.length ? `: ${consoleErrors[0]?.slice(0, 90)}` : ""})`);
 
 console.log(fail === 0 ? "\nt283: ALL PASS" : `\nt283: ${fail} FAIL`);

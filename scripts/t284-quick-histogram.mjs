@@ -17,7 +17,7 @@
 // key={path} resets the toggle when another file opens.
 //
 // Phases:
-//   A  demo truth — homepage 200, roster 21
+//   A  demo truth — homepage 200, roster 23
 //   B  source ledger — the shared module (one draw core, two consumers),
 //      the read-only gate (no onPickSigma → no click→σ), the default-OFF
 //      toggle, the per-file reset, the panel keeps the σ dispatch, the
@@ -73,7 +73,7 @@ console.log("== PHASE A: demo truth ==");
 const home = await fetch(`${BASE}/`, { headers: SH });
 must(home.status === 200, `homepage 200 (got ${home.status})`);
 const jobs0 = await (await fetch(`${BASE}/api/jobs`, { headers: SH })).json();
-must((jobs0.jobs ?? []).length === 21, `roster 21 at the start (got ${(jobs0.jobs ?? []).length})`);
+must((jobs0.jobs ?? []).length === 23, `roster 23 at the start (got ${(jobs0.jobs ?? []).length})`);
 
 console.log("== PHASE B: source ledger ==");
 const sharedSrc = await import("node:fs").then((fs) =>
@@ -111,7 +111,7 @@ const routeSrc = await import("node:fs").then((fs) =>
 must(routeSrc.includes("Stacks histogram per slice — pass &slice=N"), "the route speaks per-slice for stacks (t287's upgrade of the old flat refusal — the dialog rides the SAME containment chain)");
 
 console.log("== PHASE C: the quick look, alive ==");
-// the volume world (t283's recipe — idempotent, roster stays 21)
+// the volume world (t283's recipe — idempotent, roster stays 23)
 try {
   execSync('QA_VOL_HOST="QA Refine3D" python3 scripts/qa67-seed-volume.py', { stdio: "pipe", timeout: 120_000 });
   must(true, "the volume world is seeded (qa67-seed-volume)");
@@ -293,7 +293,7 @@ if (host) {
 
 console.log("== PHASE Z: the world as it was ==");
 const jobsEnd = await (await fetch(`${BASE}/api/jobs`, { headers: SH })).json();
-must((jobsEnd.jobs ?? []).length === 21, `roster 21 after the dance (got ${(jobsEnd.jobs ?? []).length})`);
+must((jobsEnd.jobs ?? []).length === 23, `roster 23 after the dance (got ${(jobsEnd.jobs ?? []).length})`);
 must(consoleErrors.length === 0, `console clean (${consoleErrors.length} errors${consoleErrors.length ? `: ${consoleErrors[0]?.slice(0, 90)}` : ""})`);
 
 console.log(fail === 0 ? "\nt284: ALL PASS" : `\nt284: ${fail} FAIL`);

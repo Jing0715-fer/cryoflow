@@ -33,7 +33,7 @@
  *     live and terminal.
  *
  * Phases:
- *   A   the demo truth (app alive, roster 21, mock listening)
+ *   A   the demo truth (app alive, roster 23, mock listening)
  *   B   the ledger (source assertions: types, route, dispatch, script
  *       builder, mock, strip, dialog)
  *   C   the live loop (all through the REAL run route + REAL sweep):
@@ -48,7 +48,7 @@
  *           script without the array branch's variables
  *       C4  the honest refusal: class2d + shards → refused BEFORE staging
  *           (splitting refine-style jobs in name only would be a lie)
- *   D   console clean + roster restored to 21
+ *   D   console clean + roster restored to 23
  */
 import { execSync, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -198,7 +198,7 @@ try {
   const res = await page.goto(BASE, { waitUntil: "domcontentloaded" });
   must(res.status() === 200, `homepage 200 (got ${res.status()})`);
   await sleep(2500);
-  must(roster0 === 21, `roster identity 21 (got ${roster0})`);
+  must(roster0 === 23, `roster identity 23 (got ${roster0})`);
   must(await mockListening(), "the mock cluster answers on :3022");
 
   snap0 = readFileSync(STATE_FILE, "utf8");
@@ -585,7 +585,7 @@ try {
   await sleep(1200);
   try {
     const n = (await getJobs()).length;
-    must(n === 21, `roster restored to 21 (got ${n})`);
+    must(n === 23, `roster restored to 23 (got ${n})`);
   } catch { /* server busy */ }
   await browser.close().catch(() => {});
 }

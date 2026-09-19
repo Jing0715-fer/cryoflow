@@ -2196,10 +2196,32 @@ async function finalizeRemoteRun(
   }
 
   // remote twins for the outputs (downstream remote jobs consume these
-  // without any re-upload)
+  // without any re-upload). t311 — the twin map must only name files that
+  // ACTUALLY exist on the cluster: collectOutputs can mint outputs the
+  // cluster never held (live: refine3d's sequential-mode half maps are
+  // synthesized LOCALLY during finalize — mapping them onto cluster paths
+  // told every downstream dispatch "already staged, skip the upload" and
+  // MaskCreate starved). One batched stat round settles the truth.
   const remoteOutputs: Record<string, string> = {};
-  for (const [k, v] of Object.entries(outputs)) {
-    remoteOutputs[k] = mapLocalToRemote(v, r.remoteRoot);
+  const twinCandidates = Object.entries(outputs).map(([k, v]) => ({
+    key: k,
+    local: v,
+    remote: mapLocalToRemote(v, r.remoteRoot),
+  }));
+  if (twinCandidates.length > 0) {
+    const statScript = twinCandidates
+      .map((c) => `if [ -e ${shQuote(c.remote)} ]; then echo "OK ${shQuote(c.remote)}"; fi`)
+      .join("; ");
+    const stat = await exec(conn, statScript, { timeoutMs: 20_000 });
+    const okSet = new Set(
+      stat.stdout
+        .split("\n")
+        .filter((l) => l.startsWith("OK "))
+        .map((l) => l.slice(3).trim().replace(/^"|"$/g, ""))
+    );
+    for (const c of twinCandidates) {
+      if (okSet.has(c.remote)) remoteOutputs[c.key] = c.remote;
+    }
   }
 
   updateRun(job.id, (cur) =>

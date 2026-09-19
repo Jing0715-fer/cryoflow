@@ -56,7 +56,7 @@ await page.goto(BASE, { waitUntil: "networkidle" });
 await sleep(2500);
 
 const jobs = await (await fetch(`${BASE}/api/jobs`)).json();
-must((jobs.jobs ?? []).length === 21, `roster identity 21 (got ${(jobs.jobs ?? []).length})`);
+must((jobs.jobs ?? []).length === 23, `roster identity 23 (got ${(jobs.jobs ?? []).length})`);
 
 // to the dashboard view
 await page.getByRole("tab", { name: "Dashboard" }).click();

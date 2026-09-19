@@ -152,7 +152,7 @@ async function healLiveRowIfFlipped() {
 
 const list0 = await jfetch("/api/jobs");
 const jobs0 = list0.body?.jobs ?? [];
-must(jobs0.length === 21, `S1 roster 21 jobs (${jobs0.length})`);
+must(jobs0.length === 23, `S1 roster 23 jobs (${jobs0.length})`);
 const byStatus = {};
 for (const j of jobs0) byStatus[j.status] = (byStatus[j.status] ?? 0) + 1;
 const censusOk =
@@ -221,7 +221,7 @@ must(cnt?.jobs === 21 && cnt?.edges === 16 && cnt?.workspaces === 1,
 
 const cloneWire = await readProjectWire(CLONE.id);
 const cloneList = cloneWire.jobs;
-must(cloneList.length === 21, `B5 clone roster 21 (${cloneList.length})`);
+must(cloneList.length === 23, `B5 clone roster 23 (${cloneList.length})`);
 must(cloneList.every((j) => j.status === "idle"), "B6 every clone job idle (16c/1f/1r reset — the RESET contract on the richest real input)");
 must(cloneList.every((j) => (j.progress ?? 0) === 0), "B7 every clone progress 0");
 must(cloneList.every((j) => j.startedAt == null && j.result == null), "B8 startedAt + result all null");
@@ -456,7 +456,7 @@ await jfetch(`/api/projects/${CLONE.id}`, { method: "DELETE" });
 const projectsZ = (await jfetch("/api/projects")).body?.projects ?? [];
 must(projectsZ.length === 1 && projectsZ[0].id === SOURCE.id, `Z1 back to exactly the source project (${projectsZ.length})`);
 const jobsZ = (await jfetch("/api/jobs")).body?.jobs ?? [];
-must(jobsZ.length === 21, `Z2 roster 21 (${jobsZ.length})`);
+must(jobsZ.length === 23, `Z2 roster 23 (${jobsZ.length})`);
 const zStatus = {};
 for (const j of jobsZ) zStatus[j.status] = (zStatus[j.status] ?? 0) + 1;
 must(

@@ -17,7 +17,7 @@
 // export the CURRENT md bytes, never a stale capture.
 //
 // Phases:
-//   A  demo truth — homepage 200, roster 21
+//   A  demo truth — homepage 200, roster 23
 //   B  the keyboard mouths — open the report from the header door, press
 //      H → download event (.html, session-qc-report-*) + the same emerald
 //      flashNote receipt the button shows; press M → .md download + receipt;
@@ -62,7 +62,7 @@ const roster = await page.evaluate(async () => {
   const r = await fetch("/api/jobs");
   return (await r.json()).jobs.length;
 });
-must(roster === 21, `roster identity 21 (got ${roster})`);
+must(roster === 23, `roster identity 23 (got ${roster})`);
 
 // ---- Phase B: the keyboard mouths ----------------------------------------------
 console.log("== PHASE B: H and M answer at the report ==");
