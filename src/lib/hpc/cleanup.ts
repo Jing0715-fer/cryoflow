@@ -455,3 +455,95 @@ export function planTiers(plan: CleanupPlan): CleanupTierId[] {
     tiers.has(t)
   );
 }
+
+/* ------------------------------------------------------------------ */
+/* The re-run wipe (t333)                                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * t333 — the fresh-start wipe, the field report's blade: 「reset&，re-run
+ * 或者delete任务时会先清除之前已生成的文件吗？」 answered by a crash — a
+ * re-run of an extraction with a changed box size died at
+ * relion_preprocess image.h:1534 ("write: target and source objects have
+ * different size") because the previous run's .mrcs stacks still sat in
+ * the STABLE workdir (<root>/<type>_<jobid8>); a NEW job (empty workdir)
+ * sailed. The doctrine this classifier serves: **a fresh start is a fresh
+ * directory** — RELION GUI's "Overwrite" answer, given automatically.
+ *
+ * The keep-set here is the t331 contract's FRESH-RUN dialect (a different
+ * question earns a different answer — post-run cleanup preserves the
+ * chainables for viewing/resume; a re-run is about to REGENERATE them):
+ *   1. symlinks — input-data doors, as ever;
+ *   2. note.txt — a user's margin note is not a run product;
+ *   3. .cf-remote-manifest.json — the LEDGER. The remote wipe prunes it
+ *      entry-by-entry (rewriteManifestAfterCleanup) and the new run's
+ *      finalize rewrites it; deleting it wholesale would blank the Files
+ *      tab while the cluster still holds the old outputs;
+ *   4. anything UNRECOGNIZED — unknown still means keep (a new RELION
+ *      output shape degrades to "stays", never to "silently deleted").
+ *
+ * Everything RECOGNIZED as a previous generation's product dies:
+ * iteration families (ALL of them — a fresh start has no resume
+ * contract), the product extensions (.star/.mrc/.mrcs/.eps/.ctf/.sav/
+ * .tmp — inputs never live in the workdir: they ride absolute paths, the
+ * project tree, _staged/ or in-place twins, so an extension hit here is
+ * a product), the array-shard subtrees, the .cf-* scratch + scripts +
+ * verdict dotfiles (all re-made by the new dispatch), and run.out/run.err
+ * (the engines append — without this, generation 2's log would open
+ * appended to generation 1's).
+ */
+const WIPE_EXTENSIONS = new Set([
+  ".star",
+  ".mrc",
+  ".mrcs",
+  ".eps",
+  ".ctf",
+  ".sav",
+  ".tmp",
+]);
+
+export interface RerunWipeResult {
+  /** workdir-relative posix paths the fresh start deletes (every
+   * recognized product of the previous generation). */
+  wipe: string[];
+  /** what survives the wipe (informational, the same account the plan
+   * keeps: doors, the ledger, notes, unknowns). */
+  kept: { count: number; bytes: number };
+}
+
+/**
+ * Classify a walked workdir listing for a FRESH re-run. PURE (same
+ * recipe as classifyCleanup): the local engine lane, the remote dispatch
+ * leg and the diag all speak this one classification, so what the
+ * dispatch deletes is exactly what the diag asserts.
+ */
+export function classifyRerunWipe(files: CleanupFileEntry[]): RerunWipeResult {
+  const wipe: string[] = [];
+  let keptCount = 0;
+  let keptBytes = 0;
+  for (const f of files) {
+    const name = f.path.includes("/") ? f.path.split("/").pop()! : f.path;
+    const lower = name.toLowerCase();
+    const dot = lower.lastIndexOf(".");
+
+    // ---- the fresh-run keep-set -------------------------------------
+    if (f.link) {
+      keptCount++; keptBytes += f.size; continue;               // input doors
+    }
+    if (name === "note.txt" || name === ".cf-remote-manifest.json") {
+      keptCount++; keptBytes += f.size; continue;               // note + ledger
+    }
+
+    // ---- recognized products ----------------------------------------
+    if (/^shard_\d+(\/|$)/.test(f.path)) { wipe.push(f.path); continue; } // array scratch subtree
+    if (iterationFamilyOf(f.path)) { wipe.push(f.path); continue; }       // run_it###_* (all of them)
+    if (name.startsWith(".cf-")) { wipe.push(f.path); continue; }         // scratch/scripts/verdict — re-made
+    if (name === "run.out" || name === "run.err") { wipe.push(f.path); continue; } // fresh logs
+    if (dot > 0 && WIPE_EXTENSIONS.has(lower.slice(dot))) { wipe.push(f.path); continue; }
+
+    // ---- unknown = keep (conservative by construction) ---------------
+    keptCount++;
+    keptBytes += f.size;
+  }
+  return { wipe, kept: { count: keptCount, bytes: keptBytes } };
+}

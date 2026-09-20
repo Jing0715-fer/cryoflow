@@ -42,6 +42,7 @@ import { getConnection, loadConnections } from "@/lib/remote/connections";
 import { remoteHeaderSniffer } from "@/lib/remote/sniff";
 import { listRemoteDir, REMOTE_IMPORT_MAX_ENTRIES, statRemoteFiles } from "@/lib/remote/remote-ls";
 import { exec as sshExec } from "@/lib/remote/ssh";
+import { wipeLocalRunProducts } from "@/lib/relion/run-wipe";
 import type { RemoteConnection, RemoteRunState } from "@/lib/remote/types";
 import { readMrcHeader } from "@/lib/mrc";
 import { sniffImageFile, spreadSample, type HeaderSniffer, type SniffVerdict } from "./mrc-sniff";
@@ -5273,6 +5274,30 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
 
   // ---- workdir ----------------------------------------------------------
   mkdirSync(workdir, { recursive: true });
+
+  // ---- t333 — the fresh-start wipe ---------------------------------------
+  // This point is only reached on a FRESH start: the engine-native jobs
+  // returned above, and the --continue resume branch (interrupted
+  // refine-family with a usable checkpoint) returned above too — its
+  // checkpoints are the state it resumes. A fresh start must NOT inherit
+  // the previous generation's products: the workdir is stable across
+  // runs, RELION writes into whatever sits at its output paths, and the
+  // field report died exactly there (relion_preprocess, image.h:1534
+  // "write: target and source objects have different size" — the old
+  // .mrcs stacks vs the new box size; a NEW job sailed). The shared
+  // classifier keeps input doors (symlinks), note.txt, the manifest and
+  // anything unrecognized; products, iterations, scratch and logs die.
+  // A wipe hiccup degrades to the pre-t333 behavior — never a refusal.
+  try {
+    const wipeResult = wipeLocalRunProducts(workdir);
+    if (wipeResult && wipeResult.wiped.length > 0) {
+      console.log(
+        `engine: fresh run of ${job.type} ${job.id.slice(-8)} cleared ${wipeResult.wiped.length} stale product file(s) from the previous run (t333)`
+      );
+    }
+  } catch {
+    /* best effort — the run itself will surface anything real */
+  }
 
   // ---- build argv ---------------------------------------------------------
   const ctx: BuildCtx = { binDir, workdir, inputs, job, upstream, bridge };

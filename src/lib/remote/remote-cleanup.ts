@@ -168,6 +168,17 @@ export async function listRemoteWorkdir(
   return result;
 }
 
+/**
+ * t333 — drop a workdir's cached listing (the dispatch's pre-run wipe
+ * re-lists with bypassCache and then DELETES files; the cache entry it
+ * just wrote now describes a pre-wipe tree, and a cleanup plan read
+ * within the TTL would offer files that are gone). The next listRemoteWorkdir
+ * re-dials live.
+ */
+export function dropRemoteListingCache(connId: string, workdir: string): void {
+  listCache.delete(`${connId}|${workdir}`);
+}
+
 /* ------------------------------------------------------------------ */
 /* Execution                                                            */
 /* ------------------------------------------------------------------ */

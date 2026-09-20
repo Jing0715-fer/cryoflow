@@ -2707,3 +2707,31 @@ Work Log:
 Stage Summary:
 - 「列表即选择」：点哪个节点 sbatch 钉哪个（--nodelist）；多宿主组里的单节点这种分区下拉永远表达不了的选法第一次可表达；UI 永不组矛盾组合；mock 账本第 5 字段让钉选作业占用记在它真正落的节点
 - 用户拉取重启后：Run on cluster → Slurm → Live node usage 列表点节点即钉选，再点释放；预览 #SBATCH --nodelist=<node> 即所发即所见
+
+---
+Task ID: t333
+Agent: main-agent (Z.ai Code)
+Task: 用户工单「reset&，re-run或者delete任务时会先清除之前已生成的文件吗？」（renumbered t332→t333 per the t314 precedent — the parallel window's node-picks ticket took t332 and landed first; rebase onto 95d1534 conflict-free in source, worklog/docs merged with both sides kept）——随单附带一次真实崩溃: re-run 一个改了 box size 的 extraction job, relion_preprocess 死在 image.h:1534 "write: target and source objects have different size"（旧一代 .mrcs 粒子栈还坐在稳定 workdir <root>/<type>_<jobid8> 里, RELION 往输出路径上现存文件里写）; 新建一个 extraction job（空 workdir）就正常。修复 + 回答三动词的文件语义。
+
+Work Log:
+- 勘察: reset（PATCH status=idle）只杀进程+清 run record, 不动文件; delete 故意保留 workdir（/api/jobs/restore 的 Undo 学说）; re-run 只清 t318 栅栏的裁决见证物（.cf-exit/.cf-pid/run.out/run.err + array 暂存）——旧一代的 RELION 产物全部幸存, 正是崩溃根源。本地腿 run.out/run.err 还是 append 模式（第二代日志会接在第一代后面）。
+- Blade 1 纯规划器: hpc/cleanup.ts 新增 classifyRerunWipe（t331 keep-set 的「新跑方言」）——死: 全部迭代（新跑无续跑契约）、产物扩展名（.star/.mrc/.mrcs/.eps/.ctf/.sav/.tmp, 大小写不敏感; 输入从不进 workdir——绝对路径/项目树/_staged/原地孪生, 故扩展名命中即产物）、shard_N/ 整棵暂存子树、.cf-* 家族、run.out/run.err; 活: symlink 门、note.txt、.cf-remote-manifest.json（台账——远端逐条修剪, 整删会在 dispatch 与 finalize 之间让 Files 页说谎）、一切未识别（unknown=keep 教义照旧）。模块保持零 import。
+- Blade 2 本地腿: 新模块 src/lib/relion/run-wipe.ts（walker 与 cleanup 路由同方言: symlink 列为门不跟随; EISDIR 教案的 recursive:true 修剪; 尽力而为不拒跑）+ wipeLocalRunProducts; engine.runRealJob 的调用点钉在 mkdirSync(workdir) 之后、buildArgv 之前——engine-native 分发与 --continue 续跑分支都在其上方提前 return, 结构上保证「续跑永不清扫」（checkpoint 就是状态本身）。
+- Blade 3 远端腿: ①dispatch 记录构建前的 t323-a 两文件清除升级为整代镜像清扫（wipeLocalRunProducts(localWorkdir)）——上一代同步回来的产物 + 陈旧日志全死, 台账幸存; ②spawn 任务里 remoteMkdir 之后、t318 栅栏之前插入集群侧清扫: listRemoteWorkdir(bypassCache) → classifyRerunWipe → deleteRemoteFiles 批量 rm → pruneRemoteEmptyDirs → dropRemoteListingCache（新增导出: 清扫自listing缓存了清扫前真相）→ rewriteManifestAfterCleanup(localWorkdir, wipeRels)。诚实分级: listing 失败降级为 warn-and-proceed（t332 之前的世界, 提交自己会再测线路）; rm 失败则拒绝整个 re-run（带着旧文件跑就是本工单要杀的崩溃）。
+- Blade 4 UI 诚实: re-run 确认框文案改为「files the previous run generated in this job's run directory — on this machine and on the cluster — are cleared first」; inspector 的 Reset & edit 按钮加 tooltip（清状态不清文件, 目录留到下一次 Run 重建）; job-panel 的 reset 图标 title 同步。
+- Blade 5 文档: docs/remote-relion.md 新增 §4l（三动词的文件语义 + image.h:1534 现场报告）+ 失败目录三行（崩溃灭绝/拒绝措辞/listing 降级）+ roadmap「Re-run hygiene — shipped (t332)」。
+- e2e scripts/diag-t333-rerun-wipe.mjs, 75 断言 ALL GREEN ×3: UNIT（用户原方言清单逐档对账: 13 删/4 留; refine 方言全迭代含族最大值/finals/plots/.sav/.tmp/大写.MRCS 全删; keep-set 语法: 任意深度门/note/台账/unknown 全活）+ LIVE LOCAL（bun 直导 run-wipe: 夹具盘上真相、门的目标目录毫发无损、particles/ 空目录修剪、幂等第二遍、absent→null/empty→0、engine 源序钉「natives→resume→mkdir→wipe」）+ LIVE REMOTE（真 class2d @slurm 上 mock 完成两代: 双侧埋哨兵——未来迭代 run_it009_class009.mrc/伪 canonical particles.star/诊断 eps/unknown/note/门链接, re-run 后哨兵产物双侧死光、keeps 双侧全活、新代 finals/iterations/witnesses/脚本重生成、台账逐条对上活树且不再列哨兵、t318 fence 形状幸存、t331 清扫面板在新树上继续工作且不 offer 已被清扫的东西）+ CONTRACTS（两侧刀位源序钉: 镜像清扫先于 record 构建/集群清扫在 remoteMkdir 后 t318 栅栏前; bypassCache/dropRemoteListingCache/manifest 修剪/拒绝措辞/warn-and-proceed 措辞; 对话框与 tooltip 文案; reset 不删文件+delete 保留 workdir 的合同钉）。
+- 回归（合并构建上）: t331(129) ALL GREEN @ prod :3001 新构建 + mock :3022; t318(52)/t319(57) ALL GREEN @ dev :3000; tsc 0; eslint 0（七源文件 + 套件）。并行窗随后在 aade691 里把 t331 套件 ROOT 重绑到其环境并在「combined t331+t332(picks) build」上复验 129 全绿（双侧互证的回归证据）。
+- 环境: dev :3000 被 OOM 收割两次（t318/t319 套件 + agent-browser 与 Turbopack 共存把 next-server 推到 2.8GB RSS——t301 判例第 N 次应验）; 浏览器活体改在精瘦 standalone prod :3001 上做（同构建）, 完事后 dev :3000 复活常绿。浏览器活体（agent-browser @ prod :3001, 1600×900）: re-run 确认框新文案渲染、Reset tooltip 原文渲染、390×844 无横向溢流、footer 钉底（bottom 900/900）、console/page errors 双零。三张定妆照: t333-rerun-confirm / t333-mobile-390 / t333-desktop-inspector。
+- rebase: 并行窗 aade691（仅 diag-t331 ROOT 重绑 2 行, 零源文件交集）——rebase 干净。
+
+Stage Summary:
+- 三动词的最终语义（也是对用户的回答）: **re-run = 先清后跑**（两侧、pre-submit、只认产物形状; --continue 续跑路径例外）; **reset = 只清状态**（文件留到下一次 Run 重建, tooltip 直说）; **delete = 留文件保 Undo**（toast Undo/Ctrl+Z 原样恢复）。image.h:1534 尺寸冲突在源头灭绝——re-run 与新建 job 从此等价。
+- 产物: hpc/cleanup.ts(classifyRerunWipe) / relion/run-wipe.ts(新) / engine.ts(调用点) / remote-run.ts(双侧刀) / remote-cleanup.ts(dropRemoteListingCache) / job-inspector+job-panel(文案) / docs §4l / scripts/diag-t333-rerun-wipe.mjs(75 断言)。
+- 关键决策: (1) 清扫判定复用 t331 纯规划器家族但独立函数——新跑的 keep-set 与事后清扫不同（无续跑契约、finals 会被重产）; (2) rm 失败拒绝 re-run 而 listing 失败降级放行; (3) 台账在镜像清扫中幸存、由集群侧清扫逐条修剪; (4) 清扫后 drop 列表缓存防 10s TTL 幽灵。
+
+t333 补记（rebase 后合并构建复验）:
+- renumber t332→t333 全链落地（套件/截图/源码注释/docs/worklog/提交信息; remote-run.ts 里并行票的两处 t332 注释原样保留——行号靶向改名, 非全文件 sed）; rebase 到 95d1534 零源文件冲突, worklog/docs 双保留。
+- 合并构建复验（rebase 后新 standalone, node 运行时——并行票的 OOM 教训照抄; 本沙箱专属启动器 /tmp/prod-my.sh 因为仓库的 prod-3001.sh 被并行窗重绑到其 /home/z/cryoflow 树——环境相对性老课）: diag-t333(75) ALL GREEN; diag-t331(129) 经重定位副本 ALL GREEN（首跑 3 FAIL 是我的 sed 没换到 dbSurgery 模板里的 ${ROOT}/db/cryoflow.db——SQLite file: 自动建空库的静默陷阱, 换成 custom.db 后全绿, 非代码回归）; diag-t318(52)/t319(57) ALL GREEN @ dev :3000（首跑 fetch 被 dev 冷编译竞态断连, 暖机后全绿）; tsc 0; eslint 0。
+- 合并构建浏览器活体（agent-browser @ dev :3000, 1600×900 + 390×844）: 页面干净渲染、console/page errors 双零、footer 钉底 900/900、移动端无横向溢流; 定妆照 t333-combined-mobile.png。
+- 本沙箱环境课（复验途中三次服务器死亡）: ①内联 setsid & 过不了 reaper（prod-3001.sh 头注释的老警告应验——必须脚本立即退出式）; ②dev 与浏览器/长套件共存必被 OOM 收割（本工单两次 + 复验一次, t301 判例三连）; ③node 跑 standalone 比 bun 稳（并行票教训采纳）。

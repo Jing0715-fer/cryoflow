@@ -2070,18 +2070,30 @@ function InspectorHeader({ job, onCleaned }: { job: JobDTO; onCleaned?: () => vo
           <SiblingComparePicker job={job} />
           {job.status !== "running" ? (
             <>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => void resetJob(job.id).then(() => {
-                  inspect(null);
-                  select(job.id);
-                })}
-                className="h-7 gap-1.5 px-2.5 text-xs text-muted-foreground hover:bg-background hover:text-foreground"
-              >
-                <RotateCcw className="size-3.5" aria-hidden="true" />
-                <span>Reset &amp; edit</span>
-              </Button>
+              {/* t333 — the tooltip answers the file question in place:
+                  reset clears STATE only (status/progress/resume
+                  checkpoint); the run directory survives until the next
+                  Run, which wipes and regenerates it. */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => void resetJob(job.id).then(() => {
+                      inspect(null);
+                      select(job.id);
+                    })}
+                    className="h-7 gap-1.5 px-2.5 text-xs text-muted-foreground hover:bg-background hover:text-foreground"
+                  >
+                    <RotateCcw className="size-3.5" aria-hidden="true" />
+                    <span>Reset &amp; edit</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  Back to idle — clears the run state (status, progress, resume checkpoint); the
+                  run directory stays until the next Run rebuilds it
+                </TooltipContent>
+              </Tooltip>
               {/* t289 — Re-run + mode door. t323 — the ▾ split button is
                   RETIRED (the user's receipt: crowded text, the arrow could
                   go): the primary Re-run button speaks local re-run and the
@@ -2297,8 +2309,10 @@ function InspectorHeader({ job, onCleaned }: { job: JobDTO; onCleaned?: () => vo
           <AlertDialogHeader>
             <AlertDialogTitle>Re-run {job.name}?</AlertDialogTitle>
             <AlertDialogDescription>
-              The engine will restart from scratch with the current parameters and upstream
-              inputs. Existing downstream results stay on disk until those jobs re-run.
+              The engine restarts from scratch: files the previous run generated in this job&apos;s
+              run directory — on this machine and on the cluster — are cleared first, then the job
+              runs with the current parameters and upstream inputs. Existing downstream results stay
+              on disk until those jobs re-run.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

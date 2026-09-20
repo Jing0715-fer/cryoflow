@@ -36,7 +36,6 @@ import {
   readFileSync,
   readdirSync,
   readSync,
-  rmSync,
   statSync,
   writeFileSync,
 } from "fs";
@@ -69,8 +68,17 @@ import {
 } from "@/lib/relion/engine";
 import { gpuStrategyFor } from "@/lib/hpc/slurm";
 import { isLogAutopick } from "@/lib/relion/log-autopick";
+import { classifyRerunWipe } from "@/lib/hpc/cleanup";
+import { wipeLocalRunProducts } from "@/lib/relion/run-wipe";
 import { getConnection, loadConnections, patchConnection } from "./connections";
 import { writeRemoteManifest } from "./remote-files";
+import {
+  deleteRemoteFiles,
+  dropRemoteListingCache,
+  listRemoteWorkdir,
+  pruneRemoteEmptyDirs,
+  rewriteManifestAfterCleanup,
+} from "./remote-cleanup";
 import { probeConnection } from "./probe";
 import {
   exec,
@@ -1718,19 +1726,27 @@ export async function startRemoteJob(args: {
 
   // ---- build the record + DB state --------------------------------------
   const startedAtMs = Date.now();
-  // t323-a (review) — the ghost-log residual: the t318 pre-submit clear
-  // wipes the CLUSTER's run.out/run.err, but a re-run whose previous
-  // sync-back failed ("workdir unreadable over SSH") leaves the PREVIOUS
-  // run's LOCAL run.err in place — finalize would read that stale stderr
-  // (localErrTail non-empty → the rescue never fires → the old run's
-  // ERROR text labels the new silent death). The local twins die with the
-  // cluster's: best-effort, a failure to remove degrades silently.
-  for (const stale of ["run.out", "run.err"]) {
-    try {
-      rmSync(path.join(localWorkdir, stale), { force: true });
-    } catch {
-      /* never a dispatch refusal over a stale log */
+  // t323-a (review) + t333 — the re-run's stale GENERATION, local mirror:
+  // the t318 pre-submit clear wipes the CLUSTER's run.out/run.err, but the
+  // LOCAL mirror of a previous dispatch holds more than stale logs — the
+  // sync-back's product copies (run_data.star, run_classes.mrcs, …) and
+  // the old run.out/run.err itself. Left in place, finalize would read
+  // the OLD run's stderr (the t323-a ghost-log) and the Files tab would
+  // list files the new run never made. One walk + the shared fresh-start
+  // classifier (t333): products, iterations, scratch and logs die; the
+  // ledger manifest SURVIVES (the cluster-side wipe prunes it
+  // entry-by-entry — deleting it here would blank the Files tab while
+  // the cluster still holds the old outputs). Best-effort: a wipe
+  // failure degrades silently, never a dispatch refusal (t323-a doctrine).
+  try {
+    const wipedMirror = wipeLocalRunProducts(localWorkdir);
+    if (wipedMirror && wipedMirror.wiped.length > 0) {
+      console.log(
+        `remote-run: re-dispatch of "${job.name}" cleared ${wipedMirror.wiped.length} stale file(s) from the local mirror (t333)`
+      );
     }
+  } catch {
+    /* never a dispatch refusal over a stale mirror */
   }
   const pendingPatch = needsStaging
     ? { status: "pending" as const, progress: 0, result: `Staging inputs to ${conn.host}${moduleName ? ` (${moduleName})` : ""}…` }
@@ -1960,6 +1976,50 @@ export async function startRemoteJob(args: {
       const jobName = `cf_${job.type}_${job.id.slice(-8)}`;
 
       await remoteMkdir(conn, remoteWorkdir);
+
+      // ---- t333 — the re-run's stale PRODUCTS on the cluster -------------
+      // The workdir is STABLE across dispatches (<root>/<type>_<jobid8>)
+      // and the previous generation's outputs survive in it. RELION writes
+      // into whatever sits at its output paths — the field report: a
+      // re-run of an extraction with a changed box size died at
+      // image.h:1534 ("write: target and source objects have different
+      // size") because the old .mrcs stacks were still there; a NEW job
+      // (empty workdir) sailed. A fresh start now gets a fresh directory:
+      // one LIVE listing (bypass the cache) → the shared fresh-start
+      // classifier (the t331 keep-set's fresh-run dialect: input links,
+      // note.txt, the manifest and anything UNRECOGNIZED survive;
+      // products, ALL iterations, .cf-* scratch and the logs die) →
+      // batched rm → empty-dir prune → the ledger pruned locally. A
+      // listing failure degrades to a warn-and-proceed (the pre-t333
+      // world — the submit re-tests the wire); an rm failure REFUSES the
+      // dispatch: proceeding into stale files is the exact crash this
+      // blade exists to kill.
+      {
+        const wipeListing = await listRemoteWorkdir(conn, remoteWorkdir, {
+          bypassCache: true,
+        });
+        if (!wipeListing.ok) {
+          console.warn(
+            `remote-run: could not list ${remoteWorkdir} for the pre-run wipe (${wipeListing.error ?? "unknown"}) — proceeding without it (a stale-file collision may fail the job, as before t333)`
+          );
+        } else if (wipeListing.entries.length > 0) {
+          const { wipe: wipeRels } = classifyRerunWipe(wipeListing.entries);
+          if (wipeRels.length > 0) {
+            const rm = await deleteRemoteFiles(conn, remoteWorkdir, wipeRels);
+            if (rm.errors.length > 0) {
+              throw new Error(
+                `could not clear the previous run's files on ${conn.host} (${rm.errors[0]}) — a re-run into stale outputs is refused (RELION would die writing into them); fix the cluster access and run again`
+              );
+            }
+            await pruneRemoteEmptyDirs(conn, remoteWorkdir);
+            dropRemoteListingCache(conn.id, remoteWorkdir);
+            rewriteManifestAfterCleanup(localWorkdir, wipeRels);
+            console.log(
+              `remote-run: fresh dispatch of "${job.name}" cleared ${rm.deleted} stale product file(s) from ${remoteWorkdir} (t333)`
+            );
+          }
+        }
+      }
 
       // t318 — the re-run's ghost, blade 1: the workdir is STABLE across
       // dispatches (<root>/<type>_<jobid8>) and the PREVIOUS run's verdict

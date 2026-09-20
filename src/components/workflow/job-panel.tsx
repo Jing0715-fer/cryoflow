@@ -1487,7 +1487,7 @@ function PanelBody({ job }: { job: JobDTO }) {
             onClick={() => void resetJob(job.id)}
             disabled={job.status === "running"}
             aria-label={`Reset ${job.name} to idle`}
-            title="Reset job to idle"
+            title="Reset job to idle — clears the run state; the run directory stays until the next Run rebuilds it"
           >
             <RotateCcw className="size-4" />
           </Button>

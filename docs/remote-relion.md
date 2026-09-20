@@ -775,6 +775,54 @@ Freed space is measured, not estimated: the local side sums the sizes it
 deleted; the cluster side diffs its own before/after `find` byte totals
 (the cluster's word, never the plan's).
 
+## 4l. Re-run / reset / delete — what happens to the files (t333)
+
+**「reset&，re-run或者delete任务时会先清除之前已生成的文件吗？」** —
+the question arrived with a crash attached: a re-run of an extraction job
+(changed box size) died inside `relion_preprocess` at `image.h:1534` —
+`write: target and source objects have different size` — because the
+previous run's `.mrcs` particle stacks still sat in the stable run
+workdir (`<root>/<type>_<jobid8>`), and RELION writes into whatever sits
+at its output paths. A NEW extraction job (empty workdir) sailed. The
+doctrine that fixes it: **a fresh start is a fresh directory** — RELION
+GUI's "Overwrite" answer, given automatically:
+
+- **Re-run = clear the previous generation, then run.** Every fresh
+  dispatch (a completed job re-run, a failed job retried, a reset job
+  run again — anything that is not the `--continue` resume below) wipes
+  the previous run's recognized products from the run directory FIRST,
+  on BOTH sides: the local workdir (or the local mirror of a cluster
+  run) and the cluster workdir itself, pre-submit. One shared pure
+  classifier decides (`classifyRerunWipe` in `src/lib/hpc/cleanup.ts`,
+  the t331 keep-set's fresh-run dialect): products, ALL iterations (a
+  fresh start has no resume contract), `.cf-*` scratch/scripts/verdict
+  dotfiles and `run.out`/`run.err` die; **symlinks (input doors),
+  `note.txt`, the manifest ledger and anything UNRECOGNIZED survive**
+  (unknown still means keep). The Files-tab ledger is pruned
+  entry-by-entry, and the 10s listing cache is dropped so the next
+  cleanup plan re-lists live.
+- **The resume contract is untouched.** An INTERRUPTED refine-family job
+  (class2d/class3d/refine3d/initialmodel/multibody) with a usable
+  checkpoint still re-runs via RELION `--continue` from its newest
+  complete iteration — that path never wipes (the checkpoints ARE the
+  state). Only genuinely fresh starts clear the directory.
+- **Honest refusals, honest degradations.** If the cluster cannot run
+  the pre-submit `rm` (permissions, a wedged NFS mount), the re-run is
+  REFUSED with the reason — proceeding into stale outputs is the exact
+  crash this feature exists to kill. If the pre-wipe LISTING fails (a
+  `find` without `-printf`), the dispatch proceeds with a logged warning
+  (the pre-t333 behavior; the submit re-tests the wire).
+- **Reset clears STATE, not files.** "Reset & edit" stops any live
+  process, clears the run record (so the next Run starts fresh instead
+  of resuming) and returns the row to idle. The run directory survives
+  until the next Run — which then wipes and regenerates it. The tooltip
+  says exactly this.
+- **Delete keeps the files for Undo.** Deleting a job removes the row
+  and its wires; the workdir (local + cluster) stays on disk so the
+  toast's Undo (and Ctrl+Z) restores the job under the same id with
+  every output re-attached. The t331 eraser dialog and the re-run wipe
+  are the disk-hygiene doors; delete is the canvas door.
+
 
 ## 5. Honest failure catalog
 
@@ -804,6 +852,9 @@ deleted; the cluster side diffs its own before/after `find` byte totals
 | cleanup of a running job | refused with its reason (409): a live run's iteration files are being written — stop it first, then clean (t331) |
 | cleanup plan vs cluster reality drift | impossible by design: the POST never trusts the preview's file list — it re-lists the cluster live and deletes only what still classifies; the 10s listing cache is bypassed by the manual refresh and by the POST itself (t331) |
 | cluster unreachable at cleanup time | the remote side degrades to a note naming the failure; the LOCAL side still cleans (one side's outage never blocks the other) (t331) |
+| re-run into stale outputs (`image.h:1534` — "write: target and source objects have different size") | extinct at the source: every fresh dispatch wipes the previous run's recognized products from the workdir (local mirror + cluster, pre-submit) before the job starts; only unknown files, input doors, notes and the ledger survive (t333) |
+| pre-submit wipe fails on the cluster (`rm` error) | the re-run is refused with the cluster's own error — running into stale outputs is the crash the wipe exists to prevent (t333) |
+| pre-submit wipe cannot LIST (BSD `find` without `-printf`) | warn-and-proceed (the pre-t333 behavior); the submit itself re-tests the wire (t333) |
 
 ## 6. Testing without a cluster: the mock cluster
 
@@ -869,3 +920,12 @@ without a real HPC system.
   remaining stretch is a PROJECT-WIDE bulk pass (every job at once) —
   deliberately not done: cleanup is a per-job decision with per-job
   consequences, and the user reads them one dialog at a time.
+- ~~**Re-run hygiene** (stale outputs crashing fresh starts)~~ —
+  **shipped (t333)**: every fresh dispatch wipes the previous run's
+  recognized products from the run directory on both sides before the
+  job starts (§4l) — the `image.h:1534` "target and source objects have
+  different size" crash is extinct at the source. The remaining stretch
+  is a per-file "Continue vs Overwrite" question on re-run — deliberately
+  not done: CryoFlow already auto-answers it (interrupted refine-family
+  resumes via `--continue`; everything else starts fresh, and the confirm
+  dialog says exactly what will happen).
