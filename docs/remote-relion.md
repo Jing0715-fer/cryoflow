@@ -122,6 +122,28 @@ us). The GPU width is also clamped server-side to the picked group's
 `--gres=gpu:6` request (the other shape of "node configuration not
 available").
 
+**The node-pin pre-flight (t337).** The width clamp above used to key
+ONLY on the picked partition — which left two silent holes straight into
+the controller's submit-time refusal `Requested node configuration is
+not available`: an explicit `--nodelist` pin suppresses the partition
+(and nothing clamped against the NODE's own GPUs — pinning the 5-GPU
+`normal` at the default width 6 composed the refusal verbatim), and
+"auto" (no picked partition) still carried the CONNECTION'S default
+partition with no clamp at all. Now every Slurm dispatch with a node pin
+runs ONE extra SSH round (`scontrol show node <pin> -o`, the same pure
+parser the usage panel rides) BEFORE a byte stages: an unknown node, a
+DOWN/DRAIN node, or a 0-GPU node under a GPU job refuses with the cause
+named and the fix taught (pick another node / release the pin); a
+narrower node clamps the width to its own GPUs. With no pin, the width
+clamps to the partition the script will actually carry — picked OR the
+connection's default. A probe that cannot run (SSH blip, no `scontrol`)
+degrades to the old behavior — monitoring never blocks a dispatch — and
+the residual drift window (a node that goes down between the pre-flight
+read and the controller's own decision) is covered by a TRANSLATED
+refusal: the error names what was requested (pin · partition · GPU
+width) and the three moves that fix it, instead of quoting Slurm's
+one-liner.
+
 `run.out` / `run.err` / `.cf-exit` keep their direct-mode contracts, so the
 poll sweep, log tab and sync-back work unchanged; liveness comes from
 `squeue -j <id>` (the state word — PENDING/RUNNING — rides the record so
@@ -905,6 +927,7 @@ job's Results/Files tab, on the cluster).
 | the wire between two jobs disappears (canvas) | the sidecar self-heal no longer evicts edges connected during an in-flight read; writes are atomic; every read backfills a lost DB mirror; an empty lineage speaks "connect one" instead of the auto-start promise (t325) |
 | live node usage unavailable | the panel's rose note names the exact failure (no `scontrol` on the login node / SSH error) and says the submit still works — usage is informational, never a gate (t327) |
 | pinned node unreachable in the UI | DRAIN/DOWN rows refuse the click ("not taking jobs right now") — the pin is never composed into a doomed sbatch; the mismatch guard releases a pin a later partition change would strand (t332) |
+| sbatch refused — `Requested node configuration is not available` | extinct at the source for app-composed submissions: the node-pin pre-flight (t337) reads the pinned node's own `scontrol` row before staging — unknown / DOWN / DRAIN / 0-GPU nodes refuse with the cause and the fix named, narrower nodes clamp the width; "auto" clamps to the connection's default group; when the controller still refuses (the drift window), the error is TRANSLATED — it names the pin · partition · GPU width the script carried and the three moves that fix it. The `~/.bashrc` line in the same stderr is noise, labeled as noise |
 | local node_modules out of date | boot warning `node_modules is out of date — missing ssh2` + `/api/remote/*` fails with `Can't resolve 'ssh2'` — re-run `npm install` (or `bun install`) and restart |
 | cleanup of a running job | refused with its reason (409): a live run's iteration files are being written — stop it first, then clean (t331) |
 | cleanup plan vs cluster reality drift | impossible by design: the POST never trusts the preview's file list — it re-lists the cluster live and deletes only what still classifies; the 10s listing cache is bypassed by the manual refresh and by the POST itself (t331) |
@@ -930,7 +953,15 @@ PENDING→RUNNING transitions and honest purge-on-finish; the `scontrol`
 speaks the user's own `show_free_gpu.sh` dialect — `Gres=`/`AllocTRES=`
 per node, with the CPU totals of their real table — and accounts RUNNING
 jobs onto their nodes live, t327; a submission's explicit `--nodelist`
-pin rides the journal's 5th field and holds the job on THAT node, t332) so the whole
+pin rides the journal's 5th field and holds the job on THAT node, t332;
+the sbatch stub keys its submission gates on the NODE's own row when a
+pin rides — unknown names get real Slurm's `Invalid node name`, a width
+beyond the node's GPUs gets the user's exact refusal bytes, and the
+`~/.slurm/node-override` file ("name STATE" lines) flips a node DOWN for
+scontrol, the usage panel AND the gate at once — the drained-node world
+the t337 pre-flight refuses before staging; a probe-blind 4-GPU
+`debugx` partition exists solely to exercise the residual refusal
+translation, t337) so the whole
 remote-Slurm path is testable without a real scheduler. `/data2/…` paths
 translate into its fs root the same way `/projects/…` and `/home/cryo/…`
 always have, so remote projects can rehearse against `/data2/movies/…`-shaped

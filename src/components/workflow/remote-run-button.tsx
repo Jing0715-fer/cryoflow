@@ -242,13 +242,23 @@ export function RemoteRunButton({
   const selectedGroup =
     partition === PARTITION_AUTO ? null : partitionInventory.find((p) => p.partition === partition) ?? null;
   const nodePin = pickedNode?.node ?? null;
+  // t337 — AUTO is not "the inventory's first group": with no picked
+  // partition (and no pin) the script still carries the CONNECTION'S
+  // default (conn.slurmPartition — exactly what the engine's
+  // effectivePartition resolves to). The stepper's ceiling must be the
+  // group the sbatch will actually name, or it offers widths the
+  // controller refuses at submit time ("auto" + 6 on a 5-GPU default
+  // partition was the user's live receipt).
+  const autoGroup = conn?.slurmPartition
+    ? partitionInventory.find((p) => p.partition === conn?.slurmPartition) ?? null
+    : null;
   const maxGpus = Math.max(
     1,
     Math.min(
       8,
       pickedNode && pickedNode.gpuTotal > 0
         ? pickedNode.gpuTotal
-        : (selectedGroup?.gpusPerNode ?? partitionInventory[0]?.gpusPerNode ?? 8)
+        : (selectedGroup?.gpusPerNode ?? autoGroup?.gpusPerNode ?? partitionInventory[0]?.gpusPerNode ?? 8)
     )
   );
   // clamping the pick when the partition changes (a 5-GPU partition cannot

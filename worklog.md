@@ -2818,3 +2818,23 @@ Work Log:
 Stage Summary:
 - CryoSPARC 用户现在在 cryoFLOW 里画一个「CryoSPARC → RELION」节点、填 J### 目录即可：转换（对齐/CTF/光学全套 pyem 语义）、选择性链接（只链被引用的栈、改扩展名、零搬运）、下游直接接 class2d/refine3d——参考脚本的三步手工流程变一个作业行，且不再链接整个工程的颗粒文件
 - 纯 TS 的 npy 解析器 + pyem 映射表让转换不依赖集群上的 pyem/python；.cs 副本留在 Files 页可查；关键数字条先说颗粒数
+---
+Task ID: t337
+Agent: main-agent (Z.ai Code)
+Task: 用户工单「Job failed — sbatch refused the submission: Requested node configuration is not available · .bashrc line 35 噪声」——节点钉扎提交被控制器提交时刻拒绝且无任何原因说明；诊断 + 修复 + push
+
+Work Log:
+- 诊断（读引擎全链）：t311 的 GPU 宽度钳制只对「被挑选的分区」说话，留下两个直通拒绝的暗洞——① 显式 --nodelist 钉扎抑制了 --partition（t332），而对「节点自己的 GPU 数」没有任何钳制：把 5 GPU 的 normal 钉在默认宽度 6 上，拼出的正是用户贴的逐字拒绝；② 「auto」（未挑分区）仍携带连接默认分区却完全不钳制：normal(5) + 宽 6 → 同款拒绝。另无任何提交前节点状态核验（面板 30s 轮询、挑完到提交之间状态会老化）、sbatch 拒绝原文零翻译
+- 修复一（引擎预检，remote-run.ts）：钉扎存在时多跑一趟 SSH（scontrol show node <pin> -o，复用 usage 路由的纯解析器）——未知节点/DOWN/DRAIN → 带原因与解法的 requestError 拒绝（字节未动、行保持 idle）；0-GPU 节点载 GPU 作业 → 矛盾点名拒绝；较窄节点 → 宽度钳到节点自己的 GPU（t311 方言、节点的话）。预检跑不了（SSH 抖动/无 scontrol/127）→ 降级旧行为，监控永不阻断派发
+- 修复二（宽度钳制重排）：钳制优先级改为 钉扎节点的实时 scontrol 行 > 脚本实际携带的分区（被挑的，否则连接默认——t337 补上 auto 暗洞）；钳制块整体移到连接门之后（预检需要 conn）
+- 修复三（翻译）：sbatch 仍拒绝时（漂移窗）错误追加「what was requested: node X · partition Y · N GPU(s)」+ 三条修复动作；.bashrc 噪声注记保持 t311 分流
+- 修复四（对话框）：AUTO 档步进器天花板改为连接默认分区的 gpusPerNode（原来取库存第一组——8 GPU 组配 normal 脚本是说谎的天花板）
+- mock：sbatch 的提交门改钉扎感知（节点表镜像 scontrol：normal 5/brain 6/brain2 8/node01-04 6/node05-08 0；未知名 → Invalid node name；~/.slurm/node-override「name STATE」文件把节点翻 DOWN——scontrol/面板/门三方同一世界）；scontrol emit_node 同读 override；新增 probe 盲区 4 GPU 分区 debugx 专测翻译残路
+- diag-t337-node-preflight.mjs 全绿（契约钉 + 七条活体腿）：B1 用户回执源头治愈（normal 钉扎宽 6 → 钳 5 → 脚本 --nodelist=normal --gres=gpu:5 无 --partition → COMPLETED + 日志见证）；B2 auto 暗洞（无钉无分区宽 6 → 默认分区钳 5 → 完成）；B3 排空节点（override 翻 brain3 DOWN → 拒绝带状态、行未失败、集群零落地；松开杠杆同参数再提交即完成——拒绝的是状态不是钉扎）；B4 未知节点；B5 0-GPU 节点；B6 残路翻译（debugx 宽 6 → mock 控制器拒绝 → 行失败带「what was requested: partition debugx · 6 GPU(s)」+ 噪声标注）；B7 健康钉扎回归（node03 宽 2 原样通过）
+- 回归全绿：t332（钉扎全链含活体记账）/ t327 / t335 / t326 / t320 / t330；t304 为退役 dev-server 绑定的历史套件（打到 my-project 模板 404 HTML），按判例不属现行回归名单
+- 浏览器活体（agent-browser @ prod :3001）：对话框 AUTO 档步进器天花板 5（修复前会是 8）实测；钉 brain2 → 预览 #SBATCH --nodelist=brain2（无 --partition）+ ask line 重定域；步进到 8 → 预览 --ntasks=8 --gres=gpu:8；Send → 「Slurm job 26 · 8 GPU(s) · queued」→ 集群脚本带 --nodelist=brain2 --gres=gpu:8 → COMPLETED；console+page errors 双零；390×844 对话框零横向溢出；截图 t337-node-pin-dialog/-mobile.png
+- 环境重建（沙箱重置后第四次）：clone origin/main(3d03797)、bun install、db push、standalone prod 构建 + prod-3001.sh、mock launch.sh dev
+- tsc 0；触碰文件 eslint 0；docs §sbatch 章节 + 失败目录新行 + mock 章节
+
+Stage Summary:
+- 用户回执的「Requested node configuration is not available」对 app 自拼提交已源头灭绝：钉扎预检（节点自己的 scontrol 行）+ auto/连接默认分区钳制 + 0-GPU/未知/排空三类教学式拒绝 + 残路翻译（说出要了什么、教三步修法）；.bashrc line 35 是登录壳噪声、已按噪声标注（用户自己的 dotfiles 问题，值得顺手修掉但不影响提交）

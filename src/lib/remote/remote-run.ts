@@ -69,6 +69,7 @@ import {
   type WaitKind,
 } from "@/lib/relion/engine";
 import { gpuStrategyFor } from "@/lib/hpc/slurm";
+import { nodeUnavailable, parseScontrolNodes, type SlurmNodeUsage } from "@/lib/hpc/slurm-usage";
 import { isLogAutopick } from "@/lib/relion/log-autopick";
 import { classifyRerunWipe } from "@/lib/hpc/cleanup";
 import { wipeLocalRunProducts } from "@/lib/relion/run-wipe";
@@ -1318,6 +1319,11 @@ export async function startRemoteJob(args: {
   // References (template matching) and Topaz (the CNN wrapper) keep the
   // GPU path untouched.
   const logPick = isLogAutopick(job.type, job.params);
+  // t311/t337 — the GPU-width clamp moved BELOW the connection gates (it
+  // now consults the node pin's live scontrol word and the connection's
+  // default partition too — see the t337 pre-flight block). The t311
+  // behavior (picked partition's probe inventory caps the width) survives
+  // as the fallback arm there.
   // t300 — the partition (detected node group) this sbatch pins. The run
   // route already sanitized the raw body; this is the second gate on the
   // engine side (bare API callers get the same clamps, never a raw string
@@ -1326,21 +1332,8 @@ export async function startRemoteJob(args: {
     isSlurm && typeof target.partition === "string" && /^[A-Za-z0-9_.-]{1,64}$/.test(target.partition)
       ? target.partition
       : null;
-  // t311 — the probe's own GPU inventory caps the width for the picked
-  // partition: a 5-GPU group cannot honor --gres=gpu:6, and Slurm answers
-  // that at submit time with "Requested node configuration is not
-  // available". The run dialog's stepper already clamps client-side; this
-  // is the same gate server-side (bare API callers, stale dialogs after a
-  // re-probe shrank a group). No inventory → the 8-wide cap stands.
-  if (isSlurm && partitionOverride != null) {
-    const gpusPerNode = connPartitionGpus(target.connectionId, partitionOverride);
-    if (gpusPerNode != null && gpuWidth > gpusPerNode) {
-      console.warn(
-        `remote-run: clamping GPU width ${gpuWidth} → ${gpusPerNode} (partition ${partitionOverride} offers ${gpusPerNode}/node per the last probe)`
-      );
-      gpuWidth = gpusPerNode;
-    }
-  }
+  // t337 — the width gate runs below (after the connection gates: the
+  // pre-flight needs `conn` for its SSH round).
   // t300 — the NODE pin: a user picking a group the probe resolved to
   // exactly ONE hostname ("brain2", "normal"…) asked for THAT node, not
   // merely its partition — a partition can outlive its hostlist (nodes
@@ -1413,6 +1406,7 @@ export async function startRemoteJob(args: {
     );
   }
 
+
   // ---- liveness pre-check (precise, async — isRunAlive only guesses) ----
   const prev = getRun(job.id);
   // marker for the anti-ghost re-check below: if a CONCURRENT dispatch
@@ -1445,6 +1439,116 @@ export async function startRemoteJob(args: {
     // row and the record can no longer be verified; safe to replace.
     // Dead + finalized by the poll above? pollOneRemote only INSPECTS; the
     // sweep finalizes. A dead-but-unfinalized record is safe to replace.
+  }
+
+  // ---- t337 — the node-pin pre-flight (the user's live receipt) --------
+  // The user's controller refused a pinned submission at submit time:
+  //
+  //   sbatch: error: Batch job submission failed: Requested node
+  //   configuration is not available
+  //
+  // …with no word about WHY. Three compositions produce exactly that
+  // verdict, and the engine could compose all three before t337:
+  //   (a) --gres=gpu:W with W beyond the PINNED node's own GPUs (the
+  //       t311 clamp only spoke for the picked PARTITION — the t332
+  //       explicit pin suppresses the partition, and nothing clamped
+  //       against the node itself);
+  //   (b) a node that is DOWN/DRAIN at submit time (the usage list's
+  //       rows refuse the click, but the state can age between pick and
+  //       submit — the panel polls every 30s);
+  //   (c) a node scontrol does not know (stale list, renamed host).
+  // ONE extra SSH round (`scontrol show node <pin> -o`, the same pure
+  // parser the usage route rides) settles all three BEFORE a byte
+  // stages, and the refusal teaches the fix instead of quoting Slurm's
+  // one-liner. A probe that cannot RUN (SSH blip, no scontrol) degrades
+  // to the old behavior — a monitoring failure never blocks a dispatch
+  // (the usage panel's own doctrine); the residual window is covered by
+  // the sbatch-refusal translation below.
+  let nodeLive: SlurmNodeUsage | null = null;
+  let nodeProbeRan = false;
+  if (isSlurm && nodelistPin) {
+    try {
+      const r = await exec(conn, loginShellScript(`scontrol show node ${shQuote(nodelistPin)} -o`), {
+        timeoutMs: 10_000,
+      });
+      // 127 = no scontrol on the login node — degrade, don't guess
+      nodeProbeRan = !r.error && r.code !== 127;
+      if (nodeProbeRan) {
+        nodeLive = parseScontrolNodes(r.stdout).find((n) => n.node === nodelistPin) ?? null;
+      }
+    } catch {
+      /* SSH blip — the old behavior stands */
+    }
+  }
+  if (isSlurm && nodelistPin && nodeProbeRan) {
+    if (!nodeLive) {
+      return fail(
+        `node ${nodelistPin} is not known to Slurm on ${conn.host} — scontrol lists no such node (the usage list may be stale). Refresh the node usage list and pick a live node, or click the pinned row again to release the pin and let Slurm choose.`,
+        true
+      );
+    }
+    if (nodeUnavailable(nodeLive)) {
+      return fail(
+        `node ${nodelistPin} is ${nodeLive.state} on ${conn.host} right now — the scheduler refuses new work on it, and a pinned submission would be refused at submit time. Pick another node in the live usage list (Run on cluster → the node table), or click the pinned row again to release the pin and let Slurm choose.`,
+        true
+      );
+    }
+    // a node with NO GPUs cannot host a job whose sbatch will request
+    // --gres — the width truth the spawn's own gresWidth arithmetic
+    // derives, computed here so the refusal lands BEFORE staging (the
+    // dialog's ask line names the same contradiction client-side; this
+    // is the server's gate for bare API callers and stale dialogs)
+    if (nodeLive.gpuTotal === 0) {
+      const earlyParams = parseJobParams(job.params);
+      const earlyStrategy = gpuStrategyFor(job.type, {
+        micrographs: 10,
+        particles: Number(earlyParams.particles ?? 5000) || 5000,
+        gpus: gpuWidth,
+        logAutopick: logPick,
+      });
+      const earlyMpi = moduleName ? conn.lastProbe?.relionMpi?.[moduleName] ?? false : false;
+      const gresWouldBe =
+        earlyStrategy.mode === "multi-gpu" && earlyMpi ? gpuWidth : earlyStrategy.gpus > 0 ? 1 : 0;
+      if (gresWouldBe > 0) {
+        return fail(
+          `node ${nodelistPin} has no GPUs (scontrol says Gres=(null)) — this job would request ${gresWouldBe} GPU${gresWouldBe > 1 ? "s" : ""} there and the submission would be refused. Click the pinned row again to release the pin, or pick a GPU node from the usage list.`,
+          true
+        );
+      }
+    }
+  }
+
+  // ---- t311/t337 — the GPU-width clamp (server-side, bare-API proof) --
+  // Priority: the PINNED node's own live scontrol word (most specific),
+  // else the partition the script will ACTUALLY carry — picked, or the
+  // connection's default (t337: the old gate keyed only on the PICKED
+  // partition, so "auto" + width 6 rode --partition=normal (5 GPUs/node)
+  // straight into the controller's submit-time refusal — the exact hole
+  // the user's receipt walked through). No inventory → the 8-wide cap
+  // stands, never a fabricated limit.
+  if (isSlurm) {
+    if (nodeLive && nodeLive.gpuTotal > 0) {
+      if (gpuWidth > nodeLive.gpuTotal) {
+        console.warn(
+          `remote-run: clamping GPU width ${gpuWidth} → ${nodeLive.gpuTotal} (node ${nodelistPin} offers ${nodeLive.gpuTotal} GPU(s) per its live scontrol row — the pin is more specific than any partition)`
+        );
+        gpuWidth = nodeLive.gpuTotal;
+      }
+    } else {
+      const clampPartition =
+        nodelistPin && partitionOverride == null
+          ? null // the pin suppresses the partition — nothing else to consult
+          : (partitionOverride ?? conn.slurmPartition ?? null);
+      if (clampPartition != null) {
+        const gpusPerNode = connPartitionGpus(target.connectionId, clampPartition);
+        if (gpusPerNode != null && gpuWidth > gpusPerNode) {
+          console.warn(
+            `remote-run: clamping GPU width ${gpuWidth} → ${gpusPerNode} (partition ${clampPartition} offers ${gpusPerNode}/node per the last probe)`
+          );
+          gpuWidth = gpusPerNode;
+        }
+      }
+    }
   }
 
   // t324 — resolve inputs (same semantics as the local engine) -------------
@@ -2419,11 +2523,34 @@ export async function startRemoteJob(args: {
             subRes.error ||
             `ssh exit ${subRes.code}`
           ).slice(0, 400);
+          // t337 — the controller's one-liner TRANSLATED: "Requested node
+          // configuration is not available" names no cause, and the user's
+          // receipt was exactly that silence. Say what THIS submission
+          // asked for (the pin, the partition, the GPU width the script
+          // actually carries) and the three moves that fix it. The pre-
+          // flight above closes the knowable cases; this covers the drift
+          // window (a node that went down between the pre-flight read and
+          // the controller's own decision) and foreign compositions the
+          // app did not build.
+          const effectivePartition =
+            nodelistPin && partitionOverride == null
+              ? null
+              : (partitionOverride ?? conn.slurmPartition ?? null);
+          const composition = [
+            nodelistPin ? `node ${nodelistPin}` : null,
+            effectivePartition ? `partition ${effectivePartition}` : null,
+            gresWidth > 0 ? `${gresWidth} GPU(s)` : "no GPUs",
+          ]
+            .filter(Boolean)
+            .join(" · ");
+          const cfgHelp = /node configuration is not available/i.test(why)
+            ? ` — what was requested: ${composition}. No node on the cluster can satisfy that combination right now (a pinned node may be down, drained, or narrower than the GPU width). Pick a different node in the live usage list, click the pinned row again to release the pin, or lower the GPU width.`
+            : "";
           const noiseNote =
             noiseLines.length > 0
               ? ` · login-shell noise from the cluster (your ~/.bashrc, not the submission): ${noiseLines.join(" · ").slice(0, 200)}`
               : "";
-          throw new Error(`sbatch refused the submission: ${why}${noiseNote}`);
+          throw new Error(`sbatch refused the submission: ${why}${cfgHelp}${noiseNote}`);
         }
         const slurmId = idMatch[1];
 
