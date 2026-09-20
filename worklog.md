@@ -2610,3 +2610,22 @@ Stage Summary:
 - **「集群是主机，不是连接 id」**：连接漂移不再是死局——同主机重建的连接照常治愈旧记录、接受孪生、原地链接；用户拉取修复重启后，第二周的 pending 2D 会在首次重试心跳时自行走向集群
 - **「线活得比镜像久」**：原子写 + 新鲜 keep-set + 读时回填——画布与引擎的视野不再静默分叉；真的丢边时消息说「接一条线」而非谎言
 - 环境：模板 :3000 运行，mock :3022 单实例，prod :3001 运行中（DATABASE_URL + CRYOFLOW_DATA_DIR 显式 env）
+
+## Task 325-a (推送后只读审查的残余闭合)
+
+- 审查裁决: 20abbe8 0 critical/0 high/2 medium/5 low/3 nit, 七条主声明全部源码验证成立
+- MEDIUM①(M1): registry-stale 方言对「无候选条目的提供者类型」(select/import 等) 承诺了治愈探针做不到的事——missingRemoteOutputKeys 对无候选类型永远返回 [] → 不可治愈 → 用户照建议做却零进展; 修复: 方言门加 REMOTE_OUTPUT_CANDIDATES[up.type]?.some(c => req.accepts.includes(c.key)) —— 无候选类型回到通用消息, 不再许下无法兑现的探针承诺
+- MEDIUM②(M2): 轮询清扫对 RUNNING 记录的死亡分支仍只看 connectionId——漂移发生在「作业运行中」时行被 failed + 记录被 exitCode -1 终结, 永久取消 t325 治愈资格(要求 exit 0); 修复: 分组前把死 id 解析为「同主机存活连接」(normalizeClusterHost 归一化匹配), 经它继续轮询——运行中的作业在重连后保命
+- LOW①(L1): tmp 文件在 ENOSPC/rename+copy 双失败路径遗留垃圾; 修复: finally { rmSync(tmp, {force:true}) } 全路径清道
+- LOW②(L2): 回填 catch 静默——永久失败的 create 每次 GET 无声重试; 修复: console.warn 有声化(与 persistPortEdge 同一诚实标准)
+- LOW③(L3): 原子写/新鲜 keep-set/成员隔离只有源码钉; 补偿: diag 新增 BEHAVIORAL 单元——临时 DATA_DIR + 真实 edge-ports 导入, 两次 upsert 落两条可解析边 + 零 .tmp 遗留
+- LOW⑤(L5): 主机臂大小写/尾点阻塞真重连(Brain2. ≠ brain2); 修复: normalizeClusterHost 双侧归一化, IP-vs-DNS 别名仍故意 fail-closed(诚实侧)
+- NIT①(N1): outputs 有记录但文件已删 + 无孪生 → 通用谎言; 修复: 「已登记」改为 existsSync-aware, 与治愈工作单(missingRemoteOutputKeys)口径一致
+- NIT②(N2): 回填循环 dbPairs.add 死码删除; NIT③(N3): 标签剥尾不再粘连破折号(去尾随 \s*)
+- LOW④(L4): 反幽灵预检/afterok 门/旧记录日志尾随与停止——故意 fail-closed 的残留 id-only 面, 文档 §4i 记为明确范围
+- diag-t325 扩至 77 断言 ALL GREEN ×2(新增: 归一化真值表/别名拒/M1 无候选方言/N1 幽灵文件/原子写行为单元/五条 t325-a 台账); t324(89)/t323(73)/t320(85) 回归全绿; tsc/eslint 0; 浏览器 console/page error 双零(t325a-browser.png)
+- push: 20abbe8..(t325-a) main→main, ls-remote 校准, 树净
+
+Stage Summary:
+- t325 + t325-a 双提交闭环: 「集群是主机」教义贯通到轮询清扫(运行中漂移保命), 方言/工作单/探针三者口径对齐, 边层写路径全路径无垃圾
+- 环境: 模板 :3000 运行, mock :3022 单实例, prod :3001 运行中(DATABASE_URL + CRYOFLOW_DATA_DIR 显式 env)

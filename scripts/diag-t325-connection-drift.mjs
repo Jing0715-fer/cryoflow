@@ -58,6 +58,20 @@
  *   4. The auto-start round survives its worst member (per-id try/catch
  *      — one throwing consumer used to abort every sibling behind it).
  *
+ * t325-a (the read-only review's residuals, closed):
+ *   M1 — the registry-stale dialect only fires for PROBE-ABLE provider
+ *        types (candidates for an accepted key) — it never promises a
+ *        probe the heal cannot deliver;
+ *   M2 — the poll sweep falls back to a HOST-MATCHED live connection
+ *        before failing a RUNNING record (drift mid-flight no longer
+ *        finalizes exitCode -1 and disqualifies the heal);
+ *   L1/L2 — the tmp file is reaped on every exit path; a failing
+ *        backfill is spoken;
+ *   L5 — host identity is normalized (case / trailing FQDN dot; an
+ *        IP-vs-DNS alias deliberately fails closed);
+ *   N1 — "accounted" is existsSync-aware, agreeing with the heal's own
+ *        worklist (a recorded-but-deleted file counts as unaccounted).
+ *
  * PHASES:
  *  A. UNIT (bun, the engine import chain + a fixture state file) —
  *     sameClusterTarget's truth table, the host-matched twin acceptance,
@@ -327,6 +341,19 @@ try {
       jDrift: mkRec(),
       // the registry-stale record: completed remotely, key accounted NOWHERE
       jStale: mkRec({ remote: { ...mkRec().remote, remoteOutputs: undefined } }),
+      // t325-a (M1): a candidate-LESS provider type (select has no
+      // REMOTE_OUTPUT_CANDIDATES entries) — the registry-stale dialect
+      // must NOT promise a probe it cannot deliver
+      jSelect: mkRec({
+        type: "select",
+        remote: { ...mkRec().remote, remoteOutputs: undefined },
+      }),
+      // t325-a (N1): recorded-but-deleted local copy + no twin — "accounted"
+      // must be existsSync-aware, agreeing with the heal's own worklist
+      jGhostFile: mkRec({
+        outputs: { particles_star: path.join(tmp, "gone", "particles.star") },
+        remote: { ...mkRec().remote, remoteOutputs: undefined },
+      }),
     };
     writeFileSync(path.join(tmp, "engine-state.json"), JSON.stringify(state));
     const prog = `
@@ -340,12 +367,16 @@ out.identity = {
   driftOtherHost: m.sameClusterTarget({ connectionId: "cA", host: "h:22" }, { connectionId: "cB", host: "OTHER:22" }),
   driftNoHost: m.sameClusterTarget({ connectionId: "cA", host: "h:22" }, { connectionId: "cB" }),
   bare: m.sameClusterTarget({ connectionId: "cA", host: "h:22" }, {}),
+  normCase: m.sameClusterTarget({ connectionId: "cA", host: "Brain2." }, { connectionId: "cB", host: "brain2" }),
+  normAlias: m.sameClusterTarget({ connectionId: "cA", host: "10.0.0.9:22" }, { connectionId: "cB", host: "cluster9:22" }),
 };
 out.remoteSameHost = m.resolveInputs("class2d", [up("jDrift", "extract", "completed")], undefined, { remote: true, connectionId: "cB", host: "h:22" });
 out.remoteOtherHost = m.resolveInputs("class2d", [up("jDrift", "extract", "completed")], undefined, { remote: true, connectionId: "cB", host: "OTHER:22" });
 out.remoteForeignNoHost = m.resolveInputs("class2d", [up("jDrift", "extract", "completed")], undefined, { remote: true, connectionId: "cB" });
 out.notWired = m.resolveInputs("class2d", []);
 out.registryStale = m.resolveInputs("class2d", [up("jStale", "extract", "completed")]);
+out.registryStaleNoCandidates = m.resolveInputs("class2d", [up("jSelect", "select", "completed")]);
+out.registryStaleGhostFile = m.resolveInputs("class2d", [up("jGhostFile", "extract", "completed")]);
 out.base = m.resolveInputs("class2d", [up("jNothing", "extract", "completed")]);
 console.log("CFUNIT" + JSON.stringify(out));
 `;
@@ -404,6 +435,69 @@ console.log("CFUNIT" + JSON.stringify(out));
       String(unit.base?.missing) ===
         "Waiting for upstream output: particles.star (run Extract first) — runs automatically once ready",
       "the NO-RECORD base message survives verbatim (the t324 contract — nothing anywhere, the honest ceiling)"
+    );
+    must(
+      idt.normCase === true,
+      "t325-a: host normalization — case + trailing FQDN dot never block a genuine re-creation (Brain2. === brain2)"
+    );
+    must(
+      idt.normAlias === false,
+      "t325-a: an IP-vs-DNS alias still FAILS CLOSED into the cross-cluster refusal (the honest side of the miss)"
+    );
+    must(
+      String(unit.registryStaleNoCandidates?.missing) ===
+        "Waiting for upstream output: particles.star (run Extract first) — runs automatically once ready",
+      "t325-a (M1): a candidate-LESS provider type (select) keeps the generic message — the registry-stale dialect never promises a probe the heal cannot deliver"
+    );
+    must(
+      /completed on the cluster, but where its particles\.star lives is not on record/.test(
+        String(unit.registryStaleGhostFile?.missing)
+      ),
+      "t325-a (N1): a RECORDED-but-deleted local copy counts as unaccounted (existsSync-aware — the message and the heal's worklist agree)"
+    );
+  }
+
+  // ---- t325-a (L3): a BEHAVIORAL unit for the atomic sidecar write ------
+  // The ledger pins the source shape; this drives the real function: two
+  // upserts through edge-ports' own writePortFile, then the file must
+  // PARSE, carry BOTH edges, and leave ZERO .tmp debris behind.
+  const sidecarUnit = (() => {
+    const tmp = mkdtempSync(path.join(os.tmpdir(), "t325-sc-"));
+    const prog = `
+process.env.CRYOFLOW_DATA_DIR = ${JSON.stringify(tmp)};
+const ep = await import(${JSON.stringify(path.join(ROOT, "src/lib/edge-ports.ts"))});
+const now = new Date().toISOString();
+ep.upsertFileEdge({ id: "e1", projectId: "p1", fromJobId: "a", toJobId: "b", createdAt: now });
+ep.upsertFileEdge({ id: "e2", projectId: "p1", fromJobId: "b", toJobId: "c", createdAt: now });
+const fs = await import("node:fs");
+const path = await import("node:path");
+const parsed = JSON.parse(fs.readFileSync(path.join(${JSON.stringify(tmp)}, "edge-ports.json"), "utf8"));
+const debris = fs.readdirSync(${JSON.stringify(tmp)}).filter((f) => f.includes(".tmp-"));
+console.log("CFSC" + JSON.stringify({ edges: (parsed.edges ?? []).map((e) => e.id), debris }));
+`;
+    const r = spawnSync("bun", ["-e", prog], { cwd: ROOT, encoding: "utf8", timeout: 60_000 });
+    const out = {
+      error: r.status !== 0 ? (r.stderr ?? "").slice(0, 300) : null,
+      raw: r.stdout ?? "",
+    };
+    rmSync(tmp, { recursive: true, force: true });
+    if (out.error) return out;
+    const line = out.raw.split("\n").find((l) => l.startsWith("CFSC"));
+    try {
+      return JSON.parse(line.slice("CFSC".length));
+    } catch {
+      return { error: `parse: ${out.raw.slice(0, 200)}` };
+    }
+  })();
+  must(!sidecarUnit.error, `the sidecar unit imports edge-ports cleanly (${sidecarUnit.error ?? "ok"})`);
+  if (!sidecarUnit.error) {
+    must(
+      JSON.stringify(sidecarUnit.edges) === JSON.stringify(["e1", "e2"]),
+      "t325-a (L3): two upserts land BOTH edges in a PARSEABLE sidecar file (the atomic write's behavioral pin)"
+    );
+    must(
+      JSON.stringify(sidecarUnit.debris) === JSON.stringify([]),
+      "t325-a (L1): ZERO .tmp debris after the writes (every exit path reaps the tmp file)"
     );
   }
 
@@ -678,8 +772,8 @@ console.log("ROWS" + rows.length);
 
   must(
     /export function sameClusterTarget/.test(engineSrc) &&
-      /opts\.host != null && rec\.host === opts\.host/.test(engineSrc),
-    "cluster identity is (connectionId, host) — the shared predicate with the host arm"
+      /opts\.host != null &&\s*\n\s*normalizeClusterHost\(rec\.host\) === normalizeClusterHost\(opts\.host\)/.test(engineSrc),
+    "cluster identity is (connectionId, host) — the shared predicate with the (normalized) host arm"
   );
   must(
     /sameClusterTarget\(twinRemote, opts\)/.test(engineSrc) &&
@@ -714,7 +808,8 @@ console.log("ROWS" + rows.length);
     "the self-heal filters a FRESH read (the stale keep-set eviction is extinct)"
   );
   must(
-    /backfilled the DB mirror/.test(edgePortsSrc) && /dbPairs\.add/.test(edgePortsSrc),
+    /backfilled the DB mirror/.test(edgePortsSrc) &&
+      /const unmirrored = liveEdges\.filter/.test(edgePortsSrc),
     "the mirror backfill heals the engine's view on every edge-layer read"
   );
   must(
@@ -724,6 +819,31 @@ console.log("ROWS" + rows.length);
   must(
     /the round continues/.test(dispatchSrc),
     "the auto-start round survives a throwing consumer (per-id isolation)"
+  );
+  // ---- t325-a (the review's residuals), pinned -------------------------
+  must(
+    /export function normalizeClusterHost/.test(engineSrc) &&
+      /normalizeClusterHost\(rec\.host\) === normalizeClusterHost\(opts\.host\)/.test(engineSrc),
+    "t325-a (L5): host identity is NORMALIZED (case / trailing FQDN dot) on both sides of the gate"
+  );
+  must(
+    /REMOTE_OUTPUT_CANDIDATES\[up\.type\] \?\? \[\]\)\.some\(\(c\) =>/.test(engineSrc) &&
+      /!\(state\.outputs\[k\] && existsSync\(state\.outputs\[k\]\)\)/.test(engineSrc),
+    "t325-a (M1+N1): the registry-stale dialect only fires for PROBE-ABLE provider types, with an existsSync-aware 'accounted' (agreeing with the heal's worklist)"
+  );
+  must(
+    /loadConnections\(\)\.find\(/.test(remoteSrc) &&
+      /normalizeClusterHost\(`\$\{c\.host\}:\$\{c\.port\}`\) === wanted/.test(remoteSrc) &&
+      /the run keeps its life/.test(remoteSrc),
+    "t325-a (M2): the poll sweep falls back to a HOST-MATCHED live connection before failing a RUNNING record (drift no longer disqualifies the heal)"
+  );
+  must(
+    /} finally \{\s*\n\s*rmSync\(tmp, \{ force: true \}\)/.test(edgePortsSrc),
+    "t325-a (L1): the tmp file is reaped on EVERY exit path (no debris)"
+  );
+  must(
+    /DB mirror backfill failed/.test(edgePortsSrc),
+    "t325-a (L2): a failing backfill is SPOKEN (no silent forever-retry)"
   );
 
   console.log(fail === 0 ? "\n== t325 diag: ALL GREEN ==" : `\n== t325 diag: ${fail} FAIL ==`);

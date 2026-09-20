@@ -51,6 +51,7 @@ import {
   describeExitCode,
   getRun,
   missingRemoteOutputKeys,
+  normalizeClusterHost,
   parseJobParams,
   parseProgressText,
   readRuns,
@@ -68,7 +69,7 @@ import {
 } from "@/lib/relion/engine";
 import { gpuStrategyFor } from "@/lib/hpc/slurm";
 import { isLogAutopick } from "@/lib/relion/log-autopick";
-import { getConnection, patchConnection } from "./connections";
+import { getConnection, loadConnections, patchConnection } from "./connections";
 import { writeRemoteManifest } from "./remote-files";
 import { probeConnection } from "./probe";
 import {
@@ -2486,16 +2487,42 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
 
   if (active.length === 0 && heal.length === 0) return out;
 
-  // group by connection
-  const byConn = new Map<string, BatchEntry[]>();
+  // group by connection — t325-a (M2): resolve DEAD ids to a live
+  // HOST-MATCHED connection BEFORE grouping. The old shape failed a
+  // RUNNING row the moment its connection was deleted ("re-add it and
+  // re-run") — but delete + re-create on the SAME host is exactly the
+  // t325 drift scenario, and the failure finalized the record at
+  // exitCode -1, PERMANENTLY disqualifying the heal (which requires
+  // exit 0). Cluster identity is (connectionId, host) everywhere the
+  // doctrine speaks — the sweep now polls through the re-created
+  // connection and the run keeps its life.
+  const byConn = new Map<string, { conn: RemoteConnection | null; entries: BatchEntry[] }>();
   for (const e of [...active, ...heal]) {
-    const list = byConn.get(e.remote.connectionId) ?? [];
-    list.push(e);
-    byConn.set(e.remote.connectionId, list);
+    let conn: RemoteConnection | null = getConnection(e.remote.connectionId);
+    if (!conn) {
+      // t325-a — the host-matched fallback (same normalization as
+      // sameClusterTarget: case / trailing FQDN dot never blocks a
+      // genuine re-creation; an alias still fails closed).
+      const wanted = normalizeClusterHost(e.remote.host);
+      if (wanted) {
+        conn =
+          loadConnections().find(
+            (c) => normalizeClusterHost(`${c.host}:${c.port}`) === wanted
+          ) ?? null;
+      }
+      if (conn) {
+        console.log(
+          `remote-run: sweep for "${e.job.name}" on ${e.remote.host} falls back to the re-created connection "${conn.name}" (t325-a — the run keeps its life)`
+        );
+      }
+    }
+    const key = conn ? conn.id : e.remote.connectionId;
+    const bucket = byConn.get(key) ?? { conn, entries: [] };
+    bucket.entries.push(e);
+    byConn.set(key, bucket);
   }
 
-  for (const [connId, entries] of byConn) {
-    const conn = getConnection(connId);
+  for (const [connId, { conn, entries }] of byConn) {
     if (!conn) {
       for (const e of entries) {
         if (e.job.status !== "running") continue;

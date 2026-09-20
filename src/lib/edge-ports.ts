@@ -56,22 +56,28 @@ function readPortFile(): PortFile {
  * vanished for that response — the "the wire sometimes disappears" field
  * receipt. In-process reads are already safe (all mutations are sync,
  * single-tick read-modify-write), this closes the cross-process half.
+ * t325-a (L1) — the tmp file is reaped on EVERY exit path (a consumed
+ * rename, a failed write, the copy fallback): ENOSPC mid-write or a
+ * rename-then-copy double failure no longer litters data/ with debris.
  */
 function writePortFile(file: PortFile): void {
   mkdirSync(DATA_DIR, { recursive: true });
   const tmp = `${FILE}.tmp-${process.pid}-${Date.now()}`;
-  writeFileSync(tmp, JSON.stringify(file, null, 2));
   try {
-    renameSync(tmp, FILE);
-  } catch {
-    // cross-platform rename-over-existing fallback (kept best-effort —
-    // the direct write preserves the pre-t325 behavior on failure)
+    writeFileSync(tmp, JSON.stringify(file, null, 2));
     try {
-      copyFileSync(tmp, FILE);
-      rmSync(tmp, { force: true });
+      renameSync(tmp, FILE);
     } catch {
-      writeFileSync(FILE, JSON.stringify(file, null, 2));
+      // cross-platform rename-over-existing fallback (kept best-effort —
+      // the direct write preserves the pre-t325 behavior on failure)
+      try {
+        copyFileSync(tmp, FILE);
+      } catch {
+        writeFileSync(FILE, JSON.stringify(file, null, 2));
+      }
     }
+  } finally {
+    rmSync(tmp, { force: true }); // consumed by rename → no-op; debris never survives
   }
 }
 
@@ -176,13 +182,17 @@ export async function edgesWithPorts(projectId: string): Promise<EdgeDTO[]> {
           toJobId: e.toJobId,
         },
       });
-      dbPairs.add(`${e.fromJobId}→${e.toJobId}`);
       console.log(
         `edge-ports: backfilled the DB mirror for ${e.fromJobId}→${e.toJobId} (the sidecar edge had no engine row — t325 heal)`
       );
-    } catch {
-      // best-effort: the merged view still renders the file edge, the
-      // next read retries the mirror
+    } catch (err) {
+      // t325-a (L2) — best-effort, but SPOKEN: a permanently failing create
+      // (schema drift, a constraint) must not retry silently on every read
+      // forever — the same honesty persistPortEdge learned in t325.
+      console.warn(
+        `edge-ports: DB mirror backfill failed for ${e.fromJobId}→${e.toJobId} (will retry on next read):`,
+        err instanceof Error ? err.message : err
+      );
     }
   }
 

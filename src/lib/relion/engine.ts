@@ -1087,6 +1087,18 @@ export interface ResolveInputsOpts {
 }
 
 /**
+ * t325-a — host:port normalization for cluster identity: case-insensitive
+ * host, trailing FQDN dot stripped ("Brain2." === "brain2", "Cluster5" ===
+ * "cluster5"). IP-vs-DNS aliases deliberately DO NOT fold — a re-creation
+ * under an alias fails CLOSED into the cross-cluster refusal (the honest
+ * side of the miss).
+ */
+export function normalizeClusterHost(hostPort: string): string {
+  const h = hostPort.trim().toLowerCase();
+  return h.endsWith(".") ? h.slice(0, -1) : h;
+}
+
+/**
  * t325 — is the record's cluster the one this consumer targets? The bare
  * remote flavor (no connectionId) never gated; otherwise the record's
  * connection OR its host:port must match the target. Shared by
@@ -1099,7 +1111,14 @@ export function sameClusterTarget(
 ): boolean {
   if (opts.connectionId == null) return true; // bare remote flavor — no gate
   if (rec.connectionId === opts.connectionId) return true;
-  if (opts.host != null && rec.host === opts.host) return true; // t325 — same cluster, re-created connection
+  // t325 — same cluster, re-created connection; t325-a — normalized
+  // (case / trailing FQDN dot never blocks a genuine re-creation).
+  if (
+    opts.host != null &&
+    normalizeClusterHost(rec.host) === normalizeClusterHost(opts.host)
+  ) {
+    return true;
+  }
   return false;
 }
 
@@ -1171,10 +1190,29 @@ export function resolveInputs(
         if (resolved) break;
         // t325 — none of the accepted keys exist ANYWHERE on this completed
         // remote provider: register the registry-stale shape (message below).
+        // t325-a (M1) — the dialect promises "the dispatch probes the
+        // upstream's workdir": only provider types with REMOTE_OUTPUT_
+        // CANDIDATES entries for an ACCEPTED key can keep that promise — a
+        // remote select/import wired to a particles.star consumer has no
+        // probe candidates, and promising a heal that cannot fire is the
+        // same lie the dialect exists to retire. The generic branch is the
+        // honest ceiling for those types.
+        // t325-a (N1) — "accounted" means existsSync-aware on the local
+        // half: a recorded-but-deleted file (a sync that landed the path and
+        // lost the bytes) is unaccounted EXACTLY like the heal's own
+        // worklist (missingRemoteOutputKeys), so the message and the probe
+        // can never disagree about what needs healing.
         if (
           registryStale == null &&
           state.remote &&
-          req.accepts.every((k) => !state.outputs[k] && !state.remote?.remoteOutputs?.[k])
+          (REMOTE_OUTPUT_CANDIDATES[up.type] ?? []).some((c) =>
+            req.accepts.includes(c.key)
+          ) &&
+          req.accepts.every(
+            (k) =>
+              !(state.outputs[k] && existsSync(state.outputs[k])) &&
+              !state.remote?.remoteOutputs?.[k]
+          )
         ) {
           registryStale = up.name ?? up.type;
         }
@@ -1208,7 +1246,7 @@ export function resolveInputs(
       // has NO upstream to wait for — the retry sweep can never fire
       // without an edge, so the promise was a lie. Name the real fix.
       if (providers.length === 0) {
-        const what = req.label.replace(/\s*\(run [^)]*\)\s*/, "").trim() || req.label;
+        const what = req.label.replace(/\s*\(run [^)]*\)/, "").trim() || req.label;
         return {
           inputs: {},
           missing: `No upstream job is wired that produces ${what} — connect one (drag a wire from its output port to this job); it then starts automatically once its inputs are ready`,
@@ -1223,7 +1261,7 @@ export function resolveInputs(
         // local consumer that genuinely needs the local copy. The label's
         // "(run X first)" tail is stripped — that advice is exactly the
         // lie being replaced.
-        const what = req.label.replace(/\s*\(run [^)]*\)\s*/, "").trim() || req.label;
+        const what = req.label.replace(/\s*\(run [^)]*\)/, "").trim() || req.label;
         if (opts?.remote) {
           return {
             inputs: {},
@@ -1242,7 +1280,7 @@ export function resolveInputs(
       // finalize, or a record the sync never accounted). Point at the door
       // that fixes it instead of "run Extract first".
       if (registryStale) {
-        const what = req.label.replace(/\s*\(run [^)]*\)\s*/, "").trim() || req.label;
+        const what = req.label.replace(/\s*\(run [^)]*\)/, "").trim() || req.label;
         return {
           inputs: {},
           missing: `Upstream "${registryStale}" completed on the cluster, but where its ${what} lives is not on record — send this job to the cluster (the dispatch probes the upstream's workdir there and chains off the copy in place), or re-run the upstream to refresh its record`,

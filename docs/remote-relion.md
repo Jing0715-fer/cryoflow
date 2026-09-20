@@ -614,6 +614,26 @@ The auto-start round also survives its worst member: one throwing consumer
 (aborted the whole round's siblings) is now caught, logged with the job's
 name, and skipped.
 
+**t325-a (the review's residuals, closed):** the registry-stale dialect
+only fires for provider types the probe can actually serve (types with
+`REMOTE_OUTPUT_CANDIDATES` entries for an accepted key — a remote
+select/import wired to a particles.star consumer keeps the generic
+message instead of promising a heal that cannot fire); "accounted" is
+`existsSync`-aware, agreeing with the heal's own worklist (a
+recorded-but-deleted file counts as unaccounted); host identity is
+NORMALIZED (case / trailing FQDN dot — an IP-vs-DNS alias deliberately
+fails closed); the sidecar tmp file is reaped on every exit path; a
+failing mirror backfill is spoken; and **the poll sweep itself honors the
+host identity** — a RUNNING record whose connection was deleted mid-flight
+is polled through a re-created same-host connection instead of being
+failed at `exitCode -1` (which would have permanently disqualified the
+heal). Remaining id-only surfaces are deliberately fail-closed and
+documented as scope: the anti-ghost liveness pre-check (skips the check
+on drift — the sweep finalizes within one poll), the sbatch
+`--dependency=afterok` gate (an in-flight re-run under the old id
+contributes no slurmId — the consumer runs without the dependency), and
+log tailing / stop for pre-drift records (degrade honestly).
+
 ## 5. Honest failure catalog
 
 | Failure | What you see |
