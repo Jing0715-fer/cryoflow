@@ -44,7 +44,7 @@ import { readFileSync } from "node:fs";
 import net from "node:net";
 import path from "node:path";
 
-const ROOT = "/home/z/my-project";
+const ROOT = "/home/z/cryoflow";
 const BASE = "http://localhost:3001";
 const CONN = "qa-t327";
 const SH = {
