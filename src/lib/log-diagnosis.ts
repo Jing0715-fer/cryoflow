@@ -115,6 +115,26 @@ export const LOG_PATTERNS: LogPattern[] = [
     hint: "The Laplacian-of-Gaussian picker is CPU-only: relion_autopick hard-errors when --gpu rides --LoG (its own message: \"does not support GPU acceleration. Please remove --gpu option.\"). CryoFlow's dispatch already sends no GPUs for LoG picking — if this is an old or hand-edited script, remove the --gpu line, or switch Picking method to References or Topaz to pick on GPUs.",
   },
   {
+    // t334 — relion_preprocess's own size-check refusal (image.h's Image::
+    // write, REPORT_ERROR("write: target and source objects have different
+    // size") — line 1534 in the 5.0 betas). The write is the per-micrograph
+    // particle stack: the FIRST particle replaces the .mrcs blindly, every
+    // later particle APPENDS — and the append reads the file already on disk
+    // and refuses when its dimensions differ from the particle being written.
+    // A single fresh run has one box size, so a mismatch always means the
+    // stack path was occupied by ANOTHER generation (a re-run before the
+    // t333 fresh-start wipe, with a changed Box size / Downsample) or by a
+    // concurrent writer (two processes extracting the same micrograph —
+    // duplicate rows in the micrographs STAR). The Beijing field report:
+    // a copied extraction job died 83% in, 865 stacks written, on exactly
+    // this line.
+    id: "extract-stack-size-clash",
+    re: /write: target and source objects have different size/i,
+    label: "Particle stack write refused — the target .mrcs already has a different box size",
+    hint:
+      "RELION writes one .mrcs stack per micrograph (--part_dir + the micrograph's name) and appends each particle after the first; the append checks the file already on disk (image.h \"target and source objects have different size\") and refuses on a dimension mismatch. Within one run the box never changes — so that stack path was already occupied by an earlier generation with a DIFFERENT Box size / Downsample (a re-run before the fresh-start wipe), or two processes wrote the same micrograph at once (duplicate micrograph rows in the input STAR). Remedy: re-run the job (the dispatch now clears the previous generation's stacks on the cluster before submitting) or make a fresh extraction job — with the box size you want, the clean run completes. The micrograph that died is the one in progress where the log stops; its half-written stack stayed on the cluster (this job's Results/Files lists it).",
+  },
+  {
     // t312 — relion_run_ctffind's own terminal words (ctffind_runner.cpp):
     // the per-micrograph skip warning and the all-failed exit line.
     // t314 — the hint was REWRITTEN: the first cut blamed raw movie stacks

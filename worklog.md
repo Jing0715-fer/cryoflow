@@ -2735,3 +2735,25 @@ t333 补记（rebase 后合并构建复验）:
 - 合并构建复验（rebase 后新 standalone, node 运行时——并行票的 OOM 教训照抄; 本沙箱专属启动器 /tmp/prod-my.sh 因为仓库的 prod-3001.sh 被并行窗重绑到其 /home/z/cryoflow 树——环境相对性老课）: diag-t333(75) ALL GREEN; diag-t331(129) 经重定位副本 ALL GREEN（首跑 3 FAIL 是我的 sed 没换到 dbSurgery 模板里的 ${ROOT}/db/cryoflow.db——SQLite file: 自动建空库的静默陷阱, 换成 custom.db 后全绿, 非代码回归）; diag-t318(52)/t319(57) ALL GREEN @ dev :3000（首跑 fetch 被 dev 冷编译竞态断连, 暖机后全绿）; tsc 0; eslint 0。
 - 合并构建浏览器活体（agent-browser @ dev :3000, 1600×900 + 390×844）: 页面干净渲染、console/page errors 双零、footer 钉底 900/900、移动端无横向溢流; 定妆照 t333-combined-mobile.png。
 - 本沙箱环境课（复验途中三次服务器死亡）: ①内联 setsid & 过不了 reaper（prod-3001.sh 头注释的老警告应验——必须脚本立即退出式）; ②dev 与浏览器/长套件共存必被 OOM 收割（本工单两次 + 复验一次, t301 判例三连）; ③node 跑 standalone 比 bun 稳（并行票教训采纳）。
+
+---
+Task ID: t334
+Agent: main-agent (Z.ai Code)
+Task: 用户工单「新的提取颗粒为何运行到一半报错了？」——"Particle Extraction 1 (copy)" 在真集群上跑 1034 张微图，83% 处死在 relion_preprocess 的 image.h:1534（"write: target and source objects have different size"），865 个 per-mic .mrcs 粒子栈已写（留在集群的 bulky 文件正是它们）。t333 杀了「重跑进脏 workdir」这一支；本次工单证明单靠「fresh directory」不是全部故事——诊断 + 三把新刀 + 失败卡。
+
+Work Log:
+- 【诊断（对 RELION 3.1→master 源码逐行核实）】extract 每张微图写一个栈：stack = --part_dir + <微图名去扩展名> + ".mrcs"（preprocessing.cpp: fn_output_img_root = fn_part_dir + fn_post.withoutExtension()）；每微图第 1 个粒子 WRITE_OVERWRITE 盲替换，后续粒子 WRITE_APPEND——append 会读盘上文件的表头并拒绝维度不符（image.h:1534，X/Y/Z 对比，N 不比）。单进程一次运行 box 恒定 ⇒ mid-run 冲突必然意味着栈路径被「另一个写者」占据：上一代不同 box 的栈（t333 场景），或并发写同一微图（STAR 里重复行进了两个 array shard；或 .mrc/.mrcs 同基名——扩展名剥掉后同栈路径）。用户 865 个 bulky 留集群文件 = 本代已写的栈；崩溃点 = 第 ~866 张首次撞上「已被占用的路径」。单进程对重名免疫（首粒子盲替换）——所以要么 workdir 有上一代（1m 0s 的旧 duration 暗示 copy 跑过不止一次/或部署未拉 t333），要么 array 分片重复写。
+- 【Blade 1 失败签名】log-diagnosis.ts 新 pattern "extract-stack-size-clash"（RELION 自己的 REPORT_ERROR 原文做正则）——失败作业的 Log 页条带现在自己讲机制（栈路径被不同 box 的旧代/并发写者占据）+ 处方（re-run——dispatch 会先清上一代产物；或新建作业）+ 崩溃微图的半写栈在哪（Results/Files、在集群）。
+- 【Blade 2 派发前碰撞扫描】新纯模块 src/lib/relion/extract-collide.ts（零 import，t326/t327 配方）：scanExtractCollisions 找 (a) 同名重复行 (b) 去扩展名后同栈键的相异名（X.mrc + X.mrcs；MotionCor/jobNNN/ 前缀剥离镜像 decomposePipelineFileName；__cfN 重链方言不误报）；starIsArraySplittable 判 STAR 是否 ≥2 个 data 块。接线：remote-run.ts 在 CTF 字节门之后、任何 staging 之前（requestError——行状态不动，toast 讲理）；engine.ts 本地腿同位（workdir mkdir 之前——拒绝时零磁盘动作）。twin-only（集群上没有本地拷贝）的 STAR 诚实跳过并留 console note——降级，从不沉默担保。
+- 【Blade 3 分片三处诚实化】(a) sbatch 分片器的 `|| cp <整个STAR>` 回退死了——awk 读不进输入时旧世界把全表塞给每个 shard（N 进程同写同一批栈 = image.h:1534 的并发炸弹）；现在是 CRYOFLOW_ERR 进 run.err + rc 111 进计数文件（count gate 说出 .cf-exit=111）。(b) 单块 STAR（无 optics 块——mock ctffind 自己的方言就是！）+ shards≥2 现在派发前拒绝（"single data block … run with the Array split at 1"）——分片器按「第 2 个 data 块起才切」的契约，单块 STAR 的每一行都会进每个 shard。(c) 健康双块 STAR + shards 的合法分片不受影响（LEG5 活体证明）。
+- 【e2e scripts/diag-t334-extract-clash.mjs，47 断言 ALL GREEN @ dev :3000 + mock :3022】UNIT（用户方言干净/重复行点名/.mrc+.mrcs 同栈/pipeliner 前缀/__cfN 不误报/无 mic 列→null/describe 渲染；分片表：双块 ok、单块拒、无行 ok；诊断 pattern 对用户原始 stderr（含 backtrace）出 extract-stack-size-clash@line7，健康日志不误报）+ LIVE（真链 import→autopick@slurm→extract@slurm：LEG1 干净跑通——门不误伤；LEG2 重复行→requestError 拒绝且行保持 completed；LEG3 扩展名孪生→拒绝且栈名点名；LEG4 单块+shards=2→行 failed 带 block 处方；LEG5 双块+shards=2 控制组→分片、合并、COMPLETED，记录带 slurmArray{2,4}）+ CONTRACTS（两刀位次序钉：remote CTF门→碰撞门→probe；local CTF门→碰撞门→workdir mkdir；twin 跳过 note；|| cp 灭绝 + CRYOFLOW_ERR 在场；诊断 pattern 在场）。
+- 【回归】t318(52) ALL GREEN、t319 ALL GREEN、t333(75) 经 BASE→:3000 重定位副本 ALL GREEN（重跑真实 class2d 两代 + 双侧哨兵对账——我的数组块插入在 wipe 之前，刀位钉全部存活）。t306/t307/t308（浏览器族）本轮未跑：三者都启 chromium（4GB 盒 dev+浏览器=OOM 判例三连应验，本轮 dev 已被收割三次）；风险已被 LEG5 逐点覆盖（它们的全部分片场景 = 健康双块 STAR + array，正是 LEG5 的控制组），|| cp 只在 awk 失败分支才走。环境课：dev 与 agent-browser 共存平均活 ~2 分钟——交互验证要「同一工具调用内一气呵成」。
+- 【浏览器活体（agent-browser 1600×900 @ dev :3000）】手术造证：真 extract 行置 failed + run.out 写用户原始日志 → 点卡片 → Log 页 → 失败诊断条带渲染「Particle stack write refused — the target .mrcs already has a different box size」+ 处方原文（t334-diagnosis-strip.png 定妆照）；390×844 无横向溢流 + footer 钉底；desktop footer 900/900；console 仅 Fast Refresh、page errors 零。证毕全部清理（行/记录/workdir/浏览器），demo 世界复位三作业（t306 时代两枚陈旧 completed 一并清走，engine-state 孤儿记录清零）。
+- 【docs】remote-relion.md 新 §4m（一微图一栈——名字不能撞：机制、两种撞法、三把刀）+ 失败目录三行（fresh-job 撞名灭绝/单块分片拒绝/分片失败说话）。
+- tsc 0；eslint 0（五改动文件 + 套件）。
+
+Stage Summary:
+- 「单进程提取对重名免疫、append 只查 box」——这是从 RELION 源码钉下来的机制事实；因此 image.h:1534 mid-run 的充要条件是「栈路径被另一个写者占据」，而 STAR 的行几何在派发前就可知——把崩溃变成拒绝，是 t320 教义（「会被拒的旋钮不是旋钮是陷阱」）在数据几何上的推广
+- 「mock 的 ctffind 写单块 STAR」这个方言差原来是颗活地雷：任何人 CTF→extract + shards≥2 就是并发写炸弹——现在被分片器的块契约拒绝；mock 方言故意不改（改它要动 t306/t307/t308 三套钉子，且守卫已让错配安全）
+- 产物：src/lib/relion/extract-collide.ts(新) / log-diagnosis.ts(+pattern) / remote-run.ts(碰撞门+块契约+诚实回退) / engine.ts(本地门) / docs §4m / scripts/diag-t334-extract-clash.mjs(47 断言)
+- 对用户的回答同时落在三层：失败卡的诊断条带（产品自己讲）、失败目录（文档讲）、派发前拒绝（根本不再让它跑 20 分钟再死）

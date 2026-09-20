@@ -43,6 +43,7 @@ import { remoteHeaderSniffer } from "@/lib/remote/sniff";
 import { listRemoteDir, REMOTE_IMPORT_MAX_ENTRIES, statRemoteFiles } from "@/lib/remote/remote-ls";
 import { exec as sshExec } from "@/lib/remote/ssh";
 import { wipeLocalRunProducts } from "@/lib/relion/run-wipe";
+import { describeExtractCollisions, scanExtractCollisions } from "@/lib/relion/extract-collide";
 import type { RemoteConnection, RemoteRunState } from "@/lib/remote/types";
 import { readMrcHeader } from "@/lib/mrc";
 import { sniffImageFile, spreadSample, type HeaderSniffer, type SniffVerdict } from "./mrc-sniff";
@@ -5270,6 +5271,28 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
     const gate = await ctffindInputGate(inputs.micrographs_star, localHeaderSniffer);
     if (gate.refusal) return { ok: false, error: gate.refusal };
     ctffindGateNote = gate.note;
+  }
+
+  // ---- t334 — the extraction collision scan (before the workdir) --------
+  // Same doctrine as the CTF byte-gate above, same lane position: a STAR
+  // whose micrograph rows would write the SAME per-mic particle stack
+  // (duplicate rows; "X.mrc" + "X.mrcs" both → "X.mrcs") is a guaranteed
+  // mid-run image.h:1534 ("write: target and source objects have different
+  // size") or a silently doubled particle set — both knowable from the
+  // star text, before the workdir exists. Local lane: the row fails WITH
+  // the message; the remote dispatch refuses the REQUEST (toast teaches).
+  if (job.type === "extract" && inputs.micrographs_star && existsSync(inputs.micrographs_star)) {
+    try {
+      const report = scanExtractCollisions(readFileSync(inputs.micrographs_star, "utf8"));
+      if (report && (report.duplicates.length > 0 || report.clashes.length > 0)) {
+        return {
+          ok: false,
+          error: `the micrographs STAR would collide inside the extraction: ${describeExtractCollisions(report)} — RELION names each particle stack after the micrograph (extension swapped to .mrcs), so these rows write the same file (the mid-run "write: target and source objects have different size" crash). De-duplicate the rows or rename the colliding files, then run again`,
+        };
+      }
+    } catch {
+      /* unreadable star → the run itself reports the real problem */
+    }
   }
 
   // ---- workdir ----------------------------------------------------------

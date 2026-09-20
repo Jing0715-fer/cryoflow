@@ -824,6 +824,63 @@ GUI's "Overwrite" answer, given automatically:
   are the disk-hygiene doors; delete is the canvas door.
 
 
+## 4m. One micrograph, one stack — the names must not collide (t334)
+
+The follow-up field report: a **copied** extraction job (fresh workdir,
+t333 wipe live) still died 83% through 1034 micrographs at the same
+`image.h:1534` — `write: target and source objects have different size`.
+The RELION mechanics (verified against the 3.1 → master sources) explain
+why a fresh directory alone is not the whole story: extraction writes
+**one `.mrcs` stack per micrograph** at
+`--part_dir + <micrograph name minus its extension> + ".mrcs"`, the
+**first** particle of each micrograph REPLACES that path blindly, and
+every later particle **APPENDS** — the append reads the file already on
+disk and refuses on a dimension mismatch. One run has one box size, so a
+mid-run clash always means the stack path was occupied by *another
+writer*, and the input STAR's row geometry decides whether the paths are
+unique:
+
+- **the same micrograph listed twice** — in an array split (the
+  round-robin slices by ROW) the two copies land in different shards and
+  two processes write the same `.mrcs` at the same moment, overwrites
+  racing appends until a header read catches the file mid-rewrite
+  (single-process it "only" doubles the particles in the output star —
+  a silent data-integrity bug);
+- **two names that compose the same stack** — RELION strips the extension
+  and appends `.mrcs`, so `X.mrc` and `X.mrcs` (and `X.tif`, and a bare
+  `X`) ALL write `<part_dir>X.mrcs`; a dataset holding both extensions
+  under one base name collides by construction.
+
+Both are knowable from the STAR text before one byte is staged. t334
+adds three blades:
+
+- **The pre-dispatch collision scan** (remote + local lanes, the CTF
+  byte-gate's lane position): `scanExtractCollisions` in
+  `src/lib/relion/extract-collide.ts` (pure, zero-import) reads the
+  micrographs STAR and refuses the dispatch naming the colliding rows.
+  A twin-resolved star (cluster-only, no local copy) skips the scan with
+  a logged note — a degradation, never a silent guarantee.
+- **The array split's block contract**: the sbatch slicer passes every row
+  of data blocks BEFORE the second `data_` block to EVERY shard (that is
+  how the optics block reaches all shards) and splits the rest. A
+  single-block STAR (a hand-made list, an old dialect) would hand EVERY
+  row to EVERY shard — the same concurrent-writer bomb. The dispatch now
+  refuses the split (`starIsArraySplittable`) with the remedy named:
+  run with the Array split at 1.
+- **The slice fallback is honest**: the shard script's old
+  `awk … || cp <whole star>` fallback silently duplicated every row into
+  every shard whenever the awk could not read its input. It now fails
+  the task with a `CRYOFLOW_ERR` line in `run.err` and an rc in the
+  tally file — the count gate turns it into `.cf-exit=111`, a spoken
+  verdict instead of a 20-minute race.
+
+The failure catalog (§5) and the Log tab's diagnosis strip know the
+`image.h` size-clash signature: the failed job's card now explains the
+mechanism (stack path occupied by another generation / a concurrent
+writer), the remedy (re-run — the wipe clears the previous generation's
+stacks — or a fresh job), and where the half-written stack stayed (the
+job's Results/Files tab, on the cluster).
+
 ## 5. Honest failure catalog
 
 | Failure | What you see |
@@ -855,6 +912,9 @@ GUI's "Overwrite" answer, given automatically:
 | re-run into stale outputs (`image.h:1534` — "write: target and source objects have different size") | extinct at the source: every fresh dispatch wipes the previous run's recognized products from the workdir (local mirror + cluster, pre-submit) before the job starts; only unknown files, input doors, notes and the ledger survive (t333) |
 | pre-submit wipe fails on the cluster (`rm` error) | the re-run is refused with the cluster's own error — running into stale outputs is the crash the wipe exists to prevent (t333) |
 | pre-submit wipe cannot LIST (BSD `find` without `-printf`) | warn-and-proceed (the pre-t333 behavior); the submit itself re-tests the wire (t333) |
+| `image.h:1534` mid-run on a FRESH job (duplicate rows / `X.mrc`+`X.mrcs` in one STAR) | extinct at the source: the dispatch scans the micrographs STAR and refuses naming the colliding rows — RELION names each stack after the micrograph (extension swapped to `.mrcs`), so colliding names write the same file (t334) |
+| array split over a single-block STAR | refused before staging: the slicer would hand EVERY row to EVERY shard (the optics pass-through is per-block) — run with the Array split at 1 (t334) |
+| shard cannot slice its input (`awk` unreadable) | the old silent whole-STAR `cp` fallback is dead: the task fails with `CRYOFLOW_ERR: could not slice the input STAR …` in run.err and `.cf-exit=111` — a spoken verdict, not a 20-minute write race (t334) |
 
 ## 6. Testing without a cluster: the mock cluster
 

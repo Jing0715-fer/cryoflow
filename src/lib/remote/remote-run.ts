@@ -70,6 +70,7 @@ import { gpuStrategyFor } from "@/lib/hpc/slurm";
 import { isLogAutopick } from "@/lib/relion/log-autopick";
 import { classifyRerunWipe } from "@/lib/hpc/cleanup";
 import { wipeLocalRunProducts } from "@/lib/relion/run-wipe";
+import { describeExtractCollisions, scanExtractCollisions, starIsArraySplittable } from "@/lib/relion/extract-collide";
 import { getConnection, loadConnections, patchConnection } from "./connections";
 import { writeRemoteManifest } from "./remote-files";
 import {
@@ -919,7 +920,16 @@ function buildSbatchScript(args: {
     L.push(`    /^_/{print; next}`);
     L.push(`    block>=2 && NF>0 && $1 !~ /^#/{ if(idx % n == s-1) print; idx++; next }`);
     L.push(`    { if(block<2) print }`);
-    L.push(`  ' ${shQuote(array.inputStar)} > "$SHARD" 2>/dev/null || cp ${shQuote(array.inputStar)} "$SHARD"`);
+    // t334 — the slice failure is no longer a silent whole-STAR copy: the
+    // old `|| cp` fallback handed EVERY row to EVERY shard whenever the awk
+    // could not read its input, and N shards then wrote the same per-mic
+    // outputs into the shared tree at the same moment — the concurrent-
+    // writer collision behind image.h:1534. An unreadable star is a task
+    // failure that SPEAKS: the rc lands in the tally file (the count gate
+    // turns it into .cf-exit=111) and the reason lands in run.err.
+    L.push(
+      `  ' ${shQuote(array.inputStar)} > "$SHARD" 2>/dev/null || { echo "CRYOFLOW_ERR: could not slice the input STAR for shard $SLURM_ARRAY_TASK_ID — ${shQuote(array.inputStar)} unreadable on this node" >&2; echo "$SLURM_ARRAY_TASK_ID 111" >> "$RCF"; exit 111; }`
+    );
     L.push(`  ${command}`);
     L.push(`  __rc=$?`);
     L.push(`  echo "$SLURM_ARRAY_TASK_ID $__rc" >> "$RCF"`);
@@ -1485,6 +1495,45 @@ export async function startRemoteJob(args: {
     }
   }
 
+  // ---- t334 — the extraction collision scan (before any staging) ---------
+  // The Beijing field report: a copied extraction job died 83% through
+  // 1034 micrographs at relion_preprocess's image.h:1534 ("write: target
+  // and source objects have different size"). RELION writes ONE .mrcs
+  // stack per micrograph — part_dir + the mic name minus extension +
+  // ".mrcs" — the first particle replaces that path blindly and every
+  // later particle APPENDS, checking the file on disk. The input STAR's
+  // row geometry decides whether those paths are UNIQUE: the same mic
+  // listed twice means two array shards write the same stack at the same
+  // moment (overwrites race appends until a header read catches the file
+  // mid-rewrite), and two names sharing an extension-stripped key
+  // ("X.mrc" + "X.mrcs" — the user's *_Fractions_DW dataset holds both
+  // extensions) compose the SAME stack by construction. Both are
+  // knowable HERE, from the star text, before one byte is staged — the
+  // t320 doctrine: refuse the trap, don't submit into it. A twin-resolved
+  // star (cluster-only) skips the scan with a console note, exactly like
+  // the CTF gate's own degradation — never a silent guarantee.
+  let extractStarText: string | null = null;
+  if (job.type === "extract" && resolved.inputs.micrographs_star) {
+    if (existsSync(resolved.inputs.micrographs_star)) {
+      try {
+        extractStarText = readFileSync(resolved.inputs.micrographs_star, "utf8");
+        const report = scanExtractCollisions(extractStarText);
+        if (report && (report.duplicates.length > 0 || report.clashes.length > 0)) {
+          return fail(
+            `the micrographs STAR would collide inside the extraction: ${describeExtractCollisions(report)} — RELION names each particle stack after the micrograph (extension swapped to .mrcs), so these rows write the same file (the mid-run "write: target and source objects have different size" crash). De-duplicate the rows or rename the colliding files on the cluster, then run again`,
+            true
+          );
+        }
+      } catch {
+        /* unreadable star → the cluster reports the real problem */
+      }
+    } else {
+      console.log(
+        `remote-run: extract collision scan skipped — the micrographs star stayed on the cluster (no local copy was synced)`
+      );
+    }
+  }
+
   // ---- t267: a never-probed connection must not dispatch blind ----------
   // The UI dialog can't reach this state (its module list IS lastProbe),
   // but the bare API can: without lastProbe the argv below would be built
@@ -1954,6 +2003,40 @@ export async function startRemoteJob(args: {
           throw new Error(
             `array split unavailable for "${job.type}": the command does not take one input STAR + an output the last task can merge (the shard slicing would target the wrong file)`
           );
+        }
+        // t334 — the slicer's block contract: the awk passes EVERY row of
+        // data blocks BEFORE the second `data_` block to EVERY shard (how
+        // the optics block reaches all shards) and round-robin splits the
+        // rows of block ≥ 2. A single-block STAR (a hand-made list, an
+        // old-dialect import) therefore hands EVERY micrograph to EVERY
+        // shard — N processes writing the same per-mic outputs into the
+        // shared tree at the same moment, the concurrent-writer collision
+        // behind image.h:1534. Readable locally → refuse the split before
+        // staging; twin-only → degrade with a note (the pre-t334 world).
+        {
+          const starText =
+            extractStarText ??
+            (resolved.inputs.micrographs_star && existsSync(resolved.inputs.micrographs_star)
+              ? (() => {
+                  try {
+                    return readFileSync(resolved.inputs.micrographs_star, "utf8");
+                  } catch {
+                    return null;
+                  }
+                })()
+              : null);
+          if (starText != null) {
+            const verdict = starIsArraySplittable(starText);
+            if (!verdict.ok) {
+              throw new Error(
+                `array split unavailable for "${job.type}": the input STAR has a single data block (no separate optics block — ${verdict.dataRows} row(s) in ${verdict.blocks} block), so the round-robin slice would hand EVERY row to EVERY shard and the shards would write the same files at the same time — run with the Array split at 1 (a single job) instead`
+              );
+            }
+          } else {
+            console.log(
+              `remote-run: array split block-check skipped — the input star stayed on the cluster (no local copy was synced)`
+            );
+          }
         }
         arrayPlan = {
           total: shardTotal,
