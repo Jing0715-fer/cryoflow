@@ -47,7 +47,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import net from "node:net";
 import path from "node:path";
 
-const ROOT = "/home/z/my-project";
+const ROOT = "/home/z/cryoflow"; // t332 re-bind: this sandbox's my-project tree was reset to the generic scaffold — the repo is the only real tree (the d57fdda recipe)
 const BASE = "http://localhost:3001";
 const CONN = "qa-t331";
 const SH = {
@@ -157,7 +157,7 @@ const clean = (id, body) =>
 const dbSurgery = (prog) => {
   const r = spawnSync(
     "bun",
-    ["-e", `process.env.DATABASE_URL = "file:${ROOT}/db/custom.db";\n${prog}`],
+    ["-e", `process.env.DATABASE_URL = "file:${ROOT}/db/cryoflow.db";\n${prog}`],
     { cwd: ROOT, encoding: "utf8", timeout: 60_000 }
   );
   const lines = `${r.stdout ?? ""}${r.stderr ?? ""}`
