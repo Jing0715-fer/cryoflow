@@ -21,6 +21,21 @@ export const dynamic = "force-dynamic";
 const prevStatuses = new Map<string, string>();
 
 /**
+ * t324 — the pending RETRY cadence: "runs automatically once ready" is a
+ * promise, and the one-shot triggers (the finalize leg, the engine's exit
+ * handler, startJob's native branch) can miss a consumer — an SSH blip at
+ * the exact moment the upstream landed, a pre-t324 record whose cluster
+ * twins only the lazy heal can recover, a sync that brought a file home
+ * after the first attempt already flipped the row to pending. Every ~20s
+ * (while any pending job exists) each pending consumer re-attempts through
+ * its COMPLETED upstreams; startJob's busy/liveness guards and the
+ * stampede cap make repeat rounds free — a job whose inputs are still
+ * incomplete just flips back to pending with a refreshed message.
+ */
+let lastPendingRetryAt = 0;
+const PENDING_RETRY_MS = 20_000;
+
+/**
  * Project a LINKED job onto its ORIGINAL: status/progress/result/startedAt
  * mirror the original (links are read-only aliases, never run themselves).
  * Multi-hop chains are collapsed (links always point at originals, but stay
@@ -101,6 +116,31 @@ export async function GET() {
       if (completedNow.length > 0 && pendingCount > 0) {
         for (const id of completedNow) {
           void autoStartPendingDownstream(id);
+        }
+      }
+      // t324 — the retry leg of the same promise: pending jobs whose
+      // one-shot trigger already fired (or missed) re-attempt through their
+      // completed upstreams, rate-limited so a long-lived server does not
+      // turn every poll into a dispatch storm. autoStartPendingDownstream
+      // is idempotent (in-flight + liveness + stampede guards), so a round
+      // that finds nothing ready is just a refreshed waiting message.
+      if (pendingCount > 0 && Date.now() - lastPendingRetryAt > PENDING_RETRY_MS) {
+        lastPendingRetryAt = Date.now();
+        const pendingIds = final
+          .filter((j) => j.status === "pending" && !j.linkedJobId)
+          .map((j) => j.id);
+        if (pendingIds.length > 0) {
+          const edges = await db.edge.findMany({
+            where: { toJobId: { in: pendingIds } },
+            select: { fromJobId: true },
+          });
+          const doneIds = new Set(final.filter((j) => j.status === "completed").map((j) => j.id));
+          const retryTriggers = [...new Set(edges.map((e) => e.fromJobId))].filter((id) =>
+            doneIds.has(id)
+          );
+          for (const id of retryTriggers) {
+            void autoStartPendingDownstream(id);
+          }
         }
       }
     }

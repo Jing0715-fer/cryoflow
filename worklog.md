@@ -2563,3 +2563,18 @@ Stage Summary:
 - **「缓存的敌人是随机性」**: Math.random 每次重掷五张 = PNG 缓存永不命中 = 用户看到的「每次重新读取」; 确定性采样+localStorage 持久+HTTP 缓存头, 三层缓存各司其职
 - **「沙箱重建会带走文件权限」**: git 只记 100644, mock sacct 从仓库回来就是坏的——依赖链静默卡死; e2e 的第一现场比断言更早说出真相
 - 遗留(下轮候选): 家族全量回归(t304/t306 等, 环境重建后补); exists=false 的 UI 活体见证(t272 遗留); mock 其余假体升级真方言(美化)
+
+## Task 324 (2026-09-20, 用户工单窗口 —— 「为何前面的extraction已经完成，但是2d分类还一直是pending」)
+
+- 【工单原文】2D Classification 1 · Pending · created 10h 9m ago · "Waiting for upstream output: particles.star (run Extract first) — runs automatically once ready" + "The job did not fail — it starts AUTOMATICALLY the moment its upstream inputs are ready" —— 而上游 Particle Extraction 1 已 COMPLETED。inspector 头部的 "12s" 是 job type spec 的预置演示时长（class2d spec duration=12000ms），不是任何真实运行。
+- 【根因】就绪门是「仅本地」的：resolveInputs 的提供者扫描要求 outputs[key] && existsSync(本地同步副本)，startRemoteJob 在任何 staging 之前走同一调用把关。但同步回传按设计会留文件在集群（per-file 上限、总预算、key-files 策略、下载中途失败——576 张显微图的 extract 在 576 个 .mrcs 栈旁边写一个数 MB 的 particles.star）。结果：远程流水线的关键 star 留在集群 → 下游永远 pending，消息却说「先跑 Extract」——对一个已经成功的作业撒谎；文件就躺在下游作业即将运行的同一集群上。记录里本来就有 remote.remoteOutputs 孪生路径供这种消费，只是门从未走到那一步。附生两缺陷：①「就绪后自动运行」的承诺没有重试——一次性触发器（finalize/exit handler/native 分支）只响一次，错过时刻的消费者要等到服务器重启；②留驻形态的等待消息在撒谎。
+- 【修复四面】①resolveInputs 增远程风味（{remote, connectionId}）：本地副本缺失时可用记录中已验证的集群孪生解析——解析值就是集群路径，staging 跳过与 argv 都以它为准（孪生映射加「身份条目」，同连接门控；异集群孪生被拒并给出跨集群叙事）；本地车道保持纯本地语义但说真话（「…its particles.star stayed there (over the sync caps) — send this job to the cluster, or raise the connection's sync caps and re-run the upstream」——标签里的 "(run X first)" 尾巴被剥掉，那正是被替换的谎言）。②finalize 对同步遗漏的键探测集群（REMOTE_OUTPUT_CANDIDATES：精确名 + 迭代 glob，一轮 SSH，仅在真缺时）——记录持有集群真相，回执说文件在哪（"particles.star stayed on the cluster (verified there) — downstream cluster jobs chain off the cluster copy in place"）而非「no expected outputs appeared」；outputProbeAt 戳为阴性探测限频。③startRemoteJob 懒治愈：远程风味仍缺时，对谱系中同连接的已完成远程记录做一轮批量探测再重解析——pre-t324 记录在下次尝试时自愈，无需重跑。④jobs GET 增 pending 重试（~20s 限频）：pending 消费者经其已完成上游重试——承诺有了心跳。
+- 【mock】relion_preprocess 增 star 填充杠杆（~/.cf-mock-star-pad：注释行是合法 STAR 语法，全家解析器都跳过 #）——e2e 能诚实地把 star 顶过同步上限，无需手术伪造。
+- 【e2e scripts/diag-t324-remote-twin.mjs，85 断言 ALL GREEN ×3】UNIT（bun + 夹具 state 文件）：远程风味真值表（孪生解析/本地优先于孪生/异集群拒绝/诚实本地消息/用户原文基础消息/failed 提供者优先级/探测工作单）。LIVE A（用户全流水线，诚实强制：紧连接 maxFileMb=1 + pad 杠杆使 particles.star 真的被上限跳过——真 cap 机制，无手术）：import → [pending extract, pending class2d] → LoG autopick（唯一手动远程派发）→ 自动级联：extract 经 passthrough 自动启动并完成、回执带留驻说明、本地镜像无 star、记录带孪生+戳、class2d 经孪生自动启动（--i 是集群路径）并完成——首 Dispatch 后零手工点击。LIVE B（pre-t324 记录 + 重试心跳）：对照链正常完成后，手术把 extract 记录回退到 pre-t324 形态（outputs 空/孪生空/本地 star 删除）→ 新 class2d 本地门 pending 带用户原文消息（此形态的诚实上限——尚无人知道文件在哪）→ ~20s 重试扫描自动触发 → 懒治愈探测集群 → 记录孪生回归 → 作业对集群副本完成（cmd --i = 治愈孪生，本地 star 始终未再下载）→ 服务器日志见证 heal 与探测判词 → 治愈后的本地门说真话（send to cluster / raise caps 双 remediation）。LEDGER：15 条源码契约钉死。
+- 【回归】t320(85)/t323(73)/t322-queued-previews(60+，重定位副本)/t319(60，重定位副本)/ladder-smoke(20) 全部 ALL GREEN @ prod:3001；tsc 0；eslint 0（四源文件+diag）；浏览器活体 console/page error 双零，定妆照 t324-app-load.png。
+- 【docs】remote-relion.md §4h「The cluster is the truth for a remote chain (t324)」+ 失败目录新行。
+
+Stage Summary:
+- **「集群是远程链路的真相」**：就绪门从「本地 existsSync」升级为「本地副本 or 已验证的集群孪生」——远程消费者原地消费集群副本（无重上传、无本地副本），本地车道说真话而非卡死
+- **「承诺需要心跳」**：就绪后自动运行 = 一次性触发 + ~20s 重试；懒治愈让 pre-t324 记录在下次尝试时自愈——用户拉取修复并重启后，卡了 10 小时的 2D Classification 会在首次 jobs GET 时自行走向集群
+- 环境：模板 :3000 运行，mock :3022 单实例，prod :3001 运行中（CRYOFLOW_DATA_DIR 指向仓库 data）

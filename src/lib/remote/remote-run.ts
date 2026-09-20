@@ -50,9 +50,11 @@ import {
   ctffindInputGate,
   describeExitCode,
   getRun,
+  missingRemoteOutputKeys,
   parseJobParams,
   parseProgressText,
   readRuns,
+  REMOTE_OUTPUT_CANDIDATES,
   resolveInputs,
   synthesizeTrainingPicks,
   upsertRun,
@@ -1063,6 +1065,101 @@ async function updateJobWithRetry(
   return null;
 }
 
+/**
+ * t324 — how long a cluster-side output probe's "found nothing" verdict
+ * stays authoritative. The pending-retry sweep re-attempts waiting
+ * consumers every ~20s; without this stamp every attempt would re-probe a
+ * workdir whose files genuinely are not there — a per-round SSH tax for
+ * one honest negative. A probe that FOUND twins needs no stamp (its keys
+ * leave the missing-worklist), and a probe that could not run at all
+ * (SSH error) never stamps (the next attempt retries for real).
+ */
+const OUTPUT_PROBE_FRESH_MS = 10 * 60_000;
+
+/**
+ * t324 — probe the CLUSTER for a run's chainable outputs that the
+ * sync-back left behind. One SSH round per record: exact names with
+ * `[ -e ]`, globs with `ls | sort | tail -n 1` (RELION zero-pads it###, so
+ * a lexicographic sort is numeric up to 999 iterations). Found twins are
+ * returned AND (by default) persisted into the record's remoteOutputs —
+ * verified cluster paths that resolveInputs' remote flavor and the
+ * dispatch's twin map both chain off, with no re-upload and no local copy.
+ *
+ * `opts.outputs` overrides the locally-collected outputs the worklist is
+ * diffed against (finalize passes the just-collected map before the record
+ * carries it); `opts.persist=false` leaves persistence to the caller.
+ */
+async function probeRemoteOutputs(
+  conn: RemoteConnection,
+  rec: RunRecord,
+  opts?: { outputs?: Record<string, string>; persist?: boolean }
+): Promise<{ probed: boolean; twins: Record<string, string> }> {
+  const r = rec.remote;
+  if (!r) return { probed: false, twins: {} };
+  const effectiveOutputs = opts?.outputs ?? rec.outputs;
+  const missing = missingRemoteOutputKeys(rec.type, effectiveOutputs, r.remoteOutputs);
+  if (missing.length === 0) return { probed: false, twins: {} };
+  const wanted = (REMOTE_OUTPUT_CANDIDATES[rec.type] ?? []).filter((c) => missing.includes(c.key));
+  if (wanted.length === 0) return { probed: false, twins: {} };
+  const W = shQuote(r.remoteWorkdir);
+  const parts: string[] = [`cd ${W} 2>/dev/null || exit 0`];
+  for (const c of wanted) {
+    for (const name of c.exact ?? []) {
+      parts.push(
+        `if [ -e ${shQuote(name)} ]; then printf 'CF_TWIN\\t%s\\t%s\\n' ${shQuote(c.key)} ${shQuote(name)}; fi`
+      );
+    }
+    if (c.glob) {
+      // first hit per key wins (exact names are emitted BEFORE globs, so a
+      // canonical name beats a globbed sibling); "latest" picks the highest
+      // iteration, "first" any match (per-mic coords: any one is chainable)
+      const tail = c.pick === "first" ? "head -n 1" : "sort | tail -n 1";
+      parts.push(
+        `f=$(ls ${c.glob} 2>/dev/null | ${tail}); [ -n "$f" ] && printf 'CF_TWIN\\t%s\\t%s\\n' ${shQuote(c.key)} "$f" || true`
+      );
+    }
+  }
+  const twins: Record<string, string> = {};
+  let ran = false;
+  try {
+    const res = await exec(conn, parts.join("\n"), { timeoutMs: 15_000 });
+    if (!res.error) {
+      ran = true;
+      for (const line of res.stdout.split("\n")) {
+        if (!line.startsWith("CF_TWIN\t")) continue;
+        const seg = line.split("\t");
+        const key = seg[1];
+        const rel = (seg[2] ?? "").trim();
+        if (!key || !rel || twins[key]) continue;
+        twins[key] = `${r.remoteWorkdir.replace(/\/+$/, "")}/${rel}`;
+      }
+    }
+  } catch {
+    /* best-effort: the waiting message keeps its old shape, unstamped */
+  }
+  if (ran && opts?.persist !== false) {
+    const foundAny = Object.keys(twins).length > 0;
+    updateRun(rec.jobId, (cur) =>
+      cur.remote && cur.startedAt === rec.startedAt
+        ? {
+            ...cur,
+            remote: {
+              ...cur.remote,
+              ...(foundAny ? { remoteOutputs: { ...(cur.remote.remoteOutputs ?? {}), ...twins } } : {}),
+              outputProbeAt: Date.now(),
+            },
+          }
+        : null
+    );
+  }
+  if (ran && Object.keys(twins).length > 0) {
+    console.log(
+      `remote-run: probed ${conn.host}:${r.remoteWorkdir} — ${Object.keys(twins).join(", ")} verified on the cluster (t324)`
+    );
+  }
+  return { probed: ran, twins };
+}
+
 export async function startRemoteJob(args: {
   job: Job;
   upstream: UpstreamRef[];
@@ -1207,8 +1304,53 @@ export async function startRemoteJob(args: {
   }
 
   // ---- resolve inputs (same semantics as the local engine) -------------
+  // t324 — the REMOTE flavor: a requirement may resolve through the
+  // upstream record's CLUSTER-verified twin when the sync-back left the
+  // local copy behind (caps / budget / a failed download). The gate used
+  // to be local-only existsSync, so a remote pipeline whose key star stayed
+  // on the cluster PENDING-ed forever with "run Extract first" — over a
+  // run that had already succeeded. The twins carry verified cluster paths
+  // for THIS connection only (a path from another cluster is not a file
+  // on this one).
   const params = parseJobParams(job.params);
-  const resolved = resolveInputs(job.type, upstream, params);
+  let resolved = resolveInputs(job.type, upstream, params, {
+    remote: true,
+    connectionId: target.connectionId,
+  });
+  if (resolved.missing) {
+    // t324 — the LAZY HEAL: records finalized under pre-t324 code (or whose
+    // probe-relevant keys went missing later) can still be recovered — one
+    // batched probe over the lineage's completed remote records from THIS
+    // connection, then re-resolve. The heal patches each record's twins in
+    // place (memoized by the outputProbeAt stamp), so the first consumer
+    // pays the SSH round and every later attempt reads the ledger.
+    const runsNow = readRuns();
+    const healable = upstream.filter((u) => {
+      const st = runsNow[u.id];
+      if (!st?.remote || !st.done || st.exitCode !== 0) return false;
+      if (st.remote.connectionId !== target.connectionId) return false;
+      if (
+        st.remote.outputProbeAt != null &&
+        Date.now() - st.remote.outputProbeAt < OUTPUT_PROBE_FRESH_MS
+      ) {
+        return false;
+      }
+      return missingRemoteOutputKeys(st.type, st.outputs, st.remote.remoteOutputs).length > 0;
+    });
+    if (healable.length > 0) {
+      console.log(
+        `remote-run: probing ${healable.length} upstream record(s) on ${conn.host} for outputs the sync-back left behind (t324 heal)`
+      );
+      for (const u of healable) {
+        const st = runsNow[u.id];
+        if (st) await probeRemoteOutputs(conn, st);
+      }
+      resolved = resolveInputs(job.type, upstream, params, {
+        remote: true,
+        connectionId: target.connectionId,
+      });
+    }
+  }
   if (resolved.missing) {
     return { ok: false, error: resolved.missing, ...(resolved.wait ? { waiting: resolved.wait } : {}) };
   }
@@ -1339,6 +1481,18 @@ export async function startRemoteJob(args: {
     for (const [key, localTw] of Object.entries(rec.outputs)) {
       const remoteTw = rec.remote.remoteOutputs[key];
       if (remoteTw && localTw) upstreamRemoteTwins.set(localTw.split(path.sep).join("/"), remoteTw);
+    }
+    // t324 — outputs that never came home: the verified cluster twin
+    // satisfies the requirement by ITSELF (identity entry — both the
+    // staging skip below and the argv's twin preference key off this map,
+    // so a twin-resolved input uploads nothing and runs against the
+    // cluster copy in place). Gated on the SAME connection: a path from
+    // another cluster is not a file on this one.
+    if (rec.remote.connectionId === target.connectionId) {
+      for (const remoteTw of Object.values(rec.remote.remoteOutputs)) {
+        const norm = remoteTw.split(path.sep).join("/");
+        if (!upstreamRemoteTwins.has(norm)) upstreamRemoteTwins.set(norm, remoteTw);
+      }
     }
   }
 
@@ -2716,6 +2870,41 @@ async function finalizeRemoteRun(
     }
   }
 
+  // t324 — keys the sync-back left behind: the file may still sit on the
+  // cluster it was computed on. Probe the run dir for the type's chainable
+  // output candidates and record VERIFIED twins for anything found — the
+  // downstream remote consumers chain off them in place, and the receipt
+  // says where the file lives instead of pretending it never existed
+  // ("exited 0 but no expected outputs appeared" was a lie by omission:
+  // the outputs appeared, they just stayed). One extra SSH round, only
+  // when a key is genuinely missing.
+  let outputProbedAt: number | undefined;
+  let stayNote = "";
+  if (exitCode === 0 && missingRemoteOutputKeys(job.type, outputs, remoteOutputs).length > 0) {
+    const probe = await probeRemoteOutputs(conn, rec, { outputs, persist: false });
+    for (const [k, v] of Object.entries(probe.twins)) {
+      if (!remoteOutputs[k]) remoteOutputs[k] = v;
+    }
+    if (probe.probed) outputProbedAt = Date.now();
+    // keys whose ONLY account is the verified cluster twin (the local
+    // sync-back left them behind) — the receipt must say so
+    const remoteOnly = Object.keys(remoteOutputs)
+      .filter((k) => !outputs[k] || !existsSync(outputs[k]))
+      // speak FILE names, not record keys ("particles.star", not "particles_star")
+      .map((k) => k.replace(/_star$/, ".star").replace(/_mrc$/, ".mrc").replace(/_/g, " "));
+    if (remoteOnly.length > 0) {
+      stayNote =
+        Object.keys(outputs).length === 0
+          ? `${remoteOnly.join(", ")} stayed on the cluster (verified there) — downstream cluster jobs chain off the cluster copy in place; raise the connection's sync caps to bring it home`
+          : ` — ${remoteOnly.join(", ")} stayed on the cluster (verified there; downstream cluster jobs chain off the cluster copy — raise the sync caps to pull it home)`;
+    }
+  }
+  if (stayNote) {
+    result = stayNote.startsWith(" — ")
+      ? `${result}${stayNote}`
+      : `REMOTE[${r.user}@${r.host.split(":")[0]}]: ${stayNote}`;
+  }
+
   updateRun(job.id, (cur) =>
     cur.startedAt === rec.startedAt && cur.remote
       ? {
@@ -2727,6 +2916,7 @@ async function finalizeRemoteRun(
           remote: {
             ...cur.remote,
             remoteOutputs,
+            ...(outputProbedAt != null ? { outputProbeAt: outputProbedAt } : {}),
             syncedFiles: sync.files,
             syncedBytes: sync.bytes,
             skippedFiles: sync.skipped.slice(0, 50),

@@ -539,6 +539,43 @@ rescue fires whenever the local `run.err` is empty — run.out alone is not
 evidence that run.err is empty (a mid-run stderr error used to stay
 invisible whenever run.out had content).
 
+## 4h. The cluster is the truth for a remote chain (t324)
+
+**A completed remote job whose key output stayed on the cluster still
+unblocks downstream cluster jobs.** The sync-back is capped by design
+(per-file, per-run, and a policy that leaves bulky maps and stacks on the
+cluster), and a download can fail mid-way — an extract on 576 micrographs
+writes a many-MB `particles.star` beside hundreds of `.mrcs` stacks. The
+old readiness gate was LOCAL-ONLY (`existsSync` on the synced copy), so the
+downstream 2D Classification PENDING-ed forever with *"run Extract first"* —
+over a run that had already succeeded, with the file sitting right there on
+the cluster the downstream job was about to run on. Four blades closed it:
+
+- **finalize probes the cluster** for chainable outputs the sync-back left
+  behind (one SSH round, exact names + iteration globs) — the record carries
+  VERIFIED `remoteOutputs` twins, and the receipt says where the file lives
+  (*"particles.star stayed on the cluster (verified there) — downstream
+  cluster jobs chain off the cluster copy in place"*) instead of *"no
+  expected outputs appeared"*;
+- **the remote dispatch resolves through twins**: a downstream job sent to
+  the SAME connection consumes the cluster copy in place — no re-upload, no
+  local copy, `--i` is the cluster path (a twin from a DIFFERENT connection
+  is refused with the cross-cluster story);
+- **the lazy heal recovers pre-t324 records**: when a dispatch still comes
+  up short, one batched probe over the lineage's completed remote records
+  re-discovers what the old finalize never recorded — existing stuck
+  pipelines unblock on the next attempt, no re-run needed;
+- **the pending retry gives the promise a heartbeat**: "runs automatically
+  once ready" is re-attempted every ~20 s through completed upstreams, so a
+  consumer that missed its one-shot trigger (an SSH blip at the exact
+  moment the upstream landed) no longer waits for a server restart.
+
+The LOCAL lane stays honest, not stuck: a job you run on THIS machine with
+cluster-resident inputs pendings with the actionable message (*"…its
+particles.star stayed there (over the sync caps) — send this job to the
+cluster, or raise the connection's sync caps and re-run the upstream"*)
+instead of advice to run something that already ran.
+
 ## 5. Honest failure catalog
 
 | Failure | What you see |
@@ -558,6 +595,7 @@ invisible whenever run.out had content).
 | LoG picker + `--gpu` (old/hand-edited script) | named diagnosis: RELION refuses the pair outright ("does not support GPU acceleration") — remove the `--gpu` line or switch Picking method to References/Topaz; dispatches never send the pair (t320) |
 | LoG autopick rescale warnings | extinct at the source: the dispatch carries `--skip_optimise_scale` (RELION's own advice), picking runs at the requested resolution (t323) |
 | exit 1 with NO error text in run.out/run.err | the silent-death verdict: "RELION printed no error — the run ended silently mid-job" + the external-kill suspects (login-node CPU reaper / OOM / walltime) + `sacct -j <jobid>`; multi-hour jobs belong in Slurm mode (t323) |
+| downstream job pending forever over a completed upstream | the readiness gate was local-only: the key star stayed on the cluster (sync caps) — the finalize probe records the verified twin, remote dispatches chain off it in place, pre-t324 records self-heal on the next attempt, and the ~20s retry re-fires the auto-start (t324) |
 | local node_modules out of date | boot warning `node_modules is out of date — missing ssh2` + `/api/remote/*` fails with `Can't resolve 'ssh2'` — re-run `npm install` (or `bun install`) and restart |
 
 ## 6. Testing without a cluster: the mock cluster

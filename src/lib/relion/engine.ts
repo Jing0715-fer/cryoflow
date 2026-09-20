@@ -965,6 +965,117 @@ const GENERIC_REQUIREMENTS: Record<string, string> = {
 };
 
 /**
+ * t324 — cluster-side output candidates: the file names a type's CHAINABLE
+ * outputs wear inside the run directory. collectOutputs stays the LOCAL
+ * authority (it counts, ranks and synthesizes); this table exists for the
+ * REMOTE truth probe — when the sync-back leaves a key behind (sync caps,
+ * an exhausted budget, a download that failed mid-way), the file usually
+ * still sits on the cluster, and a downstream REMOTE consumer can chain off
+ * it IN PLACE through the record's remoteOutputs twin (no re-upload, no
+ * local copy needed). Shell globs use bash character classes; "latest"
+ * picks the highest iteration (RELION zero-pads it###, so a lexicographic
+ * sort is numeric up to 999 iterations).
+ */
+export interface RemoteOutputCandidate {
+  /** Output-record key this candidate feeds (the INPUTS[].accepts space). */
+  key: string;
+  /** Exact file names at the run-directory root, tried in order. */
+  exact?: string[];
+  /** Bash glob evaluated inside the remote workdir. */
+  glob?: string;
+  /** Which glob hit wins ("latest" = highest iteration, "first" = any). */
+  pick?: "latest" | "first";
+}
+
+const REFINE_FAMILY_CANDIDATES: RemoteOutputCandidate[] = [
+  {
+    key: "model_mrc",
+    exact: ["run_half1_class001_unfil.mrc", "run_class001.mrc"],
+    glob: "run_it[0-9]*_half1_class[0-9]*.mrc",
+    pick: "latest",
+  },
+  { key: "half1_mrc", exact: ["run_half1_class001_unfil.mrc"], glob: "run_it[0-9]*_half1_class[0-9]*.mrc", pick: "latest" },
+  { key: "half2_mrc", exact: ["run_half2_class001_unfil.mrc"], glob: "run_it[0-9]*_half2_class[0-9]*.mrc", pick: "latest" },
+  { key: "optimiser_star", exact: ["run_optimiser.star"], glob: "run_it[0-9]*_optimiser.star", pick: "latest" },
+  { key: "refine_data_star", exact: ["run_data.star"], glob: "run_it[0-9]*_data.star", pick: "latest" },
+];
+
+export const REMOTE_OUTPUT_CANDIDATES: Record<string, RemoteOutputCandidate[]> = {
+  motioncorr: [{ key: "micrographs_star", exact: ["corrected_micrographs.star"] }],
+  ctffind: [{ key: "micrographs_ctf_star", exact: ["micrographs_ctf.star"] }],
+  autopick: [
+    { key: "coords_star", exact: ["autopick.star"], glob: "micrographs/*_autopick.star", pick: "first" },
+  ],
+  topaztrain: [{ key: "topaz_model", exact: ["topaz_model.sav"], glob: "*.sav", pick: "first" }],
+  extract: [{ key: "particles_star", exact: ["particles.star"] }],
+  class2d: [
+    { key: "particles_star", exact: ["run_data.star"], glob: "run_it[0-9]*_data.star", pick: "latest" },
+    {
+      key: "classes_mrc",
+      exact: ["run_unmasked_classes.mrcs", "run_classes.mrcs", "run_classes.mrc"],
+      glob: "run_it[0-9]*_classes.mrcs",
+      pick: "latest",
+    },
+  ],
+  initialmodel: [
+    { key: "model_mrc", exact: ["run_model.mrc", "run_classes.mrcs"], glob: "run_it[0-9]*_class[0-9]*.mrc", pick: "latest" },
+    { key: "refine_data_star", exact: ["run_data.star"], glob: "run_it[0-9]*_data.star", pick: "latest" },
+  ],
+  class3d: REFINE_FAMILY_CANDIDATES,
+  refine3d: REFINE_FAMILY_CANDIDATES,
+  maskcreate: [{ key: "mask_mrc", exact: ["mask.mrc"] }],
+  postprocess: [
+    { key: "map_mrc", exact: ["postprocess.mrc"] },
+    { key: "postprocess_star", exact: ["postprocess.star"] },
+  ],
+  localres: [{ key: "map_mrc", exact: ["relion_locres.mrc"] }],
+  joinstar: [{ key: "particles_star", exact: ["join_particles.star", "join_mics.star", "join_movies.star"] }],
+  polish: [{ key: "particles_star", exact: ["shiny.star", "particles_polished.star"] }],
+  ctfrefine: [{ key: "particles_star", exact: ["particles_ctf_refine.star"] }],
+  subtract: [{ key: "particles_star", exact: ["particles_subtracted.star"] }],
+};
+
+/**
+ * t324 — keys of `type`'s chainable outputs that are accounted for NOWHERE:
+ * not present locally (outputs + existsSync — the sync-back's copy) and not
+ * verified on the cluster (remoteOutputs). This is the remote probe's
+ * worklist: every key listed here deserves one SSH look at the run dir.
+ */
+export function missingRemoteOutputKeys(
+  type: string,
+  outputs: Record<string, string>,
+  remoteOutputs: Record<string, string> | undefined
+): string[] {
+  const cands = REMOTE_OUTPUT_CANDIDATES[type];
+  if (!cands) return [];
+  const missing: string[] = [];
+  for (const c of cands) {
+    const local = outputs[c.key];
+    if (local && existsSync(local)) continue;
+    if (remoteOutputs && remoteOutputs[c.key]) continue;
+    missing.push(c.key);
+  }
+  return missing;
+}
+
+/** Options for resolveInputs' remote-aware flavor (t324). */
+export interface ResolveInputsOpts {
+  /**
+   * The consumer runs on an SSH cluster: a requirement may resolve through
+   * the upstream record's CLUSTER-verified twin (remoteOutputs) when the
+   * local synced copy is missing — the file never left the cluster, so a
+   * cluster consumer chains off it in place (no upload, no local copy).
+   */
+  remote?: boolean;
+  /**
+   * With `remote`: only twins recorded by THIS connection count — a path
+   * from another cluster is not a file on this one (the staging skip and
+   * the argv would both reference a path that does not exist there).
+   */
+  connectionId?: string;
+}
+
+/**
  * Resolve required inputs from upstream completed runs.
  * `missing` is a human-readable message (null on success); `wait` classifies
  * WHY an input is missing so the dispatcher can mark the job PENDING
@@ -975,7 +1086,8 @@ const GENERIC_REQUIREMENTS: Record<string, string> = {
 export function resolveInputs(
   type: string,
   upstream: UpstreamRef[],
-  params?: Record<string, unknown>
+  params?: Record<string, unknown>,
+  opts?: ResolveInputsOpts
 ): { inputs: Record<string, string>; missing: string | null; wait?: WaitKind } {
   // param-driven optionality: drop requirements whose skipIf fires
   // (only the dispatch call passes params — the manualpick/select
@@ -992,6 +1104,10 @@ export function resolveInputs(
     // graph distance (direct parents first) with newest-first within a
     // layer — scan forward and take the first provider that has the output.
     const providers: { name: string; status: string }[] = [];
+    // t324 — a provider holding a CLUSTER-verified twin for an accepted key
+    // while the local copy is missing: the not-ready message must say WHERE
+    // the file lives instead of pretending the upstream never ran.
+    let stayedOnCluster: string | null = null;
     for (const up of upstream) {
       if (!req.from.includes(up.type)) continue;
       const state = runs[up.id];
@@ -1002,6 +1118,22 @@ export function resolveInputs(
             resolved = p;
             break;
           }
+          // t324 — the remote twin: the sync-back can legitimately leave a
+          // key behind (caps, budget, a failed download) while the file
+          // itself sits safely on the cluster it was computed on. A REMOTE
+          // consumer resolves through the twin directly — the staging skip
+          // and the argv both key off the record's verified cluster path.
+          const twinRemote = state.remote;
+          const twin = twinRemote?.remoteOutputs?.[key];
+          if (
+            twin &&
+            opts?.remote &&
+            (!opts.connectionId || twinRemote.connectionId === opts.connectionId)
+          ) {
+            resolved = twin;
+            break;
+          }
+          if (twin && stayedOnCluster == null) stayedOnCluster = up.name ?? up.type;
         }
         if (resolved) break;
       }
@@ -1026,6 +1158,28 @@ export function resolveInputs(
           inputs: {},
           missing: `Waiting for upstream "${running.name}" to finish… (this job starts automatically when it does)`,
           wait: "upstream-running",
+        };
+      }
+      if (stayedOnCluster) {
+        // t324 — the file EXISTS, it just never came home. The old wording
+        // ("run Extract first") sent the user hunting a run that already
+        // succeeded. Distinguish the two lanes: a remote consumer was
+        // offered the twin and refused it (another cluster holds it) vs a
+        // local consumer that genuinely needs the local copy. The label's
+        // "(run X first)" tail is stripped — that advice is exactly the
+        // lie being replaced.
+        const what = req.label.replace(/\s*\(run [^)]*\)\s*/, "").trim() || req.label;
+        if (opts?.remote) {
+          return {
+            inputs: {},
+            missing: `Upstream "${stayedOnCluster}" ran on a different cluster and its ${what} stayed there — re-run the upstream on this cluster, or wire one that ran here`,
+            wait: "not-ready",
+          };
+        }
+        return {
+          inputs: {},
+          missing: `Upstream "${stayedOnCluster}" completed on the cluster, but its ${what} stayed there (over the sync caps) — send this job to the cluster (it chains off the cluster copy in place), or raise the connection's sync caps and re-run the upstream to bring the file home`,
+          wait: "not-ready",
         };
       }
       return {

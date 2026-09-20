@@ -192,6 +192,14 @@ with open(part_star, "w") as fh:
     fh.write("_rlnCoordinateY #3\n")
     for r in rows:
         fh.write(r + "\n")
+    # t324 lever — optional star padding: comment lines are legal STAR
+    # syntax (every parser in the family skips them: the app's
+    # parseStarBlocks/countStarRows and the mock refine all ignore '#'),
+    # so the file stays VALID while crossing whatever per-file sync cap an
+    # e2e wants to force. The marker lives in the mock HOME and is inert
+    # without it (~/.cf-mock-star-pad — echo anything into it to arm).
+    if os.path.exists(os.path.join(os.path.expanduser("~"), ".cf-mock-star-pad")):
+        fh.write("# cryoflow-mock star padding (t324 sync-cap lever)\n" * 30000)
 
 print(f"cryoflow-mock extract: {total} particles across {len(mics)} micrographs -> {part_star}")
 sys.exit(0)

@@ -326,6 +326,16 @@ export interface RemoteRunState {
   phase: "staging" | "running";
   /** Cluster-side outputs (filled at finalize) — key → remote path. */
   remoteOutputs?: Record<string, string>;
+  /**
+   * t324 — epoch ms of the last CLUSTER-side output probe (the finalize
+   * leg or the dispatch's lazy heal). Rate-limits re-probing records whose
+   * chainable outputs are still missing BOTH locally and remotely: the
+   * pending-retry sweep re-attempts pending consumers every ~20s, and a
+   * probe that found nothing must not become a per-round SSH tax. Absent
+   * on pre-t324 records (always probeable) and on records whose outputs
+   * are all accounted for (never probed — the worklist is empty).
+   */
+  outputProbeAt?: number;
   /** Bytes + count pulled back to the local mirror at finalize. */
   syncedFiles?: number;
   syncedBytes?: number;
