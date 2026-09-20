@@ -1209,6 +1209,84 @@ async function probeRemoteOutputs(
   return { probed: ran, twins };
 }
 
+/**
+ * t335 — the win32-mangled orphan mop (field repair).
+ *
+ * The field report: on a Windows host the remote argv's FILE-valued output
+ * slot (--part_star, refine-family --o …) was built with path.win32.join,
+ * so `--part_star /data03/…/extract_x/particles.star` left the host as
+ * `\data03\…\extract_x\particles.star`. A Linux cluster reads no directory
+ * separator in that string — RELION wrote ONE literal file of that whole
+ * name into the process CWD, which is the remote PROJECT ROOT (both the
+ * direct wrapper and the sbatch script `cd` there). The job itself
+ * succeeded (exit 0, all .mrcs stacks in place via the safe --part_dir
+ * concat), but the star never reached the workdir and every downstream
+ * consumer — 2D classification — starved on it.
+ *
+ * The mop moves such orphans home: every project-root entry whose name
+ * starts with a single `\` and de-mangles (all `\` → `/`) to a path UNDER
+ * this project root is mv'd to that path (parents created; an existing
+ * destination is never overwritten — a re-run's fresh product outranks
+ * the orphan). One SSH round, strictly POSIX, idempotent, never throws:
+ * the caller's own probes and runs remain the source of truth.
+ *
+ * Callers: the t324 heal branch (BEFORE the upstream probes, so the probe
+ * can vouch for the moved file and the chain continues without a re-run)
+ * and the spawn task (before staging/wipe, so re-runs sweep the junk).
+ */
+async function mopWin32MangledOrphans(
+  conn: RemoteConnection,
+  remoteProjectRoot: string
+): Promise<{ moved: string[]; failed: string[] }> {
+  const root = remoteProjectRoot.replace(/\/+$/, "");
+  if (!root.startsWith("/")) return { moved: [], failed: [] };
+  // POSIX sh throughout (the exec channel is the login shell, not
+  // necessarily bash). The root rides as a properly quoted shell VARIABLE
+  // (never inlined into the case pattern — a user-configured remoteRoot
+  // with $ or backticks must not expand); in a case pattern the quoted
+  // "$R" is literal and the bare /* is the glob. `ls -A` names one per
+  // line — a mangled RELION output name never contains a newline, and
+  // anything that does simply fails the prefix check and is left alone.
+  const script = [
+    `R=${shQuote(root)}`,
+    `cd "$R" 2>/dev/null || exit 0`,
+    `ls -A | grep '^\\\\' | while IFS= read -r name; do`,
+    `  posix=$(printf '%s' "$name" | tr '\\\\' '/')`,
+    `  case "$posix" in`,
+    `    "$R"/*)`,
+    `      if [ ! -e "$posix" ]; then`,
+    `        if mkdir -p "$(dirname "$posix")" && mv -- "$name" "$posix"; then`,
+    `          printf 'CF_MOP\\t%s\\n' "$posix"`,
+    `        else`,
+    `          printf 'CF_MOP_FAIL\\t%s\\n' "$posix"`,
+    `        fi`,
+    `      fi`,
+    `      ;;`,
+    `  esac`,
+    `done`,
+    `exit 0`,
+  ].join("\n");
+  const moved: string[] = [];
+  const failed: string[] = [];
+  try {
+    const res = await exec(conn, script, { timeoutMs: 20_000 });
+    if (!res.error && res.code === 0) {
+      for (const line of res.stdout.split("\n")) {
+        if (line.startsWith("CF_MOP\t")) {
+          const dest = line.slice("CF_MOP\t".length).trim();
+          if (dest) moved.push(dest);
+        } else if (line.startsWith("CF_MOP_FAIL\t")) {
+          const dest = line.slice("CF_MOP_FAIL\t".length).trim();
+          if (dest) failed.push(dest);
+        }
+      }
+    }
+  } catch {
+    /* best-effort — the probes/runs still speak for what they can see */
+  }
+  return { moved, failed };
+}
+
 export async function startRemoteJob(args: {
   job: Job;
   upstream: UpstreamRef[];
@@ -1408,6 +1486,31 @@ export async function startRemoteJob(args: {
       console.log(
         `remote-run: probing ${healable.length} upstream record(s) on ${conn.host} for outputs the sync-back left behind (t324 heal)`
       );
+      // t335 — mop win32-mangled orphans BEFORE the probes: the heal looks
+      // for exact names INSIDE the upstream workdir, but a Windows-host
+      // dispatch built with path.win32 left its output as ONE literal
+      // whole-path filename in the PROJECT ROOT (particles.star as
+      // "\data03\…\extract_x\particles.star"). Moved home first, the probe
+      // below can vouch for it — and the chain continues without paying
+      // for the upstream again. Best-effort: a mop that cannot run leaves
+      // the probes exactly as honest as they were.
+      try {
+        const mopRoot = `${(await expandRemotePath(conn, conn.remoteRoot || "~/cryoflow")).replace(/\/+$/, "")}/${job.projectId}`;
+        const mop = await mopWin32MangledOrphans(conn, mopRoot);
+        if (mop.moved.length > 0) {
+          console.log(
+            `remote-run: moved ${mop.moved.length} win32-mangled orphan file(s) home on ${conn.host} (t335) — ${mop.moved
+              .map((m) => m.slice(mopRoot.length + 1))
+              .slice(0, 5)
+              .join(", ")}${mop.moved.length > 5 ? ", …" : ""}`
+          );
+        }
+        if (mop.failed.length > 0) {
+          console.log(`remote-run: mop could NOT move ${mop.failed.length} orphan(s) on ${conn.host}: ${mop.failed.join(", ")}`);
+        }
+      } catch {
+        /* best-effort mop — the probes below still speak for what they can see */
+      }
       // t328 — probe outcomes are INFORMATION the waiting message owes the
       // user: a probe that ran and found nothing is now persisted on the
       // record (outputProbeAbsent) and the engine's dialect reports it; but
@@ -1828,6 +1931,29 @@ export async function startRemoteJob(args: {
   const stopBeat = startStagingBeat(job.id);
   const spawn = async (): Promise<void> => {
     try {
+      // t335 — mop win32-mangled orphans out of the project root BEFORE
+      // anything else touches the tree: a previous Windows-host dispatch
+      // may have left whole-path literal filenames there (the misplaced
+      // particles.star family). Moving them home lets the fresh-start
+      // wipe below classify them with the stale products they are —
+      // otherwise the junk lingers in the project root forever. Runs on
+      // every dispatch (one SSH round, idempotent, usually a no-op).
+      try {
+        const mop = await mopWin32MangledOrphans(conn, remoteProjectRoot);
+        if (mop.moved.length > 0) {
+          console.log(
+            `remote-run: moved ${mop.moved.length} win32-mangled orphan file(s) home on ${conn.host} (t335) — ${mop.moved
+              .map((m) => m.slice(remoteProjectRoot.length + 1))
+              .slice(0, 5)
+              .join(", ")}${mop.moved.length > 5 ? ", …" : ""}`
+          );
+        }
+        if (mop.failed.length > 0) {
+          console.log(`remote-run: mop could NOT move ${mop.failed.length} orphan(s) on ${conn.host}: ${mop.failed.join(", ")}`);
+        }
+      } catch {
+        /* best-effort mop — never a dispatch refusal over junk hygiene */
+      }
       console.log(
         `remote-run: task alive — staging ${uploads.length} input file(s) for "${job.name}" to ${conn.host} (module ${moduleName || "none"})`
       );
@@ -1882,6 +2008,20 @@ export async function startRemoteJob(args: {
       } as Parameters<typeof buildArgv>[0]);
       if ("error" in built) throw new Error(built.error);
       let argv = built as string[];
+
+      // t335 — belt & suspenders: a Windows host's path.win32 (path.join,
+      // path.resolve …) mangles any cluster-POSIX path a code path routes
+      // through it into \data03\… — a single leading backslash, no drive
+      // letter. The remote lane has no wsl-bridge translate to restore it
+      // (the local bridged lane's wrapWslCommand does this for its own
+      // world), so restore it HERE on the final argv the cluster script
+      // will carry — whatever future leak feeds it. No legitimate argv
+      // item starts with a lone backslash: flags start with --, values
+      // are POSIX paths / numbers / C1-D2-style tokens, and Windows drive
+      // paths (C:\) or UNC (\\…) forms never belong in a cluster argv.
+      argv = argv.map((a) =>
+        a.startsWith("\\") && !a.startsWith("\\\\") ? a.replace(/\\/g, "/") : a
+      );
 
       // strip the placeholder prefix → bare names resolved by module PATH
       if (argv[0].startsWith("<RELION_BIN>/")) argv[0] = argv[0].slice("<RELION_BIN>/".length);

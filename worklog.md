@@ -2757,3 +2757,26 @@ Stage Summary:
 - 「mock 的 ctffind 写单块 STAR」这个方言差原来是颗活地雷：任何人 CTF→extract + shards≥2 就是并发写炸弹——现在被分片器的块契约拒绝；mock 方言故意不改（改它要动 t306/t307/t308 三套钉子，且守卫已让错配安全）
 - 产物：src/lib/relion/extract-collide.ts(新) / log-diagnosis.ts(+pattern) / remote-run.ts(碰撞门+块契约+诚实回退) / engine.ts(本地门) / docs §4m / scripts/diag-t334-extract-clash.mjs(47 断言)
 - 对用户的回答同时落在三层：失败卡的诊断条带（产品自己讲）、失败目录（文档讲）、派发前拒绝（根本不再让它跑 20 分钟再死）
+
+---
+Task ID: t335
+Agent: main-agent (Z.ai Code)
+Task: 用户工单「extract 的文件夹中没有 particles.star，star 文件好像放错位置了——项目目录下有个 \data03\Lijing\cryoflow\cmu77omju0000uwfcauoi30d7\extract_ufh1hg0u\particles.star，把绝对路径写进文件名了，这可能是后续 2D 分类找不到 star 的原因；需修复并排查其他任务是否同样中招」——win32 路径污染根因诊断 + 三层修复。
+
+Work Log:
+- 【诊断（字节级对上）】engine.ts outPath（buildArgv 的文件型输出槽拼接器）用 path.join；远程车道把 CLUSTER-POSIX workdir（/data03/Lijing/cryoflow/<proj>/extract_ufh1hg0u）递给 buildArgv，而用户的 CryoFlow 跑在 Windows 主机上——path.join 即 path.win32.join，把整个路径重排成 \data03\Lijing\…\particles.star（node 实测输出与用户 ls 看到的文件名字节级一致）。Linux 集群不把反斜杠当分隔符 → relion_preprocess 把整串当「一个文件名」写进进程 CWD——直连 wrapper 和 sbatch 脚本都 cd 到 remoteProjectRoot，所以错位文件落在项目根目录。作业本身成功（.mrcs 栈经 --part_dir 字符串拼接、全数正确落在 extract_ufh1hg0u/micrographs/），但 star 永远没进 workdir → 2D 分类的输入解析（本地 mirror 无 + 集群 twin 无）报「找不到 star」。沙箱是 Linux（path.join 即 posix，输出恒正确）——所以本仓全部远程套件从未复现，这是「Windows 主机专属」的地形性 bug；binJoin（wsl-bridge.ts）当年就是同一疾病（win32.join 打碎 distro 内 POSIX bin 目录）的 binDir 位点手术，outPath 是最后一个未补的位点。
+- 【审计（buildArgv 全量过一遍）】中招（走 outPath/path.join）：extract --part_star（本次事故）、class2d/initialmodel/class3d/refine3d --o run、maskcreate --o mask.mrc、postprocess --o postprocess、localres --o relion、joinstar --o join_particles.star。安全（字符串拼接 ctx.workdir+"/"）：ctffind --o、motioncorr --o、autopick --odir、polish/ctfrefine/dynamight/modelangelo/subtract --o、extract --part_dir/--coord_dir——与用户现场完全吻合（ctffind_fq0069iq / autopick_r7t15t4e 目录完好）。附带发现：array 分片车道在 win32 下会先死在 outArg!==wantOut 的诚实拒绝（mangled ≠ posix）——根治后此雷同灭。remote-run.ts 残留的全部 path.join 逐个核过：只碰本地 mirror/本地 FS，用法正确。
+- 【Blade 1 根治（engine.ts outPath）】POSIX 安全拼接（模板串 + 尾分隔符剥离），彻底不再调 path.join——binJoin 教义（正斜杠对 POSIX 目录正确、对原生 Windows 目录同样合法：fs/spawn 全平台接受正斜杠，wsl-bridge hostToWsl 两种分隔符都翻）。一个位点修复覆盖全部九个中招任务类型；Linux 沙箱行为按构造等价（模板拼接 ≡ posix path.join）。
+- 【Blade 2 兜底（remote-run.ts argv 消毒）】buildArgv 之后、进脚本之前：任何「单反斜杠开头、非 UNC」的 argv 项（\data03\…）恢复成 POSIX——不管未来哪条代码路径再漏 path.join 进来。合法性论证：argv 里没有以单个反斜杠开头的合法项（flags 以 -- 开头、值是 POSIX 路径/数字/C1-D2 类 token、盘符 C:\ 与 UNC \\\\ 不属于集群 argv）。与本地桥接车道 wrapWslCommand.translate 同一规则、各自世界。
+- 【Blade 3 现场修复（mopWin32MangledOrphans）】一个 SSH 往返的 POSIX mop：项目根目录下所有「单反斜杠开头、反斜杠全量翻转后落在本项目根之内」的条目 mv 回原位（mkdir -p 父目录；目标已存在绝不覆盖——重跑的新产物压过孤儿；root 以 shQuote 赋给 shell 变量再进 case 模式，用户自配 remoteRoot 含 $/反引号也不展开）。两个挂点：(a) t324 heal 分支、probe 之前——错位的 particles.star 先搬回 extract_ufh1hg0u/，probe 即可 vouch，下游 2D 分类链式续跑、不用重付 9m45s 提取；(b) spawn 任务开头、staging/清扫之前——重跑场景把孤儿搬进 workdir 让 t333 fresh-start 分类器按陈旧产物一起清走，否则反斜杠垃圾在项目根目录永久滞留。幂等、best-effort、绝不拒绝派发；absent-stamp 10 分钟窗口内的 retry 自愈闭环不受影响。
+- 【mop 活体模拟（/tmp 沙盘，源码模板逐字生成脚本）】复刻用户现场：正主搬回原位（CF_MOP 上报）、目标已存在不覆盖（FRESH PRODUCT 保留）、\tmp\evil.sh 越界拒绝、\\\\wsl.localhost UNC 拒绝、目标目录不存在时 mkdir -p 自动建、二次运行幂等（剩余条目全是故意跳过的）。首轮「搬不动」恰是防越界门在正确工作（模拟根与假路径不匹配）——安全属性被反向验证。
+- 【win32 根因 one-liner 证明】node path.win32.join("/data03/…/extract_ufh1hg0u", "particles.star") 输出与用户 ls 的文件名字节级一致；t335 outPath 与兜底消毒输出正确 POSIX——before/after 钉死。
+- 【验证】tsc 0（tsconfig.src.json）；eslint：本工单两文件零新增问题（stash 对照法证明 8 个存量 error 全在未触碰文件——diag-archive/qa63/qa64、print-doc-footer/header、session-report-dialog、molstar-embed，与本次改动无关）；agent-browser 活体（1600×900 + 390×844）：页面干净渲染、Remote clusters 对话框健康（Mock Cluster 探测 0.3s ok、模块清单含用户的 beta_5.0_gpu_ompi5_cuda118）、console/page errors 双零、footer 钉底 900/900、移动端无横向溢流（t335-desktop.png / t335-mobile.png）。dev 服务器本轮被收割两次（沙箱已知模式），重启后 200 恢复；浏览器验证按 t334 教训「同一工具调用内一气呵成」。
+- 【未跑】t306/t307/t308 浏览器族（OOM 纪律，t334 判例）——本改动的分片车道契约（outArg===wantOut）在 Linux 上按构造等价（模板拼接 ≡ path.join），且 tsc 类型层无涉；win32 行为差异已被 one-liner 证明消灭。
+
+Stage Summary:
+- 「path.join 在 Windows 主机上就是 win32.join」——远程车道递给它的是集群 POSIX 路径，输出即 \data03\…；Linux 把它当「一个文件名」写进 CWD（项目根目录）——错位 star、下游全饿，而沙箱（Linux）永远看不见这个 bug。地形性缺陷要靠「不调用」消灭，不靠「在 Linux 上测试」
+- 三层修复一个教义：根治（outPath 不再 path.join——九个任务类型一个位点全覆盖）+ 兜底（argv 消毒，未来泄漏也进不了集群脚本）+ 现场（mop 把孤儿搬回家，heal 分支让 2D 分类零成本续跑）
+- 用户侧操作：部署修复后直接再跑 2D 分类即可——dispatch 的 heal 先搬正 star 再 probe 验证，链式续跑；若 extract 记录是 failed 态则 re-run extract（新跑落位正确，旧孤儿被 mop+清扫吃掉）。无需手动上集群改名
+- 产物：engine.ts（outPath POSIX 化）/ remote-run.ts（mopWin32MangledOrphans + heal 挂点 + spawn 挂点 + argv 消毒）；模拟沙盘与截图 t335-desktop.png / t335-mobile.png
+- 与前票的关系：t334（image.h:1534）杀的是「栈路径被另一写者占据」；本票杀的是「文件型输出参数的路径在 Windows 主机上被打碎」——两张票据一起才解释了用户提取工单的全貌（崩溃 + star 错位）

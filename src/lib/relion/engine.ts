@@ -3475,7 +3475,24 @@ interface BuildCtx {
 }
 
 function outPath(ctx: BuildCtx, name: string): string {
-  return path.join(ctx.workdir, name);
+  // t335 — POSIX-safe join, NO path.join. path.join is path.win32.join on
+  // a Windows host, and the REMOTE lane hands buildArgv a CLUSTER-POSIX
+  // workdir (/data03/…/extract_xxx): win32.join re-separates it into
+  // \data03\…\extract_xxx, RELION on Linux reads no directory separator
+  // in that string and writes ONE literal file of that whole name into
+  // the process CWD (the field report: particles.star landed as
+  // "\data03\Lijing\…\extract_ufh1hg0u\particles.star" in the project
+  // root; the workdir never saw it and every downstream consumer — 2D
+  // classification — starved on the missing star). Every FILE-valued
+  // output slot built here (--part_star, refine-family --o, maskcreate /
+  // postprocess / localres / joinstar) shared this leak on Windows
+  // hosts; the DIR-valued slots (--o <workdir>/ for ctffind/motioncorr/
+  // autopick, --part_dir, --odir) were safe because they concatenate.
+  // Same doctrine as binJoin below: forward-slash join is correct for
+  // POSIX dirs and equally valid for native Windows dirs (fs + spawn
+  // accept forward slashes on every platform, and the WSL bridge's
+  // hostToWsl translates either separator).
+  return `${ctx.workdir.replace(/[\\/]+$/, "")}/${name}`;
 }
 
 // binJoin (imported from ./wsl-bridge) joins binary names onto an install
