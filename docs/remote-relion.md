@@ -687,6 +687,41 @@ CPU/5 GPU, brain 64/6, normal02 80/8, brain2 128/8, brain4 128/8, brain3
 48/6 — with brain2 `cpu=2,gres/gpu=1` and brain3 `cpu=4,gres/gpu=2` as the
 live-sample baselines) is asserted node-for-node in both dialects.
 
+### t332 — the rows became PICKS
+
+**「增加支持从检测到的节点使用情况的列表中直接选择相应的节点」** —
+the usage list is no longer read-only: clicking a node pins the submission
+to it (`--nodelist`), the one pick the partition dropdown could never
+express (a single node inside a multi-host group — `node03` out of `gpu`'s
+eight). Four layers, one doctrine:
+
+- **the panel's rows are buttons** — `aria-pressed` speaks the pin, the
+  keyboard comes native, the pinned row wears it (ring + map-pin + primary
+  name), and DRAIN/DOWN rows refuse the click honestly (a doomed sbatch is
+  never composed from this list). The hint names the mechanism; the ask
+  line RE-SCOPES to the pinned node's own free GPUs ("6 GPU(s) pinned to
+  node03 — only 5 free there; the job will queue until GPUs release"), and
+  a 0-GPU node gets the contradiction named, not a silent queue;
+- **the dialog follows the pick** — the GPU stepper's ceiling becomes the
+  NODE's own GPUs (scontrol's word, not the group's widest), the preview
+  shows the real `--nodelist`, the submit body carries it, and a later
+  partition change that would strand the pin RELEASES it (the UI never
+  composes a `--partition`/`--nodelist` contradiction — a real controller
+  refuses that combo at submit time);
+- **the engine honors it server-side** — `target.nodelist` sanitized with
+  the partition charset gate, the explicit pick WINS over the t300
+  single-host derivation, and an explicit pin with NO picked partition
+  SUPPRESSES the connection's default partition (`--partition=normal` +
+  `--nodelist=brain3` is a submit-time refusal; the node's own partition
+  is where it lands — `--nodelist` alone says exactly that);
+- **the mock accounts the pin** — `sbatch` journals it as the `.req` file's
+  5th field and `scontrol` holds the job's CPUs/GPUs on THAT node (a
+  pinned class2d on node03 shows 3/6 GPUs while it runs — wherever its
+  partition would have routed it).
+
+Still informational: the Send button's predicate never consults the pick
+(the diag pins it unchanged), and usage degradation never touches it.
+
 ## 4k. Cleaning intermediates — both sides of the wire (t331)
 
 **The eraser in the job inspector's toolbar.** A RELION project's disk hogs
@@ -740,6 +775,7 @@ Freed space is measured, not estimated: the local side sums the sizes it
 deleted; the cluster side diffs its own before/after `find` byte totals
 (the cluster's word, never the plan's).
 
+
 ## 5. Honest failure catalog
 
 | Failure | What you see |
@@ -763,6 +799,7 @@ deleted; the cluster side diffs its own before/after `find` byte totals
 | downstream pending forever after re-creating the connection | cluster identity is (connectionId, host): the re-created connection to the SAME host still heals the old records and chains off their twins (t325) |
 | the wire between two jobs disappears (canvas) | the sidecar self-heal no longer evicts edges connected during an in-flight read; writes are atomic; every read backfills a lost DB mirror; an empty lineage speaks "connect one" instead of the auto-start promise (t325) |
 | live node usage unavailable | the panel's rose note names the exact failure (no `scontrol` on the login node / SSH error) and says the submit still works — usage is informational, never a gate (t327) |
+| pinned node unreachable in the UI | DRAIN/DOWN rows refuse the click ("not taking jobs right now") — the pin is never composed into a doomed sbatch; the mismatch guard releases a pin a later partition change would strand (t332) |
 | local node_modules out of date | boot warning `node_modules is out of date — missing ssh2` + `/api/remote/*` fails with `Can't resolve 'ssh2'` — re-run `npm install` (or `bun install`) and restart |
 | cleanup of a running job | refused with its reason (409): a live run's iteration files are being written — stop it first, then clean (t331) |
 | cleanup plan vs cluster reality drift | impossible by design: the POST never trusts the preview's file list — it re-lists the cluster live and deletes only what still classifies; the 10s listing cache is bypassed by the manual refresh and by the POST itself (t331) |
@@ -781,7 +818,8 @@ real user cluster: `brain`/`brain3` 6 GPU, `brain2`/`brain4`/`normal02` 8 GPU,
 PENDING→RUNNING transitions and honest purge-on-finish; the `scontrol`
 speaks the user's own `show_free_gpu.sh` dialect — `Gres=`/`AllocTRES=`
 per node, with the CPU totals of their real table — and accounts RUNNING
-jobs onto their nodes live, t327) so the whole
+jobs onto their nodes live, t327; a submission's explicit `--nodelist`
+pin rides the journal's 5th field and holds the job on THAT node, t332) so the whole
 remote-Slurm path is testable without a real scheduler. `/data2/…` paths
 translate into its fs root the same way `/projects/…` and `/home/cryo/…`
 always have, so remote projects can rehearse against `/data2/movies/…`-shaped

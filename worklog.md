@@ -2689,3 +2689,21 @@ Stage Summary:
 - **「释放量是集群自己的话」**：本地按删除时 stat 求和，集群按前后 find 字节差对账——不是计划的估算，是树的事实
 - **「台账跟着树走」**：集群清理后 manifest 逐条重写，Files 页说「持有」不说「持有过」（t289 教义落到清理上）
 - 遗留（下轮候选）：项目级批量清理（路线图已记，故意不做——清理是逐作业决策）；bulk 档的下游影响分析可深化到「按 STAR 行引用计数」（当前按连线拓扑）
+
+---
+Task ID: t332
+Agent: main-agent (Z.ai Code)
+Task: 用户工单：「增加支持从检测到的节点使用情况的列表中直接选择相应的节点」——t327 的 Live node usage 面板从只读信息表升级为可选：点击节点行即把提交钉到该节点（--nodelist）。（renumbered t331→t332 per the t314 precedent — the parallel window's cleanup ticket took t331 and landed first; zero source-file overlap outside docs）
+
+Work Log:
+- 四层实现：(1) wire — RemoteRunTarget.nodelist + run 路由第二道字符集门（[A-Za-z0-9_.-]{1,64}，与 partition 同款）；(2) engine — explicitNode 显式钉优先于 t300 单宿主派生；buildSbatchScript 压制规则：显式钉 + 无选区时连接默认分区不上车（--partition=normal + --nodelist=brain3 是真控制器 submit 期拒绝）；(3) panel — 行变真按钮（aria-pressed/原生键盘/pinned 行戴 ring+MapPin+primary 名；DRAIN/DOWN 诚实拒点；hint 句；ask line 重定域到钉选节点自身空闲数；0-GPU 矛盾点名；不一致守卫：换分区搁浅钉时自动释放）；(4) dialog — pickedNode 状态（连接切换即清）、maxGpus 用节点自身 gpuTotal 封顶、preview 与引擎同款压制镜像、提交体携带 nodelist
+- mock：sbatch 解析 --nodelist → 账本第 5 字段（t327 四字段不动）；scontrol 偏好第 5 字段（钉选作业记在 THAT 节点）
+- diag-t332-node-pick.mjs 51 断言 ALL GREEN ×2：PHASE A 五层源码钉；PHASE B 三 LIVE 腿（B1 用户流程：连接默认分区 normal 作压制见证——脚本 --nodelist=node03 且无 --partition、账本 |node03、RUNNING 期 node03 3/6 GPU 持有而 node01 零持有、完成回基线；B2 优先级：brain2+node03 双旗并载显式钉胜派生；B3 退化：恶意后缀被字符集门丢弃、默认分区复载、/tmp 无污染）
+- 浏览器活体（agent-browser @ prod :3001）：点击 node03 → aria-pressed+MapPin+ask line 即时重定域「pinned to node03 — only 5 free there」+ preview #SBATCH --nodelist=node03 无 --partition；再点释放；守卫实测（钉 node03 → 选 brain2 → 钉释放、preview 落回派生 brain2）；移动端 390×844 无溢出；console+page errors 双零；VLM 审图两轮；定妆照 t332-node-pin.png / t332-node-pin-mobile.png
+- 浏览器现场抓到真 bug 修复：ask line useMemo deps 漏 pinnedNode（钉后不重算）；套件稳健性：mock 每迭代 0.9s sleep → B1 提到 15 迭代开 ~14s 观测窗（一次慢 SSH exec 可跨过 2s 窗整窗）；journal 断言移到完成后（.req 持久）
+- 回归（合并构建）：t327(95)/t326/t324(89)/t325(76)/t328(76)/t330(51)/t320(85) 全 ALL GREEN；tsc 0；eslint 0
+- 环境课：prod-3001.sh 重指仓库本体 + ALWAYS restart（"already running" 在 rebuild 后供陈旧码两次）；本机 lsof 看不见 standalone 监听者、进程名 next-server 非 server.js（pkill -f 不中）、fuser 静默无效——ss -ltnp 提监听 pid 按号杀是唯一可靠；浏览器 tab 的出站 socket 令普通 lsof 永不空（判 LISTEN-only）；awk return 只能在函数体（print+exit）
+
+Stage Summary:
+- 「列表即选择」：点哪个节点 sbatch 钉哪个（--nodelist）；多宿主组里的单节点这种分区下拉永远表达不了的选法第一次可表达；UI 永不组矛盾组合；mock 账本第 5 字段让钉选作业占用记在它真正落的节点
+- 用户拉取重启后：Run on cluster → Slurm → Live node usage 列表点节点即钉选，再点释放；预览 #SBATCH --nodelist=<node> 即所发即所见

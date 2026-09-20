@@ -71,7 +71,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // optional remote target ({ remote: {...} }); absent/invalid → the
     // project-binding fallback below decides (t317)
     const body = (await request.json().catch(() => ({}))) as {
-      remote?: { connectionId?: unknown; module?: unknown; mode?: unknown; gpus?: unknown; partition?: unknown; shards?: unknown };
+      remote?: { connectionId?: unknown; module?: unknown; mode?: unknown; gpus?: unknown; partition?: unknown; nodelist?: unknown; shards?: unknown };
       local?: unknown;
     };
     let remote: RemoteRunTarget | undefined;
@@ -87,6 +87,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
       const partitionRaw =
         typeof body.remote.partition === "string" ? body.remote.partition.trim() : "";
       const partition = /^[A-Za-z0-9_.-]{1,64}$/.test(partitionRaw) ? partitionRaw : null;
+      // t332 — nodelist: the exact node picked from the live usage list
+      // (the panel's rows). The SAME charset clamp as partition — the FIRST
+      // gate, the engine re-validates; anything else silently degrades to
+      // the t300 derivation (a malformed hostname must never reach
+      // #SBATCH --nodelist=, a shell-facing line).
+      const nodelistRaw =
+        typeof body.remote.nodelist === "string" ? body.remote.nodelist.trim() : "";
+      const nodelist = /^[A-Za-z0-9_.-]{1,64}$/.test(nodelistRaw) ? nodelistRaw : null;
       // t306 — shards: the array split (--array=1-N%M). 2..64; below 2 the
       // field means "no split" and is dropped (the single-job contract,
       // byte-identical submissions). Slurm mode only — direct mode has no
@@ -100,6 +108,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         mode: body.remote.mode === "slurm" ? "slurm" : "direct",
         ...(Number.isFinite(gpusNum) && gpusNum >= 1 ? { gpus: Math.min(8, Math.round(gpusNum)) } : {}),
         ...(partition ? { partition } : {}),
+        ...(nodelist ? { nodelist } : {}),
         ...(body.remote.mode === "slurm" && shards >= 2 ? { shards } : {}),
       };
     }

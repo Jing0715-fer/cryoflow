@@ -26,10 +26,21 @@
  *     included) and compares it to the picked partition's free GPUs —
  *     the user picks a partition with their eyes open, which is the
  *     whole point of the ticket.
+ *
+ * t332 — the rows became PICKS: with onPickNode wired (the run dialog),
+ * clicking a node pins the submission to it (`--nodelist`) — the pick
+ * the partition dropdown could never express (a single node inside a
+ * multi-host group). The pinned row wears the pin (ring + MapPin), the
+ * ask line re-scopes to THAT node's free GPUs, and the mismatch guard
+ * releases the pin when a later partition change would strand it (a
+ * --partition/--nodelist contradiction is a submit-time refusal on
+ * real controllers). Still informational: the Send predicate never
+ * consults the pick, and unavailable rows (DRAIN/DOWN…) refuse the
+ * click honestly instead of composing a doomed sbatch.
  */
 
 import * as React from "react";
-import { Activity, Loader2, RefreshCw, TriangleAlert } from "lucide-react";
+import { Activity, Loader2, MapPin, RefreshCw, TriangleAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useNow } from "@/lib/use-now";
@@ -104,10 +115,19 @@ export function ClusterUsagePanel({
   partition,
   /** what this submission needs NOW: per-task GPUs × simultaneous tasks. */
   ask,
+  /** t332 — the node the sbatch pins (--nodelist), picked from THIS
+   *  list; the row wears the pin and the highlight. null/absent when
+   *  the caller offers no picking (the panel stays read-only). */
+  pinnedNode = null,
+  /** t332 — row click → pick that node for the submission (null =
+   *  release). Absent = read-only rows (no pointer, no hint). */
+  onPickNode,
 }: {
   connectionId: string;
   partition: string | null;
   ask: { gpus: number; tasks: number };
+  pinnedNode?: string | null;
+  onPickNode?: (node: SlurmNodeUsage | null) => void;
 }) {
   const [data, setData] = React.useState<ClusterUsageResponse | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -160,12 +180,65 @@ export function ClusterUsagePanel({
     [data]
   );
 
+  // t332 — the mismatch guard: a partition change that strands the
+  // pinned node (the pick moved to a group the node does not belong to)
+  // releases the pin — a --partition/--nodelist contradiction is a
+  // submit-time refusal on real controllers, and this dialog must never
+  // compose one. Auto (null) KEEPS the pin: the engine suppresses the
+  // connection's default partition when an explicit node speaks, so
+  // "this node, wherever it lives" is a shape the sbatch honors.
+  React.useEffect(() => {
+    if (!onPickNode || !pinnedNode || partition == null) return;
+    const pinned = nodes.find((n) => n.node === pinnedNode);
+    if (pinned && !pinned.partitions.includes(partition)) onPickNode(null);
+  }, [partition, nodes, pinnedNode, onPickNode]);
+
   // the ask line's truth: which nodes this ask could land on, and how
   // many GPUs are free there (a partition's rows are highlighted; Auto
   // reads the whole cluster).
   const askLine = React.useMemo(() => {
     if (nodes.length === 0) return null;
     const gpusNeeded = ask.gpus * Math.max(1, ask.tasks);
+    // t332 — a pinned node re-scopes the ask: the WHOLE submission lands
+    // on that node (an array's shards too — --nodelist binds every task),
+    // so the free count that matters is the node's own, not the
+    // partition's sum. The need phrase keeps the shards arithmetic when
+    // an array rides.
+    const need =
+      ask.tasks > 1
+        ? `${gpusNeeded} GPUs at once (${ask.tasks} shards × ${ask.gpus})`
+        : `${gpusNeeded} GPU(s)`;
+    const pinnedRow = pinnedNode ? nodes.find((n) => n.node === pinnedNode) : undefined;
+    if (pinnedRow) {
+      if (gpusNeeded <= 0) {
+        const cpus = nodeFreeCpus(pinnedRow);
+        return cpus > 0
+          ? {
+              tone: "enough" as const,
+              text: `Your ask: CPU only — pinned to ${pinnedRow.node}, ${cpus.toLocaleString()} cores free there.`,
+            }
+          : {
+              tone: "tight" as const,
+              text: `Your ask: CPU only — pinned to ${pinnedRow.node}, but no cores are free there; the job will queue.`,
+            };
+      }
+      if (pinnedRow.gpuTotal === 0) {
+        return {
+          tone: "tight" as const,
+          text: `Your ask: ${need} pinned to ${pinnedRow.node} — that node reports NO GPUs (Gres lists none); pick a different node.`,
+        };
+      }
+      const free = nodeFreeGpus(pinnedRow);
+      return free >= gpusNeeded
+        ? {
+            tone: "enough" as const,
+            text: `Your ask: ${need} pinned to ${pinnedRow.node} — ${free} free there now.`,
+          }
+        : {
+            tone: "tight" as const,
+            text: `Your ask: ${need} pinned to ${pinnedRow.node} — only ${free} free there; the job will queue until GPUs release.`,
+          };
+    }
     const target = partition
       ? nodes.filter((n) => n.partitions.includes(partition))
       : nodes;
@@ -214,7 +287,10 @@ export function ClusterUsagePanel({
           tone: "tight" as const,
           text: `Your ask: ${ask.gpus} GPU(s) on ${where} — only ${singleNodeFree} free on ${bestNode.node}; the job will queue until GPUs release.`,
         };
-  }, [nodes, partition, ask]);
+    // t332 — pinnedNode rides the deps: the pinned branch must re-scope
+    // the moment the pick lands (a memo that ignores its own input is a
+    // stale lie — caught browser-live)
+  }, [nodes, partition, ask, pinnedNode]);
 
   return (
     <div className="space-y-2" data-cluster-usage-panel="">
@@ -248,6 +324,17 @@ export function ClusterUsagePanel({
         </span>
       </div>
 
+      {/* t332 — the picking hint: the rows are picks when the caller
+          wires onPickNode (the run dialog); read-only callers see no
+          affordance that would lie. */}
+      {onPickNode && !loading && data?.ok && nodes.length > 0 ? (
+        <p className="px-1 text-[10px] leading-snug text-muted-foreground/85" data-usage-pick-hint="">
+          Click a node to pin this submission to it — the sbatch lands{" "}
+          <span className="font-mono">--nodelist</span> on that node; click the pinned row
+          again to release.
+        </p>
+      ) : null}
+
       {loading ? (
         <div className="space-y-1.5 rounded-md border bg-muted/20 p-2.5" aria-label="Loading node usage">
           {[0, 1, 2].map((i) => (
@@ -277,6 +364,12 @@ export function ClusterUsagePanel({
             const cFree = nodeFreeCpus(n);
             const isTarget =
               partition != null && n.partitions.includes(partition);
+            // t332 — the pick state: pinned (the sbatch's --nodelist),
+            // pickable (an available node + a wired picker), or honestly
+            // refused (DRAIN/DOWN… never composes a doomed sbatch)
+            const pinned = pinnedNode === n.node;
+            const unavailable = nodeUnavailable({ state: n.state });
+            const pickable = !!onPickNode && !unavailable;
             const gTone =
               n.gpuTotal === 0
                 ? "neutral"
@@ -285,19 +378,48 @@ export function ClusterUsagePanel({
                   : ask.gpus > 0 && gFree < ask.gpus * Math.max(1, ask.tasks)
                     ? "tight"
                     : "enough";
+            const pickLabel = n.gpuTotal > 0
+              ? `${n.node}: ${gFree}/${n.gpuTotal} GPUs free — pin this submission to it`
+              : `${n.node}: ${cFree}/${n.cpuTotal} CPUs free, no GPUs — pin this submission to it`;
             return (
-              <div
-                key={n.node}
-                role="listitem"
-                data-usage-node={n.node}
-                className={cn(
-                  "rounded-md border bg-background/60 px-2.5 py-2",
-                  isTarget && "border-primary/50 ring-1 ring-primary/25"
-                )}
-              >
+              <div key={n.node} role="listitem" data-usage-node={n.node}>
+                {/* t332 — the row is a real button when picking is wired:
+                    keyboard + focus + aria-pressed come native; the whole
+                    occupancy block stays visible inside it. */}
+                <button
+                  type="button"
+                  onClick={pickable ? () => onPickNode?.(pinned ? null : n) : undefined}
+                  disabled={!pickable}
+                  aria-pressed={pinned}
+                  aria-label={pickLabel}
+                  title={
+                    pinned
+                      ? `Pinned — click to release (--nodelist=${n.node})`
+                      : pickable
+                        ? `Submit to this node (--nodelist=${n.node})`
+                        : `${n.state} — not taking jobs right now`
+                  }
+                  className={cn(
+                    "w-full rounded-md border bg-background/60 px-2.5 py-2 text-left transition-colors",
+                    pickable &&
+                      "cursor-pointer hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    !pickable && "cursor-not-allowed opacity-70",
+                    pinned
+                      ? "border-primary bg-primary/[0.05] ring-1 ring-primary/30"
+                      : isTarget && "border-primary/50 ring-1 ring-primary/25"
+                  )}
+                >
                 <div className="flex items-center justify-between gap-2">
                   <span className="flex min-w-0 items-center gap-1.5">
-                    <span className="truncate font-mono text-[11px] font-semibold text-foreground/90">
+                    {pinned ? (
+                      <MapPin className="size-3 shrink-0 text-primary" aria-hidden="true" />
+                    ) : null}
+                    <span
+                      className={cn(
+                        "truncate font-mono text-[11px] font-semibold",
+                        pinned ? "text-primary" : "text-foreground/90"
+                      )}
+                    >
                       {n.node}
                     </span>
                     {n.partitions.slice(0, 2).map((p) => (
@@ -365,6 +487,7 @@ export function ClusterUsagePanel({
                     </span>
                   </div>
                 )}
+                </button>
               </div>
             );
           })}

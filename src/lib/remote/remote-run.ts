@@ -790,7 +790,16 @@ function buildSbatchScript(args: {
   note?: string | null;
 }): string {
   const { conn, module: moduleName, relionHome, ctffind, command, gpus, ntasks, threads, jobName, remoteProjectRoot, remoteWorkdir, partition, nodelist, dependency, array, note } = args;
-  const effectivePartition = partition ?? conn.slurmPartition ?? null;
+  // t332 — an explicit node pin with NO picked partition speaks for
+  // itself: the connection's default partition must not ride along (a
+  // --partition=normal + --nodelist=brain3 combo is REFUSED at submit
+  // time on real controllers — the node lives in brain, not normal). The
+  // node's own partition is where it lands; --nodelist alone says exactly
+  // that. This arm is only reachable for the EXPLICIT pin: the t300
+  // derivation only fires when a partition was picked, so `partition` is
+  // non-null there and the suppression never engages.
+  const effectivePartition =
+    nodelist && partition == null ? null : (partition ?? conn.slurmPartition ?? null);
   const L: string[] = [];
   L.push("#!/bin/bash");
   L.push("# CryoFlow Slurm submission — generated locally, submitted on the cluster");
@@ -1246,10 +1255,24 @@ export async function startRemoteJob(args: {
   // the pin rides ONLY a hostname-shaped single host (expandHostlist's
   // grammar cannot emit metacharacters, but the second gate is cheap and
   // #SBATCH --nodelist is a shell-facing line like --partition)
-  const nodelistPin =
+  const derivedNodePin =
     partitionHosts && partitionHosts.length === 1 && /^[A-Za-z0-9_.-]{1,64}$/.test(partitionHosts[0])
       ? partitionHosts[0]
       : null;
+  // t332 — the user's OWN node pick, straight from the live usage list
+  // (the run dialog's ClusterUsagePanel rows): an explicit --nodelist that
+  // rides even when the node sits in a MULTI-host group ("node03" out of
+  // gpu's eight — the t300 derivation could never express that). Validated
+  // like partition (a hostname is the same charset); anything else degrades
+  // to the derived pin. The explicit pick WINS over the derivation — the
+  // user's later, more specific choice speaks.
+  const explicitNode =
+    isSlurm &&
+    typeof target.nodelist === "string" &&
+    /^[A-Za-z0-9_.-]{1,64}$/.test(target.nodelist)
+      ? target.nodelist
+      : null;
+  const nodelistPin = explicitNode ?? derivedNodePin;
 
   if (NATIVE_TYPES.has(job.type)) {
     return fail(

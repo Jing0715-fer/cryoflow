@@ -19,12 +19,16 @@
 # answering for the older suites' shapes.
 #
 # LIVE jobs ride on top — t327's honesty leg: every RUNNING sbatch job's
-# request (journal ~/.slurm/job-<id>.req, "partition|gres|ntasks|conc",
+# request (journal ~/.slurm/job-<id>.req, "partition|gres|ntasks|conc|node",
 # written by the mock sbatch at submit) is added onto its partition's
 # node, so a dispatched class2d @ gpus:3 on brain2 shows as 4/8 GPUs used
 # while it runs — exactly what real scontrol says while a job holds the
 # GRES. PENDING jobs hold nothing (they wait, they do not allocate), and
 # finished jobs' journal rows go silent with their .state file.
+# t332 — the journal's 5th field (the explicit --nodelist pick from the
+# run dialog's usage list) WINS over the partition mapping: the job holds
+# on THAT node, wherever its partition would have routed it — the exact
+# accounting a pinned sbatch deserves.
 set -u
 SLURM_DIR="$HOME/.slurm"
 
@@ -100,7 +104,10 @@ for pidfile in "$SLURM_DIR"/job-*.pid; do
   rgres="$(echo "$req" | cut -d'|' -f2)"; rgres="${rgres:-0}"
   rtask="$(echo "$req" | cut -d'|' -f3)"; rtask="${rtask:-1}"
   rconc="$(echo "$req" | cut -d'|' -f4)"; rconc="${rconc:-1}"
-  node="$(part_node "$rpart")"
+  rnode="$(echo "$req" | cut -d'|' -f5)"
+  # t332 — the explicit node pick wins; the partition mapping stands only
+  # without one
+  if [ -n "$rnode" ]; then node="$rnode"; else node="$(part_node "$rpart")"; fi
   [ -n "$node" ] || continue
   LIVE_CPU[$node]=$(( ${LIVE_CPU[$node]:-0} + rtask * rconc ))
   LIVE_GPU[$node]=$(( ${LIVE_GPU[$node]:-0} + rgres * rconc ))

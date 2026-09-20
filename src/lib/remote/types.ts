@@ -231,6 +231,17 @@ export interface RemoteRunTarget {
    */
   partition?: string | null;
   /**
+   * t332 — the exact NODE this sbatch pins (`--nodelist`), picked straight
+   * from the live usage list (the run dialog's ClusterUsagePanel rows).
+   * Unlike the t300 derivation (single-host partitions pin themselves),
+   * this is the USER's own node choice and rides even when the node sits
+   * in a multi-host group — "node03" out of gpu's eight, which a partition
+   * pick could never express. null/absent = the t300 derivation applies.
+   * Only meaningful in slurm mode; sanitized server-side like partition
+   * (a hostname is the same charset, [A-Za-z0-9_.-], ≤64).
+   */
+  nodelist?: string | null;
+  /**
    * t306/t307 — the array split for data-parallel types: ONE sbatch carrying
    * `--array=1-N%M`, each task slicing the input STAR by
    * SLURM_ARRAY_TASK_ID, the last task home merging the shards back into the

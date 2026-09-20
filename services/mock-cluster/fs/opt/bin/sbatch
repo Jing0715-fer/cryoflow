@@ -69,12 +69,19 @@ conc="$(grep -m1 -oP '#SBATCH --array=1-[0-9]+%\K[0-9]+' "$script" || true)"
 # node's GPU count gets the sibling refusal (same "node configuration"
 # verdict, no memory line).
 partition="$(grep -m1 -oP '(?<=#SBATCH --partition=).*' "$script" || true)"
+# t332 — the explicit node pin (the run dialog's usage-list pick): rides
+# the journal's 5th field so scontrol accounts the job on THAT node,
+# wherever the partition mapping would have put it
+node_req="$(grep -m1 -oP '(?<=#SBATCH --nodelist=).*' "$script" || true)"
 mem_req="$(grep -m1 -oP '(?<=#SBATCH --mem=)\d+' "$script" || true)"
 gres_req="$(grep -m1 -oP '(?<=#SBATCH --gres=gpu:)\d+' "$script" || true)"
 # t327 — the request journal for scontrol's LIVE usage accounting: what
 # this job holds while it runs (ntasks CPUs · gres GPUs · the array's
 # effective concurrency). scontrol adds RUNNING jobs onto their
 # partition's node — the show_free_gpu.sh the dialog renders.
+# t332 — the journal grew a 5th field, the explicit --nodelist pick
+# (empty = the partition's own node, the t327 shape); scontrol prefers
+# it when present.
 ntasks_req="$(grep -m1 -oP '(?<=#SBATCH --ntasks=)\d+' "$script" || true)"
 conc_eff=1
 if [ -n "$arr" ]; then
@@ -118,9 +125,10 @@ mkdir -p "$(dirname "$out")" "$(dirname "$err")" 2>/dev/null || true
 # PENDING marker: squeue reports PENDING until the launcher flips it
 touch "$SLURM_DIR/job-$id.state"
 echo "PENDING" > "$SLURM_DIR/job-$id.state"
-# t327 — the request journal (partition|gres|ntasks|concurrency) scontrol
-# reads while this job RUNS; dead jobs go silent with their .state file
-printf '%s|%s|%s|%s\n' "${partition:-}" "${gres_req:-0}" "${ntasks_req:-1}" "$conc_eff" > "$SLURM_DIR/job-$id.req"
+# t327 — the request journal (partition|gres|ntasks|concurrency|node — the
+# 5th is t332's explicit --nodelist pick) scontrol reads while this job
+# RUNS; dead jobs go silent with their .state file
+printf '%s|%s|%s|%s|%s\n' "${partition:-}" "${gres_req:-0}" "${ntasks_req:-1}" "$conc_eff" "${node_req:-}" > "$SLURM_DIR/job-$id.req"
 
 launcher="$SLURM_DIR/.launch-$id.sh"
 cat > "$launcher" <<EOF

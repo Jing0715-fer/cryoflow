@@ -61,6 +61,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { slurmWidthFor } from "@/lib/hpc/gpu-width";
+import type { SlurmNodeUsage } from "@/lib/hpc/slurm-usage";
 import {
   ChevronRight, HardDriveDownload, Loader2, Minus, Network, Package, Play, Plus, Server, Terminal, Upload,
 } from "lucide-react";
@@ -155,6 +156,11 @@ export function RemoteRunButton({
   // t300 — the detected node group (Slurm partition) this sbatch pins;
   // "__auto__" = the scheduler picks (falls back to the connection default)
   const [partition, setPartition] = React.useState<string>(PARTITION_AUTO);
+  // t332 — the node picked straight from the live usage list (the panel's
+  // rows): an explicit --nodelist that survives multi-host groups. The
+  // full usage row is kept (its gpuTotal caps the stepper); null = no pin
+  // (the t300 single-host derivation applies).
+  const [pickedNode, setPickedNode] = React.useState<SlurmNodeUsage | null>(null);
   // t306 — the array split (1 = off — the single-job contract; 2..64 shards
   // ride --array=1-N%4). Defaults OFF: a re-run of an old job must submit
   // byte-identical scripts unless the user asks for the split.
@@ -219,13 +225,31 @@ export function RemoteRunButton({
     );
   }, [conn, partitionInventory]);
 
+  // t332 — a node pin belongs to ONE cluster's inventory: a different
+  // connection's nodes are a different world, and the pin must not
+  // survive the switch (the panel's rows re-fetch underneath it)
+  React.useEffect(() => {
+    setPickedNode(null);
+  }, [conn?.id]);
+
   // t300 — the GPU width's ceiling: the SELECTED node group's per-node
   // GPUs (sinfo), falling back to the widest partition the probe saw, else 8.
+  // t332 — a node PINNED from the usage list caps the stepper with THAT
+  // node's own GPUs (scontrol's word — a 6-GPU node cannot honor
+  // --gres=gpu:8 however wide its partition's other machines are; a
+  // 0-GPU node keeps the old ceiling and lets the ask line name the
+  // contradiction instead).
   const selectedGroup =
     partition === PARTITION_AUTO ? null : partitionInventory.find((p) => p.partition === partition) ?? null;
+  const nodePin = pickedNode?.node ?? null;
   const maxGpus = Math.max(
     1,
-    Math.min(8, selectedGroup?.gpusPerNode ?? partitionInventory[0]?.gpusPerNode ?? 8)
+    Math.min(
+      8,
+      pickedNode && pickedNode.gpuTotal > 0
+        ? pickedNode.gpuTotal
+        : (selectedGroup?.gpusPerNode ?? partitionInventory[0]?.gpusPerNode ?? 8)
+    )
   );
   // clamping the pick when the partition changes (a 5-GPU partition cannot
   // honor a 6-GPU request — the stepper must not offer it)
@@ -270,8 +294,16 @@ export function RemoteRunButton({
   // t326 — the submission preview's partition: the picked group, else the
   // connection's pinned default (exactly what the dispatch's
   // effectivePartition resolves to — the preview never invents a flag).
+  // t332 — an explicit node pin speaks for itself: the connection's
+  // default partition must not ride along (the engine suppresses it the
+  // same way — a --partition=normal + --nodelist=brain3 combo is refused
+  // at submit time; the node's own partition is where it lands).
   const previewPartition =
-    partition !== PARTITION_AUTO ? partition : (conn?.slurmPartition ?? null);
+    partition !== PARTITION_AUTO
+      ? partition
+      : nodePin
+        ? null
+        : (conn?.slurmPartition ?? null);
 
   // t326 — the sbatch directives these knobs produce. Every entry here is
   // one the dispatch's script builder actually writes (remote-run.ts):
@@ -281,7 +313,11 @@ export function RemoteRunButton({
   const sbatchDirectives: string[] = [];
   if (mode === "slurm") {
     if (previewPartition) sbatchDirectives.push(`--partition=${previewPartition}`);
-    if (selectedGroup && selectedGroup.hosts?.length === 1)
+    // t332 — the explicit node pick (the usage list's rows) pins the node
+    // outright; the t300 single-host group derivation stands only without
+    // one — the user's later, more specific choice speaks
+    if (nodePin) sbatchDirectives.push(`--nodelist=${nodePin}`);
+    else if (selectedGroup && selectedGroup.hosts?.length === 1)
       sbatchDirectives.push(`--nodelist=${selectedGroup.hosts[0]}`);
     if (logPick) sbatchDirectives.push("--ntasks=1");
     else if (widthIsReal) {
@@ -381,6 +417,8 @@ export function RemoteRunButton({
               // (the dispatch sizes those by its own strategy).
               ...(logPick || !widthIsReal ? (widthTruth.gpus === 1 ? { gpus: 1 } : {}) : { gpus }),
               ...(partition !== PARTITION_AUTO ? { partition } : {}),
+              // t332 — the explicit node pick from the live usage list
+              ...(nodePin ? { nodelist: nodePin } : {}),
               ...(arrayEligible && shards >= 2 ? { shards: Math.min(ARRAY_MAX_SHARDS, shards) } : {}),
             }
           : {}),
@@ -696,6 +734,8 @@ export function RemoteRunButton({
                         Detected node groups from this cluster&apos;s sinfo — the pick lands the job there
                         ({"--partition"}
                         {selectedGroup && selectedGroup.hosts?.length === 1 ? ", --nodelist pins the node" : ""}).
+                        Or click a node in the live usage list below to pin that exact node — even one
+                        node inside a multi-host group.
                       </p>
                     </div>
                   ) : null}
@@ -704,12 +744,17 @@ export function RemoteRunButton({
                       promoted into the submit path): per-node GPU/CPU totals
                       vs AllocTRES, from scontrol over SSH. Informational —
                       it never gates the Send button. Sits under the
-                      partition picker it informs. */}
+                      partition picker it informs.
+                      t332 — the rows are PICKS: clicking one pins the
+                      submission to that node (--nodelist), the pick this
+                      dialog's partition dropdown could never express. */}
                   {conn ? (
                     <ClusterUsagePanel
                       connectionId={conn.id}
                       partition={partition === PARTITION_AUTO ? null : partition}
                       ask={usageAsk}
+                      pinnedNode={nodePin}
+                      onPickNode={setPickedNode}
                     />
                   ) : null}
 
