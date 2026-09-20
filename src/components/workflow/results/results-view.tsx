@@ -15,6 +15,7 @@ import {
   AlertTriangle,
   Box,
   Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Cloud,
@@ -66,6 +67,7 @@ import {
   type TopazSnapshotEpoch,
 } from "@/lib/report-snapshots";
 import type { JobDTO } from "@/lib/types";
+import type { OutputSummary, SummaryStat } from "@/lib/relion/output-summary";
 import { cn } from "@/lib/utils";
 import { FscChart } from "./fsc-chart";
 import { TopazTrainingChart } from "./topaz-training-chart";
@@ -112,7 +114,22 @@ interface OutputsResponse {
   workdir: string | null;
   engine: "relion";
   files: OutputFile[];
+  /** t330 — per-type key numbers (particles above all); null when this
+   *  listing yields no honest count */
+  summary?: OutputSummary | null;
+  /** t330 — WARNING lines from run.out (deduped, capped) */
+  warnings?: string[];
   note?: string;
+}
+
+/** t330 — the load failure carries its own diagnosis: which LAYER failed
+ *  (record gone / server error / route unreachable / network), so the card
+ *  can say what to do instead of a bare "HTTP 404" the user reads as a
+ *  broken cluster. The raw detail rides along as the secondary line. */
+interface LoadError {
+  friendly: string;
+  raw: string;
+  kind: "gone" | "server" | "route" | "network";
 }
 
 /* ------------------------------------------------------------------ */
@@ -164,7 +181,7 @@ export function mapSourceNote(mapPath: string): { kind: "crop" | "standalone"; l
 export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: number }) {
   const [data, setData] = useState<OutputsResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<LoadError | null>(null);
 
   const [imageFile, setImageFile] = useState<OutputFile | null>(null);
   /** t286 — the quick-look dialog's display window: the histogram strip
@@ -192,23 +209,76 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
   const [molTarget, setMolTarget] = useState<MolViewerTarget | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  /** one automatic retry per failure run — a dev-server HMR blip or a
+   *  mid-restart 404 recovers without the user ever seeing the card; a
+   * "record gone" verdict never retries (it would say the same thing) */
+  const retriedRef = useRef(false);
+
+  const loadOnce = useCallback(async (): Promise<"ok" | LoadError> => {
     try {
       const res = await fetch(`/api/jobs/${job.id}/outputs`, { cache: "no-store" });
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { error?: string } | null;
-        throw new Error(body?.error ?? `HTTP ${res.status}`);
+        const raw = body?.error ?? `HTTP ${res.status}`;
+        if (body?.error === "Job not found") {
+          return {
+            kind: "gone",
+            raw,
+            friendly:
+              "This job's record is no longer in the app's database — the canvas may be showing a stale view. Close this inspector and reload the page.",
+          };
+        }
+        if (res.status >= 500) {
+          return {
+            kind: "server",
+            raw,
+            friendly:
+              "The app server hit an internal error while listing outputs — check the server console; a retry may succeed.",
+          };
+        }
+        if (res.status === 404) {
+          return {
+            kind: "route",
+            raw,
+            friendly:
+              "The app server answered 404 for the outputs route — it may be mid-restart or running a stale build. Retry, then reload the page (and after a git pull: install + rebuild before starting).",
+          };
+        }
+        return {
+          kind: "route",
+          raw,
+          friendly: "The outputs listing failed to load.",
+        };
       }
       setData((await res.json()) as OutputsResponse);
+      return "ok";
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load outputs");
-      setData(null);
-    } finally {
-      setLoading(false);
+      return {
+        kind: "network",
+        raw: err instanceof Error ? err.message : String(err),
+        friendly:
+          "The app server did not answer — is it still running? (This listing reads the job's local workdir; the cluster connection is not involved.)",
+      };
     }
   }, [job.id]);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    let r = await loadOnce();
+    if (r !== "ok" && r.kind !== "gone" && !retriedRef.current) {
+      retriedRef.current = true;
+      // brief pause — an HMR/restart blip needs a beat to come back
+      await new Promise((res) => setTimeout(res, 1200));
+      r = await loadOnce();
+    }
+    if (r === "ok") {
+      retriedRef.current = false; // success re-arms the one-shot retry
+    } else {
+      setError(r);
+    }
+    setLoading(false);
+  }, [loadOnce]);
 
   useEffect(() => {
     void load();
@@ -643,6 +713,28 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
         "",
         job.result ?? "No summary line recorded.",
         "",
+        // t330 — the key numbers and warnings from the on-screen listing
+        // ride the report: a reader of the paper trail sees the particle
+        // count and the amber warnings without opening the app.
+        ...(data?.summary && data.summary.stats.length > 0
+          ? [
+              "**Key numbers**",
+              "",
+              ...data.summary.stats.map((s) => `- ${s.label}: **${s.value}**`),
+              ...(data.summary.coverage?.note
+                ? [`- ⚠ ${data.summary.coverage.note}`]
+                : []),
+              "",
+            ]
+          : []),
+        ...(data?.warnings && data.warnings.length > 0
+          ? [
+              "**Run warnings**",
+              "",
+              ...data.warnings.map((w) => `- ⚠ \`${w}\``),
+              "",
+            ]
+          : []),
         "## Resolution",
         "",
         resLines.length > 0 ? resLines.map((l) => `- ${l}`).join("\n") : "_No resolution data available for this job._",
@@ -782,11 +874,34 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
 
   if (error) {
     return (
-      <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
-        <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-        <div>
-          <p className="font-medium">Could not load outputs</p>
-          <p className="text-destructive/80">{error}</p>
+      <div
+        data-outputs-error={error.kind}
+        className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-xs"
+      >
+        <div className="flex items-start gap-2 text-destructive">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          <div className="min-w-0 flex-1">
+            <p className="font-medium">Could not load outputs</p>
+            <p className="mt-0.5 leading-relaxed text-destructive/90">{error.friendly}</p>
+            <p className="mt-1 font-mono text-[10px] text-destructive/70">{error.raw}</p>
+            {error.kind !== "gone" && error.kind !== "network" && (
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                This listing reads the job's local workdir — the cluster connection is not involved.
+              </p>
+            )}
+          </div>
+        </div>
+        <div className="mt-2 pl-5">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void load()}
+            aria-busy={loading}
+            className="h-7 gap-1.5 px-2 text-[11px]"
+          >
+            <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} aria-hidden="true" />
+            Retry
+          </Button>
         </div>
       </div>
     );
@@ -863,6 +978,15 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
           </Button>
         </div>
       </div>
+
+      {/* t330 — the key numbers lead the Results view: particles above all
+          (the user's "这个信息很关键"), micrographs coverage beside them, the
+          amber completeness note when output didn't cover every micrograph. */}
+      {data.summary && <KeyNumbersStrip summary={data.summary} />}
+
+      {/* t330 — run.out warnings surfaced: the user saw "some warnings" in
+          Extract and had to read raw logs to know what they were. */}
+      {data.warnings && data.warnings.length > 0 && <WarningsCard warnings={data.warnings} />}
 
       {/* Import Map identity card — the map's own story (t256): size and
           spacing from the header, the density statistics the header
@@ -1822,6 +1946,104 @@ function RemoteFileTile({
         </a>
       </div>
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* t330 — key numbers strip + run warnings card                        */
+/* ------------------------------------------------------------------ */
+
+/** tone → value color: particles get the teal the maps speak, classes the
+ *  violet of STAR tables, incomplete coverage the amber of warnings */
+const STAT_TONE_CLASS: Record<string, string> = {
+  particle: "text-teal-600 dark:text-teal-300",
+  micrograph: "text-foreground",
+  class: "text-violet-600 dark:text-violet-300",
+  warn: "text-amber-600 dark:text-amber-300",
+};
+
+function KeyNumbersStrip({ summary }: { summary: OutputSummary }) {
+  if (summary.stats.length === 0) return null;
+  return (
+    <section
+      aria-label="Key numbers"
+      data-key-numbers=""
+      data-print-keep=""
+      className="flex flex-wrap gap-2"
+    >
+      {summary.stats.map((s: SummaryStat) => (
+        <div
+          key={s.key}
+          data-stat={s.key}
+          className="min-w-28 flex-1 rounded-lg border bg-card px-3 py-2.5"
+          title={s.hint}
+        >
+          <p
+            className={cn(
+              "text-xl font-bold leading-tight tabular-nums",
+              STAT_TONE_CLASS[s.tone ?? "micrograph"]
+            )}
+          >
+            {s.value}
+          </p>
+          <p className="mt-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+            {s.label}
+          </p>
+        </div>
+      ))}
+      {summary.coverage?.note && (
+        <p
+          data-coverage-note=""
+          className="flex w-full items-start gap-1.5 text-[11px] leading-relaxed text-amber-700 dark:text-amber-300"
+        >
+          <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" />
+          {summary.coverage.note}
+        </p>
+      )}
+    </section>
+  );
+}
+
+function WarningsCard({ warnings }: { warnings: string[] }) {
+  const [open, setOpen] = useState(true);
+  return (
+    <section
+      aria-label="Run warnings"
+      data-warnings-card=""
+      data-print-keep=""
+      className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-xs"
+    >
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-2 text-left"
+      >
+        <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+        <span className="font-medium text-amber-700 dark:text-amber-300">
+          {warnings.length} warning{warnings.length === 1 ? "" : "s"} in run.out
+        </span>
+        <ChevronDown
+          className={cn(
+            "ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform",
+            open && "rotate-180"
+          )}
+          aria-hidden="true"
+        />
+      </button>
+      {open && (
+        <ul className="mt-2 max-h-40 space-y-1 overflow-y-auto pr-1">
+          {warnings.map((w, i) => (
+            <li
+              key={i}
+              className="break-words rounded bg-amber-500/10 px-2 py-1 font-mono text-[10px] leading-relaxed text-amber-800 dark:text-amber-200"
+            >
+              {w}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 
