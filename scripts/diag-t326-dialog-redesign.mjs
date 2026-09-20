@@ -43,7 +43,7 @@ import { readFileSync } from "node:fs";
 import net from "node:net";
 import path from "node:path";
 
-const ROOT = "/home/z/my-project";
+const ROOT = "/home/z/cryoflow";
 const BASE = "http://localhost:3001";
 const CONN = "qa-t326";
 const SH = {
@@ -445,7 +445,7 @@ try {
       cwd: ROOT,
       encoding: "utf8",
       timeout: 60_000,
-      env: { ...process.env, DATABASE_URL: "file:/home/z/my-project/db/custom.db" },
+      env: { ...process.env, DATABASE_URL: "file:/home/z/cryoflow/db/cryoflow.db" },
     });
     return r.status === 0 ? r.stdout?.trim().split("\n").pop() : `UNIT-ERROR: ${(r.stderr ?? "").slice(0, 120)}`;
   };

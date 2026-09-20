@@ -8,6 +8,7 @@ import type { Job } from "@prisma/client";
 import { db } from "@/lib/db";
 import {
   getRun,
+  liveConnectionForHost,
   parseJobParams,
   runRealJob,
   isRunAlive,
@@ -319,9 +320,34 @@ export async function autoStartPendingDownstream(triggerJobId: string): Promise<
     // and every sweep retried the same ghost).
     const triggerRec = getRun(triggerJobId);
     const triggerConn = triggerRec?.remote ? getConnection(triggerRec.remote.connectionId) : null;
-    if (triggerRec?.remote && !triggerConn) {
+    // t328 — same-host passthrough recovery: the t325 doctrine ("the
+    // cluster is a HOST, not a connection id") applied to the TARGET door
+    // itself. Connection drift (delete + re-add the same cluster) used to
+    // strand the whole chain HERE: the record's connection id was dead,
+    // the passthrough dropped, and — with a stale project binding — every
+    // ~20s heartbeat dispatched downstream LOCALLY over inputs that only
+    // exist on the cluster, rewriting the registry-stale waiting message
+    // forever with zero probes fired (the field receipt: "waiting as
+    // pending", no clicks, no progress, no new information). A LIVE
+    // profile for the record's host:port keeps the wire alive — the files
+    // sit on that very host, so the consumer dispatches there and chains
+    // off them in place. Ranking stays: the trigger's own connection
+    // first, the same-host recovery second (the record's cluster identity
+    // beats the project's preference — the twins and workdirs live
+    // THERE), the project binding third, local only when nothing speaks.
+    const hostConn =
+      triggerRec?.remote && !triggerConn
+        ? liveConnectionForHost(triggerRec.remote.host)
+        : null;
+    const passthroughConn = triggerConn ?? hostConn;
+    if (triggerRec?.remote && !triggerConn && hostConn) {
+      console.log(
+        `dispatch: remote passthrough recovered a live same-host connection ("${hostConn.name}") for "${trigger.name}" — its recorded profile "${triggerRec.remote.connectionName}" is gone, the cluster itself is not (t328)`
+      );
+    }
+    if (triggerRec?.remote && !passthroughConn) {
       console.warn(
-        `dispatch: remote passthrough dropped for "${trigger.name}" — connection ${triggerRec.remote.connectionName} no longer exists (the project's binding takes over, or downstream runs locally)`
+        `dispatch: remote passthrough dropped for "${trigger.name}" — connection ${triggerRec.remote.connectionName} no longer exists and no live profile matches its host (the project's binding takes over, or downstream runs locally)`
       );
     }
     // t315 — the PROJECT binding is the SECOND source of remote-ness. The
@@ -342,7 +368,7 @@ export async function autoStartPendingDownstream(triggerJobId: string): Promise<
     // that ran at a chosen GPU width keeps that width), the project
     // binding second, local only when neither speaks.
     let projectFallback: RemoteRunTarget | null = null;
-    if (!triggerRec?.remote || !triggerConn) {
+    if (!triggerRec?.remote || !passthroughConn) {
       projectFallback = projectRemoteTarget(trigger.projectId);
       if (projectFallback) {
         const fallbackConn = getConnection(projectFallback.connectionId);
@@ -359,11 +385,21 @@ export async function autoStartPendingDownstream(triggerJobId: string): Promise<
       }
     }
     const remoteOpts: { remote?: RemoteRunTarget } =
-      triggerRec?.remote && triggerConn
+      triggerRec?.remote && passthroughConn
         ? {
             remote: {
-              connectionId: triggerRec.remote.connectionId,
-              module: triggerRec.remote.module || null,
+              // t328 — the LIVE connection's id (the record's own, or the
+              // same-host recovery's): never the dead id, so the dispatch's
+              // getConnection never lands on a ghost. Module: the record's
+              // own choice first (same cluster, same modules), then the
+              // recovered connection's defaults — startRemoteJob applies the
+              // same fallback internally, so this is one spelling, not two.
+              connectionId: passthroughConn.id,
+              module:
+                triggerRec.remote.module ||
+                passthroughConn.defaultModule ||
+                passthroughConn.lastProbe?.relionModules?.[0] ||
+                null,
               mode: triggerRec.remote.mode,
               // t297 — the sbatch GPU width rides the passthrough too: a
               // remote pipeline stays remote at the width the user chose.

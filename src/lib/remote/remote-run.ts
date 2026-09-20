@@ -1155,6 +1155,13 @@ async function probeRemoteOutputs(
               ...cur.remote,
               ...(foundAny ? { remoteOutputs: { ...(cur.remote.remoteOutputs ?? {}), ...twins } } : {}),
               outputProbeAt: Date.now(),
+              // t328 — WHAT the probe verified absent, per key: the pending
+              // dialect reports the outcome instead of re-promising a probe
+              // that already ran. Found keys leave the absent list (a later
+              // probe can still re-find what an earlier one missed).
+              outputProbeAbsent: foundAny
+                ? (cur.remote.outputProbeAbsent ?? []).filter((k) => !twins[k])
+                : missing,
             },
           }
         : null
@@ -1163,6 +1170,13 @@ async function probeRemoteOutputs(
   if (ran && Object.keys(twins).length > 0) {
     console.log(
       `remote-run: probed ${conn.host}:${r.remoteWorkdir} — ${Object.keys(twins).join(", ")} verified on the cluster (t324)`
+    );
+  }
+  if (ran && Object.keys(twins).length === 0) {
+    // t328 — the honest negative gets a log line too: a field diagnosis
+    // reading "probed, not there" beats one where the probe is invisible.
+    console.log(
+      `remote-run: probed ${conn.host}:${r.remoteWorkdir} — ${missing.join(", ")} verified ABSENT on the cluster (t328)`
     );
   }
   return { probed: ran, twins };
@@ -1353,15 +1367,32 @@ export async function startRemoteJob(args: {
       console.log(
         `remote-run: probing ${healable.length} upstream record(s) on ${conn.host} for outputs the sync-back left behind (t324 heal)`
       );
+      // t328 — probe outcomes are INFORMATION the waiting message owes the
+      // user: a probe that ran and found nothing is now persisted on the
+      // record (outputProbeAbsent) and the engine's dialect reports it; but
+      // a probe that could not RUN at all (SSH blip, unenterable workdir)
+      // leaves no stamp and no trace — without this flag the row would keep
+      // saying "the dispatch probes the upstream's workdir" as if the probe
+      // had never happened, the exact zero-new-information loop the field
+      // receipt carried for days.
+      let probeUnreachable = false;
       for (const u of healable) {
         const st = runsNow[u.id];
-        if (st) await probeRemoteOutputs(conn, st);
+        if (!st) continue;
+        const pr = await probeRemoteOutputs(conn, st);
+        if (!pr.probed) probeUnreachable = true;
       }
       resolved = resolveInputs(job.type, upstream, params, {
         remote: true,
         connectionId: target.connectionId,
         host: connHostPort,
       });
+      if (resolved.missing && probeUnreachable) {
+        resolved = {
+          ...resolved,
+          missing: `${resolved.missing} — the cluster could not be reached to check just now; the retry heartbeat tries again by itself`,
+        };
+      }
     }
   }
   if (resolved.missing) {
@@ -2950,13 +2981,23 @@ async function finalizeRemoteRun(
   // the outputs appeared, they just stayed). One extra SSH round, only
   // when a key is genuinely missing.
   let outputProbedAt: number | undefined;
+  let outputProbeAbsent: string[] | undefined;
   let stayNote = "";
-  if (exitCode === 0 && missingRemoteOutputKeys(job.type, outputs, remoteOutputs).length > 0) {
+  const finalizeMissing = missingRemoteOutputKeys(job.type, outputs, remoteOutputs);
+  if (exitCode === 0 && finalizeMissing.length > 0) {
     const probe = await probeRemoteOutputs(conn, rec, { outputs, persist: false });
     for (const [k, v] of Object.entries(probe.twins)) {
       if (!remoteOutputs[k]) remoteOutputs[k] = v;
     }
-    if (probe.probed) outputProbedAt = Date.now();
+    if (probe.probed) {
+      outputProbedAt = Date.now();
+      // t328 — the same verdict the lazy heal persists: keys this probe
+      // checked and did NOT find, so a downstream consumer's waiting
+      // message can say "checked, not there" instead of re-promising the
+      // probe (the finalize leg is the FIRST probe a record ever gets —
+      // its negative is exactly the one the dialect must own up to).
+      outputProbeAbsent = finalizeMissing.filter((k) => !remoteOutputs[k]);
+    }
     // keys whose ONLY account is the verified cluster twin (the local
     // sync-back left them behind) — the receipt must say so
     const remoteOnly = Object.keys(remoteOutputs)
@@ -2987,7 +3028,9 @@ async function finalizeRemoteRun(
           remote: {
             ...cur.remote,
             remoteOutputs,
-            ...(outputProbedAt != null ? { outputProbeAt: outputProbedAt } : {}),
+            ...(outputProbedAt != null
+              ? { outputProbeAt: outputProbedAt, outputProbeAbsent: outputProbeAbsent ?? [] }
+              : {}),
             syncedFiles: sync.files,
             syncedBytes: sync.bytes,
             skippedFiles: sync.skipped.slice(0, 50),

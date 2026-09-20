@@ -425,11 +425,11 @@ console.log("CFUNIT" + JSON.stringify(out));
       "the LOST-EDGE dialect: an empty lineage speaks 'connect one' instead of the auto-start promise"
     );
     must(
-      /completed on the cluster, but where its particles\.star lives is not on record/.test(
+      /completed on the cluster \(h\), but where its particles\.star lives is not on record/.test(
         String(unit.registryStale?.missing)
       ) &&
-        /send this job to the cluster/.test(String(unit.registryStale?.missing)),
-      "the REGISTRY-STALE dialect: a completed remote run with an unaccounted key points at the cluster door"
+        /connect a cluster profile for h/.test(String(unit.registryStale?.missing)),
+      "the REGISTRY-STALE dialect (LOCAL lane, NO live route): a completed remote run with an unaccounted key names the host and the door — t328 retired the local lane's 'send this job to the cluster' click-imperative (a promise that lane never kept)"
     );
     must(
       String(unit.base?.missing) ===
@@ -450,7 +450,7 @@ console.log("CFUNIT" + JSON.stringify(out));
       "t325-a (M1): a candidate-LESS provider type (select) keeps the generic message — the registry-stale dialect never promises a probe the heal cannot deliver"
     );
     must(
-      /completed on the cluster, but where its particles\.star lives is not on record/.test(
+      /completed on the cluster \(h\), but where its particles\.star lives is not on record/.test(
         String(unit.registryStaleGhostFile?.missing)
       ),
       "t325-a (N1): a RECORDED-but-deleted local copy counts as unaccounted (existsSync-aware — the message and the heal's worklist agree)"
@@ -617,8 +617,8 @@ console.log("CFSC" + JSON.stringify({ edges: (parsed.edges ?? []).map((e) => e.i
   const msgCls = String(pendCls.body?.job?.result ?? pendCls.body?.error ?? "");
   must(
     /completed on the cluster, but where its particles\.star lives is not on record/.test(msgCls) &&
-      /send this job to the cluster/.test(msgCls),
-    "the local door speaks the registry-stale dialect (no 'run Extract first' over a succeeded run)"
+      /starts by itself on 127\.0\.0\.1 on the next retry heartbeat/.test(msgCls),
+    "the local door speaks the registry-stale dialect — t328: a LIVE profile reaches the record's host, so the promise is the HEARTBEAT's own dispatch (no 'run Extract first' lie, no click-imperative either)"
   );
   must(
     !/Waiting for upstream output: particles\.star \(run Extract first\)/.test(msgCls),
@@ -660,13 +660,9 @@ console.log("CFSC" + JSON.stringify({ edges: (parsed.edges ?? []).map((e) => e.i
   // the server's own log tells the same story
   const log = logSince();
   must(
-    /remote passthrough dropped for "QA t325 extract" — connection QA t325 A \(original\) no longer exists/.test(log),
-    "the server log witnessed the drift (the passthrough drop names the dead connection)"
-  );
-  must(
-    /falls back to project binding for "QA t325 extract"/.test(log) &&
-      /downstream dispatches to 127\.0\.0\.1/.test(log),
-    "the server log witnessed the project-binding fallback (the re-created connection took over)"
+    /remote passthrough recovered a live same-host connection \("QA t325 B \(re-created\)"\) for "QA t325 extract"/.test(log) &&
+      /its recorded profile "QA t325 A \(original\)" is gone, the cluster itself is not \(t328\)/.test(log),
+    "t328: the server log witnessed the SAME-HOST PASSTHROUGH RECOVERY (the drift no longer drops the target — the wire outlives its mirror at the target door too)"
   );
   must(
     /probing 1 upstream record\(s\) on 127\.0\.0\.1 .*t324 heal/.test(log) &&

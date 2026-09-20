@@ -655,8 +655,8 @@ console.log("CFUNIT" + JSON.stringify(out));
   const msg3 = String(pend3.body?.job?.result ?? pend3.body?.error ?? "");
   must(
     msg3 ===
-      'Upstream "QA t324 extract B" completed on the cluster, but where its particles.star lives is not on record — send this job to the cluster (the dispatch probes the upstream\'s workdir there and chains off the copy in place), or re-run the upstream to refresh its record',
-    "the pre-t324 ledger pendings with the t325 registry-stale message (a completed remote run with an unaccounted key — no more 'run Extract first' lie)"
+      'Upstream "QA t324 extract B" completed on the cluster, but where its particles.star lives is not on record — this job starts by itself on 127.0.0.1 on the next retry heartbeat (the upstream\'s workdir is probed there and the job chains off the copy in place); or re-run the upstream to refresh its record',
+    "the pre-t324 ledger pendings with the t325/t328 registry-stale message — a completed remote run with an unaccounted key, and since a LIVE profile reaches that host the LOCAL lane promises the heartbeat instead of a manual click (no more 'run Extract first' lie, no more click-imperative the app was about to make unasked)"
   );
 
   // the retry heartbeat: nobody dispatches this job again — the ~20s sweep
@@ -729,8 +729,9 @@ console.log("CFUNIT" + JSON.stringify(out));
     "the 'run Extract first' wording is GONE once the twin is known (extract already ran!)"
   );
   must(
-    /send this job to the cluster/.test(msg4) && /raise the connection's sync caps/.test(msg4),
-    "the honest message carries BOTH remediations (cluster door + sync caps)"
+    /starts by itself on 127\.0\.0\.1 on the next retry heartbeat/.test(msg4) &&
+      /raise the connection's sync caps/.test(msg4),
+    "the honest message carries BOTH remediations (the heartbeat's own cluster dispatch + the sync caps)"
   );
 
   // ======================================================================

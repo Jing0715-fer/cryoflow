@@ -38,11 +38,11 @@ import type { Job } from "@prisma/client";
 import { db } from "@/lib/db";
 import { DATA_DIR, RELION_DIR } from "@/lib/paths";
 import { getProjectMeta } from "@/lib/projects";
-import { getConnection } from "@/lib/remote/connections";
+import { getConnection, loadConnections } from "@/lib/remote/connections";
 import { remoteHeaderSniffer } from "@/lib/remote/sniff";
 import { listRemoteDir, REMOTE_IMPORT_MAX_ENTRIES, statRemoteFiles } from "@/lib/remote/remote-ls";
 import { exec as sshExec } from "@/lib/remote/ssh";
-import type { RemoteRunState } from "@/lib/remote/types";
+import type { RemoteConnection, RemoteRunState } from "@/lib/remote/types";
 import { readMrcHeader } from "@/lib/mrc";
 import { sniffImageFile, spreadSample, type HeaderSniffer, type SniffVerdict } from "./mrc-sniff";
 import { detectRelion, savedWslDistro } from "./system";
@@ -1099,6 +1099,27 @@ export function normalizeClusterHost(hostPort: string): string {
 }
 
 /**
+ * t328 — any LIVE connection whose host:port matches (normalized): the
+ * t325 doctrine ("the cluster is a HOST, not a connection id") at the
+ * registry level. The passthrough door (dispatch) and the pending
+ * dialects below both consult it — connection drift (delete + re-add the
+ * same cluster) must not strand a remote chain whose files sit on that
+ * very host. Newest profile wins (a re-created connection is the one
+ * with working auth). IP-vs-DNS aliases deliberately do not fold — the
+ * same fail-closed honesty as normalizeClusterHost.
+ */
+export function liveConnectionForHost(hostPort: string): RemoteConnection | null {
+  const want = normalizeClusterHost(hostPort);
+  if (!want) return null;
+  let found: RemoteConnection | null = null;
+  for (const c of loadConnections()) {
+    if (!c.host) continue;
+    if (normalizeClusterHost(`${c.host}:${c.port}`) === want) found = c;
+  }
+  return found;
+}
+
+/**
  * t325 — is the record's cluster the one this consumer targets? The bare
  * remote flavor (no connectionId) never gated; otherwise the record's
  * connection OR its host:port must match the target. Shared by
@@ -1155,12 +1176,17 @@ export function resolveInputs(
     // while the local copy is missing: the not-ready message must say WHERE
     // the file lives instead of pretending the upstream never ran.
     let stayedOnCluster: string | null = null;
+    // t328 — the provider's RECORD rides along (host, workdir, probe
+    // verdicts): the local-flavor dialects are route-aware and
+    // outcome-aware, and both need more than a display name.
+    let stayedOnClusterState: RunRecord | null = null;
     // t325 — a COMPLETED remote provider whose accepted keys are accounted
     // NOWHERE (not locally, no cluster twin): the run predates the
     // cluster-output registry. The old generic message told the user to
     // "run Extract first" over a run that had already succeeded — the exact
     // lie the t325 ticket carried for a second week.
     let registryStale: string | null = null;
+    let registryStaleState: RunRecord | null = null;
     for (const up of upstream) {
       if (!req.from.includes(up.type)) continue;
       const state = runs[up.id];
@@ -1185,7 +1211,10 @@ export function resolveInputs(
             resolved = twin;
             break;
           }
-          if (twin && stayedOnCluster == null) stayedOnCluster = up.name ?? up.type;
+          if (twin && stayedOnCluster == null) {
+            stayedOnCluster = up.name ?? up.type;
+            stayedOnClusterState = state;
+          }
         }
         if (resolved) break;
         // t325 — none of the accepted keys exist ANYWHERE on this completed
@@ -1215,6 +1244,7 @@ export function resolveInputs(
           )
         ) {
           registryStale = up.name ?? up.type;
+          registryStaleState = state;
         }
       }
       providers.push({ name: up.name ?? up.type, status: up.status ?? "idle" });
@@ -1269,9 +1299,26 @@ export function resolveInputs(
             wait: "not-ready",
           };
         }
+        // t328 — the local consumer's lane is ROUTE-AWARE: a live profile
+        // for the record's host means the retry heartbeat dispatches this
+        // job to that cluster BY ITSELF (the same-host passthrough
+        // recovery) and it chains off the cluster copy in place — the old
+        // "send this job to the cluster" imperative was a click the app
+        // was about to make unasked. No live route: name the door.
+        const shost = stayedOnClusterState?.remote?.host.split(":")[0] ?? "the cluster";
+        if (
+          stayedOnClusterState?.remote &&
+          liveConnectionForHost(stayedOnClusterState.remote.host)
+        ) {
+          return {
+            inputs: {},
+            missing: `Upstream "${stayedOnCluster}" completed on the cluster, but its ${what} stayed there (over the sync caps) — this job starts by itself on ${shost} on the next retry heartbeat (it chains off the cluster copy in place); raise the connection's sync caps and re-run the upstream to also bring the file home`,
+            wait: "not-ready",
+          };
+        }
         return {
           inputs: {},
-          missing: `Upstream "${stayedOnCluster}" completed on the cluster, but its ${what} stayed there (over the sync caps) — send this job to the cluster (it chains off the cluster copy in place), or raise the connection's sync caps and re-run the upstream to bring the file home`,
+          missing: `Upstream "${stayedOnCluster}" completed on the cluster, but its ${what} stayed there (over the sync caps) — connect a cluster profile for ${shost} (Remote cluster) so this job can chain off the cluster copy in place, or raise the sync caps and re-run the upstream to bring the file home`,
           wait: "not-ready",
         };
       }
@@ -1281,9 +1328,48 @@ export function resolveInputs(
       // that fixes it instead of "run Extract first".
       if (registryStale) {
         const what = req.label.replace(/\s*\(run [^)]*\)/, "").trim() || req.label;
+        const rhost = registryStaleState?.remote?.host.split(":")[0] ?? "the cluster";
+        // t328 — the probe ALREADY ran and verified the file absent on the
+        // cluster (outputProbeAbsent on the record): the honest ceiling is
+        // "the output is gone — re-run the upstream". Re-promising the
+        // probe ("the dispatch probes the upstream's workdir") over a
+        // verdict already in hand is the zero-new-information loop the
+        // field receipt carried for days: every heartbeat re-probes at the
+        // 10-minute cadence, rewrites the same message, and the user
+        // cannot tell "not there" from "never checked" from "cannot
+        // reach the cluster".
+        const absent = registryStaleState?.remote?.outputProbeAbsent ?? [];
+        if (absent.some((k) => req.accepts.includes(k))) {
+          return {
+            inputs: {},
+            missing: `Upstream "${registryStale}" completed on the cluster, but its ${what} is not in its workdir on ${rhost} either (checked there) — the output is genuinely gone; re-run the upstream to regenerate it`,
+            wait: "not-ready",
+          };
+        }
+        if (opts?.remote) {
+          return {
+            inputs: {},
+            missing: `Upstream "${registryStale}" completed on the cluster, but where its ${what} lives is not on record — send this job to the cluster (the dispatch probes the upstream's workdir there and chains off the copy in place), or re-run the upstream to refresh its record`,
+            wait: "not-ready",
+          };
+        }
+        // t328 — the LOCAL lane never probes anything (the lazy heal lives
+        // in the remote dispatch only): the old text's "send this job to
+        // the cluster (the dispatch probes…)" was a promise THIS code path
+        // cannot keep. Route-aware like the stay-behind lane below: a live
+        // profile for the record's host means the provider's own retry
+        // round recovers it and dispatches there by itself; no live route
+        // — name the door.
+        if (registryStaleState?.remote && liveConnectionForHost(registryStaleState.remote.host)) {
+          return {
+            inputs: {},
+            missing: `Upstream "${registryStale}" completed on the cluster, but where its ${what} lives is not on record — this job starts by itself on ${rhost} on the next retry heartbeat (the upstream's workdir is probed there and the job chains off the copy in place); or re-run the upstream to refresh its record`,
+            wait: "not-ready",
+          };
+        }
         return {
           inputs: {},
-          missing: `Upstream "${registryStale}" completed on the cluster, but where its ${what} lives is not on record — send this job to the cluster (the dispatch probes the upstream's workdir there and chains off the copy in place), or re-run the upstream to refresh its record`,
+          missing: `Upstream "${registryStale}" completed on the cluster (${rhost}), but where its ${what} lives is not on record — connect a cluster profile for ${rhost} (Remote cluster) and this job starts by itself there, or re-run the upstream to refresh its record`,
           wait: "not-ready",
         };
       }

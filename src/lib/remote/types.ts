@@ -336,6 +336,18 @@ export interface RemoteRunState {
    * are all accounted for (never probed — the worklist is empty).
    */
   outputProbeAt?: number;
+  /**
+   * t328 — output keys the last SUCCESSFUL probe verified ABSENT on the
+   * cluster (the workdir was entered, the candidate names/globs were
+   * checked, the files are not there). outputProbeAt alone cannot say this:
+   * its silence covers both "probed, nothing there" and "probed, found" —
+   * so the pending dialect kept re-promising "the dispatch probes the
+   * upstream's workdir" over a probe that had ALREADY run and come back
+   * empty (the field receipt: days of "waiting as pending" with zero new
+   * information per heartbeat). Per-key cleared when a later probe finds
+   * the file. Absent on records that were never probed.
+   */
+  outputProbeAbsent?: string[];
   /** Bytes + count pulled back to the local mirror at finalize. */
   syncedFiles?: number;
   syncedBytes?: number;
