@@ -321,7 +321,7 @@ try {
     const b = Buffer.alloc(1024);
     b.writeInt32LE(1024, 0);
     b.writeInt32LE(1024, 4);
-    b.writeInt32LE(1, 8);
+    b.writeInt32LE(4, 8); // NZ=4 — one section per referenced image (t338: the consumer gate refuses a star that outruns its stack)
     b.writeInt32LE(2, 12);
     b.writeInt32LE(1, 20);
     b.writeInt32LE(256, 44);

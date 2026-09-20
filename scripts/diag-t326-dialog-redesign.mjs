@@ -599,10 +599,22 @@ try {
   console.log("== PHASE C: THE REAL WIDTH — an MPI type at 3 GPUs (the user's own 2D Classification shape) ==");
 
   // the particles fixture: a star with absolute stack refs + the stack
-  // itself (the mock's refine audits every ref against its fs root)
+  // itself (the mock's refine audits every ref against its fs root).
+  // t338 — the stack's header must hold NZ=4: the star numbers images
+  // 1..4, and the dispatch's consumer-side consistency gate refuses a
+  // star that outruns its stacks (real relion_refine dies at image 2 of
+  // a 1-image stack — the fixture's old NZ=1 header was exactly that lie)
+  const stackHdr4 = (() => {
+    const b = Buffer.alloc(64);
+    b.writeInt32LE(1024, 0);
+    b.writeInt32LE(1024, 4);
+    b.writeInt32LE(4, 8); // NZ=4 — one section per referenced image
+    b.writeInt32LE(2, 12); // mode 2
+    return b.toString("base64");
+  })();
   const pfx = clientBoth(
     "mkdir -p /data2/t326-particles; " +
-      `echo ${mrcHdr} | base64 -d > /data2/t326-particles/stack.mrcs; ` +
+      `echo ${stackHdr4} | base64 -d > /data2/t326-particles/stack.mrcs; ` +
       "printf 'data_\\n\\nloop_\\n_rlnImageName #1\\n" +
       "0001@/data2/t326-particles/stack.mrcs\\n" +
       "0002@/data2/t326-particles/stack.mrcs\\n" +

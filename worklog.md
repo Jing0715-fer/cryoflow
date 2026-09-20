@@ -2838,3 +2838,25 @@ Work Log:
 
 Stage Summary:
 - 用户回执的「Requested node configuration is not available」对 app 自拼提交已源头灭绝：钉扎预检（节点自己的 scontrol 行）+ auto/连接默认分区钳制 + 0-GPU/未知/排空三类教学式拒绝 + 残路翻译（说出要了什么、教三步修法）；.bashrc line 35 是登录壳噪声、已按噪声标注（用户自己的 dotfiles 问题，值得顺手修掉但不影响提交）
+
+---
+Task ID: t338
+Agent: main-agent (Z.ai Code)
+Task: cryoflow 用户工单第八期(t338)——用户三报: ①「从节点使用情况处选择节点后，node框还是auto没有变化」 ②「extraction无法用GPU吗?」 ③2D 分类 readMRC "Image number 341 exceeds stack size 340" 段中途崩溃(log 如上); 修复后 push
+
+Work Log:
+- 诊断③(与 t334/t335 同族闭环): extract_ufh1hg0u 的 particles.star 引用 image 341 而栈只有 340——t334 碰撞的 SILENT 变体: 输入 star 同茎双行("X.mrc"+"X.mrcs" 同合成一个栈路径)两写者共写一栈, 后者首粒盲覆写截断前者, 合并 star 仍保留两者行号; extract 退出 0(毒无感知), relion_refine 消费侧 ~1 分钟即死。t334/t335 在 extract 派发侧拒此类输入, 但看不见「已完成却带毒」的旧输出(用户数据库现状)
+- 实现 C: src/lib/relion/particle-ref-gate.ts(纯模块, t326/t327 配方)——颗粒 star 消费者(class2d/class3d/refine3d/initialmodel/multibody/polish/ctfrefine/subtract/dynamight)派发前逐"N@path"引对栈自身 MRC 头核验(远程 lane 一次批量 SSH 每 ~192 栈; 本地 lane 本地读); 引用解析依 RELION 自身语法(绝对→项目根→star 目录, 首个存在者受审); 超界→REQUEST 拒绝带精确数字+机制+修法; 健康通过带回执 note(CRYOFLOW_NOTE 入 run.out); 不可验证(缺失/不可解析/.eer)降级 note 永不阻断(t313 保守主义); 违规按栈去重(341 行毒栈=一句谎说 341 次, 非 341 句谎)
+- 接线: remote-run.ts 网关块置于 upstreamRemoteTwins 图后(本地镜像 star 走 twin 拿集群侧目录; 集群独占 star 走 SSH cat——t335 闭环同款); note 链 ctffind→extract→particles 三门共存; engine.ts 本地 lane 同闸于 workdir mkdir 前
+- 实现 D: log-diagnosis 新 readmrc-exceeds-stack 模式——用户逐字 stderr 命中, 讲机制+指上游+说新门; t334 write-clash 模式零串扰
+- 实现 A(用户①): Node/partition 下拉与使用面板钉扎互相镜像——钉扎存活期间框显示「MapPin <node> — pinned from the live list(精确节点 --nodelist · 下方实时列表所选 · 此处选 Auto/分组即释放)」; 显式挑 Auto/分组释放钉扎(t332 mismatch guard 语义保持, 分组+钉扎组合态从 UI 消失——预览已同时展示两 chip)
+- 实现 B(用户②): extract 宽度框专属契约「0 × GPU — CPU-only extraction: relion_preprocess 无 GPU 代码路径(裁箱+归一化在 CPU), GPU 只会闲置还挤占分类作业; 速度旋钮是下方 Array split(N 个 CPU 分片并行)」
+- 顺手修两处存量: ①mock relion_preprocess 行号改每栈重置(真实 RELION 语法; 旧全局计数使第二栈起行号全超自身 nz——任何真实 RELION 不产出的方言, 新网关理所当然拒绝) ②engine.ts 本地 t335 帧栈普查块被括号嵌套滑进 t334 扫描的 catch 里(正常路径死代码)——移回教义位置
+- diag-t338-particle-ref-gate.mjs 67 断言全绿: UNIT(用户 341/340 精确形状拒绝带数字+rwMRC+机制+修法; 健康通过 349 ref 计数; 无/抛错嗅探器降级; 不可解析/.eer 不判; refCandidates 语法四则; 四违规栈截断为 3+计数; 诊断模式命中用户 stderr 且不误伤健康/t334 签名) + LIVE(健康链 import→autopick→extract→class2d 完成+回执 note 入 run.out+每栈编号 pin) + LIVE 毒(栈头 NZ 重写为 maxImage-1 即用户 341→340 算术 → class2d REQUEST 拒绝带精确数字+行保持 idle+集群零落地) + LIVE 双星闭环(删本地 star 副本→SSH cat 同拒绝)
+- 回归全绿: t312/t314/t315/t316/t318/t319/t320/t322/t323/t324/t325/t326/t327/t328/t330/t331/t332/t333/t334/t335/t336/t337; 途中修七套件存量夹具谎言(star 行号超栈 nz: t315/t317/t319 的 nz=2 配 24 行→头-only nz=24; t326/t327/t331/t332/t333/t337 的 nz=1 配 2-4 行→nz=2/4——夹具曾是新门存在意义本身的例证) + 两处过期源码 pin(t314 note 链/t323 本地日志清理→t333 mirror wipe 契约) + t315 采样断言(t322 确定性采样后的存量断裂, 改测 reroll 契约); t316-t334 五套旧路径绑定(/home/z/my-project)以重定位副本跑通; t317 三失败为 t328 窗口 dispatch.ts 重构存量(与本窗 diff 无关, dispatch.ts 未动)
+- 浏览器活体(agent-browser @ prod :3001, t338 项目 extract 卡): 点使用面板 brain2 行 → Node/partition 框从「Auto — scheduler picks」变「brain2 — pinned from the live list」(用户①修复实证); 下拉开列钉扎项+Auto+分组, 显式选 Auto → 钉扎释放回 Auto(往返闭环); extract 宽度框「0 × GPU — CPU-only extraction」+ relion_preprocess 无 GPU 代码路径全文在案(用户②); console+page errors 双零; 截图 t338-node-pin-mirror.png
+- tsc 0; 十二触碰文件+新模块 eslint 0; docs 新 §4p + 失败目录新行(readMRC); 环境终态: 模板 3000 运行中, cryoflow prod :3001 + mock :3022 保留
+
+Stage Summary:
+- 用户三报全闭环: ①节点框镜像钉扎(选了节点框就变——双向释放语义) ②extract CPU-only 如实陈述+Array split 是速度旋钮 ③毒 star 在消费侧派发前拦截(readMRC 341>340 的精确数字拒绝), 旧毒输出的 Log 标签页有诊断, 上游 extract 派发侧 t334/t335 拒源头输入
+- 用户复机路径: pull 最新 → 重跑 extract(其输入若含同茎双行会被拒并列名→去重导入)→ 2D 即通; 若不重跑 extract 直接重跑 2D, 新门立即拒绝并指出上游(不再烧 20 分钟 GPU)

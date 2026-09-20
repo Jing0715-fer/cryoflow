@@ -358,15 +358,15 @@ try {
   const stackB64 = (() => {
     const nx = 48;
     const ny = 48;
-    const nz = 2;
-    const data = Buffer.alloc(1024 + nx * ny * nz * 4);
+    // t338 — NZ must cover every image the particles star references (the
+    // dispatch's consumer gate refuses a star that outruns its stack; the
+    // old nz=2 under a 24-row star was exactly that lie)
+    const nz = 24;
+    const data = Buffer.alloc(1024); // header-only (t338): the sniffers read the header; full pixel data would bloat the inline base64 past the mock's exec limits
     data.writeInt32LE(nx, 0);
     data.writeInt32LE(ny, 4);
     data.writeInt32LE(nz, 8);
     data.writeInt32LE(2, 12);
-    for (let i = 0; i < nx * ny * nz; i++) {
-      data.writeFloatLE(Math.sin(i / 500.0), 1024 + i * 4);
-    }
     return data.toString("base64");
   })();
   const fxD = clientBoth(

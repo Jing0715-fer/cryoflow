@@ -938,6 +938,7 @@ job's Results/Files tab, on the cluster).
 | `image.h:1534` mid-run on a FRESH job (duplicate rows / `X.mrc`+`X.mrcs` in one STAR) | extinct at the source: the dispatch scans the micrographs STAR and refuses naming the colliding rows — RELION names each stack after the micrograph (extension swapped to `.mrcs`), so colliding names write the same file (t334) |
 | array split over a single-block STAR | refused before staging: the slicer would hand EVERY row to EVERY shard (the optics pass-through is per-block) — run with the Array split at 1 (t334) |
 | shard cannot slice its input (`awk` unreadable) | the old silent whole-STAR `cp` fallback is dead: the task fails with `CRYOFLOW_ERR: could not slice the input STAR …` in run.err and `.cf-exit=111` — a spoken verdict, not a 20-minute write race (t334) |
+| 2D/3D classification dies at `readMRC: Image number N exceeds stack size M` | the upstream extraction COMPLETED with a lying star (same-stem rows in ITS input wrote one stack; the later writer truncated the earlier's images) — the consumer-side gate (t338) now refuses such a star at dispatch with the exact numbers and the remedy; the Log tab's diagnosis names the mechanism for the runs that already died |
 
 ## 6. Testing without a cluster: the mock cluster
 
@@ -1097,3 +1098,67 @@ serves bytes over SSH):
 The key numbers doctrine rides along: the Results strip leads with
 `particles converted` + `particle stacks linked`; the receipt carries the
 optics, the alignment source (3D/2D/none) and the unmapped-field count.
+
+## 4p. The consumer-side star↔stack gate — a poisoned extraction cannot burn GPU time (t338)
+
+The field report that completed §4m's picture: a 2D classification died
+~1 minute in at
+
+```
+readMRC: Image number 341 exceeds stack size 340 of image
+00000341@…/extract_…/micrographs/…_133825_Fractions_DW.mrcs   (rwMRC.h:178)
+```
+
+while the upstream extraction had **COMPLETED** (exit 0). That is §4m's
+collision, SILENT variant: two same-stem rows in the extraction's INPUT
+star (`X.mrc` + `X.mrcs` — both compose the SAME stack path) made two
+writers share one `.mrcs`; RELION's first particle per micrograph replaces
+the path blindly, so writer B's first box truncated writer A's 341 images
+to 1, B appended its own 2..340 behind — and the merged star kept BOTH
+writers' rows. Extract "succeeds"; the poison surfaces only downstream,
+~20 GPU-minutes in. (The loud variant — a dimension mismatch on append —
+is §4m's `image.h:1534`; same root, different pair of dims.)
+
+§4m/§4n refuse such INPUTS at extraction dispatch — but they cannot see
+an output already poisoned by an OLDER dispatch (the user's database:
+extract COMPLETED, star lying). `src/lib/relion/particle-ref-gate.ts`
+(PURE, the t326/t327 recipe) guards the OTHER side: before a
+particles-star consumer stages (class2d / class3d / refine3d /
+initialmodel / multibody / polish / ctfrefine / subtract / dynamight —
+remote AND local lanes), every `N@path` ref in the star is checked against
+the stack's own MRC header, read in ONE batched SSH round trip per ~192
+stacks on the remote lane (local reads on the local lane). Refs resolve
+the way RELION resolves them — absolute as-is, then the project root (the
+run's CWD), then the star's own dir — and the first candidate that exists
+is the one judged. A star whose largest image number for a stack exceeds
+the stack's `NZ` is refused as a REQUEST error with the exact numbers
+RELION would die on (`image 341 in …_133825_Fractions_DW.mrcs but that
+stack holds 340 image(s)`), the mechanism (the upstream extraction
+COMPLETED but its output is internally inconsistent), and the remedy
+(re-run the upstream extraction — its dispatch now refuses colliding
+inputs with the rows named — or make a fresh extraction from a
+de-duplicated import). Healthy stars pass with a receipt note in the
+run's log (`N particle ref(s) verified against their stacks' own MRC
+headers`); missing stacks, unparsable bytes and `.eer` refs degrade to
+the note, never a block (the t313 conservatism — a wiring guess must not
+flip a job row to failed).
+
+The same ticket closed two neighbors:
+- **the node box mirrors the pin** — 「从节点使用情况处选择节点后，node框
+  还是auto没有变化」: the pin WAS wired (sbatch `--nodelist`, stepper
+  ceiling, ask line) but the Node/partition select kept showing "Auto",
+  so the pick looked dead. The select now shows the pinned node while a
+  pin lives, and picking anything in it (Auto or a group) releases the
+  pin — one visible truth for WHERE, never two.
+- **extraction's GPU contract, stated** — 「extraction无法用GPU吗？」:
+  no; `relion_preprocess` has no GPU code path (box cutting +
+  normalization run on the CPU). The dialog's width box says exactly
+  that, and names the honest speed knob: the Array split (N CPU shards,
+  each extracting its share of the micrographs in parallel).
+
+The mock's `relion_preprocess` grew the missing fidelity the gate
+exposed: its star rows now number PER STACK (real RELION's grammar — the
+old global counter produced image numbers past every stack's own slice
+count, a dialect no real RELION writes). And the local lane's t335 frame
+census, which a brace-nesting slip had left INSIDE the t334 scan's catch
+clause (dead code on the happy path), now runs where its doctrine says.

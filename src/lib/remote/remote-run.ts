@@ -74,6 +74,12 @@ import { isLogAutopick } from "@/lib/relion/log-autopick";
 import { classifyRerunWipe } from "@/lib/hpc/cleanup";
 import { wipeLocalRunProducts } from "@/lib/relion/run-wipe";
 import { describeExtractCollisions, scanExtractCollisions, starIsArraySplittable } from "@/lib/relion/extract-collide";
+import {
+  PARTICLES_CONSUMER_TYPES,
+  particleRefsFromContent,
+  particlesRefGate,
+  refCandidates,
+} from "@/lib/relion/particle-ref-gate";
 import { getConnection, loadConnections, patchConnection } from "./connections";
 import { writeRemoteManifest } from "./remote-files";
 import {
@@ -1935,6 +1941,80 @@ export async function startRemoteJob(args: {
   }
 
   const uploads: Array<{ key: string; local: string; remote: string; external: boolean }> = [];
+
+  // ---- t338 — the particle-star ↔ stack consistency gate (consumers) ----
+  // The field report: a 2D classification died ~1 min into relion_refine
+  // with readMRC: "Image number 341 exceeds stack size 340" (rwMRC.h) —
+  // the upstream extraction had COMPLETED (exit 0) yet its particles.star
+  // references more images than the stack holds. That is the t334
+  // collision's SILENT variant: same-stem rows in the extraction's INPUT
+  // star ("X.mrc" + "X.mrcs") compose the SAME stack path; RELION's first
+  // particle per micrograph replaces the path blindly and the later
+  // writer's boxes append behind — so writer A's 341 images get truncated
+  // to 1 by writer B's first box, B appends its own 2..340, and the merged
+  // star still numbers A's rows up to 341. Extract "succeeds"; the poison
+  // surfaces downstream, ~20 GPU-minutes in. The t334/t335 blades refuse
+  // such INPUTS at extraction dispatch — this gate guards the OTHER side:
+  // a star already poisoned by an OLDER dispatch (the user's database:
+  // extract COMPLETED, star lying) is refused before this job burns queue
+  // + GPU time, with the exact numbers RELION would die on. Unverifiable
+  // refs degrade to the receipt note, never a block (the t313 rule).
+  let particlesGateNote: string | null = null;
+  if (PARTICLES_CONSUMER_TYPES.has(job.type) && resolved.inputs.particles_star) {
+    const starPathLocal = resolved.inputs.particles_star;
+    const localNorm = starPathLocal.split(path.sep).join("/");
+    // the star's text: the local copy when the sync-back landed it, else
+    // the cluster's own bytes (the t335 twin-star closure pattern)
+    let starText: string | null = null;
+    if (existsSync(starPathLocal)) {
+      try {
+        starText = readFileSync(starPathLocal, "utf8");
+      } catch {
+        starText = null;
+      }
+    } else {
+      try {
+        const cat = await exec(conn, `cat ${shSingleQuote(starPathLocal)}`, { timeoutMs: 15_000 });
+        if (!cat.error && cat.code === 0) starText = cat.stdout;
+      } catch {
+        starText = null;
+      }
+    }
+    if (starText == null) {
+      particlesGateNote =
+        "particles star unreadable (no local copy, cluster cat failed) — the stack-size consistency check did not run";
+    } else if (particleRefsFromContent(starText).length > 0) {
+      // the star's CLUSTER-side location: the upstream twin when the input
+      // resolved through a local mirror copy, the mirror's mapped cluster
+      // path, or the resolved cluster path itself — star-relative refs
+      // resolve against it (RELION's star grammar; the mock's own dialect
+      // writes star-relative refs)
+      const twin = upstreamRemoteTwins.get(localNorm);
+      const mirrorRoot = RELION_DIR.split(path.sep).join("/");
+      const clusterStar =
+        twin ??
+        (localNorm.startsWith(mirrorRoot + "/")
+          ? mapLocalToRemote(starPathLocal, remoteRoot)
+          : !existsSync(starPathLocal)
+            ? starPathLocal
+            : null);
+      const starDir = clusterStar ? clusterStar.slice(0, clusterStar.lastIndexOf("/")) : null;
+      const gate = await particlesRefGate(
+        starPathLocal,
+        starText,
+        remoteHeaderSniffer(conn),
+        (ref) => refCandidates(ref, remoteProjectRoot, starDir ?? remoteProjectRoot)
+      );
+      if (gate.refusal) {
+        console.log(
+          `remote-run: particle-ref gate REFUSED before staging — ${gate.refusal.split(" — ")[0]} (t338)`
+        );
+        return fail(gate.refusal, true);
+      }
+      particlesGateNote = gate.note;
+    }
+  }
+
   let needsStaging = false;
   for (const [key, localRaw] of Object.entries(resolvedInputs)) {
     const local = localRaw.split(path.sep).join("/");
@@ -2495,7 +2575,7 @@ export async function startRemoteJob(args: {
           nodelist: nodelistPin,
           dependency,
           array: arrayPlan,
-          note: ctffindGateNote ?? extractGateNote,
+          note: ctffindGateNote ?? extractGateNote ?? particlesGateNote,
         });
         const scriptPath = `${remoteWorkdir}/.cf-sbatch.sh`;
         const upOk = await remoteUpload(conn, script, scriptPath);
@@ -2593,7 +2673,7 @@ export async function startRemoteJob(args: {
           command,
           remoteProjectRoot,
           remoteWorkdir,
-          note: ctffindGateNote ?? extractGateNote,
+          note: ctffindGateNote ?? extractGateNote ?? particlesGateNote,
         });
 
         const wrapperPath = `${remoteWorkdir}/.cf-run.sh`;

@@ -156,16 +156,15 @@ const realMrcB64 = (() => {
 const stackMrcB64 = (() => {
   const nx = 48;
   const ny = 48;
-  const nz = 2;
-  const data = Buffer.alloc(1024 + nx * ny * nz * 4);
+  // t338 — NZ must cover every image the particles star references (the
+  // dispatch's consumer gate refuses a star that outruns its stack; the
+  // old nz=2 under a 24-row star was exactly that lie)
+  const nz = 24;
+  const data = Buffer.alloc(1024); // header-only (t338): the sniffers read the header; full pixel data would bloat the inline base64 past the mock's exec limits
   data.writeInt32LE(nx, 0);
   data.writeInt32LE(ny, 4);
   data.writeInt32LE(nz, 8);
   data.writeInt32LE(2, 12);
-  // NSYMBT stays 0 — the pixels start right after the 1024-byte header
-  for (let i = 0; i < nx * ny * nz; i++) {
-    data.writeFloatLE(Math.sin(i / 500.0), 1024 + i * 4);
-  }
   return data.toString("base64");
 })();
 
@@ -588,9 +587,11 @@ try {
   );
   must(intruder.status === 404, `an intruder path is refused (${intruder.status})`);
 
-  // the randomness: two manifest fetches sample differently (20 choose 5 —
-  // a collision is 1/15504; the re-sample button relies on exactly this)
-  const manifest2 = await api(`/api/jobs/${importA.id}/micrographs`, { headers: SH });
+  // the sampling: deterministic per (job, reroll) — the preview cache's
+  // own doctrine (the old Math.random re-roll is gone). Two fetches with
+  // DIFFERENT reroll seeds sample differently (the re-sample button's
+  // exact contract); the same seed would return the same five by design.
+  const manifest2 = await api(`/api/jobs/${importA.id}/micrographs?reroll=1`, { headers: SH });
   const set1 = (mb?.micrographs ?? []).map((m) => m.path).sort().join("|");
   const set2 = (manifest2.body?.micrographs ?? []).map((m) => m.path).sort().join("|");
   must(set1 !== set2, "two manifest fetches sample five different micrographs");

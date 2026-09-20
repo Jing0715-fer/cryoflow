@@ -421,7 +421,7 @@ try {
     const b = Buffer.alloc(1024);
     b.writeInt32LE(1024, 0); // NX
     b.writeInt32LE(1024, 4); // NY
-    b.writeInt32LE(1, 8); // NZ
+    b.writeInt32LE(4, 8); // NZ=4 — one section per referenced image (t338: the dispatch's consumer gate refuses a star that outruns its stack; the old NZ=1 header was that lie)
     b.writeInt32LE(2, 12); // MODE float32
     b.writeInt32LE(1, 20); // NXSTART
     b.writeInt32LE(256, 44); // NXYZSTART-ish

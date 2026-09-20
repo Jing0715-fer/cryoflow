@@ -63,7 +63,7 @@ import { Input } from "@/components/ui/input";
 import { slurmWidthFor } from "@/lib/hpc/gpu-width";
 import type { SlurmNodeUsage } from "@/lib/hpc/slurm-usage";
 import {
-  ChevronRight, HardDriveDownload, Loader2, Minus, Network, Package, Play, Plus, Server, Terminal, Upload,
+  ChevronRight, HardDriveDownload, Loader2, MapPin, Minus, Network, Package, Play, Plus, Server, Terminal, Upload,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWorkflowStore } from "@/lib/store";
@@ -78,6 +78,17 @@ import {
 
 const CUSTOM_MODULE_VALUE = "__custom__";
 const PARTITION_AUTO = "__auto__";
+/**
+ * t338 — the Select's display value while a node picked from the live
+ * usage list pins the submission (--nodelist). The field report: 「从节点
+ * 使用情况处选择节点后，node框还是auto没有变化」 — the pin WAS wired
+ * (sbatch --nodelist, stepper ceiling, ask line) but the Node/partition
+ * box kept showing "Auto", so the pick looked dead. The box is now the
+ * single visible truth for WHERE: a pinned node (from the list) or a
+ * partition/Auto (from this dropdown) — never both at once, and picking
+ * anything here releases the pin.
+ */
+const NODE_PIN_VALUE = "__node_pin__";
 const ARRAY_MAX_SHARDS = 64;
 /**
  * t306/t307 — the types whose remote Slurm run can ride an array split (the
@@ -394,6 +405,22 @@ export function RemoteRunButton({
           "Each array shard runs on one GPU (--ntasks=1, --gres=gpu:1, no mpirun) — " +
           "the real parallelism knob is the Array split below (more shards, not wider jobs).",
       };
+    // t338 — the extract-specific CPU contract. The field question:
+    // 「extraction无法用GPU吗？」 — no: relion_preprocess (RELION's
+    // extraction engine) has NO GPU code path; box cutting + normalization
+    // run on the CPU, so a GPU allocation would just sit idle (and shrink
+    // the pool the classification jobs need). The honest speed knob is
+    // the Array split: N CPU shards, each extracting its share of the
+    // micrographs in parallel.
+    if (job.type === "extract")
+      return {
+        headline: "0 × GPU — CPU-only extraction",
+        detail:
+          "relion_preprocess (RELION's extraction engine) has no GPU code path — box cutting and " +
+          "normalization run on the CPU, so no GPUs are requested or allocated (a GPU here would sit " +
+          "idle while shrinking the pool the classification jobs need). The speed knob is the Array " +
+          "split below: N CPU shards, each extracting its share of the micrographs in parallel.",
+      };
     if (widthTruth.mode === "array")
       return {
         headline: "0 × GPU — CPU tasks",
@@ -704,11 +731,42 @@ export function RemoteRunButton({
                   {partitionInventory.length > 0 ? (
                     <div className="space-y-1.5" data-node-picker-row="">
                       <p className="text-xs font-medium text-foreground/90">Node / partition</p>
-                      <Select value={partition} onValueChange={setPartition}>
+                      {/* t338 — the box mirrors the usage-list pin: while a
+                          node picked below pins the submission, THIS select
+                          shows that node (not a stale "Auto"), and picking
+                          anything here releases the pin — the field report
+                          「选了节点后 node 框还是 auto」 was exactly this
+                          missing mirror. */}
+                      <Select
+                        value={nodePin ? NODE_PIN_VALUE : partition}
+                        onValueChange={(v) => {
+                          if (v === NODE_PIN_VALUE) return; // already the pin
+                          // any explicit dropdown pick speaks the LATER,
+                          // more deliberate choice: the pin from the usage
+                          // list stands down (Auto = scheduler decides
+                          // again; a partition = the group's own nodes)
+                          setPickedNode(null);
+                          setPartition(v);
+                        }}
+                      >
                         <SelectTrigger className="h-9 text-sm" aria-label="Node or partition to submit to">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
+                          {nodePin ? (
+                            <SelectItem value={NODE_PIN_VALUE} className="text-xs">
+                              <span className="flex flex-col gap-0.5">
+                                <span className="flex min-w-0 items-center gap-1.5">
+                                  <MapPin className="size-3 shrink-0 text-primary" aria-hidden="true" />
+                                  <span className="font-mono">{nodePin}</span>
+                                  <span className="text-muted-foreground">— pinned from the live list</span>
+                                </span>
+                                <span className="text-[10px] font-normal text-muted-foreground">
+                                  exact node (--nodelist) · picked in the usage list below · choose Auto or a group here to release
+                                </span>
+                              </span>
+                            </SelectItem>
+                          ) : null}
                           <SelectItem value={PARTITION_AUTO} className="text-xs">
                             <span className="flex flex-col gap-0.5">
                               <span>Auto — scheduler picks</span>
@@ -745,7 +803,7 @@ export function RemoteRunButton({
                         ({"--partition"}
                         {selectedGroup && selectedGroup.hosts?.length === 1 ? ", --nodelist pins the node" : ""}).
                         Or click a node in the live usage list below to pin that exact node — even one
-                        node inside a multi-host group.
+                        node inside a multi-host group — the box above then shows the pinned node.
                       </p>
                     </div>
                   ) : null}

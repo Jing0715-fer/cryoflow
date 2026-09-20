@@ -50,6 +50,12 @@ import type { RemoteConnection, RemoteRunState } from "@/lib/remote/types";
 import { readMrcHeader } from "@/lib/mrc";
 import { sniffImageFile, spreadSample, type HeaderSniffer, type SniffVerdict } from "./mrc-sniff";
 import { extractInputGate, micrographRowsFromContent, parseStarBlocks, type StarBlock } from "./extract-gate";
+import {
+  PARTICLES_CONSUMER_TYPES,
+  particleRefsFromContent,
+  particlesRefGate,
+  refCandidates,
+} from "./particle-ref-gate";
 export { extractInputGate, micrographRowsFromContent } from "./extract-gate";
 import { detectRelion, savedWslDistro } from "./system";
 import { MIC_RE, expandPattern, hasWildcard, userPathToHost } from "./glob";
@@ -5627,6 +5633,8 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
       }
     } catch {
       /* unreadable star → the run itself reports the real problem */
+    }
+  }
 
   // t335 — the frame-stack census on the local lane (the complement to the
   // collision scan above): .mrcs rows are byte-verified through the local
@@ -5634,6 +5642,9 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
   // (x,y,1,N) volume, windowed from frame 0: garbage particles even when
   // the names never collide). Verified singles pass with a note; anything
   // unverifiable degrades to the note, never a block.
+  // (t338 — this block used to sit INSIDE the collision scan's catch
+  // clause — a brace-nesting slip that made the census dead code on the
+  // happy path; it now runs where its doctrine says it does.)
   if (job.type === "extract" && inputs.micrographs_star && existsSync(inputs.micrographs_star)) {
     let extractRows: string[] = [];
     try {
@@ -5652,6 +5663,41 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
       extractGateNote = frameGate.note;
     }
   }
+
+  // ---- t338 — the particle-star ↔ stack consistency gate (local lane) ----
+  // Same doctrine as the byte gates above, mirrored from the remote
+  // dispatch: a particles star whose rows reference image numbers beyond
+  // what their stacks actually hold is the poison the field report paid
+  // ~20 GPU-minutes to discover (readMRC: "Image number 341 exceeds stack
+  // size 340" — the upstream extraction COMPLETED with a lying star: two
+  // same-stem rows in ITS input wrote one stack; the later writer's blind
+  // overwrite truncated the earlier images). Refuse BEFORE the workdir or
+  // a spawn exists, with the exact numbers RELION would die on; healthy
+  // stars pass with the receipt note riding the run's result.
+  let particlesGateNote: string | null = null;
+  if (
+    PARTICLES_CONSUMER_TYPES.has(job.type) &&
+    inputs.particles_star &&
+    existsSync(inputs.particles_star)
+  ) {
+    try {
+      const starText = readFileSync(inputs.particles_star, "utf8");
+      if (particleRefsFromContent(starText).length > 0) {
+        // relative refs resolve against the run's CWD (the project dir),
+        // then the star's own dir — RELION's star grammar, both lanes
+        const projectDir = projectDirFor(job);
+        const starDir = path.dirname(inputs.particles_star);
+        const gate = await particlesRefGate(
+          inputs.particles_star,
+          starText,
+          localHeaderSniffer,
+          (ref) => refCandidates(ref, projectDir, starDir)
+        );
+        if (gate.refusal) return { ok: false, error: gate.refusal };
+        particlesGateNote = gate.note;
+      }
+    } catch {
+      /* unreadable star → the run itself reports the real problem */
     }
   }
 
@@ -5762,7 +5808,7 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
     if (preFlight) return { ok: false, error: preFlight };
   }
 
-  return spawnTrackedRun(job, argv, workdir, binDir, undefined, bridge, ctffindGateNote ?? extractGateNote);
+  return spawnTrackedRun(job, argv, workdir, binDir, undefined, bridge, ctffindGateNote ?? extractGateNote ?? particlesGateNote);
 }
 
 /* ------------------------------------------------------------------ */

@@ -135,6 +135,27 @@ export const LOG_PATTERNS: LogPattern[] = [
       "RELION writes one .mrcs stack per micrograph (--part_dir + the micrograph's name) and appends each particle after the first; the append checks the file already on disk (image.h \"target and source objects have different size\") and refuses on a dimension mismatch. Within one run the box never changes — so that stack path was already occupied by an earlier generation with a DIFFERENT Box size / Downsample (a re-run before the fresh-start wipe), or two processes wrote the same micrograph at once (duplicate micrograph rows in the input STAR). Remedy: re-run the job (the dispatch now clears the previous generation's stacks on the cluster before submitting) or make a fresh extraction job — with the box size you want, the clean run completes. The micrograph that died is the one in progress where the log stops; its half-written stack stayed on the cluster (this job's Results/Files lists it).",
   },
   {
+    // t338 — rwMRC.h's own bounds refusal, the READ-side twin of the t334
+    // write clash above. The field report: a 2D classification died ~1
+    // minute in at
+    //   readMRC: Image number 341 exceeds stack size 340 of image
+    //   00000341@…/extract_…/micrographs/…_Fractions_DW.mrcs
+    // while the upstream extraction had COMPLETED (exit 0) — its
+    // particles.star simply numbers more images than the stack holds.
+    // That is the t334 collision's SILENT variant: two same-stem rows in
+    // the extraction's input STAR ("X.mrc" + "X.mrcs" — both compose the
+    // SAME stack path) made two writers share one .mrcs; the later
+    // writer's first particle blindly truncated the earlier writer's
+    // images, and the merged star kept BOTH writers' rows. The
+    // consumer-side gate (t338) now refuses such stars at dispatch with
+    // the same numbers; this pattern heals the logs that already died.
+    id: "readmrc-exceeds-stack",
+    re: /readMRC: Image number \d+ exceeds stack size \d+/i,
+    label: "Particles STAR outruns its stack — an image number points past the .mrcs end",
+    hint:
+      "relion_refine tried to read the image the STAR names (image 341 of a stack holding 340) and rwMRC refused. The upstream extraction COMPLETED, but its output is internally inconsistent: same-stem rows in ITS input STAR (e.g. \"X.mrc\" and \"X.mrcs\" of the same micrograph — both compose the SAME .mrcs stack path) made two writers share one stack; the later writer's first particle blindly truncated the earlier writer's, while the merged STAR kept both writers' rows. Remedy: re-run the UPSTREAM extraction job — its dispatch now refuses colliding inputs with the offending rows named (de-duplicate the import or rename the colliding files first) — then run this job again. The dispatch's consumer-side check now also refuses a star that outruns its stacks before any GPU time is spent.",
+  },
+  {
     // t312 — relion_run_ctffind's own terminal words (ctffind_runner.cpp):
     // the per-micrograph skip warning and the all-failed exit line.
     // t314 — the hint was REWRITTEN: the first cut blamed raw movie stacks
