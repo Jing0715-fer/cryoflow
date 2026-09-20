@@ -32,6 +32,7 @@ import {
   Bug,
   Database,
   Download,
+  Eraser,
   FileText,
   FileX,
   FolderOpen,
@@ -86,6 +87,7 @@ import { jobType } from "@/lib/workflow";
 import { COMMAND_TEMPLATES } from "@/lib/relion/command-templates";
 import { CopyButton } from "./copy-button";
 import { RemoteRunButton } from "./remote-run-button";
+import { CleanupDialog } from "./cleanup-dialog";
 import { useWorkflowStore } from "@/lib/store";
 
 /** " · 12.4 MB" for the staging phase line — "" when nothing staged yet. */
@@ -1907,7 +1909,7 @@ function LineageBreadcrumb({ job }: { job: JobDTO }) {
   );
 }
 
-function InspectorHeader({ job }: { job: JobDTO }) {
+function InspectorHeader({ job, onCleaned }: { job: JobDTO; onCleaned?: () => void }) {
   const spec = jobType(job.type);
   const running = job.status === "running";
   const isLink = job.linkedJobId != null;
@@ -1925,6 +1927,9 @@ function InspectorHeader({ job }: { job: JobDTO }) {
    *  two doors: the toolbar's server icon and the Re-run context both open
    *  it; the old ▾ mode menu is retired). */
   const [clusterRunOpen, setClusterRunOpen] = React.useState(false);
+  /** t331 — the intermediates-cleanup door (preview + execute, local +
+   *  cluster): opens from the toolbar's eraser icon. */
+  const [cleanupOpen, setCleanupOpen] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const elapsed = useElapsed(job.startedAt, running);
   // ETA for running jobs (dialog opens client-side, no SSR concern);
@@ -2129,6 +2134,25 @@ function InspectorHeader({ job }: { job: JobDTO }) {
             <Server className="size-3.5" aria-hidden="true" />
           </Button>
           <RemoteRunButton job={job} dialogOnly open={clusterRunOpen} onOpenChange={setClusterRunOpen} />
+          {/* t331 — intermediates cleanup (local + cluster): the eraser
+              door. Informational like the occupancy panel, destructive
+              only through its own two-step confirm. */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="relative size-7 shrink-0 text-muted-foreground hover:text-foreground before:absolute before:-inset-1.5 before:rounded-md before:content-['']"
+            onClick={() => setCleanupOpen(true)}
+            aria-label="Clean intermediates (local + cluster)"
+            title="Clean intermediates (local + cluster)"
+          >
+            <Eraser className="size-3.5" aria-hidden="true" />
+          </Button>
+          <CleanupDialog
+            job={job}
+            open={cleanupOpen}
+            onOpenChange={setCleanupOpen}
+            onCleaned={onCleaned}
+          />
         </div>
       ) : null}
 
@@ -2515,7 +2539,7 @@ export function JobInspector() {
               <DialogTitle asChild>
                 <div>
                   <span className="sr-only">{job.name} — job inspector</span>
-                  <InspectorHeader job={job} />
+                  <InspectorHeader job={job} onCleaned={() => void loadOutputs()} />
                 </div>
               </DialogTitle>
               <DialogDescription className="sr-only">

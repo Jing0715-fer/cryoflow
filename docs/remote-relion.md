@@ -687,6 +687,59 @@ CPU/5 GPU, brain 64/6, normal02 80/8, brain2 128/8, brain4 128/8, brain3
 48/6 — with brain2 `cpu=2,gres/gpu=1` and brain3 `cpu=4,gres/gpu=2` as the
 live-sample baselines) is asserted node-for-node in both dialects.
 
+## 4k. Cleaning intermediates — both sides of the wire (t331)
+
+**The eraser in the job inspector's toolbar.** A RELION project's disk hogs
+are not the results — they are the intermediate process files: every
+iteration's `run_it###_*` copies (the final one carries the science), the
+array shards a parallel run leaves behind, the per-micrograph CTF spectra,
+and — the real terabytes — the corrected movies and particle stacks that
+outlive the STAR files indexing them. One dialog, one preview, one
+confirmed click — and the cleanup runs on the LOCAL mirror AND the cluster
+workdir in the same action:
+
+- **the keep-set is the contract** (everything else is negotiable).
+  Chainable outputs survive by name (the record's own `outputs`, the
+  REMOTE_OUTPUT_CANDIDATES winners, and the FINAL iteration of every
+  `run_it###_<family>` — that last one is the `--continue` resume point);
+  cluster twins survive (t324: downstream remote jobs chain off the copy
+  in place); the witnesses survive (`run.out`/`run.err` — the diagnosis
+  layer reads them, `.cf-exit`/`.cf-pid` — the poll's verdict, the
+  dispatch scripts, the manifest ledger); symlinks are doors to the user's
+  raw data, never candidates; and **anything the planner cannot name is
+  UNKNOWN, and unknown means keep** — a new RELION output shape degrades
+  to "stays", never to "silently deleted".
+- **three tiers, two of them opt-in** — *safe* (beaten iterations, array
+  scratch, merge temps — default-checked: nothing downstream or
+  resume-critical can miss them), *diagnostics* (CTF spectra + FSC/Guinier
+  plots — the numbers stay in the STARs, the rendered curves do not), and
+  *bulk* (corrected movies / particle stacks, offered only for the
+  producers: motioncorr, extract, polish — with the downstream
+  consequence spelled out and the not-yet-run consumers named when they
+  exist).
+- **the preview and the deletion share one brain** — the dialog never
+  sends a file list: the POST carries only scopes + tiers, and the server
+  RE-WALKS / RE-LISTS live both times (GET plan and POST execute call the
+  same pure classifier, `src/lib/hpc/cleanup.ts`). The listing rides a 10s
+  in-process cache so re-opening the dialog never re-dials the login node;
+  the manual refresh (`?refresh=1`) and the POST itself always go live.
+- **a cluster that cannot answer is not a blocked cleanup** — the remote
+  side degrades to a note naming exactly what failed (SSH error, a
+  `find` without `-printf`, a connection that is gone with no same-host
+  sibling) while the LOCAL side still cleans. Cluster identity is the
+  t325 doctrine: a re-created connection to the same host carries the
+  cleanup of old records.
+- **running jobs are untouchable** — a live local pid or a remote
+  staging/PENDING/RUNNING record answers 409 with its reason: deleting a
+  live run's iteration files corrupts the run (the t318 respect).
+- **the ledger stays honest** — after a cluster cleanup the local
+  `.cf-remote-manifest.json` is rewritten minus every deleted path, so
+  the Files tab lists what the cluster HOLDS, not what it held (t289).
+
+Freed space is measured, not estimated: the local side sums the sizes it
+deleted; the cluster side diffs its own before/after `find` byte totals
+(the cluster's word, never the plan's).
+
 ## 5. Honest failure catalog
 
 | Failure | What you see |
@@ -711,6 +764,9 @@ live-sample baselines) is asserted node-for-node in both dialects.
 | the wire between two jobs disappears (canvas) | the sidecar self-heal no longer evicts edges connected during an in-flight read; writes are atomic; every read backfills a lost DB mirror; an empty lineage speaks "connect one" instead of the auto-start promise (t325) |
 | live node usage unavailable | the panel's rose note names the exact failure (no `scontrol` on the login node / SSH error) and says the submit still works — usage is informational, never a gate (t327) |
 | local node_modules out of date | boot warning `node_modules is out of date — missing ssh2` + `/api/remote/*` fails with `Can't resolve 'ssh2'` — re-run `npm install` (or `bun install`) and restart |
+| cleanup of a running job | refused with its reason (409): a live run's iteration files are being written — stop it first, then clean (t331) |
+| cleanup plan vs cluster reality drift | impossible by design: the POST never trusts the preview's file list — it re-lists the cluster live and deletes only what still classifies; the 10s listing cache is bypassed by the manual refresh and by the POST itself (t331) |
+| cluster unreachable at cleanup time | the remote side degrades to a note naming the failure; the LOCAL side still cleans (one side's outage never blocks the other) (t331) |
 
 ## 6. Testing without a cluster: the mock cluster
 
@@ -767,3 +823,11 @@ without a real HPC system.
   picker currently offers the group; a wide `gpu` partition with idle-node
   awareness could offer the individual host (the usage panel already
   shows per-node free counts — the picker could follow).
+- ~~**Intermediate-file cleanup**~~ — **shipped (t331)**: the job
+  inspector's eraser previews and deletes intermediates on BOTH sides
+  (local mirror + cluster workdir) behind a keep-set contract (chainable
+  outputs, cluster twins, final iterations, witnesses; unknown = keep),
+  with the manifest ledger rewritten after cluster deletions. The
+  remaining stretch is a PROJECT-WIDE bulk pass (every job at once) —
+  deliberately not done: cleanup is a per-job decision with per-job
+  consequences, and the user reads them one dialog at a time.
