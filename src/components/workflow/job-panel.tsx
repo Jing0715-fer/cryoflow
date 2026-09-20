@@ -616,6 +616,7 @@ function ParamField({
  */
 const REMOTE_BOOKKEEPING_TYPES = new Set([
   "import", "mapimport", "manualpick", "select", "select2d", "symexpand", "rebalance",
+  "cs2star", // t336 — the conversion runs in-process (SSH for the cluster lane)
 ]);
 
 /**

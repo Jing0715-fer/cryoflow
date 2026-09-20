@@ -411,6 +411,26 @@ export function summarizeOutputs(
       };
     }
 
+    case "cs2star": {
+      // t336 — the converted star carries the SAME key numbers doctrine:
+      // particles first (the user's 「这个信息很关键」), stacks second (the
+      // selective-link census's own denominator)
+      const star = fileByName(files, "particles.star");
+      if (!star) return null;
+      const text = deps.readStarText(star.path);
+      const img = text ? scanStarColumn(text, "_rlnImageName", micBaseFromImageName) : null;
+      const particles = star.rows ?? img?.rows ?? null;
+      if (particles == null) return null;
+      const stacks = img?.distinct ?? null;
+      const stats: SummaryStat[] = [
+        { key: "particles", value: nfmt(particles), label: "particles converted", tone: "particle" },
+      ];
+      if (stacks != null) {
+        stats.push({ key: "stacks", value: nfmt(stacks), label: "particle stacks linked", tone: "micrograph" });
+      }
+      return { stats };
+    }
+
     case "class2d": {
       const data =
         latestByPattern(files, /^run_it(\d+)_data\.star$/) ??

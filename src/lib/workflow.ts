@@ -345,6 +345,39 @@ export const JOB_TYPES: JobTypeSpec[] = [
     }
   ),
 
+  /* ---------------- CryoSPARC → RELION (t336) ----------------------- */
+  spec(
+    "cs2star",
+    "CryoSPARC → RELION",
+    "ArrowLeftRight",
+    "teal",
+    "Convert a CryoSPARC job's .cs particle dataset into a RELION 5 particles.star — alignments (Rodrigues → Euler), CTF, optics — and link ONLY the referenced particle stacks (.mrc → .mrcs names) on the cluster, so every downstream job consumes them directly. No pyem, no Python: the converter is built in.",
+    3000,
+    [
+      pth("csPath", "CryoSPARC job folder (J###) or particles.cs", {
+        hint: "On a cluster project: the CryoSPARC job folder (the J### directory holding extracted_particles.cs / cryosparc_*_particles.cs — its newest particles.cs + first passthrough are used) or a .cs file directly. The referenced stacks are linked under this project's micrographs/ tree — only the ones the star actually references, not every .mrc in the extract dir.",
+        tab: "Source",
+        filePick: true,
+      }),
+      bool("invertY", "Invert particle Y coordinates", false, {
+        tab: "Source",
+        hint: "CryoSPARC's coordinate origin is bottom-left, RELION's top-left. OFF matches the reference script's --inverty behavior (particles imported INTO cryoSPARC from RELION coordinates already speak RELION's convention); turn ON for sets picked inside cryoSPARC whose coordinates look mirrored.",
+      }),
+      num("pixelSize", "Pixel size fallback", 1, { unit: "Å", min: 0.1, step: 0.01, advanced: true, tab: "Source", hint: "Used only when the .cs carries no blob/psize_A field" }),
+      num("voltage", "Voltage fallback", 300, { unit: "kV", advanced: true, tab: "Source", hint: "Used only when the .cs carries no ctf/accel_kv" }),
+      num("cs", "Spherical aberration fallback", 2.7, { unit: "mm", step: 0.1, advanced: true, tab: "Source" }),
+      num("ampContrast", "Amplitude contrast fallback", 0.1, { step: 0.01, min: 0.01, max: 0.3, advanced: true, tab: "Source" }),
+    ],
+    "{n} particles converted",
+    "core",
+    {
+      category: "import",
+      tabs: ["Source"],
+      inputs: [],
+      outputs: [outp("particles", "Particles STAR (converted)", "particles")],
+    }
+  ),
+
   /* ---------------- Motion ------------------------------------------ */
   spec(
     "motioncorr",

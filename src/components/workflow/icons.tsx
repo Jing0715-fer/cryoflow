@@ -10,6 +10,7 @@
 
 import {
   Aperture,
+  ArrowLeftRight,
   Box,
   Boxes,
   Brain,
@@ -54,6 +55,8 @@ export function TypeIcon({
   switch (name) {
     case "FolderInput":
       return <FolderInput className={className} aria-hidden="true" />;
+    case "ArrowLeftRight":
+      return <ArrowLeftRight className={className} aria-hidden="true" />;
     case "Wind":
       return <Wind className={className} aria-hidden="true" />;
     case "Aperture":

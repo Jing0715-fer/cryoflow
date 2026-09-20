@@ -2796,3 +2796,25 @@ Work Log:
 Stage Summary:
 - 用户的「运行到一半报错」双窗口同源收敛作答：根因=导入集混入 .mrcs 电影帧栈+扩展名孪生共享输出栈路径；修复=重导入用 *_Fractions_DW.mrc 精确模式再重跑
 - t335 补齐 t334 的两个盲区：集群_only孪生星的 SSH 读取（扫描不再跳过）与 .mrcs 行的字节级帧栈验证（名字级扫描看不到茎名互异的帧栈污染）；外加导入期普查回执
+
+- t335 补齐 t334 的两个盲区：集群_only孪生星的 SSH 读取（扫描不再跳过）与 .mrcs 行的字节级帧栈验证（名字级扫描看不到茎名互异的帧栈污染）；外加导入期普查回执
+
+---
+Task ID: t336
+Agent: main-agent (Z.ai Code)
+Task: 用户工单「把cryosparc的cs文件转成star文件的job，并可以在cryoflow中直接用于后续job运行」+「检测star文件中需要哪些颗粒文件再link过来改名，而不是将project中所有的颗粒文件都link过来」（参考 upload/cryosmart_relion_trans3.0.sh：集群跑 pyem csparc2star --inverty、链接 extract 全部 .mrc 改名 .mrcs、sed 改星）
+
+Work Log:
+- 先收尾 t335：B3 孪生星腿重写为真实 t324-a 形状（上游 ctffind 远程作业输出星删本地副本 → t324 heal 探测补 twins → 解析为集群路径 → SSH cat → t334 扫描重跑同款拒绝；import 远程腿不产生 remote record 的探针真相钉入断言注释）——ALL GREEN ×2 + 回归（t334/t333-wipe/t330/t332/t331/t325/t327 经 mock 账本清污后）全绿，rebase 集成到并行窗口的 t333/t334 之上并 push
+- t336-a src/lib/relion/cs-npy.ts（纯）：npy 结构化数组读取——Python 字面量头字典 tokenizer（dict/list/tuple/str/int/bool/None）、子数组 dtype（(3,) pose、(2,) shift/shape）、<U UTF-32LE 与 S 字节串（NUL 截尾）、LE/BE 数字、v1/v2 头长度；非 npy/嵌套结构体/fortran 序诚实抛错
+- t336-b src/lib/relion/cs2star.ts（纯，pyem 映射表逐行核对 asarnow/pyem master）：uid 左连接 passthrough（字段缺省才补）、Rodrigues→Euler（expmap + Shoemake rot2euler，RELION ZYZ 约定）、defocus Å 直通（字段名 _A）、rad→deg、optics/class/subset 0→1 基、归一化坐标→绝对像素（micrograph_shape=[y,x] 轴交换）、RELION 3.1 光学方言（OriginXAngst=shift×angpix）；--inverty 的 argparse store_false 语义入档（pyem 默认反转、flag 关闭；参考脚本传 flag → 本作业默认 false）；普查先行（链接名冲突 -2 后缀，星行与链接计划同源）
+- t336-c 引擎原生 runner runCs2StarNative（双车道）：远程——SSH 发现（J### → sort -V 最新 *particles.cs + 首个 passthrough，参考脚本自己的次序）→ statRemoteFiles 限额校验 → remoteDownload 双 cs 落 workdir（Files 页可查）→ 转换 → 逐一验证引用栈存在（缺失即拒）→ ln -sfn 批量（250/轮）只链接被引用者到 <remoteProjectRoot>/micrographs/<name>.mrcs（链接名带 .mrcs、目标保持 .mrc，零数据搬运）→ 星行说链接名；收执带「2 of 3 .mrc linked — only the referenced」普查 + 光学 + 对齐源 + 未映射字段数；本地车道同构（本地符号链接）
+- t336-d 集成：NATIVE_TYPES/REMOTE_BOOKKEEPING_TYPES + workflow 目录（IMPORT 类、ArrowLeftRight 图标入注册表、Source 页签：csPath filePick/invertY/高级光学回退）+ 13 个 particles_star from 列表 + select2d + 两个命令面板预设 + output-summary 关键数字（particles converted / particle stacks linked）+ runRealJob 分发
+- diag-t336-cs2star.mjs 45 断言 ALL GREEN ×2：A 相（npy 写读往返含子数组/U 串/双精度；垃圾拒绝；pyem 数学经套件内独立重打的 euler2rot 往返校验；转换表——单位/1 基提升/uid 连接/列序/链接计划/碰撞后缀星与计划同源/invertY 数学/无 blob 行丢弃/未映射回执）；B 相活体（参考脚本工作流在 mock 上：3 栈且 baz 未被引用 → 转换完成、只链 foo+bar（readlink 验证、baz 原封不动——优化见证）、收执普查、downstream class2d 派发集群吃链接栈完成、关键数字条、点名失踪栈的诚实失败）；C 相本地（镜像 CS 工程布局：本地链接同普查）
+- 回归全绿：t335 / t334 / t333-rerun-wipe / t332 / t330；tsc 0；触碰文件 eslint 0
+- 浏览器活体（prod :3001）：IMPORT 类目录三卡、Enter 上画布、参数面板 Source 页签 + csPath 选择器 + invertY 开关、390×844 零横向溢出、console+page errors 双零；截图 t336-cs2star-params/-mobile.png
+- 教训：块注释里 J*/extract 的 */ 提前闭注释（tsc 在 44 行报语法错——写注释别让 glob 语法当注释终结符）；模板字符串 ${descr.join(", ") 后漏 }（eslint 解析错）；float32 表示噪声（0.07 读回 0.070000000298）——fmt 用 6 位有效数字（pyem/pandas 显示默认），收执插值也要走同一格式化（f6）
+
+Stage Summary:
+- CryoSPARC 用户现在在 cryoFLOW 里画一个「CryoSPARC → RELION」节点、填 J### 目录即可：转换（对齐/CTF/光学全套 pyem 语义）、选择性链接（只链被引用的栈、改扩展名、零搬运）、下游直接接 class2d/refine3d——参考脚本的三步手工流程变一个作业行，且不再链接整个工程的颗粒文件
+- 纯 TS 的 npy 解析器 + pyem 映射表让转换不依赖集群上的 pyem/python；.cs 副本留在 Files 页可查；关键数字条先说颗粒数

@@ -1020,3 +1020,49 @@ N .mrc + M .mrcs — … re-import with the exact .mrc pattern`.
 For the user's dataset the remedy is on the cluster side: re-import with
 `*_Fractions_DW.mrc` (not `.mrc*`) so each micrograph appears once, then
 re-run Extract and the downstream chain.
+
+## 4o. The CryoSPARC door (t336)
+
+The user's reference workflow (`upload/cryosmart_relion_trans3.0.sh`) runs
+pyem's `csparc2star.py` on the cluster, then symlinks the extract dir's
+`.mrc` stacks to `.mrcs` names and sed-edits the star to match — link EVERY
+`.mrc` in every extract dir along the way. The `cs2star` job does the whole
+workflow inside one job row, natively (no pyem, no Python — the cluster only
+serves bytes over SSH):
+
+- **`src/lib/relion/cs-npy.ts`** — a numpy `.npy` structured-array reader:
+  the Python-literal header dict, subarray dtypes (`alignments3D/pose` is a
+  `(3,)` float field), `<U`/`S` fixed-width strings, LE/BE numbers. The
+  `.cs` format is `numpy.save`d records — parseable in TypeScript.
+- **`src/lib/relion/cs2star.ts`** — pyem's field table, verified against
+  asarnow/pyem master: the uid join with the passthrough, Rodrigues →
+  Euler (expmap + Shoemake's rot2euler, RELION's ZYZ convention), CTF
+  defocus in Å (field names say `_A` — no scaling), angles rad → deg,
+  optics group / class / random-subset lifted 0- → 1-based, coordinates
+  normalized → absolute (`micrograph_shape` is `[y, x]` so the axes swap),
+  and the RELION 3.1 optics dialect (`_rlnOriginXAngst` = shift × angpix).
+  The `--inverty` flag in pyem is argparse `store_false` — the DEFAULT
+  inverts Y and the flag DISABLES it; the reference script passes it, so
+  `invertY` defaults to false (particles imported INTO cryoSPARC from
+  RELION coordinates already speak RELION's convention).
+- **THE SELECTIVE LINKS (the requested optimization)** — the star's unique
+  `blob/path` values are censused BEFORE any link exists; only those stacks
+  get `ln -sfn <CS .mrc> <projectRoot>/micrographs/<name>.mrcs` on the
+  cluster (the link NAME carries the `.mrcs` extension RELION requires; the
+  target keeps `.mrc`; zero data movement). An `.mrc` in the same extract
+  dir that the `.cs` never references stays untouched — the receipt says
+  so (`2 of 3 .mrc stack(s) linked — only the ones this star references`).
+  Missing referenced stacks refuse the run honestly; the link farm is
+  idempotent (`-fn` re-points stale links on re-run).
+- **The lanes** — remote projects: SSH discover (J### → newest
+  `*particles.cs` + first `*_passthrough_particles.cs`, the reference
+  script's own order) → download under the connection's per-file cap →
+  convert → verify targets → link → the star's rows speak the link names
+  (`1@micrographs/foo_particles.mrcs`). Local projects: the same flow with
+  local symlinks. Downstream jobs (class2d/refine3d/…) consume it
+  directly: the star stages, the stacks resolve through the cluster's
+  micrographs/ tree, not one stack byte uploads.
+
+The key numbers doctrine rides along: the Results strip leads with
+`particles converted` + `particle stacks linked`; the receipt carries the
+optics, the alignment source (3D/2D/none) and the unmapped-field count.

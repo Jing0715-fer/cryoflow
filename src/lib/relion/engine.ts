@@ -41,9 +41,11 @@ import { getProjectMeta } from "@/lib/projects";
 import { getConnection, loadConnections } from "@/lib/remote/connections";
 import { remoteHeaderSniffer } from "@/lib/remote/sniff";
 import { listRemoteDir, REMOTE_IMPORT_MAX_ENTRIES, statRemoteFiles } from "@/lib/remote/remote-ls";
-import { exec as sshExec } from "@/lib/remote/ssh";
+import { exec as sshExec, remoteDownload, remoteMkdir } from "@/lib/remote/ssh";
 import { wipeLocalRunProducts } from "@/lib/relion/run-wipe";
 import { describeExtractCollisions, scanExtractCollisions } from "@/lib/relion/extract-collide";
+import { npyRows, parseNpyHeader } from "@/lib/relion/cs-npy";
+import { csRowsToStar, type Cs2StarResult } from "@/lib/relion/cs2star";
 import type { RemoteConnection, RemoteRunState } from "@/lib/remote/types";
 import { readMrcHeader } from "@/lib/mrc";
 import { sniffImageFile, spreadSample, type HeaderSniffer, type SniffVerdict } from "./mrc-sniff";
@@ -856,22 +858,22 @@ const INPUTS: Record<string, InputReq[]> = {
     { key: "coords_dir", accepts: ["coords_dir", "coords_star"], from: ["manualpick", "autopick"], label: "particle coordinates (run ManualPick/AutoPick first)" },
   ],
   select: [
-    { key: "particles_star", accepts: ["particles_star"], from: ["import", "extract", "class2d", "select", "select2d", "joinstar", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
+    { key: "particles_star", accepts: ["particles_star"], from: ["import", "extract", "cs2star", "class2d", "select", "select2d", "joinstar", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
   ],
   select2d: [
-    { key: "particles_star", accepts: ["particles_star"], from: ["import", "class2d", "select2d"], label: "classified particles STAR with _rlnClassNumber (run 2D Classification first)" },
+    { key: "particles_star", accepts: ["particles_star"], from: ["import", "cs2star", "class2d", "select2d"], label: "classified particles STAR with _rlnClassNumber (run 2D Classification first)" },
     // class averages only feed the selection GALLERY — missing stack must
     // never block the run (older jobs may lack the output)
     { key: "classes_mrc", accepts: ["classes_mrc"], from: ["class2d"], label: "2D class averages (gallery)", optional: true },
   ],
   class2d: [
-    { key: "particles_star", accepts: ["particles_star"], from: ["import", "extract", "select", "select2d", "class2d", "joinstar", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
+    { key: "particles_star", accepts: ["particles_star"], from: ["import", "extract", "cs2star", "select", "select2d", "class2d", "joinstar", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
   ],
   initialmodel: [
-    { key: "particles_star", accepts: ["particles_star"], from: ["import", "extract", "select", "select2d", "class2d", "joinstar", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
+    { key: "particles_star", accepts: ["particles_star"], from: ["import", "extract", "cs2star", "select", "select2d", "class2d", "joinstar", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
   ],
   class3d: [
-    { key: "particles_star", accepts: ["particles_star"], from: ["import", "extract", "select", "select2d", "class2d", "initialmodel", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
+    { key: "particles_star", accepts: ["particles_star"], from: ["import", "extract", "cs2star", "select", "select2d", "class2d", "initialmodel", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
     // the reference MUST be a 3D map: initialmodel's VDAM model or class3d's
     // own 3D class volumes. class2d is deliberately absent — its classes are
     // 2D averages, and seeding a 3D refinement with them silently produced
@@ -880,19 +882,19 @@ const INPUTS: Record<string, InputReq[]> = {
     { key: "model_mrc", accepts: ["model_mrc", "classes_mrc"], from: ["initialmodel", "class3d", "mapimport"], label: "reference map (run InitialModel first, or import a map)" },
   ],
   refine3d: [
-    { key: "particles_star", accepts: ["particles_star"], from: ["import", "extract", "select", "select2d", "class2d", "joinstar", "initialmodel", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
+    { key: "particles_star", accepts: ["particles_star"], from: ["import", "extract", "cs2star", "select", "select2d", "class2d", "joinstar", "initialmodel", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
     // 3D reference only — never class2d's 2D averages (see class3d note)
     { key: "model_mrc", accepts: ["model_mrc", "classes_mrc"], from: ["initialmodel", "class3d", "mapimport"], label: "reference map (run InitialModel first, or import a map)" },
   ],
   multibody: [
-    { key: "particles_star", accepts: ["particles_star"], from: ["import", "extract", "select", "select2d", "class2d", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
+    { key: "particles_star", accepts: ["particles_star"], from: ["import", "extract", "cs2star", "select", "select2d", "class2d", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
     { key: "optimiser_star", accepts: ["optimiser_star"], from: ["refine3d", "class3d"], label: "optimiser.star (run Refine3D first)" },
   ],
   symexpand: [
-    { key: "particles_star", accepts: ["particles_star", "refine_data_star"], from: ["import", "extract", "select", "select2d", "class2d", "initialmodel", "class3d", "refine3d", "joinstar", "symexpand", "rebalance"], label: "particles.star with Euler angles (run Extract/Refine first)" },
+    { key: "particles_star", accepts: ["particles_star", "refine_data_star"], from: ["import", "extract", "cs2star", "select", "select2d", "class2d", "initialmodel", "class3d", "refine3d", "joinstar", "symexpand", "rebalance"], label: "particles.star with Euler angles (run Extract/Refine first)" },
   ],
   rebalance: [
-    { key: "particles_star", accepts: ["particles_star", "refine_data_star"], from: ["import", "extract", "select", "select2d", "class2d", "initialmodel", "class3d", "refine3d", "joinstar", "symexpand", "rebalance"], label: "oriented particles STAR with _rlnAngleRot/Tilt (refine/classify output)" },
+    { key: "particles_star", accepts: ["particles_star", "refine_data_star"], from: ["import", "extract", "cs2star", "select", "select2d", "class2d", "initialmodel", "class3d", "refine3d", "joinstar", "symexpand", "rebalance"], label: "oriented particles STAR with _rlnAngleRot/Tilt (refine/classify output)" },
   ],
   maskcreate: [
     { key: "map_mrc", accepts: ["half1_mrc", "model_mrc", "map_mrc"], from: ["refine3d", "initialmodel", "class3d", "postprocess", "localres"], label: "3D map (run Refine3D first)" },
@@ -907,16 +909,16 @@ const INPUTS: Record<string, InputReq[]> = {
     { key: "mask_mrc", accepts: ["mask_mrc"], from: ["maskcreate"], label: "solvent mask (run MaskCreate first)" },
   ],
   polish: [
-    { key: "particles_star", accepts: ["particles_star", "refine_data_star"], from: ["import", "extract", "refine3d", "class2d", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
+    { key: "particles_star", accepts: ["particles_star", "refine_data_star"], from: ["import", "extract", "cs2star", "refine3d", "class2d", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
     { key: "postprocess_star", accepts: ["postprocess_star"], from: ["postprocess"], label: "postprocess.star (run PostProcess first)" },
     { key: "micrographs_star", accepts: ["micrographs_star", "corrected_micrographs_star"], from: ["motioncorr", "import"], label: "corrected micrographs.star (run MotionCorr first)" },
   ],
   ctfrefine: [
-    { key: "particles_star", accepts: ["particles_star", "refine_data_star"], from: ["import", "extract", "refine3d", "class2d", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
+    { key: "particles_star", accepts: ["particles_star", "refine_data_star"], from: ["import", "extract", "cs2star", "refine3d", "class2d", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
     { key: "postprocess_star", accepts: ["postprocess_star"], from: ["postprocess"], label: "postprocess.star (run PostProcess first)" },
   ],
   dynamight: [
-    { key: "particles_star", accepts: ["particles_star", "refine_data_star"], from: ["import", "extract", "refine3d", "class2d", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
+    { key: "particles_star", accepts: ["particles_star", "refine_data_star"], from: ["import", "extract", "cs2star", "refine3d", "class2d", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
     { key: "model_mrc", accepts: ["model_mrc", "map_mrc"], from: ["refine3d", "postprocess"], label: "consensus map (run Refine3D first)" },
   ],
   modelangelo: [
@@ -925,7 +927,7 @@ const INPUTS: Record<string, InputReq[]> = {
   subtract: [
     { key: "optimiser_star", accepts: ["optimiser_star"], from: ["refine3d", "class3d"], label: "optimiser.star (run Refine3D first)" },
     { key: "mask_mrc", accepts: ["mask_mrc"], from: ["maskcreate"], label: "mask of signal to subtract (run MaskCreate first)" },
-    { key: "particles_star", accepts: ["particles_star"], from: ["import", "extract", "refine3d"], label: "particles.star (run Extract first)" },
+    { key: "particles_star", accepts: ["particles_star"], from: ["import", "extract", "cs2star", "refine3d"], label: "particles.star (run Extract first)" },
   ],
   tomo_import: [],
   tomo_aligntiltseries: [
@@ -2754,6 +2756,333 @@ async function runMapImportNative(job: EngineJobRef): Promise<NativeResult> {
     result,
     logText
   );
+  return { ok: true, result };
+}
+
+/* ------------------------------------------------------------------ */
+/* t336 — CryoSPARC .cs → RELION particles.star (engine-native)        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Resolve the user's csPath against the CLUSTER: a .cs file is used
+ * directly (its sibling passthrough searched in the same dir); a job
+ * directory (J###) gets its newest particles.cs + first passthrough —
+ * the reference script's own discovery order (ls -V, last primary wins).
+ */
+async function resolveCsInputsRemote(
+  conn: RemoteConnection,
+  csPathRaw: string
+): Promise<{ primary: string; passthrough: string | null; csProjectRoot: string; jobLabel: string } | { error: string }> {
+  const isFile = /\.cs$/i.test(csPathRaw);
+  const q = (p: string) => `'${p.replace(/'/g, `'\\''`)}'`;
+  if (isFile) {
+    const st = await statRemoteFiles(conn, [csPathRaw]);
+    if (st.missing.length > 0) {
+      return { error: `Not on the cluster: ${csPathRaw} — re-pick the particles.cs in the params tab` };
+    }
+    const dir = csPathRaw.replace(/\/[^/]+$/, "");
+    const ptRes = await sshExec(conn, `ls -1 ${q(dir)}/*_passthrough_particles.cs 2>/dev/null | head -1`, { timeoutMs: 15_000 });
+    const pt = (ptRes.stdout ?? "").trim().split(/\r?\n/)[0] ?? "";
+    return {
+      primary: csPathRaw,
+      passthrough: pt || null,
+      csProjectRoot: dir.replace(/\/[^/]+$/, ""),
+      jobLabel: dir.split("/").pop() ?? dir,
+    };
+  }
+  // a J dir (or any directory): newest primary, first passthrough
+  const lsRes = await sshExec(
+    conn,
+    `cd ${q(csPathRaw)} 2>/dev/null && ls -1 *particles.cs 2>/dev/null | grep -v passthrough | sort -V | tail -1; echo ---; ls -1 *_passthrough_particles.cs 2>/dev/null | head -1`,
+    { timeoutMs: 15_000 }
+  );
+  if (lsRes.code !== 0) {
+    return { error: `Not a directory on the cluster: ${csPathRaw} — pick the CryoSPARC job folder (J###) or the particles.cs itself` };
+  }
+  const [primaryLine, ptLine] = (lsRes.stdout ?? "").split(/^---$/m).map((s) => s.trim().split(/\r?\n/)[0] ?? "");
+  if (!primaryLine) {
+    return { error: `No particles.cs inside ${csPathRaw} — pick the CryoSPARC job folder that holds extracted_particles.cs / cryosparc_*_particles.cs` };
+  }
+  return {
+    primary: `${csPathRaw.replace(/\/$/, "")}/${primaryLine}`,
+    passthrough: ptLine ? `${csPathRaw.replace(/\/$/, "")}/${ptLine}` : null,
+    csProjectRoot: csPathRaw.replace(/\/[^/]+$/, "").replace(/\/$/, ""),
+    jobLabel: csPathRaw.replace(/\/$/, "").split("/").pop() ?? csPathRaw,
+  };
+}
+
+/** 6-significant-digit display (float32 .cs fields carry representation noise). */
+const f6 = (x: number): string =>
+  Number.isFinite(x) ? (Number.isInteger(x) ? String(x) : String(Number(x.toPrecision(6)))) : "0";
+
+/** ~-expansion for the remote root (inlined to avoid an engine↔remote-run import cycle). */
+async function expandCsRemoteRoot(conn: RemoteConnection, p: string): Promise<string> {
+  if (!p.startsWith("~")) return p;
+  const r = await sshExec(conn, "echo $HOME", { timeoutMs: 10_000 });
+  const home = (r.stdout ?? "").trim().split(/\r?\n/)[0] ?? "";
+  if (p === "~") return home;
+  if (p.startsWith("~/")) return home + p.slice(1);
+  return p;
+}
+
+/** The runner: cluster .cs bytes → star + SELECTIVE links; local .cs same. */
+async function runCs2StarNative(job: EngineJobRef): Promise<NativeResult> {
+  const workdir = workdirFor(job);
+  mkdirSync(workdir, { recursive: true });
+  const csPathRaw = String(job.params.csPath ?? "").trim();
+  if (!csPathRaw) {
+    return {
+      ok: false,
+      error: "Pick the CryoSPARC job folder (J###) or the particles.cs file in the params tab first",
+    };
+  }
+  const invertY = job.params.invertY === true;
+  const fallback = {
+    angpix: num(job, "pixelSize", 1) > 0 ? num(job, "pixelSize", 1) : undefined,
+    voltage: num(job, "voltage", 300),
+    cs: num(job, "cs", 2.7),
+    ac: num(job, "ampContrast", 0.1),
+  };
+
+  const meta = getProjectMeta(job.projectId);
+  const connId = meta?.remote?.connectionId ?? null;
+  const conn = connId ? (getConnection(connId) ?? null) : null;
+
+  let primaryBytes: Buffer;
+  let ptBytes: Buffer | null = null;
+  let csProjectRoot: string;
+  let jobLabel: string;
+  let linkPlan: Array<{ target: string; linkName: string }>;
+  let linkDirNote = "";
+  let censusNote = "";
+
+  if (conn) {
+    // ---- the CLUSTER lane: discover, download, convert, link -----------
+    const resolved = await resolveCsInputsRemote(conn, csPathRaw);
+    if ("error" in resolved) return { ok: false, error: resolved.error };
+    csProjectRoot = resolved.csProjectRoot;
+    jobLabel = resolved.jobLabel;
+
+    const want: string[] = [resolved.primary, ...(resolved.passthrough ? [resolved.passthrough] : [])];
+    const { sizes, missing } = await statRemoteFiles(conn, want);
+    if (missing.length > 0) return { ok: false, error: `Not on the cluster: ${missing[0]}` };
+    const capMb = conn.maxFileMb > 0 ? conn.maxFileMb : 512;
+    for (let i = 0; i < want.length; i++) {
+      const size = sizes[i] ?? 0;
+      if (size > capMb * 1024 * 1024) {
+        return {
+          ok: false,
+          error: `${want[i]} is ${(size / 1024 / 1024).toFixed(0)} MB, over the connection's ${capMb} MB per-file cap — raise the cap in Remote clusters and run again`,
+        };
+      }
+    }
+
+    const dl = async (remote: string, local: string): Promise<Buffer> => {
+      const n = await remoteDownload(conn, remote, path.join(workdir, local), capMb * 1024 * 1024);
+      if (n == null || n < 0) throw new Error(`could not download ${remote} — the cluster connection answered poorly`);
+      return readFileSync(path.join(workdir, local));
+    };
+    try {
+      primaryBytes = await dl(resolved.primary, "particles.cs");
+      ptBytes = resolved.passthrough ? await dl(resolved.passthrough, "passthrough_particles.cs") : null;
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) };
+    }
+
+    // convert FIRST — the census decides which links exist at all
+    let conv: Cs2StarResult;
+    try {
+      const pt = ptBytes ? npyRows(ptBytes, parseNpyHeader(ptBytes)) : [];
+      conv = csRowsToStar(npyRows(primaryBytes, parseNpyHeader(primaryBytes)), pt ? [pt] : [], { invertY, fallback });
+    } catch (e) {
+      return {
+        ok: false,
+        error: `could not parse the .cs: ${e instanceof Error ? e.message : String(e)} — is this a CryoSPARC 2+ dataset file?`,
+      };
+    }
+    if (conv.particles === 0) {
+      return { ok: false, error: `the .cs holds no windowable particle rows (blob/path missing) — ${resolved.primary}` };
+    }
+
+    // ---- THE SELECTIVE LINKS (the optimization over the reference
+    // script's link-everything): only the stacks the star references —
+    // resolved against the CryoSPARC project root, verified to exist, then
+    // linked with the .mrcs name RELION requires. Zero data movement.
+    const resolveCs = (p: string) => (p.startsWith("/") ? p : `${csProjectRoot}/${p.replace(/^\.\//, "")}`);
+    const targets = conv.stacks.map((s) => resolveCs(s.csPath));
+    const verify = await sshExec(
+      conn,
+      `for f in ${targets.map((t) => `'${t.replace(/'/g, `'\\''`)}'`).join(" ")}; do [ -f "$f" ] || echo "MISSING $f"; done; true`,
+      { timeoutMs: 30_000 }
+    );
+    const missingStacks = (verify.stdout ?? "").split(/\r?\n/).map((l) => l.trim()).filter((l) => l.startsWith("MISSING "));
+    if (missingStacks.length > 0) {
+      return {
+        ok: false,
+        error: `${missingStacks.length} referenced particle stack(s) are missing on the cluster (first: ${missingStacks[0]!.slice(8)}) — the .cs names files the CryoSPARC project no longer holds`,
+      };
+    }
+    linkPlan = conv.stacks.map((s, i) => ({ target: targets[i]!, linkName: s.linkName }));
+
+    // the receipt's census: how many .mrc files sit in the extract dirs the
+    // links came from (the reference script linked ALL of them)
+    const dirs = [...new Set(linkPlan.map((l) => l.target.replace(/\/[^/]+$/, "")))];
+    const countRes = await sshExec(
+      conn,
+      dirs.map((d) => `ls -1 '${d.replace(/'/g, `'\\''`)}'/*.mrc 2>/dev/null | wc -l`).join(";"),
+      { timeoutMs: 15_000 }
+    );
+    const counts = (countRes.stdout ?? "").split(/\r?\n/).map((l) => Number(l.trim())).filter((n) => Number.isFinite(n) && n > 0);
+    const totalMrc = counts.reduce((a, b) => a + b, 0);
+    censusNote =
+      totalMrc > linkPlan.length
+        ? ` · ${linkPlan.length} of ${totalMrc} .mrc stack(s) linked — only the ones this star references (the rest stay untouched)`
+        : ` · ${linkPlan.length} stack(s) linked`;
+
+    // create the link farm under the REMOTE project root (idempotent -fn)
+    const remoteRoot = await expandCsRemoteRoot(conn, conn.remoteRoot || "~/cryoflow");
+    const linkDir = `${remoteRoot.replace(/\/$/, "")}/${job.projectId}/micrographs`;
+    await remoteMkdir(conn, linkDir);
+    const BATCH = 250;
+    for (let i = 0; i < linkPlan.length; i += BATCH) {
+      const batch = linkPlan.slice(i, i + BATCH);
+      const script = batch
+        .map((l) => `ln -sfn '${l.target.replace(/'/g, `'\\''`)}' '${(linkDir + "/" + l.linkName).replace(/'/g, `'\\''`)}'`)
+        .join(" && ");
+      const res = await sshExec(conn, script, { timeoutMs: 120_000 });
+      if (res.error || (res.code != null && res.code !== 0)) {
+        return {
+          ok: false,
+          error: `could not link the referenced stacks into ${linkDir} (${(res.error || res.stderr || "").split("\n").filter(Boolean).slice(-1)[0] ?? "ssh exit " + res.code})`,
+        };
+      }
+    }
+    linkDirNote = `stacks linked on the cluster at ${linkDir}`;
+
+    // the star itself
+    const starPath = path.join(workdir, "particles.star");
+    writeFileSync(starPath, conv.starText, "utf8");
+
+    const opticsNote = `${f6(conv.optics.voltage)} kV · Cs ${f6(conv.optics.cs)} mm · ac ${f6(conv.optics.ac)} · pixel ${f6(conv.optics.angpix)} Å`;
+    const alignNote =
+      conv.alignment === "3D"
+        ? "3D alignments (Rodrigues → Euler)"
+        : conv.alignment === "2D"
+          ? "2D alignments (psi)"
+          : "no alignments (picked-only set)";
+    const unmappedNote =
+      conv.unmapped.length > 0 ? ` · ${conv.unmapped.length} unmapped .cs field(s) skipped` : "";
+    const result =
+      `REMOTE[cryo@${conn.host}]: ${conv.particles} particles converted from ${jobLabel}${censusNote} · ${conv.stacks.length} stack(s) → micrographs/ · ${opticsNote} · ${alignNote}${unmappedNote}` +
+      (conv.opticsGroups > 1 ? ` · ${conv.opticsGroups} optics groups` : "");
+    const logText = [
+      `CryoFlow engine-native CryoSPARC conversion ${new Date().toISOString()}`,
+      `source: ${resolved.primary}${resolved.passthrough ? ` + ${resolved.passthrough}` : ""}`,
+      `cs project root: ${csProjectRoot}`,
+      `invertY: ${invertY}`,
+      `particles: ${conv.particles} · referenced stacks: ${conv.stacks.length}${censusNote}`,
+      `optics: ${opticsNote} · ${alignNote}`,
+      conv.unmapped.length > 0 ? `unmapped fields: ${conv.unmapped.join(", ")}` : "",
+      `output: ${starPath}`,
+      result,
+      "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+    recordNativeRun(job, workdir, "engine-native: cryosparc cs → star (selective links)", { particles_star: starPath }, result, logText);
+    return { ok: true, result };
+  }
+
+  // ---- the LOCAL lane (a .cs on this machine / the WSL bridge) --------
+  const hostPath = csPathRaw;
+  let primaryLocal = hostPath;
+  if (!existsSync(primaryLocal)) {
+    return { ok: false, error: `Not accessible: ${hostPath} — re-pick the particles.cs in the params tab` };
+  }
+  const dir = path.dirname(primaryLocal);
+  const ptCandidates = readdirSync(dir).filter((f) => /_passthrough_particles\.cs$/i.test(f)).sort();
+  const ptLocal = ptCandidates[0] ? path.join(dir, ptCandidates[0]) : null;
+  csProjectRoot = dir.replace(/[/\\][^/\\]+$/, "");
+  jobLabel = dir.split(/[\\/]/).pop() ?? dir;
+
+  try {
+    primaryBytes = readFileSync(primaryLocal);
+    ptBytes = ptLocal ? readFileSync(ptLocal) : null;
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+  let conv: Cs2StarResult;
+  try {
+    const pt = ptBytes ? npyRows(ptBytes, parseNpyHeader(ptBytes)) : [];
+    conv = csRowsToStar(npyRows(primaryBytes, parseNpyHeader(primaryBytes)), pt ? [pt] : [], { invertY, fallback });
+  } catch (e) {
+    return {
+      ok: false,
+      error: `could not parse the .cs: ${e instanceof Error ? e.message : String(e)} — is this a CryoSPARC 2+ dataset file?`,
+    };
+  }
+  if (conv.particles === 0) {
+    return { ok: false, error: `the .cs holds no windowable particle rows (blob/path missing) — ${primaryLocal}` };
+  }
+
+  // local selective links: <project>/micrographs/<name>.mrcs → the .mrc
+  const projectDir = projectDirFor(job);
+  const micDir = path.join(projectDir, "micrographs");
+  mkdirSync(micDir, { recursive: true });
+  const resolveLocal = (p: string) => (path.isAbsolute(p) ? p : path.join(csProjectRoot, p));
+  const missingLocal: string[] = [];
+  for (const s of conv.stacks) {
+    const target = resolveLocal(s.csPath);
+    if (!existsSync(target)) missingLocal.push(target);
+  }
+  if (missingLocal.length > 0) {
+    return {
+      ok: false,
+      error: `${missingLocal.length} referenced particle stack(s) not found (first: ${missingLocal[0]}) — the .cs names files this machine no longer holds`,
+    };
+  }
+  for (const s of conv.stacks) {
+    const target = resolveLocal(s.csPath);
+    const link = path.join(micDir, s.linkName);
+    try {
+      rmSync(link, { force: true });
+      symlinkSync(target, link, "file");
+    } catch {
+      /* best effort — the star still speaks the name; a re-run re-points */
+    }
+  }
+  const totalMrcLocal = readdirSync(path.dirname(resolveLocal(conv.stacks[0]!.csPath))).filter((f) => /\.mrc$/i.test(f)).length;
+  censusNote =
+    totalMrcLocal > conv.stacks.length
+      ? ` · ${conv.stacks.length} of ${totalMrcLocal} .mrc stack(s) linked — only the referenced ones`
+      : ` · ${conv.stacks.length} stack(s) linked`;
+  linkDirNote = `stacks linked at ${micDir}`;
+
+  const starPath = path.join(workdir, "particles.star");
+  writeFileSync(starPath, conv.starText, "utf8");
+  const opticsNote = `${f6(conv.optics.voltage)} kV · Cs ${f6(conv.optics.cs)} mm · ac ${f6(conv.optics.ac)} · pixel ${f6(conv.optics.angpix)} Å`;
+  const alignNote =
+    conv.alignment === "3D"
+      ? "3D alignments (Rodrigues → Euler)"
+      : conv.alignment === "2D"
+        ? "2D alignments (psi)"
+        : "no alignments (picked-only set)";
+  const result = `${conv.particles} particles converted from ${jobLabel}${censusNote} · ${conv.stacks.length} stack(s) → micrographs/ · ${opticsNote} · ${alignNote}`;
+  const logText = [
+    `CryoFlow engine-native CryoSPARC conversion ${new Date().toISOString()}`,
+    `source: ${primaryLocal}${ptLocal ? ` + ${ptLocal}` : ""}`,
+    `invertY: ${invertY}`,
+    `particles: ${conv.particles} · referenced stacks: ${conv.stacks.length}${censusNote}`,
+    `optics: ${opticsNote} · ${alignNote}`,
+    conv.unmapped.length > 0 ? `unmapped fields: ${conv.unmapped.join(", ")}` : "",
+    `output: ${starPath}`,
+    result,
+    "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+  recordNativeRun(job, workdir, "engine-native: cryosparc cs → star (selective links)", { particles_star: starPath }, result, logText);
+  void linkDirNote;
   return { ok: true, result };
 }
 
@@ -5106,6 +5435,14 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
   // ---- engine-native jobs -------------------------------------------
   if (job.type === "import") {
     const r = await runImportNative(job);
+    return r.ok ? { ok: true, native: true, result: r.result } : { ok: false, error: r.error };
+  }
+  if (job.type === "cs2star") {
+    // t336 — CryoSPARC .cs → particles.star: engine-native on BOTH lanes
+    // (the cluster lane is SSH in-process — discover, download, convert,
+    // selective-link; no sbatch, no staging, the reference script's whole
+    // workflow inside one job row)
+    const r = await runCs2StarNative(job);
     return r.ok ? { ok: true, native: true, result: r.result } : { ok: false, error: r.error };
   }
   if (job.type === "mapimport") {
