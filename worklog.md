@@ -2780,3 +2780,19 @@ Stage Summary:
 - 用户侧操作：部署修复后直接再跑 2D 分类即可——dispatch 的 heal 先搬正 star 再 probe 验证，链式续跑；若 extract 记录是 failed 态则 re-run extract（新跑落位正确，旧孤儿被 mop+清扫吃掉）。无需手动上集群改名
 - 产物：engine.ts（outPath POSIX 化）/ remote-run.ts（mopWin32MangledOrphans + heal 挂点 + spawn 挂点 + argv 消毒）；模拟沙盘与截图 t335-desktop.png / t335-mobile.png
 - 与前票的关系：t334（image.h:1534）杀的是「栈路径被另一写者占据」；本票杀的是「文件型输出参数的路径在 Windows 主机上被打碎」——两张票据一起才解释了用户提取工单的全貌（崩溃 + star 错位）
+
+Task: 同题补完——用户问「提取颗粒为何运行到一半报错了？」（1034 微图 extract 于 20.43/37.65 min 死于 relion_preprocess image.h:1534 "write: target and source objects have different size"，Slurm FAILED 21m02s）。本窗口独立完成与并行窗口 t334 同源的源码级根因链（拉 3dem/relion master 逐行核对：append 期尺寸检查 + getOutputFileNameRoot 去扩展名栈命名 + parseMRCHeader 的 .mrcs 四维读入 + 865+169=1034 的混合导入算术）；并行窗口先落地名字级碰撞扫描（t334）与代际清扫（t333），本提交按 t314 判例重编号 t333→t335，瘦身为互补层。
+
+Work Log:
+- 源码级根因链与 t334 独立同源收敛（image.h:1534/_write 的 _exists+APPEND 尺寸检查；每微图颗粒 #1=OVERWRITE 截断、#2..N=APPEND 读头校验；栈名=part_dir+行路径去扩展名+.mrcs——仅扩展名不同的两行写同一文件；.mrcs 全量读入为 (x,y,1,N) 帧 0 窗口）
+- t335-a 纯模块 src/lib/relion/extract-gate.ts（t326/t327 零导入配方）：帧栈普查——.mrcs 行经 HeaderSniffer 字节级验证，nz>1=帧栈→带头部数字的拒绝（「8 sections × 1024×1024 (mode 2)」），单截面=放行+note，不可验证=note 绝不拦截；.mrc 纯星静默（名字级几何归 t334 扫描）；engine 复用模块的 parseStarBlocks/micrographRowsFromContent（引擎侧重复定义撤除）
+- t335-b remote-run 互补挂接（在 t334 扫描之后、staging 之前）：①孪生星闭合——t334 对集群_only星原是 skip+console note（t324-a 同款盲区），现 cat over SSH 读回原文、t334 的 scanExtractCollisions 对集群自己的文本重跑（同款拒绝措辞，不是更软的）；②帧栈普查仅在存在 .mrcs 行时跑（纯 .mrc 星零开销）；门注记搭 sbatch/direct 两处 note（ctffindGateNote ?? extractGateNote）
+- t335-c 导入回执扩展名普查：「⚠ mixed extensions: N .mrc + M .mrcs …」（6 文件嗅探会漏少数派，普查直接报数量+碰撞机制+重导入指引）
+- t335-d 本地引擎同款帧栈普查（t334 本地扫描之后，仅 .mrcs 行时经 localHeaderSniffer）
+- 撤下与 t333/t334 重叠的部分：名字级重复/孪生拒绝（t334 owns）、rm -rf micrographs/Particles/extra/shard_* 清扫行（t333 代际清扫 owns——共享分类器+保留契约更完整）
+- diag-t335-framestack-door.mjs（原 diag-t333-extract-guard.mjs 重编号改写）：A 相纯逻辑（帧栈拒绝带头部数字/单截面放行/无嗅探降级/抛异常降级/纯 .mrc 星静默/行读取器）；LIVE——混合导入回执带普查、t334 措辞的孪生拒绝（本地星路径）、纯帧栈导入的 SSH 嗅探 nz=8 拒绝、干净链路完成无误伤
+- 回归：t334(47)/t333-rerun-wipe(75)/t330/t332/t331/t325/t327 全 ALL GREEN（t327 首跑 3 败为 mock 账本 136 条陈旧条目拖慢活体记账窗口——清账后全绿，非代码回归）；tsc 0；触碰文件 eslint 0
+
+Stage Summary:
+- 用户的「运行到一半报错」双窗口同源收敛作答：根因=导入集混入 .mrcs 电影帧栈+扩展名孪生共享输出栈路径；修复=重导入用 *_Fractions_DW.mrc 精确模式再重跑
+- t335 补齐 t334 的两个盲区：集群_only孪生星的 SSH 读取（扫描不再跳过）与 .mrcs 行的字节级帧栈验证（名字级扫描看不到茎名互异的帧栈污染）；外加导入期普查回执

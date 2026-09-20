@@ -989,3 +989,34 @@ without a real HPC system.
   not done: CryoFlow already auto-answers it (interrupted refine-family
   resumes via `--continue`; everything else starts fresh, and the confirm
   dialog says exactly what will happen).
+
+## 4n. The extract frame census + the twin-star closure (t335)
+
+The complement to §4m's name-only collision scan: a `.mrcs` row whose
+header says `nz>1` is a FRAME STACK, not a micrograph — RELION reads it as
+an `(x,y,1,N)` volume (`parseMRCHeader`: `isStack → _nDim = nz`) and
+windows frame 0 of it: garbage particles even when the names never collide.
+The mixed-import shape (the `*_Fractions_DW.mrc*` glob sweeping in the
+corrector's `.mrcs` aligned movie stacks beside the `.mrc` sums — the
+Beijing report's 865 .mrcs + 169 .mrc arithmetic) is invisible to a
+name-only scan when the stems are distinct.
+
+`src/lib/relion/extract-gate.ts` (PURE, the t326/t327 recipe) samples the
+`.mrcs` rows through the header sniffer: `nz>1` → refusal carrying the
+header's own numbers; single-section → allowed with a note; unverifiable →
+the note, never a block (the t313 philosophy). It runs on both lanes after
+the t334 scan.
+
+The **twin-star closure**: §4m's scan used to skip a twin-resolved star
+(cluster-only, no local copy) with a console note — the same t324-a blind
+spot the CTF gate once had. The dispatch now `cat`s the star in place over
+SSH and re-runs the t334 collision scan on the cluster's own text, so a
+cluster-only star earns the SAME refusal, not a softer one.
+
+The import receipt also carries the **extension census** (the 6-file header
+sniff can miss the minority kind in a mixed folder): `⚠ mixed extensions:
+N .mrc + M .mrcs — … re-import with the exact .mrc pattern`.
+
+For the user's dataset the remedy is on the cluster side: re-import with
+`*_Fractions_DW.mrc` (not `.mrc*`) so each micrograph appears once, then
+re-run Extract and the downstream chain.

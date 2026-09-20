@@ -48,7 +48,9 @@ import {
   collectOutputs,
   ctffindInputGate,
   describeExitCode,
+  extractInputGate,
   getRun,
+  micrographRowsFromContent,
   missingRemoteOutputKeys,
   normalizeClusterHost,
   parseJobParams,
@@ -1687,6 +1689,78 @@ export async function startRemoteJob(args: {
   const remoteProjectRoot = `${remoteRoot.replace(/\/$/, "")}/${job.projectId}`;
   const remoteWorkdir = `${remoteProjectRoot}/${job.type}_${job.id.slice(-8)}`;
 
+  // ---- t335 — the extract frame census + the twin-star closure ---------
+  // The parallel t334 scan refuses duplicate rows and extension twins when
+  // a LOCAL star copy exists — but a twin-resolved star (the sync-back left
+  // no local copy) made that scan SKIP with a console note, the same t324-a
+  // blind spot the CTF gate once had. This block closes it: the star is
+  // cat'd in place over SSH, the t334 collision scan runs on the cluster's
+  // own text, and the .mrcs rows are BYTE-verified through the header
+  // sniffer — nz>1 is a movie stack, not a micrograph (RELION reads an
+  // .mrcs row as an (x,y,1,N) volume and windows frame 0: garbage
+  // particles even when the names never collide — the mixed-import shape
+  // the name-only scan cannot see). Verified singles pass with a note;
+  // everything unverifiable degrades to the note, never a block.
+  let extractGateNote: string | null = null;
+  if (job.type === "extract" && resolved.inputs.micrographs_star) {
+    const starPath = resolved.inputs.micrographs_star;
+    let starText: string | null = null;
+    if (existsSync(starPath)) {
+      try {
+        starText = readFileSync(starPath, "utf8");
+      } catch {
+        starText = null;
+      }
+    } else {
+      // t335 — the twin-resolved star lives on the cluster: read it in
+      // place so the t334 scan (which skipped above) can still speak
+      try {
+        const cat = await exec(conn, `cat ${shSingleQuote(starPath)}`, { timeoutMs: 15_000 });
+        if (!cat.error && cat.code === 0) starText = cat.stdout;
+      } catch {
+        starText = null;
+      }
+      if (starText !== null) {
+        console.log(
+          `remote-run: extract star read in place over SSH (${starPath}) — the collision scan re-ran on the cluster's own text (t335)`
+        );
+      }
+    }
+    if (starText === null) {
+      extractGateNote =
+        "micrographs star unreadable (no local copy, cluster cat failed) — the collision scan and the frame-stack census did not run";
+      console.log("remote-run: extract frame census — star unreadable, census skipped (t335)");
+    } else {
+      // the collision scan on whatever text we now hold (the t334 wording
+      // verbatim — a twin-resolved star earns the SAME refusal, not a
+      // softer one)
+      const report = scanExtractCollisions(starText);
+      if (report && (report.duplicates.length > 0 || report.clashes.length > 0)) {
+        return fail(
+          `the micrographs STAR would collide inside the extraction: ${describeExtractCollisions(report)} — RELION names each particle stack after the micrograph (extension swapped to .mrcs), so these rows write the same file (the mid-run "write: target and source objects have different size" crash). De-duplicate the rows or rename the colliding files on the cluster, then run again`,
+          true
+        );
+      }
+      // the frame census — only when .mrcs rows exist (a pure .mrc star
+      // has nothing to byte-verify)
+      const rows = micrographRowsFromContent(starText);
+      if (rows.some((r) => /\.mrcs$/i.test(r))) {
+        const gate = await extractInputGate(
+          rows,
+          remoteHeaderSniffer(conn),
+          (row) => (row.startsWith("/") ? row : `${remoteProjectRoot}/${row.replace(/^\.?\//, "")}`)
+        );
+        if (gate.refusal) {
+          console.log(
+            `remote-run: extract frame census REFUSED before staging — ${rows.length} row(s) censused, ${gate.refusal.split(" — ")[0]} (t335)`
+          );
+          return fail(gate.refusal, true);
+        }
+        extractGateNote = gate.note;
+      }
+    }
+  }
+
   // ---- topaztrain: build the coordinate_files index HERE (t265) ----------
   // --topaz_train_picks must be the data_coordinate_files INDEX star, and
   // the engine's synthesis reads the resolved inputs from a DISK. At
@@ -2316,7 +2390,7 @@ export async function startRemoteJob(args: {
           nodelist: nodelistPin,
           dependency,
           array: arrayPlan,
-          note: ctffindGateNote,
+          note: ctffindGateNote ?? extractGateNote,
         });
         const scriptPath = `${remoteWorkdir}/.cf-sbatch.sh`;
         const upOk = await remoteUpload(conn, script, scriptPath);
@@ -2391,7 +2465,7 @@ export async function startRemoteJob(args: {
           command,
           remoteProjectRoot,
           remoteWorkdir,
-          note: ctffindGateNote,
+          note: ctffindGateNote ?? extractGateNote,
         });
 
         const wrapperPath = `${remoteWorkdir}/.cf-run.sh`;

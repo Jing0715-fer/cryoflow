@@ -47,6 +47,8 @@ import { describeExtractCollisions, scanExtractCollisions } from "@/lib/relion/e
 import type { RemoteConnection, RemoteRunState } from "@/lib/remote/types";
 import { readMrcHeader } from "@/lib/mrc";
 import { sniffImageFile, spreadSample, type HeaderSniffer, type SniffVerdict } from "./mrc-sniff";
+import { extractInputGate, micrographRowsFromContent, parseStarBlocks, type StarBlock } from "./extract-gate";
+export { extractInputGate, micrographRowsFromContent } from "./extract-gate";
 import { detectRelion, savedWslDistro } from "./system";
 import { MIC_RE, expandPattern, hasWildcard, userPathToHost } from "./glob";
 import { writePathrefMarker } from "./pathref";
@@ -1402,45 +1404,9 @@ export { COMMAND_TEMPLATES } from "./command-templates";
 /* STAR file helpers                                                    */
 /* ------------------------------------------------------------------ */
 
-interface StarBlock {
-  /** "data_xxx" header line. */
-  header: string;
-  /** All following lines (including loop_/labels/rows). */
-  lines: string[];
-}
-
-function parseStarBlocks(text: string): StarBlock[] {
-  const blocks: StarBlock[] = [];
-  let current: StarBlock | null = null;
-  for (const raw of text.split(/\r?\n/)) {
-    const line = raw.trimEnd();
-    if (/^data_/.test(line.trim())) {
-      current = { header: line.trim(), lines: [] };
-      blocks.push(current);
-    } else if (current) {
-      current.lines.push(line);
-    }
-  }
-  return blocks;
-}
-
 /** Micrograph names from a micrographs.star (first column after the loop header). */
 function micrographNames(starPath: string): string[] {
-  const blocks = parseStarBlocks(readFileSync(starPath, "utf8"));
-  const micBlock = blocks.find(
-    (b) => b.header === "data_micrographs" || b.lines.some((l) => l.includes("_rlnMicrographName"))
-  );
-  if (!micBlock) return [];
-  const names: string[] = [];
-  for (const line of micBlock.lines) {
-    const t = line.trim();
-    if (!t || t.startsWith("#") || t === "loop_" || t.startsWith("_rln") || t.startsWith("data_")) {
-      continue;
-    }
-    const first = t.split(/\s+/)[0];
-    if (first) names.push(first);
-  }
-  return names;
+  return micrographRowsFromContent(readFileSync(starPath, "utf8"));
 }
 
 /**
@@ -2164,9 +2130,20 @@ async function runImportRemoteLeg(
       : nodeType === "movies" && sniffSingles
         ? " · Node type says Movies but the sampled headers say single-section (already motion-corrected) — CTF can consume these directly; MotionCorr would refuse them"
         : "";
+  // t333 — the extension census: a glob like *_Fractions_DW.mrc* sweeps in
+  // BOTH the corrector's outputs (.mrc sums AND .mrcs aligned movie stacks).
+  // The 6-file header sniff can miss the minority kind, so the receipt also
+  // states the extension split outright — the Beijing import was 865 .mrcs +
+  // 169 .mrc and nobody said so until extract died at image.h:1534.
+  const mrcCount = clusterFiles.filter((f) => /\.mrc$/i.test(f)).length;
+  const mrcsCount = clusterFiles.filter((f) => /\.mrcs$/i.test(f)).length;
+  const censusNote =
+    mrcCount > 0 && mrcsCount > 0
+      ? ` · ⚠ mixed extensions: ${mrcCount} .mrc + ${mrcsCount} .mrcs — the .mrcs are usually the corrector's ALIGNED MOVIE STACKS (frames), not micrographs; extract writes each micrograph's particle stack after the path WITHOUT its extension, so an X.mrc + X.mrcs pair would write the SAME stack file (the "write: target and source objects have different size" abort). Unless the .mrcs files are genuinely single-image, re-import with the exact .mrc pattern`
+      : "";
   return {
     kind: "done",
-    result: `${clusterFiles.length} ${kindWord} imported from ${conn.name || conn.host}${kindNote}${skipNote}${note}${sniffNote}${mismatch} — paths stay on the cluster (zero upload) · pixel ${String(job.params.pixelSize ?? 1.77)} Å`,
+    result: `${clusterFiles.length} ${kindWord} imported from ${conn.name || conn.host}${kindNote}${skipNote}${note}${sniffNote}${mismatch}${censusNote} — paths stay on the cluster (zero upload) · pixel ${String(job.params.pixelSize ?? 1.77)} Å`,
     sourceLabel: `source (cluster ${conn.host}): ${customRaw.slice(0, 200)} — cluster-absolute paths`,
   };
 }
@@ -5290,6 +5267,10 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
     ctffindGateNote = gate.note;
   }
 
+  // t335 — the frame census note rides the local run's result (the same
+  // plumbing as the CTF gate's note)
+  let extractGateNote: string | null = null;
+
   // ---- t334 — the extraction collision scan (before the workdir) --------
   // Same doctrine as the CTF byte-gate above, same lane position: a STAR
   // whose micrograph rows would write the SAME per-mic particle stack
@@ -5309,6 +5290,31 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
       }
     } catch {
       /* unreadable star → the run itself reports the real problem */
+
+  // t335 — the frame-stack census on the local lane (the complement to the
+  // collision scan above): .mrcs rows are byte-verified through the local
+  // header sniffer — nz>1 is a movie stack, not a micrograph (read as an
+  // (x,y,1,N) volume, windowed from frame 0: garbage particles even when
+  // the names never collide). Verified singles pass with a note; anything
+  // unverifiable degrades to the note, never a block.
+  if (job.type === "extract" && inputs.micrographs_star && existsSync(inputs.micrographs_star)) {
+    let extractRows: string[] = [];
+    try {
+      extractRows = micrographNames(inputs.micrographs_star);
+    } catch {
+      extractRows = [];
+    }
+    if (extractRows.some((r) => /\.mrcs$/i.test(r))) {
+      const projectDir = projectDirFor(job);
+      const frameGate = await extractInputGate(
+        extractRows,
+        localHeaderSniffer,
+        (row) => (row.startsWith("/") || existsSync(row) ? row : path.join(projectDir, row))
+      );
+      if (frameGate.refusal) return { ok: false, error: frameGate.refusal };
+      extractGateNote = frameGate.note;
+    }
+  }
     }
   }
 
@@ -5419,7 +5425,7 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
     if (preFlight) return { ok: false, error: preFlight };
   }
 
-  return spawnTrackedRun(job, argv, workdir, binDir, undefined, bridge, ctffindGateNote);
+  return spawnTrackedRun(job, argv, workdir, binDir, undefined, bridge, ctffindGateNote ?? extractGateNote);
 }
 
 /* ------------------------------------------------------------------ */
