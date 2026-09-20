@@ -2578,3 +2578,35 @@ Stage Summary:
 - **「集群是远程链路的真相」**：就绪门从「本地 existsSync」升级为「本地副本 or 已验证的集群孪生」——远程消费者原地消费集群副本（无重上传、无本地副本），本地车道说真话而非卡死
 - **「承诺需要心跳」**：就绪后自动运行 = 一次性触发 + ~20s 重试；懒治愈让 pre-t324 记录在下次尝试时自愈——用户拉取修复并重启后，卡了 10 小时的 2D Classification 会在首次 jobs GET 时自行走向集群
 - 环境：模板 :3000 运行，mock :3022 单实例，prod :3001 运行中（CRYOFLOW_DATA_DIR 指向仓库 data）
+
+## Task 324-a (推送后只读审查的残余闭合)
+
+- 审查裁决: 6550fcd 0 critical/0 high/2 medium/3 low/5 nit, 核心声明全部源码成立
+- MEDIUM①: t313 CTF 门对孪生解析的 star 静默哑火(readFileSync 集群路径 throw→catch 返回 null/null)——「unverifiable→放行带注」教义退化为「放行无注」; 修复: 调用点先查本地可读性, 孪生 star 降级为门自己的忠告方言("…no local copy was synced — the local MRC byte check (NZ) did not run")
+- MEDIUM②: topaztrain 的 t265 索引合成读本地盘, 孪生输入跳过合成→把原始 per-mic coords star 当 --topaz_train_picks 交给 RELION(注定失败的 spawn); 修复: 诚实 PENDING 拒绝带 remediation(提高 caps+重跑上游即自愈, ~20s 重试自动接手)
+- LOW③: 探测脚本 cd 失败 exit 0→盖 10 分钟「验证缺席」戳——不可进入的目录不是文件不存在的证据; 修复: exit 3 + code!==0 不算 ran(无戳无孪生, 下次真重试)
+- LOW④: "latest" glob 排序 LC_ALL=C 钉字节序(免疫 locale)
+- 5 NIT 记账不修(tab 截断病态/多子句标签/成功分支无 1400 帽/liveRunCount 只数本地/断言死分支)
+- diag-t324 扩至 89 断言 ALL GREEN(四条新 LEDGER 契约); t320(85)/t323(73) 回归全绿; tsc/eslint 0; 浏览器双零
+- push: 6550fcd..6f3db67 main→main, ls-remote 校准, 树净
+
+Stage Summary:
+- t324 + t324-a 双提交闭环并推送 https://github.com/Jing0715-fer/cryoflow main @ 6f3db67
+- 环境: 模板 :3000 运行, mock :3022 保留, prod :3001 运行中(CRYOFLOW_DATA_DIR 指向仓库 data)
+
+## Task 325 (2026-09-21, 用户工单窗口第二周 —— 「还是一直pending，并且extraction到2d分类的连线在UI中有时会消失，但是input中的内容还在，2d还是一直pending跑不起来，还是通过cluster上运行的」)
+
+- 【工单原文】同一张 2D Classification 的第二周：extraction 已完成（集群上跑的），2D 依旧永久 pending；新症状——Extract→2D 的连线在 UI 中「有时会消失」，但 inspector 的 input 内容还在。
+- 【复现先行】在 mock 集群 + prod:3001（用户当时运行的 t324-a 构建）上逐字复现：import→LoG autopick→extract 全链 slurm 完成、particles.star 留驻集群（finalize 探测已记孪生）、手术回退 pre-t324 记录（孪生清空）、**删除连接并重建同主机新连接、项目重绑** → ~20s 重试心跳持续 firing 但 2D 永久 pending、消息一字不变——50 秒零动作，RED 实锤。
+- 【根因三重】①**连接漂移**：t324 的全部孪生门（resolveInputs 接受、懒治愈资格、staging 身份映射）都比较裸 connectionId——重连后重试派发带着新 id，旧记录的治愈被拒、孪生被拒，消费者对着「文件就躺在它即将运行的集群上」永久等待。②**镜像丢失（连线消失的机制）**：边同时存于 DB（引擎唯一视野：lineageFor + 重试扫描只查 db.edge）与 sidecar 文件（画布视野）；edgesWithPorts 的自愈重写用**陈旧快照算 keep-set 过滤新鲜文件**——GET 在途时连接的边两条过滤臂全败被逐出；叠加 persistPortEdge 镜像建行失败的**静默吞 catch**（SQLite busy），两端皆空：画布线消失、谱系空、消费者 pending 且消息撒谎（「就绪后自动运行」对无边的作业永远无法兑现）。非原子写再加跨进程撕裂读（半个 JSON → edges:[] → 该次响应所有 sidecar 线全灭）=「有时会消失」。③**撒谎的方言**：谱系空（丢边）与「完成的远程记录但键无处登记」（pre-t324 记录）都落到通用消息「Waiting for upstream output: particles.star (run Extract first)」。
+- 【修复四面】①**集群身份 = (connectionId, host)**：sameClusterTarget() 单一谓词共享给三道孪生门（resolveInputs 增 opts.host；懒治愈资格；staging 身份映射）——同主机重建的连接照常治愈/接受孪生/跳过 staging；真异主机保留跨集群拒绝。②**边层耐久**：sidecar 写原子化（tmp+rename）；自愈 keep-set 从**新鲜读**推导（并发新增永远存活）；**每次读取回填缺失的 DB 镜像**（引擎视野与画布视野不再静默分叉）；镜像建行失败改为有声警告。③**诚实的 pending 方言**：空谱系→「No upstream job is wired that produces particles.star — connect one (drag a wire from its output port)…」（点名真实修复，不再承诺无法兑现的自动启动）；远程完成但键无处登记→「Upstream "X" completed on the cluster, but where its particles.star lives is not on record — send this job to the cluster (the dispatch probes the upstream's workdir there)…」。④**重试轮次的成员隔离**：单个 throw 的消费者不再毒化整轮（per-id try/catch + 具名日志）。
+- 【e2e scripts/diag-t325-connection-drift.mjs，65 断言 ALL GREEN ×3】UNIT（bun + 夹具 state）：sameClusterTarget 真值表（同 id/bare 过、异 id 同 host 过=漂移修复、异 host/无 host 拒）；远程风味孪生经重建连接解析（工单单元级）；异主机/无 host 保留 t324 拒绝；丢失边方言；注册表过期方言；无记录基础消息原样存活（t324 契约）。LIVE A（用户工单端到端）：紧 cap + pad 杠杆使 star 真留驻 → 手术 pre-t324 记录 → 删连接 A / 重建连接 B（同主机）/ 项目重绑 → 本地门说注册表过期方言 → **~20s 重试心跳 + host 匹配懒治愈 → 2D 完成于集群副本**（cmd --i = 治愈孪生；本地 star 始终未再下载；记录孪生+戳回归；服务器日志见证 passthrough 丢弃/项目绑定回退/heal 探测判词三段叙事）。LIVE B（镜像丢失）：真门连接对 → 手术仅删 DB 行（repo 自身 prisma 客户端 + 查询日志噪音剥离）→ 派发门说丢失边方言 → 画布仍画线（sidecar 渲染，恰好 1 条）→ 一次 GET /api/edges **回填镜像**（ROWS1 + 日志见证）→ 同一派发门翻回普通等待方言（引擎看见边了）。LEDGER：11 条源码契约钉死（原子写/新鲜过滤/回填/有声镜像失败/成员隔离等）。
+- 【t324 套件随行更新】cls3 断言改期望注册表过期方言（该形态的诚实上限被 t325 抬高——不再是「run Extract first」谎言）；两条 LEDGER 钉改 sameClusterTarget 形状。
+- 【回归】t325(65)×3 / t324(89) / t323(73) / t320(85) 全部 ALL GREEN @ 重建 prod:3001；tsc 0；eslint 0（四源文件）；浏览器活体（agent-browser 1600×900）：渲染干净 console/page error 双零，两作业 + 连线经真实 API 建立后画布渲染 1 条线（reload 后仍在），定妆照 t325-browser-canvas.png / t325-browser-wire.png。
+- 【环境坑（非代码缺陷）】standalone 重建后需 DATABASE_URL 绝对路径 env（相对 file: URL 随 process.chdir 漂移到 .next/db 空库）；端口复用陷阱：fuser -k 后需验证端口真空再启新实例（一次 EADDRINUSE 让套件跑在旧构建上——日志/方言断言假红，教训记入诊断路径）。
+- 【docs】remote-relion.md §4i「The cluster is a host, not a connection id (t325)」+ 失败目录两行。
+
+Stage Summary:
+- **「集群是主机，不是连接 id」**：连接漂移不再是死局——同主机重建的连接照常治愈旧记录、接受孪生、原地链接；用户拉取修复重启后，第二周的 pending 2D 会在首次重试心跳时自行走向集群
+- **「线活得比镜像久」**：原子写 + 新鲜 keep-set + 读时回填——画布与引擎的视野不再静默分叉；真的丢边时消息说「接一条线」而非谎言
+- 环境：模板 :3000 运行，mock :3022 单实例，prod :3001 运行中（DATABASE_URL + CRYOFLOW_DATA_DIR 显式 env）

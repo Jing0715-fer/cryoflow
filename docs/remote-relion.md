@@ -576,6 +576,44 @@ particles.star stayed there (over the sync caps) — send this job to the
 cluster, or raise the connection's sync caps and re-run the upstream"*)
 instead of advice to run something that already ran.
 
+## 4i. The cluster is a host, not a connection id (t325)
+
+**A re-created connection to the SAME cluster still chains.** Every twin
+gate in t324 compared the bare `connectionId` — delete the connection while
+debugging (re-add the same host later, a new id lands) and the retry sweep
+dispatches with the NEW id: the lazy heal refuses the old record, the twin
+is refused, and a pending consumer waits FOREVER over a file sitting on the
+very cluster it was about to run on, wearing the generic *"Waiting for
+upstream output"* message. Cluster identity is now **(connectionId, host)**
+— `sameClusterTarget()` is the one shared predicate behind resolveInputs'
+twin acceptance, the lazy heal's eligibility, and the staging plan's
+identity-twin map, so the three cannot drift apart. A genuinely different
+host keeps the cross-cluster refusal.
+
+Two more durability blades ride along:
+
+- **the wire outlives its mirror** — an edge lives in the DB (the ENGINE's
+  only view: lineage + the pending-retry sweep) AND the sidecar file (the
+  CANVAS' view). The self-heal rewrite used to filter a FRESH file through
+  a STALE keep-set — an edge connected during an in-flight GET was evicted;
+  with a silently-failed DB mirror the pair ended connected nowhere (the
+  canvas wire gone, the lineage empty). Writes are now atomic
+  (tmp + rename — no torn reads across processes), the keep-set is derived
+  from a fresh read (concurrent additions always survive), and every read
+  BACKFILLS missing DB mirrors — the engine's view can never silently
+  diverge from the canvas;
+- **the pending dialects stopped lying** — an empty lineage (the lost edge)
+  speaks *"No upstream job is wired that produces particles.star — connect
+  one…"* instead of promising an auto-start that cannot fire without an
+  edge, and a completed remote run with an unaccounted key (the pre-t324
+  record) speaks *"…where its particles.star lives is not on record — send
+  this job to the cluster (the dispatch probes the upstream's workdir
+  there)…"* instead of *"run Extract first"* over a run that succeeded.
+
+The auto-start round also survives its worst member: one throwing consumer
+(aborted the whole round's siblings) is now caught, logged with the job's
+name, and skipped.
+
 ## 5. Honest failure catalog
 
 | Failure | What you see |
@@ -596,6 +634,8 @@ instead of advice to run something that already ran.
 | LoG autopick rescale warnings | extinct at the source: the dispatch carries `--skip_optimise_scale` (RELION's own advice), picking runs at the requested resolution (t323) |
 | exit 1 with NO error text in run.out/run.err | the silent-death verdict: "RELION printed no error — the run ended silently mid-job" + the external-kill suspects (login-node CPU reaper / OOM / walltime) + `sacct -j <jobid>`; multi-hour jobs belong in Slurm mode (t323) |
 | downstream job pending forever over a completed upstream | the readiness gate was local-only: the key star stayed on the cluster (sync caps) — the finalize probe records the verified twin, remote dispatches chain off it in place, pre-t324 records self-heal on the next attempt, and the ~20s retry re-fires the auto-start (t324) |
+| downstream pending forever after re-creating the connection | cluster identity is (connectionId, host): the re-created connection to the SAME host still heals the old records and chains off their twins (t325) |
+| the wire between two jobs disappears (canvas) | the sidecar self-heal no longer evicts edges connected during an in-flight read; writes are atomic; every read backfills a lost DB mirror; an empty lineage speaks "connect one" instead of the auto-start promise (t325) |
 | local node_modules out of date | boot warning `node_modules is out of date — missing ssh2` + `/api/remote/*` fails with `Can't resolve 'ssh2'` — re-run `npm install` (or `bun install`) and restart |
 
 ## 6. Testing without a cluster: the mock cluster

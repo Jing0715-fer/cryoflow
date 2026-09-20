@@ -637,9 +637,11 @@ console.log("CFUNIT" + JSON.stringify(out));
   );
 
   // the honest LOCAL door: for the PRE-t324 ledger (no twins, no local
-  // copy) the base message is the honest ceiling — nothing on this machine
-  // knows where the file is yet; the retry + heal below is what fixes THIS
-  // shape. The user's verbatim wording is correct here, and stays correct.
+  // copy) the honest ceiling used to be the user's verbatim base message
+  // ("nothing on this machine knows where the file is yet"). t325 upgraded
+  // the ceiling: the record IS remote+completed with the key accounted
+  // NOWHERE, and the message now says exactly that (the registry-stale
+  // dialect) instead of "run Extract first" over a run that succeeded.
   const cls3 = await mkJob({
     projectId: projectIdB,
     type: "class2d",
@@ -652,8 +654,9 @@ console.log("CFUNIT" + JSON.stringify(out));
   must(pend3.body?.waiting === "not-ready", "the heal class2d pendings through the local door");
   const msg3 = String(pend3.body?.job?.result ?? pend3.body?.error ?? "");
   must(
-    msg3 === "Waiting for upstream output: particles.star (run Extract first) — runs automatically once ready",
-    "the pre-t324 ledger pendings with the user's verbatim base message (nothing knows where the file is — yet)"
+    msg3 ===
+      'Upstream "QA t324 extract B" completed on the cluster, but where its particles.star lives is not on record — send this job to the cluster (the dispatch probes the upstream\'s workdir there and chains off the copy in place), or re-run the upstream to refresh its record',
+    "the pre-t324 ledger pendings with the t325 registry-stale message (a completed remote run with an unaccounted key — no more 'run Extract first' lie)"
   );
 
   // the retry heartbeat: nobody dispatches this job again — the ~20s sweep
@@ -761,17 +764,17 @@ console.log("CFUNIT" + JSON.stringify(out));
     "the cross-cluster refusal is a NAMED shape, not a silent miss"
   );
   must(
-    /connectionId === target\.connectionId/.test(remoteSrc) &&
+    /sameClusterTarget\(rec\.remote, \{ connectionId: conn\.id, host: connHostPort \}\)/.test(remoteSrc) &&
       /upstreamRemoteTwins\.set\(norm, remoteTw\)/.test(remoteSrc),
-    "the dispatch's twin map grows IDENTITY entries, gated on the same connection"
+    "the dispatch's twin map grows IDENTITY entries, gated on the same CLUSTER (t325: connection OR host — the drift-hardened gate)"
   );
   must(
     /async function probeRemoteOutputs/.test(remoteSrc) && /OUTPUT_PROBE_FRESH_MS = 10 \* 60_000/.test(remoteSrc),
     "the cluster probe + the 10-minute freshness stamp live in the remote layer"
   );
   must(
-    /remote: true,\s*\n\s*connectionId: target\.connectionId/.test(remoteSrc),
-    "startRemoteJob resolves with the REMOTE flavor (the gate that used to be local-only)"
+    /remote: true,\s*\n\s*connectionId: target\.connectionId,\s*\n\s*host: connHostPort/.test(remoteSrc),
+    "startRemoteJob resolves with the REMOTE flavor + the host:port identity (t325 — the gate that used to be local-only, now drift-proof)"
   );
   must(
     /t324 heal/.test(remoteSrc) && /probeRemoteOutputs\(conn, st\)/.test(remoteSrc),

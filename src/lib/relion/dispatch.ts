@@ -390,7 +390,22 @@ export async function autoStartPendingDownstream(triggerJobId: string): Promise<
       if (row.linkedJobId) continue; // links are read-only mirrors — never run
       if (row.status !== "pending") continue; // only jobs the user opted into
       if (liveRunCount() >= AUTO_START_MAX_LIVE) break; // stampede guard
-      const outcome = await startJob(row, remoteOpts);
+      // t325 — per-id isolation: one throwing consumer (an SSH layer that
+      // escaped its error envelope, a malformed record) used to abort the
+      // WHOLE round — every sibling behind it in `order` stayed pending
+      // until the next heartbeat re-ran the same gauntlet. The round now
+      // survives its worst member; the throw is logged with the job's name
+      // so the field diagnosis has a thread to pull.
+      let outcome: StartOutcome | null = null;
+      try {
+        outcome = await startJob(row, remoteOpts);
+      } catch (err) {
+        console.error(
+          `dispatch: auto-start of "${row.name}" threw (the round continues):`,
+          err instanceof Error ? err.message : err
+        );
+        continue;
+      }
       if (!outcome.error && !outcome.waiting && !outcome.busy) started += 1;
     }
     if (started > 0) {

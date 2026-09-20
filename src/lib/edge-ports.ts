@@ -11,7 +11,7 @@
  * has file edges, the file edges supersede the legacy DB row (dedup).
  */
 
-import { mkdirSync, readFileSync, writeFileSync, existsSync } from "fs";
+import { mkdirSync, readFileSync, writeFileSync, existsSync, renameSync, copyFileSync, rmSync } from "fs";
 import path from "path";
 import type { Edge, Job } from "@prisma/client";
 import { db } from "@/lib/db";
@@ -48,9 +48,31 @@ function readPortFile(): PortFile {
   return { edges: [] };
 }
 
+/**
+ * t325 — ATOMIC sidecar writes: the JSON lands through a tmp file + rename,
+ * so a reader (or a second server instance sharing DATA_DIR) can never see
+ * a half-written edge-ports.json. The old direct writeFileSync let a
+ * cross-process reader parse a torn file → edges: [] → every sidecar wire
+ * vanished for that response — the "the wire sometimes disappears" field
+ * receipt. In-process reads are already safe (all mutations are sync,
+ * single-tick read-modify-write), this closes the cross-process half.
+ */
 function writePortFile(file: PortFile): void {
   mkdirSync(DATA_DIR, { recursive: true });
-  writeFileSync(FILE, JSON.stringify(file, null, 2));
+  const tmp = `${FILE}.tmp-${process.pid}-${Date.now()}`;
+  writeFileSync(tmp, JSON.stringify(file, null, 2));
+  try {
+    renameSync(tmp, FILE);
+  } catch {
+    // cross-platform rename-over-existing fallback (kept best-effort —
+    // the direct write preserves the pre-t325 behavior on failure)
+    try {
+      copyFileSync(tmp, FILE);
+      rmSync(tmp, { force: true });
+    } catch {
+      writeFileSync(FILE, JSON.stringify(file, null, 2));
+    }
+  }
 }
 
 export function readFileEdges(): FileEdge[] {
@@ -108,16 +130,60 @@ export async function edgesWithPorts(projectId: string): Promise<EdgeDTO[]> {
 
   // self-heal: drop file edges whose endpoint jobs no longer exist
   // (deleting a job used to leave these as orphans in the sidecar)
+  //
+  // t325 — LOST-UPDATE FIX: the keep-set is derived from a FRESH read, not
+  // from the stale snapshot taken before the awaited DB queries. The old
+  // shape filtered the fresh file through `keepIds` computed over the
+  // STALE list — an edge CONNECTED while this GET was awaiting its DB rows
+  // failed both filter arms (its id ∉ keepIds, its projectId === this
+  // project) and was EVICTED: the wire's sidecar entry vanished while its
+  // DB mirror might have failed too (SQLite busy → the swallowed catch in
+  // persistPortEdge) — leaving the pair connected NOWHERE: the canvas wire
+  // gone and the engine's lineage EMPTY (a permanently pending consumer
+  // over a lost-looking edge). The fresh filter only ever removes THIS
+  // project's dead-endpoint edges — concurrent additions always survive.
   const liveEdges = fileEdges.filter(
     (e) => typeOf.has(e.fromJobId) && typeOf.has(e.toJobId)
   );
   if (liveEdges.length !== fileEdges.length) {
-    const keepIds = new Set(liveEdges.map((e) => e.id));
-    const file = readPortFile();
-    file.edges = file.edges.filter(
-      (e) => keepIds.has(e.id) || e.projectId !== projectId
+    const fresh = readPortFile();
+    const before = fresh.edges.length;
+    fresh.edges = fresh.edges.filter(
+      (e) =>
+        e.projectId !== projectId ||
+        (typeOf.has(e.fromJobId) && typeOf.has(e.toJobId))
     );
-    writePortFile(file);
+    if (fresh.edges.length !== before) writePortFile(fresh);
+  }
+
+  // t325 — MIRROR BACKFILL: the DB row is the ENGINE's only view of an
+  // edge (lineageFor + the pending-retry sweep query db.edge); the sidecar
+  // entry alone draws the wire on the canvas. A mirror lost to a failed
+  // create (the swallowed catch below) used to leave the pair VISIBLE but
+  // dispatch-dead — the consumer's lineage came back empty and the pending
+  // message lied ("runs automatically once ready" over a job with no
+  // upstream). Every read now repairs the mirror before answering, so the
+  // engine's view can never silently diverge from the canvas.
+  const dbPairs = new Set(dbEdges.map((e) => `${e.fromJobId}→${e.toJobId}`));
+  const unmirrored = liveEdges.filter((e) => !dbPairs.has(`${e.fromJobId}→${e.toJobId}`));
+  for (const e of unmirrored) {
+    try {
+      await db.edge.create({
+        data: {
+          id: e.id,
+          projectId: e.projectId,
+          fromJobId: e.fromJobId,
+          toJobId: e.toJobId,
+        },
+      });
+      dbPairs.add(`${e.fromJobId}→${e.toJobId}`);
+      console.log(
+        `edge-ports: backfilled the DB mirror for ${e.fromJobId}→${e.toJobId} (the sidecar edge had no engine row — t325 heal)`
+      );
+    } catch {
+      // best-effort: the merged view still renders the file edge, the
+      // next read retries the mirror
+    }
   }
 
   const fileByPair = new Set(liveEdges.map((e) => `${e.fromJobId}→${e.toJobId}`));
@@ -183,7 +249,15 @@ export async function persistPortEdge(
       },
     });
     return { dbMirrored: true };
-  } catch {
+  } catch (err) {
+    // t325 — the silent swallow is the bug's other half: a mirror that
+    // failed to create left the engine blind to a wire the canvas drew.
+    // Say it out loud — and the next GET /api/edges backfills the row
+    // (see edgesWithPorts) so the divergence is transient, not permanent.
+    console.warn(
+      `edge-ports: DB mirror create failed for ${edge.fromJobId}→${edge.toJobId} (the sidecar edge renders; the engine backfills on next read):`,
+      err instanceof Error ? err.message : err
+    );
     return { dbMirrored: false };
   }
 }

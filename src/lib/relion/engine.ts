@@ -1073,6 +1073,34 @@ export interface ResolveInputsOpts {
    * the argv would both reference a path that does not exist there).
    */
   connectionId?: string;
+  /**
+   * t325 — `host:port` of the connection the consumer dispatches through.
+   * Connection IDENTITY is (id, host): a re-created connection to the SAME
+   * host is still the same cluster — its filesystem holds the record's
+   * remote paths. Without this, connection drift (delete + re-add while
+   * debugging a cluster) stranded remote chains forever: the retry sweep
+   * dispatched with the NEW id, every twin gate compared ids, and a
+   * pending consumer waited over a file sitting on the very cluster it
+   * was about to run on (the t325 field receipt).
+   */
+  host?: string;
+}
+
+/**
+ * t325 — is the record's cluster the one this consumer targets? The bare
+ * remote flavor (no connectionId) never gated; otherwise the record's
+ * connection OR its host:port must match the target. Shared by
+ * resolveInputs' twin gate, the lazy heal's eligibility and the staging
+ * plan's identity-twin map, so the three cannot drift apart.
+ */
+export function sameClusterTarget(
+  rec: { connectionId: string; host: string },
+  opts: { connectionId?: string; host?: string }
+): boolean {
+  if (opts.connectionId == null) return true; // bare remote flavor — no gate
+  if (rec.connectionId === opts.connectionId) return true;
+  if (opts.host != null && rec.host === opts.host) return true; // t325 — same cluster, re-created connection
+  return false;
 }
 
 /**
@@ -1108,6 +1136,12 @@ export function resolveInputs(
     // while the local copy is missing: the not-ready message must say WHERE
     // the file lives instead of pretending the upstream never ran.
     let stayedOnCluster: string | null = null;
+    // t325 — a COMPLETED remote provider whose accepted keys are accounted
+    // NOWHERE (not locally, no cluster twin): the run predates the
+    // cluster-output registry. The old generic message told the user to
+    // "run Extract first" over a run that had already succeeded — the exact
+    // lie the t325 ticket carried for a second week.
+    let registryStale: string | null = null;
     for (const up of upstream) {
       if (!req.from.includes(up.type)) continue;
       const state = runs[up.id];
@@ -1123,19 +1157,27 @@ export function resolveInputs(
           // itself sits safely on the cluster it was computed on. A REMOTE
           // consumer resolves through the twin directly — the staging skip
           // and the argv both key off the record's verified cluster path.
+          // t325 — the gate is cluster IDENTITY (connection OR host), not
+          // the bare connectionId: a re-created connection to the same
+          // cluster still holds the file.
           const twinRemote = state.remote;
           const twin = twinRemote?.remoteOutputs?.[key];
-          if (
-            twin &&
-            opts?.remote &&
-            (!opts.connectionId || twinRemote.connectionId === opts.connectionId)
-          ) {
+          if (twin && opts?.remote && sameClusterTarget(twinRemote, opts)) {
             resolved = twin;
             break;
           }
           if (twin && stayedOnCluster == null) stayedOnCluster = up.name ?? up.type;
         }
         if (resolved) break;
+        // t325 — none of the accepted keys exist ANYWHERE on this completed
+        // remote provider: register the registry-stale shape (message below).
+        if (
+          registryStale == null &&
+          state.remote &&
+          req.accepts.every((k) => !state.outputs[k] && !state.remote?.remoteOutputs?.[k])
+        ) {
+          registryStale = up.name ?? up.type;
+        }
       }
       providers.push({ name: up.name ?? up.type, status: up.status ?? "idle" });
     }
@@ -1160,6 +1202,19 @@ export function resolveInputs(
           wait: "upstream-running",
         };
       }
+      // t325 — NOTHING of the requirement's provider types is wired at all
+      // (a lost/deleted edge leaves the lineage empty): the old generic
+      // message promised "runs automatically once ready" over a job that
+      // has NO upstream to wait for — the retry sweep can never fire
+      // without an edge, so the promise was a lie. Name the real fix.
+      if (providers.length === 0) {
+        const what = req.label.replace(/\s*\(run [^)]*\)\s*/, "").trim() || req.label;
+        return {
+          inputs: {},
+          missing: `No upstream job is wired that produces ${what} — connect one (drag a wire from its output port to this job); it then starts automatically once its inputs are ready`,
+          wait: "not-ready",
+        };
+      }
       if (stayedOnCluster) {
         // t324 — the file EXISTS, it just never came home. The old wording
         // ("run Extract first") sent the user hunting a run that already
@@ -1179,6 +1234,18 @@ export function resolveInputs(
         return {
           inputs: {},
           missing: `Upstream "${stayedOnCluster}" completed on the cluster, but its ${what} stayed there (over the sync caps) — send this job to the cluster (it chains off the cluster copy in place), or raise the connection's sync caps and re-run the upstream to bring the file home`,
+          wait: "not-ready",
+        };
+      }
+      // t325 — the registry-stale shape: the provider ran and completed on
+      // a cluster, but WHERE its key lives was never recorded (a pre-t324
+      // finalize, or a record the sync never accounted). Point at the door
+      // that fixes it instead of "run Extract first".
+      if (registryStale) {
+        const what = req.label.replace(/\s*\(run [^)]*\)\s*/, "").trim() || req.label;
+        return {
+          inputs: {},
+          missing: `Upstream "${registryStale}" completed on the cluster, but where its ${what} lives is not on record — send this job to the cluster (the dispatch probes the upstream's workdir there and chains off the copy in place), or re-run the upstream to refresh its record`,
           wait: "not-ready",
         };
       }

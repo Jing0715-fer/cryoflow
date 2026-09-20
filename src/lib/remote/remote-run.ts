@@ -56,6 +56,7 @@ import {
   readRuns,
   REMOTE_OUTPUT_CANDIDATES,
   resolveInputs,
+  sameClusterTarget,
   synthesizeTrainingPicks,
   upsertRun,
   updateRun,
@@ -1309,19 +1310,17 @@ export async function startRemoteJob(args: {
     // sweep finalizes. A dead-but-unfinalized record is safe to replace.
   }
 
-  // ---- resolve inputs (same semantics as the local engine) -------------
-  // t324 — the REMOTE flavor: a requirement may resolve through the
-  // upstream record's CLUSTER-verified twin when the sync-back left the
-  // local copy behind (caps / budget / a failed download). The gate used
-  // to be local-only existsSync, so a remote pipeline whose key star stayed
-  // on the cluster PENDING-ed forever with "run Extract first" — over a
-  // run that had already succeeded. The twins carry verified cluster paths
-  // for THIS connection only (a path from another cluster is not a file
-  // on this one).
+  // t324 — resolve inputs (same semantics as the local engine) -------------
+  // t325 — the gate is cluster IDENTITY: `conn`'s host:port rides the opts
+  // so a re-created connection to the SAME cluster still accepts the
+  // upstream record's twins (connection drift used to strand remote chains
+  // with the generic "Waiting for upstream output" message forever).
+  const connHostPort = `${conn.host}:${conn.port}`;
   const params = parseJobParams(job.params);
   let resolved = resolveInputs(job.type, upstream, params, {
     remote: true,
     connectionId: target.connectionId,
+    host: connHostPort,
   });
   if (resolved.missing) {
     // t324 — the LAZY HEAL: records finalized under pre-t324 code (or whose
@@ -1330,11 +1329,17 @@ export async function startRemoteJob(args: {
     // connection, then re-resolve. The heal patches each record's twins in
     // place (memoized by the outputProbeAt stamp), so the first consumer
     // pays the SSH round and every later attempt reads the ledger.
+    // t325 — "from THIS connection" means the same CLUSTER (connection or
+    // host), not the bare connectionId: a re-created connection to the
+    // same host must still heal the old records — their workdirs and files
+    // sit on that very host.
     const runsNow = readRuns();
     const healable = upstream.filter((u) => {
       const st = runsNow[u.id];
       if (!st?.remote || !st.done || st.exitCode !== 0) return false;
-      if (st.remote.connectionId !== target.connectionId) return false;
+      if (!sameClusterTarget(st.remote, { connectionId: target.connectionId, host: connHostPort })) {
+        return false;
+      }
       if (
         st.remote.outputProbeAt != null &&
         Date.now() - st.remote.outputProbeAt < OUTPUT_PROBE_FRESH_MS
@@ -1354,6 +1359,7 @@ export async function startRemoteJob(args: {
       resolved = resolveInputs(job.type, upstream, params, {
         remote: true,
         connectionId: target.connectionId,
+        host: connHostPort,
       });
     }
   }
@@ -1523,9 +1529,10 @@ export async function startRemoteJob(args: {
     // satisfies the requirement by ITSELF (identity entry — both the
     // staging skip below and the argv's twin preference key off this map,
     // so a twin-resolved input uploads nothing and runs against the
-    // cluster copy in place). Gated on the SAME connection: a path from
-    // another cluster is not a file on this one.
-    if (rec.remote.connectionId === target.connectionId) {
+    // cluster copy in place). Gated on the SAME CLUSTER (t325: connection
+    // OR host — a re-created connection to the same host still holds
+    // these paths; a genuinely different cluster does not).
+    if (sameClusterTarget(rec.remote, { connectionId: conn.id, host: connHostPort })) {
       for (const remoteTw of Object.values(rec.remote.remoteOutputs)) {
         const norm = remoteTw.split(path.sep).join("/");
         if (!upstreamRemoteTwins.has(norm)) upstreamRemoteTwins.set(norm, remoteTw);
