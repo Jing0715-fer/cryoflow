@@ -380,7 +380,9 @@ try {
   must(typesSrc.includes("dispatchedAtEpoch?: number"), "B: the fence rides RemoteRunState");
   const uiSrc = readFileSync(`${ROOT}/src/components/workflow/job-inspector.tsx`, "utf8");
   must(
-    uiSrc.includes('text && !text.startsWith("(log fetch failed") ? diagnoseLog(text) : null'),
+    // t325 maintenance — t323 renamed diagnoseLog -> diagnoseFailureLog (the
+    // failure-scanner entry); the pin rides the rename, semantics intact
+    uiSrc.includes('text && !text.startsWith("(log fetch failed") ? diagnoseFailureLog(text) : null'),
     "B: an empty/failed log fetch never claims \"scanned the full run.out — 0 findings\" (blade 4)"
   );
 

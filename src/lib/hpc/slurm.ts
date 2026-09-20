@@ -175,13 +175,22 @@ export interface GpuStrategy {
   reason: string;
 }
 
-const MULTI_GPU_TYPES = new Set(["class2d", "class3d", "refine3d", "initialmodel", "multibody"]);
-const SINGLE_GPU_TYPES = new Set(["topaztrain", "dynamight", "modelangelo", "tomo_ctfrefine", "tomo_polish"]);
 const CPU_TYPES = new Set([
   "import", "manualpick", "select", "select2d", "joinstar", "symexpand",
   "rebalance", "maskcreate", "postprocess", "localres", "polish", "ctfrefine",
   "subtract", "external", "tomo_import", "tomo_exclude", "tomo_picks",
 ]);
+
+// t326 — the WIDTH truth (which types honor the submission width, which
+// size themselves) lives in the CLIENT-SAFE pure module gpu-width.ts: the
+// run dialog renders the same table the dispatch consults (a stepper that
+// promises a width the sbatch would not write is a trap, not a knob —
+// t320's doctrine applied to the width). The strategy below derives its
+// MODE from that table; only its planning floor (never plan < 2 GPUs for a
+// multi-GPU type) stays here — a simulator choice, not a dispatch
+// constraint (the dispatch honors the raw width).
+export { MULTI_GPU_TYPES, SINGLE_GPU_TYPES } from "./gpu-width";
+import { slurmWidthFor } from "./gpu-width";
 
 /**
  * Strategy for a job type. `micrographCount`/`particleCount` drive array
@@ -193,10 +202,13 @@ export function gpuStrategyFor(
 ): GpuStrategy {
   const mics = Math.max(1, opts.micrographs ?? 10);
   const parts = Math.max(1, opts.particles ?? 5000);
-  const gpus = Math.max(1, opts.gpus ?? 2);
-  if (MULTI_GPU_TYPES.has(type)) {
+  // t326 — the mode + script width come from the SHARED truth table (the
+  // run dialog renders the same one); the strategy's own gpus for
+  // multi-gpu keeps its planning floor (never plan < 2).
+  const w = slurmWidthFor(type, opts);
+  if (w.mode === "multi-gpu") {
     return {
-      mode: "multi-gpu", gpus: Math.max(2, gpus), shards: 0,
+      mode: w.mode, gpus: Math.max(2, w.gpus), shards: 0,
       minutes: type === "refine3d" ? 45 + parts / 2000 : type === "class3d" ? 30 : 20,
       reason:
         "RELION splits particles across MPI ranks pinned to GPUs — ONE job, N GPUs " +
@@ -204,9 +216,9 @@ export function gpuStrategyFor(
         "would break global alignment statistics (FSC halves, class occupancies).",
     };
   }
-  if (SINGLE_GPU_TYPES.has(type)) {
+  if (w.mode === "single") {
     return {
-      mode: "single", gpus: 1, shards: 0,
+      mode: w.mode, gpus: 1, shards: 0,
       minutes: type === "topaztrain" ? 30 : 20,
       reason:
         type === "topaztrain"
@@ -216,9 +228,7 @@ export function gpuStrategyFor(
     };
   }
   const isAutoPick = type === "autopick";
-  if (type === "motioncorr" || type === "ctffind" || type === "extract" || isAutoPick ||
-      type.startsWith("tomo_aligntiltseries") || type === "tomo_tomograms" ||
-      type === "tomo_reconstruct" || type === "tomo_extract" || type === "tomo_denoise") {
+  if (w.mode === "array") {
     const shards = Math.min(mics, 64);
     const perShard = type === "motioncorr" ? 4 : type === "ctffind" ? 1 : 0.5;
     // t320 — the LoG picker is CPU-only, FULL STOP: RELION's autopicker.cpp
@@ -232,7 +242,7 @@ export function gpuStrategyFor(
     // argv-parse time). References/Topaz picking keep the single GPU.
     if (isAutoPick && opts.logAutopick) {
       return {
-        mode: "array", gpus: 0, shards,
+        mode: w.mode, gpus: w.gpus, shards,
         minutes: Math.max(1, Math.round((mics / shards) * perShard * 2)),
         reason:
           "LoG picking is CPU-only — RELION's autopicker.cpp refuses --gpu on the " +
@@ -242,8 +252,8 @@ export function gpuStrategyFor(
       };
     }
     return {
-      mode: "array",
-      gpus: type === "motioncorr" || isAutoPick ? 1 : 0,
+      mode: w.mode,
+      gpus: w.gpus,
       shards,
       minutes: Math.max(1, Math.round((mics / shards) * perShard * 2)),
       reason:
@@ -255,7 +265,7 @@ export function gpuStrategyFor(
   }
   const heavy = type === "polish" || type === "ctfrefine" || type === "localres" || type === "postprocess";
   return {
-    mode: "cpu", gpus: 0, shards: 0,
+    mode: w.mode, gpus: w.gpus, shards: 0,
     minutes: heavy ? 10 : 1,
     reason:
       "CPU-bound bookkeeping / postprocessing — runs on the batch partition; " +

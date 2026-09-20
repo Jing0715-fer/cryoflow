@@ -31,12 +31,19 @@
    list badge the project with its cluster (`user@host`).
 4. Click a job → **Run on cluster (SSH)** (the server icon next to Re-run) →
    pick the connection + the relion module for THIS run + the run mode
-     (**direct** nohup, or **Slurm sbatch**) — in Slurm mode also the
+     (**direct** nohup, or **Slurm sbatch** — two side-by-side cards, t326)
+   — in Slurm mode also the
    **node / partition** (the detected node groups from `sinfo`, each with
    its GPU-per-node figure and hostnames — e.g. `brain2 · 8 GPU/node ·
    brain2`) and the **GPU count** (one MPI rank per GPU, capped by the
    chosen group's width) → *Send to cluster*. Every run can use a different
-   version, node and width — that was the whole point.
+   version, node and width — that was the whole point. The dialog's
+   **submission preview** (t326) shows the sbatch directives these knobs
+   produce (`--partition`, `--nodelist`, `--gres`, `--ntasks`,
+   `--array`, `mpirun -n`) — every flag it shows is one the dispatch
+   actually writes; the lifecycle strip under it says what happens after
+   Send (stage inputs → load module → run → sync key files back; bulky
+   maps and stacks stay on the cluster, fetchable from Results on demand).
 5. Watch it live: the card gets a cluster chip, the inspector shows
    `user@host · module · pid` (direct) or `Slurm <jobid> · N GPU(s) ·
    queued/running` (sbatch), progress parses the cluster log, and the
