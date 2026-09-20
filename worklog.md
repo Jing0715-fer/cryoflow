@@ -2649,3 +2649,7 @@ Stage Summary:
 - **「宽度旋钮只在真实处存在」**：stepper 只对 5 个 MPI 类型（且模块带 mpirun）出现；motioncorr/References-autopick 的「1 × GPU per task」、ctffind/extract 的「CPU tasks」、topaz 的「single-GPU」、LoG 的「CPU-only picker」——t320 的陷阱教义推广到宽度，真值表（gpu-width.ts）单源三消费（策略/对话框/测试）
 - **「套件钉子骑语义不骑字面」**：t318 的 diagnoseLog 钉在 t323 改名后失血两周无人看见（没人重跑它）——钉子的语义（空日志不谎称扫描全量）不变，字面随产品；维护要注记
 - 遗留（下轮候选）：记录层 gpusRequested 对省略宽度的非 MPI 类型仍回落默认 6（t321 的 || 6 强转陷阱同族——dispatch 层语义，需自己的窗口）；家族全量回归（t304/t306 demo-roster 种子世界，环境重建债连续第三窗让位）；exists=false 的 UI 活体见证（t272 遗留）；VLM 对 after 的二评（429 限流让位）
+
+### Task 326 补记（推送窗口的第二次撞车）
+
+推送瞬间并行窗口又落地 t325-a（其自审残余：sweep 认主机身份/registry-stale 方言不空诺/'accounted' 与 heal 工作单对齐——再次零源文件交集），按同配方二次 rebase（worklog 双保留）、tsc 0、重建 prod :3001 后 diag-t326 与 diag-t325（重定位副本：ROOT→/home/z/my-project + db/cryoflow.db→db/custom.db，含 dbSurgery 模板内插路径）双 ALL GREEN，`c770615..3d10a73` 落地。并行窗口仍在活动——下一窗开局先 fetch 看尾部。
