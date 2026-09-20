@@ -1102,7 +1102,11 @@ async function probeRemoteOutputs(
   const wanted = (REMOTE_OUTPUT_CANDIDATES[rec.type] ?? []).filter((c) => missing.includes(c.key));
   if (wanted.length === 0) return { probed: false, twins: {} };
   const W = shQuote(r.remoteWorkdir);
-  const parts: string[] = [`cd ${W} 2>/dev/null || exit 0`];
+  // exit 3 = the workdir could not even be entered (permissions, a transient
+  // mount, the dir moved): NOT a "verified absent" verdict — an unstamped
+  // negative so the next attempt retries for real instead of waiting out
+  // the 10-minute freshness window (t324-a, review finding).
+  const parts: string[] = [`cd ${W} 2>/dev/null || exit 3`];
   for (const c of wanted) {
     for (const name of c.exact ?? []) {
       parts.push(
@@ -1112,8 +1116,10 @@ async function probeRemoteOutputs(
     if (c.glob) {
       // first hit per key wins (exact names are emitted BEFORE globs, so a
       // canonical name beats a globbed sibling); "latest" picks the highest
-      // iteration, "first" any match (per-mic coords: any one is chainable)
-      const tail = c.pick === "first" ? "head -n 1" : "sort | tail -n 1";
+      // iteration, "first" any match (per-mic coords: any one is chainable).
+      // LC_ALL=C pins byte order — a locale-aware sort on an exotic cluster
+      // shell must never reorder the iteration picks (t324-a).
+      const tail = c.pick === "first" ? "head -n 1" : "LC_ALL=C sort | tail -n 1";
       parts.push(
         `f=$(ls ${c.glob} 2>/dev/null | ${tail}); [ -n "$f" ] && printf 'CF_TWIN\\t%s\\t%s\\n' ${shQuote(c.key)} "$f" || true`
       );
@@ -1123,7 +1129,7 @@ async function probeRemoteOutputs(
   let ran = false;
   try {
     const res = await exec(conn, parts.join("\n"), { timeoutMs: 15_000 });
-    if (!res.error) {
+    if (!res.error && res.code === 0) {
       ran = true;
       for (const line of res.stdout.split("\n")) {
         if (!line.startsWith("CF_TWIN\t")) continue;
@@ -1355,6 +1361,27 @@ export async function startRemoteJob(args: {
     return { ok: false, error: resolved.missing, ...(resolved.wait ? { waiting: resolved.wait } : {}) };
   }
 
+  // ---- t324-a — topaztrain's dispatch-time synthesis READS its stars ----
+  // The picks-index synthesis (t265) reads train_picks + micrographs_star
+  // FROM THE LOCAL DISK; a twin-resolved input (cluster-only, no local
+  // copy) would skip the synthesis and hand RELION the raw per-mic coords
+  // star as --topaz_train_picks — the exact failure the synthesis exists
+  // to prevent, spawning a doomed run. PENDING with the remediation
+  // instead: raising the sync caps + re-running the upstream lands the
+  // local copy, and the ~20s retry picks the job up by itself.
+  if (job.type === "topaztrain") {
+    const unreadable = ["train_picks", "micrographs_star"].filter(
+      (k) => resolved.inputs[k] && !existsSync(resolved.inputs[k])
+    );
+    if (unreadable.length > 0) {
+      return {
+        ok: false,
+        error: `Topaz training builds its picks index from the input stars on THIS machine, but ${unreadable.join(", ")} stayed on the cluster (no local copy) — raise the connection's sync caps and re-run the upstream to bring them home; this job then starts automatically`,
+        waiting: "not-ready",
+      };
+    }
+  }
+
   // ---- t313 — the byte-verified CTF door (before any staging) -----------
   // The Beijing ticket, round two: the t312 refusal judged by FILENAME and
   // blocked the user's REAL motion-corrected micrographs (MotionCor2 keeps
@@ -1369,14 +1396,24 @@ export async function startRemoteJob(args: {
   // job row to failed; a filename smell must not block real data.
   let ctffindGateNote: string | null = null;
   if (job.type === "ctffind" && resolved.inputs.micrographs_star) {
-    const gate = await ctffindInputGate(
-      resolved.inputs.micrographs_star,
-      remoteHeaderSniffer(conn)
-    );
-    if (gate.refusal) {
-      return fail(gate.refusal, true);
+    // t324-a — a twin-resolved star (the sync-back left no local copy)
+    // cannot be read by the local half of the gate: the byte-verified NZ
+    // door degrades to its OWN advisory dialect — "unverifiable → through
+    // with the note" — never to silence. The cluster's own ctffind still
+    // speaks if a raw stack slips through.
+    if (existsSync(resolved.inputs.micrographs_star)) {
+      const gate = await ctffindInputGate(
+        resolved.inputs.micrographs_star,
+        remoteHeaderSniffer(conn)
+      );
+      if (gate.refusal) {
+        return fail(gate.refusal, true);
+      }
+      ctffindGateNote = gate.note;
+    } else {
+      ctffindGateNote =
+        "micrographs star consumed in place from the cluster (no local copy was synced) — the local MRC byte check (NZ) did not run";
     }
-    ctffindGateNote = gate.note;
   }
 
   // ---- t267: a never-probed connection must not dispatch blind ----------

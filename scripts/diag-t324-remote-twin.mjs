@@ -799,6 +799,27 @@ console.log("CFUNIT" + JSON.stringify(out));
     /\.cf-mock-star-pad/.test(mockExtractSrc),
     "the mock's star-pad lever exists (the sync-cap forcing dialect)"
   );
+  // t324-a — the review's residuals, pinned (source-level invariant
+  // verification: both MEDIUM shapes need disproportionate live rigs — a
+  // remote motioncorr→ctffind chain with a stayed corrected star, and a
+  // remote topaztrain chain — so their contracts ride the ledger)
+  must(
+    /micrographs star consumed in place from the cluster \(no local copy was synced\)/.test(remoteSrc),
+    "t324-a: a twin-resolved ctffind star degrades to the ADVISORY note, never silence (the NZ door's own dialect)"
+  );
+  must(
+    /Topaz training builds its picks index from the input stars on THIS machine/.test(remoteSrc) &&
+      /waiting: "not-ready"/.test(remoteSrc),
+    "t324-a: topaztrain with cluster-only stars pendings with the remediation instead of spawning a doomed run"
+  );
+  must(
+    /cd \$\{W\} 2>\/dev\/null \|\| exit 3/.test(remoteSrc) && /res\.code === 0/.test(remoteSrc),
+    "t324-a: an unenterable workdir is an UNSTAMPED negative (exit 3 ≠ verified absent — the heal retries for real)"
+  );
+  must(
+    /LC_ALL=C sort/.test(remoteSrc),
+    "t324-a: the iteration glob's sort is byte-order pinned (LC_ALL=C — no locale reorders the pick)"
+  );
 
   console.log(fail === 0 ? "\n== t324 diag: ALL GREEN ==" : `\n== t324 diag: ${fail} FAIL ==`);
 } finally {
