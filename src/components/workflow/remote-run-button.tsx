@@ -66,6 +66,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWorkflowStore } from "@/lib/store";
+import { ClusterUsagePanel } from "./cluster-usage-panel";
 import type { JobDTO } from "@/lib/types";
 import type { RemoteRunTarget } from "@/lib/remote/types";
 import {
@@ -294,6 +295,17 @@ export function RemoteRunButton({
     }
     if (arrayEligible && shards >= 2) sbatchDirectives.push(`--array=1-${shards}%4`);
   }
+
+  // t327 — what THIS submission needs from the cluster right now, for
+  // the live usage panel's ask line: per-task GPUs (the width truth —
+  // the stepper's pick where real, the honest width elsewhere) × the
+  // simultaneous tasks (an array's shards capped by the %4 concurrency
+  // the sbatch actually writes).
+  const usageAsk = React.useMemo(() => {
+    const perTask = logPick ? 0 : widthIsReal ? gpus : widthTruth.gpus;
+    const tasks = arrayEligible && shards >= 2 ? Math.min(shards, 4) : 1;
+    return { gpus: perTask, tasks };
+  }, [logPick, widthIsReal, gpus, widthTruth.gpus, arrayEligible, shards]);
 
   // t326 — radiogroup keyboard grammar: arrows move between the two mode
   // cards (right/down → slurm when the cluster has a client, left/up →
@@ -686,6 +698,19 @@ export function RemoteRunButton({
                         {selectedGroup && selectedGroup.hosts?.length === 1 ? ", --nodelist pins the node" : ""}).
                       </p>
                     </div>
+                  ) : null}
+
+                  {/* t327 — live node usage (the user's show_free_gpu.sh,
+                      promoted into the submit path): per-node GPU/CPU totals
+                      vs AllocTRES, from scontrol over SSH. Informational —
+                      it never gates the Send button. Sits under the
+                      partition picker it informs. */}
+                  {conn ? (
+                    <ClusterUsagePanel
+                      connectionId={conn.id}
+                      partition={partition === PARTITION_AUTO ? null : partition}
+                      ask={usageAsk}
+                    />
                   ) : null}
 
                   {/* t297 — the GPU width stepper: the sbatch6gpu.sh

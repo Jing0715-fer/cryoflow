@@ -641,6 +641,52 @@ on drift — the sweep finalizes within one poll), the sbatch
 contributes no slurmId — the consumer runs without the dependency), and
 log tailing / stop for pre-drift records (degrade honestly).
 
+## 4j. The occupancy table sits in the submit path (t327)
+
+**The user's `show_free_gpu.sh`, promoted into the Run-on-cluster dialog.**
+Their script greps `Gres` (totals) and `AllocTRES` (what is spoken for) out of
+`scontrol show nodes` — one line per node, checked BEFORE submitting. The
+dialog now renders exactly that, one SSH exec behind it:
+`GET /api/remote/connections/[id]/usage` runs `scontrol show nodes -o` and
+feeds it to ONE pure parser (`src/lib/hpc/slurm-usage.ts`, the t326 gpu-width
+recipe: zero imports, client/server/test share it — the panel cannot drift
+from the cluster's own words). The panel sits between the partition picker
+and the GPU width — the occupancy informs the pick, not the other way round.
+
+The contract, blade by blade:
+
+- **one exec, one cache** — the result is cached in-process for 15s so the
+  panel's 30s auto-refresh (and two dialogs open at once) never storms the
+  login node; the manual refresh button rides `?refresh=1` and bypasses it;
+- **the bars show USED, the free count carries the meaning** — the free
+  number is colored by what THIS submission needs (enough = emerald, less
+  than the ask = amber with the honest consequence spelled out — *"the job
+  will queue until GPUs release"* —, none = rose). The ask line derives
+  from the SAME width truth as the sbatch (`slurmWidthFor`) × the array's
+  `%4` concurrency, and compares it to the picked partition's free GPUs (a
+  single task's GPUs must sit on ONE node — the app never spans nodes);
+- **usage is INFORMATIONAL, never a gate** — a cluster without `scontrol`
+  (or an SSH hiccup) degrades to a rose note that names exactly what
+  failed; the Send button's predicate is untouched (the diag pins it);
+- **the parser speaks both dialects** — the `-o` one-liners the app runs
+  AND the long form the user's script greps (records re-united on their
+  `NodeName=` boundaries), with the field grammars handled: `gpu:A100:5`,
+  `gpu:5(S:0-1)`, multi-segment Gres sums, `gres/gpu:type=2` shares, empty
+  `AllocTRES=` (nothing allocated — the user's own idle rows), `CPUAlloc`
+  fallback, `IDLE+DRAIN` state words;
+- **the mock's `scontrol` accounts LIVE jobs** — the mock `sbatch` journals
+  each submission's request (`job-<id>.req`: partition | gres | ntasks |
+  concurrency) and the mock `scontrol` adds every RUNNING job onto its
+  partition's node, so a dispatched class2d @ 3 GPUs on brain2 is VISIBLE
+  in the panel (4/8 held) while it runs and releases when it lands — the
+  e2e pins both edges. PENDING jobs hold nothing (they wait, they do not
+  allocate).
+
+The user's own numbers are the fixture of record: their table (normal 80
+CPU/5 GPU, brain 64/6, normal02 80/8, brain2 128/8, brain4 128/8, brain3
+48/6 — with brain2 `cpu=2,gres/gpu=1` and brain3 `cpu=4,gres/gpu=2` as the
+live-sample baselines) is asserted node-for-node in both dialects.
+
 ## 5. Honest failure catalog
 
 | Failure | What you see |
@@ -663,6 +709,7 @@ log tailing / stop for pre-drift records (degrade honestly).
 | downstream job pending forever over a completed upstream | the readiness gate was local-only: the key star stayed on the cluster (sync caps) — the finalize probe records the verified twin, remote dispatches chain off it in place, pre-t324 records self-heal on the next attempt, and the ~20s retry re-fires the auto-start (t324) |
 | downstream pending forever after re-creating the connection | cluster identity is (connectionId, host): the re-created connection to the SAME host still heals the old records and chains off their twins (t325) |
 | the wire between two jobs disappears (canvas) | the sidecar self-heal no longer evicts edges connected during an in-flight read; writes are atomic; every read backfills a lost DB mirror; an empty lineage speaks "connect one" instead of the auto-start promise (t325) |
+| live node usage unavailable | the panel's rose note names the exact failure (no `scontrol` on the login node / SSH error) and says the submit still works — usage is informational, never a gate (t327) |
 | local node_modules out of date | boot warning `node_modules is out of date — missing ssh2` + `/api/remote/*` fails with `Can't resolve 'ssh2'` — re-run `npm install` (or `bun install`) and restart |
 
 ## 6. Testing without a cluster: the mock cluster
@@ -671,11 +718,14 @@ log tailing / stop for pre-drift records (degrade honestly).
 (`relion/4.4.1`, `relion/5.0.1`, `relion/5.0-beta` — plus the Lmod-HIDDEN
 `relion/beta_5.0_gpu_ompi5_cuda118`, loadable but absent from plain
 `module avail`), stub `relion_*` binaries that produce realistic STAR/MRC
-outputs, and a mini Slurm (`sbatch`/`squeue`/`scancel`/`sinfo` — the sinfo
-answers the 5-field hostlist grammar and its inventory mirrors a real
-user cluster: `brain`/`brain3` 6 GPU, `brain2`/`brain4`/`normal02` 8 GPU,
+outputs, and a mini Slurm (`sbatch`/`squeue`/`scancel`/`sinfo`/`scontrol` —
+the sinfo answers the 5-field hostlist grammar and its inventory mirrors a
+real user cluster: `brain`/`brain3` 6 GPU, `brain2`/`brain4`/`normal02` 8 GPU,
 `normal` 5 GPU — one node each — plus the shared `gpu` partition, with
-PENDING→RUNNING transitions and honest purge-on-finish) so the whole
+PENDING→RUNNING transitions and honest purge-on-finish; the `scontrol`
+speaks the user's own `show_free_gpu.sh` dialect — `Gres=`/`AllocTRES=`
+per node, with the CPU totals of their real table — and accounts RUNNING
+jobs onto their nodes live, t327) so the whole
 remote-Slurm path is testable without a real scheduler. `/data2/…` paths
 translate into its fs root the same way `/projects/…` and `/home/cryo/…`
 always have, so remote projects can rehearse against `/data2/movies/…`-shaped
@@ -705,8 +755,15 @@ without a real HPC system.
   submission to a detected node group (+ `--nodelist` for single-node
   groups).
 - **rsync/tar-based bulk staging** for multi-TB movie sets.
-- **Cluster-side GPU reservation awareness** (only dispatch GPU jobs when
-  the scheduler actually has one free — `squeue -t R` GRES accounting).
+- ~~**Cluster-side GPU reservation awareness**~~ — **shipped for
+  VISIBILITY (t327)**: the run dialog's Live node usage panel shows every
+  node's GPU/CPU occupancy from `scontrol show nodes` (the user's
+  `show_free_gpu.sh`), live-refreshed, with an ask line comparing the
+  submission's need to the picked partition's free GPUs. The remaining
+  stretch is dispatch-side (auto-narrowing the width or picking the node
+  with the most free GPUs) — deliberately NOT done: usage is
+  informational, the user keeps the pick.
 - **Node-level (not partition-level) picking on multi-host groups** — the
   picker currently offers the group; a wide `gpu` partition with idle-node
-  awareness could offer the individual host.
+  awareness could offer the individual host (the usage panel already
+  shows per-node free counts — the picker could follow).

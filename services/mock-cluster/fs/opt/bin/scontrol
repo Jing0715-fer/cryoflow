@@ -1,0 +1,167 @@
+#!/usr/bin/env bash
+# mock scontrol for the CryoFlow mock cluster (t327)
+#
+# Answers the app's usage grammar: `scontrol show nodes -o` → one record
+# per node, the SAME fields the user's show_free_gpu.sh greps out of the
+# long form (Gres=, AllocTRES=, CPUTot/CPUAlloc=, Partitions=, State=).
+# The classic long form answers too (that is the dialect the user's own
+# script pipes through grep), and `scontrol show nodes <name>…` filters.
+#
+# The node table mirrors the USER'S REAL CLUSTER — the exact table their
+# script prints (partition · total CPU · Gres=gpu:N · AllocTRES):
+#   normal 80/5 · brain 64/6 · normal02 80/8 · brain2 128/8
+#   brain4 128/8 · brain3 48/6
+# with the baseline allocations their live sample showed:
+#   brain2 AllocTRES=cpu=2,gres/gpu=1 · brain3 cpu=4,gres/gpu=2 · rest empty
+# (mock node names ARE the partition names — the same world the mock
+# sinfo has told since t300, so the dialog's picker and this table agree).
+# The t297-era shared nodes (node01-08, partitions gpu/long) keep
+# answering for the older suites' shapes.
+#
+# LIVE jobs ride on top — t327's honesty leg: every RUNNING sbatch job's
+# request (journal ~/.slurm/job-<id>.req, "partition|gres|ntasks|conc",
+# written by the mock sbatch at submit) is added onto its partition's
+# node, so a dispatched class2d @ gpus:3 on brain2 shows as 4/8 GPUs used
+# while it runs — exactly what real scontrol says while a job holds the
+# GRES. PENDING jobs hold nothing (they wait, they do not allocate), and
+# finished jobs' journal rows go silent with their .state file.
+set -u
+SLURM_DIR="$HOME/.slurm"
+
+# ---------------------------------------------------------------- args
+verb="${1:-}"; shift || true
+case "$verb" in
+  show) ;;
+  *) echo "scontrol: error: Invalid command: ${verb:-<empty>}" >&2; exit 1 ;;
+esac
+what="${1:-}"; shift || true
+case "$what" in
+  node|nodes) ;;
+  *) echo "scontrol: error: Invalid entity: $what" >&2; exit 1 ;;
+esac
+oneline=0
+want=""
+for a in "$@"; do
+  case "$a" in
+    -o|--oneliner) oneline=1 ;;
+    -d|--details|-h|--noheader) ;; # tolerated, ignored
+    -*) ;;
+    *) want="$want ${a}" ;;
+  esac
+done
+
+# ------------------------------------------------------- node table
+# name|partition|cputot|gputot|base_cpu|base_gpu
+TABLE="
+normal|normal|80|5|0|0
+brain|brain|64|6|0|0
+normal02|normal02|80|8|0|0
+brain2|brain2|128|8|2|1
+brain4|brain4|128|8|0|0
+brain3|brain3|48|6|4|2
+node01|gpu|64|6|0|0
+node02|gpu|64|6|0|0
+node03|gpu|64|6|4|1
+node04|gpu|64|6|4|1
+node05|long|64|0|0|0
+node06|long|64|0|0|0
+node07|long|64|0|0|0
+node08|long|64|0|0|0
+"
+
+# partition → the node a submission on it lands on (single-node brain
+# family maps to itself; the shared partitions take their first node; the
+# cluster default is the gpu partition's node01 — the shape the mock
+# sbatch has always submitted into)
+part_node() {
+  case "$1" in
+    brain|brain2|brain3|brain4|normal|normal02) echo "$1" ;;
+    gpu|"") echo "node01" ;;
+    long) echo "node05" ;;
+    *) echo "" ;;
+  esac
+}
+
+# live allocations: RUNNING jobs' journals added per node
+declare -A LIVE_CPU LIVE_GPU
+for pidfile in "$SLURM_DIR"/job-*.pid; do
+  [ -f "$pidfile" ] || continue
+  id="$(basename "$pidfile" .pid)"; id="${id#job-}"
+  # alive, exactly the way squeue tells it (startcode must still match)
+  pinfo="$(cat "$pidfile" 2>/dev/null)" || continue
+  pid="$(echo "$pinfo" | awk '{print $2}')"
+  st="$(echo "$pinfo" | awk '{print $3}')"
+  [ -n "$pid" ] || continue
+  { [ -r "/proc/$pid/stat" ] && [ "$(awk '{print $22}' /proc/$pid/stat 2>/dev/null)" = "$st" ]; } || continue
+  # only RUNNING holds resources — PENDING waits, it does not allocate
+  [ "$(cat "$SLURM_DIR/job-$id.state" 2>/dev/null)" = "RUNNING" ] || continue
+  req="$(cat "$SLURM_DIR/job-$id.req" 2>/dev/null)" || continue
+  rpart="$(echo "$req"  | cut -d'|' -f1)"
+  rgres="$(echo "$req" | cut -d'|' -f2)"; rgres="${rgres:-0}"
+  rtask="$(echo "$req" | cut -d'|' -f3)"; rtask="${rtask:-1}"
+  rconc="$(echo "$req" | cut -d'|' -f4)"; rconc="${rconc:-1}"
+  node="$(part_node "$rpart")"
+  [ -n "$node" ] || continue
+  LIVE_CPU[$node]=$(( ${LIVE_CPU[$node]:-0} + rtask * rconc ))
+  LIVE_GPU[$node]=$(( ${LIVE_GPU[$node]:-0} + rgres * rconc ))
+done
+
+emit_node() {
+  local name="$1" part="$2" ct="$3" gt="$4" bc="$5" bg="$6"
+  local ca ga state
+  ca=$(( bc + ${LIVE_CPU[$name]:-0} ))
+  ga=$(( bg + ${LIVE_GPU[$name]:-0} ))
+  # state follows the allocations (the scheduler's own words):
+  # all GPUs spoken for → ALLOCATED; some → MIXED; none → IDLE
+  if [ "$gt" -gt 0 ]; then
+    if   [ "$ga" -ge "$gt" ]; then state=ALLOCATED
+    elif [ "$ga" -gt 0 ] || [ "$ca" -gt 0 ]; then state=MIXED
+    else state=IDLE; fi
+  else
+    if   [ "$ca" -ge "$ct" ] && [ "$ca" -gt 0 ]; then state=ALLOCATED
+    elif [ "$ca" -gt 0 ]; then state=MIXED
+    else state=IDLE; fi
+  fi
+  local gres="gpu:$gt"; [ "$gt" -eq 0 ] && gres="(null)"
+  local cfg="cpu=$ct"
+  [ "$gt" -gt 0 ] && cfg="$cfg,gres/gpu=$gt"
+  # AllocTRES: the user's own dialect — EMPTY when nothing is allocated
+  # (their sample rows say exactly "AllocTRES=" for idle nodes)
+  local tres=""
+  [ "$ca" -gt 0 ] && tres="cpu=$ca"
+  [ "$ga" -gt 0 ] && tres="${tres:+$tres,}gres/gpu=$ga"
+  if [ "$oneline" = "1" ]; then
+    echo "NodeName=$name Arch=x86_64 CoresPerSocket=$(( ct / 2 )) CPUAlloc=$ca CPUErr=0 CPUTot=$ct CPULoad=0.00 AvailableFeatures=(null) ActiveFeatures=(null) Gres=$gres NodeAddr=$name NodeHostName=$name Version=19.05.7 OS=Linux 3.10.0 Partitions=$part State=$state ThreadsPerCore=2 TmpDisk=0 Weight=1 Owner=N/A MCS_label=N/A CfgTRES=$cfg AllocTRES=$tres"
+  else
+    echo "NodeName=$name Arch=x86_64 CoresPerSocket=$(( ct / 2 ))"
+    echo "   CPUAlloc=$ca CPUErr=0 CPUTot=$ct CPULoad=0.00"
+    echo "   AvailableFeatures=(null) ActiveFeatures=(null)"
+    echo "   Gres=$gres"
+    echo "   NodeAddr=$name NodeHostName=$name Version=19.05.7"
+    echo "   RealMemory=64000 AllocMem=0 FreeMem=61000 Sockets=2 Boards=1"
+    echo "   Partitions=$part"
+    echo "   State=$state ThreadsPerCore=2 TmpDisk=0 Weight=1 Owner=N/A MCS_label=N/A"
+    echo "   BootTime=2026-01-01T00:00:00 SlurmdStartTime=2026-01-01T00:00:00"
+    echo "   CfgTRES=$cfg"
+    echo "   AllocTRES=$tres"
+    echo ""
+  fi
+}
+
+# name filter (space- or comma-separated), when given
+wanted() {
+  [ -z "$want" ] && return 0
+  case " $want " in
+    *" $1 "*) return 0 ;;
+  esac
+  return 1
+}
+
+while IFS='|' read -r name part ct gt bc bg; do
+  [ -n "$name" ] || continue
+  wanted "$name" || continue
+  emit_node "$name" "$part" "$ct" "$gt" "$bc" "$bg"
+done <<EOF
+$(echo "$TABLE" | grep -v '^$')
+EOF
+exit 0

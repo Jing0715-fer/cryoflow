@@ -71,6 +71,15 @@ conc="$(grep -m1 -oP '#SBATCH --array=1-[0-9]+%\K[0-9]+' "$script" || true)"
 partition="$(grep -m1 -oP '(?<=#SBATCH --partition=).*' "$script" || true)"
 mem_req="$(grep -m1 -oP '(?<=#SBATCH --mem=)\d+' "$script" || true)"
 gres_req="$(grep -m1 -oP '(?<=#SBATCH --gres=gpu:)\d+' "$script" || true)"
+# t327 — the request journal for scontrol's LIVE usage accounting: what
+# this job holds while it runs (ntasks CPUs · gres GPUs · the array's
+# effective concurrency). scontrol adds RUNNING jobs onto their
+# partition's node — the show_free_gpu.sh the dialog renders.
+ntasks_req="$(grep -m1 -oP '(?<=#SBATCH --ntasks=)\d+' "$script" || true)"
+conc_eff=1
+if [ -n "$arr" ]; then
+  if [ -n "$conc" ] && [ "$conc" -lt "$arr" ]; then conc_eff="$conc"; else conc_eff="$arr"; fi
+fi
 
 node_mem=0; node_gpus=0
 case "$partition" in
@@ -109,6 +118,9 @@ mkdir -p "$(dirname "$out")" "$(dirname "$err")" 2>/dev/null || true
 # PENDING marker: squeue reports PENDING until the launcher flips it
 touch "$SLURM_DIR/job-$id.state"
 echo "PENDING" > "$SLURM_DIR/job-$id.state"
+# t327 — the request journal (partition|gres|ntasks|concurrency) scontrol
+# reads while this job RUNS; dead jobs go silent with their .state file
+printf '%s|%s|%s|%s\n' "${partition:-}" "${gres_req:-0}" "${ntasks_req:-1}" "$conc_eff" > "$SLURM_DIR/job-$id.req"
 
 launcher="$SLURM_DIR/.launch-$id.sh"
 cat > "$launcher" <<EOF
