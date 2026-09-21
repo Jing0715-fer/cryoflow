@@ -14,9 +14,13 @@
  *   reconcileRemoteJobs  one batched SSH poll per connection per few seconds:
  *                      alive? exit code? log tail → progress; on exit →
  *                      sync-back (download outputs into the LOCAL mirror
- *                      workdir, STAR-rewrite remote paths back) → the local
- *                      collectOutputs/finalize machinery runs unchanged →
- *                      downstream jobs auto-start, on the same cluster.
+ *                      workdir, STAR-rewrite remote paths back — t339: under
+ *                      the key-files policy the per-micrograph image
+ *                      producers sync METADATA ONLY, their stacks stay on
+ *                      the cluster, listed + fetchable on demand) → the
+ *                      local collectOutputs/finalize machinery runs
+ *                      unchanged → downstream jobs auto-start, on the same
+ *                      cluster.
  *   remoteLogTail      live log tail for the log tab (fetched over SSH).
  *   remoteStopRun      kill the cluster-side session (process group).
  *
@@ -72,6 +76,7 @@ import { gpuStrategyFor } from "@/lib/hpc/slurm";
 import { nodeUnavailable, parseScontrolNodes, type SlurmNodeUsage } from "@/lib/hpc/slurm-usage";
 import { isLogAutopick } from "@/lib/relion/log-autopick";
 import { classifyRerunWipe } from "@/lib/hpc/cleanup";
+import { describeSyncSkipFile, describeSyncSkips, planSyncBack, type SyncSkip } from "./sync-policy";
 import { wipeLocalRunProducts } from "@/lib/relion/run-wipe";
 import { describeExtractCollisions, scanExtractCollisions, starIsArraySplittable } from "@/lib/relion/extract-collide";
 import {
@@ -3348,7 +3353,10 @@ async function finalizeRemoteRun(
   // set at finalize (the run itself is already over; this is the wait the
   // user still feels before the results appear).
   const syncT0 = Date.now();
-  const sync = await syncBackWorkdir(conn, r, localWorkdir);
+  // t339 — the job's TYPE rides along: the pure planner keeps the bulk
+  // producers' image stacks on the cluster under key-files (the local
+  // mirror is for metadata; the images wait for an explicit fetch).
+  const sync = await syncBackWorkdir(conn, r, localWorkdir, job.type);
   const syncMs = Date.now() - syncT0;
 
   let outputs: Record<string, string> = {};
@@ -3659,14 +3667,6 @@ interface SyncResult {
   note?: string;
 }
 
-/** t289 — extensions that ALWAYS sync under the key-files policy: the
- * small textual skeleton of a RELION run (particles/metadata/logs). Bulky
- * binary formats (.mrc/.mrcs/.map/.hdf/…) are gated by the key-file size
- * cap instead — class averages (a few MB) come home, half-maps and stacks
- * stay on the cluster and wait for an explicit fetch. */
-const KEY_TEXT_EXT =
-  /\.(star|log|txt|out|err|json|xml|com|lst|coord|bild|dat|eps|pdf|csv|ini|toml|ya?ml|md)$/i;
-
 /**
  * Download the cluster workdir into the local mirror (bounded by the
  * connection's caps AND — since t289 — its sync policy). STAR files are
@@ -3674,11 +3674,22 @@ const KEY_TEXT_EXT =
  * unchanged. `.cf-*` control files stay remote-only. The FULL remote
  * listing lands in `.cf-remote-manifest.json` so the outputs view can show
  * what stayed behind. Returns counts + the skipped list for the UI.
+ *
+ * t339 — WHAT comes home is decided by the pure planner (sync-policy.ts):
+ * under key-files, the per-micrograph image producers (extract, motioncorr,
+ * polish — the cleanup planner's BULK_TYPES) sync TEXT ONLY; their image
+ * stacks stay on the cluster WHATEVER THEIR SIZE (the 865-under-the-cap
+ * loophole this ticket closed — per-file judgment cannot see an aggregate),
+ * listed in the manifest + Results and fetchable on demand. Other types
+ * keep the t289 doctrine: text always, binaries under keyFileMb (class
+ * averages still come home — the class gallery reads their headers
+ * locally). "everything" keeps meaning everything under the caps.
  */
 async function syncBackWorkdir(
   conn: RemoteConnection,
   r: RemoteRunState,
-  localWorkdir: string
+  localWorkdir: string,
+  jobType?: string
 ): Promise<SyncResult> {
   const res: SyncResult = { files: 0, bytes: 0, skipped: [] };
   const W = shQuote(r.remoteWorkdir);
@@ -3691,12 +3702,18 @@ async function syncBackWorkdir(
     res.note = "sync-back failed (workdir unreadable over SSH) — outputs remain on the cluster";
     return res;
   }
-  // t289 — the policy: key-files (default) gates binaries at keyFileMb;
-  // everything keeps the pre-t289 behavior (caps only).
-  const policy = conn.syncPolicy === "everything" ? "everything" : "key-files";
-  const keyCap = (conn.keyFileMb ?? 16) * 1024 * 1024;
+  // t289/t339 — the policy context the PURE planner speaks (key-files gates
+  // binaries at keyFileMb for result types and syncs bulk producers'
+  // images NEVER; everything keeps the pre-t289 behavior — caps only).
+  const policyCtx = {
+    policy: conn.syncPolicy === "everything" ? ("everything" as const) : ("key-files" as const),
+    jobType,
+    keyFileMb: conn.keyFileMb,
+    maxFileMb: conn.maxFileMb,
+    maxTotalMb: conn.maxTotalMb,
+    remoteWorkdir: r.remoteWorkdir,
+  };
   const capPerFile = conn.maxFileMb * 1024 * 1024;
-  let budget = conn.maxTotalMb * 1024 * 1024;
   const entries: { rel: string; size: number }[] = [];
   for (const line of manifest.stdout.trim().split("\n")) {
     if (!line.trim()) continue;
@@ -3714,19 +3731,13 @@ async function syncBackWorkdir(
     remoteWorkdir: r.remoteWorkdir,
     files: entries.map((e) => ({ path: e.rel, size: e.size })),
   });
-  for (const { rel, size } of entries) {
-    if (policy === "key-files" && !KEY_TEXT_EXT.test(rel) && size > keyCap) {
-      res.skipped.push(`${rel} (${(size / 1024 / 1024).toFixed(0)} MB > ${conn.keyFileMb ?? 16} MB key-file cap)`);
-      continue;
-    }
-    if (size > capPerFile) {
-      res.skipped.push(`${rel} (${(size / 1024 / 1024).toFixed(0)} MB > ${conn.maxFileMb} MB cap)`);
-      continue;
-    }
-    if (budget - size < 0) {
-      res.skipped.push(`${rel} (sync budget exhausted)`);
-      continue;
-    }
+  // t339 — the plan (WHAT comes home) comes from the pure planner; the
+  // loop below only executes it. The planner's skip list is the pre-download
+  // truth; the loop appends the download-time verdicts (failed / grew) so
+  // the note speaks every file that stayed, with its own why.
+  const plan = planSyncBack(entries, policyCtx);
+  const skips: SyncSkip[] = [...plan.skip];
+  for (const { rel, size } of plan.take) {
     const localPath = path.join(localWorkdir, rel);
     // fresh copy already there? skip (idempotent re-finalize)
     try {
@@ -3739,14 +3750,13 @@ async function syncBackWorkdir(
     }
     const written = await remoteDownload(conn, `${r.remoteWorkdir}/${rel}`, localPath, capPerFile);
     if (written == null) {
-      res.skipped.push(`${rel} (download failed)`);
+      skips.push({ rel, size, why: "download-failed" });
       continue;
     }
     if (written === -1) {
-      res.skipped.push(`${rel} (grew past the cap mid-download)`);
+      skips.push({ rel, size, why: "grew-mid-download" });
       continue;
     }
-    budget -= written;
     res.bytes += written;
     res.files += 1;
     // STAR rewrite to-local (in place)
@@ -3760,12 +3770,12 @@ async function syncBackWorkdir(
       }
     }
   }
-  if (res.skipped.length > 0) {
-    res.note =
-      policy === "key-files"
-        ? `${res.skipped.length} bulky file(s) stayed on the cluster (key-files policy): ${res.skipped.slice(0, 3).join(", ")}${res.skipped.length > 3 ? " …" : ""} — they are listed in this job's Results; preview or download them there on demand`
-        : `${res.skipped.length} file(s) stayed on the cluster (caps): ${res.skipped.slice(0, 3).join(", ")}${res.skipped.length > 3 ? " …" : ""} — raise the sync caps in the connection settings or fetch them manually from ${r.remoteWorkdir}`;
-  }
+  // the skip list rides the record (per-file lines, the same strings the
+  // pre-t339 dialect embedded); the note is the planner's own rendering —
+  // the metadata-only class leads with the POLICY, not with caps.
+  res.skipped = skips.map((s) => describeSyncSkipFile(s, policyCtx));
+  const note = describeSyncSkips(skips, policyCtx);
+  if (note) res.note = note;
   return res;
 }
 

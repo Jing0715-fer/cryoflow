@@ -240,6 +240,7 @@ disable it work fine.
 | useSlurm | preselect sbatch mode in the Run dialog (direct stays one click away) |
 | slurmPartition | `#SBATCH --partition` for submissions (empty = the cluster default) |
 | maxFileMb / maxTotalMb | sync-back caps per file / per workdir |
+| syncPolicy / keyFileMb | what finalize copies home: `key-files` (default) — text outputs always, binaries under the cap, and for the per-micrograph image producers (extract, motioncorr, polish) TEXT ONLY (§4q, t339); `everything` — every file under the caps |
 
 **Security notes (please read):** secrets are stored in
 `data/remote-connections.json` with `0600` permissions on YOUR machine and
@@ -939,6 +940,7 @@ job's Results/Files tab, on the cluster).
 | array split over a single-block STAR | refused before staging: the slicer would hand EVERY row to EVERY shard (the optics pass-through is per-block) — run with the Array split at 1 (t334) |
 | shard cannot slice its input (`awk` unreadable) | the old silent whole-STAR `cp` fallback is dead: the task fails with `CRYOFLOW_ERR: could not slice the input STAR …` in run.err and `.cf-exit=111` — a spoken verdict, not a 20-minute write race (t334) |
 | 2D/3D classification dies at `readMRC: Image number N exceeds stack size M` | the upstream extraction COMPLETED with a lying star (same-stem rows in ITS input wrote one stack; the later writer truncated the earlier's images) — the consumer-side gate (t338) now refuses such a star at dispatch with the exact numbers and the remedy; the Log tab's diagnosis names the mechanism for the runs that already died |
+| extraction stacks filling the laptop | by design, not a failure: under key-files, extract/motioncorr/polish sync TEXT ONLY — the stacks stay on the cluster (listed in Results, fetchable on demand, downstream cluster jobs chain in place); the receipt says so; switch the connection to "everything" to bring them home, or run the inspector's local-only Bulk cleanup on mirrors from before t339 (t339) |
 
 ## 6. Testing without a cluster: the mock cluster
 
@@ -1021,6 +1023,15 @@ without a real HPC system.
   not done: CryoFlow already auto-answers it (interrupted refine-family
   resumes via `--continue`; everything else starts fresh, and the confirm
   dialog says exactly what will happen).
+- ~~**Local disk footprint of remote jobs**~~ — **shipped (t339)**: the
+  local mirror of a remote run is for METADATA — under the key-files
+  policy the per-micrograph image producers (extract, motioncorr,
+  polish) sync text only, their stacks stay on the cluster whatever
+  their size (§4q), listed in Results and fetchable on demand. The
+  remaining stretch is a per-connection disk budget meter (bytes the
+  mirrors hold vs bytes the cluster holds) — deliberately not done:
+  the cleanup dialog already accounts both sides per job, and the
+  policy change keeps the inflow at zero.
 
 ## 4n. The extract frame census + the twin-star closure (t335)
 
@@ -1162,3 +1173,47 @@ old global counter produced image numbers past every stack's own slice
 count, a dialect no real RELION writes). And the local lane's t335 frame
 census, which a brace-nesting slip had left INSIDE the t334 scan's catch
 clause (dead code on the happy path), now runs where its doctrine says.
+
+## 4q. The local mirror is for metadata — extraction stacks stay on the cluster (t339)
+
+The field report: 「extraction的mrcs也有一些放到本地了，是不是没有必要 …
+我希望本地的空间占用尽量小一些」. A remote extraction finalized and
+HUNDREDS of per-micrograph `.mrcs` stacks landed in the local mirror —
+each stack a few MB, every one of them **under** the t289 key-file cap
+(16 MB default). Per-file judgment cannot see an aggregate: 865 "small"
+files are gigabytes on the laptop, and none of them are metadata.
+
+The rule (in `src/lib/remote/sync-policy.ts`, PURE — the lane, the
+receipt note and the diag suite speak one classification): under the
+**key-files** policy, the per-micrograph image producers — the same
+`BULK_TYPES` the cleanup planner gates its bulk tier to (extract,
+motioncorr, polish; a type that is bulk for DELETION is bulk for SYNC) —
+sync **TEXT ONLY**: STAR, logs and plots come home; image stacks stay on
+the cluster **whatever their size**. Every other type keeps the t289
+doctrine unchanged (text always; binaries under `keyFileMb` — so a
+class2d's few-MB class averages still land, and the class gallery keeps
+reading their headers locally). **everything** keeps meaning everything
+under the caps — the explicit user override (flip it in the connection's
+*Results sync-back* setting and re-run).
+
+What stayed is never invisible and never lost:
+- the **manifest ledger** (`.cf-remote-manifest.json`) still records the
+  FULL listing (written before the planner runs — even a dying sync
+  leaves the truth), so the Results/Files tab lists every stack
+  `remote: true` with its size;
+- any **preview or download** pulls exactly one stack over SSH on demand
+  (the t289 lazy leg, byte-count verified — the t298 verdict);
+- a **downstream cluster job** chains off the cluster copy in place
+  (§4h) — it never needed the local stacks; a downstream job that must
+  run LOCALLY needs the override (or a manual fetch) — the t338 consumer
+  gate degrades unverifiable refs to a note, never a silent wrong run;
+- **stacks that already landed** (this policy's predecessors) are one
+  cleanup away: the inspector's eraser, *Bulk image data* tier, local
+  side only — the cluster keeps every byte, the mirror keeps the
+  metadata (and a re-run wipes the stale mirror generation anyway, §4l).
+
+The receipt says it in words: 「N image file(s) stayed on the cluster —
+extract jobs sync metadata only under the key-files policy (STAR, logs
+and plots come home; image stacks never do, whatever their size) … open
+or download one to fetch it on demand — or switch the connection's sync
+policy to "everything" to bring them home」.

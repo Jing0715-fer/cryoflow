@@ -203,8 +203,12 @@ export const CLEANUP_TIERS: Array<{
 /** Types whose .mrc/.mrcs payload is reproducible-from-input bulk data —
  * the only ones offered the bulk tier. A class2d's `run_classes.mrcs` is
  * a RESULT (chainable, kept); a motioncorr's corrected movie is a
- * stepping stone to the next job. */
-const BULK_TYPES = new Set(["motioncorr", "extract", "polish"]);
+ * stepping stone to the next job.
+ * t339 — exported for the sync-back planner (remote/sync-policy.ts): a
+ * type that is bulk for DELETION is bulk for SYNC — both mean "per-
+ * micrograph image product", so the local mirror keeps these jobs'
+ * metadata only under the key-files policy. */
+export const BULK_TYPES = new Set(["motioncorr", "extract", "polish"]);
 
 /** The witnesses + bookkeeping that always stay (both sides). */
 const KEEP_ROOT_NAMES = new Set([

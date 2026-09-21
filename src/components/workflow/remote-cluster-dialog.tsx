@@ -1318,7 +1318,7 @@ function ConnectionEditor({
           </Field>
           <Field
             label="Results sync-back"
-            hint="What finalize copies back to this machine. Bulky files that stay on the cluster are still listed in Results — preview or download them there on demand."
+            hint="What finalize copies back to this machine. Extraction-style jobs (extract, motioncorr, polish) sync metadata only — their image stacks stay on the cluster whatever their size. Anything that stays is still listed in Results — preview or download it there on demand."
             className="col-span-2"
           >
             <Select
@@ -1330,7 +1330,7 @@ function ConnectionEditor({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="key-files" className="text-sm">
-                  Key files only — maps &amp; stacks stay on the cluster
+                  Key files only — STAR &amp; logs sync, image stacks stay on the cluster
                 </SelectItem>
                 <SelectItem value="everything" className="text-sm">
                   Everything under the caps
@@ -1341,7 +1341,7 @@ function ConnectionEditor({
           {draft.syncPolicy === "key-files" ? (
             <Field
               label="Key-file cap (MB)"
-              hint="Binary outputs above this stay remote (text, STAR and logs always sync)."
+              hint="Binary results above this stay remote (text, STAR and logs always sync). Extraction-style jobs keep ALL image files remote — this cap only shapes other job types (e.g. class averages, small maps)."
             >
               <Input
                 type="number"

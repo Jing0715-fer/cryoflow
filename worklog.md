@@ -2860,3 +2860,25 @@ Work Log:
 Stage Summary:
 - 用户三报全闭环: ①节点框镜像钉扎(选了节点框就变——双向释放语义) ②extract CPU-only 如实陈述+Array split 是速度旋钮 ③毒 star 在消费侧派发前拦截(readMRC 341>340 的精确数字拒绝), 旧毒输出的 Log 标签页有诊断, 上游 extract 派发侧 t334/t335 拒源头输入
 - 用户复机路径: pull 最新 → 重跑 extract(其输入若含同茎双行会被拒并列名→去重导入)→ 2D 即通; 若不重跑 extract 直接重跑 2D, 新门立即拒绝并指出上游(不再烧 20 分钟 GPU)
+
+---
+Task ID: t339
+Agent: main-agent (Z.ai Code)
+Task: 「先拉取远程最新代码。目前所有的远程任务都会在本地也创建一个文件夹，保存一些job的基本信息可以，但是extraction的mrcs也有一些放到本地了，是不是没有必要，而且很占用本地的硬盘空间，我希望本地的空间占用尽量小一些。」——pull t335-t338 四提交后, 修 extract .mrcs 溜进本地镜像的漏洞; 完成后 push
+
+Work Log:
+- 先 git pull: 本地 1081 文件"改动"全为权限位 100644→100755(沙盒 fs 怪癖, 零内容差异)——git config core.fileMode false 后干净合入 e2926d6(t335)/3d03797(t336)/c3b3709(t337)/c26bea1(t338)
+- 根因: syncBackWorkdir 的 t289 key-files 策略按【单文件】16MB 门控二进制——extraction 每微图一个 .mrcs 栈, 单个几 MB 全在帽下, 865 个=GBs 全部落地; 单文件判断看不见聚合, 这正是用户撞穿的洞。逐文件消费链核实: /outputs/file 路由已带 t289 懒拉取(远程文件本地缺失→按需 SSH 拉), classes 路由直接读本地 class-average 头(必须继续同步), t338 消费门对本地缺失 ref 降级 note 不阻断, t331 cleanup 对话框已支持 local/remote 分侧勾选(本地瘦身杠杆已存在只欠人知)
+- 实现: 新纯模块 src/lib/remote/sync-policy.ts(t326/t327 配方, 唯一 import 是 cleanup 的 BULK_TYPES——删除与同步共用一套语法: 对删除是 bulk 的类型对同步也是 bulk, 都指"每微图图像产物")——planSyncBack 纯规划器(metadata-only/key-cap/per-file-cap/budget 四类 skip + 预算扣减) + describeSyncSkips note 生成器(metadata-only 段先讲政策不讲帽, 帽段保留 t289 原措辞, 两段可共存) + describeSyncSkipFile 逐文件行(记录字段方言不变)
+- 接线: remote-run.ts syncBackWorkdir 增第四参 jobType, finalizeRemoteRun 传 job.type; 循环只执行规划(台账仍先行——writeRemoteManifest 在 planSyncBack 前, 中途死同步也留下全量真相); 下载期失败(failed/grew)追加进 skip 列表由同一 note 渲染; KEY_TEXT_EXT 迁入纯模块(一门脑三处说: lane+note+diag)
+- 规则本体: key-files 下 BULK_TYPES(extract/motioncorr/polish)仅同步 KEY_TEXT_EXT 文本(STAR/日志/eps 图)——图像栈无论大小留集群, manifest 列出+Results 标 remote:true+点开按需拉; 其余类型保持 t289 教义(class2d 几 MB 的 run_classes.mrcs 照常回家——class 画廊本地读头不受损; 大图照旧留集群); everything 覆盖字面语义不变(用户显式选择)
+- hpc/cleanup.ts: BULK_TYPES 加 export(带 t339 注释); remote-cluster-dialog.tsx 文案三处: 下拉项「Key files only — STAR & logs sync, image stacks stay on the cluster」+ 同步域 hint 讲三类型仅元数据+ key-file cap hint 讲该帽只塑形其他类型
+- diag-t339-mirror-slim.mjs 48 断言全绿: UNIT(A1 用户漏洞形状——1KB 的 .mrcs 也留在集群, 尺寸无关性是本修复的芯; A2 class2d 控制组 3MB class averages 回家+20MB 图留; A3 motioncorr/polish 同规; A4 everything 覆盖全回家; A5 无 jobType 走旧语义; A6/A7 帽与预算算术; A8 note 讲政策措辞; A9 key-cap note 保留 t289 原文; A10 空 skip 无 note; A11 混合两段共存) + LIVE(用户管线 import→autopick@slurm→extract@slurm: 镜像零图像文件+particles.star 在+note/skippedFiles 各带 metadata-only 缘由+manifest 4 栈带尺寸+Results 4 栈 remote:true; 懒拉取门: PNG 200 渲染+字节数对账 t298 判决; 下游 class2d@slurm 就地链集群副本完成且自家 run_classes.mrcs 照常回家+永不讲 metadata-only note; everything 覆盖: PATCH 连接重跑后 4 栈落地逐字节对账; 瘦身杠杆: local-only bulk 清理删 4 栈 2.7MB 集群 4 栈分毫未动) + CONTRACTS(finalize 穿线 job.type/台账先行→plan→download 顺序/KEY_TEXT_EXT 不在 lane/BULK_TYPES 导出)
+- 回归全绿(8 套件): t339(48)/t334(47)/t335/t333(75)/t318(52)/t319(57)/t336(45)/t338——t335/t333/t336/t338 硬编码 :3001+/home/z/cryoflow(沙盒重置后不存在), 按 t334 先例以 BASE→:3000+ROOT→本仓重定位副本跑(t335/t333/t336/t338 需 bun 跑: 模块无扩展名相对导入 node ESM 不解); t306/t307/t308 浏览器家族按 OOM 教义未跑(本窗 dev 仍被 OOM 收割一次, 回归后重启)——t307 的 extra/ 断言全在集群侧(grep 核实), t308 走懒拉取门, 风险为零记为环境债; t331 套件未跑(需 qa-mock-sibling 种子连接的 :3001 环境; 本窗未动 cleanup 分类语义仅 export 一常量, 且 t339 LEG B5 已活体跑通 local-only bulk 路)
+- 浏览器活体(agent-browser @ dev :3000): 桌面 1600×900 首页渲染零错零 console 错, footer 900/900 钉底; 集群对话框 Add connection 表单新文案三处逐字渲染(下拉项+域 hint+cap hint); 390×844 零横向溢出(w:390) footer 844/844; 截图 t339-desktop/t339-dialog-wording/t339-mobile-390; dev 途中被收割一次后重启, 终态 3.3GB 空闲
+- tsc 0; 触碰五文件 eslint 0(仓库存量 8 错全在未触碰文件: print-doc-*/session-report-dialog/map-ortho-panel/molstar-embed+两 diag-archive); docs §4q 新节+§3 连接参考表 syncPolicy 行+失败目录新行(extraction stacks filling the laptop=by design 非失败)+§7 路线图新 shipped 条目
+
+Stage Summary:
+- 修复语义: 远程任务的本地镜像=元数据——key-files 下 extract/motioncorr/polish 只回文本, 图像栈无论尺寸留集群(manifest 可见+Results 列出+按需拉取+下游集群作业就地链); 其他类型 t289 教义原样(class averages 照常回家, 画廊无损); everything 显式覆盖不变
+- 用户存量 GB 级已落地栈的两条出路: ①每任务清理对话框 Bulk tier 仅勾本地侧(集群分毫不动, LEG B5 活体验证) ②重跑任务(t333 代际 wipe 清镜像后新政策生效)——无需手工 rm
+- 用户「本地空间尽量小」的完整答案: 新流入=零(本修复), 存量=一键瘦身(杠杆已有+文档指路), 显示/下游/按需取回全部无损(t289/t298/t324/t338 四代教义兜底)
