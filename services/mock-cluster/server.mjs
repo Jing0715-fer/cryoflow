@@ -211,6 +211,59 @@ function isBatchedRm(cmd) {
   return cmd.includes("rm -f --");
 }
 
+// ---------------------------------------------------------------------------
+// t345 — star-read torture levers (same ~/.slurm convention, same witness
+// discipline as the rm pair above): the E2E suite reproduces the field
+// report "particles star unreadable … and that read failed: timeout after
+// 15000ms" without owning a slow login node.
+//   cat-slow-ms        — "<ms> <substring>": a `cat` of the file whose path
+//                        contains the substring sleeps N ms first (a read
+//                        that is SLOW, not broken). The substring is
+//                        MANDATORY — the poll's run.out tails are cats too
+//                        and must never slow with it.
+//   cat-channel-close  — ONE-SHOT: content is the substring; the next
+//                        matching cat's channel closes WITHOUT an exit, so
+//                        the app sees the SSH-level "channel closed before
+//                        exit" error and must redial-retry (t345's ladder).
+// Both append witness lines to cat-lever.log (a green job alone could
+// also mean the lever never matched anything).
+// ---------------------------------------------------------------------------
+function catLeverLog(line) {
+  try {
+    appendFileSync(join(LEVER_DIR, "cat-lever.log"), `${Date.now()} ${line}\n`);
+  } catch {
+    /* best effort — the lever is the test's own instrument */
+  }
+}
+
+/** The matching cat + the lever's own word, or null. */
+function catLeverSpec(cmd, leverName) {
+  if (!/^cat\s/.test(cmd)) return null;
+  const lever = join(LEVER_DIR, leverName);
+  if (!existsSync(lever)) return null;
+  let content = "";
+  try {
+    content = readFileSync(lever, "utf8").trim();
+  } catch {
+    return null;
+  }
+  if (!content) return null;
+  if (leverName === "cat-slow-ms") {
+    const m = /^(\d+)\s+(\S+)$/.exec(content);
+    if (!m || !cmd.includes(m[2])) return null;
+    return { ms: Number(m[1]), substr: m[2] };
+  }
+  return cmd.includes(content) ? { substr: content } : null;
+}
+
+/** Inject the slowdown lever into a (translated) cat command. */
+function applyCatSlowLever(cmd) {
+  const spec = catLeverSpec(cmd, "cat-slow-ms");
+  if (!spec) return cmd;
+  catLeverLog(`slow ${spec.ms}ms on ${spec.substr}`);
+  return cmd.replace(/^cat\s/, `sleep ${(spec.ms / 1000).toFixed(3)}; cat `);
+}
+
 /** Inject the slowdown lever into a (translated) command. */
 function applyRmSlowLever(cmd) {
   if (!isBatchedRm(cmd)) return cmd;
@@ -507,7 +560,17 @@ function handleSession(session) {
         try { stream.close(); } catch { /* ignore */ }
         return;
       }
-      const translated = applyRmSlowLever(translateCommand(raw));
+      // t345 — the same one-shot channel-kill for the star preflight's cat
+      // (the redial-retry ladder's own door). Consumed on first fire.
+      const catClose = catLeverSpec(raw, "cat-channel-close");
+      if (catClose) {
+        try { rmSync(join(LEVER_DIR, "cat-channel-close")); } catch { /* already gone */ }
+        catLeverLog(`channel-close on ${catClose.substr}`);
+        log("exec: cat-channel-close lever fired — closing the channel without an exit");
+        try { stream.close(); } catch { /* ignore */ }
+        return;
+      }
+      const translated = applyCatSlowLever(applyRmSlowLever(translateCommand(raw)));
       if (process.env.CF_MOCK_DEBUG) log(`exec-translated: ${translated.slice(0, 200)}`);
       activeProc = runCommand(stream, ["-c", translated], { onFinish: clearActive });
     } catch (err) {

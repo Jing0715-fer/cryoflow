@@ -111,11 +111,6 @@ const ARRAY_MAX_SHARDS = 64;
  */
 const ARRAY_ELIGIBLE_TYPES = new Set(["motioncorr", "ctffind", "extract", "autopick"]);
 
-/** The relion --gpu flag's device list for N GPUs: "0", "0:1", "0:1:2"… */
-function gpuListFor(n: number): string {
-  return Array.from({ length: Math.max(1, n) }, (_, i) => i).join(":");
-}
-
 /** t326 — a section overline: the eye's anchor between form groups. */
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -922,7 +917,7 @@ export function RemoteRunButton({
                       <div className="flex flex-wrap items-center gap-1.5">
                         <Chip>--gres=gpu:{gpus}</Chip>
                         <Chip>mpirun -n {gpus}</Chip>
-                        <Chip>--gpu {gpuListFor(gpus)}</Chip>
+                        <Chip title="t345 — each MPI rank gets its own CUDA_VISIBLE_DEVICES; relion sees exactly one card per rank">1 rank → 1 card (CUDA_VISIBLE_DEVICES)</Chip>
                         {(selectedGroup ?? partitionInventory[0]) != null ? (
                           <span className="text-[10px] text-muted-foreground/80">
                             {(selectedGroup ?? partitionInventory[0])!.partition} offers{" "}
@@ -1044,7 +1039,9 @@ export function RemoteRunButton({
                         {!logPick && widthIsReal ? (
                           <p>
                             mpirun -n {gpus} …{" "}
-                            <span className="text-foreground/70">--gpu {gpuListFor(gpus)}</span>
+                            <span className="text-foreground/70">
+                              --gpu 0 per rank — each rank pinned to its own card (CUDA_VISIBLE_DEVICES)
+                            </span>
                           </p>
                         ) : widthTruth.gpus === 1 ? (
                           <p>relion … --gpu 0 — one GPU task, no mpirun</p>

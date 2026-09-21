@@ -90,9 +90,11 @@ try {
   must(script.includes("#SBATCH --gres=gpu:2"), "the sbatch requests exactly 2 GPUs (--gres=gpu:2)");
   must(script.includes("--ntasks=2"), "--ntasks=2 (one MPI rank per GPU)");
   must(script.includes('CF_RANKS=2') && script.includes('mpirun -n "$CF_RANKS"'),
-    "mpirun -n \"$CF_RANKS\" with CF_RANKS=2 (the sbatch6gpu.sh idiom; t342 clamps the count at launch to the node's real cards)");
-  must(script.includes("CF_GPU_LIST='0:1'") && script.includes('--gpu "$CF_GPU_LIST"'),
-    "--gpu \"$CF_GPU_LIST\" with CF_GPU_LIST=0:1 (rank 0 → card 0, rank 1 → card 1)");
+    "mpirun -n \"$CF_RANKS\" with CF_RANKS=2 (the sbatch6gpu.sh idiom; t345 clamps the count at launch to the cards the job can see)");
+  must(script.includes(".cf-rank-launch.sh") && /--gpu 0\b/.test(script) && !/--gpu 0:/.test(script),
+    "t345: mpirun targets .cf-rank-launch.sh and relion carries --gpu 0 (each rank pinned to its OWN CUDA_VISIBLE_DEVICES — the colon list is retired)");
+  must(script.includes("CF_DEVICE_SET") && script.includes("CRYOFLOW_RANK_BIND"),
+    "the t345 device-set + per-rank bind receipt ride the script");
   must(script.includes("starved-card refusal"),
     "the t342 starved-card refusal block rides the script (fails in one second with the holder PIDs, not an hour of silence)");
   must(/--batch_size 32\b/.test(script), "the dispatched script carries --batch_size 32 (what the preview promised)");

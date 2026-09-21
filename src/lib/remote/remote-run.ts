@@ -96,6 +96,7 @@ import {
 } from "./remote-cleanup";
 import { probeConnection } from "./probe";
 import {
+  dropConnection,
   exec,
   loginShellScript,
   remoteDownload,
@@ -242,23 +243,48 @@ interface StarRead {
   err: string | null;
 }
 
-/** cat a file on the cluster; on failure, the channel's own honest word. */
+/**
+ * cat a file on the cluster; on failure, the channel's own honest word.
+ *
+ * t345 — the read that must not lie about a live file. The field report:
+ * the gate's own receipt said "particles star unreadable … timeout after
+ * 15000ms" while relion itself parsed the very same bytes on the cluster
+ * moments later — the wire was slow, the file was fine. A 15s budget for
+ * one exec channel (sshd fork + the login shell's profile + a cat off a
+ * loaded network filesystem + the transfer back) starves exactly when
+ * the login node is busiest, and a pooled connection that silently died
+ * hangs its first exec until the budget burns (keepalive needs 4×15s to
+ * notice). So: a 90s budget, and ONE redial retry on SSH-level failures
+ * — dropConnection forces the next exec onto a fresh TCP+auth wire. A
+ * clean "No such file" is the FILE's own verdict; re-dialing cannot
+ * change it, so only timeout/channel/socket words earn the second shot.
+ */
 async function catRemote(conn: RemoteConnection, p: string): Promise<{ text: string | null; err: string | null }> {
-  try {
-    const cat = await exec(conn, `cat ${shSingleQuote(p)}`, { timeoutMs: 15_000 });
-    if (!cat.error && cat.code === 0) return { text: cat.stdout, err: null };
-    // the exec channel is a LOGIN shell: the .bashrc noise prints first,
-    // the cat's own word lands last — that last line is the honest reason
-    // ("cat: /…: No such file or directory"). Keep its TAIL: the reason
-    // rides AFTER the path, and the path is already in the note via
-    // readAt — a head slice on a deep cluster path cuts the reason off
-    // (the t343 field receipt showed exactly that: "…particles.st", 120
-    // chars in, no reason in sight).
-    const why = (cat.stderr || "").trim().split("\n").pop() ?? "";
-    return { text: null, err: cat.error ?? `exit ${cat.code}${why ? `: ${why.slice(-140)}` : ""}` };
-  } catch (e) {
-    return { text: null, err: e instanceof Error ? e.message : String(e) };
+  let lastErr: string | null = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if (attempt > 0) {
+      dropConnection(conn.id); // fresh wire — the next exec re-dials
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    try {
+      const cat = await exec(conn, `cat ${shSingleQuote(p)}`, { timeoutMs: 90_000 });
+      if (!cat.error && cat.code === 0) return { text: cat.stdout, err: null };
+      // the exec channel is a LOGIN shell: the .bashrc noise prints first,
+      // the cat's own word lands last — that last line is the honest reason
+      // ("cat: /…: No such file or directory"). Keep its TAIL: the reason
+      // rides AFTER the path, and the path is already in the note via
+      // readAt — a head slice on a deep cluster path cuts the reason off
+      // (the t343 field receipt showed exactly that: "…particles.st", 120
+      // chars in, no reason in sight).
+      const why = (cat.stderr || "").trim().split("\n").pop() ?? "";
+      lastErr = cat.error ?? `exit ${cat.code}${why ? `: ${why.slice(-140)}` : ""}`;
+    } catch (e) {
+      lastErr = e instanceof Error ? e.message : String(e);
+    }
+    const sshLevel = /timeout|channel|socket|ECONN|closed/i.test(lastErr ?? "");
+    if (!sshLevel) break; // the file's own verdict — a redial cannot change it
   }
+  return { text: null, err: lastErr };
 }
 
 /**
@@ -328,13 +354,22 @@ async function readResolvedStarText(
   }
 }
 
-/** The lane-honest unreadable sentence — the note names THE door, not a shrug. */
+/**
+ * The lane-honest unreadable sentence — the note names THE door, not a
+ * shrug. t345: a TIMEOUT gets its own advice — "re-run the upstream job"
+ * sends the user to regenerate a file that is not missing (the field:
+ * relion read it fine on the cluster a moment later; only our SSH wire
+ * starved). The timeout word names the wire, not the file.
+ */
 function starUnreadableNote(what: "micrographs" | "particles", rd: StarRead): string {
   if (rd.lane === "cluster") {
+    const timedOut = /timeout/i.test(rd.err ?? "");
     return (
       `${what} star unreadable on the cluster — this job reads it in place at ${rd.readAt} ` +
       `(a cluster-native input uploads nothing) and that read failed${rd.err ? `: ${rd.err}` : ""}` +
-      `; if the file is gone, re-run the upstream job to regenerate it`
+      (timedOut
+        ? `; the read TIMED OUT — the SSH wire was slow (a busy login node or a stale connection), the file was NOT reported missing, and this job may well read it fine on the cluster; simply run again, or check the login node's load`
+        : `; if the file is gone, re-run the upstream job to regenerate it`)
     );
   }
   return (
@@ -962,10 +997,11 @@ function buildSbatchScript(args: {
   gpuJob?: boolean;
   /**
    * t342 — the MPI width the argv asked for (null/1 = no rank pile-up
-   * possible). When ≥2 the rank count and the device list become the
-   * script's own CF_RANKS/CF_GPU_LIST variables, clamped at launch to
-   * the GPUs the node actually exposes — a 1-GPU node must never run
-   * two ranks on its single card.
+   * possible). When ≥2 the rank count becomes the script's own
+   * CF_RANKS variable and the per-rank card launcher
+   * (.cf-rank-launch.sh + CF_DEVICE_SET) takes over the binding —
+   * clamped at launch to the GPUs the job can actually see — a 1-GPU
+   * world must never run two ranks on its single card.
    */
   mpiRanks?: number | null;
   /**
@@ -1072,50 +1108,106 @@ function buildSbatchScript(args: {
     L.push("fi");
     L.push("");
   }
-  // ---- t342 — the rank↔GPU coherence + the starved-card refusal --------
-  // The follow-up field report (after the OOM ticket's class-count cut):
-  // the 50-class run stopped moving at "Expectation iteration 1 of 20"
-  // with RELION's own
-  //   WARNING: Ignoring required free GPU memory amount of 800 MB,
-  //   due to space insufficiency.
-  // and TWO rank banners both saying "Will distribute threads over
-  // devices 0" — two MPI ranks had landed on ONE card (the #SBATCH
-  // --gres width is a REQUEST; on clusters without gres accounting the
-  // scheduler does not enforce it against the node's real card count),
-  // and the card additionally carried a stale allocation from the
-  // earlier OOM'd attempt. RELION's answer to a card below its 800 MB
-  // floor is to PROCEED (the warning says "Ignoring") and then thrash
-  // or deadlock in the first Expectation sweep — a hang with no error
-  // tail, exactly what the user watched. Two blades, both runtime-side
-  // where the node's own truth is visible:
-  //   1. the rank count is CLAMPED to the GPUs the node exposes
-  //      (nvidia-smi's own count — a request may lie, the card cannot);
-  //   2. a card below 1000 MB free BEFORE RELION starts is REFUSED with
-  //      the holder PIDs printed (nvidia-smi --query-compute-apps) —
-  //      fail in one second with names, not in an hour with silence.
-  //      RELION's own floor is 800 MB; the margin covers the CUDA
-  //      context + workspace the first allocation wave takes before
-  //      any in-flight check could fire. Both blocks are fail-open: no
-  //      nvidia-smi on the node → nothing to say, the run proceeds
-  //      exactly as before (the t313 rule — unverifiable ≠ refused).
+  // ---- t345 — one rank, one card: pinned per rank, not parsed by RELION --
+  // History: t342 clamped the rank count to nvidia-smi's card count and
+  // handed RELION its own colon list (--gpu 0:1:…). Two field runs since
+  // — mpirun -n 2, then a six-rank class2d — put EVERY rank on device 0
+  // anyway: six identical "Will distribute threads over devices 0"
+  // banners, the shared card bled 156 → 40 → 37 → 34 MB free and the
+  // allocator died in setupTunableSizedObjects (custom_allocator.cuh:436).
+  // The node had cards to spare — no clamp fired; RELION's --gpu colon
+  // grammar simply did not survive contact with that build. The t345
+  // contract stops hoping a parser splits our ranks: the script writes a
+  // tiny per-rank launcher (.cf-rank-launch.sh) that hands each MPI rank
+  // its OWN CUDA_VISIBLE_DEVICES — one entry of the job's device set, by
+  // rank index — and relion runs "--gpu 0" inside a world with exactly
+  // one visible card. Piling N ranks onto one card becomes physically
+  // impossible: the driver hides the other cards.
+  //
+  // The device set's truth, in order:
+  //   · CUDA_VISIBLE_DEVICES set (cgroup-isolated clusters, or the t341
+  //     pin above) → exactly those entries, as granted — never widened;
+  //   · else nvidia-smi's own index list, QUIETEST-CARD-FIRST (free
+  //     memory descending — a shared node's card 0 is everyone's default
+  //     and the starved one; the idle cards earn the ranks);
+  //   · nvidia-smi answers nothing and no CVD → the BLIND case: ONE rank
+  //     (a pile-up needs ≥2) with a note naming the blindness.
+  // The rank count clamps to the visible set — t342's blade, now measured
+  // against the CUDA-visible world instead of the node's physical
+  // inventory (a cgroup grant of one card runs one rank even on an
+  // 8-GPU node: nvidia-smi counts hardware, CUDA_VISIBLE_DEVICES counts
+  // what THIS job may touch). The starved-card refusal (t342) stays,
+  // checking exactly the cards the launcher will pin.
   if (gpuJob) {
     if (mpiRanks && mpiRanks > 1) {
-      L.push("# ---- t342: one rank per card — the width the node can actually back ----");
+      L.push("# ---- t345: one rank, one card — the device set + the clamp ----");
       L.push(`CF_RANKS=${mpiRanks}`);
-      L.push(`CF_GPU_LIST='${Array.from({ length: mpiRanks }, (_, i) => i).join(":")}'`);
-      L.push('CF_VISIBLE=$(nvidia-smi -L 2>/dev/null | wc -l | tr -d " ")');
-      L.push('if [ "${CF_VISIBLE:-0}" -ge 1 ] && [ "$CF_VISIBLE" -lt "$CF_RANKS" ]; then');
-      L.push('  echo "CRYOFLOW_NOTE: this job asked for $CF_RANKS MPI rank(s) but the node exposes only $CF_VISIBLE GPU(s) — clamping the rank count to the card count (two ranks on one card exhaust its memory and hang the first Expectation step)"');
-      L.push("  CF_RANKS=$CF_VISIBLE");
-      L.push('  CF_GPU_LIST="0"');
-      L.push('  [ "$CF_RANKS" -ge 2 ] && CF_GPU_LIST="$(seq -s: 0 $((CF_RANKS-1)))"');
+      L.push('if [ -n "${CUDA_VISIBLE_DEVICES:-}" ]; then');
+      L.push('  CF_DEVICE_SET="$(echo "$CUDA_VISIBLE_DEVICES" | tr -d " ")"');
+      L.push("else");
+      L.push('  CF_DEVICE_SET="$(nvidia-smi --query-gpu=index,memory.free --format=csv,noheader,nounits 2>/dev/null | sort -s -t, -k2 -nr | cut -d, -f1 | paste -sd, -)"');
+      L.push('  if [ -z "$CF_DEVICE_SET" ]; then');
+      L.push('    CF_DEVICE_SET="$(nvidia-smi -L 2>/dev/null | grep "^GPU " | awk \'{print $2}\' | tr -d : | paste -sd, -)"');
+      L.push("  fi");
       L.push("fi");
+      // "none"/empty is CUDA's own word for NO device — count it as such
+      L.push('case "$CF_DEVICE_SET" in ""|none|NONE) CF_DEVICE_SET="" ;; esac');
+      L.push("CF_VISIBLE=0");
+      L.push('[ -n "$CF_DEVICE_SET" ] && CF_VISIBLE=$(echo "$CF_DEVICE_SET" | tr "," "\n" | grep -c .)');
+      L.push('if [ "$CF_VISIBLE" -ge 1 ] && [ "$CF_VISIBLE" -lt "$CF_RANKS" ]; then');
+      L.push('  echo "CRYOFLOW_NOTE: this job asked for $CF_RANKS MPI rank(s) but only $CF_VISIBLE GPU(s) are visible to it${CUDA_VISIBLE_DEVICES:+ (CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES)} — clamping the rank count to the visible cards (two ranks on one card exhaust its memory and hang the first Expectation step)"');
+      L.push("  CF_RANKS=$CF_VISIBLE");
+      L.push("fi");
+      L.push('if [ "$CF_VISIBLE" -eq 0 ]; then');
+      L.push('  echo "CRYOFLOW_NOTE: this job cannot see any GPU from inside the allocation (no CUDA_VISIBLE_DEVICES, and nvidia-smi answered nothing) — running ONE rank instead of $CF_RANKS: a pile-up needs two, and every rank on one card is the exact OOM this guard exists for. Give the compute image nvidia-smi (or a CUDA_VISIBLE_DEVICES grant) to use the full width (t345)"');
+      L.push("  CF_RANKS=1");
+      L.push("fi");
+      // the runtime truth the ranks read (post-clamp rank count + device
+      // set), written NEXT TO the launcher — a rank never depends on
+      // mpirun's environment forwarding (OpenMPI/MPICH forward by
+      // default, but a site wrapper with an env allowlist would silently
+      // strip CF_* and every rank would see every card again)
+      L.push(`{ echo "CF_RANKS_NOW=$CF_RANKS"; echo "CF_DEVICE_SET=$CF_DEVICE_SET"; } > ${shQuote(remoteWorkdir + "/.cf-rank-env")}`);
+      L.push("");
+      // the launcher itself — static content, regenerated every dispatch
+      // (the t333 wipe sweeps the old copy; a re-run rewrites it)
+      L.push(`cat > ${shQuote(remoteWorkdir + "/.cf-rank-launch.sh")} <<'CF_LAUNCH_EOF'`);
+      L.push("#!/bin/bash");
+      L.push('# t345 — the per-rank card pin. RELION\'s --gpu colon grammar did not');
+      L.push("# split ranks in the field (every rank landed on device 0); this");
+      L.push("# launcher hands each MPI rank its OWN CUDA_VISIBLE_DEVICES — one");
+      L.push("# entry of the job's device set, by rank index — and the relion argv");
+      L.push("# runs \"--gpu 0\" inside a world with exactly one visible card.");
+      L.push('CF_LAUNCH_DIR="$(cd "$(dirname "$0")" && pwd)"');
+      L.push('if [ -f "$CF_LAUNCH_DIR/.cf-rank-env" ]; then');
+      L.push('  . "$CF_LAUNCH_DIR/.cf-rank-env"');
+      L.push("fi");
+      L.push('R="${OMPI_COMM_WORLD_RANK:-${PMIX_RANK:-${PMI_RANK:-${SLURM_PROCID:-}}}}"');
+      L.push('RANKS_NOW="${CF_RANKS_NOW:-1}"');
+      L.push('if [ -z "$R" ] && [ "$RANKS_NOW" -ge 2 ]; then');
+      L.push('  echo "CRYOFLOW_ERR: the rank launcher could not read its MPI rank index (tried OMPI_COMM_WORLD_RANK, PMIX_RANK, PMI_RANK, SLURM_PROCID) — refusing to guess: every rank guessing 0 is exactly how they pile onto one card (t345)" >&2');
+      L.push("  exit 97");
+      L.push("fi");
+      L.push('if [ "$RANKS_NOW" -ge 2 ]; then');
+      L.push('  DEV="$(echo "${CF_DEVICE_SET:-}" | tr -d " " | cut -d, -f$((${R:-0}+1)))"');
+      L.push('  if [ -z "$DEV" ]; then');
+      L.push('    echo "CRYOFLOW_ERR: the device set \"${CF_DEVICE_SET:-}\" names no card for rank ${R:-0} — refusing to run unpinned (unpinned ranks pile onto card 0, t345)" >&2');
+      L.push("    exit 96");
+      L.push("  fi");
+      L.push('  export CUDA_VISIBLE_DEVICES="$DEV"');
+      L.push("fi");
+      L.push('echo "CRYOFLOW_RANK_BIND: rank ${R:-0} -> CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-<as the node left it>} (one rank per card, t345)"');
+      L.push('exec "$@"');
+      L.push("CF_LAUNCH_EOF");
+      L.push(`chmod +x ${shQuote(remoteWorkdir + "/.cf-rank-launch.sh")}`);
       L.push("");
     }
-    L.push("# ---- t342: the starved-card refusal (fail in one second, not an hour) ----");
+    L.push("# ---- t342/t345: the starved-card refusal (fail in one second, not an hour) ----");
     L.push("if command -v nvidia-smi >/dev/null 2>&1; then");
     L.push('  CF_CHECK_IDS=""');
-    L.push('  if [ -n "${CUDA_VISIBLE_DEVICES:-}" ]; then');
+    L.push('  if [ -n "${CF_DEVICE_SET:-}" ]; then');
+    L.push('    CF_CHECK_IDS="$(echo "$CF_DEVICE_SET" | cut -d, -f1-${CF_RANKS:-1})"');
+    L.push('  elif [ -n "${CUDA_VISIBLE_DEVICES:-}" ]; then');
     L.push('    CF_CHECK_IDS="$(echo "$CUDA_VISIBLE_DEVICES" | tr -d " " | cut -d, -f1-${CF_RANKS:-1})"');
     L.push("  else");
     L.push('    CF_CHECK_IDS="$(seq -s, 0 $(( ${CF_RANKS:-1} - 1 )) )"');
@@ -2685,20 +2777,29 @@ export async function startRemoteJob(args: {
             : 0
         : 0;
 
-      // t342 — the slurm MPI lane's rank count and device list become the
-      // SCRIPT's own variables (CF_RANKS/CF_GPU_LIST), clamped at launch
-      // to the GPUs the node actually exposes (see buildSbatchScript's
-      // t342 block — the #SBATCH --gres width is a request the scheduler
-      // may not enforce; the node's own nvidia-smi cannot lie). Direct
-      // mode keeps the literal: the login node's world is the probe's
-      // world. A single-rank job never pile-ups, so it keeps its literal
-      // too (byte-identical to the pre-t342 shape).
+      // t342/t345 — the slurm MPI lane's rank count becomes the SCRIPT's
+      // own variable (CF_RANKS), clamped at launch to the GPUs the job
+      // can actually see (see buildSbatchScript's t345 block). t345: the
+      // mpirun TARGET becomes the per-rank card launcher the script
+      // writes (.cf-rank-launch.sh) — each rank gets its OWN
+      // CUDA_VISIBLE_DEVICES and relion runs "--gpu 0" inside a
+      // one-card world. The colon list ("--gpu 0:1:…") is RETIRED on
+      // this lane: two field runs put every rank on device 0 through it
+      // (RELION builds differ in how they parse it; the driver does
+      // not). Direct mode keeps its literal — the login node's world is
+      // the probe's world, no launcher lives there. A single-rank job
+      // never pile-ups, so it keeps its literal too.
       const slurmMpiGpu = isSlurm && mpiParallelType && mpiAvailable && hasGpu && ntasks > 1;
       if (slurmMpiGpu) {
         const ni = argv.indexOf("-n");
-        if (ni !== -1) argv[ni + 1] = '"$CF_RANKS"';
+        if (ni !== -1) {
+          argv[ni + 1] = '"$CF_RANKS"';
+          // the launcher rides BETWEEN mpirun's -n value and the relion
+          // argv: mpirun -n "$CF_RANKS" <launcher> relion_refine …
+          argv.splice(ni + 2, 0, `${remoteWorkdir}/.cf-rank-launch.sh`);
+        }
         const gi = argv.indexOf("--gpu");
-        if (gi !== -1) argv[gi + 1] = '"$CF_GPU_LIST"';
+        if (gi !== -1) argv[gi + 1] = "0"; // this rank's own one visible card
       }
       // t342 — pre-quoted shell variable references ("$CF_RANKS" …) pass
       // the quoting maps untouched; every other token keeps its literal
@@ -2996,9 +3097,9 @@ export async function startRemoteJob(args: {
           dependency,
           array: arrayPlan,
           note: ctffindGateNote ?? extractGateNote ?? particlesGateNote,
-          // t342 — the starved-card refusal + the rank clamp ride only
+          // t342/t345 — the starved-card refusal + the rank clamp ride only
           // jobs whose argv truly uses the GPU; the MPI width feeds the
-          // script's own CF_RANKS/CF_GPU_LIST clamp variables
+          // script's own CF_RANKS clamp + per-rank launcher variables
           gpuJob: hasGpu && strategy.gpus > 0 && argv.includes("--gpu"),
           mpiRanks: slurmMpiGpu ? ntasks : null,
         });

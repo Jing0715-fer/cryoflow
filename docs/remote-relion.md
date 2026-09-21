@@ -1459,3 +1459,70 @@ image(s)` and a zero-row slurm accounting; and the user's recovery path
 is walked end-to-end — re-run extract (the wipe clears the poisoned
 generation), then the SAME class2d dispatch completes with the
 `verified against their stacks' own MRC headers` receipt.
+
+## 4v. One rank, one card — pinned by the driver, not parsed by RELION (t345)
+
+The third field report on the same 2D classification, and the star read
+that lied about a live file:
+
+1. **every MPI rank landed on device 0** (again — this time at width 6):
+   six identical `Will distribute threads over devices 0` banners, the
+   shared card bled `156 → 40 → 37 → 34 MB` free across successive rank
+   initializations, and the allocator died in `setupTunableSizedObjects`
+   (`custom_allocator.cuh:436`). The node had cards to spare, so the
+   t342 rank clamp never fired — the failure was the colon list itself:
+   `--gpu 0:1:2:…` is RELION's documented per-rank grammar, but the
+   field build did not split ranks on it (the t342 ticket's `-n 2` run
+   had shown the same signature: both banners `devices 0`). t345 stops
+   trusting any `--gpu` parser: the sbatch script writes a per-rank
+   launcher (`.cf-rank-launch.sh`) that hands each MPI rank its OWN
+   `CUDA_VISIBLE_DEVICES` — one entry of the job's device set, by rank
+   index — and relion runs `--gpu 0` inside a world with exactly one
+   visible card. Piling N ranks onto one card becomes physically
+   impossible: the driver hides the other cards. The runtime device
+   set's truth, in order: `CUDA_VISIBLE_DEVICES` when the scheduler (or
+   the t341 pin) grants one — never widened; else nvidia-smi's index
+   list **quietest-card-first** (free memory descending — a shared
+   node's card 0 is everyone's default and the starved one); else the
+   BLIND case: ONE rank with a note naming the blindness (a pile-up
+   needs two). The clamp survives from t342, now measured against the
+   CUDA-visible world instead of the node's physical inventory (a
+   cgroup grant of one card runs one rank even on an 8-GPU node). The
+   launcher's own contracts fail closed: a rank index it cannot read
+   (exit 97) and a multi-rank run with no device to pin (exit 96) are
+   refused with their own `CRYOFLOW_ERR` words — every rank guessing 0
+   IS the pile-up. Each rank prints a `CRYOFLOW_RANK_BIND` receipt into
+   run.out, so the mapping is auditable after the fact. The run dialog's
+   preview and chips speak the new truth (`mpirun -n N`, `1 rank → 1
+   card (CUDA_VISIBLE_DEVICES)`, `--gpu 0 per rank`) — the t326
+   doctrine: every flag the preview shows is one the dispatch writes.
+2. **the star preflight read starved on a live file**: the receipt said
+   `particles star unreadable … timeout after 15000ms` while relion
+   itself parsed the very same bytes on the cluster moments later — the
+   file was fine, the WIRE was slow (one exec channel: sshd fork + the
+   login shell's profile + a cat off a loaded network filesystem + the
+   transfer back; and a pooled connection that silently died hangs its
+   first exec until the budget burns — keepalive needs 4×15s to
+   notice). `catRemote` now carries a **90s budget and one fresh-wire
+   retry** (`dropConnection` → re-dial) on SSH-level failures — a clean
+   `No such file` is the file's own verdict and is never retried. And
+   the unreadable receipt finally distinguishes the two: a timeout now
+   says the read TIMED OUT, the file was NOT reported missing, and the
+   move is to run again or check the login node's load — not to
+   regenerate a file that exists.
+
+Verified by `e2e-review/run-10-rank-card-pin.mjs` (49 assertions, all
+green), on three new mock instruments: the nvidia-smi stub's
+`index,memory.free` query with per-card `gpu-free-mb` lists, the mpirun
+stub's `mpi-emulate-ranks` lever (runs the command once per rank index
+so the bind receipts are provably per-rank), and the cat torture pair
+(`cat-slow-ms "<ms> <substring>"` + one-shot `cat-channel-close`,
+both substring-scoped so poll traffic is never slowed, both
+witness-logged). The field shapes: width 6 over 8 cards → six ranks on
+six DISTINCT cards with six receipts; card 1 starved to 100 MB → the
+six ranks land on `{0,2,3,4,5,6}` and the starved card is never
+picked; 2 cards visible → clamped to 2 with the named note; nvidia-smi
+mute → ONE rank with the blind note; a 20s star read (over the old
+15s budget, inside the new 90s) verifies in place and the job
+completes; a channel that dies without a verdict redials and lands.
+

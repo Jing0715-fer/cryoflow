@@ -96,11 +96,13 @@ try {
   const script = sbatchScriptOf(projectId, c2d);
   must(script.includes("CF_RANKS=2") && script.includes('mpirun -n "$CF_RANKS"'),
     "the script carries mpirun -n \"$CF_RANKS\" with CF_RANKS=2 (the width as asked)");
-  must(script.includes("CF_GPU_LIST='0:1'") && script.includes('--gpu "$CF_GPU_LIST"'),
-    "the script carries --gpu \"$CF_GPU_LIST\" with CF_GPU_LIST=0:1");
+  must(script.includes(".cf-rank-launch.sh") && /--gpu 0\b/.test(script) && !/--gpu 0:/.test(script),
+    "t345: mpirun targets the per-rank launcher and relion carries --gpu 0 (the colon list is retired — it put every rank on device 0 in the field)");
   const runout1 = runOutOf(projectId, c2d);
-  must(/CRYOFLOW_NOTE: this job asked for 2 MPI rank\(s\) but the node exposes only 1 GPU/.test(runout1),
-    "run.out narrates the clamp: 2 ranks asked, 1 GPU exposed → clamped to the card count");
+  must(/CRYOFLOW_NOTE: this job asked for 2 MPI rank\(s\) but only 1 GPU\(s\) are visible to it/.test(runout1),
+    "run.out narrates the clamp: 2 ranks asked, 1 GPU visible → clamped to the visible cards");
+  must(/CRYOFLOW_RANK_BIND: rank 0 -> CUDA_VISIBLE_DEVICES=\<as the node left it\>/.test(runout1),
+    "the single surviving rank names its own binding (the launcher's CRYOFLOW_RANK_BIND receipt)");
   must(!/Expectation iteration 1 of 20[\s\S]*?devices\s+0\b[\s\S]*?devices\s+0\b/.test(runout1),
     "no two-rank pile-up on one device (the frozen-iteration shape is structurally impossible now)");
 

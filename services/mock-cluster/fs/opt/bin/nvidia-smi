@@ -1,22 +1,40 @@
 #!/usr/bin/env bash
-# mock nvidia-smi for the CryoFlow mock cluster (t342)
+# mock nvidia-smi for the CryoFlow mock cluster (t342/t345)
 #
-# The app's sbatch script asks the NODE two questions at launch: how many
-# GPUs does it expose (nvidia-smi -L | wc -l — the rank-clamp truth) and
-# how much memory is free on the devices this job would use
-# (--id=<ids> --query-gpu=memory.free — the starved-card refusal). This
-# stub answers both from levers under ~/.slurm so the E2E suite can dial
-# a 1-GPU node, a starved card and stale holder PIDs without owning a
-# real GPU:
+# The app's sbatch script asks the NODE these questions at launch:
+#   1. which cards exist and how free is each
+#      (--query-gpu=index,memory.free — t345's device set, built
+#      quietest-card-first) with -L as the legacy inventory fallback
+#   2. how much memory is free on the devices this job would use
+#      (--id=<ids> --query-gpu=memory.free — the starved-card refusal)
+#   3. who holds the cards (--query-compute-apps — the refusal's name list)
+# This stub answers all of them from levers under ~/.slurm so the E2E
+# suite can dial a 1-GPU node, a starved card and stale holder PIDs
+# without owning a real GPU:
 #   gpu-count     — how many GPUs the node exposes        (default 8)
-#   gpu-free-mb   — every device's free memory, MB        (default 20000)
-#   gpu-holders   --query-compute-apps rows               (default none)
+#   gpu-free-mb   — free memory, MB: one value for every card, or a
+#                   comma list indexed per device (cycled to the last)
+#                                                        (default 20000)
+#   gpu-holders   — --query-compute-apps rows             (default none)
 # The defaults keep every other suite green: 8 cards never clamps a ≤8
 # wide dispatch, 20000 MB never trips the 1000 MB refusal.
 set -u
 D="$HOME/.slurm"
 count="$(cat "$D/gpu-count" 2>/dev/null || echo 8)"
-free_mb="$(cat "$D/gpu-free-mb" 2>/dev/null || echo 20000)"
+free_spec="$(cat "$D/gpu-free-mb" 2>/dev/null || echo 20000)"
+
+# free_for <index> — a single value applies to every card; a comma list
+# is indexed by device (t345 lets one suite starve EXACTLY card 1)
+free_for() {
+  case "$free_spec" in
+    *,*)
+      echo "$free_spec" | awk -F, -v i="$1" 'NF>0 { print $(( (i % NF) + 1 )) }'
+      ;;
+    *)
+      echo "$free_spec"
+      ;;
+  esac
+}
 
 mode=""
 ids=""
@@ -25,6 +43,7 @@ for a in "$@"; do
     -L) mode="list" ;;
     --id=*) ids="${a#--id=}" ;;
     --query-compute-apps*) mode="apps" ;;
+    --query-gpu=index,memory.free*) mode="indexfree" ;;
     --query-gpu=memory.free*) mode="free" ;;
   esac
 done
@@ -33,22 +52,37 @@ case "$mode" in
   list)
     i=0
     while [ "$i" -lt "$count" ]; do
-      echo "GPU $i: mock RTX (UUID: GPU-0000-0000-0000-0000-0000-0000000$i)"
+      echo "GPU $i: mock RTX (UUID: GPU-0000-0000-0000-0000-0000000$i)"
+      i=$((i + 1))
+    done
+    ;;
+  indexfree)
+    # "index, free" rows — t345's device set sorts on the free column
+    # (quietest first) and cuts the index
+    i=0
+    while [ "$i" -lt "$count" ]; do
+      echo "$i, $(free_for "$i")"
       i=$((i + 1))
     done
     ;;
   free)
-    # one line per queried device (or per node GPU when no --id rode)
+    # one line per queried device (or per node GPU when no --id rode);
+    # numeric ids pick their own column of the per-index spec, anything
+    # else (a UUID) gets the global word
     if [ -n "$ids" ]; then
-      n=$(echo "$ids" | tr ',' '\n' | grep -c . || true)
+      for id in $(echo "$ids" | tr ',' ' '); do
+        case "$id" in
+          ''|*[!0-9]*) echo "$free_spec" ;;
+          *) echo "$(free_for "$id")" ;;
+        esac
+      done
     else
-      n="$count"
+      i=0
+      while [ "$i" -lt "$count" ]; do
+        echo "$(free_for "$i")"
+        i=$((i + 1))
+      done
     fi
-    i=0
-    while [ "$i" -lt "$n" ]; do
-      echo "$free_mb"
-      i=$((i + 1))
-    done
     ;;
   apps)
     cat "$D/gpu-holders" 2>/dev/null || true
