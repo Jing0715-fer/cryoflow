@@ -265,12 +265,25 @@ try {
     "the width clamps to the pinned node's own GPUs (the t311 dialect, the node's word)"
   );
 
-  // --- blade 2: the default-partition clamp ---
+  // --- blade 2: the default-partition clamp (t340: the pin's own partition) ---
   must(
     engineSrc.includes(
-      "const clampPartition =\n        nodelistPin && partitionOverride == null\n          ? null // the pin suppresses the partition — nothing else to consult\n          : (partitionOverride ?? conn.slurmPartition ?? null);"
+      "const clampPartition =\n        nodelistPin && partitionOverride == null\n          ? pinPartition // t340 — the pin's own resolved partition, when known\n          : (partitionOverride ?? conn.slurmPartition ?? null);"
     ),
-    "the width gate consults the partition the script will ACTUALLY carry (picked OR the connection's default)"
+    "the width gate consults the partition the script will ACTUALLY carry (the pin's own home when resolved — t340)"
+  );
+  // t340 — the pin's partition resolution + the membership gate, source-pinned
+  must(
+    engineSrc.includes("nodeLive?.partitions?.[0] ?? probePartitionOfHost(target.connectionId, explicitNode)"),
+    "the pin resolves its OWN partition (scontrol first, the probe's hostlist second)"
+  );
+  must(
+    engineSrc.includes("!nodeLive.partitions.includes(partitionOverride)"),
+    "a picked partition the pinned node does not live in is refused pre-staging (the API door's mismatch guard)"
+  );
+  must(
+    engineSrc.includes("const effectivePartition =\n    suppressPartition || (nodelist && partition == null)\n      ? null\n      : (partition ?? conn.slurmPartition ?? null);"),
+    "the sbatch builder names the pin's resolved partition; only an unknown home stays bare"
   );
 
   // --- blade 3: the translation ---
@@ -395,8 +408,8 @@ try {
     "the submitted script pins --nodelist=normal (the usage-list pick, byte-shaped)"
   );
   must(
-    !/#SBATCH --partition=/.test(script1 ?? ""),
-    "NO --partition rides (the t332 suppression holds under the pre-flight)"
+    /#SBATCH --partition=normal\b/.test(script1 ?? ""),
+    "the pin names the node's OWN partition (normal — scontrol's word; the bare-pin suppression is dead, t340)"
   );
   must(
     script1?.includes("#SBATCH --gres=gpu:5") && script1?.includes("#SBATCH --ntasks=5"),
@@ -410,11 +423,11 @@ try {
     const f = newestReq();
     if (!f) return null;
     const row = client(`cat ${f}`);
-    return /^\|5\|5\|1\|normal$/.test(row.trim()) ? row : null;
+    return /^normal\|5\|5\|1\|normal$/.test(row.trim()) ? row : null;
   }, 30_000, 1000);
   must(
-    /^\|5\|5\|1\|normal$/.test(String(reqRow1 ?? "").trim()),
-    `the journal row speaks the clamped width on the pinned node — partition EMPTY (suppressed), gres 5, node normal (got: ${String(reqRow1 ?? "").trim()})`
+    /^normal\|5\|5\|1\|normal$/.test(String(reqRow1 ?? "").trim()),
+    `the journal row speaks the clamped width on the pinned node — partition NORMAL (the pin's own home, t340), gres 5, node normal (got: ${String(reqRow1 ?? "").trim()})`
   );
   const clampLog1 = await pollUntil(
     () => (logSince(log0).includes("clamping GPU width 6 → 5 (node normal offers 5 GPU(s)") ? true : null),
@@ -632,8 +645,8 @@ try {
     return s.includes("#SBATCH") ? s : null;
   }, 60_000, 1500);
   must(
-    script7?.includes("#SBATCH --nodelist=node03") && !/#SBATCH --partition=/.test(script7 ?? ""),
-    "node03 out of gpu's eight pins with NO partition (the t332 lane rides the pre-flight untouched)"
+    script7?.includes("#SBATCH --nodelist=node03") && /#SBATCH --partition=gpu\b/.test(script7 ?? ""),
+    "node03 out of gpu's eight pins WITH its own partition (gpu — the membership verdict the controller now enforces, t340)"
   );
   must(
     script7?.includes("#SBATCH --gres=gpu:2"),

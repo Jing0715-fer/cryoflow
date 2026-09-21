@@ -2882,3 +2882,26 @@ Stage Summary:
 - 修复语义: 远程任务的本地镜像=元数据——key-files 下 extract/motioncorr/polish 只回文本, 图像栈无论尺寸留集群(manifest 可见+Results 列出+按需拉取+下游集群作业就地链); 其他类型 t289 教义原样(class averages 照常回家, 画廊无损); everything 显式覆盖不变
 - 用户存量 GB 级已落地栈的两条出路: ①每任务清理对话框 Bulk tier 仅勾本地侧(集群分毫不动, LEG B5 活体验证) ②重跑任务(t333 代际 wipe 清镜像后新政策生效)——无需手工 rm
 - 用户「本地空间尽量小」的完整答案: 新流入=零(本修复), 存量=一键瘦身(杠杆已有+文档指路), 显示/下游/按需取回全部无损(t289/t298/t324/t338 四代教义兜底)
+
+Task ID: t340
+Agent: main-agent (Z.ai Code)
+Task: cryoflow 用户工单第九期(t340)——三报: ①cs2star 转换文件存到本地了吗 + 运行时先失败(超时无log)后成功 + 页面一直热加载编译 ②sbatch 拒绝「Requested node configuration is not available — node gpu06 · no GPUs」: 2D 分类提交报错, extraction 用 auto 或使用面板选节点也报错, 但下拉选节点可运行(两种选法显示也不一样); 修复 + 全量回归 + 浏览器活体 + push
+
+Work Log:
+- 沙箱重置后第五次环境重建: clone origin/main(c26bea1=t338)、bun install、db push(首跑推错 custom.db, prod 用 cryoflow.db —— 500 The table Project does not exist 的根因, 重推后愈)、standalone prod 构建 + prod-3001.sh、mock 3022 dev 模式
+- 诊断②: 两通道为同一节点组出两份 sbatch —— 下拉带 --partition=<group>(单主机组再加 --nodelist), 使用面板钉扎则整个抑制 --partition(t332「节点自己的分区就是它落的地方」) → 无 --partition 时控制器落集群默认分区, GPU 节点不在那里 → 提交时刻拒绝, 用户回执逐字复现。修: 钉扎解析节点自己的分区(t337 预检的 scontrol Partitions= 优先, probe hostlist 次之) → sbatch 写 --partition=<own> + --nodelist=<node>, 与下拉同字节组合; 真不知道家的节点保持裸 --nodelist(连接默认分区不得搭车——错分区是必然拒绝, 缺分区只是让默认说话), 拒绝翻译新增 no-partition 陷阱点名
+- 修②伴生: 引擎侧矛盾门(挑了节点不在的分区 → staging 前教学式拒绝, API 门的 mismatch guard); 对话框 previewPartition/payload 钉扎期间无视分区状态(分区 state 会自动初始化成连接默认——「normal」+钉 brain2 会组合出矛盾); ClusterUsagePanel 的 mismatch guard 退役(它对着自动初始化的分区 state 开火, 钉任何默认分区外的节点瞬间被杀——「死钉」, 浏览器活体当场抓获); 镜像项带节点分区 chip「brain2 [brain2] — pinned from the live list · exact node (--nodelist) in partition brain2 (--partition)」
+- 诊断①: cs2star 325k 粒子在进程内跑数分钟, recordNativeRun 只在最后写记录 → jobs GET 的 reconcile 扫描把 >120s 无记录的 running 行翻成「stale running state (no engine record) — re-run」→ 先假 FAILED(无 log——log 文件也不存在) 后真 COMPLETED, 用户回执逐字复现。修: beginNativeRun(cs2star+import 两个马拉松 native)第 0 秒写 in-flight 记录(pid=服务器进程, 扫描的存活判据天然通过), runner 分阶段往 run.out 说话(discovered/downloaded MB/converted N/linking N + 每 2500 链心跳), Log 标签页运行中即有内容; 诚实失败 abortNativeRun 关记录不抹上次产出; runner 异常不再裸 500(dispatch 包裹上报); 服务器重启中途 → 熟悉的 interrupted 判词
+- 修①③: 热加载编译风暴 = Tailwind v4 自动内容检测扫描并 watch 整个项目树(未 gitignore), 引擎每 2-5s 写 data/engine-state.json + 作业 workdir → CSS 连续重建 → dev overlay 整场「compiling」。修: globals.css @source not "../../data" + "../../db" + .gitignore data/ db/*.db
+- cs2star 输出位置之问的答案(文档化): star 有意落在本地 <repo>/data/relion/<project>/<job>/particles.star(回执 output: 行即它), 颗粒栈零字节移动(集群上只有 ln -sfn), 下游远程 job 派发时自动把本地 star 上传(t336 E2E 已证链路)
+- mock sbatch 新增 t340 会员门: 钉扎节点不在生效分区(脚本的或集群默认 gpu)→ 逐字复刻用户回执; 同节点+自己分区通过; node01-04 裸钉(在默认分区)仍通过——诚实形状全数保留
+- diag-t340-pin-partition-native.mjs 39 断言 ALL GREEN: CONTRACT 17 钉(引擎/对话框/CSS/gitignore/mock 门) + LIVE(手搓裸钉被拒=回执复现 / 同节点+自己分区通过 / APP 钉扎写双行并完成 / 下拉通道同两行=等价 / cs2star 运行中 Log 路由带 phase trail 答话 / B6 双腿: 无记录陈旧行仍翻 failed(对照)+ in-flight 记录同龄行存活(修复本体))
+- 回归全绿: t312/t314/t315/t316(重定位)/t318(重定位)/t319(重定位)/t320/t322(重定位)/t323/t324/t325/t326/t327/t328/t330/t331/t332(更新契约)/t333(重定位)/t334(重定位)/t335/t336/t337(更新契约)/t338; t317 三失败为 t328 窗口存量(判例在案); 套件自身两处 bug 途中修正(dispatch 双层包裹打穿成 project-binding 兜底 + B5 需不 await 才能抓运行中)
+- 浏览器活体(agent-browser @ prod :3001, 1600×900 + 390×844): 使用面板点 brain2 → 钉住(旧构建当场演示「死钉」被守卫杀掉→修后钉住) → 框显「brain2 [brain2] — pinned from the live list · exact node (--nodelist) in partition brain2 (--partition)」→ 预览 --partition=brain2 --nodelist=brain2 --ntasks=5 --gres=gpu:5 → Send → 集群脚本两行在案 → COMPLETED; 选 Auto → 钉释放回 Auto; console/page errors 双零; 390×844 零溢出; 截图 t340-pin-dialog/-mobile.png 入仓库
+- 途中: prod build 一次 OOM(137, 4G 盒, 关浏览器+NODE_OPTIONS 2048 后过); MultiEdit 对 remote-run.ts 路径反复 No such file(以 python 补丁代之); pinPartition 块曾重复插入(python 去重)+ 曾落在 clamp 之后(TDZ, 调序)
+- tsc 0 / eslint 0(七文件) / docs §4r + 失败目录两行 / 仓库 worklog Task t340
+
+Stage Summary:
+- 三报全闭环: ①cs2star 假 FAILED/无 log→in-flight 记录+分阶段日志, 热加载编译→Tailwind 排除 data/db, 输出位置之问文档化 ②钉扎抑制分区→解析节点自己的分区, 与下拉同组合, 死钉(自动默认分区的守卫误杀)一并根治
+- 用户复机: pull 最新 → 使用面板选节点即提交成功(与下拉同效); cs→star 长跑全程 running+活日志, 不再先假失败
+- 环境: 模板 3000 运行中(GET / 200), cryoflow prod :3001 + mock :3022 保留, /home/z/cryoflow 树净待推

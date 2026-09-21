@@ -928,7 +928,7 @@ job's Results/Files tab, on the cluster).
 | the wire between two jobs disappears (canvas) | the sidecar self-heal no longer evicts edges connected during an in-flight read; writes are atomic; every read backfills a lost DB mirror; an empty lineage speaks "connect one" instead of the auto-start promise (t325) |
 | live node usage unavailable | the panel's rose note names the exact failure (no `scontrol` on the login node / SSH error) and says the submit still works — usage is informational, never a gate (t327) |
 | pinned node unreachable in the UI | DRAIN/DOWN rows refuse the click ("not taking jobs right now") — the pin is never composed into a doomed sbatch; the mismatch guard releases a pin a later partition change would strand (t332) |
-| sbatch refused — `Requested node configuration is not available` | extinct at the source for app-composed submissions: the node-pin pre-flight (t337) reads the pinned node's own `scontrol` row before staging — unknown / DOWN / DRAIN / 0-GPU nodes refuse with the cause and the fix named, narrower nodes clamp the width; "auto" clamps to the connection's default group; when the controller still refuses (the drift window), the error is TRANSLATED — it names the pin · partition · GPU width the script carried and the three moves that fix it. The `~/.bashrc` line in the same stderr is noise, labeled as noise |
+| sbatch refused — `Requested node configuration is not available` | extinct at the source for app-composed submissions: the node-pin pre-flight (t337) reads the pinned node's own `scontrol` row before staging — unknown / DOWN / DRAIN / 0-GPU nodes refuse with the cause and the fix named, narrower nodes clamp the width; "auto" clamps to the connection's default group; **the pin now NAMES the node's own partition** (t340 — the t332 bare-pin suppression fell to the cluster's default partition, where the node does not live: the exact receipt reproduced and healed); a picked partition the node does not live in is refused pre-staging; when the controller still refuses (the drift window), the error is TRANSLATED — it names the pin · partition · GPU width the script carried, the no-partition trap ("the cluster's DEFAULT partition decided"), and the three moves that fix it. The `~/.bashrc` line in the same stderr is noise, labeled as noise |
 | local node_modules out of date | boot warning `node_modules is out of date — missing ssh2` + `/api/remote/*` fails with `Can't resolve 'ssh2'` — re-run `npm install` (or `bun install`) and restart |
 | cleanup of a running job | refused with its reason (409): a live run's iteration files are being written — stop it first, then clean (t331) |
 | cleanup plan vs cluster reality drift | impossible by design: the POST never trusts the preview's file list — it re-lists the cluster live and deletes only what still classifies; the 10s listing cache is bypassed by the manual refresh and by the POST itself (t331) |
@@ -941,6 +941,7 @@ job's Results/Files tab, on the cluster).
 | shard cannot slice its input (`awk` unreadable) | the old silent whole-STAR `cp` fallback is dead: the task fails with `CRYOFLOW_ERR: could not slice the input STAR …` in run.err and `.cf-exit=111` — a spoken verdict, not a 20-minute write race (t334) |
 | 2D/3D classification dies at `readMRC: Image number N exceeds stack size M` | the upstream extraction COMPLETED with a lying star (same-stem rows in ITS input wrote one stack; the later writer truncated the earlier's images) — the consumer-side gate (t338) now refuses such a star at dispatch with the exact numbers and the remedy; the Log tab's diagnosis names the mechanism for the runs that already died |
 | extraction stacks filling the laptop | by design, not a failure: under key-files, extract/motioncorr/polish sync TEXT ONLY — the stacks stay on the cluster (listed in Results, fetchable on demand, downstream cluster jobs chain in place); the receipt says so; switch the connection to "everything" to bring them home, or run the inspector's local-only Bulk cleanup on mirrors from before t339 (t339) |
+| a long cs → star / import first flips FAILED (`stale running state (no engine record)`) then COMPLETED, with no log mid-run | extinct at the source (t340): the marathon natives write an IN-FLIGHT run record from second zero (pid = the server, the sweep's liveness word) and speak phase lines into `run.out` as they go — the row stays RUNNING with a live log until the completion overwrite lands |
 
 ## 6. Testing without a cluster: the mock cluster
 
@@ -1217,3 +1218,68 @@ extract jobs sync metadata only under the key-files policy (STAR, logs
 and plots come home; image stacks never do, whatever their size) … open
 or download one to fetch it on demand — or switch the connection's sync
 policy to "everything" to bring them home」.
+## 4r. The pin names its own partition + the native marathon's in-flight record (t340)
+
+Two field reports, one root each.
+
+**The pin's partition.** 「从node使用情况列表选择node时报错，但是从node的
+下拉菜单选择node时可以正常运行（两种选择方式即使选同一个node，但是
+node框中显示也不一样）」 — the two channels built DIFFERENT sbatch lines
+for the SAME node. The dropdown carried `--partition=<group>` (plus
+`--nodelist` when single-host); the usage-list pin SUPPRESSED `--partition`
+entirely (t332's "the node's own partition is where it lands"), so the job
+fell to the cluster's DEFAULT partition — and a GPU node that does not live
+there is refused at submit time: `Requested node configuration is not
+available`, over and over, with the app's own translation faithfully
+describing a composition nobody wanted. The pin now resolves the node's OWN
+partition — the pre-flight's `scontrol show node <pin>` row (Partitions=)
+first, the probe's sinfo hostlist second — and writes
+`--partition=<that> + --nodelist=<node>`: byte-for-byte the dropdown's
+composition, one grammar, two doors. A node NEITHER source knows keeps the
+bare `--nodelist` (the connection's default must not ride along — a wrong
+partition is a guaranteed refusal where a missing one merely lets the
+default decide), and the refusal translation now says exactly that when a
+no-partition request is refused. Two guards grew with it: a picked
+partition the pinned node does not live in is refused pre-staging (the
+API door's version of the dialog's mismatch guard — the mock controller
+now enforces the membership verdict, so this world is rehearsed, not
+assumed), and the DIALOG's own mismatch guard is retired — it fired on the
+partition STATE, which auto-initializes to the connection's default, so
+pinning any node outside that default killed the pick the instant it
+landed (the "dead pick" the field reports kept meeting). While a pin
+speaks, the preview and the payload ignore the partition state entirely;
+the server resolves the node's home fresh.
+
+**The native marathon's false FAILED.** 「运行时先出现了失败（超时了没有
+返回log？），之后又成功了？」 — a 325k-particle cs → star conversion runs
+IN-PROCESS for minutes (download the .cs pair, convert, 10k+ selective
+links over SSH), and the run record only existed at the very END. The
+jobs-GET reconcile sweep flips any "running" row with no engine record
+older than 120 s to `stale running state (no engine record) — re-run` —
+so the marathon first showed FAILED with no log (none existed yet), then
+flipped to COMPLETED when the promise landed. `beginNativeRun` (cs2star +
+import, the two marathon natives) writes an IN-FLIGHT record from second
+zero — pid = the server process, alive by construction, so the sweep's
+liveness word passes — and the runner speaks phase lines into `run.out`
+as it goes (`discovered:`, `downloaded: … MB`, `converted: N particles`,
+`linking: N stack(s) → …`, a heartbeat every 2500 links), so the Log tab
+answers WHILE the job runs instead of after it lands. An honest failure
+closes the record without erasing the previous run's outputs; a crashed
+runner no longer 500s the route (the dispatch wraps and reports); a
+server restart mid-marathon leaves the familiar "interrupted" verdict.
+
+**The dev-server compile storm** (「运行job过程中，页面一直出现热加载编
+译」) was the third leg of the same report: the engine writes
+`data/engine-state.json` on every progress tick plus job workdirs — all
+inside the project tree, which Tailwind v4's automatic content detection
+scans AND watches for class candidates. Every write re-triggered the CSS
+scan → the dev overlay showed "compiling" for the whole run. The runtime
+trees (`data/`, `db/`) are now `@source not`-excluded and gitignored.
+
+The cs → star output question that rode along (「这个job转换的文件存到
+本地了？」): yes, by design — the star lands locally under
+`<repo>/data/relion/<project>/<job>/particles.star` (the receipt's
+`output:` line names it), the particle stacks NEVER move (only
+`ln -sfn` links under the cluster's project `micrographs/`), and a
+downstream remote job stages the local star up automatically when it
+dispatches — the t336 E2E proved the whole chain.

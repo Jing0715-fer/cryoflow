@@ -1895,6 +1895,100 @@ interface NativeResult {
   wait?: WaitKind;
 }
 
+/**
+ * t340 — the engine-native IN-FLIGHT record + phase log.
+ *
+ * The field report that convicted the gap: a 325k-particle cs → star
+ * conversion (download .cs → convert → 10k+ selective links over SSH) runs
+ * IN-PROCESS for minutes, and `recordNativeRun` only writes the run record
+ * at the very END. The jobs-GET reconcile sweep flips any "running" row
+ * with NO engine record and startedAt older than 120 s to
+ * "stale running state (no engine record) — re-run" — so the marathon
+ * native first showed FAILED with no log (none existed yet), then flipped
+ * to COMPLETED when the promise finally resolved. Exactly the user's
+ * 「运行时先出现了失败（超时了没有返回log？），之后又成功了？」.
+ *
+ * beginNativeRun closes the window: the record exists from second zero
+ * (pid = the SERVER process — alive for the whole in-process run, so the
+ * sweep's liveness check passes), run.out carries live phase lines the
+ * inspector's Log tab can tail, and the previous record's outputs ride
+ * along so a re-run mid-flight never strands downstream consumers.
+ * recordNativeRun overwrites on success; abortNativeRun marks done+exit 1
+ * on an honest failure (restoring the previous outputs — a failed re-run
+ * must not erase the last good import's registry entry), and a server
+ * restart leaves the familiar "interrupted" verdict via the sweep.
+ */
+function beginNativeRun(
+  job: EngineJobRef,
+  label: string
+): { prevOutputs: Record<string, string>; prevResult: string | null } {
+  const workdir = workdirFor(job);
+  mkdirSync(workdir, { recursive: true });
+  const logFile = path.join(workdir, "run.out");
+  const errFile = path.join(workdir, "run.err");
+  const prev = getRun(job.id);
+  try {
+    appendFileSync(logFile, `\nCryoFlow ${label} — started ${new Date().toISOString()}\n`);
+  } catch {
+    /* the log is a witness, never the run */
+  }
+  try {
+    writeFileSync(errFile, "");
+  } catch {
+    /* same doctrine */
+  }
+  upsertRun(job.id, {
+    jobId: job.id,
+    projectId: job.projectId,
+    type: job.type,
+    pid: process.pid,
+    cmd: `${label} (in flight)`,
+    workdir,
+    logFile,
+    errFile,
+    startedAt: new Date().toISOString(),
+    outputs: prev?.outputs ?? {},
+    done: false,
+    exitCode: null,
+    result: null,
+  });
+  return { prevOutputs: prev?.outputs ?? {}, prevResult: prev?.result ?? null };
+}
+
+/** A native run that ended in an honest refusal/crash: close the record
+ * (done + exit 1 + the error as result) WITHOUT erasing the previous run's
+ * outputs — the registry keeps what the last successful run produced. */
+function abortNativeRun(
+  jobId: string,
+  error: string,
+  prevOutputs: Record<string, string>
+): void {
+  updateRun(
+    jobId,
+    (rec) =>
+      rec.done === false && rec.exitCode == null
+        ? {
+            ...rec,
+            done: true,
+            exitCode: 1,
+            result: `engine-native run aborted: ${error}`.slice(0, 400),
+            outputs: prevOutputs,
+          }
+        : null
+  );
+}
+
+/** t340 — append one phase line to the native run's log (the inspector's
+ * Log tab tails run.out; a marathon with no interim lines reads as dead).
+ * Never throws: the witness must not be able to kill the run. */
+function nativePhaseLog(workdir: string, line: string): void {
+  try {
+    appendFileSync(path.join(workdir, "run.out"), `${line}\n`);
+  } catch {
+    /* witness doctrine */
+  }
+}
+
 function recordNativeRun(
   job: EngineJobRef,
   workdir: string,
@@ -2864,10 +2958,16 @@ async function runCs2StarNative(job: EngineJobRef): Promise<NativeResult> {
 
   if (conn) {
     // ---- the CLUSTER lane: discover, download, convert, link -----------
+    // t340 — every phase speaks a line into run.out (beginNativeRun opened
+    // it): the inspector's Log tab tails the file, and a marathon with no
+    // interim lines reads as dead — exactly the field report's
+    // 「没有返回log」 while 325k particles downloaded and 10k links landed.
+    const phase = (line: string) => nativePhaseLog(workdir, line);
     const resolved = await resolveCsInputsRemote(conn, csPathRaw);
     if ("error" in resolved) return { ok: false, error: resolved.error };
     csProjectRoot = resolved.csProjectRoot;
     jobLabel = resolved.jobLabel;
+    phase(`discovered: ${resolved.primary}${resolved.passthrough ? ` + ${resolved.passthrough}` : ""}`);
 
     const want: string[] = [resolved.primary, ...(resolved.passthrough ? [resolved.passthrough] : [])];
     const { sizes, missing } = await statRemoteFiles(conn, want);
@@ -2894,6 +2994,10 @@ async function runCs2StarNative(job: EngineJobRef): Promise<NativeResult> {
     } catch (e) {
       return { ok: false, error: e instanceof Error ? e.message : String(e) };
     }
+    phase(
+      `downloaded: particles.cs (${(primaryBytes.length / 1024 / 1024).toFixed(1)} MB)` +
+        (ptBytes ? ` · passthrough_particles.cs (${(ptBytes.length / 1024 / 1024).toFixed(1)} MB)` : "")
+    );
 
     // convert FIRST — the census decides which links exist at all
     let conv: Cs2StarResult;
@@ -2909,6 +3013,7 @@ async function runCs2StarNative(job: EngineJobRef): Promise<NativeResult> {
     if (conv.particles === 0) {
       return { ok: false, error: `the .cs holds no windowable particle rows (blob/path missing) — ${resolved.primary}` };
     }
+    phase(`converted: ${conv.particles} particles · ${conv.stacks.length} referenced stack(s)`);
 
     // ---- THE SELECTIVE LINKS (the optimization over the reference
     // script's link-everything): only the stacks the star references —
@@ -2949,6 +3054,7 @@ async function runCs2StarNative(job: EngineJobRef): Promise<NativeResult> {
     const remoteRoot = await expandCsRemoteRoot(conn, conn.remoteRoot || "~/cryoflow");
     const linkDir = `${remoteRoot.replace(/\/$/, "")}/${job.projectId}/micrographs`;
     await remoteMkdir(conn, linkDir);
+    phase(`linking: ${linkPlan.length} stack(s) → ${linkDir} (selective — only what this star references)`);
     const BATCH = 250;
     for (let i = 0; i < linkPlan.length; i += BATCH) {
       const batch = linkPlan.slice(i, i + BATCH);
@@ -2961,6 +3067,12 @@ async function runCs2StarNative(job: EngineJobRef): Promise<NativeResult> {
           ok: false,
           error: `could not link the referenced stacks into ${linkDir} (${(res.error || res.stderr || "").split("\n").filter(Boolean).slice(-1)[0] ?? "ssh exit " + res.code})`,
         };
+      }
+      // t340 — a 10k-stack link marathon gets a heartbeat every 10 batches
+      // (2500 links): the log stays alive without spamming one line per 250.
+      const done = Math.min(i + BATCH, linkPlan.length);
+      if (done % 2500 === 0 || done === linkPlan.length) {
+        phase(`linked ${done} of ${linkPlan.length} stack(s)`);
       }
     }
     linkDirNote = `stacks linked on the cluster at ${linkDir}`;
@@ -5440,15 +5552,40 @@ const RESUMABLE_TYPES = new Set(["class2d", "class3d", "refine3d", "initialmodel
 export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Promise<RunOutcome> {
   // ---- engine-native jobs -------------------------------------------
   if (job.type === "import") {
-    const r = await runImportNative(job);
-    return r.ok ? { ok: true, native: true, result: r.result } : { ok: false, error: r.error };
+    // t340 — the marathon natives (import's remote leg enumerates/sniffs
+    // over SSH for minutes on big folders) get an IN-FLIGHT record + phase
+    // log from second zero: the reconcile sweep's 120 s no-record flip used
+    // to mark a long import FAILED mid-run, then COMPLETED when it landed.
+    const begun = beginNativeRun(job, "engine-native: import (write micrographs.star)");
+    let r: NativeResult;
+    try {
+      r = await runImportNative(job);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      abortNativeRun(job.id, msg, begun.prevOutputs);
+      return { ok: false, error: `import crashed: ${msg}` };
+    }
+    if (!r.ok) abortNativeRun(job.id, r.error ?? "import failed", begun.prevOutputs);
+    return r.ok ? { ok: true, native: true, result: r.result } : { ok: false, error: r.error, ...(r.wait ? { waiting: r.wait } : {}) };
   }
   if (job.type === "cs2star") {
     // t336 — CryoSPARC .cs → particles.star: engine-native on BOTH lanes
     // (the cluster lane is SSH in-process — discover, download, convert,
     // selective-link; no sbatch, no staging, the reference script's whole
     // workflow inside one job row)
-    const r = await runCs2StarNative(job);
+    // t340 — same in-flight contract as import: the 325k-particle field
+    // report ran >120 s with no record and the sweep flipped it FAILED
+    // (「超时了没有返回log」) before the completion overwrite landed.
+    const begun = beginNativeRun(job, "engine-native: cryosparc cs → star (selective links)");
+    let r: NativeResult;
+    try {
+      r = await runCs2StarNative(job);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      abortNativeRun(job.id, msg, begun.prevOutputs);
+      return { ok: false, error: `cs → star conversion crashed: ${msg}` };
+    }
+    if (!r.ok) abortNativeRun(job.id, r.error ?? "cs → star conversion failed", begun.prevOutputs);
     return r.ok ? { ok: true, native: true, result: r.result } : { ok: false, error: r.error };
   }
   if (job.type === "mapimport") {

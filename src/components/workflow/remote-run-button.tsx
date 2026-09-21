@@ -87,6 +87,16 @@ const PARTITION_AUTO = "__auto__";
  * single visible truth for WHERE: a pinned node (from the list) or a
  * partition/Auto (from this dropdown) — never both at once, and picking
  * anything here releases the pin.
+ *
+ * t340 — the pin and the dropdown now land the SAME sbatch composition.
+ * The follow-up field report: 「两种选择方式即使选同一个node，但是
+ * node框中显示也不一样」，只有下拉选择能提交成功 — the dropdown
+ * carried --partition=<group> while the pin SUPPRESSED the partition, so
+ * the job fell to the cluster's default partition and the controller
+ * refused it ("Requested node configuration is not available"). The pin
+ * now resolves and shows the node's OWN partition (the usage row's
+ * Partitions=, the same word scontrol gave the server), and the preview
+ * writes --partition=<that> + --nodelist=<node> — one grammar, two doors.
  */
 const NODE_PIN_VALUE = "__node_pin__";
 const ARRAY_MAX_SHARDS = 64;
@@ -319,12 +329,16 @@ export function RemoteRunButton({
   // default partition must not ride along (the engine suppresses it the
   // same way — a --partition=normal + --nodelist=brain3 combo is refused
   // at submit time; the node's own partition is where it lands).
-  const previewPartition =
-    partition !== PARTITION_AUTO
+  // t340 — while a usage-list pin speaks, the node's OWN home is the
+  // partition that rides — the partition STATE (possibly the
+  // auto-initialized connection default) must not compose a contradiction
+  // the preview would then lie about. Unknown home → no partition
+  // line: the default decides, honestly shown.
+  const previewPartition = nodePin
+    ? (pickedNode?.partitions?.[0] ?? null)
+    : partition !== PARTITION_AUTO
       ? partition
-      : nodePin
-        ? null
-        : (conn?.slurmPartition ?? null);
+      : (conn?.slurmPartition ?? null);
 
   // t326 — the sbatch directives these knobs produce. Every entry here is
   // one the dispatch's script builder actually writes (remote-run.ts):
@@ -453,7 +467,12 @@ export function RemoteRunButton({
               // 1-GPU truth sends its honest 1, everything else omits
               // (the dispatch sizes those by its own strategy).
               ...(logPick || !widthIsReal ? (widthTruth.gpus === 1 ? { gpus: 1 } : {}) : { gpus }),
-              ...(partition !== PARTITION_AUTO ? { partition } : {}),
+              // t340 — while a usage-list pin speaks, the partition
+              // field stays ABSENT — the server resolves the node's OWN
+              // home fresh from scontrol (the freshest word beats any
+              // dialog state, and a stale partition state here could only
+              // compose the contradiction the engine now refuses).
+              ...(nodePin ? {} : partition !== PARTITION_AUTO ? { partition } : {}),
               // t332 — the explicit node pick from the live usage list
               ...(nodePin ? { nodelist: nodePin } : {}),
               ...(arrayEligible && shards >= 2 ? { shards: Math.min(ARRAY_MAX_SHARDS, shards) } : {}),
@@ -759,10 +778,20 @@ export function RemoteRunButton({
                                 <span className="flex min-w-0 items-center gap-1.5">
                                   <MapPin className="size-3 shrink-0 text-primary" aria-hidden="true" />
                                   <span className="font-mono">{nodePin}</span>
+                                  {/* t340 — the node's OWN partition rides the
+                                      mirror (the usage row's Partitions= word),
+                                      so the box speaks the same grammar as a
+                                      group pick: WHERE the job lands, node and
+                                      partition both named. */}
+                                  {pickedNode?.partitions?.[0] ? (
+                                    <span className="shrink-0 rounded border border-primary/40 bg-primary/10 px-1 font-mono text-[9.5px] leading-4 text-primary">
+                                      {pickedNode.partitions[0]}
+                                    </span>
+                                  ) : null}
                                   <span className="text-muted-foreground">— pinned from the live list</span>
                                 </span>
                                 <span className="text-[10px] font-normal text-muted-foreground">
-                                  exact node (--nodelist) · picked in the usage list below · choose Auto or a group here to release
+                                  exact node (--nodelist){pickedNode?.partitions?.[0] ? ` in partition ${pickedNode.partitions[0]} (--partition)` : " · partition unknown — the cluster default decides"} · picked in the usage list below · choose Auto or a group here to release
                                 </span>
                               </span>
                             </SelectItem>
@@ -803,7 +832,8 @@ export function RemoteRunButton({
                         ({"--partition"}
                         {selectedGroup && selectedGroup.hosts?.length === 1 ? ", --nodelist pins the node" : ""}).
                         Or click a node in the live usage list below to pin that exact node — even one
-                        node inside a multi-host group — the box above then shows the pinned node.
+                        node inside a multi-host group. The pin submits with the node&apos;s own partition
+                        ({"--partition + --nodelist"}), the same composition a group pick writes.
                       </p>
                     </div>
                   ) : null}

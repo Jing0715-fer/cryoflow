@@ -37,6 +37,13 @@ yarn-error.log*
 # vercel
 .vercel
 
+# runtime data (t340) — engine state, RELION job workdirs, cs->star outputs;
+# also keeps Tailwind v4's content auto-detection from watching these trees
+# (the dev-server "compiling" storm during job runs)
+data/
+db/*.db
+!db/.gitkeep
+
 
 # typescript
 *.tsbuildinfo

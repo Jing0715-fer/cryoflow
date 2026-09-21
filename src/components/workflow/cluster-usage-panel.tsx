@@ -180,18 +180,18 @@ export function ClusterUsagePanel({
     [data]
   );
 
-  // t332 — the mismatch guard: a partition change that strands the
-  // pinned node (the pick moved to a group the node does not belong to)
-  // releases the pin — a --partition/--nodelist contradiction is a
-  // submit-time refusal on real controllers, and this dialog must never
-  // compose one. Auto (null) KEEPS the pin: the engine suppresses the
-  // connection's default partition when an explicit node speaks, so
-  // "this node, wherever it lives" is a shape the sbatch honors.
-  React.useEffect(() => {
-    if (!onPickNode || !pinnedNode || partition == null) return;
-    const pinned = nodes.find((n) => n.node === pinnedNode);
-    if (pinned && !pinned.partitions.includes(partition)) onPickNode(null);
-  }, [partition, nodes, pinnedNode, onPickNode]);
+  // t332/t340 — the mismatch guard is RETIRED. It fired on the
+  // partition prop, which the dialog AUTO-INITIALIZES to the connection's
+  // default — so pinning any node outside that default released the pin
+  // the instant it landed (the "dead pick" the field reports kept meeting:
+  // click a node, the box never shows it). Real coherence now lives one
+  // level deeper: the pinned submission resolves the node's OWN partition
+  // (scontrol, server-side), and the dialog's preview/payload ignore the
+  // partition state entirely while a pin speaks — a
+  // --partition/--nodelist contradiction can no longer be composed from
+  // here. An explicit group pick still releases the pin atomically in the
+  // dropdown's own onValueChange, and a node that leaves its partition
+  // between pick and submit meets the engine's live pre-flight.
 
   // the ask line's truth: which nodes this ask could land on, and how
   // many GPUs are free there (a partition's rows are highlighted; Auto

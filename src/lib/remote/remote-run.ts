@@ -704,6 +704,20 @@ function connLastPartitionHosts(connId: string, partition: string): string[] | n
 }
 
 /**
+ * t340 — which probe-inventory group lists this host. A usage-list pin
+ * whose scontrol round stayed silent (SSH blip, no scontrol) still deserves
+ * its own partition from the LAST probe's sinfo hostlists — the fallback
+ * ladder for the pin's partition resolution. null = the probe never saw
+ * the host (truly unknown — the submission stays bare --nodelist).
+ */
+function probePartitionOfHost(connId: string, host: string): string | null {
+  const groups = getConnection(connId)?.lastProbe?.slurmGpus ?? null;
+  if (!groups) return null;
+  const g = groups.find((x) => x.hosts?.includes(host));
+  return g?.partition ?? null;
+}
+
+/**
  * t311 — the GPUs-per-node the probe's sinfo inventory resolved for ONE
  * partition. null = unknown (no probe / stale probe / bare API caller) —
  * the 8-wide cap stands, never a fabricated limit.
@@ -812,18 +826,35 @@ function buildSbatchScript(args: {
   } | null;
   /** t313 — the CTF gate's "allowed" receipt (SBATCH --output captures it) */
   note?: string | null;
+  /**
+   * t340 — true when the caller resolved NO partition for an explicit
+   * node pin (neither scontrol nor the probe knows the node's home): the
+   * script then carries the BARE --nodelist and deliberately names no
+   * partition — the cluster's default decides. The connection's own
+   * default must NOT ride along (a --partition=normal + --nodelist=brain3
+   * combo is REFUSED at submit time on real controllers — the node lives
+   * in brain, not normal). Callers that DID resolve the pin's partition
+   * pass it as `partition` and leave this false — the pin and the group
+   * dropdown then land the same composition.
+   */
+  suppressPartition?: boolean;
 }): string {
-  const { conn, module: moduleName, relionHome, ctffind, command, gpus, ntasks, threads, jobName, remoteProjectRoot, remoteWorkdir, partition, nodelist, dependency, array, note } = args;
-  // t332 — an explicit node pin with NO picked partition speaks for
-  // itself: the connection's default partition must not ride along (a
-  // --partition=normal + --nodelist=brain3 combo is REFUSED at submit
-  // time on real controllers — the node lives in brain, not normal). The
-  // node's own partition is where it lands; --nodelist alone says exactly
-  // that. This arm is only reachable for the EXPLICIT pin: the t300
-  // derivation only fires when a partition was picked, so `partition` is
-  // non-null there and the suppression never engages.
+  const { conn, module: moduleName, relionHome, ctffind, command, gpus, ntasks, threads, jobName, remoteProjectRoot, remoteWorkdir, partition, nodelist, dependency, array, note, suppressPartition } = args;
+  // t332/t340 — the partition this sbatch names:
+  //   · an explicit pin whose partition the caller RESOLVED → that
+  //     partition (scontrol's own word — the dropdown equivalence);
+  //   · an explicit pin whose partition NOBODY knows (suppressPartition,
+  //     or the bare-API shape nodelist-without-partition) → NO partition
+  //     line: the cluster's default decides, and the connection's own
+  //     default must not ride along (a wrong --partition + --nodelist is a
+  //     guaranteed submit-time refusal where a missing one merely lets
+  //     the default partition speak);
+  //   · everything else → the picked partition, else the connection's
+  //     default (the pre-t340 behavior, unchanged).
   const effectivePartition =
-    nodelist && partition == null ? null : (partition ?? conn.slurmPartition ?? null);
+    suppressPartition || (nodelist && partition == null)
+      ? null
+      : (partition ?? conn.slurmPartition ?? null);
   const L: string[] = [];
   L.push("#!/bin/bash");
   L.push("# CryoFlow Slurm submission — generated locally, submitted on the cluster");
@@ -1529,14 +1560,56 @@ export async function startRemoteJob(args: {
     }
   }
 
+  // t340 — the CONTRADICTION gate: a picked partition the pinned node does
+  // not live in is a submit-time refusal on real controllers (the UI's
+  // mismatch guard releases the pin client-side, but the API door can still
+  // compose the pair). scontrol's own word decides; a silent probe degrades
+  // to the old behavior (the sbatch-refusal translation catches the rest).
+  if (
+    isSlurm &&
+    nodelistPin &&
+    nodeProbeRan &&
+    nodeLive &&
+    nodeLive.partitions.length > 0 &&
+    partitionOverride != null &&
+    !nodeLive.partitions.includes(partitionOverride)
+  ) {
+    return fail(
+      `node ${nodelistPin} lives in partition${nodeLive.partitions.length > 1 ? "s" : ""} ${nodeLive.partitions.join(", ")} — not ${partitionOverride}. A --partition=${partitionOverride} + --nodelist=${nodelistPin} combination is refused at submit time by the scheduler. Pick the node's own group in the Node/partition dropdown, or release the pin and let the group speak.`,
+      true
+    );
+  }
+
+  // ---- t340 — the pin's OWN partition (the field report that convicted
+  // the t332 doctrine) -----------------------------------------------
+  // 「从node使用情况列表选择node时报错，但是从node的下拉菜单选择node时
+  // 可以正常运行」 — the two channels built DIFFERENT sbatch lines for the
+  // SAME node: the dropdown carried --partition=<group> (+ --nodelist when
+  // single-host), while the usage-list pin SUPPRESSED --partition entirely
+  // (t332: "the node's own partition is where it lands"). With no
+  // --partition the controller falls back to the cluster's DEFAULT
+  // partition — and a GPU node that does not live there is refused at
+  // submit time: "Requested node configuration is not available", the
+  // user's exact receipt. Resolve the pin's partition from the freshest
+  // word available — the pre-flight's own scontrol row (Partitions=), then
+  // the probe inventory group that lists the host — and carry it in the
+  // sbatch so the pin and the dropdown land the SAME composition. Only a
+  // node NEITHER source knows keeps the bare --nodelist (the connection's
+  // default must NOT ride along: a wrong partition is a guaranteed
+  // refusal where a missing one merely lets the default decide).
+  const pinPartition =
+    explicitNode && partitionOverride == null
+      ? (nodeLive?.partitions?.[0] ?? probePartitionOfHost(target.connectionId, explicitNode) ?? null)
+      : null;
+
   // ---- t311/t337 — the GPU-width clamp (server-side, bare-API proof) --
   // Priority: the PINNED node's own live scontrol word (most specific),
-  // else the partition the script will ACTUALLY carry — picked, or the
-  // connection's default (t337: the old gate keyed only on the PICKED
-  // partition, so "auto" + width 6 rode --partition=normal (5 GPUs/node)
-  // straight into the controller's submit-time refusal — the exact hole
-  // the user's receipt walked through). No inventory → the 8-wide cap
-  // stands, never a fabricated limit.
+  // else the partition the script will ACTUALLY carry — picked, the pin's
+  // own (t340), or the connection's default (t337: the old gate keyed only
+  // on the PICKED partition, so "auto" + width 6 rode --partition=normal
+  // (5 GPUs/node) straight into the controller's submit-time refusal — the
+  // exact hole the user's receipt walked through). No inventory → the
+  // 8-wide cap stands, never a fabricated limit.
   if (isSlurm) {
     if (nodeLive && nodeLive.gpuTotal > 0) {
       if (gpuWidth > nodeLive.gpuTotal) {
@@ -1548,7 +1621,7 @@ export async function startRemoteJob(args: {
     } else {
       const clampPartition =
         nodelistPin && partitionOverride == null
-          ? null // the pin suppresses the partition — nothing else to consult
+          ? pinPartition // t340 — the pin's own resolved partition, when known
           : (partitionOverride ?? conn.slurmPartition ?? null);
       if (clampPartition != null) {
         const gpusPerNode = connPartitionGpus(target.connectionId, clampPartition);
@@ -1914,7 +1987,12 @@ export async function startRemoteJob(args: {
     pid: null,
     slurmId: null,
     ...(isSlurm ? { gpusRequested: logPick ? 0 : gpuWidth } : {}),
-    ...(isSlurm && partitionOverride ? { partition: partitionOverride } : {}),
+    // t340 — the partition the sbatch will actually name: the picked group,
+    // else the pin's own resolved home (the inspector's strip says where
+    // the job really landed either way).
+    ...(isSlurm
+      ? { partition: partitionOverride ?? pinPartition ?? undefined }
+      : {}),
     phase: "staging",
   };
 
@@ -2576,7 +2654,15 @@ export async function startRemoteJob(args: {
           jobName,
           remoteProjectRoot,
           remoteWorkdir,
-          partition: partitionOverride,
+          // t340 — the pin's OWN resolved partition rides along (scontrol's
+          // word for where that node lives), so the usage-list pin and the
+          // group dropdown land the SAME composition. suppressPartition is
+          // the honest residual: nobody knows the node's home → bare
+          // --nodelist, no partition line, the default decides.
+          partition: partitionOverride ?? pinPartition,
+          ...(explicitNode && partitionOverride == null && pinPartition == null
+            ? { suppressPartition: true }
+            : {}),
           nodelist: nodelistPin,
           dependency,
           array: arrayPlan,
@@ -2617,9 +2703,13 @@ export async function startRemoteJob(args: {
           // window (a node that went down between the pre-flight read and
           // the controller's own decision) and foreign compositions the
           // app did not build.
+          // t340 — the translation mirrors the builder's resolution: the
+          // pin's own partition when it was resolved, nothing when it was
+          // not (the default decided), the picked/connection default
+          // otherwise.
           const effectivePartition =
             nodelistPin && partitionOverride == null
-              ? null
+              ? pinPartition
               : (partitionOverride ?? conn.slurmPartition ?? null);
           const composition = [
             nodelistPin ? `node ${nodelistPin}` : null,
@@ -2628,8 +2718,18 @@ export async function startRemoteJob(args: {
           ]
             .filter(Boolean)
             .join(" · ");
+          // t340 — a composition with NO partition is its own diagnosis:
+          // the submission named none, so the cluster's DEFAULT
+          // partition decided, and the node/width must live THERE. The
+          // pre-flight resolves the pin's own partition now, so this
+          // residual names the two honest leftovers — a node neither
+          // scontrol nor the probe knows, or the bare-API shape.
+          const noPartitionNote =
+            nodelistPin != null && effectivePartition == null
+              ? " The submission named no partition (the node's home is unknown to scontrol and the probe), so the cluster's DEFAULT partition decided — pick the node's group in the run dialog's Node/partition dropdown to name it."
+              : "";
           const cfgHelp = /node configuration is not available/i.test(why)
-            ? ` — what was requested: ${composition}. No node on the cluster can satisfy that combination right now (a pinned node may be down, drained, or narrower than the GPU width). Pick a different node in the live usage list, click the pinned row again to release the pin, or lower the GPU width.`
+            ? ` — what was requested: ${composition}. No node on the cluster can satisfy that combination right now (a pinned node may be down, drained, or narrower than the GPU width, or it may not live in the partition the request landed on). Pick a different node in the live usage list, click the pinned row again to release the pin, or lower the GPU width.${noPartitionNote}`
             : "";
           const noiseNote =
             noiseLines.length > 0
@@ -2666,7 +2766,7 @@ export async function startRemoteJob(args: {
         });
         stopBeat();
         console.log(
-          `remote-run: ${job.type} "${job.name}" submitted to Slurm on ${conn.name} (job ${slurmId}, ${gresWidth > 0 ? `${gresWidth} GPU(s)` : "CPU"}${partitionOverride ? ` · partition ${partitionOverride}` : ""}${nodelistPin ? ` · node ${nodelistPin}` : ""}${depIds.length ? ` · afterok ${depIds.join(",")}` : ""}${arrayPlan ? ` · array 1-${arrayPlan.total}%${arrayPlan.concurrency}` : ""}, module ${moduleName || "none"})`
+          `remote-run: ${job.type} "${job.name}" submitted to Slurm on ${conn.name} (job ${slurmId}, ${gresWidth > 0 ? `${gresWidth} GPU(s)` : "CPU"}${(partitionOverride ?? pinPartition) ? ` · partition ${partitionOverride ?? pinPartition}` : ""}${nodelistPin ? ` · node ${nodelistPin}` : ""}${depIds.length ? ` · afterok ${depIds.join(",")}` : ""}${arrayPlan ? ` · array 1-${arrayPlan.total}%${arrayPlan.concurrency}` : ""}, module ${moduleName || "none"})`
         );
       } else {
         // ---- direct mode: the setsid wrapper (unchanged contract) --------

@@ -16,6 +16,17 @@
    detector fails the suite if a legacy name reappears in the root. */
 @source not "../../_legacy-archive";
 @source not "../../tool-results";
+/* t340 — the RUNTIME data trees. The field report: 「运行job过程中，页面
+ * 一直出现热加载编译」 — every engine write (engine-state.json on
+ * each progress tick, job workdirs, the cs→star downloads, the SQLite
+ * db file) lands under <repo>/data and <repo>/db, and Tailwind v4's
+ * automatic content detection treats the whole unignored project tree as
+ * candidate class sources — watching them. A running job re-wrote those
+ * files every few seconds, so the CSS scan rebuilt continuously and the
+ * dev overlay showed "compiling" for the whole run. Excluded by name:
+ * neither tree holds class sources; both are pure runtime state. */
+@source not "../../data";
+@source not "../../db";
 
 @custom-variant dark (&:is(.dark *));
 
