@@ -264,8 +264,10 @@ try {
     "the radiogroup's arrow keys never select an unavailable mode"
   );
   must(
-    ui.includes('className={cn(\n                      "flex flex-col items-start gap-0.5 rounded-lg border p-3'),
-    "the cards are CARDS (bordered, stacked content — not dropdown options)"
+    // t347 — the cards compacted to one line each (icon + name + inline
+    // subtitle, px-3 py-2); still CARDS (bordered, selectable), not options
+    ui.includes('className={cn(\n                      "flex min-w-0 items-center gap-2 rounded-lg border px-3 py-2'),
+    "the cards are CARDS (bordered, one-line content — not dropdown options)"
   );
   must(
     ui.includes("{mode === \"slurm\" ? (\n                <section") &&
@@ -322,11 +324,14 @@ try {
     "the lifecycle strip carries the old intro's sync policy in two lines"
   );
   must(
-    ui.includes("sm:max-w-xl"),
-    "the dialog widened for the two-column mode cards (xl)"
+    // t347 — widened again for the two-column knob rows (connection+module,
+    // GPU width+array split)
+    ui.includes("sm:max-w-2xl"),
+    "the dialog widened for the two-column knob rows (2xl)"
   );
   must(
-    ui.includes("max-h-[calc(100vh-3rem)] overflow-y-auto"),
+    // t347 — gap-3/p-5 joined the same className (the compaction pass)
+    ui.includes("max-h-[calc(100vh-3rem)] gap-3 overflow-y-auto p-5"),
     "the taller dialog scrolls instead of overflowing the viewport"
   );
   must(
@@ -678,7 +683,11 @@ try {
   must(/#SBATCH --gres=gpu:3\b/.test(sbatchC2d), "MPI type — the script carries --gres=gpu:3 (the width IS real here)");
   must(/#SBATCH --ntasks=3\b/.test(sbatchC2d), "MPI type — the script carries --ntasks=3 (one rank per GPU)");
   must(sbatchC2d.includes('CF_RANKS=3') && sbatchC2d.includes('mpirun -n "$CF_RANKS"'), "MPI type — the script wraps mpirun -n \"$CF_RANKS\" with CF_RANKS=3 (the preview's rank line, t342-clamped at launch)");
-  must(sbatchC2d.includes("CF_GPU_LIST='0:1:2'") && sbatchC2d.includes('--gpu "$CF_GPU_LIST"'), "MPI type — the argv pins --gpu \"$CF_GPU_LIST\" with CF_GPU_LIST=0:1:2 (the preview's device list)");
+  // t345 retired the colon device list: each MPI rank now runs behind the
+  // per-rank launcher (.cf-rank-launch.sh), which pins ONE card per rank via
+  // its own CUDA_VISIBLE_DEVICES and speaks relion's "--gpu 0" inside that
+  // one-card world (the t342-era CF_GPU_LIST expectation is history)
+  must(sbatchC2d.includes(".cf-rank-launch.sh") && sbatchC2d.includes("CRYOFLOW_RANK_BIND"), "MPI type — mpirun runs behind the per-rank launcher, and each rank echoes its CRYOFLOW_RANK_BIND card (one rank per card, t345+)");
 
   // and the record speaks the same width
   const recC2d = doneC2d?.runRemote ?? {};

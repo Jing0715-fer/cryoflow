@@ -1605,3 +1605,60 @@ newline-flattened, 4MB-bounded), the **scheduler-blind pair**
 torture pair (`exec-slow-ms "<ms> <substring>"` + one-shot
 `exec-channel-close`) reaches whatever read path the current code
 speaks — the census, a header sniff, the sweep itself.
+
+## 4x. The console never blanks — and every surface leads with the count (t347)
+
+The user's UI field reports, answered in kind:
+
+1. **The log console stopped flickering.** The t346 log route had a
+   blanking bug of its own: full mode (`?full=1`) polls every 5s but
+   the wire budget is one fetch per 10s, so every rate-limited tick
+   answered `tail: ""` — the console's whole text vanished on
+   alternate refreshes (「文字总是在刷新的过程中消失」). Tail mode
+   had the same shape before the first heartbeat (`"(waiting for the
+   cluster's next heartbeat…)"` replaced real content). Now the route
+   speaks **pending semantics**: an answer that carries no data of its
+   own is `{pending: true, note}` — never a placeholder or empty text
+   — and a **full-mode cache** (`logFullCache`, 30s, forever on a
+   finished run) serves the rate-limited ticks. The UI side completes
+   the contract: pending answers KEEP the previous text (a quiet
+   amber "syncing" chip whispers why), an HTTP error renders as a slim
+   banner ABOVE the log instead of replacing it, a 404 after content
+   keeps the last text, a tail↔full switch never clears the console,
+   and a cross-mount seed cache (16 jobs LRU, 256KB from the end)
+   makes returning to the Log tab paint instantly — no "Reading log…"
+   flash. Verified: three back-to-back full-mode polls on a completed
+   cluster run all answer with content (the old wire blanked the 2nd
+   and 3rd), and run-11's 18s polling window still pays ≤2 fetches.
+2. **The submit dialog fits one screen.** The "Run on cluster"
+   dialog grew past a viewport (t326's sections + t332's live usage
+   list + t306's steppers ≈ 1.4 screens). The compaction pass keeps
+   every control and contract: `sm:max-w-2xl` with two-column rows
+   (connection+module, GPU width+array split), one-line mode cards,
+   one-line helper texts (the full sentences ride `title`s), a
+   tightened preview — and the live node list starts **collapsed**
+   (header toggle + node count + pinned-node chip; the ask line stays
+   always visible, rows one click away, cap 176px when open).
+   Measured: 795px total in slurm mode at 1600×900 — zero internal
+   scrolling; mobile stacks single-column by design.
+3. **The count leads everywhere** (「照片数或颗粒数需要显示得醒目些，
+   不仅在任务窗口中，最好也在job的卡片上直接显示出来」). The engine's
+   finalize receipts now carry the counted number for the types that
+   never had one (refine3d/class3d append `· N particles` beside the
+   FSC line, initialmodel/polish/ctfrefine/tomo-picks state theirs) —
+   remote runs inherit the same strings through `collectOutputs`. A
+   pure parser (`lib/result-counts.ts`) reads the receipt dialect
+   (select keeps the KEPT count, symexpand the EXPANDED total,
+   autopick both numbers, joinstar the rows), and paints: a **count
+   chip on the canvas card** (far right of the status row, teal for
+   particles, neutral for micrographs, violet for classes, compact
+   82k/1.2M forms), the **KeyNumbers strip at the top of the
+   inspector's Overview** (live-counted from the outputs route, the
+   receipt as fallback when files are remote-only), and **count chips
+   in the inspector's identity row** (visible on every tab). No
+   honest number → no chip, never a guess.
+
+Verified by run-11 (45/45) + run-1 (106/106) against the mock cluster,
+plus browser-live: canvas cards, inspector strips, tab/mode round-trips
+and the collapsed usage panel with a live pin all exercised with zero
+console errors.

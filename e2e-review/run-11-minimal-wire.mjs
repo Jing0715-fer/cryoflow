@@ -220,21 +220,38 @@ try {
     }
     must(sawRunningAt7s,
       "~7s of blind scheduler silence (2 verdicts at the ~4.5s cadence) did NOT flip the row — a blip is not a reboot");
-    const stMid = readEngineState()[c2d.id]?.remote;
-    const streakMid = stMid?.vanishedStreak;
-    must(streakMid === 1 || streakMid === 2,
-      `the record COUNTS the blind verdicts (vanishedStreak=${streakMid} — 2 seen, death needs 4)`);
+    // t347 — the mid-read is now a bounded POLL instead of an instant read:
+    // the sweep cadence is adaptive (max(4s, 1.5×T)) and the mock's own
+    // answer time has grown with its accumulated accounting rows, so a
+    // read pinned to the window's end raced the first verdict's landing.
+    // The probe's CONTRACT is "the record counts blind verdicts, and the
+    // count stays below the death threshold" — not "a verdict landed
+    // within N seconds of blinding".
+    let streakMid = null;
+    for (let k = 0; k < 20; k++) {
+      streakMid = readEngineState()[c2d.id]?.remote?.vanishedStreak ?? null;
+      if (streakMid != null && streakMid >= 1) break;
+      const { body } = await api("/api/jobs", { headers: SH });
+      const j = (body?.jobs ?? []).find((x) => x.id === c2d.id);
+      if (j?.status === "failed") break; // premature flip → the streak read speaks
+      await sleep(1500);
+    }
+    must(streakMid != null && streakMid >= 1 && streakMid < 4,
+      `the record COUNTS the blind verdicts (vanishedStreak=${streakMid} — at least 1 seen, death needs 4)`);
     // 2) unblind → the very next sweep speaks ALIVE → the streak resets
     leverRm("squeue-blind", "sacct-blind");
     must(!leverOn("squeue-blind") && !leverOn("sacct-blind"), "the blind levers are GONE (witnessed on the mock)");
     let aliveAgain = false;
-    for (let k = 0; k < 12; k++) {
+    // t347 — 12×2.2s (26s) raced the adaptive cadence on the grown mock;
+    // the reset needs its sweep to START and LAND after the unblind —
+    // 30×2s (60s) still fits the 60-iteration run window with margin
+    for (let k = 0; k < 30; k++) {
       const { body } = await api("/api/jobs", { headers: SH });
       const j = (body?.jobs ?? []).find((x) => x.id === c2d.id);
       if (j?.status === "failed") break; // premature flip → the assertion below speaks
       const st = readEngineState()[c2d.id]?.remote;
       if (st?.vanishedStreak === 0) { aliveAgain = true; break; }
-      await sleep(2200);
+      await sleep(2000);
     }
     must(aliveAgain,
       "unblinded: the ladder spoke ALIVE again and the streak reset to 0 (the wire lied, the job never died)");

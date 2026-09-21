@@ -37,10 +37,16 @@
  * real controllers). Still informational: the Send predicate never
  * consults the pick, and unavailable rows (DRAIN/DOWN…) refuse the
  * click honestly instead of composing a doomed sbatch.
+ *
+ * t347 — the height diet (the user's receipt: the run dialog outgrew
+ * one screen): the pick-hint sentence folded into the header line (its
+ * full text rides the span's title), the node-list cap 224→176px, row
+ * padding py-2→py-1.5 and the name→bars gap 1.5→1. Rows, fetch/poll
+ * logic and every hook untouched.
  */
 
 import * as React from "react";
-import { Activity, Loader2, MapPin, RefreshCw, TriangleAlert } from "lucide-react";
+import { Activity, ChevronDown, Loader2, MapPin, RefreshCw, TriangleAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useNow } from "@/lib/use-now";
@@ -133,6 +139,11 @@ export function ClusterUsagePanel({
   const [loading, setLoading] = React.useState(true);
   const [refreshing, setRefreshing] = React.useState(false);
   const [failedOnce, setFailedOnce] = React.useState(false);
+  /** t347 — the node LIST starts COLLAPSED: the run dialog's height budget
+   *  is one screen, and the node rows were the single tallest block. The
+   *  ask line below stays always visible (it is the decision summary);
+   *  the rows are one click away when the user wants to pick a node. */
+  const [listOpen, setListOpen] = React.useState(false);
 
   const load = React.useCallback(
     async (bypassCache: boolean) => {
@@ -295,11 +306,38 @@ export function ClusterUsagePanel({
   return (
     <div className="space-y-2" data-cluster-usage-panel="">
       <div className="flex items-center justify-between gap-2">
-        <p className="flex items-center gap-1.5 text-xs font-medium text-foreground/90">
-          <Activity className="size-3.5 text-primary" aria-hidden="true" />
-          Live node usage
-        </p>
-        <span className="flex items-center gap-1.5">
+        {/* t347 — the header is the collapse toggle: collapsed (default) the
+            panel is a two-line block (this row + the ask line); the node rows
+            open on demand. The pinned node stays named here even collapsed
+            (the same mirror grammar the partition dropdown speaks). */}
+        <button
+          type="button"
+          onClick={() => setListOpen((o) => !o)}
+          aria-expanded={listOpen}
+          aria-controls="cf-usage-node-list"
+          className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 rounded text-left text-xs font-medium text-foreground/90 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <span className="flex shrink-0 items-center gap-1.5">
+            <Activity className="size-3.5 text-primary" aria-hidden="true" />
+            Live node usage
+          </span>
+          {!loading && data?.ok && nodes.length > 0 ? (
+            <span className="shrink-0 font-mono text-[10px] font-normal tabular-nums text-muted-foreground/85">
+              {nodes.length} node{nodes.length === 1 ? "" : "s"}
+            </span>
+          ) : null}
+          {pinnedNode ? (
+            <span className="flex shrink-0 items-center gap-0.5 rounded border border-primary/40 bg-primary/10 px-1 font-mono text-[9.5px] font-semibold text-primary">
+              <MapPin className="size-2.5" aria-hidden="true" />
+              {pinnedNode}
+            </span>
+          ) : null}
+          <ChevronDown
+            className={cn("size-3 shrink-0 text-muted-foreground/70 transition-transform", listOpen && "rotate-180")}
+            aria-hidden="true"
+          />
+        </button>
+        <span className="flex shrink-0 items-center gap-1.5">
           {ageSec != null ? (
             <span className="font-mono text-[10px] text-muted-foreground/80" data-usage-age="">
               {ageSec < 5 ? "just now" : `${ageSec}s ago`}
@@ -324,23 +362,18 @@ export function ClusterUsagePanel({
         </span>
       </div>
 
-      {/* t332 — the picking hint: the rows are picks when the caller
-          wires onPickNode (the run dialog); read-only callers see no
-          affordance that would lie. */}
-      {onPickNode && !loading && data?.ok && nodes.length > 0 ? (
-        <p className="px-1 text-[10px] leading-snug text-muted-foreground/85" data-usage-pick-hint="">
-          Click a node to pin this submission to it — the sbatch lands{" "}
-          <span className="font-mono">--nodelist</span> on that node; click the pinned row
-          again to release.
-        </p>
-      ) : null}
-
       {loading ? (
-        <div className="space-y-1.5 rounded-md border bg-muted/20 p-2.5" aria-label="Loading node usage">
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="h-8 animate-pulse rounded bg-muted/70" />
-          ))}
-        </div>
+        listOpen ? (
+          <div className="space-y-1.5 rounded-md border bg-muted/20 p-2.5" aria-label="Loading node usage">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="h-8 animate-pulse rounded bg-muted/70" />
+            ))}
+          </div>
+        ) : (
+          <p className="px-1 text-[10.5px] leading-snug text-muted-foreground" aria-label="Loading node usage">
+            Loading node usage…
+          </p>
+        )
       ) : !data?.ok ? (
         <div className="flex items-start gap-2 rounded-md border border-rose-500/30 bg-rose-500/[0.06] px-2.5 py-2" role="note">
           <TriangleAlert className="mt-0.5 size-3.5 shrink-0 text-rose-600 dark:text-rose-400" aria-hidden="true" />
@@ -353,9 +386,10 @@ export function ClusterUsagePanel({
         <div className="rounded-md border bg-muted/20 px-2.5 py-2 text-[10.5px] leading-snug text-muted-foreground">
           Slurm reported no nodes — usage appears when the scheduler does.
         </div>
-      ) : (
+      ) : listOpen ? (
         <div
-          className="nice-scroll max-h-56 space-y-1.5 overflow-y-auto rounded-md border bg-muted/20 p-2"
+          id="cf-usage-node-list"
+          className="nice-scroll max-h-44 space-y-1.5 overflow-y-auto rounded-md border bg-muted/20 p-2"
           role="list"
           aria-label="Node GPU and CPU usage"
         >
@@ -400,7 +434,7 @@ export function ClusterUsagePanel({
                         : `${n.state} — not taking jobs right now`
                   }
                   className={cn(
-                    "w-full rounded-md border bg-background/60 px-2.5 py-2 text-left transition-colors",
+                    "w-full rounded-md border bg-background/60 px-2.5 py-1.5 text-left transition-colors",
                     pickable &&
                       "cursor-pointer hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     !pickable && "cursor-not-allowed opacity-70",
@@ -439,7 +473,7 @@ export function ClusterUsagePanel({
                   <StateChip state={n.state} />
                 </div>
                 {n.gpuTotal > 0 ? (
-                  <div className="mt-1.5 space-y-1">
+                  <div className="mt-1 space-y-1">
                     <div className="flex items-center gap-2">
                       <span className="w-7 shrink-0 font-mono text-[9.5px] font-semibold text-muted-foreground">
                         GPU
@@ -473,7 +507,7 @@ export function ClusterUsagePanel({
                     </div>
                   </div>
                 ) : (
-                  <div className="mt-1.5 flex items-center gap-2">
+                  <div className="mt-1 flex items-center gap-2">
                     <span className="w-7 shrink-0 font-mono text-[9.5px] font-semibold text-muted-foreground">
                       CPU
                     </span>
@@ -497,7 +531,19 @@ export function ClusterUsagePanel({
             </p>
           ) : null}
         </div>
-      )}
+      ) : null}
+
+      {listOpen && onPickNode && !loading && data?.ok && nodes.length > 0 ? (
+        /* t332 — the picking hint: the rows are picks when the caller wires
+           onPickNode (the run dialog); read-only callers see no affordance
+           that would lie. t347 — it rides the OPEN list only (collapsed,
+           there are no rows to click). */
+        <p className="px-1 text-[10px] leading-snug text-muted-foreground/85" data-usage-pick-hint="">
+          Click a node to pin this submission to it — the sbatch lands{" "}
+          <span className="font-mono">--nodelist</span> on that node; click the pinned row
+          again to release.
+        </p>
+      ) : null}
 
       {askLine ? (
         <p
@@ -518,7 +564,7 @@ export function ClusterUsagePanel({
         </p>
       ) : null}
 
-      {!failedOnce && data?.ok ? (
+      {listOpen && !failedOnce && data?.ok ? (
         <p className="px-1 text-[10px] leading-snug text-muted-foreground/70">
           From this cluster&apos;s{" "}
           <span className="font-mono">{data.command ?? "scontrol show nodes -o"}</span> —

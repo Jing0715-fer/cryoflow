@@ -34,6 +34,7 @@ import { computeEdgeGeoms, setLiveDrag } from "@/lib/edge-geom";
 import { registerGroupMember, beginGroupDrag, moveGroupDrag, endGroupDrag } from "@/lib/group-drag";
 import { BULK_DELETE_EVENT, type JobDTO, type JobTypeSpec, type ParamValue } from "@/lib/types";
 import { parseClassNotes } from "@/lib/class-notes";
+import { parseResultCounts, formatCountCompact, formatCountFull } from "@/lib/result-counts";
 import { formatElapsed } from "@/lib/elapsed";
 import { useNow } from "@/lib/use-now";
 import { TypeIcon } from "./icons";
@@ -958,6 +959,44 @@ export const JobCard = React.memo(function JobCard({
     [classNotes]
   );
 
+  // t347 — the counted receipt ON the card (the user's 「最好也在job的卡片
+  // 上直接显示出来」): a completed job's result line carries the engine's
+  // honestly counted number ("82,000 particles extracted", "… , 382
+  // micrographs"); the parser reads it and the chip paints the headline —
+  // particles first (teal, the maps' dialect), micrographs as the neutral
+  // fallback. No honest number → no chip, never a guess.
+  const counts = React.useMemo(
+    () => (job.status === "completed" ? parseResultCounts(job.result) : null),
+    [job.status, job.result]
+  );
+  const countChip = React.useMemo(() => {
+    if (!counts) return null;
+    const bits: string[] = [];
+    if (counts.particles != null) bits.push(`${formatCountFull(counts.particles)} particles`);
+    if (counts.micrographs != null) bits.push(`${formatCountFull(counts.micrographs)} micrographs`);
+    if (counts.classes != null) bits.push(`${formatCountFull(counts.classes)} classes`);
+    if (bits.length === 0) return null;
+    if (counts.particles != null) {
+      return {
+        value: formatCountCompact(counts.particles),
+        tone: "teal" as const,
+        label: bits.join(" · ") + " — counted at run time",
+      };
+    }
+    if (counts.micrographs != null) {
+      return {
+        value: formatCountCompact(counts.micrographs),
+        tone: "neutral" as const,
+        label: bits.join(" · ") + " — counted at run time",
+      };
+    }
+    return {
+      value: formatCountCompact(counts.classes ?? 0),
+      tone: "violet" as const,
+      label: bits.join(" · ") + " — counted at run time",
+    };
+  }, [counts]);
+
   React.useEffect(() => {
     if (mounted && job.status === "running") {
       trackEtaBaseline(job.id, job.startedAt, job.progress);
@@ -1577,6 +1616,40 @@ export const JobCard = React.memo(function JobCard({
                 >
                   <Link2 className="size-2.5 shrink-0" aria-hidden="true" />
                   ×{job.linkCount}
+                </span>
+              ) : null}
+              {/* t347 — the counted receipt chip (far right = the scan
+                  target): ml-auto only when no link chip already claimed
+                  the right edge; two ml-auto would split the free space
+                  in half and open a gap between the two chips */}
+              {countChip ? (
+                <span
+                  data-card-count=""
+                  role="img"
+                  aria-label={countChip.label}
+                  title={countChip.label}
+                  className={cn(
+                    "flex shrink-0 items-center gap-1 rounded-full border px-1.5 text-[9.5px] font-bold tabular-nums",
+                    !job.linkedJobId && !job.linkCount && "ml-auto",
+                    countChip.tone === "teal"
+                      ? "border-teal-500/40 bg-teal-500/10 text-teal-700 dark:border-teal-500/40 dark:text-teal-300"
+                      : countChip.tone === "violet"
+                        ? "border-violet-500/40 bg-violet-500/10 text-violet-700 dark:border-violet-500/40 dark:text-violet-300"
+                        : "border-foreground/15 bg-muted text-foreground/80"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "size-1.5 rounded-full",
+                      countChip.tone === "teal"
+                        ? "bg-teal-500"
+                        : countChip.tone === "violet"
+                          ? "bg-violet-500"
+                          : "bg-foreground/40"
+                    )}
+                    aria-hidden="true"
+                  />
+                  {countChip.value}
                 </span>
               ) : null}
             </div>

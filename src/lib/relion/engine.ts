@@ -5053,7 +5053,12 @@ export function collectOutputs(type: string, workdir: string): { outputs: Record
         // should consume the curated particles.star instead.
         const data = globLatest(workdir, /^run_it\d+_data\.star$/);
         if (data) outputs.refine_data_star = data;
-        result = "REAL: de-novo 3D initial model generated";
+        // t347 — the seed count rides the receipt (the count grammar parses it)
+        const seeded = data ? countStarRows(data) : 0;
+        result =
+          seeded > 0
+            ? `REAL: de-novo 3D initial model generated · ${seeded.toLocaleString()} particles`
+            : "REAL: de-novo 3D initial model generated";
       }
       break;
     }
@@ -5099,7 +5104,13 @@ export function collectOutputs(type: string, workdir: string): { outputs: Record
         // the class2d collection at ~3057.
         const data = globLatest(workdir, /^run_it\d+_data\.star$/) ?? firstExisting(workdir, ["run_data.star"]);
         if (data) outputs.refine_data_star = data;
-        result = parseRefineResult(workdir) ?? result ?? `REAL: ${type === "class3d" ? "3D classification" : "3D refinement"} finished`;
+        // t347 — the receipt carries the counted particles too (the card +
+        // inspector count grammar parses it; refine/classification receipts
+        // previously said only "finished" with no number at all)
+        const refineLine =
+          parseRefineResult(workdir) ?? result ?? `REAL: ${type === "class3d" ? "3D classification" : "3D refinement"} finished`;
+        const refined = data ? countStarRows(data) : 0;
+        result = refined > 0 ? `${refineLine} · ${refined.toLocaleString()} particles` : refineLine;
       }
       break;
     }
@@ -5150,7 +5161,12 @@ export function collectOutputs(type: string, workdir: string): { outputs: Record
       const star = firstExisting(workdir, ["shiny.star", "particles_polished.star"]);
       if (star) {
         outputs.particles_star = star;
-        result = "REAL: Bayesian polishing finished";
+        // t347 — the polished count rides the receipt
+        const polished = countStarRows(star);
+        result =
+          polished > 0
+            ? `REAL: Bayesian polishing finished — ${polished.toLocaleString()} particles polished`
+            : "REAL: Bayesian polishing finished";
       }
       break;
     }
@@ -5158,7 +5174,12 @@ export function collectOutputs(type: string, workdir: string): { outputs: Record
       const star = firstExisting(workdir, ["particles_ctf_refine.star"]);
       if (star) {
         outputs.particles_star = star;
-        result = "REAL: CTF refinement finished";
+        // t347 — the refined count rides the receipt
+        const refined = countStarRows(star);
+        result =
+          refined > 0
+            ? `REAL: CTF refinement finished — ${refined.toLocaleString()} particles`
+            : "REAL: CTF refinement finished";
       }
       break;
     }
@@ -5194,7 +5215,12 @@ export function collectOutputs(type: string, workdir: string): { outputs: Record
       const star = firstExisting(workdir, ["particles.star"]);
       if (star) {
         outputs.particles_star = star;
-        result = `REAL: ${type} particles written`;
+        // t347 — the written count rides the receipt
+        const written = countStarRows(star);
+        result =
+          written > 0
+            ? `REAL: ${type}: ${written.toLocaleString()} particles written`
+            : `REAL: ${type} particles written`;
       }
       break;
     }

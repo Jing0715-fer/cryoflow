@@ -1962,7 +1962,12 @@ const STAT_TONE_CLASS: Record<string, string> = {
   warn: "text-amber-600 dark:text-amber-300",
 };
 
-function KeyNumbersStrip({ summary }: { summary: OutputSummary }) {
+/**
+ * t347 — exported: the inspector's Overview tab now leads with the same
+ * key-numbers strip the Results view opens with (one grammar, both
+ * surfaces — the user's 「颗粒数需要显示得醒目些，不仅在任务窗口中」).
+ */
+export function KeyNumbersStrip({ summary }: { summary: OutputSummary }) {
   if (summary.stats.length === 0) return null;
   return (
     <section

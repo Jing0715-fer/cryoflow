@@ -121,7 +121,9 @@ import { useNow } from "@/lib/use-now";
 // dialect differs (labeled here, icon + hover-reveal there)
 import { SiblingComparePicker } from "./sibling-compare-picker";
 import { ReferenceMapCard } from "./reference-map-card";
-import { JobResults } from "./results/results-view";
+import { JobResults, KeyNumbersStrip } from "./results/results-view";
+import { parseResultCounts, formatCountFull, type ResultCounts } from "@/lib/result-counts";
+import type { OutputSummary } from "@/lib/relion/output-summary";
 import { ResolutionChart } from "./results/resolution-chart";
 import { FscChart } from "./results/fsc-chart";
 import { CtfQualityChart } from "./results/ctf-quality-chart";
@@ -159,6 +161,10 @@ interface OutputsResponse {
   inputs?: { flag: string; path: string }[];
   cmd?: string;
   note?: string;
+  /** t347 — the live-counted key numbers (the outputs route computes them;
+   *  the Overview strip + header chips read this first, the run receipt's
+   *  own counts as the fallback). */
+  summary?: OutputSummary | null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -311,6 +317,42 @@ const FINDING_ICONS: Record<string, React.ElementType> = {
   "python-traceback": Bug,
 };
 
+/* ------------------------------------------------------------------ */
+/* t347 — cross-mount log memory                                       */
+/* ------------------------------------------------------------------ */
+/**
+ * The Log tab unmounts whenever it is not the active tab, so every return
+ * used to flash "Reading log…" before the fetch landed. This module-level
+ * cache remembers the last committed log text per job and seeds the next
+ * mount instantly — the fetch then refreshes it within a tick. LRU-capped
+ * (16 jobs) and byte-capped (256 KB from the END of the text — the newest
+ * lines — so an 8 MB full log still paints something sane).
+ */
+const LOG_SEED_CAP_JOBS = 16;
+const LOG_SEED_CAP_BYTES = 256 * 1024;
+const logSeedCache = new Map<string, { text: string; totalLines: number }>();
+
+function readLogSeed(jobId: string): { text: string; totalLines: number } | null {
+  const hit = logSeedCache.get(jobId);
+  if (hit) {
+    // LRU bump: re-insert at the end (oldest entries sit at the front)
+    logSeedCache.delete(jobId);
+    logSeedCache.set(jobId, hit);
+  }
+  return hit ?? null;
+}
+
+function writeLogSeed(jobId: string, text: string, totalLines: number): void {
+  const t = text.length > LOG_SEED_CAP_BYTES ? text.slice(-LOG_SEED_CAP_BYTES) : text;
+  logSeedCache.delete(jobId);
+  logSeedCache.set(jobId, { text: t, totalLines });
+  while (logSeedCache.size > LOG_SEED_CAP_JOBS) {
+    const oldest = logSeedCache.keys().next().value;
+    if (oldest == null) break;
+    logSeedCache.delete(oldest);
+  }
+}
+
 function LogConsole({
   job,
   initialMode,
@@ -336,6 +378,16 @@ function LogConsole({
   /** Monotonic fetch sequence — only the newest log fetch may commit. -1 marks in-flight start. */
   const logFetchSeqRef = React.useRef(0);
   const [logError, setLogError] = React.useState<string | null>(null);
+  /** t347 — a pending answer's quiet hint (toolbar chip, never console text). */
+  const [waitingHint, setWaitingHint] = React.useState<string | null>(null);
+  /** Mirror of `log` readable inside fetch callbacks without joining deps. */
+  const logRef = React.useRef<string | null>(null);
+  /** Tracks which job the current log text belongs to (switch clears it). */
+  const logJobRef = React.useRef<string>(job.id);
+  const commitLog = React.useCallback((v: string | null) => {
+    logRef.current = v;
+    setLog(v);
+  }, []);
 
   const running = job.status === "running";
 
@@ -351,8 +403,15 @@ function LogConsole({
       );
       if (seq !== logFetchSeqRef.current) return; // a newer fetch won
       if (res.status === 404) {
-        setNoLog(true);
-        setLog(null);
+        // t347 — a 404 means THIS ROUTE has no record (never ran, or the
+        // record vanished with an app restart). When content is already on
+        // screen it stays — the text is real, only the record is gone.
+        if (logRef.current == null || logRef.current.length === 0) {
+          setNoLog(true);
+          commitLog(null);
+        } else {
+          setLogError("the log record is gone (app restart?) — the text below is the last content");
+        }
         return;
       }
       if (!res.ok) {
@@ -366,22 +425,55 @@ function LogConsole({
         tail?: string;
         totalLines?: number;
         truncated?: boolean;
+        pending?: boolean;
+        note?: string;
       };
       setLogError(null);
+      if (body.pending) {
+        // t347 — a rate-limited window / cold heartbeat: this answer carries
+        // no data. NEVER blank the console — keep the current text and let
+        // the toolbar whisper the reason.
+        setWaitingHint(body.note ?? "waiting for the cluster's next heartbeat…");
+        return;
+      }
+      setWaitingHint(null);
       setNoLog(false);
-      setLog(body.tail ?? "");
+      commitLog(body.tail ?? "");
       setTotalLines(body.totalLines ?? 0);
       setTruncated(body.truncated ?? false);
+      writeLogSeed(job.id, body.tail ?? "", body.totalLines ?? 0);
     } catch {
       /* transient — next poll retries */
     }
-  }, [job.id, mode]);
+  }, [job.id, mode, commitLog]);
 
   React.useEffect(() => {
-    setLog(null);
-    setNoLog(false);
+    // t347 — a job switch retires the old text (it belongs to another run);
+    // a MODE switch does NOT: the previous window stays on screen until the
+    // new one lands — the console never blanks mid-conversation. A fresh
+    // mount seeds from the cross-mount memory so reopening the Log tab
+    // paints instantly instead of flashing "Reading log…".
+    if (logJobRef.current !== job.id) {
+      logJobRef.current = job.id;
+      commitLog(null);
+      setNoLog(false);
+      setTotalLines(0);
+      setTruncated(false);
+      const seed = readLogSeed(job.id);
+      if (seed) {
+        commitLog(seed.text);
+        setTotalLines(seed.totalLines);
+      }
+    } else if (logRef.current == null) {
+      const seed = readLogSeed(job.id);
+      if (seed) {
+        commitLog(seed.text);
+        setTotalLines(seed.totalLines);
+      }
+    }
+    setLogError(null);
     void fetchLog();
-  }, [fetchLog]);
+  }, [fetchLog, job.id, commitLog]);
 
   React.useEffect(() => {
     if (!running) return;
@@ -499,6 +591,21 @@ function LogConsole({
         {mode === "full" && truncated ? (
           <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-[10px] text-zinc-500" title="Log exceeds the 8MB safety cap">
             log &gt; 8MB — clipped
+          </span>
+        ) : null}
+        {waitingHint ? (
+          /* t347 — a pending answer's whisper: the console KEEPS its text,
+             the toolbar says why the newest tick brought nothing */
+          <span
+            data-log-waiting=""
+            title={waitingHint}
+            className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-400"
+          >
+            <span className="relative flex size-1.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
+              <span className="relative inline-flex size-1.5 rounded-full bg-amber-500" />
+            </span>
+            syncing
           </span>
         ) : null}
         <div className="ml-auto flex max-sm:flex-wrap items-center gap-0.5">
@@ -729,18 +836,10 @@ function LogConsole({
                 : "This job never wrote run.out to disk (engine-native or simulated jobs log nothing). Check the Overview tab for its result summary."}
             </p>
           </div>
-        ) : logError ? (
-          <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
-            <AlertCircle className="size-8 text-amber-500/70" aria-hidden="true" />
-            <p className="text-xs font-medium text-amber-500">{logError}</p>
-            <p className="max-w-xs text-[11px] leading-relaxed text-zinc-500">
-              The last content is kept below when it arrives; polling retries automatically.
-            </p>
-          </div>
         ) : log === null ? (
           <div className="flex h-full items-center justify-center gap-2 text-xs text-zinc-500">
             <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-            Reading log…
+            {waitingHint ?? "Reading log…"}
           </div>
         ) : log.length === 0 ? (
           <p className="text-center text-zinc-600">
@@ -749,17 +848,32 @@ function LogConsole({
               : "(log empty — waiting for the engine to speak)"}
           </p>
         ) : (
-          <pre className={cn("m-0", wrap ? "whitespace-pre-wrap break-words" : "whitespace-pre")}>
-            {visible.length === 0 ? (
-              <p className="px-1 text-zinc-600">
-                no lines match “{query.trim()}”
+          <>
+            {/* t347 — an error is a SLIM BANNER above the text, never a
+                replacement: the last content stays readable underneath
+                while polling retries (the old branch hid it entirely) */}
+            {logError ? (
+              <p
+                data-log-error-banner=""
+                className="mb-2 flex items-center gap-1.5 rounded border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[10px] font-medium text-amber-400"
+                role="status"
+              >
+                <AlertCircle className="size-3 shrink-0" aria-hidden="true" />
+                {logError} — polling retries automatically
               </p>
-            ) : (
-              visible.map(({ line, i }) => (
-                <LogLine key={i} line={line} index={i} highlight={q || null} />
-              ))
-            )}
-          </pre>
+            ) : null}
+            <pre className={cn("m-0", wrap ? "whitespace-pre-wrap break-words" : "whitespace-pre")}>
+              {visible.length === 0 ? (
+                <p className="px-1 text-zinc-600">
+                  no lines match “{query.trim()}”
+                </p>
+              ) : (
+                visible.map(({ line, i }) => (
+                  <LogLine key={i} line={line} index={i} highlight={q || null} />
+                ))
+              )}
+            </pre>
+          </>
         )}
       </div>
       <LogLegend />
@@ -1383,6 +1497,66 @@ function JobNoteSection({ job }: { job: JobDTO }) {
   );
 }
 
+/* ------------------------------------------------------------------ */
+/* t347 — count strips (Overview leads with the numbers)               */
+/* ------------------------------------------------------------------ */
+
+/** tone → value color: the same grammar the Results strip speaks
+ * (particles teal, micrographs neutral, classes violet). */
+const COUNT_TONE_CLASS: Record<string, string> = {
+  particle: "text-teal-600 dark:text-teal-300",
+  micrograph: "text-foreground",
+  class: "text-violet-600 dark:text-violet-300",
+};
+
+/**
+ * The fallback count strip: when the outputs summary can't be counted live
+ * (remote-only files, a lost run record), the receipt's own counted numbers
+ * — written by the engine at finalize, honestly counted from the output
+ * star — still lead the Overview. Same card grammar as KeyNumbersStrip.
+ */
+function ReceiptCountStrip({ counts }: { counts: ResultCounts }) {
+  const stats: { key: string; value: string; label: string; tone: string }[] = [];
+  if (counts.particles != null)
+    stats.push({
+      key: "particles",
+      value: formatCountFull(counts.particles),
+      label: "particles (run receipt)",
+      tone: COUNT_TONE_CLASS.particle,
+    });
+  if (counts.micrographs != null)
+    stats.push({
+      key: "micrographs",
+      value: formatCountFull(counts.micrographs),
+      label: "micrographs (run receipt)",
+      tone: COUNT_TONE_CLASS.micrograph,
+    });
+  if (counts.classes != null)
+    stats.push({
+      key: "classes",
+      value: formatCountFull(counts.classes),
+      label: "classes (run receipt)",
+      tone: COUNT_TONE_CLASS.class,
+    });
+  if (stats.length === 0) return null;
+  return (
+    <section
+      aria-label="Key numbers (run receipt)"
+      data-key-numbers=""
+      data-receipt-counts=""
+      data-print-keep=""
+      className="flex flex-wrap gap-2"
+    >
+      {stats.map((s) => (
+        <div key={s.key} data-stat={s.key} className="min-w-28 flex-1 rounded-lg border bg-card px-3 py-2.5">
+          <p className={cn("text-xl font-bold leading-tight tabular-nums", s.tone)}>{s.value}</p>
+          <p className="mt-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{s.label}</p>
+        </div>
+      ))}
+    </section>
+  );
+}
+
 function OverviewTab({
   job,
   data,
@@ -1409,8 +1583,23 @@ function OverviewTab({
   const isMotionType = /^motioncorr$/i.test(job.type);
   const hasIterated = (job.status === "running" || job.status === "completed" || job.status === "failed") &&
     (job.progress > 4 || job.status !== "running");
+  // t347 — the receipt fallback: when the live outputs summary is null
+  // (remote-only files, lost run record), the finalize-time counted numbers
+  // in the result line still lead the Overview
+  const receiptCounts = React.useMemo(
+    () => (job.status === "completed" ? parseResultCounts(job.result) : null),
+    [job.status, job.result]
+  );
   return (
     <div className="space-y-6">
+      {/* t347 — the counts LEAD (the user's 「照片数或颗粒数需要显示得
+          醒目些」): the live-counted summary when the outputs route can
+          count, the run receipt's own numbers otherwise. */}
+      {data?.summary ? (
+        <KeyNumbersStrip summary={data.summary} />
+      ) : receiptCounts ? (
+        <ReceiptCountStrip counts={receiptCounts} />
+      ) : null}
       <ResultSummary job={job} diagnosis={diagnosis} onOpenDiagnosis={onOpenDiagnosis} />
       <JobNoteSection job={job} />
       {/* import jobs show the raw detector frames gallery (t315: the
@@ -1918,7 +2107,18 @@ function LineageBreadcrumb({ job }: { job: JobDTO }) {
   );
 }
 
-function InspectorHeader({ job, onCleaned }: { job: JobDTO; onCleaned?: () => void }) {
+function InspectorHeader({
+  job,
+  summary,
+  onCleaned,
+}: {
+  job: JobDTO;
+  /** t347 — the outputs summary (live-counted key numbers): the header's
+   *  count chips read it first, falling back to the run receipt's own
+   *  counted numbers when the summary couldn't be counted. */
+  summary?: OutputSummary | null;
+  onCleaned?: () => void;
+}) {
   const spec = jobType(job.type);
   const running = job.status === "running";
   const isLink = job.linkedJobId != null;
@@ -1941,6 +2141,50 @@ function InspectorHeader({ job, onCleaned }: { job: JobDTO; onCleaned?: () => vo
   const [cleanupOpen, setCleanupOpen] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const elapsed = useElapsed(job.startedAt, running);
+  // t347 — the header's count chips: up to two headline numbers (particles
+  // above all), from the live outputs summary when countable, else from the
+  // finalize-time receipt. One grammar with the strips below (teal
+  // particles, neutral micrographs, violet classes).
+  const countChips = React.useMemo(() => {
+    const chips: { key: string; text: string; tone: string; title: string }[] = [];
+    const live = (summary?.stats ?? []).filter((s) =>
+      ["particles", "micrographs", "classes", "stacks"].includes(s.key)
+    );
+    for (const s of live.slice(0, 2)) {
+      const tone =
+        s.tone === "particle"
+          ? COUNT_TONE_CLASS.particle
+          : s.tone === "class"
+            ? COUNT_TONE_CLASS.class
+            : s.tone === "warn"
+              ? "text-amber-600 dark:text-amber-300"
+              : COUNT_TONE_CLASS.micrograph;
+      chips.push({
+        key: s.key,
+        text: `${s.value} ${s.key === "stacks" ? "stacks" : s.key}`,
+        tone,
+        title: s.hint ?? s.label,
+      });
+    }
+    if (chips.length === 0 && job.status === "completed") {
+      const rc = parseResultCounts(job.result);
+      if (rc?.particles != null)
+        chips.push({
+          key: "particles",
+          text: `${formatCountFull(rc.particles)} particles`,
+          tone: COUNT_TONE_CLASS.particle,
+          title: "particles — counted at run time (the receipt)",
+        });
+      if (rc?.micrographs != null)
+        chips.push({
+          key: "micrographs",
+          text: `${formatCountFull(rc.micrographs)} micrographs`,
+          tone: COUNT_TONE_CLASS.micrograph,
+          title: "micrographs — counted at run time (the receipt)",
+        });
+    }
+    return chips.slice(0, 2);
+  }, [summary, job.status, job.result]);
   // ETA for running jobs (dialog opens client-side, no SSR concern);
   // estimateEta is a pure read — baseline recording is an effect-side effect
   const eta = running ? estimateEta(job.id, job.startedAt, job.progress) : null;
@@ -2026,6 +2270,21 @@ function InspectorHeader({ job, onCleaned }: { job: JobDTO; onCleaned?: () => vo
             >
               {spec?.label ?? job.type}
             </Badge>
+            {/* t347 — the headline numbers ride the identity row itself
+                (particles first, teal): visible on EVERY tab, not only in
+                Overview/Results — the user's 「醒目」 */}
+            {countChips.map((c) => (
+              <React.Fragment key={c.key}>
+                <Separator orientation="vertical" className="h-3" decorative />
+                <span
+                  data-header-count={c.key}
+                  title={c.title}
+                  className={cn("font-semibold tabular-nums", c.tone)}
+                >
+                  {c.text}
+                </span>
+              </React.Fragment>
+            ))}
             <span>created {job.createdAt ? fmtAgo(job.createdAt) : "—"}</span>
             {running && job.startedAt && elapsed > 0 ? (
               <>
@@ -2562,7 +2821,7 @@ export function JobInspector() {
               <DialogTitle asChild>
                 <div>
                   <span className="sr-only">{job.name} — job inspector</span>
-                  <InspectorHeader job={job} onCleaned={() => void loadOutputs()} />
+                  <InspectorHeader job={job} summary={data?.summary ?? null} onCleaned={() => void loadOutputs()} />
                 </div>
               </DialogTitle>
               <DialogDescription className="sr-only">

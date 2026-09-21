@@ -137,6 +137,17 @@ export interface RemoteLogPayload {
   text: string;
   totalLines: number;
   truncated: boolean;
+  /**
+   * t347 — true when this answer carries NO log data of its own (a
+   * rate-limited window with nothing cached, the gap before the first
+   * heartbeat, or a failed wire with no cache). The UI then KEEPS its
+   * previously rendered text and shows a quiet toolbar hint — the old
+   * behavior (placeholder/empty text that replaced the console content)
+   * made the log visibly blank on every other refresh tick.
+   */
+  pending?: boolean;
+  /** Human note riding a pending answer (toolbar hint — never log content). */
+  note?: string;
 }
 
 export interface StartRemoteOutcome {
@@ -4690,6 +4701,16 @@ async function syncBackWorkdir(
  */
 const LOG_FETCH_MIN_MS = 10_000;
 const logFetchAt = new Map<string, number>();
+/**
+ * t347 — the last FULL-log answer per job. Full mode never touches the
+ * heartbeat's tail cache, and the UI polls it every 5s — faster than the
+ * 10s wire budget — so every rate-limited tick used to answer with an
+ * EMPTY string, blanking the whole console on alternate refreshes (the
+ * user's 「文字总是在刷新的过程中消失」). The cache serves those
+ * in-between ticks; each real fetch refreshes it.
+ */
+const logFullCache = new Map<string, { payload: RemoteLogPayload; at: number }>();
+const LOG_FULL_CACHE_MS = 30_000;
 
 /** The sweep-carry + on-demand log read, shaped exactly like getLogTail's. */
 function shapeRemoteLog(
@@ -4742,15 +4763,26 @@ export async function remoteLogTail(jobId: string, opts: { full?: boolean }): Pr
   // the rate limiter is the UI's protection, not the wire's generosity
   const now = Date.now();
   if (now - (logFetchAt.get(jobId) ?? 0) < LOG_FETCH_MIN_MS) {
-    // rate-limited: serve what we have — the cached tails if any, else an
-    // honest "waiting for the heartbeat" (the sweep lands within seconds)
     if (!opts.full && typeof r.logTailAt === "number") {
       return shapeRemoteLog(r.logTailOut ?? "", r.logTailErr ?? "", r.logTotalLines ?? 0, false);
     }
+    if (opts.full) {
+      // t347 — the full-mode cache answers the in-between ticks: a finished
+      // run's log is static (cache forever); a live run's refreshes on every
+      // real fetch. Never an empty-string answer that blanks the console.
+      const c = logFullCache.get(jobId);
+      if (c && (rec.done || now - c.at <= LOG_FULL_CACHE_MS)) {
+        return c.payload;
+      }
+    }
+    // rate-limited with nothing to serve: pending, not blank — the UI keeps
+    // its previous content and shows a quiet hint
     return {
-      text: typeof r.logTailAt === "number" ? "" : "(waiting for the cluster's next heartbeat…)",
-      totalLines: r.logTotalLines ?? 0,
+      text: "",
+      totalLines: 0,
       truncated: false,
+      pending: true,
+      note: "waiting for the next fetch window (the heartbeat refreshes the log)",
     };
   }
   logFetchAt.set(jobId, now);
@@ -4767,13 +4799,21 @@ export async function remoteLogTail(jobId: string, opts: { full?: boolean }): Pr
     // t346 — the wire's failure is not the log's failure: the cached
     // heartbeat (if any) still serves; a run with neither cache nor wire
     // gets the honest retry word, and the UI keeps its last content
-    if (typeof r.logTailAt === "number") {
+    if (!opts.full && typeof r.logTailAt === "number") {
       return shapeRemoteLog(r.logTailOut ?? "", r.logTailErr ?? "", r.logTotalLines ?? 0, !!opts.full);
     }
+    if (opts.full) {
+      const c = logFullCache.get(jobId);
+      if (c) return c.payload; // stale full text beats a blank console
+    }
+    // t347 — pending + note instead of a placeholder that replaced the
+    // console: the run itself is unaffected, the next heartbeat retries
     return {
-      text: `(log fetch failed: ${res.error}) — retrying on the next heartbeat; the run itself is unaffected`,
+      text: "",
       totalLines: 0,
       truncated: false,
+      pending: true,
+      note: `log fetch failed: ${res.error} — retrying on the next heartbeat; the run itself is unaffected`,
     };
   }
   const parts = res.stdout.split("---CF-SPLIT---");
@@ -4798,7 +4838,12 @@ export async function remoteLogTail(jobId: string, opts: { full?: boolean }): Pr
         : null
     );
   }
-  return shapeRemoteLog(out, err, totalLines, !!opts.full);
+  const payload = shapeRemoteLog(out, err, totalLines, !!opts.full);
+  if (opts.full) {
+    // t347 — remember the full answer for the rate-limited ticks that follow
+    logFullCache.set(jobId, { payload, at: Date.now() });
+  }
+  return payload;
 }
 
 /** Kill the cluster-side session — the stop route's branch.
