@@ -2905,3 +2905,26 @@ Stage Summary:
 - 三报全闭环: ①cs2star 假 FAILED/无 log→in-flight 记录+分阶段日志, 热加载编译→Tailwind 排除 data/db, 输出位置之问文档化 ②钉扎抑制分区→解析节点自己的分区, 与下拉同组合, 死钉(自动默认分区的守卫误杀)一并根治
 - 用户复机: pull 最新 → 使用面板选节点即提交成功(与下拉同效); cs→star 长跑全程 running+活日志, 不再先假失败
 - 环境: 模板 3000 运行中(GET / 200), cryoflow prod :3001 + mock :3022 保留, /home/z/cryoflow 树净待推
+---
+Task ID: t341
+Agent: main-agent (Z.ai Code)
+Task: 「我在cluster上提交2d分类时报错了，帮我修复。同时修复代码审查查出来的问题，完成后push」——2D 分类 30s 静默死亡 (prterun rank exit 1, 诊断 strip=out of memory) + 代码审查 C1/C3/低危三发现全闭环; 完成后 push
+
+Work Log:
+- 根因三轴 (用户收据「staged 0ms · synced 6 files back · Slurm FAILED 30s · prterun-gpu06 exit 1 · 无 error tail · gpu-oom 命中」): ①refine 家族批大小无内存意识 (RELION 默认 128 恒定, 大 box 的 cuFFT 工作集 ∝ batch·box²/³) ②残留进程占卡——C1 ghost 的进程面孪生: 无人认领的同名 sbatch 仍持 workdir+GPU 显存, 新 run 撞显存死 ③非隔离集群的 GPU 寻址 (gres 无 cgroup 时 --gpu 0:1 按物理卡号, 可能是他人的卡)
+- 修复 1 memory-aware batch: engine.ts 新 particleBox (上游 extract boxSize/downsampleTo 折算) + refineAutoBatch (2D 安全线 200px/3D 160px; 线下不动 RELION 默认——零行为变化; 线上 2D∝box² 3D∝box³, floor8, clamp[32,64]); class2d/class3d/refine3d argv + workflow.ts 三 spec 新「Batch size (0 = auto)」(Compute 页, advanced, 显式值全面优先——用户工单的一旋钮修法)
+- 修复 2 残留 reaper: dispatch 在 t333 wipe 前 scancel -n cf_<type>_<id8> (sbatch 名 per-job 唯一→只杀本 workdir 的 stale 提交; 拒绝不阻断); mock scancel 补 -n/--name 语法 (按 job-*.name 扫描, 同一取消路径)
+- 修复 3 sbatch GPU pin 块: CUDA_VISIBLE_DEVICES 未设时从 GPU_DEVICE_ORDINAL/SLURM_JOB_GPUS 取授予集 (Slurm≥20.11 GresAutoDetect 方言); 集群自身隔离时不干预
+- 修复 C1 ghost-sbatch 四道围栏: dispatchCancelled() (record startedAt+done 语义——reset/delete 清除, 并发 re-dispatch 换 startedAt, sweep 可终态化) · staging 逐文件检查(停止烧线) · pre-submit/post-submit 检查(已提交→scancel/kill 再撤) · 行翻转 db.job.update→updateMany(status∈pending|running) + catch 不再覆盖用户 reset (失败路径孪生)
+- 修复 C3 删除墓碑: 新 src/lib/job-tombstone.ts——DELETE 先快照 record(强制终态)+双图层边(DB 对+sidecar 带端口) → data/deleted-jobs/<id>.json (原子写); restore 服务端 applyJobTombstone (record 只填空槽, 边需两端存活, persistPortEdge 幂等); restore 响应加 recordRestored+edges; store.ts undoDelete 跳过服务端已接线 + 409 "already exists" 记成功 + toast 记录 record 重挂
+- 低危三发: listRemoteWorkdir 新 publish:false (dispatch 预擦除列表/POST 执行重列不再污染 10s 共享缓存——「10s 内 plan 空」) · db.ts 查询日志 CF_PRISMA_LOG=1 门控 · finalize twin 探测改 index-payload (echo 路径串被 login-shell/测试架改写时不再全空——44/44 远程记录 twins 为空的真因; t324 lazy probe 本就说 key 方言)
+- silent-death 回执按 r.mode 分流: Slurm 失败不再被告知「multi-hour jobs belong in Slurm mode」(用户收据的误导原文), 改指 OOM killer/walltime/scancel + sacct -j <id> + 诊断 strip
+- E2E 六套 257 断言全绿: run-1 EMPIAR 全链 106/106 (103s, FSC 6.51Å) · run-2 48/48 (修存量 cat 引号 typo) · run-3 25/25 (墓碑落盘/restore 服务端重建 record+边/下游免重跑直接消费/twins 恢复后 dispatch 零 staging) · run-4 24/24 (staging 期 reset→无 ghost+单写+dev.log 取消标记在 reset 之后; 新 Phase6 种同名 stale sbatch→app re-run 收割: stale CANCELLED+fresh COMPLETED——用户集群一键自愈路径) · run-5 27/27 (含新缓存回归: 派发后 2.5s 无刷新 plan 见 bulk:8) · run-6 新增 27/27 (box360→--batch_size 32 预览+派发一致/box64→无 flag/--gres=gpu:2+mpirun -n 2+--gpu 0:1+pin 块/覆盖 batchSize=24 生效)
+- 排障: 沙箱磁盘 100% (mock fs/projects 2.7GB E2E 累积)→清理; mock base64 种 stale 的 #SBATCH 路径不过翻译→still-born (改 mock-real 路径直写=FS_ROOT guard 本义); 本地 RELION 未装→preview tier-3 诚实回退 (E2E 按 tier 断言)
+- 浏览器活体(agent-browser @ prod :3001 生产构建): 首页/项目切换/检查器/Reset&edit 全通过, console+page errors 双零; tsc 0; eslint 零新增 (15 存量=HEAD 已有); e2e-review/ 套件入库 (fixtures/真实 EMPIAR 字节/PNG 留本地, README 记获取法)
+- push 前对齐: 远程并行窗已领 t340 (pin partition+native record) → 本窗按 t314 先例改号 t341, rebase 后全量回归再推
+
+Stage Summary:
+- 用户 2D 分类复机路径: pull → 点 Re-run 即自愈 (reaper 先收割残留 → 大 box 自动降批 → GPU pin 正确寻址); 仍 OOM 时 Batch size 参数 (0=auto) 是一旋钮修法, OOM hint 文案已对齐
+- C1/C3 双高危实证闭环: ghost 四道围栏后不可能提交; delete→undo 链条完整 (record+边+remote twins, reload 亦不失)
+- twins 全空是真 bug (index-payload 修), 顺带 mock 上 t324 零上传链路可测

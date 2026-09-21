@@ -1911,7 +1911,15 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       });
       return;
     }
-    let res: { restored: { id: string; coerced: boolean }[]; failed: { id: string; error: string }[] };
+    let res: {
+      restored: { id: string; coerced: boolean }[];
+      failed: { id: string; error: string }[];
+      /** t341 — the server tombstone's own work: ids whose run record came
+       *  back, and the wires the SERVER re-attached (the client skips
+       *  re-posting those) */
+      recordRestored?: string[];
+      edges?: { fromJobId: string; toJobId: string; fromPort?: string; toPort?: string }[];
+    };
     try {
       res = await api("/api/jobs/restore", {
         method: "POST",
@@ -1934,12 +1942,23 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     // store, parallel POSTs could drop edges; wires to survivors restore
     // too (one endpoint restored, the other never left)
     const alive = (id: string) => restoredIds.has(id) || get().jobs.some((j) => j.id === id);
+    // t341 — the server's tombstone already re-attached its wires; the
+    // client snapshot only posts what the SERVER did not (a re-post would
+    // collide on the unique pair and used to count as a failure)
+    const serverWired = new Set((res.edges ?? []).map((e) => `${e.fromJobId}->${e.toJobId}`));
     let edgeOk = 0;
     let edgeFail = 0;
     const restoredEdges: EdgeDTO[] = [];
     for (const e of snapshot.edges) {
       if (!alive(e.fromJobId) || !alive(e.toJobId)) {
         edgeFail += 1;
+        continue;
+      }
+      if (serverWired.has(`${e.fromJobId}->${e.toJobId}`)) {
+        // the server already re-attached this wire (ports and all) —
+        // count it and render it, no POST needed
+        restoredEdges.push(e);
+        edgeOk += 1;
         continue;
       }
       try {
@@ -1955,8 +1974,17 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         });
         restoredEdges.push(e);
         edgeOk += 1;
-      } catch {
-        edgeFail += 1;
+      } catch (err) {
+        // t341 — "already exists" is a SUCCESS wearing a 409: the wire is
+        // on the canvas (the server restored it between the response and
+        // this post, or another undo raced us) — count it, render it
+        const msg = err instanceof Error ? err.message : String(err);
+        if (/already exists/i.test(msg)) {
+          restoredEdges.push(e);
+          edgeOk += 1;
+        } else {
+          edgeFail += 1;
+        }
       }
     }
     // optimistic append — status coercion (running→idle) mirrors the server
@@ -1970,11 +1998,14 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     });
     const refused = res.failed.length;
     const coercedCount = coercedIds.size;
+    const recordCount = res.recordRestored?.length ?? 0;
     const bits: string[] = [
       `${restoredIds.size} of ${jobs.length} job${jobs.length === 1 ? "" : "s"} back on the canvas`,
     ];
     if (edgeOk > 0) bits.push(`${edgeOk} wire${edgeOk === 1 ? "" : "s"} reconnected`);
     if (edgeFail > 0) bits.push(`${edgeFail} wire${edgeFail === 1 ? "" : "s"} could not be reconnected`);
+    if (recordCount > 0)
+      bits.push(`${recordCount} run record${recordCount === 1 ? "" : "s"} re-attached — downstream jobs can see their inputs again`);
     if (coercedCount > 0)
       bits.push("the interrupted run came back as idle — start it again when ready");
     if (refused > 0) bits.push(`${refused} could not be restored`);

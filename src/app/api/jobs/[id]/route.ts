@@ -6,6 +6,7 @@ import { remoteStopRun } from "@/lib/remote/remote-run";
 import { jobType } from "@/lib/workflow";
 import { clearRunRecord, stopRun, isRunAlive } from "@/lib/relion/engine";
 import { removeFileEdgesTouching } from "@/lib/edge-ports";
+import { writeJobTombstone } from "@/lib/job-tombstone";
 
 export const dynamic = "force-dynamic";
 
@@ -231,6 +232,18 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
         },
         { status: 409 }
       );
+    }
+    // t341 — snapshot the run record + every touching edge BEFORE the
+    // stop/clear/cascade below erases them: the restore route re-applies
+    // this tombstone, so an undo re-attaches the job's outputs AND its
+    // wires even after a page reload lost the client snapshot (review C3
+    // — a restored row with no record starved downstream consumers, and
+    // the API-level restore never rebuilt edges). Best-effort: a
+    // tombstone failure never blocks the delete.
+    try {
+      await writeJobTombstone(id);
+    } catch {
+      /* advisory — the delete itself must proceed */
     }
     try {
       if (isRunAlive(id)) {

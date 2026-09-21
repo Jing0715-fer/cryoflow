@@ -86,7 +86,7 @@ export interface RemoteListing {
 export async function listRemoteWorkdir(
   conn: RemoteConnection,
   workdir: string,
-  opts: { maxEntries?: number; bypassCache?: boolean } = {}
+  opts: { maxEntries?: number; bypassCache?: boolean; publish?: boolean } = {}
 ): Promise<RemoteListing> {
   const cacheKey = `${conn.id}|${workdir}`;
   if (!opts.bypassCache) {
@@ -164,7 +164,21 @@ export async function listRemoteWorkdir(
       error: e instanceof Error ? e.message : String(e),
     };
   }
-  listCache.set(cacheKey, { at: Date.now(), value: result });
+  if (opts.publish === false) {
+    // t341 — a bypassing caller reading at a MUTATION point (the
+    // dispatch's pre-wipe listing, the POST execution re-list) must not
+    // publish its snapshot into the shared cache: the tree is about to
+    // change under it, and a TTL-fresh-but-stale entry would answer the
+    // next plan GET with a world that no longer exists (the review's
+    // "plan is empty for 10s" finding — a fresh dispatch's listing
+    // used to mute the plan for a whole TTL). Drop the entry instead:
+    // the next normal read re-dials live. The manual refresh button
+    // (GET ?refresh=1) still publishes — refresh means "everyone sees
+    // fresh", not "the mutator's snapshot".
+    listCache.delete(cacheKey);
+  } else {
+    listCache.set(cacheKey, { at: Date.now(), value: result });
+  }
   return result;
 }
 

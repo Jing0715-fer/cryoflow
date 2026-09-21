@@ -907,6 +907,29 @@ function buildSbatchScript(args: {
   }
   L.push('command -v relion_refine >/dev/null 2>&1 || { echo "CRYOFLOW_ERR: relion_refine not found on PATH after module load" >&2; exit 127; }');
   L.push("");
+  // t341 — pin the ranks to the GPUs the scheduler actually GRANTED. On
+  // cgroup-isolated clusters slurmd already exports CUDA_VISIBLE_DEVICES
+  // (nothing to do); on clusters that grant --gres GPUs WITHOUT device
+  // cgroups every card on the node stays visible, and RELION's logical
+  // "--gpu 0:1:…" then addresses PHYSICAL devices 0..N-1 — cards the
+  // scheduler may have handed to another job (the field report: a 2D
+  // classification dead 30s in, CUDA out-of-memory, no error tail — the
+  // allocator lost a card someone else's run owned). Slurm ≥ 20.11 with
+  // GresAutoDetect exports GPU_DEVICE_ORDINAL naming the granted set;
+  // older controllers may set SLURM_JOB_GPUS instead. Only an UNSET
+  // CUDA_VISIBLE_DEVICES is patched — never fight the cluster's own
+  // isolation — and the pin is a no-op wherever neither variable exists.
+  if (gpus > 0) {
+    L.push("# ---- t341: pin to the granted GPUs (no-op where cgroups isolate) ----");
+    L.push('if [ -z "${CUDA_VISIBLE_DEVICES:-}" ]; then');
+    L.push('  if [ -n "${GPU_DEVICE_ORDINAL:-}" ]; then');
+    L.push('    export CUDA_VISIBLE_DEVICES="${GPU_DEVICE_ORDINAL}"');
+    L.push('  elif [ -n "${SLURM_JOB_GPUS:-}" ]; then');
+    L.push('    export CUDA_VISIBLE_DEVICES="${SLURM_JOB_GPUS}"');
+    L.push("  fi");
+    L.push("fi");
+    L.push("");
+  }
   L.push("# ---- run ----");
   // t313 — the CTF gate's receipt lands at the TOP of run.out (SBATCH
   // --output captures the whole script's stdout)
@@ -2271,6 +2294,21 @@ export async function startRemoteJob(args: {
   // the heartbeat runs for the WHOLE task (staging phase only — the updateRun
   // guard no-ops once the phase flips) and is stopped on both exits.
   const stopBeat = startStagingBeat(job.id);
+  // t341 — the ghost-sbatch fence (review C1, TEST 4's live proof): the
+  // spawn is a void background task, and a reset/delete that lands while
+  // it uploads used to be IGNORED — the task submitted its sbatch anyway
+  // and then flipped the freshly-reset row BACK to running (no record,
+  // no poller: a ghost). The run record is the single source of "this
+  // dispatch is still wanted": reset/delete clear it, a concurrent
+  // re-dispatch replaces it (different startedAt), the sweep can
+  // finalize it (done). Every phase transition below re-checks this
+  // predicate; a cancelled dispatch dies quietly — no submit, no row
+  // write — and a cancellation detected AFTER the submit kills what it
+  // submitted before standing down.
+  const dispatchCancelled = (): boolean => {
+    const rec = getRun(job.id);
+    return !rec || rec.startedAt !== record.startedAt || rec.done;
+  };
   const spawn = async (): Promise<void> => {
     try {
       // t335 — mop win32-mangled orphans out of the project root BEFORE
@@ -2324,6 +2362,16 @@ export async function startRemoteJob(args: {
             ? { ...rec, remote: { ...rec.remote, stagedBytes } }
             : null
         );
+        // t341 — a reset/delete during the upload stops burning the wire:
+        // GB-scale staging must not keep pushing into a workdir the user
+        // just abandoned (and must never reach the submit below)
+        if (dispatchCancelled()) {
+          stopBeat();
+          console.log(
+            `remote-run: dispatch of "${job.name}" cancelled mid-staging (reset or delete) — upload stopped after ${stagedBytes} byte(s), nothing submitted (t341)`
+          );
+          return;
+        }
       }
       const stagedMs = Date.now() - stagedT0;
 
@@ -2542,6 +2590,32 @@ export async function startRemoteJob(args: {
 
       await remoteMkdir(conn, remoteWorkdir);
 
+      // ---- t341 — the stale-run reaper, scheduler-side -------------------
+      // The ghost-sbatch race (review C1) and every un-witnessed death
+      // before it can leave Slurm jobs that STILL own this workdir: a
+      // PENDING duplicate, a requeued straggler, or a RUNNING rank pair
+      // holding GPU memory the next dispatch then dies on (the field
+      // report: 2D classification dead 30s in, CUDA out-of-memory, no
+      // error tail — the allocator lost the race for a card someone
+      // else's stale run still held). This job's sbatch name is unique
+      // per job id (cf_<type>_<id8>), so scancel -n names EXACTLY this
+      // workdir's stale submissions — the scheduler kills them wherever
+      // they sit, BEFORE the wipe below reclaims the directory and the
+      // fresh submission claims it. Best-effort hygiene: a refusal (no
+      // matching job, an ancient scancel without -n) never blocks the
+      // dispatch.
+      if (isSlurm) {
+        try {
+          await exec(
+            conn,
+            `scancel -n ${shQuote(jobName)} 2>/dev/null || true`,
+            { timeoutMs: 15_000 }
+          );
+        } catch {
+          /* the reaper is hygiene, never a gate */
+        }
+      }
+
       // ---- t333 — the re-run's stale PRODUCTS on the cluster -------------
       // The workdir is STABLE across dispatches (<root>/<type>_<jobid8>)
       // and the previous generation's outputs survive in it. RELION writes
@@ -2562,6 +2636,13 @@ export async function startRemoteJob(args: {
       {
         const wipeListing = await listRemoteWorkdir(conn, remoteWorkdir, {
           bypassCache: true,
+          // t341 — read LIVE, don't PUBLISH: this listing photographs the
+          // workdir mid-dispatch (pre-run and post-wipe states differ by
+          // design); caching it would serve the cleanup plan a snapshot
+          // the run already outgrew (the review's "plan is empty for 10s"
+          // finding — a fresh dispatch's bypass listing used to land in
+          // the shared cache and mute the plan GET for a whole TTL)
+          publish: false,
         });
         if (!wipeListing.ok) {
           console.warn(
@@ -2619,6 +2700,18 @@ export async function startRemoteJob(args: {
 
       if (isSlurm) {
         // ---- t297: the sbatch door (sbatch6gpu.sh pattern) ---------------
+        // t341 — the LAST fence before the scheduler hears about us: a
+        // reset/delete that landed while the script uploaded must not
+        // become a ghost sbatch into a workdir nobody owns anymore
+        // (review C1's exact shape: submit after reset → row flipped
+        // back to running with no record → a re-run double-writes).
+        if (dispatchCancelled()) {
+          stopBeat();
+          console.log(
+            `remote-run: dispatch of "${job.name}" cancelled before sbatch (reset or delete) — nothing submitted (t341)`
+          );
+          return;
+        }
         // t304 — the pipeline handoff: upstream jobs still in flight on THIS
         // connection contribute their slurmIds to --dependency=afterok, so
         // the scheduler orders the pipeline (the child sits PENDING — the
@@ -2739,6 +2832,23 @@ export async function startRemoteJob(args: {
         }
         const slurmId = idMatch[1];
 
+        // t341 — cancelled BETWEEN the pre-check and the controller's
+        // answer? The sbatch exists now; kill it before standing down —
+        // an orphaned PENDING/RUNNING job in a workdir whose owner row
+        // says idle is exactly the ghost this fence exists for.
+        if (dispatchCancelled()) {
+          try {
+            await exec(conn, `scancel ${shQuote(slurmId)} 2>/dev/null || true`, { timeoutMs: 15_000 });
+          } catch {
+            /* best effort — the orphan sweep reconciles the rest */
+          }
+          stopBeat();
+          console.log(
+            `remote-run: dispatch of "${job.name}" was cancelled as sbatch ${slurmId} landed — scancel'd, the row stays untouched (t341)`
+          );
+          return;
+        }
+
         await updateRun(job.id, (rec) =>
           rec.startedAt === record.startedAt && rec.remote
             ? {
@@ -2760,8 +2870,14 @@ export async function startRemoteJob(args: {
               }
             : null
         );
-        await db.job.update({
-          where: { id: job.id },
+        // t341 — the flip is CONDITIONAL: only a row still in its dispatch
+        // lifecycle (pending=staging / running=sync spawn) may be told the
+        // submission landed. A row the user reset to idle (or deleted and
+        // restored, or that a cancel path already failed) must stay as the
+        // user left it — the old unconditional update was the ghost's
+        // second face (the row flipped BACK to running with no record).
+        await db.job.updateMany({
+          where: { id: job.id, status: { in: ["pending", "running"] } },
           data: { status: "running", progress: 0, result: null, startedAt: new Date(startedAtMs) },
         });
         stopBeat();
@@ -2785,6 +2901,16 @@ export async function startRemoteJob(args: {
         const upOk = await remoteUpload(conn, wrapper, wrapperPath);
         if (!upOk) throw new Error(`could not upload the run script to ${wrapperPath}`);
 
+        // t341 — the direct lane's own pre-spawn fence (the slurm lane
+        // checks at its own door above)
+        if (dispatchCancelled()) {
+          stopBeat();
+          console.log(
+            `remote-run: dispatch of "${job.name}" cancelled before spawn (reset or delete) — nothing launched (t341)`
+          );
+          return;
+        }
+
         const runRes = await exec(conn, `bash ${shQuote(wrapperPath)}`, { timeoutMs: 30_000 });
         const pidMatch = /CRYOFLOW_PID:(\d+)/.exec(runRes.stdout);
         if (!pidMatch) {
@@ -2796,6 +2922,27 @@ export async function startRemoteJob(args: {
           throw new Error(`the cluster refused to start the job: ${why}`);
         }
         const pid = Number(pidMatch[1]);
+
+        // t341 — cancelled as the wrapper answered? Kill the process
+        // group (the wrapper setsid's, so -PID is the group) before
+        // standing down — a live cluster process whose owner row says
+        // idle is the direct-mode ghost.
+        if (dispatchCancelled()) {
+          try {
+            await exec(
+              conn,
+              `kill -TERM -- -${pid} 2>/dev/null; sleep 1; kill -KILL -- -${pid} 2>/dev/null; true`,
+              { timeoutMs: 15_000 }
+            );
+          } catch {
+            /* best effort — the orphan sweep reconciles the rest */
+          }
+          stopBeat();
+          console.log(
+            `remote-run: dispatch of "${job.name}" was cancelled as cluster pid ${pid} spawned — killed, the row stays untouched (t341)`
+          );
+          return;
+        }
 
         await updateRun(job.id, (rec) =>
           rec.startedAt === record.startedAt && rec.remote
@@ -2815,8 +2962,9 @@ export async function startRemoteJob(args: {
               }
             : null
         );
-        await db.job.update({
-          where: { id: job.id },
+        // t341 — same conditional flip as the slurm lane above
+        await db.job.updateMany({
+          where: { id: job.id, status: { in: ["pending", "running"] } },
           data: { status: "running", progress: 0, result: null, startedAt: new Date(startedAtMs) },
         });
         stopBeat();
@@ -2827,6 +2975,17 @@ export async function startRemoteJob(args: {
     } catch (e) {
       stopBeat();
       const msg = e instanceof Error ? e.message : String(e);
+      // t341 — a CANCELLED dispatch's failure is not the row's business:
+      // the user reset/deleted it mid-staging and the row already says
+      // so — writing "remote run failed" over their reset (or a delete's
+      // successor) was the ghost race's failure-path twin. Only a live
+      // dispatch of ours may fail the row.
+      if (dispatchCancelled()) {
+        console.log(
+          `remote-run: cancelled dispatch of "${job.name}" failed during staging (${msg}) — the row stays untouched (t341)`
+        );
+        return;
+      }
       // finalize the record (done=true) — a !done record would otherwise be
       // polled by the heal path forever with no pid and no exit file
       await updateRun(job.id, (rec) =>
@@ -3618,8 +3777,17 @@ async function finalizeRemoteRun(
     const meaning = silentDeath
       ? "RELION printed no error — the run ended silently mid-job"
       : describeExitCode(exitCode);
+    // t341 — the note used to be one string tuned for DIRECT-mode deaths,
+    // so a Slurm job that died silently was told "multi-hour jobs belong
+    // in Slurm mode" — advice for a lane it was already in (the field
+    // report's exact receipt). Split by the record's own mode: the Slurm
+    // suspects are the node's OOM killer, a walltime, or a scancel, and
+    // the receipt points at sacct + the diagnosis strip instead of the
+    // login-node reaper story.
     const silentDeathNote = silentDeath
-      ? "no error text in the visible run.out/run.err tails (the rescue fetched the cluster's copy when the local one was empty): an external kill is the usual cause — the login node's CPU-job reaper (long direct-mode runs), the OOM killer, or a walltime. Multi-hour jobs belong in Slurm mode; sacct -j <jobid> and the job directory hold the cluster's own record"
+      ? r.mode === "slurm"
+        ? `no error text in the visible run.out/run.err tails: an external kill is the usual cause — the node's OOM killer, a walltime, or a scancel (check the cluster's own record: sacct -j ${r.slurmId ?? "<jobid>"} names the state; the failure diagnosis below matches the full run.out for known signatures like a CUDA out-of-memory)`
+        : "no error text in the visible run.out/run.err tails (the rescue fetched the cluster's copy when the local one was empty): an external kill is the usual cause — the login node's CPU-job reaper (long direct-mode runs), the OOM killer, or a walltime. Multi-hour jobs belong in Slurm mode; sacct -j <jobid> and the job directory hold the cluster's own record"
       : "";
     result = [
       `REMOTE[${r.user}@${r.host.split(":")[0]}]: exit ${exitCode}${meaning ? ` (${meaning})` : ""}`,
@@ -3653,18 +3821,27 @@ async function finalizeRemoteRun(
     remote: mapLocalToRemote(v, r.remoteRoot),
   }));
   if (twinCandidates.length > 0) {
+    // t341 — the echo payload is the INDEX, never the path: a login shell
+    // (or a test rig) that rewrites path-shaped strings inside the command
+    // used to break the round-trip ("OK /projects/…" came back translated,
+    // the ok-set never matched, and every run finalized with EMPTY twins —
+    // downstream dispatches re-uploaded inputs the cluster already held).
+    // t324's lazy probe already speaks key-payload dialect (CF_TWIN\tkey);
+    // this closes the same hole on the finalize leg. An index also keeps
+    // the script short at any path length.
     const statScript = twinCandidates
-      .map((c) => `if [ -e ${shQuote(c.remote)} ]; then echo "OK ${shQuote(c.remote)}"; fi`)
+      .map((c, i) => `if [ -e ${shQuote(c.remote)} ]; then echo "OK ${i}"; fi`)
       .join("; ");
     const stat = await exec(conn, statScript, { timeoutMs: 20_000 });
-    const okSet = new Set(
+    const okIdx = new Set(
       stat.stdout
         .split("\n")
-        .filter((l) => l.startsWith("OK "))
-        .map((l) => l.slice(3).trim().replace(/^"|"$/g, ""))
+        .map((l) => l.trim())
+        .filter((l) => /^OK \d+$/.test(l))
+        .map((l) => Number(l.slice(3)))
     );
-    for (const c of twinCandidates) {
-      if (okSet.has(c.remote)) remoteOutputs[c.key] = c.remote;
+    for (let i = 0; i < twinCandidates.length; i++) {
+      if (okIdx.has(i)) remoteOutputs[twinCandidates[i].key] = twinCandidates[i].remote;
     }
   }
 

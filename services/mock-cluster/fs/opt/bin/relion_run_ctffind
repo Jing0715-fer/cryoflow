@@ -99,7 +99,17 @@ for n, mic in enumerate(mics, 1):
 os.makedirs(outdir, exist_ok=True)
 out = os.path.join(outdir, "micrographs_ctf.star")
 with open(out, "w") as fh:
-    fh.write("\ndata_\n\nloop_\n")
+    # E2E extension (2026-09 review): REAL relion_run_ctffind (RELION 5)
+    # writes the optics dialect — data_optics FIRST, then data_micrographs.
+    # The old single data_ block made extract's t334 array-split guard
+    # (correctly!) refuse the split ("single data block — every row to every
+    # shard"). Real ctffind output carries the optics group; this now does
+    # too, so the star stays splittable exactly like the real binary's.
+    fh.write("\ndata_optics\n\nloop_\n")
+    fh.write("_rlnOpticsGroup #1\n")
+    fh.write("_rlnOpticsMicrographPixelSize #2\n")
+    fh.write("1 1.77\n")
+    fh.write("\ndata_micrographs\n\nloop_\n")
     fh.write("_rlnMicrographName #1\n")
     fh.write("_rlnDefocusU #2\n")
     fh.write("_rlnDefocusV #3\n")

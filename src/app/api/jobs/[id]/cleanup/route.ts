@@ -425,7 +425,11 @@ async function executeCleanup(
       };
     } else {
       const workdir = record.remote.remoteWorkdir;
-      const listing = await listRemoteWorkdir(conn, workdir, { bypassCache: true });
+      // t341 — publish:false: this re-list photographs the workdir right
+      // before the DELETEs below mutate it; caching the snapshot would
+      // mute the next plan GET for a whole TTL (the review's cache-
+      // pollution finding)
+      const listing = await listRemoteWorkdir(conn, workdir, { bypassCache: true, publish: false });
       if (!listing.ok) {
         remoteSide = {
           deleted: 0,

@@ -1,13 +1,20 @@
 #!/usr/bin/env bash
 # mock scancel for the CryoFlow mock cluster (t297)
 # Kills the launcher's process group (TERM then KILL) like the real thing.
+#
+# t341 — -n/--name: cancel every job whose #SBATCH --job-name matches
+# (real scancel's own door; the app's dispatch now reaps stale same-name
+# submissions through it before submitting a fresh one). Job names live in
+# ~/.slurm/job-<id>.name (the sbatch stub writes them), so the scan is a
+# glob + read, and each match rides the SAME cancel path as an explicit id
+# (cancelled marker, CANCELLED accounting row with the job's own start
+# epoch, group kill, state purge).
 set -u
 SLURM_DIR="$HOME/.slurm"
-for id in "$@"; do
-  case "$id" in
-    -*) continue ;;
-  esac
-  pinfo="$(cat "$SLURM_DIR/job-$id.pid" 2>/dev/null)" || { echo "scancel: error: Invalid job id specified" >&2; continue; }
+
+cancel_one() {
+  local id="$1"
+  pinfo="$(cat "$SLURM_DIR/job-$id.pid" 2>/dev/null)" || { echo "scancel: error: Invalid job id specified" >&2; return; }
   pid="$(echo "$pinfo" | awk '{print $2}')"
   st="$(echo "$pinfo" | awk '{print $3}')"
   if [ -n "$pid" ] && [ -r "/proc/$pid/stat" ] && [ "$(awk '{print $22}' /proc/$pid/stat 2>/dev/null)" = "$st" ]; then
@@ -29,5 +36,44 @@ for id in "$@"; do
   else
     echo "scancel: error: Job $id has already finished" >&2
   fi
+}
+
+# ---- argument grammar: [ids...] and/or -n <name> / --name=<name> ---------
+names=()
+ids=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -n|--name)
+      [ $# -ge 2 ] && names+=("$2") && shift
+      ;;
+    --name=*)
+      names+=("${1#--name=}")
+      ;;
+    -*)
+      # other options (e.g. -u user, -t) are swallowed like the real
+      # scancel's irrelevant-here flags
+      ;;
+    *)
+      ids+=("$1")
+      ;;
+  esac
+  shift
 done
+
+for id in "${ids[@]}"; do
+  cancel_one "$id"
+done
+
+# t341 — cancel by NAME: every job whose recorded --job-name matches
+for want in "${names[@]}"; do
+  [ -n "$want" ] || continue
+  for nf in "$SLURM_DIR"/job-*.name; do
+    [ -f "$nf" ] || continue
+    have="$(cat "$nf" 2>/dev/null || true)"
+    [ "$have" = "$want" ] || continue
+    jid="$(basename "$nf" | sed 's/^job-//; s/\.name$//')"
+    cancel_one "$jid"
+  done
+done
+
 exit 0
