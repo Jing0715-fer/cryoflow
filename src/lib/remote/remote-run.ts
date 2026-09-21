@@ -2855,7 +2855,17 @@ export async function startRemoteJob(args: {
       // world — the submit re-tests the wire); an rm failure REFUSES the
       // dispatch: proceeding into stale files is the exact crash this
       // blade exists to kill.
+      //
+      // t344 — the rm's own budget: the second field report refused the
+      // re-run with "batch 1: SSH failed (timeout after 30000ms)" on a
+      // login node that had answered the LISTING one round earlier inside
+      // 25s — the wire was fine, the deletion was merely SLOW (a loaded
+      // head unlinking hundreds of stacks on network storage). The wipe
+      // now carries a 3-minute-per-batch budget plus one fresh-wire
+      // retry (deleteRemoteFiles's ladder: an SSH-level death re-dials
+      // the pooled connection before re-running the idempotent rm -f).
       {
+        const WIPE_RM_TIMEOUT_MS = 180_000;
         const wipeListing = await listRemoteWorkdir(conn, remoteWorkdir, {
           bypassCache: true,
           // t341 — read LIVE, don't PUBLISH: this listing photographs the
@@ -2873,10 +2883,14 @@ export async function startRemoteJob(args: {
         } else if (wipeListing.entries.length > 0) {
           const { wipe: wipeRels } = classifyRerunWipe(wipeListing.entries);
           if (wipeRels.length > 0) {
-            const rm = await deleteRemoteFiles(conn, remoteWorkdir, wipeRels);
+            const rm = await deleteRemoteFiles(conn, remoteWorkdir, wipeRels, {
+              timeoutMs: WIPE_RM_TIMEOUT_MS,
+              retries: 1,
+            });
             if (rm.errors.length > 0) {
               throw new Error(
-                `could not clear the previous run's files on ${conn.host} (${rm.errors[0]}) — a re-run into stale outputs is refused (RELION would die writing into them); fix the cluster access and run again`
+                `could not clear the previous run's files on ${conn.host} (${rm.errors[0]}) — a re-run into stale outputs is refused (RELION would die writing into them). ` +
+                  `The wipe waited out a ${Math.round(WIPE_RM_TIMEOUT_MS / 1000)}s budget per batch and retried once on a fresh connection; if it still fails, the login node is too slow or down right now — ssh in by hand and try again in a moment`
               );
             }
             await pruneRemoteEmptyDirs(conn, remoteWorkdir);

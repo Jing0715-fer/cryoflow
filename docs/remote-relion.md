@@ -1398,3 +1398,64 @@ contract); a gone twin produces the lane-named note while the job fails
 fast at relion's own missing-input door; and a foreign-cluster record
 takes the upload lane with a byte-level witness — the marker line from
 the local copy lands in the cluster file.
+
+## 4u. The wipe's real budget, and the poison caught before the burn (t344)
+
+Two field reports, one recovery chain:
+
+1. **the 2D classification died mid-run** on
+   `readMRC: Image number 383 exceeds stack size 382` (rwMRC.h, inside
+   `initialiseSigma2Noise`) — the upstream extraction had COMPLETED, yet
+   its particles.star numbers one image past a stack's true NZ. This is
+   the t338 gate's exact shape; the gate did not fire because the user's
+   build predated t342/t343's lane-aware star read (the receipt said
+   `particles star unreadable (no local copy, cluster cat failed)` — the
+   retired wording). On current code the twin lane reads the star in
+   place, the header sniffer judges every stack ON THE CLUSTER, and the
+   dispatch is refused with the exact numbers relion would die on —
+   before any queue or GPU time is spent. The refusal's remedy names the
+   move: re-run the upstream extraction.
+2. **the re-run was then refused** by
+   `could not clear the previous run's files … (batch 1: SSH failed
+   (timeout after 30000ms))` — the t333 wipe's rm carried a 30s
+   per-batch budget, and a login node that had just answered the
+   LISTING inside 25s was not broken, merely SLOW (a loaded head
+   unlinking hundreds of stacks on network storage). The wipe now rides
+   `deleteRemoteFiles`'s new budget + retry ladder:
+
+   - **180s per batch** for the dispatch's pre-run wipe (the interactive
+     cleanup dialog gets 120s) — a deletion that takes a minute is a
+     deletion, not an outage.
+   - **one fresh-wire retry** per batch on SSH-level failures (timeout,
+     a channel that died mid-command): the pooled connection is dropped
+     and re-dialed before the idempotent `rm -f` re-runs — a half-dead
+     TCP session after a GPU storm is the field shape, and the first
+     thing a fresh SSH session fixes is exactly that. rm's OWN exit
+     codes are never retried (a filesystem complaint does not heal with
+     a redial).
+   - **no serial grinding**: a batch that exhausts its wire attempts
+     stops the pass — the remaining batches are named in the refusal
+     (`the remaining N batch(es) were not attempted`). With the old
+     loop, ten batches at the new budget would have ground for an hour.
+
+The refusal message itself now says what actually happened: the budget
+it waited out, the retry it made, and the hand check to run (`ssh in by
+hand and try again in a moment`) — replacing the old "fix the cluster
+access", which pointed at a cluster that was fine.
+
+The duplicated log lines in the field report are not an app bug:
+`mpirun -n 2` has BOTH ranks print the banner and both hit the same
+readMRC error (the backtraces carry different libc addresses — two
+processes, two prints).
+
+Verified by `e2e-review/run-9-wipe-budget-poison-gate.mjs` (31
+assertions, all green), on two new mock levers (`~/.slurm/rm-slow-ms`
+and the one-shot `rm-channel-close`, both witness-logged): a 35s rm —
+over the old 30s budget, inside the new one — no longer refuses the
+re-run; a channel that dies without a verdict retries on a fresh
+connection and completes; a star row bumped past its stack's NZ is
+refused at dispatch with `references image 11 … but that stack holds 10
+image(s)` and a zero-row slurm accounting; and the user's recovery path
+is walked end-to-end — re-run extract (the wipe clears the poisoned
+generation), then the SAME class2d dispatch completes with the
+`verified against their stacks' own MRC headers` receipt.

@@ -25,7 +25,7 @@
  */
 
 import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { generateKeyPairSync } from "node:crypto";
@@ -174,6 +174,52 @@ function normalizeSignal(name) {
   let sig = String(name ?? "").toUpperCase();
   if (!sig.startsWith("SIG")) sig = `SIG${sig}`;
   return KNOWN_SIGNALS.has(sig) ? sig : "SIGTERM";
+}
+
+// ---------------------------------------------------------------------------
+// t344 — wipe-torture levers (~/.slurm, the same convention the nvidia-smi
+// stub reads): the E2E suite reproduces the field report
+// "could not clear the previous run's files … (batch 1: SSH failed (timeout
+// after 30000ms))" without owning a slow login node.
+//   rm-slow-ms       — every batched `rm -f --` sleeps N ms before running
+//                      (a deletion that is SLOW, not broken — the listing
+//                      answered fine moments earlier, exactly the field
+//                      shape)
+//   rm-channel-close — ONE-SHOT: the next batched rm's channel closes
+//                      WITHOUT an exit, so the app sees the SSH-level
+//                      "channel closed before exit" error and must retry
+//                      on a fresh connection; the lever file consumes
+//                      itself when it fires
+// Both append a witness line to rm-lever.log so the suite can prove the
+// torture actually fired (a green job alone could also mean the lever
+// never matched anything).
+// ---------------------------------------------------------------------------
+const LEVER_DIR = join(FS_ROOT, "home/cryo/.slurm");
+
+function leverLog(line) {
+  try {
+    appendFileSync(join(LEVER_DIR, "rm-lever.log"), `${Date.now()} ${line}\n`);
+  } catch {
+    /* best effort — the lever is the test's own instrument */
+  }
+}
+
+/** Does this exec carry a BATCHED rm (deleteRemoteFiles's exact shape)?
+ * Only that shape matches — the t318 fence rm (`rm -f <workdir>/.cf-exit …`)
+ * and scratch rms inside sbatch scripts never carry the `--`. */
+function isBatchedRm(cmd) {
+  return cmd.includes("rm -f --");
+}
+
+/** Inject the slowdown lever into a (translated) command. */
+function applyRmSlowLever(cmd) {
+  if (!isBatchedRm(cmd)) return cmd;
+  const lever = join(LEVER_DIR, "rm-slow-ms");
+  if (!existsSync(lever)) return cmd;
+  const ms = Number(readFileSync(lever, "utf8").trim()) || 0;
+  if (ms <= 0) return cmd;
+  leverLog(`slow ${ms}ms`);
+  return cmd.replace("rm -f --", `sleep ${(ms / 1000).toFixed(3)}; rm -f --`);
 }
 
 function safeWrite(writable, data) {
@@ -451,7 +497,17 @@ function handleSession(session) {
     try {
       const raw = String(info?.command ?? "");
       log(`exec: ${raw}`);
-      const translated = translateCommand(raw);
+      // t344 — the one-shot channel-kill lever: the app's wipe rm meets a
+      // channel that dies without a verdict (the SSH-level error the retry
+      // ladder exists for). Consumed on first fire.
+      if (isBatchedRm(raw) && existsSync(join(LEVER_DIR, "rm-channel-close"))) {
+        try { rmSync(join(LEVER_DIR, "rm-channel-close")); } catch { /* already gone */ }
+        leverLog("channel-close");
+        log("exec: rm-channel-close lever fired — closing the channel without an exit");
+        try { stream.close(); } catch { /* ignore */ }
+        return;
+      }
+      const translated = applyRmSlowLever(translateCommand(raw));
       if (process.env.CF_MOCK_DEBUG) log(`exec-translated: ${translated.slice(0, 200)}`);
       activeProc = runCommand(stream, ["-c", translated], { onFinish: clearActive });
     } catch (err) {

@@ -455,7 +455,15 @@ async function executeCleanup(
         let manifestRewritten = false;
         const errors: string[] = [];
         if (planned.length > 0) {
-          const rm = await deleteRemoteFiles(conn, workdir, planned);
+          // t344 — the same budget the dispatch wipe rides: a slow rm on a
+          // loaded login node is not a broken one (the field report timed
+          // out at 30s while the listing had just answered), so the
+          // interactive cleanup waits out 2 minutes per batch and retries
+          // once on a fresh connection before reporting the failure
+          const rm = await deleteRemoteFiles(conn, workdir, planned, {
+            timeoutMs: 120_000,
+            retries: 1,
+          });
           deleted = rm.deleted;
           errors.push(...rm.errors);
           if (rm.deleted > 0) {

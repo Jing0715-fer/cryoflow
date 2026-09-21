@@ -22,7 +22,7 @@
 
 import type { RemoteConnection } from "./types";
 import { getConnection, loadConnections } from "./connections";
-import { exec, loginShellScript, shSingleQuote } from "./ssh";
+import { dropConnection, exec, loginShellScript, shSingleQuote } from "./ssh";
 import { normalizeClusterHost } from "@/lib/relion/engine";
 import type { RunRecord } from "@/lib/relion/engine";
 import type { CleanupFileEntry } from "@/lib/hpc/cleanup";
@@ -201,39 +201,104 @@ export function dropRemoteListingCache(connId: string, workdir: string): void {
  * shell's arg space; 200 quoted paths ≈ tens of KB — comfortably inside). */
 const RM_BATCH = 200;
 
+export interface DeleteRemoteFilesOpts {
+  /** Per-batch SSH budget. Callers keep their own pace: the interactive
+   * cleanup dialog inherits the historic 30s default; the dispatch's
+   * pre-run wipe passes a far longer one (t344) — a loaded login node
+   * unlinking hundreds of stacks on network storage is a legitimately SLOW
+   * rm, not a broken one (the field report: "batch 1: SSH failed (timeout
+   * after 30000ms)" while the listing one round earlier had answered
+   * inside 25s — the wire was fine, the deletion was just not instant). */
+  timeoutMs?: number;
+  /** Extra attempts per batch when the WIRE itself fails (timeout, a
+   * channel that died mid-command, a wedged pooled connection). `rm -f`
+   * is idempotent — a re-run on a fresh connection re-deletes nothing
+   * that is already gone. rm's OWN exit codes are never retried: a real
+   * filesystem complaint (permissions, arg limits) does not heal with a
+   * redial. */
+  retries?: number;
+}
+
 /**
  * Delete workdir-RELATIVE paths on the cluster. Batched `rm -f --`
  * (single-quoted, `--` guarded); a vanished file is a skip, not an error
  * (rm -f's own semantics). Returns per-batch failures verbatim.
+ *
+ * t344 — the retry ladder: an SSH-level failure gets `retries` more
+ * attempts, each on a FRESH wire (dropConnection → the next exec re-dials):
+ * a half-dead pooled TCP connection is the field shape after a GPU storm
+ * buries the login node, and the first thing a fresh SSH session fixes is
+ * exactly that. Exit 3 (workdir gone) ends the whole pass — nothing is
+ * left to delete. When a batch exhausts its wire attempts the REMAINING
+ * batches are not attempted: a wire that cannot carry one rm cannot carry
+ * the next, and one honest refusal now beats ten serial three-minute
+ * timeouts (the old loop ground through every batch's 30s individually;
+ * with a 180s budget that grind becomes an hour).
  */
 export async function deleteRemoteFiles(
   conn: RemoteConnection,
   workdir: string,
-  relPaths: string[]
+  relPaths: string[],
+  opts: DeleteRemoteFilesOpts = {}
 ): Promise<{ deleted: number; errors: string[] }> {
+  const timeoutMs = opts.timeoutMs ?? 30_000;
+  const retries = Math.max(0, Math.min(3, opts.retries ?? 0));
   const errors: string[] = [];
   let deleted = 0;
   for (let base = 0; base < relPaths.length; base += RM_BATCH) {
+    const batchNo = base / RM_BATCH + 1;
     const batch = relPaths.slice(base, base + RM_BATCH);
     const script = [
       `cd ${shSingleQuote(workdir)} 2>/dev/null || exit 3`,
       `rm -f -- ${batch.map((p) => shSingleQuote(p)).join(" ")}`,
     ].join("\n");
-    try {
-      const r = await exec(conn, loginShellScript(script), { timeoutMs: 30_000 });
-      if (r.error) {
-        errors.push(`batch ${base / RM_BATCH + 1}: SSH failed (${r.error})`);
-      } else if (r.code === 3) {
-        errors.push(`batch ${base / RM_BATCH + 1}: workdir unreachable on ${conn.host}`);
-        break;
-      } else if (r.code !== 0) {
-        const line = (r.stderr || "").split("\n").map((l) => l.trim()).find(Boolean);
-        errors.push(`batch ${base / RM_BATCH + 1}: ${line ?? `rm exited ${r.code}`}`);
-      } else {
-        deleted += batch.length;
+    let wireError: string | null = null;
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      if (attempt > 0) {
+        // fresh wire first: the timeout/channel death usually means the
+        // POOLED connection is half-gone — re-dial before re-running, or
+        // the retry queues behind the same dead socket and dies identically
+        dropConnection(conn.id);
+        await new Promise((r) => setTimeout(r, 400));
       }
-    } catch (e) {
-      errors.push(`batch ${base / RM_BATCH + 1}: ${e instanceof Error ? e.message : String(e)}`);
+      try {
+        const r = await exec(conn, loginShellScript(script), { timeoutMs });
+        if (r.error) {
+          wireError = `SSH failed (${r.error})`;
+          continue; // the wire's own word — try again on a fresh connection
+        }
+        if (r.code === 3) {
+          errors.push(`batch ${batchNo}: workdir unreachable on ${conn.host}`);
+          return { deleted, errors }; // the workdir is GONE — nothing left to delete
+        }
+        if (r.code !== 0) {
+          const line = (r.stderr || "").split("\n").map((l) => l.trim()).find(Boolean);
+          errors.push(`batch ${batchNo}: ${line ?? `rm exited ${r.code}`}`);
+          wireError = null; // rm's own word — recorded once, never retried
+          break;
+        }
+        deleted += batch.length;
+        wireError = null;
+        break;
+      } catch (e) {
+        wireError = e instanceof Error ? e.message : String(e);
+        continue;
+      }
+    }
+    if (wireError != null) {
+      errors.push(
+        `batch ${batchNo}: ${wireError}` +
+          (retries > 0 ? ` — after ${retries + 1} attempt(s), the last on a fresh connection` : "")
+      );
+      // the wire is not answering: do not grind the remaining batches
+      // through the same dead socket — refuse with the count named
+      const skipped = Math.ceil((relPaths.length - base - batch.length) / RM_BATCH);
+      if (skipped > 0) {
+        errors.push(
+          `the remaining ${skipped} batch(es) were not attempted (the connection is not answering)`
+        );
+      }
+      break;
     }
   }
   return { deleted, errors };
