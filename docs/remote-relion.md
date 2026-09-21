@@ -940,6 +940,7 @@ job's Results/Files tab, on the cluster).
 | array split over a single-block STAR | refused before staging: the slicer would hand EVERY row to EVERY shard (the optics pass-through is per-block) — run with the Array split at 1 (t334) |
 | shard cannot slice its input (`awk` unreadable) | the old silent whole-STAR `cp` fallback is dead: the task fails with `CRYOFLOW_ERR: could not slice the input STAR …` in run.err and `.cf-exit=111` — a spoken verdict, not a 20-minute write race (t334) |
 | 2D/3D classification dies at `readMRC: Image number N exceeds stack size M` | the upstream extraction COMPLETED with a lying star (same-stem rows in ITS input wrote one stack; the later writer truncated the earlier's images) — the consumer-side gate (t338) now refuses such a star at dispatch with the exact numbers and the remedy; the Log tab's diagnosis names the mechanism for the runs that already died |
+| the run freezes at `Expectation iteration 1` with `WARNING: Ignoring required free GPU memory amount of 800 MB` and every rank banner says `devices 0` | extinct at the source (t342): the sbatch script CLAMPS the MPI rank count to the GPUs the node actually exposes at launch (a `--gres` width is a request; a node without gres accounting never enforces it — two ranks on one card exhaust its memory), and a card below 1000 MB free BEFORE RELION starts is refused with the holder PIDs printed (`nvidia-smi --query-compute-apps`) — exit 98, one second, names, instead of an hour of frozen iterations; the Log tab's diagnosis reads RELION's own warning line for the runs that already died |
 | extraction stacks filling the laptop | by design, not a failure: under key-files, extract/motioncorr/polish sync TEXT ONLY — the stacks stay on the cluster (listed in Results, fetchable on demand, downstream cluster jobs chain in place); the receipt says so; switch the connection to "everything" to bring them home, or run the inspector's local-only Bulk cleanup on mirrors from before t339 (t339) |
 | a long cs → star / import first flips FAILED (`stale running state (no engine record)`) then COMPLETED, with no log mid-run | extinct at the source (t340): the marathon natives write an IN-FLIGHT run record from second zero (pid = the server, the sweep's liveness word) and speak phase lines into `run.out` as they go — the row stays RUNNING with a live log until the completion overwrite lands |
 
@@ -1283,3 +1284,54 @@ The cs → star output question that rode along (「这个job转换的文件存�
 `ln -sfn` links under the cluster's project `micrographs/`), and a
 downstream remote job stages the local star up automatically when it
 dispatches — the t336 E2E proved the whole chain.
+
+## 4s. One rank per card, and never into a starved card (t342)
+
+The follow-up field report (a 50-class 2D classification, after the OOM
+ticket's class-count cut): the job stopped moving at
+`Expectation iteration 1 of 20`. RELION's own banner held the whole
+story —
+
+```
+WARNING: Ignoring required free GPU memory amount of 800 MB,
+due to space insufficiency.
+```
+
+— and every rank banner read `Will distribute threads over devices 0`:
+TWO MPI ranks had landed on ONE card. The `#SBATCH --gres=gpu:2` width
+is a REQUEST; on clusters without gres accounting the scheduler never
+checks it against the node's real card count, both ranks resolved to
+device 0, and the card additionally carried a stale allocation from the
+earlier OOM'd attempt. RELION's answer to a card below its 800 MB floor
+is to PROCEED (the warning literally says "Ignoring") and then thrash or
+deadlock in the first Expectation sweep — a hang with no error tail.
+
+Two blades, both runtime-side where the node's own truth is visible
+(inside the sbatch script, after the t341 pin block):
+
+1. **The rank clamp.** The MPI rank count and the `--gpu` device list
+   are the script's own `CF_RANKS`/`CF_GPU_LIST` variables. At launch
+   the script counts the GPUs the node exposes (`nvidia-smi -L`) and
+   clamps the rank count to the card count — two ranks on one card
+   becomes structurally impossible, and the clamp narrates itself into
+   `run.out` (`CRYOFLOW_NOTE: … clamping the rank count …`). No
+   `nvidia-smi` on the node → no clamp, the run proceeds exactly as
+   before (unverifiable ≠ refused, the t313 rule).
+2. **The starved-card refusal.** Before RELION starts, the script asks
+   the devices this job would use (the `CUDA_VISIBLE_DEVICES` grant —
+   or devices `0..CF_RANKS-1` where the cluster does not isolate) how
+   much memory is free. Below 1000 MB — comfortably above RELION's own
+   800 MB floor — the job is REFUSED: the holder PIDs are printed
+   (`nvidia-smi --query-compute-apps`), `.cf-exit` carries 98, and the
+   Log tab's diagnosis names the move (kill/scancel the holders, then
+   re-run). Between 1000 and 2000 MB a note says the card is shared and
+   the run may be slow. The refusal rides only jobs whose argv truly
+   carries `--gpu` — a CPU job that merely HOLDS a gres grant (extract
+   shards, LoG picking) is never refused for a card it would not use.
+
+The reader side grew with it: a resolved input STAR whose local copy is
+missing is now read through every honest cluster-side candidate — the
+upstream's verified twin, the mirror-mapped path, then the path as-is —
+and when all fail, the receipt names the paths TRIED plus the cat's own
+failure word (the old note said only "cluster cat failed"; the field
+report deserved better).

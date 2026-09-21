@@ -677,8 +677,8 @@ try {
   must(/#SBATCH --nodelist=brain2/.test(sbatchC2d), "MPI type — the script carries --nodelist=brain2");
   must(/#SBATCH --gres=gpu:3\b/.test(sbatchC2d), "MPI type — the script carries --gres=gpu:3 (the width IS real here)");
   must(/#SBATCH --ntasks=3\b/.test(sbatchC2d), "MPI type — the script carries --ntasks=3 (one rank per GPU)");
-  must(/mpirun -n 3\b/.test(sbatchC2d), "MPI type — the script wraps mpirun -n 3 (the preview's rank line)");
-  must(/--gpu 0:1:2\b/.test(sbatchC2d), "MPI type — the argv pins --gpu 0:1:2 (the preview's device list)");
+  must(sbatchC2d.includes('CF_RANKS=3') && sbatchC2d.includes('mpirun -n "$CF_RANKS"'), "MPI type — the script wraps mpirun -n \"$CF_RANKS\" with CF_RANKS=3 (the preview's rank line, t342-clamped at launch)");
+  must(sbatchC2d.includes("CF_GPU_LIST='0:1:2'") && sbatchC2d.includes('--gpu "$CF_GPU_LIST"'), "MPI type — the argv pins --gpu \"$CF_GPU_LIST\" with CF_GPU_LIST=0:1:2 (the preview's device list)");
 
   // and the record speaks the same width
   const recC2d = doneC2d?.runRemote ?? {};

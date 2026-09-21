@@ -2928,3 +2928,23 @@ Stage Summary:
 - 用户 2D 分类复机路径: pull → 点 Re-run 即自愈 (reaper 先收割残留 → 大 box 自动降批 → GPU pin 正确寻址); 仍 OOM 时 Batch size 参数 (0=auto) 是一旋钮修法, OOM hint 文案已对齐
 - C1/C3 双高危实证闭环: ghost 四道围栏后不可能提交; delete→undo 链条完整 (record+边+remote twins, reload 亦不失)
 - twins 全空是真 bug (index-payload 修), 顺带 mock 上 t324 零上传链路可测
+---
+Task ID: t342
+Agent: main-agent (Z.ai Code)
+Task: 「最近的一轮修改我还没有测试，但是之前的算2d出现oom，我减少分类从200类到50类后就没有报错，但是看log也一直卡在最开始没有动。CRYOFLOW_NOTE: particles star unreadable (no local copy, cluster cat failed) — the stack-size consistency check did not run」——降到 50 类后不再 OOM 但冻在 Expectation iteration 1; 附 RELION 日志 (Ignoring required free GPU memory 800 MB / 两份 rank 横幅全 "devices 0" / Expectation iteration 1 of 20 卡死)
+
+Work Log:
+- 根因判读 (用户日志逐行): ①两份完全相同的 rank 初始化块 (NrHiddenVariableSamplingPoints=92800=1856×50 两份都是 50 类) = mpirun -n 2 的两个 rank, 且都打印 "Will distribute threads over devices 0" → 两 rank 被钉在同一张卡 (用户集群无 gres 记账, --gres=gpu:2 是请求不落宪, gpu06 单卡节点照收) ②"WARNING: Ignoring required free GPU memory amount of 800 MB" = 卡的空闲显存已低于 RELION 自己的 800MB 底线 (上一轮 OOM 尝试的残留分配压着卡) — RELION 对此的反应是"无视并继续"(字面 Ignoring), 随后在第一个 Expectation sweep 里抖动/死锁 = 用户看到的一小时不动 ③"000/??? sec" 冻结首迭代 = GPU 侧问题, 非文件残留 (t333 担忧的文件面已被排除) ④CRYOFLOW_NOTE (no local copy, cluster cat failed) = t338 消费端闸门读不到 star: resolver 在本地副本缺失时给出的是集群 twin 路径, 老 cat 单路径失败后只留耸肩文案
+- 修复 1 rank↔GPU 收敛 (sbatch 运行时): MPI 宽度 ≥2 的 slurm GPU 作业, argv 的 -n 值与 --gpu 值改为脚本自有变量 CF_RANKS/CF_GPU_LIST; 脚本启动时 nvidia-smi -L 数卡, 可见卡数 < 请求 rank 数 → 钳到卡数 + CF_GPU_LIST 重排 + CRYOFLOW_NOTE 自述; 单 rank 作业保持字面 (字节不变); 无 nvidia-smi → 不钳 (t313 fail-open)
+- 修复 2 饥饿卡拒发 (sbatch 预检): gpuJob (--gpu 真在 argv 上) 启动前按 CUDA_VISIBLE_DEVICES 授予集 (或 0..CF_RANKS-1) 查 memory.free: <1000MB → CRYOFLOW_ERR 两行 + nvidia-smi --query-compute-apps 列占卡 PID + .cf-exit=98 + exit 98 (一秒带名字地失败, 不再一小时无声挂死); 1000-2000MB → NOTE (卡被共享可能慢); 数字守卫 case 防 [N/A]; CPU 作业仅持 gres (extract 分片/LoG) 不拒 (卡非承重)
+- 修复 3 star 读取多候选 (readResolvedStarText): 本地副本缺失时依次 cat 集群侧候选 — 上游已验证 twin → mirror 映射路径 → 原路径 (共享挂载形态); 全败时收据带"试过的路径 + cat 自己的失败词" (login-shell stderr 末行); t335 extract 闸门与 t338 particles 闸门共用; upstreamRemoteTwins 图整体上移至两闸门之前
+- 修复 4 诊断模式两条: gpu-free-memory-warning (RELION 的 Ignoring required free GPU memory 原文 → 占卡 PID 猎杀命令 + rank/卡不匹配 + 新钳制/拒发说明) + gpu-starved-refusal (CryoFlow 自己的拒发行); 签名表优先于 silent-death 尸检 (用户冻结日志的首条发现 = 显存饥饿, 不再是泛型"无声死亡")
+- mock: fs/opt/bin/nvidia-smi 桩 (-L 列表数/--id 查 free/--query-compute-apps 假 holder), ~/.slurm 杠杆 gpu-count(默认8)/gpu-free-mb(默认20000)/gpu-holders — 默认值保证其余套件零影响; 纯测试基建, 应用代码零改动
+- E2E 回归全绿 (七套 282 断言): run-1 106/106 (EMPIAR 全链 104s) · run-2 48/48 · run-3 25/25 · run-4 23/23 (reaper 回归) · run-5 27/27 · run-6 28/28 (断言更新至变量形态+拒发块) · run-7 新增 25/25 (钳制/拒发/无本地副本 star 三幕: 1 卡节点钳宽度 2 → CRYOFLOW_NOTE 自述+完成; gpu-free-mb=400+假 PID 31337 → 1 秒失败 exit 98+PID 点名; 删本地 particles_star → twin 读取+"verified" 收据, "unreadable→did not run" 绝迹)
+- diag 三套: t342 新增 ALL GREEN (用户原句警告→签名命中+hint 两杠杆; 拒发行→独自命中; 冻结形态→签名压过尸检; 健康初始化→零误报) · t326/t337 更新断言后 ALL GREEN
+- tsc 0 错; eslint 15 项全存量 (零新增); docs §4s + 失败目录一行; e2e-review/README 矩阵补 run-7
+
+Stage Summary:
+- 用户复机路径: pull → Reset 卡死作业 → Re-run — reaper 先 scancel 卡死的同名 sbatch; 若卡上还有 Slurm 管不到的孤儿进程, 新预检 1 秒内拒发并点名 PID (不再隐形挂死); rank 钳制保证不再两 rank 挤一卡; 50 类 + 单 rank + 干净卡 = Expectation 该动起来了
+- 用户当前集群手动清理 (一次性): squeue -u <user> 找卡死的 sbatch → scancel; gpu06 上 nvidia-smi --query-compute-apps=pid,process_name,used_memory 列占卡 PID → kill 残留
+- "particles star unreadable" 从耸肩变成自描述: 多候选 + 失败原因入收据; 无本地副本的 star 走 twin 校验 ("verified") 已实证

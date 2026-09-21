@@ -170,6 +170,32 @@ export const LOG_PATTERNS: LogPattern[] = [
     label: "CTF estimation failed on every micrograph",
     hint: "ctffind rejected every micrograph at once — the input itself is the suspect, not the fitting. Check in order: (1) single-section MRCs? NZ>1 means raw frame stacks (run MotionCorr first: Import → MotionCorr → CTF; .eer is always raw) — an MRC's own header settles it, on the cluster run: head -c 16 <file>.mrc | od -An -td4 (NX NY NZ MODE); (2) does this ctffind build read the file mode — float16 / MRC mode 12 needs a recent ctffind, and a bundled 4.1 may predate it; (3) the Import pixel size must match the real data (Falcon 4i: ~0.5 Å unbinned, ~1.0 Å binned ×2); (4) widen ResMin/ResMax if the fit RUNS but finds nothing. The per-micrograph .ctf files and ctffind logs inside the job directory carry the literal error.",
   },
+  {
+    // t342 — RELION's own starvation warning (cuda_mem_utils's free-memory
+    // check): "Ignoring required free GPU memory amount of 800 MB, due to
+    // space insufficiency." RELION PROCEEDS past this line (the warning
+    // literally says "Ignoring") and then thrashes or deadlocks in the
+    // first Expectation sweep — the field report: a 50-class 2D
+    // classification frozen at "Expectation iteration 1 of 20" with TWO
+    // rank banners both pinned to device 0. The card was below RELION's
+    // own 800 MB floor BEFORE the run started: a stale process still
+    // holding it (the earlier OOM'd attempt) and/or more MPI ranks than
+    // the node has cards.
+    id: "gpu-free-memory-warning",
+    re: /Ignoring required free GPU memory amount of \d+ MB/i,
+    label: "GPU memory starvation — the card was below RELION's free-memory floor",
+    hint:
+      "RELION printed this when the card had less free memory than its own 800 MB floor, then went ahead anyway and stalled in the first Expectation step. Two usual causes: (1) a stale run still holds the card — on the node, nvidia-smi --query-compute-apps=pid,process_name,used_memory names the holders; scancel them (squeue -u <user>) or kill the PIDs; (2) more MPI ranks than the node has cards (every rank banner saying \"mapped to device 0\") — run at a GPU width the node can actually back. The dispatch now clamps the rank count to the node's own card count and refuses to launch onto a starved card (exit 98, the holders named in the log) — clear the card, then re-run.",
+  },
+  {
+    // t342 — CryoFlow's own refusal line (the sbatch pre-flight writes it
+    // into run.out and exits 98): the job never reached RELION.
+    id: "gpu-starved-refusal",
+    re: /CRYOFLOW_ERR: only \d+ MB free on the GPU/i,
+    label: "CryoFlow refused to launch — the GPU was already starved",
+    hint:
+      "The pre-flight found less than 1000 MB free on the card(s) this job would use, and refused instead of hanging RELION in its first Expectation step. The lines right below this one list the holder PIDs (nvidia-smi --query-compute-apps) — scancel them (squeue -u <user>) or kill them on the node, then re-run the job.",
+  },
 ];
 
 /** Collapse each line the way the console displays it (\r progress bars →

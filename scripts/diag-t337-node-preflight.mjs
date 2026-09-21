@@ -416,8 +416,9 @@ try {
     "the width CLAMPED 6 → 5 (the node's own scontrol word — the script requests 5, not the refused 6)"
   );
   must(
-    script1?.includes("mpirun -n 5") && script1?.includes("--gpu 0:1:2:3:4"),
-    "the MPI shape follows the clamped width (5 ranks, GPUs 0-4)"
+    script1?.includes('CF_RANKS=5') && script1?.includes('mpirun -n "$CF_RANKS"') &&
+      script1?.includes("CF_GPU_LIST='0:1:2:3:4'") && script1?.includes('--gpu "$CF_GPU_LIST"'),
+    "the MPI shape follows the clamped width (5 ranks, GPUs 0-4 — as the script's own t342 clamp variables)"
   );
   const reqRow1 = await pollUntil(async () => {
     const f = newestReq();

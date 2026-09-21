@@ -224,6 +224,68 @@ function mapRemoteToLocal(remotePath: string, remoteRoot: string): string {
   return remotePath;
 }
 
+/**
+ * t342 — read a resolved input STAR's text wherever it actually lives.
+ *
+ * The field report that made the old single-path cat honest by accident:
+ * the receipt said "particles star unreadable (no local copy, cluster cat
+ * failed) — the stack-size consistency check did not run". A resolved
+ * input that missed the local mirror was cat'd at its RESOLVED path
+ * alone — right when the resolver handed back a live cluster twin
+ * (t324's identity case), wrong when that twin had gone stale (the
+ * connection's remote root moved, a cleanup swept the cluster tree, a
+ * re-run's pre-wipe) while the star itself still sits where the upstream
+ * wrote it. This reader walks the honest candidate list — the upstream's
+ * verified twin, the mirror-mapped cluster path, then the path as-is
+ * (the shared-filesystem shape) — and when every candidate fails it
+ * returns the paths TRIED plus the cat's own failure word, so the
+ * receipt names the actual door instead of a shrug. Unverifiable always
+ * degrades to the note, never a block (the t313 rule).
+ */
+async function readResolvedStarText(
+  conn: RemoteConnection,
+  starPath: string,
+  twins: Map<string, string>,
+  remoteRoot: string
+): Promise<{ text: string | null; tried: string[]; catErr: string | null }> {
+  if (existsSync(starPath)) {
+    try {
+      return { text: readFileSync(starPath, "utf8"), tried: [starPath], catErr: null };
+    } catch {
+      /* an unreadable local copy falls through to the cluster candidates */
+    }
+  }
+  const localNorm = starPath.split(path.sep).join("/");
+  const mirrorRoot = RELION_DIR.split(path.sep).join("/");
+  const candidates: string[] = [];
+  const twin = twins.get(localNorm);
+  if (twin && twin !== localNorm) candidates.push(twin);
+  if (localNorm.startsWith(mirrorRoot + "/")) {
+    const mapped = mapLocalToRemote(starPath, remoteRoot);
+    if (!candidates.includes(mapped)) candidates.push(mapped);
+  }
+  if (!candidates.includes(localNorm)) candidates.push(localNorm);
+  let catErr: string | null = null;
+  for (const cand of candidates) {
+    try {
+      const cat = await exec(conn, `cat ${shSingleQuote(cand)}`, { timeoutMs: 15_000 });
+      if (!cat.error && cat.code === 0) {
+        return { text: cat.stdout, tried: [starPath, ...candidates], catErr: null };
+      }
+      if (catErr == null) {
+        // the exec channel is a LOGIN shell: the .bashrc noise prints
+        // first, the cat's own word lands last — that last line is the
+        // honest reason ("cat: /…: No such file or directory")
+        const why = (cat.stderr || "").trim().split("\n").pop() ?? "";
+        catErr = cat.error ?? `exit ${cat.code}${why ? `: ${why.slice(0, 120)}` : ""}`;
+      }
+    } catch (e) {
+      if (catErr == null) catErr = e instanceof Error ? e.message : String(e);
+    }
+  }
+  return { text: null, tried: [starPath, ...candidates], catErr };
+}
+
 /* ------------------------------------------------------------------ */
 /* Stage map (external local files ↔ cluster _staged paths)            */
 /* ------------------------------------------------------------------ */
@@ -827,6 +889,22 @@ function buildSbatchScript(args: {
   /** t313 — the CTF gate's "allowed" receipt (SBATCH --output captures it) */
   note?: string | null;
   /**
+   * t342 — true when the command the script will run actually carries
+   * --gpu (the GPU is load-bearing): the starved-card refusal and the
+   * rank↔GPU coherence ride only those jobs. A CPU job that merely
+   * HOLDS a --gres grant (extract shards, LoG picking) is never refused
+   * for a busy card it would not have used.
+   */
+  gpuJob?: boolean;
+  /**
+   * t342 — the MPI width the argv asked for (null/1 = no rank pile-up
+   * possible). When ≥2 the rank count and the device list become the
+   * script's own CF_RANKS/CF_GPU_LIST variables, clamped at launch to
+   * the GPUs the node actually exposes — a 1-GPU node must never run
+   * two ranks on its single card.
+   */
+  mpiRanks?: number | null;
+  /**
    * t340 — true when the caller resolved NO partition for an explicit
    * node pin (neither scontrol nor the probe knows the node's home): the
    * script then carries the BARE --nodelist and deliberately names no
@@ -839,7 +917,7 @@ function buildSbatchScript(args: {
    */
   suppressPartition?: boolean;
 }): string {
-  const { conn, module: moduleName, relionHome, ctffind, command, gpus, ntasks, threads, jobName, remoteProjectRoot, remoteWorkdir, partition, nodelist, dependency, array, note, suppressPartition } = args;
+  const { conn, module: moduleName, relionHome, ctffind, command, gpus, ntasks, threads, jobName, remoteProjectRoot, remoteWorkdir, partition, nodelist, dependency, array, note, suppressPartition, gpuJob, mpiRanks } = args;
   // t332/t340 — the partition this sbatch names:
   //   · an explicit pin whose partition the caller RESOLVED → that
   //     partition (scontrol's own word — the dropdown equivalence);
@@ -927,6 +1005,74 @@ function buildSbatchScript(args: {
     L.push('  elif [ -n "${SLURM_JOB_GPUS:-}" ]; then');
     L.push('    export CUDA_VISIBLE_DEVICES="${SLURM_JOB_GPUS}"');
     L.push("  fi");
+    L.push("fi");
+    L.push("");
+  }
+  // ---- t342 — the rank↔GPU coherence + the starved-card refusal --------
+  // The follow-up field report (after the OOM ticket's class-count cut):
+  // the 50-class run stopped moving at "Expectation iteration 1 of 20"
+  // with RELION's own
+  //   WARNING: Ignoring required free GPU memory amount of 800 MB,
+  //   due to space insufficiency.
+  // and TWO rank banners both saying "Will distribute threads over
+  // devices 0" — two MPI ranks had landed on ONE card (the #SBATCH
+  // --gres width is a REQUEST; on clusters without gres accounting the
+  // scheduler does not enforce it against the node's real card count),
+  // and the card additionally carried a stale allocation from the
+  // earlier OOM'd attempt. RELION's answer to a card below its 800 MB
+  // floor is to PROCEED (the warning says "Ignoring") and then thrash
+  // or deadlock in the first Expectation sweep — a hang with no error
+  // tail, exactly what the user watched. Two blades, both runtime-side
+  // where the node's own truth is visible:
+  //   1. the rank count is CLAMPED to the GPUs the node exposes
+  //      (nvidia-smi's own count — a request may lie, the card cannot);
+  //   2. a card below 1000 MB free BEFORE RELION starts is REFUSED with
+  //      the holder PIDs printed (nvidia-smi --query-compute-apps) —
+  //      fail in one second with names, not in an hour with silence.
+  //      RELION's own floor is 800 MB; the margin covers the CUDA
+  //      context + workspace the first allocation wave takes before
+  //      any in-flight check could fire. Both blocks are fail-open: no
+  //      nvidia-smi on the node → nothing to say, the run proceeds
+  //      exactly as before (the t313 rule — unverifiable ≠ refused).
+  if (gpuJob) {
+    if (mpiRanks && mpiRanks > 1) {
+      L.push("# ---- t342: one rank per card — the width the node can actually back ----");
+      L.push(`CF_RANKS=${mpiRanks}`);
+      L.push(`CF_GPU_LIST='${Array.from({ length: mpiRanks }, (_, i) => i).join(":")}'`);
+      L.push('CF_VISIBLE=$(nvidia-smi -L 2>/dev/null | wc -l | tr -d " ")');
+      L.push('if [ "${CF_VISIBLE:-0}" -ge 1 ] && [ "$CF_VISIBLE" -lt "$CF_RANKS" ]; then');
+      L.push('  echo "CRYOFLOW_NOTE: this job asked for $CF_RANKS MPI rank(s) but the node exposes only $CF_VISIBLE GPU(s) — clamping the rank count to the card count (two ranks on one card exhaust its memory and hang the first Expectation step)"');
+      L.push("  CF_RANKS=$CF_VISIBLE");
+      L.push('  CF_GPU_LIST="0"');
+      L.push('  [ "$CF_RANKS" -ge 2 ] && CF_GPU_LIST="$(seq -s: 0 $((CF_RANKS-1)))"');
+      L.push("fi");
+      L.push("");
+    }
+    L.push("# ---- t342: the starved-card refusal (fail in one second, not an hour) ----");
+    L.push("if command -v nvidia-smi >/dev/null 2>&1; then");
+    L.push('  CF_CHECK_IDS=""');
+    L.push('  if [ -n "${CUDA_VISIBLE_DEVICES:-}" ]; then');
+    L.push('    CF_CHECK_IDS="$(echo "$CUDA_VISIBLE_DEVICES" | tr -d " " | cut -d, -f1-${CF_RANKS:-1})"');
+    L.push("  else");
+    L.push('    CF_CHECK_IDS="$(seq -s, 0 $(( ${CF_RANKS:-1} - 1 )) )"');
+    L.push("  fi");
+    L.push('  CF_FREE_MB="$(nvidia-smi --id="$CF_CHECK_IDS" --query-gpu=memory.free --format=csv,noheader,nounits 2>/dev/null | sort -n | head -1 | tr -d " ")"');
+    L.push('  case "$CF_FREE_MB" in');
+    L.push('    ""|*[!0-9]*)');
+    L.push("      ;;");
+    L.push("    *)");
+    L.push('      if [ "$CF_FREE_MB" -lt 1000 ]; then');
+    L.push('        echo "CRYOFLOW_ERR: only ${CF_FREE_MB} MB free on the GPU(s) this job would use (${CF_CHECK_IDS}) — another process is holding the card(s):"');
+    L.push('        nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv 2>/dev/null || true');
+    L.push('        echo "CRYOFLOW_ERR: refusing to launch — RELION would print \\"WARNING: Ignoring required free GPU memory\\" and stall at its first Expectation step. Kill or scancel the holder PIDs above (squeue -u $USER finds Slurm-owned ones), or pick a quieter partition, then re-run (t342)"');
+    L.push(`        mkdir -p ${shQuote(remoteWorkdir)} 2>/dev/null || true`);
+    L.push(`        echo 98 > ${shQuote(remoteWorkdir + "/.cf-exit")}`);
+    L.push("        exit 98");
+    L.push('      elif [ "$CF_FREE_MB" -lt 2000 ]; then');
+    L.push('        echo "CRYOFLOW_NOTE: only ${CF_FREE_MB} MB free on the GPU(s) this job will use (${CF_CHECK_IDS}) — the card is shared; RELION may run slow (the dispatch refuses below 1000 MB)"');
+    L.push("      fi");
+    L.push("      ;;");
+    L.push("  esac");
     L.push("fi");
     L.push("");
   }
@@ -1901,6 +2047,36 @@ export async function startRemoteJob(args: {
   const remoteProjectRoot = `${remoteRoot.replace(/\/$/, "")}/${job.projectId}`;
   const remoteWorkdir = `${remoteProjectRoot}/${job.type}_${job.id.slice(-8)}`;
 
+  // ---- upstream remote twins (t324/t325) --------------------------------
+  // local path → the verified cluster twin (plus identity entries for
+  // outputs that never came home). HOISTED above both star gates (t342):
+  // the extract census below and the particles-ref gate further down
+  // both need the twin map to read a star whose local copy is missing —
+  // the staging planner after them keeps using the same map.
+  const runs = readRuns();
+  const upstreamRemoteTwins = new Map<string, string>();
+  for (const up of upstream) {
+    const rec = runs[up.id];
+    if (!rec?.remote?.remoteOutputs) continue;
+    for (const [key, localTw] of Object.entries(rec.outputs)) {
+      const remoteTw = rec.remote.remoteOutputs[key];
+      if (remoteTw && localTw) upstreamRemoteTwins.set(localTw.split(path.sep).join("/"), remoteTw);
+    }
+    // t324 — outputs that never came home: the verified cluster twin
+    // satisfies the requirement by ITSELF (identity entry — both the
+    // staging skip below and the argv's twin preference key off this map,
+    // so a twin-resolved input uploads nothing and runs against the
+    // cluster copy in place). Gated on the SAME CLUSTER (t325: connection
+    // OR host — a re-created connection to the same host still holds
+    // these paths; a genuinely different cluster does not).
+    if (sameClusterTarget(rec.remote, { connectionId: conn.id, host: connHostPort })) {
+      for (const remoteTw of Object.values(rec.remote.remoteOutputs)) {
+        const norm = remoteTw.split(path.sep).join("/");
+        if (!upstreamRemoteTwins.has(norm)) upstreamRemoteTwins.set(norm, remoteTw);
+      }
+    }
+  }
+
   // ---- t335 — the extract frame census + the twin-star closure ---------
   // The parallel t334 scan refuses duplicate rows and extension twins when
   // a LOCAL star copy exists — but a twin-resolved star (the sync-back left
@@ -1916,32 +2092,21 @@ export async function startRemoteJob(args: {
   let extractGateNote: string | null = null;
   if (job.type === "extract" && resolved.inputs.micrographs_star) {
     const starPath = resolved.inputs.micrographs_star;
-    let starText: string | null = null;
-    if (existsSync(starPath)) {
-      try {
-        starText = readFileSync(starPath, "utf8");
-      } catch {
-        starText = null;
-      }
-    } else {
-      // t335 — the twin-resolved star lives on the cluster: read it in
-      // place so the t334 scan (which skipped above) can still speak
-      try {
-        const cat = await exec(conn, `cat ${shSingleQuote(starPath)}`, { timeoutMs: 15_000 });
-        if (!cat.error && cat.code === 0) starText = cat.stdout;
-      } catch {
-        starText = null;
-      }
-      if (starText !== null) {
-        console.log(
-          `remote-run: extract star read in place over SSH (${starPath}) — the collision scan re-ran on the cluster's own text (t335)`
-        );
-      }
+    // t335/t342 — the twin-resolved star lives on the cluster: read it in
+    // place (all honest candidates, the t342 reader) so the t334 scan
+    // (which skipped above) can still speak
+    const starRd = await readResolvedStarText(conn, starPath, upstreamRemoteTwins, remoteRoot);
+    const starText = starRd.text;
+    if (starText !== null && !existsSync(starPath)) {
+      console.log(
+        `remote-run: extract star read in place over SSH (${starRd.tried.slice(1).join(" → ") || starPath}) — the collision scan re-ran on the cluster's own text (t335/t342)`
+      );
     }
     if (starText === null) {
       extractGateNote =
-        "micrographs star unreadable (no local copy, cluster cat failed) — the collision scan and the frame-stack census did not run";
-      console.log("remote-run: extract frame census — star unreadable, census skipped (t335)");
+        `micrographs star unreadable (no local copy; the cluster cat failed on ${starRd.tried.slice(1).join(" → ") || starPath}` +
+        `${starRd.catErr ? ` — ${starRd.catErr}` : ""}) — the collision scan and the frame-stack census did not run`;
+      console.log("remote-run: extract frame census — star unreadable, census skipped (t335/t342)");
     } else {
       // the collision scan on whatever text we now hold (the t334 wording
       // verbatim — a twin-resolved star earns the SAME refusal, not a
@@ -2022,30 +2187,7 @@ export async function startRemoteJob(args: {
   // ---- plan the input staging -------------------------------------------
   // upstream remote outputs (same cluster tree) pass through untouched;
   // everything else uploads (STARs rewritten, external files staged).
-  const runs = readRuns();
-  const upstreamRemoteTwins = new Map<string, string>(); // local path → remote twin
-  for (const up of upstream) {
-    const rec = runs[up.id];
-    if (!rec?.remote?.remoteOutputs) continue;
-    for (const [key, localTw] of Object.entries(rec.outputs)) {
-      const remoteTw = rec.remote.remoteOutputs[key];
-      if (remoteTw && localTw) upstreamRemoteTwins.set(localTw.split(path.sep).join("/"), remoteTw);
-    }
-    // t324 — outputs that never came home: the verified cluster twin
-    // satisfies the requirement by ITSELF (identity entry — both the
-    // staging skip below and the argv's twin preference key off this map,
-    // so a twin-resolved input uploads nothing and runs against the
-    // cluster copy in place). Gated on the SAME CLUSTER (t325: connection
-    // OR host — a re-created connection to the same host still holds
-    // these paths; a genuinely different cluster does not).
-    if (sameClusterTarget(rec.remote, { connectionId: conn.id, host: connHostPort })) {
-      for (const remoteTw of Object.values(rec.remote.remoteOutputs)) {
-        const norm = remoteTw.split(path.sep).join("/");
-        if (!upstreamRemoteTwins.has(norm)) upstreamRemoteTwins.set(norm, remoteTw);
-      }
-    }
-  }
-
+  // (the upstream twin map lives ABOVE the star gates now — t342)
   const uploads: Array<{ key: string; local: string; remote: string; external: boolean }> = [];
 
   // ---- t338 — the particle-star ↔ stack consistency gate (consumers) ----
@@ -2070,25 +2212,15 @@ export async function startRemoteJob(args: {
     const starPathLocal = resolved.inputs.particles_star;
     const localNorm = starPathLocal.split(path.sep).join("/");
     // the star's text: the local copy when the sync-back landed it, else
-    // the cluster's own bytes (the t335 twin-star closure pattern)
-    let starText: string | null = null;
-    if (existsSync(starPathLocal)) {
-      try {
-        starText = readFileSync(starPathLocal, "utf8");
-      } catch {
-        starText = null;
-      }
-    } else {
-      try {
-        const cat = await exec(conn, `cat ${shSingleQuote(starPathLocal)}`, { timeoutMs: 15_000 });
-        if (!cat.error && cat.code === 0) starText = cat.stdout;
-      } catch {
-        starText = null;
-      }
-    }
+    // the cluster's own bytes through EVERY honest candidate (t342 — the
+    // twin, the mirror-mapped path, then the path as-is; the failure's
+    // own word rides the note)
+    const starRd = await readResolvedStarText(conn, starPathLocal, upstreamRemoteTwins, remoteRoot);
+    const starText = starRd.text;
     if (starText == null) {
       particlesGateNote =
-        "particles star unreadable (no local copy, cluster cat failed) — the stack-size consistency check did not run";
+        `particles star unreadable (no local copy; the cluster cat failed on ${starRd.tried.slice(1).join(" → ") || starPathLocal}` +
+        `${starRd.catErr ? ` — ${starRd.catErr}` : ""}) — the stack-size consistency check did not run`;
     } else if (particleRefsFromContent(starText).length > 0) {
       // the star's CLUSTER-side location: the upstream twin when the input
       // resolved through a local mirror copy, the mirror's mapped cluster
@@ -2483,6 +2615,26 @@ export async function startRemoteJob(args: {
             : 0
         : 0;
 
+      // t342 — the slurm MPI lane's rank count and device list become the
+      // SCRIPT's own variables (CF_RANKS/CF_GPU_LIST), clamped at launch
+      // to the GPUs the node actually exposes (see buildSbatchScript's
+      // t342 block — the #SBATCH --gres width is a request the scheduler
+      // may not enforce; the node's own nvidia-smi cannot lie). Direct
+      // mode keeps the literal: the login node's world is the probe's
+      // world. A single-rank job never pile-ups, so it keeps its literal
+      // too (byte-identical to the pre-t342 shape).
+      const slurmMpiGpu = isSlurm && mpiParallelType && mpiAvailable && hasGpu && ntasks > 1;
+      if (slurmMpiGpu) {
+        const ni = argv.indexOf("-n");
+        if (ni !== -1) argv[ni + 1] = '"$CF_RANKS"';
+        const gi = argv.indexOf("--gpu");
+        if (gi !== -1) argv[gi + 1] = '"$CF_GPU_LIST"';
+      }
+      // t342 — pre-quoted shell variable references ("$CF_RANKS" …) pass
+      // the quoting maps untouched; every other token keeps its literal
+      const shQuoteOrVar = (a: string) =>
+        /^"\$[A-Za-z_][A-Za-z0-9_]*"$/.test(a) ? a : shQuote(a);
+
       // t306 — the array rewrite: the shard task sees $SHARD (its slice of
       // the input star) and $OSHARD (its own output subdir) — the two argv
       // slots are swapped for raw shell refs the script defines per task;
@@ -2580,10 +2732,10 @@ export async function startRemoteJob(args: {
             ? `"$OSHARD/${flavor.outStar}"`
             : '"$OSHARD/"';
         command = argv
-          .map((a, k) => (k === ii + 1 ? '"$SHARD"' : k === oi + 1 ? outVal : shQuote(a)))
+          .map((a, k) => (k === ii + 1 ? '"$SHARD"' : k === oi + 1 ? outVal : shQuoteOrVar(a)))
           .join(" ");
       } else {
-        command = argv.map(shQuote).join(" ");
+        command = argv.map(shQuoteOrVar).join(" ");
       }
       const threads = Math.max(1, Math.min(32, Math.round(Number(params.threads ?? 4) || 4)));
       const jobName = `cf_${job.type}_${job.id.slice(-8)}`;
@@ -2760,6 +2912,11 @@ export async function startRemoteJob(args: {
           dependency,
           array: arrayPlan,
           note: ctffindGateNote ?? extractGateNote ?? particlesGateNote,
+          // t342 — the starved-card refusal + the rank clamp ride only
+          // jobs whose argv truly uses the GPU; the MPI width feeds the
+          // script's own CF_RANKS/CF_GPU_LIST clamp variables
+          gpuJob: hasGpu && strategy.gpus > 0 && argv.includes("--gpu"),
+          mpiRanks: slurmMpiGpu ? ntasks : null,
         });
         const scriptPath = `${remoteWorkdir}/.cf-sbatch.sh`;
         const upOk = await remoteUpload(conn, script, scriptPath);
