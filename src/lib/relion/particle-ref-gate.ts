@@ -122,11 +122,41 @@ export async function particlesRefGate(
       note: `${refs.length} particle ref(s) were not verified against their stacks (no header reader) — if the upstream extraction was produced by an older version, re-run it once.`,
     };
   }
+  return particlesRefGateFromRefs(refs, sniff, candidatesOf, { perRefReceipt: true });
+}
+
+/**
+ * t346 — the same judging engine, fed PRE-EXTRACTED rows: the cluster lane
+ * now censes the star IN PLACE (one awk pass on the cluster — see
+ * remote-run's clusterParticleRefCensus) and hands back one row per UNIQUE
+ * stack path carrying that stack's max image number. Zero star bytes cross
+ * the wire; the verdicts, the refusal vocabulary and the candidate
+ * resolution grammar are byte-identical to the text-parsed lane.
+ *
+ * `perRefReceipt` (the text lane's dialect) counts EVERY row for the
+ * receipt ("300000 ref(s) verified"); the census lane passes false and the
+ * receipt speaks in stacks + refs instead ("87 stack(s) verified across
+ * 300000 particle refs") — both honest, each in its lane's own units.
+ */
+export async function particlesRefGateFromRefs(
+  rows: ParticleRefRow[],
+  sniff: HeaderSniffer | null,
+  candidatesOf: (ref: string) => string[],
+  opts?: { perRefReceipt?: boolean; totalRefs?: number }
+): Promise<RefGateVerdict> {
+  const clean: RefGateVerdict = { refusal: null, note: null };
+  if (rows.length === 0) return clean;
+  if (!sniff) {
+    return {
+      refusal: null,
+      note: `${opts?.totalRefs ?? rows.length} particle ref(s) were not verified against their stacks (no header reader) — if the upstream extraction was produced by an older version, re-run it once.`,
+    };
+  }
 
   // per unique RESOLVED path: the star's largest image number
   const maxImageByPath = new Map<string, number>();
   const candidateLists: { ref: string; candidates: string[] }[] = [];
-  for (const r of refs) {
+  for (const r of rows) {
     const candidates = candidatesOf(r.ref);
     if (candidates.length === 0) continue; // unresolvable dialect → the note owns it
     candidateLists.push({ ref: r.ref, candidates });
@@ -138,13 +168,13 @@ export async function particlesRefGate(
   if (uniquePaths.length === 0) {
     return {
       refusal: null,
-      note: `${refs.length} particle ref(s) could not be resolved to stack paths — their headers were not verified.`,
+      note: `${opts?.totalRefs ?? rows.length} particle ref(s) could not be resolved to stack paths — their headers were not verified.`,
     };
   }
   if (uniquePaths.length > REF_GATE_MAX_STACKS) {
     return {
       refusal: null,
-      note: `${refs.length} particle refs across ${uniquePaths.length} stacks exceed the verification budget (${REF_GATE_MAX_STACKS}) — headers were not verified.`,
+      note: `${opts?.totalRefs ?? rows.length} particle refs across ${uniquePaths.length} stacks exceed the verification budget (${REF_GATE_MAX_STACKS}) — headers were not verified.`,
     };
   }
 
@@ -218,11 +248,16 @@ export async function particlesRefGate(
     unknown > 0
       ? `; ${unknown} ref(s) could not be verified (missing or unparsable stacks) and were not judged`
       : "";
+  const receipt =
+    opts?.perRefReceipt
+      ? `${verified} particle ref(s) verified against their stacks' own MRC headers — every image number sits ` +
+        `within its stack's size (the readMRC "exceeds stack size" door)`
+      : `${verified} particle stack(s) verified against their own MRC headers — every image number sits ` +
+        `within its stack's size (the readMRC "exceeds stack size" door), across ` +
+        `${opts?.totalRefs ?? rows.length} particle refs`;
   return {
     refusal: null,
-    note:
-      `${verified} particle ref(s) verified against their stacks' own MRC headers — every image number sits ` +
-      `within its stack's size (the readMRC "exceeds stack size" door)${unknownSuffix}`,
+    note: receipt + unknownSuffix,
   };
 }
 

@@ -84,6 +84,16 @@ if [ -n "$want_ids" ]; then
   # single/selected-job query: SILENT (exit 0) for a job the journal never
   # met — the exact contract the app's alive-check fallback relies on
   # (no accounting row == the scheduler has no testimony == VANISHED)
+  # t346 — the blind lever (E2E): the ledger "has no row yet" for the named
+  # ids (or all), the exact silence a slow/asynchronous accounting system
+  # serves. Content: one job id per line, or "all".
+  if [ -f "$SLURM_DIR/sacct-blind" ]; then
+    for b in $(tr '\n' ' ' < "$SLURM_DIR/sacct-blind" 2>/dev/null); do
+      for id in $want_ids; do
+        if [ "$b" = "$id" ] || [ "$b" = "all" ]; then exit 0; fi
+      done
+    done
+  fi
   oldIFS="$IFS"
   IFS=','
   for id in $want_ids; do

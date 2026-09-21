@@ -83,7 +83,9 @@ import {
   PARTICLES_CONSUMER_TYPES,
   particleRefsFromContent,
   particlesRefGate,
+  particlesRefGateFromRefs,
   refCandidates,
+  type ParticleRefRow,
 } from "@/lib/relion/particle-ref-gate";
 import { getConnection, loadConnections, patchConnection } from "./connections";
 import { writeRemoteManifest } from "./remote-files";
@@ -288,6 +290,71 @@ async function catRemote(conn: RemoteConnection, p: string): Promise<{ text: str
 }
 
 /**
+ * t346 — the star census that never moves the star: ONE awk pass over the
+ * file IN PLACE on the cluster returns one line per UNIQUE stack path with
+ * that stack's largest image number (`CF_REF\t<path>\t<max>`) plus the
+ * total row count. The pre-t346 gate catted the whole particles.star
+ * (tens of MB on a real extraction) over the SSH wire to parse it locally
+ * — the exact network transfer the "cluster-native" doctrine forbids, and
+ * the 15s-timeout class of dispatch stall. The awk program is POSIX
+ * (no gawk extensions); its budget and redial ladder mirror catRemote's
+ * (90s, one fresh-wire retry on SSH-level failures only).
+ */
+async function clusterParticleRefCensus(
+  conn: RemoteConnection,
+  p: string
+): Promise<{ rows: ParticleRefRow[] | null; total: number; err: string | null }> {
+  // one row per unique ref path → its max image number. `/^[0-9]+@/` is the
+  // same shape particleRefsFromContent parses (`^\d{1,9}@\S+`) minus the
+  // bound — header lines (_, #, data_, loop_) never start with digits.
+  const awk =
+    `awk '` +
+    `/^[0-9]+@/ { ` +
+    `at = index($0, "@"); ` +
+    `img = substr($0, 1, at - 1) + 0; ` +
+    `ref = substr($0, at + 1); ` +
+    `sub(/[ \\t].*$/, "", ref); ` +
+    `if (ref != "") { if (!(ref in mx) || img > mx[ref]) mx[ref] = img; n++ } ` +
+    `} ` +
+    `END { ` +
+    `for (r in mx) printf "CF_REF\\t%s\\t%d\\n", r, mx[r]; ` +
+    `printf "CF_TOTAL\\t%d\\n", n ` +
+    `}' ${shSingleQuote(p)}`;
+  let lastErr: string | null = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if (attempt > 0) {
+      dropConnection(conn.id); // fresh wire — same ladder as catRemote
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    try {
+      const res = await exec(conn, awk, { timeoutMs: 90_000 });
+      if (!res.error && res.code === 0) {
+        const rows: ParticleRefRow[] = [];
+        let total = 0;
+        for (const line of res.stdout.split("\n")) {
+          if (line.startsWith("CF_REF\t")) {
+            const seg = line.split("\t");
+            const image = Number(seg[2]);
+            const ref = (seg[1] ?? "").trim();
+            if (ref && Number.isFinite(image) && image > 0) rows.push({ image, ref });
+          } else if (line.startsWith("CF_TOTAL\t")) {
+            total = Number(line.split("\t")[1]) || 0;
+          }
+        }
+        return { rows, total, err: null };
+      }
+      const why = (res.stderr || "").trim().split("\n").pop() ?? "";
+      lastErr = res.error ?? `exit ${res.code}${why ? `: ${why.slice(-140)}` : ""}`;
+    } catch (e) {
+      lastErr = e instanceof Error ? e.message : String(e);
+    }
+    const sshLevel = /timeout|channel|socket|ECONN|closed/i.test(lastErr ?? "");
+    if (!sshLevel) break; // the file's own verdict (missing, unreadable)
+  }
+  return { rows: null, total: 0, err: lastErr };
+}
+
+/**
  * t343 — read a resolved input STAR from the lane the job will actually
  * consume it in, and ONLY that lane.
  *
@@ -318,7 +385,8 @@ async function readResolvedStarText(
   conn: RemoteConnection,
   starPath: string,
   twins: Map<string, string>,
-  remoteRoot: string
+  remoteRoot: string,
+  opts?: { resolveOnly?: boolean }
 ): Promise<StarRead> {
   const localNorm = starPath.split(path.sep).join("/");
   const mirrorRoot = RELION_DIR.split(path.sep).join("/");
@@ -335,6 +403,11 @@ async function readResolvedStarText(
     // (the staging skip and the argv's twin preference key off this very
     // map entry; an identity entry IS the cluster path already). The
     // local mirror is never consulted here.
+    if (opts?.resolveOnly) {
+      // t346 — the census lane: resolve WHICH bytes the job consumes
+      // without moving them; the cluster-side awk pass reads them there.
+      return { text: null, lane: "cluster", clusterHome, readAt: twin, err: null };
+    }
     const cat = await catRemote(conn, twin);
     return { text: cat.text, lane: "cluster", clusterHome, readAt: twin, err: cat.err };
   }
@@ -1166,8 +1239,21 @@ function buildSbatchScript(args: {
       // set), written NEXT TO the launcher — a rank never depends on
       // mpirun's environment forwarding (OpenMPI/MPICH forward by
       // default, but a site wrapper with an env allowlist would silently
-      // strip CF_* and every rank would see every card again)
-      L.push(`{ echo "CF_RANKS_NOW=$CF_RANKS"; echo "CF_DEVICE_SET=$CF_DEVICE_SET"; } > ${shQuote(remoteWorkdir + "/.cf-rank-env")}`);
+      // strip CF_* and every rank would see every card again).
+      //
+      // t346 — the file now also carries the batch shell's FULL exported
+      // environment (`export -p`): PRRTE (OpenMPI 5 — the user's cluster
+      // runs prterun) does NOT guarantee environment forwarding to a
+      // non-MPI app like this launcher. A stripped rank used to lose
+      // PATH/RELION_*/LD_LIBRARY_PATH from `module load`, and `exec
+      // relion_refine …` died "command not found" before the first banner
+      // — the field shape: log silent, then failed, cards idle. The dump
+      // is taken AFTER module load + the t341 pin, and the launcher's own
+      // per-rank CUDA_VISIBLE_DEVICES override lands AFTER the source, so
+      // last-write-wins is the rank's own card. bash's `export -p` emits
+      // `declare -x` lines — valid bash, and the launcher IS bash.
+      L.push(`export -p > ${shQuote(remoteWorkdir + "/.cf-rank-env")}`);
+      L.push(`{ echo "CF_RANKS_NOW=$CF_RANKS"; echo "CF_DEVICE_SET=$CF_DEVICE_SET"; } >> ${shQuote(remoteWorkdir + "/.cf-rank-env")}`);
       L.push("");
       // the launcher itself — static content, regenerated every dispatch
       // (the t333 wipe sweeps the old copy; a re-run rewrites it)
@@ -1178,7 +1264,12 @@ function buildSbatchScript(args: {
       L.push("# launcher hands each MPI rank its OWN CUDA_VISIBLE_DEVICES — one");
       L.push("# entry of the job's device set, by rank index — and the relion argv");
       L.push("# runs \"--gpu 0\" inside a world with exactly one visible card.");
-      L.push('CF_LAUNCH_DIR="$(cd "$(dirname "$0")" && pwd)"');
+      // t346 — ${0%/*} is PURE BASH: under a stripped environment (PRRTE's
+      // non-forwarding world, the mpi-strip-env mock) there is no PATH and
+      // `dirname` would die before the env dump restores the world. mpirun
+      // launches the absolute path from our argv, so $0 always carries its
+      // directory.
+      L.push('case "$0" in */*) CF_LAUNCH_DIR="${0%/*}" ;; *) CF_LAUNCH_DIR="." ;; esac');
       L.push('if [ -f "$CF_LAUNCH_DIR/.cf-rank-env" ]; then');
       L.push('  . "$CF_LAUNCH_DIR/.cf-rank-env"');
       L.push("fi");
@@ -1197,6 +1288,15 @@ function buildSbatchScript(args: {
       L.push('  export CUDA_VISIBLE_DEVICES="$DEV"');
       L.push("fi");
       L.push('echo "CRYOFLOW_RANK_BIND: rank ${R:-0} -> CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-<as the node left it>} (one rank per card, t345)"');
+      // t346 — resolve the binary through the RESTORED environment: a
+      // rank whose PATH was stripped (PRRTE non-forwarding) still finds
+      // relion via the .cf-rank-env dump; an already-absolute $1 passes
+      // through command -v verbatim; a genuinely missing binary keeps its
+      // original name in the exec's own error (the honest verdict).
+      L.push('if [ "$#" -gt 0 ]; then');
+      L.push('  __cfbin="$(command -v -- "$1" 2>/dev/null || true)"');
+      L.push('  [ -n "$__cfbin" ] && set -- "$__cfbin" "${@:2}"');
+      L.push("fi");
       L.push('exec "$@"');
       L.push("CF_LAUNCH_EOF");
       L.push(`chmod +x ${shQuote(remoteWorkdir + "/.cf-rank-launch.sh")}`);
@@ -2383,35 +2483,83 @@ export async function startRemoteJob(args: {
     // bytes are never consumed and must not be judged) — else the local
     // copy the staging uploads. The stack-size check judges exactly the
     // bytes relion will read.
-    const starRd = await readResolvedStarText(conn, starPathLocal, upstreamRemoteTwins, remoteRoot);
-    const starText = starRd.text;
-    if (starText == null) {
-      particlesGateNote =
-        `${starUnreadableNote("particles", starRd)} — the stack-size consistency check did not run`;
-    } else if (particleRefsFromContent(starText).length > 0) {
-      // the star's CLUSTER-side home anchors star-relative refs (RELION's
-      // star grammar resolves them against the process CWD — the project
-      // root — while the mock's own dialect writes star-relative refs).
-      // One formula both lanes share: the twin when the input runs in
-      // place, else the mirror-mapped path the staging's upload rides —
-      // the upload lane earns its star-dir candidates too (t343; it used
-      // to anchor on the project root alone and could not judge the
-      // star-relative dialect at all)
-      const clusterStar = starRd.clusterHome;
-      const starDir = clusterStar ? clusterStar.slice(0, clusterStar.lastIndexOf("/")) : null;
-      const gate = await particlesRefGate(
-        starPathLocal,
-        starText,
-        remoteHeaderSniffer(conn),
-        (ref) => refCandidates(ref, remoteProjectRoot, starDir ?? remoteProjectRoot)
-      );
-      if (gate.refusal) {
-        console.log(
-          `remote-run: particle-ref gate REFUSED before staging — ${gate.refusal.split(" — ")[0]} (t338)`
-        );
-        return fail(gate.refusal, true);
+    //
+    // t346 — the cluster lane no longer cats the star home to parse it
+    // locally (tens of MB over the wire = the dispatch stall + the very
+    // network transfer the cluster-native doctrine forbids): a CENSUS awk
+    // pass runs on the cluster and only the verdict rows (one per unique
+    // stack path) cross the wire. The upload lane still reads the local
+    // bytes it is about to upload (no SSH at all).
+    const laneProbe = await readResolvedStarText(conn, starPathLocal, upstreamRemoteTwins, remoteRoot, {
+      resolveOnly: true,
+    });
+    if (laneProbe.lane === "cluster" && laneProbe.clusterHome) {
+      // the star's CLUSTER-side home anchors star-relative refs for the
+      // census's candidate grammar (same anchor the text lane uses)
+      const clusterStar = laneProbe.clusterHome;
+      const starDir = clusterStar.slice(0, clusterStar.lastIndexOf("/"));
+      const census = await clusterParticleRefCensus(conn, clusterStar);
+      if (census.rows != null) {
+        if (census.rows.length > 0) {
+          const gate = await particlesRefGateFromRefs(
+            census.rows,
+            remoteHeaderSniffer(conn),
+            (ref) => refCandidates(ref, remoteProjectRoot, starDir || remoteProjectRoot),
+            { totalRefs: census.total }
+          );
+          if (gate.refusal) {
+            console.log(
+              `remote-run: particle-ref gate REFUSED before staging (cluster census) — ${gate.refusal.split(" — ")[0]} (t338/t346)`
+            );
+            return fail(gate.refusal, true);
+          }
+          particlesGateNote =
+            gate.note +
+            ` (the star was censed IN PLACE on the cluster at ${clusterStar} — zero star bytes crossed the wire)`;
+        }
+        // rows.length === 0 → not a particles-star shape (or every ref
+        // unparseable) — the same clean pass the text lane grants
+      } else {
+        // the census could not run: a missing file is the file's own
+        // verdict (same word catRemote would speak — the t343 contract
+        // tail rides along so the receipt keeps teaching); anything else
+        // is a wire/tool failure — the check "did not run", never a block
+        const missing = /No such file|no such file|not found|cannot open|can't open/i.test(census.err ?? "");
+        particlesGateNote = missing
+          ? `particles star unreadable on the cluster — this job reads it in place at ${clusterStar} and that read failed: ${census.err}; if the file is gone, re-run the upstream job to regenerate it — the stack-size consistency check did not run`
+          : `the stack-size consistency check did not run (the in-place census on ${clusterStar} failed${census.err ? `: ${census.err}` : ""}) — the SSH wire may be slow; run again or check the login node's load`;
       }
-      particlesGateNote = gate.note + starLaneSuffix(starRd);
+    } else {
+      const starRd = await readResolvedStarText(conn, starPathLocal, upstreamRemoteTwins, remoteRoot);
+      const starText = starRd.text;
+      if (starText == null) {
+        particlesGateNote =
+          `${starUnreadableNote("particles", starRd)} — the stack-size consistency check did not run`;
+      } else if (particleRefsFromContent(starText).length > 0) {
+        // the star's CLUSTER-side home anchors star-relative refs (RELION's
+        // star grammar resolves them against the process CWD — the project
+        // root — while the mock's own dialect writes star-relative refs).
+        // One formula both lanes share: the twin when the input runs in
+        // place, else the mirror-mapped path the staging's upload rides —
+        // the upload lane earns its star-dir candidates too (t343; it used
+        // to anchor on the project root alone and could not judge the
+        // star-relative dialect at all)
+        const clusterStar = starRd.clusterHome;
+        const starDir = clusterStar ? clusterStar.slice(0, clusterStar.lastIndexOf("/")) : null;
+        const gate = await particlesRefGate(
+          starPathLocal,
+          starText,
+          remoteHeaderSniffer(conn),
+          (ref) => refCandidates(ref, remoteProjectRoot, starDir ?? remoteProjectRoot)
+        );
+        if (gate.refusal) {
+          console.log(
+            `remote-run: particle-ref gate REFUSED before staging — ${gate.refusal.split(" — ")[0]} (t338)`
+          );
+          return fail(gate.refusal, true);
+        }
+        particlesGateNote = gate.note + starLaneSuffix(starRd);
+      }
     }
   }
 
@@ -3594,7 +3742,31 @@ function aliveCheckScript(
 }
 
 /** Per-connection poll throttle state (survives within one server process). */
-const pollState = new Map<string, { at: number; inflight: boolean }>();
+const pollState = new Map<string, { at: number; inflight: boolean; lastMs: number }>();
+
+/**
+ * t346 — how long a single sweep's SSH round trip may take. Was 15s: the
+ * t345 field ticket proved a mere `cat` on the user's login node can exceed
+ * that (exec = sshd fork + shell + slow /data03), so the sweep itself timed
+ * out whenever the login node hiccuped — and with it every UI request that
+ * awaited it. 45s with the route's bounded wait (the GET never blocks on
+ * the sweep longer than POLL_SWEEP_WAIT_MS) covers the slowest login node
+ * without stacking round trips (the inflight guard does that).
+ */
+const POLL_SWEEP_TIMEOUT_MS = 45_000;
+
+/**
+ * t346 — the VANISHED flip's streak requirement. The ladder's empty
+ * squeue+sacct snapshot used to speak ALONE after the 120s age gate: one
+ * wire blink, one slow scheduler, one accounting purge — and a RUNNING
+ * job's row died as "interrupted remotely (node reboot or hard kill)"
+ * while the cluster process was fine. The flip now needs N CONSECUTIVE
+ * VANISHED verdicts; any ALIVE/EXIT/SACCT word resets the streak. Env
+ * knobs exist for the E2E suites (small values) — production keeps the
+ * defaults.
+ */
+const VANISH_STREAK_N = Math.max(1, Number(process.env.CF_VANISH_STREAK) || 3);
+const VANISH_AGE_MS = Math.max(1_000, Number(process.env.CF_VANISH_AGE_MS) || 120_000);
 
 interface BatchEntry {
   job: Job;
@@ -3764,10 +3936,15 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
     }
 
     // throttle: skip this connection entirely on a sub-4s tick or while a
-    // poll is still in flight (slow SSH must never stack round trips)
-    const st = pollState.get(connId) ?? { at: 0, inflight: false };
-    if (st.inflight || Date.now() - st.at < 4000) continue;
-    pollState.set(connId, { at: Date.now(), inflight: true });
+    // poll is still in flight (slow SSH must never stack round trips).
+    // t346 — ADAPTIVE: a sweep that took T seconds buys the next one
+    // max(4s, 1.5×T) of quiet — a login node that answers in 12s must not
+    // be poked every 4s (each poke = an sshd fork it pays for).
+    const st = pollState.get(connId) ?? { at: 0, inflight: false, lastMs: 0 };
+    const quietFor = Math.min(30_000, Math.max(4_000, Math.round(st.lastMs * 1.5)));
+    if (st.inflight || Date.now() - st.at < quietFor) continue;
+    const sweepT0 = Date.now();
+    pollState.set(connId, { at: sweepT0, inflight: true, lastMs: st.lastMs });
 
     try {
       const scriptLines: string[] = ["set -u"];
@@ -3779,11 +3956,22 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
         // is the previous run's ghost (re-runs reuse the workdir; the new
         // script's own rm runs only when the job starts) — never a verdict.
         scriptLines.push(aliveCheckScript(r.remoteWorkdir, r.slurmId, r.dispatchedAtEpoch));
+        // t346 — ONE heartbeat carries EVERYTHING the UI needs: state,
+        // run.out line count, run.out tail AND run.err tail. The log tab's
+        // 1.5s polling used to pay its own SSH exec PER POLL (up to 512KB
+        // each) — serialized behind this very sweep on the same wire; the
+        // wire saturated, the log tab starved, the UI felt stuck. The
+        // sweep is the ONLY reader now; the log route serves from the
+        // record's cache (remoteLogTail) and never touches SSH again.
+        scriptLines.push(`echo "---CF:LINES---"`);
+        scriptLines.push(`wc -l < ${W}/run.out 2>/dev/null || echo 0`);
         scriptLines.push(`echo "---LOG---"`);
         scriptLines.push(`tail -c 4096 ${W}/run.out 2>/dev/null`);
+        scriptLines.push(`echo "---CF:ERR---"`);
+        scriptLines.push(`tail -c 2048 ${W}/run.err 2>/dev/null`);
         scriptLines.push(`echo "===CF:END:${e.job.id}"`);
       }
-      const res = await exec(conn, scriptLines.join("\n"), { timeoutMs: 15_000 });
+      const res = await exec(conn, scriptLines.join("\n"), { timeoutMs: POLL_SWEEP_TIMEOUT_MS });
       if (res.error) {
         // busy / timeout / network: the CLUSTER process is unaffected — keep
         // everything running and retry next tick
@@ -3791,8 +3979,11 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
       }
       // parse per-job blocks. t303 — the status is still the FIRST line,
       // but a terminal sacct row may now ride as a SECOND line (the EXIT
-      // branch's ledger enrichment) — stow it as b.sacct before the log.
-      const blocks = new Map<string, { status: string; sacct?: string; log: string }>();
+      // branch's ledger enrichment) — stow it as b.sacct before the tails.
+      const blocks = new Map<
+        string,
+        { status: string; sacct?: string; log: string; errTail: string; totalLines: number }
+      >();
       const re = /===CF:START:([\w-]+)\n([\s\S]*?)===CF:END:\1/g;
       let m: RegExpExecArray | null;
       while ((m = re.exec(res.stdout)) !== null) {
@@ -3803,14 +3994,53 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
         const nl2 = rest.indexOf("\n");
         const line2 = (nl2 >= 0 ? rest.slice(0, nl2) : rest).trim();
         const sacct = line2.startsWith("SACCT:") ? line2.slice("SACCT:".length) : undefined;
-        const log = body.includes("---LOG---") ? body.slice(body.indexOf("---LOG---") + 10) : "";
-        blocks.set(m[1], { status, sacct, log: log.replace(/\n$/, "") });
+        const afterStatus = sacct !== undefined && nl2 >= 0 ? rest.slice(nl2 + 1) : rest;
+        const linesM = afterStatus.indexOf("---CF:LINES---");
+        const logM = afterStatus.indexOf("---LOG---");
+        const errM = afterStatus.indexOf("---CF:ERR---");
+        const totalLines =
+          linesM >= 0 && logM > linesM
+            ? Number(afterStatus.slice(linesM + 15, logM).trim().split("\n")[0]) || 0
+            : 0;
+        const log = logM >= 0 ? afterStatus.slice(logM + 8, errM >= 0 ? errM : undefined) : "";
+        const errTail = errM >= 0 ? afterStatus.slice(errM + 11) : "";
+        blocks.set(m[1], {
+          status,
+          sacct,
+          log: log.replace(/\n$/, ""),
+          errTail: errTail.replace(/\n$/, ""),
+          totalLines,
+        });
       }
 
       for (const e of entries) {
         const b = blocks.get(e.job.id);
         if (!b) continue;
         const ageMs = Date.now() - new Date(e.rec.startedAt).getTime();
+        // t346 — the heartbeat's payload lands on the record BEFORE the
+        // verdict switch (every verdict's consumer — progress parse,
+        // finalize's log tail, the cache-first log route — reads the same
+        // one-write snapshot; unchanged content skips the ledger write)
+        if (
+          e.remote.logTailOut !== b.log ||
+          e.remote.logTailErr !== b.errTail ||
+          e.remote.logTotalLines !== b.totalLines
+        ) {
+          updateRun(e.job.id, (rec) =>
+            rec.remote && !rec.done && rec.startedAt === e.rec.startedAt
+              ? {
+                  ...rec,
+                  remote: {
+                    ...rec.remote,
+                    logTailOut: b.log,
+                    logTailErr: b.errTail,
+                    logTotalLines: b.totalLines,
+                    logTailAt: Date.now(),
+                  },
+                }
+              : null
+          );
+        }
         if (/^ALIVE/.test(b.status)) {
           // t297 — slurm records speak their scheduler state (ALIVE:PENDING /
           // ALIVE:RUNNING): persist it for the inspector's strip so "queued"
@@ -3822,6 +4052,14 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
               rec.remote && !rec.done
                 ? { ...rec, remote: { ...rec.remote, slurmState } }
                 : null
+            );
+          }
+          // t346 — the ladder spoke ALIVE: the run is provably live; any
+          // earlier VANISHED streak was the wire lying
+          if (e.remote.vanishedStreak) {
+            e.remote.vanishedStreak = 0;
+            updateRun(e.job.id, (rec) =>
+              rec.remote && !rec.done ? { ...rec, remote: { ...rec.remote, vanishedStreak: 0 } } : null
             );
           }
           if (e.job.status !== "running") continue; // heal path: still alive, nothing to do
@@ -3893,14 +4131,30 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
           if (updated) replace(out, updated);
           continue;
         }
-        if (b.status === "VANISHED" && ageMs > 120_000) {
+        if (b.status === "VANISHED" && ageMs > VANISH_AGE_MS) {
           // no pid, no exit file, older than the startup grace window — the
-          // node rebooted or someone killed the session without a trace
+          // node rebooted or someone killed the session without a trace.
+          // t346 — but the ladder's silence is only PROOF once it repeats:
+          // a slow scheduler, an accounting purge or a wire blink can make
+          // ONE snapshot come back empty while the job is alive. The flip
+          // now needs VANISH_STREAK_N consecutive VANISHED verdicts; any
+          // ALIVE/EXIT/SACCT word resets the count (and an SSH-level sweep
+          // failure leaves it untouched — unknown is not evidence).
+          const streak = (e.remote.vanishedStreak ?? 0) + 1;
+          if (streak < VANISH_STREAK_N) {
+            e.remote.vanishedStreak = streak;
+            updateRun(e.job.id, (rec) =>
+              rec.remote && !rec.done && rec.startedAt === e.rec.startedAt
+                ? { ...rec, remote: { ...rec.remote, vanishedStreak: streak } }
+                : null
+            );
+            continue;
+          }
           if (e.job.status === "running") {
             const patch = {
               status: "failed" as const,
               progress: 0,
-              result: `interrupted remotely (no exit status — node reboot or hard kill); re-run${
+              result: `interrupted remotely (no exit status — node reboot or hard kill; ${VANISH_STREAK_N} consecutive checks saw no trace of it); re-run${
                 ["class2d", "class3d", "refine3d", "initialmodel", "multibody"].includes(e.job.type)
                   ? " resumes from the last synced checkpoint"
                   : ""
@@ -3925,7 +4179,7 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
         }
       }
     } finally {
-      pollState.set(connId, { at: Date.now(), inflight: false });
+      pollState.set(connId, { at: Date.now(), inflight: false, lastMs: Date.now() - sweepT0 });
     }
   }
   return out;
@@ -4402,41 +4656,127 @@ async function syncBackWorkdir(
 /* Log tail + stop + DTO enrichment                                    */
 /* ------------------------------------------------------------------ */
 
-/** Live log tail for remote records (the /log route's remote branch). */
-export async function remoteLogTail(jobId: string, opts: { full?: boolean }): Promise<RemoteLogPayload | null> {
-  const rec = getRun(jobId);
-  if (!rec?.remote) return null;
-  const conn = getConnection(rec.remote.connectionId);
-  if (!conn) return { text: "(the connection for this run was deleted — logs stay on the cluster)", totalLines: 0, truncated: false };
-  const capOut = opts.full ? 8 * 1024 * 1024 : 512 * 1024;
-  const capErr = opts.full ? 1024 * 1024 : 64 * 1024;
-  const W = shQuote(rec.remote.remoteWorkdir);
-  const res = await exec(
-    conn,
-    `wc -l < ${W}/run.out 2>/dev/null || echo 0; echo ---CF-SPLIT---; tail -c ${capOut} ${W}/run.out 2>/dev/null; echo ---CF-SPLIT---; tail -c ${capErr} ${W}/run.err 2>/dev/null`,
-    { timeoutMs: 15_000 }
-  );
-  if (res.error) {
-    return { text: `(log fetch failed: ${res.error})`, totalLines: 0, truncated: false };
-  }
-  const parts = res.stdout.split("---CF-SPLIT---");
-  const totalLines = Number((parts[0] ?? "0").trim()) || 0;
-  let out = (parts[1] ?? "").replace(/^\n/, "");
-  const err = (parts[2] ?? "").replace(/^\n/, "");
-  if (err.trim().length > 0) out += "\n----- stderr -----\n" + err;
+/**
+ * t346 — how often the log route may fall back to its OWN SSH fetch for one
+ * job. The UI polls the log tab every 1.5s while a run is live; before t346
+ * every one of those polls paid a full SSH exec (up to 512KB) serialized on
+ * the cluster's single wire — the wire saturated, the log tab starved and
+ * the whole UI felt stuck. The sweep now carries the tails on its
+ * heartbeat; this fallback exists only for the gap BEFORE the first sweep
+ * lands (or when no sweep runs at all — e.g. the record's connection was
+ * just re-created) and must never see the UI's cadence.
+ */
+const LOG_FETCH_MIN_MS = 10_000;
+const logFetchAt = new Map<string, number>();
+
+/** The sweep-carry + on-demand log read, shaped exactly like getLogTail's. */
+function shapeRemoteLog(
+  out: string,
+  err: string,
+  totalLines: number,
+  full: boolean
+): RemoteLogPayload {
+  let text = out;
+  if (err.trim().length > 0) text += "\n----- stderr -----\n" + err;
   // collapse \r-updated lines like getLogTail does
-  const lines = out
+  const lines = text
     .split("\n")
     .map((line) => {
       const idx = line.lastIndexOf("\r");
       return (idx >= 0 ? line.slice(idx + 1) : line).replace(/\s+$/, "");
     });
-  const tail = opts.full ? lines : lines.slice(-600);
+  const tail = full ? lines : lines.slice(-600);
   return {
     text: tail.join("\n"),
     totalLines,
     truncated: totalLines > tail.length,
   };
+}
+
+export async function remoteLogTail(jobId: string, opts: { full?: boolean }): Promise<RemoteLogPayload | null> {
+  const rec = getRun(jobId);
+  if (!rec?.remote) return null;
+  const conn = getConnection(rec.remote.connectionId);
+  if (!conn) return { text: "(the connection for this run was deleted — logs stay on the cluster)", totalLines: 0, truncated: false };
+  const r = rec.remote;
+
+  // t346 — CACHE-FIRST (tail mode): the poll sweep already carries the
+  // run.out/run.err tails on its heartbeat (one exec per connection per
+  // few seconds, batched over ALL its jobs). The UI's 1.5s cadence reads
+  // the record — zero SSH, zero wire bytes, instant response. A STALE
+  // cache (>15s old) on a still-live run falls through to the rate-limited
+  // fetch below: the sweep is the normal refresher, but a log tab must
+  // never freeze just because nobody polled /api/jobs for a while (the
+  // detached-view case — the 10s rate limiter keeps the wire cost bounded
+  // even here).
+  if (!opts.full && typeof r.logTailAt === "number") {
+    const staleMs = Date.now() - r.logTailAt;
+    if (rec.done || staleMs <= 15_000) {
+      return shapeRemoteLog(r.logTailOut ?? "", r.logTailErr ?? "", r.logTotalLines ?? 0, false);
+    }
+  }
+
+  // no cache yet (or full mode): ONE on-demand fetch per window per job —
+  // the rate limiter is the UI's protection, not the wire's generosity
+  const now = Date.now();
+  if (now - (logFetchAt.get(jobId) ?? 0) < LOG_FETCH_MIN_MS) {
+    // rate-limited: serve what we have — the cached tails if any, else an
+    // honest "waiting for the heartbeat" (the sweep lands within seconds)
+    if (!opts.full && typeof r.logTailAt === "number") {
+      return shapeRemoteLog(r.logTailOut ?? "", r.logTailErr ?? "", r.logTotalLines ?? 0, false);
+    }
+    return {
+      text: typeof r.logTailAt === "number" ? "" : "(waiting for the cluster's next heartbeat…)",
+      totalLines: r.logTotalLines ?? 0,
+      truncated: false,
+    };
+  }
+  logFetchAt.set(jobId, now);
+
+  const capOut = opts.full ? 8 * 1024 * 1024 : 96 * 1024;
+  const capErr = opts.full ? 1024 * 1024 : 16 * 1024;
+  const W = shQuote(r.remoteWorkdir);
+  const res = await exec(
+    conn,
+    `wc -l < ${W}/run.out 2>/dev/null || echo 0; echo ---CF-SPLIT---; tail -c ${capOut} ${W}/run.out 2>/dev/null; echo ---CF-SPLIT---; tail -c ${capErr} ${W}/run.err 2>/dev/null`,
+    { timeoutMs: 30_000 }
+  );
+  if (res.error) {
+    // t346 — the wire's failure is not the log's failure: the cached
+    // heartbeat (if any) still serves; a run with neither cache nor wire
+    // gets the honest retry word, and the UI keeps its last content
+    if (typeof r.logTailAt === "number") {
+      return shapeRemoteLog(r.logTailOut ?? "", r.logTailErr ?? "", r.logTotalLines ?? 0, !!opts.full);
+    }
+    return {
+      text: `(log fetch failed: ${res.error}) — retrying on the next heartbeat; the run itself is unaffected`,
+      totalLines: 0,
+      truncated: false,
+    };
+  }
+  const parts = res.stdout.split("---CF-SPLIT---");
+  const totalLines = Number((parts[0] ?? "0").trim()) || 0;
+  const out = (parts[1] ?? "").replace(/^\n/, "");
+  const err = (parts[2] ?? "").replace(/^\n/, "");
+  // a successful TAIL fetch also seeds the cache — the sweep overwrites it
+  // on its next heartbeat with the same shape
+  if (!opts.full) {
+    updateRun(jobId, (cur) =>
+      cur.remote && !cur.done && cur.remote.connectionId === r.connectionId
+        ? {
+            ...cur,
+            remote: {
+              ...cur.remote,
+              logTailOut: out,
+              logTailErr: err,
+              logTotalLines: totalLines,
+              logTailAt: Date.now(),
+            },
+          }
+        : null
+    );
+  }
+  return shapeRemoteLog(out, err, totalLines, !!opts.full);
 }
 
 /** Kill the cluster-side session — the stop route's branch.

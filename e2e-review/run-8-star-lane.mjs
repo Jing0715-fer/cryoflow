@@ -125,10 +125,10 @@ try {
   must(wa.job?.status === "completed",
     `poisoned-mirror class2d COMPLETED (${wa.job?.status}: ${String(wa.job?.result).slice(0, 120)}) — the poisoned LOCAL mirror was never the judge`);
   const runoutA = runOutOf(projectId, a);
-  must(/particle ref\(s\) verified against their stacks' own MRC headers/.test(runoutA),
+  must(/verified against their own MRC headers/.test(runoutA),
     "the receipt says verified — the gate judged the CLUSTER twin's healthy numbers");
-  must(/read in place on the cluster at/.test(runoutA),
-    "the receipt names the lane: the star was read in place on the cluster (the copy this job consumes)");
+  must(/censed IN PLACE on the cluster at/.test(runoutA),
+    "the receipt names the lane: the star was censed IN PLACE on the cluster (zero star bytes crossed the wire — the poisoned local mirror was never even read)");
   must(!/the particles STAR references image/.test(runoutA),
     "no t338 refusal — the t342 local-first order would have refused on bytes the job never reads (the healthy receipt's own \"exceeds stack size\" door-name quote is not a refusal)");
   writeFileSync(localStar, pristineLocal); // hygiene

@@ -1526,3 +1526,82 @@ mute → ONE rank with the blind note; a 20s star read (over the old
 15s budget, inside the new 90s) verifies in place and the job
 completes; a channel that dies without a verdict redials and lands.
 
+
+## 4w. The minimal wire — one heartbeat, zero star bytes, never a false death (t346)
+
+The user's two-field-report axis, answered at the architecture level
+("其实只要保证最小程度和 cluster 的通讯就行 — 任务完全可以在 cluster 上运行"):
+
+1. **The log flood is dead.** The Log tab polled `/api/jobs/[id]/log`
+   every 1.5s, and EVERY poll paid its own serialized SSH exec (a
+   `wc -l` + a 512KB `tail` + a 64KB stderr tail) on the cluster's
+   single wire — stacked behind the poll sweep, the staging and every
+   dispatch. On a real login node (exec = sshd fork + shell + a loaded
+   `/data03`) the wire saturated: the log tab starved, the UI felt
+   stuck, and the receipts said `timeout after 15000ms` about files
+   that existed. Now the **poll sweep carries everything** (state +
+   `wc -l` + a 4KB `run.out` tail + a 2KB `run.err` tail, batched over
+   every job on the connection, one exec per few seconds), and the log
+   route is **cache-first**: tail mode reads the record, zero SSH; a
+   stale cache (>15s) on a live run falls through to ONE rate-limited
+   fetch per 10s; full mode stays on-demand (user-clicked) at the same
+   rate limit. E2E: 18s of log-tab polling pays ≤2 fetches (was 12).
+2. **The UI never waits on the wire.** `/api/jobs` used to AWAIT the
+   sweep — a 15s SSH round trip stalled the whole 4s cadence. The
+   route now races the sweep at **1.5s** (the sweep keeps running;
+   verdicts land on the next tick), the sweep's own budget grew to
+   **45s** (a login-node hiccup no longer eats it), and the throttle
+   is adaptive (a sweep that took T seconds buys `max(4s, 1.5×T)` of
+   quiet). E2E: with the sweep deliberately sleeping 9s, the GET
+   answers in ~1.5s.
+3. **The wire heals itself.** keepalive is 10s×3 (≤30s to notice a
+   dead peer, was 60s), and **two consecutive exec timeouts drop the
+   pooled connection** for a fresh re-dial — a half-dead wire used to
+   burn full exec budgets for a whole minute while everything queued
+   onto the corpse.
+4. **A blip is not a reboot.** One empty `squeue`+`sacct` snapshot
+   (age >120s) used to flip a RUNNING row to "interrupted remotely
+   (node reboot or hard kill)" while the job was alive. The flip now
+   needs **3 consecutive VANISHED verdicts** (`VANISH_STREAK_N`,
+   env-tunable for suites); any ALIVE/EXIT/SACCT word resets the
+   streak, and the receipt names the count. E2E (knobbed to 4): 2
+   blind verdicts keep the row running, the unblinded ALIVE resets
+   the streak, the 4th consecutive verdict flips with the count in
+   the receipt.
+5. **Zero star bytes cross the wire at dispatch.** The t338 gate
+   catted the whole `particles.star` home to parse it locally (tens of
+   MB on a real extraction — the dispatch stall AND the transfer the
+   doctrine forbids). The cluster lane now runs a **census awk pass
+   in place**: one row per unique stack path with that stack's max
+   image number (`CF_REF\t<path>\t<max>`), POSIX awk, the 90s budget
+   + redial ladder. The verdicts, the refusal vocabulary and the
+   candidate grammar are byte-identical
+   (`particlesRefGateFromRefs`); the upload lane still judges the
+   local bytes it is about to upload. Missing files keep the t343
+   receipt tail (the door + the remedy + "the check did not run").
+6. **The rank launcher survives PRRTE.** OpenMPI 5 (prterun — the
+   user's cluster) does not guarantee environment forwarding to a
+   non-MPI app: a stripped rank lost PATH/RELION_* and `exec
+   relion_refine` died "command not found" before the first banner —
+   the field shape "log silent, then failed, cards idle". The sbatch
+   script now writes an **`export -p` dump into `.cf-rank-env`**
+   (after `module load`, before the run), the launcher sources it
+   FIRST (its own self-location is pure bash `${0%/*}` — `dirname`
+   dies without PATH), pins its card, resolves the binary through the
+   RESTORED environment (`command -v`), and only then execs. E2E:
+   with every rank's environment wiped (`env -i`), both ranks still
+   pin their own cards and relion runs to completion.
+7. **The queue is not a failure.** While Slurm says PENDING the log
+   tab now SAYS so ("Queued on Slurm — the log appears the moment the
+   job starts on the node") instead of an empty "no log" shrug.
+
+Verified by `e2e-review/run-11-minimal-wire.mjs` (45 assertions, all
+green; run with `CF_VANISH_STREAK=4 CF_VANISH_AGE_MS=5000` so the
+blind/unblind/reblind choreography cannot race the flip), on three new
+mock instruments: the always-on **exec audit** (`~/.slurm/exec-audit.log`,
+newline-flattened, 4MB-bounded), the **scheduler-blind pair**
+(`squeue-blind`/`sacct-blind`, content = job id or `all`), and
+**`mpi-strip-env`** (every rank starts under `env -i`). The generic exec
+torture pair (`exec-slow-ms "<ms> <substring>"` + one-shot
+`exec-channel-close`) reaches whatever read path the current code
+speaks — the census, a header sniff, the sweep itself.

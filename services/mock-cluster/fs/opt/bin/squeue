@@ -58,6 +58,14 @@ render() {
 }
 
 if [ -n "$want_id" ]; then
+  # t346 — the blind lever (E2E): a controller that "forgets" the job —
+  # squeue prints NOTHING, exit 0, the exact shape of a scheduler gap /
+  # slow controller. Content: one job id per line, or "all".
+  if [ -f "$SLURM_DIR/squeue-blind" ]; then
+    for b in $(tr '\n' ' ' < "$SLURM_DIR/squeue-blind" 2>/dev/null); do
+      if [ "$b" = "$want_id" ] || [ "$b" = "all" ]; then exit 0; fi
+    done
+  fi
   # single-job query: silent (exit 0) when unknown/finished — the contract
   # the app's alive-check relies on
   if [ -f "$SLURM_DIR/job-$want_id.pid" ]; then

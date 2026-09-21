@@ -25,7 +25,7 @@
  */
 
 import { spawn } from "node:child_process";
-import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { generateKeyPairSync } from "node:crypto";
@@ -273,6 +273,52 @@ function applyRmSlowLever(cmd) {
   if (ms <= 0) return cmd;
   leverLog(`slow ${ms}ms`);
   return cmd.replace("rm -f --", `sleep ${(ms / 1000).toFixed(3)}; rm -f --`);
+}
+
+// ---------------------------------------------------------------------------
+// t346 — the GENERIC exec torture levers (same ~/.slurm convention): the
+// star read is now a CENSUS awk pass (t346), not a cat — the cat pair
+// above cannot reach it. These two match ANY exec whose command contains
+// the lever's substring, so the suites can torture whatever wire traffic
+// the CURRENT code speaks.
+//   exec-slow-ms       — "<ms> <substring>": a matching exec sleeps N ms
+//                        first (SLOW, not broken)
+//   exec-channel-close — ONE-SHOT: content is the substring; the next
+//                        matching exec's channel closes WITHOUT an exit
+//                        (the SSH-level error the redial ladder exists for)
+// Both append witness lines to exec-lever.log.
+// ---------------------------------------------------------------------------
+function execLeverLog(line) {
+  try {
+    appendFileSync(join(LEVER_DIR, "exec-lever.log"), `${Date.now()} ${line}\n`);
+  } catch {
+    /* best effort — the lever is the test's own instrument */
+  }
+}
+
+function execLeverSpec(cmd, leverName) {
+  const lever = join(LEVER_DIR, leverName);
+  if (!existsSync(lever)) return null;
+  let content = "";
+  try {
+    content = readFileSync(lever, "utf8").trim();
+  } catch {
+    return null;
+  }
+  if (!content) return null;
+  if (leverName === "exec-slow-ms") {
+    const m = /^(\d+)\s+(\S+)$/.exec(content);
+    if (!m || !cmd.includes(m[2])) return null;
+    return { ms: Number(m[1]), substr: m[2] };
+  }
+  return cmd.includes(content) ? { substr: content } : null;
+}
+
+function applyExecSlowLever(cmd) {
+  const spec = execLeverSpec(cmd, "exec-slow-ms");
+  if (!spec) return cmd;
+  execLeverLog(`slow ${spec.ms}ms on ${spec.substr}`);
+  return `sleep ${(spec.ms / 1000).toFixed(3)}; ${cmd}`;
 }
 
 function safeWrite(writable, data) {
@@ -550,6 +596,27 @@ function handleSession(session) {
     try {
       const raw = String(info?.command ?? "");
       log(`exec: ${raw}`);
+      // t346 — the exec audit: every command's first line lands in
+      // exec-audit.log so the E2E suites can PROVE wire-traffic shapes
+      // ("the log tab's 1.5s polling paid ZERO SSH round trips", "the
+      // dispatch censed the star without catting it"). Bounded: past 4MB
+      // the audit resets (a test rig instrument, not a forever ledger).
+      try {
+        const auditPath = join(LEVER_DIR, "exec-audit.log");
+        let auditSize = 0;
+        try {
+          auditSize = statSync(auditPath).size;
+        } catch {
+          /* fresh */
+        }
+        if (auditSize > 4 * 1024 * 1024) rmSync(auditPath, { force: true });
+        // newlines → ⏎ so a MULTI-LINE command (the poll sweep's script)
+        // keeps its shape markers (===CF:START:, ---LOG--- …) visible in
+        // the audit — the first line alone is just "set -u"
+        appendFileSync(auditPath, `${Date.now()} ${raw.replace(/\r?\n/g, "⏎").slice(0, 400)}\n`);
+      } catch {
+        /* best effort — the audit is the test's own instrument */
+      }
       // t344 — the one-shot channel-kill lever: the app's wipe rm meets a
       // channel that dies without a verdict (the SSH-level error the retry
       // ladder exists for). Consumed on first fire.
@@ -570,7 +637,19 @@ function handleSession(session) {
         try { stream.close(); } catch { /* ignore */ }
         return;
       }
-      const translated = applyCatSlowLever(applyRmSlowLever(translateCommand(raw)));
+      // t346 — the GENERIC one-shot channel-kill: any exec whose command
+      // contains the lever's substring dies without a verdict (tortures
+      // whatever read path the current code speaks — the census awk, a
+      // header sniff, …). Consumed on first fire.
+      const execClose = execLeverSpec(raw, "exec-channel-close");
+      if (execClose) {
+        try { rmSync(join(LEVER_DIR, "exec-channel-close")); } catch { /* already gone */ }
+        execLeverLog(`channel-close on ${execClose.substr}`);
+        log("exec: exec-channel-close lever fired — closing the channel without an exit");
+        try { stream.close(); } catch { /* ignore */ }
+        return;
+      }
+      const translated = applyExecSlowLever(applyCatSlowLever(applyRmSlowLever(translateCommand(raw))));
       if (process.env.CF_MOCK_DEBUG) log(`exec-translated: ${translated.slice(0, 200)}`);
       activeProc = runCommand(stream, ["-c", translated], { onFinish: clearActive });
     } catch (err) {

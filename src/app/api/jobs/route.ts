@@ -92,7 +92,20 @@ export async function GET() {
     // them: their pids are cluster-side, and polling happens over SSH in
     // one batched round trip per connection).
     const localFinal = await reconcileRealJobs(jobs);
-    const final = await reconcileRemoteJobs(localFinal);
+    // t346 — the GET never WAITS on a slow sweep: on a lagging login node
+    // the sweep's SSH round trip can take tens of seconds (the t345 field
+    // ticket proved a plain `cat` can outlive 15s), and awaiting it made
+    // this route — and with it the whole UI's 4s cadence — feel stuck.
+    // The sweep still RUNS (in-flight guard, one per connection); its
+    // verdicts, progress and log tails simply land on the NEXT tick.
+    // Anything the local reconcile + DB already know serves immediately.
+    const sweep = reconcileRemoteJobs(localFinal).catch(() => localFinal);
+    const final = await Promise.race([
+      sweep,
+      new Promise<typeof localFinal>((resolve) => {
+        setTimeout(() => resolve(localFinal), 1_500);
+      }),
+    ]);
 
     // ---- transition sweep: completed → auto-start pending downstream -----
     // Fire-and-forget (never blocks the response); autoStartPendingDownstream

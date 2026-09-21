@@ -91,8 +91,8 @@ async function mkClass2d(name, ext, gpus) {
 
 try {
   logSection("A — 杠杆自检: 8 卡 + mpi-emulate-ranks 开");
-  leverRm("gpu-count", "gpu-free-mb", "gpu-holders", "mpi-emulate-ranks", "cat-slow-ms", "cat-channel-close");
-  client("rm -f ~/.slurm/cat-lever.log");
+  leverRm("gpu-count", "gpu-free-mb", "gpu-holders", "mpi-emulate-ranks", "cat-slow-ms", "cat-channel-close", "exec-slow-ms", "exec-channel-close", "mpi-strip-env", "squeue-blind", "sacct-blind");
+  client("rm -f ~/.slurm/cat-lever.log ~/.slurm/exec-lever.log");
   lever("mpi-emulate-ranks", "1");
   must(client("nvidia-smi -L").out.split("\n").filter(Boolean).length === 8,
     "the mock node exposes 8 GPUs (the default inventory)");
@@ -198,32 +198,34 @@ try {
     leverRm("gpu-count");
   }
 
-  logSection("G — 慢线: cat 20s (> 旧 15s 预算) → 预检照样读到, 收据 in-place, 作业完成");
+  logSection("G — 慢线: 读星 20s (> 旧 15s 预算) → t346 census (awk 原地) 扛住, 收据 in-place, 作业完成");
   {
-    lever("cat-slow-ms", "20000 particles.star");
+    // t346 — the star read is a CLUSTER-SIDE awk census now (not a cat):
+    // the generic exec lever slows whatever the current code speaks
+    lever("exec-slow-ms", "20000 particles.star");
     const t0 = Date.now();
-    const { j: c2d, r } = await mkClass2d("rcp class2d slowcat", ext, 2);
-    must(r.status === 200, `slow-cat class2d dispatched (${r.status})`);
+    const { j: c2d, r } = await mkClass2d("rcp class2d slowread", ext, 2);
+    must(r.status === 200, `slow-read class2d dispatched (${r.status})`);
     const w = await waitTerminal(c2d.id, { timeoutMs: 240_000 });
-    must(w.job?.status === "completed", `slow-cat class2d COMPLETED (${w.job?.status}: ${String(w.job?.result).slice(0, 100)})`);
+    must(w.job?.status === "completed", `slow-read class2d COMPLETED (${w.job?.status}: ${String(w.job?.result).slice(0, 100)})`);
     const took = Date.now() - t0;
     const runout = runOutOf(projectId, c2d);
     must(!/particles star unreadable/.test(runout),
-      "no 'particles star unreadable' — the 90s budget carried the 20s read that the old 15s one starved on");
-    must(/read in place on the cluster/.test(runout),
-      "the receipt names the lane: the star was read in place on the cluster (the copy this job consumes)");
-    must(/particle ref\(s\) verified against their stacks' own MRC headers/.test(runout),
+      "no 'particles star unreadable' — the 90s budget carried the 20s census read that the old 15s one starved on");
+    must(/censed IN PLACE on the cluster/.test(runout),
+      "the receipt names the lane: the star was censed IN PLACE on the cluster (zero star bytes crossed the wire)");
+    must(/verified against their own MRC headers/.test(runout),
       "the stack-size consistency check RAN (the poison the field burned GPU time on would have been caught here)");
-    const leverLog = catLeverLogText();
+    const leverLog = client("cat ~/.slurm/exec-lever.log 2>/dev/null").out;
     must(/slow 20000ms on particles\.star/.test(leverLog),
-      "the cat-lever witness proves the torture actually fired (a green job alone could mean the lever never matched)");
+      "the exec-lever witness proves the torture actually fired (a green job alone could mean the lever never matched)");
     must(took >= 20_000, `the dispatch really paid the 20s read (${(took / 1000).toFixed(1)}s)`);
-    leverRm("cat-slow-ms");
+    leverRm("exec-slow-ms");
   }
 
-  logSection("H — 死通道: 首次 cat 通道无退出口关闭 → 断线重拨, 第二次读到, 作业完成");
+  logSection("H — 死通道: census 首试通道无退出口关闭 → 断线重拨, 第二次读到, 作业完成");
   {
-    lever("cat-channel-close", "particles.star");
+    lever("exec-channel-close", "particles.star");
     const { j: c2d, r } = await mkClass2d("rcp class2d chanclose", ext, 2);
     must(r.status === 200, `channel-close class2d dispatched (${r.status})`);
     const w = await waitTerminal(c2d.id, { timeoutMs: 240_000 });
@@ -231,10 +233,10 @@ try {
     const runout = runOutOf(projectId, c2d);
     must(!/particles star unreadable/.test(runout),
       "no unreadable receipt — attempt 1 died on the closed channel, the redial landed attempt 2");
-    const leverLog = catLeverLogText();
+    const leverLog = client("cat ~/.slurm/exec-lever.log 2>/dev/null").out;
     must(/channel-close on particles\.star/.test(leverLog),
-      "the one-shot lever witness: the first cat's channel really closed without an exit");
-    leverRm("cat-channel-close");
+      "the one-shot lever witness: the census's first exec really closed without an exit");
+    leverRm("exec-channel-close");
   }
 
   logSection("I — 静态源锚点: 预算/重拨/超时措辞/launcher 自身的拒发契约");
@@ -250,6 +252,11 @@ try {
       "the launcher refuses an unpinned multi-rank run (no device, no launch)");
     must(!src.includes("CF_GPU_LIST"),
       "CF_GPU_LIST is retired from the source entirely (the colon grammar died in the field)");
+    // t346 — the census anchors
+    must(src.includes("clusterParticleRefCensus") && src.includes("zero star bytes crossed the wire"),
+      "t346: the cluster-side star census exists and its receipt speaks the zero-byte doctrine");
+    must(src.includes("export -p >") && src.includes("command -v --"),
+      "t346: the rank-env dump + the launcher's binary resolution are in the generated script");
   }
 } catch (e) {
   console.error("E2E aborted:", e);

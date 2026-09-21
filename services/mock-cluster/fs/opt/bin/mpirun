@@ -43,6 +43,23 @@ fi
 case "$n" in
   ''|*[!0-9]*) n=1 ;;
 esac
+if [ -f "$HOME/.slurm/mpi-strip-env" ]; then
+  # t346 — the PRRTE non-forwarding world: every rank starts with an EMPTY
+  # environment (not even PATH — `env -i`), the way OpenMPI 5's prterun can
+  # treat a non-MPI app. The per-rank launcher (.cf-rank-launch.sh) must
+  # rebuild its world from the .cf-rank-env dump the sbatch script wrote —
+  # a rank that depended on mpirun's env forwarding would die "command not
+  # found" here. Rank env still provided (a real runtime always does).
+  rc=0
+  i=0
+  while [ "$i" -lt "$n" ]; do
+    env -i OMPI_COMM_WORLD_RANK="$i" PMIX_RANK="$i" "$@"
+    this_rc=$?
+    [ "$this_rc" -ne 0 ] && rc="$this_rc"
+    i=$((i + 1))
+  done
+  exit "$rc"
+fi
 if [ -f "$HOME/.slurm/mpi-emulate-ranks" ]; then
   rc=0
   i=0

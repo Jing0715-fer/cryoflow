@@ -146,8 +146,8 @@ try {
   const runout3 = runOutOf(projectId, c2d3);
   must(!/particles star unreadable/.test(runout3),
     "the receipt no longer says 'particles star unreadable' — the gate read the cluster's own copy (t342)");
-  must(/particle ref\(s\) verified against their stacks' own MRC headers/.test(runout3),
-    "the receipt says the refs were verified — the stack-size consistency check RAN on the cluster's bytes");
+  must(/verified against their own MRC headers/.test(runout3),
+    "the receipt says the stacks were verified — the census + header check RAN on the cluster's own bytes");
 } catch (e) {
   console.error("E2E aborted:", e);
   must(false, "the E2E ran to completion", String(e?.stack ?? e));

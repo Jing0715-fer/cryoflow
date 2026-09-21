@@ -718,10 +718,15 @@ function LogConsole({
         {noLog ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-zinc-500">
             <ScrollText className="size-8 opacity-40" aria-hidden="true" />
-            <p className="text-xs font-medium text-zinc-400">No engine log</p>
+            <p className="text-xs font-medium text-zinc-400">
+              {job.runRemote?.slurmState === "PENDING" && job.status === "running"
+                ? "Queued on Slurm — nothing has run yet"
+                : "No engine log"}
+            </p>
             <p className="max-w-xs text-[11px] leading-relaxed">
-              This job never wrote run.out to disk (engine-native or simulated jobs log
-              nothing). Check the Overview tab for its result summary.
+              {job.runRemote?.slurmState === "PENDING" && job.status === "running"
+                ? "This job is waiting for the scheduler (Slurm says PENDING). The log appears the moment the job starts on the compute node — the queue wait is not a failure."
+                : "This job never wrote run.out to disk (engine-native or simulated jobs log nothing). Check the Overview tab for its result summary."}
             </p>
           </div>
         ) : logError ? (
@@ -738,7 +743,11 @@ function LogConsole({
             Reading log…
           </div>
         ) : log.length === 0 ? (
-          <p className="text-center text-zinc-600">(log empty — waiting for the engine to speak)</p>
+          <p className="text-center text-zinc-600">
+            {job.runRemote?.slurmState === "PENDING" && job.status === "running"
+              ? "(queued on Slurm — the log appears once the job starts on the node)"
+              : "(log empty — waiting for the engine to speak)"}
+          </p>
         ) : (
           <pre className={cn("m-0", wrap ? "whitespace-pre-wrap break-words" : "whitespace-pre")}>
             {visible.length === 0 ? (

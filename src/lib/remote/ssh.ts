@@ -53,6 +53,17 @@ interface PooledClient {
   queued: number;
   /** Bumped on hard failure so callers can report honest errors. */
   lastError: string | null;
+  /**
+   * t346 — consecutive exec TIMEOUTS on this wire. keepalive needs its
+   * whole 30s window to notice a dead peer, and until it does every
+   * queued exec burns its full budget against the corpse (serialized —
+   * the sweep, the log fetches, staging, all of them). Two timeouts in
+   * a row is the wire saying the connection is gone: drop it so the
+   * next exec re-dials a fresh TCP+auth channel instead of queuing onto
+   * the body. A single timeout (a slow-but-alive login node) changes
+   * nothing.
+   */
+  timeoutStreak: number;
 }
 
 const pool = new Map<string, PooledClient>();
@@ -236,6 +247,7 @@ function getPooled(c: RemoteConnection): PooledClient {
     queueTail: Promise.resolve(),
     queued: 0,
     lastError: null,
+    timeoutStreak: 0,
   };
 
   // t291 pre-flight: config problems the user can fix get their OWN honest
@@ -275,8 +287,11 @@ function getPooled(c: RemoteConnection): PooledClient {
       host: c.host,
       port: c.port,
       readyTimeout: 15_000,
-      keepaliveInterval: 15_000,
-      keepaliveCountMax: 4,
+      // t346 — 10s×3 = a dead peer is noticed in ≤30s (was 15×4 = 60s:
+      // a half-dead wire burned full exec budgets for a whole minute
+      // while every queued command timed out against the corpse)
+      keepaliveInterval: 10_000,
+      keepaliveCountMax: 3,
     };
     // mirrors ssh2's own authsAllowed construction order exactly: none →
     // password → publickey → agent → keyboard-interactive (client.js builds
@@ -477,6 +492,23 @@ export async function exec(
         timeoutMs: opts.timeoutMs ?? 20_000,
         stdin: opts.stdin ?? null,
       });
+      // t346 — the timeout-streak ladder: ONE timeout is a slow login
+      // node (forgiven); TWO in a row is a dead wire pretending to be
+      // alive — drop the pooled client so the next exec re-dials. Only
+      // the timeout word counts: exit codes and channel errors have
+      // their own honest meanings.
+      if (typeof r.error === "string" && /timeout after/.test(r.error)) {
+        pooled.timeoutStreak += 1;
+        if (pooled.timeoutStreak >= 2) {
+          console.log(
+            `ssh: ${c.id} timed out ${pooled.timeoutStreak}x in a row — dropping the pooled connection for a fresh re-dial (t346)`
+          );
+          pooled.timeoutStreak = 0;
+          dropConnection(c.id);
+        }
+      } else if (!r.error) {
+        pooled.timeoutStreak = 0;
+      }
       return {
         code: r.code,
         stdout: r.stdout.toString("utf8"),

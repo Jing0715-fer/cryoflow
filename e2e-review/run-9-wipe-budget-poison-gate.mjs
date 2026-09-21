@@ -227,10 +227,10 @@ try {
   must(we.job?.status === "completed",
     `the recovered class2d COMPLETED (${we.job?.status}: ${String(we.job?.result).slice(0, 120)})`);
   const runoutE = runOutOf(projectId, c2d);
-  must(/particle ref\(s\) verified against their stacks' own MRC headers/.test(runoutE),
+  must(/verified against their own MRC headers/.test(runoutE),
     "the receipt says verified — the gate judged the FRESH generation's numbers");
-  must(/read in place on the cluster at/.test(runoutE),
-    "the receipt names the lane: the star was read in place on the cluster");
+  must(/censed IN PLACE on the cluster at/.test(runoutE),
+    "the receipt names the lane: the star was censed IN PLACE on the cluster (zero star bytes crossed the wire)");
 } catch (e) {
   console.error("E2E aborted:", e);
   must(false, "the E2E ran to completion", String(e?.stack ?? e));
