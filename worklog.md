@@ -2967,3 +2967,23 @@ Stage Summary:
 - 「解决 Job failed」的答案已在拉取的 t341–t346 里：六 rank 挤一卡（本次 exit 1 的机制）被 per-rank launcher 物理灭绝；15s 假死星读取被 90s+重拨+原地 census 灭绝；用户侧复机路径 = Windows 主机 git pull → 卡死作业 Reset → Re-run（heal/mop 先搬正错位 star、饥饿卡拒发会点名占卡 PID）
 - 一次性集群清理指引（用户侧执行）：sacct -j 124635 查真实死因（大概率 OUT_OF_MEMORY/CANCELLED）；squeue -u lijing 收割残留 sbatch；gpu06 上 nvidia-smi --query-compute-apps=pid,process_name,used_memory 列占卡孤儿并 kill
 - 本窗口零代码改动（纯拉取+验证），沙箱与 origin/main 同步于 75725c4
+
+---
+Task ID: t348
+Agent: main-agent (Z.ai Code)
+Task: 用户工单（六 rank 2D 分类的 run.out 解读）——「怎么感觉卡在一开始不动呢？另外看log怎么感觉是几个GPU重复执行了同一个任务，而不是多个GPU执行同一个任务呢？」附 log：六行 CRYOFLOW_RANK_BIND（rank 0-5 → CUDA_VISIBLE_DEVICES=0-5，t345 生效）+ 六份相同横幅 + Expectation iteration 1 of 20 六份 "000/???" 计数器。
+
+Work Log:
+- 判读①（修复生效的证据链）：六行 RANK_BIND 回执 = 6 rank 各占 6 张不同物理卡——上一轮「六 rank 挤一卡吃干显存→无声 exit 1」的病根已除；「Ignoring required free GPU memory」警告缺席 = 卡不饿（t342 冻结签名不在场）；「Estimating initial noise spectra」/「Estimating accuracies」全部 yum! 完成 = 颗粒栈可读（t338 消费端闸门也过了，收据正常）；NrHiddenVariableSamplingPoints=92800=64 方位×29 平移×50 类 = 50 类在生效
+- 判读②（"重复执行"是 MPI 日志的天然形状）：6 个独立进程各写各的横幅/报表交错进同一个 run.out；分工是切分不是重复——Expectation 按颗粒六等分、Maximization 按类分（每 rank 更新 ~1/6 的类）、噪声谱/精度估计各算各的子集；「mapped to device 0」×6 语义已变：t345 后每 rank 的私有 CUDA_VISIBLE_DEVICES 世界里只有一张卡（它自己的），编号必然是 0——物理真相在 RANK_BIND 回执里（rank k → 物理卡 k）；t345 前六份 "devices 0"=全挤物理 0 卡，之后六份 "device 0"=各在自己卡的私有视角，字面相同含义相反
+- 判读③（"卡住"需现场判别 slow vs stuck）：000/??? 是时间估计计数器（已用秒/预估秒，??? = 首批未完成无预估）；第一轮 Expectation 是整个 run 最重一步（每颗粒 vs 50 类×512 方位×116 平移≈300 万假设），~35 万颗粒（1034 微图×~340/微图）六等分后单轮十几分钟量级、20 轮整体按小时计属正常；判别命令=计算节点 nvidia-smi（6 进程×6 卡×utilization>0 → 在算；长时间 0% → scancel 降宽度重跑）
+- 代码改进（在困惑发生处自解释）：sbatch 脚本 t345 块尾部（饥饿卡拒发之后、mpirun 之前）加一行运行时 CRYOFLOW_NOTE——"$CF_RANKS MPI ranks, one per card — every rank prints its OWN copy…; the work is SPLIT across ranks (particles in the Expectation step, classes in the Maximization step), NOT repeated; each rank's 'device 0' is its own card in its private CUDA_VISIBLE_DEVICES world"；运行时 [ "$CF_RANKS" -ge 2 ] 守卫（单 rank/钳制到 1 不付噪声；钳制后计数是后值）；以后每次多 rank run 的 log 开头自文档
+- 活体验证（scripts/diag-t348-multirank-note.mjs，26/26 ALL GREEN，dev :3000 + mock :3022 真链路）：import(3 合成 MRC 头部嗅探过)→ctffind→LoG autopick→extract(shards=2)→class2d 宽 6——6 份 RANK_BIND 六张不同卡(0,1,2,3,4,5)、无钳制/致盲注记、t348 注记以 post-clamp 计数(starting 6)落在首行(先于首份回执)、脚本形态钉死(CF_RANKS=6+mpirun -n "$CF_RANKS"+launcher+--gpu 0 无冒号列表)、宽 1 作业不付注记；fixtures 生成器内嵌进 diag 脚本(ensureFixtures，自足可重跑)
+- 首跑 7 败根因=本人 driver 转录笔误（runOutOf 的闭合引号位置，cat 了一个不存在的字面文件名），非代码回归；修正后全绿
+- 回归面核查：run-6/run-10 的 sbatch 形状断言全为 includes() 风格（纯增量行安全）；无任何套件钉 run.out 首行顺序；tsc 0；触碰文件 eslint 0
+- 现场清理：两个 t348 测试项目(API DELETE)+连接(DELETE)+mock 项目目录与杠杆全清；合成 fixtures 留在 mock fs（gitignored 测试基建，脚本可自再生成）
+
+Stage Summary:
+- 用户两个问题的答案：①大概率在算（第一轮 Expectation 最重、小时级正常），nvidia-smi 六卡 utilization 一辨真伪；②不是重复执行——MPI 日志天然形状（N 进程各写各的横幅），工作按颗粒/类切分，"device 0"×6 是每 rank 私有单卡世界的编号而非物理 0 卡
+- t345 修复已被用户现场实证生效（六 RANK_BIND 回执）；t348 让这层解释长进每次 run 的 log 第一行，下个用户不再需要问
+- 代码改动：remote-run.ts（t348 注记行+注释）；新 scripts/diag-t348-multirank-note.mjs + scripts/t348-lib.mjs（e2e-lib 的本沙箱补丁副本）；tsc/eslint 干净

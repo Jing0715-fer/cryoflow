@@ -1331,6 +1331,28 @@ function buildSbatchScript(args: {
     L.push("  esac");
     L.push("fi");
     L.push("");
+    // t348 — the multi-rank log, explained AT the confusion. The field
+    // report: a healthy 6-rank 2D classification's run.out read as 「几个
+    // GPU 重复执行了同一个任务」 — six copies of every banner interleaved
+    // into one file. That is the MPI shape, not duplication: N independent
+    // processes each print their OWN copy of every RELION banner/report
+    // (noise spectra, accuracy estimates, "Expectation iteration 1 of 20"),
+    // while the WORK is split — the Expectation step divides the particles
+    // across ranks, the Maximization step divides the classes. The per-rank
+    // "mapped to device 0" is equally normal since t345: each rank's
+    // private CUDA_VISIBLE_DEVICES world holds exactly one card, so 0 IS
+    // its own card (the RANK_BIND receipts above name the physical truth).
+    // One echo, printed only when ≥2 ranks are really starting (after the
+    // starved-card gate, with the post-clamp count) — every future run
+    // self-documents instead of earning a ticket.
+    if (mpiRanks && mpiRanks > 1) {
+      L.push('if [ "${CF_RANKS:-1}" -ge 2 ]; then');
+      L.push(
+        `  echo "CRYOFLOW_NOTE: starting $CF_RANKS MPI ranks, one per card — every rank prints its OWN copy of the RELION banners and reports into this log; the work is SPLIT across ranks (particles in the Expectation step, classes in the Maximization step), NOT repeated. Each rank's 'device 0' is that rank's own card inside its private CUDA_VISIBLE_DEVICES world — the CRYOFLOW_RANK_BIND receipts name the physical cards (t348)"`
+      );
+      L.push("fi");
+      L.push("");
+    }
   }
   L.push("# ---- run ----");
   // t313 — the CTF gate's receipt lands at the TOP of run.out (SBATCH
