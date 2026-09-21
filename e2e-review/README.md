@@ -15,6 +15,7 @@ places; the suites assume both are up).
 | `run-5-cleanup-api.mjs` | the cleanup plan/execution both ends, tiered, manifest-rewritten; a fresh dispatch no longer mutes the plan for a TTL (t341 publish:false) |
 | `run-6-batch-size.mjs` | the memory-aware refine batch (box 360 → `--batch_size 32`, box ≤ 200 → RELION default, explicit param wins) + the sbatch shape (one rank per GPU as the script's own `CF_RANKS`/`CF_GPU_LIST` clamp variables, the t341 GPU-pin block, the t342 starved-card refusal block) |
 | `run-7-gpu-coherence.mjs` | t342: a node exposing 1 GPU clamps a width-2 MPI dispatch to one rank (narrated in run.out, the job completes instead of freezing); a card below 1000 MB free is refused pre-launch with the holder PIDs named (exit 98); a particles.star with NO local copy is read through its cluster twin and verified — the "unreadable → check did not run" receipt is extinct |
+| `run-8-star-lane.mjs` | t343: the consumption-lane star read — one map, one lane, one address. A poisoned LOCAL mirror never earns a verdict (the twin lane judges the cluster copy in place); the upload lane refuses on poisoned LOCAL bytes (those exact bytes would ship, the row keeps its state); a gone twin names the door + the cat's own word + the remedy while the job fails fast at relion's own door; a foreign-cluster upstream record takes the upload lane with a byte-level witness |
 
 ## Real-data fixtures (not in git)
 

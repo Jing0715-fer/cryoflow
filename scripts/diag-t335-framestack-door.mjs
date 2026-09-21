@@ -569,7 +569,7 @@ try {
 
   must(/the extract frame census \(t335\)/.test(gateSrc), "D1 the pure module carries the t335 contract");
   must(/mrc-stack/.test(gateSrc) && /single-section/.test(gateSrc), "D2 both sniff verdicts speak");
-  must(/cat \$\{shSingleQuote\(starPath\)\}/.test(rrSrc), "D3 the twin-resolved star is cat'd over SSH (t334's skip closed)");
+  must(/async function catRemote/.test(rrSrc) && /catRemote\(conn, twin\)/.test(rrSrc), "D3 the twin-resolved star is cat'd over SSH (t334's skip closed; t343's catRemote, one lane one address)");
   must(/scanExtractCollisions\(starText\)/.test(rrSrc), "D4 the t334 scan re-runs on the SSH-read text");
   must(/extractInputGate\(\s*rows,/.test(rrSrc), "D5 the dispatch calls the frame census");
   must(/ctffindGateNote \?\? extractGateNote/.test(rrSrc), "D6 the census note rides the submitted script's log");

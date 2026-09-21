@@ -943,6 +943,7 @@ job's Results/Files tab, on the cluster).
 | the run freezes at `Expectation iteration 1` with `WARNING: Ignoring required free GPU memory amount of 800 MB` and every rank banner says `devices 0` | extinct at the source (t342): the sbatch script CLAMPS the MPI rank count to the GPUs the node actually exposes at launch (a `--gres` width is a request; a node without gres accounting never enforces it — two ranks on one card exhaust its memory), and a card below 1000 MB free BEFORE RELION starts is refused with the holder PIDs printed (`nvidia-smi --query-compute-apps`) — exit 98, one second, names, instead of an hour of frozen iterations; the Log tab's diagnosis reads RELION's own warning line for the runs that already died |
 | extraction stacks filling the laptop | by design, not a failure: under key-files, extract/motioncorr/polish sync TEXT ONLY — the stacks stay on the cluster (listed in Results, fetchable on demand, downstream cluster jobs chain in place); the receipt says so; switch the connection to "everything" to bring them home, or run the inspector's local-only Bulk cleanup on mirrors from before t339 (t339) |
 | a long cs → star / import first flips FAILED (`stale running state (no engine record)`) then COMPLETED, with no log mid-run | extinct at the source (t340): the marathon natives write an IN-FLIGHT run record from second zero (pid = the server, the sweep's liveness word) and speak phase lines into `run.out` as they go — the row stays RUNNING with a live log until the completion overwrite lands |
+| a remote job dies "file not found" on its input star while the local mirror copy exists | the cross-cluster twin hole is closed: an upstream that ran on a DIFFERENT cluster no longer skips the upload — the twin map's pair entries carry the same-cluster gate the identity entries always had (t343), so the local mirror takes the upload lane (the one copy this connection can reach) and the run consumes the uploaded bytes |
 
 ## 6. Testing without a cluster: the mock cluster
 
@@ -1335,3 +1336,65 @@ upstream's verified twin, the mirror-mapped path, then the path as-is —
 and when all fail, the receipt names the paths TRIED plus the cat's own
 failure word (the old note said only "cluster cat failed"; the field
 report deserved better).
+
+## 4t. One map, one lane, one address — the consumption-lane star read (t343)
+
+The user's question retired t342's belt-and-suspenders: 「这个前一个 job 的
+star 文件的写入地址不是确定的吗？为何还要尝试这么多？集群的任务尽量不用
+本地副本，直接在集群上写入和读取更加直接，避免了网络传输」— the write
+address IS deterministic, and the codebase already owned it: **the twin map is
+the staging's own lane decision** (a hit → the staging uploads nothing, the
+argv runs against the cluster twin in place; a miss → the LOCAL file is the
+exact bytes that will upload, and the staging refuses the dispatch when they
+are missing). The t342 walk — local copy → twin → mirror-mapped → path
+as-is — trusted no single address, and in both directions it judged bytes
+the job never touches:
+
+- **twin lane, local-first:** a stale local mirror (the sync-back lagged,
+  died mid-download, or a cleanup swept the mirror tree) earns a false
+  "verified" while relion reads the CLUSTER copy — the exact lie the
+  consistency gates exist to prevent, told about the wrong generation.
+- **upload lane, cluster-walk:** nothing the cluster holds can change the
+  staging's own `input "particles_star" does not exist locally` refusal one
+  SSH round trip later — the walk only delayed the same door.
+
+The reader now derives its lane from the same map the staging derives its
+own (`readResolvedStarText`): the **twin lane** cats the cluster copy in
+place over SSH and never consults the local mirror; the **upload lane**
+reads the local copy (the bytes that ship) and never walks the cluster.
+The receipts speak the lane — success notes end with WHICH bytes were
+judged (`the star was read in place on the cluster at <path> — the copy
+this job consumes; nothing uploads for it` / `the star was read from the
+local copy this dispatch uploads`), and an unreadable star names THE door:
+the lane's own address, the cat's failure word (tail-sliced — the reason
+rides AFTER the path, and a head slice on a deep cluster path cuts it off),
+and the remedy (re-run the upstream to regenerate it). Unverifiable still
+degrades to the note, never a block (the t313 rule).
+
+**The adjacent hole the derivation exposed:** the twin map's PAIR entries
+(local mirror path → cluster twin) were built unconditionally, while the
+identity entries carried the t325 same-cluster gate. An upstream that ran
+on cluster A, its star synced back to the local mirror, then a dispatch to
+cluster B: the pair made the staging SKIP the upload and point B's argv at
+A's path — relion died "file not found" over a local copy that sat ready
+to upload. The whole upstream is gated in one place now; a foreign
+upstream takes the upload lane — the one copy this connection can actually
+reach (two front-ends of one shared filesystem lose the in-place pass this
+way; the safe direction: bytes upload, the run still completes).
+
+**The bonus the unification bought:** the t338 ref resolver's cluster-side
+anchor is one formula both lanes share (the twin when the input runs in
+place, else the mirror-mapped upload path). The upload lane used to anchor
+star-relative refs on the project root alone — refs in the star-relative
+dialect degraded to "could not be verified"; now they are judged against
+the star's own directory on the cluster, exactly like the twin lane always
+did.
+
+Verified by `e2e-review/run-8-star-lane.mjs` (29 assertions, all green):
+a poisoned local mirror never earns a verdict (the job completes, the
+receipt says the cluster copy was judged); the upload lane refuses on
+poisoned LOCAL bytes with the row keeping its state (request-error
+contract); a gone twin produces the lane-named note while the job fails
+fast at relion's own missing-input door; and a foreign-cluster record
+takes the upload lane with a byte-level witness — the marker line from
+the local copy lands in the cluster file.

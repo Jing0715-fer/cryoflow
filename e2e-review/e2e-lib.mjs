@@ -7,7 +7,7 @@
  * accounting) for the reset/delete residue analysis.
  */
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 export const ROOT = "/home/z/cryoflow";
@@ -138,6 +138,19 @@ export function readEngineState() {
   } catch {
     return {};
   }
+}
+
+/**
+ * Surgical record editor (t343): read → mutate → write the engine ledger.
+ * The app's readRuns cache keys on mtime/size, so an external write busts
+ * it naturally. Only call BETWEEN dispatches (a live run's record is the
+ * app's own truth — never edit under it).
+ */
+export function editEngineState(mutate) {
+  const st = readEngineState();
+  mutate(st);
+  writeFileSync(`${ROOT}/data/engine-state.json`, JSON.stringify(st, null, 2));
+  return st;
 }
 
 /** The remote manifest the Files tab rides. */

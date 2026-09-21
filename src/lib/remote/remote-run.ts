@@ -224,66 +224,130 @@ function mapRemoteToLocal(remotePath: string, remoteRoot: string): string {
   return remotePath;
 }
 
+/* ------------------------------------------------------------------ */
+/* t343 — the consumption-lane star reader                              */
+/* ------------------------------------------------------------------ */
+
+/** One resolved input STAR's read, in the lane the job will consume it in. */
+interface StarRead {
+  /** the star's text, or null when the lane's own door failed */
+  text: string | null;
+  /** which copy the job consumes — the SAME lane the staging derives below */
+  lane: "cluster" | "local";
+  /** the star's cluster-side address (the twin, else the mirror-mapped upload path) */
+  clusterHome: string | null;
+  /** the address the read attempted — the receipt names it */
+  readAt: string;
+  /** the cat/read failure's own word, when text is null */
+  err: string | null;
+}
+
+/** cat a file on the cluster; on failure, the channel's own honest word. */
+async function catRemote(conn: RemoteConnection, p: string): Promise<{ text: string | null; err: string | null }> {
+  try {
+    const cat = await exec(conn, `cat ${shSingleQuote(p)}`, { timeoutMs: 15_000 });
+    if (!cat.error && cat.code === 0) return { text: cat.stdout, err: null };
+    // the exec channel is a LOGIN shell: the .bashrc noise prints first,
+    // the cat's own word lands last — that last line is the honest reason
+    // ("cat: /…: No such file or directory"). Keep its TAIL: the reason
+    // rides AFTER the path, and the path is already in the note via
+    // readAt — a head slice on a deep cluster path cuts the reason off
+    // (the t343 field receipt showed exactly that: "…particles.st", 120
+    // chars in, no reason in sight).
+    const why = (cat.stderr || "").trim().split("\n").pop() ?? "";
+    return { text: null, err: cat.error ?? `exit ${cat.code}${why ? `: ${why.slice(-140)}` : ""}` };
+  } catch (e) {
+    return { text: null, err: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 /**
- * t342 — read a resolved input STAR's text wherever it actually lives.
+ * t343 — read a resolved input STAR from the lane the job will actually
+ * consume it in, and ONLY that lane.
  *
- * The field report that made the old single-path cat honest by accident:
- * the receipt said "particles star unreadable (no local copy, cluster cat
- * failed) — the stack-size consistency check did not run". A resolved
- * input that missed the local mirror was cat'd at its RESOLVED path
- * alone — right when the resolver handed back a live cluster twin
- * (t324's identity case), wrong when that twin had gone stale (the
- * connection's remote root moved, a cleanup swept the cluster tree, a
- * re-run's pre-wipe) while the star itself still sits where the upstream
- * wrote it. This reader walks the honest candidate list — the upstream's
- * verified twin, the mirror-mapped cluster path, then the path as-is
- * (the shared-filesystem shape) — and when every candidate fails it
- * returns the paths TRIED plus the cat's own failure word, so the
- * receipt names the actual door instead of a shrug. Unverifiable always
- * degrades to the note, never a block (the t313 rule).
+ * The t342 reader brute-forced an order — local copy → cluster twin →
+ * mirror-mapped → path as-is — because it trusted no single address. But
+ * the address IS deterministic, and this file already knows it: the twin
+ * map IS the staging's own lane decision (one map, both consumers — a hit
+ * means the staging uploads NOTHING and the argv runs against the cluster
+ * twin in place; a miss means the LOCAL file is the exact bytes that will
+ * upload, and the staging refuses the dispatch when it is missing).
+ * Reading in any other order verifies bytes the job never touches, in
+ * both directions:
+ *
+ *   • twin lane, local-first: a STALE local mirror (the sync-back lagged,
+ *     died mid-download, or a cleanup swept the mirror tree) would earn a
+ *     false "verified" while relion reads the CLUSTER copy — the exact
+ *     lie the gates exist to prevent, told about the wrong generation.
+ *   • upload lane, cluster-walk: nothing the cluster holds can change the
+ *     staging's own "input does not exist locally" refusal one SSH round
+ *     trip later — the walk only delayed the same door.
+ *
+ * So the local mirror is deliberately NOT a candidate in the twin lane,
+ * and the cluster is deliberately NOT a candidate in the upload lane.
+ * When a lane's own door fails, the receipt names THAT address and the
+ * door's own word (the t313 rule: honest note, never a block).
  */
 async function readResolvedStarText(
   conn: RemoteConnection,
   starPath: string,
   twins: Map<string, string>,
   remoteRoot: string
-): Promise<{ text: string | null; tried: string[]; catErr: string | null }> {
-  if (existsSync(starPath)) {
-    try {
-      return { text: readFileSync(starPath, "utf8"), tried: [starPath], catErr: null };
-    } catch {
-      /* an unreadable local copy falls through to the cluster candidates */
-    }
-  }
+): Promise<StarRead> {
   const localNorm = starPath.split(path.sep).join("/");
   const mirrorRoot = RELION_DIR.split(path.sep).join("/");
-  const candidates: string[] = [];
   const twin = twins.get(localNorm);
-  if (twin && twin !== localNorm) candidates.push(twin);
-  if (localNorm.startsWith(mirrorRoot + "/")) {
-    const mapped = mapLocalToRemote(starPath, remoteRoot);
-    if (!candidates.includes(mapped)) candidates.push(mapped);
+  const underMirror = localNorm.startsWith(mirrorRoot + "/");
+  // the star's cluster-side home either way: the twin when the input runs
+  // in place, else the mirror-mapped path the staging's upload rides (the
+  // t338 ref resolver anchors star-relative refs on this dir — and with
+  // it, the upload lane can finally judge the mock's star-relative dialect
+  // too, not just the twin lane)
+  const clusterHome = twin ?? (underMirror ? mapLocalToRemote(starPath, remoteRoot) : null);
+  if (twin) {
+    // THE TWIN LANE — the cluster copy in place is what this job consumes
+    // (the staging skip and the argv's twin preference key off this very
+    // map entry; an identity entry IS the cluster path already). The
+    // local mirror is never consulted here.
+    const cat = await catRemote(conn, twin);
+    return { text: cat.text, lane: "cluster", clusterHome, readAt: twin, err: cat.err };
   }
-  if (!candidates.includes(localNorm)) candidates.push(localNorm);
-  let catErr: string | null = null;
-  for (const cand of candidates) {
-    try {
-      const cat = await exec(conn, `cat ${shSingleQuote(cand)}`, { timeoutMs: 15_000 });
-      if (!cat.error && cat.code === 0) {
-        return { text: cat.stdout, tried: [starPath, ...candidates], catErr: null };
-      }
-      if (catErr == null) {
-        // the exec channel is a LOGIN shell: the .bashrc noise prints
-        // first, the cat's own word lands last — that last line is the
-        // honest reason ("cat: /…: No such file or directory")
-        const why = (cat.stderr || "").trim().split("\n").pop() ?? "";
-        catErr = cat.error ?? `exit ${cat.code}${why ? `: ${why.slice(0, 120)}` : ""}`;
-      }
-    } catch (e) {
-      if (catErr == null) catErr = e instanceof Error ? e.message : String(e);
-    }
+  // THE UPLOAD LANE — no twin on this connection: the LOCAL file is the
+  // exact bytes the staging uploads next (it refuses the dispatch when
+  // they are missing, so no cluster address can rescue this read).
+  try {
+    return { text: readFileSync(starPath, "utf8"), lane: "local", clusterHome, readAt: starPath, err: null };
+  } catch (e) {
+    return {
+      text: null,
+      lane: "local",
+      clusterHome,
+      readAt: starPath,
+      err: e instanceof Error ? e.message : String(e),
+    };
   }
-  return { text: null, tried: [starPath, ...candidates], catErr };
+}
+
+/** The lane-honest unreadable sentence — the note names THE door, not a shrug. */
+function starUnreadableNote(what: "micrographs" | "particles", rd: StarRead): string {
+  if (rd.lane === "cluster") {
+    return (
+      `${what} star unreadable on the cluster — this job reads it in place at ${rd.readAt} ` +
+      `(a cluster-native input uploads nothing) and that read failed${rd.err ? `: ${rd.err}` : ""}` +
+      `; if the file is gone, re-run the upstream job to regenerate it`
+    );
+  }
+  return (
+    `${what} star unreadable — the local copy this dispatch would upload (${rd.readAt}) is missing` +
+    `${rd.err ? `: ${rd.err.slice(-140)}` : ""}; run the upstream job again`
+  );
+}
+
+/** The lane suffix for a SUCCESS receipt — WHICH bytes were judged. */
+function starLaneSuffix(rd: StarRead): string {
+  return rd.lane === "cluster"
+    ? ` (the star was read in place on the cluster at ${rd.readAt} — the copy this job consumes; nothing uploads for it)`
+    : ` (the star was read from the local copy this dispatch uploads)`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -2058,6 +2122,19 @@ export async function startRemoteJob(args: {
   for (const up of upstream) {
     const rec = runs[up.id];
     if (!rec?.remote?.remoteOutputs) continue;
+    // t343 — the PAIR entries (local mirror path → cluster twin) earn the
+    // same-cluster gate the identity entries have carried since t325, and
+    // the whole upstream is gated in one place. The hole: a pair built
+    // from an upstream that ran on a DIFFERENT cluster made the staging
+    // below SKIP the upload and point this cluster's argv at a path only
+    // the OTHER cluster can reach — relion dies "file not found" over a
+    // local mirror that sat ready to upload. The resolver itself was
+    // always gated (its case T checks the same identity); only this map's
+    // pairs missed it. Gated, such an upstream takes the UPLOAD lane —
+    // the one copy this connection can actually reach. (Two front-ends
+    // of one shared filesystem lose the in-place pass this way — the
+    // safe direction: bytes upload, the run still completes.)
+    if (!sameClusterTarget(rec.remote, { connectionId: conn.id, host: connHostPort })) continue;
     for (const [key, localTw] of Object.entries(rec.outputs)) {
       const remoteTw = rec.remote.remoteOutputs[key];
       if (remoteTw && localTw) upstreamRemoteTwins.set(localTw.split(path.sep).join("/"), remoteTw);
@@ -2066,14 +2143,12 @@ export async function startRemoteJob(args: {
     // satisfies the requirement by ITSELF (identity entry — both the
     // staging skip below and the argv's twin preference key off this map,
     // so a twin-resolved input uploads nothing and runs against the
-    // cluster copy in place). Gated on the SAME CLUSTER (t325: connection
-    // OR host — a re-created connection to the same host still holds
-    // these paths; a genuinely different cluster does not).
-    if (sameClusterTarget(rec.remote, { connectionId: conn.id, host: connHostPort })) {
-      for (const remoteTw of Object.values(rec.remote.remoteOutputs)) {
-        const norm = remoteTw.split(path.sep).join("/");
-        if (!upstreamRemoteTwins.has(norm)) upstreamRemoteTwins.set(norm, remoteTw);
-      }
+    // cluster copy in place). Same cluster only (t325: connection OR
+    // host — a re-created connection to the same host still holds these
+    // paths; a genuinely different cluster does not).
+    for (const remoteTw of Object.values(rec.remote.remoteOutputs)) {
+      const norm = remoteTw.split(path.sep).join("/");
+      if (!upstreamRemoteTwins.has(norm)) upstreamRemoteTwins.set(norm, remoteTw);
     }
   }
 
@@ -2092,21 +2167,21 @@ export async function startRemoteJob(args: {
   let extractGateNote: string | null = null;
   if (job.type === "extract" && resolved.inputs.micrographs_star) {
     const starPath = resolved.inputs.micrographs_star;
-    // t335/t342 — the twin-resolved star lives on the cluster: read it in
-    // place (all honest candidates, the t342 reader) so the t334 scan
-    // (which skipped above) can still speak
+    // t335/t343 — the lane-aware read: the cluster twin when the input
+    // runs in place (the copy THIS job consumes — even when a stale
+    // local mirror also exists), the local copy when the staging uploads
+    // it. The collision scan + the frame census both judge those bytes.
     const starRd = await readResolvedStarText(conn, starPath, upstreamRemoteTwins, remoteRoot);
     const starText = starRd.text;
-    if (starText !== null && !existsSync(starPath)) {
+    if (starText !== null && starRd.lane === "cluster") {
       console.log(
-        `remote-run: extract star read in place over SSH (${starRd.tried.slice(1).join(" → ") || starPath}) — the collision scan re-ran on the cluster's own text (t335/t342)`
+        `remote-run: extract star read in place over SSH (${starRd.readAt}) — the collision scan + the frame census ran on the cluster's own bytes, the copy this job consumes (t335/t343)`
       );
     }
     if (starText === null) {
       extractGateNote =
-        `micrographs star unreadable (no local copy; the cluster cat failed on ${starRd.tried.slice(1).join(" → ") || starPath}` +
-        `${starRd.catErr ? ` — ${starRd.catErr}` : ""}) — the collision scan and the frame-stack census did not run`;
-      console.log("remote-run: extract frame census — star unreadable, census skipped (t335/t342)");
+        `${starUnreadableNote("micrographs", starRd)} — the collision scan and the frame-stack census did not run`;
+      console.log("remote-run: extract frame census — star unreadable, census skipped (t335/t343)");
     } else {
       // the collision scan on whatever text we now hold (the t334 wording
       // verbatim — a twin-resolved star earns the SAME refusal, not a
@@ -2133,7 +2208,7 @@ export async function startRemoteJob(args: {
           );
           return fail(gate.refusal, true);
         }
-        extractGateNote = gate.note;
+        extractGateNote = gate.note + starLaneSuffix(starRd);
       }
     }
   }
@@ -2210,32 +2285,27 @@ export async function startRemoteJob(args: {
   let particlesGateNote: string | null = null;
   if (PARTICLES_CONSUMER_TYPES.has(job.type) && resolved.inputs.particles_star) {
     const starPathLocal = resolved.inputs.particles_star;
-    const localNorm = starPathLocal.split(path.sep).join("/");
-    // the star's text: the local copy when the sync-back landed it, else
-    // the cluster's own bytes through EVERY honest candidate (t342 — the
-    // twin, the mirror-mapped path, then the path as-is; the failure's
-    // own word rides the note)
+    // t338/t343 — the lane-aware read (ONE address, not a candidate walk):
+    // the cluster twin when this job runs against the cluster copy in
+    // place — even when a stale local mirror also exists (the mirror's
+    // bytes are never consumed and must not be judged) — else the local
+    // copy the staging uploads. The stack-size check judges exactly the
+    // bytes relion will read.
     const starRd = await readResolvedStarText(conn, starPathLocal, upstreamRemoteTwins, remoteRoot);
     const starText = starRd.text;
     if (starText == null) {
       particlesGateNote =
-        `particles star unreadable (no local copy; the cluster cat failed on ${starRd.tried.slice(1).join(" → ") || starPathLocal}` +
-        `${starRd.catErr ? ` — ${starRd.catErr}` : ""}) — the stack-size consistency check did not run`;
+        `${starUnreadableNote("particles", starRd)} — the stack-size consistency check did not run`;
     } else if (particleRefsFromContent(starText).length > 0) {
-      // the star's CLUSTER-side location: the upstream twin when the input
-      // resolved through a local mirror copy, the mirror's mapped cluster
-      // path, or the resolved cluster path itself — star-relative refs
-      // resolve against it (RELION's star grammar; the mock's own dialect
-      // writes star-relative refs)
-      const twin = upstreamRemoteTwins.get(localNorm);
-      const mirrorRoot = RELION_DIR.split(path.sep).join("/");
-      const clusterStar =
-        twin ??
-        (localNorm.startsWith(mirrorRoot + "/")
-          ? mapLocalToRemote(starPathLocal, remoteRoot)
-          : !existsSync(starPathLocal)
-            ? starPathLocal
-            : null);
+      // the star's CLUSTER-side home anchors star-relative refs (RELION's
+      // star grammar resolves them against the process CWD — the project
+      // root — while the mock's own dialect writes star-relative refs).
+      // One formula both lanes share: the twin when the input runs in
+      // place, else the mirror-mapped path the staging's upload rides —
+      // the upload lane earns its star-dir candidates too (t343; it used
+      // to anchor on the project root alone and could not judge the
+      // star-relative dialect at all)
+      const clusterStar = starRd.clusterHome;
       const starDir = clusterStar ? clusterStar.slice(0, clusterStar.lastIndexOf("/")) : null;
       const gate = await particlesRefGate(
         starPathLocal,
@@ -2249,7 +2319,7 @@ export async function startRemoteJob(args: {
         );
         return fail(gate.refusal, true);
       }
-      particlesGateNote = gate.note;
+      particlesGateNote = gate.note + starLaneSuffix(starRd);
     }
   }
 
