@@ -2948,3 +2948,22 @@ Stage Summary:
 - 用户复机路径: pull → Reset 卡死作业 → Re-run — reaper 先 scancel 卡死的同名 sbatch; 若卡上还有 Slurm 管不到的孤儿进程, 新预检 1 秒内拒发并点名 PID (不再隐形挂死); rank 钳制保证不再两 rank 挤一卡; 50 类 + 单 rank + 干净卡 = Expectation 该动起来了
 - 用户当前集群手动清理 (一次性): squeue -u <user> 找卡死的 sbatch → scancel; gpu06 上 nvidia-smi --query-compute-apps=pid,process_name,used_memory 列占卡 PID → kill 残留
 - "particles star unreadable" 从耸肩变成自描述: 多候选 + 失败原因入收据; 无本地副本的 star 走 twin 校验 ("verified") 已实证
+---
+Task ID: t347
+Agent: main-agent (Z.ai Code)
+Task: 用户工单「拉取最新代码，并解决Job failed」——2D 分类 REMOTE[lijing@192.168.2.253] exit 1（RELION 无报错、无声死亡；诊断 GPU memory starvation ×5 + Out-of-memory ×3；sacct -j 124635 待查）+ CRYOFLOW_NOTE「particles star unreadable … timeout after 15000ms … the stack-size consistency check did not run」+ run.out 六份 rank 横幅全部 "mapped to device 0"。
+
+Work Log:
+- git pull 868d946 → 75725c4（t339–t346 十二个提交落地）：本地未跟踪的并行窗口草稿（cs-npy/cs2star/extract-gate/particle-ref-gate/sync-policy + t335–t339 截图与 diag 脚本）与远程同名文件冲突——备份至 /tmp/pull-backup 后移除；worklog 本地 +102 行与远程逐条 diff 确认 t335–t339 条目字节一致（零丢失）后 checkout 丢弃 win32 模式位噪声，pull 干净落地
+- 工单判读：用户的 Job failed 正是 t341–t346 修复链的靶场——①六份 "Will distribute threads over devices 0" 横幅 = mpirun 六 rank 全钉 device 0（t345 靶：RELION 的 --gpu 冒号语法在该构建上不按 rank 分卡，卡被逐 rank 吃干后 allocator 死、prterun exit 1 无声）；②"timeout after 15000ms" = t345 前的 15s cat 预算在慢线上撒谎（文件在、路径对，relion 自己读到了）——t345 起 90s 预算+断线重拨，t346 起改 awk 原地 census（零 star 字节过线）；③"stack-size consistency check did not run" = t338 消费端闸门被饿死没跑成（t346 census 后跑在集群上）
+- 逐刀验证（拉取树静态+活体）：t341 GPU 授予集钉扎（remote-run.ts:1174）/ t342 饥饿卡拒发 exit 98 + rank 钳制 / t343 单地址消费道星读取 / t345 per-rank launcher（.cf-rank-launch.sh + .cf-rank-env export -p dump，sbatch 道 -n→"$CF_RANKS"、mpirun 目标→launcher、--gpu→"0"，直连道保持字面——注释钉死契约）/ t346 原地 census（clusterParticleRefCensus，CF_REF 行+90s+重拨）/ win32 三刀（engine.ts outPath POSIX 拼接无 path.join、argv 单反斜杠消毒、mopWin32MangledOrphans 双挂点）全部在位
+- 活体验证：bun 直载 log-diagnosis.ts——用户蒸馏 run.out（六横幅全 device 0）→ silent-run-death（正确：无饥饿警告行时这是诚实判词）；补上 "Ignoring required free GPU memory amount of 800 MB" + OOM 行 → gpu-free-memory-warning + gpu-oom 双发（与用户看到的诊断条目 id/label 一致）；模块导出健康
+- 环境事实记录：e2e-review 套件硬编码 ROOT=/home/z/cryoflow（已删除的旧克隆）与 BASE=:3001，本沙箱无 EMPIAR fixtures（512MiB）且 4GB 内存不容第二个 dev server——套件按提交记录为准（各提交消息记录 run-7/8/9/10/11 ALL GREEN），本窗口以静态刀位验证+引擎直载+浏览器活体代偿；scripts/diag-t342-gpu-coherence.mjs 的 UNIT-ERROR 系 ROOT 硬编码失配（模块本身健康），非代码回归
+- 质量门：tsc 0 错；eslint 15 项（8 error 7 warning）与 t342 基线记录逐字一致（全存量、零新增）；dev server 热载 t346 后被收割一次（已知模式），重启后全路由 200
+- agent-browser 活体（1600×900 + 390×844）：页面干净渲染（CryoFlow — Cryo-EM Workflow Builder）、console/page errors 双零、footer 钉底、移动端零横向溢流；截图 t347-pull-verify-desktop.png / t347-pull-verify-mobile.png；mock cluster（:3022）重启在位
+- 清理：scripts/tmp-read-clusters.ts 临时探针移除；浏览器会话关闭
+
+Stage Summary:
+- 「解决 Job failed」的答案已在拉取的 t341–t346 里：六 rank 挤一卡（本次 exit 1 的机制）被 per-rank launcher 物理灭绝；15s 假死星读取被 90s+重拨+原地 census 灭绝；用户侧复机路径 = Windows 主机 git pull → 卡死作业 Reset → Re-run（heal/mop 先搬正错位 star、饥饿卡拒发会点名占卡 PID）
+- 一次性集群清理指引（用户侧执行）：sacct -j 124635 查真实死因（大概率 OUT_OF_MEMORY/CANCELLED）；squeue -u lijing 收割残留 sbatch；gpu06 上 nvidia-smi --query-compute-apps=pid,process_name,used_memory 列占卡孤儿并 kill
+- 本窗口零代码改动（纯拉取+验证），沙箱与 origin/main 同步于 75725c4
