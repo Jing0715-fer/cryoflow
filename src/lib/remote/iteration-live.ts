@@ -47,8 +47,12 @@ import type { RemoteConnection } from "./types";
 const PREVIEW_DIR = path.join(DATA_DIR, "remote-preview");
 /** how long a live snapshot answers from memory before the next SSH round */
 const LIVE_TTL_MS = 12_000;
-/** a class-average stack is a few MB — 64 MB is a generous ceiling */
-const STACK_FETCH_CAP = 64 * 1024 * 1024;
+/** a class-average stack is a few MB — but a REAL 2D run with 100–200
+ * classes at a 300–400 px box writes 100–200 MB stacks (t355: the old 64 MB
+ * ceiling refused those pulls with a 404 that said "may not exist", while
+ * the stack sat healthy on the cluster). 256 MB covers a 200-class 400-px
+ * run; anything bigger is a genuinely unusual run. */
+const STACK_FETCH_CAP = 256 * 1024 * 1024;
 /** the job types whose iterations are worth a live gallery */
 export const LIVE_ITERATION_TYPES = new Set(["class2d", "class3d", "refine3d", "initialmodel"]);
 

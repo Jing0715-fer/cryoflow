@@ -3147,3 +3147,27 @@ Stage Summary:
 - 三源取图方言：preview 缓存（快）→ 本地 mirror（完成后小 stack）→ 集群按需重拉（running 或 done 皆可——冷重启的唯一诚实源）；t339 slimming 与 t333 重派发擦除两条契约都对齐
 - mock relion_refine 对齐真实 RELION 终稿语义（拷贝非改名）——这本身就是一处 mock-vs-reality 缺陷的修复
 - 用户复机路径：git pull → 2D 分类运行中打开 Results 页即见每轮 sheet（运行时跟随最新轮、点任意轮钉住）；完成后历史轮照看（缓存即答、冷了从集群按需拉）；t353 的进度修复与 cs2star 集群道同 push 在库
+
+---
+Task ID: t355
+Agent: main-agent (Z.ai Code)
+Task: 用户工单（三件）——①「cluster上跑的2D分类的结果看不到结果的图片加载出来」②「运行2D selection job时也没法看到每一类的图片加载出来」③「UI中这些分类的框大小不一」
+
+Work Log:
+- 根因判读①（class2d Results 页）：三叠缺陷。a) /iterations/image 路由对 done 远程 run 直接 404（t350 时代的方言，t354 只给 sheet 路由开了 done 重拉的门、per-class 网格被漏掉）——完成的集群 2D 分类每张类图全 404；b) localIterations 的 classesFile=pickStack(本地 mirror)——真实 100 类 × 200-360px 盒的类平均栈 25-100MB 超过 keyFileMb=16 默认帽，栈留在集群 → classesFile=null → 类网格全部「no image」；c) 数据星也因 budget 滞留集群时 iterations=[] → chips 条空 → sheet 无从点起。附：remoteStat 走序列化 exec 队列（10s 预算）——sweep 心跳 + /iterations 轮询 + 日志抓取排队在前，真实集群上 stat 在轮到之前就超时 → sheet「may not exist」假 404；STACK_FETCH_CAP=64MB 挡住 100+ 类大栈
+- 修①（四层）：iterations 路由本地腿新增 REMOTE MERGE——run.remote 且 mirror 缺 classesFile/iterations/classes 时 ONE 12s-TTL SSH 轮（remoteLiveIterations，对 done run 同样工作）填栈名/占用/轮次，本地已有的字段保持本地（mtime 缓存免费），stacks 按轮次并集（本地栈本地渲、集群轮按需拉）、chips 合成移到 merge 之后；/iterations/image 的 run.done 拒绝删除（对齐 sheet 路由的 t354 方言）；remoteStat 改直连 pooled 通道（与 remoteDownload 的 cat 同传输、绕开序列化队列）+ 预算 10s→20s；STACK_FETCH_CAP 64→256MB + sheet/image 的 404 文案点名「可能不存在/线路忙/超 256MB 帽」
+- 根因判读②（select 任务的类画廊）：/api/jobs/[id]/classes 只查本地 mirror——集群跑的 class2d 栈不在本地 → classesFile=null → 每张卡「no image」（占用数字倒是齐的，数据星是文本总会回家）
+- 修②：classes 路由重构为三源——本地 mirror（原行为，早退全撤、mirrorOk 门）→ 集群（remoteLiveIterations：栈名 + 占用 + latest 轮次，仅本地缺时补）→ finalize manifest（.cf-remote-manifest.json，连接被删/线断时零 SSH 仍报栈名）；pickStackName 提纯为共享谓词（unmasked/final > 最高迭代）；缩略图照旧走 /outputs/file 懒取（t289 学说：点击=文件落到真实 mirror 路径，第一张触发全栈拉取、后续本地渲）
+- 根因判读③（框大小不一）：ClassGallery 网格用视口断点 xl:grid-cols-5，但它住在 380px 的 job panel aside 里——5 列=66px 卡，「325,549」+「100%」的占用页脚只在颗粒多的类上折行 → 同一网格卡片高低不一；附 onError visibility:hidden 把失败图变成无解释的白方块
+- 修③：网格改 grid-cols-2 sm:grid-cols-3（按容器实宽而非视口）；占用页脚 min-w-0 + truncate + whitespace-nowrap + shrink-0（挤压截断、永不折行）；失败图改诚实占位（failedImgs 集合 → 「no image」卡，lightbox 同款）；加载中 animate-pulse 暗盒（集群栈懒取的「在路上」提示）；iteration gallery 类网格页脚同款 nowrap 加固
+- 附带修（浏览器实测揪出）：t354 的 sheet 错误分支把 Retry <Button> 嵌在 zoom-in 包装 <button> 里——无效 HTML、React hydration 告警、恰好是用户所在的报错态；错误卡移出 zoom 按钮（Retry 不再嵌套、stopPropagation 随之退役）
+- 验证装置：diag-t355-cluster-gallery.mjs（38 断言 ALL GREEN）——A 真实 mock slurm class2d（8 轮 3 类）完成 → B 无栈 mirror（删 9 个 .mrcs+清缓存=用户世界）：merged payload 8 chips+classesFile 非空+占用本地、DONE run 逐 slice 200 PNG（旧代码 404）、sheet 200、.stack.mrcs 不留 → C 冷 mirror（数据星也删）：iterations/classesFile/占用全数来自集群（awk）、classes 路由给 select 画廊供栈名、缩略图懒取落 mirror 后第二张本地渲 → D 线断（删连接）：manifest 零 SSH 仍报栈名 → E 诚实门（虚构轮 404、缺文件 404、路径逃逸 400）；qa-t355ui-seed.mjs（浏览器验证台：select2d 任务 + 双边连接 classAverages→classes）
+- 回归防线（七套件 ALL GREEN）：t354（live 腿+after+cold 全过）、t353/t352（cs2star 集群道+双胞胎，重跑过 OOM 环境噪音后全绿）、t336、t339、t319；tsc 0 错；触碰 8 文件 eslint 0 输出
+- 浏览器活体验证（agent-browser 1600×900 + 390×844）：select2d 面板 Classes 页——3 卡 3 图全加载（集群懒取）、heights [101,101,101] uniform、3 列、lightbox 开合全图 64×64 加载；class2d inspector——8 chips、it008 sheet 266×68 加载、类网格 3/3 加载、chip 点击 aria-selected 切换、嵌套按钮 0、hydration 告警 0、console/page errors 0；移动端——2 列、uniform、零横向溢流；截图 docs/t355-select2d-gallery.png / t355-class2d-results.png / t355-class2d-final.png / t355-select2d-mobile.png 入库
+- 途中排障（4GB 盒 OOM 持久战）：next-server 反复被 OOM 收割（anon-rss 2.9GB，dmesg 42 案在录）——首战殃及 t353/t352 假 FAIL（fetch failed=服务器死、非代码回归，重启+清 chrome 残留后全绿）；浏览器期 it003 sheet 假失败同为 OOM（服务器 mid-request 死；路由直连 curl it001/003/005 全 200 PNG×2 次）；破局法：agent-browser 关闭 + dev-server.sh 新起 + curl 预热 / 页与重路由后才开浏览器、Retry 按钮复用已水合页面躲整页重编
+
+Stage Summary:
+- 集群 2D 分类的图彻底通了：运行中（t354 原有）+ 完成后（本次修）双态——chips 来自集群并集、sheet/per-class 图按需重拉（done run 门已开）、栈名/占用冷热 mirror 皆答；select 画廊的喂料路由三源齐备（mirror→SSH→manifest），缩略图懒取落位
+- 框大小不一根治：列数按容器实宽（2-3 列）+ 页脚 nowrap 截断——任何挤压下卡片高度恒等；失败图诚实占位、加载中暗盒脉冲
+- 可靠性两针：remoteStat 直连通道（不再排 sweep/轮询的长队）+ 20s 预算；拉栈帽 64→256MB 且超帽/缺文件/线忙三态文案
+- 用户复机路径：git pull → 重新打开 2D 分类的 Results 页（历史轮 sheet/类图即点即取，无需重跑）→ select 任务 Classes 页每类图加载；t354/t353 的行为与断言全部保持

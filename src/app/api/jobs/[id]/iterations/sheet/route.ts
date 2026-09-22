@@ -85,7 +85,9 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
     const assets = await ensureIterationAssets(r.connectionId, r.remoteWorkdir, job.id, file);
     if (assets == null) {
       return NextResponse.json(
-        { error: `could not fetch ${file} from the cluster (it may not exist on this run)` },
+        {
+          error: `could not fetch ${file} from the cluster — the round may not exist on this run, the cluster wire may be busy, or the stack is above the 256 MB on-demand cap (retry in a moment)`,
+        },
         { status: 404 }
       );
     }

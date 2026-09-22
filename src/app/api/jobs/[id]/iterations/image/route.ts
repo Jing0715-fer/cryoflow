@@ -22,6 +22,10 @@ export const dynamic = "force-dynamic";
  *     small PNG, the MB-scale stack DELETED after rendering (the t339
  *     slimming contract: thumbnails persist, stacks do not).
  *   · LOCAL stack (finished job) → rendered straight from the mirror.
+ *   · t355 — a FINISHED remote run with a cold cache pulls too (the sheet
+ *     route's dialect): the cluster is the only honest source left once
+ *     the key-files caps kept the stacks remote and the preview cache
+ *     went cold.
  *
  * Cache-Control: the stack NAME carries the iteration number, so a slice
  * URL is immutable content — private caching is safe and keeps the gallery
@@ -70,14 +74,22 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
     }
 
     // live leg: pull once, render all slices (+ the t354 sheet), keep PNGs only
+    // t355 — a DONE remote run pulls too (the sheet route's dialect since
+    // t354): after completion the mirror usually has no stacks (the key-files
+    // caps leave them on the cluster) and a cold preview cache means the
+    // cluster is the ONLY honest source left. The old `run.done` rejection
+    // 404'd every per-class image of a finished cluster run — the exact
+    // 「看不到结果的图片」 the field report carried.
     const r = run.remote;
-    if (!r || run.done) {
+    if (!r) {
       return NextResponse.json({ error: "class stack not available locally" }, { status: 404 });
     }
     const assets = await ensureIterationAssets(r.connectionId, r.remoteWorkdir, job.id, file);
     if (assets == null) {
       return NextResponse.json(
-        { error: `could not fetch ${file} from the cluster (the run may still be writing it)` },
+        {
+          error: `could not fetch ${file} from the cluster — it may still be written by the run, the cluster wire may be busy, or the stack is above the 256 MB on-demand cap`,
+        },
         { status: 404 }
       );
     }

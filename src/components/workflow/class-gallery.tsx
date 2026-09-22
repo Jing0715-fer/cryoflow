@@ -139,6 +139,26 @@ export function ClassGallery({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  /* t355 — per-class thumbnail lifecycle: `failedImgs` swaps the card to
+   * its honest "no image" placeholder (the old onError hid the <img>,
+   * leaving a white square with no explanation), `loadedImgs` stops the
+   * loading pulse. A remote-run stack's first thumbnail lazy-fetches the
+   * whole .mrcs (the t289 doctrine), so the pulse is the "it is coming
+   * over the wire" cue. */
+  const [failedImgs, setFailedImgs] = useState<Set<number>>(new Set());
+  const [loadedImgs, setLoadedImgs] = useState<Set<number>>(new Set());
+  const markImg =
+    (kind: "failed" | "loaded") =>
+    (cls: number): void =>
+      (kind === "failed" ? setFailedImgs : setLoadedImgs)((prev) => {
+        if (prev.has(cls)) return prev;
+        const next = new Set(prev);
+        next.add(cls);
+        return next;
+      });
+  const onImgError = markImg("failed");
+  const onImgLoad = markImg("loaded");
+
   useEffect(() => {
     if (!upstream) {
       setData(null);
@@ -623,16 +643,22 @@ export function ClassGallery({
         )}
       </div>
 
-      {/* the grid */}
+      {/* the grid
+          t355 — the column count is sized for the CONTAINER this gallery
+          actually lives in (the job panel aside, 380px, or the mobile sheet
+          ≤448px), not the viewport: the old viewport breakpoints put FIVE
+          columns inside a 380px panel — 66px cards whose occupancy footer
+          (“325,549” + “100%”) wrapped to a second line on the big classes
+          only, so cards in ONE grid came out different heights (the user's
+          「分类的框大小不一」). Two-to-three columns keeps every card wide
+          enough for a one-line footer; the footer itself is nowrap-hardened
+          so any future squeeze truncates instead of wrapping. */}
       <div
         data-canvas-ui="class-grid"
         role="listbox"
         aria-label="Class selection grid — arrow keys move between classes, Enter toggles"
         onKeyDown={onGridKeyDown}
-        className={cn(
-          "grid gap-2 p-2",
-          "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
-        )}
+        className={cn("grid grid-cols-2 gap-2 p-2 sm:grid-cols-3")}
         style={{ maxHeight: "26rem", overflowY: "auto" }}
       >
         {/* visible is normally never empty (an emptied selection aliases
@@ -677,16 +703,22 @@ export function ClassGallery({
                   : "border-border opacity-80 hover:opacity-100 hover:border-teal-500/40"
               )}
             >
-              {/* thumbnail — class k is slice k-1 of the averages stack */}
-              {classesFile ? (
+              {/* thumbnail — class k is slice k-1 of the averages stack.
+                  t355: a FAILED load swaps to the honest placeholder (the
+                  old visibility:hidden left a silent white square); a
+                  loading one pulses dark (a remote stack lazy-fetches on
+                  its first thumbnail — the wire takes a beat). */}
+              {classesFile && !failedImgs.has(c.cls) ? (
                 <img
                   src={`/api/jobs/${upstream.id}/outputs/file?path=${encodeURIComponent(classesFile)}&format=png&montage=0&slice=${c.cls - 1}`}
                   alt={`Class ${c.cls} average`}
                   loading="lazy"
-                  className="aspect-square w-full bg-zinc-950 object-contain"
-                  onError={(e) => {
-                    (e.currentTarget as HTMLImageElement).style.visibility = "hidden";
-                  }}
+                  onLoad={() => onImgLoad(c.cls)}
+                  onError={() => onImgError(c.cls)}
+                  className={cn(
+                    "aspect-square w-full bg-zinc-950 object-contain",
+                    !loadedImgs.has(c.cls) && "animate-pulse"
+                  )}
                 />
               ) : (
                 <div className="flex aspect-square w-full items-center justify-center bg-zinc-950 text-[10px] text-zinc-500">
@@ -705,14 +737,17 @@ export function ClassGallery({
                 {c.cls}
               </span>
 
-              {/* occupancy footer */}
+              {/* occupancy footer — t355: one line, ALWAYS. The count may
+                  truncate on a squeezed card, never wrap (a wrapped footer
+                  makes big-count cards taller than their neighbours — the
+                  uneven boxes the field report carried). */}
               <div className="space-y-1 bg-background/95 px-2 py-1.5">
-                <div className="flex items-center justify-between gap-1">
-                  <span className="flex items-center gap-1 font-mono text-[10px] tabular-nums text-muted-foreground">
-                    <Users className="size-2.5" aria-hidden="true" />
-                    {c.count.toLocaleString()}
+                <div className="flex min-w-0 items-center justify-between gap-1 overflow-hidden whitespace-nowrap">
+                  <span className="flex min-w-0 items-center gap-1 font-mono text-[10px] tabular-nums text-muted-foreground">
+                    <Users className="size-2.5 shrink-0" aria-hidden="true" />
+                    <span className="truncate">{c.count.toLocaleString()}</span>
                   </span>
-                  <span className="font-mono text-[10px] font-semibold tabular-nums">
+                  <span className="shrink-0 font-mono text-[10px] font-semibold tabular-nums">
                     {Math.round(c.fraction * 100)}%
                   </span>
                 </div>
@@ -872,18 +907,22 @@ export function ClassGallery({
               </DialogDescription>
 
               {/* the average — same slice URL as the grid thumbnail, just
-                  given room to breathe (render is ≤384 px wide server-side) */}
+                  given room to breathe (render is ≤384 px wide server-side).
+                  t355: a failed load says so instead of a broken glyph. */}
               <div className="bg-zinc-950 p-4">
-                {classesFile ? (
+                {classesFile && !failedImgs.has(zoomClass.cls) ? (
                   <img
                     key={zoomClass.cls}
                     src={`/api/jobs/${upstream.id}/outputs/file?path=${encodeURIComponent(classesFile)}&format=png&montage=0&slice=${zoomClass.cls - 1}`}
                     alt={`Class ${zoomClass.cls} average, full size`}
+                    onLoad={() => onImgLoad(zoomClass.cls)}
+                    onError={() => onImgError(zoomClass.cls)}
                     className="mx-auto aspect-square max-h-[26rem] w-auto max-w-full rounded-md object-contain"
                   />
                 ) : (
-                  <div className="grid aspect-square max-h-64 place-items-center text-xs text-zinc-500">
+                  <div className="mx-auto grid aspect-square max-h-64 w-auto place-items-center rounded-md bg-zinc-900/60 px-8 text-center text-xs text-zinc-500">
                     no image available
+                    {classesFile ? " — the stack could not be fetched" : ""}
                   </div>
                 )}
               </div>

@@ -74,6 +74,47 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
       } satisfies IterationsPayload);
     }
     const payload = localIterations(workdir, job.id);
+    // t355 — the REMOTE MERGE: a cluster-run classification whose mirror is
+    // cold or stackless still deserves its whole gallery. The key-files
+    // policy gates the class-average stacks at keyFileMb (a real 100-class
+    // 2D run writes 25–100 MB stacks — they STAY on the cluster), and a
+    // tight sync budget can leave the data stars behind too; the old local
+    // leg answered classesFile: null ("no image" on every card) or no
+    // iterations at all (an empty chips bar). ONE 12s-TTL'd SSH round fills
+    // every gap the mirror leaves — the stack name, the occupancy, the
+    // iteration list — while locally-answered fields stay local (they are
+    // mtime-cached and free). Only a remote run pays the round, and only
+    // when its mirror actually lacks something.
+    const r = run.remote;
+    if (
+      r &&
+      (payload.classesFile == null || payload.iterations.length === 0 || payload.classes.length === 0)
+    ) {
+      const remote = await remoteLiveIterations(job.id, {});
+      if (!remote.error) {
+        if (payload.classesFile == null) {
+          payload.classesFile = remote.classesFile;
+          payload.classesSlices = payload.classesSlices ?? remote.classesSlices;
+        }
+        if (payload.classes.length === 0) {
+          payload.classes = remote.classes;
+          payload.total = remote.total;
+        }
+        if (payload.iterations.length === 0) {
+          payload.iterations = remote.iterations;
+          payload.latest = remote.latest;
+        }
+        if (remote.stacks.length > 0) {
+          // union by iteration: a local stack renders locally, a
+          // cluster-only round pulls on demand through the sheet route
+          const have = new Set(payload.stacks.map((s) => s.iter));
+          payload.stacks = [...payload.stacks, ...remote.stacks.filter((s) => !have.has(s.iter))]
+            .sort((a, b) => a.iter - b.iter);
+        }
+        // the payload now carries cluster-answered fields — say so
+        payload.remote = true;
+      }
+    }
     // t354 — a finished REMOTE run whose cache is cold (fresh restart): the
     // mirror holds the data stars but no per-iteration stacks (the sync-back
     // slims them), so the chips bar would render empty and the user could

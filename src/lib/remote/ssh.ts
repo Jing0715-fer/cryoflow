@@ -555,18 +555,36 @@ export async function remoteMkdir(c: RemoteConnection, dir: string): Promise<voi
   await exec(c, `mkdir -p ${shellSingleQuote(dir)}`, { timeoutMs: 15_000 });
 }
 
-/** Remote file existence + size (null = absent). */
+/** Remote file existence + size (null = absent).
+ *
+ * t355 — this rides a DIRECT pooled channel, NOT the serialized exec queue:
+ * a stat is the opening move of every file transfer (remoteDownload's own
+ * pre-pull check, the t289 lazy fetch, the t354 iteration pulls), and on a
+ * real cluster the queue is busy exactly when a transfer is asked for — the
+ * sweep's heartbeat, the /iterations poll and the log fetches all serialize
+ * ahead of it, and the old 10s queued budget expired BEFORE the stat ever
+ * started (the sheet route then 404'd with "may not exist on this run" while
+ * the stack sat healthy on the cluster). Downloads already bypass the queue
+ * (their `cat` runs on a direct channel); the stat now speaks the same
+ * transport, with a 20s budget for a login node under load.
+ */
 export async function remoteStat(
   c: RemoteConnection,
   file: string
 ): Promise<{ size: number; mtimeMs: number } | null> {
-  const r = await exec(
-    c,
+  const pooled = getPooled(c);
+  try {
+    await pooled.ready;
+  } catch {
+    return null;
+  }
+  const r = await rawExec(
+    pooled,
     `stat -c '%s %Y' ${shellSingleQuote(file)} 2>/dev/null || echo MISSING`,
-    { timeoutMs: 10_000 }
+    { timeoutMs: 20_000, stdin: null }
   );
   if (r.error || r.code !== 0) return null;
-  const m = /^(\d+) (\d+)\s*$/.exec(r.stdout.trim());
+  const m = /^(\d+) (\d+)\s*$/.exec(r.stdout.toString("utf8").trim());
   return m ? { size: Number(m[1]), mtimeMs: Number(m[2]) * 1000 } : null;
 }
 

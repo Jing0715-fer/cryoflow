@@ -95,6 +95,17 @@ export function ClassIterationGallery({ job, refreshKey = 0 }: { job: JobDTO; re
   const [sheetError, setSheetError] = React.useState<string | null>(null);
   const [sheetRetry, setSheetRetry] = React.useState(0);
   const [zoomOpen, setZoomOpen] = React.useState(false);
+  /* t355 — per-class thumbnail failure set: a slice that cannot be
+   * fetched/rendered swaps to the honest placeholder instead of the
+   * browser's broken-image glyph (the grid stays uniform either way). */
+  const [failedSlices, setFailedSlices] = React.useState<Set<number>>(new Set());
+  const onSliceError = (cls: number): void =>
+    setFailedSlices((prev) => {
+      if (prev.has(cls)) return prev;
+      const next = new Set(prev);
+      next.add(cls);
+      return next;
+    });
   const running = job.status === "running" || job.status === "pending";
 
   const load = React.useCallback(async () => {
@@ -374,42 +385,45 @@ export function ClassIterationGallery({ job, refreshKey = 0 }: { job: JobDTO; re
       )}
 
       {/* t354 — the selected round's SHEET: the whole iteration as ONE grid
-          image, pulled lazily on first view (running and finished alike) */}
+          image, pulled lazily on first view (running and finished alike).
+          t355 — the error card renders OUTSIDE the zoom button: its Retry
+          <Button> used to nest inside the wrapper <button> (invalid HTML —
+          React flagged the hydration hazard, and the retry click could die
+          in the nested-button state the field report actually lived in). */}
       {current != null && sheetUrl != null && (
         <div className="p-4" data-sheet-view={current.iter}>
-          <button
-            type="button"
-            onClick={() => setZoomOpen(true)}
-            className="group relative block w-full cursor-zoom-in rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
-            aria-label={`Open iteration ${pad3(current.iter)} class sheet enlarged`}
-          >
-            {!sheetLoaded && !sheetError && (
-              <div className="flex min-h-48 w-full items-center justify-center rounded-md border border-border/60 bg-muted/30">
-                <span className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-                  Fetching iteration {pad3(current.iter)} from the cluster…
-                </span>
-              </div>
-            )}
-            {sheetError != null ? (
-              <div className="flex min-h-32 w-full flex-col items-center justify-center gap-2 rounded-md border border-rose-500/30 bg-rose-500/5 px-4 py-6 text-center">
-                <span className="text-[11px] text-rose-600 dark:text-rose-400">{sheetError}</span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 gap-1.5 px-2 text-[11px]"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSheetError(null);
-                    setSheetLoaded(false);
-                    setSheetRetry((n) => n + 1);
-                  }}
-                >
-                  <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
-                  Retry
-                </Button>
-              </div>
-            ) : (
+          {sheetError != null ? (
+            <div className="flex min-h-32 w-full flex-col items-center justify-center gap-2 rounded-md border border-rose-500/30 bg-rose-500/5 px-4 py-6 text-center">
+              <span className="text-[11px] text-rose-600 dark:text-rose-400">{sheetError}</span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 gap-1.5 px-2 text-[11px]"
+                onClick={() => {
+                  setSheetError(null);
+                  setSheetLoaded(false);
+                  setSheetRetry((n) => n + 1);
+                }}
+              >
+                <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+                Retry
+              </Button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setZoomOpen(true)}
+              className="group relative block w-full cursor-zoom-in rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+              aria-label={`Open iteration ${pad3(current.iter)} class sheet enlarged`}
+            >
+              {!sheetLoaded && (
+                <div className="flex min-h-48 w-full items-center justify-center rounded-md border border-border/60 bg-muted/30">
+                  <span className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                    Fetching iteration {pad3(current.iter)} from the cluster…
+                  </span>
+                </div>
+              )}
               <img
                 key={sheetUrl}
                 src={sheetUrl}
@@ -425,16 +439,16 @@ export function ClassIterationGallery({ job, refreshKey = 0 }: { job: JobDTO; re
                   sheetLoaded ? "opacity-100" : "absolute inset-0 opacity-0"
                 )}
               />
-            )}
-            {sheetLoaded && (
-              <span
-                className="pointer-events-none absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-md bg-background/80 text-foreground opacity-0 shadow-sm backdrop-blur transition-opacity group-hover:opacity-100"
-                aria-hidden="true"
-              >
-                <Maximize2 className="h-3.5 w-3.5" />
-              </span>
-            )}
-          </button>
+              {sheetLoaded && (
+                <span
+                  className="pointer-events-none absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-md bg-background/80 text-foreground opacity-0 shadow-sm backdrop-blur transition-opacity group-hover:opacity-100"
+                  aria-hidden="true"
+                >
+                  <Maximize2 className="h-3.5 w-3.5" />
+                </span>
+              )}
+            </button>
+          )}
           <p className="mt-2 text-center text-[10px] text-muted-foreground">
             iteration {pad3(current.iter)} · every class average of this round in one sheet
             {running && current.iter === newest?.iter ? " · updates each round" : ""}
@@ -451,6 +465,7 @@ export function ClassIterationGallery({ job, refreshKey = 0 }: { job: JobDTO; re
               const sliceIndex = c.cls - 1;
               const hasImage = data.classesFile != null && sliceIndex < sliceTotal;
               const isSelected = selected.has(c.cls);
+              const failed = failedSlices.has(c.cls);
               return (
                 <button
                   key={c.cls}
@@ -467,12 +482,13 @@ export function ClassIterationGallery({ job, refreshKey = 0 }: { job: JobDTO; re
                   }`}
                 >
                   <div className="aspect-square w-full bg-muted/40">
-                    {hasImage ? (
+                    {hasImage && !failed ? (
                       <img
                         src={`/api/jobs/${job.id}/iterations/image?file=${encodeURIComponent(data.classesFile!)}&slice=${sliceIndex}`}
                         alt={`Class ${c.cls} average`}
                         className="h-full w-full object-contain"
                         loading="lazy"
+                        onError={() => onSliceError(c.cls)}
                       />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground">
@@ -480,9 +496,11 @@ export function ClassIterationGallery({ job, refreshKey = 0 }: { job: JobDTO; re
                       </div>
                     )}
                   </div>
-                  <div className="flex items-center justify-between gap-1 px-2 py-1.5">
-                    <span className="font-mono text-[10px] text-muted-foreground">class {c.cls}</span>
-                    <span className="font-mono text-[10px] font-medium">{(c.fraction * 100).toFixed(1)}%</span>
+                  {/* t355 — one line, always: a wrapped footer makes some
+                      cards taller than their neighbours; squeeze truncates. */}
+                  <div className="flex min-w-0 items-center justify-between gap-1 overflow-hidden whitespace-nowrap px-2 py-1.5">
+                    <span className="min-w-0 truncate font-mono text-[10px] text-muted-foreground">class {c.cls}</span>
+                    <span className="shrink-0 font-mono text-[10px] font-medium">{(c.fraction * 100).toFixed(1)}%</span>
                   </div>
                   <div className="h-0.5 w-full bg-muted">
                     <div className="h-full bg-primary/70" style={{ width: `${Math.min(100, c.fraction * 100)}%` }} />
