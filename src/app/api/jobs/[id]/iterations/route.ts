@@ -1,15 +1,58 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isLocalRequest } from "@/lib/http-guard";
 import { findEffectiveJob } from "@/lib/link";
-import { getRun } from "@/lib/relion/engine";
+import { getRun, type RunRecord } from "@/lib/relion/engine";
 import {
   remoteLiveIterations,
   localIterations,
   LIVE_ITERATION_TYPES,
+  scheduleRemoteStackRenders,
+  stackRendered,
+  STACK_NAME_RE,
   type IterationsPayload,
+  type StackEntry,
 } from "@/lib/remote/iteration-live";
+import { readRemoteManifest } from "@/lib/remote/remote-files";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * t356 — the VIEW TRIGGER: a remote run whose rounds are not yet rendered
+ * locally gets its stacks scheduled for download+convert in the background
+ * (the user's「下载 mrcs 到本地再转图片」architecture, extended to runs that
+ * finished BEFORE the finalize pipeline existed and to cold caches after a
+ * restart). Zero-cost when everything is already rendered — a stat per
+ * chip, absorbed while a pipeline is in flight, and the newest rounds land
+ * first inside the scheduler. Sizes come from the sync-back manifest when
+ * it exists (the budget's unit); a manifest-less legacy run pulls ONLY its
+ * newest round blind (bounded). */
+function triggerViewRender(
+  jobId: string,
+  run: RunRecord,
+  stacks: StackEntry[],
+  classesFile?: string | null
+): void {
+  // candidates: every chip + the payload's chosen classesFile (the FINAL
+  // unmasked stack carries no round number, so it never joins the chips —
+  // without this addendum it would never render proactively)
+  const names = stacks.map((s) => s.file);
+  if (classesFile && !names.includes(classesFile)) names.push(classesFile);
+  if (names.length === 0) return;
+  const manifest = readRemoteManifest(run.workdir);
+  const sizeOf = new Map((manifest?.files ?? []).map((f) => [f.path, f.size]));
+  const pending = names
+    .filter((f) => STACK_NAME_RE.test(f) && !stackRendered(jobId, f))
+    .map((f) => ({ file: f, size: sizeOf.get(f) ?? 0 }));
+  if (pending.length === 0) return;
+  const list = manifest ? pending : pending.slice(-1); // blind pulls stay bounded to the newest round
+  scheduleRemoteStackRenders({
+    jobId,
+    connectionId: run.remote!.connectionId,
+    remoteWorkdir: run.remote!.remoteWorkdir,
+    files: list,
+    reason: "view",
+  });
+}
 
 /**
  * GET /api/jobs/[id]/iterations — the per-iteration view of a
@@ -53,6 +96,11 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
     if (run?.remote && !run.done && (job.status === "running" || job.status === "pending")) {
       const force = new URL(request.url).searchParams.get("refresh") === "1";
       const payload = await remoteLiveIterations(job.id, { force });
+      // t356 — the live view trigger: the newest round renders in the
+      // background while the user watches, no chip click needed
+      if (!payload.error && run.remote) {
+        triggerViewRender(job.id, run, payload.stacks, payload.classesFile);
+      }
       return NextResponse.json(payload, {
         headers: { "Cache-Control": "no-store" },
       });
@@ -130,6 +178,13 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
       if (synth.length > 0) {
         payload.stacks = [...payload.stacks, ...synth].sort((a, b) => a.iter - b.iter);
       }
+    }
+    // t356 — the view trigger for finished/legacy runs: rounds the local
+    // cache has not rendered yet are scheduled for download+convert; the
+    // finalize pipeline usually already covered this (the trigger turns
+    // into a free no-op after its first pass)
+    if (run.remote) {
+      triggerViewRender(job.id, run, payload.stacks, payload.classesFile);
     }
     return NextResponse.json(payload, {
       headers: { "Cache-Control": "no-store" },

@@ -7,7 +7,7 @@ import { cachedFileCompute } from "@/lib/relion/statcache";
 import { readMrcHeader } from "@/lib/mrc";
 import { RELION_DIR } from "@/lib/paths";
 import { isLocalRequest } from "@/lib/http-guard";
-import { remoteLiveIterations } from "@/lib/remote/iteration-live";
+import { remoteLiveIterations, cachedStackState } from "@/lib/remote/iteration-live";
 import { readRemoteManifest } from "@/lib/remote/remote-files";
 
 export const dynamic = "force-dynamic";
@@ -252,6 +252,21 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
 
     let iteration: number | null = best?.iteration ?? null;
+
+    // t356 — the RENDER-CACHE answer: the finalize pipeline (or a previous
+    // view) already downloaded this run's class-average stacks and converted
+    // them to local PNGs — the selection gallery then names its stack with
+    // ZERO SSH, even on a cold mirror whose stacks stayed on the cluster.
+    // This is the「下载 mrcs 到本地，再转成图片」half of the architecture:
+    // after the pipeline the images ARE local, and the thumbnails answer
+    // from the preview cache through the iterations/image route.
+    if (classesFile == null) {
+      const cached = cachedStackState(job.id);
+      if (cached) {
+        classesFile = cached.classesFile;
+        if (classesSlices == null) classesSlices = cached.classesSlices;
+      }
+    }
 
     // t355 — the REMOTE FILL: a cluster-run classification whose mirror is
     // stackless (the key-files caps kept the .mrcs on the cluster) or cold

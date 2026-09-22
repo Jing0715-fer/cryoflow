@@ -139,6 +139,16 @@ export function ClassGallery({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  /* t356 — the per-class thumbnail LANE: the class2d run's preview cache
+   * answers first (the finalize pipeline / view trigger already downloaded
+   * the stacks and converted them to local PNGs — instant, zero SSH);
+   * /outputs/file stays as the FALLBACK lane (it lands the whole stack at
+   * its real mirror path — the t289 doctrine — and covers exotic stack
+   * names the iteration route's whitelist refuses). A slice that fails on
+   * the first lane retries once on the second; only then the honest
+   * "no image" placeholder. */
+  const [fallbackImgs, setFallbackImgs] = useState<Set<number>>(new Set());
+
   /* t355 — per-class thumbnail lifecycle: `failedImgs` swaps the card to
    * its honest "no image" placeholder (the old onError hid the <img>,
    * leaving a white square with no explanation), `loadedImgs` stops the
@@ -174,6 +184,9 @@ export function ClassGallery({
         if (!cancelled) {
           setData(body);
           setError(null);
+          setFailedImgs(new Set());
+          setLoadedImgs(new Set());
+          setFallbackImgs(new Set());
         }
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : "failed");
@@ -230,6 +243,39 @@ export function ClassGallery({
   const keptCount = classes.filter((c) => kept.has(c.cls)).reduce((a, c) => a + c.count, 0);
   const total = data?.total ?? 0;
   const classesFile = data?.classesFile ?? null;
+
+  // t356 — the lane pair: `sliceUrl` prefers the iteration-image route
+  // (preview-cache hit → instant; miss → byte-verified cluster pull that
+  // renders EVERY slice of the stack at once, so the first card lights
+  // the whole grid); `legacySliceUrl` is the t289 whole-stack-into-mirror
+  // lane, kept as the one-retry fallback.
+  const iterLaneOk =
+    classesFile != null &&
+    /^(?:(?:run_it|_it)\d+_(?:unmasked_)?classes|run_unmasked_classes)\.mrcs?$/i.test(classesFile);
+  const sliceUrl = (cls: number) =>
+    classesFile == null
+      ? ""
+      : iterLaneOk
+        ? `/api/jobs/${upstream.id}/iterations/image?file=${encodeURIComponent(classesFile)}&slice=${cls - 1}`
+        : `/api/jobs/${upstream.id}/outputs/file?path=${encodeURIComponent(classesFile)}&format=png&montage=0&slice=${cls - 1}`;
+  const legacySliceUrl = (cls: number) =>
+    classesFile == null
+      ? ""
+      : `/api/jobs/${upstream.id}/outputs/file?path=${encodeURIComponent(classesFile)}&format=png&montage=0&slice=${cls - 1}`;
+  // first failure retries on the legacy lane (once); a failure there (or
+  // when the legacy lane IS the primary) marks the honest placeholder
+  const handleImgError = (cls: number): void => {
+    if (iterLaneOk && !fallbackImgs.has(cls)) {
+      setFallbackImgs((prev) => {
+        if (prev.has(cls)) return prev;
+        const next = new Set(prev);
+        next.add(cls);
+        return next;
+      });
+      return;
+    }
+    onImgError(cls);
+  };
 
   const toggle = (cls: number) => {
     // first click in auto mode starts manual editing FROM the auto set —
@@ -402,14 +448,15 @@ export function ClassGallery({
   };
 
   // preload the two neighbours so ← / → feels instant — class stacks are
-  // small (a few dozen KB per slice), prefetching is effectively free
+  // small (a few dozen KB per slice), prefetching is effectively free.
+  // t356 — rides the same lane pair as the visible cards.
   useEffect(() => {
     if (zoomIdx < 0 || !classesFile) return;
     for (const d of [1, -1] as const) {
       const n = visible[(zoomIdx + d + visible.length) % visible.length];
       if (!n) continue;
       const img = new Image();
-      img.src = `/api/jobs/${upstream.id}/outputs/file?path=${encodeURIComponent(classesFile)}&format=png&montage=0&slice=${n.cls - 1}`;
+      img.src = fallbackImgs.has(n.cls) ? legacySliceUrl(n.cls) : sliceUrl(n.cls);
     }
   }, [zoomIdx, classesFile, visible]);
 
@@ -710,11 +757,12 @@ export function ClassGallery({
                   its first thumbnail — the wire takes a beat). */}
               {classesFile && !failedImgs.has(c.cls) ? (
                 <img
-                  src={`/api/jobs/${upstream.id}/outputs/file?path=${encodeURIComponent(classesFile)}&format=png&montage=0&slice=${c.cls - 1}`}
+                  key={fallbackImgs.has(c.cls) ? `legacy-${c.cls}` : `iter-${c.cls}`}
+                  src={fallbackImgs.has(c.cls) ? legacySliceUrl(c.cls) : sliceUrl(c.cls)}
                   alt={`Class ${c.cls} average`}
                   loading="lazy"
                   onLoad={() => onImgLoad(c.cls)}
-                  onError={() => onImgError(c.cls)}
+                  onError={() => handleImgError(c.cls)}
                   className={cn(
                     "aspect-square w-full bg-zinc-950 object-contain",
                     !loadedImgs.has(c.cls) && "animate-pulse"
@@ -912,11 +960,15 @@ export function ClassGallery({
               <div className="bg-zinc-950 p-4">
                 {classesFile && !failedImgs.has(zoomClass.cls) ? (
                   <img
-                    key={zoomClass.cls}
-                    src={`/api/jobs/${upstream.id}/outputs/file?path=${encodeURIComponent(classesFile)}&format=png&montage=0&slice=${zoomClass.cls - 1}`}
+                    key={fallbackImgs.has(zoomClass.cls) ? `legacy-${zoomClass.cls}` : `iter-${zoomClass.cls}`}
+                    src={
+                      fallbackImgs.has(zoomClass.cls)
+                        ? legacySliceUrl(zoomClass.cls)
+                        : sliceUrl(zoomClass.cls)
+                    }
                     alt={`Class ${zoomClass.cls} average, full size`}
                     onLoad={() => onImgLoad(zoomClass.cls)}
-                    onError={() => onImgError(zoomClass.cls)}
+                    onError={() => handleImgError(zoomClass.cls)}
                     className="mx-auto aspect-square max-h-[26rem] w-auto max-w-full rounded-md object-contain"
                   />
                 ) : (

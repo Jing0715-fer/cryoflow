@@ -41,7 +41,7 @@ import { cachedFileCompute } from "@/lib/relion/statcache";
 import { readMrcHeader, renderClassSheetPng, renderMrcSlicePng } from "@/lib/mrc";
 import { DATA_DIR } from "@/lib/paths";
 import { getConnection } from "./connections";
-import { exec, remoteDownload } from "./ssh";
+import { exec, remoteDownload, remoteStat } from "./ssh";
 import type { RemoteConnection } from "./types";
 
 const PREVIEW_DIR = path.join(DATA_DIR, "remote-preview");
@@ -167,19 +167,28 @@ export function countClassOccupancy(text: string): {
 
 const DATA_STAR_RE = /^(?:run_it|_it)(\d+)_data\.star$/i;
 /** a per-iteration class-average stack — the ONLY file names the image
- * route will ever render (its own containment: no ../, no absolute). */
-export const STACK_NAME_RE = /^(?:run_it|_it)(\d+)_(?:unmasked_)?classes\.mrcs?$/i;
+ * route will ever render (its own containment: no ../, no absolute).
+ * t356 — RELION 5's FINAL unmasked stack (`run_unmasked_classes.mrcs`,
+ * no iteration number) joins the whitelist: the classes route prefers it
+ * as the selection gallery's source, so the image route must accept it
+ * too. stackIteration() answers null for it (it has no round number),
+ * which keeps it OUT of the chips bar — chips are per-round by design. */
+export const STACK_NAME_RE =
+  /^(?:(?:run_it|_it)(\d+)_(?:unmasked_)?classes|run_unmasked_classes)\.mrcs?$/i;
 
 function stackIteration(name: string): number | null {
   const m = STACK_NAME_RE.exec(name);
-  return m ? Number(m[1]) : null;
+  return m && m[1] != null ? Number(m[1]) : null;
 }
 
-/** prefer the final unmasked stack (RELION 5), else the newest per-iteration */
+/** prefer the final unmasked stack (RELION 5), else the newest per-iteration
+ * — the SAME preference the classes route's pickStackName speaks, so both
+ * galleries agree on which stack is "the" class averages of a run. */
 function pickStack(names: string[]): string | null {
   let best: string | null = null;
   let bestIter = -1;
   for (const n of names) {
+    if (/^run_unmasked_classes\.mrcs?$/i.test(n)) return n;
     const it = stackIteration(n);
     if (it == null) continue;
     const unmasked = /unmasked/i.test(n);
@@ -276,7 +285,11 @@ export async function remoteLiveIterations(
     "set -u",
     `ls ${W} 2>/dev/null | grep -E '^(run_it|_it)[0-9]+_data\\.star$' || true`,
     'echo "---CF-STACKS---"',
-    `ls ${W} 2>/dev/null | grep -E '^(run_it|_it)[0-9]+_(unmasked_)?classes\\.mrcs$' || true`,
+    // t356 — RELION 5's FINAL unmasked stack (no round number) joins the
+    // listing: pickStack prefers it as the run's class averages, so the
+    // listing must be able to SEE it (the old grep dropped it and the
+    // preference was dead code)
+    `ls ${W} 2>/dev/null | grep -E '^(run_it|_it)[0-9]+_(unmasked_)?classes\\.mrcs?$|^run_unmasked_classes\\.mrcs?$' || true`,
     'echo "---CF-OCC---"',
     `DS=$(ls ${W} 2>/dev/null | grep -E '^(run_it|_it)[0-9]+_data\\.star$' | sort | tail -1)`,
     'if [ -n "$DS" ]; then',
@@ -285,7 +298,7 @@ export async function remoteLiveIterations(
     occupancyAwkFor(`${W}/$DS`),
     'fi',
   ].join("\n");
-  const res = await exec(conn, script, { timeoutMs: 25_000 });
+  const res = await exec(conn, script, { timeoutMs: 45_000 });
   if (res.error) {
     return { remote: true, iterations: [], latest: null, classes: [], total: 0, classesFile: null, classesSlices: null, stacks: [], error: `SSH to ${conn.host} failed (${res.error})` };
   }
@@ -371,14 +384,15 @@ export function localIterations(workdir: string, jobId?: string): IterationsPayl
     // honest shape: no occupancy data without the mirror — only the chips
     // (cached sheets) are viewable for a run whose mirror never landed
     const cached = jobId ? cachedStackEntries(jobId) : [];
+    const cs = jobId ? cachedStackState(jobId) : null;
     return {
       remote: false,
       iterations: [],
       latest: null,
       classes: [],
       total: 0,
-      classesFile: null,
-      classesSlices: null,
+      classesFile: cs?.classesFile ?? null,
+      classesSlices: cs?.classesSlices ?? null,
       stacks: cached,
     };
   }
@@ -399,6 +413,20 @@ export function localIterations(workdir: string, jobId?: string): IterationsPayl
   if (classesFile) {
     const hdr = readMrcHeader(path.join(workdir, classesFile));
     if (hdr) classesSlices = hdr.nz;
+  }
+  // t356 — the RENDER-CACHE fallback: a remote run's class-average stacks
+  // stay on the cluster (the key-files caps — a real 100-class 360-px
+  // stack is 25–100 MB), but the t356 finalize pipeline already pulled
+  // them once and rendered every slice + sheet into the preview cache.
+  // The Results grid then answers 100% locally — zero SSH, zero lazy
+  // fetch, the「download the mrcs, convert to images locally」architecture
+  // the user asked for: after finalize the images ARE local.
+  if (!classesFile && jobId) {
+    const cs = cachedStackState(jobId);
+    if (cs) {
+      classesFile = cs.classesFile;
+      classesSlices = cs.classesSlices;
+    }
   }
   const finalStar = latest != null
     ? names.find((n) => DATA_STAR_RE.test(n) && Number(DATA_STAR_RE.exec(n)?.[1]) === latest)
@@ -449,6 +477,32 @@ function sheetPngPath(jobId: string, stackName: string): string {
   return path.join(liveStackDir(jobId, stackName), "sheet.png");
 }
 
+/** t356 — the render verdict marker: written after a stack's slices (+ best-
+ * effort sheet) are on disk, whatever the sheet's own fate. The proactive
+ * pipeline and the view trigger skip stacks whose marker exists — a resume
+ * that never re-pays a wire for a round already rendered (and a
+ * sheet-render failure never re-downloads a stack whose slices answer). */
+function doneMarkerPath(jobId: string, stackName: string): string {
+  return path.join(liveStackDir(jobId, stackName), ".done");
+}
+
+/** True when this stack's render verdict is already on disk. The t356
+ * marker is the canonical witness; a sheet.png from a t354/t355-era cache
+ * says the same thing (the sheet is rendered AFTER every slice, so its
+ * presence means the whole pass ran) — old caches stay valid. */
+export function stackRendered(jobId: string, stackName: string): boolean {
+  try {
+    if (statSync(doneMarkerPath(jobId, stackName)).isFile()) return true;
+  } catch {
+    /* no marker — maybe a legacy cache */
+  }
+  try {
+    return statSync(sheetPngPath(jobId, stackName)).isFile();
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Pull ONE class-average stack from the cluster, render EVERY slice to a
  * small PNG plus the t354 SHEET (the whole iteration as one grid image),
@@ -458,6 +512,18 @@ function sheetPngPath(jobId: string, stackName: string): string {
  * buffer, or null when the pull/render failed (the route answers an
  * honest error). The sheet is best-effort: a stack whose sheet render
  * fails still answers its slices (the per-class grid keeps working).
+ *
+ * t356 — the pull is BYTE-VERIFIED with retries, the t298 doctrine the
+ * /outputs/file lazy fetch has always spoken: the bun+ssh2 receive side
+ * can silently truncate a large `cat` mid-stream while reporting success
+ * (the t298 exam caught 1.6–48 MB lost per 64 MB transfer), and a real
+ * 100-class 360-px stack is 25–100 MB — exactly the shape that truncates.
+ * The old single-shot pull rendered readMrcHeader's refusal as a bare 404
+ * ("could not fetch … may not exist") while the stack sat healthy on the
+ * cluster — the field report's exact symptom. Up to three attempts now:
+ * stat → pull → verify landed === expected; a mismatch destroys the
+ * partial and retries (a stack still being written by a RUNNING job
+ * naturally fails this until its round completes — the next ask retries).
  */
 export async function ensureIterationAssets(
   connectionId: string,
@@ -476,9 +542,20 @@ export async function ensureIterationAssets(
     mkdirSync(dir, { recursive: true });
     const transient = path.join(dir, ".stack.mrcs");
     try {
-      const got = await remoteDownload(conn, clusterPath, transient, STACK_FETCH_CAP);
-      if (got == null || got < 0) return null;
-      const hdr = readMrcHeader(transient);
+      // fast path — a previous render already landed its verdict
+      if (stackRendered(jobId, stackName)) {
+        let slices = 0;
+        try {
+          slices = readdirSync(dir).filter((n) => /^slice\d{4}\.png$/.test(n)).length;
+        } catch {
+          /* fall through to a fresh pull below */
+        }
+        if (slices > 0) {
+          const sheet = readCachedSheetPng(jobId, stackName);
+          return { slices, sheet };
+        }
+      }
+      const hdr = await verifiedStackPull(conn, clusterPath, transient);
       if (!hdr) return null;
       for (let z = 0; z < hdr.nz; z++) {
         const png = await renderMrcSlicePng(transient, z);
@@ -502,6 +579,13 @@ export async function ensureIterationAssets(
       } catch {
         /* best-effort: slices answered without the sheet */
       }
+      // the render verdict — slices are on disk (or the render honestly
+      // failed below); either way this round never re-pays the wire
+      try {
+        writeFileSync(doneMarkerPath(jobId, stackName), String(hdr.nz));
+      } catch {
+        /* best-effort marker */
+      }
       return { slices: hdr.nz, sheet };
     } catch {
       return null;
@@ -519,6 +603,43 @@ export async function ensureIterationAssets(
   } finally {
     stackInFlight.delete(key);
   }
+}
+
+/** The t298-verified pull loop shared by every iteration-stack fetch:
+ * stat → cat → byte-count verdict, up to three attempts with a breath
+ * between. Returns the parsed header of the COMPLETE local file, or null
+ * (the partial is destroyed — a truncated stack must never render). */
+async function verifiedStackPull(
+  conn: RemoteConnection,
+  clusterPath: string,
+  transient: string,
+  attempts = 3
+): Promise<{ nz: number } | null> {
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, 300));
+    const st = await remoteStat(conn, clusterPath);
+    if (st == null) return null; // not on the cluster — an honest miss
+    if (st.size > STACK_FETCH_CAP) return null; // over the cap — refused
+    const written = await remoteDownload(conn, clusterPath, transient, STACK_FETCH_CAP);
+    if (written == null) continue; // transfer error — retry on a fresh channel
+    if (written === -1) return null; // grew past the cap mid-pull — refuse
+    let landed = -1;
+    try {
+      landed = statSync(transient).size;
+    } catch {
+      landed = -1;
+    }
+    if (landed !== st.size) continue; // truncated (or still growing) — retry
+    const hdr = readMrcHeader(transient);
+    if (hdr) return hdr;
+    return null; // complete bytes that are not a readable MRC — a verdict, not a flake
+  }
+  try {
+    if (existsSync(transient)) rmSync(transient, { force: true });
+  } catch {
+    /* best-effort */
+  }
+  return null;
 }
 
 /** A rendered slice PNG from the cache (null = not rendered yet). */
@@ -561,4 +682,134 @@ export function cacheSheetPng(jobId: string, stackName: string, png: Buffer): vo
 /** True when the local mirror already holds this stack (finished jobs). */
 export function localStackExists(workdir: string, stackName: string): boolean {
   return existsSync(path.join(workdir, stackName));
+}
+
+/* ------------------------------------------------------------------ */
+/* t356 — the PROACTIVE render pipeline (the user's architecture:       */
+/* download the cluster's mrcs locally, convert to images locally)      */
+/* ------------------------------------------------------------------ */
+
+/** how many bytes the background pipeline may spend on ONE run's stacks.
+ * A real 20-round 100-class 360-px run writes ~20 × 50 MB ≈ 1 GB; 2 GiB
+ * covers it with headroom, and anything past that falls back to the
+ * on-demand sheet route (every chip stays clickable — the oldest rounds
+ * just wait for a click instead of arriving on their own). */
+const RENDER_PIPELINE_TOTAL_CAP = 2 * 1024 * 1024 * 1024;
+
+const pipelineInFlight = new Map<string, Promise<void>>();
+
+export interface ScheduledStackFile {
+  /** workdir-relative stack file name (run_it007_classes.mrcs …) */
+  file: string;
+  /** bytes on the cluster (the budget's unit) */
+  size: number;
+}
+
+/**
+ * t356 — the user's architecture, made real: 「把 cluster 的 mrcs 结果文件
+ *下载到本地，之后将 mrcs 文件转换成图片」. When a remote classification
+ * run finishes, the finalize leg hands the run's class-average stacks
+ * (named in the sync-back manifest — zero extra SSH) to THIS scheduler:
+ * each stack is downloaded to a transient file, converted to per-class
+ * PNGs + the t354 sheet in the LOCAL preview cache, then the MB-scale
+ * stack is deleted (the t339 slimming contract keeps holding). After the
+ * pipeline, both galleries answer from local bytes — no wire, no lazy
+ * fetch, no "the image may not exist" roulette.
+ *
+ *   · newest rounds first (the rounds the user picks classes from); older
+ *     rounds keep the on-demand door if the total cap stops the queue
+ *   · already-rendered rounds skip for free (the .done marker — restarts
+ *     and re-schedules resume instead of re-paying the wire)
+ *   · fire-and-forget: the finalize sweep is NEVER blocked (transfers
+ *     ride the same direct pooled channels remoteDownload always used,
+ *     parallel to the serialized exec queue)
+ *   · one pipeline per job at a time; a second schedule while running is
+ *     absorbed (the in-flight pass already covers the union)
+ */
+export function scheduleRemoteStackRenders(args: {
+  jobId: string;
+  connectionId: string;
+  remoteWorkdir: string;
+  files: ScheduledStackFile[];
+  reason: string;
+}): void {
+  const stacks = args.files
+    .filter((f) => STACK_NAME_RE.test(f.file))
+    // newest first: the final unmasked stack (RELION 5) leads, then the
+    // highest iterations — the picking surface arrives before the history
+    .sort((a, b) => stackRank(b.file) - stackRank(a.file));
+  if (stacks.length === 0) return;
+  if (pipelineInFlight.has(args.jobId)) return;
+  const task = (async () => {
+    let spent = 0;
+    let rendered = 0;
+    for (const s of stacks) {
+      if (stackRendered(args.jobId, s.file)) continue;
+      if (spent + s.size > RENDER_PIPELINE_TOTAL_CAP) continue; // over the run budget — the lazy door stays open for this round
+      try {
+        const assets = await ensureIterationAssets(
+          args.connectionId,
+          args.remoteWorkdir,
+          args.jobId,
+          s.file
+        );
+        if (assets) {
+          spent += s.size;
+          rendered += 1;
+        }
+      } catch {
+        /* one round's failure never stops the queue */
+      }
+    }
+    if (rendered > 0) {
+      console.log(
+        `iteration-live: rendered ${rendered} class-average stack(s) of job ${args.jobId} into the local preview cache (${args.reason})`
+      );
+    }
+  })()
+    .catch(() => undefined)
+    .finally(() => pipelineInFlight.delete(args.jobId));
+  pipelineInFlight.set(args.jobId, task);
+}
+
+/** the newest-first ordering key: the final unmasked stack outranks every
+ * round, then higher iteration numbers win. */
+function stackRank(name: string): number {
+  if (/^run_unmasked_classes\.mrcs?$/i.test(name)) return 2_000_000_000;
+  const it = stackIteration(name);
+  return it ?? -1;
+}
+
+/** t356 — what the local preview cache already holds for a job, in the
+ * classes route's shape: the newest rendered stack's name + its slice
+ * count (counted from the slice PNGs on disk). Null when nothing has
+ * been rendered yet. Both galleries use this as the zero-SSH answer
+ * once the pipeline ran. */
+export function cachedStackState(
+  jobId: string
+): { classesFile: string; classesSlices: number } | null {
+  const dir = path.join(PREVIEW_DIR, "live", jobId);
+  let names: string[];
+  try {
+    names = readdirSync(dir);
+  } catch {
+    return null;
+  }
+  // only RENDERED stacks count (a dir without the verdict marker could be
+  // a half-written render from a crashed pass)
+  const rendered = names
+    .map((n) => `${n}.mrcs`)
+    .filter((f) => STACK_NAME_RE.test(f) && stackRendered(jobId, f));
+  const picked = pickStack(rendered);
+  if (!picked) return null;
+  let slices = 0;
+  try {
+    slices = readdirSync(path.join(dir, picked.replace(/\.mrcs?$/i, ""))).filter((n) =>
+      /^slice\d{4}\.png$/.test(n)
+    ).length;
+  } catch {
+    slices = 0;
+  }
+  if (slices <= 0) return null;
+  return { classesFile: picked, classesSlices: slices };
 }

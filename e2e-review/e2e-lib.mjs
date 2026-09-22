@@ -11,9 +11,13 @@ import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "
 import path from "node:path";
 
 // CF_ROOT/CF_BASE env overrides keep the suite movable (e.g. a dev
-// instance on another port) without editing the lib.
-export const ROOT = process.env.CF_ROOT ?? "/home/z/cryoflow";
-export const BASE = process.env.CF_BASE ?? "http://localhost:3001";
+// instance on another port) without editing the lib. The default root is
+// the CURRENT repo tree — the pre-rebuild sandbox lived at /home/z/cryoflow
+// and the stale default sent every test-client spawn at a directory that
+// no longer exists (run-6's script assertions read empty for a whole
+// afternoon before the module-not-found stderr was caught).
+export const ROOT = process.env.CF_ROOT ?? "/home/z/my-project";
+export const BASE = process.env.CF_BASE ?? "http://localhost:3000";
 export const MOCK = `${ROOT}/services/mock-cluster`;
 export const SH = { Origin: BASE, Referer: `${BASE}/` };
 export const SHJ = { ...SH, "Content-Type": "application/json" };

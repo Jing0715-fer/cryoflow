@@ -91,7 +91,12 @@ import {
   type ParticleRefRow,
 } from "@/lib/relion/particle-ref-gate";
 import { getConnection, loadConnections, patchConnection } from "./connections";
-import { writeRemoteManifest } from "./remote-files";
+import { writeRemoteManifest, readRemoteManifest } from "./remote-files";
+// t356 — the proactive class-image pipeline: after finalize the run's
+// class-average stacks render into the LOCAL preview cache (the user's
+// 「下载 mrcs 到本地，再转成图片」 architecture). iteration-live imports
+// engine/getRun at function scope only — no cycle at module-eval time.
+import { LIVE_ITERATION_TYPES, scheduleRemoteStackRenders } from "./iteration-live";
 import {
   deleteRemoteFiles,
   dropRemoteListingCache,
@@ -4821,6 +4826,31 @@ async function finalizeRemoteRun(
     void import("@/lib/relion/dispatch")
       .then((m) => m.autoStartPendingDownstream(job.id))
       .catch((e) => console.error("remote-run: downstream auto-start failed:", e));
+  }
+  // t356 — the PROACTIVE class-image pipeline (the user's architecture:
+  // download the cluster's mrcs result files locally, convert to images
+  // locally). The sync-back's key-files caps leave a real run's class-
+  // average stacks (25–100 MB each) ON the cluster, and the old lazy
+  // door made every gallery image a fresh SSH roulette. After finalize,
+  // the manifest's stack names go to the render scheduler: each stack is
+  // pulled once (byte-verified), converted to per-class PNGs + the
+  // per-round sheet in the LOCAL preview cache, then deleted — both
+  // galleries answer from local bytes afterwards. Fire-and-forget: the
+  // sweep is never blocked (transfers ride direct pooled channels), one
+  // pipeline per job, already-rendered rounds skip for free. Runs for
+  // failed exits too — the rounds a killed run DID finish are exactly
+  // what the user needs to judge a re-run.
+  if (LIVE_ITERATION_TYPES.has(job.type)) {
+    const stackManifest = readRemoteManifest(localWorkdir);
+    if (stackManifest) {
+      scheduleRemoteStackRenders({
+        jobId: job.id,
+        connectionId: r.connectionId,
+        remoteWorkdir: r.remoteWorkdir,
+        files: stackManifest.files.map((f) => ({ file: f.path, size: f.size })),
+        reason: "finalize",
+      });
+    }
   }
   if (updated) console.log(`remote-run: ${job.type} "${job.name}" exit ${exitCode} (${sync.files} files synced, ${sync.skipped.length} skipped)`);
   return updated;
