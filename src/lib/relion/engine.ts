@@ -4566,6 +4566,10 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
       else if (method === "IMOD fiducials")
         argv.push("--imod_fiducials", "--fiducial_diameter", String(num(job, "fiducialDiameter", 10)), "--batchtomo_exe", "batchruntomo");
       else argv.push("--imod_patchtrack", "--patch_size", "100", "--patch_overlap", "50", "--batchtomo_exe", "batchruntomo");
+      // t349 — the command template (the argv's authority) carries --gpu:
+      // AreTomo2 does its tilt alignment on CUDA, and a 0-GPU width used to
+      // send a CUDA-hungry shard onto a card the submission never requested.
+      argv.push("--gpu", "0");
       return argv;
     }
 

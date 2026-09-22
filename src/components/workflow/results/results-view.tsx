@@ -11,6 +11,8 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+// t350 — per-iteration class snapshots (live + picker)
+import { ClassIterationGallery } from "./class-iteration-gallery";
 import {
   AlertTriangle,
   Box,
@@ -933,6 +935,11 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
 
   return (
     <div className="space-y-4">
+      {/* t350 — class snapshots per iteration: live while a remote
+          classification runs (cluster-side counts, rendered averages),
+          a class picker once it finished (per-class stars → next job) */}
+      <ClassIterationGallery job={job} refreshKey={refreshKey} />
+
       {/* header row */}
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs font-medium text-muted-foreground">

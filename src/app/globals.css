@@ -27,6 +27,10 @@
  * neither tree holds class sources; both are pure runtime state. */
 @source not "../../data";
 @source not "../../db";
+/* t349 — the download tree (QA screenshots, fetched-home artifacts): same
+ * watcher exemption as data/db — a text artifact with class-like tokens
+ * would rebuild the CSS while a fetch is in flight. */
+@source not "../../download";
 
 @custom-variant dark (&:is(.dark *));
 

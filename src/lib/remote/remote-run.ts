@@ -77,6 +77,9 @@ import { nodeUnavailable, parseScontrolNodes, type SlurmNodeUsage } from "@/lib/
 import { isLogAutopick } from "@/lib/relion/log-autopick";
 import { classifyRerunWipe } from "@/lib/hpc/cleanup";
 import { describeSyncSkipFile, describeSyncSkips, planSyncBack, type SyncSkip } from "./sync-policy";
+// t350 — the cryoSPARC-style per-class star flow (cluster-side split +
+// auto-joinstar combine)
+import { PER_CLASS_TYPES, splitPerClassStars, combineClassStars } from "./per-class";
 import { wipeLocalRunProducts } from "@/lib/relion/run-wipe";
 import { describeExtractCollisions, scanExtractCollisions, starIsArraySplittable } from "@/lib/relion/extract-collide";
 import {
@@ -130,6 +133,15 @@ const NATIVE_TYPES = new Set([
 
 /** MPI-parallel types (mirrors engine's MPI_PARALLEL_TYPES). */
 const MPI_PARALLEL_TYPES = new Set(["class3d", "refine3d"]);
+
+/**
+ * t349 — job types whose engine argv names its OWN gpu flag (a flag the
+ * dispatch must NOT append `--gpu 0` to). modelangelo drives CUDA through
+ * model_angelo's own `-d <gpuId>`; appending relion's `--gpu` onto that
+ * argv hands the CLI a flag it does not know, and the run dies at argv
+ * parse (the width truth still grants the card: --gres=gpu:1 + t341/t342).
+ */
+const SELF_GPU_FLAG_TYPES = new Set(["modelangelo"]);
 
 const STAGE_MAP_FILE = path.join(DATA_DIR, "remote-stage-map.json");
 
@@ -1326,6 +1338,46 @@ function buildSbatchScript(args: {
       L.push("CF_LAUNCH_EOF");
       L.push(`chmod +x ${shQuote(remoteWorkdir + "/.cf-rank-launch.sh")}`);
       L.push("");
+    } else {
+      // ---- t349 — single-rank GPU jobs: the quietest card, and array
+      // shards ROTATE. The t345 launcher owns the multi-rank case; the
+      // single-rank case used to run `--gpu 0` against whatever the node
+      // looked like — physical device 0 on clusters that grant --gres
+      // without device cgroups (exactly the field shape: concurrent array
+      // shards of one motioncorr all landing on card 0 while five cards
+      // idle). Two honest pins, both UNDER an unset-CVD guard so a
+      // cgroup-isolated cluster (or the t341 grant pin above, which runs
+      // FIRST) is never fought:
+      //   · an ARRAY task rotates: CUDA_VISIBLE_DEVICES = task_id % visible
+      //     cards — the %M concurrency cap spreads shards across cards
+      //     instead of stacking them;
+      //   · a lone single-GPU job takes the QUIETEST card (free memory
+      //     descending) — device 0 is everyone's default and the starved
+      //     one on a shared node.
+      // nvidia-smi absent → numbers fail their guards → no pin (t313
+      // fail-open: the job runs as the node left it, exactly as before).
+      L.push("# ---- t349: single-rank GPU pin — array shards rotate, loners take the quietest card ----");
+      L.push('if [ -z "${CUDA_VISIBLE_DEVICES:-}" ]; then');
+      L.push('  if [ -n "${SLURM_ARRAY_TASK_ID:-}" ]; then');
+      L.push('    CF_NGPU="$(nvidia-smi -L 2>/dev/null | grep -c "^GPU ")"');
+      L.push('    case "$CF_NGPU" in ""|*[!0-9]*) CF_NGPU=0 ;; esac');
+      L.push('    if [ "$CF_NGPU" -ge 2 ]; then');
+      L.push('      export CUDA_VISIBLE_DEVICES="$(( 10#${SLURM_ARRAY_TASK_ID} % CF_NGPU ))"');
+      L.push('      echo "CRYOFLOW_NOTE: array task ${SLURM_ARRAY_TASK_ID} pinned to GPU $CUDA_VISIBLE_DEVICES of $CF_NGPU visible — rotating concurrent shards across cards so they do not pile onto device 0 (t349)"');
+      L.push("    fi");
+      L.push("  else");
+      L.push('    CF_QUIET="$(nvidia-smi --query-gpu=index,memory.free --format=csv,noheader,nounits 2>/dev/null | sort -s -t, -k2 -nr | head -1 | cut -d, -f1 | tr -d " ")"');
+      L.push('    case "$CF_QUIET" in');
+      L.push('      ""|*[!0-9]*)');
+      L.push("        ;;");
+      L.push("      *)");
+      L.push('        export CUDA_VISIBLE_DEVICES="$CF_QUIET"');
+      L.push('        echo "CRYOFLOW_NOTE: single-GPU job with no CUDA_VISIBLE_DEVICES grant — pinned to GPU $CF_QUIET, the quietest card by free memory (device 0 is everyone\'s default and the first to starve, t349)"');
+      L.push("        ;;");
+      L.push("    esac");
+      L.push("  fi");
+      L.push("fi");
+      L.push("");
     }
     L.push("# ---- t342/t345: the starved-card refusal (fail in one second, not an hour) ----");
     L.push("if command -v nvidia-smi >/dev/null 2>&1; then");
@@ -2508,6 +2560,95 @@ export async function startRemoteJob(args: {
   // (the upstream twin map lives ABOVE the star gates now — t342)
   const uploads: Array<{ key: string; local: string; remote: string; external: boolean }> = [];
 
+  // ---- t350 — per-class selection (the cryoSPARC-style flow) ------------
+  // params.classStarSelection = { jobId, classes: [3, 7] } — the user picked
+  // classes in a FINISHED upstream classification's gallery. The per-class
+  // stars already sit on the cluster (finalize split them there), so the
+  // swap is a TWIN REGISTRATION, not an upload: resolved.inputs.particles_
+  // star is re-pointed at the upstream class star's cluster path and the
+  // twin map carries it past the staging loop (zero bytes cross the wire —
+  // the mrcs stacks those rows reference live in the same cluster tree the
+  // upstream classification itself read from).
+  // Multi-class merges happen cluster-side right before the argv build
+  // (the auto-joinstar: one awk over files that share a filesystem).
+  let classStarTwinPaths: string[] = [];
+  if (
+    resolved.inputs.particles_star &&
+    params.classStarSelection &&
+    typeof params.classStarSelection === "object"
+  ) {
+    const sel = params.classStarSelection as { jobId?: unknown; classes?: unknown };
+    const selJobId = typeof sel.jobId === "string" ? sel.jobId : "";
+    const selClasses = Array.isArray(sel.classes)
+      ? sel.classes.map((c) => Number(c)).filter((c) => Number.isInteger(c) && c > 0)
+      : [];
+    const upRec = selJobId ? getRun(selJobId) : null;
+    const upRemote = upRec?.remote;
+    if (!upRec || !upRemote || !upRemote.remoteWorkdir) {
+      return fail(
+        "the class-selection source job has no cluster record — re-create this job from the class gallery of a finished classification",
+        true
+      );
+    }
+    if (selClasses.length === 0) {
+      return fail("class selection is empty — pick at least one class in the gallery", true);
+    }
+    const upWd = upRemote.remoteWorkdir.replace(/\/+$/, "");
+    classStarTwinPaths = selClasses.map((c) => {
+      const name = `particles_class${String(c).padStart(3, "0")}.star`;
+      return `${upWd}/${name}`;
+    });
+    // verify the stars exist on the cluster BEFORE promising them (one
+    // batched stat round; the upstream may predate the split feature —
+    // its data star can still be split by re-running, or the classes
+    // picked may outrank the class count). An SSH FAILURE is its own
+    // honest verdict — never "does not have" (a dead wire is not an
+    // absent file; the retry heartbeat re-attempts by itself).
+    const statRes = await (async () => {
+      const checks = classStarTwinPaths
+        .map((p, i) => `if [ -f ${shQuote(p)} ]; then echo "OK ${i}"; fi`)
+        .join("; ");
+      return exec(conn, checks, { timeoutMs: 15_000 });
+    })();
+    if (statRes.error) {
+      return {
+        ok: false,
+        error: `could not reach ${conn.host} to verify the selected class stars (${statRes.error}) — the run retries automatically when the cluster answers`,
+        waiting: "not-ready" as const,
+      };
+    }
+    const idxOk = new Set(
+      statRes.stdout
+        .split("\n")
+        .map((l) => l.trim())
+        .filter((l) => /^OK \d+$/.test(l))
+        .map((l) => Number(l.slice(3)))
+    );
+    const missing = selClasses.filter((_, i) => !idxOk.has(i));
+    if (missing.length > 0) {
+      return fail(
+        `the cluster does not have per-class star(s) for class(es) ${missing.join(", ")} in the source job — they may have been picked from a run that predates the per-class split (re-run the classification, or pick fewer classes)`,
+        true
+      );
+    }
+    // re-point the resolved input at the FIRST class star's cluster world:
+    // the twin map key is the LOCAL mirror path (present or not — a twin
+    // hit skips both the upload and the existence check)
+    const localAnchor = path.join(
+      RELION_DIR,
+      job.projectId,
+      path.basename(upWd),
+      path.basename(classStarTwinPaths[0])
+    );
+    const anchorNorm = localAnchor.split(path.sep).join("/");
+    resolved.inputs.particles_star = localAnchor;
+    resolvedInputs.particles_star = localAnchor;
+    upstreamRemoteTwins.set(anchorNorm, classStarTwinPaths[0]);
+    console.log(
+      `remote-run: "${job.name}" consumes ${selClasses.length} per-class star(s) from ${path.basename(upWd)} (classes ${selClasses.join(", ")}) — cluster-side, no upload (t350)`
+    );
+  }
+
   // ---- t338 — the particle-star ↔ stack consistency gate (consumers) ----
   // The field report: a 2D classification died ~1 min into relion_refine
   // with readMRC: "Image number 341 exceeds stack size 340" (rwMRC.h) —
@@ -2877,6 +3018,23 @@ export async function startRemoteJob(args: {
         inputs[key] = upstreamRemoteTwins.get(local) ?? (uploads.find((u) => u.key === key)?.remote ?? local);
       }
 
+      // ---- t350 — the auto-joinstar path decision (multi-class selection) --
+      // The single-class case resolved above points --i straight at the
+      // class star's cluster twin. TWO OR MORE classes merge cluster-side
+      // into <this workdir>/combined_input.star. Here we only DECIDE the
+      // path (the argv needs the string); the merge itself runs AFTER the
+      // pre-run wipe below — a .star in the workdir is exactly what the
+      // fresh-run wipe classifies as a previous generation's product, and
+      // merging before it handed RELION a freshly deleted input.
+      let classStarCombine: { paths: string[]; out: string } | null = null;
+      if (classStarTwinPaths.length >= 2 && inputs.particles_star) {
+        classStarCombine = {
+          paths: classStarTwinPaths,
+          out: `${remoteWorkdir.replace(/\/+$/, "")}/combined_input.star`,
+        };
+        inputs.particles_star = classStarCombine.out;
+      }
+
       const built = await buildArgv({
         binDir,
         workdir: remoteWorkdir,
@@ -2966,7 +3124,17 @@ export async function startRemoteJob(args: {
             argv.push("--j", String(Math.max(1, Math.round(Number(params.threads ?? 4) || 4))));
           }
         }
-        if (hasGpu && strategy.gpus > 0 && !argv.includes("--gpu")) argv.push("--gpu", "0");
+        // t349 — SELF_GPU_FLAG_TYPES name their own gpu flag in the engine
+        // argv (modelangelo's `-d`); the relion-style append would be a flag
+        // that CLI has never heard of and the run dies at argv parse.
+        if (
+          hasGpu &&
+          strategy.gpus > 0 &&
+          !argv.includes("--gpu") &&
+          !SELF_GPU_FLAG_TYPES.has(job.type)
+        ) {
+          argv.push("--gpu", "0");
+        }
       }
       // t320 — belt-and-braces: a LoG Auto-picking argv must NEVER carry
       // --gpu, whatever future code path grows an append above (RELION's
@@ -3251,6 +3419,24 @@ export async function startRemoteJob(args: {
       }
 
       if (isSlurm) {
+        // ---- t350 — the auto-joinstar merge, POST-wipe --------------------
+        // The path decision happened at the argv build; the merge itself
+        // lives HERE (after the fresh-run wipe + the t318 clear, before any
+        // submission door) so the combined star cannot be wiped by the very
+        // dispatch that just wrote it. One awk over stars that share the
+        // cluster filesystem — no queue wait, no manual joinstar node (the
+        // column headers must match, which the per-class stars of one
+        // classification always do; a cross-layout mix refuses honestly).
+        if (classStarCombine) {
+          const merged = await combineClassStars(conn, classStarCombine.paths, classStarCombine.out);
+          if (!merged.ok) {
+            throw new Error(`auto-joinstar failed: ${merged.error ?? "no verdict"}`);
+          }
+          console.log(
+            `remote-run: auto-joinstar merged ${classStarCombine.paths.length} class stars into ${classStarCombine.out} (${merged.rows} particles, t350)`
+          );
+        }
+
         // ---- t297: the sbatch door (sbatch6gpu.sh pattern) ---------------
         // t341 — the LAST fence before the scheduler hears about us: a
         // reset/delete that landed while the script uploaded must not
@@ -3314,8 +3500,14 @@ export async function startRemoteJob(args: {
           note: ctffindGateNote ?? extractGateNote ?? particlesGateNote,
           // t342/t345 — the starved-card refusal + the rank clamp ride only
           // jobs whose argv truly uses the GPU; the MPI width feeds the
-          // script's own CF_RANKS clamp + per-rank launcher variables
-          gpuJob: hasGpu && strategy.gpus > 0 && argv.includes("--gpu"),
+          // script's own CF_RANKS clamp + per-rank launcher variables.
+          // t349 — SELF_GPU_FLAG_TYPES use the GPU through their OWN flag
+          // (modelangelo's `-d`): no `--gpu` token in the argv, but the card
+          // is just as load-bearing — they earn the same pin + refusal.
+          gpuJob:
+            hasGpu &&
+            strategy.gpus > 0 &&
+            (argv.includes("--gpu") || SELF_GPU_FLAG_TYPES.has(job.type)),
           mpiRanks: slurmMpiGpu ? ntasks : null,
         });
         const scriptPath = `${remoteWorkdir}/.cf-sbatch.sh`;
@@ -4271,6 +4463,26 @@ async function finalizeRemoteRun(
   const r = rec.remote;
   if (!r) return null; // defensive: entries are pre-filtered on rec.remote
   const localWorkdir = rec.workdir;
+  // t350 — per-class stars BEFORE the sync-back: a finished class2d/class3d
+  // splits its final data star into particles_classNNN.star ON THE CLUSTER
+  // (one awk round), so the .star key-file policy carries every class star
+  // home with the rest of the metadata — the cryoSPARC-style flow (skip the
+  // subset-selection step; pick classes straight from the gallery).
+  // Best-effort by design: a split that cannot run leaves the run EXACTLY
+  // as finished as it was (the stars are a convenience, never a verdict).
+  let perClassFiles: string[] = [];
+  if (exitCode === 0 && PER_CLASS_TYPES.has(job.type)) {
+    try {
+      const split = await splitPerClassStars(conn, r.remoteWorkdir, job.type);
+      if (split.ok && split.files.length > 0) {
+        perClassFiles = split.files;
+      } else if (split.error) {
+        console.log(`per-class: split skipped for "${job.name}" — ${split.error}`);
+      }
+    } catch (e) {
+      console.log(`per-class: split failed for "${job.name}" — ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
   // t269 — the sync-back leg's wall-clock cost: the ledger's second entry,
   // set at finalize (the run itself is already over; this is the wait the
   // user still feels before the results appear).
@@ -4286,11 +4498,25 @@ async function finalizeRemoteRun(
   if (exitCode === 0) {
     const collected = collectOutputs(job.type, localWorkdir);
     outputs = collected.outputs;
+    // t350 — the per-class stars land on the record under their own dynamic
+    // keys (particles_class001 …): a downstream job created from the class
+    // gallery points at these. Only stars that actually came home are
+    // recorded (the twin block below then verifies + registers the cluster
+    // twin for each, exactly like every other output key).
+    for (const name of perClassFiles) {
+      const local = path.join(localWorkdir, name);
+      const key = name.replace(/\.star$/, "");
+      if (existsSync(local)) outputs[key] = local;
+    }
     const origin = `${r.user}@${r.host.split(":")[0]}${r.module ? ` · ${r.module}` : ""}`;
+    const perClassNote =
+      perClassFiles.length > 0 && Object.keys(outputs).some((k) => k.startsWith("particles_class"))
+        ? ` · ${perClassFiles.length} per-class star(s) — pick classes from the gallery for the next step`
+        : "";
     result =
       collected.outputs && Object.keys(collected.outputs).length > 0
-        ? `REMOTE[${origin}]: ${collected.result.replace(/^REAL: /, "")}`
-        : `REMOTE[${origin}]: exited 0 but no expected outputs appeared — check the log tab`;
+        ? `REMOTE[${origin}]: ${collected.result.replace(/^REAL: /, "")}${perClassNote}`
+        : `REMOTE[${origin}]: exited 0 but no expected outputs appeared — check the log tab${perClassNote}`;
   } else {
     let logTailText = remoteLogTail;
     // t323 — the rescue arm now reads the LOCAL run.err's own content, not

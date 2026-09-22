@@ -175,7 +175,7 @@ for it in range(1, iters + 1):
     its = f"{it:03d}"
     data_star = os.path.join(outdir, f"run_it{its}_data.star")
     with open(data_star, "w") as fh:
-        fh.write("\ndata_\n\nloop_\n")
+        fh.write("\ndata_particles\n\nloop_\n")
         fh.write("_rlnImageName #1\n")
         fh.write("_rlnClassNumber #2\n")
         fh.write("_rlnAngleRot #3\n")
@@ -193,6 +193,13 @@ for it in range(1, iters + 1):
             fh.write(f"{img}\t{cls}\t{p * 13.0:.1f}\t{90.0 - p}.2\t{p * 3.0:.1f}\n")
     for c in range(1, ncls + 1):
         write_mrc(os.path.join(outdir, f"run_it{its}_class{c:03d}.mrc"), 64, 64, 1, c * 31 + it)
+    # t350 — per-iteration 2D class-average STACK (run_it###_classes.mrcs):
+    # what a REAL relion_refine class2d writes every iteration and what the
+    # live class gallery renders slice-by-slice. One file, nz = ncls, each
+    # slice its own deterministic gray field (class c ≈ c*31+it, so two
+    # classes never render identical). Additive only — the final-artifact
+    # rename below and every collector's expectations are untouched.
+    write_mrc(os.path.join(outdir, f"run_it{its}_classes.mrcs"), 64, 64, ncls, 4096 + it)
     # E2E extension (2026-09 review): REAL relion_refine in 3D mode also
     # writes per-iteration half-maps + an optimiser.star. The app's
     # REFINE_FAMILY_CANDIDATES (engine.ts) expect run_it###_half1_class###.mrc

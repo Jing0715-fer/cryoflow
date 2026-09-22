@@ -43,6 +43,9 @@ yarn-error.log*
 data/
 db/*.db
 !db/.gitkeep
+# t349 — QA screenshots + anything fetched home lands here; same watcher
+# exemption as data/ (text files with class-like tokens would rebuild CSS)
+download/
 
 
 # typescript

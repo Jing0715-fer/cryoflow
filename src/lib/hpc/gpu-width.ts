@@ -27,26 +27,50 @@
  * share the same implementation (the t320 log-autopick doctrine).
  */
 
-/** relion_refine_mpi types: ONE job, N MPI ranks pinned to N GPUs. */
+/**
+ * relion_refine_mpi types: ONE job, N MPI ranks pinned to N GPUs.
+ *
+ * t349 — initialmodel LEFT this set: the engine's template is VDAM
+ * (`relion_refine --grad --denovo_3dref` — engine.ts's own comment: RELION
+ * forbids --grad with MPI), so a width ≥2 submission used to hand mpirun a
+ * binary that refuses to run under it. It runs SINGLE now (one GPU, no
+ * mpirun) — the honest width for the argv we actually write.
+ */
 export const MULTI_GPU_TYPES = new Set([
   "class2d",
   "class3d",
   "refine3d",
-  "initialmodel",
   "multibody",
 ]);
 
-/** Deep-learning wrappers that train/infer on exactly one GPU. */
+/**
+ * Deep-learning wrappers that train/infer on exactly one GPU.
+ *
+ * t349 — tomo_denoise joined: its engine argv carries `--gpu 0` (cryoCARE
+ * trains on CUDA) but the width table used to file it as a 0-GPU array
+ * type — a job that ASKS for a card the submission never requests. Under
+ * this set it gets --gres=gpu:1 + the t341 grant pin + the t342 refusal.
+ * initialmodel joined for the VDAM reason above.
+ */
 export const SINGLE_GPU_TYPES = new Set([
   "topaztrain",
   "dynamight",
   "modelangelo",
   "tomo_ctfrefine",
   "tomo_polish",
+  "tomo_denoise",
+  "initialmodel",
 ]);
 
-/** Array-flavor types whose shards each get one GPU (the strategy's table). */
-const ARRAY_ONE_GPU_TYPES = new Set(["motioncorr", "autopick"]);
+/**
+ * Array-flavor types whose shards each get one GPU (the strategy's table).
+ *
+ * t349 — tomo_aligntiltseries joined: the command template carries `--gpu`
+ * (AreTomo2 does its alignment on CUDA), but the argv used to omit it and
+ * the width said 0 — the engine now passes `--gpu 0` and the shard asks for
+ * a card like motioncorr's shards do.
+ */
+const ARRAY_ONE_GPU_TYPES = new Set(["motioncorr", "autopick", "tomo_aligntiltseries"]);
 
 export type SlurmWidthMode = "multi-gpu" | "single" | "array" | "cpu";
 
