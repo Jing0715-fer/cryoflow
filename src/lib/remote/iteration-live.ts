@@ -15,11 +15,13 @@
  *     so the UI's poll never storms the login node.
  *   · localIterations() — the same shape answered from the LOCAL mirror
  *     once the sync-back landed (job finished), mtime-cached.
- *   · ensureClassStackPngs() — pulls the newest class-average stack ONCE
- *     per iteration (a few MB), renders EVERY slice to a small PNG, keeps
- *     the PNGs (KBs each) and DELETES the stack — the t339 mirror-slimming
- *     contract holds: image stacks never live in the local mirror, only
- *     their rendered thumbnails do.
+ *   · ensureIterationAssets() — pulls a class-average stack ONCE per
+ *     iteration file (a few MB), renders EVERY slice to a small PNG plus
+ *     the t354 SHEET (the whole iteration as ONE grid image — the user's
+ *     「每一轮的 2D 结果生成一张图片」), keeps the PNGs (KBs each) and
+ *     DELETES the stack — the t339 mirror-slimming contract holds: image
+ *     stacks never live in the local mirror, only their rendered
+ *     thumbnails do.
  *
  * Server-only module (fs, ssh).
  */
@@ -36,7 +38,7 @@ import {
 } from "fs";
 import { getRun } from "@/lib/relion/engine";
 import { cachedFileCompute } from "@/lib/relion/statcache";
-import { readMrcHeader, renderMrcSlicePng } from "@/lib/mrc";
+import { readMrcHeader, renderClassSheetPng, renderMrcSlicePng } from "@/lib/mrc";
 import { DATA_DIR } from "@/lib/paths";
 import { getConnection } from "./connections";
 import { exec, remoteDownload } from "./ssh";
@@ -57,6 +59,14 @@ export interface LiveClassEntry {
   fraction: number;
 }
 
+/** one iteration's class-average stack — t354's chips bar consumes this */
+export interface StackEntry {
+  /** the RELION iteration number (run_it007 → 7) */
+  iter: number;
+  /** workdir-relative stack file name */
+  file: string;
+}
+
 export interface IterationsPayload {
   /** true while the numbers came over SSH from the cluster (job running) */
   remote: boolean;
@@ -68,6 +78,9 @@ export interface IterationsPayload {
   /** newest class-average stack, workdir-relative (render target) */
   classesFile: string | null;
   classesSlices: number | null;
+  /** t354 — EVERY iteration that has a class-average stack (or a rendered
+   * sheet in the local cache), ascending: one chip, one sheet image each */
+  stacks: StackEntry[];
   error?: string;
 }
 
@@ -175,6 +188,22 @@ function pickStack(names: string[]): string | null {
   return best;
 }
 
+/** t354 — the chips bar's list: one entry per iteration (the unmasked
+ * variant wins a same-iteration tie, mirroring pickStack's preference),
+ * ascending by iteration number. */
+function stackEntryList(names: string[]): StackEntry[] {
+  const byIter = new Map<number, StackEntry>();
+  for (const n of names) {
+    const it = stackIteration(n);
+    if (it == null) continue;
+    const prev = byIter.get(it);
+    // unmasked outranks plain — same rank math as pickStack
+    const rank = (s: string) => (/unmasked/i.test(s) ? 1 : 0);
+    if (!prev || rank(n) > rank(prev.file)) byIter.set(it, { iter: it, file: n });
+  }
+  return [...byIter.values()].sort((a, b) => a.iter - b.iter);
+}
+
 /* ------------------------------------------------------------------ */
 /* the LIVE leg — one SSH round, awk on the cluster                    */
 /* ------------------------------------------------------------------ */
@@ -232,11 +261,11 @@ export async function remoteLiveIterations(
   const run = getRun(jobId);
   const r = run?.remote;
   if (!run || !r) {
-    return { remote: true, iterations: [], latest: null, classes: [], total: 0, classesFile: null, classesSlices: null, error: "no remote run record" };
+    return { remote: true, iterations: [], latest: null, classes: [], total: 0, classesFile: null, classesSlices: null, stacks: [], error: "no remote run record" };
   }
   const conn: RemoteConnection | null = getConnection(r.connectionId);
   if (!conn) {
-    return { remote: true, iterations: [], latest: null, classes: [], total: 0, classesFile: null, classesSlices: null, error: "the cluster connection for this run was deleted — reconnect it to see live results" };
+    return { remote: true, iterations: [], latest: null, classes: [], total: 0, classesFile: null, classesSlices: null, stacks: [], error: "the cluster connection for this run was deleted — reconnect it to see live results" };
   }
   const W = shSingleQuote(r.remoteWorkdir);
   const script = [
@@ -254,7 +283,7 @@ export async function remoteLiveIterations(
   ].join("\n");
   const res = await exec(conn, script, { timeoutMs: 25_000 });
   if (res.error) {
-    return { remote: true, iterations: [], latest: null, classes: [], total: 0, classesFile: null, classesSlices: null, error: `SSH to ${conn.host} failed (${res.error})` };
+    return { remote: true, iterations: [], latest: null, classes: [], total: 0, classesFile: null, classesSlices: null, stacks: [], error: `SSH to ${conn.host} failed (${res.error})` };
   }
   const sections = res.stdout.split("---CF-STACKS---");
   const dataStars = (sections[0] ?? "")
@@ -303,6 +332,7 @@ export async function remoteLiveIterations(
     total,
     classesFile,
     classesSlices,
+    stacks: stackEntryList(stacks),
   };
   liveCache.set(jobId, { at: Date.now(), payload });
   return payload;
@@ -312,9 +342,41 @@ export async function remoteLiveIterations(
 /* the LOCAL leg — the mirror after the sync-back                      */
 /* ------------------------------------------------------------------ */
 
-export function localIterations(workdir: string): IterationsPayload {
+/** t354 — stacks the local cache has already rendered for this job (the
+ * sheet/slice PNGs under PREVIEW_DIR/live/<jobId>/). The sync-back's
+ * slimming excludes the per-iteration stacks, so once a run finishes the
+ * CACHE is where its history lives — the chips bar must still show every
+ * round the user watched (and any round they click later can be re-pulled
+ * on demand by the sheet route when the run record is remote). */
+function cachedStackEntries(jobId: string): StackEntry[] {
+  const dir = path.join(PREVIEW_DIR, "live", jobId);
+  let names: string[];
+  try {
+    names = readdirSync(dir);
+  } catch {
+    return [];
+  }
+  // cache dirs are keyed by the stack BASE name (run_it007_classes) — the
+  // .mrcs reconstruction passes STACK_NAME_RE and lands on the same dir
+  // for either extension (liveStackDir strips both identically)
+  return stackEntryList(names.map((n) => `${n}.mrcs`).filter((f) => STACK_NAME_RE.test(f)));
+}
+
+export function localIterations(workdir: string, jobId?: string): IterationsPayload {
   if (!existsSync(workdir)) {
-    return { remote: false, iterations: [], latest: null, classes: [], total: 0, classesFile: null, classesSlices: null };
+    // honest shape: no occupancy data without the mirror — only the chips
+    // (cached sheets) are viewable for a run whose mirror never landed
+    const cached = jobId ? cachedStackEntries(jobId) : [];
+    return {
+      remote: false,
+      iterations: [],
+      latest: null,
+      classes: [],
+      total: 0,
+      classesFile: null,
+      classesSlices: null,
+      stacks: cached,
+    };
   }
   const names = readdirSync(workdir);
   const iterations = names
@@ -348,14 +410,28 @@ export function localIterations(workdir: string): IterationsPayload {
         .sort((a, b) => a.cls - b.cls);
     }
   }
-  return { remote: false, iterations, latest, classes, total, classesFile, classesSlices };
+  // t354 — the chips list unions the mirror's stacks with the cache's
+  // (the mirror holds what the sync-back kept, the cache holds every
+  // stack the live leg ever pulled — both are viewable)
+  const mirrorStacks = stackEntryList(names);
+  const cached = jobId ? cachedStackEntries(jobId) : [];
+  const seen = new Set(mirrorStacks.map((s) => s.iter));
+  const stacks = [...mirrorStacks, ...cached.filter((s) => !seen.has(s.iter))]
+    .sort((a, b) => a.iter - b.iter);
+  return { remote: false, iterations, latest, classes, total, classesFile, classesSlices, stacks };
 }
 
 /* ------------------------------------------------------------------ */
 /* class-average rendering — one pull per stack, PNGs stay, stack goes */
 /* ------------------------------------------------------------------ */
 
-const stackInFlight = new Map<string, Promise<number | null>>();
+/** one pulled stack's rendered product: every slice PNG + the t354 sheet */
+export interface IterationAssets {
+  slices: number;
+  sheet: Buffer | null;
+}
+
+const stackInFlight = new Map<string, Promise<IterationAssets | null>>();
 
 function liveStackDir(jobId: string, stackName: string): string {
   return path.join(PREVIEW_DIR, "live", jobId, stackName.replace(/\.mrcs?$/i, ""));
@@ -365,23 +441,30 @@ function stackPngPath(jobId: string, stackName: string, slice: number): string {
   return path.join(liveStackDir(jobId, stackName), `slice${String(slice).padStart(4, "0")}.png`);
 }
 
+function sheetPngPath(jobId: string, stackName: string): string {
+  return path.join(liveStackDir(jobId, stackName), "sheet.png");
+}
+
 /**
  * Pull ONE class-average stack from the cluster, render EVERY slice to a
- * small PNG, then delete the stack (the t339 slimming contract: rendered
- * thumbnails persist — KBs each — the MB-scale stack does not). Concurrent
- * requests for the same stack share one pull. Returns the slice count, or
- * null when the pull/render failed (the route answers an honest error).
+ * small PNG plus the t354 SHEET (the whole iteration as one grid image),
+ * then delete the stack (the t339 slimming contract: rendered thumbnails
+ * persist — KBs each — the MB-scale stack does not). Concurrent requests
+ * for the same stack share one pull. Returns the slice count and the sheet
+ * buffer, or null when the pull/render failed (the route answers an
+ * honest error). The sheet is best-effort: a stack whose sheet render
+ * fails still answers its slices (the per-class grid keeps working).
  */
-export async function ensureClassStackPngs(
+export async function ensureIterationAssets(
   connectionId: string,
   remoteWorkdir: string,
   jobId: string,
   stackName: string
-): Promise<number | null> {
+): Promise<IterationAssets | null> {
   const key = `${connectionId}:${remoteWorkdir}/${stackName}`;
   const existing = stackInFlight.get(key);
   if (existing) return existing;
-  const task = (async (): Promise<number | null> => {
+  const task = (async (): Promise<IterationAssets | null> => {
     const conn = getConnection(connectionId);
     if (!conn) return null;
     const clusterPath = `${remoteWorkdir.replace(/\/+$/, "")}/${stackName}`;
@@ -403,7 +486,19 @@ export async function ensureClassStackPngs(
           }
         }
       }
-      return hdr.nz;
+      // t354 — the whole-iteration sheet, rendered from the transient
+      // stack before the finally-clause deletes it
+      let sheet: Buffer | null = null;
+      try {
+        const rendered = await renderClassSheetPng(transient);
+        if (rendered) {
+          sheet = rendered.png;
+          writeFileSync(sheetPngPath(jobId, stackName), rendered.png);
+        }
+      } catch {
+        /* best-effort: slices answered without the sheet */
+      }
+      return { slices: hdr.nz, sheet };
     } catch {
       return null;
     } finally {
@@ -431,6 +526,31 @@ export function readCachedSlicePng(jobId: string, stackName: string, slice: numb
     return readFileSync(f);
   } catch {
     return null;
+  }
+}
+
+/** t354 — a rendered iteration sheet from the cache (null = not rendered). */
+export function readCachedSheetPng(jobId: string, stackName: string): Buffer | null {
+  const f = sheetPngPath(jobId, stackName);
+  try {
+    const st = statSync(f);
+    if (!st.isFile() || st.size === 0) return null;
+    return readFileSync(f);
+  } catch {
+    return null;
+  }
+}
+
+/** t354 — persist a locally-rendered sheet under the live leg's key. The
+ * mirror can lose its per-iteration products (a re-dispatch wipes them —
+ * t333); a sheet the user once viewed survives that wipe in the cache,
+ * so the chips bar keeps the round and the sheet keeps answering. */
+export function cacheSheetPng(jobId: string, stackName: string, png: Buffer): void {
+  try {
+    mkdirSync(liveStackDir(jobId, stackName), { recursive: true });
+    writeFileSync(sheetPngPath(jobId, stackName), png);
+  } catch {
+    /* best-effort cache write */
   }
 }
 

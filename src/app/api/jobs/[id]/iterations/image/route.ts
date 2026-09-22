@@ -3,7 +3,7 @@ import { isLocalRequest } from "@/lib/http-guard";
 import { findEffectiveJob } from "@/lib/link";
 import { getRun } from "@/lib/relion/engine";
 import {
-  ensureClassStackPngs,
+  ensureIterationAssets,
   readCachedSlicePng,
   localStackExists,
   STACK_NAME_RE,
@@ -69,20 +69,20 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
       });
     }
 
-    // live leg: pull once, render all slices, keep PNGs only
+    // live leg: pull once, render all slices (+ the t354 sheet), keep PNGs only
     const r = run.remote;
     if (!r || run.done) {
       return NextResponse.json({ error: "class stack not available locally" }, { status: 404 });
     }
-    const n = await ensureClassStackPngs(r.connectionId, r.remoteWorkdir, job.id, file);
-    if (n == null) {
+    const assets = await ensureIterationAssets(r.connectionId, r.remoteWorkdir, job.id, file);
+    if (assets == null) {
       return NextResponse.json(
         { error: `could not fetch ${file} from the cluster (the run may still be writing it)` },
         { status: 404 }
       );
     }
-    if (slice >= n) {
-      return NextResponse.json({ error: `slice ${slice} outside this stack (${n} slices)` }, { status: 400 });
+    if (slice >= assets.slices) {
+      return NextResponse.json({ error: `slice ${slice} outside this stack (${assets.slices} slices)` }, { status: 400 });
     }
     const png = readCachedSlicePng(job.id, file, slice);
     if (!png) {

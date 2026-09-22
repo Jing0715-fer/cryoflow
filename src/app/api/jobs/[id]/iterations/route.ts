@@ -43,6 +43,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
         total: 0,
         classesFile: null,
         classesSlices: null,
+        stacks: [],
         remote: false,
         error: `${job.type} jobs do not write per-iteration class snapshots`,
       } satisfies IterationsPayload);
@@ -56,7 +57,9 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
         headers: { "Cache-Control": "no-store" },
       });
     }
-    // local leg: the mirror (finished job, or a local run)
+    // local leg: the mirror (finished job, or a local run) — jobId joins so
+    // the chips bar also lists rounds whose sheets the live leg rendered
+    // into the preview cache (the sync-back never lands per-iteration stacks)
     const workdir = run?.workdir;
     if (!workdir) {
       return NextResponse.json({
@@ -66,10 +69,28 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
         total: 0,
         classesFile: null,
         classesSlices: null,
+        stacks: [],
         remote: false,
       } satisfies IterationsPayload);
     }
-    return NextResponse.json(localIterations(workdir), {
+    const payload = localIterations(workdir, job.id);
+    // t354 — a finished REMOTE run whose cache is cold (fresh restart): the
+    // mirror holds the data stars but no per-iteration stacks (the sync-back
+    // slims them), so the chips bar would render empty and the user could
+    // never trigger the on-demand pull. RELION's naming law says every
+    // run_itNNN_data.star has a run_itNNN_classes.mrcs sibling — synthesize
+    // those chips; the sheet route re-pulls each round from the cluster
+    // (run.remote survives completion) or answers an honest 404.
+    if (run.remote && payload.iterations.length > 0) {
+      const have = new Set(payload.stacks.map((s) => s.iter));
+      const synth = payload.iterations
+        .filter((it) => !have.has(it))
+        .map((it) => ({ iter: it, file: `run_it${String(it).padStart(3, "0")}_classes.mrcs` }));
+      if (synth.length > 0) {
+        payload.stacks = [...payload.stacks, ...synth].sort((a, b) => a.iter - b.iter);
+      }
+    }
+    return NextResponse.json(payload, {
       headers: { "Cache-Control": "no-store" },
     });
   } catch (error) {
