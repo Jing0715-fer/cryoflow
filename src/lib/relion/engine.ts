@@ -41,7 +41,7 @@ import { getProjectMeta } from "@/lib/projects";
 import { getConnection, loadConnections } from "@/lib/remote/connections";
 import { remoteHeaderSniffer } from "@/lib/remote/sniff";
 import { listRemoteDir, REMOTE_IMPORT_MAX_ENTRIES, statRemoteFiles } from "@/lib/remote/remote-ls";
-import { exec as sshExec, remoteDownload, remoteMkdir } from "@/lib/remote/ssh";
+import { exec as sshExec, remoteDownload, remoteMkdir, remoteUpload } from "@/lib/remote/ssh";
 import { wipeLocalRunProducts } from "@/lib/relion/run-wipe";
 import { describeExtractCollisions, scanExtractCollisions } from "@/lib/relion/extract-collide";
 import { npyRows, parseNpyHeader } from "@/lib/relion/cs-npy";
@@ -816,6 +816,124 @@ export function refineScratchDir(job: EngineJobRef): string {
   return typeof sd === "string" ? sd.trim() : "";
 }
 
+/**
+ * t352 — the verified option set of relion_refine (RELION 5.0-beta ∪ 5.0),
+ * transcribed mechanically from 3dem/relion ml_optimiser.cpp (every
+ * parser.getOption / parser.checkOption / checkParameter option string,
+ * both parser sections — provenance: tags ver5.0 + the 5.0-beta-era
+ * ver5.0 branch, 2026-09 audit; the e2e guard in run-6-batch-size.mjs
+ * carries the same set). RELION's parser (args.cpp checkForUnknownArguments)
+ * hard-rejects unknown --flags, so NOTHING outside this set may ever ride
+ * a refine-family argv — the "Additional RELION arguments" escape hatch
+ * validates its tokens against exactly this set.
+ */
+export const REFINE_VERIFIED_OPTIONS: ReadonlySet<string> = new Set([
+  "--K", "--NN", "--abort_at_resolution", "--adaptive_fraction",
+  "--allow_coarser_sampling", "--always_cc", "--asymmetric_padding", "--auto_ignore_angles",
+  "--auto_iter_max", "--auto_local_healpix_order", "--auto_refine", "--auto_resol_angles",
+  "--auto_sampling", "--bimodal_psi", "--blush", "--blush_skip_spectral_trailing",
+  "--center_classes", "--class_inactivity_threshold", "--coarse_size", "--continue",
+  "--cpu", "--ctf", "--ctf3d_not_squared", "--ctf_intact_first_peak",
+  "--ctf_phase_flipped", "--ctf_uncorrected_ref", "--denovo_3dref", "--dont_check_norm",
+  "--dont_combine_weights_via_disc", "--dont_skip_gridding", "--external_reconstruct", "--failsafe_threshold",
+  "--fast_subsets", "--firstiter_cc", "--fix_sigma_noise", "--fix_sigma_offset",
+  "--flatten_solvent", "--force_converge", "--fourier_mask", "--free_gpu_memory",
+  "--gpu", "--grad", "--grad_em_iters", "--grad_fin_frac",
+  "--grad_fin_resol", "--grad_fin_subset", "--grad_ini_frac", "--grad_ini_resol",
+  "--grad_ini_subset", "--grad_min_resol", "--grad_stepsize", "--grad_stepsize_scheme",
+  "--grad_write_iter", "--healpix_order", "--helical_exclude_resols", "--helical_inner_diameter",
+  "--helical_keep_tilt_prior_fixed", "--helical_nr_asu", "--helical_nstart", "--helical_offset_step",
+  "--helical_outer_diameter", "--helical_rise_inistep", "--helical_rise_initial", "--helical_rise_max",
+  "--helical_rise_min", "--helical_sigma_distance", "--helical_symmetry_search", "--helical_twist_inistep",
+  "--helical_twist_initial", "--helical_twist_max", "--helical_twist_min", "--helical_z_percentage",
+  "--helix", "--i", "--ignore_helical_symmetry", "--incr_size",
+  "--ini_high", "--ios", "--iter", "--j",
+  "--join_random_halves", "--keep_free_scratch", "--keep_scratch", "--limit_tilt",
+  "--local_symmetry", "--low_resol_join_halves", "--lowpass", "--lowpass_mask",
+  "--maskedge", "--maxsig", "--min_sigma2_offset", "--mu",
+  "--multibody_masks", "--multibody_norm_overlap", "--no_init_blobs", "--no_norm",
+  "--no_parallel_disc_io", "--no_scale", "--norm", "--normalised_subtomo",
+  "--nr_parts_sigma2noise", "--o", "--offset", "--offset_range",
+  "--offset_range_x", "--offset_range_y", "--offset_range_z", "--offset_step",
+  "--only_flip_phases", "--onthefly_shifts", "--oversampling", "--pad",
+  "--pad_ctf", "--particle_diameter", "--perturb", "--pool",
+  "--preread_images", "--print_metadata_labels", "--print_symmetry_ops", "--psi_step",
+  "--r_min_nn", "--random_seed", "--reconstruct_subtracted_bodies", "--ref",
+  "--ref_angpix", "--relax_sym", "--reuse_scratch", "--scale",
+  "--scratch_dir", "--sigma_ang", "--sigma_off", "--sigma_psi",
+  "--sigma_rot", "--sigma_tilt", "--skip_align", "--skip_maximize",
+  "--skip_realspace_helical_sym", "--skip_rotate", "--skip_subtomo_multi", "--solvent_correct_fsc",
+  "--solvent_mask", "--solvent_mask2", "--som", "--som_connectivity",
+  "--som_inactivity_threshold", "--som_ini_nodes", "--som_neighbour_pull", "--split_random_halves",
+  "--strict_highres_exp", "--strict_lowres_exp", "--subtomo_multi_thr", "--sycl",
+  "--sym", "--tau", "--tau2_fudge", "--tau2_fudge_scheme",
+  "--tomograms", "--trajectories", "--trust_ref_size", "--verb",
+  "--zero_mask"
+]);
+
+/**
+ * t352 — the healpix degree → order map (pipeline_jobs.h job_sampling_options:
+ * the order is the list index + 1, exactly like RELION's own
+ * JobOption::getHealPixOrder).
+ */
+const HEALPIX_ORDER: Record<string, number> = {
+  "30": 1, "15": 2, "7.5": 3, "3.7": 4, "1.8": 5, "0.9": 6, "0.5": 7,
+};
+
+/** t352 — a sampling param's degree string → the --healpix_order/-style value;
+ * "auto" (and anything unknown) = RELION's own default = no flag. */
+function healpixOrderOf(raw: unknown): number | null {
+  const s = String(raw ?? "").trim();
+  return HEALPIX_ORDER[s] ?? null;
+}
+
+/**
+ * t352 — the GUI-parity tail shared by the whole refine family (RELION's
+ * Compute tab): the disc-I/O trio + the scratch keep-free companion + the
+ * validated "Additional RELION arguments" escape hatch. Returns an error
+ * (instead of argv) when extraArgs names a flag outside the verified set —
+ * the run dies at THIS door, with the flag named, instead of at RELION's
+ * argv parser on the cluster.
+ */
+function refineTail(job: EngineJobRef): string[] | { error: string } {
+  const out: string[] = [];
+  // the disc-I/O trio — only the NON-default side rides the argv (defaults
+  // match RELION's own, exactly like the GUI: only changed options emit)
+  if (job.params.parallelDiscIo === false) out.push("--no_parallel_disc_io");
+  if (job.params.prereadImages === true) out.push("--preread_images");
+  if (job.params.combineThruDisc === false) out.push("--dont_combine_weights_via_disc");
+  // scratch + its keep-free floor (only with a scratch dir set)
+  const scratch = refineScratchDir(job);
+  if (scratch) {
+    out.push("--scratch_dir", scratch);
+    const kf = num(job, "keepFreeScratch", 0);
+    if (kf > 0) out.push("--keep_free_scratch", String(kf));
+  }
+  // the escape hatch — every --token must be a verified relion_refine option
+  const extra = str(job, "extraArgs", "").trim();
+  if (extra) {
+    const tokens = extra.split(/\s+/);
+    for (const t of tokens) {
+      if (t.startsWith("--") && !REFINE_VERIFIED_OPTIONS.has(t)) {
+        return {
+          error:
+            `unknown relion_refine option "${t}" in Additional RELION arguments — it is not in the verified ` +
+            `RELION 5.0 option set (RELION's own parser would hard-reject the whole run at start). ` +
+            `Fix or drop the flag in the job's Compute tab`,
+        };
+      }
+    }
+    out.push(...tokens);
+  }
+  return out;
+}
+
+/** t352 — 0 = auto (no flag); >0 = the explicit value rides. */
+function positiveNum(job: EngineJobRef, key: string): number | null {
+  const v = num(job, key, 0);
+  return v > 0 ? v : null;
+}
+
 /** Particle pixel size: import pixel × (extract box / downsample). */
 function particlePixel(job: EngineJobRef, upstream: UpstreamRef[]): number {
   const importUp = upstream.find((u) => u.type === "import" || u.type === "tomo_import");
@@ -1058,6 +1176,14 @@ export const REMOTE_OUTPUT_CANDIDATES: Record<string, RemoteOutputCandidate[]> =
   ],
   topaztrain: [{ key: "topaz_model", exact: ["topaz_model.sav"], glob: "*.sav", pick: "first" }],
   extract: [{ key: "particles_star", exact: ["particles.star"] }],
+  // t352 — cs2star's cluster twin (uploaded at the end of the engine-native
+  // conversion) speaks the exact same shape as extract's: the probe cycles
+  // (a downstream dispatch's lazy heal, a missing-worklist probe) can
+  // re-find and self-heal the twin inside remoteWorkdir when the record's
+  // registration was lost — a pre-t352 ledger, a wiped record, a manual
+  // cleanup. Without this entry those dialects would promise a probe that
+  // can never fire (the t325-a M1 rule).
+  cs2star: [{ key: "particles_star", exact: ["particles.star"] }],
   class2d: [
     { key: "particles_star", exact: ["run_data.star"], glob: "run_it[0-9]*_data.star", pick: "latest" },
     {
@@ -2963,6 +3089,28 @@ async function expandCsRemoteRoot(conn: RemoteConnection, p: string): Promise<st
   return p;
 }
 
+/**
+ * t352 — local (under RELION_DIR) → cluster mirror path: the EXACT mapping
+ * mapLocalToRemote performs for the staging layer and the finalize twin pass
+ * in remote-run.ts (uploads land at remoteRoot + the path's tail after
+ * RELION_DIR; record outputs map to their twins the same way). Inlined here
+ * because engine.ts deliberately does not import from remote-run.ts (the
+ * engine↔remote-run cycle is broken on purpose — expandCsRemoteRoot above
+ * is the precedent). The two bodies must stay behaviorally identical: the
+ * cs2star star's cluster twin is addressed by the SAME convention every
+ * other twin uses (remoteRoot/<projectId>/<type>_<id8>/particles.star —
+ * the extract field logs' shape), or the twin gates and the staging skip
+ * would speak different paths for one file.
+ */
+function csMirrorPath(localPath: string, remoteRoot: string): string {
+  const norm = localPath.split(path.sep).join("/");
+  if (norm === RELION_DIR.split(path.sep).join("/")) return remoteRoot;
+  if (norm.startsWith(RELION_DIR.split(path.sep).join("/") + "/")) {
+    return remoteRoot.replace(/\/$/, "") + norm.slice(RELION_DIR.length);
+  }
+  return norm;
+}
+
 /** The runner: cluster .cs bytes → star + SELECTIVE links; local .cs same. */
 async function runCs2StarNative(job: EngineJobRef): Promise<NativeResult> {
   const workdir = workdirFor(job);
@@ -3021,21 +3169,57 @@ async function runCs2StarNative(job: EngineJobRef): Promise<NativeResult> {
       }
     }
 
-    const dl = async (remote: string, local: string): Promise<Buffer> => {
-      const n = await remoteDownload(conn, remote, path.join(workdir, local), capMb * 1024 * 1024);
+    // t352 — the .cs dedupe: a re-run of the same conversion used to
+    // re-download the same two .cs files (119.8 + 90.3 MB in the field
+    // report) over the same wire for nothing. The workdir copy from the
+    // previous run is byte-trustworthy exactly when the cluster's own
+    // stat verdict (sizes, above) still names its size — the same
+    // idempotence dialect stageFileTree applies to uploads. A size drift
+    // (the CryoSPARC job re-exported) re-downloads; never a guess.
+    const dlCached = async (
+      remote: string,
+      local: string,
+      remoteSize: number | null
+    ): Promise<{ buf: Buffer; reused: boolean }> => {
+      const localPath = path.join(workdir, local);
+      if (remoteSize != null && remoteSize > 0) {
+        try {
+          if (statSync(localPath).size === remoteSize) {
+            return { buf: readFileSync(localPath), reused: true };
+          }
+        } catch {
+          /* no readable local copy — the honest path below re-downloads */
+        }
+      }
+      const n = await remoteDownload(conn, remote, localPath, capMb * 1024 * 1024);
       if (n == null || n < 0) throw new Error(`could not download ${remote} — the cluster connection answered poorly`);
-      return readFileSync(path.join(workdir, local));
+      return { buf: readFileSync(localPath), reused: false };
     };
+    const mbOf = (n: number): string => `${(n / 1024 / 1024).toFixed(1)} MB`;
+    let primCs: { buf: Buffer; reused: boolean };
+    let ptCs: { buf: Buffer; reused: boolean } | null = null;
     try {
-      primaryBytes = await dl(resolved.primary, "particles.cs");
-      ptBytes = resolved.passthrough ? await dl(resolved.passthrough, "passthrough_particles.cs") : null;
+      primCs = await dlCached(resolved.primary, "particles.cs", sizes[0] ?? null);
+      ptCs = resolved.passthrough
+        ? await dlCached(resolved.passthrough, "passthrough_particles.cs", sizes[1] ?? null)
+        : null;
     } catch (e) {
       return { ok: false, error: e instanceof Error ? e.message : String(e) };
     }
-    phase(
-      `downloaded: particles.cs (${(primaryBytes.length / 1024 / 1024).toFixed(1)} MB)` +
-        (ptBytes ? ` · passthrough_particles.cs (${(ptBytes.length / 1024 / 1024).toFixed(1)} MB)` : "")
-    );
+    primaryBytes = primCs.buf;
+    ptBytes = ptCs ? ptCs.buf : null;
+    // t352 — the receipt names what reused (zero wire bytes) and what
+    // actually downloaded, per file
+    const reusedCs = [
+      ...(primCs.reused ? [`particles.cs (${mbOf(primCs.buf.length)}, remote unchanged)`] : []),
+      ...(ptCs?.reused ? [`passthrough_particles.cs (${mbOf(ptCs.buf.length)}, remote unchanged)`] : []),
+    ];
+    const fetchedCs = [
+      ...(!primCs.reused ? [`particles.cs (${mbOf(primCs.buf.length)})`] : []),
+      ...(ptCs && !ptCs.reused ? [`passthrough_particles.cs (${mbOf(ptCs.buf.length)})`] : []),
+    ];
+    if (reusedCs.length > 0) phase(`reusing cached ${reusedCs.join(" · ")} — no re-download`);
+    if (fetchedCs.length > 0) phase(`downloaded: ${fetchedCs.join(" · ")}`);
 
     // convert FIRST — the census decides which links exist at all
     let conv: Cs2StarResult;
@@ -3115,9 +3299,68 @@ async function runCs2StarNative(job: EngineJobRef): Promise<NativeResult> {
     }
     linkDirNote = `stacks linked on the cluster at ${linkDir}`;
 
-    // the star itself
+    // the star itself — the LOCAL copy first (the registry's own account
+    // and every local consumer read it), then the cluster twin below
     const starPath = path.join(workdir, "particles.star");
     writeFileSync(starPath, conv.starText, "utf8");
+
+    // t352 — THE STAR LIVES ON THE CLUSTER TOO (the field report: 325,549
+    // particles converted, 10,664 stacks linked under remoteRoot/<project>/
+    // micrographs — and the star itself landed ONLY in the local workdir, so
+    // the cluster that runs every downstream job held no output of this
+    // one). The twin rides the same mirror convention the staging layer
+    // maps its uploads through (csMirrorPath above = mapLocalToRemote):
+    // remoteRoot/<projectId>/<jobKey>/particles.star, the jobKey being the
+    // local workdir's basename — the exact address shape extract's twins
+    // use (…/extract_ufh1hg0u/particles.star in the field logs), so
+    // downstream cluster consumers resolve it in place with no re-upload.
+    const twinPath = csMirrorPath(starPath, remoteRoot);
+    const twinDir = twinPath.slice(0, twinPath.lastIndexOf("/"));
+    const starBytes = Buffer.from(conv.starText, "utf8");
+    const starMb = starBytes.length / 1024 / 1024;
+    if (starBytes.length > capMb * 1024 * 1024) {
+      return {
+        ok: false,
+        error:
+          `the converted star is ${starMb.toFixed(0)} MB, over the connection's ${capMb} MB per-file cap, ` +
+          `so it could not be saved on the cluster at ${twinPath} — the local copy at ${starPath} is intact; ` +
+          `raise the cap in Remote clusters and run again (the .cs download is cached, the retry is cheap)`,
+      };
+    }
+    await remoteMkdir(conn, twinDir);
+    phase(`uploading: particles.star (${starMb.toFixed(1)} MB) → ${twinPath}`);
+    const upOk = await remoteUpload(conn, starBytes, twinPath);
+    // verify BEFORE recording anything: the twin gates chain downstream
+    // argv off this path — a twin that is not really there is worse than
+    // no twin at all (the staging skip would point relion at a missing
+    // file). statRemoteFiles throws on an SSH failure — that is a verify
+    // failure too, with the wire's own word.
+    let twinSize: number | null = null;
+    let verifyWhy = "";
+    if (upOk) {
+      try {
+        const verify = await statRemoteFiles(conn, [twinPath]);
+        const vSize = verify.missing.length > 0 ? null : (verify.sizes[0] ?? null);
+        if (vSize != null && vSize > 0) {
+          twinSize = vSize;
+        } else {
+          verifyWhy = `the cluster reports the file ${vSize == null ? "absent" : `${vSize} bytes`} right after the upload`;
+        }
+      } catch (e) {
+        verifyWhy = `the verify stat failed: ${e instanceof Error ? e.message : String(e)}`;
+      }
+    }
+    if (twinSize == null) {
+      return {
+        ok: false,
+        error:
+          `could not save the star on the cluster at ${twinPath} — ` +
+          `${upOk ? verifyWhy || "the cluster did not verify the file" : "the upload did not complete (the connection answered poorly)"}. ` +
+          `The local copy at ${starPath} is intact and the ${linkPlan.length} stack links at ${linkDir} are already on the cluster; ` +
+          `fix the cluster (check the login node's load, raise the cap in Remote clusters) and run again`,
+      };
+    }
+    phase(`star saved on the cluster: ${twinPath} (${starMb.toFixed(1)} MB, verified ${twinSize.toLocaleString()} bytes)`);
 
     const opticsNote = `${f6(conv.optics.voltage)} kV · Cs ${f6(conv.optics.cs)} mm · ac ${f6(conv.optics.ac)} · pixel ${f6(conv.optics.angpix)} Å`;
     const alignNote =
@@ -3128,9 +3371,12 @@ async function runCs2StarNative(job: EngineJobRef): Promise<NativeResult> {
           : "no alignments (picked-only set)";
     const unmappedNote =
       conv.unmapped.length > 0 ? ` · ${conv.unmapped.length} unmapped .cs field(s) skipped` : "";
+    // t352 — the envelope stays byte-identical (other components parse
+    // it); only the twin fact is appended
     const result =
       `REMOTE[cryo@${conn.host}]: ${conv.particles} particles converted from ${jobLabel}${censusNote} · ${conv.stacks.length} stack(s) → micrographs/ · ${opticsNote} · ${alignNote}${unmappedNote}` +
-      (conv.opticsGroups > 1 ? ` · ${conv.opticsGroups} optics groups` : "");
+      (conv.opticsGroups > 1 ? ` · ${conv.opticsGroups} optics groups` : "") +
+      ` · star saved on the cluster`;
     const logText = [
       `CryoFlow engine-native CryoSPARC conversion ${new Date().toISOString()}`,
       `source: ${resolved.primary}${resolved.passthrough ? ` + ${resolved.passthrough}` : ""}`,
@@ -3139,13 +3385,81 @@ async function runCs2StarNative(job: EngineJobRef): Promise<NativeResult> {
       `particles: ${conv.particles} · referenced stacks: ${conv.stacks.length}${censusNote}`,
       `optics: ${opticsNote} · ${alignNote}`,
       conv.unmapped.length > 0 ? `unmapped fields: ${conv.unmapped.join(", ")}` : "",
-      `output: ${starPath}`,
+      `output: ${twinPath} (cluster) + local mirror: ${starPath}`,
       result,
       "",
     ]
       .filter(Boolean)
       .join("\n");
     recordNativeRun(job, workdir, "engine-native: cryosparc cs → star (selective links)", { particles_star: starPath }, result, logText);
+    // the record recordNativeRun just wrote: its startedAt is the identity
+    // the persistence guard below compares against (the probeRemoteOutputs /
+    // finalize pattern — recordNativeRun stamps a FRESH startedAt on every
+    // write, so only a record that is still THIS conversion may carry the
+    // twin; a re-run that already replaced it keeps its own shape)
+    const nativeRec = getRun(job.id);
+
+    // t352 — REGISTER THE TWIN: the remote state persists AFTER
+    // recordNativeRun (its upsert REPLACES the record, remote half and
+    // all), the same updateRun-after-finalize shape probeRemoteOutputs
+    // and the remote finalize leg use. The twin gates compare only
+    // connectionId + host (sameClusterTarget), so the state carries the
+    // conn's real identity. mode "direct" + pid null: no cluster process
+    // ever ran for this job — the record names WHERE THE FILE LIVES, not
+    // a live session (isRunAlive consults remote only on done === false;
+    // reconcileRemoteJobs skips done records — the finished conversion
+    // is never re-polled).
+    //
+    // The run.out/run.err witnesses ride along: the log route serves
+    // remote records from the CLUSTER workdir, so without the twin-dir
+    // copies the finished job's log tab would fetch an empty console.
+    // Their upload is best-effort — a witness must not be able to kill
+    // the finished run — and the ledger's t346 logTail cache below
+    // carries the tail lane even when the cluster copy is missing.
+    const twinLogText = (() => {
+      try {
+        return readFileSync(path.join(workdir, "run.out"), "utf8");
+      } catch {
+        return logText; // the file itself unreadable — the summary stands in
+      }
+    })();
+    const logOutOk = await remoteUpload(conn, twinLogText, `${twinDir}/run.out`);
+    const logErrOk = await remoteUpload(conn, "", `${twinDir}/run.err`);
+    if (!logOutOk || !logErrOk) {
+      console.log(
+        `engine: cs2star ${job.id.slice(-8)} — star twin verified at ${twinPath}, but the run.out/run.err witnesses did not upload (the local log stays authoritative; the ledger cache serves the tail)`
+      );
+    }
+    updateRun(job.id, (cur) =>
+      nativeRec && cur.startedAt === nativeRec.startedAt && cur.done && cur.exitCode === 0
+        ? {
+            ...cur,
+            remote: {
+              connectionId: conn.id,
+              connectionName: conn.name,
+              host: `${conn.host}:${conn.port}`,
+              user: conn.username,
+              module: conn.defaultModule ?? "",
+              mode: "direct",
+              remoteRoot,
+              remoteWorkdir: twinDir,
+              pid: null,
+              slurmId: null,
+              phase: "running",
+              remoteOutputs: { ...(cur.remote?.remoteOutputs ?? {}), particles_star: twinPath },
+              // t346's cache fields reused as the finalize's own snapshot:
+              // the log route's TAIL lane serves DONE records from the
+              // ledger (rec.done → cache forever) — the tail must not
+              // depend on the best-effort cluster copy above. Full mode
+              // fetches the real file from twinDir.
+              logTailOut: twinLogText.slice(-4096),
+              logTailErr: "",
+              logTotalLines: twinLogText.split("\n").length,
+              logTailAt: Date.now(),
+            },
+          }
+        : null
+    );
     return { ok: true, result };
   }
 
@@ -4122,18 +4436,31 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
         "--K", String(Math.round(num(job, "numClasses", 10))),
         "--tau2_fudge", String(num(job, "tau2Fudge", 1)),
         "--particle_diameter", String(num(job, "particleDiameter", 180)),
-        "--ctf",
         "--pad", "2",
         "--iter", String(Math.round(num(job, "iterations", 25))),
         // finer in-plane angular sampling → sharper class averages
         "--psi_step", String(num(job, "psiSampling", 6)),
         "--flatten_solvent",
-        "--zero_mask",
         // class2d runs the SERIAL binary (WSL2 MPI stacks are the known-fragile
         // part — see the MPI prefix section in runRealJob), so thread-level
         // parallelism comes from --j (RELION defaults to 1 without it)
         "--j", String(Math.max(1, Math.round(num(job, "threads", 4)))),
       ];
+      // t352 — GUI parity: the t350-hardcoded --ctf/--zero_mask now read
+      // their own params (default ON, so an untouched job argv is unchanged),
+      // and the RELION 2D GUI's own defaults ride along (--center_classes).
+      if (job.params.doCtf !== false) argv.push("--ctf");
+      if (job.params.doZeroMask !== false) argv.push("--zero_mask");
+      if (job.params.doCenter !== false) argv.push("--center_classes");
+      if (flag(job, "ctfIntactFirstPeak")) argv.push("--ctf_intact_first_peak");
+      if (flag(job, "skipAlign")) argv.push("--skip_align");
+      const ov = Math.round(num(job, "oversampling", 1));
+      if (ov !== 1) argv.push("--oversampling", String(ov));
+      if (flag(job, "allowCoarser")) argv.push("--allow_coarser_sampling");
+      const oR = positiveNum(job, "offsetRange");
+      if (oR != null) argv.push("--offset_range", String(oR));
+      const oS = positiveNum(job, "offsetStep");
+      if (oS != null) argv.push("--offset_step", String(oS));
       // t350 — the E-step resolution cap. The t341 flag this replaces
       // (--highres_limit) never existed in any RELION release (same audit
       // as refineAutoPool); the REAL option caps probability calculations
@@ -4146,9 +4473,11 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
       const userPool = num(job, "batchSize", 0);
       if (userPool > 0) argv.push("--pool", String(Math.max(1, Math.round(userPool))));
       else argv.push("--pool", String(refineAutoPool()));
-      // t350 — optional node-local scratch (off unless the user names one)
-      const scratch = refineScratchDir(job);
-      if (scratch) argv.push("--scratch_dir", scratch);
+      // t352 — the shared GUI-parity tail (disc-I/O trio + scratch keep-free
+      // + validated extraArgs)
+      const tail = refineTail(job);
+      if (!Array.isArray(tail)) return tail;
+      argv.push(...tail);
       return argv;
     }
 
@@ -4162,7 +4491,6 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
         "--K", String(Math.round(num(job, "numClasses", 4))),
         "--particle_diameter", String(num(job, "particleDiameter", 180)),
         "--sym", str(job, "symmetry", "D2"),
-        "--ctf",
         "--iter", String(Math.round(num(job, "iterations", 50))),
         "--flatten_solvent",
         "--zero_mask",
@@ -4171,12 +4499,18 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
         // under 1GB — de-novo models only need ~30 Å detail, where the
         // un-padded FFT grid is more than sufficient (RELION default pad is 2).
         "--pad", "1",
-        // fewer particles pooled per task → smaller E-step working set
-        "--pool", "3",
       ];
-      // t350 — optional node-local scratch (off unless the user names one)
-      const scratch = refineScratchDir(job);
-      if (scratch) argv.push("--scratch_dir", scratch);
+      // t352 — CTF now reads its own param (default ON); the GUI-parity tail
+      // carries scratch/keep-free + the validated extraArgs
+      if (job.params.doCtf !== false) argv.push("--ctf");
+      if (flag(job, "ctfIntactFirstPeak")) argv.push("--ctf_intact_first_peak");
+      // fewer particles pooled per task → smaller E-step working set
+      // (t352: the explicit param wins; 0 = RELION's GUI default 3)
+      const imPool = num(job, "batchSize", 0);
+      argv.push("--pool", String(imPool > 0 ? Math.max(1, Math.round(imPool)) : 3));
+      const imTail = refineTail(job);
+      if (!Array.isArray(imTail)) return imTail;
+      argv.push(...imTail);
       return argv;
     }
 
@@ -4187,21 +4521,43 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
         "--ref", inputs.model_mrc,
         "--o", outPath(ctx, "run"),
         "--K", String(Math.round(num(job, "numClasses", 4))),
-        "--tau2_fudge", "4",
         "--particle_diameter", String(num(job, "particleDiameter", 180)),
         "--sym", str(job, "symmetry", "C1"),
-        "--ctf",
-        "--pad", "2",
+        "--pad", String(Math.round(num(job, "padding", 2))),
         "--iter", String(Math.round(num(job, "iterations", 25))),
         "--flatten_solvent",
+        "--j", String(Math.max(1, Math.round(num(job, "threads", 4)))),
       ];
+      // t352 — GUI parity across the whole Class3D surface (every flag
+      // verified against 3dem/relion 5.0 pipeline_jobs.cpp getCommands):
+      if (job.params.doCtf !== false) argv.push("--ctf");
+      if (flag(job, "ctfIntactFirstPeak")) argv.push("--ctf_intact_first_peak");
+      // tau2_fudge now reads its OWN param (was hardcoded 4 — the RELION
+      // Class3D GUI default, which is also the spec default)
+      argv.push("--tau2_fudge", String(num(job, "tau2Fudge", 4)));
+      if (flag(job, "doBlush")) argv.push("--blush");
+      if (job.params.doZeroMask !== false) argv.push("--zero_mask");
+      if (flag(job, "doFastSubsets")) argv.push("--fast_subsets");
+      const hp = healpixOrderOf(job.params.sampling);
+      if (hp != null) argv.push("--healpix_order", String(hp));
+      const c3R = positiveNum(job, "offsetRange");
+      if (c3R != null) argv.push("--offset_range", String(c3R));
+      const c3S = positiveNum(job, "offsetStep");
+      if (c3S != null) argv.push("--offset_step", String(c3S));
+      if (flag(job, "allowCoarser")) argv.push("--allow_coarser_sampling");
+      // local angular searches: RELION's GUI passes sigma_angles/3 — so do we
+      const c3L = positiveNum(job, "localSigmaAng");
+      if (c3L != null) argv.push("--sigma_ang", String(c3L / 3));
+      const c3X = positiveNum(job, "relaxSym");
+      if (c3X != null) argv.push("--relax_sym", String(c3X));
       // t350 — the pooled-particle lever, same as class2d (--pool:
       // RELION 5's GUI default 3 rides unless the user names one)
       const c3dPool = num(job, "batchSize", 0);
       if (c3dPool > 0) argv.push("--pool", String(Math.max(1, Math.round(c3dPool))));
       else argv.push("--pool", String(refineAutoPool()));
-      const c3dScratch = refineScratchDir(job);
-      if (c3dScratch) argv.push("--scratch_dir", c3dScratch);
+      const c3Tail = refineTail(job);
+      if (!Array.isArray(c3Tail)) return c3Tail;
+      argv.push(...c3Tail);
       return argv;
     }
 
@@ -4213,7 +4569,6 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
         "--o", outPath(ctx, "run"),
         "--sym", str(job, "symmetry", "D2"),
         "--particle_diameter", String(num(job, "particleDiameter", 180)),
-        "--ctf",
         "--pad", String(Math.round(num(job, "padding", 2))),
         "--firstiter_cc",
         "--ini_high", String(num(job, "iniHigh", 30)),
@@ -4221,15 +4576,37 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
         // InitialModel) — RELION resizes it to the particles' optics group
         "--trust_ref_size",
         "--split_random_halves",
+        "--j", String(Math.max(1, Math.round(num(job, "threads", 4)))),
       ];
+      // t352 — GUI parity: CTF / Blush / solvent-FSC / zero-mask now read
+      // their own params (defaults match the RELION Refine3D GUI exactly)
+      if (job.params.doCtf !== false) argv.push("--ctf");
+      if (flag(job, "ctfIntactFirstPeak")) argv.push("--ctf_intact_first_peak");
+      if (flag(job, "doBlush")) argv.push("--blush");
+      if (job.params.doZeroMask !== false) argv.push("--zero_mask");
+      if (flag(job, "doSolventFsc")) argv.push("--solvent_correct_fsc");
       if (flagAutoRefine(job)) argv.push("--auto_refine");
-      else argv.push("--iter", String(Math.round(num(job, "iterations", 15))), "--tau2_fudge", "1");
+      else argv.push("--iter", String(Math.round(num(job, "iterations", 15))), "--tau2_fudge", String(num(job, "tau2Fudge", 1)));
+      // the Auto-sampling tab (healpix degrees → order, like the GUI's
+      // JobOption::getHealPixOrder)
+      const rHp = healpixOrderOf(job.params.samplingStep);
+      if (rHp != null) argv.push("--healpix_order", String(rHp));
+      const rLhp = healpixOrderOf(job.params.autoLocalSampling);
+      if (rLhp != null) argv.push("--auto_local_healpix_order", String(rLhp));
+      if (flag(job, "autoFaster")) argv.push("--auto_ignore_angles", "--auto_resol_angles");
+      const r3R = positiveNum(job, "offsetRange");
+      if (r3R != null) argv.push("--offset_range", String(r3R));
+      const r3S = positiveNum(job, "offsetStep");
+      if (r3S != null) argv.push("--offset_step", String(r3S));
+      const r3X = positiveNum(job, "relaxSym");
+      if (r3X != null) argv.push("--relax_sym", String(r3X));
       // t350 — the pooled-particle lever, same as class2d/class3d
       const r3dPool = num(job, "batchSize", 0);
       if (r3dPool > 0) argv.push("--pool", String(Math.max(1, Math.round(r3dPool))));
       else argv.push("--pool", String(refineAutoPool()));
-      const r3dScratch = refineScratchDir(job);
-      if (r3dScratch) argv.push("--scratch_dir", r3dScratch);
+      const r3Tail = refineTail(job);
+      if (!Array.isArray(r3Tail)) return r3Tail;
+      argv.push(...r3Tail);
       return argv;
     }
 

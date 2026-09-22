@@ -231,6 +231,84 @@ try {
   must(unknown3.length === 0, `the override run's --flags stay inside the verified set (unknown: ${unknown3.join(" ") || "none"})`);
   const rec = readEngineState()[c2d.id];
   must(rec?.exitCode === 0, "the override run's record exit 0");
+
+  // t352 — the GUI-parity surface: Blush, the compute trio, and the
+  // validated "Additional RELION arguments" escape hatch. Asserted DIRECTLY
+  // against the engine's buildArgv (the single source of command truth the
+  // preview/local/sbatch lanes all embed) — tier-independent of whether
+  // THIS box has a locally-detected RELION install.
+  logSection("F — t352 GUI parity: Blush 开关 + compute 三联 + extraArgs 守门 (直接对引擎)");
+  const { buildArgv } = await import("../src/lib/relion/engine.ts");
+  const unitCtx = (job) => ({
+    binDir: "<RELION_BIN>",
+    workdir: "/tmp/cf-unit",
+    inputs: { particles_star: "/tmp/p.star", model_mrc: "/tmp/m.mrc" },
+    job,
+    upstream: [],
+    bridge: null,
+  });
+  // class3d with every t352 lever ON (Blush is a 3D lever: pipeline_jobs.cpp
+  // do_blush rides Class3D/Refine3D/MultiBody, never Class2D)
+  const c3dArgv = await buildArgv(unitCtx({
+    id: "u-c3d", projectId: "unit", type: "class3d",
+    params: {
+      numClasses: 2, particleDiameter: 180, tau2Fudge: 4, threads: 4,
+      doBlush: true, extraArgs: "--verb 1",
+      parallelDiscIo: false, prereadImages: true, combineThruDisc: false,
+      offsetRange: 5, offsetStep: 2, sampling: "7.5",
+      localSigmaAng: 6, relaxSym: 2,
+      scratchDir: "/ssd_cache/cf-e2e", keepFreeScratch: 10,
+    },
+  }));
+  must(Array.isArray(c3dArgv), `class3d argv builds (${JSON.stringify(c3dArgv).slice(0, 80)})`);
+  const a = c3dArgv.join(" ");
+  must(a.includes("--blush"), "doBlush=true rides as --blush (RELION 5's neural-network regulariser)");
+  must(a.includes("--ctf"), "doCtf default-ON rides as --ctf (a pre-t352 job's argv is unchanged)");
+  must(a.includes("--zero_mask"), "doZeroMask default-ON rides as --zero_mask (the RELION GUI default)");
+  must(/--tau2_fudge 4\b/.test(a), "tau2Fudge reads its OWN param now (was hardcoded 4 — the GUI default)");
+  must(a.includes("--no_parallel_disc_io"), "parallelDiscIo=false rides as --no_parallel_disc_io (the GUI compute trio)");
+  must(a.includes("--preread_images"), "prereadImages=true rides as --preread_images");
+  must(a.includes("--dont_combine_weights_via_disc"), "combineThruDisc=false rides as --dont_combine_weights_via_disc");
+  must(/--healpix_order 3\b/.test(a), "sampling=7.5° rides as --healpix_order 3 (the GUI's getHealPixOrder convention: index+1)");
+  must(/--offset_range 5\b/.test(a) && /--offset_step 2\b/.test(a), "explicit offsets ride (--offset_range 5 --offset_step 2)");
+  must(/--sigma_ang 2\b/.test(a), "localSigmaAng=6 rides as --sigma_ang 2 (value/3, exactly like the RELION GUI)");
+  must(/--relax_sym 2\b/.test(a), "relaxSym=2 rides as --relax_sym");
+  must(/--scratch_dir \/ssd_cache\/cf-e2e\b/.test(a), "scratchDir=/ssd_cache/cf-e2e rides as --scratch_dir (the node-local SSD lever)");
+  must(/--keep_free_scratch 10\b/.test(a), "keepFreeScratch=10 rides as --keep_free_scratch (only with scratch set)");
+  must(a.includes("--verb 1"), "extraArgs='--verb 1' rides verbatim (the everything-else escape hatch)");
+  const unknownB = flagsOf(c3dArgv).filter((f) => !VERIFIED_RELION_REFINE_OPTIONS.has(f));
+  must(unknownB.length === 0, `the blush run's --flags stay inside the verified set (unknown: ${unknownB.join(" ") || "none"})`);
+  // the untouched default shape: offsets/sampling/healpix stay OFF, and
+  // Blush never rides Class2D (pipeline_jobs.cpp has no do_blush there)
+  const c2dArgv = await buildArgv(unitCtx({
+    id: "u-c2d", projectId: "unit", type: "class2d",
+    params: { numClasses: 10, iterations: 8, threads: 4 },
+  }));
+  const a2 = c2dArgv.join(" ");
+  must(!a2.includes("--blush"), "Blush never rides Class2D (no such GUI option in RELION's 2D job)");
+  must(a2.includes("--ctf") && a2.includes("--zero_mask") && a2.includes("--center_classes"),
+    "class2d defaults: --ctf --zero_mask --center_classes (the RELION 2D GUI's own default trio)");
+  must(!a2.includes("--offset_range") && !a2.includes("--offset_step") && !a2.includes("--healpix_order"),
+    "class2d defaults stay lean: offsets/sampling ride only when the user sets them (0 = auto)");
+  // refine3d: the second Blush door + the auto-sampling pair
+  const r3dArgv = await buildArgv(unitCtx({
+    id: "u-r3d", projectId: "unit", type: "refine3d",
+    params: { symmetry: "C1", particleDiameter: 180, autoRefine: true, doBlush: true, samplingStep: "3.7", autoLocalSampling: "1.8", threads: 4 },
+  }));
+  const a3 = r3dArgv.join(" ");
+  must(a3.includes("--blush") && a3.includes("--auto_refine"), "refine3d: Blush rides alongside --auto_refine");
+  must(/--healpix_order 4\b/.test(a3), "samplingStep=3.7° rides as --healpix_order 4 (the initial sampling)");
+  must(/--auto_local_healpix_order 5\b/.test(a3), "autoLocalSampling=1.8° rides as --auto_local_healpix_order 5");
+  // the guard's refusal: a hallucinated flag in extraArgs must be refused
+  // with the flag named — at THIS door, before it can ever reach RELION's
+  // own argv parser on the cluster (the remote dispatch throws on it too:
+  // remote-run.ts "if (\"error\" in built) throw")
+  const refused = await buildArgv(unitCtx({
+    id: "u-bad", projectId: "unit", type: "class3d",
+    params: { numClasses: 2, particleDiameter: 180, extraArgs: "--phantom_lever 7" },
+  }));
+  must(!Array.isArray(refused) && /phantom_lever/.test(String(refused?.error ?? "")) && /verified/i.test(String(refused?.error ?? "")),
+    "extraArgs='--phantom_lever 7' is REFUSED with the flag named (RELION's parser would have hard-rejected the whole run at start)");
 } catch (e) {
   console.error("E2E aborted:", e);
   must(false, "the E2E ran to completion", String(e?.stack ?? e));

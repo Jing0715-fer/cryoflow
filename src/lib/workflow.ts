@@ -89,6 +89,41 @@ const pth = (
 const symmetryOptions = ["C1", "C2", "C4", "D2", "T", "I"];
 const psiOptions = ["30", "15", "7.5", "3.75", "1.875"];
 
+/** t352 — healpix angular-sampling options exactly as RELION's own GUI lists
+ * them (pipeline_jobs.h job_sampling_options): the value is the DEGREE step,
+ * the order RELION wants on the command line is the list index + 1. */
+const healpixOptions = ["30", "15", "7.5", "3.7", "1.8", "0.9", "0.5"];
+const samplingSel = (key: string, label: string, def: string, extra?: Partial<ParamSchema>): ParamSchema =>
+  sel(key, label, def, ["auto", ...healpixOptions], extra);
+
+/** t352 — the GUI-parity compute-tab trio + scratch companion, shared verbatim
+ * by every refine-family spec (labels mirror RELION's Compute tab; the flags
+ * each one toggles are noted in the label so the preview stays honest). */
+const computeParity = (tab = "Compute"): ParamSchema[] => [
+  num("keepFreeScratch", "Keep free on scratch (GB, --keep_free_scratch)", 0, {
+    step: 1, min: 0, max: 200, tab, advanced: true,
+    hint: "only with a scratch dir set — RELION refuses to fill the scratch volume beyond this free floor (RELION's own default is 10 GB)",
+  }),
+  bool("parallelDiscIo", "Parallel disc I/O", true, {
+    tab, advanced: true,
+    hint: "off = --no_parallel_disc_io — all ranks read the particle stacks through one stream (sometimes kinder to a strangled NFS server)",
+  }),
+  bool("prereadImages", "Pre-read particles into RAM (--preread_images)", false, {
+    tab, advanced: true,
+    hint: "all particle images are read into RAM once — a big win on slow NFS, needs roughly the size of the data set free RAM",
+  }),
+  bool("combineThruDisc", "Combine weights via disc", true, {
+    tab, advanced: true,
+    hint: "off = --dont_combine_weights_via_disc — keep the M-step weight sums in RAM instead of disc round-trips",
+  }),
+  txt("extraArgs", "Additional RELION arguments", "", {
+    tab, advanced: true,
+    hint: "space-separated --flag value tokens appended verbatim (e.g. --verb 1) — anything the RELION GUI exposes that this panel doesn't name. Validated against RELION 5.0's verified relion_refine option set: a typo fails the run before it burns GPU hours",
+  }),
+];
+const scratchHint =
+  "empty = off. A compute-node-local path — e.g. /ssd_cache (a node-local SSD) or /tmp — RELION copies the particle stacks there once, sparing every iteration the NFS re-read. Often the largest I/O lever on NFS-backed clusters. Needs ~10 GB free (RELION's own --keep_free_scratch floor)";
+
 /* ------------------------------------------------------------------ */
 /* Palette categories (RELION job-browser tree)                        */
 /* ------------------------------------------------------------------ */
@@ -646,9 +681,41 @@ export const JOB_TYPES: JobTypeSpec[] = [
       num("numClasses", "Number of classes (K)", 10, { step: 1, min: 1, max: 200, tab: "Optimisation" }),
       num("iterations", "Number of iterations", 12, { step: 1, min: 1, max: 50, tab: "Optimisation" }),
       num("particleDiameter", "Circular mask diameter", 180, { unit: "Å", step: 5, tab: "Optimisation" }),
+      bool("doCtf", "Do CTF-correction (--ctf)", true, {
+        tab: "CTF",
+        hint: "CTF correction inside the refinement — needs CTF info in the particles STAR (CryoFlow imports carry it)",
+      }),
+      bool("ctfIntactFirstPeak", "Ignore CTFs until first peak (--ctf_intact_first_peak)", false, {
+        tab: "CTF", advanced: true,
+        hint: "don't boost the lowest spatial frequencies — less low-res contrast, better high-res detail",
+      }),
       num("tau2Fudge", "Regularisation factor T", 1, { step: 0.5, min: 0.5, tab: "Optimisation", advanced: true }),
-      bool("doZeroMask", "Zero the mask", true, { tab: "Optimisation", advanced: true }),
+      bool("doZeroMask", "Mask individual particles with zeros (--zero_mask)", true, { tab: "Optimisation", advanced: true }),
+      bool("doCenter", "Centre class averages (--center_classes)", true, {
+        tab: "Optimisation",
+        hint: "every iteration the class averages are centred on their centre-of-mass — RELION's own GUI default; only makes sense for positive (white) signals",
+      }),
+      bool("skipAlign", "Skip alignment (--skip_align)", false, {
+        tab: "Optimisation", advanced: true,
+        hint: "skip the in-plane alignment search — orientations must already be in the STAR (e.g. re-classifying refined particles)",
+      }),
       sel("psiSampling", "In-plane sampling step", "7.5", psiOptions, { tab: "Sampling", advanced: true }),
+      num("offsetRange", "Offset search range (px, 0 = auto)", 0, {
+        step: 1, min: 0, max: 30, tab: "Sampling", advanced: true,
+        hint: "0 = RELION's own default; the RELION GUI default is 5 px",
+      }),
+      num("offsetStep", "Offset search step (px, 0 = auto)", 0, {
+        step: 0.5, min: 0, max: 5, tab: "Sampling", advanced: true,
+        hint: "0 = RELION's own default; the RELION GUI default is 1 px",
+      }),
+      bool("allowCoarser", "Allow coarser sampling (--allow_coarser_sampling)", false, {
+        tab: "Sampling", advanced: true,
+        hint: "use coarser angular/translational sampling in early iterations while assignment accuracies are still low — faster",
+      }),
+      num("oversampling", "Adaptive oversampling (--oversampling)", 1, {
+        step: 1, min: 0, max: 2, tab: "Sampling", advanced: true,
+        hint: "1 = RELION default (oversampled adaptive grid); 0 = off; 2 = two levels",
+      }),
       num("highresLimit", "E-step resolution limit (Å)", 0, {
         step: 0.5, min: 0, tab: "Optimisation", advanced: true,
         hint: "RELION --strict_highres_exp — caps the alignment search resolution; 0 = unlimited. A real speed lever for early classifications (e.g. 15–20 Å)",
@@ -659,8 +726,9 @@ export const JOB_TYPES: JobTypeSpec[] = [
       }),
       txt("scratchDir", "Node-local scratch dir (--scratch_dir)", "", {
         tab: "Compute", advanced: true,
-        hint: "empty = off. A compute-node-local path (e.g. /tmp or local NVMe) — RELION copies the particle stacks there once, sparing every iteration the NFS re-read. Needs ~10 GB free (RELION's own --keep_free_scratch floor)",
+        hint: scratchHint,
       }),
+      ...computeParity(),
       num("threads", "Threads (--j)", 4, {
         step: 1, min: 1, max: 32, tab: "Compute",
         hint: "relion_refine runs single-rank (MPI stacks under WSL are fragile) — this is the parallelism knob",
@@ -727,16 +795,29 @@ export const JOB_TYPES: JobTypeSpec[] = [
       num("iterations", "Number of VDAM iterations", 50, { step: 5, min: 5, max: 300, tab: "Optimisation" }),
       num("particleDiameter", "Circular mask diameter", 180, { unit: "Å", step: 5, tab: "Sampling" }),
       num("tau2Fudge", "Regularisation factor T", 1, { step: 0.5, min: 0.5, tab: "Optimisation", advanced: true }),
+      bool("doCtf", "Do CTF-correction (--ctf)", true, {
+        tab: "CTF",
+        hint: "CTF correction inside the de-novo refinement — needs CTF info in the particles STAR",
+      }),
+      bool("ctfIntactFirstPeak", "Ignore CTFs until first peak (--ctf_intact_first_peak)", false, {
+        tab: "CTF", advanced: true,
+        hint: "don't boost the lowest spatial frequencies — less low-res contrast, better high-res detail",
+      }),
+      num("batchSize", "Pooled particles (--pool)", 0, {
+        step: 1, min: 0, max: 16, tab: "Compute", advanced: true,
+        hint: "images pooled per thread task — 0 = RELION 5's own GUI default (3)",
+      }),
       txt("scratchDir", "Node-local scratch dir (--scratch_dir)", "", {
         tab: "Compute", advanced: true,
-        hint: "empty = off. A compute-node-local path (e.g. /tmp or local NVMe) — particle stacks are copied there once instead of re-read from NFS every iteration",
+        hint: scratchHint,
       }),
+      ...computeParity(),
     ],
     "{n} initial models",
     "core",
     {
       category: "class3d",
-      tabs: ["Optimisation", "Sampling", "Compute"],
+      tabs: ["CTF", "Optimisation", "Sampling", "Compute"],
       inputs: [inp("particles", L.particlesIn, ["particles"])],
       outputs: [outp("model", "Initial model(s) (.mrc)", "volume")],
     }
@@ -753,18 +834,70 @@ export const JOB_TYPES: JobTypeSpec[] = [
       sel("symmetry", "Symmetry", "C1", symmetryOptions, { tab: "Reference" }),
       num("iterations", "Number of iterations", 25, { step: 5, min: 5, max: 100, tab: "Optimisation" }),
       num("particleDiameter", "Circular mask diameter", 180, { unit: "Å", step: 5, tab: "Sampling" }),
-      num("tau2Fudge", "Regularisation factor T", 1, { step: 0.5, min: 0.5, tab: "Optimisation", advanced: true }),
+      bool("doCtf", "Do CTF-correction (--ctf)", true, {
+        tab: "CTF",
+        hint: "CTF correction inside the refinement — needs CTF info in the particles STAR",
+      }),
+      bool("ctfIntactFirstPeak", "Ignore CTFs until first peak (--ctf_intact_first_peak)", false, {
+        tab: "CTF", advanced: true,
+        hint: "don't boost the lowest spatial frequencies — less low-res contrast, better high-res detail",
+      }),
+      num("tau2Fudge", "Regularisation factor T", 4, {
+        step: 0.5, min: 0.5, tab: "Optimisation", advanced: true,
+        hint: "RELION's own Class3D GUI default is 4 — higher T = sharper classes; this value now actually rides the command line (it was hardcoded 4 before t352)",
+      }),
+      bool("doBlush", "Blush regularisation (--blush)", false, {
+        tab: "Optimisation",
+        hint: "RELION 5's neural-network regulariser — regularisation by denoising at every iteration instead of the smoothness prior. Often converges to better maps from fewer particles. Off = the standard Tikhonov/smoothness prior (the T above)",
+      }),
+      bool("doZeroMask", "Mask individual particles with zeros (--zero_mask)", true, {
+        tab: "Optimisation", advanced: true,
+        hint: "RELION's own GUI default — the solvent region outside the particle is zeroed",
+      }),
+      bool("doFastSubsets", "Use fast subsets (--fast_subsets)", false, {
+        tab: "Optimisation", advanced: true,
+        hint: "the first iterations run on K×1500-particle random subsets, then K×4500, 30%, and finally all — for very large data sets",
+      }),
+      samplingSel("sampling", "Angular sampling step (healpix)", "auto", {
+        tab: "Sampling", advanced: true,
+        hint: "auto = RELION's own default (15°); the RELION GUI default is 7.5° — the number passed to relion_refine is the healpix order",
+      }),
+      num("offsetRange", "Offset search range (px, 0 = auto)", 0, {
+        step: 1, min: 0, max: 30, tab: "Sampling", advanced: true,
+        hint: "0 = RELION's own default; the RELION GUI default is 5 px",
+      }),
+      num("offsetStep", "Offset search step (px, 0 = auto)", 0, {
+        step: 0.5, min: 0, max: 5, tab: "Sampling", advanced: true,
+        hint: "0 = RELION's own default; the RELION GUI default is 2 px",
+      }),
+      bool("allowCoarser", "Allow coarser sampling (--allow_coarser_sampling)", false, {
+        tab: "Sampling", advanced: true,
+        hint: "use coarser angular/translational sampling in early iterations while assignment accuracies are still low — faster",
+      }),
+      num("localSigmaAng", "Local angular search range (°, 0 = global)", 0, {
+        step: 0.5, min: 0, max: 30, tab: "Sampling", advanced: true,
+        hint: ">0 restricts angular searches to a cone around the input orientations — RELION --sigma_ang receives value/3, exactly like the RELION GUI",
+      }),
+      num("relaxSym", "Relax symmetry (--relax_sym)", 0, {
+        step: 1, min: 0, max: 24, tab: "Sampling", advanced: true,
+        hint: "0 = off — allow the point-group symmetry to be broken by this many degrees",
+      }),
+      num("padding", "Padding factor (--pad)", 2, {
+        step: 1, min: 1, max: 2, tab: "Compute", advanced: true,
+        hint: "FFT padding 2 = accurate interpolation (RELION default), 1 = 4× faster but corners may fold back signal",
+      }),
       num("batchSize", "Pooled particles (--pool)", 0, {
         step: 1, min: 0, max: 16, tab: "Compute", advanced: true,
         hint: "images pooled per thread task — 0 = RELION 5's own GUI default (3; GUI range 1–16). Large boxes may need 1–2 to fit VRAM",
       }),
       txt("scratchDir", "Node-local scratch dir (--scratch_dir)", "", {
         tab: "Compute", advanced: true,
-        hint: "empty = off. A compute-node-local path (e.g. /tmp or local NVMe) — particle stacks are copied there once instead of re-read from NFS every iteration",
+        hint: scratchHint,
       }),
+      ...computeParity(),
       num("threads", "Threads (--j)", 4, {
         step: 1, min: 1, max: 32, tab: "Compute",
-        hint: "applies to sequential (WSL-bridged) runs — native runs use MPI ranks instead",
+        hint: "per-rank CPU threads (the RELION GUI's own --j)",
       }),
     ],
     "{n} 3D classes",
@@ -797,11 +930,57 @@ export const JOB_TYPES: JobTypeSpec[] = [
         unit: "Å", step: 1, min: 5, max: 60, tab: "Reference",
         hint: "reference is filtered to this resolution before the first iteration",
       }),
+      bool("doCtf", "Do CTF-correction (--ctf)", true, {
+        tab: "CTF",
+        hint: "CTF correction inside the refinement — needs CTF info in the particles STAR",
+      }),
+      bool("ctfIntactFirstPeak", "Ignore CTFs until first peak (--ctf_intact_first_peak)", false, {
+        tab: "CTF", advanced: true,
+        hint: "don't boost the lowest spatial frequencies — less low-res contrast, better high-res detail",
+      }),
       num("particleDiameter", "Circular mask diameter", 180, { unit: "Å", step: 5, tab: "Sampling" }),
       bool("autoRefine", "Perform auto-refinement", false, { tab: "Auto-sampling" }),
       num("iterations", "Number of iterations", 15, { step: 1, min: 1, max: 50, tab: "Optimisation", hint: "used when auto-refine is off" }),
-      num("samplingStep", "Angular sampling step", 7.5, { step: 0.5, unit: "°", min: 0.5, max: 30, tab: "Auto-sampling", advanced: true }),
-      num("tau2Fudge", "Regularisation factor T", 1, { step: 0.5, min: 0.5, tab: "Optimisation", advanced: true }),
+      num("tau2Fudge", "Regularisation factor T", 1, {
+        step: 0.5, min: 0.5, tab: "Optimisation", advanced: true,
+        hint: "used when auto-refine is off (auto-refine derives its regularisation from the gold-standard FSC)",
+      }),
+      bool("doBlush", "Blush regularisation (--blush)", false, {
+        tab: "Optimisation",
+        hint: "RELION 5's neural-network regulariser — regularisation by denoising at every iteration instead of the smoothness prior. Often converges to better maps from fewer particles. Off = the standard prior",
+      }),
+      bool("doZeroMask", "Mask individual particles with zeros (--zero_mask)", true, {
+        tab: "Optimisation", advanced: true,
+        hint: "RELION's own GUI default — the solvent region outside the particle is zeroed",
+      }),
+      bool("doSolventFsc", "Solvent-flattened FSCs (--solvent_correct_fsc)", false, {
+        tab: "Optimisation", advanced: true,
+        hint: "use the solvent-corrected FSC in the gold-standard resolution estimate",
+      }),
+      samplingSel("samplingStep", "Initial angular sampling (healpix)", "auto", {
+        tab: "Auto-sampling", advanced: true,
+        hint: "auto = RELION's own default; the RELION GUI default is 7.5° — the number passed to relion_refine is the healpix order",
+      }),
+      samplingSel("autoLocalSampling", "Local searches from auto-sampling", "auto", {
+        tab: "Auto-sampling", advanced: true,
+        hint: "the sampling auto-refine switches down to for the local searches (RELION --auto_local_healpix_order); auto = RELION's own default",
+      }),
+      bool("autoFaster", "Use finer angular sampling faster", false, {
+        tab: "Auto-sampling", advanced: true,
+        hint: "RELION's own expert option — adds --auto_ignore_angles --auto_resol_angles, letting auto-refine proceed to finer sampling sooner",
+      }),
+      num("offsetRange", "Initial offset range (px, 0 = auto)", 0, {
+        step: 1, min: 0, max: 30, tab: "Auto-sampling", advanced: true,
+        hint: "0 = RELION's own default; the RELION GUI default is 5 px",
+      }),
+      num("offsetStep", "Initial offset step (px, 0 = auto)", 0, {
+        step: 0.5, min: 0, max: 5, tab: "Auto-sampling", advanced: true,
+        hint: "0 = RELION's own default; the RELION GUI default is 2 px",
+      }),
+      num("relaxSym", "Relax symmetry (--relax_sym)", 0, {
+        step: 1, min: 0, max: 24, tab: "Auto-sampling", advanced: true,
+        hint: "0 = off — allow the point-group symmetry to be broken by this many degrees",
+      }),
       num("padding", "Padding factor", 2, {
         step: 1, min: 1, max: 2, tab: "Compute", advanced: true,
         hint: "FFT padding 2 = accurate interpolation, 1 = 4× faster (large boxes)",
@@ -812,14 +991,19 @@ export const JOB_TYPES: JobTypeSpec[] = [
       }),
       txt("scratchDir", "Node-local scratch dir (--scratch_dir)", "", {
         tab: "Compute", advanced: true,
-        hint: "empty = off. A compute-node-local path (e.g. /tmp or local NVMe) — particle stacks are copied there once instead of re-read from NFS every iteration",
+        hint: scratchHint,
+      }),
+      ...computeParity(),
+      num("threads", "Threads (--j)", 4, {
+        step: 1, min: 1, max: 32, tab: "Compute",
+        hint: "per-rank CPU threads (the RELION GUI's own --j)",
       }),
     ],
     "Refined to {n} Å",
     "core",
     {
       category: "refine",
-      tabs: ["Reference", "Optimisation", "Sampling", "Auto-sampling", "Compute"],
+      tabs: ["Reference", "CTF", "Optimisation", "Sampling", "Auto-sampling", "Compute"],
       inputs: [
         inp("particles", L.particlesIn, ["particles"]),
         inp("reference", L.mapIn, ["volume", "halfmap"]),
