@@ -3033,3 +3033,25 @@ Stage Summary:
 - 卡片重设计：240×112 + 行内终态角标 + 双行失败原因——关键内容（名字、状态、类型、进度/耗时、失败原因、远程宿主、笔记徽章）全部可见；存量布局走廊 80/32px 不重叠
 - 用户复机路径：git pull 即得；preview 面板可见演示态（failed 卡双行红字 + 横向 primed 线）
 
+
+---
+Task ID: t350
+Agent: main-agent (Z.ai Code)
+Task: 用户工单「继续打磨job卡片的样式，要美观又设计感，同时又实用（显示对用户关注的信息），完成后push」
+
+Work Log:
+- 设计判读（t349 之上的四宗罪）：①`REMOTE[user@host · module]:` 信封吃掉 2 行结果预算 ~40 字符——失败卡要说的那句诚实的话从第 2 行中段才开始；②idle 卡下半张空白（配置只有 hover 一条路）；③状态只在 20px 药丸+边框 tint 里说话，画布缩放距离不可扫读；④Row 2 的类型文本是 dev-speak（"class2d"）
+- 修复① 信封剥除：新 displayResult() 剥 `REMOTE[...]` 前缀——Row 3 的 payload 行只说人话；出处搬进 title 提示 + Row 2 幽灵徽章（终态远程卡 muted Server+host，border-border/70 bg-muted/40 安静方言——「这个结果/这次失败来自那台集群」）；hover 预览框同步剥除
+- 修复② idle 参数摘要：新 digestParts（spec 顺序前两个数值旋钮，DIGEST_LABELS 词典把 "Number of classes (K)"→"classes"、"Number of VDAM iterations"→"VDAM iters" 等 28 词条压成短名；无数值类型回落 path 类参数尾两段）；Ready 行 = 绿点 + Ready + 摘要（emerald 引子 muted 尾），未就绪 idle 只显摘要——「能跑什么、跑了会怎样」一眼可答。三段实测 199px 死于省略号（Ready 行预算 ~150px）→ 编辑裁决收两段（spec 序前两恰是用户最常调的旋钮）
+- 修复③ 状态地板条：新 STATUS_FLOOR（3px 底边满宽状态色，idle 一声 slate 耳语/pending amber/running teal/completed emerald/failed rose；queued 走 amber）——左色条=类别（纵轴）、地板=状态（横轴），两轴独立可扫；failed 另加玫瑰体洗（overlay div bg-rose-500/4.5%，暗色 7%——overlay 而非 class 互换，堆叠确定性好）
+- 修复④ Row 2 人话：`spec?.key`→`spec?.label`（"class2d"→"2D Classification"）——纸面无 hover，label 在打印卡上也挣得一行
+- 数字强调：completed 结果行前导数字（"33 particles extracted" 的 33）semibold tabular——与 t347 计数徽章分工：徽章拥有颜色（teal 粒子/violet 类），句子拥有字重；同一数字不喊两遍色
+- 并行窗合并：远程 t349（dedicated master np=nGPU+1 + 计数徽章）与本地 t349-b（连线修复+卡片重设计）rebase 汇流——job-card.tsx 自动合并干净（徽章在 Row 2 尾、我的改动在 Row 2 头/Row 3/卡体），worklog 双 t349 冲突以 t349-b 消歧共存；合并态审计：计数徽章与新设计零冲突零溢出
+- 活体验证（agent-browser 1600×900 + 390×844）：12 卡全状态审计——零 paint 级溢出（clip-aware 检查：被 overflow-hidden 裁掉的布局盒不计）、地板条 12/12 在位且配色正确（emerald×5/rose×2/slate×5）、失败卡洗层 7%、失败文本恰 30px（2×15px line-clamp）、行高 24/20/15-30、卡体恰 240×112、digest 两段 clip=0、数字强调 600 重前景色、幽灵徽章 muted、移动端零横向溢流、console/page errors 双零、dev.log 无新增；像素采样（PIL）——light 图 green 545/red 283/teal 255 采样点、dark 图 green 454/red 370——三族状态色在两张渲染图里真实可见；交互冒烟——卡片点击开 inspector ✓、hover 预览渲染（剥前缀结果句+人话 label+参数三行）✓
+- VLM 目检缺席：z-ai vision 服务整窗 429 限流（五次重试跨 ~10 分钟）——以 DOM 计算样式断言 + 像素采样代偿，几何/颜色/字重/裁剪全部数值级验证
+- 质量门：tsc 0 错；eslint 触碰文件 0 输出；截图 docs/t350-card-polish-light.png / t350-card-polish-dark.png 入库（合并态终版）
+
+Stage Summary:
+- 卡片信息架构定型：类别（左色条·纵轴）+ 状态（地板条·横轴）+ 身份（名字行）+ 出处（幽灵徽章）+ payload（结果句/参数摘要/进度）——每个状态都有话说：idle 说配置、pending 说等谁、running 说进度、completed 说成果、failed 说原因
+- REMOTE 信封从 payload 里退役（tooltip+幽灵徽章接手）——失败原因可用字符 +40；idle 卡从半空卡变成自带规格单
+- 用户复机路径：git pull 即得；与 t347 计数徽章、t349-b 卡片重设计、t349 dedicated master 全部兼容（rebase 后全量审计通过）
