@@ -3257,3 +3257,21 @@ Stage Summary:
 - 连线/删线从「等 API 往返（dev 冷编译下数秒）+ HMR 重挂载才可见」变为 pointerup 同一提交内可见（实测 60-86ms），持久化全部后台化、失败诚实回滚、连了又秒删无幽灵线
 - 服务器侧时延（冷编译、监听器、慢盘）从此只能影响「何时落库」，不再影响「何时看到线」— 用户工单的 hmr 依赖链根除
 - 用户复机路径: git pull → 画布连线/删线即时生效；网络/服务器故障时线短暂闪回 + destructive toast 是唯一可见痕迹
+
+---
+Task ID: 360
+Agent: main
+Task: 用户工单「图片还是加载不出来」+ 本地 AI 诊断「mrcs header 全零」+ 用户补充「log 6 份重复、手动跑 RELION 从不重复、Chimera 也打不开这些 mrcs」——t360 定位真正的 root cause 并修复
+
+Work Log:
+- 【取证准备】备好独立集群探针(/home/z/cf-probe/probe.mjs:od 头/数据区/尾字节 + 非零计数 + md5 + sftp 独立下载比对)——后经用户澄清「你是登录不了 cluster 的」(192.168.2.x 是用户内网),探针作废,改走代码侧推理 + 用户侧证据。
+- 【GitHub 对齐】git fetch origin 拉下 33 个新提交(868d946..4870151,t336-t359 全量:verifiedStackPull/sheet route/proactive pipeline),merge 零冲突(537e171)。工具层大面积 403 故障,窗口极窄,分批完成。
+- 【用户证据的关键性】用户三报:(a) log 每条 ~6 份重复,手动跑 RELION(含多 GPU)从不重复;(b) Chimera 也打不开这些 .mrcs(独立第三方证据,坐实文件在集群上就坏了,与拉取管线无关);(c) RELION 本身肯定没问题(以前用过)。→ 推理收束:6 个独立完整进程 = 6 个"master"同时打印 + 同时 truncate/写同一批输出文件 = 尺寸正确、header 全零的 mrcs + exit 0(每个副本都"成功"跑完)。
+- 【代码侧定罪链】command-templates.ts:28 class2d 模板二进制 = relion_refine(串行版);engine.ts buildArgv(:5217 等)构造的 argv[0] = <binDir>/relion_refine;remote-run.ts:3117 MPI 分支只包 mpirun -n N + 插入 .cf-rank-launch.sh,从未换成 _mpi 二进制。probe.ts:185 relionMpi 语义 = 「模块环境里有 mpirun」,不检查 relion_refine_mpi 存在。本地引擎 MPI_PARALLEL_TYPES 只有 class3d/refine3d(class2d 本地从不进 MPI 分支)→ bug 是远程 lane 专属,与用户观察吻合。
+- 【t360 三刀】(1) MPI 分支(rlurm+direct 共用)内 argv[0] 尾部 relion_refine → relion_refine_mpi(regex 兼容绝对路径/裸名;launcher 已是 exec "$@" + OMPI_COMM_WORLD_RANK 读秩,无需改动,它只是被喂错了二进制);(2) sbatch preflight:command 含 relion_refine_mpi 时 command -v relion_refine_mpi,缺则 CRYOFLOW_ERR exit 127;(3) direct 脚本 preflight 同款。
+- 【验证】eslint 对 remote-run.ts 零告警(仓库既有 8 个 UI error 均为合并代码遗留,与本次无关);dev server 重启后 GET / 200、/api/remote/connections 编译通过(403 为该路由对非浏览器请求的既有防护)。提交 c7a8dcd(+30 行,单文件)。push 失败——git 凭证在基础设施故障中丢失(~/.git-credentials 空仓,无 env token),补丁全文已交用户侧应用。
+- 【澄清一桩冤案】「probe.ts/remote-run.ts 源码混入 ESC 控制字符」假说撤销:grep -P '\x1b' src/ 零命中,`[moduleName]` 显示成 `oduleName]` 是 Bash 工具输出管道的 ANSI 渲染缺陷(吞 [m),源码干净。
+- 【遗留】(a) 用户当前 job 的 21 个 stacks 是 6 路写手交错数据,不可抢救,须重新派发;(b) 本地 lane 的 class3d/refine3d(engine.ts 自己的 mpirun 包装)同样存在串行二进制隐患,未在本任务动(避免破坏 demo 链),待后续任务;(c) t358 的 unreadable 报错文案可再加「多写手损坏,建议重跑」提示,暂缓。
+
+Stage Summary:
+- Root cause = mpirun 包着串行 relion_refine → N 个独立完整计算并发互殴。修复 = MPI 分支换 relion_refine_mpi + 双 preflight。c7a8dcd 待推送/待用户侧应用;用户重新派发 2D 分类后,日志单份、stacks 干净、t356/t358 渲染管线自然出图。
