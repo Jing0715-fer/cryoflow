@@ -705,6 +705,17 @@ function patchEdgeGroups(
       t.setAttribute("cx", String(g.tgtDot.x));
       t.setAttribute("cy", String(g.tgtDot.y));
     }
+    // t349 — the running/primed paint ramp is userSpaceOnUse spanning the
+    // wire's endpoints (degenerate-bbox gradients vanished on horizontal
+    // wires). It must ride the drag with everything else, or the ramp
+    // stays anchored to the pre-drag line while the wire moves.
+    const grad = el.querySelector('[data-e="grad"]');
+    if (grad) {
+      grad.setAttribute("x1", String(g.srcDot.x));
+      grad.setAttribute("y1", String(g.srcDot.y));
+      grad.setAttribute("x2", String(g.tgtDot.x));
+      grad.setAttribute("y2", String(g.tgtDot.y));
+    }
   }
 }
 
@@ -1496,30 +1507,15 @@ export const JobCard = React.memo(function JobCard({
             aria-hidden="true"
           />
 
-          {/* n8n-style completion check badge (top-right corner) */}
-          {job.status === "completed" && (
-            <span
-              aria-hidden="true"
-              title="Completed"
-              className="absolute right-2 top-2 flex size-4.5 items-center justify-center rounded-full bg-emerald-500 text-[10px] font-bold leading-none text-white shadow-sm"
-            >
-              <svg viewBox="0 0 10 10" className="size-3" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M1.5 5.2 L3.8 7.5 L8.5 2.5" />
-              </svg>
-            </span>
-          )}
-          {/* n8n-style failure badge (top-right corner) */}
-          {job.status === "failed" && (
-            <span
-              aria-hidden="true"
-              title="Failed"
-              className="absolute right-2 top-2 flex size-4.5 items-center justify-center rounded-full bg-rose-500 text-[11px] font-bold leading-none text-white shadow-sm"
-            >
-              !
-            </span>
-          )}
-
-          <div className="flex h-full flex-col justify-center gap-1.5 py-3 pl-4 pr-8">
+          {/* t349 — the terminal-state badge (✓ / !) rides INLINE at the
+              end of the identity row (see Row 1). As an absolute corner
+              ornament it forced a permanent pr-8 — 32px of dead right
+              rail on every idle and running card; inline, it spends its
+              ~18px only when it exists and the name reclaims the rest.
+              The container also dropped from gap-1.5/py-3 to gap-1/py-2.5:
+              the taller card (112px) spends its extra height on the
+              content rows, not on padding. */}
+          <div className="flex h-full flex-col justify-center gap-1 py-2.5 pl-4 pr-3.5">
             {/* Row 1: icon chip + name (hover → n8n-style preview card) */}
             <div className="flex items-center gap-2">
               <span
@@ -1575,6 +1571,30 @@ export const JobCard = React.memo(function JobCard({
                 >
                   <StickyNote className="size-2.5" aria-hidden="true" />
                   {classNoteEntries.length}
+                </span>
+              ) : null}
+              {/* n8n-style terminal marker — docked to the row's right edge
+                  (ml-auto), present only when the run has landed. The
+                  status badge in Row 2 already speaks the word; this is the
+                  at-a-glance anchor, and inline placement is what freed the
+                  name from the old 32px corner reservation. */}
+              {job.status === "completed" ? (
+                <span
+                  aria-hidden="true"
+                  title="Completed"
+                  className="ml-auto flex size-4.5 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-[10px] font-bold leading-none text-white shadow-sm"
+                >
+                  <svg viewBox="0 0 10 10" className="size-3" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M1.5 5.2 L3.8 7.5 L8.5 2.5" />
+                  </svg>
+                </span>
+              ) : job.status === "failed" ? (
+                <span
+                  aria-hidden="true"
+                  title="Failed"
+                  className="ml-auto flex size-4.5 shrink-0 items-center justify-center rounded-full bg-rose-500 text-[11px] font-bold leading-none text-white shadow-sm"
+                >
+                  !
                 </span>
               ) : null}
             </div>
@@ -1693,8 +1713,16 @@ export const JobCard = React.memo(function JobCard({
               </p>
             ) : null}
 
-            {/* Row 3: progress + ETA / result / ready hint */}
-            <div className={`h-4 ${job.note || classNoteEntries.length > 0 ? "print:hidden" : ""}`}>
+            {/* Row 3 — the state line. t349: the row is VARIABLE height
+                (it was a fixed h-4 with a single truncated line — the
+                failure reason, the one fact a rose card exists to speak,
+                was clipped to ~35 characters). Completed/failed/pending
+                results now wrap to TWO lines (line-clamp-2: the card grew
+                to 112px for exactly this), running keeps its one-line
+                progress bar. justify-center on the column absorbs the
+                difference; the print-swap contract (note excerpt replaces
+                this row on paper) is unchanged. */}
+            <div className={`${job.note || classNoteEntries.length > 0 ? "print:hidden" : ""}`}>
               {job.status === "running" && isSlurmQueued(job) ? (
                 // t322 — the scheduler is holding this job (PENDING): no
                 // progress bar (0% would be a claim), no ETA (nothing is
@@ -1757,26 +1785,28 @@ export const JobCard = React.memo(function JobCard({
                   )}
                 </div>
               ) : job.status === "completed" ? (
-                <p
-                  className="truncate text-[11px] leading-4 text-muted-foreground"
-                  title={job.result ?? undefined}
-                >
-                  {job.result}
-                </p>
+                job.result ? (
+                  <p
+                    className="line-clamp-2 text-[11px] leading-[15px] text-muted-foreground"
+                    title={job.result}
+                  >
+                    {job.result}
+                  </p>
+                ) : null
               ) : job.status === "failed" ? (
                 <p
-                  className="truncate text-[11px] leading-4 text-rose-600 dark:text-rose-400"
+                  className="line-clamp-2 text-[11px] leading-[15px] text-rose-600 dark:text-rose-400"
                   title={job.result ?? "Run failed — check logs"}
                 >
                   {job.result ?? "Run failed — check logs"}
                 </p>
               ) : job.status === "pending" ? (
                 <p
-                  className="flex items-center gap-1 truncate text-[11px] leading-4 text-amber-700 dark:text-amber-300"
+                  className="flex items-start gap-1 text-[11px] leading-[15px] text-amber-700 dark:text-amber-300"
                   title={job.result ?? "Waiting for an upstream job"}
                 >
-                  <span className="inline-block size-1.5 shrink-0 rounded-full bg-amber-500" aria-hidden="true" />
-                  <span className="truncate">{job.result ?? "Waiting for an upstream job"}</span>
+                  <span className="mt-[5px] inline-block size-1.5 shrink-0 rounded-full bg-amber-500" aria-hidden="true" />
+                  <span className="line-clamp-2">{job.result ?? "Waiting for an upstream job"}</span>
                 </p>
               ) : isReady ? (
                 <p className="flex items-center gap-1 text-[11px] leading-4 text-emerald-700 dark:text-emerald-300">

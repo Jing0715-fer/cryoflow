@@ -13,9 +13,21 @@
 
 import type { JobTier, JobTypeSpec, ParamSchema, ParamValue, PortKind, PortSpec } from "./types";
 
-/** Fixed job card geometry (px, in workspace coordinates). */
-export const CARD_W = 220;
-export const CARD_H = 96;
+/**
+ * Fixed job card geometry (px, in workspace coordinates).
+ *
+ * t349 — 240×112 (was 220×96): the card grew one comfortable line of
+ * height so the result/error line can wrap (a truncated single line hid
+ * the failure reason — the one fact the user needs when a card turns
+ * rose) and 20px of width for the name and the status band. Saved
+ * layouts stay readable: auto-arrange pitch is CARD_W+GAP_X (100) /
+ * CARD_H+GAP_Y (48), so grown cards still leave 80px/32px corridors.
+ * Every consumer (ports, wires, minimap, print fit, spotlight cone,
+ * band select, focus math) derives from these constants — nothing else
+ * hardcodes the size.
+ */
+export const CARD_W = 240;
+export const CARD_H = 112;
 
 /**
  * INFINITE CANVAS — the workspace is unbounded: job coordinates may be

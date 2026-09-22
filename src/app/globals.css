@@ -229,9 +229,14 @@
 /* ============================================================
    Edge animations
    ============================================================ */
+/* t349 — the marching offset MUST be an exact multiple of the dash
+   period (6+5 = 11), or every loop restart teleports the pattern by the
+   remainder (-16 ≡ -5 mod 11) and the dashes visibly jump backwards
+   once per 0.7s — most jarring on a straight horizontal wire, where the
+   eye tracks a uniform dash grid. -11 = exactly one period → seamless. */
 @keyframes edge-dash-flow {
   to {
-    stroke-dashoffset: -16;
+    stroke-dashoffset: -11;
   }
 }
 

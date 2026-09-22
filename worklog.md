@@ -3010,3 +3010,26 @@ Stage Summary:
 - 三问答案：①是——现实现就是颗粒级数据并行（master 动态批次分发，先做完先领，自平衡非静态等分），但旧布局 master 占卡槽、4 卡只 3 卡算颗粒；②用户命令布局正确（RELION 官方 np=nGPU+1）且本质就是颗粒等分并行，但三个具体问题——relion_refine_mpi 应为 relion_refine（RELION 5 二进制名）、--norm normalise 不是 relion_refine 合法选项（源码核实，启动即报错；归一化在 Extract 步已完成）、--gpu "0:1:2:3" 冒号语法在该集群 RELION 5.0-beta build 有两次全 rank 落 device 0 的翻车史（t342/t345 现场记录，即上次 OOM 根因），等价且稳的形式是每 rank 独立 CUDA_VISIBLE_DEVICES + --gpu 0；③会更快——E-step ~4/3×、整体约 +20-30%
 - t349 落地：dedicated master 布局进派发器（每张卡都有 worker 算颗粒），t345 绑卡/钳制/饥饿预检/盲节点守卫全部保留并按 worker 语义重述；UI 预览与脚本字节一致
 - 回归防线：四套件 135 断言 ALL GREEN + 浏览器实测；宽度 1 行为不变（单进程）
+
+---
+Task ID: t349-b (parallel window — card & wire work, distinct from the t349 above)
+Agent: main-agent (Z.ai Code)
+Task: 用户工单（两项）——①「优化job卡片样式，目前内容有些拥挤，需要根据目前需要显示的内容重新设计一下，让关键的内容都能显示出来」②「任务失败时好像会出现连线断的情况，待推进的虚线动画在线条是横向直线时显示有些问题，其他情况下正常，需要修复」
+
+Work Log:
+- 根因判读②（连线断+横向虚线动画异常，同一条病根）：edges-layer 的 running/primed 线用 `stroke="url(#edge-grad-…)"`，linearGradient 是默认 objectBoundingBox 单位——横向直线（两卡同 y、单口无扇移）的 bbox 高度为 0，SVG 规范明令 user agent 忽略退化几何上的渐变 → stroke 解析为无 → 整条线（含虚线动画）隐形。用户工单逐字命中：「任务失败时」= 上游 completed → 失败卡的线翻成 primed 渐变（正是看见断线的时刻）；「横向直线时显示有些问题，其他情况下正常」= 非水平线 bbox 非退化、渐变正常。附带发现： marching 虚线动画每 0.7s 有 5px 后跳（dasharray 6 5 周期 11，keyframe 偏移 -16，16 mod 11 = 5）
+- 修②渐变：linearGradient 改 gradientUnits="userSpaceOnUse" + x1/y1/x2/y2 = 线自身端点（srcDot→tgtDot），bbox 从此无关；渐变节点搬进每条边的 <g>（paint server 放哪里都不直接渲染）→ 拖拽补丁循环用同一 group-scoped [data-e] 契约可达；bonus：ramp 方向从「bbox 左→右」修正为「真实源→目标流向」（wrap-around 线以前的渐变方向是反的）
+- 修②拖拽随行：patchEdgeGroups（job-card.tsx）新增 [data-e="grad"] 四坐标补丁——拖拽中渐变端点与线端点逐帧同步（活体验证：mid-drag x1/y1=1446.19/345.20 与 path M 点逐位一致）
+- 修②卡顿：edge-dash-flow keyframe -16 → -11（恰一周期，无缝循环）；LiveWire 上被 CSS 覆盖的死属性 strokeDasharray="7 5" 移除（CSS 类是 dash 图案唯一真源）
+- 修①卡片重设计（CARD_W 220→240 / CARD_H 96→112，所有消费方——端口、连线、minimap、print fit、spotlight 锥、框选、聚焦——全从常量派生，零硬编码）：①行3从固定 h-4 单行 truncate 改可变高——completed/failed/pending 结果 line-clamp-2 双行（失败原因 ~35 字符截断 → 双行 30px，失败卡要说的一句话终于说得完）；②终态 ✓/! 角标从 absolute right-2 top-2 改行1行内 ml-auto（pr-8 死右轨 32px 只在终态花该花的 ~18px，名字收回全部宽度）；③容器 gap-1.5/py-3 → gap-1/py-2.5（112px 的新高度花在内容行不在 padding）；④print-swap 契约（纸面笔记摘录换进度行）原样保留
+- 布局影响核查：auto-arrange 步距 CARD_W+GAP_X(100)/CARD_H+GAP_Y(48) → 增大后走廊 80px/32px，存量布局不重叠；归档 diag 脚本里的 220/96 硬编码仅历史记录
+- 验证场景（沙箱 DB 直种 + 伪造 running 的 120s sweep 宽限期改用持久 engine record pid=1 方案）：import(running 42%)→ctffind 横向 running 虚线；extract(completed)→class2d-w6(failed 长失败词) 斜向 primed；extract→class2d-w1(idle) 横向 primed——三条渐变线 + 两条零高度横向（旧病根的精确几何）；期间沙箱遭遇并发 tidy（preview 面板侧真用户交互，POST /api/jobs/layout 在案）顺势收编
+- 活体验证（agent-browser 1600×900）：DOM——三条渐变线全 userSpaceOnUse + 端点坐标正确，两条横向线 getBoundingClientRect 高度恰为 0（退化几何原样复现）+ 主笔触 stroke=url(#edge-grad-…) + edge-flow 类在位；像素——running 横向虚线行 80% 墨（青色 dash+glow 色）、primed 横向实线行 40% 墨（2.25px 笔宽 ÷5px 采样带，灰→teal 渐变色）；动画——两次采样 dashoffset -2.56→-10.15（行进中），-11=周期保证循环无缝；卡片——失败原因 rect 高恰 30px（双行×15px leading）+ line-clamp 生效 + ! 角标行内右缘(x=207/240) + 名字/状态/进度三行齐整 + 无 absolute 角标死区；VLM 目检——「红字两行换行✓ 卡片间距良好✓ 连线清晰可见✓ 无断线✓」「横向青色虚线清晰可见✓」；拖拽——渐变端点逐帧随线；mobile 390×844 零横向溢流；console/page errors 双零；dev.log 无新增错误
+- 途中排障：4GB 盒上 next-server 反复 OOM（RSS 涨至 2.7-2.9GB 被 kernel 杀，max-old-space-size 896 限不住 Turbopack 原生侧）——按 scripts/dev-server.sh 先例（setsid 孤儿化躲工具调用收割器）+ 关浏览器降压分步验证；沙箱禁 swap（无 CAP_SYS_ADMIN）；验证后伪造态还原（import→completed、engine record 移除；class2d-w6 failed/class2d-w1 idle 留作新卡片设计的诚实演示态——横向 primed 线与双行失败词在 preview 里可见）
+- 质量门：tsc 0 错；eslint 触碰文件 0 输出；截图 docs/t349-horizontal-wires.png / t349-failed-card.png / t349-mobile.png 入库
+
+Stage Summary:
+- 连线断/横向虚线动画的根治 = 渐变换坐标系：userSpaceOnUse 挂线自身端点，退化 bbox 从结构上不可能再出现；虚线动画 -11 偏移恰一周期，0.7s 循环无缝；拖拽中渐变随线逐帧同步
+- 卡片重设计：240×112 + 行内终态角标 + 双行失败原因——关键内容（名字、状态、类型、进度/耗时、失败原因、远程宿主、笔记徽章）全部可见；存量布局走廊 80/32px 不重叠
+- 用户复机路径：git pull 即得；preview 面板可见演示态（failed 卡双行红字 + 横向 primed 线）
+
