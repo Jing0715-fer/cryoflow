@@ -360,6 +360,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
       },
       readStarAbs: (abs) => readStarFileCapped(abs),
       cmd: run.cmd,
+      // t353 — the cs2star cluster-side lane keeps its star on the cluster;
+      // the receipt line is the key numbers' source then
+      result: run.result ?? undefined,
     });
     const warnings = parseRunWarnings(readRunOutTail(workdir) ?? "");
 

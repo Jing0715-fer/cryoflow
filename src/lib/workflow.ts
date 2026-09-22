@@ -398,7 +398,7 @@ export const JOB_TYPES: JobTypeSpec[] = [
     "CryoSPARC → RELION",
     "ArrowLeftRight",
     "teal",
-    "Convert a CryoSPARC job's .cs particle dataset into a RELION 5 particles.star — alignments (Rodrigues → Euler), CTF, optics — and link ONLY the referenced particle stacks (.mrc → .mrcs names) on the cluster, so every downstream job consumes them directly. No pyem, no Python: the converter is built in.",
+    "Convert a CryoSPARC job's .cs particle dataset into a RELION 5 particles.star — alignments (Rodrigues → Euler), CTF, optics — and link ONLY the referenced particle stacks (.mrc → .mrcs names) on the cluster, so every downstream job consumes them directly. On a cluster connection the conversion runs ON the cluster itself: the parameters are set here, a self-contained converter script (the same pyem-verified field mapping, needs only python3+numpy) runs there, and the star is written straight to its cluster home — the .cs datasets and the star never cross the wire. Clusters without python3+numpy fall back to the engine-native lane (download → convert locally → upload).",
     3000,
     [
       pth("csPath", "CryoSPARC job folder (J###) or particles.cs", {

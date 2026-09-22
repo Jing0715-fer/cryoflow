@@ -37,6 +37,28 @@
 
 export type ProgressParams = Record<string, number | string | boolean>;
 
+/**
+ * t353 — the refine family: jobs whose logs speak "Expectation/Gradient
+ * optimisation iteration N of M" and whose time bar is PER-ITERATION. For
+ * these, a tail window holding ONLY a bar (the iteration header has
+ * scrolled out) cannot place that bar in the run's timeline — the bar is
+ * the progress WITHIN one iteration, never of the whole run.
+ *
+ * The field shape (2026-10, 6-rank class2d "7 of 20 shows 99%"): RELION
+ * rewrites the bar in place with \r — one physical line per rank that
+ * grows ~40 bytes per tick, six ranks ticking for a quarter hour per
+ * iteration. The 4096-byte tail the sweeps read (local readTail + the
+ * remote heartbeat's `tail -c 4096`) filled with bar segments LONG before
+ * iteration 7 ended, the "Expectation iteration 7 of 20" header left the
+ * window, and the parser fell through to the per-image branch which
+ * treats the bar as GLOBAL — at each iteration's end the bar reads
+ * ~0.99 → 99% (pct's clamp), and the monotonic contract froze it there.
+ * The honest verdict for a refine-family bare bar is null: the caller
+ * holds the last header-derived value (the staircase — each iteration's
+ * header re-enters the window the moment it is printed).
+ */
+const REFINE_FAMILY = new Set(["class2d", "class3d", "refine3d", "initialmodel", "multibody"]);
+
 export function parseProgressText(
   type: string,
   tail: string,
@@ -112,7 +134,13 @@ export function parseProgressText(
     }
 
     // ---- per-image jobs: the GLOBAL bar is the ground truth ---------------
-    if (barRatio != null) return pct(barRatio);
+    // t353 — but ONLY for the per-image family (ctffind/motioncorr/extract/
+    // autopick/import: one GLOBAL bar for the whole run, src/time.cpp driven
+    // by the image loop). For the refine family a bare bar is the
+    // WITHIN-iteration bar with its header scrolled out of the window —
+    // reading it as global is exactly the "7 of 20 shows 99%" lie. Null:
+    // the caller holds the last honest value (the monotonic contract).
+    if (barRatio != null) return REFINE_FAMILY.has(type) ? null : pct(barRatio);
 
     // ---- n/N counters (the mock fakes' dialect, denominator included) -----
     let countedRatio: number | null = null;
@@ -125,7 +153,11 @@ export function parseProgressText(
         countedRatio = Math.min(1, n / t);
       }
     }
-    if (countedRatio != null) return pct(countedRatio);
+    // t353 — same family gate for the n/N counters: a refine-family counter
+    // ("particle 5/350000") counts the CURRENT iteration's expectation step,
+    // not the run. The mock dialects set iterNow above ("it [003]") so this
+    // only fires for genuinely header-less refine windows — hold, don't lie.
+    if (countedRatio != null) return REFINE_FAMILY.has(type) ? null : pct(countedRatio);
 
     // nothing honest to say — the CALLER keeps the previous progress
     // (t319's monotonic contract: a running job's bar never regresses)

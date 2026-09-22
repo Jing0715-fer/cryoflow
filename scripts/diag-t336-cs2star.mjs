@@ -43,8 +43,8 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync
 import net from "node:net";
 import path from "node:path";
 
-const ROOT = "/home/z/cryoflow";
-const BASE = "http://localhost:3001";
+const ROOT = process.env.CF_ROOT ?? "/home/z/my-project";
+const BASE = process.env.CF_BASE ?? "http://localhost:3000";
 const CONN = "qa-t336";
 const MODULE = "relion/5.0.1";
 const SH = {
@@ -53,7 +53,6 @@ const SH = {
   "Sec-Fetch-Site": "same-origin",
   "Sec-Fetch-Mode": "cors",
   "Sec-Fetch-Dest": "empty",
-  Host: "localhost:3001",
 };
 const SHJ = { ...SH, "Content-Type": "application/json" };
 
@@ -481,13 +480,18 @@ try {
   must(/300 kV · Cs 2\.7 mm · ac 0\.07 · pixel 0\.93/.test(resultText), "B3 the optics ride the receipt");
   must(/3D alignments/.test(resultText), "B4 the alignment source rides the receipt");
 
-  // the workdir's own outputs (downloaded .cs copies + the star)
+  // the workdir's own outputs — t353: the cluster-side lane downloads
+  // NOTHING and writes the star ONLY on the cluster (the record keeps the
+  // local-flavored path for the twin gates; the manifest lists it for the
+  // Files tab)
   const rec = JSON.parse(readFileSync(`${ROOT}/data/engine-state.json`, "utf8"))[csJob.id] ?? null;
   must(!!rec?.outputs?.particles_star, "B5 the record registers particles_star");
   const starLocal = rec?.outputs?.particles_star;
-  must(existsSync(starLocal ?? "x"), "B6 the star exists locally (it stages downstream)");
-  must(existsSync(path.join(path.dirname(starLocal ?? ""), "particles.cs")), "B7 the primary .cs copy stayed in the workdir (Files tab)");
-  const starText = readFileSync(starLocal, "utf8");
+  must(!existsSync(starLocal ?? ""), "B6 the star lives ONLY on the cluster now (the local path is the twin gate's key, intentionally absent)");
+  must(!existsSync(path.join(path.dirname(starLocal ?? ""), "particles.cs")), "B7 nothing was downloaded — no .cs copy in the workdir");
+  must(existsSync(path.join(path.dirname(starLocal ?? ""), ".cf-remote-manifest.json")), "B7b the remote manifest lists the on-cluster star for the Files tab");
+  const twinStarB64 = client(`base64 -w0 /projects/cryoflow/${projectId}/cs2star_${csJob.id.slice(-8)}/particles.star 2>/dev/null`);
+  const starText = Buffer.from(twinStarB64, "base64").toString("utf8");
   must(starText.includes("1@micrographs/foo_particles.mrcs"), "B8 the star's rows speak the link names");
   must(starText.includes("300") && starText.includes("0.93"), "B9 the optics block landed");
 

@@ -3099,3 +3099,27 @@ Stage Summary:
 - scratch：scratchDir 字段（Compute 表签）t351 已有，本期 hint 点名 /ssd_cache 节点本地 SSD + keepFreeScratch（--keep_free_scratch）同伴参数
 - cs2star：星表现在存集群（twin 镜像路径 + remoteOutputs 记录，下游集群作业原地读、零重传），重跑零重下载；36 个 unmapped .cs 字段系 CryoSPARC 内部记账/统计量（pose_ess/error/power/uid/import_sig 等），RELION 无逐行对应物——下游要用的字段（位姿/平移/类别/CTF/光学组）全部已映射，与 pyem/RELION 官方转换器行为一致
 - 用户复机路径：Windows 主机 git pull；旧 job 的参数面板会如实显示现在真正生效的值（class3d 的 T=4 从硬编码转为真参数）
+
+---
+Task ID: t353
+Agent: main-agent (Z.ai Code)
+Task: 用户工单（三件）——①拉取最新代码（origin 有 t351/t352 两个新提交，含 t352-c 的 cs2star twin 上传，fast-forward 完成）；②「cryosparc转relion star文件目前的结果只生成在本地，这个任务调用的是cluster上的pyem，是不是本地设好参数把脚本传到cluster上运行，直接output在cluster上就好了，没有必要像现在这么麻烦吧」——采纳用户的架构判断：参数本地定、数据在集群、转换就该在集群跑；③「2D分类为什么跑到7/20轮时就显示99%进度了？这个bug需要修复」。
+
+Work Log:
+- 病根判读③（99% 进度）：progress-parse.ts 的 per-image 分支把裸时间条当全局进度——远程 sweep 只取 run.out 的 tail -c 4096（本地 readTail 同宽），6-rank class2d 每轮 expectation 的 \r 时间条按 rank 各占一条物理行、每 tick ~40 字节，一轮一刻钟就写掉数十万字节，"Expectation iteration 7 of 20" 表头早被推出窗口；解析器在无表头时落入 per-image 分支读条内比例为全程（每轮末尾 ~0.99 → pct 钳到 99），单调契约把它冻死在 99
+- 修③：REFINE_FAMILY（class2d/class3d/refine3d/initialmodel/multibody）类型感知闸门——refine 家族的裸时间条与 n/N 计数器是轮内进度不是全程进度，返回 null（单调契约保住上一诚实值）；表头在窗口时照常 (iter-1+barRatio)/totalIter 组合（阶梯：每轮表头进窗口瞬间 +1/total）；ctffind/motioncorr/extract/autopick 的全局条语义不变（diag-t319 回归钉死）。纯模块修复同时覆盖本地 sweep 与远程 sweep 两条道
+- 判读②：现状（t352-c）是下载 200MB .cs → 本地 TS 转换 → 上传 200MB star（重跑零传输、但首跑 400MB 过线）；用户提案正确——脚本上集群、输出落集群、零大字节过线。实现为 t353 CLUSTER-SIDE lane：CS2STAR_CLUSTER_PY（String.raw 内嵌 ~350 行自包含 python，csRowsToStar 的逐字节孪生移植——同 uid smart-merge、同 pyem 验证字段表、同 planLinkNames 后缀、同 emit 顺序、同 6 位有效数字 fmt 含 JS Number→String 方言（Decimal 定点域 + e+/- 指数域）、jsround=floor(x+0.5) 对齐 Math.round 的 .5 语义）；argv 传参（--primary/--passthrough/--out/--link-dir/--cs-root/--invert-y/--fallback JSON）；退出码契约（0 + 末行 CF_RECEIPT {json}，非 0 + stderr CS2STAR-ERROR，star 走 .tmp+os.replace 原子写，链接幂等 remove+symlink）
+- probeClusterPython（一轮 SSH）：python3 → python → csparc2star.py 的 shebang（conda env python 的唯一可靠入口；env-shebang 经 command -v 解析（第一臂已试过）、绝对 shebang 直用）；definitive 标记区分「集群干净地说没有 python」与「探针没应答」——两者都落 fallback 且 phase 行如实分述；脚本级失败（.cs 坏、stack 缺失）不 fallback——同样的字节在本地转换器会同样失败，错误就是判词（missing stack 的诚实拒绝 dialect 与旧道逐字兼容，diag-t336 钉死）
+- runCs2StarOnCluster：探测 → 上传脚本（KB 级，唯一过线字节）→ sshExec 跑在登录节点（900s 预算 + 15s 本地心跳 phase 保 log 活，t340 教义）→ receipt 解析 → statRemoteFiles 验证 twin → REMOTE 信封结果行（尾部 " · converted ON the cluster in place (no .cs download, no star upload)"）；record.outputs.particles_star 保持本地风味路径（有意不存在——twin gate 的键），remote.remoteOutputs.particles_star=twinPath，mode direct
+- finishCsRunOnCluster：从 t352-c 尾部块提取的共享收尾（recordNativeRun + startedAt 守卫 + 双道见证上传 + t346 tail 缓存）——上传道（fallback）与就地道（python）不可能漂移；旧道整段保留为 fallback（python 缺席的集群、探针哑火的线）
+- 配套消费链：writeCsRemoteManifest 内联进 engine.ts（engine↔remote-run 断环教义——remote-files.ts import remote-run.ts，import 其 writer 会闭环；字节形状与 writeRemoteManifest 一致）——无本地 star 时 Files 页经 manifest 列出 on-cluster 卡片；output-summary cs2star 分支在无本地 star 时从 result 行解析计数（"N particles converted … M stack(s) → micrographs/"，两道同句式，receipt 是回退不是第二计数器），outputs route 传入 run.result
+- workflow.ts 描述更新：删「No pyem, no Python: the converter is built in」改为集群就地转换 + python3+numpy 门槛 + fallback 说明（用户看到的 palette 与 inspector 同步，浏览器活体验证）
+- 验证装置：diag-t353-cs2star-cluster-side.mjs（新，36 断言）——零下载三重证（workdir 无 .cs、exec-audit 无 cat .cs、唯一 head -c 是 KB 级脚本上传）、twin 在册（stat>0 + record.remoteOutputs + mode direct）、链接农场 readlink、manifest、关键数字走 receipt 行、与本地道字节级一致（同 .cs 双道 diff）、下游 class2d 就地消费 twin（audit 无 particles.star 上传）+ argv 引用 twin 路径、重跑幂等零下载；diag-t336 更新 B6/B7/B8/B9 到就地道语义（B6 反转为「star 只在集群」+ B7b manifest）+ ROOT/BASE 参数化（CF_ROOT/CF_BASE）；diag-t352 改造为 FALLBACK 道套件——python-less shim 写进 mock 的 fs/opt/bin（MOCK_PATH 首位；/opt/bin 不在翻译前缀里，必须写宿主路径）断言「no python3+numpy — falling back」phase + 上传道 twin + .cs 缓存重用全保留；diag-t319 扩 4 个 t353 单元用例（7/20→99% 现场形状、带 params 也 null、n/N 计数器 null、ctffind 全局条保 99）
+- 排障记录：t353 首跑 4 FAIL 全部同根——POST /api/jobs 与 GET /api/jobs 只认 ACTIVE project（projects file 指针），PHASE 3 建本地项目把指针拨走，PHASE 4 的 class2d 落进本地项目（edge 400 different projects）+ awaitTerminal 在错误项目里永远找不到行（stuck 假象）——套件在 PHASE 3 后补 POST /api/projects/switch 归还指针（测试装置问题，非引擎回归）；t352 首跑 shim 失效（client 写 /opt/bin 落在沙箱真根而非 mock fs——/opt/bin 不是翻译前缀）改直写 mock fs 宿主路径；浏览器开 inspector 需 viewport <xl（sheet 的 !isXl 门）+ 卡片先 PATCH 到可视区
+- 活体验证：四套件 ALL GREEN（t353 36/36、t336 全绿、t352 全绿、t319 全绿含新用例）+ run-6 59/59（bun 跑——engine.ts 的 @/ 别名 node 裸解析不了，bun 走 tsconfig paths；refine argv/sbatch/Blush/守门面全不回归）+ tsc 0 错 + eslint 触碰文件零新增（全项目 15 项存量基线逐字一致）；agent-browser——页面干净渲染、palette 与 inspector 双处新描述、Params 页 csPath/invertY 在位、console/page errors 双零、390px 移动端零横向溢流（途中 dev server 被 OOM 收割一次——本盒已知模式，重启后全过；截图 docs/t353-inspector.png / t353-mobile.png；VLM 目检 429 限流，DOM 断言 + 截图代偿）
+
+Stage Summary:
+- 99% bug 根治：refine 家族裸条/计数器不再冒充全程进度——表头在窗口时组合、不在时单调保持（阶梯式诚实推进），per-image 家族语义不变
+- cs2star 集群架构落地（用户提案的形态）：参数本地定 → KB 级脚本上集群 → 登录节点 python3+numpy 就地转换 → star 直写 twin、农场进程内建链——200MB .cs 与 200MB star 永不过线；无 python 集群自动落回 t352-c 下载/转换/上传道（该道 diag-t352 永久钉死）；与本地道输出字节级一致（diag-t353 T10 钉死）；pyem 本身不再被需要（字段表就是 pyem 验证过的那张），但集群若有 pyem，其 shebang 会成为 python 解释器的第三探针臂
+- 消费链自洽：Files 页经 remote manifest 列出 on-cluster star、关键数字走 receipt 行、下游集群作业经 twin gate 就地消费（零上传）、日志页经 twinDir 见证 + t346 缓存双轨
+- 用户复机路径：git pull → cs2star 重跑一次（旧 job 的 twin 已在集群上的不受影响；新跑走集群就地道，receipt 尾部带 "converted ON the cluster in place"）；2D 分类的进度条从下一轮表头进窗口起恢复诚实阶梯

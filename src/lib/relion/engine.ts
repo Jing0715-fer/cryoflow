@@ -3111,6 +3111,818 @@ function csMirrorPath(localPath: string, remoteRoot: string): string {
   return norm;
 }
 
+/**
+ * t353 — the CLUSTER-SIDE converter: a self-contained python script, the
+ * byte-faithful twin of csRowsToStar (src/lib/relion/cs2star.ts — the
+ * pyem-verified field table, the uid smart-merge, the selective-link
+ * naming, the star emit order). The user's own architecture call: the
+ * params are decided HERE, the 100-200 MB .cs datasets and the .mrcs
+ * stacks live THERE — so the conversion runs where the data is. Only this
+ * few-KB script crosses the wire; the star is written straight to its
+ * cluster twin and the link farm is built in-process. No pyem install is
+ * required (numpy alone), and no sbatch: a login-node conversion is
+ * CPU-light I/O work, exactly where the user's own reference script ran
+ * csparc2star.py.
+ *
+ * Contract with the engine lane (runCs2StarOnCluster): argv-only params,
+ * cluster-absolute paths; exit 0 + a final "CF_RECEIPT {json}" line on
+ * stdout; every failure exits nonzero with the reason on stderr; the
+ * star writes to .tmp and renames (a failed run leaves nothing partial
+ * behind); the links are idempotent (remove + symlink, ln -sfn's shape).
+ */
+const CS2STAR_CLUSTER_PY = String.raw`#!/usr/bin/env python3
+# CryoFlow t353 - cluster-side CryoSPARC .cs -> RELION particles.star.
+# The byte-faithful python twin of the engine's native converter
+# (csRowsToStar): same uid join, same field table, same link naming,
+# same star emit order - the star written here is byte-identical to the
+# one the local lane would have produced from the same .cs.
+import argparse, json, math, os, re, sys, time
+from decimal import Decimal
+
+import numpy as np
+
+T0 = time.time()
+EPS = 2.220446049250313e-16
+DEG = 180.0 / math.pi
+
+def log(msg):
+    print(msg, flush=True)
+
+def fail(msg):
+    sys.stderr.write("CS2STAR-ERROR: %s\n" % msg)
+    sys.exit(1)
+
+# -- pyem's geometry, verbatim (geom/convert.py: expmap + rot2euler) ----
+def mul3(a, b):
+    out = [0.0] * 9
+    for i in range(3):
+        for j in range(3):
+            for l in range(3):
+                out[i * 3 + j] += a[i * 3 + l] * b[l * 3 + j]
+    return out
+
+def expmap(rx, ry, rz):
+    theta = math.sqrt(rx * rx + ry * ry + rz * rz)
+    if theta < 1e-16:
+        return [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+    wx, wy, wz = rx / theta, ry / theta, rz / theta
+    k = [0.0, wz, -wy, -wz, 0.0, wx, wy, -wx, 0.0]
+    k2 = mul3(k, k)
+    s = math.sin(theta)
+    c1 = 1.0 - math.cos(theta)
+    return [(1.0 if i % 4 == 0 else 0.0) + s * k[i] + c1 * k2[i] for i in range(9)]
+
+def _sign(x):
+    if x > 0:
+        return 1
+    if x < 0:
+        return -1
+    return 0
+
+def rot2euler(r):
+    abs_sb = math.hypot(r[2], r[5])
+    if abs_sb > 16 * EPS:
+        gamma = math.atan2(r[5], -r[2])
+        alpha = math.atan2(r[7], r[6])
+        if abs(math.sin(gamma)) < EPS:
+            sign_sb = _sign(-r[2]) / math.cos(gamma)
+        else:
+            sign_sb = _sign(r[5]) if math.sin(gamma) > 0 else -_sign(r[5])
+        beta = math.atan2(sign_sb * abs_sb, r[8])
+        return (alpha, beta, gamma)
+    if _sign(r[8]) > 0:
+        return (0.0, 0.0, math.atan2(-r[3], r[0]))
+    return (0.0, math.pi, math.atan2(r[3], -r[0]))
+
+def jsround(x):
+    # JS Math.round = floor(x + 0.5) - python round() is banker's and
+    # disagrees on exact .5 halves (coordinates hit them: 0.3125 * 5000)
+    return math.floor(x + 0.5)
+
+def fmt(v):
+    # the TS lane's fmt: integers < 1e15 plain, else
+    # String(Number(v.toPrecision(6))) - 6 significant digits in JS's
+    # Number-to-string dialect (fixed down to 1e-6, exponent otherwise
+    # with no leading zero in the exponent, "e+21" keeps the plus)
+    if not math.isfinite(v):
+        return "0"
+    if v == int(v) and abs(v) < 1e15:
+        return str(int(v))
+    x = float("%.6g" % v)
+    if x == int(x) and abs(x) < 1e15:
+        return str(int(x))
+    a = abs(x)
+    if a != 0.0 and (a < 1e-7 or a >= 1e21):
+        s = "%.5e" % x
+        mant, ex = s.split("e")
+        if "." in mant:
+            mant = mant.rstrip("0").rstrip(".")
+        exi = int(ex)
+        return "%se%s%d" % (mant, "+" if exi > 0 else "-", abs(exi))
+    return format(Decimal("%.6g" % x), "f")
+
+def nn(*xs):
+    for x in xs:
+        if x is not None:
+            return x
+    return None
+
+def to_py(v):
+    return v.item() if hasattr(v, "item") else v
+
+def decode_str(v):
+    if isinstance(v, bytes):
+        return v.decode("utf-8", "replace")
+    return str(v)
+
+def load_columns(path):
+    # .cs = a structured .npy. Columns are extracted ONCE into plain python
+    # values (exact ints for uid - i8 survives as python int, not f64) so
+    # the row loop below never touches numpy scalars.
+    arr = np.load(path, allow_pickle=False)
+    cols = {}
+    for name in arr.dtype.names:
+        a = arr[name]
+        if a.ndim == 2:
+            cols[name] = [list(map(to_py, row)) for row in a]
+        elif a.dtype.kind in ("S", "U"):
+            cols[name] = [decode_str(x) for x in a]
+        else:
+            cols[name] = [to_py(x) for x in a]
+    return cols, len(arr)
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--primary", required=True)
+    ap.add_argument("--passthrough")
+    ap.add_argument("--out", required=True)
+    ap.add_argument("--link-dir", required=True)
+    ap.add_argument("--cs-root", required=True)
+    ap.add_argument("--invert-y", default="0")
+    ap.add_argument("--fallback", default="{}")
+    args = ap.parse_args()
+
+    invert_y = args.invert_y in ("1", "true", "yes")
+    try:
+        fb = json.loads(args.fallback or "{}")
+    except Exception:
+        fb = {}
+    fb_angpix = fb.get("angpix")
+    fb_voltage = fb.get("voltage")
+    fb_cs = fb.get("cs")
+    fb_ac = fb.get("ac")
+
+    log("python %s - numpy %s" % (sys.version.split()[0], np.__version__))
+    log("reading %s" % args.primary)
+    prim, n_rows = load_columns(args.primary)
+    if n_rows == 0:
+        fail("the primary .cs holds zero rows")
+    pt_cols = None
+    pt_n = 0
+    if args.passthrough:
+        log("reading %s" % args.passthrough)
+        pt_cols, pt_n = load_columns(args.passthrough)
+
+    # the uid join (pyem smart_merge): passthrough fields absent from the
+    # primary ride onto the rows, matched by uid; a field the primary has
+    # itself never gets overridden
+    field_names = list(prim.keys())
+    field_set = set(field_names)
+    merged = dict(prim)
+    if pt_cols is not None and pt_n > 0:
+        by_uid = {}
+        for i, u in enumerate(pt_cols.get("uid", [])):
+            by_uid[u] = i
+        new_fields = [k for k in pt_cols.keys() if k != "uid" and k not in field_set]
+        for f in new_fields:
+            src = pt_cols[f]
+            col = [None] * n_rows
+            for i in range(n_rows):
+                d = by_uid.get(merged["uid"][i])
+                if d is not None:
+                    col[i] = src[d]
+            merged[f] = col
+        for f in new_fields:
+            field_set.add(f)
+            field_names.append(f)
+
+    def num1(i, k):
+        c = merged.get(k)
+        if c is None:
+            return None
+        v = c[i]
+        if isinstance(v, bool) or not isinstance(v, (int, float)):
+            return None
+        return v
+
+    def arr1(i, k):
+        c = merged.get(k)
+        if c is None:
+            return None
+        v = c[i]
+        return v if isinstance(v, list) else None
+
+    def str1(i, k):
+        c = merged.get(k)
+        if c is None:
+            return None
+        v = c[i]
+        return v if isinstance(v, str) else None
+
+    def has(k):
+        return k in field_set
+
+    alignment = "3D" if has("alignments3D/pose") else ("2D" if has("alignments2D/pose") else "none")
+    has_coords = has("location/center_x_frac") and has("location/micrograph_shape")
+
+    def img_path(i):
+        p = str1(i, "blob/path")
+        if p is None:
+            return None
+        return re.sub(r"^>+", "", p)
+
+    # the stack census (FIRST - the link names must be decided before any
+    # row references them; a colliding basename gets a -2 suffix and the
+    # star must speak the SAME suffixed name as the link)
+    stack_paths, seen = [], set()
+    for i in range(n_rows):
+        p = img_path(i)
+        if p is not None and p not in seen:
+            seen.add(p)
+            stack_paths.append(p)
+    used = {}
+    stack_plan = []
+    for p in stack_paths:
+        base = re.split(r"[\\/]", p)[-1]
+        base = re.sub(r"\.[^.]+$", "", base)
+        name = base + ".mrcs"
+        n = used.get(name)
+        if n:
+            used[name] = n + 1
+            name = "%s-%d.mrcs" % (base, n + 1)
+        else:
+            used[name] = 1
+        stack_plan.append((p, name))
+    link_of = dict(stack_plan)
+
+    optics_rows = {}
+    star_rows = []
+    for i in range(n_rows):
+        imgp = img_path(i)
+        img_idx = nn(num1(i, "blob/idx"), 0)
+        stack_path = imgp if imgp is not None else ""
+        link_name = link_of.get(stack_path, "")
+
+        gid_v = nn(num1(i, "ctf/exp_group_id"), 0)
+        gid = jsround(gid_v) + 1
+        if gid not in optics_rows:
+            angpix = nn(num1(i, "blob/psize_A"), fb_angpix, 1.0)
+            voltage = nn(num1(i, "ctf/accel_kv"), fb_voltage, 300.0)
+            cs = nn(num1(i, "ctf/cs_mm"), fb_cs, 2.7)
+            ac = nn(num1(i, "ctf/amp_contrast"), num1(i, "ctf/ac"), fb_ac, 0.1)
+            shape = arr1(i, "blob/shape")
+            box = jsround(nn(shape[0] if shape else None, 0))
+            optics_rows[gid] = {"voltage": voltage, "cs": cs, "ac": ac, "angpix": angpix, "box": box}
+        opt = optics_rows[gid]
+
+        vals = {}
+        if link_name:
+            vals["imageName"] = "%d@micrographs/%s" % (max(1, jsround(img_idx) + 1), link_name)
+        else:
+            vals["imageName"] = ""
+        mic = str1(i, "location/micrograph_path")
+        vals["micrographName"] = re.sub(r"^>+", "", mic) if mic is not None else ""
+
+        if has_coords:
+            fx = nn(num1(i, "location/center_x_frac"), 0.0)
+            fy = nn(num1(i, "location/center_y_frac"), 0.0)
+            if invert_y:
+                fy = 1.0 - fy
+            shape = arr1(i, "location/micrograph_shape")
+            if shape is None:
+                shape = [0, 0]
+            sx = nn(shape[1] if len(shape) > 1 else None, shape[0] if len(shape) > 0 else None, 0)
+            sy = nn(shape[0] if len(shape) > 0 else None, shape[1] if len(shape) > 1 else None, 0)
+            vals["coordX"] = str(jsround(fx * sx))
+            vals["coordY"] = str(jsround(fy * sy))
+
+        if alignment == "3D":
+            pose = arr1(i, "alignments3D/pose")
+            if pose is not None and len(pose) >= 3:
+                rot, tilt, psi = rot2euler(expmap(pose[0], pose[1], pose[2]))
+                vals["angleRot"] = fmt(rot * DEG)
+                vals["angleTilt"] = fmt(tilt * DEG)
+                vals["anglePsi"] = fmt(psi * DEG)
+            shift = arr1(i, "alignments3D/shift")
+            if shift is not None and len(shift) >= 2:
+                vals["originXAngst"] = fmt(shift[0] * opt["angpix"])
+                vals["originYAngst"] = fmt(shift[1] * opt["angpix"])
+            split = num1(i, "alignments3D/split")
+            if split is not None:
+                vals["randomSubset"] = str(jsround(split) + 1)
+        elif alignment == "2D":
+            psi = num1(i, "alignments2D/pose")
+            if psi is not None:
+                vals["anglePsi"] = fmt(psi * DEG)
+            shift = arr1(i, "alignments2D/shift")
+            if shift is not None and len(shift) >= 2:
+                vals["originXAngst"] = fmt(shift[0] * opt["angpix"])
+                vals["originYAngst"] = fmt(shift[1] * opt["angpix"])
+        cls = nn(num1(i, "alignments2D/class" if alignment == "2D" else "alignments3D/class"), num1(i, "class"))
+        if cls is not None:
+            vals["classNumber"] = str(jsround(cls) + 1)
+        dfu = num1(i, "ctf/df1_A")
+        if dfu is not None:
+            vals["defocusU"] = fmt(dfu)
+        dfv = num1(i, "ctf/df2_A")
+        if dfv is not None:
+            vals["defocusV"] = fmt(dfv)
+        dfa = num1(i, "ctf/df_angle_rad")
+        if dfa is not None:
+            vals["defocusAngle"] = fmt(dfa * DEG)
+        phs = num1(i, "ctf/phase_shift_rad")
+        vals["phaseShift"] = fmt(phs * DEG) if phs is not None else "0"
+
+        if vals["imageName"] != "":
+            star_rows.append(vals)
+
+    # the emit order (RELION's canonical particles star)
+    COLS = [
+        ("imageName", "_rlnImageName"),
+        ("micrographName", "_rlnMicrographName"),
+        ("coordX", "_rlnCoordinateX"),
+        ("coordY", "_rlnCoordinateY"),
+        ("angleRot", "_rlnAngleRot"),
+        ("angleTilt", "_rlnAngleTilt"),
+        ("anglePsi", "_rlnAnglePsi"),
+        ("originXAngst", "_rlnOriginXAngst"),
+        ("originYAngst", "_rlnOriginYAngst"),
+        ("defocusU", "_rlnDefocusU"),
+        ("defocusV", "_rlnDefocusV"),
+        ("defocusAngle", "_rlnDefocusAngle"),
+        ("phaseShift", "_rlnPhaseShift"),
+        ("classNumber", "_rlnClassNumber"),
+        ("randomSubset", "_rlnRandomSubset"),
+    ]
+    active = [c for c in COLS if any(c[0] in r for r in star_rows)]
+
+    lines = []
+    lines.append("")
+    lines.append("data_optics")
+    lines.append("")
+    lines.append("loop_")
+    optics_cols = [
+        ("_rlnOpticsGroup", lambda g: str(g)),
+        ("_rlnOpticsGroupName", lambda g: "opticsGroup%d" % g),
+        ("_rlnVoltage", lambda g: fmt(optics_rows[g]["voltage"])),
+        ("_rlnSphericalAberration", lambda g: fmt(optics_rows[g]["cs"])),
+        ("_rlnAmplitudeContrast", lambda g: fmt(optics_rows[g]["ac"])),
+        ("_rlnImageSize", lambda g: str(optics_rows[g]["box"]) if optics_rows[g]["box"] > 0 else ""),
+        ("_rlnImageDimensionality", lambda g: "2"),
+        ("_rlnImagePixelSize", lambda g: fmt(optics_rows[g]["angpix"])),
+    ]
+    for idx, (name, _f) in enumerate(optics_cols):
+        lines.append("%s #%d" % (name, idx + 1))
+    for g in sorted(optics_rows.keys()):
+        lines.append("\t".join(f(g) for (_n, f) in optics_cols))
+    lines.append("")
+    lines.append("data_particles")
+    lines.append("")
+    lines.append("loop_")
+    for idx, (k, name) in enumerate(active):
+        lines.append("%s #%d" % (name, idx + 1))
+    for r in star_rows:
+        lines.append("\t".join(r.get(k, "") for (k, _n) in active))
+    star_text = "\n".join(lines) + "\n"
+
+    MAPPED = [
+        r"^blob/(path|idx|psize_A|shape)$",
+        r"^ctf/(df1_A|df2_A|df_angle_rad|phase_shift_rad|accel_kv|cs_mm|ac|amp_contrast|exp_group_id|bfactor)$",
+        r"^location/(center_x_frac|center_y_frac|micrograph_path|micrograph_shape)$",
+        r"^alignments(2D|3D)/(pose|shift|class|split)$",
+    ]
+    unmapped = [k for k in field_names if k != "uid" and not any(re.match(rx, k) for rx in MAPPED)]
+
+    first = optics_rows.get(1)
+    if first is None and optics_rows:
+        first = next(iter(optics_rows.values()))
+    if first is None:
+        first = {
+            "voltage": nn(fb_voltage, 300.0),
+            "cs": nn(fb_cs, 2.7),
+            "ac": nn(fb_ac, 0.1),
+            "angpix": nn(fb_angpix, 1.0),
+            "box": 0,
+        }
+
+    # verify the referenced stacks exist, resolve relative paths against
+    # the cs project root (the engine's old lane did this over SSH)
+    def resolve_cs(p):
+        if p.startswith("/"):
+            return p
+        return args.cs_root + "/" + re.sub(r"^\./", "", p)
+
+    targets = [resolve_cs(p) for (p, _n) in stack_plan]
+    missing = [t for t in targets if not os.path.isfile(t)]
+    if missing:
+        fail("%d referenced particle stack(s) are missing on the cluster (first: %s) - the .cs names files the CryoSPARC project no longer holds" % (len(missing), missing[0]))
+
+    os.makedirs(args.link_dir, exist_ok=True)
+    log("linking %d stack(s) into %s (selective - only what this star references)" % (len(stack_plan), args.link_dir))
+    for (_p, name), target in zip(stack_plan, targets):
+        link = os.path.join(args.link_dir, name)
+        try:
+            if os.path.lexists(link):
+                os.remove(link)
+            os.symlink(target, link)
+        except OSError as e:
+            fail("could not link %s -> %s (%s)" % (link, target, e))
+
+    dirs = set(os.path.dirname(t) for t in targets)
+    total_mrc = 0
+    for d in dirs:
+        try:
+            total_mrc += sum(1 for f in os.listdir(d) if f.endswith(".mrc"))
+        except OSError:
+            pass
+
+    tmp = args.out + ".tmp"
+    with open(tmp, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(star_text)
+    os.replace(tmp, args.out)
+    star_bytes = os.path.getsize(args.out)
+
+    log("CF_RECEIPT " + json.dumps({
+        "particles": len(star_rows),
+        "stacks": [{"csPath": p, "linkName": n} for (p, n) in stack_plan],
+        "unmapped": unmapped,
+        "opticsGroups": len(optics_rows),
+        "optics": {"voltage": first["voltage"], "cs": first["cs"], "ac": first["ac"], "angpix": first["angpix"], "boxSize": first["box"]},
+        "hasCoordinates": has_coords,
+        "alignment": alignment,
+        "censusTotalMrc": total_mrc,
+        "starPath": args.out,
+        "starBytes": star_bytes,
+        "durationSec": round(time.time() - T0, 1),
+    }))
+
+if __name__ == "__main__":
+    try:
+        main()
+    except SystemExit:
+        raise
+    except Exception:
+        import traceback
+        sys.stderr.write("CS2STAR-ERROR: unhandled exception\n" + traceback.format_exc())
+        sys.exit(1)
+`;
+
+/**
+ * t353 — does the cluster's login shell have a python with numpy?
+ * ONE SSH round: python3 first (the HPC default), then python, then the
+ * pyem install's own interpreter — csparc2star.py's shebang names the
+ * exact python that has numpy (a conda env python the PATH never sees,
+ * exactly the user's layout). env-shebangs resolve through command -v
+ * (which the first arm already tried); only an ABSOLUTE shebang adds
+ * reach. Returns the exe path, or null with `definitive` telling whether
+ * the cluster answered a clean "no python" (vs a wire that stayed
+ * silent — the fallback lane's phase line speaks the difference).
+ */
+async function probeClusterPython(
+  conn: RemoteConnection
+): Promise<{ exe: string | null; definitive: boolean }> {
+  const sh = [
+    'P=$(command -v python3 || true)',
+    '[ -z "$P" ] && P=$(command -v python || true)',
+    'if [ -n "$P" ] && "$P" -c "import numpy" >/dev/null 2>&1; then echo "PYOK $P"; exit 0; fi',
+    'CS=$(command -v csparc2star.py || command -v csparc2star || true)',
+    'if [ -n "$CS" ] && [ -f "$CS" ]; then',
+    '  SB=$(sed -n "1s/^#!//p" "$CS" | tr -d "\\r")',
+    '  if [ -n "$SB" ]; then',
+    '    S1=${SB%% *}',
+    '    if [ "$S1" = "/usr/bin/env" ] || [ "$S1" = "env" ]; then',
+    '      S2=${SB#* }; S2=${S2%% *}',
+    '      case "$S2" in /*) SB="$S2";; *) SB=$(command -v "$S2" || true);; esac',
+    '    else',
+    '      SB="$S1"',
+    '    fi',
+    '    if [ -n "$SB" ] && "$SB" -c "import numpy" >/dev/null 2>&1; then echo "PYOK $SB"; exit 0; fi',
+    '  fi',
+    'fi',
+    'echo PYNONE',
+  ].join("\n");
+  try {
+    const r = await sshExec(conn, sh, { timeoutMs: 20_000 });
+    if (r.error) return { exe: null, definitive: false };
+    const line = (r.stdout ?? "")
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .find((l) => /^PYOK \S+/.test(l));
+    return { exe: line ? line.slice("PYOK ".length) : null, definitive: line == null };
+  } catch {
+    return { exe: null, definitive: false };
+  }
+}
+
+/** The receipt the cluster-side converter prints (CF_RECEIPT line). */
+interface CsClusterReceipt {
+  particles: number;
+  stacks: Array<{ csPath: string; linkName: string }>;
+  unmapped: string[];
+  opticsGroups: number;
+  optics: { voltage: number; cs: number; ac: number; angpix: number; boxSize: number };
+  hasCoordinates: boolean;
+  alignment: "3D" | "2D" | "none";
+  censusTotalMrc: number;
+  starBytes: number;
+  durationSec: number;
+}
+
+/**
+ * t353 — the CLUSTER-SIDE lane proper: upload the converter script (KBs),
+ * run it ON the cluster (params as argv), verify the star where it was
+ * written. The .cs bytes never leave the cluster and the star never
+ * crosses the wire — the twin is not uploaded, it is BORN there. The
+ * record keeps the LOCAL-flavored output path (absent on this machine
+ * by design — "output on the cluster" is the point) so the twin gates
+ * map consumers to the cluster path, exactly like a sync that left the
+ * local copy behind.
+ */
+async function runCs2StarOnCluster(
+  job: EngineJobRef,
+  workdir: string,
+  conn: RemoteConnection,
+  resolved: { primary: string; passthrough: string | null; csProjectRoot: string; jobLabel: string },
+  opts: { invertY: boolean; fallback: { angpix?: number; voltage?: number; cs?: number; ac?: number } },
+  pyExe: string
+): Promise<NativeResult> {
+  const phase = (line: string) => nativePhaseLog(workdir, line);
+  const q = (p: string) => `'${p.replace(/'/g, `'\\''`)}'`;
+
+  const remoteRoot = await expandCsRemoteRoot(conn, conn.remoteRoot || "~/cryoflow");
+  const starPath = path.join(workdir, "particles.star"); // the record's local flavor (twin gate maps it)
+  const twinPath = csMirrorPath(starPath, remoteRoot);
+  const twinDir = twinPath.slice(0, twinPath.lastIndexOf("/"));
+  const linkDir = `${remoteRoot.replace(/\/$/, "")}/${job.projectId}/micrographs`;
+
+  const fb = opts.fallback;
+  const fbJson = JSON.stringify({
+    ...(fb.angpix != null ? { angpix: fb.angpix } : {}),
+    ...(fb.voltage != null ? { voltage: fb.voltage } : {}),
+    ...(fb.cs != null ? { cs: fb.cs } : {}),
+    ...(fb.ac != null ? { ac: fb.ac } : {}),
+  });
+
+  phase(`converting ON the cluster (${pyExe}) — the .cs never leaves it; the star is written straight to ${twinPath}`);
+  await remoteMkdir(conn, twinDir);
+  await remoteMkdir(conn, linkDir);
+  const scriptPath = `${twinDir}/cs2star_cf.py`;
+  phase(`uploading the converter (${(CS2STAR_CLUSTER_PY.length / 1024).toFixed(1)} KB) → ${scriptPath}`);
+  if (!(await remoteUpload(conn, CS2STAR_CLUSTER_PY, scriptPath))) {
+    return {
+      ok: false,
+      error: `could not upload the converter script to ${scriptPath} — the cluster connection answered poorly; run again (nothing was modified on the cluster)`,
+    };
+  }
+
+  const cmd = [
+    q(pyExe),
+    q(scriptPath),
+    "--primary",
+    q(resolved.primary),
+    ...(resolved.passthrough ? ["--passthrough", q(resolved.passthrough)] : []),
+    "--out",
+    q(twinPath),
+    "--link-dir",
+    q(linkDir),
+    "--cs-root",
+    q(resolved.csProjectRoot),
+    "--invert-y",
+    opts.invertY ? "1" : "0",
+    "--fallback",
+    q(fbJson),
+  ].join(" ");
+
+  // t340's heartbeat doctrine: the exec is ONE call, so the interim lines
+  // come from a local timer (zero SSH) — the log tab stays alive while the
+  // login node chews.
+  let elapsed = 0;
+  const hb = setInterval(() => {
+    elapsed += 15;
+    nativePhaseLog(workdir, `converting on the cluster… ${elapsed}s`);
+  }, 15_000);
+  let res: Awaited<ReturnType<typeof sshExec>>;
+  try {
+    res = await sshExec(conn, cmd, { timeoutMs: 900_000 });
+  } finally {
+    clearInterval(hb);
+  }
+  const outText = res.stdout ?? "";
+  const errText = res.stderr ?? "";
+  // the converter's own log becomes part of the local witness
+  try {
+    appendFileSync(path.join(workdir, "run.out"), `\n--- converter output (on the cluster) ---\n${outText}`);
+  } catch {
+    /* witness doctrine */
+  }
+  if (res.error || res.code == null || res.code !== 0) {
+    const why = [errText, outText].join("\n").split("\n").filter(Boolean).slice(-4).join(" | ");
+    return {
+      ok: false,
+      error: `the cluster-side conversion failed (exit ${res.code ?? "ssh: " + (res.error ?? "no answer")}): ${why || "no output"} — the .cs was not downloaded and no star was written; the log tab holds the full converter output`,
+    };
+  }
+  const receiptLine = outText.split(/\r?\n/).filter((l) => l.startsWith("CF_RECEIPT ")).pop();
+  if (!receiptLine) {
+    return {
+      ok: false,
+      error: "the converter exited 0 but printed no receipt — unexpected output; the log tab holds what it did say",
+    };
+  }
+  let conv: CsClusterReceipt;
+  try {
+    conv = JSON.parse(receiptLine.slice("CF_RECEIPT ".length)) as CsClusterReceipt;
+  } catch {
+    return { ok: false, error: "the converter's receipt could not be parsed — the log tab holds the raw line" };
+  }
+  if (conv.particles === 0) {
+    return { ok: false, error: `the .cs holds no windowable particle rows (blob/path missing) — ${resolved.primary}` };
+  }
+  phase(`converted: ${conv.particles} particles · ${conv.stacks.length} referenced stack(s) · ${conv.durationSec}s on the cluster`);
+  // verify BEFORE recording anything — the twin gates chain downstream
+  // argv off this path (same doctrine as the upload lane)
+  let twinSize: number | null = null;
+  try {
+    const verify = await statRemoteFiles(conn, [twinPath]);
+    const s = verify.missing.length > 0 ? null : (verify.sizes[0] ?? null);
+    if (s != null && s > 0) twinSize = s;
+  } catch {
+    /* verified absent below */
+  }
+  if (twinSize == null) {
+    return {
+      ok: false,
+      error: `the converter reported success but ${twinPath} did not verify on the cluster — run again (the .cs was not downloaded, the retry is cheap)`,
+    };
+  }
+  phase(`star written on the cluster: ${twinPath} (verified ${twinSize.toLocaleString()} bytes)`);
+
+  const censusNote =
+    conv.censusTotalMrc > conv.stacks.length
+      ? ` · ${conv.stacks.length} of ${conv.censusTotalMrc} .mrc stack(s) linked — only the ones this star references (the rest stay untouched)`
+      : ` · ${conv.stacks.length} stack(s) linked`;
+  const opticsNote = `${f6(conv.optics.voltage)} kV · Cs ${f6(conv.optics.cs)} mm · ac ${f6(conv.optics.ac)} · pixel ${f6(conv.optics.angpix)} Å`;
+  const alignNote =
+    conv.alignment === "3D"
+      ? "3D alignments (Rodrigues → Euler)"
+      : conv.alignment === "2D"
+        ? "2D alignments (psi)"
+        : "no alignments (picked-only set)";
+  const unmappedNote = conv.unmapped.length > 0 ? ` · ${conv.unmapped.length} unmapped .cs field(s) skipped` : "";
+  const result =
+    `REMOTE[cryo@${conn.host}]: ${conv.particles} particles converted from ${resolved.jobLabel}${censusNote} · ${conv.stacks.length} stack(s) → micrographs/ · ${opticsNote} · ${alignNote}${unmappedNote}` +
+    (conv.opticsGroups > 1 ? ` · ${conv.opticsGroups} optics groups` : "") +
+    ` · converted ON the cluster in place (no .cs download, no star upload)`;
+  const logText = [
+    `CryoFlow cluster-side CryoSPARC conversion ${new Date().toISOString()}`,
+    `source: ${resolved.primary}${resolved.passthrough ? ` + ${resolved.passthrough}` : ""}`,
+    `cs project root: ${resolved.csProjectRoot}`,
+    `python: ${pyExe}`,
+    `invertY: ${opts.invertY}`,
+    `particles: ${conv.particles} · referenced stacks: ${conv.stacks.length}${censusNote}`,
+    `optics: ${opticsNote} · ${alignNote}`,
+    conv.unmapped.length > 0 ? `unmapped fields: ${conv.unmapped.join(", ")}` : "",
+    `output: ${twinPath} (cluster) — written in place, verified ${twinSize.toLocaleString()} bytes · ${conv.durationSec}s on the cluster; no local mirror by design (downstream jobs read the twin)`,
+    result,
+    "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+  await finishCsRunOnCluster(
+    job,
+    workdir,
+    conn,
+    remoteRoot,
+    twinPath,
+    twinSize,
+    starPath,
+    "engine-native: cryosparc cs → star (cluster-side, selective links)",
+    result,
+    logText,
+    errText
+  );
+  return { ok: true, result };
+}
+
+/**
+ * t353 — the remote manifest, INLINED (the engine↔remote-run cycle is
+ * broken on purpose — csMirrorPath/expandCsRemoteRoot above are the
+ * precedent; remote-files.ts imports remote-run.ts, so importing its
+ * writer here would close the loop). Byte-shape identical to
+ * writeRemoteManifest (remote-files.ts): the outputs route lists manifest
+ * files as "on cluster" cards and the file route fetches them over SSH
+ * on demand — without it, a cluster-side cs2star's Files tab would show
+ * nothing at all.
+ */
+function writeCsRemoteManifest(
+  workdir: string,
+  connectionId: string,
+  remoteWorkdir: string,
+  files: Array<{ path: string; size: number }>
+): void {
+  try {
+    mkdirSync(workdir, { recursive: true });
+    writeFileSync(
+      path.join(workdir, ".cf-remote-manifest.json"),
+      JSON.stringify({ version: 1, writtenAt: new Date().toISOString(), connectionId, remoteWorkdir, files }, null, 2),
+      "utf8"
+    );
+  } catch {
+    /* best-effort bookkeeping — never the run */
+  }
+}
+
+/**
+ * t352/t353 — the shared finish for BOTH cluster lanes (the t352 upload
+ * lane and the t353 in-place lane): record the run, mirror the witnesses
+ * into the twin dir, and register the twin on the record — the exact
+ * block the t352 lane grew, extracted so the two lanes cannot drift.
+ */
+async function finishCsRunOnCluster(
+  job: EngineJobRef,
+  workdir: string,
+  conn: RemoteConnection,
+  remoteRoot: string,
+  twinPath: string,
+  twinSize: number | null,
+  starPath: string,
+  cmdLabel: string,
+  result: string,
+  logText: string,
+  errText: string
+): Promise<void> {
+  const twinDir = twinPath.slice(0, twinPath.lastIndexOf("/"));
+  // t353 — the cluster-side lane has NO local star (the whole point): the
+  // manifest lets the outputs route list particles.star as an on-cluster
+  // file (the fallback lane's local copy makes the manifest entry a
+  // no-op there — the route's localSet dedupe skips it)
+  if (!existsSync(starPath) && twinSize != null) {
+    writeCsRemoteManifest(workdir, conn.id, twinDir, [{ path: "particles.star", size: twinSize }]);
+  }
+  recordNativeRun(job, workdir, cmdLabel, { particles_star: starPath }, result, logText);
+  // the record recordNativeRun just wrote: its startedAt is the identity
+  // the persistence guard below compares against (the probeRemoteOutputs /
+  // finalize pattern — recordNativeRun stamps a FRESH startedAt on every
+  // write, so only a record that is still THIS conversion may carry the
+  // twin; a re-run that already replaced it keeps its own shape)
+  const nativeRec = getRun(job.id);
+  // the witnesses ride along: the log route serves remote records from
+  // the CLUSTER workdir, so without the twin-dir copies the finished
+  // job's log tab would fetch an empty console. Best-effort by design —
+  // a witness must not be able to kill the finished run — and the
+  // ledger's t346 logTail cache below carries the tail lane even when
+  // the cluster copy is missing.
+  const twinLogText = (() => {
+    try {
+      return readFileSync(path.join(workdir, "run.out"), "utf8");
+    } catch {
+      return logText; // the file itself unreadable — the summary stands in
+    }
+  })();
+  const logOutOk = await remoteUpload(conn, twinLogText, `${twinDir}/run.out`);
+  const logErrOk = await remoteUpload(conn, errText, `${twinDir}/run.err`);
+  if (!logOutOk || !logErrOk) {
+    console.log(
+      `engine: cs2star ${job.id.slice(-8)} — star twin verified at ${twinPath}, but the run.out/run.err witnesses did not upload (the local log stays authoritative; the ledger cache serves the tail)`
+    );
+  }
+  updateRun(job.id, (cur) =>
+    nativeRec && cur.startedAt === nativeRec.startedAt && cur.done && cur.exitCode === 0
+      ? {
+          ...cur,
+          remote: {
+            connectionId: conn.id,
+            connectionName: conn.name,
+            host: `${conn.host}:${conn.port}`,
+            user: conn.username,
+            module: conn.defaultModule ?? "",
+            mode: "direct",
+            remoteRoot,
+            remoteWorkdir: twinDir,
+            pid: null,
+            slurmId: null,
+            phase: "running",
+            remoteOutputs: { ...(cur.remote?.remoteOutputs ?? {}), particles_star: twinPath },
+            logTailOut: twinLogText.slice(-4096),
+            logTailErr: errText.slice(-2048),
+            logTotalLines: twinLogText.split("\n").length,
+            logTailAt: Date.now(),
+          },
+        }
+      : null
+  );
+}
+
 /** The runner: cluster .cs bytes → star + SELECTIVE links; local .cs same. */
 async function runCs2StarNative(job: EngineJobRef): Promise<NativeResult> {
   const workdir = workdirFor(job);
@@ -3154,6 +3966,30 @@ async function runCs2StarNative(job: EngineJobRef): Promise<NativeResult> {
     csProjectRoot = resolved.csProjectRoot;
     jobLabel = resolved.jobLabel;
     phase(`discovered: ${resolved.primary}${resolved.passthrough ? ` + ${resolved.passthrough}` : ""}`);
+
+    // t353 — THE CLUSTER-SIDE LANE (the user's own architecture call):
+    // the params were decided HERE, the .cs datasets and the stacks live
+    // THERE — so the conversion runs where the data is. A python with
+    // numpy in the login shell (python3 → python → the pyem install's
+    // own shebang) receives the few-KB converter script; the star is
+    // written straight to its cluster twin and the link farm is built
+    // in-process. Nothing below this block is removed — it stays as the
+    // FALLBACK lane (download .cs → convert locally → upload the star)
+    // for clusters without python, and for a probe the wire could not
+    // answer (the download lane speaks its own honest errors there).
+    // A script-level failure does NOT fall back: the same .cs bytes
+    // would fail identically in the local converter — the error is the
+    // verdict, and it names what did and did not happen.
+    const py = await probeClusterPython(conn);
+    if (py.exe) {
+      phase(`cluster python: ${py.exe}`);
+      return await runCs2StarOnCluster(job, workdir, conn, resolved, { invertY, fallback }, py.exe);
+    }
+    phase(
+      py.definitive
+        ? "no python3+numpy in the cluster's login shell — falling back to the engine-native lane (download .cs → convert locally → upload the star)"
+        : "could not probe the cluster's python (the wire stayed silent) — falling back to the engine-native lane"
+    );
 
     const want: string[] = [resolved.primary, ...(resolved.passthrough ? [resolved.passthrough] : [])];
     const { sizes, missing } = await statRemoteFiles(conn, want);
@@ -3392,73 +4228,21 @@ async function runCs2StarNative(job: EngineJobRef): Promise<NativeResult> {
       .filter(Boolean)
       .join("\n");
     recordNativeRun(job, workdir, "engine-native: cryosparc cs → star (selective links)", { particles_star: starPath }, result, logText);
-    // the record recordNativeRun just wrote: its startedAt is the identity
-    // the persistence guard below compares against (the probeRemoteOutputs /
-    // finalize pattern — recordNativeRun stamps a FRESH startedAt on every
-    // write, so only a record that is still THIS conversion may carry the
-    // twin; a re-run that already replaced it keeps its own shape)
-    const nativeRec = getRun(job.id);
-
-    // t352 — REGISTER THE TWIN: the remote state persists AFTER
-    // recordNativeRun (its upsert REPLACES the record, remote half and
-    // all), the same updateRun-after-finalize shape probeRemoteOutputs
-    // and the remote finalize leg use. The twin gates compare only
-    // connectionId + host (sameClusterTarget), so the state carries the
-    // conn's real identity. mode "direct" + pid null: no cluster process
-    // ever ran for this job — the record names WHERE THE FILE LIVES, not
-    // a live session (isRunAlive consults remote only on done === false;
-    // reconcileRemoteJobs skips done records — the finished conversion
-    // is never re-polled).
-    //
-    // The run.out/run.err witnesses ride along: the log route serves
-    // remote records from the CLUSTER workdir, so without the twin-dir
-    // copies the finished job's log tab would fetch an empty console.
-    // Their upload is best-effort — a witness must not be able to kill
-    // the finished run — and the ledger's t346 logTail cache below
-    // carries the tail lane even when the cluster copy is missing.
-    const twinLogText = (() => {
-      try {
-        return readFileSync(path.join(workdir, "run.out"), "utf8");
-      } catch {
-        return logText; // the file itself unreadable — the summary stands in
-      }
-    })();
-    const logOutOk = await remoteUpload(conn, twinLogText, `${twinDir}/run.out`);
-    const logErrOk = await remoteUpload(conn, "", `${twinDir}/run.err`);
-    if (!logOutOk || !logErrOk) {
-      console.log(
-        `engine: cs2star ${job.id.slice(-8)} — star twin verified at ${twinPath}, but the run.out/run.err witnesses did not upload (the local log stays authoritative; the ledger cache serves the tail)`
-      );
-    }
-    updateRun(job.id, (cur) =>
-      nativeRec && cur.startedAt === nativeRec.startedAt && cur.done && cur.exitCode === 0
-        ? {
-            ...cur,
-            remote: {
-              connectionId: conn.id,
-              connectionName: conn.name,
-              host: `${conn.host}:${conn.port}`,
-              user: conn.username,
-              module: conn.defaultModule ?? "",
-              mode: "direct",
-              remoteRoot,
-              remoteWorkdir: twinDir,
-              pid: null,
-              slurmId: null,
-              phase: "running",
-              remoteOutputs: { ...(cur.remote?.remoteOutputs ?? {}), particles_star: twinPath },
-              // t346's cache fields reused as the finalize's own snapshot:
-              // the log route's TAIL lane serves DONE records from the
-              // ledger (rec.done → cache forever) — the tail must not
-              // depend on the best-effort cluster copy above. Full mode
-              // fetches the real file from twinDir.
-              logTailOut: twinLogText.slice(-4096),
-              logTailErr: "",
-              logTotalLines: twinLogText.split("\n").length,
-              logTailAt: Date.now(),
-            },
-          }
-        : null
+    // t352/t353 — the twin registration + witnesses live in the SHARED
+    // finish now (finishCsRunOnCluster — the exact block this lane grew,
+    // extracted so the in-place lane cannot drift from it)
+    await finishCsRunOnCluster(
+      job,
+      workdir,
+      conn,
+      remoteRoot,
+      twinPath,
+      twinSize,
+      starPath,
+      "engine-native: cryosparc cs → star (selective links)",
+      result,
+      logText,
+      ""
     );
     return { ok: true, result };
   }

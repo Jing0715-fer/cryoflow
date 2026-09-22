@@ -1,10 +1,10 @@
 /**
- * DIAG t352 — the cs2star CLUSTER TWIN + the .cs re-download dedupe.
+ * DIAG t352 — the cs2star CLUSTER TWIN via the FALLBACK lane (no python).
  *
  * The field report (2026-09-22, J999 · 325,549 particles): the conversion
  * linked 10,664 stacks ON the cluster but wrote particles.star ONLY to
  * the local workdir — "the cluster has no output of this job, and all
- * subsequent computation runs there". t352-c fixes the shape:
+ * subsequent computation runs there". t352-c fixed the shape:
  *
  *   1. the converted star is UPLOADED to the cluster at the mirror-mapped
  *      job dir (<remoteRoot>/<projectId>/<jobKey>/particles.star), size-
@@ -14,17 +14,25 @@
  *      bytes (the workdir's cached copies are size-checked against the
  *      remote and reused when unchanged).
  *
- * This suite walks both: run → twin assertions (receipt, run.out, the
- * record, the file itself) → RE-RUN → the dedupe receipt. The mock
- * cluster (:3022) and the dev server (:3001) must both be up.
+ * t353 note: the PRIMARY cluster lane now converts ON the cluster (see
+ * diag-t353-cs2star-cluster-side.mjs); this suite pins the FALLBACK lane
+ * that serves clusters WITHOUT python3+numpy. The mock is made python-less
+ * for the run: a failing python3/python shim lands in the mock's /opt/bin
+ * (first on its PATH), so the engine's probe hears a clean "no python"
+ * and takes the download → convert locally → upload lane. The shim is
+ * removed in the cleanup — run this suite ALONE, not concurrently with
+ * suites that need the mock's real python.
+ *
+ * The mock cluster (:3022) and the dev server must both be up.
+ * CF_ROOT / CF_BASE override the defaults (the sandbox convention).
  */
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { chmodSync, existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import net from "node:net";
 import path from "node:path";
 
-const ROOT = "/home/z/cryoflow";
-const BASE = "http://localhost:3001";
+const ROOT = process.env.CF_ROOT ?? "/home/z/my-project";
+const BASE = process.env.CF_BASE ?? "http://localhost:3000";
 const CONN = "qa-t352";
 const SH = { Origin: BASE, Referer: `${BASE}/` };
 const SHJ = { ...SH, "Content-Type": "application/json" };
@@ -146,6 +154,18 @@ try {
   if (fail > 0) throw new Error("stage not ready");
 
   console.log("== PHASE 1: connection + project + the J42 fixtures ==");
+  // t353 — make the mock python-less so the engine's probe takes THIS
+  // suite's lane: a failing python3/python shim in the mock's fs/opt/bin
+  // (FIRST on the mock's command PATH — /opt/bin is not one of the
+  // translated mount prefixes, so the shim is written at the HOST path
+  // the mock actually resolves). Cleanup removes it.
+  const shimDir = path.join(ROOT, "services/mock-cluster/fs/opt/bin");
+  for (const n of ["python3", "python"]) {
+    writeFileSync(path.join(shimDir, n), "#!/bin/bash\nexit 1\n", "utf8");
+    chmodSync(path.join(shimDir, n), 0o755);
+  }
+  const shim = client("command -v python3");
+  must(/[/]opt[/]bin[/]python3$/.test(shim), `the python-less shim is first on the mock's PATH (${shim})`);
   await api(`/api/remote/connections/${CONN}`, { method: "DELETE", headers: SHJ }).catch(() => {});
   const mkConn = await api("/api/remote/connections", {
     method: "POST", headers: SHJ,
@@ -194,6 +214,7 @@ try {
   must(!!jobDir, "T1b the cs2star workdir exists");
   const runOut = readFileSync(`${workdir}/${jobDir}/run.out`, "utf8");
   const twinPath = `/projects/cryoflow/${projectId}/${jobDir}/particles.star`;
+  must(/no python3\+numpy in the cluster's login shell — falling back/.test(runOut), "T0 the probe heard a clean 'no python' and the FALLBACK lane speaks it");
   must(runOut.includes(`uploading: particles.star`), "T2a run.out speaks the upload phase");
   must(runOut.includes(`output: ${twinPath} (cluster) + local mirror:`), "T2b run.out speaks BOTH paths (cluster twin first, local mirror second)");
 
@@ -227,6 +248,9 @@ try {
   must(false, "the diag ran to completion", String(e?.stack ?? e));
 } finally {
   console.log("== CLEANUP ==");
+  for (const n of ["python3", "python"]) {
+    try { rmSync(path.join(ROOT, "services/mock-cluster/fs/opt/bin", n), { force: true }); } catch {}
+  }
   if (csJobId) await api(`/api/jobs/${csJobId}`, { method: "DELETE", headers: SHJ }).catch(() => {});
   if (projectId) {
     await api(`/api/projects/${projectId}`, { method: "DELETE", headers: SHJ }).catch(() => {});
