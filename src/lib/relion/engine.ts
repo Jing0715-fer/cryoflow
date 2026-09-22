@@ -779,45 +779,41 @@ function micAngpix(upstream: UpstreamRef[]): number | null {
 }
 
 /**
- * t341 — the effective particle BOX EDGE (px) the refine family FFTs:
- * the extraction job's box after its optional --scale downsample. The
- * extract spec's own defaults (128 → 64) apply when no extract upstream
- * is wired, mirroring particlePixel's fallback philosophy.
+ * t350 — the refine family's pooled-particle auto value (relion_refine
+ * --pool). The t341 flag this replaces (--batch_size) NEVER EXISTED: a
+ * full audit of 3dem/relion tags 3.1 / 4.0 / 5.0-beta / 5.0 / 5.0.1 / 5.1
+ * (ml_optimiser.cpp, every getOption/checkOption string) finds no such
+ * option in ANY release — RELION's parser (args.cpp checkForUnknown-
+ * Arguments) hard-rejects unknown --flags, so any dispatch that carried
+ * it died at argv parse before the first banner. The REAL lever is
+ * --pool ("Number of images to pool for each thread task", CLI default
+ * 1), and RELION 5's own GUI ships an explicit --pool 3 for every
+ * refine-family job (pipeline_jobs.cpp, range 1–16: batches of
+ * pool × threads images are read together — one open/close per batch,
+ * fewer GPU kernel launches, more VRAM per batch). We mirror exactly the
+ * authors' own default — no invented box curve: the OOM that motivated
+ * t341 was the six-ranks-on-device-0 pile-up (fixed by t345/t349), not a
+ * pool size.
+ *
+ * Exported for the tests: one constant, every surface.
  */
-function particleBox(_job: EngineJobRef, upstream: UpstreamRef[]): number {
-  const extractUp = upstream.find((u) => u.type === "extract");
-  const box = extractUp?.params && typeof extractUp.params.boxSize === "number" ? extractUp.params.boxSize : 128;
-  const down = extractUp?.params && typeof extractUp.params.downsampleTo === "number" ? extractUp.params.downsampleTo : 0;
-  return down > 0 && down < box ? Math.round(down) : Math.round(box);
+export function refineAutoPool(): number {
+  // RELION 5's GUI default — verbatim (pipeline_jobs.cpp nr_pool)
+  return 3;
 }
 
 /**
- * t341 — the memory-aware batch size for the refine family
- * (relion_refine --batch_size). RELION's own default (128 particles per
- * chunk) is sized for small boxes; the per-chunk GPU working set grows
- * with the box (2D: ∝ batch·box², 3D: ∝ batch·box³ once the padded FFT
- * grids ride along), so a large-box run dies ~30s into its first
- * iteration with a CUDA out-of-memory while the tails show nothing (the
- * field report: 2D Classification on the cluster, Slurm FAILED, prterun
- * rank exit 1, "out of memory" mid-log). Scale the batch with the box
- * and keep RELION's default untouched below the safe edge — no behavior
- * change where the default already fits. Returns null = "no flag, let
- * RELION's own default ride".
- *
- * Exported for the run dialog's preview and the tests: one formula,
- * every surface.
+ * t350 — the refine family's optional node-local scratch (--scratch_dir:
+ * "particle stacks will be copied to this local scratch disk prior to
+ * refinement", RELION 5.0 ml_optimiser.cpp). On NFS-backed clusters
+ * this moves the per-iteration particle re-reads onto node-local disk —
+ * often the largest I/O win available without touching RELION itself.
+ * Empty (the default) = off. Returned WITHOUT the flag name so callers
+ * only push when non-empty.
  */
-export function refineAutoBatch(box: number, kind: "2d" | "3d"): number | null {
-  // RELION's default fits comfortably below these edges (a 2D chunk at
-  // a 200px box is ~40 MB of FFT workspace; 3D's padded grids double it)
-  const safeEdge = kind === "2d" ? 200 : 160;
-  if (!Number.isFinite(box) || box <= safeEdge) return null;
-  const scaled =
-    kind === "2d" ? 128 * (safeEdge / box) ** 2 : 128 * (safeEdge / box) ** 3;
-  // floor to a multiple of 8, clamp into [32, 64] — never raise above 64
-  // (an auto value above the default would be a footgun in the other
-  // direction), never squeeze below RELION's practical floor of 32
-  return Math.max(32, Math.min(64, Math.floor(scaled / 8) * 8));
+export function refineScratchDir(job: EngineJobRef): string {
+  const sd = str(job, "scratchDir", "");
+  return typeof sd === "string" ? sd.trim() : "";
 }
 
 /** Particle pixel size: import pixel × (extract box / downsample). */
@@ -4138,26 +4134,27 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
         // parallelism comes from --j (RELION defaults to 1 without it)
         "--j", String(Math.max(1, Math.round(num(job, "threads", 4)))),
       ];
-      // optional cap on alignment resolution (0 = unlimited)
+      // t350 — the E-step resolution cap. The t341 flag this replaces
+      // (--highres_limit) never existed in any RELION release (same audit
+      // as refineAutoPool); the REAL option caps probability calculations
+      // in the expectation step — a genuine speed lever for early
+      // classifications (0 = unlimited, the default).
       const hl = num(job, "highresLimit", 0);
-      if (hl > 0) argv.push("--highres_limit", String(hl));
-      // t341 — the GPU-allocator lever: an explicit user batch wins
-      // outright; 0 (the default) means AUTO — RELION's own default at
-      // small boxes, box-scaled above the safe edge (see refineAutoBatch:
-      // the field report was a 2D classification that died 30s in with a
-      // CUDA out-of-memory and no error tail).
-      const userBatch = num(job, "batchSize", 0);
-      if (userBatch > 0) argv.push("--batch_size", String(Math.round(userBatch)));
-      else {
-        const auto = refineAutoBatch(particleBox(job, ctx.upstream), "2d");
-        if (auto != null) argv.push("--batch_size", String(auto));
-      }
+      if (hl > 0) argv.push("--strict_highres_exp", String(hl));
+      // t350 — the pooled-particle lever (--pool): an explicit user value
+      // wins; 0 (the default) rides RELION 5's own GUI default (3).
+      const userPool = num(job, "batchSize", 0);
+      if (userPool > 0) argv.push("--pool", String(Math.max(1, Math.round(userPool))));
+      else argv.push("--pool", String(refineAutoPool()));
+      // t350 — optional node-local scratch (off unless the user names one)
+      const scratch = refineScratchDir(job);
+      if (scratch) argv.push("--scratch_dir", scratch);
       return argv;
     }
 
     case "initialmodel": {
       // VDAM gradient refinement — no MPI (RELION forbids --grad with MPI)
-      return [
+      const argv = [
         binJoin(binDir, "relion_refine"),
         "--grad", "--denovo_3dref",
         "--i", inputs.particles_star,
@@ -4177,6 +4174,10 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
         // fewer particles pooled per task → smaller E-step working set
         "--pool", "3",
       ];
+      // t350 — optional node-local scratch (off unless the user names one)
+      const scratch = refineScratchDir(job);
+      if (scratch) argv.push("--scratch_dir", scratch);
+      return argv;
     }
 
     case "class3d": {
@@ -4194,15 +4195,13 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
         "--iter", String(Math.round(num(job, "iterations", 25))),
         "--flatten_solvent",
       ];
-      // t341 — same memory lever as class2d, 3D curve (padded box³ FFT
-      // grids make large-box 3D classification the hungriest job in the
-      // palette)
-      const c3dBatch = num(job, "batchSize", 0);
-      if (c3dBatch > 0) argv.push("--batch_size", String(Math.round(c3dBatch)));
-      else {
-        const auto = refineAutoBatch(particleBox(job, ctx.upstream), "3d");
-        if (auto != null) argv.push("--batch_size", String(auto));
-      }
+      // t350 — the pooled-particle lever, same as class2d (--pool:
+      // RELION 5's GUI default 3 rides unless the user names one)
+      const c3dPool = num(job, "batchSize", 0);
+      if (c3dPool > 0) argv.push("--pool", String(Math.max(1, Math.round(c3dPool))));
+      else argv.push("--pool", String(refineAutoPool()));
+      const c3dScratch = refineScratchDir(job);
+      if (c3dScratch) argv.push("--scratch_dir", c3dScratch);
       return argv;
     }
 
@@ -4225,13 +4224,12 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
       ];
       if (flagAutoRefine(job)) argv.push("--auto_refine");
       else argv.push("--iter", String(Math.round(num(job, "iterations", 15))), "--tau2_fudge", "1");
-      // t341 — the refine family's shared memory lever (see class2d)
-      const r3dBatch = num(job, "batchSize", 0);
-      if (r3dBatch > 0) argv.push("--batch_size", String(Math.round(r3dBatch)));
-      else {
-        const auto = refineAutoBatch(particleBox(job, ctx.upstream), "3d");
-        if (auto != null) argv.push("--batch_size", String(auto));
-      }
+      // t350 — the pooled-particle lever, same as class2d/class3d
+      const r3dPool = num(job, "batchSize", 0);
+      if (r3dPool > 0) argv.push("--pool", String(Math.max(1, Math.round(r3dPool))));
+      else argv.push("--pool", String(refineAutoPool()));
+      const r3dScratch = refineScratchDir(job);
+      if (r3dScratch) argv.push("--scratch_dir", r3dScratch);
       return argv;
     }
 

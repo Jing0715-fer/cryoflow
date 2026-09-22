@@ -649,10 +649,17 @@ export const JOB_TYPES: JobTypeSpec[] = [
       num("tau2Fudge", "Regularisation factor T", 1, { step: 0.5, min: 0.5, tab: "Optimisation", advanced: true }),
       bool("doZeroMask", "Zero the mask", true, { tab: "Optimisation", advanced: true }),
       sel("psiSampling", "In-plane sampling step", "7.5", psiOptions, { tab: "Sampling", advanced: true }),
-      num("highresLimit", "High-res limit (Å)", 0, { step: 0.5, min: 0, tab: "Optimisation", advanced: true, hint: "0 = no limit" }),
-      num("batchSize", "Batch size (0 = auto)", 0, {
-        step: 8, min: 0, max: 512, tab: "Compute", advanced: true,
-        hint: "particles per iteration chunk (--batch_size) — 0 sizes it from the box: RELION's default for small boxes, smaller when the box is large. Lower it when the GPU reports out-of-memory",
+      num("highresLimit", "E-step resolution limit (Å)", 0, {
+        step: 0.5, min: 0, tab: "Optimisation", advanced: true,
+        hint: "RELION --strict_highres_exp — caps the alignment search resolution; 0 = unlimited. A real speed lever for early classifications (e.g. 15–20 Å)",
+      }),
+      num("batchSize", "Pooled particles (--pool)", 0, {
+        step: 1, min: 0, max: 16, tab: "Compute", advanced: true,
+        hint: "images pooled per thread task — 0 = RELION 5's own GUI default (3; GUI range 1–16). Batches of pool × threads are read together: fewer disc round-trips, more VRAM — lower it if the GPU reports out-of-memory",
+      }),
+      txt("scratchDir", "Node-local scratch dir (--scratch_dir)", "", {
+        tab: "Compute", advanced: true,
+        hint: "empty = off. A compute-node-local path (e.g. /tmp or local NVMe) — RELION copies the particle stacks there once, sparing every iteration the NFS re-read. Needs ~10 GB free (RELION's own --keep_free_scratch floor)",
       }),
       num("threads", "Threads (--j)", 4, {
         step: 1, min: 1, max: 32, tab: "Compute",
@@ -720,6 +727,10 @@ export const JOB_TYPES: JobTypeSpec[] = [
       num("iterations", "Number of VDAM iterations", 50, { step: 5, min: 5, max: 300, tab: "Optimisation" }),
       num("particleDiameter", "Circular mask diameter", 180, { unit: "Å", step: 5, tab: "Sampling" }),
       num("tau2Fudge", "Regularisation factor T", 1, { step: 0.5, min: 0.5, tab: "Optimisation", advanced: true }),
+      txt("scratchDir", "Node-local scratch dir (--scratch_dir)", "", {
+        tab: "Compute", advanced: true,
+        hint: "empty = off. A compute-node-local path (e.g. /tmp or local NVMe) — particle stacks are copied there once instead of re-read from NFS every iteration",
+      }),
     ],
     "{n} initial models",
     "core",
@@ -743,9 +754,13 @@ export const JOB_TYPES: JobTypeSpec[] = [
       num("iterations", "Number of iterations", 25, { step: 5, min: 5, max: 100, tab: "Optimisation" }),
       num("particleDiameter", "Circular mask diameter", 180, { unit: "Å", step: 5, tab: "Sampling" }),
       num("tau2Fudge", "Regularisation factor T", 1, { step: 0.5, min: 0.5, tab: "Optimisation", advanced: true }),
-      num("batchSize", "Batch size (0 = auto)", 0, {
-        step: 8, min: 0, max: 512, tab: "Compute", advanced: true,
-        hint: "particles per iteration chunk (--batch_size) — 0 sizes it from the box (RELION's default for small boxes, smaller when the box is large); lower it when the GPU reports out-of-memory",
+      num("batchSize", "Pooled particles (--pool)", 0, {
+        step: 1, min: 0, max: 16, tab: "Compute", advanced: true,
+        hint: "images pooled per thread task — 0 = RELION 5's own GUI default (3; GUI range 1–16). Large boxes may need 1–2 to fit VRAM",
+      }),
+      txt("scratchDir", "Node-local scratch dir (--scratch_dir)", "", {
+        tab: "Compute", advanced: true,
+        hint: "empty = off. A compute-node-local path (e.g. /tmp or local NVMe) — particle stacks are copied there once instead of re-read from NFS every iteration",
       }),
       num("threads", "Threads (--j)", 4, {
         step: 1, min: 1, max: 32, tab: "Compute",
@@ -791,9 +806,13 @@ export const JOB_TYPES: JobTypeSpec[] = [
         step: 1, min: 1, max: 2, tab: "Compute", advanced: true,
         hint: "FFT padding 2 = accurate interpolation, 1 = 4× faster (large boxes)",
       }),
-      num("batchSize", "Batch size (0 = auto)", 0, {
-        step: 8, min: 0, max: 512, tab: "Compute", advanced: true,
-        hint: "particles per iteration chunk (--batch_size) — 0 sizes it from the box (RELION's default for small boxes, smaller when the box is large); lower it when the GPU reports out-of-memory",
+      num("batchSize", "Pooled particles (--pool)", 0, {
+        step: 1, min: 0, max: 16, tab: "Compute", advanced: true,
+        hint: "images pooled per thread task — 0 = RELION 5's own GUI default (3; GUI range 1–16). Large boxes may need 1–2 to fit VRAM",
+      }),
+      txt("scratchDir", "Node-local scratch dir (--scratch_dir)", "", {
+        tab: "Compute", advanced: true,
+        hint: "empty = off. A compute-node-local path (e.g. /tmp or local NVMe) — particle stacks are copied there once instead of re-read from NFS every iteration",
       }),
     ],
     "Refined to {n} Å",
