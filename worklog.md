@@ -3193,3 +3193,27 @@ Stage Summary:
 - 连线起落从全画布重渲染收缩到源卡+兼容卡；滚轮缩放不再全卡重渲染（zoom prop 退役）
 - job 标记/评论: 右键 Add note… → 对话框 → PATCH → amber 徽章 → 悬停样式弹层读全文（与 inspector 编辑器同一 job.note）
 - 用户复机路径: git pull → 画布即生效（卡面清爽、class2d→select2d 平行线、右键即可加评论）
+
+---
+Task ID: t357
+Agent: main-agent (Z.ai Code)
+Task: 用户工单「这两个问题依然存在，都没有解决，这个其实应该是把cluster的mrcs结果文件下载到本地，之后将mrcs文件转换成图片吧」——t355 的三层修复在真实集群上仍然失败；采纳用户架构判断：主动下载 mrcs → 本地转图片
+
+Work Log:
+- 根因判读：t355 把全部体验押在「点击时的按需懒拉」上——每张图都是一次现场 SSH 轮盘。真实集群的 25-100MB 类平均栈正中 t298 已证明的 bun+ssh2 静默截断形状（64MB 传输可丢 1.6-48MB 且 exit=0），而 ensureIterationAssets 单发无字节校验、无重试——截断后 readMrcHeader 拒绝 → 404「could not fetch…may not exist」→ 用户看到的就是「加载不出来」；select 画廊同理。/outputs/file 道有 5 次字节校验重试，但 iteration 管线没有——同一传输层的两种命运
+- 修（用户架构落地，四件）：
+  a) verifiedStackPull（t298 教义进本道）：stat → cat → landed===expected 三次尝试，截断销毁重试；.stack.mrcs 永不留（t339 契约）
+  b) scheduleRemoteStackRenders 主动管线：finalize 后台把 manifest 里的每个类平均栈逐个下载→渲染全部 slice PNG + 每轮 sheet→删栈（最新轮优先、单 run 2GiB 预算、单栈 256MB 帽、一 job 一管线、.done 判决标记可断点续跑、legacy sheet.png 等价判决）；直连 pooled 通道并行于序列化队列——sweep 永不阻塞；失败作业也跑（被杀运行跑完的轮正是用户判断重跑的依据）
+  c) view 触发器：/iterations 轮询发现未渲染轮即后台调度（manifest 有尺寸用尺寸；无 manifest 盲拉只拉最新一轮有界）——覆盖 t356 前的存量完成作业与冷缓存；候选含 classesFile（无轮号的 run_unmasked_classes 不进 chips，classesFile 补遗是它唯一主动渲染通道）
+  d) 缓存即答：localIterations 与 /classes 在镜像缺栈时先查预览缓存（cachedStackState）——管线跑完后两个画廊零 SSH 即答；断线 + 集群栈被删后图片仍 200（diag B/E 钉死「图片已本地」的架构证明）
+- 方言修复两处：STACK_NAME_RE 收编 RELION 5 无轮号终稿 run_unmasked_classes.mrcs（image/sheet 路由白名单 + 管线过滤），且 remoteLiveIterations 的集群 listing grep 原来根本看不见它——pickStack 的终稿优先一直是死代码（diag C 首跑 FAIL 的病根）；select 画廊缩略图/lightbox/预载全部改走 iterations/image 道（缓存命中即答；miss 一次字节校验拉取渲染全栈），/outputs/file 降为一次性回退道（第一道失败换道重试，双失败才诚实占位）
+- harness 顺手修：e2e-lib 的 ROOT 默认值还是沙箱重建前的 /home/z/cryoflow——run-6 的脚本断言整下午读空（spawnSync 的 module-not-found 藏在 stderr），最小复现（探针派发 2-GPU class2d + cat 脚本全过）证伪代码回归后定位；默认值改为当前仓库树
+- 验证：diag-t356-proactive-render.mjs（44 断言 ALL GREEN）——B：finalize 管线零图片调用渲染全部 6 轮 + 瘦约契约 + 集群栈删除后图片仍 200；C：存量作业 + 植入 run_unmasked（listing 可见 → merge 优先 → view 触发渲染 → classes 从缓存命名 → image/sheet 接受无轮号名）；D：running 期轮询后台渲染（无点击）+ 完成后 12/12；E：断线上缓即答；F：诚实门（404/400/别名）。回归全绿：t354、t355、t353、t319、run-6 59/59（修 harness 后）。tsc 0 错、触碰文件 eslint 0 输出
+- 测试装置排障三则：B→C 的 12s TTL 缓存挡住新植入栈（等 13s 让 TTL 过期）；plant 的 cp 源已被 B 删除（base64 直写真栈替代）；大栈 base64 ~308KB 超 exec 命令行上限（fixture 回退 header-only 探针——mock refine 自己写真类栈，import 只嗅探头）
+- 浏览器活体验证（4GB 盒 OOM 持久战：iterations 路由编译时服务器被收割 ×3，破局术=关浏览器重启 + curl 预热全部相关路由后重开）：class2d Results——6 chips、it006 sheet 266px、it003 历史轮切换、lightbox 开合、3/3 类图、卡片等高 252px；select2d Params——3/3 缩略图走新 lane（src=iterations/image）、等高 101px、lightbox 全图；console/page errors 双零；390px 响应式（2 列、等高、零溢流、3/3 加载）；截图 docs/t356-select2d-gallery.png / t356-class2d-results.png / t356-select2d-mobile.png
+- 合并：远端有并行 t356（卡片打磨，遗留任务在另一窗口完成）——文件面仅 worklog.md 相交，git merge 干净、合并后 tsc 0 错 + diag-t356 重跑 ALL GREEN；本工单在 worklog 编号为 t357（t356 已被卡片工单占用）
+
+Stage Summary:
+- 架构换轴（用户提案的形态）：完成后 mrcs 主动下载 → 本地转 PNG → 集群栈即删——两个画廊从「点击时 SSH 轮盘」变成「本地图片即答」；断线/冷启动/集群清理三种灾难下图片照常服务（管线跑过之后）
+- 懒道同时加固：字节校验三次重试（t298 教义统一两条道）、.done 判决标记（断点续跑永不重付传输）、RELION 5 终稿栈从 listing 到路由全链路可见
+- 用户复机路径：git pull → 打开既有 2D 分类的 Results 页（view 触发器自动后台渲染全部轮次，chips 逐一点亮）→ select 作业 Classes 页每类图即答；下一次新跑的 2D 分类在完成瞬间全部轮次自动落地本地
