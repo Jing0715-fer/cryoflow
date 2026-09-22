@@ -46,6 +46,41 @@ export interface MrcHeader {
   rms: number;
 }
 
+/**
+ * t360 — parse + validate a 1024-byte MRC2014 header that is already in
+ * memory. `size` is the WHOLE file's byte count (the voxel-count sanity
+ * check needs it). The remote map-import lane reads the header over SSH
+ * (`head -c 1024 | base64`) and never holds the file locally — this pure
+ * parser is the same field layout readMrcHeader reads off the disk.
+ */
+export function parseMrcHeaderBytes(buf: Buffer, size: number): MrcHeader | null {
+  if (!buf || buf.length < 1024) return null;
+  const nx = buf.readInt32LE(0);
+  const ny = buf.readInt32LE(4);
+  const nz = buf.readInt32LE(8);
+  const mode = buf.readInt32LE(12);
+  const nsymbt = buf.readInt32LE(92);
+  const bpp = MODE_BYTES[mode];
+  if (
+    !Number.isFinite(nx) || nx <= 0 || ny <= 0 || nz <= 0 ||
+    nx > 65536 || ny > 65536 || nz > 1_000_000 ||
+    nsymbt < 0 || nsymbt > 16_000_000 || bpp === undefined
+  ) {
+    return null;
+  }
+  if (!Number.isFinite(size) || 1024 + nsymbt + nx * ny * nz * bpp > size + bpp) return null;
+  return {
+    nx, ny, nz, mode, nsymbt,
+    bytesPerVoxel: bpp,
+    cella: [buf.readFloatLE(40), buf.readFloatLE(44), buf.readFloatLE(48)],
+    start: [buf.readInt32LE(16), buf.readInt32LE(20), buf.readInt32LE(24)],
+    dmin: buf.readFloatLE(76),
+    dmax: buf.readFloatLE(80),
+    dmean: buf.readFloatLE(84),
+    rms: buf.readFloatLE(216),
+  };
+}
+
 /** Read + validate the 1024-byte MRC2014 header. Returns null when not a map we can read. */
 export function readMrcHeader(file: string): MrcHeader | null {
   let fd: number;
@@ -58,31 +93,7 @@ export function readMrcHeader(file: string): MrcHeader | null {
     const buf = Buffer.alloc(1024);
     const got = readSync(fd, buf, 0, 1024, 0);
     if (got < 1024) return null;
-    const nx = buf.readInt32LE(0);
-    const ny = buf.readInt32LE(4);
-    const nz = buf.readInt32LE(8);
-    const mode = buf.readInt32LE(12);
-    const nsymbt = buf.readInt32LE(92);
-    const bpp = MODE_BYTES[mode];
-    if (
-      !Number.isFinite(nx) || nx <= 0 || ny <= 0 || nz <= 0 ||
-      nx > 65536 || ny > 65536 || nz > 1_000_000 ||
-      nsymbt < 0 || nsymbt > 16_000_000 || bpp === undefined
-    ) {
-      return null;
-    }
-    const size = statSync(file).size;
-    if (1024 + nsymbt + nx * ny * nz * bpp > size + bpp) return null;
-    return {
-      nx, ny, nz, mode, nsymbt,
-      bytesPerVoxel: bpp,
-      cella: [buf.readFloatLE(40), buf.readFloatLE(44), buf.readFloatLE(48)],
-      start: [buf.readInt32LE(16), buf.readInt32LE(20), buf.readInt32LE(24)],
-      dmin: buf.readFloatLE(76),
-      dmax: buf.readFloatLE(80),
-      dmean: buf.readFloatLE(84),
-      rms: buf.readFloatLE(216),
-    };
+    return parseMrcHeaderBytes(buf, statSync(file).size);
   } catch {
     return null;
   } finally {

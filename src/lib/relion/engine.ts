@@ -47,7 +47,7 @@ import { describeExtractCollisions, scanExtractCollisions } from "@/lib/relion/e
 import { npyRows, parseNpyHeader } from "@/lib/relion/cs-npy";
 import { csRowsToStar, type Cs2StarResult } from "@/lib/relion/cs2star";
 import type { RemoteConnection, RemoteRunState } from "@/lib/remote/types";
-import { readMrcHeader } from "@/lib/mrc";
+import { parseMrcHeaderBytes, readMrcHeader, type MrcHeader } from "@/lib/mrc";
 import { sniffImageFile, spreadSample, type HeaderSniffer, type SniffVerdict } from "./mrc-sniff";
 import { extractInputGate, micrographRowsFromContent, parseStarBlocks, type StarBlock } from "./extract-gate";
 import {
@@ -1184,6 +1184,11 @@ export const REMOTE_OUTPUT_CANDIDATES: Record<string, RemoteOutputCandidate[]> =
   // cleanup. Without this entry those dialects would promise a probe that
   // can never fire (the t325-a M1 rule).
   cs2star: [{ key: "particles_star", exact: ["particles.star"] }],
+  // t360 — the mapimport twin's name rides the SOURCE map's basename (the
+  // local lane materializes under its own name too), so the probe cannot
+  // promise an exact file — the glob covers .mrc/.map and nothing else in
+  // the twin dir (run.out/run.err witnesses never match).
+  mapimport: [{ key: "model_mrc", glob: "*.m[ra][cp]", pick: "first" }],
   class2d: [
     { key: "particles_star", exact: ["run_data.star"], glob: "run_it[0-9]*_data.star", pick: "latest" },
     {
@@ -2923,6 +2928,183 @@ async function runImportParticlesNative(
 }
 
 /**
+ * t360 — the REMOTE-project leg of the map import (the field report: import
+ * map on a cluster project pointed at /data03/…/cryosparc_…_volume_map.mrc
+ * and died "Map file not accessible" — runMapImportNative's existsSync only
+ * ever looked at the app's own disk). The picked mapPath names the CLUSTER's
+ * filesystem; the map bytes never cross the app↔cluster link:
+ *
+ *   - readability + the file size + the 1024-byte MRC header are probed in
+ *     ONE SSH round trip (stat + `head -c 1024 | base64`) — a missing path,
+ *     a directory and a no-read-permission source each answer with their
+ *     own honest verdict, and READ permission is all the source ever needs;
+ *   - the map is materialized into the job's CLUSTER TWIN by a cluster-side
+ *     `cp` (remoteRoot/<projectId>/mapimport_<id8>/<basename>) — the copy
+ *     runs on the cluster itself, byte-verified by stat before anything is
+ *     recorded (the t352/t353 cs2star twin doctrine: zero upload, zero
+ *     download, works against a read-only source directory);
+ *   - the run record carries the LOCAL mirror path as its output and the
+ *     verified twin as remoteOutputs.model_mrc — a downstream cluster job
+ *     resolves through the twin in place (staging skips, argv points at
+ *     the cluster copy), and the Files tab lists the map as an on-cluster
+ *     card through the manifest, fetchable on demand.
+ */
+async function runMapImportRemoteLeg(
+  job: EngineJobRef,
+  workdir: string,
+  raw: string,
+  conn: RemoteConnection
+): Promise<NativeResult> {
+  const q = raw.replace(/'/g, "'\\''");
+  const name = raw.slice(raw.lastIndexOf("/") + 1) || "map.mrc";
+
+  // ---- probe: readable? size? header? — one round trip -------------------
+  // three distinct sentinels so the failure names its own reason (the
+  // user's first question was「是权限问题？」 — the answer must say which)
+  const probeScript =
+    `f='${q}'; if [ ! -e "$f" ]; then echo __CF_MAP_MISSING__; ` +
+    `elif [ ! -f "$f" ]; then echo __CF_MAP_DIR__; ` +
+    `elif [ ! -r "$f" ]; then echo __CF_MAP_NOREAD__; ` +
+    `else stat -c '%s' "$f"; head -c 1024 "$f" | base64 | tr -d '\\n'; echo; fi`;
+  let size = -1;
+  let head: MrcHeader | null = null;
+  let verdict = "";
+  let probeWhy = "";
+  try {
+    const r = await sshExec(conn, probeScript, { timeoutMs: 30_000 });
+    const lines = (r.stdout ?? "").split(/\r?\n/);
+    if (lines[0] === "__CF_MAP_MISSING__" || lines[0] === "__CF_MAP_DIR__" || lines[0] === "__CF_MAP_NOREAD__") {
+      verdict = lines[0];
+    } else if ((r.stdout ?? "").trim().length === 0) {
+      probeWhy =
+        (r.stderr || r.error || `ssh exit ${r.code}`).split("\n").filter(Boolean).slice(-1)[0] ??
+        "no word from the cluster";
+    } else {
+      const n = Number(lines[0]);
+      if (Number.isFinite(n) && n > 0) size = n;
+      const b64 = (lines[1] ?? "").trim();
+      if (b64.length > 0) {
+        try {
+          head = parseMrcHeaderBytes(Buffer.from(b64, "base64"), size);
+        } catch {
+          head = null;
+        }
+      }
+    }
+  } catch (e) {
+    probeWhy = e instanceof Error ? e.message : String(e);
+  }
+  if (verdict === "__CF_MAP_MISSING__") {
+    return {
+      ok: false,
+      error: `the map does not exist on ${conn.host}: ${raw} — re-pick it in the params tab (the cluster browser lists what the ${conn.username} account can see)`,
+    };
+  }
+  if (verdict === "__CF_MAP_DIR__") {
+    return {
+      ok: false,
+      error: `${raw} is a directory, not a map file — pick the .mrc/.map file inside it in the params tab`,
+    };
+  }
+  if (verdict === "__CF_MAP_NOREAD__") {
+    return {
+      ok: false,
+      error:
+        `${conn.username}@${conn.host} has no READ permission on ${raw} — read is all the import needs ` +
+        `(the copy lands under cryoflow's own ${conn.remoteRoot || "~/cryoflow"}, the source is never written to); ` +
+        `ask the owner or re-pick a readable copy in the params tab`,
+    };
+  }
+  if (probeWhy) {
+    return { ok: false, error: `could not reach ${conn.host} to read ${raw} (${probeWhy}) — re-pick the map in the params tab` };
+  }
+  if (!/\.(mrc|map)$/i.test(name)) {
+    return {
+      ok: false,
+      error: `Not a 3D map file (.mrc/.map): ${raw} — mapimport is for volumes, not movies or particle stacks (.mrcs)`,
+    };
+  }
+  if (size <= 0 || !head) {
+    return {
+      ok: false,
+      error: `Map header is not a supported MRC volume: ${raw} — the cluster-side probe returned ${size <= 0 ? "no file size" : "an unparsable 1024-byte header"}`,
+    };
+  }
+
+  // ---- the cluster-side copy into the job's own twin dir ------------------
+  const remoteRoot = await expandCsRemoteRoot(conn, conn.remoteRoot || "~/cryoflow");
+  const localOut = path.join(workdir, name);
+  const twinPath = csMirrorPath(localOut, remoteRoot);
+  const twinDir = twinPath.slice(0, twinPath.lastIndexOf("/"));
+  await remoteMkdir(conn, twinDir);
+  const cp = await sshExec(
+    conn,
+    `cp -f -- '${q}' '${twinPath.replace(/'/g, "'\\''")}'`,
+    { timeoutMs: 300_000 }
+  );
+  if (cp.error || (cp.code != null && cp.code !== 0)) {
+    return {
+      ok: false,
+      error:
+        `the cluster-side copy failed (${(cp.error || cp.stderr || "").split("\n").filter(Boolean).slice(-1)[0] ?? `ssh exit ${cp.code}`}) — ` +
+        `${raw} → ${twinPath}; the source only needs read permission, the destination is cryoflow's own — check the login node's load and run again`,
+    };
+  }
+  let twinSize: number | null = null;
+  try {
+    const verify = await statRemoteFiles(conn, [twinPath]);
+    const v = verify.missing.length > 0 ? null : (verify.sizes[0] ?? null);
+    if (v != null && v > 0) twinSize = v;
+  } catch {
+    twinSize = null;
+  }
+  if (twinSize == null) {
+    return {
+      ok: false,
+      error: `the cluster did not verify the copied map at ${twinPath} — run again (${raw} was readable a moment ago)`,
+    };
+  }
+  if (twinSize !== size) {
+    return {
+      ok: false,
+      error: `the copied map at ${twinPath} is ${twinSize.toLocaleString()} bytes but the source ${raw} is ${size.toLocaleString()} — the copy did not complete; run again`,
+    };
+  }
+
+  // ---- record + twin registration (the shared finish) --------------------
+  const pixel = head.cella[2] > 0 && head.nz > 0 ? head.cella[2] / head.nz : 0;
+  const dims = `${head.nx}×${head.ny}×${head.nz}`;
+  const result =
+    `REMOTE[${conn.username}@${conn.host}]: Map imported: ${name} (${dims} vox${pixel > 0 ? ` · pixel ${pixel.toFixed(2)} Å` : ""} · ${(twinSize / 1024 / 1024).toFixed(1)} MB) ` +
+    `— copied ON the cluster, zero bytes over the connection`;
+  const logText = [
+    `CryoFlow engine-native map import (cluster lane) ${new Date().toISOString()}`,
+    `source: ${raw} (cluster ${conn.name || conn.host})`,
+    `header: ${dims} voxels · mode ${head.mode}${pixel > 0 ? ` · pixel ${pixel.toFixed(2)} Å` : ""}`,
+    `copy: cluster-side cp → ${twinPath} (verified ${twinSize.toLocaleString()} bytes — the map never left the cluster)`,
+    `output: ${twinPath} (cluster twin) · local path of record: ${localOut}`,
+    result,
+    "",
+  ].join("\n");
+  await finishNativeRunOnCluster(
+    job,
+    workdir,
+    conn,
+    remoteRoot,
+    twinPath,
+    twinSize,
+    "model_mrc",
+    localOut,
+    [{ path: name, size: twinSize }],
+    "engine-native: import map reference (cluster-side copy)",
+    result,
+    logText,
+    ""
+  );
+  return { ok: true, result };
+}
+
+/**
  * ImportMap: bring a standalone 3D map into the project as a reference —
  * RELION's import-map workflow, and the landing pad for sub-volume crops
  * (the 3D viewer's send-to-new-job materializes the crop into the parent
@@ -2930,7 +3112,9 @@ async function runImportParticlesNative(
  * feeds class3d/refine3d reference inputs through the model_mrc output).
  * Engine-native: no CLI to run — validate the map, link it into the job's
  * own workdir (so the Files tab and outputs/file route serve it like any
- * other output), and declare model_mrc for the downstream chain.
+ * other output), and declare model_mrc for the downstream chain. On a
+ * REMOTE project a cluster-side path takes runMapImportRemoteLeg above —
+ * the map is probed and copied ON the cluster and never leaves it.
  */
 async function runMapImportNative(job: EngineJobRef): Promise<NativeResult> {
   const workdir = workdirFor(job);
@@ -2951,6 +3135,35 @@ async function runMapImportNative(job: EngineJobRef): Promise<NativeResult> {
     const status = await detectRelion();
     const bridge = bridgeFromStatus(status);
     if (bridge) host = userPathToHost(raw, bridge.distro);
+  }
+  // t360 — the remote-project branch: a path that exists NOWHERE on this
+  // machine (after the WSL courtesy translation above) names the CLUSTER's
+  // filesystem — the field report's shape (import map on a remote project
+  // pointed at /data03/…/cryosparc_…_volume_map.mrc and died "Map file not
+  // accessible", because existsSync only ever looked at the app's disk).
+  // The remote leg probes it over SSH and materializes it with a
+  // CLUSTER-SIDE copy — read permission on the source suffices, not one
+  // map byte crosses the app↔cluster link. A LOCAL path (the sub-volume
+  // crop flow writes one into the parent job's workdir; a map on this
+  // machine) keeps the local lane below untouched — a downstream cluster
+  // job stages and uploads it exactly as before, so nothing regresses.
+  // The probe rides `raw`, never the WSL-mangled `host` (userPathToHost
+  // rewrites ANY missing absolute path into \\wsl.localhost\… when a bridge
+  // is active — a cluster path must reach the cluster verbatim).
+  if (!existsSync(host)) {
+    const meta = getProjectMeta(job.projectId);
+    const connId = meta?.remote?.connectionId ?? null;
+    if (connId) {
+      const conn = getConnection(connId);
+      if (!conn) {
+        return {
+          ok: false,
+          error:
+            "this is a remote project, but its cluster connection was deleted — re-add the cluster in Remote clusters (the picked map lives on it)",
+        };
+      }
+      return await runMapImportRemoteLeg(job, workdir, raw, conn);
+    }
   }
   if (!existsSync(host) || !statSync(host).isFile()) {
     return {
@@ -3798,14 +4011,16 @@ async function runCs2StarOnCluster(
   ]
     .filter(Boolean)
     .join("\n");
-  await finishCsRunOnCluster(
+  await finishNativeRunOnCluster(
     job,
     workdir,
     conn,
     remoteRoot,
     twinPath,
     twinSize,
+    "particles_star",
     starPath,
+    [{ path: "particles.star", size: twinSize }],
     "engine-native: cryosparc cs → star (cluster-side, selective links)",
     result,
     logText,
@@ -3815,16 +4030,16 @@ async function runCs2StarOnCluster(
 }
 
 /**
- * t353 — the remote manifest, INLINED (the engine↔remote-run cycle is
+ * t353/t360 — the remote manifest, INLINED (the engine↔remote-run cycle is
  * broken on purpose — csMirrorPath/expandCsRemoteRoot above are the
  * precedent; remote-files.ts imports remote-run.ts, so importing its
  * writer here would close the loop). Byte-shape identical to
  * writeRemoteManifest (remote-files.ts): the outputs route lists manifest
  * files as "on cluster" cards and the file route fetches them over SSH
- * on demand — without it, a cluster-side cs2star's Files tab would show
- * nothing at all.
+ * on demand — without it, a cluster-side cs2star's or mapimport's Files
+ * tab would show nothing at all.
  */
-function writeCsRemoteManifest(
+function writeNativeRemoteManifest(
   workdir: string,
   connectionId: string,
   remoteWorkdir: string,
@@ -3843,33 +4058,40 @@ function writeCsRemoteManifest(
 }
 
 /**
- * t352/t353 — the shared finish for BOTH cluster lanes (the t352 upload
- * lane and the t353 in-place lane): record the run, mirror the witnesses
- * into the twin dir, and register the twin on the record — the exact
- * block the t352 lane grew, extracted so the two lanes cannot drift.
+ * t352/t353/t360 — the shared finish for the engine-native CLUSTER lanes
+ * (cs2star's upload + in-place lanes, mapimport's cluster-side copy):
+ * record the run, mirror the witnesses into the twin dir, and register
+ * the twin on the record — the exact block the t352 lane grew, extracted
+ * so the lanes cannot drift. `outputKey`/`localOutPath` name the record's
+ * output entry (the LOCAL mirror path of record — the twin registration
+ * below is what downstream cluster consumers resolve through);
+ * `manifestFiles` lists the twin dir's payload for the Files tab when the
+ * local copy never landed (the in-place / cluster-copy shape).
  */
-async function finishCsRunOnCluster(
+async function finishNativeRunOnCluster(
   job: EngineJobRef,
   workdir: string,
   conn: RemoteConnection,
   remoteRoot: string,
   twinPath: string,
   twinSize: number | null,
-  starPath: string,
+  outputKey: string,
+  localOutPath: string,
+  manifestFiles: Array<{ path: string; size: number }>,
   cmdLabel: string,
   result: string,
   logText: string,
   errText: string
 ): Promise<void> {
   const twinDir = twinPath.slice(0, twinPath.lastIndexOf("/"));
-  // t353 — the cluster-side lane has NO local star (the whole point): the
-  // manifest lets the outputs route list particles.star as an on-cluster
-  // file (the fallback lane's local copy makes the manifest entry a
-  // no-op there — the route's localSet dedupe skips it)
-  if (!existsSync(starPath) && twinSize != null) {
-    writeCsRemoteManifest(workdir, conn.id, twinDir, [{ path: "particles.star", size: twinSize }]);
+  // t353 — the cluster-side lane has NO local copy (the whole point): the
+  // manifest lets the outputs route list the twin as an on-cluster file
+  // (the fallback lane's local copy makes the manifest entry a no-op
+  // there — the route's localSet dedupe skips it)
+  if (!existsSync(localOutPath) && twinSize != null && manifestFiles.length > 0) {
+    writeNativeRemoteManifest(workdir, conn.id, twinDir, manifestFiles);
   }
-  recordNativeRun(job, workdir, cmdLabel, { particles_star: starPath }, result, logText);
+  recordNativeRun(job, workdir, cmdLabel, { [outputKey]: localOutPath }, result, logText);
   // the record recordNativeRun just wrote: its startedAt is the identity
   // the persistence guard below compares against (the probeRemoteOutputs /
   // finalize pattern — recordNativeRun stamps a FRESH startedAt on every
@@ -3912,7 +4134,7 @@ async function finishCsRunOnCluster(
             pid: null,
             slurmId: null,
             phase: "running",
-            remoteOutputs: { ...(cur.remote?.remoteOutputs ?? {}), particles_star: twinPath },
+            remoteOutputs: { ...(cur.remote?.remoteOutputs ?? {}), [outputKey]: twinPath },
             logTailOut: twinLogText.slice(-4096),
             logTailErr: errText.slice(-2048),
             logTotalLines: twinLogText.split("\n").length,
@@ -4229,16 +4451,18 @@ async function runCs2StarNative(job: EngineJobRef): Promise<NativeResult> {
       .join("\n");
     recordNativeRun(job, workdir, "engine-native: cryosparc cs → star (selective links)", { particles_star: starPath }, result, logText);
     // t352/t353 — the twin registration + witnesses live in the SHARED
-    // finish now (finishCsRunOnCluster — the exact block this lane grew,
-    // extracted so the in-place lane cannot drift from it)
-    await finishCsRunOnCluster(
+    // finish now (finishNativeRunOnCluster — the exact block this lane
+    // grew, extracted so the lanes cannot drift from it)
+    await finishNativeRunOnCluster(
       job,
       workdir,
       conn,
       remoteRoot,
       twinPath,
       twinSize,
+      "particles_star",
       starPath,
+      [{ path: "particles.star", size: twinSize }],
       "engine-native: cryosparc cs → star (selective links)",
       result,
       logText,
@@ -6848,7 +7072,19 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
     return r.ok ? { ok: true, native: true, result: r.result } : { ok: false, error: r.error };
   }
   if (job.type === "mapimport") {
-    const r = await runMapImportNative(job);
+    // t360 — the cluster lane SSHes (probe → cluster-side cp → verify), so
+    // the in-flight record doctrine applies (the t340 lesson: a >30 s run
+    // with no record reads as dead to the sweep)
+    const begun = beginNativeRun(job, "engine-native: import map reference");
+    let r: NativeResult;
+    try {
+      r = await runMapImportNative(job);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      abortNativeRun(job.id, msg, begun.prevOutputs);
+      return { ok: false, error: `map import crashed: ${msg}` };
+    }
+    if (!r.ok) abortNativeRun(job.id, r.error ?? "map import failed", begun.prevOutputs);
     return r.ok ? { ok: true, native: true, result: r.result } : { ok: false, error: r.error };
   }
   if (job.type === "manualpick") {

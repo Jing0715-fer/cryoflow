@@ -3257,3 +3257,25 @@ Stage Summary:
 - 连线/删线从「等 API 往返（dev 冷编译下数秒）+ HMR 重挂载才可见」变为 pointerup 同一提交内可见（实测 60-86ms），持久化全部后台化、失败诚实回滚、连了又秒删无幽灵线
 - 服务器侧时延（冷编译、监听器、慢盘）从此只能影响「何时落库」，不再影响「何时看到线」— 用户工单的 hmr 依赖链根除
 - 用户复机路径: git pull → 画布连线/删线即时生效；网络/服务器故障时线短暂闪回 + destructive toast 是唯一可见痕迹
+
+---
+Task ID: t360
+Agent: main (Z.ai Code)
+Task: 用户工单 — 集群项目上 import map 失败「Map file not accessible: /data03/Lijing/test/P48/J999/cryosparc_P48_J999_004_volume_map.mrc」；用户问是否权限问题（该目录无写权限但有读权限，理论上可复制到 cryoflow 工作目录）
+
+Work Log:
+- 诊断: runMapImportNative 是纯本地实现 — existsSync/statSync 只看 app 所在机器磁盘（外加 WSL 翻译），集群路径必然「not accessible」；与权限无关，是磁盘盲区。用户判断正确：只读源即可复制，且复制应发生在集群内部
+- 修复·engine.ts runMapImportRemoteLeg（新）: ①一次 SSH 往返探测 — [ ! -e ]/[ ! -f ]/[ ! -r ] 三哨兵 + stat 大小 + head -c 1024|base64 头部，三种失败各自点名（不存在/是目录/无读权限——直接回答「是权限问题？」）②集群侧 cp -f -- 到孪生地址 remoteRoot/<projectId>/mapimport_<id8>/<basename>（csMirrorPath 镜像约定），statRemoteFiles 字节级验证（大小必须等于源）③finishNativeRunOnCluster 登记 — outputs.model_mrc=本地镜像路径 + remote.remoteOutputs.model_mrc=验证过的孪生 + run.out/run.err 见证上传 + .cf-remote-manifest.json（Files 标签页的 on-cluster 卡片）
+- 修复·分支判据: mapPath 经 WSL 翻译后仍不存在本地 → 集群分支（探测用原始 raw，绝不用会被改写成 \\wsl.localhost\… 的 host）；本地存在（sub-volume 裁剪流写入父 workdir 的本地文件）→ 保持本地 lane 零回归，下游照旧经 staging 上传
+- 重构: finishCsRunOnCluster 泛化为 finishNativeRunOnCluster（outputKey/localOutPath/manifestFiles 参数化，cs2star 双通道与 mapimport 共用同一 finish，防漂移教义延续）；writeCsRemoteManifest → writeNativeRemoteManifest 改名；REMOTE_OUTPUT_CANDIDATES 补 mapimport 条目（glob *.m[ra][cp]，探针自愈可期）
+- mrc.ts: 抽取 parseMrcHeaderBytes(buf, size) 纯解析器（远程 1KB 头 + 已知大小即可校验体量 sanity），readMrcHeader 委托之，行为零变化
+- dispatch 点: mapimport 补 beginNativeRun/abortNativeRun 包裹（t340 教义 — SSH 马拉松不裸奔）
+- 验证·scripts/diag-t360-mapimport-cluster.mjs（纯 API，36 断言 ALL GREEN）: Phase2 快乐道 — chmod 444 只读源（工单前提：无写有读）集群侧导入完成，receipt「REMOTE[cryo@…] Map imported … copied ON the cluster, zero bytes over the connection」；本地 workdir 零 map 字节（T3 零下载）；exec audit 证明 /data2 线上流量只有 1KB 头探测与 cp 本身（T4 零传输）；孪生字节恒等（T6）；源文件 untouched（T7）；manifest + outputs 视图列卡（T8/T9）；record 双路径登记（T5）。Phase3 裁剪形状 — 本地 mapPath 走本地 lane、无孪生登记（T10 零回归）。Phase4 诚实失败 — 无读权限/路径缺失/目录/.mrcs/垃圾头五判决各自点名（N1-N5），旧「Map file not accessible」不再回答集群路径（N6）
+- 验证·回归: t352 cs2star twin + t353 cs2star cluster-side 复跑 ALL GREEN（finish 泛化零漂移，含下游 class2d 孪生就地消费腿）；tsc 0 / eslint 0；3001 验证实例已收割，my-project:3000 基线 200 无恙，mock:3022 存活
+- 环境: mock 集群可写虚拟挂载只有 data2/home/opt/projects — /data03 不在映射内，fixture 落 /data2/Lijing/test/P48/J999（语义等价：集群上 cryoflow 根之外的路径）
+
+Stage Summary:
+- 集群项目 import map 从「existsSync 磁盘盲区必败」变为集群侧闭环：SSH 探测（1KB）→ 集群内部 cp → 字节验证 → 孪生登记；map 一个字节都不经过 app↔集群链路，源目录只需要读权限
+- 下游 class3d/refine3d 经 remoteOutputs.model_mrc 孪生就地解析（staging 跳过、argv 指向集群副本）；Files 标签页经 manifest 列 on-cluster 卡片、按需拉取
+- 失败各自点名: 不存在 / 是目录 / 无读权限 / 非 .mrc|.map / 头不可解析 — 「是权限问题？」从此有明确答案
+- 用户复机路径: git pull → 在集群项目重新 pick 那个 volume map 跑 import → 应见 REMOTE 前缀 receipt；若真无读权限，报错会直说
