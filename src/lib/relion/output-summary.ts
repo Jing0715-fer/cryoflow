@@ -73,6 +73,10 @@ export interface SummarizeDeps {
   readStarAbs?: (absPath: string) => string | null;
   /** the recorded launch command (coverage's input star comes from --i) */
   cmd?: string;
+  /** t353 — the run record's result line: the cs2star cluster-side lane
+   *  writes its star ONLY on the cluster, so the receipt sentence is the
+   *  key numbers' fallback source when no local star exists. */
+  result?: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -409,6 +413,43 @@ export function summarizeOutputs(
               }
             : undefined,
       };
+    }
+
+    case "cs2star": {
+      // t336 — the converted star carries the SAME key numbers doctrine:
+      // particles first (the user's 「这个信息很关键」), stacks second (the
+      // selective-link census's own denominator)
+      // t353 — the cluster-side lane writes the star ONLY on the cluster
+      // (the 200 MB never crosses the wire — the whole point), so exactly
+      // when the local star is absent the run record's receipt line holds
+      // the same two numbers ("N particles converted from … · M stack(s)
+      // → micrographs/" — both lanes print it). The sentence is the
+      // fallback, never a second counter.
+      const star = fileByName(files, "particles.star");
+      if (!star) {
+        const rp = /([\d,]+)\s+particles converted\b/.exec(deps.result ?? "");
+        if (!rp) return null;
+        const stats: SummaryStat[] = [
+          { key: "particles", value: nfmt(Number(rp[1].replace(/,/g, ""))), label: "particles converted", tone: "particle" },
+        ];
+        const rs = /([\d,]+)\s+stack\(s\) → micrographs\//.exec(deps.result ?? "");
+        if (rs) {
+          stats.push({ key: "stacks", value: nfmt(Number(rs[1].replace(/,/g, ""))), label: "particle stacks linked", tone: "micrograph" });
+        }
+        return { stats };
+      }
+      const text = deps.readStarText(star.path);
+      const img = text ? scanStarColumn(text, "_rlnImageName", micBaseFromImageName) : null;
+      const particles = star.rows ?? img?.rows ?? null;
+      if (particles == null) return null;
+      const stacks = img?.distinct ?? null;
+      const stats: SummaryStat[] = [
+        { key: "particles", value: nfmt(particles), label: "particles converted", tone: "particle" },
+      ];
+      if (stacks != null) {
+        stats.push({ key: "stacks", value: nfmt(stacks), label: "particle stacks linked", tone: "micrograph" });
+      }
+      return { stats };
     }
 
     case "class2d": {

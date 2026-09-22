@@ -4,9 +4,10 @@
  * The run dialog's redesign promised "every flag the preview shows is one
  * the dispatch writes" — and the live check caught the old hint (and the
  * first preview draft) overstating: the sbatch honors the GPU-stepper
- * width ONLY for the MPI-multi-GPU types (relion_refine_mpi splits
- * particles across ranks — class2d/class3d/refine3d/initialmodel/
- * multibody). Everything else the dispatch sizes by its OWN strategy:
+ * width ONLY for the MPI-multi-GPU types (relion_refine splits
+ * particles across worker ranks — class2d/class3d/refine3d/
+ * initialmodel/multibody; t349 adds the dedicated CPU master, so the
+ * rank count is width + 1 while --gres stays the raw width). Everything else the dispatch sizes by its OWN strategy:
  * motioncorr and References-picking run ONE GPU per task, ctffind/extract
  * and the LoG picker run CPU tasks, Topaz/DynaMight-style trainers are
  * single-GPU, postprocessing is CPU. A stepper promising "6 × GPU —
@@ -26,26 +27,50 @@
  * share the same implementation (the t320 log-autopick doctrine).
  */
 
-/** relion_refine_mpi types: ONE job, N MPI ranks pinned to N GPUs. */
+/**
+ * relion_refine_mpi types: ONE job, N MPI ranks pinned to N GPUs.
+ *
+ * t349 — initialmodel LEFT this set: the engine's template is VDAM
+ * (`relion_refine --grad --denovo_3dref` — engine.ts's own comment: RELION
+ * forbids --grad with MPI), so a width ≥2 submission used to hand mpirun a
+ * binary that refuses to run under it. It runs SINGLE now (one GPU, no
+ * mpirun) — the honest width for the argv we actually write.
+ */
 export const MULTI_GPU_TYPES = new Set([
   "class2d",
   "class3d",
   "refine3d",
-  "initialmodel",
   "multibody",
 ]);
 
-/** Deep-learning wrappers that train/infer on exactly one GPU. */
+/**
+ * Deep-learning wrappers that train/infer on exactly one GPU.
+ *
+ * t349 — tomo_denoise joined: its engine argv carries `--gpu 0` (cryoCARE
+ * trains on CUDA) but the width table used to file it as a 0-GPU array
+ * type — a job that ASKS for a card the submission never requests. Under
+ * this set it gets --gres=gpu:1 + the t341 grant pin + the t342 refusal.
+ * initialmodel joined for the VDAM reason above.
+ */
 export const SINGLE_GPU_TYPES = new Set([
   "topaztrain",
   "dynamight",
   "modelangelo",
   "tomo_ctfrefine",
   "tomo_polish",
+  "tomo_denoise",
+  "initialmodel",
 ]);
 
-/** Array-flavor types whose shards each get one GPU (the strategy's table). */
-const ARRAY_ONE_GPU_TYPES = new Set(["motioncorr", "autopick"]);
+/**
+ * Array-flavor types whose shards each get one GPU (the strategy's table).
+ *
+ * t349 — tomo_aligntiltseries joined: the command template carries `--gpu`
+ * (AreTomo2 does its alignment on CUDA), but the argv used to omit it and
+ * the width said 0 — the engine now passes `--gpu 0` and the shard asks for
+ * a card like motioncorr's shards do.
+ */
+const ARRAY_ONE_GPU_TYPES = new Set(["motioncorr", "autopick", "tomo_aligntiltseries"]);
 
 export type SlurmWidthMode = "multi-gpu" | "single" | "array" | "cpu";
 
@@ -58,10 +83,12 @@ export interface SlurmWidth {
 /**
  * The width the dispatch writes for a Slurm submission of this job type.
  *
- * - "multi-gpu": the submission width is the USER's pick (one MPI rank
- *   per GPU — `mpirun -n N`, `--ntasks=N`, `--gres=gpu:N`). NOTE: this is
- *   the RAW width — the strategy's simulator floor (never plan < 2) is a
- *   planning choice, not a dispatch constraint.
+ * - "multi-gpu": the submission width is the USER's pick (t349: one
+ *   WORKER rank per GPU plus a dedicated CPU master — `mpirun -n N+1`,
+ *   `--ntasks=N+1`, `--gres=gpu:N`; width 1 runs a single task, no MPI
+ *   split). NOTE: this is the RAW width — the strategy's simulator
+ *   floor (never plan < 2) is a planning choice, not a dispatch
+ *   constraint.
  * - "single": exactly 1 GPU (`--gres=gpu:1 --ntasks=1`, `--gpu 0`, no
  *   mpirun) — the width knob is not real.
  * - "array": embarrassingly parallel per micrograph; gpus says the shard's

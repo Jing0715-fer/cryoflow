@@ -426,8 +426,8 @@ try {
   const remoteRunSrc = readFileSync(`${ROOT}/src/lib/remote/remote-run.ts`, "utf8");
   must(
     remoteRunSrc.includes("ctffindInputGate") && remoteRunSrc.includes("remoteHeaderSniffer(conn)") &&
-      /note: ctffindGateNote,/.test(remoteRunSrc),
-    "B: the remote dispatch gates by bytes and passes the note to the script builders"
+      /note: ctffindGateNote \?\? extractGateNote \?\? particlesGateNote,/.test(remoteRunSrc),
+    "B: the remote dispatch gates by bytes and passes the note to the script builders (the t338 chain: CTF → extract → particles-ref gates, first note wins)"
   );
   must(
     remoteRunSrc.includes("CRYOFLOW_NOTE") && remoteRunSrc.includes("rejected EVERY micrograph at once"),

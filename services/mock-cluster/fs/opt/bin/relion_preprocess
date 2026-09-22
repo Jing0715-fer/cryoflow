@@ -151,7 +151,6 @@ os.makedirs(extra, exist_ok=True)
 
 star_dir = os.path.dirname(os.path.abspath(part_star))
 rows = []
-idx = 0
 total = 0
 for n, mic in enumerate(mics, 1):
     per = 8 + (n * 2) % 5  # 8..12 particles per micrograph, deterministic
@@ -164,12 +163,18 @@ for n, mic in enumerate(mics, 1):
     if not os.path.exists(stack):
         write_mrc_stack(stack, max(32, int(box or 128)), per, seed=n)
     rel = os.path.relpath(stack, star_dir)
+    # t338 — PER-STACK numbering, real RELION's dialect (preprocess.cpp:
+    # rlnImageName counts images inside EACH micrograph's own .mrcs, 1..per
+    # — the count a stack-reading consumer like relion_refine bounds-checks
+    # against the file's NZ). The old fake ran one GLOBAL counter across
+    # all micrographs, so every stack after the first carried image numbers
+    # far past its own slice count — a dialect no real RELION produces and
+    # the app's consumer-side consistency gate (t338) rightly refuses.
     for k in range(per):
-        idx += 1
         total += 1
         x = 100 + (n * 31 + k * 7) % 900
         y = 120 + (n * 17 + k * 11) % 900
-        rows.append(f"{idx:06d}@{rel}\t{x}.0\t{y}.0")
+        rows.append(f"{k + 1:06d}@{rel}\t{x}.0\t{y}.0")
     print(f"Micrograph {n}/{len(mics)}: {base} — {per} particles (box={box})")
     sys.stdout.flush()
 

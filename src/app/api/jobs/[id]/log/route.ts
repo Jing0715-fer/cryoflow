@@ -60,6 +60,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
         tail: remote.text,
         totalLines: remote.totalLines,
         truncated: remote.truncated,
+        // t347 — pending answers carry no data of their own: the UI keeps
+        // its previously rendered text and shows the note as a quiet hint
+        // (never as console content that blanks the log mid-refresh)
+        pending: remote.pending ?? false,
+        note: remote.note,
       });
     }
 

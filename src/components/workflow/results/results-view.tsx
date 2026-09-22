@@ -11,6 +11,8 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+// t350 — per-iteration class snapshots (live + picker)
+import { ClassIterationGallery } from "./class-iteration-gallery";
 import {
   AlertTriangle,
   Box,
@@ -933,6 +935,11 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
 
   return (
     <div className="space-y-4">
+      {/* t350 — class snapshots per iteration: live while a remote
+          classification runs (cluster-side counts, rendered averages),
+          a class picker once it finished (per-class stars → next job) */}
+      <ClassIterationGallery job={job} refreshKey={refreshKey} />
+
       {/* header row */}
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs font-medium text-muted-foreground">
@@ -1962,7 +1969,12 @@ const STAT_TONE_CLASS: Record<string, string> = {
   warn: "text-amber-600 dark:text-amber-300",
 };
 
-function KeyNumbersStrip({ summary }: { summary: OutputSummary }) {
+/**
+ * t347 — exported: the inspector's Overview tab now leads with the same
+ * key-numbers strip the Results view opens with (one grammar, both
+ * surfaces — the user's 「颗粒数需要显示得醒目些，不仅在任务窗口中」).
+ */
+export function KeyNumbersStrip({ summary }: { summary: OutputSummary }) {
   if (summary.stats.length === 0) return null;
   return (
     <section

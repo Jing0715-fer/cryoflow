@@ -37,6 +37,16 @@ yarn-error.log*
 # vercel
 .vercel
 
+# runtime data (t340) — engine state, RELION job workdirs, cs->star outputs;
+# also keeps Tailwind v4's content auto-detection from watching these trees
+# (the dev-server "compiling" storm during job runs)
+data/
+db/*.db
+!db/.gitkeep
+# t349 — QA screenshots + anything fetched home lands here; same watcher
+# exemption as data/ (text files with class-like tokens would rebuild CSS)
+download/
+
 
 # typescript
 *.tsbuildinfo
@@ -76,3 +86,16 @@ qa44-*.png
 # local demo micrographs (dev fixtures)
 /demo-mics/
 .family-report.json
+
+# t341 — E2E review suite: scripts are tracked; binary fixtures + PNG
+# evidence stay local (fixtures are re-fetched/re-copied by the suites
+# themselves — see e2e-review/README.md)
+/e2e-review/fixtures/
+/e2e-review/*.png
+# real EMPIAR-10017 micrographs for the mock cluster (513 MB — fetch per
+# services/mock-cluster/README.md; never ship in git)
+/services/mock-cluster/fs/data2/empiar-10017/
+# t341 — the t340 diag suite's runtime fixtures (recreated on each run)
+/services/mock-cluster/fs/data2/csproj-t340/
+/services/mock-cluster/fs/data2/t340-bare/
+/services/mock-cluster/fs/data2/t340-particles/

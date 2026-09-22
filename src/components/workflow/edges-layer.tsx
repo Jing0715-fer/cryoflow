@@ -13,6 +13,21 @@
  * (completed → unfinished) use a soft primary tint; hover thickens and
  * reveals a delete button at the path midpoint.
  *
+ * t349 — GRADIENTS ARE userSpaceOnUse, NEVER objectBoundingBox: a
+ * perfectly horizontal wire (both ports at the same y) has a ZERO-HEIGHT
+ * bounding box, and the SVG spec makes user agents IGNORE gradients on
+ * degenerate geometry — the stroke resolved to nothing and the wire
+ * literally vanished (the "broken line" report: it struck exactly when a
+ * task failed, because that is when its upstream wire turns primed, and
+ * horizontal same-row wires are the auto-arranged norm). The gradient
+ * now spans the wire's own endpoints in user space, which also points
+ * the ramp along the true source→target flow (bbox units pointed
+ * left-to-right even for wrap-around routes that run right-to-left).
+ * The gradient lives INSIDE the edge group (a paint server renders
+ * nothing directly wherever it sits) so the drag patch loop can reach
+ * it through the same group-scoped [data-e] contract as everything
+ * else.
+ *
  * PERFORMANCE — drag with zero React work per frame:
  * while a card is dragged, JobCard's rAF loop recomputes the touching
  * edge geometry with the same shared math and patches the SVG DOM
@@ -113,39 +128,6 @@ export const EdgesLayer = React.memo(function EdgesLayer({
       style={{ left: box.x, top: box.y, overflow: "visible" }}
       aria-hidden="true"
     >
-      <defs>
-        {/* gradient defs for live / primed wires — created lazily below */}
-        {geoms.map((g) => {
-          const from = jobMap.get(g.fromId);
-          const to = jobMap.get(g.toId);
-          const running = from?.status === "running";
-          const primed = from?.status === "completed" && to?.status !== "completed";
-          if (!running && !primed) return null;
-          return (
-            <linearGradient
-              key={g.edge.id}
-              id={`edge-grad-${g.edge.id}`}
-              x1="0%"
-              y1="0%"
-              x2="100%"
-              y2="0%"
-            >
-              {running ? (
-                <>
-                  <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.55" />
-                  <stop offset="45%" stopColor="var(--primary)" stopOpacity="1" />
-                  <stop offset="100%" stopColor="var(--primary)" stopOpacity="0.85" />
-                </>
-              ) : (
-                <>
-                  <stop offset="0%" stopColor={STROKE_BASE} />
-                  <stop offset="100%" stopColor={STROKE_READY} />
-                </>
-              )}
-            </linearGradient>
-          );
-        })}
-      </defs>
       {geoms.map((g) => {
         const { edge } = g;
         const from = jobMap.get(g.fromId);
@@ -196,6 +178,37 @@ export const EdgesLayer = React.memo(function EdgesLayer({
               transition: "opacity 220ms ease",
             }}
           >
+            {/* t349 — the wire's paint ramp, in USER SPACE spanning the
+                wire's own endpoints. The per-edge [data-e="grad"] node
+                lets the drag patch loop slide the ramp along with the
+                card (it sits inside this group, a paint server renders
+                nothing directly wherever it lives). Degenerate-bbox
+                gradients (the vanished horizontal wires) are structurally
+                impossible now: userSpaceOnUse never looks at the bbox. */}
+            {(running || primed) && (
+              <linearGradient
+                id={`edge-grad-${edge.id}`}
+                data-e="grad"
+                gradientUnits="userSpaceOnUse"
+                x1={g.srcDot.x}
+                y1={g.srcDot.y}
+                x2={g.tgtDot.x}
+                y2={g.tgtDot.y}
+              >
+                {running ? (
+                  <>
+                    <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.55" />
+                    <stop offset="45%" stopColor="var(--primary)" stopOpacity="1" />
+                    <stop offset="100%" stopColor="var(--primary)" stopOpacity="0.85" />
+                  </>
+                ) : (
+                  <>
+                    <stop offset="0%" stopColor={STROKE_BASE} />
+                    <stop offset="100%" stopColor={STROKE_READY} />
+                  </>
+                )}
+              </linearGradient>
+            )}
             {/* invisible hit area for hover. Task 176: mouse-ONLY — the
                 16px corridor crossing a card face STOLE that card's tap on
                 touch (the wire paints over the card at the fold band's 25%

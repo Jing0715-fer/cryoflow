@@ -65,7 +65,15 @@ for n, mic in enumerate(mics, 1):
 os.makedirs(outdir, exist_ok=True)
 out = os.path.join(outdir, "corrected_micrographs.star")
 with open(out, "w") as fh:
-    fh.write("\ndata_\n\nloop_\n")
+    # E2E extension (2026-09 review): REAL relion_run_motioncorr (RELION 5)
+    # writes the optics dialect — data_optics first, then data_micrographs
+    # (the old single data_ block tripped extract's t334 array-split guard,
+    # which honestly refused to split a single-block star).
+    fh.write("\ndata_optics\n\nloop_\n")
+    fh.write("_rlnOpticsGroup #1\n")
+    fh.write("_rlnOpticsMicrographPixelSize #2\n")
+    fh.write("1 1.77\n")
+    fh.write("\ndata_micrographs\n\nloop_\n")
     fh.write("_rlnMicrographName #1\n")
     fh.write("_rlnAccumMotionTotal #2\n")
     fh.write("_rlnAccumMotionEarly #3\n")

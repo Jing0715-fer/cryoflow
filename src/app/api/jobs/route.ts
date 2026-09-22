@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { existsSync } from "fs";
 import { db } from "@/lib/db";
-import { ensureActiveProject, ensureDefaultWorkspace, toJobDTO } from "@/lib/seed";
+import { ensureActiveProject, ensureDefaultWorkspace, toJobDTO, toEdgeDTO } from "@/lib/seed";
 import { defaultParams, jobType } from "@/lib/workflow";
 import { readRuns, reconcileRealJobs } from "@/lib/relion/engine";
 import { autoStartPendingDownstream } from "@/lib/relion/dispatch";
 import { reconcileRemoteJobs, remoteInfoFor } from "@/lib/remote/remote-run";
-import type { JobDTO } from "@/lib/types";
+import type { JobDTO, EdgeDTO } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -92,7 +92,20 @@ export async function GET() {
     // them: their pids are cluster-side, and polling happens over SSH in
     // one batched round trip per connection).
     const localFinal = await reconcileRealJobs(jobs);
-    const final = await reconcileRemoteJobs(localFinal);
+    // t346 — the GET never WAITS on a slow sweep: on a lagging login node
+    // the sweep's SSH round trip can take tens of seconds (the t345 field
+    // ticket proved a plain `cat` can outlive 15s), and awaiting it made
+    // this route — and with it the whole UI's 4s cadence — feel stuck.
+    // The sweep still RUNS (in-flight guard, one per connection); its
+    // verdicts, progress and log tails simply land on the NEXT tick.
+    // Anything the local reconcile + DB already know serves immediately.
+    const sweep = reconcileRemoteJobs(localFinal).catch(() => localFinal);
+    const final = await Promise.race([
+      sweep,
+      new Promise<typeof localFinal>((resolve) => {
+        setTimeout(() => resolve(localFinal), 1_500);
+      }),
+    ]);
 
     // ---- transition sweep: completed → auto-start pending downstream -----
     // Fire-and-forget (never blocks the response); autoStartPendingDownstream
@@ -182,6 +195,12 @@ export async function POST(request: NextRequest) {
       name?: unknown;
       workspaceId?: unknown;
       linkedJobId?: unknown;
+      /** t350 — the class-gallery flow: pick classes of a finished
+       * upstream classification; the new job consumes their per-class
+       * stars (auto-joinstar on dispatch). A top-level field because the
+       * scalar-filtered `params` cannot carry the object — the server
+       * validates it HERE and injects it into the stored params JSON. */
+      classStarSelection?: unknown;
     };
 
     const type = typeof body.type === "string" ? body.type : "";
@@ -316,6 +335,47 @@ export async function POST(request: NextRequest) {
         ? body.y
         : 200 + Math.random() * 60;
 
+    // t350 — validate + normalize the class selection before it enters the
+    // stored params: the SOURCE must be a finished classification of THIS
+    // project (its per-class stars live on the cluster that ran it), and
+    // the classes must be positive integers.
+    let classSelection: { jobId: string; classes: number[] } | null = null;
+    if (body.classStarSelection != null) {
+      const sel = body.classStarSelection as { jobId?: unknown; classes?: unknown };
+      const sourceId = typeof sel.jobId === "string" ? sel.jobId : "";
+      const classes = Array.isArray(sel.classes)
+        ? sel.classes.map((c) => Number(c)).filter((c) => Number.isInteger(c) && c > 0 && c <= 10000)
+        : [];
+      if (classes.length === 0) {
+        return NextResponse.json({ error: "classStarSelection.classes must be a non-empty list of class numbers" }, { status: 400 });
+      }
+      const source = sourceId
+        ? await db.job.findFirst({ where: { id: sourceId, projectId: active.project.id } })
+        : null;
+      if (!source || !(source.type === "class2d" || source.type === "class3d")) {
+        return NextResponse.json(
+          { error: "classStarSelection.jobId must be a 2D/3D classification job of this project" },
+          { status: 400 }
+        );
+      }
+      // a LINK resolves to its original (links are aliases; the run record,
+      // the per-class stars and the canvas edge all belong to the original)
+      let sourceRoot = source;
+      while (sourceRoot.linkedJobId) {
+        const root = await db.job.findFirst({
+          where: { id: sourceRoot.linkedJobId, projectId: active.project.id },
+        });
+        if (!root) break;
+        sourceRoot = root;
+      }
+      classSelection = { jobId: sourceRoot.id, classes: [...new Set(classes)].sort((a, b) => a - b) };
+    }
+
+    const storedParams: Record<string, unknown> = customParams
+      ? { ...customParams }
+      : { ...defaultParams(type) };
+    if (classSelection) storedParams.classStarSelection = classSelection;
+
     const job = await db.job.create({
       data: {
         projectId: active.project.id,
@@ -324,14 +384,29 @@ export async function POST(request: NextRequest) {
         name: customName ?? `${spec.label} ${count + 1}`,
         x,
         y,
-        params: customParams ? JSON.stringify(customParams) : JSON.stringify(defaultParams(type)),
+        params: JSON.stringify(storedParams),
         duration: spec.duration,
       },
     });
 
+    // the gallery flow wires the source classification to the new consumer
+    // automatically — the canvas shows the lineage the dispatch will use
+    // (resolveInputs scans the upstream chain through this edge)
+    let createdEdge: EdgeDTO | null = null;
+    if (classSelection) {
+      const edge = await db.edge.create({
+        data: {
+          projectId: active.project.id,
+          fromJobId: classSelection.jobId,
+          toJobId: job.id,
+        },
+      });
+      createdEdge = toEdgeDTO(edge);
+    }
+
     const dto = toJobDTO(job);
     dto.engine = "relion";
-    return NextResponse.json({ job: dto }, { status: 201 });
+    return NextResponse.json({ job: dto, ...(createdEdge ? { edge: createdEdge } : {}) }, { status: 201 });
   } catch (error) {
     console.error("POST /api/jobs failed:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

@@ -425,7 +425,11 @@ async function executeCleanup(
       };
     } else {
       const workdir = record.remote.remoteWorkdir;
-      const listing = await listRemoteWorkdir(conn, workdir, { bypassCache: true });
+      // t341 — publish:false: this re-list photographs the workdir right
+      // before the DELETEs below mutate it; caching the snapshot would
+      // mute the next plan GET for a whole TTL (the review's cache-
+      // pollution finding)
+      const listing = await listRemoteWorkdir(conn, workdir, { bypassCache: true, publish: false });
       if (!listing.ok) {
         remoteSide = {
           deleted: 0,
@@ -451,7 +455,15 @@ async function executeCleanup(
         let manifestRewritten = false;
         const errors: string[] = [];
         if (planned.length > 0) {
-          const rm = await deleteRemoteFiles(conn, workdir, planned);
+          // t344 — the same budget the dispatch wipe rides: a slow rm on a
+          // loaded login node is not a broken one (the field report timed
+          // out at 30s while the listing had just answered), so the
+          // interactive cleanup waits out 2 minutes per batch and retries
+          // once on a fresh connection before reporting the failure
+          const rm = await deleteRemoteFiles(conn, workdir, planned, {
+            timeoutMs: 120_000,
+            retries: 1,
+          });
           deleted = rm.deleted;
           errors.push(...rm.errors);
           if (rm.deleted > 0) {

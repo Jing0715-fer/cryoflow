@@ -41,12 +41,22 @@ import { getProjectMeta } from "@/lib/projects";
 import { getConnection, loadConnections } from "@/lib/remote/connections";
 import { remoteHeaderSniffer } from "@/lib/remote/sniff";
 import { listRemoteDir, REMOTE_IMPORT_MAX_ENTRIES, statRemoteFiles } from "@/lib/remote/remote-ls";
-import { exec as sshExec } from "@/lib/remote/ssh";
+import { exec as sshExec, remoteDownload, remoteMkdir, remoteUpload } from "@/lib/remote/ssh";
 import { wipeLocalRunProducts } from "@/lib/relion/run-wipe";
 import { describeExtractCollisions, scanExtractCollisions } from "@/lib/relion/extract-collide";
+import { npyRows, parseNpyHeader } from "@/lib/relion/cs-npy";
+import { csRowsToStar, type Cs2StarResult } from "@/lib/relion/cs2star";
 import type { RemoteConnection, RemoteRunState } from "@/lib/remote/types";
 import { readMrcHeader } from "@/lib/mrc";
 import { sniffImageFile, spreadSample, type HeaderSniffer, type SniffVerdict } from "./mrc-sniff";
+import { extractInputGate, micrographRowsFromContent, parseStarBlocks, type StarBlock } from "./extract-gate";
+import {
+  PARTICLES_CONSUMER_TYPES,
+  particleRefsFromContent,
+  particlesRefGate,
+  refCandidates,
+} from "./particle-ref-gate";
+export { extractInputGate, micrographRowsFromContent } from "./extract-gate";
 import { detectRelion, savedWslDistro } from "./system";
 import { MIC_RE, expandPattern, hasWildcard, userPathToHost } from "./glob";
 import { writePathrefMarker } from "./pathref";
@@ -768,6 +778,162 @@ function micAngpix(upstream: UpstreamRef[]): number | null {
     : null;
 }
 
+/**
+ * t350 — the refine family's pooled-particle auto value (relion_refine
+ * --pool). The t341 flag this replaces (--batch_size) NEVER EXISTED: a
+ * full audit of 3dem/relion tags 3.1 / 4.0 / 5.0-beta / 5.0 / 5.0.1 / 5.1
+ * (ml_optimiser.cpp, every getOption/checkOption string) finds no such
+ * option in ANY release — RELION's parser (args.cpp checkForUnknown-
+ * Arguments) hard-rejects unknown --flags, so any dispatch that carried
+ * it died at argv parse before the first banner. The REAL lever is
+ * --pool ("Number of images to pool for each thread task", CLI default
+ * 1), and RELION 5's own GUI ships an explicit --pool 3 for every
+ * refine-family job (pipeline_jobs.cpp, range 1–16: batches of
+ * pool × threads images are read together — one open/close per batch,
+ * fewer GPU kernel launches, more VRAM per batch). We mirror exactly the
+ * authors' own default — no invented box curve: the OOM that motivated
+ * t341 was the six-ranks-on-device-0 pile-up (fixed by t345/t349), not a
+ * pool size.
+ *
+ * Exported for the tests: one constant, every surface.
+ */
+export function refineAutoPool(): number {
+  // RELION 5's GUI default — verbatim (pipeline_jobs.cpp nr_pool)
+  return 3;
+}
+
+/**
+ * t350 — the refine family's optional node-local scratch (--scratch_dir:
+ * "particle stacks will be copied to this local scratch disk prior to
+ * refinement", RELION 5.0 ml_optimiser.cpp). On NFS-backed clusters
+ * this moves the per-iteration particle re-reads onto node-local disk —
+ * often the largest I/O win available without touching RELION itself.
+ * Empty (the default) = off. Returned WITHOUT the flag name so callers
+ * only push when non-empty.
+ */
+export function refineScratchDir(job: EngineJobRef): string {
+  const sd = str(job, "scratchDir", "");
+  return typeof sd === "string" ? sd.trim() : "";
+}
+
+/**
+ * t352 — the verified option set of relion_refine (RELION 5.0-beta ∪ 5.0),
+ * transcribed mechanically from 3dem/relion ml_optimiser.cpp (every
+ * parser.getOption / parser.checkOption / checkParameter option string,
+ * both parser sections — provenance: tags ver5.0 + the 5.0-beta-era
+ * ver5.0 branch, 2026-09 audit; the e2e guard in run-6-batch-size.mjs
+ * carries the same set). RELION's parser (args.cpp checkForUnknownArguments)
+ * hard-rejects unknown --flags, so NOTHING outside this set may ever ride
+ * a refine-family argv — the "Additional RELION arguments" escape hatch
+ * validates its tokens against exactly this set.
+ */
+export const REFINE_VERIFIED_OPTIONS: ReadonlySet<string> = new Set([
+  "--K", "--NN", "--abort_at_resolution", "--adaptive_fraction",
+  "--allow_coarser_sampling", "--always_cc", "--asymmetric_padding", "--auto_ignore_angles",
+  "--auto_iter_max", "--auto_local_healpix_order", "--auto_refine", "--auto_resol_angles",
+  "--auto_sampling", "--bimodal_psi", "--blush", "--blush_skip_spectral_trailing",
+  "--center_classes", "--class_inactivity_threshold", "--coarse_size", "--continue",
+  "--cpu", "--ctf", "--ctf3d_not_squared", "--ctf_intact_first_peak",
+  "--ctf_phase_flipped", "--ctf_uncorrected_ref", "--denovo_3dref", "--dont_check_norm",
+  "--dont_combine_weights_via_disc", "--dont_skip_gridding", "--external_reconstruct", "--failsafe_threshold",
+  "--fast_subsets", "--firstiter_cc", "--fix_sigma_noise", "--fix_sigma_offset",
+  "--flatten_solvent", "--force_converge", "--fourier_mask", "--free_gpu_memory",
+  "--gpu", "--grad", "--grad_em_iters", "--grad_fin_frac",
+  "--grad_fin_resol", "--grad_fin_subset", "--grad_ini_frac", "--grad_ini_resol",
+  "--grad_ini_subset", "--grad_min_resol", "--grad_stepsize", "--grad_stepsize_scheme",
+  "--grad_write_iter", "--healpix_order", "--helical_exclude_resols", "--helical_inner_diameter",
+  "--helical_keep_tilt_prior_fixed", "--helical_nr_asu", "--helical_nstart", "--helical_offset_step",
+  "--helical_outer_diameter", "--helical_rise_inistep", "--helical_rise_initial", "--helical_rise_max",
+  "--helical_rise_min", "--helical_sigma_distance", "--helical_symmetry_search", "--helical_twist_inistep",
+  "--helical_twist_initial", "--helical_twist_max", "--helical_twist_min", "--helical_z_percentage",
+  "--helix", "--i", "--ignore_helical_symmetry", "--incr_size",
+  "--ini_high", "--ios", "--iter", "--j",
+  "--join_random_halves", "--keep_free_scratch", "--keep_scratch", "--limit_tilt",
+  "--local_symmetry", "--low_resol_join_halves", "--lowpass", "--lowpass_mask",
+  "--maskedge", "--maxsig", "--min_sigma2_offset", "--mu",
+  "--multibody_masks", "--multibody_norm_overlap", "--no_init_blobs", "--no_norm",
+  "--no_parallel_disc_io", "--no_scale", "--norm", "--normalised_subtomo",
+  "--nr_parts_sigma2noise", "--o", "--offset", "--offset_range",
+  "--offset_range_x", "--offset_range_y", "--offset_range_z", "--offset_step",
+  "--only_flip_phases", "--onthefly_shifts", "--oversampling", "--pad",
+  "--pad_ctf", "--particle_diameter", "--perturb", "--pool",
+  "--preread_images", "--print_metadata_labels", "--print_symmetry_ops", "--psi_step",
+  "--r_min_nn", "--random_seed", "--reconstruct_subtracted_bodies", "--ref",
+  "--ref_angpix", "--relax_sym", "--reuse_scratch", "--scale",
+  "--scratch_dir", "--sigma_ang", "--sigma_off", "--sigma_psi",
+  "--sigma_rot", "--sigma_tilt", "--skip_align", "--skip_maximize",
+  "--skip_realspace_helical_sym", "--skip_rotate", "--skip_subtomo_multi", "--solvent_correct_fsc",
+  "--solvent_mask", "--solvent_mask2", "--som", "--som_connectivity",
+  "--som_inactivity_threshold", "--som_ini_nodes", "--som_neighbour_pull", "--split_random_halves",
+  "--strict_highres_exp", "--strict_lowres_exp", "--subtomo_multi_thr", "--sycl",
+  "--sym", "--tau", "--tau2_fudge", "--tau2_fudge_scheme",
+  "--tomograms", "--trajectories", "--trust_ref_size", "--verb",
+  "--zero_mask"
+]);
+
+/**
+ * t352 — the healpix degree → order map (pipeline_jobs.h job_sampling_options:
+ * the order is the list index + 1, exactly like RELION's own
+ * JobOption::getHealPixOrder).
+ */
+const HEALPIX_ORDER: Record<string, number> = {
+  "30": 1, "15": 2, "7.5": 3, "3.7": 4, "1.8": 5, "0.9": 6, "0.5": 7,
+};
+
+/** t352 — a sampling param's degree string → the --healpix_order/-style value;
+ * "auto" (and anything unknown) = RELION's own default = no flag. */
+function healpixOrderOf(raw: unknown): number | null {
+  const s = String(raw ?? "").trim();
+  return HEALPIX_ORDER[s] ?? null;
+}
+
+/**
+ * t352 — the GUI-parity tail shared by the whole refine family (RELION's
+ * Compute tab): the disc-I/O trio + the scratch keep-free companion + the
+ * validated "Additional RELION arguments" escape hatch. Returns an error
+ * (instead of argv) when extraArgs names a flag outside the verified set —
+ * the run dies at THIS door, with the flag named, instead of at RELION's
+ * argv parser on the cluster.
+ */
+function refineTail(job: EngineJobRef): string[] | { error: string } {
+  const out: string[] = [];
+  // the disc-I/O trio — only the NON-default side rides the argv (defaults
+  // match RELION's own, exactly like the GUI: only changed options emit)
+  if (job.params.parallelDiscIo === false) out.push("--no_parallel_disc_io");
+  if (job.params.prereadImages === true) out.push("--preread_images");
+  if (job.params.combineThruDisc === false) out.push("--dont_combine_weights_via_disc");
+  // scratch + its keep-free floor (only with a scratch dir set)
+  const scratch = refineScratchDir(job);
+  if (scratch) {
+    out.push("--scratch_dir", scratch);
+    const kf = num(job, "keepFreeScratch", 0);
+    if (kf > 0) out.push("--keep_free_scratch", String(kf));
+  }
+  // the escape hatch — every --token must be a verified relion_refine option
+  const extra = str(job, "extraArgs", "").trim();
+  if (extra) {
+    const tokens = extra.split(/\s+/);
+    for (const t of tokens) {
+      if (t.startsWith("--") && !REFINE_VERIFIED_OPTIONS.has(t)) {
+        return {
+          error:
+            `unknown relion_refine option "${t}" in Additional RELION arguments — it is not in the verified ` +
+            `RELION 5.0 option set (RELION's own parser would hard-reject the whole run at start). ` +
+            `Fix or drop the flag in the job's Compute tab`,
+        };
+      }
+    }
+    out.push(...tokens);
+  }
+  return out;
+}
+
+/** t352 — 0 = auto (no flag); >0 = the explicit value rides. */
+function positiveNum(job: EngineJobRef, key: string): number | null {
+  const v = num(job, key, 0);
+  return v > 0 ? v : null;
+}
+
 /** Particle pixel size: import pixel × (extract box / downsample). */
 function particlePixel(job: EngineJobRef, upstream: UpstreamRef[]): number {
   const importUp = upstream.find((u) => u.type === "import" || u.type === "tomo_import");
@@ -854,22 +1020,22 @@ const INPUTS: Record<string, InputReq[]> = {
     { key: "coords_dir", accepts: ["coords_dir", "coords_star"], from: ["manualpick", "autopick"], label: "particle coordinates (run ManualPick/AutoPick first)" },
   ],
   select: [
-    { key: "particles_star", accepts: ["particles_star"], from: ["import", "extract", "class2d", "select", "select2d", "joinstar", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
+    { key: "particles_star", accepts: ["particles_star"], from: ["import", "extract", "cs2star", "class2d", "select", "select2d", "joinstar", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
   ],
   select2d: [
-    { key: "particles_star", accepts: ["particles_star"], from: ["import", "class2d", "select2d"], label: "classified particles STAR with _rlnClassNumber (run 2D Classification first)" },
+    { key: "particles_star", accepts: ["particles_star"], from: ["import", "cs2star", "class2d", "select2d"], label: "classified particles STAR with _rlnClassNumber (run 2D Classification first)" },
     // class averages only feed the selection GALLERY — missing stack must
     // never block the run (older jobs may lack the output)
     { key: "classes_mrc", accepts: ["classes_mrc"], from: ["class2d"], label: "2D class averages (gallery)", optional: true },
   ],
   class2d: [
-    { key: "particles_star", accepts: ["particles_star"], from: ["import", "extract", "select", "select2d", "class2d", "joinstar", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
+    { key: "particles_star", accepts: ["particles_star"], from: ["import", "extract", "cs2star", "select", "select2d", "class2d", "joinstar", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
   ],
   initialmodel: [
-    { key: "particles_star", accepts: ["particles_star"], from: ["import", "extract", "select", "select2d", "class2d", "joinstar", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
+    { key: "particles_star", accepts: ["particles_star"], from: ["import", "extract", "cs2star", "select", "select2d", "class2d", "joinstar", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
   ],
   class3d: [
-    { key: "particles_star", accepts: ["particles_star"], from: ["import", "extract", "select", "select2d", "class2d", "initialmodel", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
+    { key: "particles_star", accepts: ["particles_star"], from: ["import", "extract", "cs2star", "select", "select2d", "class2d", "initialmodel", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
     // the reference MUST be a 3D map: initialmodel's VDAM model or class3d's
     // own 3D class volumes. class2d is deliberately absent — its classes are
     // 2D averages, and seeding a 3D refinement with them silently produced
@@ -878,19 +1044,19 @@ const INPUTS: Record<string, InputReq[]> = {
     { key: "model_mrc", accepts: ["model_mrc", "classes_mrc"], from: ["initialmodel", "class3d", "mapimport"], label: "reference map (run InitialModel first, or import a map)" },
   ],
   refine3d: [
-    { key: "particles_star", accepts: ["particles_star"], from: ["import", "extract", "select", "select2d", "class2d", "joinstar", "initialmodel", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
+    { key: "particles_star", accepts: ["particles_star"], from: ["import", "extract", "cs2star", "select", "select2d", "class2d", "joinstar", "initialmodel", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
     // 3D reference only — never class2d's 2D averages (see class3d note)
     { key: "model_mrc", accepts: ["model_mrc", "classes_mrc"], from: ["initialmodel", "class3d", "mapimport"], label: "reference map (run InitialModel first, or import a map)" },
   ],
   multibody: [
-    { key: "particles_star", accepts: ["particles_star"], from: ["import", "extract", "select", "select2d", "class2d", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
+    { key: "particles_star", accepts: ["particles_star"], from: ["import", "extract", "cs2star", "select", "select2d", "class2d", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
     { key: "optimiser_star", accepts: ["optimiser_star"], from: ["refine3d", "class3d"], label: "optimiser.star (run Refine3D first)" },
   ],
   symexpand: [
-    { key: "particles_star", accepts: ["particles_star", "refine_data_star"], from: ["import", "extract", "select", "select2d", "class2d", "initialmodel", "class3d", "refine3d", "joinstar", "symexpand", "rebalance"], label: "particles.star with Euler angles (run Extract/Refine first)" },
+    { key: "particles_star", accepts: ["particles_star", "refine_data_star"], from: ["import", "extract", "cs2star", "select", "select2d", "class2d", "initialmodel", "class3d", "refine3d", "joinstar", "symexpand", "rebalance"], label: "particles.star with Euler angles (run Extract/Refine first)" },
   ],
   rebalance: [
-    { key: "particles_star", accepts: ["particles_star", "refine_data_star"], from: ["import", "extract", "select", "select2d", "class2d", "initialmodel", "class3d", "refine3d", "joinstar", "symexpand", "rebalance"], label: "oriented particles STAR with _rlnAngleRot/Tilt (refine/classify output)" },
+    { key: "particles_star", accepts: ["particles_star", "refine_data_star"], from: ["import", "extract", "cs2star", "select", "select2d", "class2d", "initialmodel", "class3d", "refine3d", "joinstar", "symexpand", "rebalance"], label: "oriented particles STAR with _rlnAngleRot/Tilt (refine/classify output)" },
   ],
   maskcreate: [
     { key: "map_mrc", accepts: ["half1_mrc", "model_mrc", "map_mrc"], from: ["refine3d", "initialmodel", "class3d", "postprocess", "localres"], label: "3D map (run Refine3D first)" },
@@ -905,16 +1071,16 @@ const INPUTS: Record<string, InputReq[]> = {
     { key: "mask_mrc", accepts: ["mask_mrc"], from: ["maskcreate"], label: "solvent mask (run MaskCreate first)" },
   ],
   polish: [
-    { key: "particles_star", accepts: ["particles_star", "refine_data_star"], from: ["import", "extract", "refine3d", "class2d", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
+    { key: "particles_star", accepts: ["particles_star", "refine_data_star"], from: ["import", "extract", "cs2star", "refine3d", "class2d", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
     { key: "postprocess_star", accepts: ["postprocess_star"], from: ["postprocess"], label: "postprocess.star (run PostProcess first)" },
     { key: "micrographs_star", accepts: ["micrographs_star", "corrected_micrographs_star"], from: ["motioncorr", "import"], label: "corrected micrographs.star (run MotionCorr first)" },
   ],
   ctfrefine: [
-    { key: "particles_star", accepts: ["particles_star", "refine_data_star"], from: ["import", "extract", "refine3d", "class2d", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
+    { key: "particles_star", accepts: ["particles_star", "refine_data_star"], from: ["import", "extract", "cs2star", "refine3d", "class2d", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
     { key: "postprocess_star", accepts: ["postprocess_star"], from: ["postprocess"], label: "postprocess.star (run PostProcess first)" },
   ],
   dynamight: [
-    { key: "particles_star", accepts: ["particles_star", "refine_data_star"], from: ["import", "extract", "refine3d", "class2d", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
+    { key: "particles_star", accepts: ["particles_star", "refine_data_star"], from: ["import", "extract", "cs2star", "refine3d", "class2d", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
     { key: "model_mrc", accepts: ["model_mrc", "map_mrc"], from: ["refine3d", "postprocess"], label: "consensus map (run Refine3D first)" },
   ],
   modelangelo: [
@@ -923,7 +1089,7 @@ const INPUTS: Record<string, InputReq[]> = {
   subtract: [
     { key: "optimiser_star", accepts: ["optimiser_star"], from: ["refine3d", "class3d"], label: "optimiser.star (run Refine3D first)" },
     { key: "mask_mrc", accepts: ["mask_mrc"], from: ["maskcreate"], label: "mask of signal to subtract (run MaskCreate first)" },
-    { key: "particles_star", accepts: ["particles_star"], from: ["import", "extract", "refine3d"], label: "particles.star (run Extract first)" },
+    { key: "particles_star", accepts: ["particles_star"], from: ["import", "extract", "cs2star", "refine3d"], label: "particles.star (run Extract first)" },
   ],
   tomo_import: [],
   tomo_aligntiltseries: [
@@ -1010,6 +1176,14 @@ export const REMOTE_OUTPUT_CANDIDATES: Record<string, RemoteOutputCandidate[]> =
   ],
   topaztrain: [{ key: "topaz_model", exact: ["topaz_model.sav"], glob: "*.sav", pick: "first" }],
   extract: [{ key: "particles_star", exact: ["particles.star"] }],
+  // t352 — cs2star's cluster twin (uploaded at the end of the engine-native
+  // conversion) speaks the exact same shape as extract's: the probe cycles
+  // (a downstream dispatch's lazy heal, a missing-worklist probe) can
+  // re-find and self-heal the twin inside remoteWorkdir when the record's
+  // registration was lost — a pre-t352 ledger, a wiped record, a manual
+  // cleanup. Without this entry those dialects would promise a probe that
+  // can never fire (the t325-a M1 rule).
+  cs2star: [{ key: "particles_star", exact: ["particles.star"] }],
   class2d: [
     { key: "particles_star", exact: ["run_data.star"], glob: "run_it[0-9]*_data.star", pick: "latest" },
     {
@@ -1402,45 +1576,9 @@ export { COMMAND_TEMPLATES } from "./command-templates";
 /* STAR file helpers                                                    */
 /* ------------------------------------------------------------------ */
 
-interface StarBlock {
-  /** "data_xxx" header line. */
-  header: string;
-  /** All following lines (including loop_/labels/rows). */
-  lines: string[];
-}
-
-function parseStarBlocks(text: string): StarBlock[] {
-  const blocks: StarBlock[] = [];
-  let current: StarBlock | null = null;
-  for (const raw of text.split(/\r?\n/)) {
-    const line = raw.trimEnd();
-    if (/^data_/.test(line.trim())) {
-      current = { header: line.trim(), lines: [] };
-      blocks.push(current);
-    } else if (current) {
-      current.lines.push(line);
-    }
-  }
-  return blocks;
-}
-
 /** Micrograph names from a micrographs.star (first column after the loop header). */
 function micrographNames(starPath: string): string[] {
-  const blocks = parseStarBlocks(readFileSync(starPath, "utf8"));
-  const micBlock = blocks.find(
-    (b) => b.header === "data_micrographs" || b.lines.some((l) => l.includes("_rlnMicrographName"))
-  );
-  if (!micBlock) return [];
-  const names: string[] = [];
-  for (const line of micBlock.lines) {
-    const t = line.trim();
-    if (!t || t.startsWith("#") || t === "loop_" || t.startsWith("_rln") || t.startsWith("data_")) {
-      continue;
-    }
-    const first = t.split(/\s+/)[0];
-    if (first) names.push(first);
-  }
-  return names;
+  return micrographRowsFromContent(readFileSync(starPath, "utf8"));
 }
 
 /**
@@ -1921,6 +2059,100 @@ interface NativeResult {
   wait?: WaitKind;
 }
 
+/**
+ * t340 — the engine-native IN-FLIGHT record + phase log.
+ *
+ * The field report that convicted the gap: a 325k-particle cs → star
+ * conversion (download .cs → convert → 10k+ selective links over SSH) runs
+ * IN-PROCESS for minutes, and `recordNativeRun` only writes the run record
+ * at the very END. The jobs-GET reconcile sweep flips any "running" row
+ * with NO engine record and startedAt older than 120 s to
+ * "stale running state (no engine record) — re-run" — so the marathon
+ * native first showed FAILED with no log (none existed yet), then flipped
+ * to COMPLETED when the promise finally resolved. Exactly the user's
+ * 「运行时先出现了失败（超时了没有返回log？），之后又成功了？」.
+ *
+ * beginNativeRun closes the window: the record exists from second zero
+ * (pid = the SERVER process — alive for the whole in-process run, so the
+ * sweep's liveness check passes), run.out carries live phase lines the
+ * inspector's Log tab can tail, and the previous record's outputs ride
+ * along so a re-run mid-flight never strands downstream consumers.
+ * recordNativeRun overwrites on success; abortNativeRun marks done+exit 1
+ * on an honest failure (restoring the previous outputs — a failed re-run
+ * must not erase the last good import's registry entry), and a server
+ * restart leaves the familiar "interrupted" verdict via the sweep.
+ */
+function beginNativeRun(
+  job: EngineJobRef,
+  label: string
+): { prevOutputs: Record<string, string>; prevResult: string | null } {
+  const workdir = workdirFor(job);
+  mkdirSync(workdir, { recursive: true });
+  const logFile = path.join(workdir, "run.out");
+  const errFile = path.join(workdir, "run.err");
+  const prev = getRun(job.id);
+  try {
+    appendFileSync(logFile, `\nCryoFlow ${label} — started ${new Date().toISOString()}\n`);
+  } catch {
+    /* the log is a witness, never the run */
+  }
+  try {
+    writeFileSync(errFile, "");
+  } catch {
+    /* same doctrine */
+  }
+  upsertRun(job.id, {
+    jobId: job.id,
+    projectId: job.projectId,
+    type: job.type,
+    pid: process.pid,
+    cmd: `${label} (in flight)`,
+    workdir,
+    logFile,
+    errFile,
+    startedAt: new Date().toISOString(),
+    outputs: prev?.outputs ?? {},
+    done: false,
+    exitCode: null,
+    result: null,
+  });
+  return { prevOutputs: prev?.outputs ?? {}, prevResult: prev?.result ?? null };
+}
+
+/** A native run that ended in an honest refusal/crash: close the record
+ * (done + exit 1 + the error as result) WITHOUT erasing the previous run's
+ * outputs — the registry keeps what the last successful run produced. */
+function abortNativeRun(
+  jobId: string,
+  error: string,
+  prevOutputs: Record<string, string>
+): void {
+  updateRun(
+    jobId,
+    (rec) =>
+      rec.done === false && rec.exitCode == null
+        ? {
+            ...rec,
+            done: true,
+            exitCode: 1,
+            result: `engine-native run aborted: ${error}`.slice(0, 400),
+            outputs: prevOutputs,
+          }
+        : null
+  );
+}
+
+/** t340 — append one phase line to the native run's log (the inspector's
+ * Log tab tails run.out; a marathon with no interim lines reads as dead).
+ * Never throws: the witness must not be able to kill the run. */
+function nativePhaseLog(workdir: string, line: string): void {
+  try {
+    appendFileSync(path.join(workdir, "run.out"), `${line}\n`);
+  } catch {
+    /* witness doctrine */
+  }
+}
+
 function recordNativeRun(
   job: EngineJobRef,
   workdir: string,
@@ -2164,9 +2396,20 @@ async function runImportRemoteLeg(
       : nodeType === "movies" && sniffSingles
         ? " · Node type says Movies but the sampled headers say single-section (already motion-corrected) — CTF can consume these directly; MotionCorr would refuse them"
         : "";
+  // t333 — the extension census: a glob like *_Fractions_DW.mrc* sweeps in
+  // BOTH the corrector's outputs (.mrc sums AND .mrcs aligned movie stacks).
+  // The 6-file header sniff can miss the minority kind, so the receipt also
+  // states the extension split outright — the Beijing import was 865 .mrcs +
+  // 169 .mrc and nobody said so until extract died at image.h:1534.
+  const mrcCount = clusterFiles.filter((f) => /\.mrc$/i.test(f)).length;
+  const mrcsCount = clusterFiles.filter((f) => /\.mrcs$/i.test(f)).length;
+  const censusNote =
+    mrcCount > 0 && mrcsCount > 0
+      ? ` · ⚠ mixed extensions: ${mrcCount} .mrc + ${mrcsCount} .mrcs — the .mrcs are usually the corrector's ALIGNED MOVIE STACKS (frames), not micrographs; extract writes each micrograph's particle stack after the path WITHOUT its extension, so an X.mrc + X.mrcs pair would write the SAME stack file (the "write: target and source objects have different size" abort). Unless the .mrcs files are genuinely single-image, re-import with the exact .mrc pattern`
+      : "";
   return {
     kind: "done",
-    result: `${clusterFiles.length} ${kindWord} imported from ${conn.name || conn.host}${kindNote}${skipNote}${note}${sniffNote}${mismatch} — paths stay on the cluster (zero upload) · pixel ${String(job.params.pixelSize ?? 1.77)} Å`,
+    result: `${clusterFiles.length} ${kindWord} imported from ${conn.name || conn.host}${kindNote}${skipNote}${note}${sniffNote}${mismatch}${censusNote} — paths stay on the cluster (zero upload) · pixel ${String(job.params.pixelSize ?? 1.77)} Å`,
     sourceLabel: `source (cluster ${conn.host}): ${customRaw.slice(0, 200)} — cluster-absolute paths`,
   };
 }
@@ -2777,6 +3020,1323 @@ async function runMapImportNative(job: EngineJobRef): Promise<NativeResult> {
     result,
     logText
   );
+  return { ok: true, result };
+}
+
+/* ------------------------------------------------------------------ */
+/* t336 — CryoSPARC .cs → RELION particles.star (engine-native)        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Resolve the user's csPath against the CLUSTER: a .cs file is used
+ * directly (its sibling passthrough searched in the same dir); a job
+ * directory (J###) gets its newest particles.cs + first passthrough —
+ * the reference script's own discovery order (ls -V, last primary wins).
+ */
+async function resolveCsInputsRemote(
+  conn: RemoteConnection,
+  csPathRaw: string
+): Promise<{ primary: string; passthrough: string | null; csProjectRoot: string; jobLabel: string } | { error: string }> {
+  const isFile = /\.cs$/i.test(csPathRaw);
+  const q = (p: string) => `'${p.replace(/'/g, `'\\''`)}'`;
+  if (isFile) {
+    const st = await statRemoteFiles(conn, [csPathRaw]);
+    if (st.missing.length > 0) {
+      return { error: `Not on the cluster: ${csPathRaw} — re-pick the particles.cs in the params tab` };
+    }
+    const dir = csPathRaw.replace(/\/[^/]+$/, "");
+    const ptRes = await sshExec(conn, `ls -1 ${q(dir)}/*_passthrough_particles.cs 2>/dev/null | head -1`, { timeoutMs: 15_000 });
+    const pt = (ptRes.stdout ?? "").trim().split(/\r?\n/)[0] ?? "";
+    return {
+      primary: csPathRaw,
+      passthrough: pt || null,
+      csProjectRoot: dir.replace(/\/[^/]+$/, ""),
+      jobLabel: dir.split("/").pop() ?? dir,
+    };
+  }
+  // a J dir (or any directory): newest primary, first passthrough
+  const lsRes = await sshExec(
+    conn,
+    `cd ${q(csPathRaw)} 2>/dev/null && ls -1 *particles.cs 2>/dev/null | grep -v passthrough | sort -V | tail -1; echo ---; ls -1 *_passthrough_particles.cs 2>/dev/null | head -1`,
+    { timeoutMs: 15_000 }
+  );
+  if (lsRes.code !== 0) {
+    return { error: `Not a directory on the cluster: ${csPathRaw} — pick the CryoSPARC job folder (J###) or the particles.cs itself` };
+  }
+  const [primaryLine, ptLine] = (lsRes.stdout ?? "").split(/^---$/m).map((s) => s.trim().split(/\r?\n/)[0] ?? "");
+  if (!primaryLine) {
+    return { error: `No particles.cs inside ${csPathRaw} — pick the CryoSPARC job folder that holds extracted_particles.cs / cryosparc_*_particles.cs` };
+  }
+  return {
+    primary: `${csPathRaw.replace(/\/$/, "")}/${primaryLine}`,
+    passthrough: ptLine ? `${csPathRaw.replace(/\/$/, "")}/${ptLine}` : null,
+    csProjectRoot: csPathRaw.replace(/\/[^/]+$/, "").replace(/\/$/, ""),
+    jobLabel: csPathRaw.replace(/\/$/, "").split("/").pop() ?? csPathRaw,
+  };
+}
+
+/** 6-significant-digit display (float32 .cs fields carry representation noise). */
+const f6 = (x: number): string =>
+  Number.isFinite(x) ? (Number.isInteger(x) ? String(x) : String(Number(x.toPrecision(6)))) : "0";
+
+/** ~-expansion for the remote root (inlined to avoid an engine↔remote-run import cycle). */
+async function expandCsRemoteRoot(conn: RemoteConnection, p: string): Promise<string> {
+  if (!p.startsWith("~")) return p;
+  const r = await sshExec(conn, "echo $HOME", { timeoutMs: 10_000 });
+  const home = (r.stdout ?? "").trim().split(/\r?\n/)[0] ?? "";
+  if (p === "~") return home;
+  if (p.startsWith("~/")) return home + p.slice(1);
+  return p;
+}
+
+/**
+ * t352 — local (under RELION_DIR) → cluster mirror path: the EXACT mapping
+ * mapLocalToRemote performs for the staging layer and the finalize twin pass
+ * in remote-run.ts (uploads land at remoteRoot + the path's tail after
+ * RELION_DIR; record outputs map to their twins the same way). Inlined here
+ * because engine.ts deliberately does not import from remote-run.ts (the
+ * engine↔remote-run cycle is broken on purpose — expandCsRemoteRoot above
+ * is the precedent). The two bodies must stay behaviorally identical: the
+ * cs2star star's cluster twin is addressed by the SAME convention every
+ * other twin uses (remoteRoot/<projectId>/<type>_<id8>/particles.star —
+ * the extract field logs' shape), or the twin gates and the staging skip
+ * would speak different paths for one file.
+ */
+function csMirrorPath(localPath: string, remoteRoot: string): string {
+  const norm = localPath.split(path.sep).join("/");
+  if (norm === RELION_DIR.split(path.sep).join("/")) return remoteRoot;
+  if (norm.startsWith(RELION_DIR.split(path.sep).join("/") + "/")) {
+    return remoteRoot.replace(/\/$/, "") + norm.slice(RELION_DIR.length);
+  }
+  return norm;
+}
+
+/**
+ * t353 — the CLUSTER-SIDE converter: a self-contained python script, the
+ * byte-faithful twin of csRowsToStar (src/lib/relion/cs2star.ts — the
+ * pyem-verified field table, the uid smart-merge, the selective-link
+ * naming, the star emit order). The user's own architecture call: the
+ * params are decided HERE, the 100-200 MB .cs datasets and the .mrcs
+ * stacks live THERE — so the conversion runs where the data is. Only this
+ * few-KB script crosses the wire; the star is written straight to its
+ * cluster twin and the link farm is built in-process. No pyem install is
+ * required (numpy alone), and no sbatch: a login-node conversion is
+ * CPU-light I/O work, exactly where the user's own reference script ran
+ * csparc2star.py.
+ *
+ * Contract with the engine lane (runCs2StarOnCluster): argv-only params,
+ * cluster-absolute paths; exit 0 + a final "CF_RECEIPT {json}" line on
+ * stdout; every failure exits nonzero with the reason on stderr; the
+ * star writes to .tmp and renames (a failed run leaves nothing partial
+ * behind); the links are idempotent (remove + symlink, ln -sfn's shape).
+ */
+const CS2STAR_CLUSTER_PY = String.raw`#!/usr/bin/env python3
+# CryoFlow t353 - cluster-side CryoSPARC .cs -> RELION particles.star.
+# The byte-faithful python twin of the engine's native converter
+# (csRowsToStar): same uid join, same field table, same link naming,
+# same star emit order - the star written here is byte-identical to the
+# one the local lane would have produced from the same .cs.
+import argparse, json, math, os, re, sys, time
+from decimal import Decimal
+
+import numpy as np
+
+T0 = time.time()
+EPS = 2.220446049250313e-16
+DEG = 180.0 / math.pi
+
+def log(msg):
+    print(msg, flush=True)
+
+def fail(msg):
+    sys.stderr.write("CS2STAR-ERROR: %s\n" % msg)
+    sys.exit(1)
+
+# -- pyem's geometry, verbatim (geom/convert.py: expmap + rot2euler) ----
+def mul3(a, b):
+    out = [0.0] * 9
+    for i in range(3):
+        for j in range(3):
+            for l in range(3):
+                out[i * 3 + j] += a[i * 3 + l] * b[l * 3 + j]
+    return out
+
+def expmap(rx, ry, rz):
+    theta = math.sqrt(rx * rx + ry * ry + rz * rz)
+    if theta < 1e-16:
+        return [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+    wx, wy, wz = rx / theta, ry / theta, rz / theta
+    k = [0.0, wz, -wy, -wz, 0.0, wx, wy, -wx, 0.0]
+    k2 = mul3(k, k)
+    s = math.sin(theta)
+    c1 = 1.0 - math.cos(theta)
+    return [(1.0 if i % 4 == 0 else 0.0) + s * k[i] + c1 * k2[i] for i in range(9)]
+
+def _sign(x):
+    if x > 0:
+        return 1
+    if x < 0:
+        return -1
+    return 0
+
+def rot2euler(r):
+    abs_sb = math.hypot(r[2], r[5])
+    if abs_sb > 16 * EPS:
+        gamma = math.atan2(r[5], -r[2])
+        alpha = math.atan2(r[7], r[6])
+        if abs(math.sin(gamma)) < EPS:
+            sign_sb = _sign(-r[2]) / math.cos(gamma)
+        else:
+            sign_sb = _sign(r[5]) if math.sin(gamma) > 0 else -_sign(r[5])
+        beta = math.atan2(sign_sb * abs_sb, r[8])
+        return (alpha, beta, gamma)
+    if _sign(r[8]) > 0:
+        return (0.0, 0.0, math.atan2(-r[3], r[0]))
+    return (0.0, math.pi, math.atan2(r[3], -r[0]))
+
+def jsround(x):
+    # JS Math.round = floor(x + 0.5) - python round() is banker's and
+    # disagrees on exact .5 halves (coordinates hit them: 0.3125 * 5000)
+    return math.floor(x + 0.5)
+
+def fmt(v):
+    # the TS lane's fmt: integers < 1e15 plain, else
+    # String(Number(v.toPrecision(6))) - 6 significant digits in JS's
+    # Number-to-string dialect (fixed down to 1e-6, exponent otherwise
+    # with no leading zero in the exponent, "e+21" keeps the plus)
+    if not math.isfinite(v):
+        return "0"
+    if v == int(v) and abs(v) < 1e15:
+        return str(int(v))
+    x = float("%.6g" % v)
+    if x == int(x) and abs(x) < 1e15:
+        return str(int(x))
+    a = abs(x)
+    if a != 0.0 and (a < 1e-7 or a >= 1e21):
+        s = "%.5e" % x
+        mant, ex = s.split("e")
+        if "." in mant:
+            mant = mant.rstrip("0").rstrip(".")
+        exi = int(ex)
+        return "%se%s%d" % (mant, "+" if exi > 0 else "-", abs(exi))
+    return format(Decimal("%.6g" % x), "f")
+
+def nn(*xs):
+    for x in xs:
+        if x is not None:
+            return x
+    return None
+
+def to_py(v):
+    return v.item() if hasattr(v, "item") else v
+
+def decode_str(v):
+    if isinstance(v, bytes):
+        return v.decode("utf-8", "replace")
+    return str(v)
+
+def load_columns(path):
+    # .cs = a structured .npy. Columns are extracted ONCE into plain python
+    # values (exact ints for uid - i8 survives as python int, not f64) so
+    # the row loop below never touches numpy scalars.
+    arr = np.load(path, allow_pickle=False)
+    cols = {}
+    for name in arr.dtype.names:
+        a = arr[name]
+        if a.ndim == 2:
+            cols[name] = [list(map(to_py, row)) for row in a]
+        elif a.dtype.kind in ("S", "U"):
+            cols[name] = [decode_str(x) for x in a]
+        else:
+            cols[name] = [to_py(x) for x in a]
+    return cols, len(arr)
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--primary", required=True)
+    ap.add_argument("--passthrough")
+    ap.add_argument("--out", required=True)
+    ap.add_argument("--link-dir", required=True)
+    ap.add_argument("--cs-root", required=True)
+    ap.add_argument("--invert-y", default="0")
+    ap.add_argument("--fallback", default="{}")
+    args = ap.parse_args()
+
+    invert_y = args.invert_y in ("1", "true", "yes")
+    try:
+        fb = json.loads(args.fallback or "{}")
+    except Exception:
+        fb = {}
+    fb_angpix = fb.get("angpix")
+    fb_voltage = fb.get("voltage")
+    fb_cs = fb.get("cs")
+    fb_ac = fb.get("ac")
+
+    log("python %s - numpy %s" % (sys.version.split()[0], np.__version__))
+    log("reading %s" % args.primary)
+    prim, n_rows = load_columns(args.primary)
+    if n_rows == 0:
+        fail("the primary .cs holds zero rows")
+    pt_cols = None
+    pt_n = 0
+    if args.passthrough:
+        log("reading %s" % args.passthrough)
+        pt_cols, pt_n = load_columns(args.passthrough)
+
+    # the uid join (pyem smart_merge): passthrough fields absent from the
+    # primary ride onto the rows, matched by uid; a field the primary has
+    # itself never gets overridden
+    field_names = list(prim.keys())
+    field_set = set(field_names)
+    merged = dict(prim)
+    if pt_cols is not None and pt_n > 0:
+        by_uid = {}
+        for i, u in enumerate(pt_cols.get("uid", [])):
+            by_uid[u] = i
+        new_fields = [k for k in pt_cols.keys() if k != "uid" and k not in field_set]
+        for f in new_fields:
+            src = pt_cols[f]
+            col = [None] * n_rows
+            for i in range(n_rows):
+                d = by_uid.get(merged["uid"][i])
+                if d is not None:
+                    col[i] = src[d]
+            merged[f] = col
+        for f in new_fields:
+            field_set.add(f)
+            field_names.append(f)
+
+    def num1(i, k):
+        c = merged.get(k)
+        if c is None:
+            return None
+        v = c[i]
+        if isinstance(v, bool) or not isinstance(v, (int, float)):
+            return None
+        return v
+
+    def arr1(i, k):
+        c = merged.get(k)
+        if c is None:
+            return None
+        v = c[i]
+        return v if isinstance(v, list) else None
+
+    def str1(i, k):
+        c = merged.get(k)
+        if c is None:
+            return None
+        v = c[i]
+        return v if isinstance(v, str) else None
+
+    def has(k):
+        return k in field_set
+
+    alignment = "3D" if has("alignments3D/pose") else ("2D" if has("alignments2D/pose") else "none")
+    has_coords = has("location/center_x_frac") and has("location/micrograph_shape")
+
+    def img_path(i):
+        p = str1(i, "blob/path")
+        if p is None:
+            return None
+        return re.sub(r"^>+", "", p)
+
+    # the stack census (FIRST - the link names must be decided before any
+    # row references them; a colliding basename gets a -2 suffix and the
+    # star must speak the SAME suffixed name as the link)
+    stack_paths, seen = [], set()
+    for i in range(n_rows):
+        p = img_path(i)
+        if p is not None and p not in seen:
+            seen.add(p)
+            stack_paths.append(p)
+    used = {}
+    stack_plan = []
+    for p in stack_paths:
+        base = re.split(r"[\\/]", p)[-1]
+        base = re.sub(r"\.[^.]+$", "", base)
+        name = base + ".mrcs"
+        n = used.get(name)
+        if n:
+            used[name] = n + 1
+            name = "%s-%d.mrcs" % (base, n + 1)
+        else:
+            used[name] = 1
+        stack_plan.append((p, name))
+    link_of = dict(stack_plan)
+
+    optics_rows = {}
+    star_rows = []
+    for i in range(n_rows):
+        imgp = img_path(i)
+        img_idx = nn(num1(i, "blob/idx"), 0)
+        stack_path = imgp if imgp is not None else ""
+        link_name = link_of.get(stack_path, "")
+
+        gid_v = nn(num1(i, "ctf/exp_group_id"), 0)
+        gid = jsround(gid_v) + 1
+        if gid not in optics_rows:
+            angpix = nn(num1(i, "blob/psize_A"), fb_angpix, 1.0)
+            voltage = nn(num1(i, "ctf/accel_kv"), fb_voltage, 300.0)
+            cs = nn(num1(i, "ctf/cs_mm"), fb_cs, 2.7)
+            ac = nn(num1(i, "ctf/amp_contrast"), num1(i, "ctf/ac"), fb_ac, 0.1)
+            shape = arr1(i, "blob/shape")
+            box = jsround(nn(shape[0] if shape else None, 0))
+            optics_rows[gid] = {"voltage": voltage, "cs": cs, "ac": ac, "angpix": angpix, "box": box}
+        opt = optics_rows[gid]
+
+        vals = {}
+        if link_name:
+            vals["imageName"] = "%d@micrographs/%s" % (max(1, jsround(img_idx) + 1), link_name)
+        else:
+            vals["imageName"] = ""
+        mic = str1(i, "location/micrograph_path")
+        vals["micrographName"] = re.sub(r"^>+", "", mic) if mic is not None else ""
+
+        if has_coords:
+            fx = nn(num1(i, "location/center_x_frac"), 0.0)
+            fy = nn(num1(i, "location/center_y_frac"), 0.0)
+            if invert_y:
+                fy = 1.0 - fy
+            shape = arr1(i, "location/micrograph_shape")
+            if shape is None:
+                shape = [0, 0]
+            sx = nn(shape[1] if len(shape) > 1 else None, shape[0] if len(shape) > 0 else None, 0)
+            sy = nn(shape[0] if len(shape) > 0 else None, shape[1] if len(shape) > 1 else None, 0)
+            vals["coordX"] = str(jsround(fx * sx))
+            vals["coordY"] = str(jsround(fy * sy))
+
+        if alignment == "3D":
+            pose = arr1(i, "alignments3D/pose")
+            if pose is not None and len(pose) >= 3:
+                rot, tilt, psi = rot2euler(expmap(pose[0], pose[1], pose[2]))
+                vals["angleRot"] = fmt(rot * DEG)
+                vals["angleTilt"] = fmt(tilt * DEG)
+                vals["anglePsi"] = fmt(psi * DEG)
+            shift = arr1(i, "alignments3D/shift")
+            if shift is not None and len(shift) >= 2:
+                vals["originXAngst"] = fmt(shift[0] * opt["angpix"])
+                vals["originYAngst"] = fmt(shift[1] * opt["angpix"])
+            split = num1(i, "alignments3D/split")
+            if split is not None:
+                vals["randomSubset"] = str(jsround(split) + 1)
+        elif alignment == "2D":
+            psi = num1(i, "alignments2D/pose")
+            if psi is not None:
+                vals["anglePsi"] = fmt(psi * DEG)
+            shift = arr1(i, "alignments2D/shift")
+            if shift is not None and len(shift) >= 2:
+                vals["originXAngst"] = fmt(shift[0] * opt["angpix"])
+                vals["originYAngst"] = fmt(shift[1] * opt["angpix"])
+        cls = nn(num1(i, "alignments2D/class" if alignment == "2D" else "alignments3D/class"), num1(i, "class"))
+        if cls is not None:
+            vals["classNumber"] = str(jsround(cls) + 1)
+        dfu = num1(i, "ctf/df1_A")
+        if dfu is not None:
+            vals["defocusU"] = fmt(dfu)
+        dfv = num1(i, "ctf/df2_A")
+        if dfv is not None:
+            vals["defocusV"] = fmt(dfv)
+        dfa = num1(i, "ctf/df_angle_rad")
+        if dfa is not None:
+            vals["defocusAngle"] = fmt(dfa * DEG)
+        phs = num1(i, "ctf/phase_shift_rad")
+        vals["phaseShift"] = fmt(phs * DEG) if phs is not None else "0"
+
+        if vals["imageName"] != "":
+            star_rows.append(vals)
+
+    # the emit order (RELION's canonical particles star)
+    COLS = [
+        ("imageName", "_rlnImageName"),
+        ("micrographName", "_rlnMicrographName"),
+        ("coordX", "_rlnCoordinateX"),
+        ("coordY", "_rlnCoordinateY"),
+        ("angleRot", "_rlnAngleRot"),
+        ("angleTilt", "_rlnAngleTilt"),
+        ("anglePsi", "_rlnAnglePsi"),
+        ("originXAngst", "_rlnOriginXAngst"),
+        ("originYAngst", "_rlnOriginYAngst"),
+        ("defocusU", "_rlnDefocusU"),
+        ("defocusV", "_rlnDefocusV"),
+        ("defocusAngle", "_rlnDefocusAngle"),
+        ("phaseShift", "_rlnPhaseShift"),
+        ("classNumber", "_rlnClassNumber"),
+        ("randomSubset", "_rlnRandomSubset"),
+    ]
+    active = [c for c in COLS if any(c[0] in r for r in star_rows)]
+
+    lines = []
+    lines.append("")
+    lines.append("data_optics")
+    lines.append("")
+    lines.append("loop_")
+    optics_cols = [
+        ("_rlnOpticsGroup", lambda g: str(g)),
+        ("_rlnOpticsGroupName", lambda g: "opticsGroup%d" % g),
+        ("_rlnVoltage", lambda g: fmt(optics_rows[g]["voltage"])),
+        ("_rlnSphericalAberration", lambda g: fmt(optics_rows[g]["cs"])),
+        ("_rlnAmplitudeContrast", lambda g: fmt(optics_rows[g]["ac"])),
+        ("_rlnImageSize", lambda g: str(optics_rows[g]["box"]) if optics_rows[g]["box"] > 0 else ""),
+        ("_rlnImageDimensionality", lambda g: "2"),
+        ("_rlnImagePixelSize", lambda g: fmt(optics_rows[g]["angpix"])),
+    ]
+    for idx, (name, _f) in enumerate(optics_cols):
+        lines.append("%s #%d" % (name, idx + 1))
+    for g in sorted(optics_rows.keys()):
+        lines.append("\t".join(f(g) for (_n, f) in optics_cols))
+    lines.append("")
+    lines.append("data_particles")
+    lines.append("")
+    lines.append("loop_")
+    for idx, (k, name) in enumerate(active):
+        lines.append("%s #%d" % (name, idx + 1))
+    for r in star_rows:
+        lines.append("\t".join(r.get(k, "") for (k, _n) in active))
+    star_text = "\n".join(lines) + "\n"
+
+    MAPPED = [
+        r"^blob/(path|idx|psize_A|shape)$",
+        r"^ctf/(df1_A|df2_A|df_angle_rad|phase_shift_rad|accel_kv|cs_mm|ac|amp_contrast|exp_group_id|bfactor)$",
+        r"^location/(center_x_frac|center_y_frac|micrograph_path|micrograph_shape)$",
+        r"^alignments(2D|3D)/(pose|shift|class|split)$",
+    ]
+    unmapped = [k for k in field_names if k != "uid" and not any(re.match(rx, k) for rx in MAPPED)]
+
+    first = optics_rows.get(1)
+    if first is None and optics_rows:
+        first = next(iter(optics_rows.values()))
+    if first is None:
+        first = {
+            "voltage": nn(fb_voltage, 300.0),
+            "cs": nn(fb_cs, 2.7),
+            "ac": nn(fb_ac, 0.1),
+            "angpix": nn(fb_angpix, 1.0),
+            "box": 0,
+        }
+
+    # verify the referenced stacks exist, resolve relative paths against
+    # the cs project root (the engine's old lane did this over SSH)
+    def resolve_cs(p):
+        if p.startswith("/"):
+            return p
+        return args.cs_root + "/" + re.sub(r"^\./", "", p)
+
+    targets = [resolve_cs(p) for (p, _n) in stack_plan]
+    missing = [t for t in targets if not os.path.isfile(t)]
+    if missing:
+        fail("%d referenced particle stack(s) are missing on the cluster (first: %s) - the .cs names files the CryoSPARC project no longer holds" % (len(missing), missing[0]))
+
+    os.makedirs(args.link_dir, exist_ok=True)
+    log("linking %d stack(s) into %s (selective - only what this star references)" % (len(stack_plan), args.link_dir))
+    for (_p, name), target in zip(stack_plan, targets):
+        link = os.path.join(args.link_dir, name)
+        try:
+            if os.path.lexists(link):
+                os.remove(link)
+            os.symlink(target, link)
+        except OSError as e:
+            fail("could not link %s -> %s (%s)" % (link, target, e))
+
+    dirs = set(os.path.dirname(t) for t in targets)
+    total_mrc = 0
+    for d in dirs:
+        try:
+            total_mrc += sum(1 for f in os.listdir(d) if f.endswith(".mrc"))
+        except OSError:
+            pass
+
+    tmp = args.out + ".tmp"
+    with open(tmp, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(star_text)
+    os.replace(tmp, args.out)
+    star_bytes = os.path.getsize(args.out)
+
+    log("CF_RECEIPT " + json.dumps({
+        "particles": len(star_rows),
+        "stacks": [{"csPath": p, "linkName": n} for (p, n) in stack_plan],
+        "unmapped": unmapped,
+        "opticsGroups": len(optics_rows),
+        "optics": {"voltage": first["voltage"], "cs": first["cs"], "ac": first["ac"], "angpix": first["angpix"], "boxSize": first["box"]},
+        "hasCoordinates": has_coords,
+        "alignment": alignment,
+        "censusTotalMrc": total_mrc,
+        "starPath": args.out,
+        "starBytes": star_bytes,
+        "durationSec": round(time.time() - T0, 1),
+    }))
+
+if __name__ == "__main__":
+    try:
+        main()
+    except SystemExit:
+        raise
+    except Exception:
+        import traceback
+        sys.stderr.write("CS2STAR-ERROR: unhandled exception\n" + traceback.format_exc())
+        sys.exit(1)
+`;
+
+/**
+ * t353 — does the cluster's login shell have a python with numpy?
+ * ONE SSH round: python3 first (the HPC default), then python, then the
+ * pyem install's own interpreter — csparc2star.py's shebang names the
+ * exact python that has numpy (a conda env python the PATH never sees,
+ * exactly the user's layout). env-shebangs resolve through command -v
+ * (which the first arm already tried); only an ABSOLUTE shebang adds
+ * reach. Returns the exe path, or null with `definitive` telling whether
+ * the cluster answered a clean "no python" (vs a wire that stayed
+ * silent — the fallback lane's phase line speaks the difference).
+ */
+async function probeClusterPython(
+  conn: RemoteConnection
+): Promise<{ exe: string | null; definitive: boolean }> {
+  const sh = [
+    'P=$(command -v python3 || true)',
+    '[ -z "$P" ] && P=$(command -v python || true)',
+    'if [ -n "$P" ] && "$P" -c "import numpy" >/dev/null 2>&1; then echo "PYOK $P"; exit 0; fi',
+    'CS=$(command -v csparc2star.py || command -v csparc2star || true)',
+    'if [ -n "$CS" ] && [ -f "$CS" ]; then',
+    '  SB=$(sed -n "1s/^#!//p" "$CS" | tr -d "\\r")',
+    '  if [ -n "$SB" ]; then',
+    '    S1=${SB%% *}',
+    '    if [ "$S1" = "/usr/bin/env" ] || [ "$S1" = "env" ]; then',
+    '      S2=${SB#* }; S2=${S2%% *}',
+    '      case "$S2" in /*) SB="$S2";; *) SB=$(command -v "$S2" || true);; esac',
+    '    else',
+    '      SB="$S1"',
+    '    fi',
+    '    if [ -n "$SB" ] && "$SB" -c "import numpy" >/dev/null 2>&1; then echo "PYOK $SB"; exit 0; fi',
+    '  fi',
+    'fi',
+    'echo PYNONE',
+  ].join("\n");
+  try {
+    const r = await sshExec(conn, sh, { timeoutMs: 20_000 });
+    if (r.error) return { exe: null, definitive: false };
+    const line = (r.stdout ?? "")
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .find((l) => /^PYOK \S+/.test(l));
+    return { exe: line ? line.slice("PYOK ".length) : null, definitive: line == null };
+  } catch {
+    return { exe: null, definitive: false };
+  }
+}
+
+/** The receipt the cluster-side converter prints (CF_RECEIPT line). */
+interface CsClusterReceipt {
+  particles: number;
+  stacks: Array<{ csPath: string; linkName: string }>;
+  unmapped: string[];
+  opticsGroups: number;
+  optics: { voltage: number; cs: number; ac: number; angpix: number; boxSize: number };
+  hasCoordinates: boolean;
+  alignment: "3D" | "2D" | "none";
+  censusTotalMrc: number;
+  starBytes: number;
+  durationSec: number;
+}
+
+/**
+ * t353 — the CLUSTER-SIDE lane proper: upload the converter script (KBs),
+ * run it ON the cluster (params as argv), verify the star where it was
+ * written. The .cs bytes never leave the cluster and the star never
+ * crosses the wire — the twin is not uploaded, it is BORN there. The
+ * record keeps the LOCAL-flavored output path (absent on this machine
+ * by design — "output on the cluster" is the point) so the twin gates
+ * map consumers to the cluster path, exactly like a sync that left the
+ * local copy behind.
+ */
+async function runCs2StarOnCluster(
+  job: EngineJobRef,
+  workdir: string,
+  conn: RemoteConnection,
+  resolved: { primary: string; passthrough: string | null; csProjectRoot: string; jobLabel: string },
+  opts: { invertY: boolean; fallback: { angpix?: number; voltage?: number; cs?: number; ac?: number } },
+  pyExe: string
+): Promise<NativeResult> {
+  const phase = (line: string) => nativePhaseLog(workdir, line);
+  const q = (p: string) => `'${p.replace(/'/g, `'\\''`)}'`;
+
+  const remoteRoot = await expandCsRemoteRoot(conn, conn.remoteRoot || "~/cryoflow");
+  const starPath = path.join(workdir, "particles.star"); // the record's local flavor (twin gate maps it)
+  const twinPath = csMirrorPath(starPath, remoteRoot);
+  const twinDir = twinPath.slice(0, twinPath.lastIndexOf("/"));
+  const linkDir = `${remoteRoot.replace(/\/$/, "")}/${job.projectId}/micrographs`;
+
+  const fb = opts.fallback;
+  const fbJson = JSON.stringify({
+    ...(fb.angpix != null ? { angpix: fb.angpix } : {}),
+    ...(fb.voltage != null ? { voltage: fb.voltage } : {}),
+    ...(fb.cs != null ? { cs: fb.cs } : {}),
+    ...(fb.ac != null ? { ac: fb.ac } : {}),
+  });
+
+  phase(`converting ON the cluster (${pyExe}) — the .cs never leaves it; the star is written straight to ${twinPath}`);
+  await remoteMkdir(conn, twinDir);
+  await remoteMkdir(conn, linkDir);
+  const scriptPath = `${twinDir}/cs2star_cf.py`;
+  phase(`uploading the converter (${(CS2STAR_CLUSTER_PY.length / 1024).toFixed(1)} KB) → ${scriptPath}`);
+  if (!(await remoteUpload(conn, CS2STAR_CLUSTER_PY, scriptPath))) {
+    return {
+      ok: false,
+      error: `could not upload the converter script to ${scriptPath} — the cluster connection answered poorly; run again (nothing was modified on the cluster)`,
+    };
+  }
+
+  const cmd = [
+    q(pyExe),
+    q(scriptPath),
+    "--primary",
+    q(resolved.primary),
+    ...(resolved.passthrough ? ["--passthrough", q(resolved.passthrough)] : []),
+    "--out",
+    q(twinPath),
+    "--link-dir",
+    q(linkDir),
+    "--cs-root",
+    q(resolved.csProjectRoot),
+    "--invert-y",
+    opts.invertY ? "1" : "0",
+    "--fallback",
+    q(fbJson),
+  ].join(" ");
+
+  // t340's heartbeat doctrine: the exec is ONE call, so the interim lines
+  // come from a local timer (zero SSH) — the log tab stays alive while the
+  // login node chews.
+  let elapsed = 0;
+  const hb = setInterval(() => {
+    elapsed += 15;
+    nativePhaseLog(workdir, `converting on the cluster… ${elapsed}s`);
+  }, 15_000);
+  let res: Awaited<ReturnType<typeof sshExec>>;
+  try {
+    res = await sshExec(conn, cmd, { timeoutMs: 900_000 });
+  } finally {
+    clearInterval(hb);
+  }
+  const outText = res.stdout ?? "";
+  const errText = res.stderr ?? "";
+  // the converter's own log becomes part of the local witness
+  try {
+    appendFileSync(path.join(workdir, "run.out"), `\n--- converter output (on the cluster) ---\n${outText}`);
+  } catch {
+    /* witness doctrine */
+  }
+  if (res.error || res.code == null || res.code !== 0) {
+    const why = [errText, outText].join("\n").split("\n").filter(Boolean).slice(-4).join(" | ");
+    return {
+      ok: false,
+      error: `the cluster-side conversion failed (exit ${res.code ?? "ssh: " + (res.error ?? "no answer")}): ${why || "no output"} — the .cs was not downloaded and no star was written; the log tab holds the full converter output`,
+    };
+  }
+  const receiptLine = outText.split(/\r?\n/).filter((l) => l.startsWith("CF_RECEIPT ")).pop();
+  if (!receiptLine) {
+    return {
+      ok: false,
+      error: "the converter exited 0 but printed no receipt — unexpected output; the log tab holds what it did say",
+    };
+  }
+  let conv: CsClusterReceipt;
+  try {
+    conv = JSON.parse(receiptLine.slice("CF_RECEIPT ".length)) as CsClusterReceipt;
+  } catch {
+    return { ok: false, error: "the converter's receipt could not be parsed — the log tab holds the raw line" };
+  }
+  if (conv.particles === 0) {
+    return { ok: false, error: `the .cs holds no windowable particle rows (blob/path missing) — ${resolved.primary}` };
+  }
+  phase(`converted: ${conv.particles} particles · ${conv.stacks.length} referenced stack(s) · ${conv.durationSec}s on the cluster`);
+  // verify BEFORE recording anything — the twin gates chain downstream
+  // argv off this path (same doctrine as the upload lane)
+  let twinSize: number | null = null;
+  try {
+    const verify = await statRemoteFiles(conn, [twinPath]);
+    const s = verify.missing.length > 0 ? null : (verify.sizes[0] ?? null);
+    if (s != null && s > 0) twinSize = s;
+  } catch {
+    /* verified absent below */
+  }
+  if (twinSize == null) {
+    return {
+      ok: false,
+      error: `the converter reported success but ${twinPath} did not verify on the cluster — run again (the .cs was not downloaded, the retry is cheap)`,
+    };
+  }
+  phase(`star written on the cluster: ${twinPath} (verified ${twinSize.toLocaleString()} bytes)`);
+
+  const censusNote =
+    conv.censusTotalMrc > conv.stacks.length
+      ? ` · ${conv.stacks.length} of ${conv.censusTotalMrc} .mrc stack(s) linked — only the ones this star references (the rest stay untouched)`
+      : ` · ${conv.stacks.length} stack(s) linked`;
+  const opticsNote = `${f6(conv.optics.voltage)} kV · Cs ${f6(conv.optics.cs)} mm · ac ${f6(conv.optics.ac)} · pixel ${f6(conv.optics.angpix)} Å`;
+  const alignNote =
+    conv.alignment === "3D"
+      ? "3D alignments (Rodrigues → Euler)"
+      : conv.alignment === "2D"
+        ? "2D alignments (psi)"
+        : "no alignments (picked-only set)";
+  const unmappedNote = conv.unmapped.length > 0 ? ` · ${conv.unmapped.length} unmapped .cs field(s) skipped` : "";
+  const result =
+    `REMOTE[cryo@${conn.host}]: ${conv.particles} particles converted from ${resolved.jobLabel}${censusNote} · ${conv.stacks.length} stack(s) → micrographs/ · ${opticsNote} · ${alignNote}${unmappedNote}` +
+    (conv.opticsGroups > 1 ? ` · ${conv.opticsGroups} optics groups` : "") +
+    ` · converted ON the cluster in place (no .cs download, no star upload)`;
+  const logText = [
+    `CryoFlow cluster-side CryoSPARC conversion ${new Date().toISOString()}`,
+    `source: ${resolved.primary}${resolved.passthrough ? ` + ${resolved.passthrough}` : ""}`,
+    `cs project root: ${resolved.csProjectRoot}`,
+    `python: ${pyExe}`,
+    `invertY: ${opts.invertY}`,
+    `particles: ${conv.particles} · referenced stacks: ${conv.stacks.length}${censusNote}`,
+    `optics: ${opticsNote} · ${alignNote}`,
+    conv.unmapped.length > 0 ? `unmapped fields: ${conv.unmapped.join(", ")}` : "",
+    `output: ${twinPath} (cluster) — written in place, verified ${twinSize.toLocaleString()} bytes · ${conv.durationSec}s on the cluster; no local mirror by design (downstream jobs read the twin)`,
+    result,
+    "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+  await finishCsRunOnCluster(
+    job,
+    workdir,
+    conn,
+    remoteRoot,
+    twinPath,
+    twinSize,
+    starPath,
+    "engine-native: cryosparc cs → star (cluster-side, selective links)",
+    result,
+    logText,
+    errText
+  );
+  return { ok: true, result };
+}
+
+/**
+ * t353 — the remote manifest, INLINED (the engine↔remote-run cycle is
+ * broken on purpose — csMirrorPath/expandCsRemoteRoot above are the
+ * precedent; remote-files.ts imports remote-run.ts, so importing its
+ * writer here would close the loop). Byte-shape identical to
+ * writeRemoteManifest (remote-files.ts): the outputs route lists manifest
+ * files as "on cluster" cards and the file route fetches them over SSH
+ * on demand — without it, a cluster-side cs2star's Files tab would show
+ * nothing at all.
+ */
+function writeCsRemoteManifest(
+  workdir: string,
+  connectionId: string,
+  remoteWorkdir: string,
+  files: Array<{ path: string; size: number }>
+): void {
+  try {
+    mkdirSync(workdir, { recursive: true });
+    writeFileSync(
+      path.join(workdir, ".cf-remote-manifest.json"),
+      JSON.stringify({ version: 1, writtenAt: new Date().toISOString(), connectionId, remoteWorkdir, files }, null, 2),
+      "utf8"
+    );
+  } catch {
+    /* best-effort bookkeeping — never the run */
+  }
+}
+
+/**
+ * t352/t353 — the shared finish for BOTH cluster lanes (the t352 upload
+ * lane and the t353 in-place lane): record the run, mirror the witnesses
+ * into the twin dir, and register the twin on the record — the exact
+ * block the t352 lane grew, extracted so the two lanes cannot drift.
+ */
+async function finishCsRunOnCluster(
+  job: EngineJobRef,
+  workdir: string,
+  conn: RemoteConnection,
+  remoteRoot: string,
+  twinPath: string,
+  twinSize: number | null,
+  starPath: string,
+  cmdLabel: string,
+  result: string,
+  logText: string,
+  errText: string
+): Promise<void> {
+  const twinDir = twinPath.slice(0, twinPath.lastIndexOf("/"));
+  // t353 — the cluster-side lane has NO local star (the whole point): the
+  // manifest lets the outputs route list particles.star as an on-cluster
+  // file (the fallback lane's local copy makes the manifest entry a
+  // no-op there — the route's localSet dedupe skips it)
+  if (!existsSync(starPath) && twinSize != null) {
+    writeCsRemoteManifest(workdir, conn.id, twinDir, [{ path: "particles.star", size: twinSize }]);
+  }
+  recordNativeRun(job, workdir, cmdLabel, { particles_star: starPath }, result, logText);
+  // the record recordNativeRun just wrote: its startedAt is the identity
+  // the persistence guard below compares against (the probeRemoteOutputs /
+  // finalize pattern — recordNativeRun stamps a FRESH startedAt on every
+  // write, so only a record that is still THIS conversion may carry the
+  // twin; a re-run that already replaced it keeps its own shape)
+  const nativeRec = getRun(job.id);
+  // the witnesses ride along: the log route serves remote records from
+  // the CLUSTER workdir, so without the twin-dir copies the finished
+  // job's log tab would fetch an empty console. Best-effort by design —
+  // a witness must not be able to kill the finished run — and the
+  // ledger's t346 logTail cache below carries the tail lane even when
+  // the cluster copy is missing.
+  const twinLogText = (() => {
+    try {
+      return readFileSync(path.join(workdir, "run.out"), "utf8");
+    } catch {
+      return logText; // the file itself unreadable — the summary stands in
+    }
+  })();
+  const logOutOk = await remoteUpload(conn, twinLogText, `${twinDir}/run.out`);
+  const logErrOk = await remoteUpload(conn, errText, `${twinDir}/run.err`);
+  if (!logOutOk || !logErrOk) {
+    console.log(
+      `engine: cs2star ${job.id.slice(-8)} — star twin verified at ${twinPath}, but the run.out/run.err witnesses did not upload (the local log stays authoritative; the ledger cache serves the tail)`
+    );
+  }
+  updateRun(job.id, (cur) =>
+    nativeRec && cur.startedAt === nativeRec.startedAt && cur.done && cur.exitCode === 0
+      ? {
+          ...cur,
+          remote: {
+            connectionId: conn.id,
+            connectionName: conn.name,
+            host: `${conn.host}:${conn.port}`,
+            user: conn.username,
+            module: conn.defaultModule ?? "",
+            mode: "direct",
+            remoteRoot,
+            remoteWorkdir: twinDir,
+            pid: null,
+            slurmId: null,
+            phase: "running",
+            remoteOutputs: { ...(cur.remote?.remoteOutputs ?? {}), particles_star: twinPath },
+            logTailOut: twinLogText.slice(-4096),
+            logTailErr: errText.slice(-2048),
+            logTotalLines: twinLogText.split("\n").length,
+            logTailAt: Date.now(),
+          },
+        }
+      : null
+  );
+}
+
+/** The runner: cluster .cs bytes → star + SELECTIVE links; local .cs same. */
+async function runCs2StarNative(job: EngineJobRef): Promise<NativeResult> {
+  const workdir = workdirFor(job);
+  mkdirSync(workdir, { recursive: true });
+  const csPathRaw = String(job.params.csPath ?? "").trim();
+  if (!csPathRaw) {
+    return {
+      ok: false,
+      error: "Pick the CryoSPARC job folder (J###) or the particles.cs file in the params tab first",
+    };
+  }
+  const invertY = job.params.invertY === true;
+  const fallback = {
+    angpix: num(job, "pixelSize", 1) > 0 ? num(job, "pixelSize", 1) : undefined,
+    voltage: num(job, "voltage", 300),
+    cs: num(job, "cs", 2.7),
+    ac: num(job, "ampContrast", 0.1),
+  };
+
+  const meta = getProjectMeta(job.projectId);
+  const connId = meta?.remote?.connectionId ?? null;
+  const conn = connId ? (getConnection(connId) ?? null) : null;
+
+  let primaryBytes: Buffer;
+  let ptBytes: Buffer | null = null;
+  let csProjectRoot: string;
+  let jobLabel: string;
+  let linkPlan: Array<{ target: string; linkName: string }>;
+  let linkDirNote = "";
+  let censusNote = "";
+
+  if (conn) {
+    // ---- the CLUSTER lane: discover, download, convert, link -----------
+    // t340 — every phase speaks a line into run.out (beginNativeRun opened
+    // it): the inspector's Log tab tails the file, and a marathon with no
+    // interim lines reads as dead — exactly the field report's
+    // 「没有返回log」 while 325k particles downloaded and 10k links landed.
+    const phase = (line: string) => nativePhaseLog(workdir, line);
+    const resolved = await resolveCsInputsRemote(conn, csPathRaw);
+    if ("error" in resolved) return { ok: false, error: resolved.error };
+    csProjectRoot = resolved.csProjectRoot;
+    jobLabel = resolved.jobLabel;
+    phase(`discovered: ${resolved.primary}${resolved.passthrough ? ` + ${resolved.passthrough}` : ""}`);
+
+    // t353 — THE CLUSTER-SIDE LANE (the user's own architecture call):
+    // the params were decided HERE, the .cs datasets and the stacks live
+    // THERE — so the conversion runs where the data is. A python with
+    // numpy in the login shell (python3 → python → the pyem install's
+    // own shebang) receives the few-KB converter script; the star is
+    // written straight to its cluster twin and the link farm is built
+    // in-process. Nothing below this block is removed — it stays as the
+    // FALLBACK lane (download .cs → convert locally → upload the star)
+    // for clusters without python, and for a probe the wire could not
+    // answer (the download lane speaks its own honest errors there).
+    // A script-level failure does NOT fall back: the same .cs bytes
+    // would fail identically in the local converter — the error is the
+    // verdict, and it names what did and did not happen.
+    const py = await probeClusterPython(conn);
+    if (py.exe) {
+      phase(`cluster python: ${py.exe}`);
+      return await runCs2StarOnCluster(job, workdir, conn, resolved, { invertY, fallback }, py.exe);
+    }
+    phase(
+      py.definitive
+        ? "no python3+numpy in the cluster's login shell — falling back to the engine-native lane (download .cs → convert locally → upload the star)"
+        : "could not probe the cluster's python (the wire stayed silent) — falling back to the engine-native lane"
+    );
+
+    const want: string[] = [resolved.primary, ...(resolved.passthrough ? [resolved.passthrough] : [])];
+    const { sizes, missing } = await statRemoteFiles(conn, want);
+    if (missing.length > 0) return { ok: false, error: `Not on the cluster: ${missing[0]}` };
+    const capMb = conn.maxFileMb > 0 ? conn.maxFileMb : 512;
+    for (let i = 0; i < want.length; i++) {
+      const size = sizes[i] ?? 0;
+      if (size > capMb * 1024 * 1024) {
+        return {
+          ok: false,
+          error: `${want[i]} is ${(size / 1024 / 1024).toFixed(0)} MB, over the connection's ${capMb} MB per-file cap — raise the cap in Remote clusters and run again`,
+        };
+      }
+    }
+
+    // t352 — the .cs dedupe: a re-run of the same conversion used to
+    // re-download the same two .cs files (119.8 + 90.3 MB in the field
+    // report) over the same wire for nothing. The workdir copy from the
+    // previous run is byte-trustworthy exactly when the cluster's own
+    // stat verdict (sizes, above) still names its size — the same
+    // idempotence dialect stageFileTree applies to uploads. A size drift
+    // (the CryoSPARC job re-exported) re-downloads; never a guess.
+    const dlCached = async (
+      remote: string,
+      local: string,
+      remoteSize: number | null
+    ): Promise<{ buf: Buffer; reused: boolean }> => {
+      const localPath = path.join(workdir, local);
+      if (remoteSize != null && remoteSize > 0) {
+        try {
+          if (statSync(localPath).size === remoteSize) {
+            return { buf: readFileSync(localPath), reused: true };
+          }
+        } catch {
+          /* no readable local copy — the honest path below re-downloads */
+        }
+      }
+      const n = await remoteDownload(conn, remote, localPath, capMb * 1024 * 1024);
+      if (n == null || n < 0) throw new Error(`could not download ${remote} — the cluster connection answered poorly`);
+      return { buf: readFileSync(localPath), reused: false };
+    };
+    const mbOf = (n: number): string => `${(n / 1024 / 1024).toFixed(1)} MB`;
+    let primCs: { buf: Buffer; reused: boolean };
+    let ptCs: { buf: Buffer; reused: boolean } | null = null;
+    try {
+      primCs = await dlCached(resolved.primary, "particles.cs", sizes[0] ?? null);
+      ptCs = resolved.passthrough
+        ? await dlCached(resolved.passthrough, "passthrough_particles.cs", sizes[1] ?? null)
+        : null;
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) };
+    }
+    primaryBytes = primCs.buf;
+    ptBytes = ptCs ? ptCs.buf : null;
+    // t352 — the receipt names what reused (zero wire bytes) and what
+    // actually downloaded, per file
+    const reusedCs = [
+      ...(primCs.reused ? [`particles.cs (${mbOf(primCs.buf.length)}, remote unchanged)`] : []),
+      ...(ptCs?.reused ? [`passthrough_particles.cs (${mbOf(ptCs.buf.length)}, remote unchanged)`] : []),
+    ];
+    const fetchedCs = [
+      ...(!primCs.reused ? [`particles.cs (${mbOf(primCs.buf.length)})`] : []),
+      ...(ptCs && !ptCs.reused ? [`passthrough_particles.cs (${mbOf(ptCs.buf.length)})`] : []),
+    ];
+    if (reusedCs.length > 0) phase(`reusing cached ${reusedCs.join(" · ")} — no re-download`);
+    if (fetchedCs.length > 0) phase(`downloaded: ${fetchedCs.join(" · ")}`);
+
+    // convert FIRST — the census decides which links exist at all
+    let conv: Cs2StarResult;
+    try {
+      const pt = ptBytes ? npyRows(ptBytes, parseNpyHeader(ptBytes)) : [];
+      conv = csRowsToStar(npyRows(primaryBytes, parseNpyHeader(primaryBytes)), pt ? [pt] : [], { invertY, fallback });
+    } catch (e) {
+      return {
+        ok: false,
+        error: `could not parse the .cs: ${e instanceof Error ? e.message : String(e)} — is this a CryoSPARC 2+ dataset file?`,
+      };
+    }
+    if (conv.particles === 0) {
+      return { ok: false, error: `the .cs holds no windowable particle rows (blob/path missing) — ${resolved.primary}` };
+    }
+    phase(`converted: ${conv.particles} particles · ${conv.stacks.length} referenced stack(s)`);
+
+    // ---- THE SELECTIVE LINKS (the optimization over the reference
+    // script's link-everything): only the stacks the star references —
+    // resolved against the CryoSPARC project root, verified to exist, then
+    // linked with the .mrcs name RELION requires. Zero data movement.
+    const resolveCs = (p: string) => (p.startsWith("/") ? p : `${csProjectRoot}/${p.replace(/^\.\//, "")}`);
+    const targets = conv.stacks.map((s) => resolveCs(s.csPath));
+    const verify = await sshExec(
+      conn,
+      `for f in ${targets.map((t) => `'${t.replace(/'/g, `'\\''`)}'`).join(" ")}; do [ -f "$f" ] || echo "MISSING $f"; done; true`,
+      { timeoutMs: 30_000 }
+    );
+    const missingStacks = (verify.stdout ?? "").split(/\r?\n/).map((l) => l.trim()).filter((l) => l.startsWith("MISSING "));
+    if (missingStacks.length > 0) {
+      return {
+        ok: false,
+        error: `${missingStacks.length} referenced particle stack(s) are missing on the cluster (first: ${missingStacks[0]!.slice(8)}) — the .cs names files the CryoSPARC project no longer holds`,
+      };
+    }
+    linkPlan = conv.stacks.map((s, i) => ({ target: targets[i]!, linkName: s.linkName }));
+
+    // the receipt's census: how many .mrc files sit in the extract dirs the
+    // links came from (the reference script linked ALL of them)
+    const dirs = [...new Set(linkPlan.map((l) => l.target.replace(/\/[^/]+$/, "")))];
+    const countRes = await sshExec(
+      conn,
+      dirs.map((d) => `ls -1 '${d.replace(/'/g, `'\\''`)}'/*.mrc 2>/dev/null | wc -l`).join(";"),
+      { timeoutMs: 15_000 }
+    );
+    const counts = (countRes.stdout ?? "").split(/\r?\n/).map((l) => Number(l.trim())).filter((n) => Number.isFinite(n) && n > 0);
+    const totalMrc = counts.reduce((a, b) => a + b, 0);
+    censusNote =
+      totalMrc > linkPlan.length
+        ? ` · ${linkPlan.length} of ${totalMrc} .mrc stack(s) linked — only the ones this star references (the rest stay untouched)`
+        : ` · ${linkPlan.length} stack(s) linked`;
+
+    // create the link farm under the REMOTE project root (idempotent -fn)
+    const remoteRoot = await expandCsRemoteRoot(conn, conn.remoteRoot || "~/cryoflow");
+    const linkDir = `${remoteRoot.replace(/\/$/, "")}/${job.projectId}/micrographs`;
+    await remoteMkdir(conn, linkDir);
+    phase(`linking: ${linkPlan.length} stack(s) → ${linkDir} (selective — only what this star references)`);
+    const BATCH = 250;
+    for (let i = 0; i < linkPlan.length; i += BATCH) {
+      const batch = linkPlan.slice(i, i + BATCH);
+      const script = batch
+        .map((l) => `ln -sfn '${l.target.replace(/'/g, `'\\''`)}' '${(linkDir + "/" + l.linkName).replace(/'/g, `'\\''`)}'`)
+        .join(" && ");
+      const res = await sshExec(conn, script, { timeoutMs: 120_000 });
+      if (res.error || (res.code != null && res.code !== 0)) {
+        return {
+          ok: false,
+          error: `could not link the referenced stacks into ${linkDir} (${(res.error || res.stderr || "").split("\n").filter(Boolean).slice(-1)[0] ?? "ssh exit " + res.code})`,
+        };
+      }
+      // t340 — a 10k-stack link marathon gets a heartbeat every 10 batches
+      // (2500 links): the log stays alive without spamming one line per 250.
+      const done = Math.min(i + BATCH, linkPlan.length);
+      if (done % 2500 === 0 || done === linkPlan.length) {
+        phase(`linked ${done} of ${linkPlan.length} stack(s)`);
+      }
+    }
+    linkDirNote = `stacks linked on the cluster at ${linkDir}`;
+
+    // the star itself — the LOCAL copy first (the registry's own account
+    // and every local consumer read it), then the cluster twin below
+    const starPath = path.join(workdir, "particles.star");
+    writeFileSync(starPath, conv.starText, "utf8");
+
+    // t352 — THE STAR LIVES ON THE CLUSTER TOO (the field report: 325,549
+    // particles converted, 10,664 stacks linked under remoteRoot/<project>/
+    // micrographs — and the star itself landed ONLY in the local workdir, so
+    // the cluster that runs every downstream job held no output of this
+    // one). The twin rides the same mirror convention the staging layer
+    // maps its uploads through (csMirrorPath above = mapLocalToRemote):
+    // remoteRoot/<projectId>/<jobKey>/particles.star, the jobKey being the
+    // local workdir's basename — the exact address shape extract's twins
+    // use (…/extract_ufh1hg0u/particles.star in the field logs), so
+    // downstream cluster consumers resolve it in place with no re-upload.
+    const twinPath = csMirrorPath(starPath, remoteRoot);
+    const twinDir = twinPath.slice(0, twinPath.lastIndexOf("/"));
+    const starBytes = Buffer.from(conv.starText, "utf8");
+    const starMb = starBytes.length / 1024 / 1024;
+    if (starBytes.length > capMb * 1024 * 1024) {
+      return {
+        ok: false,
+        error:
+          `the converted star is ${starMb.toFixed(0)} MB, over the connection's ${capMb} MB per-file cap, ` +
+          `so it could not be saved on the cluster at ${twinPath} — the local copy at ${starPath} is intact; ` +
+          `raise the cap in Remote clusters and run again (the .cs download is cached, the retry is cheap)`,
+      };
+    }
+    await remoteMkdir(conn, twinDir);
+    phase(`uploading: particles.star (${starMb.toFixed(1)} MB) → ${twinPath}`);
+    const upOk = await remoteUpload(conn, starBytes, twinPath);
+    // verify BEFORE recording anything: the twin gates chain downstream
+    // argv off this path — a twin that is not really there is worse than
+    // no twin at all (the staging skip would point relion at a missing
+    // file). statRemoteFiles throws on an SSH failure — that is a verify
+    // failure too, with the wire's own word.
+    let twinSize: number | null = null;
+    let verifyWhy = "";
+    if (upOk) {
+      try {
+        const verify = await statRemoteFiles(conn, [twinPath]);
+        const vSize = verify.missing.length > 0 ? null : (verify.sizes[0] ?? null);
+        if (vSize != null && vSize > 0) {
+          twinSize = vSize;
+        } else {
+          verifyWhy = `the cluster reports the file ${vSize == null ? "absent" : `${vSize} bytes`} right after the upload`;
+        }
+      } catch (e) {
+        verifyWhy = `the verify stat failed: ${e instanceof Error ? e.message : String(e)}`;
+      }
+    }
+    if (twinSize == null) {
+      return {
+        ok: false,
+        error:
+          `could not save the star on the cluster at ${twinPath} — ` +
+          `${upOk ? verifyWhy || "the cluster did not verify the file" : "the upload did not complete (the connection answered poorly)"}. ` +
+          `The local copy at ${starPath} is intact and the ${linkPlan.length} stack links at ${linkDir} are already on the cluster; ` +
+          `fix the cluster (check the login node's load, raise the cap in Remote clusters) and run again`,
+      };
+    }
+    phase(`star saved on the cluster: ${twinPath} (${starMb.toFixed(1)} MB, verified ${twinSize.toLocaleString()} bytes)`);
+
+    const opticsNote = `${f6(conv.optics.voltage)} kV · Cs ${f6(conv.optics.cs)} mm · ac ${f6(conv.optics.ac)} · pixel ${f6(conv.optics.angpix)} Å`;
+    const alignNote =
+      conv.alignment === "3D"
+        ? "3D alignments (Rodrigues → Euler)"
+        : conv.alignment === "2D"
+          ? "2D alignments (psi)"
+          : "no alignments (picked-only set)";
+    const unmappedNote =
+      conv.unmapped.length > 0 ? ` · ${conv.unmapped.length} unmapped .cs field(s) skipped` : "";
+    // t352 — the envelope stays byte-identical (other components parse
+    // it); only the twin fact is appended
+    const result =
+      `REMOTE[cryo@${conn.host}]: ${conv.particles} particles converted from ${jobLabel}${censusNote} · ${conv.stacks.length} stack(s) → micrographs/ · ${opticsNote} · ${alignNote}${unmappedNote}` +
+      (conv.opticsGroups > 1 ? ` · ${conv.opticsGroups} optics groups` : "") +
+      ` · star saved on the cluster`;
+    const logText = [
+      `CryoFlow engine-native CryoSPARC conversion ${new Date().toISOString()}`,
+      `source: ${resolved.primary}${resolved.passthrough ? ` + ${resolved.passthrough}` : ""}`,
+      `cs project root: ${csProjectRoot}`,
+      `invertY: ${invertY}`,
+      `particles: ${conv.particles} · referenced stacks: ${conv.stacks.length}${censusNote}`,
+      `optics: ${opticsNote} · ${alignNote}`,
+      conv.unmapped.length > 0 ? `unmapped fields: ${conv.unmapped.join(", ")}` : "",
+      `output: ${twinPath} (cluster) + local mirror: ${starPath}`,
+      result,
+      "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+    recordNativeRun(job, workdir, "engine-native: cryosparc cs → star (selective links)", { particles_star: starPath }, result, logText);
+    // t352/t353 — the twin registration + witnesses live in the SHARED
+    // finish now (finishCsRunOnCluster — the exact block this lane grew,
+    // extracted so the in-place lane cannot drift from it)
+    await finishCsRunOnCluster(
+      job,
+      workdir,
+      conn,
+      remoteRoot,
+      twinPath,
+      twinSize,
+      starPath,
+      "engine-native: cryosparc cs → star (selective links)",
+      result,
+      logText,
+      ""
+    );
+    return { ok: true, result };
+  }
+
+  // ---- the LOCAL lane (a .cs on this machine / the WSL bridge) --------
+  const hostPath = csPathRaw;
+  let primaryLocal = hostPath;
+  if (!existsSync(primaryLocal)) {
+    return { ok: false, error: `Not accessible: ${hostPath} — re-pick the particles.cs in the params tab` };
+  }
+  const dir = path.dirname(primaryLocal);
+  const ptCandidates = readdirSync(dir).filter((f) => /_passthrough_particles\.cs$/i.test(f)).sort();
+  const ptLocal = ptCandidates[0] ? path.join(dir, ptCandidates[0]) : null;
+  csProjectRoot = dir.replace(/[/\\][^/\\]+$/, "");
+  jobLabel = dir.split(/[\\/]/).pop() ?? dir;
+
+  try {
+    primaryBytes = readFileSync(primaryLocal);
+    ptBytes = ptLocal ? readFileSync(ptLocal) : null;
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+  let conv: Cs2StarResult;
+  try {
+    const pt = ptBytes ? npyRows(ptBytes, parseNpyHeader(ptBytes)) : [];
+    conv = csRowsToStar(npyRows(primaryBytes, parseNpyHeader(primaryBytes)), pt ? [pt] : [], { invertY, fallback });
+  } catch (e) {
+    return {
+      ok: false,
+      error: `could not parse the .cs: ${e instanceof Error ? e.message : String(e)} — is this a CryoSPARC 2+ dataset file?`,
+    };
+  }
+  if (conv.particles === 0) {
+    return { ok: false, error: `the .cs holds no windowable particle rows (blob/path missing) — ${primaryLocal}` };
+  }
+
+  // local selective links: <project>/micrographs/<name>.mrcs → the .mrc
+  const projectDir = projectDirFor(job);
+  const micDir = path.join(projectDir, "micrographs");
+  mkdirSync(micDir, { recursive: true });
+  const resolveLocal = (p: string) => (path.isAbsolute(p) ? p : path.join(csProjectRoot, p));
+  const missingLocal: string[] = [];
+  for (const s of conv.stacks) {
+    const target = resolveLocal(s.csPath);
+    if (!existsSync(target)) missingLocal.push(target);
+  }
+  if (missingLocal.length > 0) {
+    return {
+      ok: false,
+      error: `${missingLocal.length} referenced particle stack(s) not found (first: ${missingLocal[0]}) — the .cs names files this machine no longer holds`,
+    };
+  }
+  for (const s of conv.stacks) {
+    const target = resolveLocal(s.csPath);
+    const link = path.join(micDir, s.linkName);
+    try {
+      rmSync(link, { force: true });
+      symlinkSync(target, link, "file");
+    } catch {
+      /* best effort — the star still speaks the name; a re-run re-points */
+    }
+  }
+  const totalMrcLocal = readdirSync(path.dirname(resolveLocal(conv.stacks[0]!.csPath))).filter((f) => /\.mrc$/i.test(f)).length;
+  censusNote =
+    totalMrcLocal > conv.stacks.length
+      ? ` · ${conv.stacks.length} of ${totalMrcLocal} .mrc stack(s) linked — only the referenced ones`
+      : ` · ${conv.stacks.length} stack(s) linked`;
+  linkDirNote = `stacks linked at ${micDir}`;
+
+  const starPath = path.join(workdir, "particles.star");
+  writeFileSync(starPath, conv.starText, "utf8");
+  const opticsNote = `${f6(conv.optics.voltage)} kV · Cs ${f6(conv.optics.cs)} mm · ac ${f6(conv.optics.ac)} · pixel ${f6(conv.optics.angpix)} Å`;
+  const alignNote =
+    conv.alignment === "3D"
+      ? "3D alignments (Rodrigues → Euler)"
+      : conv.alignment === "2D"
+        ? "2D alignments (psi)"
+        : "no alignments (picked-only set)";
+  const result = `${conv.particles} particles converted from ${jobLabel}${censusNote} · ${conv.stacks.length} stack(s) → micrographs/ · ${opticsNote} · ${alignNote}`;
+  const logText = [
+    `CryoFlow engine-native CryoSPARC conversion ${new Date().toISOString()}`,
+    `source: ${primaryLocal}${ptLocal ? ` + ${ptLocal}` : ""}`,
+    `invertY: ${invertY}`,
+    `particles: ${conv.particles} · referenced stacks: ${conv.stacks.length}${censusNote}`,
+    `optics: ${opticsNote} · ${alignNote}`,
+    conv.unmapped.length > 0 ? `unmapped fields: ${conv.unmapped.join(", ")}` : "",
+    `output: ${starPath}`,
+    result,
+    "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+  recordNativeRun(job, workdir, "engine-native: cryosparc cs → star (selective links)", { particles_star: starPath }, result, logText);
+  void linkDirNote;
   return { ok: true, result };
 }
 
@@ -3660,27 +5220,54 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
         "--K", String(Math.round(num(job, "numClasses", 10))),
         "--tau2_fudge", String(num(job, "tau2Fudge", 1)),
         "--particle_diameter", String(num(job, "particleDiameter", 180)),
-        "--ctf",
         "--pad", "2",
         "--iter", String(Math.round(num(job, "iterations", 25))),
         // finer in-plane angular sampling → sharper class averages
         "--psi_step", String(num(job, "psiSampling", 6)),
         "--flatten_solvent",
-        "--zero_mask",
         // class2d runs the SERIAL binary (WSL2 MPI stacks are the known-fragile
         // part — see the MPI prefix section in runRealJob), so thread-level
         // parallelism comes from --j (RELION defaults to 1 without it)
         "--j", String(Math.max(1, Math.round(num(job, "threads", 4)))),
       ];
-      // optional cap on alignment resolution (0 = unlimited)
+      // t352 — GUI parity: the t350-hardcoded --ctf/--zero_mask now read
+      // their own params (default ON, so an untouched job argv is unchanged),
+      // and the RELION 2D GUI's own defaults ride along (--center_classes).
+      if (job.params.doCtf !== false) argv.push("--ctf");
+      if (job.params.doZeroMask !== false) argv.push("--zero_mask");
+      if (job.params.doCenter !== false) argv.push("--center_classes");
+      if (flag(job, "ctfIntactFirstPeak")) argv.push("--ctf_intact_first_peak");
+      if (flag(job, "skipAlign")) argv.push("--skip_align");
+      const ov = Math.round(num(job, "oversampling", 1));
+      if (ov !== 1) argv.push("--oversampling", String(ov));
+      if (flag(job, "allowCoarser")) argv.push("--allow_coarser_sampling");
+      const oR = positiveNum(job, "offsetRange");
+      if (oR != null) argv.push("--offset_range", String(oR));
+      const oS = positiveNum(job, "offsetStep");
+      if (oS != null) argv.push("--offset_step", String(oS));
+      // t350 — the E-step resolution cap. The t341 flag this replaces
+      // (--highres_limit) never existed in any RELION release (same audit
+      // as refineAutoPool); the REAL option caps probability calculations
+      // in the expectation step — a genuine speed lever for early
+      // classifications (0 = unlimited, the default).
       const hl = num(job, "highresLimit", 0);
-      if (hl > 0) argv.push("--highres_limit", String(hl));
+      if (hl > 0) argv.push("--strict_highres_exp", String(hl));
+      // t350 — the pooled-particle lever (--pool): an explicit user value
+      // wins; 0 (the default) rides RELION 5's own GUI default (3).
+      const userPool = num(job, "batchSize", 0);
+      if (userPool > 0) argv.push("--pool", String(Math.max(1, Math.round(userPool))));
+      else argv.push("--pool", String(refineAutoPool()));
+      // t352 — the shared GUI-parity tail (disc-I/O trio + scratch keep-free
+      // + validated extraArgs)
+      const tail = refineTail(job);
+      if (!Array.isArray(tail)) return tail;
+      argv.push(...tail);
       return argv;
     }
 
     case "initialmodel": {
       // VDAM gradient refinement — no MPI (RELION forbids --grad with MPI)
-      return [
+      const argv = [
         binJoin(binDir, "relion_refine"),
         "--grad", "--denovo_3dref",
         "--i", inputs.particles_star,
@@ -3688,7 +5275,6 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
         "--K", String(Math.round(num(job, "numClasses", 4))),
         "--particle_diameter", String(num(job, "particleDiameter", 180)),
         "--sym", str(job, "symmetry", "D2"),
-        "--ctf",
         "--iter", String(Math.round(num(job, "iterations", 50))),
         "--flatten_solvent",
         "--zero_mask",
@@ -3697,26 +5283,66 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
         // under 1GB — de-novo models only need ~30 Å detail, where the
         // un-padded FFT grid is more than sufficient (RELION default pad is 2).
         "--pad", "1",
-        // fewer particles pooled per task → smaller E-step working set
-        "--pool", "3",
       ];
+      // t352 — CTF now reads its own param (default ON); the GUI-parity tail
+      // carries scratch/keep-free + the validated extraArgs
+      if (job.params.doCtf !== false) argv.push("--ctf");
+      if (flag(job, "ctfIntactFirstPeak")) argv.push("--ctf_intact_first_peak");
+      // fewer particles pooled per task → smaller E-step working set
+      // (t352: the explicit param wins; 0 = RELION's GUI default 3)
+      const imPool = num(job, "batchSize", 0);
+      argv.push("--pool", String(imPool > 0 ? Math.max(1, Math.round(imPool)) : 3));
+      const imTail = refineTail(job);
+      if (!Array.isArray(imTail)) return imTail;
+      argv.push(...imTail);
+      return argv;
     }
 
     case "class3d": {
-      return [
+      const argv = [
         binJoin(binDir, "relion_refine"),
         "--i", inputs.particles_star,
         "--ref", inputs.model_mrc,
         "--o", outPath(ctx, "run"),
         "--K", String(Math.round(num(job, "numClasses", 4))),
-        "--tau2_fudge", "4",
         "--particle_diameter", String(num(job, "particleDiameter", 180)),
         "--sym", str(job, "symmetry", "C1"),
-        "--ctf",
-        "--pad", "2",
+        "--pad", String(Math.round(num(job, "padding", 2))),
         "--iter", String(Math.round(num(job, "iterations", 25))),
         "--flatten_solvent",
+        "--j", String(Math.max(1, Math.round(num(job, "threads", 4)))),
       ];
+      // t352 — GUI parity across the whole Class3D surface (every flag
+      // verified against 3dem/relion 5.0 pipeline_jobs.cpp getCommands):
+      if (job.params.doCtf !== false) argv.push("--ctf");
+      if (flag(job, "ctfIntactFirstPeak")) argv.push("--ctf_intact_first_peak");
+      // tau2_fudge now reads its OWN param (was hardcoded 4 — the RELION
+      // Class3D GUI default, which is also the spec default)
+      argv.push("--tau2_fudge", String(num(job, "tau2Fudge", 4)));
+      if (flag(job, "doBlush")) argv.push("--blush");
+      if (job.params.doZeroMask !== false) argv.push("--zero_mask");
+      if (flag(job, "doFastSubsets")) argv.push("--fast_subsets");
+      const hp = healpixOrderOf(job.params.sampling);
+      if (hp != null) argv.push("--healpix_order", String(hp));
+      const c3R = positiveNum(job, "offsetRange");
+      if (c3R != null) argv.push("--offset_range", String(c3R));
+      const c3S = positiveNum(job, "offsetStep");
+      if (c3S != null) argv.push("--offset_step", String(c3S));
+      if (flag(job, "allowCoarser")) argv.push("--allow_coarser_sampling");
+      // local angular searches: RELION's GUI passes sigma_angles/3 — so do we
+      const c3L = positiveNum(job, "localSigmaAng");
+      if (c3L != null) argv.push("--sigma_ang", String(c3L / 3));
+      const c3X = positiveNum(job, "relaxSym");
+      if (c3X != null) argv.push("--relax_sym", String(c3X));
+      // t350 — the pooled-particle lever, same as class2d (--pool:
+      // RELION 5's GUI default 3 rides unless the user names one)
+      const c3dPool = num(job, "batchSize", 0);
+      if (c3dPool > 0) argv.push("--pool", String(Math.max(1, Math.round(c3dPool))));
+      else argv.push("--pool", String(refineAutoPool()));
+      const c3Tail = refineTail(job);
+      if (!Array.isArray(c3Tail)) return c3Tail;
+      argv.push(...c3Tail);
+      return argv;
     }
 
     case "refine3d": {
@@ -3727,7 +5353,6 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
         "--o", outPath(ctx, "run"),
         "--sym", str(job, "symmetry", "D2"),
         "--particle_diameter", String(num(job, "particleDiameter", 180)),
-        "--ctf",
         "--pad", String(Math.round(num(job, "padding", 2))),
         "--firstiter_cc",
         "--ini_high", String(num(job, "iniHigh", 30)),
@@ -3735,9 +5360,37 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
         // InitialModel) — RELION resizes it to the particles' optics group
         "--trust_ref_size",
         "--split_random_halves",
+        "--j", String(Math.max(1, Math.round(num(job, "threads", 4)))),
       ];
+      // t352 — GUI parity: CTF / Blush / solvent-FSC / zero-mask now read
+      // their own params (defaults match the RELION Refine3D GUI exactly)
+      if (job.params.doCtf !== false) argv.push("--ctf");
+      if (flag(job, "ctfIntactFirstPeak")) argv.push("--ctf_intact_first_peak");
+      if (flag(job, "doBlush")) argv.push("--blush");
+      if (job.params.doZeroMask !== false) argv.push("--zero_mask");
+      if (flag(job, "doSolventFsc")) argv.push("--solvent_correct_fsc");
       if (flagAutoRefine(job)) argv.push("--auto_refine");
-      else argv.push("--iter", String(Math.round(num(job, "iterations", 15))), "--tau2_fudge", "1");
+      else argv.push("--iter", String(Math.round(num(job, "iterations", 15))), "--tau2_fudge", String(num(job, "tau2Fudge", 1)));
+      // the Auto-sampling tab (healpix degrees → order, like the GUI's
+      // JobOption::getHealPixOrder)
+      const rHp = healpixOrderOf(job.params.samplingStep);
+      if (rHp != null) argv.push("--healpix_order", String(rHp));
+      const rLhp = healpixOrderOf(job.params.autoLocalSampling);
+      if (rLhp != null) argv.push("--auto_local_healpix_order", String(rLhp));
+      if (flag(job, "autoFaster")) argv.push("--auto_ignore_angles", "--auto_resol_angles");
+      const r3R = positiveNum(job, "offsetRange");
+      if (r3R != null) argv.push("--offset_range", String(r3R));
+      const r3S = positiveNum(job, "offsetStep");
+      if (r3S != null) argv.push("--offset_step", String(r3S));
+      const r3X = positiveNum(job, "relaxSym");
+      if (r3X != null) argv.push("--relax_sym", String(r3X));
+      // t350 — the pooled-particle lever, same as class2d/class3d
+      const r3dPool = num(job, "batchSize", 0);
+      if (r3dPool > 0) argv.push("--pool", String(Math.max(1, Math.round(r3dPool))));
+      else argv.push("--pool", String(refineAutoPool()));
+      const r3Tail = refineTail(job);
+      if (!Array.isArray(r3Tail)) return r3Tail;
+      argv.push(...r3Tail);
       return argv;
     }
 
@@ -4072,6 +5725,10 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
       else if (method === "IMOD fiducials")
         argv.push("--imod_fiducials", "--fiducial_diameter", String(num(job, "fiducialDiameter", 10)), "--batchtomo_exe", "batchruntomo");
       else argv.push("--imod_patchtrack", "--patch_size", "100", "--patch_overlap", "50", "--batchtomo_exe", "batchruntomo");
+      // t349 — the command template (the argv's authority) carries --gpu:
+      // AreTomo2 does its tilt alignment on CUDA, and a 0-GPU width used to
+      // send a CUDA-hungry shard onto a card the submission never requested.
+      argv.push("--gpu", "0");
       return argv;
     }
 
@@ -4559,7 +6216,12 @@ export function collectOutputs(type: string, workdir: string): { outputs: Record
         // should consume the curated particles.star instead.
         const data = globLatest(workdir, /^run_it\d+_data\.star$/);
         if (data) outputs.refine_data_star = data;
-        result = "REAL: de-novo 3D initial model generated";
+        // t347 — the seed count rides the receipt (the count grammar parses it)
+        const seeded = data ? countStarRows(data) : 0;
+        result =
+          seeded > 0
+            ? `REAL: de-novo 3D initial model generated · ${seeded.toLocaleString()} particles`
+            : "REAL: de-novo 3D initial model generated";
       }
       break;
     }
@@ -4605,7 +6267,13 @@ export function collectOutputs(type: string, workdir: string): { outputs: Record
         // the class2d collection at ~3057.
         const data = globLatest(workdir, /^run_it\d+_data\.star$/) ?? firstExisting(workdir, ["run_data.star"]);
         if (data) outputs.refine_data_star = data;
-        result = parseRefineResult(workdir) ?? result ?? `REAL: ${type === "class3d" ? "3D classification" : "3D refinement"} finished`;
+        // t347 — the receipt carries the counted particles too (the card +
+        // inspector count grammar parses it; refine/classification receipts
+        // previously said only "finished" with no number at all)
+        const refineLine =
+          parseRefineResult(workdir) ?? result ?? `REAL: ${type === "class3d" ? "3D classification" : "3D refinement"} finished`;
+        const refined = data ? countStarRows(data) : 0;
+        result = refined > 0 ? `${refineLine} · ${refined.toLocaleString()} particles` : refineLine;
       }
       break;
     }
@@ -4656,7 +6324,12 @@ export function collectOutputs(type: string, workdir: string): { outputs: Record
       const star = firstExisting(workdir, ["shiny.star", "particles_polished.star"]);
       if (star) {
         outputs.particles_star = star;
-        result = "REAL: Bayesian polishing finished";
+        // t347 — the polished count rides the receipt
+        const polished = countStarRows(star);
+        result =
+          polished > 0
+            ? `REAL: Bayesian polishing finished — ${polished.toLocaleString()} particles polished`
+            : "REAL: Bayesian polishing finished";
       }
       break;
     }
@@ -4664,7 +6337,12 @@ export function collectOutputs(type: string, workdir: string): { outputs: Record
       const star = firstExisting(workdir, ["particles_ctf_refine.star"]);
       if (star) {
         outputs.particles_star = star;
-        result = "REAL: CTF refinement finished";
+        // t347 — the refined count rides the receipt
+        const refined = countStarRows(star);
+        result =
+          refined > 0
+            ? `REAL: CTF refinement finished — ${refined.toLocaleString()} particles`
+            : "REAL: CTF refinement finished";
       }
       break;
     }
@@ -4700,7 +6378,12 @@ export function collectOutputs(type: string, workdir: string): { outputs: Record
       const star = firstExisting(workdir, ["particles.star"]);
       if (star) {
         outputs.particles_star = star;
-        result = `REAL: ${type} particles written`;
+        // t347 — the written count rides the receipt
+        const written = countStarRows(star);
+        result =
+          written > 0
+            ? `REAL: ${type}: ${written.toLocaleString()} particles written`
+            : `REAL: ${type} particles written`;
       }
       break;
     }
@@ -5128,7 +6811,40 @@ const RESUMABLE_TYPES = new Set(["class2d", "class3d", "refine3d", "initialmodel
 export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Promise<RunOutcome> {
   // ---- engine-native jobs -------------------------------------------
   if (job.type === "import") {
-    const r = await runImportNative(job);
+    // t340 — the marathon natives (import's remote leg enumerates/sniffs
+    // over SSH for minutes on big folders) get an IN-FLIGHT record + phase
+    // log from second zero: the reconcile sweep's 120 s no-record flip used
+    // to mark a long import FAILED mid-run, then COMPLETED when it landed.
+    const begun = beginNativeRun(job, "engine-native: import (write micrographs.star)");
+    let r: NativeResult;
+    try {
+      r = await runImportNative(job);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      abortNativeRun(job.id, msg, begun.prevOutputs);
+      return { ok: false, error: `import crashed: ${msg}` };
+    }
+    if (!r.ok) abortNativeRun(job.id, r.error ?? "import failed", begun.prevOutputs);
+    return r.ok ? { ok: true, native: true, result: r.result } : { ok: false, error: r.error, ...(r.wait ? { waiting: r.wait } : {}) };
+  }
+  if (job.type === "cs2star") {
+    // t336 — CryoSPARC .cs → particles.star: engine-native on BOTH lanes
+    // (the cluster lane is SSH in-process — discover, download, convert,
+    // selective-link; no sbatch, no staging, the reference script's whole
+    // workflow inside one job row)
+    // t340 — same in-flight contract as import: the 325k-particle field
+    // report ran >120 s with no record and the sweep flipped it FAILED
+    // (「超时了没有返回log」) before the completion overwrite landed.
+    const begun = beginNativeRun(job, "engine-native: cryosparc cs → star (selective links)");
+    let r: NativeResult;
+    try {
+      r = await runCs2StarNative(job);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      abortNativeRun(job.id, msg, begun.prevOutputs);
+      return { ok: false, error: `cs → star conversion crashed: ${msg}` };
+    }
+    if (!r.ok) abortNativeRun(job.id, r.error ?? "cs → star conversion failed", begun.prevOutputs);
     return r.ok ? { ok: true, native: true, result: r.result } : { ok: false, error: r.error };
   }
   if (job.type === "mapimport") {
@@ -5290,6 +7006,10 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
     ctffindGateNote = gate.note;
   }
 
+  // t335 — the frame census note rides the local run's result (the same
+  // plumbing as the CTF gate's note)
+  let extractGateNote: string | null = null;
+
   // ---- t334 — the extraction collision scan (before the workdir) --------
   // Same doctrine as the CTF byte-gate above, same lane position: a STAR
   // whose micrograph rows would write the SAME per-mic particle stack
@@ -5306,6 +7026,71 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
           ok: false,
           error: `the micrographs STAR would collide inside the extraction: ${describeExtractCollisions(report)} — RELION names each particle stack after the micrograph (extension swapped to .mrcs), so these rows write the same file (the mid-run "write: target and source objects have different size" crash). De-duplicate the rows or rename the colliding files, then run again`,
         };
+      }
+    } catch {
+      /* unreadable star → the run itself reports the real problem */
+    }
+  }
+
+  // t335 — the frame-stack census on the local lane (the complement to the
+  // collision scan above): .mrcs rows are byte-verified through the local
+  // header sniffer — nz>1 is a movie stack, not a micrograph (read as an
+  // (x,y,1,N) volume, windowed from frame 0: garbage particles even when
+  // the names never collide). Verified singles pass with a note; anything
+  // unverifiable degrades to the note, never a block.
+  // (t338 — this block used to sit INSIDE the collision scan's catch
+  // clause — a brace-nesting slip that made the census dead code on the
+  // happy path; it now runs where its doctrine says it does.)
+  if (job.type === "extract" && inputs.micrographs_star && existsSync(inputs.micrographs_star)) {
+    let extractRows: string[] = [];
+    try {
+      extractRows = micrographNames(inputs.micrographs_star);
+    } catch {
+      extractRows = [];
+    }
+    if (extractRows.some((r) => /\.mrcs$/i.test(r))) {
+      const projectDir = projectDirFor(job);
+      const frameGate = await extractInputGate(
+        extractRows,
+        localHeaderSniffer,
+        (row) => (row.startsWith("/") || existsSync(row) ? row : path.join(projectDir, row))
+      );
+      if (frameGate.refusal) return { ok: false, error: frameGate.refusal };
+      extractGateNote = frameGate.note;
+    }
+  }
+
+  // ---- t338 — the particle-star ↔ stack consistency gate (local lane) ----
+  // Same doctrine as the byte gates above, mirrored from the remote
+  // dispatch: a particles star whose rows reference image numbers beyond
+  // what their stacks actually hold is the poison the field report paid
+  // ~20 GPU-minutes to discover (readMRC: "Image number 341 exceeds stack
+  // size 340" — the upstream extraction COMPLETED with a lying star: two
+  // same-stem rows in ITS input wrote one stack; the later writer's blind
+  // overwrite truncated the earlier images). Refuse BEFORE the workdir or
+  // a spawn exists, with the exact numbers RELION would die on; healthy
+  // stars pass with the receipt note riding the run's result.
+  let particlesGateNote: string | null = null;
+  if (
+    PARTICLES_CONSUMER_TYPES.has(job.type) &&
+    inputs.particles_star &&
+    existsSync(inputs.particles_star)
+  ) {
+    try {
+      const starText = readFileSync(inputs.particles_star, "utf8");
+      if (particleRefsFromContent(starText).length > 0) {
+        // relative refs resolve against the run's CWD (the project dir),
+        // then the star's own dir — RELION's star grammar, both lanes
+        const projectDir = projectDirFor(job);
+        const starDir = path.dirname(inputs.particles_star);
+        const gate = await particlesRefGate(
+          inputs.particles_star,
+          starText,
+          localHeaderSniffer,
+          (ref) => refCandidates(ref, projectDir, starDir)
+        );
+        if (gate.refusal) return { ok: false, error: gate.refusal };
+        particlesGateNote = gate.note;
       }
     } catch {
       /* unreadable star → the run itself reports the real problem */
@@ -5419,7 +7204,7 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
     if (preFlight) return { ok: false, error: preFlight };
   }
 
-  return spawnTrackedRun(job, argv, workdir, binDir, undefined, bridge, ctffindGateNote);
+  return spawnTrackedRun(job, argv, workdir, binDir, undefined, bridge, ctffindGateNote ?? extractGateNote ?? particlesGateNote);
 }
 
 /* ------------------------------------------------------------------ */

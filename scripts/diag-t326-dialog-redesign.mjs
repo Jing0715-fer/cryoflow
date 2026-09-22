@@ -32,8 +32,9 @@
  *     motioncorr dispatched with the exact knob values the preview
  *     renders (slurm · brain2 · 3 GPUs · 4 shards) lands a .cf-sbatch.sh
  *     whose directives are the preview's own strings (--partition=brain2,
- *     --nodelist=brain2, --gres=gpu:3, --ntasks=3, --array=1-4%4,
- *     mpirun -n 3); a direct-lane dispatch writes NO scheduler script.
+ *     --nodelist=brain2, --gres=gpu:3, --ntasks=4, --array=1-4%4,
+ *     mpirun -n 4 — t349: 3 workers + 1 CPU master); a direct-lane
+ *     dispatch writes NO scheduler script.
  *     The equivalence is the point: nothing the preview shows is a flag
  *     the dispatch would not write, and nothing it hides is one it would.
  */
@@ -264,8 +265,10 @@ try {
     "the radiogroup's arrow keys never select an unavailable mode"
   );
   must(
-    ui.includes('className={cn(\n                      "flex flex-col items-start gap-0.5 rounded-lg border p-3'),
-    "the cards are CARDS (bordered, stacked content — not dropdown options)"
+    // t347 — the cards compacted to one line each (icon + name + inline
+    // subtitle, px-3 py-2); still CARDS (bordered, selectable), not options
+    ui.includes('className={cn(\n                      "flex min-w-0 items-center gap-2 rounded-lg border px-3 py-2'),
+    "the cards are CARDS (bordered, one-line content — not dropdown options)"
   );
   must(
     ui.includes("{mode === \"slurm\" ? (\n                <section") &&
@@ -287,8 +290,8 @@ try {
     "the preview pins --nodelist exactly when the dispatch does (single-host group)"
   );
   must(
-    ui.includes('sbatchDirectives.push(`--ntasks=${gpus}`, `--gres=gpu:${gpus}`)'),
-    "the preview's width directives are the submit's own gpus state"
+    ui.includes('sbatchDirectives.push(`--ntasks=${mpiRankCount}`, `--gres=gpu:${gpus}`)'),
+    "the preview's width directives are the submit's own state (t349: mpiRankCount = gpus+1 for ≥2, the dedicated-master layout)"
   );
   must(
     ui.includes("if (logPick) sbatchDirectives.push(\"--ntasks=1\")"),
@@ -322,11 +325,14 @@ try {
     "the lifecycle strip carries the old intro's sync policy in two lines"
   );
   must(
-    ui.includes("sm:max-w-xl"),
-    "the dialog widened for the two-column mode cards (xl)"
+    // t347 — widened again for the two-column knob rows (connection+module,
+    // GPU width+array split)
+    ui.includes("sm:max-w-2xl"),
+    "the dialog widened for the two-column knob rows (2xl)"
   );
   must(
-    ui.includes("max-h-[calc(100vh-3rem)] overflow-y-auto"),
+    // t347 — gap-3/p-5 joined the same className (the compaction pass)
+    ui.includes("max-h-[calc(100vh-3rem)] gap-3 overflow-y-auto p-5"),
     "the taller dialog scrolls instead of overflowing the viewport"
   );
   must(
@@ -599,10 +605,22 @@ try {
   console.log("== PHASE C: THE REAL WIDTH — an MPI type at 3 GPUs (the user's own 2D Classification shape) ==");
 
   // the particles fixture: a star with absolute stack refs + the stack
-  // itself (the mock's refine audits every ref against its fs root)
+  // itself (the mock's refine audits every ref against its fs root).
+  // t338 — the stack's header must hold NZ=4: the star numbers images
+  // 1..4, and the dispatch's consumer-side consistency gate refuses a
+  // star that outruns its stacks (real relion_refine dies at image 2 of
+  // a 1-image stack — the fixture's old NZ=1 header was exactly that lie)
+  const stackHdr4 = (() => {
+    const b = Buffer.alloc(64);
+    b.writeInt32LE(1024, 0);
+    b.writeInt32LE(1024, 4);
+    b.writeInt32LE(4, 8); // NZ=4 — one section per referenced image
+    b.writeInt32LE(2, 12); // mode 2
+    return b.toString("base64");
+  })();
   const pfx = clientBoth(
     "mkdir -p /data2/t326-particles; " +
-      `echo ${mrcHdr} | base64 -d > /data2/t326-particles/stack.mrcs; ` +
+      `echo ${stackHdr4} | base64 -d > /data2/t326-particles/stack.mrcs; ` +
       "printf 'data_\\n\\nloop_\\n_rlnImageName #1\\n" +
       "0001@/data2/t326-particles/stack.mrcs\\n" +
       "0002@/data2/t326-particles/stack.mrcs\\n" +
@@ -664,9 +682,13 @@ try {
   must(/#SBATCH --partition=brain2/.test(sbatchC2d), "MPI type — the script carries --partition=brain2");
   must(/#SBATCH --nodelist=brain2/.test(sbatchC2d), "MPI type — the script carries --nodelist=brain2");
   must(/#SBATCH --gres=gpu:3\b/.test(sbatchC2d), "MPI type — the script carries --gres=gpu:3 (the width IS real here)");
-  must(/#SBATCH --ntasks=3\b/.test(sbatchC2d), "MPI type — the script carries --ntasks=3 (one rank per GPU)");
-  must(/mpirun -n 3\b/.test(sbatchC2d), "MPI type — the script wraps mpirun -n 3 (the preview's rank line)");
-  must(/--gpu 0:1:2\b/.test(sbatchC2d), "MPI type — the argv pins --gpu 0:1:2 (the preview's device list)");
+  must(/#SBATCH --ntasks=4\b/.test(sbatchC2d), "MPI type — the script carries --ntasks=4 (t349: 3 workers + 1 CPU master)");
+  must(sbatchC2d.includes('CF_RANKS=4') && sbatchC2d.includes('mpirun -n "$CF_RANKS"'), "MPI type — the script wraps mpirun -n \"$CF_RANKS\" with CF_RANKS=4 (the preview's rank line, t342-clamped at launch)");
+  // t345 retired the colon device list: each MPI rank now runs behind the
+  // per-rank launcher (.cf-rank-launch.sh), which pins ONE card per rank via
+  // its own CUDA_VISIBLE_DEVICES and speaks relion's "--gpu 0" inside that
+  // one-card world (the t342-era CF_GPU_LIST expectation is history)
+  must(sbatchC2d.includes(".cf-rank-launch.sh") && sbatchC2d.includes("CRYOFLOW_RANK_BIND"), "MPI type — mpirun runs behind the per-rank launcher, and each rank echoes its CRYOFLOW_RANK_BIND card (one worker per card + the CPU master, t345+/t349)");
 
   // and the record speaks the same width
   const recC2d = doneC2d?.runRemote ?? {};

@@ -421,7 +421,7 @@ try {
     const b = Buffer.alloc(1024);
     b.writeInt32LE(1024, 0); // NX
     b.writeInt32LE(1024, 4); // NY
-    b.writeInt32LE(1, 8); // NZ
+    b.writeInt32LE(4, 8); // NZ=4 — one section per referenced image (t338: the dispatch's consumer gate refuses a star that outruns its stack; the old NZ=1 header was that lie)
     b.writeInt32LE(2, 12); // MODE float32
     b.writeInt32LE(1, 20); // NXSTART
     b.writeInt32LE(256, 44); // NXYZSTART-ish
@@ -475,7 +475,12 @@ try {
     projectId,
     type: "class2d",
     name: "2D Classification 1",
-    params: { numClasses: 4, iterations: 2 },
+    // t347 — iterations 2→30: the real RELION build finishes a 2-iteration
+    // run in ~2s, and the 1.5s usage poll kept missing the RUNNING window
+    // (a race the slower machine of t327 never met). 30 iterations holds
+    // the window open long enough for the occupancy assertions to observe
+    // the held cards reliably.
+    params: { numClasses: 4, iterations: 30 },
   });
   must(!!c2d?.id, "the class2d job creates");
   const edgeC2d = await mkEdge(pImport.id, c2d.id, "particles", "particles");
@@ -541,7 +546,10 @@ try {
   );
   const pickerPos = ui.indexOf('data-node-picker-row=""');
   const panelPos = ui.indexOf("<ClusterUsagePanel");
-  const widthPos = ui.indexOf('data-gpu-width-row=""');
+  // t347 — the width row is a hoisted const (gpuWidthRow): its DECLARATION
+  // sits above the JSX now, so the anchor measures where it is SEATED
+  // ({gpuWidthRow}), preserving the rendered order picker → panel → width
+  const widthPos = ui.indexOf("{gpuWidthRow}");
   must(
     pickerPos > 0 && panelPos > pickerPos && widthPos > panelPos,
     "the panel sits BETWEEN the partition picker and the GPU width (the occupancy informs the pick)"
@@ -580,7 +588,8 @@ try {
     "the auto-refresh is the 30s interval (the server TTL dedupes the SSH load)"
   );
   must(
-    panel.includes("max-h-56") && panel.includes("overflow-y-auto") && panel.includes("nice-scroll"),
+    // t347 — the cap tightened 224→176px (the run dialog's height budget)
+    panel.includes("max-h-44") && panel.includes("overflow-y-auto") && panel.includes("nice-scroll"),
     "long node lists scroll inside a capped area (the long-list doctrine)"
   );
   must(

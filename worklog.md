@@ -2780,3 +2780,480 @@ Stage Summary:
 - 用户侧操作：部署修复后直接再跑 2D 分类即可——dispatch 的 heal 先搬正 star 再 probe 验证，链式续跑；若 extract 记录是 failed 态则 re-run extract（新跑落位正确，旧孤儿被 mop+清扫吃掉）。无需手动上集群改名
 - 产物：engine.ts（outPath POSIX 化）/ remote-run.ts（mopWin32MangledOrphans + heal 挂点 + spawn 挂点 + argv 消毒）；模拟沙盘与截图 t335-desktop.png / t335-mobile.png
 - 与前票的关系：t334（image.h:1534）杀的是「栈路径被另一写者占据」；本票杀的是「文件型输出参数的路径在 Windows 主机上被打碎」——两张票据一起才解释了用户提取工单的全貌（崩溃 + star 错位）
+
+Task: 同题补完——用户问「提取颗粒为何运行到一半报错了？」（1034 微图 extract 于 20.43/37.65 min 死于 relion_preprocess image.h:1534 "write: target and source objects have different size"，Slurm FAILED 21m02s）。本窗口独立完成与并行窗口 t334 同源的源码级根因链（拉 3dem/relion master 逐行核对：append 期尺寸检查 + getOutputFileNameRoot 去扩展名栈命名 + parseMRCHeader 的 .mrcs 四维读入 + 865+169=1034 的混合导入算术）；并行窗口先落地名字级碰撞扫描（t334）与代际清扫（t333），本提交按 t314 判例重编号 t333→t335，瘦身为互补层。
+
+Work Log:
+- 源码级根因链与 t334 独立同源收敛（image.h:1534/_write 的 _exists+APPEND 尺寸检查；每微图颗粒 #1=OVERWRITE 截断、#2..N=APPEND 读头校验；栈名=part_dir+行路径去扩展名+.mrcs——仅扩展名不同的两行写同一文件；.mrcs 全量读入为 (x,y,1,N) 帧 0 窗口）
+- t335-a 纯模块 src/lib/relion/extract-gate.ts（t326/t327 零导入配方）：帧栈普查——.mrcs 行经 HeaderSniffer 字节级验证，nz>1=帧栈→带头部数字的拒绝（「8 sections × 1024×1024 (mode 2)」），单截面=放行+note，不可验证=note 绝不拦截；.mrc 纯星静默（名字级几何归 t334 扫描）；engine 复用模块的 parseStarBlocks/micrographRowsFromContent（引擎侧重复定义撤除）
+- t335-b remote-run 互补挂接（在 t334 扫描之后、staging 之前）：①孪生星闭合——t334 对集群_only星原是 skip+console note（t324-a 同款盲区），现 cat over SSH 读回原文、t334 的 scanExtractCollisions 对集群自己的文本重跑（同款拒绝措辞，不是更软的）；②帧栈普查仅在存在 .mrcs 行时跑（纯 .mrc 星零开销）；门注记搭 sbatch/direct 两处 note（ctffindGateNote ?? extractGateNote）
+- t335-c 导入回执扩展名普查：「⚠ mixed extensions: N .mrc + M .mrcs …」（6 文件嗅探会漏少数派，普查直接报数量+碰撞机制+重导入指引）
+- t335-d 本地引擎同款帧栈普查（t334 本地扫描之后，仅 .mrcs 行时经 localHeaderSniffer）
+- 撤下与 t333/t334 重叠的部分：名字级重复/孪生拒绝（t334 owns）、rm -rf micrographs/Particles/extra/shard_* 清扫行（t333 代际清扫 owns——共享分类器+保留契约更完整）
+- diag-t335-framestack-door.mjs（原 diag-t333-extract-guard.mjs 重编号改写）：A 相纯逻辑（帧栈拒绝带头部数字/单截面放行/无嗅探降级/抛异常降级/纯 .mrc 星静默/行读取器）；LIVE——混合导入回执带普查、t334 措辞的孪生拒绝（本地星路径）、纯帧栈导入的 SSH 嗅探 nz=8 拒绝、干净链路完成无误伤
+- 回归：t334(47)/t333-rerun-wipe(75)/t330/t332/t331/t325/t327 全 ALL GREEN（t327 首跑 3 败为 mock 账本 136 条陈旧条目拖慢活体记账窗口——清账后全绿，非代码回归）；tsc 0；触碰文件 eslint 0
+
+Stage Summary:
+- 用户的「运行到一半报错」双窗口同源收敛作答：根因=导入集混入 .mrcs 电影帧栈+扩展名孪生共享输出栈路径；修复=重导入用 *_Fractions_DW.mrc 精确模式再重跑
+- t335 补齐 t334 的两个盲区：集群_only孪生星的 SSH 读取（扫描不再跳过）与 .mrcs 行的字节级帧栈验证（名字级扫描看不到茎名互异的帧栈污染）；外加导入期普查回执
+
+- t335 补齐 t334 的两个盲区：集群_only孪生星的 SSH 读取（扫描不再跳过）与 .mrcs 行的字节级帧栈验证（名字级扫描看不到茎名互异的帧栈污染）；外加导入期普查回执
+
+---
+Task ID: t336
+Agent: main-agent (Z.ai Code)
+Task: 用户工单「把cryosparc的cs文件转成star文件的job，并可以在cryoflow中直接用于后续job运行」+「检测star文件中需要哪些颗粒文件再link过来改名，而不是将project中所有的颗粒文件都link过来」（参考 upload/cryosmart_relion_trans3.0.sh：集群跑 pyem csparc2star --inverty、链接 extract 全部 .mrc 改名 .mrcs、sed 改星）
+
+Work Log:
+- 先收尾 t335：B3 孪生星腿重写为真实 t324-a 形状（上游 ctffind 远程作业输出星删本地副本 → t324 heal 探测补 twins → 解析为集群路径 → SSH cat → t334 扫描重跑同款拒绝；import 远程腿不产生 remote record 的探针真相钉入断言注释）——ALL GREEN ×2 + 回归（t334/t333-wipe/t330/t332/t331/t325/t327 经 mock 账本清污后）全绿，rebase 集成到并行窗口的 t333/t334 之上并 push
+- t336-a src/lib/relion/cs-npy.ts（纯）：npy 结构化数组读取——Python 字面量头字典 tokenizer（dict/list/tuple/str/int/bool/None）、子数组 dtype（(3,) pose、(2,) shift/shape）、<U UTF-32LE 与 S 字节串（NUL 截尾）、LE/BE 数字、v1/v2 头长度；非 npy/嵌套结构体/fortran 序诚实抛错
+- t336-b src/lib/relion/cs2star.ts（纯，pyem 映射表逐行核对 asarnow/pyem master）：uid 左连接 passthrough（字段缺省才补）、Rodrigues→Euler（expmap + Shoemake rot2euler，RELION ZYZ 约定）、defocus Å 直通（字段名 _A）、rad→deg、optics/class/subset 0→1 基、归一化坐标→绝对像素（micrograph_shape=[y,x] 轴交换）、RELION 3.1 光学方言（OriginXAngst=shift×angpix）；--inverty 的 argparse store_false 语义入档（pyem 默认反转、flag 关闭；参考脚本传 flag → 本作业默认 false）；普查先行（链接名冲突 -2 后缀，星行与链接计划同源）
+- t336-c 引擎原生 runner runCs2StarNative（双车道）：远程——SSH 发现（J### → sort -V 最新 *particles.cs + 首个 passthrough，参考脚本自己的次序）→ statRemoteFiles 限额校验 → remoteDownload 双 cs 落 workdir（Files 页可查）→ 转换 → 逐一验证引用栈存在（缺失即拒）→ ln -sfn 批量（250/轮）只链接被引用者到 <remoteProjectRoot>/micrographs/<name>.mrcs（链接名带 .mrcs、目标保持 .mrc，零数据搬运）→ 星行说链接名；收执带「2 of 3 .mrc linked — only the referenced」普查 + 光学 + 对齐源 + 未映射字段数；本地车道同构（本地符号链接）
+- t336-d 集成：NATIVE_TYPES/REMOTE_BOOKKEEPING_TYPES + workflow 目录（IMPORT 类、ArrowLeftRight 图标入注册表、Source 页签：csPath filePick/invertY/高级光学回退）+ 13 个 particles_star from 列表 + select2d + 两个命令面板预设 + output-summary 关键数字（particles converted / particle stacks linked）+ runRealJob 分发
+- diag-t336-cs2star.mjs 45 断言 ALL GREEN ×2：A 相（npy 写读往返含子数组/U 串/双精度；垃圾拒绝；pyem 数学经套件内独立重打的 euler2rot 往返校验；转换表——单位/1 基提升/uid 连接/列序/链接计划/碰撞后缀星与计划同源/invertY 数学/无 blob 行丢弃/未映射回执）；B 相活体（参考脚本工作流在 mock 上：3 栈且 baz 未被引用 → 转换完成、只链 foo+bar（readlink 验证、baz 原封不动——优化见证）、收执普查、downstream class2d 派发集群吃链接栈完成、关键数字条、点名失踪栈的诚实失败）；C 相本地（镜像 CS 工程布局：本地链接同普查）
+- 回归全绿：t335 / t334 / t333-rerun-wipe / t332 / t330；tsc 0；触碰文件 eslint 0
+- 浏览器活体（prod :3001）：IMPORT 类目录三卡、Enter 上画布、参数面板 Source 页签 + csPath 选择器 + invertY 开关、390×844 零横向溢出、console+page errors 双零；截图 t336-cs2star-params/-mobile.png
+- 教训：块注释里 J*/extract 的 */ 提前闭注释（tsc 在 44 行报语法错——写注释别让 glob 语法当注释终结符）；模板字符串 ${descr.join(", ") 后漏 }（eslint 解析错）；float32 表示噪声（0.07 读回 0.070000000298）——fmt 用 6 位有效数字（pyem/pandas 显示默认），收执插值也要走同一格式化（f6）
+
+Stage Summary:
+- CryoSPARC 用户现在在 cryoFLOW 里画一个「CryoSPARC → RELION」节点、填 J### 目录即可：转换（对齐/CTF/光学全套 pyem 语义）、选择性链接（只链被引用的栈、改扩展名、零搬运）、下游直接接 class2d/refine3d——参考脚本的三步手工流程变一个作业行，且不再链接整个工程的颗粒文件
+- 纯 TS 的 npy 解析器 + pyem 映射表让转换不依赖集群上的 pyem/python；.cs 副本留在 Files 页可查；关键数字条先说颗粒数
+---
+Task ID: t337
+Agent: main-agent (Z.ai Code)
+Task: 用户工单「Job failed — sbatch refused the submission: Requested node configuration is not available · .bashrc line 35 噪声」——节点钉扎提交被控制器提交时刻拒绝且无任何原因说明；诊断 + 修复 + push
+
+Work Log:
+- 诊断（读引擎全链）：t311 的 GPU 宽度钳制只对「被挑选的分区」说话，留下两个直通拒绝的暗洞——① 显式 --nodelist 钉扎抑制了 --partition（t332），而对「节点自己的 GPU 数」没有任何钳制：把 5 GPU 的 normal 钉在默认宽度 6 上，拼出的正是用户贴的逐字拒绝；② 「auto」（未挑分区）仍携带连接默认分区却完全不钳制：normal(5) + 宽 6 → 同款拒绝。另无任何提交前节点状态核验（面板 30s 轮询、挑完到提交之间状态会老化）、sbatch 拒绝原文零翻译
+- 修复一（引擎预检，remote-run.ts）：钉扎存在时多跑一趟 SSH（scontrol show node <pin> -o，复用 usage 路由的纯解析器）——未知节点/DOWN/DRAIN → 带原因与解法的 requestError 拒绝（字节未动、行保持 idle）；0-GPU 节点载 GPU 作业 → 矛盾点名拒绝；较窄节点 → 宽度钳到节点自己的 GPU（t311 方言、节点的话）。预检跑不了（SSH 抖动/无 scontrol/127）→ 降级旧行为，监控永不阻断派发
+- 修复二（宽度钳制重排）：钳制优先级改为 钉扎节点的实时 scontrol 行 > 脚本实际携带的分区（被挑的，否则连接默认——t337 补上 auto 暗洞）；钳制块整体移到连接门之后（预检需要 conn）
+- 修复三（翻译）：sbatch 仍拒绝时（漂移窗）错误追加「what was requested: node X · partition Y · N GPU(s)」+ 三条修复动作；.bashrc 噪声注记保持 t311 分流
+- 修复四（对话框）：AUTO 档步进器天花板改为连接默认分区的 gpusPerNode（原来取库存第一组——8 GPU 组配 normal 脚本是说谎的天花板）
+- mock：sbatch 的提交门改钉扎感知（节点表镜像 scontrol：normal 5/brain 6/brain2 8/node01-04 6/node05-08 0；未知名 → Invalid node name；~/.slurm/node-override「name STATE」文件把节点翻 DOWN——scontrol/面板/门三方同一世界）；scontrol emit_node 同读 override；新增 probe 盲区 4 GPU 分区 debugx 专测翻译残路
+- diag-t337-node-preflight.mjs 全绿（契约钉 + 七条活体腿）：B1 用户回执源头治愈（normal 钉扎宽 6 → 钳 5 → 脚本 --nodelist=normal --gres=gpu:5 无 --partition → COMPLETED + 日志见证）；B2 auto 暗洞（无钉无分区宽 6 → 默认分区钳 5 → 完成）；B3 排空节点（override 翻 brain3 DOWN → 拒绝带状态、行未失败、集群零落地；松开杠杆同参数再提交即完成——拒绝的是状态不是钉扎）；B4 未知节点；B5 0-GPU 节点；B6 残路翻译（debugx 宽 6 → mock 控制器拒绝 → 行失败带「what was requested: partition debugx · 6 GPU(s)」+ 噪声标注）；B7 健康钉扎回归（node03 宽 2 原样通过）
+- 回归全绿：t332（钉扎全链含活体记账）/ t327 / t335 / t326 / t320 / t330；t304 为退役 dev-server 绑定的历史套件（打到 my-project 模板 404 HTML），按判例不属现行回归名单
+- 浏览器活体（agent-browser @ prod :3001）：对话框 AUTO 档步进器天花板 5（修复前会是 8）实测；钉 brain2 → 预览 #SBATCH --nodelist=brain2（无 --partition）+ ask line 重定域；步进到 8 → 预览 --ntasks=8 --gres=gpu:8；Send → 「Slurm job 26 · 8 GPU(s) · queued」→ 集群脚本带 --nodelist=brain2 --gres=gpu:8 → COMPLETED；console+page errors 双零；390×844 对话框零横向溢出；截图 t337-node-pin-dialog/-mobile.png
+- 环境重建（沙箱重置后第四次）：clone origin/main(3d03797)、bun install、db push、standalone prod 构建 + prod-3001.sh、mock launch.sh dev
+- tsc 0；触碰文件 eslint 0；docs §sbatch 章节 + 失败目录新行 + mock 章节
+
+Stage Summary:
+- 用户回执的「Requested node configuration is not available」对 app 自拼提交已源头灭绝：钉扎预检（节点自己的 scontrol 行）+ auto/连接默认分区钳制 + 0-GPU/未知/排空三类教学式拒绝 + 残路翻译（说出要了什么、教三步修法）；.bashrc line 35 是登录壳噪声、已按噪声标注（用户自己的 dotfiles 问题，值得顺手修掉但不影响提交）
+
+---
+Task ID: t338
+Agent: main-agent (Z.ai Code)
+Task: cryoflow 用户工单第八期(t338)——用户三报: ①「从节点使用情况处选择节点后，node框还是auto没有变化」 ②「extraction无法用GPU吗?」 ③2D 分类 readMRC "Image number 341 exceeds stack size 340" 段中途崩溃(log 如上); 修复后 push
+
+Work Log:
+- 诊断③(与 t334/t335 同族闭环): extract_ufh1hg0u 的 particles.star 引用 image 341 而栈只有 340——t334 碰撞的 SILENT 变体: 输入 star 同茎双行("X.mrc"+"X.mrcs" 同合成一个栈路径)两写者共写一栈, 后者首粒盲覆写截断前者, 合并 star 仍保留两者行号; extract 退出 0(毒无感知), relion_refine 消费侧 ~1 分钟即死。t334/t335 在 extract 派发侧拒此类输入, 但看不见「已完成却带毒」的旧输出(用户数据库现状)
+- 实现 C: src/lib/relion/particle-ref-gate.ts(纯模块, t326/t327 配方)——颗粒 star 消费者(class2d/class3d/refine3d/initialmodel/multibody/polish/ctfrefine/subtract/dynamight)派发前逐"N@path"引对栈自身 MRC 头核验(远程 lane 一次批量 SSH 每 ~192 栈; 本地 lane 本地读); 引用解析依 RELION 自身语法(绝对→项目根→star 目录, 首个存在者受审); 超界→REQUEST 拒绝带精确数字+机制+修法; 健康通过带回执 note(CRYOFLOW_NOTE 入 run.out); 不可验证(缺失/不可解析/.eer)降级 note 永不阻断(t313 保守主义); 违规按栈去重(341 行毒栈=一句谎说 341 次, 非 341 句谎)
+- 接线: remote-run.ts 网关块置于 upstreamRemoteTwins 图后(本地镜像 star 走 twin 拿集群侧目录; 集群独占 star 走 SSH cat——t335 闭环同款); note 链 ctffind→extract→particles 三门共存; engine.ts 本地 lane 同闸于 workdir mkdir 前
+- 实现 D: log-diagnosis 新 readmrc-exceeds-stack 模式——用户逐字 stderr 命中, 讲机制+指上游+说新门; t334 write-clash 模式零串扰
+- 实现 A(用户①): Node/partition 下拉与使用面板钉扎互相镜像——钉扎存活期间框显示「MapPin <node> — pinned from the live list(精确节点 --nodelist · 下方实时列表所选 · 此处选 Auto/分组即释放)」; 显式挑 Auto/分组释放钉扎(t332 mismatch guard 语义保持, 分组+钉扎组合态从 UI 消失——预览已同时展示两 chip)
+- 实现 B(用户②): extract 宽度框专属契约「0 × GPU — CPU-only extraction: relion_preprocess 无 GPU 代码路径(裁箱+归一化在 CPU), GPU 只会闲置还挤占分类作业; 速度旋钮是下方 Array split(N 个 CPU 分片并行)」
+- 顺手修两处存量: ①mock relion_preprocess 行号改每栈重置(真实 RELION 语法; 旧全局计数使第二栈起行号全超自身 nz——任何真实 RELION 不产出的方言, 新网关理所当然拒绝) ②engine.ts 本地 t335 帧栈普查块被括号嵌套滑进 t334 扫描的 catch 里(正常路径死代码)——移回教义位置
+- diag-t338-particle-ref-gate.mjs 67 断言全绿: UNIT(用户 341/340 精确形状拒绝带数字+rwMRC+机制+修法; 健康通过 349 ref 计数; 无/抛错嗅探器降级; 不可解析/.eer 不判; refCandidates 语法四则; 四违规栈截断为 3+计数; 诊断模式命中用户 stderr 且不误伤健康/t334 签名) + LIVE(健康链 import→autopick→extract→class2d 完成+回执 note 入 run.out+每栈编号 pin) + LIVE 毒(栈头 NZ 重写为 maxImage-1 即用户 341→340 算术 → class2d REQUEST 拒绝带精确数字+行保持 idle+集群零落地) + LIVE 双星闭环(删本地 star 副本→SSH cat 同拒绝)
+- 回归全绿: t312/t314/t315/t316/t318/t319/t320/t322/t323/t324/t325/t326/t327/t328/t330/t331/t332/t333/t334/t335/t336/t337; 途中修七套件存量夹具谎言(star 行号超栈 nz: t315/t317/t319 的 nz=2 配 24 行→头-only nz=24; t326/t327/t331/t332/t333/t337 的 nz=1 配 2-4 行→nz=2/4——夹具曾是新门存在意义本身的例证) + 两处过期源码 pin(t314 note 链/t323 本地日志清理→t333 mirror wipe 契约) + t315 采样断言(t322 确定性采样后的存量断裂, 改测 reroll 契约); t316-t334 五套旧路径绑定(/home/z/my-project)以重定位副本跑通; t317 三失败为 t328 窗口 dispatch.ts 重构存量(与本窗 diff 无关, dispatch.ts 未动)
+- 浏览器活体(agent-browser @ prod :3001, t338 项目 extract 卡): 点使用面板 brain2 行 → Node/partition 框从「Auto — scheduler picks」变「brain2 — pinned from the live list」(用户①修复实证); 下拉开列钉扎项+Auto+分组, 显式选 Auto → 钉扎释放回 Auto(往返闭环); extract 宽度框「0 × GPU — CPU-only extraction」+ relion_preprocess 无 GPU 代码路径全文在案(用户②); console+page errors 双零; 截图 t338-node-pin-mirror.png
+- tsc 0; 十二触碰文件+新模块 eslint 0; docs 新 §4p + 失败目录新行(readMRC); 环境终态: 模板 3000 运行中, cryoflow prod :3001 + mock :3022 保留
+
+Stage Summary:
+- 用户三报全闭环: ①节点框镜像钉扎(选了节点框就变——双向释放语义) ②extract CPU-only 如实陈述+Array split 是速度旋钮 ③毒 star 在消费侧派发前拦截(readMRC 341>340 的精确数字拒绝), 旧毒输出的 Log 标签页有诊断, 上游 extract 派发侧 t334/t335 拒源头输入
+- 用户复机路径: pull 最新 → 重跑 extract(其输入若含同茎双行会被拒并列名→去重导入)→ 2D 即通; 若不重跑 extract 直接重跑 2D, 新门立即拒绝并指出上游(不再烧 20 分钟 GPU)
+
+---
+Task ID: t339
+Agent: main-agent (Z.ai Code)
+Task: 「先拉取远程最新代码。目前所有的远程任务都会在本地也创建一个文件夹，保存一些job的基本信息可以，但是extraction的mrcs也有一些放到本地了，是不是没有必要，而且很占用本地的硬盘空间，我希望本地的空间占用尽量小一些。」——pull t335-t338 四提交后, 修 extract .mrcs 溜进本地镜像的漏洞; 完成后 push
+
+Work Log:
+- 先 git pull: 本地 1081 文件"改动"全为权限位 100644→100755(沙盒 fs 怪癖, 零内容差异)——git config core.fileMode false 后干净合入 e2926d6(t335)/3d03797(t336)/c3b3709(t337)/c26bea1(t338)
+- 根因: syncBackWorkdir 的 t289 key-files 策略按【单文件】16MB 门控二进制——extraction 每微图一个 .mrcs 栈, 单个几 MB 全在帽下, 865 个=GBs 全部落地; 单文件判断看不见聚合, 这正是用户撞穿的洞。逐文件消费链核实: /outputs/file 路由已带 t289 懒拉取(远程文件本地缺失→按需 SSH 拉), classes 路由直接读本地 class-average 头(必须继续同步), t338 消费门对本地缺失 ref 降级 note 不阻断, t331 cleanup 对话框已支持 local/remote 分侧勾选(本地瘦身杠杆已存在只欠人知)
+- 实现: 新纯模块 src/lib/remote/sync-policy.ts(t326/t327 配方, 唯一 import 是 cleanup 的 BULK_TYPES——删除与同步共用一套语法: 对删除是 bulk 的类型对同步也是 bulk, 都指"每微图图像产物")——planSyncBack 纯规划器(metadata-only/key-cap/per-file-cap/budget 四类 skip + 预算扣减) + describeSyncSkips note 生成器(metadata-only 段先讲政策不讲帽, 帽段保留 t289 原措辞, 两段可共存) + describeSyncSkipFile 逐文件行(记录字段方言不变)
+- 接线: remote-run.ts syncBackWorkdir 增第四参 jobType, finalizeRemoteRun 传 job.type; 循环只执行规划(台账仍先行——writeRemoteManifest 在 planSyncBack 前, 中途死同步也留下全量真相); 下载期失败(failed/grew)追加进 skip 列表由同一 note 渲染; KEY_TEXT_EXT 迁入纯模块(一门脑三处说: lane+note+diag)
+- 规则本体: key-files 下 BULK_TYPES(extract/motioncorr/polish)仅同步 KEY_TEXT_EXT 文本(STAR/日志/eps 图)——图像栈无论大小留集群, manifest 列出+Results 标 remote:true+点开按需拉; 其余类型保持 t289 教义(class2d 几 MB 的 run_classes.mrcs 照常回家——class 画廊本地读头不受损; 大图照旧留集群); everything 覆盖字面语义不变(用户显式选择)
+- hpc/cleanup.ts: BULK_TYPES 加 export(带 t339 注释); remote-cluster-dialog.tsx 文案三处: 下拉项「Key files only — STAR & logs sync, image stacks stay on the cluster」+ 同步域 hint 讲三类型仅元数据+ key-file cap hint 讲该帽只塑形其他类型
+- diag-t339-mirror-slim.mjs 48 断言全绿: UNIT(A1 用户漏洞形状——1KB 的 .mrcs 也留在集群, 尺寸无关性是本修复的芯; A2 class2d 控制组 3MB class averages 回家+20MB 图留; A3 motioncorr/polish 同规; A4 everything 覆盖全回家; A5 无 jobType 走旧语义; A6/A7 帽与预算算术; A8 note 讲政策措辞; A9 key-cap note 保留 t289 原文; A10 空 skip 无 note; A11 混合两段共存) + LIVE(用户管线 import→autopick@slurm→extract@slurm: 镜像零图像文件+particles.star 在+note/skippedFiles 各带 metadata-only 缘由+manifest 4 栈带尺寸+Results 4 栈 remote:true; 懒拉取门: PNG 200 渲染+字节数对账 t298 判决; 下游 class2d@slurm 就地链集群副本完成且自家 run_classes.mrcs 照常回家+永不讲 metadata-only note; everything 覆盖: PATCH 连接重跑后 4 栈落地逐字节对账; 瘦身杠杆: local-only bulk 清理删 4 栈 2.7MB 集群 4 栈分毫未动) + CONTRACTS(finalize 穿线 job.type/台账先行→plan→download 顺序/KEY_TEXT_EXT 不在 lane/BULK_TYPES 导出)
+- 回归全绿(8 套件): t339(48)/t334(47)/t335/t333(75)/t318(52)/t319(57)/t336(45)/t338——t335/t333/t336/t338 硬编码 :3001+/home/z/cryoflow(沙盒重置后不存在), 按 t334 先例以 BASE→:3000+ROOT→本仓重定位副本跑(t335/t333/t336/t338 需 bun 跑: 模块无扩展名相对导入 node ESM 不解); t306/t307/t308 浏览器家族按 OOM 教义未跑(本窗 dev 仍被 OOM 收割一次, 回归后重启)——t307 的 extra/ 断言全在集群侧(grep 核实), t308 走懒拉取门, 风险为零记为环境债; t331 套件未跑(需 qa-mock-sibling 种子连接的 :3001 环境; 本窗未动 cleanup 分类语义仅 export 一常量, 且 t339 LEG B5 已活体跑通 local-only bulk 路)
+- 浏览器活体(agent-browser @ dev :3000): 桌面 1600×900 首页渲染零错零 console 错, footer 900/900 钉底; 集群对话框 Add connection 表单新文案三处逐字渲染(下拉项+域 hint+cap hint); 390×844 零横向溢出(w:390) footer 844/844; 截图 t339-desktop/t339-dialog-wording/t339-mobile-390; dev 途中被收割一次后重启, 终态 3.3GB 空闲
+- tsc 0; 触碰五文件 eslint 0(仓库存量 8 错全在未触碰文件: print-doc-*/session-report-dialog/map-ortho-panel/molstar-embed+两 diag-archive); docs §4q 新节+§3 连接参考表 syncPolicy 行+失败目录新行(extraction stacks filling the laptop=by design 非失败)+§7 路线图新 shipped 条目
+
+Stage Summary:
+- 修复语义: 远程任务的本地镜像=元数据——key-files 下 extract/motioncorr/polish 只回文本, 图像栈无论尺寸留集群(manifest 可见+Results 列出+按需拉取+下游集群作业就地链); 其他类型 t289 教义原样(class averages 照常回家, 画廊无损); everything 显式覆盖不变
+- 用户存量 GB 级已落地栈的两条出路: ①每任务清理对话框 Bulk tier 仅勾本地侧(集群分毫不动, LEG B5 活体验证) ②重跑任务(t333 代际 wipe 清镜像后新政策生效)——无需手工 rm
+- 用户「本地空间尽量小」的完整答案: 新流入=零(本修复), 存量=一键瘦身(杠杆已有+文档指路), 显示/下游/按需取回全部无损(t289/t298/t324/t338 四代教义兜底)
+
+Task ID: t340
+Agent: main-agent (Z.ai Code)
+Task: cryoflow 用户工单第九期(t340)——三报: ①cs2star 转换文件存到本地了吗 + 运行时先失败(超时无log)后成功 + 页面一直热加载编译 ②sbatch 拒绝「Requested node configuration is not available — node gpu06 · no GPUs」: 2D 分类提交报错, extraction 用 auto 或使用面板选节点也报错, 但下拉选节点可运行(两种选法显示也不一样); 修复 + 全量回归 + 浏览器活体 + push
+
+Work Log:
+- 沙箱重置后第五次环境重建: clone origin/main(c26bea1=t338)、bun install、db push(首跑推错 custom.db, prod 用 cryoflow.db —— 500 The table Project does not exist 的根因, 重推后愈)、standalone prod 构建 + prod-3001.sh、mock 3022 dev 模式
+- 诊断②: 两通道为同一节点组出两份 sbatch —— 下拉带 --partition=<group>(单主机组再加 --nodelist), 使用面板钉扎则整个抑制 --partition(t332「节点自己的分区就是它落的地方」) → 无 --partition 时控制器落集群默认分区, GPU 节点不在那里 → 提交时刻拒绝, 用户回执逐字复现。修: 钉扎解析节点自己的分区(t337 预检的 scontrol Partitions= 优先, probe hostlist 次之) → sbatch 写 --partition=<own> + --nodelist=<node>, 与下拉同字节组合; 真不知道家的节点保持裸 --nodelist(连接默认分区不得搭车——错分区是必然拒绝, 缺分区只是让默认说话), 拒绝翻译新增 no-partition 陷阱点名
+- 修②伴生: 引擎侧矛盾门(挑了节点不在的分区 → staging 前教学式拒绝, API 门的 mismatch guard); 对话框 previewPartition/payload 钉扎期间无视分区状态(分区 state 会自动初始化成连接默认——「normal」+钉 brain2 会组合出矛盾); ClusterUsagePanel 的 mismatch guard 退役(它对着自动初始化的分区 state 开火, 钉任何默认分区外的节点瞬间被杀——「死钉」, 浏览器活体当场抓获); 镜像项带节点分区 chip「brain2 [brain2] — pinned from the live list · exact node (--nodelist) in partition brain2 (--partition)」
+- 诊断①: cs2star 325k 粒子在进程内跑数分钟, recordNativeRun 只在最后写记录 → jobs GET 的 reconcile 扫描把 >120s 无记录的 running 行翻成「stale running state (no engine record) — re-run」→ 先假 FAILED(无 log——log 文件也不存在) 后真 COMPLETED, 用户回执逐字复现。修: beginNativeRun(cs2star+import 两个马拉松 native)第 0 秒写 in-flight 记录(pid=服务器进程, 扫描的存活判据天然通过), runner 分阶段往 run.out 说话(discovered/downloaded MB/converted N/linking N + 每 2500 链心跳), Log 标签页运行中即有内容; 诚实失败 abortNativeRun 关记录不抹上次产出; runner 异常不再裸 500(dispatch 包裹上报); 服务器重启中途 → 熟悉的 interrupted 判词
+- 修①③: 热加载编译风暴 = Tailwind v4 自动内容检测扫描并 watch 整个项目树(未 gitignore), 引擎每 2-5s 写 data/engine-state.json + 作业 workdir → CSS 连续重建 → dev overlay 整场「compiling」。修: globals.css @source not "../../data" + "../../db" + .gitignore data/ db/*.db
+- cs2star 输出位置之问的答案(文档化): star 有意落在本地 <repo>/data/relion/<project>/<job>/particles.star(回执 output: 行即它), 颗粒栈零字节移动(集群上只有 ln -sfn), 下游远程 job 派发时自动把本地 star 上传(t336 E2E 已证链路)
+- mock sbatch 新增 t340 会员门: 钉扎节点不在生效分区(脚本的或集群默认 gpu)→ 逐字复刻用户回执; 同节点+自己分区通过; node01-04 裸钉(在默认分区)仍通过——诚实形状全数保留
+- diag-t340-pin-partition-native.mjs 39 断言 ALL GREEN: CONTRACT 17 钉(引擎/对话框/CSS/gitignore/mock 门) + LIVE(手搓裸钉被拒=回执复现 / 同节点+自己分区通过 / APP 钉扎写双行并完成 / 下拉通道同两行=等价 / cs2star 运行中 Log 路由带 phase trail 答话 / B6 双腿: 无记录陈旧行仍翻 failed(对照)+ in-flight 记录同龄行存活(修复本体))
+- 回归全绿: t312/t314/t315/t316(重定位)/t318(重定位)/t319(重定位)/t320/t322(重定位)/t323/t324/t325/t326/t327/t328/t330/t331/t332(更新契约)/t333(重定位)/t334(重定位)/t335/t336/t337(更新契约)/t338; t317 三失败为 t328 窗口存量(判例在案); 套件自身两处 bug 途中修正(dispatch 双层包裹打穿成 project-binding 兜底 + B5 需不 await 才能抓运行中)
+- 浏览器活体(agent-browser @ prod :3001, 1600×900 + 390×844): 使用面板点 brain2 → 钉住(旧构建当场演示「死钉」被守卫杀掉→修后钉住) → 框显「brain2 [brain2] — pinned from the live list · exact node (--nodelist) in partition brain2 (--partition)」→ 预览 --partition=brain2 --nodelist=brain2 --ntasks=5 --gres=gpu:5 → Send → 集群脚本两行在案 → COMPLETED; 选 Auto → 钉释放回 Auto; console/page errors 双零; 390×844 零溢出; 截图 t340-pin-dialog/-mobile.png 入仓库
+- 途中: prod build 一次 OOM(137, 4G 盒, 关浏览器+NODE_OPTIONS 2048 后过); MultiEdit 对 remote-run.ts 路径反复 No such file(以 python 补丁代之); pinPartition 块曾重复插入(python 去重)+ 曾落在 clamp 之后(TDZ, 调序)
+- tsc 0 / eslint 0(七文件) / docs §4r + 失败目录两行 / 仓库 worklog Task t340
+
+Stage Summary:
+- 三报全闭环: ①cs2star 假 FAILED/无 log→in-flight 记录+分阶段日志, 热加载编译→Tailwind 排除 data/db, 输出位置之问文档化 ②钉扎抑制分区→解析节点自己的分区, 与下拉同组合, 死钉(自动默认分区的守卫误杀)一并根治
+- 用户复机: pull 最新 → 使用面板选节点即提交成功(与下拉同效); cs→star 长跑全程 running+活日志, 不再先假失败
+- 环境: 模板 3000 运行中(GET / 200), cryoflow prod :3001 + mock :3022 保留, /home/z/cryoflow 树净待推
+---
+Task ID: t341
+Agent: main-agent (Z.ai Code)
+Task: 「我在cluster上提交2d分类时报错了，帮我修复。同时修复代码审查查出来的问题，完成后push」——2D 分类 30s 静默死亡 (prterun rank exit 1, 诊断 strip=out of memory) + 代码审查 C1/C3/低危三发现全闭环; 完成后 push
+
+Work Log:
+- 根因三轴 (用户收据「staged 0ms · synced 6 files back · Slurm FAILED 30s · prterun-gpu06 exit 1 · 无 error tail · gpu-oom 命中」): ①refine 家族批大小无内存意识 (RELION 默认 128 恒定, 大 box 的 cuFFT 工作集 ∝ batch·box²/³) ②残留进程占卡——C1 ghost 的进程面孪生: 无人认领的同名 sbatch 仍持 workdir+GPU 显存, 新 run 撞显存死 ③非隔离集群的 GPU 寻址 (gres 无 cgroup 时 --gpu 0:1 按物理卡号, 可能是他人的卡)
+- 修复 1 memory-aware batch: engine.ts 新 particleBox (上游 extract boxSize/downsampleTo 折算) + refineAutoBatch (2D 安全线 200px/3D 160px; 线下不动 RELION 默认——零行为变化; 线上 2D∝box² 3D∝box³, floor8, clamp[32,64]); class2d/class3d/refine3d argv + workflow.ts 三 spec 新「Batch size (0 = auto)」(Compute 页, advanced, 显式值全面优先——用户工单的一旋钮修法)
+- 修复 2 残留 reaper: dispatch 在 t333 wipe 前 scancel -n cf_<type>_<id8> (sbatch 名 per-job 唯一→只杀本 workdir 的 stale 提交; 拒绝不阻断); mock scancel 补 -n/--name 语法 (按 job-*.name 扫描, 同一取消路径)
+- 修复 3 sbatch GPU pin 块: CUDA_VISIBLE_DEVICES 未设时从 GPU_DEVICE_ORDINAL/SLURM_JOB_GPUS 取授予集 (Slurm≥20.11 GresAutoDetect 方言); 集群自身隔离时不干预
+- 修复 C1 ghost-sbatch 四道围栏: dispatchCancelled() (record startedAt+done 语义——reset/delete 清除, 并发 re-dispatch 换 startedAt, sweep 可终态化) · staging 逐文件检查(停止烧线) · pre-submit/post-submit 检查(已提交→scancel/kill 再撤) · 行翻转 db.job.update→updateMany(status∈pending|running) + catch 不再覆盖用户 reset (失败路径孪生)
+- 修复 C3 删除墓碑: 新 src/lib/job-tombstone.ts——DELETE 先快照 record(强制终态)+双图层边(DB 对+sidecar 带端口) → data/deleted-jobs/<id>.json (原子写); restore 服务端 applyJobTombstone (record 只填空槽, 边需两端存活, persistPortEdge 幂等); restore 响应加 recordRestored+edges; store.ts undoDelete 跳过服务端已接线 + 409 "already exists" 记成功 + toast 记录 record 重挂
+- 低危三发: listRemoteWorkdir 新 publish:false (dispatch 预擦除列表/POST 执行重列不再污染 10s 共享缓存——「10s 内 plan 空」) · db.ts 查询日志 CF_PRISMA_LOG=1 门控 · finalize twin 探测改 index-payload (echo 路径串被 login-shell/测试架改写时不再全空——44/44 远程记录 twins 为空的真因; t324 lazy probe 本就说 key 方言)
+- silent-death 回执按 r.mode 分流: Slurm 失败不再被告知「multi-hour jobs belong in Slurm mode」(用户收据的误导原文), 改指 OOM killer/walltime/scancel + sacct -j <id> + 诊断 strip
+- E2E 六套 257 断言全绿: run-1 EMPIAR 全链 106/106 (103s, FSC 6.51Å) · run-2 48/48 (修存量 cat 引号 typo) · run-3 25/25 (墓碑落盘/restore 服务端重建 record+边/下游免重跑直接消费/twins 恢复后 dispatch 零 staging) · run-4 24/24 (staging 期 reset→无 ghost+单写+dev.log 取消标记在 reset 之后; 新 Phase6 种同名 stale sbatch→app re-run 收割: stale CANCELLED+fresh COMPLETED——用户集群一键自愈路径) · run-5 27/27 (含新缓存回归: 派发后 2.5s 无刷新 plan 见 bulk:8) · run-6 新增 27/27 (box360→--batch_size 32 预览+派发一致/box64→无 flag/--gres=gpu:2+mpirun -n 2+--gpu 0:1+pin 块/覆盖 batchSize=24 生效)
+- 排障: 沙箱磁盘 100% (mock fs/projects 2.7GB E2E 累积)→清理; mock base64 种 stale 的 #SBATCH 路径不过翻译→still-born (改 mock-real 路径直写=FS_ROOT guard 本义); 本地 RELION 未装→preview tier-3 诚实回退 (E2E 按 tier 断言)
+- 浏览器活体(agent-browser @ prod :3001 生产构建): 首页/项目切换/检查器/Reset&edit 全通过, console+page errors 双零; tsc 0; eslint 零新增 (15 存量=HEAD 已有); e2e-review/ 套件入库 (fixtures/真实 EMPIAR 字节/PNG 留本地, README 记获取法)
+- push 前对齐: 远程并行窗已领 t340 (pin partition+native record) → 本窗按 t314 先例改号 t341, rebase 后全量回归再推
+
+Stage Summary:
+- 用户 2D 分类复机路径: pull → 点 Re-run 即自愈 (reaper 先收割残留 → 大 box 自动降批 → GPU pin 正确寻址); 仍 OOM 时 Batch size 参数 (0=auto) 是一旋钮修法, OOM hint 文案已对齐
+- C1/C3 双高危实证闭环: ghost 四道围栏后不可能提交; delete→undo 链条完整 (record+边+remote twins, reload 亦不失)
+- twins 全空是真 bug (index-payload 修), 顺带 mock 上 t324 零上传链路可测
+---
+Task ID: t342
+Agent: main-agent (Z.ai Code)
+Task: 「最近的一轮修改我还没有测试，但是之前的算2d出现oom，我减少分类从200类到50类后就没有报错，但是看log也一直卡在最开始没有动。CRYOFLOW_NOTE: particles star unreadable (no local copy, cluster cat failed) — the stack-size consistency check did not run」——降到 50 类后不再 OOM 但冻在 Expectation iteration 1; 附 RELION 日志 (Ignoring required free GPU memory 800 MB / 两份 rank 横幅全 "devices 0" / Expectation iteration 1 of 20 卡死)
+
+Work Log:
+- 根因判读 (用户日志逐行): ①两份完全相同的 rank 初始化块 (NrHiddenVariableSamplingPoints=92800=1856×50 两份都是 50 类) = mpirun -n 2 的两个 rank, 且都打印 "Will distribute threads over devices 0" → 两 rank 被钉在同一张卡 (用户集群无 gres 记账, --gres=gpu:2 是请求不落宪, gpu06 单卡节点照收) ②"WARNING: Ignoring required free GPU memory amount of 800 MB" = 卡的空闲显存已低于 RELION 自己的 800MB 底线 (上一轮 OOM 尝试的残留分配压着卡) — RELION 对此的反应是"无视并继续"(字面 Ignoring), 随后在第一个 Expectation sweep 里抖动/死锁 = 用户看到的一小时不动 ③"000/??? sec" 冻结首迭代 = GPU 侧问题, 非文件残留 (t333 担忧的文件面已被排除) ④CRYOFLOW_NOTE (no local copy, cluster cat failed) = t338 消费端闸门读不到 star: resolver 在本地副本缺失时给出的是集群 twin 路径, 老 cat 单路径失败后只留耸肩文案
+- 修复 1 rank↔GPU 收敛 (sbatch 运行时): MPI 宽度 ≥2 的 slurm GPU 作业, argv 的 -n 值与 --gpu 值改为脚本自有变量 CF_RANKS/CF_GPU_LIST; 脚本启动时 nvidia-smi -L 数卡, 可见卡数 < 请求 rank 数 → 钳到卡数 + CF_GPU_LIST 重排 + CRYOFLOW_NOTE 自述; 单 rank 作业保持字面 (字节不变); 无 nvidia-smi → 不钳 (t313 fail-open)
+- 修复 2 饥饿卡拒发 (sbatch 预检): gpuJob (--gpu 真在 argv 上) 启动前按 CUDA_VISIBLE_DEVICES 授予集 (或 0..CF_RANKS-1) 查 memory.free: <1000MB → CRYOFLOW_ERR 两行 + nvidia-smi --query-compute-apps 列占卡 PID + .cf-exit=98 + exit 98 (一秒带名字地失败, 不再一小时无声挂死); 1000-2000MB → NOTE (卡被共享可能慢); 数字守卫 case 防 [N/A]; CPU 作业仅持 gres (extract 分片/LoG) 不拒 (卡非承重)
+- 修复 3 star 读取多候选 (readResolvedStarText): 本地副本缺失时依次 cat 集群侧候选 — 上游已验证 twin → mirror 映射路径 → 原路径 (共享挂载形态); 全败时收据带"试过的路径 + cat 自己的失败词" (login-shell stderr 末行); t335 extract 闸门与 t338 particles 闸门共用; upstreamRemoteTwins 图整体上移至两闸门之前
+- 修复 4 诊断模式两条: gpu-free-memory-warning (RELION 的 Ignoring required free GPU memory 原文 → 占卡 PID 猎杀命令 + rank/卡不匹配 + 新钳制/拒发说明) + gpu-starved-refusal (CryoFlow 自己的拒发行); 签名表优先于 silent-death 尸检 (用户冻结日志的首条发现 = 显存饥饿, 不再是泛型"无声死亡")
+- mock: fs/opt/bin/nvidia-smi 桩 (-L 列表数/--id 查 free/--query-compute-apps 假 holder), ~/.slurm 杠杆 gpu-count(默认8)/gpu-free-mb(默认20000)/gpu-holders — 默认值保证其余套件零影响; 纯测试基建, 应用代码零改动
+- E2E 回归全绿 (七套 282 断言): run-1 106/106 (EMPIAR 全链 104s) · run-2 48/48 · run-3 25/25 · run-4 23/23 (reaper 回归) · run-5 27/27 · run-6 28/28 (断言更新至变量形态+拒发块) · run-7 新增 25/25 (钳制/拒发/无本地副本 star 三幕: 1 卡节点钳宽度 2 → CRYOFLOW_NOTE 自述+完成; gpu-free-mb=400+假 PID 31337 → 1 秒失败 exit 98+PID 点名; 删本地 particles_star → twin 读取+"verified" 收据, "unreadable→did not run" 绝迹)
+- diag 三套: t342 新增 ALL GREEN (用户原句警告→签名命中+hint 两杠杆; 拒发行→独自命中; 冻结形态→签名压过尸检; 健康初始化→零误报) · t326/t337 更新断言后 ALL GREEN
+- tsc 0 错; eslint 15 项全存量 (零新增); docs §4s + 失败目录一行; e2e-review/README 矩阵补 run-7
+
+Stage Summary:
+- 用户复机路径: pull → Reset 卡死作业 → Re-run — reaper 先 scancel 卡死的同名 sbatch; 若卡上还有 Slurm 管不到的孤儿进程, 新预检 1 秒内拒发并点名 PID (不再隐形挂死); rank 钳制保证不再两 rank 挤一卡; 50 类 + 单 rank + 干净卡 = Expectation 该动起来了
+- 用户当前集群手动清理 (一次性): squeue -u <user> 找卡死的 sbatch → scancel; gpu06 上 nvidia-smi --query-compute-apps=pid,process_name,used_memory 列占卡 PID → kill 残留
+- "particles star unreadable" 从耸肩变成自描述: 多候选 + 失败原因入收据; 无本地副本的 star 走 twin 校验 ("verified") 已实证
+---
+Task ID: t347
+Agent: main-agent (Z.ai Code)
+Task: 用户工单「拉取最新代码，并解决Job failed」——2D 分类 REMOTE[lijing@192.168.2.253] exit 1（RELION 无报错、无声死亡；诊断 GPU memory starvation ×5 + Out-of-memory ×3；sacct -j 124635 待查）+ CRYOFLOW_NOTE「particles star unreadable … timeout after 15000ms … the stack-size consistency check did not run」+ run.out 六份 rank 横幅全部 "mapped to device 0"。
+
+Work Log:
+- git pull 868d946 → 75725c4（t339–t346 十二个提交落地）：本地未跟踪的并行窗口草稿（cs-npy/cs2star/extract-gate/particle-ref-gate/sync-policy + t335–t339 截图与 diag 脚本）与远程同名文件冲突——备份至 /tmp/pull-backup 后移除；worklog 本地 +102 行与远程逐条 diff 确认 t335–t339 条目字节一致（零丢失）后 checkout 丢弃 win32 模式位噪声，pull 干净落地
+- 工单判读：用户的 Job failed 正是 t341–t346 修复链的靶场——①六份 "Will distribute threads over devices 0" 横幅 = mpirun 六 rank 全钉 device 0（t345 靶：RELION 的 --gpu 冒号语法在该构建上不按 rank 分卡，卡被逐 rank 吃干后 allocator 死、prterun exit 1 无声）；②"timeout after 15000ms" = t345 前的 15s cat 预算在慢线上撒谎（文件在、路径对，relion 自己读到了）——t345 起 90s 预算+断线重拨，t346 起改 awk 原地 census（零 star 字节过线）；③"stack-size consistency check did not run" = t338 消费端闸门被饿死没跑成（t346 census 后跑在集群上）
+- 逐刀验证（拉取树静态+活体）：t341 GPU 授予集钉扎（remote-run.ts:1174）/ t342 饥饿卡拒发 exit 98 + rank 钳制 / t343 单地址消费道星读取 / t345 per-rank launcher（.cf-rank-launch.sh + .cf-rank-env export -p dump，sbatch 道 -n→"$CF_RANKS"、mpirun 目标→launcher、--gpu→"0"，直连道保持字面——注释钉死契约）/ t346 原地 census（clusterParticleRefCensus，CF_REF 行+90s+重拨）/ win32 三刀（engine.ts outPath POSIX 拼接无 path.join、argv 单反斜杠消毒、mopWin32MangledOrphans 双挂点）全部在位
+- 活体验证：bun 直载 log-diagnosis.ts——用户蒸馏 run.out（六横幅全 device 0）→ silent-run-death（正确：无饥饿警告行时这是诚实判词）；补上 "Ignoring required free GPU memory amount of 800 MB" + OOM 行 → gpu-free-memory-warning + gpu-oom 双发（与用户看到的诊断条目 id/label 一致）；模块导出健康
+- 环境事实记录：e2e-review 套件硬编码 ROOT=/home/z/cryoflow（已删除的旧克隆）与 BASE=:3001，本沙箱无 EMPIAR fixtures（512MiB）且 4GB 内存不容第二个 dev server——套件按提交记录为准（各提交消息记录 run-7/8/9/10/11 ALL GREEN），本窗口以静态刀位验证+引擎直载+浏览器活体代偿；scripts/diag-t342-gpu-coherence.mjs 的 UNIT-ERROR 系 ROOT 硬编码失配（模块本身健康），非代码回归
+- 质量门：tsc 0 错；eslint 15 项（8 error 7 warning）与 t342 基线记录逐字一致（全存量、零新增）；dev server 热载 t346 后被收割一次（已知模式），重启后全路由 200
+- agent-browser 活体（1600×900 + 390×844）：页面干净渲染（CryoFlow — Cryo-EM Workflow Builder）、console/page errors 双零、footer 钉底、移动端零横向溢流；截图 t347-pull-verify-desktop.png / t347-pull-verify-mobile.png；mock cluster（:3022）重启在位
+- 清理：scripts/tmp-read-clusters.ts 临时探针移除；浏览器会话关闭
+
+Stage Summary:
+- 「解决 Job failed」的答案已在拉取的 t341–t346 里：六 rank 挤一卡（本次 exit 1 的机制）被 per-rank launcher 物理灭绝；15s 假死星读取被 90s+重拨+原地 census 灭绝；用户侧复机路径 = Windows 主机 git pull → 卡死作业 Reset → Re-run（heal/mop 先搬正错位 star、饥饿卡拒发会点名占卡 PID）
+- 一次性集群清理指引（用户侧执行）：sacct -j 124635 查真实死因（大概率 OUT_OF_MEMORY/CANCELLED）；squeue -u lijing 收割残留 sbatch；gpu06 上 nvidia-smi --query-compute-apps=pid,process_name,used_memory 列占卡孤儿并 kill
+- 本窗口零代码改动（纯拉取+验证），沙箱与 origin/main 同步于 75725c4
+
+---
+Task ID: t348
+Agent: main-agent (Z.ai Code)
+Task: 用户工单（六 rank 2D 分类的 run.out 解读）——「怎么感觉卡在一开始不动呢？另外看log怎么感觉是几个GPU重复执行了同一个任务，而不是多个GPU执行同一个任务呢？」附 log：六行 CRYOFLOW_RANK_BIND（rank 0-5 → CUDA_VISIBLE_DEVICES=0-5，t345 生效）+ 六份相同横幅 + Expectation iteration 1 of 20 六份 "000/???" 计数器。
+
+Work Log:
+- 判读①（修复生效的证据链）：六行 RANK_BIND 回执 = 6 rank 各占 6 张不同物理卡——上一轮「六 rank 挤一卡吃干显存→无声 exit 1」的病根已除；「Ignoring required free GPU memory」警告缺席 = 卡不饿（t342 冻结签名不在场）；「Estimating initial noise spectra」/「Estimating accuracies」全部 yum! 完成 = 颗粒栈可读（t338 消费端闸门也过了，收据正常）；NrHiddenVariableSamplingPoints=92800=64 方位×29 平移×50 类 = 50 类在生效
+- 判读②（"重复执行"是 MPI 日志的天然形状）：6 个独立进程各写各的横幅/报表交错进同一个 run.out；分工是切分不是重复——Expectation 按颗粒六等分、Maximization 按类分（每 rank 更新 ~1/6 的类）、噪声谱/精度估计各算各的子集；「mapped to device 0」×6 语义已变：t345 后每 rank 的私有 CUDA_VISIBLE_DEVICES 世界里只有一张卡（它自己的），编号必然是 0——物理真相在 RANK_BIND 回执里（rank k → 物理卡 k）；t345 前六份 "devices 0"=全挤物理 0 卡，之后六份 "device 0"=各在自己卡的私有视角，字面相同含义相反
+- 判读③（"卡住"需现场判别 slow vs stuck）：000/??? 是时间估计计数器（已用秒/预估秒，??? = 首批未完成无预估）；第一轮 Expectation 是整个 run 最重一步（每颗粒 vs 50 类×512 方位×116 平移≈300 万假设），~35 万颗粒（1034 微图×~340/微图）六等分后单轮十几分钟量级、20 轮整体按小时计属正常；判别命令=计算节点 nvidia-smi（6 进程×6 卡×utilization>0 → 在算；长时间 0% → scancel 降宽度重跑）
+- 代码改进（在困惑发生处自解释）：sbatch 脚本 t345 块尾部（饥饿卡拒发之后、mpirun 之前）加一行运行时 CRYOFLOW_NOTE——"$CF_RANKS MPI ranks, one per card — every rank prints its OWN copy…; the work is SPLIT across ranks (particles in the Expectation step, classes in the Maximization step), NOT repeated; each rank's 'device 0' is its own card in its private CUDA_VISIBLE_DEVICES world"；运行时 [ "$CF_RANKS" -ge 2 ] 守卫（单 rank/钳制到 1 不付噪声；钳制后计数是后值）；以后每次多 rank run 的 log 开头自文档
+- 活体验证（scripts/diag-t348-multirank-note.mjs，26/26 ALL GREEN，dev :3000 + mock :3022 真链路）：import(3 合成 MRC 头部嗅探过)→ctffind→LoG autopick→extract(shards=2)→class2d 宽 6——6 份 RANK_BIND 六张不同卡(0,1,2,3,4,5)、无钳制/致盲注记、t348 注记以 post-clamp 计数(starting 6)落在首行(先于首份回执)、脚本形态钉死(CF_RANKS=6+mpirun -n "$CF_RANKS"+launcher+--gpu 0 无冒号列表)、宽 1 作业不付注记；fixtures 生成器内嵌进 diag 脚本(ensureFixtures，自足可重跑)
+- 首跑 7 败根因=本人 driver 转录笔误（runOutOf 的闭合引号位置，cat 了一个不存在的字面文件名），非代码回归；修正后全绿
+- 回归面核查：run-6/run-10 的 sbatch 形状断言全为 includes() 风格（纯增量行安全）；无任何套件钉 run.out 首行顺序；tsc 0；触碰文件 eslint 0
+- 现场清理：两个 t348 测试项目(API DELETE)+连接(DELETE)+mock 项目目录与杠杆全清；合成 fixtures 留在 mock fs（gitignored 测试基建，脚本可自再生成）
+
+Stage Summary:
+- 用户两个问题的答案：①大概率在算（第一轮 Expectation 最重、小时级正常），nvidia-smi 六卡 utilization 一辨真伪；②不是重复执行——MPI 日志天然形状（N 进程各写各的横幅），工作按颗粒/类切分，"device 0"×6 是每 rank 私有单卡世界的编号而非物理 0 卡
+- t345 修复已被用户现场实证生效（六 RANK_BIND 回执）；t348 让这层解释长进每次 run 的 log 第一行，下个用户不再需要问
+- 代码改动：remote-run.ts（t348 注记行+注释）；新 scripts/diag-t348-multirank-note.mjs + scripts/t348-lib.mjs（e2e-lib 的本沙箱补丁副本）；tsc/eslint 干净
+
+---
+Task ID: t349
+Agent: main-agent (Z.ai Code)
+Task: 用户三问（拉取最新代码 + GPU 并行模型确认 + 手写 mpirun 命令审查）——「目前问 AI 得到的说法是把颗粒等分成几份每份一个 GPU，目前确实是这样的吗？mpirun -np 5 relion_refine_mpi … --gpu "0:1:2:3" --j 4 这种提交方式参数是否正确？这种应该不是把颗粒等分分配给多个 GPU 吧？这样计算会不会更快？」
+
+Work Log:
+- 拉取：fetch 后与 origin/main 同步于 ec9d140（此前 4 个本地提交已在远程，无新提交）
+- 源码级核实（RELION master, 3dem/relion）：① `--gpu` 官方语义 = "Device ids for each MPI-thread"（ml_optimiser.cpp，经 untangleDeviceIDs 分配到各 rank）——冒号列表就是颗粒级数据并行；② `--norm` 在 relion_refine 选项表零匹配（是 relion_preprocess/提取步骤的标志）——用户命令会启动即被解析器拒掉；③ RELION ≥2.0 二进制名是 relion_refine（MPI 内建），relion_refine_mpi 是 1.4 时代老名
+- 病根确认（旧 n=width 布局）：mpirun -n <卡数> 时 rank 0 是 RELION master（CPU：数据 I/O、批次分发、M-step类重构），不碰卡——却占了一张卡的槽位。4 卡作业实际只有 3 张卡算颗粒（E-step 占 ~85-90% 运行时间）。用户的 -np 5 = RELION 官方推荐 np=nGPU+1（专职 master + 每卡一 worker），E-step 吞吐 4/3×，整体墙钟约 +20-30%
+- 实施 t349（remote-run.ts）：Slurm MPI lane 的 nranks 从 gpuWidth 改为 gpuWidth>=2 ? gpuWidth+1 : 1（宽度 1 保持单进程——单卡无拆分可做）；sbatch 头 --ntasks=N+1 而 --gres=gpu:N 不变；t345 per-rank launcher 重定义 rank 语义——rank 0 = CPU master（不绑卡，收据自报身份），worker r 绑 device_set[r-1]（空闲优先序）；钳制语义改为"每可见卡一 worker + master"（CF_VISIBLE < CF_RANKS-1 → CF_RANKS=CF_VISIBLE+1）；饥饿卡预检查 worker 的前 CF_RANKS-1 张卡；t348 banner 改述"1 CPU master + N workers, ONE WORKER PER CARD (np = nGPU + 1)"
+- UI 同步（remote-run-button.tsx）：mpiRankCount 派生常量；chips `mpirun -n {N+1}` + `1 master + {N} workers (1 worker → 1 card)`；预览 `--ntasks={N+1} --gres=gpu:{N}` + "mpirun -n {N+1} … --gpu 0 per rank — 1 CPU master + {N} workers"；宽度 1 时保持单 rank 文案
+- 一致性（hpc/slurm.ts 本地生成器 + gpu-width.ts 注释）：本地 dry-run sbatch 也写 mpirun -n N+1 / --ntasks=N+1；策略 reason 与 Multi-GPU note 改述 master+workers
+- 验证装置修复：t348-lib.mjs 的 ROOT 由陈旧绝对路径 /home/z/my-project 改为相对解析 + CF_ROOT/CF_BASE 环境变量覆盖（diag-t348 的 ROOT_MOCK 同修——首次跑曾把 fixtures 误生成到 /home/z/services，已清理）；e2e-lib.mjs 同样参数化（旧 BASE=:3001 生产端口已随旧服务器退役）
+- 活体验证（dev :3005 + mock :3022 真链路，四套件 ALL GREEN 共 135 断言）：diag-t348 27/0（宽 6 → CF_RANKS=7、6 份 worker 回执六张不同卡 0-5、master 回执自报 CPU-only、banner "starting 7 MPI ranks — 1 CPU master plus 6 workers"、宽 1 无噪声）；run-10 52/0（空闲优先：饥饿卡 1 被绕开 worker 落 {0,2,3,4,5,6}；钳制 2 可见 → 2 worker + master 点名；盲节点 → 单 rank；慢线 20s 星读取 + 死通道重拨不回归）；run-7 27/0（1 卡节点宽 2 → 钳到 1 worker + master、master 不绑卡收据、worker 绑唯一卡；饥饿拒发 exit 98 不回归；补 mpi-emulate-ranks 杠杆——旧装置只仿真 1 rank，新布局有两个 rank 要跑）；run-6 29/0（--ntasks=3/CF_RANKS=3 宽 2 形状）
+- 断言同步：run-6/7/10、diag-t326/t337/t337、e2e-review README 的 rank 计数/措辞断言全部对齐 t349 形状（diag-t337 的 CF_GPU_LIST 断言原为 t342 时代残留，顺手改为 launcher 形态）
+- 浏览器活体验证（Playwright 沙箱内直跑，dev :3005）：运行对话框实测渲染——GPU 宽度行"6 × GPU | --gres=gpu:6 | mpirun -n 7 | 1 master + 6 workers (1 worker → 1 card) | brain2 offers 8/node · 1 worker per GPU + 1 CPU master"；提交预览"#SBATCH --partition=brain2 --nodelist=brain2 --ntasks=7 --gres=gpu:6" + "mpirun -n 7 … --gpu 0 per rank — 1 CPU master + 6 workers, one worker per card"——与 e2e 验证的 sbatch 字节一致；截图 /tmp/t349-dialog.png
+- 环境备注：4GB 沙箱内 cryoflow dev server（Turbopack 编译根页峰值 ~2.3GB）反复被 OOM 收割；NODE_OPTIONS=--max-old-space-size=1400 + 单次调用内完成（沙箱在工具调用边界收割后台进程）后浏览器验证成功；tsc/eslint 触碰文件零新增
+
+Stage Summary:
+- 三问答案：①是——现实现就是颗粒级数据并行（master 动态批次分发，先做完先领，自平衡非静态等分），但旧布局 master 占卡槽、4 卡只 3 卡算颗粒；②用户命令布局正确（RELION 官方 np=nGPU+1）且本质就是颗粒等分并行，但三个具体问题——relion_refine_mpi 应为 relion_refine（RELION 5 二进制名）、--norm normalise 不是 relion_refine 合法选项（源码核实，启动即报错；归一化在 Extract 步已完成）、--gpu "0:1:2:3" 冒号语法在该集群 RELION 5.0-beta build 有两次全 rank 落 device 0 的翻车史（t342/t345 现场记录，即上次 OOM 根因），等价且稳的形式是每 rank 独立 CUDA_VISIBLE_DEVICES + --gpu 0；③会更快——E-step ~4/3×、整体约 +20-30%
+- t349 落地：dedicated master 布局进派发器（每张卡都有 worker 算颗粒），t345 绑卡/钳制/饥饿预检/盲节点守卫全部保留并按 worker 语义重述；UI 预览与脚本字节一致
+- 回归防线：四套件 135 断言 ALL GREEN + 浏览器实测；宽度 1 行为不变（单进程）
+
+---
+Task ID: t349-b (parallel window — card & wire work, distinct from the t349 above)
+Agent: main-agent (Z.ai Code)
+Task: 用户工单（两项）——①「优化job卡片样式，目前内容有些拥挤，需要根据目前需要显示的内容重新设计一下，让关键的内容都能显示出来」②「任务失败时好像会出现连线断的情况，待推进的虚线动画在线条是横向直线时显示有些问题，其他情况下正常，需要修复」
+
+Work Log:
+- 根因判读②（连线断+横向虚线动画异常，同一条病根）：edges-layer 的 running/primed 线用 `stroke="url(#edge-grad-…)"`，linearGradient 是默认 objectBoundingBox 单位——横向直线（两卡同 y、单口无扇移）的 bbox 高度为 0，SVG 规范明令 user agent 忽略退化几何上的渐变 → stroke 解析为无 → 整条线（含虚线动画）隐形。用户工单逐字命中：「任务失败时」= 上游 completed → 失败卡的线翻成 primed 渐变（正是看见断线的时刻）；「横向直线时显示有些问题，其他情况下正常」= 非水平线 bbox 非退化、渐变正常。附带发现： marching 虚线动画每 0.7s 有 5px 后跳（dasharray 6 5 周期 11，keyframe 偏移 -16，16 mod 11 = 5）
+- 修②渐变：linearGradient 改 gradientUnits="userSpaceOnUse" + x1/y1/x2/y2 = 线自身端点（srcDot→tgtDot），bbox 从此无关；渐变节点搬进每条边的 <g>（paint server 放哪里都不直接渲染）→ 拖拽补丁循环用同一 group-scoped [data-e] 契约可达；bonus：ramp 方向从「bbox 左→右」修正为「真实源→目标流向」（wrap-around 线以前的渐变方向是反的）
+- 修②拖拽随行：patchEdgeGroups（job-card.tsx）新增 [data-e="grad"] 四坐标补丁——拖拽中渐变端点与线端点逐帧同步（活体验证：mid-drag x1/y1=1446.19/345.20 与 path M 点逐位一致）
+- 修②卡顿：edge-dash-flow keyframe -16 → -11（恰一周期，无缝循环）；LiveWire 上被 CSS 覆盖的死属性 strokeDasharray="7 5" 移除（CSS 类是 dash 图案唯一真源）
+- 修①卡片重设计（CARD_W 220→240 / CARD_H 96→112，所有消费方——端口、连线、minimap、print fit、spotlight 锥、框选、聚焦——全从常量派生，零硬编码）：①行3从固定 h-4 单行 truncate 改可变高——completed/failed/pending 结果 line-clamp-2 双行（失败原因 ~35 字符截断 → 双行 30px，失败卡要说的一句话终于说得完）；②终态 ✓/! 角标从 absolute right-2 top-2 改行1行内 ml-auto（pr-8 死右轨 32px 只在终态花该花的 ~18px，名字收回全部宽度）；③容器 gap-1.5/py-3 → gap-1/py-2.5（112px 的新高度花在内容行不在 padding）；④print-swap 契约（纸面笔记摘录换进度行）原样保留
+- 布局影响核查：auto-arrange 步距 CARD_W+GAP_X(100)/CARD_H+GAP_Y(48) → 增大后走廊 80px/32px，存量布局不重叠；归档 diag 脚本里的 220/96 硬编码仅历史记录
+- 验证场景（沙箱 DB 直种 + 伪造 running 的 120s sweep 宽限期改用持久 engine record pid=1 方案）：import(running 42%)→ctffind 横向 running 虚线；extract(completed)→class2d-w6(failed 长失败词) 斜向 primed；extract→class2d-w1(idle) 横向 primed——三条渐变线 + 两条零高度横向（旧病根的精确几何）；期间沙箱遭遇并发 tidy（preview 面板侧真用户交互，POST /api/jobs/layout 在案）顺势收编
+- 活体验证（agent-browser 1600×900）：DOM——三条渐变线全 userSpaceOnUse + 端点坐标正确，两条横向线 getBoundingClientRect 高度恰为 0（退化几何原样复现）+ 主笔触 stroke=url(#edge-grad-…) + edge-flow 类在位；像素——running 横向虚线行 80% 墨（青色 dash+glow 色）、primed 横向实线行 40% 墨（2.25px 笔宽 ÷5px 采样带，灰→teal 渐变色）；动画——两次采样 dashoffset -2.56→-10.15（行进中），-11=周期保证循环无缝；卡片——失败原因 rect 高恰 30px（双行×15px leading）+ line-clamp 生效 + ! 角标行内右缘(x=207/240) + 名字/状态/进度三行齐整 + 无 absolute 角标死区；VLM 目检——「红字两行换行✓ 卡片间距良好✓ 连线清晰可见✓ 无断线✓」「横向青色虚线清晰可见✓」；拖拽——渐变端点逐帧随线；mobile 390×844 零横向溢流；console/page errors 双零；dev.log 无新增错误
+- 途中排障：4GB 盒上 next-server 反复 OOM（RSS 涨至 2.7-2.9GB 被 kernel 杀，max-old-space-size 896 限不住 Turbopack 原生侧）——按 scripts/dev-server.sh 先例（setsid 孤儿化躲工具调用收割器）+ 关浏览器降压分步验证；沙箱禁 swap（无 CAP_SYS_ADMIN）；验证后伪造态还原（import→completed、engine record 移除；class2d-w6 failed/class2d-w1 idle 留作新卡片设计的诚实演示态——横向 primed 线与双行失败词在 preview 里可见）
+- 质量门：tsc 0 错；eslint 触碰文件 0 输出；截图 docs/t349-horizontal-wires.png / t349-failed-card.png / t349-mobile.png 入库
+
+Stage Summary:
+- 连线断/横向虚线动画的根治 = 渐变换坐标系：userSpaceOnUse 挂线自身端点，退化 bbox 从结构上不可能再出现；虚线动画 -11 偏移恰一周期，0.7s 循环无缝；拖拽中渐变随线逐帧同步
+- 卡片重设计：240×112 + 行内终态角标 + 双行失败原因——关键内容（名字、状态、类型、进度/耗时、失败原因、远程宿主、笔记徽章）全部可见；存量布局走廊 80/32px 不重叠
+- 用户复机路径：git pull 即得；preview 面板可见演示态（failed 卡双行红字 + 横向 primed 线）
+
+
+---
+Task ID: t350
+Agent: main-agent (Z.ai Code)
+Task: 用户工单「继续打磨job卡片的样式，要美观又设计感，同时又实用（显示对用户关注的信息），完成后push」
+
+Work Log:
+- 设计判读（t349 之上的四宗罪）：①`REMOTE[user@host · module]:` 信封吃掉 2 行结果预算 ~40 字符——失败卡要说的那句诚实的话从第 2 行中段才开始；②idle 卡下半张空白（配置只有 hover 一条路）；③状态只在 20px 药丸+边框 tint 里说话，画布缩放距离不可扫读；④Row 2 的类型文本是 dev-speak（"class2d"）
+- 修复① 信封剥除：新 displayResult() 剥 `REMOTE[...]` 前缀——Row 3 的 payload 行只说人话；出处搬进 title 提示 + Row 2 幽灵徽章（终态远程卡 muted Server+host，border-border/70 bg-muted/40 安静方言——「这个结果/这次失败来自那台集群」）；hover 预览框同步剥除
+- 修复② idle 参数摘要：新 digestParts（spec 顺序前两个数值旋钮，DIGEST_LABELS 词典把 "Number of classes (K)"→"classes"、"Number of VDAM iterations"→"VDAM iters" 等 28 词条压成短名；无数值类型回落 path 类参数尾两段）；Ready 行 = 绿点 + Ready + 摘要（emerald 引子 muted 尾），未就绪 idle 只显摘要——「能跑什么、跑了会怎样」一眼可答。三段实测 199px 死于省略号（Ready 行预算 ~150px）→ 编辑裁决收两段（spec 序前两恰是用户最常调的旋钮）
+- 修复③ 状态地板条：新 STATUS_FLOOR（3px 底边满宽状态色，idle 一声 slate 耳语/pending amber/running teal/completed emerald/failed rose；queued 走 amber）——左色条=类别（纵轴）、地板=状态（横轴），两轴独立可扫；failed 另加玫瑰体洗（overlay div bg-rose-500/4.5%，暗色 7%——overlay 而非 class 互换，堆叠确定性好）
+- 修复④ Row 2 人话：`spec?.key`→`spec?.label`（"class2d"→"2D Classification"）——纸面无 hover，label 在打印卡上也挣得一行
+- 数字强调：completed 结果行前导数字（"33 particles extracted" 的 33）semibold tabular——与 t347 计数徽章分工：徽章拥有颜色（teal 粒子/violet 类），句子拥有字重；同一数字不喊两遍色
+- 并行窗合并：远程 t349（dedicated master np=nGPU+1 + 计数徽章）与本地 t349-b（连线修复+卡片重设计）rebase 汇流——job-card.tsx 自动合并干净（徽章在 Row 2 尾、我的改动在 Row 2 头/Row 3/卡体），worklog 双 t349 冲突以 t349-b 消歧共存；合并态审计：计数徽章与新设计零冲突零溢出
+- 活体验证（agent-browser 1600×900 + 390×844）：12 卡全状态审计——零 paint 级溢出（clip-aware 检查：被 overflow-hidden 裁掉的布局盒不计）、地板条 12/12 在位且配色正确（emerald×5/rose×2/slate×5）、失败卡洗层 7%、失败文本恰 30px（2×15px line-clamp）、行高 24/20/15-30、卡体恰 240×112、digest 两段 clip=0、数字强调 600 重前景色、幽灵徽章 muted、移动端零横向溢流、console/page errors 双零、dev.log 无新增；像素采样（PIL）——light 图 green 545/red 283/teal 255 采样点、dark 图 green 454/red 370——三族状态色在两张渲染图里真实可见；交互冒烟——卡片点击开 inspector ✓、hover 预览渲染（剥前缀结果句+人话 label+参数三行）✓
+- VLM 目检缺席：z-ai vision 服务整窗 429 限流（五次重试跨 ~10 分钟）——以 DOM 计算样式断言 + 像素采样代偿，几何/颜色/字重/裁剪全部数值级验证
+- 质量门：tsc 0 错；eslint 触碰文件 0 输出；截图 docs/t350-card-polish-light.png / t350-card-polish-dark.png 入库（合并态终版）
+
+Stage Summary:
+- 卡片信息架构定型：类别（左色条·纵轴）+ 状态（地板条·横轴）+ 身份（名字行）+ 出处（幽灵徽章）+ payload（结果句/参数摘要/进度）——每个状态都有话说：idle 说配置、pending 说等谁、running 说进度、completed 说成果、failed 说原因
+- REMOTE 信封从 payload 里退役（tooltip+幽灵徽章接手）——失败原因可用字符 +40；idle 卡从半空卡变成自带规格单
+- 用户复机路径：git pull 即得；与 t347 计数徽章、t349-b 卡片重设计、t349 dedicated master 全部兼容（rebase 后全量审计通过）
+
+---
+Task ID: t352-c (parallel window — cs2star cluster twin, distinct from t352-a/b's refine-family argv work in the same file)
+Agent: main-agent (Z.ai Code)
+Task: 用户字段报告——engine-native cs2star 在集群连接上跑完：325,549 颗粒转换、10,664 个 stack 在 remoteRoot/<projectId>/micrographs 链好，但 particles.star 只落在本地 workdir（「结果只保存在了本地，集群上没有这个 job 的输出，而后续计算都在集群上跑」）；且重跑同一转换把两份大 .cs（119.8 + 90.3 MB）原样重下了一遍。三改全在 runCs2StarNative 的 CLUSTER lane（engine.ts），不碰 local lane、不碰 refine 家族 argv（t352-a/b 并行窗口正改同文件）、不碰 workflow.ts。
+
+Work Log:
+- 病根判读：cs2star 的 CLUSTER lane 一直把 star 只写进本地 workdir（writeFileSync(starPath)），recordNativeRun 登记的也是本地路径——下游集群作业要么把 50-200 MB star 重传一遍（upload lane），要么在本地副本被清后卡「waiting」；集群手里握着 10k 个 stack 链接却唯独没有那份索引它们的 star。twin 概念（t324 起：record.remote.remoteOutputs 里的集群侧已验证路径）恰好是为这个形状发明的，cs2star 只是从来没加入。
+- 修 1 star 上集群（engine.ts 3302-3462）：本地 star 写盘后，twin 路径 = csMirrorPath(starPath, remoteRoot)（3092-3112 新函数，与 remote-run.ts 的 mapLocalToRemote 逐字节同一映射——engine.ts 刻意不 import remote-run.ts 断环，expandCsRemoteRoot 是先例）→ remoteRoot/<projectId>/cs2star_<id8>/particles.star，与 extract 字段日志的 …/extract_ufh1hg0u/particles.star 同一地址族；remoteMkdir(twinDir)（link farm 同款）→ remoteUpload(conn, starBytes, twinPath)（staging 自己的上传原语，ssh.ts:679，head -c 协议，超时 ∝ 字节数）→ statRemoteFiles 验证 present 且 size>0 才登记；超 capMb / 上传失败 / 验证失败各自诚实报错：点名 twinPath、原因、本地副本完好（starPath）、链接已在集群、修法（调 cap / 稍后再跑）——错误经 abortNativeRun 落进 record，不吞。phase 行：uploading (MB) → twinPath + star saved on the cluster (verified N bytes)；run.out 的 output 行改「twinPath (cluster) + local mirror: starPath」；结果行 REMOTE[cryo@host] 信封逐字节不动（displayResult 剥前缀 / result-counts 计数徽章都只认开头），尾部追加「 · star saved on the cluster」。
+- 修 1 的持久化：recordNativeRun 的 upsert 会整条替换 record（remote 半区一起没），所以 twin 在它之后用 updateRun 补挂——与 probeRemoteOutputs（remote-run.ts:1751）/finalize leg（4782）同一 startedAt 守卫方言：recordNativeRun 刚写完即 getRun 拿 nativeRec，cur.startedAt === nativeRec.startedAt（再叠 done && exitCode===0 双保险，防同毫秒 beginNativeRun 的 ISO 碰撞）才挂；remote 状态按 RemoteRunState（types.ts:306）零 cast 写全：conn 真实 connectionId/connectionName/host(host:port)/user/module/defaultModule??""、mode "direct"、pid null、slurmId null、remoteRoot（已 ~ 展开）、remoteWorkdir=twinDir、phase "running"（done 记录的既定方言——finalize 也不改 phase）、remoteOutputs.particles_star=twinPath；另把 run.out/run.err 见证 best-effort 传到 twinDir + 预填 t346 logTail 缓存字段（logTailOut ≤4KB/logTotalLines/logTailAt）——log 路由（/api/jobs/[id]/log:42）见 record.remote 就走 remoteLogTail：done 记录 tail 模式永远吃 ledger 缓存、full 模式从 remoteWorkdir 拉——没有这两样，完成后的日志页会拉到空控制台。见证失败只 console.log，绝不能杀掉已完成的 run。
+- 修 1 的自愈面：REMOTE_OUTPUT_CANDIDATES 加 cs2star: [{ key: "particles_star", exact: ["particles.star"] }]（engine.ts:1186，extract 条目同形）——将来 lazy heal / missing-worklist probe 能在 remoteWorkdir 里重新找回 twin。reconcileRemoteJobs 复核（remote-run.ts:4056）：rec.done 记录直接 continue（仅 running/pending 行进 orphan 分支，且 orphan 是 ledger-side 补判无 SSH）——完成的 cs2star 记录永不被重轮询；isRunAlive 只在 done===false 时看 remote——重跑不会被「remote run still active」拒绝。
+- 修 2 .cs 去重（3172-3222）：dl 升级为 dlCached(remote, local, remoteSize)——workdir 里已有同名 .cs 且 statSync 字节数 == 早前 statRemoteFiles 报的集群尺寸 → 本地直读 + phase「reusing cached particles.cs (119.8 MB, remote unchanged) — no re-download」（逐文件报，两份各自判）；尺寸漂移（CryoSPARC 重新导出）照旧重下；receipt 的 downloaded 行只列真下过的。缓存依赖一个事实：engine-native 作业不走 runRealJob 的 fresh-start wipe（run-wipe.ts 头注：「the engine-native jobs return ABOVE the call site, so they never wipe」），.cs 在 workdir 里活得过重跑。
+- 修 3 wipe/cleanup 不破：①t333 重跑 wipe 只发生在 startRemoteJob 派发路径（预擦的是本 job 自己的 <root>/<type>_<id8>），cs2star 是 engine-native 从不派发，且下游 class2d 的预擦只碰 class2d_<id8>——上游 twin 是输入，「Inputs are never at risk by construction」；②t331 用户清理的 remote 侧只列 record.remote.remoteWorkdir（=twinDir）：twin 经 twinsRel（toRelSet 归一到 workdir 相对）进 keep-set（cleanup.ts:393 own account），run.out/run.err 是 KEEP_ROOT_NAMES 见证——twinDir 的覆盖与 extract 的 twin 目录完全同形（star+见证全保，无中间物可清）；③共享链接农场 remoteRoot/<projectId>/micrographs 不在任何 job workdir 之下，清理/擦除两把刀都够不着（t352 前后一致）；④本地侧 .cs 副本属 unknown=keep。结论：cleanup/run-wipe 零改动。
+- 消费链代码级追踪（同集群下游 class2d，cs2star 接上游）：dispatch 传 { remote: true, connectionId, host: host:port } 调 resolveInputs（remote-run.ts:2173）→ 输入解析两条道殊途同归：(a) 本地 star 在（默认）→ outputs.particles_star 本地路径 → twin map 的 pair 条目（2433-2435：local→twin，过 sameClusterTarget 门）→ staging 循环 2761 upstreamRemoteTwins.get(local) 命中 → continue 零上传；(b) 本地副本被清 → resolveInputs 的 twin gate（engine.ts:1384-1389）直接解析成 twinPath → identity 条目 twin→twin → 同样零上传。argv 组装 3018：inputs.particles_star = upstreamRemoteTwins.get(local) ?? … = twinPath——而 twinPath 与旧 upload lane 会写的 mapLocalToRemote(starPath) 是同一字符串：argv 字节级不变，只是省掉冗余上传。class2d 的 INPUTS from 列表本就含 "cs2star"（engine.ts:1032）。star 内部行是 N@micrographs/<name>.mrcs 项目相对方言，RELION 以项目根为 CWD 读——链接农场就在那里。
+- 质量门：bunx tsc --noEmit 0 错（remote 状态对象零 cast 过 RemoteRunState 上下文类型即证形准）；bunx eslint engine.ts + remote-run.ts + types.ts 0 输出（改动前后皆 0——本树这三文件本就干净，零新增）。并行窗口纪律：只动 csMirrorPath/dlCached/twin 块/REMOTE_OUTPUT_CANDIDATES/cs2star lane + ssh import；refine 家族四 case 与 workflow.ts 的未提交改动属 t352-a/b，一字未碰。
+- E2E 风险预告（主 agent 活体时注意）：①diag-t336-cs2star 断言全兼容（B1-B13 形状不变，receipt 只追加尾部；class2d 下游仍完成——argv 地址与旧 upload lane 相同，只是不再重传；missing-stack 拒绝发生在 twin 上传之前不回归）；②mock 集群对 remoteUpload/stat/remoteMkdir 全支持（staging 每次派发都用同一原语）；③真集群上 200 MB 级 star 若链路 <0.4 MB/s 可能撞 remoteUpload 的 600s 超时上限——诚实报错点名 twinPath + 「fix the cluster and run again」，.cs 已缓存重试便宜；④twin 上传前的 cap 预检文案承诺「the .cs download is cached, the retry is cheap」依赖修 2，已同窗落地。
+
+Stage Summary:
+- 用户复机路径：pull → Re-run 一次 cs2star——两份 .cs 本地复用零重下（receipt 分文件报 reused/downloaded），star 落到 remoteRoot/<projectId>/cs2star_<id8>/particles.star 并验证在案；下游集群作业（class2d/initialmodel/class3d/refine3d…）通过 record 的 twin 零重传就地消费，日志页从 twinDir+ledger 缓存双轨可读
+- twin 地址与 staging 的 mapLocalToRemote 镜像约定逐字节一致（csMirrorPath 内联复刻，断环先例 expandCsRemoteRoot）——upload lane 与 twin lane 在同一地址汇合，argv 字节不变、只省冗余
+- 持久化形状：recordNativeRun(整条替换) 之后 updateRun + startedAt 守卫（probeRemoteOutputs/finalize 同款）挂 remote 状态（direct/pid null/remoteWorkdir=twinDir/remoteOutputs.particles_star）+ run.out/run.err 见证与 t346 tail 缓存——完成记录不被 reconcile 重轮询，log 路由不空
+- wipe/cleanup 零改动即全覆盖：twinDir 与 extract 的 twin 同形同命（own account + 见证保全），共享 micrographs 链接农场在两把刀的射程之外（与 t352 前一致）
+
+---
+Task ID: t352-a/b (the param surface — main window; t352-c ran in a parallel subagent window)
+Agent: main-agent (Z.ai Code)
+Task: 用户工单（四件）——① scratch 到 /ssd_cache 这类节点本地 SSD 可加速读取，要在 UI 中可自定义；② 是否整合了 Blush 等算法？要在 UI 中可开关；③ 「所有的 relion gui 中可以调节的参数在本项目 ui 中都可以调整」；④ cs2star 转换结果只存了本地（D:\...\cs2star_dts6rmc7\particles.star），集群上没有这个 job 的任何结果，且 36 个 .cs 字段「识别不出来」——后续计算在集群上，结果应存集群。
+
+Work Log:
+- 源码级调研（3dem/relion ver5.0，与 t351 的 161 选项审计同一纪律）：拉取 pipeline_jobs.cpp + pipeline_jobs.h + ml_optimiser.cpp 原文，提取 RELION 5 GUI 四个 refine 家族 job 的完整 joboption 表与 getCommands 的精确映射——do_blush 只存在于 Class3D/Refine3D/MultiBody（2D 与 InitialModel GUI 无此选项）；--blush 是无参 checkOption；healpix 选项列表 = 7 档度数字符串（order = 下标+1，getHealPixOrder 原文）；sigma_angles/3 → --sigma_ang、auto_faster → --auto_ignore_angles --auto_resol_angles、do_pad1 → --pad 1、combine_thru_disc=No → --dont_combine_weights_via_disc、parallel_discio=No → --no_parallel_disc_io、preread → 裸 --preread_images、2D 的 --center_classes/--skip_align/--allow_coarser_sampling/--offset_range/--offset_step 条件、Class3D 的 --fast_subsets/--relax_sym、Refine3D 的 --solvent_correct_fsc/--auto_local_healpix_order——全部逐条核对进映射
+- t352-a（workflow.ts）：四个 spec 扩到 GUI 全参数面——class2d 23 参数（4 表签）/ class3d 25（5）/ refine3d 26（6）/ initialmodel 14（4）；新增共享件：healpixOptions+samplingSel（auto 默认=不传旗标）、computeParity()（keep-free scratch + 并行盘 IO 三联 + preread + 额外参数口）、scratchHint 点名 /ssd_cache 节点本地 SSD 例；Blush 开关（doBlush）按 GUI 位置放 class3d/refine3d 的 Optimisation 表签（非 advanced，默认关）；采样类全部「0/auto = RELION 自己的默认=不传旗标」语义，默认 argv 形状不变
+- t352-b（engine.ts）：REFINE_VERIFIED_OPTIONS（161 项，engine 权威导出）+ refineTail()（三联 + scratch keep-free + extraArgs 守门：未知 --旗标在【本门】点名拒绝，绝不带到集群的 argv parser）+ healpixOrderOf + positiveNum；四个 case 重写接线——class2d 的 --ctf/--zero_mask 从硬编码改为读参数（默认 ON，旧 job argv 不变）+ --center_classes（RELION 2D GUI 自己的默认）；class3d 的 tau2_fudge 从硬编码 4 改为读自己的参数（默认 4=GUI 默认）+ 补 --zero_mask/--j（此前是幽灵参数：spec 有、argv 无）；refine3d 的 samplingStep 从幽灵参数接活为 healpix 选择 + autoLocalSampling/autoFaster 新增；initialmodel 的 --pool 3 显式参数化
+- t352-c（并行子代理窗口，见其专属条目）：cs2star 星表上传集群 twin + remoteOutputs 记录 + .cs 去重重下载 + cs2star 进 REMOTE_OUTPUT_CANDIDATES（probe 自愈）
+- 回归防线：run-6 套件扩 F 段（直接对引擎 buildArgv，tier 无关）——Blush 上下行、三联、healpix 度数→order、sigma_ang/3、relax_sym、scratch+keep-free、extraArgs 逐字搭载、幽灵旗标点名拒绝、2D 不带 Blush、默认三件套与 lean 默认——59/59 ALL GREEN（含 t350 全部存量断言）
+- 活体验证：diag-t352-cs2star-twin.mjs（新套件）22/22 ALL GREEN——twin 上传/字节级一致/记录绑定集群身份/重跑零下载（mock exec-audit 佐证：run#2 零 cat 命令）/幂等重传；tsc 0 错；触碰文件 eslint 0 输出
+- 浏览器（4GB 盒的持久战）：dev server 反复被 OOM 收割（RSS 2.8-2.9GB，本盒已知模式）——多次完整渲染成功（标题/头部/目录/画布全在，无客户端异常；一次 Application error 系服务器中途死掉截断 RSC 流，后续干净加载证伪了代码缺陷）；inspector 点击全流程因服务器寿命无法完成，以 spec 完整性单测代偿（四 job 全参数：无重复键、tab 全在册、sel 默认值全在选项表、defaultParams 全落位）+ `bun run build` 亦被 OOM（exit 137）——本盒今日无缘 prod 代偿，诚实记录
+- 未做（明确记下）：helical 参数面（--helix 家族，SPA 模式不用螺旋管）、Class2D 的 EM/VDAM 算法切换（do_em/do_grad）——需要时按同一纪律（pipeline_jobs.cpp 映射 + verified set 守门）扩
+
+Stage Summary:
+- 「所有 RELION GUI 参数」的本期答案：四个 refine 家族 job 的 GUI 参数面（除 I/O 由画布连线承担、螺旋管参数外）全部在 inspector 表签里，默认值=RELION 自己的默认（不额外传旗标，argv 形状与 t351 完全一致）；「其它一切」经 Additional RELION arguments 口子逐字搭载，161 项 verified set 守门——打错旗标在本门死，不烧 GPU 时
+- Blush：RELION 5.0 起内置于 relion_refine（--blush，无需外挂）——现在 class3d/refine3d 的 Optimisation 表签有一等开关（默认关=标准平滑先验）；2D/InitialModel 不放（RELION 自己的 GUI 就没有）；用户集群是 5.0-beta，Blush 是否在该 build 里可 `relion_refine --help 2>&1 | grep -i blush` 一验
+- scratch：scratchDir 字段（Compute 表签）t351 已有，本期 hint 点名 /ssd_cache 节点本地 SSD + keepFreeScratch（--keep_free_scratch）同伴参数
+- cs2star：星表现在存集群（twin 镜像路径 + remoteOutputs 记录，下游集群作业原地读、零重传），重跑零重下载；36 个 unmapped .cs 字段系 CryoSPARC 内部记账/统计量（pose_ess/error/power/uid/import_sig 等），RELION 无逐行对应物——下游要用的字段（位姿/平移/类别/CTF/光学组）全部已映射，与 pyem/RELION 官方转换器行为一致
+- 用户复机路径：Windows 主机 git pull；旧 job 的参数面板会如实显示现在真正生效的值（class3d 的 T=4 从硬编码转为真参数）
+
+---
+Task ID: t353
+Agent: main-agent (Z.ai Code)
+Task: 用户工单（三件）——①拉取最新代码（origin 有 t351/t352 两个新提交，含 t352-c 的 cs2star twin 上传，fast-forward 完成）；②「cryosparc转relion star文件目前的结果只生成在本地，这个任务调用的是cluster上的pyem，是不是本地设好参数把脚本传到cluster上运行，直接output在cluster上就好了，没有必要像现在这么麻烦吧」——采纳用户的架构判断：参数本地定、数据在集群、转换就该在集群跑；③「2D分类为什么跑到7/20轮时就显示99%进度了？这个bug需要修复」。
+
+Work Log:
+- 病根判读③（99% 进度）：progress-parse.ts 的 per-image 分支把裸时间条当全局进度——远程 sweep 只取 run.out 的 tail -c 4096（本地 readTail 同宽），6-rank class2d 每轮 expectation 的 \r 时间条按 rank 各占一条物理行、每 tick ~40 字节，一轮一刻钟就写掉数十万字节，"Expectation iteration 7 of 20" 表头早被推出窗口；解析器在无表头时落入 per-image 分支读条内比例为全程（每轮末尾 ~0.99 → pct 钳到 99），单调契约把它冻死在 99
+- 修③：REFINE_FAMILY（class2d/class3d/refine3d/initialmodel/multibody）类型感知闸门——refine 家族的裸时间条与 n/N 计数器是轮内进度不是全程进度，返回 null（单调契约保住上一诚实值）；表头在窗口时照常 (iter-1+barRatio)/totalIter 组合（阶梯：每轮表头进窗口瞬间 +1/total）；ctffind/motioncorr/extract/autopick 的全局条语义不变（diag-t319 回归钉死）。纯模块修复同时覆盖本地 sweep 与远程 sweep 两条道
+- 判读②：现状（t352-c）是下载 200MB .cs → 本地 TS 转换 → 上传 200MB star（重跑零传输、但首跑 400MB 过线）；用户提案正确——脚本上集群、输出落集群、零大字节过线。实现为 t353 CLUSTER-SIDE lane：CS2STAR_CLUSTER_PY（String.raw 内嵌 ~350 行自包含 python，csRowsToStar 的逐字节孪生移植——同 uid smart-merge、同 pyem 验证字段表、同 planLinkNames 后缀、同 emit 顺序、同 6 位有效数字 fmt 含 JS Number→String 方言（Decimal 定点域 + e+/- 指数域）、jsround=floor(x+0.5) 对齐 Math.round 的 .5 语义）；argv 传参（--primary/--passthrough/--out/--link-dir/--cs-root/--invert-y/--fallback JSON）；退出码契约（0 + 末行 CF_RECEIPT {json}，非 0 + stderr CS2STAR-ERROR，star 走 .tmp+os.replace 原子写，链接幂等 remove+symlink）
+- probeClusterPython（一轮 SSH）：python3 → python → csparc2star.py 的 shebang（conda env python 的唯一可靠入口；env-shebang 经 command -v 解析（第一臂已试过）、绝对 shebang 直用）；definitive 标记区分「集群干净地说没有 python」与「探针没应答」——两者都落 fallback 且 phase 行如实分述；脚本级失败（.cs 坏、stack 缺失）不 fallback——同样的字节在本地转换器会同样失败，错误就是判词（missing stack 的诚实拒绝 dialect 与旧道逐字兼容，diag-t336 钉死）
+- runCs2StarOnCluster：探测 → 上传脚本（KB 级，唯一过线字节）→ sshExec 跑在登录节点（900s 预算 + 15s 本地心跳 phase 保 log 活，t340 教义）→ receipt 解析 → statRemoteFiles 验证 twin → REMOTE 信封结果行（尾部 " · converted ON the cluster in place (no .cs download, no star upload)"）；record.outputs.particles_star 保持本地风味路径（有意不存在——twin gate 的键），remote.remoteOutputs.particles_star=twinPath，mode direct
+- finishCsRunOnCluster：从 t352-c 尾部块提取的共享收尾（recordNativeRun + startedAt 守卫 + 双道见证上传 + t346 tail 缓存）——上传道（fallback）与就地道（python）不可能漂移；旧道整段保留为 fallback（python 缺席的集群、探针哑火的线）
+- 配套消费链：writeCsRemoteManifest 内联进 engine.ts（engine↔remote-run 断环教义——remote-files.ts import remote-run.ts，import 其 writer 会闭环；字节形状与 writeRemoteManifest 一致）——无本地 star 时 Files 页经 manifest 列出 on-cluster 卡片；output-summary cs2star 分支在无本地 star 时从 result 行解析计数（"N particles converted … M stack(s) → micrographs/"，两道同句式，receipt 是回退不是第二计数器），outputs route 传入 run.result
+- workflow.ts 描述更新：删「No pyem, no Python: the converter is built in」改为集群就地转换 + python3+numpy 门槛 + fallback 说明（用户看到的 palette 与 inspector 同步，浏览器活体验证）
+- 验证装置：diag-t353-cs2star-cluster-side.mjs（新，36 断言）——零下载三重证（workdir 无 .cs、exec-audit 无 cat .cs、唯一 head -c 是 KB 级脚本上传）、twin 在册（stat>0 + record.remoteOutputs + mode direct）、链接农场 readlink、manifest、关键数字走 receipt 行、与本地道字节级一致（同 .cs 双道 diff）、下游 class2d 就地消费 twin（audit 无 particles.star 上传）+ argv 引用 twin 路径、重跑幂等零下载；diag-t336 更新 B6/B7/B8/B9 到就地道语义（B6 反转为「star 只在集群」+ B7b manifest）+ ROOT/BASE 参数化（CF_ROOT/CF_BASE）；diag-t352 改造为 FALLBACK 道套件——python-less shim 写进 mock 的 fs/opt/bin（MOCK_PATH 首位；/opt/bin 不在翻译前缀里，必须写宿主路径）断言「no python3+numpy — falling back」phase + 上传道 twin + .cs 缓存重用全保留；diag-t319 扩 4 个 t353 单元用例（7/20→99% 现场形状、带 params 也 null、n/N 计数器 null、ctffind 全局条保 99）
+- 排障记录：t353 首跑 4 FAIL 全部同根——POST /api/jobs 与 GET /api/jobs 只认 ACTIVE project（projects file 指针），PHASE 3 建本地项目把指针拨走，PHASE 4 的 class2d 落进本地项目（edge 400 different projects）+ awaitTerminal 在错误项目里永远找不到行（stuck 假象）——套件在 PHASE 3 后补 POST /api/projects/switch 归还指针（测试装置问题，非引擎回归）；t352 首跑 shim 失效（client 写 /opt/bin 落在沙箱真根而非 mock fs——/opt/bin 不是翻译前缀）改直写 mock fs 宿主路径；浏览器开 inspector 需 viewport <xl（sheet 的 !isXl 门）+ 卡片先 PATCH 到可视区
+- 活体验证：四套件 ALL GREEN（t353 36/36、t336 全绿、t352 全绿、t319 全绿含新用例）+ run-6 59/59（bun 跑——engine.ts 的 @/ 别名 node 裸解析不了，bun 走 tsconfig paths；refine argv/sbatch/Blush/守门面全不回归）+ tsc 0 错 + eslint 触碰文件零新增（全项目 15 项存量基线逐字一致）；agent-browser——页面干净渲染、palette 与 inspector 双处新描述、Params 页 csPath/invertY 在位、console/page errors 双零、390px 移动端零横向溢流（途中 dev server 被 OOM 收割一次——本盒已知模式，重启后全过；截图 docs/t353-inspector.png / t353-mobile.png；VLM 目检 429 限流，DOM 断言 + 截图代偿）
+
+Stage Summary:
+- 99% bug 根治：refine 家族裸条/计数器不再冒充全程进度——表头在窗口时组合、不在时单调保持（阶梯式诚实推进），per-image 家族语义不变
+- cs2star 集群架构落地（用户提案的形态）：参数本地定 → KB 级脚本上集群 → 登录节点 python3+numpy 就地转换 → star 直写 twin、农场进程内建链——200MB .cs 与 200MB star 永不过线；无 python 集群自动落回 t352-c 下载/转换/上传道（该道 diag-t352 永久钉死）；与本地道输出字节级一致（diag-t353 T10 钉死）；pyem 本身不再被需要（字段表就是 pyem 验证过的那张），但集群若有 pyem，其 shebang 会成为 python 解释器的第三探针臂
+- 消费链自洽：Files 页经 remote manifest 列出 on-cluster star、关键数字走 receipt 行、下游集群作业经 twin gate 就地消费（零上传）、日志页经 twinDir 见证 + t346 缓存双轨
+- 用户复机路径：git pull → cs2star 重跑一次（旧 job 的 twin 已在集群上的不受影响；新跑走集群就地道，receipt 尾部带 "converted ON the cluster in place"）；2D 分类的进度条从下一轮表头进窗口起恢复诚实阶梯
+
+---
+Task ID: t354
+Agent: main-agent (Z.ai Code)
+Task: 用户工单「2d分类的中间过程目前看不到，希望的是每一轮的2d结果生成一张图片，可以在本地的UI中查看」——t350 只展示最新一轮的逐类小图；本轮把每一轮做成一张拼接大图（sheet），历史轮随时可看
+
+Work Log:
+- 形状判读：RELION 每轮写 run_itNNN_classes.mrcs（该轮全部类平均的 stack）——「每轮一张图」= 整个 stack 拼成一张网格大图（relion_display 的看法）。t350 已有 per-slice 渲染 + 按需拉取 + slimming 契约，缺的是：①每轮一张拼图 ②历史轮清单 ③完成后回看
+- mrc.ts renderClassSheetPng：全 slice 自适应网格（4-8 列、160px cell、per-slice 2-98 百分位拉伸、黑底 2px 缝、双边 1400px 上限——50-100 类的真实 sheet 仍 KB 级）；布局循环先花宽度预算加列、后缩 cell（原两段 while 的交互缺陷：cols 到 8 后高度超限不再缩 cell——重写为 dims() 收敛循环）
+- iteration-live.ts：payload 增 stacks[]（StackEntry{iter,file} 升序；同轮 unmasked 胜出，与 pickStack 同 rank 语义）；ensureClassStackPngs 升级为 ensureIterationAssets——一次拉取三产出（全部 slice PNG + sheet.png + slice 数），in-flight 共享、t339 契约不变（MB 级 stack 拉完即删）；localIterations(workdir, jobId?) 双源并集（mirror readdir ∪ PREVIEW_DIR/live/<jobId> 渲染缓存——cachedStackEntries 以目录名为轮次凭据，.mrcs 重建过 STACK_NAME_RE 落回同目录）；cacheSheetPng 供本地渲染分支落缓存（t333 重派发清 mirror 后历史轮仍可看）；无 workdir 分支诚实返回（不伪造零计数 classes）
+- 新 route /api/jobs/[id]/iterations/sheet：缓存命中 → 本地 mirror 渲染（落缓存）→ 集群按需重拉（**允许已完成 run**——冷重启后缓存空、集群是唯一诚实源；与 t350 image route 的 run.done 404 方言有意分叉，注释陈述理由）；不存在轮 404、路径逃逸 400、Cache-Control private max-age=300（stack 名含轮号=不可变内容）
+- iterations route 冷缓存合成：完成态 remote run 的 mirror 若无每轮 stack（真实世界 >16MB keyFileMb 留在集群），由 iterations（data.star 轮次）按 RELION 命名法则合成 chips（run_itNNN_data.star ⇒ run_itNNN_classes.mrcs 兄弟）——chips 条永不因冷缓存消失，用户点击即触发按需重拉
+- gallery 重构：chips 轮选条（running 时跟随最新轮+脉冲点、点击钉住、落后时出 latest 跳转钮、scrollIntoView 跟随）+ 当前轮 sheet 大图（lazy fetch、min-h 占位、错误态带 Retry、key=URL 重挂载）+ lightbox（shadcn Dialog——class-gallery/fsc-compare 同方言；←/→ 键盘走轮、边界禁用箭头、轮次计数）+ per-class 网格与 picker 原样保留（t350/t349 契约）；旧 payload 容错（无 stacks 时由 classesFile 退化为单轮）
+- mock relion_refine 修真：os.replace → 拷贝（3 处终稿别名）——真实 RELION 保留全部 per-iteration 文件、终稿别名并存；旧改名吃掉最后一轮 data.star 使完成态轮次清单少一轮（diag 首跑 FAIL 3/4 的病根）；爆破半径审计（t211/t298 plant 文件、t333 .some() 断言——无缺失性断言，安全）
+- diag-t354-iteration-sheets.mjs（42 断言 ALL GREEN）：UNIT（sheet 渲染 PNG magic/全 slice/真实字节；localIterations 升序/unmasked 胜出/occupancy；缓存独腿诚实形状）+ LIVE（mock class2d 8 轮：运行中 stacks 列表+首轮 sheet 200 PNG+t350 slice 回归）+ AFTER（8 chips 升序、每轮 sheet 200、.stack.mrcs 不留、sheet.png 落缓存）+ COLD（删 mirror stacks+清缓存 → 合成 8 chips、末轮集群重拉 200、重拉落缓存、虚构轮 404、路径逃逸 400）；LIVE 轮询带 ?refresh=1 绕 12s TTL（首跑三 FAIL 的病根：快作业在缓存窗口内跑完、poll 全吃空载荷）
+- 回归：diag-t319 ALL GREEN（refine 进度家族）+ diag-t353 ALL GREEN（cs2star 集群道含下游 class2d 就地消费）；tsc 0 错；触碰 7 文件 eslint 0 输出（全项目 15 项存量基线不变）
+- 浏览器活体（4GB 盒的 OOM 持久战）：next-server 编译期 RSS 2.1-2.8GB + chromium 700MB 撞 4GB 天花板——inspector 全流程反复死于 /outputs 编译后、/iterations 编译时（dev.log 实证「Compiling /api/jobs/[id]/iterations」即死）；NODE_OPTIONS max-old-space-size 确认传入但 RSS 仍超限（turbopack/源映射非 V8 内存）；破局术：route mock 预热法——mock 重 route（iterations JSON 喂 diag 验证过的同形状 payload）让重编译不发生，outputs 走真服务器（每次都活），gallery 全挂载后逐步解除 mock：**最终全真数据验证通过**——8 chips、it008 激活、真 sheet 266×68 绘制（naturalWidth>0）、it003 切轮真图加载、lightbox 标题/箭头/←→键盘/Esc、picker 选中+Continue 使能、console/page errors 零、390px 零横向溢流（chips 条 overflow-x-auto 生效）；截图 docs/t354-gallery-live.png / t354-gallery-mobile.png
+- 收尾：QA 项目×3 删除、指针归还 pool-lever e2e、qa-t354ui 连接删除、mock fs 残留清理、mock cluster 复活（:3022）；commit dd99432 push GitHub（085390e..dd99432 main）
+
+Stage Summary:
+- 每轮一张图的完整链路：chips 条（每轮一枚）→ sheet route（缓存/本地/集群三源懒取）→ 大图 + lightbox；运行中每轮落图跟随最新、完成后任意历史轮点击即取（冷缓存由命名法则合成 chips 兜底）
+- 三源取图方言：preview 缓存（快）→ 本地 mirror（完成后小 stack）→ 集群按需重拉（running 或 done 皆可——冷重启的唯一诚实源）；t339 slimming 与 t333 重派发擦除两条契约都对齐
+- mock relion_refine 对齐真实 RELION 终稿语义（拷贝非改名）——这本身就是一处 mock-vs-reality 缺陷的修复
+- 用户复机路径：git pull → 2D 分类运行中打开 Results 页即见每轮 sheet（运行时跟随最新轮、点任意轮钉住）；完成后历史轮照看（缓存即答、冷了从集群按需拉）；t353 的进度修复与 cs2star 集群道同 push 在库
+
+---
+Task ID: t355
+Agent: main-agent (Z.ai Code)
+Task: 用户工单（三件）——①「cluster上跑的2D分类的结果看不到结果的图片加载出来」②「运行2D selection job时也没法看到每一类的图片加载出来」③「UI中这些分类的框大小不一」
+
+Work Log:
+- 根因判读①（class2d Results 页）：三叠缺陷。a) /iterations/image 路由对 done 远程 run 直接 404（t350 时代的方言，t354 只给 sheet 路由开了 done 重拉的门、per-class 网格被漏掉）——完成的集群 2D 分类每张类图全 404；b) localIterations 的 classesFile=pickStack(本地 mirror)——真实 100 类 × 200-360px 盒的类平均栈 25-100MB 超过 keyFileMb=16 默认帽，栈留在集群 → classesFile=null → 类网格全部「no image」；c) 数据星也因 budget 滞留集群时 iterations=[] → chips 条空 → sheet 无从点起。附：remoteStat 走序列化 exec 队列（10s 预算）——sweep 心跳 + /iterations 轮询 + 日志抓取排队在前，真实集群上 stat 在轮到之前就超时 → sheet「may not exist」假 404；STACK_FETCH_CAP=64MB 挡住 100+ 类大栈
+- 修①（四层）：iterations 路由本地腿新增 REMOTE MERGE——run.remote 且 mirror 缺 classesFile/iterations/classes 时 ONE 12s-TTL SSH 轮（remoteLiveIterations，对 done run 同样工作）填栈名/占用/轮次，本地已有的字段保持本地（mtime 缓存免费），stacks 按轮次并集（本地栈本地渲、集群轮按需拉）、chips 合成移到 merge 之后；/iterations/image 的 run.done 拒绝删除（对齐 sheet 路由的 t354 方言）；remoteStat 改直连 pooled 通道（与 remoteDownload 的 cat 同传输、绕开序列化队列）+ 预算 10s→20s；STACK_FETCH_CAP 64→256MB + sheet/image 的 404 文案点名「可能不存在/线路忙/超 256MB 帽」
+- 根因判读②（select 任务的类画廊）：/api/jobs/[id]/classes 只查本地 mirror——集群跑的 class2d 栈不在本地 → classesFile=null → 每张卡「no image」（占用数字倒是齐的，数据星是文本总会回家）
+- 修②：classes 路由重构为三源——本地 mirror（原行为，早退全撤、mirrorOk 门）→ 集群（remoteLiveIterations：栈名 + 占用 + latest 轮次，仅本地缺时补）→ finalize manifest（.cf-remote-manifest.json，连接被删/线断时零 SSH 仍报栈名）；pickStackName 提纯为共享谓词（unmasked/final > 最高迭代）；缩略图照旧走 /outputs/file 懒取（t289 学说：点击=文件落到真实 mirror 路径，第一张触发全栈拉取、后续本地渲）
+- 根因判读③（框大小不一）：ClassGallery 网格用视口断点 xl:grid-cols-5，但它住在 380px 的 job panel aside 里——5 列=66px 卡，「325,549」+「100%」的占用页脚只在颗粒多的类上折行 → 同一网格卡片高低不一；附 onError visibility:hidden 把失败图变成无解释的白方块
+- 修③：网格改 grid-cols-2 sm:grid-cols-3（按容器实宽而非视口）；占用页脚 min-w-0 + truncate + whitespace-nowrap + shrink-0（挤压截断、永不折行）；失败图改诚实占位（failedImgs 集合 → 「no image」卡，lightbox 同款）；加载中 animate-pulse 暗盒（集群栈懒取的「在路上」提示）；iteration gallery 类网格页脚同款 nowrap 加固
+- 附带修（浏览器实测揪出）：t354 的 sheet 错误分支把 Retry <Button> 嵌在 zoom-in 包装 <button> 里——无效 HTML、React hydration 告警、恰好是用户所在的报错态；错误卡移出 zoom 按钮（Retry 不再嵌套、stopPropagation 随之退役）
+- 验证装置：diag-t355-cluster-gallery.mjs（38 断言 ALL GREEN）——A 真实 mock slurm class2d（8 轮 3 类）完成 → B 无栈 mirror（删 9 个 .mrcs+清缓存=用户世界）：merged payload 8 chips+classesFile 非空+占用本地、DONE run 逐 slice 200 PNG（旧代码 404）、sheet 200、.stack.mrcs 不留 → C 冷 mirror（数据星也删）：iterations/classesFile/占用全数来自集群（awk）、classes 路由给 select 画廊供栈名、缩略图懒取落 mirror 后第二张本地渲 → D 线断（删连接）：manifest 零 SSH 仍报栈名 → E 诚实门（虚构轮 404、缺文件 404、路径逃逸 400）；qa-t355ui-seed.mjs（浏览器验证台：select2d 任务 + 双边连接 classAverages→classes）
+- 回归防线（七套件 ALL GREEN）：t354（live 腿+after+cold 全过）、t353/t352（cs2star 集群道+双胞胎，重跑过 OOM 环境噪音后全绿）、t336、t339、t319；tsc 0 错；触碰 8 文件 eslint 0 输出
+- 浏览器活体验证（agent-browser 1600×900 + 390×844）：select2d 面板 Classes 页——3 卡 3 图全加载（集群懒取）、heights [101,101,101] uniform、3 列、lightbox 开合全图 64×64 加载；class2d inspector——8 chips、it008 sheet 266×68 加载、类网格 3/3 加载、chip 点击 aria-selected 切换、嵌套按钮 0、hydration 告警 0、console/page errors 0；移动端——2 列、uniform、零横向溢流；截图 docs/t355-select2d-gallery.png / t355-class2d-results.png / t355-class2d-final.png / t355-select2d-mobile.png 入库
+- 途中排障（4GB 盒 OOM 持久战）：next-server 反复被 OOM 收割（anon-rss 2.9GB，dmesg 42 案在录）——首战殃及 t353/t352 假 FAIL（fetch failed=服务器死、非代码回归，重启+清 chrome 残留后全绿）；浏览器期 it003 sheet 假失败同为 OOM（服务器 mid-request 死；路由直连 curl it001/003/005 全 200 PNG×2 次）；破局法：agent-browser 关闭 + dev-server.sh 新起 + curl 预热 / 页与重路由后才开浏览器、Retry 按钮复用已水合页面躲整页重编
+
+Stage Summary:
+- 集群 2D 分类的图彻底通了：运行中（t354 原有）+ 完成后（本次修）双态——chips 来自集群并集、sheet/per-class 图按需重拉（done run 门已开）、栈名/占用冷热 mirror 皆答；select 画廊的喂料路由三源齐备（mirror→SSH→manifest），缩略图懒取落位
+- 框大小不一根治：列数按容器实宽（2-3 列）+ 页脚 nowrap 截断——任何挤压下卡片高度恒等；失败图诚实占位、加载中暗盒脉冲
+- 可靠性两针：remoteStat 直连通道（不再排 sweep/轮询的长队）+ 20s 预算；拉栈帽 64→256MB 且超帽/缺文件/线忙三态文案
+- 用户复机路径：git pull → 重新打开 2D 分类的 Results 页（历史轮 sheet/类图即点即取，无需重跑）→ select 任务 Classes 页每类图加载；t354/t353 的行为与断言全部保持
+
+---
+Task ID: t356
+Agent: main (Z.ai Code)
+Task: 用户卡片工单五项 — ①卡片内容过满（隐藏 IP、删除 388k 徽章）②两卡之间连线别扭（调换 select2d 输入口顺序解交叉）③每次连线都会卡一下（性能）④给 job 添加特殊标记/评论（小图标，悬停显示内容）⑤卡片下方文字全部 1 行内解决
+
+Work Log:
+- workflow.ts: select2d inputs [particles,classes]→[classes,particles] — class2d 的 classAverages(口0/上) 对齐 classes(口0/上)、particles(口1/下) 对齐 particles(口1/下)，class2d→select2d 两根线从交叉变平行；边按端口名引用（edge-geom 以 findIndex 解名），纯几何修复、存量接线零影响；defaultPorts 按种类匹配（references2d vs particles 无歧义），映射不变
+- job-card.tsx Row 2 减负: 两枚 remote-host 芯片（running/pending 青色 + terminal 幽灵色）从卡面退役；出处（user@host · module · workdir）移入 JobCardPreview 悬停预览的一行 muted 主机行 — 「ip可以隐藏」而非删信息；t347 的 counted-receipt 芯片（388k）整体下架（counts/countChip memo + data-card-count JSX + result-counts 导入），数字仍活在 inspector KeyNumbers strip + header chips + outputs 活数
+- Row 3 一行律（t349 两行叙事回撤）: completed/failed/pending 三态 line-clamp-2 → truncate（pending flex 容器补 min-w-0），全文仍在 title 悬停与 inspector
+- 标记/评论闭环: StickyNote 徽章原生 title → HoverCard 样式弹层（amber Note 头 + max-h-40 滚动正文 + 编辑入口脚注，aria-label 带全文）；右键菜单新增「Add note…/Edit note…」→ Dialog（Textarea ≤500 字符=服务器上限、计数器、⌘/Ctrl+Enter 保存、Clear note 清除、失败保草稿+toast）→ saveJob PATCH {note}，与 inspector 自动保存编辑器同源（job.note 单一字段，note spotlight/print 摘要自动继承）
+- 连线卡顿根因: pendingFrom 身份变化（起线/落线/取消）时 React.memo 默认浅比较失效 → 【全画布】卡重渲染（每张 ContextMenu+HoverCard+ports 树）只为点亮个别端口脉冲环；zoom prop 同理（只喂事件回调算术、从不进 render，却让每个滚轮刻度全卡重渲染）
+- 修复: pendingRenderSig（本卡渲染指纹: 源卡=src:dir:port、他卡=兼容口命中表 portsCompatible 逐口算、无命中=空串≡无 pending）+ jobCardPropsEqual（稳定 prop 浅比 + pending 对按指纹比）→ 起线只重渲染源卡+有兼容口的卡；6 个端口处理器改 livePending()=getState().pendingFrom 事件时新鲜读（完成逻辑永不依赖渲染快照——这也让 comparator 跳过重渲染语义安全）；拖拽 handlePointerMove/endDrag 的 zoom 逐帧新鲜读（中途捏合缩放反而更准），zoom prop 从 JobCardProps/canvas 传递整体退役
+- 验证: scripts/diag-t356-card-polish.mjs（playwright 真浏览器）——A0-A3 减负（0 计数芯/0 钳制行/无 IP 文本）✓ B1-B2 几何证明（两线 177.33→177.33 / 214.67→214.67 全平、零交叉零绕行）✓ C1 徽章悬停样式弹层 ✓ D1-D3 右键→对话框→保存→徽章出现+对话框关闭 ✓ E1-E2 拖拽连线（select2d.particles→class3d.particles）建边+Connected toast ✓（livePending 重构+comparator 的交互实证）F 持久化经 API 复核（两笔记+3 边入库）✓；截图 shots-qa/t356-{a-canvas,b-note-popover,c-note-dialog,d-note-saved,e-wired}.png；tsc 0 / eslint 0；无 e2e 依赖面变化（data-card-count 无断言引用，select2d 端口无断言引用）
+- 环境（4GB 盒持久战，150 案内核 OOM 在录）: dev 编译峰值 2.9GB+chromium 必超 4.1GB——单调用配方（浏览器关闭编译 + 客户端块 curl 预热 + 小 API 路由预热 + 1100 堆 + 全链验证同调用内完成）通过全部检查；prod build 本轮无法完成（turbopack 3.8GB / webpack worker 亦超——比 t347 时代更紧）；修复验证装置自身一处：pkill -f 打不中孤儿 next-server 监听者 → t332 的 ss listener-kill 学说（"already running" 幽灵导致 compile:000 假象）
+
+Stage Summary:
+- 卡面信息架构再收敛: 类别色条 + 图标名 + 标记徽章 + 状态徽章 + 类型人话标签 + 链系芯 + 一行状态句——IP/计数下沉悬停预览与 inspector
+- select2d 双输入调序后 class2d→select2d 接线天然平行（几何证明），class2d 的两口各对齐一口
+- 连线起落从全画布重渲染收缩到源卡+兼容卡；滚轮缩放不再全卡重渲染（zoom prop 退役）
+- job 标记/评论: 右键 Add note… → 对话框 → PATCH → amber 徽章 → 悬停样式弹层读全文（与 inspector 编辑器同一 job.note）
+- 用户复机路径: git pull → 画布即生效（卡面清爽、class2d→select2d 平行线、右键即可加评论）
+
+---
+Task ID: t357
+Agent: main-agent (Z.ai Code)
+Task: 用户工单「这两个问题依然存在，都没有解决，这个其实应该是把cluster的mrcs结果文件下载到本地，之后将mrcs文件转换成图片吧」——t355 的三层修复在真实集群上仍然失败；采纳用户架构判断：主动下载 mrcs → 本地转图片
+
+Work Log:
+- 根因判读：t355 把全部体验押在「点击时的按需懒拉」上——每张图都是一次现场 SSH 轮盘。真实集群的 25-100MB 类平均栈正中 t298 已证明的 bun+ssh2 静默截断形状（64MB 传输可丢 1.6-48MB 且 exit=0），而 ensureIterationAssets 单发无字节校验、无重试——截断后 readMrcHeader 拒绝 → 404「could not fetch…may not exist」→ 用户看到的就是「加载不出来」；select 画廊同理。/outputs/file 道有 5 次字节校验重试，但 iteration 管线没有——同一传输层的两种命运
+- 修（用户架构落地，四件）：
+  a) verifiedStackPull（t298 教义进本道）：stat → cat → landed===expected 三次尝试，截断销毁重试；.stack.mrcs 永不留（t339 契约）
+  b) scheduleRemoteStackRenders 主动管线：finalize 后台把 manifest 里的每个类平均栈逐个下载→渲染全部 slice PNG + 每轮 sheet→删栈（最新轮优先、单 run 2GiB 预算、单栈 256MB 帽、一 job 一管线、.done 判决标记可断点续跑、legacy sheet.png 等价判决）；直连 pooled 通道并行于序列化队列——sweep 永不阻塞；失败作业也跑（被杀运行跑完的轮正是用户判断重跑的依据）
+  c) view 触发器：/iterations 轮询发现未渲染轮即后台调度（manifest 有尺寸用尺寸；无 manifest 盲拉只拉最新一轮有界）——覆盖 t356 前的存量完成作业与冷缓存；候选含 classesFile（无轮号的 run_unmasked_classes 不进 chips，classesFile 补遗是它唯一主动渲染通道）
+  d) 缓存即答：localIterations 与 /classes 在镜像缺栈时先查预览缓存（cachedStackState）——管线跑完后两个画廊零 SSH 即答；断线 + 集群栈被删后图片仍 200（diag B/E 钉死「图片已本地」的架构证明）
+- 方言修复两处：STACK_NAME_RE 收编 RELION 5 无轮号终稿 run_unmasked_classes.mrcs（image/sheet 路由白名单 + 管线过滤），且 remoteLiveIterations 的集群 listing grep 原来根本看不见它——pickStack 的终稿优先一直是死代码（diag C 首跑 FAIL 的病根）；select 画廊缩略图/lightbox/预载全部改走 iterations/image 道（缓存命中即答；miss 一次字节校验拉取渲染全栈），/outputs/file 降为一次性回退道（第一道失败换道重试，双失败才诚实占位）
+- harness 顺手修：e2e-lib 的 ROOT 默认值还是沙箱重建前的 /home/z/cryoflow——run-6 的脚本断言整下午读空（spawnSync 的 module-not-found 藏在 stderr），最小复现（探针派发 2-GPU class2d + cat 脚本全过）证伪代码回归后定位；默认值改为当前仓库树
+- 验证：diag-t356-proactive-render.mjs（44 断言 ALL GREEN）——B：finalize 管线零图片调用渲染全部 6 轮 + 瘦约契约 + 集群栈删除后图片仍 200；C：存量作业 + 植入 run_unmasked（listing 可见 → merge 优先 → view 触发渲染 → classes 从缓存命名 → image/sheet 接受无轮号名）；D：running 期轮询后台渲染（无点击）+ 完成后 12/12；E：断线上缓即答；F：诚实门（404/400/别名）。回归全绿：t354、t355、t353、t319、run-6 59/59（修 harness 后）。tsc 0 错、触碰文件 eslint 0 输出
+- 测试装置排障三则：B→C 的 12s TTL 缓存挡住新植入栈（等 13s 让 TTL 过期）；plant 的 cp 源已被 B 删除（base64 直写真栈替代）；大栈 base64 ~308KB 超 exec 命令行上限（fixture 回退 header-only 探针——mock refine 自己写真类栈，import 只嗅探头）
+- 浏览器活体验证（4GB 盒 OOM 持久战：iterations 路由编译时服务器被收割 ×3，破局术=关浏览器重启 + curl 预热全部相关路由后重开）：class2d Results——6 chips、it006 sheet 266px、it003 历史轮切换、lightbox 开合、3/3 类图、卡片等高 252px；select2d Params——3/3 缩略图走新 lane（src=iterations/image）、等高 101px、lightbox 全图；console/page errors 双零；390px 响应式（2 列、等高、零溢流、3/3 加载）；截图 docs/t356-select2d-gallery.png / t356-class2d-results.png / t356-select2d-mobile.png
+- 合并：远端有并行 t356（卡片打磨，遗留任务在另一窗口完成）——文件面仅 worklog.md 相交，git merge 干净、合并后 tsc 0 错 + diag-t356 重跑 ALL GREEN；本工单在 worklog 编号为 t357（t356 已被卡片工单占用）
+
+Stage Summary:
+- 架构换轴（用户提案的形态）：完成后 mrcs 主动下载 → 本地转 PNG → 集群栈即删——两个画廊从「点击时 SSH 轮盘」变成「本地图片即答」；断线/冷启动/集群清理三种灾难下图片照常服务（管线跑过之后）
+- 懒道同时加固：字节校验三次重试（t298 教义统一两条道）、.done 判决标记（断点续跑永不重付传输）、RELION 5 终稿栈从 listing 到路由全链路可见
+- 用户复机路径：git pull → 打开既有 2D 分类的 Results 页（view 触发器自动后台渲染全部轮次，chips 逐一点亮）→ select 作业 Classes 页每类图即答；下一次新跑的 2D 分类在完成瞬间全部轮次自动落地本地
+
+---
+Task ID: t358
+Agent: main-agent (Z.ai Code)
+Task: 用户工单「could not load the sheet for iteration 020 — the stack may not exist on the cluster 还是显示不出来结果图」——t357 的主动管线在真实集群上仍然全灭；本轮换传输轴：分块校验下载 + 全链路诚实报错
+
+Work Log:
+- 根因判读：t357 把每次 mrcs 拉取做成「一次性整文件 cat + 字节校验 3 连试」——但 t298 已证明 bun+ssh2 的接收端对 25–100MB 级传输会静默丢字节（64MB 丢 1.6–48MB、exit=0），且丢包是尺寸相关的：整文件重试只是反复掷同一副输骰。真实 2D 分类（it020、每栈几十 MB）每次拉取都被判 truncated → 404，且所有失败类别（missing/stat 失败/传输断/截断/超帽/坏字节）共用同一句「stack may not exist on the cluster」——用户与本轮排查都无法分辨断在哪一环
+- 修（传输层 ssh.ts，四件）：remoteStatEx 三态标签（ok/absent/error——absent 是集群亲口说的 MISSING，永不再用 null 把三种世界折叠成一句 404）；writeAllSyncAt 显式定位写入（writeSync 可能短写，t357 忽略返回值会把丢字节在写层重新引入；显式位置还让分块重试天然可回卷——失败尝试留下的部分字节不会挪动下一次的落点）；remoteChunkedDownload 分块拉取（8MB/块 = 同步回传 16MB 安全域的一半，tail -c +OFF | head -c N 逐块、块级字节账 + 退出码双校验、块级 3 连试 + 350ms 呼吸——中途丢一块只重付一块，不再重付整个文件；块串行防并发风暴）；僵尸连接两针（stat 连拒两次 → dropConnection 重拨再问一次；块级 channel 味错误 → 每文件一次强制重拨——t346 阶梯教义的直连通道版）
+- 修（管线 iteration-live.ts）：StackPullFailure 七类原因（missing/over-cap/stat-failed/transfer/truncated/unreadable/no-connection）+ 每栈失败登记表（lastStackFailure——成功即清除）；verifiedStackPull 换分块传输并携带判决（over-cap 消息带真实尺寸「X is 300 MB — above the 256 MB cap」；truncated 带块号与字节区间；「下载完整但头不可读」先判 transient 是否被中途清掉——t333 重派发擦除竞赛下那是 transfer 而非 unreadable，旧文案会把好文件冤枉成集群损坏）；管线拒绝汇总日志（每栈拒绝带 reason 进 dev.log）
+- 修（路由）：sheet/image 404 改 {error: 判决原文, reason}；/iterations 与 /classes 载荷新增 renderError（该栈最近一次拒绝的原因——classesFile 或最新 chip 名下的栈且镜像无本地副本时附上）
+- 修（前端两画廊）：class-iteration-gallery 的 sheet 改 fetch-first（blob→objectURL；<img> 的 onError 丢响应体，是「一句含糊 404」的根源——现在错误卡直接展示服务器判决原文，Retry 重取；objectURL 清理防泄漏）；类网格失败卡带 renderError title + 网格脚注；class-gallery（select 画廊）双道全败时出横幅（renderError 原文 + Retry——清失败集 + dataNonce 重拉 /classes）
+- mock 集群新增 cat-drop-bytes 杠杆（t344/t345/t346 的 ~/.slurm 约定）："<substr> <minTransferBytes> <dropBytes> [maxFires]"——cat 与 tail|head 两种传输形状按传输尺寸触发中段丢字节（bash 组 { head -c AT; tail -c +DROP+1; } 仍是 exit=0 短读 = t298 形状），fires 边车计数 + cat-lever.log 见证行；顺带发现 mock 是裸 bun 起的（无 --hot）——改 bun run dev 常驻，代码热更
+- 验证装置 diag-t358-chunked-stack-pull.mjs（33 断言 ALL GREEN）：A 干净线（全 6 轮经分块拉取渲染）；B 有损线（≥12MB 传输丢 1.5MB）：旧整文件道 /outputs/file 诚实 502（t357 现场形状）+ 杠杆见证 ≥1，分块道（8MB 块 < 阈值）字节精确拉通 16.7MB 大栈、16/16 slice 落地、无 .stack.mrcs 残留；C 单发丢块（maxFires=1）被该块自己的重试恢复（fires 恰为 1——旧代码会在一次抖动上烧光整个 3 连试预算）；D 死线（999 fires）双路由 404 reason=truncated + /iterations renderError + 无截断残留；E 其余原因各就各位（missing / over-cap 带 300MB 尺寸 / unreadable）；F 线路痊愈后同栈重拉 200 + /classes 零拒绝注记
+- 排障三则：首跑 3 FAIL 同根——D 相 renderError 门是 classesFile（=缓存已渲染的 run_it005）而失败登记在 run_it006 → 门扩到最新 chip；F 相 404 是 D 相 view-trigger 管线仍在飞行中（ensureIterationAssets in-flight 共享把清缓存竞赛的牺牲品递给了 F 的请求——dev.log「downloaded completely … not a readable MRC」实证）→ 套件加 awaitWireQuiet（mock exec-audit 静默探测）+ verifiedStackPull 区分「transient 被中途清掉」；t355 回归 1 FAIL 是其自身竞态（PHASE B 清缓存撞上 finalize 管线重建中途的半缓存 → classesFile=run_it003、merge 未跑、remote=false）→ 套件在清空前等管线 settle（t354 的 ?refresh=1 同族修法）
+- 回归四套件 ALL GREEN：t356（主动管线契约）、t354（每轮 sheet 三源取图）、t355（集群画廊三源喂料 + 等待 settle）、run-6 59/59（引擎 argv/守门面）；tsc 0 错；触碰 10 文件 eslint 0 输出
+- 浏览器活体（4GB 盒 OOM 持久战，dev server 被内核收割 6 次——dmesg next-server anon-rss 3.0GB 在录；配方=关浏览器重启 + curl 预热页与重路由 + 快进快出）：class2d Results——6 chips、it006 sheet 经新 fetch-first 流出图（266×68 natural）、类网格 4/4、零错误卡（截图 docs/t358-class2d-results.png）；select2d Classes——3/3 缩略图、卡片等高 101px、无横幅（截图 docs/t358-select2d-gallery.png）；390px 移动端 3/3 加载、零横向溢流（docs/t358-select2d-mobile.png）；console/page errors 零；QA 种子（项目/作业/连接）清场、mock fs 残留清理
+
+Stage Summary:
+- 传输换轴：mrcs 拉取从「一次性整文件 cat ×3 连试」改为「8MB 分块、块级字节账 + 退出码双校验、块级重试、僵尸连接重拨」——尺寸相关的静默丢包从「整文件重掷骰子」变成「重付一块」；16.7MB 大栈在有损线上拉通、单发丢块一跳恢复、死线诚实点名，全部套件钉死
+- 报错换轴：七类拒绝原因（missing/over-cap/stat-failed/transfer/truncated/unreadable/no-connection）从传输层一路带到路由 JSON 与前端错误卡/横幅——下一次现场报告直接说断在哪一环（over-cap 带真实尺寸、truncated 带块号与字节区间），不再是万能的「may not exist on the cluster」
+- 用户复机路径：git pull → 打开既有 2D 分类的 Results 页（chips 即点即取走新分块道；若集群线真的在丢数据，错误卡会点名「truncated 3× in a row (chunk N, bytes …)」）→ select 作业 Classes 页同道；仍失败时的报错文本就是诊断结论，直接带回即可
+Agent: main (Z.ai Code)
+Task: 用户工单 — t356 之后连线/删线仍会「卡一会，触发一次 hmr 热加载后，线才能连上」（删线同理）；要求消除使用过程中一切不必要的卡顿
+
+Work Log:
+- 根因判读: store.connect()/removeEdge() 在 set() 之前 await 完整 API 往返 — dev 服务器上该往返可排在冷路由编译/监听器重建后面数秒，用户松手后线迟迟不出现，直到 HMR 重挂载页面重取到边（顺序与工单完全吻合：卡一会 → hmr → 线连上）。排除文件写入触发 watcher 的假说：t340 已把 data/db/download 排除出 Tailwind @source，本次验证整场 dev 日志只有 1 条 "Compiling"（首页），边操作零重编译 — 用户看到的 hmr 是编译窗口本身，修复方向是把可见结果对服务器时延彻底免疫，而非追打 watcher
+- 修复·store.ts connect(): 乐观提交 — edge id 客户端铸造（crypto.randomUUID），set() + 「Connected」toast 在 pointerup 同一提交内落地（实测 60-66ms 出现在 DOM），POST 全程后台；响应 id/端口与乐观值有差才换入真值；409 = 早前一次已入库但响应未归 → 拉取服务器真相整体接管（不再回滚成看不见活线的盲店）；其它错误回滚乐观线 + destructive toast
+- 修复·store.ts removeEdge(): 乐观删除（实测 65-86ms 从 DOM 消失）+ 后台 DELETE；404 = 服务器侧本就没有 = 用户要的结果（不回滚）；其余错误还原线 + toast
+- 竞态闭环（连了又秒删）: 模块级 unconfirmedEdges/doomedCreates — POST 在途时删线【不】发 DELETE（此刻行还不存在：404 假成功、落地 POST 会复活成 UI 已不显示的幽灵线），改标 doomed；POST 落地路径发现 doomed 立即补发 DELETE。实测：路由层扣住 POST 2.5s 内连+删，终局服务器无该边、无幽灵
+- api() 助手: 抛错携带 HTTP status（消息契约不变）— 乐观流需要区分 409/404 与真故障
+- POST /api/edges: 可选 body.id（UUID 形状校验；与存活行撞号则服务器重铸并回真值）— 乐观线与持久行同 id，断言实证 DOM data-edge-id === API 边 id，删按 id 命中真行；撞号重铸同时关闭了坏调用者/重放请求经 upsertFileEdge（按 id 键控）覆盖幸存行的风险
+- 验证装置: scripts/diag-t359-instant-wires.mjs（playwright 真浏览器，双阶段）— A 连线 60-66ms（时钟只量 mouse.up→paint，拖拽的协议往返留在窗外）+ 即时 toast；B 后台落库且服务器 id===DOM id；B2 重复连线客户端拒绝（Already connected，无线）；C 删线 65-86ms；D 后台删除到服务器；E 扣 POST 2.5s 的连+秒删竞态 → 无幽灵（doomed 清理实证）；F 强制 500 → 乐观线回滚 + 诚实 toast；F4/G2 全程零 console/page 错误（自 aborted 字体图片与 drill 自导 500 的噪音按 URL/flag 过滤）；G（独立服务器会话 PHASE=g）冷载 DOM 边数===服务器边数。main 20/20 + g 2/2 ALL GREEN；截图 shots-qa/t359-{a-instant-wire,b-deleted,c-race-clean,d-final}.png
+- 4GB 盒 OOM 持久战（本轮 6 案内核击杀在录，全在 chromium 打开时的 Turbopack 编译/服务瞬间）: 处方三层 — /tmp/cf-up-t359.sh（ss listener-kill 学说 + 896 堆 + 浏览器关闭时预编译页面/客户端块/edges 通道 + 15s GC 沉降）、chromium --single-process --js-flags=256MB（~600→~300MB）、G 阶段独立服务器会话 + 3 次重试循环吸收 OOM 彩票；途中识破一处工具层假象：rg 彩色输出 ESC[m 被结果管道剥掉，"[main]" 一度显示成 "ain"（od 验字面，文件无损）
+- tsc 0 / eslint 0（store.ts + edges 路由）；无既有 e2e 断言面被触碰（run-11 的 wire 是集群通讯面，与画布边无关；t356 diag 的 E1-E2/F 断言在乐观流下原样通过 — Connected toast 与边入库语义均保持）
+
+Stage Summary:
+- 连线/删线从「等 API 往返（dev 冷编译下数秒）+ HMR 重挂载才可见」变为 pointerup 同一提交内可见（实测 60-86ms），持久化全部后台化、失败诚实回滚、连了又秒删无幽灵线
+- 服务器侧时延（冷编译、监听器、慢盘）从此只能影响「何时落库」，不再影响「何时看到线」— 用户工单的 hmr 依赖链根除
+- 用户复机路径: git pull → 画布连线/删线即时生效；网络/服务器故障时线短暂闪回 + destructive toast 是唯一可见痕迹

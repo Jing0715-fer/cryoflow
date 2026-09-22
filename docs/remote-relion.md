@@ -122,6 +122,28 @@ us). The GPU width is also clamped server-side to the picked group's
 `--gres=gpu:6` request (the other shape of "node configuration not
 available").
 
+**The node-pin pre-flight (t337).** The width clamp above used to key
+ONLY on the picked partition — which left two silent holes straight into
+the controller's submit-time refusal `Requested node configuration is
+not available`: an explicit `--nodelist` pin suppresses the partition
+(and nothing clamped against the NODE's own GPUs — pinning the 5-GPU
+`normal` at the default width 6 composed the refusal verbatim), and
+"auto" (no picked partition) still carried the CONNECTION'S default
+partition with no clamp at all. Now every Slurm dispatch with a node pin
+runs ONE extra SSH round (`scontrol show node <pin> -o`, the same pure
+parser the usage panel rides) BEFORE a byte stages: an unknown node, a
+DOWN/DRAIN node, or a 0-GPU node under a GPU job refuses with the cause
+named and the fix taught (pick another node / release the pin); a
+narrower node clamps the width to its own GPUs. With no pin, the width
+clamps to the partition the script will actually carry — picked OR the
+connection's default. A probe that cannot run (SSH blip, no `scontrol`)
+degrades to the old behavior — monitoring never blocks a dispatch — and
+the residual drift window (a node that goes down between the pre-flight
+read and the controller's own decision) is covered by a TRANSLATED
+refusal: the error names what was requested (pin · partition · GPU
+width) and the three moves that fix it, instead of quoting Slurm's
+one-liner.
+
 `run.out` / `run.err` / `.cf-exit` keep their direct-mode contracts, so the
 poll sweep, log tab and sync-back work unchanged; liveness comes from
 `squeue -j <id>` (the state word — PENDING/RUNNING — rides the record so
@@ -218,6 +240,7 @@ disable it work fine.
 | useSlurm | preselect sbatch mode in the Run dialog (direct stays one click away) |
 | slurmPartition | `#SBATCH --partition` for submissions (empty = the cluster default) |
 | maxFileMb / maxTotalMb | sync-back caps per file / per workdir |
+| syncPolicy / keyFileMb | what finalize copies home: `key-files` (default) — text outputs always, binaries under the cap, and for the per-micrograph image producers (extract, motioncorr, polish) TEXT ONLY (§4q, t339); `everything` — every file under the caps |
 
 **Security notes (please read):** secrets are stored in
 `data/remote-connections.json` with `0600` permissions on YOUR machine and
@@ -905,6 +928,7 @@ job's Results/Files tab, on the cluster).
 | the wire between two jobs disappears (canvas) | the sidecar self-heal no longer evicts edges connected during an in-flight read; writes are atomic; every read backfills a lost DB mirror; an empty lineage speaks "connect one" instead of the auto-start promise (t325) |
 | live node usage unavailable | the panel's rose note names the exact failure (no `scontrol` on the login node / SSH error) and says the submit still works — usage is informational, never a gate (t327) |
 | pinned node unreachable in the UI | DRAIN/DOWN rows refuse the click ("not taking jobs right now") — the pin is never composed into a doomed sbatch; the mismatch guard releases a pin a later partition change would strand (t332) |
+| sbatch refused — `Requested node configuration is not available` | extinct at the source for app-composed submissions: the node-pin pre-flight (t337) reads the pinned node's own `scontrol` row before staging — unknown / DOWN / DRAIN / 0-GPU nodes refuse with the cause and the fix named, narrower nodes clamp the width; "auto" clamps to the connection's default group; **the pin now NAMES the node's own partition** (t340 — the t332 bare-pin suppression fell to the cluster's default partition, where the node does not live: the exact receipt reproduced and healed); a picked partition the node does not live in is refused pre-staging; when the controller still refuses (the drift window), the error is TRANSLATED — it names the pin · partition · GPU width the script carried, the no-partition trap ("the cluster's DEFAULT partition decided"), and the three moves that fix it. The `~/.bashrc` line in the same stderr is noise, labeled as noise |
 | local node_modules out of date | boot warning `node_modules is out of date — missing ssh2` + `/api/remote/*` fails with `Can't resolve 'ssh2'` — re-run `npm install` (or `bun install`) and restart |
 | cleanup of a running job | refused with its reason (409): a live run's iteration files are being written — stop it first, then clean (t331) |
 | cleanup plan vs cluster reality drift | impossible by design: the POST never trusts the preview's file list — it re-lists the cluster live and deletes only what still classifies; the 10s listing cache is bypassed by the manual refresh and by the POST itself (t331) |
@@ -915,6 +939,11 @@ job's Results/Files tab, on the cluster).
 | `image.h:1534` mid-run on a FRESH job (duplicate rows / `X.mrc`+`X.mrcs` in one STAR) | extinct at the source: the dispatch scans the micrographs STAR and refuses naming the colliding rows — RELION names each stack after the micrograph (extension swapped to `.mrcs`), so colliding names write the same file (t334) |
 | array split over a single-block STAR | refused before staging: the slicer would hand EVERY row to EVERY shard (the optics pass-through is per-block) — run with the Array split at 1 (t334) |
 | shard cannot slice its input (`awk` unreadable) | the old silent whole-STAR `cp` fallback is dead: the task fails with `CRYOFLOW_ERR: could not slice the input STAR …` in run.err and `.cf-exit=111` — a spoken verdict, not a 20-minute write race (t334) |
+| 2D/3D classification dies at `readMRC: Image number N exceeds stack size M` | the upstream extraction COMPLETED with a lying star (same-stem rows in ITS input wrote one stack; the later writer truncated the earlier's images) — the consumer-side gate (t338) now refuses such a star at dispatch with the exact numbers and the remedy; the Log tab's diagnosis names the mechanism for the runs that already died |
+| the run freezes at `Expectation iteration 1` with `WARNING: Ignoring required free GPU memory amount of 800 MB` and every rank banner says `devices 0` | extinct at the source (t342): the sbatch script CLAMPS the MPI rank count to the GPUs the node actually exposes at launch (a `--gres` width is a request; a node without gres accounting never enforces it — two ranks on one card exhaust its memory), and a card below 1000 MB free BEFORE RELION starts is refused with the holder PIDs printed (`nvidia-smi --query-compute-apps`) — exit 98, one second, names, instead of an hour of frozen iterations; the Log tab's diagnosis reads RELION's own warning line for the runs that already died |
+| extraction stacks filling the laptop | by design, not a failure: under key-files, extract/motioncorr/polish sync TEXT ONLY — the stacks stay on the cluster (listed in Results, fetchable on demand, downstream cluster jobs chain in place); the receipt says so; switch the connection to "everything" to bring them home, or run the inspector's local-only Bulk cleanup on mirrors from before t339 (t339) |
+| a long cs → star / import first flips FAILED (`stale running state (no engine record)`) then COMPLETED, with no log mid-run | extinct at the source (t340): the marathon natives write an IN-FLIGHT run record from second zero (pid = the server, the sweep's liveness word) and speak phase lines into `run.out` as they go — the row stays RUNNING with a live log until the completion overwrite lands |
+| a remote job dies "file not found" on its input star while the local mirror copy exists | the cross-cluster twin hole is closed: an upstream that ran on a DIFFERENT cluster no longer skips the upload — the twin map's pair entries carry the same-cluster gate the identity entries always had (t343), so the local mirror takes the upload lane (the one copy this connection can reach) and the run consumes the uploaded bytes |
 
 ## 6. Testing without a cluster: the mock cluster
 
@@ -930,7 +959,15 @@ PENDING→RUNNING transitions and honest purge-on-finish; the `scontrol`
 speaks the user's own `show_free_gpu.sh` dialect — `Gres=`/`AllocTRES=`
 per node, with the CPU totals of their real table — and accounts RUNNING
 jobs onto their nodes live, t327; a submission's explicit `--nodelist`
-pin rides the journal's 5th field and holds the job on THAT node, t332) so the whole
+pin rides the journal's 5th field and holds the job on THAT node, t332;
+the sbatch stub keys its submission gates on the NODE's own row when a
+pin rides — unknown names get real Slurm's `Invalid node name`, a width
+beyond the node's GPUs gets the user's exact refusal bytes, and the
+`~/.slurm/node-override` file ("name STATE" lines) flips a node DOWN for
+scontrol, the usage panel AND the gate at once — the drained-node world
+the t337 pre-flight refuses before staging; a probe-blind 4-GPU
+`debugx` partition exists solely to exercise the residual refusal
+translation, t337) so the whole
 remote-Slurm path is testable without a real scheduler. `/data2/…` paths
 translate into its fs root the same way `/projects/…` and `/home/cryo/…`
 always have, so remote projects can rehearse against `/data2/movies/…`-shaped
@@ -989,3 +1026,639 @@ without a real HPC system.
   not done: CryoFlow already auto-answers it (interrupted refine-family
   resumes via `--continue`; everything else starts fresh, and the confirm
   dialog says exactly what will happen).
+- ~~**Local disk footprint of remote jobs**~~ — **shipped (t339)**: the
+  local mirror of a remote run is for METADATA — under the key-files
+  policy the per-micrograph image producers (extract, motioncorr,
+  polish) sync text only, their stacks stay on the cluster whatever
+  their size (§4q), listed in Results and fetchable on demand. The
+  remaining stretch is a per-connection disk budget meter (bytes the
+  mirrors hold vs bytes the cluster holds) — deliberately not done:
+  the cleanup dialog already accounts both sides per job, and the
+  policy change keeps the inflow at zero.
+
+## 4n. The extract frame census + the twin-star closure (t335)
+
+The complement to §4m's name-only collision scan: a `.mrcs` row whose
+header says `nz>1` is a FRAME STACK, not a micrograph — RELION reads it as
+an `(x,y,1,N)` volume (`parseMRCHeader`: `isStack → _nDim = nz`) and
+windows frame 0 of it: garbage particles even when the names never collide.
+The mixed-import shape (the `*_Fractions_DW.mrc*` glob sweeping in the
+corrector's `.mrcs` aligned movie stacks beside the `.mrc` sums — the
+Beijing report's 865 .mrcs + 169 .mrc arithmetic) is invisible to a
+name-only scan when the stems are distinct.
+
+`src/lib/relion/extract-gate.ts` (PURE, the t326/t327 recipe) samples the
+`.mrcs` rows through the header sniffer: `nz>1` → refusal carrying the
+header's own numbers; single-section → allowed with a note; unverifiable →
+the note, never a block (the t313 philosophy). It runs on both lanes after
+the t334 scan.
+
+The **twin-star closure**: §4m's scan used to skip a twin-resolved star
+(cluster-only, no local copy) with a console note — the same t324-a blind
+spot the CTF gate once had. The dispatch now `cat`s the star in place over
+SSH and re-runs the t334 collision scan on the cluster's own text, so a
+cluster-only star earns the SAME refusal, not a softer one.
+
+The import receipt also carries the **extension census** (the 6-file header
+sniff can miss the minority kind in a mixed folder): `⚠ mixed extensions:
+N .mrc + M .mrcs — … re-import with the exact .mrc pattern`.
+
+For the user's dataset the remedy is on the cluster side: re-import with
+`*_Fractions_DW.mrc` (not `.mrc*`) so each micrograph appears once, then
+re-run Extract and the downstream chain.
+
+## 4o. The CryoSPARC door (t336)
+
+The user's reference workflow (`upload/cryosmart_relion_trans3.0.sh`) runs
+pyem's `csparc2star.py` on the cluster, then symlinks the extract dir's
+`.mrc` stacks to `.mrcs` names and sed-edits the star to match — link EVERY
+`.mrc` in every extract dir along the way. The `cs2star` job does the whole
+workflow inside one job row, natively (no pyem, no Python — the cluster only
+serves bytes over SSH):
+
+- **`src/lib/relion/cs-npy.ts`** — a numpy `.npy` structured-array reader:
+  the Python-literal header dict, subarray dtypes (`alignments3D/pose` is a
+  `(3,)` float field), `<U`/`S` fixed-width strings, LE/BE numbers. The
+  `.cs` format is `numpy.save`d records — parseable in TypeScript.
+- **`src/lib/relion/cs2star.ts`** — pyem's field table, verified against
+  asarnow/pyem master: the uid join with the passthrough, Rodrigues →
+  Euler (expmap + Shoemake's rot2euler, RELION's ZYZ convention), CTF
+  defocus in Å (field names say `_A` — no scaling), angles rad → deg,
+  optics group / class / random-subset lifted 0- → 1-based, coordinates
+  normalized → absolute (`micrograph_shape` is `[y, x]` so the axes swap),
+  and the RELION 3.1 optics dialect (`_rlnOriginXAngst` = shift × angpix).
+  The `--inverty` flag in pyem is argparse `store_false` — the DEFAULT
+  inverts Y and the flag DISABLES it; the reference script passes it, so
+  `invertY` defaults to false (particles imported INTO cryoSPARC from
+  RELION coordinates already speak RELION's convention).
+- **THE SELECTIVE LINKS (the requested optimization)** — the star's unique
+  `blob/path` values are censused BEFORE any link exists; only those stacks
+  get `ln -sfn <CS .mrc> <projectRoot>/micrographs/<name>.mrcs` on the
+  cluster (the link NAME carries the `.mrcs` extension RELION requires; the
+  target keeps `.mrc`; zero data movement). An `.mrc` in the same extract
+  dir that the `.cs` never references stays untouched — the receipt says
+  so (`2 of 3 .mrc stack(s) linked — only the ones this star references`).
+  Missing referenced stacks refuse the run honestly; the link farm is
+  idempotent (`-fn` re-points stale links on re-run).
+- **The lanes** — remote projects: SSH discover (J### → newest
+  `*particles.cs` + first `*_passthrough_particles.cs`, the reference
+  script's own order) → download under the connection's per-file cap →
+  convert → verify targets → link → the star's rows speak the link names
+  (`1@micrographs/foo_particles.mrcs`). Local projects: the same flow with
+  local symlinks. Downstream jobs (class2d/refine3d/…) consume it
+  directly: the star stages, the stacks resolve through the cluster's
+  micrographs/ tree, not one stack byte uploads.
+
+The key numbers doctrine rides along: the Results strip leads with
+`particles converted` + `particle stacks linked`; the receipt carries the
+optics, the alignment source (3D/2D/none) and the unmapped-field count.
+
+## 4p. The consumer-side star↔stack gate — a poisoned extraction cannot burn GPU time (t338)
+
+The field report that completed §4m's picture: a 2D classification died
+~1 minute in at
+
+```
+readMRC: Image number 341 exceeds stack size 340 of image
+00000341@…/extract_…/micrographs/…_133825_Fractions_DW.mrcs   (rwMRC.h:178)
+```
+
+while the upstream extraction had **COMPLETED** (exit 0). That is §4m's
+collision, SILENT variant: two same-stem rows in the extraction's INPUT
+star (`X.mrc` + `X.mrcs` — both compose the SAME stack path) made two
+writers share one `.mrcs`; RELION's first particle per micrograph replaces
+the path blindly, so writer B's first box truncated writer A's 341 images
+to 1, B appended its own 2..340 behind — and the merged star kept BOTH
+writers' rows. Extract "succeeds"; the poison surfaces only downstream,
+~20 GPU-minutes in. (The loud variant — a dimension mismatch on append —
+is §4m's `image.h:1534`; same root, different pair of dims.)
+
+§4m/§4n refuse such INPUTS at extraction dispatch — but they cannot see
+an output already poisoned by an OLDER dispatch (the user's database:
+extract COMPLETED, star lying). `src/lib/relion/particle-ref-gate.ts`
+(PURE, the t326/t327 recipe) guards the OTHER side: before a
+particles-star consumer stages (class2d / class3d / refine3d /
+initialmodel / multibody / polish / ctfrefine / subtract / dynamight —
+remote AND local lanes), every `N@path` ref in the star is checked against
+the stack's own MRC header, read in ONE batched SSH round trip per ~192
+stacks on the remote lane (local reads on the local lane). Refs resolve
+the way RELION resolves them — absolute as-is, then the project root (the
+run's CWD), then the star's own dir — and the first candidate that exists
+is the one judged. A star whose largest image number for a stack exceeds
+the stack's `NZ` is refused as a REQUEST error with the exact numbers
+RELION would die on (`image 341 in …_133825_Fractions_DW.mrcs but that
+stack holds 340 image(s)`), the mechanism (the upstream extraction
+COMPLETED but its output is internally inconsistent), and the remedy
+(re-run the upstream extraction — its dispatch now refuses colliding
+inputs with the rows named — or make a fresh extraction from a
+de-duplicated import). Healthy stars pass with a receipt note in the
+run's log (`N particle ref(s) verified against their stacks' own MRC
+headers`); missing stacks, unparsable bytes and `.eer` refs degrade to
+the note, never a block (the t313 conservatism — a wiring guess must not
+flip a job row to failed).
+
+The same ticket closed two neighbors:
+- **the node box mirrors the pin** — 「从节点使用情况处选择节点后，node框
+  还是auto没有变化」: the pin WAS wired (sbatch `--nodelist`, stepper
+  ceiling, ask line) but the Node/partition select kept showing "Auto",
+  so the pick looked dead. The select now shows the pinned node while a
+  pin lives, and picking anything in it (Auto or a group) releases the
+  pin — one visible truth for WHERE, never two.
+- **extraction's GPU contract, stated** — 「extraction无法用GPU吗？」:
+  no; `relion_preprocess` has no GPU code path (box cutting +
+  normalization run on the CPU). The dialog's width box says exactly
+  that, and names the honest speed knob: the Array split (N CPU shards,
+  each extracting its share of the micrographs in parallel).
+
+The mock's `relion_preprocess` grew the missing fidelity the gate
+exposed: its star rows now number PER STACK (real RELION's grammar — the
+old global counter produced image numbers past every stack's own slice
+count, a dialect no real RELION writes). And the local lane's t335 frame
+census, which a brace-nesting slip had left INSIDE the t334 scan's catch
+clause (dead code on the happy path), now runs where its doctrine says.
+
+## 4q. The local mirror is for metadata — extraction stacks stay on the cluster (t339)
+
+The field report: 「extraction的mrcs也有一些放到本地了，是不是没有必要 …
+我希望本地的空间占用尽量小一些」. A remote extraction finalized and
+HUNDREDS of per-micrograph `.mrcs` stacks landed in the local mirror —
+each stack a few MB, every one of them **under** the t289 key-file cap
+(16 MB default). Per-file judgment cannot see an aggregate: 865 "small"
+files are gigabytes on the laptop, and none of them are metadata.
+
+The rule (in `src/lib/remote/sync-policy.ts`, PURE — the lane, the
+receipt note and the diag suite speak one classification): under the
+**key-files** policy, the per-micrograph image producers — the same
+`BULK_TYPES` the cleanup planner gates its bulk tier to (extract,
+motioncorr, polish; a type that is bulk for DELETION is bulk for SYNC) —
+sync **TEXT ONLY**: STAR, logs and plots come home; image stacks stay on
+the cluster **whatever their size**. Every other type keeps the t289
+doctrine unchanged (text always; binaries under `keyFileMb` — so a
+class2d's few-MB class averages still land, and the class gallery keeps
+reading their headers locally). **everything** keeps meaning everything
+under the caps — the explicit user override (flip it in the connection's
+*Results sync-back* setting and re-run).
+
+What stayed is never invisible and never lost:
+- the **manifest ledger** (`.cf-remote-manifest.json`) still records the
+  FULL listing (written before the planner runs — even a dying sync
+  leaves the truth), so the Results/Files tab lists every stack
+  `remote: true` with its size;
+- any **preview or download** pulls exactly one stack over SSH on demand
+  (the t289 lazy leg, byte-count verified — the t298 verdict);
+- a **downstream cluster job** chains off the cluster copy in place
+  (§4h) — it never needed the local stacks; a downstream job that must
+  run LOCALLY needs the override (or a manual fetch) — the t338 consumer
+  gate degrades unverifiable refs to a note, never a silent wrong run;
+- **stacks that already landed** (this policy's predecessors) are one
+  cleanup away: the inspector's eraser, *Bulk image data* tier, local
+  side only — the cluster keeps every byte, the mirror keeps the
+  metadata (and a re-run wipes the stale mirror generation anyway, §4l).
+
+The receipt says it in words: 「N image file(s) stayed on the cluster —
+extract jobs sync metadata only under the key-files policy (STAR, logs
+and plots come home; image stacks never do, whatever their size) … open
+or download one to fetch it on demand — or switch the connection's sync
+policy to "everything" to bring them home」.
+## 4r. The pin names its own partition + the native marathon's in-flight record (t340)
+
+Two field reports, one root each.
+
+**The pin's partition.** 「从node使用情况列表选择node时报错，但是从node的
+下拉菜单选择node时可以正常运行（两种选择方式即使选同一个node，但是
+node框中显示也不一样）」 — the two channels built DIFFERENT sbatch lines
+for the SAME node. The dropdown carried `--partition=<group>` (plus
+`--nodelist` when single-host); the usage-list pin SUPPRESSED `--partition`
+entirely (t332's "the node's own partition is where it lands"), so the job
+fell to the cluster's DEFAULT partition — and a GPU node that does not live
+there is refused at submit time: `Requested node configuration is not
+available`, over and over, with the app's own translation faithfully
+describing a composition nobody wanted. The pin now resolves the node's OWN
+partition — the pre-flight's `scontrol show node <pin>` row (Partitions=)
+first, the probe's sinfo hostlist second — and writes
+`--partition=<that> + --nodelist=<node>`: byte-for-byte the dropdown's
+composition, one grammar, two doors. A node NEITHER source knows keeps the
+bare `--nodelist` (the connection's default must not ride along — a wrong
+partition is a guaranteed refusal where a missing one merely lets the
+default decide), and the refusal translation now says exactly that when a
+no-partition request is refused. Two guards grew with it: a picked
+partition the pinned node does not live in is refused pre-staging (the
+API door's version of the dialog's mismatch guard — the mock controller
+now enforces the membership verdict, so this world is rehearsed, not
+assumed), and the DIALOG's own mismatch guard is retired — it fired on the
+partition STATE, which auto-initializes to the connection's default, so
+pinning any node outside that default killed the pick the instant it
+landed (the "dead pick" the field reports kept meeting). While a pin
+speaks, the preview and the payload ignore the partition state entirely;
+the server resolves the node's home fresh.
+
+**The native marathon's false FAILED.** 「运行时先出现了失败（超时了没有
+返回log？），之后又成功了？」 — a 325k-particle cs → star conversion runs
+IN-PROCESS for minutes (download the .cs pair, convert, 10k+ selective
+links over SSH), and the run record only existed at the very END. The
+jobs-GET reconcile sweep flips any "running" row with no engine record
+older than 120 s to `stale running state (no engine record) — re-run` —
+so the marathon first showed FAILED with no log (none existed yet), then
+flipped to COMPLETED when the promise landed. `beginNativeRun` (cs2star +
+import, the two marathon natives) writes an IN-FLIGHT record from second
+zero — pid = the server process, alive by construction, so the sweep's
+liveness word passes — and the runner speaks phase lines into `run.out`
+as it goes (`discovered:`, `downloaded: … MB`, `converted: N particles`,
+`linking: N stack(s) → …`, a heartbeat every 2500 links), so the Log tab
+answers WHILE the job runs instead of after it lands. An honest failure
+closes the record without erasing the previous run's outputs; a crashed
+runner no longer 500s the route (the dispatch wraps and reports); a
+server restart mid-marathon leaves the familiar "interrupted" verdict.
+
+**The dev-server compile storm** (「运行job过程中，页面一直出现热加载编
+译」) was the third leg of the same report: the engine writes
+`data/engine-state.json` on every progress tick plus job workdirs — all
+inside the project tree, which Tailwind v4's automatic content detection
+scans AND watches for class candidates. Every write re-triggered the CSS
+scan → the dev overlay showed "compiling" for the whole run. The runtime
+trees (`data/`, `db/`) are now `@source not`-excluded and gitignored.
+
+The cs → star output question that rode along (「这个job转换的文件存到
+本地了？」): yes, by design — the star lands locally under
+`<repo>/data/relion/<project>/<job>/particles.star` (the receipt's
+`output:` line names it), the particle stacks NEVER move (only
+`ln -sfn` links under the cluster's project `micrographs/`), and a
+downstream remote job stages the local star up automatically when it
+dispatches — the t336 E2E proved the whole chain.
+
+## 4s. One rank per card, and never into a starved card (t342)
+
+The follow-up field report (a 50-class 2D classification, after the OOM
+ticket's class-count cut): the job stopped moving at
+`Expectation iteration 1 of 20`. RELION's own banner held the whole
+story —
+
+```
+WARNING: Ignoring required free GPU memory amount of 800 MB,
+due to space insufficiency.
+```
+
+— and every rank banner read `Will distribute threads over devices 0`:
+TWO MPI ranks had landed on ONE card. The `#SBATCH --gres=gpu:2` width
+is a REQUEST; on clusters without gres accounting the scheduler never
+checks it against the node's real card count, both ranks resolved to
+device 0, and the card additionally carried a stale allocation from the
+earlier OOM'd attempt. RELION's answer to a card below its 800 MB floor
+is to PROCEED (the warning literally says "Ignoring") and then thrash or
+deadlock in the first Expectation sweep — a hang with no error tail.
+
+Two blades, both runtime-side where the node's own truth is visible
+(inside the sbatch script, after the t341 pin block):
+
+1. **The rank clamp.** The MPI rank count and the `--gpu` device list
+   are the script's own `CF_RANKS`/`CF_GPU_LIST` variables. At launch
+   the script counts the GPUs the node exposes (`nvidia-smi -L`) and
+   clamps the rank count to the card count — two ranks on one card
+   becomes structurally impossible, and the clamp narrates itself into
+   `run.out` (`CRYOFLOW_NOTE: … clamping the rank count …`). No
+   `nvidia-smi` on the node → no clamp, the run proceeds exactly as
+   before (unverifiable ≠ refused, the t313 rule).
+2. **The starved-card refusal.** Before RELION starts, the script asks
+   the devices this job would use (the `CUDA_VISIBLE_DEVICES` grant —
+   or devices `0..CF_RANKS-1` where the cluster does not isolate) how
+   much memory is free. Below 1000 MB — comfortably above RELION's own
+   800 MB floor — the job is REFUSED: the holder PIDs are printed
+   (`nvidia-smi --query-compute-apps`), `.cf-exit` carries 98, and the
+   Log tab's diagnosis names the move (kill/scancel the holders, then
+   re-run). Between 1000 and 2000 MB a note says the card is shared and
+   the run may be slow. The refusal rides only jobs whose argv truly
+   carries `--gpu` — a CPU job that merely HOLDS a gres grant (extract
+   shards, LoG picking) is never refused for a card it would not use.
+
+The reader side grew with it: a resolved input STAR whose local copy is
+missing is now read through every honest cluster-side candidate — the
+upstream's verified twin, the mirror-mapped path, then the path as-is —
+and when all fail, the receipt names the paths TRIED plus the cat's own
+failure word (the old note said only "cluster cat failed"; the field
+report deserved better).
+
+## 4t. One map, one lane, one address — the consumption-lane star read (t343)
+
+The user's question retired t342's belt-and-suspenders: 「这个前一个 job 的
+star 文件的写入地址不是确定的吗？为何还要尝试这么多？集群的任务尽量不用
+本地副本，直接在集群上写入和读取更加直接，避免了网络传输」— the write
+address IS deterministic, and the codebase already owned it: **the twin map is
+the staging's own lane decision** (a hit → the staging uploads nothing, the
+argv runs against the cluster twin in place; a miss → the LOCAL file is the
+exact bytes that will upload, and the staging refuses the dispatch when they
+are missing). The t342 walk — local copy → twin → mirror-mapped → path
+as-is — trusted no single address, and in both directions it judged bytes
+the job never touches:
+
+- **twin lane, local-first:** a stale local mirror (the sync-back lagged,
+  died mid-download, or a cleanup swept the mirror tree) earns a false
+  "verified" while relion reads the CLUSTER copy — the exact lie the
+  consistency gates exist to prevent, told about the wrong generation.
+- **upload lane, cluster-walk:** nothing the cluster holds can change the
+  staging's own `input "particles_star" does not exist locally` refusal one
+  SSH round trip later — the walk only delayed the same door.
+
+The reader now derives its lane from the same map the staging derives its
+own (`readResolvedStarText`): the **twin lane** cats the cluster copy in
+place over SSH and never consults the local mirror; the **upload lane**
+reads the local copy (the bytes that ship) and never walks the cluster.
+The receipts speak the lane — success notes end with WHICH bytes were
+judged (`the star was read in place on the cluster at <path> — the copy
+this job consumes; nothing uploads for it` / `the star was read from the
+local copy this dispatch uploads`), and an unreadable star names THE door:
+the lane's own address, the cat's failure word (tail-sliced — the reason
+rides AFTER the path, and a head slice on a deep cluster path cuts it off),
+and the remedy (re-run the upstream to regenerate it). Unverifiable still
+degrades to the note, never a block (the t313 rule).
+
+**The adjacent hole the derivation exposed:** the twin map's PAIR entries
+(local mirror path → cluster twin) were built unconditionally, while the
+identity entries carried the t325 same-cluster gate. An upstream that ran
+on cluster A, its star synced back to the local mirror, then a dispatch to
+cluster B: the pair made the staging SKIP the upload and point B's argv at
+A's path — relion died "file not found" over a local copy that sat ready
+to upload. The whole upstream is gated in one place now; a foreign
+upstream takes the upload lane — the one copy this connection can actually
+reach (two front-ends of one shared filesystem lose the in-place pass this
+way; the safe direction: bytes upload, the run still completes).
+
+**The bonus the unification bought:** the t338 ref resolver's cluster-side
+anchor is one formula both lanes share (the twin when the input runs in
+place, else the mirror-mapped upload path). The upload lane used to anchor
+star-relative refs on the project root alone — refs in the star-relative
+dialect degraded to "could not be verified"; now they are judged against
+the star's own directory on the cluster, exactly like the twin lane always
+did.
+
+Verified by `e2e-review/run-8-star-lane.mjs` (29 assertions, all green):
+a poisoned local mirror never earns a verdict (the job completes, the
+receipt says the cluster copy was judged); the upload lane refuses on
+poisoned LOCAL bytes with the row keeping its state (request-error
+contract); a gone twin produces the lane-named note while the job fails
+fast at relion's own missing-input door; and a foreign-cluster record
+takes the upload lane with a byte-level witness — the marker line from
+the local copy lands in the cluster file.
+
+## 4u. The wipe's real budget, and the poison caught before the burn (t344)
+
+Two field reports, one recovery chain:
+
+1. **the 2D classification died mid-run** on
+   `readMRC: Image number 383 exceeds stack size 382` (rwMRC.h, inside
+   `initialiseSigma2Noise`) — the upstream extraction had COMPLETED, yet
+   its particles.star numbers one image past a stack's true NZ. This is
+   the t338 gate's exact shape; the gate did not fire because the user's
+   build predated t342/t343's lane-aware star read (the receipt said
+   `particles star unreadable (no local copy, cluster cat failed)` — the
+   retired wording). On current code the twin lane reads the star in
+   place, the header sniffer judges every stack ON THE CLUSTER, and the
+   dispatch is refused with the exact numbers relion would die on —
+   before any queue or GPU time is spent. The refusal's remedy names the
+   move: re-run the upstream extraction.
+2. **the re-run was then refused** by
+   `could not clear the previous run's files … (batch 1: SSH failed
+   (timeout after 30000ms))` — the t333 wipe's rm carried a 30s
+   per-batch budget, and a login node that had just answered the
+   LISTING inside 25s was not broken, merely SLOW (a loaded head
+   unlinking hundreds of stacks on network storage). The wipe now rides
+   `deleteRemoteFiles`'s new budget + retry ladder:
+
+   - **180s per batch** for the dispatch's pre-run wipe (the interactive
+     cleanup dialog gets 120s) — a deletion that takes a minute is a
+     deletion, not an outage.
+   - **one fresh-wire retry** per batch on SSH-level failures (timeout,
+     a channel that died mid-command): the pooled connection is dropped
+     and re-dialed before the idempotent `rm -f` re-runs — a half-dead
+     TCP session after a GPU storm is the field shape, and the first
+     thing a fresh SSH session fixes is exactly that. rm's OWN exit
+     codes are never retried (a filesystem complaint does not heal with
+     a redial).
+   - **no serial grinding**: a batch that exhausts its wire attempts
+     stops the pass — the remaining batches are named in the refusal
+     (`the remaining N batch(es) were not attempted`). With the old
+     loop, ten batches at the new budget would have ground for an hour.
+
+The refusal message itself now says what actually happened: the budget
+it waited out, the retry it made, and the hand check to run (`ssh in by
+hand and try again in a moment`) — replacing the old "fix the cluster
+access", which pointed at a cluster that was fine.
+
+The duplicated log lines in the field report are not an app bug:
+`mpirun -n 2` has BOTH ranks print the banner and both hit the same
+readMRC error (the backtraces carry different libc addresses — two
+processes, two prints).
+
+Verified by `e2e-review/run-9-wipe-budget-poison-gate.mjs` (31
+assertions, all green), on two new mock levers (`~/.slurm/rm-slow-ms`
+and the one-shot `rm-channel-close`, both witness-logged): a 35s rm —
+over the old 30s budget, inside the new one — no longer refuses the
+re-run; a channel that dies without a verdict retries on a fresh
+connection and completes; a star row bumped past its stack's NZ is
+refused at dispatch with `references image 11 … but that stack holds 10
+image(s)` and a zero-row slurm accounting; and the user's recovery path
+is walked end-to-end — re-run extract (the wipe clears the poisoned
+generation), then the SAME class2d dispatch completes with the
+`verified against their stacks' own MRC headers` receipt.
+
+## 4v. One rank, one card — pinned by the driver, not parsed by RELION (t345)
+
+The third field report on the same 2D classification, and the star read
+that lied about a live file:
+
+1. **every MPI rank landed on device 0** (again — this time at width 6):
+   six identical `Will distribute threads over devices 0` banners, the
+   shared card bled `156 → 40 → 37 → 34 MB` free across successive rank
+   initializations, and the allocator died in `setupTunableSizedObjects`
+   (`custom_allocator.cuh:436`). The node had cards to spare, so the
+   t342 rank clamp never fired — the failure was the colon list itself:
+   `--gpu 0:1:2:…` is RELION's documented per-rank grammar, but the
+   field build did not split ranks on it (the t342 ticket's `-n 2` run
+   had shown the same signature: both banners `devices 0`). t345 stops
+   trusting any `--gpu` parser: the sbatch script writes a per-rank
+   launcher (`.cf-rank-launch.sh`) that hands each MPI rank its OWN
+   `CUDA_VISIBLE_DEVICES` — one entry of the job's device set, by rank
+   index — and relion runs `--gpu 0` inside a world with exactly one
+   visible card. Piling N ranks onto one card becomes physically
+   impossible: the driver hides the other cards. The runtime device
+   set's truth, in order: `CUDA_VISIBLE_DEVICES` when the scheduler (or
+   the t341 pin) grants one — never widened; else nvidia-smi's index
+   list **quietest-card-first** (free memory descending — a shared
+   node's card 0 is everyone's default and the starved one); else the
+   BLIND case: ONE rank with a note naming the blindness (a pile-up
+   needs two). The clamp survives from t342, now measured against the
+   CUDA-visible world instead of the node's physical inventory (a
+   cgroup grant of one card runs one rank even on an 8-GPU node). The
+   launcher's own contracts fail closed: a rank index it cannot read
+   (exit 97) and a multi-rank run with no device to pin (exit 96) are
+   refused with their own `CRYOFLOW_ERR` words — every rank guessing 0
+   IS the pile-up. Each rank prints a `CRYOFLOW_RANK_BIND` receipt into
+   run.out, so the mapping is auditable after the fact. The run dialog's
+   preview and chips speak the new truth (`mpirun -n N`, `1 rank → 1
+   card (CUDA_VISIBLE_DEVICES)`, `--gpu 0 per rank`) — the t326
+   doctrine: every flag the preview shows is one the dispatch writes.
+2. **the star preflight read starved on a live file**: the receipt said
+   `particles star unreadable … timeout after 15000ms` while relion
+   itself parsed the very same bytes on the cluster moments later — the
+   file was fine, the WIRE was slow (one exec channel: sshd fork + the
+   login shell's profile + a cat off a loaded network filesystem + the
+   transfer back; and a pooled connection that silently died hangs its
+   first exec until the budget burns — keepalive needs 4×15s to
+   notice). `catRemote` now carries a **90s budget and one fresh-wire
+   retry** (`dropConnection` → re-dial) on SSH-level failures — a clean
+   `No such file` is the file's own verdict and is never retried. And
+   the unreadable receipt finally distinguishes the two: a timeout now
+   says the read TIMED OUT, the file was NOT reported missing, and the
+   move is to run again or check the login node's load — not to
+   regenerate a file that exists.
+
+Verified by `e2e-review/run-10-rank-card-pin.mjs` (49 assertions, all
+green), on three new mock instruments: the nvidia-smi stub's
+`index,memory.free` query with per-card `gpu-free-mb` lists, the mpirun
+stub's `mpi-emulate-ranks` lever (runs the command once per rank index
+so the bind receipts are provably per-rank), and the cat torture pair
+(`cat-slow-ms "<ms> <substring>"` + one-shot `cat-channel-close`,
+both substring-scoped so poll traffic is never slowed, both
+witness-logged). The field shapes: width 6 over 8 cards → six ranks on
+six DISTINCT cards with six receipts; card 1 starved to 100 MB → the
+six ranks land on `{0,2,3,4,5,6}` and the starved card is never
+picked; 2 cards visible → clamped to 2 with the named note; nvidia-smi
+mute → ONE rank with the blind note; a 20s star read (over the old
+15s budget, inside the new 90s) verifies in place and the job
+completes; a channel that dies without a verdict redials and lands.
+
+
+## 4w. The minimal wire — one heartbeat, zero star bytes, never a false death (t346)
+
+The user's two-field-report axis, answered at the architecture level
+("其实只要保证最小程度和 cluster 的通讯就行 — 任务完全可以在 cluster 上运行"):
+
+1. **The log flood is dead.** The Log tab polled `/api/jobs/[id]/log`
+   every 1.5s, and EVERY poll paid its own serialized SSH exec (a
+   `wc -l` + a 512KB `tail` + a 64KB stderr tail) on the cluster's
+   single wire — stacked behind the poll sweep, the staging and every
+   dispatch. On a real login node (exec = sshd fork + shell + a loaded
+   `/data03`) the wire saturated: the log tab starved, the UI felt
+   stuck, and the receipts said `timeout after 15000ms` about files
+   that existed. Now the **poll sweep carries everything** (state +
+   `wc -l` + a 4KB `run.out` tail + a 2KB `run.err` tail, batched over
+   every job on the connection, one exec per few seconds), and the log
+   route is **cache-first**: tail mode reads the record, zero SSH; a
+   stale cache (>15s) on a live run falls through to ONE rate-limited
+   fetch per 10s; full mode stays on-demand (user-clicked) at the same
+   rate limit. E2E: 18s of log-tab polling pays ≤2 fetches (was 12).
+2. **The UI never waits on the wire.** `/api/jobs` used to AWAIT the
+   sweep — a 15s SSH round trip stalled the whole 4s cadence. The
+   route now races the sweep at **1.5s** (the sweep keeps running;
+   verdicts land on the next tick), the sweep's own budget grew to
+   **45s** (a login-node hiccup no longer eats it), and the throttle
+   is adaptive (a sweep that took T seconds buys `max(4s, 1.5×T)` of
+   quiet). E2E: with the sweep deliberately sleeping 9s, the GET
+   answers in ~1.5s.
+3. **The wire heals itself.** keepalive is 10s×3 (≤30s to notice a
+   dead peer, was 60s), and **two consecutive exec timeouts drop the
+   pooled connection** for a fresh re-dial — a half-dead wire used to
+   burn full exec budgets for a whole minute while everything queued
+   onto the corpse.
+4. **A blip is not a reboot.** One empty `squeue`+`sacct` snapshot
+   (age >120s) used to flip a RUNNING row to "interrupted remotely
+   (node reboot or hard kill)" while the job was alive. The flip now
+   needs **3 consecutive VANISHED verdicts** (`VANISH_STREAK_N`,
+   env-tunable for suites); any ALIVE/EXIT/SACCT word resets the
+   streak, and the receipt names the count. E2E (knobbed to 4): 2
+   blind verdicts keep the row running, the unblinded ALIVE resets
+   the streak, the 4th consecutive verdict flips with the count in
+   the receipt.
+5. **Zero star bytes cross the wire at dispatch.** The t338 gate
+   catted the whole `particles.star` home to parse it locally (tens of
+   MB on a real extraction — the dispatch stall AND the transfer the
+   doctrine forbids). The cluster lane now runs a **census awk pass
+   in place**: one row per unique stack path with that stack's max
+   image number (`CF_REF\t<path>\t<max>`), POSIX awk, the 90s budget
+   + redial ladder. The verdicts, the refusal vocabulary and the
+   candidate grammar are byte-identical
+   (`particlesRefGateFromRefs`); the upload lane still judges the
+   local bytes it is about to upload. Missing files keep the t343
+   receipt tail (the door + the remedy + "the check did not run").
+6. **The rank launcher survives PRRTE.** OpenMPI 5 (prterun — the
+   user's cluster) does not guarantee environment forwarding to a
+   non-MPI app: a stripped rank lost PATH/RELION_* and `exec
+   relion_refine` died "command not found" before the first banner —
+   the field shape "log silent, then failed, cards idle". The sbatch
+   script now writes an **`export -p` dump into `.cf-rank-env`**
+   (after `module load`, before the run), the launcher sources it
+   FIRST (its own self-location is pure bash `${0%/*}` — `dirname`
+   dies without PATH), pins its card, resolves the binary through the
+   RESTORED environment (`command -v`), and only then execs. E2E:
+   with every rank's environment wiped (`env -i`), both ranks still
+   pin their own cards and relion runs to completion.
+7. **The queue is not a failure.** While Slurm says PENDING the log
+   tab now SAYS so ("Queued on Slurm — the log appears the moment the
+   job starts on the node") instead of an empty "no log" shrug.
+
+Verified by `e2e-review/run-11-minimal-wire.mjs` (45 assertions, all
+green; run with `CF_VANISH_STREAK=4 CF_VANISH_AGE_MS=5000` so the
+blind/unblind/reblind choreography cannot race the flip), on three new
+mock instruments: the always-on **exec audit** (`~/.slurm/exec-audit.log`,
+newline-flattened, 4MB-bounded), the **scheduler-blind pair**
+(`squeue-blind`/`sacct-blind`, content = job id or `all`), and
+**`mpi-strip-env`** (every rank starts under `env -i`). The generic exec
+torture pair (`exec-slow-ms "<ms> <substring>"` + one-shot
+`exec-channel-close`) reaches whatever read path the current code
+speaks — the census, a header sniff, the sweep itself.
+
+## 4x. The console never blanks — and every surface leads with the count (t347)
+
+The user's UI field reports, answered in kind:
+
+1. **The log console stopped flickering.** The t346 log route had a
+   blanking bug of its own: full mode (`?full=1`) polls every 5s but
+   the wire budget is one fetch per 10s, so every rate-limited tick
+   answered `tail: ""` — the console's whole text vanished on
+   alternate refreshes (「文字总是在刷新的过程中消失」). Tail mode
+   had the same shape before the first heartbeat (`"(waiting for the
+   cluster's next heartbeat…)"` replaced real content). Now the route
+   speaks **pending semantics**: an answer that carries no data of its
+   own is `{pending: true, note}` — never a placeholder or empty text
+   — and a **full-mode cache** (`logFullCache`, 30s, forever on a
+   finished run) serves the rate-limited ticks. The UI side completes
+   the contract: pending answers KEEP the previous text (a quiet
+   amber "syncing" chip whispers why), an HTTP error renders as a slim
+   banner ABOVE the log instead of replacing it, a 404 after content
+   keeps the last text, a tail↔full switch never clears the console,
+   and a cross-mount seed cache (16 jobs LRU, 256KB from the end)
+   makes returning to the Log tab paint instantly — no "Reading log…"
+   flash. Verified: three back-to-back full-mode polls on a completed
+   cluster run all answer with content (the old wire blanked the 2nd
+   and 3rd), and run-11's 18s polling window still pays ≤2 fetches.
+2. **The submit dialog fits one screen.** The "Run on cluster"
+   dialog grew past a viewport (t326's sections + t332's live usage
+   list + t306's steppers ≈ 1.4 screens). The compaction pass keeps
+   every control and contract: `sm:max-w-2xl` with two-column rows
+   (connection+module, GPU width+array split), one-line mode cards,
+   one-line helper texts (the full sentences ride `title`s), a
+   tightened preview — and the live node list starts **collapsed**
+   (header toggle + node count + pinned-node chip; the ask line stays
+   always visible, rows one click away, cap 176px when open).
+   Measured: 795px total in slurm mode at 1600×900 — zero internal
+   scrolling; mobile stacks single-column by design.
+3. **The count leads everywhere** (「照片数或颗粒数需要显示得醒目些，
+   不仅在任务窗口中，最好也在job的卡片上直接显示出来」). The engine's
+   finalize receipts now carry the counted number for the types that
+   never had one (refine3d/class3d append `· N particles` beside the
+   FSC line, initialmodel/polish/ctfrefine/tomo-picks state theirs) —
+   remote runs inherit the same strings through `collectOutputs`. A
+   pure parser (`lib/result-counts.ts`) reads the receipt dialect
+   (select keeps the KEPT count, symexpand the EXPANDED total,
+   autopick both numbers, joinstar the rows), and paints: a **count
+   chip on the canvas card** (far right of the status row, teal for
+   particles, neutral for micrographs, violet for classes, compact
+   82k/1.2M forms), the **KeyNumbers strip at the top of the
+   inspector's Overview** (live-counted from the outputs route, the
+   receipt as fallback when files are remote-only), and **count chips
+   in the inspector's identity row** (visible on every tab). No
+   honest number → no chip, never a guess.
+
+Verified by run-11 (45/45) + run-1 (106/106) against the mock cluster,
+plus browser-live: canvas cards, inspector strips, tab/mode round-trips
+and the collapsed usage panel with a live pin all exercised with zero
+console errors.

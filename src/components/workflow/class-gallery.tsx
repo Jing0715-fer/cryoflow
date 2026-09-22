@@ -22,6 +22,7 @@ import {
   Grid2x2Check,
   Loader2,
   Maximize2,
+  RefreshCw,
   Sparkles,
   StickyNote,
   Users,
@@ -49,6 +50,10 @@ interface ClassesResponse {
   iteration: number | null;
   classesFile?: string | null;
   classesSlices?: number | null;
+  /** t358 — the last honest refusal recorded for this run's class-average
+   * stack (which link of the cluster pull broke) — the banner explains a
+   * dark grid instead of bare "no image" cards */
+  renderError?: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -139,6 +144,41 @@ export function ClassGallery({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  /* t356 — the per-class thumbnail LANE: the class2d run's preview cache
+   * answers first (the finalize pipeline / view trigger already downloaded
+   * the stacks and converted them to local PNGs — instant, zero SSH);
+   * /outputs/file stays as the FALLBACK lane (it lands the whole stack at
+   * its real mirror path — the t289 doctrine — and covers exotic stack
+   * names the iteration route's whitelist refuses). A slice that fails on
+   * the first lane retries once on the second; only then the honest
+   * "no image" placeholder. */
+  const [fallbackImgs, setFallbackImgs] = useState<Set<number>>(new Set());
+
+  /* t355 — per-class thumbnail lifecycle: `failedImgs` swaps the card to
+   * its honest "no image" placeholder (the old onError hid the <img>,
+   * leaving a white square with no explanation), `loadedImgs` stops the
+   * loading pulse. A remote-run stack's first thumbnail lazy-fetches the
+   * whole .mrcs (the t289 doctrine), so the pulse is the "it is coming
+   * over the wire" cue. */
+  const [failedImgs, setFailedImgs] = useState<Set<number>>(new Set());
+  const [loadedImgs, setLoadedImgs] = useState<Set<number>>(new Set());
+  const markImg =
+    (kind: "failed" | "loaded") =>
+    (cls: number): void =>
+      (kind === "failed" ? setFailedImgs : setLoadedImgs)((prev) => {
+        if (prev.has(cls)) return prev;
+        const next = new Set(prev);
+        next.add(cls);
+        return next;
+      });
+  const onImgError = markImg("failed");
+  const onImgLoad = markImg("loaded");
+
+  /* t358 — retry nonce for the /classes fetch: the banner's Retry re-asks
+   * the server (which re-attempts the cluster pull with its per-chunk
+   * budget) and wipes the per-card failure sets so the grid reloads. */
+  const [dataNonce, setDataNonce] = useState(0);
+
   useEffect(() => {
     if (!upstream) {
       setData(null);
@@ -154,6 +194,9 @@ export function ClassGallery({
         if (!cancelled) {
           setData(body);
           setError(null);
+          setFailedImgs(new Set());
+          setLoadedImgs(new Set());
+          setFallbackImgs(new Set());
         }
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : "failed");
@@ -164,7 +207,7 @@ export function ClassGallery({
     return () => {
       cancelled = true;
     };
-  }, [upstream?.id, upstream?.status]);
+  }, [upstream?.id, upstream?.status, dataNonce]);
 
   const classes = data?.classes ?? [];
   const isAuto = value.trim() === "auto" || value.trim() === "";
@@ -210,6 +253,39 @@ export function ClassGallery({
   const keptCount = classes.filter((c) => kept.has(c.cls)).reduce((a, c) => a + c.count, 0);
   const total = data?.total ?? 0;
   const classesFile = data?.classesFile ?? null;
+
+  // t356 — the lane pair: `sliceUrl` prefers the iteration-image route
+  // (preview-cache hit → instant; miss → byte-verified cluster pull that
+  // renders EVERY slice of the stack at once, so the first card lights
+  // the whole grid); `legacySliceUrl` is the t289 whole-stack-into-mirror
+  // lane, kept as the one-retry fallback.
+  const iterLaneOk =
+    classesFile != null &&
+    /^(?:(?:run_it|_it)\d+_(?:unmasked_)?classes|run_unmasked_classes)\.mrcs?$/i.test(classesFile);
+  const sliceUrl = (cls: number) =>
+    classesFile == null
+      ? ""
+      : iterLaneOk
+        ? `/api/jobs/${upstream.id}/iterations/image?file=${encodeURIComponent(classesFile)}&slice=${cls - 1}`
+        : `/api/jobs/${upstream.id}/outputs/file?path=${encodeURIComponent(classesFile)}&format=png&montage=0&slice=${cls - 1}`;
+  const legacySliceUrl = (cls: number) =>
+    classesFile == null
+      ? ""
+      : `/api/jobs/${upstream.id}/outputs/file?path=${encodeURIComponent(classesFile)}&format=png&montage=0&slice=${cls - 1}`;
+  // first failure retries on the legacy lane (once); a failure there (or
+  // when the legacy lane IS the primary) marks the honest placeholder
+  const handleImgError = (cls: number): void => {
+    if (iterLaneOk && !fallbackImgs.has(cls)) {
+      setFallbackImgs((prev) => {
+        if (prev.has(cls)) return prev;
+        const next = new Set(prev);
+        next.add(cls);
+        return next;
+      });
+      return;
+    }
+    onImgError(cls);
+  };
 
   const toggle = (cls: number) => {
     // first click in auto mode starts manual editing FROM the auto set —
@@ -382,14 +458,15 @@ export function ClassGallery({
   };
 
   // preload the two neighbours so ← / → feels instant — class stacks are
-  // small (a few dozen KB per slice), prefetching is effectively free
+  // small (a few dozen KB per slice), prefetching is effectively free.
+  // t356 — rides the same lane pair as the visible cards.
   useEffect(() => {
     if (zoomIdx < 0 || !classesFile) return;
     for (const d of [1, -1] as const) {
       const n = visible[(zoomIdx + d + visible.length) % visible.length];
       if (!n) continue;
       const img = new Image();
-      img.src = `/api/jobs/${upstream.id}/outputs/file?path=${encodeURIComponent(classesFile)}&format=png&montage=0&slice=${n.cls - 1}`;
+      img.src = fallbackImgs.has(n.cls) ? legacySliceUrl(n.cls) : sliceUrl(n.cls);
     }
   }, [zoomIdx, classesFile, visible]);
 
@@ -623,16 +700,51 @@ export function ClassGallery({
         )}
       </div>
 
-      {/* the grid */}
+      {/* t358 — the honest refusal banner: cards that failed BOTH lanes
+          (the preview-cache lane and the legacy mirror lane) mean the
+          cluster pull itself was refused — the payload's renderError says
+          which link broke (missing / truncated mid-wire / over the transfer
+          cap / unreadable bytes), replacing the old silent "no image"
+          tiles the field reports carried. */}
+      {failedImgs.size > 0 && data?.renderError != null && (
+        <div
+          className="mx-2 mt-2 flex items-start gap-2 rounded-md border border-rose-500/30 bg-rose-500/5 px-3 py-2"
+          data-render-error=""
+        >
+          <span className="min-w-0 flex-1 text-[10px] leading-relaxed text-rose-600 dark:text-rose-400">
+            class images unavailable — {data.renderError}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setFailedImgs(new Set());
+              setFallbackImgs(new Set());
+              setDataNonce((n) => n + 1);
+            }}
+            className="flex shrink-0 items-center gap-1 rounded-md border border-rose-500/40 px-2 py-1 text-[10px] font-medium text-rose-700 transition-colors hover:bg-rose-500/10 dark:text-rose-300"
+          >
+            <RefreshCw className="size-3" aria-hidden="true" />
+            Retry
+          </button>
+        </div>
+      )}
+
+      {/* the grid
+          t355 — the column count is sized for the CONTAINER this gallery
+          actually lives in (the job panel aside, 380px, or the mobile sheet
+          ≤448px), not the viewport: the old viewport breakpoints put FIVE
+          columns inside a 380px panel — 66px cards whose occupancy footer
+          (“325,549” + “100%”) wrapped to a second line on the big classes
+          only, so cards in ONE grid came out different heights (the user's
+          「分类的框大小不一」). Two-to-three columns keeps every card wide
+          enough for a one-line footer; the footer itself is nowrap-hardened
+          so any future squeeze truncates instead of wrapping. */}
       <div
         data-canvas-ui="class-grid"
         role="listbox"
         aria-label="Class selection grid — arrow keys move between classes, Enter toggles"
         onKeyDown={onGridKeyDown}
-        className={cn(
-          "grid gap-2 p-2",
-          "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
-        )}
+        className={cn("grid grid-cols-2 gap-2 p-2 sm:grid-cols-3")}
         style={{ maxHeight: "26rem", overflowY: "auto" }}
       >
         {/* visible is normally never empty (an emptied selection aliases
@@ -677,16 +789,23 @@ export function ClassGallery({
                   : "border-border opacity-80 hover:opacity-100 hover:border-teal-500/40"
               )}
             >
-              {/* thumbnail — class k is slice k-1 of the averages stack */}
-              {classesFile ? (
+              {/* thumbnail — class k is slice k-1 of the averages stack.
+                  t355: a FAILED load swaps to the honest placeholder (the
+                  old visibility:hidden left a silent white square); a
+                  loading one pulses dark (a remote stack lazy-fetches on
+                  its first thumbnail — the wire takes a beat). */}
+              {classesFile && !failedImgs.has(c.cls) ? (
                 <img
-                  src={`/api/jobs/${upstream.id}/outputs/file?path=${encodeURIComponent(classesFile)}&format=png&montage=0&slice=${c.cls - 1}`}
+                  key={fallbackImgs.has(c.cls) ? `legacy-${c.cls}` : `iter-${c.cls}`}
+                  src={fallbackImgs.has(c.cls) ? legacySliceUrl(c.cls) : sliceUrl(c.cls)}
                   alt={`Class ${c.cls} average`}
                   loading="lazy"
-                  className="aspect-square w-full bg-zinc-950 object-contain"
-                  onError={(e) => {
-                    (e.currentTarget as HTMLImageElement).style.visibility = "hidden";
-                  }}
+                  onLoad={() => onImgLoad(c.cls)}
+                  onError={() => handleImgError(c.cls)}
+                  className={cn(
+                    "aspect-square w-full bg-zinc-950 object-contain",
+                    !loadedImgs.has(c.cls) && "animate-pulse"
+                  )}
                 />
               ) : (
                 <div className="flex aspect-square w-full items-center justify-center bg-zinc-950 text-[10px] text-zinc-500">
@@ -705,14 +824,17 @@ export function ClassGallery({
                 {c.cls}
               </span>
 
-              {/* occupancy footer */}
+              {/* occupancy footer — t355: one line, ALWAYS. The count may
+                  truncate on a squeezed card, never wrap (a wrapped footer
+                  makes big-count cards taller than their neighbours — the
+                  uneven boxes the field report carried). */}
               <div className="space-y-1 bg-background/95 px-2 py-1.5">
-                <div className="flex items-center justify-between gap-1">
-                  <span className="flex items-center gap-1 font-mono text-[10px] tabular-nums text-muted-foreground">
-                    <Users className="size-2.5" aria-hidden="true" />
-                    {c.count.toLocaleString()}
+                <div className="flex min-w-0 items-center justify-between gap-1 overflow-hidden whitespace-nowrap">
+                  <span className="flex min-w-0 items-center gap-1 font-mono text-[10px] tabular-nums text-muted-foreground">
+                    <Users className="size-2.5 shrink-0" aria-hidden="true" />
+                    <span className="truncate">{c.count.toLocaleString()}</span>
                   </span>
-                  <span className="font-mono text-[10px] font-semibold tabular-nums">
+                  <span className="shrink-0 font-mono text-[10px] font-semibold tabular-nums">
                     {Math.round(c.fraction * 100)}%
                   </span>
                 </div>
@@ -872,18 +994,26 @@ export function ClassGallery({
               </DialogDescription>
 
               {/* the average — same slice URL as the grid thumbnail, just
-                  given room to breathe (render is ≤384 px wide server-side) */}
+                  given room to breathe (render is ≤384 px wide server-side).
+                  t355: a failed load says so instead of a broken glyph. */}
               <div className="bg-zinc-950 p-4">
-                {classesFile ? (
+                {classesFile && !failedImgs.has(zoomClass.cls) ? (
                   <img
-                    key={zoomClass.cls}
-                    src={`/api/jobs/${upstream.id}/outputs/file?path=${encodeURIComponent(classesFile)}&format=png&montage=0&slice=${zoomClass.cls - 1}`}
+                    key={fallbackImgs.has(zoomClass.cls) ? `legacy-${zoomClass.cls}` : `iter-${zoomClass.cls}`}
+                    src={
+                      fallbackImgs.has(zoomClass.cls)
+                        ? legacySliceUrl(zoomClass.cls)
+                        : sliceUrl(zoomClass.cls)
+                    }
                     alt={`Class ${zoomClass.cls} average, full size`}
+                    onLoad={() => onImgLoad(zoomClass.cls)}
+                    onError={() => handleImgError(zoomClass.cls)}
                     className="mx-auto aspect-square max-h-[26rem] w-auto max-w-full rounded-md object-contain"
                   />
                 ) : (
-                  <div className="grid aspect-square max-h-64 place-items-center text-xs text-zinc-500">
+                  <div className="mx-auto grid aspect-square max-h-64 w-auto place-items-center rounded-md bg-zinc-900/60 px-8 text-center text-xs text-zinc-500">
                     no image available
+                    {classesFile ? " — the stack could not be fetched" : ""}
                   </div>
                 )}
               </div>

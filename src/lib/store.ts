@@ -846,10 +846,32 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, init);
   const data = (await res.json().catch(() => ({}))) as T & { error?: string };
   if (!res.ok) {
-    throw new Error(data?.error ?? `Request failed (${res.status})`);
+    // t359 — carry the HTTP status ON the thrown error (the message
+    // contract is unchanged). The optimistic wire flows below need to tell
+    // "already persisted by an earlier attempt" (409) and "already gone
+    // server-side" (404) apart from real failures.
+    const err = new Error(data?.error ?? `Request failed (${res.status})`) as Error & {
+      status?: number;
+    };
+    err.status = res.status;
+    throw err;
   }
   return data;
 }
+
+/**
+ * t359 — optimistic wire bookkeeping (see connect/removeEdge).
+ *
+ * `unconfirmedEdges` — client-minted edge ids whose POST /api/edges is
+ * still in the air. A removeEdge() on one of them must NOT fire a DELETE
+ * (the row does not exist yet — the 404 would look like success while the
+ * in-flight POST is about to resurrect the wire as a ghost the UI no
+ * longer shows); instead the id is marked doomed and the POST's landing
+ * path fires the DELETE itself, when the row is real.
+ * `doomedCreates` — exactly those marked ids.
+ */
+const unconfirmedEdges = new Set<string>();
+const doomedCreates = new Set<string>();
 
 /**
  * Workspace membership EXACTLY as the canvas visibility rule computes it
@@ -1911,7 +1933,15 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       });
       return;
     }
-    let res: { restored: { id: string; coerced: boolean }[]; failed: { id: string; error: string }[] };
+    let res: {
+      restored: { id: string; coerced: boolean }[];
+      failed: { id: string; error: string }[];
+      /** t341 — the server tombstone's own work: ids whose run record came
+       *  back, and the wires the SERVER re-attached (the client skips
+       *  re-posting those) */
+      recordRestored?: string[];
+      edges?: { fromJobId: string; toJobId: string; fromPort?: string; toPort?: string }[];
+    };
     try {
       res = await api("/api/jobs/restore", {
         method: "POST",
@@ -1934,12 +1964,23 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     // store, parallel POSTs could drop edges; wires to survivors restore
     // too (one endpoint restored, the other never left)
     const alive = (id: string) => restoredIds.has(id) || get().jobs.some((j) => j.id === id);
+    // t341 — the server's tombstone already re-attached its wires; the
+    // client snapshot only posts what the SERVER did not (a re-post would
+    // collide on the unique pair and used to count as a failure)
+    const serverWired = new Set((res.edges ?? []).map((e) => `${e.fromJobId}->${e.toJobId}`));
     let edgeOk = 0;
     let edgeFail = 0;
     const restoredEdges: EdgeDTO[] = [];
     for (const e of snapshot.edges) {
       if (!alive(e.fromJobId) || !alive(e.toJobId)) {
         edgeFail += 1;
+        continue;
+      }
+      if (serverWired.has(`${e.fromJobId}->${e.toJobId}`)) {
+        // the server already re-attached this wire (ports and all) —
+        // count it and render it, no POST needed
+        restoredEdges.push(e);
+        edgeOk += 1;
         continue;
       }
       try {
@@ -1955,8 +1996,17 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         });
         restoredEdges.push(e);
         edgeOk += 1;
-      } catch {
-        edgeFail += 1;
+      } catch (err) {
+        // t341 — "already exists" is a SUCCESS wearing a 409: the wire is
+        // on the canvas (the server restored it between the response and
+        // this post, or another undo raced us) — count it, render it
+        const msg = err instanceof Error ? err.message : String(err);
+        if (/already exists/i.test(msg)) {
+          restoredEdges.push(e);
+          edgeOk += 1;
+        } else {
+          edgeFail += 1;
+        }
       }
     }
     // optimistic append — status coercion (running→idle) mirrors the server
@@ -1970,11 +2020,14 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     });
     const refused = res.failed.length;
     const coercedCount = coercedIds.size;
+    const recordCount = res.recordRestored?.length ?? 0;
     const bits: string[] = [
       `${restoredIds.size} of ${jobs.length} job${jobs.length === 1 ? "" : "s"} back on the canvas`,
     ];
     if (edgeOk > 0) bits.push(`${edgeOk} wire${edgeOk === 1 ? "" : "s"} reconnected`);
     if (edgeFail > 0) bits.push(`${edgeFail} wire${edgeFail === 1 ? "" : "s"} could not be reconnected`);
+    if (recordCount > 0)
+      bits.push(`${recordCount} run record${recordCount === 1 ? "" : "s"} re-attached — downstream jobs can see their inputs again`);
     if (coercedCount > 0)
       bits.push("the interrupted run came back as idle — start it again when ready");
     if (refused > 0) bits.push(`${refused} could not be restored`);
@@ -2429,33 +2482,116 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       });
       return;
     }
+    const fromName = fromJob?.name ?? "Job";
+    const toName = toJob?.name ?? "job";
+    // t359 — THE WIRE DRAWS NOW. The old flow awaited the full API round
+    // trip before set(); on a dev server that round trip can sit behind a
+    // cold route compile or a watcher rebuild for seconds, so the line the
+    // user just drew only appeared after an HMR remount — the field
+    // receipt「连线卡一会，hmr 热加载之后线才连上」. The edge id is minted
+    // CLIENT-side and sent along, so the optimistic wire and the persisted
+    // row share one id (a delete racing this creation hits the right row);
+    // persistence runs in the background and a rejection rolls the wire
+    // back with a toast.
+    const optimisticId = crypto.randomUUID();
+    unconfirmedEdges.add(optimisticId);
+    set({
+      edges: [
+        ...get().edges,
+        { id: optimisticId, fromJobId: from, toJobId: to, fromPort, toPort },
+      ],
+      pendingFrom: null,
+    });
+    // wire edits have no id-stable inverse (re-creating mints a new edge
+    // row) — they live outside the history stack and kill the redo branch
+    get().invalidateRedo();
+    toast({ title: "Connected", description: `${fromName} → ${toName}` });
     try {
       const { edge } = await api<{ edge: EdgeDTO }>("/api/edges", {
         method: "POST",
         headers: JSON_HEADERS,
-        body: JSON.stringify({ fromJobId: from, toJobId: to, fromPort, toPort }),
+        body: JSON.stringify({
+          id: optimisticId,
+          fromJobId: from,
+          toJobId: to,
+          fromPort,
+          toPort,
+        }),
       });
-      set({ edges: [...get().edges, edge], pendingFrom: null });
-      // wire edits have no id-stable inverse (re-creating mints a new edge
-      // row) — they live outside the history stack and kill the redo branch
-      get().invalidateRedo();
-      const fromName = fromJob?.name ?? "Job";
-      const toName = toJob?.name ?? "job";
-      toast({ title: "Connected", description: `${fromName} → ${toName}` });
+      // deleted while the POST was in flight — the user already saw the
+      // wire go; finish the job now that the row is real
+      if (doomedCreates.delete(optimisticId)) {
+        void api(`/api/edges/${edge.id}`, { method: "DELETE" }).catch(() => {});
+        return;
+      }
+      // the server stays the truth for auto-wired ports, and for the id
+      // when a legacy caller skipped ours — swap only on a real difference
+      if (
+        edge.id !== optimisticId ||
+        edge.fromPort !== fromPort ||
+        edge.toPort !== toPort
+      ) {
+        set({
+          edges: get().edges.map((e) => (e.id === optimisticId ? edge : e)),
+        });
+      }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to connect";
-      toast({ title: "Connection refused", description: msg, variant: "destructive" });
+      const doomed = doomedCreates.delete(optimisticId);
+      if (doomed) {
+        // the wire was deleted while its POST was in flight — the delete
+        // already stood optimistically; never resurrect it
+      } else if ((err as Error & { status?: number }).status === 409) {
+        // the row IS there — an earlier attempt persisted it but its
+        // response never made it back (dev-server compile window, reload).
+        // Adopt the server's truth instead of rolling back into a store
+        // that would keep hiding a live wire.
+        try {
+          const fresh = await api<{ edges: EdgeDTO[] }>("/api/edges");
+          set({ edges: fresh.edges });
+        } catch {
+          set({ edges: get().edges.filter((e) => e.id !== optimisticId) });
+          toast({
+            title: "Connection refused",
+            description: err instanceof Error ? err.message : "Failed to connect",
+            variant: "destructive",
+          });
+        }
+      } else {
+        set({ edges: get().edges.filter((e) => e.id !== optimisticId) });
+        const msg = err instanceof Error ? err.message : "Failed to connect";
+        toast({ title: "Connection refused", description: msg, variant: "destructive" });
+      }
+    } finally {
+      unconfirmedEdges.delete(optimisticId);
     }
   },
 
   removeEdge: async (id) => {
+    const victim = get().edges.find((e) => e.id === id);
+    if (!victim) return; // already gone (a second click on a dying chip)
+    // t359 — THE WIRE VANISHES NOW (same receipt as connect: never make
+    // the visible canvas wait on an API round trip); persistence runs in
+    // the background and a real failure restores it with a toast.
+    set({ edges: get().edges.filter((e) => e.id !== id) });
+    get().invalidateRedo();
+    toast({ title: "Edge removed" });
+    if (unconfirmedEdges.has(id)) {
+      // its POST is still in the air — a DELETE now would 404 against a row
+      // that does not exist yet and the landing POST would resurrect the
+      // wire as a ghost; mark it doomed and let connect()'s landing path
+      // fire the delete when the row is real
+      doomedCreates.add(id);
+      return;
+    }
     try {
       await api(`/api/edges/${id}`, { method: "DELETE" });
-      set({ edges: get().edges.filter((e) => e.id !== id) });
-      get().invalidateRedo();
-      toast({ title: "Edge removed" });
+      // 404 = the row was already gone server-side — the wire IS removed,
+      // exactly what was asked; anything else restores it
     } catch (err) {
-      errToast(err instanceof Error ? err.message : "Failed to remove edge");
+      if ((err as Error & { status?: number }).status !== 404) {
+        set({ edges: [...get().edges, victim] });
+        errToast(err instanceof Error ? err.message : "Failed to remove edge");
+      }
     }
   },
 

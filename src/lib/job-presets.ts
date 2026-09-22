@@ -132,4 +132,18 @@ export const JOB_PRESETS: JobTypePreset[] = [
     params: { maxParticles: 5000 },
     note: "cap the stack for a pilot classification",
   },
+
+  /* ---------------- Import (t336) ------------------------------------ */
+  {
+    type: "cs2star",
+    preset: "Refined 3D particles",
+    params: { invertY: false },
+    note: "a CryoSPARC refinement/export job's .cs — Rodrigues angles, CTF and optics all carry over",
+  },
+  {
+    type: "cs2star",
+    preset: "Picked-only set",
+    params: { invertY: true },
+    note: "coordinates from cryoSPARC's own picker (bottom-left origin) — Y flipped for RELION, no alignments yet",
+  },
 ];

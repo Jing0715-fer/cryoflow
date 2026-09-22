@@ -397,4 +397,25 @@ export interface RemoteRunState {
    * the old contract.
    */
   dispatchedAtEpoch?: number;
+  /**
+   * t346 — the last poll sweep's run.out tail (≤4KB), carried home on the
+   * heartbeat so the log tab NEVER pays its own SSH round trip. Absent on
+   * records whose sweep has not landed yet (the log route then fetches on
+   * demand, rate-limited, and caches the result here).
+   */
+  logTailOut?: string;
+  /** t346 — the same sweep's run.err tail (≤2KB). */
+  logTailErr?: string;
+  /** t346 — epoch ms of the sweep that produced logTailOut/logTailErr. */
+  logTailAt?: number;
+  /** t346 — run.out's line count at the last sweep (the log tab's counter). */
+  logTotalLines?: number;
+  /**
+   * t346 — consecutive VANISHED ladder verdicts. A single empty
+   * squeue+sacct snapshot used to flip a running row to "interrupted
+   * remotely" (the field: the job was alive; the WIRE blinked). The flip
+   * now needs a STREAK (default 3) of consecutive verdicts — ALIVE, EXIT,
+   * SACCT or any real progress resets it to 0.
+   */
+  vanishedStreak?: number;
 }

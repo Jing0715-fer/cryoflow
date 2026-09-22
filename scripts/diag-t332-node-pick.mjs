@@ -20,9 +20,10 @@
  *      submit body carries it.
  *   3. ROUTE/ENGINE — nodelist sanitized like partition; the explicit
  *      pick WINS over the t300 single-host derivation; an explicit pin
- *      with NO picked partition SUPPRESSES the connection's default
- *      partition (--partition=normal + --nodelist=brain3 is a real
- *      controller's submit-time refusal — the node's own partition is
+ *      with NO picked partition RESOLVES the node's OWN partition from
+ *      scontrol and carries it (t340: the bare-pin suppression died on the
+ *      real cluster — the default partition does not hold the node; a
+ *      picked partition the node does not live in is a real controller's
  *      where it lands).
  *   4. MOCK — sbatch journals the pin (5th field of job-<id>.req) and
  *      scontrol accounts the job on THAT node, wherever its partition
@@ -218,9 +219,8 @@ try {
     "the explicit pin is slurm-only (direct mode has no scheduler to pin)"
   );
   must(
-    engineSrc.includes("const effectivePartition =\n    nodelist && partition == null ? null : (partition ?? conn.slurmPartition ?? null);") ||
-      /const effectivePartition =\s*\n?\s*nodelist && partition == null \? null : \(partition \?\? conn\.slurmPartition \?\? null\);/.test(engineSrc),
-    "the builder suppresses the connection's default partition under an explicit pin with no picked group"
+    engineSrc.includes("const effectivePartition =\n    suppressPartition || (nodelist && partition == null)\n      ? null\n      : (partition ?? conn.slurmPartition ?? null);"),
+    "the builder names the pin's RESOLVED partition (t340: scontrol's word); only an unknown home stays bare (suppressPartition)"
   );
 
   // --- the panel: the rows are picks ---
@@ -246,8 +246,8 @@ try {
     "the picking hint names the mechanism (--nodelist) and the release (click again)"
   );
   must(
-    /if \(pinned && !pinned\.partitions\.includes\(partition\)\) onPickNode\(null\);/.test(panelSrc),
-    "the mismatch guard releases a pin a later partition change would strand"
+    /t332\/t340 \u2014 the mismatch guard is RETIRED/.test(panelSrc),
+    "t340: the mismatch guard is RETIRED (it fired on the auto-initialized connection default and killed fresh pins — the dead pick); coherence moved server-side (scontrol's own word)"
   );
   must(
     panelSrc.includes("<MapPin") && /pinned \? "text-primary" : "text-foreground\/90"/.test(panelSrc),
@@ -276,8 +276,8 @@ try {
     "the preview AND the submit body both carry the real --nodelist (the preview is a promise the sbatch keeps)"
   );
   must(
-    /partition !== PARTITION_AUTO\s*\n?\s*\? partition\s*\n?\s*: nodePin\s*\n?\s*\? null\s*\n?\s*: \(conn\?\.slurmPartition \?\? null\)/.test(uiSrc),
-    "the preview's partition mirrors the engine's suppression (pin speaks; connection default stands down)"
+    /\? \(pickedNode\?\.partitions\?\.\[0\] \?\? null\)/.test(uiSrc),
+    "the preview's partition names the pin's OWN home (t340 — the same grammar the engine resolves server-side)"
   );
   must(
     /pickedNode && pickedNode\.gpuTotal > 0\s*\n?\s*\? pickedNode\.gpuTotal/.test(uiSrc),
@@ -311,7 +311,7 @@ try {
     const b = Buffer.alloc(1024);
     b.writeInt32LE(1024, 0);
     b.writeInt32LE(1024, 4);
-    b.writeInt32LE(1, 8);
+    b.writeInt32LE(4, 8); // NZ=4 — one section per referenced image (t338: the consumer gate refuses a star that outruns its stack)
     b.writeInt32LE(2, 12);
     b.writeInt32LE(1, 20);
     b.writeInt32LE(256, 44);
@@ -381,8 +381,12 @@ try {
   must(d1.status >= 200 && d1.status < 300, `the pinned dispatch answers (${d1.status})`);
   must(!d1.body?.error, `the pinned dispatch is ACCEPTED (${String(d1.body?.error ?? "").slice(0, 120)})`);
 
-  // the script's own words: the pin rides, the connection's default
-  // partition (normal) does NOT — the suppression the engine promises
+  // the script's own words (t340): the pin rides AND names the node's OWN
+  // partition (gpu — scontrol's word), NOT the connection's default
+  // 'normal'. The bare-pin suppression died with the field report: a
+  // --nodelist with no --partition falls to the cluster's DEFAULT
+  // partition, and a node that does not live there is refused at submit
+  // time — exactly the user's 「从node使用情况列表选择node时报错」.
   const script1 = await pollUntil(async () => {
     const s = scriptOf(c1);
     return s.includes("#SBATCH --nodelist=node03") ? s : null;
@@ -392,8 +396,8 @@ try {
     "the submitted script pins --nodelist=node03 (the usage-list pick, byte-shaped)"
   );
   must(
-    !/#SBATCH --partition=/.test(script1 ?? ""),
-    "NO --partition rides (the connection's default 'normal' is suppressed under the explicit pin)"
+    /#SBATCH --partition=gpu\b/.test(script1 ?? ""),
+    "the pin names the node's OWN partition (gpu — scontrol's word, not the connection's default 'normal')"
   );
   must(
     /# connection: .* · node node03/.test(script1 ?? ""),
@@ -438,14 +442,16 @@ try {
   // node node03 — the accounting's own source
   const req1 = await pollUntil(async () => {
     const newest = newestReq();
-    return newest && client(`cut -d'|' -f1,5 ${newest}`) === "|node03" ? newest : null;
+    return newest && client(`cut -d'|' -f1,5 ${newest}`) === "gpu|node03" ? newest : null;
   }, 30_000, 1500);
-  must(!!req1, `the journal's own row: partition empty · node node03 (${req1 ?? "not seen"})`);
+  must(!!req1, `the journal's own row: partition gpu · node node03 (${req1 ?? "not seen"})`);
 
-  // --- B2: PRECEDENCE — an explicit pick beats the single-host derivation ---
-  // partition=brain2 (a single-host group: pre-t332 code derived
-  // --nodelist=brain2 from it); with an explicit node03 BOTH flags ride
-  // and the PIN is node03 — the user's later, more specific choice speaks
+  // --- B2: THE CONTRADICTION (t340) — a picked partition the node does
+  // not live in is refused BEFORE staging. Pre-t340 the engine happily
+  // wrote --partition=brain2 + --nodelist=node03 and the mock accepted a
+  // composition a real controller refuses at submit time (the t332
+  // mismatch guard covers the dialog; the API door now gets the same
+  // teaching refusal from scontrol's own word).
   const c2 = await mkJob({
     projectId,
     type: "class2d",
@@ -459,17 +465,13 @@ try {
   const d2 = await dispatch(c2.id, {
     remote: { connectionId: CONN, module: "relion/5.0.1", mode: "slurm", gpus: 2, partition: "brain2", nodelist: "node03" },
   });
-  must(d2.status >= 200 && d2.status < 300, `the partition+pin dispatch answers (${d2.status})`);
-  const script2 = await pollUntil(async () => {
-    const s = scriptOf(c2);
-    return s.includes("#SBATCH --partition=brain2") ? s : null;
-  }, 60_000, 1500);
+  must(d2.status >= 200 && d2.status < 300, `the contradiction dispatch answers (${d2.status})`);
   must(
-    script2?.includes("#SBATCH --partition=brain2") && script2?.includes("#SBATCH --nodelist=node03"),
-    "precedence: partition=brain2 + explicit node03 → BOTH flags, and the pin is node03 (the derivation's brain2 loses)"
+    /lives in partition(s)? gpu — not brain2/.test(String(d2.body?.error ?? "")),
+    `the contradiction is REFUSED with the node's own homes named (${String(d2.body?.error ?? "").slice(0, 140)})`
   );
   const doneC2 = await awaitJobTerminal(c2.id, 180_000);
-  must(doneC2?.status === "completed", `the second class2d COMPLETES (${doneC2?.status})`);
+  must(doneC2?.status !== "running", `the contradiction never spawned anything (${doneC2?.status})`);
 
   // --- B3: DEGRADATION — a malformed hostname never reaches the script ---
   // the charset gate drops it at the route; with no partition the

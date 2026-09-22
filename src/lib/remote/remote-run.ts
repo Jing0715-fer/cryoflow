@@ -14,9 +14,13 @@
  *   reconcileRemoteJobs  one batched SSH poll per connection per few seconds:
  *                      alive? exit code? log tail → progress; on exit →
  *                      sync-back (download outputs into the LOCAL mirror
- *                      workdir, STAR-rewrite remote paths back) → the local
- *                      collectOutputs/finalize machinery runs unchanged →
- *                      downstream jobs auto-start, on the same cluster.
+ *                      workdir, STAR-rewrite remote paths back — t339: under
+ *                      the key-files policy the per-micrograph image
+ *                      producers sync METADATA ONLY, their stacks stay on
+ *                      the cluster, listed + fetchable on demand) → the
+ *                      local collectOutputs/finalize machinery runs
+ *                      unchanged → downstream jobs auto-start, on the same
+ *                      cluster.
  *   remoteLogTail      live log tail for the log tab (fetched over SSH).
  *   remoteStopRun      kill the cluster-side session (process group).
  *
@@ -48,7 +52,9 @@ import {
   collectOutputs,
   ctffindInputGate,
   describeExitCode,
+  extractInputGate,
   getRun,
+  micrographRowsFromContent,
   missingRemoteOutputKeys,
   normalizeClusterHost,
   parseJobParams,
@@ -67,12 +73,30 @@ import {
   type WaitKind,
 } from "@/lib/relion/engine";
 import { gpuStrategyFor } from "@/lib/hpc/slurm";
+import { nodeUnavailable, parseScontrolNodes, type SlurmNodeUsage } from "@/lib/hpc/slurm-usage";
 import { isLogAutopick } from "@/lib/relion/log-autopick";
 import { classifyRerunWipe } from "@/lib/hpc/cleanup";
+import { describeSyncSkipFile, describeSyncSkips, planSyncBack, type SyncSkip } from "./sync-policy";
+// t350 — the cryoSPARC-style per-class star flow (cluster-side split +
+// auto-joinstar combine)
+import { PER_CLASS_TYPES, splitPerClassStars, combineClassStars } from "./per-class";
 import { wipeLocalRunProducts } from "@/lib/relion/run-wipe";
 import { describeExtractCollisions, scanExtractCollisions, starIsArraySplittable } from "@/lib/relion/extract-collide";
+import {
+  PARTICLES_CONSUMER_TYPES,
+  particleRefsFromContent,
+  particlesRefGate,
+  particlesRefGateFromRefs,
+  refCandidates,
+  type ParticleRefRow,
+} from "@/lib/relion/particle-ref-gate";
 import { getConnection, loadConnections, patchConnection } from "./connections";
-import { writeRemoteManifest } from "./remote-files";
+import { writeRemoteManifest, readRemoteManifest } from "./remote-files";
+// t356 — the proactive class-image pipeline: after finalize the run's
+// class-average stacks render into the LOCAL preview cache (the user's
+// 「下载 mrcs 到本地，再转成图片」 architecture). iteration-live imports
+// engine/getRun at function scope only — no cycle at module-eval time.
+import { LIVE_ITERATION_TYPES, scheduleRemoteStackRenders } from "./iteration-live";
 import {
   deleteRemoteFiles,
   dropRemoteListingCache,
@@ -82,6 +106,7 @@ import {
 } from "./remote-cleanup";
 import { probeConnection } from "./probe";
 import {
+  dropConnection,
   exec,
   loginShellScript,
   remoteDownload,
@@ -108,10 +133,20 @@ import type {
 /** Engine-native types never run remotely (they are local fs bookkeeping). */
 const NATIVE_TYPES = new Set([
   "import", "mapimport", "manualpick", "select", "select2d", "symexpand", "rebalance",
+  "cs2star", // t336 — CryoSPARC conversion runs in-process (SSH for the cluster lane)
 ]);
 
 /** MPI-parallel types (mirrors engine's MPI_PARALLEL_TYPES). */
 const MPI_PARALLEL_TYPES = new Set(["class3d", "refine3d"]);
+
+/**
+ * t349 — job types whose engine argv names its OWN gpu flag (a flag the
+ * dispatch must NOT append `--gpu 0` to). modelangelo drives CUDA through
+ * model_angelo's own `-d <gpuId>`; appending relion's `--gpu` onto that
+ * argv hands the CLI a flag it does not know, and the run dies at argv
+ * parse (the width truth still grants the card: --gres=gpu:1 + t341/t342).
+ */
+const SELF_GPU_FLAG_TYPES = new Set(["modelangelo"]);
 
 const STAGE_MAP_FILE = path.join(DATA_DIR, "remote-stage-map.json");
 
@@ -119,6 +154,17 @@ export interface RemoteLogPayload {
   text: string;
   totalLines: number;
   truncated: boolean;
+  /**
+   * t347 — true when this answer carries NO log data of its own (a
+   * rate-limited window with nothing cached, the gap before the first
+   * heartbeat, or a failed wire with no cache). The UI then KEEPS its
+   * previously rendered text and shows a quiet toolbar hint — the old
+   * behavior (placeholder/empty text that replaced the console content)
+   * made the log visibly blank on every other refresh tick.
+   */
+  pending?: boolean;
+  /** Human note riding a pending answer (toolbar hint — never log content). */
+  note?: string;
 }
 
 export interface StartRemoteOutcome {
@@ -207,6 +253,237 @@ function mapRemoteToLocal(remotePath: string, remoteRoot: string): string {
     return path.join(RELION_DIR, remotePath.slice(root.length));
   }
   return remotePath;
+}
+
+/* ------------------------------------------------------------------ */
+/* t343 — the consumption-lane star reader                              */
+/* ------------------------------------------------------------------ */
+
+/** One resolved input STAR's read, in the lane the job will consume it in. */
+interface StarRead {
+  /** the star's text, or null when the lane's own door failed */
+  text: string | null;
+  /** which copy the job consumes — the SAME lane the staging derives below */
+  lane: "cluster" | "local";
+  /** the star's cluster-side address (the twin, else the mirror-mapped upload path) */
+  clusterHome: string | null;
+  /** the address the read attempted — the receipt names it */
+  readAt: string;
+  /** the cat/read failure's own word, when text is null */
+  err: string | null;
+}
+
+/**
+ * cat a file on the cluster; on failure, the channel's own honest word.
+ *
+ * t345 — the read that must not lie about a live file. The field report:
+ * the gate's own receipt said "particles star unreadable … timeout after
+ * 15000ms" while relion itself parsed the very same bytes on the cluster
+ * moments later — the wire was slow, the file was fine. A 15s budget for
+ * one exec channel (sshd fork + the login shell's profile + a cat off a
+ * loaded network filesystem + the transfer back) starves exactly when
+ * the login node is busiest, and a pooled connection that silently died
+ * hangs its first exec until the budget burns (keepalive needs 4×15s to
+ * notice). So: a 90s budget, and ONE redial retry on SSH-level failures
+ * — dropConnection forces the next exec onto a fresh TCP+auth wire. A
+ * clean "No such file" is the FILE's own verdict; re-dialing cannot
+ * change it, so only timeout/channel/socket words earn the second shot.
+ */
+async function catRemote(conn: RemoteConnection, p: string): Promise<{ text: string | null; err: string | null }> {
+  let lastErr: string | null = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if (attempt > 0) {
+      dropConnection(conn.id); // fresh wire — the next exec re-dials
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    try {
+      const cat = await exec(conn, `cat ${shSingleQuote(p)}`, { timeoutMs: 90_000 });
+      if (!cat.error && cat.code === 0) return { text: cat.stdout, err: null };
+      // the exec channel is a LOGIN shell: the .bashrc noise prints first,
+      // the cat's own word lands last — that last line is the honest reason
+      // ("cat: /…: No such file or directory"). Keep its TAIL: the reason
+      // rides AFTER the path, and the path is already in the note via
+      // readAt — a head slice on a deep cluster path cuts the reason off
+      // (the t343 field receipt showed exactly that: "…particles.st", 120
+      // chars in, no reason in sight).
+      const why = (cat.stderr || "").trim().split("\n").pop() ?? "";
+      lastErr = cat.error ?? `exit ${cat.code}${why ? `: ${why.slice(-140)}` : ""}`;
+    } catch (e) {
+      lastErr = e instanceof Error ? e.message : String(e);
+    }
+    const sshLevel = /timeout|channel|socket|ECONN|closed/i.test(lastErr ?? "");
+    if (!sshLevel) break; // the file's own verdict — a redial cannot change it
+  }
+  return { text: null, err: lastErr };
+}
+
+/**
+ * t346 — the star census that never moves the star: ONE awk pass over the
+ * file IN PLACE on the cluster returns one line per UNIQUE stack path with
+ * that stack's largest image number (`CF_REF\t<path>\t<max>`) plus the
+ * total row count. The pre-t346 gate catted the whole particles.star
+ * (tens of MB on a real extraction) over the SSH wire to parse it locally
+ * — the exact network transfer the "cluster-native" doctrine forbids, and
+ * the 15s-timeout class of dispatch stall. The awk program is POSIX
+ * (no gawk extensions); its budget and redial ladder mirror catRemote's
+ * (90s, one fresh-wire retry on SSH-level failures only).
+ */
+async function clusterParticleRefCensus(
+  conn: RemoteConnection,
+  p: string
+): Promise<{ rows: ParticleRefRow[] | null; total: number; err: string | null }> {
+  // one row per unique ref path → its max image number. `/^[0-9]+@/` is the
+  // same shape particleRefsFromContent parses (`^\d{1,9}@\S+`) minus the
+  // bound — header lines (_, #, data_, loop_) never start with digits.
+  const awk =
+    `awk '` +
+    `/^[0-9]+@/ { ` +
+    `at = index($0, "@"); ` +
+    `img = substr($0, 1, at - 1) + 0; ` +
+    `ref = substr($0, at + 1); ` +
+    `sub(/[ \\t].*$/, "", ref); ` +
+    `if (ref != "") { if (!(ref in mx) || img > mx[ref]) mx[ref] = img; n++ } ` +
+    `} ` +
+    `END { ` +
+    `for (r in mx) printf "CF_REF\\t%s\\t%d\\n", r, mx[r]; ` +
+    `printf "CF_TOTAL\\t%d\\n", n ` +
+    `}' ${shSingleQuote(p)}`;
+  let lastErr: string | null = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if (attempt > 0) {
+      dropConnection(conn.id); // fresh wire — same ladder as catRemote
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    try {
+      const res = await exec(conn, awk, { timeoutMs: 90_000 });
+      if (!res.error && res.code === 0) {
+        const rows: ParticleRefRow[] = [];
+        let total = 0;
+        for (const line of res.stdout.split("\n")) {
+          if (line.startsWith("CF_REF\t")) {
+            const seg = line.split("\t");
+            const image = Number(seg[2]);
+            const ref = (seg[1] ?? "").trim();
+            if (ref && Number.isFinite(image) && image > 0) rows.push({ image, ref });
+          } else if (line.startsWith("CF_TOTAL\t")) {
+            total = Number(line.split("\t")[1]) || 0;
+          }
+        }
+        return { rows, total, err: null };
+      }
+      const why = (res.stderr || "").trim().split("\n").pop() ?? "";
+      lastErr = res.error ?? `exit ${res.code}${why ? `: ${why.slice(-140)}` : ""}`;
+    } catch (e) {
+      lastErr = e instanceof Error ? e.message : String(e);
+    }
+    const sshLevel = /timeout|channel|socket|ECONN|closed/i.test(lastErr ?? "");
+    if (!sshLevel) break; // the file's own verdict (missing, unreadable)
+  }
+  return { rows: null, total: 0, err: lastErr };
+}
+
+/**
+ * t343 — read a resolved input STAR from the lane the job will actually
+ * consume it in, and ONLY that lane.
+ *
+ * The t342 reader brute-forced an order — local copy → cluster twin →
+ * mirror-mapped → path as-is — because it trusted no single address. But
+ * the address IS deterministic, and this file already knows it: the twin
+ * map IS the staging's own lane decision (one map, both consumers — a hit
+ * means the staging uploads NOTHING and the argv runs against the cluster
+ * twin in place; a miss means the LOCAL file is the exact bytes that will
+ * upload, and the staging refuses the dispatch when it is missing).
+ * Reading in any other order verifies bytes the job never touches, in
+ * both directions:
+ *
+ *   • twin lane, local-first: a STALE local mirror (the sync-back lagged,
+ *     died mid-download, or a cleanup swept the mirror tree) would earn a
+ *     false "verified" while relion reads the CLUSTER copy — the exact
+ *     lie the gates exist to prevent, told about the wrong generation.
+ *   • upload lane, cluster-walk: nothing the cluster holds can change the
+ *     staging's own "input does not exist locally" refusal one SSH round
+ *     trip later — the walk only delayed the same door.
+ *
+ * So the local mirror is deliberately NOT a candidate in the twin lane,
+ * and the cluster is deliberately NOT a candidate in the upload lane.
+ * When a lane's own door fails, the receipt names THAT address and the
+ * door's own word (the t313 rule: honest note, never a block).
+ */
+async function readResolvedStarText(
+  conn: RemoteConnection,
+  starPath: string,
+  twins: Map<string, string>,
+  remoteRoot: string,
+  opts?: { resolveOnly?: boolean }
+): Promise<StarRead> {
+  const localNorm = starPath.split(path.sep).join("/");
+  const mirrorRoot = RELION_DIR.split(path.sep).join("/");
+  const twin = twins.get(localNorm);
+  const underMirror = localNorm.startsWith(mirrorRoot + "/");
+  // the star's cluster-side home either way: the twin when the input runs
+  // in place, else the mirror-mapped path the staging's upload rides (the
+  // t338 ref resolver anchors star-relative refs on this dir — and with
+  // it, the upload lane can finally judge the mock's star-relative dialect
+  // too, not just the twin lane)
+  const clusterHome = twin ?? (underMirror ? mapLocalToRemote(starPath, remoteRoot) : null);
+  if (twin) {
+    // THE TWIN LANE — the cluster copy in place is what this job consumes
+    // (the staging skip and the argv's twin preference key off this very
+    // map entry; an identity entry IS the cluster path already). The
+    // local mirror is never consulted here.
+    if (opts?.resolveOnly) {
+      // t346 — the census lane: resolve WHICH bytes the job consumes
+      // without moving them; the cluster-side awk pass reads them there.
+      return { text: null, lane: "cluster", clusterHome, readAt: twin, err: null };
+    }
+    const cat = await catRemote(conn, twin);
+    return { text: cat.text, lane: "cluster", clusterHome, readAt: twin, err: cat.err };
+  }
+  // THE UPLOAD LANE — no twin on this connection: the LOCAL file is the
+  // exact bytes the staging uploads next (it refuses the dispatch when
+  // they are missing, so no cluster address can rescue this read).
+  try {
+    return { text: readFileSync(starPath, "utf8"), lane: "local", clusterHome, readAt: starPath, err: null };
+  } catch (e) {
+    return {
+      text: null,
+      lane: "local",
+      clusterHome,
+      readAt: starPath,
+      err: e instanceof Error ? e.message : String(e),
+    };
+  }
+}
+
+/**
+ * The lane-honest unreadable sentence — the note names THE door, not a
+ * shrug. t345: a TIMEOUT gets its own advice — "re-run the upstream job"
+ * sends the user to regenerate a file that is not missing (the field:
+ * relion read it fine on the cluster a moment later; only our SSH wire
+ * starved). The timeout word names the wire, not the file.
+ */
+function starUnreadableNote(what: "micrographs" | "particles", rd: StarRead): string {
+  if (rd.lane === "cluster") {
+    const timedOut = /timeout/i.test(rd.err ?? "");
+    return (
+      `${what} star unreadable on the cluster — this job reads it in place at ${rd.readAt} ` +
+      `(a cluster-native input uploads nothing) and that read failed${rd.err ? `: ${rd.err}` : ""}` +
+      (timedOut
+        ? `; the read TIMED OUT — the SSH wire was slow (a busy login node or a stale connection), the file was NOT reported missing, and this job may well read it fine on the cluster; simply run again, or check the login node's load`
+        : `; if the file is gone, re-run the upstream job to regenerate it`)
+    );
+  }
+  return (
+    `${what} star unreadable — the local copy this dispatch would upload (${rd.readAt}) is missing` +
+    `${rd.err ? `: ${rd.err.slice(-140)}` : ""}; run the upstream job again`
+  );
+}
+
+/** The lane suffix for a SUCCESS receipt — WHICH bytes were judged. */
+function starLaneSuffix(rd: StarRead): string {
+  return rd.lane === "cluster"
+    ? ` (the star was read in place on the cluster at ${rd.readAt} — the copy this job consumes; nothing uploads for it)`
+    : ` (the star was read from the local copy this dispatch uploads)`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -689,6 +966,20 @@ function connLastPartitionHosts(connId: string, partition: string): string[] | n
 }
 
 /**
+ * t340 — which probe-inventory group lists this host. A usage-list pin
+ * whose scontrol round stayed silent (SSH blip, no scontrol) still deserves
+ * its own partition from the LAST probe's sinfo hostlists — the fallback
+ * ladder for the pin's partition resolution. null = the probe never saw
+ * the host (truly unknown — the submission stays bare --nodelist).
+ */
+function probePartitionOfHost(connId: string, host: string): string | null {
+  const groups = getConnection(connId)?.lastProbe?.slurmGpus ?? null;
+  if (!groups) return null;
+  const g = groups.find((x) => x.hosts?.includes(host));
+  return g?.partition ?? null;
+}
+
+/**
  * t311 — the GPUs-per-node the probe's sinfo inventory resolved for ONE
  * partition. null = unknown (no probe / stale probe / bare API caller) —
  * the 8-wide cap stands, never a fabricated limit.
@@ -705,9 +996,9 @@ function connPartitionGpus(connId: string, partition: string): number | null {
  * sbatch6gpu.sh submission idiom (OpenHPC + Slurm + Lmod clusters):
  *
  *   #SBATCH --nodes=1
- *   #SBATCH --ntasks=<gpus>          ← one MPI rank per GPU
+ *   #SBATCH --ntasks=<gpus+1>      ← t349: 1 CPU master + one worker per GPU
  *   #SBATCH --gres=gpu:<gpus>
- *   … mpirun -n <gpus> relion_* … --gpu 0:1:…:N-1
+ *   … mpirun -n <gpus+1> relion_* … one CUDA_VISIBLE_DEVICES per worker rank
  *
  * t311 — NO --mem line, deliberately. The user's cluster REJECTED the
  * memory spec we used to emit (--mem=16+12×gpus G):
@@ -797,18 +1088,52 @@ function buildSbatchScript(args: {
   } | null;
   /** t313 — the CTF gate's "allowed" receipt (SBATCH --output captures it) */
   note?: string | null;
+  /**
+   * t342 — true when the command the script will run actually carries
+   * --gpu (the GPU is load-bearing): the starved-card refusal and the
+   * rank↔GPU coherence ride only those jobs. A CPU job that merely
+   * HOLDS a --gres grant (extract shards, LoG picking) is never refused
+   * for a busy card it would not have used.
+   */
+  gpuJob?: boolean;
+  /**
+   * t342 — the MPI width the argv asked for (null/1 = no rank pile-up
+   * possible). When ≥2 the rank count becomes the script's own
+   * CF_RANKS variable and the per-rank card launcher
+   * (.cf-rank-launch.sh + CF_DEVICE_SET) takes over the binding —
+   * clamped at launch to the GPUs the job can actually see — a 1-GPU
+   * world must never run two ranks on its single card.
+   */
+  mpiRanks?: number | null;
+  /**
+   * t340 — true when the caller resolved NO partition for an explicit
+   * node pin (neither scontrol nor the probe knows the node's home): the
+   * script then carries the BARE --nodelist and deliberately names no
+   * partition — the cluster's default decides. The connection's own
+   * default must NOT ride along (a --partition=normal + --nodelist=brain3
+   * combo is REFUSED at submit time on real controllers — the node lives
+   * in brain, not normal). Callers that DID resolve the pin's partition
+   * pass it as `partition` and leave this false — the pin and the group
+   * dropdown then land the same composition.
+   */
+  suppressPartition?: boolean;
 }): string {
-  const { conn, module: moduleName, relionHome, ctffind, command, gpus, ntasks, threads, jobName, remoteProjectRoot, remoteWorkdir, partition, nodelist, dependency, array, note } = args;
-  // t332 — an explicit node pin with NO picked partition speaks for
-  // itself: the connection's default partition must not ride along (a
-  // --partition=normal + --nodelist=brain3 combo is REFUSED at submit
-  // time on real controllers — the node lives in brain, not normal). The
-  // node's own partition is where it lands; --nodelist alone says exactly
-  // that. This arm is only reachable for the EXPLICIT pin: the t300
-  // derivation only fires when a partition was picked, so `partition` is
-  // non-null there and the suppression never engages.
+  const { conn, module: moduleName, relionHome, ctffind, command, gpus, ntasks, threads, jobName, remoteProjectRoot, remoteWorkdir, partition, nodelist, dependency, array, note, suppressPartition, gpuJob, mpiRanks } = args;
+  // t332/t340 — the partition this sbatch names:
+  //   · an explicit pin whose partition the caller RESOLVED → that
+  //     partition (scontrol's own word — the dropdown equivalence);
+  //   · an explicit pin whose partition NOBODY knows (suppressPartition,
+  //     or the bare-API shape nodelist-without-partition) → NO partition
+  //     line: the cluster's default decides, and the connection's own
+  //     default must not ride along (a wrong --partition + --nodelist is a
+  //     guaranteed submit-time refusal where a missing one merely lets
+  //     the default partition speak);
+  //   · everything else → the picked partition, else the connection's
+  //     default (the pre-t340 behavior, unchanged).
   const effectivePartition =
-    nodelist && partition == null ? null : (partition ?? conn.slurmPartition ?? null);
+    suppressPartition || (nodelist && partition == null)
+      ? null
+      : (partition ?? conn.slurmPartition ?? null);
   const L: string[] = [];
   L.push("#!/bin/bash");
   L.push("# CryoFlow Slurm submission — generated locally, submitted on the cluster");
@@ -861,6 +1186,260 @@ function buildSbatchScript(args: {
   }
   L.push('command -v relion_refine >/dev/null 2>&1 || { echo "CRYOFLOW_ERR: relion_refine not found on PATH after module load" >&2; exit 127; }');
   L.push("");
+  // t341 — pin the ranks to the GPUs the scheduler actually GRANTED. On
+  // cgroup-isolated clusters slurmd already exports CUDA_VISIBLE_DEVICES
+  // (nothing to do); on clusters that grant --gres GPUs WITHOUT device
+  // cgroups every card on the node stays visible, and RELION's logical
+  // "--gpu 0:1:…" then addresses PHYSICAL devices 0..N-1 — cards the
+  // scheduler may have handed to another job (the field report: a 2D
+  // classification dead 30s in, CUDA out-of-memory, no error tail — the
+  // allocator lost a card someone else's run owned). Slurm ≥ 20.11 with
+  // GresAutoDetect exports GPU_DEVICE_ORDINAL naming the granted set;
+  // older controllers may set SLURM_JOB_GPUS instead. Only an UNSET
+  // CUDA_VISIBLE_DEVICES is patched — never fight the cluster's own
+  // isolation — and the pin is a no-op wherever neither variable exists.
+  if (gpus > 0) {
+    L.push("# ---- t341: pin to the granted GPUs (no-op where cgroups isolate) ----");
+    L.push('if [ -z "${CUDA_VISIBLE_DEVICES:-}" ]; then');
+    L.push('  if [ -n "${GPU_DEVICE_ORDINAL:-}" ]; then');
+    L.push('    export CUDA_VISIBLE_DEVICES="${GPU_DEVICE_ORDINAL}"');
+    L.push('  elif [ -n "${SLURM_JOB_GPUS:-}" ]; then');
+    L.push('    export CUDA_VISIBLE_DEVICES="${SLURM_JOB_GPUS}"');
+    L.push("  fi");
+    L.push("fi");
+    L.push("");
+  }
+  // ---- t345 — one rank, one card: pinned per rank, not parsed by RELION --
+  // History: t342 clamped the rank count to nvidia-smi's card count and
+  // handed RELION its own colon list (--gpu 0:1:…). Two field runs since
+  // — mpirun -n 2, then a six-rank class2d — put EVERY rank on device 0
+  // anyway: six identical "Will distribute threads over devices 0"
+  // banners, the shared card bled 156 → 40 → 37 → 34 MB free and the
+  // allocator died in setupTunableSizedObjects (custom_allocator.cuh:436).
+  // The node had cards to spare — no clamp fired; RELION's --gpu colon
+  // grammar simply did not survive contact with that build. The t345
+  // contract stops hoping a parser splits our ranks: the script writes a
+  // tiny per-rank launcher (.cf-rank-launch.sh) that hands each MPI rank
+  // its OWN CUDA_VISIBLE_DEVICES — one entry of the job's device set, by
+  // rank index — and relion runs "--gpu 0" inside a world with exactly
+  // one visible card. Piling N ranks onto one card becomes physically
+  // impossible: the driver hides the other cards.
+  //
+  // The device set's truth, in order:
+  //   · CUDA_VISIBLE_DEVICES set (cgroup-isolated clusters, or the t341
+  //     pin above) → exactly those entries, as granted — never widened;
+  //   · else nvidia-smi's own index list, QUIETEST-CARD-FIRST (free
+  //     memory descending — a shared node's card 0 is everyone's default
+  //     and the starved one; the idle cards earn the ranks);
+  //   · nvidia-smi answers nothing and no CVD → the BLIND case: ONE rank
+  //     (a pile-up needs ≥2) with a note naming the blindness.
+  // The rank count clamps to the visible set — t342's blade, now measured
+  // against the CUDA-visible world instead of the node's physical
+  // inventory (a cgroup grant of one card runs one rank even on an
+  // 8-GPU node: nvidia-smi counts hardware, CUDA_VISIBLE_DEVICES counts
+  // what THIS job may touch). The starved-card refusal (t342) stays,
+  // checking exactly the cards the launcher will pin.
+  if (gpuJob) {
+    if (mpiRanks && mpiRanks > 1) {
+      // t349 — CF_RANKS counts the MASTER TOO (width + 1): rank 0 is the
+      // CPU master, ranks 1..N-1 the workers, one per card. Every clamp
+      // and receipt below speaks WORKERS (CF_RANKS - 1), because the
+      // master needs no card — only the workers' pile-ups ever OOMed.
+      L.push("# ---- t345/t349: 1 CPU master + one worker per card — the device set + the clamp ----");
+      L.push(`CF_RANKS=${mpiRanks}`);
+      L.push('if [ -n "${CUDA_VISIBLE_DEVICES:-}" ]; then');
+      L.push('  CF_DEVICE_SET="$(echo "$CUDA_VISIBLE_DEVICES" | tr -d " ")"');
+      L.push("else");
+      L.push('  CF_DEVICE_SET="$(nvidia-smi --query-gpu=index,memory.free --format=csv,noheader,nounits 2>/dev/null | sort -s -t, -k2 -nr | cut -d, -f1 | paste -sd, -)"');
+      L.push('  if [ -z "$CF_DEVICE_SET" ]; then');
+      L.push('    CF_DEVICE_SET="$(nvidia-smi -L 2>/dev/null | grep "^GPU " | awk \'{print $2}\' | tr -d : | paste -sd, -)"');
+      L.push("  fi");
+      L.push("fi");
+      // "none"/empty is CUDA's own word for NO device — count it as such
+      L.push('case "$CF_DEVICE_SET" in ""|none|NONE) CF_DEVICE_SET="" ;; esac');
+      L.push("CF_VISIBLE=0");
+      L.push('[ -n "$CF_DEVICE_SET" ] && CF_VISIBLE=$(echo "$CF_DEVICE_SET" | tr "," "\n" | grep -c .)');
+      L.push('if [ "$CF_VISIBLE" -ge 1 ] && [ "$CF_VISIBLE" -lt "$((CF_RANKS - 1))" ]; then');
+      L.push('  echo "CRYOFLOW_NOTE: this job asked for $((CF_RANKS - 1)) GPU worker(s) plus 1 CPU master but only $CF_VISIBLE GPU(s) are visible to it${CUDA_VISIBLE_DEVICES:+ (CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES)} — clamping to $CF_VISIBLE worker(s) + the master (two workers on one card exhaust its memory and hang the first Expectation step)"');
+      L.push("  CF_RANKS=$((CF_VISIBLE + 1))");
+      L.push("fi");
+      L.push('if [ "$CF_VISIBLE" -eq 0 ]; then');
+      L.push('  echo "CRYOFLOW_NOTE: this job cannot see any GPU from inside the allocation (no CUDA_VISIBLE_DEVICES, and nvidia-smi answered nothing) — running ONE rank instead of $CF_RANKS (1 master + $((CF_RANKS - 1)) workers): a pile-up needs two workers on one card, and that is the exact OOM this guard exists for. Give the compute image nvidia-smi (or a CUDA_VISIBLE_DEVICES grant) to use the full width (t345)"');
+      L.push("  CF_RANKS=1");
+      L.push("fi");
+      // the runtime truth the ranks read (post-clamp rank count + device
+      // set), written NEXT TO the launcher — a rank never depends on
+      // mpirun's environment forwarding (OpenMPI/MPICH forward by
+      // default, but a site wrapper with an env allowlist would silently
+      // strip CF_* and every rank would see every card again).
+      //
+      // t346 — the file now also carries the batch shell's FULL exported
+      // environment (`export -p`): PRRTE (OpenMPI 5 — the user's cluster
+      // runs prterun) does NOT guarantee environment forwarding to a
+      // non-MPI app like this launcher. A stripped rank used to lose
+      // PATH/RELION_*/LD_LIBRARY_PATH from `module load`, and `exec
+      // relion_refine …` died "command not found" before the first banner
+      // — the field shape: log silent, then failed, cards idle. The dump
+      // is taken AFTER module load + the t341 pin, and the launcher's own
+      // per-rank CUDA_VISIBLE_DEVICES override lands AFTER the source, so
+      // last-write-wins is the rank's own card. bash's `export -p` emits
+      // `declare -x` lines — valid bash, and the launcher IS bash.
+      L.push(`export -p > ${shQuote(remoteWorkdir + "/.cf-rank-env")}`);
+      L.push(`{ echo "CF_RANKS_NOW=$CF_RANKS"; echo "CF_DEVICE_SET=$CF_DEVICE_SET"; } >> ${shQuote(remoteWorkdir + "/.cf-rank-env")}`);
+      L.push("");
+      // the launcher itself — static content, regenerated every dispatch
+      // (the t333 wipe sweeps the old copy; a re-run rewrites it)
+      L.push(`cat > ${shQuote(remoteWorkdir + "/.cf-rank-launch.sh")} <<'CF_LAUNCH_EOF'`);
+      L.push("#!/bin/bash");
+      L.push('# t345 — the per-rank card pin. RELION\'s --gpu colon grammar did not');
+      L.push("# split ranks in the field (every rank landed on device 0); this");
+      L.push("# launcher hands each MPI rank its OWN CUDA_VISIBLE_DEVICES — one");
+      L.push("# entry of the job's device set, by rank index — and the relion argv");
+      L.push("# runs \"--gpu 0\" inside a world with exactly one visible card.");
+      // t346 — ${0%/*} is PURE BASH: under a stripped environment (PRRTE's
+      // non-forwarding world, the mpi-strip-env mock) there is no PATH and
+      // `dirname` would die before the env dump restores the world. mpirun
+      // launches the absolute path from our argv, so $0 always carries its
+      // directory.
+      L.push('case "$0" in */*) CF_LAUNCH_DIR="${0%/*}" ;; *) CF_LAUNCH_DIR="." ;; esac');
+      L.push('if [ -f "$CF_LAUNCH_DIR/.cf-rank-env" ]; then');
+      L.push('  . "$CF_LAUNCH_DIR/.cf-rank-env"');
+      L.push("fi");
+      L.push('R="${OMPI_COMM_WORLD_RANK:-${PMIX_RANK:-${PMI_RANK:-${SLURM_PROCID:-}}}}"');
+      L.push('RANKS_NOW="${CF_RANKS_NOW:-1}"');
+      L.push('if [ -z "$R" ] && [ "$RANKS_NOW" -ge 2 ]; then');
+      L.push('  echo "CRYOFLOW_ERR: the rank launcher could not read its MPI rank index (tried OMPI_COMM_WORLD_RANK, PMIX_RANK, PMI_RANK, SLURM_PROCID) — refusing to guess: every rank guessing 0 is exactly how they pile onto one card (t345)" >&2');
+      L.push("  exit 97");
+      L.push("fi");
+      L.push('if [ "$RANKS_NOW" -ge 2 ] && [ "${R:-0}" -ge 1 ]; then');
+      // t349 — worker ranks are 1..N-1 (rank 0 is RELION's CPU master,
+      // which never touches a card: data I/O, batch dispatch, the
+      // Maximization step). Worker r pins to the (r-1)-th entry of the
+      // quietest-first device set — one worker per card, every card
+      // earns a worker (the old n = width lane left the master's card
+      // idle: a 4-card job computed with 3).
+      L.push('  DEV="$(echo "${CF_DEVICE_SET:-}" | tr -d " " | cut -d, -f${R})"');
+      L.push('  if [ -z "$DEV" ]; then');
+      L.push('    echo "CRYOFLOW_ERR: the device set \"${CF_DEVICE_SET:-}\" names no card for worker rank ${R:-0} — refusing to run unpinned (unpinned ranks pile onto card 0, t345)" >&2');
+      L.push("    exit 96");
+      L.push("  fi");
+      L.push('  export CUDA_VISIBLE_DEVICES="$DEV"');
+      L.push('  echo "CRYOFLOW_RANK_BIND: rank ${R:-0} -> CUDA_VISIBLE_DEVICES=$DEV (worker — one worker per card, t349)"');
+      L.push('elif [ "$RANKS_NOW" -ge 2 ]; then');
+      L.push('  echo "CRYOFLOW_RANK_BIND: rank 0 (RELION master — CPU-only: batch dispatch + class reconstruction) -> no card pin; the workers own the cards (t349)"');
+      L.push("else");
+      L.push('  echo "CRYOFLOW_RANK_BIND: rank ${R:-0} -> CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-<as the node left it>} (single rank, t345)"');
+      L.push("fi");
+      // t346 — resolve the binary through the RESTORED environment: a
+      // rank whose PATH was stripped (PRRTE non-forwarding) still finds
+      // relion via the .cf-rank-env dump; an already-absolute $1 passes
+      // through command -v verbatim; a genuinely missing binary keeps its
+      // original name in the exec's own error (the honest verdict).
+      L.push('if [ "$#" -gt 0 ]; then');
+      L.push('  __cfbin="$(command -v -- "$1" 2>/dev/null || true)"');
+      L.push('  [ -n "$__cfbin" ] && set -- "$__cfbin" "${@:2}"');
+      L.push("fi");
+      L.push('exec "$@"');
+      L.push("CF_LAUNCH_EOF");
+      L.push(`chmod +x ${shQuote(remoteWorkdir + "/.cf-rank-launch.sh")}`);
+      L.push("");
+    } else {
+      // ---- t349 — single-rank GPU jobs: the quietest card, and array
+      // shards ROTATE. The t345 launcher owns the multi-rank case; the
+      // single-rank case used to run `--gpu 0` against whatever the node
+      // looked like — physical device 0 on clusters that grant --gres
+      // without device cgroups (exactly the field shape: concurrent array
+      // shards of one motioncorr all landing on card 0 while five cards
+      // idle). Two honest pins, both UNDER an unset-CVD guard so a
+      // cgroup-isolated cluster (or the t341 grant pin above, which runs
+      // FIRST) is never fought:
+      //   · an ARRAY task rotates: CUDA_VISIBLE_DEVICES = task_id % visible
+      //     cards — the %M concurrency cap spreads shards across cards
+      //     instead of stacking them;
+      //   · a lone single-GPU job takes the QUIETEST card (free memory
+      //     descending) — device 0 is everyone's default and the starved
+      //     one on a shared node.
+      // nvidia-smi absent → numbers fail their guards → no pin (t313
+      // fail-open: the job runs as the node left it, exactly as before).
+      L.push("# ---- t349: single-rank GPU pin — array shards rotate, loners take the quietest card ----");
+      L.push('if [ -z "${CUDA_VISIBLE_DEVICES:-}" ]; then');
+      L.push('  if [ -n "${SLURM_ARRAY_TASK_ID:-}" ]; then');
+      L.push('    CF_NGPU="$(nvidia-smi -L 2>/dev/null | grep -c "^GPU ")"');
+      L.push('    case "$CF_NGPU" in ""|*[!0-9]*) CF_NGPU=0 ;; esac');
+      L.push('    if [ "$CF_NGPU" -ge 2 ]; then');
+      L.push('      export CUDA_VISIBLE_DEVICES="$(( 10#${SLURM_ARRAY_TASK_ID} % CF_NGPU ))"');
+      L.push('      echo "CRYOFLOW_NOTE: array task ${SLURM_ARRAY_TASK_ID} pinned to GPU $CUDA_VISIBLE_DEVICES of $CF_NGPU visible — rotating concurrent shards across cards so they do not pile onto device 0 (t349)"');
+      L.push("    fi");
+      L.push("  else");
+      L.push('    CF_QUIET="$(nvidia-smi --query-gpu=index,memory.free --format=csv,noheader,nounits 2>/dev/null | sort -s -t, -k2 -nr | head -1 | cut -d, -f1 | tr -d " ")"');
+      L.push('    case "$CF_QUIET" in');
+      L.push('      ""|*[!0-9]*)');
+      L.push("        ;;");
+      L.push("      *)");
+      L.push('        export CUDA_VISIBLE_DEVICES="$CF_QUIET"');
+      L.push('        echo "CRYOFLOW_NOTE: single-GPU job with no CUDA_VISIBLE_DEVICES grant — pinned to GPU $CF_QUIET, the quietest card by free memory (device 0 is everyone\'s default and the first to starve, t349)"');
+      L.push("        ;;");
+      L.push("    esac");
+      L.push("  fi");
+      L.push("fi");
+      L.push("");
+    }
+    L.push("# ---- t342/t345: the starved-card refusal (fail in one second, not an hour) ----");
+    L.push("if command -v nvidia-smi >/dev/null 2>&1; then");
+    // t349 — the cards that matter are the WORKERS' (the first
+    // CF_RANKS-1 entries of the device set; the master is unpinned).
+    // A single-rank job keeps checking its one card.
+    L.push('  CF_WORKERS=$(( ${CF_RANKS:-1} - 1 )); [ "$CF_WORKERS" -lt 1 ] && CF_WORKERS=1');
+    L.push('  CF_CHECK_IDS=""');
+    L.push('  if [ -n "${CF_DEVICE_SET:-}" ]; then');
+    L.push('    CF_CHECK_IDS="$(echo "$CF_DEVICE_SET" | cut -d, -f1-$CF_WORKERS)"');
+    L.push('  elif [ -n "${CUDA_VISIBLE_DEVICES:-}" ]; then');
+    L.push('    CF_CHECK_IDS="$(echo "$CUDA_VISIBLE_DEVICES" | tr -d " " | cut -d, -f1-$CF_WORKERS)"');
+    L.push("  else");
+    L.push('    CF_CHECK_IDS="$(seq -s, 0 $(( CF_WORKERS - 1 )) )"');
+    L.push("  fi");
+    L.push('  CF_FREE_MB="$(nvidia-smi --id="$CF_CHECK_IDS" --query-gpu=memory.free --format=csv,noheader,nounits 2>/dev/null | sort -n | head -1 | tr -d " ")"');
+    L.push('  case "$CF_FREE_MB" in');
+    L.push('    ""|*[!0-9]*)');
+    L.push("      ;;");
+    L.push("    *)");
+    L.push('      if [ "$CF_FREE_MB" -lt 1000 ]; then');
+    L.push('        echo "CRYOFLOW_ERR: only ${CF_FREE_MB} MB free on the GPU(s) this job would use (${CF_CHECK_IDS}) — another process is holding the card(s):"');
+    L.push('        nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv 2>/dev/null || true');
+    L.push('        echo "CRYOFLOW_ERR: refusing to launch — RELION would print \\"WARNING: Ignoring required free GPU memory\\" and stall at its first Expectation step. Kill or scancel the holder PIDs above (squeue -u $USER finds Slurm-owned ones), or pick a quieter partition, then re-run (t342)"');
+    L.push(`        mkdir -p ${shQuote(remoteWorkdir)} 2>/dev/null || true`);
+    L.push(`        echo 98 > ${shQuote(remoteWorkdir + "/.cf-exit")}`);
+    L.push("        exit 98");
+    L.push('      elif [ "$CF_FREE_MB" -lt 2000 ]; then');
+    L.push('        echo "CRYOFLOW_NOTE: only ${CF_FREE_MB} MB free on the GPU(s) this job will use (${CF_CHECK_IDS}) — the card is shared; RELION may run slow (the dispatch refuses below 1000 MB)"');
+    L.push("      fi");
+    L.push("      ;;");
+    L.push("  esac");
+    L.push("fi");
+    L.push("");
+    // t348 — the multi-rank log, explained AT the confusion. The field
+    // report: a healthy 6-rank 2D classification's run.out read as 「几个
+    // GPU 重复执行了同一个任务」 — six copies of every banner interleaved
+    // into one file. That is the MPI shape, not duplication: N independent
+    // processes each print their OWN copy of every RELION banner/report
+    // (noise spectra, accuracy estimates, "Expectation iteration 1 of 20"),
+    // while the WORK is split — the Expectation step divides the particles
+    // across ranks, the Maximization step divides the classes. The per-rank
+    // "mapped to device 0" is equally normal since t345: each rank's
+    // private CUDA_VISIBLE_DEVICES world holds exactly one card, so 0 IS
+    // its own card (the RANK_BIND receipts above name the physical truth).
+    // One echo, printed only when ≥2 ranks are really starting (after the
+    // starved-card gate, with the post-clamp count) — every future run
+    // self-documents instead of earning a ticket.
+    if (mpiRanks && mpiRanks > 1) {
+      L.push('if [ "${CF_RANKS:-1}" -ge 2 ]; then');
+      L.push(
+        `  echo "CRYOFLOW_NOTE: starting $CF_RANKS MPI ranks — 1 CPU master (data I/O, particle-batch dispatch, class reconstruction) plus $((CF_RANKS - 1)) workers, ONE WORKER PER CARD (RELION's own np = nGPU + 1 layout, t349). Every rank prints its OWN copy of the RELION banners and reports into this log; the work is SPLIT across the workers (particles in the Expectation step, classes in the Maximization step), NOT repeated. Each worker's 'device 0' is that worker's own card inside its private CUDA_VISIBLE_DEVICES world — the CRYOFLOW_RANK_BIND receipts name the physical cards (t348)"`
+      );
+      L.push("fi");
+      L.push("");
+    }
+  }
   L.push("# ---- run ----");
   // t313 — the CTF gate's receipt lands at the TOP of run.out (SBATCH
   // --output captures the whole script's stdout)
@@ -1315,6 +1894,11 @@ export async function startRemoteJob(args: {
   // References (template matching) and Topaz (the CNN wrapper) keep the
   // GPU path untouched.
   const logPick = isLogAutopick(job.type, job.params);
+  // t311/t337 — the GPU-width clamp moved BELOW the connection gates (it
+  // now consults the node pin's live scontrol word and the connection's
+  // default partition too — see the t337 pre-flight block). The t311
+  // behavior (picked partition's probe inventory caps the width) survives
+  // as the fallback arm there.
   // t300 — the partition (detected node group) this sbatch pins. The run
   // route already sanitized the raw body; this is the second gate on the
   // engine side (bare API callers get the same clamps, never a raw string
@@ -1323,21 +1907,8 @@ export async function startRemoteJob(args: {
     isSlurm && typeof target.partition === "string" && /^[A-Za-z0-9_.-]{1,64}$/.test(target.partition)
       ? target.partition
       : null;
-  // t311 — the probe's own GPU inventory caps the width for the picked
-  // partition: a 5-GPU group cannot honor --gres=gpu:6, and Slurm answers
-  // that at submit time with "Requested node configuration is not
-  // available". The run dialog's stepper already clamps client-side; this
-  // is the same gate server-side (bare API callers, stale dialogs after a
-  // re-probe shrank a group). No inventory → the 8-wide cap stands.
-  if (isSlurm && partitionOverride != null) {
-    const gpusPerNode = connPartitionGpus(target.connectionId, partitionOverride);
-    if (gpusPerNode != null && gpuWidth > gpusPerNode) {
-      console.warn(
-        `remote-run: clamping GPU width ${gpuWidth} → ${gpusPerNode} (partition ${partitionOverride} offers ${gpusPerNode}/node per the last probe)`
-      );
-      gpuWidth = gpusPerNode;
-    }
-  }
+  // t337 — the width gate runs below (after the connection gates: the
+  // pre-flight needs `conn` for its SSH round).
   // t300 — the NODE pin: a user picking a group the probe resolved to
   // exactly ONE hostname ("brain2", "normal"…) asked for THAT node, not
   // merely its partition — a partition can outlive its hostlist (nodes
@@ -1410,6 +1981,7 @@ export async function startRemoteJob(args: {
     );
   }
 
+
   // ---- liveness pre-check (precise, async — isRunAlive only guesses) ----
   const prev = getRun(job.id);
   // marker for the anti-ghost re-check below: if a CONCURRENT dispatch
@@ -1442,6 +2014,158 @@ export async function startRemoteJob(args: {
     // row and the record can no longer be verified; safe to replace.
     // Dead + finalized by the poll above? pollOneRemote only INSPECTS; the
     // sweep finalizes. A dead-but-unfinalized record is safe to replace.
+  }
+
+  // ---- t337 — the node-pin pre-flight (the user's live receipt) --------
+  // The user's controller refused a pinned submission at submit time:
+  //
+  //   sbatch: error: Batch job submission failed: Requested node
+  //   configuration is not available
+  //
+  // …with no word about WHY. Three compositions produce exactly that
+  // verdict, and the engine could compose all three before t337:
+  //   (a) --gres=gpu:W with W beyond the PINNED node's own GPUs (the
+  //       t311 clamp only spoke for the picked PARTITION — the t332
+  //       explicit pin suppresses the partition, and nothing clamped
+  //       against the node itself);
+  //   (b) a node that is DOWN/DRAIN at submit time (the usage list's
+  //       rows refuse the click, but the state can age between pick and
+  //       submit — the panel polls every 30s);
+  //   (c) a node scontrol does not know (stale list, renamed host).
+  // ONE extra SSH round (`scontrol show node <pin> -o`, the same pure
+  // parser the usage route rides) settles all three BEFORE a byte
+  // stages, and the refusal teaches the fix instead of quoting Slurm's
+  // one-liner. A probe that cannot RUN (SSH blip, no scontrol) degrades
+  // to the old behavior — a monitoring failure never blocks a dispatch
+  // (the usage panel's own doctrine); the residual window is covered by
+  // the sbatch-refusal translation below.
+  let nodeLive: SlurmNodeUsage | null = null;
+  let nodeProbeRan = false;
+  if (isSlurm && nodelistPin) {
+    try {
+      const r = await exec(conn, loginShellScript(`scontrol show node ${shQuote(nodelistPin)} -o`), {
+        timeoutMs: 10_000,
+      });
+      // 127 = no scontrol on the login node — degrade, don't guess
+      nodeProbeRan = !r.error && r.code !== 127;
+      if (nodeProbeRan) {
+        nodeLive = parseScontrolNodes(r.stdout).find((n) => n.node === nodelistPin) ?? null;
+      }
+    } catch {
+      /* SSH blip — the old behavior stands */
+    }
+  }
+  if (isSlurm && nodelistPin && nodeProbeRan) {
+    if (!nodeLive) {
+      return fail(
+        `node ${nodelistPin} is not known to Slurm on ${conn.host} — scontrol lists no such node (the usage list may be stale). Refresh the node usage list and pick a live node, or click the pinned row again to release the pin and let Slurm choose.`,
+        true
+      );
+    }
+    if (nodeUnavailable(nodeLive)) {
+      return fail(
+        `node ${nodelistPin} is ${nodeLive.state} on ${conn.host} right now — the scheduler refuses new work on it, and a pinned submission would be refused at submit time. Pick another node in the live usage list (Run on cluster → the node table), or click the pinned row again to release the pin and let Slurm choose.`,
+        true
+      );
+    }
+    // a node with NO GPUs cannot host a job whose sbatch will request
+    // --gres — the width truth the spawn's own gresWidth arithmetic
+    // derives, computed here so the refusal lands BEFORE staging (the
+    // dialog's ask line names the same contradiction client-side; this
+    // is the server's gate for bare API callers and stale dialogs)
+    if (nodeLive.gpuTotal === 0) {
+      const earlyParams = parseJobParams(job.params);
+      const earlyStrategy = gpuStrategyFor(job.type, {
+        micrographs: 10,
+        particles: Number(earlyParams.particles ?? 5000) || 5000,
+        gpus: gpuWidth,
+        logAutopick: logPick,
+      });
+      const earlyMpi = moduleName ? conn.lastProbe?.relionMpi?.[moduleName] ?? false : false;
+      const gresWouldBe =
+        earlyStrategy.mode === "multi-gpu" && earlyMpi ? gpuWidth : earlyStrategy.gpus > 0 ? 1 : 0;
+      if (gresWouldBe > 0) {
+        return fail(
+          `node ${nodelistPin} has no GPUs (scontrol says Gres=(null)) — this job would request ${gresWouldBe} GPU${gresWouldBe > 1 ? "s" : ""} there and the submission would be refused. Click the pinned row again to release the pin, or pick a GPU node from the usage list.`,
+          true
+        );
+      }
+    }
+  }
+
+  // t340 — the CONTRADICTION gate: a picked partition the pinned node does
+  // not live in is a submit-time refusal on real controllers (the UI's
+  // mismatch guard releases the pin client-side, but the API door can still
+  // compose the pair). scontrol's own word decides; a silent probe degrades
+  // to the old behavior (the sbatch-refusal translation catches the rest).
+  if (
+    isSlurm &&
+    nodelistPin &&
+    nodeProbeRan &&
+    nodeLive &&
+    nodeLive.partitions.length > 0 &&
+    partitionOverride != null &&
+    !nodeLive.partitions.includes(partitionOverride)
+  ) {
+    return fail(
+      `node ${nodelistPin} lives in partition${nodeLive.partitions.length > 1 ? "s" : ""} ${nodeLive.partitions.join(", ")} — not ${partitionOverride}. A --partition=${partitionOverride} + --nodelist=${nodelistPin} combination is refused at submit time by the scheduler. Pick the node's own group in the Node/partition dropdown, or release the pin and let the group speak.`,
+      true
+    );
+  }
+
+  // ---- t340 — the pin's OWN partition (the field report that convicted
+  // the t332 doctrine) -----------------------------------------------
+  // 「从node使用情况列表选择node时报错，但是从node的下拉菜单选择node时
+  // 可以正常运行」 — the two channels built DIFFERENT sbatch lines for the
+  // SAME node: the dropdown carried --partition=<group> (+ --nodelist when
+  // single-host), while the usage-list pin SUPPRESSED --partition entirely
+  // (t332: "the node's own partition is where it lands"). With no
+  // --partition the controller falls back to the cluster's DEFAULT
+  // partition — and a GPU node that does not live there is refused at
+  // submit time: "Requested node configuration is not available", the
+  // user's exact receipt. Resolve the pin's partition from the freshest
+  // word available — the pre-flight's own scontrol row (Partitions=), then
+  // the probe inventory group that lists the host — and carry it in the
+  // sbatch so the pin and the dropdown land the SAME composition. Only a
+  // node NEITHER source knows keeps the bare --nodelist (the connection's
+  // default must NOT ride along: a wrong partition is a guaranteed
+  // refusal where a missing one merely lets the default decide).
+  const pinPartition =
+    explicitNode && partitionOverride == null
+      ? (nodeLive?.partitions?.[0] ?? probePartitionOfHost(target.connectionId, explicitNode) ?? null)
+      : null;
+
+  // ---- t311/t337 — the GPU-width clamp (server-side, bare-API proof) --
+  // Priority: the PINNED node's own live scontrol word (most specific),
+  // else the partition the script will ACTUALLY carry — picked, the pin's
+  // own (t340), or the connection's default (t337: the old gate keyed only
+  // on the PICKED partition, so "auto" + width 6 rode --partition=normal
+  // (5 GPUs/node) straight into the controller's submit-time refusal — the
+  // exact hole the user's receipt walked through). No inventory → the
+  // 8-wide cap stands, never a fabricated limit.
+  if (isSlurm) {
+    if (nodeLive && nodeLive.gpuTotal > 0) {
+      if (gpuWidth > nodeLive.gpuTotal) {
+        console.warn(
+          `remote-run: clamping GPU width ${gpuWidth} → ${nodeLive.gpuTotal} (node ${nodelistPin} offers ${nodeLive.gpuTotal} GPU(s) per its live scontrol row — the pin is more specific than any partition)`
+        );
+        gpuWidth = nodeLive.gpuTotal;
+      }
+    } else {
+      const clampPartition =
+        nodelistPin && partitionOverride == null
+          ? pinPartition // t340 — the pin's own resolved partition, when known
+          : (partitionOverride ?? conn.slurmPartition ?? null);
+      if (clampPartition != null) {
+        const gpusPerNode = connPartitionGpus(target.connectionId, clampPartition);
+        if (gpusPerNode != null && gpuWidth > gpusPerNode) {
+          console.warn(
+            `remote-run: clamping GPU width ${gpuWidth} → ${gpusPerNode} (partition ${clampPartition} offers ${gpusPerNode}/node per the last probe)`
+          );
+          gpuWidth = gpusPerNode;
+        }
+      }
+    }
   }
 
   // t324 — resolve inputs (same semantics as the local engine) -------------
@@ -1687,6 +2411,108 @@ export async function startRemoteJob(args: {
   const remoteProjectRoot = `${remoteRoot.replace(/\/$/, "")}/${job.projectId}`;
   const remoteWorkdir = `${remoteProjectRoot}/${job.type}_${job.id.slice(-8)}`;
 
+  // ---- upstream remote twins (t324/t325) --------------------------------
+  // local path → the verified cluster twin (plus identity entries for
+  // outputs that never came home). HOISTED above both star gates (t342):
+  // the extract census below and the particles-ref gate further down
+  // both need the twin map to read a star whose local copy is missing —
+  // the staging planner after them keeps using the same map.
+  const runs = readRuns();
+  const upstreamRemoteTwins = new Map<string, string>();
+  for (const up of upstream) {
+    const rec = runs[up.id];
+    if (!rec?.remote?.remoteOutputs) continue;
+    // t343 — the PAIR entries (local mirror path → cluster twin) earn the
+    // same-cluster gate the identity entries have carried since t325, and
+    // the whole upstream is gated in one place. The hole: a pair built
+    // from an upstream that ran on a DIFFERENT cluster made the staging
+    // below SKIP the upload and point this cluster's argv at a path only
+    // the OTHER cluster can reach — relion dies "file not found" over a
+    // local mirror that sat ready to upload. The resolver itself was
+    // always gated (its case T checks the same identity); only this map's
+    // pairs missed it. Gated, such an upstream takes the UPLOAD lane —
+    // the one copy this connection can actually reach. (Two front-ends
+    // of one shared filesystem lose the in-place pass this way — the
+    // safe direction: bytes upload, the run still completes.)
+    if (!sameClusterTarget(rec.remote, { connectionId: conn.id, host: connHostPort })) continue;
+    for (const [key, localTw] of Object.entries(rec.outputs)) {
+      const remoteTw = rec.remote.remoteOutputs[key];
+      if (remoteTw && localTw) upstreamRemoteTwins.set(localTw.split(path.sep).join("/"), remoteTw);
+    }
+    // t324 — outputs that never came home: the verified cluster twin
+    // satisfies the requirement by ITSELF (identity entry — both the
+    // staging skip below and the argv's twin preference key off this map,
+    // so a twin-resolved input uploads nothing and runs against the
+    // cluster copy in place). Same cluster only (t325: connection OR
+    // host — a re-created connection to the same host still holds these
+    // paths; a genuinely different cluster does not).
+    for (const remoteTw of Object.values(rec.remote.remoteOutputs)) {
+      const norm = remoteTw.split(path.sep).join("/");
+      if (!upstreamRemoteTwins.has(norm)) upstreamRemoteTwins.set(norm, remoteTw);
+    }
+  }
+
+  // ---- t335 — the extract frame census + the twin-star closure ---------
+  // The parallel t334 scan refuses duplicate rows and extension twins when
+  // a LOCAL star copy exists — but a twin-resolved star (the sync-back left
+  // no local copy) made that scan SKIP with a console note, the same t324-a
+  // blind spot the CTF gate once had. This block closes it: the star is
+  // cat'd in place over SSH, the t334 collision scan runs on the cluster's
+  // own text, and the .mrcs rows are BYTE-verified through the header
+  // sniffer — nz>1 is a movie stack, not a micrograph (RELION reads an
+  // .mrcs row as an (x,y,1,N) volume and windows frame 0: garbage
+  // particles even when the names never collide — the mixed-import shape
+  // the name-only scan cannot see). Verified singles pass with a note;
+  // everything unverifiable degrades to the note, never a block.
+  let extractGateNote: string | null = null;
+  if (job.type === "extract" && resolved.inputs.micrographs_star) {
+    const starPath = resolved.inputs.micrographs_star;
+    // t335/t343 — the lane-aware read: the cluster twin when the input
+    // runs in place (the copy THIS job consumes — even when a stale
+    // local mirror also exists), the local copy when the staging uploads
+    // it. The collision scan + the frame census both judge those bytes.
+    const starRd = await readResolvedStarText(conn, starPath, upstreamRemoteTwins, remoteRoot);
+    const starText = starRd.text;
+    if (starText !== null && starRd.lane === "cluster") {
+      console.log(
+        `remote-run: extract star read in place over SSH (${starRd.readAt}) — the collision scan + the frame census ran on the cluster's own bytes, the copy this job consumes (t335/t343)`
+      );
+    }
+    if (starText === null) {
+      extractGateNote =
+        `${starUnreadableNote("micrographs", starRd)} — the collision scan and the frame-stack census did not run`;
+      console.log("remote-run: extract frame census — star unreadable, census skipped (t335/t343)");
+    } else {
+      // the collision scan on whatever text we now hold (the t334 wording
+      // verbatim — a twin-resolved star earns the SAME refusal, not a
+      // softer one)
+      const report = scanExtractCollisions(starText);
+      if (report && (report.duplicates.length > 0 || report.clashes.length > 0)) {
+        return fail(
+          `the micrographs STAR would collide inside the extraction: ${describeExtractCollisions(report)} — RELION names each particle stack after the micrograph (extension swapped to .mrcs), so these rows write the same file (the mid-run "write: target and source objects have different size" crash). De-duplicate the rows or rename the colliding files on the cluster, then run again`,
+          true
+        );
+      }
+      // the frame census — only when .mrcs rows exist (a pure .mrc star
+      // has nothing to byte-verify)
+      const rows = micrographRowsFromContent(starText);
+      if (rows.some((r) => /\.mrcs$/i.test(r))) {
+        const gate = await extractInputGate(
+          rows,
+          remoteHeaderSniffer(conn),
+          (row) => (row.startsWith("/") ? row : `${remoteProjectRoot}/${row.replace(/^\.?\//, "")}`)
+        );
+        if (gate.refusal) {
+          console.log(
+            `remote-run: extract frame census REFUSED before staging — ${rows.length} row(s) censused, ${gate.refusal.split(" — ")[0]} (t335)`
+          );
+          return fail(gate.refusal, true);
+        }
+        extractGateNote = gate.note + starLaneSuffix(starRd);
+      }
+    }
+  }
+
   // ---- topaztrain: build the coordinate_files index HERE (t265) ----------
   // --topaz_train_picks must be the data_coordinate_files INDEX star, and
   // the engine's synthesis reads the resolved inputs from a DISK. At
@@ -1724,38 +2550,216 @@ export async function startRemoteJob(args: {
     pid: null,
     slurmId: null,
     ...(isSlurm ? { gpusRequested: logPick ? 0 : gpuWidth } : {}),
-    ...(isSlurm && partitionOverride ? { partition: partitionOverride } : {}),
+    // t340 — the partition the sbatch will actually name: the picked group,
+    // else the pin's own resolved home (the inspector's strip says where
+    // the job really landed either way).
+    ...(isSlurm
+      ? { partition: partitionOverride ?? pinPartition ?? undefined }
+      : {}),
     phase: "staging",
   };
 
   // ---- plan the input staging -------------------------------------------
   // upstream remote outputs (same cluster tree) pass through untouched;
   // everything else uploads (STARs rewritten, external files staged).
-  const runs = readRuns();
-  const upstreamRemoteTwins = new Map<string, string>(); // local path → remote twin
-  for (const up of upstream) {
-    const rec = runs[up.id];
-    if (!rec?.remote?.remoteOutputs) continue;
-    for (const [key, localTw] of Object.entries(rec.outputs)) {
-      const remoteTw = rec.remote.remoteOutputs[key];
-      if (remoteTw && localTw) upstreamRemoteTwins.set(localTw.split(path.sep).join("/"), remoteTw);
+  // (the upstream twin map lives ABOVE the star gates now — t342)
+  const uploads: Array<{ key: string; local: string; remote: string; external: boolean }> = [];
+
+  // ---- t350 — per-class selection (the cryoSPARC-style flow) ------------
+  // params.classStarSelection = { jobId, classes: [3, 7] } — the user picked
+  // classes in a FINISHED upstream classification's gallery. The per-class
+  // stars already sit on the cluster (finalize split them there), so the
+  // swap is a TWIN REGISTRATION, not an upload: resolved.inputs.particles_
+  // star is re-pointed at the upstream class star's cluster path and the
+  // twin map carries it past the staging loop (zero bytes cross the wire —
+  // the mrcs stacks those rows reference live in the same cluster tree the
+  // upstream classification itself read from).
+  // Multi-class merges happen cluster-side right before the argv build
+  // (the auto-joinstar: one awk over files that share a filesystem).
+  let classStarTwinPaths: string[] = [];
+  if (
+    resolved.inputs.particles_star &&
+    params.classStarSelection &&
+    typeof params.classStarSelection === "object"
+  ) {
+    const sel = params.classStarSelection as { jobId?: unknown; classes?: unknown };
+    const selJobId = typeof sel.jobId === "string" ? sel.jobId : "";
+    const selClasses = Array.isArray(sel.classes)
+      ? sel.classes.map((c) => Number(c)).filter((c) => Number.isInteger(c) && c > 0)
+      : [];
+    const upRec = selJobId ? getRun(selJobId) : null;
+    const upRemote = upRec?.remote;
+    if (!upRec || !upRemote || !upRemote.remoteWorkdir) {
+      return fail(
+        "the class-selection source job has no cluster record — re-create this job from the class gallery of a finished classification",
+        true
+      );
     }
-    // t324 — outputs that never came home: the verified cluster twin
-    // satisfies the requirement by ITSELF (identity entry — both the
-    // staging skip below and the argv's twin preference key off this map,
-    // so a twin-resolved input uploads nothing and runs against the
-    // cluster copy in place). Gated on the SAME CLUSTER (t325: connection
-    // OR host — a re-created connection to the same host still holds
-    // these paths; a genuinely different cluster does not).
-    if (sameClusterTarget(rec.remote, { connectionId: conn.id, host: connHostPort })) {
-      for (const remoteTw of Object.values(rec.remote.remoteOutputs)) {
-        const norm = remoteTw.split(path.sep).join("/");
-        if (!upstreamRemoteTwins.has(norm)) upstreamRemoteTwins.set(norm, remoteTw);
+    if (selClasses.length === 0) {
+      return fail("class selection is empty — pick at least one class in the gallery", true);
+    }
+    const upWd = upRemote.remoteWorkdir.replace(/\/+$/, "");
+    classStarTwinPaths = selClasses.map((c) => {
+      const name = `particles_class${String(c).padStart(3, "0")}.star`;
+      return `${upWd}/${name}`;
+    });
+    // verify the stars exist on the cluster BEFORE promising them (one
+    // batched stat round; the upstream may predate the split feature —
+    // its data star can still be split by re-running, or the classes
+    // picked may outrank the class count). An SSH FAILURE is its own
+    // honest verdict — never "does not have" (a dead wire is not an
+    // absent file; the retry heartbeat re-attempts by itself).
+    const statRes = await (async () => {
+      const checks = classStarTwinPaths
+        .map((p, i) => `if [ -f ${shQuote(p)} ]; then echo "OK ${i}"; fi`)
+        .join("; ");
+      return exec(conn, checks, { timeoutMs: 15_000 });
+    })();
+    if (statRes.error) {
+      return {
+        ok: false,
+        error: `could not reach ${conn.host} to verify the selected class stars (${statRes.error}) — the run retries automatically when the cluster answers`,
+        waiting: "not-ready" as const,
+      };
+    }
+    const idxOk = new Set(
+      statRes.stdout
+        .split("\n")
+        .map((l) => l.trim())
+        .filter((l) => /^OK \d+$/.test(l))
+        .map((l) => Number(l.slice(3)))
+    );
+    const missing = selClasses.filter((_, i) => !idxOk.has(i));
+    if (missing.length > 0) {
+      return fail(
+        `the cluster does not have per-class star(s) for class(es) ${missing.join(", ")} in the source job — they may have been picked from a run that predates the per-class split (re-run the classification, or pick fewer classes)`,
+        true
+      );
+    }
+    // re-point the resolved input at the FIRST class star's cluster world:
+    // the twin map key is the LOCAL mirror path (present or not — a twin
+    // hit skips both the upload and the existence check)
+    const localAnchor = path.join(
+      RELION_DIR,
+      job.projectId,
+      path.basename(upWd),
+      path.basename(classStarTwinPaths[0])
+    );
+    const anchorNorm = localAnchor.split(path.sep).join("/");
+    resolved.inputs.particles_star = localAnchor;
+    resolvedInputs.particles_star = localAnchor;
+    upstreamRemoteTwins.set(anchorNorm, classStarTwinPaths[0]);
+    console.log(
+      `remote-run: "${job.name}" consumes ${selClasses.length} per-class star(s) from ${path.basename(upWd)} (classes ${selClasses.join(", ")}) — cluster-side, no upload (t350)`
+    );
+  }
+
+  // ---- t338 — the particle-star ↔ stack consistency gate (consumers) ----
+  // The field report: a 2D classification died ~1 min into relion_refine
+  // with readMRC: "Image number 341 exceeds stack size 340" (rwMRC.h) —
+  // the upstream extraction had COMPLETED (exit 0) yet its particles.star
+  // references more images than the stack holds. That is the t334
+  // collision's SILENT variant: same-stem rows in the extraction's INPUT
+  // star ("X.mrc" + "X.mrcs") compose the SAME stack path; RELION's first
+  // particle per micrograph replaces the path blindly and the later
+  // writer's boxes append behind — so writer A's 341 images get truncated
+  // to 1 by writer B's first box, B appends its own 2..340, and the merged
+  // star still numbers A's rows up to 341. Extract "succeeds"; the poison
+  // surfaces downstream, ~20 GPU-minutes in. The t334/t335 blades refuse
+  // such INPUTS at extraction dispatch — this gate guards the OTHER side:
+  // a star already poisoned by an OLDER dispatch (the user's database:
+  // extract COMPLETED, star lying) is refused before this job burns queue
+  // + GPU time, with the exact numbers RELION would die on. Unverifiable
+  // refs degrade to the receipt note, never a block (the t313 rule).
+  let particlesGateNote: string | null = null;
+  if (PARTICLES_CONSUMER_TYPES.has(job.type) && resolved.inputs.particles_star) {
+    const starPathLocal = resolved.inputs.particles_star;
+    // t338/t343 — the lane-aware read (ONE address, not a candidate walk):
+    // the cluster twin when this job runs against the cluster copy in
+    // place — even when a stale local mirror also exists (the mirror's
+    // bytes are never consumed and must not be judged) — else the local
+    // copy the staging uploads. The stack-size check judges exactly the
+    // bytes relion will read.
+    //
+    // t346 — the cluster lane no longer cats the star home to parse it
+    // locally (tens of MB over the wire = the dispatch stall + the very
+    // network transfer the cluster-native doctrine forbids): a CENSUS awk
+    // pass runs on the cluster and only the verdict rows (one per unique
+    // stack path) cross the wire. The upload lane still reads the local
+    // bytes it is about to upload (no SSH at all).
+    const laneProbe = await readResolvedStarText(conn, starPathLocal, upstreamRemoteTwins, remoteRoot, {
+      resolveOnly: true,
+    });
+    if (laneProbe.lane === "cluster" && laneProbe.clusterHome) {
+      // the star's CLUSTER-side home anchors star-relative refs for the
+      // census's candidate grammar (same anchor the text lane uses)
+      const clusterStar = laneProbe.clusterHome;
+      const starDir = clusterStar.slice(0, clusterStar.lastIndexOf("/"));
+      const census = await clusterParticleRefCensus(conn, clusterStar);
+      if (census.rows != null) {
+        if (census.rows.length > 0) {
+          const gate = await particlesRefGateFromRefs(
+            census.rows,
+            remoteHeaderSniffer(conn),
+            (ref) => refCandidates(ref, remoteProjectRoot, starDir || remoteProjectRoot),
+            { totalRefs: census.total }
+          );
+          if (gate.refusal) {
+            console.log(
+              `remote-run: particle-ref gate REFUSED before staging (cluster census) — ${gate.refusal.split(" — ")[0]} (t338/t346)`
+            );
+            return fail(gate.refusal, true);
+          }
+          particlesGateNote =
+            gate.note +
+            ` (the star was censed IN PLACE on the cluster at ${clusterStar} — zero star bytes crossed the wire)`;
+        }
+        // rows.length === 0 → not a particles-star shape (or every ref
+        // unparseable) — the same clean pass the text lane grants
+      } else {
+        // the census could not run: a missing file is the file's own
+        // verdict (same word catRemote would speak — the t343 contract
+        // tail rides along so the receipt keeps teaching); anything else
+        // is a wire/tool failure — the check "did not run", never a block
+        const missing = /No such file|no such file|not found|cannot open|can't open/i.test(census.err ?? "");
+        particlesGateNote = missing
+          ? `particles star unreadable on the cluster — this job reads it in place at ${clusterStar} and that read failed: ${census.err}; if the file is gone, re-run the upstream job to regenerate it — the stack-size consistency check did not run`
+          : `the stack-size consistency check did not run (the in-place census on ${clusterStar} failed${census.err ? `: ${census.err}` : ""}) — the SSH wire may be slow; run again or check the login node's load`;
+      }
+    } else {
+      const starRd = await readResolvedStarText(conn, starPathLocal, upstreamRemoteTwins, remoteRoot);
+      const starText = starRd.text;
+      if (starText == null) {
+        particlesGateNote =
+          `${starUnreadableNote("particles", starRd)} — the stack-size consistency check did not run`;
+      } else if (particleRefsFromContent(starText).length > 0) {
+        // the star's CLUSTER-side home anchors star-relative refs (RELION's
+        // star grammar resolves them against the process CWD — the project
+        // root — while the mock's own dialect writes star-relative refs).
+        // One formula both lanes share: the twin when the input runs in
+        // place, else the mirror-mapped path the staging's upload rides —
+        // the upload lane earns its star-dir candidates too (t343; it used
+        // to anchor on the project root alone and could not judge the
+        // star-relative dialect at all)
+        const clusterStar = starRd.clusterHome;
+        const starDir = clusterStar ? clusterStar.slice(0, clusterStar.lastIndexOf("/")) : null;
+        const gate = await particlesRefGate(
+          starPathLocal,
+          starText,
+          remoteHeaderSniffer(conn),
+          (ref) => refCandidates(ref, remoteProjectRoot, starDir ?? remoteProjectRoot)
+        );
+        if (gate.refusal) {
+          console.log(
+            `remote-run: particle-ref gate REFUSED before staging — ${gate.refusal.split(" — ")[0]} (t338)`
+          );
+          return fail(gate.refusal, true);
+        }
+        particlesGateNote = gate.note + starLaneSuffix(starRd);
       }
     }
   }
 
-  const uploads: Array<{ key: string; local: string; remote: string; external: boolean }> = [];
   let needsStaging = false;
   for (const [key, localRaw] of Object.entries(resolvedInputs)) {
     const local = localRaw.split(path.sep).join("/");
@@ -1929,6 +2933,21 @@ export async function startRemoteJob(args: {
   // the heartbeat runs for the WHOLE task (staging phase only — the updateRun
   // guard no-ops once the phase flips) and is stopped on both exits.
   const stopBeat = startStagingBeat(job.id);
+  // t341 — the ghost-sbatch fence (review C1, TEST 4's live proof): the
+  // spawn is a void background task, and a reset/delete that lands while
+  // it uploads used to be IGNORED — the task submitted its sbatch anyway
+  // and then flipped the freshly-reset row BACK to running (no record,
+  // no poller: a ghost). The run record is the single source of "this
+  // dispatch is still wanted": reset/delete clear it, a concurrent
+  // re-dispatch replaces it (different startedAt), the sweep can
+  // finalize it (done). Every phase transition below re-checks this
+  // predicate; a cancelled dispatch dies quietly — no submit, no row
+  // write — and a cancellation detected AFTER the submit kills what it
+  // submitted before standing down.
+  const dispatchCancelled = (): boolean => {
+    const rec = getRun(job.id);
+    return !rec || rec.startedAt !== record.startedAt || rec.done;
+  };
   const spawn = async (): Promise<void> => {
     try {
       // t335 — mop win32-mangled orphans out of the project root BEFORE
@@ -1982,6 +3001,16 @@ export async function startRemoteJob(args: {
             ? { ...rec, remote: { ...rec.remote, stagedBytes } }
             : null
         );
+        // t341 — a reset/delete during the upload stops burning the wire:
+        // GB-scale staging must not keep pushing into a workdir the user
+        // just abandoned (and must never reach the submit below)
+        if (dispatchCancelled()) {
+          stopBeat();
+          console.log(
+            `remote-run: dispatch of "${job.name}" cancelled mid-staging (reset or delete) — upload stopped after ${stagedBytes} byte(s), nothing submitted (t341)`
+          );
+          return;
+        }
       }
       const stagedMs = Date.now() - stagedT0;
 
@@ -1992,6 +3021,23 @@ export async function startRemoteJob(args: {
       for (const [key, localRaw] of Object.entries(resolvedInputs)) {
         const local = localRaw.split(path.sep).join("/");
         inputs[key] = upstreamRemoteTwins.get(local) ?? (uploads.find((u) => u.key === key)?.remote ?? local);
+      }
+
+      // ---- t350 — the auto-joinstar path decision (multi-class selection) --
+      // The single-class case resolved above points --i straight at the
+      // class star's cluster twin. TWO OR MORE classes merge cluster-side
+      // into <this workdir>/combined_input.star. Here we only DECIDE the
+      // path (the argv needs the string); the merge itself runs AFTER the
+      // pre-run wipe below — a .star in the workdir is exactly what the
+      // fresh-run wipe classifies as a previous generation's product, and
+      // merging before it handed RELION a freshly deleted input.
+      let classStarCombine: { paths: string[]; out: string } | null = null;
+      if (classStarTwinPaths.length >= 2 && inputs.particles_star) {
+        classStarCombine = {
+          paths: classStarTwinPaths,
+          out: `${remoteWorkdir.replace(/\/+$/, "")}/combined_input.star`,
+        };
+        inputs.particles_star = classStarCombine.out;
       }
 
       const built = await buildArgv({
@@ -2053,7 +3099,20 @@ export async function startRemoteJob(args: {
 
       let ntasks = 1;
       if (mpiParallelType && mpiAvailable) {
-        const nranks = isSlurm ? gpuWidth : job.type === "refine3d" ? 3 : 2;
+        // t349 — RELION's own recommended width: one DEDICATED MASTER
+        // (rank 0, CPU-only: data I/O, particle-batch dispatch, the
+        // Maximization step's class reconstructions) plus one WORKER per
+        // card (the Expectation step — ~85-90% of the runtime — is where
+        // the GPUs earn their keep). The old lane ran n = width: rank 0
+        // WAS the master and held a card slot it never touched (a RELION
+        // master does no particle GPU work), so a 4-card job really
+        // computed with 3. n = width + 1 puts a working rank on every
+        // card — the user's own "mpirun -np 5 … --gpu 0:1:2:3" idiom,
+        // made robust by the t345 launcher. Width 1 keeps the classic
+        // single process: there is no split to make on one card.
+        const nranks = isSlurm
+          ? (gpuWidth >= 2 ? gpuWidth + 1 : 1)
+          : job.type === "refine3d" ? 3 : 2;
         ntasks = nranks;
         argv = ["mpirun", "-n", String(nranks), ...argv];
         if (hasGpu && nranks > 1) argv.push("--gpu", Array.from({ length: nranks }, (_, i) => i).join(":"));
@@ -2070,7 +3129,17 @@ export async function startRemoteJob(args: {
             argv.push("--j", String(Math.max(1, Math.round(Number(params.threads ?? 4) || 4))));
           }
         }
-        if (hasGpu && strategy.gpus > 0 && !argv.includes("--gpu")) argv.push("--gpu", "0");
+        // t349 — SELF_GPU_FLAG_TYPES name their own gpu flag in the engine
+        // argv (modelangelo's `-d`); the relion-style append would be a flag
+        // that CLI has never heard of and the run dies at argv parse.
+        if (
+          hasGpu &&
+          strategy.gpus > 0 &&
+          !argv.includes("--gpu") &&
+          !SELF_GPU_FLAG_TYPES.has(job.type)
+        ) {
+          argv.push("--gpu", "0");
+        }
       }
       // t320 — belt-and-braces: a LoG Auto-picking argv must NEVER carry
       // --gpu, whatever future code path grows an append above (RELION's
@@ -2092,6 +3161,38 @@ export async function startRemoteJob(args: {
             ? 1
             : 0
         : 0;
+
+      // t342/t345/t349 — the slurm MPI lane's rank count becomes the
+      // SCRIPT's own variable (CF_RANKS = width + 1: the dedicated CPU
+      // master rides along), clamped at launch to one worker per visible
+      // GPU (see buildSbatchScript's t345/t349 block). t345: the
+      // mpirun TARGET becomes the per-rank card launcher the script
+      // writes (.cf-rank-launch.sh) — each WORKER rank gets its OWN
+      // CUDA_VISIBLE_DEVICES and relion runs "--gpu 0" inside a
+      // one-card world; rank 0 (the master) stays unpinned, exactly
+      // RELION's recommended master+slaves shape (np = nGPU + 1). The
+      // colon list ("--gpu 0:1:…") is RETIRED on this lane: two field
+      // runs put every rank on device 0 through it (RELION builds
+      // differ in how they parse it; the driver does not). Direct mode
+      // keeps its literal — the login node's world is the probe's
+      // world, no launcher lives there. A single-rank job never
+      // pile-ups, so it keeps its literal too.
+      const slurmMpiGpu = isSlurm && mpiParallelType && mpiAvailable && hasGpu && ntasks > 1;
+      if (slurmMpiGpu) {
+        const ni = argv.indexOf("-n");
+        if (ni !== -1) {
+          argv[ni + 1] = '"$CF_RANKS"';
+          // the launcher rides BETWEEN mpirun's -n value and the relion
+          // argv: mpirun -n "$CF_RANKS" <launcher> relion_refine …
+          argv.splice(ni + 2, 0, `${remoteWorkdir}/.cf-rank-launch.sh`);
+        }
+        const gi = argv.indexOf("--gpu");
+        if (gi !== -1) argv[gi + 1] = "0"; // this rank's own one visible card
+      }
+      // t342 — pre-quoted shell variable references ("$CF_RANKS" …) pass
+      // the quoting maps untouched; every other token keeps its literal
+      const shQuoteOrVar = (a: string) =>
+        /^"\$[A-Za-z_][A-Za-z0-9_]*"$/.test(a) ? a : shQuote(a);
 
       // t306 — the array rewrite: the shard task sees $SHARD (its slice of
       // the input star) and $OSHARD (its own output subdir) — the two argv
@@ -2190,15 +3291,41 @@ export async function startRemoteJob(args: {
             ? `"$OSHARD/${flavor.outStar}"`
             : '"$OSHARD/"';
         command = argv
-          .map((a, k) => (k === ii + 1 ? '"$SHARD"' : k === oi + 1 ? outVal : shQuote(a)))
+          .map((a, k) => (k === ii + 1 ? '"$SHARD"' : k === oi + 1 ? outVal : shQuoteOrVar(a)))
           .join(" ");
       } else {
-        command = argv.map(shQuote).join(" ");
+        command = argv.map(shQuoteOrVar).join(" ");
       }
       const threads = Math.max(1, Math.min(32, Math.round(Number(params.threads ?? 4) || 4)));
       const jobName = `cf_${job.type}_${job.id.slice(-8)}`;
 
       await remoteMkdir(conn, remoteWorkdir);
+
+      // ---- t341 — the stale-run reaper, scheduler-side -------------------
+      // The ghost-sbatch race (review C1) and every un-witnessed death
+      // before it can leave Slurm jobs that STILL own this workdir: a
+      // PENDING duplicate, a requeued straggler, or a RUNNING rank pair
+      // holding GPU memory the next dispatch then dies on (the field
+      // report: 2D classification dead 30s in, CUDA out-of-memory, no
+      // error tail — the allocator lost the race for a card someone
+      // else's stale run still held). This job's sbatch name is unique
+      // per job id (cf_<type>_<id8>), so scancel -n names EXACTLY this
+      // workdir's stale submissions — the scheduler kills them wherever
+      // they sit, BEFORE the wipe below reclaims the directory and the
+      // fresh submission claims it. Best-effort hygiene: a refusal (no
+      // matching job, an ancient scancel without -n) never blocks the
+      // dispatch.
+      if (isSlurm) {
+        try {
+          await exec(
+            conn,
+            `scancel -n ${shQuote(jobName)} 2>/dev/null || true`,
+            { timeoutMs: 15_000 }
+          );
+        } catch {
+          /* the reaper is hygiene, never a gate */
+        }
+      }
 
       // ---- t333 — the re-run's stale PRODUCTS on the cluster -------------
       // The workdir is STABLE across dispatches (<root>/<type>_<jobid8>)
@@ -2217,9 +3344,26 @@ export async function startRemoteJob(args: {
       // world — the submit re-tests the wire); an rm failure REFUSES the
       // dispatch: proceeding into stale files is the exact crash this
       // blade exists to kill.
+      //
+      // t344 — the rm's own budget: the second field report refused the
+      // re-run with "batch 1: SSH failed (timeout after 30000ms)" on a
+      // login node that had answered the LISTING one round earlier inside
+      // 25s — the wire was fine, the deletion was merely SLOW (a loaded
+      // head unlinking hundreds of stacks on network storage). The wipe
+      // now carries a 3-minute-per-batch budget plus one fresh-wire
+      // retry (deleteRemoteFiles's ladder: an SSH-level death re-dials
+      // the pooled connection before re-running the idempotent rm -f).
       {
+        const WIPE_RM_TIMEOUT_MS = 180_000;
         const wipeListing = await listRemoteWorkdir(conn, remoteWorkdir, {
           bypassCache: true,
+          // t341 — read LIVE, don't PUBLISH: this listing photographs the
+          // workdir mid-dispatch (pre-run and post-wipe states differ by
+          // design); caching it would serve the cleanup plan a snapshot
+          // the run already outgrew (the review's "plan is empty for 10s"
+          // finding — a fresh dispatch's bypass listing used to land in
+          // the shared cache and mute the plan GET for a whole TTL)
+          publish: false,
         });
         if (!wipeListing.ok) {
           console.warn(
@@ -2228,10 +3372,14 @@ export async function startRemoteJob(args: {
         } else if (wipeListing.entries.length > 0) {
           const { wipe: wipeRels } = classifyRerunWipe(wipeListing.entries);
           if (wipeRels.length > 0) {
-            const rm = await deleteRemoteFiles(conn, remoteWorkdir, wipeRels);
+            const rm = await deleteRemoteFiles(conn, remoteWorkdir, wipeRels, {
+              timeoutMs: WIPE_RM_TIMEOUT_MS,
+              retries: 1,
+            });
             if (rm.errors.length > 0) {
               throw new Error(
-                `could not clear the previous run's files on ${conn.host} (${rm.errors[0]}) — a re-run into stale outputs is refused (RELION would die writing into them); fix the cluster access and run again`
+                `could not clear the previous run's files on ${conn.host} (${rm.errors[0]}) — a re-run into stale outputs is refused (RELION would die writing into them). ` +
+                  `The wipe waited out a ${Math.round(WIPE_RM_TIMEOUT_MS / 1000)}s budget per batch and retried once on a fresh connection; if it still fails, the login node is too slow or down right now — ssh in by hand and try again in a moment`
               );
             }
             await pruneRemoteEmptyDirs(conn, remoteWorkdir);
@@ -2276,7 +3424,37 @@ export async function startRemoteJob(args: {
       }
 
       if (isSlurm) {
+        // ---- t350 — the auto-joinstar merge, POST-wipe --------------------
+        // The path decision happened at the argv build; the merge itself
+        // lives HERE (after the fresh-run wipe + the t318 clear, before any
+        // submission door) so the combined star cannot be wiped by the very
+        // dispatch that just wrote it. One awk over stars that share the
+        // cluster filesystem — no queue wait, no manual joinstar node (the
+        // column headers must match, which the per-class stars of one
+        // classification always do; a cross-layout mix refuses honestly).
+        if (classStarCombine) {
+          const merged = await combineClassStars(conn, classStarCombine.paths, classStarCombine.out);
+          if (!merged.ok) {
+            throw new Error(`auto-joinstar failed: ${merged.error ?? "no verdict"}`);
+          }
+          console.log(
+            `remote-run: auto-joinstar merged ${classStarCombine.paths.length} class stars into ${classStarCombine.out} (${merged.rows} particles, t350)`
+          );
+        }
+
         // ---- t297: the sbatch door (sbatch6gpu.sh pattern) ---------------
+        // t341 — the LAST fence before the scheduler hears about us: a
+        // reset/delete that landed while the script uploaded must not
+        // become a ghost sbatch into a workdir nobody owns anymore
+        // (review C1's exact shape: submit after reset → row flipped
+        // back to running with no record → a re-run double-writes).
+        if (dispatchCancelled()) {
+          stopBeat();
+          console.log(
+            `remote-run: dispatch of "${job.name}" cancelled before sbatch (reset or delete) — nothing submitted (t341)`
+          );
+          return;
+        }
         // t304 — the pipeline handoff: upstream jobs still in flight on THIS
         // connection contribute their slurmIds to --dependency=afterok, so
         // the scheduler orders the pipeline (the child sits PENDING — the
@@ -2312,11 +3490,30 @@ export async function startRemoteJob(args: {
           jobName,
           remoteProjectRoot,
           remoteWorkdir,
-          partition: partitionOverride,
+          // t340 — the pin's OWN resolved partition rides along (scontrol's
+          // word for where that node lives), so the usage-list pin and the
+          // group dropdown land the SAME composition. suppressPartition is
+          // the honest residual: nobody knows the node's home → bare
+          // --nodelist, no partition line, the default decides.
+          partition: partitionOverride ?? pinPartition,
+          ...(explicitNode && partitionOverride == null && pinPartition == null
+            ? { suppressPartition: true }
+            : {}),
           nodelist: nodelistPin,
           dependency,
           array: arrayPlan,
-          note: ctffindGateNote,
+          note: ctffindGateNote ?? extractGateNote ?? particlesGateNote,
+          // t342/t345 — the starved-card refusal + the rank clamp ride only
+          // jobs whose argv truly uses the GPU; the MPI width feeds the
+          // script's own CF_RANKS clamp + per-rank launcher variables.
+          // t349 — SELF_GPU_FLAG_TYPES use the GPU through their OWN flag
+          // (modelangelo's `-d`): no `--gpu` token in the argv, but the card
+          // is just as load-bearing — they earn the same pin + refusal.
+          gpuJob:
+            hasGpu &&
+            strategy.gpus > 0 &&
+            (argv.includes("--gpu") || SELF_GPU_FLAG_TYPES.has(job.type)),
+          mpiRanks: slurmMpiGpu ? ntasks : null,
         });
         const scriptPath = `${remoteWorkdir}/.cf-sbatch.sh`;
         const upOk = await remoteUpload(conn, script, scriptPath);
@@ -2344,13 +3541,67 @@ export async function startRemoteJob(args: {
             subRes.error ||
             `ssh exit ${subRes.code}`
           ).slice(0, 400);
+          // t337 — the controller's one-liner TRANSLATED: "Requested node
+          // configuration is not available" names no cause, and the user's
+          // receipt was exactly that silence. Say what THIS submission
+          // asked for (the pin, the partition, the GPU width the script
+          // actually carries) and the three moves that fix it. The pre-
+          // flight above closes the knowable cases; this covers the drift
+          // window (a node that went down between the pre-flight read and
+          // the controller's own decision) and foreign compositions the
+          // app did not build.
+          // t340 — the translation mirrors the builder's resolution: the
+          // pin's own partition when it was resolved, nothing when it was
+          // not (the default decided), the picked/connection default
+          // otherwise.
+          const effectivePartition =
+            nodelistPin && partitionOverride == null
+              ? pinPartition
+              : (partitionOverride ?? conn.slurmPartition ?? null);
+          const composition = [
+            nodelistPin ? `node ${nodelistPin}` : null,
+            effectivePartition ? `partition ${effectivePartition}` : null,
+            gresWidth > 0 ? `${gresWidth} GPU(s)` : "no GPUs",
+          ]
+            .filter(Boolean)
+            .join(" · ");
+          // t340 — a composition with NO partition is its own diagnosis:
+          // the submission named none, so the cluster's DEFAULT
+          // partition decided, and the node/width must live THERE. The
+          // pre-flight resolves the pin's own partition now, so this
+          // residual names the two honest leftovers — a node neither
+          // scontrol nor the probe knows, or the bare-API shape.
+          const noPartitionNote =
+            nodelistPin != null && effectivePartition == null
+              ? " The submission named no partition (the node's home is unknown to scontrol and the probe), so the cluster's DEFAULT partition decided — pick the node's group in the run dialog's Node/partition dropdown to name it."
+              : "";
+          const cfgHelp = /node configuration is not available/i.test(why)
+            ? ` — what was requested: ${composition}. No node on the cluster can satisfy that combination right now (a pinned node may be down, drained, or narrower than the GPU width, or it may not live in the partition the request landed on). Pick a different node in the live usage list, click the pinned row again to release the pin, or lower the GPU width.${noPartitionNote}`
+            : "";
           const noiseNote =
             noiseLines.length > 0
               ? ` · login-shell noise from the cluster (your ~/.bashrc, not the submission): ${noiseLines.join(" · ").slice(0, 200)}`
               : "";
-          throw new Error(`sbatch refused the submission: ${why}${noiseNote}`);
+          throw new Error(`sbatch refused the submission: ${why}${cfgHelp}${noiseNote}`);
         }
         const slurmId = idMatch[1];
+
+        // t341 — cancelled BETWEEN the pre-check and the controller's
+        // answer? The sbatch exists now; kill it before standing down —
+        // an orphaned PENDING/RUNNING job in a workdir whose owner row
+        // says idle is exactly the ghost this fence exists for.
+        if (dispatchCancelled()) {
+          try {
+            await exec(conn, `scancel ${shQuote(slurmId)} 2>/dev/null || true`, { timeoutMs: 15_000 });
+          } catch {
+            /* best effort — the orphan sweep reconciles the rest */
+          }
+          stopBeat();
+          console.log(
+            `remote-run: dispatch of "${job.name}" was cancelled as sbatch ${slurmId} landed — scancel'd, the row stays untouched (t341)`
+          );
+          return;
+        }
 
         await updateRun(job.id, (rec) =>
           rec.startedAt === record.startedAt && rec.remote
@@ -2373,13 +3624,19 @@ export async function startRemoteJob(args: {
               }
             : null
         );
-        await db.job.update({
-          where: { id: job.id },
+        // t341 — the flip is CONDITIONAL: only a row still in its dispatch
+        // lifecycle (pending=staging / running=sync spawn) may be told the
+        // submission landed. A row the user reset to idle (or deleted and
+        // restored, or that a cancel path already failed) must stay as the
+        // user left it — the old unconditional update was the ghost's
+        // second face (the row flipped BACK to running with no record).
+        await db.job.updateMany({
+          where: { id: job.id, status: { in: ["pending", "running"] } },
           data: { status: "running", progress: 0, result: null, startedAt: new Date(startedAtMs) },
         });
         stopBeat();
         console.log(
-          `remote-run: ${job.type} "${job.name}" submitted to Slurm on ${conn.name} (job ${slurmId}, ${gresWidth > 0 ? `${gresWidth} GPU(s)` : "CPU"}${partitionOverride ? ` · partition ${partitionOverride}` : ""}${nodelistPin ? ` · node ${nodelistPin}` : ""}${depIds.length ? ` · afterok ${depIds.join(",")}` : ""}${arrayPlan ? ` · array 1-${arrayPlan.total}%${arrayPlan.concurrency}` : ""}, module ${moduleName || "none"})`
+          `remote-run: ${job.type} "${job.name}" submitted to Slurm on ${conn.name} (job ${slurmId}, ${gresWidth > 0 ? `${gresWidth} GPU(s)` : "CPU"}${(partitionOverride ?? pinPartition) ? ` · partition ${partitionOverride ?? pinPartition}` : ""}${nodelistPin ? ` · node ${nodelistPin}` : ""}${depIds.length ? ` · afterok ${depIds.join(",")}` : ""}${arrayPlan ? ` · array 1-${arrayPlan.total}%${arrayPlan.concurrency}` : ""}, module ${moduleName || "none"})`
         );
       } else {
         // ---- direct mode: the setsid wrapper (unchanged contract) --------
@@ -2391,12 +3648,22 @@ export async function startRemoteJob(args: {
           command,
           remoteProjectRoot,
           remoteWorkdir,
-          note: ctffindGateNote,
+          note: ctffindGateNote ?? extractGateNote ?? particlesGateNote,
         });
 
         const wrapperPath = `${remoteWorkdir}/.cf-run.sh`;
         const upOk = await remoteUpload(conn, wrapper, wrapperPath);
         if (!upOk) throw new Error(`could not upload the run script to ${wrapperPath}`);
+
+        // t341 — the direct lane's own pre-spawn fence (the slurm lane
+        // checks at its own door above)
+        if (dispatchCancelled()) {
+          stopBeat();
+          console.log(
+            `remote-run: dispatch of "${job.name}" cancelled before spawn (reset or delete) — nothing launched (t341)`
+          );
+          return;
+        }
 
         const runRes = await exec(conn, `bash ${shQuote(wrapperPath)}`, { timeoutMs: 30_000 });
         const pidMatch = /CRYOFLOW_PID:(\d+)/.exec(runRes.stdout);
@@ -2409,6 +3676,27 @@ export async function startRemoteJob(args: {
           throw new Error(`the cluster refused to start the job: ${why}`);
         }
         const pid = Number(pidMatch[1]);
+
+        // t341 — cancelled as the wrapper answered? Kill the process
+        // group (the wrapper setsid's, so -PID is the group) before
+        // standing down — a live cluster process whose owner row says
+        // idle is the direct-mode ghost.
+        if (dispatchCancelled()) {
+          try {
+            await exec(
+              conn,
+              `kill -TERM -- -${pid} 2>/dev/null; sleep 1; kill -KILL -- -${pid} 2>/dev/null; true`,
+              { timeoutMs: 15_000 }
+            );
+          } catch {
+            /* best effort — the orphan sweep reconciles the rest */
+          }
+          stopBeat();
+          console.log(
+            `remote-run: dispatch of "${job.name}" was cancelled as cluster pid ${pid} spawned — killed, the row stays untouched (t341)`
+          );
+          return;
+        }
 
         await updateRun(job.id, (rec) =>
           rec.startedAt === record.startedAt && rec.remote
@@ -2428,8 +3716,9 @@ export async function startRemoteJob(args: {
               }
             : null
         );
-        await db.job.update({
-          where: { id: job.id },
+        // t341 — same conditional flip as the slurm lane above
+        await db.job.updateMany({
+          where: { id: job.id, status: { in: ["pending", "running"] } },
           data: { status: "running", progress: 0, result: null, startedAt: new Date(startedAtMs) },
         });
         stopBeat();
@@ -2440,6 +3729,17 @@ export async function startRemoteJob(args: {
     } catch (e) {
       stopBeat();
       const msg = e instanceof Error ? e.message : String(e);
+      // t341 — a CANCELLED dispatch's failure is not the row's business:
+      // the user reset/deleted it mid-staging and the row already says
+      // so — writing "remote run failed" over their reset (or a delete's
+      // successor) was the ghost race's failure-path twin. Only a live
+      // dispatch of ours may fail the row.
+      if (dispatchCancelled()) {
+        console.log(
+          `remote-run: cancelled dispatch of "${job.name}" failed during staging (${msg}) — the row stays untouched (t341)`
+        );
+        return;
+      }
       // finalize the record (done=true) — a !done record would otherwise be
       // polled by the heal path forever with no pid and no exit file
       await updateRun(job.id, (rec) =>
@@ -2706,7 +4006,31 @@ function aliveCheckScript(
 }
 
 /** Per-connection poll throttle state (survives within one server process). */
-const pollState = new Map<string, { at: number; inflight: boolean }>();
+const pollState = new Map<string, { at: number; inflight: boolean; lastMs: number }>();
+
+/**
+ * t346 — how long a single sweep's SSH round trip may take. Was 15s: the
+ * t345 field ticket proved a mere `cat` on the user's login node can exceed
+ * that (exec = sshd fork + shell + slow /data03), so the sweep itself timed
+ * out whenever the login node hiccuped — and with it every UI request that
+ * awaited it. 45s with the route's bounded wait (the GET never blocks on
+ * the sweep longer than POLL_SWEEP_WAIT_MS) covers the slowest login node
+ * without stacking round trips (the inflight guard does that).
+ */
+const POLL_SWEEP_TIMEOUT_MS = 45_000;
+
+/**
+ * t346 — the VANISHED flip's streak requirement. The ladder's empty
+ * squeue+sacct snapshot used to speak ALONE after the 120s age gate: one
+ * wire blink, one slow scheduler, one accounting purge — and a RUNNING
+ * job's row died as "interrupted remotely (node reboot or hard kill)"
+ * while the cluster process was fine. The flip now needs N CONSECUTIVE
+ * VANISHED verdicts; any ALIVE/EXIT/SACCT word resets the streak. Env
+ * knobs exist for the E2E suites (small values) — production keeps the
+ * defaults.
+ */
+const VANISH_STREAK_N = Math.max(1, Number(process.env.CF_VANISH_STREAK) || 3);
+const VANISH_AGE_MS = Math.max(1_000, Number(process.env.CF_VANISH_AGE_MS) || 120_000);
 
 interface BatchEntry {
   job: Job;
@@ -2876,10 +4200,15 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
     }
 
     // throttle: skip this connection entirely on a sub-4s tick or while a
-    // poll is still in flight (slow SSH must never stack round trips)
-    const st = pollState.get(connId) ?? { at: 0, inflight: false };
-    if (st.inflight || Date.now() - st.at < 4000) continue;
-    pollState.set(connId, { at: Date.now(), inflight: true });
+    // poll is still in flight (slow SSH must never stack round trips).
+    // t346 — ADAPTIVE: a sweep that took T seconds buys the next one
+    // max(4s, 1.5×T) of quiet — a login node that answers in 12s must not
+    // be poked every 4s (each poke = an sshd fork it pays for).
+    const st = pollState.get(connId) ?? { at: 0, inflight: false, lastMs: 0 };
+    const quietFor = Math.min(30_000, Math.max(4_000, Math.round(st.lastMs * 1.5)));
+    if (st.inflight || Date.now() - st.at < quietFor) continue;
+    const sweepT0 = Date.now();
+    pollState.set(connId, { at: sweepT0, inflight: true, lastMs: st.lastMs });
 
     try {
       const scriptLines: string[] = ["set -u"];
@@ -2891,11 +4220,22 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
         // is the previous run's ghost (re-runs reuse the workdir; the new
         // script's own rm runs only when the job starts) — never a verdict.
         scriptLines.push(aliveCheckScript(r.remoteWorkdir, r.slurmId, r.dispatchedAtEpoch));
+        // t346 — ONE heartbeat carries EVERYTHING the UI needs: state,
+        // run.out line count, run.out tail AND run.err tail. The log tab's
+        // 1.5s polling used to pay its own SSH exec PER POLL (up to 512KB
+        // each) — serialized behind this very sweep on the same wire; the
+        // wire saturated, the log tab starved, the UI felt stuck. The
+        // sweep is the ONLY reader now; the log route serves from the
+        // record's cache (remoteLogTail) and never touches SSH again.
+        scriptLines.push(`echo "---CF:LINES---"`);
+        scriptLines.push(`wc -l < ${W}/run.out 2>/dev/null || echo 0`);
         scriptLines.push(`echo "---LOG---"`);
         scriptLines.push(`tail -c 4096 ${W}/run.out 2>/dev/null`);
+        scriptLines.push(`echo "---CF:ERR---"`);
+        scriptLines.push(`tail -c 2048 ${W}/run.err 2>/dev/null`);
         scriptLines.push(`echo "===CF:END:${e.job.id}"`);
       }
-      const res = await exec(conn, scriptLines.join("\n"), { timeoutMs: 15_000 });
+      const res = await exec(conn, scriptLines.join("\n"), { timeoutMs: POLL_SWEEP_TIMEOUT_MS });
       if (res.error) {
         // busy / timeout / network: the CLUSTER process is unaffected — keep
         // everything running and retry next tick
@@ -2903,8 +4243,11 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
       }
       // parse per-job blocks. t303 — the status is still the FIRST line,
       // but a terminal sacct row may now ride as a SECOND line (the EXIT
-      // branch's ledger enrichment) — stow it as b.sacct before the log.
-      const blocks = new Map<string, { status: string; sacct?: string; log: string }>();
+      // branch's ledger enrichment) — stow it as b.sacct before the tails.
+      const blocks = new Map<
+        string,
+        { status: string; sacct?: string; log: string; errTail: string; totalLines: number }
+      >();
       const re = /===CF:START:([\w-]+)\n([\s\S]*?)===CF:END:\1/g;
       let m: RegExpExecArray | null;
       while ((m = re.exec(res.stdout)) !== null) {
@@ -2915,14 +4258,53 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
         const nl2 = rest.indexOf("\n");
         const line2 = (nl2 >= 0 ? rest.slice(0, nl2) : rest).trim();
         const sacct = line2.startsWith("SACCT:") ? line2.slice("SACCT:".length) : undefined;
-        const log = body.includes("---LOG---") ? body.slice(body.indexOf("---LOG---") + 10) : "";
-        blocks.set(m[1], { status, sacct, log: log.replace(/\n$/, "") });
+        const afterStatus = sacct !== undefined && nl2 >= 0 ? rest.slice(nl2 + 1) : rest;
+        const linesM = afterStatus.indexOf("---CF:LINES---");
+        const logM = afterStatus.indexOf("---LOG---");
+        const errM = afterStatus.indexOf("---CF:ERR---");
+        const totalLines =
+          linesM >= 0 && logM > linesM
+            ? Number(afterStatus.slice(linesM + 15, logM).trim().split("\n")[0]) || 0
+            : 0;
+        const log = logM >= 0 ? afterStatus.slice(logM + 8, errM >= 0 ? errM : undefined) : "";
+        const errTail = errM >= 0 ? afterStatus.slice(errM + 11) : "";
+        blocks.set(m[1], {
+          status,
+          sacct,
+          log: log.replace(/\n$/, ""),
+          errTail: errTail.replace(/\n$/, ""),
+          totalLines,
+        });
       }
 
       for (const e of entries) {
         const b = blocks.get(e.job.id);
         if (!b) continue;
         const ageMs = Date.now() - new Date(e.rec.startedAt).getTime();
+        // t346 — the heartbeat's payload lands on the record BEFORE the
+        // verdict switch (every verdict's consumer — progress parse,
+        // finalize's log tail, the cache-first log route — reads the same
+        // one-write snapshot; unchanged content skips the ledger write)
+        if (
+          e.remote.logTailOut !== b.log ||
+          e.remote.logTailErr !== b.errTail ||
+          e.remote.logTotalLines !== b.totalLines
+        ) {
+          updateRun(e.job.id, (rec) =>
+            rec.remote && !rec.done && rec.startedAt === e.rec.startedAt
+              ? {
+                  ...rec,
+                  remote: {
+                    ...rec.remote,
+                    logTailOut: b.log,
+                    logTailErr: b.errTail,
+                    logTotalLines: b.totalLines,
+                    logTailAt: Date.now(),
+                  },
+                }
+              : null
+          );
+        }
         if (/^ALIVE/.test(b.status)) {
           // t297 — slurm records speak their scheduler state (ALIVE:PENDING /
           // ALIVE:RUNNING): persist it for the inspector's strip so "queued"
@@ -2934,6 +4316,14 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
               rec.remote && !rec.done
                 ? { ...rec, remote: { ...rec.remote, slurmState } }
                 : null
+            );
+          }
+          // t346 — the ladder spoke ALIVE: the run is provably live; any
+          // earlier VANISHED streak was the wire lying
+          if (e.remote.vanishedStreak) {
+            e.remote.vanishedStreak = 0;
+            updateRun(e.job.id, (rec) =>
+              rec.remote && !rec.done ? { ...rec, remote: { ...rec.remote, vanishedStreak: 0 } } : null
             );
           }
           if (e.job.status !== "running") continue; // heal path: still alive, nothing to do
@@ -3005,14 +4395,30 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
           if (updated) replace(out, updated);
           continue;
         }
-        if (b.status === "VANISHED" && ageMs > 120_000) {
+        if (b.status === "VANISHED" && ageMs > VANISH_AGE_MS) {
           // no pid, no exit file, older than the startup grace window — the
-          // node rebooted or someone killed the session without a trace
+          // node rebooted or someone killed the session without a trace.
+          // t346 — but the ladder's silence is only PROOF once it repeats:
+          // a slow scheduler, an accounting purge or a wire blink can make
+          // ONE snapshot come back empty while the job is alive. The flip
+          // now needs VANISH_STREAK_N consecutive VANISHED verdicts; any
+          // ALIVE/EXIT/SACCT word resets the count (and an SSH-level sweep
+          // failure leaves it untouched — unknown is not evidence).
+          const streak = (e.remote.vanishedStreak ?? 0) + 1;
+          if (streak < VANISH_STREAK_N) {
+            e.remote.vanishedStreak = streak;
+            updateRun(e.job.id, (rec) =>
+              rec.remote && !rec.done && rec.startedAt === e.rec.startedAt
+                ? { ...rec, remote: { ...rec.remote, vanishedStreak: streak } }
+                : null
+            );
+            continue;
+          }
           if (e.job.status === "running") {
             const patch = {
               status: "failed" as const,
               progress: 0,
-              result: `interrupted remotely (no exit status — node reboot or hard kill); re-run${
+              result: `interrupted remotely (no exit status — node reboot or hard kill; ${VANISH_STREAK_N} consecutive checks saw no trace of it); re-run${
                 ["class2d", "class3d", "refine3d", "initialmodel", "multibody"].includes(e.job.type)
                   ? " resumes from the last synced checkpoint"
                   : ""
@@ -3037,7 +4443,7 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
         }
       }
     } finally {
-      pollState.set(connId, { at: Date.now(), inflight: false });
+      pollState.set(connId, { at: Date.now(), inflight: false, lastMs: Date.now() - sweepT0 });
     }
   }
   return out;
@@ -3062,11 +4468,34 @@ async function finalizeRemoteRun(
   const r = rec.remote;
   if (!r) return null; // defensive: entries are pre-filtered on rec.remote
   const localWorkdir = rec.workdir;
+  // t350 — per-class stars BEFORE the sync-back: a finished class2d/class3d
+  // splits its final data star into particles_classNNN.star ON THE CLUSTER
+  // (one awk round), so the .star key-file policy carries every class star
+  // home with the rest of the metadata — the cryoSPARC-style flow (skip the
+  // subset-selection step; pick classes straight from the gallery).
+  // Best-effort by design: a split that cannot run leaves the run EXACTLY
+  // as finished as it was (the stars are a convenience, never a verdict).
+  let perClassFiles: string[] = [];
+  if (exitCode === 0 && PER_CLASS_TYPES.has(job.type)) {
+    try {
+      const split = await splitPerClassStars(conn, r.remoteWorkdir, job.type);
+      if (split.ok && split.files.length > 0) {
+        perClassFiles = split.files;
+      } else if (split.error) {
+        console.log(`per-class: split skipped for "${job.name}" — ${split.error}`);
+      }
+    } catch (e) {
+      console.log(`per-class: split failed for "${job.name}" — ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
   // t269 — the sync-back leg's wall-clock cost: the ledger's second entry,
   // set at finalize (the run itself is already over; this is the wait the
   // user still feels before the results appear).
   const syncT0 = Date.now();
-  const sync = await syncBackWorkdir(conn, r, localWorkdir);
+  // t339 — the job's TYPE rides along: the pure planner keeps the bulk
+  // producers' image stacks on the cluster under key-files (the local
+  // mirror is for metadata; the images wait for an explicit fetch).
+  const sync = await syncBackWorkdir(conn, r, localWorkdir, job.type);
   const syncMs = Date.now() - syncT0;
 
   let outputs: Record<string, string> = {};
@@ -3074,11 +4503,25 @@ async function finalizeRemoteRun(
   if (exitCode === 0) {
     const collected = collectOutputs(job.type, localWorkdir);
     outputs = collected.outputs;
+    // t350 — the per-class stars land on the record under their own dynamic
+    // keys (particles_class001 …): a downstream job created from the class
+    // gallery points at these. Only stars that actually came home are
+    // recorded (the twin block below then verifies + registers the cluster
+    // twin for each, exactly like every other output key).
+    for (const name of perClassFiles) {
+      const local = path.join(localWorkdir, name);
+      const key = name.replace(/\.star$/, "");
+      if (existsSync(local)) outputs[key] = local;
+    }
     const origin = `${r.user}@${r.host.split(":")[0]}${r.module ? ` · ${r.module}` : ""}`;
+    const perClassNote =
+      perClassFiles.length > 0 && Object.keys(outputs).some((k) => k.startsWith("particles_class"))
+        ? ` · ${perClassFiles.length} per-class star(s) — pick classes from the gallery for the next step`
+        : "";
     result =
       collected.outputs && Object.keys(collected.outputs).length > 0
-        ? `REMOTE[${origin}]: ${collected.result.replace(/^REAL: /, "")}`
-        : `REMOTE[${origin}]: exited 0 but no expected outputs appeared — check the log tab`;
+        ? `REMOTE[${origin}]: ${collected.result.replace(/^REAL: /, "")}${perClassNote}`
+        : `REMOTE[${origin}]: exited 0 but no expected outputs appeared — check the log tab${perClassNote}`;
   } else {
     let logTailText = remoteLogTail;
     // t323 — the rescue arm now reads the LOCAL run.err's own content, not
@@ -3228,8 +4671,17 @@ async function finalizeRemoteRun(
     const meaning = silentDeath
       ? "RELION printed no error — the run ended silently mid-job"
       : describeExitCode(exitCode);
+    // t341 — the note used to be one string tuned for DIRECT-mode deaths,
+    // so a Slurm job that died silently was told "multi-hour jobs belong
+    // in Slurm mode" — advice for a lane it was already in (the field
+    // report's exact receipt). Split by the record's own mode: the Slurm
+    // suspects are the node's OOM killer, a walltime, or a scancel, and
+    // the receipt points at sacct + the diagnosis strip instead of the
+    // login-node reaper story.
     const silentDeathNote = silentDeath
-      ? "no error text in the visible run.out/run.err tails (the rescue fetched the cluster's copy when the local one was empty): an external kill is the usual cause — the login node's CPU-job reaper (long direct-mode runs), the OOM killer, or a walltime. Multi-hour jobs belong in Slurm mode; sacct -j <jobid> and the job directory hold the cluster's own record"
+      ? r.mode === "slurm"
+        ? `no error text in the visible run.out/run.err tails: an external kill is the usual cause — the node's OOM killer, a walltime, or a scancel (check the cluster's own record: sacct -j ${r.slurmId ?? "<jobid>"} names the state; the failure diagnosis below matches the full run.out for known signatures like a CUDA out-of-memory)`
+        : "no error text in the visible run.out/run.err tails (the rescue fetched the cluster's copy when the local one was empty): an external kill is the usual cause — the login node's CPU-job reaper (long direct-mode runs), the OOM killer, or a walltime. Multi-hour jobs belong in Slurm mode; sacct -j <jobid> and the job directory hold the cluster's own record"
       : "";
     result = [
       `REMOTE[${r.user}@${r.host.split(":")[0]}]: exit ${exitCode}${meaning ? ` (${meaning})` : ""}`,
@@ -3263,18 +4715,27 @@ async function finalizeRemoteRun(
     remote: mapLocalToRemote(v, r.remoteRoot),
   }));
   if (twinCandidates.length > 0) {
+    // t341 — the echo payload is the INDEX, never the path: a login shell
+    // (or a test rig) that rewrites path-shaped strings inside the command
+    // used to break the round-trip ("OK /projects/…" came back translated,
+    // the ok-set never matched, and every run finalized with EMPTY twins —
+    // downstream dispatches re-uploaded inputs the cluster already held).
+    // t324's lazy probe already speaks key-payload dialect (CF_TWIN\tkey);
+    // this closes the same hole on the finalize leg. An index also keeps
+    // the script short at any path length.
     const statScript = twinCandidates
-      .map((c) => `if [ -e ${shQuote(c.remote)} ]; then echo "OK ${shQuote(c.remote)}"; fi`)
+      .map((c, i) => `if [ -e ${shQuote(c.remote)} ]; then echo "OK ${i}"; fi`)
       .join("; ");
     const stat = await exec(conn, statScript, { timeoutMs: 20_000 });
-    const okSet = new Set(
+    const okIdx = new Set(
       stat.stdout
         .split("\n")
-        .filter((l) => l.startsWith("OK "))
-        .map((l) => l.slice(3).trim().replace(/^"|"$/g, ""))
+        .map((l) => l.trim())
+        .filter((l) => /^OK \d+$/.test(l))
+        .map((l) => Number(l.slice(3)))
     );
-    for (const c of twinCandidates) {
-      if (okSet.has(c.remote)) remoteOutputs[c.key] = c.remote;
+    for (let i = 0; i < twinCandidates.length; i++) {
+      if (okIdx.has(i)) remoteOutputs[twinCandidates[i].key] = twinCandidates[i].remote;
     }
   }
 
@@ -3366,6 +4827,31 @@ async function finalizeRemoteRun(
       .then((m) => m.autoStartPendingDownstream(job.id))
       .catch((e) => console.error("remote-run: downstream auto-start failed:", e));
   }
+  // t356 — the PROACTIVE class-image pipeline (the user's architecture:
+  // download the cluster's mrcs result files locally, convert to images
+  // locally). The sync-back's key-files caps leave a real run's class-
+  // average stacks (25–100 MB each) ON the cluster, and the old lazy
+  // door made every gallery image a fresh SSH roulette. After finalize,
+  // the manifest's stack names go to the render scheduler: each stack is
+  // pulled once (byte-verified), converted to per-class PNGs + the
+  // per-round sheet in the LOCAL preview cache, then deleted — both
+  // galleries answer from local bytes afterwards. Fire-and-forget: the
+  // sweep is never blocked (transfers ride direct pooled channels), one
+  // pipeline per job, already-rendered rounds skip for free. Runs for
+  // failed exits too — the rounds a killed run DID finish are exactly
+  // what the user needs to judge a re-run.
+  if (LIVE_ITERATION_TYPES.has(job.type)) {
+    const stackManifest = readRemoteManifest(localWorkdir);
+    if (stackManifest) {
+      scheduleRemoteStackRenders({
+        jobId: job.id,
+        connectionId: r.connectionId,
+        remoteWorkdir: r.remoteWorkdir,
+        files: stackManifest.files.map((f) => ({ file: f.path, size: f.size })),
+        reason: "finalize",
+      });
+    }
+  }
   if (updated) console.log(`remote-run: ${job.type} "${job.name}" exit ${exitCode} (${sync.files} files synced, ${sync.skipped.length} skipped)`);
   return updated;
 }
@@ -3377,14 +4863,6 @@ interface SyncResult {
   note?: string;
 }
 
-/** t289 — extensions that ALWAYS sync under the key-files policy: the
- * small textual skeleton of a RELION run (particles/metadata/logs). Bulky
- * binary formats (.mrc/.mrcs/.map/.hdf/…) are gated by the key-file size
- * cap instead — class averages (a few MB) come home, half-maps and stacks
- * stay on the cluster and wait for an explicit fetch. */
-const KEY_TEXT_EXT =
-  /\.(star|log|txt|out|err|json|xml|com|lst|coord|bild|dat|eps|pdf|csv|ini|toml|ya?ml|md)$/i;
-
 /**
  * Download the cluster workdir into the local mirror (bounded by the
  * connection's caps AND — since t289 — its sync policy). STAR files are
@@ -3392,11 +4870,22 @@ const KEY_TEXT_EXT =
  * unchanged. `.cf-*` control files stay remote-only. The FULL remote
  * listing lands in `.cf-remote-manifest.json` so the outputs view can show
  * what stayed behind. Returns counts + the skipped list for the UI.
+ *
+ * t339 — WHAT comes home is decided by the pure planner (sync-policy.ts):
+ * under key-files, the per-micrograph image producers (extract, motioncorr,
+ * polish — the cleanup planner's BULK_TYPES) sync TEXT ONLY; their image
+ * stacks stay on the cluster WHATEVER THEIR SIZE (the 865-under-the-cap
+ * loophole this ticket closed — per-file judgment cannot see an aggregate),
+ * listed in the manifest + Results and fetchable on demand. Other types
+ * keep the t289 doctrine: text always, binaries under keyFileMb (class
+ * averages still come home — the class gallery reads their headers
+ * locally). "everything" keeps meaning everything under the caps.
  */
 async function syncBackWorkdir(
   conn: RemoteConnection,
   r: RemoteRunState,
-  localWorkdir: string
+  localWorkdir: string,
+  jobType?: string
 ): Promise<SyncResult> {
   const res: SyncResult = { files: 0, bytes: 0, skipped: [] };
   const W = shQuote(r.remoteWorkdir);
@@ -3409,12 +4898,18 @@ async function syncBackWorkdir(
     res.note = "sync-back failed (workdir unreadable over SSH) — outputs remain on the cluster";
     return res;
   }
-  // t289 — the policy: key-files (default) gates binaries at keyFileMb;
-  // everything keeps the pre-t289 behavior (caps only).
-  const policy = conn.syncPolicy === "everything" ? "everything" : "key-files";
-  const keyCap = (conn.keyFileMb ?? 16) * 1024 * 1024;
+  // t289/t339 — the policy context the PURE planner speaks (key-files gates
+  // binaries at keyFileMb for result types and syncs bulk producers'
+  // images NEVER; everything keeps the pre-t289 behavior — caps only).
+  const policyCtx = {
+    policy: conn.syncPolicy === "everything" ? ("everything" as const) : ("key-files" as const),
+    jobType,
+    keyFileMb: conn.keyFileMb,
+    maxFileMb: conn.maxFileMb,
+    maxTotalMb: conn.maxTotalMb,
+    remoteWorkdir: r.remoteWorkdir,
+  };
   const capPerFile = conn.maxFileMb * 1024 * 1024;
-  let budget = conn.maxTotalMb * 1024 * 1024;
   const entries: { rel: string; size: number }[] = [];
   for (const line of manifest.stdout.trim().split("\n")) {
     if (!line.trim()) continue;
@@ -3432,19 +4927,13 @@ async function syncBackWorkdir(
     remoteWorkdir: r.remoteWorkdir,
     files: entries.map((e) => ({ path: e.rel, size: e.size })),
   });
-  for (const { rel, size } of entries) {
-    if (policy === "key-files" && !KEY_TEXT_EXT.test(rel) && size > keyCap) {
-      res.skipped.push(`${rel} (${(size / 1024 / 1024).toFixed(0)} MB > ${conn.keyFileMb ?? 16} MB key-file cap)`);
-      continue;
-    }
-    if (size > capPerFile) {
-      res.skipped.push(`${rel} (${(size / 1024 / 1024).toFixed(0)} MB > ${conn.maxFileMb} MB cap)`);
-      continue;
-    }
-    if (budget - size < 0) {
-      res.skipped.push(`${rel} (sync budget exhausted)`);
-      continue;
-    }
+  // t339 — the plan (WHAT comes home) comes from the pure planner; the
+  // loop below only executes it. The planner's skip list is the pre-download
+  // truth; the loop appends the download-time verdicts (failed / grew) so
+  // the note speaks every file that stayed, with its own why.
+  const plan = planSyncBack(entries, policyCtx);
+  const skips: SyncSkip[] = [...plan.skip];
+  for (const { rel, size } of plan.take) {
     const localPath = path.join(localWorkdir, rel);
     // fresh copy already there? skip (idempotent re-finalize)
     try {
@@ -3457,14 +4946,13 @@ async function syncBackWorkdir(
     }
     const written = await remoteDownload(conn, `${r.remoteWorkdir}/${rel}`, localPath, capPerFile);
     if (written == null) {
-      res.skipped.push(`${rel} (download failed)`);
+      skips.push({ rel, size, why: "download-failed" });
       continue;
     }
     if (written === -1) {
-      res.skipped.push(`${rel} (grew past the cap mid-download)`);
+      skips.push({ rel, size, why: "grew-mid-download" });
       continue;
     }
-    budget -= written;
     res.bytes += written;
     res.files += 1;
     // STAR rewrite to-local (in place)
@@ -3478,12 +4966,12 @@ async function syncBackWorkdir(
       }
     }
   }
-  if (res.skipped.length > 0) {
-    res.note =
-      policy === "key-files"
-        ? `${res.skipped.length} bulky file(s) stayed on the cluster (key-files policy): ${res.skipped.slice(0, 3).join(", ")}${res.skipped.length > 3 ? " …" : ""} — they are listed in this job's Results; preview or download them there on demand`
-        : `${res.skipped.length} file(s) stayed on the cluster (caps): ${res.skipped.slice(0, 3).join(", ")}${res.skipped.length > 3 ? " …" : ""} — raise the sync caps in the connection settings or fetch them manually from ${r.remoteWorkdir}`;
-  }
+  // the skip list rides the record (per-file lines, the same strings the
+  // pre-t339 dialect embedded); the note is the planner's own rendering —
+  // the metadata-only class leads with the POLICY, not with caps.
+  res.skipped = skips.map((s) => describeSyncSkipFile(s, policyCtx));
+  const note = describeSyncSkips(skips, policyCtx);
+  if (note) res.note = note;
   return res;
 }
 
@@ -3491,41 +4979,161 @@ async function syncBackWorkdir(
 /* Log tail + stop + DTO enrichment                                    */
 /* ------------------------------------------------------------------ */
 
-/** Live log tail for remote records (the /log route's remote branch). */
-export async function remoteLogTail(jobId: string, opts: { full?: boolean }): Promise<RemoteLogPayload | null> {
-  const rec = getRun(jobId);
-  if (!rec?.remote) return null;
-  const conn = getConnection(rec.remote.connectionId);
-  if (!conn) return { text: "(the connection for this run was deleted — logs stay on the cluster)", totalLines: 0, truncated: false };
-  const capOut = opts.full ? 8 * 1024 * 1024 : 512 * 1024;
-  const capErr = opts.full ? 1024 * 1024 : 64 * 1024;
-  const W = shQuote(rec.remote.remoteWorkdir);
-  const res = await exec(
-    conn,
-    `wc -l < ${W}/run.out 2>/dev/null || echo 0; echo ---CF-SPLIT---; tail -c ${capOut} ${W}/run.out 2>/dev/null; echo ---CF-SPLIT---; tail -c ${capErr} ${W}/run.err 2>/dev/null`,
-    { timeoutMs: 15_000 }
-  );
-  if (res.error) {
-    return { text: `(log fetch failed: ${res.error})`, totalLines: 0, truncated: false };
-  }
-  const parts = res.stdout.split("---CF-SPLIT---");
-  const totalLines = Number((parts[0] ?? "0").trim()) || 0;
-  let out = (parts[1] ?? "").replace(/^\n/, "");
-  const err = (parts[2] ?? "").replace(/^\n/, "");
-  if (err.trim().length > 0) out += "\n----- stderr -----\n" + err;
+/**
+ * t346 — how often the log route may fall back to its OWN SSH fetch for one
+ * job. The UI polls the log tab every 1.5s while a run is live; before t346
+ * every one of those polls paid a full SSH exec (up to 512KB) serialized on
+ * the cluster's single wire — the wire saturated, the log tab starved and
+ * the whole UI felt stuck. The sweep now carries the tails on its
+ * heartbeat; this fallback exists only for the gap BEFORE the first sweep
+ * lands (or when no sweep runs at all — e.g. the record's connection was
+ * just re-created) and must never see the UI's cadence.
+ */
+const LOG_FETCH_MIN_MS = 10_000;
+const logFetchAt = new Map<string, number>();
+/**
+ * t347 — the last FULL-log answer per job. Full mode never touches the
+ * heartbeat's tail cache, and the UI polls it every 5s — faster than the
+ * 10s wire budget — so every rate-limited tick used to answer with an
+ * EMPTY string, blanking the whole console on alternate refreshes (the
+ * user's 「文字总是在刷新的过程中消失」). The cache serves those
+ * in-between ticks; each real fetch refreshes it.
+ */
+const logFullCache = new Map<string, { payload: RemoteLogPayload; at: number }>();
+const LOG_FULL_CACHE_MS = 30_000;
+
+/** The sweep-carry + on-demand log read, shaped exactly like getLogTail's. */
+function shapeRemoteLog(
+  out: string,
+  err: string,
+  totalLines: number,
+  full: boolean
+): RemoteLogPayload {
+  let text = out;
+  if (err.trim().length > 0) text += "\n----- stderr -----\n" + err;
   // collapse \r-updated lines like getLogTail does
-  const lines = out
+  const lines = text
     .split("\n")
     .map((line) => {
       const idx = line.lastIndexOf("\r");
       return (idx >= 0 ? line.slice(idx + 1) : line).replace(/\s+$/, "");
     });
-  const tail = opts.full ? lines : lines.slice(-600);
+  const tail = full ? lines : lines.slice(-600);
   return {
     text: tail.join("\n"),
     totalLines,
     truncated: totalLines > tail.length,
   };
+}
+
+export async function remoteLogTail(jobId: string, opts: { full?: boolean }): Promise<RemoteLogPayload | null> {
+  const rec = getRun(jobId);
+  if (!rec?.remote) return null;
+  const conn = getConnection(rec.remote.connectionId);
+  if (!conn) return { text: "(the connection for this run was deleted — logs stay on the cluster)", totalLines: 0, truncated: false };
+  const r = rec.remote;
+
+  // t346 — CACHE-FIRST (tail mode): the poll sweep already carries the
+  // run.out/run.err tails on its heartbeat (one exec per connection per
+  // few seconds, batched over ALL its jobs). The UI's 1.5s cadence reads
+  // the record — zero SSH, zero wire bytes, instant response. A STALE
+  // cache (>15s old) on a still-live run falls through to the rate-limited
+  // fetch below: the sweep is the normal refresher, but a log tab must
+  // never freeze just because nobody polled /api/jobs for a while (the
+  // detached-view case — the 10s rate limiter keeps the wire cost bounded
+  // even here).
+  if (!opts.full && typeof r.logTailAt === "number") {
+    const staleMs = Date.now() - r.logTailAt;
+    if (rec.done || staleMs <= 15_000) {
+      return shapeRemoteLog(r.logTailOut ?? "", r.logTailErr ?? "", r.logTotalLines ?? 0, false);
+    }
+  }
+
+  // no cache yet (or full mode): ONE on-demand fetch per window per job —
+  // the rate limiter is the UI's protection, not the wire's generosity
+  const now = Date.now();
+  if (now - (logFetchAt.get(jobId) ?? 0) < LOG_FETCH_MIN_MS) {
+    if (!opts.full && typeof r.logTailAt === "number") {
+      return shapeRemoteLog(r.logTailOut ?? "", r.logTailErr ?? "", r.logTotalLines ?? 0, false);
+    }
+    if (opts.full) {
+      // t347 — the full-mode cache answers the in-between ticks: a finished
+      // run's log is static (cache forever); a live run's refreshes on every
+      // real fetch. Never an empty-string answer that blanks the console.
+      const c = logFullCache.get(jobId);
+      if (c && (rec.done || now - c.at <= LOG_FULL_CACHE_MS)) {
+        return c.payload;
+      }
+    }
+    // rate-limited with nothing to serve: pending, not blank — the UI keeps
+    // its previous content and shows a quiet hint
+    return {
+      text: "",
+      totalLines: 0,
+      truncated: false,
+      pending: true,
+      note: "waiting for the next fetch window (the heartbeat refreshes the log)",
+    };
+  }
+  logFetchAt.set(jobId, now);
+
+  const capOut = opts.full ? 8 * 1024 * 1024 : 96 * 1024;
+  const capErr = opts.full ? 1024 * 1024 : 16 * 1024;
+  const W = shQuote(r.remoteWorkdir);
+  const res = await exec(
+    conn,
+    `wc -l < ${W}/run.out 2>/dev/null || echo 0; echo ---CF-SPLIT---; tail -c ${capOut} ${W}/run.out 2>/dev/null; echo ---CF-SPLIT---; tail -c ${capErr} ${W}/run.err 2>/dev/null`,
+    { timeoutMs: 30_000 }
+  );
+  if (res.error) {
+    // t346 — the wire's failure is not the log's failure: the cached
+    // heartbeat (if any) still serves; a run with neither cache nor wire
+    // gets the honest retry word, and the UI keeps its last content
+    if (!opts.full && typeof r.logTailAt === "number") {
+      return shapeRemoteLog(r.logTailOut ?? "", r.logTailErr ?? "", r.logTotalLines ?? 0, !!opts.full);
+    }
+    if (opts.full) {
+      const c = logFullCache.get(jobId);
+      if (c) return c.payload; // stale full text beats a blank console
+    }
+    // t347 — pending + note instead of a placeholder that replaced the
+    // console: the run itself is unaffected, the next heartbeat retries
+    return {
+      text: "",
+      totalLines: 0,
+      truncated: false,
+      pending: true,
+      note: `log fetch failed: ${res.error} — retrying on the next heartbeat; the run itself is unaffected`,
+    };
+  }
+  const parts = res.stdout.split("---CF-SPLIT---");
+  const totalLines = Number((parts[0] ?? "0").trim()) || 0;
+  const out = (parts[1] ?? "").replace(/^\n/, "");
+  const err = (parts[2] ?? "").replace(/^\n/, "");
+  // a successful TAIL fetch also seeds the cache — the sweep overwrites it
+  // on its next heartbeat with the same shape
+  if (!opts.full) {
+    updateRun(jobId, (cur) =>
+      cur.remote && !cur.done && cur.remote.connectionId === r.connectionId
+        ? {
+            ...cur,
+            remote: {
+              ...cur.remote,
+              logTailOut: out,
+              logTailErr: err,
+              logTotalLines: totalLines,
+              logTailAt: Date.now(),
+            },
+          }
+        : null
+    );
+  }
+  const payload = shapeRemoteLog(out, err, totalLines, !!opts.full);
+  if (opts.full) {
+    // t347 — remember the full answer for the rate-limited ticks that follow
+    logFullCache.set(jobId, { payload, at: Date.now() });
+  }
+  return payload;
 }
 
 /** Kill the cluster-side session — the stop route's branch.

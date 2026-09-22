@@ -232,6 +232,31 @@ try {
     unitParse("refine3d", " Expectation iteration 3 of 25\n 2.50/10.00 min ...[oo]") === 9,
     "refine combines header + in-iteration bar ((3-1+0.25)/25 → 9)"
   );
+  // t353 — the 7-of-20-shows-99% field shape: a 6-rank class2d's 4096-byte
+  // tail holds ONLY bar segments (the "Expectation iteration 7 of 20"
+  // header scrolled out under ~40 bytes/tick × 6 ranks × a quarter hour).
+  // The bare bar is the WITHIN-iteration bar — reading it as global gave
+  // 99% at every iteration's end. The honest verdict is null (hold).
+  const bareBar =
+    "  14.30/14.32 min ~~(,_,\">                                                     [oo]\n" +
+    "  14.31/14.32 min ~~(,_,\">                                                     [oo]\n" +
+    "  14.32/14.32 min ~~(,_,\">                                                     [oo]";
+  must(
+    unitParse("class2d", bareBar) === null,
+    "t353: a refine-family BARE bar (header scrolled out) claims NOTHING (the 7/20 → 99% lie is dead)"
+  );
+  must(
+    unitParse("class2d", bareBar, { iterations: 20 }) === null,
+    "t353: even with the params' iteration count known, a bare bar cannot be placed — still null"
+  );
+  must(
+    unitParse("class2d", "particle 349999/350000") === null,
+    "t353: a refine-family n/N counter is the CURRENT iteration's step, not the run — null"
+  );
+  must(
+    unitParse("ctffind", bareBar) === 99,
+    "t353: the per-image family KEEPS the global bar as ground truth (ctffind bar → 99)"
+  );
   must(
     unitParse("initialmodel", " Gradient optimisation iteration 4 of 10") === 40,
     "initialmodel's gradient header parses (4 of 10 → 40)"
@@ -358,15 +383,15 @@ try {
   const stackB64 = (() => {
     const nx = 48;
     const ny = 48;
-    const nz = 2;
-    const data = Buffer.alloc(1024 + nx * ny * nz * 4);
+    // t338 — NZ must cover every image the particles star references (the
+    // dispatch's consumer gate refuses a star that outruns its stack; the
+    // old nz=2 under a 24-row star was exactly that lie)
+    const nz = 24;
+    const data = Buffer.alloc(1024); // header-only (t338): the sniffers read the header; full pixel data would bloat the inline base64 past the mock's exec limits
     data.writeInt32LE(nx, 0);
     data.writeInt32LE(ny, 4);
     data.writeInt32LE(nz, 8);
     data.writeInt32LE(2, 12);
-    for (let i = 0; i < nx * ny * nz; i++) {
-      data.writeFloatLE(Math.sin(i / 500.0), 1024 + i * 4);
-    }
     return data.toString("base64");
   })();
   const fxD = clientBoth(

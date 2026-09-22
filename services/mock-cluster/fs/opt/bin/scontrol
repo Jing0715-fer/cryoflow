@@ -129,6 +129,16 @@ emit_node() {
     elif [ "$ca" -gt 0 ]; then state=MIXED
     else state=IDLE; fi
   fi
+  # t337 — the drained-node lever: ~/.slurm/node-override ("name STATE"
+  # lines) forces a node's state word AFTER the live-accounting arithmetic,
+  # so the app's pre-flight, the usage panel and the mock sbatch's own
+  # submission gate all read ONE world (a node flipped DOWN stays DOWN no
+  # matter what the baseline allocations said).
+  if [ -f "$SLURM_DIR/node-override" ]; then
+    local ov
+    ov="$(awk -v n="$name" '$1==n{print $2; exit}' "$SLURM_DIR/node-override" 2>/dev/null)"
+    [ -n "$ov" ] && state="$ov"
+  fi
   local gres="gpu:$gt"; [ "$gt" -eq 0 ] && gres="(null)"
   local cfg="cpu=$ct"
   [ "$gt" -gt 0 ] && cfg="$cfg,gres/gpu=$gt"

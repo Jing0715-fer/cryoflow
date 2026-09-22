@@ -68,6 +68,31 @@ conc="$(grep -m1 -oP '#SBATCH --array=1-[0-9]+%\K[0-9]+' "$script" || true)"
 # 112G @ 8) crossed it, exactly like the real cluster. --gres beyond the
 # node's GPU count gets the sibling refusal (same "node configuration"
 # verdict, no memory line).
+# t337 — the node-keyed gate: an explicit --nodelist speaks for itself
+# (the app suppresses --partition under a pin), so the NODE'S OWN row
+# decides — the partition table below only speaks when no pin rides:
+#   · a node scontrol does not know        → Invalid node name (real
+#     Slurm's own dialect for a bad --nodelist)
+#   · a node forced DOWN/DRAIN via the
+#     ~/.slurm/node-override lever ("name STATE" lines — the same file
+#     the mock scontrol honors, so the app's pre-flight, the usage panel
+#     and THIS gate all see one world)     → the user's exact receipt:
+#     bashrc noise + "Requested node configuration is not available"
+#   · --gres beyond the NODE'S own GPUs    → the same refusal (the shape
+#     the user hit pinning a 5-GPU node at a 6-wide width)
+# t340 — the PARTITION-MEMBERSHIP gate, the real controller's own verdict
+# that the old mock never modeled (why every pin passed E2E here while the
+# user's real cluster refused them): a --nodelist node that does not live
+# in the partition the job names — or, with no --partition, in the
+# cluster's DEFAULT partition ("gpu" here, the mirror of the user's world
+# where the default does not contain the GPU nodes they pin) — is refused
+# AT SUBMIT TIME with exactly the user's receipt. The fix it proves: the
+# app now resolves the pinned node's OWN partition (scontrol's Partitions=)
+# and writes --partition=<that> + --nodelist=<node>, the same composition
+# a group-dropdown pick writes — the membership check passes and the job
+# lands. A pin whose partition matches (brain2 in brain2, node03 in gpu)
+# rides through untouched; a node that IS in the default (node01-04 bare)
+# still works with no partition named — every honest shape stays honest.
 partition="$(grep -m1 -oP '(?<=#SBATCH --partition=).*' "$script" || true)"
 # t332 — the explicit node pin (the run dialog's usage-list pick): rides
 # the journal's 5th field so scontrol accounts the job on THAT node,
@@ -75,6 +100,79 @@ partition="$(grep -m1 -oP '(?<=#SBATCH --partition=).*' "$script" || true)"
 node_req="$(grep -m1 -oP '(?<=#SBATCH --nodelist=).*' "$script" || true)"
 mem_req="$(grep -m1 -oP '(?<=#SBATCH --mem=)\d+' "$script" || true)"
 gres_req="$(grep -m1 -oP '(?<=#SBATCH --gres=gpu:)\d+' "$script" || true)"
+
+node_mem=0; node_gpus=0
+if [ -n "$node_req" ]; then
+  # the node table mirrors scontrol's own (name → GPUs; all 64 GB)
+  case "$node_req" in
+    normal)   node_gpus=5 ;;
+    brain)    node_gpus=6 ;;
+    brain2)   node_gpus=8 ;;
+    brain3)   node_gpus=6 ;;
+    brain4)   node_gpus=8 ;;
+    normal02) node_gpus=8 ;;
+    node01|node02|node03|node04) node_gpus=6 ;;
+    node05|node06|node07|node08) node_gpus=0 ;;
+    *)        node_gpus=-1 ;;
+  esac
+  node_mem=64
+  if [ "$node_gpus" -lt 0 ]; then
+    echo "sbatch: error: Invalid node name $node_req" >&2
+    exit 1
+  fi
+  # t340 — the node's own partition (the same table scontrol emits as
+  # Partitions=), then the MEMBERSHIP verdict: the pinned node must live
+  # in the partition the job names, or — with none named — in the
+  # cluster's DEFAULT partition (the user's world: the default does not
+  # hold their GPU nodes, so the bare pin was refused at submit time).
+  node_part() {
+    case "$1" in
+      normal|brain|brain2|brain3|brain4|normal02) echo "$1" ;;
+      node01|node02|node03|node04) echo "gpu" ;;
+      node05|node06|node07|node08) echo "long" ;;
+      *) echo "" ;;
+    esac
+  }
+  np="$(node_part "$node_req")"
+  eff_part="${partition:-gpu}"
+  if [ -n "$np" ] && [ "$np" != "$eff_part" ]; then
+    echo "/data2/home/$USER/.bashrc: line 35: /home/guozhenqian/app/relion/relion.sh: No such file or directory" >&2
+    echo "sbatch: error: Batch job submission failed: Requested node configuration is not available" >&2
+    exit 1
+  fi
+  # the drained-node lever: the override file forces a state word the
+  # pre-flight, the panel and this gate all read the same way
+  node_state=""
+  if [ -f "$HOME/.slurm/node-override" ]; then
+    node_state="$(awk -v n="$node_req" '$1==n{print $2; exit}' "$HOME/.slurm/node-override" 2>/dev/null)"
+  fi
+  case "$node_state" in
+    DOWN|DRAIN|DRAINING|FAIL)
+      echo "/data2/home/$USER/.bashrc: line 35: /home/guozhenqian/app/relion/relion.sh: No such file or directory" >&2
+      echo "sbatch: error: Batch job submission failed: Requested node configuration is not available" >&2
+      exit 1
+      ;;
+  esac
+else
+  case "$partition" in
+    brain)    node_mem=64; node_gpus=6 ;;
+    brain2)   node_mem=64; node_gpus=8 ;;
+    brain3)   node_mem=64; node_gpus=6 ;;
+    brain4)   node_mem=64; node_gpus=8 ;;
+    normal)   node_mem=64; node_gpus=5 ;;
+    normal02) node_mem=64; node_gpus=8 ;;
+    gpu)      node_mem=64; node_gpus=6 ;;
+    # t337 — the RESIDUAL-PATH lever: a 4-GPU partition the mock sinfo
+    # never lists (so the app's probe inventory cannot clamp it). A
+    # submission naming it rides --partition=debugx --gres=gpu:6 straight
+    # into the refusal below — the drift window (stale inventory / a
+    # group the app never saw) the app's sbatch-error TRANSLATION exists
+    # for. No real cluster has this partition; no suite should ever
+    # submit onto it except to prove that translation.
+    debugx)   node_mem=64; node_gpus=4 ;;
+    *)        node_mem=64; node_gpus=8 ;;
+  esac
+fi
 # t327 — the request journal for scontrol's LIVE usage accounting: what
 # this job holds while it runs (ntasks CPUs · gres GPUs · the array's
 # effective concurrency). scontrol adds RUNNING jobs onto their
@@ -87,18 +185,6 @@ conc_eff=1
 if [ -n "$arr" ]; then
   if [ -n "$conc" ] && [ "$conc" -lt "$arr" ]; then conc_eff="$conc"; else conc_eff="$arr"; fi
 fi
-
-node_mem=0; node_gpus=0
-case "$partition" in
-  brain)    node_mem=64; node_gpus=6 ;;
-  brain2)   node_mem=64; node_gpus=8 ;;
-  brain3)   node_mem=64; node_gpus=6 ;;
-  brain4)   node_mem=64; node_gpus=8 ;;
-  normal)   node_mem=64; node_gpus=5 ;;
-  normal02) node_mem=64; node_gpus=8 ;;
-  gpu)      node_mem=64; node_gpus=6 ;;
-  *)        node_mem=64; node_gpus=8 ;;
-esac
 
 if [ -n "$mem_req" ] && [ "$mem_req" -gt "$node_mem" ]; then
   echo "/data2/home/$USER/.bashrc: line 35: /home/guozhenqian/app/relion/relion.sh: No such file or directory" >&2

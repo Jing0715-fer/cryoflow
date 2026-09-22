@@ -429,6 +429,76 @@ export async function renderMrcMontagePng(
   return grayToPng(grid, gw, gh);
 }
 
+/* ------------------------------------------------------------------ */
+/* Per-iteration class SHEET (t354) — one image per iteration round     */
+/* ------------------------------------------------------------------ */
+
+/** the sheet's cell edge — big enough to judge class quality at a glance */
+const SHEET_CELL = 160;
+/** defensive ceiling: a class2d with >200 classes renders its first 200 */
+const SHEET_MAX_SLICES = 200;
+/** a sheet never exceeds this on its long side (keeps the PNG KB-scale) */
+const SHEET_MAX_LONG = 1400;
+
+/**
+ * t354 — render EVERY slice of a per-iteration class-average stack as ONE
+ * grid image — the user's 「每一轮的 2D 结果生成一张图片」: RELION writes
+ * `run_itNNN_classes.mrcs` once per Expectation round, and this is that
+ * stack rendered the way `relion_display` would show it — all class
+ * averages side by side, bright on black, per-class percentile contrast.
+ *
+ * Columns adapt to the class count (4…8, near-square layout), gaps and the
+ * background follow the cryo-EM convention (2 px, black). If the naive
+ * grid would exceed SHEET_MAX_SLICES slices or SHEET_MAX_LONG px on its
+ * long side, the sheet keeps the FIRST classes and says so via `rendered`.
+ */
+export async function renderClassSheetPng(
+  file: string,
+  window?: MrcWindow
+): Promise<{ png: Buffer; rendered: number; total: number } | null> {
+  const h = readMrcHeader(file);
+  if (!h) return null;
+  const total = h.nz;
+  const n = Math.max(1, Math.min(SHEET_MAX_SLICES, total));
+  const gap = MONTAGE_GAP;
+  let cols = Math.min(8, Math.max(4, Math.ceil(Math.sqrt(n))));
+  let cell = Math.min(SHEET_CELL, h.nx, h.ny);
+  const dims = () => {
+    const r = Math.ceil(n / cols);
+    return { rows: r, w: cols * cell + (cols + 1) * gap, h: r * cell + (r + 1) * gap };
+  };
+  // fit BOTH sides inside SHEET_MAX_LONG: height overflow spends the width
+  // budget on more columns first, then shrinks cells (width overflow can
+  // only shrink cells — more columns would make it worse)
+  let d = dims();
+  while ((d.w > SHEET_MAX_LONG || d.h > SHEET_MAX_LONG) && (cols < 8 || cell > 48)) {
+    if (cols < 8 && d.h > SHEET_MAX_LONG) cols++;
+    else if (cell > 48) cell -= 16;
+    else break;
+    d = dims();
+  }
+  const rows = d.rows;
+  const gw = d.w;
+  const gh = d.h;
+  const grid = Buffer.alloc(gw * gh, 0); // black background — cryo-EM convention
+
+  for (let i = 0; i < n; i++) {
+    const data = readMrcSlice(file, i, h);
+    if (!data) continue;
+    const small = downsample(data, h.nx, h.ny, cell);
+    const cellGray = stretchToGray(small.values, window);
+    const cx = gap + (i % cols) * (cell + gap);
+    const cy = gap + Math.floor(i / cols) * (cell + gap);
+    for (let y = 0; y < small.height && y < cell; y++) {
+      for (let x = 0; x < small.width && x < cell; x++) {
+        grid[(cy + y) * gw + (cx + x)] = cellGray[y * small.width + x];
+      }
+    }
+  }
+  const png = await grayToPng(grid, gw, gh);
+  return { png, rendered: n, total };
+}
+
 /** Render one slice of a stack enlarged for the dialog view (≤ 768 px). */
 export async function renderMrcLargePng(
   file: string,

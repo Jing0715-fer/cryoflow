@@ -507,8 +507,8 @@ try {
     "the SIGNATURE decision reads stderr at the rescue's width (2048, not the display tail's 400 — a stacked backtrace cannot hide the ERROR head)"
   );
   must(
-    /for \(const stale of \["run\.out", "run\.err"\]\)/.test(remoteSrc),
-    "the dispatch clears the LOCAL log twins too (a failed sync-back's stale run.err can never ghost the re-run's verdict)"
+    /wipeLocalRunProducts\(localWorkdir\)/.test(remoteSrc) && /stale file\(s\) from the local mirror \(t333\)/.test(remoteSrc),
+    "the dispatch clears the LOCAL log twins too (a failed sync-back's stale run.err can never ghost the re-run's verdict — the t333 mirror wipe owns the door now)"
   );
   must(
     /if \(code === 124\) return "walltime limit reached/.test(engineSrc),

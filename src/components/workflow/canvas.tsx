@@ -215,7 +215,6 @@ const LiveWire = React.memo(function LiveWire({
         strokeWidth={2.5}
         strokeLinecap="round"
         strokeLinejoin="round"
-        strokeDasharray="7 5"
         opacity={0.8}
         fill="none"
         className="edge-flow"
@@ -1930,7 +1929,6 @@ export function WorkflowCanvas() {
               selected={selectedIds.includes(job.id)}
               primary={selectedId === job.id}
               bandMatch={bandIds?.has(job.id) ?? false}
-              zoom={zoom}
               pendingFrom={pendingFrom}
               pendingFromType={pendingFromType}
               isReady={

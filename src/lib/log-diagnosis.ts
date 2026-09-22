@@ -135,6 +135,27 @@ export const LOG_PATTERNS: LogPattern[] = [
       "RELION writes one .mrcs stack per micrograph (--part_dir + the micrograph's name) and appends each particle after the first; the append checks the file already on disk (image.h \"target and source objects have different size\") and refuses on a dimension mismatch. Within one run the box never changes — so that stack path was already occupied by an earlier generation with a DIFFERENT Box size / Downsample (a re-run before the fresh-start wipe), or two processes wrote the same micrograph at once (duplicate micrograph rows in the input STAR). Remedy: re-run the job (the dispatch now clears the previous generation's stacks on the cluster before submitting) or make a fresh extraction job — with the box size you want, the clean run completes. The micrograph that died is the one in progress where the log stops; its half-written stack stayed on the cluster (this job's Results/Files lists it).",
   },
   {
+    // t338 — rwMRC.h's own bounds refusal, the READ-side twin of the t334
+    // write clash above. The field report: a 2D classification died ~1
+    // minute in at
+    //   readMRC: Image number 341 exceeds stack size 340 of image
+    //   00000341@…/extract_…/micrographs/…_Fractions_DW.mrcs
+    // while the upstream extraction had COMPLETED (exit 0) — its
+    // particles.star simply numbers more images than the stack holds.
+    // That is the t334 collision's SILENT variant: two same-stem rows in
+    // the extraction's input STAR ("X.mrc" + "X.mrcs" — both compose the
+    // SAME stack path) made two writers share one .mrcs; the later
+    // writer's first particle blindly truncated the earlier writer's
+    // images, and the merged star kept BOTH writers' rows. The
+    // consumer-side gate (t338) now refuses such stars at dispatch with
+    // the same numbers; this pattern heals the logs that already died.
+    id: "readmrc-exceeds-stack",
+    re: /readMRC: Image number \d+ exceeds stack size \d+/i,
+    label: "Particles STAR outruns its stack — an image number points past the .mrcs end",
+    hint:
+      "relion_refine tried to read the image the STAR names (image 341 of a stack holding 340) and rwMRC refused. The upstream extraction COMPLETED, but its output is internally inconsistent: same-stem rows in ITS input STAR (e.g. \"X.mrc\" and \"X.mrcs\" of the same micrograph — both compose the SAME .mrcs stack path) made two writers share one stack; the later writer's first particle blindly truncated the earlier writer's, while the merged STAR kept both writers' rows. Remedy: re-run the UPSTREAM extraction job — its dispatch now refuses colliding inputs with the offending rows named (de-duplicate the import or rename the colliding files first) — then run this job again. The dispatch's consumer-side check now also refuses a star that outruns its stacks before any GPU time is spent.",
+  },
+  {
     // t312 — relion_run_ctffind's own terminal words (ctffind_runner.cpp):
     // the per-micrograph skip warning and the all-failed exit line.
     // t314 — the hint was REWRITTEN: the first cut blamed raw movie stacks
@@ -148,6 +169,32 @@ export const LOG_PATTERNS: LogPattern[] = [
     re: /failed to estimate CTF parameters for any micrograph|cannot get CTF values for/i,
     label: "CTF estimation failed on every micrograph",
     hint: "ctffind rejected every micrograph at once — the input itself is the suspect, not the fitting. Check in order: (1) single-section MRCs? NZ>1 means raw frame stacks (run MotionCorr first: Import → MotionCorr → CTF; .eer is always raw) — an MRC's own header settles it, on the cluster run: head -c 16 <file>.mrc | od -An -td4 (NX NY NZ MODE); (2) does this ctffind build read the file mode — float16 / MRC mode 12 needs a recent ctffind, and a bundled 4.1 may predate it; (3) the Import pixel size must match the real data (Falcon 4i: ~0.5 Å unbinned, ~1.0 Å binned ×2); (4) widen ResMin/ResMax if the fit RUNS but finds nothing. The per-micrograph .ctf files and ctffind logs inside the job directory carry the literal error.",
+  },
+  {
+    // t342 — RELION's own starvation warning (cuda_mem_utils's free-memory
+    // check): "Ignoring required free GPU memory amount of 800 MB, due to
+    // space insufficiency." RELION PROCEEDS past this line (the warning
+    // literally says "Ignoring") and then thrashes or deadlocks in the
+    // first Expectation sweep — the field report: a 50-class 2D
+    // classification frozen at "Expectation iteration 1 of 20" with TWO
+    // rank banners both pinned to device 0. The card was below RELION's
+    // own 800 MB floor BEFORE the run started: a stale process still
+    // holding it (the earlier OOM'd attempt) and/or more MPI ranks than
+    // the node has cards.
+    id: "gpu-free-memory-warning",
+    re: /Ignoring required free GPU memory amount of \d+ MB/i,
+    label: "GPU memory starvation — the card was below RELION's free-memory floor",
+    hint:
+      "RELION printed this when the card had less free memory than its own 800 MB floor, then went ahead anyway and stalled in the first Expectation step. Two usual causes: (1) a stale run still holds the card — on the node, nvidia-smi --query-compute-apps=pid,process_name,used_memory names the holders; scancel them (squeue -u <user>) or kill the PIDs; (2) more MPI ranks than the node has cards (every rank banner saying \"mapped to device 0\") — run at a GPU width the node can actually back. The dispatch now clamps the rank count to the node's own card count and refuses to launch onto a starved card (exit 98, the holders named in the log) — clear the card, then re-run.",
+  },
+  {
+    // t342 — CryoFlow's own refusal line (the sbatch pre-flight writes it
+    // into run.out and exits 98): the job never reached RELION.
+    id: "gpu-starved-refusal",
+    re: /CRYOFLOW_ERR: only \d+ MB free on the GPU/i,
+    label: "CryoFlow refused to launch — the GPU was already starved",
+    hint:
+      "The pre-flight found less than 1000 MB free on the card(s) this job would use, and refused instead of hanging RELION in its first Expectation step. The lines right below this one list the holder PIDs (nvidia-smi --query-compute-apps) — scancel them (squeue -u <user>) or kill them on the node, then re-run the job.",
   },
 ];
 

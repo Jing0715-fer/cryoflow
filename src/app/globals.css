@@ -16,6 +16,21 @@
    detector fails the suite if a legacy name reappears in the root. */
 @source not "../../_legacy-archive";
 @source not "../../tool-results";
+/* t340 — the RUNTIME data trees. The field report: 「运行job过程中，页面
+ * 一直出现热加载编译」 — every engine write (engine-state.json on
+ * each progress tick, job workdirs, the cs→star downloads, the SQLite
+ * db file) lands under <repo>/data and <repo>/db, and Tailwind v4's
+ * automatic content detection treats the whole unignored project tree as
+ * candidate class sources — watching them. A running job re-wrote those
+ * files every few seconds, so the CSS scan rebuilt continuously and the
+ * dev overlay showed "compiling" for the whole run. Excluded by name:
+ * neither tree holds class sources; both are pure runtime state. */
+@source not "../../data";
+@source not "../../db";
+/* t349 — the download tree (QA screenshots, fetched-home artifacts): same
+ * watcher exemption as data/db — a text artifact with class-like tokens
+ * would rebuild the CSS while a fetch is in flight. */
+@source not "../../download";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -214,9 +229,14 @@
 /* ============================================================
    Edge animations
    ============================================================ */
+/* t349 — the marching offset MUST be an exact multiple of the dash
+   period (6+5 = 11), or every loop restart teleports the pattern by the
+   remainder (-16 ≡ -5 mod 11) and the dashes visibly jump backwards
+   once per 0.7s — most jarring on a straight horizontal wire, where the
+   eye tracks a uniform dash grid. -11 = exactly one period → seamless. */
 @keyframes edge-dash-flow {
   to {
-    stroke-dashoffset: -16;
+    stroke-dashoffset: -11;
   }
 }
 

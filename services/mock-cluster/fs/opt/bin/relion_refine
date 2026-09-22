@@ -175,7 +175,7 @@ for it in range(1, iters + 1):
     its = f"{it:03d}"
     data_star = os.path.join(outdir, f"run_it{its}_data.star")
     with open(data_star, "w") as fh:
-        fh.write("\ndata_\n\nloop_\n")
+        fh.write("\ndata_particles\n\nloop_\n")
         fh.write("_rlnImageName #1\n")
         fh.write("_rlnClassNumber #2\n")
         fh.write("_rlnAngleRot #3\n")
@@ -193,13 +193,51 @@ for it in range(1, iters + 1):
             fh.write(f"{img}\t{cls}\t{p * 13.0:.1f}\t{90.0 - p}.2\t{p * 3.0:.1f}\n")
     for c in range(1, ncls + 1):
         write_mrc(os.path.join(outdir, f"run_it{its}_class{c:03d}.mrc"), 64, 64, 1, c * 31 + it)
+    # t350 — per-iteration 2D class-average STACK (run_it###_classes.mrcs):
+    # what a REAL relion_refine class2d writes every iteration and what the
+    # live class gallery renders slice-by-slice. One file, nz = ncls, each
+    # slice its own deterministic gray field (class c ≈ c*31+it, so two
+    # classes never render identical). Additive only — the final-artifact
+    # rename below and every collector's expectations are untouched.
+    write_mrc(os.path.join(outdir, f"run_it{its}_classes.mrcs"), 64, 64, ncls, 4096 + it)
+    # E2E extension (2026-09 review): REAL relion_refine in 3D mode also
+    # writes per-iteration half-maps + an optimiser.star. The app's
+    # REFINE_FAMILY_CANDIDATES (engine.ts) expect run_it###_half1_class###.mrc
+    # / run_it###_optimiser.star for class3d & refine3d — without them the
+    # half1/half2/map/optimiser ports never resolve and the chain (mask
+    # create, postprocess, multibody) stalls at "waiting". Volumes are 3D
+    # (64³) like a real map; class2d jobs are unaffected (their candidates
+    # only look at run_data.star / run_classes.mrcs).
+    write_mrc(os.path.join(outdir, f"run_it{its}_half1_class001.mrc"), 64, 64, 64, 101 + it)
+    write_mrc(os.path.join(outdir, f"run_it{its}_half2_class001.mrc"), 64, 64, 64, 202 + it)
+    with open(os.path.join(outdir, f"run_it{its}_optimiser.star"), "w") as fh:
+        fh.write(f"\ndata_optimiser\n\n_rlnCurrentIteration {it}\n_rlnNumberOfClasses {ncls}\n")
 
 # final artifacts collectOutputs looks for
+# t354 — COPY, not rename: real relion_refine leaves EVERY per-iteration
+# file on disk (run_it004_data.star etc.) and writes the final aliases
+# ALONGSIDE them; the old os.replace here ate the last round's data.star,
+# so a finished class2d's iteration list came up one round short (the
+# chips bar could never offer the final round). Additive change: the
+# aliases are byte-identical, the per-iteration originals now survive.
+def copy_final(src, dst):
+    with open(src, "rb") as a, open(dst, "wb") as b:
+        b.write(a.read())
+
+
 final_classes = os.path.join(outdir, "run_classes.mrcs")
-os.replace(os.path.join(outdir, f"run_it{iters:03d}_class001.mrc"), final_classes)
+copy_final(os.path.join(outdir, f"run_it{iters:03d}_class001.mrc"), final_classes)
 final_data = os.path.join(outdir, "run_data.star")
-os.replace(os.path.join(outdir, f"run_it{iters:03d}_data.star"), final_data)
+copy_final(os.path.join(outdir, f"run_it{iters:03d}_data.star"), final_data)
 with open(os.path.join(outdir, "run_model.star"), "w") as fh:
     fh.write("\ndata_\n\n_rlnReferenceImage run_classes.mrcs\n_rlnEstimatedResolution 4.2\n")
+# E2E extension (cont.): the final UNFILTERED half-maps + the final class
+# volume — real relion_refine's closing move (run_half1_class001_unfil.mrc,
+# run_half2_class001_unfil.mrc, run_class001.mrc) and the exact names
+# REMOTE_OUTPUT_CANDIDATES resolves half1_mrc/half2_mrc/model_mrc by.
+write_mrc(os.path.join(outdir, "run_half1_class001_unfil.mrc"), 64, 64, 64, 9901)
+write_mrc(os.path.join(outdir, "run_half2_class001_unfil.mrc"), 64, 64, 64, 9902)
+write_mrc(os.path.join(outdir, "run_class001.mrc"), 64, 64, 64, 9903)
+copy_final(os.path.join(outdir, f"run_it{iters:03d}_optimiser.star"), os.path.join(outdir, "run_optimiser.star"))
 print(f"wrote {final_classes} + {final_data} after {iters} iterations ({npart} particles classified)")
 sys.exit(0)

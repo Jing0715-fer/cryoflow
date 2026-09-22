@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { ensureActiveProject } from "@/lib/seed";
 import { jobType } from "@/lib/workflow";
+import { applyJobTombstone, type RestoredTombstoneEdge } from "@/lib/job-tombstone";
 
 export const dynamic = "force-dynamic";
 
@@ -76,6 +77,12 @@ export async function POST(request: NextRequest) {
 
     const restored: { id: string; coerced: boolean }[] = [];
     const failed: { id: string; error: string }[] = [];
+    // t341 — the tombstone's own accounting (review C3): which jobs got
+    // their run record back, and which wires the SERVER re-attached (the
+    // client skips re-posting these and treats "already exists" as a
+    // success for the rest)
+    const recordRestored: string[] = [];
+    const edgesRestored: RestoredTombstoneEdge[] = [];
 
     for (const input of list) {
       const id = typeof input.id === "string" && input.id ? input.id : null;
@@ -204,6 +211,16 @@ export async function POST(request: NextRequest) {
           },
         });
         restored.push({ id, coerced });
+        // t341 — re-apply the delete tombstone (run record + wires)
+        // server-side. Best-effort: the row is already back; the
+        // tombstone is the bonus that makes the restore whole.
+        try {
+          const tomb = await applyJobTombstone(id);
+          if (tomb.recordRestored) recordRestored.push(id);
+          edgesRestored.push(...tomb.edgesRestored);
+        } catch {
+          /* advisory — a tombstone hiccup never fails the restore */
+        }
       } catch (err) {
         failed.push({
           id,
@@ -212,7 +229,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ restored, failed });
+    return NextResponse.json({ restored, failed, recordRestored, edges: edgesRestored });
   } catch (error) {
     console.error("POST /api/jobs/restore failed:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
