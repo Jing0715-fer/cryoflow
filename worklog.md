@@ -3171,3 +3171,25 @@ Stage Summary:
 - 框大小不一根治：列数按容器实宽（2-3 列）+ 页脚 nowrap 截断——任何挤压下卡片高度恒等；失败图诚实占位、加载中暗盒脉冲
 - 可靠性两针：remoteStat 直连通道（不再排 sweep/轮询的长队）+ 20s 预算；拉栈帽 64→256MB 且超帽/缺文件/线忙三态文案
 - 用户复机路径：git pull → 重新打开 2D 分类的 Results 页（历史轮 sheet/类图即点即取，无需重跑）→ select 任务 Classes 页每类图加载；t354/t353 的行为与断言全部保持
+
+---
+Task ID: t356
+Agent: main (Z.ai Code)
+Task: 用户卡片工单五项 — ①卡片内容过满（隐藏 IP、删除 388k 徽章）②两卡之间连线别扭（调换 select2d 输入口顺序解交叉）③每次连线都会卡一下（性能）④给 job 添加特殊标记/评论（小图标，悬停显示内容）⑤卡片下方文字全部 1 行内解决
+
+Work Log:
+- workflow.ts: select2d inputs [particles,classes]→[classes,particles] — class2d 的 classAverages(口0/上) 对齐 classes(口0/上)、particles(口1/下) 对齐 particles(口1/下)，class2d→select2d 两根线从交叉变平行；边按端口名引用（edge-geom 以 findIndex 解名），纯几何修复、存量接线零影响；defaultPorts 按种类匹配（references2d vs particles 无歧义），映射不变
+- job-card.tsx Row 2 减负: 两枚 remote-host 芯片（running/pending 青色 + terminal 幽灵色）从卡面退役；出处（user@host · module · workdir）移入 JobCardPreview 悬停预览的一行 muted 主机行 — 「ip可以隐藏」而非删信息；t347 的 counted-receipt 芯片（388k）整体下架（counts/countChip memo + data-card-count JSX + result-counts 导入），数字仍活在 inspector KeyNumbers strip + header chips + outputs 活数
+- Row 3 一行律（t349 两行叙事回撤）: completed/failed/pending 三态 line-clamp-2 → truncate（pending flex 容器补 min-w-0），全文仍在 title 悬停与 inspector
+- 标记/评论闭环: StickyNote 徽章原生 title → HoverCard 样式弹层（amber Note 头 + max-h-40 滚动正文 + 编辑入口脚注，aria-label 带全文）；右键菜单新增「Add note…/Edit note…」→ Dialog（Textarea ≤500 字符=服务器上限、计数器、⌘/Ctrl+Enter 保存、Clear note 清除、失败保草稿+toast）→ saveJob PATCH {note}，与 inspector 自动保存编辑器同源（job.note 单一字段，note spotlight/print 摘要自动继承）
+- 连线卡顿根因: pendingFrom 身份变化（起线/落线/取消）时 React.memo 默认浅比较失效 → 【全画布】卡重渲染（每张 ContextMenu+HoverCard+ports 树）只为点亮个别端口脉冲环；zoom prop 同理（只喂事件回调算术、从不进 render，却让每个滚轮刻度全卡重渲染）
+- 修复: pendingRenderSig（本卡渲染指纹: 源卡=src:dir:port、他卡=兼容口命中表 portsCompatible 逐口算、无命中=空串≡无 pending）+ jobCardPropsEqual（稳定 prop 浅比 + pending 对按指纹比）→ 起线只重渲染源卡+有兼容口的卡；6 个端口处理器改 livePending()=getState().pendingFrom 事件时新鲜读（完成逻辑永不依赖渲染快照——这也让 comparator 跳过重渲染语义安全）；拖拽 handlePointerMove/endDrag 的 zoom 逐帧新鲜读（中途捏合缩放反而更准），zoom prop 从 JobCardProps/canvas 传递整体退役
+- 验证: scripts/diag-t356-card-polish.mjs（playwright 真浏览器）——A0-A3 减负（0 计数芯/0 钳制行/无 IP 文本）✓ B1-B2 几何证明（两线 177.33→177.33 / 214.67→214.67 全平、零交叉零绕行）✓ C1 徽章悬停样式弹层 ✓ D1-D3 右键→对话框→保存→徽章出现+对话框关闭 ✓ E1-E2 拖拽连线（select2d.particles→class3d.particles）建边+Connected toast ✓（livePending 重构+comparator 的交互实证）F 持久化经 API 复核（两笔记+3 边入库）✓；截图 shots-qa/t356-{a-canvas,b-note-popover,c-note-dialog,d-note-saved,e-wired}.png；tsc 0 / eslint 0；无 e2e 依赖面变化（data-card-count 无断言引用，select2d 端口无断言引用）
+- 环境（4GB 盒持久战，150 案内核 OOM 在录）: dev 编译峰值 2.9GB+chromium 必超 4.1GB——单调用配方（浏览器关闭编译 + 客户端块 curl 预热 + 小 API 路由预热 + 1100 堆 + 全链验证同调用内完成）通过全部检查；prod build 本轮无法完成（turbopack 3.8GB / webpack worker 亦超——比 t347 时代更紧）；修复验证装置自身一处：pkill -f 打不中孤儿 next-server 监听者 → t332 的 ss listener-kill 学说（"already running" 幽灵导致 compile:000 假象）
+
+Stage Summary:
+- 卡面信息架构再收敛: 类别色条 + 图标名 + 标记徽章 + 状态徽章 + 类型人话标签 + 链系芯 + 一行状态句——IP/计数下沉悬停预览与 inspector
+- select2d 双输入调序后 class2d→select2d 接线天然平行（几何证明），class2d 的两口各对齐一口
+- 连线起落从全画布重渲染收缩到源卡+兼容卡；滚轮缩放不再全卡重渲染（zoom prop 退役）
+- job 标记/评论: 右键 Add note… → 对话框 → PATCH → amber 徽章 → 悬停样式弹层读全文（与 inspector 编辑器同一 job.note）
+- 用户复机路径: git pull → 画布即生效（卡面清爽、class2d→select2d 平行线、右键即可加评论）
