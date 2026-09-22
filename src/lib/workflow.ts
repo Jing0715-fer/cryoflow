@@ -774,8 +774,13 @@ export const JOB_TYPES: JobTypeSpec[] = [
       category: "class2d",
       tabs: ["Classes"],
       inputs: [
-        inp("particles", "Classified particles STAR (run 2D Classification first)", ["particles"]),
+        // t356 — classes sits at the TOP (port 0): its canonical source is
+        // class2d's FIRST output (classAverages, also port 0/top), so the
+        // two wires class2d→select2d run parallel instead of crossing.
+        // Edges reference ports BY NAME, so this is a pure geometry fix —
+        // existing wiring is untouched.
         inp("classes", "2D class averages (gallery)", ["references2d"]),
+        inp("particles", "Classified particles STAR (run 2D Classification first)", ["particles"]),
       ],
       outputs: [outp("particles", "Selected particles STAR file (.star)", "particles")],
     }

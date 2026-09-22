@@ -34,12 +34,13 @@ import { computeEdgeGeoms, setLiveDrag } from "@/lib/edge-geom";
 import { registerGroupMember, beginGroupDrag, moveGroupDrag, endGroupDrag } from "@/lib/group-drag";
 import { BULK_DELETE_EVENT, type JobDTO, type JobTypeSpec, type ParamValue } from "@/lib/types";
 import { parseClassNotes } from "@/lib/class-notes";
-import { parseResultCounts, formatCountCompact, formatCountFull } from "@/lib/result-counts";
 import { formatElapsed } from "@/lib/elapsed";
 import { useNow } from "@/lib/use-now";
 import { TypeIcon } from "./icons";
 import { Badge } from "@/components/ui/badge";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -64,6 +65,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { capturePointer } from "@/lib/pointer";
+import { toast } from "@/hooks/use-toast";
 
 /* ------------------------------------------------------------------ */
 /* Shared bits (also used by the details panel)                        */
@@ -120,11 +122,12 @@ export const STATUS_FLOOR: Record<string, string> = {
 
 /**
  * t350 — strip the REMOTE[user@host · module]: envelope before a result
- * sentence spends its tight 2-line budget. The card's payload row is
- * ~33 chars/line; the envelope alone ate ~40 chars — a failed run's
- * one honest sentence started mid-line-2. The envelope is provenance,
+ * sentence spends its one-line budget. The card's payload row is
+ * ~33 chars; the envelope alone ate ~40 — a failed run's one honest
+ * sentence started at the envelope's tail. The envelope is provenance,
  * not payload: it moves to the tooltip (title keeps the full text) and
- * the ghost host chip (Row 2). Local results pass through untouched.
+ * to the hover preview's host line. Local results pass through
+ * untouched.
  */
 const REMOTE_ENVELOPE = /^REMOTE\[[^\]]*\]:\s*/;
 export function displayResult(result: string | null | undefined): string | null {
@@ -339,9 +342,41 @@ function JobCardMenu({
   const workspaces = useWorkflowStore((s) => s.workspaces);
   const moveJob = useWorkflowStore((s) => s.moveJob);
   const linkJobTo = useWorkflowStore((s) => s.linkJobTo);
+  const saveJob = useWorkflowStore((s) => s.saveJob);
   const [confirmDelete, setConfirmDelete] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const [copiedId, setCopiedId] = React.useState(false);
+
+  // t356 — the note editor the user asked for on the card itself (「可以
+  // 增加评论」): right-click → Add/Edit note → small dialog → PATCH
+  // {note}. Server normalizes (trim, ""→null) and the store adopts the
+  // response, so the badge, the hover popover and the inspector's
+  // autosave editor all land on the same text.
+  const [noteOpen, setNoteOpen] = React.useState(false);
+  const [noteDraft, setNoteDraft] = React.useState("");
+  const [noteBusy, setNoteBusy] = React.useState(false);
+  const NOTE_LIMIT = 500;
+  const openNoteEditor = () => {
+    setNoteDraft(job.note ?? "");
+    setNoteOpen(true);
+  };
+  const saveNote = async () => {
+    const normalized = noteDraft.trim();
+    setNoteBusy(true);
+    const res = await saveJob(job.id, { note: normalized }, { silent: true });
+    setNoteBusy(false);
+    if (res.ok) {
+      setNoteOpen(false);
+    } else {
+      // keep the dialog open with the draft intact — the user's words are
+      // never lost to a failed round-trip
+      toast({
+        title: "Note not saved",
+        description: res.error ?? "Could not save the note",
+        variant: "destructive",
+      });
+    }
+  };
 
   // multi-select menu variant — snapshotted at OPEN time (getState), so the
   // facts (count + status breakdown) are always fresh and no card carries
@@ -466,6 +501,14 @@ function JobCardMenu({
           <Locate />
           Focus on canvas
         </ContextMenuItem>
+        {/* t356 — the marker the user asked for on the card (「增加给job
+            添加特殊标记的功能，可以增加评论」): a small amber StickyNote
+            appears next to the job name once saved; hover reads it, this
+            menu edits it, the inspector keeps its autosave editor. */}
+        <ContextMenuItem onClick={openNoteEditor}>
+          <StickyNote />
+          {job.note ? "Edit note…" : "Add note…"}
+        </ContextMenuItem>
 
         <ContextMenuSeparator />
         <ContextMenuItem
@@ -560,6 +603,84 @@ function JobCardMenu({
         )}
       </ContextMenuContent>
 
+      {/* t356 — note editor: small dialog, ≤500 chars (the server's own
+          cap), ⌘/Ctrl+Enter saves, empty save is refused (Clear handles
+          removal). On success the badge/hover/print excerpt all update
+          together via the store's adopted PATCH response. */}
+      <Dialog open={noteOpen} onOpenChange={setNoteOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <StickyNote className="size-4 text-amber-500" aria-hidden="true" />
+              {job.note ? "Edit note" : "Add note"}
+            </DialogTitle>
+            <DialogDescription>
+              A marker for “{job.name}” — shows as an amber note icon on the
+              card; hover reads it, the note spotlight lens can find it.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={noteDraft}
+            onChange={(e) => setNoteDraft(e.target.value.slice(0, NOTE_LIMIT))}
+            placeholder="e.g. best run so far — keep classes 1,2,5 for the 3D refine"
+            rows={4}
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                if (!noteBusy) void saveNote();
+              }
+            }}
+          />
+          <div className="flex items-center justify-between">
+            <span
+              className={cn(
+                "text-[10.5px] tabular-nums",
+                noteDraft.length >= NOTE_LIMIT
+                  ? "font-semibold text-rose-600 dark:text-rose-400"
+                  : "text-muted-foreground"
+              )}
+            >
+              {noteDraft.length}/{NOTE_LIMIT}
+            </span>
+            <span className="text-[10.5px] text-muted-foreground">⌘↵ to save</span>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            {job.note ? (
+              <button
+                type="button"
+                disabled={noteBusy}
+                onClick={() => {
+                  setNoteDraft("");
+                  void saveJob(job.id, { note: "" }, { silent: true }).then((res) => {
+                    if (res.ok) setNoteOpen(false);
+                  });
+                }}
+                className="mr-auto text-[11px] font-medium text-muted-foreground underline-offset-2 hover:text-rose-600 hover:underline dark:hover:text-rose-400"
+              >
+                Clear note
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => setNoteOpen(false)}
+              className="inline-flex h-9 items-center justify-center rounded-md px-4 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={noteBusy || noteDraft.trim().length === 0}
+              onClick={() => void saveNote()}
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+            >
+              {noteBusy ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true" /> : null}
+              Save note
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* delete confirm — cascades edges, so require an explicit OK */}
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent>
@@ -630,7 +751,6 @@ interface JobCardProps {
    *  — those are stronger intents, and the count chip still tells the
    *  user the card matched. */
   findMatch?: boolean;
-  zoom: number;
   /** Pending connection source ({jobId, port}) or null. */
   pendingFrom: PendingFrom | null;
   /** Type key of the pending source job (for port compatibility pulses). */
@@ -992,6 +1112,23 @@ function JobCardPreview({
         {job.status === "running" && !isSlurmQueued(job) ? (
           <MiniProgress value={job.progress} running label={`${job.name} progress`} />
         ) : null}
+        {/* t356 — the host line: the card face dropped its remote chips
+            (「ip可以隐藏」), so the preview is where the IP lives now —
+            user@host · module, the same facts the old chip's tooltip
+            carried, one muted line under the status. Inspector carries
+            the full story (workdir, phase, pid). */}
+        {job.runRemote ? (
+          <p
+            className="flex items-center gap-1.5 text-[10px] text-muted-foreground"
+            title={`${isSlurmQueued(job) ? "Held in the Slurm queue on" : job.status === "running" ? "Running on" : "Ran on"} ${job.runRemote.user}@${job.runRemote.host}${job.runRemote.module ? ` · module ${job.runRemote.module}` : ""}${job.runRemote.remoteWorkdir ? `\n${job.runRemote.remoteWorkdir}` : ""}`}
+          >
+            <Server className="size-3 shrink-0" aria-hidden="true" />
+            <span className="truncate">
+              {job.runRemote.user}@{remoteHostLabel(job.runRemote.host)}
+              {job.runRemote.module ? ` · ${job.runRemote.module}` : ""}
+            </span>
+          </p>
+        ) : null}
         {(job.status === "completed" || job.status === "failed") && job.result ? (
           <p
             className={cn(
@@ -1068,6 +1205,83 @@ function JobCardPreview({
   );
 }
 
+/**
+ * t356 — render-relevant fingerprint of the pending wire FOR THIS CARD.
+ * A foreign pending wire changes this card's pixels ONLY through the
+ * compatibility pulse rings (and, for the source card, the anchor port
+ * highlight); the completion LOGIC reads the store live (see livePending),
+ * so it never depends on a fresh prop. Cards whose signature does not
+ * change between two pending states render identical output — and with
+ * the comparator below, React now knows it and skips them.
+ */
+function pendingRenderSig(
+  job: JobDTO,
+  pending: PendingFrom | null,
+  pendingType: string | null
+): string {
+  if (!pending) return "";
+  if (pending.jobId === job.id) return `src:${pending.dir}:${pending.port}`;
+  if (!pendingType) return "";
+  const spec = jobType(job.type);
+  const hits: string[] = [];
+  if (pending.dir !== "in") {
+    // a wire dragged FROM an output port pulses this card's INPUT ports
+    for (const p of spec?.inputs ?? []) {
+      if (portsCompatible(pendingType, pending.port, job.type, p.name)) hits.push(p.name);
+    }
+  } else {
+    // a wire dragged FROM an input port pulses this card's OUTPUT ports
+    for (const p of visibleOutputs(spec, job.params)) {
+      if (portsCompatible(job.type, p.name, pendingType, pending.port)) hits.push(p.name);
+    }
+  }
+  return hits.length > 0 ? `other:${pending.dir}:${hits.join(",")}` : "";
+}
+
+/**
+ * t356 — JobCard's memo comparator. Default shallow equality re-rendered
+ * EVERY card whenever `pendingFrom`/`pendingFromType` changed identity
+ * (wire start, wire end, wire cancel) — the「每次连线的时候都会卡一下」
+ * hitch: a dozen ContextMenu+HoverCard trees re-rendered so one port dot
+ * could start pulsing. The comparator treats the pending pair by its
+ * SIGNATURE (see pendingRenderSig): only the source card and cards with
+ * compatible ports re-render; the rest of the canvas sits the wire out.
+ * Every other prop is compared shallowly (all callbacks are stable store
+ * actions / module-level proxies). zoom is gone as a prop entirely (it
+ * only ever fed event-handler arithmetic — now read fresh from the store
+ * there), which also stops every wheel tick from re-rendering all cards.
+ */
+function jobCardPropsEqual(a: JobCardProps, b: JobCardProps): boolean {
+  if (
+    a.job !== b.job ||
+    a.dimmed !== b.dimmed ||
+    a.spotlightContext !== b.spotlightContext ||
+    a.selected !== b.selected ||
+    a.primary !== b.primary ||
+    a.bandMatch !== b.bandMatch ||
+    a.findMatch !== b.findMatch ||
+    a.isReady !== b.isReady ||
+    a.inspected !== b.inspected ||
+    a.onSelect !== b.onSelect ||
+    a.onToggleSelect !== b.onToggleSelect ||
+    a.onInspect !== b.onInspect ||
+    a.onDragCommit !== b.onDragCommit ||
+    a.onGroupDragCommit !== b.onGroupDragCommit ||
+    a.onStartConnect !== b.onStartConnect ||
+    a.onCancelConnect !== b.onCancelConnect ||
+    a.onConnect !== b.onConnect
+  ) {
+    return false;
+  }
+  if (a.pendingFrom === b.pendingFrom && a.pendingFromType === b.pendingFromType) {
+    return true;
+  }
+  return (
+    pendingRenderSig(a.job, a.pendingFrom, a.pendingFromType) ===
+    pendingRenderSig(b.job, b.pendingFrom, b.pendingFromType)
+  );
+}
+
 export const JobCard = React.memo(function JobCard({
   job,
   dimmed,
@@ -1076,7 +1290,6 @@ export const JobCard = React.memo(function JobCard({
   primary,
   bandMatch,
   findMatch,
-  zoom,
   pendingFrom,
   pendingFromType,
   isReady,
@@ -1148,43 +1361,10 @@ export const JobCard = React.memo(function JobCard({
     [classNotes]
   );
 
-  // t347 — the counted receipt ON the card (the user's 「最好也在job的卡片
-  // 上直接显示出来」): a completed job's result line carries the engine's
-  // honestly counted number ("82,000 particles extracted", "… , 382
-  // micrographs"); the parser reads it and the chip paints the headline —
-  // particles first (teal, the maps' dialect), micrographs as the neutral
-  // fallback. No honest number → no chip, never a guess.
-  const counts = React.useMemo(
-    () => (job.status === "completed" ? parseResultCounts(job.result) : null),
-    [job.status, job.result]
-  );
-  const countChip = React.useMemo(() => {
-    if (!counts) return null;
-    const bits: string[] = [];
-    if (counts.particles != null) bits.push(`${formatCountFull(counts.particles)} particles`);
-    if (counts.micrographs != null) bits.push(`${formatCountFull(counts.micrographs)} micrographs`);
-    if (counts.classes != null) bits.push(`${formatCountFull(counts.classes)} classes`);
-    if (bits.length === 0) return null;
-    if (counts.particles != null) {
-      return {
-        value: formatCountCompact(counts.particles),
-        tone: "teal" as const,
-        label: bits.join(" · ") + " — counted at run time",
-      };
-    }
-    if (counts.micrographs != null) {
-      return {
-        value: formatCountCompact(counts.micrographs),
-        tone: "neutral" as const,
-        label: bits.join(" · ") + " — counted at run time",
-      };
-    }
-    return {
-      value: formatCountCompact(counts.classes ?? 0),
-      tone: "violet" as const,
-      label: bits.join(" · ") + " — counted at run time",
-    };
-  }, [counts]);
+  // t356 — the counted receipt chip left the card face (the user's
+  // 「388k的徽章也可以删除」): counts still live in the inspector's
+  // KeyNumbers strip + header chips and in the outputs route's live
+  // numbers — the face keeps only identity, state, and provenance hints.
 
   React.useEffect(() => {
     if (mounted && job.status === "running") {
@@ -1284,6 +1464,11 @@ export const JobCard = React.memo(function JobCard({
       }
     }
     if (!d.moved) return;
+    // t356 — zoom read FRESH per move: the prop left the component (it
+    // never fed the render — only these arithmetic closures), so a
+    // pinch-zoom mid-drag now scales correctly instead of acting on a
+    // stale snapshot.
+    const zoom = useWorkflowStore.getState().viewport.zoom;
     const cdx = dx / zoom;
     const cdy = dy / zoom;
     cancelAnimationFrame(rafRef.current);
@@ -1318,6 +1503,7 @@ export const JobCard = React.memo(function JobCard({
       const dx = e.clientX - d.startX;
       const dy = e.clientY - d.startY;
       // infinite canvas — clamp only to the defensive world bounds
+      const zoom = useWorkflowStore.getState().viewport.zoom;
       const nx = Math.min(
         Math.max(d.origX + dx / zoom, WORLD_MIN),
         WORLD_MAX - CARD_W
@@ -1393,6 +1579,16 @@ export const JobCard = React.memo(function JobCard({
   /* ---------------- ports: connect flows --------------------------- */
 
   /**
+   * t356 — handlers read the pending wire FRESH from the store instead
+   * of the (possibly comparator-skipped, stale) prop: completion logic
+   * must never act on a render snapshot. The prop still feeds the render
+   * (pulse rings); the events own the truth. This is also what lets the
+   * memo comparator below skip re-renders for cards a pending wire does
+   * not visually touch — the fix for 「每次连线的时候都会卡一下」: a
+   * wire's pointerdown used to re-render EVERY card on the canvas. */
+  const livePending = (): PendingFrom | null => useWorkflowStore.getState().pendingFrom;
+
+  /**
    * Pointer resolution helper: which [data-port] did the pointer land on?
    * Returns null unless it is a port of ANOTHER job.
    */
@@ -1415,12 +1611,13 @@ export const JobCard = React.memo(function JobCard({
     if (e.button !== 0) return;
     e.stopPropagation();
     e.preventDefault();
+    const pending = livePending();
     // pending wire started from an INPUT port of another job → pressing this
     // output port may finish it (plain click) instead of starting a new wire
     const completesIn =
-      pendingFrom?.dir === "in" && pendingFrom.jobId !== job.id;
+      pending?.dir === "in" && pending.jobId !== job.id;
     const wasPending =
-      !completesIn && pendingFrom?.jobId === job.id && pendingFrom.port === portName;
+      !completesIn && pending?.jobId === job.id && pending.port === portName;
     portDragRef.current = {
       pointerId: e.pointerId,
       startX: e.clientX,
@@ -1450,12 +1647,13 @@ export const JobCard = React.memo(function JobCard({
     portDragRef.current = null;
     if (d.mode === "complete") {
       // finish a pending input→output wire from another job.
-      // pendingFrom = the INPUT port that started the wire (on job A);
+      // pending = the INPUT port that started the wire (on job A);
       // this job's OUTPUT port (d.port) is the data source → edge runs
-      // B(out) → A(in): from=this job, to=pendingFrom's job, ports must stay
+      // B(out) → A(in): from=this job, to=pending's job, ports must stay
       // attached to their own jobs.
-      if (!d.moved && pendingFrom) {
-        onConnect(job.id, pendingFrom.jobId, d.port, pendingFrom.port);
+      const pending = livePending();
+      if (!d.moved && pending) {
+        onConnect(job.id, pending.jobId, d.port, pending.port);
         return;
       }
       if (d.moved) {
@@ -1489,12 +1687,13 @@ export const JobCard = React.memo(function JobCard({
   const handleOutPortKeyDown = (e: React.KeyboardEvent, portName: string) => {
     if (e.key !== "Enter" && e.key !== " ") return;
     e.preventDefault();
-    if (pendingFrom?.dir === "in" && pendingFrom.jobId !== job.id) {
+    const pending = livePending();
+    if (pending?.dir === "in" && pending.jobId !== job.id) {
       // finish a pending input→output wire from another job
       // (same argument order as the pointer path: this job's output port is
-      // the source, pendingFrom's input port is the target)
-      onConnect(job.id, pendingFrom.jobId, portName, pendingFrom.port);
-    } else if (pendingFrom?.jobId === job.id && pendingFrom.port === portName) {
+      // the source, pending's input port is the target)
+      onConnect(job.id, pending.jobId, portName, pending.port);
+    } else if (pending?.jobId === job.id && pending.port === portName) {
       onCancelConnect();
     } else {
       onStartConnect({ jobId: job.id, port: portName, dir: "out" });
@@ -1507,16 +1706,17 @@ export const JobCard = React.memo(function JobCard({
     if (e.button !== 0) return;
     e.stopPropagation();
     e.preventDefault();
+    const pending = livePending();
     // pending wire started from an OUTPUT port of another job → pressing this
     // input port may finish it (plain click / drag-to-it) instead of starting
     // a reverse wire
     const completesOut =
-      pendingFrom != null && pendingFrom.dir !== "in" && pendingFrom.jobId !== job.id;
+      pending != null && pending.dir !== "in" && pending.jobId !== job.id;
     const wasPending =
       !completesOut &&
-      pendingFrom?.jobId === job.id &&
-      pendingFrom.port === portName &&
-      pendingFrom.dir === "in";
+      pending?.jobId === job.id &&
+      pending.port === portName &&
+      pending.dir === "in";
     portDragRef.current = {
       pointerId: e.pointerId,
       startX: e.clientX,
@@ -1538,8 +1738,9 @@ export const JobCard = React.memo(function JobCard({
     portDragRef.current = null;
     if (d.mode === "complete") {
       // finish a pending output→input wire from another job
-      if (!d.moved && pendingFrom) {
-        onConnect(pendingFrom.jobId, job.id, pendingFrom.port, d.port);
+      const pending = livePending();
+      if (!d.moved && pending) {
+        onConnect(pending.jobId, job.id, pending.port, d.port);
         return;
       }
     }
@@ -1564,13 +1765,14 @@ export const JobCard = React.memo(function JobCard({
   const handleInPortKeyDown = (e: React.KeyboardEvent, portName: string) => {
     if (e.key !== "Enter" && e.key !== " ") return;
     e.preventDefault();
-    if (pendingFrom && pendingFrom.dir !== "in" && pendingFrom.jobId !== job.id) {
+    const pending = livePending();
+    if (pending && pending.dir !== "in" && pending.jobId !== job.id) {
       // finish a pending output→input wire from another job
-      onConnect(pendingFrom.jobId, job.id, pendingFrom.port, portName);
+      onConnect(pending.jobId, job.id, pending.port, portName);
     } else if (
-      pendingFrom?.jobId === job.id &&
-      pendingFrom.port === portName &&
-      pendingFrom.dir === "in"
+      pending?.jobId === job.id &&
+      pending.port === portName &&
+      pending.dir === "in"
     ) {
       onCancelConnect();
     } else {
@@ -1746,15 +1948,42 @@ export const JobCard = React.memo(function JobCard({
                 <JobCardPreview job={job} spec={spec} etaText={etaText} elapsedText={elapsedText} />
               </HoverCard>
               {job.note ? (
-                <span
-                  className="no-print size-3.5 shrink-0 text-amber-500 dark:text-amber-400"
-                  data-note-badge=""
-                  role="img"
-                  aria-label="Job has a note"
-                  title={job.note}
-                >
-                  <StickyNote className="size-3.5" aria-hidden="true" />
-                </span>
+                /* t356 — the job's marker: a small amber StickyNote that
+                 * carries the scientist's remark. Hover reads it in a
+                 * styled popover (the native title tooltip was a
+                 * one-second-delayed unstyled strip — 「一个小图标，悬停
+                 * 显示内容」 deserves better); edit lives in the card's
+                 * right-click menu and in the inspector's autosave editor.
+                 * data-note-badge keeps its contract (note spotlight,
+                 * print excerpt). */
+                <HoverCard openDelay={150} closeDelay={120}>
+                  <HoverCardTrigger asChild>
+                    <span
+                      className="no-print flex size-3.5 shrink-0 cursor-help items-center justify-center text-amber-500 transition-transform duration-100 hover:scale-125 dark:text-amber-400"
+                      data-note-badge=""
+                      role="img"
+                      aria-label={`Job note: ${job.note}`}
+                    >
+                      <StickyNote className="size-3.5" aria-hidden="true" />
+                    </span>
+                  </HoverCardTrigger>
+                  <HoverCardContent
+                    side="top"
+                    align="start"
+                    sideOffset={6}
+                    className="w-64 p-0"
+                  >
+                    <p className="border-b bg-amber-500/10 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-300">
+                      Note
+                    </p>
+                    <p className="max-h-40 overflow-y-auto whitespace-pre-wrap break-words px-3 py-2 text-xs leading-relaxed text-foreground">
+                      {job.note}
+                    </p>
+                    <p className="border-t bg-muted/30 px-3 py-1 text-[9.5px] text-muted-foreground">
+                      Edit from the card's right-click menu
+                    </p>
+                  </HoverCardContent>
+                </HoverCard>
               ) : null}
               {classNoteEntries.length > 0 ? (
                 // The canvas cousin of the dashboard's class-notes badge
@@ -1802,7 +2031,12 @@ export const JobCard = React.memo(function JobCard({
               ) : null}
             </div>
 
-            {/* Row 2: status + type + remote host + link lineage */}
+            {/* Row 2: status + type + link lineage. t356 — de-cluttered
+                (「卡片上的内容过满了」): the remote-host chips and the
+                counted-receipt chip left the FACE — provenance (user@host ·
+                module) lives in the hover preview + the inspector, counts
+                in the inspector's KeyNumbers strip. The row is badge +
+                label + link chip, nothing else. */}
             <div className="flex items-center gap-1.5">
               <StatusBadge status={job.status} queued={isSlurmQueued(job)} />
               {/* t350 — the type speaks its HUMAN label ("2D Classification"),
@@ -1816,39 +2050,6 @@ export const JobCard = React.memo(function JobCard({
               >
                 {spec?.label ?? job.type}
               </span>
-              {job.runRemote && (job.status === "running" || job.status === "pending") ? (
-                // Remote-run chip: this job's process lives on an SSH
-                // cluster right now — the panel carries the full story
-                // (module, phase, pid), the card carries the where.
-                // t322 — a PENDING slurm state changes the claim: the job
-                // is HELD on the cluster (the queue), not running on it.
-                <span
-                  role="img"
-                  aria-label={`${isSlurmQueued(job) ? "Queued on cluster" : "Running on cluster"} ${job.runRemote.user}@${job.runRemote.host}`}
-                  title={`${job.runRemote.user}@${job.runRemote.host} · ${job.runRemote.module || "no module"} · ${job.runRemote.remoteWorkdir}`}
-                  className="flex shrink-0 items-center gap-0.5 rounded border border-teal-500/40 bg-teal-500/10 px-1 text-[9px] font-semibold text-teal-600 dark:border-teal-500/40 dark:text-teal-300"
-                >
-                  <Server className="size-2.5 shrink-0" aria-hidden="true" />
-                  <span className="max-w-24 truncate">{remoteHostLabel(job.runRemote.host)}</span>
-                </span>
-              ) : null}
-              {job.runRemote && (job.status === "completed" || job.status === "failed") ? (
-                /* t350 — the receipt chip: a TERMINAL remote run keeps its
-                 * provenance on the face in ghost dialect (muted, no teal):
-                 * "this result / this failure came from that cluster" —
-                 * exactly what the REMOTE[...] envelope used to shout from
-                 * inside the payload sentence (the envelope moved to the
-                 * tooltip of Row 3 and to here). */
-                <span
-                  role="img"
-                  aria-label={`Ran on cluster ${job.runRemote.user}@${job.runRemote.host}`}
-                  title={`Ran on ${job.runRemote.user}@${job.runRemote.host}${job.runRemote.module ? ` · ${job.runRemote.module}` : ""}`}
-                  className="flex shrink-0 items-center gap-0.5 rounded border border-border/70 bg-muted/40 px-1 text-[9px] font-medium text-muted-foreground"
-                >
-                  <Server className="size-2.5 shrink-0" aria-hidden="true" />
-                  <span className="max-w-24 truncate">{remoteHostLabel(job.runRemote.host)}</span>
-                </span>
-              ) : null}
               {job.linkedJobId != null ? (
                 <span
                   className="ml-auto flex max-w-[46%] shrink-0 items-center gap-0.5 rounded border border-primary/30 bg-primary/10 px-1 text-[9px] font-semibold text-primary"
@@ -1864,40 +2065,6 @@ export const JobCard = React.memo(function JobCard({
                 >
                   <Link2 className="size-2.5 shrink-0" aria-hidden="true" />
                   ×{job.linkCount}
-                </span>
-              ) : null}
-              {/* t347 — the counted receipt chip (far right = the scan
-                  target): ml-auto only when no link chip already claimed
-                  the right edge; two ml-auto would split the free space
-                  in half and open a gap between the two chips */}
-              {countChip ? (
-                <span
-                  data-card-count=""
-                  role="img"
-                  aria-label={countChip.label}
-                  title={countChip.label}
-                  className={cn(
-                    "flex shrink-0 items-center gap-1 rounded-full border px-1.5 text-[9.5px] font-bold tabular-nums",
-                    !job.linkedJobId && !job.linkCount && "ml-auto",
-                    countChip.tone === "teal"
-                      ? "border-teal-500/40 bg-teal-500/10 text-teal-700 dark:border-teal-500/40 dark:text-teal-300"
-                      : countChip.tone === "violet"
-                        ? "border-violet-500/40 bg-violet-500/10 text-violet-700 dark:border-violet-500/40 dark:text-violet-300"
-                        : "border-foreground/15 bg-muted text-foreground/80"
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "size-1.5 rounded-full",
-                      countChip.tone === "teal"
-                        ? "bg-teal-500"
-                        : countChip.tone === "violet"
-                          ? "bg-violet-500"
-                          : "bg-foreground/40"
-                    )}
-                    aria-hidden="true"
-                  />
-                  {countChip.value}
                 </span>
               ) : null}
             </div>
@@ -1941,15 +2108,14 @@ export const JobCard = React.memo(function JobCard({
               </p>
             ) : null}
 
-            {/* Row 3 — the state line. t349: the row is VARIABLE height
-                (it was a fixed h-4 with a single truncated line — the
-                failure reason, the one fact a rose card exists to speak,
-                was clipped to ~35 characters). Completed/failed/pending
-                results now wrap to TWO lines (line-clamp-2: the card grew
-                to 112px for exactly this), running keeps its one-line
-                progress bar. justify-center on the column absorbs the
-                difference; the print-swap contract (note excerpt replaces
-                this row on paper) is unchanged. */}
+            {/* Row 3 — the state line. t349 made it variable-height so
+                failure reasons could wrap to two lines; t356 walks that
+                back to the ONE-LINE law (「卡片下面的文字…所有的都是
+                1行内解决」): every variant is a single truncated line —
+                the full sentence lives one hover away (title) and in the
+                inspector. justify-center on the column keeps the row
+                vertically centered; the print-swap contract (note excerpt
+                replaces this row on paper) is unchanged. */}
             <div className={`${job.note || classNoteEntries.length > 0 ? "print:hidden" : ""}`}>
               {job.status === "running" && isSlurmQueued(job) ? (
                 // t322 — the scheduler is holding this job (PENDING): no
@@ -2015,10 +2181,13 @@ export const JobCard = React.memo(function JobCard({
               ) : job.status === "completed" ? (
                 job.result ? (
                   /* t350 — the payload sentence, envelope-stripped, in the
-                   * foreground tone (it IS the card's news) with its
-                   * leading count set in the completed dialect. */
+                   * foreground tone (it IS the card's news). t356 — ONE line:
+                   * 「卡片下面的文字…所有的都是1行内解决」— truncate + the
+                   * full sentence on hover (title) and in the inspector;
+                   * the two-line clamp made a wall of cards read as prose
+                   * paragraphs. */
                   <p
-                    className="line-clamp-2 text-[11px] leading-[15px] text-foreground/80"
+                    className="truncate text-[11px] leading-[15px] text-foreground/80"
                     title={job.result}
                   >
                     <ResultPayload text={displayResult(job.result) ?? job.result} />
@@ -2026,18 +2195,18 @@ export const JobCard = React.memo(function JobCard({
                 ) : null
               ) : job.status === "failed" ? (
                 <p
-                  className="line-clamp-2 text-[11px] leading-[15px] text-rose-600 dark:text-rose-400"
+                  className="truncate text-[11px] leading-[15px] text-rose-600 dark:text-rose-400"
                   title={job.result ?? "Run failed — check logs"}
                 >
                   {displayResult(job.result) ?? job.result ?? "Run failed — check logs"}
                 </p>
               ) : job.status === "pending" ? (
                 <p
-                  className="flex items-start gap-1 text-[11px] leading-[15px] text-amber-700 dark:text-amber-300"
+                  className="flex min-w-0 items-start gap-1 text-[11px] leading-[15px] text-amber-700 dark:text-amber-300"
                   title={job.result ?? "Waiting for an upstream job"}
                 >
                   <span className="mt-[5px] inline-block size-1.5 shrink-0 rounded-full bg-amber-500" aria-hidden="true" />
-                  <span className="line-clamp-2">{job.result ?? "Waiting for an upstream job"}</span>
+                  <span className="truncate">{job.result ?? "Waiting for an upstream job"}</span>
                 </p>
               ) : isReady ? (
                 /* t350 — Ready + the digest: the go-signal and the spec
@@ -2148,4 +2317,4 @@ export const JobCard = React.memo(function JobCard({
       </div>
     </JobCardMenu>
   );
-});
+}, jobCardPropsEqual);

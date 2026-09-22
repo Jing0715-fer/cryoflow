@@ -1929,7 +1929,6 @@ export function WorkflowCanvas() {
               selected={selectedIds.includes(job.id)}
               primary={selectedId === job.id}
               bandMatch={bandIds?.has(job.id) ?? false}
-              zoom={zoom}
               pendingFrom={pendingFrom}
               pendingFromType={pendingFromType}
               isReady={
