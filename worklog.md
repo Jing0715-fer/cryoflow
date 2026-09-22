@@ -3239,3 +3239,21 @@ Stage Summary:
 - 传输换轴：mrcs 拉取从「一次性整文件 cat ×3 连试」改为「8MB 分块、块级字节账 + 退出码双校验、块级重试、僵尸连接重拨」——尺寸相关的静默丢包从「整文件重掷骰子」变成「重付一块」；16.7MB 大栈在有损线上拉通、单发丢块一跳恢复、死线诚实点名，全部套件钉死
 - 报错换轴：七类拒绝原因（missing/over-cap/stat-failed/transfer/truncated/unreadable/no-connection）从传输层一路带到路由 JSON 与前端错误卡/横幅——下一次现场报告直接说断在哪一环（over-cap 带真实尺寸、truncated 带块号与字节区间），不再是万能的「may not exist on the cluster」
 - 用户复机路径：git pull → 打开既有 2D 分类的 Results 页（chips 即点即取走新分块道；若集群线真的在丢数据，错误卡会点名「truncated 3× in a row (chunk N, bytes …)」）→ select 作业 Classes 页同道；仍失败时的报错文本就是诊断结论，直接带回即可
+Agent: main (Z.ai Code)
+Task: 用户工单 — t356 之后连线/删线仍会「卡一会，触发一次 hmr 热加载后，线才能连上」（删线同理）；要求消除使用过程中一切不必要的卡顿
+
+Work Log:
+- 根因判读: store.connect()/removeEdge() 在 set() 之前 await 完整 API 往返 — dev 服务器上该往返可排在冷路由编译/监听器重建后面数秒，用户松手后线迟迟不出现，直到 HMR 重挂载页面重取到边（顺序与工单完全吻合：卡一会 → hmr → 线连上）。排除文件写入触发 watcher 的假说：t340 已把 data/db/download 排除出 Tailwind @source，本次验证整场 dev 日志只有 1 条 "Compiling"（首页），边操作零重编译 — 用户看到的 hmr 是编译窗口本身，修复方向是把可见结果对服务器时延彻底免疫，而非追打 watcher
+- 修复·store.ts connect(): 乐观提交 — edge id 客户端铸造（crypto.randomUUID），set() + 「Connected」toast 在 pointerup 同一提交内落地（实测 60-66ms 出现在 DOM），POST 全程后台；响应 id/端口与乐观值有差才换入真值；409 = 早前一次已入库但响应未归 → 拉取服务器真相整体接管（不再回滚成看不见活线的盲店）；其它错误回滚乐观线 + destructive toast
+- 修复·store.ts removeEdge(): 乐观删除（实测 65-86ms 从 DOM 消失）+ 后台 DELETE；404 = 服务器侧本就没有 = 用户要的结果（不回滚）；其余错误还原线 + toast
+- 竞态闭环（连了又秒删）: 模块级 unconfirmedEdges/doomedCreates — POST 在途时删线【不】发 DELETE（此刻行还不存在：404 假成功、落地 POST 会复活成 UI 已不显示的幽灵线），改标 doomed；POST 落地路径发现 doomed 立即补发 DELETE。实测：路由层扣住 POST 2.5s 内连+删，终局服务器无该边、无幽灵
+- api() 助手: 抛错携带 HTTP status（消息契约不变）— 乐观流需要区分 409/404 与真故障
+- POST /api/edges: 可选 body.id（UUID 形状校验；与存活行撞号则服务器重铸并回真值）— 乐观线与持久行同 id，断言实证 DOM data-edge-id === API 边 id，删按 id 命中真行；撞号重铸同时关闭了坏调用者/重放请求经 upsertFileEdge（按 id 键控）覆盖幸存行的风险
+- 验证装置: scripts/diag-t359-instant-wires.mjs（playwright 真浏览器，双阶段）— A 连线 60-66ms（时钟只量 mouse.up→paint，拖拽的协议往返留在窗外）+ 即时 toast；B 后台落库且服务器 id===DOM id；B2 重复连线客户端拒绝（Already connected，无线）；C 删线 65-86ms；D 后台删除到服务器；E 扣 POST 2.5s 的连+秒删竞态 → 无幽灵（doomed 清理实证）；F 强制 500 → 乐观线回滚 + 诚实 toast；F4/G2 全程零 console/page 错误（自 aborted 字体图片与 drill 自导 500 的噪音按 URL/flag 过滤）；G（独立服务器会话 PHASE=g）冷载 DOM 边数===服务器边数。main 20/20 + g 2/2 ALL GREEN；截图 shots-qa/t359-{a-instant-wire,b-deleted,c-race-clean,d-final}.png
+- 4GB 盒 OOM 持久战（本轮 6 案内核击杀在录，全在 chromium 打开时的 Turbopack 编译/服务瞬间）: 处方三层 — /tmp/cf-up-t359.sh（ss listener-kill 学说 + 896 堆 + 浏览器关闭时预编译页面/客户端块/edges 通道 + 15s GC 沉降）、chromium --single-process --js-flags=256MB（~600→~300MB）、G 阶段独立服务器会话 + 3 次重试循环吸收 OOM 彩票；途中识破一处工具层假象：rg 彩色输出 ESC[m 被结果管道剥掉，"[main]" 一度显示成 "ain"（od 验字面，文件无损）
+- tsc 0 / eslint 0（store.ts + edges 路由）；无既有 e2e 断言面被触碰（run-11 的 wire 是集群通讯面，与画布边无关；t356 diag 的 E1-E2/F 断言在乐观流下原样通过 — Connected toast 与边入库语义均保持）
+
+Stage Summary:
+- 连线/删线从「等 API 往返（dev 冷编译下数秒）+ HMR 重挂载才可见」变为 pointerup 同一提交内可见（实测 60-86ms），持久化全部后台化、失败诚实回滚、连了又秒删无幽灵线
+- 服务器侧时延（冷编译、监听器、慢盘）从此只能影响「何时落库」，不再影响「何时看到线」— 用户工单的 hmr 依赖链根除
+- 用户复机路径: git pull → 画布连线/删线即时生效；网络/服务器故障时线短暂闪回 + destructive toast 是唯一可见痕迹
