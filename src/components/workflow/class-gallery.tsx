@@ -22,6 +22,7 @@ import {
   Grid2x2Check,
   Loader2,
   Maximize2,
+  RefreshCw,
   Sparkles,
   StickyNote,
   Users,
@@ -49,6 +50,10 @@ interface ClassesResponse {
   iteration: number | null;
   classesFile?: string | null;
   classesSlices?: number | null;
+  /** t358 — the last honest refusal recorded for this run's class-average
+   * stack (which link of the cluster pull broke) — the banner explains a
+   * dark grid instead of bare "no image" cards */
+  renderError?: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -169,6 +174,11 @@ export function ClassGallery({
   const onImgError = markImg("failed");
   const onImgLoad = markImg("loaded");
 
+  /* t358 — retry nonce for the /classes fetch: the banner's Retry re-asks
+   * the server (which re-attempts the cluster pull with its per-chunk
+   * budget) and wipes the per-card failure sets so the grid reloads. */
+  const [dataNonce, setDataNonce] = useState(0);
+
   useEffect(() => {
     if (!upstream) {
       setData(null);
@@ -197,7 +207,7 @@ export function ClassGallery({
     return () => {
       cancelled = true;
     };
-  }, [upstream?.id, upstream?.status]);
+  }, [upstream?.id, upstream?.status, dataNonce]);
 
   const classes = data?.classes ?? [];
   const isAuto = value.trim() === "auto" || value.trim() === "";
@@ -689,6 +699,35 @@ export function ClassGallery({
           </span>
         )}
       </div>
+
+      {/* t358 — the honest refusal banner: cards that failed BOTH lanes
+          (the preview-cache lane and the legacy mirror lane) mean the
+          cluster pull itself was refused — the payload's renderError says
+          which link broke (missing / truncated mid-wire / over the transfer
+          cap / unreadable bytes), replacing the old silent "no image"
+          tiles the field reports carried. */}
+      {failedImgs.size > 0 && data?.renderError != null && (
+        <div
+          className="mx-2 mt-2 flex items-start gap-2 rounded-md border border-rose-500/30 bg-rose-500/5 px-3 py-2"
+          data-render-error=""
+        >
+          <span className="min-w-0 flex-1 text-[10px] leading-relaxed text-rose-600 dark:text-rose-400">
+            class images unavailable — {data.renderError}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setFailedImgs(new Set());
+              setFallbackImgs(new Set());
+              setDataNonce((n) => n + 1);
+            }}
+            className="flex shrink-0 items-center gap-1 rounded-md border border-rose-500/40 px-2 py-1 text-[10px] font-medium text-rose-700 transition-colors hover:bg-rose-500/10 dark:text-rose-300"
+          >
+            <RefreshCw className="size-3" aria-hidden="true" />
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* the grid
           t355 — the column count is sized for the CONTAINER this gallery

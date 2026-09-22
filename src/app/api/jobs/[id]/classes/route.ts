@@ -7,7 +7,7 @@ import { cachedFileCompute } from "@/lib/relion/statcache";
 import { readMrcHeader } from "@/lib/mrc";
 import { RELION_DIR } from "@/lib/paths";
 import { isLocalRequest } from "@/lib/http-guard";
-import { remoteLiveIterations, cachedStackState } from "@/lib/remote/iteration-live";
+import { remoteLiveIterations, cachedStackState, lastStackFailure } from "@/lib/remote/iteration-live";
 import { readRemoteManifest } from "@/lib/remote/remote-files";
 
 export const dynamic = "force-dynamic";
@@ -300,6 +300,20 @@ export async function GET(request: NextRequest, context: RouteContext) {
       }
     }
 
+    // t358 — the honest refusal note: when the named stack was last
+    // REFUSED by the wire (and the mirror does not hold it), the selection
+    // gallery reads this to explain a dark grid (which link of the pull
+    // broke) instead of showing bare “no image” cards.
+    let renderError: string | undefined;
+    if (
+      run?.remote &&
+      classesFile &&
+      !(mirrorOk && existsSync(path.join(workdir, classesFile)))
+    ) {
+      const refusal = lastStackFailure(job.id, classesFile);
+      if (refusal) renderError = refusal.message;
+    }
+
     return NextResponse.json({
       jobId: id,
       classes,
@@ -309,6 +323,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       // renderable via /outputs/file?path=<classesFile>&format=png&slice=N-1
       classesFile,
       classesSlices,
+      ...(renderError ? { renderError } : {}),
     });
   } catch (error) {
     console.error("GET /api/jobs/[id]/classes failed:", error);

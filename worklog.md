@@ -3217,3 +3217,25 @@ Stage Summary:
 - 架构换轴（用户提案的形态）：完成后 mrcs 主动下载 → 本地转 PNG → 集群栈即删——两个画廊从「点击时 SSH 轮盘」变成「本地图片即答」；断线/冷启动/集群清理三种灾难下图片照常服务（管线跑过之后）
 - 懒道同时加固：字节校验三次重试（t298 教义统一两条道）、.done 判决标记（断点续跑永不重付传输）、RELION 5 终稿栈从 listing 到路由全链路可见
 - 用户复机路径：git pull → 打开既有 2D 分类的 Results 页（view 触发器自动后台渲染全部轮次，chips 逐一点亮）→ select 作业 Classes 页每类图即答；下一次新跑的 2D 分类在完成瞬间全部轮次自动落地本地
+
+---
+Task ID: t358
+Agent: main-agent (Z.ai Code)
+Task: 用户工单「could not load the sheet for iteration 020 — the stack may not exist on the cluster 还是显示不出来结果图」——t357 的主动管线在真实集群上仍然全灭；本轮换传输轴：分块校验下载 + 全链路诚实报错
+
+Work Log:
+- 根因判读：t357 把每次 mrcs 拉取做成「一次性整文件 cat + 字节校验 3 连试」——但 t298 已证明 bun+ssh2 的接收端对 25–100MB 级传输会静默丢字节（64MB 丢 1.6–48MB、exit=0），且丢包是尺寸相关的：整文件重试只是反复掷同一副输骰。真实 2D 分类（it020、每栈几十 MB）每次拉取都被判 truncated → 404，且所有失败类别（missing/stat 失败/传输断/截断/超帽/坏字节）共用同一句「stack may not exist on the cluster」——用户与本轮排查都无法分辨断在哪一环
+- 修（传输层 ssh.ts，四件）：remoteStatEx 三态标签（ok/absent/error——absent 是集群亲口说的 MISSING，永不再用 null 把三种世界折叠成一句 404）；writeAllSyncAt 显式定位写入（writeSync 可能短写，t357 忽略返回值会把丢字节在写层重新引入；显式位置还让分块重试天然可回卷——失败尝试留下的部分字节不会挪动下一次的落点）；remoteChunkedDownload 分块拉取（8MB/块 = 同步回传 16MB 安全域的一半，tail -c +OFF | head -c N 逐块、块级字节账 + 退出码双校验、块级 3 连试 + 350ms 呼吸——中途丢一块只重付一块，不再重付整个文件；块串行防并发风暴）；僵尸连接两针（stat 连拒两次 → dropConnection 重拨再问一次；块级 channel 味错误 → 每文件一次强制重拨——t346 阶梯教义的直连通道版）
+- 修（管线 iteration-live.ts）：StackPullFailure 七类原因（missing/over-cap/stat-failed/transfer/truncated/unreadable/no-connection）+ 每栈失败登记表（lastStackFailure——成功即清除）；verifiedStackPull 换分块传输并携带判决（over-cap 消息带真实尺寸「X is 300 MB — above the 256 MB cap」；truncated 带块号与字节区间；「下载完整但头不可读」先判 transient 是否被中途清掉——t333 重派发擦除竞赛下那是 transfer 而非 unreadable，旧文案会把好文件冤枉成集群损坏）；管线拒绝汇总日志（每栈拒绝带 reason 进 dev.log）
+- 修（路由）：sheet/image 404 改 {error: 判决原文, reason}；/iterations 与 /classes 载荷新增 renderError（该栈最近一次拒绝的原因——classesFile 或最新 chip 名下的栈且镜像无本地副本时附上）
+- 修（前端两画廊）：class-iteration-gallery 的 sheet 改 fetch-first（blob→objectURL；<img> 的 onError 丢响应体，是「一句含糊 404」的根源——现在错误卡直接展示服务器判决原文，Retry 重取；objectURL 清理防泄漏）；类网格失败卡带 renderError title + 网格脚注；class-gallery（select 画廊）双道全败时出横幅（renderError 原文 + Retry——清失败集 + dataNonce 重拉 /classes）
+- mock 集群新增 cat-drop-bytes 杠杆（t344/t345/t346 的 ~/.slurm 约定）："<substr> <minTransferBytes> <dropBytes> [maxFires]"——cat 与 tail|head 两种传输形状按传输尺寸触发中段丢字节（bash 组 { head -c AT; tail -c +DROP+1; } 仍是 exit=0 短读 = t298 形状），fires 边车计数 + cat-lever.log 见证行；顺带发现 mock 是裸 bun 起的（无 --hot）——改 bun run dev 常驻，代码热更
+- 验证装置 diag-t358-chunked-stack-pull.mjs（33 断言 ALL GREEN）：A 干净线（全 6 轮经分块拉取渲染）；B 有损线（≥12MB 传输丢 1.5MB）：旧整文件道 /outputs/file 诚实 502（t357 现场形状）+ 杠杆见证 ≥1，分块道（8MB 块 < 阈值）字节精确拉通 16.7MB 大栈、16/16 slice 落地、无 .stack.mrcs 残留；C 单发丢块（maxFires=1）被该块自己的重试恢复（fires 恰为 1——旧代码会在一次抖动上烧光整个 3 连试预算）；D 死线（999 fires）双路由 404 reason=truncated + /iterations renderError + 无截断残留；E 其余原因各就各位（missing / over-cap 带 300MB 尺寸 / unreadable）；F 线路痊愈后同栈重拉 200 + /classes 零拒绝注记
+- 排障三则：首跑 3 FAIL 同根——D 相 renderError 门是 classesFile（=缓存已渲染的 run_it005）而失败登记在 run_it006 → 门扩到最新 chip；F 相 404 是 D 相 view-trigger 管线仍在飞行中（ensureIterationAssets in-flight 共享把清缓存竞赛的牺牲品递给了 F 的请求——dev.log「downloaded completely … not a readable MRC」实证）→ 套件加 awaitWireQuiet（mock exec-audit 静默探测）+ verifiedStackPull 区分「transient 被中途清掉」；t355 回归 1 FAIL 是其自身竞态（PHASE B 清缓存撞上 finalize 管线重建中途的半缓存 → classesFile=run_it003、merge 未跑、remote=false）→ 套件在清空前等管线 settle（t354 的 ?refresh=1 同族修法）
+- 回归四套件 ALL GREEN：t356（主动管线契约）、t354（每轮 sheet 三源取图）、t355（集群画廊三源喂料 + 等待 settle）、run-6 59/59（引擎 argv/守门面）；tsc 0 错；触碰 10 文件 eslint 0 输出
+- 浏览器活体（4GB 盒 OOM 持久战，dev server 被内核收割 6 次——dmesg next-server anon-rss 3.0GB 在录；配方=关浏览器重启 + curl 预热页与重路由 + 快进快出）：class2d Results——6 chips、it006 sheet 经新 fetch-first 流出图（266×68 natural）、类网格 4/4、零错误卡（截图 docs/t358-class2d-results.png）；select2d Classes——3/3 缩略图、卡片等高 101px、无横幅（截图 docs/t358-select2d-gallery.png）；390px 移动端 3/3 加载、零横向溢流（docs/t358-select2d-mobile.png）；console/page errors 零；QA 种子（项目/作业/连接）清场、mock fs 残留清理
+
+Stage Summary:
+- 传输换轴：mrcs 拉取从「一次性整文件 cat ×3 连试」改为「8MB 分块、块级字节账 + 退出码双校验、块级重试、僵尸连接重拨」——尺寸相关的静默丢包从「整文件重掷骰子」变成「重付一块」；16.7MB 大栈在有损线上拉通、单发丢块一跳恢复、死线诚实点名，全部套件钉死
+- 报错换轴：七类拒绝原因（missing/over-cap/stat-failed/transfer/truncated/unreadable/no-connection）从传输层一路带到路由 JSON 与前端错误卡/横幅——下一次现场报告直接说断在哪一环（over-cap 带真实尺寸、truncated 带块号与字节区间），不再是万能的「may not exist on the cluster」
+- 用户复机路径：git pull → 打开既有 2D 分类的 Results 页（chips 即点即取走新分块道；若集群线真的在丢数据，错误卡会点名「truncated 3× in a row (chunk N, bytes …)」）→ select 作业 Classes 页同道；仍失败时的报错文本就是诊断结论，直接带回即可

@@ -80,16 +80,16 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
     // cluster is the ONLY honest source left. The old `run.done` rejection
     // 404'd every per-class image of a finished cluster run — the exact
     // 「看不到结果的图片」 the field report carried.
+    // t358 — a refusal carries its HONEST reason (the sheet route's dialect):
+    // missing / truncated / over-cap / unreadable / stat-failed, verbatim.
     const r = run.remote;
     if (!r) {
       return NextResponse.json({ error: "class stack not available locally" }, { status: 404 });
     }
     const assets = await ensureIterationAssets(r.connectionId, r.remoteWorkdir, job.id, file);
-    if (assets == null) {
+    if (assets.failure) {
       return NextResponse.json(
-        {
-          error: `could not fetch ${file} from the cluster — it may still be written by the run, the cluster wire may be busy, or the stack is above the 256 MB on-demand cap`,
-        },
+        { error: assets.failure.message, reason: assets.failure.reason },
         { status: 404 }
       );
     }

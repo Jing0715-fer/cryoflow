@@ -41,7 +41,7 @@ import { cachedFileCompute } from "@/lib/relion/statcache";
 import { readMrcHeader, renderClassSheetPng, renderMrcSlicePng } from "@/lib/mrc";
 import { DATA_DIR } from "@/lib/paths";
 import { getConnection } from "./connections";
-import { exec, remoteDownload, remoteStat } from "./ssh";
+import { exec, remoteChunkedDownload } from "./ssh";
 import type { RemoteConnection } from "./types";
 
 const PREVIEW_DIR = path.join(DATA_DIR, "remote-preview");
@@ -85,6 +85,11 @@ export interface IterationsPayload {
   /** t354 — EVERY iteration that has a class-average stack (or a rendered
    * sheet in the local cache), ascending: one chip, one sheet image each */
   stacks: StackEntry[];
+  /** t358 — the last honest refusal recorded for this payload's
+   * classesFile (the galleries show it when cards fail, so a dark grid
+   * explains itself: which link of the pull broke). Absent when the last
+   * attempt succeeded or nothing was tried. */
+  renderError?: string;
   error?: string;
 }
 
@@ -457,13 +462,60 @@ export function localIterations(workdir: string, jobId?: string): IterationsPayl
 /* class-average rendering — one pull per stack, PNGs stay, stack goes */
 /* ------------------------------------------------------------------ */
 
-/** one pulled stack's rendered product: every slice PNG + the t354 sheet */
+/** one pulled stack's rendered product: every slice PNG + the t354 sheet.
+ * t358 — `failure` rides along when the pull (or the header parse)
+ * refused: the routes surface it VERBATIM, so a field report says which
+ * link broke instead of the old one-size "may not exist on the cluster". */
 export interface IterationAssets {
   slices: number;
   sheet: Buffer | null;
+  failure?: StackPullFailure;
 }
 
-const stackInFlight = new Map<string, Promise<IterationAssets | null>>();
+/** t358 — the honest verdict of a refused stack pull. Every reason maps to
+ * a distinct wire-level world the t357 field report collapsed into one
+ * opaque 404 ("could not load the sheet … may not exist"). The message is
+ * a human sentence safe for the UI; `reason` is the machine handle the
+ * tests and the routes key on. */
+export interface StackPullFailure {
+  reason:
+    | "missing" // the cluster itself says the file is not there
+    | "over-cap" // the stack is real but above the transfer cap (size named)
+    | "stat-failed" // the cluster would not answer the stat
+    | "transfer" // the wire broke mid-pull (channel/timeout)
+    | "truncated" // bytes verified SHORT after every chunk retry
+    | "unreadable" // complete bytes that are not a readable MRC
+    | "no-connection"; // the run's connection was deleted
+  message: string;
+  /** the cluster-side size when known (over-cap names it in the message) */
+  size?: number;
+}
+
+/** the LAST verdict per stack — written on every refusal, cleared on every
+ * success. The galleries read it through their payload's renderError so a
+ * failed grid explains itself without a second request. */
+const stackFailures = new Map<string, StackPullFailure>();
+
+function stackKey(jobId: string, stackName: string): string {
+  return `${jobId}/${stackName}`;
+}
+
+function recordStackFailure(jobId: string, stackName: string, failure: StackPullFailure): void {
+  stackFailures.set(stackKey(jobId, stackName), failure);
+}
+
+function clearStackFailure(jobId: string, stackName: string): void {
+  stackFailures.delete(stackKey(jobId, stackName));
+}
+
+/** t358 — the last refusal recorded for this stack (null when the last
+ * attempt succeeded, or nothing was tried yet). The /iterations and
+ * /classes payloads surface it as `renderError`. */
+export function lastStackFailure(jobId: string, stackName: string): StackPullFailure | null {
+  return stackFailures.get(stackKey(jobId, stackName)) ?? null;
+}
+
+const stackInFlight = new Map<string, Promise<IterationAssets>>();
 
 function liveStackDir(jobId: string, stackName: string): string {
   return path.join(PREVIEW_DIR, "live", jobId, stackName.replace(/\.mrcs?$/i, ""));
@@ -509,34 +561,40 @@ export function stackRendered(jobId: string, stackName: string): boolean {
  * then delete the stack (the t339 slimming contract: rendered thumbnails
  * persist — KBs each — the MB-scale stack does not). Concurrent requests
  * for the same stack share one pull. Returns the slice count and the sheet
- * buffer, or null when the pull/render failed (the route answers an
- * honest error). The sheet is best-effort: a stack whose sheet render
- * fails still answers its slices (the per-class grid keeps working).
+ * buffer; on refusal the result carries a `failure` (the honest reason,
+ * VERBATIM to the routes — t358). The sheet is best-effort: a stack whose
+ * sheet render fails still answers its slices (the per-class grid keeps
+ * working).
  *
- * t356 — the pull is BYTE-VERIFIED with retries, the t298 doctrine the
- * /outputs/file lazy fetch has always spoken: the bun+ssh2 receive side
- * can silently truncate a large `cat` mid-stream while reporting success
- * (the t298 exam caught 1.6–48 MB lost per 64 MB transfer), and a real
- * 100-class 360-px stack is 25–100 MB — exactly the shape that truncates.
- * The old single-shot pull rendered readMrcHeader's refusal as a bare 404
- * ("could not fetch … may not exist") while the stack sat healthy on the
- * cluster — the field report's exact symptom. Up to three attempts now:
- * stat → pull → verify landed === expected; a mismatch destroys the
- * partial and retries (a stack still being written by a RUNNING job
- * naturally fails this until its round completes — the next ask retries).
+ * t358 — the pull rides the CHUNKED, byte-verified transport. The t357
+ * whole-file `cat` of a real 25–100 MB class-average stack was exactly the
+ * t298 loss shape (the receive side silently drops megabytes with exit=0),
+ * and three WHOLE-FILE retries just re-rolled the same losing dice — the
+ * field report's every-image-dark. The chunked puller never puts more
+ * than 8 MB on the wire at once (the proven-safe envelope the sync-back's
+ * key-file traffic has always crossed), verifies every chunk's byte
+ * account, and retries a failed CHUNK — a mid-stream drop now costs one
+ * chunk's re-transfer, not the file's.
  */
 export async function ensureIterationAssets(
   connectionId: string,
   remoteWorkdir: string,
   jobId: string,
   stackName: string
-): Promise<IterationAssets | null> {
+): Promise<IterationAssets> {
   const key = `${connectionId}:${remoteWorkdir}/${stackName}`;
   const existing = stackInFlight.get(key);
   if (existing) return existing;
-  const task = (async (): Promise<IterationAssets | null> => {
+  const task = (async (): Promise<IterationAssets> => {
     const conn = getConnection(connectionId);
-    if (!conn) return null;
+    if (!conn) {
+      const failure: StackPullFailure = {
+        reason: "no-connection",
+        message: `the cluster connection this run dispatched through was deleted — reconnect it to pull ${stackName}`,
+      };
+      recordStackFailure(jobId, stackName, failure);
+      return { slices: 0, sheet: null, failure };
+    }
     const clusterPath = `${remoteWorkdir.replace(/\/+$/, "")}/${stackName}`;
     const dir = liveStackDir(jobId, stackName);
     mkdirSync(dir, { recursive: true });
@@ -556,7 +614,13 @@ export async function ensureIterationAssets(
         }
       }
       const hdr = await verifiedStackPull(conn, clusterPath, transient);
-      if (!hdr) return null;
+      if (!hdr.ok) {
+        recordStackFailure(jobId, stackName, hdr.failure);
+        console.log(
+          `iteration-live: ${stackName} pull refused (${hdr.failure.reason}) — ${hdr.failure.message}`
+        );
+        return { slices: 0, sheet: null, failure: hdr.failure };
+      }
       for (let z = 0; z < hdr.nz; z++) {
         const png = await renderMrcSlicePng(transient, z);
         if (png) {
@@ -586,9 +650,15 @@ export async function ensureIterationAssets(
       } catch {
         /* best-effort marker */
       }
+      clearStackFailure(jobId, stackName);
       return { slices: hdr.nz, sheet };
     } catch {
-      return null;
+      const failure: StackPullFailure = {
+        reason: "transfer",
+        message: `the pull of ${stackName} failed unexpectedly (see the server log)`,
+      };
+      recordStackFailure(jobId, stackName, failure);
+      return { slices: 0, sheet: null, failure };
     } finally {
       try {
         if (existsSync(transient)) rmSync(transient, { force: true });
@@ -605,41 +675,57 @@ export async function ensureIterationAssets(
   }
 }
 
-/** The t298-verified pull loop shared by every iteration-stack fetch:
- * stat → cat → byte-count verdict, up to three attempts with a breath
- * between. Returns the parsed header of the COMPLETE local file, or null
- * (the partial is destroyed — a truncated stack must never render). */
+/** The t358 chunked, verdict-carrying pull: stat → 8 MB verified chunks →
+ * header parse. Every refusal is a typed reason with a human message (the
+ * routes surface it verbatim); the transient partial is always destroyed —
+ * a truncated stack must never render. The retry budget lives PER CHUNK
+ * inside remoteChunkedDownload (a failed chunk re-pays itself, not the
+ * file), so this layer no longer loops. */
 async function verifiedStackPull(
   conn: RemoteConnection,
   clusterPath: string,
-  transient: string,
-  attempts = 3
-): Promise<{ nz: number } | null> {
-  for (let attempt = 0; attempt < attempts; attempt++) {
-    if (attempt > 0) await new Promise((r) => setTimeout(r, 300));
-    const st = await remoteStat(conn, clusterPath);
-    if (st == null) return null; // not on the cluster — an honest miss
-    if (st.size > STACK_FETCH_CAP) return null; // over the cap — refused
-    const written = await remoteDownload(conn, clusterPath, transient, STACK_FETCH_CAP);
-    if (written == null) continue; // transfer error — retry on a fresh channel
-    if (written === -1) return null; // grew past the cap mid-pull — refuse
-    let landed = -1;
-    try {
-      landed = statSync(transient).size;
-    } catch {
-      landed = -1;
-    }
-    if (landed !== st.size) continue; // truncated (or still growing) — retry
-    const hdr = readMrcHeader(transient);
-    if (hdr) return hdr;
-    return null; // complete bytes that are not a readable MRC — a verdict, not a flake
+  transient: string
+): Promise<{ ok: true; nz: number } | { ok: false; failure: StackPullFailure }> {
+  const r = await remoteChunkedDownload(conn, clusterPath, transient, {
+    maxBytes: STACK_FETCH_CAP,
+  });
+  if (!r.ok) {
+    const reason: StackPullFailure["reason"] =
+      r.reason === "absent" ? "missing" : r.reason;
+    return {
+      ok: false,
+      failure: {
+        reason,
+        message: r.message,
+        ...(r.size != null ? { size: r.size } : {}),
+      },
+    };
   }
-  try {
-    if (existsSync(transient)) rmSync(transient, { force: true });
-  } catch {
-    /* best-effort */
+  const hdr = readMrcHeader(transient);
+  if (hdr) return { ok: true, nz: hdr.nz };
+  // a COMPLETE download whose header cannot be read is one of two very
+  // different worlds: the bytes are garbage (the file is bad on the
+  // cluster) OR the transient PATH vanished mid-pull (a re-dispatch wipe
+  // or a cache clearing deleted the round dir while the fd still wrote
+  // into the unlinked inode — the fd's byte account succeeds, the path
+  // is gone). Say which one — "the file may be corrupted" is a lie when
+  // the cluster file is fine.
+  if (!existsSync(transient)) {
+    return {
+      ok: false,
+      failure: {
+        reason: "transfer",
+        message: `the local render cache was cleared while ${clusterPath} was downloading — ask again (the cluster file is untouched)`,
+      },
+    };
   }
-  return null;
+  return {
+    ok: false,
+    failure: {
+      reason: "unreadable",
+      message: `${clusterPath} downloaded completely (${r.bytes} bytes) but is not a readable MRC stack — the file may be corrupted on the cluster`,
+    },
+  };
 }
 
 /** A rendered slice PNG from the cache (null = not rendered yet). */
@@ -743,6 +829,7 @@ export function scheduleRemoteStackRenders(args: {
   const task = (async () => {
     let spent = 0;
     let rendered = 0;
+    let refused = 0;
     for (const s of stacks) {
       if (stackRendered(args.jobId, s.file)) continue;
       if (spent + s.size > RENDER_PIPELINE_TOTAL_CAP) continue; // over the run budget — the lazy door stays open for this round
@@ -753,9 +840,11 @@ export function scheduleRemoteStackRenders(args: {
           args.jobId,
           s.file
         );
-        if (assets) {
+        if (!assets.failure) {
           spent += s.size;
           rendered += 1;
+        } else {
+          refused += 1; // the reason is already on the server log (ensureIterationAssets) + the failure map the payloads read
         }
       } catch {
         /* one round's failure never stops the queue */
@@ -764,6 +853,11 @@ export function scheduleRemoteStackRenders(args: {
     if (rendered > 0) {
       console.log(
         `iteration-live: rendered ${rendered} class-average stack(s) of job ${args.jobId} into the local preview cache (${args.reason})`
+      );
+    }
+    if (refused > 0) {
+      console.log(
+        `iteration-live: ${refused} stack(s) of job ${args.jobId} were refused by the wire (${args.reason}) — the failure map carries the reasons; the sheet route retries on demand`
       );
     }
   })()

@@ -78,16 +78,18 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
 
     // remote pull (running OR done — see the route doc). Done runs are the
     // restart case: cold cache, the cluster is the only source left.
+    // t358 — a refusal carries its HONEST reason (missing / truncated /
+    // over-cap with the actual size / unreadable / stat-failed): the old
+    // one-size "may not exist on the cluster" 404 made every wire failure
+    // look like a missing file — the field report's invisible root cause.
     const r = run.remote;
     if (!r) {
       return NextResponse.json({ error: "iteration sheet not available locally" }, { status: 404 });
     }
     const assets = await ensureIterationAssets(r.connectionId, r.remoteWorkdir, job.id, file);
-    if (assets == null) {
+    if (assets.failure) {
       return NextResponse.json(
-        {
-          error: `could not fetch ${file} from the cluster — the round may not exist on this run, the cluster wire may be busy, or the stack is above the 256 MB on-demand cap (retry in a moment)`,
-        },
+        { error: assets.failure.message, reason: assets.failure.reason },
         { status: 404 }
       );
     }

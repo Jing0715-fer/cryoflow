@@ -178,6 +178,40 @@ try {
     ? readdirSync(mirror).filter((f) => /classes\.mrcs?$/i.test(f))
     : [];
   must(stacksBefore.length >= 8, `the sync-back landed the small mock stacks (${stacksBefore.length})`);
+  // t358 — settle the FINALIZE pipeline BEFORE the wipe: it renders the 8
+  // rounds in the background right after completion, and a wipe racing it
+  // leaves a HALF-rebuilt cache — localIterations then answers classesFile
+  // from the partial cache (e.g. run_it003), the remote merge never runs,
+  // and `remote:false` fails below. The phase's premise is a COLD cache;
+  // waiting for the pipeline makes the cold truly cold.
+  {
+    const rounds = () => {
+      const dir = path.join(PREVIEW_LIVE, clsJob.id);
+      if (!existsSync(dir)) return 0;
+      try {
+        return readdirSync(dir).filter((n) => {
+          try {
+            return statSync(path.join(dir, n)).isDirectory() &&
+              readdirSync(path.join(dir, n)).includes(".done");
+          } catch {
+            return false;
+          }
+        }).length;
+      } catch {
+        return 0;
+      }
+    };
+    const settleEnd = Date.now() + 30_000;
+    while (Date.now() < settleEnd && rounds() < 8) await sleep(500);
+    let prev = rounds();
+    let quiet = 0;
+    while (Date.now() < settleEnd && quiet < 2) {
+      await sleep(700);
+      const now = rounds();
+      quiet = now === prev ? quiet + 1 : 0;
+      prev = now;
+    }
+  }
   for (const f of stacksBefore) rmSync(path.join(mirror, f));
   rmSync(path.join(PREVIEW_LIVE, clsJob.id), { recursive: true, force: true });
   console.log(`  (mirror stacks removed to simulate the >key-cap world: ${stacksBefore.length} files)`);

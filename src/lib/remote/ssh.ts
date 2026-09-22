@@ -555,7 +555,7 @@ export async function remoteMkdir(c: RemoteConnection, dir: string): Promise<voi
   await exec(c, `mkdir -p ${shellSingleQuote(dir)}`, { timeoutMs: 15_000 });
 }
 
-/** Remote file existence + size (null = absent).
+/** Remote file existence + size (null = absent OR the stat itself failed).
  *
  * t355 — this rides a DIRECT pooled channel, NOT the serialized exec queue:
  * a stat is the opening move of every file transfer (remoteDownload's own
@@ -572,20 +572,62 @@ export async function remoteStat(
   c: RemoteConnection,
   file: string
 ): Promise<{ size: number; mtimeMs: number } | null> {
+  const r = await remoteStatEx(c, file);
+  return r.kind === "ok" ? { size: r.size, mtimeMs: r.mtimeMs } : null;
+}
+
+/** t358 — the stat that says WHICH miss it was. The plain remoteStat folds
+ * three very different worlds into one null ("the file is not there", "the
+ * wire could not answer", "the login node timed out"), and the t357 field
+ * report showed the cost: every one of them rendered as the same
+ * "the stack may not exist on the cluster" 404 while the real reason stayed
+ * invisible. The chunked puller (and through it the sheet/image routes)
+ * speaks THIS dialect so the UI can say what actually broke. */
+export type RemoteStatResult =
+  | { kind: "ok"; size: number; mtimeMs: number }
+  | { kind: "absent" }
+  | { kind: "error"; message: string };
+
+export async function remoteStatEx(
+  c: RemoteConnection,
+  file: string
+): Promise<RemoteStatResult> {
   const pooled = getPooled(c);
   try {
     await pooled.ready;
-  } catch {
-    return null;
+  } catch (e) {
+    return { kind: "error", message: e instanceof Error ? e.message : String(e) };
   }
   const r = await rawExec(
     pooled,
     `stat -c '%s %Y' ${shellSingleQuote(file)} 2>/dev/null || echo MISSING`,
     { timeoutMs: 20_000, stdin: null }
   );
-  if (r.error || r.code !== 0) return null;
+  if (r.error) return { kind: "error", message: r.error };
+  if (r.code !== 0) return { kind: "error", message: `stat exited ${r.code}` };
   const m = /^(\d+) (\d+)\s*$/.exec(r.stdout.toString("utf8").trim());
-  return m ? { size: Number(m[1]), mtimeMs: Number(m[2]) * 1000 } : null;
+  if (!m) {
+    // the stat answered MISSING — the cluster's own verdict that the file
+    // is not there (an HONEST miss, never retried into existence)
+    if (/^MISSING\s*$/.test(r.stdout.toString("utf8").trim())) return { kind: "absent" };
+    return { kind: "error", message: "stat output unparseable" };
+  }
+  return { kind: "ok", size: Number(m[1]), mtimeMs: Number(m[2]) * 1000 };
+}
+
+/** t358 — partial-write-safe synchronous write AT AN EXPLICIT POSITION.
+ * Node/Bun's writeSync MAY short-write (signal interruption, internal
+ * buffer edges); the t357 download loop ignored its return value, so a
+ * short write would silently drop the tail of a chunk. Explicit positions
+ * also make chunk RETRIES rewind-proof: a failed attempt that landed a
+ * partial 3 MB does not move the next attempt's write point. */
+function writeAllSyncAt(fd: number, buf: Buffer, position: number): void {
+  let off = 0;
+  while (off < buf.length) {
+    const n = writeSync(fd, buf, off, buf.length - off, position + off);
+    if (n <= 0) throw new Error(`writeSync returned ${n}`);
+    off += n;
+  }
 }
 
 /**
@@ -684,6 +726,294 @@ export async function remoteDownload(
       });
     });
   });
+}
+
+/* ------------------------------------------------------------------ */
+/* t358 — the CHUNKED transfer (big, lossy-wire-proof downloads)        */
+/* ------------------------------------------------------------------ */
+
+export interface ChunkedDownloadOpts {
+  /** hard byte cap for the whole file (refused, not truncated) */
+  maxBytes: number;
+  /** per-chunk transfer size (default 8 MiB — half the 16 MiB envelope the
+   * sync-back's key-files traffic has always crossed reliably; the t298
+   * probe lost 1.6–48 MB per 64 MB transfer, so chunks stay well under) */
+  chunkBytes?: number;
+  /** attempts per CHUNK (default 3 — a failed chunk re-pays itself, not
+   * the whole file) */
+  chunkAttempts?: number;
+}
+
+export type ChunkedDownloadResult =
+  | { ok: true; bytes: number }
+  | {
+      ok: false;
+      /** machine reason — the routes surface it verbatim */
+      reason: "absent" | "over-cap" | "stat-failed" | "transfer" | "truncated";
+      /** human sentence, safe for the UI */
+      message: string;
+      /** the cluster-side size when known (over-cap names it) */
+      size?: number;
+    };
+
+/**
+ * t358 — download a (potentially large) remote file in VERIFIED CHUNKS.
+ *
+ * The t357 field report: a finished real-cluster 2D classification whose
+ * every class-average pull failed with the same "the stack may not exist on
+ * the cluster" 404. A real 20-round run writes 25–100 MB stacks, and the
+ * whole-file `cat` of that size is exactly the t298 loss shape (the receive
+ * side silently drops megabytes while reporting success) — a loss that is
+ * size-dependent, which means whole-file RETRIES just re-roll the same
+ * losing dice. The proven-safe envelope is the sync-back's ≤16 MB key-file
+ * traffic; this puller never puts more than 8 MB on the wire at once:
+ *
+ *   stat → (absent | over-cap answered BEFORE any transfer)
+ *   for each chunk: `tail -c +OFF 'path' | head -c N` on a direct pooled
+ *   channel, every byte writeSync'd (partial-write-safe), the chunk's byte
+ *   account checked against N, up to `chunkAttempts` tries per chunk — a
+ *   mid-stream drop costs ONE chunk's re-transfer, not the file's.
+ *
+ * Chunks run SERIALLY (no parallel channel storms — concurrent load is the
+ * documented trigger of the loss). The local file is written progressively;
+ * on failure the partial is the CALLER's to destroy (the iteration pipeline
+ * already deletes its transient).
+ */
+export async function remoteChunkedDownload(
+  c: RemoteConnection,
+  remotePath: string,
+  localPath: string,
+  opts: ChunkedDownloadOpts
+): Promise<ChunkedDownloadResult> {
+  const chunkBytes = opts.chunkBytes ?? 8 * 1024 * 1024;
+  const attempts = opts.chunkAttempts ?? 3;
+
+  const st = await remoteStatEx(c, remotePath);
+  if (st.kind === "absent") {
+    return { ok: false, reason: "absent", message: `${remotePath} does not exist on the cluster` };
+  }
+  if (st.kind === "error") {
+    // one breath and a second stat — a pooled client mid-redial answers
+    // "error" once; the file may be perfectly there
+    await new Promise((r) => setTimeout(r, 400));
+    const st2 = await remoteStatEx(c, remotePath);
+    if (st2.kind === "absent") {
+      return { ok: false, reason: "absent", message: `${remotePath} does not exist on the cluster` };
+    }
+    if (st2.kind === "ok") {
+      return pullChunks(c, remotePath, localPath, st2.size, chunkBytes, attempts, opts.maxBytes);
+    }
+    // two refusals in a row — the pooled connection may be a zombie (the
+    // socket died without ssh2's error/close ever firing; keepalive needs
+    // up to 30s to notice). Force a fresh dial and ask ONE more time
+    // before sentencing the file.
+    dropConnection(c.id);
+    const st3 = await remoteStatEx(c, remotePath);
+    if (st3.kind === "ok") {
+      return pullChunks(c, remotePath, localPath, st3.size, chunkBytes, attempts, opts.maxBytes);
+    }
+    if (st3.kind === "absent") {
+      return { ok: false, reason: "absent", message: `${remotePath} does not exist on the cluster` };
+    }
+    return {
+      ok: false,
+      reason: "stat-failed",
+      message: `could not stat ${remotePath} on the cluster (${st3.kind === "error" ? st3.message : "stat unavailable"}) — the connection was re-dialed and still refused`,
+    };
+  }
+  return pullChunks(c, remotePath, localPath, st.size, chunkBytes, attempts, opts.maxBytes);
+}
+
+async function pullChunks(
+  c: RemoteConnection,
+  remotePath: string,
+  localPath: string,
+  size: number,
+  chunkBytes: number,
+  attempts: number,
+  maxBytes?: number
+): Promise<ChunkedDownloadResult> {
+  const cap = maxBytes ?? Number.MAX_SAFE_INTEGER;
+  if (size > cap) {
+    return {
+      ok: false,
+      reason: "over-cap",
+      size,
+      message: `${remotePath} is ${fmtMb(size)} — above the ${fmtMb(cap)} on-demand transfer cap`,
+    };
+  }
+  mkdirSync(path.dirname(localPath), { recursive: true });
+  let pooled = getPooled(c);
+  try {
+    await pooled.ready;
+  } catch (e) {
+    return {
+      ok: false,
+      reason: "transfer",
+      message: `the cluster connection is down (${e instanceof Error ? e.message : String(e)})`,
+    };
+  }
+
+  let fd: number | null = null;
+  // one forced re-dial per FILE: a chunk that died with a channel-level
+  // error (timeout / channel closed / connection reset) often means the
+  // pooled connection is a zombie — the next attempt deserves a fresh
+  // socket, not the same corpse (the t346 timeout-streak ladder's doctrine
+  // for the direct-channel world)
+  let reDialUsed = false;
+  try {
+    fd = openSync(localPath, "w");
+    let done = 0;
+    let chunkIndex = 0;
+    while (done < size) {
+      const want = Math.min(chunkBytes, size - done);
+      let landed = -1;
+      let lastErr = "";
+      for (let attempt = 0; attempt < attempts; attempt++) {
+        if (attempt > 0) await new Promise((r) => setTimeout(r, 350));
+        const r = await pumpChunk(
+          pooled,
+          remotePath,
+          done, // byte offset the chunk starts at
+          want,
+          (buf, filePos) => writeAllSyncAt(fd!, buf, filePos)
+        );
+        if (r.ok) {
+          landed = want;
+          break;
+        }
+        lastErr = r.message;
+        if (
+          !reDialUsed &&
+          /timed out|channel|connection|reset|ECONN|writeSync/i.test(r.message)
+        ) {
+          reDialUsed = true;
+          dropConnection(c.id);
+          // the pooled handle this loop captured is gone — re-fetch so the
+          // next attempt rides the fresh connection
+          const fresh = getPooled(c);
+          try {
+            await fresh.ready;
+            pooled = fresh;
+          } catch {
+            /* the fresh dial itself failed — the loop's verdict says so */
+          }
+        }
+      }
+      if (landed !== want) {
+        return {
+          ok: false,
+          reason: "truncated",
+          size,
+          message: `the transfer of ${remotePath} was truncated ${attempts}× in a row (chunk ${chunkIndex + 1}, bytes ${done}–${done + want}${lastErr ? `; ${lastErr}` : ""}) — the cluster wire is dropping data`,
+        };
+      }
+      done += want;
+      chunkIndex++;
+    }
+    return { ok: true, bytes: done };
+  } catch (e) {
+    return {
+      ok: false,
+      reason: "transfer",
+      message: `the transfer of ${remotePath} failed (${e instanceof Error ? e.message : String(e)})`,
+    };
+  } finally {
+    if (fd != null) {
+      try {
+        closeSync(fd);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+}
+
+/** One verified chunk: `tail -c +OFF path | head -c N` on a direct pooled
+ * channel. The verdict is the BYTE ACCOUNT (written === N) plus the remote
+ * pipeline's exit code — head exits 0 only after serving exactly N bytes. */
+function pumpChunk(
+  pooled: PooledClient,
+  remotePath: string,
+  offset: number,
+  want: number,
+  write: (buf: Buffer, filePos: number) => void
+): Promise<{ ok: true; written: number } | { ok: false; message: string }> {
+  return new Promise((resolve) => {
+    let settled = false;
+    let written = 0;
+    let exited: number | null = null;
+    let streamRef: import("ssh2").ClientChannel | null = null;
+    // a chunk is ≤8 MB; 50 KB/s floor → ≤170 s, capped at 180 s
+    const timeoutMs = Math.max(30_000, Math.min(180_000, want / 25));
+    const finish = (r: { ok: true; written: number } | { ok: false; message: string }) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(r);
+    };
+    const timer = setTimeout(() => {
+      try {
+        streamRef?.close();
+      } catch {
+        /* ignore */
+      }
+      finish({ ok: false, message: `chunk timed out after ${Math.round(timeoutMs / 1000)}s` });
+    }, timeoutMs);
+    const command = `tail -c +${offset + 1} ${shellSingleQuote(remotePath)} | head -c ${want}`;
+    pooled.client.exec(command, (err, stream) => {
+      if (err) {
+        finish({ ok: false, message: err.message });
+        return;
+      }
+      streamRef = stream;
+      const errParts: Buffer[] = [];
+      stream.stderr?.on("data", (chunk: Buffer) => errParts.push(chunk));
+      stream.on("data", (chunk: Buffer) => {
+        const at = offset + written; // absolute file position of this chunk byte
+        written += chunk.length;
+        if (written > want) {
+          // more bytes than asked — a corrupted stream (head should cap it)
+          try {
+            stream.close();
+          } catch {
+            /* ignore */
+          }
+          finish({ ok: false, message: "chunk over-ran its byte count" });
+          return;
+        }
+        try {
+          write(chunk, at);
+        } catch (e) {
+          finish({ ok: false, message: `local write failed (${e instanceof Error ? e.message : String(e)})` });
+        }
+      });
+      // 'exit' carries the pipeline's code; 'close' is when no more data
+      // can arrive (the t298 discipline) — the verdict waits for close
+      stream.on("exit", (code: number | null) => {
+        exited = code;
+      });
+      stream.on("close", () => {
+        const stderr = Buffer.concat(errParts).toString("utf8").trim();
+        if (written === want && (exited === 0 || exited === null)) {
+          finish({ ok: true, written });
+        } else {
+          finish({
+            ok: false,
+            message: `chunk read ${written}/${want} bytes${exited != null && exited !== 0 ? `, exit ${exited}` : ""}${
+              stderr ? `: ${stderr.slice(0, 160)}` : ""
+            }`,
+          });
+        }
+      });
+      stream.end();
+    });
+  });
+}
+
+function fmtMb(bytes: number): string {
+  const mb = bytes / (1024 * 1024);
+  return mb >= 10 ? `${Math.round(mb)} MB` : `${mb.toFixed(1)} MB`;
 }
 
 /** Upload bytes (buffer or local file) to a remote path (parents created).

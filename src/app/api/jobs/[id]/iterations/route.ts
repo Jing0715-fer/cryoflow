@@ -8,6 +8,8 @@ import {
   LIVE_ITERATION_TYPES,
   scheduleRemoteStackRenders,
   stackRendered,
+  lastStackFailure,
+  localStackExists,
   STACK_NAME_RE,
   type IterationsPayload,
   type StackEntry,
@@ -185,6 +187,23 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
     // into a free no-op after its first pass)
     if (run.remote) {
       triggerViewRender(job.id, run, payload.stacks, payload.classesFile);
+    }
+    // t358 — the honest refusal note: when a stack this payload NAMES was
+    // last REFUSED by the wire (and the mirror does not hold it), say so —
+    // the gallery's per-class cards and dark chips explain themselves
+    // instead of showing bare "no image" tiles. Two candidates, in order:
+    // the payload's classesFile (the grid's source) and the NEWEST chip
+    // (the round the sheet follows — the field report's exact surface).
+    if (run.remote && run.workdir) {
+      const candidates = [payload.classesFile, payload.stacks[payload.stacks.length - 1]?.file];
+      for (const name of candidates) {
+        if (!name || localStackExists(run.workdir, name)) continue;
+        const refusal = lastStackFailure(job.id, name);
+        if (refusal) {
+          payload.renderError = refusal.message;
+          break;
+        }
+      }
     }
     return NextResponse.json(payload, {
       headers: { "Cache-Control": "no-store" },

@@ -321,6 +321,119 @@ function applyExecSlowLever(cmd) {
   return `sleep ${(spec.ms / 1000).toFixed(3)}; ${cmd}`;
 }
 
+// ---------------------------------------------------------------------------
+// t358 — the LOSSY-WIRE lever (same ~/.slurm convention, same witness
+// discipline): the field report showed a real cluster whose every 25–100 MB
+// class-average pull was silently truncated (the t298 receive-side loss
+// shape — size-dependent, exit=0). This lever reproduces that wire:
+//   cat-drop-bytes — content "<substr> <minTransferBytes> <dropBytes>
+//                     [maxFires]": any exec whose TRANSFER is at least
+//                     minTransferBytes and whose command carries substr
+//                     loses dropBytes from the middle of its stream. The
+//                     two transfer shapes the app actually speaks both
+//                     match:
+//                       cat '<path>'                        (whole file)
+//                       tail -c +OFF '<path>' | head -c N   (t358 chunk)
+//                     maxFires (optional, default unlimited) bounds the
+//                     total fires across ALL matching execs — the suite
+//                     arms one-shot drops to prove the per-chunk retry
+//                     recovers. Fires are counted in a sidecar file; every
+//                     fire logs a cat-lever.log witness line so a green
+//                     pull can be PROVEN to have survived a drop (and not
+//                     just never matched).
+// ---------------------------------------------------------------------------
+function catDropSpec(cmd) {
+  const lever = join(LEVER_DIR, "cat-drop-bytes");
+  if (!existsSync(lever)) return null;
+  let content = "";
+  try {
+    content = readFileSync(lever, "utf8").trim();
+  } catch {
+    return null;
+  }
+  const m = /^(\S+)\s+(\d+)\s+(\d+)(?:\s+(\d+))?$/.exec(content);
+  if (!m) return null;
+  const spec = {
+    substr: m[1],
+    minBytes: Number(m[2]),
+    drop: Number(m[3]),
+    maxFires: m[4] != null ? Number(m[4]) : 0, // 0 = unlimited
+    lever,
+  };
+  if (!cmd.includes(spec.substr)) return null;
+  return spec;
+}
+
+/** The transfer size the command would put on the wire, and the pieces
+ * needed to rewrite it with a mid-stream drop. Only the two shapes the
+ * app's download paths speak (whole-file cat, t358 chunk) are modeled. */
+function catDropTransfer(cmd) {
+  // whole file: cat '<path>'  (the t289/t298 lanes)
+  let mm = /^cat\s+'([^']+)'\s*$/.exec(cmd) ?? /^cat\s+(\S+)\s*$/.exec(cmd);
+  if (mm) {
+    const path = mm[1];
+    let size = 0;
+    try {
+      size = statSync(path).size;
+    } catch {
+      return null;
+    }
+    return { kind: "cat", path, size, want: size };
+  }
+  // t358 chunk: tail -c +OFF '<path>' | head -c N
+  mm = /^tail -c \+(\d+)\s+'([^']+)'\s*\|\s*head -c (\d+)\s*$/.exec(cmd);
+  if (mm) {
+    const off = Number(mm[1]); // 1-based first byte
+    const path = mm[2];
+    const want = Number(mm[3]);
+    let size = 0;
+    try {
+      size = statSync(path).size;
+    } catch {
+      return null;
+    }
+    const remaining = Math.max(0, size - (off - 1));
+    return { kind: "chunk", path, size, want: Math.min(want, remaining), off };
+  }
+  return null;
+}
+
+function applyCatDropLever(cmd) {
+  const spec = catDropSpec(cmd);
+  if (!spec) return cmd;
+  const t = catDropTransfer(cmd);
+  if (!t || t.want < spec.minBytes) return cmd; // below the loss threshold — the wire is clean here
+  // count fires first (maxFires bounds the TOTAL, across shapes)
+  const countFile = `${spec.lever}.fires`;
+  let fires = 0;
+  try {
+    fires = Number(readFileSync(countFile, "utf8").trim()) || 0;
+  } catch {
+    /* fresh */
+  }
+  if (spec.maxFires > 0 && fires >= spec.maxFires) return cmd;
+  try {
+    writeFileSync(countFile, String(fires + 1));
+  } catch {
+    /* best effort — the witness still tells the tale */
+  }
+  // deterministic mid-stream drop point: a third of the way in
+  const at = Math.floor(t.want / 3);
+  const drop = Math.min(spec.drop, t.want - at - 1);
+  if (drop <= 0) return cmd;
+  catLeverLog(
+    `drop ${drop}B at ${at} (transfer ${t.want}B ≥ ${spec.minBytes}B) on ${spec.substr} — fire ${fires + 1}`
+  );
+  log(`exec: cat-drop-bytes lever fired — dropping ${drop}B of a ${t.want}B transfer (fire ${fires + 1})`);
+  // bash group: head emits [0, at), tail then skips `drop` bytes of the
+  // remaining stream and emits the rest — the pipeline still exits 0 with
+  // a SHORT read, the t298 "silent truncation" shape exactly
+  if (t.kind === "cat") {
+    return `cat ${t.path} | { head -c ${at}; tail -c +${drop + 1}; }`;
+  }
+  return `tail -c +${t.off} ${t.path} | { head -c ${at}; tail -c +${drop + 1}; } | head -c ${t.want}`;
+}
+
 function safeWrite(writable, data) {
   try {
     writable?.write?.(data);
@@ -649,7 +762,9 @@ function handleSession(session) {
         try { stream.close(); } catch { /* ignore */ }
         return;
       }
-      const translated = applyExecSlowLever(applyCatSlowLever(applyRmSlowLever(translateCommand(raw))));
+      const translated = applyCatDropLever(
+        applyExecSlowLever(applyCatSlowLever(applyRmSlowLever(translateCommand(raw))))
+      );
       if (process.env.CF_MOCK_DEBUG) log(`exec-translated: ${translated.slice(0, 200)}`);
       activeProc = runCommand(stream, ["-c", translated], { onFinish: clearActive });
     } catch (err) {

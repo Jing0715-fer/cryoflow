@@ -64,6 +64,9 @@ interface IterationsResponse {
   classesSlices: number | null;
   /** t354 — every round that has a sheet (or a stack) to view */
   stacks?: StackEntry[];
+  /** t358 — the last honest refusal recorded for this payload's classesFile
+   * (which link of the cluster pull broke) — shown when cards fail */
+  renderError?: string;
   error?: string;
 }
 
@@ -94,6 +97,14 @@ export function ClassIterationGallery({ job, refreshKey = 0 }: { job: JobDTO; re
   const [sheetLoaded, setSheetLoaded] = React.useState(false);
   const [sheetError, setSheetError] = React.useState<string | null>(null);
   const [sheetRetry, setSheetRetry] = React.useState(0);
+  /* t358 — the sheet arrives through fetch(), not <img src>: the img
+   * element throws the response body away on failure, and the field
+   * reports showed the cost — every refusal collapsed into one vague
+   * "the stack may not exist on the cluster" line while the server knew
+   * EXACTLY which link broke (missing / truncated mid-wire / over the
+   * transfer cap / unreadable bytes). fetch() reads the JSON reason
+   * verbatim; the blob becomes an object URL for the img. */
+  const [sheetSrc, setSheetSrc] = React.useState<string | null>(null);
   const [zoomOpen, setZoomOpen] = React.useState(false);
   /* t355 — per-class thumbnail failure set: a slice that cannot be
    * fetched/rendered swaps to the honest placeholder instead of the
@@ -157,11 +168,56 @@ export function ClassIterationGallery({ job, refreshKey = 0 }: { job: JobDTO; re
   const current =
     (viewIter != null ? stacks.find((s) => s.iter === viewIter) : undefined) ?? newest;
 
-  // the sheet target changed → fresh loading state (the img remounts via key)
+  // t358 — the sheet's own fetch lifecycle: (re)loaded whenever the round
+  // changes or Retry fires. The object URL is revoked on cleanup so
+  // round-hopping never leaks blobs.
   React.useEffect(() => {
-    setSheetLoaded(false);
+    if (current == null) {
+      setSheetSrc(null);
+      setSheetError(null);
+      setSheetLoaded(false);
+      return;
+    }
+    let cancelled = false;
+    let objectUrl: string | null = null;
     setSheetError(null);
-  }, [current?.file]);
+    setSheetLoaded(false);
+    setSheetSrc(null); // the previous round's blob is revoked by this run's cleanup
+    const it = current.iter;
+    const file = current.file;
+    (async () => {
+      try {
+        const url =
+          `/api/jobs/${job.id}/iterations/sheet?file=${encodeURIComponent(file)}` +
+          (sheetRetry > 0 ? `&_r=${sheetRetry}` : "");
+        const res = await fetch(url);
+        if (!res.ok) {
+          const body = (await res.json().catch(() => null)) as { error?: string } | null;
+          if (!cancelled) {
+            setSheetError(
+              body?.error ??
+                `could not load the sheet for iteration ${pad3(it)} (HTTP ${res.status})`
+            );
+          }
+          return;
+        }
+        const blob = await res.blob();
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        setSheetSrc(objectUrl);
+      } catch {
+        if (!cancelled) {
+          setSheetError(
+            `could not load the sheet for iteration ${pad3(it)} — the local server did not answer`
+          );
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (objectUrl != null) URL.revokeObjectURL(objectUrl);
+    };
+  }, [current?.file, current?.iter, sheetRetry, job.id]);
 
   // keep the selected chip visible as the bar grows / rounds land
   React.useEffect(() => {
@@ -389,12 +445,15 @@ export function ClassIterationGallery({ job, refreshKey = 0 }: { job: JobDTO; re
           t355 — the error card renders OUTSIDE the zoom button: its Retry
           <Button> used to nest inside the wrapper <button> (invalid HTML —
           React flagged the hydration hazard, and the retry click could die
-          in the nested-button state the field report actually lived in). */}
-      {current != null && sheetUrl != null && (
+          in the nested-button state the field report actually lived in).
+          t358 — the sheet is FETCHED, not <img>-loaded: the refusal's JSON
+          reason lands here verbatim (missing / truncated / over-cap /
+          unreadable / stat-failed), so the card says which link broke. */}
+      {current != null && (
         <div className="p-4" data-sheet-view={current.iter}>
           {sheetError != null ? (
             <div className="flex min-h-32 w-full flex-col items-center justify-center gap-2 rounded-md border border-rose-500/30 bg-rose-500/5 px-4 py-6 text-center">
-              <span className="text-[11px] text-rose-600 dark:text-rose-400">{sheetError}</span>
+              <span className="max-w-xl text-[11px] leading-relaxed text-rose-600 dark:text-rose-400" data-sheet-error="">{sheetError}</span>
               <Button
                 variant="outline"
                 size="sm"
@@ -416,7 +475,7 @@ export function ClassIterationGallery({ job, refreshKey = 0 }: { job: JobDTO; re
               className="group relative block w-full cursor-zoom-in rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
               aria-label={`Open iteration ${pad3(current.iter)} class sheet enlarged`}
             >
-              {!sheetLoaded && (
+              {sheetSrc == null && (
                 <div className="flex min-h-48 w-full items-center justify-center rounded-md border border-border/60 bg-muted/30">
                   <span className="flex items-center gap-2 text-[11px] text-muted-foreground">
                     <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
@@ -424,21 +483,23 @@ export function ClassIterationGallery({ job, refreshKey = 0 }: { job: JobDTO; re
                   </span>
                 </div>
               )}
-              <img
-                key={sheetUrl}
-                src={sheetUrl}
-                alt={`All class averages of iteration ${pad3(current.iter)} in one grid`}
-                onLoad={() => setSheetLoaded(true)}
-                onError={() =>
-                  setSheetError(
-                    `could not load the sheet for iteration ${pad3(current.iter)} — the stack may not exist on the cluster`
-                  )
-                }
-                className={cn(
-                  "mx-auto max-h-[520px] w-auto max-w-full rounded-md border border-border/60 object-contain transition-opacity duration-300",
-                  sheetLoaded ? "opacity-100" : "absolute inset-0 opacity-0"
-                )}
-              />
+              {sheetSrc != null && (
+                <img
+                  key={sheetSrc}
+                  src={sheetSrc}
+                  alt={`All class averages of iteration ${pad3(current.iter)} in one grid`}
+                  onLoad={() => setSheetLoaded(true)}
+                  onError={() =>
+                    setSheetError(
+                      `the sheet for iteration ${pad3(current.iter)} arrived but was not a readable image`
+                    )
+                  }
+                  className={cn(
+                    "mx-auto max-h-[520px] w-auto max-w-full rounded-md border border-border/60 object-contain transition-opacity duration-300",
+                    sheetLoaded ? "opacity-100" : "absolute inset-0 opacity-0"
+                  )}
+                />
+              )}
               {sheetLoaded && (
                 <span
                   className="pointer-events-none absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-md bg-background/80 text-foreground opacity-0 shadow-sm backdrop-blur transition-opacity group-hover:opacity-100"
@@ -491,7 +552,10 @@ export function ClassIterationGallery({ job, refreshKey = 0 }: { job: JobDTO; re
                         onError={() => onSliceError(c.cls)}
                       />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground">
+                      <div
+                        className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground"
+                        title={data.renderError ?? undefined}
+                      >
                         no image
                       </div>
                     )}
@@ -525,6 +589,16 @@ export function ClassIterationGallery({ job, refreshKey = 0 }: { job: JobDTO; re
           {data.classes.length > 0 && latest != null && (
             <p className="px-4 pb-3 text-[10px] text-muted-foreground">
               class grid · latest completed round (it {pad3(latest)}) — occupancy from its data star
+            </p>
+          )}
+          {/* t358 — a grid that could not load its images says WHICH link of
+              the cluster pull broke (the payload's honest refusal note) */}
+          {failedSlices.size > 0 && data.renderError != null && (
+            <p
+              className="border-t border-rose-500/20 bg-rose-500/5 px-4 py-2 text-[10px] leading-relaxed text-rose-600 dark:text-rose-400"
+              data-render-error=""
+            >
+              class images unavailable — {data.renderError}
             </p>
           )}
         </>
