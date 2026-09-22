@@ -46,8 +46,9 @@
  *  B. LIVE — seven legs on the mock:
  *     B1  THE USER'S RECEIPT, healed at the source: class2d pinned to
  *         "normal" (5 GPUs) at width 6 → the pre-flight clamps 6→5, the
- *         script carries --nodelist=normal --gres=gpu:5 --ntasks=5 and NO
- *         --partition, and the job COMPLETES (the old engine composed the
+ *         script carries --nodelist=normal --gres=gpu:5 --ntasks=6
+ *         (t349: 5 workers + 1 CPU master) and NO --partition, and the
+ *         job COMPLETES (the old engine composed the
  *         refusal the user pasted);
  *     B2  THE AUTO HOLE: no pin, no picked partition, width 6 → the
  *         connection's default (normal, 5 GPUs) clamps the width; the
@@ -412,13 +413,13 @@ try {
     "the pin names the node's OWN partition (normal — scontrol's word; the bare-pin suppression is dead, t340)"
   );
   must(
-    script1?.includes("#SBATCH --gres=gpu:5") && script1?.includes("#SBATCH --ntasks=5"),
-    "the width CLAMPED 6 → 5 (the node's own scontrol word — the script requests 5, not the refused 6)"
+    script1?.includes("#SBATCH --gres=gpu:5") && script1?.includes("#SBATCH --ntasks=6"),
+    "the width CLAMPED 6 → 5 (the node's own scontrol word — the script requests 5 GPUs, 6 tasks: 5 workers + 1 master)"
   );
   must(
-    script1?.includes('CF_RANKS=5') && script1?.includes('mpirun -n "$CF_RANKS"') &&
-      script1?.includes("CF_GPU_LIST='0:1:2:3:4'") && script1?.includes('--gpu "$CF_GPU_LIST"'),
-    "the MPI shape follows the clamped width (5 ranks, GPUs 0-4 — as the script's own t342 clamp variables)"
+    script1?.includes('CF_RANKS=6') && script1?.includes('mpirun -n "$CF_RANKS"') &&
+      script1?.includes(".cf-rank-launch.sh"),
+    "the MPI shape follows the clamped width (t349: 5 workers + 1 CPU master, each worker pinned to its own card by the per-rank launcher)"
   );
   const reqRow1 = await pollUntil(async () => {
     const f = newestReq();
@@ -466,7 +467,7 @@ try {
     "the connection's default partition rides (auto = the connection's own group)"
   );
   must(
-    script2?.includes("#SBATCH --gres=gpu:5") && script2?.includes("#SBATCH --ntasks=5"),
+    script2?.includes("#SBATCH --gres=gpu:5") && script2?.includes("#SBATCH --ntasks=6"),
     "the width clamped 6 → 5 by the DEFAULT partition's inventory (the t337 hole closed)"
   );
   const clampLog2 = await pollUntil(

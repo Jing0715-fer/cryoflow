@@ -125,26 +125,27 @@ try {
     { boxSize: 128, downsampleTo: 64, bgDiameter: -1, norm: true },
     [[ctf, "micrographs", "micrographs"], [pick, "coords", "coords"]], { gpus: 1, shards: 2 });
 
-  logSection("C — 现场形状复刻: 宽度 6 / 8 卡可见 → 6 rank 各自一张卡 (不再全钉 device 0)");
+  logSection("C — 现场形状复刻: 宽度 6 / 8 卡可见 → 1 CPU master + 6 worker 各自一张卡 (不再全钉 device 0, t349)");
   {
     const { j: c2d, r } = await mkClass2d("rcp class2d w6", ext, 6);
     must(r.status === 200, `width-6 class2d dispatched (${r.status})`);
     const w = await waitTerminal(c2d.id, { timeoutMs: 240_000 });
     must(w.job?.status === "completed", `width-6 class2d COMPLETED (${w.job?.status}: ${String(w.job?.result).slice(0, 120)})`);
     const script = sbatchScriptOf(projectId, c2d);
-    must(script.includes("CF_RANKS=6") && script.includes('mpirun -n "$CF_RANKS"'),
-      "the script carries CF_RANKS=6 and mpirun -n \"$CF_RANKS\"");
+    must(script.includes("CF_RANKS=7") && script.includes('mpirun -n "$CF_RANKS"'),
+      "the script carries CF_RANKS=7 (t349: 6 workers + 1 dedicated CPU master) and mpirun -n \"$CF_RANKS\"");
     must(script.includes(".cf-rank-launch.sh") && /--gpu 0\b/.test(script) && !/--gpu 0:/.test(script) && !script.includes("CF_GPU_LIST"),
       "t345: mpirun targets the per-rank launcher; relion carries --gpu 0; the colon list is GONE");
     must(script.includes("CRYOFLOW_RANK_BIND"), "the launcher's per-rank receipt is in the script");
     const runout = runOutOf(projectId, c2d);
     const binds = rankBinds(runout);
-    must(binds.length === 6, `6 CRYOFLOW_RANK_BIND receipts (one per rank — got ${binds.length})`);
+    must(binds.length === 6, `6 worker CRYOFLOW_RANK_BIND receipts — the master rank 0 stays unpinned (got ${binds.length})`);
     const devs = binds.map((b) => b.dev);
     must(new Set(devs).size === 6, `every rank got a DIFFERENT card (the pile-up is dead): ${devs.join(",")}`);
     must(devs.every((d) => /^[0-6]$/.test(d)), `the pinned cards are real indices from the device set: ${devs.join(",")}`);
-    must(binds.every((b, i) => b.rank === i), "the receipts are ranked 0..5 (the emulated launcher ran one copy per rank)");
-    must(!/clamping the rank count/.test(runout), "no clamp note — 8 cards ≥ 6 ranks, the width was honest");
+    must(binds.every((b, i) => b.rank === i + 1), "the worker receipts are ranked 1..6 (rank 0 is the CPU master, t349)");
+    must(/CRYOFLOW_RANK_BIND: rank 0 \(RELION master/.test(runout), "the master's own receipt names its CPU-only role (no card pin)");
+    must(!/clamping to/.test(runout), "no clamp note — 8 cards ≥ 6 workers, the width was honest");
     must(!/cannot see any GPU/.test(runout), "no blind note — the node answered nvidia-smi");
   }
 
@@ -173,11 +174,11 @@ try {
     const w = await waitTerminal(c2d.id, { timeoutMs: 240_000 });
     must(w.job?.status === "completed", `clamp class2d COMPLETED (${w.job?.status})`);
     const runout = runOutOf(projectId, c2d);
-    must(/CRYOFLOW_NOTE: this job asked for 6 MPI rank\(s\) but only 2 GPU\(s\) are visible to it/.test(runout),
-      "run.out narrates the clamp: 6 asked, 2 visible");
+    must(/CRYOFLOW_NOTE: this job asked for 6 GPU worker\(s\) plus 1 CPU master but only 2 GPU\(s\) are visible to it/.test(runout),
+      "run.out narrates the clamp: 6 workers asked, 2 visible");
     const binds = rankBinds(runout);
     must(binds.length === 2 && JSON.stringify(binds.map((b) => b.dev).sort()) === JSON.stringify(["0", "1"]),
-      `exactly 2 ranks ran, on cards 0 and 1 (got ${JSON.stringify(binds)})`);
+      `exactly 2 workers ran, on cards 0 and 1 (+ the unpinned master — got ${JSON.stringify(binds)})`);
     leverRm("gpu-count");
   }
 
@@ -190,8 +191,8 @@ try {
     must(w.job?.status === "completed", `blind class2d COMPLETED (${w.job?.status})`);
     const runout = runOutOf(projectId, c2d);
     must(/CRYOFLOW_NOTE: this job cannot see any GPU from inside the allocation/.test(runout) &&
-      /running ONE rank instead of 6/.test(runout),
-      "run.out narrates the blind case: ONE rank, not six onto an unknown card");
+      /running ONE rank instead of 7/.test(runout),
+      "run.out narrates the blind case: ONE rank, not seven onto an unknown card");
     const binds = rankBinds(runout);
     must(binds.length === 1 && binds[0].dev === "<as",
       `a single unpinned rank ran, its receipt says so (got ${JSON.stringify(binds)})`);
@@ -248,7 +249,7 @@ try {
       "the timeout receipt has its own advice (the file was NOT reported missing)");
     must(src.includes("could not read its MPI rank index"),
       "the launcher refuses to guess a missing rank index (every rank guessing 0 IS the pile-up)");
-    must(src.includes("names no card for rank"),
+    must(src.includes("names no card for worker rank"),
       "the launcher refuses an unpinned multi-rank run (no device, no launch)");
     must(!src.includes("CF_GPU_LIST"),
       "CF_GPU_LIST is retired from the source entirely (the colon grammar died in the field)");

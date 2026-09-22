@@ -53,12 +53,16 @@ function leverRm(...names) {
 }
 
 try {
-  logSection("A — 杠杆: 节点只暴露 1 张 GPU (gpu-count=1)");
+  logSection("A — 杠杆: 节点只暴露 1 张 GPU (gpu-count=1) + rank 仿真开");
   lever("gpu-count", 1);
+  // t349 — the clamp now lands on 1 WORKER + 1 CPU master (two ranks); the
+  // mock's mpirun must emulate BOTH ranks or the worker's receipt never
+  // lands in run.out (a real mpirun always launches every rank)
+  lever("mpi-emulate-ranks", 1);
   must(client("nvidia-smi -L").out.split("\n").filter(Boolean).length === 1,
     "the mock node now exposes exactly 1 GPU to nvidia-smi -L");
 
-  logSection("B — 链路 + class2d @ 宽度 2 → 运行时钳到 1 rank, 干净完成");
+  logSection("B — 链路 + class2d @ 宽度 2 → 运行时钳到 1 worker + master, 干净完成");
   const proj = await api("/api/projects", {
     method: "POST", headers: SHJ,
     body: JSON.stringify({ name: "gpu-coherence e2e", mode: "spa", remoteConnectionId: CONN_ID }),
@@ -94,15 +98,18 @@ try {
   must(w1.job?.status === "completed", `width-2 class2d COMPLETED on the 1-GPU node (${w1.job?.status}: ${String(w1.job?.result).slice(0, 120)})`);
 
   const script = sbatchScriptOf(projectId, c2d);
-  must(script.includes("CF_RANKS=2") && script.includes('mpirun -n "$CF_RANKS"'),
-    "the script carries mpirun -n \"$CF_RANKS\" with CF_RANKS=2 (the width as asked)");
+  must(script.includes("CF_RANKS=3") && script.includes('mpirun -n "$CF_RANKS"'),
+    "the script carries mpirun -n \"$CF_RANKS\" with CF_RANKS=3 (t349: 2 workers + 1 CPU master for width 2)");
   must(script.includes(".cf-rank-launch.sh") && /--gpu 0\b/.test(script) && !/--gpu 0:/.test(script),
     "t345: mpirun targets the per-rank launcher and relion carries --gpu 0 (the colon list is retired — it put every rank on device 0 in the field)");
   const runout1 = runOutOf(projectId, c2d);
-  must(/CRYOFLOW_NOTE: this job asked for 2 MPI rank\(s\) but only 1 GPU\(s\) are visible to it/.test(runout1),
-    "run.out narrates the clamp: 2 ranks asked, 1 GPU visible → clamped to the visible cards");
-  must(/CRYOFLOW_RANK_BIND: rank 0 -> CUDA_VISIBLE_DEVICES=\<as the node left it\>/.test(runout1),
-    "the single surviving rank names its own binding (the launcher's CRYOFLOW_RANK_BIND receipt)");
+  must(/CRYOFLOW_NOTE: this job asked for 2 GPU worker\(s\) plus 1 CPU master but only 1 GPU\(s\) are visible to it/.test(runout1),
+    "run.out narrates the clamp: 2 workers asked, 1 GPU visible → 1 worker + the master");
+  must(/CRYOFLOW_RANK_BIND: rank 0 \(RELION master — CPU-only: batch dispatch \+ class reconstruction\) -> no card pin/.test(runout1),
+    "the master rank names its CPU-only role (no card pin, t349)");
+  const binds1 = runout1.match(/CRYOFLOW_RANK_BIND: rank (\d+) -> CUDA_VISIBLE_DEVICES=(\S+)/g) ?? [];
+  must(binds1.length === 1 && /rank 1 -> CUDA_VISIBLE_DEVICES=0/.test(binds1[0] ?? ""),
+    "the single WORKER ran pinned to the one card (the master is unpinned)");
   must(!/Expectation iteration 1 of 20[\s\S]*?devices\s+0\b[\s\S]*?devices\s+0\b/.test(runout1),
     "no two-rank pile-up on one device (the frozen-iteration shape is structurally impossible now)");
 
@@ -128,7 +135,7 @@ try {
     "run.out says the refusal outright (fail in one second, not an hour of silence)");
 
   logSection("D — 杠杆复原 + 无本地副本的 star → gate 通过集群 twin 校验");
-  leverRm("gpu-count", "gpu-free-mb", "gpu-holders");
+  leverRm("gpu-count", "mpi-emulate-ranks", "gpu-free-mb", "gpu-holders");
   const extRec = readEngineState()[ext.id] ?? {};
   const localStar = extRec?.outputs?.particles_star ?? null;
   must(!!localStar && !!extRec?.remote?.remoteOutputs?.particles_star,
@@ -153,7 +160,7 @@ try {
   must(false, "the E2E ran to completion", String(e?.stack ?? e));
 } finally {
   // the levers are test-only world state — never leak them into other suites
-  leverRm("gpu-count", "gpu-free-mb", "gpu-holders");
+  leverRm("gpu-count", "mpi-emulate-ranks", "gpu-free-mb", "gpu-holders");
 }
 
 const s = summary("TEST 7 — t342 rank↔GPU coherence + starved-card refusal + cluster-aware star read");

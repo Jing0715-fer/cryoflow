@@ -88,9 +88,9 @@ try {
   must(w1.job?.status === "completed", `big-box class2d COMPLETED (${w1.job?.status}: ${String(w1.job?.result).slice(0, 120)})`);
   const script = sbatchScriptOf(projectId, c2d);
   must(script.includes("#SBATCH --gres=gpu:2"), "the sbatch requests exactly 2 GPUs (--gres=gpu:2)");
-  must(script.includes("--ntasks=2"), "--ntasks=2 (one MPI rank per GPU)");
-  must(script.includes('CF_RANKS=2') && script.includes('mpirun -n "$CF_RANKS"'),
-    "mpirun -n \"$CF_RANKS\" with CF_RANKS=2 (the sbatch6gpu.sh idiom; t345 clamps the count at launch to the cards the job can see)");
+  must(script.includes("--ntasks=3"), "--ntasks=3 (t349: 2 workers + 1 dedicated CPU master)");
+  must(script.includes('CF_RANKS=3') && script.includes('mpirun -n "$CF_RANKS"'),
+    "mpirun -n \"$CF_RANKS\" with CF_RANKS=3 (RELION's np = nGPU + 1 idiom; t345 clamps the count at launch to the cards the job can see)");
   must(script.includes(".cf-rank-launch.sh") && /--gpu 0\b/.test(script) && !/--gpu 0:/.test(script),
     "t345: mpirun targets .cf-rank-launch.sh and relion carries --gpu 0 (each rank pinned to its OWN CUDA_VISIBLE_DEVICES — the colon list is retired)");
   must(script.includes("CF_DEVICE_SET") && script.includes("CRYOFLOW_RANK_BIND"),

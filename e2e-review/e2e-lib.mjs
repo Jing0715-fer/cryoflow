@@ -10,8 +10,10 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
-export const ROOT = "/home/z/cryoflow";
-export const BASE = "http://localhost:3001";
+// CF_ROOT/CF_BASE env overrides keep the suite movable (e.g. a dev
+// instance on another port) without editing the lib.
+export const ROOT = process.env.CF_ROOT ?? "/home/z/cryoflow";
+export const BASE = process.env.CF_BASE ?? "http://localhost:3001";
 export const MOCK = `${ROOT}/services/mock-cluster`;
 export const SH = { Origin: BASE, Referer: `${BASE}/` };
 export const SHJ = { ...SH, "Content-Type": "application/json" };

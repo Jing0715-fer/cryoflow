@@ -979,9 +979,9 @@ function connPartitionGpus(connId: string, partition: string): number | null {
  * sbatch6gpu.sh submission idiom (OpenHPC + Slurm + Lmod clusters):
  *
  *   #SBATCH --nodes=1
- *   #SBATCH --ntasks=<gpus>          ← one MPI rank per GPU
+ *   #SBATCH --ntasks=<gpus+1>      ← t349: 1 CPU master + one worker per GPU
  *   #SBATCH --gres=gpu:<gpus>
- *   … mpirun -n <gpus> relion_* … --gpu 0:1:…:N-1
+ *   … mpirun -n <gpus+1> relion_* … one CUDA_VISIBLE_DEVICES per worker rank
  *
  * t311 — NO --mem line, deliberately. The user's cluster REJECTED the
  * memory spec we used to emit (--mem=16+12×gpus G):
@@ -1224,7 +1224,11 @@ function buildSbatchScript(args: {
   // checking exactly the cards the launcher will pin.
   if (gpuJob) {
     if (mpiRanks && mpiRanks > 1) {
-      L.push("# ---- t345: one rank, one card — the device set + the clamp ----");
+      // t349 — CF_RANKS counts the MASTER TOO (width + 1): rank 0 is the
+      // CPU master, ranks 1..N-1 the workers, one per card. Every clamp
+      // and receipt below speaks WORKERS (CF_RANKS - 1), because the
+      // master needs no card — only the workers' pile-ups ever OOMed.
+      L.push("# ---- t345/t349: 1 CPU master + one worker per card — the device set + the clamp ----");
       L.push(`CF_RANKS=${mpiRanks}`);
       L.push('if [ -n "${CUDA_VISIBLE_DEVICES:-}" ]; then');
       L.push('  CF_DEVICE_SET="$(echo "$CUDA_VISIBLE_DEVICES" | tr -d " ")"');
@@ -1238,12 +1242,12 @@ function buildSbatchScript(args: {
       L.push('case "$CF_DEVICE_SET" in ""|none|NONE) CF_DEVICE_SET="" ;; esac');
       L.push("CF_VISIBLE=0");
       L.push('[ -n "$CF_DEVICE_SET" ] && CF_VISIBLE=$(echo "$CF_DEVICE_SET" | tr "," "\n" | grep -c .)');
-      L.push('if [ "$CF_VISIBLE" -ge 1 ] && [ "$CF_VISIBLE" -lt "$CF_RANKS" ]; then');
-      L.push('  echo "CRYOFLOW_NOTE: this job asked for $CF_RANKS MPI rank(s) but only $CF_VISIBLE GPU(s) are visible to it${CUDA_VISIBLE_DEVICES:+ (CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES)} — clamping the rank count to the visible cards (two ranks on one card exhaust its memory and hang the first Expectation step)"');
-      L.push("  CF_RANKS=$CF_VISIBLE");
+      L.push('if [ "$CF_VISIBLE" -ge 1 ] && [ "$CF_VISIBLE" -lt "$((CF_RANKS - 1))" ]; then');
+      L.push('  echo "CRYOFLOW_NOTE: this job asked for $((CF_RANKS - 1)) GPU worker(s) plus 1 CPU master but only $CF_VISIBLE GPU(s) are visible to it${CUDA_VISIBLE_DEVICES:+ (CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES)} — clamping to $CF_VISIBLE worker(s) + the master (two workers on one card exhaust its memory and hang the first Expectation step)"');
+      L.push("  CF_RANKS=$((CF_VISIBLE + 1))");
       L.push("fi");
       L.push('if [ "$CF_VISIBLE" -eq 0 ]; then');
-      L.push('  echo "CRYOFLOW_NOTE: this job cannot see any GPU from inside the allocation (no CUDA_VISIBLE_DEVICES, and nvidia-smi answered nothing) — running ONE rank instead of $CF_RANKS: a pile-up needs two, and every rank on one card is the exact OOM this guard exists for. Give the compute image nvidia-smi (or a CUDA_VISIBLE_DEVICES grant) to use the full width (t345)"');
+      L.push('  echo "CRYOFLOW_NOTE: this job cannot see any GPU from inside the allocation (no CUDA_VISIBLE_DEVICES, and nvidia-smi answered nothing) — running ONE rank instead of $CF_RANKS (1 master + $((CF_RANKS - 1)) workers): a pile-up needs two workers on one card, and that is the exact OOM this guard exists for. Give the compute image nvidia-smi (or a CUDA_VISIBLE_DEVICES grant) to use the full width (t345)"');
       L.push("  CF_RANKS=1");
       L.push("fi");
       // the runtime truth the ranks read (post-clamp rank count + device
@@ -1290,15 +1294,25 @@ function buildSbatchScript(args: {
       L.push('  echo "CRYOFLOW_ERR: the rank launcher could not read its MPI rank index (tried OMPI_COMM_WORLD_RANK, PMIX_RANK, PMI_RANK, SLURM_PROCID) — refusing to guess: every rank guessing 0 is exactly how they pile onto one card (t345)" >&2');
       L.push("  exit 97");
       L.push("fi");
-      L.push('if [ "$RANKS_NOW" -ge 2 ]; then');
-      L.push('  DEV="$(echo "${CF_DEVICE_SET:-}" | tr -d " " | cut -d, -f$((${R:-0}+1)))"');
+      L.push('if [ "$RANKS_NOW" -ge 2 ] && [ "${R:-0}" -ge 1 ]; then');
+      // t349 — worker ranks are 1..N-1 (rank 0 is RELION's CPU master,
+      // which never touches a card: data I/O, batch dispatch, the
+      // Maximization step). Worker r pins to the (r-1)-th entry of the
+      // quietest-first device set — one worker per card, every card
+      // earns a worker (the old n = width lane left the master's card
+      // idle: a 4-card job computed with 3).
+      L.push('  DEV="$(echo "${CF_DEVICE_SET:-}" | tr -d " " | cut -d, -f${R})"');
       L.push('  if [ -z "$DEV" ]; then');
-      L.push('    echo "CRYOFLOW_ERR: the device set \"${CF_DEVICE_SET:-}\" names no card for rank ${R:-0} — refusing to run unpinned (unpinned ranks pile onto card 0, t345)" >&2');
+      L.push('    echo "CRYOFLOW_ERR: the device set \"${CF_DEVICE_SET:-}\" names no card for worker rank ${R:-0} — refusing to run unpinned (unpinned ranks pile onto card 0, t345)" >&2');
       L.push("    exit 96");
       L.push("  fi");
       L.push('  export CUDA_VISIBLE_DEVICES="$DEV"');
+      L.push('  echo "CRYOFLOW_RANK_BIND: rank ${R:-0} -> CUDA_VISIBLE_DEVICES=$DEV (worker — one worker per card, t349)"');
+      L.push('elif [ "$RANKS_NOW" -ge 2 ]; then');
+      L.push('  echo "CRYOFLOW_RANK_BIND: rank 0 (RELION master — CPU-only: batch dispatch + class reconstruction) -> no card pin; the workers own the cards (t349)"');
+      L.push("else");
+      L.push('  echo "CRYOFLOW_RANK_BIND: rank ${R:-0} -> CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-<as the node left it>} (single rank, t345)"');
       L.push("fi");
-      L.push('echo "CRYOFLOW_RANK_BIND: rank ${R:-0} -> CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-<as the node left it>} (one rank per card, t345)"');
       // t346 — resolve the binary through the RESTORED environment: a
       // rank whose PATH was stripped (PRRTE non-forwarding) still finds
       // relion via the .cf-rank-env dump; an already-absolute $1 passes
@@ -1315,13 +1329,17 @@ function buildSbatchScript(args: {
     }
     L.push("# ---- t342/t345: the starved-card refusal (fail in one second, not an hour) ----");
     L.push("if command -v nvidia-smi >/dev/null 2>&1; then");
+    // t349 — the cards that matter are the WORKERS' (the first
+    // CF_RANKS-1 entries of the device set; the master is unpinned).
+    // A single-rank job keeps checking its one card.
+    L.push('  CF_WORKERS=$(( ${CF_RANKS:-1} - 1 )); [ "$CF_WORKERS" -lt 1 ] && CF_WORKERS=1');
     L.push('  CF_CHECK_IDS=""');
     L.push('  if [ -n "${CF_DEVICE_SET:-}" ]; then');
-    L.push('    CF_CHECK_IDS="$(echo "$CF_DEVICE_SET" | cut -d, -f1-${CF_RANKS:-1})"');
+    L.push('    CF_CHECK_IDS="$(echo "$CF_DEVICE_SET" | cut -d, -f1-$CF_WORKERS)"');
     L.push('  elif [ -n "${CUDA_VISIBLE_DEVICES:-}" ]; then');
-    L.push('    CF_CHECK_IDS="$(echo "$CUDA_VISIBLE_DEVICES" | tr -d " " | cut -d, -f1-${CF_RANKS:-1})"');
+    L.push('    CF_CHECK_IDS="$(echo "$CUDA_VISIBLE_DEVICES" | tr -d " " | cut -d, -f1-$CF_WORKERS)"');
     L.push("  else");
-    L.push('    CF_CHECK_IDS="$(seq -s, 0 $(( ${CF_RANKS:-1} - 1 )) )"');
+    L.push('    CF_CHECK_IDS="$(seq -s, 0 $(( CF_WORKERS - 1 )) )"');
     L.push("  fi");
     L.push('  CF_FREE_MB="$(nvidia-smi --id="$CF_CHECK_IDS" --query-gpu=memory.free --format=csv,noheader,nounits 2>/dev/null | sort -n | head -1 | tr -d " ")"');
     L.push('  case "$CF_FREE_MB" in');
@@ -1359,7 +1377,7 @@ function buildSbatchScript(args: {
     if (mpiRanks && mpiRanks > 1) {
       L.push('if [ "${CF_RANKS:-1}" -ge 2 ]; then');
       L.push(
-        `  echo "CRYOFLOW_NOTE: starting $CF_RANKS MPI ranks, one per card — every rank prints its OWN copy of the RELION banners and reports into this log; the work is SPLIT across ranks (particles in the Expectation step, classes in the Maximization step), NOT repeated. Each rank's 'device 0' is that rank's own card inside its private CUDA_VISIBLE_DEVICES world — the CRYOFLOW_RANK_BIND receipts name the physical cards (t348)"`
+        `  echo "CRYOFLOW_NOTE: starting $CF_RANKS MPI ranks — 1 CPU master (data I/O, particle-batch dispatch, class reconstruction) plus $((CF_RANKS - 1)) workers, ONE WORKER PER CARD (RELION's own np = nGPU + 1 layout, t349). Every rank prints its OWN copy of the RELION banners and reports into this log; the work is SPLIT across the workers (particles in the Expectation step, classes in the Maximization step), NOT repeated. Each worker's 'device 0' is that worker's own card inside its private CUDA_VISIBLE_DEVICES world — the CRYOFLOW_RANK_BIND receipts name the physical cards (t348)"`
       );
       L.push("fi");
       L.push("");
@@ -2918,7 +2936,20 @@ export async function startRemoteJob(args: {
 
       let ntasks = 1;
       if (mpiParallelType && mpiAvailable) {
-        const nranks = isSlurm ? gpuWidth : job.type === "refine3d" ? 3 : 2;
+        // t349 — RELION's own recommended width: one DEDICATED MASTER
+        // (rank 0, CPU-only: data I/O, particle-batch dispatch, the
+        // Maximization step's class reconstructions) plus one WORKER per
+        // card (the Expectation step — ~85-90% of the runtime — is where
+        // the GPUs earn their keep). The old lane ran n = width: rank 0
+        // WAS the master and held a card slot it never touched (a RELION
+        // master does no particle GPU work), so a 4-card job really
+        // computed with 3. n = width + 1 puts a working rank on every
+        // card — the user's own "mpirun -np 5 … --gpu 0:1:2:3" idiom,
+        // made robust by the t345 launcher. Width 1 keeps the classic
+        // single process: there is no split to make on one card.
+        const nranks = isSlurm
+          ? (gpuWidth >= 2 ? gpuWidth + 1 : 1)
+          : job.type === "refine3d" ? 3 : 2;
         ntasks = nranks;
         argv = ["mpirun", "-n", String(nranks), ...argv];
         if (hasGpu && nranks > 1) argv.push("--gpu", Array.from({ length: nranks }, (_, i) => i).join(":"));
@@ -2958,18 +2989,21 @@ export async function startRemoteJob(args: {
             : 0
         : 0;
 
-      // t342/t345 — the slurm MPI lane's rank count becomes the SCRIPT's
-      // own variable (CF_RANKS), clamped at launch to the GPUs the job
-      // can actually see (see buildSbatchScript's t345 block). t345: the
+      // t342/t345/t349 — the slurm MPI lane's rank count becomes the
+      // SCRIPT's own variable (CF_RANKS = width + 1: the dedicated CPU
+      // master rides along), clamped at launch to one worker per visible
+      // GPU (see buildSbatchScript's t345/t349 block). t345: the
       // mpirun TARGET becomes the per-rank card launcher the script
-      // writes (.cf-rank-launch.sh) — each rank gets its OWN
+      // writes (.cf-rank-launch.sh) — each WORKER rank gets its OWN
       // CUDA_VISIBLE_DEVICES and relion runs "--gpu 0" inside a
-      // one-card world. The colon list ("--gpu 0:1:…") is RETIRED on
-      // this lane: two field runs put every rank on device 0 through it
-      // (RELION builds differ in how they parse it; the driver does
-      // not). Direct mode keeps its literal — the login node's world is
-      // the probe's world, no launcher lives there. A single-rank job
-      // never pile-ups, so it keeps its literal too.
+      // one-card world; rank 0 (the master) stays unpinned, exactly
+      // RELION's recommended master+slaves shape (np = nGPU + 1). The
+      // colon list ("--gpu 0:1:…") is RETIRED on this lane: two field
+      // runs put every rank on device 0 through it (RELION builds
+      // differ in how they parse it; the driver does not). Direct mode
+      // keeps its literal — the login node's world is the probe's
+      // world, no launcher lives there. A single-rank job never
+      // pile-ups, so it keeps its literal too.
       const slurmMpiGpu = isSlurm && mpiParallelType && mpiAvailable && hasGpu && ntasks > 1;
       if (slurmMpiGpu) {
         const ni = argv.indexOf("-n");

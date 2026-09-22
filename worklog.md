@@ -2987,3 +2987,26 @@ Stage Summary:
 - 用户两个问题的答案：①大概率在算（第一轮 Expectation 最重、小时级正常），nvidia-smi 六卡 utilization 一辨真伪；②不是重复执行——MPI 日志天然形状（N 进程各写各的横幅），工作按颗粒/类切分，"device 0"×6 是每 rank 私有单卡世界的编号而非物理 0 卡
 - t345 修复已被用户现场实证生效（六 RANK_BIND 回执）；t348 让这层解释长进每次 run 的 log 第一行，下个用户不再需要问
 - 代码改动：remote-run.ts（t348 注记行+注释）；新 scripts/diag-t348-multirank-note.mjs + scripts/t348-lib.mjs（e2e-lib 的本沙箱补丁副本）；tsc/eslint 干净
+
+---
+Task ID: t349
+Agent: main-agent (Z.ai Code)
+Task: 用户三问（拉取最新代码 + GPU 并行模型确认 + 手写 mpirun 命令审查）——「目前问 AI 得到的说法是把颗粒等分成几份每份一个 GPU，目前确实是这样的吗？mpirun -np 5 relion_refine_mpi … --gpu "0:1:2:3" --j 4 这种提交方式参数是否正确？这种应该不是把颗粒等分分配给多个 GPU 吧？这样计算会不会更快？」
+
+Work Log:
+- 拉取：fetch 后与 origin/main 同步于 ec9d140（此前 4 个本地提交已在远程，无新提交）
+- 源码级核实（RELION master, 3dem/relion）：① `--gpu` 官方语义 = "Device ids for each MPI-thread"（ml_optimiser.cpp，经 untangleDeviceIDs 分配到各 rank）——冒号列表就是颗粒级数据并行；② `--norm` 在 relion_refine 选项表零匹配（是 relion_preprocess/提取步骤的标志）——用户命令会启动即被解析器拒掉；③ RELION ≥2.0 二进制名是 relion_refine（MPI 内建），relion_refine_mpi 是 1.4 时代老名
+- 病根确认（旧 n=width 布局）：mpirun -n <卡数> 时 rank 0 是 RELION master（CPU：数据 I/O、批次分发、M-step类重构），不碰卡——却占了一张卡的槽位。4 卡作业实际只有 3 张卡算颗粒（E-step 占 ~85-90% 运行时间）。用户的 -np 5 = RELION 官方推荐 np=nGPU+1（专职 master + 每卡一 worker），E-step 吞吐 4/3×，整体墙钟约 +20-30%
+- 实施 t349（remote-run.ts）：Slurm MPI lane 的 nranks 从 gpuWidth 改为 gpuWidth>=2 ? gpuWidth+1 : 1（宽度 1 保持单进程——单卡无拆分可做）；sbatch 头 --ntasks=N+1 而 --gres=gpu:N 不变；t345 per-rank launcher 重定义 rank 语义——rank 0 = CPU master（不绑卡，收据自报身份），worker r 绑 device_set[r-1]（空闲优先序）；钳制语义改为"每可见卡一 worker + master"（CF_VISIBLE < CF_RANKS-1 → CF_RANKS=CF_VISIBLE+1）；饥饿卡预检查 worker 的前 CF_RANKS-1 张卡；t348 banner 改述"1 CPU master + N workers, ONE WORKER PER CARD (np = nGPU + 1)"
+- UI 同步（remote-run-button.tsx）：mpiRankCount 派生常量；chips `mpirun -n {N+1}` + `1 master + {N} workers (1 worker → 1 card)`；预览 `--ntasks={N+1} --gres=gpu:{N}` + "mpirun -n {N+1} … --gpu 0 per rank — 1 CPU master + {N} workers"；宽度 1 时保持单 rank 文案
+- 一致性（hpc/slurm.ts 本地生成器 + gpu-width.ts 注释）：本地 dry-run sbatch 也写 mpirun -n N+1 / --ntasks=N+1；策略 reason 与 Multi-GPU note 改述 master+workers
+- 验证装置修复：t348-lib.mjs 的 ROOT 由陈旧绝对路径 /home/z/my-project 改为相对解析 + CF_ROOT/CF_BASE 环境变量覆盖（diag-t348 的 ROOT_MOCK 同修——首次跑曾把 fixtures 误生成到 /home/z/services，已清理）；e2e-lib.mjs 同样参数化（旧 BASE=:3001 生产端口已随旧服务器退役）
+- 活体验证（dev :3005 + mock :3022 真链路，四套件 ALL GREEN 共 135 断言）：diag-t348 27/0（宽 6 → CF_RANKS=7、6 份 worker 回执六张不同卡 0-5、master 回执自报 CPU-only、banner "starting 7 MPI ranks — 1 CPU master plus 6 workers"、宽 1 无噪声）；run-10 52/0（空闲优先：饥饿卡 1 被绕开 worker 落 {0,2,3,4,5,6}；钳制 2 可见 → 2 worker + master 点名；盲节点 → 单 rank；慢线 20s 星读取 + 死通道重拨不回归）；run-7 27/0（1 卡节点宽 2 → 钳到 1 worker + master、master 不绑卡收据、worker 绑唯一卡；饥饿拒发 exit 98 不回归；补 mpi-emulate-ranks 杠杆——旧装置只仿真 1 rank，新布局有两个 rank 要跑）；run-6 29/0（--ntasks=3/CF_RANKS=3 宽 2 形状）
+- 断言同步：run-6/7/10、diag-t326/t337/t337、e2e-review README 的 rank 计数/措辞断言全部对齐 t349 形状（diag-t337 的 CF_GPU_LIST 断言原为 t342 时代残留，顺手改为 launcher 形态）
+- 浏览器活体验证（Playwright 沙箱内直跑，dev :3005）：运行对话框实测渲染——GPU 宽度行"6 × GPU | --gres=gpu:6 | mpirun -n 7 | 1 master + 6 workers (1 worker → 1 card) | brain2 offers 8/node · 1 worker per GPU + 1 CPU master"；提交预览"#SBATCH --partition=brain2 --nodelist=brain2 --ntasks=7 --gres=gpu:6" + "mpirun -n 7 … --gpu 0 per rank — 1 CPU master + 6 workers, one worker per card"——与 e2e 验证的 sbatch 字节一致；截图 /tmp/t349-dialog.png
+- 环境备注：4GB 沙箱内 cryoflow dev server（Turbopack 编译根页峰值 ~2.3GB）反复被 OOM 收割；NODE_OPTIONS=--max-old-space-size=1400 + 单次调用内完成（沙箱在工具调用边界收割后台进程）后浏览器验证成功；tsc/eslint 触碰文件零新增
+
+Stage Summary:
+- 三问答案：①是——现实现就是颗粒级数据并行（master 动态批次分发，先做完先领，自平衡非静态等分），但旧布局 master 占卡槽、4 卡只 3 卡算颗粒；②用户命令布局正确（RELION 官方 np=nGPU+1）且本质就是颗粒等分并行，但三个具体问题——relion_refine_mpi 应为 relion_refine（RELION 5 二进制名）、--norm normalise 不是 relion_refine 合法选项（源码核实，启动即报错；归一化在 Extract 步已完成）、--gpu "0:1:2:3" 冒号语法在该集群 RELION 5.0-beta build 有两次全 rank 落 device 0 的翻车史（t342/t345 现场记录，即上次 OOM 根因），等价且稳的形式是每 rank 独立 CUDA_VISIBLE_DEVICES + --gpu 0；③会更快——E-step ~4/3×、整体约 +20-30%
+- t349 落地：dedicated master 布局进派发器（每张卡都有 worker 算颗粒），t345 绑卡/钳制/饥饿预检/盲节点守卫全部保留并按 worker 语义重述；UI 预览与脚本字节一致
+- 回归防线：四套件 135 断言 ALL GREEN + 浏览器实测；宽度 1 行为不变（单进程）

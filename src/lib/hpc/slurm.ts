@@ -211,9 +211,10 @@ export function gpuStrategyFor(
       mode: w.mode, gpus: Math.max(2, w.gpus), shards: 0,
       minutes: type === "refine3d" ? 45 + parts / 2000 : type === "class3d" ? 30 : 20,
       reason:
-        "RELION splits particles across MPI ranks pinned to GPUs — ONE job, N GPUs " +
-        "(`mpirun -n N relion_refine … --gpu 0:1:…`). Splitting the dataset instead " +
-        "would break global alignment statistics (FSC halves, class occupancies).",
+        "RELION splits particles across MPI workers pinned to GPUs — ONE job, " +
+        "1 CPU master + one worker per GPU (np = nGPU + 1, t349: `mpirun -n N+1 " +
+        "relion_refine …`). Splitting the dataset instead would break global " +
+        "alignment statistics (FSC halves, class occupancies).",
     };
   }
   if (w.mode === "single") {
@@ -380,7 +381,9 @@ export async function buildSbatchForJob(args: {
   if (profile.account) L.push(`#SBATCH --account=${profile.account}`);
   if (profile.qos) L.push(`#SBATCH --qos=${profile.qos}`);
   L.push(`#SBATCH --nodes=1`);
-  L.push(`#SBATCH --ntasks=1`);
+  // t349 — the multi-GPU types carry the dedicated-master layout too:
+  // N workers + 1 CPU master (the mpirun line below matches).
+  L.push(`#SBATCH --ntasks=${strategy.mode === "multi-gpu" ? strategy.gpus + 1 : 1}`);
   L.push(`#SBATCH --cpus-per-task=${threads}`);
   L.push(`#SBATCH --mem=${strategy.mode === "array" && strategy.gpus === 0 ? 16 : 64}G`);
   if (profile.timeLimitMin > 0) L.push(`#SBATCH --time=${hms(profile.timeLimitMin)}`);
@@ -420,8 +423,13 @@ export async function buildSbatchForJob(args: {
   L.push("");
   if (strategy.mode === "multi-gpu") {
     const gpuList = Array.from({ length: strategy.gpus }, (_, i) => i).join(":");
-    L.push("# RELION multi-GPU: one MPI rank per GPU (rank r pinned to GPU r)");
-    L.push(`mpirun -n ${strategy.gpus} \\`);
+    // t349 — RELION's dedicated-master layout (np = nGPU + 1): rank 0 is
+    // the CPU master, one worker per GPU — every card computes. The REAL
+    // dispatch (remote-run.ts) pins each worker to its own card via the
+    // t345 per-rank launcher; this local-profile preview keeps RELION's
+    // own colon grammar, which round-robins the same assignment.
+    L.push("# RELION multi-GPU: 1 CPU master + one worker per GPU (np = nGPU + 1, t349)");
+    L.push(`mpirun -n ${strategy.gpus + 1} \\`);
     L.push("  " + argv.map(shellQuote).join(" \\\n  "));
     L.push(`  --gpu ${gpuList}`);
   } else if (strategy.gpus >= 1) {
@@ -440,7 +448,7 @@ export async function buildSbatchForJob(args: {
     strategy.mode === "array"
       ? `Array mode: ${strategy.shards} independent shards, concurrency capped at ${profile.arrayConcurrency} (Slurm backfills the rest).`
       : strategy.mode === "multi-gpu"
-        ? `Multi-GPU mode: ${strategy.gpus} × ${profile.gpuModel} in ONE job (RELION splits particles across MPI ranks).`
+        ? `Multi-GPU mode: ${strategy.gpus} × ${profile.gpuModel} in ONE job (1 CPU master + ${strategy.gpus} workers, one worker per GPU — RELION splits particles across the workers).`
         : strategy.mode === "single"
           ? "Single-GPU mode: one exclusive GPU for the deep-learning step."
           : "CPU mode: batch partition, GPUs stay free for classification work.",

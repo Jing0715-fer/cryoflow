@@ -7,9 +7,10 @@
  * run.out read as 「几个GPU重复执行了同一个任务」. The chain below proves:
  *   1. the pulled tree's remote lane still dispatches end-to-end
  *      (import → ctffind → LoG autopick → extract → class2d @slurm);
- *   2. width 6 → six CRYOFLOW_RANK_BIND receipts on six DISTINCT cards;
- *   3. the NEW t348 note prints with the post-clamp count (starting 6 MPI
- *      ranks) BEFORE the interleaved banners begin;
+ *   2. width 6 → six WORKER CRYOFLOW_RANK_BIND receipts on six DISTINCT
+ *      cards (plus the unpinned CPU master — t349);
+ *   3. the NEW t348 note prints with the post-clamp count (starting 7 MPI
+ *      ranks — 1 master + 6 workers) BEFORE the interleaved banners begin;
  *   4. single-rank GPU jobs do NOT get the note (no noise).
  */
 import {
@@ -19,6 +20,7 @@ import {
 } from "./t348-lib.mjs";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const MICS = "/data2/empiar-10017/micrographs";
 
@@ -49,7 +51,9 @@ function ensureFixtures() {
   }
   console.log("  (synthetic micrograph fixtures generated on the mock)");
 }
-const ROOT_MOCK = "/home/z/my-project/services/mock-cluster";
+// resolved from this script (scripts/) — the stale absolute path pointed
+// at a layout that no longer exists
+const ROOT_MOCK = fileURLToPath(new URL("../services/mock-cluster", import.meta.url)).replace(/\/$/, "");
 
 function sbatchScriptOf(projectId, job) {
   return client(`cat '${remoteWorkdir(projectId, job)}/.cf-sbatch.sh' 2>/dev/null`).out;
@@ -139,24 +143,25 @@ try {
     must(w.job?.status === "completed", `width-6 class2d COMPLETED (${w.job?.status}: ${String(w.job?.result).slice(0, 160)})`);
 
     const script = sbatchScriptOf(projectId, c2d);
-    must(script.includes("CF_RANKS=6") && script.includes('mpirun -n "$CF_RANKS"'),
-      "the script carries CF_RANKS=6 and mpirun -n \"$CF_RANKS\"");
+    must(script.includes("CF_RANKS=7") && script.includes('mpirun -n "$CF_RANKS"'),
+      "the script carries CF_RANKS=7 (t349: 6 workers + 1 CPU master) and mpirun -n \"$CF_RANKS\"");
     must(script.includes(".cf-rank-launch.sh") && /--gpu 0\b/.test(script) && !/--gpu 0:/.test(script),
       "t345: mpirun targets the per-rank launcher; relion carries --gpu 0; no colon list");
 
     const runout = runOutOf(projectId, c2d);
     const binds = rankBinds(runout);
-    must(binds.length === 6, `6 CRYOFLOW_RANK_BIND receipts (got ${binds.length})`);
+    must(binds.length === 6, `6 WORKER CRYOFLOW_RANK_BIND receipts — the master stays unpinned (got ${binds.length})`);
     const devs = binds.map((b) => b.dev);
-    must(new Set(devs).size === 6, `every rank a DIFFERENT card: ${devs.join(",")}`);
-    must(!/clamping the rank count/.test(runout), "no clamp note (8 cards ≥ 6 ranks)");
+    must(new Set(devs).size === 6, `every worker a DIFFERENT card: ${devs.join(",")}`);
+    must(/CRYOFLOW_RANK_BIND: rank 0 \(RELION master/.test(runout), "the master receipt names its CPU-only role");
+    must(!/clamping to/.test(runout), "no clamp note (8 cards ≥ 6 workers)");
     must(!/cannot see any GPU/.test(runout), "no blind note");
 
-    // ---- THE NEW t348 NOTE ----
-    const noteMatch = runout.match(/CRYOFLOW_NOTE: starting (\d+) MPI ranks, one per card[^\n]*/);
-    must(!!noteMatch, "the t348 note prints in run.out");
-    must(noteMatch && noteMatch[1] === "6", `the note speaks the post-clamp count (starting ${noteMatch?.[1]} MPI ranks)`);
-    must(noteMatch && /SPLIT across ranks/.test(noteMatch[0]) && /NOT repeated/.test(noteMatch[0]),
+    // ---- THE NEW t348 NOTE (t349 wording: 1 CPU master + workers) ----
+    const noteMatch = runout.match(/CRYOFLOW_NOTE: starting (\d+) MPI ranks — 1 CPU master[^\n]*/);
+    must(!!noteMatch, "the t348/t349 note prints in run.out");
+    must(noteMatch && noteMatch[1] === "7", `the note speaks the post-clamp count (starting ${noteMatch?.[1]} MPI ranks — 1 master + 6 workers)`);
+    must(noteMatch && /SPLIT across the workers/.test(noteMatch[0]) && /NOT repeated/.test(noteMatch[0]),
       "the note explains the split (particles in Expectation, classes in Maximization)");
     must(noteMatch && /private CUDA_VISIBLE_DEVICES world/.test(noteMatch[0]),
       "the note explains the per-rank 'device 0' semantics");

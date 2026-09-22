@@ -12,11 +12,12 @@
  * t297 — the mode door is finally honest: "direct" (nohup on the login
  * node) or "slurm" (sbatch submission, the sbatch6gpu.sh pattern). In
  * slurm mode a GPU stepper picks the submission width (1–8, default 6 —
- * one MPI rank per GPU, --gres=gpu:N); the connection's useSlurm flag
- * preselects the mode. The module picker also grew a free-text door: a
- * beta/hidden module the probe never listed can be typed by its exact
- * name (the dispatch's module-load guard reports an honest exit-127 if
- * the name is wrong).
+ * t349: one WORKER rank per GPU plus a dedicated CPU master, so
+ * --ntasks = N+1 while --gres=gpu:N stays N); the connection's useSlurm
+ * flag preselects the mode. The module picker also grew a free-text
+ * door: a beta/hidden module the probe never listed can be typed by its
+ * exact name (the dispatch's module-load guard reports an honest exit-127
+ * if the name is wrong).
  *
  * t300 — two more defaults became CHOICES: a REMOTE project locks the
  * dialog to its bound cluster (the project's picked paths are absolute
@@ -326,6 +327,12 @@ export function RemoteRunButton({
   // the probe's relionMpi map says which modules carry mpirun)
   const moduleHasMpi = !!conn?.lastProbe?.relionMpi?.[effectiveModule];
   const widthIsReal = !logPick && widthTruth.mode === "multi-gpu" && moduleHasMpi;
+  // t349 — the MPI rank count the dispatch writes for a real width:
+  // N+1 for N ≥ 2 (RELION's dedicated-master layout — rank 0 is the CPU
+  // master, one worker per card), 1 for width 1 (a single process; no
+  // split to make on one card). The preview speaks this number, the
+  // sbatch carries it (CF_RANKS in the script).
+  const mpiRankCount = gpus >= 2 ? gpus + 1 : 1;
 
   // t326 — the submission preview's partition: the picked group, else the
   // connection's pinned default (exactly what the dispatch's
@@ -361,7 +368,8 @@ export function RemoteRunButton({
       sbatchDirectives.push(`--nodelist=${selectedGroup.hosts[0]}`);
     if (logPick) sbatchDirectives.push("--ntasks=1");
     else if (widthIsReal) {
-      sbatchDirectives.push(`--ntasks=${gpus}`, `--gres=gpu:${gpus}`);
+      // t349 — the dedicated-master layout: N workers + 1 CPU master
+      sbatchDirectives.push(`--ntasks=${mpiRankCount}`, `--gres=gpu:${gpus}`);
     } else if (widthTruth.gpus === 1) {
       // single-GPU steps, array-1-GPU shards, and the no-mpirun fallback
       // all land the same shape: one GPU task
@@ -520,15 +528,17 @@ export function RemoteRunButton({
       </div>
       <div className="flex flex-wrap items-center gap-1.5">
         <Chip>--gres=gpu:{gpus}</Chip>
-        <Chip>mpirun -n {gpus}</Chip>
-        <Chip title="t345 — each MPI rank gets its own CUDA_VISIBLE_DEVICES; relion sees exactly one card per rank">1 rank → 1 card (CUDA_VISIBLE_DEVICES)</Chip>
+        <Chip>mpirun -n {mpiRankCount}</Chip>
+        <Chip title="t349 — each WORKER rank gets its own CUDA_VISIBLE_DEVICES (one card per worker); rank 0 is the CPU master, RELION's np = nGPU + 1 layout">
+          {gpus >= 2 ? `1 master + ${gpus} workers (1 worker → 1 card)` : "1 rank → its card (CUDA_VISIBLE_DEVICES)"}
+        </Chip>
         {(selectedGroup ?? partitionInventory[0]) != null ? (
           <span className="text-[10px] text-muted-foreground/80">
             {(selectedGroup ?? partitionInventory[0])!.partition} offers{" "}
-            {(selectedGroup ?? partitionInventory[0])!.gpusPerNode}/node · 1 rank per GPU
+            {(selectedGroup ?? partitionInventory[0])!.gpusPerNode}/node · {gpus >= 2 ? "1 worker per GPU + 1 CPU master" : "1 rank per GPU"}
           </span>
         ) : (
-          <span className="text-[10px] text-muted-foreground/80">1 rank per GPU</span>
+          <span className="text-[10px] text-muted-foreground/80">{gpus >= 2 ? "1 worker per GPU + 1 CPU master" : "1 rank per GPU"}</span>
         )}
       </div>
     </div>
@@ -1073,9 +1083,11 @@ export function RemoteRunButton({
                         <p>#SBATCH {sbatchDirectives.join("  ")}</p>
                         {!logPick && widthIsReal ? (
                           <p>
-                            mpirun -n {gpus} …{" "}
+                            mpirun -n {mpiRankCount} …{" "}
                             <span className="text-foreground/70">
-                              --gpu 0 per rank — each rank pinned to its own card (CUDA_VISIBLE_DEVICES)
+                              {gpus >= 2
+                                ? `--gpu 0 per rank — 1 CPU master + ${gpus} workers, one worker per card (CUDA_VISIBLE_DEVICES)`
+                                : "--gpu 0 — one rank on its card, no MPI split"}
                             </span>
                           </p>
                         ) : widthTruth.gpus === 1 ? (

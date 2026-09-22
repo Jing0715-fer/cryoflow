@@ -32,8 +32,9 @@
  *     motioncorr dispatched with the exact knob values the preview
  *     renders (slurm · brain2 · 3 GPUs · 4 shards) lands a .cf-sbatch.sh
  *     whose directives are the preview's own strings (--partition=brain2,
- *     --nodelist=brain2, --gres=gpu:3, --ntasks=3, --array=1-4%4,
- *     mpirun -n 3); a direct-lane dispatch writes NO scheduler script.
+ *     --nodelist=brain2, --gres=gpu:3, --ntasks=4, --array=1-4%4,
+ *     mpirun -n 4 — t349: 3 workers + 1 CPU master); a direct-lane
+ *     dispatch writes NO scheduler script.
  *     The equivalence is the point: nothing the preview shows is a flag
  *     the dispatch would not write, and nothing it hides is one it would.
  */
@@ -289,8 +290,8 @@ try {
     "the preview pins --nodelist exactly when the dispatch does (single-host group)"
   );
   must(
-    ui.includes('sbatchDirectives.push(`--ntasks=${gpus}`, `--gres=gpu:${gpus}`)'),
-    "the preview's width directives are the submit's own gpus state"
+    ui.includes('sbatchDirectives.push(`--ntasks=${mpiRankCount}`, `--gres=gpu:${gpus}`)'),
+    "the preview's width directives are the submit's own state (t349: mpiRankCount = gpus+1 for ≥2, the dedicated-master layout)"
   );
   must(
     ui.includes("if (logPick) sbatchDirectives.push(\"--ntasks=1\")"),
@@ -681,13 +682,13 @@ try {
   must(/#SBATCH --partition=brain2/.test(sbatchC2d), "MPI type — the script carries --partition=brain2");
   must(/#SBATCH --nodelist=brain2/.test(sbatchC2d), "MPI type — the script carries --nodelist=brain2");
   must(/#SBATCH --gres=gpu:3\b/.test(sbatchC2d), "MPI type — the script carries --gres=gpu:3 (the width IS real here)");
-  must(/#SBATCH --ntasks=3\b/.test(sbatchC2d), "MPI type — the script carries --ntasks=3 (one rank per GPU)");
-  must(sbatchC2d.includes('CF_RANKS=3') && sbatchC2d.includes('mpirun -n "$CF_RANKS"'), "MPI type — the script wraps mpirun -n \"$CF_RANKS\" with CF_RANKS=3 (the preview's rank line, t342-clamped at launch)");
+  must(/#SBATCH --ntasks=4\b/.test(sbatchC2d), "MPI type — the script carries --ntasks=4 (t349: 3 workers + 1 CPU master)");
+  must(sbatchC2d.includes('CF_RANKS=4') && sbatchC2d.includes('mpirun -n "$CF_RANKS"'), "MPI type — the script wraps mpirun -n \"$CF_RANKS\" with CF_RANKS=4 (the preview's rank line, t342-clamped at launch)");
   // t345 retired the colon device list: each MPI rank now runs behind the
   // per-rank launcher (.cf-rank-launch.sh), which pins ONE card per rank via
   // its own CUDA_VISIBLE_DEVICES and speaks relion's "--gpu 0" inside that
   // one-card world (the t342-era CF_GPU_LIST expectation is history)
-  must(sbatchC2d.includes(".cf-rank-launch.sh") && sbatchC2d.includes("CRYOFLOW_RANK_BIND"), "MPI type — mpirun runs behind the per-rank launcher, and each rank echoes its CRYOFLOW_RANK_BIND card (one rank per card, t345+)");
+  must(sbatchC2d.includes(".cf-rank-launch.sh") && sbatchC2d.includes("CRYOFLOW_RANK_BIND"), "MPI type — mpirun runs behind the per-rank launcher, and each rank echoes its CRYOFLOW_RANK_BIND card (one worker per card + the CPU master, t345+/t349)");
 
   // and the record speaks the same width
   const recC2d = doneC2d?.runRemote ?? {};

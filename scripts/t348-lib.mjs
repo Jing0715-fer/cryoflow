@@ -9,9 +9,15 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-export const ROOT = "/home/z/my-project";
-export const BASE = "http://localhost:3000";
+// The repo root, resolved from THIS script (scripts/) — the old absolute
+// path pointed at a layout that no longer exists. CF_ROOT/CF_BASE env
+// overrides keep the suite movable (e.g. a second checkout on another
+// port) without editing the lib.
+export const ROOT = process.env.CF_ROOT
+  ?? fileURLToPath(new URL("..", import.meta.url)).replace(/\/$/, "");
+export const BASE = process.env.CF_BASE ?? "http://localhost:3000";
 export const MOCK = `${ROOT}/services/mock-cluster`;
 export const SH = { Origin: BASE, Referer: `${BASE}/` };
 export const SHJ = { ...SH, "Content-Type": "application/json" };
