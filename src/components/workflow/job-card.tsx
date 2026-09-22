@@ -100,6 +100,39 @@ export const STATUS_STYLES: Record<string, string> = {
   failed: "border-rose-400/60 text-rose-700 dark:border-rose-500/50 dark:text-rose-300",
 };
 
+/**
+ * t350 — the status floor: a 3px accent across the card's bottom edge.
+ * The pill badge speaks at card distance; the floor speaks at CANVAS
+ * distance — zoomed out, a wall of cards resolves into a bar chart of
+ * teal (running) / emerald (done) / rose (failed) / amber (waiting)
+ * before any text is legible. Idle gets a slate whisper, not nothing:
+ * "not yet run" is a different floor than "no floor". The left color
+ * bar keeps carrying the CATEGORY identity, so category (vertical) and
+ * state (horizontal) read on independent axes.
+ */
+export const STATUS_FLOOR: Record<string, string> = {
+  idle: "bg-slate-400/25 dark:bg-slate-500/30",
+  pending: "bg-amber-400/80 dark:bg-amber-400/75",
+  running: "bg-teal-400/85 dark:bg-teal-400/80",
+  completed: "bg-emerald-400/75 dark:bg-emerald-400/70",
+  failed: "bg-rose-500/85 dark:bg-rose-500/80",
+};
+
+/**
+ * t350 — strip the REMOTE[user@host · module]: envelope before a result
+ * sentence spends its tight 2-line budget. The card's payload row is
+ * ~33 chars/line; the envelope alone ate ~40 chars — a failed run's
+ * one honest sentence started mid-line-2. The envelope is provenance,
+ * not payload: it moves to the tooltip (title keeps the full text) and
+ * the ghost host chip (Row 2). Local results pass through untouched.
+ */
+const REMOTE_ENVELOPE = /^REMOTE\[[^\]]*\]:\s*/;
+export function displayResult(result: string | null | undefined): string | null {
+  if (!result) return null;
+  const stripped = result.replace(REMOTE_ENVELOPE, "");
+  return stripped.trim() || result;
+}
+
 export function StatusBadge({ status, queued }: { status: string; queued?: boolean }) {
   return (
     <Badge
@@ -740,6 +773,149 @@ function paramPreviewValue(v: ParamValue | undefined): string | null {
   return String(v);
 }
 
+/* ------------------------------------------------------------------ */
+/* t350 — idle-card param digest                                       */
+/* ------------------------------------------------------------------ */
+
+/** Paren-stripped spec label → the compact noun the digest renders
+ * ("Number of classes (K)" → "classes"). Unknown labels fall through
+ * verbatim — the digest degrades to spec wording, never to noise. */
+const DIGEST_LABELS: Record<string, string> = {
+  "Number of classes": "classes",
+  "Number of iterations": "iters",
+  "Number of VDAM iterations": "VDAM iters",
+  "Circular mask diameter": "mask Ø",
+  "Initial low-pass on reference": "ini low-pass",
+  "Padding factor": "padding",
+  "Box size": "box",
+  "CTF box size": "ctf box",
+  "Rescale to box size": "rescale",
+  "Binning factor": "binning",
+  Threads: "threads",
+  GPU: "GPU",
+  Symmetry: "sym",
+  "Point group": "point group",
+  "Pixel size": "Å/px",
+  "In-plane sampling step": "ψ step",
+  "Angular sampling step": "Δθ",
+  "Picking threshold": "thresh",
+  "LoG min particle diameter": "min Ø",
+  "LoG max particle diameter": "max Ø",
+  "Particle diameter for picking": "pick Ø",
+  "Batch size": "batch",
+  "Regularisation factor T": "T",
+  "High-res limit": "hi-res",
+  Voltage: "kV",
+  "Defocus search range": "defocus",
+  "Auto-mode occupancy cutoff": "cutoff",
+  "Sub-volume size": "subvol",
+  "Tomogram thickness": "thickness",
+  "Dose per frame": "dose",
+  "Random seed": "seed",
+};
+
+/** Tail-shorten a path to its last two segments — the identity of a
+ * folder lives in its tail ("…empiar-10017/micrographs"), and the full
+ * path is one hover away in the tooltip/inspector. */
+function shortPath(v: string): string {
+  const segs = v.split(/[\\/]/).filter(Boolean);
+  if (segs.length <= 2) return v;
+  return `…${segs.slice(-2).join("/")}`;
+}
+
+/**
+ * The idle card's payload: the TWO numeric levers that define what the
+ * run WILL do ("classes 10 · iters 12"). An idle card previously showed
+ * nothing below its status — the user's only peek at configuration was
+ * a hover; now the card carries its own spec sheet. Two, not three: a
+ * 240px card's row next to "Ready" budgets ~150px — three levers
+ * measured 199px and died under an ellipsis, and the two first levers
+ * in spec order ARE the ones users tune (classes, iterations, box…).
+ * Types with no numeric levers (import) fall back to the first
+ * path/command-ish string param — for an import job the path IS the
+ * configuration.
+ */
+function digestParts(
+  params: Record<string, ParamValue>,
+  spec: JobTypeSpec | undefined
+): { label: string | null; value: string }[] {
+  const rows: { label: string | null; value: string }[] = [];
+  for (const p of spec?.params ?? []) {
+    const v = params[p.key];
+    if (typeof v !== "number") continue;
+    const label = p.label.replace(/\s*\(.*?\)\s*/g, "").trim();
+    rows.push({ label: DIGEST_LABELS[label] ?? label, value: String(v) });
+    if (rows.length >= 2) break;
+  }
+  if (rows.length === 0) {
+    for (const p of spec?.params ?? []) {
+      if (!/path|folder|command|script/i.test(p.key)) continue;
+      const v = params[p.key];
+      if (typeof v !== "string" || !v.trim()) continue;
+      return [{ label: null, value: shortPath(v.trim()) }];
+    }
+  }
+  return rows;
+}
+
+function ParamDigest({
+  job,
+  spec,
+}: {
+  job: JobDTO;
+  spec: JobTypeSpec | undefined;
+}) {
+  const parts = React.useMemo(
+    () => digestParts(job.params, spec),
+    [job.params, spec]
+  );
+  if (parts.length === 0) return null;
+  return (
+    /* ONE inline-flow container, never a bare fragment: in the Ready row
+     * the parent <p> is a flex container, and raw span children of a
+     * flex parent become separate flex ITEMS (each on its own axis, no
+     * text wrapping, no ellipsis). A single truncating span keeps the
+     * label·value·label rhythm a flowing sentence. */
+    <span className="block min-w-0 truncate">
+      {parts.map((p, i) => (
+        <React.Fragment key={`${p.label ?? "path"}:${p.value}`}>
+          {i > 0 ? (
+            <span aria-hidden="true" className="text-muted-foreground/40">
+              {" · "}
+            </span>
+          ) : null}
+          {p.label ? (
+            <span className="text-muted-foreground/80">{p.label} </span>
+          ) : null}
+          <span className="font-medium tabular-nums text-foreground/75">
+            {p.value}
+          </span>
+        </React.Fragment>
+      ))}
+    </span>
+  );
+}
+
+/**
+ * t350 — the completed result leads with its count ("33 particles
+ * extracted"); the count sets in semibold tabular so the eye lands on
+ * the datum inside the sentence. COLOR stays with the counted-receipt
+ * chip (t347, Row 2) — one number, one hue claim: the chip classifies
+ * (teal particles / violet classes), the sentence narrates. No leading
+ * number → the sentence stands whole.
+ */
+const LEADING_NUMBER = /^([\d,]+(?:\.\d+)?)\s+/;
+function ResultPayload({ text }: { text: string }) {
+  const m = text.match(LEADING_NUMBER);
+  if (!m) return <>{text}</>;
+  return (
+    <>
+      <span className="font-semibold tabular-nums">{m[1]}</span>
+      {text.slice(m[1].length)}
+    </>
+  );
+}
+
 /** Key parameters for the hover card — numeric levers first (they drive
  *  the run), capped at 3 rows, label from the GUI schema. */
 function previewParams(job: JobDTO, spec: JobTypeSpec | undefined) {
@@ -826,7 +1002,9 @@ function JobCardPreview({
             )}
             title={job.result}
           >
-            {job.result}
+            {/* t350 — the envelope moves to the tooltip; the peek speaks
+                the same payload sentence the card face does */}
+            {displayResult(job.result) ?? job.result}
           </p>
         ) : null}
         {/* Annotations (Task 83) — the preview is the "inspect without
@@ -1501,10 +1679,35 @@ export const JobCard = React.memo(function JobCard({
             }
           }}
         >
-          {/* Category color bar */}
+          {/* Category color bar — the vertical axis of the card's identity
+              grammar (category here, state on the bottom floor below) */}
           <div
             className={cn("absolute inset-y-0 left-0 w-1 opacity-80", spec?.color.bg)}
             aria-hidden="true"
+          />
+
+          {/* t350 — failed body wash: a rose breath over the card face so
+              failure reads at a glance even before the floor strip and the
+              message resolve. An overlay div (not a bg-* class swap) so it
+              stacks deterministically under the content row. */}
+          {job.status === "failed" ? (
+            <div
+              aria-hidden="true"
+              className="absolute inset-0 bg-rose-500/[0.045] dark:bg-rose-500/[0.07]"
+            />
+          ) : null}
+
+          {/* t350 — the status floor (see STATUS_FLOOR): the horizontal
+              state axis. Painted after the wash so terminal accents sit on
+              top; clipped to the rounded corners by overflow-hidden. */}
+          <div
+            aria-hidden="true"
+            className={cn(
+              "absolute inset-x-0 bottom-0 h-[3px]",
+              isSlurmQueued(job)
+                ? STATUS_FLOOR.pending
+                : STATUS_FLOOR[job.status] ?? STATUS_FLOOR.idle
+            )}
           />
 
           {/* t349 — the terminal-state badge (✓ / !) rides INLINE at the
@@ -1602,8 +1805,16 @@ export const JobCard = React.memo(function JobCard({
             {/* Row 2: status + type + remote host + link lineage */}
             <div className="flex items-center gap-1.5">
               <StatusBadge status={job.status} queued={isSlurmQueued(job)} />
-              <span className="truncate text-[11px] text-muted-foreground">
-                {spec?.key ?? job.type}
+              {/* t350 — the type speaks its HUMAN label ("2D Classification"),
+                  not the dev key ("class2d"): the card is the scientist's
+                  surface, and the key never carried meaning the icon +
+                  category color don't already carry. Prints too — paper has
+                  no hover, so the label earns its row on the print card. */}
+              <span
+                className="min-w-0 truncate text-[10.5px] font-medium text-muted-foreground/90"
+                title={spec?.label ?? job.type}
+              >
+                {spec?.label ?? job.type}
               </span>
               {job.runRemote && (job.status === "running" || job.status === "pending") ? (
                 // Remote-run chip: this job's process lives on an SSH
@@ -1616,6 +1827,23 @@ export const JobCard = React.memo(function JobCard({
                   aria-label={`${isSlurmQueued(job) ? "Queued on cluster" : "Running on cluster"} ${job.runRemote.user}@${job.runRemote.host}`}
                   title={`${job.runRemote.user}@${job.runRemote.host} · ${job.runRemote.module || "no module"} · ${job.runRemote.remoteWorkdir}`}
                   className="flex shrink-0 items-center gap-0.5 rounded border border-teal-500/40 bg-teal-500/10 px-1 text-[9px] font-semibold text-teal-600 dark:border-teal-500/40 dark:text-teal-300"
+                >
+                  <Server className="size-2.5 shrink-0" aria-hidden="true" />
+                  <span className="max-w-24 truncate">{remoteHostLabel(job.runRemote.host)}</span>
+                </span>
+              ) : null}
+              {job.runRemote && (job.status === "completed" || job.status === "failed") ? (
+                /* t350 — the receipt chip: a TERMINAL remote run keeps its
+                 * provenance on the face in ghost dialect (muted, no teal):
+                 * "this result / this failure came from that cluster" —
+                 * exactly what the REMOTE[...] envelope used to shout from
+                 * inside the payload sentence (the envelope moved to the
+                 * tooltip of Row 3 and to here). */
+                <span
+                  role="img"
+                  aria-label={`Ran on cluster ${job.runRemote.user}@${job.runRemote.host}`}
+                  title={`Ran on ${job.runRemote.user}@${job.runRemote.host}${job.runRemote.module ? ` · ${job.runRemote.module}` : ""}`}
+                  className="flex shrink-0 items-center gap-0.5 rounded border border-border/70 bg-muted/40 px-1 text-[9px] font-medium text-muted-foreground"
                 >
                   <Server className="size-2.5 shrink-0" aria-hidden="true" />
                   <span className="max-w-24 truncate">{remoteHostLabel(job.runRemote.host)}</span>
@@ -1786,11 +2014,14 @@ export const JobCard = React.memo(function JobCard({
                 </div>
               ) : job.status === "completed" ? (
                 job.result ? (
+                  /* t350 — the payload sentence, envelope-stripped, in the
+                   * foreground tone (it IS the card's news) with its
+                   * leading count set in the completed dialect. */
                   <p
-                    className="line-clamp-2 text-[11px] leading-[15px] text-muted-foreground"
+                    className="line-clamp-2 text-[11px] leading-[15px] text-foreground/80"
                     title={job.result}
                   >
-                    {job.result}
+                    <ResultPayload text={displayResult(job.result) ?? job.result} />
                   </p>
                 ) : null
               ) : job.status === "failed" ? (
@@ -1798,7 +2029,7 @@ export const JobCard = React.memo(function JobCard({
                   className="line-clamp-2 text-[11px] leading-[15px] text-rose-600 dark:text-rose-400"
                   title={job.result ?? "Run failed — check logs"}
                 >
-                  {job.result ?? "Run failed — check logs"}
+                  {displayResult(job.result) ?? job.result ?? "Run failed — check logs"}
                 </p>
               ) : job.status === "pending" ? (
                 <p
@@ -1809,11 +2040,27 @@ export const JobCard = React.memo(function JobCard({
                   <span className="line-clamp-2">{job.result ?? "Waiting for an upstream job"}</span>
                 </p>
               ) : isReady ? (
-                <p className="flex items-center gap-1 text-[11px] leading-4 text-emerald-700 dark:text-emerald-300">
-                  <span className="inline-block size-1.5 rounded-full bg-emerald-500" />
-                  Ready
+                /* t350 — Ready + the digest: the go-signal and the spec
+                 * sheet on one line (emerald lead-in, muted tail), so an
+                 * idle canvas answers "what can I run, and what will it
+                 * do" without a single hover. Not-ready idle cards show
+                 * the digest alone — configuration is still the news,
+                 * the go-signal would be a lie. */
+                <p className="flex min-w-0 items-center gap-1.5 text-[11px] leading-[15px]">
+                  <span
+                    className="inline-block size-1.5 shrink-0 rounded-full bg-emerald-500"
+                    aria-hidden="true"
+                  />
+                  <span className="shrink-0 font-medium text-emerald-700 dark:text-emerald-300">
+                    Ready
+                  </span>
+                  <ParamDigest job={job} spec={spec} />
                 </p>
-              ) : null}
+              ) : (
+                <p className="truncate text-[11px] leading-[15px] text-muted-foreground/80">
+                  <ParamDigest job={job} spec={spec} />
+                </p>
+              )}
             </div>
           </div>
         </div>
