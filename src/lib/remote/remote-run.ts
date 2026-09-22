@@ -877,6 +877,13 @@ function buildWrapperScript(args: {
     L.push(`export RELION_CTFFIND_EXECUTABLE=${shQuote(ctffind)}`);
   }
   L.push('command -v relion_refine >/dev/null 2>&1 || { echo "CRYOFLOW_ERR: relion_refine not found on PATH after module load" >&2; exit 127; }');
+  // t360 — an MPI-wrapped command runs relion_refine_mpi; a module that
+  // probed mpirun but ships no MPI relion must refuse HERE (a clear
+  // CRYOFLOW_ERR) instead of burning the allocation on mpirun's obscure
+  // "command not found" three layers deep in the rank launcher.
+  if (command.includes("relion_refine_mpi")) {
+    L.push('command -v relion_refine_mpi >/dev/null 2>&1 || { echo "CRYOFLOW_ERR: relion_refine_mpi not found on PATH after module load — this job runs the MPI build (the module has mpirun; its RELION install carries no relion_refine_mpi)" >&2; exit 127; }');
+  }
   L.push("");
   L.push("# ---- run ----");
   L.push(`mkdir -p ${shQuote(remoteProjectRoot)}`);
@@ -1185,6 +1192,13 @@ function buildSbatchScript(args: {
     L.push(`export RELION_CTFFIND_EXECUTABLE=${shQuote(ctffind)}`);
   }
   L.push('command -v relion_refine >/dev/null 2>&1 || { echo "CRYOFLOW_ERR: relion_refine not found on PATH after module load" >&2; exit 127; }');
+  // t360 — the MPI lane runs relion_refine_mpi (the serial binary under
+  // mpirun is N independent runs shredding the same outputs); a module
+  // that probed mpirun but ships no MPI relion must refuse HERE, before
+  // the allocation burns a second on a guaranteed launcher failure.
+  if (command.includes("relion_refine_mpi")) {
+    L.push('command -v relion_refine_mpi >/dev/null 2>&1 || { echo "CRYOFLOW_ERR: relion_refine_mpi not found on PATH after module load — this job runs the MPI build (the module has mpirun; its RELION install carries no relion_refine_mpi)" >&2; exit 127; }');
+  }
   L.push("");
   // t341 — pin the ranks to the GPUs the scheduler actually GRANTED. On
   // cgroup-isolated clusters slurmd already exports CUDA_VISIBLE_DEVICES
@@ -3099,6 +3113,22 @@ export async function startRemoteJob(args: {
 
       let ntasks = 1;
       if (mpiParallelType && mpiAvailable) {
+        // t360 — THE multi-writer fix. The argv names the SERIAL
+        // relion_refine (buildArgv's dialect); under mpirun that is N
+        // INDEPENDENT full refinements — the field report's exact shape:
+        // six duplicated log streams (every process a printing
+        // "master"), six uncoordinated truncate/write cycles shredding
+        // every run_itNNN_classes.mrcs into right-sized zero-header
+        // stacks not even Chimera can open, and a clean exit 0 because
+        // every copy finished its own run. One MPI universe is the only
+        // honest shape under mpirun: rank 0 the sole printing master,
+        // workers silent, each file written once. The probe's mpirun
+        // sighting (relionMpi) plus the script preflight's
+        // relion_refine_mpi check guarantee the binary exists before
+        // the first rank lands.
+        if (/(^|\/)relion_refine$/i.test(argv[0])) {
+          argv[0] = argv[0].replace(/relion_refine$/i, "relion_refine_mpi");
+        }
         // t349 — RELION's own recommended width: one DEDICATED MASTER
         // (rank 0, CPU-only: data I/O, particle-batch dispatch, the
         // Maximization step's class reconstructions) plus one WORKER per
