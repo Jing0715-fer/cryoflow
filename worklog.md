@@ -3123,3 +3123,27 @@ Stage Summary:
 - cs2star 集群架构落地（用户提案的形态）：参数本地定 → KB 级脚本上集群 → 登录节点 python3+numpy 就地转换 → star 直写 twin、农场进程内建链——200MB .cs 与 200MB star 永不过线；无 python 集群自动落回 t352-c 下载/转换/上传道（该道 diag-t352 永久钉死）；与本地道输出字节级一致（diag-t353 T10 钉死）；pyem 本身不再被需要（字段表就是 pyem 验证过的那张），但集群若有 pyem，其 shebang 会成为 python 解释器的第三探针臂
 - 消费链自洽：Files 页经 remote manifest 列出 on-cluster star、关键数字走 receipt 行、下游集群作业经 twin gate 就地消费（零上传）、日志页经 twinDir 见证 + t346 缓存双轨
 - 用户复机路径：git pull → cs2star 重跑一次（旧 job 的 twin 已在集群上的不受影响；新跑走集群就地道，receipt 尾部带 "converted ON the cluster in place"）；2D 分类的进度条从下一轮表头进窗口起恢复诚实阶梯
+
+---
+Task ID: t354
+Agent: main-agent (Z.ai Code)
+Task: 用户工单「2d分类的中间过程目前看不到，希望的是每一轮的2d结果生成一张图片，可以在本地的UI中查看」——t350 只展示最新一轮的逐类小图；本轮把每一轮做成一张拼接大图（sheet），历史轮随时可看
+
+Work Log:
+- 形状判读：RELION 每轮写 run_itNNN_classes.mrcs（该轮全部类平均的 stack）——「每轮一张图」= 整个 stack 拼成一张网格大图（relion_display 的看法）。t350 已有 per-slice 渲染 + 按需拉取 + slimming 契约，缺的是：①每轮一张拼图 ②历史轮清单 ③完成后回看
+- mrc.ts renderClassSheetPng：全 slice 自适应网格（4-8 列、160px cell、per-slice 2-98 百分位拉伸、黑底 2px 缝、双边 1400px 上限——50-100 类的真实 sheet 仍 KB 级）；布局循环先花宽度预算加列、后缩 cell（原两段 while 的交互缺陷：cols 到 8 后高度超限不再缩 cell——重写为 dims() 收敛循环）
+- iteration-live.ts：payload 增 stacks[]（StackEntry{iter,file} 升序；同轮 unmasked 胜出，与 pickStack 同 rank 语义）；ensureClassStackPngs 升级为 ensureIterationAssets——一次拉取三产出（全部 slice PNG + sheet.png + slice 数），in-flight 共享、t339 契约不变（MB 级 stack 拉完即删）；localIterations(workdir, jobId?) 双源并集（mirror readdir ∪ PREVIEW_DIR/live/<jobId> 渲染缓存——cachedStackEntries 以目录名为轮次凭据，.mrcs 重建过 STACK_NAME_RE 落回同目录）；cacheSheetPng 供本地渲染分支落缓存（t333 重派发清 mirror 后历史轮仍可看）；无 workdir 分支诚实返回（不伪造零计数 classes）
+- 新 route /api/jobs/[id]/iterations/sheet：缓存命中 → 本地 mirror 渲染（落缓存）→ 集群按需重拉（**允许已完成 run**——冷重启后缓存空、集群是唯一诚实源；与 t350 image route 的 run.done 404 方言有意分叉，注释陈述理由）；不存在轮 404、路径逃逸 400、Cache-Control private max-age=300（stack 名含轮号=不可变内容）
+- iterations route 冷缓存合成：完成态 remote run 的 mirror 若无每轮 stack（真实世界 >16MB keyFileMb 留在集群），由 iterations（data.star 轮次）按 RELION 命名法则合成 chips（run_itNNN_data.star ⇒ run_itNNN_classes.mrcs 兄弟）——chips 条永不因冷缓存消失，用户点击即触发按需重拉
+- gallery 重构：chips 轮选条（running 时跟随最新轮+脉冲点、点击钉住、落后时出 latest 跳转钮、scrollIntoView 跟随）+ 当前轮 sheet 大图（lazy fetch、min-h 占位、错误态带 Retry、key=URL 重挂载）+ lightbox（shadcn Dialog——class-gallery/fsc-compare 同方言；←/→ 键盘走轮、边界禁用箭头、轮次计数）+ per-class 网格与 picker 原样保留（t350/t349 契约）；旧 payload 容错（无 stacks 时由 classesFile 退化为单轮）
+- mock relion_refine 修真：os.replace → 拷贝（3 处终稿别名）——真实 RELION 保留全部 per-iteration 文件、终稿别名并存；旧改名吃掉最后一轮 data.star 使完成态轮次清单少一轮（diag 首跑 FAIL 3/4 的病根）；爆破半径审计（t211/t298 plant 文件、t333 .some() 断言——无缺失性断言，安全）
+- diag-t354-iteration-sheets.mjs（42 断言 ALL GREEN）：UNIT（sheet 渲染 PNG magic/全 slice/真实字节；localIterations 升序/unmasked 胜出/occupancy；缓存独腿诚实形状）+ LIVE（mock class2d 8 轮：运行中 stacks 列表+首轮 sheet 200 PNG+t350 slice 回归）+ AFTER（8 chips 升序、每轮 sheet 200、.stack.mrcs 不留、sheet.png 落缓存）+ COLD（删 mirror stacks+清缓存 → 合成 8 chips、末轮集群重拉 200、重拉落缓存、虚构轮 404、路径逃逸 400）；LIVE 轮询带 ?refresh=1 绕 12s TTL（首跑三 FAIL 的病根：快作业在缓存窗口内跑完、poll 全吃空载荷）
+- 回归：diag-t319 ALL GREEN（refine 进度家族）+ diag-t353 ALL GREEN（cs2star 集群道含下游 class2d 就地消费）；tsc 0 错；触碰 7 文件 eslint 0 输出（全项目 15 项存量基线不变）
+- 浏览器活体（4GB 盒的 OOM 持久战）：next-server 编译期 RSS 2.1-2.8GB + chromium 700MB 撞 4GB 天花板——inspector 全流程反复死于 /outputs 编译后、/iterations 编译时（dev.log 实证「Compiling /api/jobs/[id]/iterations」即死）；NODE_OPTIONS max-old-space-size 确认传入但 RSS 仍超限（turbopack/源映射非 V8 内存）；破局术：route mock 预热法——mock 重 route（iterations JSON 喂 diag 验证过的同形状 payload）让重编译不发生，outputs 走真服务器（每次都活），gallery 全挂载后逐步解除 mock：**最终全真数据验证通过**——8 chips、it008 激活、真 sheet 266×68 绘制（naturalWidth>0）、it003 切轮真图加载、lightbox 标题/箭头/←→键盘/Esc、picker 选中+Continue 使能、console/page errors 零、390px 零横向溢流（chips 条 overflow-x-auto 生效）；截图 docs/t354-gallery-live.png / t354-gallery-mobile.png
+- 收尾：QA 项目×3 删除、指针归还 pool-lever e2e、qa-t354ui 连接删除、mock fs 残留清理、mock cluster 复活（:3022）；commit dd99432 push GitHub（085390e..dd99432 main）
+
+Stage Summary:
+- 每轮一张图的完整链路：chips 条（每轮一枚）→ sheet route（缓存/本地/集群三源懒取）→ 大图 + lightbox；运行中每轮落图跟随最新、完成后任意历史轮点击即取（冷缓存由命名法则合成 chips 兜底）
+- 三源取图方言：preview 缓存（快）→ 本地 mirror（完成后小 stack）→ 集群按需重拉（running 或 done 皆可——冷重启的唯一诚实源）；t339 slimming 与 t333 重派发擦除两条契约都对齐
+- mock relion_refine 对齐真实 RELION 终稿语义（拷贝非改名）——这本身就是一处 mock-vs-reality 缺陷的修复
+- 用户复机路径：git pull → 2D 分类运行中打开 Results 页即见每轮 sheet（运行时跟随最新轮、点任意轮钉住）；完成后历史轮照看（缓存即答、冷了从集群按需拉）；t353 的进度修复与 cs2star 集群道同 push 在库
