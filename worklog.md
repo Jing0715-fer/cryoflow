@@ -3297,3 +3297,23 @@ Work Log:
 
 Stage Summary:
 - Root cause = mpirun 包着串行 relion_refine → N 个独立完整计算并发互殴。修复 = MPI 分支换 relion_refine_mpi + 双 preflight。c7a8dcd 待推送/待用户侧应用;用户重新派发 2D 分类后,日志单份、stacks 干净、t356/t358 渲染管线自然出图。
+
+---
+Task ID: 361
+Agent: main
+Task: 用户交付 GitHub token → 拉取/合并/推送双 t360(沙箱 mpirun 修复 + 用户本地 mapimport 修复),并清偿 t360 遗留:本地 lane 串行二进制隐患 + 损坏 stack 诚实报错
+
+Work Log:
+- 【凭证与对齐】用户给 GitHub PAT → 配入 remote URL;fetch 发现 origin/main 新增 43f0667(用户本地 t360 mapimport:集群侧 import map — runMapImportRemoteLeg 一次 SSH 探测三判决 + 集群内部 cp + 字节验证 + finishNativeRunOnCluster 泛化);merge 唯一冲突 = worklog.md 双方各自追加的 t360 记录(append-append),python 保序解决(时间序:mapimport 19:06 在前,mpirun 19:15 在后),合并提交 a6d9da0
+- 【推送】43f0667..a6d9da0 上 origin/main — 上个会话因凭证缺失滞留沙箱的 c7a8dcd(mpirun 单写者修复)由此到达用户本地;用户 git pull 后重新派发 2D 分类即为单写者世界
+- 【t361-a 本地 lane 同族隐患】engine.ts MPI 分支审计:MPI_PARALLEL_TYPES(class3d/refine3d)的 mpirun 包装里 canMpi=(argv[0] 绝对路径且 <bin>_mpi 存在)时才换 _mpi — 但 canMpi=false(有 mpirun、无 _mpi 构建的部分安装)时旧代码照样 mpirun 包串行 relion_refine = N 个独立完整运行(t360 灾难本地版);refine3d 因 argv 恒含 --split_random_halves 每份秒败(fail-fast),class3d argv 无此参数 → 2 个独立 run 互写 run_itNNN_classes.mrcs 静默损坏。修复:mpiWrapped 旗标 — canMpi=false 落入 sequential fallback(串行 + --j + split-halves→debug_swap),mpirun 从不再包串行二进制
+- 【t361-a 顺带冤案】resume 路径:原生无 mpirun/_mpi 时 resumeArgv=null → 静默跌落全新运行丢弃 checkpoint;修复:补串行 --continue 兜底(checkpoint STAR rank-agnostic,bridge lane 自己的教义)
+- 【t361-b 诚实报错】iteration-live.ts verifiedStackPull 的 unreadable 判决前加零头分类:完整下载、尺寸正确、头 64 字节全零 → 点名 t360 多写手损坏形状(「文件在集群上就坏了 + 重复 log 是同一签名 + 数据不可恢复 + 拉取 t360 修复后重新派发」),其余垃圾头维持原「may be corrupted」;fs 导入补 closeSync/openSync/readSync
+- 【验证】tsc 0;eslint 8 error 全为既有 UI 遗留(print-doc-footer/header、map-ortho-panel、session-report-dialog + diag-archive),engine.ts/iteration-live.ts 零告警;scripts/diag-t361-merged-smoke.mjs(playwright 削减版 chromium:single-process + 256MB V8 + lean 资源路由)9/9 ALL GREEN — A1-A5 源码 X 射线(五组修复全部在位)+ B1 画布 3 卡 + C1/C2 DOM↔server 恒等(3===3)+ B2 零 console/page 错误;截图 shots-qa/t361-merged-smoke.png
+- 【4GB OOM 持久战续】本轮 3 案内核击杀(next-server 2.87-2.92GB anon-rss),死亡模式解码:浏览器落地 → 页面 boot 各 API 路由首次编译尖峰 → next-server 冲 2.9GB → 击杀 → goto 以 ERR_CONNECTION_REFUSED 拒绝。胜战处方三层:(1) pkill agent-browser 残留 chrome;(2) curl 预热页面 boot 命中的全部路由(/、jobs、edges、project、workspaces、system、projects、remote/connections — 编译尖峰转移到无浏览器期);(3) BUN_JSC_forceRAMSize=1400000000 + NODE_OPTIONS=896 双保险(bun 运行时无视 NODE_OPTIONS,JSC 堆须 BUN_JSC 钳)。冒烟全程 server 存活;测后空闲又遭一票(已知顽疾),重启+预热后 settled 200 稳定
+
+Stage Summary:
+- 双 t360 合流上线:用户 git pull 即得 mpirun 单写者修复 + 集群侧 mapimport(merge a6d9da0)
+- 本地 lane class3d 同族损坏隐患根除(mpirun 永不包串行二进制);resume 不再静默丢弃 checkpoint
+- 损坏 stack 报错从「may be corrupted」升级为点名多写手形状 + 重派指引
+- 冒烟 9/9 ALL GREEN;dev server 已重启预热存活(settled 200 @0.16s)

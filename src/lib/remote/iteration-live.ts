@@ -28,9 +28,12 @@
 
 import path from "path";
 import {
+  closeSync,
   existsSync,
   mkdirSync,
+  openSync,
   readFileSync,
+  readSync,
   readdirSync,
   rmSync,
   statSync,
@@ -716,6 +719,37 @@ async function verifiedStackPull(
       failure: {
         reason: "transfer",
         message: `the local render cache was cleared while ${clusterPath} was downloading — ask again (the cluster file is untouched)`,
+      },
+    };
+  }
+  // t361 — classify the unreadable header before wording the verdict. A
+  // ZERO header on a completely-downloaded, right-sized file is not one
+  // corruption among many: it is the exact multi-writer shape of the t360
+  // field report (an mpirun wrapped around the SERIAL relion_refine — N
+  // independent refinements, each opening the same run_itNNN_classes.mrcs
+  // with truncate, the last truncate-winning zeroing the header the other
+  // writers had filled; six duplicated log streams rode along). Name the
+  // shape and the remedy — "may be corrupted" keeps the user guessing
+  // whether to re-pull, re-run, or reinstall.
+  let zeroHeader = false;
+  try {
+    const fd = openSync(transient, "r");
+    try {
+      const head = Buffer.alloc(64);
+      const got = readSync(fd, head, 0, 64, 0);
+      zeroHeader = got >= 64 && head.every((b) => b === 0);
+    } finally {
+      closeSync(fd);
+    }
+  } catch {
+    /* unreadable even at the fd level — the generic verdict stands */
+  }
+  if (zeroHeader) {
+    return {
+      ok: false,
+      failure: {
+        reason: "unreadable",
+        message: `${clusterPath} downloaded completely (${r.bytes} bytes — the size is right) but its MRC header is all zeros: the file itself is corrupt ON THE CLUSTER, in the exact shape of the pre-t360 multi-writer bug (an mpirun around the serial relion_refine — several independent RELION processes truncating each other's output; the duplicated run.out is the same signature). The data is unrecoverable — re-dispatch this job (after git-pulling the t360 fix, every dispatch is a single writer)`,
       },
     };
   }

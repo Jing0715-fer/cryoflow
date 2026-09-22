@@ -7216,6 +7216,22 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
         // gold-standard halves need leader + 2 half-mappers
         const nranks = job.type === "refine3d" ? 3 : 2;
         resumeArgv = [mpirun, "-n", String(nranks), mpiBin, "--continue", resumableCheckpoint.file, "--o", outRoot];
+      } else {
+        // t361 — no mpirun or no _mpi build: the old code left resumeArgv
+        // null, the block fell through, and the job silently started a
+        // FRESH run, discarding the checkpoint hours of iterations had
+        // written. Checkpoint STARs are rank-agnostic (the bridge lane's
+        // own doctrine above) — the serial binary takes --continue just
+        // fine. Resume sequentially instead of restarting from zero.
+        resumeArgv = [
+          binJoin(binDir, "relion_refine"),
+          "--continue",
+          resumableCheckpoint.file,
+          "--o",
+          outRoot,
+          "--j",
+          threads,
+        ];
       }
     }
     if (resumeArgv) {
@@ -7385,6 +7401,7 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
   // inert in auto-refine; iterations run to completion). That is exactly
   // right for CPU/sequential hosts and this engine's job-graph testing.
   const mpiEligible = MPI_PARALLEL_TYPES.has(job.type);
+  let mpiWrapped = false;
   if (mpiEligible && mpirun && !bridge) {
     // RELION ships serial AND _mpi builds — mpirun must launch the MPI build
     // (a serial binary under mpirun runs N independent copies: no parallelism,
@@ -7393,17 +7410,32 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
     // (bridge is null in this branch — the WSL path took the sequential
     // fallback above — so a plain host-side existsSync is the right check)
     const canMpi = target.startsWith("/") && existsSync(target + "_mpi");
-    if (canMpi) argv[0] = target + "_mpi";
-    // --split_random_halves (gold-standard FSC) needs leader + 2 half-mappers
-    const nranks = job.type === "refine3d" ? 3 : 2;
-    // WSL2 / OpenMPI 4.x: TCP BTL needed for cross-process communication;
-    // --allow-run-as-root bypasses the root-check in OMPI 4.x.
-    argv = [mpirun, "--mca", "btl", "self,tcp", "--allow-run-as-root", "-n", String(nranks), ...argv];
-  } else if (mpiEligible) {
-    // Sequential fallback — covers BOTH the WSL bridge AND native hosts
-    // where mpirun did not resolve (previously this case fell through with
-    // NO handling at all: no --j AND --split_random_halves left in argv,
-    // so refine3d hard-errored and class3d ran single-threaded).
+    if (canMpi) {
+      argv[0] = target + "_mpi";
+      // --split_random_halves (gold-standard FSC) needs leader + 2 half-mappers
+      const nranks = job.type === "refine3d" ? 3 : 2;
+      // WSL2 / OpenMPI 4.x: TCP BTL needed for cross-process communication;
+      // --allow-run-as-root bypasses the root-check in OMPI 4.x.
+      argv = [mpirun, "--mca", "btl", "self,tcp", "--allow-run-as-root", "-n", String(nranks), ...argv];
+      mpiWrapped = true;
+    }
+    // t361 — mpirun resolved but the install carries no _mpi build: the old
+    // code STILL wrapped mpirun around the SERIAL relion_refine, which is N
+    // independent full runs — the t360 cluster catastrophe (duplicated logs,
+    // uncoordinated writers shredding run_itNNN_classes.mrcs), local edition,
+    // live whenever a host has mpirun but a partial RELION. class3d had no
+    // --split_random_halves to force a fast serial error, so it corrupted
+    // silently. Now: no _mpi binary → fall through to the sequential fallback
+    // below (serial binary, --j threads, split-halves swap) — one universe,
+    // honest and single-writer.
+  }
+  if (mpiEligible && !mpiWrapped) {
+    // Sequential fallback — covers THREE shapes: the WSL bridge, native
+    // hosts where mpirun did not resolve, and (t361) native hosts where
+    // mpirun resolved but the install carries no _mpi build (previously
+    // this case fell through with NO handling at all: no --j AND
+    // --split_random_halves left in argv, so refine3d hard-errored and
+    // class3d ran single-threaded).
     const splitIdx = argv.indexOf("--split_random_halves");
     if (splitIdx !== -1) {
       // serial relion_refine cannot split halves: swap in the debug path
