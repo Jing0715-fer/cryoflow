@@ -755,15 +755,25 @@ async function verifiedStackPull(
       },
     };
   }
-  // t361 — classify the unreadable header before wording the verdict. A
-  // ZERO header on a completely-downloaded, right-sized file is not one
-  // corruption among many: it is the exact multi-writer shape of the t360
-  // field report (an mpirun wrapped around the SERIAL relion_refine — N
-  // independent refinements, each opening the same run_itNNN_classes.mrcs
-  // with truncate, the last truncate-winning zeroing the header the other
-  // writers had filled; six duplicated log streams rode along). Name the
-  // shape and the remedy — "may be corrupted" keeps the user guessing
-  // whether to re-pull, re-run, or reinstall.
+  // t361/t369 — classify the unreadable header before wording the verdict.
+  // A ZERO header on a completely-downloaded, right-sized file is not one
+  // corruption among many. t361's wording led with the pre-t360
+  // multi-writer leftover and prescribed a re-dispatch; the t369 field
+  // report FOLLOWED that remedy — a fresh job id (brand-new workdir: no
+  // leftover can exist there), a single MPI universe (one banner), a
+  // single-writer t360+ dispatch, even a single-GPU rerun — and it000 was
+  // STILL a right-sized zero-header on the cluster, while the same RELION
+  // writing to node-local scratch (/ssd_cache) came out healthy. That
+  // falsified the leftover-first ordering: a healthy RELION writer NEVER
+  // leaves a zero header (the header lands before the slices), and the run
+  // continued PAST this file (later iterations in its log, empty stderr)
+  // — RELION wrote and closed it believing success. cryoflow's remote
+  // legs are strictly read-only while a run is live (the t369 write-path
+  // sweep: stat/tail/cat only), so the bytes were lost on the cluster's
+  // own write path — between the compute node's writes and the network
+  // storage under the workdir. Name the worlds, the mtime test that
+  // separates them, and the 60-second storage test that convicts the
+  // culprit without RELION in the loop.
   let zeroHeader = false;
   try {
     const fd = openSync(transient, "r");
@@ -778,11 +788,14 @@ async function verifiedStackPull(
     /* unreadable even at the fd level — the generic verdict stands */
   }
   if (zeroHeader) {
+    const seedNote = /run_it000_classes\.mrcs?$/i.test(clusterPath)
+      ? " NOTE: this file is the SEED round (it000) RELION writes at startup — initial random class averages, of no scientific value even when healthy; the rounds that matter are it001+, so check those before declaring the run lost"
+      : "";
     return {
       ok: false,
       failure: {
         reason: "unreadable",
-        message: `${clusterPath} downloaded completely (${r.bytes} bytes — the size is right) but its MRC header is all zeros: the FILE ITSELF IS CORRUPT ON THE CLUSTER, and the shape says which world you are in. Either this is a leftover from an EARLIER run of this job (the pre-t360 multi-writer era wrote right-sized zero-header stacks; the pre-run wipe did not remove it and the current run never overwrote it — often because the run was CUT before its final write phase, e.g. by a walltime), or the current run wrote it through a broken path. Check where this run's log ends (a run that finished prints its final iteration summary; one that was killed just stops) — then re-dispatch: a fresh dispatch wipes the workdir and writes every file anew (t360+ dispatches are single-writer)`,
+        message: `${clusterPath} downloaded completely (${r.bytes} bytes — the size is right) but its MRC header is all zeros: the FILE ITSELF IS CORRUPT ON THE CLUSTER. Two worlds, and the order matters. (1) A leftover from an EARLIER run — only possible in a REUSED workdir: check the file's mtime on the cluster (ls -l) against when this run started; a fresh job id has a brand-new workdir where no leftover can exist. (2) The current run wrote it and the bytes never durably reached the storage: RELION writes the header FIRST and this run continued past this file (later iterations in its log, empty stderr), so RELION believed the write succeeded — and cryoflow never writes into a live run's workdir (its remote legs are read-only while the run lives). The loss is on the cluster's write path — between the compute node's writes and the network storage under this directory; the same jobs writing to node-local scratch (/ssd_cache) coming out healthy is the same story. Convict it in 60 seconds without RELION: from a COMPUTE node run head -c 2097152 /dev/urandom > <this directory>/wtest.bin && md5sum <this directory>/wtest.bin, then md5sum the same path from the login node — a mismatch (or zeros) convicts the storage path; hand that file to the storage admin (t369).${seedNote}`,
       },
     };
   }

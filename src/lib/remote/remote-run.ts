@@ -1186,36 +1186,51 @@ export function parseSlurmTimeToMinutes(raw: string): number | null {
 }
 
 /**
- * t367 — the walltime this submission requests, in minutes (null = the
- * partition's own default applies, as before t367).
+ * t367/t369 — the walltime this submission requests (min) plus the
+ * partition's DEFAULT time (defaultMin), both in minutes (null = unknown
+ * / not applicable, and the partition's own default applies, as before
+ * t367).
  *
  *   · the connection's explicit slurmTimeMin wins verbatim (the user's
  *     override — they know their partition);
  *   · else, for the refinement family, ONE sinfo round on the login node
- *     asks the partition's MaxTime — a ceiling the controller always
- *     accepts — clamped to a day. The partition's DEFAULT (what applies
- *     with no --time at all) is often far below its MaxTime, and that gap
- *     is exactly where multi-hour refinements die mid-write;
- *   · else (short jobs, unresolved partition, sinfo unavailable) null.
+ *     asks '%l %L' — the MaxTime (a ceiling the controller always accepts,
+ *     clamped to a day) AND the DEFAULT time in the same SSH round. The
+ *     partition's DEFAULT (what applies with no --time at all) is often
+ *     far below its MaxTime, and that gap is exactly where multi-hour
+ *     refinements die mid-write. t369 — the default comes home with the
+ *     probe even when the MaxTime is infinite/unparseable, so the
+ *     no-limit banner can NAME the very clock that will kill the job
+ *     ("this partition's DEFAULT is 2:00:00") instead of warning about
+ *     an unknown;
+ *   · else (short jobs, unresolved partition, sinfo unavailable) both
+ *     null — a monitoring failure never blocks a dispatch.
  */
 async function resolveSbatchTimeLimit(
   conn: RemoteConnection,
   jobType: string,
   partition: string | null
-): Promise<number | null> {
-  if (conn.slurmTimeMin && conn.slurmTimeMin > 0) return Math.min(20160, Math.round(conn.slurmTimeMin));
-  if (!WALLTIME_TYPES.has(jobType) || !partition) return null;
+): Promise<{ min: number | null; defaultMin: number | null }> {
+  if (conn.slurmTimeMin && conn.slurmTimeMin > 0)
+    return { min: Math.min(20160, Math.round(conn.slurmTimeMin)), defaultMin: null };
+  if (!WALLTIME_TYPES.has(jobType) || !partition) return { min: null, defaultMin: null };
   try {
-    const r = await exec(conn, loginShellScript(`sinfo -h -o '%l' -p ${shQuote(partition)}`), {
+    const r = await exec(conn, loginShellScript(`sinfo -h -o '%l %L' -p ${shQuote(partition)}`), {
       timeoutMs: 10_000,
     });
-    if (r.error || r.code !== 0) return null;
+    if (r.error || r.code !== 0) return { min: null, defaultMin: null };
     const first = (r.stdout ?? "").trim().split(/\r?\n/)[0] ?? "";
-    const mins = parseSlurmTimeToMinutes(first);
-    if (mins == null) return null;
-    return Math.min(mins, WALLTIME_AUTO_CAP_MIN);
+    // "%l %L" → "<MaxTime> <DefaultTime>" (either column may print the
+    // word infinite; a missing DefaultTime column degrades to null)
+    const cols = first.trim().split(/\s+/);
+    const mins = parseSlurmTimeToMinutes(cols[0] ?? "");
+    const defMins = parseSlurmTimeToMinutes(cols.length > 1 ? cols[1] : "");
+    return {
+      min: mins == null ? null : Math.min(mins, WALLTIME_AUTO_CAP_MIN),
+      defaultMin: defMins,
+    };
   } catch {
-    return null; // a monitoring failure never blocks a dispatch
+    return { min: null, defaultMin: null }; // a monitoring failure never blocks a dispatch
   }
 }
 
@@ -1362,8 +1377,16 @@ function buildSbatchScript(args: {
    * their partition default is fine and the banner would only be noise.
    */
   timeLimitWarn?: boolean;
+  /**
+   * t369 — the partition's DEFAULT time (sinfo %L), when the probe read it
+   * and no explicit/auto limit applies. The no-limit banner NAMES the very
+   * clock that will kill the job ("this partition's DEFAULT is 2:00:00")
+   * instead of warning about an unknown — the field report's runs kept
+   * dying at an unnamed default while the banner stayed generic.
+   */
+  timeLimitDefaultMin?: number | null;
 }): string {
-  const { conn, module: moduleName, relionHome, ctffind, command, gpus, ntasks, threads, jobName, remoteProjectRoot, remoteWorkdir, partition, nodelist, dependency, array, note, suppressPartition, gpuJob, mpiRanks, timeLimitMin, timeLimitWarn } = args;
+  const { conn, module: moduleName, relionHome, ctffind, command, gpus, ntasks, threads, jobName, remoteProjectRoot, remoteWorkdir, partition, nodelist, dependency, array, note, suppressPartition, gpuJob, mpiRanks, timeLimitMin, timeLimitWarn, timeLimitDefaultMin } = args;
   // t332/t340 — the partition this sbatch names:
   //   · an explicit pin whose partition the caller RESOLVED → that
   //     partition (scontrol's own word — the dropdown equivalence);
@@ -1718,9 +1741,13 @@ function buildSbatchScript(args: {
       )}`
     );
   } else if (timeLimitWarn) {
+    // t369 — name the actual default when the probe read it: an unnamed
+    // clock the user cannot see is the t367 landmine all over again.
     L.push(
       `echo ${shQuote(
-        "CRYOFLOW_WALLTIME: this submission requested NO explicit time limit — the partition's DEFAULT walltime applies. If this run is multi-hour, a short default can kill it before its final outputs are written (set a time limit in the connection's Slurm settings, t367)"
+        timeLimitDefaultMin && timeLimitDefaultMin > 0
+          ? `CRYOFLOW_WALLTIME: this submission requested NO explicit time limit — this partition's DEFAULT is ${slurmHms(timeLimitDefaultMin)} (sinfo), and the scheduler kills the job the moment it expires. A multi-hour run needs a longer limit: set one in the connection's Slurm settings (t367)`
+          : "CRYOFLOW_WALLTIME: this submission requested NO explicit time limit — the partition's DEFAULT walltime applies. If this run is multi-hour, a short default can kill it before its final outputs are written (set a time limit in the connection's Slurm settings, t367)"
       )}`
     );
   }
@@ -4014,15 +4041,19 @@ export async function startRemoteJob(args: {
         // cannot be resolved (bare node pin) degrades to the warn banner.
         const walltimePartition =
           partitionOverride ?? pinPartition ?? (explicitNode ? null : (conn.slurmPartition ?? null));
-        const timeLimitMin = await resolveSbatchTimeLimit(conn, job.type, walltimePartition);
+        const walltime = await resolveSbatchTimeLimit(conn, job.type, walltimePartition);
+        const timeLimitMin = walltime.min;
         const timeLimitWarn = !timeLimitMin && WALLTIME_TYPES.has(job.type);
+        // t369 — the partition's own DEFAULT time, when the probe read it:
+        // the no-limit banner names the clock instead of gesturing at it.
+        const timeLimitDefaultMin = walltime.defaultMin;
         if (timeLimitMin) {
           console.log(
             `remote-run: "${job.name}" requests --time=${slurmHms(timeLimitMin)} on ${conn.host}${walltimePartition ? ` (${walltimePartition})` : ""} (t367)`
           );
         } else if (timeLimitWarn) {
           console.log(
-            `remote-run: no walltime resolved for "${job.name}" on ${conn.host} — the partition default applies (t367)`
+            `remote-run: no walltime resolved for "${job.name}" on ${conn.host} — the partition default${timeLimitDefaultMin ? ` (${slurmHms(timeLimitDefaultMin)})` : ""} applies (t367/t369)`
           );
         }
         const script = buildSbatchScript({
@@ -4054,6 +4085,7 @@ export async function startRemoteJob(args: {
           // refinement-family jobs that could not resolve one)
           timeLimitMin,
           ...(timeLimitWarn ? { timeLimitWarn: true } : {}),
+          ...(timeLimitDefaultMin != null ? { timeLimitDefaultMin } : {}),
           // t342/t345 — the starved-card refusal + the rank clamp ride only
           // jobs whose argv truly uses the GPU; the MPI width feeds the
           // script's own CF_RANKS clamp + per-rank launcher variables.
@@ -5550,6 +5582,12 @@ async function syncBackWorkdir(
   notBeforeMs?: number
 ): Promise<SyncResult> {
   const res: SyncResult = { files: 0, bytes: 0, skipped: [] };
+  // t369 — files whose download completed with a clean byte account but
+  // whose MRC header still cannot be read: the cluster's OWN corruption
+  // (right-sized zero-header — the storage write-path loss), named in the
+  // receipt so "exited 0" and a gallery that refuses to render are one
+  // sentence, not two mysteries.
+  const corruptPulled: string[] = [];
   const W = shQuote(r.remoteWorkdir);
   // t367 — %T@ (mtime, epoch seconds with fraction) rides every line: the
   // generation gate needs it and the find costs the same SSH round.
@@ -5657,6 +5695,14 @@ async function syncBackWorkdir(
     }
     res.bytes += written;
     res.files += 1;
+    // t369 — a completed download that still fails the MRC header check is
+    // NOT a transfer failure (the byte account above is clean): the bytes
+    // on the cluster are the corrupt ones. Keep the file (it IS the
+    // cluster's truth and the gallery's on-demand legs speak about it)
+    // but record it for the receipt.
+    if (/\.(mrcs?|map)$/i.test(rel) && !localMrcReads(localPath)) {
+      corruptPulled.push(rel);
+    }
     // STAR rewrite to-local (in place)
     if (/\.star$/i.test(localPath)) {
       try {
@@ -5672,8 +5718,18 @@ async function syncBackWorkdir(
   // pre-t339 dialect embedded); the note is the planner's own rendering —
   // the metadata-only class leads with the POLICY, not with caps.
   res.skipped = skips.map((s) => describeSyncSkipFile(s, policyCtx));
+  const noteParts: string[] = [];
   const note = describeSyncSkips(skips, policyCtx);
-  if (note) res.note = note;
+  if (note) noteParts.push(note);
+  if (corruptPulled.length > 0) {
+    const shown =
+      corruptPulled.slice(0, 3).join(", ") +
+      (corruptPulled.length > 3 ? ` +${corruptPulled.length - 3} more` : "");
+    noteParts.push(
+      `${corruptPulled.length} file(s) downloaded completely but read as CORRUPT MRCs on the cluster itself (${shown}) — right-sized zero-header bytes: this run's writes never durably reached the storage under the workdir. Run the 60-second write test (2 MB of urandom from a compute node, md5sum from the login node) before re-running anything (t369)`
+    );
+  }
+  if (noteParts.length > 0) res.note = noteParts.join(" — ");
   return res;
 }
 

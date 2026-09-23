@@ -37,14 +37,31 @@ done
 # mirror a real shared GPU cluster (the brain family 8h, normal 4h, the
 # legacy shared partitions generous). The refinement family's sbatch
 # asks exactly this before submitting.
-if [ "$fmt" = "%l" ]; then
+# t369 — '%l %L' carries BOTH columns (MaxTime DefaultTime) in one line:
+# the walltime resolver asks this when no explicit limit applies, so the
+# no-limit banner can NAME the default clock. The defaults mirror the
+# field report: a partition whose MaxTime is 8h but whose DEFAULT is 2h
+# silently kills multi-hour refinements submitted without --time.
+if [ "$fmt" = "%l" ] || [ "$fmt" = "%l %L" ]; then
   case "$partition" in
-    brain|brain2|brain3|brain4) echo "8:00:00" ;;
-    normal|normal02)             echo "4:00:00" ;;
-    gpu)                          echo "12:00:00" ;;
-    long)                         echo "1-00:00:00" ;;
-    "")                           echo "infinite" ;;
-    *)                            echo "infinite" ;;
+    brain|brain2|brain3|brain4)
+      [ "$fmt" = "%l %L" ] && echo "8:00:00 2:00:00" || echo "8:00:00"
+      ;;
+    normal|normal02)
+      [ "$fmt" = "%l %L" ] && echo "4:00:00 1:00:00" || echo "4:00:00"
+      ;;
+    gpu)
+      [ "$fmt" = "%l %L" ] && echo "12:00:00 4:00:00" || echo "12:00:00"
+      ;;
+    long)
+      [ "$fmt" = "%l %L" ] && echo "1-00:00:00 12:00:00" || echo "1-00:00:00"
+      ;;
+    "")
+      [ "$fmt" = "%l %L" ] && echo "infinite 2:00:00" || echo "infinite"
+      ;;
+    *)
+      [ "$fmt" = "%l %L" ] && echo "infinite 2:00:00" || echo "infinite"
+      ;;
   esac
   exit 0
 fi

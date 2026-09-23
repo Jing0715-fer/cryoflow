@@ -330,8 +330,8 @@ export function ClassIterationGallery({ job, refreshKey = 0 }: { job: JobDTO; re
     }
     return running ? (
       <div className="rounded-lg border border-border/60 bg-muted/30 px-4 py-3 text-xs text-muted-foreground">
-        No iteration snapshots on the cluster yet — the first Expectation round is still running (the
-        first {`run_it###_classes.mrcs`} appears when round 1 completes).
+        No iteration snapshots on the cluster yet — the seed round (it000) appears within minutes of startup;
+        real class-average rounds (it001+) land as each iteration completes.
       </div>
     ) : null;
   }
@@ -397,6 +397,15 @@ export function ClassIterationGallery({ job, refreshKey = 0 }: { job: JobDTO; re
           {stacks.map((s) => {
             const isCurrent = s.iter === current.iter;
             const isNewest = newest != null && s.iter === newest.iter;
+            // t369 — round 0 is the SEED round RELION writes at startup
+            // (initial random class averages — of no scientific value
+            // even when healthy; the field report's manual-run control
+            // proves a healthy it000 exists too). Its chip says so, so a
+            // zero-header it000 verdict never reads as "the whole run is
+            // broken" when it001+ are the rounds that matter.
+            const isSeed = s.iter === 0;
+            const seedTitle =
+              "round 0 — the seed round RELION writes at startup (initial random class averages); real class-average rounds start at it001";
             return (
               <button
                 key={s.iter}
@@ -404,6 +413,7 @@ export function ClassIterationGallery({ job, refreshKey = 0 }: { job: JobDTO; re
                 role="tab"
                 aria-selected={isCurrent}
                 data-iter-chip={s.iter}
+                title={isSeed ? seedTitle : undefined}
                 onClick={() => setViewIter(s.iter)}
                 className={cn(
                   "flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[10px] transition-colors",
@@ -413,6 +423,18 @@ export function ClassIterationGallery({ job, refreshKey = 0 }: { job: JobDTO; re
                 )}
               >
                 it {pad3(s.iter)}
+                {isSeed && (
+                  <span
+                    className={cn(
+                      "rounded-full px-1 text-[9px] leading-4",
+                      isCurrent
+                        ? "bg-primary-foreground/20 text-primary-foreground"
+                        : "bg-muted text-muted-foreground"
+                    )}
+                  >
+                    seed
+                  </span>
+                )}
                 {running && isNewest && (
                   <span
                     className={cn(
