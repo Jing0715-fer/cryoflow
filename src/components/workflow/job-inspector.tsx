@@ -2728,7 +2728,22 @@ export function JobInspector() {
     // never stomp a tab the user chose manually for THIS job (only
     // auto-switch on transitions we did not cause)
     if (tabTouchedForRef.current !== inspectId) {
-      setTab(job.status === "running" || job.status === "failed" ? "log" : "results");
+      // t363 — a RUNNING classification lands on RESULTS, not Log: its live
+      // iteration gallery (round sheets as the cluster writes them) is the
+      // surface the user asked to watch while 2D runs — the log stays one
+      // click away. Other running jobs and failures keep the Log default.
+      const liveGalleryType =
+        job.type === "class2d" ||
+        job.type === "class3d" ||
+        job.type === "refine3d" ||
+        job.type === "initialmodel";
+      setTab(
+        job.status === "failed"
+          ? "log"
+          : job.status === "running" && !liveGalleryType
+            ? "log"
+            : "results"
+      );
     }
   }, [inspectId, job, job?.status]);
 

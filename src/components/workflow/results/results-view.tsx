@@ -180,6 +180,17 @@ export function mapSourceNote(mapPath: string): { kind: "crop" | "standalone"; l
 /* Main component                                                      */
 /* ------------------------------------------------------------------ */
 
+/** t363 — the job types whose Results tab is anchored by the LIVE
+ *  iteration gallery (the same set the gallery itself renders for). While
+ *  one of these runs REMOTELY the local mirror stays empty until the
+ *  sync-back lands at finalize — the outputs listing carries no files, and
+ *  the old "no on-disk outputs" early return kept the gallery unmounted
+ *  for the WHOLE run: the exact "intermediate results only arrive when
+ *  everything finishes" field report. For these types the gallery mounts
+ *  above the (still empty) file sections and streams rounds live from the
+ *  cluster. */
+const ITERATION_GALLERY_TYPES = new Set(["class2d", "class3d", "refine3d", "initialmodel"]);
+
 export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: number }) {
   const [data, setData] = useState<OutputsResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -875,7 +886,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
   }
 
   if (error) {
-    return (
+    const errorCard = (
       <div
         data-outputs-error={error.kind}
         className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-xs"
@@ -907,9 +918,27 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
         </div>
       </div>
     );
+    // t363 — a classification job's LIVE GALLERY outranks a failed OUTPUTS
+    // listing: the gallery feeds from /iterations (its own wire, its own
+    // honest error card), while the listing only enriches the tab below it.
+    // A transient listing failure (dev-server restart, a busy poll) must
+    // not hide the rounds the user is watching — the card stays, with the
+    // listing's own Retry beneath.
+    if (ITERATION_GALLERY_TYPES.has(job.type)) {
+      return (
+        <div className="space-y-4">
+          <ClassIterationGallery job={job} refreshKey={refreshKey} />
+          {errorCard}
+        </div>
+      );
+    }
+    return errorCard;
   }
 
-  if (!data || data.files.length === 0) {
+  // t363 — see ITERATION_GALLERY_TYPES above: a classification run keeps
+  // its Results tab alive (the gallery + an honest empty-note) instead of
+  // the early "no on-disk outputs" panel
+  if (!data || (data.files.length === 0 && !ITERATION_GALLERY_TYPES.has(job.type))) {
     return (
       <div className="flex flex-col items-center gap-2 rounded-md border border-dashed px-4 py-8 text-center">
         <FolderOpen className="h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
@@ -940,7 +969,30 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
           a class picker once it finished (per-class stars → next job) */}
       <ClassIterationGallery job={job} refreshKey={refreshKey} />
 
+      {/* t363 — an empty listing on a gallery type = the run is remote and
+          the mirror has not landed yet (or the job wrote nothing browsable):
+          say so instead of a bare "0 output files" header */}
+      {data.files.length === 0 && (
+        <div className="flex flex-col items-center gap-2 rounded-md border border-dashed px-4 py-6 text-center">
+          <p className="text-sm font-medium text-foreground/80">No on-disk outputs yet</p>
+          <p className="max-w-md text-xs leading-relaxed text-muted-foreground">
+            {job.status === "running" || job.status === "pending"
+              ? "The cluster is writing this run — class snapshots above update live; the full file listing lands here when the run finishes."
+              : (data.note ?? "This job produced no browsable files.")}
+          </p>
+          {job.result && (
+            <p
+              className="max-w-full truncate rounded-full bg-muted px-3 py-1 text-[11px] text-muted-foreground"
+              title={job.result}
+            >
+              {job.result}
+            </p>
+          )}
+        </div>
+      )}
+
       {/* header row */}
+      {data.files.length > 0 && (
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs font-medium text-muted-foreground">
           {data.files.length} output file{data.files.length === 1 ? "" : "s"}
@@ -985,6 +1037,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
           </Button>
         </div>
       </div>
+      )}
 
       {/* t330 — the key numbers lead the Results view: particles above all
           (the user's "这个信息很关键"), micrographs coverage beside them, the

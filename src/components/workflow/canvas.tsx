@@ -121,6 +121,12 @@ function CanvasSkeleton() {
   );
 }
 
+/** t364 — how many cards one reveal frame mounts (see WorkflowCanvas): a
+ *  landing canvas streams in ~20 cards per frame instead of one giant
+ *  commit, and a list that grows by ≤ this many renders immediately (one
+ *  added card must never stagger). */
+const REVEAL_CHUNK = 20;
+
 interface PanState {
   pointerId: number;
   lastX: number;
@@ -894,6 +900,54 @@ export function WorkflowCanvas() {
   // through linked copies — see store.linkJobTo)
   const jobs = useActiveWorkspaceJobs();
   const edges = useActiveWorkspaceEdges();
+  // t364 — the LANDING commit stays interruptible + progressive. When the
+  // initial data load (or a workspace switch / workflow import) lands a big
+  // canvas, mounting every card in ONE synchronous render pass blocked the
+  // main thread exactly while the user was trying to look at the app — the
+  // "opening the page stutters" report. Two levers, composed:
+  //   · useDeferredValue — the card layer re-renders at transition priority:
+  //     the shell paints first and pan/zoom/keys stay responsive while the
+  //     concurrent pass renders (steady-state polls stay free — the deferred
+  //     value only lags on real change, and memoized cards skip unchanged
+  //     rows anyway);
+  //   · chunked reveal — a landing that GROWS the list by more than a chunk
+  //     mounts cards ~20 per frame instead of one giant pop, so early cards
+  //     are visible while the rest stream in.
+  // Everything interactive (fit, print, export, find, LiveWire) keeps the
+  // FRESH lists; only the workspace render layer consumes these.
+  const deferredJobs = React.useDeferredValue(jobs);
+  const deferredEdges = React.useDeferredValue(edges);
+  const [revealCount, setRevealCount] = React.useState<number | null>(null);
+  const [seenCount, setSeenCount] = React.useState(0);
+  if (deferredJobs.length !== seenCount) {
+    // t364 — adjust state DURING render (React's sanctioned prev-state
+    // pattern): a landing FROM EMPTY arms the progressive reveal BEFORE the
+    // big list ever commits, so the first visible frame already shows the
+    // first chunk — arming from an effect would be one commit too late (all
+    // N cards mount, then 80 of them unmount and stream back in). Growth of
+    // a NON-empty canvas mounts immediately instead: a slice would blink
+    // cards the user already has (an import's +30 must never unmount the
+    // existing 40).
+    if (seenCount === 0 && deferredJobs.length > REVEAL_CHUNK) {
+      setRevealCount(REVEAL_CHUNK);
+    }
+    setSeenCount(deferredJobs.length);
+  }
+  React.useEffect(() => {
+    if (revealCount === null) return;
+    if (revealCount >= deferredJobs.length) {
+      setRevealCount(null); // caught up (or the list shrank past us) — all in
+      return;
+    }
+    const t = window.setTimeout(() => {
+      setRevealCount((r) =>
+        r === null ? deferredJobs.length : Math.min(r + REVEAL_CHUNK, deferredJobs.length)
+      );
+    }, 16);
+    return () => window.clearTimeout(t);
+  }, [revealCount, deferredJobs.length]);
+  const renderJobs =
+    revealCount === null ? deferredJobs : deferredJobs.slice(0, revealCount);
   const selectedId = useWorkflowStore((s) => s.selectedId);
   // Task 115 — the injected @page size is the CANVAS sheet's contract; when
   // the job inspector is open the paper is the job REPORT and the report
@@ -1914,9 +1968,9 @@ export function WorkflowCanvas() {
             // properties inherit downward to this div's print rules)
           }}
         >
-          <EdgesLayer edges={edges} jobs={jobs} judgedIds={noteSpotlight ? judgedIds : null} />
+          <EdgesLayer edges={deferredEdges} jobs={renderJobs} judgedIds={noteSpotlight ? judgedIds : null} />
           <LiveWire rootRef={rootRef} jobs={jobs} />
-          {jobs.map((job) => (
+          {renderJobs.map((job) => (
             <JobCard
               key={job.id}
               job={job}
