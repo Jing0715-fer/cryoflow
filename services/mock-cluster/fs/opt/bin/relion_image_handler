@@ -1,0 +1,140 @@
+#!/usr/bin/env python3
+"""Mock relion_image_handler for the CryoFlow mock cluster (t365).
+
+Functional exactly where the t365 reference pre-flight needs it to be: it
+REALLY rescales (--scale: a factor > 1 shrinks by it, RELION's dialect)
+and REALLY re-windows (--new_box: center-crop / zero-pad) mode-2 float32
+volumes — and keeps the MRC cell sizes honest:
+
+  • a pure resample preserves the physical box in Å (cella UNCHANGED,
+    the voxel count changes — 16³ @ 0.808 → 4³ @ 3.232 keeps 12.928 Å);
+  • a window changes the physical box (cella = n × Å/px per axis).
+
+The t365 dispatch verifies the product by its OWN header, so this stub
+cannot lie its way past the gate — the same contract the real binary is
+held to. Unknown flags are ignored the way the real tool ignores noise;
+--i == --o refuses (the real tool refuses to stomp its input).
+"""
+import os
+import struct
+import sys
+
+argv = sys.argv[1:]
+opts = {}
+i = 0
+while i < len(argv):
+    a = argv[i]
+    if a.startswith("--"):
+        opts[a[2:]] = argv[i + 1] if i + 1 < len(argv) else ""
+        i += 2
+    else:
+        i += 1
+
+# t315's contract: cluster-absolute paths (/projects/…, /data2/…) name the
+# MOCK's mounts, which live under the mock fs root on the host — and this
+# stub gets invoked by commands that ALSO carry that fs root (a binDir-
+# qualified address), so the mock server's own command translation steps
+# aside (its double-translation guard). Translate both sides here, the
+# same way relion_refine's audit does: reads find the mock's copy, writes
+# land in the mock's mounts (the app's probes — translated by the server —
+# then find the product where the cluster path says it is).
+MOCK_ROOT = os.environ.get("CRYOFLOW_MOCK_FS_ROOT", "")
+
+
+def translate(p):
+    if not MOCK_ROOT or not os.path.isabs(p):
+        return p
+    cand = os.path.join(MOCK_ROOT, p.lstrip("/"))
+    if os.path.exists(cand):
+        return cand
+    if not os.path.exists(p):
+        return cand
+    return p
+
+
+src = translate(opts.get("i", ""))
+dst = translate(opts.get("o", ""))
+if not src or not dst:
+    sys.exit("relion_image_handler: --i and --o are required")
+if src == dst:
+    sys.exit("relion_image_handler: --o must differ from --i (the input is never stomped)")
+
+with open(src, "rb") as f:
+    blob = f.read()
+nx, ny, nz = struct.unpack_from("<3i", blob, 0)
+mode, = struct.unpack_from("<i", blob, 12)
+if mode != 2:
+    sys.exit(f"relion_image_handler: only mode-2 float32 volumes (got mode {mode})")
+cella = struct.unpack_from("<3f", blob, 40)
+vals = struct.unpack_from(f"<{nx * ny * nz}f", blob, 1024)
+
+
+def grid(nz_, ny_, nx_):
+    return [
+        (z, y, x)
+        for z in range(nz_)
+        for y in range(ny_)
+        for x in range(nx_)
+    ]
+
+
+# ---- --scale: a resample that preserves the physical box (cella stays) ---
+scale = opts.get("scale")
+if scale:
+    try:
+        f = float(scale)
+    except ValueError:
+        sys.exit(f"relion_image_handler: --scale {scale!r} is not a number")
+    if f <= 0:
+        sys.exit("relion_image_handler: --scale must be > 0")
+    dims = []
+    for n in (nx, ny, nz):
+        # RELION's dialect: factor > 1 shrinks; the new edge is n / f
+        dims.append(max(1, int(round(n / f))))
+    nnx, nny, nnz = dims
+    out = [0.0] * (nnx * nny * nnz)
+    for (z, y, x) in grid(nnz, nny, nnx):
+        # uniform nearest-neighbour: new index i samples old i * n_old / n_new
+        sz = min(nz - 1, int(z * nz / nnz))
+        sy = min(ny - 1, int(y * ny / nny))
+        sx = min(nx - 1, int(x * nx / nnx))
+        out[z * nny * nnx + y * nnx + x] = vals[sz * ny * nx + sy * nx + sx]
+    vals = out
+    nx, ny, nz = nnx, nny, nnz
+
+# ---- --new_box: a center window that changes the physical box ------------
+new_box = opts.get("new_box")
+if new_box:
+    try:
+        b = int(new_box)
+    except ValueError:
+        sys.exit(f"relion_image_handler: --new_box {new_box!r} is not an integer")
+    if b <= 0:
+        sys.exit("relion_image_handler: --new_box must be > 0")
+    out = [0.0] * (b * b * b)
+    z0 = (b - nz) // 2  # negative when cropping: the paste window shrinks
+    for (z, y, x) in grid(min(b, nz), min(b, ny), min(b, nx)):
+        sz = z + max(0, (nz - b) // 2)
+        sy = y + max(0, (ny - b) // 2)
+        sx = x + max(0, (nx - b) // 2)
+        pz, py, px = z + z0, y + z0, x + z0
+        out[pz * b * b + py * b + px] = vals[sz * ny * nx + sy * nx + sx]
+    vals = out
+    cella = [b * (cella[k] / max(1, (nx, ny, nz)[k])) for k in range(3)]
+    nx = ny = nz = b
+
+hdr = bytearray(1024)
+struct.pack_into("<3i", hdr, 0, nx, ny, nz)
+struct.pack_into("<i", hdr, 12, 2)  # mode 2 = float32
+struct.pack_into("<3f", hdr, 40, *cella)
+struct.pack_into("<3f", hdr, 68, 90.0, 90.0, 90.0)
+hdr[208:212] = b"MAP "
+struct.pack_into("<I", hdr, 92, 0)  # nsymbt = 0
+vmin = min(vals) if vals else 0.0
+vmax = max(vals) if vals else 0.0
+vmean = (sum(vals) / len(vals)) if vals else 0.0
+struct.pack_into("<3f", hdr, 76, vmin, vmax, vmean)
+with open(dst, "wb") as f:
+    f.write(bytes(hdr))
+    f.write(struct.pack(f"<{len(vals)}f", *vals))
+print(f"relion_image_handler: wrote {dst} ({nx}×{ny}×{nz}, {cella[0] / max(1, nx):.4f} Å/px)")

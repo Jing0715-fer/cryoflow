@@ -259,7 +259,9 @@ const ptCs = npyBuffer(PT_FIELDS, PT_ROWS);
 
 try {
   console.log("== PHASE 0: the stage ==");
-  must((await api("/")).status === 200, "the prod server answers on :3001");
+  // t351’s lesson: the home-page client tree alone compiles to 2.2 GB and OOMs
+  // the 4 GB box — the API route is the honest liveness probe for this suite
+  must((await api("/api/jobs")).status === 200, "the dev server answers on :3001");
   must(await mockListening(), "the mock cluster answers on :3022");
 
   // ====================================================================
@@ -360,7 +362,7 @@ try {
     must(rows[0]?.startsWith("1@micrographs/foo_particles.mrcs"), `A4m row 1's ImageName (got ${rows[0]?.slice(0, 40)})`);
     must(rows[1]?.startsWith("2@micrographs/foo_particles.mrcs"), "A4n row 2's ImageName (idx+1)");
     const cols = rows[0]?.split("\t") ?? [];
-    // column order: imageName, micrographName, coordX, coordY, rot, tilt, psi, originX, originY, defocusU, defocusV, angle, phase, class, subset
+    // column order: imageName, micrographName, coordX, coordY, rot, tilt, psi, originX, originY, defocusU, defocusV, angle, phase, class, subset, opticsGroup(t366, appended last)
     must(cols[2] === "1250" && cols[3] === "1500", `A4o the absolute coordinates (swapxy + no invertY): ${cols[2]},${cols[3]}`);
     must(cols[7] === "1.395" && cols[8] === "-1.86", `A4p the origins in Å (shift × angpix): ${cols[7]},${cols[8]}`);
     must(cols[9] === "12000", `A4q defocusU in Å unchanged: ${cols[9]}`);
@@ -411,6 +413,83 @@ try {
       {}
     );
     must(r.particles === 1, `A7 a row without blob/path drops (got ${r.particles})`);
+  }
+
+  // A8 — t366: the stacks' probed sampling OVERRIDES the .cs metadata (the
+  // field report: stale full-resolution claims over 4×-binned stacks)
+  {
+    const r = conv.csRowsToStar(
+      [{ ...PRIMARY_ROWS[0] }],
+      [[{ ...PT_ROWS[0], "blob/psize_A": 0.808 }]],
+      {}
+    );
+    must(
+      r.opticsSource === "cs-metadata" && r.samplingVariants.length === 1 && r.samplingVariants[0].box === 128,
+      `A8a the metadata lane reports its source + the .cs's own claim (got ${r.opticsSource} / ${JSON.stringify(r.samplingVariants)})`
+    );
+    const o = conv.csRowsToStar(
+      [{ ...PRIMARY_ROWS[0] }],
+      [[{ ...PT_ROWS[0], "blob/psize_A": 0.808 }]],
+      { sampling: { box: 100, angpix: 3.232 } }
+    );
+    must(
+      o.optics.angpix === 3.232 && o.optics.boxSize === 100 && o.opticsSource === "stack-headers",
+      `A8b the override wins in the star (got ${o.optics.angpix}/${o.optics.boxSize} via ${o.opticsSource})`
+    );
+    must(
+      o.samplingVariants.length === 1 && o.samplingVariants[0].angpix === 0.808 && o.samplingVariants[0].box === 128,
+      `A8c the .cs's raw claim survives in samplingVariants for the receipt (got ${JSON.stringify(o.samplingVariants)})`
+    );
+    const prow = o.starText.split("\n").find((l) => /^\d+@micrographs\//.test(l));
+    const cols = prow?.split("\t") ?? [];
+    must(
+      cols.length === 16 && cols[15] === "1" && o.starText.includes("_rlnOpticsGroup #16"),
+      `A8d the row is TAGGED with its group (col 16, got ${cols.length} cols, last="${cols[15] ?? "?"}")`
+    );
+    // origins in Å use the PHYSICAL pixel (shift 1.5 px × 3.232 = 4.848)
+    must(
+      Math.abs(Number(cols[7]) - 1.5 * 3.232) < 1e-6,
+      `A8e the origins speak the physical pixel (got ${cols[7]})`
+    );
+    // the partial override: box from headers, pixel stays the claim
+    const half = conv.csRowsToStar([{ ...PRIMARY_ROWS[0] }], [[{ ...PT_ROWS[0] }]], { sampling: { box: 100 } });
+    must(
+      half.optics.boxSize === 100 && half.optics.angpix === 0.93,
+      `A8f a box-only override leaves the pixel to the metadata (got ${half.optics.boxSize}/${half.optics.angpix})`
+    );
+  }
+
+  // A9 — t366: judgeStackSamplings, the ONE verdict engine every lane shares
+  {
+    const j = conv.judgeStackSamplings([
+      { path: "a.mrcs", box: 100, angpix: 3.232 },
+      { path: "b.mrcs", box: 100, angpix: 3.2320001 },
+      { path: "c.mrcs", box: null, angpix: null },
+    ]);
+    must(
+      j.sampling?.box === 100 && j.sampling.angpix !== null && Math.abs(j.sampling.angpix - 3.232) < 1e-4,
+      `A9a agreement across float32 noise (got ${JSON.stringify(j.sampling)})`
+    );
+    must(j.probed === 2 && j.unreadable === 1 && j.variants.length === 1, `A9b the census counts (got ${j.probed}/${j.unreadable}/${j.variants.length})`);
+    const m = conv.judgeStackSamplings([
+      { path: "a.mrcs", box: 100, angpix: 3.232 },
+      { path: "z.mrcs", box: 256, angpix: 0.808 },
+      { path: "b.mrcs", box: 100, angpix: 3.232 },
+    ]);
+    must(
+      m.sampling == null && m.variants.length === 2 && m.variants[0].stacks === 2 && m.variants[1].first === "z.mrcs",
+      `A9c the mixed census (got ${JSON.stringify(m.variants)})`
+    );
+    const n = conv.judgeStackSamplings([{ path: "a.mrcs", box: 100, angpix: null }]);
+    must(
+      n.sampling?.box === 100 && n.sampling.angpix == null,
+      `A9d a header without cella votes on the box only (got ${JSON.stringify(n.sampling)})`
+    );
+    const none = conv.judgeStackSamplings([{ path: "a.mrcs", box: null, angpix: null }]);
+    must(
+      none.sampling == null && none.unreadable === 1,
+      `A9e nothing readable → the degraded note's facts (got ${JSON.stringify(none)})`
+    );
   }
 
   // ====================================================================

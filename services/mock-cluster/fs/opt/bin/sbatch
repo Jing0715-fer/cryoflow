@@ -12,6 +12,10 @@
 set -u
 SLURM_DIR="$HOME/.slurm"
 mkdir -p "$SLURM_DIR"
+# t367 — every submission's argv rides a log line (the diag asserts the
+# app's #SBATCH --time directive landed in the SCRIPT; the argv log proves
+# nothing snuck in only on the command line)
+printf '%s\n' "sbatch $*" >> "$SLURM_DIR/sbatch-argv.log"
 
 script=""
 extra_out=""

@@ -300,6 +300,15 @@ export interface SbatchResult {
   error?: string;
 }
 
+/** t367 — minutes → Slurm's [[DD-]HH:]MM:SS form (exported for the remote
+ * dispatch's --time leg: a visible #SBATCH --time directive in the script
+ * beats a command-line flag nobody can grep after the fact). */
+export function slurmHms(minutes: number): string {
+  const m = Math.max(1, Math.round(minutes));
+  const h = Math.floor(m / 60);
+  return `${String(h).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}:00`;
+}
+
 function hms(minutes: number): string {
   const m = Math.max(1, Math.round(minutes));
   const h = Math.floor(m / 60);

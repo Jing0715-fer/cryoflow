@@ -13,6 +13,7 @@
 # two states; long: CPU) so older suites' shapes keep answering.
 fmt="%P %a %l %D %T %N"
 header=1
+partition=""
 while [ $# -gt 0 ]; do
   case "$1" in
     -h|--noheader) header=0 ;;
@@ -21,9 +22,32 @@ while [ $# -gt 0 ]; do
       fmt="${1:-$fmt}"
       ;;
     --format=*) fmt="${1#--format=}" ;;
+    # t367 — the walltime resolver asks the partition's MaxTime:
+    # sinfo -h -o '%l' -p <partition>. Parse -p / --partition= both.
+    -p)
+      shift
+      partition="${1:-}"
+      ;;
+    --partition=*) partition="${1#--partition=}" ;;
   esac
   shift
 done
+
+# t367 — the single-field MaxTime grammar: per-partition ceilings that
+# mirror a real shared GPU cluster (the brain family 8h, normal 4h, the
+# legacy shared partitions generous). The refinement family's sbatch
+# asks exactly this before submitting.
+if [ "$fmt" = "%l" ]; then
+  case "$partition" in
+    brain|brain2|brain3|brain4) echo "8:00:00" ;;
+    normal|normal02)             echo "4:00:00" ;;
+    gpu)                          echo "12:00:00" ;;
+    long)                         echo "1-00:00:00" ;;
+    "")                           echo "infinite" ;;
+    *)                            echo "infinite" ;;
+  esac
+  exit 0
+fi
 
 emit() {
   # $1 partition  $2 gres  $3 nodes  $4 state  $5 hostlist

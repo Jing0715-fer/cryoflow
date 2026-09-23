@@ -45,7 +45,7 @@ import { exec as sshExec, remoteDownload, remoteMkdir, remoteUpload } from "@/li
 import { wipeLocalRunProducts } from "@/lib/relion/run-wipe";
 import { describeExtractCollisions, scanExtractCollisions } from "@/lib/relion/extract-collide";
 import { npyRows, parseNpyHeader } from "@/lib/relion/cs-npy";
-import { csRowsToStar, type Cs2StarResult } from "@/lib/relion/cs2star";
+import { csRowsToStar, judgeStackSamplings, type Cs2StarResult, type StackSamplingProbe } from "@/lib/relion/cs2star";
 import type { RemoteConnection, RemoteRunState } from "@/lib/remote/types";
 import { parseMrcHeaderBytes, readMrcHeader, type MrcHeader } from "@/lib/mrc";
 import { sniffImageFile, spreadSample, type HeaderSniffer, type SniffVerdict } from "./mrc-sniff";
@@ -3349,7 +3349,7 @@ const CS2STAR_CLUSTER_PY = String.raw`#!/usr/bin/env python3
 # (csRowsToStar): same uid join, same field table, same link naming,
 # same star emit order - the star written here is byte-identical to the
 # one the local lane would have produced from the same .cs.
-import argparse, json, math, os, re, sys, time
+import argparse, json, math, os, re, struct, sys, time
 from decimal import Decimal
 
 import numpy as np
@@ -3578,7 +3578,78 @@ def main():
         stack_plan.append((p, name))
     link_of = dict(stack_plan)
 
+    # t366 — probe the stacks' OWN headers, in place, BEFORE a single
+    # optics value is written: the .cs metadata is a CLAIM, the headers
+    # are the truth. The field report: a merged CryoSPARC particle set
+    # carried stale full-resolution metadata (blob/shape 256 @ 0.808 A)
+    # over stacks that are physically the 4x-binned truth (100 px @
+    # 3.232 A) — one optics row lied per group, and the particles were
+    # never tagged with their group at all (RELION defaulted everything
+    # to group 1 and the other 44 rows were dead metadata that baffled
+    # the user straight back into the chat). The stacks are LOCAL files
+    # here — one 1 KB read each, no wire, no queue.
+    def resolve_cs(p):
+        if p.startswith("/"):
+            return p
+        return args.cs_root + "/" + re.sub(r"^\./", "", p)
+
+    targets = [resolve_cs(p) for (p, _n) in stack_plan]
+    missing = [t for t in targets if not os.path.isfile(t)]
+    if missing:
+        fail("%d referenced particle stack(s) are missing on the cluster (first: %s) - the .cs names files the CryoSPARC project no longer holds" % (len(missing), missing[0]))
+
+    # the t360 header grammar (parseMrcHeaderBytes), mirrored field for
+    # field: dims, mode->bpp, nsymbt, the size sanity — a header that
+    # fails any of it is UNREADABLE, never a vote
+    MODE_BYTES = {0: 1, 1: 2, 2: 4, 6: 2, 12: 2, 16: 1}
+    phys = {"box": None, "angpix": None}
+    stacks_probed = 0
+    stacks_unreadable = 0
+    votes = {}
+    for (p, t) in zip([p for (p, _n) in stack_plan], targets):
+        try:
+            with open(t, "rb") as fh:
+                head = fh.read(1024)
+            if len(head) < 1024:
+                raise ValueError("short header")
+            nx, ny, nz = struct.unpack_from("<3i", head, 0)
+            (mode,) = struct.unpack_from("<i", head, 12)
+            (nsymbt,) = struct.unpack_from("<i", head, 92)
+            cella = struct.unpack_from("<3f", head, 40)
+            bpp = MODE_BYTES.get(mode)
+            if (
+                nx <= 0 or ny <= 0 or nz <= 0 or nx > 65536 or ny > 65536 or nz > 1000000
+                or nsymbt < 0 or nsymbt > 16000000 or bpp is None
+            ):
+                raise ValueError("bad dims")
+            if 1024 + nsymbt + nx * ny * nz * bpp > os.path.getsize(t) + bpp:
+                raise ValueError("size mismatch")
+            if nx != ny:
+                raise ValueError("non-square box")
+            px = (cella[0] / nx) if cella[0] > 0 else None
+            stacks_probed += 1
+            key = (nx, None if px is None else round(px, 4))
+            votes.setdefault(key, {"box": nx, "angpix": px, "stacks": 0, "first": t})
+            votes[key]["stacks"] += 1
+        except (OSError, ValueError, struct.error):
+            stacks_unreadable += 1
+    log("stack headers probed: %d readable, %d unreadable, %d sampling vote(s)" % (stacks_probed, stacks_unreadable, len(votes)))
+    if len(votes) > 1:
+        census = "; ".join(
+            "%d stack(s) are %d px @ %s A (first: %s)" % (v["stacks"], v["box"], ("%.4f" % v["angpix"]) if v["angpix"] is not None else "?", v["first"])
+            for v in sorted(votes.values(), key=lambda v: (v["box"], v["angpix"] or 0))
+        )
+        fail(
+            "the referenced particle stacks MIX samplings — one RELION classification cannot hold both: %s — "
+            "split the particle set (in cryoSPARC: Select on the extraction job) and convert each sampling separately, "
+            "or re-extract everything at one sampling (t366)" % census
+        )
+    for v in votes.values():
+        phys["box"] = v["box"]
+        phys["angpix"] = v["angpix"]
+
     optics_rows = {}
+    claimed_variants = {}
     star_rows = []
     for i in range(n_rows):
         imgp = img_path(i)
@@ -3589,16 +3660,22 @@ def main():
         gid_v = nn(num1(i, "ctf/exp_group_id"), 0)
         gid = jsround(gid_v) + 1
         if gid not in optics_rows:
-            angpix = nn(num1(i, "blob/psize_A"), fb_angpix, 1.0)
+            claimed_px = nn(num1(i, "blob/psize_A"), fb_angpix, 1.0)
+            angpix = claimed_px if phys["angpix"] is None else phys["angpix"]
             voltage = nn(num1(i, "ctf/accel_kv"), fb_voltage, 300.0)
             cs = nn(num1(i, "ctf/cs_mm"), fb_cs, 2.7)
             ac = nn(num1(i, "ctf/amp_contrast"), num1(i, "ctf/ac"), fb_ac, 0.1)
             shape = arr1(i, "blob/shape")
-            box = jsround(nn(shape[0] if shape else None, 0))
+            claimed_box = jsround(nn(shape[0] if shape else None, 0))
+            box = claimed_box if phys["box"] is None else phys["box"]
             optics_rows[gid] = {"voltage": voltage, "cs": cs, "ac": ac, "angpix": angpix, "box": box}
+            ck = (claimed_box, round(claimed_px, 4))
+            if ck not in claimed_variants:
+                claimed_variants[ck] = True
         opt = optics_rows[gid]
 
         vals = {}
+        vals["opticsGroup"] = str(gid)  # t366 — the row SPEAKS its group
         if link_name:
             vals["imageName"] = "%d@micrographs/%s" % (max(1, jsround(img_idx) + 1), link_name)
         else:
@@ -3676,6 +3753,11 @@ def main():
         ("phaseShift", "_rlnPhaseShift"),
         ("classNumber", "_rlnClassNumber"),
         ("randomSubset", "_rlnRandomSubset"),
+        # t366 — without this column every particle silently rides optics
+        # group 1 in RELION and the other groups' rows are dead metadata.
+        # Appended LAST so every existing column index survives (the TS
+        # twin appends the same column in the same place).
+        ("opticsGroup", "_rlnOpticsGroup"),
     ]
     active = [c for c in COLS if any(c[0] in r for r in star_rows)]
 
@@ -3729,16 +3811,16 @@ def main():
         }
 
     # verify the referenced stacks exist, resolve relative paths against
-    # the cs project root (the engine's old lane did this over SSH)
-    def resolve_cs(p):
-        if p.startswith("/"):
-            return p
-        return args.cs_root + "/" + re.sub(r"^\./", "", p)
-
-    targets = [resolve_cs(p) for (p, _n) in stack_plan]
-    missing = [t for t in targets if not os.path.isfile(t)]
-    if missing:
-        fail("%d referenced particle stack(s) are missing on the cluster (first: %s) - the .cs names files the CryoSPARC project no longer holds" % (len(missing), missing[0]))
+    # the cs project root — both already happened in the t366 probe phase
+    # above (missing stacks refused there, headers voted there); this
+    # reuses the resolved targets
+    dirs = set(os.path.dirname(t) for t in targets)
+    total_mrc = 0
+    for d in dirs:
+        try:
+            total_mrc += sum(1 for f in os.listdir(d) if f.endswith(".mrc"))
+        except OSError:
+            pass
 
     os.makedirs(args.link_dir, exist_ok=True)
     log("linking %d stack(s) into %s (selective - only what this star references)" % (len(stack_plan), args.link_dir))
@@ -3750,14 +3832,6 @@ def main():
             os.symlink(target, link)
         except OSError as e:
             fail("could not link %s -> %s (%s)" % (link, target, e))
-
-    dirs = set(os.path.dirname(t) for t in targets)
-    total_mrc = 0
-    for d in dirs:
-        try:
-            total_mrc += sum(1 for f in os.listdir(d) if f.endswith(".mrc"))
-        except OSError:
-            pass
 
     tmp = args.out + ".tmp"
     with open(tmp, "w", encoding="utf-8", newline="\n") as fh:
@@ -3771,6 +3845,14 @@ def main():
         "unmapped": unmapped,
         "opticsGroups": len(optics_rows),
         "optics": {"voltage": first["voltage"], "cs": first["cs"], "ac": first["ac"], "angpix": first["angpix"], "boxSize": first["box"]},
+        # t366 — the sampling's provenance: the stacks' own probed headers
+        # (phys) vs the .cs metadata (claim), plus the claim's variant
+        # census — the receipt the lanes build the correction sentence from
+        "opticsSource": "stack-headers" if (phys["box"] is not None or phys["angpix"] is not None) else "cs-metadata",
+        "stacksProbed": stacks_probed,
+        "stacksUnreadable": stacks_unreadable,
+        "physical": phys,
+        "csVariants": [{"box": b, "angpix": p} for (b, p) in sorted(claimed_variants.keys())],
         "hasCoordinates": has_coords,
         "alignment": alignment,
         "censusTotalMrc": total_mrc,
@@ -3844,11 +3926,80 @@ interface CsClusterReceipt {
   unmapped: string[];
   opticsGroups: number;
   optics: { voltage: number; cs: number; ac: number; angpix: number; boxSize: number };
+  /** t366 — the sampling provenance the twin now reports (absent on an
+   *  older twin's receipt: treated as cs-metadata, never a guess) */
+  opticsSource?: "stack-headers" | "cs-metadata";
+  stacksProbed?: number;
+  stacksUnreadable?: number;
+  physical?: { box?: number | null; angpix?: number | null };
+  csVariants?: { box: number; angpix: number }[];
   hasCoordinates: boolean;
   alignment: "3D" | "2D" | "none";
   censusTotalMrc: number;
   starBytes: number;
   durationSec: number;
+}
+
+/* ------------------------------------------------------------------ */
+/* t366 — the optics-sampling receipt, ONE voice for all three lanes    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The ` · …` segment the conversion receipts append about WHERE the
+ * optics sampling came from: the stacks' own probed headers (verified,
+ * or corrected when the .cs metadata claimed more than one sampling) or
+ * the .cs metadata itself (honest degraded note when no header could be
+ * read). The python twin reports the facts in its CF_RECEIPT JSON; the
+ * SSH-download and local lanes hold them in memory — the SENTENCE is
+ * this one function, so no lane can drift.
+ */
+function opticsSamplingSegment(f: {
+  box: number | null;
+  angpix: number | null;
+  metaAngpix: number;
+  probed: number;
+  unreadable: number;
+  csVariants: { box: number; angpix: number }[];
+}): string {
+  const px = (v: number) => String(Number(v.toFixed(4)));
+  const unr = f.unreadable > 0 ? ` (${f.unreadable} header(s) unreadable, not judged)` : "";
+  if (f.box != null && f.angpix != null) {
+    // CORRECTED whenever the .cs's claim (as a whole) is not the physical
+    // sampling — a uniform lie (every group claims 256 px @ 0.808 over
+    // 100 px @ 3.232 stacks) corrects exactly like a mixed one
+    const claimDiffers =
+      f.csVariants.length !== 1 ||
+      Math.abs(f.csVariants[0]!.box - f.box) > 0.5 ||
+      Math.abs(f.csVariants[0]!.angpix - f.angpix) / f.angpix > 0.005;
+    const claim = claimDiffers
+      ? `; the .cs metadata claimed ${f.csVariants.length} sampling variant(s) (${f.csVariants
+          .map((v) => `${v.box} px @ ${px(v.angpix)} Å`)
+          .join(", ")}), every optics group now speaks the stacks' truth`
+      : "";
+    return ` · optics ${claimDiffers ? "CORRECTED from" : "verified against"} the stacks' own MRC headers — all ${f.probed} stack(s) are ${f.box} px @ ${px(f.angpix)} Å${claim}${unr}`;
+  }
+  if (f.box != null && f.angpix == null) {
+    return ` · box ${f.box} px verified against the stacks' own MRC headers (${f.probed} stack(s) agree); the headers carry no cella sizes, so the pixel size stays the .cs metadata's ${px(f.metaAngpix)} Å${unr}`;
+  }
+  return ` · optics from the .cs metadata (${f.unreadable} stack header(s) unreadable — the sampling is unverified)`;
+}
+
+/**
+ * t366 — the refusal for a particle set whose stacks PHYSICALLY mix
+ * samplings: no single RELION classification can hold both, and no
+ * metadata correction can fix files that genuinely differ. The census
+ * names counts + samplings + the first deviant of each.
+ */
+function samplingRefusal(variants: { box: number; angpix: number; stacks: number; first: string }[]): string {
+  const px = (v: number) => String(Number(v.toFixed(4)));
+  const census = variants
+    .map((v) => `${v.stacks} stack(s) are ${v.box} px @ ${px(v.angpix)} Å (first: ${v.first})`)
+    .join("; ");
+  return (
+    `the referenced particle stacks MIX samplings — one RELION classification cannot hold both: ${census} — ` +
+    `split the particle set (in cryoSPARC: Select on the extraction job) and convert each sampling separately, ` +
+    `or re-extract everything at one sampling`
+  );
 }
 
 /**
@@ -3939,10 +4090,20 @@ async function runCs2StarOnCluster(
     /* witness doctrine */
   }
   if (res.error || res.code == null || res.code !== 0) {
-    const why = [errText, outText].join("\n").split("\n").filter(Boolean).slice(-4).join(" | ");
+    // stderr leads the window: the twin speaks its verdicts as a single
+    // CS2STAR-ERROR line on stderr, and a chatty stdout (the probe log)
+    // must never push the verdict out of the slice the user reads (the
+    // t366 field report: the MIX-samplings refusal surfaced as "reading
+    // …/J44/…" instead of the refusal)
+    const outLines = outText.split(/\r?\n/).filter(Boolean);
+    const errLines = errText.split(/\r?\n/).filter(Boolean);
+    const why =
+      errLines.length > 0
+        ? [...errLines.slice(-3), ...outLines.slice(-1)].join(" | ")
+        : outLines.slice(-4).join(" | ") || "no output";
     return {
       ok: false,
-      error: `the cluster-side conversion failed (exit ${res.code ?? "ssh: " + (res.error ?? "no answer")}): ${why || "no output"} — the .cs was not downloaded and no star was written; the log tab holds the full converter output`,
+      error: `the cluster-side conversion failed (exit ${res.code ?? "ssh: " + (res.error ?? "no answer")}): ${why} — the .cs was not downloaded and no star was written; the log tab holds the full converter output`,
     };
   }
   const receiptLine = outText.split(/\r?\n/).filter((l) => l.startsWith("CF_RECEIPT ")).pop();
@@ -3992,8 +4153,19 @@ async function runCs2StarOnCluster(
         ? "2D alignments (psi)"
         : "no alignments (picked-only set)";
   const unmappedNote = conv.unmapped.length > 0 ? ` · ${conv.unmapped.length} unmapped .cs field(s) skipped` : "";
+  // t366 — the sampling provenance the twin probed ON the cluster (the
+  // stacks are local files there): verified / corrected / the honest
+  // degraded note, ONE sentence shape across every lane
+  const samplingSeg = opticsSamplingSegment({
+    box: conv.physical?.box ?? null,
+    angpix: conv.physical?.angpix ?? null,
+    metaAngpix: conv.optics.angpix,
+    probed: conv.stacksProbed ?? 0,
+    unreadable: conv.stacksUnreadable ?? 0,
+    csVariants: conv.csVariants ?? [],
+  });
   const result =
-    `REMOTE[cryo@${conn.host}]: ${conv.particles} particles converted from ${resolved.jobLabel}${censusNote} · ${conv.stacks.length} stack(s) → micrographs/ · ${opticsNote} · ${alignNote}${unmappedNote}` +
+    `REMOTE[cryo@${conn.host}]: ${conv.particles} particles converted from ${resolved.jobLabel}${censusNote} · ${conv.stacks.length} stack(s) → micrographs/ · ${opticsNote} · ${alignNote}${unmappedNote}${samplingSeg}` +
     (conv.opticsGroups > 1 ? ` · ${conv.opticsGroups} optics groups` : "") +
     ` · converted ON the cluster in place (no .cs download, no star upload)`;
   const logText = [
@@ -4003,7 +4175,7 @@ async function runCs2StarOnCluster(
     `python: ${pyExe}`,
     `invertY: ${opts.invertY}`,
     `particles: ${conv.particles} · referenced stacks: ${conv.stacks.length}${censusNote}`,
-    `optics: ${opticsNote} · ${alignNote}`,
+    `optics: ${opticsNote} · ${alignNote}${samplingSeg}`,
     conv.unmapped.length > 0 ? `unmapped fields: ${conv.unmapped.join(", ")}` : "",
     `output: ${twinPath} (cluster) — written in place, verified ${twinSize.toLocaleString()} bytes · ${conv.durationSec}s on the cluster; no local mirror by design (downstream jobs read the twin)`,
     result,
@@ -4281,9 +4453,13 @@ async function runCs2StarNative(job: EngineJobRef): Promise<NativeResult> {
 
     // convert FIRST — the census decides which links exist at all
     let conv: Cs2StarResult;
+    let csPrimaryRows: ReturnType<typeof npyRows>;
+    let csPtRows: ReturnType<typeof npyRows> | null = null;
+    let csConvertOpts = { invertY, fallback } as const;
     try {
-      const pt = ptBytes ? npyRows(ptBytes, parseNpyHeader(ptBytes)) : [];
-      conv = csRowsToStar(npyRows(primaryBytes, parseNpyHeader(primaryBytes)), pt ? [pt] : [], { invertY, fallback });
+      csPtRows = ptBytes ? npyRows(ptBytes, parseNpyHeader(ptBytes)) : null;
+      csPrimaryRows = npyRows(primaryBytes, parseNpyHeader(primaryBytes));
+      conv = csRowsToStar(csPrimaryRows, csPtRows ? [csPtRows] : [], { ...csConvertOpts });
     } catch (e) {
       return {
         ok: false,
@@ -4301,17 +4477,104 @@ async function runCs2StarNative(job: EngineJobRef): Promise<NativeResult> {
     // linked with the .mrcs name RELION requires. Zero data movement.
     const resolveCs = (p: string) => (p.startsWith("/") ? p : `${csProjectRoot}/${p.replace(/^\.\//, "")}`);
     const targets = conv.stacks.map((s) => resolveCs(s.csPath));
-    const verify = await sshExec(
-      conn,
-      `for f in ${targets.map((t) => `'${t.replace(/'/g, `'\\''`)}'`).join(" ")}; do [ -f "$f" ] || echo "MISSING $f"; done; true`,
-      { timeoutMs: 30_000 }
-    );
-    const missingStacks = (verify.stdout ?? "").split(/\r?\n/).map((l) => l.trim()).filter((l) => l.startsWith("MISSING "));
+    // t366 — probe the stacks' OWN headers over SSH (batches of 128: one
+    // exec emits, per stack, its stat size + its 1 KB header as base64 —
+    // the same bytes parseMrcHeaderBytes parses). The .cs metadata is a
+    // CLAIM; the field report taught that a merged CryoSPARC set can carry
+    // stale full-resolution metadata over 4×-binned stacks, so the
+    // headers are the sampling truth. A batch that cannot answer
+    // degrades to the .cs metadata with an honest note (the t313 rule:
+    // never a block on a guess); stacks that PHYSICALLY mix samplings are
+    // the one certain death and refuse by name.
+    const probes: StackSamplingProbe[] = [];
+    const missingStacks: string[] = [];
+    let probeWireErr: string | null = null;
+    for (let i = 0; i < targets.length && probeWireErr == null; i += 128) {
+      const batch = targets.slice(i, i + 128);
+      const script =
+        `for f in ${batch.map((t) => `'${t.replace(/'/g, `'\\''`)}'`).join(" ")}; do ` +
+        `if [ -f "$f" ]; then s=$(stat -c '%s' "$f" 2>/dev/null || echo 0); printf '%s\t%s\t' "$f" "$s"; head -c 1024 "$f" 2>/dev/null | base64 -w0; echo; ` +
+        `else echo "MISSING\t$f"; fi; done; true`;
+      let res: Awaited<ReturnType<typeof sshExec>>;
+      try {
+        res = await sshExec(conn, script, { timeoutMs: 90_000 });
+      } catch (e) {
+        probeWireErr = e instanceof Error ? e.message : String(e);
+        break;
+      }
+      if (res.error) {
+        probeWireErr = res.error;
+        break;
+      }
+      for (const line of (res.stdout ?? "").split(/\r?\n/)) {
+        if (line.startsWith("MISSING\t")) {
+          missingStacks.push(line.slice(8));
+          continue;
+        }
+        const seg = line.split("\t");
+        if (seg.length < 3 || !seg[0] || !seg[1] || !seg[2]) continue;
+        const size = Number(seg[1]);
+        let box: number | null = null;
+        let angpix: number | null = null;
+        if (Number.isFinite(size) && size > 0) {
+          try {
+            const h = parseMrcHeaderBytes(Buffer.from(seg[2], "base64"), size);
+            if (h && h.nx === h.ny) {
+              box = h.nx;
+              angpix = h.cella[0] > 0 ? h.cella[0] / h.nx : null;
+            }
+          } catch {
+            /* an unparsable header is an unreadable stack — the note owns it */
+          }
+        }
+        probes.push({ path: seg[0], box, angpix });
+      }
+    }
     if (missingStacks.length > 0) {
       return {
         ok: false,
-        error: `${missingStacks.length} referenced particle stack(s) are missing on the cluster (first: ${missingStacks[0]!.slice(8)}) — the .cs names files the CryoSPARC project no longer holds`,
+        error: `${missingStacks.length} referenced particle stack(s) are missing on the cluster (first: ${missingStacks[0]}) — the .cs names files the CryoSPARC project no longer holds`,
       };
+    }
+    let samplingSeg: string;
+    if (probeWireErr == null && probes.length > 0) {
+      const verdict = judgeStackSamplings(probes);
+      if (verdict.variants.length > 1) {
+        return { ok: false, error: samplingRefusal(verdict.variants) };
+      }
+      if (verdict.sampling != null && (verdict.sampling.box != null || verdict.sampling.angpix != null)) {
+        const claimed = conv.samplingVariants;
+        conv = csRowsToStar(csPrimaryRows!, csPtRows ? [csPtRows] : [], {
+          ...csConvertOpts,
+          sampling: {
+            ...(verdict.sampling.angpix != null ? { angpix: verdict.sampling.angpix } : {}),
+            ...(verdict.sampling.box != null ? { box: verdict.sampling.box } : {}),
+          },
+        });
+        phase(
+          `optics from the stacks' own headers: ${verdict.sampling.box ?? "?"} px @ ${verdict.sampling.angpix != null ? verdict.sampling.angpix.toFixed(4) : "?"} Å — ` +
+            `${conv.opticsGroups} group(s) ${claimed.length > 1 ? "corrected" : "confirmed"} (the .cs claimed ${claimed.length} sampling variant(s))`
+        );
+      }
+      samplingSeg = opticsSamplingSegment({
+        box: verdict.sampling?.box ?? null,
+        angpix: verdict.sampling?.angpix ?? null,
+        metaAngpix: conv.optics.angpix,
+        probed: verdict.probed,
+        unreadable: verdict.unreadable,
+        csVariants: conv.samplingVariants,
+      });
+    } else if (probeWireErr != null) {
+      samplingSeg = ` · optics from the .cs metadata (the stack-header probe did not answer: ${probeWireErr} — the sampling is unverified)`;
+    } else {
+      samplingSeg = opticsSamplingSegment({
+        box: null,
+        angpix: null,
+        metaAngpix: conv.optics.angpix,
+        probed: 0,
+        unreadable: targets.length,
+        csVariants: conv.samplingVariants,
+      });
     }
     linkPlan = conv.stacks.map((s, i) => ({ target: targets[i]!, linkName: s.linkName }));
 
@@ -4432,7 +4695,7 @@ async function runCs2StarNative(job: EngineJobRef): Promise<NativeResult> {
     // t352 — the envelope stays byte-identical (other components parse
     // it); only the twin fact is appended
     const result =
-      `REMOTE[cryo@${conn.host}]: ${conv.particles} particles converted from ${jobLabel}${censusNote} · ${conv.stacks.length} stack(s) → micrographs/ · ${opticsNote} · ${alignNote}${unmappedNote}` +
+      `REMOTE[cryo@${conn.host}]: ${conv.particles} particles converted from ${jobLabel}${censusNote} · ${conv.stacks.length} stack(s) → micrographs/ · ${opticsNote} · ${alignNote}${unmappedNote}${samplingSeg}` +
       (conv.opticsGroups > 1 ? ` · ${conv.opticsGroups} optics groups` : "") +
       ` · star saved on the cluster`;
     const logText = [
@@ -4441,7 +4704,7 @@ async function runCs2StarNative(job: EngineJobRef): Promise<NativeResult> {
       `cs project root: ${csProjectRoot}`,
       `invertY: ${invertY}`,
       `particles: ${conv.particles} · referenced stacks: ${conv.stacks.length}${censusNote}`,
-      `optics: ${opticsNote} · ${alignNote}`,
+      `optics: ${opticsNote} · ${alignNote}${samplingSeg}`,
       conv.unmapped.length > 0 ? `unmapped fields: ${conv.unmapped.join(", ")}` : "",
       `output: ${twinPath} (cluster) + local mirror: ${starPath}`,
       result,
@@ -4490,9 +4753,12 @@ async function runCs2StarNative(job: EngineJobRef): Promise<NativeResult> {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
   let conv: Cs2StarResult;
+  let csPrimaryRows: ReturnType<typeof npyRows>;
+  let csPtRows: ReturnType<typeof npyRows> | null = null;
   try {
-    const pt = ptBytes ? npyRows(ptBytes, parseNpyHeader(ptBytes)) : [];
-    conv = csRowsToStar(npyRows(primaryBytes, parseNpyHeader(primaryBytes)), pt ? [pt] : [], { invertY, fallback });
+    csPtRows = ptBytes ? npyRows(ptBytes, parseNpyHeader(ptBytes)) : null;
+    csPrimaryRows = npyRows(primaryBytes, parseNpyHeader(primaryBytes));
+    conv = csRowsToStar(csPrimaryRows, csPtRows ? [csPtRows] : [], { invertY, fallback });
   } catch (e) {
     return {
       ok: false,
@@ -4509,15 +4775,75 @@ async function runCs2StarNative(job: EngineJobRef): Promise<NativeResult> {
   mkdirSync(micDir, { recursive: true });
   const resolveLocal = (p: string) => (path.isAbsolute(p) ? p : path.join(csProjectRoot, p));
   const missingLocal: string[] = [];
+  // t366 — the stacks are LOCAL files: read each 1 KB header with the
+  // same parser every other lane uses, and let the stacks' own numbers
+  // judge the .cs metadata's sampling claim (verified / corrected / the
+  // honest degraded note; physically mixed samplings refuse by name)
+  const probes: StackSamplingProbe[] = [];
   for (const s of conv.stacks) {
     const target = resolveLocal(s.csPath);
-    if (!existsSync(target)) missingLocal.push(target);
+    if (!existsSync(target)) {
+      missingLocal.push(target);
+      continue;
+    }
+    let box: number | null = null;
+    let angpix: number | null = null;
+    try {
+      const fh = openSync(target, "r");
+      const buf = Buffer.alloc(1024);
+      const got = readSync(fh, buf, 0, 1024, 0);
+      closeSync(fh);
+      if (got >= 1024) {
+        const h = parseMrcHeaderBytes(buf, statSync(target).size);
+        if (h && h.nx === h.ny) {
+          box = h.nx;
+          angpix = h.cella[0] > 0 ? h.cella[0] / h.nx : null;
+        }
+      }
+    } catch {
+      /* an unreadable header is the note's business, never the run's */
+    }
+    probes.push({ path: target, box, angpix });
   }
   if (missingLocal.length > 0) {
     return {
       ok: false,
       error: `${missingLocal.length} referenced particle stack(s) not found (first: ${missingLocal[0]}) — the .cs names files this machine no longer holds`,
     };
+  }
+  let samplingSeg: string;
+  if (probes.length > 0) {
+    const verdict = judgeStackSamplings(probes);
+    if (verdict.variants.length > 1) {
+      return { ok: false, error: samplingRefusal(verdict.variants) };
+    }
+    if (verdict.sampling != null && (verdict.sampling.box != null || verdict.sampling.angpix != null)) {
+      conv = csRowsToStar(csPrimaryRows!, csPtRows ? [csPtRows] : [], {
+        invertY,
+        fallback,
+        sampling: {
+          ...(verdict.sampling.angpix != null ? { angpix: verdict.sampling.angpix } : {}),
+          ...(verdict.sampling.box != null ? { box: verdict.sampling.box } : {}),
+        },
+      });
+    }
+    samplingSeg = opticsSamplingSegment({
+      box: verdict.sampling?.box ?? null,
+      angpix: verdict.sampling?.angpix ?? null,
+      metaAngpix: conv.optics.angpix,
+      probed: verdict.probed,
+      unreadable: verdict.unreadable,
+      csVariants: conv.samplingVariants,
+    });
+  } else {
+    samplingSeg = opticsSamplingSegment({
+      box: null,
+      angpix: null,
+      metaAngpix: conv.optics.angpix,
+      probed: 0,
+      unreadable: conv.stacks.length,
+      csVariants: conv.samplingVariants,
+    });
   }
   for (const s of conv.stacks) {
     const target = resolveLocal(s.csPath);
@@ -4545,13 +4871,13 @@ async function runCs2StarNative(job: EngineJobRef): Promise<NativeResult> {
       : conv.alignment === "2D"
         ? "2D alignments (psi)"
         : "no alignments (picked-only set)";
-  const result = `${conv.particles} particles converted from ${jobLabel}${censusNote} · ${conv.stacks.length} stack(s) → micrographs/ · ${opticsNote} · ${alignNote}`;
+  const result = `${conv.particles} particles converted from ${jobLabel}${censusNote} · ${conv.stacks.length} stack(s) → micrographs/ · ${opticsNote} · ${alignNote}${samplingSeg}`;
   const logText = [
     `CryoFlow engine-native CryoSPARC conversion ${new Date().toISOString()}`,
     `source: ${primaryLocal}${ptLocal ? ` + ${ptLocal}` : ""}`,
     `invertY: ${invertY}`,
     `particles: ${conv.particles} · referenced stacks: ${conv.stacks.length}${censusNote}`,
-    `optics: ${opticsNote} · ${alignNote}`,
+    `optics: ${opticsNote} · ${alignNote}${samplingSeg}`,
     conv.unmapped.length > 0 ? `unmapped fields: ${conv.unmapped.join(", ")}` : "",
     `output: ${starPath}`,
     result,
@@ -5582,6 +5908,10 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
         "--ini_high", String(num(job, "iniHigh", 30)),
         // the reference may come from a different-box job (e.g. a low-res
         // InitialModel) — RELION resizes it to the particles' optics group
+        // (t365: the REMOTE dispatch now prepares a sampling-matched copy
+        // itself BEFORE submit, so this flag stays a fallback for the
+        // lanes the pre-flight cannot judge — the local lane, unreadable
+        // optics, user-driven --ref_angpix)
         "--trust_ref_size",
         "--split_random_halves",
         "--j", String(Math.max(1, Math.round(num(job, "threads", 4)))),

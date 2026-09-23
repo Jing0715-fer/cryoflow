@@ -139,9 +139,29 @@ const PT_ROWS = PRIMARY_ROWS.map((r, i) => ({
 const primaryCs = npyBuffer(PRIMARY_FIELDS, PRIMARY_ROWS);
 const ptCs = npyBuffer(PT_FIELDS, PT_ROWS);
 
+// t366 — a REAL mode-2 float32 stack (header + zero voxels): the probe
+// parses true bytes, so the fixture cannot lie its way past the gate
+function mrcStackBuf(box, angpix, nz) {
+  const buf = Buffer.alloc(1024 + box * box * nz * 4);
+  buf.writeInt32LE(box, 0); buf.writeInt32LE(box, 4); buf.writeInt32LE(nz, 8);
+  buf.writeInt32LE(2, 12); // mode 2 = float32
+  buf.writeFloatLE(box * angpix, 40); buf.writeFloatLE(box * angpix, 44); buf.writeFloatLE(nz * angpix, 48);
+  buf.write("MAP ", 208, "ascii");
+  return buf;
+}
+const MOCK_FS = `${ROOT}/services/mock-cluster/fs`;
+const writeMockStack = (rel, buf) => {
+  const p = `${MOCK_FS}/${rel}`;
+  mkdirSync(p.slice(0, p.lastIndexOf("/")), { recursive: true });
+  writeFileSync(p, buf);
+};
+
 let projectId = null;
 let localProjectId = null;
 let csJobId = null;
+let csLieJobId = null;
+let csMixJobId = null;
+let csDegJobId = null;
 let c2dJobId = null;
 let localCsJobId = null;
 try {
@@ -179,11 +199,15 @@ try {
   // fresh exec audit — the wire-traffic assertions below read it
   client("rm -f ~/.slurm/exec-audit.log");
   const b64 = (b) => b.toString("base64");
+  // t366 — J42's referenced stack gets a REAL header: 128 px @ 0.93 Å
+  // (nz 2 — two particles), exactly what the .cs metadata claims → the
+  // VERIFIED lane. The unreferenced bar stays a 1-byte stub.
+  writeMockStack("data2/csproj/J42/extract/foo_particles.mrc", mrcStackBuf(128, 0.93, 2));
+  writeMockStack("data2/csproj/J42/extract/bar_particles.mrc", Buffer.from("x"));
   const fx = client(
     "mkdir -p /data2/csproj/J42/extract; " +
       `echo ${b64(primaryCs)} | base64 -d > /data2/csproj/J42/cryosparc_J42_particles.cs; ` +
       `echo ${b64(ptCs)} | base64 -d > /data2/csproj/J42/J42_passthrough_particles.cs; ` +
-      "for s in foo bar; do printf 'x' > /data2/csproj/J42/extract/${s}_particles.mrc; done; " +
       "ls -1 /data2/csproj/J42/extract/"
   );
   must(/foo_particles\.mrc/.test(fx), `the CS fixtures build (${fx.replace(/\n/g, " ")})`);
@@ -206,6 +230,10 @@ try {
   must(/2 particles converted from J42/.test(result), `T1a the receipt leads with the count (${result.slice(0, 80)})`);
   must(/converted ON the cluster in place/.test(result), "T1b the receipt says the conversion ran on the cluster");
   must(/1 of 2 \.mrc stack\(s\) linked/.test(result), "T1c the selective census speaks (foo referenced, bar not)");
+  must(
+    /optics verified against the stacks' own MRC headers — all 1 stack\(s\) are 128 px @ 0\.93 Å/.test(result),
+    `T1d the receipt verifies the sampling against the stacks' own headers (t366: ${result.slice(80, 200)})`
+  );
 
   const workdir = `${ROOT}/data/relion/${projectId}`;
   const jobDir = readdirSync(workdir).find((d) => d.startsWith("cs2star_"));
@@ -215,6 +243,10 @@ try {
   must(/cluster python: \S+python/.test(runOut), "T2c run.out names the interpreter the probe found");
   must(/--- converter output \(on the cluster\) ---/.test(runOut), "T2d the converter's own log rides the witness");
   must(/star written on the cluster:/.test(runOut), "T2e the twin verification phase speaks");
+  must(
+    /stack headers probed: 1 readable, 0 unreadable, 1 sampling vote/.test(runOut),
+    "T2f run.out carries the stack-header probe phase (t366)"
+  );
 
   must(!existsSync(`${workdir}/${jobDir}/particles.cs`), "T3a the primary .cs was NEVER downloaded");
   must(!existsSync(`${workdir}/${jobDir}/passthrough_particles.cs`), "T3b the passthrough .cs was NEVER downloaded");
@@ -236,6 +268,10 @@ try {
   const twinStar = Buffer.from(twinStarB64, "base64").toString("utf8");
   must(/1@micrographs\/foo_particles\.mrcs/.test(twinStar) && /2@micrographs\/foo_particles\.mrcs/.test(twinStar), "T6a the twin star's rows speak the link names");
   must(twinStar.includes("data_optics") && twinStar.includes("0.93") && twinStar.includes("0.07"), "T6b the optics block landed in the twin");
+  must(
+    twinStar.includes("_rlnOpticsGroup #16") && /\t1$/.test(twinStar.split("\n").find((l) => l.startsWith("1@")) ?? ""),
+    "T6c every particle is TAGGED with its optics group (t366)"
+  );
 
   const linkDir = `/projects/cryoflow/${projectId}/micrographs`;
   const rlFoo = client(`readlink ${linkDir}/foo_particles.mrcs 2>/dev/null`);
@@ -255,6 +291,89 @@ try {
     `T9 the key numbers ride the receipt line (got ${outputs.body?.summary?.stats?.map((s) => `${s.key}=${s.value}`).join(", ") ?? "none"})`
   );
 
+  console.log("== PHASE 2b: the CORRECTED lane — the .cs lies, the stacks do not (t366) ==");
+  // the user's field report in miniature: the .cs claims 256 px @ 0.808 Å
+  // (stale full-resolution metadata) over stacks that are physically the
+  // 4×-binned truth (100 px @ 3.232 Å)
+  const liePrim = npyBuffer(PRIMARY_FIELDS, PRIMARY_ROWS.map((r) => ({ ...r, "blob/path": "J43/extract/lie_particles.mrc", "blob/shape": [256, 256] })));
+  const liePt = npyBuffer(PT_FIELDS, PT_ROWS.map((r) => ({ ...r, "blob/psize_A": 0.808 })));
+  writeMockStack("data2/csproj/J43/extract/lie_particles.mrc", mrcStackBuf(100, 3.232, 2));
+  client(
+    `echo ${liePrim.toString("base64")} | base64 -d > /data2/csproj/J43/cryosparc_J43_particles.cs; ` +
+      `echo ${liePt.toString("base64")} | base64 -d > /data2/csproj/J43/J43_passthrough_particles.cs`
+  );
+  const csLie = await api("/api/jobs", {
+    method: "POST", headers: SHJ,
+    body: JSON.stringify({
+      projectId, type: "cs2star", x: 60, y: 60, name: "CryoSPARC → RELION (t366 lie)",
+      params: { csPath: "/data2/csproj/J43", invertY: false },
+    }),
+  });
+  csLieJobId = csLie.body?.job?.id;
+  must(!!csLieJobId, `the lying-.cs cs2star job creates (${csLie.status})`);
+  must((await api(`/api/jobs/${csLieJobId}/run`, { method: "POST", headers: SHJ, body: "{}" })).status === 200, "the lying-.cs run accepts");
+  const doneLie = await awaitTerminal(csLieJobId, 120_000);
+  must(doneLie?.status === "completed", `the lying-.cs conversion completes (${doneLie?.status}: ${String(doneLie?.result ?? doneLie?.error ?? "").slice(0, 120)})`);
+  const lieResult = String(doneLie?.result ?? "");
+  must(
+    /optics CORRECTED from the stacks' own MRC headers — all 1 stack\(s\) are 100 px @ 3\.232 Å; the \.cs metadata claimed 1 sampling variant\(s\) \(256 px @ 0\.808 Å\), every optics group now speaks the stacks' truth/.test(lieResult),
+    `C1 the receipt speaks the correction (${lieResult.slice(60, 240)})`
+  );
+  const lieTwinPath = JSON.parse(readFileSync(`${ROOT}/data/engine-state.json`, "utf8"))[csLieJobId]?.remote?.remoteOutputs?.particles_star ?? "";
+  const lieTwin = client(`base64 -w0 ${lieTwinPath} 2>/dev/null`);
+  const lieStar = Buffer.from(lieTwin, "base64").toString("utf8");
+  must(
+    /\t100\t2\t3\.232(\r?\n|$)/.test(lieStar) && !/\t256\t2\t0\.808(\r?\n|$)/.test(lieStar),
+    "C2 the corrected star's optics speak the stacks' truth (100 px @ 3.232), the lie is gone"
+  );
+
+  console.log("== PHASE 2c: the MIXED refusal — stacks that physically differ (t366) ==");
+  const mixPrim = npyBuffer(PRIMARY_FIELDS, [
+    { ...PRIMARY_ROWS[0], "blob/path": "J44/extract/mixfoo_particles.mrc" },
+    { ...PRIMARY_ROWS[1], "blob/path": "J44/extract/mixbar_particles.mrc", "blob/idx": 0 },
+  ]);
+  writeMockStack("data2/csproj/J44/extract/mixfoo_particles.mrc", mrcStackBuf(100, 3.232, 2));
+  writeMockStack("data2/csproj/J44/extract/mixbar_particles.mrc", mrcStackBuf(128, 0.93, 2));
+  client(`echo ${mixPrim.toString("base64")} | base64 -d > /data2/csproj/J44/cryosparc_J44_particles.cs; echo ${ptCs.toString("base64")} | base64 -d > /data2/csproj/J44/J44_passthrough_particles.cs`);
+  const csMix = await api("/api/jobs", {
+    method: "POST", headers: SHJ,
+    body: JSON.stringify({
+      projectId, type: "cs2star", x: 60, y: 60, name: "CryoSPARC → RELION (t366 mix)",
+      params: { csPath: "/data2/csproj/J44", invertY: false },
+    }),
+  });
+  csMixJobId = csMix.body?.job?.id;
+  must(!!csMixJobId, `the mixed cs2star job creates (${csMix.status})`);
+  must((await api(`/api/jobs/${csMixJobId}/run`, { method: "POST", headers: SHJ, body: "{}" })).status === 200, "the mixed run accepts");
+  const doneMix = await awaitTerminal(csMixJobId, 120_000);
+  must(doneMix?.status === "failed", `the mixed conversion FAILS honestly (${doneMix?.status})`);
+  const mixErr = `${String(doneMix?.result ?? "")} ${String(doneMix?.error ?? "")}`;
+  must(
+    /MIX samplings/.test(mixErr) && /100 px @ 3\.232/.test(mixErr) && /128 px @ 0\.93/.test(mixErr),
+    `M1 the refusal censuses both samplings (${mixErr.slice(0, 220)})`
+  );
+
+  console.log("== PHASE 2d: the DEGRADED lane — an unreadable stack, a note never a block (t366) ==");
+  const degPrim = npyBuffer(PRIMARY_FIELDS, PRIMARY_ROWS.map((r) => ({ ...r, "blob/path": "J45/extract/deg_particles.mrc" })));
+  writeMockStack("data2/csproj/J45/extract/deg_particles.mrc", Buffer.from("x"));
+  client(`echo ${degPrim.toString("base64")} | base64 -d > /data2/csproj/J45/cryosparc_J45_particles.cs; echo ${ptCs.toString("base64")} | base64 -d > /data2/csproj/J45/J45_passthrough_particles.cs`);
+  const csDeg = await api("/api/jobs", {
+    method: "POST", headers: SHJ,
+    body: JSON.stringify({
+      projectId, type: "cs2star", x: 60, y: 60, name: "CryoSPARC → RELION (t366 deg)",
+      params: { csPath: "/data2/csproj/J45", invertY: false },
+    }),
+  });
+  csDegJobId = csDeg.body?.job?.id;
+  must(!!csDegJobId, `the degraded cs2star job creates (${csDeg.status})`);
+  must((await api(`/api/jobs/${csDegJobId}/run`, { method: "POST", headers: SHJ, body: "{}" })).status === 200, "the degraded run accepts");
+  const doneDeg = await awaitTerminal(csDegJobId, 120_000);
+  must(doneDeg?.status === "completed", `the degraded conversion completes — a note, never a block (${doneDeg?.status})`);
+  must(
+    /optics from the \.cs metadata \(1 stack header\(s\) unreadable — the sampling is unverified\)/.test(String(doneDeg?.result ?? "")),
+    `D1 the honest degraded note rides the receipt (${String(doneDeg?.result ?? "").slice(60, 200)})`
+  );
+
   console.log("== PHASE 3: BYTE-IDENTITY — the local lane on the same .cs bytes ==");
   const localProj = await api("/api/projects", {
     method: "POST", headers: SHJ,
@@ -264,7 +383,10 @@ try {
   mkdirSync("/tmp/t353-cs/J42/extract", { recursive: true });
   writeFileSync("/tmp/t353-cs/J42/extracted_particles.cs", primaryCs);
   writeFileSync("/tmp/t353-cs/J42/whatever_passthrough_particles.cs", ptCs);
-  for (const s of ["foo", "bar"]) writeFileSync(`/tmp/t353-cs/J42/extract/${s}_particles.mrc`, "x");
+  // t366 — the SAME real stack bytes the mock holds: both lanes must
+  // derive the same override, or the byte-identity below is a lie
+  writeFileSync("/tmp/t353-cs/J42/extract/foo_particles.mrc", mrcStackBuf(128, 0.93, 2));
+  writeFileSync("/tmp/t353-cs/J42/extract/bar_particles.mrc", "x");
   const csLocal = await api("/api/jobs", {
     method: "POST", headers: SHJ,
     body: JSON.stringify({
@@ -323,7 +445,7 @@ try {
   must(false, "the diag ran to completion", String(e?.stack ?? e));
 } finally {
   console.log("== CLEANUP ==");
-  for (const id of [csJobId, c2dJobId, localCsJobId]) {
+  for (const id of [csJobId, csLieJobId, csMixJobId, csDegJobId, c2dJobId, localCsJobId]) {
     if (id) await api(`/api/jobs/${id}`, { method: "DELETE", headers: SHJ }).catch(() => {});
   }
   if (projectId) {

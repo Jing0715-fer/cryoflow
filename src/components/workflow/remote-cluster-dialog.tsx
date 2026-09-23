@@ -716,6 +716,10 @@ interface Draft {
   useSlurm: boolean;
   /** t297 — Slurm partition for sbatch submissions (empty = cluster default). */
   slurmPartition: string;
+  /** t367 — explicit sbatch walltime in minutes ("" = auto: refinement jobs
+   * ask the partition's own MaxTime at submit time, everything else rides
+   * the partition default). */
+  slurmTimeMin: string;
   /** t289 — what finalize syncs back: key files only (default) or everything. */
   syncPolicy: "key-files" | "everything";
   /** t289 — binary cap (MB) for the key-files policy. */
@@ -740,6 +744,7 @@ function toDraft(c: RemoteConnectionDTO | null): Draft {
     envLines: (c?.envLines ?? []).join("\n"),
     useSlurm: c?.useSlurm ?? false,
     slurmPartition: c?.slurmPartition ?? "",
+    slurmTimeMin: c?.slurmTimeMin != null ? String(c.slurmTimeMin) : "",
     syncPolicy: c?.syncPolicy ?? "key-files",
     keyFileMb: c?.keyFileMb ?? 16,
     maxFileMb: c?.maxFileMb ?? 512,
@@ -844,6 +849,13 @@ function ConnectionEditor({
         .filter((l) => l.length > 0),
       useSlurm: draft.useSlurm,
       slurmPartition: draft.slurmPartition.trim(),
+      // t367 — the walltime override: a number > 0 rides the payload;
+      // empty/garbage = auto (absent from the payload — the stored value
+      // is cleared only by an explicit 0 or empty… the three-state dialect
+      // of the secrets, applied to a number)
+      ...(draft.slurmTimeMin.trim() && Number(draft.slurmTimeMin) > 0
+        ? { slurmTimeMin: Math.round(Number(draft.slurmTimeMin)) }
+        : { slurmTimeMin: 0 }),
       syncPolicy: draft.syncPolicy,
       keyFileMb: cap(draft.keyFileMb, 16),
       maxFileMb: cap(draft.maxFileMb, 512),
@@ -1301,6 +1313,19 @@ function ConnectionEditor({
               className="h-9 font-mono text-[13px]"
               maxLength={80}
               aria-label="Slurm partition for sbatch submissions"
+            />
+          </Field>
+          <Field
+            label="Slurm time limit (minutes)"
+            hint="t367 — the walltime sbatch asks for. Leave empty for auto: multi-hour refinement jobs (2D/3D classification, refinement, initial model) ask the partition's own maximum at submit time; everything else uses the partition default. A partition default of 2h once killed a 20-round 2D classification exactly at its final write phase — set a number you trust for your runs."
+          >
+            <Input
+              value={draft.slurmTimeMin}
+              onChange={(e) => patch({ slurmTimeMin: e.target.value.replace(/[^0-9]/g, "").slice(0, 5) })}
+              placeholder="(auto) — e.g. 720 for 12h"
+              className="h-9 font-mono text-[13px]"
+              inputMode="numeric"
+              aria-label="Slurm time limit in minutes for sbatch submissions"
             />
           </Field>
           <Field

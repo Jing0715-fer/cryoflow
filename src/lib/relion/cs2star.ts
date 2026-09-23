@@ -58,6 +58,16 @@ export interface Cs2StarOptions {
   invertY?: boolean;
   /** Optics fallbacks for .cs files without ctf/mscope fields. */
   fallback?: { angpix?: number; voltage?: number; cs?: number; ac?: number };
+  /** t366 — the stacks' PHYSICAL sampling, probed from their own MRC
+   *  headers by the lane (cluster-side python, the SSH fallback, or the
+   *  local filesystem). Whatever is set here OVERRIDES the .cs metadata's
+   *  blob/psize_A + blob/shape for every optics group — the field report:
+   *  a merged CryoSPARC particle set can carry STALE full-resolution
+   *  metadata (256 px @ 0.808 Å) over stacks that are physically the
+   *  4×-binned truth (100 px @ 3.232 Å), so the .cs is not the truth, the
+   *  stacks are. Each half may be set independently (headers can lose
+   * their cella and still vote on the box). */
+  sampling?: { angpix?: number; box?: number };
 }
 
 export interface Cs2StarStackPlan {
@@ -77,6 +87,14 @@ export interface Cs2StarResult {
   unmapped: string[];
   /** Distinct optics groups after the merge. */
   opticsGroups: number;
+  /** t366 — where the optics sampling values came from: the stacks' own
+   *  probed headers (an override was handed in) or the .cs metadata. */
+  opticsSource: "cs-metadata" | "stack-headers";
+  /** t366 — the distinct samplings the .cs METADATA claimed across its
+   *  optics groups (before any override). >1 variant + a probed override
+   *  is the corrected-lie receipt; >1 variant with no probe is the
+   *  unverifiable-lie receipt. */
+  samplingVariants: { box: number; angpix: number }[];
   /** The optics values that landed in the star (for the receipt). */
   optics: { angpix: number; voltage: number; cs: number; ac: number; boxSize: number };
   /** Coordinate axes present? (absent for re-extracted/imported sets). */
@@ -199,6 +217,10 @@ const fmt = (v: number): string => {
 export function csRowsToStar(primary: Row[], passthroughs: Row[][], opts: Cs2StarOptions = {}): Cs2StarResult {
   const invertY = opts.invertY === true;
   const fb = opts.fallback ?? {};
+  const phys =
+    opts.sampling && ((opts.sampling.angpix ?? 0) > 0 || (opts.sampling.box ?? 0) > 0)
+      ? opts.sampling
+      : undefined;
 
   // ---- uid join: passthrough fields ride onto the primary rows --------
   // (pyem's smart_merge: left join keep-left rows, fields absent from the
@@ -249,6 +271,7 @@ export function csRowsToStar(primary: Row[], passthroughs: Row[][], opts: Cs2Sta
   // optics — one group per ctf/exp_group_id (fields are constant per group
   // in practice; first-seen wins, exactly pyem's groupby().first())
   const opticsRows = new Map<number, { voltage: number; cs: number; ac: number; angpix: number; box: number }>();
+  const claimedVariants = new Map<string, { box: number; angpix: number }>(); // t366 — the .cs's own claim, pre-override
   const starRows: Record<string, string>[] = [];
 
   for (const row of merged) {
@@ -259,21 +282,27 @@ export function csRowsToStar(primary: Row[], passthroughs: Row[][], opts: Cs2Sta
     const stackPath = imgPath ?? "";
     const linkName = linkNameOf.get(stackPath) ?? "";
 
-    // -- optics group --
+    // -- optics group (t366: the sampling values yield to the stacks'
+    //    probed headers — phys beats the .cs metadata, per-field) --
     const groupId = Math.round((num1(row, "ctf/exp_group_id") ?? 0)) + 1; // 1-based
     if (!opticsRows.has(groupId)) {
-      const angpix = num1(row, "blob/psize_A") ?? fb.angpix ?? 1;
+      const claimedAngpix = num1(row, "blob/psize_A") ?? fb.angpix ?? 1;
+      const angpix = phys?.angpix != null && phys.angpix > 0 ? phys.angpix : claimedAngpix;
       const voltage = num1(row, "ctf/accel_kv") ?? fb.voltage ?? 300;
       const cs = num1(row, "ctf/cs_mm") ?? fb.cs ?? 2.7;
       const ac = num1(row, "ctf/amp_contrast") ?? num1(row, "ctf/ac") ?? fb.ac ?? 0.1;
       const shape = arr(row, "blob/shape");
-      const box = shape != null ? Math.round(shape[0] ?? 0) : 0;
+      const claimedBox = shape != null ? Math.round(shape[0] ?? 0) : 0;
+      const box = phys?.box != null && phys.box > 0 ? Math.round(phys.box) : claimedBox;
       opticsRows.set(groupId, { voltage, cs, ac, angpix, box });
+      const ck = `${claimedBox}@${Number(claimedAngpix.toFixed(4))}`;
+      if (!claimedVariants.has(ck)) claimedVariants.set(ck, { box: claimedBox, angpix: claimedAngpix });
     }
     const optics = opticsRows.get(groupId)!;
 
     // -- the row's values, in the emit order below --
     const vals: Record<string, string> = {};
+    vals.opticsGroup = String(groupId); // t366 — the row SPEAKS its group
     vals.imageName = linkName
       ? `${Math.max(1, Math.round(imgIdx) + 1)}@micrographs/${linkName}`
       : ""; // a row without blob/path cannot be windowed — dropped below
@@ -347,6 +376,12 @@ export function csRowsToStar(primary: Row[], passthroughs: Row[][], opts: Cs2Sta
     ["phaseShift", "_rlnPhaseShift"],
     ["classNumber", "_rlnClassNumber"],
     ["randomSubset", "_rlnRandomSubset"],
+    // t366 — without this column every particle silently rides optics
+    // group 1 in RELION and the other groups' rows are dead metadata (the
+    // field report: 45 groups, the 3D death quoted group 1 while the user
+    // pasted group 45's full-resolution numbers back, baffled). Appended
+    // LAST so every existing column index survives.
+    ["opticsGroup", "_rlnOpticsGroup"],
   ];
   // columns present in ANY row (a column missing for every row is omitted,
   // pyem's dataframe semantics)
@@ -398,12 +433,19 @@ export function csRowsToStar(primary: Row[], passthroughs: Row[][], opts: Cs2Sta
     box: 0,
   };
 
+  // t366 — the distinct samplings the .cs METADATA claimed (the raw
+  // claim, whether or not the stacks' headers overrode it downstream;
+  // a set that never disagreed claims exactly one)
+  const samplingVariants = [...claimedVariants.values()].sort((a, b) => a.box - b.box || a.angpix - b.angpix);
+
   return {
     starText: lines.join("\n") + "\n",
     particles: starRows.length,
     stacks: planLinkNames([...stackPaths]),
     unmapped,
     opticsGroups: opticsRows.size,
+    opticsSource: phys ? "stack-headers" : "cs-metadata",
+    samplingVariants,
     optics: {
       voltage: firstOptics.voltage,
       cs: firstOptics.cs,
@@ -414,4 +456,63 @@ export function csRowsToStar(primary: Row[], passthroughs: Row[][], opts: Cs2Sta
     hasCoordinates: hasCoords,
     alignment,
   };
+}
+
+/* ------------------------------------------------------------------ */
+/* t366 — judging the stacks' own headers (the sampling truth)          */
+/* ------------------------------------------------------------------ */
+
+/** One probed stack header: what the file itself says. `box`/`angpix`
+ *  are null when the header could not speak for that half (unreadable →
+ *  both null; a header without cella → box only). */
+export interface StackSamplingProbe {
+  /** the resolved path that was probed (receipts name the first deviant) */
+  path: string;
+  /** nx of the stack (= the particle box; ny must equal it) */
+  box: number | null;
+  /** cella_x / nx — null when the header carries no cell sizes */
+  angpix: number | null;
+}
+
+/** The verdict over every referenced stack's own header. */
+export interface SamplingVerdict {
+  /** what EVERY readable stack agrees on (null halves = no header spoke) */
+  sampling: { box: number | null; angpix: number | null } | null;
+  /** distinct physical samplings among the readable stacks (>1 = refuse) */
+  variants: { box: number; angpix: number; stacks: number; first: string }[];
+  /** stacks whose header parsed and voted on the box */
+  probed: number;
+  /** stacks whose header did not parse at all */
+  unreadable: number;
+}
+
+/**
+ * Judge the probed headers (t366). A stack votes with (nx, cella_x/nx)
+ * when its header parses and nx == ny; a header without cell sizes still
+ * votes on the box; anything else is unreadable and never judged. One
+ * agreed sampling across all voters → `sampling`; disagreement → the
+ * variant census a refusal can quote. PURE: the suites and all three
+ * conversion lanes share this ONE classification.
+ */
+export function judgeStackSamplings(probes: StackSamplingProbe[]): SamplingVerdict {
+  const votes = new Map<string, { box: number; angpix: number; stacks: number; first: string }>();
+  let probed = 0;
+  let unreadable = 0;
+  for (const p of probes) {
+    if (p.box == null || p.box <= 0) {
+      unreadable++;
+      continue;
+    }
+    probed++;
+    const key = `${p.box}@${p.angpix != null ? Number(p.angpix.toFixed(4)) : "x"}`;
+    const cur = votes.get(key);
+    if (cur) cur.stacks++;
+    else votes.set(key, { box: p.box, angpix: p.angpix ?? 0, stacks: 1, first: p.path });
+  }
+  const variants = [...votes.values()].sort((a, b) => a.box - b.box || a.angpix - b.angpix);
+  if (variants.length > 1) return { sampling: null, variants, probed, unreadable };
+  if (variants.length === 1) {
+    return { sampling: { box: variants[0]!.box, angpix: variants[0]!.angpix > 0 ? variants[0]!.angpix : null }, variants, probed, unreadable };
+  }
+  return { sampling: null, variants: [], probed, unreadable };
 }

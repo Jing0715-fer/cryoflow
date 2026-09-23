@@ -72,7 +72,7 @@ import {
   type UpstreamRef,
   type WaitKind,
 } from "@/lib/relion/engine";
-import { gpuStrategyFor } from "@/lib/hpc/slurm";
+import { gpuStrategyFor, slurmHms } from "@/lib/hpc/slurm";
 import { nodeUnavailable, parseScontrolNodes, type SlurmNodeUsage } from "@/lib/hpc/slurm-usage";
 import { isLogAutopick } from "@/lib/relion/log-autopick";
 import { classifyRerunWipe } from "@/lib/hpc/cleanup";
@@ -92,6 +92,10 @@ import {
 } from "@/lib/relion/particle-ref-gate";
 import { getConnection, loadConnections, patchConnection } from "./connections";
 import { writeRemoteManifest, readRemoteManifest } from "./remote-files";
+// t367 — the ghost verdicts read MRC headers where the ghosts live: the
+// sync-back's "fresh copy" check and the finalize legs parse what they
+// are about to trust instead of counting its bytes.
+import { readMrcHeader } from "@/lib/mrc";
 // t356 — the proactive class-image pipeline: after finalize the run's
 // class-average stacks render into the LOCAL preview cache (the user's
 // 「下载 mrcs 到本地，再转成图片」 architecture). iteration-live imports
@@ -117,6 +121,9 @@ import {
   shSingleQuote,
 } from "./ssh";
 import { remoteHeaderSniffer } from "./sniff";
+// t365 — the reference-sampling pre-flight parses probed 1 KB headers with
+// the same pure parser the t360 map-import lane uses (cella → Å/px)
+import { parseMrcHeaderBytes, type MrcHeader } from "@/lib/mrc";
 import type {
   ConnectionRunResume,
   RemoteConnection,
@@ -380,6 +387,141 @@ async function clusterParticleRefCensus(
     if (!sshLevel) break; // the file's own verdict (missing, unreadable)
   }
   return { rows: null, total: 0, err: lastErr };
+}
+
+/* ------------------------------------------------------------------ */
+/* t365 — the reference-sampling pre-flight (class3d/refine3d)         */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The field report (the user's first 3D classification on the cluster):
+ * the job cleared the queue, printed its banners, parsed the star — and
+ * died at MlModel::initialiseFromImages with
+ *   "The reference pixel size is 0.808 A/px, but the pixel size of the
+ *    first optics group of the data is 3.232 A/px!
+ *    The reference box size is 256 px, but the box size of the first
+ *    optics group of the data is 100 px!"
+ * — an imported full-resolution cryoSPARC volume meeting 4×-binned
+ * particles. 2D classification never sees this door (no reference, no
+ * check), which is why the same star sailed through Class2D before it.
+ * RELION's only printed advice (--trust_ref_size) resamples the
+ * PARTICLES into the reference's fine grid: 6.5× the voxels, none of the
+ * detail recovered — a waste bin the user should never be pushed into.
+ *
+ * 方案 A, automated (the user's own fix, made the default): BEFORE the
+ * argv is built, read the reference's MRC header and the star's FIRST
+ * optics group IN PLACE on the cluster — one stat + one 1 KB header +
+ * one awk pass, zero map bytes over the wire. On a mismatch, prepare a
+ * sampling-matched copy ON the cluster with relion_image_handler
+ * (--scale <dataPx/refPx>, then --new_box <dataBox>), verify the
+ * product's own header, and point --ref there. The original map is
+ * never touched; RELION's own check then passes without any flag. When
+ * either side cannot be READ, the pre-flight degrades to a note and
+ * RELION's own check decides (the t313 rule: honest note, never a block
+ * on a guess) — the hard refusals are only the certain queue-wasting
+ * deaths: a reference the job could not read at all, and a preparation
+ * whose verification failed.
+ */
+
+/** job types whose --ref must match the particles' optics sampling */
+const REF_SAMPLING_TYPES = new Set(["class3d", "refine3d"]);
+
+/** the decided plan — made before buildArgv, executed after the wipe */
+interface RefPrepPlan {
+  /** the reference's cluster address (twin or staged upload) */
+  src: string;
+  /** the prepared copy, inside THIS job's workdir (re-made each dispatch) */
+  out: string;
+  /** the particles' first optics group — pixel size (Å/px) */
+  dataPx: number;
+  /** the particles' first optics group — box size (px) */
+  dataBox: number;
+  /** the reference's own header numbers, for the receipt */
+  refPx: number;
+  refBox: number;
+  /** null when the pixels already agree (only the box pass runs) */
+  scale: number | null;
+}
+
+/**
+ * One exec: a remote MRC's size + its 1024-byte header (the t360 probe
+ * shape). size==null means unreadable (missing/permissions); size>0 with
+ * header==null means present-but-unparsable — the two verdicts the caller
+ * treats very differently.
+ */
+async function probeRemoteMrcHeader(
+  conn: RemoteConnection,
+  p: string
+): Promise<{ size: number | null; header: MrcHeader | null; err: string | null }> {
+  const script =
+    `stat -c '%s' ${shQuote(p)} 2>/dev/null; ` +
+    `head -c 1024 ${shQuote(p)} 2>/dev/null | base64 | tr -d '\\n'; echo`;
+  try {
+    const r = await exec(conn, script, { timeoutMs: 30_000 });
+    if (r.error) return { size: null, header: null, err: r.error };
+    const lines = (r.stdout ?? "").split(/\r?\n/);
+    const n = Number(lines[0]);
+    const size = Number.isFinite(n) && n > 0 ? n : null;
+    const b64 = (lines[1] ?? "").trim();
+    let header: MrcHeader | null = null;
+    if (b64.length > 0) {
+      try {
+        header = parseMrcHeaderBytes(Buffer.from(b64, "base64"), size ?? -1);
+      } catch {
+        header = null;
+      }
+    }
+    return { size, header, err: null };
+  } catch (e) {
+    return { size: null, header: null, err: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/**
+ * One awk pass over the star IN PLACE: the FIRST optics group's
+ * _rlnImagePixelSize + _rlnImageSize — the exact two numbers RELION's own
+ * check quotes back at the user. POSIX awk; only the verdict row crosses
+ * the wire. RELION writes its loop headers as `_rlnLabel #col`, so the
+ * column index carries a `#` that must be stripped before it is a number.
+ */
+async function readOpticsSampling(
+  conn: RemoteConnection,
+  starPath: string
+): Promise<{ px: number | null; box: number | null; err: string | null }> {
+  const awk =
+    `awk '` +
+    `BEGIN { inb = 0; ncol = 0; got = 0 } ` +
+    `/^data_optics/ { inb = 1; next } ` +
+    `inb && /^data_/ { inb = 0 } ` +
+    `inb && /^loop_[ \\t]*$/ { next } ` +
+    `inb && $1 ~ /^_rln/ { c = $2; sub(/^#/, "", c); i = c + 0; ` +
+    `if (i >= 1 && i <= 99) { lbl[i] = $1; if (i > ncol) ncol = i } next } ` +
+    `inb && NF > 0 && $1 !~ /^#/ && $1 !~ /^_/ && got == 0 { ` +
+    `for (i = 1; i <= NF && i <= ncol; i++) val[lbl[i]] = $i; got = 1 } ` +
+    `END { ` +
+    `px = val["_rlnImagePixelSize"] + 0; ` +
+    `bx = val["_rlnImageSize"] + 0; ` +
+    `if (px > 0) printf "CF_PX\\t%.6f\\n", px; ` +
+    `if (bx > 0) printf "CF_BOX\\t%d\\n", bx ` +
+    `}' ${shQuote(starPath)} 2>/dev/null`;
+  try {
+    const r = await exec(conn, awk, { timeoutMs: 90_000 });
+    if (r.error) return { px: null, box: null, err: r.error };
+    let px: number | null = null;
+    let box: number | null = null;
+    for (const line of (r.stdout ?? "").split("\n")) {
+      if (line.startsWith("CF_PX\t")) {
+        const v = Number(line.split("\t")[1]);
+        if (Number.isFinite(v) && v > 0) px = v;
+      } else if (line.startsWith("CF_BOX\t")) {
+        const v = Math.round(Number(line.split("\t")[1]));
+        if (Number.isFinite(v) && v > 0) box = v;
+      }
+    }
+    return { px, box, err: null };
+  } catch (e) {
+    return { px: null, box: null, err: e instanceof Error ? e.message : String(e) };
+  }
 }
 
 /**
@@ -999,6 +1141,85 @@ function connPartitionGpus(connId: string, partition: string): number | null {
 }
 
 /**
+ * t367 — the refinement family that earns an explicit `#SBATCH --time`.
+ * These runs are multi-hour by construction (a real 20-round 2D
+ * classification is ~2h; 3D refinements run days) and the field report
+ * showed what the absence of --time costs: the partition's DEFAULT
+ * walltime killed the job at ~2h04 — iteration 20's Expectation and
+ * Maximization both done, the write phase (classes stack, data star,
+ * optimizer) never started, no error line anywhere in run.out because a
+ * kill prints nothing. Short jobs (import, ctffind, extract, autopick…)
+ * keep the partition default: an explicit max request would only hurt
+ * their backfill priority.
+ */
+const WALLTIME_TYPES = new Set(["class2d", "class3d", "refine3d", "initialmodel"]);
+
+/** t367 — cap for the auto --time (the partition's own MaxTime, clamped:
+ * a day is the longest run the sane user plans; requesting more on a
+ * shared GPU partition hurts queue position without helping the run). */
+const WALLTIME_AUTO_CAP_MIN = 1440;
+
+/**
+ * t367 — Slurm's time grammar to minutes: [[DD-]HH:]MM[:SS], plus the
+ * "infinite"/"unlimited" words sinfo prints for uncapped partitions.
+ * Null for anything unparseable (the caller omits --time — a monitoring
+ * failure never blocks a dispatch).
+ */
+export function parseSlurmTimeToMinutes(raw: string): number | null {
+  const t = raw.trim().toLowerCase();
+  if (!t || t === "infinite" || t === "unlimited" || t === "none" || t === "no") return null;
+  let days = 0;
+  let rest = t;
+  const dash = rest.indexOf("-");
+  if (dash >= 0) {
+    days = parseInt(rest.slice(0, dash), 10);
+    rest = rest.slice(dash + 1);
+  }
+  if (!/^\d+(:\d+){0,2}$/.test(rest)) return null;
+  const parts = rest.split(":").map((p) => parseInt(p, 10));
+  let secs = 0;
+  if (parts.length === 3) secs = parts[0] * 3600 + parts[1] * 60 + parts[2];
+  else if (parts.length === 2) secs = parts[0] * 60 + parts[1];
+  else secs = parts[0] * 60; // bare minutes
+  const minutes = Math.round((days * 86400 + secs) / 60);
+  return minutes > 0 ? minutes : null;
+}
+
+/**
+ * t367 — the walltime this submission requests, in minutes (null = the
+ * partition's own default applies, as before t367).
+ *
+ *   · the connection's explicit slurmTimeMin wins verbatim (the user's
+ *     override — they know their partition);
+ *   · else, for the refinement family, ONE sinfo round on the login node
+ *     asks the partition's MaxTime — a ceiling the controller always
+ *     accepts — clamped to a day. The partition's DEFAULT (what applies
+ *     with no --time at all) is often far below its MaxTime, and that gap
+ *     is exactly where multi-hour refinements die mid-write;
+ *   · else (short jobs, unresolved partition, sinfo unavailable) null.
+ */
+async function resolveSbatchTimeLimit(
+  conn: RemoteConnection,
+  jobType: string,
+  partition: string | null
+): Promise<number | null> {
+  if (conn.slurmTimeMin && conn.slurmTimeMin > 0) return Math.min(20160, Math.round(conn.slurmTimeMin));
+  if (!WALLTIME_TYPES.has(jobType) || !partition) return null;
+  try {
+    const r = await exec(conn, loginShellScript(`sinfo -h -o '%l' -p ${shQuote(partition)}`), {
+      timeoutMs: 10_000,
+    });
+    if (r.error || r.code !== 0) return null;
+    const first = (r.stdout ?? "").trim().split(/\r?\n/)[0] ?? "";
+    const mins = parseSlurmTimeToMinutes(first);
+    if (mins == null) return null;
+    return Math.min(mins, WALLTIME_AUTO_CAP_MIN);
+  } catch {
+    return null; // a monitoring failure never blocks a dispatch
+  }
+}
+
+/**
  * t297 — the sbatch variant of the run script, modeled on the user's
  * sbatch6gpu.sh submission idiom (OpenHPC + Slurm + Lmod clusters):
  *
@@ -1124,8 +1345,25 @@ function buildSbatchScript(args: {
    * dropdown then land the same composition.
    */
   suppressPartition?: boolean;
+  /**
+   * t367 — the walltime this submission requests, in minutes (null = the
+   * partition's own default applies). Emitted as a visible #SBATCH --time
+   * directive + a CRYOFLOW_WALLTIME receipt banner in run.out — the field
+   * report's 2h04 2D classification died at the partition's DEFAULT
+   * walltime exactly at iteration 20's write phase, and NOTHING in the
+   * job's own output named the cause.
+   */
+  timeLimitMin?: number | null;
+  /**
+   * t367 — true when the caller WANTS the no-limit warning banner (a
+   * refinement-family job whose partition limit could not be resolved:
+   * the run is multi-hour by construction and an unknown default walltime
+   * is the field report's exact death). Short jobs pass false/absent —
+   * their partition default is fine and the banner would only be noise.
+   */
+  timeLimitWarn?: boolean;
 }): string {
-  const { conn, module: moduleName, relionHome, ctffind, command, gpus, ntasks, threads, jobName, remoteProjectRoot, remoteWorkdir, partition, nodelist, dependency, array, note, suppressPartition, gpuJob, mpiRanks } = args;
+  const { conn, module: moduleName, relionHome, ctffind, command, gpus, ntasks, threads, jobName, remoteProjectRoot, remoteWorkdir, partition, nodelist, dependency, array, note, suppressPartition, gpuJob, mpiRanks, timeLimitMin, timeLimitWarn } = args;
   // t332/t340 — the partition this sbatch names:
   //   · an explicit pin whose partition the caller RESOLVED → that
   //     partition (scontrol's own word — the dropdown equivalence);
@@ -1162,6 +1400,16 @@ function buildSbatchScript(args: {
   L.push(`#SBATCH --ntasks=${Math.max(1, ntasks)}`);
   L.push(`#SBATCH --cpus-per-task=${Math.max(1, threads)}`);
   if (gpus > 0) L.push(`#SBATCH --gres=gpu:${gpus}`);
+  // t367 — the walltime receipt, IN THE SCRIPT (visible in .cf-sbatch.sh
+  // and echoed into run.out below): the field report's run died at the
+  // partition's DEFAULT walltime with zero explanation in the job's own
+  // output. Either we requested a limit (name it — the user can compare it
+  // against the run's expected duration), or we deliberately did not (say
+  // THAT too: a multi-hour refinement on a default-limited partition is
+  // the exact t367 landmine).
+  if (timeLimitMin && timeLimitMin > 0) {
+    L.push(`#SBATCH --time=${slurmHms(timeLimitMin)}`);
+  }
   // t311 — memory left to the cluster's node defaults (see the doc above:
   // an explicit --mem the controller can't satisfy is refused at submit
   // time — "Memory specification can not be satisfied"). Example for
@@ -1458,6 +1706,24 @@ function buildSbatchScript(args: {
   // t313 — the CTF gate's receipt lands at the TOP of run.out (SBATCH
   // --output captures the whole script's stdout)
   if (note) L.push(`echo ${shQuote("CRYOFLOW_NOTE: " + note)}`);
+  // t367 — the walltime receipt, the same way: run.out's first lines tell
+  // the user what the clock allows BEFORE two hours of silence end in a
+  // kill. The absent-limit wording names the risk explicitly — a
+  // multi-hour refinement under an unknown default is the field report's
+  // exact death.
+  if (timeLimitMin && timeLimitMin > 0) {
+    L.push(
+      `echo ${shQuote(
+        `CRYOFLOW_WALLTIME: this submission requested --time=${slurmHms(timeLimitMin)} (t367) — the scheduler kills the job when it expires; compare it against the run's expected duration before worrying about a stall`
+      )}`
+    );
+  } else if (timeLimitWarn) {
+    L.push(
+      `echo ${shQuote(
+        "CRYOFLOW_WALLTIME: this submission requested NO explicit time limit — the partition's DEFAULT walltime applies. If this run is multi-hour, a short default can kill it before its final outputs are written (set a time limit in the connection's Slurm settings, t367)"
+      )}`
+    );
+  }
   L.push(`mkdir -p ${shQuote(remoteProjectRoot)}`);
   // t316 — the RELION process runs from the PROJECT ROOT, exactly like the
   // direct-mode wrapper above and the LOCAL engine (projectDirFor). The old
@@ -3054,6 +3320,101 @@ export async function startRemoteJob(args: {
         inputs.particles_star = classStarCombine.out;
       }
 
+      // ---- t365 — the reference-sampling pre-flight (class3d/refine3d) --
+      // Read the reference's own header and the particles' first optics
+      // group IN PLACE (one stat + 1 KB + one awk — zero map bytes over
+      // the wire). A mismatch prepares a sampling-matched copy ON the
+      // cluster (the plan executes POST-wipe below, the t350 merge's own
+      // ordering law: a file the wipe would kill cannot precede it); the
+      // argv's --ref points at the prepared copy. Anything unreadable
+      // degrades to a note — RELION's own check decides — except the two
+      // certain deaths: a reference the job cannot read at all, and (in
+      // the execution block) a preparation that fails its own header
+      // verification.
+      let refPrepare: RefPrepPlan | null = null;
+      let refPrepNote: string | null = null;
+      if (REF_SAMPLING_TYPES.has(job.type) && inputs.model_mrc && inputs.particles_star) {
+        const refLocal = String(resolvedInputs.model_mrc ?? "").split(path.sep).join("/");
+        const refCluster =
+          upstreamRemoteTwins.get(refLocal) ??
+          uploads.find((u) => u.key === "model_mrc")?.remote ??
+          null;
+        if (refCluster == null) {
+          throw new Error(
+            `the reference map has no cluster address — staging carried neither an upload nor a twin for ${resolvedInputs.model_mrc} to ${conn.host}; re-wire the reference input or re-run the upstream import (t365)`
+          );
+        }
+        const starLocal = String(resolvedInputs.particles_star ?? "").split(path.sep).join("/");
+        const opticsStar = classStarCombine
+          ? classStarCombine.paths[0]
+          : upstreamRemoteTwins.get(starLocal) ??
+            uploads.find((u) => u.key === "particles_star")?.remote ??
+            null;
+        const userDrives = /--trust_ref_size|--ref_angpix/.test(String(params.extraArgs ?? ""));
+        if (userDrives) {
+          refPrepNote =
+            "reference sampling pre-flight skipped — the extra args carry --trust_ref_size/--ref_angpix, you drive (t365)";
+        } else {
+          const probe = await probeRemoteMrcHeader(conn, refCluster);
+          const optics = opticsStar
+            ? await readOpticsSampling(conn, opticsStar)
+            : { px: null, box: null, err: "the particles star has no cluster address" };
+          if (probe.err) {
+            refPrepNote = `reference sampling pre-flight did not run (the cluster probe of ${refCluster} failed: ${probe.err}) — RELION's own check decides (t365)`;
+          } else if (probe.size == null) {
+            throw new Error(
+              `the reference map is not readable on ${conn.host} at ${refCluster} — relion would die reading --ref; re-wire the reference input or re-run the upstream import (t365)`
+            );
+          } else if (probe.header == null) {
+            refPrepNote = `reference sampling pre-flight did not run (the map's 1024-byte header at ${refCluster} did not parse) — RELION's own check decides (t365)`;
+          } else if (optics.px == null || optics.box == null) {
+            refPrepNote =
+              optics.err != null
+                ? `reference sampling pre-flight did not run (the optics read of ${opticsStar} failed: ${optics.err}) — RELION's own check decides (t365)`
+                : `reference sampling pre-flight did not run (no _rlnImagePixelSize/_rlnImageSize in the first optics group of ${opticsStar}) — RELION's own check decides (t365)`;
+          } else {
+            const h = probe.header;
+            const refPx = h.cella[0] > 0 && h.nx > 0 ? h.cella[0] / h.nx : 0;
+            const refBox = h.nx;
+            const cubic = h.nx === h.ny && h.ny === h.nz;
+            const iso =
+              h.cella[0] > 0 && h.cella[1] > 0 && h.cella[2] > 0 &&
+              Math.abs(h.cella[1] / h.ny - refPx) <= 0.01 * refPx &&
+              Math.abs(h.cella[2] / h.nz - refPx) <= 0.01 * refPx;
+            const pxOk = refPx > 0 && Math.abs(refPx - optics.px) / optics.px <= 0.005;
+            const boxOk = refBox === optics.box;
+            if (!cubic || !iso || refPx <= 0) {
+              refPrepNote = `reference sampling pre-flight did not run (the map at ${refCluster} is ${
+                !cubic ? `non-cubic (${h.nx}×${h.ny}×${h.nz})` : refPx <= 0 ? "missing cell sizes in its header" : "anisotropic in its header"
+              }) — RELION's own check decides (t365)`;
+            } else if (pxOk && boxOk) {
+              refPrepNote = `reference verified in place — ${refBox}³ @ ${refPx.toFixed(4)} Å/px matches the particles' first optics group (t365)`;
+            } else {
+              // 方案 A: bring the REFERENCE to the particles' sampling —
+              // the binned data keeps its honest footprint, the fine map
+              // is downscaled (or, when the ref is coarser, interpolated
+              // up) exactly as far as the job's own numbers demand
+              const f = optics.px / refPx;
+              const scale = pxOk
+                ? null
+                : Math.abs(f - Math.round(f)) <= 0.02
+                  ? Math.round(f)
+                  : Number(f.toFixed(4));
+              const base =
+                refCluster.slice(refCluster.lastIndexOf("/") + 1).replace(/\.(mrc|map)$/i, "") ||
+                "reference";
+              const pxTag = String(Number(optics.px.toFixed(4))).replace(".", "p");
+              const out = `${remoteWorkdir.replace(/\/+$/, "")}/${base}_cf_${optics.box}box_${pxTag}.mrc`;
+              refPrepare = { src: refCluster, out, dataPx: optics.px, dataBox: optics.box, refPx, refBox, scale };
+              inputs.model_mrc = out;
+              console.log(
+                `remote-run: reference sampling mismatch on "${job.name}" — the map is ${refBox}³ @ ${refPx.toFixed(4)} Å/px, the particles' first optics group is ${optics.box} px @ ${optics.px} Å/px — preparing ${base} ON the cluster (t365)`
+              );
+            }
+          }
+        }
+      }
+
       const built = await buildArgv({
         binDir,
         workdir: remoteWorkdir,
@@ -3453,6 +3814,140 @@ export async function startRemoteJob(args: {
            refusal over a cleanup hiccup */
       }
 
+      // ---- t365 — the reference auto-prepare, POST-wipe ------------------
+      // The plan was decided before the argv build; the work happens HERE
+      // (after the fresh-run wipe + the t318 clear, before any submission
+      // door — the t350 merge's own ordering law: what the wipe would
+      // classify as stale cannot precede it). Every step is verified by
+      // the product's OWN header — the plan's arithmetic starts the work,
+      // the header finishes the sentence. relion_image_handler's --scale
+      // direction is a build dialect this code does not assume: one
+      // inversion retry when the box moved the wrong way, then honesty.
+      if (refPrepare) {
+        const ih =
+          binDir && binDir !== "<RELION_BIN>" ? `${binDir}/relion_image_handler` : "relion_image_handler";
+        const q = (s: string) => shQuote(s);
+        const runIH = async (args: string): Promise<string | null> => {
+          try {
+            const r = await exec(conn, `${q(ih)} ${args}`, { timeoutMs: 300_000 });
+            if (r.error == null && (r.code == null || r.code === 0)) return null;
+            return (
+              (r.error ?? r.stderr ?? `ssh exit ${r.code}`).split("\n").filter(Boolean).slice(-1)[0] ??
+              "no word from the cluster"
+            );
+          } catch (e) {
+            return e instanceof Error ? e.message : String(e);
+          }
+        };
+        const rmRemote = async (p: string): Promise<void> => {
+          try {
+            await exec(conn, `rm -f ${q(p)}`, { timeoutMs: 30_000 });
+          } catch {
+            /* idempotent hygiene — a failed rm surfaces at the next door */
+          }
+        };
+        const wantBox = refPrepare.dataBox;
+        const manual =
+          `prepare the reference by hand (ssh to ${conn.host}: ${ih} --i ${refPrepare.src} --o <out>.mrc ` +
+          `--scale ${refPrepare.refPx > 0 ? (refPrepare.dataPx / refPrepare.refPx).toFixed(4) : "?"}${wantBox ? ` --new_box ${wantBox}` : ""}), ` +
+          `import that map, and wire it as the reference — or pass --trust_ref_size yourself`;
+        const mismatchSentence = `${refPrepare.refBox}³ @ ${refPrepare.refPx.toFixed(4)} Å/px vs the particles' ${refPrepare.dataBox} px @ ${refPrepare.dataPx} Å/px`;
+        let cur = refPrepare.src;
+        let didScale = false;
+        const scaleTmp = `${refPrepare.out}.cf-scale.mrc`;
+        if (refPrepare.scale != null) {
+          let attempt = refPrepare.scale;
+          for (let tries = 0; ; tries++) {
+            await rmRemote(scaleTmp);
+            const why = await runIH(`--i ${q(refPrepare.src)} --o ${q(scaleTmp)} --scale ${attempt}`);
+            if (why) {
+              throw new Error(
+                `relion_image_handler --scale ${attempt} failed on ${conn.host} (${why}) — the reference/particles sampling mismatch (${mismatchSentence}) is certain to fail RELION's own check at start — ${manual} (t365)`
+              );
+            }
+            const scaled = await probeRemoteMrcHeader(conn, scaleTmp);
+            if (scaled.header == null) {
+              throw new Error(
+                `the scaled reference at ${scaleTmp} did not verify (no MRC header came back) — ${manual} (t365)`
+              );
+            }
+            const movedRight = attempt > 1 ? scaled.header.nx < refPrepare.refBox : scaled.header.nx > refPrepare.refBox;
+            if (movedRight) break;
+            if (tries === 0 && attempt !== 1) {
+              // this build's --scale runs the other direction — one retry, inverted
+              attempt = Number((1 / attempt).toFixed(4));
+              continue;
+            }
+            throw new Error(
+              `relion_image_handler --scale ${attempt} turned ${refPrepare.refBox}³ into ${scaled.header.nx}³ — neither direction matched (~${Math.max(1, Math.round(refPrepare.refBox / (refPrepare.dataPx / refPrepare.refPx)))}³ wanted) — ${manual} (t365)`
+            );
+          }
+          cur = scaleTmp;
+          didScale = true;
+        }
+        // the box pass — decided by the ACTUAL header, not the plan's arithmetic
+        const midProbe = didScale
+          ? await probeRemoteMrcHeader(conn, scaleTmp)
+          : await probeRemoteMrcHeader(conn, refPrepare.src);
+        const midBox = midProbe.header;
+        if (
+          midBox == null ||
+          midBox.nx !== wantBox ||
+          midBox.ny !== wantBox ||
+          midBox.nz !== wantBox
+        ) {
+          const why = await runIH(`--i ${q(cur)} --o ${q(refPrepare.out)} --new_box ${wantBox}`);
+          if (why) {
+            throw new Error(
+              `relion_image_handler --new_box ${wantBox} failed on ${conn.host} (${why}) — ${manual} (t365)`
+            );
+          }
+          if (didScale) await rmRemote(scaleTmp);
+        } else if (didScale) {
+          // the scale pass alone landed the box — promote the temp to the argv's address
+          try {
+            const mv = await exec(conn, `mv -f ${q(scaleTmp)} ${q(refPrepare.out)}`, { timeoutMs: 60_000 });
+            if (mv.error || (mv.code != null && mv.code !== 0)) {
+              throw new Error(`could not move the prepared reference to ${refPrepare.out} (${mv.error ?? `ssh exit ${mv.code}`}) — ${manual} (t365)`);
+            }
+          } catch (e) {
+            throw e instanceof Error && e.message.startsWith("could not move")
+              ? e
+              : new Error(`could not move the prepared reference to ${refPrepare.out} (${e instanceof Error ? e.message : String(e)}) — ${manual} (t365)`);
+          }
+        }
+        // the FINAL verify: the product's own header must speak the data's sampling
+        const finalProbe = await probeRemoteMrcHeader(conn, refPrepare.out);
+        const fh = finalProbe.header;
+        const finalPx = fh && fh.nx > 0 && fh.cella[0] > 0 ? fh.cella[0] / fh.nx : 0;
+        if (
+          fh == null ||
+          fh.nx !== wantBox ||
+          fh.ny !== wantBox ||
+          fh.nz !== wantBox ||
+          finalPx <= 0 ||
+          Math.abs(finalPx - refPrepare.dataPx) / refPrepare.dataPx > 0.005
+        ) {
+          throw new Error(
+            `the prepared reference at ${refPrepare.out} did not verify (got ${fh ? `${fh.nx}³ @ ${finalPx.toFixed(4)} Å/px` : "no MRC header"}, wanted ${wantBox}³ @ ${refPrepare.dataPx} Å/px) — ${manual} (t365)`
+          );
+        }
+        const outName = refPrepare.out.slice(refPrepare.out.lastIndexOf("/") + 1);
+        const steps = [
+          refPrepare.scale != null ? `--scale ${refPrepare.scale}` : null,
+          `--new_box ${wantBox}`,
+        ]
+          .filter(Boolean)
+          .join(" then ");
+        refPrepNote =
+          `reference auto-prepared ON the cluster (t365): the imported map was ${mismatchSentence} — ` +
+          `relion_image_handler ${steps} wrote ${outName} into this workdir (verified ${fh.nx}³ @ ${finalPx.toFixed(4)} Å/px by its own header); ` +
+          `--ref points there, the original map is untouched, zero map bytes crossed the wire`;
+        console.log(
+          `remote-run: reference auto-prepared on ${conn.host} — ${refPrepare.refBox}³ @ ${refPrepare.refPx.toFixed(4)} → ${fh.nx}³ @ ${finalPx.toFixed(4)} Å/px (${outName}), the original map untouched (t365)`
+        );
+      }
+
       if (isSlurm) {
         // ---- t350 — the auto-joinstar merge, POST-wipe --------------------
         // The path decision happened at the argv build; the merge itself
@@ -3508,6 +4003,28 @@ export async function startRemoteJob(args: {
           }
         }
         const dependency = depIds.length ? `afterok:${depIds.join(":")}` : null;
+        // t367 — the walltime this submission asks for. The refinement
+        // family (multi-hour by construction) resolves the partition's own
+        // MaxTime — the ceiling the controller always accepts — so the run
+        // gets the partition's FULL allowance instead of its (often far
+        // shorter) DEFAULT. The field report: a 20-round 2D classification
+        // died at ~2h04, iteration 20's write phase never started, zero
+        // error lines — the partition default killed it and nothing named
+        // the cause. An explicit conn.slurmTimeMin wins; a partition that
+        // cannot be resolved (bare node pin) degrades to the warn banner.
+        const walltimePartition =
+          partitionOverride ?? pinPartition ?? (explicitNode ? null : (conn.slurmPartition ?? null));
+        const timeLimitMin = await resolveSbatchTimeLimit(conn, job.type, walltimePartition);
+        const timeLimitWarn = !timeLimitMin && WALLTIME_TYPES.has(job.type);
+        if (timeLimitMin) {
+          console.log(
+            `remote-run: "${job.name}" requests --time=${slurmHms(timeLimitMin)} on ${conn.host}${walltimePartition ? ` (${walltimePartition})` : ""} (t367)`
+          );
+        } else if (timeLimitWarn) {
+          console.log(
+            `remote-run: no walltime resolved for "${job.name}" on ${conn.host} — the partition default applies (t367)`
+          );
+        }
         const script = buildSbatchScript({
           conn,
           module: moduleName,
@@ -3532,7 +4049,11 @@ export async function startRemoteJob(args: {
           nodelist: nodelistPin,
           dependency,
           array: arrayPlan,
-          note: ctffindGateNote ?? extractGateNote ?? particlesGateNote,
+          note: [ctffindGateNote, extractGateNote, particlesGateNote, refPrepNote].filter(Boolean).join(" · ") || null,
+          // t367 — the resolved walltime (+ the no-limit warning flag for
+          // refinement-family jobs that could not resolve one)
+          timeLimitMin,
+          ...(timeLimitWarn ? { timeLimitWarn: true } : {}),
           // t342/t345 — the starved-card refusal + the rank clamp ride only
           // jobs whose argv truly uses the GPU; the MPI width feeds the
           // script's own CF_RANKS clamp + per-rank launcher variables.
@@ -3678,7 +4199,7 @@ export async function startRemoteJob(args: {
           command,
           remoteProjectRoot,
           remoteWorkdir,
-          note: ctffindGateNote ?? extractGateNote ?? particlesGateNote,
+          note: [ctffindGateNote, extractGateNote, particlesGateNote, refPrepNote].filter(Boolean).join(" · ") || null,
         });
 
         const wrapperPath = `${remoteWorkdir}/.cf-run.sh`;
@@ -4525,7 +5046,16 @@ async function finalizeRemoteRun(
   // t339 — the job's TYPE rides along: the pure planner keeps the bulk
   // producers' image stacks on the cluster under key-files (the local
   // mirror is for metadata; the images wait for an explicit fetch).
-  const sync = await syncBackWorkdir(conn, r, localWorkdir, job.type);
+  const sync = await syncBackWorkdir(
+    conn,
+    r,
+    localWorkdir,
+    job.type,
+    // t367 — the generation gate's reference: this DISPATCH's startedAt.
+    // Files older than it are the previous run's leftovers (the pre-run
+    // wipe's silent degrade) and never graduate as this run's outputs.
+    Date.parse(rec.startedAt)
+  );
   const syncMs = Date.now() - syncT0;
 
   let outputs: Record<string, string> = {};
@@ -4548,10 +5078,17 @@ async function finalizeRemoteRun(
       perClassFiles.length > 0 && Object.keys(outputs).some((k) => k.startsWith("particles_class"))
         ? ` · ${perClassFiles.length} per-class star(s) — pick classes from the gallery for the next step`
         : "";
+    // t367 — the sync receipt rides the SUCCESS result too: a stale-generation
+    // gate that fired (an earlier run's leftovers refused adoption) or a
+    // policy/caps skip is part of what this run's outputs MEAN. Without it,
+    // a user whose final classes stack is a refused leftover would see
+    // "exited 0" and a gallery that honestly refuses — with no sentence
+    // anywhere connecting the two.
+    const syncNoteSuffix = sync.note ? ` — ${sync.note}` : "";
     result =
       collected.outputs && Object.keys(collected.outputs).length > 0
-        ? `REMOTE[${origin}]: ${collected.result.replace(/^REAL: /, "")}${perClassNote}`
-        : `REMOTE[${origin}]: exited 0 but no expected outputs appeared — check the log tab${perClassNote}`;
+        ? `REMOTE[${origin}]: ${collected.result.replace(/^REAL: /, "")}${perClassNote}${syncNoteSuffix}`
+        : `REMOTE[${origin}]: exited 0 but no expected outputs appeared — check the log tab${perClassNote}${syncNoteSuffix}`;
   } else {
     let logTailText = remoteLogTail;
     // t323 — the rescue arm now reads the LOCAL run.err's own content, not
@@ -4710,7 +5247,7 @@ async function finalizeRemoteRun(
     // login-node reaper story.
     const silentDeathNote = silentDeath
       ? r.mode === "slurm"
-        ? `no error text in the visible run.out/run.err tails: an external kill is the usual cause — the node's OOM killer, a walltime, or a scancel (check the cluster's own record: sacct -j ${r.slurmId ?? "<jobid>"} names the state; the failure diagnosis below matches the full run.out for known signatures like a CUDA out-of-memory)`
+        ? `no error text in the visible run.out/run.err tails: an external kill is the usual cause — the node's OOM killer, a walltime, or a scancel (check the cluster's own record: sacct -j ${r.slurmId ?? "<jobid>"} names the state; the failure diagnosis below matches the full run.out for known signatures like a CUDA out-of-memory). t367: if sacct says TIMEOUT, the job hit its walltime — a run killed DURING its final write phase leaves right-sized but corrupt/unwritten output files, so re-dispatch rather than trusting the half-written products; request a longer limit (the connection's Slurm time-limit setting, or ask the admin for the partition's ceiling)`
         : "no error text in the visible run.out/run.err tails (the rescue fetched the cluster's copy when the local one was empty): an external kill is the usual cause — the login node's CPU-job reaper (long direct-mode runs), the OOM killer, or a walltime. Multi-hour jobs belong in Slurm mode; sacct -j <jobid> and the job directory hold the cluster's own record"
       : "";
     result = [
@@ -4911,17 +5448,47 @@ interface SyncResult {
  * averages still come home — the class gallery reads their headers
  * locally). "everything" keeps meaning everything under the caps.
  */
+/** t367 — does the local file at `p` read as a sane MRC-family binary?
+ * Non-MRC files are "fresh" by definition (text and other formats have no
+ * cheap honesty check — the byte account remains their verdict). An MRC/
+ * MRCS/MAP whose header cannot be parsed (the zero-header ghost shape) is
+ * NEVER fresh, whatever its size: re-pull. */
+function localMrcReads(p: string): boolean {
+  if (!/\.(mrcs?|map)$/i.test(p)) return true;
+  try {
+    return readMrcHeader(p) != null;
+  } catch {
+    return false;
+  }
+}
+
 async function syncBackWorkdir(
   conn: RemoteConnection,
   r: RemoteRunState,
   localWorkdir: string,
-  jobType?: string
+  jobType?: string,
+  /**
+   * t367 — the generation gate: the dispatch's startedAt in epoch ms. Any
+   * cluster-side file whose mtime PREDATES this moment (minus a clock-skew
+   * grace) is a PREVIOUS run's leftover — the pre-run wipe's silent
+   * degrade (a t344 SSH timeout leaves "proceeding without it") — and is
+   * never adopted as this run's output. The field report: a corrupt,
+   * zero-header run_it020_classes.mrcs from the pre-t360 multi-writer era
+   * survived the wipe while the re-run (killed at its final write phase
+   * by the partition's default walltime) never wrote its own it020 — the
+   * sync-back then faithfully pulled the leftover home as "this run's
+   * classes", and every viewer answered "could not render". Absent =
+   * legacy caller, no gate (the pre-t367 behavior).
+   */
+  notBeforeMs?: number
 ): Promise<SyncResult> {
   const res: SyncResult = { files: 0, bytes: 0, skipped: [] };
   const W = shQuote(r.remoteWorkdir);
+  // t367 — %T@ (mtime, epoch seconds with fraction) rides every line: the
+  // generation gate needs it and the find costs the same SSH round.
   const manifest = await exec(
     conn,
-    `cd ${W} 2>/dev/null && find . -type f -not -name '.cf-*' -printf '%P\\t%s\\n' 2>/dev/null | head -4000`,
+    `cd ${W} 2>/dev/null && find . -type f -not -name '.cf-*' -printf '%P\\t%s\\t%T@\\n' 2>/dev/null | head -4000`,
     { timeoutMs: 15_000 }
   );
   if (manifest.error || manifest.code !== 0) {
@@ -4940,18 +5507,50 @@ async function syncBackWorkdir(
     remoteWorkdir: r.remoteWorkdir,
   };
   const capPerFile = conn.maxFileMb * 1024 * 1024;
-  const entries: { rel: string; size: number }[] = [];
+  // t367 — lines are "rel\tsize\tmtimeSec" (%P\t%s\t%T@); a %P path never
+  // contains a tab, so the FIRST tab ends the path and the LAST begins the
+  // mtime (middle = size).
+  const entries: { rel: string; size: number; mtimeSec?: number }[] = [];
   for (const line of manifest.stdout.trim().split("\n")) {
     if (!line.trim()) continue;
-    const tab = line.lastIndexOf("\t");
-    if (tab < 0) continue;
-    const rel = line.slice(0, tab).trim();
-    const size = Number(line.slice(tab + 1).trim());
+    const t1 = line.indexOf("\t");
+    const t2 = line.lastIndexOf("\t");
+    if (t1 < 0) continue;
+    const rel = line.slice(0, t1).trim();
+    const size = Number(t2 > t1 ? line.slice(t1 + 1, t2).trim() : line.slice(t1 + 1).trim());
+    const mtimeSec = t2 > t1 ? Number(line.slice(t2 + 1).trim().split(/\s+/)[0]) : NaN;
     if (!rel || !Number.isFinite(size)) continue;
-    entries.push({ rel, size });
+    entries.push({
+      rel,
+      size,
+      ...(Number.isFinite(mtimeSec) && mtimeSec > 0 ? { mtimeSec } : {}),
+    });
   }
+  // t367 — THE GENERATION GATE, before the planner ever sees caps: a file
+  // that predates the dispatch is the previous run's, whatever its size or
+  // policy class. 90s of grace absorbs app↔cluster clock skew; stale
+  // leftovers are hours-to-days old, nowhere near the line.
+  const staleGateMs =
+    typeof notBeforeMs === "number" && Number.isFinite(notBeforeMs) && notBeforeMs > 0
+      ? notBeforeMs - 90_000
+      : null;
+  const freshEntries: typeof entries = [];
+  const staleSkips: SyncSkip[] = [];
+  if (staleGateMs != null) {
+    for (const e of entries) {
+      if (typeof e.mtimeSec === "number" && e.mtimeSec * 1000 < staleGateMs) {
+        staleSkips.push({ ...e, why: "stale-generation" });
+      } else {
+        freshEntries.push(e);
+      }
+    }
+  }
+  const gatedEntries = staleGateMs != null ? freshEntries : entries;
   // t289 — the ledger FIRST: even a sync that dies mid-way leaves the
-  // outputs view knowing what the cluster holds (sizes included).
+  // outputs view knowing what the cluster holds (sizes included). t367 —
+  // the manifest still lists EVERYTHING (stale leftovers included): the
+  // Files tab speaks the cluster's truth, the gate only refuses to PULL
+  // them home as this run's outputs.
   writeRemoteManifest(localWorkdir, {
     connectionId: r.connectionId,
     remoteWorkdir: r.remoteWorkdir,
@@ -4960,14 +5559,20 @@ async function syncBackWorkdir(
   // t339 — the plan (WHAT comes home) comes from the pure planner; the
   // loop below only executes it. The planner's skip list is the pre-download
   // truth; the loop appends the download-time verdicts (failed / grew) so
-  // the note speaks every file that stayed, with its own why.
-  const plan = planSyncBack(entries, policyCtx);
-  const skips: SyncSkip[] = [...plan.skip];
+  // the note speaks every file that stayed, with its own why. t367 — the
+  // stale-generation verdicts lead the skip list.
+  const plan = planSyncBack(gatedEntries, policyCtx);
+  const skips: SyncSkip[] = [...staleSkips, ...plan.skip];
   for (const { rel, size } of plan.take) {
     const localPath = path.join(localWorkdir, rel);
-    // fresh copy already there? skip (idempotent re-finalize)
+    // fresh copy already there? skip (idempotent re-finalize). t367 — a
+    // same-SIZE local file is no longer enough for MRC-family outputs: a
+    // corrupt local copy of the SAME size (the field report's ghost — a
+    // zero-header leftover from the multi-writer era) would pass the size
+    // check and keep serving "could not render" forever. A binary whose
+    // header cannot be parsed is NEVER fresh — re-pull it.
     try {
-      if (existsSync(localPath) && statSync(localPath).size === size) {
+      if (existsSync(localPath) && statSync(localPath).size === size && localMrcReads(localPath)) {
         res.files += 1;
         continue;
       }

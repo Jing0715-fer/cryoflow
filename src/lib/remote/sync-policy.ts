@@ -47,6 +47,7 @@ export type SyncSkipWhy =
   | "key-cap" // over keyFileMb (key-files policy, non-bulk type)
   | "per-file-cap" // over the connection's maxFileMb
   | "budget" // the whole-sync budget ran out
+  | "stale-generation" // t367 — predates this dispatch: a leftover the pre-run wipe failed to remove (never adopted as this run's output)
   | "download-failed" // the SSH pull itself failed
   | "grew-mid-download"; // the file grew past the cap while pulling
 
@@ -54,6 +55,13 @@ export interface SyncEntry {
   /** path relative to the job workdir (posix separators) */
   rel: string;
   size: number;
+  /** t367 — the cluster-side mtime in epoch SECONDS (fractional), from
+   * find's %T@. The generation gate (syncBackWorkdir) reads it: a file
+   * that predates this dispatch is a previous run's leftover — the
+   * pre-run wipe's silent-degrade debris — and must never graduate into
+   * this run's outputs. Optional because the pure planner itself never
+   * gates on it (legacy callers list without mtimes). */
+  mtimeSec?: number;
 }
 
 export interface SyncPolicyContext {
@@ -137,6 +145,8 @@ export function describeSyncSkipFile(s: SyncSkip, ctx: SyncPolicyContext): strin
       return `${s.rel} (${(s.size / 1024 / 1024).toFixed(0)} MB > ${ctx.maxFileMb} MB cap)`;
     case "budget":
       return `${s.rel} (sync budget exhausted)`;
+    case "stale-generation":
+      return `${s.rel} (leftover from an EARLIER run of this job — it predates this dispatch and the pre-run wipe did not remove it; NOT counted as this run's output, t367)`;
     case "download-failed":
       return `${s.rel} (download failed)`;
     case "grew-mid-download":
@@ -154,7 +164,20 @@ export function describeSyncSkips(skips: SyncSkip[], ctx: SyncPolicyContext): st
   if (skips.length === 0) return null;
   const segments: string[] = [];
   const meta = skips.filter((s) => s.why === "metadata-only");
-  const capped = skips.filter((s) => s.why !== "metadata-only");
+  const stale = skips.filter((s) => s.why === "stale-generation");
+  const capped = skips.filter((s) => s.why !== "metadata-only" && s.why !== "stale-generation");
+  if (stale.length > 0) {
+    // t367 — lead with the generation verdict: these files sit in the same
+    // workdir but belong to a PREVIOUS run (the pre-run wipe could not
+    // remove them). Pulling them would dress a leftover — possibly a
+    // corrupt one from an earlier, differently-broken generation — as this
+    // run's output. The receipt says exactly that.
+    const named = stale.slice(0, 3).map((s) => s.rel).join(", ");
+    const tail = stale.length > 3 ? " …" : "";
+    segments.push(
+      `${stale.length} file(s) in the workdir were left behind by an EARLIER run of this job (${named}${tail}) — they predate this dispatch (the pre-run wipe could not remove them), so they were NOT synced back as this run's outputs. If this run was cut short (check its log tail for where it stopped), its own final files may simply never have been written — re-dispatch writes fresh ones`
+    );
+  }
   if (meta.length > 0) {
     segments.push(
       `${meta.length} image file(s) stayed on the cluster — ${ctx.jobType} jobs sync metadata only under the key-files policy (STAR, logs and plots come home; image stacks never do, whatever their size). They are listed in this job's Results — open or download one to fetch it on demand — or switch the connection's sync policy to "everything" to bring them home`

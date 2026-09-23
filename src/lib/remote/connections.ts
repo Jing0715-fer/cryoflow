@@ -55,6 +55,14 @@ export function sanitizeConnection(raw: Record<string, unknown>, prev?: RemoteCo
   const keyFileMb = Number.isFinite(keyMbRaw)
     ? Math.max(1, Math.min(2048, Math.round(keyMbRaw)))
     : (prev?.keyFileMb ?? 16);
+  // t367 — explicit sbatch walltime (minutes). Absent keeps the stored
+  // value (the edit form's three-state dialect); 0/null = auto (the
+  // refinement family asks the partition's own MaxTime at submit time).
+  const timeMinRaw = Number(raw.slurmTimeMin);
+  const slurmTimeMin =
+    Number.isFinite(timeMinRaw) && timeMinRaw > 0
+      ? Math.min(20160, Math.round(timeMinRaw)) // 2 weeks — Slurm's sane ceiling
+      : null;
   const envLines = Array.isArray(raw.envLines)
     ? raw.envLines
         .filter((l): l is string => typeof l === "string")
@@ -88,6 +96,10 @@ export function sanitizeConnection(raw: Record<string, unknown>, prev?: RemoteCo
           ? raw.slurmPartition.trim().slice(0, 80)
           : null
         : (prev?.slurmPartition ?? null),
+    slurmTimeMin:
+      raw.slurmTimeMin === undefined
+        ? (prev?.slurmTimeMin ?? null)
+        : slurmTimeMin,
     syncPolicy: policy,
     keyFileMb,
     maxFileMb: Number.isFinite(fileMb) ? Math.max(1, Math.min(8192, Math.round(fileMb))) : (prev?.maxFileMb ?? 512),

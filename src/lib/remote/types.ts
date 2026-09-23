@@ -63,6 +63,16 @@ export interface RemoteConnection {
    */
   slurmPartition?: string | null;
   /**
+   * t367 — explicit walltime (minutes) for sbatch submissions. Absent/null
+   * = auto: the refinement family asks the partition's own MaxTime at
+   * submit time (sinfo -o '%l', clamped to 24h); everything else omits
+   * --time and the partition default applies. The field report: a 20-round
+   * 2D classification (~2h04) was cut by the partition's default walltime
+   * EXACTLY at iteration 20's write phase — exit-invisible in run.out (a
+   * kill prints nothing), the final classes stack never written.
+   */
+  slurmTimeMin?: number | null;
+  /**
    * t289 — what finalize syncs back into the LOCAL mirror:
    *   "key-files"  text outputs (.star/.log/…) always; binary outputs only
    *                up to keyFileMb (class averages yes, maps & stacks stay

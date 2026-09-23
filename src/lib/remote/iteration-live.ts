@@ -29,6 +29,7 @@
 import path from "path";
 import {
   closeSync,
+  copyFileSync,
   existsSync,
   mkdirSync,
   openSync,
@@ -583,7 +584,20 @@ export async function ensureIterationAssets(
   connectionId: string,
   remoteWorkdir: string,
   jobId: string,
-  stackName: string
+  stackName: string,
+  /**
+   * t367 — the MIRROR SELF-HEAL. When the caller knows the run's local
+   * mirror holds a copy of this SAME stack (the image/sheet routes' local
+   * legs), passing its path here lets a successful cluster pull REPLACE a
+   * corrupt mirror copy in place: the field report's ghost (a zero-header
+   * leftover from an earlier run, adopted by a size-only sync-back) made
+   * every future render answer "could not render" — the mirror is healed
+   * the moment the cluster's fresh bytes arrive, so the Files tab, the
+   * galleries and every later viewer read clean data. Only an EXISTING
+   * corrupt copy is replaced (never introduces a new local file — the
+   * sync policy's local-space intent stands).
+   */
+  opts?: { healMirrorPath?: string }
 ): Promise<IterationAssets> {
   const key = `${connectionId}:${remoteWorkdir}/${stackName}`;
   const existing = stackInFlight.get(key);
@@ -652,6 +666,25 @@ export async function ensureIterationAssets(
         writeFileSync(doneMarkerPath(jobId, stackName), String(hdr.nz));
       } catch {
         /* best-effort marker */
+      }
+      // t367 — THE MIRROR SELF-HEAL: the pull succeeded against the cluster,
+      // so the transient holds GOOD bytes. If the caller named a mirror copy
+      // of this same stack and that copy is corrupt (unparseable header —
+      // the ghost shape), overwrite it in place: the next local-first render
+      // reads clean data, and the Files tab's exists-only fast path stops
+      // serving the ghost to downloads.
+      if (opts?.healMirrorPath) {
+        try {
+          const heal = opts.healMirrorPath;
+          if (existsSync(heal) && readMrcHeader(heal) == null) {
+            copyFileSync(transient, heal);
+            console.log(
+              `iteration-live: replaced a corrupt local mirror copy of ${stackName} with the fresh cluster bytes (t367)`
+            );
+          }
+        } catch {
+          /* best-effort heal — the render already answers from the transient */
+        }
       }
       clearStackFailure(jobId, stackName);
       return { slices: hdr.nz, sheet };
@@ -749,7 +782,7 @@ async function verifiedStackPull(
       ok: false,
       failure: {
         reason: "unreadable",
-        message: `${clusterPath} downloaded completely (${r.bytes} bytes — the size is right) but its MRC header is all zeros: the file itself is corrupt ON THE CLUSTER, in the exact shape of the pre-t360 multi-writer bug (an mpirun around the serial relion_refine — several independent RELION processes truncating each other's output; the duplicated run.out is the same signature). The data is unrecoverable — re-dispatch this job (after git-pulling the t360 fix, every dispatch is a single writer)`,
+        message: `${clusterPath} downloaded completely (${r.bytes} bytes — the size is right) but its MRC header is all zeros: the FILE ITSELF IS CORRUPT ON THE CLUSTER, and the shape says which world you are in. Either this is a leftover from an EARLIER run of this job (the pre-t360 multi-writer era wrote right-sized zero-header stacks; the pre-run wipe did not remove it and the current run never overwrote it — often because the run was CUT before its final write phase, e.g. by a walltime), or the current run wrote it through a broken path. Check where this run's log ends (a run that finished prints its final iteration summary; one that was killed just stops) — then re-dispatch: a fresh dispatch wipes the workdir and writes every file anew (t360+ dispatches are single-writer)`,
       },
     };
   }

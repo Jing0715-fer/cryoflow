@@ -92,6 +92,34 @@ export async function GET(request: NextRequest, context: RouteContext) {
       // a 404 from the fetch falls through to the original 404 below —
       // "not on disk AND not on the cluster" is simply not found
     }
+    // t367 — the GHOST leg: the local mirror HOLDS an MRC-family file whose
+    // header does not parse (a corrupt leftover a size-only sync-back once
+    // adopted — the field report's zero-header classes stack). Serving its
+    // bytes would dress corruption as a download; the fetch door re-pulls
+    // instead (remoteDownload truncates and rewrites, so the ghost dies
+    // here too), and the freshly-pulled bytes answer every format.
+    let localHeaderReads = true;
+    if (!("error" in resolved) && run.remote && isMrcPath(resolved.abs)) {
+      try {
+        localHeaderReads = readMrcHeader(resolved.abs) != null;
+      } catch {
+        localHeaderReads = false;
+      }
+    }
+    if (!("error" in resolved) && run.remote && !localHeaderReads) {
+      const fetched = await fetchRemoteFileIntoWorkdir(
+        { workdir: run.workdir, remote: run.remote },
+        rel
+      );
+      if (fetched.ok) {
+        resolved = resolveInsideJobWorkdir(run.workdir, rel);
+        if ("error" in resolved) {
+          return NextResponse.json({ error: resolved.error }, { status: resolved.status });
+        }
+      }
+      // a failed re-pull falls through: the parse below speaks the honest
+      // "could not render" instead of streaming the ghost's bytes
+    }
     if ("error" in resolved) {
       return NextResponse.json({ error: resolved.error }, { status: resolved.status });
     }

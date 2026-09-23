@@ -53,6 +53,9 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
     if (!run?.workdir) {
       return NextResponse.json({ error: "No workdir for this job" }, { status: 400 });
     }
+    // t367 — set by the local leg below when it fell through on a corrupt
+    // mirror copy (the remote pull then heals it in place)
+    let mirrorHealPath: string | null = null;
 
     // fast path: rendered during the run (or a previous view)
     const cached = readCachedSheetPng(job.id, file);
@@ -64,16 +67,26 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
 
     // local mirror holds this stack (finished job whose sync-back kept it)
     // → render in place, cached under the live leg's key (survives the
-    // t333 re-dispatch wipe that clears the mirror's products)
+    // t333 re-dispatch wipe that clears the mirror's products).
+    // t367 — a local copy whose render FAILS (the ghost shape: a corrupt
+    // leftover adopted by a size-only sync-back) falls through to the
+    // remote leg when the run still has a cluster behind it: the fresh
+    // pull answers the sheet AND heals the mirror copy in place. A
+    // local-only run keeps the honest 400.
     if (localStackExists(run.workdir, file)) {
-      const rendered = await renderClassSheetPng(path.join(run.workdir, file));
-      if (!rendered) {
+      const localPath = path.join(run.workdir, file);
+      const rendered = await renderClassSheetPng(localPath);
+      if (rendered) {
+        cacheSheetPng(job.id, file, rendered.png);
+        return new NextResponse(new Uint8Array(rendered.png), {
+          headers: { "Content-Type": "image/png", "Cache-Control": "private, max-age=300" },
+        });
+      }
+      if (!run.remote) {
         return NextResponse.json({ error: "could not render this iteration's sheet" }, { status: 400 });
       }
-      cacheSheetPng(job.id, file, rendered.png);
-      return new NextResponse(new Uint8Array(rendered.png), {
-        headers: { "Content-Type": "image/png", "Cache-Control": "private, max-age=300" },
-      });
+      // fall through: the cluster is the honest source left (t367)
+      mirrorHealPath = localPath;
     }
 
     // remote pull (running OR done — see the route doc). Done runs are the
@@ -86,7 +99,9 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
     if (!r) {
       return NextResponse.json({ error: "iteration sheet not available locally" }, { status: 404 });
     }
-    const assets = await ensureIterationAssets(r.connectionId, r.remoteWorkdir, job.id, file);
+    const assets = await ensureIterationAssets(r.connectionId, r.remoteWorkdir, job.id, file, {
+      ...(mirrorHealPath ? { healMirrorPath: mirrorHealPath } : {}),
+    });
     if (assets.failure) {
       return NextResponse.json(
         { error: assets.failure.message, reason: assets.failure.reason },

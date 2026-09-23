@@ -61,16 +61,25 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
     }
 
     // local mirror has the stack (finished job) → render in place, and
-    // cache the whole stack's slices the same way the remote leg does
+    // cache the whole stack's slices the same way the remote leg does.
+    // t367 — a local copy that FAILS to render (the ghost shape: a corrupt
+    // leftover adopted by a size-only sync-back) is no longer a verdict —
+    // when the run still has a cluster behind it, fall through to the
+    // remote leg: the fresh pull answers the render AND (healMirrorPath)
+    // replaces the corrupt mirror copy in place, so this never happens
+    // twice. Only a local-only run keeps the honest 400.
     const localPath = path.join(run.workdir, file);
     if (localStackExists(run.workdir, file)) {
       const png = await renderMrcSlicePng(localPath, slice);
-      if (!png) {
+      if (png) {
+        return new NextResponse(new Uint8Array(png), {
+          headers: { "Content-Type": "image/png", "Cache-Control": "private, max-age=300" },
+        });
+      }
+      if (!run.remote) {
         return NextResponse.json({ error: "could not render this class average" }, { status: 400 });
       }
-      return new NextResponse(new Uint8Array(png), {
-        headers: { "Content-Type": "image/png", "Cache-Control": "private, max-age=300" },
-      });
+      // fall through: the cluster is the honest source left (t367)
     }
 
     // live leg: pull once, render all slices (+ the t354 sheet), keep PNGs only
@@ -86,7 +95,10 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
     if (!r) {
       return NextResponse.json({ error: "class stack not available locally" }, { status: 404 });
     }
-    const assets = await ensureIterationAssets(r.connectionId, r.remoteWorkdir, job.id, file);
+    const assets = await ensureIterationAssets(r.connectionId, r.remoteWorkdir, job.id, file, {
+      // t367 — heal the mirror copy in place when the pull lands good bytes
+      ...(localStackExists(run.workdir, file) ? { healMirrorPath: localPath } : {}),
+    });
     if (assets.failure) {
       return NextResponse.json(
         { error: assets.failure.message, reason: assets.failure.reason },

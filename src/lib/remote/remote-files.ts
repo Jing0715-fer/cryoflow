@@ -34,6 +34,24 @@ import type { RemoteRunState } from "./types";
 import { getConnection } from "./connections";
 import { remoteDownload, remoteStat } from "./ssh";
 import { rewriteStarPaths } from "./remote-run";
+// t367 — the exists-only fast path learned to read MRC headers: a corrupt
+// local copy (the zero-header ghost a size-only sync-back once adopted)
+// is NOT "already there" — the door re-pulls instead of serving the
+// ghost to another download.
+import { readMrcHeader } from "@/lib/mrc";
+
+/** t367 — true when the file at `p` is trustworthy as a cached local copy:
+ * non-MRC formats always are (the byte account was their verdict); an
+ * MRC/MRCS/MAP must still PARSE — an unparseable header is the ghost
+ * shape, whatever its size, and earns a re-pull. */
+function localCopyReads(p: string): boolean {
+  if (!/\.(mrcs?|map)$/i.test(p)) return true;
+  try {
+    return readMrcHeader(p) != null;
+  } catch {
+    return false;
+  }
+}
 
 /** Hard ceiling for a single on-demand fetch (32 GB) — the click is the
  * user's explicit intent, but infinity is not a policy. */
@@ -236,13 +254,29 @@ export async function fetchRemoteFileIntoWorkdir(
   const key = `${remote.remoteWorkdir}::${rel}`;
   let p = inFlight.get(key);
   if (!p) {
-    if (existsSync(localPath)) return { ok: true, bytes: 0 };
+    // t367 — existence alone is no longer enough for MRC-family files: a
+    // corrupt leftover with the right name would serve its bytes to every
+    // download forever (the field report's ghost came home through exactly
+    // this door). An unreadable MRC re-pulls — remoteDownload truncates and
+    // rewrites, so the ghost dies on the first fetch after the fix.
+    let fresh = false;
+    try {
+      fresh = existsSync(localPath) && statSync(localPath).size > 0 && localCopyReads(localPath);
+    } catch {
+      fresh = false;
+    }
+    if (fresh) return { ok: true, bytes: 0 };
     p = fetchIntoWorkdir(run.workdir, remote, rel).finally(() => inFlight.delete(key));
     inFlight.set(key, p);
   }
   const res = await p;
   // the in-flight twin may have finished while a second caller raced the
-  // existsSync above — an ok is an ok either way
-  if (!res.ok && existsSync(localPath)) return { ok: true, bytes: 0 };
+  // freshness check above — an ok is an ok either way. t367 — but a FAILED
+  // pull only falls back to the local bytes when they READ: serving the
+  // ghost's bytes because the wire hiccuped would dress corruption as a
+  // download.
+  if (!res.ok && existsSync(localPath) && localCopyReads(localPath)) {
+    return { ok: true, bytes: 0 };
+  }
   return res;
 }
