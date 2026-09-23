@@ -47,7 +47,14 @@ import { downloadText } from "@/lib/download";
 /* ------------------------------------------------------------------ */
 
 interface FlowRow {
+  /** the STAGE this row represents ("micrographs", "extracted", …) — a
+   * label domain, NOT a React key: a re-run extract/classify makes two
+   * completed jobs answer the SAME stage, and the old key={row.key}
+   * rendered two siblings with one key (the "Encountered two children
+   * with the same key `extracted`" console error). The job's id keys the
+   * row; the stage stays as semantics. */
   key: string;
+  jobId: string;
   label: string;
   count: number;
   /** optional annotation ("×4 D2", "kept 92%") */
@@ -74,7 +81,7 @@ function flowRowOf(job: JobDTO): FlowRow | null {
   if (job.status !== "completed" || !job.result) return null;
   const r = job.result;
   const row = (key: string, label: string, count: number, note?: string): FlowRow | null =>
-    Number.isFinite(count) && count > 0 ? { key, label, count, note, type: job.type } : null;
+    Number.isFinite(count) && count > 0 ? { key, jobId: job.id, label, count, note, type: job.type } : null;
 
   if (/^import$/i.test(job.type)) {
     const m = r.match(/(\d[\d,]*)\s+micrographs? imported/i);
@@ -553,7 +560,7 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
                 const delta = prev != null ? row.count - prev : null;
                 const w = Math.max(8, Math.round((row.count / maxCount) * 100));
                 return (
-                  <div key={row.key} className="group/flow flex items-center gap-2">
+                  <div key={row.jobId} className="group/flow flex items-center gap-2">
                     <span
                       className={cn(
                         "flex size-5 shrink-0 items-center justify-center rounded ring-1 ring-inset",

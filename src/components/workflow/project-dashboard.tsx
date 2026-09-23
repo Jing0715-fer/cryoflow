@@ -1577,6 +1577,16 @@ function ActiveProjectSpotlight({
 }) {
   const project = useWorkflowStore((s) => s.project);
   const jobs = useWorkflowStore((s) => s.jobs);
+  // t368 — the spotlight rides a DEFERRED copy of the jobs list (the
+  // canvas's own t364 doctrine, one surface over): while a job runs,
+  // pollTick lands a new jobs array every 1.2s (progress moves) and the
+  // old shape re-rendered this whole dashboard section synchronously on
+  // the UI thread — stage chips, the chart-heavy analytics, the roster —
+  // the recurring 「经常会出现卡顿」. With the deferred value those
+  // updates render at transition priority: the shell paints, pointer
+  // and typing win, the sections catch up a frame later. The canvas's
+  // own deferral layer keeps its un-deferred copy for urgent chrome.
+  const deferredJobs = React.useDeferredValue(jobs);
   const workspaces = useWorkflowStore((s) => s.workspaces);
   const setView = useWorkflowStore((s) => s.setView);
   // Task 126: the shared deep-link action owns the landing (ghost guard +
@@ -1609,7 +1619,7 @@ function ActiveProjectSpotlight({
     setRosterQuery("");
   }
 
-  const sorted = [...jobs].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  const sorted = [...deferredJobs].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   const running = sorted.filter((j) => j.status === "running");
   const completed = sorted.filter((j) => j.status === "completed");
   const failed = sorted.filter((j) => j.status === "failed");

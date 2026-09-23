@@ -4784,6 +4784,19 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
         scriptLines.push(`tail -c 4096 ${W}/run.out 2>/dev/null`);
         scriptLines.push(`echo "---CF:ERR---"`);
         scriptLines.push(`tail -c 2048 ${W}/run.err 2>/dev/null`);
+        // t368 — the LIVE ROUNDS listing: a running classification streams
+        // its per-round class stacks home WHILE it runs (the user's
+        // 「运行过程中实时传回中间结果」— the old shape only transferred
+        // everything at finalize). One stat line per round (bytes, mtime,
+        // name) rides the heartbeat the sweep already pays; the
+        // generation + settle gates in the ALIVE branch below decide what
+        // streams. stat -c is GNU coreutils — every Slurm login node has it.
+        if (e.job.status === "running" && LIVE_ITERATION_TYPES.has(e.job.type)) {
+          scriptLines.push(`echo "---CF:ROUNDS---"`);
+          scriptLines.push(
+            `cd ${W} 2>/dev/null && for f in run_it???_classes.mrcs run_unmasked_classes.mrcs; do [ -f "$f" ] && stat -c '%s %Y %n' "$f"; done`
+          );
+        }
         scriptLines.push(`echo "===CF:END:${e.job.id}"`);
       }
       const res = await exec(conn, scriptLines.join("\n"), { timeoutMs: POLL_SWEEP_TIMEOUT_MS });
@@ -4795,9 +4808,18 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
       // parse per-job blocks. t303 — the status is still the FIRST line,
       // but a terminal sacct row may now ride as a SECOND line (the EXIT
       // branch's ledger enrichment) — stow it as b.sacct before the tails.
+      // t368 — a running classification's block may also end with a
+      // ---CF:ROUNDS--- stat listing (see the script build above).
       const blocks = new Map<
         string,
-        { status: string; sacct?: string; log: string; errTail: string; totalLines: number }
+        {
+          status: string;
+          sacct?: string;
+          log: string;
+          errTail: string;
+          totalLines: number;
+          rounds: { file: string; size: number; mtime: number }[];
+        }
       >();
       const re = /===CF:START:([\w-]+)\n([\s\S]*?)===CF:END:\1/g;
       let m: RegExpExecArray | null;
@@ -4813,18 +4835,33 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
         const linesM = afterStatus.indexOf("---CF:LINES---");
         const logM = afterStatus.indexOf("---LOG---");
         const errM = afterStatus.indexOf("---CF:ERR---");
+        const roundsM = afterStatus.indexOf("---CF:ROUNDS---");
         const totalLines =
           linesM >= 0 && logM > linesM
             ? Number(afterStatus.slice(linesM + 15, logM).trim().split("\n")[0]) || 0
             : 0;
         const log = logM >= 0 ? afterStatus.slice(logM + 8, errM >= 0 ? errM : undefined) : "";
-        const errTail = errM >= 0 ? afterStatus.slice(errM + 11) : "";
+        // t368 — the rounds listing sits AFTER the err tail; cap the tail
+        // slice there so the stat lines never ride into errTail
+        const errTail =
+          errM >= 0 ? afterStatus.slice(errM + 11, roundsM >= 0 ? roundsM : undefined) : "";
+        const rounds: { file: string; size: number; mtime: number }[] = [];
+        if (roundsM >= 0) {
+          for (const line of afterStatus.slice(roundsM + 15).split("\n")) {
+            const rm =
+              /^(\d+)\s+(\d+)\s+(run_it\d{3}_classes\.mrcs|run_unmasked_classes\.mrcs)$/.exec(
+                line.trim()
+              );
+            if (rm) rounds.push({ size: Number(rm[1]), mtime: Number(rm[2]), file: rm[3] });
+          }
+        }
         blocks.set(m[1], {
           status,
           sacct,
           log: log.replace(/\n$/, ""),
           errTail: errTail.replace(/\n$/, ""),
           totalLines,
+          rounds,
         });
       }
 
@@ -4894,6 +4931,36 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
                 .updateMany({ where: { id: e.job.id, status: "running" }, data: { progress: next } })
                 .catch(() => null);
               replace(out, { ...e.job, progress: next });
+            }
+          }
+          // t368 — LIVE ROUND STREAMING: the heartbeat just carried this
+          // run's class-stack stat lines. Rounds the CURRENT generation
+          // wrote (mtime ≥ the dispatch fence, 90s clock-skew grace — the
+          // t367 leftover lesson) and that have SETTLED (mtime ≥ 60s ago:
+          // a stack listed mid-write would pull truncated bytes and flash
+          // a false "unreadable" verdict) go straight to the render
+          // scheduler: each is pulled once, converted to per-class PNGs +
+          // the sheet in the local preview cache, and both galleries
+          // answer from local bytes WHILE the run continues — the rounds
+          // arrive during the run, not as one finalize-time batch. Already
+          // rendered rounds skip for free (the .done marker); a pipeline
+          // still in flight absorbs the re-schedule; the 2 GiB budget and
+          // the on-demand door below it keep the wire bounded.
+          if (b.rounds.length > 0) {
+            const fence = e.remote.dispatchedAtEpoch ?? 0;
+            const fenceSec = fence > 1e12 ? Math.floor(fence / 1000) : fence;
+            const nowSec = Math.floor(Date.now() / 1000);
+            const streamable = b.rounds
+              .filter((x) => x.mtime + 90 >= fenceSec && x.mtime + 60 <= nowSec)
+              .map((x) => ({ file: x.file, size: x.size }));
+            if (streamable.length > 0) {
+              scheduleRemoteStackRenders({
+                jobId: e.job.id,
+                connectionId: conn.id,
+                remoteWorkdir: e.remote.remoteWorkdir,
+                files: streamable,
+                reason: "live-sweep",
+              });
             }
           }
           continue;

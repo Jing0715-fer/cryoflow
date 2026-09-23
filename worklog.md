@@ -3317,3 +3317,24 @@ Stage Summary:
 - 本地 lane class3d 同族损坏隐患根除(mpirun 永不包串行二进制);resume 不再静默丢弃 checkpoint
 - 损坏 stack 报错从「may be corrupted」升级为点名多写手形状 + 重派指引
 - 冒烟 9/9 ALL GREEN;dev server 已重启预热存活(settled 200 @0.16s)
+
+---
+Task ID: 368
+Agent: main
+Task: 用户四联工单:(a) 2D 运行中不实时传回中间结果、结束才一次性传回;(b) 打开页面经常卡顿,数据加载期能否保持 UI 流畅;(c) console 报「two children with the same key `extracted`」且"好像不止一处";(d) 新 job class2d_ebm21x2d 的 run_it019_classes.mrcs 集群上就是坏的(relion_display: stack size 0)
+
+Work Log:
+- 【对齐】fetch 发现用户本地 AI 已推 t363+t364(3efb825:live 2D 轮次 UI 门 + 落页防冻结)与 t367(1eac2d3:walltime + 残留收养 + 镜像幽灵,含 t365/t366);78 个脏文件全是权限位翻转(0 行内容差),checkout 还原后 fast-forward 合并到 1eac2d3。逐条验证 t367 三件套在位:#SBATCH --time/CRYOFLOW_WALLTIME(6 处)、sync-back find %T@ generation gate(:5554)、healMirrorPath 三门(iteration-live :600/:676)
+- 【(d) 定性——不需要新代码】t367 已用字节级证据定案:重跑 job 的 run.out 显示单一健康 MPI 宇宙(t360 修复已生效)、20 轮完成,精确死在 it20 写盘相位(分区默认 walltime 击杀,旧 sbatch 从不申请 --time);坏 it020 是写盘中途被杀的半成品 + pre-t360 时代的 it019 残留(重派发的 pre-run wipe 静默降级没删掉)。用户看到的 relion_display "stack size 0" = 零头文件,与 t360 多写手形状同源。修复已在树:t367 申请 walltime(sinfo MaxTime 钳 24h)+ 拒绝收养旧代文件(收据点名)+ 三门幽灵自愈
+- 【(c) 重复 key】pipeline-analytics flowRowOf 按"阶段名"产 key(micrographs/picked/extracted/...),同阶段两个 completed job(重跑 extract 是常态)即撞 key。全库审计其余可疑 key 域:milestones/timeline 用 jobId、runs.ticks 用数字、hpc-queue-sim 有 Map 去重、results 系用 path/cls/iter、ports 用 port name(按构唯一)、palette/stats 用静态配置键——结构性重复仅 flow 漏斗一处("不止一处"的观感 = 同一行不同阶段名反复报)。修复:FlowRow 增加 jobId 字段,渲染 key={row.jobId};阶段名保留为语义
+- 【(a) 实时传回——t368 主菜】定位:finalize 管线(remote-run :5410)在 job 结束后一次性把 manifest 全部 stacks 排程渲染;运行中只有用户开着 Results 页才有 view-trigger(/iterations 路由),后台从不主动拉 → "全部完成后再一次性传回"。修复:sweep 心跳(per-connection 每 4-30s 自适应,由 /api/jobs 轮询驱动,页面开着即跑)的 per-job 脚本块追加 ---CF:ROUNDS--- 段(cd workdir + stat -c '%s %Y %n' run_it???_classes.mrcs + run_unmasked_classes.mrcs);解析侧 errTail 截到 rounds 标记(不吞 stat 行)+ 按行正则解析;ALIVE 分支双门控后 scheduleRemoteStackRenders(reason "live-sweep"):代际门(mtime ≥ dispatchedAtEpoch-90s,拒绝收养 pre-t360 残留——t367 教义)+ 沉降门(mtime ≤ now-60s,不拉写盘中途的文件避免假"unreadable");已渲染轮 .done 标记免费跳过、pipelineInFlight 吸收重复排程、2GiB 预算 + 按需门兜底。LIVE_ITERATION_TYPES 全覆盖(class2d/class3d/refine3d/initialmodel)。getRun 读持久化 engine-state.json,重启后流式照常
+- 【(b) 卡顿】t364 只护了画布卡片层。运行期真矢量:pollTick 1.2s 一次 jobs 数组变更(progress 移动)→ 整个 dashboard 段(舞台 chips + 图表重的分析区 + roster)同步重渲染。修复:ActiveProjectSpotlight 加 useDeferredValue(jobs)(hooks 均在 early return 前,顺序合法),sorted 改自 deferredJobs —— poll 合并以 transition 优先级渲染,shell 先画、指针/输入优先、重区块晚一帧跟上;画布自己的 deferral 层保持未延迟副本供紧急 chrome。审计确认 milestones 钩子已 Promise.all 批处理单次 setState,pollTick 已有引用稳定性合并(无变化零重渲染)
+- 【验证】tsc 0;eslint 三文件零输出;t368 冒烟 10/10 ALL GREEN(脚本 scripts/diag-t368-live-rounds-smoke.mjs:A1-A4 源码 X 光 + B1 画布 3 卡 + 视图切换到 dashboard + B2 roster chrome + B2b 分析区诚实隐藏契约 + C1/C2 DOM↔server 恒等 + B3 零 console/page 错误);截图 shots-qa/t368-live-rounds-smoke.png
+- 【4GB OOM 战况】本轮 3 案击杀(浏览器触发客户端块重编译时 2.7-3.2GB RSS);一次 waitForSelector 超时直接归因于此(server 死 → 页面空)。重试循环 + 预热 + 20s 沉降吸收彩票;冒烟通过后测后空闲又遭一票,重启预热后 settled 200 @0.25s
+
+Stage Summary:
+- 重复 key 根除(行键 = jobId,阶段名退为语义);结构审计确认全库仅 flow 漏斗一处
+- 远程分类运行中轮次流式传回:sweep 心跳零额外 SSH 往返捎带 stat 行,双门控(代际+沉降)后进渲染调度器,页面开着即流,不再等 finalize 一次性搬运
+- dashboard 落页/运行期卡顿:spotlight deferred(画布 t364 教义延伸),pollTick 合并可中断
+- mrcs 损坏(class2d_ebm21x2d)无需新代码:t367 已定案(walltime 击杀 + pre-t360 残留)+ 修复在树;用户 git pull 后重派发即净
+- 用户复机路径: git pull → 重派发 2D → 运行中每轮 ~60s 后自动到本地预览缓存;log 单份;结束无残留收养
