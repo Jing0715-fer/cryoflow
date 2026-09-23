@@ -1003,6 +1003,60 @@ function clamp(v: number, min: number, max: number) {
 /** One pollTick at a time (see the guard inside pollTick). */
 let pollInFlight = false;
 
+/**
+ * t370 — client-side TOMBSTONES for freshly deleted jobs. The field
+ * report: delete a job while a same-type job is being created and the
+ * deleted card vanishes → REAPPEARS → vanishes again. pollInFlight above
+ * only stops OVERLAPPING client fetches; it cannot stop a GET /api/jobs
+ * that STARTED before the DELETE committed from landing AFTER it — that
+ * response still lists the deleted job, the reference-stability merge
+ * re-adds it (the card reappears), and the NEXT poll removes it again
+ * (the card vanishes: the flicker). Every id that leaves the canvas
+ * through a server-confirmed DELETE (removeJobsRaw — single, bulk, redo
+ * — plus the import-undo lane) is recorded here for TOMBSTONE_TTL_MS and
+ * filtered out of EVERY full server-list ingest (pollTick's merge,
+ * load()'s replacement). The TTL is the honesty valve: a poll response
+ * older than 15s can no longer have been in flight when the delete
+ * committed, so a server that STILL returns the id after that is telling
+ * the truth (a delete that failed server-side despite the 200) and the
+ * tombstone must not become a censor. undoDelete clears the ids it
+ * restores, so an intentional comeback is never filtered.
+ */
+const recentlyDeletedJobs = new Map<string, number>();
+const TOMBSTONE_TTL_MS = 15_000;
+
+/** t370 — record ids whose DELETE just succeeded. Refreshes the
+ *  timestamp on a repeat: a redo re-deletes, and the new delete deserves
+ *  a fresh window of its own. */
+function tombstoneJobIds(ids: Iterable<string>): void {
+  const now = Date.now();
+  for (const id of ids) recentlyDeletedJobs.set(id, now);
+}
+
+/** t370 — the restore path's half of the contract: ids coming back on
+ *  PURPOSE (undoDelete → /api/jobs/restore) leave the tombstone
+ *  immediately, or the next poll's filter would eat the cards the
+ *  restore just put back on the canvas. */
+function reviveJobIds(ids: Iterable<string>): void {
+  for (const id of ids) recentlyDeletedJobs.delete(id);
+}
+
+/** t370 — the ingest filter: drop tombstoned ids from a FULL server
+ *  jobs list before it replaces or merges into the store. Expired
+ *  entries are pruned here so the TTL check rides every ingest (a
+ *  tombstone can never outlive its truth window, even when pollTick is
+ *  on the hidden-tab 15s cadence). The array is returned AS-IS when
+ *  nothing is tombstoned — the common path stays zero-cost. */
+function withoutResurrectedJobs<T extends { id: string }>(jobs: T[]): T[] {
+  if (recentlyDeletedJobs.size === 0) return jobs;
+  const now = Date.now();
+  for (const [id, at] of recentlyDeletedJobs) {
+    if (now - at > TOMBSTONE_TTL_MS) recentlyDeletedJobs.delete(id);
+  }
+  if (recentlyDeletedJobs.size === 0) return jobs;
+  return jobs.filter((j) => !recentlyDeletedJobs.has(j.id));
+}
+
 /** Task 145 — the fact suffix for completion announcements: how long the
  *  job ran before it finished (or died). The announcement is the moment
  *  the elapsed fact becomes final — the same formatElapsed dialect the
@@ -1208,9 +1262,18 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         const seedWs = wsSeed ? wsList.find((w) => w.id === wsSeed) : null;
         if (seedWs) activeWs = seedWs.id;
       }
+      // t370 — the second full-list ingest (besides pollTick): load()
+      // replaces the whole jobs array, and it runs at moments that can
+      // sit INSIDE a delete's tombstone window (boot, the manual reload
+      // button, project switch/create/duplicate). The same filter keeps
+      // a stale response (or a server that lost the delete) from
+      // resurrecting a card the user just removed; the seed lookup below
+      // reads the filtered list so a tombstoned id cannot win the
+      // selection either.
+      const landedJobs = withoutResurrectedJobs(j.jobs);
       set({
         project: p.project ?? null,
-        jobs: j.jobs,
+        jobs: landedJobs,
         edges: e.edges,
         system: sys,
         projects: projs.projects,
@@ -1230,8 +1293,11 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       if (!selectionSeedApplied) {
         selectionSeedApplied = true;
         const seed = hydrateSelectedJob();
+        // t370 — the seed resolves against the FILTERED list (see
+        // landedJobs): a just-deleted id the stale response still carries
+        // must not steal the selection
         const seedJob = seed
-          ? j.jobs.find((x) => x.id === seed && jobInWorkspace(x, activeWs))
+          ? landedJobs.find((x) => x.id === seed && jobInWorkspace(x, activeWs))
           : null;
         if (seedJob) set({ selectedId: seedJob.id, selectedIds: [seedJob.id] });
       }
@@ -1766,6 +1832,11 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       errToast("Undo failed — none of the imported jobs could be deleted");
       return;
     }
+    // t370 — the import-undo lane deletes by itself (not via
+    // removeJobsRaw), so it records its own tombstones: an in-flight poll
+    // that started before these DELETEs committed would resurrect the
+    // just-imported cards the same way it resurrects a plain delete
+    tombstoneJobIds(ok);
     const okSet = new Set(ok);
     const selectedId = get().selectedId;
     // Task 159: stepping the canvas back is the undo gesture's motion —
@@ -1815,6 +1886,13 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       };
     }
     const delSet = new Set(deleted);
+    // t370 — tombstone every id that actually left: a GET /api/jobs that
+    // started before these DELETEs committed can still land carrying
+    // them, and without the tombstone the poll's merge would resurrect
+    // the cards (the delete-flicker field report). Every caller — single
+    // delete, bulk delete, the redo of an undone delete — flows through
+    // here, so one recording point covers the whole delete family.
+    tombstoneJobIds(deleted);
     // keepSelection: when the PRIMARY card goes away, promote the first
     // remaining selected card (the single-delete behavior since Task 97)
     const restIds = get().selectedIds.filter((x) => !delSet.has(x));
@@ -1960,6 +2038,11 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       });
       return;
     }
+    // t370 — the restored ids leave the client tombstone NOW: they are
+    // coming back on purpose, and the next poll's ingest filter must not
+    // eat the cards this restore is about to put on the canvas. Refused
+    // ids (res.failed) stay tombstoned — they never came back.
+    reviveJobIds(restoredIds);
     // re-wire sequentially: the sidecar edge file is a read-modify-write
     // store, parallel POSTs could drop edges; wires to survivors restore
     // too (one endpoint restored, the other never left)
@@ -2607,7 +2690,16 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     pollInFlight = true;
     const prev = get().jobs;
     try {
-      const { jobs } = await api<{ jobs: JobDTO[] }>("/api/jobs");
+      const { jobs: fetched } = await api<{ jobs: JobDTO[] }>("/api/jobs");
+      // t370 — the tombstone filter runs BEFORE the reference-stability
+      // merge: this GET may have STARTED before a delete committed (the
+      // pollInFlight guard only stops overlaps, not stale responses), and
+      // the merge below would happily re-add the deleted id — the
+      // vanish → reappear → vanish flicker of the field report. Filtering
+      // first also keeps the identical-tick fast path honest: prev (the
+      // post-delete store) and the filtered list agree, so the tick stays
+      // a zero-render no-op instead of resurrecting and re-deleting.
+      const jobs = withoutResurrectedJobs(fetched);
       // reference stability: reuse the previous object for every job whose
       // fields did not change (JSON.parse gives brand-new refs each time)
       let changed = prev.length !== jobs.length;

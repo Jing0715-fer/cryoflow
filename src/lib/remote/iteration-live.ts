@@ -42,7 +42,7 @@ import {
 } from "fs";
 import { getRun } from "@/lib/relion/engine";
 import { cachedFileCompute } from "@/lib/relion/statcache";
-import { readMrcHeader, renderClassSheetPng, renderMrcSlicePng } from "@/lib/mrc";
+import { readMrcHeader, readMrcSlice, renderClassSheetPng, renderMrcSlicePng } from "@/lib/mrc";
 import { DATA_DIR } from "@/lib/paths";
 import { getConnection } from "./connections";
 import { exec, remoteChunkedDownload } from "./ssh";
@@ -73,6 +73,23 @@ export interface StackEntry {
   iter: number;
   /** workdir-relative stack file name */
   file: string;
+  /**
+   * t370 — true when this round's rendered stack had ZERO dynamic range
+   * (every sampled slice one flat value — the "black classes" field
+   * report; a healthy class average is never flat). Set by the render
+   * pass from the pulled bytes and persisted as a `.zerodata` marker in
+   * the preview cache, so both gallery legs (live and local) badge the
+   * round without re-pulling it. Absent = healthy or never measured.
+   */
+  zeroData?: boolean;
+  /**
+   * t370 — the stack's MRC header nz as measured on the cluster (the
+   * live leg's od sniff rides the same SSH round as the listing; local
+   * and cached rounds may not carry it). 0 = the ZERO-HEADER corruption
+   * shape (relion_display's "exceeds stack size 0", the t369 disease);
+   * absent = unmeasured — renders exactly as before.
+   */
+  nz?: number;
 }
 
 export interface IterationsPayload {
@@ -94,6 +111,14 @@ export interface IterationsPayload {
    * explains itself: which link of the pull broke). Absent when the last
    * attempt succeeded or nothing was tried. */
   renderError?: string;
+  /**
+   * t370 — ASSET-level zero-data evidence: the classesFile's RENDERED
+   * pixels were all identical (the "black classes" field report — the
+   * .zerodata marker the render pass wrote). The gallery unions this
+   * with the per-round StackEntry.zeroData flags so the badge lands on
+   * the chip whichever layer speaks first. Absent = healthy/unmeasured.
+   */
+  zeroData?: boolean;
   error?: string;
 }
 
@@ -299,6 +324,13 @@ export async function remoteLiveIterations(
     // listing must be able to SEE it (the old grep dropped it and the
     // preference was dead code)
     `ls ${W} 2>/dev/null | grep -E '^(run_it|_it)[0-9]+_(unmasked_)?classes\\.mrcs?$|^run_unmasked_classes\\.mrcs?$' || true`,
+    // t370 — the HEADER SNIFF rides the same round: each round stack's
+    // size + first three MRC words (nx ny nz via od, squeezed by tr), so
+    // the live chips can badge the ZERO-HEADER disease (nz=0) the moment
+    // the round settles — the sweep's own sniff (remote-run.ts) speaks
+    // the same dialect for its render gates.
+    'echo "---CF-HDRS---"',
+    `cd ${W} 2>/dev/null && for f in run_it???_classes.mrcs run_unmasked_classes.mrcs; do [ -f "$f" ] && { stat -c '%s %n' "$f"; od -An -tu4 -j0 -N12 "$f" 2>/dev/null | tr -s ' \\n' ' '; echo; }; done`,
     'echo "---CF-OCC---"',
     `DS=$(ls ${W} 2>/dev/null | grep -E '^(run_it|_it)[0-9]+_data\\.star$' | sort | tail -1)`,
     'if [ -n "$DS" ]; then',
@@ -314,10 +346,33 @@ export async function remoteLiveIterations(
   const sections = res.stdout.split("---CF-STACKS---");
   const dataStars = (sections[0] ?? "")
     .split("\n").map((l) => l.trim()).filter((l) => DATA_STAR_RE.test(l));
-  const rest = (sections[1] ?? "").split("---CF-OCC---");
+  const rest = (sections[1] ?? "").split("---CF-HDRS---");
   const stacks = (rest[0] ?? "")
     .split("\n").map((l) => l.trim()).filter((l) => STACK_NAME_RE.test(l));
-  const occText = rest[1] ?? "";
+  // t370 — parse the od sniff: a "size name" stat line followed by one
+  // "nx ny nz" header line per round; only nz rides the payload (the
+  // corruption shape the gallery badges is nz=0; a partial/garbage header
+  // line — file mid-write — records NOTHING for that round).
+  const nzByName = new Map<string, number>();
+  {
+    const hdrText = (rest[1] ?? "").split("---CF-OCC---")[0] ?? "";
+    let curName: string | null = null;
+    for (const line of hdrText.split("\n")) {
+      const sm = /^(\d+)\s+(\S+)$/.exec(line.trim());
+      if (sm && STACK_NAME_RE.test(sm[2])) {
+        curName = sm[2];
+        continue;
+      }
+      if (curName != null) {
+        const parts = line.trim().split(/\s+/).filter((t) => /^\d+$/.test(t));
+        if (parts.length >= 3) {
+          nzByName.set(curName, Number(parts[2]));
+        }
+        curName = null;
+      }
+    }
+  }
+  const occText = (rest[1] ?? "").split("---CF-OCC---")[1] ?? "";
 
   const iterations = dataStars
     .map((n) => Number(DATA_STAR_RE.exec(n)?.[1] ?? NaN))
@@ -358,7 +413,20 @@ export async function remoteLiveIterations(
     total,
     classesFile,
     classesSlices,
-    stacks: stackEntryList(stacks),
+    // t370 — the chips carry the sniffed nz (live evidence: 0 = the
+    // zero-header disease) and the persisted zero-data verdicts (the
+    // renders run in the background pipeline; once a marker lands, every
+    // later payload badges that round without re-pulling it)
+    stacks: withZeroDataFlags(
+      stackEntryList(stacks).map((s) => {
+        const nz = nzByName.get(s.file);
+        return nz != null ? { ...s, nz } : s;
+      }),
+      jobId
+    ),
+    // t370 — asset-level note for the gallery's chosen classesFile (the
+    // .zerodata marker the render pass wrote, when that round was pulled)
+    ...(classesFile && stackZeroData(jobId, classesFile) ? { zeroData: true as const } : {}),
   };
   liveCache.set(jobId, { at: Date.now(), payload });
   return payload;
@@ -402,7 +470,10 @@ export function localIterations(workdir: string, jobId?: string): IterationsPayl
       total: 0,
       classesFile: cs?.classesFile ?? null,
       classesSlices: cs?.classesSlices ?? null,
-      stacks: cached,
+      stacks: jobId ? withZeroDataFlags(cached, jobId) : cached,
+      ...(cs?.classesFile && jobId && stackZeroData(jobId, cs.classesFile)
+        ? { zeroData: true as const }
+        : {}),
     };
   }
   const names = readdirSync(workdir);
@@ -419,9 +490,16 @@ export function localIterations(workdir: string, jobId?: string): IterationsPayl
   let total = 0;
   let classesFile: string | null = pickStack(names);
   let classesSlices: number | null = null;
+  // t370 — the chosen classesFile's OWN header nz rides its chip too (the
+  // header read this leg already pays for classesSlices doubles as the
+  // nz evidence; a mirror copy that reads nz=0 is the disease at rest)
+  let classesFileNz: number | null = null;
   if (classesFile) {
     const hdr = readMrcHeader(path.join(workdir, classesFile));
-    if (hdr) classesSlices = hdr.nz;
+    if (hdr) {
+      classesSlices = hdr.nz;
+      classesFileNz = hdr.nz;
+    }
   }
   // t356 — the RENDER-CACHE fallback: a remote run's class-average stacks
   // stay on the cluster (the key-files caps — a real 100-class 360-px
@@ -459,7 +537,28 @@ export function localIterations(workdir: string, jobId?: string): IterationsPayl
   const seen = new Set(mirrorStacks.map((s) => s.iter));
   const stacks = [...mirrorStacks, ...cached.filter((s) => !seen.has(s.iter))]
     .sort((a, b) => a.iter - b.iter);
-  return { remote: false, iterations, latest, classes, total, classesFile, classesSlices, stacks };
+  return {
+    remote: false,
+    iterations,
+    latest,
+    classes,
+    total,
+    classesFile,
+    classesSlices,
+    // t370 — same badge overlay as the live leg (a round the pipeline
+    // ever judged all-flat stays badged after the run finishes), the
+    // chosen classesFile's own header nz stamps its chip, and the
+    // asset-level note speaks for the gallery's grid source
+    stacks: jobId
+      ? withZeroDataFlags(
+          classesFileNz == null
+            ? stacks
+            : stacks.map((s) => (s.file === classesFile ? { ...s, nz: classesFileNz } : s)),
+          jobId
+        )
+      : stacks,
+    ...(classesFile && jobId && stackZeroData(jobId, classesFile) ? { zeroData: true as const } : {}),
+  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -559,6 +658,91 @@ export function stackRendered(jobId: string, stackName: string): boolean {
   }
 }
 
+/* ------------------------------------------------------------------ */
+/* t370 — zero-DATA detection (the "black classes" field report)       */
+/* ------------------------------------------------------------------ */
+
+/** the per-stack zero-data verdict marker inside the preview cache */
+function zeroDataMarkerPath(jobId: string, stackName: string): string {
+  return path.join(liveStackDir(jobId, stackName), ".zerodata");
+}
+
+/** True when this round's rendered stack was judged ALL-FLAT (t370). */
+export function stackZeroData(jobId: string, stackName: string): boolean {
+  try {
+    return statSync(zeroDataMarkerPath(jobId, stackName)).isFile();
+  } catch {
+    return false;
+  }
+}
+
+/** persist/clear the verdict next to the round's rendered PNGs (best-effort) */
+function markStackZeroData(jobId: string, stackName: string, flat: boolean): void {
+  try {
+    if (flat) {
+      mkdirSync(liveStackDir(jobId, stackName), { recursive: true });
+      writeFileSync(zeroDataMarkerPath(jobId, stackName), "1");
+    } else {
+      rmSync(zeroDataMarkerPath(jobId, stackName), { force: true });
+    }
+  } catch {
+    /* best-effort — the render itself is the primary product */
+  }
+}
+
+/**
+ * t370 — is this MRC stack's data ONE FLAT VALUE in every sampled slice
+ * (dynamic range ~0)? The "black classes" field report: a stack whose
+ * header parses and whose size is right, but whose pixels are all
+ * identical — the render draws a black grid and the user had no word
+ * for it. The scan samples three slices (first, middle, last) and the
+ * verdict needs ALL of them flat — a healthy class average is never
+ * flat, so the common path costs three slice reads. All-NaN slices
+ * count as flat too (they render just as black); NaN mixed with real
+ * values keeps the stack out of the verdict — the badge only names
+ * shapes it is sure of. Exported for the finalize leg's sync-back scan
+ * (remote-run.ts judges the SAME shape on the bytes it pulls home).
+ */
+export function mrcStackDataIsFlat(p: string): boolean {
+  let hdr;
+  try {
+    hdr = readMrcHeader(p);
+  } catch {
+    return false;
+  }
+  if (!hdr || hdr.nz < 1) return false;
+  const sliceIsFlat = (z: number): boolean => {
+    const s = readMrcSlice(p, z, hdr);
+    if (!s || s.length === 0) return false; // unreadable is NOT a verdict
+    let min = Infinity;
+    let max = -Infinity;
+    let finite = 0;
+    for (let i = 0; i < s.length; i++) {
+      const v = s[i];
+      if (Number.isFinite(v)) {
+        if (v < min) min = v;
+        if (v > max) max = v;
+        finite++;
+      }
+    }
+    if (finite === 0) return true; // all-NaN renders just as black
+    return min === max;
+  };
+  const probes = hdr.nz === 1 ? [0] : [0, Math.floor(hdr.nz / 2), hdr.nz - 1];
+  return probes.every(sliceIsFlat);
+}
+
+/** overlay the persisted zero-data verdicts onto a chips-bar list */
+function withZeroDataFlags(entries: StackEntry[], jobId: string): StackEntry[] {
+  let any = false;
+  const out = entries.map((s) => {
+    if (!stackZeroData(jobId, s.file)) return s;
+    any = true;
+    return { ...s, zeroData: true };
+  });
+  return any ? out : entries;
+}
+
 /**
  * Pull ONE class-average stack from the cluster, render EVERY slice to a
  * small PNG plus the t354 SHEET (the whole iteration as one grid image),
@@ -637,6 +821,26 @@ export async function ensureIterationAssets(
           `iteration-live: ${stackName} pull refused (${hdr.failure.reason}) — ${hdr.failure.message}`
         );
         return { slices: 0, sheet: null, failure: hdr.failure };
+      }
+      // t370 — ZERO-DATA detection at render time: the pulled bytes are
+      // on the local disk RIGHT NOW (the finally-clause deletes them), so
+      // this is the one moment the stack's dynamic range can be measured
+      // for free. An all-flat stack renders as the "black classes" grid —
+      // the badge contract (StackEntry.zeroData) needs the verdict
+      // PERSISTED (the .zerodata marker), because the galleries answer
+      // later from the PNGs alone. A healthy stack costs three slice
+      // reads; the verdict never blocks or fails the render.
+      let stackFlat = false;
+      try {
+        stackFlat = mrcStackDataIsFlat(transient);
+      } catch {
+        stackFlat = false;
+      }
+      markStackZeroData(jobId, stackName, stackFlat);
+      if (stackFlat) {
+        console.log(
+          `iteration-live: ${stackName} of job ${jobId} came home with ZERO dynamic range — every sampled slice one flat value; the gallery badges this round (t370)`
+        );
       }
       for (let z = 0; z < hdr.nz; z++) {
         const png = await renderMrcSlicePng(transient, z);
@@ -795,7 +999,7 @@ async function verifiedStackPull(
       ok: false,
       failure: {
         reason: "unreadable",
-        message: `${clusterPath} downloaded completely (${r.bytes} bytes — the size is right) but its MRC header is all zeros: the FILE ITSELF IS CORRUPT ON THE CLUSTER. Two worlds, and the order matters. (1) A leftover from an EARLIER run — only possible in a REUSED workdir: check the file's mtime on the cluster (ls -l) against when this run started; a fresh job id has a brand-new workdir where no leftover can exist. (2) The current run wrote it and the bytes never durably reached the storage: RELION writes the header FIRST and this run continued past this file (later iterations in its log, empty stderr), so RELION believed the write succeeded — and cryoflow never writes into a live run's workdir (its remote legs are read-only while the run lives). The loss is on the cluster's write path — between the compute node's writes and the network storage under this directory; the same jobs writing to node-local scratch (/ssd_cache) coming out healthy is the same story. Convict it in 60 seconds without RELION: from a COMPUTE node run head -c 2097152 /dev/urandom > <this directory>/wtest.bin && md5sum <this directory>/wtest.bin, then md5sum the same path from the login node — a mismatch (or zeros) convicts the storage path; hand that file to the storage admin (t369).${seedNote}`,
+        message: `${clusterPath} downloaded completely (${r.bytes} bytes — the size is right) but its MRC header is all zeros: the FILE ITSELF IS CORRUPT ON THE CLUSTER. Two worlds, and the order matters. (1) A leftover from an EARLIER run — only possible in a REUSED workdir: check the file's mtime on the cluster (ls -l) against when this run started; a fresh job id has a brand-new workdir where no leftover can exist. (2) The current run wrote it and the bytes never durably reached the storage: RELION writes the header FIRST and this run continued past this file (later iterations in its log, empty stderr), so RELION believed the write succeeded — and cryoflow never writes into a live run's workdir (its remote legs are read-only while the run lives). The loss is on the cluster's write path — between the compute node's writes and the network storage under this directory; the same jobs writing to node-local scratch (/ssd_cache) coming out healthy is the same story. t370: the sweep now watches these headers LIVE (a round whose nx/ny/nz reads 0 is named in the job's log the moment it settles, and its render pull is refused), and the automatic storage diagnostic runs ITSELF at the first such round — its verdict (COMPUTE→STORAGE WRITE LOST, or STORAGE WRITE PATH HEALTHY) speaks in the log and in the job's result; only if it never ran does the manual test remain: from a COMPUTE node, head -c 2097152 /dev/urandom > <this directory>/wtest.bin && md5sum <this directory>/wtest.bin, then md5sum the same path from the login node — a mismatch (or zeros) convicts the storage path; hand that file to the storage admin (t369/t370).${seedNote}`,
       },
     };
   }

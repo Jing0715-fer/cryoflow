@@ -43,6 +43,17 @@ const LIVE_TYPES = new Set(["class2d", "class3d", "refine3d", "initialmodel"]);
 /** the stack-name dialect the server validates against (STACK_NAME_RE) */
 const STACK_NAME_RE = /^(?:run_it|_it)(\d+)_(?:unmasked_)?classes\.mrcs?$/i;
 
+/* t370 — the corruption-evidence tooltips (the honest verdicts the live
+ * rounds now carry; attached in the chips bar below). Dense on purpose:
+ * the badge is tiny, the explanation must stand alone — and it must
+ * never claim more than the evidence says (both verdicts name the two
+ * worlds and point at the Log tab's storage diagnostic, which is where
+ * the 60-second conviction test lives (t369)). */
+const ZERO_DATA_TITLE =
+  "this round's pixels are all zero — the class averages were computed from empty/garbage input stacks (a broken extraction upstream) or the run's writes never durably reached the storage. Check the job's Log tab for the storage diagnostic verdict.";
+const ZERO_HEADER_TITLE =
+  "this round's file was written with a zero MRC header on the cluster (the readMRC 'exceeds stack size 0' shape) — the run's writes are not durably landing; see the storage diagnostic in the Log tab.";
+
 interface ClassEntry {
   cls: number;
   count: number;
@@ -52,6 +63,16 @@ interface ClassEntry {
 interface StackEntry {
   iter: number;
   file: string;
+  /** t370 — the stack's MRC header nz as measured on the cluster (live
+   *  rounds may carry it; cached/local rounds and older payloads may
+   *  not). 0 = the ZERO-HEADER corruption shape (relion_display's
+   *  "exceeds stack size 0", the t369 session's right-sized zero-header
+   *  stacks). Absent = unmeasured — renders exactly as before. */
+  nz?: number;
+  /** t370 — this round's rendered pixels were all identical (the "black
+   *  classes" field report: healthy occupancy numbers over an all-zero
+   *  image). Absent = unmeasured / healthy. */
+  zeroData?: boolean;
 }
 
 interface IterationsResponse {
@@ -67,8 +88,20 @@ interface IterationsResponse {
   /** t358 — the last honest refusal recorded for this payload's classesFile
    * (which link of the cluster pull broke) — shown when cards fail */
   renderError?: string;
+  /** t370 — ASSET-level zero-data evidence: the classesFile's rendered
+   *  pixels were all identical. The backend may stamp the round entries,
+   *  the payload, or both — roundZeroData() unions the two views so the
+   *  badge lands on the chip either way. Absent = healthy / unmeasured. */
+  zeroData?: boolean;
   error?: string;
 }
+
+/** t370 — does this round carry the zero-data verdict? (entry-level flag,
+ *  plus the payload-level asset note mapped onto the classesFile's own
+ *  round — whichever layer the backend stamps, the badge lands where the
+ *  user looks. Both fields are optional and may be absent.) */
+const roundZeroData = (s: StackEntry, data: IterationsResponse | null): boolean =>
+  s.zeroData === true || (data?.zeroData === true && s.file === data.classesFile);
 
 /** downstream types offered by source type (the honest set: every pick
  * must be dispatchable with the source's own outputs) */
@@ -406,6 +439,23 @@ export function ClassIterationGallery({ job, refreshKey = 0 }: { job: JobDTO; re
             const isSeed = s.iter === 0;
             const seedTitle =
               "round 0 — the seed round RELION writes at startup (initial random class averages); real class-average rounds start at it001";
+            // t370 — the corruption-evidence badges, same shape as the
+            // seed badge. Both fields are OPTIONAL (older cached assets,
+            // mid-write rounds, a backend that predates t370) — absence
+            // renders exactly as today, and no shape assumption is made:
+            //   · zeroData — the round's rendered pixels were ALL
+            //     identical (the "black classes" report: the numbers say
+            //     a healthy run, the image says empty)
+            //   · nz === 0 — a right-sized file whose MRC header is all
+            //     zeros on the cluster (relion_display's "exceeds stack
+            //     size 0"; nz absent or nonzero renders no badge)
+            const zeroData = roundZeroData(s, data);
+            const zeroHeader = s.nz === 0;
+            const verdicts = [
+              isSeed ? seedTitle : null,
+              zeroData ? ZERO_DATA_TITLE : null,
+              zeroHeader ? ZERO_HEADER_TITLE : null,
+            ].filter((t): t is string => t != null);
             return (
               <button
                 key={s.iter}
@@ -413,7 +463,7 @@ export function ClassIterationGallery({ job, refreshKey = 0 }: { job: JobDTO; re
                 role="tab"
                 aria-selected={isCurrent}
                 data-iter-chip={s.iter}
-                title={isSeed ? seedTitle : undefined}
+                title={verdicts.length > 0 ? verdicts.join("\n\n") : undefined}
                 onClick={() => setViewIter(s.iter)}
                 className={cn(
                   "flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[10px] transition-colors",
@@ -433,6 +483,30 @@ export function ClassIterationGallery({ job, refreshKey = 0 }: { job: JobDTO; re
                     )}
                   >
                     seed
+                  </span>
+                )}
+                {zeroData && (
+                  <span
+                    className={cn(
+                      "rounded-full px-1 text-[9px] leading-4",
+                      isCurrent
+                        ? "bg-primary-foreground/20 text-primary-foreground"
+                        : "bg-rose-500/15 text-rose-600 dark:text-rose-400"
+                    )}
+                  >
+                    zero data
+                  </span>
+                )}
+                {zeroHeader && (
+                  <span
+                    className={cn(
+                      "rounded-full px-1 text-[9px] leading-4",
+                      isCurrent
+                        ? "bg-primary-foreground/20 text-primary-foreground"
+                        : "bg-rose-500/15 text-rose-600 dark:text-rose-400"
+                    )}
+                  >
+                    zero header
                   </span>
                 )}
                 {running && isNewest && (
@@ -536,6 +610,21 @@ export function ClassIterationGallery({ job, refreshKey = 0 }: { job: JobDTO; re
             iteration {pad3(current.iter)} · every class average of this round in one sheet
             {running && current.iter === newest?.iter ? " · updates each round" : ""}
           </p>
+          {/* t370 — the round the user is LOOKING at carries corruption
+              evidence: the sheet is black or refuses to render, and the
+              caption must say WHY in one honest line (the chip's badge
+              carries the full tooltip; this is the glance layer) */}
+          {(roundZeroData(current, data) || current.nz === 0) && (
+            <p
+              className="mt-1 text-center text-[10px] leading-relaxed text-rose-600 dark:text-rose-400"
+              data-round-verdict=""
+            >
+              {roundZeroData(current, data)
+                ? "this round's pixels are all zero — empty/garbage input or writes that never durably landed"
+                : "this round's file has a zero MRC header on the cluster — its writes are not durably landing"}
+              {" — see the storage diagnostic in the Log tab"}
+            </p>
+          )}
         </div>
       )}
 
@@ -623,6 +712,21 @@ export function ClassIterationGallery({ job, refreshKey = 0 }: { job: JobDTO; re
               class images unavailable — {data.renderError}
             </p>
           )}
+          {/* t370 — a BLACK grid explains itself (asset-level zeroData on
+              the payload): the numbers under each card come from the data
+              star and can read healthy while every pixel is zero — the
+              footnote names the two worlds instead of letting a wall of
+              black squares pass as a result */}
+          {data.zeroData === true && (
+            <p
+              className="border-t border-rose-500/20 bg-rose-500/5 px-4 py-2 text-[10px] leading-relaxed text-rose-600 dark:text-rose-400"
+              data-zero-data=""
+            >
+              every class image of this round is all-zero — the averages were computed from
+              empty/garbage input stacks (a broken extraction upstream) or the run&apos;s writes
+              never durably reached the storage; the Log tab&apos;s storage diagnostic says which world
+            </p>
+          )}
         </>
       )}
 
@@ -673,11 +777,25 @@ export function ClassIterationGallery({ job, refreshKey = 0 }: { job: JobDTO; re
             else if (e.key === "ArrowRight") stepRound(1);
           }}
         >
-          <DialogTitle className="flex items-center gap-2 text-sm">
+          <DialogTitle className="flex flex-wrap items-center gap-2 text-sm">
             Class sheet — iteration {current != null ? pad3(current.iter) : "—"}
             <span className="font-mono text-[10px] font-normal text-muted-foreground">
               {stacks.length} round{stacks.length === 1 ? "" : "s"} available
             </span>
+            {/* t370 — the enlarged view of a corrupted round says so up
+                front (the chip badge is small; here is where the user
+                squints at the pixels — the rose chip names the verdict,
+                the chip's tooltip on the chips bar carries the full story) */}
+            {current != null && roundZeroData(current, data) && (
+              <span className="rounded-full bg-rose-500/15 px-1.5 text-[9px] leading-4 text-rose-600 dark:text-rose-400">
+                zero data
+              </span>
+            )}
+            {current != null && current.nz === 0 && (
+              <span className="rounded-full bg-rose-500/15 px-1.5 text-[9px] leading-4 text-rose-600 dark:text-rose-400">
+                zero header
+              </span>
+            )}
           </DialogTitle>
           <DialogDescription className="sr-only">
             Every class average of this iteration round in one grid. Use the arrow buttons or the

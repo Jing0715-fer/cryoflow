@@ -39,9 +39,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { ArrowUpRight, BadgeCheck, Check, Loader2, Network, Plus, Server, Trash2, X } from "lucide-react";
+import { ArrowUpRight, BadgeCheck, Check, HardDrive, Loader2, Network, Plus, Server, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWorkflowStore } from "@/lib/store";
+import { toast } from "@/hooks/use-toast";
 import type {
   ConnectionRunResume,
   ConnectionRunResumeEntry,
@@ -815,6 +816,23 @@ function ConnectionEditor({
    *  here and Create sends it with the connection (saved connections keep
    *  using the PATCH route via pickModule). */
   const [draftDefaultModule, setDraftDefaultModule] = React.useState<string | null>(null);
+  /**
+   * t370 — the storage write-path diagnostic. The corruption evidence
+   * the gallery now badges (zero headers, all-zero classes) convicts a
+   * cluster whose COMPUTE nodes write bytes the login node never sees —
+   * and the conviction test is a manual, ~3-minute SSH marathon (write
+   * 2 MB of urandom on a compute node, md5 it back from the login
+   * node). It has NO place in any automatic poll; it runs ONLY when the
+   * user presses the button, next to Test & probe (reachability vs
+   * durability — the two different questions a cluster must answer).
+   * The toast is the arrival notice; the inline line below the actions
+   * row is the persistent verdict (the verifyResult dialect), and the
+   * full transcript (lines[]) goes to the console for the deep read.
+   */
+  const [storageChecking, setStorageChecking] = React.useState(false);
+  const [storageResult, setStorageResult] = React.useState<
+    { ok: true; verdict: string } | { ok: false; error: string } | null
+  >(null);
 
   const patch = (fields: Partial<Draft>) => {
     setDirty(true);
@@ -927,6 +945,56 @@ function ConnectionEditor({
       setTestError("Test request failed — is the app server reachable?");
     } finally {
       setTesting(false);
+    }
+  };
+
+  /**
+   * t370 — the manual storage write-path check: POST
+   * /api/remote/diagnostics/storage { connectionId } → { ok, verdict,
+   * lines }. The verdict line is the news (toasted + kept inline); the
+   * lines[] transcript is the evidence (console.debug — the deep read,
+   * not the glance). Honest degradation everywhere: a 404 (the backend
+   * half of t370 not landed yet) says the route is missing instead of a
+   * silent no-op, a failed request names the wire, and a diagnostic that
+   * RAN and found the problem (ok:false) still shows its verdict — a
+   * negative result is a RESULT, not an error.
+   */
+  const storageCheck = async () => {
+    if (!connection || storageChecking) return;
+    setStorageChecking(true);
+    setStorageResult(null);
+    try {
+      const res = await fetch("/api/remote/diagnostics/storage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ connectionId: connection.id }),
+      });
+      const body = (await res.json().catch(() => null)) as
+        | { ok?: boolean; verdict?: string; lines?: string[]; error?: string }
+        | null;
+      if (!res.ok || !body?.verdict) {
+        const error =
+          body?.error ??
+          (res.status === 404
+            ? "Storage check is not available on this app server yet (the route answered 404) — update and retry."
+            : `Storage check failed (HTTP ${res.status})`);
+        setStorageResult({ ok: false, error });
+        toast({ title: "Storage check failed", description: error, variant: "destructive" });
+        return;
+      }
+      setStorageResult({ ok: true, verdict: body.verdict });
+      if (body.lines && body.lines.length > 0) console.debug("[storage-check]", body.lines);
+      toast({
+        title: body.ok === false ? "Storage check: problem found" : "Storage check done",
+        description: body.verdict,
+        variant: body.ok === false ? "destructive" : undefined,
+      });
+    } catch {
+      const error = "Storage check request failed — is the app server reachable?";
+      setStorageResult({ ok: false, error });
+      toast({ title: "Storage check failed", description: error, variant: "destructive" });
+    } finally {
+      setStorageChecking(false);
     }
   };
 
@@ -1606,6 +1674,32 @@ function ConnectionEditor({
           )}
           {testing ? "Probing…" : "Test & probe"}
         </Button>
+        {/* t370 — the storage write-path check, beside Test & probe:
+            reachability ("can I log in?") vs durability ("do a compute
+            node's writes survive to the login node?") are the two
+            different questions a cluster must answer, and the corruption
+            evidence in the galleries (zero headers, all-zero classes) is
+            what a NO on the second one looks like. Saved connections
+            only — the create form has no id to diagnose yet. */}
+        {!creating && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-9 gap-1.5 text-sm"
+            onClick={() => void storageCheck()}
+            disabled={storageChecking || testing || saving}
+            title="Write 2 MB of random bytes ON A COMPUTE NODE and read them back from the login node — the storage conviction test. Can take up to ~3 minutes (a compute node has to be allocated first)."
+            data-storage-check-button=""
+          >
+            {storageChecking ? (
+              <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+            ) : (
+              <HardDrive className="size-3.5" aria-hidden="true" />
+            )}
+            {storageChecking ? "Checking write path on a compute node…" : "Storage check"}
+          </Button>
+        )}
         <Button
           size="sm"
           className="h-9 text-sm"
@@ -1617,6 +1711,39 @@ function ConnectionEditor({
           {creating ? "Create connection" : "Save"}
         </Button>
       </div>
+      {/* t370 — the storage check's persistent line: the toast is the
+          arrival notice, this stays while the editor is open (the
+          verifyResult dialect — pending sets expectations, the verdict
+          outlives the ~3-minute wait) */}
+      {!creating && storageChecking ? (
+        <p
+          className="mt-2 text-[11px] leading-relaxed text-muted-foreground"
+          role="status"
+          data-storage-check-pending=""
+        >
+          Checking write path on a compute node — writing 2 MB of random bytes there and reading
+          them back from the login node. This can take up to ~3 minutes (a compute node has to be
+          allocated); the verdict lands here and in a toast.
+        </p>
+      ) : !creating && storageResult ? (
+        storageResult.ok ? (
+          <p
+            className="mt-2 text-[11px] leading-relaxed text-emerald-700 dark:text-emerald-300"
+            role="status"
+            data-storage-check-verdict=""
+          >
+            {storageResult.verdict}
+          </p>
+        ) : (
+          <p
+            className="mt-2 text-[11px] leading-relaxed text-rose-700 dark:text-rose-300"
+            role="alert"
+            data-storage-check-error=""
+          >
+            {storageResult.error}
+          </p>
+        )
+      ) : null}
     </div>
   );
 }

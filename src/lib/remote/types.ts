@@ -428,4 +428,28 @@ export interface RemoteRunState {
    * SACCT or any real progress resets it to 0.
    */
   vanishedStreak?: number;
+  /**
+   * t370 — class-round file names (run_itNNN_classes.mrcs) whose LIVE MRC
+   * header the sweep read as nx/ny/nz 0 while the run was still going —
+   * the t369 zero-header disease caught in the act (the sweep now carries
+   * `od -An -tu4 -j0 -N12` lines beside the per-round stat lines, so the
+   * evidence costs zero extra SSH round trips). Capped at 8 names (the
+   * receipt names the shape, not every round). Rounds listed here are
+   * never scheduled for a live render pull — the bytes are garbage and a
+   * pull would only flash a false "unreadable" verdict.
+   */
+  zeroHeaderRounds?: string[];
+  /**
+   * t370 — epoch ms the automatic storage diagnostic was fired for this
+   * run (the once-per-run guard: the first zero-header round triggers it,
+   * later rounds never re-pay the 8 MB probe). Absent = not fired.
+   */
+  storageDiagAt?: number;
+  /**
+   * t370 — the storage diagnostic's one-line verdict, persisted on the
+   * record so the finalize receipt can speak it even when the diagnostic
+   * landed while finalize was still assembling (and so the log tab keeps
+   * the sentence after the sweep's tail cache rolls over).
+   */
+  storageDiagVerdict?: string;
 }

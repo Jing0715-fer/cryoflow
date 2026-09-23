@@ -160,10 +160,19 @@ export default function Home() {
   // Poll cadence — "canvas job status updates in real time":
   //  - running OR pending jobs → 1.2s (pending jobs can flip to running
   //    server-side at any moment via auto-start when their upstream lands)
-  //  - fully idle → 6s heartbeat (catches orphan self-completion, engine
-  //    reconciliation and other server-side state changes)
+  //  - fully idle → 8s relaxed heartbeat (t370 trim: every poll is a
+  //    force-dynamic route through Prisma AND the reconcile sweep — the
+  //    general-sluggishness field report asked for less idle churn. With
+  //    nothing running or pending there is nothing to stream (the sweep
+  //    only carries live rounds for RUNNING classifications) and the
+  //    pending→running transitions live on the fast tier; the fast
+  //    cadence returns the MOMENT a job starts)
   //  - hidden tab → 15s (cheap), and one immediate tick when it becomes
   //    visible again so returning to the tab never shows stale cards
+  // Race-free by construction: the interval is re-derived whenever
+  // anyActive/pageVisible flip and the effect's cleanup tears the old
+  // timer down first — exactly one live interval at any moment, never
+  // stacked.
   const anyActive = useWorkflowStore(
     (s) => s.jobs.some((j) => j.status === "running" || j.status === "pending")
   );
@@ -179,7 +188,7 @@ export default function Home() {
   }, []);
 
   React.useEffect(() => {
-    const delay = !pageVisible ? 15000 : anyActive ? 1200 : 6000;
+    const delay = !pageVisible ? 15000 : anyActive ? 1200 : 8000;
     const timer = setInterval(() => {
       void useWorkflowStore.getState().pollTick();
     }, delay);

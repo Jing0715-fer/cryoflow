@@ -100,7 +100,14 @@ import { readMrcHeader } from "@/lib/mrc";
 // class-average stacks render into the LOCAL preview cache (the user's
 // 「下载 mrcs 到本地，再转成图片」 architecture). iteration-live imports
 // engine/getRun at function scope only — no cycle at module-eval time.
-import { LIVE_ITERATION_TYPES, scheduleRemoteStackRenders } from "./iteration-live";
+// t370 — mrcStackDataIsFlat rides along: the sync-back's zero-data scan
+// judges the SAME "black classes" shape the render pass judges.
+import { LIVE_ITERATION_TYPES, mrcStackDataIsFlat, scheduleRemoteStackRenders } from "./iteration-live";
+// t370 — the automated storage diagnostic: the decisive t369 experiment
+// (login-leg write + compute-leg sbatch write + md5 cross-read), fired by
+// the sweep at the FIRST live zero-header round and by the diagnostics
+// route. Server-only, resilient by contract (it never throws).
+import { runStorageDiagnostic } from "./storage-diag";
 import {
   deleteRemoteFiles,
   dropRemoteListingCache,
@@ -521,6 +528,289 @@ async function readOpticsSampling(
     return { px, box, err: null };
   } catch (e) {
     return { px: null, box: null, err: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* t370 — the optics-group ORDER pre-sort (the MPI segfault door)      */
+/* ------------------------------------------------------------------ */
+
+/** normalizeOpticsOrder's verdict — see the function's own header. */
+interface OpticsOrderOutcome {
+  verdict: "orderly" | "sorted" | "reused" | "skip";
+  /** the sorted copy's cluster path (sorted/reused), else null */
+  sortedPath: string | null;
+  /** the optics group count (sorted only — the receipt's "N groups") */
+  groups: number;
+  /** the OLD group ids in file order, comma-separated (sorted only) */
+  oldList: string;
+  /** skip's honest reason (never a block — the t313 rule) */
+  reason: string | null;
+}
+
+/**
+ * t370 — ONE SSH round trip that decides whether a particles star's
+ * `data_optics` block lists its groups in ASCENDING 1..N file order, and
+ * when it does not, writes a SORTED COPY next to the original.
+ *
+ * The field report (this session): a class3d dispatch with 7 MPI ranks
+ * printed `Warning: The optics groups in …/particles.star are not in the
+ * right order — renaming them now` and immediately segfaulted on 3 ranks
+ * (signal 11, address 0x18). RELION's MPI optics-rename path is a known
+ * crash door when the star's data_optics rows arrive out of ascending
+ * order — and OUR cs2star upstream (the star this dispatch consumes, ON
+ * the cluster, never synced locally) can emit exactly that shape.
+ *
+ * The awk runs on the login node (POSIX awk + GNU coreutils, same dialect
+ * as readOpticsSampling), streams the particles block (never held in
+ * memory — only the optics block + the pre-optics head are buffered, and
+ * a 5000-line paranoia cap degrades to ORDERLY on a file with no block
+ * structure at all), and carries BOTH \r\n and \n line endings (the \r
+ * is stripped on read; the copy is written with plain \n).
+ *
+ *   CF_OPTICS: ORDERLY                     groups already 1,2,3… — untouched
+ *   CF_OPTICS: SORTED <path> <N> <oldList> verified copy at <star>.cf_optsorted.star
+ *   CF_OPTICS: SKIP <reason>               never a block — the original star
+ *                                          is what RELION sees (its own rename
+ *                                          path decides, exactly as before t370)
+ *   CF_OPTICS: REUSED                      a sorted copy from an earlier
+ *                                          dispatch exists AND is NEWER than
+ *                                          the original (stat -nt in the same
+ *                                          round) — regenerated otherwise
+ *
+ * The rewrite renumbers the optics rows to their FILE POSITIONS (row that
+ * said group G at position P gets id P) and remaps every particle row's
+ * rlnOpticsGroup through the same old→new map — then VERIFIES ITS OWN
+ * OUTPUT in the same script (re-parse: ids ascending 1..N, every particle
+ * ref within 1..N, row counts identical); any verification failure removes
+ * the temp and speaks SKIP. The copy is written to a `.tmp` first and only
+ * `mv`'d into place after verification, so a crash mid-write can never
+ * leave a corrupt REUSABLE copy behind (the mtime-newer reuse would adopt
+ * it).
+ */
+async function normalizeOpticsOrder(
+  conn: RemoteConnection,
+  starPath: string
+): Promise<OpticsOrderOutcome> {
+  const sortedPath = `${starPath}.cf_optsorted.star`;
+  const tmpPath = `${sortedPath}.tmp`;
+  const q = (s: string) => shQuote(s);
+  // The awk program — kept single-quote-free so it can ride inside one
+  // '…' shell argument (the readOpticsSampling dialect). Column indexes
+  // come from the loop headers' own `#N` suffix when present, else from
+  // positional order — both dialects RELION writes.
+  const awkBody = [
+    "BEGIN { inopt = 0; inoptloop = 0; gcol = 0; norows = 0; nbuf = 0; mode = 0; reason = \"\"; inpar = 0; inparloop = 0; pgcol = 0; pcount = 0; nh = 0; nhp = 0 }",
+    "function emit(s) { if (mode == 2) print s > (tmp) }",
+    // decide(): runs the moment the data_optics block ENDS (or a
+    // particles block arrives with no optics block at all) — orderly,
+    // sort (map old id → file position, rewrite the buffered optics
+    // rows, flush the head to the temp), or skip (duplicates are an
+    // ill-defined map; nothing is written).
+    "function decide() {",
+    "  mode = 1",
+    "  if (norows == 0 || gcol <= 0) return",
+    "  asc = 1",
+    "  for (i = 1; i <= norows; i++) { if (grid[i] != i) { asc = 0; break } }",
+    "  if (asc) return",
+    "  for (i = 1; i <= norows; i++) { for (j = i + 1; j <= norows; j++) { if (grid[i] == grid[j]) { mode = 3; reason = \"duplicate optics group ids\"; return } } }",
+    "  mode = 2",
+    "  for (i = 1; i <= norows; i++) map[grid[i]] = i",
+    "  oldlist = \"\"",
+    "  for (i = 1; i <= norows; i++) oldlist = oldlist (i > 1 ? \",\" : \"\") grid[i]",
+    "  for (i = 1; i <= norows; i++) {",
+    "    bi = bufRow[i]",
+    "    nf = split(buf[bi], a)",
+    "    if (gcol <= nf) { a[gcol] = i; r = a[1]; for (k = 2; k <= nf; k++) r = r \" \" a[k]; buf[bi] = r }",
+    "  }",
+    "  for (i = 1; i <= nbuf; i++) print buf[i] > (tmp)",
+    "}",
+    // body(): post-decision streaming — data_particles loop rows get
+    // their rlnOpticsGroup remapped; everything else passes verbatim.
+    // A particles loop with NO group column while a sort is in flight
+    // aborts to SKIP (the remap would be silently partial).
+    "function body(l) {",
+    "  if (l ~ /^data_/) { emit(l); inpar = (l ~ /^data_particles/) ? 1 : 0; inparloop = 0; return }",
+    "  if (!inpar) { emit(l); return }",
+    "  if (l ~ /^[ \\t]*loop_[ \\t]*$/) { inparloop = 1; nhp = 0; emit(l); return }",
+    "  if (inparloop && l ~ /^[ \\t]*_/) {",
+    "    nhp++",
+    "    split(l, h)",
+    "    if (h[1] == \"_rlnOpticsGroup\") { pgcol = nhp; if (h[2] ~ /^#[0-9]+$/) { c = h[2]; sub(/^#/, \"\", c); pgcol = c + 0 } }",
+    "    emit(l); return",
+    "  }",
+    "  if (inparloop && l !~ /^[ \\t]*#/ && l ~ /[^ \\t]/) {",
+    "    pcount++",
+    // a sort in flight with no group column in the particles loop would
+    // remap NOTHING while the optics head moved — abort to SKIP; an
+    // ORDERLY decision passes the row through untouched (a pre-3.1 star
+    // with no optics block has a single implicit group and no door)
+    "    if (pgcol <= 0) { if (mode == 2) { mode = 3; reason = \"the particles loop carries no _rlnOpticsGroup column\"; return } emit(l); return }",
+    "    nf = split(l, a)",
+    "    if (pgcol <= nf && (a[pgcol] in map)) { a[pgcol] = map[a[pgcol]]; r = a[1]; for (k = 2; k <= nf; k++) r = r \" \" a[k]; emit(r) }",
+    "    else emit(l)",
+    "    return",
+    "  }",
+    "  emit(l)",
+    "}",
+    "{",
+    "  line = $0",
+    "  sub(/\\r$/, \"\", line)",
+    "  if (mode == 0) {",
+    "    if (line ~ /^data_optics/) {",
+    "      if (inopt) { decide(); body(line) }",
+    "      else { inopt = 1; inoptloop = 0; buf[++nbuf] = line }",
+    "      next",
+    "    }",
+    "    if (line ~ /^data_/) {",
+    "      if (inopt || line ~ /^data_particles/) { decide(); body(line) }",
+    "      else buf[++nbuf] = line",
+    "      next",
+    "    }",
+    "    if (inopt) {",
+    "      if (line ~ /^[ \\t]*loop_[ \\t]*$/) { inoptloop = 1; nh = 0; buf[++nbuf] = line; next }",
+    "      if (inoptloop && line ~ /^[ \\t]*_/) {",
+    "        nh++",
+    "        split(line, h)",
+    "        if (h[1] == \"_rlnOpticsGroup\") { gcol = nh; if (h[2] ~ /^#[0-9]+$/) { c = h[2]; sub(/^#/, \"\", c); gcol = c + 0 } }",
+    "        buf[++nbuf] = line; next",
+    "      }",
+    "      if (inoptloop && line !~ /^[ \\t]*#/ && line ~ /[^ \\t]/) {",
+    "        norows++",
+    "        nf = split(line, a)",
+    "        if (gcol > 0 && gcol <= nf) grid[norows] = a[gcol] + 0",
+    "        bufRow[norows] = nbuf + 1",
+    "        buf[++nbuf] = line",
+    "        if (nbuf > 5000) mode = 1",
+    "        next",
+    "      }",
+    "      buf[++nbuf] = line; next",
+    "    }",
+    "    buf[++nbuf] = line",
+    "    if (nbuf > 5000 && !inopt) mode = 1",
+    "    next",
+    "  }",
+    "  body(line)",
+    "}",
+    "END {",
+    "  if (mode == 0) decide()",
+    "  if (mode == 2) {",
+    "    close(tmp)",
+    // the self-verification: re-parse the written copy — optics ids
+    // must read back exactly 1..N ascending, every particle group ref
+    // must fall inside 1..N, and both row counts must equal the input's.
+    "    vok = 1; vwhy = \"\"; vn = 0; vp = 0; vin = 0; vinl = 0; vinpar = 0; vinparl = 0; vnh = 0; vnhp = 0; vg = 0; vpg = 0",
+    "    while ((getline vl < (tmp)) > 0) {",
+    "      sub(/\\r$/, \"\", vl)",
+    "      if (vl ~ /^data_optics/) { vin = 1; vinl = 0; vinpar = 0; vinparl = 0; continue }",
+    "      if (vl ~ /^data_/) { vin = 0; vinpar = (vl ~ /^data_particles/) ? 1 : 0; vinl = 0; vinparl = 0; continue }",
+    "      if (vin) {",
+    "        if (vl ~ /^[ \\t]*loop_[ \\t]*$/) { vinl = 1; vnh = 0; continue }",
+    "        if (vinl && vl ~ /^[ \\t]*_/) {",
+    "          vnh++",
+    "          split(vl, h)",
+    "          if (h[1] == \"_rlnOpticsGroup\") { vg = vnh; if (h[2] ~ /^#[0-9]+$/) { c = h[2]; sub(/^#/, \"\", c); vg = c + 0 } }",
+    "          continue",
+    "        }",
+    "        if (vinl && vl !~ /^[ \\t]*#/ && vl ~ /[^ \\t]/) {",
+    "          vn++",
+    "          if (vg <= 0) { vok = 0; vwhy = \"verification lost the optics group column\"; break }",
+    "          split(vl, a)",
+    "          g = a[vg] + 0",
+    "          if (g != vn) { vok = 0; vwhy = \"verification found optics ids not ascending 1..N\"; break }",
+    "          continue",
+    "        }",
+    "        continue",
+    "      }",
+    "      if (vinpar) {",
+    "        if (vl ~ /^[ \\t]*loop_[ \\t]*$/) { vinparl = 1; vnhp = 0; continue }",
+    "        if (vinparl && vl ~ /^[ \\t]*_/) {",
+    "          vnhp++",
+    "          split(vl, h)",
+    "          if (h[1] == \"_rlnOpticsGroup\") { vpg = vnhp; if (h[2] ~ /^#[0-9]+$/) { c = h[2]; sub(/^#/, \"\", c); vpg = c + 0 } }",
+    "          continue",
+    "        }",
+    "        if (vinparl && vl !~ /^[ \\t]*#/ && vl ~ /[^ \\t]/) {",
+    "          vp++",
+    "          if (vpg > 0) {",
+    "            split(vl, a)",
+    "            g = a[vpg] + 0",
+    "            if (g < 1 || g > vn) { vok = 0; vwhy = \"verification found a particle group ref outside 1..N\"; break }",
+    "          }",
+    "          continue",
+    "        }",
+    "        continue",
+    "      }",
+    "    }",
+    "    close(tmp)",
+    "    if (vok && vn != norows) { vok = 0; vwhy = \"verification found the optics row count changed\" }",
+    "    if (vok && vp != pcount) { vok = 0; vwhy = \"verification found the particle row count changed\" }",
+    "    if (vok) printf \"CF_OPTICS: WROTE %d %s %d\\n\", norows, oldlist, pcount",
+    "    else printf \"CF_OPTICS: SKIP %s\\n\", vwhy",
+    "  }",
+    "  else if (mode == 1) print \"CF_OPTICS: ORDERLY\"",
+    "  else if (mode == 3) printf \"CF_OPTICS: SKIP %s\\n\", reason",
+    "}",
+  ].join("\n");
+  const script = [
+    `S=${q(starPath)}`,
+    `O=${q(sortedPath)}`,
+    `T=${q(tmpPath)}`,
+    // a previous dispatch's sorted copy is reusable ONLY while it is
+    // NEWER than the original (an upstream re-run regenerates the star
+    // and forces a fresh sort — stat -nt decides in this same round)
+    `if [ -f "$O" ] && [ "$O" -nt "$S" ]; then echo "CF_OPTICS: REUSED"; exit 0; fi`,
+    `rm -f "$T"`,
+    `v=$(awk -v tmp=${q(tmpPath)} '${awkBody}' "$S" 2>/dev/null)`,
+    `case "$v" in`,
+    `  "CF_OPTICS: ORDERLY") echo "CF_OPTICS: ORDERLY";;`,
+    `  "CF_OPTICS: WROTE "*)`,
+    `    if mv -f "$T" "$O" 2>/dev/null; then`,
+    `      set -- $v`,
+    `      echo "CF_OPTICS: SORTED $O $3 $4"`,
+    `    else`,
+    `      rm -f "$T" 2>/dev/null`,
+    `      echo "CF_OPTICS: SKIP could not move the sorted copy into place"`,
+    `    fi`,
+    `    ;;`,
+    `  *)`,
+    `    rm -f "$T" 2>/dev/null`,
+    `    echo "\${v:-CF_OPTICS: SKIP the awk pass returned no verdict}"`,
+    `    ;;`,
+    `esac`,
+  ].join("\n");
+  try {
+    const r = await exec(conn, script, { timeoutMs: 180_000 });
+    if (r.error) {
+      return { verdict: "skip", sortedPath: null, groups: 0, oldList: "", reason: r.error };
+    }
+    const line = (r.stdout ?? "").trim().split(/\r?\n/).filter(Boolean).pop() ?? "";
+    if (line === "CF_OPTICS: REUSED") {
+      return { verdict: "reused", sortedPath, groups: 0, oldList: "", reason: null };
+    }
+    if (line === "CF_OPTICS: ORDERLY") {
+      return { verdict: "orderly", sortedPath: null, groups: 0, oldList: "", reason: null };
+    }
+    const sm = /^CF_OPTICS: SORTED (\S+) (\d+) ([0-9]+(?:,[0-9]+)*)$/.exec(line);
+    if (sm && sm[1] === sortedPath) {
+      return { verdict: "sorted", sortedPath, groups: Number(sm[2]), oldList: sm[3], reason: null };
+    }
+    const km = /^CF_OPTICS: SKIP (.+)$/.exec(line);
+    return {
+      verdict: "skip",
+      sortedPath: null,
+      groups: 0,
+      oldList: "",
+      reason: km ? km[1] : line || "the cluster answered with no verdict",
+    };
+  } catch (e) {
+    return {
+      verdict: "skip",
+      sortedPath: null,
+      groups: 0,
+      oldList: "",
+      reason: e instanceof Error ? e.message : String(e),
+    };
   }
 }
 
@@ -3442,6 +3732,92 @@ export async function startRemoteJob(args: {
         }
       }
 
+      // ---- t370 — the optics-group ORDER pre-sort (the MPI segfault door) --
+      // The field report (this session): a class3d dispatch with 7 MPI
+      // ranks printed "Warning: The optics groups in …/particles.star are
+      // not in the right order — renaming them now" and segfaulted on 3
+      // ranks (signal 11, address 0x18) — RELION's MPI optics-rename path
+      // is a known crash door when data_optics lists its groups out of
+      // ascending order, and the star our cs2star upstream leaves ON the
+      // cluster can carry exactly that shape. The normalizer runs on the
+      // CLUSTER (one SSH round, self-verifying — see its header): a sorted
+      // copy is written NEXT TO the original (never inside THIS workdir —
+      // the fresh-run wipe below would classify a .star there as a stale
+      // product and delete it between the sort and the submission), and
+      // THIS dispatch's --i points at it. ORDERLY/SKIP never block and
+      // never touch the argv (RELION's own rename path decides, exactly
+      // as before t370) — the t313 honest-note rule.
+      let opticsSortNote: string | null = null;
+      if (LIVE_ITERATION_TYPES.has(job.type) && inputs.particles_star) {
+        const starLocalNorm = String(resolvedInputs.particles_star ?? "").split(path.sep).join("/");
+        if (classStarCombine) {
+          // the multi-class merge: the combined star's optics head is the
+          // FIRST class star's head VERBATIM (the t350 merge), so the
+          // FIRST star decides — and when it needs sorting, EVERY source
+          // star must sort through the same old→new map (they split from
+          // one parent and share one optics block; a half-sorted merge
+          // would mix group ids across rows). Any refusal leaves ALL of
+          // them original — the merge then runs on the originals.
+          const first = await normalizeOpticsOrder(conn, classStarCombine.paths[0]);
+          if (first.verdict === "sorted" || first.verdict === "reused") {
+            const sortedPaths = [first.sortedPath ?? classStarCombine.paths[0]];
+            let consistent = true;
+            for (let ci = 1; ci < classStarCombine.paths.length; ci++) {
+              const nn = await normalizeOpticsOrder(conn, classStarCombine.paths[ci]);
+              if (nn.verdict !== "sorted" && nn.verdict !== "reused") {
+                consistent = false;
+                break;
+              }
+              sortedPaths.push(nn.sortedPath ?? classStarCombine.paths[ci]);
+            }
+            if (consistent) {
+              classStarCombine = { paths: sortedPaths, out: classStarCombine.out };
+              opticsSortNote =
+                first.verdict === "sorted"
+                  ? `optics groups normalized (${first.groups} group(s): ${first.oldList} → 1..${first.groups}) — the RELION MPI optics-rename segfault door (t370). The original class stars are untouched; this run's merged selection star inherits the sorted optics head.`
+                  : `optics groups normalized by an earlier dispatch (the sorted copies at …cf_optsorted.star are newer than the originals) — the RELION MPI optics-rename segfault door (t370); this run's merged selection star reads the sorted copies.`;
+              console.log(
+                `remote-run: optics pre-sort on "${job.name}" — ${first.verdict === "sorted" ? `${first.groups} group(s) reordered ${first.oldList} → 1..${first.groups}` : "sorted copies reused"} across ${classStarCombine.paths.length} class star(s) (t370)`
+              );
+            } else {
+              console.log(
+                `remote-run: optics pre-sort skipped for the multi-class merge on "${job.name}" — one class star could not be normalized; the merge runs on the originals (t370)`
+              );
+            }
+          } else if (first.verdict === "skip") {
+            console.log(
+              `remote-run: optics pre-sort skipped on "${job.name}" (${first.reason}) — RELION's own rename path decides (t370)`
+            );
+          }
+        } else {
+          const opticsStar =
+            upstreamRemoteTwins.get(starLocalNorm) ??
+            uploads.find((u) => u.key === "particles_star")?.remote ??
+            null;
+          if (opticsStar != null) {
+            const norm = await normalizeOpticsOrder(conn, opticsStar);
+            if (norm.verdict === "sorted" && norm.sortedPath) {
+              inputs.particles_star = norm.sortedPath;
+              opticsSortNote = `optics groups normalized (${norm.groups} group(s): ${norm.oldList} → 1..${norm.groups}) — the RELION MPI optics-rename segfault door (t370). The original star is untouched; this run reads the sorted copy.`;
+              console.log(
+                `remote-run: optics pre-sort on "${job.name}" — ${norm.groups} group(s) reordered ${norm.oldList} → 1..${norm.groups}, ${norm.sortedPath} (t370)`
+              );
+            } else if (norm.verdict === "reused" && norm.sortedPath) {
+              inputs.particles_star = norm.sortedPath;
+              opticsSortNote =
+                "optics groups normalized by an earlier dispatch (the sorted copy is newer than the original star) — the RELION MPI optics-rename segfault door (t370). The original star is untouched; this run reads the sorted copy.";
+              console.log(
+                `remote-run: optics pre-sort on "${job.name}" — reusing the newer sorted copy ${norm.sortedPath} (t370)`
+              );
+            } else if (norm.verdict === "skip") {
+              console.log(
+                `remote-run: optics pre-sort skipped on "${job.name}" (${norm.reason}) — RELION's own rename path decides (t370)`
+              );
+            }
+          }
+        }
+      }
+
       const built = await buildArgv({
         binDir,
         workdir: remoteWorkdir,
@@ -3810,6 +4186,73 @@ export async function startRemoteJob(args: {
         }
       }
 
+      // ---- t370 — extract re-dispatch workdir hygiene (the SECOND door) ---
+      // The t333 wipe above is the FIRST door: a fresh start deletes the
+      // previous generation's .mrcs stacks — but its own listing leg
+      // degrades to warn-and-proceed on a slow login node (the t344
+      // field report: the listing answered, the rm timed out), and the
+      // 1034-micrograph field report died at 9.12/39.60 min exactly
+      // there: relion_preprocess APPENDS one stack per micrograph under
+      // --part_dir (this workdir), and a stale or differently-boxed stack
+      // from an earlier attempt makes the append's size readback mismatch
+      // (image.h:1534 "write: target and source objects have different
+      // size"). This net catches whatever the wipe left behind: ONE SSH
+      // round counts the surviving .mrcs, and when there are any, moves
+      // their whole top-level locations aside via mv — a rename inside
+      // one filesystem, instant, and NEVER a deletion of user bytes — to
+      // <workdir>/.cryoflow_prev/<epoch>/. The submitted script's log
+      // carries the receipt so the Log tab explains the move. A clean
+      // workdir costs only the counting round. Failure degrades to a
+      // console note (the wipe remains the primary guard) — never a
+      // dispatch refusal over hygiene.
+      let extractPrevNote: string | null = null;
+      if (job.type === "extract") {
+        const prevDir = `.cryoflow_prev/${Date.now()}`;
+        const prevW = shQuote(remoteWorkdir);
+        const hygieneScript = [
+          `cd ${prevW} 2>/dev/null || exit 0`,
+          // count + total bytes of the leftover stacks, EXCLUDING earlier
+          // move-asides (.cryoflow_prev itself is pruned so a second
+          // re-dispatch never re-moves its own archive)
+          `N=$(find . -name .cryoflow_prev -prune -o -type f -name '*.mrcs' -print 2>/dev/null | wc -l | tr -d ' ')`,
+          `if [ -z "$N" ] || [ "$N" -eq 0 ]; then echo "CF_EXTRACT_PREV: CLEAN"; exit 0; fi`,
+          `B=$(find . -name .cryoflow_prev -prune -o -type f -name '*.mrcs' -printf '%s\\n' 2>/dev/null | awk '{s+=$1} END{printf "%.0f", s+0}')`,
+          `D=${shQuote(prevDir)}`,
+          `if ! mkdir -p "$D" 2>/dev/null; then echo "CF_EXTRACT_PREV: SKIP could not create the archive dir"; exit 0; fi`,
+          // move each top-level entry that holds stacks (extra/, the
+          // per-mic subtrees, or a stray root-level .mrcs) into the
+          // archive — input SYMLINK doors are never caught: find -type f
+          // does not follow them, and raw-data dirs hold no real .mrcs
+          `find . -name .cryoflow_prev -prune -o -type f -name '*.mrcs' -print 2>/dev/null | sed 's|^\\./||' | awk -F/ '{print $1}' | sort -u | while read -r E; do mv -f "./$E" "$D/" 2>/dev/null; done`,
+          `echo "CF_EXTRACT_PREV: MOVED $N $B $D"`,
+        ].join("\n");
+        try {
+          const prev = await exec(conn, hygieneScript, { timeoutMs: 120_000 });
+          const prevLine =
+            (prev.stdout ?? "").trim().split(/\r?\n/).filter(Boolean).pop() ?? "";
+          const pm = /^CF_EXTRACT_PREV: MOVED (\d+) (\d+) (.+)$/.exec(prevLine);
+          if (pm) {
+            const bytes = Number(pm[2]);
+            const sizeWord =
+              bytes >= 1e9
+                ? `${(bytes / 1e9).toFixed(1)} GB`
+                : `${Math.max(1, Math.round(bytes / 1e6))} MB`;
+            extractPrevNote = `${pm[1]} previous extraction stack(s) (${sizeWord}) moved to ${pm[3]}/ — re-running into a dirty part_dir is the mid-run "write: target and source objects have different size" crash (t370)`;
+            console.log(
+              `remote-run: extract re-dispatch hygiene on "${job.name}" — ${pm[1]} leftover stack(s) (${sizeWord}) archived to ${remoteWorkdir}/${pm[3]}/ (t370)`
+            );
+          } else if (prevLine !== "CF_EXTRACT_PREV: CLEAN") {
+            console.log(
+              `remote-run: extract workdir hygiene on "${job.name}" could not decide (${prev.error ?? (prevLine || "no verdict")}) — the t333 wipe remains the only guard (t370)`
+            );
+          }
+        } catch (e) {
+          console.log(
+            `remote-run: extract workdir hygiene on "${job.name}" could not run (${e instanceof Error ? e.message : String(e)}) — the t333 wipe remains the only guard (t370)`
+          );
+        }
+      }
+
       // t318 — the re-run's ghost, blade 1: the workdir is STABLE across
       // dispatches (<root>/<type>_<jobid8>) and the PREVIOUS run's verdict
       // artifacts survive in it (the script's own `rm -f .cf-exit` runs
@@ -4080,7 +4523,7 @@ export async function startRemoteJob(args: {
           nodelist: nodelistPin,
           dependency,
           array: arrayPlan,
-          note: [ctffindGateNote, extractGateNote, particlesGateNote, refPrepNote].filter(Boolean).join(" · ") || null,
+          note: [ctffindGateNote, extractGateNote, particlesGateNote, refPrepNote, opticsSortNote, extractPrevNote].filter(Boolean).join(" · ") || null,
           // t367 — the resolved walltime (+ the no-limit warning flag for
           // refinement-family jobs that could not resolve one)
           timeLimitMin,
@@ -4231,7 +4674,7 @@ export async function startRemoteJob(args: {
           command,
           remoteProjectRoot,
           remoteWorkdir,
-          note: [ctffindGateNote, extractGateNote, particlesGateNote, refPrepNote].filter(Boolean).join(" · ") || null,
+          note: [ctffindGateNote, extractGateNote, particlesGateNote, refPrepNote, opticsSortNote, extractPrevNote].filter(Boolean).join(" · ") || null,
         });
 
         const wrapperPath = `${remoteWorkdir}/.cf-run.sh`;
@@ -4823,10 +5266,21 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
         // name) rides the heartbeat the sweep already pays; the
         // generation + settle gates in the ALIVE branch below decide what
         // streams. stat -c is GNU coreutils — every Slurm login node has it.
+        //
+        // t370 — the HEADER SNIFF: the same loop now reads each round's
+        // first three MRC header words (nx ny nz via od -An -tu4 -j0 -N12,
+        // squeezed onto one line by tr) right after its stat line — the
+        // t369 session could only diagnose the zero-header disease AFTER
+        // the run with a manual storage test; the sweep now watches the
+        // disease form live, at zero extra SSH cost. A missing/garbage
+        // header line (file mid-write — the 60s settle gate's own world)
+        // leaves the round's nx/ny/nz undefined; a SETTLED round with
+        // nz=0 is the disease itself (the ALIVE branch refuses to stream
+        // it and fires the storage diagnostic once per run).
         if (e.job.status === "running" && LIVE_ITERATION_TYPES.has(e.job.type)) {
           scriptLines.push(`echo "---CF:ROUNDS---"`);
           scriptLines.push(
-            `cd ${W} 2>/dev/null && for f in run_it???_classes.mrcs run_unmasked_classes.mrcs; do [ -f "$f" ] && stat -c '%s %Y %n' "$f"; done`
+            `cd ${W} 2>/dev/null && for f in run_it???_classes.mrcs run_unmasked_classes.mrcs; do [ -f "$f" ] && { stat -c '%s %Y %n' "$f"; od -An -tu4 -j0 -N12 "$f" 2>/dev/null | tr -s ' \\n' ' '; echo; }; done`
           );
         }
         scriptLines.push(`echo "===CF:END:${e.job.id}"`);
@@ -4842,6 +5296,8 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
       // branch's ledger enrichment) — stow it as b.sacct before the tails.
       // t368 — a running classification's block may also end with a
       // ---CF:ROUNDS--- stat listing (see the script build above).
+      // t370 — each stat line is followed by ONE od header line (nx ny
+      // nz, possibly partial/empty when the file is mid-write).
       const blocks = new Map<
         string,
         {
@@ -4850,7 +5306,7 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
           log: string;
           errTail: string;
           totalLines: number;
-          rounds: { file: string; size: number; mtime: number }[];
+          rounds: { file: string; size: number; mtime: number; nx?: number; ny?: number; nz?: number }[];
         }
       >();
       const re = /===CF:START:([\w-]+)\n([\s\S]*?)===CF:END:\1/g;
@@ -4877,14 +5333,32 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
         // slice there so the stat lines never ride into errTail
         const errTail =
           errM >= 0 ? afterStatus.slice(errM + 11, roundsM >= 0 ? roundsM : undefined) : "";
-        const rounds: { file: string; size: number; mtime: number }[] = [];
+        const rounds: { file: string; size: number; mtime: number; nx?: number; ny?: number; nz?: number }[] = [];
         if (roundsM >= 0) {
+          // t370 — the od header line (nx ny nz, squeezed by tr) follows
+          // ITS stat line; consume at most one per round so a blank or
+          // garbage line (mid-write — the settle gate's own world) leaves
+          // the fields undefined instead of attaching to the wrong round.
+          let cur: { file: string; size: number; mtime: number; nx?: number; ny?: number; nz?: number } | null = null;
           for (const line of afterStatus.slice(roundsM + 15).split("\n")) {
             const rm =
               /^(\d+)\s+(\d+)\s+(run_it\d{3}_classes\.mrcs|run_unmasked_classes\.mrcs)$/.exec(
                 line.trim()
               );
-            if (rm) rounds.push({ size: Number(rm[1]), mtime: Number(rm[2]), file: rm[3] });
+            if (rm) {
+              cur = { size: Number(rm[1]), mtime: Number(rm[2]), file: rm[3] };
+              rounds.push(cur);
+              continue;
+            }
+            if (cur != null) {
+              const hm = /^\s*(\d+)(?:\s+(\d+))?(?:\s+(\d+))?\s*$/.exec(line);
+              if (hm) {
+                cur.nx = Number(hm[1]);
+                if (hm[2] != null) cur.ny = Number(hm[2]);
+                if (hm[3] != null) cur.nz = Number(hm[3]);
+              }
+              cur = null;
+            }
           }
         }
         blocks.set(m[1], {
@@ -4978,12 +5452,30 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
           // rendered rounds skip for free (the .done marker); a pipeline
           // still in flight absorbs the re-schedule; the 2 GiB budget and
           // the on-demand door below it keep the wire bounded.
+          //
+          // t370 — ZERO-HEADER EVIDENCE, live: a settled, generation-
+          // fenced round whose sniffed header says nx/ny/nz 0 is the t369
+          // disease observed WHILE it happens (relion_display's "exceeds
+          // stack size 0", before this only diagnosable after the run).
+          // Those rounds are NEVER streamed (the bytes are garbage — a
+          // pull would only burn wire to flash a false verdict); their
+          // names land on the record (capped at 8) and the FIRST one
+          // fires the automatic storage diagnostic (t370), once per run.
           if (b.rounds.length > 0) {
             const fence = e.remote.dispatchedAtEpoch ?? 0;
             const fenceSec = fence > 1e12 ? Math.floor(fence / 1000) : fence;
             const nowSec = Math.floor(Date.now() / 1000);
-            const streamable = b.rounds
-              .filter((x) => x.mtime + 90 >= fenceSec && x.mtime + 60 <= nowSec)
+            const settledRounds = b.rounds.filter(
+              (x) => x.mtime + 90 >= fenceSec && x.mtime + 60 <= nowSec
+            );
+            const zeroHeaderRounds = settledRounds.filter(
+              (x) =>
+                (x.nx != null && x.nx === 0) ||
+                (x.ny != null && x.ny === 0) ||
+                (x.nz != null && x.nz === 0)
+            );
+            const streamable = settledRounds
+              .filter((x) => !zeroHeaderRounds.includes(x))
               .map((x) => ({ file: x.file, size: x.size }));
             if (streamable.length > 0) {
               scheduleRemoteStackRenders({
@@ -4993,6 +5485,88 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
                 files: streamable,
                 reason: "live-sweep",
               });
+            }
+            if (zeroHeaderRounds.length > 0) {
+              const prevZero = e.remote.zeroHeaderRounds ?? [];
+              const mergedZero = [...prevZero];
+              for (const z of zeroHeaderRounds) {
+                if (mergedZero.length >= 8) break;
+                if (!mergedZero.includes(z.file)) mergedZero.push(z.file);
+              }
+              if (mergedZero.length !== prevZero.length) {
+                updateRun(e.job.id, (rec) =>
+                  rec.remote && !rec.done && rec.startedAt === e.rec.startedAt
+                    ? { ...rec, remote: { ...rec.remote, zeroHeaderRounds: mergedZero } }
+                    : null
+                );
+                e.remote.zeroHeaderRounds = mergedZero;
+                console.log(
+                  `remote-run: zero-header round(s) observed LIVE on "${e.job.name}" (${mergedZero.join(", ")}) — the t369 disease forming; those rounds are not streamed (t370)`
+                );
+              }
+              // the once-per-run diagnostic: the guard is the persisted
+              // storageDiagAt stamp, so a restart or a second sweep tick
+              // can never double-fire the 8 MB probe
+              if (e.remote.storageDiagAt == null) {
+                const diagStamp = Date.now();
+                const claimed = updateRun(e.job.id, (rec) =>
+                  rec.remote && !rec.done && rec.startedAt === e.rec.startedAt
+                    ? rec.remote.storageDiagAt == null
+                      ? { ...rec, remote: { ...rec.remote, storageDiagAt: diagStamp } }
+                      : null
+                    : null
+                );
+                if (claimed?.remote?.storageDiagAt != null) {
+                  e.remote.storageDiagAt = claimed.remote.storageDiagAt;
+                  // fire-and-forget, resilient by contract: the diagnostic
+                  // never throws into the sweep; its verdict (or its own
+                  // refusal) lands in the job's log tail + the record, so
+                  // the Log tab and the finalize receipt both speak it
+                  const diagRoot = e.remote.remoteWorkdir.includes("/")
+                    ? e.remote.remoteWorkdir.slice(0, e.remote.remoteWorkdir.lastIndexOf("/"))
+                    : undefined;
+                  void runStorageDiagnostic({ connectionId: conn.id, projectRoot: diagRoot })
+                    .then((d) => {
+                      const line = `CRYOFLOW_NOTE: storage diagnostic (t370): ${d.verdict}`;
+                      updateRun(e.job.id, (rec) =>
+                        rec.remote && rec.startedAt === e.rec.startedAt
+                          ? {
+                              ...rec,
+                              remote: {
+                                ...rec.remote,
+                                storageDiagVerdict: d.verdict,
+                                logTailOut: `${rec.remote.logTailOut ?? ""}${rec.remote.logTailOut ? "\n" : ""}${line}`,
+                                logTailAt: Date.now(),
+                              },
+                            }
+                          : null
+                      );
+                      console.log(
+                        `remote-run: storage diagnostic verdict for "${e.job.name}" — ${d.verdict} (t370)`
+                      );
+                    })
+                    .catch((err: unknown) => {
+                      // belt & suspenders: runStorageDiagnostic catches its
+                      // own errors; this arm only speaks if something past
+                      // it still threw
+                      const why = err instanceof Error ? err.message : String(err);
+                      const line = `CRYOFLOW_NOTE: storage diagnostic could not run (${why}) (t370)`;
+                      updateRun(e.job.id, (rec) =>
+                        rec.remote && rec.startedAt === e.rec.startedAt
+                          ? {
+                              ...rec,
+                              remote: {
+                                ...rec.remote,
+                                storageDiagVerdict: `could not run (${why})`,
+                                logTailOut: `${rec.remote.logTailOut ?? ""}${rec.remote.logTailOut ? "\n" : ""}${line}`,
+                                logTailAt: Date.now(),
+                              },
+                            }
+                          : null
+                      );
+                    });
+                }
+              }
             }
           }
           continue;
@@ -5349,6 +5923,21 @@ async function finalizeRemoteRun(
         ? `no error text in the visible run.out/run.err tails: an external kill is the usual cause — the node's OOM killer, a walltime, or a scancel (check the cluster's own record: sacct -j ${r.slurmId ?? "<jobid>"} names the state; the failure diagnosis below matches the full run.out for known signatures like a CUDA out-of-memory). t367: if sacct says TIMEOUT, the job hit its walltime — a run killed DURING its final write phase leaves right-sized but corrupt/unwritten output files, so re-dispatch rather than trusting the half-written products; request a longer limit (the connection's Slurm time-limit setting, or ask the admin for the partition's ceiling)`
         : "no error text in the visible run.out/run.err tails (the rescue fetched the cluster's copy when the local one was empty): an external kill is the usual cause — the login node's CPU-job reaper (long direct-mode runs), the OOM killer, or a walltime. Multi-hour jobs belong in Slurm mode; sacct -j <jobid> and the job directory hold the cluster's own record"
       : "";
+    // t370 — the extract size-mismatch decode: the 1034-micrograph field
+    // report died at 9.12/39.60 min on image.h:1534, and the crash has
+    // exactly TWO doors — both of which the dispatch now closes BEFORE
+    // submission. Saying so here turns "exit 1, weird stderr" into "your
+    // re-run will be clean": (1) colliding micrograph rows in the input
+    // star (duplicate names / extension twins composing one stack path —
+    // the t334 scan, running on the cluster's own star text since t335),
+    // and (2) pre-existing stacks from an earlier attempt in the workdir
+    // (RELION appends per-micrograph .mrcs and the readback mismatches —
+    // now auto-moved aside at dispatch, receipt in the Log tab).
+    const extractSizeDoor =
+      job.type === "extract" &&
+      /target and source objects have different size/i.test(evidence)
+        ? "this is the relion_preprocess stack-append crash, and it has exactly two doors — both are now closed BEFORE a re-run: (1) colliding micrograph rows in the input star (duplicate names or .mrc/.mrcs extension twins that compose the same stack path) are refused at dispatch, checked against the cluster's own copy of the star; (2) leftover .mrcs stacks from an earlier attempt in this workdir are moved aside automatically at dispatch (the receipt names where they went — nothing is deleted). Re-run this job: the next attempt starts from a clean part_dir"
+        : "";
     result = [
       `REMOTE[${r.user}@${r.host.split(":")[0]}]: exit ${exitCode}${meaning ? ` (${meaning})` : ""}`,
       silentDeathNote,
@@ -5360,11 +5949,21 @@ async function finalizeRemoteRun(
               "CTF diagnosis: ctffind rejected EVERY micrograph at once — inputs rejected outright, not bad fits. Check the MRCs are single-section (NZ>1 = raw frame stacks → MotionCorr first; .eer is always raw), that this ctffind build reads the file mode (float16/mode-12 needs a recent ctffind — the cluster's bundled 4.1 may predate it), and the Import pixel size — the job dir's .ctf/log files carry the literal per-file error",
           ]
         : []),
+      ...(extractSizeDoor ? [extractSizeDoor] : []),
       sync.note,
     ]
       .filter(Boolean)
       .join(" — ")
       .slice(0, 1400);
+  }
+
+  // t370 — the storage diagnostic's one-line verdict rides the receipt
+  // whenever it landed before finalize assembled (the auto-trigger fires
+  // at the FIRST live zero-header round, minutes before a failing run
+  // finalizes; a diagnostic still in flight speaks through the log tail
+  // instead — the record's storageDiagVerdict persists it either way).
+  if (r.storageDiagVerdict) {
+    result = `${result} — storage diagnostic (t370): ${r.storageDiagVerdict}`.slice(0, 1600);
   }
 
   // remote twins for the outputs (downstream remote jobs consume these
@@ -5588,6 +6187,10 @@ async function syncBackWorkdir(
   // receipt so "exited 0" and a gallery that refuses to render are one
   // sentence, not two mysteries.
   const corruptPulled: string[] = [];
+  // t370 — stacks whose header is FINE but whose data is one flat value
+  // (the "black classes" field report): same receipt sentence style, a
+  // different disease.
+  const zeroDataPulled: string[] = [];
   const W = shQuote(r.remoteWorkdir);
   // t367 — %T@ (mtime, epoch seconds with fraction) rides every line: the
   // generation gate needs it and the find costs the same SSH round.
@@ -5703,6 +6306,17 @@ async function syncBackWorkdir(
     if (/\.(mrcs?|map)$/i.test(rel) && !localMrcReads(localPath)) {
       corruptPulled.push(rel);
     }
+    // t370 — ZERO-DATA detection on the same pulled bytes: a stack whose
+    // header parses but whose sampled slices are all one flat value
+    // renders as the "black classes" the field report drew — a different
+    // disease from the zero header (the write LOST the data but kept the
+    // header, or the run produced genuinely empty averages). The scan
+    // samples three slices (first/middle/last) — a healthy stack is never
+    // flat, so the common path costs three slice reads. Class stacks only
+    // (volumes/maps have their own semantics), size-bounded.
+    if (/\.mrcs$/i.test(rel) && size <= 128 * 1024 * 1024 && mrcStackDataIsFlat(localPath)) {
+      zeroDataPulled.push(rel);
+    }
     // STAR rewrite to-local (in place)
     if (/\.star$/i.test(localPath)) {
       try {
@@ -5726,7 +6340,15 @@ async function syncBackWorkdir(
       corruptPulled.slice(0, 3).join(", ") +
       (corruptPulled.length > 3 ? ` +${corruptPulled.length - 3} more` : "");
     noteParts.push(
-      `${corruptPulled.length} file(s) downloaded completely but read as CORRUPT MRCs on the cluster itself (${shown}) — right-sized zero-header bytes: this run's writes never durably reached the storage under the workdir. Run the 60-second write test (2 MB of urandom from a compute node, md5sum from the login node) before re-running anything (t369)`
+      `${corruptPulled.length} file(s) downloaded completely but read as CORRUPT MRCs on the cluster itself (${shown}) — right-sized zero-header bytes: this run's writes never durably reached the storage under the workdir. The sweep watches round headers live now (zero-header rounds are named in the log) and the automatic storage diagnostic (t370) runs itself and speaks its verdict there — hand its lines to the storage admin before re-running anything (t369/t370)`
+    );
+  }
+  if (zeroDataPulled.length > 0) {
+    const shown =
+      zeroDataPulled.slice(0, 3).join(", ") +
+      (zeroDataPulled.length > 3 ? ` +${zeroDataPulled.length - 3} more` : "");
+    noteParts.push(
+      `${zeroDataPulled.length} class-average stack(s) came home with a healthy header but ZERO dynamic range (every pixel of every slice the same value — the "black classes" shape, ${shown}) — the gallery badges those rounds; a re-run regenerates them (t370)`
     );
   }
   if (noteParts.length > 0) res.note = noteParts.join(" — ");
