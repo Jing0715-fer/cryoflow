@@ -49,6 +49,7 @@ import { csRowsToStar, judgeStackSamplings, type Cs2StarResult, type StackSampli
 import type { RemoteConnection, RemoteRunState } from "@/lib/remote/types";
 import { parseMrcHeaderBytes, readMrcHeader, type MrcHeader } from "@/lib/mrc";
 import { sniffImageFile, spreadSample, type HeaderSniffer, type SniffVerdict } from "./mrc-sniff";
+import { RELION_ALIASES, RELION_OPTIONS } from "./option-tables";
 import { extractInputGate, micrographRowsFromContent, parseStarBlocks, type StarBlock } from "./extract-gate";
 import {
   PARTICLES_CONSUMER_TYPES,
@@ -763,11 +764,118 @@ function num(job: EngineJobRef, key: string, fallback: number): number {
 
 function str(job: EngineJobRef, key: string, fallback: string): string {
   const v = job.params[key];
-  return v === undefined || v === null ? fallback : String(v);
+  if (v === undefined || v === null) return fallback;
+  const s = String(v);
+  // t375 — an EMPTY stored value also falls back: the t374 merge sanitizes
+  // RELION's C++ placeholder defaults (std::string("-1") …) to "", and an
+  // empty VALUE token after a flag poisons the whole argv line.
+  return s.trim() === "" ? fallback : s;
+}
+
+/** t375 — POSIX single-quote a token for a `bash -c` composite command
+ * (RELION itself composes multi-command jobs — multibody's refine +
+ * flex_analyse, modelangelo's build + hmm_search, localres' ResMap
+ * symlinks — as one shell line; the composite mirrors that shape). */
+function shellQuote(s: string): string {
+  return `'${String(s).replace(/'/g, `'\''`)}'`;
+}
+
+/** t375 — join an argv into a `bash -c` one-liner (RELION's own
+ * prepareFinalCommand concatenation shape). */
+function shellJoin(argv: string[]): string {
+  return argv.map(shellQuote).join(" ");
+}
+
+/** t375 — RELION's ctffit radio char (JobOption::getCtfFitString,
+ * pipeline_jobs.cpp:243-250): No→f, Per-micrograph→m, Per-particle→p. */
+function ctffitChar(job: EngineJobRef, key: string): string {
+  const v = str(job, key, "No");
+  if (v === "Per-micrograph") return "m";
+  if (v === "Per-particle") return "p";
+  return "f";
 }
 
 function flag(job: EngineJobRef, key: string): boolean {
   return String(job.params[key] ?? "false") === "true";
+}
+
+/**
+ * t375 — first FINITE number among the given keys (curated key first). Lets
+ * the curated builders read EITHER side of an alias pair so old DB rows
+ * (curated key) and t374-window rows (RELION twin seeded alongside) both work.
+ */
+function numAny(job: EngineJobRef, fallback: number, ...keys: string[]): number {
+  for (const k of keys) {
+    const v = job.params[k];
+    if (typeof v === "number" && Number.isFinite(v)) return v;
+    if (typeof v === "string" && v !== "" && Number.isFinite(parseFloat(v))) return parseFloat(v);
+  }
+  return fallback;
+}
+
+/**
+ * t375 — alias-aware numeric read for the double-seeded world: a row can
+ * carry BOTH the curated key and its RELION twin at their own defaults
+ * (every job created in the t374 window, before the alias map dropped the
+ * twin from the specs). The knob the user actually MOVED wins: curated away
+ * from its own default > RELION twin away from the RELION default > curated
+ * default. A plain first-found read would freeze the twin at its seed.
+ */
+function aliasNum(
+  job: EngineJobRef,
+  curatedKey: string,
+  curatedDefault: number,
+  relionKey: string,
+  relionDefault: number
+): number {
+  const cv = num(job, curatedKey, curatedDefault);
+  if (Math.abs(cv - curatedDefault) > 1e-9) return cv;
+  const rv = job.params[relionKey];
+  const rn = typeof rv === "number" ? rv : typeof rv === "string" && rv !== "" ? parseFloat(rv) : NaN;
+  if (Number.isFinite(rn) && Math.abs(rn - relionDefault) > 1e-9) return rn;
+  return curatedDefault;
+}
+
+/**
+ * t375 — bool that rides only when the key is PRESENT and true. RELION-
+ * default-true options (do_grad, do_invert, do_own_motioncor, do_invert_refs …)
+ * must not flip the argv of pre-t374 rows that never carried the key; rows
+ * created after the t374 merge are seeded with the RELION default by
+ * defaultParams(), so present-and-true is exactly "new row or explicit intent"
+ * — the integrator's RELION-faithful-for-new-jobs decision.
+ */
+function flagPresent(job: EngineJobRef, key: string): boolean {
+  return job.params[key] !== undefined && flag(job, key);
+}
+
+/** t375 — flagPresent over either side of an aliased bool pair. */
+function flagAnyTrue(job: EngineJobRef, ...keys: string[]): boolean {
+  return keys.some((k) => job.params[k] !== undefined && flag(job, k));
+}
+
+/** t375 — RELION's range_rot/tilt/psi clamp (pipeline_jobs.cpp:3323-3324). */
+function clamp090(v: number): number {
+  return Math.max(0, Math.min(90, v));
+}
+
+/** t375 — RELION's gain-rotation radio → its list index
+ * (pipeline_jobs.cpp:1614-1622; job_gain_rotation_options,
+ * pipeline_jobs.h:119-124). Accepts the radio text or a raw 0-3. */
+function gainRotIndex(job: EngineJobRef): number {
+  const v = str(job, "gain_rot", "No rotation (0)");
+  const idx = ["No rotation (0)", "90 degrees (1)", "180 degrees (2)", "270 degrees (3)"].indexOf(v);
+  if (idx >= 0) return idx;
+  const n = parseInt(v, 10);
+  return Number.isFinite(n) ? Math.max(0, Math.min(3, n)) : 0;
+}
+
+/** t375 — RELION's gain-flip radio → its list index (pipeline_jobs.h:126-130). */
+function gainFlipIndex(job: EngineJobRef): number {
+  const v = str(job, "gain_flip", "No flipping (0)");
+  const idx = ["No flipping (0)", "Flip upside down (1)", "Flip left to right (2)"].indexOf(v);
+  if (idx >= 0) return idx;
+  const n = parseInt(v, 10);
+  return Number.isFinite(n) ? Math.max(0, Math.min(2, n)) : 0;
 }
 
 /** Micrograph pixel size from the pipeline's Import job (Å). */
@@ -812,7 +920,8 @@ export function refineAutoPool(): number {
  * only push when non-empty.
  */
 export function refineScratchDir(job: EngineJobRef): string {
-  const sd = str(job, "scratchDir", "");
+  // t375 — either key: curated scratchDir or the RELION twin (scratch_dir)
+  const sd = str(job, "scratchDir", "").trim() || str(job, "scratch_dir", "").trim();
   return typeof sd === "string" ? sd.trim() : "";
 }
 
@@ -898,10 +1007,18 @@ function healpixOrderOf(raw: unknown): number | null {
 function refineTail(job: EngineJobRef): string[] | { error: string } {
   const out: string[] = [];
   // the disc-I/O trio — only the NON-default side rides the argv (defaults
-  // match RELION's own, exactly like the GUI: only changed options emit)
-  if (job.params.parallelDiscIo === false) out.push("--no_parallel_disc_io");
-  if (job.params.prereadImages === true) out.push("--preread_images");
-  if (job.params.combineThruDisc === false) out.push("--dont_combine_weights_via_disc");
+  // match RELION's own, exactly like the GUI: only changed options emit).
+  // t375 — each knob reads EITHER key (curated or the RELION twin); the twin's
+  // polarity is the RELION one (do_parallel_discio=false ⇒ --no_parallel_disc_io).
+  if (job.params.parallelDiscIo === false || job.params.do_parallel_discio === false) {
+    out.push("--no_parallel_disc_io");
+  }
+  if (flagAnyTrue(job, "prereadImages", "do_preread_images")) out.push("--preread_images");
+  // t375 — the twin read: do_combine_thru_disc=false (RELION polarity) must
+  // ride --dont_combine_weights_via_disc exactly like the curated twin
+  if (job.params.combineThruDisc === false || job.params.do_combine_thru_disc === false) {
+    out.push("--dont_combine_weights_via_disc");
+  }
   // scratch + its keep-free floor (only with a scratch dir set)
   const scratch = refineScratchDir(job);
   if (scratch) {
@@ -912,12 +1029,17 @@ function refineTail(job: EngineJobRef): string[] | { error: string } {
   // the escape hatch — every --token must be a verified relion_refine option
   const extra = str(job, "extraArgs", "").trim();
   if (extra) {
+    // t374 — the verified set now also includes every flag of the job's own
+    // RELION option table (same tags, machine-extracted by the codegen) —
+    // the escape hatch validates against exactly what the GUI itself could
+    // have emitted for this type.
+    const tableFlags = relionTypeFlags(job.type);
     const tokens = extra.split(/\s+/);
     for (const t of tokens) {
-      if (t.startsWith("--") && !REFINE_VERIFIED_OPTIONS.has(t)) {
+      if (t.startsWith("--") && !REFINE_VERIFIED_OPTIONS.has(t) && !tableFlags.has(t)) {
         return {
           error:
-            `unknown relion_refine option "${t}" in Additional RELION arguments — it is not in the verified ` +
+            `unknown relion option "${t}" in Additional RELION arguments — it is not in the verified ` +
             `RELION 5.0 option set (RELION's own parser would hard-reject the whole run at start). ` +
             `Fix or drop the flag in the job's Compute tab`,
         };
@@ -926,6 +1048,75 @@ function refineTail(job: EngineJobRef): string[] | { error: string } {
     out.push(...tokens);
   }
   return out;
+}
+
+/** t374 — every command-line flag of the job type's RELION option table. */
+function relionTypeFlags(type: string): ReadonlySet<string> {
+  const table = RELION_OPTIONS[type];
+  if (!table) return EMPTY_FLAGS;
+  const out = new Set<string>();
+  for (const def of Object.values(table.options)) {
+    const f = def.flag?.trim();
+    if (f) out.add(f);
+  }
+  return out;
+}
+const EMPTY_FLAGS: ReadonlySet<string> = new Set();
+
+/**
+ * t374 — the RELION 5.0 option-table generic extension. Every param whose
+ * key lives in the generated RELION table for this job type AND whose value
+ * differs from RELION's own default AND whose flag is not already on the
+ * argv line rides along verbatim. The flag-presence check is the dedupe
+ * invariant: a curated builder that already emitted --K keeps its single
+ * --K even when the RELION twin key (nr_classes) also carries a value.
+ * Boolean options are presence-only (RELION's own convention: the flag rides
+ * when true, nothing rides when false).
+ *
+ * Never throws — the curated argv is always a complete, valid command; the
+ * generic layer only ADDS knobs RELION's own GUI would have added.
+ */
+function appendRelionFlags(
+  argv: string[],
+  type: string,
+  params: Record<string, number | string | boolean>
+): void {
+  const table = RELION_OPTIONS[type];
+  if (!table) return;
+  // t375 — aliased RELION twins are the curated builder's to emit (it reads
+  // either key); the generic layer never touches them. This is what the
+  // ALIASES contract promised and what protects inverted twins
+  // (dont_skip_align/do_parallel_discio/do_combine_thru_disc) from the
+  // flag-presence heuristic's polarity blindness.
+  const aliased = new Set(Object.values(RELION_ALIASES[type] ?? {}));
+  const present = new Set<string>();
+  for (const a of argv) {
+    if (typeof a === "string" && a.startsWith("--") && a.length > 2) present.add(a);
+  }
+  for (const def of Object.values(table.options)) {
+    if (aliased.has(def.key)) continue;
+    const flag = def.flag?.trim();
+    if (!flag || present.has(flag)) continue;
+    const v = params[def.key];
+    if (v === undefined || v === null) continue;
+    if (def.type === "bool" || typeof v === "boolean") {
+      // presence-only: true rides the flag, false never does
+      if (v === true) {
+        argv.push(flag);
+        present.add(flag);
+      }
+      continue;
+    }
+    if (typeof v === "string") {
+      if (v === "" || v === def.default) continue;
+      argv.push(flag, v);
+      present.add(flag);
+    } else if (typeof v === "number" && Number.isFinite(v)) {
+      if (typeof def.default === "number" && Math.abs(v - def.default) < 1e-9) continue;
+      argv.push(flag, String(v));
+      present.add(flag);
+    }
+  }
 }
 
 /** t352 — 0 = auto (no flag); >0 = the explicit value rides. */
@@ -5679,7 +5870,28 @@ async function externalOnPath(
  * Build the real argv for a type. Returns argv (WITHOUT mpirun prefix —
  * that is decided by the caller) or an honest-failure message.
  */
+/**
+ * buildArgv — the one command-construction entry point for BOTH lanes
+ * (local engine + remote cluster dispatch share this function). The core
+ * switch below builds each type's curated argv; the t374 generic layer
+ * then appends every RELION-table option the user set away from RELION's
+ * own default (deduped by flag presence, so a curated builder's flag is
+ * never doubled).
+ */
 export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: string }> {
+  const built = await buildArgvCore(ctx);
+  if (Array.isArray(built)) {
+    try {
+      appendRelionFlags(built, ctx.job.type, ctx.job.params ?? {});
+    } catch {
+      // the curated argv is complete and valid on its own — the generic
+      // layer must never break a dispatch
+    }
+  }
+  return built;
+}
+
+async function buildArgvCore(ctx: BuildCtx): Promise<string[] | { error: string }> {
   const { job, inputs, binDir } = ctx;
   const type = job.type;
 
@@ -5697,8 +5909,24 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
         "--FStep", "500",
         "--dAst", "0",
         "--is_ctffind4",
-        "--fast_search",
       ];
+      // t375 — RELION pushes --fast_search when NOT slow_search
+      // (getCommandsCtffindJob, pipeline_jobs.cpp:1838-1842); the polarity is
+      // inverted so the generic layer's flag was nulled — the curated builder
+      // owns it now. Either side of the alias pair (phaseShift ↔ do_phaseshift)
+      // drives the phase-shift block (:1808-1812).
+      if (!flag(job, "slow_search")) argv.push("--fast_search");
+      if (flagAnyTrue(job, "phaseShift", "do_phaseshift")) {
+        argv.push(
+          "--do_phaseshift",
+          "--phase_min", str(job, "phase_min", "0"),
+          "--phase_max", str(job, "phase_max", "180"),
+          "--phase_step", str(job, "phase_step", "10"),
+        );
+      }
+      // ctf_win rides only when moved off RELION's -1 default (:1818)
+      const ctfWin = num(job, "ctf_win", -1);
+      if (ctfWin !== -1) argv.push("--ctfWin", String(ctfWin));
       // ctx.ctffindExe: execution-context override (the remote layer passes
       // the CLUSTER-side ctffind; the sandbox default is host-local and
       // meaningless on a remote node)
@@ -5708,11 +5936,19 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
     }
 
     case "extract": {
-      const box = Math.round(num(job, "boxSize", 128));
-      const down = Math.round(num(job, "downsampleTo", 64));
+      // t375 — box/rescale read EITHER key (curated boxSize ↔ RELION
+      // extract_size; downsampleTo ↔ rescale under do_rescale —
+      // pipeline_jobs.cpp:2588-2596)
+      const box = Math.round(numAny(job, 128, "boxSize", "extract_size"));
+      const curatedDown = Math.round(num(job, "downsampleTo", 64));
+      const relionScale = flag(job, "do_rescale") ? Math.round(num(job, "rescale", 0)) : 0;
+      let down = curatedDown;
+      if (!(down > 0 && down < box)) down = relionScale > 0 ? relionScale : 0;
       const doScale = down > 0 && down < box;
-      // bg radius: 0.75 × effective box / 2 (RELION default when bgDiameter < 0)
-      const bgDiam = num(job, "bgDiameter", -1);
+      // bg radius: 0.75 × effective box / 2 (RELION default when bg_diameter
+      // < 0 — pipeline_jobs.cpp:2584-2595); the rescale scale-factor ride is
+      // the same algebra as the curated form below (bgDiam × effBox / box / 2)
+      const bgDiam = aliasNum(job, "bgDiameter", -1, "bg_diameter", -1);
       const effBox = doScale ? down : box;
       const bg = bgDiam > 0 ? Math.round((bgDiam * effBox) / box / 2) : Math.round(0.375 * effBox);
       // Coordinate source: manualpick writes <workdir>/micrographs/*.coord —
@@ -5754,15 +5990,65 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
         "--extract_size", String(box),
       ];
       if (doScale) argv.push("--scale", String(down));
-      argv.push(
-        "--norm", "--bg_radius", String(bg),
-        "--white_dust", "3",
-        "--black_dust", "-3"
-      );
+      // t375 — the do_norm gate (pipeline_jobs.cpp:2597-2604): pre-t374 rows
+      // (undefined) and true keep the block; an explicit false drops --norm
+      // --bg_radius --white_dust --black_dust entirely, exactly like RELION.
+      // Dust: RELION's GUI default is -1 (off) while cryoflow has always sent
+      // 3/-3 — a param still AT -1 keeps the curated 3/-3 (untouched argv), a
+      // moved value rides verbatim.
+      if (job.params.do_norm !== false && job.params.norm !== false) {
+        const wd = num(job, "white_dust", -1);
+        const bd = num(job, "black_dust", -1);
+        argv.push(
+          "--norm", "--bg_radius", String(bg),
+          "--white_dust", String(wd !== -1 ? wd : 3),
+          "--black_dust", String(bd !== -1 ? bd : -3),
+        );
+      }
+      // t375 — the negative-stain inversion the user asked about
+      // (preprocessing.cpp:90 --invert_contrast; pipeline_jobs.cpp:2605-2606;
+      // RELION's GUI default is YES, so post-merge rows ride it)
+      if (flagPresent(job, "do_invert")) argv.push("--invert_contrast");
+      // t375 — autopick FOM threshold gate (pipeline_jobs.cpp:2572-2575)
+      if (flag(job, "do_fom_threshold")) {
+        argv.push("--minimum_pick_fom", String(num(job, "minimum_pick_fom", 0)));
+      }
+      // t375 — the extract helix suite (pipeline_jobs.cpp:2608-2632):
+      // do_extract_helix gates everything; tubes/cut compose the asu/rise pair
+      if (flag(job, "do_extract_helix")) {
+        argv.push("--helix", "--helical_outer_diameter", str(job, "helical_tube_outer_diameter", "200"));
+        if (flagPresent(job, "helical_bimodal_angular_priors")) argv.push("--helical_bimodal_angular_priors");
+        if (flagPresent(job, "do_extract_helical_tubes")) {
+          argv.push("--helical_tubes");
+          if (flagPresent(job, "do_cut_into_segments")) {
+            argv.push(
+              "--helical_cut_into_segments",
+              "--helical_nr_asu", String(Math.round(num(job, "helical_nr_asu", 1))),
+              "--helical_rise", String(num(job, "helical_rise", 1)),
+            );
+          } else {
+            argv.push("--helical_nr_asu", "1", "--helical_rise", "1");
+          }
+        }
+      }
       return argv;
     }
 
     case "class2d": {
+      // t375 — RELION's EM/VDAM algorithm switch (getCommandsClass2DJob,
+      // pipeline_jobs.cpp:3190-3221): do_em → classic EM (--iter from the
+      // curated `iterations`); do_grad (RELION 5's DEFAULT) → VDAM with
+      // --grad --class_inactivity_threshold 0.1 --grad_write_iter 10 and
+      // --iter from nr_iter_grad when the user moved it off 200 (the curated
+      // `iterations` stays the fallback). Rows that predate the t374 param
+      // merge carry NEITHER key — they keep the pre-t374 EM shape verbatim.
+      const doEm = flag(job, "do_em");
+      const doGrad = flagPresent(job, "do_grad");
+      let iterCount = Math.round(num(job, "iterations", 25));
+      if (!doEm && doGrad) {
+        const nig = num(job, "nr_iter_grad", 200);
+        if (Math.abs(nig - 200) > 1e-9) iterCount = Math.round(nig);
+      }
       const argv = [
         binJoin(binDir, "relion_refine"),
         "--i", inputs.particles_star,
@@ -5771,7 +6057,7 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
         "--tau2_fudge", String(num(job, "tau2Fudge", 1)),
         "--particle_diameter", String(num(job, "particleDiameter", 180)),
         "--pad", "2",
-        "--iter", String(Math.round(num(job, "iterations", 25))),
+        "--iter", String(iterCount),
         // finer in-plane angular sampling → sharper class averages
         "--psi_step", String(num(job, "psiSampling", 6)),
         "--flatten_solvent",
@@ -5780,6 +6066,11 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
         // parallelism comes from --j (RELION defaults to 1 without it)
         "--j", String(Math.max(1, Math.round(num(job, "threads", 4)))),
       ];
+      // t375 — the VDAM trio rides exactly as RELION's GUI emits it
+      // (pipeline_jobs.cpp:3211)
+      if (!doEm && doGrad) {
+        argv.push("--grad", "--class_inactivity_threshold", "0.1", "--grad_write_iter", "10");
+      }
       // t352 — GUI parity: the t350-hardcoded --ctf/--zero_mask now read
       // their own params (default ON, so an untouched job argv is unchanged),
       // and the RELION 2D GUI's own defaults ride along (--center_classes).
@@ -5787,7 +6078,9 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
       if (job.params.doZeroMask !== false) argv.push("--zero_mask");
       if (job.params.doCenter !== false) argv.push("--center_classes");
       if (flag(job, "ctfIntactFirstPeak")) argv.push("--ctf_intact_first_peak");
-      if (flag(job, "skipAlign")) argv.push("--skip_align");
+      // t375 — either side of the aliased skip-align pair: the curated bool
+      // (skipAlign) or RELION's dont_skip_align=false (pipeline_jobs.cpp:3285)
+      if (flag(job, "skipAlign") || job.params.dont_skip_align === false) argv.push("--skip_align");
       const ov = Math.round(num(job, "oversampling", 1));
       if (ov !== 1) argv.push("--oversampling", String(ov));
       if (flag(job, "allowCoarser")) argv.push("--allow_coarser_sampling");
@@ -5802,6 +6095,19 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
       // classifications (0 = unlimited, the default).
       const hl = num(job, "highresLimit", 0);
       if (hl > 0) argv.push("--strict_highres_exp", String(hl));
+      // t375 — RELION's class2d helix suite (getCommandsClass2DJob,
+      // pipeline_jobs.cpp:3308-3332): do_helix gates everything; the inner
+      // block only while alignment actually runs (dont_skip_align).
+      if (flag(job, "do_helix")) {
+        argv.push("--helical_outer_diameter", str(job, "helical_tube_outer_diameter", "200"));
+        if (job.params.dont_skip_align !== false) {
+          if (flagPresent(job, "do_bimodal_psi")) argv.push("--bimodal_psi");
+          argv.push("--sigma_psi", String(clamp090(num(job, "range_psi", 6)) / 3));
+          if (flagPresent(job, "do_restrict_xoff")) {
+            argv.push("--helix", "--helical_rise_initial", str(job, "helical_rise", "4.75"));
+          }
+        }
+      }
       // t350 — the pooled-particle lever (--pool): an explicit user value
       // wins; 0 (the default) rides RELION 5's own GUI default (3).
       const userPool = num(job, "batchSize", 0);
@@ -5817,6 +6123,13 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
 
     case "initialmodel": {
       // VDAM gradient refinement — no MPI (RELION forbids --grad with MPI)
+      // t375 — RELION's inimodel --iter is the VDAM mini-batch count
+      // (nr_iter, pipeline_jobs.cpp:3467; GUI default 200). The curated
+      // `iterations` (default 50) stays the fallback; an nr_iter the user
+      // moved off 200 wins (same rule as class2d's nr_iter_grad).
+      let imIter = Math.round(num(job, "iterations", 50));
+      const relionImIter = num(job, "nr_iter", 200);
+      if (Math.abs(relionImIter - 200) > 1e-9) imIter = Math.round(relionImIter);
       const argv = [
         binJoin(binDir, "relion_refine"),
         "--grad", "--denovo_3dref",
@@ -5824,8 +6137,11 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
         "--o", outPath(ctx, "run"),
         "--K", String(Math.round(num(job, "numClasses", 4))),
         "--particle_diameter", String(num(job, "particleDiameter", 180)),
-        "--sym", str(job, "symmetry", "D2"),
-        "--iter", String(Math.round(num(job, "iterations", 50))),
+        // t375 — either side of the aliased symmetry pair (RELION: sym_name,
+        // pipeline_jobs.cpp:3526). The do_run_C1 C1-then-align_symmetry dance
+        // stays unwired — see the t375 worklog for why.
+        "--sym", str(job, "symmetry", "D2") || str(job, "sym_name", ""),
+        "--iter", String(imIter),
         "--flatten_solvent",
         "--zero_mask",
         // memory: VDAM allocates K reference + gradient volumes at padded box
@@ -5856,8 +6172,10 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
         "--o", outPath(ctx, "run"),
         "--K", String(Math.round(num(job, "numClasses", 4))),
         "--particle_diameter", String(num(job, "particleDiameter", 180)),
-        "--sym", str(job, "symmetry", "C1"),
-        "--pad", String(Math.round(num(job, "padding", 2))),
+        // t375 — either side of the aliased symmetry pair (sym_name)
+        "--sym", str(job, "symmetry", "C1") || str(job, "sym_name", ""),
+        // t375 — do_pad1 (RELION's bool) is the aliased twin of `padding`
+        "--pad", String(job.params.do_pad1 === true ? 1 : Math.round(num(job, "padding", 2))),
         "--iter", String(Math.round(num(job, "iterations", 25))),
         "--flatten_solvent",
         "--j", String(Math.max(1, Math.round(num(job, "threads", 4)))),
@@ -5880,10 +6198,21 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
       if (c3S != null) argv.push("--offset_step", String(c3S));
       if (flag(job, "allowCoarser")) argv.push("--allow_coarser_sampling");
       // local angular searches: RELION's GUI passes sigma_angles/3 — so do we
-      const c3L = positiveNum(job, "localSigmaAng");
+      // (t375: either side of the alias pair; RELION's own key wins when the
+      // curated knob sits at its default)
+      const c3L = positiveNum(job, "localSigmaAng") ?? (num(job, "sigma_angles", 5) !== 5 ? positiveNum(job, "sigma_angles") : null);
       if (c3L != null) argv.push("--sigma_ang", String(c3L / 3));
-      const c3X = positiveNum(job, "relaxSym");
-      if (c3X != null) argv.push("--relax_sym", String(c3X));
+      // t375 — either side of the relax_sym pair (RELION: text, rides when
+      // non-empty; pipeline_jobs.cpp:4006-4007)
+      const c3X = positiveNum(job, "relaxSym") ?? (str(job, "relax_sym", "") !== "" ? num(job, "relax_sym", 0) : 0);
+      if (c3X > 0) argv.push("--relax_sym", String(c3X));
+      // t375 — --firstiter_cc rides unless the reference is on absolute
+      // greyscale (pipeline_jobs.cpp:3916-3917). Present-and-false keeps
+      // pre-t374 rows untouched; post-merge rows are seeded false → rides
+      // (RELION's own default emission).
+      if (job.params.ref_correct_greyscale === false) argv.push("--firstiter_cc");
+      // t375 — the shared 3D helical suite (do_helix gates everything)
+      helixSuite3d(job, argv, "class3d");
       // t350 — the pooled-particle lever, same as class2d (--pool:
       // RELION 5's GUI default 3 rides unless the user names one)
       const c3dPool = num(job, "batchSize", 0);
@@ -5896,15 +6225,18 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
     }
 
     case "refine3d": {
+      const firstiterCc = job.params.ref_correct_greyscale !== true; // t375 — pipeline_jobs.cpp:4406-4407
       const argv = [
         binJoin(binDir, "relion_refine"),
         "--i", inputs.particles_star,
         "--ref", inputs.model_mrc,
         "--o", outPath(ctx, "run"),
-        "--sym", str(job, "symmetry", "D2"),
+        // t375 — either side of the aliased symmetry pair (sym_name)
+        "--sym", str(job, "symmetry", "D2") || str(job, "sym_name", ""),
         "--particle_diameter", String(num(job, "particleDiameter", 180)),
-        "--pad", String(Math.round(num(job, "padding", 2))),
-        "--firstiter_cc",
+        // t375 — do_pad1 (RELION's bool) is the aliased twin of `padding`
+        "--pad", String(job.params.do_pad1 === true ? 1 : Math.round(num(job, "padding", 2))),
+        ...(firstiterCc ? ["--firstiter_cc"] : []),
         "--ini_high", String(num(job, "iniHigh", 30)),
         // the reference may come from a different-box job (e.g. a low-res
         // InitialModel) — RELION resizes it to the particles' optics group
@@ -5936,8 +6268,11 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
       if (r3R != null) argv.push("--offset_range", String(r3R));
       const r3S = positiveNum(job, "offsetStep");
       if (r3S != null) argv.push("--offset_step", String(r3S));
-      const r3X = positiveNum(job, "relaxSym");
-      if (r3X != null) argv.push("--relax_sym", String(r3X));
+      // t375 — either side of the relax_sym pair (pipeline_jobs.cpp:4590-4591)
+      const r3X = positiveNum(job, "relaxSym") ?? (str(job, "relax_sym", "") !== "" ? num(job, "relax_sym", 0) : 0);
+      if (r3X > 0) argv.push("--relax_sym", String(r3X));
+      // t375 — the shared 3D helical suite (do_helix gates everything)
+      helixSuite3d(job, argv, "refine3d");
       // t350 — the pooled-particle lever, same as class2d/class3d
       const r3dPool = num(job, "batchSize", 0);
       if (r3dPool > 0) argv.push("--pool", String(Math.max(1, Math.round(r3dPool))));
@@ -5949,7 +6284,7 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
     }
 
     case "maskcreate": {
-      return [
+      const argv = [
         binJoin(binDir, "relion_mask_create"),
         "--i", inputs.map_mrc,
         "--o", outPath(ctx, "mask.mrc"),
@@ -5960,6 +6295,13 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
         "--width_soft_edge", String(Math.round(num(job, "softEdge", 6))),
         "--j", "4",
       ];
+      // t375 — the helical mask pair (getCommandsMaskcreateJob,
+      // pipeline_jobs.cpp:4962-4966): --helix composes in the same line as
+      // --z_percentage <value/100>
+      if (flagPresent(job, "do_helix")) {
+        argv.push("--helix", "--z_percentage", String(num(job, "helical_z_percentage", 30) / 100));
+      }
+      return argv;
     }
 
     case "postprocess": {
@@ -5973,33 +6315,117 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
       if (flag(job, "autoBfac")) {
         argv.push("--auto_bfac", "--autob_lowres", String(num(job, "autobLowres", 10)));
       }
+      // t375 — the MTF pair rides together off ONE file field
+      // (getCommandsPostprocessJob, pipeline_jobs.cpp:5354-5358)
+      const mtf = str(job, "fn_mtf", "").trim();
+      if (mtf) argv.push("--mtf", mtf, "--mtf_angpix", String(num(job, "mtf_angpix", 1)));
+      // t375 — the ad-hoc B-factor under its own radio (:5364-5367); reads
+      // either side of the alias pair (curated adhocBfac default -100)
+      if (flagPresent(job, "do_adhoc_bfac")) {
+        argv.push("--adhoc_bfac", String(numAny(job, -100, "adhocBfac", "adhoc_bfac")));
+      }
+      // t375 — the skip-FSC pair (:5370-5374)
+      if (flagPresent(job, "do_skip_fsc_weighting")) {
+        argv.push("--skip_fsc_weighting", "--low_pass", String(num(job, "low_pass", 5)));
+      }
       const randomizeFrom = num(job, "randomizeFrom", 0);
       if (randomizeFrom > 0) argv.push("--randomize_at", String(randomizeFrom));
       return argv;
     }
 
     case "motioncorr": {
-      const mc2 = await externalFor(ctx, "motioncor2", ["motioncor2", "MotionCor2"]);
-      if (!mc2) {
-        return {
-          error: ctx.externals
-            ? "MotionCor2 executable not found on the cluster (probed after module load) — install MotionCor2 there, or run MotionCorr locally"
-            : "MotionCor2 executable not found — EMPIAR-10017 images are pre-averaged anyway (import them as micrographs and skip MotionCorr)",
-        };
+      // t375 — RELION's own-vs-MotionCor2 switch (getCommandsMotioncorrJob,
+      // pipeline_jobs.cpp:1559-1594). RELION 5's GUI default is its OWN
+      // CPU implementation (do_own_motioncor=true — the critical path for
+      // clusters without a MotionCor2 licence/GPU); pre-t374 rows carry
+      // neither key and keep the MotionCor2 shape verbatim.
+      const own = flagPresent(job, "do_own_motioncor");
+      let mc2 = "";
+      if (!own) {
+        // a user-typed executable wins over the probe (the params UI stores
+        // cluster paths for remote jobs)
+        mc2 =
+          str(job, "fn_motioncor2_exe", "").trim() ||
+          (await externalFor(ctx, "motioncor2", ["motioncor2", "MotionCor2"])) ||
+          "";
+        if (!mc2) {
+          return {
+            error: ctx.externals
+              ? "MotionCor2 executable not found on the cluster (probed after module load) — install MotionCor2 there, switch on RELION's own implementation (do_own_motioncor), or run MotionCorr locally"
+              : "MotionCor2 executable not found — switch on RELION's own implementation (do_own_motioncor), or import pre-averaged micrographs and skip MotionCorr",
+          };
+        }
       }
-      return [
+      const argv = [
         binJoin(binDir, "relion_run_motioncorr"),
         "--i", inputs.micrographs_star,
         "--o", ctx.workdir + "/",
-        "--use_motioncor2",
-        "--motioncor2_exe", mc2,
-        "--bin_factor", "1",
-        "--bfactor", String(num(job, "bfactor", 150)),
-        "--dose_per_frame", String(num(job, "dosePerFrame", 1.28)),
-        "--patch_x", String(Math.round(num(job, "patchX", 5))),
-        "--patch_y", String(Math.round(num(job, "patchY", 5))),
-        "--j", "4",
       ];
+      // :1551-1552 — the corrected-sum frame window, spa only; rides when
+      // moved off RELION's defaults (1 / use-all)
+      const ffs = Math.round(num(job, "first_frame_sum", 1));
+      if (ffs !== 1) argv.push("--first_frame_sum", String(ffs));
+      const lfs = Math.round(num(job, "last_frame_sum", -1));
+      if (lfs > 0) argv.push("--last_frame_sum", String(lfs));
+      if (own) {
+        // :1563-1574 — --use_own --j <threads> (+ --float16 under its radio)
+        argv.push("--use_own", "--j", String(Math.max(1, Math.round(num(job, "threads", 4)))));
+        if (flagPresent(job, "do_float16")) argv.push("--float16");
+      } else {
+        argv.push("--use_motioncor2", "--motioncor2_exe", mc2);
+        // :1589-1590 — extra wrapper args, verbatim
+        const mc2Args = str(job, "other_motioncor2_args", "").trim();
+        if (mc2Args) argv.push("--other_motioncor2_args", mc2Args);
+        // pre-t374 shape ended with --j 4 — keep it for the MotionCor2 lane
+        argv.push("--j", "4");
+      }
+      // :1596-1597 — defect map/text file
+      const defect = str(job, "fn_defect", "").trim();
+      if (defect) argv.push("--defect_file", defect);
+      // :1599-1605 — the shared block. bin_factor reads either key (RELION
+      // twin default 1); dose_per_frame is the aliasNum pair (curated 1.28 /
+      // RELION 1 — the curated default keeps the pre-t374 emission).
+      argv.push("--bin_factor", String(numAny(job, 1, "bin_factor")));
+      argv.push("--bfactor", String(num(job, "bfactor", 150)));
+      argv.push("--dose_per_frame", String(aliasNum(job, "dosePerFrame", 1.28, "dose_per_frame", 1)));
+      // :1602 — pre-exposure rides when non-zero (curated never sent it)
+      const preExp = num(job, "pre_exposure", 0);
+      if (preExp !== 0) argv.push("--preexposure", String(preExp));
+      argv.push(
+        "--patch_x", String(Math.round(numAny(job, 5, "patchX", "patch_x"))),
+        "--patch_y", String(Math.round(numAny(job, 5, "patchY", "patch_y"))),
+      );
+      // :1605 — EER fractionation rides when moved off the GUI default 32
+      // (the runner's own default is 40 — motioncorr_runner.cpp:96)
+      const eer = Math.round(num(job, "eer_grouping", 32));
+      if (eer !== 32) argv.push("--eer_grouping", String(eer));
+      // :1607-1608 — frame grouping, only when > 1
+      const gf = Math.round(num(job, "group_frames", 1));
+      if (gf > 1) argv.push("--group_frames", String(gf));
+      // :1611-1639 — the gain block composes THREE flags off ONE file
+      const gain = str(job, "fn_gain_ref", "").trim();
+      if (gain) {
+        argv.push(
+          "--gainref", gain,
+          "--gain_rot", String(gainRotIndex(job)),
+          "--gain_flip", String(gainFlipIndex(job)),
+        );
+      }
+      // do_dose_weighting rides via the generic layer (RELION default true,
+      // :1641-1643); --save_noDW is nested under it (:1644-1647)
+      if (flagAnyTrue(job, "do_dose_weighting") && flagPresent(job, "do_save_noDW")) {
+        argv.push("--save_noDW");
+      }
+      // :1650-1683 — power spectra (own implementation only): the grouping
+      // is round(dose_for_ps / dose_per_frame), floored at 1
+      if (own && flagPresent(job, "do_save_ps")) {
+        const doseForPs = num(job, "group_for_ps", 4);
+        const doseRate = aliasNum(job, "dosePerFrame", 1.28, "dose_per_frame", 1);
+        if (doseRate > 0 && doseForPs > 0) {
+          argv.push("--grouping_for_ps", String(Math.max(1, Math.round(doseForPs / doseRate))));
+        }
+      }
+      return argv;
     }
 
     case "autopick": {
@@ -6037,6 +6463,52 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
           "--threshold", String(num(job, "threshold", 0.4)),
           "--lowpass", String(num(job, "lowpass", 20)),
         );
+        // t375 — the References-mode sub-flags the generic layer can't emit
+        // (getCommandsAutopickJob, pipeline_jobs.cpp:2338-2395). Radios that
+        // default TRUE in RELION ride for post-merge rows via flagPresent.
+        // :2338-2339 — class averages are white-on-black: RELION inverts by default
+        if (flagPresent(job, "do_invert_refs")) argv.push("--invert");
+        // :2341-2346 — CTF correction of the references (RELION default true)
+        if (flagPresent(job, "do_ctf_autopick")) {
+          argv.push("--ctf");
+          if (flagPresent(job, "do_ignore_first_ctfpeak_autopick")) argv.push("--ctf_intact_first_peak");
+        }
+        // :2347 — in-plane sampling, rides when moved off RELION's GUI default 5
+        const psiSam = num(job, "psi_sampling_autopick", 5);
+        if (psiSam !== 5) argv.push("--ang", String(psiSam));
+        // :2349 — shrink factor, rides when moved off the default 0
+        const shrinkF = num(job, "shrink", 0);
+        if (shrinkF !== 0) argv.push("--shrink", String(shrinkF));
+        // :2354-2355 — highpass when positive
+        const hp = num(job, "highpass", -1);
+        if (hp > 0) argv.push("--highpass", String(hp));
+        // :2362-2363 — reference pixel size when positive
+        const apr = num(job, "angpix_ref", -1);
+        if (apr > 0) argv.push("--angpix_ref", String(apr));
+        // :2366-2370 — the minimum inter-particle distance: helical segments
+        // compose nr_asu × rise, everything else rides when moved off 100
+        if (flag(job, "do_pick_helical_segments")) {
+          argv.push("--min_distance", String(num(job, "helical_nr_asu", 1) * num(job, "helical_rise", 1)));
+        } else {
+          const md = aliasNum(job, "minDistance", 100, "mindist_autopick", 100);
+          if (md !== 100) argv.push("--min_distance", String(md));
+        }
+        // :2373 — noise stddev cap, rides when the user moved either knob
+        const msn = aliasNum(job, "maxStddevNoise", 0, "maxstddevnoise_autopick", 1.1);
+        if (msn !== 0) argv.push("--max_stddev_noise", String(msn));
+        // :2374-2375 — minimum average noise, rides when moved off -999
+        const man = num(job, "minavgnoise_autopick", -999);
+        if (man !== -999) argv.push("--min_avg_noise", String(man));
+        // :2379-2387 — the helical-segment suite
+        if (flag(job, "do_pick_helical_segments")) {
+          argv.push("--helix");
+          if (flagPresent(job, "do_amyloid")) argv.push("--amyloid");
+          argv.push(
+            "--helical_tube_outer_diameter", str(job, "helical_tube_outer_diameter", "200"),
+            "--helical_tube_kappa_max", str(job, "helical_tube_kappa_max", "0.1"),
+            "--helical_tube_length_min", str(job, "helical_tube_length_min", "-1"),
+          );
+        }
       } else if (method === "Topaz") {
         // relion_python_topaz is a conda-env python wrapper — it exists on
         // disk in every RELION 5 install, but the `topaz` MODULE may be
@@ -6055,11 +6527,22 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
           "--topaz_extract",
           "--fn_topaz_exe", topaz,
           "--topaz_nr_particles", String(Math.round(num(job, "topazNrParticles", 200))),
-          "--topaz_threshold", String(num(job, "topazThreshold", -6)),
           // particle diameter drives the extract radius (RELION converts
           // Å → pix with the micrograph pixel size)
           "--particle_diameter", String(num(job, "topazDiameter", 180)),
         );
+        // t375 — the filament branch owns --topaz_threshold (RELION swaps in
+        // topaz_filament_threshold there, pipeline_jobs.cpp:2251-2259)
+        if (flagPresent(job, "do_topaz_filaments")) {
+          argv.push(
+            "--helix",
+            "--topaz_threshold", str(job, "topaz_filament_threshold", "-5"),
+          );
+          const hl = num(job, "topaz_hough_length", -1);
+          if (hl > 0) argv.push("--helical_tube_length_min", String(hl));
+        } else {
+          argv.push("--topaz_threshold", String(num(job, "topazThreshold", -6)));
+        }
         const downscale = num(job, "topazDownscale", -1);
         if (downscale > 0) argv.push("--topaz_downscale", String(Math.round(downscale)));
         const workers = Math.round(num(job, "topazWorkers", 1));
@@ -6078,7 +6561,14 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
         );
         const upper = num(job, "logUpperThreshold", 99999);
         if (upper > 0 && upper < 99999) argv.push("--LoG_upper_threshold", String(upper));
-        if (flag(job, "logInvert")) argv.push("--Log_invert");
+        // t375 — either side of the aliased white-particle switch — RELION's
+        // log_invert ("Are the particles white?", pipeline_jobs.cpp:2292-2293)
+        if (flagAnyTrue(job, "logInvert", "log_invert")) argv.push("--Log_invert");
+        // t375 — log_maxres composes the PAIR --shrink 0 --lowpass (:2286);
+        // it rides when moved off RELION's GUI default 20 (the curated argv
+        // never sent it, and the runner's own lowpass default is off)
+        const logMaxRes = num(job, "log_maxres", 20);
+        if (logMaxRes !== 20) argv.push("--shrink", "0", "--lowpass", String(logMaxRes));
         // t323 — RELION's own advice, verbatim: whenever the optimise-scale
         // rescale fires (large micrographs whose FFT sizes carry a big prime
         // — the user's 4096-px data hit prime 683, rescaled to 4048),
@@ -6153,20 +6643,62 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
     }
 
     case "localres": {
+      // t375 — the ResMap mode (getCommandsLocalresJob, pipeline_jobs.cpp:
+      // 5447-5497): RELION symlinks both half-maps into the job dir and runs
+      // the ResMap binary on them. cryoflow only takes that road when the user
+      // actually NAMED a ResMap executable (the seeded do_resmap_locres=true
+      // alone must not flip a queue-based orchestrator onto an interactive
+      // external binary); the curated method radio counts too.
+      const resmap = str(job, "fn_resmap", "").trim();
+      const curatedMethod = str(job, "method", "");
+      const resmapMode =
+        curatedMethod === "ResMap" ||
+        (resmap !== "" && flag(job, "do_resmap_locres"));
+      if (resmapMode) {
+        if (!resmap) {
+          return { error: "ResMap mode needs the ResMap executable — set it in the job's parameters (RELION's own requirement, pipeline_jobs.cpp:5453-5457)" };
+        }
+        if (!inputs.mask_mrc) {
+          return { error: "Please provide an input mask for ResMap local-resolution estimation (pipeline_jobs.cpp:5459-5463)" };
+        }
+        const half1 = inputs.half1_mrc;
+        const half2 = half1.includes("half1") ? half1.replace("half1", "half2") : half1.replace(/\.mrc$/, "_2.mrc");
+        const h1 = outPath(ctx, "half1.mrc");
+        const h2 = outPath(ctx, "half2.mrc");
+        // RELION's own two commands (:5479-5480 ln -s, :5488-5495 the binary),
+        // composed as one shell line
+        const cmdline =
+          `ln -sf ${shellQuote(half1)} ${shellQuote(h1)} && ln -sf ${shellQuote(half2)} ${shellQuote(h2)} && ` +
+          `${shellQuote(resmap)} --maskVol=${shellQuote(inputs.mask_mrc)} --noguiSplit ${shellQuote(h1)} ${shellQuote(h2)} ` +
+          `--vxSize=${num(job, "angpix", 1) || 1} --pVal=${numAny(job, 0.05, "pval")} ` +
+          `--minRes=${num(job, "minres", 0)} --maxRes=${num(job, "maxres", 0)} --stepRes=${num(job, "stepres", 1)}`;
+        return ["bash", "-c", cmdline];
+      }
       const argv = [
         binJoin(binDir, "relion_postprocess"),
         "--locres",
         "--i", inputs.half1_mrc,
         "--o", outPath(ctx, "relion"),
         "--angpix", String(Number(particlePixel(job, ctx.upstream).toFixed(3))),
-        "--adhoc_bfac", String(num(job, "adhocBfac", -100)),
+        "--adhoc_bfac", String(numAny(job, -100, "adhocBfac", "adhoc_bfac")),
       ];
       if (inputs.mask_mrc) argv.push("--mask", inputs.mask_mrc);
       return argv;
     }
 
     case "polish": {
-      return [
+      // t375 — the train/polish mode split (getCommandsMotionrefineJob,
+      // pipeline_jobs.cpp:5869-5995). Pre-t374 rows carry neither radio and
+      // keep the polish shape verbatim; do_polish's RELION default is true.
+      const doTrain = flagPresent(job, "do_param_optim");
+      const doPolish = job.params.do_polish === undefined ? true : flag(job, "do_polish");
+      if (doTrain && doPolish) {
+        return { error: "Choose either parameter training or polishing, not both (pipeline_jobs.cpp:5869-5873)" };
+      }
+      if (!doTrain && !doPolish) {
+        return { error: "nothing to do — choose either parameter training (do_param_optim) or polishing (do_polish) (pipeline_jobs.cpp:5875-5879)" };
+      }
+      const argv = [
         binJoin(binDir, "relion_motion_refine"),
         "--i", inputs.particles_star,
         "--f", inputs.postprocess_star,
@@ -6176,6 +6708,51 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
         "--o", ctx.workdir + "/",
         "--eval_frac", String(num(job, "evalFrac", 0.5)),
       ];
+      if (doTrain) {
+        // :5913-5931 — the meta-parameter estimation block
+        argv.push(
+          "--min_p", String(Math.round(num(job, "optim_min_part", 10000))),
+          "--align_frac", String(1 - num(job, "evalFrac", 0.5)),
+        );
+        argv.push(num(job, "sigma_acc", 2) < 0 ? "--params2" : "--params3");
+      } else {
+        // :5934-5949 — own sigma trio or the optimised-params file
+        if (flagPresent(job, "do_own_params")) {
+          argv.push(
+            "--s_vel", str(job, "sigma_vel", "0.2"),
+            "--s_div", str(job, "sigma_div", "5000"),
+            "--s_acc", str(job, "sigma_acc", "2"),
+          );
+        } else {
+          const pf = str(job, "opt_params", "").trim();
+          if (pf) argv.push("--params_file", pf);
+        }
+        // :5951 — RELION always combines frames in polish mode; without it
+        // relion_motion_refine never writes shiny.star (frame_recombiner.cpp:47
+        // reads --combine_frames as checkOption, default OFF). This is the one
+        // intentional argv change for untouched rows — the polish job's own
+        // declared output was unreachable without it.
+        argv.push("--combine_frames");
+        // :5967-5987 — the window/scale pair with RELION's own validation
+        const win = Math.round(num(job, "extract_size", -1));
+        const scl = Math.round(num(job, "rescale", -1));
+        if (win > 0 || scl > 0) {
+          if (!(win > 0 && scl > 0)) {
+            return { error: "Please specify both the extraction box size and the downsampled size, or leave both the default (-1) (pipeline_jobs.cpp:5961-5965)" };
+          }
+          if (win % 2 !== 0) {
+            return { error: "The extraction box size must be an even number (pipeline_jobs.cpp:5969-5973)" };
+          }
+          if (scl % 2 !== 0) {
+            return { error: "The downsampled box size must be an even number (pipeline_jobs.cpp:5976-5980)" };
+          }
+          if (scl > win) {
+            return { error: "The downsampled box size cannot be larger than the extraction size (pipeline_jobs.cpp:5982-5986)" };
+          }
+          argv.push("--window", String(win), "--scale", String(scl));
+        }
+      }
+      return argv;
     }
 
     case "ctfrefine": {
@@ -6185,10 +6762,53 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
         "--f", inputs.postprocess_star,
         "--o", ctx.workdir + "/",
       ];
-      if (flag(job, "fitDefocus")) {
-        argv.push("--fit_defocus", "--kmin_defocus", String(num(job, "minres", 20)));
+      // t375 — the aberration-fit dispatcher (getCommandsCtfrefineJob,
+      // pipeline_jobs.cpp:6042-6168). RELION's radios are PRESENT-gated so
+      // pre-t374 rows (curated fitDefocus/fitAstig knobs only) keep their
+      // shape; do_ctf is RELION's default-true.
+      const doAniso = flagPresent(job, "do_aniso_mag");
+      const doCtf = flagPresent(job, "do_ctf");
+      const doTilt = flagAnyTrue(job, "beamtilt", "do_tilt");
+      const do4th = flagPresent(job, "do_4thorder");
+      const legacyDefocus = flag(job, "fitDefocus");
+      const legacyAstig = flag(job, "fitAstig");
+      const kmin = num(job, "minres", 20); // the curated key wins (default 20; RELION's own is 30)
+      if (!doAniso && !doCtf && !doTilt && !do4th) {
+        return {
+          error:
+            "you haven't selected to fit anything — switch on CTF parameter fitting (do_ctf), beamtilt, anisotropic magnification or 4th-order aberrations (pipeline_jobs.cpp:6067-6074)",
+        };
       }
-      if (flag(job, "fitAstig")) argv.push("--fit_astig");
+      if (doAniso) {
+        // :6100-6109 — anisotropic magnification is exclusive with the rest
+        argv.push("--fit_aniso", "--kmin_mag", String(kmin));
+      } else {
+        if (doCtf) {
+          // :6116-6133 — defocus fit + the five-char fit_mode (phase, defocus,
+          // astig, Cs-always-f, bfactor — JobOption::getCtfFitString)
+          argv.push("--fit_defocus", "--kmin_defocus", String(kmin));
+          argv.push(
+            "--fit_mode",
+            ctffitChar(job, "do_phase") +
+              ctffitChar(job, "do_defocus") +
+              ctffitChar(job, "do_astig") +
+              "f" +
+              ctffitChar(job, "do_bfactor"),
+          );
+        } else if (legacyDefocus || legacyAstig) {
+          // the pre-t374 curated knobs, mapped onto the REAL ctf_refine
+          // options (the old --fit_astig flag never existed in any RELION
+          // release — the parser would have hard-rejected the whole run)
+          argv.push("--fit_defocus", "--kmin_defocus", String(kmin));
+          argv.push("--fit_mode", "f" + (legacyDefocus ? "p" : "f") + (legacyAstig ? "p" : "f") + "ff");
+        }
+        if (doTilt) {
+          // :6137-6145 — beamtilt (+ trefoil as the odd-aberration order)
+          argv.push("--fit_beamtilt", "--kmin_tilt", String(kmin));
+          if (flagPresent(job, "do_trefoil")) argv.push("--odd_aberr_max_n", "3");
+        }
+        if (do4th) argv.push("--fit_aberr"); // :6148-6151
+      }
       return argv;
     }
 
@@ -6246,6 +6866,19 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
     }
 
     case "subtract": {
+      // t375 — the label-revert mode (getCommandsSubtractJob,
+      // pipeline_jobs.cpp:5180-5198): flips rlnImageName back to the originals
+      if (flagPresent(job, "do_fliplabel")) {
+        const flipStar = str(job, "fn_fliplabel", "").trim();
+        if (!flipStar) {
+          return { error: "revert needs the particle STAR file to revert (fn_fliplabel) — RELION's own requirement (pipeline_jobs.cpp:5188)" };
+        }
+        return [
+          binJoin(binDir, "relion_particle_subtract"),
+          "--revert", flipStar,
+          "--o", ctx.workdir + "/",
+        ];
+      }
       const argv = [
         binJoin(binDir, "relion_particle_subtract"),
         "--i", inputs.optimiser_star,
@@ -6253,9 +6886,22 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
         "--o", ctx.workdir + "/",
       ];
       if (inputs.particles_star) argv.push("--data", inputs.particles_star);
-      if (flag(job, "recenter")) argv.push("--recenter_on_mask");
-      if (flag(job, "float16")) argv.push("--float16");
-      const nb = Math.round(num(job, "newBox", -1));
+      // t375 — recenter reads either side of the alias pair (:5239-5242);
+      // RELION's do_center_mask defaults TRUE
+      if (flag(job, "recenter") || flagPresent(job, "do_center_mask")) {
+        argv.push("--recenter_on_mask");
+      } else if (flagPresent(job, "do_center_xyz")) {
+        // :5243-5248 — the else-if twin: explicit x/y/z centering
+        argv.push(
+          "--center_x", str(job, "center_x", "0"),
+          "--center_y", str(job, "center_y", "0"),
+          "--center_z", str(job, "center_z", "0"),
+        );
+      }
+      // :5250-5253 — float16 reads either side of the alias pair (both default true)
+      if (flagAnyTrue(job, "float16", "do_float16")) argv.push("--float16");
+      // :5255-5258 — re-windowing, only a positive value rides
+      const nb = Math.round(numAny(job, -1, "newBox", "new_box"));
       if (nb > 0) argv.push("--new_box", String(nb));
       return argv;
     }
@@ -6411,6 +7057,74 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
 
 function flagAutoRefine(job: EngineJobRef): boolean {
   return String(job.params.autoRefine ?? "false") === "true";
+}
+
+/**
+ * t375 — RELION's 3D helical suite, shared verbatim by class3d
+ * (getCommandsClass3DJob, pipeline_jobs.cpp:4031-4102) and refine3d
+ * (getCommandsAutorefineJob, :4513-4587):
+ *  - do_helix gates everything: --helix + the tube diameters
+ *    (inner only when > 0);
+ *  - do_apply_helical_symmetry (RELION default true) gates the
+ *    asu/twist/rise trio + --helical_z_percentage as value/100;
+ *  - do_local_search_helical_symmetry adds the twist/rise search ranges
+ *    (inisteps only when > 0);
+ *  - keep_tilt_prior_fixed rides under do_helix;
+ *  - the ÷3 range priors: class3d emits them while alignment runs and no
+ *    local angular searches are set; refine3d emits them while the initial
+ *    and auto-local samplings differ. helical_sigma_distance is ÷3 as well
+ *    (inside the class3d gate, outside the refine3d one — mirroring the
+ *    source exactly).
+ */
+function helixSuite3d(job: EngineJobRef, argv: string[], kind: "class3d" | "refine3d"): void {
+  if (!flag(job, "do_helix")) return;
+  argv.push("--helix");
+  const inner = num(job, "helical_tube_inner_diameter", -1);
+  if (inner > 0) argv.push("--helical_inner_diameter", String(inner));
+  argv.push("--helical_outer_diameter", str(job, "helical_tube_outer_diameter", "-1"));
+  if (job.params.do_apply_helical_symmetry !== false) {
+    argv.push(
+      "--helical_nr_asu", String(Math.round(num(job, "helical_nr_asu", 1))),
+      "--helical_twist_initial", str(job, "helical_twist_initial", "0"),
+      "--helical_rise_initial", str(job, "helical_rise_initial", "0"),
+      "--helical_z_percentage", String(num(job, "helical_z_percentage", 30) / 100),
+    );
+    if (flag(job, "do_local_search_helical_symmetry")) {
+      argv.push(
+        "--helical_symmetry_search",
+        "--helical_twist_min", str(job, "helical_twist_min", "0"),
+        "--helical_twist_max", str(job, "helical_twist_max", "0"),
+      );
+      const twStep = num(job, "helical_twist_inistep", 0);
+      if (twStep > 0) argv.push("--helical_twist_inistep", String(twStep));
+      argv.push(
+        "--helical_rise_min", str(job, "helical_rise_min", "0"),
+        "--helical_rise_max", str(job, "helical_rise_max", "0"),
+      );
+      const riStep = num(job, "helical_rise_inistep", 0);
+      if (riStep > 0) argv.push("--helical_rise_inistep", String(riStep));
+    }
+  } else {
+    argv.push("--ignore_helical_symmetry");
+  }
+  if (flag(job, "keep_tilt_prior_fixed")) argv.push("--helical_keep_tilt_prior_fixed");
+  const rangesGate =
+    kind === "class3d"
+      ? job.params.dont_skip_align !== false && !flag(job, "do_local_ang_searches")
+      : healpixOrderOf(job.params.samplingStep) === null ||
+        healpixOrderOf(job.params.autoLocalSampling) === null ||
+        healpixOrderOf(job.params.samplingStep) !== healpixOrderOf(job.params.autoLocalSampling);
+  if (rangesGate) {
+    argv.push(
+      "--sigma_tilt", String(clamp090(num(job, "range_tilt", 15)) / 3),
+      "--sigma_psi", String(clamp090(num(job, "range_psi", 10)) / 3),
+      "--sigma_rot", String(clamp090(num(job, "range_rot", -1)) / 3),
+    );
+  }
+  const hd = num(job, "helical_range_distance", -1);
+  if (hd > 0 && (kind === "refine3d" || rangesGate)) {
+    argv.push("--helical_sigma_distance", String(hd / 3));
+  }
 }
 
 /* ------------------------------------------------------------------ */

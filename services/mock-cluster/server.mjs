@@ -76,15 +76,20 @@ const AUTH_2FA_CODE = process.env.MOCK_2FA_CODE ?? "654321";
 
 /**
  * PATH for every command spawned "on the cluster":
- *   fs/opt/bin                       — mock module system (`module`)
- *   /home/z/relion-build/bin         — real RELION build of this sandbox
- *   /home/z/relion-build/deps/mpich/bin — its MPI runtime
+ *   /home/z/relion-build/bin         — the REAL RELION build of this sandbox
+ *                                      (5.0.0, CPU + MPI; FIRST so the real
+ *                                      binaries win over the python stubs —
+ *                                      the stubs are the no-build fallback)
+ *   /home/z/relion-build/deps/mpich/bin — its MPI runtime (mpirun + hydra)
+ *   fs/opt/bin                       — mock module system + Slurm stubs +
+ *                                      the relion_* python stubs (fallback
+ *                                      when no real build exists)
  *   /usr/bin, /bin                   — coreutils, bash, setsid, …
  */
 const MOCK_PATH = [
-  `${FS_ROOT}/opt/bin`,
   "/home/z/relion-build/bin",
   "/home/z/relion-build/deps/mpich/bin",
+  `${FS_ROOT}/opt/bin`,
   "/usr/bin",
   "/bin",
 ].join(":");

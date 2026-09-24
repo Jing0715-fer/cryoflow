@@ -100,3 +100,9 @@ qa44-*.png
 /services/mock-cluster/fs/data2/t340-bare/
 /services/mock-cluster/fs/data2/t340-particles/
 /services/mock-cluster/fs/data2/t363-particles/
+
+# t372 — mock-cluster runtime data (real EMPIAR test data lives on the
+# host, jobs land in the mock fs at run time — neither belongs in the repo)
+services/mock-cluster/fs/data2/empiar10017/
+services/mock-cluster/fs/home/cryo/.cache/
+services/mock-cluster/fs/projects/cryoflow/
