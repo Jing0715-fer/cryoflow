@@ -3403,3 +3403,24 @@ Stage Summary:
 - t369 手动 60 秒存储测试自动化:计算腿 sbatch 8MB + 登录腿回读 md5 比对 + df/quota 上下文;首见零头自动跑一次,Remote clusters 对话框另有手动 Storage check 按钮;结论二选一:点名 compute→storage 写丢失 / 彻底排除存储
 - 黑色 2D 类:渲染时 zeroData 旗标 + gallery 徽章(与 t369 seed 徽章同款);提取失败文案双门白话解释
 - 用户复机路径:git pull → 重派发 cs2star → extract(碰撞扫描现在会说话,脏栈自动挪边)→ class2d/class3d(optics 已排序;若存储真有病,Log tab 的存储诊断自动说话;零头轮次 live 点名)
+
+---
+Task ID: 371
+Agent: main (post-t370 verification window)
+Task: 续 t370 验证:(a) 用户六联工单修复的独立复核(370-R 子代理中途断档的四件套);(b) 在新沙盒跑 t370 冒烟做端到端确认;(c) 顺带修掉验证途中撞见的三颗 fresh-install 雷
+
+Work Log:
+- [对齐] 新沙盒全新克隆 752e415(=origin/main=t370)——上会话沙盒已重置,worklog 随仓库带来;my-project 是初始模板与 cryoflow 无关
+- [复核 t370 四件套] 独立通读实现(370-R 当时 context 耗尽,由集成者代写 worklog):normalizeOpticsOrder(awk 流式 + 自验证 + tmp→mv 原子 + reuse mtime 门 + SKIP 永不阻塞)✓;extract 双 lane(readResolvedStarText lane-aware + 碰撞扫描/frame census 在 staging 前跑 + .cryoflow_prev 同 FS 归档挪边,排除 .cryoflow_prev 自身 prune)✓;live 零头嗅探(od -An -tu4 -j0 -N12 每 stat 行后最多一行,双门控 settled+fence,零头不流送只点名,storageDiagAt 邮戳 once-per-run)✓;storage-diag 三腿实验(login 2MB + compute sbatch 8MB+sync + login 回读 md5,CF_NOFILE/zero-length/md5-mismatch/by-size 四判决,sidecar 持久化,从不 throw)✓;tsc 0 + eslint 0(触碰文件零输出)
+- [排除两条误伤假设] deleteJob 链(scancel 按本 job slurmId、kill 按自己 workdir 的 .cf-pid、workdir 按 job id 隔离、删除后 workdir 故意保留供 undo)不会误伤新建同类型 job;syncBackWorkdir 集群侧只有 find(只读),拉取写入只碰本地镜像——"所有 mrcs 都坏"只能是集群侧自身的写入问题(t370 存储诊断的靶子,方向正确)
+- [冒烟第一轮] 14/15:B2a 失败(删除后 800ms 卡未消失)归因 = DELETE 路由 Turbopack 首次编译(数秒)吃掉窗口;B2b/B2d 过 = tombstone 本体逻辑无恙;路由热身后 curl 实测 DELETE 86ms 证实归因
+- [撞见的三颗雷 — t371] 第二轮冒烟 0 卡片开启的诊断链:seed 卡 workspaceId=null + Main workspace 后来才被 ensureDefaultWorkspace 治愈出来 → useActiveWorkspaceJobs 精确 id 过滤 → fresh install 的画布在第一次创建动作后刷新即空(数据在、不可见);同轮还实锤并发双 seed(冷启动页面 boot 并发打 6 个 list 端点都过 count=0 守卫,种出 3 个同名 demo 项目、9 张卡)。修复三件套(seed.ts,单文件 +59/-6):(1) ensureProject 的 seed 三卡自己挂进它创建的 Main(画布从首帧起稳定);(2) ensureDefaultWorkspace 顺带孤儿治愈(所有 job-CREATING 路由都会过这里,updateMany where workspaceId null 幂等,零写入 once 无孤儿);(3) ensureProject 进程内 single-flight 并发共享一次 seed(计数守卫保留给顺序到达)
+- [4GB OOM 战况续] seed.ts 热重载触发下一轮:next-server anon-rss 2.8GB 被内核击杀(dmesg oom_kill 实证),ERR_CONNECTION_REFUSED 死亡模式 = 上会话记录的同款;处方同款:pkill 残留 chrome → 重启 → 全路由 same-origin 头预热 → 浏览器紧随落地
+- [验证] tsc 0;eslint seed.ts 0;修后冒烟 15/15 ALL GREEN(B1 3 卡(seed 修复生效)/B2a 立即消失(路由已热)/B2b 14 秒零复活/B2d DOM↔server 恒等/B3 零 console 错误);截图 shots-qa/t370-flicker-cure.png(修复后重拍)
+- [推送受阻] 新沙盒无 GitHub PAT(上会话凭证不随沙盒重置保留)——c751297 提交在本地,待用户提供 PAT 或自行 fetch:推送命令已就绪
+
+Stage Summary:
+- t370 六联工单修复全部复核通过且冒烟 15/15:optics 预排序、extract 双 lane、零头 live 证据+自动存储诊断、删除墓碑——实现质量与 worklog 记载一致
+- 删除闪烁的根因链(先行 poll 复活)由 B2b/B2d 端到端证实;B2a 的首轮失败纯属 DELETE 路由首次编译延迟,非逻辑缺陷
+- t371 三颗 fresh-install 雷修复:seed 卡隐身(Main 过滤)、孤儿卡全 workspace 不可见、并发双 seed——新装用户"第一次创建动作后刷新画布变空"的整条事故链关闭
+- 用户复机路径不变(t370 的四门全关);t371 是附带收获,待推送
