@@ -2113,9 +2113,20 @@ export function WorkflowCanvas() {
       )}
 
       {/* Empty state */}
+      {/* data-canvas-ui on the card: handlePointerDown captures every
+          pointerdown that isn't inside [data-job]/[data-canvas-ui] — an
+          un-marked empty-state card had its Scaffold button's clicks
+          hijacked by the canvas's pointer capture (the click event fired
+          on the SECTION, never on the button — "clicking does nothing").
+          The portaled-overlay guard in handlePointerDown documents this
+          exact failure mode for menus; the in-canvas empty state is the
+          same bug in a non-portaled costume. */}
       {!loading && jobs.length === 0 && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <div className="max-w-md rounded-xl border border-dashed bg-card/60 px-6 py-5 text-center backdrop-blur-sm animate-rise">
+          <div
+            data-canvas-ui="empty-state"
+            className="max-w-md rounded-xl border border-dashed bg-card/60 px-6 py-5 text-center backdrop-blur-sm animate-rise"
+          >
             <p className="text-sm font-medium">
               {allJobs.length > 0
                 ? `“${activeWorkspaceName ?? "This workspace"}” is empty`

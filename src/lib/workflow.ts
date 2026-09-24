@@ -1919,6 +1919,76 @@ export function portsCompatible(
   return accepts.includes("*") || (o.kind != null && accepts.includes(o.kind));
 }
 
+/* ------------------------------------------------------------------ */
+/* Quick next-step suggestions (t383)                                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * One candidate "continue this pipeline" step: the target job type plus
+ * the port pair the auto-wire will use.
+ */
+export interface NextStep {
+  /** Target job type key (JOB_TYPES entry). */
+  type: string;
+  /** Human label (same string the palette shows). */
+  label: string;
+  /** Lucide icon NAME (resolved through <TypeIcon>). */
+  icon: string;
+  /** Source output port name (evaluated against the live params). */
+  fromPort: string;
+  /** Target input port name. */
+  toPort: string;
+  /** Short port-pair caption for the menu row (e.g. "micrographs → CTF"). */
+  caption: string;
+}
+
+/**
+ * Every job type that can legally consume this job type's (current)
+ * outputs — the card context menu's "Add next step…" list. The source's
+ * `when` predicates run against the LIVE params, so an Import set to
+ * "Movies" only offers MotionCorr (never CTF), exactly like dragging a
+ * wire out of the port by hand. Catalog order = pipeline order, which is
+ * also the menu order RELION users expect (import → motion → CTF → …).
+ */
+export function nextStepsFor(
+  fromType: string,
+  params?: Record<string, ParamValue>
+): NextStep[] {
+  const from = jobType(fromType);
+  if (!from) return [];
+  const outs = visibleOutputs(from, params);
+  if (outs.length === 0) return [];
+  const steps: NextStep[] = [];
+  for (const candidate of JOB_TYPES) {
+    // same-type chaining is LEGAL and common in RELION (class3d → class3d
+    // re-classification, refine3d → refine3d progressive refinement), so
+    // the source type itself stays a candidate whenever its own input can
+    // consume its output; types with no inputs simply never match
+    let hit: { fromPort: string; toPort: string; caption: string } | null = null;
+    for (const o of outs) {
+      for (const i of candidate.inputs) {
+        const accepts = i.accepts ?? ["*"];
+        if (accepts.includes("*") || (o.kind != null && accepts.includes(o.kind))) {
+          hit = { fromPort: o.name, toPort: i.name, caption: `${o.name} → ${i.name}` };
+          break;
+        }
+      }
+      if (hit) break;
+    }
+    if (hit) {
+      steps.push({
+        type: candidate.key,
+        label: candidate.label,
+        icon: candidate.icon,
+        fromPort: hit.fromPort,
+        toPort: hit.toPort,
+        caption: hit.caption,
+      });
+    }
+  }
+  return steps;
+}
+
 /**
  * Default (first compatible) output→input port pair between two job types.
  * Used to give legacy DB edges a sensible port mapping.
