@@ -162,7 +162,19 @@ def write_mrc(path, nz_out, seed_base):
 
 
 map_path = out_base + ".mrc"
-write_mrc(map_path, nz, int(final_res * 7) % 97 + 3)
+# t380 — the sharpened map carries cryo density convention (NEGATIVE protein
+# core over zero-mean solvent): the app's ortho viewer flips it to the bright
+# blob a real postprocess.mrc shows. The _mask.mrc stays all-positive 0..1
+# (a soft mask never flips — the polarity gate's all-positive branch).
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+try:
+    import cf_cryo
+except Exception:
+    cf_cryo = None
+if cf_cryo is not None:
+    cf_cryo.write_mrc(map_path, nx, ny, nz, cf_cryo.negative_volume(nz, int(final_res * 7) % 97 + 3), angpix=angpix)
+else:
+    write_mrc(map_path, nz, int(final_res * 7) % 97 + 3)
 mask_out = out_base + "_mask.mrc"
 write_mrc(mask_out, nz, 11)
 

@@ -871,6 +871,26 @@ function ParamsTab({
     [job.params]
   );
 
+  // t381 — the RELION GUI's TOGGLE_DEACTIVATE groups as data (showIf): a
+  // gated parameter only renders while its gate param equals the expected
+  // value. The gate's OWN gate propagates (nested groups), values survive
+  // hiding (RELION keeps deactivated options' values too), and the engine's
+  // own if-chains keep hidden values off the argv.
+  const gateVisible = React.useCallback(
+    (p: ParamSchema): boolean => {
+      const visible = (q: ParamSchema, depth: number): boolean => {
+        if (!q.showIf || depth > 3) return true;
+        const gate = params.find((g) => g.key === q.showIf!.param);
+        if (gate && !visible(gate, depth + 1)) return false;
+        const raw = form[q.showIf.param];
+        const val = gate ? coerceParam(gate, raw) : raw;
+        return val === q.showIf.equals;
+      };
+      return visible(p, 0);
+    },
+    [form, params]
+  );
+
   const dirty = params.some((p) => coerceParam(p, form[p.key]) !== baseline(p));
 
   // latest form/dirty/commit for the async saves + unmount flush (closures
@@ -957,7 +977,7 @@ function ParamsTab({
       </div>
 
       {allTabs.map((t) => {
-        const inTab = params.filter((p) => (p.tab ?? "Additional") === t);
+        const inTab = params.filter((p) => (p.tab ?? "Additional") === t && gateVisible(p));
         const basic = inTab.filter((p) => !p.advanced);
         const advanced = inTab.filter((p) => p.advanced);
         return (

@@ -203,10 +203,54 @@ total = 0
 # t311 twin): the 0.8s/mic cadence served small suites; a 450-micrograph
 # import tree made the run a 6-minute wall.
 pace = min(0.8, 60.0 / max(1, len(mics)))
+
+# t380 — REAL dark-blob picking: a readable micrograph gets LoG-style
+# detection on its ACTUAL pixels (difference of box-means at the two pick
+# scales, local maxima whose core sits clearly below the ice plane) — the
+# picks land on the real β-galactosidase blobs, so Extract's REAL crops
+# carry the true cryo polarity. Unreadable mic / no detection → legacy
+# synthetic picks (suite fixtures keep their dialect).
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+try:
+    import cf_cryo
+except Exception:
+    cf_cryo = None
+
+_diam_min = float(opts.get("LoG_diam_min", "120") or 120)
+_diam_max = float(opts.get("LoG_diam_max", "180") or 180)
+_log_thresh = float(opts.get("LoG_adjust_threshold", "0") or 0)
+
+
+def _resolve_mic_autopick(mic):
+    cands = [mic]
+    if not os.path.isabs(mic):
+        _sd = os.path.dirname(os.path.abspath(star_in))
+        cands = [
+            os.path.join(_sd, mic),
+            os.path.join(os.getcwd(), mic),
+            os.path.join(os.path.dirname(_sd), mic),
+        ]
+    for cand in cands:
+        if os.path.exists(cand):
+            return cand
+    return None
+
+
 for n, mic in enumerate(mics, 1):
     time.sleep(pace)
     picks = 14 + (n * 3) % 9
-    total += picks
+    real_picks = None
+    if cf_cryo is not None:
+        mic_path = _resolve_mic_autopick(mic)
+        if mic_path:
+            opened = cf_cryo.read_mrc(mic_path)
+            if opened:
+                _nx, _ny, _nz, _vals = opened
+                detected = cf_cryo.dark_blob_picks(
+                    _vals, _nx, _ny, _diam_min, _diam_max, _log_thresh, max_picks=300
+                )
+                if len(detected) >= 3:
+                    real_picks = detected
     base = os.path.basename(mic)
     if base.endswith(".mrc"):
         star_name = base[: -len(".mrc")] + f"_{pickname}.star"
@@ -219,12 +263,23 @@ for n, mic in enumerate(mics, 1):
         fh.write("_rlnCoordinateY #2\n")
         fh.write("_rlnAutopickFigureOfMerit #3\n")
         fh.write("_rlnClassNumber #4\n")
-        for k in range(picks):
-            x = 120 + (k * 61) % 1800
-            y = 140 + (k * 97) % 1700
-            fom = 0.32 + 0.05 * (k % 5)
-            fh.write(f"{x}.0\t{y}.0\t{fom:.3f}\t1\n")
-    print(f"Micrograph {n}/{len(mics)}: {base} — {picks} particles picked")
+        if real_picks is not None:
+            picks = len(real_picks)
+            for k, (x, y) in enumerate(real_picks):
+                fom = 0.32 + 0.05 * (k % 5)
+                fh.write(f"{x:.1f}\t{y:.1f}\t{fom:.3f}\t1\n")
+            print(
+                f"Micrograph {n}/{len(mics)}: {base} — {picks} REAL dark-blob picks "
+                f"(LoG { _diam_min:.0f}–{_diam_max:.0f} Å, cryo polarity)"
+            )
+        else:
+            for k in range(picks):
+                x = 120 + (k * 61) % 1800
+                y = 140 + (k * 97) % 1700
+                fom = 0.32 + 0.05 * (k % 5)
+                fh.write(f"{x}.0\t{y}.0\t{fom:.3f}\t1\n")
+            print(f"Micrograph {n}/{len(mics)}: {base} — {picks} particles picked")
+    total += picks
     sys.stdout.flush()
 
 print(f"autopick done: {total} particles across {len(mics)} micrographs")

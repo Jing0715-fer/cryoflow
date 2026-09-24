@@ -301,19 +301,40 @@ export interface MrcWindow {
 }
 
 /**
+ * Display polarity for the auto-inversion heuristic (t380).
+ *
+ * - "auto" (default): cryo-EM convention — when the negative side of the
+ *   distribution dominates, flip so the particle renders bright-on-black.
+ *   Covers cryo class averages AND normalized particle stacks.
+ * - "negativeStain": NEVER flip — stained particles are positive density
+ *   (bright voids in a dark metal sea); the direct stretch already shows
+ *   them bright. Pinned by the import job's "negative stain" checkbox so
+ *   every downstream render of that dataset follows it.
+ */
+export type MrcPolarity = "auto" | "negativeStain";
+
+/**
  * 2–98 percentile contrast stretch → 8-bit grayscale buffer.
  *
  * RELION cryo-EM convention: the particle signal is NEGATIVE density —
  * both in class averages (particle as negative density over flattened
  * solvent) and in extracted particle stacks. When the negative side of
- * the distribution carries clearly more swing than the positive side
- * (≥1.2×), the signal lives below the mean: flip and renormalize so the
+ * the distribution carries more swing than the positive side
+ * (> 1.0×), the signal lives below the mean: flip and renormalize so the
  * particle renders BRIGHT ON BLACK (what RELION's own display does).
  *
  * All-positive images (raw micrographs, CTF power spectra, soft masks)
  * never satisfy `lo < 0` and are never flipped. Measured on the EMPIAR
  * beta-gal dataset: class averages flip at ratio 2.7–3.0, particle stacks
  * at 1.24, micrographs are all-positive, CTF .ctf diagnostics sit at 0.56.
+ *
+ * t380 — the gate's threshold was 1.2×, which left a DEAD ZONE: unmasked
+ * class averages and barely-normalised stacks measure 1.0–1.1 — clearly
+ * negative-dominant, but the old gate refused to flip and the particles
+ * rendered BLACK. The gate now fires at any strict negative dominance
+ * (> 1.0×). A pinned `polarity: "negativeStain"` (import-time flag)
+ * disables the flip entirely: negative-stain particles are POSITIVE
+ * density (bright metal-surrounded voids) and must render as-is.
  *
  * t286 — an explicit `window` overrides the percentile entirely: lo maps
  * to black, hi maps to white, LITERAL mapping (no auto-inversion — the
@@ -322,7 +343,7 @@ export interface MrcWindow {
  * the drag). The percentile + inversion path is the AUTO default and is
  * untouched when no window is given.
  */
-function stretchToGray(data: Float32Array, window?: MrcWindow): Buffer {
+function stretchToGray(data: Float32Array, window?: MrcWindow, polarity?: MrcPolarity): Buffer {
   const n = data.length;
   const gray = Buffer.alloc(n);
 
@@ -347,7 +368,14 @@ function stretchToGray(data: Float32Array, window?: MrcWindow): Buffer {
   // (median-zero check from v1 was dropped — real class averages settle
   // at med −0.1…−1.0 after solvent flattening, never exactly 0, which
   // silently disabled the flip and rendered particles BLACK)
-  const inverted = lo < 0 && -lo > 1.2 * Math.max(hi, Number.EPSILON);
+  // t380: 1.2 → 1.0 — the dead zone left unmasked classes (ratio ~1.0–1.1)
+  // unflipped and BLACK; a strict > 1.0 dominance flips them. A pinned
+  // negativeStain polarity keeps the direct mapping (particles are
+  // naturally bright in stained data).
+  const inverted =
+    polarity !== "negativeStain" &&
+    lo < 0 &&
+    -lo > 1.0 * Math.max(hi, Number.EPSILON);
   if (inverted) {
     const loSig = sorted[Math.floor(0.005 * (n - 1))]; // robust signal floor
     const span = -loSig;
@@ -392,7 +420,8 @@ async function grayToPng(gray: Buffer, width: number, height: number): Promise<B
 export async function renderMrcSlicePng(
   file: string,
   slice?: number,
-  window?: MrcWindow
+  window?: MrcWindow,
+  polarity?: MrcPolarity
 ): Promise<Buffer | null> {
   const h = readMrcHeader(file);
   if (!h) return null;
@@ -400,7 +429,7 @@ export async function renderMrcSlicePng(
   const data = readMrcSlice(file, z, h);
   if (!data) return null;
   const small = downsample(data, h.nx, h.ny, MAX_W);
-  const gray = stretchToGray(small.values, window);
+  const gray = stretchToGray(small.values, window, polarity);
   return grayToPng(gray, small.width, small.height);
 }
 
@@ -411,7 +440,8 @@ export async function renderMrcSlicePng(
 export async function renderMrcMontagePng(
   file: string,
   count = 8,
-  window?: MrcWindow
+  window?: MrcWindow,
+  polarity?: MrcPolarity
 ): Promise<Buffer | null> {
   const h = readMrcHeader(file);
   if (!h) return null;
@@ -428,7 +458,7 @@ export async function renderMrcMontagePng(
     const data = readMrcSlice(file, i, h);
     if (!data) continue;
     const small = downsample(data, h.nx, h.ny, MONTAGE_CELL);
-    const cell = stretchToGray(small.values, window);
+    const cell = stretchToGray(small.values, window, polarity);
     const cx = gap + (i % MONTAGE_COLS) * (cellW + gap);
     const cy = gap + Math.floor(i / MONTAGE_COLS) * (cellH + gap);
     for (let y = 0; y < small.height && y < cellH; y++) {
@@ -465,7 +495,8 @@ const SHEET_MAX_LONG = 1400;
  */
 export async function renderClassSheetPng(
   file: string,
-  window?: MrcWindow
+  window?: MrcWindow,
+  polarity?: MrcPolarity
 ): Promise<{ png: Buffer; rendered: number; total: number } | null> {
   const h = readMrcHeader(file);
   if (!h) return null;
@@ -497,7 +528,7 @@ export async function renderClassSheetPng(
     const data = readMrcSlice(file, i, h);
     if (!data) continue;
     const small = downsample(data, h.nx, h.ny, cell);
-    const cellGray = stretchToGray(small.values, window);
+    const cellGray = stretchToGray(small.values, window, polarity);
     const cx = gap + (i % cols) * (cell + gap);
     const cy = gap + Math.floor(i / cols) * (cell + gap);
     for (let y = 0; y < small.height && y < cell; y++) {
@@ -514,14 +545,15 @@ export async function renderClassSheetPng(
 export async function renderMrcLargePng(
   file: string,
   slice: number,
-  window?: MrcWindow
+  window?: MrcWindow,
+  polarity?: MrcPolarity
 ): Promise<Buffer | null> {
   const h = readMrcHeader(file);
   if (!h) return null;
   const data = readMrcSlice(file, slice, h);
   if (!data) return null;
   const small = downsample(data, h.nx, h.ny, 768);
-  const gray = stretchToGray(small.values, window);
+  const gray = stretchToGray(small.values, window, polarity);
   return grayToPng(gray, small.width, small.height);
 }
 
@@ -591,11 +623,12 @@ export async function renderDecimatedPng(
   nx: number,
   ny: number,
   maxW: number,
-  window?: MrcWindow
+  window?: MrcWindow,
+  polarity?: MrcPolarity
 ): Promise<Buffer | null> {
   if (!(nx > 0) || !(ny > 0) || data.length < nx * ny) return null;
   const grid = nx > maxW ? decimateColumns(data, nx, ny, maxW) : { values: data, width: nx, height: ny };
-  const gray = stretchToGray(grid.values, window);
+  const gray = stretchToGray(grid.values, window, polarity);
   return grayToPng(gray, grid.width, grid.height);
 }
 
@@ -923,7 +956,8 @@ export async function renderMrcOrthoPng(
   axis: "x" | "y" | "z",
   pos: number,
   header?: MrcHeader,
-  window?: MrcWindow
+  window?: MrcWindow,
+  polarity?: MrcPolarity
 ): Promise<Buffer | null> {
   const h = header ?? readMrcHeader(file);
   if (!h) return null;
@@ -934,7 +968,7 @@ export async function renderMrcOrthoPng(
     const data = readMrcSlice(file, z, h);
     if (!data) return null;
     const small = downsample(data, h.nx, h.ny, MAX_W);
-    return grayToPng(stretchToGray(small.values, window), small.width, small.height);
+    return grayToPng(stretchToGray(small.values, window, polarity), small.width, small.height);
   }
 
   const idx =
@@ -942,7 +976,7 @@ export async function renderMrcOrthoPng(
   const plane = readMrcOrthoSlice(file, axis, idx, h);
   if (!plane) return null;
   const small = downsample(plane.values, plane.width, plane.height, MAX_W);
-  return grayToPng(stretchToGray(small.values, window), small.width, small.height);
+  return grayToPng(stretchToGray(small.values, window, polarity), small.width, small.height);
 }
 
 /* ------------------------------------------------------------------ */

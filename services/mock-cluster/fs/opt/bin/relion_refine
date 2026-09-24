@@ -17,6 +17,12 @@ import struct
 import sys
 import time
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+try:
+    import cf_cryo
+except Exception:
+    cf_cryo = None
+
 argv = sys.argv[1:]
 opts = {}
 i = 0
@@ -129,6 +135,75 @@ if missing:
 
 print(f"cryoflow-mock refine: mode={mode} K={ncls} particles={npart} iters={iters} (from {os.path.basename(star_in)})")
 
+# ---- t380 — REAL-particle class averages ---------------------------------
+# When every input row's stack is a readable MRC (the EMPIAR-10017 chain's
+# real extracted crops), the class averages become the MEAN of their
+# assigned member boxes — real cryo polarity rides the whole way in:
+# particles are NEGATIVE density after --norm, so the app's display flips
+# them bright-on-black. A deterministic subset of classes (c % 4 == 3)
+# carries the weak-contrast amplitude — the dead-zone shape (negative
+# dominance ~1.05–1.15) that the OLD 1.2× polarity gate refused to flip
+# (the "2D 颗粒是黑色的" field report) and the t380 1.0× gate now flips.
+# Any unreadable stack keeps the legacy LCG-noise classes byte-for-byte.
+real_boxes = []
+real_mode = cf_cryo is not None
+if real_mode:
+    _stack_cache = {}
+    for r in rows:
+        img = r.split()[0]
+        if "@" not in img:
+            continue
+        n_img, stack_ref = img.split("@", 1)
+        stack_path = None
+        if os.path.isabs(stack_ref):
+            cands = [stack_ref]
+            if MOCK_ROOT:
+                cands.append(os.path.join(MOCK_ROOT, stack_ref.lstrip("/")))
+        else:
+            cands = [
+                os.path.join(star_dir, stack_ref),
+                os.path.join(os.getcwd(), stack_ref),
+                os.path.join(os.path.dirname(star_dir), stack_ref),
+            ]
+        for cand in cands:
+            if os.path.exists(cand):
+                stack_path = cand
+                break
+        if stack_path is None:
+            real_mode = False
+            break
+        if stack_path not in _stack_cache:
+            opened = cf_cryo.read_mrc(stack_path)
+            if opened is None:
+                real_mode = False
+                break
+            _stack_cache[stack_path] = opened
+        _sx, _sy, _sz, _vals = _stack_cache[stack_path]
+        try:
+            slice_idx = int(n_img) - 1
+        except ValueError:
+            real_mode = False
+            break
+        if not (0 <= slice_idx < _sz):
+            real_mode = False
+            break
+        real_boxes.append((_vals, slice_idx))
+if real_mode and not real_boxes:
+    real_mode = False
+if real_mode:
+    try:
+        import numpy as _real_np  # the averaging path needs numpy
+        _box_dim = _real_np.asarray(real_boxes[0][0]).shape[-1]
+        for _v, _si in real_boxes:
+            if _real_np.asarray(_v).shape[-1] != _box_dim:
+                real_mode = False  # mixed box sizes — legacy is the honest fallback
+                break
+    except Exception:
+        real_mode = False
+print(
+    f"cryoflow-mock refine: {'REAL particle class averages (t380 cryo polarity)' if real_mode else 'legacy synthetic classes'}"
+)
+
 
 def write_mrc(path, nx, ny, nz, seed, kind="volume"):
     """Minimal valid MRC (mode 2, float32) — enough for header readers.
@@ -233,15 +308,45 @@ for it in range(1, iters + 1):
             cls = (p * 7 + it) % ncls + 1
             fh.write(f"{img}\t{cls}\t{p * 13.0:.1f}\t{90.0 - p}.2\t{p * 3.0:.1f}\n")
     is2d = mode in ("classify2d",)
+    # t380 — REAL class averages: mean of this iteration's member crops
+    # (assignment formula unchanged, so data.star and class membership stay
+    # in lockstep), flattened solvent + the dead-zone amplitude preset.
+    # Legacy LCG classes stay byte-identical when real_mode is off
+    # (t377-merge: the legacy lane keeps the t373 kind= polarity hint).
+    _weak = cf_cryo.weak_class_preset(ncls) if (real_mode and cf_cryo) else set()
+    _class_imgs = []
     for c in range(1, ncls + 1):
-        write_mrc(os.path.join(outdir, f"run_it{its}_class{c:03d}.mrc"), 64, 64, 1, c * 31 + it, kind="classes" if is2d else "volume")
+        if real_mode and cf_cryo:
+            # membership follows the SAME (p, it) formula as the data star:
+            # enumerate particles in row order (p = row index among @-rows)
+            members = [
+                _v[_si]
+                for p, (_v, _si) in enumerate(real_boxes)
+                if (p * 7 + it) % ncls + 1 == c
+            ]
+            amp = 0.09 if c in _weak else 1.0
+            img = cf_cryo.class_image(_box_dim, members, amp=amp, seed=c * 31 + it)
+            cf_cryo.write_mrc(os.path.join(outdir, f"run_it{its}_class{c:03d}.mrc"), _box_dim, _box_dim, 1, img)
+            _class_imgs.append(img)
+        else:
+            write_mrc(os.path.join(outdir, f"run_it{its}_class{c:03d}.mrc"), 64, 64, 1, c * 31 + it, kind="classes" if is2d else "volume")
     # t350 — per-iteration 2D class-average STACK (run_it###_classes.mrcs):
     # what a REAL relion_refine class2d writes every iteration and what the
     # live class gallery renders slice-by-slice. One file, nz = ncls, each
     # slice its own deterministic gray field (class c ≈ c*31+it, so two
     # classes never render identical). Additive only — the final-artifact
     # rename below and every collector's expectations are untouched.
-    write_mrc(os.path.join(outdir, f"run_it{its}_classes.mrcs"), 64, 64, ncls, 4096 + it, kind="classes" if is2d else "volume")
+    if real_mode and cf_cryo and _class_imgs:
+        import numpy as _real_np
+        cf_cryo.write_mrc(
+            os.path.join(outdir, f"run_it{its}_classes.mrcs"),
+            _box_dim,
+            _box_dim,
+            ncls,
+            _real_np.stack(_class_imgs),
+        )
+    else:
+        write_mrc(os.path.join(outdir, f"run_it{its}_classes.mrcs"), 64, 64, ncls, 4096 + it, kind="classes" if is2d else "volume")
     # E2E extension (2026-09 review): REAL relion_refine in 3D mode also
     # writes per-iteration half-maps + an optimiser.star. The app's
     # REFINE_FAMILY_CANDIDATES (engine.ts) expect run_it###_half1_class###.mrc
@@ -250,8 +355,15 @@ for it in range(1, iters + 1):
     # create, postprocess, multibody) stalls at "waiting". Volumes are 3D
     # (64³) like a real map; class2d jobs are unaffected (their candidates
     # only look at run_data.star / run_classes.mrcs).
-    write_mrc(os.path.join(outdir, f"run_it{its}_half1_class001.mrc"), 64, 64, 64, 101 + it)
-    write_mrc(os.path.join(outdir, f"run_it{its}_half2_class001.mrc"), 64, 64, 64, 202 + it)
+    # t380 — real mode writes NEGATIVE-density cores (protein over zero-mean
+    # solvent): the app's ortho planes flip them to the bright-blob maps a
+    # real RELION project shows.
+    if real_mode and cf_cryo:
+        cf_cryo.write_mrc(os.path.join(outdir, f"run_it{its}_half1_class001.mrc"), 64, 64, 64, cf_cryo.negative_volume(64, 101 + it))
+        cf_cryo.write_mrc(os.path.join(outdir, f"run_it{its}_half2_class001.mrc"), 64, 64, 64, cf_cryo.negative_volume(64, 202 + it))
+    else:
+        write_mrc(os.path.join(outdir, f"run_it{its}_half1_class001.mrc"), 64, 64, 64, 101 + it)
+        write_mrc(os.path.join(outdir, f"run_it{its}_half2_class001.mrc"), 64, 64, 64, 202 + it)
     with open(os.path.join(outdir, f"run_it{its}_optimiser.star"), "w") as fh:
         fh.write(f"\ndata_optimiser\n\n_rlnCurrentIteration {it}\n_rlnNumberOfClasses {ncls}\n")
 
@@ -277,9 +389,16 @@ with open(os.path.join(outdir, "run_model.star"), "w") as fh:
 # volume — real relion_refine's closing move (run_half1_class001_unfil.mrc,
 # run_half2_class001_unfil.mrc, run_class001.mrc) and the exact names
 # REMOTE_OUTPUT_CANDIDATES resolves half1_mrc/half2_mrc/model_mrc by.
-write_mrc(os.path.join(outdir, "run_half1_class001_unfil.mrc"), 64, 64, 64, 9901)
-write_mrc(os.path.join(outdir, "run_half2_class001_unfil.mrc"), 64, 64, 64, 9902)
-write_mrc(os.path.join(outdir, "run_class001.mrc"), 64, 64, 64, 9903)
+# t380 — real mode: negative-density cores (the app's ortho viewer flips
+# them to bright blobs, like a real RELION map).
+if real_mode and cf_cryo:
+    cf_cryo.write_mrc(os.path.join(outdir, "run_half1_class001_unfil.mrc"), 64, 64, 64, cf_cryo.negative_volume(64, 9901))
+    cf_cryo.write_mrc(os.path.join(outdir, "run_half2_class001_unfil.mrc"), 64, 64, 64, cf_cryo.negative_volume(64, 9902))
+    cf_cryo.write_mrc(os.path.join(outdir, "run_class001.mrc"), 64, 64, 64, cf_cryo.negative_volume(64, 9903))
+else:
+    write_mrc(os.path.join(outdir, "run_half1_class001_unfil.mrc"), 64, 64, 64, 9901)
+    write_mrc(os.path.join(outdir, "run_half2_class001_unfil.mrc"), 64, 64, 64, 9902)
+    write_mrc(os.path.join(outdir, "run_class001.mrc"), 64, 64, 64, 9903)
 copy_final(os.path.join(outdir, f"run_it{iters:03d}_optimiser.star"), os.path.join(outdir, "run_optimiser.star"))
 print(f"wrote {final_classes} + {final_data} after {iters} iterations ({npart} particles classified)")
 sys.exit(0)

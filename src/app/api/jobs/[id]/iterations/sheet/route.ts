@@ -10,6 +10,7 @@ import {
   STACK_NAME_RE,
 } from "@/lib/remote/iteration-live";
 import { renderClassSheetPng } from "@/lib/mrc";
+import { displayPolarityFor } from "@/lib/render-polarity";
 import path from "path";
 
 export const dynamic = "force-dynamic";
@@ -56,9 +57,11 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
     // t367 — set by the local leg below when it fell through on a corrupt
     // mirror copy (the remote pull then heals it in place)
     let mirrorHealPath: string | null = null;
+    // t380 — display polarity pinned by the dataset's import job
+    const polarity = await displayPolarityFor(job);
 
     // fast path: rendered during the run (or a previous view)
-    const cached = readCachedSheetPng(job.id, file);
+    const cached = readCachedSheetPng(job.id, file, polarity);
     if (cached) {
       return new NextResponse(new Uint8Array(cached), {
         headers: { "Content-Type": "image/png", "Cache-Control": "private, max-age=300" },
@@ -75,9 +78,9 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
     // local-only run keeps the honest 400.
     if (localStackExists(run.workdir, file)) {
       const localPath = path.join(run.workdir, file);
-      const rendered = await renderClassSheetPng(localPath);
+      const rendered = await renderClassSheetPng(localPath, undefined, polarity);
       if (rendered) {
-        cacheSheetPng(job.id, file, rendered.png);
+        cacheSheetPng(job.id, file, rendered.png, polarity);
         return new NextResponse(new Uint8Array(rendered.png), {
           headers: { "Content-Type": "image/png", "Cache-Control": "private, max-age=300" },
         });
@@ -100,6 +103,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
       return NextResponse.json({ error: "iteration sheet not available locally" }, { status: 404 });
     }
     const assets = await ensureIterationAssets(r.connectionId, r.remoteWorkdir, job.id, file, {
+      polarity,
       ...(mirrorHealPath ? { healMirrorPath: mirrorHealPath } : {}),
     });
     if (assets.failure) {

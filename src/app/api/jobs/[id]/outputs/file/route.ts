@@ -9,6 +9,7 @@ import { resolveInsideJobWorkdir } from "@/lib/relion/jobfile";
 import { isLocalRequest } from "@/lib/http-guard";
 import { fetchRemoteFileIntoWorkdir } from "@/lib/remote/remote-files";
 import { isMrcPath, readMrcHeader, readMrcHistogram, readMrcVoxel, renderMrcLargePng, renderMrcMontagePng, renderMrcOrthoPng, renderMrcSlicePng } from "@/lib/mrc";
+import { displayPolarityFor } from "@/lib/render-polarity";
 
 export const dynamic = "force-dynamic";
 
@@ -322,6 +323,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
         const p = posRaw !== null ? Number.parseFloat(posRaw) : 0.5;
         return Number.isFinite(p) ? p : 0.5;
       };
+      // t380 — display polarity pinned by the import job's negative-stain
+      // checkbox: "auto" (cryo, flip negative-dominant images bright-on-black)
+      // or "negativeStain" (stained particles are positive density, never flip).
+      // Resolved ONCE per request from the job's own params or its import
+      // ancestor; an explicit lo/hi window still bypasses all of this.
+      const polarity = await displayPolarityFor(job);
       if (axis !== "z") {
         if (isStack) {
           return NextResponse.json(
@@ -329,20 +336,20 @@ export async function GET(request: NextRequest, context: RouteContext) {
             { status: 400 }
           );
         }
-        png = await renderMrcOrthoPng(abs, axis, toPos(), undefined, win);
+        png = await renderMrcOrthoPng(abs, axis, toPos(), undefined, win, polarity);
       } else if (!isStack && posRaw !== null) {
         // fractional z plane (pos) — without pos, the legacy slice/montage
         // params below keep their meaning
-        png = await renderMrcOrthoPng(abs, "z", toPos(), undefined, win);
+        png = await renderMrcOrthoPng(abs, "z", toPos(), undefined, win, polarity);
       } else if (isStack && montageParam !== "0") {
         const n = Math.min(16, Math.max(1, Number.parseInt(montageParam ?? "8", 10) || 8));
-        png = await renderMrcMontagePng(abs, n, win);
+        png = await renderMrcMontagePng(abs, n, win, polarity);
       } else if (scale === "large") {
         const slice = sliceParam !== null ? Number.parseInt(sliceParam, 10) || 0 : 0;
-        png = await renderMrcLargePng(abs, slice, win);
+        png = await renderMrcLargePng(abs, slice, win, polarity);
       } else {
         const slice = sliceParam !== null ? Number.parseInt(sliceParam, 10) || 0 : undefined;
-        png = await renderMrcSlicePng(abs, slice, win);
+        png = await renderMrcSlicePng(abs, slice, win, polarity);
       }
       if (!png) {
         return NextResponse.json({ error: "Could not render this MRC file" }, { status: 400 });

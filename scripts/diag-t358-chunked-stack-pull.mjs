@@ -67,8 +67,20 @@ const plant = (hostPath, content) => {
   return r.status === 0;
 };
 const api = async (url, init) => {
-  const r = await fetch(`${BASE}${url}`, init);
-  return { status: r.status, body: await r.json().catch(() => null) };
+  // t381 — the 4GB box OOM-reaps the dev server mid-suite (t380's doctrine):
+  // resurrect via cf-up.sh and retry instead of crashing at PHASE 0
+  for (let attempt = 0; attempt < 3; attempt++) {
+    let r;
+    try {
+      r = await fetch(`${BASE}${url}`, init);
+    } catch {
+      spawnSync("bash", ["/tmp/cf-up.sh"], { encoding: "utf8", timeout: 150_000 });
+      await new Promise((res) => setTimeout(res, 2000));
+      continue;
+    }
+    return { status: r.status, body: await r.json().catch(() => null) };
+  }
+  return { status: 0, body: null };
 };
 const raw = async (url) => {
   const r = await fetch(`${BASE}${url}`, { headers: SH });

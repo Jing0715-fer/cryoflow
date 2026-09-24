@@ -124,6 +124,117 @@ const computeParity = (tab = "Compute"): ParamSchema[] => [
 const scratchHint =
   "empty = off. A compute-node-local path — e.g. /ssd_cache (a node-local SSD) or /tmp — RELION copies the particle stacks there once, sparing every iteration the NFS re-read. Often the largest I/O lever on NFS-backed clusters. Needs ~10 GB free (RELION's own --keep_free_scratch floor)";
 
+/**
+ * t381 — the 3D Helix tab, RELION 5 master's own dialect (gui_jobwindow.cpp
+ * initialiseClass3DWindow / initialiseAutorefineWindow, pipeline_jobs.cpp
+ * lines 3741-3802 + the argv construction at 4031-4110): the do_helix gate,
+ * the tube/angular family, the nested do_apply_helical_symmetry group with
+ * its twist/rise/z-percentage trio, and the doubly-nested local-symmetry
+ * search ranges. Defaults are RELION's verbatim (-1 diameters, "15"/"10"
+ * angular ranges, z 30%, search bounds "0").
+ */
+const helicalParams = (): ParamSchema[] => [
+  bool("doHelical", "Do helical reconstruction?", false, {
+    tab: "Helix",
+    hint: "RELION GUI's Helix tab (--helix) — 3D helical reconstruction: the reference is a helical segment and symmetry is applied along Z",
+  }),
+  num("helicalTubeInnerDiameter", "Tube diameter — inner (Å)", -1, {
+    step: 1, tab: "Helix",
+    showIf: { param: "doHelical", equals: true },
+    hint: "inner diameter of the reconstructed helix across Z (--helical_inner_diameter); -1 = RELION's default (a full box)",
+  }),
+  num("helicalTubeOuterDiameter", "Tube diameter — outer (Å)", -1, {
+    step: 1, tab: "Helix",
+    showIf: { param: "doHelical", equals: true },
+    hint: "outer diameter of the reconstructed helix across Z (--helical_outer_diameter)",
+  }),
+  num("rangeRotHelical", "Angular search range — rot (°)", -1, {
+    step: 1, tab: "Helix", advanced: true,
+    showIf: { param: "doHelical", equals: true },
+    hint: "local rot searches within ± this (--sigma_rot = value/3); -1 = RELION's default",
+  }),
+  num("rangeTiltHelical", "Angular search range — tilt (°)", 15, {
+    step: 1, tab: "Helix", advanced: true,
+    showIf: { param: "doHelical", equals: true },
+    hint: "local tilt searches within ± this (--sigma_tilt = value/3) — helical segments arrive with strong tilt priors",
+  }),
+  num("rangePsiHelical3d", "Angular search range — psi (°)", 10, {
+    step: 1, tab: "Helix", advanced: true,
+    showIf: { param: "doHelical", equals: true },
+    hint: "local psi searches within ± this (--sigma_psi = value/3)",
+  }),
+  num("helicalRangeDistance", "Range factor of local averaging", -1, {
+    step: 0.1, min: 1, max: 5, tab: "Helix", advanced: true,
+    showIf: { param: "doHelical", equals: true },
+    hint: "local averaging of orientations/translations within ± this × box size; segments from the same tube also share polarity (--helical_sigma_distance = value/3); -1 = off",
+  }),
+  bool("keepTiltPriorFixed", "Keep tilt-prior fixed", true, {
+    tab: "Helix", advanced: true,
+    showIf: { param: "doHelical", equals: true },
+    hint: "the tilt prior never moves during optimisation (--helical_keep_tilt_prior_fixed); No lets it follow each segment's optimal tilt",
+  }),
+  bool("doApplyHelicalSymmetry", "Apply helical symmetry?", true, {
+    tab: "Helix",
+    showIf: { param: "doHelical", equals: true },
+    hint: "apply helical symmetry every iteration; No = --ignore_helical_symmetry (a project just started, symmetry unknown)",
+  }),
+  num("helicalNrAsu", "Number of unique asymmetrical units", 1, {
+    step: 1, min: 1, max: 100, tab: "Helix",
+    showIf: { param: "doApplyHelicalSymmetry", equals: true },
+    hint: "helical ASUs per segment box (--helical_nr_asu); the inter-box distance from picking should equal rise × ASUs / pixel size",
+  }),
+  num("helicalTwistInitial", "Initial helical twist (°)", 0, {
+    step: 0.01, tab: "Helix",
+    showIf: { param: "doApplyHelicalSymmetry", equals: true },
+    hint: "positive = right-handed (--helical_twist_initial)",
+  }),
+  num("helicalRiseInitial", "Initial helical rise (Å)", 0, {
+    step: 0.01, tab: "Helix",
+    showIf: { param: "doApplyHelicalSymmetry", equals: true },
+    hint: "positive value in Angstroms (--helical_rise_initial)",
+  }),
+  num("helicalZPercentage", "Central Z length (%)", 30, {
+    step: 1, min: 5, max: 80, tab: "Helix", advanced: true,
+    showIf: { param: "doApplyHelicalSymmetry", equals: true },
+    hint: "the central Z slice of the box that carries real signal (--helical_z_percentage); orientation-search inaccuracies degrade the rest",
+  }),
+  bool("doLocalSearchHelicalSymmetry", "Do local searches of symmetry?", false, {
+    tab: "Helix",
+    showIf: { param: "doApplyHelicalSymmetry", equals: true },
+    hint: "search twist and rise locally within the ranges below (--helical_symmetry_search) instead of fixing them at the initial values",
+  }),
+  num("helicalTwistMin", "Helical twist search — Min (°)", 0, {
+    step: 0.01, tab: "Helix",
+    showIf: { param: "doLocalSearchHelicalSymmetry", equals: true },
+    hint: "--helical_twist_min",
+  }),
+  num("helicalTwistMax", "Helical twist search — Max (°)", 0, {
+    step: 0.01, tab: "Helix",
+    showIf: { param: "doLocalSearchHelicalSymmetry", equals: true },
+    hint: "--helical_twist_max",
+  }),
+  num("helicalTwistInistep", "Helical twist search — Step (°)", 0, {
+    step: 0.01, tab: "Helix", advanced: true,
+    showIf: { param: "doLocalSearchHelicalSymmetry", equals: true },
+    hint: "initial search step (--helical_twist_inistep); 0 = RELION's default",
+  }),
+  num("helicalRiseMin", "Helical rise search — Min (Å)", 0, {
+    step: 0.01, tab: "Helix",
+    showIf: { param: "doLocalSearchHelicalSymmetry", equals: true },
+    hint: "--helical_rise_min",
+  }),
+  num("helicalRiseMax", "Helical rise search — Max (Å)", 0, {
+    step: 0.01, tab: "Helix",
+    showIf: { param: "doLocalSearchHelicalSymmetry", equals: true },
+    hint: "--helical_rise_max",
+  }),
+  num("helicalRiseInistep", "Helical rise search — Step (Å)", 0, {
+    step: 0.01, tab: "Helix", advanced: true,
+    showIf: { param: "doLocalSearchHelicalSymmetry", equals: true },
+    hint: "initial search step (--helical_rise_inistep); 0 = RELION's default",
+  }),
+];
+
 /* ------------------------------------------------------------------ */
 /* Palette categories (RELION job-browser tree)                        */
 /* ------------------------------------------------------------------ */
@@ -339,6 +450,10 @@ export const JOB_TYPES: JobTypeSpec[] = [
       num("cs", "Spherical aberration", 2.7, { unit: "mm", step: 0.1, tab: "Movies/mics" }),
       num("ampContrast", "Amplitude contrast", 0.1, { step: 0.01, min: 0.01, max: 0.3, tab: "Movies/mics" }),
       num("totalDose", "Total exposure dose", 25, { unit: "e⁻/Å²", step: 0.5, advanced: true, tab: "Movies/mics" }),
+      bool("negativeStain", "Negative-stain images (particles appear white)", false, {
+        tab: "Movies/mics",
+        hint: "Cryo (default): protein is denser than ice — particles are DARK in micrographs and below-mean in class averages, so displays AUTO-INVERT them to the familiar white-on-black (RELION convention). Negative stain: heavy metal darkens the background and particles stay BRIGHT — checking this pins every downstream gallery, particle and map render to the no-flip polarity.",
+      }),
     ],
     "{n} micrographs imported",
     "core",
@@ -679,7 +794,20 @@ export const JOB_TYPES: JobTypeSpec[] = [
     12000,
     [
       num("numClasses", "Number of classes (K)", 10, { step: 1, min: 1, max: 200, tab: "Optimisation" }),
-      num("iterations", "Number of iterations", 12, { step: 1, min: 1, max: 50, tab: "Optimisation" }),
+      sel("algorithm", "Algorithm", "em", ["em", "vdam"], {
+        tab: "Optimisation",
+        hint: "RELION 5's two 2D-classification algorithms (the GUI's \"Use EM algorithm?\" / \"Use VDAM algorithm?\" pair, one knob): EM — the classic expectation-maximization, the default before relion-4.0; VDAM — variable-metric gradient descent with adaptive moments, RELION 5's own default and much faster on large data sets.",
+      }),
+      num("iterations", "Number of EM iterations", 12, {
+        step: 1, min: 1, max: 50, tab: "Optimisation",
+        showIf: { param: "algorithm", equals: "em" },
+        hint: "number of EM iterations (--iter)",
+      }),
+      num("miniBatches", "Number of VDAM mini-batches", 200, {
+        step: 10, min: 50, max: 500, tab: "Optimisation",
+        showIf: { param: "algorithm", equals: "vdam" },
+        hint: "number of mini-batches for the VDAM algorithm (--iter) — RELION's own GUI default 200: good results on many data sets; 100 runs faster at some quality cost",
+      }),
       num("particleDiameter", "Circular mask diameter", 180, { unit: "Å", step: 5, tab: "Optimisation" }),
       bool("doCtf", "Do CTF-correction (--ctf)", true, {
         tab: "CTF",
@@ -733,12 +861,42 @@ export const JOB_TYPES: JobTypeSpec[] = [
         step: 1, min: 1, max: 32, tab: "Compute",
         hint: "relion_refine runs single-rank (MPI stacks under WSL are fragile) — this is the parallelism knob",
       }),
+      // ---- Helix tab (t381) — RELION 5's own 2D-helix dialect, verbatim ----
+      bool("doHelical2d", "Classify 2D helical segments?", false, {
+        tab: "Helix",
+        hint: "RELION GUI's Helix tab for 2D classification: set to Yes to classify 2D helical segments — the segments should come with priors on their psi angles (a helical picking run).",
+      }),
+      num("helicalTubeOuterDiameter2d", "Tube diameter (Å)", 200, {
+        step: 10, min: 100, max: 1000, tab: "Helix",
+        showIf: { param: "doHelical2d", equals: true },
+        hint: "outer diameter of the helical tubes (--helical_outer_diameter)",
+      }),
+      bool("doBimodalPsi", "Do bimodal angular searches?", true, {
+        tab: "Helix",
+        showIf: { param: "doHelical2d", equals: true },
+        hint: "bimodal search for psi angles (--bimodal_psi) — the up/down ambiguity of a helical segment",
+      }),
+      num("rangePsiHelical", "Angular search range — psi (°)", 6, {
+        step: 1, min: 3, max: 30, tab: "Helix",
+        showIf: { param: "doHelical2d", equals: true },
+        hint: "local psi searches within ± this many degrees (--sigma_psi = value/3)",
+      }),
+      bool("doRestrictXoff", "Restrict helical offsets to rise", true, {
+        tab: "Helix",
+        showIf: { param: "doHelical2d", equals: true },
+        hint: "restrict translational offsets ALONG the helix to the rise below — No allows free conventional offsets",
+      }),
+      num("helicalRise2d", "Helical rise (Å)", 1, {
+        step: 0.01, min: 0, max: 100, tab: "Helix",
+        showIf: { param: "doRestrictXoff", equals: true },
+        hint: "the rise restricting the x-offsets (--helix --helical_rise_initial)",
+      }),
     ],
     "{n} class averages",
     "core",
     {
       category: "class2d",
-      tabs: ["CTF", "Optimisation", "Sampling", "Compute"],
+      tabs: ["CTF", "Optimisation", "Sampling", "Helix", "Compute"],
       inputs: [inp("particles", L.particlesIn, ["particles"])],
       outputs: [
         outp("classAverages", L.classAveragesOut, "references2d"),
@@ -900,6 +1058,7 @@ export const JOB_TYPES: JobTypeSpec[] = [
         hint: scratchHint,
       }),
       ...computeParity(),
+      ...helicalParams(),
       num("threads", "Threads (--j)", 4, {
         step: 1, min: 1, max: 32, tab: "Compute",
         hint: "per-rank CPU threads (the RELION GUI's own --j)",
@@ -909,7 +1068,7 @@ export const JOB_TYPES: JobTypeSpec[] = [
     "cmd",
     {
       category: "class3d",
-      tabs: ["Reference", "CTF", "Optimisation", "Sampling", "Compute"],
+      tabs: ["Reference", "CTF", "Optimisation", "Sampling", "Helix", "Compute"],
       inputs: [
         inp("particles", L.particlesIn, ["particles"]),
         inp("reference", L.mapIn, ["volume", "halfmap"]),
@@ -999,6 +1158,7 @@ export const JOB_TYPES: JobTypeSpec[] = [
         hint: scratchHint,
       }),
       ...computeParity(),
+      ...helicalParams(),
       num("threads", "Threads (--j)", 4, {
         step: 1, min: 1, max: 32, tab: "Compute",
         hint: "per-rank CPU threads (the RELION GUI's own --j)",
@@ -1008,7 +1168,7 @@ export const JOB_TYPES: JobTypeSpec[] = [
     "core",
     {
       category: "refine",
-      tabs: ["Reference", "CTF", "Optimisation", "Sampling", "Auto-sampling", "Compute"],
+      tabs: ["Reference", "CTF", "Optimisation", "Sampling", "Auto-sampling", "Helix", "Compute"],
       inputs: [
         inp("particles", L.particlesIn, ["particles"]),
         inp("reference", L.mapIn, ["volume", "halfmap"]),

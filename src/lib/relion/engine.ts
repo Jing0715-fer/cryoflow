@@ -997,6 +997,60 @@ function healpixOrderOf(raw: unknown): number | null {
 }
 
 /**
+ * t381 — the 3D Helix tab's argv, RELION 5 master's own construction
+ * (pipeline_jobs.cpp:4031-4110), shared by Class3D and Refine3D:
+ * the --helix gate, tube diameters (inner only when positive), the
+ * do_apply_helical_symmetry group (ASU count + initial twist/rise +
+ * z-percentage/100), the doubly-nested local-symmetry search bounds
+ * (--helical_symmetry_search + min/max + inistep only when positive),
+ * --ignore_helical_symmetry on the explicit No, the tilt-prior keeper,
+ * the ±σ angular family (value/3, clamped 0-90 — RELION's own
+ * conversion) and the local-averaging range factor. Gate off = ZERO
+ * flags (existing jobs' argv stay byte-identical).
+ */
+function helicalArgs(job: EngineJobRef, opts?: { skipAlign?: boolean; localAngularSearch?: boolean }): string[] {
+  if (job.params.doHelical !== true) return [];
+  const a: string[] = ["--helix"];
+  const inner = num(job, "helicalTubeInnerDiameter", -1);
+  if (inner > 0) a.push("--helical_inner_diameter", String(inner));
+  a.push("--helical_outer_diameter", String(num(job, "helicalTubeOuterDiameter", -1)));
+  if (job.params.doApplyHelicalSymmetry !== false) {
+    a.push("--helical_nr_asu", String(Math.max(1, Math.round(num(job, "helicalNrAsu", 1)))));
+    a.push("--helical_twist_initial", String(num(job, "helicalTwistInitial", 0)));
+    a.push("--helical_rise_initial", String(num(job, "helicalRiseInitial", 0)));
+    a.push("--helical_z_percentage", String(num(job, "helicalZPercentage", 30) / 100));
+    if (job.params.doLocalSearchHelicalSymmetry === true) {
+      a.push("--helical_symmetry_search");
+      a.push("--helical_twist_min", String(num(job, "helicalTwistMin", 0)));
+      a.push("--helical_twist_max", String(num(job, "helicalTwistMax", 0)));
+      const twistStep = num(job, "helicalTwistInistep", 0);
+      if (twistStep > 0) a.push("--helical_twist_inistep", String(twistStep));
+      a.push("--helical_rise_min", String(num(job, "helicalRiseMin", 0)));
+      a.push("--helical_rise_max", String(num(job, "helicalRiseMax", 0)));
+      const riseStep = num(job, "helicalRiseInistep", 0);
+      if (riseStep > 0) a.push("--helical_rise_inistep", String(riseStep));
+    }
+  } else {
+    a.push("--ignore_helical_symmetry");
+  }
+  if (job.params.keepTiltPriorFixed !== false) a.push("--helical_keep_tilt_prior_fixed");
+  // the ±σ angular family rides only while aligning without a local cone
+  // (RELION's own condition: dont_skip_align && !do_local_ang_searches)
+  if (!opts?.skipAlign && !opts?.localAngularSearch) {
+    const sigmaOf = (v: number) => String(Math.min(90, Math.max(0, v)) / 3);
+    const tilt = num(job, "rangeTiltHelical", 15);
+    const psi = num(job, "rangePsiHelical3d", 10);
+    const rot = num(job, "rangeRotHelical", -1);
+    a.push("--sigma_tilt", sigmaOf(tilt));
+    a.push("--sigma_psi", sigmaOf(psi));
+    if (rot > 0) a.push("--sigma_rot", sigmaOf(rot));
+    const rangeDist = num(job, "helicalRangeDistance", -1);
+    if (rangeDist > 0) a.push("--helical_sigma_distance", String(rangeDist / 3));
+  }
+  return a;
+}
+
+/**
  * t352 — the GUI-parity tail shared by the whole refine family (RELION's
  * Compute tab): the disc-I/O trio + the scratch keep-free companion + the
  * validated "Additional RELION arguments" escape hatch. Returns an error
@@ -6058,12 +6112,25 @@ async function buildArgvCore(ctx: BuildCtx): Promise<string[] | { error: string 
       // `iterations` stays the fallback). Rows that predate the t374 param
       // merge carry NEITHER key — they keep the pre-t374 EM shape verbatim.
       const doEm = flag(job, "do_em");
-      const doGrad = flagPresent(job, "do_grad");
-      let iterCount = Math.round(num(job, "iterations", 25));
-      if (!doEm && doGrad) {
-        const nig = num(job, "nr_iter_grad", 200);
-        if (Math.abs(nig - 200) > 1e-9) iterCount = Math.round(nig);
-      }
+      const doGrad = flag(job, "do_grad");
+      // t381+t377-merge — the algorithm dialect, one truth. RELION 5's own
+      // pair is do_em/do_grad (the t374 tables expose both verbatim); the
+      // friendlier t381 select (`algorithm`: em|vdam) maps onto the same
+      // pair. Explicit beats implicit; an untouched job keeps cryoflow's
+      // curated historical default (EM, `iterations` epochs — the t372
+      // chain's dialect). RELION 5's untouched GUI defaults to VDAM; one
+      // click on the select reaches the same place.
+      const algorithm = str(job, "algorithm", "");
+      const useVdam =
+        algorithm === "vdam" || (algorithm !== "em" && doGrad && !doEm);
+      // VDAM's --iter counts MINI-BATCHES (nr_iter_grad, default 200 —
+      // the t381 UI's miniBatches rides the same field); EM's counts
+      // epochs (the curated `iterations` = nr_iter_em, default 25).
+      const iterCount = Math.round(
+        useVdam
+          ? num(job, "miniBatches", num(job, "nr_iter_grad", 200))
+          : num(job, "iterations", 25)
+      );
       const argv = [
         binJoin(binDir, "relion_refine"),
         "--i", inputs.particles_star,
@@ -6081,9 +6148,9 @@ async function buildArgvCore(ctx: BuildCtx): Promise<string[] | { error: string 
         // parallelism comes from --j (RELION defaults to 1 without it)
         "--j", String(Math.max(1, Math.round(num(job, "threads", 4)))),
       ];
-      // t375 — the VDAM trio rides exactly as RELION's GUI emits it
-      // (pipeline_jobs.cpp:3211)
-      if (!doEm && doGrad) {
+      // t375+t381 — the VDAM trio rides exactly as RELION's GUI emits it
+      // (pipeline_jobs.cpp:3211), gated by the unified dialect above.
+      if (useVdam) {
         argv.push("--grad", "--class_inactivity_threshold", "0.1", "--grad_write_iter", "10");
       }
       // t352 — GUI parity: the t350-hardcoded --ctf/--zero_mask now read
@@ -6233,6 +6300,9 @@ async function buildArgvCore(ctx: BuildCtx): Promise<string[] | { error: string 
       const c3dPool = num(job, "batchSize", 0);
       if (c3dPool > 0) argv.push("--pool", String(Math.max(1, Math.round(c3dPool))));
       else argv.push("--pool", String(refineAutoPool()));
+      // t381 — the Helix tab (RELION 5 master's own argv construction);
+      // the σ family rides only without the local angular cone
+      argv.push(...helicalArgs(job, { localAngularSearch: positiveNum(job, "localSigmaAng") != null }));
       const c3Tail = refineTail(job);
       if (!Array.isArray(c3Tail)) return c3Tail;
       argv.push(...c3Tail);
@@ -6292,6 +6362,9 @@ async function buildArgvCore(ctx: BuildCtx): Promise<string[] | { error: string 
       const r3dPool = num(job, "batchSize", 0);
       if (r3dPool > 0) argv.push("--pool", String(Math.max(1, Math.round(r3dPool))));
       else argv.push("--pool", String(refineAutoPool()));
+      // t381 — the Helix tab (shared builder; refine3d's own local angular
+      // cone comes from auto_local_healpix_order, so the σ family rides)
+      argv.push(...helicalArgs(job, {}));
       const r3Tail = refineTail(job);
       if (!Array.isArray(r3Tail)) return r3Tail;
       argv.push(...r3Tail);

@@ -42,7 +42,7 @@ import {
 } from "fs";
 import { getRun } from "@/lib/relion/engine";
 import { cachedFileCompute } from "@/lib/relion/statcache";
-import { readMrcHeader, readMrcSlice, renderClassSheetPng, renderMrcSlicePng } from "@/lib/mrc";
+import { readMrcHeader, readMrcSlice, renderClassSheetPng, renderMrcSlicePng, type MrcPolarity } from "@/lib/mrc";
 import { DATA_DIR } from "@/lib/paths";
 import { getConnection } from "./connections";
 import { exec, remoteChunkedDownload } from "./ssh";
@@ -620,16 +620,22 @@ export function lastStackFailure(jobId: string, stackName: string): StackPullFai
 
 const stackInFlight = new Map<string, Promise<IterationAssets>>();
 
-function liveStackDir(jobId: string, stackName: string): string {
-  return path.join(PREVIEW_DIR, "live", jobId, stackName.replace(/\.mrcs?$/i, ""));
+function liveStackDir(jobId: string, stackName: string, polarity?: MrcPolarity): string {
+  // t380 — a pinned negative-stain polarity renders DIFFERENT bytes from
+  // the same stack (no auto-flip), so its PNGs live in a suffixed sibling
+  // dir: the default "auto" cache stays byte-compatible with everything
+  // already on disk, and toggling the import checkbox can never serve a
+  // stale wrong-polarity image.
+  const suffix = polarity === "negativeStain" ? ".ns" : "";
+  return path.join(PREVIEW_DIR, "live", jobId, stackName.replace(/\.mrcs?$/i, "") + suffix);
 }
 
-function stackPngPath(jobId: string, stackName: string, slice: number): string {
-  return path.join(liveStackDir(jobId, stackName), `slice${String(slice).padStart(4, "0")}.png`);
+function stackPngPath(jobId: string, stackName: string, slice: number, polarity?: MrcPolarity): string {
+  return path.join(liveStackDir(jobId, stackName, polarity), `slice${String(slice).padStart(4, "0")}.png`);
 }
 
-function sheetPngPath(jobId: string, stackName: string): string {
-  return path.join(liveStackDir(jobId, stackName), "sheet.png");
+function sheetPngPath(jobId: string, stackName: string, polarity?: MrcPolarity): string {
+  return path.join(liveStackDir(jobId, stackName, polarity), "sheet.png");
 }
 
 /** t356 — the render verdict marker: written after a stack's slices (+ best-
@@ -637,22 +643,22 @@ function sheetPngPath(jobId: string, stackName: string): string {
  * pipeline and the view trigger skip stacks whose marker exists — a resume
  * that never re-pays a wire for a round already rendered (and a
  * sheet-render failure never re-downloads a stack whose slices answer). */
-function doneMarkerPath(jobId: string, stackName: string): string {
-  return path.join(liveStackDir(jobId, stackName), ".done");
+function doneMarkerPath(jobId: string, stackName: string, polarity?: MrcPolarity): string {
+  return path.join(liveStackDir(jobId, stackName, polarity), ".done");
 }
 
 /** True when this stack's render verdict is already on disk. The t356
  * marker is the canonical witness; a sheet.png from a t354/t355-era cache
  * says the same thing (the sheet is rendered AFTER every slice, so its
  * presence means the whole pass ran) — old caches stay valid. */
-export function stackRendered(jobId: string, stackName: string): boolean {
+export function stackRendered(jobId: string, stackName: string, polarity?: MrcPolarity): boolean {
   try {
-    if (statSync(doneMarkerPath(jobId, stackName)).isFile()) return true;
+    if (statSync(doneMarkerPath(jobId, stackName, polarity)).isFile()) return true;
   } catch {
     /* no marker — maybe a legacy cache */
   }
   try {
-    return statSync(sheetPngPath(jobId, stackName)).isFile();
+    return statSync(sheetPngPath(jobId, stackName, polarity)).isFile();
   } catch {
     return false;
   }
@@ -780,10 +786,15 @@ export async function ensureIterationAssets(
    * galleries and every later viewer read clean data. Only an EXISTING
    * corrupt copy is replaced (never introduces a new local file — the
    * sync policy's local-space intent stands).
+   *
+   * t380 — `polarity` pins the display polarity for every rendered slice
+   * and the sheet (the import job's negative-stain checkbox). The PNG
+   * cache keys on it ("auto" default keeps the legacy paths).
    */
-  opts?: { healMirrorPath?: string }
+  opts?: { healMirrorPath?: string; polarity?: MrcPolarity }
 ): Promise<IterationAssets> {
-  const key = `${connectionId}:${remoteWorkdir}/${stackName}`;
+  const polarity = opts?.polarity;
+  const key = `${connectionId}:${remoteWorkdir}/${stackName}:${polarity ?? "auto"}`;
   const existing = stackInFlight.get(key);
   if (existing) return existing;
   const task = (async (): Promise<IterationAssets> => {
@@ -797,12 +808,12 @@ export async function ensureIterationAssets(
       return { slices: 0, sheet: null, failure };
     }
     const clusterPath = `${remoteWorkdir.replace(/\/+$/, "")}/${stackName}`;
-    const dir = liveStackDir(jobId, stackName);
+    const dir = liveStackDir(jobId, stackName, polarity);
     mkdirSync(dir, { recursive: true });
     const transient = path.join(dir, ".stack.mrcs");
     try {
       // fast path — a previous render already landed its verdict
-      if (stackRendered(jobId, stackName)) {
+      if (stackRendered(jobId, stackName, polarity)) {
         let slices = 0;
         try {
           slices = readdirSync(dir).filter((n) => /^slice\d{4}\.png$/.test(n)).length;
@@ -810,7 +821,7 @@ export async function ensureIterationAssets(
           /* fall through to a fresh pull below */
         }
         if (slices > 0) {
-          const sheet = readCachedSheetPng(jobId, stackName);
+          const sheet = readCachedSheetPng(jobId, stackName, polarity);
           return { slices, sheet };
         }
       }
@@ -843,10 +854,10 @@ export async function ensureIterationAssets(
         );
       }
       for (let z = 0; z < hdr.nz; z++) {
-        const png = await renderMrcSlicePng(transient, z);
+        const png = await renderMrcSlicePng(transient, z, undefined, polarity);
         if (png) {
           try {
-            writeFileSync(stackPngPath(jobId, stackName, z), png);
+            writeFileSync(stackPngPath(jobId, stackName, z, polarity), png);
           } catch {
             /* best-effort cache write */
           }
@@ -856,10 +867,10 @@ export async function ensureIterationAssets(
       // stack before the finally-clause deletes it
       let sheet: Buffer | null = null;
       try {
-        const rendered = await renderClassSheetPng(transient);
+        const rendered = await renderClassSheetPng(transient, undefined, polarity);
         if (rendered) {
           sheet = rendered.png;
-          writeFileSync(sheetPngPath(jobId, stackName), rendered.png);
+          writeFileSync(sheetPngPath(jobId, stackName, polarity), rendered.png);
         }
       } catch {
         /* best-effort: slices answered without the sheet */
@@ -867,7 +878,7 @@ export async function ensureIterationAssets(
       // the render verdict — slices are on disk (or the render honestly
       // failed below); either way this round never re-pays the wire
       try {
-        writeFileSync(doneMarkerPath(jobId, stackName), String(hdr.nz));
+        writeFileSync(doneMarkerPath(jobId, stackName, polarity), String(hdr.nz));
       } catch {
         /* best-effort marker */
       }
@@ -1013,8 +1024,13 @@ async function verifiedStackPull(
 }
 
 /** A rendered slice PNG from the cache (null = not rendered yet). */
-export function readCachedSlicePng(jobId: string, stackName: string, slice: number): Buffer | null {
-  const f = stackPngPath(jobId, stackName, slice);
+export function readCachedSlicePng(
+  jobId: string,
+  stackName: string,
+  slice: number,
+  polarity?: MrcPolarity
+): Buffer | null {
+  const f = stackPngPath(jobId, stackName, slice, polarity);
   try {
     const st = statSync(f);
     if (!st.isFile() || st.size === 0) return null;
@@ -1025,8 +1041,8 @@ export function readCachedSlicePng(jobId: string, stackName: string, slice: numb
 }
 
 /** t354 — a rendered iteration sheet from the cache (null = not rendered). */
-export function readCachedSheetPng(jobId: string, stackName: string): Buffer | null {
-  const f = sheetPngPath(jobId, stackName);
+export function readCachedSheetPng(jobId: string, stackName: string, polarity?: MrcPolarity): Buffer | null {
+  const f = sheetPngPath(jobId, stackName, polarity);
   try {
     const st = statSync(f);
     if (!st.isFile() || st.size === 0) return null;
@@ -1040,10 +1056,10 @@ export function readCachedSheetPng(jobId: string, stackName: string): Buffer | n
  * mirror can lose its per-iteration products (a re-dispatch wipes them —
  * t333); a sheet the user once viewed survives that wipe in the cache,
  * so the chips bar keeps the round and the sheet keeps answering. */
-export function cacheSheetPng(jobId: string, stackName: string, png: Buffer): void {
+export function cacheSheetPng(jobId: string, stackName: string, png: Buffer, polarity?: MrcPolarity): void {
   try {
-    mkdirSync(liveStackDir(jobId, stackName), { recursive: true });
-    writeFileSync(sheetPngPath(jobId, stackName), png);
+    mkdirSync(liveStackDir(jobId, stackName, polarity), { recursive: true });
+    writeFileSync(sheetPngPath(jobId, stackName, polarity), png);
   } catch {
     /* best-effort cache write */
   }
