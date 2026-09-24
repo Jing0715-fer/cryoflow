@@ -43,7 +43,7 @@ import { remoteHeaderSniffer } from "@/lib/remote/sniff";
 import { listRemoteDir, REMOTE_IMPORT_MAX_ENTRIES, statRemoteFiles } from "@/lib/remote/remote-ls";
 import { exec as sshExec, remoteDownload, remoteMkdir, remoteUpload } from "@/lib/remote/ssh";
 import { wipeLocalRunProducts } from "@/lib/relion/run-wipe";
-import { describeExtractCollisions, scanExtractCollisions } from "@/lib/relion/extract-collide";
+import { describeExtractCollisions, extractStackKey, scanExtractCollisions } from "@/lib/relion/extract-collide";
 import { npyRows, parseNpyHeader } from "@/lib/relion/cs-npy";
 import { csRowsToStar, judgeStackSamplings, type Cs2StarResult, type StackSamplingProbe } from "@/lib/relion/cs2star";
 import type { RemoteConnection, RemoteRunState } from "@/lib/remote/types";
@@ -2433,6 +2433,45 @@ function recordNativeRun(
 }
 
 /**
+ * t382 — the import twin gate: two image files whose extension-stripped
+ * names compose the SAME per-micrograph particle stack (X.mrc + X.mrcs —
+ * the user's *_Fractions_DW dataset holds the corrector's .mrc sums AND
+ * .mrcs aligned movie stacks on one basename) can never coexist in a star
+ * that feeds relion_preprocess: the extraction writes
+ * <part_dir>/<mic-minus-extension>.mrcs, so the twins target one file and
+ * the run dies mid-way ("write: target and source objects have different
+ * size", image.h:1534 — with an array split, two shards race on the one
+ * stack; single-process it silently double-extracts). The t333 census NOTE
+ * taught this at import time; the t334/t382 scans taught it at extract
+ * time; this door REFUSES it at the source. Returns the refusal or null.
+ */
+function importTwinGate(files: string[]): { error: string } | null {
+  const byKey = new Map<string, string[]>();
+  for (const f of files) {
+    const k = extractStackKey(f.replace(/\\/g, "/"));
+    const g = byKey.get(k);
+    if (g) g.push(f);
+    else byKey.set(k, [f]);
+  }
+  const twins = [...byKey.values()].filter((g) => g.length > 1);
+  if (twins.length === 0) return null;
+  const base = (p: string) => {
+    const n = p.replace(/\\/g, "/");
+    return n.slice(n.lastIndexOf("/") + 1);
+  };
+  const shown = twins
+    .slice(0, 3)
+    .map((g) => g.map(base).join(" + "))
+    .join("; ");
+  return {
+    error:
+      `${twins.length} basename(s) hold the SAME micrograph under different extensions (${shown}${twins.length > 3 ? ` +${twins.length - 3} more` : ""}) — ` +
+      `extraction names each micrograph's particle stack after the path WITHOUT its extension, so these twins compose ONE stack file and the run dies mid-way ("write: target and source objects have different size", image.h:1534). ` +
+      `Re-import with the exact extension pattern (e.g. *_DW.mrc, not *_DW.mrc*) so one basename lands once`,
+  };
+}
+
+/**
  * t300 — the REMOTE-project leg of the engine-native import. The picked
  * micrographsPath points at the CLUSTER's filesystem (chosen with the
  * remote browser); the data NEVER leaves the cluster:
@@ -2514,6 +2553,16 @@ async function runImportRemoteLeg(
         if (MIC_RE.test(base(f))) clusterFiles.push(f);
         else skipped += 1;
       }
+      // t382 — the same path picked twice writes the same STAR row twice
+      // (a silent double-extraction downstream): dedupe the explicit list.
+      {
+        const seen = new Set<string>();
+        clusterFiles = clusterFiles.filter((f) => {
+          if (seen.has(f)) return false;
+          seen.add(f);
+          return true;
+        });
+      }
     } else if (isPattern) {
       // ---- 2. wildcard pattern (RELION "File name pattern") -------------
       // t311 — the enumeration is UNCAPPED at the browser's 400: the import
@@ -2590,6 +2639,12 @@ async function runImportRemoteLeg(
         : `No image files (.mrc/.mrcs/.tif/.tiff/.eer) match ${single}`,
     };
   }
+
+  // t382 — the twin gate at the source door: extension twins on one
+  // basename compose the same extraction stack (image.h:1534) — refuse
+  // the IMPORT, not the extraction three jobs later.
+  const twinGate = importTwinGate(clusterFiles);
+  if (twinGate) return { kind: "error", error: twinGate.error };
 
   // CLUSTER-ABSOLUTE paths — the whole point: downstream remote runs on
   // this cluster reference them exactly as written, zero staging bytes.
@@ -2895,6 +2950,22 @@ async function runImportNative(job: EngineJobRef): Promise<NativeResult> {
             : `No image files (.mrc/.mrcs/.tif/.tiff/.eer) match the pattern ${single}`,
         };
       }
+
+      // t382 — an explicit multi-select may list the same path twice (the
+      // same pick double-counted): dedupe before the twin gate — identical
+      // rows are an obvious intent, DISTINCT files on one basename are not.
+      if (multiFile) {
+        const seen = new Set<string>();
+        hostFiles = hostFiles.filter((f) => {
+          if (seen.has(f)) return false;
+          seen.add(f);
+          return true;
+        });
+      }
+      // t382 — the twin gate at the source door (the local lane's own copy
+      // of the remote leg's refusal).
+      const twinGate = importTwinGate(hostFiles);
+      if (twinGate) return { ok: false, error: twinGate.error };
 
       void setProgress(60); // local source listed — the link/write phases remain
       let unlinked = 0;

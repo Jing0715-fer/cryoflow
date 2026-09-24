@@ -3482,3 +3482,23 @@ Stage Summary:
 - 风险:showIf 面板渲染无浏览器级验证(首页编译被 memcg 阻塞);逻辑 15 行 tsc 严格检查过,模式沿用面板既有 coerceParam 惯例
 
 (t377-merge note: the two lineages merged 2026-09-24 — this t380/t381 side came from the parallel session that assumed t371-t375 lost; both survive, see Task ID 377)
+
+---
+Task ID: 382
+Agent: main
+Task: 用户工单二连:(1) 拉新代码后提取颗粒报 write: target and source objects have different size(image.h:1534,0.12/5.02min 即死);(2) job 卡片只显示"结果在 cluster 上",没有颗粒数等关键信息
+
+Work Log:
+- 【根因判决(读 RELION 5.0.0 真源)】preprocessing.cpp:1220-1222 — 每微图首颗粒 WRITE_OVERWRITE(无维度检查,陈旧栈不可能触发此错误),后续颗粒 WRITE_APPEND 才读盘比对 → 错误必然来自并发写手(array 分片 + 星表碰撞行:X.mrc/X.mrcs 孪生对被 round-robin 拆到不同分片同写一栈,或单块星全行进全分片);用户北京数据集 865 .mrcs + 169 .mrc 正是孪生形状,172 微图 ≈ 86 对
+- 【洞的定位】t335 lane-aware 读取(3064-3111)本已闭环碰撞扫描,但 (a) 读到的文本不回填 extractStarText → array 分片块检查(4077+)在集群侧 star 时整个跳过;(b) star 读取失败时扫描降级为 note 直接放行
+- 【D1 import 硬门】engine.ts importTwinGate():同茎不同扩展(X.mrc+X.mrcs)直接拒绝导入,点名冲突文件并教正确 pattern(*_DW.mrc 而非 *_DW.mrc*);multiFile 双 lane 去重同路径重复选择
+- 【D2 dispatch 侧】t335 读取结果回填 extractStarText(块检查永不缺料);分片块检查从"跳过+console note"改为拒绝(1 分片或等登录节点空闲后重试)
+- 【D3 集群侧脚本内预检】extractPreflightLines():POSIX awk(无 gawk 扩展)复刻 extractStackKey 语义(pipeliner 前缀剥离+末扩展剥离),扫描输入星表的重复行/同键孪生,COLLIDE 时 CRYOFLOW_ERR 进 run.err + exit 111(array lane 记 rc 进 RCF 由 count gate 落 .cf-exit;direct lane 自写 .cf-exit);嵌入 buildSbatchScript 的 array 分支(切 shard 后)+单任务 lane,以及 direct 模式 setsid payload
+- 【D4 卡片计数恢复】countRemoteStar():集群侧原地 awk 一轮(不下载)数星表行数+_rlnClassNumber top-3 分布;finalize 的 stayNote 替换分支(outputs 空,sync-back 失败时)前置 collectOutputs 同款计数语句 → 卡片恢复颗粒数
+- 【验证】awk 单测 16/16(孪生/重复/干净 172 微图/pipeliner 前缀/引号/无 mic 列降级/计数 top-3);E2E 28/28(mock 集群 + 真 RELION 5.0.0):D1 孪生导入拒绝 ✓、干净链 import→autopick LoG→extract shards=2 完成 ✓、卡片 728 particles extracted ✓、sbatch 脚本内嵌预检 ✓、5/5 栈字节级健康(nz>0,mode2,精确尺寸) ✓、重复行使 dispatch 拒绝(200+{error} field,row 保持原状从未运行) ✓;浏览器 10/10(lean chromium,卡片正面计数 + 孪生拒绝可见 + 零 console 错误)
+- 【OOM 战况续】4096² 真 LoG autopick(548MB RSS)+ next-server(3.0GB)在 4GB 盒不相容 → EMPIAR 真微图中心裁 1024²(仍真像素,1/16 内存)后全链稳定;next-server 编译后驻留 2.9GB,浏览器验证前须重启回收
+
+Stage Summary:
+- 提取崩溃的四道门:import 硬门(拒绝孪生数据集)→ dispatch 扫描(集群侧 star 读取回填块检查,不再跳过)→ 脚本内 awk 预检(计算节点上、二进制将读的确切字节上)→ 用户看到的永远是带机理教学的 CRYOFLOW_ERR,而非神秘的 image.h:1534
+- 卡片计数双保障:正常 lane(本地 star 回传)本就计数;sync-back 降级 lane 现以集群侧 awk 原地计数恢复同一句 collectOutputs 文案
+- 用户侧操作:git pull 后,若星表已有孪生/重复行,dispatch 会拒绝并指导用精确 pattern 重新导入;单块星 + 分片也会被拒绝
