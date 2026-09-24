@@ -2644,6 +2644,8 @@ async function runImportNative(job: EngineJobRef): Promise<NativeResult> {
     db.job
       .updateMany({ where: { id: job.id, status: "running" }, data: { progress: pct } })
       .catch(() => null);
+  const nodeTypeForStar = String(job.params.nodeType ?? "micrographs");
+  const isMoviesImport = nodeTypeForStar === "movies";
   const lines: string[] = [
     "data_optics",
     "",
@@ -2654,12 +2656,25 @@ async function runImportNative(job: EngineJobRef): Promise<NativeResult> {
     "_rlnVoltage #4",
     "_rlnSphericalAberration #5",
     "_rlnAmplitudeContrast #6",
-    `1 optGroup1 ${pixel} ${kV} ${cs} ${q0}`,
+    ...(isMoviesImport
+      ? // t372 — RELION's movies convention: the real relion_run_motioncorr
+        // requires rlnMicrographOriginalPixelSize in the optics group
+        // (motioncorr_runner.cpp:308-315 hard-errors otherwise; bin_factor
+        // then scales it to the working pixel size)
+        ["_rlnMicrographOriginalPixelSize #7"]
+      : []),
+    `1 optGroup1 ${pixel} ${kV} ${cs} ${q0}${isMoviesImport ? ` ${pixel}` : ""}`,
     "",
-    "data_micrographs",
+    // t372 — the REAL relion_run_motioncorr demands the movies convention
+    // (motioncorr_runner.cpp:261 hard-errors "does not contain the
+    // rlnMicrographMovieName column. Are you sure you imported files as
+    // movies…"). The python stub accepted any column, so this lane had
+    // silently written a micrographs-shaped star for movies imports —
+    // caught live by the real-binary EMPIAR chain.
+    isMoviesImport ? "data_movies" : "data_micrographs",
     "",
     "loop_",
-    "_rlnMicrographName #1",
+    isMoviesImport ? "_rlnMicrographMovieName #1" : "_rlnMicrographName #1",
     "_rlnOpticsGroup #2",
   ];
 

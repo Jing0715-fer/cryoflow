@@ -3361,7 +3361,31 @@ export async function startRemoteJob(args: {
   for (const [key, localRaw] of Object.entries(resolvedInputs)) {
     const local = localRaw.split(path.sep).join("/");
     const twin = upstreamRemoteTwins.get(local);
-    if (twin) continue; // already on the cluster (upstream ran there)
+    if (twin) {
+      // t372 — the STALE-TWIN gate. A twin means "the upstream ran on this
+      // cluster and left its output in place" — but an upstream RE-RUN
+      // (e.g. the import edited + re-run) updates the LOCAL mirror while
+      // the recorded twin still names the OLD cluster bytes; consuming the
+      // twin then silently runs against the previous definition (caught
+      // live by the real-binary EMPIAR chain: a movies re-import fixed the
+      // star's column, motioncorr still read the stale twin and died with
+      // relion's "no input movies"). When the local mirror is NEWER than
+      // the twin, the local bytes are the truth — fall through to the
+      // upload lane, which rewrites + overwrites the twin in place (the
+      // mirror-mapped upload target IS the twin's address).
+      let twinFresh = true;
+      try {
+        const localMtime = statSync(localRaw).mtimeMs;
+        const twinSt = await remoteStat(conn, twin);
+        if (twinSt && twinSt.mtimeMs + 1000 < localMtime) twinFresh = false;
+      } catch {
+        /* no local file (identity-entry twins never came home) — the twin stands */
+      }
+      if (twinFresh) continue; // already on the cluster (upstream ran there)
+      console.log(
+        `remote-run: input "${key}" has a STALE cluster twin (older than the local re-run) — re-uploading ${path.basename(localRaw)} over the twin (t372)`
+      );
+    }
     if (!existsSync(localRaw)) {
       return fail(`input "${key}" does not exist locally: ${local} — run the upstream job first`);
     }

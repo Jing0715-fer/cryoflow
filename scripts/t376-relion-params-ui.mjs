@@ -44,13 +44,13 @@ try {
   page.on("pageerror", (e) => consoleErrors.push("pageerror: " + e.message.slice(0, 160)));
 
   await page.goto(BASE + "/", { waitUntil: "domcontentloaded", timeout: 120_000 });
-  await page.waitForSelector('[aria-label*"—"]', { timeout: 90_000 });
+  await page.waitForSelector("text=class2d", { timeout: 90_000 }).catch(() => {});
   await page.waitForTimeout(2500);
 
   const openPanelOn = async (type) => {
     // find the card of the given type and click its center (canvas transform
     // makes text selectors unreliable — the aria-label carries the type)
-    const sel = `[aria-label*=", ${type},"]`;
+    const sel = `[aria-label*="— ${type},"]`;
     const card = page.locator(sel).first();
     await card.waitFor({ state: "visible", timeout: 30_000 });
     const box = await card.boundingBox();
@@ -68,7 +68,7 @@ try {
 
   /* ---- A: class2d ---- */
   console.log("== A: class2d panel ==");
-  await openPanelOn("2D classification");
+  await openPanelOn("2D Classification");
   // the panel's Params body tab
   const paramsTab = page.getByRole("tab", { name: /^Params$/ }).first();
   if (await paramsTab.count()) await paramsTab.click();
@@ -97,7 +97,7 @@ try {
 
   /* ---- B: autopick LoG — the white-particle door ---- */
   console.log("== B: autopick LoG ==");
-  await openPanelOn("LoG pick");
+  await openPanelOn("Automated Picking");
   const paramsTab2 = page.getByRole("tab", { name: /^Params$/ }).first();
   if (await paramsTab2.count()) await paramsTab2.click();
   await page.waitForTimeout(800);
@@ -113,7 +113,7 @@ try {
 
   /* ---- C: extract do_invert ---- */
   console.log("== C: extract invert ==");
-  await openPanelOn("β-gal extract");
+  await openPanelOn("Particle Extraction");
   const paramsTab3 = page.getByRole("tab", { name: /^Params$/ }).first();
   if (await paramsTab3.count()) await paramsTab3.click();
   await page.waitForTimeout(800);
