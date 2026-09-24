@@ -3403,3 +3403,42 @@ Stage Summary:
 - t369 手动 60 秒存储测试自动化:计算腿 sbatch 8MB + 登录腿回读 md5 比对 + df/quota 上下文;首见零头自动跑一次,Remote clusters 对话框另有手动 Storage check 按钮;结论二选一:点名 compute→storage 写丢失 / 彻底排除存储
 - 黑色 2D 类:渲染时 zeroData 旗标 + gallery 徽章(与 t369 seed 徽章同款);提取失败文案双门白话解释
 - 用户复机路径:git pull → 重派发 cs2star → extract(碰撞扫描现在会说话,脏栈自动挪边)→ class2d/class3d(optics 已排序;若存储真有病,Log tab 的存储诊断自动说话;零头轮次 live 点名)
+
+---
+Task ID: 380
+Agent: main (Z.ai Code)
+Task: 用户工单 — 用 empiar-10017 数据模拟在 cluster 上运行(可只用 CPU),看各种任务生成的 mrcs/mrc 是否正常 + 全链路解析测试;2D 分类颗粒是黑色的(用户判读:import 需要负染开关,冷冻颗粒是黑的需反转);沙盒收割后仓库重建(用 PAT 重新 clone @ 752e415,上一轮 t371-t375 的 17 个本地提交随沙盒丢失)
+
+Work Log:
+- [灾难评估] /home/z/cryoflow 整树被沙盒收割;GitHub 在 752e415(t370 并行会话版:optics 预排序/提取双lane/存储诊断/墓碑)——我自己 t370 的 stretchToGray 1.2→1.0 极性修复与 t371-t375 全部丢失;用户提供 PAT 重新 clone + push 通道恢复
+- [极性根因 — 用户「颗粒是黑色的」的判决] stretchToGray 的翻转门 1.2× 留下死区:未遮蔽类别平均实测比值 1.0-1.1,负密度主导但旧门拒绝翻转 → 黑颗粒。门降到 1.0×(任何严格负主导都翻);1.2×→1.0× 正是本地 relion 测试当年「已解决」而集群回归重现的原因 — 修复从未被 push
+- [用户要的 import 开关] import 新增 negativeStain 复选框(默认关):冷冻(auto — 自动翻白)vs 负染(永不翻转,染色颗粒本身是正密度亮斑);render-polarity.ts 做 lineage 走查(job→import 祖先),outputs/file + iterations/image + iterations/sheet + micrographs preview 四个渲染门全接;迭代 PNG 缓存与远端预览缓存按极性分键(.ns 兄弟目录,不会伺候旧极性的陈旧字节)
+- [EMPIAR-10017 夹具] EBI 带宽 16KB/s(64MB×8 = 8 小时,不可行)→ 生成器复刻:8 张 Falcon-II 4096² float32(字节尺寸 67,109,888 与真实一致)+ 64 个 β-gal 四聚体暗斑/张 + 3 个聚合物杂质 + 配套 Henderson .coord
+- [mock 物理真实化] cf_cryo.py 共享库(numpy):真实暗斑 LoG 检测(积分图 DoG + NMS + 11×11 块精化)、裁剪+归一化(溶剂≈0 σ≈1,颗粒负值)、真实类别平均、负密度核体积;relion_autopick 真检测、relion_preprocess 真裁剪(--coord_dir/--coord_suffix 方言 + 遗留回退逐字节兼容)、relion_refine 真类别平均(弱类预设 c%4==3 amp 0.09 → 有机落入死区比值 1.02-1.10)、relion_postprocess 负核图
+- [diag-t380 89/89] 12 job 全链(import→motioncorr→ctffind→autopick→extract→class2d→initialmodel→class3d→refine3d→maskcreate→postprocess)全集群 lane:P1 原始显微图颗粒暗于冰(冷冻真相,无翻转)、P2 提取栈翻转后亮(138.7 vs 10.6)、P3 强类 3.03-3.34(EMPIAR 实测带)+ 死区类 3@1.06 的 A/B 判决(旧门:中心 112.9 ≤ 边界 144.0 = 黑;新门 52.5 > 25.8 = 亮;活体渲染一致)、P4 三维图负核亮、P5 negativeStain 钉住翻转字节级 A/B + 恢复逐字节一致
+- [OOM 战况] 4GB 盒 memcg 上限 ~3.5GB;next-server 编译峰值 3.39-3.41GB 反复被杀;处方:cf-up.sh(V8 896MB 堆 + 陈锁清理)+ 套件自愈 api()(fetch 失败自动复活);turbopackMemoryLimit 800→512;首页编译在本轮源改动后永久越线(浏览器 QA 被基础设施阻塞 — 诚实入册)
+
+Stage Summary:
+- 黑颗粒双层根治:阈值修复(死区判决 A/B 实证)+ import 负染开关(用户心智模型的显式钉子,缓存键级隔离)
+- 全链路「mrcs/mrc 是否正常」:每一阶段的产物都被真实渲染断言覆盖(含 chunked 拉取、惰性 SSH 回源、幽灵头重拉)
+- 提交 81a0e44 已 push;夹具生成器 + diag 可重复跑(89/89 三连绿)
+- 用户复机路径:git pull → 重跑 import(勾/不勾负染)→ 全链重派发 → 画廊亮颗粒
+
+---
+Task ID: 381
+Agent: main (Z.ai Code)
+Task: 用户工单 — 各种 job 的 UI 可设参数不全,需要仔细看 relion 代码把所有可设参数加上,排版对齐 RELION GUI 方便无缝上手;完成后 push(用户给了 PAT)
+
+Work Log:
+- [权威源] 从 3dem/relion master 拉取 gui_jobwindow.cpp(每个 job 窗口的 place() 序 = GUI 排版)+ pipeline_jobs.cpp(默认值 + argv 构造)——不再凭记忆:RELION 5 Class2D 有 6 表签(含 Helix!),Class3D/Autorefine 有 7 表签(含 Helix)
+- [showIf 原语] ParamSchema.showIf {param, equals} — RELION 的 TOGGLE_DEACTIVATE 组数据化;job-panel gateVisible 解析门链(嵌套组传播,隐藏保值,引擎自己的 if 链保证隐藏值不上 argv);react-hooks/immutability 的自引用回调整改为内层普通函数
+- [class2d] algorithm 选择(em|vdam,默认 em — 旧 job argv 逐字节不变)+ miniBatches(VDAM mini-batch 数,RELION GUI 默认 200);vdam 挂 RELION 5 master 的包装方言 --grad --class_inactivity_threshold 0.1 --grad_write_iter 10(pipeline_jobs.cpp:3203);Helix 表签 5 参数(管径/双峰 psi/range→σ/3/上升限制 x 偏移,:3309)
+- [class3d/refine3d] 共享 helicalParams()/helicalArgs() 20 参数:管径对、±σ 角族、局域平均范围、tilt 先验固定、嵌套 apply-helical-symmetry 组(ASU 数/初始 twist-rise/z%/100)、双重嵌套局域对称搜索(--helical_symmetry_search + min/max/inistep 界,:4031-4110 逐字);表签序对齐 setupTabs()(…Sampling, Helix, Compute;refine3d 的 Helix 在 Auto-sampling 后)
+- [diag-t381 87/87] 源码面(showIf/Helix 表签/26 个参数键全存在)+ 集群活体 argv(.cf-run.sh 逐字断言):默认字节兼容、VDAM 三件套+--iter 50、2D Helix 家族、3D 家族含搜索界与 inistep 只在正值时挂、显式 No 挂 --ignore_helical_symmetry、σ=值/3 转换
+- [回归] t380 复跑 89/89(参数改动后);t358 被环境阻塞(首页编译 OOM 战 + 并行 cron 会话争用 — 其传输面 chunked pull 本轮未触碰,套件死于 PHASE 0 fetch 非断言失败,诚实入册);tsc 0;eslint 1 错(自引用回调)已修
+- [推送] a170107 + 9ac9cb3 已 push 到 GitHub(用户提供 PAT,通道恢复)
+
+Stage Summary:
+- RELION GUI 对齐以 master 源码为唯一权威(用户「仔细看 relion 代码」的字面执行);Class2D 的 Helix 表签是本轮最大发现(此前两轮 helical 只铺了 3D 家族)
+- 隐藏参数的引擎纪律:每个旗标各自带门条件(与 RELION 自家 if 链同构),门关 = 零旗标 = 旧 job 字节不变
+- 风险:showIf 面板渲染无浏览器级验证(首页编译被 memcg 阻塞);逻辑 15 行 tsc 严格检查过,模式沿用面板既有 coerceParam 惯例
