@@ -877,13 +877,16 @@ function ParamsTab({
   // hiding (RELION keeps deactivated options' values too), and the engine's
   // own if-chains keep hidden values off the argv.
   const gateVisible = React.useCallback(
-    (p: ParamSchema, depth = 0): boolean => {
-      if (!p.showIf || depth > 3) return true;
-      const gate = params.find((q) => q.key === p.showIf!.param);
-      if (gate && !gateVisible(gate, depth + 1)) return false;
-      const raw = form[p.showIf.param];
-      const val = gate ? coerceParam(gate, raw) : raw;
-      return val === p.showIf.equals;
+    (p: ParamSchema): boolean => {
+      const visible = (q: ParamSchema, depth: number): boolean => {
+        if (!q.showIf || depth > 3) return true;
+        const gate = params.find((g) => g.key === q.showIf!.param);
+        if (gate && !visible(gate, depth + 1)) return false;
+        const raw = form[q.showIf.param];
+        const val = gate ? coerceParam(gate, raw) : raw;
+        return val === q.showIf.equals;
+      };
+      return visible(p, 0);
     },
     [form, params]
   );
