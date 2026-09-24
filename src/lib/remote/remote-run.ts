@@ -396,6 +396,136 @@ async function clusterParticleRefCensus(
   return { rows: null, total: 0, err: lastErr };
 }
 
+/**
+ * t382 — the receipt's count recovery, cluster-side: ONE awk pass over a
+ * star IN PLACE (never a download) returning its block>=2 data-row count
+ * and, when the star carries a _rlnClassNumber column, the class
+ * distribution's top 3. This exists for the finalize leg whose sync-back
+ * left the key stars behind (a busy login node, a capped connection): the
+ * old receipt then REPLACED the result with the bare "particles star
+ * stayed on the cluster" stay-note and the job card lost the one number
+ * the user actually reads (「没有显示颗粒数等比较关键信息在卡片上」).
+ * The counts ride the stay-note instead — same one round the probe
+ * already paid, a few bytes back. POSIX awk (no gawk extensions); the
+ * budget mirrors the t346 census (90s, one fresh-wire retry on SSH-level
+ * failures only — a receipt never becomes a blocker).
+ */
+async function countRemoteStar(
+  conn: RemoteConnection,
+  p: string
+): Promise<{ rows: number | null; classes: Array<{ cls: number; n: number }> | null; err: string | null }> {
+  // top-3 by repeated max-scan (POSIX awk has no asort)
+  const awk =
+    `awk '` +
+    [
+      "/^data_/ { block++; next }",
+      "/^loop_/ { inloop = 1; col = 0; next }",
+      "/^#/ { next }",
+      "/^_/ {",
+      "  if (block >= 2 && inloop) {",
+      "    col++",
+      '    if ($1 == "_rlnClassNumber") clsCol = col',
+      "  }",
+      "  next",
+      "}",
+      "block >= 2 && NF > 0 {",
+      "  rows++",
+      "  if (clsCol > 0) { c = $clsCol + 0; if (c > 0) cls[c]++ }",
+      "  next",
+      "}",
+      "END {",
+      '  printf "CF_ROWS\\t%d\\n", rows + 0',
+      "  if (clsCol > 0) {",
+      "    for (pass = 1; pass <= 3; pass++) {",
+      "      best = 0; bestn = -1",
+      "      for (c in cls) {",
+      "        if (cls[c] > bestn && !(c in done)) { bestn = cls[c]; best = c }",
+      "      }",
+      "      if (bestn <= 0) break",
+      '      printf "CF_CLASS\\t%d\\t%d\\n", best, bestn',
+      "      done[best] = 1",
+      "    }",
+      "  }",
+      "}",
+    ].join("\n") +
+    `' ${shSingleQuote(p)} 2>/dev/null`;
+  let lastErr: string | null = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if (attempt > 0) {
+      dropConnection(conn.id); // fresh wire — same ladder as catRemote
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    try {
+      const res = await exec(conn, awk, { timeoutMs: 90_000 });
+      if (!res.error && res.code === 0) {
+        let rows: number | null = null;
+        const classes: Array<{ cls: number; n: number }> = [];
+        for (const line of res.stdout.split("\n")) {
+          if (line.startsWith("CF_ROWS\t")) {
+            const n = Number(line.split("\t")[1]);
+            if (Number.isFinite(n)) rows = n;
+          } else if (line.startsWith("CF_CLASS\t")) {
+            const seg = line.split("\t");
+            const cls = Number(seg[1]);
+            const n = Number(seg[2]);
+            if (Number.isFinite(cls) && Number.isFinite(n)) classes.push({ cls, n });
+          }
+        }
+        if (rows != null) return { rows, classes: classes.length > 0 ? classes : null, err: null };
+        lastErr = "the awk spoke no row count";
+      } else {
+        const why = (res.stderr || "").trim().split("\n").pop() ?? "";
+        lastErr = res.error ?? `exit ${res.code}${why ? `: ${why.slice(-140)}` : ""}`;
+      }
+    } catch (e) {
+      lastErr = e instanceof Error ? e.message : String(e);
+    }
+    const sshLevel = /timeout|channel|socket|ECONN|closed/i.test(lastErr ?? "");
+    if (!sshLevel) break; // the file's own verdict (missing, unreadable)
+  }
+  return { rows: null, classes: null, err: lastErr };
+}
+
+/**
+ * t382 — the stay-note's recovered lead, per type: the count sentence the
+ * LOCAL collectOutputs would have written, composed from the cluster-side
+ * count instead. null = nothing this type can say from a row count alone
+ * (the stay-note stands alone, as before).
+ */
+function remoteCountLead(
+  type: string,
+  counts: { rows: number | null; classes: Array<{ cls: number; n: number }> | null }
+): string | null {
+  const n = counts.rows;
+  if (n == null) return null;
+  const fmt = n.toLocaleString();
+  switch (type) {
+    case "extract":
+      return `${fmt} particles extracted`;
+    case "motioncorr":
+      return `motion corrected, ${fmt} micrographs`;
+    case "ctffind":
+      return `CTF estimated for ${fmt} micrographs`;
+    case "class2d": {
+      const total = counts.classes?.reduce((acc, c) => acc + c.n, 0) ?? 0;
+      if (counts.classes && total > 0) {
+        const top = counts.classes
+          .map((c) => `class ${c.cls} ${Math.round((100 * c.n) / total)}%`)
+          .join(", ");
+        return `2D classification finished — ${fmt} particles · top: ${top}`;
+      }
+      return `2D classification finished — ${fmt} particles`;
+    }
+    case "class3d":
+    case "refine3d":
+      return `3D refinement finished — ${fmt} particles`;
+    case "initialmodel":
+      return `de-novo 3D initial model generated · ${fmt} particles`;
+    default:
+      return null;
+  }
+}
+
 /* ------------------------------------------------------------------ */
 /* t365 — the reference-sampling pre-flight (class3d/refine3d)         */
 /* ------------------------------------------------------------------ */
@@ -1276,6 +1406,10 @@ function buildWrapperScript(args: {
   relionHome: string | null;
   ctffind: string | null;
   command: string;
+  /** t382 — an extraction's input STAR (cluster path): the setsid payload
+   *  runs the collision pre-flight before relion_preprocess (the direct
+   *  lane's own copy of the sbatch lane's cluster-side gate). */
+  preflightStar?: string | null;
   remoteProjectRoot: string;
   remoteWorkdir: string;
   /** t313 — the CTF gate's "allowed" receipt, echoed into run.out */
@@ -1324,8 +1458,19 @@ function buildWrapperScript(args: {
   L.push(`rm -f ${shQuote(remoteWorkdir + "/.cf-exit")}`);
   // the command runs in its own session (setsid) so killing the session id
   // takes down mpirun AND its ranks; the exit status lands in .cf-exit
+  // t382 — an extraction's payload runs the cluster-side collision
+  // pre-flight first: on collision it writes its own .cf-exit 111 and its
+  // CRYOFLOW_ERR lands in run.err — the same receipt the Log tab reads.
+  const preflight =
+    args.preflightStar
+      ? extractPreflightLines(
+          args.preflightStar,
+          null,
+          `echo 111 > ${shQuote(remoteWorkdir + "/.cf-exit")}`
+        ).join("\n") + "\n"
+      : "";
   L.push(
-    `setsid bash -c ${shSingleQuote(`${command}; __rc=$?; echo $__rc > "${remoteWorkdir}/.cf-exit"`)} ` +
+    `setsid bash -c ${shSingleQuote(`${preflight}${command}; __rc=$?; echo $__rc > "${remoteWorkdir}/.cf-exit"`)} ` +
       `> ${shQuote(remoteWorkdir + "/run.out")} 2> ${shQuote(remoteWorkdir + "/run.err")} < /dev/null &`
   );
   // record pid + /proc starttime — the poll verifies BOTH so a RECYCLED pid
@@ -1554,12 +1699,139 @@ async function resolveSbatchTimeLimit(
  * truth the poll already speaks (a scancel SIGKILL that beats the trap
  * leaves no file → the honest "interrupted remotely" path).
  */
+/**
+ * t382 — the cluster-side extraction pre-flight: the LAST line of defense
+ * against the concurrent-writer race behind relion_preprocess's
+ * image.h:1534 "write: target and source objects have different size".
+ *
+ * The mechanism (preprocessing.cpp: extractParticlesFromOneMicrograph →
+ * performPerImageOperations): the FIRST particle of a micrograph writes its
+ * stack with WRITE_OVERWRITE (no size check — a leftover from a previous
+ * generation can never cause the abort), every LATER particle APPENDS, and
+ * the append reads the file already on disk and REFUSES on a dimension
+ * mismatch — including the header readback landing mid-rewrite while
+ * ANOTHER process is overwriting the same stack. Two array shards writing
+ * the same stack path at the same moment therefore abort the run a few
+ * micrographs in — exactly the field shape ("Extracting particles from 172
+ * micrographs … 0.12/5.02 min" → the abort). The dispatch-side scans (t334
+ * early, t335 lane-aware) can both be starved by a busy login node; this
+ * check runs ON THE NODE THAT RUNS relion_preprocess, over the exact bytes
+ * the binary will read — no wire, no timing window.
+ *
+ * The awk replicates extractStackKey's grammar (extract-collide.ts): strip
+ * a pipeliner `<Type>/jobNNN/` prefix and the final extension, then flag
+ * (a) the SAME micrograph row listed more than once and (b) DISTINCT rows
+ * that compose the same stack path (X.mrc + X.mrcs twins — the user's
+ * *_Fractions_DW dataset holds both extensions across sessions). POSIX awk
+ * only (no gawk extensions): the top-3 evidence is picked by repeated
+ * max-scan, and the regexes avoid interval expressions. A star with no
+ * _rlnMicrographName/_rlnMicrographMovieName column scans as clean (not
+ * extraction-shaped — the same honest degrade the pure scan makes).
+ *
+ * Emitted lines: the check, then the refusal (exit 111 with
+ * CRYOFLOW_ERR on stderr — the Log tab's evidence diagnosis names the
+ * same mechanism). `rcFile` (array tasks only) is the rc tally so the
+ * count gate turns the refusal into .cf-exit=111 like every other task
+ * failure.
+ */
+function extractPreflightLines(
+  star: string,
+  rcFile: string | null,
+  /** t382 — an extra shell line run right before `exit 111` (the direct
+   *  lane writes its own .cf-exit — its setsid payload has no EXIT trap
+   *  and no count gate to speak for it). */
+  exitHook: string | null = null
+): string[] {
+  // shell-safe: the awk program carries no single quotes; the star path is
+  // shQuote'd; the rcFile path is pre-quoted by the caller.
+  const awk =
+    "awk '" +
+    [
+      "function cfkey(n) {",
+      "  s = 0; d = 0",
+      "  for (i = 1; i <= length(n); i++) {",
+      "    c = substr(n, i, 1)",
+      '    if (c == "/") s = i',
+      '    else if (c == ".") d = i',
+      "  }",
+      "  if (d > s + 1) n = substr(n, 1, d - 1)",
+      '  sub(/^[A-Za-z0-9_.-]+\\/job[0-9][0-9][0-9]*\\//, "", n)',
+      "  return n",
+      "}",
+      "/^data_/ { block++; next }",
+      "/^loop_/ { inloop = 1; col = 0; next }",
+      "/^#/ { next }",
+      "/^_/ {",
+      "  if (block >= 2 && inloop) {",
+      "    col++",
+      '    if ($1 == "_rlnMicrographName" || $1 == "_rlnMicrographMovieName") micCol = col',
+      "  }",
+      "  next",
+      "}",
+      "block >= 2 && NF > 0 {",
+      "  if (micCol > 0) {",
+      "    n = $micCol",
+      '    gsub(/^"|"$/, "", n)',
+      '    if (n != "") {',
+      "      k = cfkey(n)",
+      '      if (!(k in first)) { first[k] = n; cnt[k] = 1 }',
+      "      else {",
+      "        cnt[k]++",
+      '        if (n != first[k] && !(k in second)) second[k] = n',
+      "      }",
+      "    }",
+      "  }",
+      "  next",
+      "}",
+      "END {",
+      "  shown = 0",
+      "  for (k in cnt) {",
+      "    bad = (cnt[k] > 1 || (k in second))",
+      "    if (!bad) continue",
+      '    printf "CRYOFLOW_COLLIDE\\t%s\\t%s", first[k], k',
+      '    if (k in second) printf "\\t%s", second[k]',
+      '    printf "\\n"',
+      "    shown++",
+      "    if (shown >= 3) break",
+      "  }",
+      "  if (shown > 0) exit 3",
+      "}",
+    ].join("\n") +
+    `' ${shQuote(star)} 2>/dev/null`;
+  const L: string[] = [];
+  L.push("# ---- t382 — extraction pre-flight (the concurrent-writer gate) ----");
+  L.push(`__cfp="$( ${awk} )";`);
+  L.push('if [ -n "$__cfp" ]; then');
+  L.push(
+    '  echo "CRYOFLOW_ERR: the micrographs STAR collides inside this extraction — RELION writes one particle stack per micrograph and appends after the first particle, so these rows would write the SAME stack file; with the array split, two shards race on one stack and the run dies at image.h:1534 (write: target and source objects have different size):" >&2'
+  );
+  L.push('  echo "$__cfp" >&2');
+  L.push(
+    '  echo "CRYOFLOW_ERR: de-duplicate the rows or rename the colliding files on the cluster, then run again (an import with the exact extension pattern, e.g. *_DW.mrc not *_DW.mrc*, avoids the twins at the door)" >&2'
+  );
+  if (rcFile) L.push(`  echo "$SLURM_ARRAY_TASK_ID 111" >> ${rcFile}`);
+  if (exitHook) L.push(`  ${exitHook}`);
+  L.push("  exit 111");
+  L.push("fi");
+  return L;
+}
+
 function buildSbatchScript(args: {
   conn: RemoteConnection;
   module: string;
   relionHome: string | null;
   ctffind: string | null;
   command: string;
+  /**
+   * t382 — an extraction's input STAR (cluster path): the script runs the
+   * cluster-side collision pre-flight (duplicate rows / extension twins
+   * composing the same particle stack) BEFORE the command, in BOTH the
+   * array lane (every task scans the full input star — the slice each
+   * task runs is the round-robin subset, but the COLLISION verdict is a
+   * property of the whole star) and the single lane. null = not an
+   * extraction (or no --i star): no pre-flight.
+   */
+  preflightStar?: string | null;
   gpus: number;
   ntasks: number;
   threads: number;
@@ -1676,7 +1948,7 @@ function buildSbatchScript(args: {
    */
   timeLimitDefaultMin?: number | null;
 }): string {
-  const { conn, module: moduleName, relionHome, ctffind, command, gpus, ntasks, threads, jobName, remoteProjectRoot, remoteWorkdir, partition, nodelist, dependency, array, note, suppressPartition, gpuJob, mpiRanks, timeLimitMin, timeLimitWarn, timeLimitDefaultMin } = args;
+  const { conn, module: moduleName, relionHome, ctffind, command, gpus, ntasks, threads, jobName, remoteProjectRoot, remoteWorkdir, partition, nodelist, dependency, array, note, suppressPartition, gpuJob, mpiRanks, timeLimitMin, timeLimitWarn, timeLimitDefaultMin, preflightStar } = args;
   // t332/t340 — the partition this sbatch names:
   //   · an explicit pin whose partition the caller RESOLVED → that
   //     partition (scontrol's own word — the dropdown equivalence);
@@ -2106,6 +2378,15 @@ function buildSbatchScript(args: {
     L.push(
       `  ' ${shQuote(array.inputStar)} > "$SHARD" 2>/dev/null || { echo "CRYOFLOW_ERR: could not slice the input STAR for shard $SLURM_ARRAY_TASK_ID — ${shQuote(array.inputStar)} unreadable on this node" >&2; echo "$SLURM_ARRAY_TASK_ID 111" >> "$RCF"; exit 111; }`
     );
+    // t382 — the cluster-side extraction pre-flight: every task scans the
+    // FULL input star for colliding rows (duplicates / extension twins
+    // composing the same particle stack) before relion_preprocess starts —
+    // on the compute node, over the exact bytes the binary reads.
+    if (preflightStar) {
+      for (const line of extractPreflightLines(preflightStar, `'"$RCF"'`)) {
+        L.push(`  ${line}`);
+      }
+    }
     L.push(`  ${command}`);
     L.push(`  __rc=$?`);
     L.push(`  echo "$SLURM_ARRAY_TASK_ID $__rc" >> "$RCF"`);
@@ -2196,6 +2477,13 @@ function buildSbatchScript(args: {
     L.push(`  fi`);
     L.push(`  exit "$__rc"`);
     L.push(`fi`);
+  }
+  // t382 — the single-lane extraction pre-flight (same check the array
+  // tasks run): a duplicate row still duplicates the particles in the
+  // output star even without the race — the check pays for itself in
+  // both lanes. The EXIT trap writes the 111 verdict to .cf-exit.
+  if (preflightStar) {
+    for (const line of extractPreflightLines(preflightStar, null)) L.push(line);
   }
   L.push(command);
   L.push(`__rc=$?`);
@@ -3070,6 +3358,14 @@ export async function startRemoteJob(args: {
     // it. The collision scan + the frame census both judge those bytes.
     const starRd = await readResolvedStarText(conn, starPath, upstreamRemoteTwins, remoteRoot);
     const starText = starRd.text;
+    // t382 — feed the array block-check below: a twin-resolved star (or any
+    // cluster-side read) used to leave extractStarText null, and the
+    // starIsArraySplittable guard then SKIPPED with a console note — the
+    // exact hole a single-block STAR rode through into an array split
+    // (every row to every shard, concurrent writers on the same particle
+    // stacks, the mid-run image.h:1534 abort). Whatever this read saw, the
+    // block check now sees too.
+    if (starText !== null) extractStarText = starText;
     if (starText !== null && starRd.lane === "cluster") {
       console.log(
         `remote-run: extract star read in place over SSH (${starRd.readAt}) — the collision scan + the frame census ran on the cluster's own bytes, the copy this job consumes (t335/t343)`
@@ -3361,7 +3657,31 @@ export async function startRemoteJob(args: {
   for (const [key, localRaw] of Object.entries(resolvedInputs)) {
     const local = localRaw.split(path.sep).join("/");
     const twin = upstreamRemoteTwins.get(local);
-    if (twin) continue; // already on the cluster (upstream ran there)
+    if (twin) {
+      // t372 — the STALE-TWIN gate. A twin means "the upstream ran on this
+      // cluster and left its output in place" — but an upstream RE-RUN
+      // (e.g. the import edited + re-run) updates the LOCAL mirror while
+      // the recorded twin still names the OLD cluster bytes; consuming the
+      // twin then silently runs against the previous definition (caught
+      // live by the real-binary EMPIAR chain: a movies re-import fixed the
+      // star's column, motioncorr still read the stale twin and died with
+      // relion's "no input movies"). When the local mirror is NEWER than
+      // the twin, the local bytes are the truth — fall through to the
+      // upload lane, which rewrites + overwrites the twin in place (the
+      // mirror-mapped upload target IS the twin's address).
+      let twinFresh = true;
+      try {
+        const localMtime = statSync(localRaw).mtimeMs;
+        const twinSt = await remoteStat(conn, twin);
+        if (twinSt && twinSt.mtimeMs + 1000 < localMtime) twinFresh = false;
+      } catch {
+        /* no local file (identity-entry twins never came home) — the twin stands */
+      }
+      if (twinFresh) continue; // already on the cluster (upstream ran there)
+      console.log(
+        `remote-run: input "${key}" has a STALE cluster twin (older than the local re-run) — re-uploading ${path.basename(localRaw)} over the twin (t372)`
+      );
+    }
     if (!existsSync(localRaw)) {
       return fail(`input "${key}" does not exist locally: ${local} — run the upstream job first`);
     }
@@ -4068,8 +4388,16 @@ export async function startRemoteJob(args: {
               );
             }
           } else {
-            console.log(
-              `remote-run: array split block-check skipped — the input star stayed on the cluster (no local copy was synced)`
+            // t382 — the pre-t334 degrade ("skip with a note") is now a
+            // refusal: an unverifiable star + N shards is exactly the
+            // single-block trap when the star turns out to be one (every
+            // row to every shard, concurrent writers on the same stacks,
+            // image.h:1534 a few micrographs in — the field crash). The
+            // honest exits: 1 shard, or a retry once the star is readable
+            // (the t345 receipt says a busy login node starves exactly
+            // this read; it also starves the run itself).
+            throw new Error(
+              `array split unavailable for "${job.type}": the input STAR could not be read to verify it is splittable (neither the local copy nor the cluster twin answered) — with ${shardTotal} shards, a single-block STAR would hand every row to every shard and the shards would write the same particle stacks at the same moment (the mid-run "write: target and source objects have different size" crash). Run with the Array split at 1, or retry when the cluster's login node is calmer`
             );
           }
         }
@@ -4090,6 +4418,19 @@ export async function startRemoteJob(args: {
       } else {
         command = argv.map(shQuoteOrVar).join(" ");
       }
+      // t382 — the cluster-side extraction pre-flight's star: the --i value
+      // the final argv carries (the array lane's $SHARD maps back to
+      // arrayPlan.inputStar — the same file; argv itself is never mutated on
+      // the --i slot, so this reads the cluster-side star either lane runs
+      // against). The script builders run the collision check over these
+      // exact bytes BEFORE relion_preprocess starts.
+      const extractIi = argv.indexOf("--i");
+      const preflightStar =
+        job.type === "extract" &&
+        extractIi >= 0 &&
+        String(argv[extractIi + 1] ?? "").endsWith(".star")
+          ? String(argv[extractIi + 1])
+          : null;
       const threads = Math.max(1, Math.min(32, Math.round(Number(params.threads ?? 4) || 4)));
       const jobName = `cf_${job.type}_${job.id.slice(-8)}`;
 
@@ -4505,6 +4846,8 @@ export async function startRemoteJob(args: {
           relionHome,
           ctffind: moduleName ? conn.lastProbe?.relionCtffind?.[moduleName] ?? null : null,
           command,
+          // t382 — the cluster-side collision pre-flight (extraction only)
+          preflightStar,
           gpus: gresWidth,
           ntasks,
           threads,
@@ -4672,6 +5015,8 @@ export async function startRemoteJob(args: {
           relionHome,
           ctffind: moduleName ? conn.lastProbe?.relionCtffind?.[moduleName] ?? null : null,
           command,
+          // t382 — the cluster-side collision pre-flight (extraction only)
+          preflightStar,
           remoteProjectRoot,
           remoteWorkdir,
           note: [ctffindGateNote, extractGateNote, particlesGateNote, refPrepNote, opticsSortNote, extractPrevNote].filter(Boolean).join(" · ") || null,
@@ -6041,6 +6386,50 @@ async function finalizeRemoteRun(
         Object.keys(outputs).length === 0
           ? `${remoteOnly.join(", ")} stayed on the cluster (verified there) — downstream cluster jobs chain off the cluster copy in place; raise the connection's sync caps to bring it home`
           : ` — ${remoteOnly.join(", ")} stayed on the cluster (verified there; downstream cluster jobs chain off the cluster copy — raise the sync caps to pull it home)`;
+    }
+    // t382 — the count recovery: in the replace branch (NO local outputs —
+    // the sync-back left every key star behind) the old receipt answered
+    // with the bare stay-note and the job card lost the particle count —
+    // the one number the user reads first (「没有显示颗粒数等比较关键
+    // 信息在卡片上」). ONE awk pass over the twin IN PLACE recovers the
+    // count sentence collectOutputs would have written. Best-effort: any
+    // failure leaves the stay-note exactly as it was.
+    if (remoteOnly.length > 0 && Object.keys(outputs).length === 0) {
+      const pickCountStar = (): string | null => {
+        switch (job.type) {
+          case "extract":
+            return remoteOutputs.particles_star ?? null;
+          case "motioncorr":
+            return remoteOutputs.micrographs_star ?? null;
+          case "ctffind":
+            return remoteOutputs.micrographs_ctf_star ?? null;
+          case "class2d":
+          case "class3d":
+          case "refine3d":
+            return remoteOutputs.particles_star ?? null;
+          case "initialmodel":
+            return remoteOutputs.refine_data_star ?? remoteOutputs.particles_star ?? null;
+          default:
+            return null;
+        }
+      };
+      const countStar = pickCountStar();
+      if (countStar && countStar.endsWith(".star")) {
+        try {
+          const counts = await countRemoteStar(conn, countStar);
+          const lead = remoteCountLead(job.type, counts);
+          if (lead) {
+            console.log(
+              `remote-run: finalize count recovery on "${job.name}" — ${lead} (counted in place at ${countStar}, t382)`
+            );
+            // the replace branch's stay-note never starts with " — " (that
+            // is the suffix dialect); prepend the recovered count sentence.
+            stayNote = `${lead} — ${stayNote.startsWith(" — ") ? stayNote.slice(3) : stayNote}`;
+          }
+        } catch {
+          /* a receipt never blocks the verdict */
+        }
+      }
     }
   }
   if (stayNote) {

@@ -8,7 +8,7 @@ import * as React from "react";
 import { create } from "zustand";
 import { toast, type ToastActionElement } from "@/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
-import { CARD_W, CARD_H, WORLD_MIN, WORLD_MAX, ZOOM_MAX, ZOOM_MIN, jobType, portsCompatible } from "./workflow";
+import { CARD_W, CARD_H, WORLD_MIN, WORLD_MAX, ZOOM_MAX, ZOOM_MIN, jobType, portsCompatible, nextStepsFor } from "./workflow";
 import { autoLayout } from "./layout";
 import { formatElapsed } from "./elapsed";
 import type {
@@ -637,6 +637,12 @@ interface WorkflowState {
     y: number,
     params?: Record<string, number | string | boolean>
   ) => Promise<void>;
+  /** t383 — the card context menu's "Add next step…" quick action: create
+   *  a job of `type` placed in the free slot to the RIGHT of `sourceId`
+   *  (same workspace), auto-wired through the first compatible port pair.
+   *  One toast tells the whole story; the new card lands selected and
+   *  focused so the "quick" in quick action is literal. */
+  addLinkedStep: (sourceId: string, type: string) => Promise<void>;
   /** One-click standard SPA pipeline: 10 pre-wired jobs into the ACTIVE
    *  workspace (below existing content), optional parameter overrides,
    *  nothing run. */
@@ -949,6 +955,89 @@ function errToast(msg: string) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Position-write in-flight guard (t383)                                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The delayed-drag race, convicted: moveJobCommit/applyLayout set the
+ * optimistic position locally and PATCH in the background, but a poll GET
+ * that STARTED before the PATCH lands AFTER the optimistic set — its
+ * response still carries the OLD x/y, the reference-stability merge takes
+ * the server object wholesale, and the card snaps BACK to its pre-drag
+ * spot until the NEXT poll finally shows the persisted position. Drag a
+ * card, watch it rubber-band; auto-arrange, watch the tidy layout flicker
+ * apart then reassemble. On a dev server (route compiles stretch the GET
+ * window to seconds) this reads as "拖动/排版延时生效".
+ *
+ * Two windows, two guards (an in-flight hold alone has a hole: a poll that
+ * outlives the PATCH's confirmation still carries stale coordinates):
+ *
+ *  1. IN-FLIGHT — from the optimistic set until the request settles, the
+ *     job id is refcount-held in `posWritesInFlight`; a response landing
+ *     while the hold is live can never be fresher than the local truth.
+ *  2. GENERATION — every CONFIRMED write bumps `posWriteGen` for its ids.
+ *     A poll snapshots the generation when it STARTS; when its response
+ *     lands, any job whose generation has advanced since the snapshot
+ *     predates the latest confirmed write → local x/y wins. Protection
+ *     ends exactly when a poll that started AFTER the confirmation lands
+ *     (its snapshot equals the current generation — its data is fresh).
+ *
+ * A FAILED write bumps nothing and releases its hold, so the next poll
+ * re-syncs to the server truth — the pre-t383 behavior, with the error
+ * toast already speaking for it.
+ */
+const posWritesInFlight = new Map<string, number>(); // id → refcount
+const posWriteGen = new Map<string, number>(); // id → gen of last CONFIRMED write
+
+/** Hold the local position of `ids` while their write is in the air. */
+function holdPositions(ids: string[]): () => void {
+  for (const id of ids) posWritesInFlight.set(id, (posWritesInFlight.get(id) ?? 0) + 1);
+  let released = false;
+  return () => {
+    if (released) return; // idempotent — a double release must not steal a sibling write's hold
+    released = true;
+    for (const id of ids) {
+      const n = (posWritesInFlight.get(id) ?? 1) - 1;
+      if (n <= 0) posWritesInFlight.delete(id);
+      else posWritesInFlight.set(id, n);
+    }
+  };
+}
+
+/** Mark `ids`' positions as freshly persisted — stale polls now yield. */
+function confirmPositions(ids: string[]): void {
+  for (const id of ids) posWriteGen.set(id, (posWriteGen.get(id) ?? 0) + 1);
+}
+
+/** Snapshot the generation BEFORE a fetch — the response's freshness seal. */
+function snapshotPosGen(): Map<string, number> {
+  return new Map(posWriteGen);
+}
+
+/**
+ * Stamp the newest local positions over a fetched job list wherever the
+ * response cannot be trusted to know them yet: the write is still in the
+ * air, or it confirmed after `genStart` was taken (this response started
+ * before the confirmation). Reads the LIVE store — a re-drag during the
+ * fetch window is the truth, not the first drag's optimistic value.
+ */
+function preserveHeldPositions<T extends { id: string; x: number; y: number }>(
+  fetched: T[],
+  genStart: Map<string, number>
+): T[] {
+  if (posWritesInFlight.size === 0 && posWriteGen.size === 0) return fetched;
+  const live = useWorkflowStore.getState().jobs;
+  const byId = new Map(live.map((j) => [j.id, j] as const));
+  return fetched.map((j) => {
+    const genMoved = (posWriteGen.get(j.id) ?? 0) > (genStart.get(j.id) ?? 0);
+    if (!posWritesInFlight.has(j.id) && !genMoved) return j;
+    const local = byId.get(j.id);
+    if (!local || (local.x === j.x && local.y === j.y)) return j;
+    return { ...j, x: local.x, y: local.y };
+  });
+}
+
+/* ------------------------------------------------------------------ */
 /* Debounced param auto-save — flush registry                           */
 /* ------------------------------------------------------------------ */
 
@@ -1229,6 +1318,10 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   load: async () => {
     set({ loading: true, error: null });
+    // t383 — the load's freshness seal, taken before the fetches: a
+    // position write that confirms while these GETs are in the air must
+    // not be clobbered by this load's (older) snapshot
+    const loadGenStart = snapshotPosGen();
     try {
       const [p, j, e, sys, projs, ws] = await Promise.all([
         api<{ project: ProjectDTO | null }>("/api/project"),
@@ -1270,7 +1363,10 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       // resurrecting a card the user just removed; the seed lookup below
       // reads the filtered list so a tombstoned id cannot win the
       // selection either.
-      const landedJobs = withoutResurrectedJobs(j.jobs);
+      const landedJobs = preserveHeldPositions(
+        withoutResurrectedJobs(j.jobs),
+        loadGenStart
+      );
       set({
         project: p.project ?? null,
         jobs: landedJobs,
@@ -1671,6 +1767,84 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       });
     } catch (err) {
       errToast(err instanceof Error ? err.message : "Failed to add job");
+    }
+  },
+
+  addLinkedStep: async (sourceId, type) => {
+    const s = get();
+    const src = s.jobs.find((j) => j.id === sourceId);
+    const specT = jobType(type);
+    if (!src || !specT) {
+      errToast("That job is gone — refresh and try again");
+      return;
+    }
+    // the wire: first compatible port pair (evaluated against the source's
+    // LIVE params, so an Import set to Movies wires movies → MotionCorr,
+    // never a micrographs port that isn't there)
+    const step = nextStepsFor(src.type, src.params).find((x) => x.type === type);
+    if (!step) {
+      errToast(`${specT.label} cannot consume this job's outputs`);
+      return;
+    }
+    // placement: the column to the RIGHT of the source card (RELION's
+    // visual grammar — pipelines flow left→right), first free slot walking
+    // DOWN, then the next column over; same pitch as auto-arrange so the
+    // result looks tidied, and world-bounded on every axis
+    const occupied = (px: number, py: number) =>
+      get().jobs.some(
+        (j) =>
+          px < j.x + CARD_W && px + CARD_W > j.x && py < j.y + CARD_H && py + CARD_H > j.y
+      );
+    const strideX = CARD_W + 100; // layout.ts pitch (GAP_X)
+    const strideY = CARD_H + 48; // layout.ts pitch (GAP_Y)
+    const clampW = (v: number) => Math.min(Math.max(v, WORLD_MIN), WORLD_MAX - CARD_W);
+    const clampH = (v: number) => Math.min(Math.max(v, WORLD_MIN), WORLD_MAX - CARD_H);
+    let x = 0;
+    let y = 0;
+    let found = false;
+    for (let col = 0; col < 3 && !found; col++) {
+      for (let row = 0; row < 8 && !found; row++) {
+        const px = clampW(src.x + (col + 1) * strideX);
+        const py = clampH(src.y + row * strideY);
+        if (!occupied(px, py)) {
+          x = px;
+          y = py;
+          found = true;
+        }
+      }
+    }
+    if (!found) {
+      // dense neighborhood — fall back to below-right and let the user drag
+      x = clampW(src.x + strideX);
+      y = clampH(src.y + 8 * strideY);
+    }
+    try {
+      const { job } = await api<{ job: JobDTO }>("/api/jobs", {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({
+          type,
+          x,
+          y,
+          // the card's OWN workspace — a link copy in another workspace
+          // grows its continuation THERE (that is what links are for)
+          workspaceId: src.workspaceId ?? undefined,
+        }),
+      });
+      set({ jobs: [...get().jobs, job], selectedId: job.id, selectedIds: [job.id] });
+      get().invalidateRedo();
+      // the wire — connect() validates ports, guards cycles, draws the
+      // optimistic edge immediately (t359) and persists in the background
+      await get().connect(src.id, job.id, step.fromPort, step.toPort);
+      // arrival: focus frames the new card (the source may live far from
+      // the viewport center) without stealing the params panel's context
+      get().focusJob(job.id);
+      toast({
+        title: `${specT.label} added`,
+        description: `Wired ${src.name} → ${job.name} (${step.caption})`,
+      });
+    } catch (err) {
+      errToast(err instanceof Error ? err.message : "Failed to add the next step");
     }
   },
 
@@ -2129,14 +2303,21 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     const j0 = get().jobs.find((j) => j.id === id);
     // optimistic
     set({ jobs: get().jobs.map((j) => (j.id === id ? { ...j, x, y } : j)) });
+    // t383 — while this PATCH is in the air, polls must not clobber the
+    // optimistic position; on success the generation bump keeps covering
+    // polls that started BEFORE the confirmation (see the guard block)
+    const release = holdPositions([id]);
     try {
       await api(`/api/jobs/${id}`, {
         method: "PATCH",
         headers: JSON_HEADERS,
         body: JSON.stringify({ x, y }),
       });
+      confirmPositions([id]);
     } catch (err) {
       errToast(err instanceof Error ? err.message : "Failed to save position");
+    } finally {
+      release();
     }
     // Task 104 — the entry is pushed after the PATCH attempt so even a
     // failed save leaves an exit: undo restores the local card, and once
@@ -2178,15 +2359,22 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       jobs: get().jobs.map((j) => ({ ...j, ...(positions.get(j.id) ?? {}) })),
       layoutEpoch: get().layoutEpoch + 1,
     });
+    // t383 — the tidy write is a batch of every moved job; hold them all
+    // so an in-flight poll cannot un-tidy the canvas mid-flight, and bump
+    // the generation on success for polls that started before it
+    const releaseTidy = holdPositions(updates.map((u) => u.id));
     try {
       await api("/api/jobs/layout", {
         method: "POST",
         headers: JSON_HEADERS,
         body: JSON.stringify({ updates }),
       });
+      confirmPositions(updates.map((u) => u.id));
       toast({ title: "Workflow tidied", description: `${updates.length} jobs auto-arranged` });
     } catch (err) {
       errToast(err instanceof Error ? err.message : "Failed to save layout");
+    } finally {
+      releaseTidy();
     }
     // Task 104 — undo the tidy: every pre-layout position comes back, but
     // WITHOUT a layoutEpoch bump. The epoch would yank the viewport into a
@@ -2689,6 +2877,10 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     if (pollInFlight) return;
     pollInFlight = true;
     const prev = get().jobs;
+    // t383 — the freshness seal: this poll may only apply positions for
+    // writes that were already CONFIRMED when it started (see the guard
+    // block at the top of the file)
+    const genStart = snapshotPosGen();
     try {
       const { jobs: fetched } = await api<{ jobs: JobDTO[] }>("/api/jobs");
       // t370 — the tombstone filter runs BEFORE the reference-stability
@@ -2700,17 +2892,22 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       // post-delete store) and the filtered list agree, so the tick stays
       // a zero-render no-op instead of resurrecting and re-deleting.
       const jobs = withoutResurrectedJobs(fetched);
+      // t383 — a poll that started before a drag/tidy write (or while it
+      // was in the air) carries PRE-write positions; stamping the newest
+      // local x/y back over them turns the stale response into a no-op
+      // instead of the snapback-rubber-band (the delayed-drag race)
+      const jobsHeld = preserveHeldPositions(jobs, genStart);
       // reference stability: reuse the previous object for every job whose
       // fields did not change (JSON.parse gives brand-new refs each time)
-      let changed = prev.length !== jobs.length;
-      const merged = prev.length === jobs.length
-        ? jobs.map((j, i) => {
+      let changed = prev.length !== jobsHeld.length;
+      const merged = prev.length === jobsHeld.length
+        ? jobsHeld.map((j, i) => {
             const old = prev[i];
             if (old && old.id === j.id && jobEquals(old, j)) return old;
             changed = true;
             return j;
           })
-        : jobs;
+        : jobsHeld;
       if (!changed) return; // identical tick — zero re-renders
       set({ jobs: merged });
       // announce transitions running → completed / failed, and pending →
@@ -3070,14 +3267,20 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         return m ? { ...j, x: m.x, y: m.y } : j;
       }),
     });
+    // t383 — batch write in flight: same anti-snapback hold, refcounted;
+    // success bumps the generation for every id in the batch
+    const releaseMoves = holdPositions(moves.map((m) => m.id));
     try {
       await api("/api/jobs/layout", {
         method: "POST",
         headers: JSON_HEADERS,
         body: JSON.stringify({ updates: moves }),
       });
+      confirmPositions(moves.map((m) => m.id));
     } catch (err) {
       errToast(err instanceof Error ? err.message : "Failed to save positions");
+    } finally {
+      releaseMoves();
     }
     if (beforeMoves && beforeMoves.length > 0) {
       const entry: HistoryEntry = {

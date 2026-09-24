@@ -12,6 +12,7 @@ import {
   FolderInput,
   MousePointerClick,
   Play,
+  Plus,
   RotateCcw,
   Server,
   SquarePen,
@@ -25,6 +26,7 @@ import {
   WORLD_MAX,
   WORLD_MIN,
   jobType,
+  nextStepsFor,
   portY,
   portsCompatible,
   visibleOutputs,
@@ -509,6 +511,47 @@ function JobCardMenu({
           <StickyNote />
           {job.note ? "Edit note…" : "Add note…"}
         </ContextMenuItem>
+
+        {/* t383 — the quick continuation: every job type that can legally
+            consume THIS card's (current) outputs, one click each — the new
+            card lands in the free slot to the right, auto-wired through the
+            first compatible port pair. The list is computed from the LIVE
+            params, so an Import set to Movies offers MotionCorr but never
+            CTF — the same truth as dragging a wire by hand. */}
+        {(() => {
+          const steps = nextStepsFor(job.type, job.params);
+          if (steps.length === 0) return null;
+          return (
+            <ContextMenuSub>
+              <ContextMenuSubTrigger
+                title={`Create a job that consumes “${job.name}”'s output and wire it automatically`}
+              >
+                <Plus />
+                Add next step…
+              </ContextMenuSubTrigger>
+              <ContextMenuSubContent className="max-h-80 w-60 overflow-y-auto">
+                <ContextMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                  Create &amp; link — consumes this job
+                </ContextMenuLabel>
+                {steps.map((s) => (
+                  <ContextMenuItem
+                    key={s.type}
+                    onClick={() =>
+                      void useWorkflowStore.getState().addLinkedStep(job.id, s.type)
+                    }
+                    title={`Adds ${s.label} to the right of this card, wired ${s.caption}`}
+                  >
+                    <TypeIcon name={s.icon} className="size-3.5 shrink-0" />
+                    <span className="truncate">{s.label}</span>
+                    <span className="ml-auto shrink-0 font-mono text-[9px] text-muted-foreground">
+                      {s.caption}
+                    </span>
+                  </ContextMenuItem>
+                ))}
+              </ContextMenuSubContent>
+            </ContextMenuSub>
+          );
+        })()}
 
         <ContextMenuSeparator />
         <ContextMenuItem

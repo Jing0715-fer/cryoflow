@@ -32,6 +32,42 @@
  */
 import os from "os";
 
+/* ---------------------------------------------------------------------- */
+/* t377 — the gateway-forwarded lane                                        */
+/* ---------------------------------------------------------------------- */
+
+/**
+ * CryoFlow is also served BEHIND A REVERSE PROXY (the hosted-preview
+ * deployment): the browser talks to the proxy's hostname, the proxy
+ * forwards to us on loopback. Every request the gateway proxies carries
+ * its forwarding signature — Caddy's `header_up X-Real-IP/X-Forwarded-For/
+ * X-Forwarded-Proto` REPLACE whatever the client sent, so a request that
+ * arrives with all three came through OUR gateway, not around it.
+ *
+ * This lane is OPT-IN via `CRYOFLOW_TRUST_GATEWAY=1` in the environment
+ * the server starts with:
+ *
+ *   - Default (unset, e.g. the local companion deployment): the guard is
+ *     bit-identical to the pre-t377 behavior. A drive-by page talking
+ *     straight to localhost:3000 can forge X-Real-IP & friends in
+ *     fetch() headers, so the host pin must NOT lean on them un-trusted.
+ *   - Trusted-gateway deployments: the app port is only reachable THROUGH
+ *     the proxy (loopback-bound, not exposed), so the three headers are a
+ *     proxy-stamped proof of provenance and the hostile-origin gate
+ *     (`isSameOriginRequest`, driven by browser-enforced Sec-Fetch-* /
+ *     Origin) still applies on top.
+ */
+const TRUST_GATEWAY = process.env.CRYOFLOW_TRUST_GATEWAY === "1";
+
+/** True when the request carries our reverse proxy's full signature. */
+function isGatewayForwarded(request: Request): boolean {
+  return Boolean(
+    request.headers.get("x-real-ip") &&
+      request.headers.get("x-forwarded-for") &&
+      request.headers.get("x-forwarded-proto")
+  );
+}
+
 export function isSameOriginRequest(request: Request): boolean {
   const site = request.headers.get("sec-fetch-site");
   if (site === "same-origin" || site === "none") return true;
@@ -57,8 +93,16 @@ export function isSameOriginRequest(request: Request): boolean {
     }
   }
 
-  // No fetch metadata at all (curl, scripts, some proxies) — not a browser
-  // same-origin context → deny by default on this sensitive surface.
+  // No browser fetch metadata at all (curl, scripts, some proxies) — not a
+  // browser same-origin context → deny by default on this sensitive surface.
+  // t377 exception: behind a trusted reverse proxy, a hop that stripped every
+  // metadata header still carries the proxy's forwarding signature. The
+  // browser's own hostile-origin evidence (Sec-Fetch-Site: cross-site, a
+  // foreign Origin/Referer) has already had its say ABOVE — reaching this
+  // line means none of it was present, and the request came through our
+  // gateway. QA scripts should send `-H "Origin: http://localhost:3000"`
+  // when they bypass the gateway on this route.
+  if (TRUST_GATEWAY && isGatewayForwarded(request)) return true;
   return false;
 }
 
@@ -113,7 +157,15 @@ export function isAllowedHost(request: Request): boolean {
   const hostname = (host.startsWith("[") ? host.slice(0, host.indexOf("]") + 1) : host.split(":")[0])
     .trim()
     .toLowerCase();
-  return OWN_HOSTNAMES.has(hostname);
+  if (OWN_HOSTNAMES.has(hostname)) return true;
+  // t377 — the gateway lane: a trusted reverse proxy may present the app
+  // under ITS OWN hostname (the hosted-preview deployment). The request is
+  // not naming this machine because it never talked to this machine
+  // directly — it talked to our gateway. The proxy's forwarding signature
+  // (which the client cannot forge THROUGH the gateway, `header_up`
+  // replaces) vouches for the hop; `isSameOriginRequest` still gates the
+  // browser-origin evidence on top.
+  return TRUST_GATEWAY && isGatewayForwarded(request);
 }
 
 /**

@@ -3405,6 +3405,44 @@ Stage Summary:
 - 用户复机路径:git pull → 重派发 cs2star → extract(碰撞扫描现在会说话,脏栈自动挪边)→ class2d/class3d(optics 已排序;若存储真有病,Log tab 的存储诊断自动说话;零头轮次 live 点名)
 
 ---
+Task ID: 371
+Agent: main (post-t370 verification window)
+Task: 续 t370 验证:(a) 用户六联工单修复的独立复核(370-R 子代理中途断档的四件套);(b) 在新沙盒跑 t370 冒烟做端到端确认;(c) 顺带修掉验证途中撞见的三颗 fresh-install 雷
+
+Work Log:
+- [对齐] 新沙盒全新克隆 752e415(=origin/main=t370)——上会话沙盒已重置,worklog 随仓库带来;my-project 是初始模板与 cryoflow 无关
+- [复核 t370 四件套] 独立通读实现(370-R 当时 context 耗尽,由集成者代写 worklog):normalizeOpticsOrder(awk 流式 + 自验证 + tmp→mv 原子 + reuse mtime 门 + SKIP 永不阻塞)✓;extract 双 lane(readResolvedStarText lane-aware + 碰撞扫描/frame census 在 staging 前跑 + .cryoflow_prev 同 FS 归档挪边,排除 .cryoflow_prev 自身 prune)✓;live 零头嗅探(od -An -tu4 -j0 -N12 每 stat 行后最多一行,双门控 settled+fence,零头不流送只点名,storageDiagAt 邮戳 once-per-run)✓;storage-diag 三腿实验(login 2MB + compute sbatch 8MB+sync + login 回读 md5,CF_NOFILE/zero-length/md5-mismatch/by-size 四判决,sidecar 持久化,从不 throw)✓;tsc 0 + eslint 0(触碰文件零输出)
+- [排除两条误伤假设] deleteJob 链(scancel 按本 job slurmId、kill 按自己 workdir 的 .cf-pid、workdir 按 job id 隔离、删除后 workdir 故意保留供 undo)不会误伤新建同类型 job;syncBackWorkdir 集群侧只有 find(只读),拉取写入只碰本地镜像——"所有 mrcs 都坏"只能是集群侧自身的写入问题(t370 存储诊断的靶子,方向正确)
+- [冒烟第一轮] 14/15:B2a 失败(删除后 800ms 卡未消失)归因 = DELETE 路由 Turbopack 首次编译(数秒)吃掉窗口;B2b/B2d 过 = tombstone 本体逻辑无恙;路由热身后 curl 实测 DELETE 86ms 证实归因
+- [撞见的三颗雷 — t371] 第二轮冒烟 0 卡片开启的诊断链:seed 卡 workspaceId=null + Main workspace 后来才被 ensureDefaultWorkspace 治愈出来 → useActiveWorkspaceJobs 精确 id 过滤 → fresh install 的画布在第一次创建动作后刷新即空(数据在、不可见);同轮还实锤并发双 seed(冷启动页面 boot 并发打 6 个 list 端点都过 count=0 守卫,种出 3 个同名 demo 项目、9 张卡)。修复三件套(seed.ts,单文件 +59/-6):(1) ensureProject 的 seed 三卡自己挂进它创建的 Main(画布从首帧起稳定);(2) ensureDefaultWorkspace 顺带孤儿治愈(所有 job-CREATING 路由都会过这里,updateMany where workspaceId null 幂等,零写入 once 无孤儿);(3) ensureProject 进程内 single-flight 并发共享一次 seed(计数守卫保留给顺序到达)
+- [4GB OOM 战况续] seed.ts 热重载触发下一轮:next-server anon-rss 2.8GB 被内核击杀(dmesg oom_kill 实证),ERR_CONNECTION_REFUSED 死亡模式 = 上会话记录的同款;处方同款:pkill 残留 chrome → 重启 → 全路由 same-origin 头预热 → 浏览器紧随落地
+- [验证] tsc 0;eslint seed.ts 0;修后冒烟 15/15 ALL GREEN(B1 3 卡(seed 修复生效)/B2a 立即消失(路由已热)/B2b 14 秒零复活/B2d DOM↔server 恒等/B3 零 console 错误);截图 shots-qa/t370-flicker-cure.png(修复后重拍)
+- [推送受阻] 新沙盒无 GitHub PAT(上会话凭证不随沙盒重置保留)——c751297 提交在本地,待用户提供 PAT 或自行 fetch:推送命令已就绪
+
+Stage Summary:
+- t370 六联工单修复全部复核通过且冒烟 15/15:optics 预排序、extract 双 lane、零头 live 证据+自动存储诊断、删除墓碑——实现质量与 worklog 记载一致
+- 删除闪烁的根因链(先行 poll 复活)由 B2b/B2d 端到端证实;B2a 的首轮失败纯属 DELETE 路由首次编译延迟,非逻辑缺陷
+- t371 三颗 fresh-install 雷修复:seed 卡隐身(Main 过滤)、孤儿卡全 workspace 不可见、并发双 seed——新装用户"第一次创建动作后刷新画布变空"的整条事故链关闭
+- 用户复机路径不变(t370 的四门全关);t371 是附带收获,待推送
+---
+Task ID: 377
+Agent: main (Z.ai Code)
+Task: 用户工单 — "为何你测试 job 的结果都显示不出来, Could not load outputs — Cross-site access to job data is not allowed";附带把仓库与远端两条并行谱系合并(远端 t380/t381 与本地 t371-t375 是同批用户需求的两个独立重建)
+
+Work Log:
+- [根因] 全部 43 个 /api 路由走 isLocalRequest = isSameOriginRequest && isAllowedHost;预览面板链路(浏览器→平台网关→Caddy:81→:3000)上 Host = 外部预览域名,Host 钉扎(反 DNS-rebinding 后手)必然失败 → 403 "Cross-site access to job data is not allowed";直连 localhost 一切正常(curl 复现:直连 200 / 网关带外部 Host 403)
+- [网关转发通道] http-guard.ts 新 lane:请求携带反代完整转发签名(X-Real-IP + X-Forwarded-For + X-Forwarded-Proto — Caddy header_up 替换语义,客户端无法经网关伪造)时通过 Host 钉扎;同源门的“无元数据”回退同样放行(防外层代理剥头)。CRYOFLOW_TRUST_GATEWAY=1 显式开关:不设时与旧行为逐位一致(本地直连的 drive-by 页可在 fetch() 里伪造这三个头,未信任时不得作为钉扎依据);浏览器自证的敌意源证据(Sec-Fetch-Site: cross-site / 异源 Origin)仍在最上层把关
+- [验证矩阵] 网关+外部 Host+浏览器头 200(原 403)/ 直连 localhost 200(回归)/ 网关上 evil Origin 403(防线完好)/ 无头直连 curl 403(默认拒绝完好);真实 EMPIAR 测试 job 的 outputs/iterations/classes/montage/slice 全 200;class2d Results 面板在真浏览器端到端渲染(5 张类平均卡、10,866 颗粒、star 行数),console 零错误;montage 像素统计 4/5 磁贴有信号
+- [两颗连环雷] ① dev-server.sh 的 \${DATABASE_URL:-…} 透传了沙盒工具环境自带的模板 DATABASE_URL(指向 my-project 的 custom.db),Prisma 打开只有 User/Post 表的模板库 → P2021;改为硬覆盖到 <repo>/db/cryoflow.db。② 后台服务的存活仪式:调用结束时收割器杀“仍是 tool bash 后代”的进程,setsid 从 tool bash 直接后台化仍算后代;必须中间脚本立即退出使服务孤儿化到 init(dev-server.sh 的既有设计,本轮修正其 cwd 到仓库自身)
+- [4GB OOM 战况] next-server 页编译尖峰 RSS ~2.9GB,与 agent-browser chrome(~1GB)共存必被内核击杀(dmesg 四次实证);agent-browser close 不杀 chrome 守护树(pkill -9 必要);单独运行时 2.9GB + 平台 0.6GB < 4GB 存活——浏览器验证后一律硬杀 chrome
+- [谱系合并] git push 被拒才发现远端有 t380/t381(另一并行会话在沙盒收割后独立重建了同批需求并已 push);merge 冲突三处:engine.ts(class2d 算法方言统一:algorithm 选择 + do_em/do_grad 布尔 + nr_iter_grad/miniBatches 同一字段,VDAM 的 --iter 计 mini-batch 数,未触碰 job 保持 EM/iterations 历史方言;t375 的 dont_skip_align 别名超集保留;重复的 camelCase Helix 块丢弃,t374 表的 RELION 原文键为准)、mock relion_refine(real_mode 真类平均分支保留,legacy 落道带 kind= 极性提示)、worklog(两边全保);workflow.ts 干净自动合并(t374 表 + t381 showIf 并存)
+
+Stage Summary:
+- 预览面板的 outputs 403 根治:网关转发通道(显式开关 + 代理签名)让反向代理部署下全部 43 路由复活,本地部署行为不变
+- dev-server.sh 硬覆盖 DATABASE_URL/CRYOFLOW_DATA_DIR + 仓库自身 cwd —— 沙盒工具环境污染免疫
+- 本地谱系(t371 seed + t374/t375 全 RELION 参数表 + t372 尾巴 movies 约定/stale-twin 门)与远端谱系(t380 极性判决 + t381 GUI parity)合并为一体
+- 黑颗粒问题的完整解在合并后齐备:t380 翻转门 1.2→1.0 + import negativeStain 钉子 + t374 的 Are the particles white?/do_invert/do_invert_refs 三开关
+---
 Task ID: 380
 Agent: main (Z.ai Code)
 Task: 用户工单 — 用 empiar-10017 数据模拟在 cluster 上运行(可只用 CPU),看各种任务生成的 mrcs/mrc 是否正常 + 全链路解析测试;2D 分类颗粒是黑色的(用户判读:import 需要负染开关,冷冻颗粒是黑的需反转);沙盒收割后仓库重建(用 PAT 重新 clone @ 752e415,上一轮 t371-t375 的 17 个本地提交随沙盒丢失)
@@ -3442,3 +3480,25 @@ Stage Summary:
 - RELION GUI 对齐以 master 源码为唯一权威(用户「仔细看 relion 代码」的字面执行);Class2D 的 Helix 表签是本轮最大发现(此前两轮 helical 只铺了 3D 家族)
 - 隐藏参数的引擎纪律:每个旗标各自带门条件(与 RELION 自家 if 链同构),门关 = 零旗标 = 旧 job 字节不变
 - 风险:showIf 面板渲染无浏览器级验证(首页编译被 memcg 阻塞);逻辑 15 行 tsc 严格检查过,模式沿用面板既有 coerceParam 惯例
+
+(t377-merge note: the two lineages merged 2026-09-24 — this t380/t381 side came from the parallel session that assumed t371-t375 lost; both survive, see Task ID 377)
+
+---
+Task ID: 382
+Agent: main
+Task: 用户工单二连:(1) 拉新代码后提取颗粒报 write: target and source objects have different size(image.h:1534,0.12/5.02min 即死);(2) job 卡片只显示"结果在 cluster 上",没有颗粒数等关键信息
+
+Work Log:
+- 【根因判决(读 RELION 5.0.0 真源)】preprocessing.cpp:1220-1222 — 每微图首颗粒 WRITE_OVERWRITE(无维度检查,陈旧栈不可能触发此错误),后续颗粒 WRITE_APPEND 才读盘比对 → 错误必然来自并发写手(array 分片 + 星表碰撞行:X.mrc/X.mrcs 孪生对被 round-robin 拆到不同分片同写一栈,或单块星全行进全分片);用户北京数据集 865 .mrcs + 169 .mrc 正是孪生形状,172 微图 ≈ 86 对
+- 【洞的定位】t335 lane-aware 读取(3064-3111)本已闭环碰撞扫描,但 (a) 读到的文本不回填 extractStarText → array 分片块检查(4077+)在集群侧 star 时整个跳过;(b) star 读取失败时扫描降级为 note 直接放行
+- 【D1 import 硬门】engine.ts importTwinGate():同茎不同扩展(X.mrc+X.mrcs)直接拒绝导入,点名冲突文件并教正确 pattern(*_DW.mrc 而非 *_DW.mrc*);multiFile 双 lane 去重同路径重复选择
+- 【D2 dispatch 侧】t335 读取结果回填 extractStarText(块检查永不缺料);分片块检查从"跳过+console note"改为拒绝(1 分片或等登录节点空闲后重试)
+- 【D3 集群侧脚本内预检】extractPreflightLines():POSIX awk(无 gawk 扩展)复刻 extractStackKey 语义(pipeliner 前缀剥离+末扩展剥离),扫描输入星表的重复行/同键孪生,COLLIDE 时 CRYOFLOW_ERR 进 run.err + exit 111(array lane 记 rc 进 RCF 由 count gate 落 .cf-exit;direct lane 自写 .cf-exit);嵌入 buildSbatchScript 的 array 分支(切 shard 后)+单任务 lane,以及 direct 模式 setsid payload
+- 【D4 卡片计数恢复】countRemoteStar():集群侧原地 awk 一轮(不下载)数星表行数+_rlnClassNumber top-3 分布;finalize 的 stayNote 替换分支(outputs 空,sync-back 失败时)前置 collectOutputs 同款计数语句 → 卡片恢复颗粒数
+- 【验证】awk 单测 16/16(孪生/重复/干净 172 微图/pipeliner 前缀/引号/无 mic 列降级/计数 top-3);E2E 28/28(mock 集群 + 真 RELION 5.0.0):D1 孪生导入拒绝 ✓、干净链 import→autopick LoG→extract shards=2 完成 ✓、卡片 728 particles extracted ✓、sbatch 脚本内嵌预检 ✓、5/5 栈字节级健康(nz>0,mode2,精确尺寸) ✓、重复行使 dispatch 拒绝(200+{error} field,row 保持原状从未运行) ✓;浏览器 10/10(lean chromium,卡片正面计数 + 孪生拒绝可见 + 零 console 错误)
+- 【OOM 战况续】4096² 真 LoG autopick(548MB RSS)+ next-server(3.0GB)在 4GB 盒不相容 → EMPIAR 真微图中心裁 1024²(仍真像素,1/16 内存)后全链稳定;next-server 编译后驻留 2.9GB,浏览器验证前须重启回收
+
+Stage Summary:
+- 提取崩溃的四道门:import 硬门(拒绝孪生数据集)→ dispatch 扫描(集群侧 star 读取回填块检查,不再跳过)→ 脚本内 awk 预检(计算节点上、二进制将读的确切字节上)→ 用户看到的永远是带机理教学的 CRYOFLOW_ERR,而非神秘的 image.h:1534
+- 卡片计数双保障:正常 lane(本地 star 回传)本就计数;sync-back 降级 lane 现以集群侧 awk 原地计数恢复同一句 collectOutputs 文案
+- 用户侧操作:git pull 后,若星表已有孪生/重复行,dispatch 会拒绝并指导用精确 pattern 重新导入;单块星 + 分片也会被拒绝

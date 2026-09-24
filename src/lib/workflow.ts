@@ -11,7 +11,7 @@
  * are lifted verbatim from gui_jobwindow.cpp.
  */
 
-import type { JobTier, JobTypeSpec, ParamSchema, ParamValue, PortKind, PortSpec } from "./types";
+import type { JobTier, JobTypeSpec, ParamSchema, ParamType, ParamValue, PortKind, PortSpec } from "./types";
 
 /**
  * Fixed job card geometry (px, in workspace coordinates).
@@ -1718,6 +1718,137 @@ export const JOB_TYPES: JobTypeSpec[] = [
   ),
 ];
 
+/* ------------------------------------------------------------------ */
+/* t374 — RELION 5.0 GUI parity: the full option-table merge            */
+/*                                                                      */
+/* Every JOB_TYPES spec gains the COMPLETE set of RELION's own GUI      */
+/* options for its type: the label/tab/default/min/max/radio/help are  */
+/* lifted verbatim from RELION 5.0.0's pipeline_jobs.cpp (option        */
+/* definitions) and gui_jobwindow.cpp (tab layout + expert toggles) —  */
+/* so a RELION user reads the same knobs in the same tabs in the same  */
+/* order with the same defaults.                                        */
+/*                                                                      */
+/* Merge rules (safety first):                                          */
+/*  1. existing curated keys are NEVER replaced — they stay the wired   */
+/*     controls (engine's builders + presets + stored DB params)        */
+/*  2. a RELION key that is a DECLARED ALIAS of a curated key (same     */
+/*     flag, different key name) is skipped — one control per knob      */
+/*  3. a RELION option whose label matches an existing curated label    */
+/*     (modulo ':'/'?') is treated as the same knob (skipped)          */
+/*  4. RELION "node" options (input STAR files wired via edges) are    */
+/*     skipped — cryoflow wires inputs through ports, not pickers      */
+/*  5. SPA specs skip tomo-only placements and vice versa (RELION's     */
+/*     if (is_tomo) branches in the window)                             */
+/*  6. C++ placeholder defaults (std::string(""), LABEL_*) sanitize    */
+/*     to ""                                                            */
+/* ------------------------------------------------------------------ */
+
+import { RELION_OPTIONS, RELION_ALIASES } from "./relion/option-tables";
+
+function relionLabelKey(s: string): string {
+  return s.toLowerCase().replace(/[?:*]/g, "").replace(/\s+/g, " ").trim();
+}
+
+/** First ~2 sentences of a RELION helptext, capped for tooltip use. */
+function relionHint(help: string): string | undefined {
+  const clean = help.replace(/\s+/g, " ").trim();
+  if (!clean) return undefined;
+  const sentences = clean.match(/[^.!?]+[.!?]+/g) ?? [clean];
+  let out = "";
+  for (const s of sentences) {
+    if (out && (out + s).length > 260) break;
+    out += s + " ";
+    if (out.length > 260) break;
+  }
+  out = out.trim() || clean.slice(0, 260);
+  return out.length > 300 ? out.slice(0, 297) + "…" : out;
+}
+
+function applyRelionParamTable(): void {
+  for (const spec of JOB_TYPES) {
+    const table = RELION_OPTIONS[spec.key];
+    if (!table) continue;
+    const isTomo = spec.group === "Tomography";
+    const skipWorld = isTomo ? "spa" : "tomo";
+    const aliased = new Set(Object.values(RELION_ALIASES[spec.key] ?? {}));
+    const have = new Set(spec.params.map((p) => p.key));
+    const labelTwin = new Set(spec.params.map((p) => relionLabelKey(p.label)));
+
+    const relionTabOrder: string[] = [];
+    for (const tab of table.tabs) {
+      let populated = spec.params.some((p) => p.tab === tab.label);
+      for (const o of tab.options) {
+        if (o.world === skipWorld) continue;
+        if (have.has(o.key) || aliased.has(o.key)) continue;
+        const def = table.options[o.key];
+        if (!def) continue;
+        // rule 3: same label under a curated name — one knob, one control
+        if (labelTwin.has(relionLabelKey(def.label))) continue;
+        // rule 4: RELION "node" options (the pipeline input STAR pickers —
+        // fn_img/fn_mic/fn_*_star …) are the EDGE-wired inputs in cryoflow;
+        // fn_cont belongs to cryoflow's own resume system. Everything else
+        // named fn_* is a real user-picked file (MTF curve, gain ref …) and
+        // stays as a path param.
+        if (
+          def.type === "path" &&
+          def.key.startsWith("fn_") &&
+          (def.key.endsWith("_star") ||
+            ["fn_img", "fn_mic", "fn_mics", "fn_movies", "fn_ref", "fn_cont", "fn_mask", "fn_half1", "fn_half2"].includes(def.key) ||
+            /^fn_(part|mic|mov)\d$/.test(def.key))
+        ) {
+          continue;
+        }
+        let dv: ParamValue;
+        if (typeof def.default === "string") {
+          // C++ placeholder defaults → ""
+          dv = /^(std::|LABEL_|CURRENT_|NODE_)/.test(def.default) ? "" : def.default;
+        } else {
+          dv = def.default;
+        }
+        const radioOptions =
+          def.type === "select" && def.radio && def.radio.length > 0 ? def.radio : undefined;
+        const schemaType: ParamType =
+          def.type === "select" && radioOptions
+            ? "select"
+            : def.type === "bool"
+              ? "bool"
+              : def.type === "number"
+                ? "number"
+                : def.type === "path"
+                  ? "path"
+                  : "text";
+        if (schemaType === "select" && !radioOptions) continue;
+        spec.params.push({
+          key: def.key,
+          label: def.label,
+          type: schemaType,
+          default: dv,
+          min: def.min,
+          max: def.max,
+          step: def.step,
+          options: radioOptions,
+          tab: tab.label,
+          advanced: o.expert,
+          hint: relionHint(def.help),
+        });
+        have.add(def.key);
+        populated = true;
+      }
+      if (populated && !relionTabOrder.includes(tab.label)) relionTabOrder.push(tab.label);
+    }
+    // tab order = RELION's own window order, with any curated-only tabs
+    // appended where they already were (relative order preserved)
+    const merged = [
+      ...relionTabOrder,
+      ...spec.tabs.filter((t) => !relionTabOrder.includes(t)),
+    ];
+    spec.tabs.length = 0;
+    spec.tabs.push(...merged);
+  }
+}
+
+applyRelionParamTable();
+
 /** Ordered group labels for stats. */
 export const JOB_GROUPS: string[] = ["SPA", "Tomography"];
 
@@ -1786,6 +1917,76 @@ export function portsCompatible(
   if (!o || !i) return false;
   const accepts = i.accepts ?? ["*"];
   return accepts.includes("*") || (o.kind != null && accepts.includes(o.kind));
+}
+
+/* ------------------------------------------------------------------ */
+/* Quick next-step suggestions (t383)                                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * One candidate "continue this pipeline" step: the target job type plus
+ * the port pair the auto-wire will use.
+ */
+export interface NextStep {
+  /** Target job type key (JOB_TYPES entry). */
+  type: string;
+  /** Human label (same string the palette shows). */
+  label: string;
+  /** Lucide icon NAME (resolved through <TypeIcon>). */
+  icon: string;
+  /** Source output port name (evaluated against the live params). */
+  fromPort: string;
+  /** Target input port name. */
+  toPort: string;
+  /** Short port-pair caption for the menu row (e.g. "micrographs → CTF"). */
+  caption: string;
+}
+
+/**
+ * Every job type that can legally consume this job type's (current)
+ * outputs — the card context menu's "Add next step…" list. The source's
+ * `when` predicates run against the LIVE params, so an Import set to
+ * "Movies" only offers MotionCorr (never CTF), exactly like dragging a
+ * wire out of the port by hand. Catalog order = pipeline order, which is
+ * also the menu order RELION users expect (import → motion → CTF → …).
+ */
+export function nextStepsFor(
+  fromType: string,
+  params?: Record<string, ParamValue>
+): NextStep[] {
+  const from = jobType(fromType);
+  if (!from) return [];
+  const outs = visibleOutputs(from, params);
+  if (outs.length === 0) return [];
+  const steps: NextStep[] = [];
+  for (const candidate of JOB_TYPES) {
+    // same-type chaining is LEGAL and common in RELION (class3d → class3d
+    // re-classification, refine3d → refine3d progressive refinement), so
+    // the source type itself stays a candidate whenever its own input can
+    // consume its output; types with no inputs simply never match
+    let hit: { fromPort: string; toPort: string; caption: string } | null = null;
+    for (const o of outs) {
+      for (const i of candidate.inputs) {
+        const accepts = i.accepts ?? ["*"];
+        if (accepts.includes("*") || (o.kind != null && accepts.includes(o.kind))) {
+          hit = { fromPort: o.name, toPort: i.name, caption: `${o.name} → ${i.name}` };
+          break;
+        }
+      }
+      if (hit) break;
+    }
+    if (hit) {
+      steps.push({
+        type: candidate.key,
+        label: candidate.label,
+        icon: candidate.icon,
+        fromPort: hit.fromPort,
+        toPort: hit.toPort,
+        caption: hit.caption,
+      });
+    }
+  }
+  return steps;
 }
 
 /**

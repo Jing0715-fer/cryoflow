@@ -10,7 +10,14 @@
 #
 # Usage (single tool call!):
 #   bash scripts/dev-server.sh; sleep 14; curl -sf localhost:3000/api/jobs >/dev/null && echo UP
-cd /home/z/my-project || exit 1
+#
+# t377 — CRYOFLOW_TRUST_GATEWAY=1 opts the http-guard into the
+# gateway-forwarded lane (served-behind-a-reverse-proxy deployments);
+# unset it for the strict local-companion defaults.
+
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$REPO_ROOT" || exit 1
+
 # already up? then do nothing
 if curl -sf -o /dev/null --max-time 3 http://localhost:3000/api/jobs; then
   echo "already running"
@@ -24,5 +31,12 @@ sleep 1
 # the kernel OOM-kills next-server mid-QA. Cap the old space so V8 GCs
 # aggressively instead — a slow collect beats a SIGKILL.
 export NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--max-old-space-size=896"
+# t377 — HARD overrides: the sandbox tool environment itself exports a
+# TEMPLATE DATABASE_URL (my-project's custom.db); `${VAR:-…}` passthrough
+# would poison Prisma into a User/Post-only database. These two are always
+# pinned to THIS repo's own paths.
+export DATABASE_URL="file:$REPO_ROOT/db/cryoflow.db"
+export CRYOFLOW_DATA_DIR="$REPO_ROOT/data"
+export CRYOFLOW_TRUST_GATEWAY=1
 setsid bun run dev > /dev/null 2>&1 < /dev/null &
 # this script exits immediately → server re-parents to init → survives

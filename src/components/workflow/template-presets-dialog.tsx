@@ -863,7 +863,15 @@ export function TemplatePresetsDialog() {
             (Export all / Clear) arms in the header once there are ≥ 2. */}
         <CustomTemplatesSection onEditingChange={setShelfEditing} />
 
-        <DialogFooter className="items-center gap-2 sm:justify-between">
+        {/* t383 — sticky footer: the dialog's content (presets + knobs +
+            shelf) outgrows short viewports; with the base DialogContent now
+            scrolling internally (ui/dialog.tsx), the action row pins to the
+            bottom so Create/Cancel stay visible without scrolling. The
+            negative margins bleed the strip across the content's p-6 and
+            the border-t draws the fold; on tall viewports sticky never
+            engages (the footer's natural position is already the last
+            element) so the dialog looks exactly as before. */}
+        <DialogFooter className="sticky bottom-0 z-10 -mx-6 -mb-6 items-center gap-2 border-t bg-background px-6 py-3 sm:justify-between">
           <p className="text-[10px] text-muted-foreground">
             {restored && (
               <span className="mr-1.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium text-primary">

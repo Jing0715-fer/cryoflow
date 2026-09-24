@@ -205,7 +205,7 @@ print(
 )
 
 
-def write_mrc(path, nx, ny, nz, seed):  # noqa: F811 — legacy writer (kept for byte-compat)
+def write_mrc(path, nx, ny, nz, seed, kind="volume"):  # noqa: F811 — legacy writer (kept for byte-compat; t377-merge keeps the t373 kind= polarity hint)
     """Minimal valid MRC (mode 2, float32) — enough for header readers.
 
     t311: the header offsets now follow the REAL MRC2014 layout — MODE is
@@ -216,11 +216,52 @@ def write_mrc(path, nx, ny, nz, seed):  # noqa: F811 — legacy writer (kept for
     into the NXSTART slot; the app's lenient montage path still drew tiles,
     but every honest header reader (readMrcHeader's own dims, Mol*, real
     RELION) read a 64x2x64 sliver. The fake's dialect now reaches the header.
+
+    t373: 2D CLASS AVERAGES (kind="classes") now carry the RELION display
+    convention — a BRIGHT (positive) particle blob on a darker background,
+    exactly what a real relion_refine class2d produces after its fitted
+    per-particle contrast sigma flips cryo's dark-protein signal into the
+    reference's positive convention. The old uniform noise made every class
+    tile look "wrong" next to real output (the user's black-particle
+    report's mock-lane cousin). Each class keeps its own seed so two
+    classes never render identical (zeroData stays honestly absent), and
+    the blob's size/shape varies per class like real averages do.
     """
+    import math
+
     data = bytearray()
-    for k in range(nx * ny * nz):
-        v = ((seed * 1103515245 + k * 12345) % 1000) / 1000.0 - 0.5
-        data += struct.pack("<f", v)
+    dmin, dmax, dsum = 1e30, -1e30, 0.0
+    if kind == "classes":
+        # per-class blob: radius + wobble derive from the seed
+        rad = 0.22 + ((seed * 7919) % 100) / 1000.0     # 0.22–0.32 of the box
+        wob = ((seed * 104729) % 100) / 100.0           # shape wobble 0–1
+        cx = nx / 2.0 + (((seed * 31) % 100) - 50) / 400.0
+        cy = ny / 2.0 + (((seed * 47) % 100) - 50) / 400.0
+        for z in range(nz):
+            # every slice its own sub-seed (class index lives in the seed)
+            sub = seed * 613 + z * 977
+            for y in range(ny):
+                for x in range(nx):
+                    dx = (x - cx) / (nx * rad)
+                    dy = (y - cy) / (ny * rad)
+                    r2 = dx * dx + dy * dy
+                    blob = math.exp(-3.0 * r2) * (1.0 + 0.15 * math.sin(6.0 * dx + sub % 7))
+                    ring = 0.25 * math.exp(-14.0 * (r2 - 0.55) ** 2) * wob
+                    noise = ((sub * 1103515245 + (z * nx * ny + y * nx + x) * 12345) % 1000) / 1000.0 - 0.5
+                    v = 0.35 * blob + 0.12 * ring + 0.08 * noise - 0.04
+                    data += struct.pack("<f", v)
+                    if v < dmin: dmin = v
+                    if v > dmax: dmax = v
+                    dsum += v
+    else:
+        for k in range(nx * ny * nz):
+            v = ((seed * 1103515245 + k * 12345) % 1000) / 1000.0 - 0.5
+            data += struct.pack("<f", v)
+            if v < dmin: dmin = v
+            if v > dmax: dmax = v
+            dsum += v
+    n = nx * ny * nz
+    dmean = dsum / n if n else 0.0
     header = bytearray(1024)
     struct.pack_into("<3i", header, 0, nx, ny, nz)          # NX,NY,NZ
     struct.pack_into("<i", header, 12, 2)                   # MODE float32 (word 3)
@@ -229,7 +270,7 @@ def write_mrc(path, nx, ny, nz, seed):  # noqa: F811 — legacy writer (kept for
     struct.pack_into("<3f", header, 40, float(nx), float(ny), float(nz))  # CELLA
     struct.pack_into("<3f", header, 52, 90.0, 90.0, 90.0)   # CELLB angles
     struct.pack_into("<3i", header, 64, 1, 2, 3)            # MAPC, MAPR, MAPS
-    struct.pack_into("<3f", header, 76, -0.5, 0.5, 0.0)     # DMIN, DMAX, DMEAN
+    struct.pack_into("<3f", header, 76, dmin, dmax, dmean)   # DMIN, DMAX, DMEAN (t373: real stats)
     struct.pack_into("<i", header, 88, 1)                   # ISPG
     struct.pack_into("<i", header, 92, 0)                   # NSYMBT (no extended header)
     struct.pack_into("<3f", header, 96, 0.0, 0.0, 0.0)      # ORIGIN
@@ -311,10 +352,12 @@ for it in range(1, iters + 1):
                 img = f"{n}@{rebase_ref(stack)}"
             cls = (p * 7 + it) % ncls + 1
             fh.write(f"{img}\t{cls}\t{p * 13.0:.1f}\t{90.0 - p}.2\t{p * 3.0:.1f}\n")
+    is2d = mode in ("classify2d",)
     # t380 — REAL class averages: mean of this iteration's member crops
     # (assignment formula unchanged, so data.star and class membership stay
     # in lockstep), flattened solvent + the dead-zone amplitude preset.
-    # Legacy LCG classes stay byte-identical when real_mode is off.
+    # Legacy LCG classes stay byte-identical when real_mode is off
+    # (t377-merge: the legacy lane keeps the t373 kind= polarity hint).
     _weak = cf_cryo.weak_class_preset(ncls) if (real_mode and cf_cryo) else set()
     _class_imgs = []
     for c in range(1, ncls + 1):
@@ -331,7 +374,7 @@ for it in range(1, iters + 1):
             cf_cryo.write_mrc(os.path.join(outdir, f"run_it{its}_class{c:03d}.mrc"), _box_dim, _box_dim, 1, img)
             _class_imgs.append(img)
         else:
-            write_mrc(os.path.join(outdir, f"run_it{its}_class{c:03d}.mrc"), 64, 64, 1, c * 31 + it)
+            write_mrc(os.path.join(outdir, f"run_it{its}_class{c:03d}.mrc"), 64, 64, 1, c * 31 + it, kind="classes" if is2d else "volume")
     # t350 — per-iteration 2D class-average STACK (run_it###_classes.mrcs):
     # what a REAL relion_refine class2d writes every iteration and what the
     # live class gallery renders slice-by-slice. One file, nz = ncls, each
@@ -348,7 +391,7 @@ for it in range(1, iters + 1):
             _real_np.stack(_class_imgs),
         )
     else:
-        write_mrc(os.path.join(outdir, f"run_it{its}_classes.mrcs"), 64, 64, ncls, 4096 + it)
+        write_mrc(os.path.join(outdir, f"run_it{its}_classes.mrcs"), 64, 64, ncls, 4096 + it, kind="classes" if is2d else "volume")
     # E2E extension (2026-09 review): REAL relion_refine in 3D mode also
     # writes per-iteration half-maps + an optimiser.star. The app's
     # REFINE_FAMILY_CANDIDATES (engine.ts) expect run_it###_half1_class###.mrc
