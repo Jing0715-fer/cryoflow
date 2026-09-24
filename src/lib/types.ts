@@ -195,6 +195,15 @@ export interface ParamSchema {
    * folder tab — RELION Import style.
    */
   filePick?: boolean;
+  /**
+   * t381 — conditional visibility, the RELION GUI's grouped options in
+   * data form: this parameter only renders (and only rides the argv) when
+   * the sibling param named `param` currently equals `equals`. One level
+   * of nesting is supported (a gated param may itself gate others) — the
+   * panel resolves the chain against the job's live values with
+   * default-fallback, exactly like RELION's TOGGLE_DEACTIVATE groups.
+   */
+  showIf?: { param: string; equals: ParamValue };
 }
 
 /* ------------------------------------------------------------------ */
