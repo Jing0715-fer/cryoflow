@@ -339,6 +339,10 @@ export const JOB_TYPES: JobTypeSpec[] = [
       num("cs", "Spherical aberration", 2.7, { unit: "mm", step: 0.1, tab: "Movies/mics" }),
       num("ampContrast", "Amplitude contrast", 0.1, { step: 0.01, min: 0.01, max: 0.3, tab: "Movies/mics" }),
       num("totalDose", "Total exposure dose", 25, { unit: "e⁻/Å²", step: 0.5, advanced: true, tab: "Movies/mics" }),
+      bool("negativeStain", "Negative-stain images (particles appear white)", false, {
+        tab: "Movies/mics",
+        hint: "Cryo (default): protein is denser than ice — particles are DARK in micrographs and below-mean in class averages, so displays AUTO-INVERT them to the familiar white-on-black (RELION convention). Negative stain: heavy metal darkens the background and particles stay BRIGHT — checking this pins every downstream gallery, particle and map render to the no-flip polarity.",
+      }),
     ],
     "{n} micrographs imported",
     "core",

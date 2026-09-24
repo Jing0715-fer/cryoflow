@@ -9,6 +9,7 @@ import {
   STACK_NAME_RE,
 } from "@/lib/remote/iteration-live";
 import { renderMrcSlicePng } from "@/lib/mrc";
+import { displayPolarityFor } from "@/lib/render-polarity";
 import path from "path";
 
 export const dynamic = "force-dynamic";
@@ -51,9 +52,13 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
     if (!run?.workdir) {
       return NextResponse.json({ error: "No workdir for this job" }, { status: 400 });
     }
+    // t380 — display polarity pinned by the dataset's import job
+    // (negative-stain checkbox). Keyed into the PNG cache so toggling it
+    // re-renders instead of serving stale wrong-polarity bytes.
+    const polarity = await displayPolarityFor(job);
 
     // fast path: already rendered (either leg)
-    const cached = readCachedSlicePng(job.id, file, slice);
+    const cached = readCachedSlicePng(job.id, file, slice, polarity);
     if (cached) {
       return new NextResponse(new Uint8Array(cached), {
         headers: { "Content-Type": "image/png", "Cache-Control": "private, max-age=300" },
@@ -70,7 +75,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
     // twice. Only a local-only run keeps the honest 400.
     const localPath = path.join(run.workdir, file);
     if (localStackExists(run.workdir, file)) {
-      const png = await renderMrcSlicePng(localPath, slice);
+      const png = await renderMrcSlicePng(localPath, slice, undefined, polarity);
       if (png) {
         return new NextResponse(new Uint8Array(png), {
           headers: { "Content-Type": "image/png", "Cache-Control": "private, max-age=300" },
@@ -96,6 +101,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
       return NextResponse.json({ error: "class stack not available locally" }, { status: 404 });
     }
     const assets = await ensureIterationAssets(r.connectionId, r.remoteWorkdir, job.id, file, {
+      polarity,
       // t367 — heal the mirror copy in place when the pull lands good bytes
       ...(localStackExists(run.workdir, file) ? { healMirrorPath: localPath } : {}),
     });
@@ -108,7 +114,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
     if (slice >= assets.slices) {
       return NextResponse.json({ error: `slice ${slice} outside this stack (${assets.slices} slices)` }, { status: 400 });
     }
-    const png = readCachedSlicePng(job.id, file, slice);
+    const png = readCachedSlicePng(job.id, file, slice, polarity);
     if (!png) {
       return NextResponse.json({ error: "rendering produced no image" }, { status: 500 });
     }

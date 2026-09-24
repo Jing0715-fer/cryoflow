@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { existsSync, statSync } from "fs";
 import path from "path";
 import { findEffectiveJob } from "@/lib/link";
+import { polarityFromParams } from "@/lib/render-polarity";
 import { getRun } from "@/lib/relion/engine";
 import { getProjectMeta } from "@/lib/projects";
 import { cachedFileCompute } from "@/lib/relion/statcache";
@@ -243,7 +244,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
           );
         }
         const full = url.searchParams.get("full") === "1";
-        const r = await remotePreviewPng(connId, preview, full ? "large" : "thumb");
+        // t380 — display polarity pinned by THIS import job's negative-stain
+        // checkbox (the micrographs door is import-owned: job.type is import)
+        const polarity = polarityFromParams(job.params);
+        const r = await remotePreviewPng(connId, preview, full ? "large" : "thumb", polarity);
         if (!r.ok) {
           return NextResponse.json({ error: r.error }, { status: r.status });
         }

@@ -44,7 +44,7 @@ import path from "path";
 import { DATA_DIR } from "@/lib/paths";
 import { getConnection } from "./connections";
 import { exec, remoteDownload, shQuote } from "./ssh";
-import { decodeRawVoxels, renderDecimatedPng, renderMrcLargePng, renderMrcSlicePng } from "@/lib/mrc";
+import { decodeRawVoxels, renderDecimatedPng, renderMrcLargePng, renderMrcSlicePng, type MrcPolarity } from "@/lib/mrc";
 import { sniffImageFile, type SniffVerdict } from "@/lib/relion/mrc-sniff";
 
 /** Where thumbnails + transient fetches live (under the app data root). */
@@ -441,11 +441,15 @@ const rendering = new Map<string, Promise<RemotePreviewResult>>();
 export async function remotePreviewPng(
   connectionId: string,
   clusterPath: string,
-  scale: "thumb" | "large" = "thumb"
+  scale: "thumb" | "large" = "thumb",
+  /** t380 — display polarity pinned by the import job's negative-stain
+   * checkbox; keys the PNG cache so the two polarities never collide. */
+  polarity?: MrcPolarity
 ): Promise<RemotePreviewResult> {
   const suffix = scale === "large" ? ".large" : "";
+  const nsSuffix = polarity === "negativeStain" ? ".ns" : "";
   const key = cacheKey(connectionId, clusterPath);
-  const cached = path.join(PREVIEW_DIR, `${key}${suffix}.png`);
+  const cached = path.join(PREVIEW_DIR, `${key}${suffix}${nsSuffix}.png`);
   try {
     if (existsSync(cached)) {
       const png = await readCachedPng(cached);
@@ -454,7 +458,7 @@ export async function remotePreviewPng(
   } catch {
     /* fall through to a fresh render */
   }
-  const inFlightKey = `${connectionId}:${scale}:${clusterPath}`;
+  const inFlightKey = `${connectionId}:${scale}:${polarity ?? "auto"}:${clusterPath}`;
   const existing = rendering.get(inFlightKey);
   if (existing) return existing;
   const task = (async (): Promise<RemotePreviewResult> => {
@@ -473,7 +477,7 @@ export async function remotePreviewPng(
     const sliceSel = scale === "large" ? "first" : "mid";
     const dec = await remoteDecimatedFetch(connectionId, clusterPath, maxW, sliceSel);
     if (dec) {
-      const png = await renderDecimatedPng(dec.grid.data, dec.grid.width, dec.grid.height, maxW);
+      const png = await renderDecimatedPng(dec.grid.data, dec.grid.width, dec.grid.height, maxW, undefined, polarity);
       if (png) {
         try {
           writeFileSync(cached, png);
@@ -504,8 +508,8 @@ export async function remotePreviewPng(
       }
       const png =
         scale === "large"
-          ? await renderMrcLargePng(mrc, 0, undefined)
-          : await renderMrcSlicePng(mrc, undefined, undefined);
+          ? await renderMrcLargePng(mrc, 0, undefined, polarity)
+          : await renderMrcSlicePng(mrc, undefined, undefined, polarity);
       if (!png) {
         return { ok: false, error: "could not render this MRC file", status: 400 };
       }
