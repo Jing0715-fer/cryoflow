@@ -696,6 +696,35 @@ function markStackZeroData(jobId: string, stackName: string, flat: boolean): voi
   }
 }
 
+/** t382 — the per-stack MEASURED nz marker (the render pass parsed this
+ * stack's header when it pulled it; the marker lets a completed job's
+ * chips bar keep the t370 zero-header badge on measured evidence).
+ * 0 is a legitimate verdict — the corruption shape — so the marker is
+ * written for EVERY successfully pulled stack, healthy or not. */
+function nzMarkerPath(jobId: string, stackName: string): string {
+  return path.join(liveStackDir(jobId, stackName), ".nz");
+}
+
+/** the measured nz, or null when this stack was never pulled+rendered */
+function stackMeasuredNz(jobId: string, stackName: string): number | null {
+  try {
+    const n = Number(readFileSync(nzMarkerPath(jobId, stackName), "utf8").trim());
+    return Number.isFinite(n) && n >= 0 ? n : null;
+  } catch {
+    return null;
+  }
+}
+
+/** persist the measured nz next to the round's rendered PNGs (best-effort) */
+function markStackNz(jobId: string, stackName: string, nz: number): void {
+  try {
+    mkdirSync(liveStackDir(jobId, stackName), { recursive: true });
+    writeFileSync(nzMarkerPath(jobId, stackName), String(nz));
+  } catch {
+    /* best-effort — the render itself is the primary product */
+  }
+}
+
 /**
  * t370 — is this MRC stack's data ONE FLAT VALUE in every sampled slice
  * (dynamic range ~0)? The "black classes" field report: a stack whose
@@ -738,13 +767,29 @@ export function mrcStackDataIsFlat(p: string): boolean {
   return probes.every(sliceIsFlat);
 }
 
-/** overlay the persisted zero-data verdicts onto a chips-bar list */
+/** overlay the persisted zero-data verdicts onto a chips-bar list.
+ * t382 — the overlay now also carries the MEASURED nz: the render pass
+ * parsed this stack's header when it pulled it, and the .nz marker
+ * persists that number so a COMPLETED job's chips still badge the
+ * zero-header disease (nz=0) from measured evidence instead of
+ * "unmeasured". A caller-stamped nz (the live od sniff, the local
+ * mirror's own header read) always outranks the marker. */
 function withZeroDataFlags(entries: StackEntry[], jobId: string): StackEntry[] {
   let any = false;
   const out = entries.map((s) => {
-    if (!stackZeroData(jobId, s.file)) return s;
-    any = true;
-    return { ...s, zeroData: true };
+    let next = s;
+    if (next.nz == null) {
+      const measured = stackMeasuredNz(jobId, s.file);
+      if (measured != null) {
+        next = { ...next, nz: measured };
+        any = true;
+      }
+    }
+    if (!next.zeroData && stackZeroData(jobId, s.file)) {
+      next = { ...next, zeroData: true };
+      any = true;
+    }
+    return next;
   });
   return any ? out : entries;
 }
@@ -848,6 +893,11 @@ export async function ensureIterationAssets(
         stackFlat = false;
       }
       markStackZeroData(jobId, stackName, stackFlat);
+      // t382 — the header nz THIS pull parsed persists as the .nz marker:
+      // after the run finishes, the chips bar still carries the measured
+      // nz (the zero-header badge survives the live phase). 0 is written
+      // exactly when the corruption shape was pulled — the badge speaks.
+      markStackNz(jobId, stackName, hdr.nz);
       if (stackFlat) {
         console.log(
           `iteration-live: ${stackName} of job ${jobId} came home with ZERO dynamic range — every sampled slice one flat value; the gallery badges this round (t370)`

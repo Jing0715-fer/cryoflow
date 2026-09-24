@@ -205,7 +205,7 @@ print(
 )
 
 
-def write_mrc(path, nx, ny, nz, seed):
+def write_mrc(path, nx, ny, nz, seed):  # noqa: F811 — legacy writer (kept for byte-compat)
     """Minimal valid MRC (mode 2, float32) — enough for header readers.
 
     t311: the header offsets now follow the REAL MRC2014 layout — MODE is
@@ -240,6 +240,51 @@ def write_mrc(path, nx, ny, nz, seed):
     with open(path, "wb") as fh:
         fh.write(header)
         fh.write(bytes(data))
+
+
+# ---- t382 — the SEED ROUND (it000) ----------------------------------------
+# Real RELION writes run_it000_* at startup — the INITIAL RANDOM CLASS
+# AVERAGES before any EM step. This is the exact file whose zero-header
+# copy on the user's cluster triggered t369/t370 (byte size RIGHT, header
+# words ALL ZERO). The mock never wrote it — an honesty gap that made the
+# sandbox unable to speak to the field report at all. Now BOTH lanes write
+# it, byte-layout identical to every other round, so the header verifier
+# (diag-t382) can assert what the field needs to hear: a healthy cluster
+# lane NEVER produces a zero header — it000 included.
+print(" it [000]  :   initial random class averages (seed round, t382)")
+sys.stdout.flush()
+with open(os.path.join(outdir, "run_it000_data.star"), "w") as fh:
+    fh.write("\ndata_particles\n\nloop_\n")
+    fh.write("_rlnImageName #1\n")
+    fh.write("_rlnClassNumber #2\n")
+    for p, r in enumerate(rows):
+        img = r.split()[0]
+        if "@" in img:
+            n, stack = img.split("@", 1)
+            img = f"{n}@{rebase_ref(stack)}"
+        cls = (p * 7 + 0) % ncls + 1
+        fh.write(f"{img}\t{cls}\t{p * 13.0:.1f}\t{90.0 - p}.2\t{p * 3.0:.1f}\n")
+if real_mode and cf_cryo:
+    import numpy as _seed_np
+    _seed_imgs = []
+    for c in range(1, ncls + 1):
+        members = [
+            _v[_si]
+            for p, (_v, _si) in enumerate(real_boxes)
+            if (p * 7 + 0) % ncls + 1 == c
+        ]
+        _seed_imgs.append(cf_cryo.class_image(_box_dim, members, amp=1.0, seed=c * 31))
+    cf_cryo.write_mrc(
+        os.path.join(outdir, "run_it000_classes.mrcs"),
+        _box_dim,
+        _box_dim,
+        ncls,
+        _seed_np.stack(_seed_imgs),
+    )
+else:
+    write_mrc(os.path.join(outdir, "run_it000_classes.mrcs"), 64, 64, ncls, 4096)
+with open(os.path.join(outdir, "run_it000_optimiser.star"), "w") as fh:
+    fh.write(f"\ndata_optimiser\n\n_rlnCurrentIteration 0\n_rlnNumberOfClasses {ncls}\n")
 
 
 for it in range(1, iters + 1):
@@ -337,7 +382,15 @@ def copy_final(src, dst):
 
 
 final_classes = os.path.join(outdir, "run_classes.mrcs")
-copy_final(os.path.join(outdir, f"run_it{iters:03d}_class001.mrc"), final_classes)
+if real_mode and cf_cryo:
+    # t382 — real RELION's final alias is the FULL K-slice stack (the last
+    # round's run_it###_classes.mrcs, byte-identical copy). The old class001
+    # single-slice dialect (a mock invention) made a K=10 project's final
+    # "classes" file carry ONE class — an abnormal artifact the field would
+    # rightly flag. Legacy synthetic lanes keep the old bytes untouched.
+    copy_final(os.path.join(outdir, f"run_it{iters:03d}_classes.mrcs"), final_classes)
+else:
+    copy_final(os.path.join(outdir, f"run_it{iters:03d}_class001.mrc"), final_classes)
 final_data = os.path.join(outdir, "run_data.star")
 copy_final(os.path.join(outdir, f"run_it{iters:03d}_data.star"), final_data)
 with open(os.path.join(outdir, "run_model.star"), "w") as fh:

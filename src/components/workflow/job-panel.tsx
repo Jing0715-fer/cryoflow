@@ -7,8 +7,8 @@
  *  - Header: identity (icon / name / close), status + engine badges,
  *    description, action row (Run / Reset / Log / Delete), live progress.
  *  - Body tabs: I/O (port-by-port connections) · Params (RELION GUI tabs
- *    with expert collapsibles) · Results (JobResults viewer) · Log (inline
- *    engine log tail).
+ *    with group frames — t382: every parameter visible, no folds) ·
+ *    Results (JobResults viewer) · Log (inline engine log tail).
  *
  * The panel body remounts per job (key={job.id}) so every form resets when
  * switching selection.
@@ -22,7 +22,6 @@ import {
   ChevronDown,
   Server,
   Check,
-  ChevronsDownUp,
   CircleAlert,
   CloudUpload,
   Database,
@@ -72,7 +71,6 @@ import { Badge } from "@/components/ui/badge";
 import { HpcSbatchDialog } from "./hpc-sbatch-dialog";
 import { RemoteRunButton } from "./remote-run-button";
 import { Button } from "@/components/ui/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -509,6 +507,18 @@ function IOTab({ job, spec }: { job: JobDTO; spec: JobTypeSpec | undefined }) {
 /* Params tab (RELION GUI simulation)                                   */
 /* ------------------------------------------------------------------ */
 
+/**
+ * t382 — the RELION job-window ROW: one label + one control per row —
+ * the label column fixed-width and right-aligned, the control filling
+ * the rest — the exact geometry of RELION's gui_jobwindow.cpp (every
+ * option packs as a label-left / entry-right row inside a group frame).
+ * The old two-column card grid mixed col-span-2 items into ragged rows
+ * and hid the expert options behind a collapsed toggle; the row layout
+ * shows EVERY parameter directly (the user's 取消折叠、所有参数直接显示).
+ * Hints ride the title tooltip (RELION's own affordance) so 20+ rows stay
+ * scannable; advanced labels tone down one notch to keep the groups
+ * readable at a glance.
+ */
 function ParamField({
   p,
   value,
@@ -521,32 +531,33 @@ function ParamField({
   idPrefix: string;
 }) {
   const inputId = `${idPrefix}-${p.key}`;
-  const wide = p.type === "select" || p.type === "bool" || p.type === "path" || p.type === "text";
 
   return (
-    <div className={cn("space-y-1.5", wide && "col-span-2")}>
-      {p.type === "bool" ? (
-        <div
-          className="flex items-center justify-between gap-3 rounded-lg border bg-secondary/40 px-3 py-2"
-          title={p.hint}
-        >
-          <Label htmlFor={inputId} className="text-xs font-normal leading-snug">
-            {p.label}
-          </Label>
-          <Switch
-            id={inputId}
-            checked={value === true}
-            onCheckedChange={(c) => onChange(c)}
-            aria-label={p.label}
-          />
-        </div>
-      ) : p.type === "path" ? (
-        <PathParamField p={p} value={value} onChange={onChange} idPrefix={idPrefix} />
-      ) : p.type === "text" ? (
-        <>
-          <Label htmlFor={inputId} className="text-xs" title={p.hint}>
-            {p.label}
-          </Label>
+    <div className="grid grid-cols-[104px_minmax(0,1fr)] items-start gap-x-2.5 sm:grid-cols-[136px_minmax(0,1fr)]">
+      <Label
+        htmlFor={inputId}
+        title={p.hint}
+        className={cn(
+          "text-xs font-normal leading-snug",
+          p.advanced ? "text-muted-foreground" : "text-foreground/90",
+          p.type === "bool" ? "pt-2.5" : "pt-1.5"
+        )}
+      >
+        {p.label}
+      </Label>
+      <div className="min-w-0">
+        {p.type === "bool" ? (
+          <div className="flex h-8 items-center justify-end">
+            <Switch
+              id={inputId}
+              checked={value === true}
+              onCheckedChange={(c) => onChange(c)}
+              aria-label={p.label}
+            />
+          </div>
+        ) : p.type === "path" ? (
+          <PathParamField p={p} value={value} onChange={onChange} idPrefix={idPrefix} />
+        ) : p.type === "text" ? (
           <Input
             id={inputId}
             type="text"
@@ -556,15 +567,7 @@ function ParamField({
             onChange={(e) => onChange(e.target.value)}
             className="h-8 font-mono text-xs"
           />
-          {p.hint && (
-            <p className="text-[10px] leading-snug text-muted-foreground">{p.hint}</p>
-          )}
-        </>
-      ) : p.type === "number" ? (
-        <>
-          <Label htmlFor={inputId} className="text-xs" title={p.hint}>
-            {p.label}
-          </Label>
+        ) : p.type === "number" ? (
           <div className="relative">
             <Input
               id={inputId}
@@ -583,12 +586,7 @@ function ParamField({
               </span>
             )}
           </div>
-        </>
-      ) : (
-        <>
-          <Label htmlFor={inputId} className="text-xs" title={p.hint}>
-            {p.label}
-          </Label>
+        ) : (
           <Select value={String(value)} onValueChange={(v) => onChange(v)}>
             <SelectTrigger id={inputId} className="h-8 text-xs" title={p.hint}>
               <SelectValue />
@@ -601,8 +599,8 @@ function ParamField({
               ))}
             </SelectContent>
           </Select>
-        </>
-      )}
+        )}
+      </div>
     </div>
   );
 }
@@ -668,12 +666,12 @@ function PathParamField({
   ).size;
 
   return (
-    <div className="space-y-1.5">
-      <Label htmlFor={inputId} className="text-xs" title={p.hint}>
-        {p.label}
-      </Label>
+    // t382 — the row's Label lives in ParamField's label column now; this
+    // control owns only the entry side (textarea + browse button, or the
+    // t311 multi-file summary that keeps a 400-file pick off the panel)
+    <div className="w-full space-y-1.5">
       <div className="flex items-start gap-1.5">
-        {collapsed ? (
+      {collapsed ? (
           <div
             className="flex-1 rounded-md border bg-secondary/30 px-2.5 py-2"
             role="group"
@@ -982,7 +980,7 @@ function ParamsTab({
         const advanced = inTab.filter((p) => p.advanced);
         return (
           <TabsContent key={t} value={t} className="mt-0 min-h-0 flex-1 overflow-y-auto">
-            <div className="p-3">
+            <div className="space-y-3 p-3">
               {/* 2D class selection: the gallery IS the parameter — clicks
                   rewrite selectedClasses through the same debounced save */}
               {spec?.key === "select2d" && t === allTabs[0] && (
@@ -997,48 +995,47 @@ function ParamsTab({
                   onClassFocusConsumed={onClassFocusConsumed}
                 />
               )}
-              <div className="grid grid-cols-2 gap-3">
-                {basic.map((p) => (
-                  <ParamField
-                    key={p.key}
-                    p={p}
-                    value={form[p.key] ?? p.default}
-                    onChange={(v) => setForm((f) => ({ ...f, [p.key]: v }))}
-                    idPrefix={`param-${job.id}`}
-                  />
-                ))}
-              </div>
-              {basic.length === 0 && advanced.length > 0 && (
-                <p className="text-[11px] italic text-muted-foreground/70">
-                  All parameters in this tab are expert options.
+              {inTab.length === 0 && (
+                <p className="px-1 py-6 text-center text-[11px] text-muted-foreground">
+                  No visible parameters in this tab — the group switches (e.g. the Helix
+                  toggle) gate the family on.
                 </p>
               )}
+              {basic.length > 0 && (
+                <fieldset className="rounded-md border px-3 pb-3 pt-1">
+                  <legend className="px-1.5 text-[11px] font-medium text-muted-foreground">
+                    Basic options
+                  </legend>
+                  <div className="space-y-2">
+                    {basic.map((p) => (
+                      <ParamField
+                        key={p.key}
+                        p={p}
+                        value={form[p.key] ?? p.default}
+                        onChange={(v) => setForm((f) => ({ ...f, [p.key]: v }))}
+                        idPrefix={`param-${job.id}`}
+                      />
+                    ))}
+                  </div>
+                </fieldset>
+              )}
               {advanced.length > 0 && (
-                <Collapsible className="mt-3">
-                  <CollapsibleTrigger className="group/collapsible relative flex w-full items-center gap-1.5 rounded-md px-1 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground before:absolute before:inset-x-0 before:-inset-y-2.5 before:content-['']">
-                    <ChevronsDownUp
-                      className="size-3.5 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-180"
-                      aria-hidden="true"
-                    />
-                    Expert options
-                    <span className="ml-auto tabular-nums text-muted-foreground/70">
-                      {advanced.length}
-                    </span>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="pt-2">
-                    <div className="grid grid-cols-2 gap-3">
-                      {advanced.map((p) => (
-                        <ParamField
-                          key={p.key}
-                          p={p}
-                          value={form[p.key] ?? p.default}
-                          onChange={(v) => setForm((f) => ({ ...f, [p.key]: v }))}
-                          idPrefix={`param-${job.id}`}
-                        />
-                      ))}
-                    </div>
-                  </CollapsibleContent>
-                </Collapsible>
+                <fieldset className="rounded-md border border-border/70 px-3 pb-3 pt-1">
+                  <legend className="px-1.5 text-[11px] font-medium italic text-muted-foreground">
+                    Expert options · {advanced.length}
+                  </legend>
+                  <div className="space-y-2">
+                    {advanced.map((p) => (
+                      <ParamField
+                        key={p.key}
+                        p={p}
+                        value={form[p.key] ?? p.default}
+                        onChange={(v) => setForm((f) => ({ ...f, [p.key]: v }))}
+                        idPrefix={`param-${job.id}`}
+                      />
+                    ))}
+                  </div>
+                </fieldset>
               )}
             </div>
           </TabsContent>
@@ -1384,7 +1381,14 @@ function PanelBody({ job }: { job: JobDTO }) {
   );
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col">
+    // t382 — the panel COLUMN scrolls as a whole when the viewport is
+    // short: the header and the command preview stay shrink-0, the body
+    // tabs carry a min-h floor (the t372 starvation fix, restored — it
+    // was lost in a later round and the params area collapsed to ~59px
+    // at 1280×577 with the preview eating the panel) and the tab bar
+    // sticks to the top of the scroll so switching tabs never needs a
+    // scroll-up first.
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-y-auto">
       {job.linkedJobId != null && (
         <div
           role="note"
@@ -1651,7 +1655,10 @@ function PanelBody({ job }: { job: JobDTO }) {
         )}
       </div>
 
-      {/* Body tabs: I/O | Params | Results | Log */}
+      {/* Body tabs: I/O | Params | Results | Log — min-h-[340px] floor
+          (t372/t382): without it a short viewport squeezes the flex-1
+          tabs to crumbs between the header and the command preview,
+          starving the params area (the fieldsets below need room). */}
       <Tabs
         value={tab}
         onValueChange={(t) => {
@@ -1664,9 +1671,9 @@ function PanelBody({ job }: { job: JobDTO }) {
           persistPanelTab(t);
           setTab(t as PanelTab);
         }}
-        className="flex min-h-0 flex-1 flex-col gap-0"
+        className="flex min-h-[340px] flex-1 flex-col gap-0"
       >
-        <div className="shrink-0 border-b px-2 py-1.5">
+        <div className="sticky top-0 z-20 shrink-0 border-b bg-card px-2 py-1.5">
           <TabsList className="h-8 w-full">
             <TabsTrigger value="io" className="h-6 gap-1 px-2 text-[11px]">
               <ArrowLeftRight className="size-3.5" aria-hidden="true" />
