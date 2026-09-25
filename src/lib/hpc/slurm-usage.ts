@@ -186,3 +186,68 @@ export function sortNodesForDisplay(nodes: SlurmNodeUsage[]): SlurmNodeUsage[] {
       a.node.localeCompare(b.node, undefined, { numeric: true })
   );
 }
+
+/* ------------------------------------------------------------------ */
+/* t390 — the DEFAULT partition (the bare submission's landing zone)   */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Parse `scontrol show partitions` (either dialect — records re-united on
+ * their `PartitionName=` boundaries, the same doctrine as
+ * parseScontrolNodes) and name the cluster's DEFAULT partition: the record
+ * whose `Default=YES` field scontrol spelled. That partition is where a
+ * submission naming NO partition lands — the field report's bare GPU job
+ * was refused there ("Requested node configuration is not available")
+ * while every GPU sat free in the partitions it never named.
+ *
+ * null when the text names no default (some clusters have none, some
+ * scontrol dialects stay silent) or the text is empty — the callers
+ * degrade, never guess.
+ */
+export function parseDefaultPartition(partitionsText: string): string | null {
+  for (const chunk of (partitionsText ?? "").split(/(?=PartitionName=)/)) {
+    const record = chunk.trim();
+    if (!record.startsWith("PartitionName=")) continue;
+    if (!/\bDefault\s*=\s*YES\b/i.test(record)) continue;
+    const m = /\bPartitionName=([A-Za-z0-9_.-]+)/.exec(record);
+    if (m?.[1]) return m[1];
+  }
+  return null;
+}
+
+/** One partition's GPU ceiling, as the nodes' own scontrol rows state it. */
+export interface PartitionGpuWidth {
+  /** Partition name (a node's Partitions= field entry). */
+  partition: string;
+  /** Widest gpuTotal among the partition's nodes. */
+  maxGpus: number;
+  /** Nodes serving the partition. */
+  nodes: number;
+}
+
+/**
+ * t390 — per-partition GPU width out of `scontrol show nodes` (either
+ * dialect): group parseScontrolNodes' rows by each node's Partitions=
+ * field and take the WIDEST gpuTotal per partition.
+ *
+ * DOWN/DRAIN nodes still count toward maxGpus: the controller's
+ * submit-time "Requested node configuration is not available" keys on
+ * the partition's static GRES config, not the node's live state — all
+ * wide nodes being down makes the job QUEUE (NodeDown/Resources), only a
+ * width no node there can EVER host refuses at submission. A node serving
+ * several partitions contributes its width to each.
+ */
+export function partitionGpuWidths(nodesText: string): PartitionGpuWidth[] {
+  const byPart = new Map<string, { maxGpus: number; nodes: number }>();
+  for (const n of parseScontrolNodes(nodesText)) {
+    for (const p of n.partitions) {
+      const cur = byPart.get(p) ?? { maxGpus: 0, nodes: 0 };
+      cur.maxGpus = Math.max(cur.maxGpus, n.gpuTotal);
+      cur.nodes += 1;
+      byPart.set(p, cur);
+    }
+  }
+  return [...byPart.entries()]
+    .map(([partition, v]) => ({ partition, maxGpus: v.maxGpus, nodes: v.nodes }))
+    .sort((a, b) => b.maxGpus - a.maxGpus || a.partition.localeCompare(b.partition));
+}

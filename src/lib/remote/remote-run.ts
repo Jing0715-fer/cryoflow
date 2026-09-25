@@ -73,7 +73,13 @@ import {
   type WaitKind,
 } from "@/lib/relion/engine";
 import { gpuStrategyFor, slurmHms } from "@/lib/hpc/slurm";
-import { nodeUnavailable, parseScontrolNodes, type SlurmNodeUsage } from "@/lib/hpc/slurm-usage";
+import {
+  nodeUnavailable,
+  parseScontrolNodes,
+  parseDefaultPartition,
+  partitionGpuWidths,
+  type SlurmNodeUsage,
+} from "@/lib/hpc/slurm-usage";
 import { isLogAutopick } from "@/lib/relion/log-autopick";
 import { classifyRerunWipe } from "@/lib/hpc/cleanup";
 import { describeSyncSkipFile, describeSyncSkips, planSyncBack, type SyncSkip } from "./sync-policy";
@@ -1796,6 +1802,121 @@ function connPartitionGpus(connId: string, partition: string): number | null {
   return typeof g?.gpusPerNode === "number" && g.gpusPerNode > 0 ? g.gpusPerNode : null;
 }
 
+/* ------------------------------------------------------------------ */
+/* t390 — the bare-composition gates (no node, no partition)           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * t390 — the one SSH script both default-partition gates read: the
+ * partitions block first (the DEFAULT partition's name — `Default=YES`),
+ * the nodes block second (each partition's GPU ceiling), split on the
+ * sentinel. `scontrol` errors are silenced per block so one missing
+ * command degrades instead of poisoning the split.
+ */
+export const T390_SCONTROL_READ =
+  "scontrol show partitions -o 2>/dev/null; echo CF_PARTS_END; scontrol show nodes -o 2>/dev/null";
+
+/** What the t390 read answered about the cluster's DEFAULT partition. */
+export interface T390DefaultReadout {
+  /** The default partition's name (where a bare submission lands). */
+  def: string;
+  /** Its widest node's GPU count (0 = no GPU nodes at all). */
+  defMax: number;
+  /** Every partition's ceiling, widest first. */
+  widths: { partition: string; maxGpus: number; nodes: number }[];
+}
+
+/** Split T390_SCONTROL_READ's stdout on its sentinel: [partitions, nodes]. */
+export function t390SplitScontrolRead(stdout: string): [string, string] | null {
+  const i = stdout.indexOf("CF_PARTS_END\n");
+  if (i < 0) return null;
+  return [stdout.slice(0, i), stdout.slice(i + "CF_PARTS_END\n".length)];
+}
+
+/** Parse the read into the verdict inputs. null when the read could not
+ * answer (no sentinel, no default partition, empty nodes) — the callers
+ * degrade, never guess. */
+export function t390DefaultReadout(stdout: string): T390DefaultReadout | null {
+  const split = t390SplitScontrolRead(stdout);
+  if (!split) return null;
+  const def = parseDefaultPartition(split[0]);
+  if (!def) return null;
+  const widths = partitionGpuWidths(split[1]);
+  return {
+    def,
+    defMax: widths.find((w) => w.partition === def)?.maxGpus ?? 0,
+    widths,
+  };
+}
+
+/**
+ * t390 — the bare-composition PRE-FLIGHT refusal (pure; the bench pins the
+ * words). The submission names no node and no partition, so the cluster's
+ * default partition decides — and its nodes cannot host the width. The text
+ * teaches the two real fixes (name a partition that CAN host it, or lower
+ * the width) and pre-empts the exact confusion of the field receipt
+ * (「gpu的资源应该是充足的」): free GPUs elsewhere cannot be matched to a
+ * request that lands in the default partition.
+ */
+export function t390DefaultRefusal(o: {
+  def: string;
+  defMax: number;
+  want: number;
+  widths: { partition: string; maxGpus: number; nodes?: number }[];
+}): string {
+  const fits = o.widths.filter((w) => w.maxGpus >= o.want).map((w) => w.partition);
+  const fitsSentence = fits.length
+    ? ` Partitions that CAN host ${o.want} GPU(s): ${fits.join(", ")} — pick one in the run dialog's Node/partition dropdown (Run on cluster), or set it as this connection's default partition in Remote cluster.`
+    : " No partition on this cluster offers that width per scontrol — lower the GPU width, or ask the admin where jobs this wide should land.";
+  return (
+    `this submission names no node and no partition, so the cluster's DEFAULT partition "${o.def}" decides — its nodes offer ${o.defMax} GPU(s) at most, and this job asks ${o.want}. ` +
+    `The controller refuses that at submit time: GPUs being free elsewhere does not help, because a request only matches nodes of the partition it lands in ` +
+    `(busy GPUs there would queue the job; a width no node there can EVER host is refused outright).` +
+    fitsSentence +
+    ` Or lower the GPU width to ${o.defMax}.`
+  );
+}
+
+/**
+ * t390 — the sbatch-refusal TRANSLATION for "Requested node configuration
+ * is not available" (pure). The pin branch keeps the t337 wording
+ * byte-for-byte; the bare branch names the default-partition mechanism
+ * instead of gesturing at pins that do not exist, and — when the
+ * best-effort enrich read answered — the default partition's own ceiling
+ * and the partitions that can host the width, or the honest drift verdict
+ * (the config CAN host it, so the wide nodes were down/drained).
+ */
+export function t390CfgHelp(o: {
+  nodelistPin: string | null;
+  composition: string;
+  gresWidth: number;
+  noPartitionNote: string;
+  enrich: T390DefaultReadout | null;
+}): string {
+  if (o.nodelistPin) {
+    return ` — what was requested: ${o.composition}. No node on the cluster can satisfy that combination right now (a pinned node may be down, drained, or narrower than the GPU width, or it may not live in the partition the request landed on). Pick a different node in the live usage list, click the pinned row again to release the pin, or lower the GPU width.${o.noPartitionNote}`;
+  }
+  const base =
+    ` — what was requested: ${o.composition}. This submission named no node and no partition, so the cluster's DEFAULT partition decided — ` +
+    `and no node there satisfies ${o.gresWidth} GPU(s); GPUs sitting free in OTHER partitions cannot be matched to a request that lands in the default one. ` +
+    `Name the GPU group in the run dialog's Node/partition dropdown (Run on cluster), or set the connection's default partition in Remote cluster, or lower the GPU width.`;
+  if (!o.enrich) return base;
+  if (o.enrich.defMax >= o.gresWidth) {
+    return (
+      base +
+      ` (scontrol says the default partition is "${o.enrich.def}" and its nodes DO offer ${o.enrich.defMax} GPU(s) — wide enough on paper, so the refusal is the live state: the wide nodes were down or drained at submit time. Pick a live node from the usage list, or retry once the admin clears them.)`
+    );
+  }
+  const fits = o.enrich.widths.filter((w) => w.maxGpus >= o.gresWidth).map((w) => w.partition);
+  return (
+    base +
+    ` (scontrol says the default partition is "${o.enrich.def}", offering ${o.enrich.defMax} GPU(s) at most` +
+    (fits.length
+      ? `; partitions that can host ${o.gresWidth}: ${fits.join(", ")} — pick one now)`
+      : "; no partition on this cluster offers that width — lower the GPU width or ask the admin)")
+  );
+}
+
 /**
  * t367 — the refinement family that earns an explicit `#SBATCH --time`.
  * These runs are multi-hour by construction (a real 20-round 2D
@@ -3161,6 +3282,37 @@ export async function startRemoteJob(args: {
     // sweep finalizes. A dead-but-unfinalized record is safe to replace.
   }
 
+  // ---- t390 — the EARLY gres width (shared by the pre-flights) ---------
+  // The width this dispatch's sbatch WILL carry, computed from the early
+  // (pre-resolve) inputs so the gates below can refuse on it BEFORE a byte
+  // stages. Mirrors the spawn's gresWidth arithmetic verbatim: the MPI
+  // multi-GPU family keeps the FULL width (mpiParallelType &&
+  // (mpiAvailable || vdamClass2d) — the t387 VDAM lane keeps the width
+  // with or without an MPI relion in the module), every other GPU job
+  // rides one card, CPU jobs and the LoG picker ride none. The t332-era
+  // copy inside the pin branch below missed the VDAM arm and under-counted
+  // a no-MPI VDAM job as 1 — one shared computation now feeds both gates.
+  const earlyParams = parseJobParams(job.params);
+  const earlyStrategy = gpuStrategyFor(job.type, {
+    micrographs: 10,
+    particles: Number(earlyParams.particles ?? 5000) || 5000,
+    gpus: gpuWidth,
+    logAutopick: logPick,
+  });
+  const earlyMpi = moduleName ? conn.lastProbe?.relionMpi?.[moduleName] ?? false : false;
+  const earlyVdam = planVdamLane(job.type, earlyParams, {
+    hasGpu: earlyStrategy.gpus > 0,
+    gpus: earlyStrategy.gpus,
+    isSlurm,
+    gpuWidth,
+  }).vdam;
+  const earlyGres =
+    earlyStrategy.mode === "multi-gpu" && (earlyMpi || earlyVdam)
+      ? gpuWidth
+      : earlyStrategy.gpus > 0
+        ? 1
+        : 0;
+
   // ---- t337 — the node-pin pre-flight (the user's live receipt) --------
   // The user's controller refused a pinned submission at submit time:
   //
@@ -3215,23 +3367,14 @@ export async function startRemoteJob(args: {
     }
     // a node with NO GPUs cannot host a job whose sbatch will request
     // --gres — the width truth the spawn's own gresWidth arithmetic
-    // derives, computed here so the refusal lands BEFORE staging (the
-    // dialog's ask line names the same contradiction client-side; this
-    // is the server's gate for bare API callers and stale dialogs)
+    // derives (earlyGres above, shared with the t390 gate), computed here
+    // so the refusal lands BEFORE staging (the dialog's ask line names the
+    // same contradiction client-side; this is the server's gate for bare
+    // API callers and stale dialogs)
     if (nodeLive.gpuTotal === 0) {
-      const earlyParams = parseJobParams(job.params);
-      const earlyStrategy = gpuStrategyFor(job.type, {
-        micrographs: 10,
-        particles: Number(earlyParams.particles ?? 5000) || 5000,
-        gpus: gpuWidth,
-        logAutopick: logPick,
-      });
-      const earlyMpi = moduleName ? conn.lastProbe?.relionMpi?.[moduleName] ?? false : false;
-      const gresWouldBe =
-        earlyStrategy.mode === "multi-gpu" && earlyMpi ? gpuWidth : earlyStrategy.gpus > 0 ? 1 : 0;
-      if (gresWouldBe > 0) {
+      if (earlyGres > 0) {
         return fail(
-          `node ${nodelistPin} has no GPUs (scontrol says Gres=(null)) — this job would request ${gresWouldBe} GPU${gresWouldBe > 1 ? "s" : ""} there and the submission would be refused. Click the pinned row again to release the pin, or pick a GPU node from the usage list.`,
+          `node ${nodelistPin} has no GPUs (scontrol says Gres=(null)) — this job would request ${earlyGres} GPU${earlyGres > 1 ? "s" : ""} there and the submission would be refused. Click the pinned row again to release the pin, or pick a GPU node from the usage list.`,
           true
         );
       }
@@ -3310,6 +3453,49 @@ export async function startRemoteJob(args: {
           gpuWidth = gpusPerNode;
         }
       }
+    }
+  }
+
+  // ---- t390 — the BARE-composition pre-flight (the user's receipt) ----
+  // 「Job failed … Requested node configuration is not available … gpu的
+  // 资源应该是充足的」 — the GPUs WERE free, but in a partition the request
+  // never named: this submission carries no node and no partition (no
+  // pick, no pin, no connection default), so the cluster's DEFAULT
+  // partition decides, and no node there can host the width. The
+  // controller's submit-time check is per-partition static config — free
+  // GPUs in OTHER partitions can never be matched to a request that
+  // lands in the default one (busy nodes there would QUEUE the job; a
+  // refusal at submit time is always the shape). One SSH round names the
+  // default partition, its ceiling, and the partitions that CAN host the
+  // width — the refusal teaches the fix instead of quoting Slurm's
+  // one-liner. A read that cannot run (SSH blip, no scontrol) degrades to
+  // the old behavior; the drift window is covered by the sbatch-refusal
+  // translation below, which runs the same read best-effort.
+  if (
+    isSlurm &&
+    !nodelistPin &&
+    partitionOverride == null &&
+    conn.slurmPartition == null &&
+    earlyGres > 0
+  ) {
+    try {
+      const r = await exec(conn, loginShellScript(T390_SCONTROL_READ), { timeoutMs: 15_000 });
+      if (!r.error && r.code !== 127) {
+        const readout = t390DefaultReadout(r.stdout);
+        if (readout && readout.defMax < earlyGres) {
+          return fail(
+            t390DefaultRefusal({
+              def: readout.def,
+              defMax: readout.defMax,
+              want: earlyGres,
+              widths: readout.widths,
+            }),
+            true
+          );
+        }
+      }
+    } catch {
+      /* SSH blip — the old behavior stands */
     }
   }
 
@@ -5313,8 +5499,33 @@ export async function startRemoteJob(args: {
             nodelistPin != null && effectivePartition == null
               ? " The submission named no partition (the node's home is unknown to scontrol and the probe), so the cluster's DEFAULT partition decided — pick the node's group in the run dialog's Node/partition dropdown to name it."
               : "";
+          // t390 — the bare-composition enrich: the translation above named
+          // the DEFAULT-partition mechanism, but not the default partition's
+          // NAME or ceiling. One best-effort read (the same script the
+          // pre-flight used) names both plus the partitions that CAN host
+          // the width — or, when the config IS wide enough, the honest drift
+          // verdict (the wide nodes were down/drained at submit time). A
+          // blip degrades to the un-enriched wording; a PINNED submission
+          // keeps the t337 pin text untouched.
+          let t390Enrich: T390DefaultReadout | null = null;
+          if (/node configuration is not available/i.test(why) && !nodelistPin && gresWidth > 0) {
+            try {
+              const er = await exec(conn, loginShellScript(T390_SCONTROL_READ), { timeoutMs: 12_000 });
+              if (!er.error && er.code !== 127) {
+                t390Enrich = t390DefaultReadout(er.stdout);
+              }
+            } catch {
+              /* best effort — the un-enriched wording stands */
+            }
+          }
           const cfgHelp = /node configuration is not available/i.test(why)
-            ? ` — what was requested: ${composition}. No node on the cluster can satisfy that combination right now (a pinned node may be down, drained, or narrower than the GPU width, or it may not live in the partition the request landed on). Pick a different node in the live usage list, click the pinned row again to release the pin, or lower the GPU width.${noPartitionNote}`
+            ? t390CfgHelp({
+                nodelistPin,
+                composition,
+                gresWidth,
+                noPartitionNote,
+                enrich: t390Enrich,
+              })
             : "";
           const noiseNote =
             noiseLines.length > 0

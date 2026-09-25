@@ -3674,3 +3674,24 @@ Stage Summary:
 - 验证：t389 29/29 + t388 55/55 + 六套回归全绿；tsc 0；eslint 0
 - 用户复机路径：git pull → 连接的 Module 字段填你手动敲的那个模块名（脚本会 module load 它，再把交互 shell 的 PATH/LD_LIBRARY_PATH 合并在其上）→ 重跑 blush 任务；预检若仍拒，文案点名下一步
 - 诚实边界：① 快照依旧 best-effort（bash -lic 失败回落旧行为）；② 合并改变了两车道 PATH 终序（快照在前、module 在后）— 仅 rc 文件与 module 指向不同 relion 时快照遮蔽 module（与手动 sbatch 语义一致）；③ E2E 未重跑（mock 未起，非回归项）
+
+---
+Task ID: t390
+Agent: main (Z.ai Code)
+Task: 用户工单 — 「Job failed：sbatch refused the submission: Requested node configuration is not available — what was requested: 6 GPU(s) … gpu的资源应该是充足的 · login-shell noise：/data2/home/lijing/.bashrc: line 35: /home/guozhenqian/app/relion/relion.sh: No such file or directory」— 裸组合（无节点无分区）落进默认分区被拒
+
+Work Log:
+- [判读回执] composition 只有「6 GPU(s)」— 无节点、无分区：partitionOverride=null、conn.slurmPartition=null、nodelistPin=null → sbatch 不带 --partition/--nodelist，集群 DEFAULT 分区裁决。sbatch 提交期拒绝 ≠ 资源忙（忙=接受并排队）；拒绝只能是该分区内没有任何节点的静态 GRES 配置能承载 6 GPU。用户说「资源充足」是真的——gpu05/gpu06 的 6 卡在 gpu 分区闲着，但裸请求永远匹配不到别的分区。t337 当期工单已证本集群同类形状（width 6 > normal 分区 5 GPU/node → 同一拒绝）。末尾 bashrc 行是登录 shell 噪音（t311 已标注「your ~/.bashrc, not the submission」）：用户自己 .bashrc 第 35 行 source 一个已不存在的外部路径（/home/guozhenqian/...，他人主目录），与提交无关，可删
+- [缺口定位] probe 的 parseSlurmGpus 把 sinfo 默认分区标记 `*` 剥掉丢弃（510 行）— 全应用无人知道「默认分区是谁」；t337 pre-flight 只查 pin 的矛盾，t311 clamp 只按「脚本将携带的分区」收敛 — 裸组合（无分区可查）两道门都放行，直接撞控制器
+- [修复 A — slurm-usage.ts 纯解析器] parseDefaultPartition（scontrol show partitions 两种方言，Default=YES 记录 → 名字；无默认/空/错误聊天 → null 永不猜）+ partitionGpuWidths（scontrol show nodes 按 Partitions= 分组，每分区最宽 gpuTotal + 节点数；DOWN/DRAIN 节点照算 — 控制器提交期检查是静态配置，全下线只会排队不会拒；跨分区节点各记一份）
+- [修复 B — 裸组合预检] startRemoteJob 在 t311/t337 clamp 之后、resolveInputs 之前：isSlurm && 无 pin && 无 pick && 无连接默认 && earlyGres>0 时，一次 15s SSH 读 T390_SCONTROL_READ（partitions 块 + CF_PARTS_END 哨兵 + nodes 块，各自 2>/dev/null 降级）；t390DefaultReadout 解出默认分区名 + 天花板 + 全分区宽度表；defMax < 请求宽度 → fail(t390DefaultRefusal(...))：点名默认分区/天花板/请求宽度，正面回应「资源充足」困惑（空闲在别处分区的卡匹配不到落进默认分区的请求；忙=排队，拒=形状），列出能承载的分区名 + 两个真修法（run 对话框 Node/partition 下拉选它 / 设为连接默认分区）+ 降宽度兜底。读不出来（SSH 抖/无 scontrol/无默认分区）→ 静默回落旧行为
+- [修复 C — 漂移窗口翻译重写] sbatch 拒绝 catch：t390CfgHelp 按 composition 分支 — pin 分支字节级保留 t337 原文；裸分支改说「本提交未命名节点与分区 → 默认分区裁决 → 别处分区的空闲卡帮不上」+ 修法；且裸+GPU 拒绝时 best-effort 一次 12s 读同脚本做 enrich：defMax < 宽度 → 点名默认分区天花板 + 能承载分区清单；defMax ≥ 宽度 → 诚实漂移判词（「纸面够宽 → 拒绝是活状态：宽节点提交时 down/drain，挑活节点或等管理员」）。enrich 失败 → 未点名版本照出
+- [修复 D — 早期 gres 宽度收敛] 原有 pin 分支内联副本（t332 时代）漏了 t387 VDAM 臂（无 MPI 的 VDAM 任务会算成 1 而实际带全宽）→ 提升为共享 earlyGres（镜像 spawn 的 gresWidth 算术：multi-gpu && (mpiAvailable || vdamClass2d) ? gpuWidth : gpus>0 ? 1 : 0），pin 无 GPU 节点拒绝与 t390 预检同源
+- [验证] scripts/t390-default-partition-lane.ts 38/38（A 两方言解析×5；B 分组/最宽/跨分区/DOWN 计入×5；C 哨兵拆分/天花板/降级×6；D 拒绝文案逐句 — 含「资源充足」正面回应与 no-fits 管理员句×8；E pin 字节级回归 + 裸分支机制句 + enrich 双臂（天花板+清单 / 纸面够宽漂移判词）×9；F 读脚本哨兵唯一/顺序/bash -n×4）；回归 t384 19/19 + t384-xray 11/11 + t385 48/48 + t386 119/119 + t387-dedup 157/157 + t387-dup-audit clean + t388 55/55 + t389 29/29；tsc 0；触碰文件 eslint 0
+- 沙箱运维：本轮沙箱收割了旧树，重新 clone（8f77a16 在 origin/main 无损）+ bun install
+
+Stage Summary:
+- 产出：t390 裸组合门 — parseDefaultPartition/partitionGpuWidths 纯解析器 + 预检（提交前点名默认分区天花板与能承载分区）+ 漂移翻译重写（pin 字节级不变、裸分支讲机制、enrich 点名或漂移判词）+ earlyGres 收敛（t387 VDAM 尾巴）
+- 验证：t390 38/38 + 八套回归全绿；tsc 0；eslint 0
+- 用户复机路径：立即解法 — run 对话框的 Node/partition 下拉选 GPU 分区（或活用列表点节点，t340 会让 pin 自带分区），或 Remote cluster 里把连接默认分区设为 GPU 分区；git pull 后同类错会在提交前收到点名默认分区的教学式拒绝
+- 诚实边界：① 预检只拒「静态必然」（defMax < 宽度）；配置够宽但节点全下线 → 交给 sbatch（排队/拒绝），翻译的 enrich 会给漂移判词；② 读是 best-effort，SSH 抖/无 scontrol → 旧行为；③ 跨会话 drift（预检读→提交间节点下线）由 catch enrich 兜底；④ t387-gpu-mrcs-integrity E2E 需活体 mock（沙箱未起）未跑 — t385 记录在案的既有偏差
