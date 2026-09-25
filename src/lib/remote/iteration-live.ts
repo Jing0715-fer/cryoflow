@@ -46,6 +46,7 @@ import { readMrcHeader, readMrcSlice, renderClassSheetPng, renderMrcSlicePng, ty
 import { DATA_DIR } from "@/lib/paths";
 import { getConnection } from "./connections";
 import { exec, remoteChunkedDownload } from "./ssh";
+import { witnessMrcHeader, witnessSummary, cacheSafeHeaderSniffLineForVar } from "./cache-witness";
 import type { RemoteConnection } from "./types";
 
 const PREVIEW_DIR = path.join(DATA_DIR, "remote-preview");
@@ -330,7 +331,17 @@ export async function remoteLiveIterations(
     // the round settles — the sweep's own sniff (remote-run.ts) speaks
     // the same dialect for its render gates.
     'echo "---CF-HDRS---"',
-    `cd ${W} 2>/dev/null && for f in run_it???_classes.mrcs run_unmasked_classes.mrcs; do [ -f "$f" ] && { stat -c '%s %n' "$f"; od -An -tu4 -j0 -N12 "$f" 2>/dev/null | tr -s ' \\n' ' '; echo; }; done`,
+    // t384 — the sniff is CACHE-SAFE: the header words come from an
+    // O_DIRECT read first (dd iflag=direct), which neither consults nor
+    // populates the login node's page cache. The old buffered `od` was
+    // reading the growing stacks WHILE the compute node wrote them — on
+    // NFS that can cache the header page as zeros on the login node, and
+    // every later reader there (this pull, relion_display, md5sum) then
+    // serves the stale zero page while the file on the storage is healthy
+    // (the manual-run-vs-cryoflow difference: nobody od-sniffs a manual
+    // run's files mid-write). The buffered od remains only as the
+    // fallback for clusters/filesystems that refuse O_DIRECT.
+    `cd ${W} 2>/dev/null && for f in run_it???_classes.mrcs run_unmasked_classes.mrcs; do [ -f "$f" ] && { stat -c '%s %n' "$f"; ${cacheSafeHeaderSniffLineForVar()}; }; done`,
     'echo "---CF-OCC---"',
     `DS=$(ls ${W} 2>/dev/null | grep -E '^(run_it|_it)[0-9]+_data\\.star$' | sort | tail -1)`,
     'if [ -n "$DS" ]; then',
@@ -1056,11 +1067,47 @@ async function verifiedStackPull(
     const seedNote = /run_it000_classes\.mrcs?$/i.test(clusterPath)
       ? " NOTE: this file is the SEED round (it000) RELION writes at startup — initial random class averages, of no scientific value even when healthy; the rounds that matter are it001+, so check those before declaring the run lost"
       : "";
+    // t384 — THE WITNESS LADDER, before the verdict speaks. A zero header
+    // read through the login node is no longer auto-convicted as "the file
+    // itself is corrupt": cryoflow's own live monitoring (the t368/t370
+    // header sniffs) READ these growing files from the login node while
+    // the compute node wrote them, and on NFS that can plant stale ZERO
+    // pages in the login node's cache — pages that (mtime's one-second
+    // granularity) may never revalidate, so every later reader there
+    // serves the poison while the file on the storage is healthy. That is
+    // also the manual-run difference: nobody sniffs a manual run's files
+    // mid-write. The ladder cross-examines the same node's O_DIRECT view
+    // and DROPS its cached pages (fadvise) when the two disagree — the
+    // pull is retried once on a healed view before anything is refused.
+    const witness = await witnessMrcHeader(conn, clusterPath);
+    if (witness?.illusion && witness.healed) {
+      // the login node's cached lie is gone — the re-pull reads the
+      // storage's truth through the now-clean buffered path
+      const r2 = await remoteChunkedDownload(conn, clusterPath, transient, {
+        maxBytes: STACK_FETCH_CAP,
+      });
+      if (r2.ok) {
+        const hdr2 = readMrcHeader(transient);
+        if (hdr2) {
+          console.log(
+            `iteration-live: ${clusterPath} — the zero header was the LOGIN NODE's cached page, not the file (direct read healthy, stale pages dropped, re-pulled healthy at nz=${hdr2.nz}) (t384)`
+          );
+          return { ok: true, nz: hdr2.nz };
+        }
+      }
+    }
+    const wLine = witnessSummary(witness);
     return {
       ok: false,
       failure: {
         reason: "unreadable",
-        message: `${clusterPath} downloaded completely (${r.bytes} bytes — the size is right) but its MRC header is all zeros: the FILE ITSELF IS CORRUPT ON THE CLUSTER. Two worlds, and the order matters. (1) A leftover from an EARLIER run — only possible in a REUSED workdir: check the file's mtime on the cluster (ls -l) against when this run started; a fresh job id has a brand-new workdir where no leftover can exist. (2) The current run wrote it and the bytes never durably reached the storage: RELION writes the header FIRST and this run continued past this file (later iterations in its log, empty stderr), so RELION believed the write succeeded — and cryoflow never writes into a live run's workdir (its remote legs are read-only while the run lives). The loss is on the cluster's write path — between the compute node's writes and the network storage under this directory; the same jobs writing to node-local scratch (/ssd_cache) coming out healthy is the same story. t370: the sweep now watches these headers LIVE (a round whose nx/ny/nz reads 0 is named in the job's log the moment it settles, and its render pull is refused), and the automatic storage diagnostic runs ITSELF at the first such round — its verdict (COMPUTE→STORAGE WRITE LOST, or STORAGE WRITE PATH HEALTHY) speaks in the log and in the job's result; only if it never ran does the manual test remain: from a COMPUTE node, head -c 2097152 /dev/urandom > <this directory>/wtest.bin && md5sum <this directory>/wtest.bin, then md5sum the same path from the login node — a mismatch (or zeros) convicts the storage path; hand that file to the storage admin (t369/t370).${seedNote}`,
+        message: `${clusterPath} downloaded completely (${r.bytes} bytes — the size is right) but its MRC header read as ZEROS through the login node. t384 witness ladder on this very file: ${wLine}. Three worlds, and the witness separates the first two: (1) A LOGIN-NODE CACHE ILLUSION — the login node's page cache held stale zero pages (planted by a read of the file while the cluster was still writing it; NFS's one-second mtime granularity can keep them "valid" forever). When the witness's DIRECT read says healthy, the FILE IS FINE on the storage: re-open the results to re-pull${
+          witness?.illusion
+            ? witness.healed
+              ? " (the stale pages were dropped and the re-pull still failed — a transient wire; ask again)"
+              : " (the drop could not run — python3 missing on the login node; read the file from a compute node or retry after the cache expires)"
+            : " (the app drops them first)"
+        }, and read it from a compute node (srun) if you want a second opinion. (2) REAL zero bytes on the storage — RELION writes the header FIRST and this run continued past the file (later iterations in its log, empty stderr), so the bytes were lost between the compute node's writes and the storage; the automatic storage diagnostic witnesses THIS file from a compute node too when it fires (t384), and the manual test remains: from a COMPUTE node, head -c 2097152 /dev/urandom > <this directory>/wtest.bin && md5sum it, then md5sum the same path from the login node — a mismatch (or zeros) convicts the write path; hand that file to the storage admin. (3) A leftover from an EARLIER run — only possible in a REUSED workdir: check the file's mtime on the cluster (ls -l) against when this run started; a fresh job id has a brand-new workdir where no leftover can exist.${seedNote}`,
       },
     };
   }

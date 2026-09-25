@@ -108,6 +108,7 @@ import { LIVE_ITERATION_TYPES, mrcStackDataIsFlat, scheduleRemoteStackRenders } 
 // the sweep at the FIRST live zero-header round and by the diagnostics
 // route. Server-only, resilient by contract (it never throws).
 import { runStorageDiagnostic } from "./storage-diag";
+import { cacheSafeHeaderSniffLineForVar, witnessMrcHeader } from "./cache-witness";
 import {
   deleteRemoteFiles,
   dropRemoteListingCache,
@@ -4951,6 +4952,26 @@ export async function startRemoteJob(args: {
             noiseLines.length > 0
               ? ` · login-shell noise from the cluster (your ~/.bashrc, not the submission): ${noiseLines.join(" · ").slice(0, 200)}`
               : "";
+          // t384 — the ghost-submit guard: an exec that died WITHOUT a
+          // verdict (a channel timeout on a slow login node — subRes.error
+          // set, no stdout) may have delivered the script to sbatch
+          // anyway; the controller could have accepted it and the answer
+          // never came home. A submission this dispatch can never learn
+          // its id of is exactly the unowned ghost writer that shreds a
+          // re-dispatched workdir (two RELION universes, one --o). Kill
+          // anything under THIS job's unique sbatch name before standing
+          // down: the name is per job id, and this dispatch's own
+          // submission has not happened yet, so the only holder of the
+          // name can be a submission whose verdict we lost.
+          if (subRes.error) {
+            try {
+              await exec(conn, `scancel -n ${shQuote(jobName)} 2>/dev/null || true`, {
+                timeoutMs: 15_000,
+              });
+            } catch {
+              /* best effort — the reaper at the next dispatch gets a second bite */
+            }
+          }
           throw new Error(`sbatch refused the submission: ${why}${cfgHelp}${noiseNote}`);
         }
         const slurmId = idMatch[1];
@@ -5403,6 +5424,15 @@ const POLL_SWEEP_TIMEOUT_MS = 45_000;
 const VANISH_STREAK_N = Math.max(1, Number(process.env.CF_VANISH_STREAK) || 3);
 const VANISH_AGE_MS = Math.max(1_000, Number(process.env.CF_VANISH_AGE_MS) || 120_000);
 
+/**
+ * t384 — per-run files the zero-header WITNESS has already cross-examined
+ * (login-node buffered view vs its own O_DIRECT view + the fadvise drop).
+ * A round that reads zero on a settled sweep earns ONE ladder, ever — an
+ * illusion heals and streams, a true zero keeps its name, and neither is
+ * re-witnessed on every poll tick (the ladder costs an SSH round).
+ */
+const zeroHeaderWitnessed = new Map<string, Set<string>>();
+
 interface BatchEntry {
   job: Job;
   rec: RunRecord;
@@ -5624,8 +5654,17 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
         // it and fires the storage diagnostic once per run).
         if (e.job.status === "running" && LIVE_ITERATION_TYPES.has(e.job.type)) {
           scriptLines.push(`echo "---CF:ROUNDS---"`);
+          // t384 — the sniff is CACHE-SAFE (O_DIRECT first, buffered od
+          // only as the fallback): the old buffered od read the growing
+          // stacks from the login node WHILE the compute node wrote them,
+          // which on NFS can plant stale ZERO header pages in the login
+          // node's page cache — every later reader there (the render pull,
+          // relion_display, md5sum) then serves the poison while the file
+          // on the storage is healthy. That mid-write reader is also the
+          // manual-run-vs-cryoflow difference (nobody od-sniffs a manual
+          // run), so the sniff itself must never read through the cache.
           scriptLines.push(
-            `cd ${W} 2>/dev/null && for f in run_it???_classes.mrcs run_unmasked_classes.mrcs; do [ -f "$f" ] && { stat -c '%s %Y %n' "$f"; od -An -tu4 -j0 -N12 "$f" 2>/dev/null | tr -s ' \\n' ' '; echo; }; done`
+            `cd ${W} 2>/dev/null && for f in run_it???_classes.mrcs run_unmasked_classes.mrcs; do [ -f "$f" ] && { stat -c '%s %Y %n' "$f"; ${cacheSafeHeaderSniffLineForVar()}; }; done`
           );
         }
         scriptLines.push(`echo "===CF:END:${e.job.id}"`);
@@ -5819,8 +5858,45 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
                 (x.ny != null && x.ny === 0) ||
                 (x.nz != null && x.nz === 0)
             );
+            // t384 — THE WITNESS, before a settled zero round is NAMED (or
+            // refused streaming): the sniff itself is cache-safe now (the
+            // O_DIRECT read first), so a zero here was measured against the
+            // storage — but the RENDER PULLS travel the buffered path, and
+            // the login node's page cache may hold stale zero pages from a
+            // pre-t384 sniff (or from the buffered fallback where a cluster's
+            // dd refuses O_DIRECT). Each newly-zero round earns ONE ladder:
+            // the login node's buffered view vs its own DIRECT view, plus a
+            // posix_fadvise(DONTNEED) drop when they disagree. A healed
+            // illusion rejoins the streamable rounds (the pull then reads
+            // the storage's truth); only a round whose DIRECT view is ALSO
+            // zero keeps its name — and THAT file is the suspect the
+            // storage diagnostic witnesses from a compute node (t384).
+            const witnessedSet = zeroHeaderWitnessed.get(e.job.id) ?? new Set<string>();
+            if (witnessedSet.size === 0) zeroHeaderWitnessed.set(e.job.id, witnessedSet);
+            const healedRounds: typeof zeroHeaderRounds = [];
+            for (const z of zeroHeaderRounds.filter((x) => !witnessedSet.has(x.file)).slice(0, 2)) {
+              let w: Awaited<ReturnType<typeof witnessMrcHeader>> = null;
+              try {
+                w = await witnessMrcHeader(
+                  conn,
+                  `${e.remote.remoteWorkdir.replace(/\/+$/, "")}/${z.file}`
+                );
+              } catch {
+                /* the witness never convicts on its own failure */
+              }
+              if (w) {
+                witnessedSet.add(z.file);
+                if (w.illusion) {
+                  console.log(
+                    `remote-run: ${z.file} on "${e.job.name}" — the login node's BUFFERED view showed a zero header but its own DIRECT read says the file is HEALTHY (t384${w.healed ? "; the stale pages were dropped — this round streams normally" : "; python3 missing on the login node — the stale pages could not be dropped, the render pull may still serve them"})`
+                  );
+                  if (w.healed) healedRounds.push(z);
+                }
+              }
+            }
+            const trueZero = zeroHeaderRounds.filter((z) => !healedRounds.includes(z));
             const streamable = settledRounds
-              .filter((x) => !zeroHeaderRounds.includes(x))
+              .filter((x) => !trueZero.includes(x))
               .map((x) => ({ file: x.file, size: x.size }));
             if (streamable.length > 0) {
               scheduleRemoteStackRenders({
@@ -5831,10 +5907,10 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
                 reason: "live-sweep",
               });
             }
-            if (zeroHeaderRounds.length > 0) {
+            if (trueZero.length > 0) {
               const prevZero = e.remote.zeroHeaderRounds ?? [];
               const mergedZero = [...prevZero];
-              for (const z of zeroHeaderRounds) {
+              for (const z of trueZero) {
                 if (mergedZero.length >= 8) break;
                 if (!mergedZero.includes(z.file)) mergedZero.push(z.file);
               }
@@ -5846,7 +5922,7 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
                 );
                 e.remote.zeroHeaderRounds = mergedZero;
                 console.log(
-                  `remote-run: zero-header round(s) observed LIVE on "${e.job.name}" (${mergedZero.join(", ")}) — the t369 disease forming; those rounds are not streamed (t370)`
+                  `remote-run: zero-header round(s) observed LIVE on "${e.job.name}" (${mergedZero.join(", ")}) — zero through the login node's own DIRECT read too (t384), so the name stands; those rounds are not streamed (t370)`
                 );
               }
               // the once-per-run diagnostic: the guard is the persisted
@@ -5870,7 +5946,15 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
                   const diagRoot = e.remote.remoteWorkdir.includes("/")
                     ? e.remote.remoteWorkdir.slice(0, e.remote.remoteWorkdir.lastIndexOf("/"))
                     : undefined;
-                  void runStorageDiagnostic({ connectionId: conn.id, projectRoot: diagRoot })
+                  // t384 — the diagnostic now witnesses THE SUSPECT FILE
+                  // itself (login buffered + login direct + compute-node
+                  // od/md5 of the very round that read zero), not just a
+                  // fresh urandom probe — the probe file never exhibits the
+                  // disease (it is written once, closed, THEN read; the
+                  // class stacks were read WHILE being written, which is
+                  // the whole difference).
+                  const suspectFile = `${e.remote.remoteWorkdir.replace(/\/+$/, "")}/${trueZero[0].file}`;
+                  void runStorageDiagnostic({ connectionId: conn.id, projectRoot: diagRoot, suspect: suspectFile })
                     .then((d) => {
                       const line = `CRYOFLOW_NOTE: storage diagnostic (t370): ${d.verdict}`;
                       updateRun(e.job.id, (rec) =>
@@ -6729,7 +6813,7 @@ async function syncBackWorkdir(
       corruptPulled.slice(0, 3).join(", ") +
       (corruptPulled.length > 3 ? ` +${corruptPulled.length - 3} more` : "");
     noteParts.push(
-      `${corruptPulled.length} file(s) downloaded completely but read as CORRUPT MRCs on the cluster itself (${shown}) — right-sized zero-header bytes: this run's writes never durably reached the storage under the workdir. The sweep watches round headers live now (zero-header rounds are named in the log) and the automatic storage diagnostic (t370) runs itself and speaks its verdict there — hand its lines to the storage admin before re-running anything (t369/t370)`
+      `${corruptPulled.length} file(s) downloaded completely but read as right-sized zero-header MRCs through the login node (${shown}) — t384: that verdict alone no longer convicts the storage. The login node's page cache can serve stale ZERO pages for a file it read while the cluster was still writing it (NFS's one-second mtime granularity can keep them "valid" forever), and cryoflow's own pre-t384 live sniffs were exactly such mid-write readers. Re-opening the results re-pulls with the cache dropped first (posix_fadvise); the storage is only convicted when a compute node's own read of the SAME file also says zero — the automatic storage diagnostic (t370) now witnesses the suspect file from a compute node and speaks its verdict in the log (t384)`
     );
   }
   if (zeroDataPulled.length > 0) {

@@ -3527,3 +3527,28 @@ Stage Summary:
 - 【已完成/验证】9ab525d(mock it000+UI+it382 diag)+ cd021dd(合并)已上 GitHub;t382 127/127 ×3、t380/t381/t382-ui 全绿;agent-browser+VLM 活体双确认面板修复
 - 【未解决/风险】① 用户集群的 compute→storage 写路径丢失依旧无法远程实证(判决文案+60 秒 urandom/md5 手测已就位,t369);② OOM 顽疾的新配方(清 .next)已知但根因(turbopack 增量缓存膨胀)未修——每轮 QA 前清 .next 是止痛药;③ 浏览器 QA 依赖"清 .next + 单代 chrome"的脆弱窗口,并行 cron 会话戳页面即破;④ t358 未复跑(其探测 GET / root,受编译窗口影响)
 - 【下一阶段优先】① 用户集群侧:重派 class2d 观察 t370 活体监视 + 自动存储诊断的判决输出;② .next 增量缓存的膨胀治理(turbopackMemoryLimit 已设 512 无效,考虑定期清或 prod 模式试点);③ t358 在编译完成后复跑;④ RELION GUI 排版继续对齐(如 I/O tab 的 port 行式化)
+
+---
+Task ID: 384
+Agent: main (Z.ai Code)
+Task: 用户工单 — 拉新代码后 run_it050_classes.mrcs 依旧 right-sized zero-header;用户推翻 t369/t370 存储判决的新证据:「我在 cluster 上运行就会出问题,但是我手动打开 relion 运行任务却又没有问题」— 全面代码审查 mrcs 写出问题的可能原因,开始前拉最新代码
+
+Work Log:
+- [拉码] PAT 重 clone @ d3c288a(t382-seed-round+unfurl + t383 合并谱系);沙箱收割清掉了上会话的工作树
+- [全面审查 — 远端写路径清点] remote-run.ts 全文走读:sbatch 生成(环境/模块/GPU 绑定/argv 构造)、staging 上传(_staged/ 哈希键 + 尺寸幂等)、t333 预跑 wipe、t341 scancel -n 收割、dispatch 双发栅栏(starting 集合 + anti-ghost 复查 + 记录 startedAt)、poll 扫描(squeue/sacct/cat .cf-exit/tail run.out)、t368/t370 live rounds od 嗅探、t356 渲染拉取(chunked cat)、finalize find/stat/cat、per-class 分割器(完成后才跑)、storage-diag(.cryoflow-diag/ 隔离)、run-wipe(本地) — 结论:运行期间(remote legs)确实全部只读,t369 的「cryoflow 从不写入活着的 workdir」断言成立
+- [RELION 5.0.0 真源判决] 拉 3dem/relion 5.0.0 标签源码:MlModel::write(ref_dim==2)整个 class 栈一次 img.write() 构造(Image 头+数据一次 fwrite 流),MPI 下由 rank 1(第一个 follower)独写 — 单一健康写手在 stdio 缓冲语义下不可能留下 right-sized zero-header(头 1024B 与首块数据同批 flush,顺序保证头先落地)→ 破损必然来自「第二写手」或「读取方错觉」;image.h 的 WRITE_APPEND 读回比对正是 extract 崩溃(image.h:1534)的出处
+- [根因判决 — 用户证据的重新解读] 手动跑健康 vs cryoflow 跑损坏,唯一的系统性差异不是写路径,而是**读取方**:cryoflow 的 t368/t370 live 监控从登录节点 od 嗅探(每 ~12s)+ t350/t356 中途拉取**正在被计算节点写入的** run_it???_classes.mrcs;NFS 页缓存把写入窗口内读到的「零头页」留在登录节点,NFS mtime 一秒粒度(+v3 无 change attr)使最终落盘的头页刷入可能不触发失效 — 登录节点从此对所有读者(cryoflow 的 cat 拉取、relion_display、md5sum)供应陈旧零页,而存储上的文件可能完全健康。手动运行无人中途嗅探 → 首读在跑后 → 全新页 → 健康。沙箱无法复现(单文件系统无缓存分裂);t369 的 urandom 探针文件也永不发病(写一次、关闭、再读 — 恰好绕开疾病窗口)——三重「无法复现」全部得到解释
+- [修复包 t384]
+  1. 新模块 cache-witness.ts:cacheSafeHeaderSniffLine(ForVar) — O_DIRECT(dd iflag=direct)优先的头嗅探片段,不读也不污染登录节点页缓存,老 od 仅作 dd 失败时的回退;witnessMrcHeader — 见证梯子(缓冲视图 vs 直读视图,不一致时 python3 posix_fadvise(DONTNEED) 丢弃登录节点的陈旧页并复读)
+  2. 两处嗅探(iteration-live.ts 的 payload 扫描 + remote-run.ts 的 poll rounds 扫描)全部改缓存安全
+  3. poll 扫描的 zeroHeaderRounds:每轮只过一次梯子(per-run 去重集),假象治愈的轮次重回可流送集合;只有直读也为零的轮次保留罪名 — 并把该文件作为 suspect 传给存储诊断
+  4. verifiedStackPull 的零头判决前先跑梯子:治愈即重拉一次(本地重渲染真实数据);判决文案改三世界(登录节点缓存假象 / 真实存储丢失 / 旧运行残留)+ 梯子结果内嵌
+  5. storage-diag 新增 suspect 参数:登录节点(缓冲+直读+fadvise+md5)与计算节点(od+md5 of 同一可疑文件)三席见证,分层判决 —— LOGIN-NODE CACHE ILLUSION / LOGIN WIRE SEES ZEROS, COMPUTE VIEW HEALTHY / ZERO ON THE STORAGE ITSELF / SUSPECT READS HEALTHY NOW;urandom 探针腿保留作写路径对照
+  6. 幽灵提交守卫:sbatch exec 无判决死亡(超时)时,先 scancel -n 本作业名再报错 — 被控制器接受但回执丢失的提交不再以无主幽灵写手身份存活(第二写手之门关闭)
+  7. finalize 的 corrupt-products 文案同步改口(t384 三世界)
+- [验证] tsc 0;触碰文件 eslint 0(仓库既有 9 错为 UI 遗留未动);scripts/t384-cache-witness.ts 19/19(嗅探片段真 shell 跑健康/零头/空文件 + 两个生产解析器逐字回读 + 循环组合 + 梯子一致性分支 + fadvise 单行执行 + 带空格路径);scripts/t384-source-xray.ts 11/11(含 t370 原 A3/A4 回归);diag-t370-smoke/diag-t368 的源码断言(od 方言仍在)经手工核对保持通过
+- [诚实边界] ①登录节点缓存假象是当前最强解释(解释手动/沙箱/探针三重不复现 + 右尺寸零头形状),但判决权交还给三席见证 — 若直读也为零且计算节点也为零,存储写路径丢失(t369 世界)依然成立,新诊断会在日志里点名;②dd iflag=direct 在某些老 coreutils/文件系统不可用 — 回退老 od(风险回到 t384 之前,但梯子仍能事后治愈);③fadvise 依赖登录节点 python3 — 缺失时直读仍能诊断,只是不能自愈
+
+Stage Summary:
+- mrcs「写出问题」的全面审查结论:cryoflow 自身不写活 workdir(逐路径核实),RELION 5.0.0 单写手也不可能自伤 — 疾病最可能活在「登录节点读中途文件」的 NFS 缓存假象里,t384 让应用既不再制造假象(O_DIRECT 嗅探)、也能治愈假象(fadvise + 重拉)、更能在假象之外用三席见证点名真凶
+- 用户复机路径:git pull → 重跑 class2d → Log tab 看见证/诊断判决;旧的「损坏」文件大概率重开 Results 即被治愈重拉(不必重跑)

@@ -48,6 +48,7 @@ import path from "path";
 import { DATA_DIR } from "@/lib/paths";
 import { getConnection } from "./connections";
 import { exec, loginShellScript, remoteUpload, shQuote } from "./ssh";
+import { wordsAreZero, wordsAreHealthy, type HeaderWords } from "./cache-witness";
 import type { RemoteConnection } from "./types";
 
 const DIAG_DIR_NAME = ".cryoflow-diag";
@@ -142,6 +143,20 @@ export async function runStorageDiagnostic(opts: {
   connectionId: string;
   /** the storage the suspect run wrote to (the run's project root); defaults to the connection's remoteRoot */
   projectRoot?: string;
+  /**
+   * t384 — THE SUSPECT FILE itself (cluster-absolute path of a round that
+   * read as a right-sized zero-header through the login node). The probe
+   * legs below (urandom write/read) can NEVER exhibit the disease: a
+   * probe is written once, closed, then read — the class stacks were read
+   * WHILE being written, which is the difference. With a suspect, the
+   * diagnostic witnesses the SAME file from three seats: the login
+   * node's buffered view (what relion_display/md5sum see), the login
+   * node's O_DIRECT view (its wire to the storage, cache bypassed), and
+   * a compute node's own read (the sbatch leg) — and DROPS the login
+   * node's cached pages for it (posix_fadvise) between the first two, so
+   * the illusion is not just named, it is healed.
+   */
+  suspect?: string;
 }): Promise<StorageDiagnosticResult> {
   const conn = getConnection(opts.connectionId);
   if (!conn) {
@@ -163,7 +178,33 @@ export async function runStorageDiagnostic(opts: {
   // ---- the LOGIN leg --------------------------------------------------
   // 2 MB of urandom + md5 in place + df/quota context, all in ONE exec.
   // A login leg that cannot write says so immediately — there is no
-  // experiment without a baseline.
+  // experiment without a baseline. t384: a suspect file rides the SAME
+  // round — its buffered header, its O_DIRECT header, the fadvise drop,
+  // the post-drop buffered header, and the post-drop md5 (the bytes
+  // relion_display would read after the heal).
+  const suspectArgs: string[] = [];
+  if (opts.suspect) {
+    const S = shQuote(opts.suspect);
+    const odSuspect = `od -An -tu4 -j0 -N12 ${S} 2>/dev/null | tr -s ' \\n' ' '`;
+    const odSuspectDirect = `dd if=${S} iflag=direct bs=4096 count=1 2>/dev/null | od -An -tu4 -j0 -N12 2>/dev/null | tr -s ' \\n' ' '`;
+    suspectArgs.push(
+      `echo "CF_SUSPECT_BEGIN"`,
+      `__sb="$(${odSuspect})"`,
+      `__sd="$(${odSuspectDirect})"`,
+      `__sf="N"`,
+      `if [ -n "$__sd" ] && [ "$__sd" != "$__sb" ]; then`,
+      `  if python3 -c 'import os,sys; os.posix_fadvise(os.open(sys.argv[1], os.O_RDONLY), 0, 0, os.POSIX_FADV_DONTNEED)' ${S} >/dev/null 2>&1; then __sf="Y"; fi`,
+      `fi`,
+      `__sa="$(${odSuspect})"`,
+      `printf 'CF_SUSPECT_B=%s\n' "$__sb"`,
+      `printf 'CF_SUSPECT_D=%s\n' "$__sd"`,
+      `printf 'CF_SUSPECT_FADV=%s\n' "$__sf"`,
+      `printf 'CF_SUSPECT_A=%s\n' "$__sa"`,
+      `if [ -f ${S} ]; then md5sum ${S} 2>/dev/null | awk '{print "CF_SUSPECT_LOGIN_MD5 " $1}'; fi`,
+      `stat -c 'CF_SUSPECT_SIZE %s' ${S} 2>/dev/null || true`,
+      `echo "CF_SUSPECT_END"`
+    );
+  }
   const loginLeg = await exec(
     conn,
     [
@@ -174,6 +215,7 @@ export async function runStorageDiagnostic(opts: {
       `else`,
       `  echo "CF_DIAG: LOGIN_WRITE_FAILED"`,
       `fi`,
+      ...suspectArgs,
       `echo "CF_DF_BEGIN"`,
       `df -h ${shQuote(root)} 2>/dev/null`,
       `echo "CF_DF_END"`,
@@ -181,7 +223,7 @@ export async function runStorageDiagnostic(opts: {
       `( quota -s 2>/dev/null || lfs quota -u "$(whoami)" ${shQuote(root)} 2>/dev/null || true )`,
       `echo "CF_QUOTA_END"`,
     ].join("\n"),
-    { timeoutMs: 30_000 }
+    { timeoutMs: 45_000 }
   );
   if (loginLeg.error) {
     return couldNotRun(`SSH to ${conn.host} failed: ${loginLeg.error}`);
@@ -202,6 +244,32 @@ export async function runStorageDiagnostic(opts: {
     return r;
   }
   const loginMd5 = /CF_LOGIN_MD5 ([0-9a-f]{32})/i.exec(loginText)?.[1] ?? null;
+  // t384 — parse the suspect's witness block (absent when no suspect rode
+  // along: the plain probe world of t369/t370).
+  const suspectText = loginText.split("CF_SUSPECT_BEGIN")[1]?.split("CF_SUSPECT_END")[0] ?? "";
+  const parseWords = (tag: string): HeaderWords | null => {
+    const m = new RegExp(`^CF_SUSPECT_${tag}=(.*)$`, "m").exec(suspectText);
+    if (!m) return null;
+    const parts = m[1].trim().split(/\s+/).filter((t) => /^\d+$/.test(t));
+    if (parts.length < 3) return null;
+    return { nx: Number(parts[0]), ny: Number(parts[1]), nz: Number(parts[2]) };
+  };
+  const suspectBuffered = parseWords("B");
+  const suspectDirect = parseWords("D");
+  const suspectAfter = parseWords("A");
+  const suspectFadvise = /CF_SUSPECT_FADV=Y/m.test(suspectText);
+  const suspectLoginMd5 = /CF_SUSPECT_LOGIN_MD5 ([0-9a-f]{32})/i.exec(suspectText)?.[1] ?? null;
+  const suspectSize = Number(/CF_SUSPECT_SIZE (\d+)/.exec(suspectText)?.[1] ?? NaN);
+  if (opts.suspect && suspectBuffered == null && suspectDirect == null) {
+    lines.unshift(`suspect ${opts.suspect}: the login leg could not read its header at all (absent or unreadable)`);
+  } else if (opts.suspect) {
+    const fmt = (w: HeaderWords | null) => (w == null ? "no-words" : `nx=${w.nx} ny=${w.ny} nz=${w.nz}`);
+    lines.unshift(
+      `suspect ${opts.suspect}: buffered ${fmt(suspectBuffered)} · direct ${fmt(suspectDirect)}${
+        suspectFadvise ? ` · post-drop buffered ${fmt(suspectAfter)}` : ""
+      }${suspectLoginMd5 ? ` · login md5 ${suspectLoginMd5.slice(0, 8)}${Number.isFinite(suspectSize) ? ` (${suspectSize} bytes)` : ""}` : ""}`
+    );
+  }
   if (!loginMd5) {
     const r = couldNotRun("the login leg wrote its probe but the md5 never came back", lines);
     persistVerdict(conn.id, r);
@@ -225,6 +293,9 @@ export async function runStorageDiagnostic(opts: {
     "#!/bin/bash",
     "# CryoFlow storage diagnostic (t370) — writes 8 MB from a compute node,",
     "# syncs, and echoes the md5; the login node then reads the SAME file back.",
+    ...(opts.suspect
+      ? ["# t384 — and witnesses THE SUSPECT FILE itself: its header words + md5", "# from THIS compute node's own read of the same bytes."]
+      : []),
     "#SBATCH --job-name=cf-stordiag",
     "#SBATCH --time=2:00",
     "#SBATCH --ntasks=1",
@@ -232,6 +303,16 @@ export async function runStorageDiagnostic(opts: {
     ...(conn.slurmPartition ? [`#SBATCH --partition=${conn.slurmPartition}`] : []),
     `#SBATCH --output=${computeOut}`,
     `head -c ${COMPUTE_PROBE_BYTES} /dev/urandom > ${shQuote(computeBin)} && sync && md5sum ${shQuote(computeBin)} | awk '{print "CF_COMPUTE_MD5 " $1}'`,
+    ...(opts.suspect
+      ? [
+          `if [ -f ${shQuote(opts.suspect)} ]; then`,
+          `  od -An -tu4 -j0 -N12 ${shQuote(opts.suspect)} 2>/dev/null | tr -s ' \\n' ' ' | awk '{print "CF_COMPUTE_SUSPECT " $1, $2, $3}'`,
+          `  md5sum ${shQuote(opts.suspect)} | awk '{print "CF_COMPUTE_SUSPECT_MD5 " $1}'`,
+          `else`,
+          `  echo "CF_COMPUTE_SUSPECT ABSENT"`,
+          `fi`,
+        ]
+      : []),
   ];
   const upOk = await remoteUpload(conn, sbatchLines.join("\n") + "\n", sbatchPath);
   if (!upOk) {
@@ -256,6 +337,7 @@ export async function runStorageDiagnostic(opts: {
   // or the ledger says terminal (accounting-off clusters rely on the
   // output file; a full queue earns the honest give-up below)
   let computeMd5: string | null = null;
+  let computeSuspectText = "";
   let ledgerTerminal = false;
   const deadline = Date.now() + COMPUTE_WAIT_MS;
   while (Date.now() < deadline) {
@@ -272,6 +354,7 @@ export async function runStorageDiagnostic(opts: {
     if (poll.error) continue; // a wire blink never ends the wait early
     const pollText = poll.stdout ?? "";
     computeMd5 = /CF_COMPUTE_MD5 ([0-9a-f]{32})/i.exec(pollText)?.[1] ?? computeMd5;
+    if (/CF_COMPUTE_SUSPECT /.test(pollText)) computeSuspectText = pollText;
     const stateWord = pollText.split("CF_POLL_OUT")[0].trim().split(/\s+/)[0] ?? "";
     if (/^(COMPLETED|FAILED|CANCELLED|TIMEOUT|NODE_FAIL|OUT_OF_MEMORY|DEADLINE|PREEMPTED)/i.test(stateWord)) {
       ledgerTerminal = true;
@@ -312,6 +395,84 @@ export async function runStorageDiagnostic(opts: {
 
   // ---- the verdict -----------------------------------------------------
   let result: StorageDiagnosticResult;
+  // t384 — THE SUSPECT FILE's layered verdict (when a zero-header round was
+  // handed in). The three seats, in evidentiary order:
+  //   · login BUFFERED  — what relion_display / md5sum / a plain cat see;
+  //   · login DIRECT   — the same node's O_DIRECT read: its own wire to
+  //     the storage, page cache bypassed;
+  //   · COMPUTE node   — the sbatch leg's read of the very same file from
+  //     where the RELION runs actually live.
+  // The layers name themselves:
+  //   LOGIN-NODE CACHE ILLUSION — buffered zero, direct healthy: the file
+  //     is HEALTHY on the storage; the login node's page cache was serving
+  //     stale zero pages (planted by a mid-write read — cryoflow's own
+  //     pre-t384 sniffs were exactly that). The ladder DROPPED them
+  //     (fadvise) before the login md5 below was taken, so that md5 is the
+  //     HEALED view.
+  //   LOGIN WIRE SEES ZEROS, COMPUTE VIEW HEALTHY — the file is healthy on
+  //     the storage (a compute node reads it fine); the login node's own
+  //     path to the storage is the broken layer. Run display/rendering from
+  //     a compute node until the admin fixes it.
+  //   ZERO ON THE STORAGE ITSELF — every observer that bypasses the login
+  //     cache reads zeros: the t369 world (the run's writes never durably
+  //     reached the storage), now convicted on THE FILE, not on a probe.
+  if (opts.suspect && (suspectBuffered != null || suspectDirect != null)) {
+    const computeSuspectWords = (() => {
+      const m = /CF_COMPUTE_SUSPECT (\d+) (\d+) (\d+)/.exec(computeSuspectText);
+      return m ? { nx: Number(m[1]), ny: Number(m[2]), nz: Number(m[3]) } : null;
+    })();
+    const computeSuspectMd5 = /CF_COMPUTE_SUSPECT_MD5 ([0-9a-f]{32})/i.exec(computeSuspectText)?.[1] ?? null;
+    const computeSuspectAbsent = /CF_COMPUTE_SUSPECT ABSENT/.test(computeSuspectText);
+    const computeRan = computeSuspectWords != null || computeSuspectMd5 != null || computeSuspectAbsent;
+    const md5Agree =
+      computeSuspectMd5 != null && suspectLoginMd5 != null && computeSuspectMd5 === suspectLoginMd5;
+    if (wordsAreZero(suspectBuffered) && wordsAreHealthy(suspectDirect)) {
+      result = {
+        ok: true,
+        verdict: `LOGIN-NODE CACHE ILLUSION (t384) — ${opts.suspect}: the login node's BUFFERED read showed a zero header while its own DIRECT read says the file is HEALTHY (buffered nx/ny/nz all 0 vs direct ${suspectDirect?.nx ?? "?"}/${suspectDirect?.ny ?? "?"}/${suspectDirect?.nz ?? "?"}). The login node's page cache was serving stale zero pages — planted by a read of the file while the cluster was still writing it (NFS's one-second mtime granularity can keep them "valid" forever; cryoflow's pre-t384 live sniffs were such readers, and nobody ever reads a manual run's files mid-write — the manual-vs-cryoflow difference).${
+          suspectFadvise
+            ? wordsAreHealthy(suspectAfter)
+              ? ` The stale pages were DROPPED (posix_fadvise) and the login view now agrees${md5Agree ? " (login md5 matches the compute node's md5 of the same file)" : ""} — the file is fine, re-open the results.`
+              : " The stale pages were dropped but the buffered view still disagrees — read the file from a compute node (srun) and report both md5s to the admin."
+            : " python3 is missing on the login node, so the pages could not be dropped — read the file from a compute node (srun), or wait out the login node's cache; the file itself is fine."
+        }${computeRan && wordsAreHealthy(computeSuspectWords) ? " The compute node's own read of this file confirms: healthy." : ""}`,
+        lines,
+      };
+    } else if (
+      wordsAreZero(suspectDirect) &&
+      (wordsAreHealthy(computeSuspectWords) || md5Agree)
+    ) {
+      result = {
+        ok: true,
+        verdict: `LOGIN WIRE SEES ZEROS, COMPUTE VIEW HEALTHY (t384) — ${opts.suspect}: even the login node's DIRECT (cache-bypassing) read returns a zero header, but a COMPUTE node's read of the very same file is healthy. The file is healthy on the storage; the login node's own path to the storage is the broken layer. Display/rendering from the login node (and anything routed through it, including cryoflow's pulls) will keep seeing zeros until that path is fixed — hand the lines below (both md5s) to the cluster admin.`,
+        lines,
+      };
+    } else if (wordsAreZero(suspectDirect) || wordsAreZero(suspectBuffered)) {
+      result = {
+        ok: true,
+        verdict: `ZERO ON THE STORAGE ITSELF (t384) — ${opts.suspect}: ${
+          wordsAreZero(suspectDirect)
+            ? "the login node's DIRECT read returns a zero header"
+            : "the login node's buffered read returns a zero header (its direct read was unavailable — the cluster's dd refuses O_DIRECT)"
+        }${
+          computeRan && (wordsAreZero(computeSuspectWords) || (computeSuspectMd5 != null && !md5Agree))
+            ? ", and the compute node's own read of the same file agrees"
+            : computeRan && computeSuspectAbsent
+              ? " — and the compute node reports the file ABSENT (a wiped/moved workdir?)"
+              : " (the compute node's own read could not be taken — this verdict rests on the login node's direct view)"
+        }: this run's writes never durably reached the storage under ${root}. That is the t369 disease, now convicted on the file itself. Hand the lines below to the storage admin; re-dispatch the run after the path is fixed.`,
+        lines,
+      };
+    } else {
+      result = {
+        ok: true,
+        verdict: `SUSPECT FILE READS HEALTHY NOW (t384) — ${opts.suspect}: buffered ${suspectBuffered ? `${suspectBuffered.nx}/${suspectBuffered.ny}/${suspectBuffered.nz}` : "no-words"} · direct ${suspectDirect ? `${suspectDirect.nx}/${suspectDirect.ny}/${suspectDirect.nz}` : "no-words"}${md5Agree ? " · login and compute md5s match" : ""}. Whatever read as zero earlier was a transient view (a read racing the writer mid-write); no corruption remains — re-open the results.`,
+        lines,
+      };
+    }
+    persistVerdict(conn.id, result);
+    return result;
+  }
   if (/CF_NOFILE/.test(readbackText)) {
     result = {
       ok: true,
