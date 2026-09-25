@@ -95,12 +95,33 @@ export const LOG_PATTERNS: LogPattern[] = [
     hint: "An MPI rank called MPI_ABORT: the root cause is usually printed earlier in the log — switch to Full mode and read upward from the first error.",
   },
   {
+    // t387 — RELION 5's Blush regularisation delegates every per-class
+    // reconstruction to the `relion_python_blush` wrapper via popen
+    // (backprojector.cpp externalReconstruct: the star is written, the
+    // wrapper runs, and anything other than the literal "success" makes
+    // RELION print "Something went wrong in the external Python call..." +
+    // the wrapper's own output, then exit(1) — SILENTLY, with no
+    // RELION-format error). The wrapper needs RELION's python extras
+    // (environment.yml: git+https://github.com/3dem/relion-blush + torch)
+    // which many cluster modules never install — the wrapper then dies
+    // with a Python traceback (one per class: K=4 → ×4), the job exits 1
+    // mid-run, and run.out's visible tail is just the traceback. The
+    // *_external_reconstruct.star files in the workdir are the same
+    // feature's breadcrumbs (they are written for --blush OR
+    // --external_reconstruct).
+    id: "blush-python-failure",
+    re: /Something went wrong in the external Python call|relion_python_blush/i,
+    label: "Blush regularisation's python wrapper failed",
+    hint:
+      "This job ran with Blush regularisation ON (--blush): RELION hands every per-class reconstruction to the relion_python_blush python wrapper, and that wrapper failed — the Python traceback right below this line names the reason (usually a missing module: the cluster's RELION python environment lacks the relion-blush package and its torch dependency, which RELION's environment.yml ships but many cluster modules never install). Remedy, either side: (1) turn OFF Blush regularisation in this job's Optimisation tab and re-run — the RELION tutorial's 3D classification does not need it, the classic regularisation is the default for a reason; or (2) install RELION's python extras into the module's environment (conda env update with RELION's own environment.yml, which pulls git+https://github.com/3dem/relion-blush + torch) if you specifically want Blush's learned regularisation. The run_itNNN_classMMM_external_reconstruct.star files in the workdir belong to this same feature — the wrapper's inputs, not the run's results.",
+  },
+  {
     id: "python-traceback",
     // CPython's own traceback header — the interpreter, not a loose word;
     // Topaz/cryolo and other wrappers die here
     re: /Traceback \(most recent call last\)/,
     label: "Python traceback (script failure)",
-    hint: "A Python wrapper crashed — the traceback's last line names the exception; check the wrapper's environment (module versions, CUDA_VISIBLE_DEVICES) before re-running.",
+    hint: "A Python wrapper crashed — the traceback's last line names the exception; check the wrapper's environment (module versions, CUDA_VISIBLE_DEVICES) before re-running. If the lines just above name relion_python_blush, this is the Blush-regularisation wrapper: turn Blush off in the job's Optimisation tab (the tutorial's Class3D does not need it) or install RELION's python extras (relion-blush + torch) on the cluster.",
   },
   {
     // t320 — relion_autopick's own hard refusal (autopicker.cpp read():

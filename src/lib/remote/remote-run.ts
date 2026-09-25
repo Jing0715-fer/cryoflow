@@ -1539,6 +1539,68 @@ const ARRAY_FLAVORS: Record<
 const ARRAY_CONCURRENCY = 4;
 
 /**
+ * t387 — the VDAM single-rank lane's plan, as a PURE function (the t385
+ * doctrine: benchable without an SSH wire).
+ *
+ * RELION 5.0.0 ml_optimiser_mpi.cpp:106-112 REFUSES --grad under MPI
+ * outright ("Gradient refinement is not supported together with MPI.
+ * Please rerun with Number of MPI processes: 1"), and the 5.0 tutorial's
+ * own 2D-classification recipe is ONE MPI process with ALL the GPUs and
+ * threads for I/O ("Use GPU acceleration? Yes / Which GPUs to use:
+ * 0,1,2,3 / Number of MPI procs: 1 / Number of threads: 12" — a
+ * 3-minute run for the whole classification). The t386 defaults made
+ * VDAM class2d's DEFAULT algorithm, so the master+workers lane would
+ * hand every GPU class2d gpuWidth+1 ranks of relion_refine_mpi --grad —
+ * the exact argv RELION 5.0.0 refuses at startup (and on newer master
+ * builds runs with each ~200-particle mini-batch SPLIT across the ranks
+ * plus an allreduce per gradient step — the "GPU made it SLOWER" field
+ * report: the sync dwarfs the tiny per-rank GPU work).
+ *
+ * The dialect mirrors engine.ts's class2d builder verbatim:
+ * algorithm === "vdam", or the legacy do_grad/do_em pair (algorithm "em"
+ * = classic EM, which KEEPS the multi-rank lane).
+ *
+ * GPU lane: the COMMA device list is the tutorial's own Compute-tab
+ * grammar ("Which GPUs to use: 0,1,2,3") — multi-device in ONE process,
+ * where ml_optimiser.cpp:1621-1636 round-robins the process's THREADS
+ * over the listed cards (so --j is raised to at least the card count).
+ * The per-rank COLON grammar is the one that died in the field (t345) —
+ * retired. CPU VDAM: one process too (VDAM cannot use MPI ranks at
+ * all), just no --gpu surgery.
+ */
+export interface VdamLanePlan {
+  /** true when this job is a VDAM refine that must NOT ride mpirun */
+  vdam: boolean;
+  /** the comma device list for the one process's --gpu (null = no GPU lane) */
+  gpuList: string | null;
+  /** the minimum --j (one thread per card, or null when not applicable) */
+  threadBump: number | null;
+}
+
+export function planVdamLane(
+  jobType: string,
+  params: Record<string, unknown>,
+  opts: { hasGpu: boolean; gpus: number; isSlurm: boolean; gpuWidth: number }
+): VdamLanePlan {
+  const vdam =
+    jobType === "class2d" &&
+    (params.algorithm === "vdam" ||
+      (params.algorithm !== "em" &&
+        params.do_grad === true &&
+        params.do_em !== true));
+  if (!vdam) return { vdam: false, gpuList: null, threadBump: null };
+  if (!(opts.hasGpu && opts.gpus > 0 && opts.isSlurm)) {
+    return { vdam: true, gpuList: null, threadBump: null };
+  }
+  const cards = Math.max(1, Math.min(16, opts.gpuWidth));
+  return {
+    vdam: true,
+    gpuList: Array.from({ length: cards }, (_, i) => i).join(","),
+    threadBump: cards,
+  };
+}
+
+/**
  * t300 — the hostnames the probe's sinfo inventory resolved for ONE
  * partition (from the connection's lastProbe.slurmGpus[].hosts). null =
  * the partition is unknown to the probe (bare API callers, stale probes)
@@ -1818,7 +1880,7 @@ function extractPreflightLines(
   return L;
 }
 
-function buildSbatchScript(args: {
+export function buildSbatchScript(args: {
   conn: RemoteConnection;
   module: string;
   relionHome: string | null;
@@ -1904,6 +1966,14 @@ function buildSbatchScript(args: {
    */
   gpuJob?: boolean;
   /**
+   * t387 — true when the command is a VDAM (gradient) refinement running
+   * as ONE process over all the granted cards (class2d with
+   * algorithm=vdam). The script then prints the single-rank receipt so
+   * run.out self-documents the shape (RELION refuses --grad under MPI;
+   * the tutorial's own recipe is 1 MPI proc + all GPUs + threads).
+   */
+  vdamSingle?: boolean;
+  /**
    * t342 — the MPI width the argv asked for (null/1 = no rank pile-up
    * possible). When ≥2 the rank count becomes the script's own
    * CF_RANKS variable and the per-rank card launcher
@@ -1950,7 +2020,7 @@ function buildSbatchScript(args: {
    */
   timeLimitDefaultMin?: number | null;
 }): string {
-  const { conn, module: moduleName, relionHome, ctffind, command, gpus, ntasks, threads, jobName, remoteProjectRoot, remoteWorkdir, partition, nodelist, dependency, array, note, suppressPartition, gpuJob, mpiRanks, timeLimitMin, timeLimitWarn, timeLimitDefaultMin, preflightStar } = args;
+  const { conn, module: moduleName, relionHome, ctffind, command, gpus, ntasks, threads, jobName, remoteProjectRoot, remoteWorkdir, partition, nodelist, dependency, array, note, suppressPartition, gpuJob, vdamSingle, mpiRanks, timeLimitMin, timeLimitWarn, timeLimitDefaultMin, preflightStar } = args;
   // t332/t340 — the partition this sbatch names:
   //   · an explicit pin whose partition the caller RESOLVED → that
   //     partition (scontrol's own word — the dropdown equivalence);
@@ -2238,7 +2308,14 @@ function buildSbatchScript(args: {
     // t349 — the cards that matter are the WORKERS' (the first
     // CF_RANKS-1 entries of the device set; the master is unpinned).
     // A single-rank job keeps checking its one card.
-    L.push('  CF_WORKERS=$(( ${CF_RANKS:-1} - 1 )); [ "$CF_WORKERS" -lt 1 ] && CF_WORKERS=1');
+    // t387 — the VDAM single-rank lane's ONE process touches EVERY
+    // granted card (the comma device list), so the refusal checks them
+    // all, not just the first.
+    if (vdamSingle && gpus > 1) {
+      L.push(`  CF_WORKERS=${gpus}`);
+    } else {
+      L.push('  CF_WORKERS=$(( ${CF_RANKS:-1} - 1 )); [ "$CF_WORKERS" -lt 1 ] && CF_WORKERS=1');
+    }
     L.push('  CF_CHECK_IDS=""');
     L.push('  if [ -n "${CF_DEVICE_SET:-}" ]; then');
     L.push('    CF_CHECK_IDS="$(echo "$CF_DEVICE_SET" | cut -d, -f1-$CF_WORKERS)"');
@@ -2288,6 +2365,19 @@ function buildSbatchScript(args: {
       L.push("fi");
       L.push("");
     }
+  }
+  // t387 — the VDAM single-rank receipt: one process, every granted card
+  // (the tutorial's own recipe — "Number of MPI procs: 1" + "Which GPUs to
+  // use: 0,1,2,3" + threads). RELION's own banners that follow ("Will
+  // distribute threads over devices …" / "Thread i mapped to device j")
+  // are the live evidence the mapping took.
+  if (vdamSingle && gpus > 1) {
+    L.push(
+      `echo ${shQuote(
+        `CRYOFLOW_NOTE: this is a VDAM (gradient) refinement — ONE process over all ${gpus} granted card(s) (RELION 5 refuses --grad under MPI: \"Gradient refinement is not supported together with MPI. Please rerun with Number of MPI processes: 1\"; the tutorial's own recipe is 1 MPI proc + all GPUs + threads). The thread→device round-robin below (RELION's own \"mapped to device\" banners) is what puts the cards to work (t387)`
+      )}`
+    );
+    L.push("");
   }
   L.push("# ---- run ----");
   // t313 — the CTF gate's receipt lands at the TOP of run.out (SBATCH
@@ -4198,7 +4288,26 @@ export async function startRemoteJob(args: {
       const mpiAvailable = moduleName ? conn.lastProbe?.relionMpi?.[moduleName] ?? false : false;
 
       let ntasks = 1;
-      if (mpiParallelType && mpiAvailable) {
+      // ---- t387 — the VDAM single-rank lane (planVdamLane above) ---------
+      // One process over every granted card; the pure planner's dialect
+      // mirrors engine.ts's class2d builder verbatim (algorithm vdam, or
+      // the legacy do_grad/do_em pair; algorithm em keeps the multi-rank
+      // lane below). No mpirun, no relion_refine_mpi swap — the serial
+      // binary IS the sanctioned VDAM shape, MPI or no MPI in the module.
+      const vdamLane = planVdamLane(job.type, params, {
+        hasGpu,
+        gpus: strategy.gpus,
+        isSlurm,
+        gpuWidth,
+      });
+      const vdamClass2d = vdamLane.vdam;
+      let vdamThreadBump: number | null = null;
+      let vdamGpuList: string | null = null;
+      if (vdamClass2d) {
+        ntasks = 1;
+        vdamGpuList = vdamLane.gpuList;
+        vdamThreadBump = vdamLane.threadBump;
+      } else if (mpiParallelType && mpiAvailable) {
         // t360 — THE multi-writer fix. The argv names the SERIAL
         // relion_refine (buildArgv's dialect); under mpirun that is N
         // INDEPENDENT full refinements — the field report's exact shape:
@@ -4257,6 +4366,22 @@ export async function startRemoteJob(args: {
           argv.push("--gpu", "0");
         }
       }
+      // t387 — apply the VDAM lane's argv surgery AFTER the branches (the
+      // --gpu/--j slots belong to the lane, not to whichever branch ran)
+      if (vdamGpuList != null) {
+        const gi = argv.indexOf("--gpu");
+        if (gi !== -1) argv[gi + 1] = vdamGpuList;
+        else argv.push("--gpu", vdamGpuList);
+      }
+      if (vdamThreadBump != null) {
+        const ji = argv.indexOf("--j");
+        if (ji !== -1) {
+          const cur = Math.round(Number(argv[ji + 1]) || 0);
+          argv[ji + 1] = String(Math.max(cur, vdamThreadBump));
+        } else {
+          argv.push("--j", String(vdamThreadBump));
+        }
+      }
       // t320 — belt-and-braces: a LoG Auto-picking argv must NEVER carry
       // --gpu, whatever future code path grows an append above (RELION's
       // autopicker.cpp dies at argv-parse on do_gpu && do_LoG — before the
@@ -4270,8 +4395,11 @@ export async function startRemoteJob(args: {
       // slurm mode: the --gres width follows what the argv actually uses —
       // MPI rank count for MPI jobs, one GPU for single-GPU jobs, none for
       // CPU jobs (a CPU job that requests GPUs starves the GPU queue).
+      // t387 — the VDAM lane's ONE process consumes the whole width (the
+      // comma list hands it every granted card), so it keeps gpuWidth
+      // whether or not the module ships an MPI relion.
       const gresWidth = isSlurm
-        ? mpiParallelType && mpiAvailable
+        ? mpiParallelType && (mpiAvailable || vdamClass2d)
           ? gpuWidth
           : hasGpu && strategy.gpus > 0
             ? 1
@@ -4371,17 +4499,33 @@ export async function startRemoteJob(args: {
         // behind image.h:1534. Readable locally → refuse the split before
         // staging; twin-only → degrade with a note (the pre-t334 world).
         {
-          const starText =
-            extractStarText ??
-            (resolved.inputs.micrographs_star && existsSync(resolved.inputs.micrographs_star)
-              ? (() => {
-                  try {
-                    return readFileSync(resolved.inputs.micrographs_star, "utf8");
-                  } catch {
-                    return null;
-                  }
-                })()
-              : null);
+          // t387 — the TWIN LANE for every array flavor. The t382 fix fed
+          // only EXTRACT's gate (its readResolvedStarText call above);
+          // autopick/motioncorr/ctffind never got one, so a star that
+          // stayed on the cluster (the sync-back left no local mirror —
+          // the resolver then hands the CLUSTER path) failed the
+          // existsSync() below and the refusal claimed "neither the local
+          // copy nor the cluster twin answered" while the twin was never
+          // asked. Now every shard-capable type reads the star the way
+          // its job will: the cluster twin over SSH when the input runs in
+          // place, the local bytes the staging would upload otherwise.
+          let starText = extractStarText;
+          if (starText == null && resolved.inputs.micrographs_star) {
+            const rd = await readResolvedStarText(
+              conn,
+              resolved.inputs.micrographs_star,
+              upstreamRemoteTwins,
+              remoteRoot
+            );
+            if (rd.text !== null) {
+              starText = rd.text;
+              if (rd.lane === "cluster") {
+                console.log(
+                  `remote-run: array-split star read in place over SSH (${rd.readAt}) — the block check judged the cluster's own bytes, the copy this job consumes (t387)`
+                );
+              }
+            }
+          }
           if (starText != null) {
             const verdict = starIsArraySplittable(starText);
             if (!verdict.ok) {
@@ -4399,7 +4543,7 @@ export async function startRemoteJob(args: {
             // (the t345 receipt says a busy login node starves exactly
             // this read; it also starves the run itself).
             throw new Error(
-              `array split unavailable for "${job.type}": the input STAR could not be read to verify it is splittable (neither the local copy nor the cluster twin answered) — with ${shardTotal} shards, a single-block STAR would hand every row to every shard and the shards would write the same particle stacks at the same moment (the mid-run "write: target and source objects have different size" crash). Run with the Array split at 1, or retry when the cluster's login node is calmer`
+              `array split unavailable for "${job.type}": the input STAR could not be read to verify it is splittable (the local copy is missing and the cluster twin read failed — with ${shardTotal} shards, a single-block STAR would hand every row to every shard and the shards would write the same particle stacks at the same moment, the mid-run "write: target and source objects have different size" crash). Run with the Array split at 1, or retry when the cluster's login node is calmer (the read is one small SSH cat — a login node that cannot answer it cannot serve the run either)`
             );
           }
         }
@@ -4433,7 +4577,19 @@ export async function startRemoteJob(args: {
         String(argv[extractIi + 1] ?? "").endsWith(".star")
           ? String(argv[extractIi + 1])
           : null;
-      const threads = Math.max(1, Math.min(32, Math.round(Number(params.threads ?? 4) || 4)));
+      // t387 — the VDAM lane's --j bump rides the sbatch's CPU grant too:
+      // --cpus-per-task must cover the threads the argv asks for (the
+      // thread→device round-robin needs one thread per card)
+      const threads = Math.max(
+        1,
+        Math.min(
+          32,
+          Math.max(
+            Math.round(Number(params.threads ?? 4) || 4),
+            vdamThreadBump ?? 1
+          )
+        )
+      );
       const jobName = `cf_${job.type}_${job.id.slice(-8)}`;
 
       await remoteMkdir(conn, remoteWorkdir);
@@ -4905,6 +5061,9 @@ export async function startRemoteJob(args: {
             hasGpu &&
             strategy.gpus > 0 &&
             (argv.includes("--gpu") || SELF_GPU_FLAG_TYPES.has(job.type)),
+          // t387 — the VDAM single-rank receipt rides the script's own
+          // run.out banner (one process, every granted card)
+          ...(vdamClass2d && hasGpu && gresWidth > 1 ? { vdamSingle: true } : {}),
           mpiRanks: slurmMpiGpu ? ntasks : null,
         });
         const scriptPath = `${remoteWorkdir}/.cf-sbatch.sh`;

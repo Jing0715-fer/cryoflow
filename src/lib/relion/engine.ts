@@ -6681,7 +6681,13 @@ async function buildArgvCore(ctx: BuildCtx): Promise<string[] | { error: string 
         // missing. A file-existence probe cannot catch that; if the module
         // is absent the run fails honestly and rootCauseDetail surfaces the
         // ModuleNotFoundError from run.err.
-        const topaz = await externalFor(ctx, "topaz", ["relion_python_topaz", "topaz"]);
+        // t387 — a user-typed topaz executable wins over the probe (the
+        // motioncor2 lane's own rule: the params UI stores cluster paths for
+        // remote jobs, and the merged fn_topaz_exe control was dead weight
+        // until now — the engine only ever probed)
+        const topaz =
+          str(job, "fn_topaz_exe", "").trim() ||
+          (await externalFor(ctx, "topaz", ["relion_python_topaz", "topaz"]));
         if (!topaz) {
           return {
             error: ctx.externals
@@ -6760,7 +6766,10 @@ async function buildArgvCore(ctx: BuildCtx): Promise<string[] | { error: string 
       // an Auto-picking job's Topaz mode through --topaz_model. Needs the
       // topaz python module (same wrapper as extract) — a missing module
       // fails honestly in run.err and rootCauseDetail surfaces it.
-      const topaz = await externalFor(ctx, "topaz", ["relion_python_topaz", "topaz"]);
+      // t387 — same user-typed-wins rule as the picking lane above
+      const topaz =
+        str(job, "fn_topaz_exe", "").trim() ||
+        (await externalFor(ctx, "topaz", ["relion_python_topaz", "topaz"]));
       if (!topaz) {
         return {
           error: ctx.externals
