@@ -81,6 +81,19 @@ export function parseMrcHeaderBytes(buf: Buffer, size: number): MrcHeader | null
   };
 }
 
+/**
+ * t387 — the EXACT byte count a complete file for this header must carry:
+ * 1024 header + nsymbt extended + nx·ny·nz·bytesPerVoxel data. The remote
+ * pull paths compare the landed byte account against this number, because a
+ * mid-write file can stat FULL-SIZE while its data pages are still in
+ * flight (and a torn pull that matches the pre-pull stat can still be
+ * shorter than the header's own geometry — the parser's tolerance would
+ * only refuse it later, with a message that names the wrong world).
+ */
+export function mrcExpectedBytes(h: MrcHeader): number {
+  return 1024 + h.nsymbt + h.nx * h.ny * h.nz * h.bytesPerVoxel;
+}
+
 /** Read + validate the 1024-byte MRC2014 header. Returns null when not a map we can read. */
 export function readMrcHeader(file: string): MrcHeader | null {
   let fd: number;

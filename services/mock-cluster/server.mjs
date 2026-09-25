@@ -145,32 +145,66 @@ function commandEnv() {
  *   /data2/…     → <FS_ROOT>/data2/…   (t300 — the user's cluster keeps its
  *                  Relion installs + movies under /data2; the remote-project
  *                  browser rehearses against that shape)
- * FS_ROOT itself contains neither prefix, so a single replaceAll pass is safe.
  * (Reverse translation is not needed.)
+ *
+ * t387 — the wholesale skip is gone. The old guard ("if the command contains
+ * FS_ROOT anywhere, translate nothing") existed to stop a second pass from
+ * doubling an ALREADY-translated prefix — but it also skipped the mount
+ * prefixes in every OTHER argument of the same command. The exact shape that
+ * broke: the app's relink staging runs
+ *   ln -sfn '/data2/t387/particles.mrcs' '<FS_ROOT>/home/cryo/…/micrographs/particles.mrcs'
+ * — the link PATH is a real expanded $HOME path (correct: the mock's $HOME
+ * IS the sandbox-absolute path), so the command contains FS_ROOT and the
+ * old guard skipped the translation entirely, leaving the symlink's TARGET
+ * as the mock-mount path /data2/… — a link dangling on the host, and the
+ * class2d stub's stack audit rightly refused every row. The per-occurrence
+ * lookbehind below translates each mount prefix ONLY where it is not
+ * already preceded by FS_ROOT, so mixed commands translate fully and
+ * already-translated prefixes are never doubled.
  */
+function escForRe(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 function translateCommand(cmd) {
-  // A command that already carries the REAL fs root (the app echoing back
-  // an expanded $HOME — the mock's $HOME IS the sandbox-absolute path) must
-  // not be translated AGAIN: its mount prefixes are already real paths, and
-  // a second pass would double them.
-  if (String(cmd).includes(FS_ROOT)) return String(cmd);
-  let out = String(cmd)
-    .replaceAll("/projects/", `${FS_ROOT}/projects/`)
-    .replaceAll("/home/cryo/", `${FS_ROOT}/home/cryo/`)
-    .replaceAll("/data2/", `${FS_ROOT}/data2/`);
+  let out = String(cmd);
+  for (const mount of ["projects", "home/cryo", "data2"]) {
+    out = out.replace(
+      new RegExp(`(?<!${escForRe(FS_ROOT)})/${mount}/`, "g"),
+      `${FS_ROOT}/${mount}/`
+    );
+  }
   // BARE mount roots (a listing of /data2 itself — quoted, whitespace,
   // shell-metacharacter or line terminated) miss the trailing-slash forms
-  // above. The lookahead never matches "/" so already-translated
-  // <FS_ROOT>/data2/… tails are never re-matched.
-  out = out.replace(/\/(data2|projects|home\/cryo)(?=['"\s;&|)]|$)/g, `${FS_ROOT}/$1`);
+  // above. The lookbehind keeps an already-translated <FS_ROOT>/data2 tail
+  // from re-matching; the lookahead never matches "/".
+  out = out.replace(
+    new RegExp(`(?<!${escForRe(FS_ROOT)})/(data2|projects|home/cryo)(?=['"\\s;&|)]|$)`, "g"),
+    `${FS_ROOT}/$1`
+  );
   // Uploaded SCRIPT files carry cluster-absolute paths in their CONTENT —
   // the command translation above can't see those. When the app uploads a
   // shell script (`head -c N > path.sh`), rewrite the content's paths too
   // so the script's own mkdir/cd/redirections land inside the mock fs root.
+  // t387 — the placeholder dance: sed has no lookbehind, so each mount
+  // prefix that is ALREADY real (preceded by FS_ROOT — the app echoes back
+  // expanded $HOME paths inside these scripts) is first swapped for a
+  // placeholder, THEN the bare prefixes translate, THEN the placeholders
+  // restore. The old code never reached this sed for commands that
+  // contained FS_ROOT anywhere (the wholesale skip returned before it);
+  // now that mixed commands translate, the sed must be double-translation
+  // proof too — otherwise every <FS_ROOT>/home/cryo/… path in a script
+  // becomes <FS_ROOT><FS_ROOT>/home/cryo/… and the whole run walks into a
+  // doubled tree that does not exist.
   const up = /head -c \d+ > (.+\.sh)['"]?\s*$/.exec(out);
   if (up) {
     const target = up[1].trim().replace(/^['"]|['"]$/g, "");
-    out += ` && sed -i 's#/projects/#${FS_ROOT}/projects/#g; s#/home/cryo/#${FS_ROOT}/home/cryo/#g; s#/data2/#${FS_ROOT}/data2/#g' ${JSON.stringify(target)}`;
+    const F = FS_ROOT.replace(/#/g, "\\#");
+    out +=
+      ` && sed -i ` +
+      `'s#${F}/projects/#@@CFP@@/#g; s#${F}/home/cryo/#@@CFH@@/#g; s#${F}/data2/#@@CFD@@/#g; ` +
+      `s#/projects/#${F}/projects/#g; s#/home/cryo/#${F}/home/cryo/#g; s#/data2/#${F}/data2/#g; ` +
+      `s#@@CFP@@/#${F}/projects/#g; s#@@CFH@@/#${F}/home/cryo/#g; s#@@CFD@@/#${F}/data2/#g' ` +
+      JSON.stringify(target);
   }
   return out;
 }

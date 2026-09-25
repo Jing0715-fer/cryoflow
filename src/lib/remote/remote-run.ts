@@ -6686,6 +6686,17 @@ async function syncBackWorkdir(
   // (the "black classes" field report): same receipt sentence style, a
   // different disease.
   const zeroDataPulled: string[] = [];
+  // t387 — files the WITNESS LADDER healed: the finalize pull read the
+  // login node's page cache, the cache held stale ZERO pages planted by a
+  // mid-write read of the same file (the GPU-lane live pulls — a fast GPU
+  // run writes each round in seconds, the poll rides inside the write
+  // window, and the buffered chunk reads poison the cache; the t384
+  // O_DIRECT sniffs alone could not stop the PULLS from planting it), the
+  // ladder dropped the pages (posix_fadvise) and the re-pull came home
+  // healthy. These are NOT corruption — the receipt names the heal so the
+  // user can tell a storage problem (corruptPulled) from a cache problem
+  // (this list) at a glance.
+  const healedPulled: string[] = [];
   const W = shQuote(r.remoteWorkdir);
   // t367 — %T@ (mtime, epoch seconds with fraction) rides every line: the
   // generation gate needs it and the find costs the same SSH round.
@@ -6798,8 +6809,25 @@ async function syncBackWorkdir(
     // on the cluster are the corrupt ones. Keep the file (it IS the
     // cluster's truth and the gallery's on-demand legs speak about it)
     // but record it for the receipt.
+    // t387 — THE WITNESS LADDER FIRST: before this file is convicted, its
+    // buffered view (what the pull just read) is cross-examined against
+    // the same node's O_DIRECT view. A disagreement means the login
+    // node's cache is the liar — the ladder drops the stale pages and the
+    // re-pull reads the storage's truth. Only a still-corrupt re-pull (or
+    // a ladder that could not run) keeps the corrupt verdict.
     if (/\.(mrcs?|map)$/i.test(rel) && !localMrcReads(localPath)) {
-      corruptPulled.push(rel);
+      const remotePath = `${r.remoteWorkdir}/${rel}`;
+      const witness = await witnessMrcHeader(conn, remotePath);
+      if (witness?.illusion && witness.healed) {
+        const again = await remoteDownload(conn, remotePath, localPath, capPerFile);
+        if (again != null && again >= 0 && localMrcReads(localPath)) {
+          healedPulled.push(rel);
+        } else {
+          corruptPulled.push(rel);
+        }
+      } else {
+        corruptPulled.push(rel);
+      }
     }
     // t370 — ZERO-DATA detection on the same pulled bytes: a stack whose
     // header parses but whose sampled slices are all one flat value
@@ -6809,8 +6837,22 @@ async function syncBackWorkdir(
     // samples three slices (first/middle/last) — a healthy stack is never
     // flat, so the common path costs three slice reads. Class stacks only
     // (volumes/maps have their own semantics), size-bounded.
+    // t387 — the same ladder heals the POISONED-DATA shape (the login
+    // node's cache can serve stale zero DATA pages exactly the way it
+    // serves the zero header page): drop + re-pull before the badge
+    // sticks.
     if (/\.mrcs$/i.test(rel) && size <= 128 * 1024 * 1024 && mrcStackDataIsFlat(localPath)) {
-      zeroDataPulled.push(rel);
+      const remotePath = `${r.remoteWorkdir}/${rel}`;
+      const witness = await witnessMrcHeader(conn, remotePath);
+      let flatStill = true;
+      if (witness?.illusion && witness.healed) {
+        const again = await remoteDownload(conn, remotePath, localPath, capPerFile);
+        if (again != null && again >= 0 && !mrcStackDataIsFlat(localPath)) {
+          flatStill = false;
+          healedPulled.push(rel);
+        }
+      }
+      if (flatStill) zeroDataPulled.push(rel);
     }
     // STAR rewrite to-local (in place)
     if (/\.star$/i.test(localPath)) {
@@ -6835,7 +6877,15 @@ async function syncBackWorkdir(
       corruptPulled.slice(0, 3).join(", ") +
       (corruptPulled.length > 3 ? ` +${corruptPulled.length - 3} more` : "");
     noteParts.push(
-      `${corruptPulled.length} file(s) downloaded completely but read as right-sized zero-header MRCs through the login node (${shown}) — t384: that verdict alone no longer convicts the storage. The login node's page cache can serve stale ZERO pages for a file it read while the cluster was still writing it (NFS's one-second mtime granularity can keep them "valid" forever), and cryoflow's own pre-t384 live sniffs were exactly such mid-write readers. Re-opening the results re-pulls with the cache dropped first (posix_fadvise); the storage is only convicted when a compute node's own read of the SAME file also says zero — the automatic storage diagnostic (t370) now witnesses the suspect file from a compute node and speaks its verdict in the log (t384)`
+      `${corruptPulled.length} file(s) downloaded completely but read as right-sized zero-header MRCs through the login node (${shown}) — t384/t387: that verdict alone no longer convicts the storage. The witness ladder already cross-examined each one against the login node's O_DIRECT view and re-pulled after dropping its stale pages; these are the files that stayed corrupt AFTER that heal, so either the bytes are really zero on the storage or the ladder could not run (no python3 on the login node). The storage is only convicted when a compute node's own read of the SAME file also says zero — the automatic storage diagnostic (t370) now witnesses the suspect file from a compute node and speaks its verdict in the log (t384)`
+    );
+  }
+  if (healedPulled.length > 0) {
+    const shown =
+      healedPulled.slice(0, 3).join(", ") +
+      (healedPulled.length > 3 ? ` +${healedPulled.length - 3} more` : "");
+    noteParts.push(
+      `${healedPulled.length} file(s) came home with stale cached pages on the first pull and were HEALED — the login node's page cache had served pages planted while the run was still writing (the fast GPU rounds put the live polls inside the write window); the witness ladder dropped them (posix_fadvise) and the re-pull landed clean bytes (${shown}). The files on the storage were healthy the whole time; nothing here is corruption (t387)`
     );
   }
   if (zeroDataPulled.length > 0) {

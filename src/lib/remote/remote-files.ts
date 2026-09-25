@@ -39,6 +39,10 @@ import { rewriteStarPaths } from "./remote-run";
 // is NOT "already there" — the door re-pulls instead of serving the
 // ghost to another download.
 import { readMrcHeader } from "@/lib/mrc";
+// t387 — the witness ladder heals a poisoned login-node cache before the
+// door refuses a right-sized zero-header MRC (the GPU-lane live polls are
+// the mid-write readers that planted those pages).
+import { witnessMrcHeader } from "./cache-witness";
 
 /** t367 — true when the file at `p` is trustworthy as a cached local copy:
  * non-MRC formats always are (the byte account was their verdict); an
@@ -217,6 +221,34 @@ async function fetchIntoWorkdir(
       };
     }
     return { ok: false, error: "Fetch from the cluster failed (SSH transfer error)", status: 502 };
+  }
+  // t387 — the byte account is clean, but an MRC-family file whose header
+  // still cannot be read is the poisoned-cache shape (right-sized
+  // zero-header): the login node's page cache can serve stale ZERO pages
+  // for a file that was read while the run was still writing it — the
+  // exact pages the GPU lane's fast live polls planted. The WITNESS LADDER
+  // cross-examines this very file (buffered vs O_DIRECT on the login
+  // node), drops the stale pages when the two disagree, and the re-pull
+  // lands the storage's truth. Only a still-unreadable re-pull keeps the
+  // honest refusal — and it names the real world instead of a transfer
+  // error that did not happen.
+  if (/\.(mrcs?|map)$/i.test(localPath) && !localCopyReads(localPath)) {
+    const witness = await witnessMrcHeader(conn, remotePath);
+    if (witness?.illusion && witness.healed) {
+      const again = await remoteDownload(conn, remotePath, localPath, FETCH_CAP_BYTES);
+      if (again != null && again >= 0 && localCopyReads(localPath)) {
+        return { ok: true, bytes: again };
+      }
+    }
+    try { rmSync(localPath, { force: true }); } catch { /* best effort */ }
+    return {
+      ok: false,
+      error:
+        `${remotePath} downloaded completely (${expected} bytes) but its MRC header read as ZEROS through the login node, ` +
+        `and it stayed that way after the witness ladder dropped the node's stale cache pages (${witness ? "ladder ran" : "ladder could not run"}) — ` +
+        "either the bytes are really zero on the storage or the login node cannot drop its cache (no python3). Read the file from a compute node (srun) for a second opinion before blaming the transfer",
+      status: 502,
+    };
   }
   // STAR rewrite to-local — the same contract the sync-back applies, so a
   // fetched particle star feeds downstream LOCAL runs and local viewers.

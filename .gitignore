@@ -106,3 +106,10 @@ qa44-*.png
 services/mock-cluster/fs/data2/empiar10017/
 services/mock-cluster/fs/home/cryo/.cache/
 services/mock-cluster/fs/projects/cryoflow/
+
+# t387 — the E2E's runtime fixtures (a synthetic particle stack, regenerated
+# by scripts/t387-gpu-mrcs-integrity.mjs on each run) + the mock cluster's
+# runtime home/journal trees (remote projects, ~/.slurm) — none of it ships
+/services/mock-cluster/fs/data2/t387/
+services/mock-cluster/fs/home/cryo/cryoflow/
+services/mock-cluster/fs/home/cryo/.slurm/

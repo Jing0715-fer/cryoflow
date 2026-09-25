@@ -42,11 +42,19 @@ import {
 } from "fs";
 import { getRun } from "@/lib/relion/engine";
 import { cachedFileCompute } from "@/lib/relion/statcache";
-import { readMrcHeader, readMrcSlice, renderClassSheetPng, renderMrcSlicePng, type MrcPolarity } from "@/lib/mrc";
+import { readMrcHeader, readMrcSlice, renderClassSheetPng, renderMrcSlicePng, mrcExpectedBytes, type MrcPolarity } from "@/lib/mrc";
 import { DATA_DIR } from "@/lib/paths";
 import { getConnection } from "./connections";
 import { exec, remoteChunkedDownload } from "./ssh";
-import { witnessMrcHeader, witnessSummary, cacheSafeHeaderSniffLineForVar } from "./cache-witness";
+import {
+  witnessMrcHeader,
+  witnessSummary,
+  cacheSafeHeaderSniffLine,
+  cacheSafeHeaderSniffLineForVar,
+  wordsAreHealthy,
+  wordsAreZero,
+  parseHeaderWords,
+} from "./cache-witness";
 import type { RemoteConnection } from "./types";
 
 const PREVIEW_DIR = path.join(DATA_DIR, "remote-preview");
@@ -599,6 +607,7 @@ export interface StackPullFailure {
     | "transfer" // the wire broke mid-pull (channel/timeout)
     | "truncated" // bytes verified SHORT after every chunk retry
     | "unreadable" // complete bytes that are not a readable MRC
+    | "writing" // t387 — the writer has not finished this round yet (size < the header's own geometry)
     | "no-connection"; // the run's connection was deleted
   message: string;
   /** the cluster-side size when known (over-cap names it in the message) */
@@ -881,7 +890,15 @@ export async function ensureIterationAssets(
           return { slices, sheet };
         }
       }
-      const hdr = await verifiedStackPull(conn, clusterPath, transient);
+      // t387 — the run's doneness rides the pull (the gate words its
+      // verdict for the world that is true: "still writing" while the run
+      // lives, "never finished" once it has ended)
+      const hdr = await verifiedStackPull(
+        conn,
+        clusterPath,
+        transient,
+        getRun(jobId)?.done ?? false
+      );
       if (!hdr.ok) {
         recordStackFailure(jobId, stackName, hdr.failure);
         console.log(
@@ -987,17 +1004,198 @@ export async function ensureIterationAssets(
   }
 }
 
+/* t387 — bytes per voxel by MRC mode, for the gate's size arithmetic (the
+ * gate only has the first 12 bytes of the header on the wire — nx ny nz —
+ * plus word 3 (mode) when the cluster speaks the wider sniff; RELION's
+ * class stacks are mode 2 float32, the table keeps the other honest
+ * modes from lying). */
+const MODE_BPP: Record<number, number> = { 0: 1, 1: 2, 2: 4, 6: 2 };
+
+/**
+ * t387 — is this round's stack FINISHED? One SSH round: the file's stat
+ * size plus its header words read O_DIRECT (the storage's own answer — the
+ * login node's page cache is neither consulted nor populated). The verdict:
+ *
+ *   · words healthy AND size == 1024 + bpp·nx·ny·nz → SETTLED (the writer
+ *     finished this round: RELION writes the header first and the data
+ *     sequentially, so a size that already equals the header's geometry
+ *     means every data byte has landed);
+ *   · words healthy AND size < that → STILL WRITING — refused before any
+ *     body byte is read (no torn pull, no buffered read of a growing
+ *     file, no poison planted in the login node's cache);
+ *   · words ZERO (through whatever lane answered) → the mid-flight
+ *     header-page race or the t384 cache illusion: the WITNESS ladder
+ *     runs right here — a healed view re-evaluates against the gate, an
+ *     unhealable/absent direct view is an honest "writing" refusal;
+ *   · size larger than the geometry or words unparseable → pull anyway
+ *     (an extended header or an exotic mode); the exact post-pull shape
+ *     check with the REAL parsed header (nsymbt, bpp) is the referee.
+ *
+ * A wire failure answers ok (fail-open) — the pull itself re-encounters
+ * the file and owns that verdict; the gate only refuses what it can PROVE.
+ */
+async function stackWriteSettledGate(
+  conn: RemoteConnection,
+  clusterPath: string,
+  /** t387 — is the run that owns this file already FINISHED? A short or
+   * zero-header file means different things mid-run ("the writer is still
+   * inside this round — retry") and after it ("the writer never finished
+   * this round — killed / walltime / crash"). The route layer knows; the
+   * gate words the verdict honestly for the world that is actually true. */
+  runDone: boolean
+): Promise<{ ok: true } | { ok: false; failure: StackPullFailure }> {
+  const q = shSingleQuote(clusterPath);
+  // the sniff is the SHARED cache-safe dialect (t384): O_DIRECT first, the
+  // buffered od only as the fallback where the cluster/filesystem refuses
+  // direct reads. Command substitution captures its printed words line.
+  const script = [
+    "set -u",
+    `__s=$(stat -c '%s' ${q} 2>/dev/null || echo MISSING)`,
+    `__h=$(${cacheSafeHeaderSniffLine(clusterPath)})`,
+    // the mode word rides the SAME two-lane dialect as the words: O_DIRECT
+    // first, the buffered od as the fallback — on clusters/filesystems that
+    // refuse direct reads (common on NFS) the gate must not go blind on the
+    // size-vs-geometry check, which is the anti-poison weapon for torn
+    // files. A buffered 16-byte header read is the t384-fallback's own
+    // trade, already made by the words sniff on those clusters.
+    `__m=$(dd if=${q} iflag=direct bs=4096 count=1 2>/dev/null | od -An -tu4 -j12 -N4 2>/dev/null | tr -s ' \\n' ' ')`,
+    `[ -n "$__m" ] || __m="$(od -An -tu4 -j12 -N4 ${q} 2>/dev/null | tr -s ' \\n' ' ')"`,
+    `printf 'SIZE=%s\\nWORDS=%s\\nMODE=%s\\n' "$__s" "$__h" "$__m"`,
+  ].join("\n");
+  let res;
+  try {
+    res = await exec(conn, script, { timeoutMs: 30_000 });
+  } catch {
+    return { ok: true }; // the wire failed — the pull re-owns the verdict
+  }
+  if (res.error || res.code !== 0) return { ok: true };
+  const grab = (tag: string): string | null => {
+    const m = new RegExp(`^${tag}=(.*)$`, "m").exec(res.stdout ?? "");
+    return m ? m[1].trim() : null;
+  };
+  const sizeRaw = grab("SIZE");
+  const words = parseHeaderWords(grab("WORDS") ?? "");
+  if (sizeRaw == null || sizeRaw === "MISSING" || !/^\d+$/.test(sizeRaw)) {
+    return { ok: true }; // absent/stat-failed — the pull's own verdict names it
+  }
+  const size = Number(sizeRaw);
+  const mode = (() => {
+    const t = (grab("MODE") ?? "").split(/\s+/).filter((x) => /^\d+$/.test(x));
+    return t.length >= 1 ? Number(t[0]) : NaN;
+  })();
+
+  const decide = (w: NonNullable<typeof words>): { ok: true } | { ok: false; failure: StackPullFailure } => {
+    const bpp = MODE_BPP[mode];
+    if (wordsAreZero(w)) {
+      // fall through to the witness below (handled by the caller path)
+      return { ok: true };
+    }
+    if (!wordsAreHealthy(w) || !Number.isFinite(bpp)) return { ok: true };
+    const expected = 1024 + bpp * w.nx * w.ny * w.nz;
+    if (size < expected) {
+      return {
+        ok: false,
+        failure: {
+          reason: runDone ? "truncated" : "writing",
+          message: runDone
+            ? `${clusterPath} is short of its own geometry (${size} bytes on the cluster, its header promises ${expected}) — the writer never finished this round (killed by a walltime, a scancel, or a crash?). The file is INCOMPLETE on the cluster; no partial read was made`
+            : `${clusterPath} is still being written (${size} bytes on the cluster, its header promises ${expected}) — ` +
+              "this round's class averages are not finished; the next poll re-asks and renders the completed stack (no partial read was made)",
+          size,
+        },
+      };
+    }
+    return { ok: true };
+  };
+
+  if (words != null) {
+    if (wordsAreZero(words)) {
+      // the zero shape through the answering lane: the t384 ladder — a
+      // poisoned buffered view heals (fadvise drop) and the gate
+      // re-evaluates on the witness's OWN direct words; a direct view
+      // that is ALSO zero separates by SIZE: short of the geometry the
+      // writer is still mid-flight (the header page may not have landed
+      // even though the file grows); AT full size it is the zero-header
+      // disease (cache illusion that could not heal, or real zero bytes
+      // on the storage) — "unreadable", with the ladder's own verdict
+      // riding the message. Either way no body byte was read.
+      const witness = await witnessMrcHeader(conn, clusterPath);
+      if (witness?.illusion && witness.healed && witness.direct) {
+        return decide(witness.direct);
+      }
+      if (witness?.direct && wordsAreHealthy(witness.direct)) {
+        return decide(witness.direct);
+      }
+      return {
+        ok: false,
+        failure: {
+          reason: runDone ? "unreadable" : "writing",
+          message:
+            `${clusterPath} reads a ZERO header right now (witness ladder: ${witnessSummary(witness)}) — ` +
+            (runDone
+              ? "the run has finished, and this file's header reads zeros through every lane the login node has (the t369 shape: a cache illusion that could not heal, or real zero bytes on the storage)"
+              : "the round is still mid-write and its header page has not settled; the next poll re-asks") +
+            ". No partial read was made, and the login node's stale pages (if any) were dropped by the ladder",
+          size,
+        },
+      };
+    }
+    return decide(words);
+  }
+  // no parseable words at all AND the file is shorter than a header: the
+  // writer has not even laid the header down (a 0–1023 byte round file is
+  // the fopen-truncate moment) — "writing", not "may be corrupted".
+  if (size < 1024) {
+    return {
+      ok: false,
+      failure: {
+        reason: runDone ? "truncated" : "writing",
+        message:
+          `${clusterPath} is only ${size} bytes on the cluster — ${runDone ? "the writer never laid this round's header down (killed / walltime / crash?); the file is INCOMPLETE" : "this round was just created and its header has not landed yet; the next poll re-asks"} ` +
+          "(no partial read was made)",
+        size,
+      },
+    };
+  }
+  return { ok: true };
+}
+
 /** The t358 chunked, verdict-carrying pull: stat → 8 MB verified chunks →
  * header parse. Every refusal is a typed reason with a human message (the
  * routes surface it verbatim); the transient partial is always destroyed —
  * a truncated stack must never render. The retry budget lives PER CHUNK
  * inside remoteChunkedDownload (a failed chunk re-pays itself, not the
- * file), so this layer no longer loops. */
+ * file), so this layer no longer loops.
+ *
+ * t387 — THE WRITE-SETTLED GATE runs before any body byte crosses the wire
+ * (stackWriteSettledGate below): the field report "2D 分类选了 GPU 加速就
+ * 输出损坏的 mrcs，不选就正常" is the timing disease this gate exists
+ * for. A GPU classification writes each round's stack in a burst of
+ * SECONDS — the live gallery's poll asks for the newest round while the
+ * writer is still inside it, and a pull that lands in that window (a) can
+ * come home torn and (b) READS the growing file through the login node's
+ * buffered `cat`, the exact read that plants stale ZERO pages in its NFS
+ * cache (t384's verdict) — pages that one-second mtime granularity may
+ * never invalidate, so every later reader there (the finalize sync-back,
+ * relion_display, md5sum) serves the poison while the file on the storage
+ * is healthy. A CPU run's rounds take MINUTES, the poll lands long after
+ * each write closed, the cache only ever sees clean pages — that is the
+ * whole GPU-vs-CPU asymmetry the user measured. The gate asks the storage
+ * itself (O_DIRECT header sniff) whether the round is complete BEFORE the
+ * pull: a stack whose size is still short of its own header's geometry is
+ * refused as "writing" — no bytes read, no poison planted, the next poll
+ * re-asks and gets the finished round. */
 async function verifiedStackPull(
   conn: RemoteConnection,
   clusterPath: string,
-  transient: string
+  transient: string,
+  /** t387 — the run's doneness, for the gate's honest verdict wording
+   * ("still writing" mid-run vs "never finished" after it). */
+  runDone: boolean
 ): Promise<{ ok: true; nz: number } | { ok: false; failure: StackPullFailure }> {
+  // t387 — the pre-pull gate: stat + O_DIRECT header words, one SSH round.
+  const gate = await stackWriteSettledGate(conn, clusterPath, runDone);
+  if (!gate.ok) return { ok: false, failure: gate.failure };
   const r = await remoteChunkedDownload(conn, clusterPath, transient, {
     maxBytes: STACK_FETCH_CAP,
   });
@@ -1014,7 +1212,30 @@ async function verifiedStackPull(
     };
   }
   const hdr = readMrcHeader(transient);
-  if (hdr) return { ok: true, nz: hdr.nz };
+  if (hdr) {
+    // t387 — the exact-shape check: the landed byte account must equal the
+    // header's OWN geometry (1024 + nsymbt + nx·ny·nz·bpp). The parser's
+    // tolerance already refuses a short file, but its message names the
+    // wrong world ("may be corrupted") for the mid-write shape — and a file
+    // that GREW between the gate and the last chunk (the very race the
+    // gate narrows) lands here with bytes that match neither world.
+    const expected = mrcExpectedBytes(hdr);
+    if (r.bytes !== expected) {
+      return {
+        ok: false,
+        failure: {
+          reason: r.bytes < expected ? "truncated" : "unreadable",
+          message:
+            `${clusterPath} changed under the download (${r.bytes} bytes landed, its own header demands ${expected}) — ` +
+            (r.bytes < expected
+              ? "the round was still being written while it was pulled; ask again now that the write has settled"
+              : "the file carries more bytes than its geometry accounts for; re-run the job if this repeats"),
+          ...(r.bytes != null ? { size: r.bytes } : {}),
+        },
+      };
+    }
+    return { ok: true, nz: hdr.nz };
+  }
   // a COMPLETE download whose header cannot be read is one of two very
   // different worlds: the bytes are garbage (the file is bad on the
   // cluster) OR the transient PATH vanished mid-pull (a re-dispatch wipe

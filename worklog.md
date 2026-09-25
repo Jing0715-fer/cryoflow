@@ -3591,3 +3591,28 @@ Stage Summary:
 - 产出：VDAM 单旋钮(algorithm select 独占 do_em/do_grad/nr_iter_grad)、全类型默认对齐 RELION 5.0 GUI + 教程(38 项改动 + 3 处表 radio 真值修正)、inspector 完整参数视图(tab 分组 + 缺口补齐 + legacy 组 + 差异琥珀点)
 - 验证：bench 119/119 + 回归 t384/t385 全绿 + 沙箱活体三联验证(面板/存储/inspector)
 - 用户复机路径：git pull → 新加任意任务即见教程默认(VDAM/K50/…)；已提交任务开 inspector → Overview → Parameters 即见完整配置
+
+---
+Task ID: t387
+Agent: main (Z.ai Code)
+Task: 用户工单 — 「拉取最新代码，2d分类时选择了gpu加速，就会输出损坏的mrcs文件，不选gpu加速就正常，可能其他job也存在类似的问题」
+
+Work Log:
+- [环境] git pull → a88bc11（t386 默认值线）；mock 3022 / standalone 3001 存活；mock fs 无任何 run 产物 + my-project/upload 无新证据 → 判定：用户报告来自其真机集群（GPU lane），非 mock
+- [根因定位] 逐层排除：① RELION 5.0.0 源码核对（clone 3dem/relion tag 5.0.0）——VDAM(--grad)+MPI 合法（MlOptimiserMpi::iterate 全程处理 gradient_refine，无 REPORT_ERROR）；MPI 下模型文件由 rank 1（first follower）单写者写出、write() 每 write_every_grad_iter 才落盘——写侧无多写者；5.0.0→5.0.1 changelog 无相关修复 ② t360 的 relion_refine→relion_refine_mpi 换轨在 a88bc11 仍然成立（swap+preflight 都在） ③ dispatch 的 GPU lane（mpirun -n N+1 + .cf-rank-launch.sh + --gpu 0）单 MPI 宇宙单写者——写侧排除完毕
+- [根因定谳 — 读侧时机病] t384-cache-witness 只把「嗅探」改成了 O_DIRECT；**拉取（chunked pull 的 tail|head 缓冲读 + finalize sync-back 的整文件 cat + Files 门）依然是缓冲读**。GPU 分类每轮栈几秒一写：live 画廊的轮询骑在写窗口内 → (a) 撕裂拷贝可能落盘渲染并因 .done 标记永久缓存 (b) 缓冲读把 ZERO/陈旧页种进登录节点 NFS page cache（t384 判词的毒，改由 PULL 继续种）→ finalize 的 cat 拉回家的就是毒页 → run_it###_classes.mrcs 右尺寸零头「损坏」；且毒页同尺寸同 mtime 秒 → 永不复验 → 用户 md5sum/relion_display 同样读到毒。CPU 轮次分钟级 → 轮询总落在写完成之后 → 缓存只见干净页 → 「不选 GPU 就正常」。GPU-vs-CPU 不对称 = 写窗口命中率（秒级 vs 分钟级），与用户观察完全一致
+- [修复 1 — mrc.ts] mrcExpectedBytes(hdr)（1024+nsymbt+nx·ny·nz·bpp）：头部自带几何的精确字节数
+- [修复 2 — iteration-live.ts 写落定门] stackWriteSettledGate：拉取前 ONE SSH round（stat %s + O_DIRECT 头 12 字词 + mode 词，dd 直读失败回落缓冲 od——与 t384 sniff 同方言）判落定：词健康且 size==几何 → 拉；size<几何 → 拒「writing」（run 已结束则「truncated」+死因措辞）；零头词 → t384 witness 梯子当场跑（illusion 痊愈则按 direct 词重判；direct 也零 → run 活着=writing / run 已终=unreadable 三世界判词）——**任何体字节过线之前拒掉，撕裂拷贝不再渲染、毒页不再种**；<1024 字节（fopen-truncate 瞬间）同规则。拉后精确形状检查（r.bytes===mrcExpectedBytes）：门后仍在长的文件（变窄的竞态）拒 truncated。StackPullFailure 增 reason "writing"
+- [修复 3 — remote-run.ts sync-back 梯子] corruptPulled（头部不读）与 zeroDataPulled（平数据）之前先 witnessMrcHeader：illusion+healed → fadvise 弃页 + 重拉一次 → 成功记 healedPulled（回执单列「非损坏——缓存页已弃，重拉干净」）；仍坏才留 corrupt 判词（措辞升级：这些是痊愈后仍坏的）
+- [修复 4 — remote-files.ts Files 门] 字节账对齐但 MRC 头不读 → witness 梯子 → 痊愈重拉；仍坏 → 销毁本地拷贝 + 502 三世界判词（不再把毒当下载失败）
+- [修复 5 — mock server.mjs 路径翻译] E2E 首跑暴露：relink staging 的 ln 命令同时含 FS_ROOT（link 路径）与 /data2/（target）→ 旧翻译的「含 FS_ROOT 即整体跳过」跳过了 target 翻译 → 宿主机上悬空符号链接 → stub 审计拒绝。改为逐出现处 lookbehind 翻译（(?<!FS_ROOT)/data2/）；随之暴露 sed 内容翻译无 lookbehind 会把已真路径加倍（<FS_ROOT><FS_ROOT>/home/cryo）→ sed 换 placeholder 三步舞（占位→翻译→还原）。**此为 mock 基建修复——真集群不受影响（真 /data2 真实存在）**
+- [E2E — scripts/t387-gpu-mrcs-integrity.mjs 28/28] A 真粒子栈 fixture（64×64×30 float32 blobs+noise，MRC2014 头）+ particles.star 入 mock /data2/t387；B 用户原车道：import(particles) → class2d sbatch 模式 GPU 宽 6（mpirun -n 7 + rank-launcher + --gpu 0 + --gres=gpu:6 brain2）；C 运行中以 350ms 锤 iterations 路由（refresh=1 破 12s TTL——首跑 0 判定的假阴性定位）→ 4 轮全部渲染 200、零不诚实判定；D 字节级：4 轮栈全部过形状检查；撕裂 fixture（40% 截断，头完整）→ 404 reason=truncated + 无 PNG/无 .done；右尺寸零头 fixture → 404 reason=unreadable（witness 判词）+ 无 PNG；补全撕裂轮 → 重问 200；Files 门 raw 字节过形状检查；**毒化本地镜像（右尺寸零）→ Files 门重拉健康**（t367+t387 接线）；E 拆除干净
+- [回归] t386 119/119 · t385 48/48 · t384-xray 11/11 全绿；tsc 0；eslint（iteration-live/remote-run/remote-files/mrc/server.mjs）0
+- [浏览器] standalone 重建部署 3001：首页/项目切换/11 卡画布/双击卡片全交互零 console 错误零 page error；390×700 移动端零横向溢出 + footer 精确贴底（664+36=700）；截图 shots-qa/t387-{home,inspector,class2d-inspector,inspector-open,mobile}.png
+- [诚实边界] ① preview.ts 的缩略图拉取未加门（其源基本是已落定的输入微图；撕裂文件其渲染层自拒）② mock 无 NFS page-cache 语义——illusion→healed 分支在 mock 上不可触发（buffered==direct），其字节级行为由 t384 的 witnessScript 导出测试覆盖，本 E2E 证明的是接线与判词路由 ③ run.out/run.err 文本尾巴的读未过门（非 MRC，非本工单面）④ 用户「其他 job」覆盖：三个收口（live 栈拉取=class2d/class3d/refine3d/initialmodel 画廊、finalize sync-back=所有类型 mrc 产物、Files 门=任意文件）已把每条能带毒/撕裂回家的路都门住
+
+Stage Summary:
+- GPU→损坏 mrcs 根因：读侧时机病——t384 只堵了嗅探的缓冲读，拉取/回传/Files 门的缓冲读仍在写窗口内种毒+接撕裂；GPU 秒级轮次把命中率放大到必现，CPU 分钟级轮次几乎不中——用户的 A/B 观察即此
+- 修复：写落定门（拉前 O_DIRECT 问存储、按头部自带几何判落定/拒读）+ 拉后精确形状检查 + sync-back/Files 门 witness 梯子（弃页→重拉→痊愈单列）——三个收口，每条回家的路都有门
+- E2E 28/28 + 三套件回归全绿 + 浏览器零错误；mock 翻译器两处真 bug 顺手修复（lookbehind 翻译 + sed placeholder 舞）
+- 用户复机路径：git pull → GPU 2D 分类照常跑——live 轮次未写完的会显示「正在写、下轮轮询重取」而非拉回撕裂/零头；跑完的产物字节过形状检查才落本地；真损坏（痊愈后仍坏）的判词会明确指向存储而非传输
