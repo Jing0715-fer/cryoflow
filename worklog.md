@@ -3552,3 +3552,23 @@ Work Log:
 Stage Summary:
 - mrcs「写出问题」的全面审查结论:cryoflow 自身不写活 workdir(逐路径核实),RELION 5.0.0 单写手也不可能自伤 — 疾病最可能活在「登录节点读中途文件」的 NFS 缓存假象里,t384 让应用既不再制造假象(O_DIRECT 嗅探)、也能治愈假象(fadvise + 重拉)、更能在假象之外用三席见证点名真凶
 - 用户复机路径:git pull → 重跑 class2d → Log tab 看见证/诊断判决;旧的「损坏」文件大概率重开 Results 即被治愈重拉(不必重跑)
+
+---
+Task ID: 385
+Agent: main (Z.ai Code)
+Task: 用户工单 — job failed: "could not clear the previous run's files on 192.168.2.253 (batch 1: SSH failed (timeout after 180000ms) — after 2 attempt(s), the last on a fresh connection)" — 重跑的预清理腿在登录节点上死掉
+
+Work Log:
+- [病灶定位] remote-run.ts t333/t344 块:dispatch 关键路径上同步批量 rm -f 旧产物(200 文件/批,180s/批 + 一次 fresh-wire 重试)。NFS REMOVE 是逐文件同步 RPC,负载高的登录节点单 op 可 >1s — class2d 的 50 轮×5 文件或 extract 的千级 stack 都能吹爆任何预算;且超时只是客户端放弃,远端 login shell 里的 rm 变僵尸继续磨,重试还和它抢同一个目录。另有雪球:t370 的 extract 归档 .cryoflow_prev/ 在下次 listing(depth≤4 可见)被扩展名规则重新抓回同步 rm 集 — 每次重跑都更慢
+- [机理判决] 陈旧产物不需要在提交前「死」,只需要「让开」— 同文件系统 mv 是纯元数据 rename(~比 unlink 便宜三个数量级),千文件树可以整树一次 rename;t384 的缓存见证证明瓶颈从来不是「清理不彻底」而是「清理挡路」
+- [修复包 t385]
+  1. cleanup.ts:classifyRerunWipe 永远不把 .cryoflow_prev/ 归档树放进同步 wipe 集(keep-set;字节由脱离式回收消化)— 关掉雪球;新增 RUN_ARCHIVE_DIRNAME/isRunArchivePath 导出
+  2. remote-cleanup.ts 新族:wholeTreeCandidates + planStashUnits(纯函数,find 计数注入可测)— 整树折叠的条件是「该顶层段下无 kept 条目」且「集群自己的 find 计数 == listing 计数」(未列出的深层 unknown/超 cap 文件/空子目录都会降级为逐文件,「unknown=keep」契约不被拉伸);stashRemoteRunProducts — count 轮 + mv 批(set -- 一次进程 N 个 rename)+ shell builtin 幸存者回路(CF_STASH_SURVIVOR/CF_STASH_SURV,零 fork,唯一的真相源);幂等可重启(已挪走的 unit 是 mv 诊断不是失败);reclaimRemoteArchiveGens — nohup sh -c 后台串行 rm -rf 旧代(SIGHUP 免疫,spawn 时保留最新 2 代),永不阻塞 dispatch 永不拒绝
+  3. remote-run.ts:t333 块换轨 stash + reclaim + prune + ledger 剪除照旧;拒绝条件从「rm errors」改为「errors || survivors」;拒绝文案改口 rename-aside 语义(「连 rename 都两次超时 → 登录节点真没在应答」)
+  4. 脚本构造器(treeCountScript/stashBatchScript/reclaimScript)全部导出为纯函数 — bench 跑的就是登录节点将跑的原字节(t384 教义)
+- [验证] tsc 0;触碰文件 eslint 0;scripts/t385-stash-wipe.ts 48/48:B1 分类器归档排除(含 t370 时代归档 fixture)+ B2 纯规划(class2d 无候选/extract 整树/计数不匹配降级/count 轮死亡全降级/kept-under-tree 阻塞)+ B3 真实文件跑原字节脚本(class2d 移动+keep 存活+SURV 0;幂等重跑;归档路径被文件占位 → SURV 3 全点名;未列出 unknown 在降级路径上存活于原位 — 计数轮的安全属性;带空格 workdir)+ B4 脱离式 reaper(5 代 → 最新 2 代存活,轮询后台完成;无归档目录干净 no-op)+ B5 parseTreeCounts 方言(空格段/MISSING/垃圾行/零计数)+ B6 源码 X 光(dispatch 不再引用 deleteRemoteFiles、拒绝文案、导出齐备);t333 diag 的三个分类器 fixture 单独复跑全 PASS(原判决不受影响;diag 全栈运行需 mock 环境 3001/3022,沙箱未起,非回归)
+- [诚实边界] ①若登录节点彻底 wedged(连 rename 都两次 120s 超时),依然拒绝 — 但那是诚实拒绝(手动 ssh 也救不了);②整树折叠的计数轮多一次 SSH 往返(秒级,换来 extract 千文件 → 1 个 RPC);③归档稳态 ≈3 代(计数轮 spawn 时保 2 + 新代落地),磁盘换安全;t318 的 .cf-* 清除刀片与 stash 互补(已挪走 → no-op;stash 降级 → 它兜底),不冲突
+
+Stage Summary:
+- 重跑预清理从「同步 unlink 风暴」(两次 180s 超时阵亡,僵尸 rm 加持)换轨为「rename-aside + 脱离式字节回收」:workdir 里的旧产物秒级让位,字节由 nohup reaper 后台消化,dispatch 永不再为删除等待;归档树从 wipe 集合永久除名,雪球关闭
+- 用户复机路径:git pull → 直接重跑失败的 job — 预期瞬间过清理腿;若再遇「could not clear」且文案提及 rename-aside,那是登录节点真的没应答(手动 ssh 检查),而非清理慢

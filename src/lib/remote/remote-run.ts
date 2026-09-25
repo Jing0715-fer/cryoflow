@@ -110,11 +110,12 @@ import { LIVE_ITERATION_TYPES, mrcStackDataIsFlat, scheduleRemoteStackRenders } 
 import { runStorageDiagnostic } from "./storage-diag";
 import { cacheSafeHeaderSniffLineForVar, witnessMrcHeader } from "./cache-witness";
 import {
-  deleteRemoteFiles,
   dropRemoteListingCache,
   listRemoteWorkdir,
   pruneRemoteEmptyDirs,
+  reclaimRemoteArchiveGens,
   rewriteManifestAfterCleanup,
+  stashRemoteRunProducts,
 } from "./remote-cleanup";
 import { probeConnection } from "./probe";
 import {
@@ -4473,24 +4474,35 @@ export async function startRemoteJob(args: {
       // (empty workdir) sailed. A fresh start now gets a fresh directory:
       // one LIVE listing (bypass the cache) → the shared fresh-start
       // classifier (the t331 keep-set's fresh-run dialect: input links,
-      // note.txt, the manifest and anything UNRECOGNIZED survive;
-      // products, ALL iterations, .cf-* scratch and the logs die) →
-      // batched rm → empty-dir prune → the ledger pruned locally. A
-      // listing failure degrades to a warn-and-proceed (the pre-t333
-      // world — the submit re-tests the wire); an rm failure REFUSES the
-      // dispatch: proceeding into stale files is the exact crash this
-      // blade exists to kill.
+      // note.txt, the manifest, the .cryoflow_prev archive and anything
+      // UNRECOGNIZED survive; products, ALL iterations, .cf-* scratch
+      // and the logs move aside) → the rename-aside stash → empty-dir
+      // prune → the ledger pruned locally. A listing failure degrades
+      // to a warn-and-proceed (the pre-t333 world — the submit re-tests
+      // the wire); a SURVIVOR (a wipe path still sitting at its live
+      // position after the move) REFUSES the dispatch: proceeding into
+      // stale files is the exact crash this blade exists to kill.
       //
-      // t344 — the rm's own budget: the second field report refused the
-      // re-run with "batch 1: SSH failed (timeout after 30000ms)" on a
-      // login node that had answered the LISTING one round earlier inside
-      // 25s — the wire was fine, the deletion was merely SLOW (a loaded
-      // head unlinking hundreds of stacks on network storage). The wipe
-      // now carries a 3-minute-per-batch budget plus one fresh-wire
-      // retry (deleteRemoteFiles's ladder: an SSH-level death re-dials
-      // the pooled connection before re-running the idempotent rm -f).
+      // t385 — the mechanism is now a RENAME-ASIDE, not an rm. The t344
+      // ladder (3-minute per-batch rm budget + a fresh-wire retry) died
+      // in the field TWICE ("batch 1: SSH failed (timeout after
+      // 180000ms) — after 2 attempt(s), the last on a fresh connection"):
+      // a synchronous unlink storm on loaded network storage has NO
+      // honest budget — NFS REMOVE is a blocking RPC per file, hundreds
+      // of stale products blow any of them, and every timed-out attempt
+      // leaves a zombie login shell still grinding the same directory
+      // the retry then fights over. `mv` inside the one filesystem is a
+      // rename — a metadata op — so the stale generation now lands in
+      // <workdir>/.cryoflow_prev/<epoch-ms>/ (one whole-tree rename per
+      // top-level product subtree where the cluster's own count proves
+      // the listing saw everything, per-file renames for the root-level
+      // class2d shape), and the BYTES die detached: a nohup'd reaper on
+      // the login node keeps the newest two generations at spawn time
+      // and eats the rest (the fresh generation lands right after — a
+      // bounded steady state), never on the dispatch's path, never a
+      // refusal.
       {
-        const WIPE_RM_TIMEOUT_MS = 180_000;
+        const STASH_TIMEOUT_MS = 120_000;
         const wipeListing = await listRemoteWorkdir(conn, remoteWorkdir, {
           bypassCache: true,
           // t341 — read LIVE, don't PUBLISH: this listing photographs the
@@ -4508,21 +4520,31 @@ export async function startRemoteJob(args: {
         } else if (wipeListing.entries.length > 0) {
           const { wipe: wipeRels } = classifyRerunWipe(wipeListing.entries);
           if (wipeRels.length > 0) {
-            const rm = await deleteRemoteFiles(conn, remoteWorkdir, wipeRels, {
-              timeoutMs: WIPE_RM_TIMEOUT_MS,
-              retries: 1,
-            });
-            if (rm.errors.length > 0) {
+            const stash = await stashRemoteRunProducts(
+              conn,
+              remoteWorkdir,
+              wipeRels,
+              wipeListing.entries,
+              { timeoutMs: STASH_TIMEOUT_MS, retries: 1 }
+            );
+            if (stash.errors.length > 0 || stash.survivors.length > 0) {
+              const why =
+                stash.errors[0] ??
+                `${stash.survivors.length} file(s) still sit at their live positions (first: ${stash.survivors[0]})`;
               throw new Error(
-                `could not clear the previous run's files on ${conn.host} (${rm.errors[0]}) — a re-run into stale outputs is refused (RELION would die writing into them). ` +
-                  `The wipe waited out a ${Math.round(WIPE_RM_TIMEOUT_MS / 1000)}s budget per batch and retried once on a fresh connection; if it still fails, the login node is too slow or down right now — ssh in by hand and try again in a moment`
+                `could not clear the previous run's files on ${conn.host} (${why}) — a re-run into stale outputs is refused (RELION would die writing into them). ` +
+                  `The clear is a rename-aside now (t385): the old files move into .cryoflow_prev/ and are reclaimed in the background, so nothing is unlinked on the dispatch's path — if even a rename times out twice, the login node is not answering right now — ssh in by hand and try again in a moment`
               );
             }
+            // the bytes die detached — best-effort, never a gate
+            await reclaimRemoteArchiveGens(conn, remoteWorkdir).catch(() => undefined);
             await pruneRemoteEmptyDirs(conn, remoteWorkdir);
             dropRemoteListingCache(conn.id, remoteWorkdir);
             rewriteManifestAfterCleanup(localWorkdir, wipeRels);
             console.log(
-              `remote-run: fresh dispatch of "${job.name}" cleared ${rm.deleted} stale product file(s) from ${remoteWorkdir} (t333)`
+              `remote-run: fresh dispatch of "${job.name}" moved ${stash.movedFiles} stale product file(s)` +
+                `${stash.movedTrees.length > 0 ? ` + ${stash.movedTrees.length} subtree(s) whole (${stash.movedTrees.join(", ")})` : ""}` +
+                ` aside into ${remoteWorkdir}/${stash.archiveDir}/ — reclaimed in the background (t385)`
             );
           }
         }

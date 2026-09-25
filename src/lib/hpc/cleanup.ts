@@ -495,6 +495,19 @@ export function planTiers(plan: CleanupPlan): CleanupTierId[] {
  * verdict dotfiles (all re-made by the new dispatch), and run.out/run.err
  * (the engines append — without this, generation 2's log would open
  * appended to generation 1's).
+ *
+ * t385 — the one tree that must NEVER enter the wipe set: .cryoflow_prev/.
+ * The re-run clear is now a RENAME-ASIDE (stashRemoteRunProducts in
+ * remote-cleanup): stale products move into the workdir's .cryoflow_prev/
+ * <epoch>/ archive and are reclaimed by a DETACHED background rm — the
+ * synchronous unlink storm (the t344/t385 field reports: "batch 1: SSH
+ * failed (timeout after 180000ms)" twice on a loaded login node — NFS
+ * REMOVE is a synchronous RPC per file, and hundreds of them blow ANY
+ * per-batch budget) is off the dispatch's critical path entirely. If the
+ * archive's own files were classified wipe, the NEXT re-run would try to
+ * rm the whole archived generation synchronously again — the exact
+ * slow-death the rename-aside exists to kill. So the archive tree is
+ * keep-set here (it is reclaimed detached, never wiped in place).
  */
 const WIPE_EXTENSIONS = new Set([
   ".star",
@@ -505,6 +518,17 @@ const WIPE_EXTENSIONS = new Set([
   ".sav",
   ".tmp",
 ]);
+
+/** The rename-aside archive's root name (the t370 hygiene's choice,
+ * kept). Lives INSIDE the workdir: same filesystem (a cheap mv),
+ * root-level iteration globs never see into it, and deleting the
+ * workdir deletes the archive with it. */
+export const RUN_ARCHIVE_DIRNAME = ".cryoflow_prev";
+
+/** Is this workdir-relative path inside the rename-aside archive? */
+export function isRunArchivePath(relPath: string): boolean {
+  return relPath === RUN_ARCHIVE_DIRNAME || relPath.startsWith(RUN_ARCHIVE_DIRNAME + "/");
+}
 
 export interface RerunWipeResult {
   /** workdir-relative posix paths the fresh start deletes (every
@@ -536,6 +560,13 @@ export function classifyRerunWipe(files: CleanupFileEntry[]): RerunWipeResult {
     }
     if (name === "note.txt" || name === ".cf-remote-manifest.json") {
       keptCount++; keptBytes += f.size; continue;               // note + ledger
+    }
+    // t385 — the rename-aside archive NEVER wipes in place (see the
+    // module story above): a wipe hit here would drag the whole archived
+    // generation back onto the synchronous path the archive exists to
+    // dodge, and the archive's own bytes die detached (reclaim) instead.
+    if (isRunArchivePath(f.path)) {
+      keptCount++; keptBytes += f.size; continue;               // archived gens
     }
 
     // ---- recognized products ----------------------------------------
