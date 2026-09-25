@@ -369,7 +369,7 @@ export const RELION_OPTIONS: Record<string, RelionJobOptions> = {
       "range_tilt": { key: "range_tilt", label: "Angular search range - tilt (deg):", type: "text", default: "std::string(\"15\")", help: `` },
       "ref_correct_greyscale": { key: "ref_correct_greyscale", label: "Ref. map is on absolute greyscale?", type: "bool", default: false, help: `Probabilities are calculated based on a Gaussian noise model, which contains a squared difference term between the reference and the experimental image. This has a consequence that the reference needs to be on the same absolute intensity grey-scale as the experimental images. RELION and XMIPP reconstruct maps at their absolute intensity grey-scale. Other packages may perform internal normalisations of the reference density, which will result in incorrect grey-scales. Therefore: if the map was reconstructed in RELION or in XMIPP, set this option to Yes, otherwise set it to No. If set to No, RELION will use a (grey-scale invariant) cross-correlation criterion in the first iteration, and prior to the second iteration the map will be filtered again using the initial low-pass filter. This procedure is relatively quick and typically does not negatively affect the outcome of the subsequent MAP ` },
       "relax_sym": { key: "relax_sym", label: "Relax symmetry:", type: "text", default: "std::string(\"\")", flag: "--relax_sym", help: `` },
-      "sampling": { key: "sampling", label: "Angular sampling interval:", type: "select", default: "30 degrees", radio: ["30 degrees","15 degrees","7.5 degrees","3.7 degrees","1.8 degrees","0.9 degrees","0.5 degrees","0.2 degrees","0.1 degrees"], help: `` },
+      "sampling": { key: "sampling", label: "Angular sampling interval:", type: "select", default: "7.5 degrees", radio: ["30 degrees","15 degrees","7.5 degrees","3.7 degrees","1.8 degrees","0.9 degrees","0.5 degrees","0.2 degrees","0.1 degrees"], help: `` },
       "scratch_dir": { key: "scratch_dir", label: "Copy particles to scratch directory:", type: "text", default: "std::string(default_scratch)", flag: "--scratch_dir", help: `` },
       "sigma_angles": { key: "sigma_angles", label: "Local angular search range:", type: "number", default: 5, min: 0, max: 15, step: 0.1, help: `Local angular searches will be performed within +/- the given amount (in degrees) from the optimal orientation in the previous iteration. A Gaussian prior (also see previous option) will be applied, so that orientations closer to the optimal orientation in the previous iteration will get higher weights than those further away.` },
       "sigma_tilt": { key: "sigma_tilt", label: "Prior width on tilt angle (deg):", type: "number", default: -1, min: -1, max: 30, step: 1, flag: "--sigma_tilt", help: `The width of the prior on the tilt angle: angular searches will be +/-3 times this value. Tilt priors will be defined when particles have been picked as filaments, on spheres or on manifolds. Setting this width to a negative value will lead to no prior being used on the tilt angle.` },
@@ -1200,7 +1200,7 @@ export const RELION_OPTIONS: Record<string, RelionJobOptions> = {
     ],
     options: {
       "auto_faster": { key: "auto_faster", label: "Use finer angular sampling faster?", type: "bool", default: false, help: `If set to Yes, then let auto-refinement proceed faster with finer angular samplings. Two additional command-line options will be passed to the refine program:\n\n --auto_ignore_angles lets angular sampling go down despite changes still happening in the angles\n\n --auto_resol_angles lets angular sampling go down if the current resolution already requires that sampling at the edge of the particle.\n\n This option will make the computation faster, but hasn't been tested for many cases for potential loss in reconstruction quality upon convergence.` },
-      "auto_local_sampling": { key: "auto_local_sampling", label: "Local searches from auto-sampling:", type: "select", default: "30 degrees", radio: ["30 degrees","15 degrees","7.5 degrees","3.7 degrees","1.8 degrees","0.9 degrees","0.5 degrees","0.2 degrees","0.1 degrees"], help: `` },
+      "auto_local_sampling": { key: "auto_local_sampling", label: "Local searches from auto-sampling:", type: "select", default: "1.8 degrees", radio: ["30 degrees","15 degrees","7.5 degrees","3.7 degrees","1.8 degrees","0.9 degrees","0.5 degrees","0.2 degrees","0.1 degrees"], help: `` },
       "ctf_intact_first_peak": { key: "ctf_intact_first_peak", label: "Ignore CTFs until first peak?", type: "bool", default: false, flag: "--ctf_intact_first_peak", help: `If set to Yes, then CTF-amplitude correction will only be performed from the first peak of each CTF onward. This can be useful if the CTF model is inadequate at the lowest resolution. Still, in general using higher amplitude contrast on the CTFs (e.g. 10-20%) often yields better results. Therefore, this option is not generally recommended: try increasing amplitude contrast (in your input STAR file) first!` },
       "do_apply_helical_symmetry": { key: "do_apply_helical_symmetry", label: "Apply helical symmetry?", type: "bool", default: true, help: `If set to Yes, helical symmetry will be applied in every iteration. Set to No if you have just started a project, helical symmetry is unknown or not yet estimated.` },
       "do_blush": { key: "do_blush", label: "Use Blush regularisation?", type: "bool", default: false, flag: "--blush", help: `If set to Yes, relion_refine will use a neural network to perform regularisation by denoising at every iteration, instead of the standard smoothness regularisation.` },
@@ -1242,7 +1242,7 @@ export const RELION_OPTIONS: Record<string, RelionJobOptions> = {
       "range_tilt": { key: "range_tilt", label: "Angular search range - tilt (deg):", type: "text", default: "std::string(\"15\")", help: `` },
       "ref_correct_greyscale": { key: "ref_correct_greyscale", label: "Ref. map is on absolute greyscale?", type: "bool", default: false, help: `Probabilities are calculated based on a Gaussian noise model, which contains a squared difference term between the reference and the experimental image. This has a consequence that the reference needs to be on the same absolute intensity grey-scale as the experimental images. RELION and XMIPP reconstruct maps at their absolute intensity grey-scale. Other packages may perform internal normalisations of the reference density, which will result in incorrect grey-scales. Therefore: if the map was reconstructed in RELION or in XMIPP, set this option to Yes, otherwise set it to No. If set to No, RELION will use a (grey-scale invariant) cross-correlation criterion in the first iteration, and prior to the second iteration the map will be filtered again using the initial low-pass filter. This procedure is relatively quick and typically does not negatively affect the outcome of the subsequent MAP ` },
       "relax_sym": { key: "relax_sym", label: "Relax symmetry:", type: "text", default: "std::string(\"\")", flag: "--relax_sym", help: `` },
-      "sampling": { key: "sampling", label: "Initial angular sampling:", type: "select", default: "30 degrees", radio: ["30 degrees","15 degrees","7.5 degrees","3.7 degrees","1.8 degrees","0.9 degrees","0.5 degrees","0.2 degrees","0.1 degrees"], help: `` },
+      "sampling": { key: "sampling", label: "Initial angular sampling:", type: "select", default: "7.5 degrees", radio: ["30 degrees","15 degrees","7.5 degrees","3.7 degrees","1.8 degrees","0.9 degrees","0.5 degrees","0.2 degrees","0.1 degrees"], help: `` },
       "scratch_dir": { key: "scratch_dir", label: "Copy particles to scratch directory:", type: "text", default: "std::string(default_scratch)", flag: "--scratch_dir", help: `` },
       "sigma_tilt": { key: "sigma_tilt", label: "Prior width on tilt angle (deg):", type: "number", default: -1, min: -1, max: 30, step: 1, flag: "--sigma_tilt", help: `The width of the prior on the tilt angle: angular searches will be +/-3 times this value. Tilt priors will be defined when particles have been picked as filaments, on spheres or on manifolds. Setting this width to a negative value will lead to no prior being used on the tilt angle.` },
       "sym_name": { key: "sym_name", label: "Symmetry:", type: "text", default: "std::string(\"C1\")", flag: "--sym", help: `` },
@@ -1672,12 +1672,25 @@ export const RELION_OPTIONS: Record<string, RelionJobOptions> = {
 };
 
 /**
- * Curated alias map: cryoflow's curated param key → the RELION joboption key
+ * Curated alias map: cryoflow's curated param key → the RELION joboption key(s)
  * it already controls (same flag, same semantics). Used by the spec merge so
- * the RELION twin of an existing control is not appended a second time.
+ * the RELION twin of an existing control is not appended a second time, and
+ * by the engine's generic flag layer so aliased keys stay the curated
+ * builder's to emit.
+ *
+ * t386 — a value may be an ARRAY when one curated COMPOSITE knob owns several
+ * raw RELION options: class2d's `algorithm` select (em|vdam) is the single
+ * control for RELION's own "Use EM algorithm?"/"Use VDAM algorithm?" pair
+ * (do_em/do_grad — one knob in the GUI's intent, two booleans in its schema;
+ * emitting both controls side by side made 2D classification show the VDAM
+ * dialect TWICE). `miniBatches` owns nr_iter_grad explicitly (the label-twin
+ * rule already kept it out of the merge; the alias makes the ownership
+ * survive any label drift).
  */
-export const RELION_ALIASES: Record<string, Record<string, string>> = {
+export const RELION_ALIASES: Record<string, Record<string, string | string[]>> = {
   "class2d": {
+    "algorithm": ["do_em", "do_grad"],
+    "miniBatches": "nr_iter_grad",
     "numClasses": "nr_classes",
     "tau2Fudge": "tau_fudge",
     "particleDiameter": "particle_diameter",

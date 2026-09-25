@@ -87,7 +87,10 @@ const pth = (
 ): ParamSchema => ({ key, label, type: "path", default: "", ...extra });
 
 const symmetryOptions = ["C1", "C2", "C4", "D2", "T", "I"];
-const psiOptions = ["30", "15", "7.5", "3.75", "1.875"];
+// t386 — "6" joins the list: RELION's own psi_sampling GUI default is the
+// free-form 6° (pipeline_jobs.cpp:3240), so the curated select offers it and
+// defaults to it.
+const psiOptions = ["30", "15", "7.5", "6", "3.75", "1.875"];
 
 /** t352 — healpix angular-sampling options exactly as RELION's own GUI lists
  * them (pipeline_jobs.h job_sampling_options): the value is the DEGREE step,
@@ -112,9 +115,9 @@ const computeParity = (tab = "Compute"): ParamSchema[] => [
     tab, advanced: true,
     hint: "all particle images are read into RAM once — a big win on slow NFS, needs roughly the size of the data set free RAM",
   }),
-  bool("combineThruDisc", "Combine weights via disc", true, {
+  bool("combineThruDisc", "Combine weights via disc", false, {
     tab, advanced: true,
-    hint: "off = --dont_combine_weights_via_disc — keep the M-step weight sums in RAM instead of disc round-trips",
+    hint: "RELION's own GUI default is OFF (it emits --dont_combine_weights_via_disc) — weights are combined through memory, saving disc round-trips on shared filesystems",
   }),
   txt("extraArgs", "Additional RELION arguments", "", {
     tab, advanced: true,
@@ -626,17 +629,17 @@ export const JOB_TYPES: JobTypeSpec[] = [
         tab: "autopicking",
         hint: "LoG needs no references — pick straight after CTF; it is CPU-only (RELION refuses --gpu on it, so the cluster dispatch requests no GPUs). References needs Class2D averages and runs on GPU. Topaz is a CNN picker (needs the topaz python module in RELION's env).",
       }),
-      num("logDiamMin", "LoG min particle diameter", 120, { unit: "Å", step: 5, tab: "Laplacian", hint: "smallest blob the DoG filter responds to" }),
-      num("logDiamMax", "LoG max particle diameter", 180, { unit: "Å", step: 5, tab: "Laplacian", hint: "largest blob the DoG filter responds to" }),
+      num("logDiamMin", "LoG min particle diameter", 150, { unit: "Å", step: 5, tab: "Laplacian", hint: "smallest blob the DoG filter responds to — the tutorial's 150 Å" }),
+      num("logDiamMax", "LoG max particle diameter", 180, { unit: "Å", step: 5, tab: "Laplacian", hint: "largest blob the DoG filter responds to — the tutorial's 180 Å" }),
       num("logAdjustThreshold", "LoG adjust threshold", 0, { step: 0.05, tab: "Laplacian", hint: "positive picks fewer, negative picks more" }),
-      num("logUpperThreshold", "LoG upper threshold limit", 99999, { step: 1, tab: "Laplacian", advanced: true }),
+      num("logUpperThreshold", "LoG upper threshold limit", 999, { step: 1, min: 999, tab: "Laplacian", advanced: true, hint: "RELION's own default 999 = effectively disabled (discards picks whose LoG response is this many σ above the mean)" }),
       bool("logInvert", "Particles are white (not black)", false, { tab: "Laplacian", advanced: true }),
       num("particleDiameter", "Particle diameter (pick mask)", 180, { unit: "Å", step: 5, tab: "References" }),
       num("lowpass", "Lowpass filter for references", 20, { unit: "Å", step: 5, tab: "References" }),
-      num("threshold", "Picking threshold (References mode)", 0.4, { step: 0.05, min: 0, max: 1, tab: "autopicking" }),
+      num("threshold", "Picking threshold (References mode)", 0.05, { step: 0.01, min: 0, max: 1, tab: "autopicking", hint: "RELION's own default — lower picks more (and more junk)" }),
       num("minDistance", "Minimum inter-particle distance", 100, { unit: "Å", step: 10, min: 0, tab: "autopicking", advanced: true }),
-      num("maxStddevNoise", "Maximum stddev of noise", 0, { step: 0.05, min: 0, tab: "autopicking", advanced: true }),
-      num("topazNrParticles", "Topaz: expected particles per micrograph", 200, { step: 10, min: 1, tab: "Topaz", hint: "steers the CNN's recall — the general model picks roughly this many per image" }),
+      num("maxStddevNoise", "Maximum stddev of noise", 1.1, { step: 0.02, min: 0.9, max: 1.5, tab: "autopicking", advanced: true, hint: "RELION's own default — rejects picks in carbon / noisy areas" }),
+      num("topazNrParticles", "Topaz: expected particles per micrograph", 300, { step: 10, min: 1, tab: "Topaz", hint: "the tutorial's recall target — steers the CNN's threshold calibration" }),
       num("topazThreshold", "Topaz: picking threshold", -6, { step: 0.5, tab: "Topaz", hint: "lower (more negative) picks more candidates" }),
       num("topazDiameter", "Topaz: particle diameter", 180, { unit: "Å", step: 5, min: 0, tab: "Topaz", hint: "sets the extract radius together with the pixel size" }),
       num("topazDownscale", "Topaz: downscale factor", -1, { step: 1, min: -1, tab: "Topaz", advanced: true, hint: "-1 = automatic (from particle size)" }),
@@ -785,6 +788,14 @@ export const JOB_TYPES: JobTypeSpec[] = [
   ),
 
   /* ---------------- 2D classification ------------------------------- */
+  // t386 — the whole spec's initial defaults are RELION's own (RELION 5
+  // pipeline_jobs.cpp initialiseClass2DJob) with the tutorial's pedagogical
+  // overrides where the GUI's placeholder is useless: K=50 is the tutorial's
+  // first-pass class count (the GUI's own default of 1 class is nobody's
+  // classification), VDAM is RELION 5's default algorithm (do_grad=true),
+  // T=2 / mask 200 Å / psi 6° / offsets 5+1 px / pool 3 are the GUI's own
+  // pre-fills, and 25 EM iterations is nr_iter_em's default for the dialect
+  // switch back to EM.
   spec(
     "class2d",
     "2D Classification",
@@ -793,22 +804,22 @@ export const JOB_TYPES: JobTypeSpec[] = [
     "Multi-reference 2D class averaging (relion_refine) to separate good particles from junk.",
     12000,
     [
-      num("numClasses", "Number of classes (K)", 10, { step: 1, min: 1, max: 200, tab: "Optimisation" }),
-      sel("algorithm", "Algorithm", "em", ["em", "vdam"], {
+      num("numClasses", "Number of classes (K)", 50, { step: 1, min: 1, max: 200, tab: "Optimisation", hint: "the RELION tutorial's first-pass count — more classes separate views more finely at linear cost" }),
+      sel("algorithm", "Algorithm", "vdam", ["em", "vdam"], {
         tab: "Optimisation",
         hint: "RELION 5's two 2D-classification algorithms (the GUI's \"Use EM algorithm?\" / \"Use VDAM algorithm?\" pair, one knob): EM — the classic expectation-maximization, the default before relion-4.0; VDAM — variable-metric gradient descent with adaptive moments, RELION 5's own default and much faster on large data sets.",
       }),
-      num("iterations", "Number of EM iterations", 12, {
+      num("iterations", "Number of EM iterations", 25, {
         step: 1, min: 1, max: 50, tab: "Optimisation",
         showIf: { param: "algorithm", equals: "em" },
-        hint: "number of EM iterations (--iter)",
+        hint: "number of EM iterations (--iter) — RELION's own nr_iter_em default",
       }),
       num("miniBatches", "Number of VDAM mini-batches", 200, {
         step: 10, min: 50, max: 500, tab: "Optimisation",
         showIf: { param: "algorithm", equals: "vdam" },
-        hint: "number of mini-batches for the VDAM algorithm (--iter) — RELION's own GUI default 200: good results on many data sets; 100 runs faster at some quality cost",
+        hint: "number of mini-batches for the VDAM algorithm (--iter) — RELION's own GUI default 200: good results on many data sets; the tutorial uses 100 to run faster at some quality cost",
       }),
-      num("particleDiameter", "Circular mask diameter", 180, { unit: "Å", step: 5, tab: "Optimisation" }),
+      num("particleDiameter", "Circular mask diameter", 200, { unit: "Å", step: 5, tab: "Optimisation", hint: "RELION's own default and the tutorial's value — larger than the particle's longest dimension, not smaller" }),
       bool("doCtf", "Do CTF-correction (--ctf)", true, {
         tab: "CTF",
         hint: "CTF correction inside the refinement — needs CTF info in the particles STAR (CryoFlow imports carry it)",
@@ -817,7 +828,7 @@ export const JOB_TYPES: JobTypeSpec[] = [
         tab: "CTF", advanced: true,
         hint: "don't boost the lowest spatial frequencies — less low-res contrast, better high-res detail",
       }),
-      num("tau2Fudge", "Regularisation factor T", 1, { step: 0.5, min: 0.5, tab: "Optimisation", advanced: true }),
+      num("tau2Fudge", "Regularisation factor T", 2, { step: 0.5, min: 0.5, tab: "Optimisation", advanced: true, hint: "RELION's own 2D default (T=2-3 typical for cryo-EM 2D, lower for negative stain)" }),
       bool("doZeroMask", "Mask individual particles with zeros (--zero_mask)", true, { tab: "Optimisation", advanced: true }),
       bool("doCenter", "Centre class averages (--center_classes)", true, {
         tab: "Optimisation",
@@ -827,14 +838,14 @@ export const JOB_TYPES: JobTypeSpec[] = [
         tab: "Optimisation", advanced: true,
         hint: "skip the in-plane alignment search — orientations must already be in the STAR (e.g. re-classifying refined particles)",
       }),
-      sel("psiSampling", "In-plane sampling step", "7.5", psiOptions, { tab: "Sampling", advanced: true }),
-      num("offsetRange", "Offset search range (px, 0 = auto)", 0, {
-        step: 1, min: 0, max: 30, tab: "Sampling", advanced: true,
-        hint: "0 = RELION's own default; the RELION GUI default is 5 px",
+      sel("psiSampling", "In-plane sampling step", "6", psiOptions, { tab: "Sampling", advanced: true, hint: "RELION's own default (6°); finer steps sharpen class averages at compute cost" }),
+      num("offsetRange", "Offset search range (px)", 5, {
+        step: 1, min: 1, max: 30, tab: "Sampling", advanced: true,
+        hint: "translation circle radius in pixels — RELION's own GUI default 5",
       }),
-      num("offsetStep", "Offset search step (px, 0 = auto)", 0, {
-        step: 0.5, min: 0, max: 5, tab: "Sampling", advanced: true,
-        hint: "0 = RELION's own default; the RELION GUI default is 1 px",
+      num("offsetStep", "Offset search step (px)", 1, {
+        step: 0.5, min: 0.5, max: 5, tab: "Sampling", advanced: true,
+        hint: "translation sampling step — RELION's own GUI default 1",
       }),
       bool("allowCoarser", "Allow coarser sampling (--allow_coarser_sampling)", false, {
         tab: "Sampling", advanced: true,
@@ -848,9 +859,9 @@ export const JOB_TYPES: JobTypeSpec[] = [
         step: 0.5, min: 0, tab: "Optimisation", advanced: true,
         hint: "RELION --strict_highres_exp — caps the alignment search resolution; 0 = unlimited. A real speed lever for early classifications (e.g. 15–20 Å)",
       }),
-      num("batchSize", "Pooled particles (--pool)", 0, {
-        step: 1, min: 0, max: 16, tab: "Compute", advanced: true,
-        hint: "images pooled per thread task — 0 = RELION 5's own GUI default (3; GUI range 1–16). Batches of pool × threads are read together: fewer disc round-trips, more VRAM — lower it if the GPU reports out-of-memory",
+      num("batchSize", "Pooled particles (--pool)", 3, {
+        step: 1, min: 1, max: 16, tab: "Compute", advanced: true,
+        hint: "images pooled per thread task — RELION 5's own GUI default (3; GUI range 1–16). Batches of pool × threads are read together: fewer disc round-trips, more VRAM — lower it if the GPU reports out-of-memory",
       }),
       txt("scratchDir", "Node-local scratch dir (--scratch_dir)", "", {
         tab: "Compute", advanced: true,
@@ -953,11 +964,14 @@ export const JOB_TYPES: JobTypeSpec[] = [
     "Generate ab-initio 3D references with the gradient-driven VDAM de-novo algorithm.",
     14000,
     [
-      num("numClasses", "Number of classes (K)", 4, { min: 1, max: 20, tab: "Optimisation" }),
+      // t386 — RELION 5's inimodel GUI defaults: K=1, T=4, 200 mini-batches,
+      // mask 200 Å; the tutorial's D2 stays (the tutorial sample AND the
+      // user's are the same β-gal dataset)
+      num("numClasses", "Number of classes (K)", 1, { min: 1, max: 20, tab: "Optimisation", hint: "RELION's own and the tutorial's default — one de-novo reference" }),
       sel("symmetry", "Symmetry", "D2", symmetryOptions, { tab: "Optimisation" }),
-      num("iterations", "Number of VDAM iterations", 50, { step: 5, min: 5, max: 300, tab: "Optimisation" }),
-      num("particleDiameter", "Circular mask diameter", 180, { unit: "Å", step: 5, tab: "Sampling" }),
-      num("tau2Fudge", "Regularisation factor T", 1, { step: 0.5, min: 0.5, tab: "Optimisation", advanced: true }),
+      num("iterations", "Number of VDAM mini-batches", 200, { step: 10, min: 50, max: 500, tab: "Optimisation", hint: "RELION's own nr_iter default (the tutorial uses 100 to run faster)" }),
+      num("particleDiameter", "Circular mask diameter", 200, { unit: "Å", step: 5, tab: "Sampling", hint: "RELION's own default and the tutorial's value" }),
+      num("tau2Fudge", "Regularisation factor T", 4, { step: 0.5, min: 0.5, tab: "Optimisation", advanced: true, hint: "RELION's own inimodel default (T=4, like 3D work)" }),
       bool("doCtf", "Do CTF-correction (--ctf)", true, {
         tab: "CTF",
         hint: "CTF correction inside the de-novo refinement — needs CTF info in the particles STAR",
@@ -966,9 +980,9 @@ export const JOB_TYPES: JobTypeSpec[] = [
         tab: "CTF", advanced: true,
         hint: "don't boost the lowest spatial frequencies — less low-res contrast, better high-res detail",
       }),
-      num("batchSize", "Pooled particles (--pool)", 0, {
-        step: 1, min: 0, max: 16, tab: "Compute", advanced: true,
-        hint: "images pooled per thread task — 0 = RELION 5's own GUI default (3)",
+      num("batchSize", "Pooled particles (--pool)", 3, {
+        step: 1, min: 1, max: 16, tab: "Compute", advanced: true,
+        hint: "images pooled per thread task — RELION 5's own GUI default (3)",
       }),
       txt("scratchDir", "Node-local scratch dir (--scratch_dir)", "", {
         tab: "Compute", advanced: true,
@@ -993,10 +1007,10 @@ export const JOB_TYPES: JobTypeSpec[] = [
     "Sort particles into 3D conformational classes against a reference map.",
     14000,
     [
-      num("numClasses", "Number of classes (K)", 4, { min: 1, max: 20, tab: "Optimisation" }),
-      sel("symmetry", "Symmetry", "C1", symmetryOptions, { tab: "Reference" }),
+      num("numClasses", "Number of classes (K)", 4, { min: 1, max: 20, tab: "Optimisation", hint: "the tutorial's heterogeneity screen — the GUI's own default is 1" }),
+      sel("symmetry", "Symmetry", "C1", symmetryOptions, { tab: "Reference", hint: "the tutorial classifies in C1 first — bad particles break symmetry, and the point group can be verified on the classes" }),
       num("iterations", "Number of iterations", 25, { step: 5, min: 5, max: 100, tab: "Optimisation" }),
-      num("particleDiameter", "Circular mask diameter", 180, { unit: "Å", step: 5, tab: "Sampling" }),
+      num("particleDiameter", "Circular mask diameter", 200, { unit: "Å", step: 5, tab: "Sampling", hint: "RELION's own default and the tutorial's value" }),
       bool("doCtf", "Do CTF-correction (--ctf)", true, {
         tab: "CTF",
         hint: "CTF correction inside the refinement — needs CTF info in the particles STAR",
@@ -1021,17 +1035,17 @@ export const JOB_TYPES: JobTypeSpec[] = [
         tab: "Optimisation", advanced: true,
         hint: "the first iterations run on K×1500-particle random subsets, then K×4500, 30%, and finally all — for very large data sets",
       }),
-      samplingSel("sampling", "Angular sampling step (healpix)", "auto", {
+      samplingSel("sampling", "Angular sampling step (healpix)", "7.5", {
         tab: "Sampling", advanced: true,
-        hint: "auto = RELION's own default (15°); the RELION GUI default is 7.5° — the number passed to relion_refine is the healpix order",
+        hint: "RELION's own GUI default (7.5° — the tutorial keeps it for all but high-symmetry particles); the number passed to relion_refine is the healpix order",
       }),
-      num("offsetRange", "Offset search range (px, 0 = auto)", 0, {
-        step: 1, min: 0, max: 30, tab: "Sampling", advanced: true,
-        hint: "0 = RELION's own default; the RELION GUI default is 5 px",
+      num("offsetRange", "Offset search range (px)", 5, {
+        step: 1, min: 1, max: 30, tab: "Sampling", advanced: true,
+        hint: "translation circle radius in pixels — RELION's own GUI default 5",
       }),
-      num("offsetStep", "Offset search step (px, 0 = auto)", 0, {
-        step: 0.5, min: 0, max: 5, tab: "Sampling", advanced: true,
-        hint: "0 = RELION's own default; the RELION GUI default is 2 px",
+      num("offsetStep", "Offset search step (px)", 1, {
+        step: 0.5, min: 0.5, max: 5, tab: "Sampling", advanced: true,
+        hint: "translation sampling step — RELION's own GUI default 1",
       }),
       bool("allowCoarser", "Allow coarser sampling (--allow_coarser_sampling)", false, {
         tab: "Sampling", advanced: true,
@@ -1090,9 +1104,9 @@ export const JOB_TYPES: JobTypeSpec[] = [
     16000,
     [
       sel("symmetry", "Symmetry", "D2", symmetryOptions, { tab: "Reference" }),
-      num("iniHigh", "Initial low-pass on reference", 30, {
+      num("iniHigh", "Initial low-pass on reference", 50, {
         unit: "Å", step: 1, min: 5, max: 60, tab: "Reference",
-        hint: "reference is filtered to this resolution before the first iteration",
+        hint: "the tutorial's value — a class3d/inimodel reference is low-res, so filter it hard before the first iteration",
       }),
       bool("doCtf", "Do CTF-correction (--ctf)", true, {
         tab: "CTF",
@@ -1102,8 +1116,8 @@ export const JOB_TYPES: JobTypeSpec[] = [
         tab: "CTF", advanced: true,
         hint: "don't boost the lowest spatial frequencies — less low-res contrast, better high-res detail",
       }),
-      num("particleDiameter", "Circular mask diameter", 180, { unit: "Å", step: 5, tab: "Sampling" }),
-      bool("autoRefine", "Perform auto-refinement", false, { tab: "Auto-sampling" }),
+      num("particleDiameter", "Circular mask diameter", 200, { unit: "Å", step: 5, tab: "Sampling", hint: "RELION's own default and the tutorial's value" }),
+      bool("autoRefine", "Perform auto-refinement", true, { tab: "Auto-sampling", hint: "RELION's own Refine3D always auto-refines (gold-standard FSC stop — the tutorial's whole point for this job); off keeps a fixed iteration count" }),
       num("iterations", "Number of iterations", 15, { step: 1, min: 1, max: 50, tab: "Optimisation", hint: "used when auto-refine is off" }),
       num("tau2Fudge", "Regularisation factor T", 1, {
         step: 0.5, min: 0.5, tab: "Optimisation", advanced: true,
@@ -1121,25 +1135,25 @@ export const JOB_TYPES: JobTypeSpec[] = [
         tab: "Optimisation", advanced: true,
         hint: "use the solvent-corrected FSC in the gold-standard resolution estimate",
       }),
-      samplingSel("samplingStep", "Initial angular sampling (healpix)", "auto", {
+      samplingSel("samplingStep", "Initial angular sampling (healpix)", "7.5", {
         tab: "Auto-sampling", advanced: true,
-        hint: "auto = RELION's own default; the RELION GUI default is 7.5° — the number passed to relion_refine is the healpix order",
+        hint: "RELION's own GUI default — the tutorial: 7.5° for everything short of octahedral/icosahedral symmetry; the number passed to relion_refine is the healpix order",
       }),
-      samplingSel("autoLocalSampling", "Local searches from auto-sampling", "auto", {
+      samplingSel("autoLocalSampling", "Local searches from auto-sampling", "1.8", {
         tab: "Auto-sampling", advanced: true,
-        hint: "the sampling auto-refine switches down to for the local searches (RELION --auto_local_healpix_order); auto = RELION's own default",
+        hint: "the sampling auto-refine switches down to for the local searches (RELION --auto_local_healpix_order) — RELION's own GUI default 1.8°",
       }),
       bool("autoFaster", "Use finer angular sampling faster", false, {
         tab: "Auto-sampling", advanced: true,
         hint: "RELION's own expert option — adds --auto_ignore_angles --auto_resol_angles, letting auto-refine proceed to finer sampling sooner",
       }),
-      num("offsetRange", "Initial offset range (px, 0 = auto)", 0, {
-        step: 1, min: 0, max: 30, tab: "Auto-sampling", advanced: true,
-        hint: "0 = RELION's own default; the RELION GUI default is 5 px",
+      num("offsetRange", "Initial offset range (px)", 5, {
+        step: 1, min: 1, max: 30, tab: "Auto-sampling", advanced: true,
+        hint: "translation circle radius in pixels — RELION's own GUI default 5",
       }),
-      num("offsetStep", "Initial offset step (px, 0 = auto)", 0, {
-        step: 0.5, min: 0, max: 5, tab: "Auto-sampling", advanced: true,
-        hint: "0 = RELION's own default; the RELION GUI default is 2 px",
+      num("offsetStep", "Initial offset step (px)", 1, {
+        step: 0.5, min: 0.5, max: 5, tab: "Auto-sampling", advanced: true,
+        hint: "translation sampling step — RELION's own GUI default 1",
       }),
       num("relaxSym", "Relax symmetry (--relax_sym)", 0, {
         step: 1, min: 0, max: 24, tab: "Auto-sampling", advanced: true,
@@ -1191,8 +1205,8 @@ export const JOB_TYPES: JobTypeSpec[] = [
     [
       num("numBodies", "Number of bodies", 2, { min: 1, max: 20, tab: "Optimisation" }),
       sel("symmetry", "Symmetry", "C1", symmetryOptions, { tab: "Reference" }),
-      num("particleDiameter", "Circular mask diameter", 180, { unit: "Å", step: 5, tab: "Sampling" }),
-      num("offsetStep", "Offset search step", 2, { unit: "px", step: 1, min: 1, max: 10, tab: "Sampling", advanced: true }),
+      num("particleDiameter", "Circular mask diameter", 200, { unit: "Å", step: 5, tab: "Sampling", hint: "RELION's own default" }),
+      num("offsetStep", "Offset search step", 0.75, { unit: "px", step: 0.05, min: 0.1, max: 10, tab: "Sampling", advanced: true, hint: "RELION's own multibody GUI default (0.75 px)" }),
     ],
     "{n} bodies refined",
     "cmd",
@@ -1293,10 +1307,10 @@ export const JOB_TYPES: JobTypeSpec[] = [
     "Build a soft-edged 3D mask around the density (relion_mask_create) for FSC and validation.",
     2500,
     [
-      num("threshold", "Initial binarisation threshold", 0.02, { step: 0.01, min: 0.001, tab: "Mask" }),
-      num("softEdge", "Soft edge width", 6, { unit: "px", min: 1, tab: "Mask" }),
+      num("threshold", "Initial binarisation threshold", 0.02, { step: 0.01, min: 0.001, tab: "Mask", hint: "the tutorial's spot-check guidance: 0.002–0.02 — the threshold where the low-passed map shows no noisy spots outside the protein" }),
+      num("softEdge", "Soft edge width", 8, { unit: "px", min: 1, tab: "Mask", hint: "the tutorial's 8-px soft edge — gradual falloff keeps FSCs honest at the mask rim" }),
       num("lowpass", "Lowpass filter", 15, { unit: "Å", step: 5, tab: "Mask", advanced: true }),
-      num("extend", "Extend initial mask", 3, { unit: "px", min: 0, tab: "Mask" }),
+      num("extend", "Extend initial mask", 3, { unit: "px", min: 0, tab: "Mask", hint: "RELION's own default (the tutorial keeps it)" }),
     ],
     "Mask created",
     "core",
@@ -1317,7 +1331,7 @@ export const JOB_TYPES: JobTypeSpec[] = [
     [
       bool("autoBfac", "Estimate B-factor automatically", true, { tab: "Sharpening" }),
       num("autobLowres", "Auto-B low-res limit", 10, { unit: "Å", step: 1, tab: "Sharpening" }),
-      num("adhocBfac", "Ad-hoc B-factor", -100, { step: 25, unit: "Å²", tab: "Sharpening", advanced: true, hint: "used when auto-B is off" }),
+      num("adhocBfac", "Ad-hoc B-factor", -1000, { step: 50, unit: "Å²", tab: "Sharpening", advanced: true, hint: "used when auto-B is off — RELION's own default (-1000 Ų; stronger sharpening than -100)" }),
       num("randomizeFrom", "Randomize phases from", 10, { unit: "Å", step: 1, tab: "Sharpening", advanced: true }),
     ],
     "Sharpened map, {n} Å",
@@ -1370,7 +1384,7 @@ export const JOB_TYPES: JobTypeSpec[] = [
     [
       num("evalFrac", "Fourier-eval fraction", 0.5, { step: 0.05, min: 0.1, max: 0.9, tab: "Polish" }),
       num("firstFrame", "First frame", 1, { min: 1, tab: "Polish", advanced: true }),
-      num("lastFrame", "Last frame", 24, { min: 1, tab: "Polish", advanced: true }),
+      num("lastFrame", "Last frame", -1, { min: -1, tab: "Polish", advanced: true, hint: "RELION's own default: -1 = all frames" }),
     ],
     "Polished to {n} Å",
     "cmd",
@@ -1770,7 +1784,14 @@ function applyRelionParamTable(): void {
     if (!table) continue;
     const isTomo = spec.group === "Tomography";
     const skipWorld = isTomo ? "spa" : "tomo";
-    const aliased = new Set(Object.values(RELION_ALIASES[spec.key] ?? {}));
+    // t386 — alias values may be ARRAYS (one curated composite knob owning
+    // several raw options, e.g. class2d's algorithm → do_em + do_grad), so
+    // the skip-set flattens before use
+    const aliased = new Set(
+      Object.values(RELION_ALIASES[spec.key] ?? {}).flatMap((v) =>
+        Array.isArray(v) ? v : [v]
+      )
+    );
     const have = new Set(spec.params.map((p) => p.key));
     const labelTwin = new Set(spec.params.map((p) => relionLabelKey(p.label)));
 

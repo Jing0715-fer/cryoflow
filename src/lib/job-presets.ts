@@ -48,13 +48,13 @@ export const JOB_PRESETS: JobTypePreset[] = [
     type: "autopick",
     preset: "LoG 120–180 Å",
     params: { pickingMethod: "Laplacian of Gaussian", logDiamMin: 120, logDiamMax: 180 },
-    note: "reference-free picking straight after CTF",
+    note: "tighter blobs than the tutorial's 150–180 — for smaller particles",
   },
   {
     type: "autopick",
     preset: "Topaz — general model",
-    params: { pickingMethod: "Topaz", topazNrParticles: 300, topazThreshold: -6 },
-    note: "CNN picking, ~300 particles per micrograph",
+    params: { pickingMethod: "Topaz", topazThreshold: -6 },
+    note: "CNN picking with the pretrained general model (the tutorial then retrains on your own picks)",
   },
   {
     type: "autopick",
@@ -78,25 +78,27 @@ export const JOB_PRESETS: JobTypePreset[] = [
   },
 
   /* ---------------- 2D classification -------------------------------- */
+  // t386 — the type defaults are now the tutorial's own (VDAM, K=50, 200
+  // mini-batches), so the presets are the DELIBERATE deviations from it
   {
     type: "class2d",
-    preset: "Deep pass K50 · 25 it",
-    params: { numClasses: 50, iterations: 25 },
-    note: "fine sorting when 10 classes smear distinct views",
+    preset: "Fast screen K20 · 100 batches",
+    params: { numClasses: 20, miniBatches: 100 },
+    note: "quick cull before the real classification run — the tutorial's own speed trade-off",
   },
   {
     type: "class2d",
-    preset: "Junk screen K20 · 8 it",
-    params: { numClasses: 20, iterations: 8 },
-    note: "fast cull before the real classification run",
+    preset: "Classic EM · 25 it",
+    params: { algorithm: "em", iterations: 25 },
+    note: "the pre-relion-4.0 expectation-maximization dialect — slower, occasionally better on small sets",
   },
 
   /* ---------------- Initial model ------------------------------------ */
   {
     type: "initialmodel",
     preset: "Single model C1 fast",
-    params: { numClasses: 1, symmetry: "C1", iterations: 30 },
-    note: "ab-initio reference for an asymmetric particle",
+    params: { symmetry: "C1", iterations: 100 },
+    note: "C1 search without the D2 prior, 100 mini-batches — the tutorial's faster inimodel",
   },
   {
     type: "initialmodel",

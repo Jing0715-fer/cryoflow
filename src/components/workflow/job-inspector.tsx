@@ -83,7 +83,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { diagnoseFailureLines, diagnoseFailureLog, type LogFinding } from "@/lib/log-diagnosis";
 import { fmtAgo, fmtClock, fmtDuration } from "@/lib/duration";
-import { jobType } from "@/lib/workflow";
+import { jobType, tabsFor } from "@/lib/workflow";
+import { RELION_OPTIONS } from "@/lib/relion/option-tables";
 import { COMMAND_TEMPLATES } from "@/lib/relion/command-templates";
 import { CopyButton } from "./copy-button";
 import { RemoteRunButton } from "./remote-run-button";
@@ -1198,23 +1199,166 @@ function ResultSummary({
   );
 }
 
+/**
+ * t386 — the COMPLETE parameter view for a submitted job. The old grid
+ * rendered only the params the row happened to STORE, flat and unlabeled by
+ * group; a submitted run deserves its whole effective configuration — every
+ * param of the type's spec (curated + RELION's own option table merged in),
+ * value = the stored value with the spec default filling any gap, grouped by
+ * RELION's own GUI tab, RELION's Yes/No convention for booleans, and a subtle
+ * amber dot on values that differ from the CURRENT default (an honest
+ * "this run did not start from what a fresh job would start from" — old rows
+ * show dots where the defaults have since moved, which is exactly the story).
+ *
+ * Stored keys the spec no longer owns (pre-t386 raw RELION keys like do_grad,
+ * gallery class selections) render in a trailing "Additional" group, labeled
+ * from RELION's own option table when it knows the key.
+ */
+/** total settings the complete view will show: spec params + legacy extras */
+function paramSettingsCount(job: JobDTO): number {
+  const spec = jobType(job.type);
+  const specParams = spec?.params ?? [];
+  const specKeys = new Set(specParams.map((p) => p.key));
+  const legacyN = Object.keys(job.params ?? {}).filter((k) => !specKeys.has(k)).length;
+  return specParams.length + legacyN;
+}
+
+function relionOptionLabel(type: string, key: string): string {
+  const label = RELION_OPTIONS[type]?.options[key]?.label;
+  return label ? label.replace(/[?:*\s]+$/, "").trim() : key;
+}
+
+function displayParamValue(value: unknown): string {
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (value == null) return "—";
+  if (typeof value === "object") {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return String(value);
+    }
+  }
+  const s = String(value);
+  return s === "" ? "—" : s;
+}
+
+interface ParamRow {
+  key: string;
+  label: string;
+  value: unknown;
+  unit?: string;
+  advanced?: boolean;
+  differs: boolean;
+}
+
+function ParamRowLine({ row }: { row: ParamRow }) {
+  const display = displayParamValue(row.value);
+  return (
+    <div
+      key={row.key}
+      data-print-atomic=""
+      className="flex min-w-0 items-baseline justify-between gap-3 border-b border-dashed border-border/40 pb-1 last:border-0 last:pb-0"
+    >
+      <span
+        className={cn(
+          "max-w-[55%] shrink-0 truncate text-[11px] text-muted-foreground",
+          row.advanced && "italic"
+        )}
+        title={`${row.label}${row.advanced ? " (expert option)" : ""}`}
+      >
+        {row.label}
+      </span>
+      <span className="flex min-w-0 items-baseline justify-end gap-1.5">
+        {row.differs ? (
+          <span
+            className="size-1.5 shrink-0 translate-y-[-1px] rounded-full bg-amber-500"
+            title="differs from the current default for this job type"
+            aria-label="differs from the current default"
+          />
+        ) : null}
+        <span
+          className={cn(
+            "truncate font-mono text-[11px] tabular-nums",
+            row.differs ? "font-semibold text-foreground" : "text-foreground/80"
+          )}
+          title={display}
+        >
+          {display}
+        </span>
+        {row.unit ? (
+          <span className="shrink-0 text-[10px] text-muted-foreground">{row.unit}</span>
+        ) : null}
+      </span>
+    </div>
+  );
+}
+
 function ParamsGrid({ job }: { job: JobDTO }) {
   const spec = jobType(job.type);
-  const entries = Object.entries(job.params ?? {}).filter(([, v]) => v !== "" && v != null);
-  if (entries.length === 0) return null;
-  const labelFor = (key: string) => spec?.params.find((p) => p.key === key)?.label ?? key;
-  const unitFor = (key: string) => spec?.params.find((p) => p.key === key)?.unit ?? "";
+  const stored = (job.params ?? {}) as Record<string, unknown>;
+  const specParams = spec?.params ?? [];
+  const specKeys = new Set(specParams.map((p) => p.key));
+
+  const groups: { tab: string; rows: ParamRow[] }[] = [];
+  for (const tab of tabsFor(spec)) {
+    const rows: ParamRow[] = [];
+    for (const p of specParams) {
+      if ((p.tab ?? "") !== tab) continue;
+      const raw = stored[p.key];
+      const present = raw !== undefined && raw !== null;
+      rows.push({
+        key: p.key,
+        label: p.label,
+        value: present ? raw : p.default,
+        unit: p.unit,
+        advanced: p.advanced,
+        differs: present && String(raw) !== String(p.default),
+      });
+    }
+    if (rows.length > 0) groups.push({ tab, rows });
+  }
+
+  // stored keys the spec no longer owns — legacy raw RELION keys (pre-t386
+  // rows), gallery class selections, engine flags: still part of THIS run's
+  // configuration, so still part of the complete view
+  const legacyKeys = Object.keys(stored).filter((k) => !specKeys.has(k));
+  if (legacyKeys.length > 0) {
+    groups.push({
+      tab: "Additional",
+      rows: legacyKeys.map((k) => ({
+        key: k,
+        label: relionOptionLabel(job.type, k),
+        value: stored[k],
+        differs: false,
+      })),
+    });
+  }
+
+  const total = groups.reduce((n, g) => n + g.rows.length, 0);
+  if (total === 0) return null;
+
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-      {entries.map(([key, value]) => (
-        <div key={key} data-print-atomic="" className="rounded-lg border bg-card px-3 py-2.5">
-          <p className="truncate text-[10px] font-medium uppercase tracking-wide text-muted-foreground" title={labelFor(key)}>
-            {labelFor(key)}
-          </p>
-          <p className="mt-0.5 truncate font-mono text-xs font-semibold text-foreground/90" title={String(value)}>
-            {String(value)}
-            {unitFor(key) ? <span className="ml-1 font-normal text-muted-foreground">{unitFor(key)}</span> : null}
-          </p>
+    <div className="space-y-3">
+      {groups.map((g) => (
+        <div
+          key={g.tab}
+          data-print-atomic=""
+          className="overflow-hidden rounded-xl border bg-card"
+          data-testid={`inspector-params-${g.tab}`}
+        >
+          <div className="flex items-center justify-between border-b bg-muted/40 px-4 py-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-foreground/70">
+              {g.tab}
+            </span>
+            <span className="text-[10px] tabular-nums text-muted-foreground">
+              {g.rows.length} {g.rows.length === 1 ? "param" : "params"}
+            </span>
+          </div>
+          <div className="grid gap-x-6 gap-y-1.5 px-4 py-3 sm:grid-cols-2">
+            {g.rows.map((row) => (
+              <ParamRowLine key={row.key} row={row} />
+            ))}
+          </div>
         </div>
       ))}
     </div>
@@ -1669,7 +1813,11 @@ function OverviewTab({
           <Timeline job={job} />
         </div>
       </Section>
-      <Section icon={LayoutDashboard} title="Key parameters" hint={`${Object.keys(job.params ?? {}).length} total`}>
+      <Section
+        icon={LayoutDashboard}
+        title="Parameters"
+        hint={`complete · ${paramSettingsCount(job)} settings`}
+      >
         <ParamsGrid job={job} />
       </Section>
       {/* Task 257 — the reference wears its face: class3d/refine3d show

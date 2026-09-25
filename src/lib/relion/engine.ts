@@ -1142,7 +1142,14 @@ function appendRelionFlags(
   // ALIASES contract promised and what protects inverted twins
   // (dont_skip_align/do_parallel_discio/do_combine_thru_disc) from the
   // flag-presence heuristic's polarity blindness.
-  const aliased = new Set(Object.values(RELION_ALIASES[type] ?? {}));
+  // t386 — alias values may be ARRAYS (a curated composite knob owning
+  // several raw options, e.g. class2d's algorithm → do_em + do_grad), so
+  // the skip-set flattens before use
+  const aliased = new Set(
+    Object.values(RELION_ALIASES[type] ?? {}).flatMap((v) =>
+      Array.isArray(v) ? v : [v]
+    )
+  );
   const present = new Set<string>();
   for (const a of argv) {
     if (typeof a === "string" && a.startsWith("--") && a.length > 2) present.add(a);
@@ -6206,9 +6213,9 @@ async function buildArgvCore(ctx: BuildCtx): Promise<string[] | { error: string 
         binJoin(binDir, "relion_refine"),
         "--i", inputs.particles_star,
         "--o", outPath(ctx, "run"),
-        "--K", String(Math.round(num(job, "numClasses", 10))),
-        "--tau2_fudge", String(num(job, "tau2Fudge", 1)),
-        "--particle_diameter", String(num(job, "particleDiameter", 180)),
+        "--K", String(Math.round(num(job, "numClasses", 50))),
+        "--tau2_fudge", String(num(job, "tau2Fudge", 2)),
+        "--particle_diameter", String(num(job, "particleDiameter", 200)),
         "--pad", "2",
         "--iter", String(iterCount),
         // finer in-plane angular sampling → sharper class averages
@@ -6280,7 +6287,7 @@ async function buildArgvCore(ctx: BuildCtx): Promise<string[] | { error: string 
       // (nr_iter, pipeline_jobs.cpp:3467; GUI default 200). The curated
       // `iterations` (default 50) stays the fallback; an nr_iter the user
       // moved off 200 wins (same rule as class2d's nr_iter_grad).
-      let imIter = Math.round(num(job, "iterations", 50));
+      let imIter = Math.round(num(job, "iterations", 200));
       const relionImIter = num(job, "nr_iter", 200);
       if (Math.abs(relionImIter - 200) > 1e-9) imIter = Math.round(relionImIter);
       const argv = [
@@ -6288,8 +6295,8 @@ async function buildArgvCore(ctx: BuildCtx): Promise<string[] | { error: string 
         "--grad", "--denovo_3dref",
         "--i", inputs.particles_star,
         "--o", outPath(ctx, "run"),
-        "--K", String(Math.round(num(job, "numClasses", 4))),
-        "--particle_diameter", String(num(job, "particleDiameter", 180)),
+        "--K", String(Math.round(num(job, "numClasses", 1))),
+        "--particle_diameter", String(num(job, "particleDiameter", 200)),
         // t375 — either side of the aliased symmetry pair (RELION: sym_name,
         // pipeline_jobs.cpp:3526). The do_run_C1 C1-then-align_symmetry dance
         // stays unwired — see the t375 worklog for why.
@@ -6324,7 +6331,7 @@ async function buildArgvCore(ctx: BuildCtx): Promise<string[] | { error: string 
         "--ref", inputs.model_mrc,
         "--o", outPath(ctx, "run"),
         "--K", String(Math.round(num(job, "numClasses", 4))),
-        "--particle_diameter", String(num(job, "particleDiameter", 180)),
+        "--particle_diameter", String(num(job, "particleDiameter", 200)),
         // t375 — either side of the aliased symmetry pair (sym_name)
         "--sym", str(job, "symmetry", "C1") || str(job, "sym_name", ""),
         // t375 — do_pad1 (RELION's bool) is the aliased twin of `padding`
@@ -6389,11 +6396,11 @@ async function buildArgvCore(ctx: BuildCtx): Promise<string[] | { error: string 
         "--o", outPath(ctx, "run"),
         // t375 — either side of the aliased symmetry pair (sym_name)
         "--sym", str(job, "symmetry", "D2") || str(job, "sym_name", ""),
-        "--particle_diameter", String(num(job, "particleDiameter", 180)),
+        "--particle_diameter", String(num(job, "particleDiameter", 200)),
         // t375 — do_pad1 (RELION's bool) is the aliased twin of `padding`
         "--pad", String(job.params.do_pad1 === true ? 1 : Math.round(num(job, "padding", 2))),
         ...(firstiterCc ? ["--firstiter_cc"] : []),
-        "--ini_high", String(num(job, "iniHigh", 30)),
+        "--ini_high", String(num(job, "iniHigh", 50)),
         // the reference may come from a different-box job (e.g. a low-res
         // InitialModel) — RELION resizes it to the particles' optics group
         // (t365: the REMOTE dispatch now prepares a sampling-matched copy
@@ -6451,7 +6458,7 @@ async function buildArgvCore(ctx: BuildCtx): Promise<string[] | { error: string 
         "--angpix", String(Number(particlePixel(job, ctx.upstream).toFixed(3))),
         "--ini_threshold", String(num(job, "threshold", 0.02)),
         "--extend_inimask", String(Math.round(num(job, "extend", 3))),
-        "--width_soft_edge", String(Math.round(num(job, "softEdge", 6))),
+        "--width_soft_edge", String(Math.round(num(job, "softEdge", 8))),
         "--j", "4",
       ];
       // t375 — the helical mask pair (getCommandsMaskcreateJob,
@@ -6479,9 +6486,9 @@ async function buildArgvCore(ctx: BuildCtx): Promise<string[] | { error: string 
       const mtf = str(job, "fn_mtf", "").trim();
       if (mtf) argv.push("--mtf", mtf, "--mtf_angpix", String(num(job, "mtf_angpix", 1)));
       // t375 — the ad-hoc B-factor under its own radio (:5364-5367); reads
-      // either side of the alias pair (curated adhocBfac default -100)
+      // either side of the alias pair (t386: RELION's own default is -1000)
       if (flagPresent(job, "do_adhoc_bfac")) {
-        argv.push("--adhoc_bfac", String(numAny(job, -100, "adhocBfac", "adhoc_bfac")));
+        argv.push("--adhoc_bfac", String(numAny(job, -1000, "adhocBfac", "adhoc_bfac")));
       }
       // t375 — the skip-FSC pair (:5370-5374)
       if (flagPresent(job, "do_skip_fsc_weighting")) {
@@ -6619,7 +6626,7 @@ async function buildArgvCore(ctx: BuildCtx): Promise<string[] | { error: string 
         argv.push(
           "--ref", inputs.refs_mrc,
           "--particle_diameter", String(num(job, "particleDiameter", 180)),
-          "--threshold", String(num(job, "threshold", 0.4)),
+          "--threshold", String(num(job, "threshold", 0.05)),
           "--lowpass", String(num(job, "lowpass", 20)),
         );
         // t375 — the References-mode sub-flags the generic layer can't emit
@@ -6685,7 +6692,7 @@ async function buildArgvCore(ctx: BuildCtx): Promise<string[] | { error: string 
         argv.push(
           "--topaz_extract",
           "--fn_topaz_exe", topaz,
-          "--topaz_nr_particles", String(Math.round(num(job, "topazNrParticles", 200))),
+          "--topaz_nr_particles", String(Math.round(num(job, "topazNrParticles", 300))),
           // particle diameter drives the extract radius (RELION converts
           // Å → pix with the micrograph pixel size)
           "--particle_diameter", String(num(job, "topazDiameter", 180)),
@@ -6714,12 +6721,15 @@ async function buildArgvCore(ctx: BuildCtx): Promise<string[] | { error: string 
       } else {
         argv.push(
           "--LoG",
-          "--LoG_diam_min", String(num(job, "logDiamMin", 120)),
+          "--LoG_diam_min", String(num(job, "logDiamMin", 150)),
           "--LoG_diam_max", String(num(job, "logDiamMax", 180)),
           "--LoG_adjust_threshold", String(num(job, "logAdjustThreshold", 0)),
         );
-        const upper = num(job, "logUpperThreshold", 99999);
-        if (upper > 0 && upper < 99999) argv.push("--LoG_upper_threshold", String(upper));
+        // t386 — RELION's own off-value is 999 (pipeline_jobs.cpp:2288-2289:
+        // the flag rides only when < 999); the curated 99999-of-old was the
+        // same intent with a different sentinel
+        const upper = num(job, "logUpperThreshold", 999);
+        if (upper > 0 && upper < 999) argv.push("--LoG_upper_threshold", String(upper));
         // t375 — either side of the aliased white-particle switch — RELION's
         // log_invert ("Are the particles white?", pipeline_jobs.cpp:2292-2293)
         if (flagAnyTrue(job, "logInvert", "log_invert")) argv.push("--Log_invert");
@@ -6863,7 +6873,7 @@ async function buildArgvCore(ctx: BuildCtx): Promise<string[] | { error: string 
         "--f", inputs.postprocess_star,
         "--corr_mic", inputs.micrographs_star,
         "--first_frame", String(Math.round(num(job, "firstFrame", 1))),
-        "--last_frame", String(Math.round(num(job, "lastFrame", 24))),
+        "--last_frame", String(Math.round(num(job, "lastFrame", -1))),
         "--o", ctx.workdir + "/",
         "--eval_frac", String(num(job, "evalFrac", 0.5)),
       ];
