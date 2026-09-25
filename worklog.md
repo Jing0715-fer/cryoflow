@@ -3656,3 +3656,21 @@ Stage Summary:
 - 验证：t388 bench 53/53；六套回归全绿；tsc 0；eslint 0
 - 用户复机路径：git pull → 重跑失败的 blush 任务（车道已继承交互 shell 环境 + 预检兜底）；跑完后登录节点上 relion_display/md5sum 直接可开（毒页已被 finalize 清扫弃掉）；multibody 任务可在 Optimisation 页开 Blush
 - 诚实边界：① 快照是 best-effort — bash -lic 失败/超时回落到 t387 前的重 source 行为（不新增失败模式）；② 快照白名单只有六个变量 — 用户若靠其它变量（如 CONDA_PREFIX）驱动 wrapper 需扩表；③ 清扫只跑已结束 run 的 workdir（-maxdepth 2）且不重拉文件 — 它修的是登录节点的「读」，不是本地镜像；④ multibody 的 bodies STAR 仍非图节点（fn_bodies 存储参数/导入模板可带），无它时拒绝文案不变
+
+---
+Task ID: t389
+Agent: main (Z.ai Code)
+Task: 用户工单 — 「不需要 conda activate，只需要 module load 就可以直接开 relion 跑 blush 的 job」— 推翻 t388 的 conda 定性：blush 在该集群只要 module 环境；顺带暴露 t388 快照 export 的整体替换会抹掉 module 铺好的 PATH
+
+Work Log:
+- [用户证词定谳] blush 车道的环境真相是 module load 而非 conda — t388 的「.bashrc 交互守卫拦住 conda/python 尾段」叙事需要修正：要继承的是交互 shell 的 module 环境（含会话里手工敲的 module load），conda 从来不是这台集群的必要条件
+- [关键回归定位] t388 的 parseInteractiveEnvSnapshot 产出 `export PATH=<快照值>` 是整体替换；若用户的 module load 是手工敲的（rc 文件里没有），`bash -lic env`（快照源 — 新开 shell 只重放 rc 文件）拿到的 PATH 不含 relion module 目录 — 而脚本自己 module load 刚铺好的 PATH 会被这个 export 抹掉 → relion_refine 死在 127 门（"not found on PATH after module load" — 误导：module load 本身成功了）。t388 对纯 module 用户反而引入断路风险
+- [修复 — 前置合并] INTERACTIVE_ENV_LIST_MERGE = {PATH, LD_LIBRARY_PATH, PYTHONPATH, LD_PRELOAD}：列表形变量改发 `export PATH='<快照>'${PATH:+:$PATH}` — 快照值在前（保持手动 sbatch --export=ALL 的遮蔽语义），脚本自身（module load 产物）值在后永不被抹；`${VAR:+:$VAR}` 惯用法同时保证 set -u 下不炸、绝无尾冒号（PATH 尾空项=当前目录）；标量（RELION_BLUSH_ARGS/RELION_EXTERNAL_RECONSTRUCT_EXECUTABLE）保持整体替换。审查中否决把 RELION_HOME 加白名单：它会覆盖连接配置的 relionHome，恰破坏 RELION_HOME/bin 的救场 PATH 回落线
+- [修复 — 文案 module-first] 两条 blush 预检 127 文案重写：先讲「若手动 module load 就能跑 Blush，说明 module 已带 wrapper/torch — 把同一模块名填进连接的 Module 字段（脚本会重放，并把交互 shell 的 PATH 合并在其上）」，装 extras 降为次选；log-diagnosis 的 blush-python-failure hint 收尾同步改写（Module 字段 + 合并语义 + 更新后重跑）；remote-run.ts 三处 conda 中心注释改为 module/conda 通用表述
+- [验证] scripts/t389-module-load-lane.ts 29/29（A 合并形状×7 含标量不加尾巴/无裸替换；B 语义真跑 — set -u 不炸/无尾冒号/快照在前/头条回归：只有 module-load 块铺的 relion_refine stub 在快照行执行后仍可达 + 反事实验证 t388 整体替换形状确实抹掉它；C 两车道 module 重放先于快照 + 预检 Module 字段文案 + 车道间预检块字节一致 + 全组合 bash -n；D 127 门仍在快照之后）；t388-blush-lane 断言更新后 55/55（合并形状 + hint 新句）；回归 t387-parallel-vdam-dedup 157/157 + t387-dup-audit clean + t386 119/119 + t384 19/19 + t384-xray 11/11 + t385 48/48；tsc 0；触碰文件 eslint 0；t387-gpu-mrcs-integrity E2E 需活体 mock（3001/3022）沙箱未起 — t385 记录在案的既有偏差，非本次引入
+
+Stage Summary:
+- 产出：t389 合并语义（列表形变量前置合并，不再整体替换）+ module-first 预检/hint 文案 + 专项 bench scripts/t389-module-load-lane.ts（29 断言，含头条 clobber 回归的真跑证明与反事实）
+- 验证：t389 29/29 + t388 55/55 + 六套回归全绿；tsc 0；eslint 0
+- 用户复机路径：git pull → 连接的 Module 字段填你手动敲的那个模块名（脚本会 module load 它，再把交互 shell 的 PATH/LD_LIBRARY_PATH 合并在其上）→ 重跑 blush 任务；预检若仍拒，文案点名下一步
+- 诚实边界：① 快照依旧 best-effort（bash -lic 失败回落旧行为）；② 合并改变了两车道 PATH 终序（快照在前、module 在后）— 仅 rc 文件与 module 指向不同 relion 时快照遮蔽 module（与手动 sbatch 语义一致）；③ E2E 未重跑（mock 未起，非回归项）

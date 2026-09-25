@@ -1404,10 +1404,11 @@ async function stageStarWithRelinks(
 
 /**
  * The variables an interactive login shell owns that a non-interactive
- * re-source can never recover: .bashrc's interactive guard returns early
- * before the conda/python init at its tail, and a manual sbatch inherits
- * all of it via --export=ALL. Whitelisted because the full env carries
- * terminal/SSH noise the compute node should not see.
+ * re-source can never recover: whatever the interactive ritual runs —
+ * `module load`, conda init, plain exports — lands only in interactive
+ * shells, and a manual sbatch inherits all of it via --export=ALL.
+ * Whitelisted because the full env carries terminal/SSH noise the
+ * compute node should not see.
  */
 export const INTERACTIVE_ENV_WHITELIST = [
   "PATH",
@@ -1418,11 +1419,34 @@ export const INTERACTIVE_ENV_WHITELIST = [
   "RELION_EXTERNAL_RECONSTRUCT_EXECUTABLE",
 ] as const;
 
+/**
+ * t389 — list-shaped variables PREPEND-MERGE, never replace. The field
+ * report: blush needs nothing but a by-hand `module load` — and that
+ * load happens in the USER's interactive session, not necessarily in
+ * the rc files a fresh `bash -lic env` replays, so the snapshot can
+ * carry a PATH that never saw the RELION module. A wholesale
+ * `export PATH=<snapshot>` would then clobber the PATH this script's
+ * OWN module-load block just built and die at the relion_refine gate
+ * ("not found on PATH after module load" — misleadingly, the module
+ * load worked). The merge keeps the interactive value FIRST
+ * (manual-sbatch shadowing semantics) with the script's own value
+ * appended after, and the `${VAR:+:$VAR}` idiom never leaves a
+ * trailing colon (an empty PATH entry would mean the current
+ * directory) and never trips `set -u` on an unset variable.
+ */
+const INTERACTIVE_ENV_LIST_MERGE = new Set([
+  "PATH",
+  "LD_LIBRARY_PATH",
+  "PYTHONPATH",
+  "LD_PRELOAD",
+]);
+
 /** Parse `bash -lic env` output into `export NAME='value'` lines for the
  * whitelist. Values containing raw newlines/carriage returns are rejected
  * (env never emits those for these variables; a multi-line poison means
  * the shell printed banners into stdout — the line shape no longer
- * matches and we skip it, never adopt it). */
+ * matches and we skip it, never adopt it). List-shaped variables
+ * (INTERACTIVE_ENV_LIST_MERGE) emit the t389 prepend-merge form. */
 export function parseInteractiveEnvSnapshot(envOutput: string): string[] {
   const allow = new Set<string>(INTERACTIVE_ENV_WHITELIST);
   const lines: string[] = [];
@@ -1432,7 +1456,11 @@ export function parseInteractiveEnvSnapshot(envOutput: string): string[] {
     if (!allow.has(m[1])) continue;
     const value = m[2];
     if (/[\r\n]/.test(value) || value.length === 0) continue;
-    lines.push(`export ${m[1]}=${shQuote(value)}`);
+    lines.push(
+      INTERACTIVE_ENV_LIST_MERGE.has(m[1])
+        ? `export ${m[1]}=${shQuote(value)}\${${m[1]}:+:\$${m[1]}}`
+        : `export ${m[1]}=${shQuote(value)}`
+    );
   }
   return lines;
 }
@@ -1472,16 +1500,17 @@ function t388InteractiveLaneLines(args: {
 }): string[] {
   const { envSnapshot, relionHome, blushPreflight } = args;
   const L: string[] = [];
-  // t388 — the interactive lane's environment. A manual sbatch inherits the
-  // submitting shell wholesale (--export=ALL); this lane used to rebuild it
-  // by sourcing .bash_profile/.bashrc, but .bashrc's interactive guard
-  // returns before its conda/python tail, so relion_python_blush (Blush
-  // regularisation's popen'd wrapper) never saw the user's environment and
-  // the run died as a silent exit(1) with only a Python traceback. The
-  // dispatch asked an INTERACTIVE login shell (bash -lic env) for its
-  // environment and adopts the whitelisted variables below.
+  // t388/t389 — the interactive lane's environment. A manual sbatch inherits
+  // the submitting shell wholesale (--export=ALL); this lane rebuilds it from
+  // a snapshot of the login node's INTERACTIVE login shell (bash -lic env —
+  // whatever that ritual runs: `module load`, conda init, plain exports). The
+  // snapshot MERGES onto the script's own module-load block instead of
+  // replacing it (t389): the by-hand ritual's `module load` may never touch
+  // the rc files, so the snapshot can lack the module's PATH precisely
+  // because the module worked — clobbering it would refuse a lane the module
+  // alone had already made runnable.
   if (envSnapshot && envSnapshot.length > 0) {
-    L.push("# ---- the interactive lane's environment (t388) ----");
+    L.push("# ---- the interactive lane's environment (t388, merged t389) ----");
     for (const line of envSnapshot) L.push(line);
   }
   if (relionHome) {
@@ -1495,18 +1524,20 @@ function t388InteractiveLaneLines(args: {
     L.push("# mid-flight as a SILENT exit(1) with only a Python traceback in run.err.");
     L.push("# This job asked for --blush, so prove the lane can run it first.");
     L.push(
-      'command -v relion_python_blush >/dev/null 2>&1 || { echo "CRYOFLOW_ERR: relion_python_blush is not on this lane\'s PATH — Blush regularisation needs RELION\'s python extras (git+https://github.com/3dem/relion-blush and its torch dependency). Turn Blush regularisation OFF in the job\'s Optimisation tab, or make the wrapper reachable in the environment your interactive shell sees." >&2; exit 127; }'
+      'command -v relion_python_blush >/dev/null 2>&1 || { echo "CRYOFLOW_ERR: relion_python_blush is not on this lane\'s PATH — Blush regularisation hands every per-class reconstruction to that wrapper. If a by-hand run with nothing but \'module load <module>\' can run Blush, that module already carries the wrapper: name it in this connection\'s Module field (every job script re-plays it, and this lane merges your interactive shell\'s PATH on top). Otherwise make the wrapper reachable in the environment your interactive shell sees, or turn Blush regularisation OFF in the job\'s Optimisation tab." >&2; exit 127; }'
     );
     // the wrapper's own shebang names the interpreter it needs: read it,
     // resolve it on THIS lane, and prove that interpreter can import torch
-    // (the extras RELION's environment.yml ships but cluster modules often
-    // don't install) — all before the job owns a single GPU-second.
+    // — all before the job owns a single GPU-second. The failure wording
+    // leads with the module story (the field shape: a by-hand run with
+    // nothing but `module load` CAN run Blush — the module's interpreter
+    // already has the extras) and keeps the install side as the fallback.
     L.push(
       "__blush_py=\"$(sed -n '1{s|^#![ ]*||; s|^/usr/bin/env[ ]*||; s|[ ]*$||; p;}' \"$(command -v relion_python_blush)\" 2>/dev/null)\""
     );
     L.push('[ -n "$__blush_py" ] && command -v "$__blush_py" >/dev/null 2>&1 || __blush_py=""');
     L.push(
-      "if [ -n \"$__blush_py\" ]; then \"$__blush_py\" -c 'import torch' >/dev/null 2>&1 || { echo \"CRYOFLOW_ERR: relion_python_blush's python interpreter ($__blush_py) cannot import torch — Blush regularisation needs the relion-blush + torch extras in that interpreter. Turn Blush regularisation OFF in the job's Optimisation tab or install them (RELION's own environment.yml ships both).\" >&2; exit 127; }; fi"
+      "if [ -n \"$__blush_py\" ]; then \"$__blush_py\" -c 'import torch' >/dev/null 2>&1 || { echo \"CRYOFLOW_ERR: relion_python_blush's python interpreter ($__blush_py) cannot import torch — Blush regularisation needs the relion-blush + torch extras in that interpreter. If a by-hand run with nothing but 'module load <module>' runs Blush, that module's interpreter already has them: name it in this connection's Module field and re-run (this script re-plays the module load, then merges your interactive shell's PATH/LD_LIBRARY_PATH on top). Otherwise install the extras into that interpreter (RELION's own environment.yml ships both) or turn Blush regularisation OFF in the job's Optimisation tab.\" >&2; exit 127; }; fi"
     );
     L.push("unset __blush_py");
   }
@@ -5075,11 +5106,15 @@ export async function startRemoteJob(args: {
         );
       }
 
-      // t388 — the interactive-lane environment (one fetch per dispatch,
+      // t388/t389 — the interactive-lane environment (one fetch per dispatch,
       // shared by BOTH lanes — sbatch and the direct wrapper): the login
-      // node's INTERACTIVE login shell holds the conda/python environment
+      // node's INTERACTIVE login shell holds whatever the by-hand ritual
+      // builds — `module load`, conda init, plain exports — the environment
       // a manual sbatch inherits wholesale (--export=ALL), and .bashrc's
-      // interactive guard hides it from any non-interactive re-source.
+      // interactive guard hides it from any non-interactive re-source. The
+      // list-shaped variables MERGE onto the script's own module-load block
+      // (t389) so a snapshot taken where the rc files never loaded the
+      // module can no longer clobber the module's PATH.
       // Best-effort: null falls back to the pre-t388 behaviour. The blush
       // preflight rides only argvs that actually carry --blush (a job that
       // never touches relion_python_blush must not be refused over it).

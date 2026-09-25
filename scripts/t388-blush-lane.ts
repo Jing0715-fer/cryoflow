@@ -9,7 +9,9 @@
  *   A  parseInteractiveEnvSnapshot: the whitelist extracts exactly the
  *      interactive lane's environment variables, rejects multi-line/
  *      carriage-return poison and empty values, and answers [] when
- *      nothing whitelisted matches;
+ *      nothing whitelisted matches (t389: list-shaped variables now
+ *      emit the prepend-merge form — ${VAR:+:$VAR} — instead of a
+ *      wholesale export that would clobber the module-load PATH);
  *   B  the builder bytes: BOTH script lanes (sbatch + the setsid wrapper)
  *      adopt the snapshot AFTER the module-load/RELION_HOME block and
  *      BEFORE the relion_refine 127-check, the RELION_HOME PATH fallback
@@ -92,10 +94,13 @@ console.log("A — parseInteractiveEnvSnapshot (the whitelist)");
     "TERM=xterm-256color",
   ].join("\n");
   const lines = parseInteractiveEnvSnapshot(fixture);
-  must(lines.includes("export PATH=/opt/conda/envs/relion/bin:/usr/bin:/bin"), "PATH extracted, safe charset unquoted");
   must(
-    lines.includes("export PYTHONPATH='/opt/py libs/site-packages'"),
-    "a value with spaces is single-quoted (bash-safe export)"
+    lines.includes("export PATH=/opt/conda/envs/relion/bin:/usr/bin:/bin${PATH:+:$PATH}"),
+    "PATH extracted, safe charset unquoted, t389 prepend-merge suffix"
+  );
+  must(
+    lines.includes("export PYTHONPATH='/opt/py libs/site-packages'${PYTHONPATH:+:$PYTHONPATH}"),
+    "a value with spaces is single-quoted (bash-safe export), merge suffix outside the quotes"
   );
   must(
     lines.includes("export RELION_BLUSH_ARGS=--skip_spectral_trailing"),
@@ -128,7 +133,7 @@ console.log("B — the builder bytes (both lanes)");
   must(snapshot.length === 2, "the bench snapshot parses to two lines", `got ${snapshot.length}`);
 
   const REFINE_CHECK = 'command -v relion_refine >/dev/null 2>&1 || { echo "CRYOFLOW_ERR: relion_refine not found on PATH after module load" >&2; exit 127; }';
-  const SNAPSHOT_BANNER = "# ---- the interactive lane's environment (t388) ----";
+  const SNAPSHOT_BANNER = "# ---- the interactive lane's environment (t388, merged t389) ----";
   const PATH_FALLBACK = 'command -v relion_refine >/dev/null 2>&1 || export PATH="$RELION_HOME/bin:$PATH"';
 
   const dir = mkdtempSync(path.join(tmpdir(), "cf-t388-"));
@@ -182,7 +187,7 @@ console.log("B — the builder bytes (both lanes)");
     const iModule = withSnap.indexOf("module load");
     const iHome = withSnap.indexOf("export RELION_HOME=");
     const iBanner = withSnap.indexOf(SNAPSHOT_BANNER);
-    const iExport = withSnap.indexOf("export PATH=/opt/conda/envs/relion/bin:/usr/bin");
+    const iExport = withSnap.indexOf("export PATH=/opt/conda/envs/relion/bin:/usr/bin${PATH:+:$PATH}");
     const iCheck = withSnap.indexOf(REFINE_CHECK);
     must(
       iModule >= 0 && iHome >= 0 && iBanner >= 0 && iExport >= 0 && iCheck >= 0 &&
@@ -372,8 +377,16 @@ console.log("E — the diagnosis hint names the manual-vs-lane asymmetry");
     "the hint names the t388 snapshot remedy (bash -lic env)"
   );
   must(
-    !!blush?.hint.includes("If running the SAME job by hand through RELION's own GUI works"),
+    !!blush?.hint.includes("If running the SAME job by hand works"),
     "the hint names the manual-vs-lane asymmetry"
+  );
+  must(
+    !!blush?.hint.includes("module load <module>"),
+    "the hint leads with the module-load story (t389: no conda needed)"
+  );
+  must(
+    !!blush?.hint.includes("Module field"),
+    "the hint tells the user where to name the module (the connection's Module field)"
   );
   must(
     !!blush?.hint.includes("re-run once after updating"),
