@@ -1777,7 +1777,7 @@ export const RELION_ALIASES: Record<string, Record<string, string | string[]>> =
   },
   "extract": {
     "boxSize": "extract_size",
-    "downsampleTo": "rescale",
+    "downsampleTo": ["rescale", "do_rescale"],
     "bgDiameter": "bg_diameter",
     "norm": "do_norm"
   },
@@ -1789,6 +1789,18 @@ export const RELION_ALIASES: Record<string, Record<string, string | string[]>> =
     "phaseShift": "do_phaseshift"
   },
   "autopick": {
+    "pickingMethod": [
+      "do_refs",
+      "do_log",
+      "do_topaz",
+      "do_topaz_pick",
+      "do_topaz_train",
+      "do_topaz_train_parts",
+      "do_ref3d",
+      "topaz_train_picks",
+      "topaz_train_parts",
+      "topaz_model"
+    ],
     "logDiamMin": "log_diam_min",
     "logDiamMax": "log_diam_max",
     "logAdjustThreshold": "log_adjust_thr",
@@ -1799,7 +1811,8 @@ export const RELION_ALIASES: Record<string, Record<string, string | string[]>> =
     "maxStddevNoise": "maxstddevnoise_autopick",
     "lowpass": "lowpass",
     "topazDiameter": "topaz_particle_diameter",
-    "topazNrParticles": "topaz_nr_particles"
+    "topazNrParticles": "topaz_nr_particles",
+    "topazArgs": "topaz_other_args"
   },
   "motioncorr": {
     "dosePerFrame": "dose_per_frame",
@@ -1871,3 +1884,121 @@ export const RELION_ALIASES: Record<string, Record<string, string | string[]>> =
     "trainingSubvolumes": "number_training_subvolumes"
   }
 };
+
+/**
+ * t387 — controls that provably cannot influence anything, per job type.
+ *
+ * The t387 audit probe (scripts/t387-dup-audit.ts) cross-checked every
+ * merged-spec param against every reader in the tree (engine.ts's curated
+ * builders, the generic flag layer — which needs a CLI `flag` to ride,
+ * the dispatch gates in remote-run.ts, the import stage, the presets and
+ * templates). A key in THIS table is inert from every one of those seats:
+ * no builder reads it, it carries no CLI flag the generic layer could
+ * emit, no dispatch gate consults it. Showing it on the form is a lie of
+ * affordance — the user toggles it and the command does not change.
+ *
+ * Families in here (all audited line-by-line, grep-verifiable):
+ *  - import: RELION's own GUI import switches (do_raw/is_multiframe/…) —
+ *    cryoflow's import speaks its own curated params (nodeType, paths);
+ *  - autopick: the re-extract lane's leftover + the unwired 3D-reference
+ *    sub-radio (the mode booleans went to the pickingMethod alias instead);
+ *  - extract: the WHOLE re-extract family (no particles input port exists
+ *    to feed fndata_reextract; do_recenter/recenter_x/y/z,
+ *    do_reset_offsets, coords_suffix are all its furniture);
+ *  - select/joinstar/multibody/dynamight/modelangelo/the tomo family/external:
+ *    alternate modes and node-pickers RELION's GUI routes through
+ *    pipeline nodes cryoflow wires as JOB INPUTS instead (fn_in, fn_map,
+ *    in_halfmaps, fn_part1-4, …), or features this orchestrator does not
+ *    implement (regroup, dendrogram filaments, eigenvector analysis …).
+ *
+ * Stored params of EXISTING rows are never rewritten by this table — it
+ * only keeps the keys out of the FORM (the inspector's Additional group
+ * still renders legacy values with their RELION labels).
+ */
+export const RELION_DROP: Record<string, string[]> = {
+  import: [
+    "do_raw", "fn_in_raw", "is_multiframe", "optics_group_name",
+    "do_other", "fn_in_other", "optics_group_particles",
+  ],
+  autopick: [
+    "continue_manual",
+    "ref3d_sampling",
+    "fn_refs_autopick",
+    "fn_ref3d_autopick",
+    "ref3d_symmetry",
+    "angpix"
+  ],
+  extract: [
+    "star_mics", "coords_suffix", "do_reextract", "fndata_reextract",
+    "do_reset_offsets", "do_recenter", "recenter_x", "recenter_y", "recenter_z",
+  ],
+  subtract: ["do_data"],
+  select: [
+    "do_class_ranker", "do_regroup", "do_select_values", "do_discard",
+    "do_split", "do_remove_duplicates", "do_filaments",
+    "dendrogram_threshold", "dendrogram_minclass",
+  ],
+  joinstar: [
+    "do_part", "fn_part1", "fn_part2", "fn_part3", "fn_part4",
+    "do_mic", "fn_mic1", "fn_mic2", "fn_mic3", "fn_mic4",
+    "do_mov", "fn_mov1", "fn_mov2", "fn_mov3", "fn_mov4",
+  ],
+  initialmodel: ["do_run_C1"],
+  multibody: [
+    "fn_in", "fn_bodies", "do_subtracted_bodies", "do_blush", "offset_range",
+    "do_analyse", "nr_movies", "do_select", "select_eigenval",
+    "eigenval_min", "eigenval_max", "nr_pool",
+  ],
+  postprocess: ["fn_in"],
+  localres: ["do_relion_locres"],
+  dynamight: [
+    "fn_dynamight_exe", "fn_checkpoint", "do_visualize", "halfset",
+    "do_inverse", "nr_epochs", "do_store_deform", "do_reconstruct",
+    "backproject_batchsize",
+  ],
+  modelangelo: [
+    "fn_map", "p_seq", "d_seq", "r_seq", "fn_modelangelo_exe",
+    "fn_lib", "alphabet", "F1", "F2", "F3", "E",
+  ],
+  tomo_import: ["do_coords"],
+  tomo_aligntiltseries: [
+    "fn_batchtomo_exe", "fn_aretomo_exe", "do_aretomo_phaseshift",
+    "other_aretomo_args",
+  ],
+  tomo_ctfrefine: [
+    "in_halfmaps", "lambda", "do_scale", "do_frame_scale", "do_tomo_scale",
+  ],
+  tomo_polish: [
+    "in_halfmaps", "do_shift_align", "shift_align_type", "do_motion",
+    "do_sq_exp_ker",
+  ],
+  tomo_denoise: [
+    "tomograms_for_training", "do_cryocare_predict", "care_denoising_model",
+    "ntiles_x", "ntiles_y", "ntiles_z", "denoising_tomo_name",
+  ],
+  tomo_picks: ["pick_mode", "particle_spacing", "in_star_file"],
+  tomo_extract: ["crop_size"],
+  external: [
+    "fn_exe",
+    "param1_label", "param1_value", "param2_label", "param2_value",
+    "param3_label", "param3_value", "param4_label", "param4_value",
+    "param5_label", "param5_value", "param6_label", "param6_value",
+    "param7_label", "param7_value", "param8_label", "param8_value",
+    "param9_label", "param9_value", "param10_label", "param10_value",
+  ],
+};
+
+/**
+ * t387 — the GPU controls are the RUN DIALOG's, not the job form's.
+ *
+ * `use_gpu`/`gpu_ids`/`gpu_id` came in through the t374 option-table merge
+ * (RELION's GUI asks them on its Running tab), but in cryoflow the GPU
+ * decision lives in the SUBMIT dialog: the GPU stepper picks the width,
+ * the dispatch derives --gres/--gpu/rank count from it, and no engine
+ * builder or dispatch gate ever reads these params (the t387 audit's
+ * grep: zero readers outside the option table itself). A form toggle
+ * that promises GPU and changes nothing is exactly the "two knobs, one
+ * decision" the t386 VDAM fix retired — this set drops them from EVERY
+ * job's form in one line.
+ */
+export const GPU_DIALOG_KEYS: ReadonlySet<string> = new Set(["use_gpu", "gpu_ids", "gpu_id"]);

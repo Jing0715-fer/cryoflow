@@ -1757,7 +1757,7 @@ export const JOB_TYPES: JobTypeSpec[] = [
 /*     to ""                                                            */
 /* ------------------------------------------------------------------ */
 
-import { RELION_OPTIONS, RELION_ALIASES } from "./relion/option-tables";
+import { RELION_OPTIONS, RELION_ALIASES, RELION_DROP, GPU_DIALOG_KEYS } from "./relion/option-tables";
 
 function relionLabelKey(s: string): string {
   return s.toLowerCase().replace(/[?:*]/g, "").replace(/\s+/g, " ").trim();
@@ -1792,6 +1792,14 @@ function applyRelionParamTable(): void {
         Array.isArray(v) ? v : [v]
       )
     );
+    // t387 — the audit-verified inert controls (RELION_DROP: no builder
+    // reads them, no CLI flag to ride, no dispatch gate consults them) and
+    // the GPU dialog keys (the submit dialog owns the GPU decision — the
+    // form's use_gpu/gpu_ids were dead twins of the run dialog's stepper)
+    const dropped = new Set([
+      ...(RELION_DROP[spec.key] ?? []),
+      ...GPU_DIALOG_KEYS,
+    ]);
     const have = new Set(spec.params.map((p) => p.key));
     const labelTwin = new Set(spec.params.map((p) => relionLabelKey(p.label)));
 
@@ -1800,7 +1808,7 @@ function applyRelionParamTable(): void {
       let populated = spec.params.some((p) => p.tab === tab.label);
       for (const o of tab.options) {
         if (o.world === skipWorld) continue;
-        if (have.has(o.key) || aliased.has(o.key)) continue;
+        if (have.has(o.key) || aliased.has(o.key) || dropped.has(o.key)) continue;
         const def = table.options[o.key];
         if (!def) continue;
         // rule 3: same label under a curated name — one knob, one control
