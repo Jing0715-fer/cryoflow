@@ -220,3 +220,38 @@ export function witnessSummary(w: HeaderWitness | null): string {
   }
   return `buffered ${fmt(w.buffered)}, direct ${fmt(w.direct)} (they agree — the cache is not the liar)`;
 }
+
+/* ------------------------------------------------------------------ */
+/* t388 — the post-run login-node cache sweep                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * One SSH round over a FINISHED run's workdir: for every MRC-family file,
+ * ask the login node's buffered view for the first three header words;
+ * when they are the all-zero shape (the t384 poison signature — stale
+ * pages the write-window readers planted), drop the whole file's cached
+ * pages (posix_fadvise DONTNEED) and re-read. HEALED = the storage was
+ * fine and the cache now serves it; STILLZERO = the zero is the storage's
+ * own answer (the corruption verdicts own that file). Healthy files are
+ * never touched (the od costs 12 bytes; only the poisoned pay the drop).
+ * This is what makes relion_display / md5sum / a manual od on the login
+ * node see the same truth cryoflow's O_DIRECT lanes see.
+ */
+export function buildLoginCacheSweepScript(workdir: string): string {
+  const q = shSingleQuote(workdir);
+  return [
+    "set -u",
+    `cd ${q} 2>/dev/null || exit 0`,
+    "find . -maxdepth 2 -type f \\( -name '*.mrcs' -o -name '*.mrc' -o -name '*.map' \\) -print0 2>/dev/null | while IFS= read -r -d '' __f; do",
+    '  __h="$(od -An -tu4 -j0 -N12 "$__f" 2>/dev/null | tr -s \' \\n\' \' \')"',
+    '  __h="${__h# }"; __h="${__h% }"',
+    '  if [ "$__h" = "0 0 0" ]; then',
+    `    if ${FADVISE_PY} "$__f" >/dev/null 2>&1; then`,
+    '      __h2="$(od -An -tu4 -j0 -N12 "$__f" 2>/dev/null | tr -s \' \\n\' \' \')"',
+    '      __h2="${__h2# }"; __h2="${__h2% }"',
+    "      if [ \"$__h2\" = \"0 0 0\" ]; then printf 'STILLZERO:%s\\n' \"$__f\"; else printf 'HEALED:%s\\n' \"$__f\"; fi",
+    "    fi",
+    "  fi",
+    "done",
+  ].join("\n");
+}

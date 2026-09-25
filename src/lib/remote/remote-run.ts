@@ -108,7 +108,7 @@ import { LIVE_ITERATION_TYPES, mrcStackDataIsFlat, scheduleRemoteStackRenders } 
 // the sweep at the FIRST live zero-header round and by the diagnostics
 // route. Server-only, resilient by contract (it never throws).
 import { runStorageDiagnostic } from "./storage-diag";
-import { cacheSafeHeaderSniffLineForVar, witnessMrcHeader } from "./cache-witness";
+import { buildLoginCacheSweepScript, cacheSafeHeaderSniffLineForVar, witnessMrcHeader } from "./cache-witness";
 import {
   dropRemoteListingCache,
   listRemoteWorkdir,
@@ -1399,10 +1399,125 @@ async function stageStarWithRelinks(
 }
 
 /* ------------------------------------------------------------------ */
+/* t388 — the interactive-lane environment snapshot                    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The variables an interactive login shell owns that a non-interactive
+ * re-source can never recover: .bashrc's interactive guard returns early
+ * before the conda/python init at its tail, and a manual sbatch inherits
+ * all of it via --export=ALL. Whitelisted because the full env carries
+ * terminal/SSH noise the compute node should not see.
+ */
+export const INTERACTIVE_ENV_WHITELIST = [
+  "PATH",
+  "PYTHONPATH",
+  "LD_LIBRARY_PATH",
+  "LD_PRELOAD",
+  "RELION_BLUSH_ARGS",
+  "RELION_EXTERNAL_RECONSTRUCT_EXECUTABLE",
+] as const;
+
+/** Parse `bash -lic env` output into `export NAME='value'` lines for the
+ * whitelist. Values containing raw newlines/carriage returns are rejected
+ * (env never emits those for these variables; a multi-line poison means
+ * the shell printed banners into stdout — the line shape no longer
+ * matches and we skip it, never adopt it). */
+export function parseInteractiveEnvSnapshot(envOutput: string): string[] {
+  const allow = new Set<string>(INTERACTIVE_ENV_WHITELIST);
+  const lines: string[] = [];
+  for (const raw of envOutput.split("\n")) {
+    const m = /^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/.exec(raw);
+    if (!m) continue;
+    if (!allow.has(m[1])) continue;
+    const value = m[2];
+    if (/[\r\n]/.test(value) || value.length === 0) continue;
+    lines.push(`export ${m[1]}=${shQuote(value)}`);
+  }
+  return lines;
+}
+
+/** Ask the login node for its INTERACTIVE login shell's environment (the
+ * environment a manual sbatch would inherit). Best-effort: any failure
+ * answers null and the caller falls back to today's behaviour. */
+export async function fetchInteractiveEnvSnapshot(
+  conn: RemoteConnection
+): Promise<string[] | null> {
+  let res;
+  try {
+    res = await exec(conn, `bash -lic /usr/bin/env 2>/dev/null`, { timeoutMs: 15_000 });
+  } catch {
+    return null;
+  }
+  if (res.error) return null;
+  const lines = parseInteractiveEnvSnapshot(res.stdout ?? "");
+  return lines.length > 0 ? lines : null;
+}
+
+/**
+ * t388 — the interactive-lane environment + Blush preflight lines, shared
+ * verbatim by BOTH script builders (the sbatch lane and the setsid
+ * wrapper). The lines sit AFTER the module-load/RELION_HOME block and
+ * BEFORE the `command -v relion_refine` 127-check: the snapshot (the
+ * environment a manual sbatch inherits wholesale via --export=ALL) wins
+ * over the non-interactive re-source, the PATH fallback keeps RELION
+ * reachable when the snapshot came from a bare shell, and a --blush job
+ * proves the lane can actually run relion_python_blush before the
+ * allocation burns a second on a guaranteed Python traceback.
+ */
+function t388InteractiveLaneLines(args: {
+  envSnapshot: string[] | null;
+  relionHome: string | null;
+  blushPreflight: boolean;
+}): string[] {
+  const { envSnapshot, relionHome, blushPreflight } = args;
+  const L: string[] = [];
+  // t388 — the interactive lane's environment. A manual sbatch inherits the
+  // submitting shell wholesale (--export=ALL); this lane used to rebuild it
+  // by sourcing .bash_profile/.bashrc, but .bashrc's interactive guard
+  // returns before its conda/python tail, so relion_python_blush (Blush
+  // regularisation's popen'd wrapper) never saw the user's environment and
+  // the run died as a silent exit(1) with only a Python traceback. The
+  // dispatch asked an INTERACTIVE login shell (bash -lic env) for its
+  // environment and adopts the whitelisted variables below.
+  if (envSnapshot && envSnapshot.length > 0) {
+    L.push("# ---- the interactive lane's environment (t388) ----");
+    for (const line of envSnapshot) L.push(line);
+  }
+  if (relionHome) {
+    // the snapshot may come from a bare shell — keep RELION reachable:
+    L.push('command -v relion_refine >/dev/null 2>&1 || export PATH="$RELION_HOME/bin:$PATH"');
+  }
+  if (blushPreflight) {
+    L.push("# ---- blush preflight (t388): refuse fast when the lane cannot run it ----");
+    L.push("# RELION hands every per-class reconstruction to relion_python_blush via popen");
+    L.push("# (backprojector.cpp), and anything but a literal 'success' kills the run");
+    L.push("# mid-flight as a SILENT exit(1) with only a Python traceback in run.err.");
+    L.push("# This job asked for --blush, so prove the lane can run it first.");
+    L.push(
+      'command -v relion_python_blush >/dev/null 2>&1 || { echo "CRYOFLOW_ERR: relion_python_blush is not on this lane\'s PATH — Blush regularisation needs RELION\'s python extras (git+https://github.com/3dem/relion-blush and its torch dependency). Turn Blush regularisation OFF in the job\'s Optimisation tab, or make the wrapper reachable in the environment your interactive shell sees." >&2; exit 127; }'
+    );
+    // the wrapper's own shebang names the interpreter it needs: read it,
+    // resolve it on THIS lane, and prove that interpreter can import torch
+    // (the extras RELION's environment.yml ships but cluster modules often
+    // don't install) — all before the job owns a single GPU-second.
+    L.push(
+      "__blush_py=\"$(sed -n '1{s|^#![ ]*||; s|^/usr/bin/env[ ]*||; s|[ ]*$||; p;}' \"$(command -v relion_python_blush)\" 2>/dev/null)\""
+    );
+    L.push('[ -n "$__blush_py" ] && command -v "$__blush_py" >/dev/null 2>&1 || __blush_py=""');
+    L.push(
+      "if [ -n \"$__blush_py\" ]; then \"$__blush_py\" -c 'import torch' >/dev/null 2>&1 || { echo \"CRYOFLOW_ERR: relion_python_blush's python interpreter ($__blush_py) cannot import torch — Blush regularisation needs the relion-blush + torch extras in that interpreter. Turn Blush regularisation OFF in the job's Optimisation tab or install them (RELION's own environment.yml ships both).\" >&2; exit 127; }; fi"
+    );
+    L.push("unset __blush_py");
+  }
+  return L;
+}
+
+/* ------------------------------------------------------------------ */
 /* Wrapper script (module load + detached spawn + exit capture)         */
 /* ------------------------------------------------------------------ */
 
-function buildWrapperScript(args: {
+export function buildWrapperScript(args: {
   conn: RemoteConnection;
   module: string;
   relionHome: string | null;
@@ -1416,8 +1531,16 @@ function buildWrapperScript(args: {
   remoteWorkdir: string;
   /** t313 — the CTF gate's "allowed" receipt, echoed into run.out */
   note?: string | null;
+  /** t388 — the interactive-lane environment snapshot (bash -lic env,
+   * parsed into export lines). null/absent = the fetch failed or found
+   * nothing: the script keeps the pre-t388 re-source behaviour. */
+  envSnapshot?: string[] | null;
+  /** t388 — this job's argv carries --blush: the script proves the lane
+   * can run relion_python_blush (and import torch in ITS interpreter)
+   * before the command starts. */
+  blushPreflight?: boolean;
 }): string {
-  const { conn, module: moduleName, relionHome, ctffind, command, remoteProjectRoot, remoteWorkdir, note } = args;
+  const { conn, module: moduleName, relionHome, ctffind, command, remoteProjectRoot, remoteWorkdir, note, envSnapshot = null, blushPreflight = false } = args;
   const L: string[] = [];
   L.push("#!/usr/bin/env bash");
   L.push("# CryoFlow remote run — generated locally, executed on the cluster");
@@ -1444,6 +1567,9 @@ function buildWrapperScript(args: {
   if (ctffind) {
     L.push(`export RELION_CTFFIND_EXECUTABLE=${shQuote(ctffind)}`);
   }
+  // t388 — the interactive lane's environment + (when the job asked for
+  // --blush) the preflight that refuses fast: see t388InteractiveLaneLines.
+  L.push(...t388InteractiveLaneLines({ envSnapshot, relionHome, blushPreflight }));
   L.push('command -v relion_refine >/dev/null 2>&1 || { echo "CRYOFLOW_ERR: relion_refine not found on PATH after module load" >&2; exit 127; }');
   // t360 — an MPI-wrapped command runs relion_refine_mpi; a module that
   // probed mpirun but ships no MPI relion must refuse HERE (a clear
@@ -2019,8 +2145,16 @@ export function buildSbatchScript(args: {
    * dying at an unnamed default while the banner stayed generic.
    */
   timeLimitDefaultMin?: number | null;
+  /** t388 — the interactive-lane environment snapshot (bash -lic env,
+   * parsed into export lines). null/absent = the fetch failed or found
+   * nothing: the script keeps the pre-t388 re-source behaviour. */
+  envSnapshot?: string[] | null;
+  /** t388 — this job's argv carries --blush: the script proves the lane
+   * can run relion_python_blush (and import torch in ITS interpreter)
+   * before the command starts. */
+  blushPreflight?: boolean;
 }): string {
-  const { conn, module: moduleName, relionHome, ctffind, command, gpus, ntasks, threads, jobName, remoteProjectRoot, remoteWorkdir, partition, nodelist, dependency, array, note, suppressPartition, gpuJob, vdamSingle, mpiRanks, timeLimitMin, timeLimitWarn, timeLimitDefaultMin, preflightStar } = args;
+  const { conn, module: moduleName, relionHome, ctffind, command, gpus, ntasks, threads, jobName, remoteProjectRoot, remoteWorkdir, partition, nodelist, dependency, array, note, suppressPartition, gpuJob, vdamSingle, mpiRanks, timeLimitMin, timeLimitWarn, timeLimitDefaultMin, preflightStar, envSnapshot = null, blushPreflight = false } = args;
   // t332/t340 — the partition this sbatch names:
   //   · an explicit pin whose partition the caller RESOLVED → that
   //     partition (scontrol's own word — the dropdown equivalence);
@@ -2096,6 +2230,9 @@ export function buildSbatchScript(args: {
   if (ctffind) {
     L.push(`export RELION_CTFFIND_EXECUTABLE=${shQuote(ctffind)}`);
   }
+  // t388 — the interactive lane's environment + (when the job asked for
+  // --blush) the preflight that refuses fast: see t388InteractiveLaneLines.
+  L.push(...t388InteractiveLaneLines({ envSnapshot, relionHome, blushPreflight }));
   L.push('command -v relion_refine >/dev/null 2>&1 || { echo "CRYOFLOW_ERR: relion_refine not found on PATH after module load" >&2; exit 127; }');
   // t360 — the MPI lane runs relion_refine_mpi (the serial binary under
   // mpirun is N independent runs shredding the same outputs); a module
@@ -4938,6 +5075,17 @@ export async function startRemoteJob(args: {
         );
       }
 
+      // t388 — the interactive-lane environment (one fetch per dispatch,
+      // shared by BOTH lanes — sbatch and the direct wrapper): the login
+      // node's INTERACTIVE login shell holds the conda/python environment
+      // a manual sbatch inherits wholesale (--export=ALL), and .bashrc's
+      // interactive guard hides it from any non-interactive re-source.
+      // Best-effort: null falls back to the pre-t388 behaviour. The blush
+      // preflight rides only argvs that actually carry --blush (a job that
+      // never touches relion_python_blush must not be refused over it).
+      const envSnapshot = await fetchInteractiveEnvSnapshot(conn);
+      const blushPreflight = argv.includes("--blush");
+
       if (isSlurm) {
         // ---- t350 — the auto-joinstar merge, POST-wipe --------------------
         // The path decision happened at the argv build; the merge itself
@@ -5027,6 +5175,10 @@ export async function startRemoteJob(args: {
           command,
           // t382 — the cluster-side collision pre-flight (extraction only)
           preflightStar,
+          // t388 — the interactive lane's environment + the blush preflight
+          // (both shared with the direct wrapper lane below)
+          envSnapshot,
+          blushPreflight,
           gpus: gresWidth,
           ntasks,
           threads,
@@ -5219,6 +5371,10 @@ export async function startRemoteJob(args: {
           command,
           // t382 — the cluster-side collision pre-flight (extraction only)
           preflightStar,
+          // t388 — the interactive lane's environment + the blush preflight
+          // (both shared with the sbatch lane above)
+          envSnapshot,
+          blushPreflight,
           remoteProjectRoot,
           remoteWorkdir,
           note: [ctffindGateNote, extractGateNote, particlesGateNote, refPrepNote, opticsSortNote, extractPrevNote].filter(Boolean).join(" · ") || null,
@@ -6780,6 +6936,13 @@ interface SyncResult {
   bytes: number;
   skipped: string[];
   note?: string;
+  /** t388 — files the post-run login-node cache sweep healed: stale ZERO
+   * pages dropped (posix_fadvise), the re-read now serves the storage's
+   * truth (relion_display / md5sum on the login node see the real bytes). */
+  cacheHealed?: string[];
+  /** t388 — files that read as zero-header EVEN AFTER the cache drop —
+   * the storage's own answer, not a cache illusion. */
+  cacheStillZero?: string[];
 }
 
 /**
@@ -7024,6 +7187,27 @@ async function syncBackWorkdir(
       }
     }
   }
+  // t388 — the login-node cache sweep: the witness ladders above heal the
+  // files this pull brought home, but a finished run leaves other products
+  // (mid-run rounds nobody pulled) with the write-window's stale zero pages
+  // still cached on the login node — relion_display then refuses them with
+  // "readMRC: ... exceeds stack size 0" while the storage holds the truth.
+  // Sweep once: every poisoned page gets dropped; healthy files cost 12 od
+  // bytes. Best-effort — a sweep that cannot run changes no verdict.
+  try {
+    const sweep = await exec(conn, buildLoginCacheSweepScript(r.remoteWorkdir), { timeoutMs: 45_000 });
+    const out = sweep.stdout ?? "";
+    const healed = [...out.matchAll(/^HEALED:(.+)$/gm)].map((m) => m[1]);
+    const stillZero = [...out.matchAll(/^STILLZERO:(.+)$/gm)].map((m) => m[1]);
+    if (healed.length > 0) {
+      res.cacheHealed = healed;
+    }
+    if (stillZero.length > 0) {
+      res.cacheStillZero = stillZero;
+    }
+  } catch {
+    /* best-effort */
+  }
   // the skip list rides the record (per-file lines, the same strings the
   // pre-t339 dialect embedded); the note is the planner's own rendering —
   // the metadata-only class leads with the POLICY, not with caps.
@@ -7053,6 +7237,22 @@ async function syncBackWorkdir(
       (zeroDataPulled.length > 3 ? ` +${zeroDataPulled.length - 3} more` : "");
     noteParts.push(
       `${zeroDataPulled.length} class-average stack(s) came home with a healthy header but ZERO dynamic range (every pixel of every slice the same value — the "black classes" shape, ${shown}) — the gallery badges those rounds; a re-run regenerates them (t370)`
+    );
+  }
+  if (res.cacheHealed && res.cacheHealed.length > 0) {
+    const shown =
+      res.cacheHealed.slice(0, 3).join(", ") +
+      (res.cacheHealed.length > 3 ? ` +${res.cacheHealed.length - 3} more` : "");
+    noteParts.push(
+      `${res.cacheHealed.length} file(s) still had stale zero pages cached on the login node (${shown}) — dropped with posix_fadvise, the storage was healthy: relion_display and md5sum on the login node now see the real bytes (t388)`
+    );
+  }
+  if (res.cacheStillZero && res.cacheStillZero.length > 0) {
+    const shown =
+      res.cacheStillZero.slice(0, 3).join(", ") +
+      (res.cacheStillZero.length > 3 ? ` +${res.cacheStillZero.length - 3} more` : "");
+    noteParts.push(
+      `${res.cacheStillZero.length} file(s) read as zero-header EVEN after the cache drop (${shown}) — these are storage-side corruption, not cache illusions (t388)`
     );
   }
   if (noteParts.length > 0) res.note = noteParts.join(" — ");

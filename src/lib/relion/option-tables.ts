@@ -1022,7 +1022,11 @@ export const RELION_OPTIONS: Record<string, RelionJobOptions> = {
     ],
     options: {
       "do_analyse": { key: "do_analyse", label: "Run flexibility analysis?", type: "bool", default: true, help: `If set to Yes, after the multi-body refinement has completed, a PCA analysis will be run on the orientations all all bodies in the data set. This can be set to No initially, and then the job can be continued afterwards to only perform this analysis.` },
-      "do_blush": { key: "do_blush", label: "Use Blush regularisation?", type: "bool", default: false, help: `If set to Yes, relion_refine will use a neural network to perform regularisation by denoising at every iteration, instead of the standard smoothness regularisation.` },
+      // t388 — the flag now matches the class3d/refine3d defs (RELION's
+      // own getCommandsMultiBodyJob emits "--blush" for this option,
+      // pipeline_jobs.cpp:4772); the multibody builder reads it through
+      // the curated doBlush knob (RELION_ALIASES below).
+      "do_blush": { key: "do_blush", label: "Use Blush regularisation?", type: "bool", default: false, flag: "--blush", help: `If set to Yes, relion_refine will use a neural network to perform regularisation by denoising at every iteration, instead of the standard smoothness regularisation.` },
       "do_combine_thru_disc": { key: "do_combine_thru_disc", label: "Combine iterations through disc?", type: "bool", default: false, help: `If set to Yes, at the end of every iteration all MPI followers will write out a large file with their accumulated results. The MPI leader will read in all these files, combine them all, and write out a new file with the combined results. All MPI salves will then read in the combined results. This reduces heavy load on the network, but increases load on the disc I/O. This will affect the time it takes between the progress-bar in the expectation step reaching its end (the mouse gets to the cheese) and the start of the ensuing maximisation step. It will depend on your system setup which is most efficient.` },
       "do_pad1": { key: "do_pad1", label: "Skip padding?", type: "bool", default: false, help: `If set to Yes, the calculations will not use padding in Fourier space for better interpolation in the references. Otherwise, references are padded 2x before Fourier transforms are calculated. Skipping padding (i.e. use --pad 1) gives nearly as good results as using --pad 2, but some artifacts may appear in the corners from signal that is folded back.` },
       "do_parallel_discio": { key: "do_parallel_discio", label: "Use parallel disc I/O?", type: "bool", default: true, help: `If set to Yes, all MPI followers will read their own images from disc. Otherwise, only the leader will read images and send them through the network to the followers. Parallel file systems like gluster of fhgfs are good at parallel disc I/O. NFS may break with many followers reading in parallel. If your datasets contain particles with different box sizes, you have to say Yes.` },
@@ -1848,7 +1852,8 @@ export const RELION_ALIASES: Record<string, Record<string, string | string[]>> =
     "newBox": "new_box"
   },
   "multibody": {
-    "offsetStep": "offset_step"
+    "offsetStep": "offset_step",
+    "doBlush": "do_blush"
   },
   "dynamight": {
     "nGaussians": "nr_gaussians",
@@ -1945,7 +1950,7 @@ export const RELION_DROP: Record<string, string[]> = {
   ],
   initialmodel: ["do_run_C1"],
   multibody: [
-    "fn_in", "fn_bodies", "do_subtracted_bodies", "do_blush", "offset_range",
+    "fn_in", "fn_bodies", "do_subtracted_bodies", "offset_range",
     "do_analyse", "nr_movies", "do_select", "select_eigenval",
     "eigenval_min", "eigenval_max", "nr_pool",
   ],

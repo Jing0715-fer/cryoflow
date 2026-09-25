@@ -7084,8 +7084,63 @@ async function buildArgvCore(ctx: BuildCtx): Promise<string[] | { error: string 
       return argv;
     }
 
-    case "multibody":
-      return { error: `Command template for multibody requires ${GENERIC_REQUIREMENTS.multibody}` };
+    case "multibody": {
+      // t388 — RELION's own MultiBody job (pipeline_jobs.cpp
+      // getCommandsMultiBodyJob) rides relion_refine --continue <the
+      // consensus refinement's optimiser.star> --multibody_masks
+      // <bodies.star>, and since 5.0 it carries the SAME --blush
+      // regularisation as the rest of the refine family (:4772 —
+      // do_blush → " --blush"). Before t388 this case was a blanket
+      // refusal: the bodies STAR is a user-picked FILE, not a graph node,
+      // so the graph can never resolve it and the refusal stood in for
+      // that gap. The body STAR now rides the RELION-twin fn_bodies
+      // stored param (the form does not render it; the inspector's
+      // Additional group speaks it, and a template-imported or API-set
+      // row carries it) — absent, the refusal keeps today's exact words;
+      // present, the argv below is RELION's own emission order, sampling
+      // and all.
+      const bodiesStar = str(job, "fn_bodies", "").trim();
+      if (!bodiesStar) {
+        return { error: `Command template for multibody requires ${GENERIC_REQUIREMENTS.multibody}` };
+      }
+      const argv = [
+        binJoin(binDir, "relion_refine"),
+        "--continue", inputs.optimiser_star,
+        "--o", outPath(ctx, "run"),
+        "--solvent_correct_fsc",
+        "--multibody_masks", bodiesStar,
+        "--oversampling", "1",
+      ];
+      // the GUI's sampling is the OVERSAMPLED one (RELION subtracts the
+      // oversampling order for both flags; local searches always ride).
+      // The merged table's radio values carry the " degrees" suffix —
+      // healpixOrderOf wants the bare number.
+      const mbOrd = healpixOrderOf(String(job.params.sampling ?? "").replace(/ ?degrees$/, ""));
+      if (mbOrd != null && mbOrd > 1) {
+        argv.push("--healpix_order", String(mbOrd - 1), "--auto_local_healpix_order", String(mbOrd - 1));
+      }
+      argv.push("--offset_range", String(num(job, "offset_range", 3)));
+      argv.push("--offset_step", String(numAny(job, 0.75, "offsetStep", "offset_step") * 2));
+      // t388 — the family's Blush regularisation, RELION's own emission
+      // order (right after the sampling block, before the compute flags).
+      // The wrapper it enables (relion_python_blush) is the exact program
+      // the remote lane's t388 preflight proves reachable.
+      if (flag(job, "doBlush")) argv.push("--blush");
+      // RELION's own defaults speak through: subtracted bodies ON unless
+      // the row says otherwise; combine-thru-disc OFF unless set.
+      if (job.params.do_subtracted_bodies !== false) argv.push("--reconstruct_subtracted_bodies");
+      if (job.params.do_combine_thru_disc !== true) argv.push("--dont_combine_weights_via_disc");
+      if (job.params.do_parallel_discio === false) argv.push("--no_parallel_disc_io");
+      if (flag(job, "do_preread_images")) argv.push("--preread_images");
+      else {
+        const scratch = str(job, "scratch_dir", "").trim();
+        if (scratch && !/^(std::|DEFAULTSCRATCHDIR)/.test(scratch)) argv.push("--scratch_dir", scratch);
+      }
+      argv.push("--pool", String(Math.max(1, Math.round(num(job, "nr_pool", 3)))));
+      argv.push("--pad", String(job.params.do_pad1 === true ? 1 : 2));
+      argv.push("--j", String(Math.max(1, Math.round(num(job, "threads", 4)))));
+      return argv;
+    }
 
     /* ---------------- TOMO ---------------- */
     case "tomo_import":

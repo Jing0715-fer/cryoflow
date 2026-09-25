@@ -1204,6 +1204,14 @@ export const JOB_TYPES: JobTypeSpec[] = [
     18000,
     [
       num("numBodies", "Number of bodies", 2, { min: 1, max: 20, tab: "Optimisation" }),
+      // t388 — RELION's own MultiBody GUI carries the same Blush
+      // regularisation as the rest of the refine family
+      // (pipeline_jobs.cpp:4772): the knob was table-dead weight here —
+      // the option-table twin had no flag and no builder read it.
+      bool("doBlush", "Blush regularisation (--blush)", false, {
+        tab: "Optimisation",
+        hint: "RELION 5's neural-network regulariser — regularisation by denoising at every iteration instead of the smoothness prior. Off = the standard Tikhonov/smoothness prior inherited from the consensus refinement.",
+      }),
       sel("symmetry", "Symmetry", "C1", symmetryOptions, { tab: "Reference" }),
       num("particleDiameter", "Circular mask diameter", 200, { unit: "Å", step: 5, tab: "Sampling", hint: "RELION's own default" }),
       num("offsetStep", "Offset search step", 0.75, { unit: "px", step: 0.05, min: 0.1, max: 10, tab: "Sampling", advanced: true, hint: "RELION's own multibody GUI default (0.75 px)" }),
