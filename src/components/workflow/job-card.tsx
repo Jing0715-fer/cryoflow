@@ -517,7 +517,14 @@ function JobCardMenu({
             card lands in the free slot to the right, auto-wired through the
             first compatible port pair. The list is computed from the LIVE
             params, so an Import set to Movies offers MotionCorr but never
-            CTF — the same truth as dragging a wire by hand. */}
+            CTF — the same truth as dragging a wire by hand.
+            t384 — two fixes from the field report: ① the candidates are
+            now the CURATED canon (workflow.ts NEXT_STEPS — RELION pipeline
+            order, no backwards/utility/tomo crossings), and ② the rows
+            are TWO-LINE with a wider sheet (w-72): the label owns its
+            full line (it was squeezed to 45px next to the caption —
+            「job名称显示不全，很难分辨是什么job」), the port pair rides
+            beneath in small mono. */}
         {(() => {
           const steps = nextStepsFor(job.type, job.params);
           if (steps.length === 0) return null;
@@ -529,7 +536,7 @@ function JobCardMenu({
                 <Plus />
                 Add next step…
               </ContextMenuSubTrigger>
-              <ContextMenuSubContent className="max-h-80 w-60 overflow-y-auto">
+              <ContextMenuSubContent className="nice-scroll max-h-80 w-72 overflow-y-auto">
                 <ContextMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">
                   Create &amp; link — consumes this job
                 </ContextMenuLabel>
@@ -539,11 +546,14 @@ function JobCardMenu({
                     onClick={() =>
                       void useWorkflowStore.getState().addLinkedStep(job.id, s.type)
                     }
+                    className="flex-col items-start gap-0.5 py-1.5"
                     title={`Adds ${s.label} to the right of this card, wired ${s.caption}`}
                   >
-                    <TypeIcon name={s.icon} className="size-3.5 shrink-0" />
-                    <span className="truncate">{s.label}</span>
-                    <span className="ml-auto shrink-0 font-mono text-[9px] text-muted-foreground">
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <TypeIcon name={s.icon} className="size-3.5 shrink-0" />
+                      <span className="truncate font-medium">{s.label}</span>
+                    </span>
+                    <span className="pl-5 font-mono text-[9.5px] leading-tight text-muted-foreground">
                       {s.caption}
                     </span>
                   </ContextMenuItem>

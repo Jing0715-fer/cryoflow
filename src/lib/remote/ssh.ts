@@ -546,6 +546,46 @@ export async function tryExec(
   return exec(c, command, opts);
 }
 
+/**
+ * t384 — the quick-read lane: an exec that does NOT join the connection's
+ * serialized queue. The usage panel's `scontrol show nodes -o` must answer
+ * while the queue is deep in a poll sweep, a log fetch or a sync-back —
+ * the serialized exec's 12s budget expires BEFORE the turn ever comes,
+ * which the field met as 「查询node使用情况一直失败」. Channels
+ * multiplex over the one pooled SSH connection, so this runs concurrently
+ * without disturbing the queue's ordering (and never delays the queue
+ * either). Contract: short, read-only, idempotent commands only — never
+ * anything that could race a queued writer on the same files.
+ */
+export async function execUnqueued(
+  c: RemoteConnection,
+  command: string,
+  opts: { timeoutMs?: number } = {}
+): Promise<ExecResult> {
+  const pooled = getPooled(c);
+  try {
+    await pooled.ready;
+  } catch (e) {
+    dropConnection(c.id);
+    return {
+      code: null,
+      stdout: "",
+      stderr: "",
+      error: e instanceof Error ? e.message : String(e),
+    };
+  }
+  const r = await rawExec(pooled, command, {
+    timeoutMs: opts.timeoutMs ?? 20_000,
+    stdin: null,
+  });
+  return {
+    code: r.code,
+    stdout: r.stdout.toString("utf8"),
+    stderr: r.stderr,
+    ...(r.error ? { error: r.error } : {}),
+  };
+}
+
 /* ------------------------------------------------------------------ */
 /* File helpers (exec-based — no SFTP dependency)                      */
 /* ------------------------------------------------------------------ */

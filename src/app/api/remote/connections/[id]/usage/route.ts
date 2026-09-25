@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isLocalRequest } from "@/lib/http-guard";
 import { getConnection } from "@/lib/remote/connections";
-import { exec, loginShellScript } from "@/lib/remote/ssh";
+import { execUnqueued, loginShellScript } from "@/lib/remote/ssh";
 import { parseScontrolNodes, sortNodesForDisplay } from "@/lib/hpc/slurm-usage";
 
 export const dynamic = "force-dynamic";
@@ -44,7 +44,12 @@ async function fetchUsage(connectionId: string): Promise<ClusterUsagePayload> {
     return { ok: false, checkedAt: new Date().toISOString(), command: "", error: "connection not found" };
   }
   const command = "scontrol show nodes -o";
-  const r = await exec(conn, loginShellScript(command), { timeoutMs: 12_000 });
+  // t384 — the QUICK-READ lane: this answer must not wait behind the
+  // connection's serialized queue (poll sweeps, log fetches, sync-backs).
+  // A queued exec's 12s budget expired before its turn ever came — the
+  // field report's 「查询node使用情况一直失败」. scontrol is short,
+  // read-only and idempotent: the exact execUnqueued contract.
+  const r = await execUnqueued(conn, loginShellScript(command), { timeoutMs: 12_000 });
   if (r.error) {
     return {
       ok: false,

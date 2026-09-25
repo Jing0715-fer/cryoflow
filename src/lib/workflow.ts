@@ -1920,7 +1920,7 @@ export function portsCompatible(
 }
 
 /* ------------------------------------------------------------------ */
-/* Quick next-step suggestions (t383)                                  */
+/* Quick next-step suggestions (t383; curated in t384)                 */
 /* ------------------------------------------------------------------ */
 
 /**
@@ -1943,12 +1943,92 @@ export interface NextStep {
 }
 
 /**
+ * t384 — the CURATED next-step universe. t383 derived the menu by scanning
+ * every job type's `accepts` against the source's outputs, which produced
+ * port-legal but pipeline-absurd candidates (CTF → MotionCorr backwards,
+ * SPA → Tomography crossings, Import Map after a classification, the
+ * External/JoinSTAR utilities…). The user's rule: 「job类型要符合下一步
+ * 可用的job，如果是下一步不会出现的不要放进去」— the menu must offer
+ * exactly what a RELION user would reach for next, in RELION's own
+ * pipeline order.
+ *
+ * The lists below are that canon (SPA tutorial order; the tomo chain runs
+ * its own universe — SPA sources never suggest tomo steps and vice versa).
+ * Every entry STILL goes through the live port-pair matcher in
+ * nextStepsFor, so: (a) an entry whose ports cannot pair is skipped
+ * defensively, (b) the caption names the actual wire, and (c) Import's
+ * node-type split happens by which of its live output ports exists — no
+ * separate branching needed for the wiring itself.
+ */
+const NEXT_STEPS: Record<string, string[]> = {
+  // import is special-cased in nextStepsFor (its successors depend on the
+  // live Node type — see IMPORT_NEXT_STEPS below)
+  import: [],
+  mapimport: ["class3d", "refine3d", "maskcreate"],
+  cs2star: ["class2d", "select", "initialmodel", "class3d", "refine3d"],
+  motioncorr: ["ctffind", "manualpick", "autopick"],
+  ctffind: ["manualpick", "autopick"],
+  manualpick: ["extract"],
+  autopick: ["extract"],
+  topaztrain: ["autopick"],
+  extract: ["class2d", "select", "initialmodel", "class3d", "refine3d"],
+  subtract: ["class2d", "select", "class3d", "refine3d"],
+  select: ["class2d", "initialmodel", "class3d", "refine3d"],
+  joinstar: [],
+  class2d: ["select2d", "initialmodel", "class3d", "refine3d"],
+  select2d: ["initialmodel", "class3d", "refine3d"],
+  initialmodel: ["class3d", "refine3d"],
+  // same-type chaining stays: re-classification / progressive refinement
+  // are standard RELION moves (the source can consume its own output)
+  class3d: ["select", "class3d", "refine3d"],
+  refine3d: [
+    "maskcreate", "postprocess", "localres", "ctfrefine", "polish",
+    "multibody", "class3d", "refine3d",
+  ],
+  multibody: ["maskcreate", "class3d", "refine3d"],
+  symexpand: ["select", "class3d", "refine3d"],
+  rebalance: ["class3d", "refine3d"],
+  maskcreate: ["postprocess", "localres"],
+  postprocess: [], // terminal — nothing canonical consumes a sharpened map
+  localres: [], // terminal
+  polish: ["class3d", "refine3d"],
+  ctfrefine: ["polish", "class3d", "refine3d"],
+  dynamight: ["class3d", "refine3d"],
+  modelangelo: [], // terminal (mmCIF models out)
+  // the tomography chain — one universe, never crossing into SPA
+  tomo_import: ["tomo_aligntiltseries"],
+  tomo_aligntiltseries: ["tomo_ctfrefine", "tomo_polish", "tomo_tomograms"],
+  tomo_ctfrefine: ["tomo_tomograms"],
+  tomo_exclude: ["tomo_tomograms"],
+  tomo_polish: ["tomo_tomograms"],
+  tomo_tomograms: ["tomo_denoise", "tomo_picks"],
+  tomo_denoise: ["tomo_picks"],
+  tomo_picks: ["tomo_extract"],
+  tomo_extract: ["tomo_reconstruct"],
+  tomo_reconstruct: [],
+  external: [],
+};
+
+/**
+ * Import's successors split by the live Node type — the three data
+ * universes an import can land in (the port matcher enforces the same
+ * truth for hand-drawn wires; this list just keeps the MENU honest, e.g.
+ * Particle Selection never appears under a Movies import even though the
+ * select port technically accepts the movies kind).
+ */
+const IMPORT_NEXT_STEPS: Record<string, string[]> = {
+  movies: ["motioncorr"],
+  micrographs: ["ctffind", "manualpick", "autopick"],
+  particles: ["class2d", "select", "initialmodel", "class3d", "refine3d"],
+};
+
+/**
  * Every job type that can legally consume this job type's (current)
  * outputs — the card context menu's "Add next step…" list. The source's
  * `when` predicates run against the LIVE params, so an Import set to
- * "Movies" only offers MotionCorr (never CTF), exactly like dragging a
- * wire out of the port by hand. Catalog order = pipeline order, which is
- * also the menu order RELION users expect (import → motion → CTF → …).
+ * "Movies" only offers MotionCorr, exactly like dragging a wire out of
+ * the port by hand. Candidates come from the curated NEXT_STEPS canon
+ * (t384) — list order = RELION pipeline order = menu order.
  */
 export function nextStepsFor(
   fromType: string,
@@ -1958,12 +2038,21 @@ export function nextStepsFor(
   if (!from) return [];
   const outs = visibleOutputs(from, params);
   if (outs.length === 0) return [];
+  // the curated successor list: Import picks its lane by the live Node
+  // type (default micrographs — the spec's own default), everything else
+  // reads the canon; unknown sources get nothing (honest emptiness)
+  const successors =
+    fromType === "import"
+      ? IMPORT_NEXT_STEPS[
+          typeof params?.nodeType === "string" && params.nodeType in IMPORT_NEXT_STEPS
+            ? params.nodeType
+            : "micrographs"
+        ] ?? []
+      : NEXT_STEPS[fromType] ?? [];
   const steps: NextStep[] = [];
-  for (const candidate of JOB_TYPES) {
-    // same-type chaining is LEGAL and common in RELION (class3d → class3d
-    // re-classification, refine3d → refine3d progressive refinement), so
-    // the source type itself stays a candidate whenever its own input can
-    // consume its output; types with no inputs simply never match
+  for (const type of successors) {
+    const candidate = jobType(type);
+    if (!candidate) continue;
     let hit: { fromPort: string; toPort: string; caption: string } | null = null;
     for (const o of outs) {
       for (const i of candidate.inputs) {

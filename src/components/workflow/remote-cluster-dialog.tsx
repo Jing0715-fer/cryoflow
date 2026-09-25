@@ -883,6 +883,14 @@ function ConnectionEditor({
     // probe shows the chips BEFORE anything is saved, a click stores the
     // choice here, and Create sends it along with the connection
     if (creating && draftDefaultModule) payload.defaultModule = draftDefaultModule;
+    // t384 — the TESTED draft saves AS TESTED: the probe the user just ran
+    // (probeOverride — "PROBE (NOT SAVED YET)") rides the Create/Save
+    // payload, so the run dialog's Slurm section and live usage panel work
+    // on the first open instead of "never tested" (an unprobed connection
+    // hides the node-usage panel entirely — the 「查询node使用情况一直
+    // 失败」 family). sanitizeConnection accepts a lastProbe object; the
+    // server patch lane (saved connections) keeps its own fresher truth.
+    if (probeOverride) payload.lastProbe = probeOverride;
     if (connection) payload.id = connection.id;
     // three-state secrets: typed = store, explicit clear = "", untouched = absent
     if (draft.authMethod === "password") {
