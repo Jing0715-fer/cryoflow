@@ -312,6 +312,10 @@ export async function remoteLiveIterations(
 ): Promise<IterationsPayload> {
   const cached = liveCache.get(jobId);
   if (!opts.force && cached && Date.now() - cached.at < LIVE_TTL_MS) {
+    // t391 — LRU bump: the job the gallery keeps asking about must not be
+    // the one the 12-entry cap evicts
+    liveCache.delete(jobId);
+    liveCache.set(jobId, cached);
     return cached.payload;
   }
   const run = getRun(jobId);
@@ -349,7 +353,14 @@ export async function remoteLiveIterations(
     // (the manual-run-vs-cryoflow difference: nobody od-sniffs a manual
     // run's files mid-write). The buffered od remains only as the
     // fallback for clusters/filesystems that refuse O_DIRECT.
-    `cd ${W} 2>/dev/null && for f in run_it???_classes.mrcs run_unmasked_classes.mrcs; do [ -f "$f" ] && { stat -c '%s %n' "$f"; ${cacheSafeHeaderSniffLineForVar()}; }; done`,
+    //
+    // t391 — the NEWEST-12 CAP (same shape as the sweep's): the loop used
+    // to walk EVERY settled round, and each round costs a stat + an
+    // O_DIRECT dd fork — a long classification made every gallery refresh
+    // heavier. The chips bar's iterations come from the data-star listing
+    // above (uncapped, cheap); this loop only feeds pickStack + the nz
+    // badges, and the newest 12 + the final stack cover both.
+    `cd ${W} 2>/dev/null && for f in $(ls -1v run_it???_classes.mrcs 2>/dev/null | tail -12) run_unmasked_classes.mrcs; do [ -f "$f" ] && { stat -c '%s %n' "$f"; ${cacheSafeHeaderSniffLineForVar()}; }; done`,
     'echo "---CF-OCC---"',
     `DS=$(ls ${W} 2>/dev/null | grep -E '^(run_it|_it)[0-9]+_data\\.star$' | sort | tail -1)`,
     'if [ -n "$DS" ]; then',
@@ -447,7 +458,18 @@ export async function remoteLiveIterations(
     // .zerodata marker the render pass wrote, when that round was pulled)
     ...(classesFile && stackZeroData(jobId, classesFile) ? { zeroData: true as const } : {}),
   };
+  // t391 — bounded LRU: the cache held every job's live snapshot forever
+  // (one entry per job that ever streamed rounds; payloads carry stack
+  // listings + occupancy). Re-insert at the end = most-recently-used, then
+  // evict from the front. 12 jobs covers a full active canvas of running
+  // classifications with room to spare.
+  liveCache.delete(jobId);
   liveCache.set(jobId, { at: Date.now(), payload });
+  while (liveCache.size > 12) {
+    const oldest = liveCache.keys().next().value;
+    if (oldest == null) break;
+    liveCache.delete(oldest);
+  }
   return payload;
 }
 

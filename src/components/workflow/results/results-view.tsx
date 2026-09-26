@@ -71,8 +71,9 @@ import {
 import type { JobDTO } from "@/lib/types";
 import type { OutputSummary, SummaryStat } from "@/lib/relion/output-summary";
 import { cn } from "@/lib/utils";
-import { FscChart } from "./fsc-chart";
-import { TopazTrainingChart } from "./topaz-training-chart";
+// t391 — the two recharts carriers ride the lazy barrel (see
+// results-lazy.tsx): recharts stays out of the eager home compile
+import { FscChart, TopazTrainingChart } from "./results-lazy";
 import { MrcImage } from "./mrc-image";
 import { MolViewer, type MolViewerTarget } from "./mol-viewer";
 import { useAnchorParent } from "./anchor-parent";

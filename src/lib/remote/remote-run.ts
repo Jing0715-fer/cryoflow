@@ -177,6 +177,16 @@ export interface RemoteLogPayload {
   totalLines: number;
   truncated: boolean;
   /**
+   * t391 — cheap content signature of THIS answer (a djb2 hash over the
+   * shaped text + totalLines + truncated). The UI sends its last-seen
+   * version back as ?since=; an unchanged log answers with a ~40-byte
+   * {unchanged:true} body instead of re-serializing and re-rendering the
+   * whole 600-line console — the 1.5s live poll's common case (queued
+   * jobs, iterations that write nothing new, terminal runs) costs
+   * nothing on the wire, the CPU, or the React tree.
+   */
+  version: string;
+  /**
    * t347 — true when this answer carries NO log data of its own (a
    * rate-limited window with nothing cached, the gap before the first
    * heartbeat, or a failed wire with no cache). The UI then KEEPS its
@@ -6188,8 +6198,16 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
     // t346 — ADAPTIVE: a sweep that took T seconds buys the next one
     // max(4s, 1.5×T) of quiet — a login node that answers in 12s must not
     // be poked every 4s (each poke = an sshd fork it pays for).
+    // t391 — WATCH-AWARE FLOOR: while any of this connection's jobs has an
+    // OPEN LOG CONSOLE (the log route was hit within the last 12s), the
+    // floor tightens 4s → 2.5s so the cluster log the user is reading
+    // lands ~37% fresher (a fast wire answers in ~300ms; the 1.5×lastMs
+    // multiplier still rules slow wires, the 30s cap still rules the
+    // slowest — nobody watches a console into a login-node storm).
     const st = pollState.get(connId) ?? { at: 0, inflight: false, lastMs: 0 };
-    const quietFor = Math.min(30_000, Math.max(4_000, Math.round(st.lastMs * 1.5)));
+    const watched = anyLogWatched(entries.map((e) => e.job.id));
+    const floor = watched ? 2_500 : 4_000;
+    const quietFor = Math.min(30_000, Math.max(floor, Math.round(st.lastMs * 1.5)));
     if (st.inflight || Date.now() - st.at < quietFor) continue;
     const sweepT0 = Date.now();
     pollState.set(connId, { at: sweepT0, inflight: true, lastMs: st.lastMs });
@@ -6246,8 +6264,20 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
           // on the storage is healthy. That mid-write reader is also the
           // manual-run-vs-cryoflow difference (nobody od-sniffs a manual
           // run), so the sniff itself must never read through the cache.
+          //
+          // t391 — the NEWEST-12 CAP: the loop used to walk EVERY settled
+          // round on EVERY heartbeat, and each round costs a stat + an
+          // O_DIRECT dd fork — a 100-iteration classification made each
+          // sweep heavier than the last until the 45s exec budget hung the
+          // connection's whole serialized queue (the on-demand log fetch
+          // starved BEHIND it — the live console's freshness dying exactly
+          // when the run got interesting). The history older than 12 rounds
+          // is already streamed and rendered (the gallery reads the local
+          // cache); new rounds appear at the END of the listing, the
+          // zero-header disease is caught in the window it forms, and the
+          // sweep's per-heartbeat cost is now CONSTANT instead of linear.
           scriptLines.push(
-            `cd ${W} 2>/dev/null && for f in run_it???_classes.mrcs run_unmasked_classes.mrcs; do [ -f "$f" ] && { stat -c '%s %Y %n' "$f"; ${cacheSafeHeaderSniffLineForVar()}; }; done`
+            `cd ${W} 2>/dev/null && for f in $(ls -1v run_it???_classes.mrcs 2>/dev/null | tail -12) run_unmasked_classes.mrcs; do [ -f "$f" ] && { stat -c '%s %Y %n' "$f"; ${cacheSafeHeaderSniffLineForVar()}; }; done`
           );
         }
         scriptLines.push(`echo "===CF:END:${e.job.id}"`);
@@ -7522,15 +7552,115 @@ async function syncBackWorkdir(
 const LOG_FETCH_MIN_MS = 10_000;
 const logFetchAt = new Map<string, number>();
 /**
+ * t391 — prune the rate-limit ledger: it grows by one entry per job that
+ * ever opened a log tab and is never cleaned. A single pass keeps it
+ * honest (entries older than an hour are long-dead jobs; the Map is tiny
+ * but "unbounded forever" is how the logFullCache leak started).
+ */
+const LOG_FETCH_PRUNE_MS = 3_600_000;
+function pruneLogFetchAt(): void {
+  if (logFetchAt.size < 64) return; // the pass is amortized, not per-call
+  const horizon = Date.now() - LOG_FETCH_PRUNE_MS;
+  for (const [k, at] of logFetchAt) if (at < horizon) logFetchAt.delete(k);
+}
+/**
  * t347 — the last FULL-log answer per job. Full mode never touches the
  * heartbeat's tail cache, and the UI polls it every 5s — faster than the
  * 10s wire budget — so every rate-limited tick used to answer with an
  * EMPTY string, blanking the whole console on alternate refreshes (the
  * user's 「文字总是在刷新的过程中消失」). The cache serves those
  * in-between ticks; each real fetch refreshes it.
+ *
+ * t391 — BOUNDED: a full answer is up to 8MB and the Map lived forever,
+ * so a long session that opened full logs across many jobs quietly grew
+ * into hundreds of MB of resident text. Now an LRU of 4 with a 2-minute
+ * TTL for live runs (a terminal run's full log is static — its entry may
+ * serve forever, but only while it stays among the 4 most recently used).
  */
 const logFullCache = new Map<string, { payload: RemoteLogPayload; at: number }>();
 const LOG_FULL_CACHE_MS = 30_000;
+const LOG_FULL_LRU_MAX = 4;
+const LOG_FULL_TTL_MS = 120_000;
+function rememberFullLog(jobId: string, payload: RemoteLogPayload): void {
+  logFullCache.delete(jobId); // re-insert at the end = most-recently-used
+  logFullCache.set(jobId, { payload, at: Date.now() });
+  while (logFullCache.size > LOG_FULL_LRU_MAX) {
+    const oldest = logFullCache.keys().next().value;
+    if (oldest == null) break;
+    logFullCache.delete(oldest);
+  }
+}
+function readFullLogCache(jobId: string, done: boolean): { payload: RemoteLogPayload; at: number } | null {
+  const c = logFullCache.get(jobId);
+  if (!c) return null;
+  if (!done && Date.now() - c.at > LOG_FULL_TTL_MS) {
+    logFullCache.delete(jobId); // a live run's stale full answer must not pin 8MB
+    return null;
+  }
+  // LRU bump
+  logFullCache.delete(jobId);
+  logFullCache.set(jobId, c);
+  return c;
+}
+/**
+ * t391 — the LOG WATCH registry: every hit on the log route for a job
+ * marks "a human is looking at this console RIGHT NOW". The sweep consults
+ * it to tighten its quiet floor (4s → 2.5s) for that connection while a
+ * viewer is present — the cluster-log freshness the user asked for —
+ * without ever tightening it for jobs nobody watches (the login node
+ * keeps its protection: the 1.5×lastMs multiplier and the 30s cap still
+ * rule on slow wires).
+ */
+const logWatch = new Map<string, number>();
+const LOG_WATCH_WINDOW_MS = 12_000;
+function markLogWatch(jobId: string): void {
+  logWatch.delete(jobId);
+  logWatch.set(jobId, Date.now());
+  if (logWatch.size > 64) {
+    const horizon = Date.now() - LOG_WATCH_WINDOW_MS;
+    for (const [k, at] of logWatch) if (at < horizon) logWatch.delete(k);
+  }
+}
+/** True when any of these jobs' consoles was hit within the watch window. */
+function anyLogWatched(jobIds: string[]): boolean {
+  if (logWatch.size === 0) return false;
+  const horizon = Date.now() - LOG_WATCH_WINDOW_MS;
+  for (const id of jobIds) {
+    const at = logWatch.get(id);
+    if (at != null && at >= horizon) return true;
+  }
+  return false;
+}
+
+/**
+ * t391 — djb2 content signature. Deliberately NOT cryptographic: the
+ * only adversary is a log that did not change between two polls. Hashing
+ * 96KB is sub-millisecond; the 8MB full mode costs a few ms and is rare.
+ */
+function logVersionOf(text: string, totalLines: number, truncated: boolean): string {
+  let h = 5381;
+  const step = text.length > 262_144 ? 997 : 31; // stride on huge texts: still collision-safe for change detection (the length + totalLines ride the token too)
+  for (let i = 0; i < text.length; i += step) h = (h * 33 + text.charCodeAt(i)) | 0;
+  // the tail bytes catch strided misses: a change entirely inside one stride gap still moves the last chars
+  if (text.length > 0) {
+    const from = Math.max(0, text.length - 64);
+    for (let i = from; i < text.length; i++) h = (h * 33 + text.charCodeAt(i)) | 0;
+  }
+  return `${h.toString(36)}:${totalLines}:${truncated ? 1 : 0}:${text.length}`;
+}
+
+/**
+ * t391 — shaped-payload memo. remoteLogTail re-shaped the SAME raw tails
+ * (split/map/join over ~100KB) on EVERY UI poll (1.5s while a console is
+ * open) even though the inputs only change when the sweep lands a new
+ * heartbeat. Keyed per job with input-identity checks — the common case
+ * is now a Map lookup + 4 reference compares. The version hash rides
+ * the memo so the route's ?since= check is free on the hot path.
+ */
+const shapeMemo = new Map<
+  string,
+  { out: string; err: string; totalLines: number; full: boolean; payload: RemoteLogPayload }
+>();
 
 /** The sweep-carry + on-demand log read, shaped exactly like getLogTail's. */
 function shapeRemoteLog(
@@ -7539,6 +7669,17 @@ function shapeRemoteLog(
   totalLines: number,
   full: boolean
 ): RemoteLogPayload {
+  const memoKey = `${out.length}:${err.length}:${totalLines}:${full ? 1 : 0}`;
+  const memo = shapeMemo.get(memoKey);
+  if (
+    memo &&
+    memo.out === out &&
+    memo.err === err &&
+    memo.totalLines === totalLines &&
+    memo.full === full
+  ) {
+    return memo.payload;
+  }
   let text = out;
   if (err.trim().length > 0) text += "\n----- stderr -----\n" + err;
   // collapse \r-updated lines like getLogTail does
@@ -7549,18 +7690,28 @@ function shapeRemoteLog(
       return (idx >= 0 ? line.slice(idx + 1) : line).replace(/\s+$/, "");
     });
   const tail = full ? lines : lines.slice(-600);
-  return {
+  const payload: RemoteLogPayload = {
     text: tail.join("\n"),
     totalLines,
     truncated: totalLines > tail.length,
+    version: "",
   };
+  payload.version = logVersionOf(payload.text, totalLines, payload.truncated);
+  if (shapeMemo.size > 32) shapeMemo.clear(); // bounded: identities make stale entries dead weight
+  shapeMemo.set(memoKey, { out, err, totalLines, full, payload });
+  return payload;
 }
 
 export async function remoteLogTail(jobId: string, opts: { full?: boolean }): Promise<RemoteLogPayload | null> {
   const rec = getRun(jobId);
   if (!rec?.remote) return null;
+  // t391 — a console hit is a WATCH: the sweep tightens its quiet floor for
+  // this connection while anyone is actually reading this log (freshness
+  // follows the viewer, the login node keeps its slow-wire protection).
+  markLogWatch(jobId);
+  pruneLogFetchAt();
   const conn = getConnection(rec.remote.connectionId);
-  if (!conn) return { text: "(the connection for this run was deleted — logs stay on the cluster)", totalLines: 0, truncated: false };
+  if (!conn) return { text: "(the connection for this run was deleted — logs stay on the cluster)", totalLines: 0, truncated: false, version: "" };
   const r = rec.remote;
 
   // t346 — CACHE-FIRST (tail mode): the poll sweep already carries the
@@ -7590,7 +7741,8 @@ export async function remoteLogTail(jobId: string, opts: { full?: boolean }): Pr
       // t347 — the full-mode cache answers the in-between ticks: a finished
       // run's log is static (cache forever); a live run's refreshes on every
       // real fetch. Never an empty-string answer that blanks the console.
-      const c = logFullCache.get(jobId);
+      // t391 — the LRU read replaces the raw Map get (bounded residency).
+      const c = readFullLogCache(jobId, !!rec.done);
       if (c && (rec.done || now - c.at <= LOG_FULL_CACHE_MS)) {
         return c.payload;
       }
@@ -7601,6 +7753,7 @@ export async function remoteLogTail(jobId: string, opts: { full?: boolean }): Pr
       text: "",
       totalLines: 0,
       truncated: false,
+      version: "",
       pending: true,
       note: "waiting for the next fetch window (the heartbeat refreshes the log)",
     };
@@ -7632,6 +7785,7 @@ export async function remoteLogTail(jobId: string, opts: { full?: boolean }): Pr
       text: "",
       totalLines: 0,
       truncated: false,
+      version: "",
       pending: true,
       note: `log fetch failed: ${res.error} — retrying on the next heartbeat; the run itself is unaffected`,
     };
@@ -7661,7 +7815,8 @@ export async function remoteLogTail(jobId: string, opts: { full?: boolean }): Pr
   const payload = shapeRemoteLog(out, err, totalLines, !!opts.full);
   if (opts.full) {
     // t347 — remember the full answer for the rate-limited ticks that follow
-    logFullCache.set(jobId, { payload, at: Date.now() });
+    // (t391 — through the bounded LRU, not the raw Map)
+    rememberFullLog(jobId, payload);
   }
   return payload;
 }

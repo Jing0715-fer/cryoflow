@@ -15,6 +15,28 @@ import { closeSync, openSync, readSync, statSync } from "fs";
 import sharp from "sharp";
 
 /* ------------------------------------------------------------------ */
+/* t391 — the libvips resource clamp                                   */
+/* ------------------------------------------------------------------ */
+/* sharp is this module's only native dependency, and every render is a
+ * TINY grayscale PNG (≤384px, 1 channel). The defaults are tuned for
+ * photographic workloads: a libvips cache (operations + mapped memory)
+ * and a concurrency-wide thread pool, each holding native buffers OUTSIDE
+ * the V8 heap — under the live-gallery's render cadence (a running
+ * classification renders each new round's stacks within seconds, for
+ * hours on a long refinement) the native side quietly outgrew small
+ * boxes until the kernel reaped the server (observed: anon-rss 3.2GB with
+ * an 896MB heap cap — the growth was NOT JavaScript). One clamp at module
+ * load: no operation cache, single-threaded encode (the render pipeline
+ * is already serial per job), and a hard floor on the libvips leak
+ * canary. Tiny PNGs lose nothing measurable; long runs stop ballooning. */
+try {
+  sharp.cache(false);
+  sharp.concurrency(1);
+} catch {
+  /* a sharp build without the tunables still renders — never fatal */
+}
+
+/* ------------------------------------------------------------------ */
 /* Header                                                              */
 /* ------------------------------------------------------------------ */
 

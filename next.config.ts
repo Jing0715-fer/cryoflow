@@ -77,12 +77,20 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["ssh2"],
   reactStrictMode: false,
   experimental: {
+    // t391 — barrel-file tree shaking for the three big icon/chart barrels:
+    // lucide-react exports ~1500 icons through one index, recharts pulls the
+    // whole d3-family surface, framer-motion re-exports its entire runtime.
+    // Without this flag every dev compile walks the full graph (the OOM
+    // pressure on small boxes) and the client bundle ships imports it never
+    // renders. Verified shape-preserving: named imports keep working, the
+    // module graph just shrinks to what each module actually names.
+    optimizePackageImports: ["lucide-react", "recharts", "framer-motion"],
     // 4GB box shared with a Chrome QA session — the default (6 GiB) lets the
     // Turbopack engine balloon until the kernel OOM-kills next-server mid-QA
     // (observed 4× on 2026-09-08: RSS 2.7-2.8 GB at kill time). 1400 MiB for
     // the Rust engine + 1536 MiB V8 old-space (dev-server.sh) keeps the
     // server under the ceiling; compiles get slower, not broken.
-    turbopackMemoryLimit: 512,
+    turbopackMemoryLimit: 256,
   },
 };
 

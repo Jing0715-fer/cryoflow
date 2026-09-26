@@ -1184,14 +1184,19 @@ function LogTab({ job }: { job: JobDTO }) {
   const [loading, setLoading] = React.useState(false);
 
   const refresh = React.useCallback(async () => {
-    setLoading(true);
+    // t391 — the spinner only owns the FIRST load (log === null): a
+    // background re-fetch every 4s must not flash the toolbar twice per
+    // tick, and an unchanged tail must not re-render the console at all
+    // (the setState function form returns `prev` on identity → React bails).
+    const first = log === null;
+    if (first) setLoading(true);
     try {
       const tail = await fetchLog(job.id);
-      setLog(tail);
+      setLog((prev) => (prev === tail ? prev : tail));
     } finally {
-      setLoading(false);
+      if (first) setLoading(false);
     }
-  }, [fetchLog, job.id]);
+  }, [fetchLog, job.id, log]);
 
   // Fetch the tail whenever the tab mounts
   React.useEffect(() => {

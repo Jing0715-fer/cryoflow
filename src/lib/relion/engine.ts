@@ -7942,6 +7942,30 @@ export interface LogPayload {
   totalLines: number;
   /** True when `text` covers fewer lines than totalLines (tail window). */
   truncated: boolean;
+  /**
+   * t391 — cheap content signature (djb2 + length + line count). The log
+   * route answers a caller that sends its last-seen version back as ?since=
+   * with a ~40-byte {unchanged:true} instead of re-serializing the whole
+   * tail — the live poll's no-op ticks become nearly free.
+   */
+  version: string;
+}
+
+/**
+ * t391 — djb2 content signature, shared shape with the remote lane's
+ * logVersionOf (remote-run.ts). Local logs are ≤8MB; striding keeps the
+ * 8MB worst case at a few ms while the length+totalLines fields ride the
+ * token so stride gaps cannot hide a real change.
+ */
+function logVersionLocal(text: string, totalLines: number, truncated: boolean): string {
+  let h = 5381;
+  const step = text.length > 262_144 ? 997 : 31;
+  for (let i = 0; i < text.length; i += step) h = (h * 33 + text.charCodeAt(i)) | 0;
+  if (text.length > 0) {
+    const from = Math.max(0, text.length - 64);
+    for (let i = from; i < text.length; i++) h = (h * 33 + text.charCodeAt(i)) | 0;
+  }
+  return `${h.toString(36)}:${totalLines}:${truncated ? 1 : 0}:${text.length}`;
 }
 
 /** Combined run.out + run.err for log views.
@@ -7989,17 +8013,22 @@ export function getLogTail(jobId: string, opts?: { full?: boolean }): LogPayload
   const allLines = collapse(text);
   const totalLines = allLines.length;
   if (full) {
+    const fullText = allLines.join("\n").slice(-8 * 1024 * 1024);
     return {
-      text: allLines.join("\n").slice(-8 * 1024 * 1024),
+      text: fullText,
       totalLines,
       truncated: overCap,
+      version: logVersionLocal(fullText, totalLines, overCap),
     };
   }
   const tailLines = allLines.slice(-600);
+  const tailText = tailLines.join("\n");
+  const truncated = totalLines > tailLines.length;
   return {
-    text: tailLines.join("\n"),
+    text: tailText,
     totalLines,
-    truncated: totalLines > tailLines.length,
+    truncated,
+    version: logVersionLocal(tailText, totalLines, truncated),
   };
 }
 

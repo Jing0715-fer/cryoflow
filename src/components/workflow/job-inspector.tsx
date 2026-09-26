@@ -125,19 +125,24 @@ import { ReferenceMapCard } from "./reference-map-card";
 import { JobResults, KeyNumbersStrip } from "./results/results-view";
 import { parseResultCounts, formatCountFull, type ResultCounts } from "@/lib/result-counts";
 import type { OutputSummary } from "@/lib/relion/output-summary";
-import { ResolutionChart } from "./results/resolution-chart";
-import { FscChart } from "./results/fsc-chart";
-import { CtfQualityChart } from "./results/ctf-quality-chart";
-import { MotionDriftChart } from "./results/motion-drift-chart";
-import { ClassDistributionChart } from "./results/class-distribution-chart";
-import { AngularDistributionChart } from "./results/angular-distribution-chart";
-import { CryoSparcAnglePanel } from "./results/cryosparc-angle-panel";
-import { RebalanceReport } from "./results/rebalance-report";
-import { ImportGallery } from "./results/import-gallery";
-import { PicksMap } from "./results/picks-map";
-import { ParticleBrowser } from "./results/particle-browser";
-import { GuinierChart } from "./results/guinier-chart";
-import { TopazTrainingChart } from "./results/topaz-training-chart";
+// t391 — the results family rides the lazy barrel: the charts/galleries
+// are modal tab content, and their graph (recharts + browsers) no longer
+// pays into the eager home compile (the 4GB-box OOM ceiling)
+import {
+  ResolutionChart,
+  FscChart,
+  CtfQualityChart,
+  MotionDriftChart,
+  ClassDistributionChart,
+  AngularDistributionChart,
+  CryoSparcAnglePanel,
+  RebalanceReport,
+  ImportGallery,
+  PicksMap,
+  ParticleBrowser,
+  GuinierChart,
+  TopazTrainingChart,
+} from "./results/results-lazy";
 
 /* ------------------------------------------------------------------ */
 /* Types (mirrors /api/jobs/[id]/outputs)                              */
@@ -383,6 +388,13 @@ function LogConsole({
   const [waitingHint, setWaitingHint] = React.useState<string | null>(null);
   /** Mirror of `log` readable inside fetch callbacks without joining deps. */
   const logRef = React.useRef<string | null>(null);
+  /**
+   * t391 — the last-seen log version. Rides the poll as ?since= so an
+   * unmoved log answers {unchanged:true} (~40 bytes) instead of the full
+   * tail — and the identical text never re-renders the 600-line console.
+   * Reset on job/mode switch (a different window is a different answer).
+   */
+  const logVersionRef = React.useRef<string>("");
   /** Tracks which job the current log text belongs to (switch clears it). */
   const logJobRef = React.useRef<string>(job.id);
   const commitLog = React.useCallback((v: string | null) => {
@@ -398,8 +410,14 @@ function LogConsole({
     // counter makes only the newest fetch eligible to commit
     const seq = ++logFetchSeqRef.current;
     try {
+      // t391 — the version token rides every poll: an unmoved log answers
+      // {unchanged:true} in ~40 bytes and the console never re-renders.
+      const params = new URLSearchParams();
+      if (mode === "full") params.set("full", "1");
+      if (logVersionRef.current) params.set("since", logVersionRef.current);
+      const qs = params.toString();
       const res = await fetch(
-        `/api/jobs/${job.id}/log${mode === "full" ? "?full=1" : ""}`,
+        `/api/jobs/${job.id}/log${qs ? `?${qs}` : ""}`,
         { cache: "no-store" }
       );
       if (seq !== logFetchSeqRef.current) return; // a newer fetch won
@@ -428,6 +446,8 @@ function LogConsole({
         truncated?: boolean;
         pending?: boolean;
         note?: string;
+        unchanged?: boolean;
+        version?: string;
       };
       setLogError(null);
       if (body.pending) {
@@ -437,12 +457,26 @@ function LogConsole({
         setWaitingHint(body.note ?? "waiting for the cluster's next heartbeat…");
         return;
       }
+      if (body.unchanged) {
+        // t391 — the log did not move: keep EVERYTHING as-is (text, counters,
+        // seed) — this tick cost ~40 bytes and zero renders, which is the
+        // whole point. Clearing a stale hint is the only state change.
+        setWaitingHint(null);
+        return;
+      }
       setWaitingHint(null);
       setNoLog(false);
-      commitLog(body.tail ?? "");
+      logVersionRef.current = body.version ?? "";
+      const text = body.tail ?? "";
+      // t391 — identical text must not re-render the console: a new string
+      // with the same content used to re-mount 600 lines every 1.5s tick.
+      // (setTotalLines/setTruncated with equal values bail out in React itself.)
+      if (text !== logRef.current) {
+        commitLog(text);
+        writeLogSeed(job.id, text, body.totalLines ?? 0);
+      }
       setTotalLines(body.totalLines ?? 0);
       setTruncated(body.truncated ?? false);
-      writeLogSeed(job.id, body.tail ?? "", body.totalLines ?? 0);
     } catch {
       /* transient — next poll retries */
     }
@@ -460,6 +494,7 @@ function LogConsole({
       setNoLog(false);
       setTotalLines(0);
       setTruncated(false);
+      logVersionRef.current = ""; // t391 — another run's answer is never "unchanged"
       const seed = readLogSeed(job.id);
       if (seed) {
         commitLog(seed.text);

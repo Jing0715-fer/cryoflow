@@ -36,6 +36,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const logId = effective ? effective.id : id;
     const url = new URL(request.url);
     const full = url.searchParams.get("full") === "1";
+    // t391 — the caller's last-seen version. When the log has not moved,
+    // the answer is a ~40-byte {unchanged:true} instead of the full tail:
+    // the 1.5s live poll's no-op ticks stop paying JSON serialization,
+    // the wire, JSON.parse and a 600-line React re-render.
+    const since = url.searchParams.get("since");
 
     // ---- remote branch: stream the tail from the cluster ---------------
     const rec = getRun(logId);
@@ -53,6 +58,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
           },
         });
       }
+      // t391 — version short-circuit (never on a pending answer: those carry
+      // no version and the client must not mistake them for "unchanged")
+      if (since && !remote.pending && remote.version && remote.version === since) {
+        return NextResponse.json({ jobId: id, unchanged: true, version: remote.version });
+      }
       return NextResponse.json({
         jobId: id,
         mode: full ? "full" : "tail",
@@ -60,6 +70,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         tail: remote.text,
         totalLines: remote.totalLines,
         truncated: remote.truncated,
+        version: remote.version,
         // t347 — pending answers carry no data of their own: the UI keeps
         // its previously rendered text and shows the note as a quiet hint
         // (never as console content that blanks the log mid-refresh)
@@ -86,12 +97,18 @@ export async function GET(request: NextRequest, context: RouteContext) {
     if (tail === null) {
       return NextResponse.json({ error: "No log (job has not run)" }, { status: 404 });
     }
+    // t391 — the same version short-circuit as the remote lane: an unmoved
+    // local log answers {unchanged:true} and the console skips the re-render
+    if (since && tail.version && tail.version === since) {
+      return NextResponse.json({ jobId: id, unchanged: true, version: tail.version });
+    }
     return NextResponse.json({
       jobId: id,
       mode: full ? "full" : "tail",
       tail: tail.text,
       totalLines: tail.totalLines,
       truncated: tail.truncated,
+      version: tail.version,
     });
   } catch (error) {
     console.error("GET /api/jobs/[id]/log failed:", error);
