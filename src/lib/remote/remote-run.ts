@@ -72,6 +72,7 @@ import {
   type UpstreamRef,
   type WaitKind,
 } from "@/lib/relion/engine";
+import { remoteWorkdirForJob } from "@/lib/relion/workdir";
 import { gpuStrategyFor, slurmHms } from "@/lib/hpc/slurm";
 import {
   nodeUnavailable,
@@ -3895,7 +3896,10 @@ export async function startRemoteJob(args: {
   const jobRef: EngineJobRef = { id: job.id, projectId: job.projectId, type: job.type, params };
   const localWorkdir = workdirFor(jobRef);
   const remoteProjectRoot = `${remoteRoot.replace(/\/$/, "")}/${job.projectId}`;
-  const remoteWorkdir = `${remoteProjectRoot}/${job.type}_${job.id.slice(-8)}`;
+  // t396 — the formula lives in relion/workdir.ts now (shared verbatim
+  // with the continue picker's derived-workdir fallback — one law, so a
+  // reset job's output directory is found at the SAME path dispatch wrote)
+  const remoteWorkdir = remoteWorkdirForJob(remoteRoot, job.projectId, job.type, job.id);
 
   // ---- upstream remote twins (t324/t325) --------------------------------
   // local path → the verified cluster twin (plus identity entries for

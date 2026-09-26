@@ -39,9 +39,14 @@
 
 import { readdirSync, statSync } from "node:fs";
 import path from "node:path";
-import { continueCompanions, getRun } from "./engine";
+import { continueCompanions, getRun, workdirFor } from "./engine";
 import { lineageFor } from "./dispatch";
 import { listRemoteDir } from "@/lib/remote/remote-ls";
+import { remoteWorkdirForJob } from "./workdir";
+import { expandRemotePath } from "@/lib/remote/remote-run";
+import { getConnection } from "@/lib/remote/connections";
+import { projectRemoteTarget } from "@/lib/projects";
+import { db } from "@/lib/db";
 
 /** The refine family — RELION's job windows that carry fn_cont. */
 export const CONTINUE_FAMILY_TYPES: ReadonlySet<string> = new Set([
@@ -90,6 +95,11 @@ export interface ContinueSource {
    * writes the continued run's new rounds to the live workdir — so these
    * rounds are honest `--continue` targets, just not the live tree. */
   archived?: boolean;
+  /** t396 — TRUE when the run record was cleared (Reset-to-idle) and the
+   * rounds were found through the DERIVED workdir (the deterministic
+   * `<root>/<project>/<type>_<id8>` the dispatcher itself uses). The
+   * rounds are exactly as continuable; the flag is honesty for the UI. */
+  derived?: boolean;
 }
 
 /** The optimiser's own naming law (RELION writes run_itNNN_optimiser.star). */
@@ -140,15 +150,23 @@ export function optimiserRoundsFromNames(
 /**
  * Local lane: read the mirror/run workdir directly (stat gives size+clock).
  * Exported for the bench (the fixture-verified half of the round law).
+ * t396 — an ABSENT directory (ENOENT/ENOTDIR) answers `notDir` with NO
+ * error: "the directory is not there" is a fact the CALLER interprets
+ * (a run-record row says wiped; a derived row says never-ran), not a
+ * failure of the scan.
  */
 export function scanLocalWorkdir(
   workdir: string,
   type: string
-): { entries: ContinueRoundEntry[]; error?: string } {
+): { entries: ContinueRoundEntry[]; notDir?: boolean; error?: string } {
   let names: string[];
   try {
     names = readdirSync(workdir);
-  } catch {
+  } catch (e) {
+    const code = (e as NodeJS.ErrnoException)?.code;
+    if (code === "ENOENT" || code === "ENOTDIR") {
+      return { entries: [], notDir: true };
+    }
     return { entries: [], error: "workdir is unreadable (or was wiped) on this machine" };
   }
   const nameSet = new Set(names);
@@ -178,13 +196,15 @@ export function scanLocalWorkdir(
  * Remote lane: ONE SSH round per source — find <workdir> -maxdepth 1
  * -name 'run_it*' (the whole iteration family, so completeness is judged
  * from the same listing; the t385 .cryoflow_prev archive lives one level
- * deeper and never answers). Paths are CLUSTER paths.
+ * deeper and never answers). Paths are CLUSTER paths. t396 — `notDir`
+ * answers raw ("the directory is not there"); the caller decides what
+ * that means for its row.
  */
 async function scanRemoteWorkdir(
   connectionId: string,
   remoteWorkdir: string,
   type: string
-): Promise<{ entries: ContinueRoundEntry[]; truncated?: boolean; error?: string }> {
+): Promise<{ entries: ContinueRoundEntry[]; notDir?: boolean; truncated?: boolean; error?: string }> {
   let res;
   try {
     res = await listRemoteDir(connectionId, remoteWorkdir, "run_it*", { timeoutMs: 20_000 });
@@ -193,7 +213,7 @@ async function scanRemoteWorkdir(
     return { entries: [], error: `cluster listing failed: ${msg}` };
   }
   if (res.notDir) {
-    return { entries: [], error: "the cluster workdir no longer exists" };
+    return { entries: [], notDir: true };
   }
   const nameSet = new Set<string>(res.entries.map((e) => e.name));
   const sizeBy = new Map<string, number>(
@@ -285,30 +305,136 @@ async function scanRemoteArchiveNewestGen(
   return { entries, genDir, ...(res.truncated ? { truncated: true } : {}) };
 }
 
+/** A scan target: WHICH workdir (in which lane) holds this job's rounds. */
+type ScanTarget =
+  | { lane: "remote"; connectionId: string; workdir: string }
+  | { lane: "local"; workdir: string };
+
+/** The job row's projectId — the caller (route) usually knows it for the
+ * SELF job; upstream lineage refs don't carry it, so it degrades to one
+ * indexed findUnique (only ever paid in the no-run-record fallback). */
+async function projectIdOf(jobId: string, known?: string): Promise<string | null> {
+  if (known) return known;
+  try {
+    const row = await db.job.findUnique({ where: { id: jobId }, select: { projectId: true } });
+    return row?.projectId ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * t396 — derive a job's workdir WITHOUT a run record. The workdir is a
+ * fact about the JOB, not the run: `<remoteRoot>/<projectId>/<type>_<id8>`
+ * on a remote-bound project (the dispatcher's own formula — shared from
+ * relion/workdir.ts), `workdirFor` under RELION_DIR on a local project.
+ * The record dies with a Reset-to-idle (the standard "failed, now
+ * re-configure" flow) — the rounds in the output directory do not, and
+ * they are exactly as continuable as the day they were flushed.
+ */
+async function deriveWorkdir(
+  job: { id: string; type: string; projectId: string }
+): Promise<
+  | ({ ok: true } & ScanTarget)
+  | { ok: false; reason: string }
+> {
+  const target = projectRemoteTarget(job.projectId);
+  if (target) {
+    const conn = getConnection(target.connectionId);
+    if (!conn || !conn.host || !conn.username) {
+      return { ok: false, reason: "the project's cluster connection is no longer available" };
+    }
+    let remoteRoot: string;
+    try {
+      remoteRoot = await expandRemotePath(conn, conn.remoteRoot || "~/cryoflow");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      return { ok: false, reason: `could not resolve the cluster root: ${msg.split("\n")[0]}` };
+    }
+    return {
+      ok: true,
+      lane: "remote",
+      connectionId: conn.id,
+      workdir: remoteWorkdirForJob(remoteRoot, job.projectId, job.type, job.id),
+    };
+  }
+  return {
+    ok: true,
+    lane: "local",
+    workdir: workdirFor({ id: job.id, projectId: job.projectId, type: job.type, params: {} }),
+  };
+}
+
 /** One source row — self or one upstream ancestor, both lanes. The SELF
  * row on a remote run can answer TWO groups (live tree + the newest
- * .cryoflow_prev generation — t395), so its return is a union. */
+ * .cryoflow_prev generation — t395), so its return is a union.
+ * t396 — the scan target is resolved FIRST: the live run record's truth
+ * when there is one, else the DERIVED deterministic workdir (a job whose
+ * record was cleared still has its output directory on disk/cluster). */
 async function sourceForJob(
-  row: { id: string; name: string; type: string },
+  row: { id: string; name: string; type: string; projectId?: string },
   relation: "self" | "upstream"
 ): Promise<ContinueSource | ContinueSource[]> {
   const base = { jobId: row.id, jobName: row.name, jobType: row.type, relation };
   const run = getRun(row.id);
-  if (!run) {
+
+  let target: ScanTarget | null = null;
+  let derived = false;
+  let noRecordNote: string | null = null;
+  if (run) {
+    if (run.remote) {
+      target = { lane: "remote", connectionId: run.remote.connectionId, workdir: run.remote.remoteWorkdir };
+    } else {
+      target = { lane: "local", workdir: run.workdir };
+    }
+  } else {
+    const projectId = await projectIdOf(row.id, row.projectId);
+    if (projectId) {
+      const d = await deriveWorkdir({ id: row.id, type: row.type, projectId });
+      if (d.ok) {
+        target = d;
+        derived = true;
+      } else {
+        noRecordNote = `run record was cleared and the output directory could not be located — ${d.reason}`;
+      }
+    } else {
+      noRecordNote = null; // unknown job row — the honest never-ran note below
+    }
+  }
+
+  if (!target) {
     return {
       ...base,
       lane: "local",
       workdir: "",
       entries: [],
-      error: "has never run — no checkpoints exist yet",
+      error: noRecordNote ?? "has never run — no checkpoints exist yet",
     };
   }
-  if (run.remote) {
-    const scanned = await scanRemoteWorkdir(
-      run.remote.connectionId,
-      run.remote.remoteWorkdir,
-      row.type
-    );
+
+  // the absent-directory verdict differs by PROVENANCE: a run record that
+  // points at a gone directory says "wiped"; a derived path that never
+  // materialized says "never ran" (self) / stays silent (upstream — the
+  // graph already shows the idle card; an error row would be noise)
+  const notDirError = run
+    ? target.lane === "remote"
+      ? "the cluster workdir no longer exists"
+      : "workdir is unreadable (or was wiped) on this machine"
+    : null;
+
+  if (target.lane === "remote") {
+    const scanned = await scanRemoteWorkdir(target.connectionId, target.workdir, row.type);
+    if (scanned.notDir && !run) {
+      // the derived directory never materialized — this job never wrote a
+      // round in this project's root
+      return {
+        ...base,
+        lane: "local",
+        workdir: "",
+        entries: [],
+        ...(relation === "self" ? { error: "has never run — no checkpoints exist yet" } : {}),
+      };
+    }
     // t395 — the self row also answers for the PREVIOUS run: a re-dispatch's
     // rename-aside (t385) moves the whole run_it family into
     // .cryoflow_prev/<epoch>/ BEFORE the new run writes anything, so a run
@@ -318,19 +444,17 @@ async function sourceForJob(
     // group, clearly marked archived. Upstream rows never get this leg:
     // their live tree is the truth RELION's pipeliner would chain from.
     if (relation === "self") {
-      const archived = await scanRemoteArchiveNewestGen(
-        run.remote.connectionId,
-        run.remote.remoteWorkdir,
-        row.type
-      );
+      const archived = await scanRemoteArchiveNewestGen(target.connectionId, target.workdir, row.type);
       const self: ContinueSource = {
         ...base,
         lane: "remote",
-        ...(run.remote.connectionId ? { connectionId: run.remote.connectionId } : {}),
-        workdir: run.remote.remoteWorkdir,
+        connectionId: target.connectionId,
+        workdir: target.workdir,
         entries: scanned.entries,
+        ...(derived ? { derived: true } : {}),
         ...(scanned.truncated ? { truncated: true } : {}),
         ...(scanned.error ? { error: scanned.error } : {}),
+        ...(scanned.notDir && notDirError ? { error: notDirError } : {}),
       };
       // honesty rule: the archive is a BONUS answer — its failure only
       // matters when the live tree had nothing to offer (then the error row
@@ -341,9 +465,10 @@ async function sourceForJob(
         const archivedRow: ContinueSource = {
           ...base,
           lane: "remote",
-          ...(run.remote.connectionId ? { connectionId: run.remote.connectionId } : {}),
-          workdir: archived.genDir ?? `${trimSlash(run.remote.remoteWorkdir)}/.cryoflow_prev`,
+          connectionId: target.connectionId,
+          workdir: archived.genDir ?? `${trimSlash(target.workdir)}/.cryoflow_prev`,
           entries: archived.entries,
+          ...(derived ? { derived: true } : {}),
           ...(archived.truncated ? { truncated: true } : {}),
           ...(archived.error ? { error: archived.error } : {}),
           archived: true,
@@ -355,20 +480,33 @@ async function sourceForJob(
     return {
       ...base,
       lane: "remote",
-      ...(run.remote.connectionId ? { connectionId: run.remote.connectionId } : {}),
-      workdir: run.remote.remoteWorkdir,
+      connectionId: target.connectionId,
+      workdir: target.workdir,
       entries: scanned.entries,
+      ...(derived ? { derived: true } : {}),
       ...(scanned.truncated ? { truncated: true } : {}),
       ...(scanned.error ? { error: scanned.error } : {}),
+      ...(scanned.notDir && notDirError ? { error: notDirError } : {}),
     };
   }
-  const scanned = scanLocalWorkdir(run.workdir, row.type);
+  const scanned = scanLocalWorkdir(target.workdir, row.type);
+  if (scanned.notDir && !run) {
+    return {
+      ...base,
+      lane: "local",
+      workdir: target.workdir,
+      entries: [],
+      ...(relation === "self" ? { error: "has never run — no checkpoints exist yet" } : {}),
+    };
+  }
   return {
     ...base,
     lane: "local",
-    workdir: run.workdir,
+    workdir: target.workdir,
     entries: scanned.entries,
+    ...(derived ? { derived: true } : {}),
     ...(scanned.error ? { error: scanned.error } : {}),
+    ...(scanned.notDir && notDirError ? { error: notDirError } : {}),
   };
 }
 
@@ -386,7 +524,7 @@ const cache = new Map<string, { at: number; sources: ContinueSource[] }>();
  * TTL (refresh=1 on the route bypasses).
  */
 export async function continueSourcesFor(
-  job: { id: string; name: string; type: string },
+  job: { id: string; name: string; type: string; projectId?: string },
   opts: { refresh?: boolean } = {}
 ): Promise<ContinueSource[]> {
   if (!opts.refresh) {

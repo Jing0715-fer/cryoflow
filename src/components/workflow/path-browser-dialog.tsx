@@ -24,6 +24,7 @@ import {
   Check,
   CheckSquare,
   ChevronRight,
+  FileText,
   Filter,
   Folder,
   FolderOpen,
@@ -52,6 +53,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { BROWSER_LIST_MAX } from "@/lib/browse-caps";
+import { parseBrowserSeed, type BrowserMode } from "@/lib/browser-seed";
 
 interface BrowseEntry {
   name: string;
@@ -88,8 +90,6 @@ interface BrowseResponse {
   error?: string;
 }
 
-export type BrowserMode = "folder" | "files";
-
 function humanSize(n?: number): string {
   if (n == null) return "";
   if (n < 1024) return `${n} B`;
@@ -103,25 +103,6 @@ function shortenPath(p: string, max = 46): string {
   return p.slice(0, Math.ceil(max / 2) - 6) + "…" + p.slice(-Math.floor(max / 2));
 }
 
-/** Split a picked value into mode + selection seed + initial cwd. */
-function parseInitial(
-  value: string
-): { mode: BrowserMode; selected: string[]; cwd: string | null } {
-  const v = value.trim();
-  if (!v) return { mode: "folder", selected: [], cwd: null };
-  const lines = v.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
-  if (lines.length > 1) {
-    // previous multi-file selection — restore it, start at the first file's folder
-    const first = lines.find((l) => l.includes("/")) ?? lines[0];
-    const dir = first.includes("/") ? first.slice(0, first.lastIndexOf("/")) : null;
-    return { mode: "files", selected: lines, cwd: dir && dir.trim() ? dir : null };
-  }
-  const single = lines[0];
-  if (/[*?]/.test(single)) return { mode: "files", selected: [], cwd: single };
-  const dir = single.includes("/") ? single.slice(0, single.lastIndexOf("/")) : null;
-  return { mode: "folder", selected: [], cwd: dir && dir.trim() ? dir : null };
-}
-
 export function PathBrowserDialog({
   open,
   onOpenChange,
@@ -131,6 +112,7 @@ export function PathBrowserDialog({
   initialPath,
   initialMode = "folder",
   remote = null,
+  singleFile = false,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
@@ -148,6 +130,18 @@ export function PathBrowserDialog({
    * staging contract. Absent = the classic local browser, unchanged.
    */
   remote?: { connectionId: string; label?: string } | null;
+  /**
+   * t396 — ONE file, picked by ONE click (the "Continue from here:"
+   * optimiser.star door). The multi-select micrograph world stays the
+   * default: file rows gain checkboxes, the selection accumulates, the
+   * footer imports N files. singleFile instead renders every file row as
+   * click-to-pick (no checkboxes, no accumulation), hides the import
+   * affordances, and adds a "Use this path" footer button that picks the
+   * TYPED path verbatim — the value's mode can never flip to folders
+   * behind a caller's back (the t395 field report: a single-path value
+   * forced folder mode and files became unpickable).
+   */
+  singleFile?: boolean;
 }) {
   const [mode, setMode] = React.useState<BrowserMode>(initialMode);
   const [cwd, setCwd] = React.useState<string | null>(null);
@@ -183,7 +177,7 @@ export function PathBrowserDialog({
   // reset when re-opened — restore a previous multi-file selection
   React.useEffect(() => {
     if (open) {
-      const seed = parseInitial(initialPath ?? "");
+      const seed = parseBrowserSeed(initialPath ?? "", singleFile);
       setMode(seed.mode === "files" ? "files" : initialMode);
       setCwd(seed.cwd);
       setManual("");
@@ -191,7 +185,7 @@ export function PathBrowserDialog({
       setFilter("");
       setSelected(new Set(seed.selected));
     }
-  }, [open, initialPath, initialMode]);
+  }, [open, initialPath, initialMode, singleFile]);
 
   // the filter is folder-scoped — navigating anywhere resets it
   React.useEffect(() => {
@@ -311,22 +305,33 @@ export function PathBrowserDialog({
     (remote
       ? `Select files on ${remote.label ?? "the cluster"}`
       : displayedMode === "files"
-        ? "Select micrograph files"
+        ? singleFile
+          ? "Select a file"
+          : "Select micrograph files"
         : "Choose a folder");
   const resolvedDescription =
     description ??
     (remote
       ? `Browse ${remote.label ?? "the cluster"}'s filesystem over SSH — every path you pick stays on the cluster (zero upload); downstream jobs run there.`
       : displayedMode === "files"
-        ? "Multi-select files across folders (selection accumulates), or paste a wildcard pattern like /data/movies/*.tiff."
+        ? singleFile
+          ? "Navigate to the folder and click the file to pick it — or type the path below."
+          : "Multi-select files across folders (selection accumulates), or paste a wildcard pattern like /data/movies/*.tiff."
         : "Navigate to your micrographs folder — local drives and WSL distros are both browsable.");
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {/* narrow viewports host the job panel in a Radix Sheet — without the
           React-level Escape consume, Esc here would close the Sheet too */}
+      {/* t396 — flex-col (not the default grid): it lets the footer ride
+          `sticky bottom-0`, so the pick/Use-this-path button is ONSCREEN at
+          every viewport height. The t383 scroll cap already kept the dialog
+          inside a short window, but its action row sat BELOW THE FOLD —
+          "the button for selecting the file path is off the screen" (the
+          field report, verbatim). A pinned bar is the honest shape: the
+          files scroll, the action never leaves. */}
       <DialogContent
-        className="sm:max-w-2xl"
+        className="flex flex-col gap-3.5 sm:max-w-2xl"
         onKeyDown={onEscapeClose(() => onOpenChange(false))}
       >
         <DialogHeader>
@@ -343,8 +348,9 @@ export function PathBrowserDialog({
           <DialogDescription className="text-xs">{resolvedDescription}</DialogDescription>
         </DialogHeader>
 
-        {/* mode switcher — Folders | Files (RELION "Select files by") */}
-        {!inRootsView && !patternView && (
+        {/* mode switcher — Folders | Files (RELION "Select files by"). Hidden
+            in singleFile mode: there is exactly ONE thing to pick. */}
+        {!inRootsView && !patternView && !singleFile && (
           <div className="flex items-center gap-1 rounded-lg border bg-secondary/40 p-0.5" role="tablist" aria-label="Selection mode">
             <button
               type="button"
@@ -554,23 +560,36 @@ export function PathBrowserDialog({
                       key={`${e.name}-${rowIdx}`}
                       type="button"
                       role="option"
-                      aria-selected={selected.has(e.abs)}
+                      aria-selected={singleFile ? false : selected.has(e.abs)}
                       aria-posinset={rowIdx + 1}
                       aria-setsize={visibleEntries.length}
-                      aria-label={`Select file ${e.name}`}
-                      title={e.name}
+                      aria-label={singleFile ? `Pick file ${e.name}` : `Select file ${e.name}`}
+                      title={singleFile ? e.abs : e.name}
                       className={cn(
                         "mb-0.5 flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-xs transition-colors hover:bg-secondary/60",
-                        selected.has(e.abs) && "bg-primary/10 hover:bg-primary/15"
+                        singleFile
+                          ? "hover:bg-primary/10"
+                          : selected.has(e.abs) && "bg-primary/10 hover:bg-primary/15"
                       )}
-                      onClick={() => toggleFile(e.abs!)}
+                      onClick={() =>
+                        singleFile
+                          ? pick(e.abs!)
+                          : toggleFile(e.abs!)
+                      }
                     >
-                      {selected.has(e.abs) ? (
+                      {singleFile ? (
+                        <FileText className="h-3.5 w-3.5 shrink-0 text-primary/70" aria-hidden="true" />
+                      ) : selected.has(e.abs) ? (
                         <CheckSquare className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden="true" />
                       ) : (
                         <Square className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" aria-hidden="true" />
                       )}
                       <span className={cn("min-w-0 flex-1 truncate", e.img && "font-medium")}>{e.name}</span>
+                      {singleFile && (
+                        <span className="shrink-0 rounded-sm bg-primary/10 px-1 py-0.5 text-[9px] font-medium text-primary/90">
+                          pick
+                        </span>
+                      )}
                       <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70">
                         {humanSize(e.size)}
                       </span>
@@ -638,7 +657,10 @@ export function PathBrowserDialog({
           </div>
         </div>
 
-        {/* quick filter + one-click pattern chips (files mode, directory listing) */}
+        {/* quick filter (files mode, directory listing) — narrows the
+            listing so "optimiser" finds run_it025_optimiser.star in a
+            2,000-round workdir. The multi-select affordances (select-N,
+            the DW.mrc chip) are the micrograph import's world. */}
         {activeMode === "files" && !inRootsView && !patternView && (
           <div className="flex flex-wrap items-center gap-1.5">
             <div className="relative min-w-[150px] flex-1">
@@ -664,7 +686,7 @@ export function PathBrowserDialog({
                 </button>
               )}
             </div>
-            {filter.trim() && visibleImages.length > 0 && (
+            {!singleFile && filter.trim() && visibleImages.length > 0 && (
               <Button
                 variant="outline"
                 size="sm"
@@ -677,26 +699,35 @@ export function PathBrowserDialog({
               </Button>
             )}
             {/* one-click quick select: dose-weighted motioncor2 outputs */}
-            <button
-              type="button"
-              onClick={() => quickSelect("DW.mrc")}
-              className={cn(
-                "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
-                needle && needle === "dw.mrc"
-                  ? "border-primary/60 bg-primary/10 text-primary"
-                  : "border-primary/30 bg-primary/5 text-primary/90 hover:border-primary/50 hover:bg-primary/10"
-              )}
-              title="Select every file containing DW.mrc (dose-weighted) in this listing"
-            >
-              <Zap className="h-3 w-3" aria-hidden="true" />
-              DW.mrc
-              <span className="font-mono text-[10px] opacity-70">({countByNeedle("DW.mrc")})</span>
-            </button>
+            {!singleFile && (
+              <button
+                type="button"
+                onClick={() => quickSelect("DW.mrc")}
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
+                  needle && needle === "dw.mrc"
+                    ? "border-primary/60 bg-primary/10 text-primary"
+                    : "border-primary/30 bg-primary/5 text-primary/90 hover:border-primary/50 hover:bg-primary/10"
+                )}
+                title="Select every file containing DW.mrc (dose-weighted) in this listing"
+              >
+                <Zap className="h-3 w-3" aria-hidden="true" />
+                DW.mrc
+                <span className="font-mono text-[10px] opacity-70">({countByNeedle("DW.mrc")})</span>
+              </button>
+            )}
           </div>
         )}
 
-        {/* counters / actions row */}
-        {activeMode === "files" && !inRootsView && (
+        {/* counters / actions row — the multi-select world's tally; the
+            single-file world gets its one-line instruction instead */}
+        {activeMode === "files" && !inRootsView && singleFile && (
+          <p className="text-[11px] text-muted-foreground" role="status">
+            <FileText className="mr-1 inline h-3 w-3 text-primary/70" aria-hidden="true" />
+            Click a file to pick it — folders only navigate.
+          </p>
+        )}
+        {activeMode === "files" && !inRootsView && !singleFile && (
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-[11px] text-muted-foreground" role="status">
               {selected.size > 0 ? (
@@ -777,8 +808,12 @@ export function PathBrowserDialog({
           </p>
         )}
 
-        <DialogFooter className="flex-col gap-2 sm:flex-row sm:items-center">
-          <div className="flex flex-1 items-center gap-1.5">
+        {/* t396 — the pinned action bar: sticky inside the (flex-col,
+            scrollable) dialog content, full-bleed through the content
+            padding (-mx-6/-mb-6/-mt-3.5) so it reads as the dialog's own
+            bottom bar. On tall viewports nothing changes visually. */}
+        <DialogFooter className="sticky bottom-0 z-10 -mx-6 -mb-6 -mt-3.5 flex-col gap-2 border-t bg-background/95 px-6 py-3 backdrop-blur sm:flex-row sm:items-center">
+          <div className="flex min-w-0 flex-1 items-center gap-1.5">
             <Terminal className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
             <Input
               value={manual}
@@ -811,7 +846,21 @@ export function PathBrowserDialog({
               Go
             </Button>
           </div>
-          {activeMode === "files" ? (
+          {singleFile ? (
+            /* t396 — the typed path IS the pick: one text box, one button,
+               no detour through a listing that may not even resolve (a
+               file path does not list) */
+            <Button
+              size="sm"
+              className="shrink-0"
+              disabled={!manual.trim()}
+              onClick={() => manual.trim() && pick(manual.trim())}
+              title="Pick the typed path exactly as written"
+            >
+              <FileText className="h-3.5 w-3.5" aria-hidden="true" />
+              Use this path
+            </Button>
+          ) : activeMode === "files" ? (
             <Button
               size="sm"
               className="shrink-0"

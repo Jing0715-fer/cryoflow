@@ -39,6 +39,7 @@
 import { mkdirSync, mkdtempSync, writeFileSync, existsSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { classifyRerunWipe } from "../src/lib/hpc/cleanup";
 import { wipeLocalRunProducts } from "../src/lib/relion/run-wipe";
 import {
@@ -315,9 +316,19 @@ console.log("D — optimiserRoundsFromNames + scanLocalWorkdir (the round analys
     rmSync(dir, { recursive: true, force: true });
   }
 
-  // D6 — an unreadable workdir answers an honest error, never a throw
+  // D6 — an ABSENT workdir answers notDir (t396: "not there" is a fact the
+  //      caller interprets — never-ran for a derived row, wiped for a
+  //      run-record row); an unreadable one still answers an honest error
   const ghost = scanLocalWorkdir(path.join(tmpdir(), `cf394-ghost-${Date.now()}`), "class2d");
-  must(ghost.entries.length === 0 && typeof ghost.error === "string", "an absent workdir answers { error } (the picker's honest note)");
+  must(
+    ghost.entries.length === 0 && ghost.notDir === true && ghost.error == null,
+    "an absent workdir answers { notDir } with no error (the caller decides the verdict)"
+  );
+  const ghostFile = scanLocalWorkdir(fileURLToPath(import.meta.url), "class2d");
+  must(
+    ghostFile.entries.length === 0 && ghostFile.notDir === true && ghostFile.error == null,
+    "a path that is a FILE answers { notDir } too (ENOTDIR)"
+  );
 }
 
 console.log("D2 — newestArchiveGenOf (the t395 archive picker's generation law)");

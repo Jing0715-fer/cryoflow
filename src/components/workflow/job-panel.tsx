@@ -962,14 +962,13 @@ function ContinueField({
 
   return (
     <div className="w-full space-y-1">
-      {/* t395 — the Input owns its OWN row. The t394 row (input + Rounds +
-          Browse in one flex line) needed ~175px of fixed buttons inside a
-          value column that is ~184px wide on the desktop panel (380px aside
-          − the 152px label column − padding): the input collapsed to a
-          sliver and the Browse button rode past the panel edge — off the
-          right side of the screen (the field report). Two rows is the
-          honest shape at every width; RELION's own GUI stacks the same
-          way on narrow panels. */}
+      {/* t395/t396 — the Input owns its OWN row; the two buttons sit under
+          it in a wrapping flex row. At the desktop panel's ~184px value
+          column the pair wraps to two lines rather than overflow — but the
+          belt-and-braces `min-w-0` + inner truncation means even a
+          zero-wrap container cannot push a button past the panel edge
+          (the t394 field report). RELION's own GUI stacks the same way on
+          narrow panels. */}
       <Input
         id={inputId}
         type="text"
@@ -977,9 +976,9 @@ function ContinueField({
         title={hint}
         placeholder="empty — start from iteration 0 · pick a round, browse, or type any optimiser.star path"
         onChange={(e) => onChange(e.target.value)}
-        className="h-8 font-mono text-xs"
+        className="h-8 min-w-0 font-mono text-xs"
       />
-      <div className="flex flex-wrap items-center gap-1.5">
+      <div className="flex w-full flex-wrap items-center gap-1.5">
         <Popover
           open={open}
           onOpenChange={(o) => {
@@ -991,13 +990,13 @@ function ContinueField({
             <Button
               variant="outline"
               size="sm"
-              className="h-8 shrink-0 gap-1 px-2"
+              className="h-8 min-w-0 shrink-0 gap-1 px-2"
               aria-label="Pick which previous round to continue from"
               title="Pick which previous round to continue from — this job's own previous run, and its upstream refine-family runs"
             >
               <History className="h-3.5 w-3.5" aria-hidden="true" />
-              Rounds
-              <ChevronDown className="h-3 w-3" aria-hidden="true" />
+              <span className="truncate">Rounds</span>
+              <ChevronDown className="h-3 w-3.5 shrink-0" aria-hidden="true" />
             </Button>
           </PopoverTrigger>
           <PopoverContent
@@ -1180,7 +1179,7 @@ function ContinueField({
         <Button
           variant="outline"
           size="sm"
-          className={cn("h-8 shrink-0 gap-1 px-2", remoteBrowser && "border-violet-500/40 text-violet-600 hover:bg-violet-500/10 dark:text-violet-400")}
+          className={cn("h-8 min-w-0 shrink-0 gap-1 px-2", remoteBrowser && "border-violet-500/40 text-violet-600 hover:bg-violet-500/10 dark:text-violet-400")}
           onClick={() => setBrowsing(true)}
           aria-label={`Browse for an optimiser.star${remoteBrowser ? " on the cluster" : ""}`}
           title={
@@ -1190,11 +1189,11 @@ function ContinueField({
           }
         >
           {remoteBrowser ? (
-            <Server className="h-3.5 w-3.5" aria-hidden="true" />
+            <Server className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
           ) : (
-            <FolderOpen className="h-3.5 w-3.5" aria-hidden="true" />
+            <FolderOpen className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
           )}
-          Browse
+          <span className="truncate">Browse</span>
         </Button>
       </div>
       {browsing && (
@@ -1202,13 +1201,23 @@ function ContinueField({
           open={browsing}
           onOpenChange={setBrowsing}
           onPick={(picked) => {
-            // the browser speaks one path per pick in files mode; a stray
-            // multi-line pick keeps its first line (one continue target)
+            // the browser speaks one path per pick in singleFile mode; a
+            // stray multi-line pick keeps its first line (one continue target)
             const first = picked.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)[0] ?? "";
             onChange(first);
           }}
           initialPath={raw}
-          initialMode="files"
+          singleFile
+          title={
+            remoteBrowser
+              ? `Select an optimiser.star on ${projectRemote?.name ?? "the cluster"}`
+              : "Select an optimiser.star"
+          }
+          description={
+            remoteBrowser
+              ? `Navigate to the run's output directory on ${projectRemote?.name ?? "the cluster"} and click a run_it###_optimiser.star — the picked path stays cluster-absolute and rides RELION's --continue as-is.`
+              : "Navigate to the run's output directory and click a run_it###_optimiser.star — or type the path below and press Use this path. The value rides RELION's --continue as-is."
+          }
           remote={remoteBrowser}
         />
       )}

@@ -47,7 +47,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
     }
     const refresh = new URL(request.url).searchParams.get("refresh") === "1";
     const sources = await continueSourcesFor(
-      { id: job.id, name: job.name, type: job.type },
+      { id: job.id, name: job.name, type: job.type, projectId: job.projectId },
       { refresh }
     );
     return NextResponse.json({ sources }, { headers: { "Cache-Control": "no-store" } });

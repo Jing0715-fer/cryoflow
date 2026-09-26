@@ -17,8 +17,11 @@
  */
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const REPO = path.resolve(import.meta.dir, "..");
+// (import.meta.dir is a Bun extension tsc cannot see — the standard URL
+// form keeps both runtimes and the typecheck honest)
+const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const DATA = path.join(REPO, "data");
 const RELION_ROOT = path.join(DATA, "relion");
 const PROJECT_ID = "cmui4e1600000ojgodyawasbh";
