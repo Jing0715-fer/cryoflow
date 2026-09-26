@@ -3754,3 +3754,28 @@ Stage Summary:
 - 验证：diag 49/49（marker→可见 3.3s 实测）+ 浏览器 QA 双零错误 + tsc/eslint 0 + 移动端/footer 合格
 - 用户复机路径：git pull → 运行中的集群任务日志更跟手（观察者在场 2.5s 心跳）；长跑不再把 server 撑爆（渲染原生内存钳制 + 缓存全封顶）；首次打开页面多一帧 loading 壳（app chunk 懒加载），其后无感
 - 未解决/风险：① 4GB 盒上 dev 模式全 UI 编译一次后 2.1GB——余量健康但 prod 模式仍建议（用户 Windows 机无此约束）② 薄壳把首屏变成两段加载（loading 壳一闪）——SPA 标准做法，若用户反馈可加骨架屏 ③ mock run.out 双写者伪影已入册（后续 diag 一律 run.err 做 marker）④ inspector 内部 tab 状态在懒 chunk 下的首次打开有一帧 loading shimmer（模态标签内容，可接受）⑤ 并行会话共用任务号的碰撞再次发生（t384 约定重演，本轮让号为 t392）
+
+---
+Task ID: t393
+Agent: main (Z.ai Code)
+Task: 用户工单续行 — 「继续优化整个项目的性能，减少内存使用，加快 cluster log 的获取时效性和速度，打磨整个项目」的下一刀（t392 的 follow-through）
+
+Work Log:
+- [环境] 沙盒再次收割（/home/z/cryoflow 无损丢失）：PAT 重 clone @ ee13abb(t392) → bun install → prisma db push → mock :3022(launch.sh) → dev :3000（node 宿主——t391 教训：bun 的 require 解析不了 Turbopack 外部模块的 content-hash 名，API 全 500）
+- [主刀 — jobs 轮询版本令牌] t392 把 log 车道上了版本令牌，jobs 轮询是每次心跳的另一半：8s idle / 15s 隐藏 tab / 1.2s 步进间隙的心跳都在为未移动的画布重付全量数组的序列化+传输+parse+merge 链（真实项目几十 job × params JSON + runRemote ledger 可达数百 KB）。三件：
+  1. 服务端 ?v= 短路：对将返回的 body 全量双 djb2 哈希（无 stride——日志只在尾部 append，job 状态可在数组任何位置翻转）+ 长度 + projectId 尾段 = 64-bit 签名；命中 → {unchanged:true}（实测 57 字节）；全量 body 携新令牌回家
+  2. projectId 混入哈希：两个空项目 body 字节相同但令牌必不同——项目切换永不 alias（diag P 相活体证明：跨项目令牌必答全量）
+  3. 短路位次在 transition sweep + pending retry 之后——unchanged 应答永不跳过正确性工作
+- [客户端] pollTick 携上次令牌；unchanged 在墓碑过滤/持位保留/引用稳定 merge 链之前直接 return；!changed 引用稳定路径也收养「版本翻了但 UI 无关字段」的新令牌（runRemote ledger 时间戳类）避免下一拍再全量；load() 收养启动拉取的令牌（switchProject 走 load，令牌永远属于屏上画布）
+- [打磨 — 首屏 boot 骨架屏] 薄壳 loading 从孤零零的居中 spinner（白屏闪现→整个布局 pop-in）换成预告真实 chrome 的骨架：h-14 头条 / w-72 目录栏 / w-[380px] 检查器栏 / min-h-9 footer，同款响应式断点 + 画布点阵网格 + 两个 job 卡 ghost——loading→应用变成稳定框架内的内容置换（VLM 8/10、零布局位移）
+- [diag] diag-t393-jobs-version 32/32：令牌核心（良构/unchanged<100B/伪令牌全量/连拍稳定）、四写路径全翻（POST/params PATCH/位置 PATCH/DELETE）、双空项目 alias 探针、源级位次断言
+- [线上实测] PerformanceObserver 无侵入：4 连拍 idle 心跳每拍 57 字节；POST 立即翻下一拍为全量 3184B 并落新令牌
+- [回归] t391-perf-log-lane 49/49；t380 EMPIAR 全链 89/89（jobs 路由最重消费者——12 job 集群车道，夹具重建后跑）；t382 cluster-lane MRC header 保真 127/127——历史判决落地：沙箱车道 67 个 MRC 头全验证零损坏，用户集群的损坏非 cryoflow 所复现（丢失在其集群自身 compute→storage 写路径）；t381 带 5 个预存失败（干净树复现——t386 VDAM 重构的套件漂移，非本轮，入册）
+- [QA] agent-browser：零 console/page 错误；Dashboard 渲染；移动 390×700 零横溢 + footer 精确贴底（gap=0）；tsc 0；触碰文件 eslint 0
+- [推送] 提交 f87d22f 已上 origin/main
+
+Stage Summary:
+- 产出：jobs 心跳 no-op 从全量数组降到 57 字节（实测）+ 首屏骨架屏（VLM 8/10 零 CLS）+ t382 历史遗留判决跑完（127/127，沙箱车道零 header 损坏——用户集群问题的免责证明）
+- 验证：diag 32/32 + 三套件回归（49+89+127）+ 浏览器 QA 双零错误 + 线上字节数实测
+- 未解决/风险：① t381 的 5 个预存失败（t386 VDAM 重构套件漂移）待专项对齐 ② prod 模式建议不变（用户 Windows 机无此约束）③ OOM 顽疾缓解未根治（本轮三轮重 diag 后 RSS 902MB，余量健康）④ Inspector 懒 chunk 首开骨架（t392 遗留④）未做——模态标签内容一帧 shimmer 可接受 ⑤ slurm sbatch 包裹预览（t375 遗留）未做
+- 下一阶段候选：① t381 套件漂移对齐（把断言更新到 t386 后的世界）② Inspector 首开骨架 ③ slurm sbatch 包裹 ④ prod 模式试点
