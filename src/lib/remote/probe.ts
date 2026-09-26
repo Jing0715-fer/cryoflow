@@ -96,6 +96,15 @@ export interface ModuleDetail {
   /** Install root (…/bin contains relion_refine) — null when unresolved. */
   home: string | null;
   mpi: boolean;
+  /**
+   * t391 — mpirun's ABSOLUTE path as this module's login-shell world sees
+   * it (`command -v mpirun`), null when absent. The boolean above only
+   * said "exists"; the 7-rank field job died at the mpirun line on the
+   * compute node because NOTHING carried the location forward — the
+   * script's own PATH fallback can now name it (and the receipt can quote
+   * it) instead of a bare bash 127 after every RELION gate had passed.
+   */
+  mpirunPath: string | null;
   ctffind: string | null;
   /** external (non-relion) programs: key → absolute cluster path. */
   externals: Record<string, string>;
@@ -180,9 +189,16 @@ export async function probeModuleDetail(
     const errFirst = detail.stderr.trim().split("\n").find((l) => l.trim() && !/^\s*$/.test(l));
     loadError = errFirst?.trim().slice(0, 300) ?? null;
   }
+  // t391 — the path, not just the sighting: `command -v mpirun` prints the
+  // resolved absolute path (or nothing), so the line IS the location. The
+  // boolean keeps its old shape (relionMpi decides the MPI lane) but now
+  // derives from the same find, and the path rides the probe for the
+  // script-side PATH fallback + the teaching verdicts.
+  const mpirunLine = lines.find((l) => l.startsWith("/") && /\/mpirun$/.test(l)) ?? null;
   return {
     home,
-    mpi: lines.some((l) => /mpirun$/.test(l)),
+    mpi: mpirunLine != null,
+    mpirunPath: mpirunLine,
     ctffind: lines.find((l) => /ctffind\d*$/.test(l) && l.startsWith("/")) ?? null,
     externals,
     loadRc,
@@ -210,6 +226,7 @@ export function emptyProbe(): RemoteProbe {
     relionModules: [],
     relionHomes: {},
     relionMpi: {},
+    relionMpirunPath: {},
     relionCtffind: {},
     externals: {},
     slurm: false,
@@ -242,6 +259,13 @@ export function mergeVerifiedModule(
   }
   if (detail.home) merged.relionHomes = { ...merged.relionHomes, [moduleName]: detail.home };
   merged.relionMpi = { ...merged.relionMpi, [moduleName]: detail.mpi };
+  // t391 — the location, not just the sighting: the verify doors run the
+  // same ceremony as the sweep, so the path they proved lands in the same
+  // map the dispatch reads.
+  merged.relionMpirunPath = {
+    ...merged.relionMpirunPath,
+    ...(detail.mpirunPath ? { [moduleName]: detail.mpirunPath } : {}),
+  };
   if (detail.ctffind) {
     merged.relionCtffind = { ...merged.relionCtffind, [moduleName]: detail.ctffind };
   }
@@ -280,6 +304,7 @@ async function probeConnectionInner(c: RemoteConnection): Promise<RemoteProbe> {
     relionModules: [],
     relionHomes: {},
     relionMpi: {},
+    relionMpirunPath: {},
     relionCtffind: {},
     externals: {},
     slurm: false,
@@ -351,17 +376,20 @@ async function probeConnectionInner(c: RemoteConnection): Promise<RemoteProbe> {
       // probeModuleDetail, t297 — the verify door runs the same ceremony)
       const homes: Record<string, string> = {};
       const mpi: Record<string, boolean> = {};
+      const mpirunPath: Record<string, string> = {};
       const ctffind: Record<string, string> = {};
       const externals: Record<string, Record<string, string>> = {};
       for (const m of modules.slice(0, 8)) {
         const detail = await probeModuleDetail(c, m);
         if (detail.home) homes[m] = detail.home;
         mpi[m] = detail.mpi;
+        if (detail.mpirunPath) mpirunPath[m] = detail.mpirunPath;
         if (detail.ctffind) ctffind[m] = detail.ctffind;
         if (Object.keys(detail.externals).length > 0) externals[m] = detail.externals;
       }
       base.relionHomes = homes;
       base.relionMpi = mpi;
+      base.relionMpirunPath = mpirunPath;
       base.relionCtffind = ctffind;
       base.externals = externals;
     }

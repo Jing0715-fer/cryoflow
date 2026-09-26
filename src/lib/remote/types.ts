@@ -160,6 +160,15 @@ export interface RemoteProbe {
   relionHomes: Record<string, string>;
   /** mpirun availability per module (module → true/false). */
   relionMpi: Record<string, boolean>;
+  /**
+   * t391 — mpirun's absolute path per module (module → path), as the
+   * probe's `module load` + `command -v mpirun` ceremony resolved it on the
+   * login node. The boolean above gates the MPI lane; this map is what the
+   * script's PATH fallback and the 127 receipt quote when the compute
+   * node's own environment did not carry the launcher. Absent on pre-t391
+   * probes (the fallback simply stays quiet).
+   */
+  relionMpirunPath?: Record<string, string>;
   /** ctffind executable per module (module → path), when found. */
   relionCtffind: Record<string, string>;
   /**
@@ -392,6 +401,18 @@ export interface RemoteRunState {
    * back to the age window.
    */
   stagingBeat?: number;
+  /**
+   * t391 — the CLUSTER's own clock (epoch seconds, `date +%s`) read once
+   * at dispatch, BEFORE any staging bytes land (the same clock domain that
+   * writes the run's mtimes). The t367 generation gate compares this — not
+   * the app host's Date.now(), which can sit minutes ahead of a lab
+   * network without NTP — so this run's own freshly-written outputs (the
+   * field report: run.out/run.err refused as "left behind by an EARLIER
+   * run") are never convicted by cross-clock skew. Absent (the read
+   * failed, or a pre-t391 record) → the finalize falls back to the app
+   * host's startedAt, the pre-t391 contract.
+   */
+  dispatchClusterSec?: number;
   /**
    * t318 — the dispatch fence: the CLUSTER's own clock (epoch seconds,
    * `date +%s`) captured in the same exec that clears the previous run's

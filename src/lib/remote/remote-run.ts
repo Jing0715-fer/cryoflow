@@ -1560,6 +1560,98 @@ function t388InteractiveLaneLines(args: {
   return L;
 }
 
+/**
+ * t391 — the MPI launcher's own leg, shared verbatim by BOTH script
+ * builders (the sbatch lane and the direct wrapper). The field report: a
+ * 7-rank class2d died at the mpirun line with bash's bare
+ * "slurm_script: line 145: mpirun: command not found" AFTER the
+ * relion_refine and relion_refine_mpi gates had BOTH passed — every
+ * RELION binary resolves through RELION_HOME/bin, but mpirun is the MPI
+ * RUNTIME: it never ships inside a RELION install, so the 127 verdict
+ * that followed ("missing from the selected RELION install") named the
+ * wrong suspect entirely. The launcher comes from the module (or the
+ * interactive environment the t388/t389 snapshot merges on top), and the
+ * leg closes the gap in three moves:
+ *   · PATH first — the module load above and the snapshot merge already
+ *     had their say (a world that runs by hand wins);
+ *   · then the probe's OWN sighting: the module detection resolved
+ *     mpirun to an absolute path on the login node; if that file is
+ *     executable HERE too (shared /opt, shared /data), its bin dir joins
+ *     PATH — guarded by -x, so a login-only path is an honest no-op;
+ *   · then the teaching refusal: a 127 that names the module field, the
+ *     PATH merge and the probe's sighting, instead of bash's one-liner
+ *     — refusing in one second instead of burning the allocation.
+ */
+function t391MpirunLaneLines(args: { mpirunPath: string | null }): string[] {
+  const { mpirunPath } = args;
+  const L: string[] = [];
+  const mpirunDir =
+    mpirunPath && mpirunPath.startsWith("/") && mpirunPath.lastIndexOf("/") > 0
+      ? mpirunPath.slice(0, mpirunPath.lastIndexOf("/"))
+      : null;
+  L.push("# ---- t391: the MPI launcher — mpirun is NOT part of the RELION install ----");
+  if (mpirunDir) {
+    L.push(`if ! command -v mpirun >/dev/null 2>&1 && [ -x ${shQuote(mpirunDir + "/mpirun")} ]; then`);
+    L.push("  export PATH=" + shQuote(mpirunDir) + ":$PATH");
+    L.push(
+      "  echo \"CRYOFLOW_NOTE: mpirun was not on this lane's PATH — added the module detection's own sighting (" +
+        mpirunDir + ") to PATH (t391)\""
+    );
+    L.push("fi");
+  }
+  // the sighting sentence differs by what the probe recorded: a KNOWN
+  // path that still did not rescue the lane means the login node's
+  // location is not executable where this script runs; a null path is
+  // the upgrade window (a saved probe from before t391 recorded the
+  // sighting but not the location).
+  const sighting = mpirunPath
+    ? ` The module detection resolved mpirun at ${mpirunPath} on the login node — that exact file is not executable where this script runs (or the module that loads it did not initialize here), which is why the PATH fallback above stayed quiet.`
+    : " The saved probe predates the mpirun location recording — re-run Test & probe on the connection so the detection records where mpirun lives and the script can fall back to it.";
+  L.push(
+    'command -v mpirun >/dev/null 2>&1 || { echo "CRYOFLOW_ERR: mpirun is not on this lane\'s PATH — this job runs the MPI layout (mpirun … relion_refine_mpi), and mpirun is the MPI LAUNCHER, not part of the RELION install: relion_refine and relion_refine_mpi both passed their gates because they live in RELION_HOME/bin, while the launcher comes from the module or the environment (this script re-plays the connection\'s Module load and merges the interactive shell\'s PATH on top).' +
+      sighting +
+      ' Fix: name the module that carries MPI in the connection\'s Module field, or add the MPI bin directory to the connection\'s environment lines, then re-run." >&2; exit 127; }'
+  );
+  return L;
+}
+
+/**
+ * t391 — the command bash could not find, read out of the run's own
+ * stderr evidence: "/var/spool/slurm/d/job…/slurm_script: line 145:
+ * mpirun: command not found" → "mpirun". bash's word names the exact
+ * token the script could not resolve (an absolute invocation keeps only
+ * the basename). Our own teaching gate is folded in: its
+ * "CRYOFLOW_ERR: mpirun is not on this lane's PATH" line is the same
+ * verdict spoken a second earlier, so it decodes to "mpirun" too.
+ * null = no such signature in the evidence.
+ */
+export function missingCommandFromEvidence(evidence: string): string | null {
+  if (/CRYOFLOW_ERR: mpirun is not on this lane's PATH/.test(evidence)) return "mpirun";
+  const m = /(?:^|[\r\n\t (>])([^\s:()]+): command not found\b/.exec(evidence);
+  if (!m) return null;
+  const raw = m[1];
+  const base = raw.includes("/") ? raw.slice(raw.lastIndexOf("/") + 1) : raw;
+  return base || null;
+}
+
+/**
+ * t391 — the TARGETED meaning for a 127 whose missing command the
+ * evidence names. The old blanket verdict ("missing from the selected
+ * RELION install — Re-detect or switch installs") sent the field user
+ * hunting a broken install while relion_refine itself had passed its
+ * gate; the real missing piece was the MPI LAUNCHER. mpirun (and its
+ * runtime aliases) get the MPI verdict; a relion_* binary keeps the
+ * install story (null = keep describeExitCode's word); anything ELSE is
+ * a PATH/module inhabitant and gets that story instead.
+ */
+export function describeMissingCommand(cmd: string): string | null {
+  if (/^(mpirun|mpiexec|prterun|orterun|hydra_pmi_proxy|mpiexec\.openmpi|mpirun\.openmpi)$/.test(cmd)) {
+    return "mpirun not found — the MPI launcher itself is missing from this lane: it is NOT part of the RELION install (relion_refine passed its own gate; the launcher comes from the module or the environment). Name the module that carries MPI in the connection's Module field — every job script re-plays the module load and merges the interactive shell's PATH — or add the MPI bin directory to the connection's environment lines, then re-run";
+  }
+  if (/^relion_[a-z0-9_]+$/i.test(cmd)) return null; // the install story stands
+  return `the ${cmd} executable is missing from this lane's PATH — it is not part of the RELION install; it comes from the module or the environment (name it in the connection's Module field, or add its directory to the connection's environment lines), then re-run`;
+}
+
 /* ------------------------------------------------------------------ */
 /* Wrapper script (module load + detached spawn + exit capture)         */
 /* ------------------------------------------------------------------ */
@@ -1586,8 +1678,16 @@ export function buildWrapperScript(args: {
    * can run relion_python_blush (and import torch in ITS interpreter)
    * before the command starts. */
   blushPreflight?: boolean;
+  /** t391 — this command rides mpirun (the MPI lane): the script gets the
+   * launcher's own PATH fallback + teaching 127 gate (see
+   * t391MpirunLaneLines). */
+  mpiLaunch?: boolean;
+  /** t391 — mpirun's absolute path as the module detection resolved it on
+   * the login node (null = the probe never recorded one — the upgrade
+   * window or a bare install). */
+  mpirunPath?: string | null;
 }): string {
-  const { conn, module: moduleName, relionHome, ctffind, command, remoteProjectRoot, remoteWorkdir, note, envSnapshot = null, blushPreflight = false } = args;
+  const { conn, module: moduleName, relionHome, ctffind, command, remoteProjectRoot, remoteWorkdir, note, envSnapshot = null, blushPreflight = false, mpiLaunch = false, mpirunPath = null } = args;
   const L: string[] = [];
   L.push("#!/usr/bin/env bash");
   L.push("# CryoFlow remote run — generated locally, executed on the cluster");
@@ -1624,6 +1724,12 @@ export function buildWrapperScript(args: {
   // "command not found" three layers deep in the rank launcher.
   if (command.includes("relion_refine_mpi")) {
     L.push('command -v relion_refine_mpi >/dev/null 2>&1 || { echo "CRYOFLOW_ERR: relion_refine_mpi not found on PATH after module load — this job runs the MPI build (the module has mpirun; its RELION install carries no relion_refine_mpi)" >&2; exit 127; }');
+  }
+  // t391 — the launcher itself: the gate above proved the MPI BINARY
+  // resolves; the field report died one line later because mpirun (the
+  // MPI runtime, never part of the RELION install) was never checked.
+  if (mpiLaunch) {
+    L.push(...t391MpirunLaneLines({ mpirunPath }));
   }
   L.push("");
   L.push("# ---- run ----");
@@ -2315,8 +2421,16 @@ export function buildSbatchScript(args: {
    * can run relion_python_blush (and import torch in ITS interpreter)
    * before the command starts. */
   blushPreflight?: boolean;
+  /** t391 — this command rides mpirun (the MPI lane): the script gets the
+   * launcher's own PATH fallback + teaching 127 gate (see
+   * t391MpirunLaneLines). */
+  mpiLaunch?: boolean;
+  /** t391 — mpirun's absolute path as the module detection resolved it on
+   * the login node (null = the probe never recorded one — the upgrade
+   * window or a bare install). */
+  mpirunPath?: string | null;
 }): string {
-  const { conn, module: moduleName, relionHome, ctffind, command, gpus, ntasks, threads, jobName, remoteProjectRoot, remoteWorkdir, partition, nodelist, dependency, array, note, suppressPartition, gpuJob, vdamSingle, mpiRanks, timeLimitMin, timeLimitWarn, timeLimitDefaultMin, preflightStar, envSnapshot = null, blushPreflight = false } = args;
+  const { conn, module: moduleName, relionHome, ctffind, command, gpus, ntasks, threads, jobName, remoteProjectRoot, remoteWorkdir, partition, nodelist, dependency, array, note, suppressPartition, gpuJob, vdamSingle, mpiRanks, timeLimitMin, timeLimitWarn, timeLimitDefaultMin, preflightStar, envSnapshot = null, blushPreflight = false, mpiLaunch = false, mpirunPath = null } = args;
   // t332/t340 — the partition this sbatch names:
   //   · an explicit pin whose partition the caller RESOLVED → that
   //     partition (scontrol's own word — the dropdown equivalence);
@@ -2402,6 +2516,12 @@ export function buildSbatchScript(args: {
   // the allocation burns a second on a guaranteed launcher failure.
   if (command.includes("relion_refine_mpi")) {
     L.push('command -v relion_refine_mpi >/dev/null 2>&1 || { echo "CRYOFLOW_ERR: relion_refine_mpi not found on PATH after module load — this job runs the MPI build (the module has mpirun; its RELION install carries no relion_refine_mpi)" >&2; exit 127; }');
+  }
+  // t391 — the launcher itself: the gate above proved the MPI BINARY
+  // resolves; the field report died at the mpirun line because the MPI
+  // RUNTIME (never part of the RELION install) was never checked.
+  if (mpiLaunch) {
+    L.push(...t391MpirunLaneLines({ mpirunPath }));
   }
   L.push("");
   // t341 — pin the ranks to the GPUs the scheduler actually GRANTED. On
@@ -3887,6 +4007,28 @@ export async function startRemoteJob(args: {
     if (synth !== resolvedInputs.train_picks) resolvedInputs.train_picks = synth;
   }
 
+  // ---- t391 — the CLUSTER's own clock, once per dispatch ----------------
+  // The t367 generation gate needs its "notBefore" reference from the SAME
+  // clock domain that will write the run's mtimes. The app host's Date.now()
+  // is not that clock: an NTP-less lab network lets it drift minutes
+  // ahead, and the field report's sync-back then refused the run's OWN
+  // run.out/run.err as "left behind by an EARLIER run" (the 90s grace
+  // only covers cluster-internal skew). Read once HERE — before any
+  // staging byte lands — so every file this dispatch writes (staged
+  // inputs, the script, the run's products) carries a cluster-side mtime
+  // ≥ this reading. Best-effort by design: a failed read leaves the field
+  // absent and the finalize falls back to the app clock (the pre-t391
+  // contract), never a dispatch refusal.
+  let dispatchClusterSec: number | null = null;
+  try {
+    const clockRes = await exec(conn, "date +%s", { timeoutMs: 10_000 });
+    const clockLine =
+      (clockRes.stdout ?? "").trim().split(/\r?\n/).filter(Boolean).pop() ?? "";
+    if (/^\d{9,12}$/.test(clockLine)) dispatchClusterSec = Number(clockLine);
+  } catch {
+    /* best-effort — the finalize falls back to the app host's clock */
+  }
+
   const remoteState: RemoteRunState = {
     connectionId: conn.id,
     connectionName: conn.name,
@@ -3898,6 +4040,7 @@ export async function startRemoteJob(args: {
     remoteWorkdir,
     pid: null,
     slurmId: null,
+    ...(dispatchClusterSec != null ? { dispatchClusterSec } : {}),
     ...(isSlurm ? { gpusRequested: logPick ? 0 : gpuWidth } : {}),
     // t340 — the partition the sbatch will actually name: the picked group,
     // else the pin's own resolved home (the inspector's strip says where
@@ -5316,6 +5459,15 @@ export async function startRemoteJob(args: {
       // never touches relion_python_blush must not be refused over it).
       const envSnapshot = await fetchInteractiveEnvSnapshot(conn);
       const blushPreflight = argv.includes("--blush");
+      // t391 — the MPI launcher's location from the module detection
+      // (module → absolute path, resolved on the login node): both script
+      // builders' PATH fallback + teaching 127 gate quote it. A pre-t391
+      // saved probe has the boolean but not the map — null is the upgrade
+      // window and the gate's wording says exactly that.
+      const mpirunPath = moduleName
+        ? conn.lastProbe?.relionMpirunPath?.[moduleName] ?? null
+        : null;
+      const mpiLaunch = argv[0] === "mpirun";
 
       if (isSlurm) {
         // ---- t350 — the auto-joinstar merge, POST-wipe --------------------
@@ -5410,6 +5562,9 @@ export async function startRemoteJob(args: {
           // (both shared with the direct wrapper lane below)
           envSnapshot,
           blushPreflight,
+          // t391 — the launcher's own leg (PATH fallback + teaching gate)
+          mpiLaunch,
+          mpirunPath,
           gpus: gresWidth,
           ntasks,
           threads,
@@ -5631,6 +5786,9 @@ export async function startRemoteJob(args: {
           // (both shared with the sbatch lane above)
           envSnapshot,
           blushPreflight,
+          // t391 — the launcher's own leg (PATH fallback + teaching gate)
+          mpiLaunch,
+          mpirunPath,
           remoteProjectRoot,
           remoteWorkdir,
           note: [ctffindGateNote, extractGateNote, particlesGateNote, refPrepNote, opticsSortNote, extractPrevNote].filter(Boolean).join(" · ") || null,
@@ -6766,10 +6924,17 @@ async function finalizeRemoteRun(
     r,
     localWorkdir,
     job.type,
-    // t367 — the generation gate's reference: this DISPATCH's startedAt.
-    // Files older than it are the previous run's leftovers (the pre-run
-    // wipe's silent degrade) and never graduate as this run's outputs.
-    Date.parse(rec.startedAt)
+    // t367 — the generation gate's reference: this DISPATCH's moment.
+    // t391 — on the CLUSTER'S OWN CLOCK when the dispatch read it (the
+    // same clock domain that wrote the mtimes being judged): the app
+    // host's Date.now() can sit minutes ahead of an NTP-less lab
+    // network, and the field report convicted the run's OWN run.out/
+    // run.err as "left behind by an EARLIER run" exactly that way. A
+    // missing reading (pre-t391 record, or the exec failed) falls back
+    // to the app host's startedAt — the pre-t391 contract.
+    typeof r.dispatchClusterSec === "number" && r.dispatchClusterSec > 0
+      ? r.dispatchClusterSec * 1000
+      : Date.parse(rec.startedAt)
   );
   const syncMs = Date.now() - syncT0;
 
@@ -6950,9 +7115,16 @@ async function finalizeRemoteRun(
       /exiting with an (error|abort)/i.test(evidence) ||
       /CRYOFLOW_ERR|Segmentation fault|core dumped|\bKilled\b|MPI_ABORT|Traceback \(most recent call last\)/i.test(evidence);
     const silentDeath = exitCode === 1 && !hasErrorSignature && tailLines.length > 0;
+    // t391 — the 127 verdict, spoken about the RIGHT missing piece: the
+    // evidence names the command bash could not find, and "mpirun" is an
+    // MPI-runtime absence, not a RELION-install one (the field report was
+    // sent re-detecting installs while relion_refine was fine).
+    const missingCmd = exitCode === 127 ? missingCommandFromEvidence(evidence) : null;
     const meaning = silentDeath
       ? "RELION printed no error — the run ended silently mid-job"
-      : describeExitCode(exitCode);
+      : missingCmd
+        ? describeMissingCommand(missingCmd) ?? describeExitCode(exitCode)
+        : describeExitCode(exitCode);
     // t341 — the note used to be one string tuned for DIRECT-mode deaths,
     // so a Slurm job that died silently was told "multi-hour jobs belong
     // in Slurm mode" — advice for a lane it was already in (the field
@@ -7300,7 +7472,13 @@ async function syncBackWorkdir(
   // generation gate needs it and the find costs the same SSH round.
   const manifest = await exec(
     conn,
-    `cd ${W} 2>/dev/null && find . -type f -not -name '.cf-*' -printf '%P\\t%s\\t%T@\\n' 2>/dev/null | head -4000`,
+    // t391 — the t385 archive (.cryoflow_prev) is the WIPE'S OWN PRODUCT,
+    // not the job's workdir: the old find listed the archived generation
+    // as though it still sat at its live positions, so every re-dispatch
+    // that had moved leftovers aside reported them back as "stale"
+    // workdir files (and the Files tab offered the archive as outputs).
+    // Excluded wholesale — its bytes die in the background reaper.
+    `cd ${W} 2>/dev/null && find . -type f -not -name '.cf-*' -not -path './.cryoflow_prev/*' -printf '%P\\t%s\\t%T@\\n' 2>/dev/null | head -4000`,
     { timeoutMs: 15_000 }
   );
   if (manifest.error || manifest.code !== 0) {

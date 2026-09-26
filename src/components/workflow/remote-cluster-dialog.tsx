@@ -281,7 +281,7 @@ function ProbeCard({
                 title={`${m}${probe.relionHomes[m] ? ` · home ${probe.relionHomes[m]}` : ""}${probe.relionMpi[m] ? " · mpirun available" : ""}${probe.relionCtffind[m] ? ` · ctffind ${probe.relionCtffind[m]}` : ""}`}
               >
                 {m} · home {probe.relionHomes[m] ?? "—"}
-                {probe.relionMpi[m] ? " · mpirun ✓" : ""}
+                {probe.relionMpi[m] ? ` · mpirun ✓${probe.relionMpirunPath?.[m] ? ` (${probe.relionMpirunPath[m]})` : ""}` : ""}
                 {probe.relionCtffind[m] ? ` · ctffind ${probe.relionCtffind[m]}` : ""}
               </p>
             ))}
