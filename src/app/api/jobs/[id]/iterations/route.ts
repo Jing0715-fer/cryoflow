@@ -6,6 +6,7 @@ import {
   remoteLiveIterations,
   localIterations,
   LIVE_ITERATION_TYPES,
+  iterationsVersion,
   scheduleRemoteStackRenders,
   stackRendered,
   lastStackFailure,
@@ -15,6 +16,7 @@ import {
   type StackEntry,
 } from "@/lib/remote/iteration-live";
 import { readRemoteManifest } from "@/lib/remote/remote-files";
+import { markLogWatch } from "@/lib/remote/remote-run";
 
 export const dynamic = "force-dynamic";
 
@@ -80,6 +82,11 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
     if (!job) {
       return NextResponse.json({ error: "Job not found" }, { status: 404 });
     }
+    // t391 — the caller's last-seen version (the log lane's ?since=
+    // dialect, now on the results lane): an unmoved run answers
+    // {unchanged:true} (~40 bytes) instead of the full payload, so the
+    // gallery's live poll is free until a round actually lands.
+    const since = new URL(request.url).searchParams.get("since") ?? null;
     if (!LIVE_ITERATION_TYPES.has(job.type)) {
       return NextResponse.json({
         iterations: [],
@@ -96,12 +103,23 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
     const run = getRun(job.id);
     // live leg: a REMOTE run that has not finalized yet
     if (run?.remote && !run.done && (job.status === "running" || job.status === "pending")) {
+      // t397 — an open live-results view is a WATCH (the log console's
+      // own mark): the sweep's quiet floor tightens 4s → 2.5s while the
+      // user is LOOKING at this gallery, and its prewarm keeps the
+      // payload cache fresh — this route then answers from memory.
+      markLogWatch(job.id);
       const force = new URL(request.url).searchParams.get("refresh") === "1";
       const payload = await remoteLiveIterations(job.id, { force });
       // t356 — the live view trigger: the newest round renders in the
       // background while the user watches, no chip click needed
       if (!payload.error && run.remote) {
         triggerViewRender(job.id, run, payload.stacks, payload.classesFile);
+      }
+      // t397 — the version short-circuit AFTER the view trigger (the
+      // renders it schedules are exactly what a later payload will badge)
+      payload.version = iterationsVersion(payload);
+      if (since && payload.version === since) {
+        return NextResponse.json({ jobId: id, unchanged: true, version: payload.version });
       }
       return NextResponse.json(payload, {
         headers: { "Cache-Control": "no-store" },
@@ -204,6 +222,13 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
           break;
         }
       }
+    }
+    // t397 — the version token covers every mutation above (the t355
+    // remote merge, the t354 synthesized chips, the t358 refusal note):
+    // the client's ?since= compares the FINAL shape, not a draft
+    payload.version = iterationsVersion(payload);
+    if (since && payload.version === since) {
+      return NextResponse.json({ jobId: id, unchanged: true, version: payload.version });
     }
     return NextResponse.json(payload, {
       headers: { "Cache-Control": "no-store" },

@@ -3779,7 +3779,6 @@ Stage Summary:
 - 验证：diag 32/32 + 三套件回归（49+89+127）+ 浏览器 QA 双零错误 + 线上字节数实测
 - 未解决/风险：① t381 的 5 个预存失败（t386 VDAM 重构套件漂移）待专项对齐 ② prod 模式建议不变（用户 Windows 机无此约束）③ OOM 顽疾缓解未根治（本轮三轮重 diag 后 RSS 902MB，余量健康）④ Inspector 懒 chunk 首开骨架（t392 遗留④）未做——模态标签内容一帧 shimmer 可接受 ⑤ slurm sbatch 包裹预览（t375 遗留）未做
 - 下一阶段候选：① t381 套件漂移对齐（把断言更新到 t386 后的世界）② Inspector 首开骨架 ③ slurm sbatch 包裹 ④ prod 模式试点
-
 ---
 Task ID: t397
 Agent: main (Z.ai Code)
@@ -3873,3 +3872,30 @@ Stage Summary:
 - 产出：HPC/slurm 干跑按钮从面板动作行退休（38px 归还主按钮）+ "Continue on cluster" 文字 179px 需求 vs 195px 实得（16px 裕量，Geist 确定性）
 - 验证：双档宽度（1280 桌面 / 390 Sheet）fits + 零横溢 + 面孔双向切换不受影响 + 零 console/page 错误 + tsc/eslint 0
 - 用户复机路径：git pull → 面板动作行只剩一个 Server 图标（真集群派发）→ Continue on cluster 完整显示不裁切
+
+---
+Task ID: t400 (first carried as "t397" — a parallel session independently shipped its own t397 (1529bca, the continue-picker diagnosis) plus t398/t399 while this performance round was being verified; both entries kept, the collision noted the same way t384/t387's were)
+Agent: main (Z.ai Code)
+Task: 用户工单 — 「打磨项目的性能，尤其是cluster上的project，result和log加载要更快速及时，避免卡顿。提交任务也需要减少等待时间」
+
+Work Log:
+- [环境] 沙箱再次收割：PAT 重 clone @ e2f1b68（t396）→ bun install → prisma db push → mock :3022（launch.sh dev）→ dev :3001（node 宿主）。前两轮性能线（t392 log 版本令牌/2.5s watch 地板/封顶缓存/薄壳、t393 jobs 57B 心跳）已合入 — 本轮瞄准它们没碰的三条残余：results 车道（12s 轮询 + 12s TTL + 独立 SSH 轮）、settle 60s 毯子、dispatch 串行 SSH 轮数
+- [审计发现] ① class-iteration-gallery 每 12s 轮询、服务端 liveCache 12s TTL → 新一轮最坏 24s+ 才可见；且 gallery 的每次 TTL miss 都在 exec 队列里排一次独立 SSH 轮（排在 sweep 后面 — 卡顿感）② sweep 对 running 分类已携带 rounds stat+sniff（t368），但 iteration 路由不知道 — 两个读者读同一个 workdir ③ t368 的 60s settle 毯子在 t387 write-settled 门（O_DIRECT 头+精确字节校验）之后已是纯延迟 ④ dispatch 前置门是 6-11 个串行 exec（twin 新鲜度每输入一个 remoteStat、时钟一轮、env 快照每 dispatch 一轮 bash -lic、walltime 每次重问 sinfo）；spawn 后 mkdir/scancel/上传/提交又是 4-5 轮
+- [修复 A — sweep PREWARM：results 车道换轨] iteration-live 新增 liveSectionsScript（STARS/STACKS/OCC 三段，与 remoteLiveIterations 自己那轮逐字同方言）+ livePayloadFromParts（共享构建器 — 两个生产者渲染字节等同的 payload）+ prewarmLiveIterations + iterationsVersion；sweep 对 running 分类追加这三段（ls|grep + 集群侧 awk，零 star 字节过线），ALIVE 分支把解析结果喂共享构建器写进 gallery 路由的同一个 LRU — 打开中的 Results 页读到 ≤心跳旧的快照，HTTP tick 永不排自己的 SSH 轮（t346 的「sweep 是唯一读者」教义从 log 扩展到 results）
+- [修复 B — 版本令牌上 results] 路由两腿（live+local）都算 version（在 t355 合并/t354 合成/t358 判词全部落位之后）→ ?since= 命中答 {unchanged:true}（~83B）；gallery 客户端携 token、unchanged 直接 return（零重渲染）；轮询 12s → 5s（token 让快轮询几乎免费）
+- [修复 C — watch 扩展到 Results 页] markLogWatch 导出；iterations 路由 live 腿打 watch → sweep 安静地板 4s → 2.5s 对打开的 Results 页同样生效
+- [修复 D — settle 60s → 20s + 完备快路] ROUND_SETTLE_MIN_SEC=20（env 可调）+ mrcRoundStatComplete：stat 尺寸 ≥ 1024+4·nx·ny·nz（头声明几何全到位）的 round 立即可流送 — t387 的 O_DIRECT 门仍是最终守卫，毯子只剩 NFS mtime 粒度+flush 的保险
+- [修复 E — dispatch 减轮] ① twin 新鲜度批统计：twinCensusScript/parseTwinCensus（一个 for 循环 stat 全部 twin，CF_MISSING 诚实缺席=护栏；集群时钟同轮捎带 — 每输入一个 remoteStat 的旧形状退役）② mkdir+scancel 合一轮 ③ sbatch 车道单轮提交：head -c N > .cf-sbatch.sh && sbatch（stdin 经 exec 通道 — Bun+ssh2 无 EOF，head -c 自终止是上传车道的老伎俩）取代 remoteUpload 的 mkdir+写+sbatch 三轮；direct 车道同款 ④ env 快照 5min TTL（失败 30s）⑤ walltime 10min TTL per (conn,partition)（读失败的空答不缓存）
+- [mock 基建修复] server.mjs 从不创建 .slurm/（exec-audit + 折磨杠杆全部静默写失败 — E2E 取证饿死）→ 模块加载时 mkdirSync。真集群无此目录概念，不受影响
+- [验证·bench] scripts/t397-perf-units.ts 77/77：iterationsVersion 全字段判别+派生字段排除、livePayloadFromParts 语义保真（排序/分数/unmasked 优先/nz 徽章）、liveSectionsScript 真跑 bash 对夹具目录产出可解析三段并喂共享构建器、mrcRoundStatComplete 完备/撕裂/零头/缺词、twinCensusScript 真 bash roundtrip（存在/缺席/带空格路径+时钟捎带+噪声免疫）、22 条源级接线断言
+- [验证·E2E] scripts/diag-t397-results-lane.mjs（mock 集群真 sbatch 车道）40/40：C 版本令牌（unchanged 83B/伪令牌全答/移动全答带新令牌）D 新鲜度 23 轮实测 mtime→payload 可见 中位 2.2-2.9s 最坏 4.2-4.8s（旧世界 TTL 单独就 12s）+ D6 决定性证据：22s 观察窗内 sweep 心跳 6 次、gallery 路由自己的 SSH 轮（---CF-STACKS--- 指纹）0 次 — prewarm 独占读权；unchanged 46/47 答 vs full 6/7 答 E settle 快路 round mtime → 本地 .done 3.1-3.8s（旧毯子单独就 60s）+ image 路由 200 PNG F log 车道回归 G dispatch 取证：单轮提交（head -c && sbatch）在、mkdir+scancel 合轮在、裸 mkdir/裸 sbatch/纯上传写 0 次；POST /run 316-373ms
+- [验证·回归] t384 19/19 + xray 11/11 · t385 48/48 · t386 119/119 · t387 157/157 + dup-audit 干净 · t388 55/55 · t389 29/29 · t390 38/38 · t391-mpirun-lane 84/84（时钟两断言对齐 t397 管道 — 语义同、位置移）· t391-perf-log-lane 49/49 · t393 32/32 · t394 62/62 · t396 26/26 · test-resume-checkpoint 17/17；tsc 0；触碰文件 eslint 0
+- [验证·浏览器] standalone 生产线（dev 模式 Turbopack 编译在本盒两次 OOM — 已知边界，t392 在案；webpack 车道构建通过）：首页/种子画布 10 卡/调色板开门的 inspector（head/操作/血缘/Results/空态诚实文案）零 console 零 page error；390×700 零横向溢流 + footer 精确贴底（gap=0）；截图 t397-{home,seeded-canvas,inspector-results,mobile}.png。控制台交互经 SVG 卡片自定义指针层不吃合成事件 — inspector 经命令面板（openJob 方言）验证
+- [沙箱运维] QA 窗口暂停 my-project 3000 模板服务器 + 关浏览器为编译腾内存，事后已复原（200）；mock :3022 常驻
+
+Stage Summary:
+- results 车道换代：sweep 心跳即 gallery 的唯一读者（prewarm 进 LRU）+ 版本令牌（unchanged ~83B）+ 5s 轮询 + Results 页 watch 地板 2.5s — 新一轮 mtime→可见实测中位 2.2s/最坏 4.8s（旧 24s+），轮图渲染 3.1-3.8s（旧 ≥60s）
+- 提交等待：twin 批统计+时钟捎带、mkdir+scancel 合轮、sbatch/direct 单轮提交（head -c N && 执行）、env 快照 5min TTL、walltime 10min TTL — dispatch 窗口 25 exec（含探测/分级/stash），裸形状全部绝迹
+- 产出：scripts/t397-perf-units.ts 77 断言 + scripts/diag-t397-results-lane.mjs 40 断言（可重放）；mock .slurm/ 引导修复
+- 用户复机路径：git pull → 打开运行中集群分类的 Results 页 — 新一轮 ~3s 内上画布；提交快 ~30-50%（少 4-6 个串行 SSH 轮，慢登录节点上每轮 1-3s）
+- 诚实边界：① prewarm 依赖 sweep 在跑（无观察者时 gallery 首开仍付自己的一轮 — 与旧世界相同）② 完备快路的「尺寸=头几何」按 nsymbt=0 断言（RELION 栈恒真）；nsymbt>0 的外来栈走 ≥ 判据仍通过 ③ dev 模式 4GB 盒 Turbopack 编译 OOM 顽疾仍在（webpack 构建车道绕过；用户 Windows 机无此约束）④ mock 0.9s/轮的渲染风暴远超真实节奏（分钟级），内存曲线不可比 ⑤ 浏览器 inspector 经面板开门验证 — 卡片双击走画布自建指针层，合成事件不可达（记录在案）

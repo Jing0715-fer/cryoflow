@@ -109,7 +109,15 @@ import { readMrcHeader } from "@/lib/mrc";
 // engine/getRun at function scope only — no cycle at module-eval time.
 // t370 — mrcStackDataIsFlat rides along: the sync-back's zero-data scan
 // judges the SAME "black classes" shape the render pass judges.
-import { LIVE_ITERATION_TYPES, mrcStackDataIsFlat, scheduleRemoteStackRenders } from "./iteration-live";
+import {
+  LIVE_ITERATION_TYPES,
+  iterationsVersion,
+  livePayloadFromParts,
+  liveSectionsScript,
+  mrcStackDataIsFlat,
+  prewarmLiveIterations,
+  scheduleRemoteStackRenders,
+} from "./iteration-live";
 // t370 — the automated storage diagnostic: the decisive t369 experiment
 // (login-leg write + compute-leg sbatch write + md5 cross-read), fired by
 // the sweep at the FIRST live zero-header round and by the diagnostics
@@ -128,6 +136,7 @@ import { probeConnection } from "./probe";
 import {
   dropConnection,
   exec,
+  execUnqueued,
   loginShellScript,
   remoteDownload,
   remoteMkdir,
@@ -286,6 +295,61 @@ function mapRemoteToLocal(remotePath: string, remoteRoot: string): string {
     return path.join(RELION_DIR, remotePath.slice(root.length));
   }
   return remotePath;
+}
+
+/* ------------------------------------------------------------------ */
+/* t397 — the twin-freshness census (one round for every input twin)    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * t397 — the TWIN-FRESHNESS CENSUS: one unqueued SSH round stats EVERY
+ * cluster twin this dispatch's inputs carry a local copy for (the old
+ * shape paid one remoteStat round trip PER INPUT, sequentially — three
+ * inputs on a 2s login node = 6s of pure wait on a POST the user is
+ * staring at). The cluster's own clock (the t391 dispatch fence) rides
+ * the SAME round when the caller still needs it, so the common dispatch
+ * path drops one more serialized exec. `withClock` appends a marker +
+ * `date +%s`; parseTwinCensus splits them back out.
+ */
+export function twinCensusScript(twinPaths: string[], withClock: boolean): string {
+  const quoted = twinPaths.map((p) => shQuote(p));
+  const lines = [
+    "for p in " + (quoted.length > 0 ? quoted.join(" ") : '""') + "; do",
+    '  stat -c "%Y %n" "$p" 2>/dev/null || echo "CF_MISSING $p"',
+    "done",
+  ];
+  if (withClock) {
+    lines.push('echo "---CF-CLOCK---"', "date +%s");
+  }
+  return lines.join("\n");
+}
+
+/**
+ * t397 — the census round's parse: `mtime path` lines (mtime in SECONDS —
+ * stat %Y), `CF_MISSING path` lines (absent twins stay OUT of the map,
+ * which the consumer reads as "the twin stands"), and optionally the
+ * ---CF-CLOCK--- tail's epoch seconds. Non-matching lines (.bashrc noise,
+ * module chatter) are skipped, the t311 login-shell discipline.
+ */
+export function parseTwinCensus(out: string): { mtimes: Map<string, number>; clockSec: number | null } {
+  const mtimes = new Map<string, number>();
+  let clockSec: number | null = null;
+  const clockSplit = out.split("---CF-CLOCK---");
+  const statText = clockSplit[0] ?? "";
+  if (clockSplit.length > 1) {
+    const t = (clockSplit[1] ?? "").trim().split(/\r?\n/).filter(Boolean).pop() ?? "";
+    if (/^\d{9,12}$/.test(t)) clockSec = Number(t);
+  }
+  for (const raw of statText.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line || line.startsWith("CF_MISSING ")) continue;
+    const sp = line.indexOf(" ");
+    if (sp <= 0) continue;
+    const m = line.slice(0, sp);
+    const p = line.slice(sp + 1);
+    if (/^\d+$/.test(m) && p) mtimes.set(p, Number(m));
+  }
+  return { mtimes, clockSec };
 }
 
 /* ------------------------------------------------------------------ */
@@ -1485,18 +1549,46 @@ export function parseInteractiveEnvSnapshot(envOutput: string): string[] {
 /** Ask the login node for its INTERACTIVE login shell's environment (the
  * environment a manual sbatch would inherit). Best-effort: any failure
  * answers null and the caller falls back to today's behaviour. */
+/**
+ * t397 — the interactive-environment snapshot cache. The snapshot costs
+ * a full `bash -lic /usr/bin/env` (an interactive login shell: profile,
+ * module loads, conda init — easily a second or three on a loaded login
+ * node) and used to be paid on EVERY dispatch. The environment it
+ * captures is exactly the one that does NOT change mid-session (the
+ * script re-plays the module load itself; the snapshot only MERGES the
+ * rc-file ritual on top), so a 5-minute TTL per connection is honest —
+ * an edited .bashrc lands on the next dispatch after the TTL. A FAILED
+ * fetch is cached for only 30s: retries stay cheap without hammering a
+ * login node that is already refusing shells. Env knob for the benches.
+ */
+const ENV_SNAPSHOT_TTL_MS = Math.max(1, Number(process.env.CF_T397_ENV_TTL_MS) || 5 * 60_000);
+const ENV_SNAPSHOT_FAIL_TTL_MS = Math.max(1, Number(process.env.CF_T397_ENV_FAIL_TTL_MS) || 30_000);
+const envSnapshotCache = new Map<string, { at: number; lines: string[] | null }>();
+
 export async function fetchInteractiveEnvSnapshot(
   conn: RemoteConnection
 ): Promise<string[] | null> {
+  const hit = envSnapshotCache.get(conn.id);
+  if (hit) {
+    const ttl = hit.lines != null ? ENV_SNAPSHOT_TTL_MS : ENV_SNAPSHOT_FAIL_TTL_MS;
+    if (Date.now() - hit.at < ttl) return hit.lines;
+    envSnapshotCache.delete(conn.id);
+  }
   let res;
   try {
     res = await exec(conn, `bash -lic /usr/bin/env 2>/dev/null`, { timeoutMs: 15_000 });
   } catch {
+    envSnapshotCache.set(conn.id, { at: Date.now(), lines: null });
     return null;
   }
-  if (res.error) return null;
+  if (res.error) {
+    envSnapshotCache.set(conn.id, { at: Date.now(), lines: null });
+    return null;
+  }
   const lines = parseInteractiveEnvSnapshot(res.stdout ?? "");
-  return lines.length > 0 ? lines : null;
+  const out = lines.length > 0 ? lines : null;
+  envSnapshotCache.set(conn.id, { at: Date.now(), lines: out });
+  return out;
 }
 
 /**
@@ -2125,6 +2217,16 @@ export function parseSlurmTimeToMinutes(raw: string): number | null {
  *   · else (short jobs, unresolved partition, sinfo unavailable) both
  *     null — a monitoring failure never blocks a dispatch.
  */
+/**
+ * t397 — the partition walltime cache: scontrol's MaxTime/DefaultTime for
+ * a partition moves on the scale of cluster-admin months, but every
+ * refinement-family dispatch used to re-ask it (one serialized exec on
+ * the spawn's path). 10 minutes per (connection, partition) — the same
+ * freshness class as the probe inventory the run dialog itself reads.
+ */
+const WALLTIME_TTL_MS = Math.max(1, Number(process.env.CF_T397_WALLTIME_TTL_MS) || 10 * 60_000);
+const walltimeCache = new Map<string, { at: number; min: number | null; defaultMin: number | null }>();
+
 async function resolveSbatchTimeLimit(
   conn: RemoteConnection,
   jobType: string,
@@ -2133,21 +2235,37 @@ async function resolveSbatchTimeLimit(
   if (conn.slurmTimeMin && conn.slurmTimeMin > 0)
     return { min: Math.min(20160, Math.round(conn.slurmTimeMin)), defaultMin: null };
   if (!WALLTIME_TYPES.has(jobType) || !partition) return { min: null, defaultMin: null };
+  const cacheKey = `${conn.id}|${partition}`;
+  const hit = walltimeCache.get(cacheKey);
+  if (hit && Date.now() - hit.at < WALLTIME_TTL_MS) {
+    return { min: hit.min, defaultMin: hit.defaultMin };
+  }
   try {
     const r = await exec(conn, loginShellScript(`sinfo -h -o '%l %L' -p ${shQuote(partition)}`), {
       timeoutMs: 10_000,
     });
-    if (r.error || r.code !== 0) return { min: null, defaultMin: null };
+    if (r.error || r.code !== 0) {
+      // an unanswered read is NOT cached (the wire may just be busy) — the
+      // next dispatch retries, same as before t397
+      return { min: null, defaultMin: null };
+    }
     const first = (r.stdout ?? "").trim().split(/\r?\n/)[0] ?? "";
     // "%l %L" → "<MaxTime> <DefaultTime>" (either column may print the
     // word infinite; a missing DefaultTime column degrades to null)
     const cols = first.trim().split(/\s+/);
     const mins = parseSlurmTimeToMinutes(cols[0] ?? "");
     const defMins = parseSlurmTimeToMinutes(cols.length > 1 ? cols[1] : "");
-    return {
+    const out = {
       min: mins == null ? null : Math.min(mins, WALLTIME_AUTO_CAP_MIN),
       defaultMin: defMins,
     };
+    walltimeCache.set(cacheKey, { at: Date.now(), ...out });
+    if (walltimeCache.size > 64) {
+      // bounded: stale entries die by simple prune (the TTL re-reads anyway)
+      const horizon = Date.now() - WALLTIME_TTL_MS;
+      for (const [k, v] of walltimeCache) if (v.at < horizon) walltimeCache.delete(k);
+    }
+    return out;
   } catch {
     return { min: null, defaultMin: null }; // a monitoring failure never blocks a dispatch
   }
@@ -4042,21 +4160,15 @@ export async function startRemoteJob(args: {
   // is not that clock: an NTP-less lab network lets it drift minutes
   // ahead, and the field report's sync-back then refused the run's OWN
   // run.out/run.err as "left behind by an EARLIER run" (the 90s grace
-  // only covers cluster-internal skew). Read once HERE — before any
-  // staging byte lands — so every file this dispatch writes (staged
-  // inputs, the script, the run's products) carries a cluster-side mtime
-  // ≥ this reading. Best-effort by design: a failed read leaves the field
-  // absent and the finalize falls back to the app clock (the pre-t391
-  // contract), never a dispatch refusal.
+  // only covers cluster-internal skew). Read once before any staging byte
+  // lands — t397: the read now RIDES the twin-freshness census round below
+  // (or stands alone when no twin needs checking), one serialized exec
+  // fewer on the POST's critical path. Every file this dispatch writes
+  // (staged inputs, the script, the run's products) then carries a
+  // cluster-side mtime ≥ this reading. Best-effort by design: a failed
+  // read leaves the field absent and the finalize falls back to the app
+  // clock (the pre-t391 contract), never a dispatch refusal.
   let dispatchClusterSec: number | null = null;
-  try {
-    const clockRes = await exec(conn, "date +%s", { timeoutMs: 10_000 });
-    const clockLine =
-      (clockRes.stdout ?? "").trim().split(/\r?\n/).filter(Boolean).pop() ?? "";
-    if (/^\d{9,12}$/.test(clockLine)) dispatchClusterSec = Number(clockLine);
-  } catch {
-    /* best-effort — the finalize falls back to the app host's clock */
-  }
 
   const remoteState: RemoteRunState = {
     connectionId: conn.id,
@@ -4069,7 +4181,6 @@ export async function startRemoteJob(args: {
     remoteWorkdir,
     pid: null,
     slurmId: null,
-    ...(dispatchClusterSec != null ? { dispatchClusterSec } : {}),
     ...(isSlurm ? { gpusRequested: logPick ? 0 : gpuWidth } : {}),
     // t340 — the partition the sbatch will actually name: the picked group,
     // else the pin's own resolved home (the inspector's strip says where
@@ -4281,6 +4392,58 @@ export async function startRemoteJob(args: {
     }
   }
 
+  // ---- t397 — the twin-freshness census (ONE round, clock riding) ------
+  // Every input that carries BOTH a cluster twin and a local file needs
+  // the t372 stale-twin comparison; the old shape awaited one remoteStat
+  // PER INPUT, sequentially on the POST's critical path. One unqueued
+  // round stats them all (the cluster's own clock rides along when the
+  // dispatch fence is still unread — see the t391 block above). A census
+  // failure degrades to the pre-t397 shape's OWN degradation: every twin
+  // stands (a failed stat always stood the twin), never a refusal.
+  const twinCensus: Array<{ twin: string; localMtimeMs: number }> = [];
+  for (const localRaw of Object.values(resolvedInputs)) {
+    const localNorm = localRaw.split(path.sep).join("/");
+    const twin = upstreamRemoteTwins.get(localNorm);
+    if (!twin) continue;
+    try {
+      twinCensus.push({ twin, localMtimeMs: statSync(localRaw).mtimeMs });
+    } catch {
+      /* no local file (identity-entry twins never came home) — the twin stands, no census needed */
+    }
+  }
+  const twinMtimeSec = new Map<string, number>();
+  if (twinCensus.length > 0) {
+    try {
+      const res = await execUnqueued(
+        conn,
+        twinCensusScript(twinCensus.map((t) => t.twin), dispatchClusterSec == null),
+        { timeoutMs: 20_000 }
+      );
+      if (!res.error) {
+        const parsed = parseTwinCensus(res.stdout ?? "");
+        for (const [p, sec] of parsed.mtimes) twinMtimeSec.set(p, sec);
+        if (parsed.clockSec != null && dispatchClusterSec == null) {
+          dispatchClusterSec = parsed.clockSec;
+        }
+      }
+    } catch {
+      /* the census degrades: every twin stands */
+    }
+  }
+  if (dispatchClusterSec == null) {
+    // no twin needed checking (or the census round could not run) — the
+    // clock still deserves its own best-effort read before staging lands
+    try {
+      const clockRes = await exec(conn, "date +%s", { timeoutMs: 10_000 });
+      const clockLine =
+        (clockRes.stdout ?? "").trim().split(/\r?\n/).filter(Boolean).pop() ?? "";
+      if (/^\d{9,12}$/.test(clockLine)) dispatchClusterSec = Number(clockLine);
+    } catch {
+      /* best-effort — the finalize falls back to the app host's clock */
+    }
+  }
+  if (dispatchClusterSec != null) remoteState.dispatchClusterSec = dispatchClusterSec;
+
   let needsStaging = false;
   for (const [key, localRaw] of Object.entries(resolvedInputs)) {
     const local = localRaw.split(path.sep).join("/");
@@ -4297,13 +4460,19 @@ export async function startRemoteJob(args: {
       // the twin, the local bytes are the truth — fall through to the
       // upload lane, which rewrites + overwrites the twin in place (the
       // mirror-mapped upload target IS the twin's address).
+      // t397 — the freshness numbers come from the census round above
+      // (one SSH trip for every twin); an absent entry means "no local
+      // file to compare" (the identity-entry shape) or a stat the census
+      // could not read — the twin stands either way, exactly as before.
       let twinFresh = true;
-      try {
-        const localMtime = statSync(localRaw).mtimeMs;
-        const twinSt = await remoteStat(conn, twin);
-        if (twinSt && twinSt.mtimeMs + 1000 < localMtime) twinFresh = false;
-      } catch {
-        /* no local file (identity-entry twins never came home) — the twin stands */
+      const twinM = twinMtimeSec.get(twin);
+      if (twinM != null) {
+        try {
+          const localMtime = statSync(localRaw).mtimeMs;
+          if (twinM * 1000 + 1000 < localMtime) twinFresh = false;
+        } catch {
+          /* no local file — the twin stands */
+        }
       }
       if (twinFresh) continue; // already on the cluster (upstream ran there)
       console.log(
@@ -5128,8 +5297,6 @@ export async function startRemoteJob(args: {
       );
       const jobName = `cf_${job.type}_${job.id.slice(-8)}`;
 
-      await remoteMkdir(conn, remoteWorkdir);
-
       // ---- t341 — the stale-run reaper, scheduler-side -------------------
       // The ghost-sbatch race (review C1) and every un-witnessed death
       // before it can leave Slurm jobs that STILL own this workdir: a
@@ -5144,16 +5311,22 @@ export async function startRemoteJob(args: {
       // fresh submission claims it. Best-effort hygiene: a refusal (no
       // matching job, an ancient scancel without -n) never blocks the
       // dispatch.
-      if (isSlurm) {
-        try {
-          await exec(
-            conn,
-            `scancel -n ${shQuote(jobName)} 2>/dev/null || true`,
-            { timeoutMs: 15_000 }
-          );
-        } catch {
-          /* the reaper is hygiene, never a gate */
-        }
+      //
+      // t397 — the mkdir rides the SAME round (both precede the wipe
+      // listing, neither reads the other's output; two serialized execs
+      // become one). A failure keeps both legs' OWN old semantics: the
+      // mkdir was never error-checked (the sbatch-lane upload below has
+      // its own mkdir -p), and the reaper never gated anything.
+      try {
+        await exec(
+          conn,
+          `mkdir -p ${shQuote(remoteWorkdir)}${
+            isSlurm ? `; scancel -n ${shQuote(jobName)} 2>/dev/null || true` : ""
+          }`,
+          { timeoutMs: 20_000 }
+        );
+      } catch {
+        /* best-effort — the wipe listing and the submit doors re-test the wire */
       }
 
       // ---- t333 — the re-run's stale PRODUCTS on the cluster -------------
@@ -5651,9 +5824,19 @@ export async function startRemoteJob(args: {
           mpiRanks: slurmMpiGpu ? ntasks : null,
         });
         const scriptPath = `${remoteWorkdir}/.cf-sbatch.sh`;
-        const upOk = await remoteUpload(conn, script, scriptPath);
-        if (!upOk) throw new Error(`could not upload the sbatch script to ${scriptPath}`);
-        const subRes = await exec(conn, `sbatch ${shQuote(scriptPath)}`, { timeoutMs: 30_000 });
+        // t397 — the script's bytes ride the exec channel's stdin and
+        // sbatch runs in the SAME round: ONE serialized exec where there
+        // were three (remoteUpload's mkdir + its head -c write + the
+        // sbatch). The head -c idiom is load-bearing — Bun+ssh2 never
+        // delivers channel EOF, so a bare `cat >` would hang forever;
+        // head -c reads EXACTLY the byte count and exits, the upload
+        // lane's own trick since forever.
+        const scriptBuf = Buffer.from(script, "utf8");
+        const subRes = await exec(
+          conn,
+          `head -c ${scriptBuf.length} > ${shQuote(scriptPath)} && sbatch ${shQuote(scriptPath)}`,
+          { timeoutMs: 45_000, stdin: scriptBuf }
+        );
         const idMatch = /Submitted batch job (\d+)/.exec(subRes.stdout);
         if (!idMatch) {
           // t311 — the exec channel is a LOGIN shell (bash -lc), so the
@@ -5841,11 +6024,10 @@ export async function startRemoteJob(args: {
         });
 
         const wrapperPath = `${remoteWorkdir}/.cf-run.sh`;
-        const upOk = await remoteUpload(conn, wrapper, wrapperPath);
-        if (!upOk) throw new Error(`could not upload the run script to ${wrapperPath}`);
-
         // t341 — the direct lane's own pre-spawn fence (the slurm lane
-        // checks at its own door above)
+        // checks at its own door above): a reset/delete that landed while
+        // the wrapper was being prepared must not become a ghost process
+        // into a workdir nobody owns anymore.
         if (dispatchCancelled()) {
           stopBeat();
           console.log(
@@ -5853,8 +6035,16 @@ export async function startRemoteJob(args: {
           );
           return;
         }
-
-        const runRes = await exec(conn, `bash ${shQuote(wrapperPath)}`, { timeoutMs: 30_000 });
+        // t397 — the single-round spawn (the sbatch lane's own idiom): the
+        // wrapper's bytes ride stdin through head -c and bash runs in the
+        // SAME exec — one serialized round instead of remoteUpload's two
+        // plus the bash round.
+        const wrapperBuf = Buffer.from(wrapper, "utf8");
+        const runRes = await exec(
+          conn,
+          `head -c ${wrapperBuf.length} > ${shQuote(wrapperPath)} && bash ${shQuote(wrapperPath)}`,
+          { timeoutMs: 45_000, stdin: wrapperBuf }
+        );
         const pidMatch = /CRYOFLOW_PID:(\d+)/.exec(runRes.stdout);
         if (!pidMatch) {
           const why =
@@ -6222,6 +6412,38 @@ const VANISH_STREAK_N = Math.max(1, Number(process.env.CF_VANISH_STREAK) || 3);
 const VANISH_AGE_MS = Math.max(1_000, Number(process.env.CF_VANISH_AGE_MS) || 120_000);
 
 /**
+ * t397 — how old a listed round's mtime must be before the sweep streams
+ * it WITHOUT header-geometry proof (seconds). Was a blanket 60s from t368;
+ * the t387 write-settled gate re-verifies every pull (O_DIRECT header +
+ * exact size), so the wait is latency, not safety — 20s covers NFS's 1s
+ * mtime granularity and a flushing writer. A round whose stat size equals
+ * its header-declared geometry streams immediately (mrcRoundStatComplete).
+ */
+const ROUND_SETTLE_MIN_SEC = Math.max(5, Number(process.env.CF_ROUND_SETTLE_SEC) || 20);
+
+/**
+ * t397 — the header-complete fast path: a round stack whose sniffed MRC
+ * words are all live AND whose stat size already carries the full data
+ * plane (1024B header + nsymbt assumed 0 + 4·nx·ny·nz bytes) is finished —
+ * the LAST image write is the operation that makes the size reach that
+ * value, and RELION writes the header (with real geometry) before any
+ * data. Such a round streams on the heartbeat that first sees it instead
+ * of waiting ROUND_SETTLE_MIN_SEC; the t387 gate still re-verifies through
+ * O_DIRECT before any byte crosses the wire (the layered guard).
+ */
+export function mrcRoundStatComplete(x: {
+  size: number;
+  nx?: number;
+  ny?: number;
+  nz?: number;
+}): boolean {
+  const { nx, ny, nz } = x;
+  if (nx == null || ny == null || nz == null) return false;
+  if (nx <= 0 || ny <= 0 || nz <= 0) return false;
+  return x.size >= 1024 + 4 * nx * ny * nz;
+}
+
+/**
  * t384 — per-run files the zero-header WITNESS has already cross-examined
  * (login-node buffered view vs its own O_DIRECT view + the fadvise drop).
  * A round that reads zero on a settled sweep earns ONE ladder, ever — an
@@ -6402,12 +6624,14 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
     // t346 — ADAPTIVE: a sweep that took T seconds buys the next one
     // max(4s, 1.5×T) of quiet — a login node that answers in 12s must not
     // be poked every 4s (each poke = an sshd fork it pays for).
-    // t391 — WATCH-AWARE FLOOR: while any of this connection's jobs has an
-    // OPEN LOG CONSOLE (the log route was hit within the last 12s), the
-    // floor tightens 4s → 2.5s so the cluster log the user is reading
-    // lands ~37% fresher (a fast wire answers in ~300ms; the 1.5×lastMs
-    // multiplier still rules slow wires, the 30s cap still rules the
-    // slowest — nobody watches a console into a login-node storm).
+    // t391 — WATCH-AWARE FLOOR: while any of this connection's jobs has
+    // an OPEN LOG CONSOLE (the log route was hit within the last 12s) — or,
+    // since t397, an open LIVE-RESULTS view (the iterations route marks the
+    // same watch) — the floor tightens 4s → 2.5s so the cluster log the
+    // user is reading lands ~37% fresher (a fast wire answers in ~300ms;
+    // the 1.5×lastMs multiplier still rules slow wires, the 30s cap still
+    // rules the slowest — nobody watches a console into a login-node
+    // storm).
     const st = pollState.get(connId) ?? { at: 0, inflight: false, lastMs: 0 };
     const watched = anyLogWatched(entries.map((e) => e.job.id));
     const floor = watched ? 2_500 : 4_000;
@@ -6483,6 +6707,16 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
           scriptLines.push(
             `cd ${W} 2>/dev/null && for f in $(ls -1v run_it???_classes.mrcs 2>/dev/null | tail -12) run_unmasked_classes.mrcs; do [ -f "$f" ] && { stat -c '%s %Y %n' "$f"; ${cacheSafeHeaderSniffLineForVar()}; }; done`
           );
+          // t397 — the LIVE-RESULTS PREWARM sections: the data-star
+          // listing, the stack-name listing and the newest star's
+          // occupancy awk ride the SAME heartbeat (cheap ls|grep + one
+          // cluster-side awk — zero star bytes cross the wire, the t346
+          // doctrine). The ALIVE branch below feeds them through the
+          // shared builder into the gallery route's LRU, so an open
+          // Results tab reads a ≤heartbeat-old snapshot and its HTTP
+          // ticks never queue their own SSH rounds — the sweep is the
+          // run's ONE live reader (logs since t346, results since t397).
+          scriptLines.push(liveSectionsScript(W));
         }
         scriptLines.push(`echo "===CF:END:${e.job.id}"`);
       }
@@ -6508,6 +6742,12 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
           errTail: string;
           totalLines: number;
           rounds: { file: string; size: number; mtime: number; nx?: number; ny?: number; nz?: number }[];
+          /** t397 — the live-results prewarm sections (running
+           * classifications only): data-star names, stack names, and the
+           * newest star's occupancy text */
+          liveStars?: string[];
+          liveStackNames?: string[];
+          liveOccText?: string;
         }
       >();
       const re = /===CF:START:([\w-]+)\n([\s\S]*?)===CF:END:\1/g;
@@ -6525,6 +6765,12 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
         const logM = afterStatus.indexOf("---LOG---");
         const errM = afterStatus.indexOf("---CF:ERR---");
         const roundsM = afterStatus.indexOf("---CF:ROUNDS---");
+        // t397 — the live-results prewarm markers (present only on a
+        // running classification's block, appended after the rounds
+        // listing)
+        const starsM = afterStatus.indexOf("---CF:STARS---");
+        const stacksNM = afterStatus.indexOf("---CF:STACKS---");
+        const occM = afterStatus.indexOf("---CF:OCC---");
         const totalLines =
           linesM >= 0 && logM > linesM
             ? Number(afterStatus.slice(linesM + 15, logM).trim().split("\n")[0]) || 0
@@ -6534,6 +6780,11 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
         // slice there so the stat lines never ride into errTail
         const errTail =
           errM >= 0 ? afterStatus.slice(errM + 11, roundsM >= 0 ? roundsM : undefined) : "";
+        // t397 — the rounds section now ENDS at the STARS marker when the
+        // prewarm sections rode along (the old to-end slice would feed the
+        // star/occupancy lines to the rounds parser — harmless by its
+        // regexes, but explicit is better than lucky)
+        const roundsEnd = starsM >= 0 ? starsM : undefined;
         const rounds: { file: string; size: number; mtime: number; nx?: number; ny?: number; nz?: number }[] = [];
         if (roundsM >= 0) {
           // t370 — the od header line (nx ny nz, squeezed by tr) follows
@@ -6541,7 +6792,7 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
           // garbage line (mid-write — the settle gate's own world) leaves
           // the fields undefined instead of attaching to the wrong round.
           let cur: { file: string; size: number; mtime: number; nx?: number; ny?: number; nz?: number } | null = null;
-          for (const line of afterStatus.slice(roundsM + 15).split("\n")) {
+          for (const line of afterStatus.slice(roundsM + 15, roundsEnd).split("\n")) {
             const rm =
               /^(\d+)\s+(\d+)\s+(run_it\d{3}_classes\.mrcs|run_unmasked_classes\.mrcs)$/.exec(
                 line.trim()
@@ -6562,6 +6813,23 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
             }
           }
         }
+        // t397 — the prewarm sections: data stars (STARS→STACKS), stack
+        // names (STACKS→OCC), occupancy text (OCC→end). Only parsed when
+        // all three markers are present and ordered — a partial block (an
+        // older cryoflow wrote it, a truncated wire) simply does not
+        // prewarm and the gallery route pays its own round as before.
+        let liveStars: string[] | undefined;
+        let liveStackNames: string[] | undefined;
+        let liveOccText: string | undefined;
+        if (starsM >= 0 && stacksNM > starsM && occM > stacksNM) {
+          liveStars = afterStatus
+            .slice(starsM + "---CF:STARS---".length, stacksNM)
+            .split("\n").map((l) => l.trim()).filter((l) => /^(?:run_it|_it)\d+_data\.star$/i.test(l));
+          liveStackNames = afterStatus
+            .slice(stacksNM + "---CF:STACKS---".length, occM)
+            .split("\n").map((l) => l.trim()).filter((l) => /^(?:(?:run_it|_it)\d+_(?:unmasked_)?classes|run_unmasked_classes)\.mrcs?$/i.test(l));
+          liveOccText = afterStatus.slice(occM + "---CF:OCC---".length);
+        }
         blocks.set(m[1], {
           status,
           sacct,
@@ -6569,6 +6837,9 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
           errTail: errTail.replace(/\n$/, ""),
           totalLines,
           rounds,
+          ...(liveStars !== undefined ? { liveStars } : {}),
+          ...(liveStackNames !== undefined ? { liveStackNames } : {}),
+          ...(liveOccText !== undefined ? { liveOccText } : {}),
         });
       }
 
@@ -6643,16 +6914,26 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
           // t368 — LIVE ROUND STREAMING: the heartbeat just carried this
           // run's class-stack stat lines. Rounds the CURRENT generation
           // wrote (mtime ≥ the dispatch fence, 90s clock-skew grace — the
-          // t367 leftover lesson) and that have SETTLED (mtime ≥ 60s ago:
-          // a stack listed mid-write would pull truncated bytes and flash
-          // a false "unreadable" verdict) go straight to the render
-          // scheduler: each is pulled once, converted to per-class PNGs +
-          // the sheet in the local preview cache, and both galleries
+          // t367 leftover lesson) and that have SETTLED go straight to the
+          // render scheduler: each is pulled once, converted to per-class
+          // PNGs + the sheet in the local preview cache, and both galleries
           // answer from local bytes WHILE the run continues — the rounds
           // arrive during the run, not as one finalize-time batch. Already
           // rendered rounds skip for free (the .done marker); a pipeline
           // still in flight absorbs the re-schedule; the 2 GiB budget and
           // the on-demand door below it keep the wire bounded.
+          //
+          // t397 — SETTLE = 20s OR header-complete. The old blanket 60s wait
+          // was the only torn-read guard when the streaming was built
+          // (t368: "a stack listed mid-write would pull truncated bytes and
+          // flash a false unreadable verdict"); the t387 write-settled gate
+          // now re-verifies EVERY pull through an O_DIRECT header + exact-
+          // size check before one body byte crosses the wire, so the
+          // blanket is pure latency, not safety. 20s covers NFS's 1s mtime
+          // granularity + a flushing writer; a round whose stat size already
+          // equals its header-declared geometry (1024B header + 4·nx·ny·nz
+          // bytes — the LAST image write is what makes the size reach that
+          // value) is complete no matter how young its mtime is.
           //
           // t370 — ZERO-HEADER EVIDENCE, live: a settled, generation-
           // fenced round whose sniffed header says nx/ny/nz 0 is the t369
@@ -6662,12 +6943,42 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
           // pull would only burn wire to flash a false verdict); their
           // names land on the record (capped at 8) and the FIRST one
           // fires the automatic storage diagnostic (t370), once per run.
+          if (b.rounds.length > 0 || b.liveStars !== undefined) {
+            // t397 — the PREWARM write: one heartbeat carries the whole
+            // live gallery now (stars, stacks, occupancy + the rounds'
+            // sniffed nz). Feed the shared builder, stamp the version,
+            // land it in the gallery route's LRU — an open Results tab
+            // reads a ≤heartbeat-old snapshot and its ticks never queue
+            // their own SSH rounds. Best-effort by design: a builder miss
+            // (garbled sections) leaves the cache to the route's own round.
+            if (b.liveStars !== undefined && b.liveStackNames !== undefined && b.liveOccText !== undefined) {
+              try {
+                const nzByName = new Map<string, number>();
+                for (const rd of b.rounds) {
+                  if (rd.nz != null) nzByName.set(rd.file, rd.nz);
+                }
+                const pw = livePayloadFromParts({
+                  jobId: e.job.id,
+                  dataStarNames: b.liveStars,
+                  stackNames: b.liveStackNames,
+                  nzByName,
+                  occText: b.liveOccText,
+                });
+                pw.version = iterationsVersion(pw);
+                prewarmLiveIterations(e.job.id, pw);
+              } catch {
+                /* a prewarm miss never disturbs the run's own bookkeeping */
+              }
+            }
+          }
           if (b.rounds.length > 0) {
             const fence = e.remote.dispatchedAtEpoch ?? 0;
             const fenceSec = fence > 1e12 ? Math.floor(fence / 1000) : fence;
             const nowSec = Math.floor(Date.now() / 1000);
             const settledRounds = b.rounds.filter(
-              (x) => x.mtime + 90 >= fenceSec && x.mtime + 60 <= nowSec
+              (x) =>
+                x.mtime + 90 >= fenceSec &&
+                (x.mtime + ROUND_SETTLE_MIN_SEC <= nowSec || mrcRoundStatComplete(x))
             );
             const zeroHeaderRounds = settledRounds.filter(
               (x) =>
@@ -7837,7 +8148,14 @@ function readFullLogCache(jobId: string, done: boolean): { payload: RemoteLogPay
  */
 const logWatch = new Map<string, number>();
 const LOG_WATCH_WINDOW_MS = 12_000;
-function markLogWatch(jobId: string): void {
+/**
+ * t397 — exported for the RESULTS lane: an open live-results view is a
+ * WATCH exactly like an open log console (the iterations route marks it),
+ * so the sweep's quiet floor tightens 4s → 2.5s while the user is LOOKING
+ * at a running classification's gallery — the freshness follows the
+ * viewer, whichever tab they watch.
+ */
+export function markLogWatch(jobId: string): void {
   logWatch.delete(jobId);
   logWatch.set(jobId, Date.now());
   if (logWatch.size > 64) {

@@ -94,6 +94,12 @@ interface IterationsResponse {
    *  badge lands on the chip either way. Absent = healthy / unmeasured. */
   zeroData?: boolean;
   error?: string;
+  /** t397 — the payload's version token: an unmoved run answers
+   * {unchanged:true} and the gallery keeps its rendered state (the log
+   * lane's ?since= dialect on the results lane — the 5s live poll is
+   * free between rounds). */
+  version?: string;
+  unchanged?: boolean;
 }
 
 /** t370 — does this round carry the zero-data verdict? (entry-level flag,
@@ -152,14 +158,26 @@ export function ClassIterationGallery({ job, refreshKey = 0 }: { job: JobDTO; re
     });
   const running = job.status === "running" || job.status === "pending";
 
+  // t397 — the token belongs to THIS job's canvas: a job switch (or the
+  // gallery re-mounting for another job) retires the old token so the
+  // first read is always a full payload.
+  const versionRef = React.useRef<string>("");
   const load = React.useCallback(async () => {
     try {
-      const res = await fetch(`/api/jobs/${job.id}/iterations`, { cache: "no-store" });
+      // t397 — carry the last-seen version: an unmoved run answers
+      // {unchanged:true} (~40 bytes) and the rendered state stays — the
+      // poll below can afford 5s without re-paying the payload's wire,
+      // JSON.parse and a full grid re-render every tick.
+      const q = versionRef.current ? `?since=${encodeURIComponent(versionRef.current)}` : "";
+      const res = await fetch(`/api/jobs/${job.id}/iterations${q}`, { cache: "no-store" });
       if (!res.ok) {
         setData(null);
         return;
       }
-      setData((await res.json()) as IterationsResponse);
+      const body = (await res.json()) as IterationsResponse;
+      if (body.unchanged) return; // nothing moved since the last payload
+      if (typeof body.version === "string" && body.version) versionRef.current = body.version;
+      setData(body);
     } catch {
       /* network blip — the next poll retries */
     } finally {
@@ -168,14 +186,20 @@ export function ClassIterationGallery({ job, refreshKey = 0 }: { job: JobDTO; re
   }, [job.id]);
 
   React.useEffect(() => {
+    // a job switch retires the previous canvas's token — first read is
+    // always a full payload
+    versionRef.current = "";
     void load();
   }, [load]);
 
-  // running job: poll (the payload itself is 12s-TTL'd server-side, so the
-  // cadence here never storms the cluster wire)
+  // running job: poll. t397 — 12s → 5s: the server's prewarm (the sweep
+  // carries the live sections on every heartbeat) + the version token
+  // (unchanged ≈ 40 bytes, zero re-render) make the faster cadence nearly
+  // free, and a fresh round surfaces in ~heartbeat+poll instead of up to
+  // 12s+12s of stacked TTLs.
   React.useEffect(() => {
     if (!running) return;
-    const t = setInterval(() => void load(), 12_000);
+    const t = setInterval(() => void load(), 5_000);
     return () => clearInterval(t);
   }, [running, load]);
 

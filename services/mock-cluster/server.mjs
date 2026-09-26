@@ -235,6 +235,17 @@ function normalizeSignal(name) {
 // ---------------------------------------------------------------------------
 const LEVER_DIR = join(FS_ROOT, "home/cryo/.slurm");
 
+// t397 (mock-infra repair): the exec audit + the torture levers all append
+// into LEVER_DIR, but nothing ever CREATED it — on a fresh clone every
+// append failed silently and the E2E suites read an empty audit (D5/G
+// forensics starved). Create it at module load; the fs tree is the mock's
+// own, a missing dir is never a verdict.
+try {
+  mkdirSync(LEVER_DIR, { recursive: true });
+} catch {
+  /* best effort — the appends stay silent on failure as before */
+}
+
 function leverLog(line) {
   try {
     appendFileSync(join(LEVER_DIR, "rm-lever.log"), `${Date.now()} ${line}\n`);

@@ -3162,10 +3162,13 @@ function JobResultsLive({ job }: { job: JobDTO }) {
   const [refreshKey, setRefreshKey] = React.useState(0);
   React.useEffect(() => {
     if (!running) return;
+    // t397 — 15s → 6s: the sub-views carry their own caches/tokens (the
+    // class gallery's poll is version-guarded), so a faster nudge costs
+    // little and the numbers/plots follow the run instead of lagging it
     const t = setInterval(() => {
       keyRef.current += 1;
       setRefreshKey(keyRef.current);
-    }, 15_000);
+    }, 6_000);
     return () => clearInterval(t);
   }, [running]);
   return <JobResults job={job} refreshKey={refreshKey} />;

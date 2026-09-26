@@ -95,6 +95,7 @@ qa44-*.png
 # real EMPIAR-10017 micrographs for the mock cluster (513 MB — fetch per
 # services/mock-cluster/README.md; never ship in git)
 /services/mock-cluster/fs/data2/empiar-10017/
+/services/mock-cluster/fs/data2/t397/
 # t341 — the t340 diag suite's runtime fixtures (recreated on each run)
 /services/mock-cluster/fs/data2/csproj-t340/
 /services/mock-cluster/fs/data2/t340-bare/

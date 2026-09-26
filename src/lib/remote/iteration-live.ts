@@ -129,6 +129,42 @@ export interface IterationsPayload {
    */
   zeroData?: boolean;
   error?: string;
+  /**
+   * t397 — the payload's version token (the log lane's ?since= dialect,
+   * now on the results lane): a hash of everything the gallery renders.
+   * An unmoved run answers {unchanged:true} (~40 bytes) so the client's
+   * live poll costs nothing until a round actually lands — the same diet
+   * t391 gave the log console and t393 gave the jobs heartbeat.
+   */
+  version?: string;
+}
+
+/**
+ * t397 — the iterations version token: everything the gallery renders,
+ * hashed. Deliberately EXCLUDES derived fields (latest ← iterations,
+ * classesSlices ← classes) so equal content always hashes equal.
+ */
+export function iterationsVersion(p: IterationsPayload): string {
+  const material = [
+    `i${p.iterations.join(",")}`,
+    `l${p.latest ?? "-"}`,
+    `c${p.classes.map((c) => `${c.cls}:${c.count}`).join(",")}`,
+    `t${p.total}`,
+    `f${p.classesFile ?? "-"}`,
+    `s${p.stacks.map((s) => `${s.file};${s.nz ?? "?"};${s.zeroData ? 1 : 0}`).join(",")}`,
+    `z${p.zeroData ? 1 : 0}`,
+    `e${p.renderError ?? "-"}`,
+    `r${p.remote ? 1 : 0}`,
+    `x${p.error ?? "-"}`,
+  ].join("|");
+  let h1 = 0;
+  let h2 = 0;
+  for (let i = 0; i < material.length; i++) {
+    const c = material.charCodeAt(i);
+    h1 = (h1 * 33 + c) | 0;
+    h2 = (h2 * 31 + c) | 0;
+  }
+  return `${h1.toString(36)}.${h2.toString(36)}.${material.length}`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -302,9 +338,131 @@ function occupancyAwkFor(dsPath: string): string {
 }
 
 /**
+ * t397 — the shared LIVE-payload builder: both producers feed the SAME
+ * parse so the sweep's prewarm (below) and remoteLiveIterations' own SSH
+ * round render byte-identical payloads. Pure — no SSH, no clock.
+ */
+export function livePayloadFromParts(args: {
+  jobId: string;
+  dataStarNames: string[];
+  stackNames: string[];
+  /** workdir file name → sniffed MRC nz (absent = unmeasured) */
+  nzByName: Map<string, number>;
+  occText: string;
+}): IterationsPayload {
+  const { jobId, dataStarNames, stackNames, nzByName, occText } = args;
+  const iterations = dataStarNames
+    .map((n) => Number(DATA_STAR_RE.exec(n)?.[1] ?? NaN))
+    .filter((n) => Number.isFinite(n))
+    .sort((a, b) => a - b);
+  const latest = iterations.length > 0 ? iterations[iterations.length - 1] : null;
+
+  const counts = new Map<number, number>();
+  let total = 0;
+  for (const line of occText.split("\n")) {
+    const t = line.trim();
+    const tm = /^CLS (\d+) (\d+)$/.exec(t);
+    if (tm) {
+      counts.set(Number(tm[1]), Number(tm[2]));
+      continue;
+    }
+    const tot = /^TOTAL (\d+)$/.exec(t);
+    if (tot) total = Number(tot[1]);
+  }
+  const classes: LiveClassEntry[] = [...counts.entries()]
+    .map(([cls, count]) => ({ cls, count, fraction: total > 0 ? count / total : 0 }))
+    .sort((a, b) => a.cls - b.cls);
+
+  const classesFile = pickStack(stackNames);
+  let classesSlices: number | null = null;
+  // slice count is only needed for the gallery; derive it lazily from the
+  // class count when the stack exists but was not pulled yet (rendering
+  // verifies against the real header)
+  if (classesFile && classes.length > 0) {
+    classesSlices = classes[classes.length - 1].cls;
+  }
+
+  const payload: IterationsPayload = {
+    remote: true,
+    iterations,
+    latest,
+    classes,
+    total,
+    classesFile,
+    classesSlices,
+    // t370 — the chips carry the sniffed nz (live evidence: 0 = the
+    // zero-header disease) and the persisted zero-data verdicts (the
+    // renders run in the background pipeline; once a marker lands, every
+    // later payload badges that round without re-pulling it)
+    stacks: withZeroDataFlags(
+      stackEntryList(stackNames).map((s) => {
+        const nz = nzByName.get(s.file);
+        return nz != null ? { ...s, nz } : s;
+      }),
+      jobId
+    ),
+    // t370 — asset-level note for the gallery's chosen classesFile (the
+    // .zerodata marker the render pass wrote, when that round was pulled)
+    ...(classesFile && stackZeroData(jobId, classesFile) ? { zeroData: true as const } : {}),
+  };
+  return payload;
+}
+
+/**
+ * t397 — the SWEEP's live-sections script: the data-star listing, the
+ * stack-name listing and the newest data star's occupancy awk, in the
+ * exact dialect remoteLiveIterations' own round speaks. Appended by the
+ * poll sweep to the ROUNDS listing it already carries — one heartbeat
+ * then holds EVERYTHING a live gallery needs, and the gallery's HTTP
+ * ticks stop paying SSH rounds of their own (they read the prewarmed
+ * cache below). `quotedWorkdir` must already be shell-quoted by the
+ * caller (the sweep quotes its own W).
+ */
+export function liveSectionsScript(quotedWorkdir: string): string {
+  const W = quotedWorkdir;
+  return [
+    'echo "---CF:STARS---"',
+    `ls ${W} 2>/dev/null | grep -E '^(run_it|_it)[0-9]+_data\\.star$' || true`,
+    'echo "---CF:STACKS---"',
+    `ls ${W} 2>/dev/null | grep -E '^(run_it|_it)[0-9]+_(unmasked_)?classes\\.mrcs?$|^run_unmasked_classes\\.mrcs?$' || true`,
+    'echo "---CF:OCC---"',
+    `DS=$(ls ${W} 2>/dev/null | grep -E '^(run_it|_it)[0-9]+_data\\.star$' | sort | tail -1)`,
+    "if [ -n \"$DS\" ]; then",
+    // $DS must expand REMOTE-SIDE: the quoted workdir prefix is glued to
+    // the bare $DS so bash expands it as the awk file argument
+    occupancyAwkFor(`${W}/$DS`),
+    "fi",
+  ].join("\n");
+}
+
+/**
+ * t397 — the sweep's PREWARM write: a heartbeat that just listed a
+ * running classification's rounds/stars/occupancy lands its payload in
+ * the same LRU the gallery route reads, stamped NOW. The gallery's next
+ * tick finds a fresh cache and never queues its own SSH round — the
+ * poll sweep becomes the run's ONLY live reader (the t346 doctrine,
+ * extended from logs to results).
+ */
+export function prewarmLiveIterations(jobId: string, payload: IterationsPayload): void {
+  liveCache.delete(jobId);
+  liveCache.set(jobId, { at: Date.now(), payload });
+  while (liveCache.size > 12) {
+    const oldest = liveCache.keys().next().value;
+    if (oldest == null) break;
+    liveCache.delete(oldest);
+  }
+}
+
+/**
  * Live snapshot of a RUNNING remote job. One SSH exec: iteration file
  * lists + the newest data star's class occupancy (awk, zero bytes over
  * the wire). Cached in-process for LIVE_TTL_MS.
+ *
+ * t397 — the cache is now normally fed by the SWEEP's prewarm (every
+ * heartbeat while a viewer is present), so this function's own SSH round
+ * only runs when the sweep is absent (no viewer, a fresh boot, or a
+ * forced refresh) — the gallery's ticks read the prewarmed cache and
+ * cost zero wire.
  */
 export async function remoteLiveIterations(
   jobId: string,
@@ -404,60 +562,10 @@ export async function remoteLiveIterations(
   }
   const occText = (rest[1] ?? "").split("---CF-OCC---")[1] ?? "";
 
-  const iterations = dataStars
-    .map((n) => Number(DATA_STAR_RE.exec(n)?.[1] ?? NaN))
-    .filter((n) => Number.isFinite(n))
-    .sort((a, b) => a - b);
-  const latest = iterations.length > 0 ? iterations[iterations.length - 1] : null;
-
-  const counts = new Map<number, number>();
-  let total = 0;
-  for (const line of occText.split("\n")) {
-    const t = line.trim();
-    const tm = /^CLS (\d+) (\d+)$/.exec(t);
-    if (tm) {
-      counts.set(Number(tm[1]), Number(tm[2]));
-      continue;
-    }
-    const tot = /^TOTAL (\d+)$/.exec(t);
-    if (tot) total = Number(tot[1]);
-  }
-  const classes: LiveClassEntry[] = [...counts.entries()]
-    .map(([cls, count]) => ({ cls, count, fraction: total > 0 ? count / total : 0 }))
-    .sort((a, b) => a.cls - b.cls);
-
-  const classesFile = pickStack(stacks);
-  let classesSlices: number | null = null;
-  // slice count is only needed for the gallery; derive it lazily from the
-  // class count when the stack exists but was not pulled yet (rendering
-  // verifies against the real header)
-  if (classesFile && classes.length > 0) {
-    classesSlices = classes[classes.length - 1].cls;
-  }
-
-  const payload: IterationsPayload = {
-    remote: true,
-    iterations,
-    latest,
-    classes,
-    total,
-    classesFile,
-    classesSlices,
-    // t370 — the chips carry the sniffed nz (live evidence: 0 = the
-    // zero-header disease) and the persisted zero-data verdicts (the
-    // renders run in the background pipeline; once a marker lands, every
-    // later payload badges that round without re-pulling it)
-    stacks: withZeroDataFlags(
-      stackEntryList(stacks).map((s) => {
-        const nz = nzByName.get(s.file);
-        return nz != null ? { ...s, nz } : s;
-      }),
-      jobId
-    ),
-    // t370 — asset-level note for the gallery's chosen classesFile (the
-    // .zerodata marker the render pass wrote, when that round was pulled)
-    ...(classesFile && stackZeroData(jobId, classesFile) ? { zeroData: true as const } : {}),
-  };
+  // t397 — the shared builder keeps this round and the sweep's prewarm
+  // byte-identical in what they render (one parse, two producers)
+  const payload = livePayloadFromParts({ jobId, dataStarNames: dataStars, stackNames: stacks, nzByName, occText });
+  payload.version = iterationsVersion(payload);
   // t391 — bounded LRU: the cache held every job's live snapshot forever
   // (one entry per job that ever streamed rounds; payloads carry stack
   // listings + occupancy). Re-insert at the end = most-recently-used, then

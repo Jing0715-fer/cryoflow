@@ -407,11 +407,21 @@ console.log("D — the 127 verdict decodes by the missing command's name");
 console.log("E — the generation gate's clock (the cluster's, not the app host's)");
 {
   const src = readFileSync("src/lib/remote/remote-run.ts", "utf8");
-  // the dispatch reads the cluster clock BEFORE any staging byte lands
-  const iClock = src.indexOf('await exec(conn, "date +%s", { timeoutMs: 10_000 })');
-  const iState = src.indexOf("const remoteState: RemoteRunState = {");
-  must(iClock >= 0 && iState > iClock, "the dispatch reads the cluster's date before the state is built");
-  must(src.includes("...(dispatchClusterSec != null ? { dispatchClusterSec } : {}),"), "the reading rides the remote state (absent on failure, never a refusal)");
+  // the dispatch reads the cluster clock BEFORE any staging byte lands.
+  // t397 re-plumbed the read: it rides the twin-freshness census round
+  // (twinCensusScript's clock tail) with a standalone `date +%s` fallback
+  // when no twin needs checking — both BEFORE the uploads plan, and the
+  // value is grafted onto remoteState by assignment (absent on failure,
+  // never a refusal — the same contract, one serialized round fewer).
+  const iCensus = src.indexOf("twinCensusScript(twinCensus.map((t) => t.twin)");
+  const iFallback = src.indexOf('await exec(conn, "date +%s", { timeoutMs: 10_000 })');
+  const iUploads = src.indexOf("let needsStaging = false;");
+  const iGraft = src.indexOf("if (dispatchClusterSec != null) remoteState.dispatchClusterSec = dispatchClusterSec;");
+  must(
+    (iCensus >= 0 || iFallback >= 0) && iUploads > Math.max(iCensus, iFallback),
+    "the dispatch reads the cluster's date before any staging is planned"
+  );
+  must(iGraft > 0, "the reading rides the remote state (absent on failure, never a refusal)");
   // the finalize prefers it over the app host's startedAt
   must(
     src.includes("typeof r.dispatchClusterSec === \"number\" && r.dispatchClusterSec > 0\n      ? r.dispatchClusterSec * 1000\n      : Date.parse(rec.startedAt)"),
