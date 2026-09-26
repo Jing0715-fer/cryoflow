@@ -70,8 +70,36 @@ function projectLinks(jobs: JobDTO[], workspaces: Map<string, string>): void {
   }
 }
 
-/** GET /api/jobs — jobs of the ACTIVE project, reconciled against the REAL RELION engine records. */
-export async function GET() {
+/** GET /api/jobs — jobs of the ACTIVE project, reconciled against the REAL RELION engine records.
+ *
+ * t393 — the version token (`?v=`): poll ticks where nothing moved answer a
+ * ~40-byte {unchanged:true} instead of the full array. A real project's
+ * canvas (dozens of jobs, params JSON + runRemote ledgers per job) can
+ * weigh hundreds of KB, and the 1.2s live / 8s idle / 15s hidden-tab
+ * heartbeats re-paid the serialization, the wire and the client-side
+ * parse+merge chain on every no-op tick. The token hashes the EXACT body
+ * this tick would return (plus the project id, so two projects with
+ * coincidentally equal job lists can never alias each other's version) —
+ * a false "unchanged" would need a 64-bit hash collision, not a missed
+ * field: every reconcile/sweep/DB write that changes the response flips
+ * it. The token NEVER short-circuits the route's side effects (reconcile,
+ * the transition sweep, the pending retry) — correctness work runs first,
+ * the token only decides how the verdict travels. */
+function jobsVersionOf(projectId: string, body: string): string {
+  // two independent djb2-family lanes + the length + the project tail: a
+  // 64-bit signature over the full body (no stride — a log may append-only
+  // at its tail, but a job's status can flip anywhere in the array)
+  let h1 = 5381;
+  let h2 = 52711;
+  for (let i = 0; i < body.length; i++) {
+    const c = body.charCodeAt(i);
+    h1 = (h1 * 33 + c) | 0;
+    h2 = (h2 * 31 + c) | 0;
+  }
+  return `${h1.toString(36)}.${h2.toString(36)}.${body.length}.${projectId.slice(-6)}`;
+}
+
+export async function GET(request: NextRequest) {
   try {
     const active = await ensureActiveProject();
     if (!active) {
@@ -169,7 +197,20 @@ export async function GET() {
       return dto;
     });
     projectLinks(jobsOut, workspaceNames);
-    return NextResponse.json({ jobs: jobsOut });
+    // t393 — version token: hash the exact body (see jobsVersionOf above).
+    // The stringify is paid once and REUSED as the response body — the
+    // unchanged lane skips NextResponse.json's own re-serialization, and
+    // the changed lane returns the same string verbatim.
+    const body = JSON.stringify({ jobs: jobsOut });
+    const version = jobsVersionOf(active.project.id, body);
+    const since = request.nextUrl.searchParams.get("v");
+    if (since && since === version) {
+      return NextResponse.json({ unchanged: true, version });
+    }
+    return new NextResponse(
+      JSON.stringify({ jobs: jobsOut, version }),
+      { headers: { "content-type": "application/json" } }
+    );
   } catch (error) {
     console.error("GET /api/jobs failed:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

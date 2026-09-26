@@ -412,6 +412,17 @@ const HISTORY_CAP = 50;
 
 interface WorkflowState {
   jobs: JobDTO[];
+  /** t393 — the last-seen /api/jobs version token. pollTick sends it as
+   *  ?v= and an unmoved canvas answers {unchanged:true} (~40 bytes) — the
+   *  no-op heartbeats (idle 8s, hidden tab 15s, the gaps between progress
+   *  steps at 1.2s) stop re-paying the serialization/wire/parse/merge
+   *  chain for an array that did not move. Maintained by load() and
+   *  pollTick (the two full-list ingests); optimistic flows leave it
+   *  stale ON PURPOSE — their server write flips the version, so the
+   *  very next tick goes full and re-syncs. Hashed per project id
+   *  server-side, so a project switch can never alias another project's
+   *  token. */
+  jobsVersion: string | null;
   edges: EdgeDTO[];
   project: ProjectDTO | null;
   /** All projects (for the project management panel). */
@@ -1315,6 +1326,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   loading: true,
   error: null,
   dragActive: false,
+  jobsVersion: null,
 
   load: async () => {
     set({ loading: true, error: null });
@@ -1325,7 +1337,9 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     try {
       const [p, j, e, sys, projs, ws] = await Promise.all([
         api<{ project: ProjectDTO | null }>("/api/project"),
-        api<{ jobs: JobDTO[] }>("/api/jobs"),
+        // t393 — the version token lands with the boot's full pull (load
+        // never sends ?v= — the first poll after boot rides this token)
+        api<{ jobs: JobDTO[]; version?: string }>("/api/jobs"),
         api<{ edges: EdgeDTO[] }>("/api/edges"),
         api<SystemStatusClient>("/api/system").catch(() => null),
         api<{ projects: ProjectSummaryDTO[] }>("/api/projects").catch(() => ({ projects: [] })),
@@ -1370,6 +1384,11 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       set({
         project: p.project ?? null,
         jobs: landedJobs,
+        // t393 — adopt the boot pull's token (a project switch's load is
+        // the one ingest that can move the canvas to a DIFFERENT project's
+        // data — the token must turn over here so the next pollTick
+        // compares against the right project's version)
+        jobsVersion: j.version ?? null,
         edges: e.edges,
         system: sys,
         projects: projs.projects,
@@ -2882,7 +2901,22 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     // block at the top of the file)
     const genStart = snapshotPosGen();
     try {
-      const { jobs: fetched } = await api<{ jobs: JobDTO[] }>("/api/jobs");
+      // t393 — the version token rides the poll: an unmoved canvas answers
+      // ~40 bytes and this tick is over before the merge chain ever runs
+      // (no parse of a full array, no tombstone/held-position passes, no
+      // reference-stability compare — the server already proved the exact
+      // body identical). The first tick after boot sends null → full body
+      // → the token lands. A token from ANOTHER project can never alias
+      // (the hash mixes the project id server-side).
+      const token = get().jobsVersion;
+      const data = await api<{
+        jobs?: JobDTO[];
+        version?: string;
+        unchanged?: boolean;
+      }>(token ? `/api/jobs?v=${encodeURIComponent(token)}` : "/api/jobs");
+      if (data.unchanged) return; // identical tick on the wire — zero work downstream
+      const fetched = data.jobs ?? [];
+      const version = data.version ?? null;
       // t370 — the tombstone filter runs BEFORE the reference-stability
       // merge: this GET may have STARTED before a delete committed (the
       // pollInFlight guard only stops overlaps, not stale responses), and
@@ -2908,8 +2942,15 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
             return j;
           })
         : jobsHeld;
-      if (!changed) return; // identical tick — zero re-renders
-      set({ jobs: merged });
+      if (!changed) {
+        // the body DID move (the token flipped) but nothing the UI renders
+        // did — adopt the fresh token so the next no-op heartbeat is a
+        // 40-byte round trip instead of another full pull (e.g. a
+        // runRemote ledger timestamp changed; jobEquals correctly ignored it)
+        if (version !== get().jobsVersion) set({ jobsVersion: version });
+        return; // identical tick — zero re-renders
+      }
+      set({ jobs: merged, jobsVersion: version });
       // announce transitions running → completed / failed, and pending →
       // running (the AUTO-START engine kicked a downstream job once its
       // upstream inputs landed — nobody clicked Run for this)
