@@ -3723,3 +3723,34 @@ Stage Summary:
 - 基建修复: dev 3001 必须 node 宿主（bun 的 Turbopack 外部模块解析全灭）; standalone-3001.sh（launch.sh 模式）入 repo; next standalone 进程改名 pkill 不可达的陷阱记录在案
 - 用户复机路径: git pull → 打开任意已完成任务的 inspector（head 两行清爽、参数卡完整分组）→ idle 任务面板 Params tab（标签列更宽、行距更松）; 移动端打开 inspector 操作按钮自动换行右对齐
 - 诚实边界: ①VLM 提到的数字输入框单位对齐/滚动渐隐属浏览器原生与纯装饰项未做 ②meta 行 created 与计数 chip 的混字号基线（items-center）保持——items-baseline 对混排内容（nav/分隔线）更脆弱 ③QA 种子数据不随 repo 走（db 被忽略），qa-t391-ui-seed.mjs 可重放 ④画布 VLM 反馈（蛇形走线/截断）为种子坐标与既有设计（hover 揭示、端口色语义），非产品缺陷未动
+
+---
+Task ID: t392 (recorded under the next id — a parallel session already shipped a UI-polish round as "t391" for the inspector-head decongestion; this entry is the PERFORMANCE round the user's 继续优化整个项目的性能/减少内存使用/加快 cluster log 时效工单 asked for)
+Agent: main (Z.ai Code)
+Task: 用户工单 — 「继续优化整个项目的性能，减少内存使用，加快 cluster log 的获取时效性和速度，打磨整个项目」
+
+Work Log:
+- [环境] 沙箱再次收割：PAT 重 clone @ 8da538a（t390）→ bun install → prisma db push → mock :3022 → dev :3000。上轮 t382 种子轮/参数展开等遗留任务已被并行 cron 会话吸收（t383-t390 全在远端）
+- [cluster log 时效性 — 三刀]
+  1. WATCH 感知 sweep 地板：log 路由每次命中记 watch（12s 窗口），sweep 对有观察者的连接把安静地板 4s→2.5s（慢线仍受 1.5×lastMs 与 30s 帽保护）。实测 marker→控制台可见 3353ms（3 marker 中位），旧地板 ~5s+
+  2. NEWEST-12 嗅探封顶：sweep 每心跳曾遍历全部已落定 round（每文件 stat+O_DIRECT od fork）——100 迭代分类令 sweep 越来越重直至 45s 预算挂起序列化队列、按需 log 取饿死其后（时效性恰在运行最精彩时死亡）。每心跳成本现为常数；>12 轮的历史已流式+本地渲染；iterations 列表同款封顶（chips 来自廉价的 data-star ls 不受影响）
+  3. 版本令牌 ?since=：未移动的 log 以 {unchanged:true}(~40B) 应答（远程+本地两车道）；inspector 控制台携带上次版本、identity 跳过 setLog（600 行控制台不再每 1.5s 重渲染）；panel Log 标签同款门；full 模式同享令牌；shaped-payload memo（输入 identity 键控，版本哈希随 memo）
+- [内存 — 四刀]
+  1. logFullCache 上限（LRU 4 + 活跃 run 2min TTL）——原为每 job 8MB 无界滞留
+  2. liveCache 上限（LRU 12 job，读时 bump）；logFetchAt 小时级剪枝
+  3. sharp/libvips 钳制（cache off + concurrency 1）：live 画廊渲染节奏下原生（非 V8）内存膨胀至内核 3.2GB anon-rss 收割 server——微型灰度 PNG 无可测损失
+  4. 薄壳启动（结构性）：整个应用体（10k+ 行）原样搬迁至 components/workflow/app-shell.tsx，page.tsx 成 thin dynamic shell——Next 16 boot 的 eager 编译只剩薄壳，app chunk 首次浏览器访问才编译（此后缓存）；纯 API 会话（长集群跑、sweep、diag）永不为不渲染的 UI 付费。实测：API 预热稳态 642MB（旧 3.1-3.3GB 死亡螺旋）；完整 UI QA 后 2.1GB、余 1.4GB
+- [编译/打包]
+  - results-lazy.tsx barrel：inspector 的 13 个图表/画廊面板（模态标签内容）各自成 chunk，recharts 全家离开 eager 图
+  - optimizePackageImports（lucide-react/recharts/framer-motion barrel 修剪）
+  - cf-up.sh v3：eager 首页编译先于任何 API 轮询串行化（并行双编译峰值是本盒杀手）；cf-warm.sh：diag 关键路由串行预编译
+- [diag] scripts/diag-t391-perf-log-lane.mjs 49/49（文件名保留 t391 时代戳）：夹具→particles import→100 迭代 class2d 走 mock 集群车道；C 版本令牌（unchanged ~40B/移动全答/伪令牌全答/raw 完好/重锁）；D 新鲜度（带观察者 3 marker 中位 3353ms；暗车道 8s 松弛刷新无回归）；E full 模式令牌；F 终态版本稳定；S 源级断言全套
+- [方法学教训入册] mock 的 wrapper 以非追加 fd 写 run.out（Python 块缓冲+flush 前进）——diag 的 >> 追加恰好落在下次 flush 的覆写位（双写者人为踩踏；真实集群上 app 对 run.out 只读）。marker 改走 run.err（无竞争写者，stderr 段照样进 payload 与版本哈希）后 D 相全绿。前两轮 D1 超时的"机制故事"有一半是这个测试伪影；newest-12 封顶仍是真改进（sweep 成本常数化）
+- [QA] agent-browser：零 console/page 错误；薄壳→应用 Fast Refresh 编译 1.9s 渲染完整；Dashboard 懒 chunk 渲染（PROJECT MANAGEMENT/4 PROJECTS/排序/最近活动）；Log 标签优雅空态；移动 390×700 零横向溢流 + footer 精确贴底（gap=0）；截图 shots-qa/t392-{desktop,mobile}.png（文件名 t391-*）；tsc 0；eslint 触碰文件 0
+- [推送] 提交 066198f 已上 origin/main（rebase 过并行 t391 的 inspector-head 提交 876a3dd）
+
+Stage Summary:
+- 产出：cluster log 新鲜度三刀（watch 地板 2.5s / newest-12 嗅探封顶 / 版本令牌 40B 短路）+ 内存四刀（三缓存封顶 + sharp 钳制）+ 薄壳启动（API 稳态 642MB，从 3.1GB 死亡螺旋到 1.4GB 余量）+ 懒图表 barrel + barrel 修剪
+- 验证：diag 49/49（marker→可见 3.3s 实测）+ 浏览器 QA 双零错误 + tsc/eslint 0 + 移动端/footer 合格
+- 用户复机路径：git pull → 运行中的集群任务日志更跟手（观察者在场 2.5s 心跳）；长跑不再把 server 撑爆（渲染原生内存钳制 + 缓存全封顶）；首次打开页面多一帧 loading 壳（app chunk 懒加载），其后无感
+- 未解决/风险：① 4GB 盒上 dev 模式全 UI 编译一次后 2.1GB——余量健康但 prod 模式仍建议（用户 Windows 机无此约束）② 薄壳把首屏变成两段加载（loading 壳一闪）——SPA 标准做法，若用户反馈可加骨架屏 ③ mock run.out 双写者伪影已入册（后续 diag 一律 run.err 做 marker）④ inspector 内部 tab 状态在懒 chunk 下的首次打开有一帧 loading shimmer（模态标签内容，可接受）⑤ 并行会话共用任务号的碰撞再次发生（t384 约定重演，本轮让号为 t392）
