@@ -3804,3 +3804,29 @@ Stage Summary:
 - 用户复机路径：git pull 后——继续之前跑过的 refine 任务：打开任务的 inspector/面板 → 「Continue from here」轮族下拉（或 Browse 手选）→ 主按钮变 Continue（绿框）→ 点击直接续跑（run_it* 族保留）；fresh re-run（不设 continue）会先弹确认框讲清擦除再放行
 - 诚实边界：①「检测不到」的根因判决是机制全通 + 用户侧轮族不在已知 workdir（异构约定）——梯子只兜 run/ 一种异构，更野的手动布局仍走 Browse 门（设计如此）②VLM 视觉审查因 429 未跑（DOM 度量代替）③diag-t333 活体腿未跑（无 standalone，既往偏差类）④本沙盒中 mock 集群与演示连接为 QA 专设，用户本地机无此物
 - 运维修复：dev server 重启必须走 scripts/dev-server.sh（TRUST_GATEWAY + 896MB 堆上限 + 路径钉死）——裸 bun run dev 会 403 掉网关预览会话
+
+---
+Task ID: t397-push
+Agent: main (Z.ai Code)
+Task: 用户复检回报四联问题仍在 + 「完成后push」— 根因判决：t397 修复（1529bca）完整在树中且已验证，但从未推送到 origin —— 用户本地机跑的是 git pull 下来的旧代码，所以「修复无效」。本轮：活体复验全部通过后推送。
+
+Work Log:
+- 定位：沙箱收割后项目在 /home/z/cryoflow（/home/user 已不存在）；git 状态 main 领先 origin/main 恰 1 个提交（1529bca t397）—— 用户端「还是没修好」的直接解释：修复从未到达他们 pull 的远端
+- 环境核查：dev :3000 node 宿主健康（TRUST_GATEWAY=1 在进程环境中；curl 直连 /api/system 403 是 http-guard 对无元数据客户端的预期行为，带正确 Origin 头 200）；mock 集群 :3022 存活
+- 夹具重放：scripts/t397-fixture.sh（repo 留档）— mock workdir 根层金标准轮族 it024/025 complete + it026 torn + 完成态 refine3d 记录 + SSH 连接注册
+- 活体验证（agent-browser 1280×800 + 390×844，零 console/page 错误）：
+  1. star 检测：GET continue-sources 判决全对 —— run_it025_optimiser.star complete+newest、run_it024 complete、run_it026 torn 禁用并列出缺失兄弟文件（真 SSH 扫描）
+  2. Rounds 下拉：三行轮族 + Re-read 入口；it026 禁用、it025/024 可选带完整集群路径
+  3. 选 it025 → 输入框落值 /projects/.../run_it025_optimiser.star → 主按钮 Run on cluster → Continue on cluster（绿框换脸）✓；Start fresh 清空后按钮回到 Run on cluster（双向模式指示）✓
+  4. Continue 确认框：标题 Continue on cluster + 描述明说「RELION --continue rides the chosen checkpoint and the run_it* family stays」
+  5. fresh re-run 防误触：本地道 AlertDialog 在码（「Re-run from scratch? …cleared first…set Continue from here to resume」）；集群道按钮 title 教学归档语义（two generations kept）
+  6. 宽度：1280 与 390 双档 documentElement 零溢出（390 档超视口元素仅为画布 SVG 平移面，容器裁剪，文档级 390=390）
+- VLM 视觉复核因上游 429 未跑（同 t397 已记录的偏差），a11y 树 + DOM 几何度量代替
+- 夹具产物全部落在 gitignored 路径（db/ data/ services/mock-cluster/fs 的运行态），git status 干净零需清理
+- 推送：git push（PAT 一次性 URL 注入，未写入任何 config）e2f1b68..1529bca main → origin；推后核验 unpushed=0、origin/main HEAD=1529bca
+
+Stage Summary:
+- 根因：不是修复错误，是修复没出仓 —— 用户端旧代码。1529bca 已上 origin/main，用户 git pull 即得全部 t397 修复
+- 复验结论：四联问题（star 检测 / Run→Continue / 宽度 / 防误清）在活体浏览器逐项通过
+- 用户复机路径：git pull → 打开之前跑过的 refine 任务 → Reset & edit（如需改参数）→ Params 标签的 Continue from here 下拉选轮 → 主按钮变 Continue（绿框）→ 点击直接续跑（run_it* 族保留）；不设 continue 的重跑会先弹确认框讲清擦除/归档语义
+- 安全提醒已在对话中两次给出：所提供的 GitHub PAT 已在聊天中暴露，推送完成后应立即在 GitHub Settings → Developer settings → Personal access tokens 撤销
