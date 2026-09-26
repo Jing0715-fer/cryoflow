@@ -8280,29 +8280,105 @@ function spawnTrackedRun(
  * e.g. "ERROR: HealpixSampling::readStar: File run_it000_sampling.star
  * cannot be read" (real case: class2d_u8voe932). Naming is deterministic:
  * RELION derives <root>_it<NNN>_<kind> from the optimiser path itself.
+ *
+ * t395 — the law is verified against the RELION 5.0.0 SOURCE, not folklore:
+ * MlOptimiser::read(fn_cont) opens the optimiser star, then the data/model/
+ * sampling stars it names (gold-standard runs name BOTH half model stars —
+ * `run_itNNN_half1_model.star` + `_half2_` — and every MPI rank reads one),
+ * and MlModel::read reloads every rlnReferenceImage the model star embeds:
+ *
+ *   · 2D (class2d): ALL class averages live in ONE stack —
+ *     `img.write(fn_out + "_classes.mrcs")` (ml_model.cpp). A per-class
+ *     `run_itNNN_class001.mrc` DOES NOT EXIST in the 2D world — the t394
+ *     law demanded it, so every class2d round was judged incomplete (the
+ *     field report: the picker showed rounds but nothing was pickable, and
+ *     the local auto-resume silently never resumed class2d either);
+ *   · 3D (class3d/refine3d/initialmodel): per-class
+ *     `run_itNNN_class001.mrc`; multibody: per-body `run_itNNN_body001.mrc`;
+ *     gold-standard halves: `run_itNNN_half{1,2}_class001.mrc` (the
+ *     FILTERED refs — the `_unfil` halves are only for the between-
+ *     iteration FSC, never reloaded by --continue);
+ *   · VDAM (--grad): the moment stacks join the reload set — 2D
+ *     `run_it${it}_1moment.mrcs`/`_2moment.mrcs`, 3D
+ *     `run_it${it}_1moment001.mrc`/`_2moment001.mrc`.
+ *
+ * DIALECT DETECTION: one iteration's own file family identifies its
+ * dialect, so the caller passes the directory's name set when it has one
+ * (both callers do): `run_it${it}_half1_model.star` present → gold-standard
+ * law (a gold run's join-phase iterations write the plain single
+ * `run_it${it}_model.star` instead — presence decides, never the type
+ * alone); the moment files present → VDAM law. Without a name set the law
+ * falls back to each type's common dialect (class2d EM stack, plain 3D).
  */
-export function continueCompanions(type: string, it: string): string[] {
-  // every continue mode reloads the data/model/sampling triple
-  const stars = [
+export function continueCompanions(
+  type: string,
+  it: string,
+  names?: ReadonlySet<string> | null
+): string[] {
+  const has = (n: string): boolean => (names ? names.has(n) : false);
+
+  // gold-standard (split random halves): BOTH half model stars are read
+  // (MlOptimiser::read → mymodel.read(fn_model / fn_model2) by rank parity)
+  // and their embedded rlnReferenceImage values are the FILTERED half maps
+  // (multibody's refs are per-BODY — ml_model.cpp compose "_body").
+  if (has(`run_it${it}_half1_model.star`)) {
+    const one = type === "multibody" ? `run_it${it}_half1_body001.mrc` : `run_it${it}_half1_class001.mrc`;
+    const two = type === "multibody" ? `run_it${it}_half2_body001.mrc` : `run_it${it}_half2_class001.mrc`;
+    return [
+      `run_it${it}_data.star`,
+      `run_it${it}_half1_model.star`,
+      `run_it${it}_half2_model.star`,
+      `run_it${it}_sampling.star`,
+      one,
+      two,
+    ];
+  }
+
+  if (type === "class2d") {
+    // 2D: ONE stack carries every class average. The legacy `.mrc`
+    // extension spelling is accepted when it is what the run wrote.
+    const stack = has(`run_it${it}_classes.mrc`)
+      ? `run_it${it}_classes.mrc`
+      : `run_it${it}_classes.mrcs`;
+    const out = [
+      `run_it${it}_data.star`,
+      `run_it${it}_model.star`,
+      `run_it${it}_sampling.star`,
+      stack,
+    ];
+    // VDAM: the moment stacks are reloaded through the model star's
+    // GRADIENT_MOMENT columns — required exactly when the run wrote them.
+    if (has(`run_it${it}_1moment.mrcs`) || has(`run_it${it}_1moment.mrc`)) {
+      out.push(
+        has(`run_it${it}_1moment.mrc`) ? `run_it${it}_1moment.mrc` : `run_it${it}_1moment.mrcs`,
+        has(`run_it${it}_2moment.mrc`) ? `run_it${it}_2moment.mrc` : `run_it${it}_2moment.mrcs`
+      );
+    }
+    return out;
+  }
+
+  if (type === "refine3d" || type === "multibody" || type === "class3d" || type === "initialmodel") {
+    // 3D: the model star embeds per-class refs (class001 is the canary for
+    // the K-class flush loop); multibody embeds per-body refs instead.
+    const out = [
+      `run_it${it}_data.star`,
+      `run_it${it}_model.star`,
+      `run_it${it}_sampling.star`,
+      type === "multibody" ? `run_it${it}_body001.mrc` : `run_it${it}_class001.mrc`,
+    ];
+    // 3D VDAM (initialmodel --denovo_3dref --grad): per-class moment maps.
+    if (has(`run_it${it}_1moment001.mrc`)) {
+      out.push(`run_it${it}_1moment001.mrc`, `run_it${it}_2moment001.mrc`);
+    }
+    return out;
+  }
+
+  // anything else — the star triple only
+  return [
     `run_it${it}_data.star`,
     `run_it${it}_model.star`,
     `run_it${it}_sampling.star`,
   ];
-  if (type === "refine3d" || type === "multibody" || type === "class3d") {
-    // 3D reconstruction restart reads the unfiltered gold-standard halves
-    // (class001 — refine3d/multibody are K=1; class3d K>1 writes them all
-    // in the same flush, so class001 missing ⇔ the iteration is partial)
-    return [
-      ...stars,
-      `run_it${it}_half1_class001_unfil.mrc`,
-      `run_it${it}_half2_class001_unfil.mrc`,
-    ];
-  }
-  if (type === "class2d") {
-    // the reloaded model references the per-class average images
-    return [...stars, `run_it${it}_class001.mrc`];
-  }
-  return stars; // initialmodel (VDAM/grad) & anything else — star-only
 }
 
 /**
@@ -8321,7 +8397,11 @@ export function resumableOptimiser(
   type = ""
 ): { file: string; iteration: number } | null {
   try {
-    const matches = readdirSync(workdir)
+    // one readdir feeds BOTH the optimiser scan and the t395 dialect
+    // detection (gold halves / VDAM moments are named files like any other)
+    const all = readdirSync(workdir);
+    const nameSet = new Set(all);
+    const matches = all
       .map((n) => {
         const m = n.match(/^run_it(\d+)_optimiser\.star$/i);
         return m ? { file: path.join(workdir, n), iteration: Number(m[1]) } : null;
@@ -8330,9 +8410,7 @@ export function resumableOptimiser(
     matches.sort((a, b) => b.iteration - a.iteration);
     for (const candidate of matches) {
       const it = String(candidate.iteration).padStart(3, "0");
-      const ok = continueCompanions(type, it).every((f) =>
-        existsSync(path.join(workdir, f))
-      );
+      const ok = continueCompanions(type, it, nameSet).every((f) => nameSet.has(f));
       if (ok) return candidate;
     }
     return null;

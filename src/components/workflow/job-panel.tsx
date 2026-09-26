@@ -18,6 +18,7 @@ import * as React from "react";
 import {
   ArrowLeftRight,
   ArrowRight,
+  Archive,
   BarChart3,
   ChevronDown,
   Server,
@@ -867,6 +868,9 @@ interface ContinueSourceDTO {
   entries: ContinueRoundEntryDTO[];
   truncated?: boolean;
   error?: string;
+  /** t395 — the newest .cryoflow_prev generation (the previous run's
+   * rounds, moved aside by a re-dispatch and still on the cluster). */
+  archived?: boolean;
 }
 
 function continueRoundSize(size: number): string {
@@ -958,16 +962,24 @@ function ContinueField({
 
   return (
     <div className="w-full space-y-1">
-      <div className="flex items-start gap-1.5">
-        <Input
-          id={inputId}
-          type="text"
-          value={raw}
-          title={hint}
-          placeholder="empty — start from iteration 0 · pick a round, browse, or type any optimiser.star path"
-          onChange={(e) => onChange(e.target.value)}
-          className="h-8 font-mono text-xs"
-        />
+      {/* t395 — the Input owns its OWN row. The t394 row (input + Rounds +
+          Browse in one flex line) needed ~175px of fixed buttons inside a
+          value column that is ~184px wide on the desktop panel (380px aside
+          − the 152px label column − padding): the input collapsed to a
+          sliver and the Browse button rode past the panel edge — off the
+          right side of the screen (the field report). Two rows is the
+          honest shape at every width; RELION's own GUI stacks the same
+          way on narrow panels. */}
+      <Input
+        id={inputId}
+        type="text"
+        value={raw}
+        title={hint}
+        placeholder="empty — start from iteration 0 · pick a round, browse, or type any optimiser.star path"
+        onChange={(e) => onChange(e.target.value)}
+        className="h-8 font-mono text-xs"
+      />
+      <div className="flex flex-wrap items-center gap-1.5">
         <Popover
           open={open}
           onOpenChange={(o) => {
@@ -989,7 +1001,7 @@ function ContinueField({
             </Button>
           </PopoverTrigger>
           <PopoverContent
-            align="end"
+            align="start"
             className="w-88 p-0"
             aria-label="Rounds you can continue from"
           >
@@ -1039,16 +1051,22 @@ function ContinueField({
                     </div>
                   )}
                   {sources.map((s) => (
-                    <div key={`${s.jobId}`} className={s.entries.length > 0 || s.error ? "border-b last:border-b-0" : ""}>
+                    <div key={`${s.jobId}:${s.archived ? "archived" : "live"}`} className={s.entries.length > 0 || s.error ? "border-b last:border-b-0" : ""}>
                       {(s.entries.length > 0 || s.error) && (
                         <div className="flex items-center gap-1.5 bg-secondary/40 px-3 py-1.5">
-                          {s.relation === "self" ? (
+                          {s.archived ? (
+                            <Archive className="h-3 w-3 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+                          ) : s.relation === "self" ? (
                             <History className="h-3 w-3 shrink-0 text-primary" aria-hidden="true" />
                           ) : (
                             <Link2 className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden="true" />
                           )}
                           <span className="min-w-0 truncate text-[11px] font-medium" title={s.jobName}>
-                            {s.relation === "self" ? "This job" : `Upstream · ${s.jobName}`}
+                            {s.archived
+                              ? "This job · previous run"
+                              : s.relation === "self"
+                                ? "This job"
+                                : `Upstream · ${s.jobName}`}
                           </span>
                           {s.lane === "remote" ? (
                             <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-violet-600 dark:text-violet-400">
@@ -1058,12 +1076,23 @@ function ContinueField({
                           ) : (
                             <span className="text-[10px] text-muted-foreground">local</span>
                           )}
+                          {s.archived && (
+                            <span className="shrink-0 rounded-sm bg-amber-500/15 px-1 text-[9px] font-medium text-amber-700 dark:text-amber-400">
+                              archived
+                            </span>
+                          )}
                           {s.entries.length > 0 && (
                             <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">
                               {s.entries.length} round{s.entries.length === 1 ? "" : "s"}
                             </span>
                           )}
                         </div>
+                      )}
+                      {s.archived && !s.error && (
+                        <p className="px-3 pt-1.5 text-[10px] leading-relaxed text-muted-foreground">
+                          moved aside by a re-dispatch — RELION reads these paths fine; the
+                          archive is kept for the next two re-dispatches
+                        </p>
                       )}
                       {s.error ? (
                         <p className="px-3 py-2 text-[11px] italic text-muted-foreground">{s.error}</p>
@@ -1193,7 +1222,11 @@ function ContinueField({
               </span>
               <span aria-hidden="true">·</span>
               <span title={match.source.jobName}>
-                {match.source.relation === "self" ? "this job" : match.source.jobName}
+                {match.source.archived
+                  ? "this job · archived run"
+                  : match.source.relation === "self"
+                    ? "this job"
+                    : match.source.jobName}
               </span>
               <span aria-hidden="true">·</span>
               <span>{match.source.lane === "remote" ? "cluster path" : "local path"}</span>

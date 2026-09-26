@@ -83,6 +83,13 @@ export interface ContinueSource {
   truncated?: boolean;
   /** Honest failure (workdir unreadable, SSH round failed, never ran…). */
   error?: string;
+  /** t395 — TRUE when this row is the newest `.cryoflow_prev` generation:
+   * the PREVIOUS run's rounds, moved aside by a re-dispatch's rename-aside
+   * (t385) and still on the cluster (the reaper keeps the newest two
+   * generations). RELION reads an archived optimiser.star fine — `--o`
+   * writes the continued run's new rounds to the live workdir — so these
+   * rounds are honest `--continue` targets, just not the live tree. */
+  archived?: boolean;
 }
 
 /** The optimiser's own naming law (RELION writes run_itNNN_optimiser.star). */
@@ -110,7 +117,9 @@ export function optimiserRoundsFromNames(
   let newestSpoken = false;
   return candidates.map(({ it, name }) => {
     const pad = String(it).padStart(3, "0");
-    const missing = continueCompanions(type, pad).filter((s) => !names.has(s));
+    // t395 — the name set rides along: the law detects the round's own
+    // dialect (gold half stars / VDAM moments) from the files it scans
+    const missing = continueCompanions(type, pad, names).filter((s) => !names.has(s));
     const complete = missing.length === 0;
     const newest = complete && !newestSpoken;
     if (newest) newestSpoken = true;
@@ -190,9 +199,7 @@ async function scanRemoteWorkdir(
   const sizeBy = new Map<string, number>(
     res.entries.map((e): [string, number] => [e.name, e.size ?? 0])
   );
-  const root = remoteWorkdir.endsWith("/") && remoteWorkdir.length > 1
-    ? remoteWorkdir.slice(0, -1)
-    : remoteWorkdir;
+  const root = trimSlash(remoteWorkdir);
   const entries = optimiserRoundsFromNames(
     nameSet,
     type,
@@ -202,11 +209,89 @@ async function scanRemoteWorkdir(
   return { entries, ...(res.truncated ? { truncated: true } : {}) };
 }
 
-/** One source row — self or one upstream ancestor, both lanes. */
+/** Trim ONE trailing slash (cluster workdir spelling). */
+function trimSlash(p: string): string {
+  return p.endsWith("/") && p.length > 1 ? p.slice(0, -1) : p;
+}
+
+/**
+ * t395 — the newest `.cryoflow_prev` generation directory name, from a
+ * listing of the archive root. Generation dirs are epoch-ms names
+ * (t385's `stashRemoteRunProducts` — `<epoch-ms>/`), so the LARGEST numeric
+ * name is the newest generation; null when the archive holds no epoch-named
+ * generation (never re-dispatched, or pre-t385 world).
+ * PURE — bench-verified without SSH.
+ */
+export function newestArchiveGenOf(
+  names: Iterable<string>
+): string | null {
+  let best: string | null = null;
+  let bestN = -1;
+  for (const n of names) {
+    if (!/^\d{9,}$/.test(n)) continue;
+    const v = Number(n);
+    if (Number.isFinite(v) && v > bestN) {
+      bestN = v;
+      best = n;
+    }
+  }
+  return best;
+}
+
+/**
+ * t395 — the archived PREVIOUS run's rounds: one listing of
+ * `<workdir>/.cryoflow_prev` picks the newest generation, one more find
+ * round reads its `run_it*` family. The rounds are judged by the same
+ * completeness law; their paths live inside the archive (cluster-absolute,
+ * lane-honest). Only the REMOTE lane has an archive — the local wipe
+ * deletes outright (t333), nothing is moved aside to recover.
+ */
+async function scanRemoteArchiveNewestGen(
+  connectionId: string,
+  remoteWorkdir: string,
+  type: string
+): Promise<{ entries: ContinueRoundEntry[]; genDir: string | null; truncated?: boolean; error?: string }> {
+  const root = trimSlash(remoteWorkdir);
+  const prevRoot = `${root}/.cryoflow_prev`;
+  let gens;
+  try {
+    gens = await listRemoteDir(connectionId, prevRoot, null, { timeoutMs: 20_000 });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { entries: [], genDir: null, error: `cluster listing failed: ${msg}` };
+  }
+  if (gens.notDir) return { entries: [], genDir: null }; // never archived — the normal world
+  const gen = newestArchiveGenOf(gens.entries.filter((e) => e.dir).map((e) => e.name));
+  if (gen == null) return { entries: [], genDir: null }; // no epoch generation — nothing stashed
+  const genDir = `${prevRoot}/${gen}`;
+  let res;
+  try {
+    res = await listRemoteDir(connectionId, genDir, "run_it*", { timeoutMs: 20_000 });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { entries: [], genDir, error: `cluster listing failed: ${msg}` };
+  }
+  if (res.notDir) return { entries: [], genDir }; // named dir vanished (reaper won the race) — honest silence
+  const nameSet = new Set<string>(res.entries.map((e) => e.name));
+  const sizeBy = new Map<string, number>(
+    res.entries.map((e): [string, number] => [e.name, e.size ?? 0])
+  );
+  const entries = optimiserRoundsFromNames(
+    nameSet,
+    type,
+    (n) => `${genDir}/${n}`,
+    (n) => sizeBy.get(n) ?? 0
+  );
+  return { entries, genDir, ...(res.truncated ? { truncated: true } : {}) };
+}
+
+/** One source row — self or one upstream ancestor, both lanes. The SELF
+ * row on a remote run can answer TWO groups (live tree + the newest
+ * .cryoflow_prev generation — t395), so its return is a union. */
 async function sourceForJob(
   row: { id: string; name: string; type: string },
   relation: "self" | "upstream"
-): Promise<ContinueSource> {
+): Promise<ContinueSource | ContinueSource[]> {
   const base = { jobId: row.id, jobName: row.name, jobType: row.type, relation };
   const run = getRun(row.id);
   if (!run) {
@@ -224,6 +309,49 @@ async function sourceForJob(
       run.remote.remoteWorkdir,
       row.type
     );
+    // t395 — the self row also answers for the PREVIOUS run: a re-dispatch's
+    // rename-aside (t385) moves the whole run_it family into
+    // .cryoflow_prev/<epoch>/ BEFORE the new run writes anything, so a run
+    // that failed early (mpirun 127, a refused sbatch, a wipe timeout — the
+    // field reports) leaves the live workdir EMPTY while the user's rounds
+    // sit intact one directory deeper. The picker lists them as their own
+    // group, clearly marked archived. Upstream rows never get this leg:
+    // their live tree is the truth RELION's pipeliner would chain from.
+    if (relation === "self") {
+      const archived = await scanRemoteArchiveNewestGen(
+        run.remote.connectionId,
+        run.remote.remoteWorkdir,
+        row.type
+      );
+      const self: ContinueSource = {
+        ...base,
+        lane: "remote",
+        ...(run.remote.connectionId ? { connectionId: run.remote.connectionId } : {}),
+        workdir: run.remote.remoteWorkdir,
+        entries: scanned.entries,
+        ...(scanned.truncated ? { truncated: true } : {}),
+        ...(scanned.error ? { error: scanned.error } : {}),
+      };
+      // honesty rule: the archive is a BONUS answer — its failure only
+      // matters when the live tree had nothing to offer (then the error row
+      // says WHERE the user's rounds are and why they could not be read);
+      // with live rounds present, an unreadable archive is silent (it would
+      // only be noise next to the real answer).
+      if (archived.entries.length > 0 || (self.entries.length === 0 && self.error == null && archived.error != null)) {
+        const archivedRow: ContinueSource = {
+          ...base,
+          lane: "remote",
+          ...(run.remote.connectionId ? { connectionId: run.remote.connectionId } : {}),
+          workdir: archived.genDir ?? `${trimSlash(run.remote.remoteWorkdir)}/.cryoflow_prev`,
+          entries: archived.entries,
+          ...(archived.truncated ? { truncated: true } : {}),
+          ...(archived.error ? { error: archived.error } : {}),
+          archived: true,
+        };
+        return [self, archivedRow];
+      }
+      return self;
+    }
     return {
       ...base,
       lane: "remote",
@@ -265,7 +393,7 @@ export async function continueSourcesFor(
     const hit = cache.get(job.id);
     if (hit && Date.now() - hit.at < TTL_MS) return hit.sources;
   }
-  const self = await sourceForJob(job, "self");
+  const selfRows = await sourceForJob(job, "self");
   const lineage = await lineageFor(job.id);
   const upstreamRows = lineage
     .filter((u) => CONTINUE_FAMILY_TYPES.has(u.type))
@@ -278,13 +406,16 @@ export async function continueSourcesFor(
       )
     )
   );
+  // upstream rows never carry the archive leg (relation !== "self"), but
+  // the type is a union — flatten defensively so the law holds either way
+  const upstreamSources = upstream.flatMap((s) => (Array.isArray(s) ? s : [s]));
   // upstream honesty rule: a source that never ran is graph-visible anyway
   // (an idle card) and would only add noise — but a source that RAN and
   // cannot answer (SSH failure, wiped workdir) stays, error and all, so
   // the picker never silently hides rounds the user knows exist.
   const sources = [
-    self,
-    ...upstream.filter((s) => s.entries.length > 0 || s.error != null),
+    ...(Array.isArray(selfRows) ? selfRows : [selfRows]),
+    ...upstreamSources.filter((s) => s.entries.length > 0 || s.error != null),
   ];
   cache.set(job.id, { at: Date.now(), sources });
   return sources;

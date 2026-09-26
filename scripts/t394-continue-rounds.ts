@@ -22,10 +22,14 @@
  *      what counts as an explicit choice (whitespace is not one) and where
  *      its target must live (sibling-prefix workdirs never match);
  *   D  optimiserRoundsFromNames + scanLocalWorkdir: the round analyser —
- *      newest-first, the per-type companion law (class2d's class average,
- *      the 3D family's unfiltered halves, initialmodel's star-only set),
- *      the newest marker landing on the newest COMPLETE round, and the
- *      .cryoflow_prev archive never contributing rounds;
+ *      newest-first, the per-type companion law under its t395 REAL-NAMING
+ *      rewrite (class2d's ONE classes.mrcs stack + VDAM moments, the 3D
+ *      gold half MODEL STARS + filtered half refs, multibody's per-body
+ *      refs, initialmodel's class ref + 3D moments), the newest marker
+ *      landing on the newest COMPLETE round, and the .cryoflow_prev
+ *      archive never contributing rounds to the LOCAL scan;
+ *   D2 newestArchiveGenOf: the t395 archive picker — the newest epoch-ms
+ *      generation wins, non-numeric names never answer;
  *   E  the argv contracts: buildArgv rides --continue for a user-set
  *      fn_cont (class2d via the generic layer, multibody via the curated
  *      builder's override — the builder wins when both speak, because the
@@ -46,6 +50,7 @@ import { selfContinueInArgv } from "../src/lib/remote/remote-run";
 import {
   optimiserRoundsFromNames,
   scanLocalWorkdir,
+  newestArchiveGenOf,
 } from "../src/lib/relion/continue-sources";
 
 let pass = 0;
@@ -166,42 +171,125 @@ console.log("C — explicitContinueOf + continueTargetsWorkdir (the local lane's
   must(continueTargetsWorkdir(wd, wd), "the workdir itself → true (defensive)");
 }
 
-console.log("D — optimiserRoundsFromNames + scanLocalWorkdir (the round analyser)");
+console.log("D — optimiserRoundsFromNames + scanLocalWorkdir (the round analyser, t395 real naming)");
 {
-  // D1 — the per-type companion law, straight from the engine's own table
+  // D1 — the per-type companion law, REAL RELION 5 naming: a 2D run keeps
+  //      ALL class averages in ONE stack run_itNNN_classes.mrcs
   const names2d = new Set([
-    "run_it003_optimiser.star", "run_it003_data.star", "run_it003_model.star", "run_it003_sampling.star", "run_it003_class001.mrc",
-    "run_it002_optimiser.star", "run_it002_data.star", "run_it002_model.star", "run_it002_sampling.star", "run_it002_class001.mrc",
+    "run_it003_optimiser.star", "run_it003_data.star", "run_it003_model.star", "run_it003_sampling.star", "run_it003_classes.mrcs",
+    "run_it002_optimiser.star", "run_it002_data.star", "run_it002_model.star", "run_it002_sampling.star", "run_it002_classes.mrcs",
   ]);
   const rounds2d = optimiserRoundsFromNames(names2d, "class2d", (n) => `/w/${n}`, () => 4000);
   must(rounds2d.length === 2 && rounds2d[0].iteration === 3 && rounds2d[1].iteration === 2, "rounds sort newest-first");
   must(rounds2d[0].complete && rounds2d[0].newest && rounds2d[0].missing.length === 0, "the newest COMPLETE round carries the newest marker");
   must(rounds2d[0].path === "/w/run_it003_optimiser.star", "paths are the caller's coordinate system (host or cluster)");
 
+  // D1b — THE t394 BUG, pinned: a 2D workdir has NO run_itNNN_class001.mrc
+  //       (that filename exists only in the 3D world) — the t394 law demanded
+  //       it and every class2d round went DISABLED in the picker (the field
+  //       report: nothing was pickable)
+  const t394Fixture = new Set([
+    "run_it003_optimiser.star", "run_it003_data.star", "run_it003_model.star", "run_it003_sampling.star",
+    "run_it003_class001.mrc", // the 2D-void filename the old law wanted
+  ]);
+  const t394Rounds = optimiserRoundsFromNames(t394Fixture, "class2d", (n) => `/w/${n}`, () => 0);
+  must(
+    t394Rounds[0].complete === false && t394Rounds[0].missing.includes("run_it003_classes.mrcs") && !t394Rounds[0].missing.includes("run_it003_class001.mrc"),
+    "a 2D round is judged against the classes.mrcs STACK, not the 3D-void class001.mrc"
+  );
+
+  // D1c — VDAM 2D: the moment stacks ride the required set when present
+  const vdam = new Set([
+    "run_it010_optimiser.star", "run_it010_data.star", "run_it010_model.star", "run_it010_sampling.star",
+    "run_it010_classes.mrcs", "run_it010_1moment.mrcs", "run_it010_2moment.mrcs",
+    "run_it020_optimiser.star", "run_it020_data.star", "run_it020_model.star", "run_it020_sampling.star",
+    "run_it020_classes.mrcs", "run_it020_1moment.mrcs", // 2moment torn
+  ]);
+  const vdamRounds = optimiserRoundsFromNames(vdam, "class2d", (n) => `/w/${n}`, () => 0);
+  must(vdamRounds[0].iteration === 20 && vdamRounds[0].complete === false && vdamRounds[0].missing.includes("run_it020_2moment.mrcs"), "a VDAM round missing its 2moment stack is incomplete");
+  must(vdamRounds[1].iteration === 10 && vdamRounds[1].complete && vdamRounds[1].newest, "the older full VDAM round is the newest COMPLETE");
+
   // D2 — an incomplete round is named, and the newest marker skips it
   const torn = new Set([
     "run_it025_optimiser.star", "run_it025_data.star", // model/sampling died mid-flush
-    "run_it024_optimiser.star", "run_it024_data.star", "run_it024_model.star", "run_it024_sampling.star", "run_it024_class001.mrc",
+    "run_it024_optimiser.star", "run_it024_data.star", "run_it024_model.star", "run_it024_sampling.star", "run_it024_classes.mrcs",
   ]);
   const tornRounds = optimiserRoundsFromNames(torn, "class2d", (n) => `/w/${n}`, () => 0);
   must(tornRounds[0].iteration === 25 && tornRounds[0].complete === false, "the torn newest round is INCOMPLETE");
   must(
-    tornRounds[0].missing.includes("run_it025_model.star") && tornRounds[0].missing.includes("run_it025_sampling.star") && tornRounds[0].missing.includes("run_it025_class001.mrc"),
+    tornRounds[0].missing.includes("run_it025_model.star") && tornRounds[0].missing.includes("run_it025_sampling.star") && tornRounds[0].missing.includes("run_it025_classes.mrcs"),
     "the missing siblings are named (the picker's disabled reason)"
   );
   must(tornRounds[0].newest === false && tornRounds[1].iteration === 24 && tornRounds[1].newest === true, "the newest marker falls through to the newest COMPLETE round");
 
-  // D3 — the 3D family wants the unfiltered halves; initialmodel is star-only
-  const base3d = ["run_it010_optimiser.star", "run_it010_data.star", "run_it010_model.star", "run_it010_sampling.star"];
+  // D3 — the 3D family under the t395 law: gold = half MODEL stars + the
+  //      FILTERED half refs; plain = model.star + class001.mrc; initialmodel
+  //      reloads the class ref (+ 3D moments); the _unfil halves are
+  //      NEVER the reload set
+  const base3d = ["run_it010_optimiser.star", "run_it010_data.star", "run_it010_sampling.star"];
   const noHalves = optimiserRoundsFromNames(new Set(base3d), "refine3d", (n) => `/w/${n}`, () => 0);
-  must(noHalves[0].complete === false && noHalves[0].missing.includes("run_it010_half1_class001_unfil.mrc"), "refine3d without the unfiltered halves is incomplete");
-  const withHalves = optimiserRoundsFromNames(
-    new Set([...base3d, "run_it010_half1_class001_unfil.mrc", "run_it010_half2_class001_unfil.mrc"]),
+  must(
+    noHalves[0].complete === false && noHalves[0].missing.includes("run_it010_model.star"),
+    "refine3d without any model star is incomplete (a torn gold round falls to the plain law — verdict identical, the named reason is the plain dialect's)"
+  );
+  // a TORN gold round (half2 written, half1's star died mid-flush): the
+  // presence detection cannot see the gold dialect, but the VERDICT is
+  // still incomplete — the picker never offers it
+  const tornGold = optimiserRoundsFromNames(
+    new Set([
+      ...base3d,
+      "run_it010_half2_model.star", "run_it010_half1_class001.mrc", "run_it010_half2_class001.mrc",
+    ]),
     "refine3d", (n) => `/w/${n}`, () => 0
   );
-  must(withHalves[0].complete, "refine3d with both halves is complete");
-  const im = optimiserRoundsFromNames(new Set(base3d), "initialmodel", (n) => `/w/${n}`, () => 0);
-  must(im[0].complete, "initialmodel is star-only (no half reload)");
+  must(tornGold[0].complete === false, "a torn gold round (half1_model.star missing) is never pickable");
+  const withHalves = optimiserRoundsFromNames(
+    new Set([
+      ...base3d,
+      "run_it010_half1_model.star", "run_it010_half2_model.star",
+      "run_it010_half1_class001.mrc", "run_it010_half2_class001.mrc",
+    ]),
+    "refine3d", (n) => `/w/${n}`, () => 0
+  );
+  must(withHalves[0].complete, "gold refine3d with both half model stars + half refs is complete");
+  const unfilOnly = optimiserRoundsFromNames(
+    new Set([
+      ...base3d,
+      "run_it010_half1_class001_unfil.mrc", "run_it010_half2_class001_unfil.mrc",
+      // the t394 witness set: the _unfil halves exist, the reload set does not
+    ]),
+    "refine3d", (n) => `/w/${n}`, () => 0
+  );
+  must(unfilOnly[0].complete === false, "the _unfil halves alone (the t394 witness) are NOT the reload set");
+  const plain3d = optimiserRoundsFromNames(
+    new Set([...base3d, "run_it010_model.star", "run_it010_class001.mrc"]),
+    "refine3d", (n) => `/w/${n}`, () => 0
+  );
+  must(plain3d[0].complete, "plain (join-phase) refine3d: model.star + class001.mrc is complete");
+  const class3d = optimiserRoundsFromNames(
+    new Set([...base3d, "run_it010_model.star", "run_it010_class001.mrc", "run_it010_class004.mrc"]),
+    "class3d", (n) => `/w/${n}`, () => 0
+  );
+  must(class3d[0].complete, "class3d (never gold): model.star + class refs is complete");
+  const mb = optimiserRoundsFromNames(
+    new Set([
+      ...base3d,
+      "run_it010_half1_model.star", "run_it010_half2_model.star",
+      "run_it010_half1_body001.mrc", "run_it010_half2_body001.mrc",
+    ]),
+    "multibody", (n) => `/w/${n}`, () => 0
+  );
+  must(mb[0].complete, "multibody gold: the half refs are per-BODY (the t394 law's class001 spelling was a never-complete bug)");
+  const imTorn = optimiserRoundsFromNames(
+    new Set([...base3d, "run_it010_model.star"]),
+    "initialmodel", (n) => `/w/${n}`, () => 0
+  );
+  must(imTorn[0].complete === false && imTorn[0].missing.includes("run_it010_class001.mrc"), "initialmodel without its class ref is incomplete (the t394 star-only law offered a crash)");
+  const im = optimiserRoundsFromNames(
+    new Set([...base3d, "run_it010_model.star", "run_it010_class001.mrc", "run_it010_1moment001.mrc", "run_it010_2moment001.mrc"]),
+    "initialmodel", (n) => `/w/${n}`, () => 0
+  );
+  must(im[0].complete, "initialmodel with the class ref + 3D moments is complete");
 
   // D4 — no optimisers → no rounds (never a guess)
   must(optimiserRoundsFromNames(new Set(["run.out", "note.txt"]), "class2d", (n) => n, () => 0).length === 0, "a workdir with no optimisers answers zero rounds");
@@ -211,15 +299,15 @@ console.log("D — optimiserRoundsFromNames + scanLocalWorkdir (the round analys
   try {
     mkdirSync(path.join(dir, ".cryoflow_prev"), { recursive: true });
     for (const n of [
-      "run_it002_optimiser.star", "run_it002_data.star", "run_it002_model.star", "run_it002_sampling.star", "run_it002_class001.mrc",
-      "run_it001_optimiser.star", "run_it001_data.star", "run_it001_model.star", "run_it001_sampling.star", "run_it001_class001.mrc",
+      "run_it002_optimiser.star", "run_it002_data.star", "run_it002_model.star", "run_it002_sampling.star", "run_it002_classes.mrcs",
+      "run_it001_optimiser.star", "run_it001_data.star", "run_it001_model.star", "run_it001_sampling.star", "run_it001_classes.mrcs",
     ]) writeFileSync(path.join(dir, n), "x".repeat(32));
     writeFileSync(path.join(dir, ".cryoflow_prev", "run_it009_optimiser.star"), "x".repeat(32));
     const scanned = scanLocalWorkdir(dir, "class2d");
     must(scanned.error == null && scanned.entries.length === 2, "the local scan reads the root rounds");
     must(
       scanned.entries.every((e) => !e.path.includes(".cryoflow_prev")),
-      "the t385 archive's rounds never answer (they are a stashed generation, not a continue state)"
+      "the t385 archive's rounds never answer the LOCAL scan (the remote lane lists them as their own archived group — t395)"
     );
     must(scanned.entries[0].iteration === 2 && scanned.entries[0].size === 32, "sizes + mtime ride the local entries");
     must(typeof scanned.entries[0].mtimeMs === "number", "the local lane carries the mirror's clock");
@@ -230,6 +318,15 @@ console.log("D — optimiserRoundsFromNames + scanLocalWorkdir (the round analys
   // D6 — an unreadable workdir answers an honest error, never a throw
   const ghost = scanLocalWorkdir(path.join(tmpdir(), `cf394-ghost-${Date.now()}`), "class2d");
   must(ghost.entries.length === 0 && typeof ghost.error === "string", "an absent workdir answers { error } (the picker's honest note)");
+}
+
+console.log("D2 — newestArchiveGenOf (the t395 archive picker's generation law)");
+{
+  must(newestArchiveGenOf(["1738521600000", "1738435200000", "1738348800000"]) === "1738521600000", "the largest epoch-ms name is the newest generation");
+  must(newestArchiveGenOf(["run.out", "classes.mrcs", "1738521600"]) === "1738521600", "only epoch-shaped names (9+ digits) answer — file names never do");
+  must(newestArchiveGenOf(["run.out", "classes.mrcs"]) === null, "no epoch generation → null (never re-dispatched)");
+  must(newestArchiveGenOf([]) === null, "an empty archive → null");
+  must(newestArchiveGenOf(["007", "008"]) === null, "short numeric names (not epochs) never answer");
 }
 
 console.log("E — the argv contracts (buildArgv)");

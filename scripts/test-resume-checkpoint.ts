@@ -8,9 +8,23 @@
  *   "ERROR: HealpixSampling::readStar: File run_it000_sampling.star cannot
  *    be read" (exit 1).
  *
- * The fix: only iterations whose FULL companion set (data/model/sampling
- * .star + 3D half maps / 2D class images) exists on disk are resumable,
- * scanning newest → oldest; no complete iteration → fresh start.
+ * The fix: only iterations whose FULL companion set (the files RELION's
+ * --continue actually READS BACK) exists on disk are resumable, scanning
+ * newest → oldest; no complete iteration → fresh start.
+ *
+ * t395 — the fixtures speak REAL RELION 5 naming, verified against the
+ * source (ml_model.cpp / ml_optimiser.cpp):
+ *   · class2d keeps ALL class averages in ONE stack run_itNNN_classes.mrcs
+ *     (a per-class run_itNNN_class001.mrc does NOT exist in the 2D world —
+ *     the t394 law demanded it and every class2d round was judged
+ *     incomplete: the local auto-resume silently never resumed class2d);
+ *   · VDAM (--grad) adds the moment stacks _1moment.mrcs / _2moment.mrcs;
+ *   · gold-standard (refine3d/multibody) writes HALF model stars
+ *     run_itNNN_half{1,2}_model.star and the FILTERED half refs
+ *     run_itNNN_half{1,2}_class001.mrc (multibody: _body001) — the _unfil
+ *     halves are never reloaded by --continue;
+ *   · initialmodel (3D grad) reloads run_itNNN_class001.mrc + the 3D
+ *     moment maps _1moment001.mrc / _2moment001.mrc.
  *
  * Run: bun scripts/test-resume-checkpoint.ts
  */
@@ -47,7 +61,7 @@ function touch(dir: string, files: string[]): void {
   }
 }
 
-console.log("resumableOptimiser — partial checkpoint guard");
+console.log("resumableOptimiser — partial checkpoint guard (t395 real naming)");
 
 // 1. THE user bug: class2d it000 optimiser-only → NOT resumable → fresh start
 {
@@ -61,7 +75,7 @@ console.log("resumableOptimiser — partial checkpoint guard");
   rmSync(dir, { recursive: true, force: true });
 }
 
-// 2. class2d complete it000 → resumable
+// 2. class2d complete it000 (EM: the classes STACK) → resumable
 {
   const dir = scratch();
   touch(dir, [
@@ -69,25 +83,60 @@ console.log("resumableOptimiser — partial checkpoint guard");
     "run_it000_data.star",
     "run_it000_model.star",
     "run_it000_sampling.star",
-    "run_it000_class001.mrc",
+    "run_it000_classes.mrcs",
   ]);
   const r = resumableOptimiser(dir, "class2d");
-  check("class2d complete it000 → it000", r?.iteration ?? null, 0);
+  check("class2d complete it000 (classes.mrcs stack) → it000", r?.iteration ?? null, 0);
+  rmSync(dir, { recursive: true, force: true });
+}
+
+// 2b. THE t394 BUG, reversed: the per-class file the old law demanded does
+//     not exist in a 2D workdir — the stack is the law now
+{
+  const dir = scratch();
+  touch(dir, [
+    "run_it000_optimiser.star",
+    "run_it000_data.star",
+    "run_it000_model.star",
+    "run_it000_sampling.star",
+    // no classes.mrcs — a torn flush → NOT resumable
+  ]);
+  check(
+    "class2d without the classes stack → null (the t394 law's class001.mrc was a 2D-void filename)",
+    resumableOptimiser(dir, "class2d"),
+    null
+  );
+  rmSync(dir, { recursive: true, force: true });
+}
+
+// 2c. VDAM class2d: the moment stacks join the reload set
+{
+  const dir = scratch();
+  const base = [
+    "run_it010_optimiser.star",
+    "run_it010_data.star",
+    "run_it010_model.star",
+    "run_it010_sampling.star",
+    "run_it010_classes.mrcs",
+  ];
+  touch(dir, base);
+  touch(dir, ["run_it010_1moment.mrcs"]); // 2moment died mid-flush
+  check("VDAM class2d missing _2moment → null", resumableOptimiser(dir, "class2d"), null);
+  touch(dir, ["run_it010_2moment.mrcs"]);
+  const r = resumableOptimiser(dir, "class2d");
+  check("VDAM class2d with both moments → it010", r?.iteration ?? null, 10);
   rmSync(dir, { recursive: true, force: true });
 }
 
 // 3. newest partial, older complete → falls back to the older one
 {
   const dir = scratch();
-  const complete = [
+  touch(dir, [
     "run_it002_optimiser.star",
     "run_it002_data.star",
     "run_it002_model.star",
     "run_it002_sampling.star",
-    "run_it002_class001.mrc",
-  ];
-  touch(dir, [
-    ...complete,
+    "run_it002_classes.mrcs",
     "run_it007_optimiser.star", // killed mid-flush of it007
   ]);
   const r = resumableOptimiser(dir, "class2d");
@@ -95,48 +144,99 @@ console.log("resumableOptimiser — partial checkpoint guard");
   rmSync(dir, { recursive: true, force: true });
 }
 
-// 4. refine3d needs the unfiltered halves
+// 4. refine3d GOLD: the half model stars + the FILTERED half refs
 {
   const dir = scratch();
   touch(dir, [
     "run_it005_optimiser.star",
     "run_it005_data.star",
-    "run_it005_model.star",
     "run_it005_sampling.star",
-    // halves missing → partial
+    // the half model stars are missing → partial
   ]);
   check(
-    "refine3d missing half maps → null",
+    "refine3d gold missing the half model stars → null",
     resumableOptimiser(dir, "refine3d"),
     null
   );
   touch(dir, [
-    "run_it005_half1_class001_unfil.mrc",
-    "run_it005_half2_class001_unfil.mrc",
+    "run_it005_half1_model.star",
+    "run_it005_half2_model.star",
+    "run_it005_half1_class001.mrc",
+    "run_it005_half2_class001.mrc",
   ]);
   const r = resumableOptimiser(dir, "refine3d");
-  check("refine3d with halves → it005", r?.iteration ?? null, 5);
+  check("refine3d gold with both half model stars + half refs → it005", r?.iteration ?? null, 5);
   rmSync(dir, { recursive: true, force: true });
 }
 
-// 5. refine3d resume must NOT be poisoned by another type's requirement —
-//    class2d class image is NOT required for refine3d
+// 4b. the t394 witness (the _unfil halves) is NOT the reload set: a round
+//     with the _unfil halves but NO half model star is NOT resumable
 {
   const dir = scratch();
   touch(dir, [
-    "run_it001_optimiser.star",
-    "run_it001_data.star",
-    "run_it001_model.star",
-    "run_it001_sampling.star",
-    "run_it001_half1_class001_unfil.mrc",
-    "run_it001_half2_class001_unfil.mrc",
+    "run_it005_optimiser.star",
+    "run_it005_data.star",
+    "run_it005_sampling.star",
+    "run_it005_half1_class001_unfil.mrc",
+    "run_it005_half2_class001_unfil.mrc",
   ]);
-  const r = resumableOptimiser(dir, "refine3d");
-  check("refine3d full set → it001", r?.iteration ?? null, 1);
+  check(
+    "refine3d with only the _unfil halves (never reloaded by --continue) → null",
+    resumableOptimiser(dir, "refine3d"),
+    null
+  );
   rmSync(dir, { recursive: true, force: true });
 }
 
-// 6. initialmodel (star-only set)
+// 4c. refine3d PLAIN (K>1 classic / join-phase iteration): model.star + class001.mrc
+{
+  const dir = scratch();
+  touch(dir, [
+    "run_it004_optimiser.star",
+    "run_it004_data.star",
+    "run_it004_model.star",
+    "run_it004_sampling.star",
+    "run_it004_class001.mrc",
+  ]);
+  const r = resumableOptimiser(dir, "refine3d");
+  check("refine3d plain (join-phase) full set → it004", r?.iteration ?? null, 4);
+  rmSync(dir, { recursive: true, force: true });
+}
+
+// 4d. class3d (3D, K classes, never gold): model.star + class001.mrc
+{
+  const dir = scratch();
+  touch(dir, [
+    "run_it006_optimiser.star",
+    "run_it006_data.star",
+    "run_it006_model.star",
+    "run_it006_sampling.star",
+    "run_it006_class001.mrc",
+    "run_it006_class004.mrc",
+  ]);
+  const r = resumableOptimiser(dir, "class3d");
+  check("class3d with the per-class refs → it006", r?.iteration ?? null, 6);
+  rmSync(dir, { recursive: true, force: true });
+}
+
+// 4e. multibody GOLD: per-BODY half refs
+{
+  const dir = scratch();
+  touch(dir, [
+    "run_it008_optimiser.star",
+    "run_it008_data.star",
+    "run_it008_sampling.star",
+    "run_it008_half1_model.star",
+    "run_it008_half2_model.star",
+    "run_it008_half1_body001.mrc",
+    "run_it008_half2_body001.mrc",
+  ]);
+  const r = resumableOptimiser(dir, "multibody");
+  check("multibody gold with the half BODY refs → it008", r?.iteration ?? null, 8);
+  rmSync(dir, { recursive: true, force: true });
+}
+
+// 5. initialmodel (3D grad): the class ref + the 3D moment maps
 {
   const dir = scratch();
   touch(dir, [
@@ -144,13 +244,24 @@ console.log("resumableOptimiser — partial checkpoint guard");
     "run_it003_data.star",
     "run_it003_model.star",
     "run_it003_sampling.star",
+    // the t394 law said star-only; the class001.mrc IS reloaded → null
+  ]);
+  check(
+    "initialmodel without the class ref → null (the t394 star-only law offered a crash)",
+    resumableOptimiser(dir, "initialmodel"),
+    null
+  );
+  touch(dir, [
+    "run_it003_class001.mrc",
+    "run_it003_1moment001.mrc",
+    "run_it003_2moment001.mrc",
   ]);
   const r = resumableOptimiser(dir, "initialmodel");
-  check("initialmodel stars complete → it003", r?.iteration ?? null, 3);
+  check("initialmodel with the class ref + moments → it003", r?.iteration ?? null, 3);
   rmSync(dir, { recursive: true, force: true });
 }
 
-// 7. empty / missing workdir → null (no throw)
+// 6. empty / missing workdir → null (no throw)
 {
   const dir = scratch();
   check("empty workdir → null", resumableOptimiser(dir, "class2d"), null);
@@ -162,10 +273,10 @@ console.log("resumableOptimiser — partial checkpoint guard");
   );
 }
 
-// 8. no optimiser at all → null
+// 7. no optimiser at all → null
 {
   const dir = scratch();
-  touch(dir, ["run_it000_data.star", "run_it000_sampling.star"]);
+  touch(dir, ["run_it000_data.star", "run_it000_sampling.star", "run_it000_classes.mrcs"]);
   check("no optimiser.star → null", resumableOptimiser(dir, "class2d"), null);
   rmSync(dir, { recursive: true, force: true });
 }
