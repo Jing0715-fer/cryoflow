@@ -140,11 +140,19 @@ export interface WipeOutcome {
  * nothing. A per-file rm failure is a skip (a vanished file is the
  * common case mid-walk), never a caller refusal — the pre-t333 behavior
  * is the degradation, and the run itself will surface anything real.
+ *
+ * t394 — opts.keepIterations rides the shared classifier: a re-run
+ * carrying an explicit --continue whose target lives INSIDE this
+ * workdir keeps the run_it###_* family (the state the continue resumes
+ * from); everything else the classifier wipes still dies.
  */
-export function wipeLocalRunProducts(workdir: string): WipeOutcome | null {
+export function wipeLocalRunProducts(
+  workdir: string,
+  opts: { keepIterations?: boolean } = {}
+): WipeOutcome | null {
   if (!existsSync(workdir)) return null;
   const entries = walkWorkdirFiles(workdir);
-  const { wipe, kept } = classifyRerunWipe(entries);
+  const { wipe, kept } = classifyRerunWipe(entries, opts);
   for (const rel of wipe) {
     const abs = path.join(workdir, rel.split("/").join(path.sep));
     try {

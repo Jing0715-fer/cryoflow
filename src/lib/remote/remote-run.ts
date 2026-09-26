@@ -1652,6 +1652,31 @@ export function describeMissingCommand(cmd: string): string | null {
   return `the ${cmd} executable is missing from this lane's PATH — it is not part of the RELION install; it comes from the module or the environment (name it in the connection's Module field, or add its directory to the connection's environment lines), then re-run`;
 }
 
+/**
+ * t394 — does the final argv carry a --continue whose target lives INSIDE
+ * this dispatch's own remote workdir? (the user picked a round of THIS
+ * job in the "Continue from here:" picker, or typed a path into it).
+ * POSIX semantics — the remote lane's argv speaks cluster paths — and the
+ * prefix match is separator-exact, so a sibling workdir named
+ * class2d_aaa1 vs class2d_aaa12 never matches. Multibody's BUILDER-emitted
+ * --continue (the wired upstream optimiser) points ELSEWHERE by
+ * construction: it returns false and the pre-run stash keeps today's exact
+ * behavior (this workdir's own rounds are a stale generation then).
+ */
+export function selfContinueInArgv(argv: readonly string[], remoteWorkdir: string): boolean {
+  const root =
+    remoteWorkdir.endsWith("/") && remoteWorkdir.length > 1
+      ? remoteWorkdir.slice(0, -1)
+      : remoteWorkdir;
+  for (let i = 0; i + 1 < argv.length; i++) {
+    if (argv[i] !== "--continue") continue;
+    const target = argv[i + 1];
+    if (typeof target !== "string" || !target.startsWith("/")) continue;
+    if (target === root || target.startsWith(root + "/")) return true;
+  }
+  return false;
+}
+
 /* ------------------------------------------------------------------ */
 /* Wrapper script (module load + detached spawn + exit capture)         */
 /* ------------------------------------------------------------------ */
@@ -5146,6 +5171,16 @@ export async function startRemoteJob(args: {
       // position after the move) REFUSES the dispatch: proceeding into
       // stale files is the exact crash this blade exists to kill.
       //
+      // t394 — ONE carve-out: an argv whose --continue targets INSIDE
+      // this workdir (the "Continue from here:" picker's self-round) keeps
+      // the run_it###_* family at its live positions — the chosen optimiser
+      // + siblings are the STATE the continued run resumes from, and
+      // stashing them would dangle the user's --continue one line after
+      // the archive's receipt said "moved aside". RELION rewrites each
+      // round as it reaches it (the local lane's resume branch has always
+      // run in exactly that world). Everything else the classifier stashes
+      // still moves — products, scratch, logs.
+      //
       // t385 — the mechanism is now a RENAME-ASIDE, not an rm. The t344
       // ladder (3-minute per-batch rm budget + a fresh-wire retry) died
       // in the field TWICE ("batch 1: SSH failed (timeout after
@@ -5181,7 +5216,14 @@ export async function startRemoteJob(args: {
             `remote-run: could not list ${remoteWorkdir} for the pre-run wipe (${wipeListing.error ?? "unknown"}) — proceeding without it (a stale-file collision may fail the job, as before t333)`
           );
         } else if (wipeListing.entries.length > 0) {
-          const { wipe: wipeRels } = classifyRerunWipe(wipeListing.entries);
+          // t394 — the self-continue carve-out rides the SHARED classifier
+          // (same option the local lane's wipe speaks): a --continue aimed
+          // inside this workdir keeps the iteration family in place.
+          const keepIterations = selfContinueInArgv(argv, remoteWorkdir);
+          const { wipe: wipeRels } = classifyRerunWipe(
+            wipeListing.entries,
+            keepIterations ? { keepIterations: true } : undefined
+          );
           if (wipeRels.length > 0) {
             const stash = await stashRemoteRunProducts(
               conn,

@@ -544,8 +544,25 @@ export interface RerunWipeResult {
  * recipe as classifyCleanup): the local engine lane, the remote dispatch
  * leg and the diag all speak this one classification, so what the
  * dispatch deletes is exactly what the diag asserts.
+ *
+ * t394 — opts.keepIterations: a re-run whose argv carries an explicit
+ * --continue pointing INSIDE this very workdir keeps the whole run_it###_*
+ * family at its live positions. That is RELION's own restart world (the
+ * local lane's resume branch has always relied on it): the continued run
+ * rewrites each iteration file as it reaches it, and the chosen round's
+ * optimiser + siblings are the STATE the run resumes from — wiping them
+ * would dangle the user's --continue path one line after the wipe. The
+ * keep applies to the WHOLE family (not just the chosen round): RELION
+ * derives every sibling name from the optimiser path itself, and a future
+ * continue from a different round must find its own siblings alive.
+ * Products, scratch and logs still die — the crash this blade kills was
+ * the extract .mrcs append, and relion_refine REWRITES its iteration files
+ * wholesale (no append semantics to collide with).
  */
-export function classifyRerunWipe(files: CleanupFileEntry[]): RerunWipeResult {
+export function classifyRerunWipe(
+  files: CleanupFileEntry[],
+  opts: { keepIterations?: boolean } = {}
+): RerunWipeResult {
   const wipe: string[] = [];
   let keptCount = 0;
   let keptBytes = 0;
@@ -571,7 +588,11 @@ export function classifyRerunWipe(files: CleanupFileEntry[]): RerunWipeResult {
 
     // ---- recognized products ----------------------------------------
     if (/^shard_\d+(\/|$)/.test(f.path)) { wipe.push(f.path); continue; } // array scratch subtree
-    if (iterationFamilyOf(f.path)) { wipe.push(f.path); continue; }       // run_it###_* (all of them)
+    if (iterationFamilyOf(f.path)) {
+      // t394 — the explicit-continue keep (see the opts doc above)
+      if (opts.keepIterations) { keptCount++; keptBytes += f.size; continue; }
+      wipe.push(f.path); continue;                                   // run_it###_* (all of them)
+    }
     if (name.startsWith(".cf-")) { wipe.push(f.path); continue; }         // scratch/scripts/verdict — re-made
     if (name === "run.out" || name === "run.err") { wipe.push(f.path); continue; } // fresh logs
     if (dot > 0 && WIPE_EXTENSIONS.has(lower.slice(dot))) { wipe.push(f.path); continue; }

@@ -7103,9 +7103,15 @@ async function buildArgvCore(ctx: BuildCtx): Promise<string[] | { error: string 
       if (!bodiesStar) {
         return { error: `Command template for multibody requires ${GENERIC_REQUIREMENTS.multibody}` };
       }
+      // t394 — the form's "Continue from here:" (fn_cont) overrides the
+      // wired upstream optimiser when set: the multibody tab owns the flag
+      // (its RELION table entry carries none — the curated builder is the
+      // emitter, per the aliases doctrine), so the override reads it here
+      // and the generic layer stays quiet.
+      const contOverride = str(job, "fn_cont", "").trim();
       const argv = [
         binJoin(binDir, "relion_refine"),
-        "--continue", inputs.optimiser_star,
+        "--continue", contOverride || inputs.optimiser_star,
         "--o", outPath(ctx, "run"),
         "--solvent_correct_fsc",
         "--multibody_masks", bodiesStar,
@@ -8275,7 +8281,7 @@ function spawnTrackedRun(
  * cannot be read" (real case: class2d_u8voe932). Naming is deterministic:
  * RELION derives <root>_it<NNN>_<kind> from the optimiser path itself.
  */
-function continueCompanions(type: string, it: string): string[] {
+export function continueCompanions(type: string, it: string): string[] {
   // every continue mode reloads the data/model/sampling triple
   const stars = [
     `run_it${it}_data.star`,
@@ -8337,6 +8343,46 @@ export function resumableOptimiser(
 
 /** Refine-family job types that support RELION's --continue. */
 const RESUMABLE_TYPES = new Set(["class2d", "class3d", "refine3d", "initialmodel", "multibody"]);
+
+/**
+ * t394 — an EXPLICIT user-chosen --continue round: the "Continue from
+ * here:" field (fn_cont) set to a non-empty path in the form. This is
+ * the picker's contract — the user SAID which round to pick up from, so
+ * it outranks every automatic guess:
+ *
+ *   · it beats the auto-resume below (which always picks the NEWEST
+ *     complete checkpoint — right for an interrupted run nobody curated,
+ *     wrong the moment the user chose it012 on purpose);
+ *   · it keeps the iteration family alive through the fresh-start wipe
+ *     when the target lives inside this job's own workdir (see the wipe
+ *     call site) — the chosen optimiser + siblings ARE the state the
+ *     continued run resumes from.
+ *
+ * Stored under fn_cont for every refine-family type: class2d / class3d /
+ * refine3d / initialmodel ride it through the generic flag layer
+ * (appendRelionFlags → --continue <path>); multibody's builder owns the
+ * flag and reads the override first.
+ */
+export function explicitContinueOf(job: EngineJobRef): string | null {
+  const v = (job.params as Record<string, unknown> | undefined)?.fn_cont;
+  return typeof v === "string" && v.trim() !== "" ? v.trim() : null;
+}
+
+/**
+ * t394 — does the explicit --continue target live INSIDE this workdir?
+ * Host-path semantics (the local lane may run on win32): resolve both
+ * sides, then prefix-compare with a separator (a sibling workdir named
+ * class2d_aaa1 vs class2d_aaa12 must not prefix-match).
+ */
+export function continueTargetsWorkdir(target: string, workdir: string): boolean {
+  try {
+    const t = path.resolve(target);
+    const w = path.resolve(workdir);
+    return t === w || t.startsWith(w + path.sep);
+  } catch {
+    return false;
+  }
+}
 
 export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Promise<RunOutcome> {
   // ---- engine-native jobs -------------------------------------------
@@ -8438,8 +8484,14 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
   const prevRun = readRuns()[job.id];
   const interrupted =
     prevRun != null && (prevRun.done === false || prevRun.exitCode !== 0);
+  // t394 — an explicit user-chosen round (the "Continue from here:"
+  // picker, or a typed path) outranks the auto-resume: the whole point of
+  // choosing it012 is continuing from it012, not from whatever the newest
+  // complete checkpoint happens to be. The auto-resume keeps its own
+  // contract unchanged when nobody chose anything.
+  const userContinue = explicitContinueOf(job);
   const resumableCheckpoint =
-    RESUMABLE_TYPES.has(job.type) && prevRun && interrupted && prevRun.jobId === job.id
+    userContinue == null && RESUMABLE_TYPES.has(job.type) && prevRun && interrupted && prevRun.jobId === job.id
       ? resumableOptimiser(workdir, job.type)
       : null;
   const resolved = resolveInputs(job.type, upstream, job.params);
@@ -8671,11 +8723,21 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
   // classifier keeps input doors (symlinks), note.txt, the manifest and
   // anything unrecognized; products, iterations, scratch and logs die.
   // A wipe hiccup degrades to the pre-t333 behavior — never a refusal.
+  //
+  // t394 — an explicit --continue whose target lives INSIDE this workdir
+  // keeps the run_it###_* family alive (RELION's own restart world: the
+  // continued run rewrites each round as it reaches it, and the chosen
+  // optimiser + siblings are the state it resumes from). A target
+  // elsewhere (an upstream job's optimiser — the cross-job continue)
+  // wipes as before: this workdir's own rounds are then a stale
+  // generation, not a resume state.
+  const keepIterations = userContinue != null && continueTargetsWorkdir(userContinue, workdir);
   try {
-    const wipeResult = wipeLocalRunProducts(workdir);
+    const wipeResult = wipeLocalRunProducts(workdir, keepIterations ? { keepIterations: true } : undefined);
     if (wipeResult && wipeResult.wiped.length > 0) {
       console.log(
-        `engine: fresh run of ${job.type} ${job.id.slice(-8)} cleared ${wipeResult.wiped.length} stale product file(s) from the previous run (t333)`
+        `engine: fresh run of ${job.type} ${job.id.slice(-8)} cleared ${wipeResult.wiped.length} stale product file(s) from the previous run (t333)` +
+          (keepIterations ? " — the run_it* checkpoint family stays (explicit --continue, t394)" : "")
       );
     }
   } catch {

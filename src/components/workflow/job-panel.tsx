@@ -26,6 +26,7 @@ import {
   CloudUpload,
   Database,
   FolderOpen,
+  History,
   Link2,
   Loader2,
   MousePointerClick,
@@ -524,11 +525,14 @@ function ParamField({
   value,
   onChange,
   idPrefix,
+  jobId,
 }: {
   p: ParamSchema;
   value: ParamValue;
   onChange: (v: ParamValue) => void;
   idPrefix: string;
+  /** t394 — the round picker needs the row's job id (fn_cont only). */
+  jobId?: string;
 }) {
   const inputId = `${idPrefix}-${p.key}`;
 
@@ -557,6 +561,16 @@ function ParamField({
           </div>
         ) : p.type === "path" ? (
           <PathParamField p={p} value={value} onChange={onChange} idPrefix={idPrefix} />
+        ) : p.key === "fn_cont" && jobId ? (
+          // t394 — RELION's "Continue from here:" gets a real round picker
+          // (dropdown + typed path + browse) instead of a blind text box
+          <ContinueField
+            jobId={jobId}
+            inputId={inputId}
+            value={value}
+            onChange={onChange}
+            hint={p.hint}
+          />
         ) : p.type === "text" ? (
           <Input
             id={inputId}
@@ -827,6 +841,389 @@ function PathParamField({
   );
 }
 
+/* ------------------------------------------------------------------ */
+/* t394 — ContinueField: the "Continue from here:" round picker         */
+/* ------------------------------------------------------------------ */
+
+/** Client-safe mirror of /api/jobs/[id]/continue-sources' payload. */
+interface ContinueRoundEntryDTO {
+  iteration: number;
+  name: string;
+  path: string;
+  size: number;
+  complete: boolean;
+  missing: string[];
+  newest: boolean;
+  mtimeMs?: number;
+}
+
+interface ContinueSourceDTO {
+  jobId: string;
+  jobName: string;
+  jobType: string;
+  relation: "self" | "upstream";
+  lane: "local" | "remote";
+  workdir: string;
+  entries: ContinueRoundEntryDTO[];
+  truncated?: boolean;
+  error?: string;
+}
+
+function continueRoundSize(size: number): string {
+  if (!Number.isFinite(size) || size <= 0) return "";
+  if (size >= 1024 ** 2) return `${(size / 1024 ** 2).toFixed(1)} MB`;
+  return `${Math.max(1, Math.round(size / 1024))} KB`;
+}
+
+/**
+ * t394 — RELION's "Continue from here:" (fn_cont → --continue) as a real
+ * picker: a dropdown of the rounds that actually exist — THIS job's own
+ * previous run first, then its refine-family upstream runs — plus the
+ * two manual doors RELION's own GUI has (type any path, or Browse the
+ * filesystem). Every round is judged by the engine's own --continue
+ * legality law server-side: an incomplete checkpoint (a flush that died
+ * mid-write, optimiser.star without its data/model/sampling siblings) is
+ * shown but disabled, with the missing names — picking it would abort
+ * inside RELION ("HealpixSampling::readStar"), so the picker says so
+ * instead of letting the run find out an hour in.
+ *
+ * Paths are lane-honest: a round written by a CLUSTER run speaks its
+ * cluster-absolute path (the badge says so); a local run speaks host
+ * paths. The value itself is whatever the user last chose or typed —
+ * empty means "start from iteration 0" (RELION's own default).
+ */
+function ContinueField({
+  jobId,
+  inputId,
+  value,
+  onChange,
+  hint,
+}: {
+  jobId: string;
+  inputId: string;
+  value: ParamValue;
+  onChange: (v: ParamValue) => void;
+  hint?: string;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [browsing, setBrowsing] = React.useState(false);
+  const [phase, setPhase] = React.useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [sources, setSources] = React.useState<ContinueSourceDTO[]>([]);
+  const [fetchError, setFetchError] = React.useState<string | null>(null);
+  const fetchedAtRef = React.useRef(0);
+  // t300 — the same door every path param speaks: a REMOTE project browses
+  // the CLUSTER's filesystem for the optimiser.star pick.
+  const projectRemote = useWorkflowStore((s) => s.project?.remote ?? null);
+  const remoteBrowser = projectRemote
+    ? { connectionId: projectRemote.connectionId, label: projectRemote.name }
+    : null;
+
+  const load = React.useCallback(
+    async (refresh: boolean) => {
+      if (!refresh && Date.now() - fetchedAtRef.current < 8000) return;
+      fetchedAtRef.current = Date.now();
+      setPhase("loading");
+      try {
+        const res = await fetch(
+          `/api/jobs/${encodeURIComponent(jobId)}/continue-sources${refresh ? "?refresh=1" : ""}`
+        );
+        const data = (await res.json()) as { sources?: ContinueSourceDTO[]; error?: string };
+        if (!res.ok || data.error) throw new Error(data.error ?? `HTTP ${res.status}`);
+        setSources(Array.isArray(data.sources) ? data.sources : []);
+        setFetchError(null);
+        setPhase("ready");
+      } catch (e) {
+        setFetchError(e instanceof Error ? e.message : String(e));
+        setPhase("error");
+      }
+    },
+    [jobId]
+  );
+
+  const raw = value === undefined || value === null ? "" : String(value);
+  const trimmed = raw.trim();
+
+  // what the current value MEANS (the summary line): a round the picker
+  // knows (job + iteration + lane), or a custom path riding --continue as-is
+  const match = React.useMemo(() => {
+    if (!trimmed) return null;
+    for (const s of sources) {
+      const e = s.entries.find((x) => x.path === trimmed);
+      if (e) return { source: s, entry: e };
+    }
+    return null;
+  }, [sources, trimmed]);
+
+  const pickableRounds = sources.reduce((n, s) => n + s.entries.length, 0);
+
+  return (
+    <div className="w-full space-y-1">
+      <div className="flex items-start gap-1.5">
+        <Input
+          id={inputId}
+          type="text"
+          value={raw}
+          title={hint}
+          placeholder="empty — start from iteration 0 · pick a round, browse, or type any optimiser.star path"
+          onChange={(e) => onChange(e.target.value)}
+          className="h-8 font-mono text-xs"
+        />
+        <Popover
+          open={open}
+          onOpenChange={(o) => {
+            setOpen(o);
+            if (o) void load(false);
+          }}
+        >
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 shrink-0 gap-1 px-2"
+              aria-label="Pick which previous round to continue from"
+              title="Pick which previous round to continue from — this job's own previous run, and its upstream refine-family runs"
+            >
+              <History className="h-3.5 w-3.5" aria-hidden="true" />
+              Rounds
+              <ChevronDown className="h-3 w-3" aria-hidden="true" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent
+            align="end"
+            className="w-88 p-0"
+            aria-label="Rounds you can continue from"
+          >
+            <div className="max-h-80 overflow-y-auto">
+              {phase === "loading" && (
+                <div className="flex items-center gap-2 px-3 py-4 text-xs text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                  Reading checkpoints…
+                </div>
+              )}
+              {phase === "error" && (
+                <div className="space-y-2 px-3 py-3">
+                  <p className="flex items-start gap-1.5 text-xs text-destructive">
+                    <CircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                    <span>{fetchError ?? "could not read the rounds"}</span>
+                  </p>
+                  <button
+                    type="button"
+                    className="text-[11px] font-medium text-primary hover:underline"
+                    onClick={() => void load(true)}
+                  >
+                    Try again
+                  </button>
+                </div>
+              )}
+              {phase === "ready" && (
+                <>
+                  {trimmed && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onChange("");
+                        setOpen(false);
+                      }}
+                      className="flex w-full items-center gap-2 border-b px-3 py-2 text-left text-xs transition-colors hover:bg-accent focus-visible:bg-accent"
+                    >
+                      <X className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                      <span className="font-medium">Start fresh</span>
+                      <span className="text-muted-foreground">— clear the field, run from iteration 0</span>
+                    </button>
+                  )}
+                  {pickableRounds === 0 && sources.every((s) => !s.error) && (
+                    <div className="px-3 py-4 text-[11px] leading-relaxed text-muted-foreground">
+                      No checkpoints yet. Rounds appear here once this job (or a refine-family
+                      upstream job) has run — RELION writes one{" "}
+                      <span className="font-mono">run_it###_optimiser.star</span> per iteration.
+                    </div>
+                  )}
+                  {sources.map((s) => (
+                    <div key={`${s.jobId}`} className={s.entries.length > 0 || s.error ? "border-b last:border-b-0" : ""}>
+                      {(s.entries.length > 0 || s.error) && (
+                        <div className="flex items-center gap-1.5 bg-secondary/40 px-3 py-1.5">
+                          {s.relation === "self" ? (
+                            <History className="h-3 w-3 shrink-0 text-primary" aria-hidden="true" />
+                          ) : (
+                            <Link2 className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden="true" />
+                          )}
+                          <span className="min-w-0 truncate text-[11px] font-medium" title={s.jobName}>
+                            {s.relation === "self" ? "This job" : `Upstream · ${s.jobName}`}
+                          </span>
+                          {s.lane === "remote" ? (
+                            <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-violet-600 dark:text-violet-400">
+                              <Server className="h-2.5 w-2.5" aria-hidden="true" />
+                              cluster
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-muted-foreground">local</span>
+                          )}
+                          {s.entries.length > 0 && (
+                            <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">
+                              {s.entries.length} round{s.entries.length === 1 ? "" : "s"}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {s.error ? (
+                        <p className="px-3 py-2 text-[11px] italic text-muted-foreground">{s.error}</p>
+                      ) : (
+                        s.entries.map((e) => {
+                          const size = continueRoundSize(e.size);
+                          return (
+                            <button
+                              key={`${s.jobId}:${e.name}`}
+                              type="button"
+                              disabled={!e.complete}
+                              onClick={() => {
+                                onChange(e.path);
+                                setOpen(false);
+                              }}
+                              title={
+                                e.complete
+                                  ? `${e.path}${size ? ` · ${size}` : ""}`
+                                  : `incomplete checkpoint — missing ${e.missing.slice(0, 3).join(", ")}${e.missing.length > 3 ? "…" : ""}: a --continue from this round would abort inside RELION`
+                              }
+                              aria-label={
+                                e.complete
+                                  ? `Continue from iteration ${e.iteration} of ${s.jobName}: ${e.path}`
+                                  : `Iteration ${e.iteration} of ${s.jobName} is incomplete and cannot be continued from`
+                              }
+                              className={cn(
+                                "flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs outline-none transition-colors",
+                                e.complete
+                                  ? "hover:bg-accent focus-visible:bg-accent"
+                                  : "cursor-not-allowed opacity-55"
+                              )}
+                            >
+                              <span className="w-12 shrink-0 font-mono text-[11px] font-semibold">
+                                it {String(e.iteration).padStart(3, "0")}
+                              </span>
+                              {e.newest && (
+                                <Badge className="h-4 rounded-sm bg-emerald-500/15 px-1 text-[9px] font-medium text-emerald-700 hover:bg-emerald-500/15 dark:text-emerald-400">
+                                  newest
+                                </Badge>
+                              )}
+                              {e.complete ? (
+                                <span className="min-w-0 flex-1 truncate font-mono text-[10px] text-muted-foreground">
+                                  {e.name}
+                                  {size ? ` · ${size}` : ""}
+                                </span>
+                              ) : (
+                                <span className="min-w-0 flex-1 truncate text-[10px] italic text-muted-foreground">
+                                  incomplete — missing {e.missing[0]}
+                                  {e.missing.length > 1 ? ` +${e.missing.length - 1}` : ""}
+                                </span>
+                              )}
+                              {e.path === trimmed && (
+                                <Check className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden="true" />
+                              )}
+                            </button>
+                          );
+                        })
+                      )}
+                      {s.truncated && s.entries.length > 0 && (
+                        <p className="px-3 pb-1.5 text-[10px] italic text-muted-foreground">
+                          listing capped — older rounds may exist on the cluster
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+            <div className="flex items-center justify-between gap-2 border-t px-3 py-1.5">
+              <p className="text-[10px] text-muted-foreground">
+                typed paths ride <span className="font-mono">--continue</span> as-is
+              </p>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+                onClick={() => void load(true)}
+                aria-label="Re-read the rounds from the engine and the cluster"
+              >
+                <RefreshCw className="h-3 w-3" aria-hidden="true" />
+                refresh
+              </button>
+            </div>
+          </PopoverContent>
+        </Popover>
+        <Button
+          variant="outline"
+          size="sm"
+          className={cn("h-8 shrink-0 gap-1 px-2", remoteBrowser && "border-violet-500/40 text-violet-600 hover:bg-violet-500/10 dark:text-violet-400")}
+          onClick={() => setBrowsing(true)}
+          aria-label={`Browse for an optimiser.star${remoteBrowser ? " on the cluster" : ""}`}
+          title={
+            remoteBrowser
+              ? `Browse ${projectRemote?.name ?? "the cluster"}'s filesystem over SSH for a run_it###_optimiser.star — the path stays cluster-absolute`
+              : "Browse the filesystem for a run_it###_optimiser.star"
+          }
+        >
+          {remoteBrowser ? (
+            <Server className="h-3.5 w-3.5" aria-hidden="true" />
+          ) : (
+            <FolderOpen className="h-3.5 w-3.5" aria-hidden="true" />
+          )}
+          Browse
+        </Button>
+      </div>
+      {browsing && (
+        <PathBrowserDialog
+          open={browsing}
+          onOpenChange={setBrowsing}
+          onPick={(picked) => {
+            // the browser speaks one path per pick in files mode; a stray
+            // multi-line pick keeps its first line (one continue target)
+            const first = picked.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)[0] ?? "";
+            onChange(first);
+          }}
+          initialPath={raw}
+          initialMode="files"
+          remote={remoteBrowser}
+        />
+      )}
+      {trimmed && (
+        <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+          {match ? (
+            <>
+              <Check className="h-3 w-3 text-primary" aria-hidden="true" />
+              <span className="font-medium text-primary">
+                it {String(match.entry.iteration).padStart(3, "0")}
+              </span>
+              <span aria-hidden="true">·</span>
+              <span title={match.source.jobName}>
+                {match.source.relation === "self" ? "this job" : match.source.jobName}
+              </span>
+              <span aria-hidden="true">·</span>
+              <span>{match.source.lane === "remote" ? "cluster path" : "local path"}</span>
+              {match.entry.newest && (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <span>newest complete round</span>
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              <Terminal className="h-3 w-3 text-muted-foreground/80" aria-hidden="true" />
+              <span>custom path — passed to RELION&apos;s --continue as typed</span>
+              <button
+                type="button"
+                className="ml-auto rounded px-1 text-[10px] text-muted-foreground transition-colors hover:text-destructive"
+                onClick={() => onChange("")}
+                aria-label="Clear the continue-from path"
+              >
+                clear
+              </button>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ParamsTab({
   job,
   spec,
@@ -1014,6 +1411,7 @@ function ParamsTab({
                         value={form[p.key] ?? p.default}
                         onChange={(v) => setForm((f) => ({ ...f, [p.key]: v }))}
                         idPrefix={`param-${job.id}`}
+                        jobId={job.id}
                       />
                     ))}
                   </div>
@@ -1032,6 +1430,7 @@ function ParamsTab({
                         value={form[p.key] ?? p.default}
                         onChange={(v) => setForm((f) => ({ ...f, [p.key]: v }))}
                         idPrefix={`param-${job.id}`}
+                        jobId={job.id}
                       />
                     ))}
                   </div>
