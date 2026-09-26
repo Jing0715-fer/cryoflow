@@ -3695,3 +3695,31 @@ Stage Summary:
 - 验证：t390 38/38 + 八套回归全绿；tsc 0；eslint 0
 - 用户复机路径：立即解法 — run 对话框的 Node/partition 下拉选 GPU 分区（或活用列表点节点，t340 会让 pin 自带分区），或 Remote cluster 里把连接默认分区设为 GPU 分区；git pull 后同类错会在提交前收到点名默认分区的教学式拒绝
 - 诚实边界：① 预检只拒「静态必然」（defMax < 宽度）；配置够宽但节点全下线 → 交给 sbatch（排队/拒绝），翻译的 enrich 会给漂移判词；② 读是 best-effort，SSH 抖/无 scontrol → 旧行为；③ 跨会话 drift（预检读→提交间节点下线）由 catch enrich 兜底；④ t387-gpu-mrcs-integrity E2E 需活体 mock（沙箱未起）未跑 — t385 记录在案的既有偏差
+
+---
+Task ID: t391
+Agent: main (Z.ai Code)
+Task: 用户工单 — 「对参数设置的页面进行ui的排版的优化和样式美化，inspector窗口的head区域太拥挤了，需要优化一下排版，继续检查其他的ui问题一并修复」
+
+Work Log:
+- [环境重建] 沙箱又被收割（/home/z/cryoflow 无损丢失）: PAT 重 clone @ 8da538a(t390) + bun install + prisma generate/db push; mock cluster(3022) launch.sh dev 复活; my-project 3000 模板服务器照旧
+- [发现 A — bun 车道全灭] next dev 用 bun 跑时每个 API 路由 500: "Failed to load external module @prisma/client-<hash>" — Turbopack 给外部依赖起 content-hash 化名（@prisma/client-2c3a…、ssh2-f3b5…、sharp-20c6…），node 运行时解析得了、bun 的 require 解析不了（同版本 next 16.1.3 + prisma 6.19.2、锁文件未动——bun 特有）。修复: dev-server-3001.sh 换 node 宿主（其余环境注入不变）; 纯 node 下 require('@prisma/client') 直测健康（jobs count 正常），dev 3001 home/api 双 200
+- [发现 B — reaper 新定律] 工具调用内联 setsid spawn 的进程在调用结束时被杀（standalone 与 dev 各死一次）; launch.sh 的「脚本立即退出 → 孤儿过继 init」模式依旧免疫（mock cluster 常驻为证）。新增 scripts/standalone-3001.sh 走该模式（浏览器 QA 走 standalone 生产线的 t376/t387 纪律不变）; next standalone 进程会把 argv 改写成 "next-server (v16.1.3)" — pkill -f 永远匹配不上，重启必须按端口找 pid kill
+- [QA 舞台] scripts/qa-t391-ui-seed.mjs: 「UI Layout Lab」项目 + 10 作业全链（import idle → motioncorr/ctffind/autopick/extract/class2d/select/initialmodel completed → class3d RUNNING → refine3d failed）+ 9 条边; running 态的引擎记录手工落 data/engine-state.json（pid 1 + run.out 日志，reconcile 的 pidAlive 判活通过、progress 不回零）; data/projects.json 活动项目指向种子项目
+- [VLM 现状取证] t391-before-* 六张截图 z-ai vision 三轮分析: ①head 四段纵叠（身份行/厨房水槽 meta 行/血缘行/空左操作条）在 tabs 前吃掉 ~140px ②操作条左 70% 是空底色 ③meta 行 7+ 数据点挤一行 10-11px ④ParamsGrid 行距过密、长标签 truncate 丢信息 ⑤panel 表单纵向节奏紧
+- [修复 A — inspector head 两带重构] 身份+操作合一: icon(44→40) + 标题(text-base→text-lg) + StatusBadge 左，操作簇（Focus/对比/Reset & edit/Re-run|Stop/集群门/清理门/竖分隔线/关闭）右——空左 toolbar 条退役（t323 一控件一决策契约不动、全部 aria-label/title/data 属性保留）; meta 一行化: 类型纯文本（Badge 徽章退役）· t347 头条数字（11px→12px semibold 保持色系）· 时序（elapsed 青色 mono / duration mono / created）· 血缘 ml-auto 流到行尾; 根 spacing space-y-3→2.5、DialogHeader pb-4→pb-3; 移动端契约 = 操作簇 flex-wrap 自然换行右对齐（390px 实测 8 按钮零重叠零横溢）
+- [修复 B — 血缘瘦身] LineageBreadcrumb 只渲染祖先（当前 job 的收尾 chip 与标题三十四像素外重复——砍掉）; 折叠 MAX=5 改为「前 4 + 最近祖先 + +N」; chip max-w-28→32; +N 跳到倒数第二祖先
+- [修复 C — 幽灵 tooltip] 每次打开 inspector 都凭空弹出 "Center this job on the canvas": Radix Dialog 自动聚焦第一个可聚焦子（= Focus 按钮）+ Radix tooltip 焦点即开。修复: DialogContent onOpenAutoFocus preventDefault（查看型对话框，Esc/Tab 语义不变）——浏览器实测打开即无 tooltip
+- [修复 D — ParamsGrid 节奏] 组卡间距 space-y-3→4; 行栅格 gap-x-6/y-1.5→8/2、卡体 py-3→3.5; ParamRowLine 标签 truncate→line-clamp-2 + leading-snug（长 RELION 标签两行内完整显示）、行虚线 pb-1→1.5; 实测行高 19→24px
+- [修复 E — job-panel 参数表单] ParamField 标签列 104/136px→118/152px（长标签少折行）; fieldset px-3 pb-3 pt-1→px-3.5 pb-3 pt-1.5 + 行距 space-y-2→2.5; Basic legend 补计数与 Expert 对齐（"Basic options · 13"）; 内层 RELION tab 条 px-3→4 与内容 p-3→4 对齐; I/O tab space-y-4 p-3→5/p-4; 自动保存条与命令预览 px 对齐到 4
+- [验证·编译] tsc 0 ×3 轮; 触碰文件 eslint 0
+- [验证·浏览器] standalone 3001 三次重建（89/97/99s 编译均绿）: ①完成态/运行态/失败态 head 三截图 VLM 评分 9/9/8、总评 9/10「成功解决拥挤」②完成+运行双图 VLM: 拥挤度 2/10（优秀）、进度条+Stop+elapsed 集成干净 ③ParamsGrid DOM 实测 8 卡、行高 24px、列距 32px ④panel Params tab 标签列 152px ⑤移动端 390×700: 画布与 inspector 双零横溢、footer 精确贴底（bottom=700=viewport）、head 8 按钮零重叠 ⑥暗色模式渲染正常（failed 态 VLM 9/10）⑦功能全绿: Re-run 确认框开合、Focus 居中+关窗、血缘 chip 与 +N 跳转（refine3d → Initial Model 1）、Esc 关闭、零 console error 零 page error
+- [验证·回归] t386 119/119 + t384 19/19 + t385 48/48 + t387-dup-audit 零死控件零标签冲突（bun 宿主跑 TS bench; npx tsx 会因 top-level await+cjs 拒跑）
+- [沙箱运维] QA 窗口暂停 my-project 3000 为编译腾内存（三次 build + chromium 共存无 OOM——standalone 生产线 ~630MB 纪律依旧）; 结束后 3000 复原（200）; agent-browser 用毕即关（14 个 chrome 进程吃 ~1GB）
+
+Stage Summary:
+- head 重构: 四带 → 两带（身份+操作同行、meta+血缘一行），VLM 拥挤度从「kitchen sink」降到 2/10; 血缘砍冗余当前 job chip; 幽灵 tooltip（autoFocus+tooltip 焦点开）修复
+- 参数两视图: inspector ParamsGrid（24px 行高 + 两行标签 + 8px 组距）与 panel Params tab（118/152px 标签列 + fieldset 节奏 + 计数图例）节奏双双换代; I/O tab 与底栏 padding 对齐
+- 基建修复: dev 3001 必须 node 宿主（bun 的 Turbopack 外部模块解析全灭）; standalone-3001.sh（launch.sh 模式）入 repo; next standalone 进程改名 pkill 不可达的陷阱记录在案
+- 用户复机路径: git pull → 打开任意已完成任务的 inspector（head 两行清爽、参数卡完整分组）→ idle 任务面板 Params tab（标签列更宽、行距更松）; 移动端打开 inspector 操作按钮自动换行右对齐
+- 诚实边界: ①VLM 提到的数字输入框单位对齐/滚动渐隐属浏览器原生与纯装饰项未做 ②meta 行 created 与计数 chip 的混字号基线（items-center）保持——items-baseline 对混排内容（nav/分隔线）更脆弱 ③QA 种子数据不随 repo 走（db 被忽略），qa-t391-ui-seed.mjs 可重放 ④画布 VLM 反馈（蛇形走线/截断）为种子坐标与既有设计（hover 揭示、端口色语义），非产品缺陷未动

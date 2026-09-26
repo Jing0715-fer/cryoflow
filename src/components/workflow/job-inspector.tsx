@@ -1257,11 +1257,11 @@ function ParamRowLine({ row }: { row: ParamRow }) {
     <div
       key={row.key}
       data-print-atomic=""
-      className="flex min-w-0 items-baseline justify-between gap-3 border-b border-dashed border-border/40 pb-1 last:border-0 last:pb-0"
+      className="flex min-w-0 items-baseline justify-between gap-3 border-b border-dashed border-border/40 pb-1.5 last:border-0 last:pb-0"
     >
       <span
         className={cn(
-          "max-w-[55%] shrink-0 truncate text-[11px] text-muted-foreground",
+          "line-clamp-2 max-w-[55%] shrink-0 text-[11px] leading-snug text-muted-foreground",
           row.advanced && "italic"
         )}
         title={`${row.label}${row.advanced ? " (expert option)" : ""}`}
@@ -1338,7 +1338,7 @@ function ParamsGrid({ job }: { job: JobDTO }) {
   if (total === 0) return null;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {groups.map((g) => (
         <div
           key={g.tab}
@@ -1354,7 +1354,7 @@ function ParamsGrid({ job }: { job: JobDTO }) {
               {g.rows.length} {g.rows.length === 1 ? "param" : "params"}
             </span>
           </div>
-          <div className="grid gap-x-6 gap-y-1.5 px-4 py-3 sm:grid-cols-2">
+          <div className="grid gap-x-8 gap-y-2 px-4 py-3.5 sm:grid-cols-2">
             {g.rows.map((row) => (
               <ParamRowLine key={row.key} row={row} />
             ))}
@@ -2197,58 +2197,51 @@ function LineageBreadcrumb({ job }: { job: JobDTO }) {
   const inspect = useWorkflowStore((s) => s.inspect);
 
   const chain = React.useMemo(() => upstreamChain(job, jobs, edges), [job, jobs, edges]);
-  if (chain.length < 2) return null; // no inputs — nothing to show
+  // t391 — the ANCESTORS only: the current job closes upstreamChain, but its
+  // chip just repeated the title three dozen pixels above it (the meta strip
+  // is one line now — that redundancy ate the space the real names need).
+  const ancestors = chain.length >= 2 ? chain.slice(0, -1) : [];
+  if (ancestors.length === 0) return null; // no inputs — nothing to show
 
-  const MAX = 5; // visible chips (current job included)
-  const collapsed = chain.length > MAX;
-  const shown = collapsed ? [...chain.slice(0, MAX - 2), chain[chain.length - 1]] : chain;
-  const hiddenCount = chain.length - shown.length;
+  const MAX = 5; // visible ancestor chips
+  const collapsed = ancestors.length > MAX;
+  const shown = collapsed
+    ? [...ancestors.slice(0, MAX - 1), ancestors[ancestors.length - 1]]
+    : ancestors;
+  const hiddenCount = ancestors.length - shown.length;
 
   return (
-    <nav aria-label="Job lineage" className="flex flex-wrap items-center gap-0.5">
+    <nav aria-label="Job lineage" className="flex min-w-0 flex-wrap items-center gap-0.5">
       <GitCommitHorizontal className="mr-1 size-3.5 shrink-0 text-muted-foreground/70" aria-hidden="true" />
-      {shown.map((j, i) => {
-        const isCurrent = j.id === job.id;
-        return (
-          <React.Fragment key={j.id}>
-            {i > 0 ? (
-              <ChevronRight className="mx-0.5 size-3 shrink-0 text-muted-foreground/50" aria-hidden="true" />
-            ) : null}
-            {isCurrent ? (
-              <span
-                className="max-w-28 truncate rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary"
-                title={`${j.name} — this job`}
-              >
-                {j.name}
-              </span>
-            ) : (
-              <button
-                type="button"
-                onClick={() => inspect(j.id)}
-                className={cn(
-                  "max-w-28 truncate rounded px-1.5 py-0.5 text-[10px] font-medium outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring",
-                  j.status === "completed" ? "text-muted-foreground" : "text-amber-600 dark:text-amber-400"
-                )}
-                title={`${j.name} — ${j.status} · click to inspect`}
-              >
-                {j.name}
-              </button>
-            )}
-          </React.Fragment>
-        );
-      })}
+      {shown.map((j, i) => (
+        <button
+          key={j.id}
+          type="button"
+          onClick={() => inspect(j.id)}
+          className={cn(
+            "max-w-32 truncate rounded px-1.5 py-0.5 text-[10px] font-medium outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring",
+            j.status === "completed" ? "text-muted-foreground" : "text-amber-600 dark:text-amber-400"
+          )}
+          title={`${j.name} — ${j.status} · click to inspect`}
+        >
+          {j.name}
+        </button>
+      )).reduce<React.ReactNode[]>((acc, el, i) => {
+        if (i > 0) acc.push(<ChevronRight key={`sep-${i}`} className="mx-0.5 size-3 shrink-0 text-muted-foreground/50" aria-hidden="true" />);
+        acc.push(el);
+        return acc;
+      }, [])}
       {collapsed ? (
         <>
           <ChevronRight className="mx-0.5 size-3 shrink-0 text-muted-foreground/50" aria-hidden="true" />
           <button
             type="button"
-            onClick={() => inspect(chain[chain.length - 2].id)}
+            onClick={() => inspect(ancestors[ancestors.length - 2].id)}
             className="rounded px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-muted-foreground outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
             title={`${hiddenCount} intermediate jobs — click to step one level up`}
           >
             +{hiddenCount}
           </button>
-          <ChevronRight className="mx-0.5 size-3 shrink-0 text-muted-foreground/50" aria-hidden="true" />
         </>
       ) : null}
     </nav>
@@ -2352,7 +2345,7 @@ function InspectorHeader({
   };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5">
       {isLink && (
         <div
           role="note"
@@ -2384,14 +2377,16 @@ function InspectorHeader({
           )}
         </div>
       )}
-      {/* header — two stacked zones: identity (icon + name + status + close)
-       * on top, meta + actions on a separate toolbar row below. The old
-       * single flex row crammed name + status + type + three action buttons
-       * into one line and truncated the title on medium screens. */}
-      <div className="flex items-start gap-3">
+      {/* t391 — the head is TWO bands, not four: identity + actions share
+       * one row (the old separate toolbar strip spent most of its width on
+       * empty background — the 「head 区域太拥挤」 receipt), and a single
+       * meta strip below carries type · headline counts · timing with the
+       * lineage breadcrumb flowing to its end. Mobile contract: the action
+       * cluster wraps below the title, right-aligned, close at its end. */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <span
           className={cn(
-            "flex size-11 shrink-0 items-center justify-center rounded-xl border shadow-sm",
+            "flex size-10 shrink-0 items-center justify-center rounded-xl border shadow-sm",
             spec ? `${spec.color.soft} ${spec.color.border}` : "bg-muted"
           )}
         >
@@ -2404,185 +2399,197 @@ function InspectorHeader({
               short names still share the row exactly as before; ≥sm is
               untouched. title attr gives the hover reveal back. */}
           <div className="flex max-sm:flex-wrap items-center gap-2">
-            <h2 className="truncate text-base font-semibold leading-tight tracking-tight text-foreground" title={job.name}>
+            <h2 className="truncate text-lg font-semibold leading-tight tracking-tight text-foreground" title={job.name}>
               {job.name}
             </h2>
             <StatusBadge status={job.status} queued={isSlurmQueued(job)} />
           </div>
-          {/* NOTE: div, not <p> — the vertical Separators render <div>s and
-           * HTML forbids div-in-p (hydration error) */}
-          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
-            <Badge
-              variant="outline"
-              className="h-4.5 px-1.5 text-[9px] font-semibold uppercase tracking-wider"
-            >
-              {spec?.label ?? job.type}
-            </Badge>
-            {/* t347 — the headline numbers ride the identity row itself
-                (particles first, teal): visible on EVERY tab, not only in
-                Overview/Results — the user's 「醒目」 */}
-            {countChips.map((c) => (
-              <React.Fragment key={c.key}>
-                <Separator orientation="vertical" className="h-3" decorative />
-                <span
-                  data-header-count={c.key}
-                  title={c.title}
-                  className={cn("font-semibold tabular-nums", c.tone)}
-                >
-                  {c.text}
-                </span>
-              </React.Fragment>
-            ))}
-            <span>created {job.createdAt ? fmtAgo(job.createdAt) : "—"}</span>
-            {running && job.startedAt && elapsed > 0 ? (
-              <>
-                <Separator orientation="vertical" className="h-3" decorative />
-                <span className="font-mono tabular-nums text-teal-600 dark:text-teal-400">
-                  {formatElapsed(elapsed)} elapsed
-                </span>
-              </>
-            ) : null}
-            {!running && job.duration > 0 ? (
-              <>
-                <Separator orientation="vertical" className="h-3" decorative />
-                <span className="font-mono tabular-nums">{fmtDuration(job.duration)}</span>
-              </>
-            ) : null}
-          </div>
-          {/* upstream chain — click any ancestor to hop to its inspector */}
-          <LineageBreadcrumb job={job} />
         </div>
 
-        {/* close — top-right of the identity row (Esc still works) */}
-        <DialogClose asChild>
-          <Button
-            variant="ghost"
-            size="sm"
-            aria-label="Close inspector"
-            className="h-8 w-8 shrink-0 gap-0 rounded-md p-0 text-muted-foreground hover:bg-muted hover:text-foreground"
-          >
-            <X className="size-4" aria-hidden="true" />
-          </Button>
-        </DialogClose>
-      </div>
-
-      {/* action toolbar — its own row: Focus / Reset & edit / Re-run (or
-       * Stop while running), right-aligned on a quiet background strip so
-       * the buttons never fight the job title for horizontal space. Pure
-       * screen chrome — the job report prints without it (.no-print). */}
-      {!isLink ? (
-        <div className="no-print flex flex-wrap items-center justify-end gap-1.5 rounded-lg border bg-muted/40 px-2 py-1.5">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="sm" onClick={() => focusJob(job.id)} className="h-7 gap-1.5 px-2.5 text-xs text-muted-foreground hover:bg-background hover:text-foreground">
-                <Locate className="size-3.5" aria-hidden="true" />
-                <span>Focus</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">Center this job on the canvas</TooltipContent>
-          </Tooltip>
-          {/* third diff entry (Task 88): same-type sibling list — renders
-           * nothing when this run has no twin (guard mirrors the canvas) */}
-          <SiblingComparePicker job={job} />
-          {job.status !== "running" ? (
-            <>
-              {/* t333 — the tooltip answers the file question in place:
-                  reset clears STATE only (status/progress/resume
-                  checkpoint); the run directory survives until the next
-                  Run, which wipes and regenerates it. */}
+        {/* action cluster + close — one right-aligned group on the
+            identity row (pure screen chrome — the job report prints
+            without it). t323's one-decision-per-control contract holds:
+            Focus / compare / reset / Re-run-or-Stop, then the cluster +
+            cleanup icon doors, then close. */}
+        {!isLink ? (
+          <div className="no-print flex max-w-full shrink-0 flex-wrap items-center justify-end gap-1.5">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="sm" onClick={() => focusJob(job.id)} className="h-7 gap-1.5 px-2.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground">
+                  <Locate className="size-3.5" aria-hidden="true" />
+                  <span>Focus</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Center this job on the canvas</TooltipContent>
+            </Tooltip>
+            {/* third diff entry (Task 88): same-type sibling list — renders
+             nothing when this run has no twin (guard mirrors the canvas) */}
+            <SiblingComparePicker job={job} />
+            {job.status !== "running" ? (
+              <>
+                {/* t333 — the tooltip answers the file question in place:
+                    reset clears STATE only (status/progress/resume
+                    checkpoint); the run directory survives until the next
+                    Run, which wipes and regenerates it. */}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => void resetJob(job.id).then(() => {
+                        inspect(null);
+                        select(job.id);
+                      })}
+                      className="h-7 gap-1.5 px-2.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+                    >
+                      <RotateCcw className="size-3.5" aria-hidden="true" />
+                      <span>Reset &amp; edit</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    Back to idle — clears the run state (status, progress, resume checkpoint); the
+                    run directory stays until the next Run rebuilds it
+                  </TooltipContent>
+                </Tooltip>
+                {/* t289 — Re-run + mode door. t323 — the ▾ split button is
+                    RETIRED (the user's receipt: crowded text, the arrow could
+                    go): the primary Re-run button speaks local re-run and the
+                    Server icon right of it is the cluster door — no third
+                    control repeating both. */}
+                <Button
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => setConfirmRerun(true)}
+                  className="h-7 gap-1.5 bg-teal-600 px-3 text-xs text-white hover:bg-teal-700"
+                >
+                  {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Play className="size-3.5" />}
+                  Re-run
+                </Button>
+              </>
+            ) : (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => void resetJob(job.id).then(() => {
-                      inspect(null);
-                      select(job.id);
-                    })}
-                    className="h-7 gap-1.5 px-2.5 text-xs text-muted-foreground hover:bg-background hover:text-foreground"
+                    disabled={busy}
+                    onClick={() => {
+                      setBusy(true);
+                      void stopJob(job.id).finally(() => setBusy(false));
+                    }}
+                    className="h-7 gap-1.5 px-2.5 text-xs text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/40"
                   >
-                    <RotateCcw className="size-3.5" aria-hidden="true" />
-                    <span>Reset &amp; edit</span>
+                    {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Square className="size-3.5" aria-hidden="true" />}
+                    <span>Stop</span>
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">
-                  Back to idle — clears the run state (status, progress, resume checkpoint); the
-                  run directory stays until the next Run rebuilds it
+                  SIGTERM the process tree — refine-family jobs re-run from their
+                  last checkpoint via RELION --continue
                 </TooltipContent>
               </Tooltip>
-              {/* t289 — Re-run + mode door. t323 — the ▾ split button is
-                  RETIRED (the user's receipt: crowded text, the arrow could
-                  go): the primary Re-run button speaks local re-run and the
-                  Server icon right of it is the cluster door — no third
-                  control repeating both. */}
+            )}
+            {/* remote dispatch: same graph, same argv — the cluster executes it
+                (module load relion/<ver>, staging in, sync-back out). t289/t323 —
+                the icon opens the SAME dialog the Re-run button family uses. */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="relative size-7 shrink-0 text-muted-foreground hover:text-foreground before:absolute before:-inset-1.5 before:rounded-md before:content-['']"
+              onClick={() => setClusterRunOpen(true)}
+              aria-label="Run on cluster (SSH)"
+              title="Run on cluster (SSH)"
+            >
+              <Server className="size-3.5" aria-hidden="true" />
+            </Button>
+            <RemoteRunButton job={job} dialogOnly open={clusterRunOpen} onOpenChange={setClusterRunOpen} />
+            {/* t331 — intermediates cleanup (local + cluster): the eraser
+                door. Informational like the occupancy panel, destructive
+                only through its own two-step confirm. */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="relative size-7 shrink-0 text-muted-foreground hover:text-foreground before:absolute before:-inset-1.5 before:rounded-md before:content-['']"
+              onClick={() => setCleanupOpen(true)}
+              aria-label="Clean intermediates (local + cluster)"
+              title="Clean intermediates (local + cluster)"
+            >
+              <Eraser className="size-3.5" aria-hidden="true" />
+            </Button>
+            <CleanupDialog
+              job={job}
+              open={cleanupOpen}
+              onOpenChange={setCleanupOpen}
+              onCleaned={onCleaned}
+            />
+            <Separator orientation="vertical" className="mx-0.5 h-5 shrink-0" decorative />
+            <DialogClose asChild>
               <Button
+                variant="ghost"
                 size="sm"
-                disabled={busy}
-                onClick={() => setConfirmRerun(true)}
-                className="h-7 gap-1.5 bg-teal-600 px-3 text-xs text-white hover:bg-teal-700"
+                aria-label="Close inspector"
+                className="h-7 w-7 shrink-0 gap-0 rounded-md p-0 text-muted-foreground hover:bg-muted hover:text-foreground"
               >
-                {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Play className="size-3.5" />}
-                Re-run
+                <X className="size-4" aria-hidden="true" />
               </Button>
-            </>
-          ) : (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  disabled={busy}
-                  onClick={() => {
-                    setBusy(true);
-                    void stopJob(job.id).finally(() => setBusy(false));
-                  }}
-                  className="h-7 gap-1.5 px-2.5 text-xs text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/40"
-                >
-                  {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Square className="size-3.5" aria-hidden="true" />}
-                  <span>Stop</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                SIGTERM the process tree — refine-family jobs re-run from their
-                last checkpoint via RELION --continue
-              </TooltipContent>
-            </Tooltip>
-          )}
-          {/* remote dispatch: same graph, same argv — the cluster executes it
-              (module load relion/<ver>, staging in, sync-back out). t289/t323 —
-              the icon opens the SAME dialog the Re-run button family uses. */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="relative size-7 shrink-0 text-muted-foreground hover:text-foreground before:absolute before:-inset-1.5 before:rounded-md before:content-['']"
-            onClick={() => setClusterRunOpen(true)}
-            aria-label="Run on cluster (SSH)"
-            title="Run on cluster (SSH)"
-          >
-            <Server className="size-3.5" aria-hidden="true" />
-          </Button>
-          <RemoteRunButton job={job} dialogOnly open={clusterRunOpen} onOpenChange={setClusterRunOpen} />
-          {/* t331 — intermediates cleanup (local + cluster): the eraser
-              door. Informational like the occupancy panel, destructive
-              only through its own two-step confirm. */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="relative size-7 shrink-0 text-muted-foreground hover:text-foreground before:absolute before:-inset-1.5 before:rounded-md before:content-['']"
-            onClick={() => setCleanupOpen(true)}
-            aria-label="Clean intermediates (local + cluster)"
-            title="Clean intermediates (local + cluster)"
-          >
-            <Eraser className="size-3.5" aria-hidden="true" />
-          </Button>
-          <CleanupDialog
-            job={job}
-            open={cleanupOpen}
-            onOpenChange={setCleanupOpen}
-            onCleaned={onCleaned}
-          />
-        </div>
-      ) : null}
+            </DialogClose>
+          </div>
+        ) : (
+          <DialogClose asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label="Close inspector"
+              className="h-8 w-8 shrink-0 gap-0 rounded-md p-0 text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              <X className="size-4" aria-hidden="true" />
+            </Button>
+          </DialogClose>
+        )}
+      </div>
+
+      {/* meta strip — one calm line: job type, the t347 headline numbers
+          (particles first, teal — one size up from the muted text so they
+          lead the eye), timing, then the upstream lineage flowing to the
+          end (click any ancestor to hop to its inspector). The old stack
+          put type badge + counts + created + elapsed on one line AND the
+          lineage on another — two cramped 10-11px rows. */}
+      {/* NOTE: div, not <p> — the vertical Separators render <div>s and
+       * HTML forbids div-in-p (hydration error) */}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
+        <span className="font-medium text-foreground/70">{spec?.label ?? job.type}</span>
+        {countChips.map((c) => (
+          <React.Fragment key={c.key}>
+            <Separator orientation="vertical" className="h-3" decorative />
+            <span
+              data-header-count={c.key}
+              title={c.title}
+              className={cn("text-xs font-semibold tabular-nums", c.tone)}
+            >
+              {c.text}
+            </span>
+          </React.Fragment>
+        ))}
+        {running && job.startedAt && elapsed > 0 ? (
+          <>
+            <Separator orientation="vertical" className="h-3" decorative />
+            <span className="font-mono tabular-nums text-teal-600 dark:text-teal-400">
+              {formatElapsed(elapsed)} elapsed
+            </span>
+          </>
+        ) : null}
+        {!running && job.duration > 0 ? (
+          <>
+            <Separator orientation="vertical" className="h-3" decorative />
+            <span className="font-mono tabular-nums">{fmtDuration(job.duration)}</span>
+          </>
+        ) : null}
+        <Separator orientation="vertical" className="h-3" decorative />
+        <span>created {job.createdAt ? fmtAgo(job.createdAt) : "—"}</span>
+        <span className="ml-auto pl-1">
+          <LineageBreadcrumb job={job} />
+        </span>
+      </div>
 
       {/* Remote execution strip — mirrors the run's cluster context
           (connection + module + phase) while runRemote is attached to the
@@ -2963,6 +2970,13 @@ export function JobInspector() {
         data-inspector-dialog=""
         className="flex max-w-[min(1480px,96vw)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[min(1480px,96vw)] h-[min(940px,92dvh)] data-[state=open]:duration-300 print:[translate:none] print:[scale:none] print:[rotate:none]"
         aria-describedby={undefined}
+        /* t391 — Radix auto-focuses the FIRST focusable child on open (the
+           header's Focus button), and Radix tooltips open on focus — so
+           every inspector open birthed a ghost "Center this job on the
+           canvas" tooltip hovering over the meta line. Decline the
+           auto-focus: the dialog is a VIEWING surface (nothing to type),
+           Escape still closes, and the first Tab lands inside normally. */
+        onOpenAutoFocus={(e) => e.preventDefault()}
         onKeyDown={onEscapeClose(() => inspect(null))}
       >
         {job ? (
@@ -2980,7 +2994,7 @@ export function JobInspector() {
                     : "bg-gradient-to-r from-rose-600 via-rose-400 to-rose-600"
               )}
             />
-            <DialogHeader className="shrink-0 space-y-0 border-b px-5 pb-4 pt-4 sm:px-6">
+            <DialogHeader className="shrink-0 space-y-0 border-b px-5 pb-3 pt-4 sm:px-6">
               <DialogTitle asChild>
                 <div>
                   <span className="sr-only">{job.name} — job inspector</span>

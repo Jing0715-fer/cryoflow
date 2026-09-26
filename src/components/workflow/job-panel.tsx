@@ -433,10 +433,10 @@ function IOTab({ job, spec }: { job: JobDTO; spec: JobTypeSpec | undefined }) {
     );
 
   return (
-    <div className="space-y-4 p-3">
+    <div className="space-y-5 p-4">
       {/* Inputs */}
       <section aria-label="Inputs">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        <p className="mb-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Inputs
         </p>
         {inputs.length === 0 ? (
@@ -533,7 +533,7 @@ function ParamField({
   const inputId = `${idPrefix}-${p.key}`;
 
   return (
-    <div className="grid grid-cols-[104px_minmax(0,1fr)] items-start gap-x-2.5 sm:grid-cols-[136px_minmax(0,1fr)]">
+    <div className="grid grid-cols-[118px_minmax(0,1fr)] items-start gap-x-3 sm:grid-cols-[152px_minmax(0,1fr)]">
       <Label
         htmlFor={inputId}
         title={p.hint}
@@ -964,7 +964,7 @@ function ParamsTab({
   return (
     <Tabs defaultValue={allTabs[0] ?? "params"} className="flex min-h-0 flex-1 flex-col gap-0">
       {/* Inner RELION-style tab bar */}
-      <div className="shrink-0 overflow-x-auto border-b px-3 py-2">
+      <div className="shrink-0 overflow-x-auto border-b px-4 py-2">
         <TabsList className="h-7 w-max">
           {allTabs.map((t) => (
             <TabsTrigger key={t} value={t} className="h-6 px-2.5 text-[11px] whitespace-nowrap">
@@ -980,7 +980,7 @@ function ParamsTab({
         const advanced = inTab.filter((p) => p.advanced);
         return (
           <TabsContent key={t} value={t} className="mt-0 min-h-0 flex-1 overflow-y-auto">
-            <div className="space-y-3 p-3">
+            <div className="space-y-4 p-4">
               {/* 2D class selection: the gallery IS the parameter — clicks
                   rewrite selectedClasses through the same debounced save */}
               {spec?.key === "select2d" && t === allTabs[0] && (
@@ -1002,11 +1002,11 @@ function ParamsTab({
                 </p>
               )}
               {basic.length > 0 && (
-                <fieldset className="rounded-md border px-3 pb-3 pt-1">
+                <fieldset className="rounded-md border px-3.5 pb-3 pt-1.5">
                   <legend className="px-1.5 text-[11px] font-medium text-muted-foreground">
-                    Basic options
+                    Basic options{basic.length > 0 ? ` · ${basic.length}` : ""}
                   </legend>
-                  <div className="space-y-2">
+                  <div className="space-y-2.5">
                     {basic.map((p) => (
                       <ParamField
                         key={p.key}
@@ -1020,11 +1020,11 @@ function ParamsTab({
                 </fieldset>
               )}
               {advanced.length > 0 && (
-                <fieldset className="rounded-md border border-border/70 px-3 pb-3 pt-1">
+                <fieldset className="rounded-md border border-border/70 px-3.5 pb-3 pt-1.5">
                   <legend className="px-1.5 text-[11px] font-medium italic text-muted-foreground">
                     Expert options · {advanced.length}
                   </legend>
-                  <div className="space-y-2">
+                  <div className="space-y-2.5">
                     {advanced.map((p) => (
                       <ParamField
                         key={p.key}
@@ -1049,7 +1049,7 @@ function ParamsTab({
       {/* Auto-save status bar (parameters persist themselves — no manual
           Save button to forget; Reset reverts to the last saved values) */}
       <div className="shrink-0 border-t bg-card">
-        <div className="flex items-center justify-between gap-2 px-3 pt-2">
+        <div className="flex items-center justify-between gap-2 px-4 pt-2.5">
           <p className="text-[10px] text-muted-foreground">
             {params.length} parameters · RELION 5 defaults
           </p>
@@ -1805,7 +1805,7 @@ function CommandPreviewCompact({ job }: { job: JobDTO }) {
   return (
     <div
       data-canvas-ui="command-preview-panel"
-      className="shrink-0 space-y-1.5 border-t bg-muted/30 px-3 py-2.5"
+      className="shrink-0 space-y-1.5 border-t bg-muted/30 px-4 py-3"
     >
       <div className="flex items-baseline justify-between gap-2">
         <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">

@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # CryoFlow dev server on :3001 with the full runtime env injection.
 # Survives tool-call recycling via the setsid + immediate-exit pattern.
+# t391: node (not bun) is the runtime — bun's require fails to load
+# Turbopack's content-hashed externals (@prisma/client-<hash> →
+# "Failed to load external module" → every API route 500s on /api/jobs);
+# node resolves them fine (verified: home 200 + api 200).
 cd /home/z/cryoflow || exit 1
 if curl -sf -o /dev/null --max-time 3 http://localhost:3001/api/jobs; then
   echo "already running"
@@ -18,6 +22,6 @@ export PATH="/home/z/.venv/bin:/home/z/relion-install/bin:${PATH}"
 # (observed on the homepage compile, 2× on t300). Cap the old space so V8
 # GCs aggressively — a slow collect beats a SIGKILL.
 export NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--max-old-space-size=896"
-setsid /usr/local/bin/bun /home/z/cryoflow/node_modules/.bin/next dev -p 3001 > /home/z/cryoflow/scripts/dev-3001.log 2>&1 < /dev/null &
+setsid node /home/z/cryoflow/node_modules/.bin/next dev -p 3001 > /home/z/cryoflow/scripts/dev-3001.log 2>&1 < /dev/null &
 # script exits immediately → server re-parents to init → survives
 exit 0
