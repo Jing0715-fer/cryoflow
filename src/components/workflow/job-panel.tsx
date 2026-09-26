@@ -1221,16 +1221,20 @@ function ContinueField({
           remote={remoteBrowser}
         />
       )}
+      {/* t397 — width hardening: the attributed summary wraps and every
+          span can shrink (a long upstream job name must never push the
+          value column past the panel edge — the user's 「内容还是超出
+          窗口宽度」 receipt). */}
       {trimmed && (
-        <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
           {match ? (
             <>
-              <Check className="h-3 w-3 text-primary" aria-hidden="true" />
+              <Check className="h-3 w-3 shrink-0 text-primary" aria-hidden="true" />
               <span className="font-medium text-primary">
                 it {String(match.entry.iteration).padStart(3, "0")}
               </span>
               <span aria-hidden="true">·</span>
-              <span title={match.source.jobName}>
+              <span className="min-w-0 truncate" title={match.source.jobName}>
                 {match.source.archived
                   ? "this job · archived run"
                   : match.source.relation === "self"
@@ -1238,21 +1242,21 @@ function ContinueField({
                     : match.source.jobName}
               </span>
               <span aria-hidden="true">·</span>
-              <span>{match.source.lane === "remote" ? "cluster path" : "local path"}</span>
+              <span className="shrink-0">{match.source.lane === "remote" ? "cluster path" : "local path"}</span>
               {match.entry.newest && (
                 <>
                   <span aria-hidden="true">·</span>
-                  <span>newest complete round</span>
+                  <span className="shrink-0">newest complete round</span>
                 </>
               )}
             </>
           ) : (
             <>
-              <Terminal className="h-3 w-3 text-muted-foreground/80" aria-hidden="true" />
-              <span>custom path — passed to RELION&apos;s --continue as typed</span>
+              <Terminal className="h-3 w-3 shrink-0 text-muted-foreground/80" aria-hidden="true" />
+              <span className="min-w-0">custom path — passed to RELION&apos;s --continue as typed</span>
               <button
                 type="button"
-                className="ml-auto rounded px-1 text-[10px] text-muted-foreground transition-colors hover:text-destructive"
+                className="ml-auto shrink-0 rounded px-1 text-[10px] text-muted-foreground transition-colors hover:text-destructive"
                 onClick={() => onChange("")}
                 aria-label="Clear the continue-from path"
               >
@@ -1759,6 +1763,26 @@ function PanelBody({ job }: { job: JobDTO }) {
     }
   };
 
+  // t397 — the explicit continue state (the "Continue from here:" picker or
+  // a typed path → fn_cont). The BUTTON'S FACE follows the mode: a job with
+  // a chosen checkpoint says Continue (the user's receipt: after picking a
+  // round the button above must not keep saying Re-run — a re-run is the
+  // wipe-shaped world and must never fire by accident when a continue was
+  // meant: 「需要避免continue时误操作成re-run，从而导致文件被清」).
+  // The params auto-save is debounced ~700ms and the run flusher commits
+  // pending edits before dispatching, so the label lags at most a second
+  // while the ENGINE never races the choice.
+  const continueFrom =
+    typeof job.params?.fn_cont === "string" ? (job.params.fn_cont as string).trim() : "";
+  const hasContinueTarget = continueFrom !== "";
+  const ranBefore = job.status === "completed" || job.status === "failed";
+
+  // t397 — the fresh re-run needs a confirm when the job has run before
+  // (the wipe is real: the local lane clears the previous run's products,
+  // the cluster moves them into .cryoflow_prev). A CONTINUE (or a first
+  // run) goes straight through — the engine keeps the run_it* family then.
+  const [confirmRerun, setConfirmRerun] = React.useState(false);
+
   // t289 — the run-mode door. t323 — the ▾ menu is RETIRED (the user's
   // receipt: the button row felt crowded, the arrow could go): the primary
   // Run button speaks the project's own lane and the action row's server
@@ -1780,7 +1804,11 @@ function PanelBody({ job }: { job: JobDTO }) {
 
   const runButton = (
     <Button
-      className={cn("w-full", remotePrimaryRun && "border-violet-500/40")}
+      className={cn(
+        "w-full",
+        remotePrimaryRun && "border-violet-500/40",
+        hasContinueTarget && "border-emerald-500/50 hover:bg-emerald-500/10"
+      )}
       size="sm"
       disabled={
         job.status === "running" ||
@@ -1788,22 +1816,39 @@ function PanelBody({ job }: { job: JobDTO }) {
         (remotePrimaryRun ? false : runPending || relionBlocked)
       }
       onClick={() => {
-        if (remotePrimaryRun) setClusterRunOpen(true);
-        else void handleRun();
+        // t397 — mode-honest routing: a CONTINUE never asks (the engine
+        // keeps the run_it* checkpoint family); a fresh RE-RUN of a job
+        // that already ran confirms first (its products are wiped /
+        // archived); a first Run goes straight through.
+        if (remotePrimaryRun) {
+          setClusterRunOpen(true);
+        } else if (hasContinueTarget || !ranBefore) {
+          void handleRun();
+        } else {
+          setConfirmRerun(true);
+        }
       }}
       aria-describedby={relionBlocked && !remotePrimaryRun ? "job-relion-blocked-hint" : relionBridged ? "job-relion-bridge-hint" : undefined}
       title={
-        remotePrimaryRun
-          ? `Remote project — dispatch to ${projectRemote?.name ?? projectRemote?.host ?? "the cluster"} (pick the node/partition + GPU count)`
-          : job.linkedJobId != null
-            ? "Linked copies mirror their original — run the original job instead"
-            : job.status === "pending"
-              ? "Run — inputs will be re-checked before the run starts"
-              : undefined
+        job.linkedJobId != null
+          ? "Linked copies mirror their original — run the original job instead"
+          : hasContinueTarget
+            ? `Continue — RELION --continue from the checkpoint set in "Continue from here" (${continueFrom}). The run_it* iteration family in this job's run directory is PRESERVED and the run resumes from it. Clear the field to start fresh.`
+            : remotePrimaryRun
+              ? ranBefore
+                ? `Re-run from scratch on ${projectRemote?.name ?? projectRemote?.host ?? "the cluster"} — the previous run's products are moved aside (two generations kept); set "Continue from here" to resume instead`
+                : `Remote project — dispatch to ${projectRemote?.name ?? projectRemote?.host ?? "the cluster"} (pick the node/partition + GPU count)`
+              : job.status === "pending"
+                ? "Run — inputs will be re-checked before the run starts"
+                : ranBefore
+                  ? "Re-run from scratch — files the previous run generated are cleared first; set \"Continue from here\" to resume from a checkpoint instead"
+                  : undefined
       }
     >
       {runPending ? (
         <Loader2 className="animate-spin" aria-hidden="true" />
+      ) : hasContinueTarget ? (
+        <History aria-hidden="true" />
       ) : remotePrimaryRun ? (
         <Server aria-hidden="true" />
       ) : (
@@ -1813,16 +1858,23 @@ function PanelBody({ job }: { job: JobDTO }) {
           project's own lane (local / cluster-primary) and the Server icon
           right of it is the cluster door; a third control that repeated
           both only crowded the row (the user's receipt). Labels stay
-          one-word — the title carries the detail. */}
+          one-word — the title carries the detail.
+          t397 — the label speaks the MODE: Continue when a checkpoint is
+          set (the engine resumes and keeps the iteration family), Run /
+          Re-run otherwise. */}
       {job.linkedJobId != null
         ? "Linked copy"
-        : remotePrimaryRun
-          ? job.status === "completed" || job.status === "failed"
-            ? "Re-run on cluster"
-            : "Run on cluster"
-          : job.status === "completed" || job.status === "failed"
-            ? "Re-run"
-            : "Run"}
+        : hasContinueTarget
+          ? remotePrimaryRun
+            ? "Continue on cluster"
+            : "Continue"
+          : remotePrimaryRun
+            ? ranBefore
+              ? "Re-run on cluster"
+              : "Run on cluster"
+            : ranBefore
+              ? "Re-run"
+              : "Run"}
     </Button>
   );
 
@@ -1951,6 +2003,34 @@ function PanelBody({ job }: { job: JobDTO }) {
             <Server className="size-4" aria-hidden="true" />
           </Button>
           <RemoteRunButton job={job} dialogOnly open={clusterRunOpen} onOpenChange={setClusterRunOpen} />
+          {/* t397 — the fresh re-run confirm (the inspector's own, brought to
+              the panel): the previous run's products are cleared (local lane)
+              or archived (.cryoflow_prev, two generations — cluster lane)
+              before the new run starts. A CONTINUE skips this dialog by
+              design — the engine keeps the run_it* family then, and asking
+              would only teach that resuming is as destructive as restarting. */}
+          <AlertDialog open={confirmRerun} onOpenChange={setConfirmRerun}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Re-run {job.name} from scratch?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  The engine restarts from iteration 0: files the previous run generated in this
+                  job&apos;s run directory — on this machine and on the cluster — are cleared
+                  first (the cluster keeps two archived generations), then the job runs with the
+                  current parameters and upstream inputs. To resume from a checkpoint instead,
+                  cancel and set{" "}
+                  <span className="font-medium text-foreground">Continue from here</span> — the
+                  run then picks up from that round and the iteration files are kept.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={() => void handleRun()}>
+                  Start again
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
           <Button
             variant="ghost"
             size="icon"

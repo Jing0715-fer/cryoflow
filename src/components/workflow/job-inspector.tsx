@@ -29,6 +29,7 @@ import {
   Clock,
   Copy,
   Cpu,
+  History,
   Bug,
   Database,
   Download,
@@ -2308,6 +2309,12 @@ function InspectorHeader({
   const workspaces = useWorkflowStore((s) => s.workspaces);
   const switchWorkspace = useWorkflowStore((s) => s.switchWorkspace);
   const [confirmRerun, setConfirmRerun] = React.useState(false);
+  /** t397 — the explicit continue target ("Continue from here:" → fn_cont):
+   * the Re-run button + its confirm speak the MODE — Continue when set
+   * (the engine resumes and keeps the run_it* family), the wipe-teaching
+   * re-run dialog when not. */
+  const continueTarget =
+    typeof job.params?.fn_cont === "string" ? (job.params.fn_cont as string).trim() : "";
   /** t289/t323 — the cluster door beside the Re-run button (one dialog,
    *  two doors: the toolbar's server icon and the Re-run context both open
    *  it; the old ▾ mode menu is retired). */
@@ -2490,15 +2497,22 @@ function InspectorHeader({
                     RETIRED (the user's receipt: crowded text, the arrow could
                     go): the primary Re-run button speaks local re-run and the
                     Server icon right of it is the cluster door — no third
-                    control repeating both. */}
+                    control repeating both.
+                    t397 — the label speaks the MODE: a job with a
+                    "Continue from here" checkpoint says Continue (the engine
+                    resumes and KEEPS the run_it* family — asking the re-run
+                    wipe question there would mislabel the action). */}
                 <Button
                   size="sm"
                   disabled={busy}
                   onClick={() => setConfirmRerun(true)}
-                  className="h-7 gap-1.5 bg-teal-600 px-3 text-xs text-white hover:bg-teal-700"
+                  className={cn(
+                    "h-7 gap-1.5 bg-teal-600 px-3 text-xs text-white hover:bg-teal-700",
+                    continueTarget !== "" && "bg-emerald-600 hover:bg-emerald-700"
+                  )}
                 >
-                  {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Play className="size-3.5" />}
-                  Re-run
+                  {busy ? <Loader2 className="size-3.5 animate-spin" /> : continueTarget !== "" ? <History className="size-3.5" /> : <Play className="size-3.5" />}
+                  {continueTarget !== "" ? "Continue" : "Re-run"}
                 </Button>
               </>
             ) : (
@@ -2758,19 +2772,41 @@ function InspectorHeader({
         </div>
       ) : null}
 
-      {/* rerun confirm */}
+      {/* rerun confirm — t397: the dialog speaks the MODE. A CONTINUE
+          confirms the resumption (which round, what stays); a fresh re-run
+          keeps teaching the wipe (the user's fear: a continue that fires a
+          re-run clears the checkpoints「导致文件被清」— the two modes now
+          look, ask and behave differently). */}
       <AlertDialog open={confirmRerun} onOpenChange={setConfirmRerun}>
         {/* Escape peels ONE layer: this confirm floats on the inspector
             modal, and without the React-level consume both Radix roots
             dismiss on the same keypress (ui/dialog onEscapeClose) */}
         <AlertDialogContent onKeyDown={onEscapeClose(() => setConfirmRerun(false))}>
           <AlertDialogHeader>
-            <AlertDialogTitle>Re-run {job.name}?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {continueTarget !== "" ? `Continue ${job.name}?` : `Re-run ${job.name}?`}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              The engine restarts from scratch: files the previous run generated in this job&apos;s
-              run directory — on this machine and on the cluster — are cleared first, then the job
-              runs with the current parameters and upstream inputs. Existing downstream results stay
-              on disk until those jobs re-run.
+              {continueTarget !== "" ? (
+                <>
+                  The run picks up from the checkpoint set in "Continue from here" via RELION&apos;s{" "}
+                  <span className="font-mono text-[11px]">--continue</span> — the{" "}
+                  <span className="font-mono text-[11px]">run_it*</span> iteration family in this
+                  job&apos;s run directory is preserved and the refinement resumes from that round.
+                  The chosen path rides as-is:
+                  <span className="block break-all pt-1 font-mono text-[10px] text-muted-foreground">
+                    {continueTarget}
+                  </span>
+                </>
+              ) : (
+                <>
+                  The engine restarts from scratch: files the previous run generated in this job&apos;s
+                  run directory — on this machine and on the cluster — are cleared first, then the job
+                  runs with the current parameters and upstream inputs. Existing downstream results stay
+                  on disk until those jobs re-run. To resume from a checkpoint instead, cancel and set
+                  "Continue from here".
+                </>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -2781,7 +2817,7 @@ function InspectorHeader({
                 void runJob(job.id).finally(() => setBusy(false));
               }}
             >
-              Start again
+              {continueTarget !== "" ? "Continue" : "Start again"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

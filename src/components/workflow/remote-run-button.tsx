@@ -174,6 +174,12 @@ export function RemoteRunButton({
   // locked) target: the project's picked input paths are absolute on THAT
   // cluster — another connection would strand the data.
   const projectRemote = useWorkflowStore((s) => s.project?.remote ?? null);
+  /** t397 — the explicit continue target ("Continue from here:" → fn_cont):
+   * the dialog's title/description speak the MODE (Continue vs Run), and
+   * the dispatch itself rides RELION's --continue with the run_it* family
+   * kept (the engine's keepIterations gate judges the argv). */
+  const continueTarget =
+    typeof job.params?.fn_cont === "string" ? (job.params.fn_cont as string).trim() : "";
 
   const [connId, setConnId] = React.useState("");
   const [module, setModule] = React.useState("");
@@ -679,7 +685,7 @@ export function RemoteRunButton({
             <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
               <Server className="size-4" aria-hidden="true" />
             </span>
-            Run on cluster
+            {continueTarget !== "" ? "Continue on cluster" : "Run on cluster"}
           </DialogTitle>
           <DialogDescription className="space-y-1">
             <span className="flex flex-wrap items-center gap-2">
@@ -695,7 +701,9 @@ export function RemoteRunButton({
               className="block text-xs leading-snug"
               title="Stage the inputs over SSH, load the chosen relion module, and submit — key files sync back when it lands."
             >
-              SSH-stage inputs → load module → submit; key files sync back.
+              {continueTarget !== ""
+                ? "SSH-stage inputs → load module → submit — RELION --continue rides the chosen checkpoint and the run_it* family stays."
+                : "SSH-stage inputs → load module → submit; key files sync back."}
             </span>
           </DialogDescription>
         </DialogHeader>

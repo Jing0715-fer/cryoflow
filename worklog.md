@@ -3779,3 +3779,28 @@ Stage Summary:
 - 验证：diag 32/32 + 三套件回归（49+89+127）+ 浏览器 QA 双零错误 + 线上字节数实测
 - 未解决/风险：① t381 的 5 个预存失败（t386 VDAM 重构套件漂移）待专项对齐 ② prod 模式建议不变（用户 Windows 机无此约束）③ OOM 顽疾缓解未根治（本轮三轮重 diag 后 RSS 902MB，余量健康）④ Inspector 懒 chunk 首开骨架（t392 遗留④）未做——模态标签内容一帧 shimmer 可接受 ⑤ slurm sbatch 包裹预览（t375 遗留）未做
 - 下一阶段候选：① t381 套件漂移对齐（把断言更新到 t386 后的世界）② Inspector 首开骨架 ③ slurm sbatch 包裹 ④ prod 模式试点
+
+---
+Task ID: t397
+Agent: main (Z.ai Code)
+Task: 用户工单（四联）— 「内容还是超出窗口宽度了，还是没有检测到可以继续的star文件，手动选择后感觉好像上方的run也没有变成continue，需要避免continue时误操作成re-run，从而导致文件被清」— the interrupted t397 round (found as an uncommitted, half-written wrong diagnosis in the tree) completed on a corrected footing
+
+Work Log:
+- [环境] 会话从上一窗口接续（上下文耗尽）：树里有未提交的 t397 半成品（continue-sources.ts 的 runOutputRoot 助手 + 一段自相矛盾的诊断注释），dev :3000 运行中（node 宿主）；沙盒再次收割后 /home/user 已不存在——真实项目在 /home/z/cryoflow
+- [取证 — RELION 源码级判决，推翻树中半成品的结论] 上一窗口的诊断说「rounds 在 <workdir>/run/ 下一层」——curl 拉 RELION 5 源码（ml_optimiser.cpp: fn_root.compose(fn_out+"_it", iter, "", 3)；filename.cpp: compose() 直接把零填充迭代号拼在字符串后）证明：`run_itNNN_optimiser.star` 就是 `<--o>_itNNN_optimiser.star`——"--o <workdir>/run" 时 "run" 是文件名词干，目录部分取最后一个斜杠之前 → rounds 落在 **WORKDIR 根**。半成品的注释自己都自相矛盾（前提推不出结论），幸而从未接线。mock relion_refine 剥 "/run" 后写在根——恰好忠实于真 RELION
+- [检测失效的真机制] 活体夹具（mock :3022 + 真 SSH 连接 + 完成态 refine3d 记录 + 根层 gold-standard 轮族）证明扫描机制本身全通：根层轮 it025 complete+newest、it026 torn 禁用、API 判决逐项正确；记录清空（Reset & edit 后）走 t396 派生路径同样全通。用户侧「检测不到」的最可能残余 = 轮族不在 app 所知的 workdir 里（手动跑的 RELION / 异构 --o 约定）——这正是 Browse/手输两扇门存在的意义（用户已成功用它们选中了文件）
+- [修复 A — continue-sources.ts 的梯子] 重写 t397 注释（保留 runOutputRoot 助手、纠正语义）；scanLocalWorkdir / scanRemoteWorkdir / scanRemoteArchiveNewestGen 三处统一上梯子：**根层先行**（本 app 派发的真实形状），根层零轮时多付一 readdir / 一轮 SSH find 扫 `run/` 子目录（异构约定兜底），子目录缺席静默（正常世界不建它）；t394 的「每 source 一轮 SSH」契约在常见路径不变
+- [修复 B — resumableOptimiser] 同款梯子（根层先行 → run/ 兜底），返回真实检查点路径喂给 --continue；对异构形状的续跑自愈到根层（--o 仍指 <workdir>/run）
+- [修复 C — iterationFamilyOf] 接受恰好一层 `run/run_it###_<suffix>` 为迭代族（保持 keepIterations 擦除安全契约对 run/ 形状成立——否则兜底形状里选中的轮会被 .star 扩展名一刀擦掉，正是用户怕的「continue 误成 re-run 导致文件被清」的引擎侧漏洞）；其他嵌套/归档照旧非法。bun 活体单检：7 例形状 + keepIterations 保族/无旗擦族全过
+- [修复 D — Run→Continue 按钮 + 面板确认框] job-panel：fn_cont 非空时主按钮换脸——本地道 Continue（History 图标）/ 集群主道 Continue on cluster，emerald 边框，title 讲清「run_it* 族保留、从所选轮续跑、清空则 fresh」；本地道对**已跑过且无 continue 目标**的 fresh re-run 弹确认框（镜像 inspector 既有方言 + 教「要续跑请设 Continue from here」）；continue/首跑直通不打扰。job-inspector：按钮同款换脸，确认框双模态（Continue: 讲保留与路径；Re-run: 原擦除教育 + 指路 continue）。remote-run-button 集群对话框标题/描述随模态
+- [修复 E — 宽度收尾] 属性摘要行（it 025 · this job · cluster path · newest complete round）补 min-w-0/flex-wrap/truncate——长上游名不再可能推挤值列。全宽度活体测量（1280/1100/1024/900/768/640/500/390）：documentElement 零横溢；唯一越过视口的是 RELION 内层 tab 条——位于 overflow-x-auto 容器内（可滚，非溢出）；命令预览 pre 297px/357px 父内换行正常
+- [运维事故两则] ①夹具首稿把 ISO 字符串写进 SQLite DATETIME 列 → Prisma P2023 毒化整表（findMany 全 500）——清理 + 夹具改写 epoch-ms + 自愈 DELETE；②自重启 dev server 时漏了 CRYOFLOW_TRUST_GATEWAY=1 → 用户预览会话的 /api/system、/api/projects、/api/remote/connections 全 403——按 scripts/dev-server.sh 规程重启（NODE_OPTIONS 896MB 上限 + TRUST_GATEWAY + 数据路径钉死）后全 200；期间一次 OOM（t394 套件 + dev + mock + 浏览器并行超 4GB 盒）以同规程复活
+- [验证] tsc 0 ×3；触碰文件 eslint 0；t394-continue-rounds 62/62（含梯子后根层夹具不回归）；test-resume-checkpoint 17/17；t385-stash-wipe 48/48；t386 119/119；t387-dup-audit clean；diag-t333 活体腿需 :3001 standalone（沙盒勿 build 的既有偏差，单元腿由上述套件覆盖）；活体 API 探针：根层形状 + run/ 兜底形状 + 记录清空派生形状三世界轮族判决全对；浏览器：inspector Continue 按钮 + Continue 确认框（含路径回显）实测、面板 Rounds 下拉列轮（含 torn 禁用）、全宽度零横溢、console/page 零错误；VLM 截图审查因上游 429 未跑成（记录在案，DOM 度量代替）
+- [清场] 夹具工件全清（job 行 / mock workdir 轮 / engine-state / 本地镜像 / 演示项目的 remote 绑定 / 连接注册表——合并式夹具脚本 scripts/t397-fixture.sh 留档可重放）；用户预览会话中新造的项目与任务未受任何触碰
+
+Stage Summary:
+- 产出：检测梯子（根层=真形状先行，run/ 兜底；扫描三处 + auto-resume 同法）+ iterationFamilyOf 的 run/ 族承认（擦除安全契约闭合）+ Run→Continue 全门换脸（面板/inspector/集群对话框）+ fresh re-run 确认框（面板补齐 inspector 方言）+ 摘要行宽度加固
+- 验证：四套件回归（62+17+48+119）+ t387 audit clean + tsc/eslint 0 + 三世界活体 API 判决 + 浏览器交互实测 + 全宽度零横溢
+- 用户复机路径：git pull 后——继续之前跑过的 refine 任务：打开任务的 inspector/面板 → 「Continue from here」轮族下拉（或 Browse 手选）→ 主按钮变 Continue（绿框）→ 点击直接续跑（run_it* 族保留）；fresh re-run（不设 continue）会先弹确认框讲清擦除再放行
+- 诚实边界：①「检测不到」的根因判决是机制全通 + 用户侧轮族不在已知 workdir（异构约定）——梯子只兜 run/ 一种异构，更野的手动布局仍走 Browse 门（设计如此）②VLM 视觉审查因 429 未跑（DOM 度量代替）③diag-t333 活体腿未跑（无 standalone，既往偏差类）④本沙盒中 mock 集群与演示连接为 QA 专设，用户本地机无此物
+- 运维修复：dev server 重启必须走 scripts/dev-server.sh（TRUST_GATEWAY + 896MB 堆上限 + 路径钉死）——裸 bun run dev 会 403 掉网关预览会话

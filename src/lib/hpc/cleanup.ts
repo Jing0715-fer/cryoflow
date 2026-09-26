@@ -276,14 +276,25 @@ export function globToRegExp(glob: string): RegExp {
 /* The keep-set                                                         */
 /* ------------------------------------------------------------------ */
 
-/** `run_it###_<suffix>` at the workdir root → [iteration, family suffix]. */
+/** `run_it###_<suffix>` at the workdir root → [iteration, family suffix].
+ * t397 — the --o output SUBDIR is recognised too: `run/run_it###_<suffix>`
+ * (exactly one level, the subdir this app's `--o <workdir>/run` basename
+ * convention names) counts as the iteration family, so the wipe-side
+ * keepIterations contract (an explicit --continue whose target lives in
+ * this workdir keeps its checkpoints) holds for a round picked from the
+ * run/-shaped fallback as well. Deeper/other nesting stays NOT RELION's
+ * dialect (the archive is judged by isRunArchivePath before this law
+ * anyway). */
 export function iterationFamilyOf(
   path: string
 ): { iter: number; suffix: string } | null {
-  const m = /^run_it(\d+)_(.+)$/.exec(path.includes("/") ? path.split("/").pop()! : path);
+  const oneLevel = /^run\/(run_it\d+_.+)$/.exec(path);
+  const name = oneLevel ? oneLevel[1] : path.includes("/") ? path.split("/").pop()! : path;
+  const m = /^run_it(\d+)_(.+)$/.exec(name);
   if (!m) return null;
-  // only at the ROOT: a nested run_it### file is not RELION's dialect
-  if (path.includes("/")) return null;
+  // only at the ROOT (or the run/ output subdir above): any other nested
+  // run_it### file is not RELION's dialect
+  if (path.includes("/") && !oneLevel) return null;
   return { iter: Number(m[1]), suffix: m[2] };
 }
 

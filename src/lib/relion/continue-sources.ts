@@ -106,6 +106,48 @@ export interface ContinueSource {
 const OPTIMISER_RE = /^run_it(\d+)_optimiser\.star$/i;
 
 /**
+ * t397 — the output-root ladder for the round scans.
+ *
+ * WHERE a refine-family dispatch writes its rounds is a fact about the
+ * --o it was handed, and the t394–t396 pickers read only ONE shape. This
+ * app's own argv carries `--o <workdir>/run` (engine.ts outPath(ctx,
+ * "run"), both lanes), and RELION's filename law (filename.cpp
+ * FileName::compose + ml_optimiser.cpp's `fn_root.compose(fn_out+"_it",
+ * iter, "", 3)`) makes `run_itNNN_optimiser.star` literally
+ * `<--o>_itNNN_optimiser.star` — the "run" in the filename is the --o
+ * BASENAME, and the DIRECTORY part is everything before its last slash.
+ * So a dispatch of ours writes its rounds at the WORKDIR ROOT
+ * (`<workdir>/run_itNNN_optimiser.star`) — exactly what the pickers
+ * always scanned. (An earlier draft of this comment claimed the rounds
+ * lived one level deeper, under `<workdir>/run/` — that conclusion does
+ * not follow from RELION's source and is retracted; the compose()
+ * forensics above is the ground truth, live-verified against
+ * ml_optimiser.cpp + filename.cpp.)
+ *
+ * The ladder exists for the shapes a WORKDIR can still honestly hold:
+ * a run dispatched by a foreign convention (a hand-typed pipeliner-style
+ * `--o <workdir>/run/` in some spelling, an older tool, a manual run
+ * somebody seeded) can leave the round family under a `run/` SUBDIR —
+ * `ls <workdir>/run_it*` then answers nothing while the user's
+ * checkpoints visibly exist (「还是没有检测到可以继续的star文件」).
+ * So: the ROOT scan answers first (our dispatches' real shape); when it
+ * finds ZERO rounds, the `run/` subdir is scanned as the fallback and
+ * its hits are merged in. Both lanes + the t395 archive generation walk
+ * the same ladder, and the wipe-side law (iterationFamilyOf) recognises
+ * `run/run_it###_*` as the iteration family so an explicit --continue
+ * picked from the fallback shape keeps its checkpoints alive through a
+ * fresh-start wipe (the t394 keepIterations contract).
+ */
+export const RUN_OUTPUT_SUBDIR = "run";
+
+/** The --o output root under a workdir (POSIX join — remote lanes speak
+ * cluster paths; the local caller wraps path.join itself). */
+export function runOutputRoot(workdir: string): string {
+  const root = workdir.endsWith("/") && workdir.length > 1 ? workdir.slice(0, -1) : workdir;
+  return `${root}/${RUN_OUTPUT_SUBDIR}`;
+}
+
+/**
  * PURE — analyse a directory's file-name set into round entries,
  * newest-first. Shared by both lanes (the local mirror's readdirSync and
  * the remote listing's find lines) so the completeness law cannot drift
@@ -154,6 +196,12 @@ export function optimiserRoundsFromNames(
  * error: "the directory is not there" is a fact the CALLER interprets
  * (a run-record row says wiped; a derived row says never-ran), not a
  * failure of the scan.
+ * t397 — the ladder: the ROOT scan answers first (this app's dispatches
+ * write `<workdir>/run_it*` — RELION's --o basename law); a root with
+ * zero rounds falls through to the `run/` SUBDIR (a foreign --o
+ * convention can leave the round family one level deeper). Both scans'
+ * entries are MERGED (root rounds first — a workdir holding both shapes
+ * speaks the root as the live generation).
  */
 export function scanLocalWorkdir(
   workdir: string,
@@ -170,25 +218,47 @@ export function scanLocalWorkdir(
     return { entries: [], error: "workdir is unreadable (or was wiped) on this machine" };
   }
   const nameSet = new Set(names);
-  const entries = optimiserRoundsFromNames(
+  const statOf = (n: string) => {
+    try {
+      return statSync(path.join(workdir, n));
+    } catch {
+      return null;
+    }
+  };
+  let entries = optimiserRoundsFromNames(
     nameSet,
     type,
     (n) => path.join(workdir, n),
-    (n) => {
-      try {
-        return statSync(path.join(workdir, n)).size;
-      } catch {
-        return 0;
-      }
-    },
-    (n) => {
-      try {
-        return statSync(path.join(workdir, n)).mtimeMs;
-      } catch {
-        return undefined;
-      }
-    }
+    (n) => statOf(n)?.size ?? 0,
+    (n) => statOf(n)?.mtimeMs
   );
+  if (entries.length === 0) {
+    // t397 — the run/ fallback: one readdir, zero SSH, only when the
+    // root held no rounds at all. Its absence is not an error (this
+    // app's own dispatches never create the subdir).
+    try {
+      const sub = path.join(workdir, RUN_OUTPUT_SUBDIR);
+      const subNames = readdirSync(sub);
+      const subSet = new Set(subNames);
+      const subStat = (n: string) => {
+        try {
+          return statSync(path.join(sub, n));
+        } catch {
+          return null;
+        }
+      };
+      const subEntries = optimiserRoundsFromNames(
+        subSet,
+        type,
+        (n) => path.join(sub, n),
+        (n) => subStat(n)?.size ?? 0,
+        (n) => subStat(n)?.mtimeMs
+      );
+      if (subEntries.length > 0) entries = subEntries;
+    } catch {
+      /* no run/ subdir — the normal world */
+    }
+  }
   return { entries };
 }
 
@@ -199,6 +269,10 @@ export function scanLocalWorkdir(
  * deeper and never answers). Paths are CLUSTER paths. t396 — `notDir`
  * answers raw ("the directory is not there"); the caller decides what
  * that means for its row.
+ * t397 — the ladder: the root find answers first (this app's dispatch
+ * shape); ZERO root rounds pays ONE more SSH round on the `run/` subdir
+ * (the foreign --o convention). The subdir's absence is silent (the
+ * normal world — our dispatches never create it).
  */
 async function scanRemoteWorkdir(
   connectionId: string,
@@ -215,18 +289,37 @@ async function scanRemoteWorkdir(
   if (res.notDir) {
     return { entries: [], notDir: true };
   }
-  const nameSet = new Set<string>(res.entries.map((e) => e.name));
-  const sizeBy = new Map<string, number>(
-    res.entries.map((e): [string, number] => [e.name, e.size ?? 0])
-  );
+  let rawEntries = res.entries;
+  let truncated = res.truncated;
+  if (rawEntries.length === 0) {
+    // t397 — the run/ fallback: one more find round, paid only when the
+    // root held no rounds at all.
+    try {
+      const sub = await listRemoteDir(connectionId, runOutputRoot(remoteWorkdir), "run_it*", {
+        timeoutMs: 20_000,
+      });
+      if (!sub.notDir && sub.entries.length > 0) {
+        rawEntries = sub.entries;
+        truncated = truncated || sub.truncated;
+      }
+    } catch {
+      /* no run/ subdir (or the round died) — the root's verdict stands */
+    }
+  }
   const root = trimSlash(remoteWorkdir);
+  const scannedDir =
+    rawEntries === res.entries ? root : runOutputRoot(root);
+  const nameSet = new Set<string>(rawEntries.map((e) => e.name));
+  const sizeBy = new Map<string, number>(
+    rawEntries.map((e): [string, number] => [e.name, e.size ?? 0])
+  );
   const entries = optimiserRoundsFromNames(
     nameSet,
     type,
-    (n) => `${root}/${n}`,
+    (n) => `${scannedDir}/${n}`,
     (n) => sizeBy.get(n) ?? 0
   );
-  return { entries, ...(res.truncated ? { truncated: true } : {}) };
+  return { entries, ...(truncated ? { truncated: true } : {}) };
 }
 
 /** Trim ONE trailing slash (cluster workdir spelling). */
@@ -292,17 +385,36 @@ async function scanRemoteArchiveNewestGen(
     return { entries: [], genDir, error: `cluster listing failed: ${msg}` };
   }
   if (res.notDir) return { entries: [], genDir }; // named dir vanished (reaper won the race) — honest silence
-  const nameSet = new Set<string>(res.entries.map((e) => e.name));
+  let rawEntries = res.entries;
+  let truncated = res.truncated;
+  if (rawEntries.length === 0) {
+    // t397 — the same run/ ladder inside the generation (a whole-tree
+    // stash of a run/-shaped workdir preserves the subdir; a per-file
+    // stash of a root-shaped one does not — read whichever exists).
+    try {
+      const sub = await listRemoteDir(connectionId, runOutputRoot(genDir), "run_it*", {
+        timeoutMs: 20_000,
+      });
+      if (!sub.notDir && sub.entries.length > 0) {
+        rawEntries = sub.entries;
+        truncated = truncated || sub.truncated;
+      }
+    } catch {
+      /* no run/ inside the generation — the root's verdict stands */
+    }
+  }
+  const scannedDir = rawEntries === res.entries ? genDir : runOutputRoot(genDir);
+  const nameSet = new Set<string>(rawEntries.map((e) => e.name));
   const sizeBy = new Map<string, number>(
-    res.entries.map((e): [string, number] => [e.name, e.size ?? 0])
+    rawEntries.map((e): [string, number] => [e.name, e.size ?? 0])
   );
   const entries = optimiserRoundsFromNames(
     nameSet,
     type,
-    (n) => `${genDir}/${n}`,
+    (n) => `${scannedDir}/${n}`,
     (n) => sizeBy.get(n) ?? 0
   );
-  return { entries, genDir, ...(res.truncated ? { truncated: true } : {}) };
+  return { entries, genDir, ...(truncated ? { truncated: true } : {}) };
 }
 
 /** A scan target: WHICH workdir (in which lane) holds this job's rounds. */

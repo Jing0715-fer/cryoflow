@@ -8396,27 +8396,38 @@ export function resumableOptimiser(
   workdir: string,
   type = ""
 ): { file: string; iteration: number } | null {
-  try {
-    // one readdir feeds BOTH the optimiser scan and the t395 dialect
-    // detection (gold halves / VDAM moments are named files like any other)
-    const all = readdirSync(workdir);
-    const nameSet = new Set(all);
-    const matches = all
-      .map((n) => {
-        const m = n.match(/^run_it(\d+)_optimiser\.star$/i);
-        return m ? { file: path.join(workdir, n), iteration: Number(m[1]) } : null;
-      })
-      .filter((x): x is { file: string; iteration: number } => x != null);
-    matches.sort((a, b) => b.iteration - a.iteration);
-    for (const candidate of matches) {
-      const it = String(candidate.iteration).padStart(3, "0");
-      const ok = continueCompanions(type, it, nameSet).every((f) => nameSet.has(f));
-      if (ok) return candidate;
+  // t397 — the same ladder the picker's scans walk: the WORKDIR ROOT is
+  // this app's dispatch shape (RELION's --o basename law puts
+  // `run_it###_*` next to the `run` stem — see continue-sources.ts); a
+  // root with no usable checkpoint falls through to the `run/` SUBDIR
+  // (a foreign --o convention). The returned path is the checkpoint's
+  // REAL location, so the resume branch's --continue speaks it as-is.
+  const scanOne = (dir: string): { file: string; iteration: number } | null => {
+    try {
+      // one readdir feeds BOTH the optimiser scan and the t395 dialect
+      // detection (gold halves / VDAM moments are named files like any other)
+      const all = readdirSync(dir);
+      const nameSet = new Set(all);
+      const matches = all
+        .map((n) => {
+          const m = n.match(/^run_it(\d+)_optimiser\.star$/i);
+          return m ? { file: path.join(dir, n), iteration: Number(m[1]) } : null;
+        })
+        .filter((x): x is { file: string; iteration: number } => x != null);
+      matches.sort((a, b) => b.iteration - a.iteration);
+      for (const candidate of matches) {
+        const it = String(candidate.iteration).padStart(3, "0");
+        const ok = continueCompanions(type, it, nameSet).every((f) => nameSet.has(f));
+        if (ok) return candidate;
+      }
+      return null;
+    } catch {
+      return null;
     }
-    return null;
-  } catch {
-    return null;
-  }
+  };
+  const rootHit = scanOne(workdir);
+  if (rootHit) return rootHit;
+  return scanOne(path.join(workdir, "run"));
 }
 
 /** Refine-family job types that support RELION's --continue. */
