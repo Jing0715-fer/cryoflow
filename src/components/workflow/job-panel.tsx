@@ -70,7 +70,6 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { HpcSbatchDialog } from "./hpc-sbatch-dialog";
 import { RemoteRunButton } from "./remote-run-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -2031,7 +2030,18 @@ function PanelBody({ job }: { job: JobDTO }) {
               <span className="flex min-w-0 flex-1 inline-flex">{runButton}</span>
             )}
           </div>
-          <HpcSbatchDialog jobId={job.id} compact />
+          {/* t399 — the HPC/Slurm dry-run button is RETIRED from this row.
+              It never dispatched anything: it GENERATED a copy-paste
+              sbatch script (a brochure, not a run), while the Server icon
+              right of it actually executes on the cluster over SSH —
+              Slurm included (real sbatch submission, live queue state,
+              sync-back). Two Server glyphs in one row only taught
+              confusion, and its 38px was the difference between the
+              primary button's longest face — "Continue on cluster" —
+              fitting (195px ≥ 185px needed) and clipping (157px, the
+              user's receipt). The dialog components and /api/hpc routes
+              stay in the tree, dormant, should a tools-menu home for the
+              dry-run generator ever be wanted. */}
           {/* t289/t323 — the server icon opens the SAME dialog the primary
               Run button opens in remote-primary projects (one RemoteRunButton
               instance, dialogOnly + controlled). */}

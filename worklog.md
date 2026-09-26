@@ -3851,3 +3851,25 @@ Stage Summary:
 - 验证：tsc/eslint 0 + t394 62/62 + 三档宽度零溢出 + 全交互流实测 + 暗色模式 + 零 console/page 错误
 - 用户复机路径：git pull → 打开 refine 族任务面板 → Continue from here 字段：整行宽度、单行控件、选中轮的 emerald chips 归属一目了然
 - 诚实边界：①VLM 视觉复核因上游 429 未跑（DOM 度量代替，第三次同偏差）②Browse 图标化为有意的宽度取舍（文字标签会让输入框退回 sliver）③engine 侧套件未全跑（本轮零触碰 src/lib——仅 job-panel.tsx UI，t394 抽检作 hygiene）
+
+---
+Task ID: t399
+Agent: main (Z.ai Code)
+Task: 用户工单（双联）— 「continue on cluster按钮中文字有些要放不下了，HPC/slurm提交的按钮目前是不是没有什么实际作用，可以先移除？」
+
+Work Log:
+- [诊断 — DOM 度量定谳] 面板动作行实测 347px：主按钮（flex-1 min-w-0）被五个图标按钮挤到 **157px**，而 "Continue on cluster"（text-sm 14px Geist + History 图标 + gap-1.5 + px-2.5）按 Range 直测需要 **179px** — scrollWidth 158 > clientWidth 157，文字当场裁切（用户所见「要放不下了」）。五个图标：HPC sbatch 干跑 / Server 真集群 / Reset / Log / Delete
+- [判决 — HPC 按钮的作用] HpcSbatchDialog 从不派发任何东西：它只按 /api/hpc/profiles 的「集群档案」生成一份可复制粘贴的 sbatch 脚本（dry-run 手册），与旁边 Server 图标按钮的真集群执行（SSH staging → module load → 真实 sbatch 提交 → 轮询 → 同步回）功能重叠且造成同一行两个 Server 图标的混淆 — 用户直觉正确，移除
+- [修复 A — 移除] job-panel.tsx 动作行删 <HpcSbatchDialog compact /> + 其 import；t399 receipt 注释留在原位（讲清为何退休、组件与 /api/hpc 路由留在树中休眠，日后若要给干跑生成器找工具菜单的家可直接复用）。hpc-sbatch-dialog.tsx / hpc-profiles-editor.tsx / hpc-queue-sim.tsx / api/hpc 三路由全部原样保留（无引用者但 tsc/eslint 干净 — qc-report.ts 与 download.ts 仅历史注释提及）
+- [修复 B — 文字放得下了] 移除的 38px 全部归主按钮：157px → **195px**（Geist 经 next/font 打包，字宽度跨机器确定，非运气）。347 − 4×32 图标 − 4×6 间距 = 195 ≥ 179，**16px 裕量**
+- [验证·编译] tsc 0；触碰文件 eslint 0
+- [验证·浏览器 1280×800] 主按钮 195px，Range 直测内容+内边距 179px → fits ✓ 裕量 16px；动作行枚举 = [Continue on cluster 195px | Run on cluster (SSH) 32 | Reset 32 | Log 32 | Delete 32]；sbatch 按钮在 DOM/a11y 树中消失 ✓
+- [验证·模式切换] clear Continue 字段 → 面孔 "Run on cluster"（143px need / 52px 裕量）→ Rounds 下拉重选 it025 → 面孔回 "Continue on cluster"（179/195 fits）— t397 的双向换脸契约不受影响
+- [验证·移动 390×844] Sheet 变体：按钮 205px / 需 179px / 裕量 26px；documentElement 零横溢
+- [验证·卫生] console 零错误（仅 Fast Refresh 日志）、page errors 零；"Re-run on cluster"（17 字符）比最长面孔短 ~12px，算术上同样放得下
+- [诚实边界] ①VLM 视觉复核未跑（上游 429 连续三轮的既有偏差，Range/DOM 度量代之且确定性）②引擎侧套件未跑（零触碰 src/lib — 单文件 UI 删改，tsc+lint+浏览器全覆盖）③HPC 干跑生成器现在无 UI 入口但代码保留 — 若用户确认永不再要，下一轮可整树删除
+
+Stage Summary:
+- 产出：HPC/slurm 干跑按钮从面板动作行退休（38px 归还主按钮）+ "Continue on cluster" 文字 179px 需求 vs 195px 实得（16px 裕量，Geist 确定性）
+- 验证：双档宽度（1280 桌面 / 390 Sheet）fits + 零横溢 + 面孔双向切换不受影响 + 零 console/page 错误 + tsc/eslint 0
+- 用户复机路径：git pull → 面板动作行只剩一个 Server 图标（真集群派发）→ Continue on cluster 完整显示不裁切
