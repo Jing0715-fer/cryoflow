@@ -3830,3 +3830,24 @@ Stage Summary:
 - 复验结论：四联问题（star 检测 / Run→Continue / 宽度 / 防误清）在活体浏览器逐项通过
 - 用户复机路径：git pull → 打开之前跑过的 refine 任务 → Reset & edit（如需改参数）→ Params 标签的 Continue from here 下拉选轮 → 主按钮变 Continue（绿框）→ 点击直接续跑（run_it* 族保留）；不设 continue 的重跑会先弹确认框讲清擦除/归档语义
 - 安全提醒已在对话中两次给出：所提供的 GitHub PAT 已在聊天中暴露，推送完成后应立即在 GitHub Settings → Developer settings → Personal access tokens 撤销
+
+---
+Task ID: t398
+Agent: main (Z.ai Code)
+Task: 用户工单 — 「continue这里的UI布局还要优化一下，目前太难看了」— the Continue-from-here picker's layout round
+
+Work Log:
+- [诊断 — DOM 度量定谳] 值列实测 153px（1440 视口 / 380px 面板 / 152px 标签列）：输入框只显示十几个字符、Rounds+Browse 两按钮被 flex-wrap 折成两行（h=70px）、摘要行折成三行 10px 小字（h=61px）——一个字段占地 ~170px，与旁边 32px 的单行字段形成巨大反差。VLM 全程 429（t397 已记录的偏差级），a11y 树 + getBoundingClientRect 逐元素度量代替
+- [修复 A — 整行布局] ParamField 的 fn_cont 分支改 early-return：label 在上、内容横跨两列（space-y-1.5），ContinueField 根宽 153px → 317px（翻倍）；网格内旧的 fn_cont 分支移除（避免死码）
+- [修复 B — 单行 input-group] 输入框 + Rounds 下拉 + Browse 合成一个视觉行：input rounded-r-none border-r-0 flex-1（171px）、Rounds 带 History 图标+文字+chevron（114px）、Browse 改 size="icon" 仅图标（32px，title/aria-label 保留车道教学）——若 Browse 保留文字标签输入框会退回 sliver 宽度，文件夹图标是通用文件选择器符号
+- [修复 C — chips 化摘要] 点分隔长串改为紧凑 chips：emerald「it 024」+ 灰底「this job」+「cluster path」+ emerald「newest」（title 带完整语义 "the newest complete checkpoint in this group"）；clear 按钮两种状态（匹配/自定义路径）都有（原来只在自定义分支）；upstream 名 max-w-40 truncate
+- [修复 D — 挂载即归属（真缺陷）] 持久化的 fn_cont 值此前只在 popover 开过一次后才显示归属（sources 只在 onOpenChange 拉取）——重载后面板把用户选过的轮显示成 "custom path"。新增 useEffect：hasContinueValue 时挂载即拉取（8s TTL 吸收 StrictMode 双挂载）；空字段保持懒加载
+- [验证·编译] tsc 0 ×3 轮；触碰文件 eslint 0；t394-continue-rounds 62/62（引擎侧纯函数，UI 改动不触及，跑作 hygiene）
+- [验证·浏览器] 1440/1280/390 三档：字段根 317px / chips 单行（h=19）/ documentElement 零溢出；390 档 popover 352px 完整落视口内（x=38）；交互全绿：popover 开 → 换选 it024 → chips 即时更新（无 newest 徽标，正确）→ clear → 输入空 + Run on cluster 按钮回 Run → 重选 it025；挂载即归属验证：reload 后直接显示 it 025 · this job · cluster path（不再是 custom path）；Browse 图标按钮打开集群文件浏览器（"Select an optimiser.star on Mock Cluster"）；暗色模式 chip 实测 emerald-500/10 底 + emerald-400 字（oklab/lab 色值确认）；console/page 零错误
+- [QA 脚本依赖排查] t394/t395 bench 均为引擎侧（optimiserRoundsFromNames 等），无 job-panel DOM 断言；aria-label 全部保留（Browse for an optimiser.star…/Pick which previous round…/Clear the continue-from path）
+
+Stage Summary:
+- 产出：fn_cont 整行布局（label 上置 + 317px 全宽）+ 单行 input-group（input/Rounds/Browse 一体）+ chips 化归属行 + 挂载即归属修复（t394 既有遗漏）
+- 验证：tsc/eslint 0 + t394 62/62 + 三档宽度零溢出 + 全交互流实测 + 暗色模式 + 零 console/page 错误
+- 用户复机路径：git pull → 打开 refine 族任务面板 → Continue from here 字段：整行宽度、单行控件、选中轮的 emerald chips 归属一目了然
+- 诚实边界：①VLM 视觉复核因上游 429 未跑（DOM 度量代替，第三次同偏差）②Browse 图标化为有意的宽度取舍（文字标签会让输入框退回 sliver）③engine 侧套件未全跑（本轮零触碰 src/lib——仅 job-panel.tsx UI，t394 抽检作 hygiene）

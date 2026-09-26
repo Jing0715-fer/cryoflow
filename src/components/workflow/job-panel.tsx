@@ -537,6 +537,37 @@ function ParamField({
 }) {
   const inputId = `${idPrefix}-${p.key}`;
 
+  // t398 — fn_cont is the panel's one COMPOUND widget (path input + round
+  // dropdown + file browser + attribution chips). In the RELION row grid
+  // it lived in a ~153px value sliver where the two action buttons wrapped
+  // to two lines and the summary to three (the 「太难看了」 receipt) — it
+  // gets the FULL row instead: label above, content spanning both columns.
+  // The picker's input alone is then wider than the entire old value
+  // column, and the whole control reads as one designed group.
+  if (p.key === "fn_cont" && jobId) {
+    return (
+      <div className="space-y-1.5">
+        <Label
+          htmlFor={inputId}
+          title={p.hint}
+          className={cn(
+            "text-xs font-normal leading-snug",
+            p.advanced ? "text-muted-foreground" : "text-foreground/90"
+          )}
+        >
+          {p.label}
+        </Label>
+        <ContinueField
+          jobId={jobId}
+          inputId={inputId}
+          value={value}
+          onChange={onChange}
+          hint={p.hint}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="grid grid-cols-[118px_minmax(0,1fr)] items-start gap-x-3 sm:grid-cols-[152px_minmax(0,1fr)]">
       <Label
@@ -562,16 +593,6 @@ function ParamField({
           </div>
         ) : p.type === "path" ? (
           <PathParamField p={p} value={value} onChange={onChange} idPrefix={idPrefix} />
-        ) : p.key === "fn_cont" && jobId ? (
-          // t394 — RELION's "Continue from here:" gets a real round picker
-          // (dropdown + typed path + browse) instead of a blind text box
-          <ContinueField
-            jobId={jobId}
-            inputId={inputId}
-            value={value}
-            onChange={onChange}
-            hint={p.hint}
-          />
         ) : p.type === "text" ? (
           <Input
             id={inputId}
@@ -958,27 +979,38 @@ function ContinueField({
     return null;
   }, [sources, trimmed]);
 
+  // t398 — a persisted value should meet its attribution on first render,
+  // not only after the popover has been opened once (the sources drive the
+  // match memo; without them a round the user picked in an earlier session
+  // reads as an anonymous "custom path" on reload). One fetch when a value
+  // is present; the empty field keeps the lazy popover-open fetch. The 8s
+  // TTL guard inside load() absorbs the StrictMode double-mount.
+  const hasContinueValue = String(value ?? "").trim() !== "";
+  React.useEffect(() => {
+    if (hasContinueValue) void load(false);
+  }, [hasContinueValue, load]);
+
   const pickableRounds = sources.reduce((n, s) => n + s.entries.length, 0);
 
   return (
-    <div className="w-full space-y-1">
-      {/* t395/t396 — the Input owns its OWN row; the two buttons sit under
-          it in a wrapping flex row. At the desktop panel's ~184px value
-          column the pair wraps to two lines rather than overflow — but the
-          belt-and-braces `min-w-0` + inner truncation means even a
-          zero-wrap container cannot push a button past the panel edge
-          (the t394 field report). RELION's own GUI stacks the same way on
-          narrow panels. */}
-      <Input
-        id={inputId}
-        type="text"
-        value={raw}
-        title={hint}
-        placeholder="empty — start from iteration 0 · pick a round, browse, or type any optimiser.star path"
-        onChange={(e) => onChange(e.target.value)}
-        className="h-8 min-w-0 font-mono text-xs"
-      />
-      <div className="flex w-full flex-wrap items-center gap-1.5">
+    <div className="w-full space-y-1.5">
+      {/* t398 — ONE visual line: the path input with the round picker and
+          the file browser ATTACHED to its right (an input group). The old
+          stack — input, then two buttons wrapping to their own lines, then
+          a three-line summary — was a layout built for a 153px value
+          column; at full width the trio reads as a single designed
+          control, the input is wider than the whole old value column, and
+          the attribution rides below as compact chips. */}
+      <div className="flex w-full">
+        <Input
+          id={inputId}
+          type="text"
+          value={raw}
+          title={hint}
+          placeholder="empty — starts from iteration 0"
+          onChange={(e) => onChange(e.target.value)}
+          className="h-8 min-w-0 flex-1 rounded-r-none border-r-0 font-mono text-xs"
+        />
         <Popover
           open={open}
           onOpenChange={(o) => {
@@ -990,7 +1022,7 @@ function ContinueField({
             <Button
               variant="outline"
               size="sm"
-              className="h-8 min-w-0 shrink-0 gap-1 px-2"
+              className="h-8 min-w-0 shrink-0 rounded-none gap-1 px-2"
               aria-label="Pick which previous round to continue from"
               title="Pick which previous round to continue from — this job's own previous run, and its upstream refine-family runs"
             >
@@ -1176,10 +1208,18 @@ function ContinueField({
             </div>
           </PopoverContent>
         </Popover>
+        {/* t398 — the file browser joins the group as an icon-only button:
+            the folder glyph is the universal file-picker affordance, the
+            title teaches the lane, and the saved width keeps the INPUT
+            usable at the panel's full row (a labelled Browse would take
+            the input back to sliver width). */}
         <Button
           variant="outline"
-          size="sm"
-          className={cn("h-8 min-w-0 shrink-0 gap-1 px-2", remoteBrowser && "border-violet-500/40 text-violet-600 hover:bg-violet-500/10 dark:text-violet-400")}
+          size="icon"
+          className={cn(
+            "h-8 w-8 shrink-0 rounded-l-none border-l-0",
+            remoteBrowser && "text-violet-600 hover:bg-violet-500/10 dark:text-violet-400"
+          )}
           onClick={() => setBrowsing(true)}
           aria-label={`Browse for an optimiser.star${remoteBrowser ? " on the cluster" : ""}`}
           title={
@@ -1189,11 +1229,10 @@ function ContinueField({
           }
         >
           {remoteBrowser ? (
-            <Server className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            <Server className="h-3.5 w-3.5" aria-hidden="true" />
           ) : (
-            <FolderOpen className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            <FolderOpen className="h-3.5 w-3.5" aria-hidden="true" />
           )}
-          <span className="truncate">Browse</span>
         </Button>
       </div>
       {browsing && (
@@ -1221,49 +1260,58 @@ function ContinueField({
           remote={remoteBrowser}
         />
       )}
-      {/* t397 — width hardening: the attributed summary wraps and every
-          span can shrink (a long upstream job name must never push the
-          value column past the panel edge — the user's 「内容还是超出
-          窗口宽度」 receipt). */}
+      {/* t398 — the attribution as compact CHIPS under the input group:
+          the picked round (emerald, echoing the Continue mode the Run
+          button speaks), its source job, the lane the path lives in —
+          each chip truncates where it must (a long upstream job name can
+          never push the row past the panel edge) and a clear affordance
+          rides at the end in BOTH states. */}
       {trimmed && (
-        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
+        <div className="flex min-w-0 flex-wrap items-center gap-1 text-[10px]">
           {match ? (
             <>
-              <Check className="h-3 w-3 shrink-0 text-primary" aria-hidden="true" />
-              <span className="font-medium text-primary">
+              <span className="inline-flex shrink-0 items-center gap-1 rounded bg-emerald-500/10 px-1.5 py-0.5 font-medium text-emerald-700 dark:text-emerald-400">
+                <Check className="h-3 w-3" aria-hidden="true" />
                 it {String(match.entry.iteration).padStart(3, "0")}
               </span>
-              <span aria-hidden="true">·</span>
-              <span className="min-w-0 truncate" title={match.source.jobName}>
+              <span
+                className="min-w-0 max-w-40 truncate rounded bg-secondary px-1.5 py-0.5 text-muted-foreground"
+                title={match.source.jobName}
+              >
                 {match.source.archived
-                  ? "this job · archived run"
+                  ? "archived run"
                   : match.source.relation === "self"
                     ? "this job"
                     : match.source.jobName}
               </span>
-              <span aria-hidden="true">·</span>
-              <span className="shrink-0">{match.source.lane === "remote" ? "cluster path" : "local path"}</span>
+              <span className="shrink-0 rounded bg-secondary px-1.5 py-0.5 text-muted-foreground">
+                {match.source.lane === "remote" ? "cluster path" : "local path"}
+              </span>
               {match.entry.newest && (
-                <>
-                  <span aria-hidden="true">·</span>
-                  <span className="shrink-0">newest complete round</span>
-                </>
+                <span
+                  className="shrink-0 rounded bg-emerald-500/10 px-1.5 py-0.5 font-medium text-emerald-700 dark:text-emerald-400"
+                  title="the newest complete checkpoint in this group"
+                >
+                  newest
+                </span>
               )}
             </>
           ) : (
-            <>
+            <span className="inline-flex min-w-0 items-center gap-1 text-muted-foreground">
               <Terminal className="h-3 w-3 shrink-0 text-muted-foreground/80" aria-hidden="true" />
-              <span className="min-w-0">custom path — passed to RELION&apos;s --continue as typed</span>
-              <button
-                type="button"
-                className="ml-auto shrink-0 rounded px-1 text-[10px] text-muted-foreground transition-colors hover:text-destructive"
-                onClick={() => onChange("")}
-                aria-label="Clear the continue-from path"
-              >
-                clear
-              </button>
-            </>
+              <span className="truncate">custom path — passed to RELION&apos;s --continue as typed</span>
+            </span>
           )}
+          <button
+            type="button"
+            className="ml-auto inline-flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+            onClick={() => onChange("")}
+            aria-label="Clear the continue-from path"
+            title="Clear — start fresh from iteration 0"
+          >
+            <X className="h-3 w-3" aria-hidden="true" />
+            clear
+          </button>
         </div>
       )}
     </div>
