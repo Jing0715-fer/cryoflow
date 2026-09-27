@@ -113,8 +113,43 @@ const nextConfig: NextConfig = {
   // placeable asset" on lib/protocol/crypto.js) — keep it OUT of the
   // bundle: the standalone server requires it from node_modules at
   // runtime, which is exactly where it lives.
-  serverExternalPackages: ["ssh2"],
+  //
+  // t406 — the build-memory diet, part two. Even with the build worker off
+  // (custom webpack hook above), cpus: 1, webpackMemoryOptimizations and
+  // minification disabled, the server compilation still peaked at 3.46GB
+  // anon (dmesg ×4, kernel SIGKILL each time ~60s into `Creating an
+  // optimized production build`). molstar is 97MB of 3D-viewer code being
+  // COPIED INTO the server bundle; externalizing it means `require()` from
+  // node_modules at runtime instead of bundling it into the compilation
+  // graph. The other heavy barrels (lucide-react, recharts, framer-motion,
+  // date-fns) CANNOT ride the same lane: optimizePackageImports (t391)
+  // auto-includes them in transpilePackages, and the two lists conflict —
+  // the t391 dev-compile memory win is kept, molstar is the bigger fish.
+  serverExternalPackages: ["ssh2", "molstar"],
   reactStrictMode: false,
+  // t406 — the production-build grinder. The e2e family cannot live on the
+  // dev regime (t405: kernel OOM executes next-server at ~2.9GB anon, then
+  // the .next cache dies mid-compile and the dev boot enters a
+  // Ready->Compiling->silent-death loop with no kernel record). The way out
+  // is `next build` + `next start`: zero compilation at steady state, no
+  // compile-shaped process left for the reaper to hunt. But the build itself
+  // was killed by the SAME kernel OOM (t406 dmesg, finally caught: build
+  // worker "MainThread" at anon-rss 3.1GB, ~56s into `Creating an optimized
+  // production build`, twice, identical signature). These three knobs are
+  // the memory diet that lets the build finish inside the box:
+  //   - webpackMemoryOptimizations: Next's own flag for exactly this
+  //     (smaller webpack caches + fewer retained intermediate modules).
+  //   - cpus: 1 — parallel build workers each carry a full module graph;
+  //     the default (freemem-based) spawns several and they peak together.
+  //   - minimize: false — minification is the largest post-compile memory
+  //     spike, and a QA-world server gains nothing from a minified bundle
+  //     (the served-build stamp, t401, is what QA reads, not the code).
+  webpack: (config, { dev }) => {
+    if (!dev) {
+      config.optimization = { ...config.optimization, minimize: false };
+    }
+    return config;
+  },
   experimental: {
     // t391 — barrel-file tree shaking for the three big icon/chart barrels:
     // lucide-react exports ~1500 icons through one index, recharts pulls the
@@ -130,6 +165,9 @@ const nextConfig: NextConfig = {
     // the Rust engine + 1536 MiB V8 old-space (dev-server.sh) keeps the
     // server under the ceiling; compiles get slower, not broken.
     turbopackMemoryLimit: 256,
+    // t406 — see the webpack hook above: the two build-regime knobs.
+    webpackMemoryOptimizations: true,
+    cpus: 1,
   },
 };
 

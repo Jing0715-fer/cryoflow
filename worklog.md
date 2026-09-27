@@ -4055,3 +4055,26 @@ Stage Summary:
 - **「换生阈值要读爆发曲线」**：2.35GB 的「安全」阈值枪毙了 33s 冲 2.2GB 的编译爆发——监测者的阈值必须区分「瞬态爆发」与「增长驱动」，否则监测者成为新的死因
 - **「roster 迁移改了哨兵没改前置」**：87 文件 23→15 的机械迁移漏掉 ~20 套的活体实例前置——跷跷板两侧（画廊 13 job vs 链 15 job）不能同世共存
 - 遗留（下窗候选，按杠杆排序）：①**生产服务器实验**（安静盒子 build，成则体制换代：RSS ~400MB 零编译增长，家族轮跑的地基）；②画廊和解（seed-and-scrub 自足化 or restore-gallery + 二次 roster 迁移 15→28，二选一）；③家族轮跑续推（t24-t30 九批）；④EMPIAR 真数据回归（第廿四窗）
+
+---
+Task ID: 406 (完 — 2026-09-27 17:21 cron 窗口 trace 1a07549302235a99-cron-agent-loop-202609271721)
+Agent: main (Z.ai Code)
+Task: 接续 Task 405 遗留①——生产服务器实验（e2e 家族体制换代）；开局实证 + 浏览器 QA + t24 批轮跑
+
+Work Log:
+- [开局实证] HEAD = 46de745 = origin/main+1（Task 405 完结条未推送），树净。继承摘要声称 Task 313/07d6aa0 已是化石第 N+2 次——真源律应验。worklog 尾部实为 Task 405（进行时→完结）。
+- [QA 双画像] ①08:48–08:50 内核 OOM 三连杀（dmesg 证词：next-server anon-rss ~2.9GB ×3）；②**09 点后无证词击杀循环**（dmesg 零记录）：boot → Ready in 1.3s → Compiling / → 进程无声消失，寿命 10–140s，watchdog v2 无限 boot 12+ 次（09:09–09:28Z）——这正是 t405 已解之谜的签名：**OOM 击杀编译 worker 时弄脏 .next webpack 缓存，此后每次 boot 读脏缓存即无声自退**。
+- [主交付 A — watchdog v2.1 缓存卫生换生] v2 的盲区：boot 失败无限重试同一堵墙。v2.1 加 boot_fail_streak 计数（prewarm 未应答即 +1，应答清零），连败 ≥3（WATCHDOG_DIRTY_STREAK）即判「OOM 弄脏缓存签名」→ **隔离 .next（mv 不 rm，诊断资产）→ 下次 boot 干净冷编译** → 旧隔离目录仅保留最新两个（各自 ~330MB，卫生本身不得吃满磁盘，当前 85% 用量下必需）。冷编译 210s < 僵尸窗 240s 不会误杀；streak 只在 boot 分支增长，编译中的服务器（zombie 分支）不计入——冷编译不会被误隔离。**活体验证：首次自动触发（10:14:51 连败 3 次 → 隔离 → 37s 干净复活）**。
+- [主交付 B — 生产 build 战役完整证词（18 次尝试，判决成立）] scripts/build-until-green.sh 研磨器（幂等跨调用续跑：BUILD_ID 在即秒退；timeout 560 包裹单尝试——600s 工具天花板内必有判决；硬帽防真败循环；吃 .next/cache/webpack 增量推进）。战役序列：①初版（1792 堆）×2 死 → dmesg 抓到**决定性证词：build worker "MainThread" anon-rss 3.1GB，56 秒必死，三次签名一致**——t402 的「3.5GB free 无内核记录」悬案今日结案：也是内核 OOM。②内存饮食三件套（experimental.webpackMemoryOptimizations: true + cpus: 1 + webpack hook 关 minify——QA 世界不需要最小化 bundle）生效确认但 RSS 反涨至 3.46GB（释放的 200MB 立即被吃：worker 胃口随可用内存增长，永远贴顶死）。③关 agent-browser chrome 释放 ~300MB——无效。④molstar（97MB）+ ssh2 外置（serverExternalPackages）——无效（峰值不变）。⑤lucide/recharts/framer/date-fns 外置——**被 DEFAULT_TRANSPILED_PACKAGES 硬编码焊死**：optimizePackageImports（t391）自动把它们塞进 transpilePackages，即使 config 清空默认清单仍合并（webpack-config.js:350）——两条路互斥，冲突报错三连。**判决：Next 16.1.3 约束框架下，server 编译 ~3.4GB anon 需求在 4GB 盒上不可达——生产服务器路线在本盒卡死于 build 门**。武器全部留存（build-until-green.sh + 内存饮食 config + molstar 外置），未来更强盒子一键开战。
+- [架构考古附赠] useBuildWorker 语义（build/index.js）：有自定义 webpack hook 时默认就不走 build worker——09:41 后的死已是主进程编译（旧日志的 "Next.js build worker exited" 是 hook 之前的死法）；主进程架构不省内存（一份模块图仍要 3.4GB）。
+- [t24 批轮跑（roster-15 首跑）] 台账：t241 real-fail（att=2）·t242 skipped-server ·t243/244/245 real-fail（att=2）·t246 skipped-server ·⚡ 中断。活体取证 t241：**真败根因 = 画布无 "QA Post 385"**——roster-23 时代画廊家具被 roster-15 砍掉，t241 前置悬空。**这是 t405「画廊跷跷板」结构判决的第一个活体案例**；t243/245 的 real-fail 高概率同族（chromium + dev 服务器同场 = 内存地狱，取证被 ECONNREFUSED ×3 打断）。
+- [体制判决升级] t405 判「webpack dev 体制承载不了 e2e 家族」；t406 实测**升级：连单套件取证都难**——t241 的 playwright chromium（400–800MB）+ next-server（1.9GB+）同场 4GB 盒，家族跑期间服务器死亡概率极高，v2.1 防线能救活服务器但救不了批跑的连续性。家族轮跑在本盒的活路 = ①无 chromium 的 API 套件批（t31 已证可行）+ ②更强盒子的 build（用户 Windows 机无此约束，t401 恢复路径）。
+- [验证] tsc 0（next.config.ts 改动后）；bash -n watchdog/build-until-green = 0；v2.1 活体触发验证 ✓；t241 活体取证 ✓（TimeoutError on QA Post 385 = 化石定位证据）。
+- [诚实边界] ①t243/244/245 的 real-fail 根因未逐一取证（服务器同场死亡，下窗首查——高概率也是家具缺失或传输噪声）；②画廊和解（seed-and-scrub 自足化 or t313 式按类型解析 de-fossilization）未动工，t241 已是第一个候选；③EMPIAR 真数据回归连续第廿五窗让位；④46de745（t405 完结）与本窗交付一起推送。
+
+Stage Summary:
+- **「脏缓存是 OOM 的第二击」**：内核杀 worker 是一击，弄脏的 webpack 缓存让之后每次 boot 无声自退是二击——v2.1 的连败计数 + 自动隔离把二击从「无限死循环」收敛到「三次重试 + 一次干净冷编译」
+- **「build 的内存需求不是配置问题是物理问题」**：18 次尝试、五路杠杆（堆上限/单 CPU/关 minify/外置大包/释放 chrome）全部生效且全部无效——worker 胃口随可用内存增长，3.4GB 是 server 编译的物理下限，4GB 盒子装不下
+- **「硬编码默认清单是外置通道的墙」**：DEFAULT_TRANSPILED_PACKAGES 焊死了 lucide/recharts/date-fns 的 serverExternal 通道——optimizePackageImports 与 serverExternalPackages 对同一批包互斥，选了一个就失去另一个
+- **「画廊跷跷板有了第一个名字」**：t241 的 QA Post 385 化石是 t405 结构判决的活体案例——修复方向不是恢复旧世界，而是 t313 式 de-fossilization（按类型解析，哨兵承诺世界的形状而非某个化石）
+- 遗留（下窗候选，按杠杆排序）：①t243/245 real-fail 取证 + 画廊家族 de-fossilization 第一波（t241 先行，按类型解析教义）；②家族轮跑无 chromium 批（t27/t29 的 API 套件子集）；③EMPIAR 真数据回归（第廿五窗）；④更强盒子上的 build 复战（武器已留存）

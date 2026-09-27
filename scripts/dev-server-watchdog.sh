@@ -1,5 +1,5 @@
 #!/bin/bash
-# dev-server-watchdog.sh — the t404 promotion of the t403 band-aid, v2 (t405).
+# dev-server-watchdog.sh — the t404 promotion of the t403 band-aid, v2 (t405), cache hygiene v2.1 (t406).
 #
 # /tmp/revive.sh (Task 403) kept the DEV server alive through the sandbox
 # patrol's reaping sprees, but it lived in /tmp with a 90-minute window
@@ -42,6 +42,20 @@
 #   boots (witnessed: four instances, one lock war, one 000-port deadlock).
 #   A second instance exits at startup.
 #
+# v2.1 (t406) — CACHE HYGIENE. The t406 window witnessed a NEW death spiral
+# the v2 loop was blind to: boot -> "Ready in 1.3s" -> "Compiling /" ->
+# process gone, NO kernel record, twelve boots in a row all identical
+# (09:09-09:28Z). The signature matches t405's already-solved mystery: the
+# kernel OOM kill of a compile worker leaves the .next webpack cache CORRUPT
+# (tombstone: .next.corrupt-t405), and every subsequent boot reads the dirty
+# cache and the compile worker crashes itself silently. v2 rebooted forever
+# into the same wall. The fix: count CONSECUTIVE boot failures (prewarm
+# unanswered); at DIRTY_CACHE_STREAK in a row, quarantine .next (mv, never
+# rm — it is a diagnostic asset) and let the next boot cold-compile clean,
+# the exact move that un-stuck t405 ("three boots of incremental warmth,
+# ~210s, cold compile done"). Old quarantines beyond the newest two are
+# reaped so the hygiene itself cannot fill the disk (each .next ~330MB).
+#
 # Run detached:  (nohup bash scripts/dev-server-watchdog.sh >> .qa-logs/dev-watchdog.log 2>&1 &)
 # Stop with:     pkill -f dev-server-watchdog
 cd "$(dirname "$0")/.." || exit 1
@@ -70,6 +84,8 @@ SILENT_ZOMBIE_S="${WATCHDOG_ZOMBIE_S:-240}"       # silent + process present => 
 RSS_RECYCLE_KB="${WATCHDOG_RECYCLE_KB:-2600000}"
 
 silent_since=""
+boot_fail_streak=0
+DIRTY_CACHE_STREAK="${WATCHDOG_DIRTY_STREAK:-3}"
 
 prewarm() {
   # a fresh boot's home route compiles on first hit (~30-45s warm cache);
@@ -88,7 +104,30 @@ prewarm() {
 boot() {
   echo "[$(date -u +%H:%M:%SZ)] server down, no next dev process — booting with hardened env" >> "$LOG"
   DEV_HEAP_MB=1792 DEV_NEXT_ARGS="--webpack" bash scripts/dev-server.sh >> "$LOG" 2>&1
-  prewarm
+  if prewarm; then
+    boot_fail_streak=0
+    return 0
+  fi
+  # v2.1 — the dirty-cache verdict: prewarm just failed. A WARM boot answers
+  # in ~30-45s and a cold clean boot in ~210s; failing the 70s prewarm window
+  # on the FIRST miss is normal (cold), but missing it DIRTY_CACHE_STREAK
+  # times IN A ROW means every boot dies mid-compile — the OOM-corrupted
+  # cache signature. Quarantine and let the next boot compile clean.
+  boot_fail_streak=$((boot_fail_streak + 1))
+  if [ "$boot_fail_streak" -ge "$DIRTY_CACHE_STREAK" ]; then
+    if [ -d .next ]; then
+      echo "[$(date -u +%H:%M:%SZ)] boot failed $boot_fail_streak times in a row — OOM-corrupted-cache signature, quarantining .next (v2.1 cache hygiene)" >> "$LOG"
+      ts=$(date +%Y%m%d-%H%M%S)
+      mv .next ".next.corrupt-$ts" 2>/dev/null
+      # keep only the two newest quarantines — the hygiene must not fill the disk
+      ls -1dt .next.corrupt-* 2>/dev/null | tail -n +3 | while read -r old; do
+        echo "[$(date -u +%H:%M:%SZ)] reaping old quarantine $old" >> "$LOG"
+        rm -rf "$old"
+      done
+    fi
+    boot_fail_streak=0
+  fi
+  return 1
 }
 
 next_server_rss_kb() {

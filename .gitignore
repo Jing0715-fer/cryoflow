@@ -116,3 +116,7 @@ services/mock-cluster/fs/home/cryo/cryoflow/
 services/mock-cluster/fs/home/cryo/.slurm/
 /services/mock-cluster/fs/data2/t391/
 .shadow-archive/
+
+# t406 — the watchdog v2.1 cache-hygiene quarantines: a dirty .next gets
+# mv-ed aside, not rm-ed (diagnostic asset) — but it must never ride git.
+.next.*
