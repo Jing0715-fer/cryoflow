@@ -402,6 +402,18 @@ export interface RemoteRunState {
    */
   stagingBeat?: number;
   /**
+   * t404 — the server incarnation that owns this staging run (randomUUID
+   * at module load, stamped into every fresh remoteState). The staging
+   * task is void-spawned IN-PROCESS: a server restart kills it by
+   * definition, so a record whose bootId differs from the current
+   * incarnation is a GHOST — the boot sweep finalizes it honestly on the
+   * first poll tick (previously: a restart before the first heartbeat
+   * left the row pending for the 30min no-beat fallback, and on a box
+   * that flaps every few minutes staging could never make progress).
+   * Absent on pre-t404 ledgers — those keep the age-window fallback.
+   */
+  bootId?: string;
+  /**
    * t391 — the CLUSTER's own clock (epoch seconds, `date +%s`) read once
    * at dispatch, BEFORE any staging bytes land (the same clock domain that
    * writes the run's mtimes). The t367 generation gate compares this — not

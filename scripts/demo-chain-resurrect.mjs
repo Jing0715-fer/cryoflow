@@ -61,6 +61,12 @@ async function apiOnce(method, url, body) {
   // half-reaped servers are a poison match (UND_ERR_SOCKET on every pooled
   // request while a fresh-connection curl sails through). A raw request
   // opens a clean socket per call and speaks to whoever owns the port now.
+  // t404: a socket-level TIMEOUT is load-bearing — a server that is up but
+  // mid-compile accepts the TCP connection and then never answers; without
+  // a timeout the promise hangs FOREVER (neither error nor response, so the
+  // api() retry layer never engages) and the healer silently fossilizes.
+  // 30s: generous enough for the slowest honest route, tight enough that a
+  // hung server costs one retry cycle instead of the whole healing run.
   return new Promise((resolve, reject) => {
     const payload = body !== undefined ? JSON.stringify(body) : null;
     const req = http.request(
@@ -83,6 +89,7 @@ async function apiOnce(method, url, body) {
       }
     );
     req.on("error", reject);
+    req.setTimeout(30_000, () => req.destroy(new Error(`healer api timeout (no byte in 30s) on ${method} ${url}`)));
     if (payload !== null) req.write(payload);
     req.end();
   });

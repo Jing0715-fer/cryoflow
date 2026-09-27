@@ -3983,3 +3983,46 @@ Stage Summary:
 - **「池化的套接字会怀念死去的服务器」**：undici 对半死服务器 UND_ERR_SOCKET 而新连接 curl 次次通——传输层的选择在敌意环境里是正确性问题
 - **「复活者不得误杀编译中的进程」**：reviver v1 的 down 判定差一点成为巡猎的帮凶——pgrep 门是复活者的自省
 - 遗留（下轮候选）：①续磨 healer 至 15 节满血（幂等续跑即可）→ 补跑 t313 套件验证；②e2e 家族十批轮跑（roster-15 世界上的首次）；③巡猎根治（等平台或真机）；④EMPIAR 真数据回归（连续第廿二窗让位）
+
+---
+Task ID: 404 (进行时 — 2026-09-27 14:06 cron 窗口 trace 1a07549302235a99-cron-agent-loop-202609271406；healer 续磨 + 运输层两修复，治愈完成后补完结条)
+Agent: main (Z.ai Code)
+Task: 接续 Task 403 遗留第①项——healer 续磨至 15 节满血；期间浏览器 QA + 运输层/运维加固
+
+Work Log:
+- [开局实证] HEAD = b03bbf4 = origin/main（Task 403），worklog 尾部 = 403。healer 进程仍在（PID 10427，t403 窗遗留）、dev server 200、reviver（/tmp/revive.sh 90 分钟窗）在岗。树与摘要再度分叉：继承上下文声称 Task 313/07d6aa0，实为 403——真源律第 N 次应验。
+- [motioncorr 首杀现场] t403 窗的 healer 最终败于 motioncorr：staging 上传被服务器 flap 打断（"the upload task vanished or the server restarted — re-run to continue where it left off (uploaded files are skipped)"）。healer 顺序链断链即停（exit 1）。roster-15 世界：import completed、motioncorr failed、13 idle。
+- [修复 A — healer api 超时（运输层）] apiOnce 的裸 http.request 无超时：服务器「监听但不应答」（编译中期典型态）时 TCP 连上后永无响应 → promise 永悬 → api() 重试教义永不触发 → healer 无声化石。加 req.setTimeout(30s) 把「挂死」转化为可重试错误。实测该超时立刻正确接管（"server down — retrying"）。
+- [发现 B — 首击编译 22s] /api/remote/connections 首击 22.1s 返回（路由级 webpack 编译），二击 0.04s——30s 超时预算内，重试层兜底。
+- [发现 C — 巡猎无声击杀后台 node] 裸 nohup healer 两次无声死亡（无 FAIL、无异常栈、日志戛然而止）——巡猎 SIGKILL 后台 node 进程的新画像（非编译进程也杀）。healer 幂等设计使重启零成本。
+- [交付 — heal-until-green.sh 监督器] scripts/heal-until-green.sh：跑 healer → 查退出码 → 非零即重发，硬帽 12 次（防真败无限循环）。治愈链自此熬得过巡猎击杀。
+- [进行时] 监督器接管后 healer 已跳至 step 5（import skip、motioncorr already live — waiting it out）。治愈完成后补跑 t313 套件 + 完结条。
+
+Stage Summary:
+- 交付中：healer api 超时修复（挂死→可重试）+ heal-until-green.sh 监督器（熬得过巡猎）
+- 世界状态：15 节链 import ✓，motioncorr 续传中，13 节待治愈
+
+---
+Task ID: 404 (完 — 2026-09-27 14:06 cron 窗口 trace 1a07549302235a99-cron-agent-loop-202609271406)
+Agent: main (Z.ai Code)
+Task: 接续 Task 403 遗留①——healer 续磨至 15 节满血 + t313 套件补跑；幽灵 staging 三层防线（本窗主代码交付）
+
+Work Log:
+- [开局实证] HEAD = b03bbf4 = origin/main（Task 403），healer 进程仍挂着但 motioncorr 已败于 staging 中断（flap 打断上传，"uploaded files are skipped" 可续）。roster-15 世界：import ✓、其余 14 节待治愈。
+- [修复 A — healer api 超时（运输层）] apiOnce 的裸 http.request 无超时：服务器「监听但不应答」（编译中期态）时 TCP 连上后 promise 永悬，api() 重试教义永不触发，healer 无声化石（两次目击）。加 req.setTimeout(30s) → 「挂死」变「可重试错误」。实测立即接管。
+- [发现 B — 首击编译 22s] /api/remote/connections 首击 22.1s（路由级 webpack 编译）、二击 0.04s——30s 超时预算内消化，重试层兜底。
+- [发现 C — 巡猎扩大打击面] 裸 nohup 后台进程 ~10 分钟寿命上限：healer ×2、supervisor bash、dev-server-watchdog 全部无声死亡（无 FAIL 无栈，日志戛然而止）。教义：**单次工具调用内自带看护**（watchdog 调用内后台化 + 套件前台跑 + 调用末清场）。
+- [主雷 — 幽灵 staging 的 30 分钟僵局] 实证链：服务器死于首跳前（STAGING_BEAT_MS=10s 未落地第一跳）→ stagingBeat 永远缺席 → sweep 走 30min 无跳回退 → 幽灵尸体霸占 run 门的活性守卫（409 "already live"）→ staging 永远无法重发。flap 频繁的沙箱上此回路 = **staging 永不推进**（每次尝试死于首跳前，每具尸体锁 30 分钟）。临时绕法：scripts/backdate-ghost-staging.py 回拨 startedAt 让 sweep 的在树回退分支即刻翻转（外部写手是台账契约的合法概念，readRuns 的 mtime/size 检测自然拾取）。
+- [主交付 — 幽灵 staging 三层防线（in-tree）] ①**bootId 章**：模块级 randomUUID，每次派发盖进程化身章（types.ts RemoteRunState.bootId + remote-run.ts remoteState 构造点）；②**boot 清扫**：reconcile 首跑时终结「bootId 异世且心跳非新鲜」的 staging 记录（HMR 幸存者靠新鲜心跳豁免；pre-t404 无章台账仍走年龄回退）；③**首跳宽限**：连续 sweep 的无跳分支按所有权分裂——有 bootId 的记录无跳超过 max(60s, 6×BEAT) 即判「死于首跳前」（活任务每 10s 一跳，6 个间隔的沉默 = 尸体），无章史前台账保留 30min 老回退。防线的延迟光谱：重启后秒级（boot 清扫）/ 首跳前死亡 60s（宽限）/ 心跳停止 2min（原 beat 窗口）。
+- [运维工具] scripts/heal-until-green.sh（healer 监督器：幂等重发至 exit 0，硬帽 12 次防真败循环）+ scripts/dev-server-watchdog.sh（t403 /tmp/revive.sh 的在树转正：dev 车道 + DEV_HEAP_MB=1792 + --webpack + pgrep 门 + 无限窗）+ scripts/backdate-ghost-staging.py（幽灵加速翻转，防线就位后退役为应急工具）。
+- [治愈奔流] 防线就位后链路开始推进：motioncorr 60s → ctffind 55s → autopick 99s → extract 16s → class2d 161s → select2d 60s → select 13s → initialmodel → class3d → symexpand → rebalance → refine3d → maskcreate → postprocess 5.5s。**15/15 全绿**，FSC 路由 40 壳、FSC(0.143) = 6.51 Å、Guinier 200。mock 盘 10427 mrc / 469 mrcs。画布定妆 shots-qa/t404-world-healed.png（进度环满、96 particles、15 completed、console 零）。
+- [t313 套件除化石 ×3 + 韧性化] ①select star 路径从硬编码 select_q5fbwr9d/ 改台账 outputs 解析（t403 除化石漏网之鱼，同 t311 哨兵化石病）；②栈存在性断言改「解析于所在之处」——sync caps 设计性地把 24 个 .mrcs 留在集群侧（syncedFiles 3 vs skippedFiles 24 实证），本地镜像缺席时查集群树；③twin 哨兵改锁本质（[ -e ] stat 门）而非 t341 时代的 echo 载荷字面量（载荷合法地变成了索引防登录壳翻译）；④fetchRetry 连接层重试（60×5s）——三次目击裸 fetch 撞 flap 窗全套件崩。
+- [验证] tsc 0；eslint 0（双改文件）；t384 19 ✓ t385 48 ✓ t387 audit 0 ✓ t388 55 ✓ t389 29 ✓ t390 38 ✓ t386 119 ✓ t391 84 ✓（remote-run 全相关套件）；t313 ALL PASS（healed 世界活体验证）。
+- [诚实边界] ①e2e 家族十批轮跑仍未跑（roster-15 首跑）——治愈吃掉本窗大部分时间，且批跑在 flap 沙箱上需要 per-suite 看护架构，下窗首务；②巡猎的击杀画像扩大（后台 node/bash ~10 分钟）但精确触发函数仍黑盒；③EMPIAR 真数据回归连续第廿三窗让位。
+
+Stage Summary:
+- **「死于首跳前的任务没有心跳，没有心跳的尸体要躺 30 分钟」**：幽灵 staging 僵局的根因是检测机制的假设缺口（「无跳 = 史前台账」），bootId 所有权章 + boot 清扫 + 首跳宽限把它收敛到秒级
+- **「外部写手是台账契约的一等公民」**：backdate 工具借 readRuns 的 mtime/size 缓存击穿实现零代码改动加速——在树机制优先于绕过机制
+- **「巡猎的打击面会扩大，看护必须跟进程同生共死」**：后台进程 10 分钟寿命 → 单工具调用内自带看护教义
+- **「哨兵锁本质，不锁实现细节」**：t341 的索引载荷、sync caps 的集群侧栈、台账的 outputs 路径——三处化石同一病根
+- 遗留（下窗候选）：①e2e 家族十批首跑（roster-15，per-suite 看护）；②巡猎画像持续观测；③EMPIAR 真数据回归（第廿三窗）

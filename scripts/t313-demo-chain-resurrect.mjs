@@ -46,7 +46,21 @@ const SH_RESOLVE = {
   "Sec-Fetch-Mode": "cors",
   "Sec-Fetch-Dest": "empty",
 };
-const demoProjects = await fetch(`${BASE}/api/projects`, { headers: SH_RESOLVE })
+// t404 — the sandbox's patrol reaps the dev server every few minutes; a
+// bare fetch that lands in a down window crashes the whole suite with an
+// unhandled ECONNREFUSED (witnessed live: run 3 of this very suite died
+// before printing a single assertion while runs 1-2 saw a live server).
+// Retry ONLY the connection layer — a 4xx/5xx is an honest answer.
+async function fetchRetry(url, opts = {}, attempt = 0) {
+  try {
+    return await fetch(url, opts);
+  } catch (e) {
+    if (attempt >= 60) throw e; // ~5min of patience, then die honestly
+    await new Promise((r) => setTimeout(r, 5000));
+    return fetchRetry(url, opts, attempt + 1);
+  }
+}
+const demoProjects = await fetchRetry(`${BASE}/api/projects`, { headers: SH_RESOLVE })
   .then((r) => r.json().catch(() => null));
 const _projList = Array.isArray(demoProjects) ? demoProjects : (demoProjects?.projects ?? []);
 const _demo = _projList.find((p) => p.name?.includes("β-Galactosidase")) ?? _projList[0];
@@ -61,7 +75,7 @@ const CHAIN_TYPES = [
 ];
 const chainIds = {};
 {
-  const jobs = (await (await fetch(`${BASE}/api/jobs`, { headers: SH_RESOLVE })).json()).jobs ?? [];
+  const jobs = (await (await fetchRetry(`${BASE}/api/jobs`, { headers: SH_RESOLVE })).json()).jobs ?? [];
   for (const t of CHAIN_TYPES) {
     const n = jobs.find((j) => j.type === t && j.projectId === PROJ);
     if (n) chainIds[t] = n.id;
@@ -122,7 +136,7 @@ try {
   const home = await page.goto(BASE, { waitUntil: "domcontentloaded" });
   must((await home.status()) === 200, `homepage 200 (got ${home.status()})`);
   await sleep(2000);
-  const jobs0 = await (await fetch(`${BASE}/api/jobs`, { headers: SH })).json();
+  const jobs0 = await (await fetchRetry(`${BASE}/api/jobs`, { headers: SH })).json();
   must((jobs0.jobs ?? []).length === 15, `roster 15 ((${(jobs0.jobs ?? []).length}))`);
 
   // ---- Phase B: the ledger (t311 fixes in source) --------------------------
@@ -143,7 +157,12 @@ try {
   );
   const remoteSrc = readFileSync("/home/z/my-project/src/lib/remote/remote-run.ts", "utf8");
   must(
-    remoteSrc.includes("twinCandidates") && remoteSrc.includes("OK ${shQuote(c.remote)}"),
+    // t404 — the sentinel now locks the ESSENCE (the twin claim is gated by
+    // a cluster-side `[ -e ]` stat), not the t341-era echo payload: that
+    // payload legitimately became an INDEX ("OK ${i}") so login-shell path
+    // translation can't forge the ok-set — the old literal
+    // `OK ${shQuote(c.remote)}` convicted a healthy improvement.
+    remoteSrc.includes("twinCandidates") && remoteSrc.includes("[ -e ${shQuote(c.remote)} ]"),
     "remote twins are STAT-verified (a locally synthesized output never claims a cluster seat)"
   );
   const refineFake = readFileSync("/home/z/my-project/services/mock-cluster/fs/opt/bin/relion_refine", "utf8");
@@ -203,26 +222,43 @@ try {
   }
   must(filledCount === Object.keys(chainIds).length, `all ${Object.keys(chainIds).length} chain links carry outputs (${filledCount})`);
 
-  const selRows = readFileSync(path.join(PROJ_DIR, "select_q5fbwr9d/particles_select.star"), "utf8");
+  // t404 — the select star's path comes from the LEDGER (the record's
+  // outputs map is the authoritative workdir pointer), not from a
+  // fossilized job-dir name: the t403 de-fossilization fixed chainIds and
+  // PROJ but this literal `select_q5fbwr9d/` survived from a database that
+  // no longer exists anywhere (same disease the sentinels caught in t311).
+  const selStar = state[chainIds.select]?.outputs?.particles_star;
+  must(!!selStar && existsSync(selStar), `the select star resolves through the ledger (${selStar ?? "absent"})`);
+  const selRows = readFileSync(selStar, "utf8");
   const firstRef = /@(\S+)/.exec(selRows)?.[1] ?? "";
   must(
     firstRef.startsWith("extract_") && !firstRef.startsWith("extra/"),
     `the select star's refs are PROJECT-relative (the relocation disease is dead — "${firstRef.slice(0, 40)}")`
   );
+  const stackLocal = path.join(PROJ_DIR, firstRef);
+  // t404 — the sync caps leave the extract stacks CLUSTER-SIDE by design
+  // (witnessed: syncedFiles 3 vs skippedFiles 24 — only the star and logs
+  // ride back). The sentinel's intent is "the ref resolves where it
+  // lives": the local mirror when synced, the cluster tree otherwise.
+  const stackCluster = path.join(
+    "/home/z/my-project/services/mock-cluster/fs/projects/cryoflow",
+    String(PROJ),
+    firstRef
+  );
   must(
-    existsSync(path.join(PROJ_DIR, firstRef)),
-    "the referenced stack exists at the project-relative position ON DISK"
+    existsSync(stackLocal) || existsSync(stackCluster),
+    `the referenced stack exists where it lives (${existsSync(stackLocal) ? "local mirror" : "cluster tree"})`
   );
 
   const pp = chainIds.postprocess;
-  const fscRes = await fetch(`${BASE}/api/jobs/${pp}/fsc`, { headers: SH });
+  const fscRes = await fetchRetry(`${BASE}/api/jobs/${pp}/fsc`, { headers: SH });
   const fsc = await fscRes.json().catch(() => null);
   must(fscRes.status === 200 && (fsc?.shells?.length ?? 0) > 20,
     `the FSC route speaks the official curve (${fscRes.status}, ${fsc?.shells?.length ?? 0} shells)`);
 
   // the two workflow links exist with their edges
-  const jobsAll = (await (await fetch(`${BASE}/api/jobs`, { headers: SH })).json()).jobs ?? [];
-  const edges = (await (await fetch(`${BASE}/api/edges`, { headers: SH })).json()).edges ?? [];
+  const jobsAll = (await (await fetchRetry(`${BASE}/api/jobs`, { headers: SH })).json()).jobs ?? [];
+  const edges = (await (await fetchRetry(`${BASE}/api/edges`, { headers: SH })).json()).edges ?? [];
   const init = jobsAll.find((j) => j.type === "initialmodel" && j.projectId === PROJ);
   const mask = jobsAll.find((j) => j.type === "maskcreate" && j.projectId === PROJ);
   must(!!init && !!mask, "the workflow carries the InitialModel and MaskCreate links");
@@ -236,7 +272,7 @@ try {
 
   // ---- Phase D: the live slice --------------------------------------------
   console.log("== PHASE D: the live slice ==");
-  const run = await fetch(`${BASE}/api/jobs/${chainIds.select2d}/run`, {
+  const run = await fetchRetry(`${BASE}/api/jobs/${chainIds.select2d}/run`, {
     method: "POST",
     headers: { ...SH, "Content-Type": "application/json" },
     body: JSON.stringify({}),
@@ -244,7 +280,7 @@ try {
   let done = false;
   for (let t = 0; t < 60; t++) {
     await sleep(1500);
-    const jobs = (await (await fetch(`${BASE}/api/jobs`, { headers: SH })).json()).jobs ?? [];
+    const jobs = (await (await fetchRetry(`${BASE}/api/jobs`, { headers: SH })).json()).jobs ?? [];
     const dto = jobs.find((j) => j.id === chainIds.select2d);
     if (dto?.status === "completed" || dto?.status === "failed") {
       done = dto.status === "completed";
@@ -256,7 +292,7 @@ try {
   // ---- Phase E: console + roster ------------------------------------------
   console.log("== PHASE E: console + roster ==");
   must(consoleErrors.length === 0, `console clean (${consoleErrors.length} errors${consoleErrors.length ? `: ${consoleErrors[0].slice(0, 100)}` : ""})`);
-  const jobs1 = await (await fetch(`${BASE}/api/jobs`, { headers: SH })).json();
+  const jobs1 = await (await fetchRetry(`${BASE}/api/jobs`, { headers: SH })).json();
   must((jobs1.jobs ?? []).length === 15, `roster still 15 (${(jobs1.jobs ?? []).length})`);
   mkdirShot();
   function mkdirShot() {

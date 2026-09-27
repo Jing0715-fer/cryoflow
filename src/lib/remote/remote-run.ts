@@ -31,7 +31,7 @@
  * visualization + downstream LOCAL runs work after completion.
  */
 
-import { createHash } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import {
   closeSync,
   existsSync,
@@ -3160,6 +3160,31 @@ const STAGING_BEAT_STALE_MS = 120_000;
 const STAGING_BEAT_MS = Math.max(500, Number(process.env.CF_STAGING_BEAT_MS) || 10_000);
 
 /**
+ * t404 — this server incarnation's identity. The staging task is
+ * void-spawned in-process, so a record's bootId answers "who owns this
+ * staging run": anything NOT stamped with the current BOOT_ID was spawned
+ * by a server that no longer exists — its task died with that process,
+ * even if the ledger row still says pending. The boot sweep (below) uses
+ * this to finalize those ghosts on the first poll tick instead of letting
+ * them sit out the 30min no-beat fallback — on a sandbox that reaps the
+ * server every few minutes, that fallback meant staging could NEVER make
+ * progress (each attempt died pre-first-beat; each corpse blocked 30min).
+ */
+const BOOT_ID = randomUUID();
+
+/**
+ * t404 — how long a bootId-STAMPED staging run may sit without a single
+ * heartbeat before the continuous sweep convicts it. A live task beats
+ * every STAGING_BEAT_MS, so the first beat lands within one interval of
+ * spawn; six intervals of silence (min 60s) means the task died before
+ * its first beat (a server restart, a synchronous throw in the staging
+ * prelude) — the exact hole that used to fall through to the 30min
+ * pre-heartbeat fallback. That 30min fallback now only serves records
+ * OLD enough to predate bootId stamping entirely.
+ */
+const STAGING_FIRST_BEAT_GRACE_MS = Math.max(60_000, 6 * STAGING_BEAT_MS);
+
+/**
  * Staging heartbeat — the background staging task has no supervisor (it is
  * void-spawned), so it touches the ledger every STAGING_BEAT_MS while alive.
  * The poll sweep reads the beat to distinguish "still uploading" from "the
@@ -4189,6 +4214,9 @@ export async function startRemoteJob(args: {
       ? { partition: partitionOverride ?? pinPartition ?? undefined }
       : {}),
     phase: "staging",
+    // t404 — ownership stamp: the sweep and the boot sweep both read this
+    // to tell a live incarnation's upload from a ghost of a dead server.
+    bootId: BOOT_ID,
   };
 
   // ---- plan the input staging -------------------------------------------
@@ -6468,7 +6496,61 @@ interface BatchEntry {
  * Records for jobs whose DB row is no longer "running" still get finalized
  * (sync-back + done flag) — the heal path for stop/restart races.
  */
+/**
+ * t404 — the boot ghost sweep. Runs ONCE per server incarnation, on the
+ * first reconcile tick (a jobs GET drives it). At that moment NO staging
+ * task of this incarnation exists yet (the module only just loaded — a
+ * dispatch needs an API call), so every ledger record with
+ * `remote.phase === "staging"` and `!done` is either:
+ *   - stamped with a PAST incarnation's bootId → its task died with that
+ *     server restart, by definition. A still-fresh heartbeat can only mean
+ *     a dev-HMR survivor (module re-eval reset BOOT_ID while the old
+ *     closure's beat interval keeps writing) — those stand down and let
+ *     their own finalize path win; stale/absent beat = true ghost.
+ *   - unstamped (pre-t404 ledger) → keep the age-window fallback exactly
+ *     as it was; the continuous sweep below owns those.
+ * Without this sweep, a sandbox that reaps the server every few minutes
+ * starved staging forever: each attempt died before its first heartbeat,
+ * and each corpse then sat out the 30min no-beat fallback while blocking
+ * the run door's liveness guard (409 "already live" on a dead run).
+ */
+let bootGhostSweepDone = false;
+async function finalizeStagingGhostsFromPastIncarnations(jobs: Job[]): Promise<void> {
+  if (bootGhostSweepDone) return;
+  bootGhostSweepDone = true;
+  for (const job of jobs) {
+    const rec = getRun(job.id);
+    const r = rec?.remote;
+    if (!r || r.phase !== "staging" || rec?.done) continue;
+    if (!r.bootId) continue; // pre-t404 ledger — the age fallback still owns it
+    if (r.bootId === BOOT_ID) continue; // this incarnation's own run — the beat windows govern
+    const beatFresh = r.stagingBeat != null && Date.now() - r.stagingBeat < STAGING_BEAT_STALE_MS;
+    if (beatFresh) continue; // dev-HMR survivor — its own task is still alive and will finalize
+    const msg =
+      "staging to the cluster was interrupted (the upload task vanished or the server restarted) — re-run to continue where it left off (uploaded files are skipped)";
+    const flipped = await db.job
+      .updateMany({
+        where: { id: job.id, status: { in: ["pending", "idle"] } },
+        data: { status: "failed", progress: 0, result: msg },
+      })
+      .catch(() => null);
+    if (flipped && flipped.count > 0) {
+      updateRun(job.id, (cur) =>
+        cur.remote && !cur.done && cur.remote.phase === "staging"
+          ? { ...cur, done: true, exitCode: -1, result: msg, remote: { ...cur.remote, note: "staging interrupted" } }
+          : null
+      );
+      console.log(
+        `remote-run: boot sweep finalized a staging ghost for "${job.name}" (bootId from a past incarnation, beat ${
+          r.stagingBeat == null ? "absent" : "stale"
+        })`
+      );
+    }
+  }
+}
+
 export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
+  void finalizeStagingGhostsFromPastIncarnations(jobs).catch(() => null);
   const runs = readRuns();
   const active: BatchEntry[] = [];
   const heal: BatchEntry[] = [];
@@ -6538,7 +6620,16 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
     if (e.job.status !== "pending" && e.job.status !== "idle") continue;
     const ageMs = Date.now() - new Date(e.rec.startedAt).getTime();
     const beatAge = e.remote.stagingBeat != null ? Date.now() - e.remote.stagingBeat : null;
-    const stale = beatAge != null ? beatAge > STAGING_BEAT_STALE_MS : ageMs > 30 * 60_000;
+    // t404 — the no-beat branch now splits by ownership: a bootId-stamped
+    // record that has not beaten within STAGING_FIRST_BEAT_GRACE_MS died
+    // before its first heartbeat (a live task beats every STAGING_BEAT_MS —
+    // six intervals of silence is a corpse). Only records too old to carry
+    // a bootId (pre-t404 ledgers) still wait out the 30min fallback.
+    const noBeatStale =
+      e.remote.bootId != null
+        ? ageMs > STAGING_FIRST_BEAT_GRACE_MS
+        : ageMs > 30 * 60_000;
+    const stale = beatAge != null ? beatAge > STAGING_BEAT_STALE_MS : noBeatStale;
     if (!stale) continue;
     const msg =
       "staging to the cluster was interrupted (the upload task vanished or the server restarted) — re-run to continue where it left off (uploaded files are skipped)";
