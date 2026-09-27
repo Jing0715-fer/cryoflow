@@ -1169,7 +1169,11 @@ function appendRelionFlags(
       continue;
     }
     if (typeof v === "string") {
-      if (v === "" || v === def.default) continue;
+      // t402 — a whitespace-only value is NO value: a hand-typed "  " in
+      // the Continue-from-here box must ride nothing (explicitContinueOf
+      // already trims; the generic layer now agrees, so an empty choice
+      // can never dispatch relion_refine --continue "   ")
+      if (v === "" || v.trim() === "" || v === def.default) continue;
       argv.push(flag, v);
       present.add(flag);
     } else if (typeof v === "number" && Number.isFinite(v)) {
@@ -6034,6 +6038,17 @@ export async function buildArgv(ctx: BuildCtx): Promise<string[] | { error: stri
       // the curated argv is complete and valid on its own — the generic
       // layer must never break a dispatch
     }
+    // t402 — an explicit continue speaks RELION's CONTINUE dialect, not
+    // the fresh one: MlOptimiser::read() branches on --continue and
+    // parseContinue registers only a runtime subset, so every fresh-shape
+    // option still riding the argv (--i, --K, --ctf, --zero_mask, --grad,
+    // …) is ignored with a WARNING. Diet the argv to what the continue
+    // parser will actually read; a job with no explicit choice is left
+    // byte-identical (the fresh contract this must never touch).
+    const cont = explicitContinueOf(ctx.job);
+    if (cont != null && CONTINUABLE_TYPES.has(ctx.job.type)) {
+      dietContinueArgv(built, cont);
+    }
   }
   return built;
 }
@@ -8455,6 +8470,131 @@ const RESUMABLE_TYPES = new Set(["class2d", "class3d", "refine3d", "initialmodel
 export function explicitContinueOf(job: EngineJobRef): string | null {
   const v = (job.params as Record<string, unknown> | undefined)?.fn_cont;
   return typeof v === "string" && v.trim() !== "" ? v.trim() : null;
+}
+
+/* ------------------------------------------------------------------ */
+/* t402 — the continue argv diet (RELION's own continue dialect)       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * t402 — the option names RELION's CONTINUE parser (MlOptimiser::
+ * parseContinue, src/ml_optimiser.cpp) actually registers. A
+ * `relion_refine --continue <optimiser.star>` run reads its run SHAPE
+ * from the checkpoint: MlOptimiser::read() branches on --continue and
+ * calls parseContinue — a parser that registers only this runtime set —
+ * instead of parseInitial (the fresh-run set). Every fresh-shape option
+ * still riding the command line (--i, --K, --ctf, --zero_mask, --ref,
+ * --sym, …) is IGNORED with
+ * "WARNING: Option --X is not a valid RELION argument" — the field
+ * report: a class2d VDAM continue dispatched with the full fresh argv
+ * warns on exactly --i --K --grad --ctf --zero_mask (RELION's own
+ * args.cpp even puts a literal tab in the warning line), because those
+ * five are the fresh-only members of that argv. The warnings are
+ * non-fatal (the checkpoint's values win), but they read like a broken
+ * dispatch — and RELION's own GUI never sends them: its continue
+ * command carries only the continue-registered knobs.
+ *
+ * Two dialect notes, straight from the RELION source:
+ *  · plain "--grad" is NOT in parseContinue's registrations — RELION's
+ *    own GUI still emits it on a VDAM continue (getCommandsClass2DJob
+ *    builds the VDAM trio outside the !is_continue guards), so every
+ *    GUI continue of a VDAM run has always printed that one warning.
+ *    The VDAM-ness of a continued run comes from the checkpoint
+ *    (gradient_refine lives in the optimiser.star), so the diet DROPS
+ *    --grad: same run, zero warnings. Its continue-registered
+ *    companions (--grad_write_iter, --class_inactivity_threshold)
+ *    ride untouched.
+ *  · "--iter" on a continue is RELION's own semantics ("how much more
+ *    to run") — the GUI sends it on continue too. It stays.
+ *
+ * Source of truth: 3dem/relion src/ml_optimiser.cpp MlOptimiser::
+ * parseContinue — 104 registrations, transcribed alphabetically and
+ * verified verbatim on 2026-09-26 (plus "--continue" itself, added by
+ * the diet call site rather than this set, so the trigger can never be
+ * filtered away by a set typo).
+ */
+const CONTINUE_PARSED_OPTIONS: ReadonlySet<string> = new Set([
+  "abort_at_resolution", "allow_coarser_sampling", "asymmetric_padding",
+  "auto_ignore_angles", "auto_iter_max", "auto_local_healpix_order",
+  "auto_resol_angles", "bimodal_psi", "blush",
+  "blush_skip_spectral_trailing", "center_classes",
+  "class_inactivity_threshold", "cpu", "ctf3d_not_squared",
+  "dont_combine_weights_via_disc", "dont_skip_gridding",
+  "external_reconstruct", "failsafe_threshold", "flatten_solvent",
+  "force_converge", "free_gpu_memory", "gpu", "grad_em_iters",
+  "grad_fin_frac", "grad_fin_resol", "grad_fin_subset", "grad_ini_frac",
+  "grad_ini_resol", "grad_ini_subset", "grad_stepsize",
+  "grad_stepsize_scheme", "grad_write_iter", "healpix_order",
+  "helical_inner_diameter", "helical_outer_diameter", "ini_high", "ios",
+  "iter", "j", "join_random_halves", "keep_free_scratch", "keep_scratch",
+  "lowpass", "lowpass_mask", "maxsig", "min_sigma2_offset", "mu",
+  "multibody_masks", "multibody_norm_overlap", "no_norm",
+  "no_parallel_disc_io", "no_scale", "norm", "normalised_subtomo", "o",
+  "offset", "offset_range", "offset_step", "onthefly_shifts",
+  "oversampling", "pad", "pad_ctf", "particle_diameter", "perturb",
+  "pool", "preread_images", "psi_step", "reconstruct_subtracted_bodies",
+  "relax_sym", "reuse_scratch", "scale", "scratch_dir", "sigma_ang",
+  "sigma_psi", "sigma_rot", "sigma_tilt", "skip_align",
+  "skip_maximize", "skip_realspace_helical_sym", "skip_rotate",
+  "skip_subtomo_multi", "solvent_correct_fsc", "solvent_mask",
+  "solvent_mask2", "strict_highres_exp", "subtomo_multi_thr", "sycl",
+  "sycl-cpu", "sycl-cuda", "sycl-hip", "sycl-levelzero", "sycl-opencl",
+  "tau", "tau2_fudge", "tau2_fudge_scheme", "trust_ref_size", "verb",
+]);
+
+/**
+ * The refine-family types whose explicit continue rides the generic
+ * fn_cont layer — the four whose curated builder emits a FRESH argv.
+ * (multibody is exclude-listed on purpose: its builder speaks the
+ * continue dialect natively — --continue --o --multibody_masks … —
+ * every option it emits is parseContinue-registered, so its argv is
+ * legal as-built and must not be dieted.)
+ */
+const CONTINUABLE_TYPES: ReadonlySet<string> = new Set([
+  "class2d", "class3d", "refine3d", "initialmodel",
+]);
+
+/**
+ * Diet a fresh-run argv down to RELION's continue dialect: keep the
+ * binary, the --continue pair, and every option parseContinue will
+ * actually read; drop (and consume the value of) each fresh-shape
+ * option the checkpoint owns. Mutates the array in place so every
+ * consumer of buildArgv — local dispatch, remote wrapper, command
+ * preview — shares one truth. Bool flags ride alone (RELION's own
+ * convention), so "the token after a flag is its value unless it is
+ * itself a flag" walks pairs correctly for both shapes.
+ */
+function dietContinueArgv(argv: string[], cont: string): void {
+  if (argv.length === 0) return;
+  const out: string[] = [argv[0] as string];
+  for (let i = 1; i < argv.length; i++) {
+    const a = argv[i] as string;
+    if (typeof a === "string" && a.startsWith("--") && a.length > 2) {
+      const keep = a === "--continue" || CONTINUE_PARSED_OPTIONS.has(a.slice(2));
+      const next = argv[i + 1];
+      const value =
+        typeof next === "string" && !(next.startsWith("--") && next.length > 2)
+          ? argv[++i] ?? null
+          : null;
+      if (keep) {
+        out.push(a);
+        // the checkpoint pair speaks the TRIMMED choice (explicitContinueOf's
+        // law) — a hand-typed "  /path  " rides clean, never as-is
+        if (value != null) out.push(a === "--continue" ? cont : value);
+      }
+    } else {
+      // a stray non-flag orphan (should not exist in our dialect) —
+      // keep rather than silently eat a token we do not understand
+      out.push(a);
+    }
+  }
+  // belt & braces: the explicit choice ALWAYS rides, even if a future
+  // table edit ever forgets the fn_cont flag
+  if (!out.includes("--continue")) {
+    out.splice(1, 0, "--continue", cont);
+  }
+  argv.length = 0;
+  argv.push(...out);
 }
 
 /**

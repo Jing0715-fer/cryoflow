@@ -3917,3 +3917,25 @@ Stage Summary:
 - 产出：footer served-build 戳记（next.config env + footer 展示）—— 「我跑的是哪版代码」从此一眼可读，对着 `git rev-parse --short HEAD` 比对即知进程是否欠一次重启/重建
 - 判决：远端完整（303afa4），用户旧 UI 的缺口在本地链路：最大嫌疑 = 生产模式未重建（standalone 快照语义）；次嫌疑 = dev 缓存僵死 / 浏览器缓存 / pull 未落地
 - 用户复机路径：git pull → 若 dev：重启 dev server；若 prod：`bun run build && bun run start` → 浏览器硬刷新 → footer 右下角应显示 `build 303afa4`（或更新的 SHA）＝ `git rev-parse --short HEAD` 的输出
+
+---
+Task ID: t402
+Agent: main (Z.ai Code)
+Task: 用户工单 — 五条 RELION 告警「WARNING: Option --i/--K/--grad/--ctf/--zero_mask is not a valid RELION argument」(header: "The following warnings were encountered upon command-line parsing:")
+
+Work Log:
+- [判决 — 源码级] 稀疏克隆 3dem/relion（/tmp/relion-src）取证：args.cpp L368 告警格式串自带字面 \t（用户贴文里的 tab 是 RELION 自己的）；合法性 = 该程序注册的选项名完全匹配。ml_optimiser.cpp 关键分岔：MlOptimiser::read() 带 --continue 时走 parseContinue（注册 104 个运行时选项），否则 parseInitial（全量 fresh 集）——**--i/--K/--ctf/--zero_mask/--grad 全都不在 parseContinue 注册集**（--grad 缺席是上游怪癖：RELION 自己的 GUI 续跑 VDAM 也发它、也吃这条告警；VDAM 属性由 checkpoint 的 gradient_refine 携带）
+- [根因 — 我们的 bug] t394 的显式 continue 把 --continue 追加到**全量 fresh argv** 尾部（appendRelionFlags 的 fn_cont 表项）。class2d VDAM 续跑时恰好五个 fresh-only 选项存活于 argv（--i/--K/--grad/--ctf/--zero_mask，其余 --o/--iter/--tau2_fudge/--flatten_solvent/--center_classes 等均为 continue 合法）→ 用户看到的正是这五条、**顺序都与 argv 顺序一致**。告警非致命（checkpoint 值获胜、任务实际能跑），但读起来像派发坏了
+- [修复 A — engine.ts 续跑瘦身] CONTINUE_PARSED_OPTIONS（parseContinue 104 注册项逐字转写，源码行号注释）+ dietContinueArgv（配对游走：flag 后跟非 flag 即值；--continue 对值强制取 trim 后的显式选择）+ buildArgv 接线（class2d/class3d/refine3d/initialmodel 四型有 fn_cont 时瘦身；multibody 的 builder 本就讲 continue 方言、排除；无选择时 argv 字节不变——fresh 回归契约）
+- [修复 B — 顺带真 bug] appendRelionFlags 字符串值不 trim：手输全空白的 fn_cont 会以 `--continue "   "` 上车（explicitContinueOf 说 null → 不瘦身，但泛型层照样发）——现在空白值不再上车
+- [修复 C — mock relion_refine stub] 补 --continue 方言（真 RELION 接口镜像：无 --i 也可跑、迭代号从 checkpoint 的 rlnCurrentIteration 续写、轮族含 half{1,2}_model.star + sampling.star 完整 gold 家族 + refine3d finals）；解析器修 RELION 裸 bool 约定（旧解析器会把 bool 后面的旗标吞成"值"——潜伏垃圾值）；write_mrc 定义上移（continue 分支先行）
+- [修复 D — mock server 翻译回归，t400 交互] t400 的派发瘦身把上传+运行合并成一条 exec（`head -c N > P && bash P`），mock 的脚本内容翻译正则以 `.sh$` 结尾锚定——合并形态下 sed 目标抓成 "P && bash P"，脚本内容漏翻、wrapper 的 mkdir '/projects' 撞宿主真根权限拒绝。修复：在重定向目标后**注入** sed（介于上传与后续之间）；bash 在读脚本前内容已翻好
+- [运维教训] mock 服务器 bun --hot 热重载后，**app 的 SSH 连接池仍挂着旧连接**（旧连接绑着旧 handleSession/旧翻译代码）——探针（新连接）通过而 app 派发持续失败的假象由此而来；重启 dev server 重拨连接池后全通
+- [验证·套件] scripts/t402-continue-argv.ts 新建 32/32（五死项消失/合法项保留/fresh 字节不变/pair-walk/multibody 不动/非续跑型不动）；t394 62/62（E 契约 --continue 对保持）；test-resume-checkpoint 17/17；t385 48/48 + t386 119/119（动了泛型层跑全量）；tsc 0；eslint 0；mock server node --check 0
+- [验证·集群 E2E（mock，真 SSH）] 全新种子链：mock 上造 3 粒子 star+mrcs → import(particles, 远程项目零上传语义) → class2d VDAM(miniBatches=2) fresh 集群派发 → stub 写 it000-002 完整轮族 → 任务 completed → 设 fn_cont=run_it002_optimiser.star → 再派发：**wrapper 落盘命令 = 瘦身 argv**（--continue it002 + --o/--iter/--tau2_fudge/--particle_diameter/--pad/--psi_step/--flatten_solvent/--j/--center_classes/--pool/--class_inactivity_threshold/--grad_write_iter；五死项全无）→ 续写 it003/it004 完整 gold 家族 → 任务 100% completed（REMOTE[..] 结果 + 47 文件同步回）
+- [验证·浏览器] inspector：completed 任务主按钮 = Continue（fn_cont 模态换脸不受影响）、集群徽标、零 console/page 错误
+
+Stage Summary:
+- 产出：RELION continue 方言瘦身（单一 buildArgv 真源 → 本地/远程/预览三面同改）+ 泛型层空白值修复 + mock stub 的 continue 接口 + mock server 的 t400 合并上传翻译修复
+- 用户复机路径：git pull → 续跑 class2d/class3d/refine3d/initialmodel → Log 里不再有五条告警；wrapper/命令预览显示 RELION GUI 同款续跑方言
+- 诚实边界：①mock 集群上 stub 无 RELION 真解析器——"零告警"的证明是 argv 形状对 parseContinue 注册集（源码逐字对照），非真二进制跑过 ②--grad 的删除以 checkpoint 携带 VDAM 属性为前提（RELION 源码判决），GUI 自己也这么活 ③泛型层 trim 改动对所有类型生效（t386 119/119 全量回归背书）

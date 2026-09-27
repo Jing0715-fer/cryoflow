@@ -28,19 +28,216 @@ opts = {}
 i = 0
 while i < len(argv):
     a = argv[i]
-    if a.startswith("--"):
-        opts[a[2:]] = argv[i + 1] if i + 1 < len(argv) else ""
-        i += 2
+    if a.startswith("--") and len(a) > 2:
+        # t402 — RELION's own convention: a flag's value is the next token
+        # UNLESS that token is itself a flag (BOOLS RIDE ALONE — --ctf,
+        # --zero_mask, --flatten_solvent …). The old naive parser consumed
+        # the next token unconditionally, so a bool followed by a flag+value
+        # pair ate the flag ("--flatten_solvent --j 4" lost --j entirely);
+        # invisible until now because the stub never read those keys.
+        nxt = argv[i + 1] if i + 1 < len(argv) else None
+        if nxt is not None and not (nxt.startswith("--") and len(nxt) > 2):
+            opts[a[2:]] = nxt
+            i += 2
+        else:
+            opts[a[2:]] = True
+            i += 1
     else:
         i += 1
 
-outdir = opts.get("o", "./").rstrip("/").rstrip("/")
+outdir = opts.get("o", "./") if isinstance(opts.get("o"), str) else "./"
+outdir = outdir.rstrip("/").rstrip("/")
 if outdir.endswith("/run"):
     outdir = outdir[: -len("/run")]
 os.makedirs(outdir, exist_ok=True)
-iters = int(opts.get("iter", opts.get("maxiter", "12")))
-ncls = int(opts.get("K", "3"))
-mode = opts.get("mode", "classify2d")
+
+def write_mrc(path, nx, ny, nz, seed, kind="volume"):  # noqa: F811 — legacy writer (kept for byte-compat; t377-merge keeps the t373 kind= polarity hint)
+    """Minimal valid MRC (mode 2, float32) — enough for header readers.
+
+    t311: the header offsets now follow the REAL MRC2014 layout — MODE is
+    word 3 (byte 12), NXSTART/NYSTART/NZSTART words 4-6 (16), MX/MY/MZ words
+    7-9 (28), DMIN/DMAX/DMEAN words 19-21 (76), ISPG word 22 (88), NSYMBT
+    word 23 (92), ORIGIN words 24-26 (96), RMS word 54 (216). The old writer
+    put MODE at byte 4 — overwriting NY with 2 — and packed the sampling
+    into the NXSTART slot; the app's lenient montage path still drew tiles,
+    but every honest header reader (readMrcHeader's own dims, Mol*, real
+    RELION) read a 64x2x64 sliver. The fake's dialect now reaches the header.
+
+    t373: 2D CLASS AVERAGES (kind="classes") now carry the RELION display
+    convention — a BRIGHT (positive) particle blob on a darker background,
+    exactly what a real relion_refine class2d produces after its fitted
+    per-particle contrast sigma flips cryo's dark-protein signal into the
+    reference's positive convention. The old uniform noise made every class
+    tile look "wrong" next to real output (the user's black-particle
+    report's mock-lane cousin). Each class keeps its own seed so two
+    classes never render identical (zeroData stays honestly absent), and
+    the blob's size/shape varies per class like real averages do.
+    """
+    import math
+
+    data = bytearray()
+    dmin, dmax, dsum = 1e30, -1e30, 0.0
+    if kind == "classes":
+        # per-class blob: radius + wobble derive from the seed
+        rad = 0.22 + ((seed * 7919) % 100) / 1000.0     # 0.22–0.32 of the box
+        wob = ((seed * 104729) % 100) / 100.0           # shape wobble 0–1
+        cx = nx / 2.0 + (((seed * 31) % 100) - 50) / 400.0
+        cy = ny / 2.0 + (((seed * 47) % 100) - 50) / 400.0
+        for z in range(nz):
+            # every slice its own sub-seed (class index lives in the seed)
+            sub = seed * 613 + z * 977
+            for y in range(ny):
+                for x in range(nx):
+                    dx = (x - cx) / (nx * rad)
+                    dy = (y - cy) / (ny * rad)
+                    r2 = dx * dx + dy * dy
+                    blob = math.exp(-3.0 * r2) * (1.0 + 0.15 * math.sin(6.0 * dx + sub % 7))
+                    ring = 0.25 * math.exp(-14.0 * (r2 - 0.55) ** 2) * wob
+                    noise = ((sub * 1103515245 + (z * nx * ny + y * nx + x) * 12345) % 1000) / 1000.0 - 0.5
+                    v = 0.35 * blob + 0.12 * ring + 0.08 * noise - 0.04
+                    data += struct.pack("<f", v)
+                    if v < dmin: dmin = v
+                    if v > dmax: dmax = v
+                    dsum += v
+    else:
+        for k in range(nx * ny * nz):
+            v = ((seed * 1103515245 + k * 12345) % 1000) / 1000.0 - 0.5
+            data += struct.pack("<f", v)
+            if v < dmin: dmin = v
+            if v > dmax: dmax = v
+            dsum += v
+    n = nx * ny * nz
+    dmean = dsum / n if n else 0.0
+    header = bytearray(1024)
+    struct.pack_into("<3i", header, 0, nx, ny, nz)          # NX,NY,NZ
+    struct.pack_into("<i", header, 12, 2)                   # MODE float32 (word 3)
+    struct.pack_into("<3i", header, 16, 0, 0, 0)            # NXSTART, NYSTART, NZSTART
+    struct.pack_into("<3i", header, 28, nx, ny, nz)         # MX,MY,MZ sampling
+    struct.pack_into("<3f", header, 40, float(nx), float(ny), float(nz))  # CELLA
+    struct.pack_into("<3f", header, 52, 90.0, 90.0, 90.0)   # CELLB angles
+    struct.pack_into("<3i", header, 64, 1, 2, 3)            # MAPC, MAPR, MAPS
+    struct.pack_into("<3f", header, 76, dmin, dmax, dmean)   # DMIN, DMAX, DMEAN (t373: real stats)
+    struct.pack_into("<i", header, 88, 1)                   # ISPG
+    struct.pack_into("<i", header, 92, 0)                   # NSYMBT (no extended header)
+    struct.pack_into("<3f", header, 96, 0.0, 0.0, 0.0)      # ORIGIN
+    header[208:212] = b"MAP "                               # MAP magic
+    header[212:216] = b"\x44\x41\x00\x00"                   # MACHST little-endian
+    struct.pack_into("<f", header, 216, 0.29)               # RMS
+    struct.pack_into("<i", header, 220, 1)                  # NLABL
+    with open(path, "wb") as fh:
+        fh.write(header)
+        fh.write(bytes(data))
+
+# ---- t402 — CONTINUE mode (RELION's --continue dialect) ------------------
+# Real relion_refine --continue reads its run SHAPE from the optimiser
+# checkpoint: --i never rides the command (parseContinue does not even
+# REGISTER it), the iteration count continues from the checkpoint's own
+# rlnCurrentIteration, and each round is REWRITTEN as the run reaches it.
+# The app's t402 argv diet sends exactly that dialect — this stub mirrors
+# the interface so the cluster lane's continue E2E can run end-to-end.
+_cont = opts.get("continue", "")
+if isinstance(_cont, str) and _cont.strip():
+    import re as _re
+
+    _cont = _cont.strip()
+    _m = _re.search(r"run_it(\d+)_optimiser\.star$", _cont)
+    if not _m:
+        print(
+            "cryoflow-mock refine: --continue wants a run_itNNN_optimiser.star (the GUI's own validation)",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    if not os.path.exists(_cont):
+        print(f"cryoflow-mock refine: checkpoint {_cont} does not exist", file=sys.stderr)
+        sys.exit(1)
+    with open(_cont) as _fh:
+        _opt_txt = _fh.read()
+    _mit = _re.search(r"_rlnCurrentIteration\s+(\d+)", _opt_txt)
+    _mk = _re.search(r"_rlnNumberOfClasses\s+(\d+)", _opt_txt)
+    _start_it = int(_mit.group(1)) if _mit else int(_m.group(1))
+    _ncls = int(_mk.group(1)) if _mk else 3
+    # the checkpoint's data.star is what the continued run reloads
+    _data_star = os.path.join(
+        os.path.dirname(os.path.abspath(_cont)), f"run_it{_start_it:03d}_data.star"
+    )
+    if not os.path.exists(_data_star):
+        print(
+            f"cryoflow-mock refine: checkpoint's sibling run_it{_start_it:03d}_data.star is missing — the round is torn",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    _rows = [
+        l.rstrip("\n")
+        for l in open(_data_star)
+        if l.strip() and not l.startswith(("_", "#", "data_", "loop_"))
+    ]
+    _npart = len(_rows)
+    # --iter on a continue is RELION's "how much more to run"
+    _n_more = int(opts.get("iter", "12")) if isinstance(opts.get("iter"), str) else 12
+    print(
+        f"cryoflow-mock refine: CONTINUE from {os.path.basename(_cont)} "
+        f"(it {_start_it:03d}, K={_ncls}) +{_n_more} more, particles={_npart}"
+    )
+    sys.stdout.flush()
+    for _it in range(_start_it + 1, _start_it + _n_more + 1):
+        time.sleep(0.9)
+        print(
+            f" it [{_it:03d}]  :   R1=0.4{_it % 9} R2=0.3{_it % 8} "
+            f"fsc=0.{8 - (_it % 4)} ll={-120 + _it * 3}.{_it % 10} avgmax=0.0{_it % 30}"
+        )
+        sys.stdout.flush()
+        _its = f"{_it:03d}"
+        with open(os.path.join(outdir, f"run_it{_its}_data.star"), "w") as _fh:
+            _fh.write("\ndata_particles\n\nloop_\n")
+            _fh.write("_rlnImageName #1\n")
+            _fh.write("_rlnClassNumber #2\n")
+            for _p, _r in enumerate(_rows):
+                _f = _r.split()
+                _fh.write(f"{_f[0]}\t{(_p * 7 + _it) % _ncls + 1}\n")
+        write_mrc(os.path.join(outdir, f"run_it{_its}_classes.mrcs"), 64, 64, _ncls, 4096 + _it)
+        write_mrc(os.path.join(outdir, f"run_it{_its}_half1_class001.mrc"), 64, 64, 64, 101 + _it)
+        write_mrc(os.path.join(outdir, f"run_it{_its}_half2_class001.mrc"), 64, 64, 64, 202 + _it)
+        # the gold-standard family the picker's companion law reads by NAME
+        # (half{1,2}_model + sampling — a real gold round writes them all)
+        with open(os.path.join(outdir, f"run_it{_its}_half1_model.star"), "w") as _fh:
+            _fh.write("\ndata_model_general\n\n_rlnReferenceImage run_classes.mrcs\n")
+        with open(os.path.join(outdir, f"run_it{_its}_half2_model.star"), "w") as _fh:
+            _fh.write("\ndata_model_general\n\n_rlnReferenceImage run_classes.mrcs\n")
+        with open(os.path.join(outdir, f"run_it{_its}_sampling.star"), "w") as _fh:
+            _fh.write("\ndata_sampling_general\n\n_rlnSamplingHealpixOrder 2\n")
+        with open(os.path.join(outdir, f"run_it{_its}_optimiser.star"), "w") as _fh:
+            _fh.write(
+                f"\ndata_optimiser\n\n_rlnCurrentIteration {_it}\n_rlnNumberOfClasses {_ncls}\n"
+            )
+    # final aliases ride the LAST written round (the family rewriter's
+    # own convention)
+    with open(os.path.join(outdir, f"run_it{_start_it + _n_more:03d}_data.star"), "rb") as _a:
+        with open(os.path.join(outdir, "run_data.star"), "wb") as _b:
+            _b.write(_a.read())
+    copyfile = lambda s, d: open(d, "wb").write(open(s, "rb").read())  # noqa: E731
+    copyfile(
+        os.path.join(outdir, f"run_it{_start_it + _n_more:03d}_classes.mrcs"),
+        os.path.join(outdir, "run_classes.mrcs"),
+    )
+    copyfile(
+        os.path.join(outdir, f"run_it{_start_it + _n_more:03d}_optimiser.star"),
+        os.path.join(outdir, "run_optimiser.star"),
+    )
+    # the refine3d finals the sync-back/collectOutputs candidates resolve by
+    # (the fresh stub's own closing move, mirrored here)
+    write_mrc(os.path.join(outdir, "run_half1_class001_unfil.mrc"), 64, 64, 64, 9901)
+    write_mrc(os.path.join(outdir, "run_half2_class001_unfil.mrc"), 64, 64, 64, 9902)
+    write_mrc(os.path.join(outdir, "run_class001.mrc"), 64, 64, 64, 9903)
+    with open(os.path.join(outdir, "run_model.star"), "w") as _fh:
+        _fh.write("\ndata_\n\n_rlnReferenceImage run_classes.mrcs\n_rlnEstimatedResolution 4.2\n")
+    print(
+        f"wrote run_classes.mrcs + run_data.star after continuing from it{_start_it:03d} (+{_n_more})"
+    )
+    sys.exit(0)
+
+iters = int(opts.get("iter", opts.get("maxiter", "12"))) if isinstance(opts.get("iter"), str) or isinstance(opts.get("maxiter"), str) else 12
+ncls = int(opts.get("K", "3")) if isinstance(opts.get("K"), str) else 3
+mode = opts.get("mode", "classify2d") if isinstance(opts.get("mode"), str) else "classify2d"
 
 # ---- the input star is the contract (t308) ------------------------------
 star_in = opts.get("i", "")
@@ -203,84 +400,6 @@ if real_mode:
 print(
     f"cryoflow-mock refine: {'REAL particle class averages (t380 cryo polarity)' if real_mode else 'legacy synthetic classes'}"
 )
-
-
-def write_mrc(path, nx, ny, nz, seed, kind="volume"):  # noqa: F811 — legacy writer (kept for byte-compat; t377-merge keeps the t373 kind= polarity hint)
-    """Minimal valid MRC (mode 2, float32) — enough for header readers.
-
-    t311: the header offsets now follow the REAL MRC2014 layout — MODE is
-    word 3 (byte 12), NXSTART/NYSTART/NZSTART words 4-6 (16), MX/MY/MZ words
-    7-9 (28), DMIN/DMAX/DMEAN words 19-21 (76), ISPG word 22 (88), NSYMBT
-    word 23 (92), ORIGIN words 24-26 (96), RMS word 54 (216). The old writer
-    put MODE at byte 4 — overwriting NY with 2 — and packed the sampling
-    into the NXSTART slot; the app's lenient montage path still drew tiles,
-    but every honest header reader (readMrcHeader's own dims, Mol*, real
-    RELION) read a 64x2x64 sliver. The fake's dialect now reaches the header.
-
-    t373: 2D CLASS AVERAGES (kind="classes") now carry the RELION display
-    convention — a BRIGHT (positive) particle blob on a darker background,
-    exactly what a real relion_refine class2d produces after its fitted
-    per-particle contrast sigma flips cryo's dark-protein signal into the
-    reference's positive convention. The old uniform noise made every class
-    tile look "wrong" next to real output (the user's black-particle
-    report's mock-lane cousin). Each class keeps its own seed so two
-    classes never render identical (zeroData stays honestly absent), and
-    the blob's size/shape varies per class like real averages do.
-    """
-    import math
-
-    data = bytearray()
-    dmin, dmax, dsum = 1e30, -1e30, 0.0
-    if kind == "classes":
-        # per-class blob: radius + wobble derive from the seed
-        rad = 0.22 + ((seed * 7919) % 100) / 1000.0     # 0.22–0.32 of the box
-        wob = ((seed * 104729) % 100) / 100.0           # shape wobble 0–1
-        cx = nx / 2.0 + (((seed * 31) % 100) - 50) / 400.0
-        cy = ny / 2.0 + (((seed * 47) % 100) - 50) / 400.0
-        for z in range(nz):
-            # every slice its own sub-seed (class index lives in the seed)
-            sub = seed * 613 + z * 977
-            for y in range(ny):
-                for x in range(nx):
-                    dx = (x - cx) / (nx * rad)
-                    dy = (y - cy) / (ny * rad)
-                    r2 = dx * dx + dy * dy
-                    blob = math.exp(-3.0 * r2) * (1.0 + 0.15 * math.sin(6.0 * dx + sub % 7))
-                    ring = 0.25 * math.exp(-14.0 * (r2 - 0.55) ** 2) * wob
-                    noise = ((sub * 1103515245 + (z * nx * ny + y * nx + x) * 12345) % 1000) / 1000.0 - 0.5
-                    v = 0.35 * blob + 0.12 * ring + 0.08 * noise - 0.04
-                    data += struct.pack("<f", v)
-                    if v < dmin: dmin = v
-                    if v > dmax: dmax = v
-                    dsum += v
-    else:
-        for k in range(nx * ny * nz):
-            v = ((seed * 1103515245 + k * 12345) % 1000) / 1000.0 - 0.5
-            data += struct.pack("<f", v)
-            if v < dmin: dmin = v
-            if v > dmax: dmax = v
-            dsum += v
-    n = nx * ny * nz
-    dmean = dsum / n if n else 0.0
-    header = bytearray(1024)
-    struct.pack_into("<3i", header, 0, nx, ny, nz)          # NX,NY,NZ
-    struct.pack_into("<i", header, 12, 2)                   # MODE float32 (word 3)
-    struct.pack_into("<3i", header, 16, 0, 0, 0)            # NXSTART, NYSTART, NZSTART
-    struct.pack_into("<3i", header, 28, nx, ny, nz)         # MX,MY,MZ sampling
-    struct.pack_into("<3f", header, 40, float(nx), float(ny), float(nz))  # CELLA
-    struct.pack_into("<3f", header, 52, 90.0, 90.0, 90.0)   # CELLB angles
-    struct.pack_into("<3i", header, 64, 1, 2, 3)            # MAPC, MAPR, MAPS
-    struct.pack_into("<3f", header, 76, dmin, dmax, dmean)   # DMIN, DMAX, DMEAN (t373: real stats)
-    struct.pack_into("<i", header, 88, 1)                   # ISPG
-    struct.pack_into("<i", header, 92, 0)                   # NSYMBT (no extended header)
-    struct.pack_into("<3f", header, 96, 0.0, 0.0, 0.0)      # ORIGIN
-    header[208:212] = b"MAP "                               # MAP magic
-    header[212:216] = b"\x44\x41\x00\x00"                   # MACHST little-endian
-    struct.pack_into("<f", header, 216, 0.29)               # RMS
-    struct.pack_into("<i", header, 220, 1)                  # NLABL
-    with open(path, "wb") as fh:
-        fh.write(header)
-        fh.write(bytes(data))
 
 
 # ---- t382 — the SEED ROUND (it000) ----------------------------------------

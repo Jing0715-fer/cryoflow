@@ -195,16 +195,27 @@ function translateCommand(cmd) {
   // proof too — otherwise every <FS_ROOT>/home/cryo/… path in a script
   // becomes <FS_ROOT><FS_ROOT>/home/cryo/… and the whole run walks into a
   // doubled tree that does not exist.
-  const up = /head -c \d+ > (.+\.sh)['"]?\s*$/.exec(out);
+  // t402 — the sed is INJECTED after the redirection target, not appended
+  // to the command's end: the app's t400 dispatch diet merged the upload
+  // and the run into ONE exec (`head -c N > P && bash P`), and the old
+  // end-anchored regex grabbed "P && bash P" as the sed target — the sed
+  // missed the file, the script's content kept its cluster-absolute paths,
+  // and its mkdir '/projects' died on the HOST's real root (permission
+  // denied). The injection runs the rewrite BETWEEN the upload and
+  // whatever follows, so bash reads an already-translated script.
+  const up = /^(.*?head -c \d+ > )(['"]?)([^'"\s]+\.sh)\2/s.exec(out);
   if (up) {
-    const target = up[1].trim().replace(/^['"]|['"]$/g, "");
+    const target = up[3];
     const F = FS_ROOT.replace(/#/g, "\\#");
-    out +=
-      ` && sed -i ` +
+    const sedExpr =
+      `sed -i ` +
       `'s#${F}/projects/#@@CFP@@/#g; s#${F}/home/cryo/#@@CFH@@/#g; s#${F}/data2/#@@CFD@@/#g; ` +
       `s#/projects/#${F}/projects/#g; s#/home/cryo/#${F}/home/cryo/#g; s#/data2/#${F}/data2/#g; ` +
-      `s#@@CFP@@/#${F}/projects/#g; s#@@CFH@@/#${F}/home/cryo/#g; s#@@CFD@@/#${F}/data2/#g' ` +
-      JSON.stringify(target);
+      `s#@@CFP@@/#${F}/projects/#g; s#@@CFH@@/#${F}/home/cryo/#g; s#@@CFD@@/#${F}/data2/#g'`;
+    out =
+      out.slice(0, up[0].length) +
+      ` && ${sedExpr} ${JSON.stringify(target)}` +
+      out.slice(up[0].length);
   }
   return out;
 }
