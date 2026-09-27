@@ -4147,7 +4147,7 @@ Stage Summary:
 
 ---
 
-Task ID: 409 (进行时 — 2026-09-27 21:36 cron 窗口 trace 1a07549302235a99-cron-agent-loop-202609272141)
+Task ID: 409 (完 — 2026-09-27 21:36 cron 窗口 trace 1a07549302235a99-cron-agent-loop-202609272141；完结补记于 09-28 02:36 窗)
 Agent: main (Z.ai Code)
 Task: 接续 Task 408 遗留①——remote/array 车道排查窗（t26/t26b/t27/t30 共 13 真败三画像：ENOENT statx 空路径 / argv 缺失 / harvest 部分）
 
@@ -4160,3 +4160,11 @@ Work Log:
 - [主交付 — keepFiles 语义（三处修复）] ①cleanup.ts 的 classifyRerunWipe 加 `opts.keepFiles`（workdir 相对 posix，keep-set 早于扩展名规则——t394 keepIterations 的先例）；②run-wipe.ts 的 wipeLocalRunProducts 把绝对 keep 路径归一化为相对（workdir 外路径丢弃，keep-set 保持纯粹）；③remote-run.ts 两处调用点：本地 wipe 传 `[resolvedInputs.train_picks]`（topaztrain 且已 re-point 时）、集群侧 wipe 传 `["training_picks.star"]`（re-dispatch 上传会覆盖，无陈旧存活）。教义：**「当代的合成输入不是上一代的产物」——wipe 的「fresh start」必须认识 fresh 的部分**。
 - [套件修复] t265 的空插值 execSync 加 guard（picksArg 空时不再让 cat 挂死 30s 后猝死——优雅记败）；ledger 钉改语义形态（声明存在 + ≥3 处 Object.entries/values(resolvedInputs) 迭代——锁「副本存在且两个消费者都读副本」）。
 - [build ×2 + 活体验证] FRESH=1 build-until-green 两次均 attempt 1 GREEN（74s/75s——修复只碰 3 文件）；t265 终审 **ALL PASS**（train→pick 闭环全绿：staged index 以 coordinate_files 格式上集群、模型 byte-identical 回传、--topaz_model 零重传 twin 消费、训练曲线诊断同步）。
+
+Stage Summary (Task 409 完结补记 — 09-28 02:36 窗收尾):
+- **「wipe 的 fresh start 必须认识 fresh 的部分」**：t333 的镜像 wipe 与 t265 的预 staging 合成是两个好 commit 组合出的车道内跷跷板——keepFiles 语义（keep-set 早于扩展名规则）把「当代的合成输入」从「上一代的产物」中分离，本地与集群两侧的 wipe 都学会了保留刚上传的 index
+- **「签名会撒谎，时序不会」**：套件报 ENOENT statx，真身是 `cat ${空串}` 的 STDIN 悬挂（30s 猝死伪装成路径缺失）——插桩时序日志比错误消息更接近真相
+- **「白盒计数钉死于 twin map 改道」**：ledger 的 16 vs 18 失配是重构的合法副产品——语义形态钉（声明存在 + 双消费者迭代）在演进中存活
+- 验证：FRESH=1 build ×2 attempt-1 GREEN（74s/75s）；t265 终审 ALL PASS（train→pick 闭环全绿）
+- 收尾补记（09-28 02:36 窗）：commit 消息曾被工具截断为 UUID（07bd0dc）——amend 为 422beff 完整教义消息；同一窗清场 5 个孤儿 standalone 进程（~908MB 释放，free 1600→2439MB）；remote 车道其余套件（t262-264/266/267/269/270/271/t302）的修复已随本 commit 在树
+- 遗留（下窗候选）：①remote 批全量复跑（t26/t26b/t27/t30 验证上窗修复的批级状态）；②t29 批轮跑；③EMPIAR 真数据回归（连续第廿八窗让位）
