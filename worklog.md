@@ -4026,3 +4026,32 @@ Stage Summary:
 - **「巡猎的打击面会扩大，看护必须跟进程同生共死」**：后台进程 10 分钟寿命 → 单工具调用内自带看护教义
 - **「哨兵锁本质，不锁实现细节」**：t341 的索引载荷、sync caps 的集群侧栈、台账的 outputs 路径——三处化石同一病根
 - 遗留（下窗候选）：①e2e 家族十批首跑（roster-15，per-suite 看护）；②巡猎画像持续观测；③EMPIAR 真数据回归（第廿三窗）
+
+---
+Task ID: 405 (进行时 — 2026-09-27 15:51 cron 窗口 trace 1a07549302235a99-cron-agent-loop-202609271558；e2e 家族 roster-15 首跑)
+Agent: main (Z.ai Code)
+Task: 接续 Task 404 遗留第①项——e2e 家族 12 批 77 套在 roster-15 治愈世界的首跑（per-suite 看护）；开局实证 + 浏览器 QA
+
+Work Log:
+- [开局实证] HEAD = 6547740 = origin/main（Task 404 完结），树净。继承摘要声称 Task 313/07d6aa0 已是化石——真源律第 N+1 次应验（8 天窗口树上走了 t314→t404 一整段）。
+- [发现 A — watchdog 多实例死锁] 4 个 dev-server-watchdog 并存（多窗遗留）+ 1 个锁战中败北的僵尸 next dev（07:56 起僵 8 小时）：watchdog 的 pgrep 门见「进程在场」永不重启，僵尸永不监听——服务器 000 的根因。清场后单 watchdog 复位，webpack 缓存 30s 暖服（GET / 200/37ms）。
+- [发现 B — 哨兵选择器化石] .react-flow__node / .react-flow__edge 恒为 0：react-flow 根本不在依赖树里，画布是自制渲染器（job-card.tsx）——真标记 = [data-job]（节点）/ [data-edge-id]（边）/ svg[data-edges-layer]。继承摘要的 react-flow 技巧入化石册。
+- [发现 C — agent-browser eval 恒超时] 本 daemon 上 eval/「page may still be loading」必挂，get count / snapshot / screenshot / find 正常——本窗 QA 一律规避 eval。
+- [QA 冒烟绿] 15 nodes · 14 edges · 15/15 进度环满绿 · 96 particles · 状态条 build 6547740 · console 零错误。shots-qa/t405-smoke-1.png 定妆。
+- [进行时] e2e 家族 12 批首跑启动（逐批 --batch + timeout 560 单调用看护；.family-report.json 台账在沙箱恢复中蒸发，本窗重建）。
+- [主雷——「巡猎」死亡证书（dmesg）] t403/t404 的「巡猎无声击杀后台 node ~10 分钟」画像大部分是**内核 OOM 杀手假扮**：dmesg 实证 `Out of memory: Killed process (next-server), anon-rss:2995464kB`——4GB 无 swap 盒子上 webpack 车道的 next-server 启动即 1.9GB RSS、随路由编译单调增长、内核在 ~3GB 处 SIGKILL。healer×2、supervisor、watchdog、agent-browser chrome 的无声死亡全对上号。批轮跑的真正敌人 = 服务器每几分钟必死的 OOM 循环。
+- [交付 A — watchdog v2] scripts/dev-server-watchdog.sh 重写：①**RSS 主动换生**（next-server ≥2.6GB 即受控 kill+reboot，赶在内核 OOM 之前——受控 35s 空窗胜过随机场枪）；②**僵尸执行**（进程在场但沉默 ≥90s = 锁败僵尸，本窗目击 8 小时尸检；kill+boot）；③**flock 单实例锁**（pgrep 启发式两次被绕：松散模式匹配到调用壳 cmdline、锚定模式仍被 $() fork 的瞬态同名副本骗到 count=2——cmdline 启发式是死路，flock 原子且随进程死亡释放）；④**启动预热**（boot 后轮询 GET / 直到应答，套件首跳落在已编译路由上）。
+- [交付 B — t310 韧性三件套] t310 两连败根因 = 裸传输层撞 OOM 换生窗：①gotoSteady（24×5s 连接层重试，含 Timeout 30000ms exceeded 签名——TCP 已连但编译未应答的第二形态）；②evalSteady（8×6s 整块重试，Failed to fetch/context destroyed 瞬态族；create 块加**按名收养**幂等——歧义 POST 采用既有连接而非复制）；③fetchSteady（node 侧 probe/api 韧性）；④console 门传输噪声豁免（换生窗的 ERR_CONNECTION_REFUSED 轮询噪声非产品错误，其余照 gate）。ALL PASS 实证：console 0 错误 + 6 条噪声豁免 + roster 15。
+- [t31 批] 全绿（pass 2 / real-fail 0 / 37.4s，t313 仅 13.2s——healed 世界幂等快跑）。台账 scripts/.family-report.json 重建（沙箱恢复时蒸发过）。
+- [t22 时代红] t221/t223 双双速败 = **结构性**：画廊家族（t204-t223、t254-256、t263、t278-291 等 ~20 套）的前置是旧「活体实例」（restore-gallery.py 的 QA 骨架 13 job），而 roster 23→15 迁移把它们改成自相矛盾——既要家具活著（前置）又断言纯 15（哨兵）。**画廊世界与链世界是跷跷板**，机械迁移有一处结构性盲区：改了哨兵没改前置。
+- [t26b 与体制判决] 首跑 4 real-fail（裸 fetch 撞换生窗）→ 重跑 4 SKIPPED(SERVER)（runner 诚实门拒绝伪判决）。期间 .next 缓存被 OOM 击毙的编译 worker 弄脏（boot→Compiling /→无声自退循环、无内核记录），隔离 .next.corrupt-t405 后三次 boot 增量暖存 ~210s 完成冷编译（t402「incremental warmth」教义活教材）。**体制判决：webpack dev 服务器（冷基线 1.9GB + 编译爆发 33s 冲 2.2GB+ + chrome 400-800MB）在 4GB 无 swap 盒子上承载不了 e2e 家族**——结构性修复候选 = 生产服务器（next build + next start，固定资产零编译增长）；build 风险（t402 九连败）需安静盒子重审。
+- [换生参数终调] 2.6GB（初版）→ 2.35GB（内核 2.84GB 击毙后收紧）→ **2.6GB（终版）**：2.35 会枪毙每次冷编译（爆发本身冲 2.2GB+，自造死亡螺旋比内核还狠）——换生只针对增长驱动状态，不针对瞬态编译爆发。tick 10s。
+- [验证] tsc 不涉（无 src 改动）；eslint t310 = 0；bash -n watchdog = 0；node --check t310 = 0；t310 ALL PASS 活体；t31 批 pass 2 / real-fail 0。
+- [诚实边界] ①家族轮跑只收口 t31 批全绿——t22 时代红（结构性）、t26b skipped（体制性）、其余 9 批未跑；②画廊和解（自足化 seed-and-scrub 或双世界账本）未动工；③生产服务器路线未实验；④EMPIAR 真数据回归连续第廿四窗让位。
+
+Stage Summary:
+- **「死亡证书到位，画像改写」**：t403/t404 的「巡猎击杀」大部分是内核 OOM 假扮——dmesg 一行胜过十窗猜测；「无声死亡」的元凶链 = next-server 2.8GB + chrome 压力 + 4GB 无 swap
+- **「cmdline 启发式是单实例锁的死路」**：松散 pgrep 匹配调用壳、锚定 pgrep 被 $() fork 瞬态副本骗到 count=2——flock 才是内核级的答案（原子 + 随死释放）
+- **「换生阈值要读爆发曲线」**：2.35GB 的「安全」阈值枪毙了 33s 冲 2.2GB 的编译爆发——监测者的阈值必须区分「瞬态爆发」与「增长驱动」，否则监测者成为新的死因
+- **「roster 迁移改了哨兵没改前置」**：87 文件 23→15 的机械迁移漏掉 ~20 套的活体实例前置——跷跷板两侧（画廊 13 job vs 链 15 job）不能同世共存
+- 遗留（下窗候选，按杠杆排序）：①**生产服务器实验**（安静盒子 build，成则体制换代：RSS ~400MB 零编译增长，家族轮跑的地基）；②画廊和解（seed-and-scrub 自足化 or restore-gallery + 二次 roster 迁移 15→28，二选一）；③家族轮跑续推（t24-t30 九批）；④EMPIAR 真数据回归（第廿四窗）
