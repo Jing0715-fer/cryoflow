@@ -654,15 +654,100 @@ export async function stashRemoteRunProducts(
   return out;
 }
 
+/** The archive's byte budget per workdir — retention v2's tier-2 line.
+ * t385's keep-2 rule bounds the GENERATION count, but a single
+ * generation of a refine-family run with RELION's own default --iter
+ * (200 for initialmodel) writes per-iteration half-maps that alone
+ * reach hundreds of MB — the live witness: one initialmodel archive at
+ * 830 MB (2 × 415 MB) on a box where that is a quarter of the disk.
+ * 256 MB is generous enough to hold any real class2d/classes.mrcs
+ * family intact, and still bounds the runaway. */
+export const ARCHIVE_BUDGET_BYTES = 256 * 1024 * 1024;
+
+/** The budget a deployment actually runs with — CRYOFLOW_ARCHIVE_BUDGET_MB
+ * overrides the default (a smaller box tightens it; a beefy cluster may
+ * want more grace). A missing or nonsensical value falls back to the
+ * default: the knob turns only when it makes sense. */
+export function archiveBudgetBytes(): number {
+  const mb = Number(process.env.CRYOFLOW_ARCHIVE_BUDGET_MB);
+  return Number.isFinite(mb) && mb > 0 ? Math.floor(mb) * 1024 * 1024 : ARCHIVE_BUDGET_BYTES;
+}
+
 /** The detached reaper's script — built here so the bench runs the
  * EXACT bytes the login node will (the t384 doctrine: the bench plays
- * the login node against real local files). */
-export function reclaimScript(workdir: string, keep = 2): string {
+ * the login node against real local files).
+ *
+ * Retention v2 — three tiers of graceful degradation, all DETACHED
+ * (never on the dispatch's path):
+ *   tier 1 (t385)  the generation count: keep the newest `keep`, eat
+ *                  the rest — the bounded steady state;
+ *   tier 2 (v2)    the byte budget: walk the kept generations
+ *                  oldest-first and eat until the archive is under
+ *                  `budgetBytes` or a single generation remains —
+ *                  "keep 2" must not mean "keep 2 × unbounded";
+ *   tier 3 (v2)    the crown slim: if even the last generation alone
+ *                  is over budget, every intermediate round of the
+ *                  run_it###_* / _it###_* family dies and the FINAL
+ *                  round of every family + every non-iteration file
+ *                  stay — the t397 local-wipe resume doctrine applied
+ *                  to the archive: what remains still says what the
+ *                  run was, it just stops carrying every step there.
+ * Every tier fails safe: a du without -b reads as 0 bytes (tier 2
+ * never drops), a generation with no parseable iteration family is
+ * never slimmed (tier 3 walks past it) — the archive's own contract
+ * is "the bytes die detached anyway", so the tiers only change HOW
+ * MUCH regret survives, never whether a dispatch refuses. */
+export function reclaimScript(
+  workdir: string,
+  keep = 2,
+  budgetBytes: number = archiveBudgetBytes()
+): string {
+  // One array element = ONE complete sh statement (the array joins with
+  // "\n" — a line must never BEGIN with "|", so every pipeline lives
+  // inside its element, space-joined, the t385 shape throughout).
   const inner = [
-    `find ${shSingleQuote(RUN_ARCHIVE_DIRNAME)} -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\\n' 2>/dev/null`,
-    `| sort -rn | tail -n +${keep + 1} | cut -d' ' -f2-`,
-    `| while IFS= read -r g; do rm -rf -- "$g"; done`,
-  ].join(" ");
+    // tier 1 — the generation count (t385, unchanged)
+    [
+      `find ${shSingleQuote(RUN_ARCHIVE_DIRNAME)} -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\\n' 2>/dev/null`,
+      `sort -rn | tail -n +${keep + 1} | cut -d' ' -f2-`,
+      `while IFS= read -r g; do rm -rf -- "$g"; done`,
+    ].join(" | "),
+    // tier 2 — the byte budget, oldest kept generation first. Generations
+    // are epoch-ms names (the stash generator's own law), so "age" is the
+    // basename: sort on it, not on size — big-and-old dies before
+    // small-and-young. The walk needs running state (total/count across
+    // drops), which a shell while-in-pipeline cannot carry — the plan is
+    // computed in awk (how many oldest gens to drop) and executed by a
+    // stateless per-line rm.
+    `sizes=$(find ${shSingleQuote(RUN_ARCHIVE_DIRNAME)} -mindepth 1 -maxdepth 1 -type d -print 2>/dev/null | while IFS= read -r g; do e=$(basename "$g"); case "$e" in ''|*[!0-9]*) e=0 ;; esac; s=$(du -sb "$g" 2>/dev/null | cut -f1); printf '%s %s %s\\n' $((e+0)) $((s+0)) "$g"; done | sort -n)`,
+    `drop=$(printf '%s\\n' "$sizes" | awk -v b=${budgetBytes} '{s[NR]=$2; n=NR; total+=$2} END{d=0; for(i=1;i<=n;i++){ if(n-d<=1 || total<=b) break; total-=s[i]; d++ } print d+0}')`,
+    `[ "$drop" -gt 0 ] && printf '%s\\n' "$sizes" | head -n "$drop" | cut -d' ' -f3- | while IFS= read -r g; do rm -rf -- "$g"; done`,
+    // the surviving total — tier 3's input (recomputed from the kept
+    // suffix: what the walk left behind is exactly what the budget keeps)
+    `total=$(printf '%s\\n' "$sizes" | tail -n +"$((drop+1))" | awk '{s+=$2} END{print s+0}')`,
+    // tier 3 — the crown slim: the last generation alone over budget
+    // keeps only the FINAL round of every iteration family (run_it###_*,
+    // and the _it###_* dialect gets its OWN family max — the t397
+    // doctrine is per-family, so a workdir speaking two naming dialects
+    // keeps both dialects' final rounds) plus every non-iteration file.
+    // Names the sed cannot parse stay (the failsafe: never delete what
+    // we cannot read). The number extractor speaks BOTH dialects in one
+    // sed (the t resets between attempts, so the second substitute only
+    // fires when the first missed) — no shell variable ever crosses the
+    // sed's quotes.
+    [
+      `if [ "$total" -gt ${budgetBytes} ]; then`,
+      `for g in ${shSingleQuote(RUN_ARCHIVE_DIRNAME)}/*/; do`,
+      `[ -d "$g" ] || continue`,
+      `for fam in run_it _it; do`,
+      `maxit=$(find "$g" -type f -name "\${fam}*" 2>/dev/null | sed 's!.*/!!; s/^run_it0*\\([0-9][0-9]*\\)_.*/\\1/; tD; s/^_it0*\\([0-9][0-9]*\\)_.*/\\1/; tD; d; :D' | sort -n | tail -1)`,
+      `[ -n "$maxit" ] || continue`,
+      `find "$g" -type f -name "\${fam}*" 2>/dev/null | while IFS= read -r f; do it=$(basename "$f" | sed 's/^run_it0*\\([0-9][0-9]*\\)_.*/\\1/; s/^_it0*\\([0-9][0-9]*\\)_.*/\\1/'); case "$it" in ''|*[!0-9]*) continue ;; esac; [ "$it" -lt "$maxit" ] && rm -f -- "$f"; done`,
+      `done`,
+      `done`,
+      `fi`,
+    ].join("\n"),
+  ].join("\n");
   return [
     `cd ${shSingleQuote(workdir)} 2>/dev/null || exit 0`,
     `[ -d ${shSingleQuote(RUN_ARCHIVE_DIRNAME)} ] || exit 0`,
@@ -676,20 +761,25 @@ export function reclaimScript(workdir: string, keep = 2): string {
 
 /**
  * Reclaim OLD archive generations DETACHED — one nohup'd login-node
- * process, serial `rm -rf` over everything but the newest `keep`
- * generations (epoch-ms names, mtime-ordered — same thing). It never
- * blocks a dispatch and never refuses one: a dead reaper costs only
- * bytes until the next re-run spawns the next one. Needs GNU find's
- * -printf (already the listing dialect's own requirement); a find
- * without it no-ops silently — best-effort by contract.
+ * process, retention v2's three tiers over the workdir's archive: the
+ * newest `keep` generations survive (t385), then a byte budget eats the
+ * oldest of those until the archive is under `budgetBytes` or a single
+ * generation remains, then — if even that last generation is over
+ * budget — the crown slim keeps only the final round of every iteration
+ * family plus the non-iteration files. It never blocks a dispatch and
+ * never refuses one: a dead reaper costs only bytes until the next
+ * re-run spawns the next one. Needs GNU find's -printf (already the
+ * listing dialect's own requirement); a find without it no-ops silently
+ * — best-effort by contract.
  */
 export async function reclaimRemoteArchiveGens(
   conn: RemoteConnection,
   workdir: string,
-  keep = 2
+  keep = 2,
+  budgetBytes: number = archiveBudgetBytes()
 ): Promise<boolean> {
   try {
-    const r = await exec(conn, loginShellScript(reclaimScript(workdir, keep)), { timeoutMs: 25_000 });
+    const r = await exec(conn, loginShellScript(reclaimScript(workdir, keep, budgetBytes)), { timeoutMs: 25_000 });
     return !r.error && (r.stdout ?? "").includes("CF_RECLAIM_BG");
   } catch {
     return false;

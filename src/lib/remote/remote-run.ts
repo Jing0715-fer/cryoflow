@@ -127,6 +127,7 @@ import { buildLoginCacheSweepScript, cacheSafeHeaderSniffLineForVar, witnessMrcH
 import {
   dropRemoteListingCache,
   listRemoteWorkdir,
+  ARCHIVE_BUDGET_BYTES,
   pruneRemoteEmptyDirs,
   reclaimRemoteArchiveGens,
   rewriteManifestAfterCleanup,
@@ -5491,7 +5492,7 @@ export async function startRemoteJob(args: {
             console.log(
               `remote-run: fresh dispatch of "${job.name}" moved ${stash.movedFiles} stale product file(s)` +
                 `${stash.movedTrees.length > 0 ? ` + ${stash.movedTrees.length} subtree(s) whole (${stash.movedTrees.join(", ")})` : ""}` +
-                ` aside into ${remoteWorkdir}/${stash.archiveDir}/ — reclaimed in the background (t385)`
+                ` aside into ${remoteWorkdir}/${stash.archiveDir}/ — reclaimed in the background (t385 keep-2, v2 byte budget ${Math.round(ARCHIVE_BUDGET_BYTES / (1024 * 1024))} MB)`
             );
           }
         }

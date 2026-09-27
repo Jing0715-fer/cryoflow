@@ -303,6 +303,101 @@ console.log("B4 — the detached reaper: keep the newest two, eat the rest");
   check("reaper: no archive dir → clean no-op, still answered", r2.code === 0 && !/CF_RECLAIM_BG/.test(r2.out));
 }
 
+console.log("B4b — retention v2, tier 2: the byte budget eats the OLDEST kept gen first");
+{
+  // two kept generations (tier 1 keeps both): B small-old, C big-young.
+  // Budget sits between them, so the walk must drop B (the OLDER, even
+  // though C is the bigger one) and stop — "big-and-old dies before
+  // small-and-young" is age-ordered, not size-ordered.
+  const W = path.join(root, "budget_job");
+  const MB = 1024; // 1 "MB" in bench units — the mechanism is size-agnostic
+  const mkGen = (epoch: string, mtimeSec: number, blobKB: number) => {
+    const g = path.join(W, SRC_ARCHIVE, epoch);
+    mkdirSync(g, { recursive: true });
+    writeFileSync(path.join(g, "run_it000_classes.mrcs"), "x".repeat(blobKB * MB));
+    execFileSync("touch", ["-d", `2024-01-01 00:${String(Math.floor(mtimeSec / 60)).padStart(2, "0")}:${String(mtimeSec % 60).padStart(2, "0")}`, g]);
+    return g;
+  };
+  mkGen("1700000700000", 0, 600);
+  mkGen("1700000800000", 60, 600);
+  mkGen("1700000900000", 120, 800); // 3 gens so tier 1 eats the first, tier 2 the second
+  const budget = 1024 * MB; // 1 "MB" budget: 1.4MB kept → drop oldest kept (600) → 0.8MB ≤ budget
+  const r = sh(reclaimScript(W, 2, budget), W);
+  check("reaper v2: answered CF_RECLAIM_BG", /CF_RECLAIM_BG/.test(r.out), r.out.trim());
+  const deadline = Date.now() + 10_000;
+  let settled = false;
+  let alive: string[] = [];
+  while (Date.now() < deadline) {
+    alive = readdirSync(path.join(W, SRC_ARCHIVE)).sort();
+    if (alive.length === 1) { settled = true; break; }
+    await new Promise((res) => setTimeout(res, 200));
+  }
+  if (!settled) check("reaper v2: budget collapsed the archive to one generation", false, alive.join(","));
+  check("reaper v2: the YOUNGEST generation survives (age-ordered drops)", alive[0] === "1700000900000", alive.join(","));
+  check("reaper v2: budget met → the survivor's files stay WHOLE (no crown slim)", existsSync(path.join(W, SRC_ARCHIVE, "1700000900000", "run_it000_classes.mrcs")));
+}
+
+console.log("B4c — retention v2, tier 3: the last gen alone over budget keeps its CROWN");
+{
+  // one generation shaped like the live witness (initialmodel, --iter 200):
+  // 15 iterations × 2 half-maps are the bulk; the final round + the
+  // non-iteration aliases are the crown. Budget under the gen's total →
+  // tier 2 cannot drop (it IS the last), tier 3 slims to the final round.
+  const W = path.join(root, "crown_job");
+  const KB = 1024;
+  const g = path.join(W, SRC_ARCHIVE, "1700001000000");
+  mkdirSync(g, { recursive: true });
+  const IT = 15;
+  for (let i = 0; i < IT; i++) {
+    const it = String(i).padStart(3, "0");
+    writeFileSync(path.join(g, `run_it${it}_half1_class001.mrc`), "x".repeat(40 * KB));
+    writeFileSync(path.join(g, `run_it${it}_half2_class001.mrc`), "x".repeat(40 * KB));
+    writeFileSync(path.join(g, `run_it${it}_optimiser.star`), "x".repeat(200));
+    writeFileSync(path.join(g, `run_it${it}_data.star`), "x".repeat(200));
+  }
+  // the crown: final-round aliases + the _it dialect survivor + an
+  // unparseable name the failsafe must never touch
+  writeFileSync(path.join(g, "run_data.star"), "crown");
+  writeFileSync(path.join(g, "run_optimiser.star"), "crown");
+  writeFileSync(path.join(g, "run_half1_class001_unfil.mrc"), "crown");
+  writeFileSync(path.join(g, "_it007_data.star"), "dialect");
+  writeFileSync(path.join(g, "note.txt"), "keep me");
+  const budget = 200 * KB; // the gen is ~1.2MB → over budget even alone
+  const r = sh(reclaimScript(W, 2, budget), W);
+  check("reaper v2: crown run answered CF_RECLAIM_BG", /CF_RECLAIM_BG/.test(r.out), r.out.trim());
+  // poll for the expected end state: the intermediate halves are gone
+  const deadline = Date.now() + 10_000;
+  let done = false;
+  while (Date.now() < deadline) {
+    const left = readdirSync(g);
+    if (!left.some((f) => /^run_it0(0[0-9]|1[0-3])_half/.test(f))) { done = true; break; }
+    await new Promise((res) => setTimeout(res, 200));
+  }
+  if (!done) check("reaper v2: the intermediate half-maps died", false, readdirSync(g).length + " files left");
+  const left = new Set(readdirSync(g));
+  const finalIt = String(IT - 1).padStart(3, "0");
+  check("reaper v2: intermediate halves died (run_it000..013)", !left.has("run_it000_half1_class001.mrc") && !left.has("run_it013_half2_class001.mrc"));
+  check("reaper v2: the FINAL round of every family stays", left.has(`run_it${finalIt}_half1_class001.mrc`) && left.has(`run_it${finalIt}_optimiser.star`) && left.has(`run_it${finalIt}_data.star`));
+  check("reaper v2: intermediate stars died with their round", !left.has("run_it000_optimiser.star") && !left.has("run_it005_data.star"));
+  check("reaper v2: non-iteration aliases stay", left.has("run_data.star") && left.has("run_optimiser.star") && left.has("run_half1_class001_unfil.mrc"));
+  check("reaper v2: the _it dialect has its OWN family max (its sole file IS its final round)", left.has("_it007_data.star"));
+  check("reaper v2: unparseable names are never touched (the failsafe)", left.has("note.txt"));
+}
+
+console.log("B4d — retention v2 failsafe: a gen with no iteration family is never slimmed");
+{
+  const W = path.join(root, "failsafe_job");
+  const KB = 1024;
+  const g = path.join(W, SRC_ARCHIVE, "1700001100000");
+  mkdirSync(g, { recursive: true });
+  writeFileSync(path.join(g, "particles.star"), "x".repeat(600 * KB)); // over budget, no run_it* at all
+  const r = sh(reclaimScript(W, 2, 100 * KB), W);
+  check("reaper v2: failsafe run answered CF_RECLAIM_BG", /CF_RECLAIM_BG/.test(r.out), r.out.trim());
+  // poll briefly for WRONG deletions, then assert the file still sits there
+  await new Promise((res) => setTimeout(res, 1200));
+  check("reaper v2: no parseable family → nothing slimmed, bytes stay", existsSync(path.join(g, "particles.star")), readdirSync(g).join(","));
+}
+
 console.log("B5 — parseTreeCounts dialect");
 {
   const m = parseTreeCounts(["extra 3", "my seg 7", "gone MISSING", "", "garbage", "neg -1", "run_it 0"].join("\n"));

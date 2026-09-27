@@ -4235,3 +4235,26 @@ Stage Summary:
 - **「t385 的法改写了测试的编排」**：「plant 幸存 re-run」的前提死了，但被测的旅程没死——plant 时机后移到 run 窗口内，wipe 的脚本重写时刻就是套件的发令枪
 - **「healer 的 skip 判据看本地镜像，看不见集群侧」**：双位面世界的完整性检查要双位面（t411 的诊断，本窗以 --rerun 全链重建收口；healer 自身长出集群侧检查仍是未来窗候选）
 - 遗留（下窗候选）：①t27 批成员拆分（家族剩余 2 real-fail）；②样式/功能增量窗（画廊/仪表盘细节、Topaz wrapper 方向）；③EMPIAR（第三十窗）；④GitHub PAT 撤销确认（第八次提醒）
+
+---
+Task ID: 413 (完 — 2026-09-28 06:36 cron 窗口 trace 1a07549302235a99-cron-agent-loop-202609280642)
+Agent: main (Z.ai Code)
+Task: 开局 QA + Task 412 遗留②（卫生/功能增量）；主交付 = 归档保留 v2（三级优雅降级）——830MB 单目录活体取证驱动的产品级磁盘卫生层
+
+Work Log:
+- [开局实证] 摘要再次谎报停在 Task 406——真源律：worklog 实尾 = Task 412 完结条，HEAD = 14e13bd 已推送，树净。QA 冒烟全绿：app 200/6.8ms、PAGE ERRORS (0)、demo 画布 46 jobs · 37 edges 全渲染；failed 的 t265 Topaz Train 是套件世界遗产（t409 已终审），running 的 QA Refine Live 42% 是心跳演示——均非产品 bug。
+- [活体取证（本窗的雷）] 磁盘 79%（t407 清场后曾回 52%——复跑套件又堆回去）。增长源追踪：services/mock-cluster/fs 2.2G，其中 initialmodel_huefiq69/.cryoflow_prev 单目录 830MB = 2 代 × 415MB。机制链：fake relion_refine 忠实模拟真 RELION（每迭代写 half1+half2 64³ float32 ≈1.1MB × 200 迭代 = initialmodel 真 RELION 默认 --iter）→ t385 rename-aside 把每代完整归档 → keep-2 上限按设计工作，但「2 × 单代固有体积」无字节维度上限。
+- [主交付 A — 归档保留 v2] reclaimScript 三级优雅降级（全部仍在 nohup'd reaper 内，永不挡 dispatch）：tier 1 = t385 keep-2（原样）；tier 2 = 字节预算 ARCHIVE_BUDGET_BYTES=256MB——awk 规划器算「最老 kept 代该吃几个」（年龄序：代名是 epoch-ms，basename 即年龄；大而老先死于小而 young——按年龄不按大小），head/cut 执行无状态 rm；tier 3 = 王冠瘦身——最后 1 代仍超预算时，每族（run_it 与 _it 双方言各有自己的族 max，t397 教义是 per-family）只留最终轮 + 全部非迭代文件。护栏三枚：du 无 -b 读 0 → tier 2 永不吃；sed 解析不了的名字 → tier 3 永不碰；非数字代名归一化为 0（dash 算术对 g2 报 Illegal number 会整段静默放弃——探针活体抓到）。CRYOFLOW_ARCHIVE_BUDGET_MB 环境旋钮（缺省/无意义值回落默认）。
+- [教学三坑（shell 生成器的testa）] ①TS 模板字面量里的 ${fam} 是 TS 插值不是 shell 变量（bun ReferenceError）——shell 变量要么 \${fam} 转义要么用无变量 sed（双 substitute + t 重置，方言切换在 sed 内完成）；②.join("\n") 让行首出现 | ——POSIX sh 语法错（原实现 .join(" ") 单行有理）；③for 循环 done 配对数错一个 → "done unexpected (expecting fi)"。每坑都由 sh -x 探针 + bench 双闸门抓住。
+- [主交付 B — t385 bench 扩容 60/0] B4b：字节预算吃最老 kept 代（1.4MB 两个 kept 代 + 1MB 预算 → 掉老的、预算达成后幸存者文件完整不瘦身）；B4c：王冠瘦身（15 迭代 × 2 half + 王冠 + _it 方言 + note.txt → 中间轮全死、it014 最终轮全活、_it007 是它族唯一即最终轮幸存、note.txt 永活）；B4d：failsafe（600KB 无族代 + 100KB 预算 → 分毫不动）。原 B4 tier 1 + B1-B3 + B5-B6 全保持绿。
+- [主交付 C — 沙箱清场 1.5GB] t413-archive-retention-janitor.mjs：t384 教义（bench 演 login node）——提取 reclaimScript 生成的真实字节同步执行于每个真实 .cryoflow_prev。战报：initialmodel 822.9MB → 5.1MB（王冠 15 文件：it200 最终轮 + 全部别名 star），其余 6 个 under-budget 归档分毫未动（优雅契约：refine3d 34MB/class3d 57MB 的悔意保全）。磁盘 79% → 62%（含 443MB 脏 webpack 缓存隔离清除）。
+- [build 复绿战役] 产品代码变更需要重建。开局 rc=137 ×7（内核 OOM，dmesg 证词 anon-rss 3061708kB 与 t406 判决一致）→ rc=134（V8 Ineffective mark-compacts，堆顶 1280）→ 矩阵法破解：停 app（228MB）+ 停 mock（73MB）+ 冷缓存编译绿（78s）但 page-data 阶段仍被杀（master 握编译图 + worker 再吃一份 → 总量爆 4GB）×2 → **暖缓存 + 1280 + 双停 = rc=0 全绿**（t406「缓存每次重试都在长」教义的完全体：增量暖度让活集最终塞进窄盒）。清场时顺手灭掉孤儿 standalone 28118（171MB，pid 1 养父、不监听）。
+- [活体验证] start-prod 上线新 build（chunk 918.js 含 reclaimScript/ARCHIVE_BUDGET 字节）→ agent-browser 全绿零错误 → t30 批 5/5 ALL PASS（wall 240s）——v2 经真实 SSH dispatch→stash→reclaim 路径无划痕。
+- [验证] tsc 0 ×3；t385 bench 60/0；t30 批 5/5；PAGE ERRORS (0)；定妆 shots-qa/t413-{after-build,final}.png。
+
+Stage Summary:
+- **「keep-2 不是字节承诺」**：t385 的代数上限管住了代的个数，管不住单代的固有体积（真 RELION --iter 200 × 每迭代双 half map = 单代 415MB）——保留策略要有字节维度，否则「有界稳态」是概念不是数字
+- **「优雅降级的三级阶梯」**：代数 → 字节预算 → 王冠瘦身，每级只在上一级不足时介入；预算先吃整代（保形状），最后才动代内（保语义）——悔意的多少可以议，悔意的有无不可议
+- **「王冠是族不是全局」**：t397 教义「每个 family 的最终迭代留下」在双命名方言（run_it/_it）世界里是 per-family max——全局 max 会误杀小方言的最终轮
+- **「窄盒 build 的活路是暖度矩阵」**：堆上限管 V8 abort、可用内存管内核杀、缓存暖度管活集大小——三者交叉才有一格绿的；冷缓存一次全绿是运气，暖缓存矩阵是方法
+- 遗留（下窗候选）：①t27 批成员拆分（家族剩余 2 real-fail，t412 遗留①顺延）；②样式/功能增量窗（画廊/仪表盘细节、Topaz wrapper 方向——t412 遗留②顺延，本窗的功能增量是卫生层）；③EMPIAR（第卅一窗）；④GitHub PAT 撤销确认（第九次提醒）
