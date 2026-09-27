@@ -3899,3 +3899,21 @@ Stage Summary:
 - 产出：scripts/t397-perf-units.ts 77 断言 + scripts/diag-t397-results-lane.mjs 40 断言（可重放）；mock .slurm/ 引导修复
 - 用户复机路径：git pull → 打开运行中集群分类的 Results 页 — 新一轮 ~3s 内上画布；提交快 ~30-50%（少 4-6 个串行 SSH 轮，慢登录节点上每轮 1-3s）
 - 诚实边界：① prewarm 依赖 sweep 在跑（无观察者时 gallery 首开仍付自己的一轮 — 与旧世界相同）② 完备快路的「尺寸=头几何」按 nsymbt=0 断言（RELION 栈恒真）；nsymbt>0 的外来栈走 ≥ 判据仍通过 ③ dev 模式 4GB 盒 Turbopack 编译 OOM 顽疾仍在（webpack 构建车道绕过；用户 Windows 机无此约束）④ mock 0.9s/轮的渲染风暴远超真实节奏（分钟级），内存曲线不可比 ⑤ 浏览器 inspector 经面板开门验证 — 卡片双击走画布自建指针层，合成事件不可达（记录在案）
+
+---
+Task ID: t401
+Agent: main (Z.ai Code)
+Task: 用户工单 — 「为何我git pull后看到的还是旧的UI，和沙盒中不一样」— 诊断 + served-build 戳记
+
+Work Log:
+- [远端核查] git ls-remote：origin/main = 303afa4（含 t398 3831f20 / t399 6000fea 为祖先，merge-base --is-ancestor 判决 YES；303afa4 是并行窗口的 t400 性能轮，rebase 在我的三轮之上）。GitHub 侧代码完整 —— 用户侧缺口只能在「pull 落地」与「运行实例」两链路
+- [沙箱同步] git merge --ff-only 到 303afa4（干净快进，零冲突）；mock 集群 bun --hot 自热载 t400 的 server.mjs 改动；dev server 走 scripts/dev-server.sh 规程重启（TRUST_GATEWAY + 896MB 堆 + 路径钉死）
+- [根因判决 — 为什么 pull 后还是旧 UI] 本项目 start 脚本 = `NODE_ENV=production bun .next/standalone/server.js`：生产模式跑的是 .next/standalone 里**编译好的快照**，`git pull` 只换源码不换产物 —— 不重新 `next build` 就永远服务旧代码。dev 模式则可能是 Turbopack 缓存僵死 + 浏览器缓存。加上「pull 没落到运行目录/分支/detached HEAD」的可能
+- [修复 — served-build 戳记 t401] next.config.ts：config 装载时（dev boot AND build boot）execSync `git rev-parse --short HEAD` → env.NEXT_PUBLIC_BUILD_SHA（编译期内联；非 git checkout 兜底 "?"）；footer 右侧原 tech-line 扩展为 `Next.js 16 · Tailwind 4 · shadcn/ui | build <font-mono sha>`，title 教学「pull 后：dev 重启 / prod 重建，否则旧代码继续服务」。语义故意取「进程出生时的 SHA」（dev 热载可以跑过戳记 —— title 讲明重启刷新；prod = 构建时 SHA，正是 stale-build 检测要的真值）。磁盘上是什么是 `git log` 的事，进程里是什么才是戳记的事
+- [验证] tsc 0；触碰文件 eslint 0；浏览器：footer 显示 build 303afa4（= git rev-parse --short HEAD，重启后刷新）；tooltip 全文在位；390 移动端戳记按 sm:flex 设计隐藏、零横溢、footer 贴底；t399 面板 ff 后原样（动作行 4 图标 + Continue on cluster 完整 + sbatch 键已无）；console/page 零错误
+- [诚实边界] ①戳记在 dev 语义是「服务器启动时的 SHA」而非逐热载更新（title 教学覆盖，且 pull 后本就该重启）②移动端不显示戳记（诊断场景在桌面，左段文案在移动端可见）③Windows 上 execSync 走 cmd.exe — git 在场即工作（用户能 git pull 故必然在）
+
+Stage Summary:
+- 产出：footer served-build 戳记（next.config env + footer 展示）—— 「我跑的是哪版代码」从此一眼可读，对着 `git rev-parse --short HEAD` 比对即知进程是否欠一次重启/重建
+- 判决：远端完整（303afa4），用户旧 UI 的缺口在本地链路：最大嫌疑 = 生产模式未重建（standalone 快照语义）；次嫌疑 = dev 缓存僵死 / 浏览器缓存 / pull 未落地
+- 用户复机路径：git pull → 若 dev：重启 dev server；若 prod：`bun run build && bun run start` → 浏览器硬刷新 → footer 右下角应显示 `build 303afa4`（或更新的 SHA）＝ `git rev-parse --short HEAD` 的输出

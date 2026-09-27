@@ -1,6 +1,40 @@
 import { createRequire } from "module";
+import { execSync } from "node:child_process";
 import path from "path";
 import type { NextConfig } from "next";
+
+/* ---------------------------------------------------------------------- */
+/* Build stamp (t401) — which code is this app actually running?         */
+/* ---------------------------------------------------------------------- */
+/* The recurring support loop (「git pull 后看到的还是旧的 UI」) has one
+ * honest root: a `next start` process serves the code it was BUILT from
+ * — .next/standalone is a compiled snapshot, and `git pull` only swaps
+ * the source it came from. A dev server can likewise ride a stale
+ * Turbopack cache past a pull. The stamp resolves the checkout's git
+ * SHA once, at config-load time (dev boot AND build boot), and the
+ * footer prints it: "build 303afa4" in the corner ends the guessing —
+ * compare it to `git rev-parse --short HEAD` and you know in one glance
+ * whether the serving process owes you a restart (dev) or a rebuild
+ * (production). The value is a snapshot of process birth, on purpose:
+ * the stamp answers "what was this process fed", not "what's on disk"
+ * — the disk is `git log`'s job. */
+function resolveBuildStamp(): string {
+  try {
+    return execSync("git rev-parse --short HEAD", {
+      cwd: process.cwd(),
+      stdio: ["ignore", "pipe", "ignore"],
+    })
+      .toString()
+      .trim()
+      .slice(0, 7);
+  } catch {
+    // not a git checkout (exported archive, detached CI copy) — say so
+    // instead of dying: the footer prints "build ?" and the tooltip
+    // still teaches the restart/rebuild contract.
+    return "?";
+  }
+}
+const buildStamp = resolveBuildStamp();
 
 /* ---------------------------------------------------------------------- */
 /* Dependency guard (t274) — say the fix before the overlay does.         */
@@ -50,6 +84,11 @@ if (missingDeps.length > 0) {
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  // t401 — inlined at compile time (client) / build time (standalone):
+  // the footer's "build <sha>" is the served process's own version.
+  env: {
+    NEXT_PUBLIC_BUILD_SHA: buildStamp,
+  },
   /* config options here */
   typescript: {
     ignoreBuildErrors: true,

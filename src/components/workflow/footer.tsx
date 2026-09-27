@@ -157,7 +157,23 @@ export function Footer() {
         <span aria-hidden="true" className="text-border">
           |
         </span>
-        <span>Next.js 16 · Tailwind 4 · shadcn/ui</span>
+        {/* t401 — the served-build stamp: the git commit this app process
+            was fed. Dev shows the commit the server STARTED from (a pull
+            while it runs hot-reloads code past the stamp — restart to
+            refresh both); production shows the commit it was BUILT from
+            (a pull without `next build` keeps serving the old code, stamp
+            included). Compare against `git rev-parse --short HEAD`. */}
+        <span
+          title="Served build — the git commit this app is actually running. After git pull: restart the dev server, or rebuild (npm run build) for production, or the old code keeps serving."
+          className="inline-flex items-center gap-1"
+        >
+          Next.js 16 · Tailwind 4 · shadcn/ui
+          <span aria-hidden="true" className="text-border">
+            |
+          </span>
+          build{" "}
+          <span className="font-mono">{process.env.NEXT_PUBLIC_BUILD_SHA ?? "?"}</span>
+        </span>
       </div>
     </footer>
   );
