@@ -41,7 +41,7 @@
 // Run: node scripts/t293-remote-borrow.mjs   (server on :3000)
 import { chromium } from "playwright";
 import { execSync } from "node:child_process";
-import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync, statSync } from "node:fs";
 import { Socket } from "node:net";
 import { createHash } from "node:crypto";
 import path from "node:path";
@@ -155,23 +155,31 @@ must(
   "an unreachable cluster answers ok:false + the error line, not a 500"
 );
 
+// t412 re-pin — the sync policy left remote-run.ts's inline body and became
+// the PURE planner (src/lib/remote/sync-policy.ts, the t326/t327/t339
+// recipe): one classification spoken by the route, the receipt and the
+// diag. The byte-locks followed the old address; these follow the SEMANTIC
+// anchors of the module that owns the rule now (t408: lock meaning, not
+// bytes).
+const sp = src("src/lib/remote/sync-policy.ts");
 const rr = src("src/lib/remote/remote-run.ts");
 must(
-  rr.includes('const policy = conn.syncPolicy === "everything" ? "everything" : "key-files";'),
-  "the sync policy defaults to key-files (a missing field reads the default)"
+  sp.includes('policy: "key-files" | "everything"') &&
+    rr.includes('conn.syncPolicy === "everything"'),
+  "the sync policy defaults to key-files (the dispatch reads the connection's syncPolicy, the planner speaks the two policies)"
 );
 must(
-  rr.includes("const keyCap = (conn.keyFileMb ?? 16) * 1024 * 1024;"),
+  sp.includes("const keyCap = (ctx.keyFileMb ?? 16) * 1024 * 1024;"),
   "the key-file cap reads keyFileMb (default 16 MB)"
 );
 must(
-  rr.includes("KEY_TEXT_EXT") &&
-    rr.includes('policy === "key-files" && !KEY_TEXT_EXT.test(rel) && size > keyCap'),
+  sp.includes("KEY_TEXT_EXT") &&
+    sp.includes('ctx.policy === "key-files" && !KEY_TEXT_EXT.test(rel) && size > keyCap'),
   "text skeletons always sync; binaries ride the cap"
 );
 must(
-  rr.includes("skipped.push") && rr.includes("key-file cap"),
-  "skipped binaries are SPOKEN (a skipped note, not a silent drop)"
+  sp.includes("describeSyncSkipFile") && sp.includes("key-file cap"),
+  "skipped binaries are SPOKEN (the receipt names the key-file cap, not a silent drop)"
 );
 must(
   rr.includes("writeRemoteManifest") && rr.includes(".cf-remote-manifest.json"),
@@ -191,7 +199,12 @@ must(
   "a fetched STAR is rewritten to-local (downstream local runs can eat it)"
 );
 must(rf.includes("const inFlight = new Map"), "in-flight fetches dedup (one SSH pull, both callers wait)");
-must(rf.includes("if (existsSync(localPath)) return { ok: true, bytes: 0 };"), "the lazy leg is idempotent (a local file costs nothing)");
+// t412 re-pin — the fast-path grew teeth (t296/t298): presence alone is not
+// freshness, the local copy must exist AND be non-empty AND parse-read.
+must(
+  rf.includes("existsSync(localPath)") && rf.includes("localCopyReads(localPath)"),
+  "the lazy leg is idempotent (a READABLE local copy costs nothing — exists + size + parse-head)"
+);
 
 const outsRoute = src("src/app/api/jobs/[id]/outputs/route.ts");
 must(
@@ -211,16 +224,23 @@ must(
   "the lazy leg is wired at the ONE resolution point (the 404 branch of a remote run)"
 );
 
+// t412 re-pin — the ▾ split menu is RETIRED (t323): the primary Run speaks
+// the project's own lane and the Server icon is the cluster door. The
+// source assertions follow the UI that ships (the live C2 phase already
+// walks these doors on the page).
 const jp = src("src/components/workflow/job-panel.tsx");
 must(
-  jp.includes('aria-label="Run on this machine"') && jp.includes('aria-label="Run on cluster over SSH"'),
-  "the Run ▾ menu speaks both worlds with named items"
+  jp.includes('aria-label="Run on cluster (SSH)"') && jp.includes("remotePrimaryRun"),
+  "the panel speaks both worlds: the primary Run rides the project's lane and the Server icon is the named cluster door"
 );
 must(
-  jp.includes('aria-label="Choose run mode: this machine or cluster (SSH)"'),
-  "the mode trigger carries its own locator (a seam you can click)"
+  !jp.includes('aria-label="Choose run mode: this machine or cluster (SSH)"'),
+  "the retired ▾ mode trigger is GONE from the source too (t323 — no third control rising from the dead)"
 );
-must(jp.includes("runModeBlocked") && jp.includes("relionBlocked"), "the local item disables honestly when RELION is absent");
+must(
+  jp.includes("relionBlocked") && jp.includes("runPending || relionBlocked"),
+  "the primary Run disables honestly when RELION is absent (the relionBlocked gate lives in the disabled expression)"
+);
 
 const rrb = src("src/components/workflow/remote-run-button.tsx");
 must(
@@ -373,7 +393,7 @@ try {
   const mirrorA = `/home/z/my-project/data/relion/${projId}/ctffind_${jobA.id.slice(-8)}`;
   must(existsSync(path.join(mirrorA, "micrographs_ctf.star")), "the STAR synced back (text skeleton always syncs)");
 
-  // C4 — the cap: a 2 MB map planted on the cluster survives the re-run,
+  // C4 — the cap: a 2 MB map ON the cluster stays remote through a re-run,
   // is skipped by the policy, and the listing shows it as a REMOTE tile
   const relCluster = remoteWorkdir.replace(/^\/projects/, "/projects");
   const mockWorkdir = `${MOCK_FS_ROOT}${relCluster}`;
@@ -389,13 +409,23 @@ try {
   for (let i = 0; i < PW * PH; i++) plant.writeFloatLE(Math.cos(i / 11) * 0.3, 1024 + i * 4);
   const plantLocal = path.join(mockWorkdir, PLANT);
   mkdirSync(mockWorkdir, { recursive: true });
-  writeFileSync(plantLocal, plant);
-  must(existsSync(plantLocal), `the 2 MB map is planted on the cluster (${PW}×${PH} float32)`);
   const plantBytes = plant.length;
 
-  // RE-RUN job A itself (the Re-run flow — same workdir, so the planted
-  // map rides through the second finalize): the record re-finalizes and
-  // the manifest is rewritten — poll on the manifest's writtenAt change
+  // t412 — the plant's TIMING moved. The original choreography wrote the map
+  // BEFORE the re-dispatch and expected it to "survive" into the second
+  // finalize — but the t385 rename-aside law (rightly) archives every
+  // recognized product sitting in the workdir pre-dispatch: the plant's own
+  // name (run_it###_* + .mrc) is doubly recognized, so it moved into
+  // .cryoflow_prev/ and the finalize listing never spoke it (19 FAIL). The
+  // journey under test — manifest ledger → remote tile → lazy fetch →
+  // graduation — never needed the plant to PRE-DATE the run; it needs the
+  // plant in the workdir when the finalize LISTING walks it. So the map now
+  // drops MID-RUN: the pre-run wipe completes before the submit (its
+  // rename-aside fires on the dispatch's path), the submitted script's
+  // rewrite is the "wipe done, run starting" marker (.cf-sbatch.sh for
+  // slurm, .cf-run.sh for direct), and the fake ctffind takes tens of
+  // seconds — a wide window, written from the SAME filesystem the mock
+  // serves.
   const manifestBefore = JSON.parse(readFileSync(path.join(mirrorA, ".cf-remote-manifest.json"), "utf8"));
   const dispRe = await page.evaluate(async ({ jobId, connId, SH }) => {
     const r = await fetch(`/api/jobs/${jobId}/run`, {
@@ -406,6 +436,18 @@ try {
     return r.status;
   }, { jobId: jobA.id, connId, SH });
   must(dispRe === 200, `A RE-RUN dispatched to the cluster (${dispRe} — a completed job re-runs into its own workdir)`);
+  const scriptMtime = (p) => { try { return statSync(p).mtimeMs; } catch { return 0; } };
+  const sbatchScript = path.join(mockWorkdir, ".cf-sbatch.sh");
+  const runScript = path.join(mockWorkdir, ".cf-run.sh");
+  const tDispatch = Date.now();
+  let runStarted = false;
+  for (let t = 0; t < 30_000; t += 400) {
+    if (Math.max(scriptMtime(sbatchScript), scriptMtime(runScript)) >= tDispatch - 1500) { runStarted = true; break; }
+    await sleep(400);
+  }
+  must(runStarted, "the re-run's pre-run wipe has fired (the submitted script was rewritten after dispatch)");
+  writeFileSync(plantLocal, plant);
+  must(existsSync(plantLocal), `the 2 MB map is planted MID-RUN on the cluster (${PW}×${PH} float32 — past the wipe, inside the run)`);
   const doneRe = await pollUntil(async () => {
     try {
       const m = JSON.parse(readFileSync(path.join(mirrorA, ".cf-remote-manifest.json"), "utf8"));

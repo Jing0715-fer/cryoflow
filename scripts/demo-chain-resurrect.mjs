@@ -29,7 +29,10 @@
 // IDEMPOTENT: existing bundle / connection / nodes / edges / outputs are
 // reused; --rerun forces the whole chain to re-run.
 //
-// Usage: node scripts/demo-chain-resurrect.mjs [--rerun]
+// Usage: node scripts/demo-chain-resurrect.mjs [--rerun] [--from <type>]
+//   --from <type>: start the re-run at <type> (chunked healing — t412: the
+//   sandbox's patrol reaps background node processes after ~7-8 min, so the
+//   chain runs in foreground chunks; completed nodes keep their products).
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync, statSync } from "fs";
 import http from "node:http";
@@ -309,7 +312,21 @@ const ORDER = CANON.map(([type]) => [type, chain[type]]);
 
 console.log("== step 5: the chain re-run ==");
 const runAll = process.argv.includes("--rerun");
-for (const [type, id] of ORDER) {
+// t412: the sandbox's process patrol reaps BACKGROUND node processes after
+// ~7-8 minutes (two witnesses: the first nohup launch AND a setsid-detached
+// launch both died silently — no OOM, no stderr — between polls). Foreground
+// tool-call processes are untouched, so the chain now runs in CHUNKS:
+// `--from <type>` starts the re-run at a later chain position, and each
+// chunk's completed nodes keep their products (staged on the cluster +
+// synced to the local mirror), so the next chunk --from <next> continues.
+const fromIdx = (() => {
+  const i = process.argv.indexOf("--from");
+  if (i === -1) return 0;
+  const t = process.argv[i + 1];
+  const idx = ORDER.findIndex(([ty]) => ty === t);
+  return idx === -1 ? 0 : idx;
+})();
+for (const [type, id] of ORDER.slice(fromIdx)) {
   const before = await jobState(id);
   // filled = the record speaks AND the files are still on disk (the qa53
   // cleaner removes the healed FSC artifacts for qa55's gap world — a

@@ -4211,3 +4211,27 @@ Stage Summary:
 - **「断言要跟着门走」**：t409 开了 cross-canvas 跳转门（projectId hint），t272 的「NOT a jump button」从守卫变成化石——产品语义升级时，锁旧语义的断言要反转为锁新语义
 - **「healer 看不见集群侧的损失」**：t313 警报的 extract stack 缺失逃过 healer 的 filesOnDisk 检查（它只读本地 outputs 映射）——双位面世界（本地镜像 + 集群树）的完整性检查也要双位面
 - 遗留（下窗候选）：①healer --rerun 全链重建集群侧文件（t313 收口）；②t293/t298/t299 remote-borrow 取证修复；③EMPIAR（第廿九窗）；④GitHub PAT 撤销确认（第七次提醒）
+
+---
+Task ID: 412 (完 — 2026-09-28 05:36 cron 窗口 trace 1a07549302235a99-cron-agent-loop-202609280539)
+Agent: main (Z.ai Code)
+Task: t411 遗留① healer --rerun 全链收口（t313 开放伤口）+ 遗留② remote-borrow 三兄弟（t293/t298/t299）
+
+Work Log:
+- [开局实证] HEAD = 2532f3c = origin/main（Task 411 已推送），树净，worklog 尾 = Task 411 完结条。app 在 standalone 生产体制（bun .next/standalone/server.js），:3000 应答 200，mock cluster :3022 应答。agent-browser QA 全绿：PAGE ERRORS (0) + CONSOLE (0)，demo 画布在位（截图 t412-landing-open.png）。
+- [主交付 A — t313 收口：healer --rerun 全链，15 节点复活] 集群树损伤全景取证：15 链节中 ctffind 目录空、autopick/select2d/symexpand 目录消失、extract 只剩 run.err/run.out（particles.star 没了）。处方 = t411 遗留清单第一条：--rerun 全链重建集群侧文件。
+- [战场发现 — 平台进程收割律] 后台 node 进程被平台监管静默收割：两次活体证词（nohup 启动 + setsid 脱离会话各死一次），寿命均 ~7-8 分钟，无 OOM 证词无 stderr（dmesg 唯一 kill 事件早于本窗 4.7 小时）；前台工具调用内进程不受影响。对策三段进化：nohup（死）→ setsid + 监督循环（死）→ **前台分块（活）**。healer 新增 `--from <type>` 钥匙：分块续跑，完成节点保产物（集群侧 + 本地镜像双写），下一块 `--from <next>` 接力。
+- [分块战报] chunk1（10 分钟前台）过 9 节点：import 2.5s / motioncorr 30s / ctffind 40s（micrographs_ctf.star 复活）/ autopick 23s / **extract 5.4s（particles.star 复活——t411 的开放伤口正式闭合）** / class2d 286s / select2d / select / initialmodel staging 中到时。chunk2（--from initialmodel）过剩余 6 节点：class3d / symexpand / rebalance / refine3d 25.7s / maskcreate / postprocess。**DEMO CHAIN RESURRECTED**：15 链节全绿，FSC 40 shells，官方数字 6.55 Å，Guinier 开口；集群树 15 workdir 全活（t313 报警的两处——ctffind star 与 extract stack——都在）。t313 solo ALL PASS（"the referenced stack exists where it lives (cluster tree)" 精确通过），t31 批 2/2。
+- [主交付 B — remote-borrow 三兄弟 ALL PASS] t293（19 FAIL）/t298/t299 两类根因：
+  - 病类一（白盒锁漂移 ×9）：t339 把同步策略抽成纯模块 sync-policy.ts（planSyncBack/SyncPolicyContext/describeSyncSkipFile），t293 的 4 支字节锁仍钉在 remote-run.ts 旧内联地址；t323 退役 ▾ 菜单后 job-panel 的 3 支断言仍钉死标签（Choose run mode/runModeBlocked 在源码里零匹配）；remote-files.ts 快速通道长了三颗牙（exists+size+parse-read，t367），t293/t298 各一支失配；t367 诊断 prose 提及 "sacct -j" 使 t299 文件级计数 1→3 爆炸。全部按 t408 教义重钉语义锚；t299 计数上移语法层（`const AC = \`sacct -j` 定义恰 1 次 + ${AC} 调用恰 2 次——句子不是查询）。
+  - 病类二（t385 法下的化石编排 ×11 级联）：t293/t298 的「plant → re-run → manifest 收录」在 t385 rename-aside 法下不可能——plant 名 run_it###_* + .mrc 双重命中 wipe 分类，dispatch 时被归档进 .cryoflow_prev，finalize listing 永远看不见。**plant 时机后移手术**：manifestBefore → dispatch → 等「已提交脚本重写」marker（.cf-sbatch.sh/.cf-run.sh mtime ≥ dispatch 时刻 = wipe 已完成的证词，直读 remote-run.ts 证实 staging → argv → wipe → spawn 顺序）→ plant 落地于 run 进行中 → manifest 收录。被测旅程（manifest ledger → remote tile → 懒取 → 毕业到 local）原样保留，产品零改动。
+- [批级确认] t29 批 7/7 ALL PASS（t291/t293/t294/t295/t296/t298/t299 全部 att=1）：t293 43.4s、t298 55.1s、t299 58.5s。家族 TOTAL pass 58（前 55）/ real-fail 2（前 5）。
+- [验证] node --check 全部触及文件 ×4；产品源码零改动（全部为 scripts/*.mjs），tsc 不适用；t31 批 2/2 + t29 批 7/7；t313 solo ALL PASS；开局 QA 0 错误全程保持。
+- [诚实边界] ①本窗零样式/功能增量（bug 优先，双收口已足够稠密）；②家族剩余 2 real-fail 在 t27 批（7 套件贴 580s 天花板，批成员拆分候选）；③EMPIAR 真数据回归连续第三十窗让位；④GitHub PAT 撤销确认第八次提醒；⑤heal-t412-runner.sh 留档（收割律见证 + 未来窗后台备选）。
+
+Stage Summary:
+- **「后台 node 进程的寿命以分钟计」**：平台收割不问 OOM 不留遗言，nohup 与 setsid 都救不了——前台工具调用是唯一避难所；长任务要么分块（--from 钥匙），要么容忍重跑（幂等 + 产物双写让重跑只花时间不伤正确性）
+- **「白盒锁跟语义走，不跟地址走」**：逻辑搬家（sync-policy.ts）≠ 语义消失；断言该钉「规则在谁的语法里」，文件级计数连诊断 prose 都会咬
+- **「t385 的法改写了测试的编排」**：「plant 幸存 re-run」的前提死了，但被测的旅程没死——plant 时机后移到 run 窗口内，wipe 的脚本重写时刻就是套件的发令枪
+- **「healer 的 skip 判据看本地镜像，看不见集群侧」**：双位面世界的完整性检查要双位面（t411 的诊断，本窗以 --rerun 全链重建收口；healer 自身长出集群侧检查仍是未来窗候选）
+- 遗留（下窗候选）：①t27 批成员拆分（家族剩余 2 real-fail）；②样式/功能增量窗（画廊/仪表盘细节、Topaz wrapper 方向）；③EMPIAR（第三十窗）；④GitHub PAT 撤销确认（第八次提醒）

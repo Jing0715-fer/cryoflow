@@ -247,13 +247,18 @@ try {
     filesSrc.includes("const inFlight = new Map") && filesSrc.includes("one SSH pull, both callers wait on it"),
     "the in-flight dedup is declared with its contract (gallery preview + Mol* sibling share one pull)"
   );
+  // t412 re-pin — the fast-path grew teeth (t367): presence alone is not
+  // freshness, the landed copy must exist AND be non-empty AND parse-read
+  // before the door answers "already here, zero bytes".
   must(
-    filesSrc.includes("existsSync(localPath)) return { ok: true, bytes: 0 }"),
-    "the existsSync fast-path — an already-landed file costs zero bytes (idempotent door)"
+    filesSrc.includes("if (fresh) return { ok: true, bytes: 0 };") &&
+      filesSrc.includes("existsSync(localPath)") &&
+      filesSrc.includes("localCopyReads(localPath)"),
+    "the existsSync fast-path — a READABLE landed file costs zero bytes (exists + size + parse-head, the idempotent door)"
   );
   must(
     filesSrc.indexOf("inFlight.get(key)") >= 0 &&
-      filesSrc.indexOf("inFlight.get(key)") < filesSrc.indexOf("existsSync(localPath)) return"),
+      filesSrc.indexOf("inFlight.get(key)") < filesSrc.indexOf("if (fresh) return"),
     "t298's ordering law: the in-flight check comes BEFORE the fast-path (a concurrent pull's half-written file must never be believed)"
   );
   must(
@@ -403,9 +408,15 @@ try {
   mockWorkdir = `${MOCK_FS_ROOT}${remoteWorkdir}`;
   const plantLocal = path.join(mockWorkdir, PLANT);
   mkdirSync(mockWorkdir, { recursive: true });
-  writeFileSync(plantLocal, readFileSync(bigMapSrc));
-  must(statSync(plantLocal).size === stats.bytes, `C3: the ${N}³ map is planted on the cluster (${(stats.bytes / 1024 / 1024).toFixed(0)} MB)`);
 
+  // t412 — the plant's TIMING moved (the t293 surgery, same disease): the
+  // t385 rename-aside law archives every recognized product sitting in the
+  // workdir BEFORE the dispatch — the plant pre-dating the re-run moved
+  // into .cryoflow_prev/ and the finalize ledger never spoke it. The map
+  // now drops MID-RUN: the pre-run wipe completes before the submit (the
+  // submitted script's rewrite is the marker), and the map lands while the
+  // fake ctffind is still running — the finalize listing speaks it, the
+  // key-files policy leaves it remote, the lazy leg fetches it on demand.
   const manifestBefore = JSON.parse(readFileSync(path.join(mirrorA, ".cf-remote-manifest.json"), "utf8"));
   const dispRe = await page.evaluate(async ({ jobId, connId, SH }) => {
     const r = await fetch(`/api/jobs/${jobId}/run`, {
@@ -415,7 +426,19 @@ try {
     });
     return r.status;
   }, { jobId: jobA.id, connId, SH });
-  must(dispRe === 200, `C3: A RE-RUN dispatched (${dispRe} — the planted map rides through the second finalize)`);
+  must(dispRe === 200, `C3: A RE-RUN dispatched (${dispRe} — the map drops inside the run's own window)`);
+  const scriptMtime = (p) => { try { return statSync(p).mtimeMs; } catch { return 0; } };
+  const sbatchScript = path.join(mockWorkdir, ".cf-sbatch.sh");
+  const runScript = path.join(mockWorkdir, ".cf-run.sh");
+  const tDispatch = Date.now();
+  let runStarted = false;
+  for (let t = 0; t < 30_000; t += 400) {
+    if (Math.max(scriptMtime(sbatchScript), scriptMtime(runScript)) >= tDispatch - 1500) { runStarted = true; break; }
+    await sleep(400);
+  }
+  must(runStarted, "C3: the re-run's pre-run wipe has fired (the submitted script was rewritten after dispatch)");
+  writeFileSync(plantLocal, readFileSync(bigMapSrc));
+  must(statSync(plantLocal).size === stats.bytes, `C3: the ${N}³ map is planted MID-RUN on the cluster (${(stats.bytes / 1024 / 1024).toFixed(0)} MB — past the wipe, inside the run)`);
   const manifestRe = await pollUntil(async () => {
     try {
       const m = JSON.parse(readFileSync(path.join(mirrorA, ".cf-remote-manifest.json"), "utf8"));

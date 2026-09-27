@@ -270,8 +270,13 @@ try {
   const src = readFileSync(`${ROOT}/src/lib/remote/remote-run.ts`, "utf8");
   must(src.includes("sacct -j ${J} -n -P -o State,ExitCode,Elapsed,MaxRSS"), "B: the third witness queries the app grammar (t303: the stopwatch + meter ride the same row)");
   must(
-    src.includes("const AC = ") &&
-      (src.match(/sacct -j/g)?.length ?? 0) === 1 &&
+    // t412 re-pin — the count moved to the GRAMMAR level: `const AC =
+    // \`sacct -j` defines the shared query exactly once and ${AC} invokes it
+    // exactly twice (EXIT enrichment + the fallback ladder). The t367-era
+    // failure-diagnosis PROSE also names "sacct -j" as advice to the user —
+    // a sentence is not a query, and the file-level count kept tripping over
+    // it.
+    (src.match(/const AC = `sacct -j/g)?.length ?? 0) === 1 &&
       (src.match(/\$\{AC\}/g)?.length ?? 0) === 2,
     "B: ONE shared 4-column query, invoked by BOTH exit branches (EXIT enrichment + the fallback)"
   );
