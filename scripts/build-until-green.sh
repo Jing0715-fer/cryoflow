@@ -38,8 +38,10 @@ mkdir -p .qa-logs
 
 stamp() { date -u '+[%H:%M:%SZ]'; }
 
-if [ -f "$BUILD_ID" ]; then
+if [ -f "$BUILD_ID" ] && [ "${FRESH:-0}" != "1" ]; then
   echo "$(stamp) BUILD_ID present — build already green, nothing to grind."
+  echo "        (source changed since? FRESH=1 forces a rebuild — the grinder"
+  echo "         cannot cheaply diff the whole src tree, so it trusts the stamp)"
   exit 0
 fi
 

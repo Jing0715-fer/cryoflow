@@ -4078,3 +4078,25 @@ Stage Summary:
 - **「硬编码默认清单是外置通道的墙」**：DEFAULT_TRANSPILED_PACKAGES 焊死了 lucide/recharts/date-fns 的 serverExternal 通道——optimizePackageImports 与 serverExternalPackages 对同一批包互斥，选了一个就失去另一个
 - **「画廊跷跷板有了第一个名字」**：t241 的 QA Post 385 化石是 t405 结构判决的活体案例——修复方向不是恢复旧世界，而是 t313 式 de-fossilization（按类型解析，哨兵承诺世界的形状而非某个化石）
 - 遗留（下窗候选，按杠杆排序）：①t243/245 real-fail 取证 + 画廊家族 de-fossilization 第一波（t241 先行，按类型解析教义）；②家族轮跑无 chromium 批（t27/t29 的 API 套件子集）；③EMPIAR 真数据回归（第廿五窗）；④更强盒子上的 build 复战（武器已留存）
+
+---
+Task ID: 407 (完 — 2026-09-27 18:21 cron 窗口 trace 1a07549302235a99-cron-agent-loop-202609271821)
+Agent: main (Z.ai Code)
+Task: 接续 Task 406 遗留①——t241 画廊化石 de-fossilization 第一波 + t243/245 取证修复；意外收获 = 生产体制在本盒落地
+
+Work Log:
+- [开局实证] HEAD = 9c1df4a = origin/main（Task 406 已推送），树净，无其他窗口推进。选题：t241 de-fossilize（t406 定位的 QA Post 385 画廊化石）+ t243/245 取证。
+- [主交付 A — 生产体制在本盒落地（t406 判决全面改写）] t406 曾判「build 需求 3.4GB 在 4GB 盒不可达」——**三重夹击假象**：①**ENOSPC 是主因**（隔离目录 929M + .shadow-archive 3.3G 影子树吃光磁盘至 99%，build 无法写产物/缓存）——清场 4.6G 空间后 **build 77 秒一次绿**（attempt 1 GREEN，此前 27 连败从未跑完过编译）；②**watchdog 与 build 打架**（对照实验：build worker 仅 2.23GB 即被 OOM——dev server 2.1GB 同场挤压，build 期间必须单任务独占）；③OOM 证词的 3.4GB 是磁盘/内存双重压力下的放大值——**build 真实需求 ≤2.2GB**。连败武器库生效：build-until-green.sh（新加 FRESH=1 强制重建——BUILD_ID 幂等检查不感知源码变化的设计缺陷修复）+ 内存饮食配置 + molstar 外置。
+- [主交付 B — 生产车道承载治愈世界] scripts/start-prod.sh 是 t86/t99/t109/t177/t183 的完整生产教义（杀旧实例、端口清场、standalone 静态复制、DATA_DIR symlink、绝对 DATA_DIR）——**本轮只补一处**：`export DATABASE_URL=cryoflow.db`（.env 的 custom.db 是模板库；生产车道此前骑沙箱环境变量， witnessed live：standalone 起在 3-job 种子世界而治愈 20-job 世界在 cryoflow.db）。**沙箱级 supervisor 在守护 standalone 车道**（qa-server-watchdog.sh 杀了即复活——顺势而为：让 standalone 车道指向治愈世界，生产服务器 = jobs 20/completed 19，GET / 7ms）。
+- [主交付 C — sparklinePath 的 span 归一化（本窗最大产品 bug）] t249 的 hero 断言连败引出七层排查：①项目名/②项目选择（palette）/③Workflow 视图/④FSC 预热/⑤fetchSteady+evalSteady/⑥项目选择 t249 版/⑦**sparklinePath**——页内插桩（h2-probe）拿到决定性证词：`text="Map QC"` 与 `mapQcBins=64` 双双为真、h2 回调确实 return 了 HeroLandscape、**DOM 里却没有**——HeroLandscape 首行 `sparklinePath(mainBins)` 返回 null（`!(max > 0)`）：**治愈世界 mock 的 z-profile 全负**（密度偏差对参考面），`v/max` 归一化在负值域彻底失效。修复 = **span 归一化**（[min,max]→[h,0]，`max===min` 平线诚实画 null）——正是 t195「the shape is the signal, not absolute ρ」教义的完整实现。**此 bug 杀死的不止 hero**：所有 portrait sparkline 在负值域全线沉默（画像家族的整条证据链）。同源修复：h2 匹配从 `node` prop（react-markdown 10 的 optional 契约）改为 children 文本（渲染真相）；measureMapQc 的静默 catch 加 console.error（catch 吞错误让一窗诊断失明）。
+- [主交付 D — store 的 apiSteady] boot 竞态活体目击：palette 的 Projects 组消失——Promise.all 里 /api/projects 撞路由首编译，裸 fetch 连接层死亡被 `.catch(() => ({projects: []}))` 当空列表吃掉，pollTick 只轮 /api/jobs **永不自愈**直到手动 reload。apiSteady 只重试连接层（TypeError），HTTP 状态是诚实答案不重试——t310 fetchSteady 教义落进产品。
+- [主交付 E — t24 批九套件全绿] t241 六层 de-fossilization（wire 解析 job 名/palette 选项目/显式 Workflow 视图/FSC 线预热/双 steady/roster>=15 形状）→ **ALL PASS 18/0**；t242-249 十四处 roster===15 哨兵批量清除（scripts/defossilize-t24x.py，锁「>=15 completed 治愈链形状」——t266/t267 套件残留漂移总数但永不破坏形状）；t249 加 palette 选项目 + outputs 预热（早期 draft 的无 path 预热 400 自污染 console gate——诚实探针教训）。**最终：pass 9 / real-fail 0 / wall 129s——生产体制下首个全绿批**。
+- [验证] tsc 0 ×4（每轮产品改动后）；eslint 0（store.ts）；node --check 全部套件；t241 ALL PASS 18/0；t249 ALL PASS；t24 批 9/9；探针清除后 t249 复跑 ALL PASS。
+- [诚实边界] ①t25-t30 六批未跑（生产体制地基已立，下窗乘胜）；②诊断脚本（diag-palette/results/h2/report-t407.mjs）留树未清——下次同类问题可复用；③EMPIAR 真数据回归连续第廿六窗让位；④t22 画廊跷跷板的结构性判决需重审（生产体制 + 形状锁可能已化解大半）。
+
+Stage Summary:
+- **「判决要跟着新证词改写」**：t406 的「build 物理不可达」是三重夹击（ENOSPC+watchdog 并发+OOM 放大）的假象——磁盘清场后 77 秒一次绿；27 连败的证据基础全是被污染的战场
+- **「插桩胜过一切推理」**：七层假设（空白字节/memo 链/node 契约）全部落空后，h2-probe 的两行 console.log 一步锁定 sparklinePath——DOM 与回调证词的矛盾只有插桩能裁决
+- **「形状归一化是分数教义的全部含义」**：`v/max` 假设正密度域；span 归一化（[min,max]→[h,0]）让任何值域的 landscape 都能画——「the shape is the signal」不是口号而是归一化公式
+- **「两条车道必须看同一个世界」**：dev 显式指 cryoflow.db 而生产骑环境变量——一个 DATABASE_URL 的分叉让生产车道起在种子世界；两车道的一致性是产品契约不是巧合
+- 遗留（下窗候选）：①t25-t30 六批乘胜收口（生产体制 + 看护教义已就位）；②t22 画廊跷跷板重审；③EMPIAR 真数据回归（第廿六窗）；④诊断脚本归档

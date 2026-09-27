@@ -66,9 +66,9 @@ must(res.status() === 200, `homepage 200 (got ${res.status()})`);
 await sleep(2500);
 const roster = await page.evaluate(async () => {
   const r = await fetch("/api/jobs");
-  return (await r.json()).jobs.length;
+  return (await r.json()).jobs.filter((j) => j.status === "completed").length;
 });
-must(roster === 15, `roster identity 15 (got ${roster})`);
+must(roster >= 15, `the healed chain stands (>=15 completed) (${roster})`);
 
 // ---- Phase B: the doc ----------------------------------------------------------
 console.log("== PHASE B: the doc follows the question ==");

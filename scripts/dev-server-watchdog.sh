@@ -23,7 +23,7 @@
 # job changes from "resurrect after an unexplained death" to three things:
 #
 #   1. RESURRECT — the v1 law, unchanged: health check on / (bare curl),
-#      boot with the hardened env (DEV_HEAP_MB=1792 + --webpack, node not bun).
+#      boot with the hardened env (DEV_HEAP_MB=1280 t407 + --webpack, node not bun).
 #   2. EXECUTE THE ZOMBIE — v1's pgrep gate has a blind spot, witnessed twice
 #      on day one: a "next dev" process that EXISTS but lost the .next/dev/lock
 #      war never listens, and every watchdog instance sees "process present"
@@ -103,7 +103,7 @@ prewarm() {
 
 boot() {
   echo "[$(date -u +%H:%M:%SZ)] server down, no next dev process — booting with hardened env" >> "$LOG"
-  DEV_HEAP_MB=1792 DEV_NEXT_ARGS="--webpack" bash scripts/dev-server.sh >> "$LOG" 2>&1
+  DEV_HEAP_MB=1280 DEV_NEXT_ARGS="--webpack" bash scripts/dev-server.sh >> "$LOG" 2>&1
   if prewarm; then
     boot_fail_streak=0
     return 0

@@ -876,6 +876,35 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
   return data;
 }
 
+// t407 — the boot race, witnessed live: on a box where the dev server can
+// die mid-compile (the 4GB OOM regime — t405/t406), a first-visit route can
+// answer with a KILLED CONNECTION instead of a status code, and load()'s
+// bare `.catch` fallbacks then boot the app with an EMPTY projects or
+// workspaces list — the palette's Projects group silently vanishes, the
+// project panel shows nothing, and NOTHING retries (pollTick only polls
+// /api/jobs), so the state persists until the user manually reloads. The
+// suite-side doctrine (t310's fetchSteady, the healer's connection-layer
+// retries) now lands in the product: apiSteady retries ONLY the connection
+// layer — fetch's own voice for "never reached the server / the server died
+// mid-flight" is a TypeError; an HTTP error status (carried on Error.status
+// by api) is an honest answer from a live server and is NEVER retried.
+async function apiSteady<T>(url: string, attempts = 3): Promise<T> {
+  let lastErr: unknown = null;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await api<T>(url);
+    } catch (err) {
+      if (err instanceof TypeError) {
+        lastErr = err;
+        await new Promise((r) => setTimeout(r, 1200 * (i + 1)));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastErr ?? new Error("apiSteady: unreachable");
+}
+
 /**
  * t359 — optimistic wire bookkeeping (see connect/removeEdge).
  *
@@ -1341,9 +1370,13 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         // never sends ?v= — the first poll after boot rides this token)
         api<{ jobs: JobDTO[]; version?: string }>("/api/jobs"),
         api<{ edges: EdgeDTO[] }>("/api/edges"),
-        api<SystemStatusClient>("/api/system").catch(() => null),
-        api<{ projects: ProjectSummaryDTO[] }>("/api/projects").catch(() => ({ projects: [] })),
-        api<{ workspaces: WorkspaceDTO[] }>("/api/workspaces").catch(() => ({ workspaces: [] })),
+        apiSteady<SystemStatusClient>("/api/system").catch(() => null),
+        // t407 — the boot-race branches: these low-frequency routes carry the
+        // coldest first compiles, so on the OOM regime their first boot is the
+        // one most likely to meet a server that dies mid-compile. apiSteady
+        // retries the connection layer before the catch fallback may speak.
+        apiSteady<{ projects: ProjectSummaryDTO[] }>("/api/projects").catch(() => ({ projects: [] })),
+        apiSteady<{ workspaces: WorkspaceDTO[] }>("/api/workspaces").catch(() => ({ workspaces: [] })),
       ]);
       // keep the current workspace when it still exists (e.g. project-level
       // reloads), otherwise land on the project's first workspace

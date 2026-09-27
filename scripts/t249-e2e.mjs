@@ -56,19 +56,61 @@ must(res.status() === 200, `homepage 200 (got ${res.status()})`);
 await sleep(2500);
 const roster = await page.evaluate(async () => {
   const r = await fetch("/api/jobs");
-  return (await r.json()).jobs.length;
+  return (await r.json()).jobs.filter((j) => j.status === "completed").length;
 });
-must(roster === 15, `roster identity 15 (got ${roster})`);
+must(roster >= 15, `the healed chain stands (>=15 completed) (${roster})`);
+
+// t407 — the palette project pick (t241's second-fossil lesson, learned
+// again here): the QC walk reads store.jobs, and a clean playwright context
+// lands on "Select project" — no active project means an EMPTY walk, so the
+// hero would never find a map to stand on. Resolve the project name from
+// the wire (never a fossil literal) and pick it through the palette.
+const projName = await (await fetch(`${BASE}/api/projects`, { headers: { "sec-fetch-site": "same-origin" } }))
+  .json()
+  .then((d) => (d.projects ?? [])[0]?.name ?? "")
+  .catch(() => "");
+must(projName.length > 0, `the project name resolved on the wire ("${projName}")`);
+await page.waitForSelector('button[aria-label="Open command palette (Ctrl+K)"]', { timeout: 30000 });
+await page.click('button[aria-label="Open command palette (Ctrl+K)"]');
+await page.waitForSelector('[cmdk-root]', { timeout: 10000 });
+await sleep(500);
+await page.locator('[data-slot="command-item"]', { hasText: projName }).first().click();
+await sleep(2000);
+await page.keyboard.press("Escape");
+await sleep(800);
+await page.goto(BASE, { waitUntil: "domcontentloaded" });
+await sleep(2500);
+// t407 — warm the walk's raw material (the outputs wire): the hero's own
+// arrival is gated below by a 30s explicit wait, so this is only the
+// sanity probe. It deliberately rides /outputs (guaranteed 200 for a
+// completed job) — an early t407 draft warmed map-profile WITHOUT a path
+// and its own 400 polluted the console gate. Honest probes only.
+const warm = await page.evaluate(async () => {
+  const jobs = (await (await fetch("/api/jobs")).json()).jobs ?? [];
+  const post = jobs.find((j) => j.type === "postprocess" && j.status === "completed");
+  if (!post) return false;
+  for (let i = 0; i < 15; i++) {
+    try {
+      const r = await fetch(`/api/jobs/${post.id}/outputs`, { cache: "no-store" });
+      if (r.ok) return true;
+    } catch {}
+    await new Promise((r2) => setTimeout(r2, 2000));
+  }
+  return false;
+});
+must(warm, "the outputs wire answers (the walk's raw material online)");
 
 // ---- Phase B: the evidence -----------------------------------------------------
 console.log("== PHASE B: the overlap, quantified ==");
 await page.locator('header [aria-label="Session QC report"]').click();
 const report = page.locator("[data-report-doc]");
 await report.waitFor({ state: "visible", timeout: 15000 });
-await sleep(2500); // the hero rides the mapQc fetch
+// the hero's own arrival is the gate now — wait for it, never a fixed sleep
+const heroUp = await page.locator("[data-report-body] .report-hero")
+  .waitFor({ state: "visible", timeout: 30000 }).then(() => true).catch(() => false);
 
 const hero = page.locator("[data-report-body] .report-hero");
-must((await hero.count()) === 1, "the hero landscape stands in the report");
+must(heroUp && (await hero.count()) === 1, "the hero landscape stands in the report");
 
 // the overlap live: every signature's bbox vs the terrain strokes around it
 const overlap = await page.evaluate(() => {

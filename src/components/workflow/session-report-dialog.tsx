@@ -733,8 +733,13 @@ export default function SessionReportDialog({
         if (ctrl.signal.aborted) return;
         setMapQc(qc);
         setMapPending(false);
-      } catch {
+      } catch (err) {
         if (ctrl.signal.aborted) return;
+        // t407 — the silent catch cost a window of blind diagnosis: every
+        // wire probe was green (map-profile 200s, walk complete, the H2 in
+        // its exact bytes) while the hero never mounted, and the swallowed
+        // error was the ONLY witness nobody could hear. Say the failure.
+        console.error("[map-qc] deep measurement failed:", err);
         setMapError(true);
         setMapPending(false);
       }
@@ -957,7 +962,17 @@ export default function SessionReportDialog({
       // and the heading keeps its exact paper bytes (the figure is
       // rendered around the words, never written into them).
       h2: ({ node, children, ...rest }: H2Props) => {
-        const text = hastKids(node).map(hastText).join("");
+        // t407 — match on the CHILDREN's words, not the hast node. The
+        // `node` extra-prop is an OPTIONAL contract in react-markdown 10;
+        // riding on it made the match fail SILENTLY (text computed to ""
+        // against a perfectly rendered "Map QC" heading — the hero never
+        // mounted while every wire probe stayed green and the console
+        // stayed clean). The children are the rendered truth; a heading
+        // this simple is pure text, so toArray+strings is exact.
+        const text = React.Children.toArray(children)
+          .map((c) => (typeof c === "string" ? c : ""))
+          .join("")
+          .trim();
         if (text !== MAP_QC_HEAD || !mapQc?.mainBins) return <h2 {...rest}>{children}</h2>;
         return (
           <>

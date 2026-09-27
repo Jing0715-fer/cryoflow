@@ -380,12 +380,22 @@ export const sparklinePath = (
 ): string | null => {
   if (!bins || bins.length === 0) return null;
   const pts = resampleByFraction(bins, Math.max(2, stations));
+  // t407 — normalize by SPAN, not by max. The old `v / max` assumed the
+  // landscape crosses zero somewhere above it; the healed world's mock
+  // z-profiles come back ALL-NEGATIVE (density deviations against a
+  // reference plane), so max < 0, `!(max > 0)` fired, and every sparkline
+  // and the Map QC hero silently drew NOTHING — no error, no figure, a
+  // whole evidence family invisible while every wire probe stayed green.
+  // The fraction doctrine ("the shape is the signal, not absolute ρ")
+  // means exactly this: rescale [min, max] → [h, 0]; a flat line (max ===
+  // min) still has no shape to draw and honestly draws nothing.
   const max = Math.max(...pts);
-  if (!(max > 0)) return null;
+  const min = Math.min(...pts);
+  if (!(max > min)) return null;
   return pts
     .map((v, i) => {
       const x = (i / (pts.length - 1)) * w;
-      const y = h - (v / max) * h;
+      const y = h - ((v - min) / (max - min)) * h;
       return `${i === 0 ? "M" : "L"}${x.toFixed(2)} ${y.toFixed(2)}`;
     })
     .join(" ");

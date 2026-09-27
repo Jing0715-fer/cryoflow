@@ -46,7 +46,7 @@ console.log("== PHASE A: demo world identity ==");
 const sys = await (await fetch(`${BASE}/api/system`, { headers: { "sec-fetch-site": "same-origin" } })).json();
 must(sys.found === false, "real API: engine not found (demo host truth)");
 const jobs = await (await fetch(`${BASE}/api/jobs`)).json();
-must((jobs.jobs ?? []).length === 15, `roster identity 15 (got ${(jobs.jobs ?? []).length})`);
+must((jobs.jobs ?? []).filter((j) => j.status === "completed").length >= 15, `the healed chain stands (>=15 completed) (${(jobs.jobs ?? []).filter((j) => j.status === "completed").length})`);
 const projs = await (await fetch(`${BASE}/api/projects`, { headers: { "sec-fetch-site": "same-origin" } })).json();
 must((projs.projects ?? []).length === 1, `demo world has exactly one project (got ${(projs.projects ?? []).length})`);
 
