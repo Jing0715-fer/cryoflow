@@ -205,7 +205,11 @@ try {
     "the résumé aggregate is async (the existence check queries the DB)"
   );
   must(
-    rr.includes('select: { id: true, project: { select: { name: true } } }'),
+    // t411 — semantic shape, not byte lock: t409 added projectId to this
+    // select (the jump door's cross-project hint) and the byte match broke.
+    // What the law actually needs: one query fetching existence AND the
+    // owning project's name.
+    /select:\s*\{[^}]*id:\s*true,[^}]*project:\s*\{\s*select:\s*\{\s*name:\s*true/.test(rr),
     "the existence check fetches the owning project's NAME in the same query"
   );
   must(
@@ -383,12 +387,16 @@ try {
     body: JSON.stringify({ id: demoId }),
   });
   must(sw.status === 200 || sw.status === 201, `switched back to the demo canvas (${sw.status})`);
+  // t411 — wire conservation, not a byte census: the demo canvas must show
+  // the SAME job count the suite found on arrival (roster0), whatever the
+  // world's total is now — 21 was the census of the era this suite was
+  // written in, and the two-world ledger moved it forever.
   const demoJobs = await pollUntil(async () => {
     const d = await (await fetch(`${BASE}/api/jobs`)).json();
     const n = (d.jobs ?? []).length;
-    return n === 21 ? d : null;
+    return n === roster0 ? d : null;
   }, 15_000);
-  must(!!demoJobs, "the demo canvas shows its 21 jobs again");
+  must(!!demoJobs, `the demo canvas shows its arrival census again (${roster0})`);
   const demoIds = new Set((demoJobs?.jobs ?? []).map((j) => j.id));
   must(
     !demoIds.has(jobM.id) && !demoIds.has(importJob.id),
@@ -415,25 +423,39 @@ try {
     `the entry names the canvas the job lives on ("${entry?.projectName ?? "absent"}")`
   );
 
-  // C6 — the dialog on the demo canvas: the entry is a DUMB HISTORY ROW
-  //      whose tooltip names the other canvas
+  // t411 — the dialog seeds its selection to connections[0]: with other
+  // live connections in the world the résumé card first() belongs to
+  // someone else and the suite's rows are invisible in it. Select the
+  // suite's own connection row before reading its card.
+  const selectOwnConnection = async () => {
+    const row = page.locator('button[aria-label^="QA t272 CrossCanvas"]');
+    await row.waitFor({ state: "visible", timeout: 8000 }).catch(() => {});
+    await row.click({ force: true }).catch(() => {});
+    await sleep(700);
+  };
+
+  // C6 — the dialog on the demo canvas: the entry is a JUMP BUTTON whose
+  //      tooltip names the other canvas (t411 — t409 opened the cross-
+  //      canvas jump door: jumpable = job on this canvas OR a home project
+  //      the server named; the old "dumb history row" law predates it)
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await sleep(2500);
   await page.locator('button[aria-label="Remote clusters (SSH)"]').first().click({ force: true }).catch(() => {});
   await sleep(1500);
+  await selectOwnConnection();
   const card = page.locator("[data-run-resume]").first();
   must(await card.isVisible().catch(() => false), "the résumé card renders inside the cluster dialog");
   const jumpBtn = page.locator(`[data-resume-jump][data-resume-entry="${jobM.id}"]`).first();
   must(
-    !(await jumpBtn.isVisible().catch(() => false)),
-    "the cross-canvas entry is NOT a jump button (this store cannot open that door)"
+    await jumpBtn.isVisible().catch(() => false),
+    "the cross-canvas entry IS a jump button (t409 opened the door; the hint switches projects)"
   );
   const rowEl = page.locator(`[data-resume-entry="${jobM.id}"]`).first();
   must(await rowEl.isVisible().catch(() => false), "the cross-canvas entry still renders (history, not a void)");
   const rowTitle = ((await rowEl.getAttribute("title").catch(() => "")) ?? "").replace(/\s+/g, " ");
   must(
-    rowTitle.includes("project's canvas") && rowTitle.includes(SECOND_NAME) && rowTitle.includes("switch to that project"),
-    `the history row's tooltip NAMES the other canvas ("${rowTitle.slice(0, 110)}")`
+    rowTitle.includes("project's canvas") && rowTitle.includes(SECOND_NAME) && rowTitle.includes("switches projects"),
+    `the jump row's tooltip NAMES the canvas it lands on ("${rowTitle.slice(0, 110)}")`
   );
   must(
     !rowTitle.includes("gone (deleted)"),
@@ -520,6 +542,7 @@ try {
   await sleep(2500);
   await page.locator('button[aria-label="Remote clusters (SSH)"]').first().click({ force: true }).catch(() => {});
   await sleep(1500);
+  await selectOwnConnection();
   const goneCard = page.locator("[data-run-resume]").first();
   must(await goneCard.isVisible().catch(() => false), "the résumé card returns with the injected history");
   const goneRow = page.locator(`[data-resume-entry="${jobM.id}"]`).first();

@@ -306,11 +306,24 @@ try {
     writeFileSync(STATE_FILE, JSON.stringify(obj, null, 2));
   };
 
+  // t411 — the dialog seeds its selection to connections[0], not to the
+  // suite's own connection; in a world with other live connections the old
+  // probe was reading ANOTHER connection's résumé card (round 1 only passed
+  // because the pre-existing connection's résumé happened to be all-live).
+  // Each round now selects its own row before reading the helper.
+  const selectOwnConnection = async () => {
+    const row = page.locator('button[aria-label^="QA t278 Helper"]');
+    await row.waitFor({ state: "visible", timeout: 8000 }).catch(() => {});
+    await row.click({ force: true }).catch(() => {});
+    await sleep(600);
+  };
+
   const assertRound = async (variant, textProbe) => {
     await page.reload({ waitUntil: "domcontentloaded" });
     await sleep(2200);
     await page.locator('button[aria-label="Remote clusters (SSH)"]').first().click({ force: true }).catch(() => {});
     await sleep(1100);
+    await selectOwnConnection();
     const helper = page.locator("[data-resume-helper]").last();
     await helper.waitFor({ state: "attached", timeout: 8000 }).catch(() => {});
     const seen = await helper.getAttribute("data-resume-helper").catch(() => null);
@@ -354,6 +367,7 @@ try {
   await sleep(2200);
   await page.locator('button[aria-label="Remote clusters (SSH)"]').first().click({ force: true }).catch(() => {});
   await sleep(1100);
+  await selectOwnConnection();
   const goneRow = page.locator(`[data-resume-entry="${deadId}"]`).first();
   await goneRow.waitFor({ state: "visible", timeout: 8000 }).catch(() => {});
   must((await goneRow.getAttribute("data-resume-gone").catch(() => null)) === "gone",

@@ -582,8 +582,20 @@ function RunResumeCard({
             data-resume-jump=""
             onClick={() => jumpJob(e.jobId)}
             className="group -mx-1 flex w-full items-center gap-1.5 rounded-sm px-1 py-0.5 text-left text-[10px] transition-colors hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            title={`Open the inspector for “${job?.name}” — ${e.jobType} started ${new Date(e.startedAt).toLocaleString()}`}
-            aria-label={`Open the inspector for ${job?.name ?? e.jobType}`}
+            // t411 — a cross-canvas row has no job on THIS canvas, so the
+            // old template spoke "Open the inspector for “undefined”".
+            // The tooltip must name the canvas the jump actually lands on
+            // (the same honesty the dumb-history row's tooltip speaks).
+            title={
+              job != null
+                ? `Open the inspector for “${job?.name}” — ${e.jobType} started ${new Date(e.startedAt).toLocaleString()}`
+                : `Open the inspector on the “${e.projectName ?? "another"}” project's canvas — this jump switches projects for you; ${e.jobType} started ${new Date(e.startedAt).toLocaleString()}`
+            }
+            aria-label={
+              job != null
+                ? `Open the inspector for ${job?.name ?? e.jobType}`
+                : `Open on the ${e.projectName ?? "another"} project's canvas (${e.jobType})`
+            }
           >
             {row}
             <ArrowUpRight

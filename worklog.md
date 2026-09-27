@@ -4190,3 +4190,24 @@ Stage Summary:
 - **「自检不能骑在病兄弟身上」**：t273 内测批从 t22（病灶）→t24（太重）→t31（最稳最轻）的三段迁移——测试对环境的依赖就是测试自己的正确性边界
 - **「中断的运行会留下世界污染」**：3 个残骸项目 + 8 条残骸记录都来自 finally 未达的套件——自愈清尸（按名扫删）让套件对自己的历史负责
 - 遗留（下窗候选，按杠杆排序）：①「历史家族修复窗」（t223 画像 15 + t272 哨兵 8 + t278 variant 5 + t293/t298/t299 remote-borrow）；②t27 批成员拆分（7 套件贴天花板）；③EMPIAR（第廿八窗）；④GitHub PAT 撤销确认（第六次提醒）
+
+---
+Task ID: 411 (完 — 2026-09-28 04:36 cron 窗口 trace 1a07549302235a99-cron-agent-loop-202609280445)
+Agent: main (Z.ai Code)
+Task: 历史家族修复窗（t410 遗留①）——t278 探针失焦 / t272 哨兵 + t409 跳转门语义 / t223 画像家族 15→0
+
+Work Log:
+- [开局实证] HEAD = ba4b3e6 = origin/main（Task 410 已推送），树净，worklog 尾 = Task 410 完结条。QA 全绿：PAGE ERRORS (0) + CONSOLE (0) + 世界 46 jobs 稳定——上窗的整页崩溃修复持续健康。
+- [主交付 A — t278 ALL PASS（探针失焦）] diag-t411-t278.mjs 拿到决定性证词：API résumé 的 exists 判定完全正常（dead=false + live=true 并存），但 dialog 的 [data-resume-entry] 显示的是**另一条连接**的记录——remote-cluster-dialog 的 selectedId 种子到 connections[0]（最老连接），t278 从不点选自己的连接，round 1 全过纯属巧合（当时世界唯一连接的 résumé 恰好全 live）。修复 = selectOwnConnection（每轮点选 aria-label^="QA t278 Helper" 的行）。教训：**探针读的每个元素都要证明"是谁的"**。
+- [主交付 B — t272 ALL PASS（失焦 + 语义演进 + 产品小瑕疵）] 同款失焦修复（selectOwnConnection）+ 三处断言更新：①源码断言去字节化（t409 给 connectionRunResume 的 select 加了 projectId——「白盒锁语义不锁字节」第 N+2 案例，改正则形态匹配）；②「demo canvas shows its 21 jobs」→ wire 守恒（rosterArrival 基线——21 是套件写作时代的人口普查）；③**t409 的跳转门语义**：jumpable = job != null || !!e.projectId——cross-canvas 行从 dumb history row 升级为真 jump button，t272 的「NOT a jump button」断言反转为「IS a jump button」。**产品小瑕疵顺手修**：cross-canvas 行的 title 是 `Open the inspector for "undefined"`（job 不在本画布）——改为点名跳转落地的画布（"Open the inspector on the "X" project's canvas — this jump switches projects for you"），aria-label 同步。FRESH build attempt-1 GREEN。
+- [主交付 C — t223 164/0 ALL PASS（本窗最大战场）] 15 FAIL 的根因不是画像不渲染（V5/V6/V8 的 DOM 路径全在！）而是**行数哨兵**：walk 的 inventory 现在携带双世界全部 volume speaker（MAP_BRIEF_CAP=24），行数 >3，「count === 3」全族失配。修复 = t313 按类型教义落地：**按 data-owner-door={jobId} 定位三行**（winnerId/outlierId 按名解析 + twinId 收据），V2/V3/V4 改三行遍历、V7/V8/M6/M7/H8 用 rowFor(twinId)/rowFor(outlierId) 替代 nth(1)/nth(2)、V10/H1/M1/M2/Z2b/Z2c 的计数改 walk census 对齐、T2/Z3 改 rosterArrival 守恒、Z2 改「no note speaks the twin」（双世界的 |Δ| tie 注是产品的诚实输出）。**M 段的 M3/M4 升级为全表遍历**（每行都该满足，比三行更强）。
+- [t31 批 / t313 的世界文件损伤（本窗未结）] t273 的内测样本 t31 批 1 fail——t313（治愈链守卫）警报：import/motioncrit 链节 outputs 0、13 链节仅 11 带 outputs、**select star 引用的 extract stack 在集群树上不存在**（extract_* 目录整个缺失）。跑 healer（demo-chain-resurrect.mjs）复活了记录与大部分文件（4 FAIL→1 FAIL），但对 extract stack 无能为力——healer 的 filesOnDisk 检查只看本地 outputs 映射，集群侧文件缺失不可见；手动经 run door 重跑 extract 撞上游级联缺失（ctffind 的 micrographs_ctf.star 也不在集群树，路径拼接证词显示双重前缀）。**下窗首务：healer --rerun 全链（15 节点走 slurm）重建集群侧文件**。
+- [验证] tsc 0；node --check 全部触及套件；t278/t272/t223 solo ALL PASS（164/0）；t22 批 2/2 全绿；t27 批 6/7（t313 世界损伤挂起）；家族 TOTAL pass 55（前 50）/ real-fail 5（前 8）；PAGE ERRORS (0) 全程保持。
+- [诚实边界] ①t313 的 1 FAIL 未结（需 healer --rerun 全链，约 10-15 分钟 slurm 序列）；②t293/t298/t299 remote-borrow 家族未动（t29 批 4/7）；③EMPIAR 真数据回归连续第廿九窗让位（t276 SKIP 同源）；④GitHub PAT 撤销确认第七次提醒。
+
+Stage Summary:
+- **「探针要证明元素是谁的」**：t278/t272 的同款失焦（selectedId 默认 connections[0]）让两套件在多连接世界里读别人的卡——round 1 的绿是巧合不是契约；selectOwnConnection 是解药
+- **「哨兵锁形状不锁人口普查」**：t223 的 15 个失败全是 count === 3/2/4 族——walk 的 census 是世界的诚实输出（MAP_BRIEF_CAP 内全部 speaker），套件该钉自己的三行（by ID）与守恒律（rosterArrival），行数属于 walk
+- **「断言要跟着门走」**：t409 开了 cross-canvas 跳转门（projectId hint），t272 的「NOT a jump button」从守卫变成化石——产品语义升级时，锁旧语义的断言要反转为锁新语义
+- **「healer 看不见集群侧的损失」**：t313 警报的 extract stack 缺失逃过 healer 的 filesOnDisk 检查（它只读本地 outputs 映射）——双位面世界（本地镜像 + 集群树）的完整性检查也要双位面
+- 遗留（下窗候选）：①healer --rerun 全链重建集群侧文件（t313 收口）；②t293/t298/t299 remote-borrow 取证修复；③EMPIAR（第廿九窗）；④GitHub PAT 撤销确认（第七次提醒）
