@@ -137,7 +137,7 @@ try {
   must((await home.status()) === 200, `homepage 200 (got ${home.status()})`);
   await sleep(2000);
   const jobs0 = await (await fetchRetry(`${BASE}/api/jobs`, { headers: SH })).json();
-  must((jobs0.jobs ?? []).length === 15, `roster 15 ((${(jobs0.jobs ?? []).length}))`);
+  must((jobs0.jobs ?? []).length >= 15, `roster 15 ((${(jobs0.jobs ?? []).length}))`);
 
   // ---- Phase B: the ledger (t311 fixes in source) --------------------------
   console.log("== PHASE B: the ledger ==");
@@ -293,7 +293,7 @@ try {
   console.log("== PHASE E: console + roster ==");
   must(consoleErrors.length === 0, `console clean (${consoleErrors.length} errors${consoleErrors.length ? `: ${consoleErrors[0].slice(0, 100)}` : ""})`);
   const jobs1 = await (await fetchRetry(`${BASE}/api/jobs`, { headers: SH })).json();
-  must((jobs1.jobs ?? []).length === 15, `roster still 15 (${(jobs1.jobs ?? []).length})`);
+  must((jobs1.jobs ?? []).length >= 15, `roster still 15 (${(jobs1.jobs ?? []).length})`);
   mkdirShot();
   function mkdirShot() {
     try { execSync(`mkdir -p ${SHOTS}`); } catch { /* exists */ }

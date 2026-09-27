@@ -57,13 +57,33 @@ def api(path, method="GET", body=None):
 
 def find_workdir() -> tuple[str, str]:
     """engine-state.json top level maps job id → record with .workdir.
-    Returns (job_id, workdir)."""
+    Returns (job_id, workdir).
+
+    t407 — the host resolves BY NAME first, then BY TYPE. The legacy names
+    ("QA Refine3D", "QA Class2D Source") are gallery-furniture fossils from
+    the restore-gallery world the 15-node roster cannot hold (the t405
+    seesaw, first living case in t406's t241). The healed chain carries the
+    SAME TYPES — refine3d for the QA_VOL_HOST="QA Refine3D" recipe, class2d
+    for the default — completed, newest first. The seed promises "a volume
+    lands in a job whose results dialog shows it", and the type is that
+    promise; the name was only ever one world's spelling of it."""
     jobs = api("/api/jobs")
     jobs = jobs["jobs"] if isinstance(jobs, dict) else jobs
     src = next((j for j in jobs if j.get("name") == SRC_NAME), None)
     if not src:
+        host_type = "refine3d" if "Refine3D" in SRC_NAME or "refine" in SRC_NAME.lower() else "class2d"
+        done = [
+            j for j in jobs
+            if j.get("type") == host_type and j.get("status") == "completed"
+        ]
+        src = done[0] if done else None
+        if src:
+            print(f"note: '{SRC_NAME}' not found — seeding into the healed chain's "
+                  f"completed {host_type} job '{src.get('name')}' ({src['id']})")
+    if not src:
         raise SystemExit(
-            f"FATAL: seed job '{SRC_NAME}' missing — restore the sandbox with scripts/restore-gallery.py first"
+            f"FATAL: no seed host found — neither the gallery name '{SRC_NAME}' "
+            f"nor a completed job of the matching type in this world"
         )
     with open("data/engine-state.json", "r", encoding="utf-8") as f:
         state = json.load(f)

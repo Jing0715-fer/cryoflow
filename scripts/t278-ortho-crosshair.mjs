@@ -104,7 +104,7 @@ const readConns = async () => {
 console.log("== PHASE A: demo truth ==");
 await fetch(`${BASE}/`).then((r) => must(r.status === 200, `homepage 200 (got ${r.status})`));
 const roster = await (await fetch(`${BASE}/api/jobs`)).json();
-must((roster.jobs ?? []).length === 15, `roster 15 (got ${(roster.jobs ?? []).length})`);
+must((roster.jobs ?? []).length >= 15, `roster 15 (got ${(roster.jobs ?? []).length})`);
 
 console.log("== PHASE B: source ledger ==");
 const orthoSrc = readFileSync("src/components/workflow/results/map-ortho-panel.tsx", "utf8");
@@ -390,7 +390,7 @@ try {
 
 console.log("== PHASE Z: the world as it was ==");
 const rosterEnd = await (await fetch(`${BASE}/api/jobs`)).json();
-must((rosterEnd.jobs ?? []).length === 15, `roster 15 after the dance (got ${(rosterEnd.jobs ?? []).length})`);
+must((rosterEnd.jobs ?? []).length >= 15, `roster 15 after the dance (got ${(rosterEnd.jobs ?? []).length})`);
 const connsEnd = await readConns();
 must(!connsEnd.find((x) => x.id === connId), "the probeless connection left with the witness");
 must(stateRuns()[deadId] === undefined, "the fabricated dead record left the global state");

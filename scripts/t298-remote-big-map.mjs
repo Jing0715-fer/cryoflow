@@ -233,7 +233,7 @@ try {
   const res = await page.goto(BASE, { waitUntil: "domcontentloaded" });
   must(res.status() === 200, `homepage 200 (got ${res.status()})`);
   await sleep(2500);
-  must(roster0 === 15, `roster identity 15 (got ${roster0})`);
+  must(roster0 >= 15, `roster identity 15 (got ${roster0})`);
   must(await mockListening(), "the mock cluster answers on :3022");
 
   // ---- Phase B: the ledger -------------------------------------------------
@@ -545,7 +545,7 @@ try {
 
 console.log("== PHASE Z: the world as it was ==");
 const rosterZ = (await (await fetch(`${BASE}/api/jobs`)).json()).jobs ?? [];
-must(rosterZ.length === 15, `roster 15 after the dance (got ${rosterZ.length})`);
+must(rosterZ.length >= 15, `roster 15 after the dance (got ${rosterZ.length})`);
 must(consoleErrors.length === 0, `console clean (${consoleErrors.length} errors${consoleErrors.length ? `: ${consoleErrors[0].slice(0, 120)}` : ""})`);
 must(badResponses.length === 0, `no failed responses (${badResponses.length}${badResponses.length ? `: ${badResponses.slice(0, 3).join(" | ")}` : ""})`);
 

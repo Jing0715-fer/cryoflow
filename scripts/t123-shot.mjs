@@ -40,7 +40,7 @@ async function main() {
     const job = j?.job ?? j;
     y += 240;
     if (ago != null) {
-      sh(`node -e "const {PrismaClient}=require('@prisma/client');const p=new PrismaClient();` +
+      sh(`DATABASE_URL="file:/home/z/my-project/db/cryoflow.db" node -e "const {PrismaClient}=require('@prisma/client');const p=new PrismaClient();` +
         `p.job.update({where:{id:'${job.id}'},data:{status:'${status}',progress:${status === "running" ? 40 : 100},` +
         `startedAt:new Date('${new Date(nowMs - ago * 1000).toISOString()}'),duration:${dur}}}).then(()=>p.\\$disconnect())"`);
     }

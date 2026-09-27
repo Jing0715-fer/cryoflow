@@ -98,7 +98,7 @@ const seedHost = () => {
   // mechanism qa58-seed-gallery.py uses ("the row is the source of truth
   // for status, the workdir for output"). VERIFY the flip: a silently
   // no-op'd status write turns the whole suite into a dead-key walk.
-  sh(`node -e "const {PrismaClient}=require('@prisma/client');const p=new PrismaClient();p.job.update({where:{id:'${hostJobId}'},data:{status:'completed',progress:100}}).then(()=>p.\\$disconnect())"`);
+  sh(`DATABASE_URL="file:/home/z/my-project/db/cryoflow.db" node -e "const {PrismaClient}=require('@prisma/client');const p=new PrismaClient();p.job.update({where:{id:'${hostJobId}'},data:{status:'completed',progress:100}}).then(()=>p.\\$disconnect())"`);
   const st = (JSON.parse(sh(`curl -s ${B}/api/jobs`))?.jobs ?? []).find((x) => x.id === hostJobId)?.status;
   if (st !== "completed") FATAL(`host status flip failed (got ${st})`);
   // Results-tab volume enlarge needs a Sharpened map on disk AND an

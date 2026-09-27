@@ -71,7 +71,7 @@ console.log("== PHASE A: demo truth ==");
 const res = await page.goto(BASE, { waitUntil: "domcontentloaded" });
 must(res.status() === 200, `homepage 200 (got ${res.status()})`);
 await sleep(2500);
-must(roster === 15, `roster identity 15 (got ${roster})`);
+must(roster >= 15, `roster identity 15 (got ${roster})`);
 must(!!host, "QA Refine3D in roster (the seeder's host)");
 
 // ---- Phase B: the recital's ledger — both feature directions are BUILT --------

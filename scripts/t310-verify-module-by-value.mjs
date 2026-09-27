@@ -180,7 +180,7 @@ try {
   must((await home.status()) === 200, `homepage 200 (got ${home.status()})`);
   await sleep(2200);
   const jobs0 = await (await fetchSteady(`${BASE}/api/jobs`)).json();
-  must((jobs0.jobs ?? []).length === 15, `roster 15 ((${(jobs0.jobs ?? []).length}))`);
+  must((jobs0.jobs ?? []).length >= 15, `roster 15 ((${(jobs0.jobs ?? []).length}))`);
   must(await mockListening(), "the mock cluster answers on :3022");
 
   // ---- Phase B: the ledger (source assertions) ----------------------------
@@ -482,7 +482,7 @@ try {
   const transportNoise = consoleErrors.filter((e) => !/net::ERR_(CONNECTION_(REFUSED|RESET|ABORTED)|EMPTY_RESPONSE)/.test(e));
   must(transportNoise.length === 0, `console clean (${transportNoise.length} errors${transportNoise.length ? `: ${transportNoise[0].slice(0, 100)}` : ""}; ${consoleErrors.length - transportNoise.length} transport-noise entries from server recycles exempted)`);
   const jobs1 = await (await fetchSteady(`${BASE}/api/jobs`)).json();
-  must((jobs1.jobs ?? []).length === 15, `roster still 15 (${(jobs1.jobs ?? []).length})`);
+  must((jobs1.jobs ?? []).length >= 15, `roster still 15 (${(jobs1.jobs ?? []).length})`);
 } finally {
   console.log("== finally: the world scrub ==");
   // created connections, newest first

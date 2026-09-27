@@ -4100,3 +4100,24 @@ Stage Summary:
 - **「形状归一化是分数教义的全部含义」**：`v/max` 假设正密度域；span 归一化（[min,max]→[h,0]）让任何值域的 landscape 都能画——「the shape is the signal」不是口号而是归一化公式
 - **「两条车道必须看同一个世界」**：dev 显式指 cryoflow.db 而生产骑环境变量——一个 DATABASE_URL 的分叉让生产车道起在种子世界；两车道的一致性是产品契约不是巧合
 - 遗留（下窗候选）：①t25-t30 六批乘胜收口（生产体制 + 看护教义已就位）；②t22 画廊跷跷板重审；③EMPIAR 真数据回归（第廿六窗）；④诊断脚本归档
+
+---
+Task ID: 408 (完 — 2026-09-27 19:51 cron 窗口 trace 1a07549302235a99-cron-agent-loop-202609271955)
+Agent: main (Z.ai Code)
+Task: 接续 Task 407 遗留①——t25–t30 六批乘胜收口；主交付 = 双世界账本落地 + roster floor 迁移 + DB 同世界法钉死
+
+Work Log:
+- [开局实证] HEAD = 092f528 = origin/main（Task 407 已推送），树净，生产服务器活（standalone 3ms）。
+- [主交付 A — 双世界账本落地（t405 跷跷板判决的和解）] t253 的 seed 前置（qa67-seed-volume.py 找 "QA Refine3D"）暴露整个画廊家族的活体依赖。解法 = **restore-gallery.py 复活**（幂等按名，13 骨架 job）——世界升为**双世界账本**：治愈链 15 节 + 画廊家具 = 33 jobs / 31 completed。跷跷板两侧第一次同世共存。
+- [主交付 B — DB 同世界法钉死（本窗最大的系统性修复）] restore-gallery 的 status flip 落空（"required but not found"）暴露 **DB 分叉的第三处**：qa58/qa60/restore-gallery 的 `node -e` PrismaClient flip 骑 .env 的 custom.db（模板库）而服务器服务 cryoflow.db。**逐点钉死**：qa58-seed-gallery.py、qa60-seed-fsc.py、restore-gallery.py、seed-twin.py + **JS 侧 14 文件**的 execSync prisma flip（t257/t258/t260/t119-t126/qa61/t299/t304…）全部 `DATABASE_URL=cryoflow.db` 前缀——t407 的 same-world 教义从两条车道推广到全部 seeder。
+- [主交付 C — roster floor 迁移（76 文件 123 行）] 双世界下 `=== 15` 哨兵永假。scripts/migrate-roster-floor.py（committed 迁移器，t402 教义）：roster 语义的 must() 行 `=== 15` → `>= 15`（地板锁，t313 套件继续守链精确形状）+ 守恒断言保留等式 + 地板化。t24x–t30x、qa 系列、t178–t215 全部覆盖。
+- [主交付 D — 套件修复三连] ①qa67-seed-volume.py 的 host 解析「按名优先、类型兜底」（refine3d/class2d 治愈链 job 接住画廊 recipe——双世界兼容，双模式活体验证）；②t255 的 engine 白盒断言改语义匹配（t360 重构后 `const r` → `r` + 注行使字节锁失效）；③t282 的画布计数改 wire 守恒（`[data-job]` 数 = API 数——t311 时代的 23 是那个窗口的 roster）；④t286 的 mrc.ts 白盒断言全组更新（polarity 参数演进：签名/call sites/route 全部 7 处 + thumb）→ ALL PASS。
+- [批次全景（本轮实测）] **t24 9/9（t407）· t25 9/9（本轮修复后）· t28 6→8/8（t282/t286 单跑 ALL PASS，台账下窗跑批确认）**；t26 2/4、t26b 0/4、t27 0/1、t30 1/4——**失败集中 remote/array 车道**：①ENOENT statx 空路径（t265 topaz train 的 cluster 路径）；②argv 细节缺失（t267 的 record 无 cluster motioncor2 path）；③harvest 部分工作（t271 的残留 result 带 REMOTE[...] 细节 = 车道曾通）——**需要一轮专门的 remote 车道排查窗**（生产体制下 remote stub 的路径解析/CRYOFLOW_DATA_DIR 传导是首要嫌疑）。
+- [验证] tsc 0；node --check 全部触套件；t251/t252/t255/t257/t258/t282/t286 单跑 ALL PASS；t25 批 9/9；t28 批 8/8（t282/t286 修复后单跑确认）。
+- [诚实边界] ①remote/array 车道 9 套真败未修（根因画像已立：ENOENT + argv 缺失 + harvest 部分——下窗首务）；②t29 未跑（时间让位）；③roster floor 的 completed>=15 精修（per-suite filter）未做（总数 >=15 已解锁轮跑）；④EMPIAR 真数据回归连续第廿七窗让位。
+
+Stage Summary:
+- **「跷跷板的解不是选边而是账本」**：双世界（治愈链 + 画廊家具）在同世共存——restore-gallery 幂等复活 + roster floor 迁移（>=15）让两侧的断言家族同时为真；单世界时代的一切二选一都是伪命题
+- **「同世界法要钉到每一条 flip」**：DB 分叉的第三处曝光（python seeder 的 node -e flip 骑 .env）——教义从车道层（dev-server/start-prod）下沉到**每一个写库的手**（15+ 文件钉死）；任何一条未钉的 flip 都是在另一个世界做手术
+- **「白盒断言锁语义不锁字节」**：t255/t286 的源码断言死于产品演进（注释/polarity 参数）——正则形态匹配 + call-site 计数让断言在演进中存活；锁字节的断言每次重构都要陪葬
+- 遗留（下窗候选）：①**remote/array 车道排查窗**（9 套：ENOENT/argv/harvest 三画像）；②t29 批轮跑；③roster floor completed 精修；④EMPIAR（第廿七窗）

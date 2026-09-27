@@ -125,9 +125,16 @@ Promise.all([
   .catch((e) => { console.error(e.message); process.exit(1); });
 """
 import subprocess
+# t407 — the flip must land in the world the SERVER is serving. The env's
+# DATABASE_URL is .env's custom.db (the TEMPLATE library, per the t402
+# doctrine); the dev lane pins cryoflow.db in dev-server.sh:43 and the
+# production lane pins it in start-prod.sh (the t407 same-world law). The
+# bare node -e inherited .env and flipped a record in a library nobody
+# serves — "required but not found" against the live world.
+env = dict(os.environ, DATABASE_URL="file:/home/z/my-project/db/cryoflow.db")
 r = subprocess.run(
     ["node", "-e", mark, src["id"], sel["id"]],
-    cwd="/home/z/my-project", capture_output=True, text=True,
+    cwd="/home/z/my-project", capture_output=True, text=True, env=env,
 )
 if "completed" not in r.stdout:
     sys.exit(f"DB status flip failed: {r.stderr.strip()[:200]}")

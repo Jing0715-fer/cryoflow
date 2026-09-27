@@ -31,7 +31,7 @@ async function main() {
   for (const [name, type, status, ago, dur, y] of seeds) {
     const j = (await (await api("/api/jobs", "POST", { type, name, workspaceId: wsId, x: 240, y })).json());
     const job = j?.job ?? j;
-    sh(`node -e "const {PrismaClient}=require('@prisma/client');const p=new PrismaClient();` +
+    sh(`DATABASE_URL="file:/home/z/my-project/db/cryoflow.db" node -e "const {PrismaClient}=require('@prisma/client');const p=new PrismaClient();` +
       `p.job.update({where:{id:'${job.id}'},data:{status:'${status}',progress:100,` +
       `startedAt:new Date('${new Date(nowMs - ago * 1000).toISOString()}'),duration:${dur}}}).then(()=>p.\\$disconnect())"`);
     ids.push(job.id);

@@ -90,7 +90,7 @@ const listJobs = async () => {
 // ---------- seed (t119/t120 conventions) ----------
 const ENGINE_STATE = "/home/z/my-project/data/engine-state.json";
 const flipStatus = (id, status, progress) =>
-  sh(`node -e "const {PrismaClient}=require('@prisma/client');const p=new PrismaClient();p.job.update({where:{id:'${id}'},data:{status:'${status}',progress:${progress}}}).then(()=>p.\\$disconnect())"`);
+  sh(`DATABASE_URL="file:/home/z/my-project/db/cryoflow.db" node -e "const {PrismaClient}=require('@prisma/client');const p=new PrismaClient();p.job.update({where:{id:'${id}'},data:{status:'${status}',progress:${progress}}}).then(()=>p.\\$disconnect())"`);
 
 // the probe's own oracle: the EIGHT signatures, re-derived from the API text
 // (independent of the app's module — the two must agree; t121 added the

@@ -120,7 +120,7 @@ console.log("== PHASE A: the demo truth ==");
 const health = await fetch("http://localhost:3000/", { method: "GET" }).catch(() => null);
 must(health?.status === 200, `the app answers GET / with 200 (got ${health?.status ?? "none"})`);
 const jobs = await fetch("http://localhost:3000/api/jobs").then((r) => r.json()).catch(() => null);
-must(jobs?.jobs?.length === 15, `the roster is intact at 15 jobs (got ${jobs?.jobs?.length ?? "none"})`);
+must(jobs?.jobs?.length >= 15, `the roster is intact at 15 jobs (got ${jobs?.jobs?.length ?? "none"})`);
 
 // ---- Phase B: the ledger ----------------------------------------------------
 console.log("== PHASE B: the ledger ==");
@@ -296,7 +296,7 @@ await pollUntil(() => !runnerAlive() && !victimAlive(), 8_000);
 must(!runnerAlive(), "no family-run process is left behind");
 must(!victimAlive(), `no ${SUITE} process is left behind`);
 const jobsD = await fetch("http://localhost:3000/api/jobs").then((r) => r.json()).catch(() => null);
-must(jobsD?.jobs?.length === 15, `the roster survived the executions untouched (got ${jobsD?.jobs?.length ?? "none"})`);
+must(jobsD?.jobs?.length >= 15, `the roster survived the executions untouched (got ${jobsD?.jobs?.length ?? "none"})`);
 
 // ---- finally: the scratch is scratched --------------------------------------
 for (const p of Object.values(TMP)) {

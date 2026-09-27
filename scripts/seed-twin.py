@@ -68,7 +68,7 @@ Promise.all(spec.map(([id, result]) =>
 """
     spec = json.dumps([[job_id, result]])
     r = subprocess.run(["node", "-e", node, spec],
-                       cwd="/home/z/my-project", capture_output=True, text=True)
+                       cwd="/home/z/my-project", capture_output=True, text=True, env=dict(os.environ, DATABASE_URL="file:/home/z/my-project/db/cryoflow.db"))
     if "flipped" not in r.stdout:
         sys.exit(f"flip failed: {r.stderr.strip()[:300]}")
 

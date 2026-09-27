@@ -153,6 +153,8 @@ p.job.update({ where: { id: process.argv[1] }, data: { status: process.argv[2], 
     r = subprocess.run(
         ["node", "-e", mark, job_id, status, str(progress)],
         cwd="/home/z/my-project", capture_output=True, text=True,
+        # t407 same-world law: flip the SERVED library, not the .env template
+        env=dict(os.environ, DATABASE_URL="file:/home/z/my-project/db/cryoflow.db"),
     )
     if "flipped" not in r.stdout:
         sys.exit(f"DB status flip failed for {job_id}: {r.stderr.strip()[:200]}")
