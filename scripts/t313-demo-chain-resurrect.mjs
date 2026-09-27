@@ -10,7 +10,7 @@
 // the GUARD: it pins the healed state so a future clobber FAILS LOUDLY
 // (the healer script scripts/demo-chain-resurrect.mjs re-heals).
 //
-//   A  demo truth — homepage 200, roster 23
+//   A  demo truth — homepage 200, roster 15
 //   B  the ledger — the t311 fixes in source: the engine's rebaseParticleRefs
 //      (relocating stars re-point their refs), ensureEmpiarLink (a dangling
 //      micrographs link re-points instead of EEXIST-crashing the EMPIAR leg),
@@ -36,25 +36,37 @@ const BASE = "http://localhost:3000";
 const SHOTS = "/home/z/my-project/shots-qa";
 const MOCK_PORT = 3022;
 const EMPIAR_DIR = "/home/z/empiar-10017/micrographs";
-const PROJ = "cmu6xtvf70000kl81kxtzbpl4";
+// 402-recovery: the world is bootstrapped from ANY fresh seed — the demo
+// project and every chain node are resolved BY NAME/BY TYPE at runtime
+// (the hard-coded cmu6* ids died with the old database).
+const SH_RESOLVE = {
+  Origin: BASE,
+  Referer: `${BASE}/`,
+  "Sec-Fetch-Site": "same-origin",
+  "Sec-Fetch-Mode": "cors",
+  "Sec-Fetch-Dest": "empty",
+};
+const demoProjects = await fetch(`${BASE}/api/projects`, { headers: SH_RESOLVE })
+  .then((r) => r.json().catch(() => null));
+const _projList = Array.isArray(demoProjects) ? demoProjects : (demoProjects?.projects ?? []);
+const _demo = _projList.find((p) => p.name?.includes("β-Galactosidase")) ?? _projList[0];
+const PROJ = _demo?.id ?? "unresolved";
 const PROJ_DIR = `/home/z/my-project/data/relion/${PROJ}`;
 const STATE = "/home/z/my-project/data/engine-state.json";
 
-const chainIds = {
-  import: "cmu6yyzgi0005kl7tt9auvg6r",
-  motioncorr: "cmu6yyzgv0007kl7t86q3uixd",
-  ctffind: "cmu6yyzh70009kl7tw762olol",
-  autopick: "cmu6yyzhg000bkl7tbl5s75h4",
-  extract: "cmu6yyzht000dkl7tzxe9nfbi",
-  class2d: "cmu6yyzmn000rkl7thtpb170c",
-  select2d: "cmu6yyzmw000tkl7t7znux178",
-  select: "cmu6yyzi6000fkl7tq5fbwr9d",
-  class3d: "cmu6yyzj4000lkl7t5iqxl6g5",
-  symexpand: "cmu6yyzii000hkl7tpbz6ri8k",
-  rebalance: "cmu6yyzir000jkl7tsmhyl5o9",
-  refine3d: "cmu6yyzjm000nkl7trg1kyo6i",
-  postprocess: "cmu6yyzk0000pkl7t97pzlq90",
-};
+const CHAIN_TYPES = [
+  "import", "motioncorr", "ctffind", "autopick", "extract", "class2d",
+  "select2d", "select", "class3d", "symexpand", "rebalance", "refine3d",
+  "postprocess",
+];
+const chainIds = {};
+{
+  const jobs = (await (await fetch(`${BASE}/api/jobs`, { headers: SH_RESOLVE })).json()).jobs ?? [];
+  for (const t of CHAIN_TYPES) {
+    const n = jobs.find((j) => j.type === t && j.projectId === PROJ);
+    if (n) chainIds[t] = n.id;
+  }
+}
 
 let fail = 0;
 const must = (cond, label) => {
@@ -110,8 +122,8 @@ try {
   const home = await page.goto(BASE, { waitUntil: "domcontentloaded" });
   must((await home.status()) === 200, `homepage 200 (got ${home.status()})`);
   await sleep(2000);
-  const jobs0 = await (await fetch(`${BASE}/api/jobs`)).json();
-  must((jobs0.jobs ?? []).length === 23, `roster 23 ((${(jobs0.jobs ?? []).length}))`);
+  const jobs0 = await (await fetch(`${BASE}/api/jobs`, { headers: SH })).json();
+  must((jobs0.jobs ?? []).length === 15, `roster 15 ((${(jobs0.jobs ?? []).length}))`);
 
   // ---- Phase B: the ledger (t311 fixes in source) --------------------------
   console.log("== PHASE B: the ledger ==");
@@ -209,8 +221,8 @@ try {
     `the FSC route speaks the official curve (${fscRes.status}, ${fsc?.shells?.length ?? 0} shells)`);
 
   // the two workflow links exist with their edges
-  const jobsAll = (await (await fetch(`${BASE}/api/jobs`)).json()).jobs ?? [];
-  const edges = (await (await fetch(`${BASE}/api/edges`)).json()).edges ?? [];
+  const jobsAll = (await (await fetch(`${BASE}/api/jobs`, { headers: SH })).json()).jobs ?? [];
+  const edges = (await (await fetch(`${BASE}/api/edges`, { headers: SH })).json()).edges ?? [];
   const init = jobsAll.find((j) => j.type === "initialmodel" && j.projectId === PROJ);
   const mask = jobsAll.find((j) => j.type === "maskcreate" && j.projectId === PROJ);
   must(!!init && !!mask, "the workflow carries the InitialModel and MaskCreate links");
@@ -232,7 +244,7 @@ try {
   let done = false;
   for (let t = 0; t < 60; t++) {
     await sleep(1500);
-    const jobs = (await (await fetch(`${BASE}/api/jobs`)).json()).jobs ?? [];
+    const jobs = (await (await fetch(`${BASE}/api/jobs`, { headers: SH })).json()).jobs ?? [];
     const dto = jobs.find((j) => j.id === chainIds.select2d);
     if (dto?.status === "completed" || dto?.status === "failed") {
       done = dto.status === "completed";
@@ -244,8 +256,8 @@ try {
   // ---- Phase E: console + roster ------------------------------------------
   console.log("== PHASE E: console + roster ==");
   must(consoleErrors.length === 0, `console clean (${consoleErrors.length} errors${consoleErrors.length ? `: ${consoleErrors[0].slice(0, 100)}` : ""})`);
-  const jobs1 = await (await fetch(`${BASE}/api/jobs`)).json();
-  must((jobs1.jobs ?? []).length === 23, `roster still 23 (${(jobs1.jobs ?? []).length})`);
+  const jobs1 = await (await fetch(`${BASE}/api/jobs`, { headers: SH })).json();
+  must((jobs1.jobs ?? []).length === 15, `roster still 15 (${(jobs1.jobs ?? []).length})`);
   mkdirShot();
   function mkdirShot() {
     try { execSync(`mkdir -p ${SHOTS}`); } catch { /* exists */ }

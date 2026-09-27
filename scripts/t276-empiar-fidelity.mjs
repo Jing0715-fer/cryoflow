@@ -35,7 +35,7 @@
  *      back with our parser, and a real ManualPick downstream converts
  *      the REAL Henderson coordinates verbatim into data_coordinate_files
  *      rows (no transform — every x/y equals the 1978-era pick values)
- *   Z  the demo canvas untouched: roster 23, product alive
+ *   Z  the demo canvas untouched: roster 15, product alive
  *
  * Honest SKIP: if the archive is absent (quarantine moved, era renamed),
  * the suite exits 0 with a loud SKIP — fidelity needs its ground truth,
@@ -216,7 +216,7 @@ must(
 console.log("== PHASE C: the product's rails carry real data (second canvas) ==");
 const jobs0 = await (await fetch(`${BASE}/api/jobs`)).json();
 const roster0 = (jobs0.jobs ?? []).length;
-must(roster0 === 23, `the demo canvas starts at its 21 jobs (got ${roster0})`);
+must(roster0 === 15, `the demo canvas starts at its 21 jobs (got ${roster0})`);
 
 let secondProjectId = null;
 const createdJobs = [];

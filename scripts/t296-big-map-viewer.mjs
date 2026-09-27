@@ -13,7 +13,7 @@
 // contract on a map big enough for cache misses to matter.
 //
 // Phases:
-//   A  demo truth — homepage 200, roster 23
+//   A  demo truth — homepage 200, roster 15
 //   B  the ledger — the streaming raw route (the 1.4 GB OOM lesson, in
 //      source), the 4-stage loading overlay ("Building isosurface…"), the
 //      ParseCcp4 volume chain, the mapimport volumes-only validation, the
@@ -150,7 +150,7 @@ try {
   const res = await page.goto(BASE, { waitUntil: "domcontentloaded" });
   must(res.status() === 200, `homepage 200 (got ${res.status()})`);
   await sleep(2500);
-  must(roster0 === 23, `roster identity 23 (got ${roster0})`);
+  must(roster0 === 15, `roster identity 15 (got ${roster0})`);
 
   // ---- Phase B: the ledger -------------------------------------------------
   console.log("== PHASE B: the ledger ==");
@@ -330,7 +330,7 @@ try {
   }
   rmSync(TMP, { recursive: true, force: true });
   const after = (await (await fetch(`${BASE}/api/jobs`)).json()).jobs ?? [];
-  must(after.length === 23, `roster restored to 23 (got ${after.length})`);
+  must(after.length === 15, `roster restored to 15 (got ${after.length})`);
 }
 
 // ---- Phase D: console clean -------------------------------------------------

@@ -10,7 +10,7 @@
 // unguarded change there is an unguarded change everywhere. This suite
 // makes the borrow a first-class family citizen:
 //
-//   A  demo truth — homepage 200, roster 23, mock cluster answering, the
+//   A  demo truth — homepage 200, roster 15, mock cluster answering, the
 //      rig's stub relion binaries in place
 //   B  the ledger — the by-value test route (sanitize → probe → drop,
 //      host/username required, gated), the sync policy (key-files default,
@@ -128,7 +128,7 @@ const readConns = () => {
 console.log("== PHASE A: demo truth ==");
 await fetch(`${BASE}/`).then((r) => must(r.status === 200, `homepage 200 (got ${r.status})`));
 const roster0 = (await (await fetch(`${BASE}/api/jobs`)).json()).jobs ?? [];
-must(roster0.length === 23, `roster identity 23 (got ${roster0.length})`);
+must(roster0.length === 15, `roster identity 15 (got ${roster0.length})`);
 must(await mockListening(), `the mock cluster answers on :${MOCK_PORT}`);
 must(
   existsSync(`${MOCK_FS_ROOT}/opt/bin/relion_run_ctffind`) && existsSync(`${MOCK_FS_ROOT}/opt/bin/relion_refine`),
@@ -517,7 +517,7 @@ try {
 
 console.log("== PHASE Z: the world as it was ==");
 const rosterZ = (await (await fetch(`${BASE}/api/jobs`)).json()).jobs ?? [];
-must(rosterZ.length === 23, `roster 23 after the dance (got ${rosterZ.length})`);
+must(rosterZ.length === 15, `roster 15 after the dance (got ${rosterZ.length})`);
 must(consoleErrors.length === 0, `console clean (${consoleErrors.length} errors${consoleErrors.length ? `: ${consoleErrors[0].slice(0, 120)}` : ""})`);
 
 console.log(fail === 0 ? "t293: ALL PASS" : `t293: ${fail} FAIL`);

@@ -3960,3 +3960,26 @@ Stage Summary:
 - **「无声死亡要有证人」**：日志进 /dev/null 的启动器让三次秒死无处对质——dev-server.log 是恢复窗口的第一基础设施
 - **「增量回暖 vs 巡猎」**：webpack cache 跨重启持久，被杀的编译在下一世继续——boot-kill-reboot 循环把 45s 的高峰磨成 4s 的缓存命中；缓解而非根治，根治要等不杀编译进程的沙箱
 - 交付：dev-server.sh 四道加固（+16/-2）+ .gitignore 隔离区条目 + worklog 本条；commit + push 待行
+
+---
+Task ID: 403 (2026-09-27 13:21 cron 窗口 trace 1a07549302235a99-cron-agent-loop-202609271324)
+Agent: main (Z.ai Code)
+Task: demo 世界自举化——healer 从「治愈累积世界」泛化为「从任意 fresh seed 建满 15 节链」+ roster 哨兵 23→15 时代迁移 + 巡猎沙箱上的传输层会诊
+
+Work Log:
+- [开局实证] HEAD = dcd2606 = origin/main（无并行推进），worklog 尾部 = 402-recovery。暖缓存复活环境：mock up、webpack cache（206M）扛住空窗，/ 与 /api/jobs 双 200。
+- [时代边界现形] demo 种子只播 3 节（seed.ts 的 importJob/motionJob/ctfJob）而 87 个套件断言 roster 23——23 节世界是**旧 DB 代代累积**的形状（15 节链 + 8 件旧沙箱家具），t390 收割后 e2e 家族从未在任何 fresh DB 上跑过（t314–t401 全单元线）。发现路径：402-recovery 窗口遗留的 healer 直跑 → step 3 的 404（chain import 不存在）→ 追到 healer 里 `cmu6yyz*` 硬编码 ID 化石（连同 t313 套件的 chainIds 同款化石）。「哨兵承诺世界的形状而非化石」判例（t311）本次轮到自己头上。
+- [healer 泛化（本窗主交付）] scripts/demo-chain-resurrect.mjs 重写绑定层：①demo 项目**按名解析**、15 节链节点**按类型解析**（存在即 reuse，缺席即 POST 创建，幂等）；②14 边线性脊柱幂等布线（edgeSet 本地账本，t313 判决的四条 healer 边 select→init→class3d · refine→mask→post 是脊柱中段）；③EMPIAR 腿翻转 + 拓扑序重跑 + FSC/Guinier 收官面照旧；④engine-state 读取容错（fresh 世界的状态文件惰性诞生）；⑤**传输层换裸 node:http**——undici 的 keep-alive 池与「半死服务器」是毒配（UN D_ERR_SOCKET 每发必败而 curl 新连接次次通），raw request 每呼净 socket；⑥api() 连接层重试（只重试 ECONNREFUSED 层，4xx/5xx 是诚实答案照收；run 门 409 保证重试幂等）——healer 从此**熬得过服务器重启**。
+- [reviver v2 教训] 配套复活循环 v1 会自相残杀：boot 编译未就绪窗口（>10s）里 tick 误判 down → pkill 掉正在启动的服务器 → 死循环。v2 加 pgrep 门（进程在场即不杀）+ 15s tick——服务器终于能活过编译期。
+- [roster 哨兵迁移 23→15] scripts/migrate-roster-402recovery.py（本窗机械迁移器，留档可审）：行含 roster（含 roster0 等变体名）且含独立 23 → 15；**87 文件 222 行**（t30/t31 两个十年的套件 + qa 家族）；残留核查零（rg 的 23: 前缀是行号假阳性）。迁移器与 t313 的 87 文件迁移同法同规模——「十年界与世界的形状都在迁移中前进」。
+- [t313 套件除化石] chainIds 从 cmu6yyz* 硬编码改为运行时按类型解析（CHAIN_TYPES × demo 项目），PROJ 同法按名解析；五处裸 fetch 补 SH 同源头（t377 守卫契约）。node --check 0，cmu6* 引用清零。
+- [治愈进行时] healer 在 reviver v2 + 重试层护航下真实推进：15 节全 resolved、14 边全 in place、import done、motioncorr 派发的 staging 逐文件上传中（exec-audit 实证 mic_003→006/24，t400 的单轮提交车道在工作）。完整 15 节治愈预计小时级——幂等 + 输出落盘 + 自续设计使任意窗口可无脑续跑。
+- [验证] tsc 0；eslint 双改文件 0；t397-perf-units 77/77 + t386 119/119 回归抽查绿；healer 语法 0；node --check 0。
+- [诚实边界] ①healer 未走完（motioncorr staging 中）——t313 套件的 C/D 相（completed 输出 + FSC + select2d 活切片）因此未跑，下窗续磨后补；②e2e 家族十批轮跑继续让位（巡猎沙箱上 13 个 remote 节点的 staging 是小时级工程）；③reviver 的 90 分钟窗口到期后需手动重启（临设不入门）；④巡猎的进程收割维度依旧黑盒——本窗新增证人：undici 池化 vs 净连接的行为分歧。
+
+Stage Summary:
+- **「治愈者要会从零建世界」**：绑死一个 DB 的 ID 表让 healer 在第一次真正的 fresh start 上碎掉——按名/按类型解析 + 幂等补建 + 熬重启的重试层，把「恢复一个状态」升级成「重建一种能力」
+- **「哨兵的世界形状要跟种子走」**：fresh seed 是 3 节、healed 世界是 15 节、旧累积世界是 23 节——哨兵迁移的第 N 次应验，且这次是**时代边界**：24 个窗口的单元线让 e2e 世界冻结在了化石里
+- **「池化的套接字会怀念死去的服务器」**：undici 对半死服务器 UND_ERR_SOCKET 而新连接 curl 次次通——传输层的选择在敌意环境里是正确性问题
+- **「复活者不得误杀编译中的进程」**：reviver v1 的 down 判定差一点成为巡猎的帮凶——pgrep 门是复活者的自省
+- 遗留（下轮候选）：①续磨 healer 至 15 节满血（幂等续跑即可）→ 补跑 t313 套件验证；②e2e 家族十批轮跑（roster-15 世界上的首次）；③巡猎根治（等平台或真机）；④EMPIAR 真数据回归（连续第廿二窗让位）

@@ -1,34 +1,43 @@
+#!/usr/bin/env node
 // demo-chain-resurrect.mjs — the demo tutorial chain's resurrection healer
-// (Task 313). The chain's 13 nodes completed in an earlier era, then the
-// t304-window state clobber left every workdir empty and t305 rebuilt the
-// records HONESTLY (outputs {} — "honest absence"). This script heals the
-// demo for real:
+// (Task 313; generalized in 402-recovery). The original healer healed the
+// ACCUMULATED demo canvas (13 nodes carried by a DB that had survived eras)
+// by adding the two links the chain always lacked: initialmodel (class3d's
+// model_mrc had no upstream) and maskcreate (postprocess's mask_mrc had no
+// upstream). It was bound to hard-coded node IDs from that one database.
+//
+// The 402-recovery generalization: the sandbox was restored and the DB is
+// FRESH — the seed (src/lib/seed.ts) plants only the 3-node starter
+// (import → motioncorr → ctffind). This healer now BOOTSTRAPS the full
+// 15-node tutorial chain from ANY world:
 //
 //   1. synthesizes the EMPIAR-10017 stand-in bundle (24 × 512² float32
 //      micrographs, deterministic LCG + Gaussian blobs, REAL MRC2014
 //      headers) — the seed's designed data source, absent since forever;
 //   2. scrubs qa-* connection leftovers, creates/reuses "Mock Cluster";
-//   3. flips the chain import to the EMPIAR leg (params.empiarData=true);
-//   4. adds the TWO workflow links the chain was always missing:
-//      initialmodel (class3d's model_mrc had no upstream) and maskcreate
-//      (postprocess's mask_mrc had no upstream) — idempotent;
+//   3. resolves the demo project BY NAME and every chain node BY TYPE
+//      (idempotent: existing nodes are reused, missing ones are created),
+//      then wires the 14-edge linear spine idempotently;
+//   4. flips the chain import to the EMPIAR leg (params.empiarData=true);
 //   5. re-runs the chain in topological order through the product's OWN
 //      run door (engine-native jobs local, CLI jobs via the mock cluster),
 //      polling each to completion — collectOutputs fills the outputs maps
 //      per the old convention (the engine is the only writer, zero guessing);
-//   6. verifies the payoff surfaces: the FSC route speaks shells, the
-//      Guinier route speaks, the record's result names the final resolution.
+//   6. verifies the payoff surfaces (FSC route, Guinier route, the official
+//      number in the postprocess result).
 //
-// IDEMPOTENT: existing bundle / connection / nodes / edges are reused; a
-// chain whose records already carry outputs is verified, not re-run.
+// IDEMPOTENT: existing bundle / connection / nodes / edges / outputs are
+// reused; --rerun forces the whole chain to re-run.
 //
-// Run: node scripts/demo-chain-resurrect.mjs [--rerun]  (server on :3000)
-import { mkdirSync, existsSync, readFileSync, writeFileSync, statSync } from "node:fs";
+// Usage: node scripts/demo-chain-resurrect.mjs [--rerun]
+
+import { existsSync, readFileSync, writeFileSync, mkdirSync, statSync } from "fs";
+import http from "node:http";
 
 const BASE = "http://localhost:3000";
 const EMPIAR_DIR = "/home/z/empiar-10017/micrographs";
 const N_MIC = 24;
-const BOX = 512; // 512×512 float32 = 1 MB per micrograph
+const BOX = 512;
 
 // same-origin metadata — the run door is a write gate (t252)
 const SH = {
@@ -40,23 +49,6 @@ const SH = {
   "Content-Type": "application/json",
 };
 
-const chain = {
-  proj: "cmu6xtvf70000kl81kxtzbpl4",
-  import: "cmu6yyzgi0005kl7tt9auvg6r",
-  motioncorr: "cmu6yyzgv0007kl7t86q3uixd",
-  ctffind: "cmu6yyzh70009kl7tw762olol",
-  autopick: "cmu6yyzhg000bkl7tbl5s75h4",
-  extract: "cmu6yyzht000dkl7tzxe9nfbi",
-  class2d: "cmu6yyzmn000rkl7thtpb170c",
-  select2d: "cmu6yyzmw000tkl7t7znux178",
-  select: "cmu6yyzi6000fkl7tq5fbwr9d",
-  class3d: "cmu6yyzj4000lkl7t5iqxl6g5",
-  symexpand: "cmu6yyzii000hkl7tpbz6ri8k",
-  rebalance: "cmu6yyzir000jkl7tsmhyl5o9",
-  refine3d: "cmu6yyzjm000nkl7trg1kyo6i",
-  postprocess: "cmu6yyzk0000pkl7t97pzlq90",
-};
-
 let fail = 0;
 const must = (cond, label) => {
   console.log(cond ? `  ok: ${label}` : `  FAIL: ${label}`);
@@ -64,16 +56,51 @@ const must = (cond, label) => {
 };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-async function api(method, url, body) {
-  const r = await fetch(`${BASE}${url}`, {
-    method,
-    headers: SH,
-    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+async function apiOnce(method, url, body) {
+  // node:http directly — undici's keep-alive pool and this sandbox's
+  // half-reaped servers are a poison match (UND_ERR_SOCKET on every pooled
+  // request while a fresh-connection curl sails through). A raw request
+  // opens a clean socket per call and speaks to whoever owns the port now.
+  return new Promise((resolve, reject) => {
+    const payload = body !== undefined ? JSON.stringify(body) : null;
+    const req = http.request(
+      `${BASE}${url}`,
+      {
+        method,
+        headers: {
+          ...SH,
+          ...(payload !== null ? { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(payload) } : {}),
+        },
+      },
+      (res) => {
+        let text = "";
+        res.on("data", (c) => { text += c; });
+        res.on("end", () => {
+          let json = null;
+          try { json = JSON.parse(text); } catch { /* non-JSON */ }
+          resolve({ status: res.statusCode ?? 0, body: json });
+        });
+      }
+    );
+    req.on("error", reject);
+    if (payload !== null) req.write(payload);
+    req.end();
   });
-  const text = await r.text();
-  let json = null;
-  try { json = JSON.parse(text); } catch { /* non-JSON */ }
-  return { status: r.status, body: json };
+}
+
+// 402-recovery: the QA sandbox's patrol reaps compile-heavy servers; the
+// healer OUTLIVES reboots instead of dying on the first ECONNREFUSED.
+// Retry ONLY the connection layer (a 4xx/5xx is an honest answer, a refused
+// socket is not) — the run door's 409 keeps a retried POST idempotent.
+async function api(method, url, body, attempt = 0) {
+  try {
+    return await apiOnce(method, url, body);
+  } catch (e) {
+    if (attempt >= 60) throw e;
+    if (attempt === 0) console.log(`  (server down — retrying ${url} through the reboot)`);
+    await sleep(5000);
+    return api(method, url, body, attempt + 1);
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -167,57 +194,94 @@ if (!conn) {
 const CONN_ID = conn.id;
 
 /* ------------------------------------------------------------------ */
-/* 3. the chain import rides the EMPIAR leg                             */
+/* 3. the chain resolved BY TYPE + the spine wired idempotently         */
+/*    (402-recovery: the world is rebuilt from ANY seed)                */
 /* ------------------------------------------------------------------ */
 
-console.log("== step 3: the chain import's params ==");
+console.log("== step 3: the chain nodes (resolve by type, create if missing) ==");
+const projects = (await api("GET", "/api/projects")).body;
+const projList = Array.isArray(projects) ? projects : (projects?.projects ?? []);
+const proj = projList.find((p) => p.name?.includes("β-Galactosidase"))
+  ?? projList.find((p) => p.name?.toLowerCase().includes("demo"));
+must(!!proj, `the demo project exists (${proj?.name ?? "none of " + projList.length})`);
+if (!proj) { console.log(`${fail} FAIL`); process.exit(1); }
+const PROJ = proj.id;
+
+const jobsAll = (await api("GET", "/api/jobs")).body?.jobs ?? [];
+const inProj = jobsAll.filter((j) => j.projectId === PROJ);
+
+// the canonical 15-node tutorial chain, in run order — the spine is LINEAR
+// (the engine's BFS input resolution does the rest; t313's four healer edges
+// select→init→class3d and refine→mask→post are the linear spine's middle)
+const CANON = [
+  ["import",      "Import Movies (tutorial)",      240],
+  ["motioncorr",  "Motion Correction (tutorial)",  520],
+  ["ctffind",     "CTF Estimation (tutorial)",     800],
+  ["autopick",    "Auto-pick (tutorial)",         1080],
+  ["extract",     "Extract (tutorial)",           1360],
+  ["class2d",     "2D Classification (tutorial)", 1640],
+  ["select2d",    "Select 2D (tutorial)",         1920],
+  ["select",      "Select (tutorial)",            2200],
+  ["initialmodel","Initial Model (tutorial)",     2480],
+  ["class3d",     "3D Classification (tutorial)", 2760],
+  ["symexpand",   "Symmetry Expansion (tutorial)",3040],
+  ["rebalance",   "Rebalance (tutorial)",         3320],
+  ["refine3d",    "3D Refine (tutorial)",         3600],
+  ["maskcreate",  "Mask Create (tutorial)",       3880],
+  ["postprocess", "Post-process (tutorial)",      4160],
+];
+const chain = {};
+for (const [type, name, x] of CANON) {
+  let node = inProj.find((j) => j.type === type);
+  if (!node) {
+    const mk = await api("POST", "/api/jobs", { projectId: PROJ, type, name, x, y: 336 });
+    node = mk.body?.job;
+    must(mk.status === 201 && !!node, `${name} created (${mk.status})`);
+  } else {
+    must(true, `${name} resolved (${node.id.slice(-6)})`);
+  }
+  chain[type] = node.id;
+}
+
+console.log("== step 3b: the spine edges (idempotent) ==");
+const edgeSet = new Set(
+  ((await api("GET", "/api/edges")).body?.edges ?? []).map((e) => `${e.fromJobId}>${e.toJobId}`)
+);
+const hasEdge = (f, t) => edgeSet.has(`${f}>${t}`);
+let wired = 0, already = 0;
+for (let i = 0; i < CANON.length - 1; i++) {
+  const from = chain[CANON[i][0]], to = chain[CANON[i + 1][0]];
+  if (hasEdge(from, to)) { already++; continue; }
+  const e = await api("POST", "/api/edges", { fromJobId: from, toJobId: to });
+  must(e.status === 201, `edge ${CANON[i][0]} → ${CANON[i + 1][0]} wired (${e.status})`);
+  if (e.status === 201) { edgeSet.add(`${from}>${to}`); wired++; }
+}
+must(true, `spine edges: ${wired} wired, ${already} already in place (${CANON.length - 1} total)`);
+
+/* ------------------------------------------------------------------ */
+/* 4. the chain import rides the EMPIAR leg                             */
+/* ------------------------------------------------------------------ */
+
+console.log("== step 4: the chain import's params ==");
 const patch = await api("PATCH", `/api/jobs/${chain.import}`, {
   params: { empiarData: true, micrographsPath: "" },
 });
 must(patch.status === 200, `import params flipped to the EMPIAR leg (${patch.status})`);
 
 /* ------------------------------------------------------------------ */
-/* 4. the two missing workflow links                                    */
-/* ------------------------------------------------------------------ */
-
-console.log("== step 4: the missing links (initialmodel + maskcreate) ==");
-const jobsNow = (await api("GET", "/api/jobs")).body?.jobs ?? [];
-const edgesNow = (await api("GET", "/api/edges")).body?.edges ?? [];
-const hasEdge = (f, t) => edgesNow.some((e) => e.fromJobId === f && e.toJobId === t);
-const chainEdges = edgesNow.filter((e) => e.fromJobId.startsWith("cmu6yyz") || e.toJobId.startsWith("cmu6yyz"));
-
-async function ensureNode(type, name, x, y, fromId, toId) {
-  let node = jobsNow.find((j) => j.name === name && j.projectId === chain.proj);
-  if (!node) {
-    const mk = await api("POST", "/api/jobs", { projectId: chain.proj, type, name, x, y });
-    node = mk.body?.job;
-    must(mk.status === 201 && !!node, `${name} node created (${mk.status})`);
-  } else {
-    must(true, `${name} node reused (${node.id.slice(-6)})`);
-  }
-  if (fromId && !hasEdge(fromId, node.id)) {
-    const e = await api("POST", "/api/edges", { fromJobId: fromId, toJobId: node.id });
-    must(e.status === 201, `edge ${name} ← upstream wired (${e.status})`);
-  }
-  if (toId && !hasEdge(node.id, toId)) {
-    const e = await api("POST", "/api/edges", { fromJobId: node.id, toJobId: toId });
-    must(e.status === 201, `edge downstream → ${name} wired (${e.status})`);
-  }
-  return node.id;
-}
-
-// the old refine3d→postprocess edge stays (harmless parallel wiring) — the
-// postprocess resolves its inputs by BFS priority: maskcreate is the ONLY
-// mask_mrc provider, refine3d remains the only half1_mrc provider
-const INIT_ID = await ensureNode("initialmodel", "Initial Model (tutorial)", 2480, 336, chain.select, chain.class3d);
-const MASK_ID = await ensureNode("maskcreate", "Mask Create (tutorial)", 3760, 336, chain.refine3d, chain.postprocess);
-void chainEdges;
-
-/* ------------------------------------------------------------------ */
 /* 5. the chain re-run (topological, through the product's run door)     */
 /* ------------------------------------------------------------------ */
 
-const engineState = () => JSON.parse(readFileSync("/home/z/my-project/data/engine-state.json", "utf8"));
+const engineStatePath = "/home/z/my-project/data/engine-state.json";
+const engineState = () => {
+  try {
+    return JSON.parse(readFileSync(engineStatePath, "utf8"));
+  } catch {
+    // a fresh world's state file is born lazily on the first run — honest
+    // absence until then (402-recovery: the bootstrap runs on a new DB)
+    return {};
+  }
+};
 
 async function jobState(id) {
   const s = engineState();
@@ -234,13 +298,7 @@ async function pollDto(id) {
 }
 
 const NATIVE = new Set(["import", "select2d", "select", "symexpand", "rebalance"]);
-const ORDER = [
-  ["import", chain.import], ["motioncorr", chain.motioncorr], ["ctffind", chain.ctffind],
-  ["autopick", chain.autopick], ["extract", chain.extract], ["class2d", chain.class2d],
-  ["select2d", chain.select2d], ["select", chain.select], ["initialmodel", INIT_ID],
-  ["class3d", chain.class3d], ["symexpand", chain.symexpand], ["rebalance", chain.rebalance],
-  ["refine3d", chain.refine3d], ["maskcreate", MASK_ID], ["postprocess", chain.postprocess],
-];
+const ORDER = CANON.map(([type]) => [type, chain[type]]);
 
 console.log("== step 5: the chain re-run ==");
 const runAll = process.argv.includes("--rerun");
