@@ -572,11 +572,21 @@ export interface RerunWipeResult {
  */
 export function classifyRerunWipe(
   files: CleanupFileEntry[],
-  opts: { keepIterations?: boolean } = {}
+  opts: { keepIterations?: boolean; keepFiles?: string[] } = {}
 ): RerunWipeResult {
   const wipe: string[] = [];
   let keptCount = 0;
   let keptBytes = 0;
+  // t409 — the current generation's SYNTHESIZED inputs are not the previous
+  // generation's products. t265 writes topaztrain's staged index
+  // (training_picks.star) into the job's workdir BEFORE staging; t333's
+  // dispatch-time mirror wipe then reads it as a `.star` product and kills
+  // it — the dispatch fails its own upload (ENOENT statx). The extension
+  // rule's "inputs never live in the workdir" premise (t333) was true when
+  // written and false the day t265's pre-stage synthesis moved one in.
+  // keepFiles carries workdir-relative posix paths the fresh start must
+  // keep — the t394 keepIterations precedent: state the fresh start needs.
+  const keepSet = new Set((opts.keepFiles ?? []).filter(Boolean));
   for (const f of files) {
     const name = f.path.includes("/") ? f.path.split("/").pop()! : f.path;
     const lower = name.toLowerCase();
@@ -585,6 +595,9 @@ export function classifyRerunWipe(
     // ---- the fresh-run keep-set -------------------------------------
     if (f.link) {
       keptCount++; keptBytes += f.size; continue;               // input doors
+    }
+    if (keepSet.has(f.path)) {
+      keptCount++; keptBytes += f.size; continue;               // t409 — this generation's synthesized inputs
     }
     if (name === "note.txt" || name === ".cf-remote-manifest.json") {
       keptCount++; keptBytes += f.size; continue;               // note + ledger

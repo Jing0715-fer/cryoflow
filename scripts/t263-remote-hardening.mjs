@@ -400,9 +400,17 @@ try {
   const recA = stateRuns()[jobA.id];
   must(recA?.done === true && recA?.exitCode === 0, "A's record finalized (done, exit 0)");
 
-  // C5 — the deleted-connection heal: B runs on conn2; conn2 is deleted
-  // mid-flight; the sweep fails the row honestly and finalizes the record
-  // (the ghost-dispatch inverse: no children ever dispatch to a stale target)
+  // C5 — the deleted-connection sweep, in the t325-a world. TWO truths now
+  // live side by side (the seesaw got both chairs):
+  //   ① t325-a (09-20): cluster identity is (connectionId, HOST) — deleting
+  //      conn2 while ANOTHER connection to the same host exists lets the run
+  //      keep its life through the host-matched fallback. B must COMPLETE.
+  //   ② the 09-16 hardening: when NO connection can serve the run's host,
+  //      the row fails honestly naming the deletion, and the record
+  //      finalizes (no ghost liveness). Witnessed ledger-side below (C5b) —
+  //      a live dispatch cannot reach that world on this box (the demo's
+  //      own Mock Cluster connection always matches the mock's host).
+  console.log("== PHASE C5: the deleted-connection sweep (t325-a world) ==");
   const conn2 = `qa-t263-b-${Date.now().toString(36)}`;
   const mk2 = await mkConn(conn2, "QA t263 Mock B");
   must(mk2.status === 201, "the second connection is created");
@@ -427,17 +435,19 @@ try {
   });
   weDeletedConn2 = del2.status === 200 || del2.status === 404;
   must(weDeletedConn2, `conn2 deleted mid-flight (${del2.status})`);
-  const failedB = await pollUntil(async () => {
+  // ① t325-a — the run keeps its life: the sweep falls back to the
+  // same-host connection (conn1 is still alive) and B completes.
+  const completedB = await pollUntil(async () => {
     const j = await readJob(jobB.id);
-    return j?.status === "failed" ? j : null;
-  }, 20_000, 800);
-  must(!!failedB, "the sweep fails B honestly after its connection vanished");
+    return j?.status === "completed" ? j : null;
+  }, 75_000);
+  must(!!completedB, "B keeps its life through the host-matched fallback (t325-a)");
   must(
-    (failedB?.result ?? "").includes("the cluster connection for this run was deleted"),
-    `the row says why (${(failedB?.result ?? "").slice(0, 70)})`
+    (completedB?.result ?? "").startsWith("REMOTE["),
+    `B's result names its cluster origin (${(completedB?.result ?? "").slice(0, 60)})`
   );
   const recB = stateRuns()[jobB.id];
-  must(recB?.done === true && recB?.exitCode === -1, "B's record finalized (no ghost liveness)");
+  must(recB?.done === true && recB?.exitCode === 0, "B's record finalized (done, exit 0 — no ghost liveness)");
 
   // C6 — the crafted ledger sweeps (all ledger-side, no SSH): stale staging,
   // orphan done, orphan failed, and the terminal-row guard
@@ -473,6 +483,38 @@ try {
     },
     ...over.rest,
   });
+
+  // ② C5b — the honest-failure witness, ledger-side: a RUNNING row whose
+  // record points at a deleted connection id AND a host NO connection
+  // serves. The sweep must fail the row with the deletion wording and
+  // finalize the record (the 09-16 hardening, alive under t325-a).
+  const jobC = await mkJob({ type: "ctffind", name: "t263 Orphan Conn C" });
+  must(!!jobC?.id, "the ctffind job C created");
+  craftRecord(
+    jobC.id,
+    craftBase(jobC, {
+      rest: { done: false, exitCode: null, result: null },
+      remote: {
+        connectionId: "qa-t263-deleted-mid-flight",
+        connectionName: "QA t263 Deleted",
+        host: "203.0.113.1:22", // TEST-NET-3 — no connection serves this host
+        phase: "running",
+        pid: 4242424,
+      },
+    })
+  );
+  flipRow(jobC.id, "running", 40);
+  const failedC = await pollUntil(async () => {
+    const j = await readJob(jobC.id);
+    return j?.status === "failed" ? j : null;
+  }, 20_000, 800);
+  must(!!failedC, "the sweep fails C honestly when no connection can serve its host");
+  must(
+    (failedC?.result ?? "").includes("the cluster connection for this run was deleted"),
+    `the row says why (${(failedC?.result ?? "").slice(0, 70)})`
+  );
+  const recC = stateRuns()[jobC.id];
+  must(recC?.done === true && recC?.exitCode === -1, "C's record finalized (no ghost liveness)");
 
   // ① stale staging: a pending row + a staging record whose heartbeat died
   const jobS = await mkJob({ type: "ctffind", name: "t263 Stale Staging" });

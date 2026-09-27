@@ -253,8 +253,10 @@ try {
     "B: an ineligible type + shards is still refused BEFORE staging"
   );
   must(
+    // t409 — the quoting helper was factored (shQuote -> shQuoteOrVar); the
+    // pin tracks the SWAP + the flavor gate, not one arg's quoting dialect.
     src.includes('flavor.outStar && flavor.outArg === "--part_star"') &&
-      src.includes('k === ii + 1 ? \'"$SHARD"\' : k === oi + 1 ? outVal : shQuote(a)'),
+      src.includes(`k === ii + 1 ? '"$SHARD"' : k === oi + 1 ? outVal`),
     "B: the rewrite targets the flavor's OWN output flag (--o / --odir / --part_star)"
   );
   must(
@@ -472,8 +474,18 @@ try {
     const rows = starDataRows(readFileSync(mergedLocal, "utf8")).filter((l) => l.includes("@"));
     mergedRows = rows.length;
     slashDotDot = rows.filter((l) => l.includes("@../")).length;
-    const starDir = path.dirname(mergedLocal);
-    stacksHome = rows.filter((l) => existsSync(path.join(starDir, l.split("@")[1].split("\t")[0]))).length;
+    // t409 — the stacks live CLUSTER-side now: the t339 bulk rule (「本地的
+    // 空间占用尽量小一些」) syncs extract's TEXT products only — per-mic
+    // .mrcs stacks stay on the cluster WHATEVER THEIR SIZE. Existence is
+    // judged where the data is: one SSH batch tests every row's path.
+    const paths = rows.map((l) => l.split("@")[1].split("\t")[0]);
+    const workdir = `/projects/cryoflow/${c2.projectId}/extract_${c2.id.slice(-8)}`;
+    // one loop, one counter — a bare `; list | grep -c` would pipe only the
+    // LAST test (the shell's grammar), not the whole batch
+    const listing = client(
+      `cd ${workdir} 2>/dev/null || exit 0; c=0; for p in ${paths.join(" ")}; do [ -f "$p" ] && c=$((c+1)); done; echo $c`
+    );
+    stacksHome = Number(listing.trim().split("\n").pop()) || 0;
   }
   must(
     mergedRows === expectRows,

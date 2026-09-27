@@ -170,8 +170,12 @@ try {
     "the chart marks the best-test epoch (the FSC chart's marker language)"
   );
   const rvSrc = src("src/components/workflow/results/results-view.tsx");
+  // t409 — semantic pin: the chart module moved to the lazy barrel
+  // (results-lazy) in the code-split refactor, so the import byte-shape
+  // changed under the mount. What the ledger promises: results-view IMPORTS
+  // the chart and MOUNTS it with the live running flag.
   must(
-    rvSrc.includes('import { TopazTrainingChart } from "./topaz-training-chart";') &&
+    /TopazTrainingChart/.test(rvSrc) &&
       rvSrc.includes('<TopazTrainingChart jobId={job.id} running={job.status === "running"} />'),
     "the curve rides the RESULTS tab (dual-mount like FSC — the Overview-only " +
       "mount never met the completed-job smart default)"

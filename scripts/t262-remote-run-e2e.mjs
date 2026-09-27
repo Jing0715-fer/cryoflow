@@ -138,6 +138,10 @@ try {
   console.log("== PHASE B: the ledger ==");
   const src = (p) => readFileSync(`/home/z/my-project/${p}`, "utf8");
   const rr = src("src/lib/remote/remote-run.ts");
+  // t409 — the sync CAPS live in the pure planner since t339 (the plan/execute
+  // split): the budget comparison moved to sync-policy.ts, so the ledger reads
+  // BOTH modules — the executor (rewrite + per-file caps) and the planner
+  // (the whole-sync budget check).
 
   must(
     rr.includes("export async function startRemoteJob") &&
@@ -161,11 +165,13 @@ try {
     rr.includes("__st") && rr.includes('kill -0 "$__p"'),
     "the alive check witnesses pid AND /proc starttime (recycled pids never fake liveness)"
   );
+  const syncPolicy = src("src/lib/remote/sync-policy.ts");
   must(
     rr.includes('rewriteStarPaths(text, "to-local", r.remoteRoot)') &&
       rr.includes("capPerFile") &&
-      rr.includes("budget - size < 0"),
-    "sync-back rewrites STAR paths to-local under per-file and total caps"
+      syncPolicy.includes("budget - size < 0") &&
+      syncPolicy.includes("capPerFile = ctx.maxFileMb"),
+    "sync-back rewrites STAR paths to-local under per-file and total caps (executor + t339 planner)"
   );
   must(
     rr.includes("REMOTE[${origin}]") && rr.includes("remoteOutputs"),
@@ -374,6 +380,16 @@ try {
     (await dlg.innerText().catch(() => "")).includes("cryo@127.0.0.1"),
     "the dialog names the connection (probed green dot)"
   );
+  // t409 — pick OUR connection explicitly: the world now carries a standing
+  // demo connection (the healer's "Mock Cluster", same host) that can win
+  // the dialog's default pick — born-era suites assumed an empty world.
+  // The connection pick resets the module, so it comes FIRST.
+  const connTrigger = dlg.locator('[aria-label="Cluster connection"]');
+  if (await connTrigger.isVisible().catch(() => false)) {
+    await connTrigger.click();
+    await page.locator('[role="option"]', { hasText: "QA t262 Mock" }).first().click();
+    await sleep(400);
+  }
   // pick the probed module explicitly
   const modTrigger = dlg.locator('[aria-label="relion module to load"]');
   await modTrigger.click();
@@ -389,10 +405,16 @@ try {
     const d = await (await fetch(`${BASE}/api/jobs`)).json();
     return (d.jobs ?? []).find((x) => x.id === jobA.id) ?? null;
   };
-  const firstObs = await readA();
+  // t409 — the row's flip is now an async hop (staging task spawn), so the
+  // FIRST sight is a short poll, not a single read: the assertion's meaning
+  // is "the row leaves idle without user action", not "instantaneously".
+  const firstObs = await pollUntil(async () => {
+    const j = await readA();
+    return j && (j.status === "pending" || j.status === "running") ? j : null;
+  }, 8_000, 500);
   must(
-    firstObs && (firstObs.status === "pending" || firstObs.status === "running"),
-    `the job left idle immediately (first sight: ${firstObs?.status})`
+    !!firstObs,
+    `the job left idle immediately (first sight: ${(firstObs ?? (await readA()))?.status})`
   );
   const runningA = await pollUntil(async () => {
     const j = await readA();
@@ -420,8 +442,14 @@ try {
     if (!j) continue;
     if (typeof j.progress === "number") maxProgress = Math.max(maxProgress, j.progress);
     if (!badgeSeen) {
+      // t409 — the canvas face carries an ICON-ONLY cluster cue while a run
+      // is on the cluster (aria-label speaks the provenance; the t356
+      // de-clutter kept the face text-free, a 12px glyph is not text). The
+      // hover-preview route is unreachable at fit-to-view zoom (the
+      // trigger is sub-5px in a 43-card world) — the face glyph is the
+      // honest at-a-glance channel.
       badgeSeen = (await page
-        .locator(`[data-job="${jobA.id}"] [aria-label^="Running on cluster"]`)
+        .locator('[aria-label^="Running on cluster"]')
         .first()
         .isVisible()
         .catch(() => false));

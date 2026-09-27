@@ -148,11 +148,21 @@ export interface WipeOutcome {
  */
 export function wipeLocalRunProducts(
   workdir: string,
-  opts: { keepIterations?: boolean } = {}
+  opts: { keepIterations?: boolean; keepFiles?: string[] } = {}
 ): WipeOutcome | null {
   if (!existsSync(workdir)) return null;
+  // t409 — callers may pass ABSOLUTE keep paths (the t265 synthesized index
+  // lives at localWorkdir/training_picks.star and the dispatch knows it
+  // absolutely). Normalize to workdir-relative posix for the shared
+  // classifier; anything OUTSIDE the workdir (upstream mirrors, the
+  // project tree) can never match a walked entry and is dropped here so
+  // the classifier's keep-set stays exactly that — a keep-set.
+  const keepFiles = (opts.keepFiles ?? [])
+    .filter((p) => !!p)
+    .map((p) => path.relative(workdir, p).split(path.sep).join("/"))
+    .filter((rel) => rel && !rel.startsWith("..") && !path.isAbsolute(rel));
   const entries = walkWorkdirFiles(workdir);
-  const { wipe, kept } = classifyRerunWipe(entries, opts);
+  const { wipe, kept } = classifyRerunWipe(entries, { ...opts, keepFiles });
   for (const rel of wipe) {
     const abs = path.join(workdir, rel.split("/").join(path.sep));
     try {

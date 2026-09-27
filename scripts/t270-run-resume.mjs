@@ -238,6 +238,17 @@ try {
   must(!!importDone, "the local import completed (engine-native)");
 
   // C2 — a probeless connection; the POST response must carry NO résumé
+  // t409 — the qa-* SCRUB (the t262/t271 law): a leftover same-name corpse
+  // connection sorts first in the dialog and its résumé is dead history.
+  // Sweep BEFORE creating ours.
+  try {
+    const raw = JSON.parse(readFileSync("/home/z/my-project/data/remote-connections.json", "utf8"));
+    for (const sc of (Array.isArray(raw) ? raw : [])) {
+      if (String(sc?.id ?? "").startsWith("qa-")) {
+        await fetch(`${BASE}/api/remote/connections/${sc.id}`, { method: "DELETE", headers: SH }).catch(() => {});
+      }
+    }
+  } catch { /* no connections file — nothing to sweep */ }
   const connId = `qa-t270-${Date.now().toString(36)}`;
   connIds.push(connId);
   const mk = await fetch(`${BASE}/api/remote/connections`, {
@@ -344,6 +355,15 @@ try {
   await sleep(2000);
   await page.locator('button[aria-label="Remote clusters (SSH)"]').first().click({ force: true }).catch(() => {});
   await sleep(1500);
+  // t409 — SELECT OUR CONNECTION (the t271 law): the healed world's standing
+  // "Mock Cluster" wins the dialog's default selection, so the résumé under
+  // the default was the DEMO's history, not ours. Wait for our row, click it.
+  const ourRow = page
+    .locator('button[aria-pressed]', { hasText: "QA t270 Résumé" })
+    .first();
+  await ourRow.waitFor({ state: "visible", timeout: 10_000 }).catch(() => {});
+  await ourRow.click({ force: true }).catch(() => {});
+  await sleep(800);
   const card = page.locator("[data-run-resume]").first();
   must(await card.isVisible().catch(() => false), "the résumé card renders inside the cluster dialog");
   const totalTxt = ((await page.locator("[data-resume-total]").first().innerText().catch(() => "")) ?? "").trim();

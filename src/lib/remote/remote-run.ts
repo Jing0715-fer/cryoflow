@@ -498,20 +498,24 @@ async function countRemoteStar(
   p: string
 ): Promise<{ rows: number | null; classes: Array<{ cls: number; n: number }> | null; err: string | null }> {
   // top-3 by repeated max-scan (POSIX awk has no asort)
+  // t409 — the optics GROUP block never counts: the old positional heuristic
+  // (block >= 2) assumed data_optics is always block 1, but a header-based
+  // reset keeps the count honest for any block order (a real RELION 5
+  // corrected star's optics row would otherwise shift every count).
   const awk =
     `awk '` +
     [
-      "/^data_/ { block++; next }",
+      "/^data_/ { block++; isopt = ($0 ~ /^data_optics/) ? 1 : 0; next }",
       "/^loop_/ { inloop = 1; col = 0; next }",
       "/^#/ { next }",
       "/^_/ {",
-      "  if (block >= 2 && inloop) {",
+      "  if (block >= 2 && inloop && !isopt) {",
       "    col++",
       '    if ($1 == "_rlnClassNumber") clsCol = col',
       "  }",
       "  next",
       "}",
-      "block >= 2 && NF > 0 {",
+      "block >= 2 && !isopt && NF > 0 {",
       "  rows++",
       "  if (clsCol > 0) { c = $clsCol + 0; if (c > 0) cls[c]++ }",
       "  next",
@@ -3118,7 +3122,14 @@ export function buildSbatchScript(args: {
         L.push(`        cp "$__f" "$__merged.cf-merge"`);
         L.push(`        __have=1`);
         L.push(`      else`);
-        L.push(`        awk '!/^data_/ && !/^loop_/ && !/^_/ && !/^#/ && NF>0' "$__f" >> "$__merged.cf-merge" 2>/dev/null || true`);
+        // t409 — appended donors contribute ONLY block>=2 data rows: the
+        // RELION 5 star dialect (and the mock rig, same shape) carries a
+        // data_optics block whose single row ("1 <pixel>") matched none of
+        // the old header exclusions — every appended shard injected one
+        // optics row into the canonical star (witnessed live: 12 mics +
+        // 3 shards = 15 rows). The first donor still contributes the whole
+        // file (one optics header in the merged star is correct).
+        L.push(`        awk '/^data_/{block++; next} /^loop_/{next} /^_/{next} /^#/{next} block>=2 && NF>0' "$__f" >> "$__merged.cf-merge" 2>/dev/null || true`);
         L.push(`      fi`);
         L.push(`    done`);
         L.push(`    [ "$__have" = "1" ] && mv "$__merged.cf-merge" "$__merged"`);
@@ -4637,7 +4648,22 @@ export async function startRemoteJob(args: {
   // the cluster still holds the old outputs). Best-effort: a wipe
   // failure degrades silently, never a dispatch refusal (t323-a doctrine).
   try {
-    const wipedMirror = wipeLocalRunProducts(localWorkdir);
+    // t409 — the t265 synthesis (above) writes topaztrain's staged index
+    // INTO this job's workdir; the t333 fresh-start wipe classifies any
+    // `.star` there as the previous generation's product and deletes it —
+    // the dispatch then statx's its own input into ENOENT ("failed to
+    // start", witnessed live by t265 under the production regime). The
+    // just-synthesized index is THIS generation's input, not the last
+    // run's product: hand the wipe its path as a keep. When the synthesis
+    // didn't re-point (first leg absent / pass-through), train_picks lives
+    // in the project tree — outside the workdir, dropped by the wipe's
+    // own normalization, a no-op keep.
+    const wipedMirror = wipeLocalRunProducts(localWorkdir, {
+      keepFiles:
+        job.type === "topaztrain" && resolvedInputs.train_picks
+          ? [resolvedInputs.train_picks]
+          : [],
+    });
     if (wipedMirror && wipedMirror.wiped.length > 0) {
       console.log(
         `remote-run: re-dispatch of "${job.name}" cleared ${wipedMirror.wiped.length} stale file(s) from the local mirror (t333)`
@@ -5425,9 +5451,20 @@ export async function startRemoteJob(args: {
           // (same option the local lane's wipe speaks): a --continue aimed
           // inside this workdir keeps the iteration family in place.
           const keepIterations = selfContinueInArgv(argv, remoteWorkdir);
+          // t409 — the t265 staged index (training_picks.star) is uploaded
+          // BEFORE this wipe (staging → argv → wipe → spawn) and is THIS
+          // generation's input — the t350 auto-joinstar lesson restated:
+          // "a .star in the workdir can be a fresh input the run is about
+          // to consume"; classifying it as a previous generation's product
+          // archived the file the spawn was about to read (witnessed live:
+          // "cannot read training picks" exit 1). Keep it; a re-dispatch's
+          // upload overwrites it anyway, so nothing stale survives.
           const { wipe: wipeRels } = classifyRerunWipe(
             wipeListing.entries,
-            keepIterations ? { keepIterations: true } : undefined
+            {
+              ...(keepIterations ? { keepIterations: true } : {}),
+              ...(job.type === "topaztrain" ? { keepFiles: ["training_picks.star"] } : {}),
+            }
           );
           if (wipeRels.length > 0) {
             const stash = await stashRemoteRunProducts(
@@ -8577,10 +8614,12 @@ export async function connectionRunResume(
   for (const e of resume.recent) {
     const row = await db.job.findUnique({
       where: { id: e.jobId },
-      select: { id: true, project: { select: { name: true } } },
+      // t409 — projectId rides too: the jump door's cross-project hint
+      select: { id: true, projectId: true, project: { select: { name: true } } },
     });
     if (row) {
       e.exists = true;
+      e.projectId = row.projectId;
       if (row.project?.name) e.projectName = row.project.name;
     } else {
       e.exists = false;

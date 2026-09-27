@@ -267,7 +267,11 @@ try {
 
   // C3 — the bare-API dispatch of an externals-bearing job: the AUTO-PROBE
   // must light the connection and the run must complete with CLUSTER paths.
-  const jobM = await mkJob({ type: "motioncorr", name: "t267 MotionCorr AutoProbe" });
+  // t409 — do_own_motioncor pinned FALSE: t374's RELION 5.0 GUI table made
+  // RELION's own implementation the product default; this suite audits the
+  // MOTIONCOR2 EXTERNALS lane (--motioncor2_exe from the probed cluster
+  // world), so it must aim at that lane (the t264 precedent).
+  const jobM = await mkJob({ type: "motioncorr", name: "t267 MotionCorr AutoProbe", params: { do_own_motioncor: false } });
   const eM = await mkEdge(importJob.id, jobM.id, "micrographs", "movies");
   must(eM === 200 || eM === 201, `import → probeless-remote motioncorr wired (${eM})`);
   const dispatchM = await fetch(`${BASE}/api/jobs/${jobM.id}/run`, {
@@ -338,7 +342,7 @@ try {
     }),
   });
   must(mkDead.status === 201, `the dead-port connection is created (got ${mkDead.status})`);
-  const jobD = await mkJob({ type: "motioncorr", name: "t267 MotionCorr DeadPort" });
+  const jobD = await mkJob({ type: "motioncorr", name: "t267 MotionCorr DeadPort", params: { do_own_motioncor: false } });
   const eD = await mkEdge(importJob.id, jobD.id, "micrographs", "movies");
   must(eD === 200 || eD === 201, `import → dead-port motioncorr wired (${eD})`);
   const dispatchD = await fetch(`${BASE}/api/jobs/${jobD.id}/run`, {

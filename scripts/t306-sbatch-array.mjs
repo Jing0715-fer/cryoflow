@@ -253,7 +253,9 @@ try {
     "B: the DTO + the engine state carry slurmArray; the target carries shards"
   );
   must(
-    src.includes("k === ii + 1 ? '\"$SHARD\"' : k === oi + 1 ? outVal : shQuote(a)") &&
+    // t409 — the quoting helper was factored (shQuote -> shQuoteOrVar), so
+    // the pin tracks the SWAP, not the quoting dialect of one arg kind.
+    src.includes(`k === ii + 1 ? '"$SHARD"' : k === oi + 1 ? outVal`) &&
       src.includes('flavor.outStar && flavor.outArg === "--part_star"'),
     "B: the argv rewrite swaps --i for the shard slice and the flavor's out flag for the task subdir"
   );
@@ -407,9 +409,18 @@ try {
   const mergedLocal = rec1b?.outputs?.micrographs_ctf_star;
   let mergedRows = -1;
   if (mergedLocal && existsSync(mergedLocal)) {
+    // t409 — block-aware count: skip the data_optics block's rows (the
+    // RELION 5 dialect's optics group row is not a micrograph).
+    let inOptics = false;
     mergedRows = readFileSync(mergedLocal, "utf8")
       .split("\n")
-      .filter((l) => l.trim() && !l.startsWith("data_") && !l.startsWith("loop_") && !l.startsWith("_") && !l.startsWith("#"))
+      .filter((l) => {
+        const t = l.trim();
+        if (!t) return false;
+        if (t.startsWith("data_")) { inOptics = t === "data_optics"; return false; }
+        if (t.startsWith("loop_") || t.startsWith("_") || t.startsWith("#")) return false;
+        return !inOptics;
+      })
       .length;
   }
   must(

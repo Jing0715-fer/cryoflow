@@ -7741,6 +7741,15 @@ function countStarRows(starPath: string): number {
     const blocks = parseStarBlocks(readFileSync(starPath, "utf8"));
     let n = 0;
     for (const b of blocks) {
+      // t409 — the optics GROUP block is not a micrograph block. RELION 5
+      // (and the mock rig, same dialect) writes corrected_micrographs.star
+      // as data_optics (one row: group number + pixel size) + data_micrographs;
+      // the old heuristic skipped optics rows by their first token ("opt…"),
+      // but the row's first token is the GROUP NUMBER ("1 1.77") — counted,
+      // so every corrected star over-reported by exactly one micrograph
+      // (witnessed live: 6 mics → "motion corrected, 7 micrographs").
+      // Skip the block by NAME.
+      if (/^data_optics$/i.test(b.header)) continue;
       // only count loop_ blocks with _rln labels; skip optics rows (first token opt*)
       if (!b.lines.some((l) => l.trim() === "loop_")) continue;
       for (const line of b.lines) {

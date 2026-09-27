@@ -217,8 +217,11 @@ try {
 
   must(
     preproc.includes("def write_mrc_stack") &&
-      preproc.includes('struct.pack_into("<i", header, 4, 2)') &&
-      preproc.includes('header[208:212] = b"MAP "'),
+      // t409 — the t313 true-MRC2014-layout lesson: MODE lives at byte 12
+      // (the old byte-4 write overwrote NY), MACHST little-endian.
+      preproc.includes('struct.pack_into("<i", header, 12, 2)') &&
+      preproc.includes('header[208:212] = b"MAP "') &&
+      preproc.includes('header[212:216] = b"\\x44\\x41\\x00\\x00"'),
     "B: the extract fake writes REAL (renderable) MRC stacks — a stack that exists but cannot be read is a lie the inspector pays for in console errors"
   );
 
@@ -245,18 +248,18 @@ try {
     "B: the header names the REAL consumed count — the --nt default lie (1500 particles the engine never passes) is dead"
   );
   must(
-    fake.includes("img = r.split(\"\\t\")[0]") &&
+    fake.includes("img = r.split()[0]") &&
       fake.includes("_rlnClassNumber #2"),
     "B: run_data.star echoes the INPUT rows' ImageName + a class column (provenance, chainable)"
   );
   must(
     engine.includes("class2d: [") &&
-      /class2d: \[\s*\{ key: "particles_star", accepts: \["particles_star"\], from: \["extract"/.test(engine),
+      /class2d: \[\s*\{ key: "particles_star", accepts: \["particles_star"\], from: \[[^\]]*"extract"/.test(engine),
     "B: the engine's class2d accepts particles_star from extract (the edge contract the chain rides)"
   );
   must(
     src.includes("upstreamRemoteTwins.set(localTw.split(path.sep).join(\"/\"), remoteTw)") &&
-      src.includes("if (twin) continue; // already on the cluster (upstream ran there)"),
+      /if \(twin(Fresh)?\) continue;/.test(src),
     "B: the twin pass-through lets a downstream submission reference an upstream output BY CLUSTER PATH (zero re-upload)"
   );
 
@@ -447,14 +450,28 @@ try {
   if (rec3b?.outputs?.particles_star && existsSync(rec3b.outputs.particles_star)) {
     classImages = starDataRows(readFileSync(rec3b.outputs.particles_star, "utf8"))
       .filter((l) => l.includes("@"))
-      .map((l) => l.split("\t")[0]);
+      .map((l) => {
+        // t409 — whitespace-tolerant (the engine's own natives emit
+        // space-joined rows; a hard tab split swallows the whole line)
+        const img = l.trim().split(/\s+/)[0];
+        // the fake re-bases echoed refs so the echoed star is relocatable
+        // from its OWN dir (the t313 relocation law) — the identity that
+        // survives the move is index + stack BASENAME
+        const at = img.split("@", 2);
+        return at.length === 2 ? `${at[0]}@${at[1].split("/").pop()}` : img;
+      });
   }
+  const mergedIds = mergedImages.map((l) => {
+    const img = l.trim().split(/\s+/)[0];
+    const at = img.split("@", 2);
+    return at.length === 2 ? `${at[0]}@${at[1].split("/").pop()}` : img;
+  });
   must(
     classImages.length === expectRows,
     `C3: the classified star lists ${expectRows} particles (got ${classImages.length})`
   );
   must(
-    classImages.length > 0 && classImages.join("\n") === mergedImages.join("\n"),
+    classImages.length > 0 && classImages.join("\n") === mergedIds.join("\n"),
     "C3: PROVENANCE — the classified rows are the merged star's rows, in order (pick → extract → classify, one identity)"
   );
 

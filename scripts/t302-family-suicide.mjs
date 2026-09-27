@@ -100,12 +100,35 @@ const psLines = () => {
   return (r.stdout ?? "").split("\n");
 };
 // the OUTER runner (when this suite runs inside a batch, the batch's own
-// family-run IS our parent) is not a stray — exclude it from the hygiene scan
-const OUTER_PID = process.ppid;
+// family-run IS our parent) is not a stray — exclude it from the hygiene scan.
+// t409 — exclude the WHOLE ancestor chain, not just the direct parent: the
+// tool-call wrapper (`timeout 560 node family-run …`) puts the command text
+// IN ITS OWN ps args, so the wrapper's line matches the regex too and the
+// direct-parent exclusion left a phantom "runner" alive (witnessed live:
+// pid 12165 timeout + pid 12168 node, both carrying the family-run text).
+// A stray is a family-run nobody in this lineage owns — walk /proc PPid.
+const ancestorPids = (() => {
+  const set = new Set([process.pid]);
+  let pid = process.pid;
+  for (let i = 0; i < 12; i++) {
+    try {
+      const m = /^PPid:\s+(\d+)/m.exec(readFileSync(`/proc/${pid}/status`, "utf8"));
+      if (!m) break;
+      pid = Number(m[1]);
+      if (!pid || pid === 1) break;
+      set.add(pid);
+    } catch {
+      break;
+    }
+  }
+  return set;
+})();
 const runnerAlive = () =>
-  psLines().some(
-    (l) => /node .*scripts\/family-run\.mjs/.test(l) && !l.trim().startsWith(`${OUTER_PID} `),
-  );
+  psLines().some((l) => {
+    if (!/node .*scripts\/family-run\.mjs/.test(l)) return false;
+    const pid = Number(l.trim().split(/\s+/)[0]);
+    return !ancestorPids.has(pid);
+  });
 const victimAlive = () => psLines().some((l) => new RegExp(`node .*scripts/${SUITE}`).test(l));
 const readJson = (p) => {
   try {
@@ -292,7 +315,13 @@ if (appeared) {
 
 // ---- Phase D: the hygiene ---------------------------------------------------
 console.log("== PHASE D: the hygiene ==");
-await pollUntil(() => !runnerAlive() && !victimAlive(), 8_000);
+// t409 — the wait window must cover the nested runner's OWN environment
+// gate: family-run's waitEnvironment sleeps 15s per MemAvailable check, and
+// inside a batch the neighbors' residue can keep the heap below the floor
+// for a round or two — 8s expired with the suicide's cleanup still in
+// flight (solo passed, batch failed, three rotations in a row). The
+// cleanup IS the test's contract; give it room to land.
+await pollUntil(() => !runnerAlive() && !victimAlive(), 60_000);
 must(!runnerAlive(), "no family-run process is left behind");
 must(!victimAlive(), `no ${SUITE} process is left behind`);
 const jobsD = await fetch("http://localhost:3000/api/jobs").then((r) => r.json()).catch(() => null);

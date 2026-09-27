@@ -1173,6 +1173,16 @@ function JobCardPreview({
         {job.runRemote ? (
           <p
             className="flex items-center gap-1.5 text-[10px] text-muted-foreground"
+            // t409 — the badge speaks to assistive tech too: the cluster
+            // truth used to live ONLY in the hover tooltip (title), which
+            // screen readers never see and the e2e locator cannot match.
+            aria-label={`${
+              isSlurmQueued(job)
+                ? "Held in the Slurm queue on cluster"
+                : job.status === "running"
+                  ? "Running on cluster"
+                  : "Ran on cluster"
+            } ${job.runRemote.user}@${job.runRemote.host}${job.runRemote.module ? ` · module ${job.runRemote.module}` : ""}`}
             title={`${isSlurmQueued(job) ? "Held in the Slurm queue on" : job.status === "running" ? "Running on" : "Ran on"} ${job.runRemote.user}@${job.runRemote.host}${job.runRemote.module ? ` · module ${job.runRemote.module}` : ""}${job.runRemote.remoteWorkdir ? `\n${job.runRemote.remoteWorkdir}` : ""}`}
           >
             <Server className="size-3 shrink-0" aria-hidden="true" />
@@ -2092,6 +2102,25 @@ export const JobCard = React.memo(function JobCard({
                 label + link chip, nothing else. */}
             <div className="flex items-center gap-1.5">
               <StatusBadge status={job.status} queued={isSlurmQueued(job)} />
+              {/* t409 — the cluster AT-A-GLANCE cue returns to the face, in
+                  the t356 spirit: ICON-ONLY (no user@host text — the face
+                  stays de-cluttered), one 12px glyph between the status
+                  badge and the type. A job running ON THE CLUSTER is a
+                  materially different fact from a local run — at fit-to-
+                  view zoom the hover preview is unreachable (the trigger
+                  is sub-5px), so the canvas itself must speak it. Full
+                  provenance rides the aria-label + title; the preview and
+                  the inspector still carry the whole story. */}
+              {job.runRemote && (job.status === "running" || job.status === "pending") ? (
+                <span
+                  role="img"
+                  aria-label={`Running on cluster ${job.runRemote.user}@${job.runRemote.host}${job.runRemote.module ? ` · module ${job.runRemote.module}` : ""}`}
+                  title={`Running on ${job.runRemote.user}@${job.runRemote.host}${job.runRemote.module ? ` · module ${job.runRemote.module}` : ""}`}
+                  className="no-print flex size-3.5 shrink-0 items-center justify-center text-teal-600 dark:text-teal-400"
+                >
+                  <Server className="size-3" aria-hidden="true" />
+                </span>
+              ) : null}
               {/* t350 — the type speaks its HUMAN label ("2D Classification"),
                   not the dev key ("class2d"): the card is the scientist's
                   surface, and the key never carried meaning the icon +

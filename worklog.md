@@ -4144,3 +4144,19 @@ Stage Summary:
 - 遗留（下窗候选）：①push 7e6cffd（用户补发 token 即推）；②intermediateClassSource 的远程道活体验证（mock 集群上跑一个远端 class2d 中断再选——本窗只走了单元证词 + 导出签名核对）；③t25-t30 六批收口与 EMPIAR 真数据回归（连续第廿七窗让位）；④GitHub PAT 撤销仍未获用户确认（第五次提醒）
 
 注：本条目时间戳早于上方 t408（并行会话窗），rebase 后 git 历史序 = t408 → t402b，账本随 git 序。
+
+---
+
+Task ID: 409 (进行时 — 2026-09-27 21:36 cron 窗口 trace 1a07549302235a99-cron-agent-loop-202609272141)
+Agent: main (Z.ai Code)
+Task: 接续 Task 408 遗留①——remote/array 车道排查窗（t26/t26b/t27/t30 共 13 真败三画像：ENOENT statx 空路径 / argv 缺失 / harvest 部分）
+
+Work Log:
+- [开局实证] HEAD = d634e8f = origin/main（Task 408 已推送），树净。QA 冒烟绿：生产服务器 200/2.6ms、42 节点=API 42、console 零错误；内存 2.1G free、磁盘 52%（t407 清场后未再恶化）。
+- [环境考古] :3022 的 mock cluster（pid 6539，05:24 起）是常驻服务非僵尸（套件只连接不自启）；16703 是不监听的孤儿 standalone 副本（262MB 浪费）；qa-server-watchdog（12743）守护 standalone 车道，复活路径 = start-prod.sh（同源真理，env 已验正确）。
+- [t265 活体取证（第一击=本地 wipe）] 套件 ETIMEDOUT 猝死的机制链：`cat ${空串}` 让 cat 读 stdin 挂死——「空路径」的真身不是 ENOENT 而是 STDIN 悬挂。根因第一层：**t333 本地镜像 wipe（run-wipe.ts）在 t265 合成（remote-run.ts:4174）之后执行**，`training_picks.star` 命中 WIPE_EXTENSIONS 的 `.star` 规则被当「上一代产物」删除 → staging statx 撞空 → "remote run failed: ENOENT statx"。t333 docblock 的构造假设「inputs never live in the workdir」被 t265 的预 staging 合成打破——两个好 commit 组合出坏结果（车道内跷跷板）。
+- [第二击=集群侧 t385 归档] 修掉本地 wipe 后套件从猝死变 10 FAIL：topaztrain 在集群上 exit 1「cannot read training picks」。日志时序：staging 13 files → `fresh dispatch moved 1 stale product file(s) aside into .cryoflow_prev/ (t385)` → spawned——**集群侧 pre-run wipe 把刚上传的 index 也归档了**。代码自己在 t350 注释里早已知道这个陷阱（auto-joinstar 为此专门挪到 wipe 后执行：「merging before it handed RELION a freshly deleted input」）——t265 的 index 是同一形状的第三处受害。
+- [第三层=ledger 计数钉化石] Phase B 的 `resolvedInputs 出现次数 > resolved.inputs` 断言在 HEAD 上就是 16 vs 18 的失配（t365/t372/t397 重构把部分读取合法改道 twin map，计数被稀释）——t255/t286「白盒断言锁语义不锁字节」教义的第 N+1 案例。
+- [主交付 — keepFiles 语义（三处修复）] ①cleanup.ts 的 classifyRerunWipe 加 `opts.keepFiles`（workdir 相对 posix，keep-set 早于扩展名规则——t394 keepIterations 的先例）；②run-wipe.ts 的 wipeLocalRunProducts 把绝对 keep 路径归一化为相对（workdir 外路径丢弃，keep-set 保持纯粹）；③remote-run.ts 两处调用点：本地 wipe 传 `[resolvedInputs.train_picks]`（topaztrain 且已 re-point 时）、集群侧 wipe 传 `["training_picks.star"]`（re-dispatch 上传会覆盖，无陈旧存活）。教义：**「当代的合成输入不是上一代的产物」——wipe 的「fresh start」必须认识 fresh 的部分**。
+- [套件修复] t265 的空插值 execSync 加 guard（picksArg 空时不再让 cat 挂死 30s 后猝死——优雅记败）；ledger 钉改语义形态（声明存在 + ≥3 处 Object.entries/values(resolvedInputs) 迭代——锁「副本存在且两个消费者都读副本」）。
+- [build ×2 + 活体验证] FRESH=1 build-until-green 两次均 attempt 1 GREEN（74s/75s——修复只碰 3 文件）；t265 终审 **ALL PASS**（train→pick 闭环全绿：staged index 以 coordinate_files 格式上集群、模型 byte-identical 回传、--topaz_model 零重传 twin 消费、训练曲线诊断同步）。

@@ -382,6 +382,13 @@ function RunResumeCard({
   // the store is the truth the inspector can actually open — an entry
   // whose job is not in it renders as history, not as a doorway
   const jobs = useWorkflowStore((s) => s.jobs);
+  const openJob = useWorkflowStore((s) => s.openJob);
+  // t409 — the jump door FINALLY has a default: onOpenJob was optional and
+  // NO caller ever passed it, so every résumé row rendered as history and
+  // the jump feature was dead in all three dialog mounts (witnessed live by
+  // t271). The store's openJob is the one deep-link landing (cross-project
+  // hint included — t272's "another canvas" rows now really switch), so the
+  // card jumps by itself unless a caller overrides.
   // t278 — the card-level helper adapts to the record shape the rows
   // actually show: "click one to open" is a lie over a wall of gone rows.
   // Pre-t272 DTO rows (exists undefined) are still openable doors on the
@@ -512,7 +519,17 @@ function RunResumeCard({
           .filter(Boolean)
           .join(" · ");
         const job = jobs.find((j) => j.id === e.jobId) ?? null;
-        const jumpable = job != null && onOpenJob != null;
+        const jumpJob = (id: string) => {
+          if (onOpenJob) {
+            onOpenJob(id);
+            return;
+          }
+          void openJob(id, { projectId: e.projectId ?? null });
+        };
+        // t409 — jumpable with the in-card default: THIS canvas's job, or
+        // any row whose home project the server named (the hint does the
+        // switch). A gone row stays history.
+        const jumpable = job != null || !!e.projectId;
         // t294 — the forget door lives ONLY on exists===false rows: the
         // server route refuses a live job anyway, but the UI already knows
         // which rows are dead — showing a door only where it can open is
@@ -563,7 +580,7 @@ function RunResumeCard({
             type="button"
             data-resume-entry={e.jobId}
             data-resume-jump=""
-            onClick={() => onOpenJob?.(e.jobId)}
+            onClick={() => jumpJob(e.jobId)}
             className="group -mx-1 flex w-full items-center gap-1.5 rounded-sm px-1 py-0.5 text-left text-[10px] transition-colors hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             title={`Open the inspector for “${job?.name}” — ${e.jobType} started ${new Date(e.startedAt).toLocaleString()}`}
             aria-label={`Open the inspector for ${job?.name ?? e.jobType}`}

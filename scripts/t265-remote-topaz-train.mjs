@@ -150,8 +150,16 @@ try {
       rr.includes("synthesizeTrainingPicks("),
     "startRemoteJob synthesizes the coordinate_files index BEFORE staging (t265)"
   );
+  // t409 — semantic pin (the t255/t286 doctrine: lock semantics, not
+  // bytes). The old occurrence-count pin (resolvedInputs > resolved.inputs)
+  // died when the t365/t372/t397 refactors legitimately routed some reads
+  // through the upstream twin map — the count went 16 vs 18 WITHOUT the
+  // staging plan ever reading the raw resolution. What the ledger actually
+  // promises: the re-pointed COPY exists, and both consumers (the staging
+  // plan's upload loop AND the cluster-argv inputs loop) iterate THE COPY.
   must(
-    rr.split("resolvedInputs").length > rr.split("resolved.inputs").length,
+    rr.includes("const resolvedInputs: Record<string, string> = { ...resolved.inputs };") &&
+      (rr.match(/Object\.(?:entries|values)\(resolvedInputs\)/g)?.length ?? 0) >= 3,
     "the staging plan + argv inputs read the (possibly re-pointed) resolvedInputs"
   );
   must(
@@ -343,10 +351,21 @@ try {
     `the trainer wraps the CLUSTER's own topaz (${argvT.match(/--fn_topaz_exe \S+/)?.[0] ?? "absent"})`
   );
   // the staged index referenced the per-mic stars — they must exist beside it
-  const indexOnCluster = execSync(
-    `node services/mock-cluster/test-client.mjs 'cat ${picksArg} 2>/dev/null | head -12'`,
-    { cwd: "/home/z/my-project", stdio: "pipe", timeout: 30_000 }
-  ).toString();
+  // t409 — an empty picksArg (the train leg failed upstream) must not turn
+  // `cat` into an STDIN reader that hangs the execSync until SIGTERM and
+  // kills the suite un-caught: guard the probe, record the FAIL, move on.
+  const indexOnCluster = picksArg
+    ? (() => {
+        try {
+          return execSync(
+            `node services/mock-cluster/test-client.mjs 'cat ${picksArg} 2>/dev/null | head -12'`,
+            { cwd: "/home/z/my-project", stdio: "pipe", timeout: 30_000 }
+          ).toString();
+        } catch {
+          return "";
+        }
+      })()
+    : "";
   must(
     indexOnCluster.includes("data_coordinate_files") && indexOnCluster.includes("_autopick.star"),
     "the staged index IS the coordinate_files format, pointing at cluster per-mic stars"

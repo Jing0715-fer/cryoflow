@@ -303,7 +303,17 @@ try {
   createdJobs.splice(createdJobs.indexOf(jobL.id), 1);
 
   // C4 — REMOTE motioncorr: cluster argv, cluster paths, outputs sync back
-  const jobM = await mkJob({ type: "motioncorr", name: "t264 MotionCorr REMOTE" });
+  // t409 — do_own_motioncor is pinned FALSE explicitly: t374's RELION 5.0
+  // GUI option table flipped the product default to true (RELION's own CPU
+  // implementation IS the real-world default), and a default-params job now
+  // takes the --use_own lane — this suite's subject is the MOTIONCOR2
+  // EXTERNALS lane (--motioncor2_exe resolved from the cluster's probed
+  // world), so the suite must AIM at the lane it audits.
+  const jobM = await mkJob({
+    type: "motioncorr",
+    name: "t264 MotionCorr REMOTE",
+    params: { do_own_motioncor: false },
+  });
   const eM = await mkEdge(importJob.id, jobM.id, "micrographs", "movies");
   must(eM === 200 || eM === 201, `import → REMOTE motioncorr wired (${eM})`);
   must(!!jobM?.id, "the remote motioncorr job exists");

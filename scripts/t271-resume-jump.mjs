@@ -137,13 +137,20 @@ try {
       dlgSrc.includes("onOpenJob?: (jobId: string) => void;"),
     "RunResumeCard takes the onOpenJob doorway (an optional prop, optional = honest)"
   );
+  // t409 — semantic pins: the jump door gained an IN-CARD DEFAULT (no caller
+  // ever passed onOpenJob — the feature was dead in all three mounts), and
+  // jumpable now honors the server's projectId hint (cross-project rows
+  // really switch). What the ledger promises: the card indexes the store
+  // for THIS-canvas names, and a jumpable row is a real button wired to the
+  // jump helper — not any particular byte shape.
   must(
     dlgSrc.includes("const job = jobs.find((j) => j.id === e.jobId) ?? null;") &&
-      dlgSrc.includes("const jumpable = job != null && onOpenJob != null;"),
-    "the existence check reads the store (the résumé indexes only real doors)"
+      dlgSrc.includes("const jumpable = job != null || !!e.projectId;") &&
+      dlgSrc.includes("void openJob(id, { projectId: e.projectId ?? null });"),
+    "the existence check reads the store and the jump rides openJob's cross-project hint"
   );
   must(
-    dlgSrc.includes('data-resume-jump=""') && dlgSrc.includes("onClick={() => onOpenJob?.(e.jobId)}"),
+    dlgSrc.includes('data-resume-jump=""') && dlgSrc.includes("onClick={() => jumpJob(e.jobId)}"),
     "a jumpable entry is a real button (data-resume-jump + the onClick doorway)"
   );
   must(
@@ -235,6 +242,18 @@ try {
   must(!!importDone, "the local import completed (engine-native)");
 
   // C2 — a probeless connection; one remote run completes (the résumé is born)
+  // t409 — the qa-* SCRUB (the t262 C0 law): a leftover "QA t271 Index"
+  // from a crashed previous run shares OUR name, sorts FIRST in the dialog,
+  // and its résumé is dead history (its jobs are gone — no projectId, no
+  // jump). Every same-name row-click then lands on the corpse. Sweep first.
+  try {
+    const raw = JSON.parse(readFileSync("/home/z/my-project/data/remote-connections.json", "utf8"));
+    for (const sc of (Array.isArray(raw) ? raw : [])) {
+      if (String(sc?.id ?? "").startsWith("qa-")) {
+        await fetch(`${BASE}/api/remote/connections/${sc.id}`, { method: "DELETE", headers: SH }).catch(() => {});
+      }
+    }
+  } catch { /* no connections file — nothing to sweep */ }
   const connId = `qa-t271-${Date.now().toString(36)}`;
   connIds.push(connId);
   const mk = await fetch(`${BASE}/api/remote/connections`, {
@@ -285,6 +304,18 @@ try {
   await sleep(2500);
   await page.locator('button[aria-label="Remote clusters (SSH)"]').first().click({ force: true }).catch(() => {});
   await sleep(1500);
+  // t409 — SELECT OUR CONNECTION: born-era worlds had exactly one connection
+  // (ours) so the dialog's default selection was ours by construction; the
+  // healed world carries the standing demo "Mock Cluster" whose résumé wins
+  // the default. The résumé under test is OUR connection's — click its row.
+  // The connections list loads ASYNC on open — wait for the row to exist
+  // before clicking (a blind click would be swallowed by the catch below).
+  const ourRow = page
+    .locator('button[aria-pressed]', { hasText: "QA t271 Index" })
+    .first();
+  await ourRow.waitFor({ state: "visible", timeout: 10_000 }).catch(() => {});
+  await ourRow.click({ force: true }).catch(() => {});
+  await sleep(800);
   const card = page.locator("[data-run-resume]").first();
   must(await card.isVisible().catch(() => false), "the résumé card renders inside the cluster dialog");
 

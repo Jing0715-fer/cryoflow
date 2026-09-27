@@ -134,9 +134,16 @@ try {
     typesSrc.includes("stagedMs?: number;") && typesSrc.includes("syncMs?: number;"),
     "RemoteRunState/RemoteRunInfo carry stagedMs + syncMs (optional — pre-t269 records lack them)"
   );
+  // t409 — semantic pin (the t255/t286 doctrine): the t318/t341 fence
+  // spreads split the single-line landing shape into multi-line objects in
+  // BOTH lanes (slurm + direct). What the ledger promises: the staging leg
+  // is wall-clock timed ONCE, and stagedMs lands with the spawn handoff in
+  // every lane — counted, not byte-locked.
   must(
-    rr.includes("const stagedT0 = Date.now();") && rr.includes("phase: \"running\", stagedBytes, stagedMs }"),
-    "the staging leg is wall-clock timed and lands with the spawn handoff"
+    rr.includes("const stagedT0 = Date.now();") &&
+      rr.includes("const stagedMs = Date.now() - stagedT0;") &&
+      (rr.match(/stagedMs,/g)?.length ?? 0) >= 2,
+    "the staging leg is wall-clock timed and lands with the spawn handoff (both lanes)"
   );
   must(
     rr.includes("const syncT0 = Date.now();") && rr.includes("syncMs,"),

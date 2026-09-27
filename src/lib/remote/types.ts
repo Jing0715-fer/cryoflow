@@ -129,6 +129,10 @@ export interface ConnectionRunResumeEntry {
   exists?: boolean;
   /** t272 — the owning project's name, when the job still exists. */
   projectName?: string;
+  /** t409 — the owning project's id, when the job still exists: the jump
+   *  door's cross-project hint (openJob switches projects first, then
+   *  lands on the job's inspector — the t272 tooltip's promise, now wired). */
+  projectId?: string;
 }
 
 /** Aggregate of every remote run dispatched through one connection. */
