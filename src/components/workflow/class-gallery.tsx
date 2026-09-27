@@ -12,10 +12,19 @@
  *   - "auto" mode: classes with occupancy ≥ cutoff × best are pre-kept
  *   - manual mode: every click rewrites selectedClasses ("1,2,5") which
  *     auto-saves through the params debounce and feeds the engine run
+ *
+ * t402b — the source no longer has to be FINISHED: a running or torn
+ * classification answers from its newest settled iteration (amber
+ * banner + a live heartbeat while it runs — 「select 2d 增加支持从 2d
+ * 的中间结果选取颗粒，不一定非得是完全跑完」), and a 3D classification
+ * feeds the same gallery (「同理 3d 分类也是」) — a real-RELION class3d
+ * writes no combined classes.mrcs, so its per-class volumes render as
+ * central z-planes through the outputs/file route instead.
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  AlertTriangle,
   Check,
   ChevronLeft,
   ChevronRight,
@@ -50,6 +59,10 @@ interface ClassesResponse {
   iteration: number | null;
   classesFile?: string | null;
   classesSlices?: number | null;
+  /** t402b — real-RELION class3d's per-class volume files (workdir-relative,
+   * newest iteration, class order) — the thumbnail lane when the run speaks
+   * the volume dialect instead of the combined classes.mrcs stack. */
+  volumeFiles?: string[] | null;
   /** t358 — the last honest refusal recorded for this run's class-average
    * stack (which link of the cluster pull broke) — the banner explains a
    * dark grid instead of bare "no image" cards */
@@ -130,15 +143,29 @@ export function ClassGallery({
   const jobs = useWorkflowStore((s) => s.jobs);
   const edges = useWorkflowStore((s) => s.edges);
 
-  // upstream Class2D job: any incoming edge whose source is a 2D
-  // classification run — prefer a completed one when several exist
+  // upstream classification job: any incoming edge whose source is a 2D
+  // (or, since t402b, 3D) classification run — prefer a completed one
+  // when several exist, then a running one (its settled rounds already
+  // answer), then whatever is wired
   const upstream = useMemo(() => {
     const sources = edges
       .filter((e: EdgeDTO) => e.toJobId === job.id)
       .map((e: EdgeDTO) => jobs.find((j) => j.id === e.fromJobId))
-      .filter((j): j is JobDTO => j != null && (j.type === "class2d" || j.type === "select2d"));
-    return sources.find((j) => j.status === "completed") ?? sources[0] ?? null;
+      .filter(
+        (j): j is JobDTO =>
+          j != null && (j.type === "class2d" || j.type === "select2d" || j.type === "class3d")
+      );
+    return (
+      sources.find((j) => j.status === "completed") ??
+      sources.find((j) => j.status === "running") ??
+      sources[0] ??
+      null
+    );
   }, [edges, jobs, job.id]);
+
+  // the source's kind word — the copy says "2D classification" or "3D
+  // classification" honestly instead of the old 2D-only phrasing
+  const is3dSource = upstream?.type === "class3d";
 
   const [data, setData] = useState<ClassesResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -209,6 +236,17 @@ export function ClassGallery({
     };
   }, [upstream?.id, upstream?.status, dataNonce]);
 
+  /* t402b — while the source classification RUNS, the gallery keeps a slow
+   * heartbeat: each settled iteration's data star + class stack lands on
+   * disk and the counts the user selects against must track the newest
+   * round (the remote lane answers from the 12s-TTL'd SSH cache, the local
+   * lane from the mtime cache — a poll, never a storm). */
+  useEffect(() => {
+    if (upstream?.status !== "running") return;
+    const t = setInterval(() => setDataNonce((n) => n + 1), 12_000);
+    return () => clearInterval(t);
+  }, [upstream?.id, upstream?.status]);
+
   const classes = data?.classes ?? [];
   const isAuto = value.trim() === "auto" || value.trim() === "";
 
@@ -259,22 +297,42 @@ export function ClassGallery({
   // renders EVERY slice of the stack at once, so the first card lights
   // the whole grid); `legacySliceUrl` is the t289 whole-stack-into-mirror
   // lane, kept as the one-retry fallback.
+  //
+  // t402b — the 3D volume lane sits in FRONT of both: a real-RELION
+  // class3d run has no combined classes.mrcs, its classes are per-class
+  // volumes (run_itNNN_class00K.mrc), and each renders its central z-plane
+  // through the outputs/file route (axis=z pos=0.5). A volume card has no
+  // fallback lane (the stack lanes have nothing to offer it).
+  const volumeFiles = data?.volumeFiles ?? null;
+  const volumeOf = (cls: number): string | null =>
+    volumeFiles != null && volumeFiles[cls - 1] ? volumeFiles[cls - 1] : null;
   const iterLaneOk =
     classesFile != null &&
     /^(?:(?:run_it|_it)\d+_(?:unmasked_)?classes|run_unmasked_classes)\.mrcs?$/i.test(classesFile);
-  const sliceUrl = (cls: number) =>
-    classesFile == null
+  const sliceUrl = (cls: number) => {
+    const vf = volumeOf(cls);
+    if (vf != null) {
+      return `/api/jobs/${upstream.id}/outputs/file?path=${encodeURIComponent(vf)}&format=png&axis=z&pos=0.5`;
+    }
+    return classesFile == null
       ? ""
       : iterLaneOk
         ? `/api/jobs/${upstream.id}/iterations/image?file=${encodeURIComponent(classesFile)}&slice=${cls - 1}`
         : `/api/jobs/${upstream.id}/outputs/file?path=${encodeURIComponent(classesFile)}&format=png&montage=0&slice=${cls - 1}`;
+  };
   const legacySliceUrl = (cls: number) =>
     classesFile == null
       ? ""
       : `/api/jobs/${upstream.id}/outputs/file?path=${encodeURIComponent(classesFile)}&format=png&montage=0&slice=${cls - 1}`;
   // first failure retries on the legacy lane (once); a failure there (or
-  // when the legacy lane IS the primary) marks the honest placeholder
+  // when the legacy lane IS the primary) marks the honest placeholder —
+  // t402b: a VOLUME card is single-lane by construction, its one failure
+  // goes straight to the placeholder
   const handleImgError = (cls: number): void => {
+    if (volumeOf(cls) != null) {
+      onImgError(cls);
+      return;
+    }
     if (iterLaneOk && !fallbackImgs.has(cls)) {
       setFallbackImgs((prev) => {
         if (prev.has(cls)) return prev;
@@ -509,31 +567,11 @@ export function ClassGallery({
         className="mb-3 rounded-lg border border-dashed bg-secondary/30 p-4 text-center"
       >
         <Grid2x2Check className="mx-auto mb-1.5 size-5 text-muted-foreground" aria-hidden="true" />
-        <p className="text-xs font-medium">No 2D classification connected</p>
+        <p className="text-xs font-medium">No classification connected</p>
         <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
-          Wire a 2D Classification job&apos;s outputs into this job&apos;s input ports —
+          Wire a 2D/3D Classification job&apos;s outputs into this job&apos;s input ports —
           the class gallery appears here once results exist.
         </p>
-      </section>
-    );
-  }
-
-  if (upstream.status !== "completed") {
-    return (
-      <section
-        aria-label="Class selection gallery"
-        className="mb-3 rounded-lg border border-dashed bg-secondary/30 p-4 text-center"
-      >
-        <Grid2x2Check className="mx-auto mb-1.5 size-5 text-muted-foreground" aria-hidden="true" />
-        <p className="text-xs font-medium">
-          {upstream.status === "running" ? "2D classification is running…" : "Classification not finished yet"}
-        </p>
-        <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
-          Source: {upstream.name} — the gallery opens automatically when its class averages land.
-        </p>
-        {loading && (
-          <Loader2 className="mx-auto mt-2 size-4 animate-spin text-teal-600" aria-hidden="true" />
-        )}
       </section>
     );
   }
@@ -567,12 +605,51 @@ export function ClassGallery({
   }
 
   if (classes.length === 0) {
+    // t402b — the status says WHY there is nothing yet: a running run
+    // simply hasn't settled its first round (the gallery opens the moment
+    // one lands — see the heartbeat above); a finished one genuinely has
+    // no assignments; anything else (failed/torn/idle/pending) explains
+    // itself instead of the old blanket "not finished yet" that hid
+    // usable intermediate data behind a status word
+    if (upstream.status === "running") {
+      return (
+        <section
+          aria-label="Class selection gallery"
+          className="mb-3 rounded-lg border border-dashed bg-secondary/30 p-4 text-center"
+        >
+          <Grid2x2Check className="mx-auto mb-1.5 size-5 text-muted-foreground" aria-hidden="true" />
+          <p className="text-xs font-medium">
+            {is3dSource ? "3D" : "2D"} classification is running…
+          </p>
+          <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
+            Source: {upstream.name} — the gallery opens on the first settled iteration, then tracks the latest round as it lands.
+          </p>
+          {loading && (
+            <Loader2 className="mx-auto mt-2 size-4 animate-spin text-teal-600" aria-hidden="true" />
+          )}
+        </section>
+      );
+    }
+    if (upstream.status === "completed") {
+      return (
+        <section
+          aria-label="Class selection gallery"
+          className="mb-3 rounded-lg border border-dashed bg-secondary/30 p-4 text-center text-xs text-muted-foreground"
+        >
+          No class assignments found in {upstream.name}.
+        </section>
+      );
+    }
     return (
       <section
         aria-label="Class selection gallery"
-        className="mb-3 rounded-lg border border-dashed bg-secondary/30 p-4 text-center text-xs text-muted-foreground"
+        className="mb-3 rounded-lg border border-dashed bg-secondary/30 p-4 text-center"
       >
-        No class assignments found in {upstream.name}.
+        <Grid2x2Check className="mx-auto mb-1.5 size-5 text-muted-foreground" aria-hidden="true" />
+        <p className="text-xs font-medium">No settled round on disk yet</p>
+        <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
+          Source: {upstream.name} ({upstream.status ?? "idle"}) — the gallery opens when its first complete iteration lands; a re-run of the source can also bring one.
+        </p>
       </section>
     );
   }
@@ -590,6 +667,20 @@ export function ClassGallery({
           {upstream.name}
           {data?.iteration != null ? ` · iter ${data.iteration}` : ""}
         </span>
+        {/* t402b — the live chip: the source is running and this gallery is
+            tracking its rounds (heartbeat above) */}
+        {upstream.status === "running" && (
+          <span
+            className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300"
+            data-canvas-ui="class-gallery-live"
+          >
+            <span className="relative flex size-1.5">
+              <span className="absolute inline-flex size-full animate-ping rounded-full bg-amber-400/80" />
+              <span className="relative inline-flex size-1.5 rounded-full bg-amber-500" />
+            </span>
+            live
+          </span>
+        )}
         <div className="ml-auto flex items-center gap-1">
           <button
             type="button"
@@ -625,6 +716,31 @@ export function ClassGallery({
           </button>
         </div>
       </div>
+
+      {/* t402b — the intermediate-source banner: this gallery is answering
+          from a round of a classification that has NOT finished (running
+          or torn). The counts the user selects against ARE this round's; the
+          engine's select run rides the same round (the shared
+          latestIterationDataStar truth) — the banner says so plainly
+          instead of a stale "not finished" gate hiding usable data. */}
+      {upstream.status !== "completed" && (
+        <div
+          className="flex items-start gap-2 border-b bg-amber-500/10 px-3 py-1.5 text-[10.5px] leading-relaxed text-amber-700 dark:text-amber-300"
+          data-canvas-ui="class-intermediate-banner"
+          role="status"
+        >
+          {upstream.status === "running" ? (
+            <Loader2 className="mt-0.5 size-3 shrink-0 animate-spin" aria-hidden="true" />
+          ) : (
+            <AlertTriangle className="mt-0.5 size-3 shrink-0" aria-hidden="true" />
+          )}
+          <p>
+            {upstream.status === "running"
+              ? `Still running — showing iteration ${data?.iteration ?? "?"}, the latest settled round. Selecting now uses THIS round's particle→class assignment; the gallery refreshes as new rounds land.`
+              : `Run didn't finish — showing iteration ${data?.iteration ?? "?"}, the last settled round. Selecting now uses its particle→class assignment.`}
+          </p>
+        </div>
+      )}
 
       {/* view bar: sort + kept-only — triage tools for large K runs */}
       <div
@@ -789,12 +905,14 @@ export function ClassGallery({
                   : "border-border opacity-80 hover:opacity-100 hover:border-teal-500/40"
               )}
             >
-              {/* thumbnail — class k is slice k-1 of the averages stack.
+              {/* thumbnail — class k is slice k-1 of the averages stack
+                  (or, t402b, class k's own volume file when the source is
+                  a real-RELION class3d — the central z-plane lane).
                   t355: a FAILED load swaps to the honest placeholder (the
                   old visibility:hidden left a silent white square); a
                   loading one pulses dark (a remote stack lazy-fetches on
                   its first thumbnail — the wire takes a beat). */}
-              {classesFile && !failedImgs.has(c.cls) ? (
+              {(classesFile != null || volumeOf(c.cls) != null) && !failedImgs.has(c.cls) ? (
                 <img
                   key={fallbackImgs.has(c.cls) ? `legacy-${c.cls}` : `iter-${c.cls}`}
                   src={fallbackImgs.has(c.cls) ? legacySliceUrl(c.cls) : sliceUrl(c.cls)}
@@ -993,11 +1111,12 @@ export function ClassGallery({
                 keys to browse classes, Enter or Space to toggle keeping it.
               </DialogDescription>
 
-              {/* the average — same slice URL as the grid thumbnail, just
-                  given room to breathe (render is ≤384 px wide server-side).
-                  t355: a failed load says so instead of a broken glyph. */}
+              {/* the average — same URL as the grid thumbnail, just given
+                  room to breathe (render is ≤384 px wide server-side).
+                  t355: a failed load says so instead of a broken glyph.
+                  t402b: the volume lane serves a class3d source here too. */}
               <div className="bg-zinc-950 p-4">
-                {classesFile && !failedImgs.has(zoomClass.cls) ? (
+                {(classesFile != null || volumeOf(zoomClass.cls) != null) && !failedImgs.has(zoomClass.cls) ? (
                   <img
                     key={fallbackImgs.has(zoomClass.cls) ? `legacy-${zoomClass.cls}` : `iter-${zoomClass.cls}`}
                     src={
@@ -1013,7 +1132,9 @@ export function ClassGallery({
                 ) : (
                   <div className="mx-auto grid aspect-square max-h-64 w-auto place-items-center rounded-md bg-zinc-900/60 px-8 text-center text-xs text-zinc-500">
                     no image available
-                    {classesFile ? " — the stack could not be fetched" : ""}
+                    {classesFile != null || volumeOf(zoomClass.cls) != null
+                      ? " — the image could not be fetched"
+                      : ""}
                   </div>
                 )}
               </div>

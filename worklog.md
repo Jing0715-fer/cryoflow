@@ -4121,3 +4121,26 @@ Stage Summary:
 - **「同世界法要钉到每一条 flip」**：DB 分叉的第三处曝光（python seeder 的 node -e flip 骑 .env）——教义从车道层（dev-server/start-prod）下沉到**每一个写库的手**（15+ 文件钉死）；任何一条未钉的 flip 都是在另一个世界做手术
 - **「白盒断言锁语义不锁字节」**：t255/t286 的源码断言死于产品演进（注释/polarity 参数）——正则形态匹配 + call-site 计数让断言在演进中存活；锁字节的断言每次重构都要陪葬
 - 遗留（下窗候选）：①**remote/array 车道排查窗**（9 套：ENOENT/argv/harvest 三画像）；②t29 批轮跑；③roster floor completed 精修；④EMPIAR（第廿七窗）
+
+---
+Task ID: t402b (2026-09-27 19:0x UTC 会话窗；另一窗口已用 t402 名义交付 continue argv 修复 868dae7——本窗条目按撞号判例以 t402b 记账，与 t384/t387/t397 同款)
+Agent: main (Z.ai Code)
+Task: 用户功能需求——「select 2d 增加支持从 2d 的中间结果选取颗粒，不一定非得是完全跑完，同理 3d 分类也是」（Select 2D/3D 从未跑完的分类中间结果选颗粒）
+
+Work Log:
+- [开局实证] HEAD = 092f528 = origin/main（Task 407 已推送），树上有六文件未提交的 t402b 半成品（上一窗中断遗产：engine/classes 路由/画廊/迭代载荷/工作流定义已改，seed 脚本 + 一张旧截图在树上）——真源律：继承摘要声称 t402「未开始」，实则另一窗口已以 t402 名义交付 continue 方言修复（868dae7，五条 not-a-valid-RELION-argument 告警的答案），本窗的活是把它带过验证终点线
+- [代码补完审计] 逐 diff 审读六文件：①engine.ts 新增 latestIterationDataStar（settled-round 真源：无 optimiser/model/half1_model 见证的 data star = 撕裂写、跳过）+ intermediateClassSource（本地 workdir 道 + 远程 SSH 拉取道）+ INPUTS 表收 class3d 的 refine_data_star；②classes 路由改骑同一 helper + 新增 volumeFiles 道（真 RELION class3d 无合并 classes.mrcs，只有 run_itNNN_class00K.mrc 逐类体积）；③画廊：撕掉「未跑完不许看」的 blanket 门，running 源走琥珀 live 横幅 + 12s 心跳，torn 源显示最后 settled 轮，3D 体积走 outputs/file axis=z pos=0.5 中央 z 面；④iteration-live 新增 dataStar 字段（精确集群侧文件名——迭代号无法跨 run_it/_it 填充方言重建名字，且不进版本哈希）
+- [验证·API 道] 种子世界（torn class2d it000-002 settled + it003 无见证；3D 体积方言双轮）：/classes 答.iteration 2（不是撕裂的 3）counts 12/9/6/3 + classesFile run_it002_classes.mrcs；3D 答同轮 8/5/2 + volumeFiles class001..003；两 select 派发 → 21/30 与 8/15 精确命中，log 首行 source note「iteration 2 … (not completed)」在案
+- [验证·浏览器道] 403 教义复核（curl 必须带 Sec-Fetch-Site: same-origin，t377 同源门）；画布卡片是 pointer-event 驱动（合成 MouseEvent 无效——用 agent-browser 原生 focus+Enter 走 onKeyDown 道）；job 面板 Params 页三种状态全取证：torn 2D（琥珀横幅 + 4 缩略图 naturalWidth 64 真像素 + 点选 class 4 → manual 1,2,3,4 且 debounce 落库 SELECTEDCLASSES='1,2,3,4'）、3D 体积道（3 张 z 面缩略图真像素 + 自动选 1,2）、running live（DB 翻转状态 → live ping chip + "Still running — showing iteration 2" 横幅，验后翻回）；三张定妆 shots-qa/t402b-{2d-torn-panel,3d-volume-panel,2d-running-live}.png；console 零错误；像素统计（panel crop std≈33）实证纹理在渲染
+- [种子加固] t402b-select-intermediate.mjs 的 DATABASE_URL 钉死到 db/cryoflow.db（工具壳导出的模板库变量会把静默种子引向错误文件——本窗亲身踩中：flip-status 脚本先撞 P2025 才发现）+ import.meta.dir 化（cwd 无关）；复跑种子证明幂等（按名擦除重建，全新 ID 世界里两个 select 再次 21/30 + 8/15 命中）
+- [验证·套件] t394 62/0 · t385 48/0 · t386 119/0 · checkpoint 17/0 · tsc 0 · eslint 触及文件 0（全仓 9 错全部在别窗遗产文件：print-doc-*/map-ortho/session-report/diag-archive，非本 diff）
+- [推送受制] commit 7e6cffd 就绪但 push 不可达：/home/z/.cryoflow-gh-token 已随沙箱换生蒸发（t315 时代用户指定的仓外 token 文件），本窗无凭据——按 t2322/t2418 判例「commit 就绪待 push(用户 token 未跨窗，需下一条消息补发即推)」记账
+
+Stage Summary:
+- **「settled 轮是选颗粒的最小诚实单位」**：data star 每轮落盘，但无见证（optimiser/model 家族缺席）的轮是撕裂写——画廊与引擎共用 latestIterationDataStar，用户选的 counts 与 run 读的行永远同轮
+- **「状态词不该藏数据」**：旧「Classification not finished yet」blanket 门把可用的中间结果藏在状态字后面；torn/running/完成三种源各有诚实的横幅文案，running 还有 12s 心跳随轮更新
+- **「真 RELION class3d 说体积方言」**：没有合并 classes.mrcs，逐类 run_itNNN_class00K.mrc 经 outputs/file 的 axis=z 中央面渲染——体积道在堆栈道之前，单道无回退
+- **「模板 DATABASE_URL 是静默Redirect」**：工具壳的环境变量优先于项目 .env——凡直接构造 PrismaClient 的脚本必须显式钉死（本窗 flip-status 的 P2025 是活教材）
+- 遗留（下窗候选）：①push 7e6cffd（用户补发 token 即推）；②intermediateClassSource 的远程道活体验证（mock 集群上跑一个远端 class2d 中断再选——本窗只走了单元证词 + 导出签名核对）；③t25-t30 六批收口与 EMPIAR 真数据回归（连续第廿七窗让位）；④GitHub PAT 撤销仍未获用户确认（第五次提醒）
+
+注：本条目时间戳早于上方 t408（并行会话窗），rebase 后 git 历史序 = t408 → t402b，账本随 git 序。

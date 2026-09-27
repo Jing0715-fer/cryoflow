@@ -571,6 +571,58 @@ export function workdirFor(job: EngineJobRef): string {
 }
 
 /**
+ * t402b — the newest SETTLED iteration data star a selection can ride.
+ *
+ * 「select 2d 增加支持从 2d 的中间结果选取颗粒，不一定非得是完全跑完，
+ * 同理 3d 分类也是」— a classification writes run_itNNN_data.star (the
+ * particle→class assignment) every round, finished or not. Both the
+ * selection gallery (/api/jobs/[id]/classes) and the engine's
+ * intermediate-selection fallback (runSelect2dNative) must pick THE SAME
+ * round, or the user would select against counts the engine never reads
+ * — this helper is that single truth.
+ *
+ * The torn-write guard: a data star whose round left NO sibling witness
+ * (optimiser / model / half1_model — real RELION writes the family at
+ * each round's end; the mock writes at least the optimiser) is a round
+ * that died mid-write, and its rows may be truncated — counting it would
+ * silently lie. Witnessless rounds are skipped in favor of the newest
+ * SETTLED one; a workdir where no round settled has nothing an honest
+ * selection can read (null — the gallery says "no round yet", the run
+ * speaks its waiting verdict). The witness name is derived from the data
+ * star's OWN name (padding-agnostic: run_itNNN and _itNNN dialects both
+ * pass), matching by string replacement rather than reconstruction.
+ */
+export function latestIterationDataStar(
+  workdir: string
+): { iteration: number; file: string } | null {
+  let names: string[];
+  try {
+    names = readdirSync(workdir);
+  } catch {
+    return null;
+  }
+  const rounds: { iteration: number; file: string }[] = [];
+  for (const name of names) {
+    const m = name.match(/^(?:run_it|_it)(\d+)_data\.star$/i);
+    if (m) rounds.push({ iteration: Number(m[1]), file: name });
+  }
+  rounds.sort((a, b) => a.iteration - b.iteration);
+  const hasWitness = (r: { file: string }): boolean => {
+    const base = r.file.replace(/_data\.star$/i, "");
+    return names.some(
+      (n) =>
+        n === `${base}_optimiser.star` ||
+        n === `${base}_model.star` ||
+        n === `${base}_half1_model.star`
+    );
+  };
+  for (let i = rounds.length - 1; i >= 0; i--) {
+    if (hasWitness(rounds[i])) return rounds[i];
+  }
+  return null;
+}
+
+/**
  * RELION "project root" directory — all real CLI jobs run with this as CWD
  * (mirrors how the RELION GUI/pipeliner launches jobs from the pipeline root),
  * so STAR files can use project-relative micrograph paths. ctffind_runner
@@ -1279,7 +1331,15 @@ const INPUTS: Record<string, InputReq[]> = {
     { key: "particles_star", accepts: ["particles_star"], from: ["import", "extract", "cs2star", "class2d", "select", "select2d", "joinstar", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
   ],
   select2d: [
-    { key: "particles_star", accepts: ["particles_star"], from: ["import", "cs2star", "class2d", "select2d"], label: "classified particles STAR with _rlnClassNumber (run 2D Classification first)" },
+    // t402b — the class-selection mouth now accepts BOTH classification
+    // dialects: class3d's data stars carry _rlnClassNumber exactly like
+    // class2d's, and its runs register the particles output under the
+    // refine-family key (refine_data_star — the "runs 2D/3D Classification
+    // first" label covers both mouths). Intermediate rounds ride the
+    // fallback inside runSelect2dNative, not this table (auto-start still
+    // waits for completion — see autoStartPendingDownstream's pending-only
+    // gate).
+    { key: "particles_star", accepts: ["particles_star", "refine_data_star"], from: ["import", "cs2star", "class2d", "select2d", "class3d"], label: "classified particles STAR with _rlnClassNumber (run 2D/3D Classification first)" },
     // class averages only feed the selection GALLERY — missing stack must
     // never block the run (older jobs may lack the output)
     { key: "classes_mrc", accepts: ["classes_mrc"], from: ["class2d"], label: "2D class averages (gallery)", optional: true },
@@ -5472,16 +5532,101 @@ async function runSelectNative(job: EngineJobRef, upstream: UpstreamRef[]): Prom
 }
 
 /**
+ * t402b — the intermediate-selection source: the newest SETTLED round of
+ * a class2d/class3d upstream that hasn't finished (or finished without a
+ * usable registered output). The user's ask: 「不一定非得是完全跑完」—
+ * clicking Run while the classification is mid-flight (or torn) selects
+ * against the latest on-disk particle→class assignment instead of
+ * waiting. The CASCADE is untouched: autoStartPendingDownstream only
+ * fires PENDING jobs at upstream COMPLETION, so this fallback is reached
+ * only on explicit dispatch (or an honest not-completed source).
+ *
+ * Lanes: the LOCAL workdir first (a local run writes its rounds directly
+ * there — running, torn, or completed-but-unregistered); a REMOTE run
+ * pulls its newest data star over SSH (the t350 doctrine's fetch leg —
+ * star bytes cross the wire exactly once, into the mirror). Returns null
+ * when nothing honest exists — the caller then speaks the waiting verdict.
+ */
+async function intermediateClassSource(
+  job: EngineJobRef,
+  upstream: UpstreamRef[]
+): Promise<{ path: string; note: string } | null> {
+  const runs = readRuns();
+  for (const up of upstream) {
+    if (up.type !== "class2d" && up.type !== "class3d") continue;
+    const rec = runs[up.id];
+    const workdir =
+      rec?.workdir ?? path.join(RELION_DIR, job.projectId, `${up.type}_${up.id.slice(-8)}`);
+    const label = up.name ?? up.type;
+    const state =
+      up.status === "running"
+        ? "still running"
+        : up.status === "completed"
+          ? "completed but its registered output is unreadable"
+          : "not completed";
+    const latest = existsSync(workdir) ? latestIterationDataStar(workdir) : null;
+    if (latest) {
+      const abs = path.join(workdir, latest.file);
+      if (existsSync(abs)) {
+        return {
+          path: abs,
+          note: `iteration ${latest.iteration} of "${label}" (${state})`,
+        };
+      }
+    }
+    // remote lane — pull the cluster's newest settled data star home
+    // (dynamic imports: iteration-live reads getRun from THIS module, a
+    // static edge would close the dispatch↔engine cycle the same way
+    // autoStart's own import dances around)
+    if (rec?.remote) {
+      try {
+        const { remoteLiveIterations } = await import("@/lib/remote/iteration-live");
+        const live = await remoteLiveIterations(up.id, { force: true });
+        const ds = live.dataStar;
+        if (ds) {
+          const { fetchRemoteFileIntoWorkdir } = await import("@/lib/remote/remote-files");
+          const pull = await fetchRemoteFileIntoWorkdir(rec, ds);
+          if (pull.ok && existsSync(path.join(rec.workdir, ds))) {
+            return {
+              path: path.join(rec.workdir, ds),
+              note: `iteration ${live.latest ?? "?"} of "${label}" (${state}, pulled from the cluster)`,
+            };
+          }
+        }
+      } catch {
+        // wire down / cache miss — the waiting verdict below is the
+        // honest answer, never a fabricated selection
+      }
+    }
+  }
+  return null;
+}
+
+/**
  * Select2d: RELION "Subset selection" on 2D class averages, programmatic
  * edition. The input is a Class2D run's per-iteration data STAR (every row
  * carries _rlnClassNumber); the output keeps ONLY the rows whose class is
  * selected — "auto" (occupancy ≥ cutoff × best class) or an explicit
  * comma list driven by the class gallery in the job panel.
+ *
+ * t402b — the source no longer has to be FINISHED: a class2d/class3d
+ * upstream mid-flight (or torn) answers through its newest settled round
+ * (intermediateClassSource), and class3d speaks the same mouth as class2d.
  */
 async function runSelect2dNative(job: EngineJobRef, upstream: UpstreamRef[]): Promise<NativeResult> {
   const resolved = resolveInputs("select2d", upstream);
-  if (resolved.missing) return { ok: false, error: resolved.missing, wait: resolved.wait };
-  const inStar = resolved.inputs.particles_star;
+  let inStar: string | null = resolved.inputs.particles_star ?? null;
+  let sourceNote: string | null = null;
+  if (!inStar && resolved.missing) {
+    // t402b — the intermediate fallback: the user's explicit dispatch on a
+    // not-yet-finished classification selects against the latest settled
+    // round instead of parking the job as pending. Nothing honest to read
+    // → the original waiting verdict speaks unchanged.
+    const fb = await intermediateClassSource(job, upstream);
+    if (!fb) return { ok: false, error: resolved.missing, wait: resolved.wait };
+    inStar = fb.path;
+    sourceNote = fb.note;
+  }
 
   const workdir = workdirFor(job);
   mkdirSync(workdir, { recursive: true });
@@ -5596,6 +5741,9 @@ async function runSelect2dNative(job: EngineJobRef, upstream: UpstreamRef[]): Pr
   const result = `${kept.toLocaleString()} of ${total.toLocaleString()} particles kept · ${keptClasses}/${classStats.length} classes (${mode})`;
   const logText = [
     `CryoFlow engine-native select2d ${new Date().toISOString()}`,
+    ...(sourceNote
+      ? [`source: ${sourceNote} — the selection rides the newest settled round, not the finished run`]
+      : []),
     `input:  ${inStar} (${total} particles)`,
     `mode:   ${mode}`,
     "class occupancy (count · kept):",

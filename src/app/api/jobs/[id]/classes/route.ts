@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { existsSync, readdirSync } from "fs";
 import path from "path";
 import { findEffectiveJob } from "@/lib/link";
-import { getRun } from "@/lib/relion/engine";
+import { getRun, latestIterationDataStar } from "@/lib/relion/engine";
 import { cachedFileCompute } from "@/lib/relion/statcache";
 import { readMrcHeader } from "@/lib/mrc";
 import { RELION_DIR } from "@/lib/paths";
@@ -171,18 +171,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
     // manifest). Everything below guards on mirrorOk.
     const mirrorOk = existsSync(workdir);
 
-    // highest iteration data star = final particle→class assignment
+    // highest SETTLED iteration data star = the round the selection rides
+    // (t402b — the engine's intermediateClassSource picks through the
+    // SAME helper, so the gallery's counts and the run's selected rows can
+    // never disagree; the witness guard skips rounds that died mid-write)
     let best: { iteration: number; file: string } | null = null;
     if (mirrorOk) {
-      for (const name of readdirSync(workdir)) {
-        // Match both RELION standard "run_itNNN_data.star" and SGD "_itNNN_data.star"
-        const m = name.match(/^(?:run_it|_it)(\d+)_data\.star$/i);
-        if (!m) continue;
-        const iteration = Number(m[1]);
-        if (!best || iteration > best.iteration) {
-          best = { iteration, file: name };
-        }
-      }
+      best = latestIterationDataStar(workdir);
       // explicit ?iter= overrides (round-filtered galleries)
       const wantIter = parseInt(new URL(request.url).searchParams.get("iter") ?? "", 10);
       if (Number.isFinite(wantIter)) {
@@ -208,6 +203,29 @@ export async function GET(request: NextRequest, context: RouteContext) {
       if (hdr) {
         classesFile = stackName;
         classesSlices = hdr.nz;
+      }
+    }
+
+    // t402b — 3D classes speak PER-CLASS VOLUMES in real RELION
+    // (run_itNNN_class00K.mrc — there is no combined classes.mrcs stack
+    // for a real Class3D run): the selection gallery then renders each
+    // class's central z-plane through the outputs/file route (axis=z
+    // pos=0.5). The combined-stack dialect (real class2d, the mock's
+    // class3d) keeps priority — volumes are the FALLBACK lane, taken
+    // only when no stack answered. Newest iteration only, class order.
+    let volumeFiles: string[] | null = null;
+    if (mirrorOk && !stackName) {
+      const vols: { iter: number; cls: number; name: string }[] = [];
+      for (const name of readdirSync(workdir)) {
+        const m = name.match(/^(?:run_it|_it)(\d+)_class(\d+)\.mrc$/i);
+        if (m) vols.push({ iter: Number(m[1]), cls: Number(m[2]), name });
+      }
+      if (vols.length > 0) {
+        const newest = Math.max(...vols.map((v) => v.iter));
+        volumeFiles = vols
+          .filter((v) => v.iter === newest)
+          .sort((a, b) => a.cls - b.cls)
+          .map((v) => v.name);
       }
     }
 
@@ -323,6 +341,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
       // renderable via /outputs/file?path=<classesFile>&format=png&slice=N-1
       classesFile,
       classesSlices,
+      // t402b — per-class volume files (real-RELION class3d dialect),
+      // workdir-relative, newest iteration, class order — renderable via
+      // /outputs/file?path=<file>&format=png&axis=z&pos=0.5
+      volumeFiles,
       ...(renderError ? { renderError } : {}),
     });
   } catch (error) {

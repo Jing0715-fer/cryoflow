@@ -112,6 +112,16 @@ export interface IterationsPayload {
   /** newest class-average stack, workdir-relative (render target) */
   classesFile: string | null;
   classesSlices: number | null;
+  /**
+   * t402b — the newest data star's own FILE NAME (workdir-relative). The
+   * iteration number alone cannot rebuild the name (the run_itNNN vs _itNNN
+   * dialects and the padding differ across RELION versions); the engine's
+   * intermediate-selection pull needs the exact cluster-side name the
+   * listing already saw. Derived from `iterations` — deliberately excluded
+   * from iterationsVersion's material so equal payloads keep hashing
+   * equal (the t397 unchanged short-circuit contract holds).
+   */
+  dataStar?: string | null;
   /** t354 — EVERY iteration that has a class-average stack (or a rendered
    * sheet in the local cache), ascending: one chip, one sheet image each */
   stacks: StackEntry[];
@@ -382,6 +392,17 @@ export function livePayloadFromParts(args: {
     classesSlices = classes[classes.length - 1].cls;
   }
 
+  // t402b — the newest data star's own name: the intermediate-selection
+  // pull target (the engine fetches THIS file when a select runs against a
+  // still-running classification). Same newest-round rule the payload's
+  // `latest` speaks, resolved back to the name the listing actually saw.
+  const dataStar =
+    latest != null
+      ? (dataStarNames.find(
+          (n) => Number(DATA_STAR_RE.exec(n)?.[1] ?? NaN) === latest
+        ) ?? null)
+      : null;
+
   const payload: IterationsPayload = {
     remote: true,
     iterations,
@@ -390,6 +411,7 @@ export function livePayloadFromParts(args: {
     total,
     classesFile,
     classesSlices,
+    dataStar,
     // t370 — the chips carry the sniffed nz (live evidence: 0 = the
     // zero-header disease) and the persisted zero-data verdicts (the
     // renders run in the background pipeline; once a marker lands, every

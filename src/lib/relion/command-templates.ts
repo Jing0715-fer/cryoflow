@@ -24,7 +24,7 @@ export const COMMAND_TEMPLATES: Record<string, string> = {
   topaztrain: "relion_autopick --i <micrographs.star> --odir <outdir>/ --topaz_train --fn_topaz_exe <topaz> --topaz_train_picks <picked_coords.star> --topaz_nr_particles <n> --topaz_threshold <t> --particle_diameter <Å> --topaz_test_ratio <r> → topaz_model.sav",
   extract: "relion_preprocess --i <micrographs_ctf.star> --coord_list <coords.star> --part_star <outdir>/particles.star --part_dir <outdir>/ --extract --extract_size <box> [--scale <down>] --norm --bg_radius <bgr> --white_dust 3 --black_dust -3",
   select: "engine-native: particle selection — class-aware occupancy pruning when input has _rlnClassNumber, else first-N",
-  select2d: "engine-native: 2D class selection — keep particles whose _rlnClassNumber is in the selected set (gallery picks or auto occupancy ≥ cutoff × best) → particles_select2d.star",
+  select2d: "engine-native: class selection (2D/3D) — keep particles whose _rlnClassNumber is in the selected set (gallery picks or auto occupancy ≥ cutoff × best; a not-yet-finished source answers from its latest settled round) → particles_select2d.star",
   class2d: "relion_refine --i <particles.star> --o <outdir>/run --K <K> --tau2_fudge 1 --particle_diameter <dia> --ctf --pad 2 --iter <it> --flatten_solvent --zero_mask --j 4",
   initialmodel: "relion_refine --grad --denovo_3dref --i <particles.star> --o <outdir>/run --K <K> --particle_diameter <dia> --sym <sym> --ctf --iter <it> --flatten_solvent --zero_mask",
   class3d: "mpirun -n 2 relion_refine --i <particles.star> --ref <ref.mrc> --o <outdir>/run --K <K> --tau2_fudge 4 --particle_diameter <dia> --sym <sym> --ctf --pad 2 --iter <it> --flatten_solvent",

@@ -920,7 +920,7 @@ export const JOB_TYPES: JobTypeSpec[] = [
     "2D Class Selection",
     "Grid2x2Check",
     "orange",
-    "Subset-selection on a 2D classification run: pick good classes from the gallery (or auto-select by occupancy) — only particles in the kept classes continue downstream.",
+    "Subset-selection on a classification run: pick good classes from the gallery (or auto-select by occupancy) — only particles in the kept classes continue downstream. Takes 2D and 3D classifications alike, and the source doesn't have to be finished — a running or interrupted run answers from its latest settled round.",
     900,
     [
       txt("selectedClasses", "Selected classes", "auto", {
@@ -948,8 +948,8 @@ export const JOB_TYPES: JobTypeSpec[] = [
         // two wires class2d→select2d run parallel instead of crossing.
         // Edges reference ports BY NAME, so this is a pure geometry fix —
         // existing wiring is untouched.
-        inp("classes", "2D class averages (gallery)", ["references2d"]),
-        inp("particles", "Classified particles STAR (run 2D Classification first)", ["particles"]),
+        inp("classes", "Class averages / volumes (gallery)", ["references2d"]),
+        inp("particles", "Classified particles STAR (run 2D/3D Classification first)", ["particles"]),
       ],
       outputs: [outp("particles", "Selected particles STAR file (.star)", "particles")],
     }
@@ -2017,7 +2017,10 @@ const NEXT_STEPS: Record<string, string[]> = {
   initialmodel: ["class3d", "refine3d"],
   // same-type chaining stays: re-classification / progressive refinement
   // are standard RELION moves (the source can consume its own output)
-  class3d: ["select", "class3d", "refine3d"],
+  // t402b — select2d joins the menu: a 3D classification's data star carries
+  // _rlnClassNumber exactly like a 2D run's, so subset selection applies
+  // (the live port-pair matcher wires it through the particles port)
+  class3d: ["select2d", "select", "class3d", "refine3d"],
   refine3d: [
     "maskcreate", "postprocess", "localres", "ctfrefine", "polish",
     "multibody", "class3d", "refine3d",
