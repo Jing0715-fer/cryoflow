@@ -3939,3 +3939,24 @@ Stage Summary:
 - 产出：RELION continue 方言瘦身（单一 buildArgv 真源 → 本地/远程/预览三面同改）+ 泛型层空白值修复 + mock stub 的 continue 接口 + mock server 的 t400 合并上传翻译修复
 - 用户复机路径：git pull → 续跑 class2d/class3d/refine3d/initialmodel → Log 里不再有五条告警；wrapper/命令预览显示 RELION GUI 同款续跑方言
 - 诚实边界：①mock 集群上 stub 无 RELION 真解析器——"零告警"的证明是 argv 形状对 parseContinue 注册集（源码逐字对照），非真二进制跑过 ②--grad 的删除以 checkpoint 携带 VDAM 属性为前提（RELION 源码判决），GUI 自己也这么活 ③泛型层 trim 改动对所有类型生效（t386 119/119 全量回归背书）
+---
+Task ID: 402-recovery (2026-09-27 12:21 cron 窗口 trace 1a07549302235a99-cron-agent-loop-202609271221；并行撞号：另一会话独立以 t402 名义交付了 continue argv 修复 868dae7——两窗工作互不相交、条目互不重叠，两条皆留，撞号记录同 t384/t387 判例)
+Agent: main (Z.ai Code)
+Task: 八日空窗后的沙箱恢复 + QA + 恢复协议加固（本窗没有产品 feature——基础设施战争吃掉了它，但恢复协议的四道加固是代码交付）
+
+Work Log:
+- [开局实证：八日空窗 + 树被回滚] 本窗 cron 与上一窗（09-19）隔了 8 天。开局 tail worklog = **Task 272**、HEAD = 94a10e5（懒惰 cron 消息提交，五次 amend）、t273–t313 的提交在所有 refs/reflog 里不存在——**本地树被回滚成影子**。但 git ls-remote origin main = 6ca29d1（Task 401，09-27 00:46 UTC）——**远端完整且活着**（t395–t401 昨日连发）。`git fetch` + `git reset --hard origin/main` 一步复原：HEAD = 6ca29d1、worklog 尾部 = Task 401、roster 77 套件 / 12 批覆盖自证。「树上进展可由其他窗口推进」的真源律第八日版本：**本地 git 层会撒谎，远端是最后真源**。
+- [影子孤儿隔离：93 → 1] reset 后 git status 仍有 93 条：24 个 src/ 孤儿（src/app/api/{events,fs/file,schedules,jobs/[id]/{clone,picker,volume}}、src/lib/{csv,i18n,notes-export}.ts、src/lib/relion/{commands,dto,executor,job-types}.ts、src/components/relion/——一条**从未推送的平行产品线**的骨架）+ scripts/dbg-*/qa3x-*/diag-* 遗粒 + _legacy-archive/、mini-services/、persist/、public/molstar.css、relion-projects/、qa-shots*/。**孤儿毒化实证**：构建 #1 的「Can't resolve 'socket.io-client'」与 Import trace 就来自孤儿 executor.ts/schedules；tsc 的「eventLog does not exist / RELION_PROJECTS_ROOT 不存在」全是孤儿文件对真树 schema 的越权引用（prisma/schema.prisma 里根本没有 EventLog）。全部移入 .shadow-archive/（untracked 隔离区，不删——不可逆操作不做），git status 93 → 1。**教训：沙箱恢复会留下未追踪的幽灵文件，它们混进 src/ 后 tsc/build/路由清单全被投毒——恢复协议必须有隔离步骤。**
+- [依赖与 DB] bun install 补齐 7 包（socket.io-client 等——真树也缺，非孤儿专属）；prisma db push 到 db/cryoflow.db（dev-server.sh 钉死的真库——**db/custom.db 是工具环境的模板库**，t377 注释在案；第一次 push 推错了库，P2021「表不存在」与「already in sync」矛盾即此）。浏览器骨架屏卡死的另一因子：TRUST_GATEWAY=1 下裸 curl 无 sec-fetch-site/Origin 头被 403——守卫契约在位，套件按礼带 SH 头即可。
+- [生产构建九连败 + 死因判决] `next build`（Turbopack 默认）内核 OOM（anon-rss 3.45GB，dmesg 在案 ×3）；`--webpack` 车道 SIGKILL ×4（dmesg **无**内核 OOM 记录、free 3.5GB 可用、taskset 单核钉死也杀、jitless 断在 SWC 的 WebAssembly 依赖）；webpack worker 的 V8 堆帽 768/1280/1536 全试——杀的维度不是 V8 堆。**判决：本 incarnation 的沙箱巡猎按编译期资源画像杀进程**（持续编译 >~50s 的 worker/next-server 必死，与内存余量无关；t400 在案的「暂停模板服务器腾内存」是同族症状的上个版本）。webpack cache 跨重启持久（184→206MB）——**增量回暖战术**：boot → 打目标路由（被杀）→ 重 boot → 再打……/api/jobs 经 4 循环后从 45s 编译降到 4.0s 命中缓存 200。dev-server.sh 四道加固（见下）。
+- [dev-server.sh 四道加固（本窗代码交付）] ①堆帽可调 `DEV_HEAP_MB`（896 默认不变——webpack 车道 896 死于 Ineffective mark-compacts，1792 才能编完首页图）；②车道可调 `DEV_NEXT_ARGS`（`--webpack` = Turbopack 编译 OOM 病的逃生门）；③**spawn 显式用 node**——`bunx next`/`bun next` 让 Bun 运行时跑 dev server，内存画像完全不同（本窗三次内核 OOM 的直接凶手），node 才尊重堆帽；④日志落 `.qa-logs/dev-server.log` 而非 /dev/null——「无声死亡」（进程秒消失、无 OOM 记录、无处可读）花掉本窗三次盲重启，日志是证人。
+- [QA：免服务器单元电池全绿] 近时代的回归主力是 bun 单元套件（无需 :3000）：t384 19+11、t385 48、t386 119、t387 157、t388 55、t389 29、t390 38、t391-mpirun 84、t394 62、t396 26、test-resume-checkpoint 17、t397-perf-units 77——**12 套件 723 断言 0 败**（恢复树 6ca29d1 的源级契约完好）。tsc 0（隔离孤儿 + 清 .next/dev 陈旧 validator 后）。浏览器冒烟：骨架屏在位（t392 零 CLS 首屏）、console 0、canvas DOM 渲染前服务器再次阵亡——冒烟**半绿**（骨架层验证过，数据层因巡猎未走完）。
+- [诚实边界] ①e2e 家族轮跑（roster-23 迁移后十批首跑等）**未跑**——本 incarnation 沙箱容不下 next dev 存活 5 分钟，等平台恢复或用户真机；②demo 世界缺席（cryoflow.db 今日新建，仅含单元套件的 ck395/ck396 夹具行）——下窗先跑 scripts/demo-chain-resurrect.mjs 复原 23 节 healed 链再谈家族轮跑；③巡猎的精确触发函数不可知（黑盒），增量回暖是缓解不是根治；④.prod 构建在本盒不可用（九连败），用户的 Windows 机无此约束（t401 的复机路径不变）。
+
+Stage Summary:
+- **「本地 git 层会撒谎，远端是最后真源」**：八日空窗后本地树回滚成 t272 影子 + 平行世界线幽灵——ls-remote 一问、fetch+reset 一答；真源律的恢复操作版
+- **「恢复协议的三步」**：reset 对齐远端 → 影子孤儿隔离（未追踪幽灵不进编译图）→ 依赖与 DB 按钉死 env 重建；跳过任何一步 = tsc/build 的无声投毒
+- **「进程的Runtime决定内存画像」**：`bunx next` ≠ `bun run dev`（node via sh）≠ `node next`——三次内核 OOM 的凶手是 Bun 运行时的 dev server；堆帽只对 node 生效
+- **「无声死亡要有证人」**：日志进 /dev/null 的启动器让三次秒死无处对质——dev-server.log 是恢复窗口的第一基础设施
+- **「增量回暖 vs 巡猎」**：webpack cache 跨重启持久，被杀的编译在下一世继续——boot-kill-reboot 循环把 45s 的高峰磨成 4s 的缓存命中；缓解而非根治，根治要等不杀编译进程的沙箱
+- 交付：dev-server.sh 四道加固（+16/-2）+ .gitignore 隔离区条目 + worklog 本条；commit + push 待行
