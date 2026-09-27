@@ -257,7 +257,19 @@ try {
     ...localRec,
     jobId: liveJob.id,
     cmd: "t294: a REMOTE record whose job is ALIVE — the door must refuse",
-    remote: { connectionId: REFUSAL_CONN, module: "relion/5.0.1", mode: "direct" },
+    // t410 — fixture speaks the FULL RemoteRunInfo contract: a suite that
+    // dies before its finally-restore leaves the fixture embedded in the
+    // global state file, and an incomplete fixture used to ride the jobs
+    // DTO verbatim and take down the landing page.
+    remote: {
+      connectionId: REFUSAL_CONN,
+      connectionName: "t294-refusal-cluster",
+      host: "t294.mock.cluster",
+      user: "t294",
+      remoteWorkdir: "/projects/cryoflow/t294",
+      module: "relion/5.0.1",
+      mode: "direct",
+    },
   };
   writeStateRuns({ ...stateRuns(), [liveJob.id]: aliveRec });
   const delAlive = await fetch(`${BASE}/api/remote/records/${liveJob.id}`, {
@@ -293,6 +305,10 @@ try {
     exitCode: 0,
     remote: {
       connectionId: FORGET_CONN,
+      connectionName: "t294-forget-cluster",
+      host: "t294.mock.cluster",
+      user: "t294",
+      remoteWorkdir: "/projects/cryoflow/t294-gone",
       module: "relion/5.0.1",
       mode: "direct",
       stagedMs: 1200,

@@ -146,6 +146,19 @@ let jobIdForInjection = null; // C8 — the deleted job the injected record poin
 try {
   // ---- Phase A: demo truth -----------------------------------------------
   console.log("== PHASE A: demo truth ==");
+  // t410 self-heal: a prior run that died before its finally left its
+  // "t272 Cross Canvas" project behind (three such wrecks were found in the
+  // wild — each a suite killed mid-flight, its finally never reached). The
+  // suite sweeps its own name from the ledger BEFORE asserting the demo
+  // truth, so one interrupted run can never poison the next one's world.
+  {
+    const stale = (await (await fetch(`${BASE}/api/projects`, { headers: SH })).json()).projects
+      ?? [];
+    for (const p of stale.filter((p) => p.name === SECOND_NAME)) {
+      const r = await fetch(`${BASE}/api/projects/${p.id}`, { method: "DELETE", headers: SH });
+      console.log(`  (self-heal) removed stale "${SECOND_NAME}" ${p.id} (HTTP ${r.status})`);
+    }
+  }
   const res = await page.goto(BASE, { waitUntil: "domcontentloaded" });
   must(res.status() === 200, `homepage 200 (got ${res.status()})`);
   await sleep(2500);

@@ -8532,6 +8532,17 @@ export function remoteInfoFor(jobId: string): RemoteRunInfo | null {
   const rec = readRuns()[jobId];
   if (!rec?.remote) return null;
   const r = rec.remote;
+  // t410 — an INCOMPLETE remote record is not a remote run. QA fixtures
+  // (t294/t295) hand-craft records to seed the ledger's résumé aggregations,
+  // and a suite that dies before its finally-restore leaves those fixtures
+  // embedded in the global state file — one of them landed on a LIVE healed-
+  // chain job, rode the DTO verbatim, and the card chip's remoteHostLabel
+  // called .replace on undefined: the WHOLE landing page died on one fixture
+  // while every API route stayed 200. The RemoteRunInfo contract's required
+  // four (host/user/connectionName/remoteWorkdir) are the membership test:
+  // a record missing any of them was not written by a real dispatch, so the
+  // DTO declines to speak it at all.
+  if (!r.host || !r.user || !r.connectionName || !r.remoteWorkdir) return null;
   return {
     connectionId: r.connectionId,
     connectionName: r.connectionName,

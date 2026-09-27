@@ -309,8 +309,13 @@ export function useMounted(): boolean {
  *  anyway, so nothing renders one beat early. */
 
 /** Host label for the remote-run chip — strips any scheme/port residue
- *  so "https://login.hpc.org:22" renders as its identity, the hostname. */
-function remoteHostLabel(host: string): string {
+ *  so "https://login.hpc.org:22" renders as its identity, the hostname.
+ *  t410 fuse: an absent host must degrade to an empty label, never a
+ *  TypeError — one fixture record without host used to take down the
+ *  entire canvas (the DTO gate in remoteInfoFor is the real fix; this
+ *  fuse keeps the component honest when data outlaws return). */
+function remoteHostLabel(host: string | undefined): string {
+  if (!host) return "";
   const h = host.replace(/^https?:\/\//, "").split("/")[0].split(":")[0];
   return h || host;
 }

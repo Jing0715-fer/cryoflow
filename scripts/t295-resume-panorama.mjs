@@ -263,7 +263,16 @@ try {
     done: true,
     exitCode: 0,
     remote: {
+      // t410 — fixtures must speak the FULL RemoteRunInfo contract
+      // (host/user/connectionName/remoteWorkdir). A suite that dies before
+      // its finally-restore leaves fixtures embedded in the global state
+      // file, and an incomplete fixture used to ride the jobs DTO verbatim
+      // and take down the landing page (remoteHostLabel on undefined).
       connectionId: PAN_CONN,
+      connectionName: "t295-panorama-cluster",
+      host: "t295.mock.cluster",
+      user: "t295",
+      remoteWorkdir: "/projects/cryoflow/t295",
       module: "relion/5.0.1",
       mode: "direct",
       stagedMs: 1100,

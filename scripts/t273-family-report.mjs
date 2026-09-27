@@ -30,9 +30,14 @@
  *      C2  --batch nosuch: exit 2, names the available batches
  *      C3  --reset: the report file is gone
  *      C4  --summary on an empty report: honest "no family report yet"
- *      C5  --batch t22 for REAL: verdict 0, report entry t22 (pass 2, two
- *          suites, attempts 1, wallMs > 0, ISO lastRun)
- *      C6  --summary now speaks t22 + a TOTAL row
+ *      C5  --batch t31 for REAL: verdict 0, report entry t31 (pass 2, two
+ *          suites, attempts 1, wallMs > 0, ISO lastRun) — t410: the probe's
+ *          specimen batch moved from t22 (whose t223 portrait family awaits
+ *          its own repair) to t31, the stablest green batch with the
+ *          smallest wall (2 suites, ~37s); a self-check must not depend on
+ *          a sick sibling, and its own batch cannot afford a heavy one
+ *          (t27 carries 7 suites against the 580s tool ceiling)
+ *      C6  --summary now speaks t31 + a TOTAL row
  *      C7  --filter qa00: the report carries BOTH keys (merged, not overwritten)
  *      C8  the health guard, witnessed live: a fake 580s wall on a key,
  *          re-run the key, the ⚠ names the ceiling — and the real run's
@@ -169,33 +174,36 @@ must(c4.status === 0, `--summary on an empty report exits 0 (got ${c4.status})`)
 must(c4.stdout.includes("no family report yet"), 'the empty report says "no family report yet"');
 
 // C5 — a REAL batch run: the report lands with the law's own vocabulary
-const c5 = run(["--batch", "t22"]);
-must(c5.status === 0, `--batch t22 exits 0 (got ${c5.status}: ${(c5.stderr ?? "").slice(0, 80)})`);
+//      (t410 — the specimen is t31: the stablest green batch AND the
+//      lightest — a runner self-check must not depend on a sibling's open
+//      wound, and inside its own 7-suite batch it cannot afford a heavy one)
+const c5 = run(["--batch", "t31"]);
+must(c5.status === 0, `--batch t31 exits 0 (got ${c5.status}: ${(c5.stderr ?? "").slice(0, 80)})`);
 must(
-  c5.stdout.includes('batch "t22"'),
-  'the run banner names its batch key ("t22")'
+  c5.stdout.includes('batch "t31"'),
+  'the run banner names its batch key ("t31")'
 );
 const rep5 = JSON.parse(readFileSync(REPORT_FILE, "utf8"));
-const t22 = rep5.batches?.t22 ?? null;
+const t31 = rep5.batches?.t31 ?? null;
 must(
-  !!t22 && t22.pass === 2 && t22.soloRecovery === 0 && t22.realFail === 0,
-  `the report entry t22 speaks the verdict (pass ${t22?.pass}, solo ${t22?.soloRecovery}, fail ${t22?.realFail})`
+  !!t31 && t31.pass === 2 && t31.soloRecovery === 0 && t31.realFail === 0,
+  `the report entry t31 speaks the verdict (pass ${t31?.pass}, solo ${t31?.soloRecovery}, fail ${t31?.realFail})`
 );
 must(
-  Array.isArray(t22?.suites) && t22.suites.length === 2 &&
-    t22.suites.every((s) => s.verdict === "pass" && s.attempts === 1 && s.ms > 0),
-  `the per-suite ledger carries verdict/attempts/ms (${t22?.suites?.map((s) => s.name).join(", ")})`
+  Array.isArray(t31?.suites) && t31.suites.length === 2 &&
+    t31.suites.every((s) => s.verdict === "pass" && s.attempts === 1 && s.ms > 0),
+  `the per-suite ledger carries verdict/attempts/ms (${t31?.suites?.map((s) => s.name).join(", ")})`
 );
 must(
-  typeof t22?.wallMs === "number" && t22.wallMs > 0 && !Number.isNaN(Date.parse(t22?.lastRun ?? "")),
-  `the batch entry timestamps itself (wallMs ${t22?.wallMs}, lastRun ${t22?.lastRun})`
+  typeof t31?.wallMs === "number" && t31.wallMs > 0 && !Number.isNaN(Date.parse(t31?.lastRun ?? "")),
+  `the batch entry timestamps itself (wallMs ${t31?.wallMs}, lastRun ${t31?.lastRun})`
 );
 
 // C6 — the summary speaks the accumulated truth
 const c6 = run(["--summary"]);
 must(
-  c6.status === 0 && c6.stdout.includes("t22") && c6.stdout.includes("TOTAL"),
-  "--summary lists the t22 batch row and a TOTAL row"
+  c6.status === 0 && c6.stdout.includes("t31") && c6.stdout.includes("TOTAL"),
+  "--summary lists the t31 batch row and a TOTAL row"
 );
 
 // C7 — the merge: an adhoc run joins the report, the batch entry survives
@@ -203,11 +211,11 @@ const c7 = run(["--filter", "qa00"]);
 must(c7.status === 0, `--filter qa00 exits 0 (got ${c7.status})`);
 const rep7 = JSON.parse(readFileSync(REPORT_FILE, "utf8"));
 must(
-  Object.keys(rep7.batches).includes("t22") && Object.keys(rep7.batches).includes("adhoc:qa00"),
+  Object.keys(rep7.batches).includes("t31") && Object.keys(rep7.batches).includes("adhoc:qa00"),
   `the report carries BOTH keys after the adhoc run (${Object.keys(rep7.batches).join(", ")})`
 );
 must(
-  rep7.batches.t22.pass === 2 && rep7.batches["adhoc:qa00"].pass === 1,
+  rep7.batches.t31.pass === 2 && rep7.batches["adhoc:qa00"].pass === 1,
   "the batch entry was NOT overwritten by the adhoc entry (merge, not clobber)"
 );
 

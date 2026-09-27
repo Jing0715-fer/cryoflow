@@ -4168,3 +4168,25 @@ Stage Summary (Task 409 完结补记 — 09-28 02:36 窗收尾):
 - 验证：FRESH=1 build ×2 attempt-1 GREEN（74s/75s）；t265 终审 ALL PASS（train→pick 闭环全绿）
 - 收尾补记（09-28 02:36 窗）：commit 消息曾被工具截断为 UUID（07bd0dc）——amend 为 422beff 完整教义消息；同一窗清场 5 个孤儿 standalone 进程（~908MB 释放，free 1600→2439MB）；remote 车道其余套件（t262-264/266/267/269/270/271/t302）的修复已随本 commit 在树
 - 遗留（下窗候选）：①remote 批全量复跑（t26/t26b/t27/t30 验证上窗修复的批级状态）；②t29 批轮跑；③EMPIAR 真数据回归（连续第廿八窗让位）
+
+---
+Task ID: 410 (完 — 2026-09-28 02:36 cron 窗口 trace 1a07549302235a99-cron-agent-loop-202609280236)
+Agent: main (Z.ai Code)
+Task: 接续 Task 409 收尾（未推送+消息损坏）+ 惯例② QA + remote 车道批复跑收口；主交付 = 整页崩溃的四路修复 + 四批全绿
+
+Work Log:
+- [开局实证 + 上窗收尾] 摘要声称树上停在 Task 406——真源律第 N 次应验：worklog 实尾 = Task 409 进行时（上窗做到 t265 ALL PASS 后被截断）。HEAD = 07bd0dc 已含 58 文件修复但 (a) commit 消息被工具截断为 UUID、(b) 未推送（ahead 1）、(c) 树上还有 5 个孤儿 standalone 进程（~908MB 浪费）。收尾三连：amend 消息为完整 keepFiles 教义（07bd0dc→422beff）→ 孤儿全清（free 1600→2439MB）→ 409 条目补 Stage Summary 完结。push 撞上并行窗口的 t402b 功能提交（fb17848，select2d 中间选取）——rebase 两次 worklog 冲突（t402b 条目 vs 409 条目同位插入）以「账本随 git 序」双边保留解之（scripts/fix-rebase-worklog{,2}.py），最终推送 6a9484c。
+- [QA 主交付 — 整页崩溃的四路修复（本窗最大产品 bug）] agent-browser QA 抓到活体：首页「Application error: a client-side exception」。diag-t410-crash.mjs（playwright pageerror 探针）拿到决定性证词：`remoteHostLabel` 在 `JobCardPreview` 对 undefined 调 `.replace` ×5。根因链：t295 套件的 mkRec fixture 手搓 remote 记录只有 7 字段（缺 host/user/connectionName/remoteWorkdir）且覆盖到活 job（治愈链第一节点 Motion Correction 1）的 run 记录上；t295 有 finally 快照恢复但 real-fail/interrupted 时 finally 未必跑到（t408 台账：t295 real-fail ×2、t294 interrupted）——残骸留存在 engine-state.json，remoteInfoFor 原样透传，卡片 chip 崩溃即整页白屏。排除「旧 build 撞新世界」假设（FRESH rebuild 后照崩 = 树上代码与世界数据的交互）。**四路修复**：①remoteInfoFor 完整性守卫——RemoteRunInfo 必填四元（host/user/connectionName/remoteWorkdir）= 成员测试，「不完整的 remote 记录不是 remote run」，缺一即拒入 DTO；②remoteHostLabel 前端保险丝（host 空返回空串不抛）；③t294/t295 fixture 补全契约字段（防复发：中断留下的也是完整记录）；④数据清场——scripts/purge-t410-fixtures.py 剥离 8 条残骸的 remote 块（备份 .bak-t410）。修后 PAGE ERRORS (0)，画布 46 jobs · 37 edges 全渲染（定妆 shots-qa/t410-landing-fixed.png）。FRESH build ×2 均 attempt-1 GREEN（86s/80s）。
+- [remote 车道批复跑 — 四批收口] t26 6/6（t408 时代 2/4）· t26b 4/4（0/4）· t28 8/8（6/2）· t30 5/5（1/4）= **23/23 全绿**——t409 keepFiles 修复的批级验证成立，t408 遗留①（remote/array 车道 9 套真败）主战场收口。t27 批 7 套件 wall 贴 580s 天花板（t273 内测样本太重所致，见主交付 C）。
+- [主交付 B — t272 残骸项目清场 + 自愈] t245 real-fail（「demo world has exactly one project (got 4)」）引出 3 个「t272 Cross Canvas」残骸项目——t272 中断运行（finally 未达）留下的世界污染，每个还带 2 jobs。API 删除三 wreck → 世界回归单 demo 项目 → t245 ALL PASS 恢复。防复发：t272 套件 Phase A 开头加 **self-heal 清尸**（按名扫删自己的遗留项目——「一次中断的运行永远不能毒害下一次的世界」）。
+- [主交付 C — t273 内测样本迁移] t273 的 runner 自检内测批骑 t22（t223 画像家族病灶 → t22 exit 1 → t273 五断言连坐）。迁移 t22→t24 后发现 t24 批 9 套件 wall 135s 让 t273 贴 240s suite timeout（批内首跑被拖垮）——终迁 **t31**（2 套件 37.4s，最稳最轻）：「self-check must not depend on a sick sibling, and its own batch cannot afford a heavy one」。t273 solo ALL PASS。
+- [t29 批半收口] t291/t294/t295/t296 PASS（t294/t295 fixture 修复的批级确认✓）；t293（19 FAIL）/t298/t299 real-fail——remote-borrow 家族旧病，下窗深挖。
+- [验证] tsc 0 ×2；node --check 全部触及套件；t294/t295/t273/t245 solo ALL PASS；t26/t26b/t28/t30 批全绿；PAGE ERRORS (0)；t278 的 5 FAIL 经链路核查确认与 t410 守卫无关（connectionRunResume 的 exists 判定不经过 remoteInfoFor）。
+- [诚实边界] ①「历史/画像家族」病灶集中浮现（下窗首务「历史家族修复窗」）：t223 画像 15 FAIL（sparkline 族的表亲：V/H/M 全家 = spark cell/magnifier/address mark 全空 + T2/Z3 守恒锁绝对数 15 化石）、t272 哨兵 8 FAIL（demo 21 jobs 期望 vs 双世界 41 漂移 + DELETE 路由源码断言需重钉）、t278 variant 5 FAIL（helper 判型 live/mixed/history 对混合记录返回 live）、t293/t298/t299 remote-borrow 家族；②t27 批 7 套件 wall 贴 580s 天花板（批成员拆分候选）；③EMPIAR 真数据回归连续第廿八窗让位（t276 SKIP 同源）；④GitHub PAT 撤销确认第六次提醒（t402b 遗留）。
+
+Stage Summary:
+- **「套件的 fixture 也要守产品契约」**：t295 手搓的 7 字段 remote 记录在套件活着时无害、死了就是毒——finally 是承诺不是保证，凡中断可能留下的都该是完整形状；DTO 的成员测试（必填四元）把「残骸不是数据」变成代码
+- **「QA 冒烟的绿会过期」**：t409 窗口 QA 零错误 ≠ 本窗零错误——世界数据（fixture 残骸）在两次 QA 之间被人写进过；每次开局重测不是仪式而是必须
+- **「自检不能骑在病兄弟身上」**：t273 内测批从 t22（病灶）→t24（太重）→t31（最稳最轻）的三段迁移——测试对环境的依赖就是测试自己的正确性边界
+- **「中断的运行会留下世界污染」**：3 个残骸项目 + 8 条残骸记录都来自 finally 未达的套件——自愈清尸（按名扫删）让套件对自己的历史负责
+- 遗留（下窗候选，按杠杆排序）：①「历史家族修复窗」（t223 画像 15 + t272 哨兵 8 + t278 variant 5 + t293/t298/t299 remote-borrow）；②t27 批成员拆分（7 套件贴天花板）；③EMPIAR（第廿八窗）；④GitHub PAT 撤销确认（第六次提醒）
