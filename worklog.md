@@ -4810,3 +4810,7 @@ Work Log:
 - [活体 QA — QC 板三态 + 诚实标签] CTF Estimation 1 Overview tab：板满铺 24 瓦片，头部「24 micrographs · 8 offenders」——**live 真瑕疵当场捕获**：demo CTF 数据高度量化（4.3/4.4 Å 并列簇），p90 线落在并列值上使 8/24 越线，「worst 10%」措辞对数据撒谎；修法 = 改标签不改算术（并列值全体同色本身 tie-fair 且确定）：头部改「N offenders」中性计数、legend 改线源命名「offenders ≥ 4.4 Å (p90) · watch ≥ 4.4 Å (p75) — lines are this run's own distribution」（许诺分布线、不许诺数量）。FOM 透镜活体：最低 FOM 0.070 排顶（尺度反转在场）；By name 排序：mic_001→004 目录序；legend/计数新措辞重研 build 后活体复验通过。Motion Correction 1：motion 路由 0 微图 → 板与 drift 图双双自隐（诚实空答路径活体验证）。console 全程 0 错。定妆 .qa-logs/t432-{qc-board-fom,qc-board-byname,motion-selfhide}.png。
 - [清场] ledger 与备份 JSON 全等（15 runs、note 原句在位）；浏览器净场；世界 200 运行收敛 build。
 - [最终态] HEAD 含 t432 交付（本 commit 784268a）；世界 200 运行同代码 build（provenance 戳 a076fda，先于本 commit——docs 差一提交，照家族惯例补研段对齐）；jobs 15 全 completed、sessions 0、mock 集群 :3022 在听、浏览器净场。下一窗从 Task 433 起编。遗留（下窗候选）：①GitHub PAT 撤销确认（第二十二次提醒——本窗 push 待验）②motion 板在真数据上的满铺活体（demo 世界 motioncorr 无 corrected_micrographs.star 解析件）③EMPIAR 真数据回归（常驻在位）。
+
+### Task 432 补研段（同窗追加）
+- [provenance 对齐] 收官两提交（784268a + 3df3dfb）后照家族先例补研：杀服务器（/proc 死亡验证）→ FRESH 研磨 attempt 5 绿（rc=137 两记——平台收割线依旧拥挤）→ reboot-recover 十步 WORLD ALIVE → .next/.built-at-commit = 3df3dfb = HEAD = origin/main 三方逐字节一致。新 build 冒烟：landing 0 console 错（B 半闭环与 QC 板三态已在字节同源的前轮 build 上活体全验）。
+- [最终态] HEAD = origin/main = 3df3dfb；世界 200 运行同戳 build；jobs 15 全 completed、sessions 0、mock 集群 :3022 在听、mock LLM 停、浏览器净场。下一窗从 Task 433 起编。GitHub PAT 撤销确认第二十二次提醒（本窗 push 正常）。
