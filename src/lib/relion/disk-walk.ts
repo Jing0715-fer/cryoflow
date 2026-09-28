@@ -54,10 +54,20 @@ export function emptyDirUsage(): DirUsage {
  */
 export function walkDirUsage(
   absDir: string,
-  opts: { maxDepth?: number; maxEntries?: number } = {}
+  opts: {
+    maxDepth?: number;
+    maxEntries?: number;
+    /** t437: a listener for every REGULAR file the walk weighs — the
+     *  storage route feeds its heaviest-per-category collector with it.
+     *  The listener observes, never participates: counting, truncation
+     *  and link honesty are identical with and without it. Symlinks are
+     *  not reported (they carry no bytes — the collector's law). */
+    onFile?: (file: { relPath: string; bytes: number; category: StorageCategoryId }) => void;
+  } = {}
 ): DirUsage {
   const maxDepth = opts.maxDepth ?? 12;
   const maxEntries = opts.maxEntries ?? WALK_MAX_ENTRIES;
+  const onFile = opts.onFile;
   const usage = emptyDirUsage();
   let seen = 0;
 
@@ -99,6 +109,13 @@ export function walkDirUsage(
       usage.files += 1;
       usage.categories[cat].bytes += size;
       usage.categories[cat].files += 1;
+      if (onFile) {
+        onFile({
+          relPath: path.relative(absDir, child),
+          bytes: size,
+          category: cat,
+        });
+      }
     }
   };
 

@@ -21,6 +21,12 @@
  *
  * Row click → that job's inspector (where the per-job Clean button
  * lives — this panel is the map, the inspector is the shovel).
+ *
+ * t437 — the lens gets teeth: the category chips are now doors. Clicking
+ * one drills from the run level to the FILE level (the heaviest files of
+ * that category, the route walks them out), with the same row grammar —
+ * a bar in the category's color, an inspector jump for rows whose run
+ * has a record, amber honesty for the ones that don't.
  */
 
 import * as React from "react";
@@ -32,7 +38,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { HardDrive, Loader2, RefreshCw, RotateCcw } from "lucide-react";
+import {
+  ArrowLeft,
+  HardDrive,
+  Loader2,
+  RefreshCw,
+  RotateCcw,
+} from "lucide-react";
 import { useWorkflowStore } from "@/lib/store";
 import {
   STORAGE_CATEGORIES,
@@ -55,6 +67,18 @@ interface StorageJobRow {
   exists: boolean;
 }
 
+interface StorageFileRow {
+  path: string;
+  bytes: number;
+  category: StorageCategoryId;
+  dirName: string;
+}
+
+interface StorageTopFileRow extends StorageFileRow {
+  jobId: string | null;
+  jobName: string | null;
+}
+
 interface StorageResponse {
   projectId: string;
   projectName: string;
@@ -62,6 +86,7 @@ interface StorageResponse {
   totalFiles: number;
   jobs: StorageJobRow[];
   byCategory: Record<StorageCategoryId, { bytes: number; files: number }>;
+  topFiles: StorageTopFileRow[];
   truncated: boolean;
   hasRuns: boolean;
   generatedAt: string;
@@ -116,6 +141,11 @@ export default function StorageDialog({
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [jobSort, setJobSort] = React.useState<JobSort>("heaviest");
+  /** t437: the file lens — a category chip clicked through to the file
+   *  level. null = the runs table (the map of runs); a category id = that
+   *  category's heaviest files. Survives a Refresh (it is a view, not
+   *  data) but is forgotten when the dialog closes. */
+  const [lens, setLens] = React.useState<StorageCategoryId | null>(null);
 
   const projectId = project?.id ?? null;
 
@@ -148,6 +178,7 @@ export default function StorageDialog({
       // a closed dialog forgets the snapshot — next open walks the disk afresh
       setData(null);
       setError(null);
+      setLens(null);
     }
   }, [open, projectId, load]);
 
@@ -161,6 +192,16 @@ export default function StorageDialog({
         share: totalBytes > 0 ? ((data.byCategory[meta.id]?.bytes ?? 0) / totalBytes) * 100 : 0,
       }))
     : [];
+
+  /* ---- the file lens (t437): the active category's heaviest files ---- */
+  const lensFiles = React.useMemo(
+    () => (data && lens ? data.topFiles.filter((f) => f.category === lens) : []),
+    [data, lens]
+  );
+  const lensMeta = lens ? (catList.find((c) => c.id === lens) ?? null) : null;
+  const lensMaxBytes =
+    lensFiles.length > 0 ? Math.max(...lensFiles.map((f) => f.bytes), 1) : 1;
+  const lensTotalFiles = lens && data ? (data.byCategory[lens]?.files ?? 0) : 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -225,7 +266,10 @@ export default function StorageDialog({
                 </div>
               </div>
 
-              {/* ---- the category lens: one stacked bar + chips ---- */}
+              {/* ---- the category lens: one stacked bar + lens chips ----
+                   t437: a chip is now a door — clicking it drills from the
+                   run level into the file level of that category. The bar
+                   dims every segment the lens is not looking at. */}
               {totalBytes > 0 ? (
                 <div className="mt-4">
                   <div
@@ -238,21 +282,34 @@ export default function StorageDialog({
                         c.share > 0 && (
                           <div
                             key={c.id}
-                            className={CATEGORY_COLORS[c.id]}
+                            className={`${CATEGORY_COLORS[c.id]} transition-opacity duration-300 ${
+                              lens && lens !== c.id ? "opacity-25" : "opacity-100"
+                            }`}
                             style={{ width: `${c.share}%` }}
                             title={`${c.label} — ${fmtBytes(c.bytes)} (${c.share.toFixed(0)}%)`}
                           />
                         )
                     )}
                   </div>
-                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+                  <div className="mt-2 flex flex-wrap gap-x-2 gap-y-1">
                     {catList.map(
                       (c) =>
                         c.bytes > 0 && (
-                          <span
+                          <button
                             key={c.id}
-                            className={`inline-flex items-center gap-1.5 text-xs ${CATEGORY_TEXT[c.id]}`}
-                            title={c.hint}
+                            type="button"
+                            aria-pressed={lens === c.id}
+                            onClick={() => setLens(lens === c.id ? null : c.id)}
+                            className={`inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-xs transition-colors ${
+                              CATEGORY_TEXT[c.id]
+                            } ${
+                              lens === c.id
+                                ? "bg-muted font-semibold ring-1 ring-inset ring-border"
+                                : lens
+                                  ? "opacity-60 hover:opacity-100 hover:bg-muted/40"
+                                  : "hover:bg-muted/40"
+                            }`}
+                            title={`${c.hint} — click to drill into the heaviest ${c.label.toLowerCase()} files`}
                           >
                             <span
                               className={`inline-block size-2 rounded-full ${CATEGORY_COLORS[c.id]}`}
@@ -262,7 +319,7 @@ export default function StorageDialog({
                             <span className="text-muted-foreground">
                               ({c.share.toFixed(0)}%)
                             </span>
-                          </span>
+                          </button>
                         )
                     )}
                   </div>
@@ -275,8 +332,8 @@ export default function StorageDialog({
                 </p>
               )}
 
-              {/* ---- the per-run table ---- */}
-              {jobs.length > 0 && (
+              {/* ---- the per-run table (the lens's home view) ---- */}
+              {!lens && jobs.length > 0 && (
                 <div className="mt-5">
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -375,6 +432,122 @@ export default function StorageDialog({
                       );
                     })}
                   </ul>
+                </div>
+              )}
+
+              {/* ---- the file lens (t437): one category's heaviest files ----
+                   The runs table names the whale RUNS; this names the whale
+                   FILES inside them — the actual bytes a Clean would free.
+                   Same row grammar as the runs table: a bar in the lens's
+                   own color, a jump to the inspector where the shovel
+                   lives, amber honesty for rows with no job record. */}
+              {lens && lensMeta && (
+                <div className="mt-5" aria-label={`${lensMeta.label} file lens`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Files · {lensMeta.label}
+                    </p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 border border-transparent px-2 text-[11px] text-muted-foreground"
+                      onClick={() => setLens(null)}
+                    >
+                      <ArrowLeft className="size-3" aria-hidden="true" />
+                      All runs
+                    </Button>
+                  </div>
+
+                  <div className="mt-2 rounded-lg border border-border/70 bg-muted/20 p-3">
+                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                      <span
+                        className={`inline-block size-2.5 shrink-0 self-center rounded-full ${CATEGORY_COLORS[lens]}`}
+                        aria-hidden="true"
+                      />
+                      <p className="text-sm font-semibold">{lensMeta.label}</p>
+                      <p className="text-sm tabular-nums text-muted-foreground">
+                        {fmtBytes(lensMeta.bytes)} · {lensMeta.share.toFixed(0)}% of the project
+                      </p>
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">{lensMeta.hint}</p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      {lensFiles.length === 0
+                        ? "no files above zero bytes — the lens is empty"
+                        : lensTotalFiles > lensFiles.length
+                          ? `the heaviest ${lensFiles.length} of ${lensTotalFiles.toLocaleString()} file${
+                              lensTotalFiles === 1 ? "" : "s"
+                            } — the whales' whales`
+                          : `all ${lensTotalFiles.toLocaleString()} file${
+                              lensTotalFiles === 1 ? "" : "s"
+                            } in this category`}
+                    </p>
+
+                    {lensFiles.length > 0 ? (
+                      <ul className="mt-2 divide-y divide-border/60">
+                        {lensFiles.map((f) => {
+                          const orphan = f.jobId === null;
+                          return (
+                            <li key={f.path}>
+                              <button
+                                type="button"
+                                disabled={orphan}
+                                onClick={() => {
+                                  if (!f.jobId) return;
+                                  inspect(f.jobId);
+                                  onOpenChange(false);
+                                }}
+                                className={`flex w-full items-center gap-3 rounded-md px-2 py-2 text-left transition-colors ${
+                                  orphan
+                                    ? "cursor-default bg-amber-500/[0.05]"
+                                    : "hover:bg-muted/40"
+                                }`}
+                                title={
+                                  orphan
+                                    ? "No job record points at this file's run directory — nothing to inspect"
+                                    : `Open ${f.jobName}'s inspector (its Clean intermediates button lives there)`
+                                }
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate font-mono text-xs" title={f.path}>
+                                    {f.path}
+                                  </p>
+                                  <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                                    {orphan ? (
+                                      <span className="rounded border border-amber-500/40 bg-amber-500/10 px-1 py-px text-[10px] font-medium text-amber-700 dark:text-amber-300">
+                                        no job record · {f.dirName}
+                                      </span>
+                                    ) : (
+                                      f.jobName
+                                    )}
+                                  </p>
+                                </div>
+                                <div className="w-24 shrink-0 sm:w-32">
+                                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                                    <div
+                                      className={`h-full rounded-full ${CATEGORY_COLORS[lens]}`}
+                                      style={{
+                                        width: `${Math.max((f.bytes / lensMaxBytes) * 100, 2)}%`,
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                                <div className="w-20 shrink-0 text-right sm:w-24">
+                                  <p className="text-sm font-medium tabular-nums">
+                                    {fmtBytes(f.bytes)}
+                                  </p>
+                                </div>
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    ) : (
+                      <p className="mt-2 rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">
+                        Nothing above zero bytes in this category — the disk
+                        moved on since the fetch; Refresh re-walks it.
+                      </p>
+                    )}
+                  </div>
                 </div>
               )}
 

@@ -96,3 +96,71 @@ export function fmtBytes(n: number): string {
   if (n < 1024 * 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`;
   return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
+
+/* ------------------------------------------------------------------ */
+/* The file lens — t437: heaviest files per category                    */
+/* ------------------------------------------------------------------ */
+
+/** One walked file, as the storage panel's lens presents it. `path` is
+ *  relative to the PROJECT directory (the first segment is the run
+ *  directory's name) so the panel can show it without knowing where the
+ *  project lives on disk. */
+export interface StorageFileRow {
+  path: string;
+  bytes: number;
+  category: StorageCategoryId;
+  /** the top-level directory under data/relion/<projectId>/ this file
+   *  lives in — the route joins the job record onto it */
+  dirName: string;
+}
+
+/** How many file rows the lens shows per category. The runs table answers
+ *  "which RUN is the whale"; the lens answers "which FILE is" — eight is
+ *  enough to name the whales' whales without shipping the whole walk. */
+export const TOP_FILES_PER_CATEGORY = 8;
+
+/**
+ * Keeps the heaviest K files per category while the walk streams by.
+ *
+ * Why a bounded collector at all: a project walk can meet tens of
+ * thousands of files, and the lens needs only a handful per category —
+ * holding every row just to sort it once would spend memory on rows
+ * nobody asked for. The trim is PERIODIC (bucket > 3K → sort + slice),
+ * which is amortized O(1) per add and always correct: a trim keeps the
+ * then-top K, and any later file big enough to belong still beats the
+ * kept floor, so the final snapshot is the true top K.
+ *
+ * World contract: pure strings and numbers — CLIENT-SAFE, same law as
+ * the rest of this module. The walk (disk-walk.ts) feeds it; the route
+ * joins the job metadata.
+ */
+export class TopFilesCollector {
+  private buckets = new Map<StorageCategoryId, StorageFileRow[]>();
+
+  constructor(private readonly k: number = TOP_FILES_PER_CATEGORY) {}
+
+  add(file: StorageFileRow): void {
+    if (file.bytes <= 0) return; // a 0-byte entry (a counted link, an empty file) is never a whale
+    let bucket = this.buckets.get(file.category);
+    if (!bucket) {
+      bucket = [];
+      this.buckets.set(file.category, bucket);
+    }
+    bucket.push(file);
+    if (bucket.length > this.k * 3) {
+      bucket.sort((a, b) => b.bytes - a.bytes);
+      bucket.length = this.k;
+    }
+  }
+
+  /** flat list, heaviest first — K per category that ever saw a file */
+  snapshot(): StorageFileRow[] {
+    const rows: StorageFileRow[] = [];
+    for (const bucket of this.buckets.values()) {
+      bucket.sort((a, b) => b.bytes - a.bytes);
+      rows.push(...bucket.slice(0, this.k));
+    }
+    rows.sort((a, b) => b.bytes - a.bytes);
+    return rows;
+  }
+}

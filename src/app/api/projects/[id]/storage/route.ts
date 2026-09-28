@@ -7,7 +7,9 @@ import { isLocalRequest } from "@/lib/http-guard";
 import { RELION_DIR } from "@/lib/paths";
 import {
   STORAGE_CATEGORIES,
+  TopFilesCollector,
   type StorageCategoryId,
+  type StorageFileRow,
 } from "@/lib/relion/disk-usage";
 import {
   WALK_MAX_ENTRIES,
@@ -44,10 +46,19 @@ export interface StorageResponse {
   totalFiles: number;
   jobs: StorageJobRow[];
   byCategory: Record<StorageCategoryId, { bytes: number; files: number }>;
+  /** t437: the heaviest files per category (TOP_FILES_PER_CATEGORY each) —
+   *  the lens drill-down's data. Job metadata joined where the file's run
+   *  directory has a record; orphans carry nulls and stay un-jumpable. */
+  topFiles: StorageTopFileRow[];
   truncated: boolean;
   /** physical directory present at all (false = this project never ran) */
   hasRuns: boolean;
   generatedAt: string;
+}
+
+export interface StorageTopFileRow extends StorageFileRow {
+  jobId: string | null;
+  jobName: string | null;
 }
 
 /**
@@ -115,6 +126,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
 
     const rows: StorageJobRow[] = [];
+    const collector = new TopFilesCollector();
     const byCategory: Record<StorageCategoryId, { bytes: number; files: number }> = {
       maps: { bytes: 0, files: 0 },
       stacks: { bytes: 0, files: 0 },
@@ -150,8 +162,20 @@ export async function GET(request: NextRequest, context: RouteContext) {
       }
     };
 
+    // a metadata lookup that survives the loop below (byDirName is
+    // consumed by it) — the file lens joins against this snapshot
+    const metaByDir = new Map(byDirName);
+
     for (const dirName of dirNames) {
-      const usage = walkDirUsage(path.join(projectDir, dirName));
+      const usage = walkDirUsage(path.join(projectDir, dirName), {
+        onFile: (f) =>
+          collector.add({
+            path: `${dirName}/${f.relPath}`,
+            bytes: f.bytes,
+            category: f.category,
+            dirName,
+          }),
+      });
       pushRow(dirName, usage, byDirName.get(dirName) ?? null);
       byDirName.delete(dirName);
     }
@@ -163,6 +187,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     rows.sort((a, b) => b.bytes - a.bytes || a.dirName.localeCompare(b.dirName));
 
+    const topFiles: StorageTopFileRow[] = collector.snapshot().map((f) => {
+      const meta = metaByDir.get(f.dirName) ?? null;
+      return { ...f, jobId: meta?.jobId ?? null, jobName: meta?.name ?? null };
+    });
+
     const body: StorageResponse = {
       projectId: id,
       projectName: project.name,
@@ -170,6 +199,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       totalFiles,
       jobs: rows,
       byCategory,
+      topFiles,
       truncated: truncated || dirNames.length > WALK_MAX_ENTRIES,
       hasRuns,
       generatedAt: new Date().toISOString(),
