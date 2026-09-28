@@ -4977,3 +4977,28 @@ Stage Summary:
 - **「方向是透镜自己的」**：同一个 b−a，FOM 透镜下是改善、Å 透镜下是退步——判决层不携带方向常识，透镜带着；「越大越好」是只有 FOM 才配说的话
 - **「裸 POST 也会被项目身份审判」**：REMOTE 项目的孪生 job 裸跑落进 local 车道得到诚实的「RELION not detected」——t317 的车道分离律连手术都照章办事；mock 集群 id 必须显式点名
 - 产出：CTF A/B 全链（纯脑 ctf-compare.ts + 身份散点对话 + inspector scatter 门 + lazy 分包）+ t439 bench 28/0 + 十套回归全绿 + 孪生手术全链活体验证（含级联清场与门守卫消失）+ 三方一致真对齐；下窗候选：运动指标 A/B 第二域 / exclude 清单门 / 存储板第三窗
+
+---
+Task ID: 440 (cron agent loop 202609290416)
+Agent: Super Z
+Task: 判断项目状态 → agent-browser QA → 自主选工作重点（修 bug / 新需求）→ 七惯例收尾
+
+Work Log:
+- [开局] 实尾 = Task 439 完整收官（HEAD = 30546d2 = origin/main，树净；stamp = 3c62d2f，docs 时差）。世界健康：app 200、无撕裂（proc 20:09:56Z 晚于 build 20:09:22Z）、15/15 全 completed、mock 集群 :3022 在听。第三十一份过时 Task 13 指引照例不认。自号 440。
+- [QA — 全绿基线] landing hydration 满血、console 0 错 0 警、标题基线。世界稳定 → 转新需求。
+- [选题定谳 — Motion A/B（第二域）+ 比较核心通用化] motion 路由形状完美（逐微图 name/total/early/late px）——「改了 MotionCorr 参数运动到底少了吗」与 CTF A/B 同构。架构律：**一张脸、一个脑**——第二域若手抄一份 join/verdict 机器就是架构谎言。
+- [交付 — 通用化] ①lib/paired-compare.ts（新，域无关核心）：LensSpec<R> 泛型透镜 + joinByName（配对或沉默律搬家）+ pairedDeltas/verdict/median/topMovers/fmtDelta/scatterDomain——只认识名字、数字、方向、判决，永不认识微图物理。②lib/ctf-compare.ts 瘦身：只剩 CTF 真有的东西（CtfRunRow/CTF_LENSES/defocusAgreement），方向律注记重述一遍。③lib/motion-compare.ts（新）：MotionRunRow + MOTION_LENSES 三透镜（Total/Early/Late，一律 ↓ better；late 的存在理由 = 「B 赢了 headline 却悄悄输掉 late 半场——picker 继承的正是 late」）。④results/run-compare-dialog.tsx（新，替代 ctf-compare-dialog）：CompareDomainSpec<R> 域配置化（label/typeGate/fetchRows/lenses/trustLine），一张脸两域；CtfCompareEntry/MotionCompareEntry 双门同名导出（inspector 导入稳定过泛化）；motion 域无 trustLine（同 pipeline 逐微图计数，unpaired chips 已是配对健康）。⑤barrel + inspector 接线 Motion 门。
+- [真 bug 活捉 — 运动面板自上线即死] 孪生手术前置验数据：**motion 路由对原件也返 0 行**。取证：盘上 corrected_micrographs.star 列名是 `_rlnAccumMotion*`（RELION 3/4/5 真名），而路由解析器 freeze() 找的是 `_rlnAccumulatedMotion*`（文档变体）——拼写错位 → freeze 返 null → 全表静默丢弃 → **全 app 所有 MotionCorr job 的运动面板/图从上线起 0 行**（自隐面板无人察觉——t433 regex 捕获组教训的拼写版）。修 = 解析器双拼写兼容（真名优先 + 变体兜底）+ motion-drift-chart 文档注释改正。live：修复 build 上路由 0 → **24 行**，Overview 漂移图满铺（worst-first/mean line/early-late 堆叠/mic 行/25 svg）。**孪生手术的第二重收获：不造孪生就不会去看数据，不看数据就发现不了死面板**。
+- [QA 工艺注记] agent-browser 程序化 element.click() 不切 Radix Tabs（aria-selected 翻了但面板没换）——用 agent-browser 真点击 ref 才是真切换；此前「Results 空、Overview 无图」的连环误读皆源于此。验死活要看真事件，不看属性回显。
+- [自捕自修 — bench 自话断言] t440 bench M2b 首版写了自相矛盾的探针断言（3.0→1.6 在低更好律下当然是 improved）——首跑 FAIL，核心对、断言错（t437/t439 先例三连）。修正后 17/0。
+- [验证 — 十一套全绿] t440 bench 17/0（M1 透镜 5、M2 分歧叙事 4、M3 核心服务运动行 4、M4 CTF 不被泛化扰动 4）；t439 bench 迁移导入后 28/0（joinByName 改名）；回归 t419 111/0 + t420 52/0 + t427 12/0 + t431 20/0 + t432 39/0 + t433 47/0 + t436 45/0 + t437 20/0 + t438 40/0。tsc 0 + eslint 0（八触碰文件）。
+- [研磨] FRESH 137×3（3162MB 不够）→ 杀服务器（3433MB）→ attempt 1 GREEN（provenance bd51255）→ 修 bug 后再 FRESH attempt 1 GREEN（e626cb9）→ 两轮十步体检皆 WORLD ALIVE + hydration probe green。最终 .built-at-commit = e626cb9 = HEAD = origin/main 三方一致。
+- [活体 QA — 双域满铺] ①motioncorr inspector：**双 A/B 门守卫正确**（Motion 门在场、CTF 门因 host 类型不匹配缺席）②Motion A/B 对话满铺：A=原件/B=孪生自动首选、三透镜全 ↓ better、**判决 0 improved · 0 regressed · 24 unchanged · median Δ 0.00 px · of 24 paired**（tie 律第二域应验）③漂移图复活定妆 t440-motion-chart-revived.png ④ctffind inspector：双门诚实消失（无 CTF sibling）⑤清场：DELETE 孪生（15/15 复原、edges 0）。
+- [诚实边界 + 自纠一记] ①DELETE 路由**有意保留** workdir 供 undo 恢复（route 注释明示）——t439 收官所称「workdir 0 残留」检查用错了路径模式（目录名是 type_id 不含 "twin"，grep 恒 0）实为假绿；本窗核实 CTF 孪生目录同样在盘后**双枚手术残留手工清净**（rm ctffind_xlb1bran + motioncorr_k1t20up7，16 目录复原）。t439 的「零残留」以本窗的干净为最终态。②程序化 click 不切 Radix Tabs 的假象浪费了三轮取证——工具的 click 语义要读文档也要验现场。③改进/regressed 双色散点在真非平凡世界的活体仍未演（demo 两轮孪生皆 tie 世界），方向律由 bench 钉死。
+- [最终态] HEAD = origin/main = 本窗 docs commit（feature e626cb9 已推）；stamp = e626cb9 三方一致；世界 200 运行同戳 build；jobs 15 全 completed、sessions 0、mock 集群 :3022 在听、QA 浏览器净场、双枚手术残留清净（16 目录 = 原世界）。下一窗从 Task 441 起编。遗留（下窗候选）：①GitHub PAT 撤销确认（第二十九次提醒——本窗 push 正常）②EMPIAR 真数据回归（常驻在位）③存储板第三窗（Clean 快捷入口/按 run 聚合）第四窗排队④A/B 面第三域候选：Class2D 占据率对比（class-distribution 双 run 叠加）⑤「把输家微图喂给 exclude 清单」门仍未做。
+
+Stage Summary:
+- **「一张脸，一个脑，两副镜片」**：第二域的正确打开方式不是第二份拷贝，是把域差异压进一个 spec（fetch/透镜/信任线），让 join/verdict/movers 的定律只存在一处；拷贝是架构的谎言，泛化是它的赎罪
+- **「拼写错位是最安静的死」**：解析器找 AccumulatedMotion、文件写 AccumMotion——无报错无日志，只是 0 行；自隐面板把死相藏了整个上线期。列名解析要打双拼写，正如列号解析要钉捕获组（t433 的姊妹篇）
+- **「假绿也会遗传」**：上窗的「0 残留」检查模式写错，本窗差点照单全收——交接文档的每个断言都是下一个窗的事实来源，验证路径本身要被验证
+- 产出：Motion A/B 第二域全链（通用核心 + 域瘦身 + 一张脸两域）+ **运动死面板复活**（双拼写修复，0→24 行）+ t440 bench 17/0 + 十一套回归 431 断言全绿 + 双域活体验证 + 双枚残留清净 + 三方一致真对齐
