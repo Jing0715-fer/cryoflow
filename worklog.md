@@ -4686,3 +4686,7 @@ Work Log:
 - [清场] QA 会话经 DELETE 门回收（sessions 0 双证；两击确认在自动化里打滑两次——armed 态对 hover 敏感，API 门顶替）+ AI 面板关闭 + 浏览器净场 + mic_024 恢复 cmp 验证。设置对话框顺带目击「Custom: Unable to connect」诚实报错（mock LLM 未跑，t428 收官后照例停机——非 bug）。
 - [诚实边界] ①UI 下载的 blob 本体未落盘取证（toast 消散快 + agent-browser 对 JS blob 下载捕获不定）——导出件以 live curl 逐字节验证顶替，UI 路径与 md 导出同代码 ②job-panel 的自探章只在 mount 时发生（与 inspector 互斥表面，重开即新探）③mock LLM judge 车道本窗未涉。
 - [最终态] HEAD 含 t429 交付（本 commit）；世界 200 运行 82f5a4e build（provenance 同瞬）；sessions 0、AI settings pristine（activeProvider custom / hasKey false，本窗未触碰）、mock 集群 :3022 在听、mock LLM 停。下一窗从 Task 430 起编。遗留（下窗候选）：①失败 chip 的 mock 演证（t426 遗留，第二窗顺延）②GitHub PAT 撤销确认（第十九次提醒——本窗 fetch+push 正常）③EMPIAR 真数据回归（empiar 批常驻在位）。
+
+### Task 429 补研段（同窗追加）
+- [provenance 对齐] 收官提交（7cc42b6）后照 t428 先例补研：杀服务器（/proc 死亡验证）→ FRESH 研磨 4 attempts 绿（rc=137 OOM 两连击，QA 浏览器净场后 attempt 4 走到绿）→ reboot-recover 十步 WORLD ALIVE → .next/.built-at-commit = 7cc42b6 = HEAD = origin/main 三方逐字节一致。新 build 冒烟：landing 0 console 错（stay-note 属 inspector 内元素，三态活体 QA 已在字节同源的前轮 build 上全过——代码树零增量，仅 docs 时间差）。
+- [最终态] HEAD = origin/main = 7cc42b6c；世界 200 运行同戳 build；sessions 0、AI settings pristine、mock 集群 :3022 在听、mock LLM 停、浏览器净场。下一窗从 Task 430 起编。GitHub PAT 撤销确认第十九次提醒（本窗两次 push 均正常）。
