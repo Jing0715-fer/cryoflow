@@ -4622,3 +4622,11 @@ Work Log:
 - [验证 — 活体 bench 12/12] scripts/t427-autopick-picks-bench.ts 进程内直驱真路由（只读：真 demo DB + 真文件系统，零世界变异）：autopick 分支 24 mic / 408 picks / 全 FOM / dims 512×512（上游 header 读出）/ owner 全部解析到 import / owner 图像 24/24 在盘 / 诚实空响应 / 跨站 403。tsc 0；触碰文件 eslint 0。
 - [诚实边界] ①FOM 界面的浏览器级验证待世界收敛（运行 build 尚无本窗代码；研磨排队在本条目之后）②mic 图像候选拼写只认 micrographs/<mic>.mrc 与 <mic>.mrc 两种布局（本 pipeline 的实际写法；其他 RELION 布局答 no owner——图块仍在，照片门诚实关闭）③manualpick 路径的回归仅 bench-C 级（demo 无 manualpick 任务可活体回归）。
 - 遗留（下窗候选）：①FOM 地图收敛后浏览器活体 QA（本窗收官段若有余力先做）②GitHub PAT 撤销确认（第十七次提醒）。
+
+### Task 427 收官段（同窗追加）
+- [第七次并行碰撞] push 两连拒：①推 t427 前本地树上有 426 车道的幸存者自述提交（018bc8d，其 QA 收官恰与我的提交同分钟落树）——先提交自己的（3c01c23）再 rebase 双保留其条目；②push 撞上第三条车道 9ed1b0e（另一条过时上下文的自号 t423：edge-geom 最小距离连线修复 + 面板一致性轮——历史里第三个 t423 头部）。worklog 冲突双保留合并后 e7e7329 推平 origin。
+- [世界收敛 + FOM 地图活体 QA] 杀服务器（/proc 死亡验证）→ FRESH 研磨 attempt 2 绿（3251MB 余量，provenance = e7e7329 与 HEAD 同瞬）→ reboot-recover WORLD ALIVE（demo chain 步 6 自证 + world-reborn 戳重录）。浏览器：Auto-pick inspector Overview tab——「Pick QA — autopick FOM map」在场，24/24 照片载入，FOM 阈值滑杆（Radix，步长全距/200）408→320→232 实时挥刀，amber 低分蒸发、teal 高分正落颗粒头上，图例 0.320–0.520，lightbox「9 / 17 picks ≥ 0.394」+ 全尺寸彩色 overlay，console 全程 0 错。定妆三图 shots-qa/t427-{fom-map,fom-scrubbed,fom-lightbox}.png。
+- [世界修复 — 旧引擎形状 vs 现代法] FOM 地图首演照出 demo 世界的旧伤：import 任务工作目录的 micrographs 链接是**旧引擎形状**（直连 fixture 源目录 /home/z/empiar-10017/micrographs），且项目级 micrographs 是**悬空符号链接 → t271-mics（已灭失）**——realpath 出数据树，file 路由的容纳律（t3xx 统一政策：realpath 必须留在 data 树内）正确拒绝 → PNG 400「Path escapes」。这不止杀了 FOM 地图的照片门——**import gallery 的缩略图在同一律下早已静默死亡**（占位符形态，无人目击）。修世界不修法：项目级 micrographs 重建为真目录 + 24 枚 fixture 硬链接（同盘零拷贝），工作目录链接改指项目级（linkDirInto 的现代形状）→ PNG 200 两处 gallery 同时复活。现代 seeder 重播的沙箱天然长在现代形状上，无需剧本化。
+- [调试教训] agent-browser 双页伪影第二次咬人（eval 打到 about:blank 页、snapshot 打到真页——426 车道的记录在案，结论一律以截图为证）；「地图不渲染」的第一现场在 Overview tab 而非 Results tab（PicksMap 挂在 job-inspector 的 OverviewTab——读代码先看挂点属主再看条件）。
+- [诚实边界] ①FomOverlay 的键盘 scrub 用 ArrowRight 步进验证（鼠标拖拽未演——Radix slider 同一值通道）②「失败 chip/Stop 键」等他人车道遗留未动③bench 的 D 组跨站用例在进程内直驱（真 HTTP 层 403 已由 curl 验证）④FOM 图无单测——12 断言 bench 走真世界，比 fixture 更诚实，但缺了「无 FOM 列的 autopick star」分支（代码路径审查覆盖，label 缺列答 null 的逻辑与 t380 解析器同构）。
+- [最终态] HEAD = e7e7329+收官段 已推 origin/main；世界 200 运行 t427 build（provenance 同瞬）；下一窗从 Task 428 起编。GitHub PAT 撤销确认第十七次提醒。
