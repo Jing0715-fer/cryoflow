@@ -4493,3 +4493,10 @@ Stage Summary:
 - **「脚本要能替换自己」**：树复活会连带换掉剧本自身——hash 前后对比 + re-exec 让「旧我启动、新我接管」成为单命令内的自动握手；跨 exec 的状态走 env（旗标、起因），进程内变量死了要有人接棒
 - **「套件的断言要么跟世界走，要么明确说跟哪段历史走」**：t272 的单行 import、t278/t279 的 fossil 名字——都是把「某个世界的拼法」焊死成了断言；t407 的律（type 是承诺、名字是拼法）和 whitespace-tolerant 断言是同一教义两面：断言语义，容忍拼写
 - 遗留（下窗候选）：①EMPIAR 真数据回归第卅四窗（再次让位，六窗未偿）②reboot-recover 的 build 42 路径在下一个自然灾变窗口顺带取证 ③下次自然灾变实战检验 step 0（tar 世界 + fetch 可用 = 完整复活路径首演）④样式/功能面：AI 助手面板的深化（会话历史管理、工具卡筛选）⑤GitHub PAT 撤销确认
+
+### Task 422 收官段（同窗追加）
+- [第三次并行碰撞] 推送再拒：并行车道 bff5c2d（综合审查窗：EMPIAR 批注册 + 六处 lint/真雷修复 + t197 世界合同修复 + watchdog 堆 1280→1792 修正）抢先入 origin，且其 worklog 条目自号「Task 416」——上下文过时所致的**第二个 t416 头部**（真实序位在 421 与 422 之间，已在合并时于其头部加注）。rebase 解 worklog 冲突（双证词保留，对方在前），两窗交付共存（对方修 src 六处 + 家族注册 empiar 批，我方交付 ops 剧本审计 + 套件修复）。四窗四碰撞。
+- [世界收敛] 对方车道的 src 修复比运行中 build 新 → 杀服务器（浮动线教义，/proc 死亡验证）→ FRESH 研磨 **107 秒一次过绿**——**build provenance 戳首次真实服役**（`.next/.built-at-commit = 6305f56`，与 HEAD 同瞬）→ reboot-recover 拉起：step 4 首次读出「provenance fresh (6305f56c3)」（此前一直是 legacy unstamped）、4.5 步如设计清除影子残骸 + 修 symlink、3 秒 200、WORLD ALIVE。对方车道在其窗内环境性不可达的 standalone 车道，在本窗余量（研磨时 available 3.26GB）下一次过线——环境底座浮动教义的又一活体注脚。
+- [world-reborn 戳的事实性更替] 收敛重启触发了新的真实重生（07:57 prod-started）——07:01 的回溯戳被事实性戳取代，t27 批的 ⟳ 标记随之上位退役（07:48 < 07:57：它的证据确实来自上一个重生世界）。单槽戳只记最新重生，历史重生由 worklog 与 git log 代言——诚实优先于标记存续。
+- [终态 QA] 画布 15/15 · 96 particles（收敛 build 上复验）、AI assistant 按钮在场、console 0 消息 0 页面错误、浏览器净场、app 200、家族 summary 在合并树上完好（t41 + t27 双批 pass 10 real-fail 0）。
+- [最终态] HEAD = 6305f56 已推 origin/main；下一窗从 Task 423 起编。
