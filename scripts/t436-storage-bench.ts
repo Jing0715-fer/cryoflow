@@ -33,8 +33,8 @@ import {
   STORAGE_CATEGORIES,
   classifyStorageFile,
   fmtBytes,
-  walkDirUsage,
 } from "../src/lib/relion/disk-usage";
+import { walkDirUsage } from "../src/lib/relion/disk-walk";
 
 let pass = 0;
 let fail = 0;

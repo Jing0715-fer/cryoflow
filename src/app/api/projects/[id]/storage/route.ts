@@ -7,12 +7,14 @@ import { isLocalRequest } from "@/lib/http-guard";
 import { RELION_DIR } from "@/lib/paths";
 import {
   STORAGE_CATEGORIES,
+  type StorageCategoryId,
+} from "@/lib/relion/disk-usage";
+import {
   WALK_MAX_ENTRIES,
   emptyDirUsage,
   walkDirUsage,
   type DirUsage,
-  type StorageCategoryId,
-} from "@/lib/relion/disk-usage";
+} from "@/lib/relion/disk-walk";
 
 export const dynamic = "force-dynamic";
 
