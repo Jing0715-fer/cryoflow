@@ -140,6 +140,51 @@ export const AI_TOOLS: ToolSchema[] = [
     },
   },
   {
+    name: "build_pipeline",
+    description:
+      "Create a whole CHAIN of jobs in ONE call: steps are created in order and wired head-to-tail (ports auto-picked, cycle-safe). Prefer this over repeated create_job when the user asks for a multi-job flow ('搭一个完整流程'). All types are validated BEFORE anything is created; a refused wire (no compatible port pair) is reported per step and the chain keeps building.",
+    parameters: {
+      type: "object",
+      properties: {
+        steps: {
+          type: "array",
+          maxItems: 12,
+          description: "Ordered chain steps, e.g. [motioncorr, ctffind, autopick, extract, class2d]",
+          items: {
+            type: "object",
+            properties: {
+              type: { type: "string", description: "Job type key (from list_job_types)" },
+              name: { type: "string", description: "Optional custom name (≤120 chars)" },
+              params: {
+                type: "object",
+                additionalProperties: true,
+                description: "Param overrides keyed by the type's schema (get_job_params)",
+              },
+            },
+            required: ["type"],
+          },
+        },
+        connect_from: { type: "string", description: "Optional upstream job id to wire the FIRST step from" },
+      },
+      required: ["steps"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "wait_for_jobs",
+    description:
+      "Wait for jobs to SETTLE (leave running/pending) up to a timeout, then report each job's status, progress and result line. Call after run_job to catch quick completions and immediate failures within the same conversation turn. Jobs still running at the timeout are reported honestly with progress — never claim a job finished while it runs; check later with inspect_job.",
+    parameters: {
+      type: "object",
+      properties: {
+        job_ids: { type: "array", items: { type: "string" }, maxItems: 10 },
+        timeout_sec: { type: "number", description: "Max seconds to wait (default 45, max 180)" },
+      },
+      required: ["job_ids"],
+      additionalProperties: false,
+    },
+  },
+  {
     name: "delete_job",
     description:
       "Remove a job (and its wires) from the canvas. REFUSES completed or running jobs unless confirm:true — ask the user first, then confirm.",
@@ -469,6 +514,10 @@ export async function executeAiTool(
         return await getWorkflowState(ctx);
       case "create_job":
         return await createJob(ctx, args);
+      case "build_pipeline":
+        return await buildPipeline(ctx, args);
+      case "wait_for_jobs":
+        return await waitForJobs(ctx, args);
       case "update_job":
         return await updateJob(ctx, args);
       case "connect_jobs":
@@ -587,19 +636,51 @@ async function getWorkflowState(ctx: AgentCtx): Promise<AiToolResult> {
 
 /* ---- create_job ----------------------------------------------------- */
 
-async function createJob(ctx: AgentCtx, args: Record<string, unknown>): Promise<AiToolResult> {
-  const type = String(args.type ?? "");
-  const spec = jobType(type);
-  if (!spec) return { ok: false, summary: `Unknown job type: ${type} — call list_job_types for the catalog` };
+/** What one job creation produced — shared by create_job and build_pipeline. */
+interface CreateOneOutcome {
+  ok: boolean;
+  summary: string;
+  jobId: string | null;
+  jobName: string | null;
+  /** True when a connect_from was requested AND the wire landed. */
+  wired: boolean;
+  dropped: string[];
+  /** The created row (null when refused) — create_job DTOs it. */
+  job: PrismaJob | null;
+}
 
-  const { filtered, dropped } = filterParamsForSpec(type, args.params);
+async function createOneJob(
+  ctx: AgentCtx,
+  opts: {
+    type: string;
+    name?: string;
+    params?: unknown;
+    connectFromId?: string | null;
+    x?: number;
+    y?: number;
+  }
+): Promise<CreateOneOutcome> {
+  const fail = (summary: string): CreateOneOutcome => ({
+    ok: false,
+    summary,
+    jobId: null,
+    jobName: null,
+    wired: false,
+    dropped: [],
+    job: null,
+  });
+  const spec = jobType(opts.type);
+  if (!spec) return fail(`Unknown job type: ${opts.type} — call list_job_types for the catalog`);
+
+  const { filtered, dropped } = filterParamsForSpec(opts.type, opts.params);
 
   let connectFrom: PrismaJob = null;
-  const connectFromId = typeof args.connect_from === "string" ? args.connect_from : null;
-  if (connectFromId) {
-    connectFrom = await findJobInProject(connectFromId, ctx.projectId);
+  if (opts.connectFromId) {
+    connectFrom = await findJobInProject(opts.connectFromId, ctx.projectId);
     if (!connectFrom) {
-      return { ok: false, summary: `connect_from job not found in this project: ${connectFromId} — call get_workflow_state for the real ids` };
+      return fail(
+        `connect_from job not found in this project: ${opts.connectFromId} — call get_workflow_state for the real ids`
+      );
     }
   }
 
@@ -618,15 +699,15 @@ async function createJob(ctx: AgentCtx, args: Record<string, unknown>): Promise<
     select: { x: true, y: true },
   });
   const auto = nextPositionFor(connectFrom ? { x: connectFrom.x, y: connectFrom.y } : null, content);
-  const x = typeof args.x === "number" && Number.isFinite(args.x) ? args.x : auto.x;
-  const y = typeof args.y === "number" && Number.isFinite(args.y) ? args.y : auto.y;
+  const x = typeof opts.x === "number" && Number.isFinite(opts.x) ? opts.x : auto.x;
+  const y = typeof opts.y === "number" && Number.isFinite(opts.y) ? opts.y : auto.y;
 
-  const count = await db.job.count({ where: { projectId: ctx.projectId, type } });
+  const count = await db.job.count({ where: { projectId: ctx.projectId, type: opts.type } });
   const customName =
-    typeof args.name === "string" && args.name.trim() ? args.name.trim().slice(0, 120) : null;
+    typeof opts.name === "string" && opts.name.trim() ? opts.name.trim().slice(0, 120) : null;
 
   const storedParams: Record<string, unknown> = {
-    ...defaultParams(type),
+    ...defaultParams(opts.type),
     ...filtered,
   };
 
@@ -634,7 +715,7 @@ async function createJob(ctx: AgentCtx, args: Record<string, unknown>): Promise<
     data: {
       projectId: ctx.projectId,
       workspaceId,
-      type,
+      type: opts.type,
       name: customName ?? `${spec.label} ${count + 1}`,
       x,
       y,
@@ -643,34 +724,235 @@ async function createJob(ctx: AgentCtx, args: Record<string, unknown>): Promise<
     },
   });
 
-  // the wire — same validations the edges route enforces
-  let edgeSummary = "";
+  // the wire — same validations the edges route enforces. A refused wire
+  // does NOT fail the creation: the job stands, the report says why.
+  let wired = false;
+  let wireNote = "";
   if (connectFrom) {
-    const ports = defaultPorts(connectFrom.type, type);
-    if (!portsValid(connectFrom.type, ports.fromPort, type, ports.toPort)) {
-      return {
-        ok: true,
-        summary: `Created ${job.name} (${type}) but the wire ${connectFrom.name} → ${job.name} was refused: no compatible port pair — wire it manually via connect_jobs`,
-        detail: { jobId: job.id, type, wired: false },
-      };
-    }
-    const duplicate = await db.edge.findUnique({
-      where: { fromJobId_toJobId: { fromJobId: connectFrom.id, toJobId: job.id } },
-    });
-    if (!duplicate) {
-      await db.edge.create({
-        data: { projectId: ctx.projectId, fromJobId: connectFrom.id, toJobId: job.id },
+    const ports = defaultPorts(connectFrom.type, opts.type);
+    if (!portsValid(connectFrom.type, ports.fromPort, opts.type, ports.toPort)) {
+      wireNote = ` — the wire ${connectFrom.name} → ${job.name} was refused (no compatible port pair; wire it manually via connect_jobs)`;
+    } else {
+      const duplicate = await db.edge.findUnique({
+        where: { fromJobId_toJobId: { fromJobId: connectFrom.id, toJobId: job.id } },
       });
-      edgeSummary = `, wired from ${connectFrom.name} (${ports.fromPort} → ${ports.toPort})`;
+      if (!duplicate) {
+        await db.edge.create({
+          data: { projectId: ctx.projectId, fromJobId: connectFrom.id, toJobId: job.id },
+        });
+        wired = true;
+        wireNote = `, wired from ${connectFrom.name} (${ports.fromPort} → ${ports.toPort})`;
+      }
     }
   }
 
-  const dto = toJobDTO(job);
-  dto.engine = "relion";
   return {
     ok: true,
-    summary: `Created ${job.name} [${job.id}]${edgeSummary}${dropped.length > 0 ? ` (dropped unknown params: ${dropped.join(", ")})` : ""}`,
-    detail: { job: dto, wired: Boolean(connectFrom), dropped },
+    summary: `Created ${job.name} [${job.id}]${wireNote}${dropped.length > 0 ? ` (dropped unknown params: ${dropped.join(", ")})` : ""}`,
+    jobId: job.id,
+    jobName: job.name,
+    wired,
+    dropped,
+    job,
+  };
+}
+
+async function createJob(ctx: AgentCtx, args: Record<string, unknown>): Promise<AiToolResult> {
+  const out = await createOneJob(ctx, {
+    type: String(args.type ?? ""),
+    name: typeof args.name === "string" ? args.name : undefined,
+    params: args.params,
+    connectFromId: typeof args.connect_from === "string" ? args.connect_from : null,
+    x: typeof args.x === "number" ? args.x : undefined,
+    y: typeof args.y === "number" ? args.y : undefined,
+  });
+  if (!out.ok) return { ok: false, summary: out.summary };
+  const dto = out.job ? toJobDTO(out.job) : null;
+  if (dto) dto.engine = "relion";
+  return {
+    ok: true,
+    summary: out.summary,
+    detail: { job: dto, wired: out.wired, dropped: out.dropped },
+  };
+}
+
+/* ---- build_pipeline -------------------------------------------------- */
+
+const PIPELINE_STEP_CAP = 12;
+
+export function normalizePipelineSteps(
+  raw: unknown
+): { steps: { type: string; name?: string; params?: unknown }[]; error: string | null } {
+  if (!Array.isArray(raw)) return { steps: [], error: "steps must be an ordered array of {type, name?, params?}" };
+  if (raw.length === 0) return { steps: [], error: "steps is empty — pass the chain's job types in pipeline order" };
+  if (raw.length > PIPELINE_STEP_CAP)
+    return { steps: [], error: `too many steps (${raw.length}) — the cap is ${PIPELINE_STEP_CAP} per call; split the chain` };
+  const steps: { type: string; name?: string; params?: unknown }[] = [];
+  for (let i = 0; i < raw.length; i++) {
+    const s = raw[i];
+    if (!s || typeof s !== "object" || Array.isArray(s))
+      return { steps: [], error: `step ${i + 1} is not an object` };
+    const type = String((s as { type?: unknown }).type ?? "");
+    if (!type) return { steps: [], error: `step ${i + 1} is missing its type` };
+    const rec: { type: string; name?: string; params?: unknown } = { type };
+    const name = (s as { name?: unknown }).name;
+    if (typeof name === "string" && name.trim()) rec.name = name;
+    const params = (s as { params?: unknown }).params;
+    if (params && typeof params === "object" && !Array.isArray(params)) rec.params = params;
+    steps.push(rec);
+  }
+  return { steps, error: null };
+}
+
+async function buildPipeline(ctx: AgentCtx, args: Record<string, unknown>): Promise<AiToolResult> {
+  const { steps, error } = normalizePipelineSteps(args.steps);
+  if (error) return { ok: false, summary: error };
+
+  // validate every type BEFORE creating anything — a typo in step 5
+  // must not leave half a chain on the canvas
+  for (let i = 0; i < steps.length; i++) {
+    if (!jobType(steps[i].type)) {
+      return {
+        ok: false,
+        summary: `step ${i + 1}: unknown job type "${steps[i].type}" — nothing was created (call list_job_types for the catalog)`,
+      };
+    }
+  }
+
+  let prevId: string | null = typeof args.connect_from === "string" ? args.connect_from : null;
+  if (prevId) {
+    const prev = await findJobInProject(prevId, ctx.projectId);
+    if (!prev) {
+      return {
+        ok: false,
+        summary: `connect_from job not found in this project: ${prevId} — call get_workflow_state for the real ids`,
+      };
+    }
+    prevId = prev.id;
+  }
+
+  const created: { step: number; id: string; name: string; type: string; wired: boolean }[] = [];
+  const refusedWires: { step: number; reason: string }[] = [];
+  const dropped: string[] = [];
+  for (let i = 0; i < steps.length; i++) {
+    const out = await createOneJob(ctx, {
+      type: steps[i].type,
+      name: steps[i].name,
+      params: steps[i].params,
+      connectFromId: prevId,
+    });
+    if (!out.ok) {
+      return {
+        ok: false,
+        summary: `step ${i + 1} (${steps[i].type}) failed: ${out.summary} — the ${created.length} job(s) before it stay on the canvas`,
+        detail: { created, refusedWires, dropped },
+      };
+    }
+    created.push({ step: i + 1, id: out.jobId!, name: out.jobName!, type: steps[i].type, wired: out.wired });
+    if (prevId && !out.wired) {
+      refusedWires.push({ step: i + 1, reason: `no compatible port pair with step ${i} — wire manually via connect_jobs` });
+    }
+    for (const d of out.dropped) dropped.push(`step${i + 1}:${d}`);
+    prevId = out.jobId;
+  }
+
+  const chain = created.map((c) => c.type).join(" → ");
+  const wireSummary =
+    refusedWires.length === 0
+      ? "fully wired"
+      : `${refusedWires.length} wire(s) refused (see refusedWires)`;
+  return {
+    ok: true,
+    summary: `Built ${created.length}-job chain: ${chain}${prevId ? "" : ""} — ${wireSummary}${dropped.length > 0 ? `; dropped unknown params: ${dropped.join(", ")}` : ""}`,
+    detail: {
+      jobs: created.map((c) => ({ id: c.id, name: c.name, type: c.type })),
+      head: created[0]?.id ?? null,
+      tail: created[created.length - 1]?.id ?? null,
+      refusedWires,
+      dropped,
+      next: `run_job on the head (${created[0]?.name ?? "?"}) — downstream pending jobs auto-start`,
+    },
+  };
+}
+
+/* ---- wait_for_jobs --------------------------------------------------- */
+
+const WAIT_POLL_MS = 1500;
+const WAIT_DEFAULT_SEC = 45;
+const WAIT_MAX_SEC = 180;
+
+/** Clamp a caller-supplied wait budget to [1, 180] seconds (bench-covered). */
+export function clampWaitSeconds(v: unknown): number {
+  if (typeof v !== "number" || !Number.isFinite(v)) return WAIT_DEFAULT_SEC;
+  return Math.min(WAIT_MAX_SEC, Math.max(1, Math.round(v)));
+}
+
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+async function waitForJobs(ctx: AgentCtx, args: Record<string, unknown>): Promise<AiToolResult> {
+  const ids = Array.isArray(args.job_ids) ? args.job_ids.map((x) => String(x)).filter(Boolean) : [];
+  if (ids.length === 0) return { ok: false, summary: "job_ids is empty" };
+  if (ids.length > 10) return { ok: false, summary: `too many jobs (${ids.length}) — the cap is 10 per call` };
+
+  // resolve through the same link-aware door every tool uses
+  const resolved = new Map<string, NonNullable<PrismaJob>>();
+  for (const id of ids) {
+    const job = await findJobInProject(id, ctx.projectId);
+    if (!job) return { ok: false, summary: `job not found in this project: ${id}` };
+    resolved.set(id, job);
+  }
+  const realIds = [...new Set([...resolved.values()].map((j) => j.id))];
+  const argOfReal = new Map<string, string>();
+  for (const [argId, job] of resolved) argOfReal.set(job.id, argId);
+
+  const timeoutSec = clampWaitSeconds(args.timeout_sec);
+  const deadline = Date.now() + timeoutSec * 1000;
+  const unsettled = (rows: { status: string }[]) => rows.filter((r) => r.status === "running" || r.status === "pending");
+
+  let rows = await db.job.findMany({
+    where: { id: { in: realIds } },
+    select: { id: true, status: true, progress: true },
+  });
+  let waitedMs = 0;
+  while (unsettled(rows).length > 0 && Date.now() < deadline) {
+    await sleep(WAIT_POLL_MS);
+    waitedMs = Date.now() - (deadline - timeoutSec * 1000);
+    rows = await db.job.findMany({
+      where: { id: { in: realIds } },
+      select: { id: true, status: true, progress: true },
+    });
+  }
+
+  const final = await db.job.findMany({ where: { id: { in: realIds } } });
+  const byReal = new Map(final.map((j) => [j.id, j]));
+  const report = ids.map((argId) => {
+    const j = resolved.get(argId)!;
+    const row = byReal.get(j.id) ?? j;
+    return {
+      id: argId,
+      name: row.name,
+      status: row.status,
+      progress: row.progress,
+      result: truncate(row.result, 200),
+    };
+  });
+  const stillUnsettled = report.filter((r) => r.status === "running" || r.status === "pending");
+  const allSettled = stillUnsettled.length === 0;
+  const lines = report.map(
+    (r) => `${r.name}: ${r.status}${r.status === "running" ? ` (${Math.round(r.progress * 100)}%)` : r.result ? ` — ${r.result}` : ""}`
+  );
+  return {
+    ok: true,
+    summary: allSettled
+      ? `${report.length}/${report.length} settled in ${(waitedMs / 1000).toFixed(1)}s — ${lines.join("; ")}`
+      : `still ${stillUnsettled.length} running/pending after ${timeoutSec}s — ${lines.join("; ")} — check again with inspect_job or wait_for_jobs later`,
+    detail: {
+      jobs: report,
+      waitedMs,
+      timeoutSec,
+      allSettled,
+      ...(argOfReal.size !== realIds.length ? { note: "some job ids resolved through soft links" } : {}),
+    },
   };
 }
 

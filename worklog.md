@@ -4500,3 +4500,28 @@ Stage Summary:
 - [world-reborn 戳的事实性更替] 收敛重启触发了新的真实重生（07:57 prod-started）——07:01 的回溯戳被事实性戳取代，t27 批的 ⟳ 标记随之上位退役（07:48 < 07:57：它的证据确实来自上一个重生世界）。单槽戳只记最新重生，历史重生由 worklog 与 git log 代言——诚实优先于标记存续。
 - [终态 QA] 画布 15/15 · 96 particles（收敛 build 上复验）、AI assistant 按钮在场、console 0 消息 0 页面错误、浏览器净场、app 200、家族 summary 在合并树上完好（t41 + t27 双批 pass 10 real-fail 0）。
 - [最终态] HEAD = 6305f56 已推 origin/main；下一窗从 Task 423 起编。
+
+Task ID: 423 (原号 421 并入顺延 — rebase 时发现并行 cron 车道已注册 Task 421/422（其 addendum 指明 next=423），本窗顺延为 423；文件前缀保持 t420-*，AI 助手打磨线延续)
+Agent: main (Z.ai Code)
+Task: 用户工单 — 继续打磨 agent 能力 + agent 界面美化 + 修复右上角关闭键与功能键重叠
+
+Work Log:
+- [开局实证] HEAD = d9a2069（t419 AI 助手已推），app :3000 是 my-project 脚手架（平台监督器默认驻留）→ 照 t386/t418 惯例 dev-server.sh 接管 3000（钉 DATABASE_URL/DATA_DIR/TRUST_GATEWAY 本 repo）。冒烟：200/10s 冷编译、/api/jobs 正常。
+- [重叠 bug 定位] SheetContent 恒画自带 X（absolute top-4 right-4 + before:-inset-3.5 hit-slop = 46px 触达区），而 t419 的面板头把 Settings2/RotateCcw 两个 size-8 按钮放在 px-4 头部最右 —— 「新对话」右缘与 X 的 slop 区完全重叠（点按钮右侧 30px 实际点到关闭）。修法：面板头 pr-14（56px）预留 X 的领地，几何验证：X slop 左缘 x=1394，「新对话」右缘 x=1384 → 10px 净空；点击「新对话」面板保持打开（旧布局该点击会关面板）。
+- [界面美化 — assistant-panel 全面重涂] ①头部：渐变 Sparkles 头像 tile（amber→orange）+ 标题 + ACTIVE MODEL 徽章（/api/ai/settings 拉取 provider·model，设置对话框关闭即自动刷新，390px 隐藏防拥挤）+ 渐变底色；②工具卡：14 工具专属图标映射（create=PlusCircle/build_pipeline=Workflow/run=Play/judge=ScanEye/wait=Hourglass/state=LayoutDashboard…）+ ok/fail 双色图标 tile + 悬停边框；③助手消息：头像 + muted 气泡（rounded-2xl rounded-tl-sm），用户消息 primary 填充右对齐；④busy 行：三点弹跳动画 + 标签 + AI 徽章；⑤空态：图标 tile + 「用一句话指挥整条流程」+ 建议卡片带 amber 图标 hover 高亮；⑥composer：rounded-xl 聚焦环 + 内嵌发送键；⑦needsSetup 横幅与设置对话框保持 t419 语义。
+- [能力提升 — 两个新工具] ①build_pipeline：一次调用建整条链（steps 数组 + connect_from 起接），全部类型先验后建（步骤 5 的拼写错误不留下半条链），逐线诚实报告（refused wire 不中断链），12 步上限；createJob 重构为共享 createOneJob（x/y 显式参数回归保留）。②wait_for_jobs：有界等待（默认 45s 上限 180s，1.5s 轮询 DB），跑完 run_job 后同一轮内抓快速完成/立即失败；超时诚实报告进度（「still running (62%)」），绝不谎报完成。③系统提示词：新工具入教义（2/6 条改写）+ 「end-to-end recipe」章节（build_pipeline → run head → wait → judge → 报数字；长任务超时要说、不许阻塞单轮）。
+- [客户端中止] composer 发送键在 busy 时变停止键（红色 Square）—— abortRef 边界检查 + AbortController 掐断在飞 fetch；被中止轮的服务端会话保持一致（该轮照常落账，重水化可见），停止后画布上已完成的操作保留。
+- [踩坑] bench 的 setTimeout 里 `void db.job.update(...)` 在 Bun 下未落地（fire-and-forget promise 静默蒸发）→ .then().catch() 形态两次全绿；工具自身的轮询路径无 fire-and-forget，产品代码不受影响。
+- [bench] scripts/t420-agent-polish.ts 52 断言五相 ALL GREEN：A 纯验证（normalizePipelineSteps 九拒九收 + clampWaitSeconds）· B build_pipeline 活体（5 步链 off 种子 import：5 job + 5 wire + numClasses 落位 + 链式 x 递增 + 拼写错误零创建 + 未知 connect_from 拒绝 + create_job 重构回归）· C wait_for_jobs 活体（1.6s 定时器翻转 mid-wait 被抓住 allSettled + 永不 settle 的 2s 诚实超时含 62% 进度 + 空/未知/11 上限三拒）· D 提示词接地（四断言）· E 全链 E2E（mock LLM 五轮：state → build_pipeline → run_job waiting 判决（无引擎 spawn）→ wait_for_jobs → DONE-E2E 收尾，恰好 +3 job）。
+- [回归] t419 bench 98/98（12→14 工具计数断言更新，注释说明 t420 增量）；tsc 0；触碰文件 eslint 0。
+- [活体 QA] mock LLM :3999 + custom 供应商配置 → agent-browser：落地页 0 错误；AI 按钮开面板；几何取证（box 坐标证明 10px 净空）；模型徽章「Custom (OpenAI-compatible) · mock-chat」在场且设置关闭后刷新；建议卡点击 → 完整轮（用户气泡 + get_workflow_state 工具卡 + 展开完整 JSON + 助手气泡）；「新对话」点击后面板存活（重叠修复的活体证明）；390px 移动端满宽无溢出；设置对话框完好；console/page errors 全程为零。定妆七图 shots-qa/t420-*。
+- [清场] QA 会话 reset + mock 配置清除（data/ai-settings.json 删除，未配置态 GET 优雅返回 active=null）+ mock LLM 进程停 + agent-browser 关闭；dev-server.log 0 错误。
+
+Stage Summary:
+- **「自带 X 的领地要用 padding 买，不是用 z-index 抢」**：Sheet 恒画自己的关闭键（46px hit-slop），面板自己的按钮必须住在 slop 之外 —— pr-14 一行字修复了 t419 出生即有的重叠；几何验证（box 坐标）+ 行为验证（点新对话面板不关）双证
+- **「一次调用建一条链」**：多轮 create_job 的模型往返变成了 build_pipeline 单工具 —— 类型全验后建、线拒了链不断、head/tail 进 detail；「搭一个完整流程」从 6 轮对话变成 1 个工具卡
+- **「等待要有界，诚实要无界」**：wait_for_jobs 的轮询有 180s 上限，但「还在跑」的报告没有上限 —— 超时带进度百分比回来，提示词教义明令「绝不谎称完成」
+- **「Bun 的 fire-and-forget promise 会蒸发」**：`void db.update()` 在 setTimeout 回调里静默消失（两次复现一次落地），.then().catch() 全绿 —— bench 的异步证人必须自己握住 promise
+- 产出：t420-*（待推）— 面板全面重涂（头像/徽章/图标/动画/停止键）+ build_pipeline + wait_for_jobs + 52 断言新 bench；t419 回归 98/98
+- 用户使用路径：header ✨ → 面板已焕新（右上角三键各安其位 + 模型徽章点名当前供应商）→「帮我搭一个完整的 SPA 流程」→ 一个 build_pipeline 工具卡长出整条链 → run → wait_for_jobs 同轮汇报 → 生成中可随时 ⏹ 停止
+- 遗留（下窗候选）：①真实供应商 key 活体验证仍未做（沙箱无外网凭据，三方言 wire 纯函数已覆盖）②judge_2d_classes 的远端集群腿未活体跑（t419 起记录在案）③VLM 视觉审查因配额限流未完成（几何+功能+可访问树三证已立）④stop 键的 busy 态未被 QA 捕获（mock 轮近乎瞬时，代码路径经审查）⑤EMPIAR 真数据回归继续让位
