@@ -687,6 +687,27 @@ export const JOB_TYPES: JobTypeSpec[] = [
       outputs: [outp("model", "Trained Topaz model (.sav)", "model")],
     }
   ),
+  spec(
+    "topazdenoise",
+    "Topaz Denoise",
+    "Sparkles",
+    "rose",
+    "Denoise micrographs with Topaz's pretrained denoising network before picking — cleaner pixels make hand-picking faster and the CNN's training windows less noisy (the official topaz flow runs denoise → pick/train on the denoised images). The output star keeps the micrograph schema, so Picking and Training consume it unchanged. RELION has no denoise UI of its own — this job speaks topaz's CLI through the RELION wrapper.",
+    8000,
+    [
+      num("topazDownscale", "Topaz: downscale factor", -1, { step: 1, min: -1, tab: "Denoise", hint: "-1 = automatic — topaz works at the scale its network was trained for and upscales back" }),
+      num("topazWorkers", "Topaz: workers", 1, { step: 1, min: 1, tab: "Advanced", advanced: true, hint: "parallel denoising workers" }),
+      txt("topazArgs", "Topaz: extra arguments", "", { tab: "Advanced", advanced: true, hint: "raw extras passed to topaz denoise, e.g. --device cpu (a --model here overrides the built-in general denoiser)" }),
+    ],
+    "{n} micrographs denoised",
+    "external",
+    {
+      category: "picking",
+      tabs: ["Denoise", "Advanced"],
+      inputs: [inp("micrographs", L.micIn, ["micrographs"])],
+      outputs: [outp("micrographs", "Denoised micrographs (denoised_micrographs.star)", "micrographs")],
+    }
+  ),
 
   /* ---------------- Extraction -------------------------------------- */
   spec(
@@ -2003,11 +2024,14 @@ const NEXT_STEPS: Record<string, string[]> = {
   import: [],
   mapimport: ["class3d", "refine3d", "maskcreate"],
   cs2star: ["class2d", "select", "initialmodel", "class3d", "refine3d"],
-  motioncorr: ["ctffind", "manualpick", "autopick"],
-  ctffind: ["manualpick", "autopick"],
+  motioncorr: ["ctffind", "topazdenoise", "manualpick", "autopick"],
+  ctffind: ["topazdenoise", "manualpick", "autopick"],
   manualpick: ["extract"],
   autopick: ["extract"],
   topaztrain: ["autopick"],
+  // the official topaz flow: denoise → pick/train on the denoised images —
+  // the output star keeps the micrograph schema, so all three consumers pair
+  topazdenoise: ["autopick", "manualpick", "topaztrain"],
   extract: ["class2d", "select", "initialmodel", "class3d", "refine3d"],
   subtract: ["class2d", "select", "class3d", "refine3d"],
   select: ["class2d", "initialmodel", "class3d", "refine3d"],

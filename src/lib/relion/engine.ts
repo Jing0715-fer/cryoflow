@@ -1323,6 +1323,9 @@ const INPUTS: Record<string, InputReq[]> = {
       label: "training picks — hand-picked particle coordinates (run Manual Picking first; ~100+ picks give the CNN something to learn)",
     },
   ],
+  topazdenoise: [
+    { key: "micrographs_star", accepts: ["micrographs_star", "micrographs_ctf_star"], from: ["import", "motioncorr", "ctffind"], label: "micrographs.star (run Import first)" },
+  ],
   extract: [
     { key: "micrographs_star", accepts: ["micrographs_star", "micrographs_ctf_star"], from: ["import", "motioncorr", "ctffind"], label: "micrographs.star (run Import first)" },
     { key: "coords_dir", accepts: ["coords_dir", "coords_star"], from: ["manualpick", "autopick"], label: "particle coordinates (run ManualPick/AutoPick first)" },
@@ -1491,6 +1494,10 @@ export const REMOTE_OUTPUT_CANDIDATES: Record<string, RemoteOutputCandidate[]> =
     { key: "coords_star", exact: ["autopick.star"], glob: "micrographs/*_autopick.star", pick: "first" },
   ],
   topaztrain: [{ key: "topaz_model", exact: ["topaz_model.sav"], glob: "*.sav", pick: "first" }],
+  // the denoise face writes one denoised index star per run — the output
+  // keeps the micrograph schema (Picking/Training consume it unchanged),
+  // so it registers under the same micrographs_star key motioncorr uses
+  topazdenoise: [{ key: "micrographs_star", exact: ["denoised_micrographs.star"] }],
   extract: [{ key: "particles_star", exact: ["particles.star"] }],
   // t352 — cs2star's cluster twin (uploaded at the end of the engine-native
   // conversion) speaks the exact same shape as extract's: the probe cycles
@@ -2106,6 +2113,7 @@ const MIC_FILE_READERS = new Set([
   "autopick",
   "extract",
   "topaztrain",
+  "topazdenoise",
 ]);
 
 /**
@@ -6983,6 +6991,55 @@ async function buildArgvCore(ctx: BuildCtx): Promise<string[] | { error: string 
       return argv;
     }
 
+    case "topazdenoise": {
+      // Denoise micrographs through topaz's own denoising network (RELION
+      // has no denoise UI — this job speaks topaz's CLI via the same wrapper
+      // the picking/training faces probe). The wrapper contract: --i carries
+      // the micrograph star and the WRAPPER expands it where the files live
+      // (topaz's raw CLI takes image paths, not stars — the bridge lives on
+      // the compute side, so the local lane and the cluster lane run the
+      // SAME argv shape with zero mirror special-casing; the star staged to
+      // a cluster dispatch arrives cluster-absolute, and the wrapper's
+      // expansion then names cluster files). Outputs: one
+      // <stem>_denoised.mrc per row + a denoised_micrographs.star index
+      // that keeps the micrograph schema — Picking/Training consume it
+      // unchanged (the official topaz flow: denoise → pick/train on the
+      // denoised images). A missing module fails honestly in run.err and
+      // rootCauseDetail surfaces it — same as the training face.
+      // t387 — same user-typed-wins rule as the picking/training lanes above
+      const topaz =
+        str(job, "fn_topaz_exe", "").trim() ||
+        (await externalFor(ctx, "topaz", ["relion_python_topaz", "topaz"]));
+      if (!topaz) {
+        return {
+          error: ctx.externals
+            ? "Topaz executable not found on the cluster (probed after module load) — install topaz into RELION's python environment there (pip install topaz-denoise)"
+            : "Topaz executable not found — install topaz into RELION's python environment (pip install topaz-denoise)",
+        };
+      }
+      if (!inputs.micrographs_star) {
+        return {
+          error:
+            "Micrographs missing — denoising runs on real micrograph files; connect Import/MotionCorr/CTF findings first",
+        };
+      }
+      const argv = [
+        topaz,
+        "denoise",
+        "--i", inputs.micrographs_star,
+        "-o", ctx.workdir + "/",
+      ];
+      const downscale = num(job, "topazDownscale", -1);
+      if (downscale > 0) argv.push("--downscale", String(Math.round(downscale)));
+      const workers = Math.round(num(job, "topazWorkers", 1));
+      if (workers > 1) argv.push("--num-workers", String(workers));
+      const extra = str(job, "topazArgs", "").trim();
+      // direct CLI dialect (unlike the training face's --topaz_args bag):
+      // this argv IS topaz's command line, so raw extras expand in place
+      if (extra) argv.push(...extra.split(/\s+/).filter(Boolean));
+      return argv;
+    }
+
     case "localres": {
       // t375 — the ResMap mode (getCommandsLocalresJob, pipeline_jobs.cpp:
       // 5447-5497): RELION symlinks both half-maps into the job dir and runs
@@ -7834,6 +7891,18 @@ export function collectOutputs(type: string, workdir: string): { outputs: Record
         const plot = globOne(workdir, /topaz.*\.(png|jpg|eps)$/i);
         if (plot) outputs.training_plot = plot;
         result = "REAL: Topaz model trained — connect into Auto-picking (Topaz mode)";
+      }
+      break;
+    }
+    case "topazdenoise": {
+      // the wrapper's denoise face writes one <stem>_denoised.mrc per row
+      // plus a denoised_micrographs.star index that keeps the micrograph
+      // schema — the index is the chainable output (Picking/Training
+      // consume it unchanged, motioncorr-style key).
+      const star = firstExisting(workdir, ["denoised_micrographs.star"]);
+      if (star) {
+        outputs.micrographs_star = star;
+        result = `REAL: ${countStarRows(star)} micrographs denoised`;
       }
       break;
     }

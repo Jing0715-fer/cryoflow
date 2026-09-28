@@ -54,6 +54,7 @@ export const MULTI_GPU_TYPES = new Set([
  */
 export const SINGLE_GPU_TYPES = new Set([
   "topaztrain",
+  "topazdenoise",
   "dynamight",
   "modelangelo",
   "tomo_ctfrefine",
