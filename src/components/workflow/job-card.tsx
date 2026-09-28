@@ -5,6 +5,7 @@ import {
   Check,
   ClipboardCopy,
   Copy,
+  History,
   Link2,
   Loader2,
   Locate,
@@ -68,6 +69,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
+import { describeStaleness, type StaleInfo } from "@/lib/staleness";
 import { capturePointer } from "@/lib/pointer";
 import { toast } from "@/hooks/use-toast";
 
@@ -872,6 +874,15 @@ interface JobCardProps {
   isReady: boolean;
   /** True while this job is open in the large inspector modal. */
   inspected: boolean;
+  /** t444 — staleness wavefront: non-null when a finished direct upstream
+   *  re-ran after this result was produced (or adoption re-parented the
+   *  card to a younger run). Derived ONCE in the canvas (memo on
+   *  jobs+edges) and passed down — the card's React.memo isolation stays
+   *  intact: only the cards whose staleness actually changed re-render. */
+  staleInfo?: StaleInfo | null;
+  /** names resolved by the canvas (aligned with staleInfo.upstreamIds) —
+   *  the card has no job list of its own and the receipt names names. */
+  staleNames?: string[];
   onSelect: (id: string) => void;
   /** Shift-click toggle for the multi-selection. */
   onToggleSelect: (id: string) => void;
@@ -1423,6 +1434,8 @@ export const JobCard = React.memo(function JobCard({
   pendingFromType,
   isReady,
   inspected,
+  staleInfo,
+  staleNames,
   onSelect,
   onToggleSelect,
   onInspect,
@@ -2168,6 +2181,27 @@ export const JobCard = React.memo(function JobCard({
                 label + link chip, nothing else. */}
             <div className="flex items-center gap-1.5">
               <StatusBadge status={job.status} queued={isSlurmQueued(job)} />
+              {/* t444 — the staleness wavefront, icon-only (the t409 face
+                  discipline: provenance text lives in the tooltip/inspector,
+                  the card carries the ALARM). A completed result built on an
+                  upstream that re-ran after it (or a younger adopted branch)
+                  is finished-looking but behind — the amber history glyph is
+                  the quietest honest mark that catches the eye without
+                  rearranging the row. aria + title speak the full sentence. */}
+              {staleInfo ? (() => {
+                const d = describeStaleness(staleInfo, staleNames ?? []);
+                return (
+                  <span
+                    role="img"
+                    data-testid="stale-badge"
+                    aria-label={d.long}
+                    title={`${d.long}\nUpstream run started ${new Date(d.since).toLocaleString()}`}
+                    className="no-print flex size-3.5 shrink-0 items-center justify-center text-amber-600 dark:text-amber-400"
+                  >
+                    <History className="size-3" aria-hidden="true" />
+                  </span>
+                );
+              })() : null}
               {/* t409 — the cluster AT-A-GLANCE cue returns to the face, in
                   the t356 spirit: ICON-ONLY (no user@host text — the face
                   stays de-cluttered), one 12px glyph between the status

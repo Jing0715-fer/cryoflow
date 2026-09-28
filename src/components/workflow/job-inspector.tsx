@@ -116,6 +116,7 @@ export function formatLedgerMs(ms?: number): string {
 }
 import type { EdgeDTO, JobDTO } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { describeStaleness, findStaleJobs } from "@/lib/staleness";
 import { TypeIcon } from "./icons";
 import { StatusBadge, estimateEta, formatEta, isSlurmQueued, trackEtaBaseline } from "./job-card";
 import { formatElapsed } from "@/lib/elapsed";
@@ -2341,8 +2342,20 @@ function InspectorHeader({
   const inspect = useWorkflowStore((s) => s.inspect);
   const select = useWorkflowStore((s) => s.select);
   const jobs = useWorkflowStore((s) => s.jobs);
+  const edges = useWorkflowStore((s) => s.edges);
   const workspaces = useWorkflowStore((s) => s.workspaces);
   const switchWorkspace = useWorkflowStore((s) => s.switchWorkspace);
+  // t444 — the staleness wavefront for THIS job: derived from the live
+  // graph (a finished direct upstream re-ran after this result). The
+  // inspector is where the full sentence belongs; the card carries only
+  // the amber glyph.
+  const staleInfo = React.useMemo(
+    () => findStaleJobs(jobs, edges).get(job.id) ?? null,
+    [jobs, edges, job.id],
+  );
+  const staleNames = staleInfo
+    ? staleInfo.upstreamIds.map((id) => jobs.find((j) => j.id === id)?.name ?? id)
+    : [];
   const [confirmRerun, setConfirmRerun] = React.useState(false);
   /** t397 — the explicit continue target ("Continue from here:" → fn_cont):
    * the Re-run button + its confirm speak the MODE — Continue when set
@@ -2704,6 +2717,27 @@ function InspectorHeader({
           <LineageBreadcrumb job={job} />
         </span>
       </div>
+
+      {/* t444 — the staleness strip: same strip grammar as the remote
+          execution band, amber tone — the inspector is where the FULL
+          sentence lives (the card carries only the glyph). Renders
+          nothing while the result is current: silence is the default,
+          the alarm is the exception. */}
+      {staleInfo ? (() => {
+        const d = describeStaleness(staleInfo, staleNames);
+        return (
+          <div
+            role="note"
+            data-testid="stale-strip"
+            title={`${d.long}\nUpstream run started ${new Date(d.since).toLocaleString()}`}
+            className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-amber-500/30 bg-amber-500/[0.07] px-2 py-1.5 text-[11px] text-muted-foreground"
+          >
+            <History className="size-3.5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+            <span className="font-medium text-foreground/90">{d.short}</span>
+            <span className="min-w-0">{d.long}</span>
+          </div>
+        );
+      })() : null}
 
       {/* Remote execution strip — mirrors the run's cluster context
           (connection + module + phase) while runRemote is attached to the

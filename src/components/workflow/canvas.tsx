@@ -50,6 +50,7 @@ import {
   portY,
 } from "@/lib/workflow";
 import { hasJudgment } from "@/lib/class-notes";
+import { findStaleJobs } from "@/lib/staleness";
 import { pendingWirePath } from "@/lib/edge-geom";
 import { CanvasFindBar, jobMatchesFind } from "./canvas-find-bar";
 import { copyCanvasPng, exportCanvasPng, fmtBytes } from "@/lib/canvas-export";
@@ -917,6 +918,11 @@ export function WorkflowCanvas() {
   // FRESH lists; only the workspace render layer consumes these.
   const deferredJobs = React.useDeferredValue(jobs);
   const deferredEdges = React.useDeferredValue(edges);
+  // t444 — the staleness wavefront, derived ONCE for the whole canvas
+  // (O(V+E) on every jobs/edges change — trivial at workflow scale) and
+  // fed to cards as props: the cards stay memo-isolated, only the rows
+  // whose staleness actually changed re-render.
+  const staleMap = React.useMemo(() => findStaleJobs(jobs, edges), [jobs, edges]);
   const [revealCount, setRevealCount] = React.useState<number | null>(null);
   const [seenCount, setSeenCount] = React.useState(0);
   if (deferredJobs.length !== seenCount) {
@@ -1989,6 +1995,12 @@ export function WorkflowCanvas() {
                 job.status === "idle" && readyIds.has(job.id) && !completedIds.has(job.id)
               }
               inspected={inspectId === job.id}
+              staleInfo={staleMap.get(job.id) ?? null}
+              staleNames={
+                staleMap.get(job.id)?.upstreamIds.map(
+                  (id) => jobs.find((j) => j.id === id)?.name ?? id,
+                ) ?? undefined
+              }
               onSelect={select}
               onToggleSelect={toggleSelectProxy}
               onInspect={inspect}
