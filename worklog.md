@@ -4336,3 +4336,27 @@ Stage Summary:
 - **「需要失败世界的套件自己造一个」**：t415 的遗产断言把套件和某个历史瞬间焊死；世界重建后套件红光——夹具前置让套件对任何世界成立（自造 motioncorr 失败 → 断言 → 清零）；rosterBefore 前后对比取代硬编码 46
 - **「BUILD_ID 不是绿，standalone 才是」**：green 前 page-data 可落盘；研磨器的幂等门从此查两件东西；前台轮教义入册（后台研磨器在本沙箱会被无声收割）
 - 遗留（下窗候选）：①灾后世界体检二刷（class3d 九代/extract 王冠栈的集群树已在 healer 账本，Family --summary 全批快照可加「灾后重建」标记）②EMPIAR 第卅三窗 ③沙箱重启检测与自动重建剧本固化（demo-chain-resurrect + db:push + .env 钉死已验证，值得写成 scripts/reboot-recover.sh 一键剧本）④GitHub PAT 撤销确认（第十二次提醒）
+Task ID: 418 (完 — 2026-09-28 代码审查窗 trace web-a2e5e4ff)
+Agent: main (Z.ai Code)
+Task: 会话续接：恢复被收割的树 → 推送对齐 → t416/t417 关键文件代码审查与修复
+
+Work Log:
+- [开局实证] /home/z/cryoflow 被沙箱收割（t390 同款）→ 重 clone @ 784ede2（t417，origin/main 树净零待推）+ bun install + prisma generate/db push（fresh DB）。仓库 worklog 实尾 = Task 415（交付 t416）；t417 的 git commit 在但 worklog 条目缺失（cron 窗未及补记）。
+- [代码审查 — t417 两面回收] reclaim-targets.ts（守卫/dedup/tilde 拒猜）+ projects/[id]/route.ts + dashboard/panel 文案 diff + ssh.ts 的 exec 契约链（exec 永不抛——rawExec 是 new Promise((resolve)) 全防御，tilde 探测与 mirror rm 的「静默集群不是失败删除」成立）。
+- [代码审查 — t416 denoise 五触点] workflow spec 三参数与引擎读取一致；engine INPUTS/REMOTE_OUTPUT_CANDIDATES/MIC_FILE_READERS/argv case/collectOutputs；mock wrapper 三层解析（star 目录 → cwd → star 上级）移植正确；NEXT_STEPS 双向接线。
+- [真 bug（t417 遗留回归）] 项目 DELETE 的停跑循环对 remote 记录只调本地 stopRun：sbatch 作业永不被 scancel（跑满 walltime 往刚被 rm 的镜像里写检查点 = t417 要防的 husk 原地复活）；且记录 pid 是集群侧，本地 pidAlive 碰撞时可误杀无关本地进程。jobs/[id] 的 DELETE/PATCH(stop)/stop 三路由都有 rec?.remote → remoteStopRun 分支——项目路由漏了。
+- [修复 A] 路由分支对齐（rec?.remote → remoteStopRun(jobId, { settleMs: 15_000 })）+ stoppedLiveRuns 只计真停掉的（连接丢失的孤儿由镜像台账的 "connection not found" 行代言，不冒领成功）。
+- [修复 B — teardown settle] remoteStopRun 增 opts.settleMs：scancel 退出 0 只证明控制器受理，计算节点树还在 flush stdout/stderr（COMPLETING）且可能再落一次检查点——awaitSlurmTeardown 轮询 squeue 行生命周期（RUNNING/COMPLETING 继续等，PENDING/空 = 树已走；mock 与真集群同形）至确认或 15s 封顶。单任务路由不传（tombstone 语义下垂死写入无害），项目删除传 15_000——rm 不得与树的最后写入竞速。
+- [套件 Phase E（新）] 真本地 import（25 张真 mrc）→ motioncorr slurm 车道派发 → RUNNING 中 DELETE：烟枪钉在 mock 自己的 accounting 日志——记录 slurmId 的新 CANCELLED 行（修复前作业会跑成 COMPLETED）+ 取消标记回执 + stoppedLiveRuns ≥ 1 + RECORD 见证点名镜像（主见证车道首次真骑）+ 双位面磁盘回收。可移植化：ROOT 改为从套件自身文件解析（cron 车道的 /home/z/my-project 与任意 fresh clone 都解析正确）；demo 树见证标记在任何 delete 前种下（fresh 世界上 Phase D 的无波及断言不再空转）。
+- [踩坑] motioncorr 的输入端口名是 "movies"（accepts movies/micrographs）不是 "micrographs"——套件首跑 400 的根因。
+- [验证] 扩展 t417 活体 ALL PASS（B 双位面 + C 无镜像诚实 + E 活停 + D 世界幸存）；回归 bench t384-xray 11 + t384-witness 19 + t385 60 + t386 120 + t388 55 + t389 29 + t390 38 + t391 84 + t394 62 + t417-unit 24；tsc 0；触碰文件 eslint 0；agent-browser 落地页 PAGE ERRORS (0)、画布渲染 demo 世界（截图 shots-qa/t418-landing.png）。
+- [沙箱运维] QA 窗口照 t386 惯例暂停 my-project 3000、cryoflow dev 上 3000（dev-server.sh 挡位：DATABASE_URL/DATA_DIR/TRUST_GATEWAY 全钉本 repo），验毕已恢复 200（dev.log 干净）；mock :3022 验毕已停。
+- [诚实边界] ①推送被拒：环境无 GitHub 凭据（PAT 撤销遗留——第十二次提醒），commit 7b9c576 留在本地领先 origin/main 1 个提交，下个有凭据窗口 push 即可；②staging 窗口（slurmId 未落）内的 delete 仍无法 scancel 未提交之物——staging 任务的上传可能在刚 rm 的镜像里复活路径，窗口秒级，记录在案；③t415/t416 套件依赖 cron 车道的 46-job 治愈世界（roster 46 断言），本环境未复跑——改动未触其代码路径（remoteStopRun 签名为加性可选参），cron 车道的 family roster 会在自己的世界里重跑 t41 批。
+
+Stage Summary:
+- **「删除者要会杀它所删的」**：两面回收（t417）只管文件不管进程——回收加上了 scancel 才是完整契约；「模式已在三个路由存在，第四个没跟上」是功能漂移最纯的形状
+- **「scancel 0 ≠ 树已死」**：受理与死亡之间有秒级窗口（COMPLETING 的 flush + 最后一次检查点）——要 rm 的调用方需要调度器确认死亡，不是受理回执；squeue 行生命周期是 mock 与真集群共用的语法
+- **「计数器只数真停掉的」**：stoppedLiveRuns 冒领一次失败（连接丢失的 scancel）就把孤儿藏进了成功的语气里——孤儿由台账的其他行代言
+- **「套件保证自己的前置条件」**：ROOT 从套件自身文件解析 + demo 见证标记先种后删——fresh clone 与 cron 车道同跑一份套件，Phase D 的保护断言永不空转
+- 产出：commit 7b9c576（本地，待推送）— 4 文件 +288/-12；扩展 t417 套件四阶段 ALL PASS
+- 用户复机路径：git pull（待推送落地后）→ 删除带活跑（远程 refine 正在跑）的项目 → 集群侧立即 scancel、镜像干净回收、响应里的 stoppedLiveRuns 说真话

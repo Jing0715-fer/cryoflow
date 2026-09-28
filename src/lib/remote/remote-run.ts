@@ -8492,10 +8492,52 @@ export async function remoteLogTail(jobId: string, opts: { full?: boolean }): Pr
   return payload;
 }
 
-/** Kill the cluster-side session — the stop route's branch.
+/**
+ * t418 — bounded teardown confirmation for a just-scancelled Slurm job.
+ * scancel exiting 0 means the controller ACCEPTED the cancellation, not
+ * that the compute-node tree is dead: for seconds the ranks keep flushing
+ * stdout/stderr into the workdir (COMPLETING, in squeue-speak) and a
+ * SIGTERM'd RELION may land one more checkpoint. A caller about to delete
+ * the workdir needs the JOB GONE, not the cancel registered.
+ *
+ * The verdict grammar is squeue's own row lifecycle: RUNNING/COMPLETING =
+ * the tree may still write (keep polling); PENDING = no tree exists yet;
+ * EMPTY = the job left the queue (its IO flush is done) — safe. The mock
+ * and the real cluster speak the same shape (both purge finished jobs).
+ * Returns whether the job settled before the deadline — callers proceed
+ * regardless; the deadline caps the WAIT, never the delete.
+ */
+async function awaitSlurmTeardown(
+  conn: RemoteConnection,
+  slurmId: number,
+  deadlineMs: number
+): Promise<boolean> {
+  const id = shQuote(String(Number(slurmId)));
+  const deadline = Date.now() + deadlineMs;
+  for (;;) {
+    const r = await exec(conn, `squeue -j ${id} -h -o %T 2>/dev/null | head -1`, {
+      timeoutMs: 6_000,
+    });
+    const st = (r.stdout ?? "").trim();
+    if (!st || /^PENDING/.test(st)) return true;
+    if (Date.now() >= deadline) return false;
+    await new Promise((res) => setTimeout(res, 750));
+  }
+}
+
+/**
+ * Kill the cluster-side session — the stop route's branch.
  *  t297: slurm records die by scancel (the scheduler owns the tree on the
- *  compute node; a login-node kill could never reach it). */
-export async function remoteStopRun(jobId: string): Promise<{ stopped: boolean; message: string }> {
+ *  compute node; a login-node kill could never reach it).
+ * t418 — opts.settleMs: after a successful scancel, poll the scheduler
+ * until the job actually leaves the queue (bounded). Only callers that
+ * delete the workdir right after need it (project delete); the single-job
+ * routes' tombstone semantics make the dying tree's last writes harmless.
+ */
+export async function remoteStopRun(
+  jobId: string,
+  opts: { settleMs?: number } = {}
+): Promise<{ stopped: boolean; message: string }> {
   const rec = getRun(jobId);
   if (!rec?.remote) return { stopped: false, message: "not a remote run" };
   const conn = getConnection(rec.remote.connectionId);
@@ -8504,10 +8546,24 @@ export async function remoteStopRun(jobId: string): Promise<{ stopped: boolean; 
   if (r.mode === "slurm" && r.slurmId) {
     const res = await exec(conn, `scancel ${shQuote(String(Number(r.slurmId)))}`, { timeoutMs: 15_000 });
     const ok = res.code === 0 && !res.error;
+    // t418 — the teardown confirmation is OPTIONAL and bounded: the
+    // single-job routes keep the workdir as a tombstone (the dying tree's
+    // last writes land in preserved files — harmless), so they pass no
+    // settleMs. The project-delete route DOES rm -rf the mirror right
+    // after, so it asks the scheduler to confirm the tree is gone first.
+    let settled = false;
+    if (ok && opts.settleMs && opts.settleMs > 0) {
+      settled = await awaitSlurmTeardown(conn, Number(r.slurmId), opts.settleMs);
+    }
     return {
       stopped: ok,
       message: ok
-        ? `sent scancel to Slurm job ${r.slurmId} — the scheduler tears the process tree down on the compute node`
+        ? `sent scancel to Slurm job ${r.slurmId} — the scheduler tears the process tree down on the compute node` +
+          (opts.settleMs
+            ? settled
+              ? " (teardown confirmed — the job left the queue)"
+              : " (teardown NOT confirmed before the deadline — a delete below may race the tree's last writes)"
+            : "")
         : `scancel ${r.slurmId} failed${res.stderr.trim() ? `: ${res.stderr.trim().slice(0, 200)}` : " (already finished?)"}`,
     };
   }

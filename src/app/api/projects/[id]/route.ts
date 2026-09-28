@@ -7,12 +7,14 @@ import { readFileEdges, removeFileEdge } from "@/lib/edge-ports";
 import { RELION_DIR } from "@/lib/paths";
 import {
   clearRunRecord,
+  getRun,
   isRunAlive,
   normalizeClusterHost,
   readRuns,
   stopRun,
 } from "@/lib/relion/engine";
 import { getConnection, loadConnections } from "@/lib/remote/connections";
+import { remoteStopRun } from "@/lib/remote/remote-run";
 import { exec, shSingleQuote } from "@/lib/remote/ssh";
 import {
   collectMirrorTargets,
@@ -181,16 +183,30 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     //    writing into a deleted workdir, and a later re-run stacks a second
     //    tree on the same outputs (the orphan bug fixed for single-job DELETE
     //    in jobs/[id]/route.ts — the same protection belongs here).
+    //    t418 — REMOTE records must branch like the jobs/[id] routes do: the
+    //    record's pid is CLUSTER-side, so a bare stopRun aims a local kill at
+    //    whatever local process happens to wear that pid number (collateral
+    //    damage on a busy host) while the sbatch job NEVER gets scancelled —
+    //    it ran on for its full walltime writing into a mirror this route
+    //    was about to rm -rf (the exact husk t417 was built to prevent). The
+    //    settleMs asks the scheduler to confirm the tree is GONE before the
+    //    rm races its last writes (checkpoints, flushed stdout/stderr).
     const projectJobs = await db.job.findMany({
       where: { projectId: id },
       select: { id: true },
     });
     let stopped = 0;
     for (const { id: jobId } of projectJobs) {
-      if (isRunAlive(jobId)) {
-        await stopRun(jobId);
-        stopped += 1;
-      }
+      if (!isRunAlive(jobId)) continue;
+      const rec = getRun(jobId);
+      const verdict = rec?.remote
+        ? await remoteStopRun(jobId, { settleMs: 15_000 })
+        : await stopRun(jobId);
+      // count only what actually stopped — a scancel the connection could
+      // not deliver is an orphan the ledger's other blocks must speak for
+      // (the mirror entry's "connection not found" line), not a claim of
+      // success here
+      if (verdict.stopped) stopped += 1;
     }
 
     // 0.55 t417 — collect the mirror targets BEFORE 0.5 erases the records:
